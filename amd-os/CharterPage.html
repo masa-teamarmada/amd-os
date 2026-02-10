@@ -1,0 +1,2272 @@
+<!-- CharterPage.html -->
+<!doctype html>
+<html>
+  <head>
+    <base target="_top" />
+    <meta charset="utf-8" />
+    <style>
+      :root{
+    --bg:#f6f7fb;
+    --card:#ffffff;
+    --line:#e5e7eb;
+    --text:#111827;
+    --sub:#6b7280;
+
+    --fieldBg:#f9fafb;      /* ★入力欄の背景 */
+    --fieldLine:#d1d5db;
+    --fieldFocus:#4f46e5;
+  }
+
+  .h { font-weight: 900; margin-bottom: 4px; }
+
+  body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    margin: 24px auto;
+    padding: 0 16px;
+    max-width: 980px;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .card { border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 12px 0; background:var(--card); box-shadow: 0 1px 0 rgba(0,0,0,.02); }
+
+  label { font-weight: 600; }
+  label.req { font-weight: 900; }
+  label.opt { font-weight: 600; color: var(--sub); }
+
+  /* ★入力欄を「面」にして分かりやすく */
+  select, input, textarea {
+    padding: 10px 12px;
+    border: 1px solid var(--fieldLine);
+    border-radius: 12px;
+    background: var(--fieldBg);
+    box-sizing: border-box;
+    max-width: 100%;
+    outline: none;
+  }
+  select:focus, input:focus, textarea:focus{
+    border-color: var(--fieldFocus);
+    box-shadow: 0 0 0 3px rgba(79,70,229,.15);
+    background: #fff;
+  }
+
+  input[type="text"]{ width: 360px; max-width: 100%; }
+  textarea { width: 100%; min-height: 110px; resize: vertical; }
+
+  button { padding: 10px 14px; border-radius: 12px; border: 1px solid var(--fieldLine); background:#111827; color:#fff; cursor:pointer; font-weight: 900; }
+  button.secondary { background:#fff; color:#111827; }
+  button:disabled { opacity: .5; cursor:not-allowed; }
+
+  table { width:100%; border-collapse: collapse; }
+  th, td { border-bottom: 1px solid #eee; padding: 10px; text-align: left; vertical-align: middle; }
+  th { font-size: 12px; color: var(--sub); text-transform: uppercase; letter-spacing: .06em; }
+
+  .small { font-size:13px; color:var(--sub); }
+  .pill { display:inline-flex; align-items:center; gap:6px; padding: 4px 10px; border-radius: 999px; background:#eef2ff; border:1px solid #e0e7ff; font-size:12px; font-weight:900; color:#3730a3; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  .smalllog { color:var(--sub); font-size: 11px; line-height: 1.45; }
+  .err { color:#b91c1c; font-size: 12px; white-space: pre-wrap; background:#fef2f2; border:1px solid #fecaca; padding:10px; border-radius:12px; }
+
+  /* 1行入力（To/Cc/Bcc） */
+  .oneLineInput{
+    width: min(880px, 100%);
+    box-sizing: border-box;
+  }
+
+  /* client block */
+  .clientBox { margin-top:10px; padding:12px; border:1px solid #eee; border-radius:14px; background:#fff; }
+  .clientTop { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+      .clientHint { font-size:12px; color:var(--sub); }
+      .btnTiny { padding: 8px 10px; border-radius: 12px; border: 1px solid var(--fieldLine); background:#111827; color:#fff; cursor:pointer; font-weight: 900; }
+      .btnTiny.secondary { background:#fff; color:#111827; }
+      .inline { display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+      /* ★クライアント名変更依頼：ヒントと同じテンション */
+      .clientLinkBtn{
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: var(--sub);
+        font-size: 12px;
+        font-weight: 900;
+        cursor: pointer;
+        text-decoration: underline;
+      }
+      .clientLinkBtn:hover{
+        opacity: .85;
+      }
+
+      .clientRow{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        flex-wrap:wrap;
+      }
+
+      .clientLabel{
+        font-weight: 900;
+        font-size: 18px;
+      }
+
+      .clientNameVal{
+        font-weight: 900;
+        font-size: 18px;
+        color: #111827;
+      }
+
+      .clientReqBtn{
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 1px solid var(--fieldLine);
+        background:#fff;
+        color:#111827;
+        cursor:pointer;
+        font-weight: 900;
+        font-size: 12px;
+      }
+
+      .clientReqInput{
+        width: min(420px, 100%);
+        padding: 10px 12px;
+        border: 1px solid var(--fieldLine);
+        border-radius: 12px;
+        background: var(--fieldBg);
+      }
+
+      /* ★sticky header：ページ本体（max-width:980）と完全に揃える */
+      #stickyHeader{
+        position: sticky;
+
+        /* ★Nav直下にピタッ */
+        top: var(--amdNavH, 72px);
+        z-index: 998;
+
+        margin: 0 auto 10px;
+        max-width: 980px;
+
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,.92);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 1px 0 rgba(0,0,0,.02);
+      }
+
+      /* ★Billingと同じ：ページ全体の操作ブロック（loading中） */
+      #uiBlocker{
+        position: fixed;
+        inset: 0;
+        background: rgba(255,255,255,.75);
+        display: none;
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+      }
+      #uiBlocker .panel{
+        display:flex;
+        flex-direction: column;
+        align-items:center;
+        gap: 14px;
+        padding: 18px 22px;
+        border-radius: 18px;
+        border: 1px solid #e5e7eb;
+        background: #fff;
+        box-shadow: 0 20px 70px rgba(0,0,0,.18);
+        min-width: 220px;
+      }
+      #uiBlocker .spinner{
+        width: 54px;
+        height: 54px;
+        border-radius: 999px;
+        border: 8px solid #e5e7eb;
+        border-top-color: #111827;
+        animation: spin 0.9s linear infinite;
+      }
+      #uiBlocker .txt{
+        font-weight: 900;
+        color:#111827;
+      }
+      @keyframes spin{ to { transform: rotate(360deg); } }
+
+      /* ★alert代替モーダル（Billingと同系） */
+      .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; padding: 18px; z-index: 99999; }
+      .modal { width: min(520px, 100%); background: #fff; border-radius: 16px; border: 1px solid #e5e7eb; padding: 16px; box-shadow: 0 20px 70px rgba(0,0,0,.25); }
+      .mTop { display:flex; justify-content:space-between; align-items:center; gap: 10px; }
+      .mTitle { font-weight: 900; font-size: 16px; }
+      .x { border:1px solid #e5e7eb; background:#fff; border-radius: 10px; padding: 6px 10px; cursor:pointer; font-weight: 900; }
+      .mBody { margin-top: 10px; font-size: 14px; white-space: pre-wrap; }
+
+      /* ===== ValuePlan editor modal sizing ===== */
+      .modal.vpModal{
+        width: min(980px, 100%);
+      }
+
+      /* ★PJ tabsの外枠：stickyHeaderと同じ幅 */
+      .pjShell{
+        max-width: 980px;
+        margin: 0 auto;
+      }
+
+      /* タブ帯：左右の余白をヘッダと同じテンションに */
+      .pjTabsBar{
+        display:flex;
+        gap:6px;
+        align-items:flex-end;
+        flex-wrap:wrap;
+        margin: 10px 0 0;
+        padding: 0 10px;
+      }
+
+      /* ★PJ tabs + body（タブと中身を一体化） */
+      .pjShell{
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 0 16px;
+      }
+
+      /* タブの帯 */
+      .pjTabsBar{
+        display:flex;
+        gap:6px;
+        align-items:flex-end;
+        flex-wrap:wrap;
+        margin: 10px 0 0;
+        padding: 0 10px;
+      }
+
+      /* タブ本体 */
+      .pjTab{
+        display:inline-flex;
+        align-items:center;
+        gap:8px; /* ★dot用 */
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        border-bottom: 1px solid var(--line); /* activeで上書きして“つなぐ” */
+        background: rgba(255,255,255,.55);
+        color: var(--sub);
+        font-weight: 950;
+        font-size: 13px;
+        text-decoration:none;
+        cursor:pointer;
+        border-top-left-radius: 14px;
+        border-top-right-radius: 14px;
+        position: relative;
+        top: 1px;           /* 下に1pxだけ乗せて、bodyの枠線と噛ませる */
+        z-index: 1;
+      }
+      .pjTab .dot{
+        width:8px;
+        height:8px;
+        border-radius: 999px;
+        background: rgba(15,23,42,.25);
+        flex: 0 0 auto;
+      }
+      .pjTab.active .dot{
+        background: var(--fieldFocus); /* ★ブランド色に寄せる */
+      }
+
+      .pjTab:hover{
+        background: rgba(255,255,255,.85);
+      }
+      .pjTab.active{
+        background:#fff;
+        color: var(--text);
+        border-bottom-color: #fff;  /* ここが肝：bodyと一体に見せる */
+        top: 0;
+        z-index: 3;
+      }
+
+      /* タブの中身（枠） */
+      .pjTabBody{
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 1px 0 rgba(0,0,0,.02);
+        margin-top: -1px;           /* タブと枠線をピタッと接続 */
+        overflow: hidden;           /* 角丸からはみ出すの防止 */
+      }
+
+      /* 既存 card を中身として使う時の“二重枠”除去 */
+      .pjTabBody .pjMainCard{
+        border: none;
+        box-shadow: none;
+        margin: 0;
+        border-radius: 0;
+      }
+
+      <? if (embed) { ?>
+          /* ===== iframe内（embed=1）は“本文だけ” ===== */
+          .amd-nav{ display:none !important; }
+
+          /* Charter自身のヘッダ/タブはShellが持つので消す */
+          #stickyHeader{ display:none !important; }
+          .pjShell, .pjTabsBar{ display:none !important; }
+
+          /* 余白を全部落として、Shellの枠内にフィット */
+          body{ margin:0 !important; padding:0 !important; background:#fff !important; max-width:none !important; }
+
+          /* Shell側が枠線/影を持つので、内側カードは軽くする */
+          .card{ box-shadow:none !important; }
+          .pjTabBody{ border:none !important; box-shadow:none !important; border-radius:0 !important; margin-top:0 !important; }
+
+          /* jsAlive系が残ってたら消す */
+          #jsAlive{ display:none !important; }
+      <? } ?>
+
+              /* ===== Value Plan Wizard (annual 100pt) ===== */
+        .vpWrap{ margin-top:18px; }
+        .vpGrid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:10px; }
+        @media (max-width: 900px){ .vpGrid{ grid-template-columns: 1fr; } }
+
+        .vpPanel{ border:1px solid var(--line); border-radius:14px; padding:12px; background:#fff; }
+        .vpHead{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+        .vpTitle{ font-weight: 950; }
+        .vpMeta{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+        .vpChat{
+          border:1px solid #eee;
+          border-radius:14px;
+          padding:10px;
+          background: #fafafa;
+          height: 320px;
+          overflow:auto;
+        }
+        .vpMsg{ display:flex; margin: 8px 0; }
+        .vpMsg .bubble{
+          max-width: 92%;
+          padding:10px 12px;
+          border-radius: 14px;
+          border:1px solid #e5e7eb;
+          background:#fff;
+          white-space: pre-wrap;
+          line-height: 1.45;
+          font-size: 13px;
+        }
+        .vpMsg.user{ justify-content:flex-end; }
+        .vpMsg.user .bubble{ background:#111827; color:#fff; border-color:#111827; }
+        .vpMsg.assistant .bubble{ background:#fff; color:#111827; }
+        .vpMsg.system .bubble{ background:#eef2ff; color:#3730a3; border-color:#e0e7ff; }
+
+        .vpInputRow{ display:flex; gap:8px; margin-top:10px; }
+        .vpInputRow textarea{ min-height: 44px; height: 44px; resize: none; flex:1; }
+        .vpInputRow button{ flex: 0 0 auto; }
+
+        .vpKpiRow{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+        .vpKpi{
+          display:inline-flex; align-items:center; gap:8px;
+          padding:6px 10px;
+          border-radius: 999px;
+          border:1px solid #e5e7eb;
+          background:#fff;
+          font-size:12px;
+          font-weight: 950;
+        }
+        .vpKpi.bad{ border-color:#fecaca; background:#fef2f2; color:#b91c1c; }
+        .vpKpi.ok{ border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+
+        .vpTiny{ font-size:12px; color: var(--sub); }
+        .vpTable td input[type="text"]{ width: 100%; }
+        .vpTable td input[type="number"]{ width: 120px; }
+        .vpTag{
+          display:inline-flex; align-items:center;
+          padding: 3px 8px;
+          border-radius: 999px;
+          border: 1px solid #e5e7eb;
+          background:#fff;
+          font-size: 11px;
+          font-weight: 950;
+          color: var(--sub);
+        }
+        .vpTag.buffer{ border-color:#fde68a; background:#fffbeb; color:#92400e; }
+
+        /* ===== ValuePlan editor: title must be readable ===== */
+        .vpTable{
+          width: 100%;
+          table-layout: fixed; /* 列幅を安定させる */
+        }
+
+        .vpTitleTa{
+          width: 100%;
+          min-height: 44px;
+          height: 44px;
+          resize: vertical;
+          line-height: 1.35;
+          padding: 10px 12px;
+          border: 1px solid var(--fieldLine);
+          border-radius: 12px;
+          background: var(--fieldBg);
+          box-sizing: border-box;
+          outline: none;
+        }
+        .vpTitleTa:focus{
+          border-color: var(--fieldFocus);
+          box-shadow: 0 0 0 3px rgba(79,70,229,.15);
+          background: #fff;
+        }
+
+        /* ===== ValuePlan table sizing (editor modal) ===== */
+        .vpTable{
+          width:100%;
+          table-layout: fixed;
+        }
+        .vpTable th, .vpTable td{
+          overflow: hidden;
+        }
+
+        /* title列は折り返しOK */
+        .vpTable td:nth-child(2){
+          overflow: visible;
+        }
+
+        /* title textarea */
+        .vpTitleTa{
+          width:100%;
+          min-height: 40px;
+          height: 40px;
+          resize: vertical;
+          line-height: 1.35;
+          padding: 8px 10px;
+          border-radius: 12px;
+          box-sizing: border-box;
+        }
+
+        /* pointsは小さく */
+        .vpTable input[type="number"]{
+          width: 86px;
+          padding: 8px 10px;
+        }
+
+        /* tagも小さく */
+        .vpTable select{
+          width: 90px;
+          padding: 8px 10px;
+        }
+
+        /* 削除ボタン小さく */
+        .vpBtnDel{
+          padding: 8px 10px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 900;
+          line-height: 1;
+        }
+
+    </style>
+  </head>
+
+  <body>
+    <? if (!embed) { ?><?!= navHtml ?><? } ?>
+
+    <div id="uiBlocker">
+      <div class="panel">
+        <div class="spinner"></div>
+        <div class="txt">Loading...</div>
+      </div>
+    </div>
+
+    <!-- ===== sticky header summary ===== -->
+    <div id="stickyHeader" style="<?= embed ? 'display:none;' : '' ?>">
+      <div class="row" style="margin-top:0; justify-content:space-between; align-items:flex-start;">
+        <div style="min-width: 240px;">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div style="font-weight:900; font-size:15px;" id="pjTitleLine">
+              <?= (projectName ? projectName : projectId) ?> (<?= projectId ?>)
+            </div>
+
+            <!-- ★PJステータス（adminだけ編集） -->
+            <div id="pjStatusWrap" style="display:flex; align-items:center; gap:8px;">
+              <span class="small" style="font-weight:900;">状態</span>
+
+              <select id="pjStatusSelect" style="min-width: 180px; display:none;">
+                <option value="active">PJ進行中</option>
+                <option value="sales">営業中</option>
+                <option value="ended">契約終了</option>
+                <option value="frozen">凍結中</option>
+                <option value="lost">失注</option>
+              </select>
+
+              <span class="pill" id="pjStatusBadge">loading...</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:flex-end;">
+          <button id="btnSave" type="button">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ★PJ tabs（PJヘッダと同じ幅に揃える） -->
+    <div class="pjShell">
+      <div class="pjTabsBar">
+        <a href="<?= charterUrl ?>" id="pjTabCharter" class="pjTab active"><span class="dot"></span>Charter</a>
+        <a href="<?= navigatorUrl ?>" id="pjTabNavigator" class="pjTab"><span class="dot"></span>Navigator</a>
+        <a href="<?= billingUrl ?>" id="pjTabBilling" class="pjTab"><span class="dot"></span>Billing</a>
+      </div>
+    </div>
+
+    <div class="pjTabBody">
+      <!-- ===== ALL IN ONE CARD（中身として使うので二重枠を消す） ===== -->
+      <div id="jsAlive" class="small" style="margin:6px 0 0; color:#b91c1c; font-weight:900;">
+        JS: not started
+      </div>
+      <div class="card pjMainCard">
+        <input id="projectName" type="text" style="display:none;" />
+        <!-- ★基本ブロック削除：プロジェクト名入力欄 & ready pill は出さない -->
+        <!-- ★クライアント表示（clientNameBigを復活：JSと整合） -->
+        <div class="clientBox" id="clientBox" style="margin-top:12px;">
+          <div class="clientTop">
+            <div style="width:100%;">
+              <div class="clientRow">
+                <div class="clientLabel">取引先</div>
+
+                <!-- 現状表示 -->
+                <div id="clientNameBig" class="clientNameVal">-</div>
+
+                <div style="flex:1;"></div>
+
+                <!-- ★ボタンは1個だけ -->
+                <button id="btnClientRequest" type="button" class="clientReqBtn">
+                  取引先名変更依頼
+                </button>
+
+                <!-- ★入力欄はボタンの右 -->
+                <input id="requestedClientName" type="text" class="clientReqInput"
+                      placeholder="変更したい取引先名（ここに入力）" />
+              </div>
+
+              <div class="clientHint" style="margin-top:8px;">
+                取引先名を変更するときには、変更後の名称を添えて右のボタンを押して！
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+
+        <!-- ★この下は既存の「クライアント」ブロックから続く（そのまま残す） -->
+        <!-- 請求書送付先（1行化） -->
+        <div class="clientBox" id="invoiceRecipientBox" style="margin-top:12px; display:none;">
+          <div class="clientTop">
+            <div>
+              <div style="font-weight:900;">請求先情報（infoから自動送信）</div>
+              <div class="clientHint">Toは必須。カンマ区切りで複数OK</div>
+
+            </div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label class="req">請求書送付は手動</label><br/>
+            <label class="inline" style="user-select:none;">
+              <input id="invoiceSendManual" type="checkbox" />
+              <span class="clientHint">このPJは info から送らない（Billingは手動ボタン固定）</span>
+            </label>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label>担当者名</label><br/>
+            <input id="invoiceToName" type="text" placeholder="例：○○部 ○○" class="oneLineInput" />
+            <div class="clientHint" style="margin-top:6px;">敬称なし（送信時に「様」を付ける）</div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label class="req">To（必須）</label>
+            <input id="invoiceToEmails" type="text" class="oneLineInput" placeholder="例：a@xxx.co.jp, b@xxx.co.jp" />
+          </div>
+
+          <div style="margin-top:10px;">
+            <label class="opt">Cc（任意）</label>
+            <input id="invoiceCcEmails" type="text" class="oneLineInput" placeholder="例：pm@xxx.co.jp" />
+          </div>
+
+          <div style="margin-top:10px;">
+            <label class="opt">Bcc（任意）</label>
+            <input id="invoiceBccEmails" type="text" class="oneLineInput" placeholder="例：accounting@xxx.co.jp" />
+          </div>
+
+          <div style="margin-top:10px;">
+            <label class="req">振込期日（freeeに反映）</label>
+              <select id="paymentDueRule" class="oneLineInput" required>
+                <option value="" selected disabled>選んで</option>
+
+                <option value="issue_month_25">請求書発行月の25日</option>
+                <option value="issue_month_eom">請求書発行月の末日</option>
+
+                <option value="next_month_25">請求書発行の翌月25日</option>
+                <option value="next_month_eom">請求書発行の翌月末日</option>
+              </select>
+            <div class="clientHint" style="margin-top:6px;">Billingで期日（日付）に変換してfreeeへ入る</div>
+          </div>
+
+          <div class="clientHint" id="invoiceRecipientHint" style="margin-top:8px;"></div>
+        </div>
+
+
+        <!-- members -->
+        <div style="margin-top:16px;">
+          <div class="row" style="justify-content: space-between;">
+            <div>
+              <div style="font-weight:900; margin-bottom:4px;">PJメンバー（実務で入る全員）</div>
+              <div class="small">closer/PM はそれぞれ1人のみ</div>
+            </div>
+            <div class="row">
+              <button class="secondary" id="btnAddRow">＋行追加</button>
+            </div>
+          </div>
+
+          <div style="margin-top:10px; overflow:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:260px;">member</th>
+                  <th style="width:360px;">roleLabel</th>
+                  <th style="width:160px;">担当</th>
+                  <th style="width:80px;"></th>
+                </tr>
+              </thead>
+                            <tbody id="memberTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 運用チャーター -->
+        <div style="margin-top:18px;">
+          <div class="h">PJチャーター（運用）</div>
+
+          <details open style="margin-top:12px;">
+            <summary style="font-weight:900; cursor:pointer;">契約</summary>
+
+            <div style="margin-top:10px;" class="row">
+              <label>契約ステータス</label>
+              <select id="c_contractStatus">
+                <option value="unsigned">未締結</option>
+                <option value="signed">締結済</option>
+                <option value="terminated">終了</option>
+              </select>
+
+              <label>締結日</label>
+              <input id="c_signedAt" type="date"/>
+            </div>
+
+            <div style="margin-top:10px;" class="row">
+              <label>押印版PDF</label>
+              <input id="c_contractPdf" type="file" accept="application/pdf"/>
+              <button class="btn" id="btnUploadContractPdf" type="button">PDFアップロード</button>
+              <a id="c_contractPdfLink" href="" target="_blank" style="display:none;">アップロード済みPDFを開く</a>
+              <div class="small" id="c_contractPdfHint"></div>
+            </div>
+          </details>
+
+          <details style="margin-top:12px;">
+            <summary style="font-weight:900; cursor:pointer;">目標</summary>
+            <div style="margin-top:10px;">
+              <label>中長期目標</label>
+              <textarea id="c_midLongGoals" rows="5" style="width:100%;"></textarea>
+            </div>
+            <div style="margin-top:10px;">
+              <label>AMD卒業時の状態</label>
+              <textarea id="c_graduationState" rows="5" style="width:100%;"></textarea>
+            </div>
+          </details>
+
+          <details style="margin-top:12px;">
+            <summary style="font-weight:900; cursor:pointer;">体制（RACI）</summary>
+            <div style="margin-top:10px;">
+              <label>RACI（MVPはテキストでOK）</label>
+              <div class="small">例：活動 | R | A | C | I</div>
+              <textarea id="c_raciText" rows="6" style="width:100%;"></textarea>
+            </div>
+            <div style="margin-top:10px;">
+              <label>意思決定ルール</label>
+              <textarea id="c_decisionRule" rows="3" style="width:100%;"></textarea>
+            </div>
+          </details>
+
+          <!-- ===== 年間価値設計（100pt）===== -->
+          <div class="vpWrap">
+            <div class="row" style="justify-content:space-between; align-items:flex-end;">
+              <div>
+                <div class="h">年間価値設計（100pt）</div>
+                <div class="small">
+                  LLMと会話して「期末のあるべき姿 → マイルストーン → 配点案（合計100 + バッファ）」を作る。
+                  確定は人間。改定するときはversionが上がる想定。
+                </div>
+              </div>
+
+              <div class="row">
+                <button class="secondary" id="btnVpEditOpen" type="button">編集</button>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:12px;">
+              <div class="vpHead">
+                <div class="vpMeta">
+                  <span class="pill">planCycle</span>
+
+                  <div class="vpTiny"><b>開始</b> <span id="vpSummaryStartYm" class="mono">-</span></div>
+                  <div class="vpTiny"><b>終了</b> <span id="vpSummaryEndYm" class="mono">-</span></div>
+                  <div class="vpTiny"><b>予算</b> <span id="vpSummaryBudgetYen" class="mono">-</span></div>
+
+                  <span id="vpSummaryStatusPill" class="pill">draft</span>
+                </div>
+
+                <div class="vpKpiRow" style="margin-top:0;">
+                  <span id="vpSummaryKpiTotal" class="vpKpi">合計: -</span>
+                  <span id="vpSummaryKpiBuffer" class="vpKpi">バッファ: -</span>
+                  <span id="vpSummaryKpiNormal" class="vpKpi">通常: -</span>
+                </div>
+              </div>
+
+              <div style="margin-top:10px; overflow:auto;">
+                <table class="vpTable vpSummaryTable">
+                  <thead>
+                    <tr>
+                      <th style="width:40px;">#</th>
+                      <th>title</th>
+                      <th style="width:140px;">points</th>
+                    </tr>
+                  </thead>
+                  <tbody id="vpSummaryTbody"></tbody>
+                </table>
+                <div class="vpTiny" id="vpSummaryHint" style="margin-top:10px;">
+                  まだ確定プランがない。編集から作ってね。
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <details style="margin-top:12px;">
+            <summary style="font-weight:900; cursor:pointer;">計画</summary>
+            <div style="margin-top:10px;">
+              <label>全体計画</label>
+              <textarea id="c_overallPlan" rows="6" style="width:100%;"></textarea>
+            </div>
+            <div style="margin-top:10px;">
+              <label>マイルストーン（MVPはテキストでOK）</label>
+              <div class="small">例：2026-02 PoC設計完了 / 2026-03 実験開始</div>
+              <textarea id="c_milestonesText" rows="5" style="width:100%;"></textarea>
+            </div>
+          </details>
+
+          <details style="margin-top:12px;">
+            <summary style="font-weight:900; cursor:pointer;">想定リスク</summary>
+            <div style="margin-top:10px;">
+              <label>リスクと対応（MVPはテキストでOK）</label>
+              <div class="small">例：リスク/影響/対策/オーナー</div>
+              <textarea id="c_risksText" rows="6" style="width:100%;"></textarea>
+            </div>
+          </details>
+        </div>
+
+        <!-- ★メモ（下の方に移動） -->
+        <div style="margin-top:18px;">
+          <div class="h">メモ</div>
+          <div class="small">PJの狙い、前提、論点、火種など。長文OK</div>
+          <div style="margin-top:8px;">
+            <textarea id="memo" placeholder="自由に書いてね"></textarea>
+          </div>
+        </div>
+
+      </div> <!-- pjMainCard -->
+
+      <!-- save log -->
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;">保存ログ</div>
+        <div id="saveLogWrap" class="smalllog" style="margin-top:10px;"></div>
+        <div class="smalllog" id="debugLine" style="margin-top:8px; display:none;"></div>
+        <div id="errBox" style="margin-top:10px; display:none;" class="err"></div>
+      </div>
+
+      <script>
+        const EMBED = <?= embed ? "true" : "false" ?>;
+
+        // embedの時は余計な赤字を消す（Shell側にデバッグ寄せる）
+        try{
+          const a = document.getElementById("jsAlive");
+          if (a){
+            if (EMBED) a.style.display = "none";
+            else a.textContent = "JS: entered main script";
+          }
+        } catch(e){}
+
+        // ★Shellポーリング方式なので子は高さ通知しない
+        // ただし既存コードが pingHeight_() を呼ぶので noop を置いて死なないようにする
+        function pingHeight_(){
+          try{
+            if (!(window.parent && window.parent !== window)) return;
+
+            const h = Math.max(
+              document.body ? (document.body.scrollHeight || 0) : 0,
+              document.documentElement ? (document.documentElement.scrollHeight || 0) : 0,
+              document.body ? (document.body.offsetHeight || 0) : 0,
+              document.documentElement ? (document.documentElement.offsetHeight || 0) : 0
+            );
+            if (!h) return;
+
+            const payload = { type:"AMD_OS_IFRAME_SIZE", height:h };
+            window.parent.postMessage(payload, "*");
+            try{ window.parent.postMessage(JSON.stringify(payload), "*"); } catch(e){}
+          } catch(e){}
+        }
+
+        const PROJECT_ID = "<?= projectId ?>";
+        const PROJECT_NAME = "<?= projectName ?>";
+        const INITIAL_CLIENT_NAME = "<?= clientName ?>";
+        const IS_ADMIN = <?= (isAdmin === true) ? "true" : "false" ?>;
+
+        let MEMBERS_MASTER = [];
+        let SAVE_LOG = [];
+        let __charterJson = null;
+
+        // ===== Value Plan Wizard state =====
+        let VP = {
+          sessionId: "",
+          status: "draft", // draft / ready / fixed
+          planCycleId: "",
+          version: 0,
+          periodStartYm: "",
+          periodEndYm: "",
+          budgetYen: 0,
+          milestones: [], // {title, points, tag}
+          chat: [] // {role, text}
+        };
+
+        function vpEl(id){ return document.getElementById(id); }
+
+        function vpPushMsg(role, text){
+          VP.chat.push({ role:String(role||"system"), text:String(text||"") });
+          vpRenderChat();
+        }
+
+        function vpRenderChat(){
+          const box = vpEl("vpChat");
+          if (!box) return;
+          box.innerHTML = "";
+
+          VP.chat.forEach(m => {
+            const wrap = document.createElement("div");
+            wrap.className = "vpMsg " + (m.role || "system");
+            const b = document.createElement("div");
+            b.className = "bubble";
+            b.textContent = m.text || "";
+            wrap.appendChild(b);
+            box.appendChild(wrap);
+          });
+
+          box.scrollTop = box.scrollHeight || 0;
+        }
+
+        function vpRenderMilestones(){
+          const tb = vpEl("vpMsTbody");
+          if (!tb) return;
+
+          tb.innerHTML = "";
+
+          const list = Array.isArray(VP.milestones) ? VP.milestones : [];
+
+          list.forEach((ms, idx) => {
+            const tr = document.createElement("tr");
+
+            // #
+            const tdIdx = document.createElement("td");
+            tdIdx.textContent = String(idx + 1);
+            tr.appendChild(tdIdx);
+
+            // title (textarea)
+            const tdTitle = document.createElement("td");
+            tdTitle.style.width = "100%";
+
+            const taT = document.createElement("textarea");
+            taT.className = "vpTitleTa";
+            taT.placeholder = "タイトル（バッファは末尾に (buffer)）";
+            taT.value = String(ms.title || "");
+            taT.addEventListener("input", (e) => {
+              VP.milestones[idx].title = e.target.value;
+              try{
+                e.target.style.height = "auto";
+                e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+              } catch(_e){}
+              vpRenderKpis();
+            });
+
+            tdTitle.appendChild(taT);
+            tr.appendChild(tdTitle);
+
+            // points
+            const tdPts = document.createElement("td");
+            const inpP = document.createElement("input");
+            inpP.type = "number";
+            inpP.min = "0";
+            inpP.step = "1";
+            inpP.value = String(ms.points ?? 0);
+            inpP.addEventListener("input", (e) => {
+              VP.milestones[idx].points = Number(e.target.value || 0);
+              vpRenderKpis();
+            });
+            tdPts.appendChild(inpP);
+            tr.appendChild(tdPts);
+
+            // delete
+            const tdDel = document.createElement("td");
+            const btn = document.createElement("button");
+            btn.className = "secondary vpBtnDel";
+            btn.textContent = "削除";
+            btn.addEventListener("click", () => {
+              VP.milestones.splice(idx, 1);
+              vpRenderMilestones();
+              vpRenderKpis();
+              pingHeight_();
+            });
+            tdDel.appendChild(btn);
+            tr.appendChild(tdDel);
+
+            tb.appendChild(tr);
+
+            // 初期高さ（長文対応）
+            try{
+              taT.style.height = "auto";
+              taT.style.height = Math.min(taT.scrollHeight, 120) + "px";
+            } catch(e){}
+          });
+
+          vpRenderKpis();
+        }
+
+        function vpIsBufferTitle(title){
+          return /\(buffer\)/i.test(String(title || ""));
+        }
+
+        function vpRenderKpis(){
+          const total = (VP.milestones || []).reduce((s, m) => s + Number(m.points || 0), 0);
+          const buffer = (VP.milestones || []).filter(m => vpIsBufferTitle(m.title)).reduce((s, m) => s + Number(m.points || 0), 0);
+          const normal = total - buffer;
+
+          const kTotal = vpEl("vpKpiTotal");
+          const kBuf = vpEl("vpKpiBuffer");
+          const kNor = vpEl("vpKpiNormal");
+
+          if (kTotal){
+            kTotal.textContent = `合計: ${total} / 100`;
+            kTotal.classList.remove("bad","ok");
+            if (total === 100) kTotal.classList.add("ok");
+            else kTotal.classList.add("bad");
+          }
+          if (kBuf) kBuf.textContent = `バッファ: ${buffer}`;
+          if (kNor) kNor.textContent = `通常: ${normal}`;
+
+          const canFix = (total === 100) && (String(VP.status || "draft") !== "fixed");
+          const btnFix = vpEl("btnVpFix");
+          if (btnFix){
+            btnFix.disabled = !canFix;
+            btnFix.title = canFix ? "" : "合計が100になったら確定できる";
+            // ついでに見た目も軽く切り替え（好みなら削ってOK）
+            btnFix.style.opacity = canFix ? "1" : "0.55";
+            btnFix.style.cursor = canFix ? "pointer" : "not-allowed";
+          }
+        }
+
+        function vpReadMetaFromInputs(){
+          VP.periodStartYm = String(vpEl("vpPeriodStartYm")?.value || "").trim();
+          VP.periodEndYm = String(vpEl("vpPeriodEndYm")?.value || "").trim();
+          VP.budgetYen = Number(vpEl("vpBudgetYen")?.value || 0);
+
+          // 超ゆるバリデーション（yyyymm）
+          const re = /^\d{6}$/;
+          if (VP.periodStartYm && !re.test(VP.periodStartYm)) return { ok:false, msg:"開始(yyyymm)が不正" };
+          if (VP.periodEndYm && !re.test(VP.periodEndYm)) return { ok:false, msg:"終了(yyyymm)が不正" };
+          if (VP.budgetYen < 0) return { ok:false, msg:"予算が不正" };
+          return { ok:true };
+        }
+
+        function vpSetStatus(status){
+          VP.status = String(status || "draft");
+          const pill = vpEl("vpStatusPill");
+          if (pill) pill.textContent = VP.status;
+
+          const btnSuggest = vpEl("btnVpSuggest");
+          const btnStart = vpEl("btnVpStart");
+          if (btnSuggest) btnSuggest.disabled = !(VP.sessionId);
+          if (btnStart) btnStart.disabled = false;
+        }
+
+        function vpEnsureSeed(){
+          if (VP.chat.length) return;
+          vpPushMsg("system", "年間価値設計を開始するよ。まず「期末にどうなってるべきか」を短く書いて。成果物/数字/状態があると強い。");
+          vpRenderMilestones();
+        }
+
+        function vpAddMilestoneRow(){
+          VP.milestones.push({ title:"", points:0, tag:"normal" });
+          vpRenderMilestones();
+          pingHeight_();
+        }
+
+        function vpNotImplemented(name){
+          openModal("未実装", `${name} はまだサーバ側が未実装。\n次はGASにAPIを生やして繋ぐよ。`);
+        }
+
+        function vpStartWizard(){
+          const v = vpReadMetaFromInputs();
+          if (!v.ok){ openModal("年間価値設計", v.msg); return; }
+
+          vpEl("btnVpStart").disabled = true;
+          vpPushMsg("system", "サーバにドラフト作ってる…");
+
+          google.script.run
+            .withFailureHandler(err => {
+              vpEl("btnVpStart").disabled = false;
+              openModal("年間価値設計", "start失敗: " + (err?.message || String(err)));
+            })
+            .withSuccessHandler(res => {
+              vpEl("btnVpStart").disabled = false;
+              if (!res || res.ok === false){
+                openModal("年間価値設計", res?.message || "start失敗");
+                return;
+              }
+
+              VP.sessionId = String(res.sessionId || "");
+              vpEl("vpSessionInfo").textContent = `session: ${VP.sessionId}`;
+              vpSetStatus("draft");
+
+              // seed表示
+              if (res.assistantMessage) vpPushMsg("system", String(res.assistantMessage));
+
+              // 初期milestones（空ならバッファだけ置いとく）
+              VP.milestones = Array.isArray(res.milestones) ? res.milestones : [];
+              if (!VP.milestones.length){
+                VP.milestones = [
+                  { title:"未知対応（バッファ）", points:20, tag:"buffer" }
+                ];
+              }
+              vpRenderMilestones();
+
+              // suggestボタンを有効化
+              const btnSuggest = vpEl("btnVpSuggest");
+              if (btnSuggest) btnSuggest.disabled = false;
+
+              pingHeight_();
+            })
+            .valuePlan_start({
+              projectId: PROJECT_ID,
+              periodStartYm: VP.periodStartYm,
+              periodEndYm: VP.periodEndYm,
+              budgetYen: VP.budgetYen
+            });
+        }
+
+        function vpSendUserMessage(){
+          const ta = vpEl("vpUserMsg");
+          const text = String(ta?.value || "").trim();
+          if (!text) return;
+
+          if (!VP.sessionId){
+            openModal("年間価値設計", "先にLLM開始してね");
+            return;
+          }
+
+          vpPushMsg("user", text);
+          ta.value = "";
+
+          vpEl("btnVpSend").disabled = true;
+
+          google.script.run
+            .withFailureHandler(err => {
+              vpEl("btnVpSend").disabled = false;
+              openModal("年間価値設計", "chat失敗: " + (err?.message || String(err)));
+            })
+            .withSuccessHandler(res => {
+              vpEl("btnVpSend").disabled = false;
+
+              if (!res || res.ok === false){
+                openModal("年間価値設計", res?.message || "chat失敗");
+                return;
+              }
+
+              if (res.assistantMessage) vpPushMsg("assistant", String(res.assistantMessage));
+
+              // milestones提案が来たら反映
+              if (Array.isArray(res.milestones) && res.milestones.length){
+                VP.milestones = res.milestones.map(m => {
+                  let title = String(m.title || "");
+                  const tag = String(m.tag || "");
+                  if (tag === "buffer" && !/\(buffer\)/i.test(title)) {
+                    title = title.trim() + " (buffer)";
+                  }
+                  return {
+                    title: title,
+                    points: Number(m.points || 0)
+                  };
+                });
+                vpRenderMilestones();
+              }
+
+              pingHeight_();
+            })
+            .valuePlan_chat({
+              sessionId: VP.sessionId,
+              userMessage: text
+            });
+        }
+
+        function vpSuggestPoints(){
+          if (!VP.sessionId){
+            openModal("年間価値設計", "先にLLM開始してね");
+            return;
+          }
+
+          const titles = (VP.milestones || []).map(m => String(m.title||"").trim()).filter(x=>x);
+          const hint =
+            `いまの情報を踏まえて、マイルストーン案と配点案（合計100 + buffer含む）を作って。
+            JSONで返して。`;
+
+          google.script.run
+            .withFailureHandler(err => {
+              openModal("年間価値設計", "配点案更新失敗: " + (err?.message || String(err)));
+            })
+            .withSuccessHandler(res => {
+              if (!res || res.ok === false){
+                openModal("年間価値設計", res?.message || "配点案更新失敗");
+                return;
+              }
+
+              if (res.assistantMessage) vpPushMsg("assistant", String(res.assistantMessage));
+
+              if (Array.isArray(res.milestones) && res.milestones.length){
+                VP.milestones = res.milestones.map(m => ({
+                  title: String(m.title||""),
+                  points: Number(m.points||0),
+                  tag: (String(m.tag||"")==="buffer") ? "buffer" : "normal"
+                }));
+                vpRenderMilestones();
+              }
+
+              pingHeight_();
+            })
+            .valuePlan_chat({
+              sessionId: VP.sessionId,
+              userMessage: hint + (titles.length ? ("\n現状title:\n- " + titles.join("\n- ")) : "")
+            });
+        }
+
+        function vpFixPlan(){
+          const total = (VP.milestones || []).reduce((s, m) => s + Number(m.points || 0), 0);
+          if (total !== 100){
+            openModal("確定", `合計が100じゃない（${total}）`);
+            return;
+          }
+          if (!VP.sessionId){
+            openModal("確定", "sessionがない。先にLLM開始してね");
+            return;
+          }
+
+          const btnFix = vpEl("btnVpFix");
+          if (btnFix) btnFix.disabled = true;
+
+          // サーバに渡すpayload（tagはもう無い前提）
+          const milestones = (VP.milestones || []).map(m => ({
+            title: String(m.title || ""),
+            points: Number(m.points || 0)
+          }));
+
+          google.script.run
+            .withFailureHandler(err => {
+              if (btnFix) btnFix.disabled = false;
+              openModal("確定", "fix失敗: " + (err?.message || String(err)));
+            })
+            .withSuccessHandler(res => {
+              if (btnFix) btnFix.disabled = false;
+
+              if (!res || res.ok === false){
+                openModal("確定", res?.message || "fix失敗");
+                return;
+              }
+
+              // 確定状態へ
+              VP.status = "fixed";
+              VP.planCycleId = String(res.planCycleId || "");
+              VP.version = Number(res.version || 0);
+
+              // チャットに確定ログを残す
+              vpPushMsg("system", `確定OK planCycleId=${VP.planCycleId} version=${VP.version}`);
+
+              // サマリ更新 & モーダル閉じる
+              try{ vpRenderSummary(); } catch(e){}
+              vpCloseEditor();
+            })
+            .valuePlan_fix({
+              sessionId: VP.sessionId,
+              milestones: milestones,
+              reason: "" // 今は空でOK（あとでUI追加できる）
+            });
+        }
+
+        function vpOpenEditor(){
+          const ov = el("vpOverlay");
+          if (ov) ov.style.display = "flex";
+          pingHeight_();
+          try{ vpRenderKpis(); } catch(e){}
+        }
+
+        function vpCloseEditor(){
+          const ov = el("vpOverlay");
+          if (ov) ov.style.display = "none";
+          try{ vpRenderSummary(); } catch(e){}
+          pingHeight_();
+        }
+
+        function vpRenderSummary(){
+          const start = String(VP.periodStartYm || vpEl("vpPeriodStartYm")?.value || "").trim();
+          const end = String(VP.periodEndYm || vpEl("vpPeriodEndYm")?.value || "").trim();
+          const bud = Number(VP.budgetYen || vpEl("vpBudgetYen")?.value || 0);
+
+          const sStart = el("vpSummaryStartYm"); if (sStart) sStart.textContent = start || "-";
+          const sEnd = el("vpSummaryEndYm"); if (sEnd) sEnd.textContent = end || "-";
+          const sBud = el("vpSummaryBudgetYen"); if (sBud) sBud.textContent = bud ? `¥${bud.toLocaleString()}` : "-";
+
+          const pill = el("vpSummaryStatusPill");
+          if (pill) pill.textContent = String(VP.status || "draft");
+
+          const total = (VP.milestones || []).reduce((s, m) => s + Number(m.points || 0), 0);
+          const buffer = (VP.milestones || []).filter(m => m.tag === "buffer").reduce((s, m) => s + Number(m.points || 0), 0);
+          const normal = total - buffer;
+
+          const kT = el("vpSummaryKpiTotal"); if (kT) kT.textContent = `合計: ${total} / 100`;
+          const kB = el("vpSummaryKpiBuffer"); if (kB) kB.textContent = `バッファ: ${buffer}`;
+          const kN = el("vpSummaryKpiNormal"); if (kN) kN.textContent = `通常: ${normal}`;
+
+          const tb = el("vpSummaryTbody");
+          const hint = el("vpSummaryHint");
+          if (!tb) return;
+
+          tb.innerHTML = "";
+          const ms = Array.isArray(VP.milestones) ? VP.milestones : [];
+          if (!ms.length){
+            if (hint) hint.style.display = "block";
+            return;
+          }
+          if (hint) hint.style.display = "none";
+
+          ms.forEach((m, i) => {
+            const tr = document.createElement("tr");
+
+            const tdI = document.createElement("td");
+            tdI.textContent = String(i+1);
+            tr.appendChild(tdI);
+
+            const tdT = document.createElement("td");
+            tdT.textContent = String(m.title || "");
+            tdT.style.whiteSpace = "pre-wrap";
+            tdT.style.lineHeight = "1.35";
+            tr.appendChild(tdT);
+
+            const tdP = document.createElement("td");
+            tdP.textContent = String(Number(m.points || 0));
+            tr.appendChild(tdP);
+            tb.appendChild(tr);
+          });
+        }
+
+        window.onerror = function(message, source, lineno, colno, error){
+          showErr(`[JS ERROR] ${message} @ ${lineno}:${colno}`);
+        };
+
+        let charter = {
+          projectId: PROJECT_ID || "",
+          projectName: PROJECT_NAME || "",
+          memo: "",
+          members: []
+        };
+
+        function escapeHtml(s){
+          return String(s || "")
+            .replaceAll("&","&amp;")
+            .replaceAll("<","&lt;")
+            .replaceAll(">","&gt;")
+            .replaceAll('"',"&quot;")
+            .replaceAll("'","&#39;");
+        }
+        function el(id){ return document.getElementById(id); }
+
+        // ===== SPA bridge: iframe -> shell =====
+        function spaNavigate_(tab){
+          try{
+            if (window.parent && window.parent !== window){
+              window.parent.postMessage({ type:"AMD_OS_NAVIGATE", tab:String(tab||"") }, "*");
+              return true;
+            }
+          } catch(e){}
+          return false;
+        }
+
+        function openModal(title, body){
+          el("mTitle").textContent = title || "通知";
+          el("mBody").textContent = body || "";
+          el("overlay").style.display = "flex";
+        }
+        function closeModal(){
+          el("overlay").style.display = "none";
+        }
+
+        function bindMust(id, ev, fn){
+          const node = document.getElementById(id);
+          if (!node){
+            const msg = `[BIND ERROR] element not found: #${id}`;
+            showErr(msg);
+            throw new Error(msg);
+          }
+          node.addEventListener(ev, fn);
+        }
+
+        document.addEventListener("change", (e) => {
+          if (e?.target?.id === "invoiceSendManual") applyInvoiceSendManualUi();
+        });
+
+        function debugCheckDom_(){
+          const must = [
+            "btnSave","btnAddRow","btnClientRequest","clientNameBig",
+            "btnUploadContractPdf","c_contractPdf","memo","memberTbody",
+            "c_contractStatus","c_signedAt","c_midLongGoals","c_graduationState",
+            "c_raciText","c_decisionRule","c_overallPlan","c_milestonesText","c_risksText",
+
+            // alert modal
+            "overlay","mTitle","mBody",
+
+            // ValuePlan summary (read-only)
+            "btnVpEditOpen",
+            "vpSummaryStartYm","vpSummaryEndYm","vpSummaryBudgetYen","vpSummaryStatusPill",
+            "vpSummaryKpiTotal","vpSummaryKpiBuffer","vpSummaryKpiNormal","vpSummaryTbody","vpSummaryHint",
+
+            // ValuePlan editor modal
+            "vpOverlay","btnVpEditClose",
+            "vpPeriodStartYm","vpPeriodEndYm","vpBudgetYen","vpStatusPill","vpSessionInfo",
+            "btnVpStart","btnVpSuggest","btnVpFix",
+            "vpChat","vpUserMsg","btnVpSend","vpMsTbody","btnVpAddMs",
+            "vpKpiTotal","vpKpiBuffer","vpKpiNormal"
+          ];
+
+          const missing = must.filter(id => !document.getElementById(id));
+          if (missing.length){
+            showErr(`[DOM MISSING] ${missing.join(", ")}`);
+          }
+        }
+
+        function setPageStatus(state, detail, opt){
+          const options = opt || {};
+          const shouldBlock = !!options.block;
+
+          const blocker = document.getElementById("uiBlocker");
+          if (blocker) blocker.style.display = (state === "loading" && shouldBlock) ? "flex" : "none";
+
+          const badge = document.getElementById("pjStatusBadge");
+          if (badge){
+            if (state === "loading") badge.textContent = "loading...";
+            else if (state === "ready") badge.textContent = "ready";
+            else if (state === "error") badge.textContent = "error";
+            else badge.textContent = String(state || "-");
+            badge.title = detail ? String(detail) : "";
+          }
+
+          const txt = blocker ? blocker.querySelector(".txt") : null;
+          if (txt){
+            if (state === "loading" && shouldBlock) txt.textContent = "Loading...";
+          }
+        }
+
+        function setDebug(msg){
+          const d = el("debugLine");
+          const s = String(msg || "").trim();
+          if (!s) { d.style.display = "none"; d.textContent = ""; return; }
+          d.style.display = "block";
+          d.textContent = s;
+        }
+
+        function showErr(msg){
+          const box = el("errBox");
+          box.style.display = "block";
+          box.textContent = String(msg || "");
+        }
+        function clearErr(){
+          const box = el("errBox");
+          box.style.display = "none";
+          box.textContent = "";
+        }
+
+        function setStatusBadge_(label, ok=true){
+          const p = el("pjStatusBadge");
+          p.textContent = label;
+          if (ok){
+            p.style.background = "#eef2ff";
+            p.style.borderColor = "#e0e7ff";
+            p.style.color = "#3730a3";
+          } else {
+            p.style.background = "#fef2f2";
+            p.style.borderColor = "#fecaca";
+            p.style.color = "#b91c1c";
+          }
+        }
+
+        function showLoading_(title, sub){
+          const blocker = document.getElementById("uiBlocker");
+          if (blocker) blocker.style.display = "flex";
+          const txt = blocker ? blocker.querySelector(".txt") : null;
+          if (txt) txt.textContent = String(title || "Loading...");
+          if (blocker) blocker.title = String(sub || "");
+          setPageStatus("loading", (sub || title || ""), { block:true });
+        }
+
+        function hideLoading_(){
+          const blocker = document.getElementById("uiBlocker");
+          if (blocker) blocker.style.display = "none";
+          if (blocker) blocker.title = "";
+          setPageStatus("ready", "", { block:false });
+        }
+
+        function formatDT(iso){
+          if (!iso) return "";
+          const d = new Date(iso);
+          if (isNaN(d.getTime())) return String(iso);
+          const y = d.getFullYear();
+          const m = String(d.getMonth()+1).padStart(2,"0");
+          const day = String(d.getDate()).padStart(2,"0");
+          const hh = String(d.getHours()).padStart(2,"0");
+          const mm = String(d.getMinutes()).padStart(2,"0");
+          const w = ["日","月","火","水","木","金","土"][d.getDay()];
+          return `${y}/${m}/${day}(${w}) ${hh}:${mm}`;
+        }
+
+        function renderSaveLog(){
+          const wrap = el("saveLogWrap");
+          const logs = Array.isArray(SAVE_LOG) ? [...SAVE_LOG] : [];
+          if (!logs.length){
+            wrap.innerHTML = "";
+            return;
+          }
+          logs.sort((a, b) => {
+            const ta = new Date(a.savedAt || 0).getTime();
+            const tb = new Date(b.savedAt || 0).getTime();
+            return tb - ta;
+          });
+
+          wrap.innerHTML = logs.map(l => {
+            const ts = formatDT(l.savedAt);
+            const who = (l.updatedBy || "").trim();
+            const sum = (l.changeSummary || "").trim();
+
+            if (who || sum){
+              return `・${ts} ｜ ${escapeHtml(who || "unknown")} ｜ ${escapeHtml(sum || "変更内容の記録なし")}`;
+            }
+
+            const c = l.closerMemberId ? `closer=${l.closerMemberId}` : "closer=無";
+            const p = l.pmMemberId ? `pm=${l.pmMemberId}` : "pm=無";
+            return `・${ts} ｜ members=${l.membersCount} ｜ ${c} ｜ ${p}`;
+          }).join("<br/>");
+        }
+
+        function renderClientPill_(){
+          // ★表示の唯一正：freeePartnerName
+          const freeeName = String(window.__AMD_FREEE_PARTNER_NAME__ || "").trim();
+
+          // freee未設定だけ fallback（UIが死なないため）
+          const fallback = String(PROJECT_NAME || PROJECT_ID || "").trim();
+
+          const name = freeeName || fallback;
+          el("clientNameBig").textContent = name ? name : "未設定";
+        }
+
+        function requestClientNameChange_(){
+          const newName = String(el("requestedClientName")?.value || "").trim();
+          if (!newName){
+            openModal("変更依頼", "変更したいクライアント名を入れてね");
+            return;
+          }
+
+          el("btnClientRequest").disabled = true;
+
+          google.script.run
+            .withFailureHandler(err => {
+              el("btnClientRequest").disabled = false;
+              openModal("変更依頼", "依頼失敗: " + (err?.message || String(err)));
+            })
+            .withSuccessHandler(() => {
+              el("btnClientRequest").disabled = false;
+              openModal("変更依頼", "きよに変更依頼メールを送ったよ");
+            })
+            .api_requestClientNameChange({
+              projectId: PROJECT_ID,
+              requestedClientName: newName,
+              note: ""
+            });
+        }
+
+        // ===== members table =====
+        function enforceSingleFlag(kind, idxChecked){
+          charter.members = charter.members.map((m, i) => {
+            if (i === idxChecked) return m;
+            return { ...m, [kind]: false };
+          });
+          renderMembersTable();
+        }
+
+        function renderMemberRow(row, idx){
+          const tr = document.createElement("tr");
+
+          const tdMember = document.createElement("td");
+          const sel = document.createElement("select");
+          sel.dataset.idx = String(idx);
+
+          const opt0 = document.createElement("option");
+          opt0.value = "";
+          opt0.textContent = "選択してね";
+          sel.appendChild(opt0);
+
+          MEMBERS_MASTER.forEach(m => {
+            const opt = document.createElement("option");
+            opt.value = m.memberId;
+            opt.textContent = `${m.codeName}`;
+            sel.appendChild(opt);
+          });
+
+          sel.value = row.memberId || "";
+          sel.addEventListener("change", (e) => {
+            const i = Number(e.target.dataset.idx);
+            charter.members[i].memberId = e.target.value;
+
+            // ★担当ピル（固定表示）が変わる可能性あるので再描画
+            renderMembersTable();
+          });
+          tdMember.appendChild(sel);
+
+          const tdRole = document.createElement("td");
+          const inpRole = document.createElement("input");
+          inpRole.type = "text";
+          inpRole.placeholder = "例：BizDev / BO / PR / R&D など（PM/closerはAdminで固定）";
+          inpRole.value = row.roleLabel || "";
+          inpRole.dataset.idx = String(idx);
+          inpRole.addEventListener("input", (e) => {
+            const i = Number(e.target.dataset.idx);
+            charter.members[i].roleLabel = e.target.value;
+          });
+          tdRole.appendChild(inpRole);
+
+          // ★固定表示：PM/closer（DB_Projectsが正）
+          const tdFixed = document.createElement("td");
+          const mid = String(row.memberId || "").trim();
+
+          const fixedPm = String(charter.pmMemberId || "").trim();
+          const fixedCloser = String(charter.closerMemberId || "").trim();
+
+          const pills = [];
+          if (mid && fixedPm && mid === fixedPm) pills.push("PM");
+          if (mid && fixedCloser && mid === fixedCloser) pills.push("closer");
+
+          tdFixed.innerHTML = pills.length
+            ? pills.map(x => `<span class="pill">${escapeHtml(x)}</span>`).join(" ")
+            : `<span class="pill gray">-</span>`;
+
+          const tdDel = document.createElement("td");
+          const btnDel = document.createElement("button");
+          btnDel.textContent = "削除";
+          btnDel.className = "secondary";
+          btnDel.dataset.idx = String(idx);
+          btnDel.addEventListener("click", () => {
+            charter.members.splice(idx, 1);
+            renderMembersTable();
+          });
+          tdDel.appendChild(btnDel);
+
+          tr.appendChild(tdMember);
+          tr.appendChild(tdRole);
+          tr.appendChild(tdFixed);
+          tr.appendChild(tdDel);
+
+          return tr;
+        }
+
+        function renderMembersTable(){
+          const tb = el("memberTbody");
+          tb.innerHTML = "";
+          charter.members.forEach((row, idx) => tb.appendChild(renderMemberRow(row, idx)));
+        }
+
+        function normalizeMembers(){
+          const fixedPm = String(charter.pmMemberId || "").trim();
+          const fixedCloser = String(charter.closerMemberId || "").trim();
+
+          charter.members = (charter.members || [])
+            .filter(r => r && r.memberId)
+            .map(r => {
+              const mid = String(r.memberId || "").trim();
+              return {
+                memberId: mid,
+                roleLabel: String(r.roleLabel || ""),
+                // ★PM/closerはAdminで固定（Charterで編集しない）
+                isCloser: !!(fixedCloser && mid === fixedCloser),
+                isPM: !!(fixedPm && mid === fixedPm)
+              };
+            });
+
+          // ★事故防止：固定先が複数一致とか起きても最後の保険で単一化
+          let closerSeen = false;
+          let pmSeen = false;
+          charter.members = charter.members.map(m => {
+            let c = m.isCloser;
+            let p = m.isPM;
+            if (c) { if (closerSeen) c = false; else closerSeen = true; }
+            if (p) { if (pmSeen) p = false; else pmSeen = true; }
+            return { ...m, isCloser: c, isPM: p };
+          });
+        }
+
+        bindMust("btnAddRow", "click", () => {
+          charter.members.push({ memberId:"", roleLabel:"", isCloser:false, isPM:false });
+          renderMembersTable();
+          pingHeight_();
+        });
+
+        bindMust("btnClientRequest", "click", requestClientNameChange_);
+
+        // 契約PDFアップロード
+        bindMust("btnUploadContractPdf", "click", () => {
+          const f = el("c_contractPdf").files[0];
+          if (!f) { openModal("PDF", "PDFを選んで"); return; }
+
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = String(reader.result || "");
+            el("c_contractPdfHint").textContent = "アップロード中...";
+            const pname = String(charter.projectName || PROJECT_NAME || "").trim();
+
+            showLoading_("アップロード中...", "PDFをDriveへ保存してる");
+
+            google.script.run
+              .withSuccessHandler(res => {
+                hideLoading_();
+                if (!res || !res.ok) { openModal("PDF", "アップロード失敗"); return; }
+
+                if (!__charterJson || typeof __charterJson !== "object") __charterJson = {};
+                __charterJson.contract = __charterJson.contract || {};
+                __charterJson.contract.signedPdf = {
+                  fileId: res.fileId,
+                  url: res.url,
+                  fileName: res.fileName,
+                  uploadedAt: res.uploadedAt
+                };
+
+                const link = el("c_contractPdfLink");
+                link.href = res.url;
+                link.style.display = "inline";
+                link.textContent = res.fileName || "アップロード済みPDF";
+                el("c_contractPdfHint").textContent = "アップロード完了（保存ボタンで反映）";
+                pingHeight_();
+              })
+              .withFailureHandler(err => {
+                hideLoading_();
+                el("c_contractPdfHint").textContent = "";
+                openModal("PDF", "アップロード失敗: " + (err && err.message ? err.message : err));
+              })
+              .uploadCharterFile({
+                projectId: PROJECT_ID,
+                projectName: pname,
+                fileName: f.name,
+                mimeType: f.type || "application/pdf",
+                base64: base64
+              });
+          };
+          reader.readAsDataURL(f);
+        });
+
+        bindMust("btnSave", "click", () => {
+          clearErr();
+
+          charter.projectName = String(charter.projectName || PROJECT_NAME || "").trim();
+          charter.memo = el("memo").value || "";
+          normalizeMembers();
+
+          if (IS_ADMIN){
+            charter.projectStatus = String(el("pjStatusSelect")?.value || "").trim();
+          }
+
+          if (IS_ADMIN){
+            charter.invoiceToName = String(el("invoiceToName")?.value || "");
+            charter.invoiceToEmails = String(el("invoiceToEmails")?.value || "");
+            charter.invoiceCcEmails = String(el("invoiceCcEmails")?.value || "");
+            charter.invoiceBccEmails = String(el("invoiceBccEmails")?.value || "");
+            charter.paymentDueRule = String(el("paymentDueRule")?.value || "");
+
+            if (!charter.paymentDueRule){
+              openModal("保存", "振込期日（freeeに反映）を選んでね");
+              return;
+            }
+          }
+
+          if(!__charterJson || typeof __charterJson !== "object") __charterJson = {};
+          __charterJson.contract = __charterJson.contract || {};
+          __charterJson.goals = __charterJson.goals || {};
+          __charterJson.governance = __charterJson.governance || {};
+          __charterJson.plan = __charterJson.plan || {};
+          __charterJson.risks = __charterJson.risks || {};
+
+          __charterJson.contract.status = el("c_contractStatus").value;
+          __charterJson.contract.signedAt = el("c_signedAt").value;
+          __charterJson.contract.counterpartyName = String((charter && charter.clientName) ? charter.clientName : "").trim();
+
+          __charterJson.goals.midLongTermGoals = el("c_midLongGoals").value;
+          __charterJson.goals.graduationState = el("c_graduationState").value;
+
+          __charterJson.governance.raciText = el("c_raciText").value;
+          __charterJson.governance.decisionRule = el("c_decisionRule").value;
+
+          __charterJson.plan.overallPlan = el("c_overallPlan").value;
+          __charterJson.plan.milestonesText = el("c_milestonesText").value;
+
+          __charterJson.risks.risksText = el("c_risksText").value;
+
+          charter.charterJson = __charterJson;
+
+          if(!charter.projectId){ setStatusBadge_("projectIdが空（URL確認）", false); return; }
+          if(!charter.projectName){ setStatusBadge_("PJ名が空（URL/DB確認）", false); return; }
+          if(charter.members.length === 0){ setStatusBadge_("メンバーが0人（未選択行は保存されない）", false); return; }
+
+          el("btnSave").disabled = true;
+          showLoading_("保存中...", "DB更新してる");
+
+          google.script.run
+            .withSuccessHandler((res) => {
+              el("btnSave").disabled = false;
+              hideLoading_();
+              setStatusBadge_("saved", true);
+              setDebug(`saved at ${(res && res.savedAt) ? res.savedAt : "-"} / members=${(res && (res.membersCount!==undefined)) ? res.membersCount : "-"}`);
+
+              try{
+                if (res && Array.isArray(res.saveLog)) {
+                  SAVE_LOG = res.saveLog;
+                  renderSaveLog();
+                }
+              } catch(e){}
+              pingHeight_();
+            })
+            .withFailureHandler((err) => {
+              el("btnSave").disabled = false;
+              hideLoading_();
+              setStatusBadge_("save failed", false);
+              setDebug(String(err && (err.message||err)));
+              showErr(err && (err.message || err) ? (err.message || err) : String(err));
+              pingHeight_();
+            })
+            .saveCharter(charter);
+        });
+
+        function applyInvoiceSendManualUi(){
+          if (!IS_ADMIN) return;
+
+          const chk = el("invoiceSendManual");
+          if (!chk) return;
+
+          const on = !!chk.checked;
+
+          const ids = ["invoiceToName","invoiceToEmails","invoiceCcEmails","invoiceBccEmails"];
+          ids.forEach(id => {
+            const x = el(id);
+            if (!x) return;
+            x.disabled = on;
+            x.style.opacity = on ? ".6" : "1";
+          });
+
+          const hint = el("invoiceRecipientHint");
+          if (hint){
+            hint.textContent = on
+              ? "このPJは手動送信。To/Cc/Bccは編集不可。Billingは手動ボタン固定"
+              : "保存ボタンでDB_Projectsへ反映される";
+          }
+        }
+
+
+        function init(){
+          try{
+            setDebug("init entered");
+            console.log("[Charter] init entered");
+          } catch(e){}
+
+          debugCheckDom_();
+          clearErr();
+
+          if (!PROJECT_ID) {
+            setPageStatus("error", "projectId empty", { block:false });
+            showErr("URLの projectId が空。Home→チャーター遷移のURLを確認して。");
+            return;
+          }
+
+          if (IS_ADMIN){
+            const sel = el("pjStatusSelect");
+            if (sel) sel.style.display = "inline-flex";
+          }
+
+          renderClientPill_();
+
+          if (IS_ADMIN){
+            el("invoiceRecipientBox").style.display = "block";
+            el("invoiceRecipientHint").textContent = "保存ボタンでDB_Projectsへ反映される";
+          }
+
+          setPageStatus("loading", `projectId=${PROJECT_ID}`, { block:false });
+
+          const timer = setTimeout(() => {
+            setPageStatus("error", "timeout", { block:false });
+            showErr("サーバ応答が返ってこない。Executionsを確認して。");
+          }, 15000);
+
+          // ===============================
+          // ★ Charter 本体取得（1回だけ）
+          // ===============================
+          setDebug("calling: getCharterData");
+          console.log("[Charter] calling getCharterData");
+
+          const runner = google.script.run
+            .withSuccessHandler((data) => {
+              console.log("[Charter] freeePartnerName=", (data && data.freeePartnerName), "freeePartnerId=", (data && data.freeePartnerId));
+              clearTimeout(timer);
+
+              try{
+                const api = data && data.apiName ? data.apiName : "(no apiName)";
+                console.log("[Charter] success apiName=", api, "keys=", Object.keys(data||{}));
+                setDebug("success apiName=" + api);
+              } catch(e){}
+
+              if (!data) {
+                setPageStatus("error", "empty", { block:false });
+                showErr("getCharterDataの返り値が空");
+                return;
+              }
+              if (data.ok === false) {
+                setPageStatus("error", data.message || "server error", { block:false });
+                showErr(data.message || "server error");
+                return;
+              }
+
+              // ===============================
+              // 1. Charter / Members
+              // ===============================
+              MEMBERS_MASTER = Array.isArray(data.membersMaster) ? data.membersMaster : [];
+              charter = data.charter || charter;
+
+              // ★取引先名（freee）を表示の唯一正として保持
+              window.__AMD_FREEE_PARTNER_NAME__ = String((data && data.freeePartnerName) || "").trim();
+
+              // ★描画
+              renderClientPill_();
+
+              // ★追加：取引先名（freeePartnerName）を保持して表示に使う
+              window.__AMD_FREEE_PARTNER_NAME__ = String(data.freeePartnerName || "").trim();
+              renderClientPill_();
+                
+              charter.projectName = String(charter.projectName || PROJECT_NAME || "").trim();
+              el("memo").value = charter.memo || "";
+
+              const pjStatus = String(charter.projectStatus || charter.status || "draft").trim();
+              const badge = el("pjStatusBadge");
+              if (badge) badge.textContent = pjStatus || "draft";
+              if (IS_ADMIN){
+                const sel = el("pjStatusSelect");
+                if (sel) sel.value = (pjStatus === "draft") ? "sales" : pjStatus;
+              }
+
+              if (IS_ADMIN){
+                const n = el("invoiceToName"); if (n) n.value = String(charter.invoiceToName || "");
+                const to = el("invoiceToEmails"); if (to) to.value = String(charter.invoiceToEmails || "");
+                const cc = el("invoiceCcEmails"); if (cc) cc.value = String(charter.invoiceCcEmails || "");
+                const bcc = el("invoiceBccEmails"); if (bcc) bcc.value = String(charter.invoiceBccEmails || "");
+                const pay = el("paymentDueRule"); if (pay) pay.value = String(charter.paymentDueRule || "");
+                const man = el("invoiceSendManual"); if (man) man.checked = !!charter.invoiceSendManual;
+                applyInvoiceSendManualUi();
+              }
+
+              __charterJson = charter.charterJson;
+              if (typeof __charterJson === "string") {
+                try { __charterJson = JSON.parse(__charterJson); } catch(e){ __charterJson = {}; }
+              }
+              if (!__charterJson || typeof __charterJson !== "object") __charterJson = {};
+
+              const c = __charterJson;
+              c.contract = c.contract || {};
+              c.goals = c.goals || {};
+              c.governance = c.governance || {};
+              c.plan = c.plan || {};
+              c.risks = c.risks || {};
+
+              el("c_contractStatus").value = c.contract.status || "unsigned";
+              el("c_signedAt").value = c.contract.signedAt || "";
+
+              el("c_midLongGoals").value = c.goals.midLongTermGoals || "";
+              el("c_graduationState").value = c.goals.graduationState || "";
+              el("c_raciText").value = c.governance.raciText || "";
+              el("c_decisionRule").value = c.governance.decisionRule || "";
+              el("c_overallPlan").value = c.plan.overallPlan || "";
+              el("c_milestonesText").value = c.plan.milestonesText || "";
+              el("c_risksText").value = c.risks.risksText || "";
+
+              if(!Array.isArray(charter.members) || charter.members.length === 0){
+                charter.members = [{ memberId:"", roleLabel:"", isCloser:false, isPM:false }];
+              }
+              normalizeMembers();
+              renderMembersTable();
+
+              SAVE_LOG = [];
+              renderSaveLog();
+
+              // ===============================
+              // 2. ValuePlan restore
+              // ===============================
+              const hasVP = !!data.valuePlanFixed;
+              const vpErr = String(data.valuePlanFixedError || "");
+              setDebug(`vpFixed=${hasVP} vpErr=${vpErr}`);
+              console.log("[Charter] vpFixed=", hasVP, "vpErr=", vpErr);
+
+              if (data.valuePlanFixed){
+                const v = data.valuePlanFixed;
+                VP.status = "fixed";
+                VP.planCycleId = String(v.planCycleId || "");
+                VP.version = Number(v.version || 0);
+                VP.periodStartYm = String(v.periodStartYm || "");
+                VP.periodEndYm   = String(v.periodEndYm || "");
+                VP.budgetYen     = Number(v.budgetYen || 0);
+
+                VP.milestones = Array.isArray(v.milestones) ? v.milestones.map(m => ({
+                  title: String(m.title || ""),
+                  points: Number(m.points || 0),
+                  tag: /\(buffer\)/i.test(String(m.title||"")) ? "buffer" : "normal"
+                })) : [];
+              }
+
+              // ===============================
+              // 3. ValuePlan seed（無いときだけ）
+              // ===============================
+              if (String(VP.status || "draft") !== "fixed"){
+                vpSetStatus("draft");
+                vpEnsureSeed();
+                if (!VP.milestones || VP.milestones.length === 0){
+                  VP.milestones = [
+                    { title:"", points:0, tag:"normal" },
+                    { title:"未知対応（バッファ）", points:20, tag:"buffer" }
+                  ];
+                }
+              }
+
+              vpRenderMilestones();
+              vpRenderSummary();
+
+              setPageStatus("ready", "", { block:false });
+              pingHeight_();
+
+              // ===============================
+              // Extras（saveLog）
+              // ===============================
+              google.script.run
+                .withSuccessHandler((ex) => {
+                  if (!ex || ex.ok === false) return;
+                  SAVE_LOG = ex.saveLog || [];
+                  renderSaveLog();
+                  pingHeight_();
+                })
+                .withFailureHandler(() => {})
+                .getCharterExtras({ projectId: PROJECT_ID, projectName: PROJECT_NAME });
+            })
+            .withFailureHandler((err) => {
+              clearTimeout(timer);
+              setPageStatus("error", err?.message || String(err), { block:false });
+              showErr(err?.message || String(err));
+              pingHeight_();
+            });
+
+          runner.getCharterData({
+            projectId: PROJECT_ID,
+            projectName: PROJECT_NAME,
+            noCache: true
+          });
+        }
+
+        window.addEventListener("load", init);
+        // ===== embed=1: always post iframe size to parent/top =====
+        (function(){
+          const EMBED = <?= embed ? "true" : "false" ?>;
+          if (!EMBED) return;
+
+          function sendSize_(){
+            try{
+              const h = Math.max(
+                document.body ? (document.body.scrollHeight || 0) : 0,
+                document.documentElement ? (document.documentElement.scrollHeight || 0) : 0,
+                document.body ? (document.body.offsetHeight || 0) : 0,
+                document.documentElement ? (document.documentElement.offsetHeight || 0) : 0
+              );
+              if (!h) return;
+
+              const payload = { type:"AMD_OS_IFRAME_SIZE", height:h };
+
+              // ★GAS多重iframe対策：top と parent の両方へ投げる
+              try{
+                const t = window.top;
+                if (t && t !== window) {
+                  t.postMessage(payload, "*");
+                  try{ t.postMessage(JSON.stringify(payload), "*"); } catch(e){}
+                }
+              } catch(e){}
+
+              try{
+                const p = window.parent;
+                if (p && p !== window) {
+                  p.postMessage(payload, "*");
+                  try{ p.postMessage(JSON.stringify(payload), "*"); } catch(e){}
+                }
+              } catch(e){}
+            } catch(e){}
+          }
+
+          // load直後に複数回（描画が落ち着くまで）
+          window.addEventListener("load", ()=>{
+            setTimeout(sendSize_, 60);
+            setTimeout(sendSize_, 250);
+            setTimeout(sendSize_, 800);
+            setTimeout(sendSize_, 1600);
+          });
+
+          // DOM変化で追従
+          try{
+            const mo = new MutationObserver(()=> setTimeout(sendSize_, 80));
+            mo.observe(document.documentElement, { childList:true, subtree:true, attributes:true });
+          } catch(e){}
+
+          // 念のため最初の数秒だけ定期送信
+          let n = 0;
+          const tm = setInterval(()=>{
+            sendSize_();
+            n++;
+            if (n >= 12) clearInterval(tm);
+          }, 300);
+        })();
+
+        function vpOpenEditor(){
+          const ov = el("vpOverlay");
+          if (ov) ov.style.display = "flex";
+
+          // 初回seed（空なら）
+          try{
+            vpEnsureSeed();
+            if (!VP.milestones || VP.milestones.length === 0){
+              VP.milestones = [{ title:"未知対応（バッファ）", points:20, tag:"buffer" }];
+              vpRenderMilestones();
+            }
+          } catch(e){}
+
+          pingHeight_();
+        }
+
+        function vpCloseEditor(){
+          const ov = el("vpOverlay");
+          if (ov) ov.style.display = "none";
+
+          // 閲覧用サマリを更新
+          try{ vpRenderSummary(); } catch(e){}
+          pingHeight_();
+        }
+
+        // 閲覧用サマリ描画（read-only）
+        function vpRenderSummary(){
+          const start = String(VP.periodStartYm || vpEl("vpPeriodStartYm")?.value || "").trim();
+          const end = String(VP.periodEndYm || vpEl("vpPeriodEndYm")?.value || "").trim();
+          const bud = Number(VP.budgetYen || vpEl("vpBudgetYen")?.value || 0);
+
+          const sStart = el("vpSummaryStartYm"); if (sStart) sStart.textContent = start || "-";
+          const sEnd = el("vpSummaryEndYm"); if (sEnd) sEnd.textContent = end || "-";
+          const sBud = el("vpSummaryBudgetYen"); if (sBud) sBud.textContent = bud ? `¥${bud.toLocaleString()}` : "-";
+
+          const pill = el("vpSummaryStatusPill");
+          if (pill) pill.textContent = String(VP.status || "draft");
+
+          const msArr = Array.isArray(VP.milestones) ? VP.milestones : [];
+
+          const total = msArr.reduce((s, m) => s + Number(m.points || 0), 0);
+          const buffer = msArr.filter(m => /\(buffer\)/i.test(String(m.title||""))).reduce((s, m) => s + Number(m.points || 0), 0);
+          const normal = total - buffer;
+
+          const kT = el("vpSummaryKpiTotal"); if (kT) kT.textContent = `合計: ${total} / 100`;
+          const kB = el("vpSummaryKpiBuffer"); if (kB) kB.textContent = `バッファ: ${buffer}`;
+          const kN = el("vpSummaryKpiNormal"); if (kN) kN.textContent = `通常: ${normal}`;
+
+          const tb = el("vpSummaryTbody");
+          const hint = el("vpSummaryHint");
+          if (!tb) return;
+
+          tb.innerHTML = "";
+          if (!msArr.length){
+            if (hint) hint.style.display = "block";
+            return;
+          }
+          if (hint) hint.style.display = "none";
+
+          msArr.forEach((m, i) => {
+            const tr = document.createElement("tr");
+
+            const tdI = document.createElement("td");
+            tdI.textContent = String(i+1);
+            tr.appendChild(tdI);
+
+            const tdT = document.createElement("td");
+            tdT.textContent = String(m.title || "");
+            tdT.style.whiteSpace = "pre-wrap";
+            tdT.style.lineHeight = "1.35";
+            tr.appendChild(tdT);
+
+            const tdP = document.createElement("td");
+            tdP.textContent = String(Number(m.points || 0));
+            tr.appendChild(tdP);
+
+            tb.appendChild(tr);
+          });
+        }
+
+        // ===== ValuePlan: event delegation (DOMが後でも死なない) =====
+        document.addEventListener("click", (e) => {
+          const t = e.target;
+
+          if (!t) return;
+
+          if (t.id === "btnVpEditOpen") { vpOpenEditor(); return; }
+          if (t.id === "btnVpEditClose") { vpCloseEditor(); return; }
+
+          if (t.id === "btnVpStart") { vpStartWizard(); return; }
+          if (t.id === "btnVpSend") { vpSendUserMessage(); return; }
+          if (t.id === "btnVpSuggest") { vpSuggestPoints(); return; }
+          if (t.id === "btnVpFix") { vpFixPlan(); return; }
+          if (t.id === "btnVpAddMs") { vpAddMilestoneRow(); return; }
+        });
+
+        // Ctrl+Enter送信（vpUserMsgが後から出てもOK）
+        document.addEventListener("keydown", (e) => {
+          const t = e.target;
+          if (!t) return;
+
+          if (t.id === "vpUserMsg") {
+            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+              e.preventDefault();
+              vpSendUserMessage();
+            }
+          }
+        });
+
+
+
+      </script>
+
+      <!-- ===== ValuePlan Editor Modal ===== -->
+      <div id="vpOverlay" class="overlay">
+        <div class="modal vpModal">
+          <div class="mTop">
+            <div class="mTitle">年間価値設計（編集）</div>
+            <button class="x" type="button" onclick="vpCloseEditor()">×</button>
+          </div>
+
+          <div style="margin-top:12px;">
+            <div class="vpHead">
+              <div class="vpMeta">
+                <span class="pill">planCycle</span>
+
+                <label class="small" style="font-weight:900;">開始(yyyymm)</label>
+                <input id="vpPeriodStartYm" type="text" placeholder="例：202604" inputmode="numeric" pattern="\\d{6}" style="width:140px;" />
+
+                <label class="small" style="font-weight:900;">終了(yyyymm)</label>
+                <input id="vpPeriodEndYm" type="text" placeholder="例：202703" inputmode="numeric" pattern="\\d{6}" style="width:140px;" />
+
+                <label class="small" style="font-weight:900;">予算(円)</label>
+                <input id="vpBudgetYen" type="number" placeholder="例：12000000" style="width:180px;" />
+
+                <span id="vpStatusPill" class="pill">draft</span>
+                <span class="vpTiny" id="vpSessionInfo">session: -</span>
+              </div>
+
+              <div class="row">
+                <button class="secondary" id="btnVpStart" type="button">LLM開始</button>
+                <button class="secondary" id="btnVpSuggest" type="button" disabled>配点案を更新</button>
+                <button id="btnVpFix" type="button" disabled>確定（version固定）</button>
+                <button class="secondary" id="btnVpEditClose" type="button">閉じる</button>
+              </div>
+            </div>
+
+            <div class="vpGrid">
+              <div class="vpPanel">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <div class="vpTitle">LLMヒアリング</div>
+                  <div class="vpTiny">Ctrl+Enterで送信</div>
+                </div>
+
+                <div id="vpChat" class="vpChat"></div>
+
+                <div class="vpInputRow">
+                  <textarea id="vpUserMsg" placeholder="ここに回答を書いて送信"></textarea>
+                  <button id="btnVpSend" type="button">送信</button>
+                </div>
+              </div>
+
+              <div class="vpPanel">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <div class="vpTitle">マイルストーン配点（合計100）</div>
+                  <div class="vpTiny">バッファは buffer</div>
+                </div>
+
+                <div class="vpKpiRow">
+                  <span id="vpKpiTotal" class="vpKpi">合計: 0 / 100</span>
+                  <span id="vpKpiBuffer" class="vpKpi">バッファ: 0</span>
+                  <span id="vpKpiNormal" class="vpKpi">通常: 0</span>
+                </div>
+
+                <div style="margin-top:10px; overflow:auto;">
+                  <table class="vpTable">
+                    <colgroup>
+                      <col style="width:34px;">
+                      <col style="width:auto;">
+                      <col style="width:92px;">
+                      <col style="width:64px;">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>title</th>
+                        <th>pts</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="vpMsTbody"></tbody>
+                  </table>
+                </div>
+
+                <div class="row" style="margin-top:10px; justify-content:space-between;">
+                  <div class="vpTiny" id="vpMilestoneHint">LLMが案を作ったらここに出る</div>
+                  <button class="secondary" id="btnVpAddMs" type="button">＋追加</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="row" style="margin-top:14px; justify-content:flex-end;">
+              <button class="secondary" type="button" onclick="vpCloseEditor()">閉じる</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ★modal（alert代替）※scriptの外に置く（ここが重要） -->
+      <div id="overlay" class="overlay">
+        <div class="modal">
+          <div class="mTop">
+            <div class="mTitle" id="mTitle">通知</div>
+            <button class="x" type="button" onclick="closeModal()">×</button>
+          </div>
+          <div class="mBody" id="mBody"></div>
+          <div style="margin-top:14px; text-align:right;">
+            <button class="secondary" type="button" onclick="closeModal()">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+<!-- 248_AdminModal.html -->
+<div id="appModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:9999; align-items:center; justify-content:center;">
+  <div style="width:min(620px, calc(100% - 32px)); background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px;">
+    <div id="appModalTitle" style="font-weight:900; font-size:14px;">確認</div>
+
+    <div id="appModalBody" class="muted" style="margin-top:8px; white-space:normal;"></div>
+
+    <div id="appModalInputWrap" style="display:none; margin-top:10px;">
+      <div class="ctlLabel" id="appModalInputLabel">入力</div>
+      <textarea id="appModalInput" class="ctl" style="width:100%; height:120px; resize:vertical;" placeholder=""></textarea>
+      <div class="small" id="appModalInputHint" style="margin-top:6px;">-</div>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <div class="rowLeft">
+        <button class="btn" id="appModalOk">OK</button>
+        <button class="btn" id="appModalCancel">キャンセル</button>
+      </div>
+    </div>
+  </div>
+</div>

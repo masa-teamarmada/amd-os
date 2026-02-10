@@ -1,0 +1,285 @@
+<!-- Nav.html : global fixed nav (Dashboard link + PJ tabs) -->
+<style>
+  :root{
+    --bg: #f6f7fb;
+    --card: #ffffff;
+    --line: rgba(17,24,39,.10);
+    --line2: rgba(17,24,39,.18);
+    --text: #0f172a;
+    --sub: rgba(15,23,42,.62);
+    --shadow2: 0 2px 10px rgba(15, 23, 42, .06);
+  }
+
+  .amd-nav{
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    backdrop-filter: blur(10px);
+
+    /* ★背景は全幅に塗らない */
+    background: transparent;
+    border-bottom: none;
+  }
+
+  /* ★背景＆下線は inner に持たせる（幅が max-width に収まる） */
+  .amd-nav .inner{
+    background: rgba(255,255,255,.82);
+    border-bottom: 1px solid var(--line);
+    border-radius: 0 0 14px 14px; /* 任意：角を少し丸めるなら */
+  }
+
+  .amd-left{
+    display:flex;
+    gap: 12px;
+    align-items:center;
+    flex-wrap: wrap;
+    min-width: 260px;
+  }
+
+  .amd-brand{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap: wrap;
+  }
+
+  .amd-logo{
+    width: 34px; height: 34px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(17,24,39,.04), rgba(17,24,39,.0));
+    box-shadow: var(--shadow2);
+    display:flex; align-items:center; justify-content:center;
+    font-weight: 950;
+    color: var(--text);
+    user-select:none;
+  }
+
+  .amd-title{
+    display:flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+  .amd-title .t{
+    font-weight: 950;
+    letter-spacing: .02em;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .amd-title .s{
+    font-size: 11px;
+    color: var(--sub);
+    margin-top: 2px;
+    white-space: nowrap;
+  }
+
+  /* dashboard link */
+  .amd-homeLink{
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,.9);
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor:pointer;
+    text-decoration:none;
+    color: var(--text);
+    font-weight: 900;
+    box-shadow: 0 1px 0 rgba(0,0,0,.02);
+    transition: transform .06s ease, border-color .15s ease, background .15s ease;
+    white-space: nowrap;
+  }
+  .amd-homeLink:hover{
+    transform: translateY(-1px);
+    border-color: var(--line2);
+    background:#fff;
+  }
+
+  /* right ctx */
+  .amd-right{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 260px;
+    padding-bottom: 10px;
+  }
+
+  .amd-chip{
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 12px;
+    background: rgba(255,255,255,.9);
+    color: var(--text);
+    box-shadow: 0 1px 0 rgba(0,0,0,.02);
+    white-space: nowrap;
+    font-weight: 900;
+  }
+  .amd-chip.sub{ color: var(--sub); font-weight: 800; }
+
+  .adminLink{
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,.9);
+    border-radius: 999px;
+    padding: 7px 11px;
+    font-size: 13px;
+    cursor:pointer;
+    text-decoration:none;
+    color: var(--text);
+    font-weight: 900;
+    box-shadow: 0 1px 0 rgba(0,0,0,.02);
+    white-space: nowrap;
+  }
+  .adminLink:hover{ border-color: var(--line2); background:#fff; }
+
+  /* ===== tabs (chrome-ish) ===== */
+  .amd-tabsWrap{
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 16px 10px;
+  }
+
+  .amd-tabs{
+    display:flex;
+    gap: 6px;
+    align-items:flex-end;
+    flex-wrap: wrap;
+  }
+
+  .tab{
+    position: relative;
+    display:inline-flex;
+    align-items:center;
+    gap: 8px;
+
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-bottom: none;
+
+    background: rgba(255,255,255,.55);
+    color: var(--sub);
+    font-weight: 950;
+    font-size: 13px;
+    text-decoration:none;
+    cursor:pointer;
+
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+
+    transform: translateY(1px); /* 非アクティブは少し沈む */
+    transition: background .15s ease, border-color .15s ease, transform .08s ease;
+    white-space: nowrap;
+  }
+
+  .tab:hover{
+    background: rgba(255,255,255,.85);
+    border-color: var(--line2);
+  }
+
+  .tab.active{
+    background: #fff;
+    color: var(--text);
+    border-color: var(--line2);
+    transform: translateY(0);
+    box-shadow: 0 -1px 0 rgba(0,0,0,.02);
+  }
+
+  /* active tab っぽい“切り欠き” */
+  .tab.active::after{
+    content:"";
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:-1px;
+    height: 2px;
+    background:#fff;
+  }
+
+  .tab.disabled{
+    opacity:.45;
+    pointer-events:none;
+  }
+</style>
+
+<div class="amd-nav">
+  <div class="inner">
+    <div class="amd-left">
+      <div class="amd-brand">
+        <div class="amd-logo">A</div>
+        <div class="amd-title">
+          <div class="t">AMD OS</div>
+          <div class="s">Navigation from scientific depth to market shores</div>
+        </div>
+      </div>
+
+      <a id="navHome" class="amd-homeLink" href="<?= homeUrl ?>">ダッシュボードに戻る</a>
+
+    </div>
+
+    <div class="amd-right">
+      <span class="amd-chip sub">login: <?= userEmail ? userEmail : '-' ?></span>
+
+      <!-- 立替：全員に見せる想定（権限は後回し方針） -->
+      <a id="navReimburse" class="adminLink" href="<?= reimburseUrl ?>">立替</a>
+
+      <? if (canAccessAdmin) { ?>
+        <a id="navAdmin" class="adminLink" href="<?= adminUrl ?>">Admin</a>
+      <? } ?>
+
+      <!-- 設定：常に右端（Adminの右） -->
+      <a id="navSettings" class="adminLink" href="<?= settingsUrl ?>">設定</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    var page = "<?= currentPage ?>";
+
+    function normPage(x){
+      return (x || "").toLowerCase().trim();
+    }
+
+    function addActive(id){
+      var el = document.getElementById(id);
+      if (el) el.classList.add("active");
+    }
+
+    function hideHomeLinkIfOnDashboard(){
+      var home = document.getElementById("navHome");
+      if (!home) return;
+
+      var p = normPage(page);
+      var isDashboard = (p === "" || p === "home" || p === "dashboard" || p === "index");
+      if (isDashboard) home.style.display = "none";
+    }
+
+    // ★Navの実高さをCSS変数へ（PJヘッダの sticky top に使う）
+    function setNavHeightVar(){
+      var nav = document.querySelector(".amd-nav");
+      if (!nav) return;
+
+      var h = nav.offsetHeight || 0;
+      if (!h) return;
+
+      document.documentElement.style.setProperty("--amdNavH", h + "px");
+    }
+
+    var p = normPage(page);
+
+    if (p === "admin") addActive("navAdmin");
+    if (p === "settings") addActive("navSettings");
+    if (p === "reimburse" || p === "expense" || p === "expenses") addActive("navReimburse");
+
+    hideHomeLinkIfOnDashboard();
+
+    // 初回 + リサイズで再計測（フォント/折返しで高さ変わる対策）
+    if (document.readyState === "loading"){
+      document.addEventListener("DOMContentLoaded", setNavHeightVar);
+    } else {
+      setNavHeightVar();
+    }
+    window.addEventListener("resize", setNavHeightVar);
+  })();
+</script>

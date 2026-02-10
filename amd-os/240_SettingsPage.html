@@ -1,0 +1,359 @@
+<!-- SettingsPage.html -->
+<!doctype html>
+<html>
+  <head>
+    <base target="_top" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root{
+        --bg:#f6f7fb;
+        --card:#ffffff;
+        --line: rgba(17,24,39,.10);
+        --line2: rgba(17,24,39,.18);
+        --text:#0f172a;
+        --sub: rgba(15,23,42,.62);
+        --shadow2: 0 2px 10px rgba(15, 23, 42, .06);
+        --ok:#16a34a;
+        --ng:#dc2626;
+      }
+
+      body{
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        margin:0;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .wrap{
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 16px 16px 40px;
+      }
+
+      .pageTitle{
+        margin: 10px 0 0;
+        font-size: 20px;
+        font-weight: 950;
+        letter-spacing: .02em;
+      }
+      .muted{
+        margin: 6px 0 0;
+        font-size: 12px;
+        color: var(--sub);
+      }
+
+      .card{
+        margin-top: 14px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px;
+        box-shadow: var(--shadow2);
+      }
+
+      .row{
+        display:flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: space-between;
+      }
+
+      .kv{
+        display:flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 260px;
+      }
+      .k{ font-size: 11px; color: var(--sub); font-weight: 800; }
+      .v{ font-size: 13px; font-weight: 900; }
+
+      .sectionTitle{
+        margin: 0 0 10px;
+        font-size: 13px;
+        font-weight: 950;
+      }
+
+      .radioGroup{
+        display:flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .radioItem{
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: rgba(255,255,255,.9);
+        display:flex;
+        gap: 10px;
+        align-items:center;
+        cursor: pointer;
+        user-select:none;
+        transition: border-color .15s ease, transform .06s ease, background .15s ease;
+      }
+      .radioItem:hover{
+        border-color: var(--line2);
+        background:#fff;
+        transform: translateY(-1px);
+      }
+      .radioItem input{ transform: scale(1.05); }
+
+      .hint{
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--sub);
+        line-height: 1.5;
+      }
+
+      .actions{
+        margin-top: 12px;
+        display:flex;
+        gap: 10px;
+        align-items:center;
+        justify-content: flex-end;
+      }
+
+      .btn{
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.92);
+        border-radius: 999px;
+        padding: 10px 14px;
+        font-size: 13px;
+        cursor:pointer;
+        color: var(--text);
+        font-weight: 950;
+        box-shadow: 0 1px 0 rgba(0,0,0,.02);
+        transition: transform .06s ease, border-color .15s ease, background .15s ease;
+        white-space: nowrap;
+      }
+      .btn:hover{
+        transform: translateY(-1px);
+        border-color: var(--line2);
+        background:#fff;
+      }
+      .btn.primary{
+        border-color: rgba(79,70,229,.25);
+      }
+
+      .toast{
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        z-index: 9999;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.95);
+        box-shadow: var(--shadow2);
+        font-size: 13px;
+        font-weight: 900;
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity .15s ease, transform .15s ease;
+        pointer-events:none;
+      }
+      .toast.show{ opacity: 1; transform: translateY(0); }
+      .toast.ok{ border-color: rgba(22,163,74,.25); }
+      .toast.ng{ border-color: rgba(220,38,38,.25); }
+
+      .miniTag{
+        display:inline-flex;
+        align-items:center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.85);
+        font-size: 12px;
+        font-weight: 900;
+      }
+      .miniTag.off{ opacity: .55; }
+    </style>
+  </head>
+
+  <body>
+    <!-- Nav（Routerが注入済み） -->
+    <?!= navHtml ?>
+
+    <div class="wrap">
+      <div class="pageTitle">設定</div>
+      <div class="muted">通知先（Gmail / Slack）を選べるよ</div>
+
+      <div class="card">
+        <div class="row">
+          <div class="kv">
+            <div class="k">login</div>
+            <div class="v" id="vEmail"><?= userEmail ? userEmail : '-' ?></div>
+          </div>
+
+          <div class="kv">
+            <div class="k">Slack</div>
+            <div class="v">
+              <span id="slackTag" class="miniTag off">未連携</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="sectionTitle">通知先</div>
+
+        <div class="radioGroup" id="channelGroup">
+          <label class="radioItem">
+            <input type="radio" name="notifyChannel" value="gmail" checked />
+            <div>
+              <div style="font-weight:950;">Gmail</div>
+              <div style="font-size:12px;color:var(--sub);margin-top:2px;">確実。まずはこれ</div>
+            </div>
+          </label>
+
+          <label class="radioItem">
+            <input type="radio" name="notifyChannel" value="slack" />
+            <div>
+              <div style="font-weight:950;">Slack</div>
+              <div style="font-size:12px;color:var(--sub);margin-top:2px;">slackIdある人だけ</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="hint" id="hint"></div>
+
+        <div class="actions">
+          <button class="btn" id="btnReload">読み直し</button>
+          <button class="btn primary" id="btnSave">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast">saved</div>
+
+    <script>
+      (function(){
+        var state = {
+          googleId: "",
+          slackId: "",
+          notifyChannel: "gmail"
+        };
+
+        function $(id){ return document.getElementById(id); }
+
+        function toast(msg, ok){
+          var t = $("toast");
+          t.textContent = msg || "";
+          t.classList.remove("ok","ng","show");
+          t.classList.add(ok ? "ok" : "ng");
+          t.classList.add("show");
+          setTimeout(function(){ t.classList.remove("show"); }, 1600);
+        }
+
+        function getSelectedChannel(){
+          var els = document.querySelectorAll('input[name="notifyChannel"]');
+          for (var i=0;i<els.length;i++){
+            if (els[i].checked) return (els[i].value || "gmail");
+          }
+          return "gmail";
+        }
+
+        function setSelectedChannel(v){
+          v = (v || "gmail").toLowerCase().trim();
+          var els = document.querySelectorAll('input[name="notifyChannel"]');
+          for (var i=0;i<els.length;i++){
+            els[i].checked = (els[i].value === v);
+          }
+        }
+
+        function render(){
+          var tag = $("slackTag");
+          if (state.slackId){
+            tag.textContent = "連携済み: " + state.slackId;
+            tag.classList.remove("off");
+          } else {
+            tag.textContent = "未連携";
+            tag.classList.add("off");
+          }
+
+          var h = $("hint");
+          var ch = getSelectedChannel();
+
+          if (ch === "slack" && !state.slackId){
+            h.textContent = "Slackを選んだけど slackId が無い。通知は実運用ではGmailにフォールバックする想定。Slack通知したいなら slackId を入れてね（Admin側で更新する想定）。";
+          } else if (ch === "slack"){
+            h.textContent = "Slack通知にする。爆速だけど、たまに取りこぼしが怖い通知はGmailのままでもいいよ。";
+          } else {
+            h.textContent = "Gmail通知にする。いちばん確実。";
+          }
+        }
+
+        function lockUi(locked){
+          $("btnSave").disabled = !!locked;
+          $("btnReload").disabled = !!locked;
+        }
+
+        function load(){
+          lockUi(true);
+          google.script.run
+            .withSuccessHandler(function(res){
+              lockUi(false);
+
+              if (!res || !res.ok){
+                toast("load failed: " + ((res && res.message) ? res.message : "unknown"), false);
+                return;
+              }
+
+              state.googleId = (res.settings && res.settings.googleId) ? res.settings.googleId : "";
+              state.slackId = (res.settings && res.settings.slackId) ? res.settings.slackId : "";
+              state.notifyChannel = (res.settings && res.settings.notifyChannel) ? res.settings.notifyChannel : "gmail";
+
+              setSelectedChannel(state.notifyChannel);
+              render();
+            })
+            .withFailureHandler(function(err){
+              lockUi(false);
+              toast("load failed: " + err, false);
+            })
+            .api_getMySettings({});
+        }
+
+        function save(){
+          var ch = getSelectedChannel();
+          lockUi(true);
+
+          google.script.run
+            .withSuccessHandler(function(res){
+              lockUi(false);
+
+              if (!res || !res.ok){
+                toast("save failed: " + ((res && res.message) ? res.message : "unknown"), false);
+                return;
+              }
+
+              state.googleId = (res.settings && res.settings.googleId) ? res.settings.googleId : state.googleId;
+              state.slackId = (res.settings && res.settings.slackId) ? res.settings.slackId : state.slackId;
+              state.notifyChannel = (res.settings && res.settings.notifyChannel) ? res.settings.notifyChannel : ch;
+
+              setSelectedChannel(state.notifyChannel);
+              render();
+              toast("保存した", true);
+            })
+            .withFailureHandler(function(err){
+              lockUi(false);
+              toast("save failed: " + err, false);
+            })
+            .api_saveMySettings({ notifyChannel: ch });
+        }
+
+        // events
+        $("btnReload").addEventListener("click", load);
+        $("btnSave").addEventListener("click", save);
+
+        var group = $("channelGroup");
+        group.addEventListener("change", function(){ render(); });
+
+        // init
+        load();
+      })();
+    </script>
+  </body>
+</html>
