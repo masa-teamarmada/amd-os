@@ -74,7 +74,8 @@ function doGet(e) {
       return denyHtml_("アクセス不可", "このPJにアクセスする権限がないよ。");
     }
 
-    const t = HtmlService.createTemplateFromFile("InvoicePdfUploadPage");
+    // Phase 2: InvoicePdfUploadPage → 942_InvoicePdfUploadPage にリネーム
+    const t = HtmlService.createTemplateFromFile("942_InvoicePdfUploadPage");
     t.projectId = String(projectId || "");
     t.ym = String(ym || "");
     t.freeeInvoiceId = String(freeeInvoiceId || "");
@@ -157,7 +158,8 @@ function doGet(e) {
   // ★navigator 候補（番号付きにも対応）
   const NAVIGATOR_CANDIDATES = ["NavigatorPage", "navigatorpage", "navigator", "230_NavigatorPage", "230_NavigatorPage.html"];
 
-  const BILLING_CANDIDATES = ["BillingPage", "BillingPage.html", "billingpage", "billing"];
+  // Phase 2: BillingPage → 941_BillingPage にリネーム（段階的退避）
+  const BILLING_CANDIDATES = ["941_BillingPage", "BillingPage", "BillingPage.html", "billingpage", "billing"];
 
   // ★timeline 候補（番号付きにも対応）
   const TIMELINE_CANDIDATES = ["222_TimelinePage", "222_TimelinePage.html", "TimelinePage", "timelinepage", "timeline"];
@@ -179,8 +181,8 @@ function doGet(e) {
     fileName = (findFirstExistingHtml_(NAVIGATOR_CANDIDATES) || "NavigatorPage");
 
   } else if (page === "billing") {
-    // ★billingは正本固定
-    fileName = "BillingPage";
+    // Phase 2: billing正本を941_BillingPageに移行（レガシー互換あり）
+    fileName = (findFirstExistingHtml_(BILLING_CANDIDATES) || "941_BillingPage");
 
   } else if (page === "timeline") {
     // ★timeline は 222 を正本

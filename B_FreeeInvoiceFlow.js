@@ -1695,3 +1695,193 @@ function api_admin_requestInvoiceRollback(projectId, ym, payload){
 
   return { ok:true, updatedAt: nowIso };
 }
+
+/** ====== Slack ボタン用パイプライン（Phase 2） ====== */
+
+/**
+ * Slackボタン「請求書を発行する」から呼ばれるワンショットパイプライン。
+ * billingDate=今日、paymentDate=paymentDueRuleから自動計算 で api_issueInvoiceFreee に委譲する。
+ *
+ * @param {string} projectId
+ * @param {string} ym YYYYMM
+ * @return {Object} api_issueInvoiceFreee の返り値（{ ok, freeeInvoiceId, freeeInvoiceNumber, ... }）
+ */
+function b_freeeInvoicePipeline_(projectId, ym) {
+  projectId = String(projectId || "").trim();
+  ym = b_normYm_(ym);
+  if (!projectId) throw new Error("b_freeeInvoicePipeline_: projectId empty");
+  if (!ym) throw new Error("b_freeeInvoicePipeline_: ym empty");
+
+  // 請求日 = 今日（JST）
+  const today = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd");
+
+  // 支払期日 = paymentDueRule から計算
+  const recipients = b_getInvoiceRecipients_(projectId);
+  const rule = String(recipients.paymentDueRule || "").trim();
+  const paymentDate = b_calcPaymentDate_(today, rule);
+
+  // ドラフトに保存済みのテンプレ / 文言があれば拾う
+  const cur = b_getCycleOne_(projectId, ym) || {};
+  const templateId = String(cur.freeeInvoiceTemplateId || "").trim();
+
+  const payload = {
+    issueDate: today,
+    dueDate: paymentDate,
+    templateId: templateId,
+    invoiceSubject: String(cur.invoiceSubject || "").trim(),
+    invoiceBaseLineDesc: String(cur.invoiceBaseLineDesc || "").trim(),
+    invoiceReimbPrefix: String(cur.invoiceReimbPrefix || "").trim(),
+    invoiceRemark: String(cur.invoiceRemark || "").trim(),
+  };
+
+  // 基本行JSON が保存済みなら復元
+  try {
+    const raw = String(cur.invoiceBaseLinesJson || "").trim();
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length) payload.invoiceBaseLines = arr;
+    }
+  } catch (_e) {}
+
+  // 調整行JSON が保存済みなら復元
+  try {
+    const raw = String(cur.invoiceCustomLinesJson || "").trim();
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length) payload.lines = arr;
+    }
+  } catch (_e) {}
+
+  return api_issueInvoiceFreee(projectId, ym, payload);
+}
+
+/**
+ * paymentDueRule + issueDate(yyyy-MM-dd) から支払期日を算出する。
+ * ルール未設定やパース不能時は翌月末にフォールバック。
+ */
+function b_calcPaymentDate_(issueDate, rule) {
+  const d = new Date(issueDate + "T00:00:00+09:00");
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1; // 1-12
+
+  if (rule === "issue_month_25") {
+    return b_fmtDate_(y, m, 25);
+  }
+  if (rule === "issue_month_eom") {
+    return b_fmtDateEom_(y, m);
+  }
+  if (rule === "next_month_25") {
+    const n = b_addMonthRaw_(y, m, 1);
+    return b_fmtDate_(n.y, n.m, 25);
+  }
+  if (rule === "next_month_eom") {
+    const n = b_addMonthRaw_(y, m, 1);
+    return b_fmtDateEom_(n.y, n.m);
+  }
+
+  // EOM系フォールバック（183のルールと互換）
+  const mEom = String(rule).match(/^EOM(?:\+(\d+))?$/i);
+  if (mEom) {
+    const add = Number(mEom[1] || 0);
+    const n = b_addMonthRaw_(y, m, add);
+    return b_fmtDateEom_(n.y, n.m);
+  }
+
+  // Dxx系
+  const mDx = String(rule).match(/^D(\d{1,2})(?:\+(\d+))?$/i);
+  if (mDx) {
+    const day = Number(mDx[1]);
+    const add = Number(mDx[2] || 0);
+    const n = b_addMonthRaw_(y, m, add);
+    return b_fmtDate_(n.y, n.m, day);
+  }
+
+  // デフォルト: 翌月末
+  const nx = b_addMonthRaw_(y, m, 1);
+  return b_fmtDateEom_(nx.y, nx.m);
+}
+
+function b_addMonthRaw_(y, m, delta) {
+  const d = new Date(y, m - 1 + delta, 1);
+  return { y: d.getFullYear(), m: d.getMonth() + 1 };
+}
+function b_fmtDateEom_(y, m) {
+  const last = new Date(y, m, 0).getDate();
+  return b_fmtDate_(y, m, last);
+}
+function b_fmtDate_(y, m, day) {
+  const eom = new Date(y, m, 0).getDate();
+  const dd = Math.min(Math.max(1, day), eom);
+  return `${y}-${String(m).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+}
+
+/**
+ * Slackボタン「取消する」から呼ばれる請求書取消。
+ * admin限定。BillingCycleの発行情報をリセットする（freee側の削除はしない）。
+ *
+ * @param {string} projectId
+ * @param {string} ym YYYYMM
+ * @param {string} freeeInvoiceId
+ * @return {Object} { ok: true }
+ */
+function b_freeeCancelInvoice_(projectId, ym, freeeInvoiceId) {
+  projectId = String(projectId || "").trim();
+  ym = b_normYm_(ym);
+  freeeInvoiceId = String(freeeInvoiceId || "").trim();
+
+  if (!projectId) throw new Error("b_freeeCancelInvoice_: projectId empty");
+  if (!ym) throw new Error("b_freeeCancelInvoice_: ym empty");
+
+  // admin only
+  if (!isAdmin_()) throw new Error("b_freeeCancelInvoice_: admin only");
+
+  b_ensureBillingCycleHeader_();
+
+  const nowIso = b_nowIso_();
+  const me = (Session.getActiveUser().getEmail() || "").trim().toLowerCase();
+  const cur = b_getCycleOne_(projectId, ym) || {};
+  const cycleId = `${projectId}_${ym}`;
+
+  // 発行周りをリセット（ドラフト情報は残す）
+  b_upsertRow_("DB_BillingCycle", ["projectId", "ym"], {
+    ...cur,
+    cycleId,
+    projectId,
+    ym,
+
+    invoiceIssuedAt: "",
+    invoiceIssuedBy: "",
+    invoicePdfUrl: "",
+    invoicePdfFileId: "",
+    freeeInvoiceId: "",
+    freeeInvoiceNumber: "",
+
+    invoiceReviewedAt: "",
+    invoiceReviewedBy: "",
+    invoiceSentAt: "",
+    invoiceSentBy: "",
+
+    updatedAt: nowIso,
+  });
+
+  // ログ
+  b_appendBillingLog_({
+    actionType: "INVOICE_CANCEL_SLACK",
+    target: "invoice",
+    projectId,
+    ym,
+    cycleId,
+    beforeValue: JSON.stringify({
+      freeeInvoiceId: String(cur.freeeInvoiceId || ""),
+      freeeInvoiceNumber: String(cur.freeeInvoiceNumber || ""),
+      invoicePdfUrl: String(cur.invoicePdfUrl || ""),
+    }),
+    afterValue: JSON.stringify({ cancelledFreeeInvoiceId: freeeInvoiceId }),
+    reason: "slack_cancel_invoice",
+    operatorUserId: me,
+    operatorName: me,
+    createdAt: nowIso,
+  });
+
+  return { ok: true };
+}

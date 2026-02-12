@@ -582,3 +582,140 @@ function cpReadSheetAsTable_(ss, sheetName) {
   }
   return out;
 }
+
+/** ====== Phase 2: 配賦サマリ + 確定ボタン ====== */
+
+/**
+ * コックピット用：配賦サマリ取得
+ * memberAllocationsJson を展開し、メンバー名を解決して返す。
+ * @param {Object} payload { projectId, ym }
+ * @return {Object} { ok, budgetTotal, allocations[], confirmed, confirmedAt, confirmedBy }
+ */
+function cockpit_api_getAllocationSummary(payload) {
+  payload = payload || {};
+  var projectId = String(payload.projectId || "").trim();
+  var ym = String(payload.ym || "").trim();
+  if (!projectId || !ym) return { ok: false, message: "projectId/ym required" };
+
+  if (!canAccessProject_(projectId)) return { ok: false, message: "access denied" };
+
+  b_ensureBillingCycleHeader_();
+  var cycle = b_getCycleOne_(projectId, ym) || {};
+
+  var budgetTotal = Number(cycle.budgetTotal || cycle.budgetYen || 0);
+  var allocJson = b_safeJsonParse_(cycle.memberAllocationsJson, {});
+  var confirmedAt = String(cycle.allocationConfirmedAt || "").trim();
+  var confirmedBy = String(cycle.allocationConfirmedBy || "").trim();
+
+  // メンバーマスタからコードネーム解決
+  var members = b_indexBy_(b_readTable_("DB_Members"), "memberId");
+
+  var allocations = [];
+  var allocTotal = 0;
+  var memberIds = Object.keys(allocJson);
+  for (var i = 0; i < memberIds.length; i++) {
+    var mid = memberIds[i];
+    var amount = Number(allocJson[mid] || 0);
+    var memberRow = members[mid] || {};
+    allocations.push({
+      memberId: mid,
+      memberName: String(memberRow.codeName || memberRow.name || mid),
+      amount: amount,
+    });
+    allocTotal += amount;
+  }
+
+  return {
+    ok: true,
+    budgetTotal: budgetTotal,
+    allocTotal: allocTotal,
+    allocations: allocations,
+    confirmed: !!confirmedAt,
+    confirmedAt: confirmedAt,
+    confirmedBy: confirmedBy,
+  };
+}
+
+/**
+ * コックピットからの配賦確定
+ * @param {Object} payload { projectId, ym }
+ * @return {Object} { ok }
+ */
+function cockpit_api_confirmAllocation(payload) {
+  payload = payload || {};
+  var projectId = String(payload.projectId || "").trim();
+  var ym = String(payload.ym || "").trim();
+  if (!projectId || !ym) return { ok: false, message: "projectId/ym required" };
+
+  if (!canAccessProject_(projectId)) return { ok: false, message: "access denied" };
+
+  b_ensureBillingCycleHeader_();
+  var cur = b_getCycleOne_(projectId, ym) || {};
+
+  // 既に確定済みなら何もしない
+  if (String(cur.allocationConfirmedAt || "").trim()) {
+    return { ok: true, alreadyConfirmed: true };
+  }
+
+  // memberAllocationsJson が空なら確定できない
+  var allocJson = b_safeJsonParse_(cur.memberAllocationsJson, null);
+  if (!allocJson || Object.keys(allocJson).length === 0) {
+    return { ok: false, message: "配賦データが未設定。Timelineから設定してね。" };
+  }
+
+  var nowIso = b_nowIso_();
+  var me = Session.getActiveUser().getEmail();
+  var cycleId = projectId + "_" + ym;
+
+  b_upsertRow_("DB_BillingCycle", ["projectId", "ym"], {
+    cycleId: cycleId,
+    projectId: projectId,
+    ym: ym,
+    projectName: String(cur.projectName || ""),
+
+    budgetTotal: (cur.budgetTotal !== undefined ? cur.budgetTotal : (cur.budgetYen !== undefined ? cur.budgetYen : "")),
+    budgetConfirmedAt: String(cur.budgetConfirmedAt || "") || nowIso,
+    budgetConfirmedBy: String(cur.budgetConfirmedBy || "") || me,
+
+    memberAllocationsJson: String(cur.memberAllocationsJson || ""),
+    allocationConfirmedAt: nowIso,
+    allocationConfirmedBy: me,
+
+    status: String(cur.status || "draft"),
+    note: String(cur.note || ""),
+
+    monthlyReportFileId: String(cur.monthlyReportFileId || ""),
+    monthlyReportUrl: String(cur.monthlyReportUrl || ""),
+    meetingEventId: String(cur.meetingEventId || ""),
+    meetingStartAt: String(cur.meetingStartAt || ""),
+    meetingEndAt: String(cur.meetingEndAt || ""),
+    meetingHtmlLink: String(cur.meetingHtmlLink || ""),
+    fixedTotalYen: Number(cur.fixedTotalYen || 0),
+    invoiceIssuedAt: String(cur.invoiceIssuedAt || ""),
+    invoiceIssuedBy: String(cur.invoiceIssuedBy || ""),
+    invoicePdfUrl: String(cur.invoicePdfUrl || ""),
+    invoiceSentAt: String(cur.invoiceSentAt || ""),
+    invoiceSentBy: String(cur.invoiceSentBy || ""),
+    paymentConfirmedAt: String(cur.paymentConfirmedAt || ""),
+    paymentConfirmedBy: String(cur.paymentConfirmedBy || ""),
+    paymentNote: String(cur.paymentNote || ""),
+    createdAt: String(cur.createdAt || "") || nowIso,
+    updatedAt: nowIso,
+  });
+
+  b_appendBillingLog_({
+    actionType: "ALLOC_CONFIRM_COCKPIT",
+    target: "allocation",
+    projectId: projectId,
+    ym: ym,
+    cycleId: cycleId,
+    beforeValue: JSON.stringify({ allocationConfirmedAt: "", memberAllocationsJson: String(cur.memberAllocationsJson || "") }),
+    afterValue: JSON.stringify({ allocationConfirmedAt: nowIso, allocationConfirmedBy: me }),
+    reason: "cockpit_confirm_allocation",
+    operatorUserId: me,
+    operatorName: me,
+    createdAt: nowIso,
+  });
+
+  return { ok: true };
+}
