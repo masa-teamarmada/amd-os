@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>月次報告書管理システム</title>
+  
+  <!-- Marked.js for Markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+      background: #f5f7fa;
+      color: #2c3e50;
+      line-height: 1.6;
+    }
+    
+    .container {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    
+    /* サイドバー */
+    .sidebar {
+      width: 300px;
+      background: #2c3e50;
+      color: white;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    
+    .sidebar-header {
+      padding: 20px;
+      background: #1a252f;
+      border-bottom: 1px solid #34495e;
+    }
+    
+    .sidebar-header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+    
+    .sidebar-header p {
+      font-size: 12px;
+      color: #95a5a6;
+    }
+    
+    .project-list {
+      padding: 10px;
+    }
+    
+    .project-item {
+      padding: 12px 15px;
+      margin: 5px 0;
+      background: #34495e;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .project-item:hover {
+      background: #3d566e;
+      transform: translateX(5px);
+    }
+    
+    .project-item.active {
+      background: #3498db;
+      box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+    }
+    
+    .project-name {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 3px;
+    }
+    
+    .project-client {
+      font-size: 12px;
+      color: #bdc3c7;
+    }
+    
+    /* メインコンテンツ */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 30px;
+    }
+    
+    .main-header {
+      margin-bottom: 30px;
+    }
+    
+    .main-header h2 {
+      font-size: 28px;
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+    
+    .main-header .subtitle {
+      font-size: 14px;
+      color: #7f8c8d;
+    }
+    
+    /* 報告書グリッド */
+    .reports-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    
+    .report-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: all 0.3s;
+      border: 2px solid transparent;
+    }
+    
+    .report-card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      transform: translateY(-2px);
+    }
+    
+    .report-card.has-content {
+      border-color: #3498db;
+    }
+    
+    .report-ym {
+      font-size: 20px;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+    
+    .report-status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 15px;
+    }
+    
+    .status-draft {
+      background: #f39c12;
+      color: white;
+    }
+    
+    .status-approved {
+      background: #27ae60;
+      color: white;
+    }
+    
+    .status-submitted {
+      background: #8e44ad;
+      color: white;
+    }
+    
+    .status-none {
+      background: #95a5a6;
+      color: white;
+    }
+    
+    .report-dates {
+      font-size: 11px;
+      color: #7f8c8d;
+      margin-bottom: 15px;
+      line-height: 1.8;
+    }
+    
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      margin-top: 5px;
+    }
+    
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .btn-primary {
+      background: #3498db;
+      color: white;
+    }
+    
+    .btn-success {
+      background: #27ae60;
+      color: white;
+    }
+    
+    .btn-secondary {
+      background: #95a5a6;
+      color: white;
+    }
+    
+    .btn-outline {
+      background: white;
+      color: #3498db;
+      border: 2px solid #3498db;
+    }
+    
+    /* モーダル */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      overflow-y: auto;
+    }
+    
+    .modal.active {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 16px;
+      max-width: 900px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    
+    .modal-header {
+      padding: 25px 30px;
+      border-bottom: 1px solid #ecf0f1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 10;
+    }
+    
+    .modal-header h3 {
+      font-size: 22px;
+      color: #2c3e50;
+    }
+    
+    .modal-close {
+      font-size: 28px;
+      color: #95a5a6;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: all 0.2s;
+    }
+    
+    .modal-close:hover {
+      background: #ecf0f1;
+      color: #2c3e50;
+    }
+    
+    .modal-body {
+      padding: 30px;
+    }
+    
+    .modal-footer {
+      padding: 20px 30px;
+      border-top: 1px solid #ecf0f1;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      position: sticky;
+      bottom: 0;
+      background: white;
+    }
+    
+    .modal-footer .btn {
+      width: auto;
+      min-width: 120px;
+    }
+    
+    /* Markdown表示 */
+    .markdown-content {
+      line-height: 1.8;
+    }
+    
+    .markdown-content h1,
+    .markdown-content h2,
+    .markdown-content h3 {
+      margin-top: 24px;
+      margin-bottom: 12px;
+      color: #2c3e50;
+    }
+    
+    .markdown-content h1 {
+      font-size: 28px;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 8px;
+    }
+    
+    .markdown-content h2 {
+      font-size: 24px;
+      border-bottom: 1px solid #ecf0f1;
+      padding-bottom: 6px;
+    }
+    
+    .markdown-content h3 {
+      font-size: 20px;
+    }
+    
+    .markdown-content p {
+      margin-bottom: 12px;
+    }
+    
+    .markdown-content ul,
+    .markdown-content ol {
+      margin-left: 20px;
+      margin-bottom: 12px;
+    }
+    
+    .markdown-content code {
+      background: #f8f9fa;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+    }
+    
+    .markdown-content pre {
+      background: #2c3e50;
+      color: white;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 15px 0;
+    }
+    
+    .markdown-content pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+    
+    .report-section {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 16px;
+      border-left: 4px solid #3498db;
+    }
+    
+    .report-section:nth-child(even) {
+      border-left-color: #27ae60;
+    }
+    
+    .report-section:nth-child(3n) {
+      border-left-color: #e67e22;
+    }
+    
+    .report-section h2 {
+      margin-top: 0;
+      color: #2c3e50;
+      font-size: 20px;
+    }
+
+    
+    
+    /* ローディング */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #95a5a6;
+    }
+    
+    .loading-spinner {
+      border: 4px solid #ecf0f1;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #95a5a6;
+    }
+    
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 15px;
+    }
+    
+    /* トースト通知 */
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #2c3e50;
+      color: white;
+      padding: 15px 25px;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      z-index: 2000;
+      animation: slideIn 0.3s ease-out;
+    }
+    
+    .toast.success {
+      background: #27ae60;
+    }
+    
+    .toast.error {
+      background: #e74c3c;
+    }
+    
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    
+    /* レスポンシブ */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      
+      .sidebar {
+        width: 100%;
+        max-height: 200px;
+      }
+      
+      .reports-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <?!= navHtml ?>
+  <div class="container">
+    <!-- サイドバー -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h1>📊 月次報告書</h1>
+        <p>プロジェクト管理システム</p>
+      </div>
+      <div style="padding:10px 15px 0; display:flex; align-items:center; gap:8px;">
+        <label style="font-size:12px; color:#bdc3c7; display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="checkbox" id="showAllProjects" onchange="loadProjects()" />
+          <span>終了・凍結PJも表示</span>
+        </label>
+      </div>
+      <div class="project-list" id="projectList">
+                <div class="loading">
+          <div class="loading-spinner"></div>
+          <p>プロジェクト読込中...</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- メインコンテンツ -->
+    <div class="main-content">
+      <div class="main-header">
+        <h2 id="mainTitle">プロジェクトを選択してください</h2>
+        <p class="subtitle" id="mainSubtitle"></p>
+      </div>
+      
+      <div class="reports-grid" id="reportsGrid">
+        <div class="empty-state">
+          <div class="empty-state-icon">📁</div>
+          <p>左のリストからプロジェクトを選択してください</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 報告書詳細モーダル -->
+  <div class="modal" id="reportModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">月次報告書</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="modalContent" class="markdown-content"></div>
+      </div>
+      <div id="fixSection" style="display:none; padding:20px 30px; border-top:1px solid #ecf0f1; background:#fafbfc;">
+        <div style="margin-bottom:10px; font-weight:600; color:#2c3e50;">✏️ 修正指示</div>
+        <textarea id="fixFeedback" style="width:100%; min-height:80px; padding:12px; border:2px solid #dce1e6; border-radius:8px; font-size:14px; font-family:inherit; line-height:1.6; resize:vertical;"
+          placeholder="例）エグゼクティブサマリーをもっと簡潔に / 3番目の進捗に○○の成果も追加して / 全体的にクライアント向けのトーンに寄せて"></textarea>
+        <div style="margin-top:10px; display:flex; gap:10px; align-items:center; justify-content:flex-end;">
+          <span id="fixStatus" style="font-size:12px; color:#7f8c8d;"></span>
+          <button class="btn btn-primary" onclick="executeFixReport()" id="fixBtn" style="width:auto; min-width:140px;">🔧 修正実行</button>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
+        <button class="btn btn-success" id="approveBtn" onclick="approveReport()" style="display:none;">承認</button>
+        <button class="btn btn-primary" id="submitBtn" onclick="submitReport()" style="display:none;">提出</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let currentProject = null;
+    let currentReportId = null;
+    let allProjects = [];
+    let allReports = [];
+    
+    // 初期化
+    window.onload = function() {
+      loadProjects();
+    };
+    
+    // プロジェクト一覧を読み込み
+    function loadProjects() {
+      var includeAll = !!(document.getElementById('showAllProjects') && document.getElementById('showAllProjects').checked);
+      google.script.run
+        .withSuccessHandler(function(projects) {
+          allProjects = projects;
+          renderProjects(projects);
+        })
+        .withFailureHandler(function(error) {
+          showToast('プロジェクト読込エラー: ' + error.message, 'error');
+          document.getElementById('projectList').innerHTML = 
+            '<div class="empty-state"><p>エラーが発生しました</p></div>';
+        })
+        .mrweb_getProjects({ includeAll: includeAll });
+    }
+    
+    // プロジェクト一覧を描画
+    function renderProjects(projects) {
+      const list = document.getElementById('projectList');
+      
+      if (projects.length === 0) {
+        list.innerHTML = '<div class="empty-state"><p>プロジェクトがありません</p></div>';
+        return;
+      }
+      
+      list.innerHTML = projects.map(function(p) {
+        var statusBadge = '';
+        var st = String(p.status || '').trim().toLowerCase();
+        if (st && st !== 'active') {
+          statusBadge = '<span style="font-size:10px; background:#95a5a6; color:#fff; padding:2px 6px; border-radius:10px; margin-left:6px;">' + escapeHtml(st) + '</span>';
+        }
+        return '<div class="project-item" onclick="selectProject(\'' + p.projectId + '\')">'
+          + '<div class="project-name">' + escapeHtml(p.projectName || p.projectId) + statusBadge + '</div>'
+          + '<div class="project-client">' + escapeHtml(p.clientName || '-') + '</div>'
+          + '</div>';
+      }).join('');
+    }
+    
+    // プロジェクトを選択
+    function selectProject(projectId) {
+      currentProject = allProjects.find(p => p.projectId === projectId);
+      
+      if (!currentProject) return;
+      
+      // アクティブ状態を更新
+      document.querySelectorAll('.project-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      event.target.closest('.project-item').classList.add('active');
+      
+      // ヘッダーを更新
+      document.getElementById('mainTitle').textContent = currentProject.projectName || currentProject.projectId;
+      document.getElementById('mainSubtitle').textContent = 
+        `クライアント: ${currentProject.clientName || '-'} | ID: ${currentProject.projectId}`;
+      
+      // 報告書一覧を読み込み
+      loadReports(projectId);
+    }
+    
+    // 報告書一覧を読み込み
+    function loadReports(projectId) {
+      const grid = document.getElementById('reportsGrid');
+      grid.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>報告書読込中...</p></div>';
+      
+      // 利用可能な年月リストを取得
+      google.script.run
+        .withSuccessHandler(function(ymList) {
+          // 既存の報告書も取得
+          google.script.run
+            .withSuccessHandler(function(reports) {
+              console.log('=== reports raw ===');
+              try { console.log(JSON.stringify(reports)); } catch(e) { console.log('stringify failed:', e); }
+              console.log('typeof:', typeof reports);
+              console.log('isArray:', Array.isArray(reports));
+              console.log('constructor:', reports && reports.constructor && reports.constructor.name);
+              console.log('keys:', reports ? Object.keys(reports) : 'null');
+              console.log('=== ymList ===');
+              try { console.log(JSON.stringify(ymList)); } catch(e) { console.log('stringify failed:', e); }
+              allReports = reports;
+              renderReports(projectId, ymList, reports);
+            })
+            .withFailureHandler(function(error) {
+              showToast('報告書読込エラー: ' + error.message, 'error');
+              renderReports(projectId, ymList, []);
+            })
+            .mrweb_getReportsByProject(projectId);        })
+        .withFailureHandler(function(error) {
+          showToast('年月リスト取得エラー: ' + error.message, 'error');
+        })
+        .mrweb_getAvailableYmList(projectId);
+    }
+    
+    // 報告書一覧を描画
+    function renderReports(projectId, ymList, reports) {
+      const grid = document.getElementById('reportsGrid');
+      const safeReports = reports || [];
+
+      if (ymList.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📅</div><p>対象年月がありません</p></div>';
+        return;
+      }
+
+      grid.innerHTML = ymList.map(ym => {
+        const report = safeReports.find(r => String(r.ym) === String(ym));
+        const hasContent = report && report.hasContent;
+        const status = report ? report.status : 'none';
+
+        const ymDisplay = ym.substring(0, 4) + '年' + ym.substring(4, 6) + '月';
+
+        let statusHtml = '';
+        if (status === 'draft') {
+          statusHtml = '<span class="report-status status-draft">下書き</span>';
+        } else if (status === 'approved') {
+          statusHtml = '<span class="report-status status-approved">承認済み</span>';
+        } else if (status === 'submitted') {
+          statusHtml = '<span class="report-status status-submitted">提出済み</span>';
+        } else {
+          statusHtml = '<span class="report-status status-none">未作成</span>';
+        }
+
+        let datesHtml = '';
+        if (report) {
+          if (report.generatedAtJst) datesHtml += '生成: ' + report.generatedAtJst + '<br>';
+          if (report.approvedAtJst) datesHtml += '承認: ' + report.approvedAtJst + '<br>';
+          if (report.submittedAtJst) datesHtml += '提出: ' + report.submittedAtJst;
+        }
+
+        return '<div class="report-card ' + (hasContent ? 'has-content' : '') + '">'
+          + '<div class="report-ym">' + ymDisplay + '</div>'
+          + statusHtml
+          + '<div class="report-dates">' + (datesHtml || '-') + '</div>'
+          + (hasContent
+            ? '<button class="btn btn-primary" onclick="viewReport(\'' + projectId + '\', \'' + ym + '\')">📄 表示</button>'
+            : '<button class="btn btn-success" onclick="generateReport(\'' + projectId + '\', \'' + ym + '\')">✨ 作成</button>')
+          + (hasContent && status === 'draft'
+            ? '<button class="btn btn-outline" onclick="generateReport(\'' + projectId + '\', \'' + ym + '\', true)">🔄 再生成</button>'
+            : '')
+          + '</div>';
+      }).join('');
+    }
+    // 報告書を生成
+    function generateReport(projectId, ym, forceRecollect) {
+      if (!confirm(`${ym.substring(0, 4)}年${ym.substring(4, 6)}月の報告書を生成しますか？\n${forceRecollect ? '（データを再収集します）' : ''}`)) {
+        return;
+      }
+      
+      showToast('報告書生成中...', 'info');
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showToast('報告書を生成しました！', 'success');
+            loadReports(projectId);
+          } else {
+            showToast('エラー: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showToast('生成エラー: ' + error.message, 'error');
+        })
+        .mrweb_generateReport(projectId, ym, !!forceRecollect);
+    }
+    
+    // 報告書を表示
+
+    // === 現在表示中の報告書情報を保持 ===
+    var currentViewProjectId = null;
+    var currentViewYm = null;
+
+    // 報告書を表示
+    function viewReport(projectId, ym) {
+      showToast('報告書読込中...', 'info');
+
+      currentViewProjectId = projectId;
+      currentViewYm = ym;
+
+      google.script.run
+        .withSuccessHandler(function(report) {
+          if (!report) {
+            showToast('報告書が見つかりません', 'error');
+            return;
+          }
+
+          currentReportId = report.reportId;
+
+          var ymDisplay = ym.substring(0, 4) + '年' + ym.substring(4, 6) + '月';
+          document.getElementById('modalTitle').textContent =
+            currentProject.projectName + ' - ' + ymDisplay;
+
+          // 報告書本文を描画
+          var content = report.finalContent || report.draftContent || '';
+          renderReportContent(content);
+
+          // ボタン表示制御
+          var approveBtn = document.getElementById('approveBtn');
+          var submitBtn = document.getElementById('submitBtn');
+          var fixSection = document.getElementById('fixSection');
+
+          if (report.status === 'draft') {
+            approveBtn.style.display = 'inline-block';
+            submitBtn.style.display = 'none';
+            fixSection.style.display = '';
+          } else if (report.status === 'approved') {
+            approveBtn.style.display = 'none';
+            submitBtn.style.display = 'inline-block';
+            fixSection.style.display = 'none';
+          } else {
+            approveBtn.style.display = 'none';
+            submitBtn.style.display = 'none';
+            fixSection.style.display = 'none';
+          }
+
+          // 修正フォームをリセット
+          var fbEl = document.getElementById('fixFeedback');
+          if (fbEl) fbEl.value = '';
+          var stEl = document.getElementById('fixStatus');
+          if (stEl) stEl.textContent = '';
+
+          document.getElementById('reportModal').classList.add('active');
+        })
+        .withFailureHandler(function(error) {
+          showToast('読込エラー: ' + error.message, 'error');
+        })
+        .mrweb_getReportDetail(projectId, ym);
+    }
+
+    // 報告書コンテンツをセクション分割してレンダリング
+    function renderReportContent(content) {
+      var sections = content.split(/(?=^## )/m);
+      var html = '';
+      for (var i = 0; i < sections.length; i++) {
+        var sec = sections[i].trim();
+        if (!sec) continue;
+        html += '<div class="report-section">' + marked.parse(sec) + '</div>';
+      }
+      document.getElementById('modalContent').innerHTML = html;
+    }
+
+    // 修正実行
+    function executeFixReport() {
+      var fbEl = document.getElementById('fixFeedback');
+      var stEl = document.getElementById('fixStatus');
+      var btnEl = document.getElementById('fixBtn');
+
+      var feedback = fbEl ? String(fbEl.value || '').trim() : '';
+      if (!feedback) {
+        if (stEl) stEl.textContent = '修正指示を入力してね';
+        return;
+      }
+
+      if (!currentViewProjectId || !currentViewYm) {
+        if (stEl) stEl.textContent = 'プロジェクト/年月が不明';
+        return;
+      }
+
+      // UI無効化
+      if (btnEl) btnEl.disabled = true;
+      if (stEl) stEl.textContent = '修正中… LLMに問い合わせてる（30秒くらいかかるかも）';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (btnEl) btnEl.disabled = false;
+
+          if (result && result.success) {
+            // 修正後テキストで表示を差し替え
+            renderReportContent(result.text);
+
+            if (stEl) stEl.textContent = '修正完了（累計 ' + (result.fixCount || 1) + '回修正）';
+            if (fbEl) fbEl.value = '';
+
+            showToast('報告書を修正した', 'success');
+          } else {
+            var errMsg = (result && result.error) ? result.error : '不明なエラー';
+            if (stEl) stEl.textContent = '修正失敗: ' + errMsg;
+            showToast('修正エラー: ' + errMsg, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          if (btnEl) btnEl.disabled = false;
+          var errMsg = (error && error.message) ? error.message : String(error || '');
+          if (stEl) stEl.textContent = '修正失敗: ' + errMsg;
+          showToast('修正エラー: ' + errMsg, 'error');
+        })
+        .mrweb_fixReport(currentViewProjectId, currentViewYm, feedback);
+    }
+    // 報告書を承認
+    function approveReport() {
+      if (!confirm('この報告書を承認しますか？')) return;
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showToast('承認しました！', 'success');
+            closeModal();
+            loadReports(currentProject.projectId);
+          } else {
+            showToast('エラー: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showToast('承認エラー: ' + error.message, 'error');
+        })
+        .mrweb_approveReport(currentReportId, 'web-user', '');
+    }
+    
+    // 報告書を提出
+    function submitReport() {
+      if (!confirm('この報告書を提出しますか？')) return;
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showToast('提出しました！', 'success');
+            closeModal();
+            loadReports(currentProject.projectId);
+          } else {
+            showToast('エラー: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showToast('提出エラー: ' + error.message, 'error');
+        })
+        .mrweb_submitReport(currentReportId, 'web-user');
+    }
+    
+    // モーダルを閉じる
+    function closeModal() {
+      document.getElementById('reportModal').classList.remove('active');
+      currentReportId = null;
+    }
+    
+    // トースト通知
+    function showToast(message, type) {
+      // 既存のトーストを削除
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+      
+      const toast = document.createElement('div');
+      toast.className = `toast ${type || ''}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => toast.remove(), 3000);
+    }
+    
+    // HTMLエスケープ
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // モーダル外クリックで閉じる
+    document.getElementById('reportModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeModal();
+      }
+    });
+  </script>
+</body>
+</html>

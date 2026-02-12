@@ -1,0 +1,126 @@
+<!doctype html>
+<!--
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: system-ui, -apple-system; padding: 16px; max-width: 720px; margin: 0 auto; }
+      label { display:block; margin-top: 12px; font-weight: 600; }
+      input, select { width: 100%; padding: 10px; margin-top: 6px; box-sizing: border-box; }
+      button { margin-top: 14px; padding: 12px; width: 100%; cursor: pointer; }
+      .small { font-size: 12px; color: #666; margin-top: 6px; }
+      .ok { color:#0a7; font-weight:700; margin-top:10px; }
+      .ng { color:#c33; font-weight:700; margin-top:10px; }
+      .row { display:flex; gap:8px; }
+      .row > div { flex:1; }
+    </style>
+  </head>
+  <body>
+    <h2>AMD OS | 権限付与（運営用）</h2>
+    <div class="small">memberIdやprojectIdを手で打たず、選ぶだけでDB_AccessGrantsに追記する</div>
+
+    <label>メンバー</label>
+    <select id="member"></select>
+
+    <label>プロジェクト</label>
+    <select id="project"></select>
+
+    <div class="row">
+      <div>
+        <label>権限</label>
+        <select id="perm">
+          <option value="Comment">Comment（入力可）</option>
+          <option value="ReadOnly">ReadOnly（閲覧のみ）</option>
+          <option value="None">None（拒否）</option>
+        </select>
+      </div>
+      <div>
+        <label>plan</label>
+        <select id="plan">
+          <option value="Paid">Paid</option>
+          <option value="Trial">Trial</option>
+          <option value="Free">Free</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>開始日（任意）</label>
+        <input id="startAt" type="date" />
+      </div>
+      <div>
+        <label>終了日（任意）</label>
+        <input id="endAt" type="date" />
+      </div>
+    </div>
+
+    <label>notes（任意）</label>
+    <input id="notes" type="text" placeholder="例: CTB PM / admin / trial など" />
+
+    <button type="button" onclick="addGrant()">付与する</button>
+    <div id="msg"></div>
+
+    <script>
+      let init = null;
+
+      function setMsg(t, isErr){
+        const el = document.getElementById("msg");
+        el.className = isErr ? "ng" : "ok";
+        el.textContent = t;
+      }
+
+      function addGrant(){
+        const payload = {
+          memberId: document.getElementById("member").value,
+          projectId: document.getElementById("project").value,
+          permission: document.getElementById("perm").value,
+          plan: document.getElementById("plan").value,
+          startAt: document.getElementById("startAt").value,
+          endAt: document.getElementById("endAt").value,
+          notes: document.getElementById("notes").value,
+        };
+
+        setMsg("登録中…");
+        google.script.run
+          .withSuccessHandler(() => setMsg("✅ 付与OK（DB_AccessGrantsに追記した）"))
+          .withFailureHandler(err => setMsg(`❌ ${err.message}`, true))
+          .addAccessGrant(payload);
+      }
+
+      function initPage(){
+        google.script.run
+          .withSuccessHandler(data => {
+            init = data;
+
+            const mem = document.getElementById("member");
+            data.members.forEach(m => {
+              const opt = document.createElement("option");
+              opt.value = m.memberId;
+              opt.textContent = m.label;
+              mem.appendChild(opt);
+            });
+
+            const pj = document.getElementById("project");
+            // admin用に * を先頭に出す
+            const optStar = document.createElement("option");
+            optStar.value = "*";
+            optStar.textContent = "* (ALL PROJECTS)";
+            pj.appendChild(optStar);
+
+            data.projects.forEach(p => {
+              const opt = document.createElement("option");
+              opt.value = p.projectId;
+              opt.textContent = p.label;
+              pj.appendChild(opt);
+            });
+          })
+          .withFailureHandler(err => setMsg(`❌ ${err.message}`, true))
+          .getGrantAdminInitData();
+      }
+
+      initPage();
+    </script>
+  </body>
+</html>
+-->
