@@ -1,0 +1,93 @@
+<!-- PaymentConfirmPage.html -->
+<!doctype html>
+<html>
+  <head>
+    <base target="_top" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+      .card { border:1px solid #e5e7eb; border-radius:14px; padding:16px; max-width:720px; }
+      .title { font-weight:900; font-size:20px; margin:0; }
+      .sub { color:#6b7280; font-size:12px; margin-top:6px; }
+      .row { margin-top:14px; }
+      textarea { width:100%; min-height:90px; border:1px solid #d1d5db; border-radius:12px; padding:10px 12px; font-size:14px; box-sizing:border-box; }
+      .btn { margin-top:14px; padding:10px 14px; border:1px solid #111827; border-radius:12px; background:#111827; color:#fff; font-weight:900; cursor:pointer; }
+      .muted { color:#6b7280; font-size:12px; margin-top:10px; }
+      .err { color:#b00020; font-size:12px; margin-top:10px; }
+      .ok { color:#065f46; font-size:12px; margin-top:10px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="title">入金確認</div>
+      <div class="sub">
+        PJ: <?= projectId ?> / 入金月: <?= ym ?> / 業務月: <?= bizYm ?>
+      </div>
+      <div class="sub">ログイン: <?= userEmail ?></div>
+
+      <div class="row">
+        <div style="font-weight:900;">メモ（任意）</div>
+        <div class="muted">必要なら残してね（例：入金額OK、差異なし、など）</div>
+        <textarea id="note" placeholder="メモがあればここに"></textarea>
+      </div>
+
+      <button class="btn" onclick="confirm()">入金確認完了にする</button>
+      <button class="btn" id="btnClose" onclick="closeMe()" style="display:none; margin-left:8px; background:#fff; color:#111827;">画面を閉じる</button>
+
+      <div id="msg" class="muted"></div>
+      <div id="err" class="err"></div>
+      <div id="ok" class="ok"></div>
+    </div>
+
+    <script>
+      const TOKEN = "<?= token ?>";
+      const PROJECT_ID = "<?= projectId ?>";
+      const YM = "<?= ym ?>";
+      const BIZ_YM = "<?= bizYm ?>";
+
+      function confirm(){
+        document.getElementById("err").textContent = "";
+        document.getElementById("ok").textContent = "";
+        document.getElementById("msg").textContent = "保存中…";
+
+        const note = document.getElementById("note").value || "";
+
+        google.script.run
+          .withSuccessHandler(res => {
+            document.getElementById("msg").textContent = "";
+            if (!res || !res.ok) {
+              document.getElementById("err").textContent = (res && res.message) ? res.message : "失敗した…";
+              return;
+            }
+            document.getElementById("ok").textContent = "完了！この画面を閉じてOK";
+
+            // ★親（Billing）をリロード
+            try{
+              if (window.opener && !window.opener.closed) {
+                window.opener.location.reload();
+              }
+            } catch(e){}
+
+            document.getElementById("btnClose").style.display = "inline-block";
+          })
+          .withFailureHandler(err => {
+            document.getElementById("msg").textContent = "";
+            document.getElementById("err").textContent = err?.message || String(err);
+          })
+          .api_confirmPaymentByToken({
+            token: TOKEN,
+            projectId: PROJECT_ID,
+            ym: YM,
+            bizYm: BIZ_YM,
+            note
+          });
+      }
+
+      function closeMe(){
+        try{ window.close(); }catch(e){}
+      }
+
+    </script>
+  </body>
+</html>

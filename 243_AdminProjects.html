@@ -1,0 +1,63 @@
+<!-- 243_AdminProjects.html -->
+<div id="sec_projects" style="display:none;">
+  <div class="card" id="pjCard">
+    <div class="row">
+      <div>
+        <div style="font-weight:900;">PJ台帳（DB_Projects）</div>
+        <div class="muted">PJ情報の一覧。テストPJの掃除はここでやる（カスケード削除）</div>
+      </div>
+
+      <div class="rowLeft">
+        <button class="btn" onclick="loadProjects()">PJ一覧 更新</button>
+        <button class="btn" id="btnReloadFreeePartners" onclick="reloadFreeePartners_()">取引先 再読み込み</button>
+        <button class="btn" onclick="openSlackTestModalForProject()">Slackテスト送信</button>
+      </div>
+    </div> <!-- ★これが抜けてた：row を閉じる -->
+    <div id="pjHint" class="hint">-</div>
+    <div id="pjErr" class="err" style="display:none;"></div>
+
+    <style>
+      .pj-sticky-id, .pj-sticky-name {
+        position: sticky;
+        z-index: 2;
+        background: var(--bg-card, #1e1e2e);
+      }
+      .pj-sticky-id   { left: 0; min-width:70px; max-width:70px; }
+      .pj-sticky-name  { left: 70px; min-width:90px; max-width:90px;
+                          border-right: 2px solid rgba(255,255,255,.08); }
+      thead .pj-sticky-id,
+      thead .pj-sticky-name { z-index: 4; }
+    </style>
+
+    <div class="tableWrap" style="overflow-x:auto;">
+      <table class="stickyTable" style="min-width:1600px; table-layout:fixed;">
+        <thead>
+          <tr>
+            <th class="pj-sticky-id"   style="width:70px;">PJID</th>
+            <th class="pj-sticky-name" style="width:90px;">PJ名</th>
+            <th style="width:200px;">請求先（編集）</th>
+            <th style="width:80px;">freee ID</th>
+            <th style="width:140px;">Slack（編集）</th>
+            <th style="width:180px;">Drive Folder（編集）</th>
+            <th style="width:300px;">報告メール（編集）</th>
+            <th style="width:100px;">PM（編集）</th>
+            <th style="width:100px;">クローザー（編集）</th>
+            <th style="width:100px;">Status</th>
+            <th style="width:50px;">つくよみ</th>
+            <th style="width:56px;">保存</th>
+            <th style="width:90px;">Updated</th>
+            <th style="width:56px;">Open</th>
+            <th style="width:60px;">Delete</th>
+          </tr>
+        </thead>
+        <tbody id="pjTbody">
+          <tr><td colspan="15" class="muted" style="position:static;">loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="muted" style="margin-top:10px;">
+      ※削除は関連DBも全部消す（DB_ProjectMembers / DB_ProjectCharter / DB_BillingCycle / DB_PayoutDetail / DB_PayoutAgreement / ...）
+    </div>
+  </div>
+</div>

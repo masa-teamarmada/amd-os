@@ -1,0 +1,948 @@
+<!-- ReimbursePage.html -->
+<!doctype html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root{
+        --bg:#f6f7fb;
+        --card:#ffffff;
+        --line: rgba(17,24,39,.10);
+        --line2: rgba(17,24,39,.18);
+        --text:#0f172a;
+        --sub: rgba(15,23,42,.62);
+        --shadow2: 0 2px 10px rgba(15, 23, 42, .06);
+
+        --fieldBg:#f9fafb;
+        --fieldLine:#d1d5db;
+        --fieldFocus:#4f46e5;
+      }
+
+      body{
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
+        margin:0;
+        background:var(--bg);
+        color:var(--text);
+      }
+
+      /* ★Billing/Charter側に寄せる（たぶん980px） */
+      .wrap{
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 18px 16px 40px;
+      }
+
+      .topbar{
+        display:flex;
+        align-items:flex-end;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .h1{
+        font-size: 18px;
+        font-weight: 950;
+        letter-spacing: .02em;
+        margin: 14px 0 6px;
+      }
+
+      .sub{
+        color: var(--sub);
+        font-size: 12px;
+        margin-bottom: 14px;
+      }
+
+      .card{
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 0;
+      }
+
+      .row{
+        display:flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items:center;
+        justify-content: flex-end;
+        margin-top: 12px;
+      }
+
+      .btn{
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-weight: 950;
+        cursor:pointer;
+        box-shadow: 0 1px 0 rgba(0,0,0,.02);
+      }
+      .btn.primary{
+        border-color: rgba(79,70,229,.35);
+      }
+      .btn.danger{
+        border-color: rgba(239,68,68,.28);
+      }
+      .btn:disabled{
+        opacity: .55;
+        cursor: not-allowed;
+      }
+
+      .muted{
+        color: var(--sub);
+        font-size: 12px;
+      }
+
+      .hidden{ display:none; }
+
+      .table{
+        margin-top: 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: var(--shadow2);
+      }
+      table{
+        width:100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      thead th{
+        text-align:left;
+        padding: 10px 12px;
+        background: rgba(17,24,39,.03);
+        border-bottom: 1px solid var(--line);
+        font-size: 12px;
+        color: var(--sub);
+        font-weight: 950;
+        white-space: nowrap;
+      }
+      tbody td{
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      tbody tr:last-child td{ border-bottom: none; }
+
+      .pill{
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        border: 1px solid var(--line);
+        background: rgba(17,24,39,.02);
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 900;
+      }
+      .pill.ok{
+        border-color: rgba(34,197,94,.25);
+        background: rgba(34,197,94,.08);
+      }
+      .pill.ng{
+        border-color: rgba(148,163,184,.35);
+        background: rgba(148,163,184,.10);
+      }
+
+      /* ===== Modal ===== */
+      #reOverlay{
+        position: fixed;
+        inset: 0;
+        background: rgba(15,23,42,.38);
+        display:flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 14px;
+        z-index: 9999;
+      }
+      .modal{
+        width: 100%;
+        max-width: 620px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        box-shadow: 0 12px 40px rgba(15,23,42,.18);
+        overflow: hidden;
+      }
+      .modalHead{
+        padding: 14px 14px 10px;
+        border-bottom: 1px solid var(--line);
+        display:flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .modalTitle{
+        font-size: 14px;
+        font-weight: 950;
+        letter-spacing: .02em;
+      }
+      .modalBody{
+        padding: 14px;
+      }
+      .grid{
+        display:grid;
+        grid-template-columns: 180px 1fr;
+        gap: 10px 12px;
+        align-items: center;
+      }
+      label{
+        font-size: 12px;
+        color: var(--sub);
+        font-weight: 900;
+      }
+      input, select, textarea{
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 12px;
+        border: 1px solid var(--fieldLine);
+        background: var(--fieldBg);
+        padding: 10px 12px;
+        font-size: 13px;
+        outline: none;
+      }
+      textarea{ min-height: 84px; resize: vertical; }
+      input:focus, select:focus, textarea:focus{
+        border-color: var(--fieldFocus);
+        box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+        background: #fff;
+      }
+      .modalFoot{
+        padding: 12px 14px 14px;
+        border-top: 1px solid var(--line);
+        display:flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .modalFoot .left{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        flex-wrap: wrap;
+      }
+      .xbtn{
+        border: 1px solid var(--line);
+        background: rgba(17,24,39,.02);
+        border-radius: 10px;
+        padding: 6px 10px;
+        font-weight: 950;
+        cursor:pointer;
+      }
+      /* ★外部CSS（navHtml等）で .overlay が display:flex になってても、reOverlayだけは確実に隠す */
+      #reOverlay.hidden{ display:none !important; }
+    </style>
+  </head>
+
+  <body>
+    <?!= navHtml ?>
+
+    <div class="wrap">
+      <div class="topbar">
+        <div>
+          <div class="h1">立替</div>
+        </div>
+
+        <div class="row" style="margin-top:0;">
+          <button class="btn primary" id="btnOpenModal" type="button">立替を追加</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content: space-between; margin-top:0;">
+          <div class="muted" id="msg"></div>
+          <div class="muted" id="hint"></div>
+        </div>
+        <div class="muted" style="margin-top:8px;">
+        </div>
+      </div>
+
+      <div class="table">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:120px;">日付</th>
+              <th style="width:200px;">PJ</th>
+              <th style="width:120px;">費目</th>
+              <th style="width:120px;">金額</th>
+              <th>摘要</th>
+              <th style="width:180px;">PM承認</th>
+              <th style="width:180px;">admin承認</th>
+              <th style="width:170px;">状態</th>
+            </tr>
+          </thead>
+          <tbody id="list">
+            <tr><td colspan="7" class="muted">読み込み中…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== Modal: Reimburse Form ===== -->
+    <div id="reOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal">
+        <div class="modalHead">
+          <div class="modalTitle">立替の登録</div>
+          <button class="xbtn" id="btnCloseModal" type="button">閉じる</button>
+        </div>
+
+        <div class="modalBody">
+          <div class="grid">
+            <label for="pj">PJ</label>
+            <select id="pj">
+              <option value="">（選択）</option>
+            </select>
+
+            <label for="date">発生日</label>
+            <input id="date" type="date" />
+
+            <label for="category">費目</label>
+            <select id="category">
+              <option value="">（選択）</option>
+              <option value="transport">交通費</option>
+              <option value="lodging">宿泊</option>
+              <option value="supplies">消耗品</option>
+              <option value="meal">会議費</option>
+              <option value="other">その他</option>
+            </select>
+
+            <label for="amount">金額（税込・円）</label>
+            <input id="amount" type="number" inputmode="numeric" min="0" step="1" placeholder="例：1540" />
+
+            <label for="taxRate">税率</label>
+            <select id="taxRate">
+              <option value="0.10">10%</option>
+              <option value="0.08">8%</option>
+              <option value="0">非課税</option>
+            </select>
+
+            <label for="desc">摘要</label>
+            <textarea id="desc" placeholder="例：○○社 打合せ移動"></textarea>
+
+            <div id="transportBlock" class="hidden" style="grid-column: 1 / -1;">
+              <div class="grid" style="grid-template-columns: 180px 1fr;">
+                <label for="mode">交通手段</label>
+                <select id="mode">
+                  <option value="">（選択）</option>
+                  <option value="train">電車</option>
+                  <option value="bus">バス</option>
+                  <option value="taxi">タクシー</option>
+                  <option value="car">自家用車</option>
+                  <option value="other">その他</option>
+                </select>
+
+                <label for="from">出発</label>
+                <input id="from" placeholder="例：つくば" />
+
+                <label for="to">到着</label>
+                <input id="to" placeholder="例：秋葉原" />
+
+                <label for="trip">片道/往復</label>
+                <select id="trip">
+                  <option value="oneway">片道</option>
+                  <option value="round">往復</option>
+                </select>
+              </div>
+            </div>
+
+            <label for="receipt">レシート添付</label>
+            <input id="receipt" type="file" accept="image/*,application/pdf" />
+          </div>
+        </div>
+
+        <div class="modalFoot">
+          <div class="left">
+            <span class="muted" id="modalMsg"></span>
+          </div>
+          <div class="row" style="margin-top:0;">
+            <button class="btn" id="btnClear" type="button">クリア</button>
+            <button class="btn primary" id="btnSave" type="button">登録</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function(){
+        var el = function(id){ return document.getElementById(id); };
+
+        function setMsg(t){ el("msg").textContent = t || ""; }
+        function setHint(t){ el("hint").textContent = t || ""; }
+        function setModalMsg(t){ el("modalMsg").textContent = t || ""; }
+
+        function todayYmd(){
+          // ★ブラウザTZに依存せず、強制でJSTの「今日」を作る
+          try{
+            var parts = new Intl.DateTimeFormat("ja-JP", {
+              timeZone: "Asia/Tokyo",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit"
+            }).formatToParts(new Date());
+
+            var y = parts.find(function(p){ return p.type === "year"; }).value;
+            var m = parts.find(function(p){ return p.type === "month"; }).value;
+            var d = parts.find(function(p){ return p.type === "day"; }).value;
+            return y + "-" + m + "-" + d;
+          } catch(e){
+            // fallback（従来）
+            var d2 = new Date();
+            var y2 = d2.getFullYear();
+            var m2 = String(d2.getMonth()+1).padStart(2,"0");
+            var dd2 = String(d2.getDate()).padStart(2,"0");
+            return y2 + "-" + m2 + "-" + dd2;
+          }
+        }
+
+        function openModal(){
+          el("reOverlay").classList.remove("hidden");
+          setModalMsg("");
+          if (!el("date").value) el("date").value = todayYmd();
+        }
+        function closeModal(){
+          el("reOverlay").classList.add("hidden");
+          setModalMsg("");
+        }
+
+        function setPjOptions(items){
+          var sel = el("pj");
+          if (!sel) return;
+
+          sel.innerHTML = '<option value="">（選択）</option>';
+
+          (items || []).forEach(function(it){
+            var opt = document.createElement("option");
+            opt.value = it.projectId;
+            var label = it.projectName || it.projectId;
+            opt.textContent = label;
+            sel.appendChild(opt);
+          });
+
+          if (!items || items.length === 0){
+            setMsg("進行中PJが見つからない（DB_Projectsを確認して）");
+          } else {
+            setMsg("");
+          }
+        }
+
+        function loadActiveProjects(){
+          setMsg("PJ一覧を読み込み中…");
+
+          if (!window.google || !google.script || !google.script.run){
+            setMsg("google.script.run が見つからない。ブラウザconsoleを見て（ReimbursePageがGASから配信されてるか確認）");
+            return;
+          }
+
+          try{
+            google.script.run
+              .withSuccessHandler(function(res){
+                if (!res || !res.ok){
+                  setMsg("PJ一覧の取得に失敗した（サーバ応答がokじゃない）");
+                  setPjOptions([]);
+                  return;
+                }
+                setPjOptions(res.items || []);
+              })
+              .withFailureHandler(function(err){
+                setMsg("PJ一覧の取得エラー: " + (err && err.message ? err.message : String(err||"")));
+                setPjOptions([]);
+              })
+              .reimburse_listMyActiveProjectsForReimburse({});
+          } catch (ex){
+            setMsg("PJ一覧の呼び出しで例外: " + (ex && ex.message ? ex.message : String(ex||"")));
+          }
+        }
+
+        function toggleTransport(){
+          var isTransport = (el("category").value === "transport");
+          el("transportBlock").classList.toggle("hidden", !isTransport);
+        }
+
+        function readFileAsBase64(file, cb){
+          if (!file) return cb(null);
+
+          var maxMb = 10;
+          var sizeMb = file.size / (1024*1024);
+          if (sizeMb > maxMb){
+            return cb({ message: "添付が大きすぎる（上限 " + maxMb + "MB）。PDFを軽くするか、画像サイズ落として〜" });
+          }
+
+          var reader = new FileReader();
+          reader.onload = function(){
+            var s = String(reader.result || "");
+            var idx = s.indexOf("base64,");
+            var b64 = (idx >= 0) ? s.slice(idx + 7) : "";
+            cb(null, {
+              name: file.name || "",
+              mimeType: file.type || "",
+              base64: b64
+            });
+          };
+          reader.onerror = function(){
+            cb({ message: "ファイル読み込みに失敗したっぽい" });
+          };
+          reader.readAsDataURL(file);
+        }
+
+        function validateForm(){
+          var projectId = (el("pj").value || "").trim();
+          var date = (el("date").value || "").trim();
+          var category = (el("category").value || "").trim();
+          var amount = Number(el("amount").value || 0);
+          var desc = (el("desc").value || "").trim();
+
+          if (!projectId) return "PJを選んで〜";
+          if (!date) return "発生日が空っぽ";
+          if (!category) return "費目を選んで〜";
+          if (!amount || amount <= 0) return "金額が変（0より大きくして）";
+          if (!desc) return "摘要が空っぽ（あとで地獄になるから最低1行）";
+
+          if (category === "transport"){
+            var mode = (el("mode").value || "").trim();
+            var from = (el("from").value || "").trim();
+            var to = (el("to").value || "").trim();
+            if (!mode) return "交通手段を選んで〜";
+            if (!from) return "出発が空っぽ";
+            if (!to) return "到着が空っぽ";
+          }
+
+          return "";
+        }
+
+        function buildPayload(receiptObj){
+          var payload = {
+            projectId: (el("pj").value || "").trim(),
+            date: (el("date").value || "").trim(),
+            category: (el("category").value || "").trim(),
+            amount: Number(el("amount").value || 0),
+            taxRate: Number(el("taxRate").value || 0.10),
+            desc: (el("desc").value || "").trim(),
+            transport: null,
+            receipt: receiptObj || null
+          };
+
+          if (payload.category === "transport"){
+            payload.transport = {
+              mode: (el("mode").value || "").trim(),
+              from: (el("from").value || "").trim(),
+              to: (el("to").value || "").trim(),
+              trip: (el("trip").value || "oneway").trim()
+            };
+          }
+
+          return payload;
+        }
+
+        function clearForm(){
+          el("pj").value = "";
+          el("date").value = todayYmd();
+          el("category").value = "";
+          el("amount").value = "";
+          el("desc").value = "";
+          el("mode").value = "";
+          el("from").value = "";
+          el("to").value = "";
+          el("trip").value = "oneway";
+          el("receipt").value = "";
+          el("taxRate").value = "0.10";
+          toggleTransport();
+        }
+
+        function esc(s){
+          s = (s === null || s === undefined) ? "" : String(s);
+          return s
+            .replace(/&/g,"&amp;")
+            .replace(/</g,"&lt;")
+            .replace(/>/g,"&gt;")
+            .replace(/"/g,"&quot;")
+            .replace(/'/g,"&#39;");
+        }
+
+        function renderPmApproveCell(it){
+          var approved = !!it.pmApproved;
+          var label = approved ? "承認済" : "未承認";
+          var pillCls = approved ? "pill ok" : "pill ng";
+
+          var by = it.pmApprovedByLabel || it.pmApprovedBy || "";
+          var at = it.pmApprovedAt || "";
+
+          var meta = "";
+          if (approved && (by || at)){
+            meta = '<div class="muted" style="margin-top:6px; line-height:1.25;">'
+              + (by ? esc(by) : "")
+              + (by && at ? "<br/>" : "")
+              + (at ? esc(at) : "")
+              + '</div>';
+          }
+
+          if (!it.canPmApprove){
+            return '<span class="' + pillCls + '">' + label + '</span>' + meta;
+          }
+
+          var btnLabel = approved ? "取消" : "承認";
+          var btnClass = approved ? "btn danger" : "btn";
+          return ''
+            + '<span class="' + pillCls + '" style="margin-right:8px;">' + label + '</span>'
+            + '<button type="button" class="' + btnClass + '" data-pm-approve="' + esc(it.reimbursementId||"") + '" data-approved="' + (approved ? "1":"0") + '">'
+            + btnLabel
+            + '</button>'
+            + meta;
+        }
+
+        function renderAdminApproveCell(it){
+          var approved = !!it.adminApproved;
+          var label = approved ? "承認済" : "未承認";
+          var pillCls = approved ? "pill ok" : "pill ng";
+
+          var by = it.adminApprovedByLabel || it.adminApprovedBy || "";
+          var at = it.adminApprovedAt || "";
+
+          var meta = "";
+          if (approved && (by || at)){
+            meta = '<div class="muted" style="margin-top:6px; line-height:1.25;">'
+              + (by ? esc(by) : "")
+              + (by && at ? "<br/>" : "")
+              + (at ? esc(at) : "")
+              + '</div>';
+          }
+
+          if (!it.canAdminApprove){
+            return '<span class="' + pillCls + '">' + label + '</span>' + meta;
+          }
+
+          var btnLabel = approved ? "取消" : "承認";
+          var btnClass = approved ? "btn danger" : "btn";
+          return ''
+            + '<span class="' + pillCls + '" style="margin-right:8px;">' + label + '</span>'
+            + '<button type="button" class="' + btnClass + '" data-admin-approve="' + esc(it.reimbursementId||"") + '" data-approved="' + (approved ? "1":"0") + '">'
+            + btnLabel
+            + '</button>'
+            + meta;
+        }
+
+        function fmtJstYmdHm_(v){
+          if (v === null || v === undefined || v === "") return "";
+          var s = String(v||"").trim();
+
+          // すでに "yyyy-MM-dd HH:mm" ならそのまま
+          if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}$/.test(s)) return s;
+
+          // "yyyy-MM-dd HH:mm:ss" → 秒を落とす
+          if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(s)) return s.slice(0,16);
+
+          // "yyyy-MM-dd" → そのまま
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+          // Dateっぽい文字列（Sat Jan...）をDateにして整形（ブラウザTZがJST想定）
+          var d = null;
+          try{
+            d = new Date(s);
+            if (isNaN(d.getTime())) d = null;
+          } catch(e){
+            d = null;
+          }
+          if (!d) return s;
+
+          var y = d.getFullYear();
+          var m = String(d.getMonth()+1).padStart(2,"0");
+          var dd = String(d.getDate()).padStart(2,"0");
+          var hh = String(d.getHours()).padStart(2,"0");
+          var mm = String(d.getMinutes()).padStart(2,"0");
+          return y + "-" + m + "-" + dd + " " + hh + ":" + mm;
+        }
+        function formatYmdHm_(v){
+          // 互換ラッパ：renderListが呼ぶ名前
+          return fmtJstYmdHm_(v);
+        }
+
+        function renderList(items){
+          var tbody = el("list");
+          if (!tbody) return;
+
+          items = items || [];
+          if (items.length === 0){
+            tbody.innerHTML = '<tr><td colspan="7" class="muted">まだ登録がない</td></tr>';
+            return;
+          }
+
+          var html = "";
+          items.forEach(function(it){
+            html += "<tr>";
+            html += "<td>" + esc(fmtJstYmdHm_(it.date || "")) + "</td>";
+            html += "<td>" + esc(it.projectName || it.projectId || "") + "</td>";
+            html += "<td>" + esc(it.categoryLabel || it.category || "") + "</td>";
+            html += "<td>" + esc(it.amount || "") + "</td>";
+            html += "<td>" + esc(it.desc || "") + "</td>";
+            html += "<td>" + renderPmApproveCell(it) + "</td>";
+            html += "<td>" + renderAdminApproveCell(it) + "</td>";
+            html += "<td>" + esc(it.statusLabel || it.status || "") + "</td>";
+            html += "</tr>";
+          });
+
+          tbody.innerHTML = html;
+
+          // PM承認ボタン（PMだけ押せる前提。非PMはサーバで弾いてもOK）
+          Array.prototype.forEach.call(tbody.querySelectorAll("button[data-pm-approve]"), function(btn){
+            btn.addEventListener("click", function(){
+              var id = btn.getAttribute("data-pm-approve");
+              if (!id) return;
+
+              setMsg("PM承認を更新中…");
+              btn.disabled = true;
+
+              google.script.run
+                .withSuccessHandler(function(res){
+                  if (!res || !res.ok){
+                    btn.disabled = false;
+                    setMsg((res && res.message) ? res.message : "PM承認の更新に失敗");
+                    return;
+                  }
+                  setMsg("更新できた✨");
+                  loadMyRecent();
+                })
+                .withFailureHandler(function(err){
+                  btn.disabled = false;
+                  setMsg("PM承認エラー: " + (err && err.message ? err.message : String(err||"")));
+                })
+                .reimburse_togglePmApprove({ reimbursementId: id });
+            });
+          });
+          // admin承認ボタン
+          Array.prototype.forEach.call(tbody.querySelectorAll("button[data-admin-approve]"), function(btn){
+            btn.addEventListener("click", function(){
+              var id = btn.getAttribute("data-admin-approve");
+              if (!id) return;
+
+              setMsg("admin承認を更新中…");
+              btn.disabled = true;
+
+              google.script.run
+                .withSuccessHandler(function(res){
+                  if (!res || !res.ok){
+                    btn.disabled = false;
+                    setMsg((res && res.message) ? res.message : "admin承認の更新に失敗");
+                    return;
+                  }
+                  setMsg("更新できた✨");
+                  loadMyRecent();
+                })
+                .withFailureHandler(function(err){
+                  btn.disabled = false;
+                  setMsg("admin承認エラー: " + (err && err.message ? err.message : String(err||"")));
+                })
+                .reimburse_toggleAdminApprove({ reimbursementId: id });
+            });
+          });
+
+        }
+
+        function loadMyRecent(){
+          if (!window.google || !google.script || !google.script.run) return;
+
+          // ロード中に呼ばれたら「あとで必ずもう1回」を予約
+          if (window.__reimbLoadInFlight){
+            window.__reimbLoadPending = true;
+            return;
+          }
+
+          window.__reimbLoadInFlight = true;
+          window.__reimbLoadPending = false;
+
+          google.script.run
+            .withSuccessHandler(function(res){
+              window.__reimbLoadInFlight = false;
+
+              if (!res || !res.ok){
+                // 失敗しても、pendingがあれば再実行
+                if (window.__reimbLoadPending){
+                  window.__reimbLoadPending = false;
+                  loadMyRecent();
+                }
+                return;
+              }
+
+              renderList(res.items || []);
+              if (res.meta && res.meta.viewerRole){
+                setHint("viewer: " + String(res.meta.viewerRole));
+              }
+
+              // 初回だけオートリフレッシュ開始
+              if (!window.__reimbAutoStarted){
+                window.__reimbAutoStarted = true;
+                reimburseStartAutoRefresh_();
+              }
+
+              // ロード中に追加ロード要求が来てたら、すぐもう1回
+              if (window.__reimbLoadPending){
+                window.__reimbLoadPending = false;
+                loadMyRecent();
+              }
+            })
+            .withFailureHandler(function(err){
+              window.__reimbLoadInFlight = false;
+
+              // ★見える化：ここが無いから「無限ローディング」に見える
+              try{
+                var msg = (err && err.message) ? err.message : String(err||"");
+                setMsg("一覧の取得エラー: " + msg);
+              } catch(_e){}
+
+              // pendingがあれば再実行（ただし連続で落ちると見た目が無限になるので、ここは1回だけ）
+              if (window.__reimbLoadPending){
+                window.__reimbLoadPending = false;
+                // いきなり再実行じゃなく少し待つ（連発を避ける）
+                setTimeout(loadMyRecent, 800);
+              }
+            })
+            .reimburse_listMyRecentExpenses({ limit: 50 });
+        }
+
+        function reimburseStartAutoRefresh_(){
+          if (window.__reimbAutoTimer) return;
+
+          // UIにdebug出したい時だけ true（普段はfalse）
+          window.__reimbDebugUi = false;
+
+          window.__reimbLastVersion = window.__reimbLastVersion || "0";
+          window.__reimbLastForceFetchAt = window.__reimbLastForceFetchAt || 0;
+
+          var tick = function(){
+            google.script.run
+              .withSuccessHandler(function(res){
+                if (!res || !res.ok){
+                  if (window.__reimbDebugUi) setHint("auto refresh: version api failed");
+                  window.__reimbAutoTimer = setTimeout(tick, 8000);
+                  return;
+                }
+
+                var ver = String(res.version || "0");
+                var pending = Number(res.pendingCount || 0);
+                var nextMs = pending > 0 ? 8000 : 60000;
+
+                // debugはconsoleへ（増殖しない）
+                try{ console.log("[reimburse auto] ver=" + ver + " pending=" + pending + " nextMs=" + nextMs); } catch(_e){}
+
+                // viewer表示は loadMyRecent 側に任せる（ここでは触らない）
+                // どうしてもUI debugしたい場合だけ
+                if (window.__reimbDebugUi){
+                  setHint("auto: ok v=" + ver + " pending=" + pending);
+                }
+
+                if (ver && ver !== window.__reimbLastVersion){
+                  window.__reimbLastVersion = ver;
+                  loadMyRecent();
+                  window.__reimbAutoTimer = setTimeout(tick, nextMs);
+                  return;
+                }
+
+                // pendingがあるのにversionが動かない保険
+                if (pending > 0){
+                  var now = Date.now();
+                  if (!window.__reimbLastForceFetchAt || (now - window.__reimbLastForceFetchAt) > 15000){
+                    window.__reimbLastForceFetchAt = now;
+                    loadMyRecent();
+                  }
+                }
+
+                window.__reimbAutoTimer = setTimeout(tick, nextMs);
+              })
+              .withFailureHandler(function(err){
+                try{ console.log("[reimburse auto] error=" + (err && err.message ? err.message : String(err||""))); } catch(_e){}
+                if (window.__reimbDebugUi){
+                  setHint("auto refresh error: " + (err && err.message ? err.message : String(err||"")));
+                }
+                window.__reimbAutoTimer = setTimeout(tick, 8000);
+              })
+              .reimburse_getMyExpensesVersion({});
+          };
+
+          tick();
+        }
+
+        function setSaving(isSaving){
+          el("btnSave").disabled = !!isSaving;
+          el("btnClear").disabled = !!isSaving;
+          el("btnSave").textContent = isSaving ? "登録中…" : "登録";
+        }
+
+        // ===== events =====
+        el("category").addEventListener("change", toggleTransport);
+        toggleTransport();
+
+        el("btnOpenModal").addEventListener("click", function(){ openModal(); });
+        el("btnCloseModal").addEventListener("click", function(){ closeModal(); });
+
+        // overlay clickで閉じる（中身クリックは閉じない）
+        el("reOverlay").addEventListener("click", function(e){
+          if (e.target === el("reOverlay")) closeModal();
+        });
+
+        el("btnClear").addEventListener("click", function(){
+          clearForm();
+          setModalMsg("クリアした");
+        });
+
+        el("btnSave").addEventListener("click", function(){
+          var err = validateForm();
+          if (err){
+            setModalMsg(err);
+            return;
+          }
+
+          setSaving(true);
+          setModalMsg("保存中…（レシートあるならアップロードもする）");
+
+          var file = (el("receipt").files && el("receipt").files[0]) ? el("receipt").files[0] : null;
+
+          readFileAsBase64(file, function(fileErr, receiptObj){
+            if (fileErr){
+              setSaving(false);
+              setModalMsg(fileErr.message || "レシート処理で失敗");
+              return;
+            }
+
+            var payload = buildPayload(receiptObj);
+
+            try{
+              google.script.run
+                .withSuccessHandler(function(res){
+                  setSaving(false);
+
+                  if (!res || !res.ok){
+                    setModalMsg((res && res.message) ? res.message : "保存に失敗（謎）");
+                    return;
+                  }
+
+                  setMsg("登録できた✨");
+                  clearForm();
+                  closeModal();
+                  loadMyRecent();
+                })
+                .withFailureHandler(function(gerr){
+                  setSaving(false);
+                  setModalMsg("保存エラー: " + (gerr && gerr.message ? gerr.message : String(gerr||"")));
+                })
+                .reimburse_saveExpense(payload);
+            } catch(ex){
+              setSaving(false);
+              setModalMsg("保存呼び出しで例外: " + (ex && ex.message ? ex.message : String(ex||"")));
+            }
+          });
+        });
+
+        // 初期値
+        if (!el("date").value) el("date").value = todayYmd();
+
+        // ★ページ表示時にPJ候補ロード + 直近リスト
+        loadActiveProjects();
+        loadMyRecent();
+      })();
+    </script>
+  </body>
+</html>

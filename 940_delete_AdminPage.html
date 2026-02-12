@@ -1,0 +1,4384 @@
+<!-- AdminPage.html -->
+<!doctype html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { --bg:#fafafa; --card:#fff; --line:#eaeaea; --text:#111; --sub:#666; }
+      body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; margin:0; background:var(--bg); color:var(--text); }
+      .wrap { max-width: none; margin: 0 auto; padding: 20px; }
+      .title { margin:0; font-size: 22px; font-weight: 900; letter-spacing: .2px; }
+      .muted { color: var(--sub); font-size: 12px; margin-top: 6px; }
+
+      .card{ margin-top: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+      .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:space-between; }
+      .rowLeft{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+      .btn{ border:1px solid var(--line); background:#fff; border-radius: 12px; padding: 10px 12px; cursor:pointer; font-weight: 900; }
+
+      .ctl{
+        border:1px solid var(--line);
+        background:#fff;
+        border-radius: 12px;
+        padding: 9px 10px;
+        font-size: 13px;
+        outline:none;
+
+        /* ★はみ出し事故を止める（textarea/inputのwidth:100%でも安全） */
+        box-sizing: border-box;
+        max-width: 100%;
+      }
+
+      /* ★モーダル内は念のためさらに強制 */
+      #appModalOverlay textarea,
+      #appModalOverlay input{
+        box-sizing: border-box;
+        max-width: 100%;
+      }
+
+      .ctlLabel{ font-size:12px; color:var(--sub); font-weight:900; }
+
+      .tableWrap{ margin-top: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; border-top: 1px solid var(--line); }
+      table{ width: 100%; min-width: 1500px; border-collapse: collapse; }
+      th, td{ border-bottom:1px solid var(--line); padding:10px 8px; text-align:left; font-size:13px; vertical-align: top; }
+      th{ font-size:12px; color:var(--sub); font-weight: 900; }
+
+      .nowrap{ white-space: nowrap; }
+      .pill{ display:inline-flex; padding:3px 8px; border-radius:999px; border:1px solid var(--line); font-weight:900; font-size:12px; background:#fff; white-space: nowrap; }
+      .pill.gray{ color:var(--sub); font-weight:800; }
+
+      .hint{ margin-top: 10px; font-size:12px; color:#374151; }
+      .err{ margin-top: 10px; font-size:12px; color:#b00020; }
+
+      .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      .small{ font-size:12px; color:var(--sub); }
+      .noteCell{ white-space: normal; word-break: break-word; }
+
+            /* ===== Protocol Candidates UI improvements ===== */
+      .togRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+      .tog{ display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--line); border-radius:12px; background:#fff; font-size:12px; font-weight:900; color:var(--text); user-select:none; }
+      .tog input{ transform: translateY(1px); }
+
+      .candThin{ opacity: .35; }
+      .candCell{ white-space: normal; word-break: break-word; }
+
+      .candTable th, .candTable td{ white-space: normal; word-break: break-word; }
+      .candColBp{ width: 520px; }
+      .candColCr{ width: 1200px; }
+      .candColEv{ width: 1200px; }
+
+            /* ===== Sticky header + first column (all tables) ===== */
+      .stickyTable thead th{
+        position: sticky;
+        top: 0;
+        background: var(--card);
+        z-index: 5;
+      }
+      .stickyTable thead th:first-child{
+        left: 0;
+        z-index: 6;
+      }
+      .stickyTable tbody td:first-child{
+        position: sticky;
+        left: 0;
+        background: var(--card);
+        z-index: 4;
+      }
+
+      /* ===== Column widths (default; user can resize) ===== */
+      .colDp{ width: 260px; }
+      .colDc{ width: 360px; }
+      .colAc{ width: 360px; }
+      .colEv{ width: 360px; }
+      .colPj{ width: 200px; }
+      .colConf{ width: 110px; }
+      .colImp{ width: 110px; }
+      .colTags{ width: 200px; }
+      .colSrcType{ width: 120px; }
+      .colSrcRef{ width: 220px; }
+      .colCreatedAt{ width: 160px; }
+      .colCreatedBy{ width: 160px; }
+      .colOp{ width: 180px; }
+      .colId{ width: 160px; }
+
+
+      /* ===== Resizable columns ===== */
+      .resizableTable thead th{ position: relative; overflow: hidden; }
+      .resizeHandle{
+        position:absolute;
+        top:0;
+        right:0;
+        width:10px;
+        height:100%;
+        cursor: col-resize;
+        user-select:none;
+      }
+
+
+
+
+    </style>
+  </head>
+
+  <body>
+    <?!= navHtml ?>
+    <div class="wrap">
+      <h1 class="title">Admin</h1>
+
+      <!-- tabs -->
+      <div class="row" style="margin-top:12px;">
+        <div class="rowLeft">
+          <button class="btn" id="tab_members" onclick="switchTab('members')">Members</button>
+          <button class="btn" id="tab_projects" onclick="switchTab('projects')">Projects</button>
+          <button class="btn" id="tab_protocols" onclick="switchTab('protocols')">Protocols</button>
+          <button class="btn" id="tab_contexts" onclick="switchTab('contexts')">LLM Context</button>
+          <button class="btn" id="tab_extractors" onclick="switchTab('extractors')">Extractor Prompt</button>
+          <button class="btn" id="tab_code" onclick="switchTab('code')">Code</button>
+        </div>
+        <div class="muted">重いので、表示タブだけロードする</div>
+      </div>
+
+      <!-- common meta -->
+      <div class="muted" style="margin-top:8px;">
+        login: <b><?= userEmail ?></b>
+        / canAccessAdmin: <b><?= canAccessAdmin ? "true" : "false" ?></b>
+      </div>
+
+      <!-- ===== Members ===== -->
+      <div id="sec_members">
+        <div class="card">
+          <div class="row">
+            <div>
+              <div style="font-weight:900;">アカウント台帳（DB_Members）</div>
+              <div class="muted">inactiveDays / 最終利用 / 通知ステージを見て、対応候補を一瞬で作る</div>
+            </div>
+
+            <div class="rowLeft">
+              <div>
+                <div class="ctlLabel">inactiveDays ≥</div>
+                <input id="fltDays" class="ctl" style="width:110px" placeholder="例: 30" />
+              </div>
+
+              <div>
+                <div class="ctlLabel">noticeStage</div>
+                <select id="fltStage" class="ctl" style="width:160px">
+                  <option value="">（全て）</option>
+                  <option value="none">none</option>
+                  <option value="warned">warned</option>
+                  <option value="final">final</option>
+                  <option value="done">done</option>
+                </select>
+              </div>
+
+              <div>
+                <div class="ctlLabel">状態</div>
+                <select id="fltStatus" class="ctl" style="width:140px">
+                  <option value="">（全て）</option>
+                  <option value="active">active</option>
+                  <option value="inactive">inactive</option>
+                </select>
+              </div>
+
+              <button class="btn" onclick="applyFilter()">絞り込み</button>
+              <button class="btn" onclick="resetFilter()">リセット</button>
+
+              <button class="btn" onclick="runInactiveNow()">inactiveDays 更新</button>
+              <button class="btn" onclick="setupTrigger()">日次トリガー作成</button>
+
+              <button class="btn" onclick="load()">更新</button>
+            </div>
+          </div>
+
+          <div id="meta" class="muted" style="margin-top:10px;">-</div>
+
+          <div id="hint" class="hint">-</div>
+          <div id="err" class="err" style="display:none;"></div>
+
+          <div class="tableWrap">
+            <table class="stickyTable">
+              <thead>
+                <tr>
+                  <th style="width:160px;">codeName</th>
+                  <th style="width:110px;">memberId</th>
+                  <th style="width:240px;">Email</th>
+                  <th style="width:220px;">表示名</th>
+
+                  <th style="width:220px;">Role（編集）</th>
+                  <th style="width:160px;">Status（編集）</th>
+                  <th style="width:160px;">通知先（編集）</th>
+                  <th style="width:110px;">保存</th>
+
+                  <th style="width:160px;">OS inactiveDays</th>
+                  <th style="width:160px;">Google inactiveDays</th>
+                  <th style="width:160px;">Slack inactiveDays</th>
+
+                  <th style="width:120px;">Google</th>
+                  <th style="width:140px;">Google last</th>
+                  <th style="width:120px;">Slack</th>
+                  <th style="width:140px;">Slack last</th>
+
+                  <th style="width:140px;">Google通知</th>
+                  <th style="width:140px;">Slack通知</th>
+                </tr>
+              </thead>
+
+              <tbody id="tbody">
+                <tr><td colspan="16" class="muted">loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Projects ===== -->
+      <div id="sec_projects" style="display:none;">
+        <div class="card" id="pjCard">
+          <div class="row">
+            <div>
+              <div style="font-weight:900;">PJ台帳（DB_Projects）</div>
+              <div class="muted">PJ情報の一覧。テストPJの掃除はここでやる（カスケード削除）</div>
+            </div>
+
+            <div class="rowLeft">
+              <button class="btn" onclick="loadProjects()">PJ一覧 更新</button>
+              <button class="btn" id="btnReloadFreeePartners" onclick="reloadFreeePartners_()">取引先 再読み込み</button>
+              <button class="btn" onclick="openSlackTestModalForProject()">Slackテスト送信</button>
+            </div>
+          </div> <!-- ★これが抜けてた：row を閉じる -->
+          <div id="pjHint" class="hint">-</div>
+          <div id="pjErr" class="err" style="display:none;"></div>
+
+          <div class="tableWrap">
+            <table class="stickyTable" style="min-width: 1200px;">
+              <thead>
+                <tr>
+                  <th style="width:120px;">PJID</th>
+                  <th style="width:240px;">PJ名</th>
+                  <th style="width:360px;">請求先（編集）</th>
+
+                  <th style="width:220px;">晒し先Slack（編集）</th>
+
+                  <th style="width:200px;">Status（編集）</th>
+                  <th style="width:120px;">保存</th>
+
+                  <th style="width:160px;">Updated</th>
+                  <th style="width:120px;">Open</th>
+                  <th style="width:140px;">Delete</th>
+                </tr>
+              </thead>
+              <tbody id="pjTbody">
+                <tr><td colspan="8" class="muted">loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="muted" style="margin-top:10px;">
+            ※削除は関連DBも全部消す（DB_ProjectMembers / DB_ProjectCharter / DB_BillingCycle / DB_PayoutDetail / DB_PayoutAgreement / ...）
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Protocols ===== -->
+      <div id="sec_protocols" style="display:none;">
+        <div class="card" id="protocolCard">
+          <div class="row">
+            <div>
+              <div style="font-weight:900;">Protocol管理（DB_Protocols）</div>
+              <div class="muted">候補→確定→アーカイブ。本文はここ（Admin）だけで整備する</div>
+            </div>
+
+            <div class="rowLeft">
+              <div>
+                <div class="ctlLabel">PJ名</div>
+                <input id="protFltProjectName" class="ctl" style="width:180px" placeholder="例: BWE / OPT / JC ..." list="protProjectNameList" />
+                <datalist id="protProjectNameList"></datalist>
+              </div>
+
+              <div>
+                <div class="ctlLabel">status</div>
+                <select id="protFltStatus" class="ctl" style="width:160px">
+                  <option value="">（全て）</option>
+                  <option value="candidate">candidate</option>
+                  <option value="confirmed">confirmed</option>
+                  <option value="archived">archived</option>
+                </select>
+              </div>
+
+              <div>
+                <div class="ctlLabel">sourceType</div>
+                <select id="protFltSourceType" class="ctl" style="width:160px">
+                  <option value="">（全て）</option>
+                  <option value="manual">manual</option>
+                  <option value="notion">notion</option>
+                  <option value="gmail">gmail</option>
+                  <option value="slack">slack</option>
+                </select>
+              </div>
+
+              <div>
+                <div class="ctlLabel">検索</div>
+                <input id="protFltQ" class="ctl" style="width:220px" placeholder="decisionPoint/criteria/tag など" />
+              </div>
+
+              <button class="btn" onclick="loadProtocols()">更新</button>
+              <button class="btn" onclick="openNewProtocolInline()">手動追加</button>
+            </div>
+          </div>
+
+          <div id="protHint" class="hint">-</div>
+          <div id="protErr" class="err" style="display:none;"></div>
+
+          <!-- 手動追加フォーム -->
+          <div id="protNewBox" style="display:none; margin-top:12px; border:1px dashed var(--line); border-radius:12px; padding:12px; background:#fff;">
+            <div class="row" style="align-items:flex-start;">
+              <div class="rowLeft">
+                <div>
+                  <div class="ctlLabel">PJ名</div>
+                  <select id="protNewProjectName" class="ctl" style="width:220px">
+                    <option value="">（選択）</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="ctlLabel">重要度</div>
+                  <select id="protNewImportance" class="ctl" style="width:120px">
+                    <option value="1">★</option>
+                    <option value="2">★★</option>
+                    <option value="3">★★★</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="ctlLabel">sourceType</div>
+                  <select id="protNewSourceType" class="ctl" style="width:160px">
+                    <option value="manual">manual</option>
+                    <option value="notion">notion</option>
+                    <option value="gmail">gmail</option>
+                    <option value="slack">slack</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="ctlLabel">sourceRef</div>
+                  <input id="protNewSourceRef" class="ctl" style="width:280px" placeholder="url / messageId / notionId ..." />
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:10px;">
+              <div class="ctlLabel">分岐点（decisionPoint）</div>
+              <input id="protNewDecisionPoint" class="ctl" style="width:100%;" placeholder="例：会社をすぐ設立するか" />
+            </div>
+
+            <div style="margin-top:10px;">
+              <div class="ctlLabel">判断条件（decisionCriteria）</div>
+              <textarea id="protNewDecisionCriteria" class="ctl" style="width:100%; height:110px; resize:vertical;" placeholder="観測した事実 / 比較軸 / 注意点 / 追加で確認する質問 ..."></textarea>
+            </div>
+
+            <div style="margin-top:10px;">
+              <div class="ctlLabel">アクション（任意）</div>
+              <textarea id="protNewAction" class="ctl" style="width:100%; height:90px; resize:vertical;" placeholder="例：会議を仮想経営会議として定義する / 決裁者同席を要求する ..."></textarea>
+            </div>
+
+
+            <div style="margin-top:10px;">
+              <div class="ctlLabel">ジャンルタグ</div>
+
+              <div class="row" style="margin-top:6px; align-items:center;">
+                <div class="rowLeft">
+                  <input
+                    id="protNewTagInput"
+                    class="ctl"
+                    style="width:260px"
+                    placeholder="例: 採用 / 組織（入力→候補選択 or Enterで追加）"
+                    list="genreTagDatalist"
+                    autocomplete="off"
+                  />
+                  <datalist id="genreTagDatalist"></datalist>
+
+                  <button class="btn" onclick="addTagFromGenreInput_()">追加</button>
+                </div>
+                <div class="muted">Enterでも追加。未登録なら「新規追加しますか？」が出る</div>
+              </div>
+
+              <div id="protNewTagsChips" style="margin-top:8px;"></div>
+
+              <!-- 実保存用（カンマ区切りで保持） -->
+              <input type="hidden" id="protNewTagsHidden" value="" />
+            </div>
+
+            <div style="margin-top:10px;">
+              <div class="ctlLabel">notes</div>
+              <input id="protNewNotes" class="ctl" style="width:100%;" placeholder="任意" />
+            </div>
+
+            <div class="row" style="margin-top:12px;">
+              <div class="rowLeft">
+                <button class="btn" onclick="createProtocolManual()">candidateとして追加</button>
+                <button class="btn" onclick="closeNewProtocolInline()">閉じる</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 未確定（candidate） ===== -->
+          <div class="muted" style="margin-top:12px; font-weight:900;">未確定（candidate）</div>
+          <div class="tableWrap" style="margin-top:8px;">
+            <table class="stickyTable resizableTable" id="tblProtCandidate" style="min-width: 1800px; table-layout: fixed;">
+              <thead>
+                <tr>
+                  <th data-colkey="dp" class="colDp">分岐点</th>
+                  <th data-colkey="dc" class="colDc">判断条件</th>
+                  <th data-colkey="ac" class="colDc">アクション</th>
+
+                  <!-- ★ここに移動 -->
+                  <th data-colkey="op" class="colOp">操作</th>
+
+                  <th data-colkey="ev" class="colEv">根拠</th>
+                  <th data-colkey="pj" class="colPj">PJ名</th>
+
+                  <th data-colkey="conf" class="colConf">confidence</th>
+                  <th data-colkey="imp" class="colImp">重要度</th>
+                  <th data-colkey="tags" class="colTags">ジャンルタグ</th>
+
+                  <th data-colkey="srcType" class="colSrcType">sourceType</th>
+                  <th data-colkey="srcRef" class="colSrcRef">sourceRef</th>
+
+                  <th data-colkey="createdAt" class="colCreatedAt">createdAt</th>
+                  <th data-colkey="createdBy" class="colCreatedBy">createdBy</th>
+
+                  <th data-colkey="id" class="colId">id</th>
+                </tr>
+              </thead>
+
+              <tbody id="protCandTbody">
+                <tr><td colspan="13" class="muted">loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ===== 確定（confirmed） ===== -->
+          <div class="muted" style="margin-top:14px; font-weight:900;">確定（confirmed）</div>
+          <div class="tableWrap" style="margin-top:8px;">
+            <table class="stickyTable resizableTable" id="tblProtConfirmed" style="min-width: 1800px; table-layout: fixed;">
+              <thead>
+                <tr>
+                  <th data-colkey="dp" class="colDp">分岐点</th>
+                  <th data-colkey="dc" class="colDc">判断条件</th>
+                  <th data-colkey="ac" class="colDc">アクション</th>
+
+                  <!-- ★ここに移動 -->
+                  <th data-colkey="op" class="colOp">操作</th>
+
+                  <th data-colkey="ev" class="colEv">根拠</th>
+                  <th data-colkey="pj" class="colPj">PJ名</th>
+
+                  <th data-colkey="conf" class="colConf">confidence</th>
+                  <th data-colkey="imp" class="colImp">重要度</th>
+                  <th data-colkey="tags" class="colTags">ジャンルタグ</th>
+
+                  <th data-colkey="srcType" class="colSrcType">sourceType</th>
+                  <th data-colkey="srcRef" class="colSrcRef">sourceRef</th>
+
+                  <th data-colkey="createdAt" class="colCreatedAt">createdAt</th>
+                  <th data-colkey="createdBy" class="colCreatedBy">createdBy</th>
+
+                  <th data-colkey="id" class="colId">id</th>
+                </tr>
+              </thead>
+              <tbody id="protConfTbody">
+                <tr><td colspan="13" class="muted">loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+      <!-- ===== LLM Contexts ===== -->
+      <div id="sec_contexts" style="display:none;">
+        <div class="card" id="ctxCard">
+          <div class="row">
+            <div>
+              <div style="font-weight:900;">LLM Context（DB_LLMContext）</div>
+              <div class="muted">略語・PJ背景・人物メモなど。抽出/回答の背景知識として注入する。</div>
+            </div>
+
+            <div class="rowLeft">
+              <div>
+                <div class="ctlLabel">検索</div>
+                <input id="ctxQ" class="ctl" style="width:220px" placeholder="CX / 神谷 / 略語 など" />
+              </div>
+              <div>
+                <div class="ctlLabel">status</div>
+                <select id="ctxStatus" class="ctl" style="width:140px">
+                  <option value="">（全て）</option>
+                  <option value="active">active</option>
+                  <option value="archived">archived</option>
+                </select>
+              </div>
+
+              <button class="btn" onclick="loadContexts()">更新</button>
+              <button class="btn" onclick="openNewContextModal()">追加</button>
+
+            </div>
+          </div>
+
+          <div id="ctxHint" class="hint">-</div>
+          <div id="ctxErr" class="err" style="display:none;"></div>
+
+          <div class="tableWrap" style="margin-top:12px;">
+            <table class="stickyTable" style="min-width: 1700px;">
+              <thead>
+                <tr>
+                  <th style="width:120px;">status</th>
+                  <th style="width:920px;">content</th>
+                  <th style="width:380px;">tags</th>
+                  <th style="width:160px;">updatedAt</th>
+                  <th style="width:220px;">操作</th>
+                  <th style="width:220px;">contextId</th>
+                </tr>
+              </thead>
+              <tbody id="ctxTbody">
+                <tr><td colspan="10" class="muted">loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+      <!-- ===== Extractor Prompt ===== -->
+      <div id="sec_extractors" style="display:none;">
+        <div class="card" id="exCard">
+          <div class="row">
+            <div>
+              <div style="font-weight:900;">Extractor Prompt（DB_LLMExtractorConfig）</div>
+              <div class="muted">「分岐点/判断基準」の定義・禁止例など、抽出ルールをここで編集して運用する。</div>
+            </div>
+
+            <div class="rowLeft">
+              <div>
+                <div class="ctlLabel">name</div>
+                <input id="exName" class="ctl" style="width:180px" value="protocol_extract" />
+              </div>
+
+              <button class="btn" onclick="loadExtractorConfigs()">更新</button>
+              <button class="btn" onclick="openNewExtractorInline()">新規</button>
+              <button class="btn" id="btnExActivate" onclick="activateSelectedExtractor_()" disabled>有効化</button>
+              <button class="btn" id="btnExArchive" style="border-color:#fecaca; color:#b91c1c;" onclick="archiveSelectedExtractor_()" disabled>アーカイブ</button>
+            </div>
+          </div>
+
+          <div id="exHint" class="hint">-</div>
+          <div id="exErr" class="err" style="display:none;"></div>
+
+          <!-- editor -->
+          <div id="exEditor" style="margin-top:12px; border:1px dashed var(--line); border-radius:12px; padding:12px; background:#fff;">
+            <div class="rowLeft">
+              <div>
+                <div class="ctlLabel">status</div>
+                <input id="exStatus" class="ctl" style="width:120px" value="(not loaded)" disabled />
+              </div>
+
+              <div>
+                <div class="ctlLabel">version</div>
+                <input id="exVersion" class="ctl" style="width:180px" placeholder="例: v3_ctx1" />
+              </div>
+
+              <div>
+                <div class="ctlLabel">note</div>
+                <input id="exNote" class="ctl" style="width:360px" placeholder="任意メモ（何を変えたか）" />
+              </div>
+
+              <div>
+                <div class="ctlLabel">configId</div>
+                <input id="exConfigId" class="ctl mono" style="width:260px" value="" disabled />
+              </div>
+            </div>
+
+            <div style="margin-top:10px;">
+              <div class="ctlLabel">systemPrompt</div>
+              <textarea id="exSystemPrompt" class="ctl" style="width:100%; height:260px; resize:vertical;" placeholder="ここにsystem prompt全文（後で入れる）"></textarea>
+            </div>
+
+            <div class="row" style="margin-top:12px;">
+              <div class="rowLeft">
+                <button class="btn" onclick="saveExtractorConfig_()">保存</button>
+                <button class="btn" onclick="loadActiveExtractor_()">activeを読み込み</button>
+              </div>
+              <div class="muted">保存＝新規作成または上書き。有効化＝activeに切替（同名のactiveは自動でarchived）。</div>
+            </div>
+          </div>
+
+          <!-- list -->
+          <div class="tableWrap" style="margin-top:12px;">
+            <table class="stickyTable" style="min-width: 1400px;">
+              <thead>
+                <tr>
+                  <th style="width:110px;">status</th>
+                  <th style="width:220px;">version</th>
+                  <th style="width:420px;">note</th>
+                  <th style="width:180px;">updatedAt</th>
+                  <th style="width:240px;">操作</th>
+                  <th style="width:320px;">configId</th>
+                </tr>
+              </thead>
+              <tbody id="exTbody">
+                <tr><td colspan="6" class="muted">loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Code Search ===== -->
+      <div id="sec_code" style="display:none;">
+        <div class="card" id="codeCard">
+          <div class="row">
+            <div>
+              <div style="font-weight:900;">Code Search（関数 → ファイル）</div>
+              <div class="muted">関数名から「定義」と「参照」を横断検索する</div>
+            </div>
+
+            <div class="rowLeft">
+              <div>
+                <div class="ctlLabel">functionName</div>
+                <input id="codeFn" class="ctl mono" style="width:260px" placeholder="例: api_getBillingPageData" />
+              </div>
+
+              <div class="tog" style="margin-top:18px;">
+                <input type="checkbox" id="codeIncludeRefs" />
+                <span>参照も探す</span>
+              </div>
+
+              <button class="btn" onclick="runCodeSearch()">検索</button>
+            </div>
+          </div>
+
+          <div id="codeHint" class="hint">-</div>
+          <div id="codeErr" class="err" style="display:none;"></div>
+
+          <div class="tableWrap" style="margin-top:12px;">
+            <table class="stickyTable" style="min-width: 1100px;">
+              <thead>
+                <tr>
+                  <th style="width:140px;">kind</th>
+                  <th style="width:320px;">file</th>
+                  <th style="width:110px;">line</th>
+                  <th>snippet</th>
+                  <th style="width:140px;">copy</th>
+                </tr>
+              </thead>
+              <tbody id="codeTbody">
+                <tr><td colspan="5" class="muted">検索してね</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="muted" style="margin-top:10px;">
+            ※Apps Script API（projects.content）が有効じゃないと動かない
+          </div>
+        </div>
+      </div>
+
+      <!-- App Modal (confirm / input) -->
+      <div id="appModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:9999; align-items:center; justify-content:center;">
+        <div style="width:min(620px, calc(100% - 32px)); background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px;">
+          <div id="appModalTitle" style="font-weight:900; font-size:14px;">確認</div>
+
+          <!-- 本文（HTMLとして入れたいのでdiv） -->
+          <div id="appModalBody" class="muted" style="margin-top:8px; white-space:normal;"></div>
+
+          <!-- 入力欄（必要なときだけ表示） -->
+          <div id="appModalInputWrap" style="display:none; margin-top:10px;">
+            <div class="ctlLabel" id="appModalInputLabel">入力</div>
+            <textarea id="appModalInput" class="ctl" style="width:100%; height:120px; resize:vertical;" placeholder=""></textarea>
+            <div class="small" id="appModalInputHint" style="margin-top:6px;">-</div>
+          </div>
+
+          <div class="row" style="margin-top:12px;">
+            <div class="rowLeft">
+              <button class="btn" id="appModalOk">OK</button>
+              <button class="btn" id="appModalCancel">キャンセル</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
+    </div>
+
+
+
+    <script>
+      const CAN_ACCESS_ADMIN = <?= canAccessAdmin ?>;
+
+      function el(id){ return document.getElementById(id); }
+
+      function escapeHtml(s){
+        return String(s||"")
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;')
+          .replaceAll("'","&#39;");
+      }
+
+      // ★ 属性用（onclickの引数など）に安全に突っ込む用
+      function escapeHtmlAttr(s){
+        // いったんHTML的に安全化 → さらに ' をエスケープ（JS文字列の事故防止）
+        return escapeHtml(s).replaceAll("'", "\\'");
+      }
+
+      function showErr(msg){
+        const m = msg || "error";
+
+        // Membersタブ用（既存）
+        try{
+          const e1 = el("err");
+          if (e1){
+            e1.style.display = "block";
+            e1.textContent = m;
+          }
+        }catch(e){}
+
+        // Codeタブ用（追加：ここが見えてないと詰む）
+        try{
+          const e2 = el("codeErr");
+          if (e2){
+            e2.style.display = "block";
+            e2.textContent = m;
+          }
+        }catch(e){}
+
+        // Protocol/Context/Extractorもついでに（見えてるタブに出す）
+        try{
+          const ids = ["protErr","ctxErr","exErr","pjErr","candErr"];
+          ids.forEach(id=>{
+            const x = el(id);
+            if (x){
+              x.style.display = "block";
+              x.textContent = m;
+            }
+          });
+        }catch(e){}
+      }
+
+
+      function pill(v){
+        const s = String(v||"").trim();
+        if (!s) return `<span class="pill gray">-</span>`;
+        return `<span class="pill">${escapeHtml(s)}</span>`;
+      }
+
+      function numOrDash(v){
+        if (v === null || v === undefined || v === "") return "-";
+        const n = Number(v);
+        if (isNaN(n)) return escapeHtml(String(v));
+        return String(n);
+      }
+
+      // ===== Members list =====
+      let __ALL__ = [];
+
+      function render(list){
+        const tb = el("tbody");
+        const rows = Array.isArray(list) ? list : [];
+        const COLS = 17; // ★通知先列ぶん増える
+
+        if (!rows.length){
+          tb.innerHTML = `<tr><td colspan="${COLS}" class="muted">該当なし</td></tr>`;
+          el("hint").textContent = `rows: 0`;
+          return;
+        }
+
+        tb.innerHTML = rows.map(u => {
+          const memberIdRaw = u.memberId || "";
+          const codeNameRaw = u.codeName || "";
+
+          const emRaw = u.email || "";
+          const emAttr = escapeHtmlAttr(emRaw);
+          const dnAttr = escapeHtmlAttr(u.displayName || "");
+
+          const midAttr = escapeHtmlAttr(memberIdRaw);
+
+          return `
+            <tr data-mid="${midAttr}">
+              <td class="mono nowrap"><b>${escapeHtml(codeNameRaw)}</b></td>
+              <td class="mono nowrap">${escapeHtml(memberIdRaw)}</td>
+              <td class="mono nowrap">${escapeHtml(emRaw)}</td>
+              <td class="nowrap">${escapeHtml(u.displayName||"")}</td>
+
+              <td class="nowrap">${renderRoleSelect_(memberIdRaw, u.role)}</td>
+              <td class="nowrap">${renderStatusSelect_(memberIdRaw, u.status)}</td>
+              <td class="nowrap">${renderNotifyChannelSelect_(memberIdRaw, u.notifyChannel)}</td>
+
+              <td class="nowrap">
+                <button class="btn" id="save_${midAttr}" onclick="saveMember('${midAttr}', this)" disabled>保存</button>
+              </td>
+
+              <td class="nowrap"><b>${numOrDash(u.osInactiveDays)}</b></td>
+              <td class="nowrap"><b>${numOrDash(u.googleInactiveDays)}</b></td>
+              <td class="nowrap"><b>${numOrDash(u.slackInactiveDays)}</b></td>
+
+              <td class="nowrap">${pill(u.googleState)}</td>
+              <td class="small nowrap">${escapeHtml(u.googleLastSeenAt||"-")}</td>
+              <td class="nowrap">${pill(u.slackState)}</td>
+              <td class="small nowrap">${escapeHtml(u.slackLastSeenAt||"-")}</td>
+
+              <td class="nowrap">
+                <button
+                  class="btn"
+                  onclick="sendGoogleDowngradeNotice('${emAttr}','${dnAttr}', this)"
+                  title="このメンバーに Google 無償化の事前通知メールを送る"
+                >通知</button>
+              </td>
+
+              <td class="nowrap">
+                <button
+                  class="btn"
+                  onclick="sendSlackDowngradeNotice('${emAttr}','${dnAttr}', this)"
+                  title="このメンバーに Slack 無償化の事前通知メールを送る"
+                >通知</button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+
+        el("hint").textContent =
+          `rows: ${rows.length}（ソート: memberId昇順 / inactiveDaysは 2026-01-14 起点を含む）`;
+      }
+
+      function renderRoleSelect_(memberId, current){
+        const mid = escapeHtmlAttr(memberId || "");
+        const cur = String(current || "").trim();
+
+        // ★roleTagに入れる値（この文字列でDBに保存される）
+        const options = ["", "マネージャー", "パートナー", "シニアアソシエイト", "アソシエイト", "クルー"];
+
+        return `
+          <select class="ctl" style="width:210px"
+            id="role_${mid}"
+            data-orig="${escapeHtmlAttr(cur)}"
+            onchange="markDirty('${mid}')"
+          >
+            ${options.map(v => {
+              const vv = String(v);
+              const sel = (vv === cur) ? "selected" : "";
+              const label = vv ? vv : "（未設定）";
+              return `<option value="${escapeHtmlAttr(vv)}" ${sel}>${escapeHtml(label)}</option>`;
+            }).join("")}
+          </select>
+        `;
+      }
+
+      function renderStatusSelect_(memberId, current){
+        const mid = escapeHtmlAttr(memberId || "");
+        const cur = String(current || "").trim().toLowerCase();
+
+        const options = [
+          "", "active", "inactive", "paused"
+        ];
+
+        return `
+          <select class="ctl" style="width:140px"
+            id="status_${mid}"
+            data-orig="${escapeHtmlAttr(cur)}"
+            onchange="markDirty('${mid}')"
+          >
+            ${options.map(v => {
+              const vv = String(v);
+              const sel = (vv.toLowerCase() === cur) ? "selected" : "";
+              const label = vv ? vv : "（未設定）";
+              return `<option value="${escapeHtmlAttr(vv)}" ${sel}>${escapeHtml(label)}</option>`;
+            }).join("")}
+          </select>
+        `;
+      }
+
+      function renderNotifyChannelSelect_(memberId, current){
+        const mid = escapeHtmlAttr(memberId || "");
+        const cur = String(current || "").trim().toLowerCase();
+
+        const options = ["gmail","slack"];
+
+        return `
+          <select class="ctl" style="width:140px"
+            id="notify_${mid}"
+            data-orig="${escapeHtmlAttr(cur || "gmail")}"
+            onchange="markDirty('${mid}')"
+          >
+            ${options.map(v => {
+              const vv = String(v);
+              const sel = (vv === (cur || "gmail")) ? "selected" : "";
+              return `<option value="${escapeHtmlAttr(vv)}" ${sel}>${escapeHtml(vv)}</option>`;
+            }).join("")}
+          </select>
+        `;
+      }
+
+      function markDirty(memberId){
+        const mid = (memberId || "").trim();
+        if (!mid) return;
+
+        const roleEl = el(`role_${mid}`);
+        const stEl = el(`status_${mid}`);
+        const ntEl = el(`notify_${mid}`);
+        const saveBtn = el(`save_${mid}`);
+        if (!roleEl || !stEl || !ntEl || !saveBtn) return;
+
+        const roleOrig = String(roleEl.dataset.orig || "");
+        const stOrig = String(stEl.dataset.orig || "");
+        const ntOrig = String(ntEl.dataset.orig || "gmail");
+
+        const roleNow = String(roleEl.value || "").trim().toLowerCase();
+        const stNow = String(stEl.value || "").trim().toLowerCase();
+        const ntNow = String(ntEl.value || "").trim().toLowerCase();
+
+        const changed = (roleNow !== roleOrig) || (stNow !== stOrig) || (ntNow !== ntOrig);
+        saveBtn.disabled = !changed;
+      }
+
+      function saveMember(memberId, btnEl){
+        const mid = (memberId || "").trim();
+        if (!mid){
+          showErr("memberId empty");
+          return;
+        }
+
+        const roleEl = el(`role_${mid}`);
+        const stEl = el(`status_${mid}`);
+        const ntEl = el(`notify_${mid}`); // ★追加
+        if (!roleEl || !stEl || !ntEl){
+          showErr("role/status/notify element not found");
+          return;
+        }
+
+        const payload = {
+          memberId: mid,
+          role: (roleEl.value || "").trim(),
+          status: (stEl.value || "").trim(),
+          notifyChannel: (ntEl.value || "").trim().toLowerCase() || "gmail"
+        };
+
+        if (btnEl){
+          btnEl.disabled = true;
+          btnEl.textContent = "保存中...";
+        }
+        el("err").style.display = "none";
+        el("hint").textContent = `保存中... memberId=${mid}`;
+
+        google.script.run
+          .withFailureHandler(err => {
+            if (btnEl){
+              btnEl.disabled = false;
+              btnEl.textContent = "保存";
+            }
+            showErr(err?.message || String(err));
+            markDirty(mid);
+          })
+          .withSuccessHandler(res => {
+            if (btnEl){
+              btnEl.textContent = "保存";
+            }
+            if (!res || !res.ok){
+              if (btnEl) btnEl.disabled = false;
+              showErr((res && res.message) ? res.message : "save failed");
+              markDirty(mid);
+              return;
+            }
+
+            // ★成功したので orig を更新して「変更なし」状態に戻す
+            roleEl.dataset.orig = String(payload.role || "").trim().toLowerCase();
+            stEl.dataset.orig = String(payload.status || "").trim().toLowerCase();
+            ntEl.dataset.orig = String(payload.notifyChannel || "gmail").trim().toLowerCase();
+
+            el("hint").textContent = `保存完了：memberId=${mid}`;
+            markDirty(mid);
+          })
+          .admin_updateMemberRoleStatus(payload);
+      }
+
+      function sendSlackDowngradeNotice(email, displayName, btnEl){
+        const em = (email || "").trim();
+        if (!em){
+          showErr("email empty");
+          return;
+        }
+
+        const name = (displayName || "").trim() || em;
+
+        const ok = window.confirm(
+          `Slack無償化通知メールを送る？\n` +
+          `宛先: ${name} <${em}>\n\n` +
+          `inactive days>30となったため無償プランに切り替えます。\n` +
+          `有償プランに戻す必要が生じたらマネージャーに言ってね！\n` +
+          `引き続き#a1-allは見れるしDMも送れるから安心してねー。`
+        );
+        if (!ok) return;
+
+        if (btnEl){
+          btnEl.disabled = true;
+          btnEl.textContent = "送信中...";
+        }
+        el("err").style.display = "none";
+        el("hint").textContent = `送信中... ${em}`;
+
+        google.script.run
+          .withFailureHandler(err => {
+            if (btnEl){
+              btnEl.disabled = false;
+              btnEl.textContent = "通知";
+            }
+            showErr(err?.message || String(err));
+          })
+          .withSuccessHandler(res => {
+            if (btnEl){
+              btnEl.disabled = false;
+              btnEl.textContent = "通知";
+            }
+            if (!res || !res.ok){
+              showErr((res && res.message) ? res.message : "send failed");
+              return;
+            }
+            el("hint").textContent = `送信完了：${em}`;
+          })
+          .admin_sendSlackDowngradeNotice(em);
+      }
+
+      function sendGoogleDowngradeNotice(email, displayName, btnEl){
+        const em = (email || "").trim();
+        if (!em){
+          showErr("email empty");
+          return;
+        }
+
+        const name = (displayName || "").trim() || em;
+
+        const ok = window.confirm(
+          `Google無償化通知メールを送る？\n` +
+          `宛先: ${name} <${em}>\n\n` +
+          `inactive days>30となったため無償プランに切り替えます。\n` +
+          `有償プランに戻す必要が生じたらマネージャーに言ってね！`
+        );
+        if (!ok) return;
+
+        if (btnEl){
+          btnEl.disabled = true;
+          btnEl.textContent = "送信中...";
+        }
+        el("err").style.display = "none";
+        el("hint").textContent = `送信中... ${em}`;
+
+        google.script.run
+          .withFailureHandler(err => {
+            if (btnEl){
+              btnEl.disabled = false;
+              btnEl.textContent = "通知";
+            }
+            showErr(err?.message || String(err));
+          })
+          .withSuccessHandler(res => {
+            if (btnEl){
+              btnEl.disabled = false;
+              btnEl.textContent = "通知";
+            }
+            if (!res || !res.ok){
+              showErr((res && res.message) ? res.message : "send failed");
+              return;
+            }
+            el("hint").textContent = `送信完了：${em}`;
+          })
+          .admin_sendGoogleDowngradeNotice(em);
+      }
+
+      function getFilters_(){
+        const daysRaw = (el("fltDays").value || "").trim();
+        const days = daysRaw ? Number(daysRaw) : null;
+        const stage = (el("fltStage").value || "").trim().toLowerCase();
+        const status = (el("fltStatus").value || "").trim().toLowerCase();
+        return { days, stage, status };
+      }
+
+      function applyFilter(){
+        const f = getFilters_();
+        let rows = __ALL__.slice();
+
+        // ★inactiveDays ≥ は「OS/Google/Slack のうち最大のinactive日数」で判定
+        if (f.days !== null && !isNaN(f.days)){
+          rows = rows.filter(u => {
+            const os = Number(u.osInactiveDays || 0);
+            const gg = Number(u.googleInactiveDays || 0);
+            const sl = Number(u.slackInactiveDays || 0);
+            const mx = Math.max(os, gg, sl);
+            return mx >= f.days;
+          });
+        }
+
+        if (f.stage){
+          rows = rows.filter(u => String(u.licenseNoticeStage||"").trim().toLowerCase() === f.stage);
+        }
+        if (f.status){
+          rows = rows.filter(u => String(u.status||"").trim().toLowerCase() === f.status);
+        }
+
+        render(rows);
+      }
+
+
+      function resetFilter(){
+        el("fltDays").value = "";
+        el("fltStage").value = "";
+        el("fltStatus").value = "";
+        render(__ALL__);
+      }
+
+      function callGAS_(fnName, args, onOk, onNg){
+        try{
+          const runner = google.script.run
+            .withSuccessHandler(onOk)
+            .withFailureHandler(onNg);
+
+          // ★関数名ズレをここで検知して、画面に出す
+          const f = runner && runner[fnName];
+          if (typeof f !== "function"){
+            throw new Error(`[GAS] ${fnName} is not a function（サーバ側に同名の公開関数が無い/名前が違う）`);
+          }
+
+          (Array.isArray(args) ? f.apply(runner, args) : f.call(runner, args));
+        } catch(e){
+          onNg && onNg(e);
+        }
+      }
+
+      function load(){
+        // ここが死ぬと「loading...固定」になるので、とにかく例外で落とさない
+        try{
+          el("err").style.display = "none";
+          el("hint").textContent = "loading...";
+          el("tbody").innerHTML = `<tr><td colspan="16" class="muted">loading...</td></tr>`;
+
+          if (!CAN_ACCESS_ADMIN){
+            showErr("権限なし（この画面が見えてる時点でルーティングおかしい）");
+            return;
+          }
+
+          callGAS_(
+            "listAdminUsers",
+            [],
+            (res) => {
+              try{
+                if (!res || !res.ok){
+                  showErr((res && res.message) ? res.message : "load failed");
+                  __ALL__ = [];
+                  render([]);
+                  return;
+                }
+
+                __ALL__ = res.users || [];
+                __ALL__.sort((a,b)=> String(a.memberId||"").localeCompare(String(b.memberId||""), "ja"));
+                render(__ALL__);
+
+                el("meta").textContent = res.meta
+                  ? `データ生成: ${res.meta.generatedAtJst || "-"} / members updatedAt(max): ${res.meta.membersUpdatedAtMax || "-"}`
+                  : "-";
+              } catch(e2){
+                showErr(e2?.message || String(e2));
+              }
+            },
+            (err) => {
+              showErr(err?.message || String(err));
+              // ★落ちてもタブ切替はできるように「loading...」を解除
+              try{
+                el("hint").textContent = "load failed（上のエラー見て）";
+                el("tbody").innerHTML = `<tr><td colspan="16" class="muted">load failed</td></tr>`;
+              } catch(_) {}
+            }
+          );
+
+        } catch(e){
+          showErr(e?.message || String(e));
+        }
+      }
+
+
+
+      // ===== PJ list =====
+      // __PJS__ は「Protocols/Candidates用：activeのみ」を入れる
+      let __PJS__ = [];
+
+      // Projectsタブ（PJ台帳）用：全件（draft含む）
+      let __PJS_ALL__ = [];
+
+      // ===== freee partners (pulldown candidates for Projects->Client) =====
+      let __FREEE_PARTNERS__ = []; // [{id,name}]
+
+      function fillFreeePartnerDatalist_(){
+        const dl = el("freeePartnerDatalist");
+        if (!dl) return;
+
+        const rows = Array.isArray(__FREEE_PARTNERS__) ? __FREEE_PARTNERS__ : [];
+        const names = rows.map(x => String(x?.name || "").trim()).filter(x=>x);
+
+        const uniq = Array.from(new Set(names)).sort((a,b)=>a.localeCompare(b,"ja"));
+        dl.innerHTML = uniq.map(n => `<option value="${escapeHtmlAttr(n)}"></option>`).join("");
+      }
+
+      function loadFreeePartners_(){
+        // すでに入ってるなら叩かない（必要なら強制更新ボタン後で追加してもいい）
+        if (Array.isArray(__FREEE_PARTNERS__) && __FREEE_PARTNERS__.length){
+          fillFreeePartnerDatalist_();
+          return;
+        }
+
+        // サーバ側で freee取引先一覧を返す関数を用意する（後述）
+        google.script.run
+          .withFailureHandler(err => {
+            // 取引先が取れなくてもPJ一覧は出したいので握りつぶす
+            try{ console.warn(err); }catch(e){}
+            __FREEE_PARTNERS__ = [];
+            fillFreeePartnerDatalist_();
+          })
+          .withSuccessHandler(res => {
+            // res: {ok:true, partners:[{id,name}]} or array
+            if (Array.isArray(res)){
+              __FREEE_PARTNERS__ = res;
+            } else if (res && res.ok && Array.isArray(res.partners)){
+              __FREEE_PARTNERS__ = res.partners;
+            } else {
+              __FREEE_PARTNERS__ = [];
+            }
+            fillFreeePartnerDatalist_();
+          })
+          .admin_listFreeePartners();
+      }
+
+      function reloadFreeePartners_(){
+        const btn = el("btnReloadFreeePartners");
+        const origText = btn ? btn.textContent : "";
+
+        // ★即時フィードバック
+        if (btn){
+          btn.disabled = true;
+          btn.textContent = "再読み込み中...";
+        }
+        try{
+          el("pjErr").style.display = "none";
+          el("pjHint").textContent = "freee取引先を再読み込み中...";
+        }catch(e){}
+
+        // ★ローカル候補を一度空にして「変化」を見せる
+        __FREEE_PARTNERS__ = [];
+        fillFreeePartnerDatalist_();
+
+        google.script.run
+          .withFailureHandler(err => {
+            if (btn){
+              btn.disabled = false;
+              btn.textContent = origText;
+            }
+            try{
+              showPjErr("取引先 再読み込み失敗: " + (err?.message || String(err)));
+              el("pjHint").textContent = "失敗";
+            }catch(e){}
+          })
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              if (btn){
+                btn.disabled = false;
+                btn.textContent = origText;
+              }
+              try{
+                showPjErr((res && res.message) ? res.message : "取引先キャッシュクリア失敗");
+                el("pjHint").textContent = "失敗";
+              }catch(e){}
+              return;
+            }
+
+            // ★キャッシュ削除後、即再取得
+            google.script.run
+              .withFailureHandler(err2 => {
+                if (btn){
+                  btn.disabled = false;
+                  btn.textContent = origText;
+                }
+                try{
+                  showPjErr("取引先 取得失敗: " + (err2?.message || String(err2)));
+                  el("pjHint").textContent = "失敗";
+                }catch(e){}
+              })
+              .withSuccessHandler(res2 => {
+                if (btn){
+                  btn.disabled = false;
+                  btn.textContent = origText;
+                }
+
+                if (res2 && res2.ok && Array.isArray(res2.partners)){
+                  __FREEE_PARTNERS__ = res2.partners;
+                } else {
+                  __FREEE_PARTNERS__ = [];
+                }
+
+                fillFreeePartnerDatalist_();
+
+                try{
+                  el("pjHint").textContent =
+                    `freee取引先を再取得した（${__FREEE_PARTNERS__.length}件）`;
+                }catch(e){}
+              })
+              .admin_listFreeePartners();
+          })
+          .admin_clearFreeePartnersCache();
+      }
+
+      function markDirtyProjectClient(projectId){
+        const pid = String(projectId || "").trim();
+        if (!pid) return;
+
+        const inp = el(`pjcl_${pid}`);
+        const btn = el(`pjsave_${pid}`);
+        if (!inp || !btn) return;
+
+        const orig = String(inp.dataset.orig || "").trim();
+        const now  = String(inp.value || "").trim();
+
+        btn.disabled = (now === orig);
+      }
+
+      function saveProjectClient(projectId, btnEl){
+        const pid = String(projectId || "").trim();
+        if (!pid){
+          showPjErr("projectId empty");
+          return;
+        }
+
+        const inp = el(`pjcl_${pid}`);
+        if (!inp){
+          showPjErr("client input not found");
+          return;
+        }
+
+        const nextClientName = String(inp.value || "").trim();
+        if (!nextClientName){
+          showPjErr("請求先が空");
+          return;
+        }
+
+        if (btnEl){
+          btnEl.disabled = true;
+          btnEl.textContent = "保存中...";
+        }
+        el("pjErr").style.display = "none";
+        el("pjHint").textContent = `保存中... clientName ${pid} -> ${nextClientName}`;
+
+        google.script.run
+          .withFailureHandler(err => {
+            if (btnEl){
+              btnEl.disabled = false;
+              btnEl.textContent = "保存";
+            }
+            showPjErr(err?.message || String(err));
+            markDirtyProjectClient(pid);
+          })
+          .withSuccessHandler(res => {
+            if (btnEl) btnEl.textContent = "保存";
+
+            if (!res || !res.ok){
+              if (btnEl) btnEl.disabled = false;
+              showPjErr((res && res.message) ? res.message : "save failed");
+              markDirtyProjectClient(pid);
+              return;
+            }
+
+            // ★サーバが正規化した名前（freee側で作った結果など）を反映
+            const fixedName = String(res.clientName || nextClientName).trim();
+            inp.value = fixedName;
+            inp.dataset.orig = fixedName;
+
+            // updatedAtも差し替え
+            const tr = document.querySelector(`tr[data-pid="${CSS.escape(pid)}"]`);
+            const updCell = tr ? tr.querySelector("td.pjUpdatedAt") : null;
+            const updatedAt = String(res.updatedAt || "").trim();
+            if (updCell && updatedAt) updCell.textContent = updatedAt;
+
+            // キャッシュも更新
+            const hit = (__PJS_ALL__ || []).find(x => String(x.projectId||"").trim() === pid);
+            if (hit){
+              hit.clientName = fixedName;
+              if (updatedAt) hit.updatedAt = updatedAt;
+            }
+
+            el("pjHint").textContent = `保存完了：clientName ${pid} -> ${fixedName}`;
+            markDirtyProjectClient(pid);
+          })
+          .admin_updateProjectClientName({
+            projectId: pid,
+            clientName: nextClientName,
+            // ★「候補にない入力で確定したらfreeeに追加」をAdmin側でやる前提
+            createFreeeIfMissing: true
+          });
+      }
+
+
+      function showPjErr(msg){
+        el("pjErr").style.display = "block";
+        el("pjErr").textContent = msg || "error";
+      }
+
+      function renderProjects(list){
+        const tb = el("pjTbody");
+        const rows = Array.isArray(list) ? list : [];
+
+        if (!rows.length){
+          tb.innerHTML = `<tr><td colspan="9" class="muted">PJなし</td></tr>`;
+          el("pjHint").textContent = `PJ: 0`;
+          return;
+        }
+
+        tb.innerHTML = rows.map(p => {
+          const projectIdRaw = String(p.projectId || "").trim();
+          const pid = escapeHtml(projectIdRaw);
+          const pidAttr = escapeHtmlAttr(projectIdRaw);
+
+          const pn = escapeHtml(p.projectName || "");
+          const pnAttr = escapeHtmlAttr(p.projectName || "");
+
+          const clientNow = String(p.clientName || "").trim();
+          const clientAttr = escapeHtmlAttr(clientNow);
+
+          const slackChNow = String(p.slackChannelId || "").trim();
+          const slackChAttr = escapeHtmlAttr(slackChNow);
+
+          const cur = String(p.status || "").trim().toLowerCase();
+          const upd = escapeHtml(String(p.updatedAt || ""));
+
+          return `
+            <tr data-pid="${pidAttr}">
+              <td class="mono nowrap"><b>${pid}</b></td>
+              <td class="noteCell">${pn}</td>
+
+              <!-- freee取引先候補（datalist）＋手入力 -->
+              <td class="noteCell">
+                <input
+                  class="ctl"
+                  style="width:100%;"
+                  id="pjcl_${pidAttr}"
+                  list="freeePartnerDatalist"
+                  value="${clientAttr}"
+                  data-orig="${clientAttr}"
+                  placeholder="freee取引先名（候補から選ぶ or 直接入力）"
+                  oninput="markDirtyProjectRow('${pidAttr}')"
+                />
+              </td>
+
+              <!-- ★晒し先Slackチャンネル -->
+              <td class="noteCell">
+                <input
+                  class="ctl mono"
+                  style="width:100%;"
+                  id="pjslack_${pidAttr}"
+                  value="${slackChAttr}"
+                  data-orig="${slackChAttr}"
+                  placeholder="例: C0123ABCDE（空なら晒し先なし）"
+                  oninput="markDirtyProjectRow('${pidAttr}')"
+                />
+              </td>
+
+              <td class="nowrap">${renderProjectStatusSelect_(projectIdRaw, cur)}</td>
+
+              <td class="nowrap">
+                <button
+                  class="btn"
+                  id="pjsave_${pidAttr}"
+                  onclick="saveProjectRow('${pidAttr}', this)"
+                  disabled
+                >保存</button>
+              </td>
+
+              <td class="small nowrap pjUpdatedAt">${upd || "-"}</td>
+              <td class="nowrap">
+                <button class="btn" onclick="openPj('${pid}','${pnAttr}')">開く</button>
+              </td>
+              <td class="nowrap">
+                <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="deletePj('${pid}','${pnAttr}')">削除</button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+
+        el("pjHint").textContent = `PJ: ${rows.length}`;
+      }
+
+      function renderProjectStatusSelect_(projectId, current){
+      const pid = escapeHtmlAttr(String(projectId || "").trim());
+      const cur = String(current || "").trim().toLowerCase();
+
+      // DB側の許容値に合わせる（今までの会話で出てたセット）
+      const options = ["active","sales","ended","frozen","lost","draft"];
+
+      return `
+        <select class="ctl" style="width:180px"
+          id="pjst_${pid}"
+          data-orig="${escapeHtmlAttr(cur)}"
+          onchange="markDirtyProjectStatus('${pid}')"
+        >
+          ${options.map(v => {
+            const vv = String(v);
+            const sel = (vv === cur) ? "selected" : "";
+            return `<option value="${escapeHtmlAttr(vv)}" ${sel}>${escapeHtml(vv)}</option>`;
+          }).join("")}
+        </select>
+      `;
+    }
+
+    function markDirtyProjectStatus(projectId){
+      markDirtyProjectRow(projectId);
+    }
+
+    function markDirtyProjectRow(projectId){
+      const pid = String(projectId || "").trim();
+      if (!pid) return;
+
+      const stEl = el(`pjst_${pid}`);
+      const clEl = el(`pjcl_${pid}`);
+      const chEl = el(`pjslack_${pid}`);
+      const btn  = el(`pjsave_${pid}`);
+      if (!stEl || !clEl || !chEl || !btn) return;
+
+      const stOrig = String(stEl.dataset.orig || "").trim().toLowerCase();
+      const stNow  = String(stEl.value || "").trim().toLowerCase();
+
+      const clOrig = String(clEl.dataset.orig || "").trim();
+      const clNow  = String(clEl.value || "").trim();
+
+      const chOrig = String(chEl.dataset.orig || "").trim();
+      const chNow  = String(chEl.value || "").trim();
+
+      btn.disabled = (stOrig === stNow && clOrig === clNow && chOrig === chNow);
+    }
+
+    function saveProjectStatus(projectId, btnEl){
+      const pid = String(projectId || "").trim();
+      if (!pid){
+        showPjErr("projectId empty");
+        return;
+      }
+
+      const stEl = el(`pjst_${pid}`);
+      if (!stEl){
+        showPjErr("status element not found");
+        return;
+      }
+
+      const nextStatus = String(stEl.value || "").trim().toLowerCase();
+      if (!nextStatus){
+        showPjErr("nextStatus empty");
+        return;
+      }
+
+      const tr = document.querySelector(`tr[data-pid="${CSS.escape(pid)}"]`);
+      const updCell = tr ? tr.querySelector("td.pjUpdatedAt") : null;
+
+      if (btnEl){
+        btnEl.disabled = true;
+        btnEl.textContent = "保存中...";
+      }
+      el("pjErr").style.display = "none";
+      el("pjHint").textContent = `保存中... ${pid} -> ${nextStatus}`;
+
+      google.script.run
+        .withFailureHandler(err => {
+          if (btnEl){
+            btnEl.disabled = false;
+            btnEl.textContent = "保存";
+          }
+          showPjErr(err?.message || String(err));
+          markDirtyProjectStatus(pid);
+        })
+        .withSuccessHandler(res => {
+          if (btnEl) btnEl.textContent = "保存";
+
+          if (!res || !res.ok){
+            if (btnEl) btnEl.disabled = false;
+            showPjErr((res && res.message) ? res.message : "save failed");
+            markDirtyProjectStatus(pid);
+            return;
+          }
+
+          // orig更新（変更なし状態へ）
+          stEl.dataset.orig = String(nextStatus).toLowerCase();
+          markDirtyProjectStatus(pid);
+
+          // ★updatedAt表示だけ差し替え（全体リロードしない）
+          const updatedAt = (res.updatedAt || "").trim();
+          if (updCell){
+            updCell.textContent = updatedAt || "-";
+          }
+
+          // __PJS__（activeのみ）と __PJS_ALL__（全件）のキャッシュも更新
+          const hit1 = (__PJS__ || []).find(x => String(x.projectId||"").trim() === pid);
+          if (hit1){
+            hit1.status = nextStatus;
+            if (updatedAt) hit1.updatedAt = updatedAt;
+          }
+
+          const hit2 = (__PJS_ALL__ || []).find(x => String(x.projectId||"").trim() === pid);
+          if (hit2){
+            hit2.status = nextStatus;
+            if (updatedAt) hit2.updatedAt = updatedAt;
+          }
+
+
+          el("pjHint").textContent = `保存完了：${pid} -> ${res.status || nextStatus}`;
+        })
+        .admin_updateProjectStatus({ projectId: pid, nextStatus: nextStatus });
+    }
+
+
+      function openPj(projectId, projectName){
+        google.script.run
+          .withFailureHandler(err => showPjErr(err?.message || String(err)))
+          .withSuccessHandler(url => {
+            // ★ sandbox iframe対策：topを触らず自分のwindowで遷移
+            window.location.assign(url);
+          })
+          .buildWebAppUrl("charter", { projectId: projectId, projectName: projectName });
+      }
+
+      function loadProjects(){
+        el("pjErr").style.display = "none";
+        el("pjHint").textContent = "loading...";
+        el("pjTbody").innerHTML = `<tr><td colspan="8" class="muted">loading...</td></tr>`;
+
+        google.script.run
+          .withFailureHandler(err => showPjErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            // ★ admin_listProjectsFull が「配列」だけ返してくるケースを許容
+            if (Array.isArray(res)){
+              __PJS_ALL__ = res;
+              renderProjects(__PJS_ALL__);
+              return;
+            }
+
+            // ★ {projects:[...]} だけ返すケースも許容
+            if (res && Array.isArray(res.projects) && (res.ok === undefined)){
+              __PJS_ALL__ = res.projects;
+              renderProjects(__PJS_ALL__);
+              return;
+            }
+
+            // ★ いつもの {ok:true, projects:[...]} 形式
+            if (!res || !res.ok){
+              const detail = (res === null || res === undefined) ? "null" : JSON.stringify(res);
+              showPjErr((res && res.message) ? res.message : `load failed: ${detail}`);
+              __PJS_ALL__ = [];
+              renderProjects([]);
+              return;
+            }
+
+            __PJS_ALL__ = res.projects || [];
+            renderProjects(__PJS_ALL__);
+          })
+          .admin_listProjectsFull();
+      }
+
+
+
+      function deletePj(projectId, projectName){
+        const name = projectName || projectId || "";
+        const ok = window.confirm(`PJを削除する？（関連DBも全部消える）\nPJ: ${name} (${projectId})\n\n※戻せない`);
+        if (!ok) return;
+
+        el("pjErr").style.display = "none";
+        el("pjHint").textContent = `削除中... ${projectId}`;
+
+        google.script.run
+          .withFailureHandler(err => showPjErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showPjErr((res && res.message) ? res.message : "delete failed");
+              return;
+            }
+            el("pjHint").textContent = `削除完了：${projectId}`;
+            loadProjects();
+          })
+          .admin_deleteProjectCascade(projectId);
+      }
+
+      function runInactiveNow(){
+        el("err").style.display = "none";
+        el("hint").textContent = "OS last / inactiveDays 更新中...";
+
+        google.script.run
+          .withFailureHandler(err => showErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showErr((res && res.message) ? res.message : "update failed");
+              return;
+            }
+            const os = res.osLastSeen || {};
+            const ina = res.inactiveDays || {};
+            el("hint").textContent =
+              `更新完了：osLastSeen updated=${os.updated||0} scanned=${os.scanned||0} / ` +
+              `inactiveDays updated=${ina.updated||0} scanned=${ina.scanned||0}`;
+            load();
+          })
+          .admin_runInactiveDaysNow();
+      }
+
+      function setupTrigger(){
+        el("err").style.display = "none";
+        el("hint").textContent = "トリガー確認中...";
+
+        google.script.run
+          .withFailureHandler(err => showErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showErr((res && res.message) ? res.message : "trigger setup failed");
+              return;
+            }
+            el("hint").textContent = res.created
+              ? "日次トリガー作成した（毎日6時台に回る）"
+              : "日次トリガーは既にある";
+          })
+          .setupDailyInactiveDaysTrigger();
+      }
+
+      // ===== Tabs (lazy load) =====
+      const __LOADED__ = { members:false, projects:false, protocols:false, contexts:false, extractors:false, code:false };
+
+      function setActiveTabBtn_(key){
+        ["members","projects","protocols","contexts","extractors","code"].forEach(k=>{
+          const b = el("tab_"+k);
+          if (!b) return;
+          if (k === key) {
+            b.style.background = "#111827";
+            b.style.color = "#fff";
+            b.style.borderColor = "#111827";
+          } else {
+            b.style.background = "#fff";
+            b.style.color = "#111827";
+            b.style.borderColor = "var(--line)";
+          }
+        });
+      }
+
+      function switchTab(key){
+        el("sec_members").style.display = (key==="members") ? "block" : "none";
+        el("sec_projects").style.display = (key==="projects") ? "block" : "none";
+        el("sec_protocols").style.display = (key==="protocols") ? "block" : "none";
+        el("sec_contexts").style.display = (key==="contexts") ? "block" : "none";
+        el("sec_extractors").style.display = (key==="extractors") ? "block" : "none";
+        el("sec_code").style.display = (key==="code") ? "block" : "none";
+
+        setActiveTabBtn_(key);
+
+        if (key === "members" && !__LOADED__.members){
+          __LOADED__.members = true;
+          load();
+        }
+
+        if (key === "projects" && !__LOADED__.projects){
+          __LOADED__.projects = true;
+          try{ loadFreeePartners_(); } catch(e){}
+          loadProjects();
+        }
+
+        if (key === "protocols" && !__LOADED__.protocols){
+          __LOADED__.protocols = true;
+
+          try{ reloadGenreTags(); } catch(e){}
+          try{ loadCandidates(); } catch(e){}
+          loadProtocols();
+        }
+
+        if (key === "contexts" && !__LOADED__.contexts){
+          __LOADED__.contexts = true;
+          loadContexts();
+        }
+
+        if (key === "extractors" && !__LOADED__.extractors){
+          __LOADED__.extractors = true;
+          loadExtractorConfigs();
+          loadActiveExtractor_();
+        }
+
+        if (key === "code" && !__LOADED__.code){
+          __LOADED__.code = true;
+          initCodeSearchUi();
+        }
+
+      }
+
+      // ===== Protocols =====
+      function showProtErr(msg){
+        el("protErr").style.display = "block";
+        el("protErr").textContent = msg || "error";
+      }
+      function hideProtErr(){
+        el("protErr").style.display = "none";
+        el("protErr").textContent = "";
+      }
+
+      function stars_(n){
+        const x = String(n||"1").trim();
+        if (x === "3") return "★★★";
+        if (x === "2") return "★★";
+        return "★";
+      }
+
+      // ---- Genre tags master (pulldown) ----
+      // ここは運用しながら増やしてOK（表記ゆれが価値毀損するので、基本ここに集約）
+      let __GENRE_TAGS__ = [];
+
+      function reloadGenreTags(){
+        google.script.run
+          .withFailureHandler(err => showProtErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showProtErr((res && res.message) ? res.message : "listGenreTags failed");
+              __GENRE_TAGS__ = [];
+              fillGenreDatalist_();
+              return;
+            }
+            __GENRE_TAGS__ = Array.isArray(res.tags) ? res.tags : [];
+            fillGenreDatalist_();
+          })
+          .admin_listGenreTags();
+      }
+
+      function renderGenreTagList_(){
+        const wrap = el("genreTagList");
+        if (!wrap) return;
+
+        const tags = Array.isArray(__GENRE_TAGS__) ? __GENRE_TAGS__ : [];
+        if (!tags.length){
+          wrap.innerHTML = `<span class="pill gray">候補なし</span>`;
+          return;
+        }
+
+        wrap.innerHTML = tags.map(t => `
+          <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+            ${escapeHtml(t)}
+            <button class="btn" style="padding:2px 8px; font-weight:900; border-color:#fecaca; color:#b91c1c;"
+              onclick="removeGenreTag('${escapeHtmlAttr(t)}')">×</button>
+          </span>
+        `).join("");
+      }
+
+      function addGenreTag(){
+        const tag = (el("genreNewTag")?.value || "").trim();
+        if (!tag) return;
+
+        google.script.run
+          .withFailureHandler(err => showProtErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showProtErr((res && res.message) ? res.message : "addGenreTag failed");
+              return;
+            }
+            el("genreNewTag").value = "";
+            reloadGenreTags();
+          })
+          .admin_addGenreTag({ tag });
+      }
+
+      function removeGenreTag(tag){
+        const t = String(tag||"").trim();
+        if (!t) return;
+
+        const ok = window.confirm(`候補から削除する？（非表示化）\n${t}`);
+        if (!ok) return;
+
+        google.script.run
+          .withFailureHandler(err => showProtErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showProtErr((res && res.message) ? res.message : "removeGenreTag failed");
+              return;
+            }
+            reloadGenreTags();
+          })
+          .admin_removeGenreTag({ tag: t });
+      }
+
+      function getTagsFromHidden_(hiddenId){
+        const v = (el(hiddenId)?.value || "").trim();
+        if (!v) return [];
+        const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+        // uniq keep order
+        const seen = new Set();
+        const out = [];
+        arr.forEach(t => { if (!seen.has(t)) { seen.add(t); out.push(t); }});
+        return out;
+      }
+
+      function setTagsHidden_(hiddenId, tags){
+        const arr = Array.isArray(tags) ? tags : [];
+        el(hiddenId).value = arr.join(",");
+      }
+
+      function renderTagChips_(wrapId, hiddenId){
+        const wrap = el(wrapId);
+        if (!wrap) return;
+        const tags = getTagsFromHidden_(hiddenId);
+
+        if (!tags.length){
+          wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+          return;
+        }
+
+        wrap.innerHTML = tags.map(t => `
+          <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+            ${escapeHtml(t)}
+            <button class="btn" style="padding:2px 8px; font-weight:900;" onclick="removeTagFromHidden('${escapeHtmlAttr(hiddenId)}','${escapeHtmlAttr(t)}')">×</button>
+          </span>
+        `).join("");
+      }
+
+      function addNewTagFromPick(){
+        const pick = (el("protNewTagPick")?.value || "").trim();
+        if (!pick) return;
+
+        const tags = getTagsFromHidden_("protNewTagsHidden");
+        if (!tags.includes(pick)) tags.push(pick);
+
+        setTagsHidden_("protNewTagsHidden", tags);
+        renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+      }
+
+      function removeTagFromHidden(hiddenId, tag){
+        const hid = String(hiddenId||"").trim();
+        const t = String(tag||"").trim();
+        const tags = getTagsFromHidden_(hid).filter(x => x !== t);
+        setTagsHidden_(hid, tags);
+
+        // 現状は「新規追加フォーム」だけで使う（将来、行編集でも使える）
+        if (hid === "protNewTagsHidden"){
+          renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+        }
+      }
+
+      function fillProjectSelect_(){
+        const sel = el("protNewProjectName");
+        if (!sel) return;
+
+        const rows = Array.isArray(__PJS__) ? __PJS__ : [];
+
+        // ★activeだけ
+        const activeNames = rows
+          .filter(p => String(p.status || "").trim().toLowerCase() === "active")
+          .map(p => String(p.projectName || "").trim())
+          .filter(x => x);
+
+        const uniq = Array.from(new Set(activeNames)).sort((a,b)=>a.localeCompare(b,"ja"));
+
+        sel.innerHTML =
+          `<option value="">（選択）</option>` +
+          uniq.map(n => `<option value="${escapeHtmlAttr(n)}">${escapeHtml(n)}</option>`).join("");
+      }
+
+
+      function buildProjectNameDatalist_(){
+        const dl = el("protProjectNameList");
+        if (!dl) return;
+        if (!Array.isArray(__PJS__) || !__PJS__.length) return;
+
+        // ★activeだけ
+        const names = Array.from(new Set(
+          __PJS__
+            .filter(p => String(p.status||"").trim().toLowerCase() === "active")
+            .map(p => String(p.projectName||"").trim())
+            .filter(x=>x)
+        ));
+
+        dl.innerHTML = names.map(n => `<option value="${escapeHtmlAttr(n)}"></option>`).join("");
+      }
+
+
+      function getProtocolFilters_(){
+        return {
+          projectName: (el("protFltProjectName").value || "").trim(),
+          status: (el("protFltStatus").value || "").trim().toLowerCase(),
+          sourceType: (el("protFltSourceType").value || "").trim().toLowerCase(),
+          q: (el("protFltQ").value || "").trim(),
+          limit: 500
+        };
+      }
+
+      function openNewProtocolInline(){
+        const box = el("protNewBox");
+        if (!box) return;
+        box.style.display = "block";
+
+        // タグ初期化
+        el("protNewTagsHidden").value = "";
+        renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+
+        // 候補ロード（datalist更新）
+        reloadGenreTags();
+        try { initGenreInputHandlers_(); } catch(e){}
+        if (el("protNewTagInput")) el("protNewTagInput").value = "";
+
+        // PJ一覧が既にあるなら即反映
+        if (Array.isArray(__PJS__) && __PJS__.length){
+          fillProjectSelect_();
+
+          // フィルタPJ名が実在するなら選択
+          const pn = (el("protFltProjectName")?.value || "").trim();
+          if (pn && el("protNewProjectName")){
+            const opt = Array.from(el("protNewProjectName").options).some(o => o.value === pn);
+            if (opt) el("protNewProjectName").value = pn;
+          }
+          return;
+        }
+
+        // PJ一覧が無いならここで取得してから反映（Protocols直行でも安全に）
+        google.script.run
+          .withFailureHandler(err => showProtErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (res && res.ok && Array.isArray(res.projects)){
+              __PJS__ = res.projects || [];
+            } else if (Array.isArray(res)){
+              __PJS__ = res;
+            } else if (res && Array.isArray(res.projects) && (res.ok === undefined)){
+              __PJS__ = res.projects;
+            } else {
+              __PJS__ = [];
+            }
+
+            fillProjectSelect_();
+            buildProjectNameDatalist_();
+
+            const pn = (el("protFltProjectName")?.value || "").trim();
+            if (pn && el("protNewProjectName")){
+              const opt = Array.from(el("protNewProjectName").options).some(o => o.value === pn);
+              if (opt) el("protNewProjectName").value = pn;
+            }
+          })
+          .listProjects({ statusFilter:["active"], includeAll:false, limit:0 });
+      }
+
+      function closeNewProtocolInline(){
+        const box = el("protNewBox");
+        if (!box) return;
+        box.style.display = "none";
+      }
+
+      function createProtocolManual(){
+        hideProtErr();
+
+        const projectName = (el("protNewProjectName")?.value || "").trim();
+        const decisionPoint = (el("protNewDecisionPoint")?.value || "").trim();
+        const decisionCriteria = (el("protNewDecisionCriteria")?.value || "").trim();
+        const actionText = (el("protNewAction")?.value || "").trim();
+
+        const importance = (el("protNewImportance")?.value || "1").trim();
+        const tags = (el("protNewTagsHidden")?.value || "").trim();
+
+        const sourceType = (el("protNewSourceType")?.value || "manual").trim().toLowerCase();
+        const sourceRef = (el("protNewSourceRef")?.value || "").trim();
+        const notesBase = (el("protNewNotes")?.value || "").trim();
+
+        if (!projectName) { showProtErr("PJ名が空"); return; }
+        if (!decisionPoint) { showProtErr("分岐点が空"); return; }
+        if (!decisionCriteria) { showProtErr("判断条件が空"); return; }
+
+        // ★actionは現状notesに埋め込む（DB/バックエンドを今はいじらない）
+        const notes = (notesBase || "") + (actionText ? ((notesBase ? "\n" : "") + "action: " + actionText) : "");
+
+        el("protHint").textContent = "作成中...";
+
+        google.script.run
+          .withFailureHandler(err => showProtErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showProtErr((res && res.message) ? res.message : "create failed");
+              return;
+            }
+
+            el("protHint").textContent = `作成した：${res.protocolId || "-"}`;
+
+            // 入力リセット（PJ名は残す）
+            if (el("protNewDecisionPoint")) el("protNewDecisionPoint").value = "";
+            if (el("protNewDecisionCriteria")) el("protNewDecisionCriteria").value = "";
+            if (el("protNewAction")) el("protNewAction").value = "";
+            if (el("protNewSourceRef")) el("protNewSourceRef").value = "";
+            if (el("protNewNotes")) el("protNewNotes").value = "";
+            if (el("protNewImportance")) el("protNewImportance").value = "1";
+
+            el("protNewTagsHidden").value = "";
+            renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+
+            closeNewProtocolInline();
+            loadProtocols();
+          })
+          .admin_createProtocolManual({
+            projectName,
+            decisionPoint,
+            decisionCriteria,
+            tags,
+            importance,
+            sourceType,
+            sourceRef,
+            notes
+          });
+      }
+
+
+      function renderTagBadges_(tagsStr){
+        const s = String(tagsStr||"").trim();
+        if (!s) return `<span class="pill gray">-</span>`;
+        const arr = s.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+        if (!arr.length) return `<span class="pill gray">-</span>`;
+        return arr.map(t=>`<span class="pill">${escapeHtml(t)}</span>`).join(" ");
+      }
+
+      function groupKeyByTags_(tagsStr){
+        const s = String(tagsStr||"").trim();
+        if (!s) return "（未分類）";
+        const arr = s.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+        return arr.length ? arr[0] : "（未分類）";
+      }
+
+      function changeProtocolStatus(protocolId, nextStatus, btnEl){
+        hideProtErr();
+        const id = (protocolId || "").trim();
+        const st = (nextStatus || "").trim().toLowerCase();
+        if (!id) { showProtErr("protocolId empty"); return; }
+        if (!st) { showProtErr("nextStatus empty"); return; }
+
+        const ok = window.confirm(`status を ${st} にする？\nprotocolId=${id}`);
+        if (!ok) return;
+
+        if (btnEl){
+          btnEl.disabled = true;
+          btnEl.textContent = "処理中...";
+        }
+        el("protHint").textContent = `status更新中... ${id} -> ${st}`;
+
+        google.script.run
+          .withFailureHandler(err => {
+            if (btnEl){ btnEl.disabled=false; btnEl.textContent=""; }
+            showProtErr(err?.message || String(err));
+          })
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showProtErr((res && res.message) ? res.message : "status change failed");
+              return;
+            }
+            el("protHint").textContent = `status更新：${id} -> ${res.status || st}`;
+            loadProtocols();
+          })
+          .admin_changeProtocolStatus({ protocolId:id, nextStatus: st });
+      }
+
+      function renderProtocolsTables_(candidateList, confirmedList){
+        const candTb = el("protCandTbody");
+        const confTb = el("protConfTbody");
+
+        const cands = Array.isArray(candidateList) ? candidateList : [];
+        const confs = Array.isArray(confirmedList) ? confirmedList : [];
+
+        // ★activeだけ
+        const pjOpts = (Array.isArray(__PJS__) ? __PJS__ : [])
+          .filter(p => String(p.status||"").trim().toLowerCase() === "active")
+          .map(p => ({ id:String(p.projectId||"").trim(), name:String(p.projectName||"").trim() }))
+          .filter(p => p.id && p.name);
+
+        function pjSelect_(selectedId, selId){
+          const opts = [`<option value="">（選択）</option>`].concat(
+            pjOpts.map(p=>{
+              const sel = (String(p.id) === String(selectedId)) ? "selected" : "";
+              return `<option value="${escapeHtmlAttr(p.id)}" ${sel}>${escapeHtml(p.name)} (${escapeHtml(p.id)})</option>`;
+            })
+          );
+          return `<select class="ctl" id="${escapeHtmlAttr(selId)}" style="width:180px">${opts.join("")}</select>`;
+        }
+
+        function confNum_(v){
+          if (v === null || v === undefined || v === "") return "";
+          const n = Number(v);
+          if (!isFinite(n)) return String(v);
+          return String(Math.round(n*100)/100);
+        }
+
+        function evidenceText_(p){
+          const ev = String(p.evidence || p.notes || "").trim();
+          return ev;
+        }
+
+        function extractActionText_(p){
+          const a1 = String(p.action || "").trim();
+          if (a1) return a1;
+
+          const a2 = String(p.decision || "").trim();
+          if (a2) return a2;
+
+          const notes = String(p.notes || "").trim();
+          const m = notes.match(/(?:^|\n)\s*action\s*:\s*(.+)$/i);
+          if (m && m[1]) return String(m[1]).trim();
+
+          return "";
+        }
+
+        function escOneLineAttr_(s){
+          return escapeHtmlAttr(String(s||"").replace(/[\r\n]+/g, " "));
+        }
+
+        function opButtons_(p, mode){
+          const kind = String(p.__kind||"");
+          if (kind === "notion_candidate"){
+            const id = escOneLineAttr_(p.id || "");
+            const dp = escOneLineAttr_(p.decisionPoint || "");
+            const dc = escOneLineAttr_(p.decisionCriteria || "");
+            const ac = escOneLineAttr_(extractActionText_(p) || "");
+            return `
+              <button class="btn" onclick="confirmNotionCandidate_('${id}')">確定</button>
+              <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="rejectNotionCandidate_('${id}','${dp}','${dc}','${ac}')">却下</button>
+            `;
+          }
+
+          const protocolId = escapeHtmlAttr(p.protocolId || "");
+          if (mode === "candidate"){
+            return `
+              <button class="btn" onclick="changeProtocolStatus('${protocolId}','confirmed', this)">確定</button>
+              <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="changeProtocolStatus('${protocolId}','archived', this)">却下</button>
+            `;
+          }
+          return `<button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="changeProtocolStatus('${protocolId}','archived', this)">アーカイブ</button>`;
+        }
+
+        function stars_(n){
+          const x = String(n||"1").trim();
+          if (x === "3") return "★★★";
+          if (x === "2") return "★★";
+          return "★";
+        }
+
+        function renderTagBadges_(tagsStr){
+          const s = String(tagsStr||"").trim();
+          if (!s) return `<span class="pill gray">-</span>`;
+          const arr = s.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+          if (!arr.length) return `<span class="pill gray">-</span>`;
+          return arr.map(t=>`<span class="pill">${escapeHtml(t)}</span>`).join(" ");
+        }
+
+        function rowHtml_(p, mode){
+          const kind = String(p.__kind||"");
+          const idRaw = (p.protocolId || p.id || "");
+          const id = escapeHtml(idRaw);
+
+          const dp = escapeHtml(p.decisionPoint || "");
+          const dc = escapeHtml(p.decisionCriteria || "");
+          const ac = escapeHtml(extractActionText_(p));
+
+          const ev = escapeHtml(evidenceText_(p));
+
+          const pjName = escapeHtml(p.projectName || p.projectId || "");
+          const conf = escapeHtml(confNum_(p.confidence || "")) || "-";
+          const imp = stars_(p.importance || "1");
+          const tags = renderTagBadges_(p.tags || "");
+          const srcType = pill(p.sourceType || "");
+          const srcRef = escapeHtml(String(p.sourceRef || "").trim() || "-");
+          const createdAt = escapeHtml(p.createdAt || "") || "-";
+          const createdBy = escapeHtml(p.createdBy || "") || "-";
+
+          if (kind === "notion_candidate"){
+            const cid = escapeHtmlAttr(String(p.id||""));
+            const selPj = pjSelect_(String(p.projectId||""), `npj_${cid}`);
+            const selImp = `
+              <select class="ctl" id="nimp_${cid}" style="width:100px">
+                <option value="1">★</option>
+                <option value="2">★★</option>
+                <option value="3">★★★</option>
+              </select>
+            `;
+            const inpTags = `<input class="ctl" id="ntags_${cid}" style="width:180px" value="${escapeHtmlAttr(String(p.tags||""))}" />`;
+
+            return `
+              <tr>
+                <td class="noteCell"><b>${dp}</b></td>
+                <td class="noteCell">${dc}</td>
+                <td class="noteCell">${ac}</td>
+
+                <td class="nowrap">${opButtons_(p, mode)}</td>
+
+                <td class="noteCell"><pre class="muted" style="margin:0; white-space:pre-wrap;">${ev}</pre></td>
+                <td class="nowrap">${selPj}</td>
+
+                <td class="nowrap">${conf}</td>
+                <td class="nowrap">${selImp}</td>
+                <td class="nowrap">${inpTags}</td>
+
+                <td class="nowrap">${srcType}</td>
+                <td class="noteCell">${srcRef}</td>
+
+                <td class="small nowrap">${createdAt}</td>
+                <td class="small nowrap">${createdBy}</td>
+
+                <td class="mono nowrap">${id}</td>
+              </tr>
+            `;
+          }
+
+          return `
+            <tr>
+              <td class="noteCell"><b>${dp}</b></td>
+              <td class="noteCell">${dc}</td>
+              <td class="noteCell">${ac || `<span class="pill gray">-</span>`}</td>
+
+              <td class="nowrap">${opButtons_(p, mode)}</td>
+
+              <td class="noteCell"><pre class="muted" style="margin:0; white-space:pre-wrap;">${ev}</pre></td>
+              <td class="noteCell">${pjName}</td>
+
+              <td class="nowrap">${conf}</td>
+              <td class="nowrap">${imp}</td>
+              <td class="noteCell">${tags}</td>
+
+              <td class="nowrap">${srcType}</td>
+              <td class="noteCell">${srcRef}</td>
+
+              <td class="small nowrap">${createdAt}</td>
+              <td class="small nowrap">${createdBy}</td>
+
+              <td class="mono nowrap">${id}</td>
+            </tr>
+          `;
+        }
+
+        if (!cands.length){
+          candTb.innerHTML = `<tr><td colspan="14" class="muted">該当なし</td></tr>`;
+        } else {
+          cands.sort((a,b)=> String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+          candTb.innerHTML = cands.map(p => rowHtml_(p, "candidate")).join("");
+        }
+
+        if (!confs.length){
+          confTb.innerHTML = `<tr><td colspan="14" class="muted">該当なし</td></tr>`;
+        } else {
+          confs.sort((a,b)=> String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+          confTb.innerHTML = confs.map(p => rowHtml_(p, "confirmed")).join("");
+        }
+
+        initResizableColumns_("tblProtCandidate");
+        initResizableColumns_("tblProtConfirmed");
+      }
+
+
+
+
+      function loadProtocols(){
+        hideProtErr();
+
+        try { buildProjectNameDatalist_(); } catch(e){}
+
+        el("protHint").textContent = "loading...";
+        el("protCandTbody").innerHTML = `<tr><td colspan="14" class="muted">loading...</td></tr>`;
+        el("protConfTbody").innerHTML = `<tr><td colspan="14" class="muted">loading...</td></tr>`;
+
+        ensureProjectsLoaded_(() => {
+          google.script.run
+            .withFailureHandler(err => showProtErr(err?.message || String(err)))
+            .withSuccessHandler(resProt => {
+              if (!resProt || !resProt.ok){
+                const detail = (resProt === null || resProt === undefined) ? "null" : JSON.stringify(resProt);
+                showProtErr((resProt && resProt.message) ? resProt.message : `load failed: ${detail}`);
+                return;
+              }
+
+              const protRows = Array.isArray(resProt.protocols) ? resProt.protocols : [];
+              const candidates = protRows.filter(p => String(p.status||"").toLowerCase() === "candidate");
+              const confirmed  = protRows.filter(p => String(p.status||"").toLowerCase() === "confirmed");
+
+              google.script.run
+                .withFailureHandler(err => showProtErr(err?.message || String(err)))
+                .withSuccessHandler(resCand => {
+                  const candRows = (resCand && resCand.ok && Array.isArray(resCand.candidates)) ? resCand.candidates : [];
+
+                  const pjMap = Object.create(null);
+                  (Array.isArray(__PJS__) ? __PJS__ : []).forEach(p=>{
+                    const id = String(p.projectId||"").trim();
+                    const name = String(p.projectName||"").trim();
+                    if (id && name) pjMap[id] = name;
+                  });
+
+                  const notionAsProtocols = candRows.map(c => {
+                    const pid = String(c.suggestedProjectId || "").trim();
+                    const pjName = pjMap[pid] || (pid ? pid : "");
+
+                    const evidence = (() => {
+                      try{
+                        const arr = JSON.parse(String(c.evidenceJson||"[]"));
+                        if (!Array.isArray(arr) || !arr.length) return "";
+                        return arr
+                          .slice(0,5)
+                          .map(x => String(x||"").trim())
+                          .filter(x => x)
+                          .join("\n");
+                      } catch(e){
+                        return String(c.evidenceJson||"").trim();
+                      }
+                    })();
+
+                    return {
+                      __kind: "notion_candidate",
+                      id: String(c.candidateId||"").trim(),
+                      status: "candidate",
+
+                      projectId: pid,
+                      projectName: pjName || (String(c.suggestedProjectName||"").trim() || ""),
+
+                      decisionPoint: String(c.branchPoint||""),
+                      decisionCriteria: String(c.criteria||""),
+                      decision: String(c.decision||""), // ★これが無いとUIのアクションが空になる
+                      evidence: evidence,
+
+                      confidence: String(c.confidence||""),
+                      importance: "1",
+                      tags: String(c.suggestedTags||""),
+                      sourceType: "notion",
+                      sourceRef: String(c.sourcePageId||""),
+                      createdAt: String(c.createdAt||""),
+                      createdBy: ""
+                    };
+                  });
+
+                  const mergedCandidates = candidates.concat(notionAsProtocols);
+
+                  renderProtocolsTables_(mergedCandidates, confirmed);
+                  el("protHint").textContent = `candidate:${mergedCandidates.length} / confirmed:${confirmed.length}`;
+                })
+                .admin_listProtocolCandidates({ status:"new", limit: 300 });
+            })
+            .admin_listProtocols(getProtocolFilters_());
+        });
+      }
+
+
+
+
+
+      // ===== Protocol Candidates =====
+      let __CANDS__ = [];
+      let __CAND_META__ = { lastRunId:"", lastSyncIso:"", stateUpdatedAt:"" };
+
+      function showCandErr(msg){
+        el("candErr").style.display = "block";
+        el("candErr").textContent = msg || "error";
+      }
+      function hideCandErr(){
+        el("candErr").style.display = "none";
+        el("candErr").textContent = "";
+      }
+
+      function ensureProjectsLoaded_(cb){
+        if (Array.isArray(__PJS__) && __PJS__.length){
+          cb && cb();
+          return;
+        }
+
+        google.script.run
+          .withFailureHandler(err => showCandErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            // listProjects は {ok:true, projects:[...]} の形
+            if (res && res.ok && Array.isArray(res.projects)){
+              __PJS__ = res.projects || [];
+            } else if (Array.isArray(res)) {
+              // 念のため配列返しも許容（将来の互換）
+              __PJS__ = res;
+            } else if (res && Array.isArray(res.projects) && (res.ok === undefined)) {
+              __PJS__ = res.projects;
+            } else {
+              __PJS__ = [];
+            }
+
+            try { buildProjectNameDatalist_(); } catch(e){}
+            cb && cb();
+          })
+          .listProjects({ statusFilter:["active"], includeAll:false, limit:0 });
+      }
+
+
+      function syncNotionCandidates_(dry){
+        hideCandErr();
+        el("candHint").textContent = dry ? "Notion同期（dry）中..." : "Notion同期（書込）中...";
+
+        ensureProjectsLoaded_(() => {
+          google.script.run
+            .withFailureHandler(err => showCandErr(err?.message || String(err)))
+            .withSuccessHandler(res => {
+              if (!res || !res.ok){
+                showCandErr((res && res.message) ? res.message : "sync failed");
+                return;
+              }
+
+              el("candHint").textContent =
+                `同期完了: pages=${res.pages} / noContent=${res.pagesNoContent} / candidates=${res.candidates} / lastSync=${res.lastSyncIso || "-"}`;
+
+              // ★NEW: 内容未入力アラート（コピペ忘れ検知）
+              const noCnt = Number(res.pagesNoContent || 0);
+              const ids = Array.isArray(res.noContentPageIds) ? res.noContentPageIds : [];
+              if (noCnt > 0 && ids.length){
+                const bodyHtml = [
+                  `<div style="font-weight:900; margin-bottom:8px;">「内容」未入力の議事録がある</div>`,
+                  `<div class="small">Notionのページ本文を「内容」プロパティにコピペしてから再同期してね。</div>`,
+                  `<div class="small" style="margin-top:10px;"><b>対象 pageId</b></div>`,
+                  `<div class="small mono" style="margin-top:6px; white-space:pre-wrap;">${escapeHtml(ids.join("\n"))}</div>`
+                ].join("");
+
+                openAppModal_(
+                  "内容未入力アラート",
+                  bodyHtml,
+                  () => {},
+                  { input:false }
+                );
+              }
+
+              loadCandidates();
+            })
+            .admin_syncNotionMinutesToProtocolCandidates({
+              dryRun: !!dry,
+              limit: 5
+            });
+        });
+      }
+
+
+      function notionPageUrl_(pageId){
+        const s = String(pageId||"").trim();
+        if (!s) return "";
+        const noHyphen = s.replaceAll("-", "");
+        return "https://www.notion.so/" + noHyphen;
+      }
+
+      function getCandUiFlags_(){
+        return {
+          onlyLatest: !!el("candOnlyLatestRun")?.checked,
+          onlyNotion: !!el("candOnlyNotion")?.checked,
+          thinLowConf: !!el("candThinLowConf")?.checked,
+          onlyUnknownPj: !!el("candOnlyUnknownPj")?.checked
+        };
+      }
+
+      function applyCandFilters_(rows){
+        const flags = getCandUiFlags_();
+        let out = Array.isArray(rows) ? rows.slice() : [];
+
+        const latestRun = String(__CAND_META__.lastRunId || "").trim()
+          || (out.length ? String(out[0].runId || "").trim() : ""); // フォールバック（createdAt desc前提）
+
+        if (flags.onlyLatest && latestRun){
+          out = out.filter(c => String(c.runId||"").trim() === latestRun);
+        }
+        if (flags.onlyNotion){
+          out = out.filter(c => String(c.sourceType||"").trim().toLowerCase() === "notion");
+        }
+        if (flags.onlyUnknownPj){
+          out = out.filter(c => String(c.suggestedProjectId||"").trim().toLowerCase() === "unknown");
+        }
+
+        // thinLowConfは render 側でCSS適用する（フィルタじゃない）
+        return out;
+      }
+
+      function applyCandFiltersAndRender_(){
+        const filtered = applyCandFilters_(__CANDS__);
+        renderCandidates(filtered);
+      }
+
+      function renderCandidates(list){
+        const tb = el("candTbody");
+        const rows = Array.isArray(list) ? list : [];
+
+        const latestRun = String(__CAND_META__.lastRunId || "").trim()
+          || (rows.length ? String(rows[0].runId || "").trim() : "");
+        const metaLine = el("candMetaLine");
+        if (metaLine){
+          metaLine.textContent =
+            `latestRunId: ${latestRun || "-"} / lastSync: ${String(__CAND_META__.lastSyncIso||"") || "-"} / stateUpdatedAt: ${String(__CAND_META__.stateUpdatedAt||"") || "-"}`;
+        }
+
+        if (!rows.length){
+          tb.innerHTML = `<tr><td colspan="12" class="muted">候補なし</td></tr>`;
+          el("candHint").textContent = `candidates: 0`;
+          return;
+        }
+
+        const flags = getCandUiFlags_();
+
+        // ★activeだけ
+        const pjOpts = (Array.isArray(__PJS__) ? __PJS__ : [])
+          .filter(p => String(p.status||"").trim().toLowerCase() === "active")
+          .map(p => ({ id:String(p.projectId||"").trim(), name:String(p.projectName||"").trim() }))
+          .filter(p => p.id && p.name);
+
+        const pjHtml = (selectedId, selId) => {
+          const opts = [`<option value="">（選択）</option>`]
+            .concat(pjOpts.map(p => {
+              const sel = (p.id === selectedId) ? "selected" : "";
+              return `<option value="${escapeHtmlAttr(p.id)}" ${sel}>${escapeHtml(p.name)} (${escapeHtml(p.id)})</option>`;
+            }));
+          return `<select class="ctl" id="${escapeHtmlAttr(selId)}" style="width:240px">${opts.join("")}</select>`;
+        };
+
+        function confIsLow_(v){
+          const n = Number(v);
+          if (!isFinite(n)) return false;
+          return n < 0.7;
+        }
+
+        tb.innerHTML = rows.map(c => {
+          const candId = String(c.candidateId||"").trim();
+          const candIdAttr = escapeHtmlAttr(candId);
+
+          const conf = (c.confidence !== "" && c.confidence !== null && c.confidence !== undefined)
+            ? String(c.confidence)
+            : "-";
+
+          const evText = (() => {
+            try{
+              const arr = JSON.parse(String(c.evidenceJson||"[]"));
+              if (!Array.isArray(arr) || !arr.length) return "";
+              return arr.slice(0,5).map(x => String(x||"").trim()).filter(x=>x).join(" / ");
+            } catch(e){
+              return String(c.evidenceJson||"").trim();
+            }
+          })();
+
+          const pjSelId = `cand_pj_${candIdAttr}`;
+          const impId = `cand_imp_${candIdAttr}`;
+          const tagsId = `cand_tags_${candIdAttr}`;
+
+          const srcUrl = notionPageUrl_(c.sourcePageId);
+
+          const thin = (flags.thinLowConf && confIsLow_(c.confidence)) ? "candThin" : "";
+
+          return `
+            <tr class="${thin}">
+              <td class="nowrap"><b>${escapeHtml(conf)}</b></td>
+
+              <td class="noteCell">${escapeHtml(c.branchPoint||"")}</td>
+              <td class="noteCell">${escapeHtml(c.criteria||"")}</td>
+              <td class="noteCell"><pre class="muted" style="margin:0; white-space:pre-wrap;">${escapeHtml(evText||"")}</pre></td>
+
+              <td class="nowrap">${pjHtml(String(c.suggestedProjectId||""), pjSelId)}</td>
+
+              <td class="nowrap">
+                <select class="ctl" id="${escapeHtmlAttr(impId)}" style="width:110px">
+                  <option value="1">★</option>
+                  <option value="2">★★</option>
+                  <option value="3">★★★</option>
+                </select>
+              </td>
+
+              <td class="nowrap">
+                <input class="ctl" id="${escapeHtmlAttr(tagsId)}" style="width:280px"
+                  placeholder="例: 事業計画,資本政策"
+                  value="${escapeHtmlAttr(String(c.suggestedTags||""))}" />
+              </td>
+
+              <td class="nowrap">
+                <button class="btn" onclick="promoteCandidate('${candIdAttr}')">promote</button>
+              </td>
+
+              <td class="small nowrap">${escapeHtml(c.createdAt || "")}</td>
+              <td class="small mono nowrap">${escapeHtml(c.runId || "")}</td>
+
+              <td class="noteCell">
+                <div class="small mono">pageId: ${escapeHtml(c.sourcePageId||"")}</div>
+                <div class="small"><a href="${escapeHtmlAttr(srcUrl)}" target="_blank" rel="noopener noreferrer">Notionを開く</a></div>
+              </td>
+
+              <td class="mono nowrap">${escapeHtml(candId)}</td>
+            </tr>
+          `;
+        }).join("");
+
+        el("candHint").textContent = `candidates: ${rows.length}`;
+      }
+
+
+      function loadCandidates(){
+        hideCandErr();
+        el("candHint").textContent = "loading candidates...";
+        el("candTbody").innerHTML = `<tr><td colspan="12" class="muted">loading...</td></tr>`;
+
+        ensureProjectsLoaded_(() => {
+          google.script.run
+            .withFailureHandler(err => showCandErr(err?.message || String(err)))
+            .withSuccessHandler(res => {
+              if (!res || !res.ok){
+                showCandErr((res && res.message) ? res.message : "load candidates failed");
+                __CANDS__ = [];
+                __CAND_META__ = { lastRunId:"", lastSyncIso:"", stateUpdatedAt:"" };
+                renderCandidates([]);
+                return;
+              }
+
+              __CANDS__ = res.candidates || [];
+              const m = res.meta || {};
+              __CAND_META__ = {
+                lastRunId: String(m.lastRunId || ""),
+                lastSyncIso: String(m.lastSyncIso || ""),
+                stateUpdatedAt: String(m.stateUpdatedAt || "")
+              };
+
+              applyCandFiltersAndRender_();
+            })
+            .admin_listProtocolCandidates({ status:"new", limit: 200 });
+        });
+      }
+
+      function promoteCandidate(candidateId){
+        hideCandErr();
+        const id = String(candidateId||"").trim();
+        if (!id) { showCandErr("candidateId empty"); return; }
+
+        const pjSel = el(`cand_pj_${id}`);
+        const impEl = el(`cand_imp_${id}`);
+        const tagsEl = el(`cand_tags_${id}`);
+
+        const projectId = String(pjSel?.value || "").trim();
+        const importance = String(impEl?.value || "1").trim();
+        const tags = String(tagsEl?.value || "").trim();
+
+        if (!projectId){
+          showCandErr("promote先PJが未選択");
+          return;
+        }
+
+        const ok = window.confirm(`promoteする？\ncandidateId=${id}\nprojectId=${projectId}`);
+        if (!ok) return;
+
+        el("candHint").textContent = `promote中... ${id}`;
+
+        google.script.run
+          .withFailureHandler(err => showCandErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showCandErr((res && res.message) ? res.message : "promote failed");
+              return;
+            }
+            el("candHint").textContent = `promote完了：protocolId=${res.protocolId || "-"}`;
+            loadCandidates();
+            loadProtocols();
+          })
+          .admin_promoteProtocolCandidate({
+            candidateId: id,
+            projectId: projectId,
+            tags: tags,
+            importance: importance
+          });
+      }
+
+      // ---- App Modal helpers ----
+      function closeAppModal_(){
+        const ov = el("appModalOverlay");
+        if (ov) ov.style.display = "none";
+      }
+
+      function openAppModal_(title, bodyHtml, onOk, opt){
+        const ov = el("appModalOverlay");
+        if (!ov) return;
+
+        opt = opt || {};
+
+        el("appModalTitle").textContent = title || "確認";
+
+        // ★HTMLとして表示したいので innerHTML
+        el("appModalBody").innerHTML = bodyHtml || "";
+
+        const wrap = el("appModalInputWrap");
+        const inp  = el("appModalInput");
+        const lab  = el("appModalInputLabel");
+        const hint = el("appModalInputHint");
+
+        if (opt.input){
+          wrap.style.display = "block";
+          lab.textContent = String(opt.inputLabel || "入力");
+          inp.value = String(opt.defaultValue || "");
+          inp.placeholder = String(opt.placeholder || "");
+          hint.textContent = String(opt.hint || "");
+        } else {
+          wrap.style.display = "none";
+          inp.value = "";
+          inp.placeholder = "";
+          hint.textContent = "";
+        }
+
+        const okBtn = el("appModalOk");
+        const ngBtn = el("appModalCancel");
+
+        okBtn.onclick = () => {
+          const val = String(inp.value || "");
+          closeAppModal_();
+          try{ onOk && onOk(val); }catch(e){}
+        };
+        ngBtn.onclick = () => { closeAppModal_(); };
+
+        ov.style.display = "flex";
+
+        // 入力モードならフォーカス
+        if (opt.input){
+          try{ setTimeout(()=> inp.focus(), 50); }catch(e){}
+        }
+      }
+
+      // ---- Genre tags: datalist ----
+      function fillGenreDatalist_(){
+        const dl = el("genreTagDatalist");
+        if (!dl) return;
+
+        const tags = Array.isArray(__GENRE_TAGS__) ? __GENRE_TAGS__ : [];
+        const uniq = Array.from(new Set(tags.map(t => String(t||"").trim()).filter(x=>x)));
+
+        dl.innerHTML = uniq
+          .sort((a,b)=>a.localeCompare(b,"ja"))
+          .map(t => `<option value="${escapeHtmlAttr(t)}"></option>`)
+          .join("");
+      }
+
+      function addTagToHidden_(tag){
+        const t = String(tag||"").trim();
+        if (!t) return;
+
+        const tags = getTagsFromHidden_("protNewTagsHidden");
+        if (!tags.includes(t)) tags.push(t);
+
+        setTagsHidden_("protNewTagsHidden", tags);
+        renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+      }
+
+      function addTagFromGenreInput_(){
+        const inp = el("protNewTagInput");
+        if (!inp) return;
+
+        const raw = String(inp.value||"").trim();
+        if (!raw) return;
+
+        // ★マスタ未登録でもそのまま追加（LLMが増やす前提なので縛らない）
+        addTagToHidden_(raw);
+
+        // サジェスト体験だけ良くしたいので、ローカル配列には追加しておく（サーバー保存はしない）
+        if (!(__GENRE_TAGS__ || []).some(t => String(t||"").trim() === raw)){
+          __GENRE_TAGS__.push(raw);
+          try{ fillGenreDatalist_(); } catch(e){}
+        }
+
+        inp.value = "";
+      }
+
+
+      function initGenreInputHandlers_(){
+        const inp = el("protNewTagInput");
+        if (!inp) return;
+
+        inp.addEventListener("keydown", (e) => {
+          if (e.key === "Enter"){
+            e.preventDefault();
+            addTagFromGenreInput_();
+          }
+        });
+      }
+
+      // ===== LLM Context tags master (datalist + chips) =====
+      let __CTX_TAGS__ = [];
+
+      function fillCtxTagDatalist_(){
+        const dl = el("ctxTagDatalist");
+        if (!dl) return;
+
+        const tags = Array.isArray(__CTX_TAGS__) ? __CTX_TAGS__ : [];
+        const uniq = Array.from(new Set(tags.map(t => String(t||"").trim()).filter(x=>x)));
+
+        dl.innerHTML = uniq
+          .sort((a,b)=>a.localeCompare(b,"ja"))
+          .map(t => `<option value="${escapeHtmlAttr(t)}"></option>`)
+          .join("");
+      }
+
+      function getCtxTags_(){
+        const v = (el("ctxNewTagsHidden")?.value || "").trim();
+        if (!v) return [];
+        const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+        const seen = new Set();
+        const out = [];
+        arr.forEach(t => { if (!seen.has(t)) { seen.add(t); out.push(t); }});
+        return out;
+      }
+
+      function setCtxTags_(tags){
+        const arr = Array.isArray(tags) ? tags : [];
+        if (el("ctxNewTagsHidden")) el("ctxNewTagsHidden").value = arr.join(",");
+      }
+
+      function renderCtxTagChips_(){
+        const wrap = el("ctxNewTagsChips");
+        if (!wrap) return;
+
+        const tags = getCtxTags_();
+        if (!tags.length){
+          wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+          return;
+        }
+
+        wrap.innerHTML = tags.map(t => `
+          <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+            ${escapeHtml(t)}
+            <button class="btn" style="padding:2px 8px; font-weight:900;"
+              onclick="removeCtxTag_('${escapeHtmlAttr(t)}')">×</button>
+          </span>
+        `).join("");
+      }
+
+      function addCtxTag_(tag){
+        const t = String(tag||"").trim();
+        if (!t) return;
+
+        const tags = getCtxTags_();
+        if (!tags.includes(t)) tags.push(t);
+
+        setCtxTags_(tags);
+        renderCtxTagChips_();
+      }
+
+      function removeCtxTag_(tag){
+        const t = String(tag||"").trim();
+        const tags = getCtxTags_().filter(x => x !== t);
+        setCtxTags_(tags);
+        renderCtxTagChips_();
+      }
+
+      function addCtxTagFromInput_(){
+        const inp = el("ctxNewTagInput");
+        if (!inp) return;
+
+        const raw = String(inp.value||"").trim();
+        if (!raw) return;
+
+        addCtxTag_(raw);
+
+        // サジェスト体験だけ良くする（即サーバ保存はしない）
+        if (!(__CTX_TAGS__ || []).some(t => String(t||"").trim() === raw)){
+          __CTX_TAGS__.push(raw);
+          fillCtxTagDatalist_();
+        }
+
+        inp.value = "";
+      }
+
+      function initCtxTagInputHandlers_(){
+        const inp = el("ctxNewTagInput");
+        if (!inp) return;
+
+        // 二重登録防止
+        if (inp.dataset.bound === "1") return;
+        inp.dataset.bound = "1";
+
+        inp.addEventListener("keydown", (e) => {
+          if (e.key === "Enter"){
+            e.preventDefault();
+            addCtxTagFromInput_();
+          }
+        });
+      }
+
+
+      function showCtxErr(msg){
+        el("ctxErr").style.display = "block";
+        el("ctxErr").textContent = msg || "error";
+      }
+      function hideCtxErr(){
+        el("ctxErr").style.display = "none";
+        el("ctxErr").textContent = "";
+      }
+
+      function getContextFilters_(){
+        return {
+          q: (el("ctxQ")?.value || "").trim(),
+          status: (el("ctxStatus")?.value || "").trim().toLowerCase()
+        };
+      }
+
+      function openNewContextModal(){
+        hideCtxErr();
+
+        // 候補タグは都度更新（軽い）
+        try{ reloadContextTags(); } catch(e){}
+
+        const bodyHtml = [
+          `<div style="font-weight:900; margin-bottom:8px;">LLM Context 追加</div>`,
+          `<div class="small" style="margin-bottom:10px; opacity:.85;">最小入力：tags / content</div>`,
+
+          `<div class="ctlLabel">tags（プルダウンで追加）</div>`,
+          `<div class="row" style="margin-top:6px; align-items:center;">`,
+          `  <div class="rowLeft">`,
+          `    <select id="ctxAdd_tagPick" class="ctl" style="width:280px">`,
+          `      <option value="">（選択）</option>`,
+          `    </select>`,
+          `    <button class="btn" onclick="ctxAdd_addPickedTag_()">追加</button>`,
+          `    <button class="btn" onclick="openCtxTagManager_()">候補編集</button>`,
+          `  </div>`,
+          `</div>`,
+          `<div id="ctxAdd_tagsChips" style="margin-top:8px;"></div>`,
+          `<input type="hidden" id="ctxAdd_tagsHidden" value="" />`,
+
+          `<div class="ctlLabel" style="margin-top:12px;">content</div>`,
+          `<textarea id="ctxAdd_content" class="ctl" style="width:100%; height:180px; resize:vertical; margin-top:6px;" `,
+          `  placeholder="例：AMDにとって最大の価値資産は『成果物』ではなく『判断』…"></textarea>`
+        ].join("");
+
+        openAppModal_(
+          "LLM Context 追加",
+          bodyHtml,
+          () => {
+            const content = (document.getElementById("ctxAdd_content")?.value || "").trim();
+            if (!content){
+              showCtxErr("content empty");
+              return;
+            }
+
+            const tagArr = ctxTagsFromHidden_("ctxAdd_tagsHidden");
+            const tags = tagArr.join(",");
+
+            el("ctxHint").textContent = "作成中...";
+
+            google.script.run
+              .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+              .withSuccessHandler(res => {
+                if (!res || !res.ok){
+                  showCtxErr((res && res.message) ? res.message : "create failed");
+                  return;
+                }
+                el("ctxHint").textContent = `作成した：${res.contextId || "-"}`;
+                loadContexts();
+              })
+              .admin_createLLMContext({ content, tags, status:"active" });
+          },
+          { input:false }
+        );
+
+        setTimeout(()=>{
+          try{
+            ctxFillTagPick_();
+            const hid = document.getElementById("ctxAdd_tagsHidden");
+            if (hid) hid.value = "";
+            ctxRenderChips_("ctxAdd_tagsChips","ctxAdd_tagsHidden");
+            document.getElementById("ctxAdd_content")?.focus();
+          }catch(e){}
+        }, 60);
+      }
+
+
+      // ===== Context Add Modal helpers =====
+      function ctxFillTagPick_(){
+        const sel = document.getElementById("ctxAdd_tagPick");
+        if (!sel) return;
+
+        const tags = Array.isArray(__CTX_TAGS__) ? __CTX_TAGS__ : [];
+        const uniq = Array.from(new Set(tags.map(t=>String(t||"").trim()).filter(x=>x)))
+          .sort((a,b)=>a.localeCompare(b,"ja"));
+
+        sel.innerHTML = `<option value="">（選択）</option>` + uniq.map(t =>
+          `<option value="${escapeHtmlAttr(t)}">${escapeHtml(t)}</option>`
+        ).join("");
+      }
+
+      function ctxTagsFromHidden_(hiddenId){
+        const v = (document.getElementById(hiddenId)?.value || "").trim();
+        if (!v) return [];
+        const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+        const seen = new Set();
+        const out = [];
+        arr.forEach(t=>{ if(!seen.has(t)){ seen.add(t); out.push(t);} });
+        return out;
+      }
+
+      function ctxSetHidden_(hiddenId, tags){
+        const arr = Array.isArray(tags) ? tags : [];
+        const elh = document.getElementById(hiddenId);
+        if (elh) elh.value = arr.join(",");
+      }
+
+      function ctxRenderChips_(wrapId, hiddenId){
+        const wrap = document.getElementById(wrapId);
+        if (!wrap) return;
+
+        const tags = ctxTagsFromHidden_(hiddenId);
+        if (!tags.length){
+          wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+          return;
+        }
+
+        wrap.innerHTML = tags.map(t => `
+          <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+            ${escapeHtml(t)}
+            <button class="btn" style="padding:2px 8px; font-weight:900;"
+              onclick="ctxRemoveTagFromHidden_('${escapeHtmlAttr(hiddenId)}','${escapeHtmlAttr(t)}')">×</button>
+          </span>
+        `).join("");
+      }
+
+      function ctxAdd_addPickedTag_(){
+        const sel = document.getElementById("ctxAdd_tagPick");
+        if (!sel) return;
+
+        const pick = String(sel.value||"").trim();
+        if (!pick) return;
+
+        const tags = ctxTagsFromHidden_("ctxAdd_tagsHidden");
+        if (!tags.includes(pick)) tags.push(pick);
+
+        ctxSetHidden_("ctxAdd_tagsHidden", tags);
+        ctxRenderChips_("ctxAdd_tagsChips","ctxAdd_tagsHidden");
+
+        sel.value = "";
+      }
+
+      function ctxRemoveTagFromHidden_(hiddenId, tag){
+        const hid = String(hiddenId||"").trim();
+        const t = String(tag||"").trim();
+        const tags = ctxTagsFromHidden_(hid).filter(x=>x !== t);
+        ctxSetHidden_(hid, tags);
+        ctxRenderChips_("ctxAdd_tagsChips","ctxAdd_tagsHidden");
+      }
+
+      function ctxTagsFromHidden_(hiddenId){
+        const v = (document.getElementById(hiddenId)?.value || "").trim();
+        if (!v) return [];
+        const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+        const seen = new Set();
+        const out = [];
+        arr.forEach(t=>{ if(!seen.has(t)){ seen.add(t); out.push(t);} });
+        return out;
+      }
+
+      function ctxSetHidden_(hiddenId, tags){
+        const arr = Array.isArray(tags) ? tags : [];
+        const elh = document.getElementById(hiddenId);
+        if (elh) elh.value = arr.join(",");
+      }
+
+      function ctxRenderChips_(wrapId, hiddenId, removeFnName){
+        const wrap = document.getElementById(wrapId);
+        if (!wrap) return;
+
+        const tags = ctxTagsFromHidden_(hiddenId);
+        if (!tags.length){
+          wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+          return;
+        }
+
+        wrap.innerHTML = tags.map(t => `
+          <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+            ${escapeHtml(t)}
+            <button class="btn" style="padding:2px 8px; font-weight:900;"
+              onclick="${removeFnName}('${escapeHtmlAttr(hiddenId)}','${escapeHtmlAttr(t)}')">×</button>
+          </span>
+        `).join("");
+      }
+
+      function ctxAdd_addPickedTag_(){
+        const sel = document.getElementById("ctxAdd_tagPick");
+        if (!sel) return;
+        const pick = String(sel.value||"").trim();
+        if (!pick) return;
+
+        const tags = ctxTagsFromHidden_("ctxAdd_tagsHidden");
+        if (!tags.includes(pick)) tags.push(pick);
+        ctxSetHidden_("ctxAdd_tagsHidden", tags);
+        ctxRenderChips_("ctxAdd_tagsChips","ctxAdd_tagsHidden","ctxAdd_removeTagFromHidden_");
+
+        sel.value = "";
+      }
+
+      function ctxAdd_removeTagFromHidden_(hiddenId, tag){
+        const hid = String(hiddenId||"").trim();
+        const t = String(tag||"").trim();
+        const tags = ctxTagsFromHidden_(hid).filter(x=>x !== t);
+        ctxSetHidden_(hid, tags);
+        ctxRenderChips_("ctxAdd_tagsChips","ctxAdd_tagsHidden","ctxAdd_removeTagFromHidden_");
+      }
+
+      function loadContexts(){
+        hideCtxErr();
+
+        // contextsタブに来たら候補タグは都度更新（軽い）
+        try{ reloadContextTags(); } catch(e){}
+
+        el("ctxHint").textContent = "loading...";
+        el("ctxTbody").innerHTML = `<tr><td colspan="6" class="muted">loading...</td></tr>`;
+
+        const f = getContextFilters_();
+
+        google.script.run
+          .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showCtxErr((res && res.message) ? res.message : "load failed");
+              return;
+            }
+
+            const rows = Array.isArray(res.contexts) ? res.contexts : [];
+            if (!rows.length){
+              el("ctxTbody").innerHTML = `<tr><td colspan="6" class="muted">該当なし</td></tr>`;
+              el("ctxHint").textContent = "rows: 0";
+              return;
+            }
+
+            el("ctxTbody").innerHTML = rows.map(c => {
+              const id = escapeHtmlAttr(c.contextId||"");
+              const content = String(c.content || "");
+              const tags = String(c.tags || "");
+
+              return `
+                <tr data-cid="${id}">
+                  <td class="nowrap">
+                    <select class="ctl" id="cx_st_${id}" style="width:110px">
+                      <option value="active" ${String(c.status||"")==="active"?"selected":""}>active</option>
+                      <option value="archived" ${String(c.status||"")==="archived"?"selected":""}>archived</option>
+                    </select>
+                  </td>
+
+                  <td class="noteCell">
+                    <textarea class="ctl" id="cx_c_${id}" style="width:100%; height:120px; resize:vertical;">${escapeHtml(content)}</textarea>
+                  </td>
+
+                  <td class="noteCell">
+                    <div class="row" style="align-items:center; gap:8px;">
+                      <select class="ctl" id="cx_tagPick_${id}" style="width:220px">
+                        <option value="">（選択）</option>
+                      </select>
+                      <button class="btn" onclick="cxAddTagToRow_('${id}')">追加</button>
+                      <button class="btn" onclick="openCtxTagManager_()">候補編集</button>
+                    </div>
+
+                    <div id="cx_tagsChips_${id}" style="margin-top:8px;"></div>
+
+                    <!-- 実保存用（カンマ区切りで保持）※見せない -->
+                    <input type="hidden" id="cx_tags_${id}" value="${escapeHtmlAttr(tags)}" />
+
+                  </td>
+
+
+                  <td class="small nowrap" id="cx_upd_${id}">${escapeHtml(c.updatedAt||"-")}</td>
+
+                  <td class="nowrap">
+                    <button class="btn" onclick="saveContext('${id}')">保存</button>
+                    <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="archiveContext('${id}')">非表示</button>
+                    <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="deleteContext('${id}')">削除</button>
+                  </td>
+
+                  <td class="mono nowrap">${escapeHtml(c.contextId||"")}</td>
+                </tr>
+              `;
+            }).join("");
+
+            // 行ごとにタグ候補selectを埋める + chips表示
+            try{
+              rows.forEach(c => {
+                const id = String(c.contextId||"").trim();
+                cxFillRowTagPick_(id);
+                cxRenderRowChips_(id);
+              });
+            }catch(e){}
+
+            // 行ごとにタグ候補selectを埋める + chips表示
+            try{
+              rows.forEach(c => {
+                const rid = String(c.contextId||"").trim();
+                cxFillRowTagPick_(rid);
+                cxRenderRowChips_(rid);
+              });
+            }catch(e){}
+
+            el("ctxHint").textContent = `rows: ${rows.length}`;
+          })
+          .admin_listLLMContexts({ q: f.q, status: f.status });
+      }
+
+      function saveContext(contextId){
+        hideCtxErr();
+        const id = String(contextId||"").trim();
+        if (!id) return;
+
+        const status = (el(`cx_st_${id}`)?.value || "active").trim();
+        const content = (el(`cx_c_${id}`)?.value || "").trim();
+        let tagsStr = (el(`cx_tags_${id}`)?.value || "").trim(); // hidden想定
+
+        if (!content){
+          showCtxErr("content empty");
+          return;
+        }
+
+        // tags 正規化（trim + uniq + 空除去）
+        const rawArr = tagsStr
+          ? tagsStr.split(",").map(x=>String(x||"").trim()).filter(x=>x)
+          : [];
+        const seen = new Set();
+        const tagArr = [];
+        rawArr.forEach(t=>{ if(!seen.has(t)){ seen.add(t); tagArr.push(t);} });
+
+        tagsStr = tagArr.join(",");
+        if (el(`cx_tags_${id}`)) el(`cx_tags_${id}`).value = tagsStr;
+
+        el("ctxHint").textContent = `保存中... ${id}`;
+
+        google.script.run
+          .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showCtxErr((res && res.message) ? res.message : "save failed");
+              return;
+            }
+
+            // 保存した行だけ更新
+            const upd = String(res.updatedAt || "").trim();
+            const updEl = el(`cx_upd_${id}`);
+            if (updEl && upd){
+              updEl.textContent = upd;
+            }
+
+            el("ctxHint").textContent = `保存した：${id}`;
+          })
+          .admin_updateLLMContext({ contextId: id, status, content, tags: tagsStr });
+      }
+
+
+
+
+      function archiveContext(contextId){
+        hideCtxErr();
+        const id = String(contextId||"").trim();
+        if (!id) return;
+        const ok = window.confirm(`非表示（archived）にする？\ncontextId=${id}`);
+        if (!ok) return;
+
+        google.script.run
+          .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showCtxErr((res && res.message) ? res.message : "archive failed");
+              return;
+            }
+            loadContexts();
+          })
+          .admin_deleteLLMContext({ contextId:id, mode:"archive" });
+      }
+
+      function deleteContext(contextId){
+        hideCtxErr();
+        const id = String(contextId||"").trim();
+        if (!id) return;
+        const ok = window.confirm(`削除する？（物理削除）\ncontextId=${id}\n※戻せない`);
+        if (!ok) return;
+
+        google.script.run
+          .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showCtxErr((res && res.message) ? res.message : "delete failed");
+              return;
+            }
+            loadContexts();
+          })
+          .admin_deleteLLMContext({ contextId:id, mode:"delete" });
+      }
+
+            // ===== Extractor Prompt =====
+      let __EX_CFGS__ = [];
+      let __EX_SELECTED_ID__ = "";
+
+      function showExErr(msg){
+        el("exErr").style.display = "block";
+        el("exErr").textContent = msg || "error";
+      }
+      function hideExErr(){
+        el("exErr").style.display = "none";
+        el("exErr").textContent = "";
+      }
+
+      function exName_(){
+        return String(el("exName")?.value || "protocol_extract").trim() || "protocol_extract";
+      }
+
+      function setExtractorButtonsEnabled_(enabled){
+        const b1 = el("btnExActivate");
+        const b2 = el("btnExArchive");
+        if (b1) b1.disabled = !enabled;
+        if (b2) b2.disabled = !enabled;
+      }
+
+      function fillExtractorEditor_(cfg){
+        cfg = cfg || {};
+        __EX_SELECTED_ID__ = String(cfg.configId || "").trim();
+
+        if (el("exConfigId")) el("exConfigId").value = String(cfg.configId || "");
+        if (el("exStatus")) el("exStatus").value = String(cfg.status || "(unknown)");
+        if (el("exVersion")) el("exVersion").value = String(cfg.version || "");
+        if (el("exNote")) el("exNote").value = String(cfg.note || "");
+        if (el("exSystemPrompt")) el("exSystemPrompt").value = String(cfg.systemPrompt || "");
+
+        setExtractorButtonsEnabled_(!!__EX_SELECTED_ID__);
+      }
+
+      function renderExtractorList_(rows){
+        const tb = el("exTbody");
+        const list = Array.isArray(rows) ? rows : [];
+
+        if (!list.length){
+          tb.innerHTML = `<tr><td colspan="6" class="muted">なし</td></tr>`;
+          return;
+        }
+
+        tb.innerHTML = list.map(c => {
+          const id = String(c.configId || "").trim();
+          const idAttr = escapeHtmlAttr(id);
+
+          const st = String(c.status || "");
+          const ver = String(c.version || "");
+          const note = String(c.note || "");
+          const upd = String(c.updatedAt || "");
+
+          const pickBtn = `<button class="btn" onclick="pickExtractor_('${idAttr}')">編集</button>`;
+          const actBtn  = `<button class="btn" onclick="activateExtractor_('${idAttr}')">有効化</button>`;
+          const arcBtn  = `<button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="archiveExtractor_('${idAttr}')">アーカイブ</button>`;
+
+          return `
+            <tr>
+              <td class="nowrap">${pill(st)}</td>
+              <td class="noteCell">${escapeHtml(ver)}</td>
+              <td class="noteCell">${escapeHtml(note)}</td>
+              <td class="small nowrap">${escapeHtml(upd || "-")}</td>
+              <td class="nowrap">${pickBtn} ${actBtn} ${arcBtn}</td>
+              <td class="mono nowrap">${escapeHtml(id)}</td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      function loadExtractorConfigs(){
+        hideExErr();
+        el("exHint").textContent = "loading...";
+
+        const name = exName_();
+
+        google.script.run
+          .withFailureHandler(err => showExErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showExErr((res && res.message) ? res.message : "load failed");
+              __EX_CFGS__ = [];
+              renderExtractorList_([]);
+              el("exHint").textContent = "rows: 0";
+              return;
+            }
+            __EX_CFGS__ = Array.isArray(res.configs) ? res.configs : [];
+            renderExtractorList_(__EX_CFGS__);
+            el("exHint").textContent = `rows: ${__EX_CFGS__.length} / name: ${name}`;
+          })
+          .admin_listExtractorConfigs({ name: name });
+      }
+
+      function loadActiveExtractor_(){
+        hideExErr();
+        el("exHint").textContent = "loading active...";
+
+        const name = exName_();
+
+        google.script.run
+          .withFailureHandler(err => showExErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showExErr((res && res.message) ? res.message : "getActive failed");
+              return;
+            }
+            const cfg = res.config || null;
+            if (!cfg){
+              fillExtractorEditor_({ status:"(no active)", version:"", note:"", systemPrompt:"" });
+              el("exHint").textContent = "activeなし（新規作って有効化して）";
+              return;
+            }
+            fillExtractorEditor_(cfg);
+            el("exHint").textContent = `active loaded: ${String(cfg.version||"") || "-"}`;
+          })
+          .admin_getActiveExtractorConfig({ name: name });
+      }
+
+      function pickExtractor_(configId){
+        const id = String(configId||"").trim();
+        const hit = (__EX_CFGS__ || []).find(x => String(x.configId||"").trim() === id);
+        if (!hit){
+          showExErr("not found in list");
+          return;
+        }
+        fillExtractorEditor_(hit);
+        el("exHint").textContent = `picked: ${String(hit.version||"") || "-"} / ${id}`;
+      }
+
+      function openNewExtractorInline(){
+        hideExErr();
+        __EX_SELECTED_ID__ = "";
+        fillExtractorEditor_({
+          configId: "",
+          status: "archived",
+          version: "",
+          note: "",
+          systemPrompt: ""
+        });
+        el("exHint").textContent = "新規作成モード（保存でarchived作成→有効化）";
+      }
+
+      function saveExtractorConfig_(){
+        hideExErr();
+
+        const name = exName_();
+        const configId = String(el("exConfigId")?.value || "").trim(); // empty ok
+        const version = String(el("exVersion")?.value || "").trim();
+        const note = String(el("exNote")?.value || "").trim();
+        const systemPrompt = String(el("exSystemPrompt")?.value || "").trim();
+
+        if (!systemPrompt){
+          showExErr("systemPrompt empty");
+          return;
+        }
+
+        el("exHint").textContent = "保存中...";
+
+        google.script.run
+          .withFailureHandler(err => showExErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showExErr((res && res.message) ? res.message : "save failed");
+              return;
+            }
+            el("exHint").textContent = res.created ? "作成した（archived）" : "更新した";
+            loadExtractorConfigs();
+            // 新規作成なら editor のIDも更新したいので、active読み込みではなく一覧から再pickする
+            if (res.configId){
+              __EX_SELECTED_ID__ = String(res.configId||"");
+              if (el("exConfigId")) el("exConfigId").value = __EX_SELECTED_ID__;
+              setExtractorButtonsEnabled_(true);
+            }
+          })
+          .admin_saveExtractorConfig({
+            configId: configId || "",
+            name: name,
+            version: version,
+            note: note,
+            systemPrompt: systemPrompt
+          });
+      }
+
+      function activateExtractor_(configId){
+        hideExErr();
+        const id = String(configId||"").trim();
+        if (!id){
+          showExErr("configId empty");
+          return;
+        }
+
+        const ok = window.confirm(`この設定を有効化する？\nconfigId=${id}`);
+        if (!ok) return;
+
+        el("exHint").textContent = "有効化中...";
+
+        google.script.run
+          .withFailureHandler(err => showExErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showExErr((res && res.message) ? res.message : "activate failed");
+              return;
+            }
+            el("exHint").textContent = "有効化した";
+            loadExtractorConfigs();
+            loadActiveExtractor_();
+          })
+          .admin_activateExtractorConfig({ configId: id });
+      }
+
+      function archiveExtractor_(configId){
+        hideExErr();
+        const id = String(configId||"").trim();
+        if (!id){
+          showExErr("configId empty");
+          return;
+        }
+
+        const ok = window.confirm(`アーカイブする？\nconfigId=${id}`);
+        if (!ok) return;
+
+        el("exHint").textContent = "アーカイブ中...";
+
+        google.script.run
+          .withFailureHandler(err => showExErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showExErr((res && res.message) ? res.message : "archive failed");
+              return;
+            }
+            el("exHint").textContent = "アーカイブした";
+            loadExtractorConfigs();
+            loadActiveExtractor_();
+          })
+          .admin_archiveExtractorConfig({ configId: id });
+      }
+
+      function activateSelectedExtractor_(){
+        const id = String(el("exConfigId")?.value || "").trim();
+        if (!id) { showExErr("configId empty"); return; }
+        activateExtractor_(id);
+      }
+
+      function archiveSelectedExtractor_(){
+        const id = String(el("exConfigId")?.value || "").trim();
+        if (!id) { showExErr("configId empty"); return; }
+        archiveExtractor_(id);
+      }
+
+
+      // ===== init =====
+      function attachGlobalErrorHandlers_(){
+      // ★JSが死んだとき、画面に出して「原因見える化」
+      window.addEventListener("error", (ev) => {
+        try{
+          const msg = ev?.error?.message || ev?.message || String(ev);
+          showErr("[JS ERROR] " + msg);
+        } catch(_) {}
+      });
+
+      window.addEventListener("unhandledrejection", (ev) => {
+        try{
+          const msg = ev?.reason?.message || String(ev?.reason || ev);
+          showErr("[PROMISE ERROR] " + msg);
+        } catch(_) {}
+      });
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      attachGlobalErrorHandlers_();
+
+      // ★初期ロードでコケても、UI全体を殺さない
+      try{
+        switchTab("members");
+      } catch(e){
+        try{ showErr(e?.message || String(e)); } catch(_) {}
+      }
+    });
+
+
+            function initResizableColumns_(tableId){
+        const tbl = el(tableId);
+        if (!tbl) return;
+
+        const keyPrefix = "colw:" + tableId + ":";
+
+        const ths = tbl.querySelectorAll("thead th");
+        ths.forEach((th, idx) => {
+          // handleを二重に付けない
+          if (th.querySelector(".resizeHandle")) return;
+
+          // 保存済み幅を反映
+          const colKey = th.getAttribute("data-colkey") || String(idx);
+          const saved = localStorage.getItem(keyPrefix + colKey);
+          if (saved){
+            th.style.width = saved + "px";
+          }
+
+          // ハンドル追加
+          const h = document.createElement("div");
+          h.className = "resizeHandle";
+          th.appendChild(h);
+
+          let startX = 0;
+          let startW = 0;
+
+          h.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            startX = e.clientX;
+            startW = th.getBoundingClientRect().width;
+
+            const onMove = (ev) => {
+              const dx = ev.clientX - startX;
+              const w = Math.max(80, Math.round(startW + dx));
+              th.style.width = w + "px";
+            };
+
+            const onUp = (ev) => {
+              document.removeEventListener("mousemove", onMove);
+              document.removeEventListener("mouseup", onUp);
+
+              const w = Math.round(th.getBoundingClientRect().width);
+              localStorage.setItem(keyPrefix + colKey, String(w));
+            };
+
+            document.addEventListener("mousemove", onMove);
+            document.addEventListener("mouseup", onUp);
+          });
+        });
+      }
+
+      function confirmNotionCandidate_(candidateId){
+        hideProtErr();
+        const id = String(candidateId||"").trim();
+        if (!id) { showProtErr("candidateId empty"); return; }
+
+        const pjSel = el(`npj_${id}`);
+        const impEl = el(`nimp_${id}`);
+        const tagsEl = el(`ntags_${id}`);
+
+        const projectId = String(pjSel?.value || "").trim();
+        const importance = String(impEl?.value || "1").trim();
+        const tags = String(tagsEl?.value || "").trim();
+
+        if (!projectId){
+          showProtErr("PJが未選択");
+          return;
+        }
+
+        const ok = window.confirm(`確定する？\n(candidateId=${id})\nprojectId=${projectId}`);
+        if (!ok) return;
+
+        el("protHint").textContent = `確定中... (notion candidate) ${id}`;
+
+        google.script.run
+          .withFailureHandler(err => showProtErr(err?.message || String(err)))
+          .withSuccessHandler(res1 => {
+            if (!res1 || !res1.ok){
+              showProtErr((res1 && res1.message) ? res1.message : "promote failed");
+              return;
+            }
+            const protocolId = String(res1.protocolId||"").trim();
+            if (!protocolId){
+              showProtErr("protocolId missing");
+              return;
+            }
+
+            google.script.run
+              .withFailureHandler(err => showProtErr(err?.message || String(err)))
+              .withSuccessHandler(res2 => {
+                if (!res2 || !res2.ok){
+                  showProtErr((res2 && res2.message) ? res2.message : "confirm failed");
+                  return;
+                }
+                el("protHint").textContent = `確定した：protocolId=${protocolId}`;
+                loadProtocols();
+              })
+              .admin_changeProtocolStatus({ protocolId: protocolId, nextStatus: "confirmed" });
+          })
+          .admin_promoteProtocolCandidate({ candidateId: id, projectId: projectId, tags: tags, importance: importance });
+      }
+
+      function rejectNotionCandidate_(candidateId, decisionPoint, decisionCriteria, actionText){
+        hideProtErr();
+        const id = String(candidateId||"").trim();
+        if (!id) { showProtErr("candidateId empty"); return; }
+
+        const dp = String(decisionPoint||"").trim();
+        const dc = String(decisionCriteria||"").trim();
+        const ac = String(actionText||"").trim();
+
+        const bodyHtml = [
+          `<div style="font-weight:900; margin-bottom:8px;">却下する内容</div>`,
+          `<div class="small" style="margin-top:6px;"><b>分岐点</b><br>${escapeHtml(dp || "-")}</div>`,
+          `<div class="small" style="margin-top:8px;"><b>判断条件</b><br>${escapeHtml(dc || "-")}</div>`,
+          `<div class="small" style="margin-top:8px;"><b>アクション</b><br>${escapeHtml(ac || "-")}</div>`,
+          `<div class="small" style="margin-top:10px; opacity:.8;">candidateId: <span class="mono">${escapeHtml(id)}</span></div>`
+        ].join("");
+
+        openAppModal_(
+          "候補を却下",
+          bodyHtml,
+          (val) => {
+            const reasonTrim = String(val||"").trim();
+            if (!reasonTrim){
+              showProtErr("reason empty（却下理由が空）。最低1行入れて。");
+              return;
+            }
+
+            el("protHint").textContent = `却下中... (notion candidate) ${id}`;
+
+            google.script.run
+              .withFailureHandler(err => showProtErr(err?.message || String(err)))
+              .withSuccessHandler(res => {
+                if (!res || !res.ok){
+                  showProtErr((res && res.message) ? res.message : "reject failed");
+                  return;
+                }
+                el("protHint").textContent = `却下した：candidateId=${id}`;
+                loadProtocols();
+              })
+              .admin_rejectProtocolCandidate({ candidateId: id, reason: reasonTrim });
+          },
+          {
+            input: true,
+            inputLabel: "却下理由（LLM改善に使う）",
+            placeholder: "例：分岐点が抽象的すぎる／判断条件じゃなく単なる事実／アクションがAMDの型になってない／重複 など",
+            hint: "コツ：NGタイプ＋何がダメ＋どう直す、の3点があると次の抽出が賢くなる"
+          }
+        );
+      }
+
+      function openCtxTagManager_(){
+        hideCtxErr();
+
+        const bodyHtml = [
+          `<div style="font-weight:900; margin-bottom:8px;">LLM Context タグ候補 編集</div>`,
+          `<div class="small" style="opacity:.8; margin-bottom:10px;">追加 / リネーム / 削除（archived）をここでやる。DB_LLMContext の既存データは自動では置換しない（安全のため）。</div>`,
+
+          `<div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">`,
+          `  <div style="flex:1; min-width:260px;">`,
+          `    <div class="ctlLabel">新規タグ</div>`,
+          `    <input id="ctxTagMng_newTag" class="ctl" style="width:100%;" placeholder="例: CX / 略語 / scope:global など" />`,
+          `  </div>`,
+          `  <div style="flex:2; min-width:260px;">`,
+          `    <div class="ctlLabel">note（任意）</div>`,
+          `    <input id="ctxTagMng_newNote" class="ctl" style="width:100%;" placeholder="任意メモ" />`,
+          `  </div>`,
+          `  <button class="btn" onclick="ctxTagMng_add_()">追加</button>`,
+          `</div>`,
+
+          `<div class="ctlLabel" style="margin-top:12px;">active tags</div>`,
+          `<div id="ctxTagMng_list" class="small" style="margin-top:6px;">loading...</div>`,
+
+          `<div class="row" style="margin-top:12px;">`,
+          `  <div class="rowLeft">`,
+          `    <button class="btn" onclick="closeAppModal_()">閉じる</button>`,
+          `  </div>`,
+          `</div>`
+        ].join("");
+
+        openAppModal_("タグ候補編集", bodyHtml, ()=>{}, { input:false });
+
+        // 一覧描画
+        ctxTagMng_reload_();
+      }
+
+      function ctxTagMng_reload_(){
+        google.script.run
+          .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showCtxErr((res && res.message) ? res.message : "admin_listContextTags failed");
+              const wrap = document.getElementById("ctxTagMng_list");
+              if (wrap) wrap.innerHTML = `<span class="pill gray">読み込み失敗</span>`;
+              return;
+            }
+
+            const tags = Array.isArray(res.tags) ? res.tags : [];
+            const wrap = document.getElementById("ctxTagMng_list");
+            if (!wrap) return;
+
+            if (!tags.length){
+              wrap.innerHTML = `<span class="pill gray">タグなし</span>`;
+              return;
+            }
+
+            wrap.innerHTML = tags.map(t => {
+              const ta = escapeHtmlAttr(t);
+              return `
+                <div style="display:flex; gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid var(--line);">
+                  <div style="min-width:220px;" class="mono">${escapeHtml(t)}</div>
+
+                  <input class="ctl" id="ctxTagMng_to_${ta}" style="flex:1; min-width:240px;" placeholder="リネーム先（空なら変更なし）" />
+
+                  <button class="btn" onclick="ctxTagMng_rename_('${ta}')">リネーム</button>
+                  <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="ctxTagMng_remove_('${ta}')">削除</button>
+                </div>
+              `;
+            }).join("");
+
+            // ローカル候補も更新して、プルダウン側へ反映
+            __CTX_TAGS__ = tags.slice();
+            try{ fillCtxTagDatalist_(); } catch(e){}
+            try{ ctxFillTagPick_(); } catch(e){}
+
+            // 一覧行のselectも更新したい（表示中の分だけ）
+            try{
+              const rows = document.querySelectorAll("[id^='cx_tagPick_']");
+              rows.forEach(sel=>{
+                const rowId = String(sel.id||"").replace("cx_tagPick_","");
+                cxFillRowTagPick_(rowId);
+              });
+            }catch(e){}
+          })
+          .admin_listContextTags();
+      }
+
+      function ctxTagMng_add_(){
+        const tag = String(document.getElementById("ctxTagMng_newTag")?.value || "").trim();
+        const note = String(document.getElementById("ctxTagMng_newNote")?.value || "").trim();
+        if (!tag) { showCtxErr("tag empty"); return; }
+
+        google.script.run
+          .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showCtxErr((res && res.message) ? res.message : "admin_addContextTag failed");
+              return;
+            }
+            document.getElementById("ctxTagMng_newTag").value = "";
+            document.getElementById("ctxTagMng_newNote").value = "";
+            ctxTagMng_reload_();
+          })
+          .admin_addContextTag({ tag: tag, note: note });
+      }
+
+      function ctxTagMng_remove_(tag){
+        const t = String(tag||"").trim();
+        if (!t) return;
+
+        const ok = window.confirm(`候補から削除（archived）する？\n${t}`);
+        if (!ok) return;
+
+        google.script.run
+          .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showCtxErr((res && res.message) ? res.message : "admin_removeContextTag failed");
+              return;
+            }
+            ctxTagMng_reload_();
+          })
+          .admin_removeContextTag({ tag: t });
+      }
+
+      function ctxTagMng_rename_(fromTag){
+        const from = String(fromTag||"").trim();
+        if (!from) return;
+
+        const to = String(document.getElementById(`ctxTagMng_to_${from}`)?.value || "").trim();
+        if (!to){
+          showCtxErr("toTag empty（リネーム先が空）");
+          return;
+        }
+
+        const ok = window.confirm(`リネームする？\n${from} -> ${to}\n\n※DB_LLMContextの既存tagsは自動置換しない（必要なら別途置換をかける）`);
+        if (!ok) return;
+
+        google.script.run
+          .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showCtxErr((res && res.message) ? res.message : "admin_renameContextTag failed");
+              return;
+            }
+            ctxTagMng_reload_();
+          })
+          .admin_renameContextTag({ fromTag: from, toTag: to, note: "" });
+      }
+
+
+      // ===== LLM Context tags master =====
+      function reloadContextTags(){
+        google.script.run
+          .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              __CTX_TAGS__ = [];
+              fillCtxTagDatalist_();
+              return;
+            }
+            __CTX_TAGS__ = Array.isArray(res.tags) ? res.tags : [];
+            fillCtxTagDatalist_();
+          })
+          .admin_listContextTags();
+      }
+      function cxFillRowTagPick_(rowId){
+        const sel = el(`cx_tagPick_${rowId}`);
+        if (!sel) return;
+
+        const tags = Array.isArray(__CTX_TAGS__) ? __CTX_TAGS__ : [];
+        const uniq = Array.from(new Set(tags.map(t=>String(t||"").trim()).filter(x=>x)))
+          .sort((a,b)=>a.localeCompare(b,"ja"));
+
+        sel.innerHTML = `<option value="">（選択）</option>` + uniq.map(t =>
+          `<option value="${escapeHtmlAttr(t)}">${escapeHtml(t)}</option>`
+        ).join("");
+      }
+
+      function cxTagsFromInput_(rowId){
+        const v = (el(`cx_tags_${rowId}`)?.value || "").trim();
+        if (!v) return [];
+        const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+        const seen = new Set();
+        const out = [];
+        arr.forEach(t=>{ if(!seen.has(t)){ seen.add(t); out.push(t);} });
+        return out;
+      }
+
+      function cxSetTagsToInput_(rowId, tags){
+        const arr = Array.isArray(tags) ? tags : [];
+        const inp = el(`cx_tags_${rowId}`);
+        if (inp) inp.value = arr.join(",");
+      }
+
+      function cxRenderRowChips_(rowId){
+        const wrap = el(`cx_tagsChips_${rowId}`);
+        if (!wrap) return;
+
+        const tags = cxTagsFromInput_(rowId);
+        if (!tags.length){
+          wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+          return;
+        }
+
+        wrap.innerHTML = tags.map(t => `
+          <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+            ${escapeHtml(t)}
+            <button class="btn" style="padding:2px 8px; font-weight:900;"
+              onclick="cxRemoveTagFromRow_('${escapeHtmlAttr(rowId)}','${escapeHtmlAttr(t)}')">×</button>
+          </span>
+        `).join("");
+      }
+
+      function cxAddTagToRow_(rowId){
+        const sel = el(`cx_tagPick_${rowId}`);
+        if (!sel) return;
+        const pick = String(sel.value||"").trim();
+        if (!pick) return;
+
+        const tags = cxTagsFromInput_(rowId);
+        if (!tags.includes(pick)) tags.push(pick);
+        cxSetTagsToInput_(rowId, tags);
+        cxRenderRowChips_(rowId);
+
+        sel.value = "";
+      }
+
+      function cxRemoveTagFromRow_(rowId, tag){
+        const t = String(tag||"").trim();
+        const tags = cxTagsFromInput_(rowId).filter(x=>x !== t);
+        cxSetTagsToInput_(rowId, tags);
+        cxRenderRowChips_(rowId);
+      }
+
+      function cxFillRowTagPick_(rowId){
+        const sel = el(`cx_tagPick_${rowId}`);
+        if (!sel) return;
+
+        const tags = Array.isArray(__CTX_TAGS__) ? __CTX_TAGS__ : [];
+        const uniq = Array.from(new Set(tags.map(t=>String(t||"").trim()).filter(x=>x)))
+          .sort((a,b)=>a.localeCompare(b,"ja"));
+
+        sel.innerHTML = `<option value="">（選択）</option>` + uniq.map(t =>
+          `<option value="${escapeHtmlAttr(t)}">${escapeHtml(t)}</option>`
+        ).join("");
+      }
+
+      function cxTagsFromInput_(rowId){
+        const v = (el(`cx_tags_${rowId}`)?.value || "").trim();
+        if (!v) return [];
+        const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+        const seen = new Set();
+        const out = [];
+        arr.forEach(t=>{ if(!seen.has(t)){ seen.add(t); out.push(t);} });
+        return out;
+      }
+
+      function cxSetTagsToInput_(rowId, tags){
+        const arr = Array.isArray(tags) ? tags : [];
+        const inp = el(`cx_tags_${rowId}`);
+        if (inp) inp.value = arr.join(",");
+      }
+
+      function cxRenderRowChips_(rowId){
+        const wrap = el(`cx_tagsChips_${rowId}`);
+        if (!wrap) return;
+
+        const tags = cxTagsFromInput_(rowId);
+        if (!tags.length){
+          wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+          return;
+        }
+
+        wrap.innerHTML = tags.map(t => `
+          <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+            ${escapeHtml(t)}
+            <button class="btn" style="padding:2px 8px; font-weight:900;"
+              onclick="cxRemoveTagFromRow_('${escapeHtmlAttr(rowId)}','${escapeHtmlAttr(t)}')">×</button>
+          </span>
+        `).join("");
+      }
+
+      function cxAddTagToRow_(rowId){
+        const sel = el(`cx_tagPick_${rowId}`);
+        if (!sel) return;
+        const pick = String(sel.value||"").trim();
+        if (!pick) return;
+
+        const tags = cxTagsFromInput_(rowId);
+        if (!tags.includes(pick)) tags.push(pick);
+        cxSetTagsToInput_(rowId, tags);
+        cxRenderRowChips_(rowId);
+
+        sel.value = "";
+      }
+
+      function cxRemoveTagFromRow_(rowId, tag){
+        const t = String(tag||"").trim();
+        const tags = cxTagsFromInput_(rowId).filter(x=>x !== t);
+        cxSetTagsToInput_(rowId, tags);
+        cxRenderRowChips_(rowId);
+      }
+
+      function saveProjectRow(projectId, btnEl){
+        const pid = String(projectId || "").trim();
+        if (!pid) return;
+
+        const stEl = el(`pjst_${pid}`);
+        const clEl = el(`pjcl_${pid}`);
+        const chEl = el(`pjslack_${pid}`);
+        if (!stEl || !clEl || !chEl) return;
+
+        const nextStatus = String(stEl.value || "").trim().toLowerCase();
+        const nextClient = String(clEl.value || "").trim();
+        const nextSlackCh = String(chEl.value || "").trim();
+
+        if (btnEl){
+          btnEl.disabled = true;
+          btnEl.textContent = "保存中...";
+        }
+
+        el("pjErr").style.display = "none";
+        el("pjHint").textContent = `保存中... ${pid}`;
+
+        // 1) status
+        google.script.run
+          .withFailureHandler(err => {
+            btnEl.textContent = "保存";
+            showPjErr(err?.message || String(err));
+            markDirtyProjectRow(pid);
+          })
+          .withSuccessHandler(res1 => {
+            // orig更新（status）
+            stEl.dataset.orig = nextStatus;
+
+            // 2) slackChannelId
+            google.script.run
+              .withFailureHandler(err2 => {
+                btnEl.textContent = "保存";
+                showPjErr(err2?.message || String(err2));
+                markDirtyProjectRow(pid);
+              })
+              .withSuccessHandler(resSlack => {
+                // orig更新（slack）
+                chEl.dataset.orig = nextSlackCh;
+
+                // 3) clientName（freee連携あり）
+                google.script.run
+                  .withFailureHandler(err3 => {
+                    btnEl.textContent = "保存";
+                    showPjErr(err3?.message || String(err3));
+                    markDirtyProjectRow(pid);
+                  })
+                  .withSuccessHandler(res2 => {
+                    const fixedName = String(res2?.clientName || nextClient).trim();
+                    clEl.value = fixedName;
+                    clEl.dataset.orig = fixedName;
+
+                    // updatedAtセル差し替え（client更新のupdatedAtを正本にする）
+                    const tr = document.querySelector(`tr[data-pid="${CSS.escape(pid)}"]`);
+                    const updCell = tr ? tr.querySelector("td.pjUpdatedAt") : null;
+                    const updatedAt = String(res2?.updatedAt || "").trim();
+                    if (updCell && updatedAt) updCell.textContent = updatedAt;
+
+                    btnEl.textContent = "保存";
+                    markDirtyProjectRow(pid);
+
+                    el("pjHint").textContent = `保存完了：${pid}`;
+                  })
+                  .admin_updateProjectClientName({
+                    projectId: pid,
+                    clientName: nextClient,
+                    createFreeeIfMissing: true
+                  });
+              })
+              .admin_updateProjectSlackChannelId({
+                projectId: pid,
+                slackChannelId: nextSlackCh
+              });
+          })
+          .admin_updateProjectStatus({
+            projectId: pid,
+            nextStatus: nextStatus
+          });
+      }
+
+      // ===== Code Search =====
+      function showCodeErr(msg){
+        el("codeErr").style.display = "block";
+        el("codeErr").textContent = msg || "error";
+      }
+      function hideCodeErr(){
+        el("codeErr").style.display = "none";
+        el("codeErr").textContent = "";
+      }
+      function initCodeSearchUi(){
+        try{
+          const inp = el("codeFn");
+          if (inp && inp.dataset.bound !== "1"){
+            inp.dataset.bound = "1";
+            inp.addEventListener("keydown", (e)=>{
+              if (e.key === "Enter"){
+                e.preventDefault();
+                runCodeSearch();
+              }
+            });
+          }
+        } catch(e){}
+      }
+
+      function runCodeSearch(){
+        hideCodeErr();
+
+        const fn = String(el("codeFn")?.value || "").trim();
+        const includeRefs = !!el("codeIncludeRefs")?.checked;
+
+        if (!fn){
+          showCodeErr("functionName empty");
+          return;
+        }
+
+        el("codeHint").textContent = "検索中...";
+        el("codeTbody").innerHTML = `<tr><td colspan="5" class="muted">loading...</td></tr>`;
+
+        google.script.run
+          .withFailureHandler(err => {
+            showCodeErr(err?.message || String(err));
+            el("codeHint").textContent = "失敗";
+            el("codeTbody").innerHTML = `<tr><td colspan="5" class="muted">error</td></tr>`;
+          })
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showCodeErr((res && res.message) ? res.message : "search failed");
+              el("codeHint").textContent = "見つからない";
+              el("codeTbody").innerHTML = `<tr><td colspan="5" class="muted">not found</td></tr>`;
+              return;
+            }
+
+            const rows = Array.isArray(res.matches) ? res.matches : [];
+            el("codeHint").textContent = `hits: ${rows.length}`;
+
+            if (!rows.length){
+              el("codeTbody").innerHTML = `<tr><td colspan="5" class="muted">not found</td></tr>`;
+              return;
+            }
+
+            el("codeTbody").innerHTML = rows.map(r => {
+              const kind = String(r.kind || "");
+              const file = String(r.fileName || "");
+              const line = String(r.line || "");
+              const snip = String(r.snippet || "");
+
+              const copyText = `${kind}\t${file}:${line}\t${snip}`.replace(/[\r\n]+/g," ");
+              const copyAttr = escapeHtmlAttr(copyText);
+
+              return `
+                <tr>
+                  <td class="nowrap">${pill(kind)}</td>
+                  <td class="mono nowrap">${escapeHtml(file)}</td>
+                  <td class="mono nowrap">${escapeHtml(line)}</td>
+                  <td class="noteCell mono">${escapeHtml(snip)}</td>
+                  <td class="nowrap">
+                    <button class="btn" onclick="copyToClipboard('${copyAttr}')">Copy</button>
+                  </td>
+                </tr>
+              `;
+            }).join("");
+          })
+          .admin_findFunctionLocation({
+            functionName: fn,
+            includeReferences: includeRefs,
+            maxResults: 300
+          });
+      }
+
+      function copyToClipboard(text){
+        const s = String(text || "");
+        try{
+          navigator.clipboard.writeText(s);
+        } catch(e){
+          // fallback
+          try{
+            const ta = document.createElement("textarea");
+            ta.value = s;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+          } catch(e2){}
+        }
+      }
+
+      function openSlackTestModalForProject(){
+        // Projectsが未ロードならまずロード
+        if (!Array.isArray(__PJS_ALL__) || !__PJS_ALL__.length){
+          try{ loadProjects(); } catch(e){}
+        }
+
+        const opts = (Array.isArray(__PJS_ALL__) ? __PJS_ALL__ : [])
+          .map(p => ({
+            projectId: String(p.projectId||"").trim(),
+            projectName: String(p.projectName||"").trim(),
+            slackChannelId: String(p.slackChannelId||"").trim()
+          }))
+          .filter(p => p.projectId);
+
+        const listHtml = opts.slice(0, 200).map(p => {
+          const label = `${escapeHtml(p.projectName || p.projectId)} (${escapeHtml(p.projectId)})`;
+          const warn = p.slackChannelId ? "" : `<span class="pill gray" style="margin-left:6px;">slack未設定</span>`;
+          return `<option value="${escapeHtmlAttr(p.projectId)}">${label}</option>`;
+        }).join("");
+
+        const bodyHtml = [
+          `<div style="font-weight:900; margin-bottom:8px;">Slack テスト送信（PJの晒し先へ投稿）</div>`,
+          `<div class="small" style="opacity:.85;">DB_Projects.slackChannelId に投稿する。未設定PJはエラーになる。</div>`,
+
+          `<div class="ctlLabel" style="margin-top:10px;">project</div>`,
+          `<select id="slackTest_projectId" class="ctl" style="width:100%; margin-top:6px;">`,
+          `<option value="">（選択）</option>`,
+          listHtml,
+          `</select>`,
+
+          `<div class="ctlLabel" style="margin-top:12px;">message</div>`,
+          `<textarea id="slackTest_message" class="ctl" style="width:100%; height:140px; resize:vertical; margin-top:6px;"`,
+          `placeholder="例：いま未完了：①請求書送付 ②入金確認 ③支払承認\n今日18:00までに詰まり箇所だけ共有して〜！"></textarea>`
+        ].join("");
+
+        openAppModal_(
+          "Slackテスト送信",
+          bodyHtml,
+          () => {
+            const projectId = String(document.getElementById("slackTest_projectId")?.value || "").trim();
+            const message = String(document.getElementById("slackTest_message")?.value || "").trim();
+            if (!projectId){ showPjErr("project 未選択"); return; }
+            if (!message){ showPjErr("message empty"); return; }
+
+            el("pjHint").textContent = "Slack送信中...";
+            el("pjErr").style.display = "none";
+
+            google.script.run
+              .withFailureHandler(err => {
+                showPjErr(err?.message || String(err));
+                el("pjHint").textContent = "失敗";
+              })
+              .withSuccessHandler(res => {
+                if (!res || !res.ok){
+                  showPjErr((res && res.message) ? res.message : "send failed");
+                  el("pjHint").textContent = "失敗";
+                  return;
+                }
+                el("pjHint").textContent = `Slack送信した（PJ=${projectId} / channel=${res.slackChannelId || "-"}）`;
+              })
+              .admin_testSlackPostToProject({ projectId, message });
+          },
+          { input:false }
+        );
+      }
+
+    </script>
+      <!-- freee取引先候補（Projectsタブで埋める） -->
+      <datalist id="freeePartnerDatalist"></datalist>
+  </body>
+</html>

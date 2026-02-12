@@ -1,0 +1,317 @@
+<!-- 220_HomePage.html
+     ダッシュボード：全PJの健康状態を一覧表示。
+     カードクリックでコックピット（225）に遷移。
+-->
+<!doctype html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#f5f5f7;--card:#fff;--line:#e5e5e7;--text:#1d1d1f;--sub:#86868b}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+button{cursor:pointer;font:inherit;border:none;background:none}
+
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px 80px}
+.header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.title{font-size:20px;font-weight:800}
+.whoami{font-size:11px;color:var(--sub);margin-top:4px}
+
+.search-box{margin-top:14px}
+.search-box input{width:100%;max-width:400px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px;outline:none;background:#fff}
+
+.section{margin-top:20px}
+.section-label{font-size:14px;font-weight:800;color:var(--sub);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.section-label .count{font-size:12px;font-weight:600;background:#e8e8ed;padding:1px 6px;border-radius:6px}
+
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:860px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:540px){.grid{grid-template-columns:1fr}}
+
+.pj-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;transition:transform .06s,box-shadow .1s;display:flex;flex-direction:column;gap:6px}
+.pj-card:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.pj-card:active{transform:translateY(0)}
+
+.pj-top{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+.pj-name{font-size:15px;font-weight:800;line-height:1.3;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pj-client{font-size:11px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;white-space:nowrap}
+.badge-active{background:#d1f5d3;color:#1a7a2e}
+.badge-sales{background:#e0e7ff;color:#3730a3}
+.badge-ended{background:#e8e8ed;color:#636366}
+.badge-frozen{background:#fef3cd;color:#856404}
+.badge-lost{background:#fee2e2;color:#991b1b}
+
+.pj-alert{font-size:11px;font-weight:700;line-height:1.4;min-height:16px}
+.alert-bad{color:#dc2626}
+.alert-warn{color:#d97706}
+.alert-ok{color:#16a34a}
+.alert-none{color:var(--sub)}
+
+.collapse-btn{width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px;cursor:pointer;font-weight:700;font-size:13px;color:var(--sub);text-align:center;margin-top:20px}
+.collapse-btn:active{transform:translateY(1px)}
+.collapsed{display:none}
+
+.fab{position:fixed;right:18px;bottom:18px;width:64px;height:56px;border-radius:14px;background:#1d1d1f;color:#fff;font-weight:800;font-size:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;box-shadow:0 8px 30px rgba(0,0,0,.2);z-index:999}
+.fab:active{transform:translateY(1px)}
+.fab-label{font-size:9px;font-weight:700;opacity:.8}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:18px;z-index:1000}
+.modal{width:min(480px,100%);background:#fff;border-radius:14px;border:1px solid var(--line);padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-top{display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-weight:800;font-size:15px}
+.modal-close{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 8px;font-weight:700}
+.field{margin-top:12px}
+.field label{display:block;font-size:11px;color:var(--sub);margin-bottom:4px;font-weight:600}
+.field input,.field select{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;outline:none}
+.modal-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;font-weight:700;font-size:13px}
+.btn-primary{background:#1d1d1f;color:#fff;border-color:#1d1d1f}
+.modal-err{margin-top:8px;color:#dc2626;font-size:12px;display:none}
+.loading{opacity:.5;pointer-events:none}
+.hint{font-size:11px;color:var(--sub);margin-top:14px}
+</style>
+</head>
+<body>
+<?!= navHtml ?>
+<div class="wrap">
+  <div class="header">
+    <div>
+      <div class="title">AMD OS</div>
+      <div class="whoami">ログイン: <span id="whoami">-</span></div>
+    </div>
+  </div>
+  <div class="search-box"><input id="pjSearch" placeholder="PJ名 / クライアント / PM で検索"></div>
+  <div id="content"></div>
+  <div class="hint" id="hint"></div>
+</div>
+
+<div id="overlay" class="overlay">
+  <div class="modal">
+    <div class="modal-top">
+      <div class="modal-title">新規PJ登録</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="field"><label>PJ名（必須）</label><input id="np_name" placeholder="例: CX"></div>
+    <div class="field"><label>クライアント名（必須）</label><input id="np_client" placeholder="例: ○○株式会社"></div>
+    <div class="field"><label>PM（必須）</label><select id="np_pm"><option value="">読込中...</option></select></div>
+    <div class="modal-err" id="np_err"></div>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-primary" id="np_submit" onclick="submitNew()">登録</button>
+    </div>
+  </div>
+</div>
+
+<div class="fab" onclick="openModal()" id="fab" style="display:none">
+  <div>+</div>
+  <div class="fab-label">新規PJ</div>
+</div>
+
+<script>
+var IS_ADMIN = <?= isAdmin ?>;
+var BASE_URL = "<?= baseUrl ?>";
+var ALL_PJ = [];
+
+function $(id){return document.getElementById(id)}
+
+var NAV_LOCK = false;
+function go(page, params){
+  if(NAV_LOCK) return;
+  NAV_LOCK = true;
+  try{
+    var url = BASE_URL.split('?')[0] + '?page=' + encodeURIComponent(page);
+    var p = params || {};
+    Object.keys(p).forEach(function(k){
+      if(p[k] != null && String(p[k]).trim())
+        url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(p[k]);
+    });
+    var a = document.createElement('a');
+    a.href = url; a.target = '_top'; a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){try{a.remove()}catch(e){}}, 50);
+  }catch(e){
+    NAV_LOCK = false;
+    $('hint').textContent = '遷移エラー: ' + (e.message||e);
+  }
+}
+
+function openCockpit(pid){ go('cockpit', {projectId: pid}); }
+
+function load(){
+  $('hint').textContent = 'loading...';
+  google.script.run
+    .withSuccessHandler(onData)
+    .withFailureHandler(function(e){ $('hint').textContent = String(e); })
+    .listProjects({includeAll: true});
+}
+
+function onData(res){
+  if(!res||!res.ok){ $('hint').textContent = (res&&res.message)||'エラー'; return; }
+  $('whoami').textContent = res.email || '-';
+  ALL_PJ = res.projects || [];
+  if(IS_ADMIN) $('fab').style.display = 'flex';
+  render();
+  var s = $('pjSearch');
+  if(!s.__b){s.__b=true; s.addEventListener('input', render);}
+}
+
+function render(){
+  var q = ($('pjSearch').value||'').trim().toLowerCase();
+  var list = ALL_PJ.filter(function(p){
+    if(!q) return true;
+    return [p.projectName,p.clientName,p.projectId,p.pmName,p.status].join(' ').toLowerCase().indexOf(q)>=0;
+  });
+
+  function norm(s){
+    var v=String(s||'').trim().toLowerCase();
+    if(v==='draft')return'sales';
+    if(['active','sales','ended','frozen','lost'].indexOf(v)>=0)return v;
+    return'sales';
+  }
+
+  var groups={active:[],sales:[],ended:[],frozen:[],lost:[]};
+  list.forEach(function(p){(groups[norm(p.status)]||groups.sales).push(p)});
+
+  function riskRank(p){
+    var u=(p.routine&&p.routine.urgency)||'';
+    if(u==='bad')return 0; if(u==='warn')return 1; return 2;
+  }
+  Object.keys(groups).forEach(function(k){
+    groups[k].sort(function(a,b){ return riskRank(a)-riskRank(b); });
+  });
+
+  var html='';
+  if(groups.active.length) html += makeSection('PJ進行中', groups.active, 'active');
+  if(groups.sales.length) html += makeSection('営業中', groups.sales, 'sales');
+
+  var archived = groups.ended.concat(groups.frozen, groups.lost);
+  if(archived.length){
+    html += '<button class="collapse-btn" onclick="toggleArchive()" id="archBtn">終了・凍結（'+archived.length+'件）▼</button>';
+    html += '<div id="archBody" class="collapsed">';
+    if(groups.ended.length) html += makeSection('契約終了', groups.ended, 'ended');
+    if(groups.frozen.length) html += makeSection('凍結中', groups.frozen, 'frozen');
+    if(groups.lost.length) html += makeSection('失注', groups.lost, 'lost');
+    html += '</div>';
+  }
+
+  $('content').innerHTML = html;
+  $('hint').textContent = 'PJ数: '+list.length+' / '+(IS_ADMIN?'admin':'view');
+}
+
+function makeSection(label, arr, status){
+  var h='<div class="section">';
+  h+='<div class="section-label">'+esc(label)+' <span class="count">'+arr.length+'</span></div>';
+  h+='<div class="grid">';
+  arr.forEach(function(p){ h+=makeCard(p,status); });
+  h+='</div></div>';
+  return h;
+}
+
+function makeCard(p, status){
+  var pid=esc(p.projectId||'');
+  var r=p.routine||{};
+  var urgency=String(r.urgency||'').trim();
+  var nextLabel=String(r.nextTaskLabel||'').trim();
+  var nextDue=String(r.nextDueYmd||'').trim();
+  var hasCycle=!!r.hasCycle;
+
+  var alertText='', alertClass='alert-none';
+  if(urgency==='bad'){
+    alertText='🟥 期限超過'+(nextLabel?'：'+nextLabel:'');
+    alertClass='alert-bad';
+  }else if(urgency==='warn'){
+    alertText='🟨 期限接近'+(nextLabel?'：'+nextLabel:'')+(nextDue?'（'+nextDue+'）':'');
+    alertClass='alert-warn';
+  }else if(!hasCycle && (status==='active'||status==='sales')){
+    alertText='🆕 月次未着手';
+  }else if(status==='active'){
+    var t=r.tasks||{};
+    var allDone=!!r.scheduleDone&&!!t.budgetDone&&!!t.allocationDone&&!!t.reportDone&&!!t.invoiceSendDone&&!!t.paymentDone;
+    if(allDone){ alertText='✅ 今月完了'; alertClass='alert-ok'; }
+    else{ alertText=nextLabel?'▶ '+nextLabel+(nextDue?'（'+nextDue+'）':''):'▶ 進行中'; }
+  }
+
+  var badgeClass='badge-'+status;
+  var statusLabel={active:'Active',sales:'Sales',ended:'Ended',frozen:'Frozen',lost:'Lost'}[status]||status;
+
+  var h='<div class="pj-card" onclick="openCockpit(\''+pid+'\')">';
+  h+='<div class="pj-top"><div style="flex:1;min-width:0">';
+  h+='<div class="pj-name">'+esc(p.projectName||pid)+'</div>';
+  h+='<div class="pj-client">'+esc(p.clientName||'')+'</div>';
+  h+='</div>';
+  h+='<span class="badge '+badgeClass+'">'+statusLabel+'</span></div>';
+  if(alertText) h+='<div class="pj-alert '+alertClass+'">'+esc(alertText)+'</div>';
+  h+='</div>';
+  return h;
+}
+
+var ARCH_OPEN=false;
+function toggleArchive(){
+  ARCH_OPEN=!ARCH_OPEN;
+  var s=$('archBody'), b=$('archBtn');
+  if(s) s.className=ARCH_OPEN?'':'collapsed';
+  if(b) b.textContent='終了・凍結（'+countArchived()+'件）'+(ARCH_OPEN?'▲':'▼');
+}
+function countArchived(){
+  return ALL_PJ.filter(function(p){var s=String(p.status||'').toLowerCase();return s==='ended'||s==='frozen'||s==='lost'}).length;
+}
+
+function esc(s){ var d=document.createElement('div'); d.textContent=String(s||''); return d.innerHTML; }
+
+// ===== 新規PJモーダル =====
+function openModal(){
+  if(!IS_ADMIN) return;
+  $('overlay').style.display='flex';
+  $('np_name').focus();
+  loadPm();
+}
+function closeModal(){
+  $('overlay').style.display='none';
+  $('np_err').style.display='none';
+  $('np_name').value=''; $('np_client').value='';
+  $('np_submit').classList.remove('loading');
+}
+function loadPm(){
+  var sel=$('np_pm');
+  sel.innerHTML='<option value="">読込中...</option>';
+  google.script.run
+    .withSuccessHandler(function(res){
+      var list=(res&&res.ok&&Array.isArray(res.members))?res.members:[];
+      var opts='<option value="">選択（必須）</option>';
+      list.forEach(function(m){opts+='<option value="'+esc(m.memberId)+'">'+esc(m.codeName)+'</option>'});
+      sel.innerHTML=opts;
+    })
+    .withFailureHandler(function(){sel.innerHTML='<option value="">読込失敗</option>'})
+    .api_getMembersMasterForNewProject();
+}
+function submitNew(){
+  var btn=$('np_submit'); btn.classList.add('loading');
+  var name=$('np_name').value.trim(), client=$('np_client').value.trim(), pm=$('np_pm').value.trim();
+  if(!name||!client||!pm){
+    $('np_err').style.display='block'; $('np_err').textContent='全項目必須';
+    btn.classList.remove('loading'); return;
+  }
+  google.script.run
+    .withSuccessHandler(function(res){
+      if(!res||!res.ok){
+        $('np_err').style.display='block'; $('np_err').textContent=(res&&res.message)||'登録失敗';
+        btn.classList.remove('loading'); return;
+      }
+      closeModal(); openCockpit(res.projectId);
+    })
+    .withFailureHandler(function(e){
+      $('np_err').style.display='block'; $('np_err').textContent='エラー: '+(e.message||e);
+      btn.classList.remove('loading');
+    })
+    .createProject({projectName:name, clientName:client, pmMemberId:pm});
+}
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+mkdir -p .claude
+cat > .claude/settings.json << 'EOF'
+{
+  "permissions": {
+    "deny": ["clasp push", "clasp deploy"]
+  }
+}
+EOF
