@@ -1,0 +1,25 @@
+<!-- D256_Files.html -->
+<!-- 全GASファイル一覧タブ UI -->
+<style>
+  .files-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  .files-toolbar h2 { font-size:18px; font-weight:700; }
+  .files-gas-block { margin-bottom:28px; }
+  .files-gas-title { font-weight:700; font-size:15px; margin-bottom:8px; color:var(--gray-900); }
+  .files-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .files-table th { background:var(--gray-100); padding:7px 10px; text-align:left; font-weight:600; border-bottom:2px solid var(--gray-300); }
+  .files-table td { padding:6px 10px; border-bottom:1px solid #f0f0f0; vertical-align:top; }
+  .files-table tr:hover td { background:var(--gray-50); }
+  .files-fn-row td { background:var(--gray-50) !important; }
+  .files-fn-list { font-family:monospace; font-size:12px; white-space:pre; line-height:1.9; color:var(--gray-700); }
+  .files-count { font-size:12px; color:var(--gray-400); margin-top:6px; }
+</style>
+
+<div class="files-toolbar">
+  <h2>Files</h2>
+  <div style="display:flex;gap:8px;">
+    <button class="btn-primary" onclick="filesRefresh_()">🔄 更新</button>
+    <button class="btn-primary" id="filesCopyBtn" onclick="filesCopy_()" style="display:none;">📋 コピー</button>
+  </div>
+</div>
+
+<div id="filesResult"><p class="loading-text">更新ボタンを押してね</p></div>

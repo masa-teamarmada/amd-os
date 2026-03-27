@@ -1,0 +1,337 @@
+<!-- 503_CockpitModal.html
+     モーダル制御・タブ切替・ユーティリティ関数。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+function cpToggleMonth(headEl) {
+  var card = headEl.parentElement;
+  card.classList.toggle("open");
+}
+
+function cpOpenModal(ym) {
+  CP.modalYm = ym;
+  var ymLabel = ym.substring(0, 4) + "/" + ym.substring(4, 6);
+  document.getElementById("cpModalTitle").textContent = ymLabel + " 詳細";
+
+  var allCards = document.querySelectorAll('.cp-month-card');
+  for (var i = 0; i < allCards.length; i++) allCards[i].classList.remove('current');
+  var targetCard = document.querySelector('.cp-month-card[data-ym="' + ym + '"]');
+  if (targetCard) targetCard.classList.add('current');
+
+  cpSwitchTab("reward");
+
+  document.getElementById("cpTabReport").innerHTML = '<div class="cp-loading"><div class="cp-spinner"></div></div>';
+  document.getElementById("cpTabReward").innerHTML = '<div class="cp-loading"><div class="cp-spinner"></div></div>';
+
+  document.getElementById("cpOverlay").classList.add("show");
+
+  google.script.run
+    .withSuccessHandler(cpRenderModal)
+    .withFailureHandler(function(err) {
+      document.getElementById("cpTabReport").innerHTML =
+        '<div class="cp-empty">取得失敗: ' + cpEsc(String(err)) + '</div>';
+    })
+    .cockpit_api_getMonthDetail({ projectId: CP.projectId, ym: ym });
+
+  CP.budgetEstimate = null;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      CP.budgetEstimate = res;
+      cpApplyBudgetLines();
+    })
+    .withFailureHandler(function() {})
+    .cockpit_api_getMonthBudgetEstimate({ projectId: CP.projectId, ym: ym });
+
+  google.script.run
+    .withSuccessHandler(function(subRes) {
+      if (subRes && subRes.ok) {
+        CP.subItemsMap = CP.subItemsMap || {};
+        var dbMs = subRes.milestones || [];
+        for (var k = 0; k < dbMs.length; k++) {
+          CP.subItemsMap[dbMs[k].milestoneId] = dbMs[k].subItems || [];
+        }
+        if (CP._pendingRewardRes) {
+          cpRenderRewardDashboard(CP._pendingRewardRes);
+          cpApplyBudgetLines();
+        }
+      }
+    })
+    .withFailureHandler(function() {})
+    .cockpit_api_getSubItems({ projectId: CP.projectId });
+
+  CP._pendingRewardRes = null;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      CP._pendingRewardRes = res;
+      if (CP.subItemsMap) {
+        cpRenderRewardDashboard(res);
+        cpApplyBudgetLines();
+      }
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById("cpTabReward").innerHTML =
+        '<div class="cp-empty">報酬データ取得失敗: ' + cpEsc(String(err)) + '</div>';
+    })
+    .cockpit_api_getRewardDashboard({ projectId: CP.projectId, ym: ym });
+}
+
+function cpCloseModal() {
+  var closingYm = CP.modalYm;
+  document.getElementById("cpOverlay").classList.remove("show");
+  CP.modalYm = null;
+
+  var allCards = document.querySelectorAll('.cp-month-card');
+  for (var i = 0; i < allCards.length; i++) allCards[i].classList.remove('current');
+  if (CP.data && CP.data.currentYm) {
+    var origCard = document.querySelector('.cp-month-card[data-ym="' + CP.data.currentYm + '"]');
+    if (origCard) origCard.classList.add('current');
+  }
+
+  if (closingYm) {
+    var _closingYm = closingYm;
+    google.script.run
+      .withSuccessHandler(function() {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            if (!res || !res.ok) return;
+            var summaries = res.monthlySummaries || [];
+            for (var i = 0; i < summaries.length; i++) {
+              if (summaries[i].ym === _closingYm) {
+                cpRefreshMonthCard_(summaries[i], res.currentYm);
+                break;
+              }
+            }
+          })
+          .withFailureHandler(function() {})
+          .cockpit_api_getData({ projectId: CP.projectId });
+      })
+      .withFailureHandler(function() {})
+      .cockpit_api_refreshMonthCache({ projectId: CP.projectId, ym: _closingYm });
+  }
+}
+
+function cpRefreshMonthCard_(s, currentYm) {
+  var card = document.querySelector('.cp-month-card[data-ym="' + s.ym + '"]');
+  if (!card) return;
+
+  var msProgData = s.msProgressSummary || {};
+  var msItems = msProgData.items || (Array.isArray(s.msProgressSummary) ? s.msProgressSummary : []);
+  var visibleMs = msItems.filter(function(m) { return m.tag !== 'buffer'; });
+
+  var bodyHtml = '';
+  if (visibleMs.length > 0) {
+    var totalPts = 0, weightedProg = 0;
+    for (var mi = 0; mi < visibleMs.length; mi++) {
+      var pts = Number(visibleMs[mi].points || 0);
+      totalPts += pts;
+      weightedProg += pts * Number(visibleMs[mi].progressPct || 0);
+    }
+    var overallPct = totalPts > 0 ? Math.round(weightedProg / totalPts) : 0;
+
+    var expectedPct = 0;
+    var startYm = String(msProgData.periodStartYm || '');
+    var endYm = String(msProgData.periodEndYm || '');
+    if (startYm.length === 6 && endYm.length === 6) {
+      var totalMonths = (parseInt(endYm.slice(0,4)) - parseInt(startYm.slice(0,4))) * 12
+        + (parseInt(endYm.slice(4)) - parseInt(startYm.slice(4))) + 1;
+      var elapsedMonths = (parseInt(s.ym.slice(0,4)) - parseInt(startYm.slice(0,4))) * 12
+        + (parseInt(s.ym.slice(4)) - parseInt(startYm.slice(4))) + 1;
+      expectedPct = totalMonths > 0 ? Math.round(elapsedMonths / totalMonths * 100) : 0;
+    }
+
+    var signal, signalColor, signalBg, reason;
+    if (expectedPct === 0) {
+      signal = '🟢'; signalColor = '#166534'; signalBg = '#f0fdf4'; reason = '';
+    } else {
+      var gap = expectedPct - overallPct;
+      if (gap <= 10) {
+        signal = '🟢'; signalColor = '#166534'; signalBg = '#f0fdf4'; reason = '';
+      } else if (gap <= 25) {
+        signal = '🟡'; signalColor = '#92400e'; signalBg = '#fffbeb';
+        reason = '計画比 ' + gap + '% 遅延';
+      } else {
+        signal = '🔴'; signalColor = '#991b1b'; signalBg = '#fef2f2';
+        reason = '計画比 ' + gap + '% 遅延';
+      }
+    }
+    var barFill = signal === '🟢' ? '#22c55e' : signal === '🟡' ? '#f59e0b' : '#ef4444';
+
+    bodyHtml += '<div class="cp-ms-summary-block" style="background:' + signalBg + '">';
+    bodyHtml += '<div class="cp-ms-summary-row">';
+    bodyHtml += '<span style="font-size:14px">' + signal + '</span>';
+    bodyHtml += '<div class="cp-ms-prog-bar-wrap" style="flex:1">';
+    bodyHtml += '<div class="cp-ms-prog-bar" style="width:' + overallPct + '%;background:' + barFill + '"></div>';
+    bodyHtml += '</div>';
+    bodyHtml += '<span style="font-size:12px;font-weight:600;color:' + signalColor + '">' + overallPct + '%</span>';
+    bodyHtml += '</div>';
+    if (reason) bodyHtml += '<div style="font-size:11px;color:' + signalColor + ';margin-top:3px">' + cpEsc(reason) + '</div>';
+    bodyHtml += '</div>';
+  } else {
+    bodyHtml += '<div style="font-size:11px;color:#aaa;padding:4px 0">進捗データなし</div>';
+  }
+
+  var body = card.querySelector('.cp-month-body');
+  if (body) body.innerHTML = bodyHtml;
+}
+
+function cpCloseModalOnOverlay(e) {
+  if (e.target === document.getElementById("cpOverlay")) cpCloseModal();
+}
+
+function cpSwitchTab(tab) {
+  var tabs = document.querySelectorAll(".cp-tab");
+  var contents = document.querySelectorAll(".cp-tab-content");
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].classList.toggle("active", tabs[i].getAttribute("data-tab") === tab);
+  }
+  for (var j = 0; j < contents.length; j++) {
+    contents[j].classList.toggle("active", contents[j].id === "cpTab" + tab.charAt(0).toUpperCase() + tab.slice(1));
+  }
+}
+
+function cpRenderModal(res) {
+  if (!res || !res.ok) {
+    document.getElementById("cpTabReport").innerHTML = '<div class="cp-empty">データなし</div>';
+    return;
+  }
+
+  var rpt = res.report;
+  var pendingHtml = "";
+  CP.currentDraft = (rpt && (rpt.finalContent || rpt.draftContent)) ? (rpt.finalContent || rpt.draftContent) : "";
+
+  if (res.pending && res.pending.hasPending) {
+    var pd = res.pending;
+    CP.pendingDraft = pd.pendingDraft;
+    pendingHtml += '<div class="cp-pending-banner" id="cpPendingBanner">';
+    pendingHtml += '  <div class="cp-pending-banner-title">🔄 差分更新の保留あり</div>';
+    pendingHtml += '  <div class="cp-pending-banner-meta">';
+    pendingHtml += '    ' + cpEsc(pd.deltaSummary) + '（' + cpEsc(pd.deltaAt) + '）';
+    pendingHtml += '  </div>';
+    pendingHtml += '  <div class="cp-pending-actions">';
+    pendingHtml += '    <button class="cp-pending-btn preview" onclick="cpPendingPreview()" id="cpPendingPreviewBtn">👀 プレビュー</button>';
+    pendingHtml += '    <button class="cp-pending-btn apply" onclick="cpPendingApply()" id="cpPendingApplyBtn">✅ 反映する</button>';
+    pendingHtml += '    <button class="cp-pending-btn reject" onclick="cpPendingReject()" id="cpPendingRejectBtn">❌ 却下</button>';
+    pendingHtml += '    <button class="cp-pending-btn preview" onclick="cpPendingShowFixUI()" id="cpPendingFixToggle" style="background:#fff3cd;color:#856404;border-color:#ffc107">✏️ 修正して反映</button>';
+    pendingHtml += '  </div>';
+    pendingHtml += '  <div id="cpPendingFixArea" style="display:none;margin-top:10px;padding:10px 12px;background:#fffbf0;border:1px solid #fde68a;border-radius:8px">';
+    pendingHtml += '    <div style="font-size:12px;font-weight:600;color:#92400e;margin-bottom:6px">✏️ 差分に修正指示を出す</div>';
+    pendingHtml += '    <textarea id="cpPendingFixFeedback" rows="3" placeholder="例: 経営会議の段落は不要なので削除して / RED発電サイトの記述をもっと具体的に"';
+    pendingHtml += '      style="width:100%;border:1px solid #ddd;border-radius:6px;padding:8px 10px;font-size:13px;resize:vertical;font-family:inherit;box-sizing:border-box"></textarea>';
+    pendingHtml += '    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;justify-content:flex-end">';
+    pendingHtml += '      <span id="cpPendingFixStatus" style="font-size:11px;color:#86868b"></span>';
+    pendingHtml += '      <button class="cp-btn cp-btn-secondary" onclick="cpPendingHideFixUI()" style="font-size:11px;padding:4px 10px">キャンセル</button>';
+    pendingHtml += '      <button class="cp-btn cp-btn-primary" onclick="cpPendingFixExecute()" id="cpPendingFixBtn" style="font-size:12px;padding:6px 14px;background:#d97706;border-color:#d97706">🔧 修正実行</button>';
+    pendingHtml += '    </div>';
+    pendingHtml += '  </div>';
+    pendingHtml += '  <div class="cp-pending-diff show" id="cpPendingDiff">';
+    pendingHtml += '    <div class="cp-pending-diff-tabs">';
+    pendingHtml += '      <div class="cp-pending-diff-tab active" onclick="cpPendingDiffTab(\'pending\')" data-diff="pending">📊 差分</div>';
+    pendingHtml += '      <div class="cp-pending-diff-tab" onclick="cpPendingDiffTab(\'current\')" data-diff="current">現在版</div>';
+    pendingHtml += '    </div>';
+    pendingHtml += '    <div class="cp-pending-diff-body" id="cpPendingDiffBody"></div>';
+    pendingHtml += '  </div>';
+    pendingHtml += '</div>';
+    setTimeout(function(){ cpPendingDiffTab("pending"); }, 0);
+  }
+
+  var isFixed = rpt && String(rpt.fixedAtJst || "").trim();
+  CP.reportIsFixed = !!isFixed;
+
+  if (rpt) {
+    var content = (isFixed ? rpt.finalContent : null) || rpt.finalContent || rpt.draftContent || "";
+    CP.currentDraft = content;
+
+    var fixBarHtml = '<div id="cpReportFixBar" style="margin-bottom:12px;padding:10px 14px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;'
+      + (isFixed ? 'background:#f0fdf4;border:1px solid #bbf7d0' : 'background:#fffbeb;border:1px solid #fde68a') + '">';
+    if (isFixed) {
+      fixBarHtml += '<div style="font-size:13px;color:#166534">✅ 確定済み（' + cpEsc(rpt.fixedAtJst) + '）</div>';
+      fixBarHtml += '<div style="display:flex;gap:6px;align-items:center">';
+      fixBarHtml += '<button class="cp-btn cp-btn-secondary" style="font-size:11px;padding:4px 12px" onclick="cpGenerateReportPdf()" id="cpReportPdfBtn">📄 PDF出力</button>';
+      fixBarHtml += '<button class="cp-btn cp-btn-secondary" style="font-size:11px;padding:4px 12px" onclick="cpEnterReportEdit()" id="cpReportEditBtn">✏️ 編集する</button>';
+      fixBarHtml += '</div>';
+    } else {
+      fixBarHtml += '<div style="font-size:13px;color:#92400e">📝 未確定（内容を確認してFIXしてね）</div>';
+      fixBarHtml += '<div style="display:flex;gap:6px;align-items:center">';
+      fixBarHtml += '<button class="cp-btn cp-btn-secondary" style="font-size:11px;padding:4px 12px;color:#6B7B8D" onclick="cpGenerateReportPdf()" id="cpReportPdfBtn">📄 DRAFT PDF</button>';
+      fixBarHtml += '<button class="cp-btn cp-btn-primary" style="font-size:12px;padding:6px 14px" onclick="cpFixReportAction()" id="cpReportFixBtn">✅ この内容で確定する</button>';
+      fixBarHtml += '</div>';
+    }
+    fixBarHtml += '</div>';
+
+    var reportHtml = "";
+    if (content && typeof marked !== "undefined") {
+      reportHtml = '<div class="cp-report-rendered" id="cpReportBody">' + marked.parse(content) + '</div>';
+    } else if (content) {
+      reportHtml = '<div class="cp-report-text" id="cpReportBody">' + cpEsc(content) + '</div>';
+    } else {
+      reportHtml = '<div class="cp-empty">報告書が未作成</div>';
+    }
+    document.getElementById("cpTabReport").innerHTML = pendingHtml + fixBarHtml + reportHtml;
+  } else {
+    var ymLabel = CP.modalYm ? (CP.modalYm.substring(0,4) + "/" + CP.modalYm.substring(4,6)) : "";
+    var noReportHtml = pendingHtml;
+    noReportHtml += '<div style="text-align:center;padding:32px 16px">';
+    noReportHtml += '  <div style="font-size:14px;color:#86868b;margin-bottom:16px">📭 ' + cpEsc(ymLabel) + ' の報告書がまだ作成されていないよ</div>';
+    noReportHtml += '  <button class="cp-btn cp-btn-primary" id="cpGenerateReportBtn" onclick="cpTriggerGenerateReport()" style="font-size:13px;padding:8px 20px">🤖 つくよみに報告書を作ってもらう</button>';
+    noReportHtml += '  <div id="cpGenerateReportStatus" style="margin-top:12px;font-size:12px;color:#86868b"></div>';
+    noReportHtml += '</div>';
+    document.getElementById("cpTabReport").innerHTML = noReportHtml;
+  }
+
+  if (rpt && (rpt.draftContent || rpt.finalContent)) {
+    var reportEl = document.getElementById("cpTabReport");
+    var fixDiv = document.createElement("div");
+    fixDiv.id = "cpReportFixArea";
+    fixDiv.style.cssText = "margin-top:16px;padding-top:12px;border-top:1px solid #e5e5e7"
+      + (isFixed ? ";display:none" : "");
+    fixDiv.innerHTML = ''
+      + '<div style="font-size:12px;font-weight:600;color:#86868b;margin-bottom:6px">✏️ 修正指示</div>'
+      + '<textarea id="cpFixFeedback" rows="3" placeholder="例: エグゼクティブサマリーを3行以内に短縮して"'
+      + ' style="width:100%;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:13px;resize:vertical;font-family:inherit"></textarea>'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;justify-content:flex-end">'
+      + '  <span id="cpFixStatus" style="font-size:11px;color:#86868b"></span>'
+      + '  <button class="cp-btn cp-btn-primary" onclick="cpExecuteFixReport()" id="cpFixBtn" style="font-size:12px;padding:6px 14px">🔧 修正実行</button>'
+      + '</div>'
+      + (isFixed ? '<div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">'
+        + '<button class="cp-btn cp-btn-secondary" onclick="cpCancelReportEdit()" style="font-size:11px;padding:4px 12px">キャンセル</button>'
+        + '<button class="cp-btn cp-btn-primary" onclick="cpRefixReport()" id="cpRefixBtn" style="font-size:12px;padding:6px 14px">✅ 再確定する</button>'
+        + '</div>' : '');
+    reportEl.appendChild(fixDiv);
+  }
+}
+
+function cpOpenAdminPayouts(ym) {
+  window.top.location.href = CP.baseUrl + "?page=admin&tab=payouts&ym=" + ym;
+}
+
+function cpOpenAdminBilling(projectId, ym) {
+  window.top.location.href = CP.baseUrl + "?page=admin&tab=billing&projectId=" + projectId + "&ym=" + ym;
+}
+
+function cpOpenModalToTab(ym, tab) {
+  cpOpenModal(ym);
+  setTimeout(function() { cpSwitchTab(tab); }, 50);
+}
+
+function cpPill(label, done) {
+  var cls = done ? "done" : "pending";
+  return '<span class="cp-pill ' + cls + '">' + label + '</span>';
+}
+
+function cpEsc(s) {
+  var d = document.createElement("div");
+  d.textContent = String(s || "");
+  return d.innerHTML;
+}
+
+function cpFmtNum(n) {
+  return String(Number(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function cpShowToast(msg) {
+  var t = document.createElement("div");
+  t.textContent = msg;
+  t.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;z-index:9999;opacity:1;transition:opacity .3s";
+  document.body.appendChild(t);
+  setTimeout(function(){ t.style.opacity="0"; setTimeout(function(){ t.remove(); }, 300); }, 2500);
+}
+</script>

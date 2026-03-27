@@ -1,0 +1,54 @@
+<!--
+A251_AdminPayouts.html
+役割：Adminの「Payouts」タブ（支払）UI。対象月プルダウン＋メンバー行の支払表を表示する。
+-->
+
+<div id="sec_payouts" style="display:none;">
+  <div class="card" style="margin-top:12px;">
+    <div class="row">
+      <div>
+        <div style="font-weight:900;">支払（Payouts）</div>
+        <div class="muted">対象月を選ぶ → 支払通知書の発行/送付 → 振込完了チェック</div>
+      </div>
+
+      <div class="rowLeft" style="gap:10px;">
+        <select class="ctl mono" id="payoutYm" style="width:120px;" onchange="payoutsRefresh()"></select>
+        <button class="btn" onclick="payoutsRefresh()">更新</button>
+        <button class="btn" onclick="payoutsExportTsv()">今月支払対象TSVコピー</button>
+        <button class="btn" onclick="payoutsBulkDownloadPdf()">PDF一括DL</button>
+        <button class="btn" style="background:#111827; color:#fff;" onclick="payoutsBulkSend()">一括送付</button>
+      </div>
+    </div>
+
+    <style>
+      .payoutInlineStatus{
+        margin-top:6px;
+        font-size:12px;
+        color:#6b7280;
+      }
+      .payoutInlineStatus.busy{ color:#111827; font-weight:900; }
+      .payoutInlineStatus.err{ color:#b91c1c; font-weight:900; }
+    </style>
+
+    <div id="payoutErr" class="small" style="display:none; color:#b91c1c; margin-top:10px;"></div>
+    <div class="small muted" id="payoutHint" style="margin-top:8px;">-</div>
+
+    <div style="margin-top:12px; overflow:auto; border-top:1px solid var(--line); padding-top:12px;">
+      <table class="tbl" style="width:100%; border-collapse:separate; border-spacing:0;">
+        <thead>
+          <tr>
+            <th class="nowrap" style="text-align:left;">member</th>
+            <th style="text-align:left;">支払額（PJ内訳＋合計）</th>
+            <th class="nowrap" style="text-align:left;">発行</th>
+            <th class="nowrap" style="text-align:left;">PDF確認</th>
+            <th style="text-align:left;">PJ月次（完了/着金）</th>
+            <th class="nowrap" style="text-align:left;">振込完了</th>
+          </tr>
+        </thead>
+        <tbody id="payoutTbody">
+          <tr><td colspan="6" class="muted">loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

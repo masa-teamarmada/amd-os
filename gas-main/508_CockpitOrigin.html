@@ -1,0 +1,383 @@
+<!-- 508_CockpitOrigin.html
+     先手力（Initiative Origin）の表示・編集・モーダル管理。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+function cpToggleOriginDropdown(badge) {
+  var eventId = badge.getAttribute("data-eid");
+  var existing = document.querySelectorAll(".cp-origin-dropdown");
+  for (var i = 0; i < existing.length; i++) existing[i].remove();
+
+  var options = [
+    { key: "amd_proposed", label: "🔵 AMD提案" },
+    { key: "co_decided", label: "🟢 協議決定" },
+    { key: "partner_proposed", label: "🟠 先方提案" },
+    { key: "external", label: "⚫ 外部発生" },
+    { key: "unknown", label: "⚪ 不明" }
+  ];
+
+  var dd = document.createElement("div");
+  dd.className = "cp-origin-dropdown";
+  for (var i = 0; i < options.length; i++) {
+    (function(opt) {
+      var item = document.createElement("div");
+      item.textContent = opt.label;
+      item.onclick = function(e) {
+        e.stopPropagation();
+        dd.remove();
+        cpUpdateOrigin(eventId, opt.key, badge);
+      };
+      dd.appendChild(item);
+    })(options[i]);
+  }
+
+  badge.style.position = "relative";
+  badge.appendChild(dd);
+
+  setTimeout(function() {
+    document.addEventListener("click", function handler(e) {
+      if (!dd.parentNode) return;
+      dd.remove();
+      document.removeEventListener("click", handler);
+    });
+  }, 0);
+}
+
+function cpUpdateOrigin(eventId, newOrigin, badge) {
+  var originLabels = { amd_proposed:"AMD提案", co_decided:"協議決定", partner_proposed:"先方提案", external:"外部発生", unknown:"不明" };
+
+  var lostReason = "";
+  if (newOrigin === "partner_proposed") {
+    lostReason = prompt("⚠️ なぜAMDが先手を取れなかった？\n（例: 情報不足で提案タイミングを逃した / クライアントの方が技術的知見が深い領域だった）");
+    if (lostReason === null) return;
+    lostReason = lostReason.trim();
+    if (!lostReason) {
+      alert("理由の入力が必要だよ。先手を取れなかった原因を記録しておくことが大事。");
+      return;
+    }
+  }
+
+  badge.textContent = "...";
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { badge.textContent = "失敗"; return; }
+      badge.className = "cp-origin-badge " + newOrigin;
+      badge.textContent = originLabels[newOrigin] || "不明";
+      google.script.run
+        .withSuccessHandler(cpRenderRewardDashboard)
+        .cockpit_api_getRewardDashboard({ projectId: CP.projectId, ym: CP.modalYm });
+    })
+    .withFailureHandler(function(err) { badge.textContent = "エラー"; })
+    .reward_api_updateOrigin({ eventId: eventId, initiativeOrigin: newOrigin, originLostReason: lostReason });
+}
+
+function cpOpenOriginModal() {
+  var overlay = document.getElementById("cpOriginListOverlay");
+  var body = document.getElementById("cpOriginListBody");
+  if (!overlay || !body) return;
+  body.innerHTML = '<div class="cp-loading"><div class="cp-spinner"></div></div>';
+  overlay.classList.add("show");
+
+  google.script.run
+    .withSuccessHandler(cpRenderOriginList)
+    .withFailureHandler(function(err) {
+      body.innerHTML = '<div class="cp-empty">取得失敗: ' + cpEsc(String(err)) + '</div>';
+    })
+    .cockpit_api_getOriginEventList({ projectId: CP.projectId });
+}
+
+function cpCloseOriginModal() {
+  var overlay = document.getElementById("cpOriginListOverlay");
+  if (overlay) overlay.classList.remove("show");
+}
+
+function cpRenderOriginList(res) {
+  var body = document.getElementById("cpOriginListBody");
+  if (!body) return;
+  if (!res || !res.ok) {
+    body.innerHTML = '<div class="cp-empty">' + cpEsc(res ? res.message : "データなし") + '</div>';
+    return;
+  }
+
+  var or = res.originRate;
+  var events = res.events || [];
+  var originLabels = { amd_proposed:"AMD提案", co_decided:"協議決定", partner_proposed:"先方提案", client_requested:"先方提案", external:"外部発生", unknown:"不明" };
+  var originColors = { amd_proposed:"#1e40af", co_decided:"#065f46", partner_proposed:"#9a3412", client_requested:"#9a3412", external:"#636366", unknown:"#888" };
+
+  var html = '';
+
+  if (or) {
+    var pct = or.amdPct;
+    var pctColor = pct >= 90 ? "#1a7a2e" : pct >= 80 ? "#856404" : pct >= 70 ? "#c0392b" : "#333";
+    var alertBg, alertBorder, alertIcon, alertMsg;
+    if (pct >= 90)      { alertBg="#f0fdf4"; alertBorder="#bbf7d0"; alertIcon="🟢"; alertMsg="先手力は良好。この調子！"; }
+    else if (pct >= 80) { alertBg="#fffbeb"; alertBorder="#fde68a"; alertIcon="🟡"; alertMsg="危険水域。AMD起点のアクションを意識的に増やして。"; }
+    else if (pct >= 70) { alertBg="#fef2f2"; alertBorder="#fecaca"; alertIcon="🔴"; alertMsg="契約終了リスク。クライアント主導が増えてる＝AMDの存在意義が薄れてるサイン。"; }
+    else                { alertBg="#1a1a1a"; alertBorder="#333"; alertIcon="⚫"; alertMsg="末期。先方提案が半数以上＝「言われたことをやる外注」状態。早急にAMD側から戦略提案を仕掛けないと契約継続が危うい。"; }
+
+    html += '<div class="cp-ol-sticky-summary">';
+    html += '<div style="margin-bottom:14px;padding:12px 16px;background:' + alertBg + ';border:1px solid ' + alertBorder + ';border-radius:10px;font-size:13px;line-height:1.6;color:' + (pct < 70 ? "#fff" : "#1d1d1f") + '">';
+    html += '<div style="font-weight:700;margin-bottom:4px">' + alertIcon + ' 先手力 ' + pct + '%</div>';
+    html += alertMsg;
+    html += '</div>';
+    html += '<div class="cp-ol-summary">';
+    html += '<div class="cp-ol-summary-item"><div class="cp-ol-summary-val" style="color:' + pctColor + '">' + pct + '%</div><div class="cp-ol-summary-label">先手力</div></div>';
+    html += '<div class="cp-ol-summary-item"><div class="cp-ol-summary-val" style="color:#1e40af">' + or.amdProposed + '</div><div class="cp-ol-summary-label">AMD提案</div></div>';
+    html += '<div class="cp-ol-summary-item"><div class="cp-ol-summary-val" style="color:#065f46">' + or.coDecided + '</div><div class="cp-ol-summary-label">協議決定</div></div>';
+    html += '<div class="cp-ol-summary-item"><div class="cp-ol-summary-val" style="color:#9a3412">' + or.clientRequested + '</div><div class="cp-ol-summary-label">先方提案</div></div>';
+    html += '<div class="cp-ol-summary-item"><div class="cp-ol-summary-val" style="color:#636366">' + (or.external || 0) + '</div><div class="cp-ol-summary-label">外部発生</div></div>';
+    html += '<div class="cp-ol-summary-item"><div class="cp-ol-summary-val" style="color:#888">' + or.unknown + '</div><div class="cp-ol-summary-label">不明</div></div>';
+    html += '<div class="cp-ol-summary-item"><div class="cp-ol-summary-val">' + or.total + '</div><div class="cp-ol-summary-label">全イベント</div></div>';
+    html += '</div>';
+    html += '</div>';
+  }
+
+  if (events.length === 0) {
+    html += '<div class="cp-empty">イベントが未登録</div>';
+    body.innerHTML = html;
+    return;
+  }
+
+  var groups = [];
+  var currentYm = null;
+  var currentGroup = null;
+  for (var i = 0; i < events.length; i++) {
+    var ev = events[i];
+    if (ev.ym !== currentYm) {
+      currentYm = ev.ym;
+      currentGroup = { ym: currentYm, events: [] };
+      groups.push(currentGroup);
+    }
+    currentGroup.events.push(ev);
+  }
+
+  for (var g = 0; g < groups.length; g++) {
+    var grp = groups[g];
+    var ymLabel = grp.ym.substring(0,4) + "年" + parseInt(grp.ym.substring(4,6),10) + "月";
+    var activeCount = 0;
+    for (var j = 0; j < grp.events.length; j++) {
+      if (grp.events[j].status !== "rejected") activeCount++;
+    }
+
+    html += '<div class="cp-ol-ym-group">';
+    html += '<div class="cp-ol-ym-head">' + ymLabel + '<span class="cp-ol-ym-count">' + activeCount + '件</span></div>';
+
+    for (var j = 0; j < grp.events.length; j++) {
+      var ev = grp.events[j];
+      var isRejected = ev.status === "rejected";
+      var origin = ev.initiativeOrigin || "unknown";
+      var badgeColor = originColors[origin] || "#888";
+
+      html += '<div class="cp-ol-event' + (isRejected ? " rejected" : "") + '" id="cpOlEv_' + cpEsc(ev.eventId) + '">';
+      if (isRejected) {
+        html += '  <span style="display:inline-block;font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px;white-space:nowrap;background:#f1f1f1;color:#aaa">' + (originLabels[origin] || "不明") + '</span>';
+      } else {
+        html += '  <span class="cp-origin-badge ' + cpEsc(origin) + '" data-eid="' + cpEsc(ev.eventId) + '" onclick="cpOlToggleOrigin(this)" style="cursor:pointer;flex-shrink:0" title="クリックで変更">' + (originLabels[origin] || "不明") + '</span>';
+      }
+      html += '  <div class="cp-ol-event-body" style="flex:1;min-width:0">';
+      html += '    <div class="cp-ol-event-title" id="cpOlTitle_' + cpEsc(ev.eventId) + '">' + (isRejected ? "❌ " : "") + cpEsc(ev.eventTitle || "(無題)") + '</div>';
+      if (ev.eventDescription && ev.eventDescription !== ev.eventTitle) {
+        html += '    <div class="cp-ol-event-desc" id="cpOlDesc_' + cpEsc(ev.eventId) + '">' + cpEsc(ev.eventDescription) + '</div>';
+      }
+      if (ev.originLostReason) {
+        html += '    <div class="cp-ol-event-lost">⚠️ ' + cpEsc(ev.originLostReason) + '</div>';
+      }
+      if (isRejected && ev.rejectReason) {
+        html += '    <div style="font-size:11px;color:#ff3b30;margin-top:2px">除外: ' + cpEsc(ev.rejectReason) + '</div>';
+      }
+      html += '  </div>';
+      html += '  <div class="cp-ol-event-actions">';
+      if (isRejected) {
+        html += '    <button class="cp-ol-btn-restore" onclick="cpOlRestoreEvent(\'' + cpEsc(ev.eventId) + '\')" title="復活">↩️</button>';
+      } else {
+        html += '    <button class="cp-ol-btn-edit" onclick="cpOlEditEvent(\'' + cpEsc(ev.eventId) + '\',this)" title="編集">✏️</button>';
+        html += '    <button class="cp-ol-btn-delete" onclick="cpOlDeleteEvent(\'' + cpEsc(ev.eventId) + '\')" title="除外">🗑</button>';
+      }
+      html += '  </div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  body.innerHTML = html;
+}
+
+function cpOlToggleOrigin(badge) {
+  var eventId = badge.getAttribute("data-eid");
+  var existing = document.querySelectorAll(".cp-origin-dropdown");
+  for (var i = 0; i < existing.length; i++) existing[i].remove();
+
+  var options = [
+    { key: "amd_proposed", label: "🔵 AMD提案" },
+    { key: "co_decided", label: "🟢 協議決定" },
+    { key: "partner_proposed", label: "🟠 先方提案" },
+    { key: "external", label: "⚫ 外部発生" },
+    { key: "unknown", label: "⚪ 不明" }
+  ];
+
+  var dd = document.createElement("div");
+  dd.className = "cp-origin-dropdown";
+  for (var i = 0; i < options.length; i++) {
+    (function(opt) {
+      var item = document.createElement("div");
+      item.textContent = opt.label;
+      item.onclick = function(e) {
+        e.stopPropagation();
+        dd.remove();
+        cpOlUpdateOrigin(eventId, opt.key, badge);
+      };
+      dd.appendChild(item);
+    })(options[i]);
+  }
+
+  badge.style.position = "relative";
+  badge.appendChild(dd);
+
+  setTimeout(function() {
+    document.addEventListener("click", function handler(e) {
+      if (!dd.parentNode) return;
+      dd.remove();
+      document.removeEventListener("click", handler);
+    });
+  }, 0);
+}
+
+function cpOlEditEvent(eventId, btn) {
+  var existing = document.querySelector(".cp-ol-edit-inline");
+  if (existing) existing.remove();
+
+  var evRow = document.getElementById("cpOlEv_" + eventId);
+  if (!evRow) return;
+
+  var titleEl = document.getElementById("cpOlTitle_" + eventId);
+  var descEl = document.getElementById("cpOlDesc_" + eventId);
+  var currentTitle = titleEl ? titleEl.textContent.replace(/^❌\s*/, "") : "";
+  var currentDesc = descEl ? descEl.textContent : "";
+
+  var form = document.createElement("div");
+  form.className = "cp-ol-edit-inline";
+  form.innerHTML =
+    '<input type="text" id="cpOlEditTitle_' + eventId + '" value="' + cpEsc(currentTitle) + '" placeholder="タイトル">' +
+    '<textarea id="cpOlEditDesc_' + eventId + '" placeholder="説明（任意）">' + cpEsc(currentDesc) + '</textarea>' +
+    '<div class="cp-ol-edit-btns">' +
+      '<button class="cp-ol-edit-cancel" onclick="this.closest(\'.cp-ol-edit-inline\').remove()">キャンセル</button>' +
+      '<button class="cp-ol-edit-save" onclick="cpOlSaveEdit(\'' + eventId + '\')">保存</button>' +
+    '</div>';
+
+  evRow.appendChild(form);
+  form.querySelector("input").focus();
+}
+
+function cpOlSaveEdit(eventId) {
+  var titleInput = document.getElementById("cpOlEditTitle_" + eventId);
+  var descInput = document.getElementById("cpOlEditDesc_" + eventId);
+  if (!titleInput) return;
+
+  var newTitle = titleInput.value.trim();
+  var newDesc = descInput ? descInput.value.trim() : "";
+  if (!newTitle) { alert("タイトルは必須"); return; }
+
+  var saveBtn = titleInput.closest(".cp-ol-edit-inline").querySelector(".cp-ol-edit-save");
+  if (saveBtn) { saveBtn.textContent = "保存中..."; saveBtn.disabled = true; }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { alert("保存失敗: " + (res ? res.message : "")); return; }
+      google.script.run
+        .withSuccessHandler(function(listRes) { cpRenderOriginList(listRes); })
+        .cockpit_api_getOriginEventList({ projectId: CP.projectId });
+    })
+    .withFailureHandler(function(err) { alert("エラー: " + err); })
+    .reward_api_updateEvent({ eventId: eventId, eventTitle: newTitle, eventDescription: newDesc });
+}
+
+function cpOlDeleteEvent(eventId) {
+  var reason = prompt("除外理由を入力（例: 進捗ではなく情報共有のみ）");
+  if (reason === null) return;
+  reason = reason.trim();
+  if (!reason) { alert("理由の入力が必要"); return; }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { alert("失敗: " + (res ? res.message : "")); return; }
+      google.script.run
+        .withSuccessHandler(function(listRes) {
+          cpRenderOriginList(listRes);
+          cpRefreshOriginBadge();
+        })
+        .cockpit_api_getOriginEventList({ projectId: CP.projectId });
+    })
+    .withFailureHandler(function(err) { alert("エラー: " + err); })
+    .reward_api_rejectEvent({ eventId: eventId, reason: reason });
+}
+
+function cpOlRestoreEvent(eventId) {
+  if (!confirm("このイベントを復活する？")) return;
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { alert("失敗: " + (res ? res.message : "")); return; }
+      google.script.run
+        .withSuccessHandler(function(listRes) {
+          cpRenderOriginList(listRes);
+          cpRefreshOriginBadge();
+        })
+        .cockpit_api_getOriginEventList({ projectId: CP.projectId });
+    })
+    .withFailureHandler(function(err) { alert("エラー: " + err); })
+    .reward_api_confirmEvent({ eventId: eventId, memberId: "" });
+}
+
+function cpOlUpdateOrigin(eventId, newOrigin, badge) {
+  var originLabels = { amd_proposed:"AMD提案", co_decided:"協議決定", partner_proposed:"先方提案", external:"外部発生", unknown:"不明" };
+
+  var lostReason = "";
+  if (newOrigin === "partner_proposed") {
+    lostReason = prompt("⚠️ なぜAMDが先手を取れなかった？\n（例: 情報不足で提案タイミングを逃した）");
+    if (lostReason === null) return;
+    lostReason = lostReason.trim();
+    if (!lostReason) { alert("理由の入力が必要。先手を取れなかった原因を記録しておこう。"); return; }
+  }
+
+  badge.textContent = "...";
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { badge.textContent = "失敗"; return; }
+      google.script.run
+        .withSuccessHandler(function(listRes) {
+          cpRenderOriginList(listRes);
+          cpRefreshOriginBadge();
+        })
+        .withFailureHandler(function() {
+          badge.className = "cp-origin-badge " + newOrigin;
+          badge.textContent = originLabels[newOrigin] || "不明";
+        })
+        .cockpit_api_getOriginEventList({ projectId: CP.projectId });
+    })
+    .withFailureHandler(function(err) { badge.textContent = "エラー"; })
+    .reward_api_updateOrigin({ eventId: eventId, initiativeOrigin: newOrigin, originLostReason: lostReason });
+}
+
+function cpRefreshOriginBadge() {
+  google.script.run
+    .withSuccessHandler(function(or) {
+      var el = document.getElementById("cpOriginBadge");
+      if (!el) return;
+      if (!or) {
+        el.className = "cp-origin-health origin-na";
+        el.textContent = "◻️ 判定不能";
+        return;
+      }
+      var pct = or.amdPct;
+      var cls = "origin-end", label = "";
+      if (pct >= 90)      { cls = "origin-ok";     label = "🟢 先手力 " + pct + "%"; }
+      else if (pct >= 80) { cls = "origin-warn";   label = "🟡 危険水域 " + pct + "%"; }
+      else if (pct >= 70) { cls = "origin-danger"; label = "🔴 契約終了リスク " + pct + "%"; }
+      else                { cls = "origin-end";    label = "⚫ 末期 " + pct + "%"; }
+      el.className = "cp-origin-health " + cls;
+      el.textContent = label;
+    })
+    .cockpit_api_getOriginRate({ projectId: CP.projectId });
+}
+</script>

@@ -1,0 +1,685 @@
+<!-- A258_AdminContextsJs.html
+     役割: Adminの「Contexts」タブのJSロジック。A245_AdminContexts.htmlと対になる。
+-->
+<script>
+    // ===== LLM Context tags master (datalist + chips) =====
+  let __CTX_TAGS__ = [];
+
+  function fillCtxTagDatalist_(){
+    const dl = el("ctxTagDatalist");
+    if (!dl) return;
+
+    const tags = Array.isArray(__CTX_TAGS__) ? __CTX_TAGS__ : [];
+    const uniq = Array.from(new Set(tags.map(t => String(t||"").trim()).filter(x=>x)));
+
+    dl.innerHTML = uniq
+      .sort((a,b)=>a.localeCompare(b,"ja"))
+      .map(t => `<option value="${escapeHtmlAttr(t)}"></option>`)
+      .join("");
+  }
+
+  function getCtxTags_(){
+    const v = (el("ctxNewTagsHidden")?.value || "").trim();
+    if (!v) return [];
+    const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+    const seen = new Set();
+    const out = [];
+    arr.forEach(t => { if (!seen.has(t)) { seen.add(t); out.push(t); }});
+    return out;
+  }
+
+  function setCtxTags_(tags){
+    const arr = Array.isArray(tags) ? tags : [];
+    if (el("ctxNewTagsHidden")) el("ctxNewTagsHidden").value = arr.join(",");
+  }
+
+  function renderCtxTagChips_(){
+    const wrap = el("ctxNewTagsChips");
+    if (!wrap) return;
+
+    const tags = getCtxTags_();
+    if (!tags.length){
+      wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+      return;
+    }
+
+    wrap.innerHTML = tags.map(t => `
+      <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+        ${escapeHtml(t)}
+        <button class="btn" style="padding:2px 8px; font-weight:900;"
+          onclick="removeCtxTag_('${escapeHtmlAttr(t)}')">×</button>
+      </span>
+    `).join("");
+  }
+
+  function addCtxTag_(tag){
+    const t = String(tag||"").trim();
+    if (!t) return;
+
+    const tags = getCtxTags_();
+    if (!tags.includes(t)) tags.push(t);
+
+    setCtxTags_(tags);
+    renderCtxTagChips_();
+  }
+
+  function removeCtxTag_(tag){
+    const t = String(tag||"").trim();
+    const tags = getCtxTags_().filter(x => x !== t);
+    setCtxTags_(tags);
+    renderCtxTagChips_();
+  }
+
+  function addCtxTagFromInput_(){
+    const inp = el("ctxNewTagInput");
+    if (!inp) return;
+
+    const raw = String(inp.value||"").trim();
+    if (!raw) return;
+
+    addCtxTag_(raw);
+
+    // サジェスト体験だけ良くする（即サーバ保存はしない）
+    if (!(__CTX_TAGS__ || []).some(t => String(t||"").trim() === raw)){
+      __CTX_TAGS__.push(raw);
+      fillCtxTagDatalist_();
+    }
+
+    inp.value = "";
+  }
+
+  function initCtxTagInputHandlers_(){
+    const inp = el("ctxNewTagInput");
+    if (!inp) return;
+
+    // 二重登録防止
+    if (inp.dataset.bound === "1") return;
+    inp.dataset.bound = "1";
+
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter"){
+        e.preventDefault();
+        addCtxTagFromInput_();
+      }
+    });
+  }
+
+
+  function showCtxErr(msg){
+    el("ctxErr").style.display = "block";
+    el("ctxErr").textContent = msg || "error";
+  }
+  function hideCtxErr(){
+    el("ctxErr").style.display = "none";
+    el("ctxErr").textContent = "";
+  }
+
+  function getContextFilters_(){
+    return {
+      q: (el("ctxQ")?.value || "").trim(),
+      status: (el("ctxStatus")?.value || "").trim().toLowerCase()
+    };
+  }
+
+  function openNewContextModal(){
+    hideCtxErr();
+
+    // 候補タグは都度更新（軽い）
+    try{ reloadContextTags(); } catch(e){}
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">LLM Context 追加</div>`,
+      `<div class="small" style="margin-bottom:10px; opacity:.85;">最小入力：tags / content</div>`,
+
+      `<div class="ctlLabel">tags（プルダウンで追加）</div>`,
+      `<div class="row" style="margin-top:6px; align-items:center;">`,
+      `  <div class="rowLeft">`,
+      `    <select id="ctxAdd_tagPick" class="ctl" style="width:280px">`,
+      `      <option value="">（選択）</option>`,
+      `    </select>`,
+      `    <button class="btn" onclick="ctxAdd_addPickedTag_()">追加</button>`,
+      `    <button class="btn" onclick="openCtxTagManager_()">候補編集</button>`,
+      `  </div>`,
+      `</div>`,
+      `<div id="ctxAdd_tagsChips" style="margin-top:8px;"></div>`,
+      `<input type="hidden" id="ctxAdd_tagsHidden" value="" />`,
+
+      `<div class="ctlLabel" style="margin-top:12px;">content</div>`,
+      `<textarea id="ctxAdd_content" class="ctl" style="width:100%; height:180px; resize:vertical; margin-top:6px;" `,
+      `  placeholder="例：AMDにとって最大の価値資産は『成果物』ではなく『判断』…"></textarea>`
+    ].join("");
+
+    openAppModal_(
+      "LLM Context 追加",
+      bodyHtml,
+      () => {
+        const content = (document.getElementById("ctxAdd_content")?.value || "").trim();
+        if (!content){
+          showCtxErr("content empty");
+          return;
+        }
+
+        const tagArr = ctxTagsFromHidden_("ctxAdd_tagsHidden");
+        const tags = tagArr.join(",");
+
+        el("ctxHint").textContent = "作成中...";
+
+        google.script.run
+          .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showCtxErr((res && res.message) ? res.message : "create failed");
+              return;
+            }
+            el("ctxHint").textContent = `作成した：${res.contextId || "-"}`;
+            loadContexts();
+          })
+          .admin_createLLMContext({ content, tags, status:"active" });
+      },
+      { input:false }
+    );
+
+    setTimeout(()=>{
+      try{
+        ctxFillTagPick_();
+        const hid = document.getElementById("ctxAdd_tagsHidden");
+        if (hid) hid.value = "";
+        ctxRenderChips_("ctxAdd_tagsChips","ctxAdd_tagsHidden");
+        document.getElementById("ctxAdd_content")?.focus();
+      }catch(e){}
+    }, 60);
+  }
+
+
+  // ===== Context Add Modal helpers =====
+  function ctxFillTagPick_(){
+    const sel = document.getElementById("ctxAdd_tagPick");
+    if (!sel) return;
+
+    const tags = Array.isArray(__CTX_TAGS__) ? __CTX_TAGS__ : [];
+    const uniq = Array.from(new Set(tags.map(t=>String(t||"").trim()).filter(x=>x)))
+      .sort((a,b)=>a.localeCompare(b,"ja"));
+
+    sel.innerHTML = `<option value="">（選択）</option>` + uniq.map(t =>
+      `<option value="${escapeHtmlAttr(t)}">${escapeHtml(t)}</option>`
+    ).join("");
+  }
+
+  function ctxTagsFromHidden_(hiddenId){
+    const v = (document.getElementById(hiddenId)?.value || "").trim();
+    if (!v) return [];
+    const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+    const seen = new Set();
+    const out = [];
+    arr.forEach(t=>{ if(!seen.has(t)){ seen.add(t); out.push(t);} });
+    return out;
+  }
+
+  function ctxSetHidden_(hiddenId, tags){
+    const arr = Array.isArray(tags) ? tags : [];
+    const elh = document.getElementById(hiddenId);
+    if (elh) elh.value = arr.join(",");
+  }
+
+  function ctxRenderChips_(wrapId, hiddenId, removeFnName){
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+
+    const tags = ctxTagsFromHidden_(hiddenId);
+    if (!tags.length){
+      wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+      return;
+    }
+
+    wrap.innerHTML = tags.map(t => `
+      <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+        ${escapeHtml(t)}
+        <button class="btn" style="padding:2px 8px; font-weight:900;"
+          onclick="${removeFnName}('${escapeHtmlAttr(hiddenId)}','${escapeHtmlAttr(t)}')">×</button>
+      </span>
+    `).join("");
+  }
+
+  function ctxAdd_addPickedTag_(){
+    const sel = document.getElementById("ctxAdd_tagPick");
+    if (!sel) return;
+    const pick = String(sel.value||"").trim();
+    if (!pick) return;
+
+    const tags = ctxTagsFromHidden_("ctxAdd_tagsHidden");
+    if (!tags.includes(pick)) tags.push(pick);
+    ctxSetHidden_("ctxAdd_tagsHidden", tags);
+    ctxRenderChips_("ctxAdd_tagsChips","ctxAdd_tagsHidden","ctxAdd_removeTagFromHidden_");
+
+    sel.value = "";
+  }
+
+  function ctxAdd_removeTagFromHidden_(hiddenId, tag){
+    const hid = String(hiddenId||"").trim();
+    const t = String(tag||"").trim();
+    const tags = ctxTagsFromHidden_(hid).filter(x=>x !== t);
+    ctxSetHidden_(hid, tags);
+    ctxRenderChips_("ctxAdd_tagsChips","ctxAdd_tagsHidden","ctxAdd_removeTagFromHidden_");
+  }
+
+  function loadContexts(){
+    hideCtxErr();
+
+    // contextsタブに来たら候補タグは都度更新（軽い）
+    try{ reloadContextTags(); } catch(e){}
+
+    el("ctxHint").textContent = "loading...";
+    el("ctxTbody").innerHTML = `<tr><td colspan="6" class="muted">loading...</td></tr>`;
+
+    const f = getContextFilters_();
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "load failed");
+          return;
+        }
+
+        const rows = Array.isArray(res.contexts) ? res.contexts : [];
+        if (!rows.length){
+          el("ctxTbody").innerHTML = `<tr><td colspan="6" class="muted">該当なし</td></tr>`;
+          el("ctxHint").textContent = "rows: 0";
+          return;
+        }
+
+        el("ctxTbody").innerHTML = rows.map(c => {
+          const id = escapeHtmlAttr(c.contextId||"");
+          const content = String(c.content || "");
+          const tags = String(c.tags || "");
+
+          return `
+            <tr data-cid="${id}">
+              <td class="nowrap">
+                <select class="ctl" id="cx_st_${id}" style="width:110px">
+                  <option value="active" ${String(c.status||"")==="active"?"selected":""}>active</option>
+                  <option value="archived" ${String(c.status||"")==="archived"?"selected":""}>archived</option>
+                </select>
+              </td>
+
+              <td class="noteCell">
+                <textarea class="ctl" id="cx_c_${id}" style="width:100%; height:120px; resize:vertical;">${escapeHtml(content)}</textarea>
+              </td>
+
+              <td class="noteCell">
+                <div class="row" style="align-items:center; gap:8px;">
+                  <select class="ctl" id="cx_tagPick_${id}" style="width:220px">
+                    <option value="">（選択）</option>
+                  </select>
+                  <button class="btn" onclick="cxAddTagToRow_('${id}')">追加</button>
+                  <button class="btn" onclick="openCtxTagManager_()">候補編集</button>
+                </div>
+
+                <div id="cx_tagsChips_${id}" style="margin-top:8px;"></div>
+
+                <!-- 実保存用（カンマ区切りで保持）※見せない -->
+                <input type="hidden" id="cx_tags_${id}" value="${escapeHtmlAttr(tags)}" />
+
+              </td>
+
+
+              <td class="small nowrap" id="cx_upd_${id}">${escapeHtml(c.updatedAt||"-")}</td>
+
+              <td class="nowrap">
+                <button class="btn" onclick="saveContext('${id}')">保存</button>
+                <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="archiveContext('${id}')">非表示</button>
+                <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="deleteContext('${id}')">削除</button>
+              </td>
+
+              <td class="mono nowrap">${escapeHtml(c.contextId||"")}</td>
+            </tr>
+          `;
+        }).join("");
+
+        // 行ごとにタグ候補selectを埋める + chips表示
+        try{
+          rows.forEach(c => {
+            const id = String(c.contextId||"").trim();
+            cxFillRowTagPick_(id);
+            cxRenderRowChips_(id);
+          });
+        }catch(e){}
+
+        // 行ごとにタグ候補selectを埋める + chips表示
+        try{
+          rows.forEach(c => {
+            const rid = String(c.contextId||"").trim();
+            cxFillRowTagPick_(rid);
+            cxRenderRowChips_(rid);
+          });
+        }catch(e){}
+
+        el("ctxHint").textContent = `rows: ${rows.length}`;
+      })
+      .admin_listLLMContexts({ q: f.q, status: f.status });
+  }
+
+  function saveContext(contextId){
+    hideCtxErr();
+    const id = String(contextId||"").trim();
+    if (!id) return;
+
+    const status = (el(`cx_st_${id}`)?.value || "active").trim();
+    const content = (el(`cx_c_${id}`)?.value || "").trim();
+    let tagsStr = (el(`cx_tags_${id}`)?.value || "").trim(); // hidden想定
+
+    if (!content){
+      showCtxErr("content empty");
+      return;
+    }
+
+    // tags 正規化（trim + uniq + 空除去）
+    const rawArr = tagsStr
+      ? tagsStr.split(",").map(x=>String(x||"").trim()).filter(x=>x)
+      : [];
+    const seen = new Set();
+    const tagArr = [];
+    rawArr.forEach(t=>{ if(!seen.has(t)){ seen.add(t); tagArr.push(t);} });
+
+    tagsStr = tagArr.join(",");
+    if (el(`cx_tags_${id}`)) el(`cx_tags_${id}`).value = tagsStr;
+
+    el("ctxHint").textContent = `保存中... ${id}`;
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "save failed");
+          return;
+        }
+
+        // 保存した行だけ更新
+        const upd = String(res.updatedAt || "").trim();
+        const updEl = el(`cx_upd_${id}`);
+        if (updEl && upd){
+          updEl.textContent = upd;
+        }
+
+        el("ctxHint").textContent = `保存した：${id}`;
+      })
+      .admin_updateLLMContext({ contextId: id, status, content, tags: tagsStr });
+  }
+
+
+
+
+  function archiveContext(contextId){
+    hideCtxErr();
+    const id = String(contextId||"").trim();
+    if (!id) return;
+    const ok = window.confirm(`非表示（archived）にする？\ncontextId=${id}`);
+    if (!ok) return;
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "archive failed");
+          return;
+        }
+        loadContexts();
+      })
+      .admin_deleteLLMContext({ contextId:id, mode:"archive" });
+  }
+
+  function deleteContext(contextId){
+    hideCtxErr();
+    const id = String(contextId||"").trim();
+    if (!id) return;
+    const ok = window.confirm(`削除する？（物理削除）\ncontextId=${id}\n※戻せない`);
+    if (!ok) return;
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "delete failed");
+          return;
+        }
+        loadContexts();
+      })
+      .admin_deleteLLMContext({ contextId:id, mode:"delete" });
+  }
+
+    function openCtxTagManager_(){
+    hideCtxErr();
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">LLM Context タグ候補 編集</div>`,
+      `<div class="small" style="opacity:.8; margin-bottom:10px;">追加 / リネーム / 削除（archived）をここでやる。DB_TsukuyomiContext の既存データは自動では置換しない（安全のため）。</div>`,
+
+      `<div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">`,
+      `  <div style="flex:1; min-width:260px;">`,
+      `    <div class="ctlLabel">新規タグ</div>`,
+      `    <input id="ctxTagMng_newTag" class="ctl" style="width:100%;" placeholder="例: CX / 略語 / scope:global など" />`,
+      `  </div>`,
+      `  <div style="flex:2; min-width:260px;">`,
+      `    <div class="ctlLabel">note（任意）</div>`,
+      `    <input id="ctxTagMng_newNote" class="ctl" style="width:100%;" placeholder="任意メモ" />`,
+      `  </div>`,
+      `  <button class="btn" onclick="ctxTagMng_add_()">追加</button>`,
+      `</div>`,
+
+      `<div class="row" style="margin-top:12px; margin-bottom:8px;">`,
+      `  <div class="rowLeft">`,
+      `    <button class="btn" onclick="closeAppModal_()">閉じる</button>`,
+      `  </div>`,
+      `</div>`,
+
+      `<div class="ctlLabel" style="margin-top:4px;">active tags</div>`,
+      `<div id="ctxTagMng_list" class="small" style="margin-top:6px; max-height:400px; overflow-y:auto;">loading...</div>`,
+    ].join("");
+
+    openAppModal_("タグ候補編集", bodyHtml, ()=>{}, { input:false });
+
+    // 一覧描画
+    ctxTagMng_reload_();
+  }
+
+  function ctxTagMng_reload_(){
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "admin_listContextTags failed");
+          const wrap = document.getElementById("ctxTagMng_list");
+          if (wrap) wrap.innerHTML = `<span class="pill gray">読み込み失敗</span>`;
+          return;
+        }
+
+        const tags = Array.isArray(res.tags) ? res.tags : [];
+        const wrap = document.getElementById("ctxTagMng_list");
+        if (!wrap) return;
+
+        if (!tags.length){
+          wrap.innerHTML = `<span class="pill gray">タグなし</span>`;
+          return;
+        }
+
+        wrap.innerHTML = tags.map(t => {
+          const ta = escapeHtmlAttr(t);
+          return `
+            <div style="display:flex; gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid var(--line);">
+              <div style="min-width:220px;" class="mono">${escapeHtml(t)}</div>
+
+              <input class="ctl" id="ctxTagMng_to_${ta}" style="flex:1; min-width:240px;" placeholder="リネーム先（空なら変更なし）" />
+
+              <button class="btn" onclick="ctxTagMng_rename_('${ta}')">リネーム</button>
+              <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="ctxTagMng_remove_('${ta}')">削除</button>
+            </div>
+          `;
+        }).join("");
+
+        // ローカル候補も更新して、プルダウン側へ反映
+        __CTX_TAGS__ = tags.slice();
+        try{ fillCtxTagDatalist_(); } catch(e){}
+        try{ ctxFillTagPick_(); } catch(e){}
+
+        // 一覧行のselectも更新したい（表示中の分だけ）
+        try{
+          const rows = document.querySelectorAll("[id^='cx_tagPick_']");
+          rows.forEach(sel=>{
+            const rowId = String(sel.id||"").replace("cx_tagPick_","");
+            cxFillRowTagPick_(rowId);
+          });
+        }catch(e){}
+      })
+      .admin_listContextTags();
+  }
+
+  function ctxTagMng_add_(){
+    const tag = String(document.getElementById("ctxTagMng_newTag")?.value || "").trim();
+    const note = String(document.getElementById("ctxTagMng_newNote")?.value || "").trim();
+    if (!tag) { showCtxErr("tag empty"); return; }
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "admin_addContextTag failed");
+          return;
+        }
+        document.getElementById("ctxTagMng_newTag").value = "";
+        document.getElementById("ctxTagMng_newNote").value = "";
+        ctxTagMng_reload_();
+      })
+      .admin_addContextTag({ tag: tag, note: note });
+  }
+
+  function ctxTagMng_remove_(tag){
+    const t = String(tag||"").trim();
+    if (!t) return;
+
+    const ok = window.confirm(`候補から削除（archived）する？\n${t}`);
+    if (!ok) return;
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "admin_removeContextTag failed");
+          return;
+        }
+        ctxTagMng_reload_();
+      })
+      .admin_removeContextTag({ tag: t });
+  }
+
+  function ctxTagMng_rename_(fromTag){
+    const from = String(fromTag||"").trim();
+    if (!from) return;
+
+    const to = String(document.getElementById(`ctxTagMng_to_${from}`)?.value || "").trim();
+    if (!to){
+      showCtxErr("toTag empty（リネーム先が空）");
+      return;
+    }
+
+    const ok = window.confirm(`リネームする？\n${from} -> ${to}\n\n※DB_LLMContextの既存tagsは自動置換しない（必要なら別途置換をかける）`);
+    if (!ok) return;
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "admin_renameContextTag failed");
+          return;
+        }
+        ctxTagMng_reload_();
+      })
+      .admin_renameContextTag({ fromTag: from, toTag: to, note: "" });
+  }
+
+
+  // ===== LLM Context tags master =====
+  function reloadContextTags(){
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          __CTX_TAGS__ = [];
+          fillCtxTagDatalist_();
+          return;
+        }
+        __CTX_TAGS__ = Array.isArray(res.tags) ? res.tags : [];
+        fillCtxTagDatalist_();
+      })
+      .admin_listContextTags();
+  }
+
+  function cxFillRowTagPick_(rowId){
+    const sel = el(`cx_tagPick_${rowId}`);
+    if (!sel) return;
+
+    const tags = Array.isArray(__CTX_TAGS__) ? __CTX_TAGS__ : [];
+    const uniq = Array.from(new Set(tags.map(t=>String(t||"").trim()).filter(x=>x)))
+      .sort((a,b)=>a.localeCompare(b,"ja"));
+
+    sel.innerHTML = `<option value="">（選択）</option>` + uniq.map(t =>
+      `<option value="${escapeHtmlAttr(t)}">${escapeHtml(t)}</option>`
+    ).join("");
+  }
+
+  function cxTagsFromInput_(rowId){
+    const v = (el(`cx_tags_${rowId}`)?.value || "").trim();
+    if (!v) return [];
+    const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+    const seen = new Set();
+    const out = [];
+    arr.forEach(t=>{ if(!seen.has(t)){ seen.add(t); out.push(t);} });
+    return out;
+  }
+
+  function cxSetTagsToInput_(rowId, tags){
+    const arr = Array.isArray(tags) ? tags : [];
+    const inp = el(`cx_tags_${rowId}`);
+    if (inp) inp.value = arr.join(",");
+  }
+
+  function cxRenderRowChips_(rowId){
+    const wrap = el(`cx_tagsChips_${rowId}`);
+    if (!wrap) return;
+
+    const tags = cxTagsFromInput_(rowId);
+    if (!tags.length){
+      wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+      return;
+    }
+
+    wrap.innerHTML = tags.map(t => `
+      <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+        ${escapeHtml(t)}
+        <button class="btn" style="padding:2px 8px; font-weight:900;"
+          onclick="cxRemoveTagFromRow_('${escapeHtmlAttr(rowId)}','${escapeHtmlAttr(t)}')">×</button>
+      </span>
+    `).join("");
+  }
+
+  function cxAddTagToRow_(rowId){
+    const sel = el(`cx_tagPick_${rowId}`);
+    if (!sel) return;
+    const pick = String(sel.value||"").trim();
+    if (!pick) return;
+
+    const tags = cxTagsFromInput_(rowId);
+    if (!tags.includes(pick)) tags.push(pick);
+    cxSetTagsToInput_(rowId, tags);
+    cxRenderRowChips_(rowId);
+
+    sel.value = "";
+  }
+
+  function cxRemoveTagFromRow_(rowId, tag){
+    const t = String(tag||"").trim();
+    const tags = cxTagsFromInput_(rowId).filter(x=>x !== t);
+    cxSetTagsToInput_(rowId, tags);
+    cxRenderRowChips_(rowId);
+  }
+
+</script>

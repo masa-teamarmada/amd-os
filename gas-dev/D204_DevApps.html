@@ -1,0 +1,49 @@
+<!-- D204_DevApps.html -->
+<!-- アプリ管理モーダル -->
+
+<!-- アプリ管理モーダル -->
+<div class="modal-overlay" id="appManagerModal">
+  <div class="modal" style="max-width:600px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0">アプリ管理</h3>
+      <button class="btn-primary" onclick="openAppForm_(null)">＋ 追加</button>
+    </div>
+    <div id="appList"><p class="loading-text">読み込み中...</p></div>
+    <div class="modal-footer" style="margin-top:16px">
+      <button class="btn-ghost" onclick="closeAppManager_()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- アプリ追加・編集フォームモーダル -->
+<div class="modal-overlay" id="appFormModal">
+  <div class="modal" style="max-width:560px">
+    <h3 id="appFormTitle">アプリを追加</h3>
+    <input type="hidden" id="fAppId">
+    <div class="form-row">
+      <label>アプリ名 *</label>
+      <input type="text" id="fAppName" placeholder="例: AMD-OS, Chronicle">
+    </div>
+    <div class="form-row">
+      <label>Dev Sheet ID *<span style="font-size:11px;color:var(--gray-500);margin-left:6px">Tickets・DesignLog・Blueprintの保存先</span></label>
+      <input type="text" id="fDevSheetId" placeholder="スプレッドシートID">
+    </div>
+    <div class="form-row">
+      <label>Main Spreadsheet ID<span style="font-size:11px;color:var(--gray-500);margin-left:6px">DB_TsukuyomiContext参照先</span></label>
+      <input type="text" id="fMainSpreadsheetId" placeholder="スプレッドシートID">
+    </div>
+    <div class="form-row">
+      <label>Export Doc ID<span style="font-size:11px;color:var(--gray-500);margin-left:6px">BlueprintのDoc書き出し先</span></label>
+      <input type="text" id="fExportDocId" placeholder="Google Doc ID">
+    </div>
+    <div class="form-row">
+      <label>GASプロジェクト<span style="font-size:11px;color:var(--gray-500);margin-left:6px">name:scriptId 形式で1行1プロジェクト</span></label>
+      <textarea id="fGasProjects" rows="5" style="font-family:monospace;font-size:12px"
+        placeholder="main:18q6cSR9KXzX7vG...&#10;admin:1mZqDFgS0BHP..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeAppForm_()">キャンセル</button>
+      <button class="btn-primary" onclick="submitAppForm_()">保存</button>
+    </div>
+  </div>
+</div>

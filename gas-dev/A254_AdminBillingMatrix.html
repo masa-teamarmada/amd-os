@@ -1,0 +1,707 @@
+<!-- A254_AdminBillingMatrix.html -->
+<!-- Admin「Billing一覧」タブ：行=対象月 × 列=PJ、1セル=5タスク縦スタック -->
+<div id="sec_billing" style="display:none;">
+  <!-- 請求額承認待ちリスト -->
+  <div id="sec_budgetApproval">
+    <div class="card">
+      <div class="row">
+        <div>
+          <b>💰 請求額承認待ち</b>
+          <span class="muted" style="margin-left:8px;">PMが申告した請求額を確認・承認するよ</span>
+        </div>
+        <button class="btn" onclick="baLoad_()">🔄 再読み込み</button>
+      </div>
+      <div id="baHint" class="hint" style="margin-top:6px;"></div>
+      <div id="baList" style="margin-top:10px;">
+        <span class="muted">読み込み中…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF一括アップロードセクション -->
+  <div id="sec_pdfUpload">
+    <div class="card">
+      <div class="row">
+        <div>
+          <b>📎 請求書PDFアップロード</b>
+          <span class="muted" style="margin-left:8px;">発行済み＋PDF未アップロードのPJが表示されるよ</span>
+        </div>
+        <button class="btn" onclick="pdfLoad_()">🔄 再読み込み</button>
+      </div>
+      <div id="pdfHint" class="hint" style="margin-top:6px;"></div>
+      <div id="pdfList" style="margin-top:10px;"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="row">
+      <div>
+        <b>月次ルーティン一覧</b>
+        <span class="muted" style="margin-left:8px;">行=対象月 / 列=PJ</span>
+      </div>
+      <button class="btn" onclick="bmLoad_()">🔄 再読み込み</button>
+    </div>
+    <div id="bmHint" class="hint"></div>
+    <div class="tableWrap" style="margin-top:10px; max-height:70vh; overflow:auto;">
+      <table id="bmTable">
+        <thead id="bmHead"></thead>
+        <tbody id="bmBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  #bmTable{ min-width:auto; }
+  #bmTable th, #bmTable td{ vertical-align:top; padding:6px 4px; }
+  .bmCell{ display:flex; flex-direction:column; gap:3px; min-width:110px; }
+  .bmCell select{
+    border:1px solid #e5e7eb;
+    border-radius:6px;
+    padding:2px 4px;
+    font-size:11px;
+    font-weight:700;
+    cursor:pointer;
+    width:100%;
+  }
+  .bmTaskLabel{
+    font-size:10px;
+    color:var(--sub);
+    font-weight:800;
+    white-space:nowrap;
+    display:inline-block;
+    width:80px;
+    flex-shrink:0;
+  }
+  .bmRow{ display:flex; align-items:center; gap:4px; }
+  .bmYmCell{ font-weight:900; font-family:ui-monospace,monospace; white-space:nowrap; min-width:70px; }
+  #bmTable thead th{
+    position:sticky; top:0; background:var(--card); z-index:5;
+    font-size:11px; white-space:nowrap; text-align:center;
+  }
+  #bmTable tbody td:first-child{
+    position:sticky; left:0; background:var(--card); z-index:4;
+  }
+  #bmTable thead th:first-child{
+    position:sticky; left:0; z-index:6; background:var(--card);
+  }
+
+  /* PDF Upload */
+  .pdfCard{
+    border:1px solid #e5e7eb; border-radius:10px; padding:14px;
+    margin-bottom:12px; background:#fafbfc;
+  }
+  .pdfCard.uploaded{ border-color:#86efac; background:#f0fdf4; }
+  .pdfCardHead{ font-weight:800; font-size:14px; margin-bottom:8px; }
+  .pdfCompare{ display:grid; grid-template-columns:160px 1fr 1fr 80px; gap:4px 8px; font-size:12px; margin-bottom:8px; }
+  .pdfCompare .label{ color:var(--sub); font-weight:700; }
+  .pdfCompare .warn{ color:#ea580c; font-weight:700; }
+  .pdfCompare .danger{ color:#dc2626; font-weight:700; }
+  .pdfCompare .header{ font-weight:800; color:var(--sub); font-size:11px; border-bottom:1px solid #e5e7eb; padding-bottom:2px; }
+  .pdfDetail{ font-size:11px; color:#6b7280; margin-bottom:8px; }
+  .pdfDetail li{ margin:2px 0; }
+  .pdfDropZone{
+    border:2px dashed #d1d5db; border-radius:8px; padding:16px;
+    text-align:center; color:#9ca3af; font-size:12px; cursor:pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .pdfDropZone.dragover{ border-color:#60a5fa; background:#eff6ff; }
+  .pdfDropZone.done{ border-color:#86efac; background:#f0fdf4; color:#065f46; }
+  .pdfDropZone input[type=file]{ display:none; }
+
+  /* 承認待ちリスト */
+  .baCard{
+    border:1px solid #fbbf24; border-radius:10px; padding:14px;
+    margin-bottom:12px; background:#fffbeb;
+  }
+  .baCardHead{ font-weight:800; font-size:14px; margin-bottom:8px; }
+  .baCardBody{ display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; font-size:12px; margin-bottom:12px; }
+  .baLabel{ color:#92400e; font-weight:700; margin-right:6px; }
+  .baAmount{ font-size:15px; font-weight:900; color:#1d1d1f; }
+  .baApproveBtn{ background:#059669; color:#fff; font-weight:700; padding:8px 20px; border-radius:8px; cursor:pointer; }
+</style>
+
+<script>
+(function(){
+  var _raw = [];
+  var TASKS = [
+    { key:"budget",        label:"請求額確定",     canSkip:false },
+    { key:"nextTask",      label:"翌月タスク確認", canSkip:false },
+    { key:"reportFix",     label:"報告書FIX",      canSkip:false },
+    { key:"meeting",       label:"報告会",         canSkip:true  },
+    { key:"invoice",       label:"請求書発行",     canSkip:false },
+    { key:"invoiceSent",   label:"請求書送付",     canSkip:false },
+    { key:"paymentNotice", label:"支払通知書確認", canSkip:false },
+    { key:"payment",       label:"入金確認",       canSkip:false },
+    { key:"rewardPaid",    label:"報酬支払い",     canSkip:false }
+  ];
+
+  window.bmLoad_ = function(){
+    var body = document.getElementById("bmBody");
+    var head = document.getElementById("bmHead");
+    var hint = document.getElementById("bmHint");
+    body.innerHTML = "";
+    head.innerHTML = "<tr><th>読み込み中…</th></tr>";
+    hint.textContent = "";
+
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (!res || !res.ok){
+          head.innerHTML = "<tr><th>取得失敗</th></tr>";
+          return;
+        }
+        _raw = res.rows || [];
+        bmRenderPivot_();
+        if (typeof pdfLoad_ === "function") pdfLoad_();
+        if (typeof baLoad_ === "function") baLoad_();
+      })
+      .withFailureHandler(function(err){
+        head.innerHTML = "<tr><th class='err'>" + String(err.message||err) + "</th></tr>";
+      })
+      .admin_getBillingMatrix();
+  };
+
+  function bmRenderPivot_(){
+    var head = document.getElementById("bmHead");
+    var body = document.getElementById("bmBody");
+    var hint = document.getElementById("bmHint");
+
+    if (!_raw.length){
+      head.innerHTML = "<tr><th>データなし</th></tr>";
+      body.innerHTML = "";
+      hint.textContent = "0 件";
+      return;
+    }
+
+    // PJ一覧（出現順を保持、projectId順）
+    var pjMap = {};
+    var pjList = [];
+    for (var i=0; i<_raw.length; i++){
+      var r = _raw[i];
+      var pid = r.projectId;
+      if (!pjMap[pid]){
+        pjMap[pid] = { projectId:pid, projectName:r.projectName||pid, status:r.projectStatus||"active" };
+        pjList.push(pjMap[pid]);
+      }
+    }
+    pjList.sort(function(a,b){
+      var aActive = a.status === "active" ? 0 : 1;
+      var bActive = b.status === "active" ? 0 : 1;
+      if (aActive !== bActive) return aActive - bActive;
+      return a.projectId.localeCompare(b.projectId);
+    });
+
+    // ym一覧（降順）
+    var ymSet = {};
+    for (var i=0; i<_raw.length; i++){
+      ymSet[_raw[i].ym] = true;
+    }
+    var yms = Object.keys(ymSet).sort(function(a,b){ return b.localeCompare(a); });
+
+    // lookup: key = pid_ym
+    var lookup = {};
+    for (var i=0; i<_raw.length; i++){
+      var r = _raw[i];
+      lookup[r.projectId + "_" + r.ym] = r;
+    }
+
+    // ヘッダ
+    var hRow = "<tr><th class='bmYmCell'>対象月</th>";
+    for (var p=0; p<pjList.length; p++){
+      var stBadge = pjList[p].status !== "active"
+        ? "<br><span style='font-size:9px;padding:1px 5px;border-radius:4px;background:#e5e7eb;color:#6b7280;'>" + bmEsc_(pjList[p].status) + "</span>"
+        : "";
+      hRow += "<th style='text-align:center;'><b>" + bmEsc_(pjList[p].projectName) + "</b><br><span class='small'>" + bmEsc_(pjList[p].projectId) + "</span>" + stBadge + "</th>";
+    }
+    hRow += "</tr>";
+    head.innerHTML = hRow;
+
+    // 行
+    var html = "";
+    for (var yi=0; yi<yms.length; yi++){
+      var ym = yms[yi];
+      var ymDisp = ym.slice(0,4) + "/" + ym.slice(4);
+      html += "<tr>";
+      html += "<td class='bmYmCell'>" + bmEsc_(ymDisp) + "</td>";
+
+      for (var p=0; p<pjList.length; p++){
+        var pid = pjList[p].projectId;
+        var cell = lookup[pid + "_" + ym];
+        html += "<td>" + bmCellStack_(cell, pid, ym) + "</td>";
+      }
+      html += "</tr>";
+    }
+    body.innerHTML = html;
+    hint.textContent = yms.length + " 月 × " + pjList.length + " PJ（" + _raw.length + " セル）";
+  }
+
+  function bmCellStack_(cell, pid, ym){
+    if (!cell){
+      return "<div class='bmCell'><span class='muted' style='font-size:10px;'>—</span></div>";
+    }
+
+    var lines = "";
+    for (var t=0; t<TASKS.length; t++){
+      var tk = TASKS[t];
+      var val = cell[tk.key] || "undone";
+      var selId = "bm_" + bmEsc_(pid) + "_" + bmEsc_(ym) + "_" + tk.key;
+
+      var opts = "<option value='undone'" + (val==="undone"?" selected":"") + ">⬜</option>";
+      opts    += "<option value='done'"   + (val==="done"  ?" selected":"") + ">✅</option>";
+      if (tk.canSkip) opts += "<option value='skip'" + (val==="skip"?" selected":"") + ">⏭</option>";
+
+      var bg = val==="done" ? "#d1fae5" : val==="skip" ? "#e0e7ff" : "#f9fafb";
+      var fg = val==="done" ? "#065f46" : val==="skip" ? "#3730a3" : "#9ca3af";
+
+      lines += "<div class='bmRow'>"
+        + "<span class='bmTaskLabel'>" + bmEsc_(tk.label) + "</span>"
+        + "<select id='" + selId + "' "
+        + "onchange=\"bmOnChange_('" + bmEscAttr_(pid) + "','" + bmEscAttr_(ym) + "','" + tk.key + "',this.value,this)\" "
+        + "style='background:" + bg + ";color:" + fg + ";'>"
+        + opts
+        + "</select>"
+        + "</div>";
+    }
+
+    return "<div class='bmCell'>" + lines + "</div>";
+  }
+
+  window.bmOnChange_ = function(projectId, ym, taskKey, newStatus, selEl){
+    if (selEl) selEl.disabled = true;
+
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (selEl) selEl.disabled = false;
+        if (!res || !res.ok){
+          var hint = document.getElementById("bmHint");
+          if (hint) hint.textContent = "⚠️ " + (res && res.message ? res.message : "更新失敗");
+          if (hint) hint.style.color = "#b91c1c";
+          bmLoad_();
+          return;
+        }
+        // スタイル更新
+        if (selEl){
+          selEl.style.background = newStatus==="done"?"#d1fae5" : newStatus==="skip"?"#e0e7ff" : "#f9fafb";
+          selEl.style.color      = newStatus==="done"?"#065f46" : newStatus==="skip"?"#3730a3" : "#9ca3af";
+        }
+        // lookupも更新
+        for (var i=0; i<_raw.length; i++){
+          if (_raw[i].projectId === projectId && _raw[i].ym === ym){
+            _raw[i][taskKey] = newStatus;
+            break;
+          }
+        }
+        var hint = document.getElementById("bmHint");
+        if (hint){ hint.style.color = ""; hint.textContent = "✅ 更新OK（" + taskKey + " → " + newStatus + "）"; }
+      })
+      .withFailureHandler(function(err){
+        if (selEl) selEl.disabled = false;
+        var hint = document.getElementById("bmHint");
+        if (hint) hint.textContent = "⚠️ " + String(err.message||err);
+        if (hint) hint.style.color = "#b91c1c";
+        bmLoad_();
+      })
+      .admin_updateBillingMatrixCell({
+        projectId: projectId,
+        ym: ym,
+        taskKey: taskKey,
+        newStatus: newStatus
+      });
+  };
+
+  function bmEsc_(s){
+    var d = document.createElement("div");
+    d.textContent = String(s||"");
+    return d.innerHTML;
+  }
+  function bmEscAttr_(s){
+    return String(s||"").replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+  }
+})();
+
+// ================================================================
+// PDF一括アップロード
+// ================================================================
+(function(){
+  var _pdfRows = [];
+
+  window.pdfLoad_ = function(){
+    var el = document.getElementById("pdfList");
+    var hint = document.getElementById("pdfHint");
+    el.innerHTML = "<span class='muted'>読み込み中…</span>";
+    hint.textContent = "";
+
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (!res || !res.ok){
+          el.innerHTML = "<span class='err'>取得失敗</span>";
+          return;
+        }
+        _pdfRows = res.rows || [];
+        pdfRender_();
+      })
+      .withFailureHandler(function(err){
+        el.innerHTML = "<span class='err'>" + String(err.message||err) + "</span>";
+      })
+      .admin_getPendingPdfUploads();
+  };
+
+function pdfRender_(){
+    var el = document.getElementById("pdfList");
+    var hint = document.getElementById("pdfHint");
+
+    if (!_pdfRows.length){
+      el.innerHTML = "<span class='muted'>対応が必要なPJはないよ ✅</span>";
+      hint.textContent = "0 件";
+      return;
+    }
+    hint.textContent = _pdfRows.length + " 件";
+
+    var html = "";
+    for (var i = 0; i < _pdfRows.length; i++){
+      var r = _pdfRows[i];
+      var ymDisp = r.ym.slice(0,4) + "/" + r.ym.slice(4);
+      var cardId = "pdfCard_" + r.projectId + "_" + r.ym;
+
+      // 差分の色
+      var diffClass = "";
+      var absPct = Math.abs(r.diff.amountDeltaPct);
+      if (absPct >= 50) diffClass = "danger";
+      else if (absPct >= 20) diffClass = "warn";
+
+      var diffSign = r.diff.amountDelta >= 0 ? "+" : "";
+      var diffText = diffSign + r.diff.amountDelta.toLocaleString() + "円";
+      if (r.diff.amountDeltaPct) diffText += "（" + diffSign + r.diff.amountDeltaPct + "%）";
+
+      // カード状態
+      var cardClass = "pdfCard";
+      if (r.invoiceSentAt) cardClass += " uploaded";
+      else if (r.pdfUploaded) cardClass += " uploaded";
+
+      html += "<div class='" + cardClass + "' id='" + cardId + "'>";
+      html += "<div class='pdfCardHead'>" + pdfEsc_(r.projectName) + "（" + pdfEsc_(r.projectId) + "）" + ymDisp;
+
+      // ステータスバッジ
+      if (r.invoiceSentAt){
+        html += " <span style='font-size:11px;background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:6px;font-weight:700;'>送付済み</span>";
+      } else if (r.pdfUploaded){
+        html += " <span style='font-size:11px;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:700;'>PDF済み・未送付</span>";
+      } else {
+        html += " <span style='font-size:11px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700;'>PDF未アップ</span>";
+      }
+      html += "</div>";
+
+      // 比較テーブル
+      html += "<div class='pdfCompare'>";
+      html += "<div class='header'></div><div class='header'>前月</div><div class='header'>今月</div><div class='header'>差分</div>";
+
+      html += "<div class='label'>基本請求額(税抜)</div>";
+      html += "<div>¥" + r.prev.baseLinesTotal.toLocaleString() + "</div>";
+      html += "<div>¥" + r.baseLinesTotal.toLocaleString() + "</div>";
+      html += "<div></div>";
+
+      html += "<div class='label'>立替精算</div>";
+      html += "<div>¥" + r.prev.reimbTotal.toLocaleString() + "</div>";
+      html += "<div>¥" + r.reimbTotal.toLocaleString() + "（" + r.reimbCount + "件）</div>";
+      html += "<div></div>";
+
+      html += "<div class='label' style='font-weight:900;'>合計(税抜)</div>";
+      html += "<div style='font-weight:900;'>¥" + r.prev.grandTotal.toLocaleString() + "</div>";
+      html += "<div style='font-weight:900;'>¥" + r.grandTotal.toLocaleString() + "</div>";
+      html += "<div class='" + diffClass + "'>" + diffText + "</div>";
+
+      html += "<div class='label'>請求書番号</div>";
+      html += "<div>" + pdfEsc_(r.prev.freeeInvoiceNumber || "—") + "</div>";
+      html += "<div>" + pdfEsc_(r.freeeInvoiceNumber || "—") + "</div>";
+      html += "<div></div>";
+
+      if (r.invoiceBillingDate || r.invoicePaymentDate){
+        html += "<div class='label'>請求日</div><div></div><div>" + pdfEsc_(r.invoiceBillingDate || "—") + "</div><div></div>";
+        html += "<div class='label'>支払期日</div><div></div><div>" + pdfEsc_(r.invoicePaymentDate || "—") + "</div><div></div>";
+      }
+      html += "</div>";
+
+      // 明細
+      if (r.baseLines && r.baseLines.length){
+        html += "<div class='pdfDetail'><b>明細:</b><ul>";
+        for (var bl = 0; bl < r.baseLines.length; bl++){
+          var ln = r.baseLines[bl];
+          var lineTotal = ln.quantity * ln.unitPrice;
+          html += "<li>" + pdfEsc_(ln.description);
+          if (ln.quantity !== 1) html += " ×" + ln.quantity;
+          html += " ¥" + lineTotal.toLocaleString() + "</li>";
+        }
+        html += "</ul></div>";
+      }
+
+      // ── アクションエリア ──
+      if (r.invoiceSentAt){
+        // 送付済み → 完了表示
+        html += "<div style='color:#065f46;font-weight:700;font-size:13px;'>✅ 送付完了（" + pdfEsc_(r.invoiceSentAt) + "）</div>";
+      } else if (r.pdfUploaded){
+        // PDF済み・未送付 → 送付ボタン
+        var sendBtnId = "pdfSend_" + r.projectId + "_" + r.ym;
+        html += "<button class='btn' id='" + sendBtnId + "' style='background:#1e40af;color:#fff;font-weight:700;padding:8px 20px;border-radius:8px;cursor:pointer;' "
+          + "onclick=\"pdfMarkSent_('" + pdfEscAttr_(r.projectId) + "','" + pdfEscAttr_(r.ym) + "','" + pdfEscAttr_(r.projectName) + "',this)\">"
+          + "📨 送付完了を記録</button>";
+      } else {
+        // PDF未アップ → ドロップゾーン
+        var dzId = "pdfDz_" + r.projectId + "_" + r.ym;
+        html += "<div class='pdfDropZone' id='" + dzId + "' "
+          + "onclick=\"document.getElementById('pdfFile_" + r.projectId + "_" + r.ym + "').click()\" "
+          + "ondragover=\"event.preventDefault();this.classList.add('dragover')\" "
+          + "ondragleave=\"this.classList.remove('dragover')\" "
+          + "ondrop=\"pdfOnDrop_(event,'" + pdfEscAttr_(r.projectId) + "','" + pdfEscAttr_(r.ym) + "')\">"
+          + "📎 PDFをドロップ or クリックで選択"
+          + "<input type='file' id='pdfFile_" + r.projectId + "_" + r.ym + "' accept='.pdf' "
+          + "onchange=\"pdfOnFile_(this.files[0],'" + pdfEscAttr_(r.projectId) + "','" + pdfEscAttr_(r.ym) + "')\">"
+          + "</div>";
+      }
+
+      html += "</div>";
+    }
+    el.innerHTML = html;
+  }
+
+  window.pdfOnDrop_ = function(ev, projectId, ym){
+    ev.preventDefault();
+    var dz = ev.currentTarget;
+    dz.classList.remove("dragover");
+    var files = ev.dataTransfer.files;
+    if (!files || !files.length) return;
+
+    if (files.length > 1){
+      pdfUploadMultiple_(files);
+      return;
+    }
+    pdfOnFile_(files[0], projectId, ym);
+  };
+
+  window.pdfOnFile_ = function(file, projectId, ym){
+    if (!file) return;
+    var dzId = "pdfDz_" + projectId + "_" + ym;
+    var dz = document.getElementById(dzId);
+    if (dz) dz.innerHTML = "⏳ アップロード中… " + pdfEsc_(file.name);
+
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var base64 = e.target.result.split(",")[1];
+      google.script.run
+        .withSuccessHandler(function(res){
+          if (!res || !res.ok){
+            if (dz) dz.innerHTML = "⚠️ 失敗: " + pdfEsc_(res && res.message ? res.message : "不明");
+            return;
+          }
+          // アップ成功 → 送付ボタンに切り替え
+          if (dz){
+            dz.outerHTML = "<button class='btn' style='background:#1e40af;color:#fff;font-weight:700;padding:8px 20px;border-radius:8px;cursor:pointer;' "
+              + "onclick=\"pdfMarkSent_('" + pdfEscAttr_(projectId) + "','" + pdfEscAttr_(ym) + "','',this)\">"
+              + "📨 送付完了を記録</button>";
+          }
+          var card = document.getElementById("pdfCard_" + projectId + "_" + ym);
+          if (card) card.classList.add("uploaded");
+
+          // ステータス更新
+          for (var i = 0; i < _pdfRows.length; i++){
+            if (_pdfRows[i].projectId === projectId && _pdfRows[i].ym === ym){
+              _pdfRows[i].pdfUploaded = true;
+              break;
+            }
+          }
+
+          var hint = document.getElementById("pdfHint");
+          if (hint) hint.textContent = "✅ PDFアップロード完了 — 送付完了を記録してね";
+        })
+        .withFailureHandler(function(err){
+          if (dz) dz.innerHTML = "⚠️ エラー: " + pdfEsc_(String(err.message||err));
+        })
+        .admin_uploadInvoicePdf({
+          projectId: projectId,
+          ym: ym,
+          fileName: file.name,
+          base64Data: base64
+        });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  window.pdfMarkSent_ = function(projectId, ym, projectName, btnEl){
+    if (btnEl) btnEl.disabled = true;
+    if (btnEl) btnEl.textContent = "⏳ 記録中…";
+
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (!res || !res.ok){
+          if (btnEl){ btnEl.disabled = false; btnEl.textContent = "⚠️ 失敗"; }
+          return;
+        }
+        if (res.alreadySent){
+          if (btnEl) btnEl.outerHTML = "<div style='color:#065f46;font-weight:700;font-size:13px;'>✅ 送付済み（" + pdfEsc_(res.sentAt) + "）</div>";
+          return;
+        }
+        if (btnEl) btnEl.outerHTML = "<div style='color:#065f46;font-weight:700;font-size:13px;'>✅ 送付完了を記録した（" + pdfEsc_(res.sentAt) + "）</div>";
+
+        // 残件カウント更新
+        _pdfRows = _pdfRows.filter(function(r){ return !(r.projectId === projectId && r.ym === ym); });
+        var hint = document.getElementById("pdfHint");
+        if (hint) hint.textContent = _pdfRows.length ? (_pdfRows.length + " 件残り") : "全件完了 ✅";
+      })
+      .withFailureHandler(function(err){
+        if (btnEl){ btnEl.disabled = false; btnEl.textContent = "⚠️ " + pdfEsc_(String(err.message||err)); }
+      })
+      .admin_markInvoiceSent({ projectId: projectId, ym: ym, projectName: projectName });
+  };
+
+  function pdfUploadMultiple_(files){
+    var hint = document.getElementById("pdfHint");
+    if (hint) hint.textContent = "⏳ " + files.length + " ファイルをマッチング中…";
+
+    var queue = [];
+    for (var i = 0; i < files.length; i++) queue.push(files[i]);
+
+    var processed = 0;
+    var matched = 0;
+    var unmatched = [];
+
+    function processNext(){
+      if (!queue.length){
+        if (hint){
+          var msg = matched + " 件マッチ";
+          if (unmatched.length) msg += "、" + unmatched.length + " 件マッチ失敗: " + unmatched.join(", ");
+          hint.textContent = msg;
+        }
+        return;
+      }
+      var file = queue.shift();
+      var numMatch = file.name.match(/(\d{3,})/);
+      var numStr = numMatch ? numMatch[1] : "";
+
+      if (!numStr){
+        unmatched.push(file.name);
+        processNext();
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(match){
+          if (!match || !match.projectId){
+            unmatched.push(file.name);
+            processNext();
+            return;
+          }
+          matched++;
+          pdfOnFile_(file, match.projectId, match.ym);
+          processNext();
+        })
+        .withFailureHandler(function(){
+          unmatched.push(file.name);
+          processNext();
+        })
+        .admin_matchInvoiceNumber(numStr);
+    }
+
+    processNext();
+  }
+
+  function pdfEsc_(s){
+    var d = document.createElement("div");
+    d.textContent = String(s||"");
+    return d.innerHTML;
+  }
+  function pdfEscAttr_(s){
+    return String(s||"").replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+  }
+})();
+
+// ================================================================
+// 請求額承認待ちリスト
+// ================================================================
+(function(){
+  window.baLoad_ = function(){
+    var el   = document.getElementById("baList");
+    var hint = document.getElementById("baHint");
+    if (!el) return;
+    el.innerHTML = "<span class='muted'>読み込み中…</span>";
+    hint.textContent = "";
+
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (!res || !res.ok){
+          el.innerHTML = "<span class='err'>取得失敗: " + baEsc_(res && res.message ? res.message : "不明") + "</span>";
+          return;
+        }
+        var list = res.list || [];
+        if (!list.length){
+          el.innerHTML = "<span class='muted'>承認待ちはないよ ✅</span>";
+          hint.textContent = "0 件";
+          return;
+        }
+        hint.textContent = list.length + " 件";
+        var html = "";
+        for (var i = 0; i < list.length; i++){
+          var r = list[i];
+          var ymDisp = String(r.ym||"").slice(0,4) + "/" + String(r.ym||"").slice(4);
+          var btnId = "baBtn_" + r.projectId + "_" + r.ym;
+          html += "<div class='baCard' id='baCard_" + baEscAttr_(r.projectId) + "_" + baEscAttr_(r.ym) + "'>";
+          html += "<div class='baCardHead'>" + baEsc_(r.projectName) + " <span class='muted'>（" + baEsc_(r.projectId) + "）</span> " + baEsc_(ymDisp) + "</div>";
+          html += "<div class='baCardBody'>";
+          html += "<div><span class='baLabel'>申告額</span><span class='baAmount'>¥" + Number(r.budgetReportedAmount||0).toLocaleString() + "</span></div>";
+          html += "<div><span class='baLabel'>65%予算</span><span>¥" + Math.round(Number(r.budgetReportedAmount||0) * 0.65).toLocaleString() + "</span></div>";
+          html += "<div><span class='baLabel'>申告者</span><span>" + baEsc_(r.budgetReportedBy||"—") + "</span></div>";
+          html += "<div><span class='baLabel'>申告日時</span><span>" + baFmtDate_(r.budgetReportedAt) + "</span></div>";
+          html += "</div>";
+          html += "<button class='btn baApproveBtn' id='" + btnId + "' "
+            + "onclick=\"baApprove_('" + baEscAttr_(r.projectId) + "','" + baEscAttr_(r.ym) + "',this)\">"
+            + "✅ 承認する</button>";
+          html += "</div>";
+        }
+        el.innerHTML = html;
+      })
+      .withFailureHandler(function(err){
+        var el = document.getElementById("baList");
+        if (el) el.innerHTML = "<span class='err'>" + String(err.message||err) + "</span>";
+      })
+      .admin_getBudgetPendingList();
+  };
+
+  window.baApprove_ = function(projectId, ym, btnEl){
+    if (btnEl){ btnEl.disabled = true; btnEl.textContent = "⏳ 承認中…"; }
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (!res || !res.ok){
+          if (btnEl){ btnEl.disabled = false; btnEl.textContent = "⚠️ 失敗: " + (res && res.message ? res.message : "不明"); }
+          return;
+        }
+        var card = document.getElementById("baCard_" + projectId + "_" + ym);
+        if (card) card.innerHTML = "<div style='color:#065f46;font-weight:700;padding:8px 0;'>✅ 承認完了</div>";
+        // Billing Matrixも更新
+        if (typeof bmLoad_ === "function") bmLoad_();
+        // カウント更新
+        setTimeout(baLoad_, 800);
+      })
+      .withFailureHandler(function(err){
+        if (btnEl){ btnEl.disabled = false; btnEl.textContent = "⚠️ " + String(err.message||err); }
+      })
+      .admin_approveBudget({ projectId: projectId, ym: ym });
+  };
+
+  function baFmtDate_(val) {
+    if (!val) return "—";
+    var d = new Date(val);
+    if (isNaN(d.getTime())) return String(val);
+    d = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    return d.getUTCFullYear() + "年"
+      + (d.getUTCMonth() + 1) + "月"
+      + d.getUTCDate() + "日 "
+      + String(d.getUTCHours()).padStart(2, "0") + ":"
+      + String(d.getUTCMinutes()).padStart(2, "0");
+  }
+  function baEsc_(s){
+    var d = document.createElement("div");
+    d.textContent = String(s||"");
+    return d.innerHTML;
+  }
+  function baEscAttr_(s){
+    return String(s||"").replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+  }
+})();
+</script>

@@ -1,0 +1,345 @@
+<!-- 506_CockpitMsDesign.html
+     MS設計モーダル（つくよみチャット式ヒアリング→MS案生成→確定）。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+var MSD = { sessionId: null, phase: null, questions: [], answers: {} };
+
+function cpStartMsDesign() {
+  MSD = { sessionId: null, phase: null, questions: [], answers: {} };
+  document.getElementById('cpMsdPhaseForm').innerHTML = '';
+  document.getElementById('cpMsdPhaseReview').style.display = 'none';
+  document.getElementById('cpMsdReviewInput').style.display = 'none';
+  document.getElementById('cpMsdFormActions').style.display = 'none';
+  document.getElementById('cpMsdLoading').style.display = 'none';
+
+  var pjName = (CP && CP.projectName) ? CP.projectName : '';
+  document.getElementById('cpMsdTitle').textContent = '📋 MS設計 - ' + pjName;
+  document.getElementById('cpMsdOverlay').classList.add('open');
+
+  document.getElementById('cpMsdPhaseForm').innerHTML =
+    '<div style="text-align:center;padding:40px;color:#9ca3af;">読み込み中...</div>';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        document.getElementById('cpMsdPhaseForm').innerHTML =
+          '<div style="color:#ef4444;padding:20px;">⚠️ ' + cpMsdEsc(res && res.message ? res.message : 'エラー') + '</div>';
+        return;
+      }
+      MSD.sessionId = res.sessionId;
+      MSD.phase = res.phase || 'hearing';
+      MSD.questions = res.questions || [];
+      MSD.answers = res.answers || {};
+      MSD.suggestedPlanMonths = res.suggestedPlanMonths || 12;
+      MSD.planMonths = res.planMonths || null;
+      MSD.feeType = res.feeType || '';
+      MSD.feeAmount = Number(res.feeAmount || 0);
+      MSD.budgetYen = res.budgetYen || null;
+
+      if (MSD.phase === 'review' && res.milestones) {
+        cpMsdShowReview(res.milestones, res.conversationLog || []);
+      } else {
+        cpMsdRenderForm();
+      }
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('cpMsdPhaseForm').innerHTML =
+        '<div style="color:#ef4444;padding:20px;">⚠️ ' + cpMsdEsc(String(err)) + '</div>';
+    })
+    .cockpit_api_msDesign_start({ projectId: CP.projectId });
+}
+
+function cpMsdRenderForm() {
+  var html = '';
+  var defMonths = MSD.planMonths || MSD.suggestedPlanMonths || 12;
+  html += '<div class="cp-msd-form-item" style="border-bottom:2px solid #e5e7eb;padding-bottom:16px;margin-bottom:16px">';
+  html += '<div class="cp-msd-form-label">📐 この計画の期間（月数）</div>';
+  html += '<div class="cp-msd-form-desc">MS設計のポイント配分に使うよ。PJ契約期間とは別でOK。</div>';
+  html += '<input type="number" id="cpMsdPlanMonths" min="1" max="120" value="' + defMonths + '" style="width:100px;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;font-weight:600">';
+  html += '<span style="margin-left:8px;font-size:13px;color:#6b7280">ヶ月 → ' + (defMonths * 10) + 'pt</span>';
+  html += '</div>';
+
+  var isVariable = (MSD.feeType === 'variable');
+  var defBudget = MSD.budgetYen || (isVariable ? '' : (MSD.feeAmount * defMonths));
+  html += '<div class="cp-msd-form-item" style="border-bottom:2px solid #e5e7eb;padding-bottom:16px;margin-bottom:16px">';
+  html += '<div class="cp-msd-form-label">💰 見込み予算総額（円）</div>';
+  if (isVariable) {
+    html += '<div class="cp-msd-form-desc">variableタイプなので、計画期間中の見込み総額を入力してね。</div>';
+  } else {
+    html += '<div class="cp-msd-form-desc">月額 × 計画月数で自動算出。変更もOK。</div>';
+  }
+  html += '<input type="number" id="cpMsdBudgetYen" min="0" value="' + (defBudget || '') + '" placeholder="例: 6000000" style="width:200px;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;font-weight:600">';
+  html += '<span id="cpMsdBudgetLabel" style="margin-left:8px;font-size:13px;color:#6b7280">' + (defBudget ? ('= ' + Number(defBudget).toLocaleString() + '円') : '') + '</span>';
+  html += '</div>';
+
+  for (var i = 0; i < MSD.questions.length; i++) {
+    var q = MSD.questions[i];
+    var savedVal = MSD.answers[q.itemId] || '';
+    if (typeof savedVal === 'object' && savedVal.answer) savedVal = savedVal.answer;
+    html += '<div class="cp-msd-form-item">';
+    html += '<div class="cp-msd-form-label">' + cpMsdEsc(q.question) + '</div>';
+    if (q.description) html += '<div class="cp-msd-form-desc">' + cpMsdEsc(q.description) + '</div>';
+    html += '<textarea class="cp-msd-form-textarea" id="cpMsdAns_' + q.itemId + '" placeholder="分かる範囲で入力...">' + cpMsdEsc(savedVal) + '</textarea>';
+    html += '</div>';
+  }
+  document.getElementById('cpMsdPhaseForm').innerHTML = html;
+
+  var monthInput = document.getElementById('cpMsdPlanMonths');
+  if (monthInput) {
+    monthInput.addEventListener('input', function() {
+      var v = parseInt(this.value) || 0;
+      var span = this.nextElementSibling;
+      if (span) span.textContent = 'ヶ月 → ' + (v * 10) + 'pt';
+    });
+  }
+
+  var budgetInput = document.getElementById('cpMsdBudgetYen');
+  if (budgetInput) {
+    budgetInput.addEventListener('input', function() {
+      var v = parseInt(this.value) || 0;
+      var lbl = document.getElementById('cpMsdBudgetLabel');
+      if (lbl) lbl.textContent = v > 0 ? ('= ' + v.toLocaleString() + '円') : '';
+    });
+    if (!isVariable && monthInput) {
+      monthInput.addEventListener('input', function() {
+        var m = parseInt(this.value) || 0;
+        var b = document.getElementById('cpMsdBudgetYen');
+        if (b) { b.value = MSD.feeAmount * m; b.dispatchEvent(new Event('input')); }
+      });
+    }
+  }
+
+  document.getElementById('cpMsdPhaseForm').style.display = 'block';
+  document.getElementById('cpMsdPhaseReview').style.display = 'none';
+  document.getElementById('cpMsdFormActions').style.display = 'flex';
+  document.getElementById('cpMsdReviewInput').style.display = 'none';
+  document.getElementById('cpMsdLoading').style.display = 'none';
+}
+
+function cpMsdCollectAnswers() {
+  var answers = {};
+  for (var i = 0; i < MSD.questions.length; i++) {
+    var q = MSD.questions[i];
+    var el = document.getElementById('cpMsdAns_' + q.itemId);
+    if (el) { var v = el.value.trim(); if (v) answers[q.itemId] = v; }
+  }
+  return answers;
+}
+
+function cpMsdSaveDraft() {
+  var answers = cpMsdCollectAnswers();
+  MSD.answers = answers;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      cpMsdShowToast(res && res.ok ? '💾 下書き保存した（' + (res.savedCount || 0) + '件）' : '⚠️ 保存に失敗');
+    })
+    .withFailureHandler(function() { cpMsdShowToast('⚠️ 保存に失敗'); })
+    .cockpit_api_msDesign_saveDraft({ sessionId: MSD.sessionId, answers: answers });
+}
+
+function cpMsdGenerate() {
+  var answers = cpMsdCollectAnswers();
+  if (Object.keys(answers).length === 0) {
+    cpMsdShowToast('⚠️ 少なくとも1つは回答を入力してね');
+    return;
+  }
+  MSD.answers = answers;
+  document.getElementById('cpMsdPhaseForm').style.display = 'none';
+  document.getElementById('cpMsdFormActions').style.display = 'none';
+  document.getElementById('cpMsdLoading').style.display = 'block';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      document.getElementById('cpMsdLoading').style.display = 'none';
+      if (!res || !res.ok) {
+        cpMsdRenderForm();
+        cpMsdShowToast('⚠️ ' + (res && res.message ? res.message : 'MS生成に失敗'));
+        return;
+      }
+      MSD.phase = 'review';
+      var log = [{ role: 'assistant', text: res.message || 'MS案ができたよ🌙' }];
+      cpMsdShowReview(res.milestones || [], log);
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('cpMsdLoading').style.display = 'none';
+      cpMsdRenderForm();
+      cpMsdShowToast('⚠️ エラー: ' + String(err));
+    })
+    .cockpit_api_msDesign_generate({ sessionId: MSD.sessionId, answers: answers, planMonths: parseInt(document.getElementById('cpMsdPlanMonths').value) || 12, budgetYen: parseInt(document.getElementById('cpMsdBudgetYen').value) || 0 });
+}
+
+function cpMsdShowReview(milestones, conversationLog) {
+  var chatDiv = document.getElementById('cpMsdReviewChat');
+  chatDiv.innerHTML = '';
+  if (conversationLog && conversationLog.length) {
+    for (var i = 0; i < conversationLog.length; i++) {
+      cpMsdAddBubble(conversationLog[i].role, conversationLog[i].text);
+    }
+  }
+  if (milestones && milestones.length) cpMsdRenderMilestones(milestones);
+  document.getElementById('cpMsdPhaseForm').style.display = 'none';
+  document.getElementById('cpMsdFormActions').style.display = 'none';
+  document.getElementById('cpMsdPhaseReview').style.display = 'block';
+  document.getElementById('cpMsdReviewInput').style.display = 'block';
+  document.getElementById('cpMsdLoading').style.display = 'none';
+  var body = document.getElementById('cpMsdBody');
+  body.scrollTop = body.scrollHeight;
+}
+
+function cpMsdAddBubble(role, text) {
+  var chatDiv = document.getElementById('cpMsdReviewChat');
+  var bubble = document.createElement('div');
+  bubble.className = 'cp-msd-bubble ' + (role === 'user' ? 'user' : 'assistant');
+  var sender = document.createElement('div');
+  sender.className = 'cp-msd-bubble-sender';
+  sender.textContent = role === 'user' ? 'あなた' : '🌙 つくよみ';
+  bubble.appendChild(sender);
+  var content = document.createElement('div');
+  var escaped = cpMsdEsc(text || '');
+  escaped = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  content.innerHTML = escaped;
+  bubble.appendChild(content);
+  chatDiv.appendChild(bubble);
+  document.getElementById('cpMsdBody').scrollTop = document.getElementById('cpMsdBody').scrollHeight;
+}
+
+function cpMsdRenderMilestones(milestones) {
+  var chatDiv = document.getElementById('cpMsdReviewChat');
+  for (var i = 0; i < milestones.length; i++) {
+    var m = milestones[i];
+    var card = document.createElement('div');
+    card.className = 'cp-msd-ms-card';
+
+    var metaParts = [Number(m.points || 0) + 'pt', cpMsdEsc(m.tag || 'normal')];
+    var tym = String(m.targetYm || '').trim();
+    if (tym.length === 6) metaParts.push('〆 ' + tym.substring(0,4) + '/' + tym.substring(4));
+
+    var respHtml = '';
+    if (Array.isArray(m.responsibilities) && m.responsibilities.length > 0) {
+      var parts = [];
+      for (var r = 0; r < m.responsibilities.length; r++) {
+        var rr = m.responsibilities[r];
+        var pct = Math.round(Number(rr.share || 0) * 100);
+        if (pct > 0) parts.push(cpMsdEsc(rr.codeName || rr.memberId || '?') + ' ' + pct + '%');
+      }
+      if (parts.length) respHtml = '<div style="font-size:11px;color:#6b7280;margin-top:3px">👥 ' + parts.join(' / ') + '</div>';
+    }
+
+    card.innerHTML =
+      '<div class="cp-msd-ms-card-title">MS' + (i + 1) + '. ' + cpMsdEsc(m.title || '') + '</div>' +
+      '<div class="cp-msd-ms-card-meta">' + metaParts.join(' | ') + '</div>' +
+      '<div class="cp-msd-ms-card-criteria">達成条件: ' + cpMsdEsc(m.successCriteria || '') + '</div>' +
+      respHtml;
+    chatDiv.appendChild(card);
+  }
+}
+
+function cpMsdSend() {
+  var input = document.getElementById('cpMsdInput');
+  var text = (input.value || '').trim();
+  if (!text || !MSD.sessionId) return;
+  cpMsdAddBubble('user', text);
+  input.value = '';
+  input.disabled = true;
+  document.querySelector('.cp-msd-send-btn').disabled = true;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      input.disabled = false;
+      document.querySelector('.cp-msd-send-btn').disabled = false;
+      if (!res || !res.ok) {
+        cpMsdAddBubble('assistant', '⚠️ ' + (res && res.message ? res.message : 'エラー'));
+        return;
+      }
+      if (res.message) cpMsdAddBubble('assistant', res.message);
+      if (res.milestones) cpMsdRenderMilestones(res.milestones);
+    })
+    .withFailureHandler(function(err) {
+      input.disabled = false;
+      document.querySelector('.cp-msd-send-btn').disabled = false;
+      cpMsdAddBubble('assistant', '⚠️ ' + String(err));
+    })
+    .cockpit_api_msDesign_reply({ sessionId: MSD.sessionId, text: text });
+}
+
+function cpMsdFix() {
+  cpMsdShowConfirm('このMS案で仮確定する？後から修正もできるよ。', function() {
+    var fixBtn = document.getElementById('cpMsdFixBtn');
+    var backBtn = document.getElementById('cpMsdBackBtn');
+    if (fixBtn) { fixBtn.disabled = true; fixBtn.textContent = '⏳ 確定中…'; }
+    if (backBtn) backBtn.disabled = true;
+    cpMsdAddBubble('assistant', '🌙 確定処理中…少し待ってね');
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (fixBtn) { fixBtn.disabled = false; fixBtn.innerHTML = '✅ これでOK'; }
+        if (backBtn) backBtn.disabled = false;
+        if (!res || !res.ok) {
+          cpMsdShowToast('⚠️ ' + (res && res.message ? res.message : '確定に失敗'));
+          return;
+        }
+        MSD.phase = 'fixed';
+        cpMsdAddBubble('assistant', '✅ MS案を仮確定したよ！コックピットに反映されるよ🌙');
+        document.getElementById('cpMsdReviewInput').style.display = 'none';
+        if (fixBtn) fixBtn.style.display = 'none';
+        if (backBtn) backBtn.style.display = 'none';
+        setTimeout(function() { if (typeof cpLoadGoals === 'function') cpLoadGoals(); }, 1500);
+      })
+      .withFailureHandler(function(err) {
+        if (fixBtn) { fixBtn.disabled = false; fixBtn.innerHTML = '✅ これでOK'; }
+        if (backBtn) backBtn.disabled = false;
+        cpMsdShowToast('⚠️ ' + String(err));
+      })
+      .cockpit_api_msDesign_fix({ sessionId: MSD.sessionId });
+  });
+}
+
+function cpMsdShowConfirm(msg, onYes) {
+  var old = document.getElementById('cpMsdConfirmOverlay');
+  if (old) old.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'cpMsdConfirmOverlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:10100;display:flex;align-items:center;justify-content:center';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:12px;padding:24px 28px;max-width:360px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,0.2);text-align:center';
+  box.innerHTML =
+    '<div style="font-size:14px;line-height:1.6;margin-bottom:20px">' + msg + '</div>' +
+    '<div style="display:flex;gap:12px;justify-content:center">' +
+      '<button id="cpMsdConfirmNo" style="padding:8px 20px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">やめる</button>' +
+      '<button id="cpMsdConfirmYes" style="padding:8px 20px;border:none;border-radius:8px;background:#22c55e;color:#fff;cursor:pointer;font-size:13px;font-weight:600">確定する</button>' +
+    '</div>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  document.getElementById('cpMsdConfirmNo').onclick = function() { overlay.remove(); };
+  document.getElementById('cpMsdConfirmYes').onclick = function() { overlay.remove(); onYes(); };
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+}
+
+function cpMsdBackToForm() {
+  MSD.phase = 'hearing';
+  cpMsdRenderForm();
+  google.script.run.cockpit_api_msDesign_backToHearing({ sessionId: MSD.sessionId });
+}
+
+function cpMsdClose() {
+  if (MSD.phase === 'hearing' && MSD.sessionId) {
+    var answers = cpMsdCollectAnswers();
+    if (Object.keys(answers).length > 0) {
+      google.script.run.cockpit_api_msDesign_saveDraft({ sessionId: MSD.sessionId, answers: answers });
+    }
+  }
+  document.getElementById('cpMsdOverlay').classList.remove('open');
+  if (MSD.phase === 'fixed' && typeof cpLoadGoals === 'function') cpLoadGoals();
+}
+
+function cpMsdShowToast(msg) {
+  var toast = document.getElementById('cpMsdToast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(function() { toast.classList.remove('show'); }, 2500);
+}
+
+function cpMsdEsc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+}
+</script>

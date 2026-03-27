@@ -1,0 +1,163 @@
+<!-- A271_AdminSettings.html -->
+<div id="sec_settings" style="display:none">
+  <div class="card">
+    <div class="row">
+      <b>Settings</b>
+      <button class="btn" onclick="settingsOpenNew()">＋ 追加</button>
+    </div>
+    <div id="settingsErr" class="err" style="display:none"></div>
+
+    <div class="tableWrap">
+      <table id="settingsTable">
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>ラベル</th>
+            <th>値</th>
+            <th>型</th>
+            <th>説明</th>
+            <th>更新日時</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="settingsTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 編集モーダル -->
+  <div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;padding:24px;width:480px;max-width:90vw;">
+      <div style="font-weight:900;font-size:16px;margin-bottom:16px" id="settingsModalTitle">設定を追加</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div>
+          <div class="ctlLabel">Key（変更不可）</div>
+          <input class="ctl" id="settingsKey" style="width:100%" placeholder="例: nudge_reminder_day">
+        </div>
+        <div>
+          <div class="ctlLabel">ラベル</div>
+          <input class="ctl" id="settingsLabel" style="width:100%" placeholder="例: Nudgeリマインド日">
+        </div>
+        <div>
+          <div class="ctlLabel">値</div>
+          <input class="ctl" id="settingsValue" style="width:100%">
+        </div>
+        <div>
+          <div class="ctlLabel">型</div>
+          <select class="ctl" id="settingsType" style="width:100%">
+            <option value="string">string</option>
+            <option value="number">number</option>
+            <option value="boolean">boolean</option>
+          </select>
+        </div>
+        <div>
+          <div class="ctlLabel">説明</div>
+          <input class="ctl" id="settingsDesc" style="width:100%" placeholder="例: 月次リマインドを送る日（1〜28）">
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+        <button class="btn" onclick="settingsCloseModal()">キャンセル</button>
+        <button class="btn" style="background:#111;color:#fff;" onclick="settingsSave()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var _settingsEditKey = null;
+
+function settingsLoad() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) return;
+      var tbody = document.getElementById('settingsTbody');
+      tbody.innerHTML = '';
+      res.rows.forEach(function(row) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td class="mono">' + escapeHtml(row.settingKey) +
+          ' <button class="btn" style="font-size:11px;padding:3px 7px;" onclick="settingsSearchCode(\'' + escapeHtml(row.settingKey) + '\')">🔍</button></td>' +
+          '<td>' + escapeHtml(row.label) + '</td>' +
+          '<td><b>' + escapeHtml(String(row.settingValue)) + '</b></td>' +
+          '<td><span class="pill">' + escapeHtml(row.valueType) + '</span></td>' +
+          '<td class="small">' + escapeHtml(row.description) + '</td>' +
+          '<td class="small nowrap">' + escapeHtml(String(row.updatedAtJst || '')) + '</td>' +
+          '<td><button class="btn" style="font-size:11px;padding:4px 8px" onclick="settingsOpenEdit(' + JSON.stringify(row) + ')">編集</button>' +
+          ' <button class="btn" style="font-size:11px;padding:4px 8px;color:#b00020" onclick="settingsDelete(\'' + escapeHtml(row.settingKey) + '\')">削除</button></td>';
+        tbody.appendChild(tr);
+      });
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('settingsErr').textContent = String(err);
+      document.getElementById('settingsErr').style.display = 'block';
+    })
+    .admin_getSettings();
+}
+
+function settingsOpenNew() {
+  _settingsEditKey = null;
+  document.getElementById('settingsModalTitle').textContent = '設定を追加';
+  document.getElementById('settingsKey').value = '';
+  document.getElementById('settingsKey').disabled = false;
+  document.getElementById('settingsLabel').value = '';
+  document.getElementById('settingsValue').value = '';
+  document.getElementById('settingsType').value = 'string';
+  document.getElementById('settingsDesc').value = '';
+  document.getElementById('settingsModal').style.display = 'flex';
+}
+
+function settingsOpenEdit(row) {
+  _settingsEditKey = row.settingKey;
+  document.getElementById('settingsModalTitle').textContent = '設定を編集';
+  document.getElementById('settingsKey').value = row.settingKey;
+  document.getElementById('settingsKey').disabled = true;
+  document.getElementById('settingsLabel').value = row.label || '';
+  document.getElementById('settingsValue').value = String(row.settingValue || '');
+  document.getElementById('settingsType').value = row.valueType || 'string';
+  document.getElementById('settingsDesc').value = row.description || '';
+  document.getElementById('settingsModal').style.display = 'flex';
+}
+
+function settingsCloseModal() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+
+function settingsSave() {
+  var payload = {
+    settingKey: document.getElementById('settingsKey').value.trim(),
+    settingValue: document.getElementById('settingsValue').value.trim(),
+    valueType: document.getElementById('settingsType').value,
+    label: document.getElementById('settingsLabel').value.trim(),
+    description: document.getElementById('settingsDesc').value.trim()
+  };
+  if (!payload.settingKey) return;
+  google.script.run
+    .withSuccessHandler(function() {
+      settingsCloseModal();
+      settingsLoad();
+    })
+    .withFailureHandler(function(err) {
+      alert('保存失敗: ' + String(err));
+    })
+    .admin_saveSetting(payload);
+}
+
+function settingsDelete(key) {
+  if (!confirm(key + ' を削除してもいい？')) return;
+  google.script.run
+    .withSuccessHandler(function() { settingsLoad(); })
+    .withFailureHandler(function(err) { alert('削除失敗: ' + String(err)); })
+    .admin_deleteSetting({ settingKey: key });
+}
+
+function settingsSearchCode(key) {
+  switchTab('code');
+  setTimeout(function() {
+    var input = document.getElementById('codeQuery');
+    if (input) {
+      input.value = key;
+      if (typeof runCodeSearch === 'function') runCodeSearch();
+    }
+  }, 100);
+}
+</script>

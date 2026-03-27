@@ -1,0 +1,787 @@
+<!-- A252_AdminPayoutsJs.html
+     役割: Adminの「Payouts」タブのJSロジック。A251_AdminPayouts.htmlのHTML部分と対になる。
+-->
+<script>
+  // ===== Payouts state =====
+  let __PAYOUT_ROWS__ = [];          // latest rows
+  let __PAYOUT_ROW_MAP__ = {};       // memberId -> row
+
+  function payoutsSetCache(rows){
+    __PAYOUT_ROWS__ = Array.isArray(rows) ? rows : [];
+    __PAYOUT_ROW_MAP__ = {};
+    __PAYOUT_ROWS__.forEach(r=>{
+      const mid = String(r?.memberId || "").trim();
+      if (mid) __PAYOUT_ROW_MAP__[mid] = r;
+    });
+  }
+
+  // ===== Payouts (stub) =====
+  function payoutsShowErr(msg){
+    const e = el("payoutErr");
+    if (!e) return;
+    e.style.display = "block";
+    e.textContent = msg || "error";
+  }
+  function payoutsHideErr(){
+    const e = el("payoutErr");
+    if (!e) return;
+    e.style.display = "none";
+    e.textContent = "";
+  }
+
+  function payoutsFillYmSelect(){
+    const sel = el("payoutYm");
+    if (!sel) return;
+
+    // JST基準
+    const now = new Date();
+    const jst = new Date(now.getTime() + 9*60*60*1000);
+    const y = jst.getUTCFullYear();
+    const m = jst.getUTCMonth() + 1;
+
+    // デフォルト：先月（今月払うのは先月分）
+    let defY = y, defM = m - 1;
+    if (defM < 1) { defM = 12; defY--; }
+    const ymDefault = String(defY) + String(defM).padStart(2,"0");
+
+    // 上限：再来月まで（それ以降は候補に出さない）
+    let capY = y, capM = m + 2;
+    if (capM > 12) { capM -= 12; capY++; }
+    const ymCap = String(capY) + String(capM).padStart(2,"0");
+
+    sel.innerHTML = `<option value="${escapeHtmlAttr(ymDefault)}" selected>${escapeHtml(ymDefault)}</option>`;
+
+    callGAS_(
+      "admin_listPayoutYmCandidates",
+      [],
+      (res) => {
+        try{
+          const list = (res && res.ok && Array.isArray(res.yms)) ? res.yms : [];
+          const yms = list.map(x => String(x||"").trim()).filter(x => /^\d{6}$/.test(x));
+          const uniq = Array.from(new Set(yms));
+
+          // ★再来月より先を除外
+          const capped = uniq.filter(v => v <= ymCap);
+          const finalList = capped.length ? capped : [ymDefault];
+
+          const desc = finalList.slice().sort((a,b)=>b.localeCompare(a));
+          sel.innerHTML = desc.map(v => `<option value="${escapeHtmlAttr(v)}">${escapeHtml(v)}</option>`).join("");
+
+          // ★再構築直後にデフォルト（先月）をセット（非同期スキャン中も正しい値にする）
+          sel.value = ymDefault;
+
+          const asc = finalList.slice().sort((a,b)=>a.localeCompare(b));
+          payoutsPickOldestUnpaidYm_(asc, (pickedYm) => {
+            const useYm = pickedYm || ymDefault || (desc[0] || "");
+            if (useYm) sel.value = useYm;
+            payoutsRefresh();
+          });
+
+        } catch(e){
+          try{ sel.value = ymDefault; } catch(_) {}
+          payoutsRefresh();
+        }
+      },
+      (_err) => {
+        try{ sel.value = ymDefault; } catch(_) {}
+        payoutsRefresh();
+      }
+    );
+  }
+
+  // ★未振込が残る最古ymを探す（無ければ "" を返す）
+  function payoutsPickOldestUnpaidYm_(ymsAsc, cb){
+    const list = Array.isArray(ymsAsc) ? ymsAsc.slice() : [];
+    let i = 0;
+
+    const step = () => {
+      if (i >= list.length){
+        cb && cb("");
+        return;
+      }
+      const ym = String(list[i] || "").trim();
+      i++;
+
+      callGAS_(
+        "admin_getPayoutTable",
+        [{ ym }],
+        (res) => {
+          try{
+            const rows = (res && res.ok && Array.isArray(res.rows)) ? res.rows : [];
+            // “未振込が残る” 判定：totalYen>0 かつ paid.isPaid が false の行が1つでもある
+            const hasUnpaid = rows.some(r => {
+              const total = Number(r.totalYen || 0);
+              if (!isFinite(total) || total <= 0) return false;
+              const paid = !!(r.paid && r.paid.isPaid);
+              return !paid;
+            });
+
+            if (hasUnpaid){
+              cb && cb(ym);
+              return;
+            }
+            step();
+          } catch(e){
+            step();
+          }
+        },
+        (_err) => {
+          step();
+        }
+      );
+    };
+
+    step();
+  }
+
+  function payoutsOnShow(){
+    try{
+      payoutsFillYmSelect();
+      payoutsRefresh();
+    } catch(e){
+      payoutsShowErr(e?.message || String(e));
+    }
+  }
+
+  function payoutsRefresh(){
+    payoutsHideErr();
+
+    const ym = String(el("payoutYm")?.value || "").trim();
+    if (!ym || !/^\d{6}$/.test(ym)){
+      payoutsShowErr("ym invalid（yyyymm）");
+      return;
+    }
+
+    const hint = el("payoutHint");
+    const tb = el("payoutTbody");
+    if (hint) hint.textContent = `loading... ym=${ym}`;
+    if (tb) tb.innerHTML = `<tr><td colspan="6" class="muted">loading...</td></tr>`;
+
+    callGAS_(
+      "admin_getPayoutTable",
+      [{ ym }],
+      (res) => {
+        try{
+          if (!res || !res.ok){
+            payoutsShowErr((res && res.message) ? res.message : "load failed");
+            payoutsSetCache([]);
+            if (tb) tb.innerHTML = `<tr><td colspan="6" class="muted">load failed</td></tr>`;
+            if (hint) hint.textContent = `failed: ym=${ym}`;
+            return;
+          }
+
+          const rows = Array.isArray(res.rows) ? res.rows : [];
+          payoutsSetCache(rows);
+
+          const meta = res.meta || {};
+          const gen = String(meta.generatedAtJst || "").trim() || "-";
+          if (hint) hint.textContent = `ym=${ym} / rows=${rows.length} / generatedAt=${gen}`;
+
+          payoutsRenderTable(__PAYOUT_ROWS__);
+        } catch(e2){
+          payoutsShowErr(e2?.message || String(e2));
+          payoutsSetCache([]);
+          if (tb) tb.innerHTML = `<tr><td colspan="7" class="muted">render error</td></tr>`;
+        }
+      },
+      (err) => {
+        payoutsShowErr(err?.message || String(err));
+        payoutsSetCache([]);
+        if (tb) tb.innerHTML = `<tr><td colspan="7" class="muted">error</td></tr>`;
+        if (hint) hint.textContent = `failed: ym=${ym}`;
+      }
+    );
+  }
+
+  function payoutsRenderTable(rows){
+    const tb = el("payoutTbody");
+    if (!tb) return;
+
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length){
+      tb.innerHTML = `<tr><td colspan="6" class="muted">該当なし</td></tr>`;
+      return;
+    }
+
+    function yen(n){
+      const x = Number(n || 0);
+      if (!isFinite(x)) return "-";
+      return x.toLocaleString("ja-JP") + "円";
+    }
+
+    function payoutLinesHtml(payouts, totalYen){
+      const arr = Array.isArray(payouts) ? payouts : [];
+      const lines = arr.map(p => {
+        const pn = String(p.projectName || p.projectId || "").trim();
+        const y = yen(p.yen);
+        return `<div class="row" style="justify-content:space-between; gap:10px;">
+          <span>${escapeHtml(pn)}</span>
+          <b class="mono">${escapeHtml(y)}</b>
+        </div>`;
+      }).join("");
+
+      const total = `<div style="border-top:1px solid var(--line); margin-top:8px; padding-top:8px;" class="row">
+        <span class="muted">合計</span>
+        <b class="mono">${escapeHtml(yen(totalYen))}</b>
+      </div>`;
+
+      return `<div style="min-width:260px;">${lines || `<span class="muted">-</span>`}${total}</div>`;
+    }
+
+    function mark_(st){
+      const s = String(st || "").trim().toLowerCase();
+      const ok = (s === "done");
+      return ok
+        ? `<span class="pill" style="border-color:#34d399; color:#065f46; font-weight:900;">✅</span>`
+        : `<span class="pill gray" style="font-weight:900;">⚠️</span>`;
+    }
+
+    function pjStatusHtml(payouts){
+      const arr = Array.isArray(payouts) ? payouts : [];
+      if (!arr.length) return `<span class="muted">-</span>`;
+
+      return arr.map(p => {
+        const pn = String(p.projectName || p.projectId || "").trim();
+        const r = String(p.routineStatus || "pending").trim();
+        const c = String(p.cashInStatus || "pending").trim();
+        return `<div style="margin-bottom:8px;">
+          <div><b>${escapeHtml(pn)}</b></div>
+          <div class="small rowLeft" style="gap:8px; margin-top:4px;">
+            <span class="muted">月次</span>${mark_(r)}
+            <span class="muted">入金</span>${mark_(c)}
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    tb.innerHTML = list.map(r => {
+      const memberId = String(r.memberId || "").trim();
+      const codeName = String(r.codeName || "").trim();
+
+      const payouts = Array.isArray(r.payouts) ? r.payouts : [];
+      const totalYen = r.totalYen;
+
+      const notice = r.notice || {};
+      const pdfUrl = String(notice.pdfUrl || "").trim();
+
+      const canIssue = !!r.canIssueNotice;
+      const canSend  = !!r.canSendNotice || (String((notice && notice.status) || "").trim() === "issued");
+      const canMarkPaid = !!r.canMarkPaid;
+      const isPaid = !!(r.paid && r.paid.isPaid);
+
+      const statusId = `payoutIssueStatus_${escapeHtmlAttr(memberId)}`;
+
+      const issueBtn = `
+        <button class="btn" ${canIssue ? "" : "disabled"} onclick="payoutsIssueNotice('${escapeHtmlAttr(memberId)}', this)">発行</button>
+        <div class="payoutInlineStatus" id="${statusId}"></div>
+      `;
+
+      const pdfBtn = pdfUrl
+        ? `<button class="btn" onclick="window.open('${escapeHtmlAttr(pdfUrl)}','_blank')">PDF確認</button>`
+        : `<button class="btn" disabled>PDF確認</button>`;
+
+      const reasonText = Array.isArray(r.blockReasons) && r.blockReasons.length
+        ? r.blockReasons.join(" / ")
+        : "";
+
+      const paidChk = `
+        <input type="checkbox"
+          ${isPaid ? "checked" : ""}
+          ${canMarkPaid ? "" : "disabled"}
+          title="${escapeHtmlAttr(reasonText)}"
+          onchange="payoutsTogglePaid('${escapeHtmlAttr(memberId)}', this)"
+        />
+      `;
+
+      return `
+        <tr>
+          <td class="mono nowrap">
+            <b>${escapeHtml(codeName || "-")}</b>
+            <div class="small">${escapeHtml(memberId || "")}</div>
+          </td>
+
+          <td class="noteCell">${payoutLinesHtml(payouts, totalYen)}</td>
+
+          <td class="nowrap">${issueBtn}</td>
+          <td class="nowrap">${pdfBtn}</td>
+
+          <td class="noteCell">${pjStatusHtml(payouts)}</td>
+
+          <td class="nowrap">${paidChk}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function payoutsIssueNotice(memberId, btnEl){
+    payoutsHideErr();
+
+    const mid = String(memberId || "").trim();
+    if (!mid) return payoutsShowErr("memberId empty");
+
+    const ym = String(el("payoutYm")?.value || "").trim();
+    if (!ym) return payoutsShowErr("ym empty");
+
+    const row = __PAYOUT_ROW_MAP__[mid];
+    if (!row) return payoutsShowErr("row not found (refresh first)");
+
+    const who = row.codeName || mid;
+    const total = Number(row.totalYen || 0);
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">支払通知書を発行する？</div>`,
+      `<div class="small">member: <b>${escapeHtml(who)}</b></div>`,
+      `<div class="small">ym: <b class="mono">${escapeHtml(ym)}</b></div>`,
+      `<div class="small">金額: <b>${escapeHtml(total.toLocaleString("ja-JP"))}円</b></div>`
+    ].join("");
+
+    openAppModal_(
+      "支払通知書 発行",
+      bodyHtml,
+      () => {
+        const st = el(`payoutIssueStatus_${mid}`);
+        if (st){
+          st.className = "payoutInlineStatus busy";
+          st.textContent = "発行中…";
+        }
+        if (btnEl){
+          btnEl.disabled = true;
+          btnEl.textContent = "発行中...";
+        }
+
+        callGAS_(
+          "admin_issuePayoutNotice",
+          [{ memberId: mid, ym }],
+          (res) => {
+            if (btnEl){
+              btnEl.disabled = false;
+              btnEl.textContent = "発行";
+            }
+            if (!res || !res.ok){
+              if (st){
+                st.className = "payoutInlineStatus err";
+                st.textContent = "失敗";
+              }
+              payoutsShowErr(res?.message || "issue failed");
+              return;
+            }
+
+            row.notice = row.notice || {};
+            row.notice.status = "issued";
+            row.notice.freeeId = String(res.freeeNoticeId || "");
+            row.notice.freeeNo = String(res.freeeNoticeNo || "");
+            row.notice.pdfUrl = String(res.pdfUrl || "");
+            row.notice.issuedAtJst = String(res.issuedAtJst || "");
+
+            row.canSendNotice = true;
+
+            if (st){
+              st.className = "payoutInlineStatus";
+              st.textContent = "発行完了";
+            }
+
+            payoutsRenderTable(__PAYOUT_ROWS__);
+          },
+          (err) => {
+            if (btnEl){
+              btnEl.disabled = false;
+              btnEl.textContent = "発行";
+            }
+            if (st){
+              st.className = "payoutInlineStatus err";
+              st.textContent = "失敗";
+            }
+            payoutsShowErr(err?.message || String(err));
+          }
+        );
+      },
+      { input:false }
+    );
+  }
+
+  function payoutsSendNotice(memberId){
+    payoutsHideErr();
+
+    const mid = String(memberId || "").trim();
+    if (!mid) return payoutsShowErr("memberId empty");
+
+    const ym = String(el("payoutYm")?.value || "").trim();
+    if (!ym) return payoutsShowErr("ym empty");
+
+    const row = __PAYOUT_ROW_MAP__[mid];
+    if (!row) return payoutsShowErr("row not found (refresh first)");
+
+    const to = String(row.email || "").trim();
+    if (!to){
+      payoutsShowErr("email empty（DB_Members.email が空）");
+      return;
+    }
+
+    const notice = row.notice || {};
+    const status = String(notice.status || "none").trim();
+    if (status !== "issued" && status !== "sent"){
+      payoutsShowErr("支払通知書が未発行（先に「発行」）");
+      return;
+    }
+
+    const pdfUrl = String(notice.pdfUrl || "").trim();
+    const who = row.codeName || mid;
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">支払通知書を送付する？</div>`,
+      `<div class="small">宛先: <b>${escapeHtml(to)}</b></div>`,
+      `<div class="small">member: <b>${escapeHtml(who)}</b></div>`,
+      `<div class="small">ym: <b class="mono">${escapeHtml(ym)}</b></div>`,
+      `<div class="small">PDF: ${pdfUrl ? "あり" : "未取得"}</div>`
+    ].join("");
+
+    openAppModal_(
+      "支払通知書 送付",
+      bodyHtml,
+      () => {
+        el("payoutHint").textContent = `送付中... ${to}`;
+
+        callGAS_(
+          "admin_sendPayoutNoticeMail",
+          [{ to, ym, memberId: mid, pdfUrl }],
+          (res) => {
+            if (!res || !res.ok){
+              payoutsShowErr(res?.message || "send failed");
+              el("payoutHint").textContent = "失敗";
+              return;
+            }
+
+            row.notice = row.notice || {};
+            row.notice.status = "sent";
+            row.notice.sentAtJst = String(res.sentAtJst || "");
+
+            el("payoutHint").textContent = `送付完了：${to}`;
+            payoutsRenderTable(__PAYOUT_ROWS__);
+          },
+          (err) => {
+            payoutsShowErr(err?.message || String(err));
+            el("payoutHint").textContent = "失敗";
+          }
+        );
+      },
+      { input:false }
+    );
+  }
+
+  function payoutsTogglePaid(memberId, chk){
+    payoutsHideErr();
+
+    const mid = String(memberId || "").trim();
+    if (!mid){
+      payoutsShowErr("memberId empty");
+      chk.checked = !chk.checked;
+      return;
+    }
+
+    const ym = String(el("payoutYm")?.value || "").trim();
+    if (!/^\d{6}$/.test(ym)){
+      payoutsShowErr("ym invalid（yyyymm）");
+      chk.checked = !chk.checked;
+      return;
+    }
+
+    const row = __PAYOUT_ROW_MAP__[mid];
+    if (!row){
+      payoutsShowErr("row not found (refresh first)");
+      chk.checked = !chk.checked;
+      return;
+    }
+
+    // UI上の意図（チェック後の状態）
+    const nextPaid = !!chk.checked;
+
+    // 事故防止：未許可なら元に戻す
+    if (!row.canMarkPaid){
+      payoutsShowErr("この行は振込完了にできない（ゲート未達）");
+      chk.checked = !nextPaid;
+      return;
+    }
+
+    const who = row.codeName || mid;
+    const ok = window.confirm(`振込完了を ${nextPaid ? "ON" : "OFF"} にする？\nmember=${who}\nym=${ym}`);
+    if (!ok){
+      chk.checked = !nextPaid;
+      return;
+    }
+
+    el("payoutHint").textContent = `保存中... memberId=${mid} paid=${nextPaid ? "true" : "false"}`;
+
+    callGAS_(
+      "admin_setPayoutPaid",
+      [{ ym, memberId: mid, isPaid: nextPaid, note: "" }],
+      (res) => {
+        if (!res || !res.ok){
+          payoutsShowErr((res && res.message) ? res.message : "save failed");
+          chk.checked = !nextPaid;
+          el("payoutHint").textContent = "失敗";
+          return;
+        }
+
+        // JSキャッシュへ反映（リロード無しでも表示整合）
+        row.paid = row.paid || {};
+        row.paid.isPaid = nextPaid;
+        row.paid.checkedAtJst = String(res.checkedAtJst || "");
+        row.paid.checkedBy = String(res.checkedBy || "");
+        row.paid.note = String(res.note || "");
+
+        el("payoutHint").textContent = `保存完了：${mid}`;
+        payoutsRenderTable(__PAYOUT_ROWS__);
+      },
+      (err) => {
+        payoutsShowErr(err?.message || String(err));
+        chk.checked = !nextPaid;
+        el("payoutHint").textContent = "失敗";
+      }
+    );
+  }
+
+  function payoutsEditBankInfo(memberId, codeName, bankText){
+    const mid = String(memberId || "").trim();
+    if (!mid){
+      payoutsShowErr("memberId empty");
+      return;
+    }
+
+    const name = String(codeName || "").trim() || mid;
+    const current = String(bankText || "").trim();
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">振込先情報 編集</div>`,
+      `<div class="small muted" style="margin-bottom:10px;">member: <b>${escapeHtml(name)}</b> (${escapeHtml(mid)})</div>`,
+      `<div class="ctlLabel">振込先（複数行OK）</div>`,
+      `<textarea id="payoutBankEditText" class="ctl" style="width:100%; height:160px; resize:vertical; margin-top:6px;"`,
+      `placeholder="例：\n三井住友銀行 渋谷支店\n普通 1234567\nヤマダ タロウ">${escapeHtml(current)}</textarea>`
+    ].join("");
+
+    openAppModal_(
+      "振込先 編集",
+      bodyHtml,
+      () => {
+        const next = String(el("payoutBankEditText")?.value || "").trim();
+
+        payoutsHideErr();
+        el("payoutHint").textContent = `保存中... memberId=${mid}`;
+
+        callGAS_(
+          "payoutUpdateMemberBankInfo",
+          [{ memberId: mid, bankInfo: next }],
+          (res) => {
+            if (!res || !res.ok){
+              payoutsShowErr((res && res.message) ? res.message : "save failed");
+              return;
+            }
+            el("payoutHint").textContent = `保存完了：${mid}`;
+            // 再読込して反映
+            payoutsRefresh();
+          },
+          (err) => {
+            payoutsShowErr(err?.message || String(err));
+          }
+        );
+      },
+      { input:false }
+    );
+  }
+
+  function payoutsExportTsv(){
+    payoutsHideErr();
+
+    const ym = String(el("payoutYm")?.value || "").trim();
+    if (!/^\d{6}$/.test(ym)){
+      payoutsShowErr("ym invalid（yyyymm）");
+      return;
+    }
+
+    const rows = Array.isArray(__PAYOUT_ROWS__) ? __PAYOUT_ROWS__ : [];
+    if (!rows.length){
+      payoutsShowErr("rows empty（先に更新）");
+      return;
+    }
+
+    // 擬似メンバー除外（UIでも安全側）
+    function isPseudoMember(r){
+      const mid = String(r?.memberId || "").trim();
+      if (mid === "ID017") return true;
+      const em = String(r?.email || "").trim().toLowerCase();
+      if (!em) return true;
+      if (em.startsWith("info@")) return true;
+      return false;
+    }
+
+    // bankText は人間向け自由文なので、TSV用には “そのまま1セル” に押し込む
+    // （銀行インポート最適化は次段で bankInfoを構造化してから）
+    const targets = rows.filter(r => {
+      if (!r) return false;
+      if (isPseudoMember(r)) return false;
+
+      const total = Number(r.totalYen || 0);
+      if (!isFinite(total) || total <= 0) return false;
+
+      const hasLines = Array.isArray(r.payouts) && r.payouts.length > 0;
+      if (!hasLines) return false;
+
+      if (!r.canMarkPaid) return false;
+
+      return true;
+    });
+
+    if (!targets.length){
+      payoutsShowErr("TSV対象が0件（条件を満たす行がない）");
+      return;
+    }
+
+    // ヘッダ
+    const header = [
+      "ym",
+      "memberId",
+      "codeName",
+      "totalYen",
+      "bankText"
+    ];
+
+    const lines = targets.map(r => {
+      const bank = String(r.bankText || "").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+      // TSVなのでタブと改行は潰す（銀行情報は1行に畳む）
+      const bankOne = bank.replace(/\t/g," ").replace(/\n+/g," / ").trim();
+
+      return [
+        ym,
+        String(r.memberId || ""),
+        String(r.codeName || ""),
+        String(Math.trunc(Number(r.totalYen || 0))),
+        bankOne
+      ].join("\t");
+    });
+
+    const tsv = [header.join("\t")].concat(lines).join("\n");
+
+    try{
+      navigator.clipboard.writeText(tsv);
+      el("payoutHint").textContent = `TSVコピーした：${targets.length}件（ym=${ym}）`;
+    } catch(e){
+      // fallback
+      try{
+        const ta = document.createElement("textarea");
+        ta.value = tsv;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        el("payoutHint").textContent = `TSVコピーした：${targets.length}件（ym=${ym}）`;
+      } catch(e2){
+        payoutsShowErr("clipboard copy failed（ブラウザ制限っぽい）");
+      }
+    }
+  }
+
+  function payoutsBulkDownloadPdf(){
+    payoutsHideErr();
+
+    const rows = Array.isArray(__PAYOUT_ROWS__) ? __PAYOUT_ROWS__ : [];
+    const targets = rows
+      .filter(r => r && r.notice && String(r.notice.pdfUrl || "").trim())
+      .map(r => ({ codeName: r.codeName || r.memberId, url: String(r.notice.pdfUrl).trim() }));
+
+    if (!targets.length){
+      payoutsShowErr("ダウンロード可能なPDFがない（先に「発行」して）");
+      return;
+    }
+
+    const ok = window.confirm(
+      `${targets.length}件のPDFを新しいタブで開く？\n` +
+      targets.map(u => u.codeName).join(", ")
+    );
+    if (!ok) return;
+
+    let i = 0;
+    const step = () => {
+      if (i >= targets.length){
+        el("payoutHint").textContent = `PDF ${targets.length}件 開いた`;
+        return;
+      }
+      try{ window.open(targets[i].url, "_blank"); } catch(e){}
+      i++;
+      setTimeout(step, 500);
+    };
+    step();
+  }
+
+  function payoutsBulkSend(){
+    payoutsHideErr();
+
+    const ym = String(el("payoutYm")?.value || "").trim();
+    if (!/^\d{6}$/.test(ym)){
+      payoutsShowErr("ym invalid（yyyymm）");
+      return;
+    }
+
+    const rows = Array.isArray(__PAYOUT_ROWS__) ? __PAYOUT_ROWS__ : [];
+    const targets = rows.filter(r => {
+      if (!r) return false;
+      const notice = r.notice || {};
+      const status = String(notice.status || "").trim();
+      if (status !== "issued") return false;
+      const email = String(r.email || "").trim();
+      if (!email) return false;
+      const pdfUrl = String(notice.pdfUrl || "").trim();
+      if (!pdfUrl) return false;
+      return true;
+    });
+
+    if (!targets.length){
+      payoutsShowErr("送付対象がない（未発行 / 送付済み / email未設定）");
+      return;
+    }
+
+    const names = targets.map(r => `${r.codeName || r.memberId} <${r.email}>`).join("\n");
+    const ok = window.confirm(`${targets.length}件 一括送付する？\n\n${names}`);
+    if (!ok) return;
+
+    let i = 0;
+    let successCount = 0;
+    let failCount = 0;
+    const hint = el("payoutHint");
+
+    const step = () => {
+      if (i >= targets.length){
+        if (hint) hint.textContent = `一括送付完了：成功=${successCount} / 失敗=${failCount}`;
+        payoutsRenderTable(__PAYOUT_ROWS__);
+        return;
+      }
+
+      const r = targets[i];
+      const mid = String(r.memberId || "").trim();
+      const to = String(r.email || "").trim();
+      const pdfUrl = String((r.notice||{}).pdfUrl || "").trim();
+
+      if (hint) hint.textContent = `送付中... (${i+1}/${targets.length}) ${r.codeName || mid}`;
+      i++;
+
+      callGAS_(
+        "admin_sendPayoutNoticeMail",
+        [{ to, ym, memberId: mid, pdfUrl }],
+        (res) => {
+          if (res && res.ok){
+            successCount++;
+            r.notice = r.notice || {};
+            r.notice.status = "sent";
+            r.notice.sentAtJst = String(res.sentAtJst || "");
+          } else {
+            failCount++;
+          }
+          setTimeout(step, 400);
+        },
+        (err) => {
+          failCount++;
+          setTimeout(step, 400);
+        }
+      );
+    };
+    step();
+  }
+</script>

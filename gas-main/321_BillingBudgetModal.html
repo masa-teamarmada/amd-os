@@ -1,0 +1,447 @@
+<!--
+  321_BillingBudgetModal.html
+  請求額申告モーダル。PM用。
+  コックピットのルーティンフロー「請求額確定」ボタンから開く。
+  固定PJ：前月同額確認 or 変更入力。変動PJ：前月参考値表示＋金額入力。
+-->
+<div id="bbModal_overlay" class="bbm-overlay" onclick="bbmCloseOnOverlay(event)">
+  <div class="bbm-dialog">
+    <div class="bbm-header">
+      <span id="bbModal_title" class="bbm-title">請求額申告</span>
+      <button class="bbm-close" onclick="bbmClose()">✕</button>
+    </div>
+    <div id="bbModal_body" class="bbm-body">
+      <div class="bbm-loading">読み込み中…</div>
+    </div>
+  </div>
+</div>
+
+<style>
+.bbm-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 3000;
+  align-items: center;
+  justify-content: center;
+}
+.bbm-overlay.bbm-open {
+  display: flex;
+}
+.bbm-dialog {
+  background: #fff;
+  border-radius: 12px;
+  width: 420px;
+  max-width: 94vw;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  overflow: hidden;
+}
+.bbm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid #e8e8ed;
+}
+.bbm-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+.bbm-close {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #86868b;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.bbm-body {
+  padding: 20px;
+}
+.bbm-loading {
+  color: #86868b;
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 0;
+}
+.bbm-meta {
+  background: #f5f5f7;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: #3a3a3c;
+  line-height: 1.8;
+}
+.bbm-meta strong {
+  color: #1d1d1f;
+}
+.bbm-ref {
+  font-size: 12px;
+  color: #636366;
+  margin-bottom: 14px;
+  line-height: 1.7;
+}
+.bbm-ref .bbm-ref-amount {
+  font-weight: 700;
+  color: #2196F3;
+}
+.bbm-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3a3a3c;
+  margin-bottom: 6px;
+}
+.bbm-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.bbm-input-row input {
+  flex: 1;
+  border: 1px solid #d2d2d7;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.bbm-input-row input:focus {
+  border-color: #2196F3;
+}
+.bbm-input-row .bbm-unit {
+  font-size: 13px;
+  color: #636366;
+  white-space: nowrap;
+}
+.bbm-fixed-confirm {
+  background: #f0f7ff;
+  border: 1px solid #b3d4f7;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #1d1d1f;
+  line-height: 1.7;
+}
+.bbm-fixed-confirm .bbm-fixed-amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2196F3;
+  display: block;
+  margin: 4px 0 8px;
+}
+.bbm-change-toggle {
+  font-size: 11px;
+  color: #636366;
+  text-decoration: underline;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.bbm-change-area {
+  display: none;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e8e8ed;
+}
+.bbm-status-box {
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.bbm-status-box.reported {
+  background: #fff8e6;
+  border: 1px solid #ffd966;
+}
+.bbm-status-box.confirmed {
+  background: #e8f5e9;
+  border: 1px solid #81c784;
+}
+.bbm-status-box .bbm-status-label {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.bbm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.bbm-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.bbm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.bbm-btn-primary {
+  background: #2196F3;
+  color: #fff;
+}
+.bbm-btn-primary:hover:not(:disabled) {
+  opacity: 0.85;
+}
+.bbm-btn-secondary {
+  background: #f5f5f7;
+  color: #3a3a3c;
+}
+.bbm-btn-secondary:hover:not(:disabled) {
+  background: #e8e8ed;
+}
+.bbm-toast {
+  display: none;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  text-align: center;
+}
+.bbm-toast.ok { background: #e8f5e9; color: #2e7d32; }
+.bbm-toast.err { background: #fde8e8; color: #c62828; }
+</style>
+
+<script>
+var BBM = {
+  projectId: "",
+  ym: "",
+  data: null,
+  useCustomAmount: false
+};
+
+function bbmOpen(projectId, ym) {
+  BBM.projectId = projectId;
+  BBM.ym = ym;
+  BBM.data = null;
+  BBM.useCustomAmount = false;
+
+  var overlay = document.getElementById("bbModal_overlay");
+  overlay.classList.add("bbm-open");
+  document.getElementById("bbModal_body").innerHTML = '<div class="bbm-loading">読み込み中…</div>';
+  document.getElementById("bbModal_title").textContent = "請求額申告";
+
+  google.script.run
+    .withSuccessHandler(bbmOnLoad_)
+    .withFailureHandler(function(e){ bbmShowErr_(e.message); })
+    .billing_budget_api_getForModal({ projectId: projectId, ym: ym });
+}
+
+function bbmOnLoad_(res) {
+  if (!res || !res.ok) { bbmShowErr_(res ? res.message : "取得失敗"); return; }
+  BBM.data = res;
+
+  var ymLabel = bbmFmtYm_(res.ym);
+  document.getElementById("bbModal_title").textContent = "請求額申告 — " + ymLabel;
+
+  var html = "";
+  // メタ情報
+  html += '<div class="bbm-meta">';
+  html += '<strong>' + bbmEsc_(res.projectName) + '</strong>　' + ymLabel + '<br>';
+  html += '契約種別：' + (res.feeType === "fixed" ? "月額固定" : "変動");
+  if (res.feeType === "fixed" && res.feeAmount > 0) {
+    html += '　契約月額：<strong>' + bbmFmtYen_(res.feeAmount) + '</strong>';
+  }
+  html += '</div>';
+
+  var status = res.status;
+
+  // 承認済み
+  if (status === "budget_confirmed") {
+    html += '<div class="bbm-status-box confirmed">';
+    html += '<div class="bbm-status-label">✅ 承認済み</div>';
+    html += '申告額：<strong>' + bbmFmtYen_(res.budgetReportedAmount) + '</strong><br>';
+    html += 'メンバー予算（65%）：<strong>' + bbmFmtYen_(res.budgetTotal) + '</strong><br>';
+    html += '承認日時：' + bbmFmtDate_(res.budgetConfirmedAt);
+    html += '</div>';
+    html += '<div class="bbm-actions"><button class="bbm-btn bbm-btn-secondary" onclick="bbmClose()">閉じる</button></div>';
+    document.getElementById("bbModal_body").innerHTML = html;
+    return;
+  }
+
+  // 申告済み（承認待ち）
+  if (status === "reported") {
+    html += '<div class="bbm-status-box reported">';
+    html += '<div class="bbm-status-label">⏳ 申告済み（admin承認待ち）</div>';
+    html += '申告額：<strong>' + bbmFmtYen_(res.budgetReportedAmount) + '</strong><br>';
+    html += '申告日時：' + bbmFmtDate_(res.budgetReportedAt) + '<br>';
+    html += '申告者：' + bbmEsc_(res.budgetReportedBy);
+    html += '</div>';
+    html += '<div style="font-size:11px;color:#636366;margin-bottom:14px">修正する場合は下の金額を入力して再申告できます。</div>';
+    // 再申告フォームも出す
+    html += bbmRenderForm_(res);
+    document.getElementById("bbModal_body").innerHTML = html;
+    bbmBindForm_();
+    return;
+  }
+
+  // 未申告（draft）
+  html += bbmRenderForm_(res);
+  document.getElementById("bbModal_body").innerHTML = html;
+  bbmBindForm_();
+}
+
+function bbmRenderForm_(res) {
+  var html = "";
+  var isFixed = res.feeType === "fixed";
+  var prevAmount = res.budgetReportedAmount > 0 ? res.budgetReportedAmount
+                 : res.budgetTotal > 0 ? Math.round(res.budgetTotal / 0.65)
+                 : 0;
+
+  // 前月参考値（常に表示）
+  if (prevAmount > 0) {
+    html += '<div class="bbm-ref">前回申告額（参考）：<span class="bbm-ref-amount">' + bbmFmtYen_(prevAmount) + '</span></div>';
+  } else if (isFixed && res.feeAmount > 0) {
+    html += '<div class="bbm-ref">契約月額（参考）：<span class="bbm-ref-amount">' + bbmFmtYen_(res.feeAmount) + '</span></div>';
+  }
+
+  if (isFixed && res.feeAmount > 0) {
+    // 固定PJ：同額確認ブロック＋変更オプション
+    html += '<div class="bbm-fixed-confirm">';
+    html += '今月も同額で申告しますか？';
+    html += '<span class="bbm-fixed-amount">' + bbmFmtYen_(res.feeAmount) + '</span>';
+    html += '<button class="bbm-btn bbm-btn-primary" id="bbm_sameBtn" style="width:100%;margin-bottom:8px" onclick="bbmReportFixed_()">この金額で申告する</button>';
+    html += '<button class="bbm-change-toggle" onclick="bbmToggleChange_()">金額を変更して申告する</button>';
+    html += '</div>';
+    html += '<div class="bbm-change-area" id="bbm_changeArea">';
+    html += '<div class="bbm-label">変更後の請求額（税抜）</div>';
+    html += '<div class="bbm-input-row"><input type="number" id="bbm_amountInput" placeholder="例: 500000" min="1"><span class="bbm-unit">円</span></div>';
+    html += '</div>';
+  } else {
+    // 変動PJ：入力フォーム
+    html += '<div class="bbm-label">今月の請求額（税抜）</div>';
+    html += '<div class="bbm-input-row"><input type="number" id="bbm_amountInput" placeholder="例: 500000" min="1"><span class="bbm-unit">円</span></div>';
+  }
+
+  html += '<div id="bbm_toast" class="bbm-toast"></div>';
+  html += '<div class="bbm-actions">';
+  html += '<button class="bbm-btn bbm-btn-secondary" onclick="bbmClose()">キャンセル</button>';
+  if (!isFixed || !res.feeAmount) {
+    html += '<button class="bbm-btn bbm-btn-primary" id="bbm_submitBtn" onclick="bbmSubmit_()">申告する</button>';
+  } else {
+    html += '<button class="bbm-btn bbm-btn-primary" id="bbm_submitBtn" style="display:none" onclick="bbmSubmit_()">申告する</button>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function bbmBindForm_() {
+  var input = document.getElementById("bbm_amountInput");
+  if (input) {
+    input.addEventListener("keydown", function(e){ if (e.key === "Enter") bbmSubmit_(); });
+  }
+}
+
+function bbmToggleChange_() {
+  var area = document.getElementById("bbm_changeArea");
+  var btn  = document.getElementById("bbm_submitBtn");
+  var sameBtn = document.getElementById("bbm_sameBtn");
+  if (!area) return;
+  var isOpen = area.style.display === "block";
+  area.style.display = isOpen ? "none" : "block";
+  if (btn) btn.style.display = isOpen ? "none" : "inline-block";
+  if (sameBtn) sameBtn.style.display = isOpen ? "inline-block" : "none";
+  if (!isOpen) {
+    var input = document.getElementById("bbm_amountInput");
+    if (input) input.focus();
+  }
+}
+
+function bbmReportFixed_() {
+  var amount = BBM.data && BBM.data.feeAmount > 0 ? BBM.data.feeAmount : 0;
+  if (amount <= 0) { bbmShowToast_("契約月額が設定されていません", "err"); return; }
+  bbmDoReport_(amount);
+}
+
+function bbmSubmit_() {
+  var input = document.getElementById("bbm_amountInput");
+  if (!input) return;
+  var amount = parseInt(input.value, 10);
+  if (!amount || amount <= 0) { bbmShowToast_("金額を入力してください", "err"); return; }
+  bbmDoReport_(amount);
+}
+
+function bbmDoReport_(amount) {
+  bbmSetLoading_(true);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      bbmSetLoading_(false);
+      if (res && res.ok) {
+        bbmShowToast_(res.message || "申告しました", "ok");
+        setTimeout(function() {
+          bbmClose();
+          if (typeof cpLoadRoutineFlow === "function") cpLoadRoutineFlow();
+        }, 1400);
+      } else {
+        bbmShowToast_((res && res.message) || "エラーが発生しました", "err");
+      }
+    })
+    .withFailureHandler(function(e) {
+      bbmSetLoading_(false);
+      bbmShowToast_(e.message || "通信エラー", "err");
+    })
+    .billing_budget_api_report({
+      projectId:      BBM.projectId,
+      ym:             BBM.ym,
+      reportedAmount: amount
+    });
+}
+
+function bbmSetLoading_(on) {
+  var btns = document.querySelectorAll("#bbModal_body .bbm-btn");
+  btns.forEach(function(b){ b.disabled = on; });
+}
+
+function bbmShowToast_(msg, type) {
+  var t = document.getElementById("bbm_toast");
+  if (!t) return;
+  t.textContent = msg;
+  t.className = "bbm-toast " + (type || "ok");
+  t.style.display = "block";
+}
+
+function bbmShowErr_(msg) {
+  document.getElementById("bbModal_body").innerHTML =
+    '<div style="color:#c62828;font-size:13px;padding:16px">' + bbmEsc_(msg) + '</div>' +
+    '<div class="bbm-actions"><button class="bbm-btn bbm-btn-secondary" onclick="bbmClose()">閉じる</button></div>';
+}
+
+function bbmClose() {
+  document.getElementById("bbModal_overlay").classList.remove("bbm-open");
+}
+
+function bbmCloseOnOverlay(e) {
+  if (e.target === document.getElementById("bbModal_overlay")) bbmClose();
+}
+
+function bbmFmtYen_(n) {
+  if (!n || isNaN(n)) return "—";
+  return "¥" + Number(n).toLocaleString();
+}
+
+function bbmFmtYm_(ym) {
+  if (!ym) return "";
+  var s = String(ym);
+  if (s.length === 6) return s.slice(0,4) + "年" + parseInt(s.slice(4,6)) + "月";
+  return s;
+}
+
+function bbmFmtDate_(val) {
+  if (!val) return "—";
+  return String(val);
+}
+
+function bbmEsc_(s) {
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+</script>

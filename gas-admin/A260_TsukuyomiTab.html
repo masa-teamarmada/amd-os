@@ -1,0 +1,755 @@
+<!-- A260_TsukuyomiTab.html
+  役割：
+  - Admin「tsukuyomi」タブ
+    1) PJチャンネルへ強制発言（AI生成/手書き切替）
+    2) DB_TsukuyomiContext 編集（contextTypeでグルーピング、左=prompt全文、右=メタ圧縮）
+-->
+<div class="card" id="pane_tsukuyomi" style="display:none;">
+  <div class="row">
+    <div class="rowLeft">
+      <div class="pill">🌙 tsukuyomi</div>
+      <div class="small">PJチャンネルへ強制発言 / 人格DBの編集</div>
+    </div>
+    <div class="rowLeft">
+      <button class="btn" onclick="tkyRefresh()">更新</button>
+    </div>
+  </div>
+
+  <!-- ===== 1) 強制発言ゾーン ===== -->
+  <div style="margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:12px; background:var(--bg);">
+    <div class="row">
+      <div class="rowLeft">
+        <div class="pill gray">PJチャンネルへ強制発言</div>
+        <div class="small">AIで生成するか、手書きで投げるか選べる</div>
+      </div>
+      <div class="rowLeft">
+        <span id="tkyStatus" class="muted"></span>
+      </div>
+    </div>
+
+    <div class="togRow" style="margin-top:10px;">
+      <div style="min-width:320px;">
+        <div class="ctlLabel">PJ</div>
+        <select id="tkyProjectSelect" class="ctl" style="width:420px;"></select>
+      </div>
+
+      <div style="min-width:260px;">
+        <div class="ctlLabel">モード</div>
+        <select id="tkyPostMode" class="ctl" style="width:260px;" onchange="tkyPostModeChanged()">
+          <option value="ai">AI生成</option>
+          <option value="manual">手書き</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="tkyAiBlock" style="margin-top:10px;">
+      <div class="ctlLabel">ヒント（任意）</div>
+      <textarea id="tkyHint" class="ctl" rows="3" style="width:min(980px, 100%);"
+        placeholder="例）月次報告会の日程が未確定っぽい / 請求書の確認止まってそう など"></textarea>
+
+      <div class="togRow" style="margin-top:10px;">
+        <button class="btn" onclick="tkyGenerateAndPost()">AIで生成して投稿</button>
+      </div>
+    </div>
+
+    <div id="tkyManualBlock" style="margin-top:10px; display:none;">
+      <div class="ctlLabel">手書き本文</div>
+      <textarea id="tkyManualText" class="ctl" rows="4" style="width:min(980px, 100%);"
+        placeholder="ここにそのまま投稿したい文章を書いてね（@here/@channelは自動で暴発防止される）"></textarea>
+
+      <div class="togRow" style="margin-top:10px;">
+        <button class="btn" onclick="tkyManualPost()">手書きで投稿</button>
+      </div>
+    </div>
+
+    <div class="hint" style="margin-top:10px;">
+      ・投稿先は「PJのSlackチャンネル」<br/>
+      ・人格は下の「人格DB編集」にある tags=tsukuyomi の active 行が使われる<br/>
+    </div>
+  </div>
+
+  <!-- ===== separator ===== -->
+  <div style="height:1px; background:var(--line); margin:16px 0;"></div>
+
+  <!-- ===== 2) 人格DB編集 ===== -->
+  <div class="row">
+    <div class="rowLeft">
+      <div class="pill gray">人格DB編集</div>
+      <div class="small">DB_TsukuyomiContext を contextType でまとめて編集</div>
+    </div>
+    <div class="rowLeft">
+      <button class="btn" onclick="tkyCtxReload()">一覧ロード</button>
+      <button class="btn" onclick="tkyCtxAddNewLayer_('tone')">＋新規</button>
+    </div>
+  </div>
+
+  <div class="togRow" style="margin-top:10px;">
+    <div>
+      <div class="ctlLabel">絞り込み（status）</div>
+      <select id="tkyCtxStatusFilter" class="ctl" style="width:220px;" onchange="tkyCtxReload()">
+        <option value="">all</option>
+        <option value="active">active</option>
+        <option value="archived">archived</option>
+      </select>
+    </div>
+
+    <div>
+      <div class="ctlLabel">（任意）tagフィルタ</div>
+      <input id="tkyCtxTagFilter" class="ctl" style="width:220px;" placeholder="例）tsukuyomi"
+        onkeydown="if(event.key==='Enter')tkyCtxReload()"/>
+    </div>
+
+    <div style="min-width:560px;">
+      <div class="ctlLabel">scopeリネーム（既存2個ならここで一発）</div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <input id="tkyScopeFrom" class="ctl" style="width:200px;" list="tkyScopeFromList" placeholder="from（候補）" />
+        <datalist id="tkyScopeFromList"></datalist>
+
+        <input id="tkyScopeTo" class="ctl" style="width:200px;" placeholder="to（新しいscope）" />
+        <button class="btn" onclick="tkyScopeRename()">リネーム</button>
+        <span class="muted" id="tkyScopeRenameStatus"></span>
+      </div>
+    </div>
+
+    <div class="muted" id="tkyCtxInfo"></div>
+  </div>
+
+  <!-- ===== prompt assembled preview (read-only) ===== -->
+  <div id="tkyCtxPreviewCard" style="margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#fff;">
+    <div class="row">
+      <div class="rowLeft" style="gap:10px;">
+        <div class="pill gray">合成プレビュー</div>
+        <div class="small">いまこの条件で LLM に渡る systemPrompt（構造が正しいかの見取り図）</div>
+      </div>
+      <div class="rowLeft" style="gap:10px;">
+        <div>
+          <div class="ctlLabel">intent</div>
+          <select id="tkyCtxIntent" class="ctl" style="width:180px;" onchange="tkyCtxRenderLast_()">
+            <option value="post">post</option>
+            <option value="thread">thread</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <textarea id="tkyCtxPreview" class="ctl mono" rows="10" style="width:100%; resize:vertical;"
+        placeholder="（一覧ロードするとここに合成結果が出る）" readonly></textarea>
+      <div class="small" id="tkyCtxPreviewMeta" style="margin-top:8px; opacity:.85;"></div>
+    </div>
+  </div>
+
+  <div id="tkyCtxWrap" style="margin-top:12px;"></div>
+</div>
+
+<script>
+  // ===== tab lifecycle =====
+  function tkyOnShow(){
+    tkyRefresh();
+  }
+
+  function tkyRefresh(){
+    const st = document.getElementById("tkyStatus");
+    if (st) st.textContent = "更新中…";
+    tkyLoadProjects_();
+    tkyPostModeChanged();
+    tkyCtxReload();
+  }
+
+  function tkyPostModeChanged(){
+    const modeEl = document.getElementById("tkyPostMode");
+    const mode = modeEl ? String(modeEl.value || "ai") : "ai";
+    const ai = document.getElementById("tkyAiBlock");
+    const man = document.getElementById("tkyManualBlock");
+    if (ai) ai.style.display = (mode === "ai") ? "" : "none";
+    if (man) man.style.display = (mode === "manual") ? "" : "none";
+  }
+
+  // ===== 1) post =====
+  function tkyLoadProjects_(){
+    google.script.run
+      .withSuccessHandler(function(list){
+        const sel = document.getElementById("tkyProjectSelect");
+        if (!sel) return;
+        sel.innerHTML = "";
+        (list || []).forEach(p => {
+          const opt = document.createElement("option");
+          opt.value = p.projectId;
+          opt.textContent = (p.projectId + "｜" + (p.projectName || "")).trim();
+          sel.appendChild(opt);
+        });
+        const st = document.getElementById("tkyStatus");
+        if (st) st.textContent = "";
+      })
+      .withFailureHandler(function(err){
+        const st = document.getElementById("tkyStatus");
+        if (st) st.textContent = "PJ一覧ロード失敗: " + (err && err.message ? err.message : String(err||""));
+      })
+      .admin_tsukuyomi_listProjectsForSelect();
+  }
+
+  function tkyGenerateAndPost(){
+    const sel = document.getElementById("tkyProjectSelect");
+    const hintEl = document.getElementById("tkyHint");
+    const st = document.getElementById("tkyStatus");
+
+    const projectId = sel ? String(sel.value || "").trim() : "";
+    const hint = hintEl ? String(hintEl.value || "").trim() : "";
+
+    if (!projectId){ if (st) st.textContent = "PJを選んで〜"; return; }
+
+    if (st) st.textContent = "生成して送信中…";
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (!st) return;
+        if (res && res.ok){
+          st.textContent = "送った ts=" + (res.ts || "");
+        } else {
+          st.textContent = "失敗: " + ((res && res.message) ? res.message : "error");
+        }
+      })
+      .withFailureHandler(function(err){
+        if (st) st.textContent = "失敗: " + (err && err.message ? err.message : String(err||""));
+      })
+      .admin_tsukuyomi_generateAndPost({ projectId, hint });
+  }
+
+  function tkyManualPost(){
+    const sel = document.getElementById("tkyProjectSelect");
+    const textEl = document.getElementById("tkyManualText");
+    const st = document.getElementById("tkyStatus");
+
+    const projectId = sel ? String(sel.value || "").trim() : "";
+    const text = textEl ? String(textEl.value || "").trim() : "";
+
+    if (!projectId){ if (st) st.textContent = "PJを選んで〜"; return; }
+    if (!text){ if (st) st.textContent = "本文が空っぽ"; return; }
+
+    if (st) st.textContent = "送信中…";
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (!st) return;
+        if (res && res.ok){
+          st.textContent = "送った ts=" + (res.ts || "");
+        } else {
+          st.textContent = "失敗: " + ((res && res.message) ? res.message : "error");
+        }
+      })
+      .withFailureHandler(function(err){
+        if (st) st.textContent = "失敗: " + (err && err.message ? err.message : String(err||""));
+      })
+      .admin_tsukuyomi_postToProjectChannel({ projectId, text });
+  }
+
+  // ===== 2) context editor =====
+  let __TKY_CTX_TYPE_OPTIONS__ = [];
+  let __TKY_CTX_SCOPE_OPTIONS__ = [];
+
+  function tkyCtxReload(){
+    const info = document.getElementById("tkyCtxInfo");
+    if (info) info.textContent = "ロード中…";
+
+    const statusSel = document.getElementById("tkyCtxStatusFilter");
+    const tagInput = document.getElementById("tkyCtxTagFilter");
+
+    const status = statusSel ? String(statusSel.value || "").trim() : "";
+    const tag = tagInput ? String(tagInput.value || "").trim() : "";
+
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (!res || !res.ok){
+          if (info) info.textContent = "ロード失敗: " + (res && res.message ? res.message : "error");
+          return;
+        }
+
+        __TKY_CTX_LAST_RES__ = res;
+
+        __TKY_CTX_TYPE_OPTIONS__ = Array.isArray(res.typeOptions) ? res.typeOptions : [];
+        __TKY_CTX_SCOPE_OPTIONS__ = Array.isArray(res.scopeOptions) ? res.scopeOptions : [];
+        tkyScopeFromListRender(__TKY_CTX_SCOPE_OPTIONS__);
+
+        if (info) info.textContent = "件数: " + String(res.count || 0);
+
+        tkyCtxRender_(res);
+        setTimeout(tkyCtxAdjustHeights_, 0);
+      })
+      .withFailureHandler(function(err){
+        // ★Apps Script の err はオブジェクトじゃない時があるので雑に拾う
+        const msg = (err && err.message) ? err.message : (typeof err === "string" ? err : JSON.stringify(err || "error"));
+        if (info) info.textContent = "ロード失敗: " + msg;
+
+        // ★失敗時に既存の表示を消さない（俯瞰が死ぬのを防ぐ）
+        // tkyCtxRender_({ groups:{} });
+      })
+      .admin_tsukuyomi_listContextGrouped({ status, tag });
+  }
+
+  // ===== context view helpers（レイヤー固定表示のため） =====
+  function tkyCtxGetIntent_(){
+    const el = document.getElementById("tkyCtxIntent");
+    const v = el ? String(el.value || "post").trim().toLowerCase() : "post";
+    return (v === "thread") ? "thread" : "post";
+  }
+
+  function tkyCtxLayerKeyFromContextType_(contextType){
+    const s = String(contextType || "").trim().toLowerCase();
+    if (s === "judge" || s === "judgeprotocol" || s === "judgement" || s === "judgment") return "judge";
+    if (s === "role" || s === "rolescope") return "role";
+    if (s === "memory" || s === "memorypolicy") return "memory";
+    if (s === "tone" || s === "personatone" || s === "persona") return "tone";
+    if (s === "safety" || s === "guard" || s === "safetyguard") return "safety";
+    // 未知/空は tone に倒す（判断層に混ざるのを防ぐ）
+    return "tone";
+  }
+
+  function tkyCtxLayerTitle_(layerKey){
+    const k = String(layerKey || "");
+    if (k === "judge") return "🧠 判断（judge）";
+    if (k === "role") return "🎭 役割（role）";
+    if (k === "memory") return "🧷 記憶（memory）";
+    if (k === "tone") return "🌙 口調（tone）";
+    if (k === "safety") return "🧯 安全（safety）";
+    return k;
+  }
+
+  function tkyCtxLayerDesc_(layerKey){
+    const k = String(layerKey || "");
+    if (k === "judge") return "前提チェック → 事実/推測/提案を分ける → ズレてたら先に直す";
+    if (k === "role") return "何者として介入するか / 目的 / やらないこと（責務）";
+    if (k === "memory") return "ログを貼らず、判断に必要な“事実カード”だけ使う";
+    if (k === "tone") return "夜・月・気だるい・朝弱い、みたいな演出はここ";
+    if (k === "safety") return "機密・@here/@channel・断言の禁止など事故防止";
+    return "";
+  }
+
+  function tkyCtxParseTags_(tagsStr){
+    return String(tagsStr || "")
+      .split(",")
+      .map(s => String(s||"").trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  function tkyCtxRowMatchesIntent_(row, intent){
+    const tags = tkyCtxParseTags_(row && row.tags);
+    const hasPost = tags.includes("post");
+    const hasThread = tags.includes("thread");
+    // post/thread 明示が無い行は常に採用（共通）
+    if (!hasPost && !hasThread) return true;
+    return tags.includes(String(intent || "post").toLowerCase());
+  }
+
+  function tkyCtxSortKey_(r){
+    const prRaw = (r && (r.priority !== null && r.priority !== undefined)) ? String(r.priority) : "";
+    const pr = (prRaw === "") ? 999 : Number(prRaw || 0);
+    const created = String((r && r.createdAtJst) || "");
+    return { pr, created };
+  }
+
+  function tkyCtxGetAllRowsFromRes(res){
+    const r = res || {};
+    if (Array.isArray(r.rows)) return r.rows;
+
+    const g = r.groups || {};
+    return tkyCtxFlattenRowsFromGroups(g);
+  }
+
+  function tkyCtxFlattenRowsFromGroups(groups){
+    const g = groups || {};
+    const keys = Object.keys(g || {});
+    const out = [];
+    keys.forEach(k => {
+      const arr = g[k] || [];
+      (arr || []).forEach(r => out.push(r));
+    });
+    return out;
+  }
+
+  // tkyCtxRender_ の直後に「最後のresを再描画」したいので保持する
+  let __TKY_CTX_LAST_RES__ = null;
+  function tkyCtxRenderLast_(){
+    if (!__TKY_CTX_LAST_RES__) return;
+    tkyCtxRender_(__TKY_CTX_LAST_RES__);
+  }
+
+  function tkyScopeRename(){
+    const fromEl = document.getElementById("tkyScopeFrom");
+    const toEl = document.getElementById("tkyScopeTo");
+    const st = document.getElementById("tkyScopeRenameStatus");
+
+    const from = fromEl ? String(fromEl.value || "").trim() : "";
+    const to = toEl ? String(toEl.value || "").trim() : "";
+
+    if (!from){ if (st) st.textContent = "from空っぽ"; return; }
+    if (!to){ if (st) st.textContent = "to空っぽ"; return; }
+    if (from === to){ if (st) st.textContent = "同じだよ"; return; }
+
+    if (st) st.textContent = "リネーム中…";
+
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (res && res.ok){
+          if (st) st.textContent = "変えた: " + String(res.changed || 0) + "行";
+          if (fromEl) fromEl.value = "";
+          if (toEl) toEl.value = "";
+          tkyCtxReload();
+        } else {
+          if (st) st.textContent = "失敗: " + (res && res.message ? res.message : "error");
+        }
+      })
+      .withFailureHandler(function(err){
+        if (st) st.textContent = "失敗: " + (err && err.message ? err.message : String(err||""));
+      })
+      .admin_tsukuyomi_scopeRename({ from, to });
+  }
+
+  function tkyCtxRender_(res){
+    const wrap = document.getElementById("tkyCtxWrap");
+    if (!wrap) return;
+
+    const intent = tkyCtxGetIntent_();
+
+    // ===== rows を最優先で取る（無ければ groups を flatten） =====
+    const rowsRaw = tkyCtxGetAllRowsFromRes(res);
+
+    // intent(tag) フィルタ（post/thread 指定がある行だけを落とす）
+    const rows = (rowsRaw || []).filter(r => tkyCtxRowMatchesIntent_(r, intent));
+
+    // ===== 5レイヤー固定で再グループ =====
+    const layers = ["judge", "role", "memory", "tone", "safety"];
+    const byLayer = { judge:[], role:[], memory:[], tone:[], safety:[] };
+
+    (rows || []).forEach(r => {
+      const lk = tkyCtxLayerKeyFromContextType_(r.contextType);
+      (byLayer[lk] || byLayer.tone).push(r);
+    });
+
+    // レイヤー内の並び：priority → createdAt
+    layers.forEach(lk => {
+      (byLayer[lk] || []).sort((a,b)=>{
+        const ka = tkyCtxSortKey_(a);
+        const kb = tkyCtxSortKey_(b);
+        if (ka.pr !== kb.pr) return ka.pr - kb.pr;
+        return String(ka.created || "").localeCompare(String(kb.created || ""));
+      });
+    });
+
+    // ===== 合成プレビュー（空でも5見出しを必ず出す） =====
+    const previewParts = [];
+    const usedRowNums = [];
+    layers.forEach(lk => {
+      const chunk = (byLayer[lk] || [])
+        .map(r => String(r.systemPrompt || "").trim())
+        .filter(Boolean)
+        .join("\n\n");
+
+      previewParts.push("【" + tkyCtxLayerTitle_(lk) + "】\n" + (chunk ? chunk : "（このレイヤーは空）"));
+      (byLayer[lk] || []).forEach(r => { if (r && r.rowIndex) usedRowNums.push(String(r.rowIndex)); });
+    });
+
+    const previewBox = document.getElementById("tkyCtxPreview");
+    if (previewBox) previewBox.value = previewParts.join("\n\n");
+
+    const metaEl = document.getElementById("tkyCtxPreviewMeta");
+    if (metaEl){
+      metaEl.textContent =
+        "intent=" + intent +
+        " / rows(raw)=" + String(rowsRaw.length) +
+        " / rows(after intent)=" + String(rows.length) +
+        (usedRowNums.length ? (" / usedRowIndex=" + usedRowNums.join(",")) : "");
+    }
+
+    // ===== レイヤー別リスト（骨格を必ず描く） =====
+    const html = [];
+    layers.forEach(lk => {
+      const rowsL = byLayer[lk] || [];
+      const title = tkyCtxLayerTitle_(lk);
+      const desc = tkyCtxLayerDesc_(lk);
+
+      html.push('<details open style="border:1px solid var(--line); border-radius:12px; background:#fff; padding:10px; margin-top:10px;">');
+
+      html.push('<summary style="cursor:pointer; font-weight:900; display:flex; gap:10px; align-items:center; justify-content:space-between;">');
+
+      html.push('<div style="display:flex; gap:10px; align-items:center;">');
+      html.push('<span class="pill gray">layer</span>');
+      html.push('<span>' + esc_(title) + '</span>');
+      html.push('<span class="muted" style="font-weight:800;">(' + rowsL.length + ')</span>');
+      html.push('</div>');
+
+      html.push('<div style="display:flex; gap:8px; align-items:center;">');
+      html.push('<button class="btn" onclick="tkyCtxAddNewLayer_(\'' + esc_(lk) + '\')">＋追加</button>');
+      html.push('</div>');
+
+      html.push('</summary>');
+
+      html.push('<div class="small" style="margin:8px 0 2px 0; opacity:.85;">' + esc_(desc) + '</div>');
+
+      if (!rowsL.length){
+        html.push('<div class="muted" style="margin-top:8px;">ここは空。＋追加で1行足す</div>');
+      } else {
+        rowsL.forEach(r => html.push(tkyCtxRowCardHtml_(r)));
+      }
+
+      html.push('</details>');
+    });
+
+    // 切り分けヒント（表示は消さない）
+    if (!rowsRaw.length){
+      html.unshift('<div class="muted" style="margin-top:10px;">（表示行が0）APIが rows も groups も返してないっぽい</div>');
+    } else if (!rows.length && rowsRaw.length){
+      html.unshift('<div class="muted" style="margin-top:10px;">（intentフィルタ後が0）tagsに post/thread が入ってる行だけが消えてる可能性</div>');
+    }
+
+    wrap.innerHTML = html.join("");
+  }
+
+  function tkyCtxRowCardHtml_(r){
+    const rowIndex = Number(r.rowIndex || 0);
+    const status = String(r.status || "");
+    const contextType = String(r.contextType || "");
+    const priority = (r.priority === null || r.priority === undefined) ? "" : String(r.priority);
+    const scope = String(r.scope || "");
+    const systemPrompt = String(r.systemPrompt || "");
+
+    const meta = [
+      r.updatedAtJst ? ('updated=' + esc_(String(r.updatedAtJst))) : ''
+    ].filter(Boolean).join(' / ');
+
+    const idPrefix = "tkyc_" + (rowIndex || 0) + "_";
+
+    // ★左：prompt（全文・幅優先）
+    // ★右：メタ（圧縮）
+    return [
+      '<div style="margin-top:10px; padding:12px; border:1px solid var(--line); border-radius:12px; background:var(--bg);">',
+        '<div class="row" style="gap:10px;">',
+          '<div class="rowLeft" style="gap:10px;">',
+            '<span class="pill">row ' + rowIndex + '</span>',
+            '<span class="pill gray">' + esc_(status || "") + '</span>',
+            meta ? ('<span class="small">' + meta + '</span>') : '<span class="small"></span>',
+          '</div>',
+          '<div class="rowLeft" style="gap:8px;">',
+            '<button class="btn" onclick="tkyCtxSaveRow(' + rowIndex + ')">保存</button>',
+            (status === "active"
+              ? '<button class="btn" onclick="tkyCtxToggleStatus(' + rowIndex + ',\'archived\')">archivedへ</button>'
+              : '<button class="btn" onclick="tkyCtxToggleStatus(' + rowIndex + ',\'active\')">activeへ</button>'
+            ),
+          '</div>',
+        '</div>',
+
+        '<div style="display:flex; gap:12px; margin-top:10px; align-items:flex-start;">',
+
+          '<div style="flex:1; min-width:520px;">',
+            '<div class="ctlLabel">systemPrompt（全文表示）</div>',
+            '<textarea class="ctl mono tkyPromptBox" id="' + idPrefix + 'prompt" style="width:100%; overflow:hidden; resize:none;" rows="6" ',
+              'placeholder="ここに人格や運用ルールを書いてね">' + esc_(systemPrompt) + '</textarea>',
+          '</div>',
+
+          '<div style="width:360px; flex:0 0 360px;">',
+
+            '<div class="ctlLabel">contextType</div>',
+            tkyCtxTypeSelectHtml_(idPrefix + 'type', contextType),
+
+            '<div class="togRow" style="margin-top:10px;">',
+              '<div style="width:100%;">',
+                '<div class="ctlLabel">status</div>',
+                '<select class="ctl" id="' + idPrefix + 'status" style="width:100%;">',
+                  '<option value="active"' + (status==="active"?' selected':'') + '>active</option>',
+                  '<option value="archived"' + (status==="archived"?' selected':'') + '>archived</option>',
+                '</select>',
+              '</div>',
+            '</div>',
+
+            '<div class="togRow" style="margin-top:10px;">',
+              '<div style="width:100%;">',
+                '<div class="ctlLabel">priority</div>',
+                '<input class="ctl" id="' + idPrefix + 'priority" style="width:100%;" value="' + esc_(priority) + '" placeholder="例）10" />',
+              '</div>',
+            '</div>',
+
+            '<div class="togRow" style="margin-top:10px;">',
+              '<div style="width:100%;">',
+                '<div class="ctlLabel">scope（候補 + 新規追加）</div>',
+                tkyCtxScopeInputHtml_(idPrefix + 'scope', scope),
+              '</div>',
+            '</div>',
+
+          '</div>',
+
+        '</div>',
+      '</div>'
+    ].join("");
+  }
+
+  function tkyCtxTypeSelectHtml_(id, current){
+    // レイヤーは固定（人間の理解の形をUIに刻む）
+    const opts = ["judge","role","memory","tone","safety"];
+    const cur = String(current || "").trim().toLowerCase();
+
+    const html = [];
+    html.push('<select class="ctl" id="' + id + '" style="width:100%;">');
+
+    opts.forEach(v => {
+      const sel = (v === cur) ? ' selected' : '';
+      html.push('<option value="' + esc_(v) + '"' + sel + '>' + esc_(v) + '</option>');
+    });
+
+    // 旧値が入ってても編集で救えるように、tone を選ばせる（未知値は見せない）
+    if (!cur) {
+      // 何も入ってない時は tone に寄せる
+    }
+
+    html.push('</select>');
+    return html.join("");
+  }
+
+  function tkyCtxScopeInputHtml_(id, current){
+    const listId = id + "_list";
+    const cur = String(current || "").trim();
+    const opts = __TKY_CTX_SCOPE_OPTIONS__ || [];
+
+    const html = [];
+    html.push('<input class="ctl" id="' + id + '" style="width:100%;" list="' + listId + '" value="' + esc_(cur) + '" placeholder="例）project / global など" />');
+    html.push('<datalist id="' + listId + '">');
+    opts.forEach(s => {
+      const v = String(s || "").trim();
+      if (!v) return;
+      html.push('<option value="' + esc_(v) + '"></option>');
+    });
+    html.push('</datalist>');
+    html.push('<div class="small" style="margin-top:6px; opacity:.8;">候補にないscopeを書いたら、そのまま新規扱いになる</div>');
+    return html.join("");
+  }
+
+  function tkyCtxAddNewLayer_(layerKey){
+    const lk = String(layerKey || "tone").trim().toLowerCase();
+    const wrap = document.getElementById("tkyCtxWrap");
+    if (!wrap) return;
+
+    const contextType = (["judge","role","memory","tone","safety"].includes(lk)) ? lk : "tone";
+
+    const fake = {
+      rowIndex: 0,
+      status: "active",
+      tags: "tsukuyomi",        // UIでは入力させない。保存時に自動でこれを入れる
+      systemPrompt: "",
+      contextType: contextType,
+      priority: "10",
+      scope: "",
+      scopeKey: "",
+      updatedAtJst: ""
+    };
+
+    const html = tkyCtxRowCardHtml_(fake);
+    wrap.innerHTML = html + wrap.innerHTML;
+
+    setTimeout(()=>{
+      try{
+        tkyCtxAdjustHeights_();
+        const box = document.getElementById("tkyc_0_prompt");
+        if (box) box.focus();
+      }catch(e){}
+    }, 0);
+  }
+
+  function tkyCtxSaveRow(rowIndex){
+    const idx = Number(rowIndex || 0);
+    const idPrefix = "tkyc_" + (idx || 0) + "_";
+
+    const status = val_(idPrefix + "status");
+    const priority = val_(idPrefix + "priority");
+    const scope = val_(idPrefix + "scope");
+    const prompt = val_(idPrefix + "prompt");
+
+    const typeSel = val_(idPrefix + "type");
+    const contextType = (typeSel || "tone").trim().toLowerCase();
+
+    if (!status){ toast_("status 空っぽ"); return; }
+    if (!prompt){ toast_("systemPrompt 空っぽ"); return; }
+
+    const payload = {
+      rowIndex: idx >= 2 ? idx : 0,
+      tags: "tsukuyomi",        // 必ず付ける（サーバが必須チェックしてる）
+      status,
+      systemPrompt: prompt,
+      contextType: (["judge","role","memory","tone","safety"].includes(contextType)) ? contextType : "tone",
+      priority,
+      scope
+    };
+
+    toast_("保存中…");
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (res && res.ok){
+          toast_("保存できた");
+          tkyCtxReload();
+        } else {
+          toast_("保存失敗: " + (res && res.message ? res.message : "error"));
+        }
+      })
+      .withFailureHandler(function(err){
+        toast_("保存失敗: " + (err && err.message ? err.message : String(err||"")));
+      })
+      .admin_tsukuyomi_upsertContextRow(payload);
+  }
+
+  function tkyCtxToggleStatus(rowIndex, status){
+    const idx = Number(rowIndex || 0);
+    toast_("更新中…");
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (res && res.ok){
+          toast_("更新できた");
+          tkyCtxReload();
+        } else {
+          toast_("更新失敗: " + (res && res.message ? res.message : "error"));
+        }
+      })
+      .withFailureHandler(function(err){
+        toast_("更新失敗: " + (err && err.message ? err.message : String(err||"")));
+      })
+      .admin_tsukuyomi_setContextStatus({ rowIndex: idx, status: String(status||"") });
+  }
+
+  function tkyCtxAdjustHeights_(){
+    const boxes = document.querySelectorAll("textarea.tkyPromptBox");
+    (boxes || []).forEach(el => {
+      try{
+        el.style.height = "auto";
+        el.style.height = (el.scrollHeight + 2) + "px";
+      }catch(_e){}
+    });
+  }
+
+  function val_(id){
+    const el = document.getElementById(id);
+    return el ? String(el.value || "").trim() : "";
+  }
+
+  function esc_(s){
+    return String(s||"")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#39;");
+  }
+
+  function toast_(msg){
+    const st = document.getElementById("tkyStatus");
+    if (st) st.textContent = String(msg || "");
+  }
+
+  function tkyScopeFromListRender(opts){
+    const dl = document.getElementById("tkyScopeFromList");
+    if (!dl) return;
+    const arr = Array.isArray(opts) ? opts : [];
+    dl.innerHTML = "";
+    arr.forEach(v => {
+      const s = String(v || "").trim();
+      if (!s) return;
+      const op = document.createElement("option");
+      op.value = s;
+      dl.appendChild(op);
+    });
+  }
+
+</script>

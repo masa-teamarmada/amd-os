@@ -1,0 +1,512 @@
+<!-- 227_PjChroniclePage.html
+     PJクロニクル（通期俯瞰）ページ。
+     全月×メンバーのテーブル形式で、月をまたいだ推移を一覧比較する。
+     コックピット(225)が「今月の深掘り」なら、こちらは「全月の横並び比較」。
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f5f5f7;color:#1d1d1f;font-size:14px;line-height:1.6}
+button{cursor:pointer;font:inherit;border:none;background:none}
+a{color:#0066cc;text-decoration:none}
+
+/* レイアウト */
+.cr-wrap{max-width:1200px;margin:0 auto;padding:16px 12px 80px}
+
+/* ヘッダー */
+.cr-header{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #e5e5e7;flex-wrap:wrap}
+.cr-header h1{font-size:18px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cr-badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:#e8e8ed;color:#636366;white-space:nowrap}
+.cr-badge.active{background:#d1f5d3;color:#1a7a2e}
+.cr-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;transition:background .15s}
+.cr-btn-secondary{background:#e8e8ed;color:#1d1d1f}
+.cr-btn-secondary:hover{background:#d8d8dd}
+
+/* 契約サマリ */
+.cr-contract{margin-top:12px;padding:10px 14px;background:#fff;border-radius:12px;border:1px solid #e5e5e7;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#636366}
+.cr-contract-item{display:flex;gap:4px;align-items:center}
+.cr-contract-label{font-weight:700;color:#86868b}
+.cr-contract-value{color:#1d1d1f;font-weight:600}
+
+/* テーブルラッパー */
+.cr-table-wrap{margin-top:16px;overflow-x:auto;background:#fff;border-radius:12px;border:1px solid #e5e5e7}
+
+/* メインテーブル */
+.cr-table{width:100%;border-collapse:collapse;font-size:12px}
+.cr-table th{position:sticky;top:0;background:#f9f9fb;padding:8px 10px;text-align:left;font-weight:700;color:#86868b;border-bottom:2px solid #e5e5e7;white-space:nowrap;font-size:11px;z-index:2}
+.cr-table th.num{text-align:right}
+.cr-table td{padding:6px 10px;border-bottom:1px solid #f0f0f2;vertical-align:top}
+.cr-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* 当月行のハイライト */
+.cr-table tr.current{background:#f0f5ff}
+.cr-table tr.current td{border-bottom-color:#d0deff}
+
+/* ym列 */
+.cr-table .ym-cell{font-weight:700;font-size:13px;white-space:nowrap;min-width:60px}
+
+/* 予算額列 */
+.cr-table .budget-cell{font-weight:600;white-space:nowrap;min-width:70px}
+
+/* メンバー報酬列 */
+.cr-table .alloc-cell{min-width:64px;white-space:nowrap;position:relative;padding-bottom:9px}
+.cr-alloc-bar-bg{position:absolute;left:10px;right:10px;bottom:3px;height:3px;background:#f0f0f0;border-radius:2px}
+.cr-alloc-bar{position:absolute;left:10px;bottom:3px;height:3px;border-radius:2px;background:#0066cc;transition:width .2s}
+.cr-alloc-val{position:relative;z-index:1}
+
+/* バッジ列 */
+.cr-table .badge-cell{white-space:nowrap}
+.cr-pill{display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;margin-right:1px}
+.cr-pill.done{background:#d1f5d3;color:#1a7a2e}
+.cr-pill.pending{background:#fef3cd;color:#856404}
+.cr-pill.skip{background:#f1f1f1;color:#aaa;text-decoration:line-through}
+.cr-pill.none{background:#f5f5f5;color:#d0d0d0}
+
+/* サマリ列 */
+.cr-table .summary-cell{font-size:11px;color:#636366;max-width:320px;line-height:1.4}
+
+/* 展開行 */
+.cr-expand-row{display:none}
+.cr-expand-row.open{display:table-row}
+.cr-expand-cell{padding:12px 14px;background:#fafbfc;border-bottom:2px solid #e5e5e7}
+
+/* 展開内コンテンツ */
+.cr-detail-tabs{display:flex;gap:0;border-bottom:1px solid #e5e5e7;margin-bottom:8px}
+.cr-dtab{padding:6px 12px;font-size:12px;font-weight:600;color:#86868b;border-bottom:2px solid transparent;cursor:pointer}
+.cr-dtab.active{color:#0066cc;border-bottom-color:#0066cc}
+.cr-detail-panel{display:none;font-size:13px}
+.cr-detail-panel.active{display:block}
+
+/* 報告書Markdown */
+.cr-report-rendered{font-size:13px;line-height:1.8;color:#1d1d1f}
+.cr-report-rendered h1{font-size:17px;font-weight:700;margin:16px 0 6px;padding-bottom:4px;border-bottom:1px solid #e5e5e7}
+.cr-report-rendered h2{font-size:15px;font-weight:700;margin:14px 0 4px}
+.cr-report-rendered h3{font-size:13px;font-weight:700;margin:10px 0 3px}
+.cr-report-rendered p{margin:4px 0}
+.cr-report-rendered ul,.cr-report-rendered ol{margin:4px 0;padding-left:18px}
+.cr-report-rendered li{margin:2px 0}
+.cr-report-rendered strong{font-weight:700}
+.cr-report-rendered table{width:100%;border-collapse:collapse;margin:6px 0;font-size:12px}
+.cr-report-rendered th,.cr-report-rendered td{padding:3px 6px;border:1px solid #e5e5e7;text-align:left}
+.cr-report-rendered th{background:#f5f5f7;font-weight:600}
+
+/* 報酬テーブル */
+.cr-reward-table{width:100%;border-collapse:collapse;font-size:12px}
+.cr-reward-table th{text-align:left;padding:4px 6px;color:#86868b;font-weight:600;border-bottom:1px solid #e5e5e7;font-size:11px}
+.cr-reward-table td{padding:4px 6px;border-bottom:1px solid #f0f0f0}
+.cr-reward-table .num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* ローディング */
+.cr-loading{text-align:center;padding:20px;color:#86868b;font-size:12px}
+.cr-spinner{display:inline-block;width:16px;height:16px;border:2px solid #e5e5e7;border-top-color:#0066cc;border-radius:50%;animation:crspin .6s linear infinite}
+@keyframes crspin{to{transform:rotate(360deg)}}
+.cr-empty{text-align:center;padding:20px;color:#86868b;font-size:13px}
+
+/* クリック可能行 */
+.cr-table tbody tr.cr-data-row{cursor:pointer;transition:background .1s}
+.cr-table tbody tr.cr-data-row:hover{background:#f5f7ff}
+
+/* 未入金アラート */
+.cr-alert-icon{color:#c0392b;font-size:10px;margin-left:2px}
+</style>
+</head>
+<body>
+
+<?!= navHtml ?>
+
+<div class="cr-wrap" id="crRoot">
+  <div class="cr-loading"><div class="cr-spinner"></div><div style="margin-top:6px">読み込み中...</div></div>
+</div>
+
+<script>
+var CR = {
+  projectId: "<?= projectId ?>",
+  projectName: "<?= projectName ?>",
+  baseUrl: "<?= baseUrl ?>",
+  data: null,
+  loadedDetails: {},
+  openYm: null
+};
+
+document.addEventListener("DOMContentLoaded", function() {
+  google.script.run
+    .withSuccessHandler(crRenderPage)
+    .withFailureHandler(function(err) {
+      document.getElementById("crRoot").innerHTML =
+        '<div class="cr-empty">データ取得失敗: ' + crEsc(String(err)) + '</div>';
+    })
+    .chronicle_api_getData({ projectId: CR.projectId });
+});
+
+// ===== ページ描画 =====
+function crRenderPage(res) {
+  if (!res || !res.ok) {
+    document.getElementById("crRoot").innerHTML =
+      '<div class="cr-empty">' + crEsc(res ? res.message : "不明なエラー") + '</div>';
+    return;
+  }
+  CR.data = res;
+  var p = res.project || {};
+  var isActive = (p.status || "").toLowerCase() !== "closed";
+  var months = res.months || [];
+  var members = res.members || [];
+
+  // メンバー列に登場する全memberIdを集める
+  var memberIds = members.map(function(m) { return m.memberId; });
+  var memberNameMap = {};
+  for (var i = 0; i < members.length; i++) {
+    memberNameMap[members[i].memberId] = members[i].memberName;
+  }
+  // allocationsにだけ出てくるメンバーを追加
+  for (var i = 0; i < months.length; i++) {
+    var alloc = months[i].allocations || {};
+    var keys = Object.keys(alloc);
+    for (var j = 0; j < keys.length; j++) {
+      if (memberIds.indexOf(keys[j]) === -1) {
+        memberIds.push(keys[j]);
+        memberNameMap[keys[j]] = keys[j];
+      }
+    }
+  }
+
+  // 全月の最大報酬額（バーのスケール用）
+  var maxAlloc = 0;
+  for (var i = 0; i < months.length; i++) {
+    var alloc = months[i].allocations || {};
+    var keys = Object.keys(alloc);
+    for (var j = 0; j < keys.length; j++) {
+      var v = Number(alloc[keys[j]] || 0);
+      if (v > maxAlloc) maxAlloc = v;
+    }
+  }
+  if (maxAlloc < 1) maxAlloc = 1;
+
+  var html = "";
+
+  // ヘッダー
+  html += '<div class="cr-header">';
+  html += '  <h1>📜 ' + crEsc(p.projectName || CR.projectName || CR.projectId) + '</h1>';
+  if (p.clientName) html += '<span style="font-size:12px;color:#86868b">' + crEsc(p.clientName) + '</span>';
+  html += '  <span class="cr-badge ' + (isActive ? "active" : "") + '">' + (isActive ? "Active" : "Closed") + '</span>';
+  html += '  <a class="cr-btn cr-btn-secondary" href="' + CR.baseUrl + '?page=cockpit&projectId=' + encodeURIComponent(CR.projectId) + '&projectName=' + encodeURIComponent(CR.projectName) + '" target="_top" style="font-size:11px;padding:4px 10px">Cockpit →</a>';
+  html += '</div>';
+
+  // 契約サマリ
+  html += '<div class="cr-contract">';
+  html += crContractItem("PJ", p.projectName || CR.projectId);
+  if (p.monthlyBudgetYen) html += crContractItem("月額", "¥" + crFmtNum(p.monthlyBudgetYen));
+  html += crContractItem("期間", months.length + "ヶ月");
+  html += crContractItem("Status", isActive ? "Active" : "Closed");
+  html += '</div>';
+
+  // テーブル
+  html += '<div class="cr-table-wrap">';
+  html += '<table class="cr-table">';
+
+  // thead
+  html += '<thead><tr>';
+  html += '<th>月</th>';
+  html += '<th class="num">予算額</th>';
+  for (var m = 0; m < memberIds.length; m++) {
+    var shortName = (memberNameMap[memberIds[m]] || memberIds[m]);
+    if (shortName.length > 6) shortName = shortName.substring(0, 6) + "…";
+    html += '<th class="num" title="' + crEsc(memberNameMap[memberIds[m]] || memberIds[m]) + '">' + crEsc(shortName) + '</th>';
+  }
+  html += '<th>タスク</th>';
+  html += '<th>サマリ</th>';
+  html += '</tr></thead>';
+
+  // tbody
+  html += '<tbody>';
+  for (var i = 0; i < months.length; i++) {
+    var mo = months[i];
+    var isCurrent = (mo.ym === res.currentYm);
+    var ymLabel = mo.ym.substring(0, 4) + "/" + mo.ym.substring(4, 6);
+    var alloc = mo.allocations || {};
+
+    // データ行
+    html += '<tr class="cr-data-row' + (isCurrent ? " current" : "") + '" data-ym="' + mo.ym + '" onclick="crToggleExpand(\'' + mo.ym + '\')">';
+
+    // ym
+    html += '<td class="ym-cell">' + ymLabel + '</td>';
+
+    // 予算額
+    if (mo.budgetYen > 0) {
+      html += '<td class="num budget-cell">¥' + crFmtNum(mo.budgetYen) + '</td>';
+    } else {
+      html += '<td class="num budget-cell" style="color:#ccc">—</td>';
+    }
+
+    // メンバー別報酬
+    for (var m = 0; m < memberIds.length; m++) {
+      var amt = Number(alloc[memberIds[m]] || 0);
+      if (amt > 0) {
+        var barW = Math.round(amt / maxAlloc * 100);
+        html += '<td class="num alloc-cell">';
+        html += '<span class="cr-alloc-val">¥' + crFmtNum(amt) + '</span>';
+        html += '<span class="cr-alloc-bar-bg"></span>';
+        html += '<span class="cr-alloc-bar" style="width:' + barW + '%"></span>';
+        html += '</td>';
+      } else {
+        html += '<td class="num alloc-cell" style="color:#ddd">—</td>';
+      }
+    }
+
+    // 5タスクバッジ
+    html += '<td class="badge-cell">';
+    html += crPill("会", mo.meetingDone, mo.meetingSkipped);
+    html += crPill("予", mo.budgetDone);
+    html += crPill("報", mo.reportDone);
+    html += crPill("請", mo.invoiceDone);
+    html += crPill("入", mo.paymentDone);
+    if (mo.invoiceDone && !mo.paymentDone) html += '<span class="cr-alert-icon" title="請求済み・未入金">⚠️</span>';
+    html += '</td>';
+
+    // サマリ
+    var summary = mo.slideSummary || mo.sectionSummary || "";
+    if (summary.length > 80) summary = summary.substring(0, 80) + "…";
+    html += '<td class="summary-cell">' + crEsc(summary) + '</td>';
+
+    html += '</tr>';
+
+    // 展開行
+    var colspan = 2 + memberIds.length + 2;
+    html += '<tr class="cr-expand-row" id="crExpand_' + mo.ym + '">';
+    html += '<td class="cr-expand-cell" colspan="' + colspan + '">';
+    html += '<div class="cr-detail-tabs" id="crTabs_' + mo.ym + '">';
+    html += '  <div class="cr-dtab" onclick="event.stopPropagation();crSwitchDetail(\'' + mo.ym + '\',\'report\')" data-dtab="report">📄 報告書全文</div>';
+    html += '  <div class="cr-dtab" onclick="event.stopPropagation();crSwitchDetail(\'' + mo.ym + '\',\'reward\')" data-dtab="reward">💰 報酬詳細</div>';
+    html += '  <div class="cr-dtab" onclick="event.stopPropagation();crSwitchDetail(\'' + mo.ym + '\',\'billing\')" data-dtab="billing">🧾 Billing</div>';
+    html += '</div>';
+    html += '<div class="cr-detail-panel" id="crPanel_' + mo.ym + '_report"></div>';
+    html += '<div class="cr-detail-panel" id="crPanel_' + mo.ym + '_reward"></div>';
+    html += '<div class="cr-detail-panel" id="crPanel_' + mo.ym + '_billing"></div>';
+    html += '<div style="margin-top:8px">';
+    html += '  <a class="cr-btn cr-btn-secondary" href="' + CR.baseUrl + '?page=cockpit&projectId=' + encodeURIComponent(CR.projectId) + '&projectName=' + encodeURIComponent(CR.projectName) + '&ym=' + mo.ym + '" target="_top" style="font-size:11px;padding:4px 10px" onclick="event.stopPropagation()">Cockpitで開く →</a>';
+    html += '</div>';
+    html += '</td>';
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+
+  document.getElementById("crRoot").innerHTML = html;
+}
+
+// ===== 展開トグル =====
+function crToggleExpand(ym) {
+  var row = document.getElementById("crExpand_" + ym);
+  if (!row) return;
+
+  if (row.classList.contains("open")) {
+    row.classList.remove("open");
+    CR.openYm = null;
+    return;
+  }
+
+  // 他の展開を閉じる
+  var allExpands = document.querySelectorAll(".cr-expand-row.open");
+  for (var i = 0; i < allExpands.length; i++) {
+    allExpands[i].classList.remove("open");
+  }
+
+  row.classList.add("open");
+  CR.openYm = ym;
+}
+
+// ===== 詳細タブ切り替え + lazy load =====
+function crSwitchDetail(ym, tab) {
+  var tabsEl = document.getElementById("crTabs_" + ym);
+  if (tabsEl) {
+    var dtabs = tabsEl.querySelectorAll(".cr-dtab");
+    for (var i = 0; i < dtabs.length; i++) {
+      dtabs[i].classList.toggle("active", dtabs[i].getAttribute("data-dtab") === tab);
+    }
+  }
+
+  var panels = ["report", "reward", "billing"];
+  for (var i = 0; i < panels.length; i++) {
+    var p = document.getElementById("crPanel_" + ym + "_" + panels[i]);
+    if (p) p.classList.toggle("active", panels[i] === tab);
+  }
+
+  var key = ym + "_" + tab;
+  if (CR.loadedDetails[key]) return;
+  CR.loadedDetails[key] = true;
+
+  var panel = document.getElementById("crPanel_" + ym + "_" + tab);
+  if (!panel) return;
+  panel.innerHTML = '<div class="cr-loading"><div class="cr-spinner"></div> 読み込み中...</div>';
+
+  if (tab === "report" || tab === "billing") {
+    google.script.run
+      .withSuccessHandler(function(res) { crRenderMonthDetail(ym, tab, res); })
+      .withFailureHandler(function(err) {
+        panel.innerHTML = '<div class="cr-empty">取得失敗: ' + crEsc(String(err)) + '</div>';
+      })
+      .cockpit_api_getMonthDetail({ projectId: CR.projectId, ym: ym });
+  } else if (tab === "reward") {
+    google.script.run
+      .withSuccessHandler(function(res) { crRenderReward(ym, res); })
+      .withFailureHandler(function(err) {
+        panel.innerHTML = '<div class="cr-empty">取得失敗: ' + crEsc(String(err)) + '</div>';
+      })
+      .cockpit_api_getRewardDashboard({ projectId: CR.projectId, ym: ym });
+  }
+}
+
+// ===== 月詳細描画 =====
+function crRenderMonthDetail(ym, tab, res) {
+  if (!res || !res.ok) {
+    var el = document.getElementById("crPanel_" + ym + "_" + tab);
+    if (el) el.innerHTML = '<div class="cr-empty">データなし</div>';
+    return;
+  }
+
+  var reportPanel = document.getElementById("crPanel_" + ym + "_report");
+  if (reportPanel && !CR.loadedDetails[ym + "_report_rendered"]) {
+    CR.loadedDetails[ym + "_report_rendered"] = true;
+    var rpt = res.report;
+    if (rpt) {
+      var content = rpt.finalContent || rpt.draftContent || "";
+      if (content && typeof marked !== "undefined") {
+        reportPanel.innerHTML = '<div class="cr-report-rendered">' + marked.parse(content) + '</div>';
+      } else if (content) {
+        reportPanel.innerHTML = '<div style="white-space:pre-wrap;font-size:13px">' + crEsc(content) + '</div>';
+      } else {
+        reportPanel.innerHTML = '<div class="cr-empty">報告書未作成</div>';
+      }
+    } else {
+      reportPanel.innerHTML = '<div class="cr-empty">報告書が見つからない</div>';
+    }
+  }
+
+  var billingPanel = document.getElementById("crPanel_" + ym + "_billing");
+  if (billingPanel && !CR.loadedDetails[ym + "_billing_rendered"]) {
+    CR.loadedDetails[ym + "_billing_rendered"] = true;
+    var b = res.billing;
+    if (b) {
+      var bh = '<table style="font-size:12px;border-collapse:collapse;width:100%">';
+      var fields = [
+        ["予算額", crFmtYen(b.fixedTotalYen || b.budgetYen || b.budgetTotal)],
+        ["予算確定", crFmtDate(b.budgetConfirmedAt)],
+        ["会議", b.meetingStartAt || b.meetingEventId ? "実施済み" : "—"],
+        ["請求書送付", crFmtDate(b.invoiceSentAt)],
+        ["入金確認", crFmtDate(b.paymentConfirmedAt)],
+        ["freee請求書ID", b.freeeInvoiceId || "—"]
+      ];
+      for (var i = 0; i < fields.length; i++) {
+        bh += '<tr><td style="padding:3px 8px;color:#86868b;font-weight:600;white-space:nowrap">' + fields[i][0] + '</td>';
+        bh += '<td style="padding:3px 8px">' + crEsc(String(fields[i][1] || "—")) + '</td></tr>';
+      }
+      bh += '</table>';
+      billingPanel.innerHTML = bh;
+    } else {
+      billingPanel.innerHTML = '<div class="cr-empty">Billingデータなし</div>';
+    }
+  }
+}
+
+// ===== 報酬描画 =====
+function crRenderReward(ym, res) {
+  var panel = document.getElementById("crPanel_" + ym + "_reward");
+  if (!panel) return;
+
+  if (!res || !res.ok) {
+    panel.innerHTML = '<div class="cr-empty">' + crEsc(res ? res.message : "データなし") + '</div>';
+    return;
+  }
+  if (res.noPlan) {
+    panel.innerHTML = '<div class="cr-empty">年間計画が未設定</div>';
+    return;
+  }
+
+  var summary = res.monthSummary || {};
+  var members = summary.members || [];
+  var milestones = res.milestones || [];
+  var html = "";
+
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
+  html += crStatBox(summary.monthConsumedPt + "pt", "今月消化");
+  html += crStatBox(summary.progressPct + "%", "進捗率");
+  html += crStatBox((summary.expectedPct || 0) + "%", "期待進捗率");
+  html += '</div>';
+
+  if (milestones.length > 0) {
+    html += '<div style="margin-bottom:8px">';
+    for (var i = 0; i < milestones.length; i++) {
+      var ms = milestones[i];
+      var pct = ms.pctUsed || 0;
+      var color = pct < 60 ? "#34c759" : pct < 90 ? "#ff9500" : "#ff3b30";
+      html += '<div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:11px">';
+      html += '<span style="min-width:120px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + ms.orderNo + '. ' + crEsc(ms.title) + '</span>';
+      html += '<div style="flex:1;height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden;min-width:60px"><div style="height:100%;border-radius:4px;width:' + Math.min(100, pct) + '%;background:' + color + '"></div></div>';
+      html += '<span style="min-width:28px;text-align:right;font-weight:600;color:#636366">' + pct + '%</span>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  if (members.length > 0) {
+    html += '<table class="cr-reward-table">';
+    html += '<tr><th>メンバー</th><th class="num">pt</th><th class="num">ベース報酬</th><th class="num">合計</th></tr>';
+    for (var i = 0; i < members.length; i++) {
+      var mb = members[i];
+      html += '<tr><td>' + crEsc(mb.memberName || mb.memberId) + '</td>';
+      html += '<td class="num">' + (mb.earnedPt || 0) + '</td>';
+      html += '<td class="num">¥' + crFmtNum(mb.basePay || 0) + '</td>';
+      html += '<td class="num"><strong>¥' + crFmtNum(mb.totalPay || mb.basePay || 0) + '</strong></td></tr>';
+    }
+    html += '</table>';
+  } else {
+    html += '<div class="cr-empty">報酬データなし</div>';
+  }
+
+  panel.innerHTML = html;
+}
+
+// ===== ヘルパー =====
+function crPill(label, done, skipped) {
+  if (skipped) return '<span class="cr-pill skip">' + label + '</span>';
+  return '<span class="cr-pill ' + (done ? "done" : "none") + '">' + label + '</span>';
+}
+
+function crContractItem(label, value) {
+  return '<div class="cr-contract-item"><span class="cr-contract-label">' + crEsc(label) + ':</span><span class="cr-contract-value">' + crEsc(String(value || "—")) + '</span></div>';
+}
+
+function crStatBox(val, label) {
+  return '<div style="flex:1;min-width:70px;padding:6px 8px;background:#f9f9fb;border-radius:8px;text-align:center">'
+    + '<div style="font-size:16px;font-weight:700">' + crEsc(String(val)) + '</div>'
+    + '<div style="font-size:10px;color:#86868b;margin-top:1px">' + crEsc(label) + '</div></div>';
+}
+
+function crEsc(s) {
+  var d = document.createElement("div");
+  d.textContent = String(s || "");
+  return d.innerHTML;
+}
+
+function crFmtNum(n) {
+  return String(Number(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function crFmtYen(n) {
+  var v = Number(n || 0);
+  return v > 0 ? "¥" + crFmtNum(v) : "—";
+}
+
+function crFmtDate(val) {
+  if (!val) return "—";
+  var s = String(val);
+  var m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return m[1] + "-" + m[2] + "-" + m[3];
+  return s || "—";
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+</body>
+</html>

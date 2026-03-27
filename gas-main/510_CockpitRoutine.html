@@ -1,0 +1,112 @@
+<!-- 510_CockpitRoutine.html
+     月次ルーティンフローの取得・描画。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+function cpLoadRoutineFlow() {
+  google.script.run
+    .withSuccessHandler(cpRenderRoutineFlow)
+    .withFailureHandler(function() { cpRenderRoutineFlow(null); })
+    .cockpit_api_getRoutineFlow({ projectId: CP.projectId });
+}
+
+function cpRenderRoutineFlow(res) {
+  var el = document.getElementById("cpRoutineBody");
+  if (!el) return;
+
+  if (!res || !res.ok || !res.flows) {
+    el.innerHTML = '<div class="cp-routine-empty">データなし</div>';
+    return;
+  }
+
+  var html = "";
+  var flows = res.flows;
+
+  for (var fi = 0; fi < flows.length; fi++) {
+    var f = flows[fi];
+    if (f.role !== "main" && !f.hasCycle) {
+      if (f.role === "next") {
+        html += '<div class="cp-routine-block next">';
+        html += '  <div class="cp-routine-block-header">' + cpRoutineFmtYm(f.bizYm) + '（予定）</div>';
+        html += '  <div class="cp-routine-empty">まだルーティン未開始</div>';
+        html += '</div>';
+      }
+      continue;
+    }
+
+    if (f.role === "prev") {
+      var allDone = true;
+      for (var ci = 0; ci < f.steps.length; ci++) {
+        if (!f.steps[ci].done) { allDone = false; break; }
+      }
+      if (allDone) continue;
+    }
+
+    var roleLabel = f.role === "main" ? "" : f.role === "prev" ? "（残タスク）" : "（予定）";
+
+    html += '<div class="cp-routine-block ' + f.role + '">';
+    html += '  <div class="cp-routine-block-header">' + cpRoutineFmtYm(f.bizYm) + roleLabel + '</div>';
+    html += '  <div class="cp-routine-steps">';
+
+    var currentFound = false;
+    for (var si = 0; si < f.steps.length; si++) {
+      var s = f.steps[si];
+
+      var cls = s.status || "future";
+      var dotContent = String(si + 1);
+      if (s.done) {
+        cls = "done";
+        dotContent = "✓";
+      } else if (!currentFound && !s.done) {
+        if (cls === "future") cls = "current";
+        currentFound = true;
+      }
+
+      if (f.role === "prev" && s.done) continue;
+
+      var clickAttr = "";
+      if (s.href) {
+        clickAttr = ' onclick="window.open(\'' + cpEsc(s.href) + '\',\'_blank\')" style="cursor:pointer"';
+      } else if (s.action) {
+        clickAttr = ' onclick="' + s.action + '" style="cursor:pointer"';
+      }
+      html += '<div class="cp-routine-step ' + cls + '"' + clickAttr + '>';
+      html += '  <div class="cp-routine-dot">' + dotContent + '</div>';
+      html += '  <div class="cp-routine-label">' + cpEsc(s.label) + '</div>';
+
+      if (s.done && s.doneAt && s.doneAt !== "done" && s.doneAt !== "skipped") {
+        html += '<div class="cp-routine-date">〜' + cpRoutineFmtDate(s.doneAt) + '</div>';
+      } else if (s.doneAt === "skipped") {
+        html += '<div class="cp-routine-date">スキップ</div>';
+      } else if (s.deadline) {
+        html += '<div class="cp-routine-date ' + cls + '">〜' + cpRoutineFmtDate(s.deadline) + '</div>';
+      }
+
+      html += '</div>';
+    }
+
+    html += '  </div>';
+    html += '</div>';
+  }
+
+  if (!html) {
+    html = '<div class="cp-routine-empty">ルーティンデータなし</div>';
+  }
+  el.innerHTML = html;
+}
+
+function cpRoutineFmtYm(ym) {
+  var s = String(ym || "");
+  if (s.length === 6) return s.substring(0, 4) + "/" + s.substring(4, 6);
+  return s;
+}
+
+function cpRoutineFmtDate(val) {
+  if (!val) return "";
+  var s = String(val);
+  var m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return Number(m[2]) + "/" + Number(m[3]);
+  var m2 = s.match(/(\d+)月(\d+)日/);
+  if (m2) return m2[1] + "/" + m2[2];
+  return s.substring(0, 10);
+}
+</script>

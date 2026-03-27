@@ -1,0 +1,116 @@
+<!-- D202_DevTickets.html -->
+<!-- Dev Ticket チェックリスト UI -->
+<div class="ticket-toolbar">
+  <div>
+    <h2>Dev Tickets</h2>
+    <div class="ticket-stats" id="ticketStats">読み込み中...</div>
+  </div>
+  <button class="btn-primary" onclick="openAddModal()">＋ 追加</button>
+<button class="btn-primary" onclick="openImportModal()">↑ JSONインポート</button>
+</div>
+
+<div class="kanban-board" id="kanbanBoard">
+  <div class="kanban-col" id="col-high" data-priority="high" data-status="open"
+    ondragover="onDragOver_(event)" ondragleave="onDragLeave_(event)" ondrop="onDrop_(event)">
+    <div class="kanban-col-header high">
+      <span>🔴 High</span>
+      <span class="kanban-col-count" id="count-high">0</span>
+    </div>
+    <div class="kanban-cards" id="cards-high"></div>
+  </div>
+  <div class="kanban-col" id="col-medium" data-priority="medium" data-status="open"
+    ondragover="onDragOver_(event)" ondragleave="onDragLeave_(event)" ondrop="onDrop_(event)">
+    <div class="kanban-col-header medium">
+      <span>🟡 Medium</span>
+      <span class="kanban-col-count" id="count-medium">0</span>
+    </div>
+    <div class="kanban-cards" id="cards-medium"></div>
+  </div>
+  <div class="kanban-col" id="col-low" data-priority="low" data-status="open"
+    ondragover="onDragOver_(event)" ondragleave="onDragLeave_(event)" ondrop="onDrop_(event)">
+    <div class="kanban-col-header low">
+      <span>🟢 Low</span>
+      <span class="kanban-col-count" id="count-low">0</span>
+    </div>
+    <div class="kanban-cards" id="cards-low"></div>
+  </div>
+  <div class="kanban-col" id="col-done" data-status="done"
+    ondragover="onDragOver_(event)" ondragleave="onDragLeave_(event)" ondrop="onDrop_(event)">
+    <div class="kanban-col-header done">
+      <span>✅ Done</span>
+      <span class="kanban-col-count" id="count-done">0</span>
+    </div>
+    <div class="kanban-cards" id="cards-done"></div>
+  </div>
+</div>
+
+<!-- Add / Edit Modal -->
+<div class="modal-overlay" id="ticketModal">
+  <div class="modal">
+    <h3 id="modalTitle">チケット追加</h3>
+    <input type="hidden" id="editTicketId">
+    <div class="form-row">
+      <label>タイトル *</label>
+      <input type="text" id="fTitle" placeholder="例：請求書フローのバグ修正">
+    </div>
+    <div class="form-row">
+      <label>説明</label>
+      <textarea id="fDesc" placeholder="詳細・再現手順・背景など"></textarea>
+    </div>
+    <div style="display:flex;gap:12px;">
+      <div class="form-row" style="flex:1">
+        <label>タイプ</label>
+        <select id="fType">
+          <option value="bug">🐛 Bug</option>
+          <option value="feature" selected>✨ Feature</option>
+        </select>
+      </div>
+      <div class="form-row" style="flex:1">
+        <label>優先度</label>
+        <select id="fPriority">
+          <option value="high">🔴 High</option>
+          <option value="medium" selected>🟡 Medium</option>
+          <option value="low">🟢 Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>対象ファイル</label>
+      <input type="text" id="fFiles" placeholder="例：D100_DevTicketRepo.gs, D202_DevTickets.html">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">キャンセル</button>
+      <button class="btn-primary" onclick="submitTicket()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal">
+    <h3>JSONインポート</h3>
+    <p style="font-size:13px;color:var(--gray-500);margin:0 0 12px">以下の形式の配列をペースト。複数件まとめて追加できる。</p>
+    <pre style="font-size:11px;background:var(--gray-100);padding:10px;border-radius:var(--radius);margin-bottom:12px;overflow-x:auto;">[
+  {
+    "type": "bug | feature",
+    "title": "タイトル（必須）",
+    "description": "説明",
+    "priority": "high | medium | low",
+    "targetFiles": "対象ファイル"
+  }
+]</pre>
+    <div class="form-row">
+      <textarea id="importJson" style="font-family:monospace;font-size:12px;min-height:160px"
+        placeholder='[{"type":"feature","title":"...","priority":"high"}]'></textarea>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+      <span id="importStatus" style="font-size:13px;color:var(--gray-500)"></span>
+      <div style="display:flex;gap:8px">
+        <button class="btn-ghost" onclick="closeImportModal()">キャンセル</button>
+        <button class="btn-primary" onclick="submitImport()">インポート実行</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>

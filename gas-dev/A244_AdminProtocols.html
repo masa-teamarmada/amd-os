@@ -1,0 +1,212 @@
+<!-- A244_AdminProtocols.html -->
+<div id="sec_protocols" style="display:none;">
+  <div class="card" id="protocolCard">
+    <div class="row">
+      <div>
+        <div style="font-weight:900;">Protocol管理（DB_Protocols）</div>
+        <div class="muted">候補→確定→アーカイブ。本文はここ（Admin）だけで整備する</div>
+      </div>
+
+      <div class="rowLeft">
+        <div>
+          <div class="ctlLabel">PJ名</div>
+          <input id="protFltProjectName" class="ctl" style="width:180px" placeholder="例: BWE / OPT / JC ..." list="protProjectNameList" />
+          <datalist id="protProjectNameList"></datalist>
+        </div>
+
+        <div>
+          <div class="ctlLabel">status</div>
+          <select id="protFltStatus" class="ctl" style="width:160px">
+            <option value="">（全て）</option>
+            <option value="candidate">candidate</option>
+            <option value="confirmed">confirmed</option>
+            <option value="archived">archived</option>
+          </select>
+        </div>
+
+        <div>
+          <div class="ctlLabel">sourceType</div>
+          <select id="protFltSourceType" class="ctl" style="width:160px">
+            <option value="">（全て）</option>
+            <option value="manual">manual</option>
+            <option value="notion">notion</option>
+            <option value="gmail">gmail</option>
+            <option value="slack">slack</option>
+          </select>
+        </div>
+
+        <div>
+          <div class="ctlLabel">検索</div>
+          <input id="protFltQ" class="ctl" style="width:220px" placeholder="decisionPoint/criteria/tag など" />
+        </div>
+
+        <button class="btn" onclick="loadProtocols()">更新</button>
+        <button class="btn" onclick="openNewProtocolInline()">手動追加</button>
+      </div>
+    </div>
+
+    <div id="protHint" class="hint">-</div>
+    <div id="protErr" class="err" style="display:none;"></div>
+
+    <!-- 手動追加フォーム -->
+    <div id="protNewBox" style="display:none; margin-top:12px; border:1px dashed var(--line); border-radius:12px; padding:12px; background:#fff;">
+      <div class="row" style="align-items:flex-start;">
+        <div class="rowLeft">
+          <div>
+            <div class="ctlLabel">PJ名</div>
+            <select id="protNewProjectName" class="ctl" style="width:220px">
+              <option value="">（選択）</option>
+            </select>
+          </div>
+          <div>
+            <div class="ctlLabel">重要度</div>
+            <select id="protNewImportance" class="ctl" style="width:120px">
+              <option value="1">★</option>
+              <option value="2">★★</option>
+              <option value="3">★★★</option>
+            </select>
+          </div>
+          <div>
+            <div class="ctlLabel">sourceType</div>
+            <select id="protNewSourceType" class="ctl" style="width:160px">
+              <option value="manual">manual</option>
+              <option value="notion">notion</option>
+              <option value="gmail">gmail</option>
+              <option value="slack">slack</option>
+            </select>
+          </div>
+          <div>
+            <div class="ctlLabel">sourceRef</div>
+            <input id="protNewSourceRef" class="ctl" style="width:280px" placeholder="url / messageId / notionId ..." />
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <div class="ctlLabel">分岐点（decisionPoint）</div>
+        <input id="protNewDecisionPoint" class="ctl" style="width:100%;" placeholder="例：会社をすぐ設立するか" />
+      </div>
+
+      <div style="margin-top:10px;">
+        <div class="ctlLabel">判断条件（decisionCriteria）</div>
+        <textarea id="protNewDecisionCriteria" class="ctl" style="width:100%; height:110px; resize:vertical;" placeholder="観測した事実 / 比較軸 / 注意点 / 追加で確認する質問 ..."></textarea>
+      </div>
+
+      <div style="margin-top:10px;">
+        <div class="ctlLabel">アクション</div>
+        <textarea id="protNewAction" class="ctl" style="width:100%; height:90px; resize:vertical;" placeholder="例：会議を仮想経営会議として定義する / 決裁者同席を要求する ..."></textarea>
+      </div>
+
+
+      <div style="margin-top:10px;">
+        <div class="ctlLabel">ジャンルタグ</div>
+
+        <div class="row" style="margin-top:6px; align-items:center;">
+          <div class="rowLeft">
+            <input
+              id="protNewTagInput"
+              class="ctl"
+              style="width:260px"
+              placeholder="例: 採用 / 組織（入力→候補選択 or Enterで追加）"
+              list="genreTagDatalist"
+              autocomplete="off"
+            />
+            <datalist id="genreTagDatalist"></datalist>
+
+            <button class="btn" onclick="addTagFromGenreInput_()">追加</button>
+          </div>
+          <div class="muted">Enterでも追加。未登録なら「新規追加しますか？」が出る</div>
+        </div>
+
+        <div id="protNewTagsChips" style="margin-top:8px;"></div>
+
+        <!-- 実保存用（カンマ区切りで保持） -->
+        <input type="hidden" id="protNewTagsHidden" value="" />
+      </div>
+
+      <div style="margin-top:10px;">
+        <div class="ctlLabel">notes</div>
+        <input id="protNewNotes" class="ctl" style="width:100%;" placeholder="任意" />
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="rowLeft">
+          <button class="btn" onclick="createProtocolManual()">candidateとして追加</button>
+          <button class="btn" onclick="closeNewProtocolInline()">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 未確定（candidate） ===== -->
+    <div class="muted" style="margin-top:12px; font-weight:900;">未確定（candidate）</div>
+    <div class="tableWrap" style="margin-top:8px;">
+      <table class="stickyTable resizableTable" id="tblProtCandidate" style="min-width: 1800px; table-layout: fixed;">
+        <thead>
+          <tr>
+            <th data-colkey="dp" class="colDp">分岐点</th>
+            <th data-colkey="dc" class="colDc">判断条件</th>
+            <th data-colkey="ac" class="colEv">アクション</th>
+
+            <!-- ★ここに移動 -->
+            <th data-colkey="op" class="colOp">操作</th>
+
+            <th data-colkey="ev" class="colEv">根拠</th>
+            <th data-colkey="pj" class="colPj">PJ名</th>
+
+            <th data-colkey="conf" class="colConf">confidence</th>
+            <th data-colkey="imp" class="colImp">重要度</th>
+            <th data-colkey="tags" class="colTags">ジャンルタグ</th>
+
+            <th data-colkey="srcType" class="colSrcType">sourceType</th>
+            <th data-colkey="srcRef" class="colSrcRef">sourceRef</th>
+
+            <th data-colkey="createdAt" class="colCreatedAt">createdAt</th>
+            <th data-colkey="createdBy" class="colCreatedBy">createdBy</th>
+
+            <th data-colkey="id" class="colId">id</th>
+          </tr>
+        </thead>
+
+        <tbody id="protCandTbody">
+          <tr><td colspan="13" class="muted">loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ===== 確定（confirmed） ===== -->
+    <div class="muted" style="margin-top:14px; font-weight:900;">確定（confirmed）</div>
+    <div class="tableWrap" style="margin-top:8px;">
+      <table class="stickyTable resizableTable" id="tblProtConfirmed" style="min-width: 1800px; table-layout: fixed;">
+        <thead>
+          <tr>
+            <th data-colkey="dp" class="colDp">分岐点</th>
+            <th data-colkey="dc" class="colDc">判断条件</th>
+            <th data-colkey="ac" class="colEv">アクション</th>
+
+            <!-- ★ここに移動 -->
+            <th data-colkey="op" class="colOp">操作</th>
+
+            <th data-colkey="ev" class="colEv">根拠</th>
+            <th data-colkey="pj" class="colPj">PJ名</th>
+
+            <th data-colkey="conf" class="colConf">confidence</th>
+            <th data-colkey="imp" class="colImp">重要度</th>
+            <th data-colkey="tags" class="colTags">ジャンルタグ</th>
+
+            <th data-colkey="srcType" class="colSrcType">sourceType</th>
+            <th data-colkey="srcRef" class="colSrcRef">sourceRef</th>
+
+            <th data-colkey="createdAt" class="colCreatedAt">createdAt</th>
+            <th data-colkey="createdBy" class="colCreatedBy">createdBy</th>
+
+            <th data-colkey="id" class="colId">id</th>
+          </tr>
+        </thead>
+        <tbody id="protConfTbody">
+          <tr><td colspan="13" class="muted">loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div><!-- /#sec_protocols -->

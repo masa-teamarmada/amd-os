@@ -1,0 +1,49 @@
+<!-- D200_DevPage.html -->
+<!-- Dev GAS メインページシェル -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>dev-AMD-OS</title>
+  <?!= include_('D201_DevStyles'); ?>
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="header-logo">
+          <span class="logo-mark">◈</span>
+          <span class="logo-text">dev-<span class="logo-sub">AMD-OS</span></span>
+        </div>
+        <div class="app-selector">
+          <select class="app-select" id="appSelect" onchange="onAppChange_(this.value)">
+            <option value="">読み込み中...</option>
+          </select>
+          <button class="app-manage-btn" onclick="openAppManager_()">⚙</button>
+        </div>
+        <nav class="tab-nav">
+          <button class="tab-btn active" data-tab="tickets">Tickets</button>
+          <button class="tab-btn" data-tab="designlog">Design Log</button>
+          <button class="tab-btn" data-tab="blueprint">Blueprint</button>
+          <button class="tab-btn" data-tab="code">Code</button>
+          <button class="tab-btn" data-tab="files">Files</button>
+          <button class="tab-btn" data-tab="sheets">Sheets</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <div id="tab-tickets"  class="tab-content active"><?!= include_('D202_DevTickets'); ?></div>
+      <div id="tab-designlog" class="tab-content"><?!= include_('D255_DesignLog'); ?></div>
+      <div id="tab-blueprint" class="tab-content"><?!= include_('D261_Blueprint'); ?></div>
+      <div id="tab-code"      class="tab-content"><?!= include_('D247_Code'); ?></div>
+      <div id="tab-files"     class="tab-content"><?!= include_('D256_Files'); ?></div>
+      <div id="tab-sheets"    class="tab-content"><?!= include_('D257_Sheets'); ?></div>
+    </main>
+  </div>
+
+  <?!= include_('D204_DevApps'); ?>
+  <?!= include_('D203_DevScripts'); ?>
+</body>
+</html>

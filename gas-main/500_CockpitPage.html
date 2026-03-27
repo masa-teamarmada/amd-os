@@ -1,0 +1,394 @@
+<!-- 500_CockpitPage.html
+     プロジェクトコックピット メインページ。501〜513を includeして構成される。
+     PJコックピット画面。
+     目標階層（プレースホルダー）＋月次タイムライン＋詳細モーダル。
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<?!= include('501_CockpitStyles') ?>
+</head>
+<body>
+
+<?!= navHtml ?>
+
+<div class="cp-shell">
+  <!-- 左カラム：[A][B][C][G][E] -->
+  <div class="cp-main-col">
+    <!-- [A][B] PJヘッダー＋MS一覧（動的レンダリング） -->
+    <div class="cp-wrap" id="cpRoot">
+      <div class="cp-loading"><div class="cp-spinner"></div><div style="margin-top:8px">読み込み中...</div></div>
+    </div>
+    <!-- [C] TODO Kanban -->
+    <div class="cp-section-block">
+      <div class="cp-section-label">📋 TODO</div>
+      <div class="cp-kanban-board" id="cp-kanban-board">
+        <div style="font-size:11px;color:#aaa;padding:8px">読み込み中...</div>
+      </div>
+    </div>
+    <!-- [G][E] 下段 -->
+    <div class="cp-bottom-row">
+      <div class="cp-bottom-cell" id="cpMonthlyArea">
+        <!-- [G] 月次モーダル／ルーティン（後フェーズで左移動予定） -->
+      </div>
+      <div class="cp-bottom-cell" id="cpMtgArea">
+        <!-- [E] MTGサマリ（後フェーズ） -->
+        <div class="cp-section-label">📅 MTGサマリ</div>
+        <div style="font-size:12px;color:#aaa;padding:8px 0">準備中</div>
+      </div>
+    </div>
+  </div>
+  <!-- 右カラム：[H][F] -->
+  <div class="cp-nudge-lane" id="cpNudgeLane">
+    <!-- [H] ナッジキュー -->
+    <div class="cp-nudge-title">🌙 つくよみメモ</div>
+    <div class="cp-nudge-items" id="cpNudgeItems">
+      <div style="font-size:11px;color:#aaa">読み込み中...</div>
+    </div>
+    <div class="cp-routine-section" id="cpRoutineSection">
+      <div class="cp-routine-title">📋 月次ルーティン</div>
+      <div id="cpRoutineBody">
+        <div style="font-size:11px;color:#aaa">読み込み中...</div>
+      </div>
+    </div>
+    <!-- [I] マクロトレンド提言 -->
+    <div style="margin-top:16px;border-top:1px solid #e5e7eb;padding-top:16px">
+      <div class="cp-nudge-title">🌍 マクロ提言</div>
+      <div class="cp-nudge-items" id="cpMacroItems">
+        <div style="font-size:11px;color:#aaa">読み込み中...</div>
+      </div>
+    </div>
+    <!-- [F] つくよみLLMチャット（後フェーズ） -->
+    <div id="cpTsukuyomiChat" style="margin-top:16px;border-top:1px solid #e5e7eb;padding-top:16px">
+      <div class="cp-nudge-title">💬 つくよみに聞く</div>
+      <div style="font-size:12px;color:#aaa;padding:8px 0">準備中</div>
+    </div>
+  </div>
+</div>
+
+<!-- モーダル -->
+<div class="cp-overlay" id="cpOverlay" onclick="cpCloseModalOnOverlay(event)">
+  <div class="cp-modal">
+    <div class="cp-modal-header">
+      <h2 id="cpModalTitle">-</h2>
+      <button class="cp-modal-close" onclick="cpCloseModal()">&times;</button>
+    </div>
+    <div class="cp-tabs">
+      <div class="cp-tab active" data-tab="reward" onclick="cpSwitchTab('reward')">進捗確認<span class="cp-tab-dot" id="cpTabDotReward" style="display:none"></span></div>
+      <div class="cp-tab" data-tab="report" onclick="cpSwitchTab('report')">レポート<span class="cp-tab-dot" id="cpTabDotReport" style="display:none"></span></div>
+    </div>
+    <div class="cp-modal-body">
+      <div class="cp-tab-content active" id="cpTabReward">
+        <div class="cp-loading"><div class="cp-spinner"></div></div>
+      </div>
+      <div class="cp-tab-content" id="cpTabReport">
+        <div class="cp-loading"><div class="cp-spinner"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 状態 =====
+var CP = {
+  projectId: "<?= projectId ?>",
+  projectName: "<?= projectName ?>",
+  baseUrl: "<?= baseUrl ?>",
+  focusYm: "<?= focusYm ?>",
+  data: null,
+  modalYm: null
+};
+
+// ===== 初期化 =====
+document.addEventListener("DOMContentLoaded", function() {
+  cpLoadData();
+});
+
+function cpLoadData() {
+  google.script.run
+    .withSuccessHandler(cpRenderPage)
+    .withFailureHandler(function(err) {
+      document.getElementById("cpRoot").innerHTML =
+        '<div class="cp-empty">データ取得に失敗: ' + cpEsc(String(err)) + '</div>';
+    })
+    .cockpit_api_getData({ projectId: CP.projectId });
+}
+
+// ===== ページ描画 =====
+function cpRenderPage(res) {
+  if (!res || !res.ok) {
+    document.getElementById("cpRoot").innerHTML =
+      '<div class="cp-empty">' + cpEsc(res ? res.message : "不明なエラー") + '</div>';
+    return;
+  }
+  CP.data = res;
+
+  var p = res.project || {};
+  var isActive = (p.status || "").toLowerCase() !== "closed";
+
+  var html = "";
+
+  // [A] PJヘッダー
+  html += '<div class="cp-header">';
+  html += '  <h1>' + cpEsc(p.projectName || CP.projectName || CP.projectId) + '</h1>';
+  if (p.clientName) html += '  <span style="font-size:12px;color:#86868b">' + cpEsc(p.clientName) + '</span>';
+  html += '  <span class="cp-badge ' + (isActive ? "active" : "") + '">' + (isActive ? "Active" : "Closed") + '</span>';
+  html += '  <a class="cp-btn cp-btn-secondary" href="' + CP.baseUrl + '?page=chronicle&projectId=' + encodeURIComponent(CP.projectId) + '&projectName=' + encodeURIComponent(CP.projectName) + '" target="_top" style="font-size:11px;padding:4px 10px;margin-left:4px">Chronicle →</a>';
+  html += '  <a class="cp-btn cp-btn-secondary" href="' + CP.baseUrl + '?page=config&projectId=' + encodeURIComponent(CP.projectId) + '" target="_top" style="font-size:11px;padding:4px 10px;margin-left:4px">Config →</a>';
+
+  // Origin率バッジ
+  var or = res.originRate;
+  if (or) {
+    var orPct = or.amdPct;
+    var orClass = "origin-end";
+    var orLabel = "";
+    if (orPct >= 90) { orClass = "origin-ok"; orLabel = "🟢 先手力 " + orPct + "%"; }
+    else if (orPct >= 80) { orClass = "origin-warn"; orLabel = "🟡 危険水域 " + orPct + "%"; }
+    else if (orPct >= 70) { orClass = "origin-danger"; orLabel = "🔴 契約終了リスク " + orPct + "%"; }
+    else { orClass = "origin-end"; orLabel = "⚫ 末期 " + orPct + "%"; }
+    html += '  <span class="cp-origin-health ' + orClass + '" id="cpOriginBadge" title="AMD起点率（AMD提案+協議決定）/ 全イベント　※クリックで詳細" style="cursor:pointer" onclick="cpOpenOriginModal()">' + orLabel + '</span>';
+  } else if (or === null) {
+    html += '  <span class="cp-origin-health origin-na" id="cpOriginBadge" title="イベント5件未満で判定不能">◻️ 判定不能</span>';
+  }
+  html += '</div>';
+
+  // [B] ゴール階層（非同期で取得）
+  html += '<div class="cp-goals" id="cpGoals">';
+  html += '  <div class="cp-goals-title">目標階層</div>';
+  html += '  <div style="color:#aaa;font-size:12px">読み込み中...</div>';
+  html += '</div>';
+
+  document.getElementById("cpRoot").innerHTML = html;
+
+  // [G] 月次タイムライン → cpMonthlyArea に書き込む
+  var tlHtml = '';
+  var summaries = res.monthlySummaries || [];
+  for (var i = 0; i < summaries.length; i++) {
+    var s = summaries[i];
+    var isCurrent = (s.ym === res.currentYm);
+    var ymLabel = s.ym.substring(0, 4) + "/" + s.ym.substring(4, 6);
+
+    tlHtml += '<div class="cp-month-card open' + (isCurrent ? " current" : "") + '" data-ym="' + s.ym + '" onclick="cpOpenModal(\'' + s.ym + '\')" style="cursor:pointer">';
+    tlHtml += '  <div class="cp-month-head">';
+    tlHtml += '    <span class="cp-month-ym">' + ymLabel + '</span>';
+    if (s.reportNeedsReview) tlHtml += '    <span style="color:#e67e22;font-size:9px;margin-left:4px;vertical-align:middle" title="未FIXの更新あり">●</span>';
+    tlHtml += '    <div class="cp-month-badges">';
+    tlHtml += cpPill("会議", s.meetingDone);
+    tlHtml += cpPill("予算", s.budgetDone);
+    tlHtml += cpPill("配賦", s.allocDone);
+    tlHtml += cpPill("報告", s.reportDone);
+    tlHtml += cpPill("請求", s.invoiceDone);
+    tlHtml += cpPill("入金", s.paymentDone);
+    tlHtml += '    </div>';
+    tlHtml += '  </div>';
+    tlHtml += '  <div class="cp-month-body">';
+    var msProgData = s.msProgressSummary || {};
+    var msItems = msProgData.items || (Array.isArray(s.msProgressSummary) ? s.msProgressSummary : []);
+    var visibleMs = msItems.filter(function(m) { return m.tag !== 'buffer'; });
+
+    if (visibleMs.length > 0) {
+      // 加重平均進捗を計算
+      var totalPts = 0, weightedProg = 0;
+      for (var mi = 0; mi < visibleMs.length; mi++) {
+        var pts = Number(visibleMs[mi].points || 0);
+        totalPts += pts;
+        weightedProg += pts * Number(visibleMs[mi].progressPct || 0);
+      }
+      var overallPct = totalPts > 0 ? Math.round(weightedProg / totalPts) : 0;
+
+      // 経過時間比率を計算
+      var expectedPct = 0;
+      var startYm = String(msProgData.periodStartYm || '');
+      var endYm = String(msProgData.periodEndYm || '');
+      var curYm = s.ym;
+      if (startYm.length === 6 && endYm.length === 6 && curYm) {
+        var totalMonths = (parseInt(endYm.slice(0,4)) - parseInt(startYm.slice(0,4))) * 12
+          + (parseInt(endYm.slice(4)) - parseInt(startYm.slice(4))) + 1;
+        var elapsedMonths = (parseInt(curYm.slice(0,4)) - parseInt(startYm.slice(0,4))) * 12
+          + (parseInt(curYm.slice(4)) - parseInt(startYm.slice(4))) + 1;
+        expectedPct = totalMonths > 0 ? Math.round(elapsedMonths / totalMonths * 100) : 0;
+      }
+
+      // 信号判定
+      var signal, signalColor, signalBg, reason;
+      if (expectedPct === 0) {
+        signal = '🟢'; signalColor = '#166534'; signalBg = '#f0fdf4'; reason = '';
+      } else {
+        var gap = expectedPct - overallPct;
+        if (gap <= 10) {
+          signal = '🟢'; signalColor = '#166534'; signalBg = '#f0fdf4'; reason = '';
+        } else if (gap <= 25) {
+          signal = '🟡'; signalColor = '#92400e'; signalBg = '#fffbeb';
+          reason = '計画比 ' + gap + '% 遅延';
+        } else {
+          signal = '🔴'; signalColor = '#991b1b'; signalBg = '#fef2f2';
+          reason = '計画比 ' + gap + '% 遅延';
+        }
+      }
+
+      var barFill = signal === '🟢' ? '#22c55e' : signal === '🟡' ? '#f59e0b' : '#ef4444';
+
+      tlHtml += '<div class="cp-ms-summary-block" style="background:' + signalBg + '">';
+      tlHtml += '<div class="cp-ms-summary-row">';
+      tlHtml += '<span style="font-size:14px">' + signal + '</span>';
+      tlHtml += '<div class="cp-ms-prog-bar-wrap" style="flex:1">';
+      tlHtml += '<div class="cp-ms-prog-bar" style="width:' + overallPct + '%;background:' + barFill + '"></div>';
+      tlHtml += '</div>';
+      tlHtml += '<span style="font-size:12px;font-weight:600;color:' + signalColor + '">' + overallPct + '%</span>';
+      tlHtml += '</div>';
+      if (reason) {
+        tlHtml += '<div style="font-size:11px;color:' + signalColor + ';margin-top:3px">' + cpEsc(reason) + '</div>';
+      }
+      tlHtml += '</div>';
+    } else {
+      tlHtml += '<div style="font-size:11px;color:#aaa;padding:4px 0">進捗データなし</div>';
+    }
+    if (s.billingAmount > 0) {
+      tlHtml += '    <div style="margin-top:6px;font-size:12px;color:#1d1d1f">請求額: ¥' + cpFmtNum(s.billingAmount) + '</div>';
+    }
+    tlHtml += '  </div>';
+    tlHtml += '</div>';
+  }
+  var monthlyArea = document.getElementById("cpMonthlyArea");
+  if (monthlyArea) monthlyArea.innerHTML = tlHtml;
+
+  // 非同期ロード
+  cpLoadGoals();
+  cpLoadKanban();
+  cpLoadNudgeQueue();
+  cpLoadRoutineFlow();
+  cpLoadMacroInsights();
+
+  if (CP.focusYm) {
+    setTimeout(function() {
+      var targetCard = document.querySelector('.cp-month-card[data-ym="' + CP.focusYm + '"]');
+      if (targetCard && !targetCard.classList.contains('open')) {
+        targetCard.classList.add('open');
+      }
+      cpOpenModal(CP.focusYm);
+    }, 300);
+  }
+}
+
+</script>
+<?!= include('502_CockpitGoals') ?>
+<?!= include('503_CockpitModal') ?>
+<?!= include('504_CockpitReward') ?>
+<?!= include('505_CockpitReport') ?>
+<?!= include('506_CockpitMsDesign') ?>
+<?!= include('507_CockpitMsRevision') ?>
+<?!= include('508_CockpitOrigin') ?>
+<?!= include('509_CockpitNudge') ?>
+<?!= include('510_CockpitRoutine') ?>
+<?!= include('511_CockpitInvoice') ?>
+<?!= include('512_CockpitReimburse') ?>
+<?!= include('513_CockpitEventEdit') ?>
+<?!= include('514_CockpitKanban') ?>
+<?!= include('515_CockpitMacro') ?>
+<?!= include('321_BillingBudgetModal') ?>
+
+<!-- 先手力モーダル -->
+<div class="cp-ol-overlay" id="cpOriginListOverlay" onclick="if(event.target===this)cpCloseOriginModal()">
+  <div class="cp-ol-modal">
+    <div class="cp-ol-header">
+      <h2>📊 先手力 — 全期間イベント一覧</h2>
+      <button class="cp-ol-close" onclick="cpCloseOriginModal()">&times;</button>
+    </div>
+    <div class="cp-ol-body" id="cpOriginListBody">
+      <div class="cp-loading"><div class="cp-spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MS設計モーダル（フォーム＋レビューチャット） -->
+<div id="cpMsdOverlay" class="cp-msd-overlay" onclick="if(event.target===this)cpMsdClose()">
+  <div class="cp-msd-modal">
+    <div class="cp-msd-header">
+      <span id="cpMsdTitle">📋 MS設計</span>
+      <span class="cp-msd-close" onclick="cpMsdClose()">✕</span>
+    </div>
+    <div class="cp-msd-body" id="cpMsdBody">
+      <div id="cpMsdPhaseForm"></div>
+      <div id="cpMsdPhaseReview" style="display:none">
+        <div id="cpMsdReviewChat" class="cp-msd-chat"></div>
+      </div>
+      <div id="cpMsdLoading" class="cp-msd-loading" style="display:none">
+        <div style="font-size:28px">🌙</div>
+        <div class="cp-msd-loading-text">MS案を生成中<span class="cp-msd-loading-dots"><span>.</span><span>.</span><span>.</span></span></div>
+      </div>
+    </div>
+    <div id="cpMsdFormActions" class="cp-msd-form-actions">
+      <button class="cp-msd-btn cp-msd-btn-secondary" onclick="cpMsdSaveDraft()">💾 下書き保存</button>
+      <button class="cp-msd-btn cp-msd-btn-primary" onclick="cpMsdGenerate()">🌙 MS案を生成</button>
+    </div>
+    <div id="cpMsdReviewInput" style="display:none">
+      <div class="cp-msd-input-area">
+        <textarea id="cpMsdInput" placeholder="修正要望を入力..." rows="2"></textarea>
+        <button class="cp-msd-send-btn" onclick="cpMsdSend()">送信</button>
+      </div>
+      <div class="cp-msd-review-actions">
+        <button class="cp-msd-btn cp-msd-btn-secondary" id="cpMsdBackBtn" onclick="cpMsdBackToForm()">📝 ヒアリングに戻る</button>
+        <button class="cp-msd-btn cp-msd-btn-success" id="cpMsdFixBtn" onclick="cpMsdFix()">✅ これでOK</button>
+      </div>
+    </div>
+    <div class="cp-msd-toast" id="cpMsdToast"></div>
+  </div>
+</div>
+<!-- MS設計モーダル END -->
+
+<!-- MS改定モーダル -->
+<div id="cpMsRevOverlay" class="cp-msd-overlay" onclick="if(event.target===this)cpMsRevClose()">
+  <div class="cp-msd-modal" style="max-width:720px">
+    <div class="cp-msd-header">
+      <span id="cpMsRevTitle">🔄 MS改定</span>
+      <span class="cp-msd-close" onclick="cpMsRevClose()">✕</span>
+    </div>
+    <div class="cp-msd-body" id="cpMsRevBody">
+      <!-- Phase 1: 現状表示 + 改定指示入力 -->
+      <div id="cpMsRevPhaseStart"></div>
+      <!-- Phase 2: diff表示 -->
+      <div id="cpMsRevPhaseDiff" style="display:none"></div>
+      <!-- チャット履歴 -->
+      <div id="cpMsRevChat" class="cp-msd-chat" style="display:none"></div>
+      <!-- ローディング -->
+      <div id="cpMsRevLoading" class="cp-msd-loading" style="display:none">
+        <div style="font-size:28px">🌙</div>
+        <div class="cp-msd-loading-text">改定案を生成中<span class="cp-msd-loading-dots"><span>.</span><span>.</span><span>.</span></span></div>
+      </div>
+    </div>
+    <!-- 入力エリア（常時表示、phase=fixedで非表示） -->
+    <div id="cpMsRevInputArea" class="cp-msd-input-area" style="display:none">
+      <textarea id="cpMsRevInput" placeholder="改定指示を入力...&#10;例: C1を分割したい。NEV助成金は不採択だったので民間助成に切り替え" rows="3"></textarea>
+      <button class="cp-msd-send-btn" onclick="cpMsRevChat()">送信</button>
+    </div>
+    <div id="cpMsRevActions" style="display:none;padding:10px 20px 16px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="cp-msd-btn cp-msd-btn-secondary" id="cpMsRevRetryBtn" onclick="cpMsRevRetry()" style="display:none">🔄 やり直す</button>
+      <button class="cp-msd-btn cp-msd-btn-success" id="cpMsRevFixBtn" onclick="cpMsRevFix()" style="display:none">✅ この改定案で確定</button>
+    </div>
+    <div class="cp-msd-toast" id="cpMsRevToast"></div>
+  </div>
+</div>
+
+<!-- 請求書発行モーダル -->
+<div id="cpInvOverlay" class="cp-inv-overlay" onclick="if(event.target===this)cpInvClose()">
+  <div class="cp-inv-modal">
+    <div class="cp-inv-header">
+      <h2>📄 請求書発行</h2>
+      <button class="cp-inv-close" onclick="cpInvClose()">✕</button>
+    </div>
+    <div class="cp-inv-body" id="cpInvBody">
+      <div style="text-align:center;padding:40px;color:#aaa">読み込み待ち…</div>
+    </div>
+    <div class="cp-inv-actions" id="cpInvActions">
+      <button class="cp-inv-btn cp-inv-btn-cancel" onclick="cpInvClose()">キャンセル</button>
+      <button class="cp-inv-btn cp-inv-btn-issue" id="cpInvIssueBtn" onclick="cpInvIssue()">📄 freeeに発行</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
+</body>
+</html>

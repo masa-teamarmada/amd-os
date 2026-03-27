@@ -1,0 +1,848 @@
+<!-- A249_AdminScripts.html -->
+<script>
+  const CAN_ACCESS_ADMIN =
+    !!(window.__ADMIN_CTX__ && window.__ADMIN_CTX__.canAccessAdmin);
+
+  function el(id){ return document.getElementById(id); }
+
+  function escapeHtml(s){
+    return String(s||"")
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#39;");
+  }
+
+  // ★ 属性用（onclickの引数など）に安全に突っ込む用
+  function escapeHtmlAttr(s){
+    // いったんHTML的に安全化 → さらに ' をエスケープ（JS文字列の事故防止）
+    return escapeHtml(s).replaceAll("'", "\\'");
+  }
+
+  /** 日時文字列 → yyyy-mm-dd に正規化（時間が必要なら後ろに HH:MM） */
+  function formatDateYmd_(raw){
+    const s = String(raw || "").trim();
+    if (!s) return "-";
+    // ISO or Date-parseable
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return s.slice(0, 10); // fallback
+    // JST = UTC+9
+    const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    const yy = jst.getUTCFullYear();
+    const mm = String(jst.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(jst.getUTCDate()).padStart(2, "0");
+    return `${yy}-${mm}-${dd}`;
+  }
+
+  function showErr(msg){
+    const m = msg || "error";
+
+    // Membersタブ用（既存）
+    try{
+      const e1 = el("err");
+      if (e1){
+        e1.style.display = "block";
+        e1.textContent = m;
+      }
+    }catch(e){}
+
+    // Codeタブ用（追加：ここが見えてないと詰む）
+    try{
+      const e2 = el("codeErr");
+      if (e2){
+        e2.style.display = "block";
+        e2.textContent = m;
+      }
+    }catch(e){}
+
+    // Protocol/Context/Extractorもついでに（見えてるタブに出す）
+    try{
+      const ids = ["protErr","ctxErr","exErr","pjErr","candErr"];
+      ids.forEach(id=>{
+        const x = el(id);
+        if (x){
+          x.style.display = "block";
+          x.textContent = m;
+        }
+      });
+    }catch(e){}
+  }
+
+
+  function pill(v){
+    const s = String(v||"").trim();
+    if (!s) return `<span class="pill gray">-</span>`;
+    return `<span class="pill">${escapeHtml(s)}</span>`;
+  }
+
+  function numOrDash(v){
+    if (v === null || v === undefined || v === "") return "-";
+    const n = Number(v);
+    if (isNaN(n)) return escapeHtml(String(v));
+    return String(n);
+  }
+
+  function callGAS_(fnName, args, onOk, onNg){
+    try{
+      const runner = google.script.run
+        .withSuccessHandler(onOk)
+        .withFailureHandler(onNg);
+
+      // ★関数名ズレをここで検知して、画面に出す
+      const f = runner && runner[fnName];
+      if (typeof f !== "function"){
+        throw new Error(`[GAS] ${fnName} is not a function（サーバ側に同名の公開関数が無い/名前が違う）`);
+      }
+
+      (Array.isArray(args) ? f.apply(runner, args) : f.call(runner, args));
+    } catch(e){
+      onNg && onNg(e);
+    }
+  }
+
+  // ===== PJ list =====
+  // __PJS__ は「Protocols/Candidates用：activeのみ」を入れる
+  let __PJS__ = [];
+
+  function setActiveTabBtn_(key){
+    ["members","projects","protocols","contexts","extractors","code","billing","payouts","tsukuyomi"].forEach(k=>{
+      const b = el("tab_"+k);
+      if (!b) return;
+      if (k === key) {
+        b.style.background = "#111827";
+        b.style.color = "#fff";
+        b.style.borderColor = "#111827";
+      } else {
+        b.style.background = "#fff";
+        b.style.color = "#111827";
+        b.style.borderColor = "var(--line)";
+      }
+    });
+  }
+
+  /* ─── キャッシュ Layer-1: ロード制御 (TTLベース) ─── */
+  const _LOAD_TTL = {
+    billing:   2*60*1000,
+    payouts:   2*60*1000,
+    members:   5*60*1000,
+    projects:  5*60*1000,
+    protocols: 5*60*1000,
+    contexts:  5*60*1000,
+    extractors:5*60*1000,
+    tsukuyomi: 5*60*1000,
+    blueprint: 5*60*1000,
+    files:    10*60*1000,
+    designlog:10*60*1000,
+    sheets:   10*60*1000,
+    settings: 10*60*1000,
+    code:     Infinity,
+  };
+  const _LOAD_TS = {};
+  function _shouldloadMembers(key){
+    const ts = _LOAD_TS[key];
+    if (!ts) return true;
+    return Date.now() - ts > (_LOAD_TTL[key] ?? 5*60*1000);
+  }
+  function _markLoaded(key){ _LOAD_TS[key] = Date.now(); }
+  function _invalidateTab(key){ delete _LOAD_TS[key]; }
+
+  /* ─── キャッシュ Layer-2: データキャッシュ (_DC) ─── */
+  const _DC = {};
+  function dcSet(key, data){ _DC[key] = { data, ts: Date.now() }; }
+  function dcGet(key){
+    const c = _DC[key];
+    if (!c) return null;
+    const ttl = _LOAD_TTL[key] ?? 5*60*1000;
+    if (ttl !== Infinity && Date.now() - c.ts > ttl) return null;
+    return c.data;
+  }
+  function dcDel(key){ delete _DC[key]; }
+  function dcDelAll(){ Object.keys(_DC).forEach(k => delete _DC[k]); }
+
+  const _TAB_SEC = {
+    members:   "sec_members",
+    projects:  "sec_projects",
+    protocols: "sec_protocols",
+    contexts:  "sec_contexts",
+    extractors:"sec_extractors",
+    code:      "sec_code",
+    billing:   "sec_billing",
+    payouts:   "sec_payouts",
+    tsukuyomi: "pane_tsukuyomi",
+    designlog: "sec_designlog",
+    files:     "sec_files",
+    sheets:    "sec_sheets",
+    settings:  "sec_settings",
+    blueprint: "sec_blueprint",
+  };
+  const _TAB_ON_SHOW = {
+    members:   () => loadMembers(),
+    projects:  () => {
+    try{ loadFreeePartners_(); }catch(e){}
+    if (!dcGet("members")) loadMembers();
+    loadProjects();
+  },
+    protocols: () => { try{ reloadGenreTags(); }catch(e){} try{ loadCandidates(); }catch(e){} loadProtocols(); },
+    contexts:  () => loadContexts(),
+    extractors:() => { loadExtractorConfigs(); loadActiveExtractor_(); },
+    code:      () => initCodeSearchUi(),
+    billing:   () => { try{ if(typeof bmLoad_==="function") bmLoad_(); }catch(e){} try{ if(typeof baLoad_==="function") baLoad_(); }catch(e){} },
+    payouts:   () => { try{ if(typeof payoutsOnShow==="function") payoutsOnShow(); }catch(e){} },
+    tsukuyomi: () => { try{ if(typeof tkyOnShow==="function") tkyOnShow(); }catch(e){} },
+    designlog: () => { try{ if(typeof dlOnShow==="function") dlOnShow(); }catch(e){} },
+    files:     () => { try{ if(typeof filesOnShow==="function") filesOnShow(); }catch(e){} },
+    sheets:    () => { try{ if(typeof sheetsOnShow==="function") sheetsOnShow(); }catch(e){} },
+    settings:  () => { try{ if(typeof settingsLoad==="function") settingsloadMembers(); }catch(e){} },
+    blueprint: () => { try{ if(typeof dmOnShow==="function") dmOnShow(); }catch(e){} },
+  };
+  const _TAB_ON_REFRESH = {
+    payouts:   () => { try{ if(typeof payoutsRefresh==="function") payoutsRefresh(); }catch(e){} },
+    tsukuyomi: () => { try{ if(typeof tkyRefresh==="function") tkyRefresh(); }catch(e){} },
+  };
+
+  function switchTab(key){
+    Object.entries(_TAB_SEC).forEach(([k, secId]) => {
+      const el_ = el(secId);
+      if (el_) el_.style.display = (k === key) ? "block" : "none";
+    });
+    setActiveTabBtn_(key);
+
+    if (_shouldloadMembers(key)) {
+      _markLoaded(key);
+      _TAB_ON_SHOW[key]?.();
+    } else {
+      _TAB_ON_REFRESH[key]?.();
+    }
+  }
+
+  // ---- App Modal helpers ----
+  function closeAppModal_(){
+    const ov = el("appModalOverlay");
+    if (ov) ov.style.display = "none";
+  }
+
+  function openAppModal_(title, bodyHtml, onOk, opt){
+    const ov = el("appModalOverlay");
+    if (!ov) return;
+
+    opt = opt || {};
+
+    el("appModalTitle").textContent = title || "確認";
+
+    // ★HTMLとして表示したいので innerHTML
+    el("appModalBody").innerHTML = bodyHtml || "";
+
+    const wrap = el("appModalInputWrap");
+    const inp  = el("appModalInput");
+    const lab  = el("appModalInputLabel");
+    const hint = el("appModalInputHint");
+
+    if (opt.input){
+      wrap.style.display = "block";
+      lab.textContent = String(opt.inputLabel || "入力");
+      inp.value = String(opt.defaultValue || "");
+      inp.placeholder = String(opt.placeholder || "");
+      hint.textContent = String(opt.hint || "");
+    } else {
+      wrap.style.display = "none";
+      inp.value = "";
+      inp.placeholder = "";
+      hint.textContent = "";
+    }
+
+    const okBtn = el("appModalOk");
+    const ngBtn = el("appModalCancel");
+
+    okBtn.onclick = () => {
+      const val = String(inp.value || "");
+      closeAppModal_();
+      try{ onOk && onOk(val); }catch(e){}
+    };
+    ngBtn.onclick = () => { closeAppModal_(); };
+
+    ov.style.display = "flex";
+
+    // 入力モードならフォーカス
+    if (opt.input){
+      try{ setTimeout(()=> inp.focus(), 50); }catch(e){}
+    }
+  }
+
+
+        // ===== Extractor Prompt =====
+  let __EX_CFGS__ = [];
+  let __EX_SELECTED_ID__ = "";
+
+  function showExErr(msg){
+    el("exErr").style.display = "block";
+    el("exErr").textContent = msg || "error";
+  }
+  function hideExErr(){
+    el("exErr").style.display = "none";
+    el("exErr").textContent = "";
+  }
+
+  function exName_(){
+    return String(el("exName")?.value || "protocol_extract").trim() || "protocol_extract";
+  }
+
+  function setExtractorButtonsEnabled_(enabled){
+    const b1 = el("btnExActivate");
+    const b2 = el("btnExArchive");
+    if (b1) b1.disabled = !enabled;
+    if (b2) b2.disabled = !enabled;
+  }
+
+  function fillExtractorEditor_(cfg){
+    cfg = cfg || {};
+    __EX_SELECTED_ID__ = String(cfg.configId || "").trim();
+
+    if (el("exConfigId")) el("exConfigId").value = String(cfg.configId || "");
+    if (el("exStatus")) el("exStatus").value = String(cfg.status || "(unknown)");
+    if (el("exVersion")) el("exVersion").value = String(cfg.version || "");
+    if (el("exNote")) el("exNote").value = String(cfg.note || "");
+    if (el("exSystemPrompt")) el("exSystemPrompt").value = String(cfg.systemPrompt || "");
+
+    setExtractorButtonsEnabled_(!!__EX_SELECTED_ID__);
+  }
+
+  function renderExtractorList_(rows){
+    const tb = el("exTbody");
+    const list = Array.isArray(rows) ? rows : [];
+
+    if (!list.length){
+      tb.innerHTML = `<tr><td colspan="6" class="muted">なし</td></tr>`;
+      return;
+    }
+
+    tb.innerHTML = list.map(c => {
+      const id = String(c.configId || "").trim();
+      const idAttr = escapeHtmlAttr(id);
+
+      const st = String(c.status || "");
+      const ver = String(c.version || "");
+      const note = String(c.note || "");
+      const upd = String(c.updatedAt || "");
+
+      const pickBtn = `<button class="btn" onclick="pickExtractor_('${idAttr}')">編集</button>`;
+      const actBtn  = `<button class="btn" onclick="activateExtractor_('${idAttr}')">有効化</button>`;
+      const arcBtn  = `<button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="archiveExtractor_('${idAttr}')">アーカイブ</button>`;
+
+      return `
+        <tr>
+          <td class="nowrap">${pill(st)}</td>
+          <td class="noteCell">${escapeHtml(ver)}</td>
+          <td class="noteCell">${escapeHtml(note)}</td>
+          <td class="small nowrap">${escapeHtml(upd || "-")}</td>
+          <td class="nowrap">${pickBtn} ${actBtn} ${arcBtn}</td>
+          <td class="mono nowrap">${escapeHtml(id)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function loadExtractorConfigs(){
+    hideExErr();
+    el("exHint").textContent = "loading...";
+
+    const name = exName_();
+
+    google.script.run
+      .withFailureHandler(err => showExErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showExErr((res && res.message) ? res.message : "load failed");
+          __EX_CFGS__ = [];
+          renderExtractorList_([]);
+          el("exHint").textContent = "rows: 0";
+          return;
+        }
+        __EX_CFGS__ = Array.isArray(res.configs) ? res.configs : [];
+        renderExtractorList_(__EX_CFGS__);
+        el("exHint").textContent = `rows: ${__EX_CFGS__.length} / name: ${name}`;
+      })
+      .admin_listExtractorConfigs({ name: name });
+  }
+
+  function loadActiveExtractor_(){
+    hideExErr();
+    el("exHint").textContent = "loading active...";
+
+    const name = exName_();
+
+    google.script.run
+      .withFailureHandler(err => showExErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showExErr((res && res.message) ? res.message : "getActive failed");
+          return;
+        }
+        const cfg = res.config || null;
+        if (!cfg){
+          fillExtractorEditor_({ status:"(no active)", version:"", note:"", systemPrompt:"" });
+          el("exHint").textContent = "activeなし（新規作って有効化して）";
+          return;
+        }
+        fillExtractorEditor_(cfg);
+        el("exHint").textContent = `active loaded: ${String(cfg.version||"") || "-"}`;
+      })
+      .admin_getActiveExtractorConfig({ name: name });
+  }
+
+  function pickExtractor_(configId){
+    const id = String(configId||"").trim();
+    const hit = (__EX_CFGS__ || []).find(x => String(x.configId||"").trim() === id);
+    if (!hit){
+      showExErr("not found in list");
+      return;
+    }
+    fillExtractorEditor_(hit);
+    el("exHint").textContent = `picked: ${String(hit.version||"") || "-"} / ${id}`;
+  }
+
+  function openNewExtractorInline(){
+    hideExErr();
+    __EX_SELECTED_ID__ = "";
+    fillExtractorEditor_({
+      configId: "",
+      status: "archived",
+      version: "",
+      note: "",
+      systemPrompt: ""
+    });
+    el("exHint").textContent = "新規作成モード（保存でarchived作成→有効化）";
+  }
+
+  function saveExtractorConfig_(){
+    hideExErr();
+
+    const name = exName_();
+    const configId = String(el("exConfigId")?.value || "").trim(); // empty ok
+    const version = String(el("exVersion")?.value || "").trim();
+    const note = String(el("exNote")?.value || "").trim();
+    const systemPrompt = String(el("exSystemPrompt")?.value || "").trim();
+
+    if (!systemPrompt){
+      showExErr("systemPrompt empty");
+      return;
+    }
+
+    el("exHint").textContent = "保存中...";
+
+    google.script.run
+      .withFailureHandler(err => showExErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showExErr((res && res.message) ? res.message : "save failed");
+          return;
+        }
+        el("exHint").textContent = res.created ? "作成した（archived）" : "更新した";
+        loadExtractorConfigs();
+        // 新規作成なら editor のIDも更新したいので、active読み込みではなく一覧から再pickする
+        if (res.configId){
+          __EX_SELECTED_ID__ = String(res.configId||"");
+          if (el("exConfigId")) el("exConfigId").value = __EX_SELECTED_ID__;
+          setExtractorButtonsEnabled_(true);
+        }
+      })
+      .admin_saveExtractorConfig({
+        configId: configId || "",
+        name: name,
+        version: version,
+        note: note,
+        systemPrompt: systemPrompt
+      });
+  }
+
+  function activateExtractor_(configId){
+    hideExErr();
+    const id = String(configId||"").trim();
+    if (!id){
+      showExErr("configId empty");
+      return;
+    }
+
+    const ok = window.confirm(`この設定を有効化する？\nconfigId=${id}`);
+    if (!ok) return;
+
+    el("exHint").textContent = "有効化中...";
+
+    google.script.run
+      .withFailureHandler(err => showExErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showExErr((res && res.message) ? res.message : "activate failed");
+          return;
+        }
+        el("exHint").textContent = "有効化した";
+        loadExtractorConfigs();
+        loadActiveExtractor_();
+      })
+      .admin_activateExtractorConfig({ configId: id });
+  }
+
+  function archiveExtractor_(configId){
+    hideExErr();
+    const id = String(configId||"").trim();
+    if (!id){
+      showExErr("configId empty");
+      return;
+    }
+
+    const ok = window.confirm(`アーカイブする？\nconfigId=${id}`);
+    if (!ok) return;
+
+    el("exHint").textContent = "アーカイブ中...";
+
+    google.script.run
+      .withFailureHandler(err => showExErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showExErr((res && res.message) ? res.message : "archive failed");
+          return;
+        }
+        el("exHint").textContent = "アーカイブした";
+        loadExtractorConfigs();
+        loadActiveExtractor_();
+      })
+      .admin_archiveExtractorConfig({ configId: id });
+  }
+
+  function activateSelectedExtractor_(){
+    const id = String(el("exConfigId")?.value || "").trim();
+    if (!id) { showExErr("configId empty"); return; }
+    activateExtractor_(id);
+  }
+
+  function archiveSelectedExtractor_(){
+    const id = String(el("exConfigId")?.value || "").trim();
+    if (!id) { showExErr("configId empty"); return; }
+    archiveExtractor_(id);
+  }
+
+
+  // ===== init =====
+  function attachGlobalErrorHandlers_(){
+  // ★JSが死んだとき、画面に出して「原因見える化」
+  window.addEventListener("error", (ev) => {
+    try{
+      const msg = ev?.error?.message || ev?.message || String(ev);
+      showErr("[JS ERROR] " + msg);
+    } catch(_) {}
+  });
+
+  window.addEventListener("unhandledrejection", (ev) => {
+    try{
+      const msg = ev?.reason?.message || String(ev?.reason || ev);
+      showErr("[PROMISE ERROR] " + msg);
+    } catch(_) {}
+  });
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  attachGlobalErrorHandlers_();
+
+  // ★初期ロードでコケても、UI全体を殺さない
+  try{
+    switchTab("designlog");
+  } catch(e){
+    try{ showErr(e?.message || String(e)); } catch(_) {}
+  }
+});
+
+
+        function initResizableColumns_(tableId){
+    const tbl = el(tableId);
+    if (!tbl) return;
+
+    const keyPrefix = "colw:" + tableId + ":";
+
+    const ths = tbl.querySelectorAll("thead th");
+    ths.forEach((th, idx) => {
+      // handleを二重に付けない
+      if (th.querySelector(".resizeHandle")) return;
+
+      // 保存済み幅を反映
+      const colKey = th.getAttribute("data-colkey") || String(idx);
+      const saved = localStorage.getItem(keyPrefix + colKey);
+      if (saved){
+        th.style.width = saved + "px";
+      }
+
+      // ハンドル追加
+      const h = document.createElement("div");
+      h.className = "resizeHandle";
+      th.appendChild(h);
+
+      let startX = 0;
+      let startW = 0;
+
+      h.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        startX = e.clientX;
+        startW = th.getBoundingClientRect().width;
+
+        const onMove = (ev) => {
+          const dx = ev.clientX - startX;
+          const w = Math.max(80, Math.round(startW + dx));
+          th.style.width = w + "px";
+        };
+
+        const onUp = (ev) => {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+
+          const w = Math.round(th.getBoundingClientRect().width);
+          localStorage.setItem(keyPrefix + colKey, String(w));
+        };
+
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+      });
+    });
+  }
+
+  function confirmNotionCandidate_(candidateId){
+    hideProtErr();
+    const id = String(candidateId||"").trim();
+    if (!id) { showProtErr("candidateId empty"); return; }
+
+    const pjSel = el(`npj_${id}`);
+    const impEl = el(`nimp_${id}`);
+    const tagsEl = el(`ntags_${id}`);
+
+    const projectId = String(pjSel?.value || "").trim();
+    const importance = String(impEl?.value || "1").trim();
+    const tags = String(tagsEl?.value || "").trim();
+
+    if (!projectId){
+      showProtErr("PJが未選択");
+      return;
+    }
+
+    const ok = window.confirm(`確定する？\n(candidateId=${id})\nprojectId=${projectId}`);
+    if (!ok) return;
+
+    el("protHint").textContent = `確定中... (notion candidate) ${id}`;
+
+    google.script.run
+      .withFailureHandler(err => showProtErr(err?.message || String(err)))
+      .withSuccessHandler(res1 => {
+        if (!res1 || !res1.ok){
+          showProtErr((res1 && res1.message) ? res1.message : "promote failed");
+          return;
+        }
+        const protocolId = String(res1.protocolId||"").trim();
+        if (!protocolId){
+          showProtErr("protocolId missing");
+          return;
+        }
+
+        google.script.run
+          .withFailureHandler(err => showProtErr(err?.message || String(err)))
+          .withSuccessHandler(res2 => {
+            if (!res2 || !res2.ok){
+              showProtErr((res2 && res2.message) ? res2.message : "confirm failed");
+              return;
+            }
+            el("protHint").textContent = `確定した：protocolId=${protocolId}`;
+            loadProtocols();
+          })
+          .admin_changeProtocolStatus({ protocolId: protocolId, nextStatus: "confirmed" });
+      })
+      .admin_promoteProtocolCandidate({ candidateId: id, projectId: projectId, tags: tags, importance: importance });
+  }
+
+  // ===== Code Search =====
+  function showCodeErr(msg){
+    el("codeErr").style.display = "block";
+    el("codeErr").textContent = msg || "error";
+  }
+  function hideCodeErr(){
+    el("codeErr").style.display = "none";
+    el("codeErr").textContent = "";
+  }
+  let __CODE_RESULTS__ = [];
+
+  function initCodeSearchUi(){
+    try{
+      const inp = el("codeQuery");
+      if (inp && inp.dataset.bound !== "1"){
+        inp.dataset.bound = "1";
+        inp.addEventListener("keydown", (e)=>{
+          if (e.key === "Enter"){
+            e.preventDefault();
+            runCodeSearch();
+          }
+        });
+      }
+    } catch(e){}
+  }
+
+  function runCodeSearch(){
+    hideCodeErr();
+
+    const q = String(el("codeQuery")?.value || "").trim();
+    const includeRefs = !!el("codeIncludeRefs")?.checked;
+
+    if (!q){
+      showCodeErr("query empty");
+      return;
+    }
+
+    el("codeHint").textContent = "検索中...";
+    el("codeTbody").innerHTML = `<tr><td colspan="4" class="muted">loading...</td></tr>`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        showCodeErr(err?.message || String(err));
+        el("codeHint").textContent = "失敗";
+        el("codeTbody").innerHTML = `<tr><td colspan="4" class="muted">error</td></tr>`;
+      })
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCodeErr((res && res.message) ? res.message : "search failed");
+          el("codeHint").textContent = "見つからない";
+          el("codeTbody").innerHTML = `<tr><td colspan="4" class="muted">not found</td></tr>`;
+          return;
+        }
+
+        const rows = Array.isArray(res.matches) ? res.matches : [];
+        __CODE_RESULTS__ = rows;
+        el("codeHint").textContent = `hits: ${rows.length}`;
+
+        if (!rows.length){
+          el("codeTbody").innerHTML = `<tr><td colspan="4" class="muted">not found</td></tr>`;
+          return;
+        }
+
+        el("codeTbody").innerHTML = rows.map(r => {
+          const kind = String(r.kind || "");
+          const file = String(r.fileName || "");
+          const line = String(r.line || "");
+          const snip = String(r.snippet || "");
+
+          return `
+            <tr>
+              <td class="nowrap">${pill(kind)}</td>
+              <td class="mono nowrap">${escapeHtml(file)}</td>
+              <td class="mono nowrap">${escapeHtml(line)}</td>
+              <td class="noteCell mono">${escapeHtml(snip)}</td>
+            </tr>
+          `;
+        }).join("");
+      })
+      .admin_searchCode({
+        query: q,
+        includeReferences: includeRefs,
+        maxResults: 300
+      });
+  }
+
+  function copyToClipboard(text){
+    const s = String(text || "");
+    try{
+      navigator.clipboard.writeText(s);
+    } catch(e){
+      try{
+        const ta = document.createElement("textarea");
+        ta.value = s;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch(e2){}
+    }
+  }
+
+  function copyAllCodeResults(){
+    const rows = Array.isArray(__CODE_RESULTS__) ? __CODE_RESULTS__ : [];
+    if (!rows.length){
+      showCodeErr("コピーする結果がない（先に検索して）");
+      return;
+    }
+
+    const header = ["kind", "file", "line", "snippet"].join("\t");
+    const lines = rows.map(r =>
+      [
+        String(r.kind || ""),
+        String(r.fileName || ""),
+        String(r.line || ""),
+        String(r.snippet || "").replace(/[\r\n]+/g, " ")
+      ].join("\t")
+    );
+
+    const tsv = [header].concat(lines).join("\n");
+    copyToClipboard(tsv);
+
+    el("codeHint").textContent = `全体コピーした（${rows.length}件）`;
+  }
+
+  function openSlackTestModalForProject(){
+    // Projectsが未ロードならまずロード
+    if (!Array.isArray(__PJS_ALL__) || !__PJS_ALL__.length){
+      try{ loadProjects(); } catch(e){}
+    }
+
+    const opts = (Array.isArray(__PJS_ALL__) ? __PJS_ALL__ : [])
+      .map(p => ({
+        projectId: String(p.projectId||"").trim(),
+        projectName: String(p.projectName||"").trim(),
+        slackChannelId: String(p.slackChannelId||"").trim()
+      }))
+      .filter(p => p.projectId);
+
+    const listHtml = opts.slice(0, 200).map(p => {
+      const label = `${escapeHtml(p.projectName || p.projectId)} (${escapeHtml(p.projectId)})`;
+      const warn = p.slackChannelId ? "" : `<span class="pill gray" style="margin-left:6px;">slack未設定</span>`;
+      return `<option value="${escapeHtmlAttr(p.projectId)}">${label}</option>`;
+    }).join("");
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">Slack テスト送信（PJの晒し先へ投稿）</div>`,
+      `<div class="small" style="opacity:.85;">DB_Projects.slackChannelId に投稿する。未設定PJはエラーになる。</div>`,
+
+      `<div class="ctlLabel" style="margin-top:10px;">project</div>`,
+      `<select id="slackTest_projectId" class="ctl" style="width:100%; margin-top:6px;">`,
+      `<option value="">（選択）</option>`,
+      listHtml,
+      `</select>`,
+
+      `<div class="ctlLabel" style="margin-top:12px;">message</div>`,
+      `<textarea id="slackTest_message" class="ctl" style="width:100%; height:140px; resize:vertical; margin-top:6px;"`,
+      `placeholder="例：いま未完了：①請求書送付 ②入金確認 ③支払承認\n今日18:00までに詰まり箇所だけ共有して〜！"></textarea>`
+    ].join("");
+
+    openAppModal_(
+      "Slackテスト送信",
+      bodyHtml,
+      () => {
+        const projectId = String(document.getElementById("slackTest_projectId")?.value || "").trim();
+        const message = String(document.getElementById("slackTest_message")?.value || "").trim();
+        if (!projectId){ showPjErr("project 未選択"); return; }
+        if (!message){ showPjErr("message empty"); return; }
+
+        el("pjHint").textContent = "Slack送信中...";
+        el("pjErr").style.display = "none";
+
+        google.script.run
+          .withFailureHandler(err => {
+            showPjErr(err?.message || String(err));
+            el("pjHint").textContent = "失敗";
+          })
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showPjErr((res && res.message) ? res.message : "send failed");
+              el("pjHint").textContent = "失敗";
+              return;
+            }
+            el("pjHint").textContent = `Slack送信した（PJ=${projectId} / channel=${res.slackChannelId || "-"}）`;
+          })
+          .admin_testSlackPostToProject({ projectId, message });
+      },
+      { input:false }
+    );
+  }
+
+</script>

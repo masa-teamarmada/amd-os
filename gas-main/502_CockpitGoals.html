@@ -1,0 +1,808 @@
+<!-- 502_CockpitGoals.html
+     ゴール表示・MS編集・サブ項目・クライテリア操作。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+function cpLoadGoals() {
+  google.script.run
+    .withSuccessHandler(function(goalRes) {
+      google.script.run
+        .withSuccessHandler(function(subRes) {
+          CP.subItemsMap = {};
+          if (subRes && subRes.ok) {
+            var dbMs = subRes.milestones || [];
+            for (var k = 0; k < dbMs.length; k++) {
+              CP.subItemsMap[dbMs[k].milestoneId] = dbMs[k].subItems || [];
+            }
+          }
+          cpRenderGoals(goalRes);
+        })
+        .withFailureHandler(function() {
+          CP.subItemsMap = {};
+          cpRenderGoals(goalRes);
+        })
+        .cockpit_api_getSubItems({ projectId: CP.projectId });
+    })
+    .withFailureHandler(function() { cpRenderGoals(null); })
+    .cockpit_api_getGoalHierarchy({ projectId: CP.projectId });
+}
+
+function cpRenderGoals(res) {
+  var el = document.getElementById("cpGoals");
+  if (!el) return;
+
+  var html = '<div class="cp-goals-title">年間マイルストーン</div>';
+
+  if (!res || !res.ok || !res.planCycle) {
+    html += '<div class="cp-goals-empty">';
+    html += '  マイルストーンが未設定';
+    html += '  <button class="cp-btn cp-btn-primary" style="margin-left:12px;font-size:11px;padding:4px 12px" ';
+    html += '    onclick="cpStartMsDesign()">📋 MS設計を始める</button>';
+    html += '</div>';
+    el.innerHTML = html;
+    return;
+  }
+
+  var pc = res.planCycle;
+  var ms = res.milestones || {};
+
+  var period = String(pc.periodStartYm || "");
+  var periodEnd = String(pc.periodEndYm || "");
+  if (period) {
+    var pLabel = period.substring(0,4) + "/" + period.substring(4) + " 〜 " + periodEnd.substring(0,4) + "/" + periodEnd.substring(4);
+    html += '<div class="cp-goals-cycle-info" style="display:flex;align-items:center;justify-content:space-between">';
+    html += '<span>' + pLabel + '｜' + Number(pc.totalPoints || 100) + 'pt｜';
+    html += (String(pc.status || "") === "fixed" ? "確定" : "下書き") + '</span>';
+    html += '<button class="cp-btn cp-btn-secondary" style="font-size:11px;padding:3px 10px" onclick="cpGoalEditToggle()">✏️ 編集</button>';
+    html += '</div>';
+  }
+
+  var msAll = ms.annual || [];
+  var msGoals = [];
+  var msRoutines = [];
+  for (var mi = 0; mi < msAll.length; mi++) {
+    var _tag = String(msAll[mi].tag || "").toLowerCase();
+    if (_tag === "routine") {
+      msRoutines.push(msAll[mi]);
+    } else if (_tag === "buffer") {
+      // バッファはリスト非表示
+    } else {
+      msGoals.push(msAll[mi]);
+    }
+  }
+  html += cpRenderMsSection("annual", "年間目標", msGoals);
+  if (msRoutines.length > 0) {
+    html += cpRenderMsSection("routine", "定常業務", msRoutines);
+  }
+
+  html += '<div id="cpGoalEditPanel" style="display:none;margin-top:12px;padding:14px;background:#f9f9fb;border-radius:8px;border:1px solid #e5e5e7">';
+  html += '<div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:8px">ポイント編集（合計は自動計算）</div>';
+  html += '<div id="cpGoalEditRows"></div>';
+  html += '<div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between">';
+  html += '  <span id="cpGoalEditTotal" style="font-size:13px;font-weight:700"></span>';
+  html += '  <div style="display:flex;gap:8px">';
+  html += '    <button class="cp-btn cp-btn-secondary" style="font-size:12px;padding:5px 14px" onclick="cpGoalEditToggle()">キャンセル</button>';
+  html += '    <button class="cp-btn cp-btn-primary" style="font-size:12px;padding:5px 14px" onclick="cpGoalEditSave()" id="cpGoalEditSaveBtn">💾 保存</button>';
+  html += '  </div>';
+  html += '</div>';
+  html += '</div>';
+
+  CP.goalEditData = { planCycleId: pc.planCycleId, milestones: ms.annual || [], pjMembers: res.pjMembers || [], periodEndYm: String(pc.periodEndYm || '') };
+
+  el.innerHTML = html;
+}
+
+function cpRenderMsSection(level, label, items) {
+  var icons = { annual: "🎯", quarterly: "📊", monthly: "📅", routine: "🔄" };
+  var h = '<div class="cp-goals-section">';
+  h += '  <div class="cp-goals-level"><span class="icon">' + (icons[level] || "📌") + '</span>' + cpEsc(label) + '</div>';
+
+  if (!items || items.length === 0) {
+    h += '  <div class="cp-goals-empty">未設定</div>';
+    h += '</div>';
+    return h;
+  }
+
+  h += '  <div class="cp-ms-list">';
+  for (var i = 0; i < items.length; i++) {
+    var m = items[i];
+    var tag = String(m.tag || "normal").toLowerCase();
+    var pts = Number(m.points || 0);
+    var msId = m.milestoneId || '';
+
+    h += '<div class="cp-ms-item">';
+    h += '  <span class="cp-ms-order">' + (Number(m.orderNo) || (i+1)) + '.</span>';
+    h += '  <span class="cp-ms-title">' + cpEsc(m.title || "(無題)") + '</span>';
+    if (pts > 0) h += '  <span class="cp-ms-pts">' + pts + 'pt</span>';
+    if (tag === "buffer") h += '  <span class="cp-ms-tag buffer">buffer</span>';
+    if (msId) {
+      h += '  <span class="cp-ms-issue-badge" id="cp-ibadge-' + cpEsc(msId) + '" onclick="cpToggleIssues_(\'' + cpEsc(msId) + '\')">● 課題</span>';
+    }
+    h += '</div>';
+
+    var resps = m.responsibilities || [];
+    if (resps.length > 0) {
+      var parts = [];
+      for (var r = 0; r < resps.length; r++) {
+        var pct = Math.round(Number(resps[r].share || 0) * 100);
+        if (pct > 0) parts.push(cpEsc(resps[r].codeName || resps[r].memberId) + ' ' + pct + '%');
+      }
+      if (parts.length > 0) {
+        h += '<div style="padding-left:30px;font-size:11px;color:#86868b;margin-top:-2px;margin-bottom:2px">👥 ' + parts.join(' / ') + '</div>';
+      }
+    }
+
+    if (msId) {
+      h += '<div class="cp-ms-issues-area" id="cp-issues-' + cpEsc(msId) + '" style="display:none"></div>';
+    }
+
+    var subs = (CP.subItemsMap && CP.subItemsMap[m.milestoneId]) || [];
+    var subManaged = !!(CP.subItemsMap && m.milestoneId in CP.subItemsMap);
+    if (subs.length > 0) {
+      h += cpRenderSubItems_(subs, m.milestoneId);
+    } else if (!subManaged) {
+      var criteria = String(m.successCriteria || "").trim();
+      if (criteria) {
+        h += cpRenderCriteria(criteria, m.milestoneId, false);
+      }
+    }
+  }
+  h += '  </div>';
+  h += '</div>';
+  return h;
+}
+
+function cpToggleIssues_(milestoneId) {
+  var area = document.getElementById('cp-issues-' + milestoneId);
+  if (!area) return;
+  if (area.style.display !== 'none') {
+    area.style.display = 'none';
+    return;
+  }
+  if (area.dataset.loaded === '1') {
+    area.style.display = '';
+    return;
+  }
+  area.style.display = '';
+  area.innerHTML = '<div style="padding:6px 30px;font-size:11px;color:#aaa">読み込み中...</div>';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        area.innerHTML = '<div style="padding:6px 30px;font-size:11px;color:#e53935">取得失敗</div>';
+        return;
+      }
+      area.dataset.loaded = '1';
+      cpRenderIssues_(milestoneId, res.items || []);
+    })
+    .withFailureHandler(function(e) {
+      area.innerHTML = '<div style="padding:6px 30px;font-size:11px;color:#e53935">' + cpEsc(String(e)) + '</div>';
+    })
+    .cockpit_api_getIssues({ projectId: CP.projectId, milestoneId: milestoneId, status: 'open' });
+}
+
+function cpRenderIssues_(milestoneId, items) {
+  var area = document.getElementById('cp-issues-' + milestoneId);
+  var badge = document.getElementById('cp-ibadge-' + milestoneId);
+  if (!area) return;
+  if (badge) {
+    badge.textContent = items.length > 0 ? '● ' + items.length + '件' : '● 課題なし';
+    badge.style.color = items.length > 0 ? '#e53935' : '#aaa';
+  }
+  if (items.length === 0) {
+    area.innerHTML = '<div style="padding:4px 30px;font-size:11px;color:#aaa">課題なし</div>';
+    return;
+  }
+  var h = '<div style="padding:4px 30px 8px">';
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    h += '<div class="cp-issue-row" data-issue-id="' + cpEsc(it.issueId || '') + '">';
+    h += '  <span class="cp-issue-dot">●</span>';
+    h += '  <span class="cp-issue-title">' + cpEsc(it.title || '') + '</span>';
+    h += '  <button class="cp-issue-resolve-btn" onclick="cpResolveIssue_(\'' + cpEsc(it.issueId || '') + '\',\'' + cpEsc(milestoneId) + '\')">解決</button>';
+    h += '</div>';
+  }
+  h += '</div>';
+  area.innerHTML = h;
+}
+
+function cpResolveIssue_(issueId, milestoneId) {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { cpShowToast('⚠️ 解決に失敗'); return; }
+      var area = document.getElementById('cp-issues-' + milestoneId);
+      if (area) area.dataset.loaded = '0';
+      cpToggleIssues_(milestoneId);
+      cpToggleIssues_(milestoneId);
+    })
+    .withFailureHandler(function(e) { cpShowToast('⚠️ ' + String(e)); })
+    .cockpit_api_resolveIssue({ issueId: issueId });
+}
+
+function cpRenderSubItems_(subs, milestoneId) {
+  var h = '<ul class="cp-ms-criteria-list" data-ms-id="' + cpEsc(milestoneId) + '">';
+  for (var i = 0; i < subs.length; i++) {
+    var s = subs[i];
+    var isDone = s.isDone === true || s.isDone === 'TRUE';
+    var cls = isDone ? 'done' : 'open';
+    h += '<li class="' + cls + '">';
+    h += '<span class="cb" style="cursor:pointer" onclick="cpToggleSubItemDone(\'' + cpEsc(s.subItemId) + '\',' + (isDone ? 'false' : 'true') + ',this)"></span>';
+    h += '<span class="txt">' + cpEsc(s.title || '');
+    var tYm = String(s.targetYm || '');
+    if (tYm.length === 6) {
+      h += ' <span style="font-size:9px;color:#aaa">~' + tYm.substring(0,4) + '/' + tYm.substring(4) + '</span>';
+    }
+    h += '</span>';
+    h += '</li>';
+  }
+  h += '</ul>';
+  return h;
+}
+
+function cpToggleSubItemDone(subItemId, newDone, el) {
+  if (el) el.style.opacity = '0.3';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        cpLoadGoals();
+      } else {
+        if (el) el.style.opacity = '1';
+        alert('⚠️ ' + (res ? res.message : '更新失敗'));
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (el) el.style.opacity = '1';
+      alert('エラー: ' + String(err));
+    })
+    .cockpit_api_toggleSubItemDone({ subItemId: subItemId, isDone: newDone });
+}
+
+function cpRenderCriteria(raw, milestoneId, interactive, displayYm) {
+  var lines = raw.split(/\n/);
+  var items = [];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    var m;
+    if ((m = line.match(/^\[x:(\d{6})\]\s*(.+)/i))) {
+      if (!displayYm || m[1] <= displayYm) {
+        items.push({ state:"done", text:m[2], li:i, completedYm:m[1] });
+      } else {
+        items.push({ state:"open", text:m[2], li:i });
+      }
+    } else if ((m = line.match(/^\[\?x\]\s*(.+)/i))) {
+      items.push({ state:"draftDone", text:m[1], li:i });
+    } else if ((m = line.match(/^\[x\]\s*(.+)/i))) {
+      items.push({ state:"done", text:m[1], li:i });
+    } else if ((m = line.match(/^\[\?\]\s*(.+)/))) {
+      items.push({ state:"draft", text:m[1], li:i });
+    } else if ((m = line.match(/^\[\s*\]\s*(.+)/))) {
+      items.push({ state:"open", text:m[1], li:i });
+    } else {
+      items.push({ state:"open", text:line, li:i });
+    }
+  }
+  if (items.length === 0) return '';
+  var mid = cpEsc(milestoneId || '');
+  var h = '<ul class="cp-ms-criteria-list" data-ms-id="' + mid + '">';
+  for (var j = 0; j < items.length; j++) {
+    var it = items[j];
+    var cls = it.state === "done" ? "done"
+            : it.state === "draftDone" ? "draft-done"
+            : it.state === "draft" ? "draft"
+            : "open";
+    h += '<li class="' + cls + '">';
+    if (interactive) {
+      var act = it.state === "open" ? "check"
+              : it.state === "done" ? "uncheck"
+              : it.state === "draft" ? "approve"
+              : "confirm";
+      h += '<span class="cb" style="cursor:pointer" onclick="cpToggleCriteria(\'' + mid + '\',' + it.li + ',\'' + act + '\',this)"></span>';
+    } else {
+      h += '<span class="cb"></span>';
+    }
+    h += '<span class="txt">' + cpEsc(it.text) + '</span>';
+    if (interactive && (it.state === "draft" || it.state === "draftDone")) {
+      h += '<span class="cp-criteria-del" onclick="cpToggleCriteria(\'' + mid + '\',' + it.li + ',\'delete\',this)" title="却下">✕</span>';
+    }
+    h += '</li>';
+  }
+  h += '</ul>';
+  return h;
+}
+
+function cpToggleCriteria(milestoneId, lineIndex, action, el) {
+  var li = el.closest('li');
+  if (!li) return;
+  li.style.opacity = '0.5';
+  li.style.pointerEvents = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        li.style.opacity = '1';
+        li.style.pointerEvents = '';
+        alert('更新失敗: ' + (res ? res.message : '不明'));
+        return;
+      }
+      var ul = li.closest('.cp-ms-criteria-list');
+      if (ul && res.newCriteria !== undefined) {
+        ul.outerHTML = cpRenderCriteria(res.newCriteria, milestoneId, true, CP.modalYm);
+      }
+      google.script.run
+        .withSuccessHandler(function(r) {
+          cpRenderRewardDashboard(r);
+          cpApplyBudgetLines();
+        })
+        .withFailureHandler(function(){})
+        .cockpit_api_getRewardDashboard({ projectId: CP.projectId, ym: CP.modalYm });
+    })
+    .withFailureHandler(function(err) {
+      li.style.opacity = '1';
+      li.style.pointerEvents = '';
+      alert('エラー: ' + String(err));
+    })
+    .cockpit_api_updateCriteriaLine({
+      milestoneId: milestoneId,
+      lineIndex: lineIndex,
+      action: action
+    });
+}
+
+function cpGoalAddMs() {
+  var rows = document.getElementById('cpGoalEditRows');
+  if (!rows) return;
+  var existingRows = rows.querySelectorAll('[data-ge-idx]');
+  var newIdx = existingRows.length;
+  var tempId = '_new_' + Date.now();
+
+  var pjMembers = (CP.goalEditData && CP.goalEditData.pjMembers) || [];
+
+  var html = '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;background:#f0f7ff;border-radius:6px;padding-left:4px" data-ge-idx="' + newIdx + '" data-ge-msid="" data-ge-new="true" data-ge-active="true">';
+  html += '  <span style="min-width:24px;color:#86868b;font-weight:600">' + (newIdx + 1) + '.</span>';
+  html += '  <input type="text" value="" data-ge-field="title" placeholder="新しいMS名" style="flex:1;min-width:100px;border:1px solid #93c5fd;border-radius:4px;padding:3px 6px;font-size:13px">';
+  html += '  <input type="month" value="" data-ge-field="targetYm" style="width:130px;border:1px solid #d1d5db;border-radius:4px;padding:3px;font-size:12px">';
+  html += '  <input type="number" min="0" step="1" value="0" data-ge-field="points" oninput="cpGoalEditCalc()" style="width:55px;text-align:center;border:1px solid #d1d5db;border-radius:4px;padding:3px;font-size:13px">';
+  html += '  <span style="font-size:12px;color:#6b7280">pt</span>';
+  html += '  <button onclick="this.closest(\'[data-ge-idx]\').remove();cpGoalEditCalc()" style="font-size:11px;padding:2px 6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:#fff">✕</button>';
+  html += '</div>';
+
+  html += '<div style="padding-left:30px;margin-bottom:4px" data-ge-subitem-block="' + tempId + '">';
+  html += '<button onclick="cpGoalAddSubItemRow(\'' + tempId + '\')" style="font-size:10px;color:#0066cc;cursor:pointer;border:none;background:none;padding:2px 0">＋ 項目追加</button>';
+  html += '</div>';
+
+  if (pjMembers.length > 0) {
+    html += '<div style="padding-left:30px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">';
+    html += '<span style="font-size:10px;color:#86868b">👥</span>';
+    for (var mi = 0; mi < pjMembers.length; mi++) {
+      var pm = pjMembers[mi];
+      html += '<span style="font-size:11px;color:#636366">' + cpEsc(pm.memberName) + '</span>';
+      html += '<input type="number" min="0" max="1" step="0.1" value="0"';
+      html += '  data-ge-resp-ms="" data-ge-resp-mid="' + cpEsc(pm.memberId) + '"';
+      html += '  onchange="cpGoalRespCalc(this)"';
+      html += '  style="width:42px;text-align:center;border:1px solid #d1d5db;border-radius:3px;padding:2px;font-size:11px">';
+    }
+    html += '<span data-ge-resp-sum="" style="font-size:10px;font-weight:600;min-width:30px">-</span>';
+    html += '</div>';
+  }
+
+  var insertTarget = rows.querySelector('div[style*="border-top"]');
+  if (insertTarget) {
+    insertTarget.insertAdjacentHTML('beforebegin', html);
+  } else {
+    rows.insertAdjacentHTML('beforeend', html);
+  }
+  var newTitleInput = rows.querySelector('[data-ge-idx="' + newIdx + '"] [data-ge-field="title"]');
+  if (newTitleInput) newTitleInput.focus();
+  cpGoalEditCalc();
+}
+
+function cpGoalSubItemRowHtml_(msId, subItemId, title, isDone, startVal, targetVal, respMap) {
+  respMap = respMap || {};
+  var pjMembers = (CP.goalEditData && CP.goalEditData.pjMembers) || [];
+  var h = '<div style="display:flex;align-items:center;gap:4px;margin:2px 0;flex-wrap:wrap" data-ge-subrow="' + cpEsc(msId) + '">';
+  h += '<input type="checkbox"' + (isDone ? ' checked' : '') + ' data-ge-sub-done style="margin:0;cursor:pointer">';
+  h += '<input type="text" value="' + cpEsc(title) + '" data-ge-sub-title placeholder="サブ項目名"';
+  h += '  style="flex:1;min-width:150px;border:1px solid #e0e0e0;border-radius:4px;padding:3px 6px;font-size:11px' + (isDone ? ';color:#b0b0b0;text-decoration:line-through' : '') + '">';
+  h += '<input type="month" value="' + startVal + '" data-ge-sub-startym title="開始" style="width:110px;border:1px solid #e0e0e0;border-radius:4px;padding:2px;font-size:10px">';
+  h += '<span style="font-size:10px;color:#aaa">~</span>';
+  h += '<input type="month" value="' + targetVal + '" data-ge-sub-targetym title="完了予定" style="width:110px;border:1px solid #e0e0e0;border-radius:4px;padding:2px;font-size:10px">';
+  h += '<input type="hidden" value="' + cpEsc(subItemId) + '" data-ge-sub-id>';
+  h += '<button onclick="this.closest(\'div\').remove()" style="font-size:10px;color:#ccc;cursor:pointer;border:none;background:none;padding:0 4px" title="削除">✕</button>';
+  if (pjMembers.length > 0) {
+    h += '<div style="display:flex;align-items:center;gap:3px;width:100%;padding-left:22px;margin-top:1px">';
+    h += '<span style="font-size:9px;color:#aaa">👥</span>';
+    for (var mi = 0; mi < pjMembers.length; mi++) {
+      var pm = pjMembers[mi];
+      var sv = respMap[pm.memberId] || 0;
+      h += '<span style="font-size:10px;color:#86868b">' + cpEsc(pm.codeName || pm.memberName || pm.memberId) + '</span>';
+      h += '<input type="number" min="0" max="1" step="0.1" value="' + sv + '"';
+      h += '  data-ge-subresp-mid="' + cpEsc(pm.memberId) + '"';
+      h += '  style="width:38px;text-align:center;border:1px solid #e0e0e0;border-radius:3px;padding:1px;font-size:10px">';
+    }
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function cpGoalAddSubItemRow(msId) {
+  var block = document.querySelector('[data-ge-subitem-block="' + msId + '"]');
+  if (!block) return;
+  var btn = block.querySelector('button:last-child');
+  var tmp = document.createElement('div');
+  tmp.innerHTML = cpGoalSubItemRowHtml_(msId, '', '', false, '', '', {});
+  var row = tmp.firstChild;
+  block.insertBefore(row, btn);
+  row.querySelector('[data-ge-sub-title]').focus();
+}
+
+function cpGoalEditCalc() {
+  var allRows = document.querySelectorAll('#cpGoalEditRows [data-ge-idx]');
+  var total = 0;
+  var bufferTotal = 0;
+  for (var i = 0; i < allRows.length; i++) {
+    var isActive = allRows[i].getAttribute('data-ge-active') !== 'false';
+    var tag = allRows[i].getAttribute('data-ge-tag') || 'normal';
+    if (!isActive) continue;
+    var ptInput = allRows[i].querySelector('[data-ge-field="points"]');
+    var pts = Number(ptInput ? ptInput.value : 0);
+    if (tag === 'buffer') {
+      bufferTotal += pts;
+    } else {
+      total += pts;
+    }
+  }
+  var el = document.getElementById('cpGoalEditTotal');
+  if (el) {
+    var txt = '合計: ' + total + 'pt';
+    if (bufferTotal > 0) txt += '　（バッファ: ' + bufferTotal + 'pt）';
+    el.textContent = txt;
+    el.style.color = '#1d1d1f';
+  }
+}
+
+function cpGoalEditSave() {
+  var btn = document.getElementById('cpGoalEditSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+
+  var msRows = document.querySelectorAll('#cpGoalEditRows [data-ge-idx]');
+  var milestones = [];
+  var totalPt = 0;
+  for (var i = 0; i < msRows.length; i++) {
+    var row = msRows[i];
+    var msId = row.getAttribute('data-ge-msid');
+    var isNew = row.getAttribute('data-ge-new') === 'true';
+    var isActive = row.getAttribute('data-ge-active') !== 'false';
+    var titleInput = row.querySelector('[data-ge-field="title"]');
+    var ptInput = row.querySelector('[data-ge-field="points"]');
+    var tymInput = row.querySelector('[data-ge-field="targetYm"]');
+    var pts = Number(ptInput ? ptInput.value : 0);
+    if (isActive) totalPt += pts;
+    var tymRaw = tymInput ? tymInput.value : '';
+    var targetYm = tymRaw ? tymRaw.replace('-', '') : '';
+    var title = titleInput ? titleInput.value.trim() : '';
+    milestones.push({
+      milestoneId: msId || '',
+      title: title,
+      points: pts,
+      targetYm: targetYm,
+      isActive: isActive,
+      orderNo: i + 1,
+      _isNew: isNew
+    });
+  }
+
+  var respInputs = document.querySelectorAll('input[data-ge-resp-ms]');
+  var responsibilities = [];
+  for (var ri = 0; ri < respInputs.length; ri++) {
+    var inp = respInputs[ri];
+    responsibilities.push({
+      milestoneKey: inp.getAttribute('data-ge-resp-ms'),
+      memberId: inp.getAttribute('data-ge-resp-mid'),
+      share: Number(inp.value) || 0
+    });
+  }
+
+  var milestoneItems = [];
+  for (var j = 0; j < milestones.length; j++) {
+    var mId = milestones[j].milestoneId;
+    if (!mId) continue;
+    var subRows = document.querySelectorAll('[data-ge-subrow="' + mId + '"]');
+    var items = [];
+    for (var s = 0; s < subRows.length; s++) {
+      var sr = subRows[s];
+      var stitle = (sr.querySelector('[data-ge-sub-title]') || {}).value || '';
+      if (!stitle.trim()) continue;
+      var isDone = !!(sr.querySelector('[data-ge-sub-done]') || {}).checked;
+      var startRaw = (sr.querySelector('[data-ge-sub-startym]') || {}).value || '';
+      var targetRaw = (sr.querySelector('[data-ge-sub-targetym]') || {}).value || '';
+      var subId = (sr.querySelector('[data-ge-sub-id]') || {}).value || '';
+      var subRespInputs = sr.querySelectorAll('[data-ge-subresp-mid]');
+      var subResps = [];
+      for (var ri2 = 0; ri2 < subRespInputs.length; ri2++) {
+        var rInp = subRespInputs[ri2];
+        var rShare = Number(rInp.value) || 0;
+        if (rShare > 0) {
+          subResps.push({ memberId: rInp.getAttribute('data-ge-subresp-mid'), share: rShare });
+        }
+      }
+      items.push({
+        subItemId: subId || undefined,
+        title: stitle.trim(),
+        isDone: isDone,
+        startYm: startRaw ? startRaw.replace('-', '') : '',
+        targetYm: targetRaw ? targetRaw.replace('-', '') : '',
+        responsibilities: subResps
+      });
+    }
+    milestoneItems.push({ milestoneId: mId, items: items });
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
+        alert('⚠️ MS保存失敗: ' + (res ? res.message : '不明'));
+        return;
+      }
+      if (milestoneItems.length > 0) {
+        google.script.run
+          .withSuccessHandler(function(res2) {
+            if (!res2 || !res2.ok) {
+              if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
+              alert('⚠️ サブ項目保存失敗: ' + (res2 ? res2.message : '不明'));
+              return;
+            }
+            var assignments = [];
+            for (var ai = 0; ai < milestoneItems.length; ai++) {
+              var miItems = milestoneItems[ai].items || [];
+              var savedItems = (res2.savedMap && res2.savedMap[milestoneItems[ai].milestoneId]) || [];
+              for (var aj = 0; aj < miItems.length; aj++) {
+                var resps = miItems[aj].responsibilities || [];
+                if (resps.length === 0) continue;
+                var sid = (savedItems[aj] && savedItems[aj].subItemId) || miItems[aj].subItemId;
+                if (!sid) continue;
+                assignments.push({ subItemId: sid, entries: resps });
+              }
+            }
+            if (assignments.length > 0) {
+              google.script.run
+                .withSuccessHandler(function() {
+                  if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
+                  document.getElementById('cpGoalEditPanel').style.display = 'none';
+                  cpLoadGoals();
+                })
+                .withFailureHandler(function(err) {
+                  if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
+                  alert('担当保存エラー（サブ項目は保存済み）: ' + String(err));
+                  document.getElementById('cpGoalEditPanel').style.display = 'none';
+                  cpLoadGoals();
+                })
+                .cockpit_api_bulkSaveSubItemResponsibilities({ assignments: assignments });
+            } else {
+              if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
+              document.getElementById('cpGoalEditPanel').style.display = 'none';
+              cpLoadGoals();
+            }
+          })
+          .withFailureHandler(function(err) {
+            if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
+            alert('エラー(サブ項目): ' + String(err));
+          })
+          .cockpit_api_saveAllSubItems({ milestoneItems: milestoneItems, projectId: CP.projectId });
+      } else {
+        if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
+        document.getElementById('cpGoalEditPanel').style.display = 'none';
+        cpLoadGoals();
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
+      alert('エラー(MS): ' + String(err));
+    })
+    .cockpit_api_updateMsPoints({ projectId: CP.projectId, milestones: milestones, newTotalPoints: totalPt, responsibilities: responsibilities });
+}
+
+function cpGoalToggleActive(btn) {
+  var row = btn.closest('[data-ge-idx]');
+  if (!row) return;
+  var isActive = row.getAttribute('data-ge-active') === 'true';
+  isActive = !isActive;
+  row.setAttribute('data-ge-active', isActive ? 'true' : 'false');
+  row.style.opacity = isActive ? '1' : '0.4';
+  row.style.textDecoration = isActive ? 'none' : 'line-through';
+  btn.innerHTML = isActive ? '🗑' : '↩️';
+  btn.style.background = isActive ? '#fff' : '#fee';
+  cpGoalEditCalc();
+}
+function cpGoalEditToggle() {
+  var panel = document.getElementById('cpGoalEditPanel');
+  if (!panel) return;
+  var isOpen = panel.style.display !== 'none';
+  if (isOpen) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+  var goalsEl = document.getElementById('cpGoals');
+  setTimeout(function(){ if (goalsEl) goalsEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
+  var rows = document.getElementById('cpGoalEditRows');
+  if (!rows) return;
+  rows.innerHTML = '<div style="text-align:center;padding:20px;color:#86868b">読み込み中...</div>';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        rows.innerHTML = '<div style="color:red;padding:10px">サブ項目の読み込みに失敗</div>';
+        return;
+      }
+      CP.subItemsMap = {};
+      var dbMs = res.milestones || [];
+      for (var k = 0; k < dbMs.length; k++) {
+        CP.subItemsMap[dbMs[k].milestoneId] = dbMs[k].subItems || [];
+      }
+      cpGoalEditRender_();
+    })
+    .withFailureHandler(function(err) {
+      rows.innerHTML = '<div style="color:red;padding:10px">エラー: ' + String(err) + '</div>';
+    })
+    .cockpit_api_getSubItems({ projectId: CP.projectId });
+}
+
+function cpGoalEditRender_() {
+  var rows = document.getElementById('cpGoalEditRows');
+  if (!rows) return;
+  var milestones = (CP.goalEditData && CP.goalEditData.milestones) || [];
+  var pjMembers = (CP.goalEditData && CP.goalEditData.pjMembers) || [];
+  var periodEndYm = String((CP.goalEditData && CP.goalEditData.periodEndYm) || '');
+  var periodEndVal = periodEndYm.length === 6 ? periodEndYm.substring(0, 4) + '-' + periodEndYm.substring(4) : '';
+  var hasMembers = pjMembers.length > 0;
+  var html = '';
+
+  // normal / buffer / routine に分類
+  var normalMs = [], bufferMs = [], routineMs = [];
+  for (var i = 0; i < milestones.length; i++) {
+    var tag = String(milestones[i].tag || 'normal').toLowerCase();
+    if (tag === 'buffer') bufferMs.push(milestones[i]);
+    else if (tag === 'routine') routineMs.push(milestones[i]);
+    else normalMs.push(milestones[i]);
+  }
+
+  var idxCounter = 0;
+
+  function renderMsRow(m, geIdx, isRoutine) {
+    var msId = m.milestoneId || '';
+    var tym = String(m.targetYm || '').trim();
+    var tymVal = tym.length === 6 ? tym.substring(0, 4) + '-' + tym.substring(4) : '';
+    var isActive = m.isActive !== false;
+    var h = '';
+
+    h += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px' + (isActive ? '' : ';opacity:0.4;text-decoration:line-through') + '"';
+    h += ' data-ge-idx="' + geIdx + '" data-ge-msid="' + cpEsc(msId) + '"';
+    h += ' data-ge-new="false" data-ge-active="' + (isActive ? 'true' : 'false') + '"';
+    h += ' data-ge-tag="' + (isRoutine ? 'routine' : 'normal') + '">';
+    h += '  <span style="min-width:24px;color:#86868b;font-weight:600">' + (Number(m.orderNo) || (geIdx + 1)) + '.</span>';
+    h += '  <input type="text" value="' + cpEsc(m.title || '') + '" data-ge-field="title" style="flex:1;min-width:100px;border:1px solid #d1d5db;border-radius:4px;padding:3px 6px;font-size:13px">';
+    if (!isRoutine) {
+      h += '  <input type="month" value="' + tymVal + '" data-ge-field="targetYm" style="width:130px;border:1px solid #d1d5db;border-radius:4px;padding:3px;font-size:12px">';
+    } else {
+      h += '  <input type="hidden" value="' + periodEndVal + '" data-ge-field="targetYm">';
+    }
+    h += '  <input type="number" min="0" step="1" value="' + (Number(m.points) || 0) + '" data-ge-field="points" oninput="cpGoalEditCalc()" style="width:55px;text-align:center;border:1px solid #d1d5db;border-radius:4px;padding:3px;font-size:13px">';
+    h += '  <span style="font-size:12px;color:#6b7280">pt</span>';
+    h += '  <button onclick="cpGoalToggleActive(this)" style="font-size:11px;padding:2px 6px;border:1px solid #ddd;border-radius:4px;cursor:pointer;background:' + (isActive ? '#fff' : '#fee') + '">' + (isActive ? '🗑' : '↩️') + '</button>';
+    h += '</div>';
+
+    // サブ項目
+    var subs = (CP.subItemsMap && CP.subItemsMap[msId]) || [];
+    h += '<div style="padding-left:30px;margin-bottom:4px" data-ge-subitem-block="' + cpEsc(msId) + '">';
+    for (var si = 0; si < subs.length; si++) {
+      var sub = subs[si];
+      var sStartYm = String(sub.startYm || '');
+      var sTargetYm = String(sub.targetYm || '');
+      var sStartVal = sStartYm.length === 6 ? sStartYm.substring(0, 4) + '-' + sStartYm.substring(4) : '';
+      var sTargetVal = sTargetYm.length === 6 ? sTargetYm.substring(0, 4) + '-' + sTargetYm.substring(4) : '';
+      var subRespMap = {};
+      var subResps = sub.responsibilities || [];
+      for (var sr = 0; sr < subResps.length; sr++) {
+        subRespMap[subResps[sr].memberId] = subResps[sr].share;
+      }
+      h += cpGoalSubItemRowHtml_(msId, sub.subItemId || '', sub.title || '', sub.isDone, sStartVal, sTargetVal, subRespMap);
+    }
+    h += '<button onclick="cpGoalAddSubItemRow(\'' + cpEsc(msId) + '\')" style="font-size:10px;color:#0066cc;cursor:pointer;border:none;background:none;padding:2px 0">＋ 項目追加</button>';
+    h += '</div>';
+
+    // 担当者
+    if (hasMembers) {
+      var resps = m.responsibilities || [];
+      var respMap = {};
+      for (var r = 0; r < resps.length; r++) {
+        respMap[resps[r].memberId] = resps[r].share;
+      }
+      h += '<div style="padding-left:30px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">';
+      h += '<span style="font-size:10px;color:#86868b">👥</span>';
+      for (var mi2 = 0; mi2 < pjMembers.length; mi2++) {
+        var pm = pjMembers[mi2];
+        var sv = respMap[pm.memberId] || 0;
+        h += '<span style="font-size:11px;color:#636366">' + cpEsc(pm.memberName) + '</span>';
+        h += '<input type="number" min="0" max="1" step="0.1" value="' + sv + '"';
+        h += '  data-ge-resp-ms="' + cpEsc(msId) + '" data-ge-resp-mid="' + cpEsc(pm.memberId) + '"';
+        h += '  onchange="cpGoalRespCalc(this)"';
+        h += '  style="width:42px;text-align:center;border:1px solid #d1d5db;border-radius:3px;padding:2px;font-size:11px">';
+      }
+      h += '<span data-ge-resp-sum="' + cpEsc(msId) + '" style="font-size:10px;font-weight:600;min-width:30px">-</span>';
+      h += '</div>';
+    }
+
+    return h;
+  }
+
+  // 通常MS
+  for (var n = 0; n < normalMs.length; n++) {
+    html += renderMsRow(normalMs[n], idxCounter, false);
+    idxCounter++;
+  }
+
+  // ➕ MS追加ボタン（cpGoalAddMsのinsertTargetとして機能）
+  html += '<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e0e0e0">';
+  html += '  <button onclick="cpGoalAddMs()" style="font-size:12px;color:#0066cc;cursor:pointer;border:1px solid #0066cc;background:#f0f7ff;border-radius:6px;padding:4px 14px">➕ MSを追加</button>';
+  html += '</div>';
+
+  // バッファ（編集可能セクションとして表示）
+  if (bufferMs.length > 0) {
+    html += '<div style="margin-top:14px;padding-top:10px;border-top:2px solid #e5e5e7">';
+    html += '  <div style="font-size:11px;font-weight:600;color:#86868b;margin-bottom:8px">🛡 バッファ（予期せぬタスク用）</div>';
+    for (var b = 0; b < bufferMs.length; b++) {
+      var bm = bufferMs[b];
+      var bmId = bm.milestoneId || '';
+      html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px"';
+      html += ' data-ge-idx="' + idxCounter + '" data-ge-msid="' + cpEsc(bmId) + '"';
+      html += ' data-ge-new="false" data-ge-active="true" data-ge-tag="buffer">';
+      html += '  <span style="min-width:24px;color:#86868b;font-weight:600">🛡</span>';
+      html += '  <span style="flex:1;color:#86868b;font-size:13px">' + cpEsc(bm.title || 'バッファ') + '</span>';
+      html += '  <input type="hidden" value="" data-ge-field="targetYm">';
+      html += '  <input type="number" min="0" step="1" value="' + (Number(bm.points) || 0) + '"';
+      html += '    data-ge-field="points" oninput="cpGoalEditCalc()"';
+      html += '    style="width:55px;text-align:center;border:1px solid #d1d5db;border-radius:4px;padding:3px;font-size:13px">';
+      html += '  <span style="font-size:12px;color:#6b7280">pt</span>';
+      html += '  <input type="hidden" value="' + cpEsc(bm.title || '') + '" data-ge-field="title">';
+      html += '</div>';
+      idxCounter++;
+    }
+    html += '</div>';
+  }
+
+  // 定常業務セクション
+  if (routineMs.length > 0) {
+    html += '<div style="margin-top:14px;padding-top:10px;border-top:2px solid #e5e5e7">';
+    html += '  <div style="font-size:11px;font-weight:600;color:#86868b;margin-bottom:8px">🔄 定常業務</div>';
+    for (var ro = 0; ro < routineMs.length; ro++) {
+      html += renderMsRow(routineMs[ro], idxCounter, true);
+      idxCounter++;
+    }
+    html += '</div>';
+  }
+
+  rows.innerHTML = html;
+  cpGoalEditCalc();
+  for (var j = 0; j < milestones.length; j++) {
+    cpGoalRespCalcByMs(milestones[j].milestoneId || '');
+  }
+}
+
+function cpGoalRespCalc(input) {
+  var msId = input.getAttribute('data-ge-resp-ms');
+  cpGoalRespCalcByMs(msId);
+}
+
+function cpGoalRespCalcByMs(msId) {
+  var inputs = document.querySelectorAll('input[data-ge-resp-ms="' + msId + '"]');
+  var sum = 0;
+  for (var i = 0; i < inputs.length; i++) sum += Number(inputs[i].value) || 0;
+  sum = Math.round(sum * 100) / 100;
+  var el = document.querySelector('[data-ge-resp-sum="' + msId + '"]');
+  if (el) {
+    el.textContent = '計' + sum.toFixed(1);
+    el.style.color = (sum >= 0.99 && sum <= 1.01) ? '#1a7a2e' : '#ff3b30';
+  }
+}
+</script>

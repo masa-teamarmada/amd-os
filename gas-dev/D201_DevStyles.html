@@ -1,0 +1,248 @@
+<!-- D201_DevStyles.html -->
+<!-- Dev GAS グローバルスタイル -->
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --amd-blue:    #1a4fa0;
+    --amd-blue-l:  #2563c7;
+    --amd-blue-xl: #dbeafe;
+    --gray-900:    #111827;
+    --gray-700:    #374151;
+    --gray-500:    #6b7280;
+    --gray-300:    #d1d5db;
+    --gray-100:    #f3f4f6;
+    --gray-50:     #f9fafb;
+    --white:       #ffffff;
+    --red:         #dc2626;
+    --amber:       #d97706;
+    --green:       #16a34a;
+    --radius:      6px;
+    --shadow-sm:   0 1px 3px rgba(0,0,0,.1);
+    --shadow-md:   0 4px 12px rgba(0,0,0,.12);
+  }
+
+  body {
+    font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-900);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── App Selector ── */
+  .app-selector {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .app-select {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+    border-radius: var(--radius); color: var(--white);
+    font-size: 13px; font-weight: 600; padding: 5px 10px;
+    outline: none; cursor: pointer; max-width: 180px;
+  }
+  .app-select option { background: var(--gray-900); color: var(--white); }
+  .app-manage-btn {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+    border-radius: var(--radius); color: var(--white);
+    font-size: 13px; padding: 5px 8px; cursor: pointer;
+    transition: background .15s;
+  }
+  .app-manage-btn:hover { background: rgba(255,255,255,.25); }
+  .app-no-select {
+    font-size: 12px; color: rgba(255,255,255,.6);
+    background: rgba(255,255,255,.1); border-radius: var(--radius);
+    padding: 4px 10px;
+  }
+
+  /* ── Header ── */
+  .app-header {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--amd-blue);
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  }
+  .header-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; align-items: center; gap: 32px;
+    padding: 0 24px; height: 52px;
+  }
+  .header-logo {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--white); font-weight: 700; font-size: 16px;
+    letter-spacing: .04em; white-space: nowrap;
+  }
+  .logo-mark { font-size: 18px; opacity: .85; }
+  .logo-sub  { font-weight: 400; opacity: .75; }
+
+  .tab-nav { display: flex; gap: 4px; }
+  .tab-btn {
+    background: transparent; border: none; cursor: pointer;
+    color: rgba(255,255,255,.65); font-size: 13px; font-weight: 500;
+    padding: 6px 14px; border-radius: var(--radius);
+    transition: background .15s, color .15s;
+  }
+  .tab-btn:hover  { background: rgba(255,255,255,.12); color: var(--white); }
+  .tab-btn.active { background: rgba(255,255,255,.18); color: var(--white); }
+
+  /* ── Main ── */
+  .app-main { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── Ticket Page ── */
+  .ticket-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .ticket-toolbar h2 { font-size: 18px; font-weight: 700; color: var(--gray-900); }
+  .ticket-stats { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+
+  .btn-primary {
+    background: var(--amd-blue); color: var(--white);
+    border: none; border-radius: var(--radius);
+    padding: 8px 16px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background .15s;
+  }
+  .btn-primary:hover { background: var(--amd-blue-l); }
+
+  .section-label {
+    font-size: 11px; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--gray-500);
+    margin: 24px 0 10px;
+  }
+  .section-label:first-of-type { margin-top: 0; }
+
+  /* ── Ticket Card ── */
+  .ticket-card {
+    background: var(--white); border: 1px solid var(--gray-300);
+    border-radius: var(--radius); padding: 14px 16px;
+    display: flex; align-items: flex-start; gap: 14px;
+    margin-bottom: 8px;
+    transition: box-shadow .15s, opacity .2s;
+    box-shadow: var(--shadow-sm);
+  }
+  .ticket-card:hover { box-shadow: var(--shadow-md); }
+  .ticket-card.done {
+    opacity: .45; background: var(--gray-100);
+    border-color: var(--gray-200);
+  }
+  .ticket-card.done .ticket-title { text-decoration: line-through; color: var(--gray-500); }
+
+  .ticket-check {
+    width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px;
+    accent-color: var(--amd-blue); cursor: pointer;
+  }
+
+  .ticket-body { flex: 1; min-width: 0; }
+  .ticket-top  { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .ticket-title { font-weight: 600; font-size: 14px; color: var(--gray-900); }
+  .ticket-desc  { font-size: 13px; color: var(--gray-500); margin-bottom: 6px; white-space: pre-wrap; }
+  .ticket-files { font-size: 11px; color: var(--gray-500); font-family: monospace; }
+  .ticket-meta  { font-size: 11px; color: var(--gray-400); margin-top: 6px; }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  }
+  .badge-bug     { background: #fef2f2; color: var(--red); border: 1px solid #fecaca; }
+  .badge-feature { background: var(--amd-blue-xl); color: var(--amd-blue); border: 1px solid #bfdbfe; }
+  .badge-high    { background: #fef2f2; color: var(--red); }
+  .badge-medium  { background: #fffbeb; color: var(--amber); }
+  .badge-low     { background: #f0fdf4; color: var(--green); }
+
+  .ticket-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .btn-icon {
+    background: none; border: 1px solid var(--gray-300);
+    border-radius: var(--radius); padding: 4px 8px;
+    font-size: 12px; cursor: pointer; color: var(--gray-600);
+    transition: background .15s;
+  }
+  .btn-icon:hover { background: var(--gray-100); }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.45); z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--white); border-radius: 10px;
+    padding: 28px; width: 100%; max-width: 520px;
+    box-shadow: var(--shadow-md);
+  }
+  .modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+  .form-row { margin-bottom: 14px; }
+  .form-row label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-700); margin-bottom: 4px; }
+  .form-row input,
+  .form-row select,
+  .form-row textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--gray-300);
+    border-radius: var(--radius); font-size: 13px; color: var(--gray-900);
+    font-family: inherit; outline: none;
+    transition: border-color .15s;
+  }
+  .form-row input:focus,
+  .form-row select:focus,
+  .form-row textarea:focus { border-color: var(--amd-blue); }
+  .form-row textarea { resize: vertical; min-height: 80px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .btn-ghost {
+    background: none; border: 1px solid var(--gray-300);
+    border-radius: var(--radius); padding: 8px 16px;
+    font-size: 13px; cursor: pointer; color: var(--gray-700);
+  }
+  .btn-ghost:hover { background: var(--gray-100); }
+
+  /* ── Kanban ── */
+  .kanban-board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .kanban-col {
+    background: var(--gray-100);
+    border-radius: var(--radius);
+    min-height: 200px;
+    transition: background .15s, outline .15s;
+  }
+  .kanban-col.drag-over {
+    background: var(--amd-blue-xl);
+    outline: 2px dashed var(--amd-blue);
+  }
+  .kanban-col-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    font-weight: 700; font-size: 13px;
+  }
+  .kanban-col-header.high   { background: #fef2f2; color: var(--red); }
+  .kanban-col-header.medium { background: #fffbeb; color: var(--amber); }
+  .kanban-col-header.low    { background: #f0fdf4; color: var(--green); }
+  .kanban-col-header.done   { background: var(--gray-200); color: var(--gray-500); }
+  .kanban-col-count {
+    background: rgba(0,0,0,.08); border-radius: 10px;
+    padding: 1px 8px; font-size: 11px; font-weight: 600;
+  }
+  .kanban-cards { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .ticket-card { margin-bottom: 0 !important; cursor: grab; }
+  .ticket-card:active { cursor: grabbing; }
+  .ticket-card.dragging { opacity: .35; }
+
+  /* ── Loading / Empty ── */
+  .loading-text { color: var(--gray-500); font-size: 13px; padding: 20px 0; }
+  .empty-text   { color: var(--gray-400); font-size: 13px; padding: 12px 0; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--gray-900); color: var(--white);
+    padding: 10px 18px; border-radius: var(--radius);
+    font-size: 13px; font-weight: 500;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity .2s, transform .2s;
+    pointer-events: none; z-index: 300;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+</style>

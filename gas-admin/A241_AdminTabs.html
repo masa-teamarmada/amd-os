@@ -1,0 +1,30 @@
+<!-- A241_AdminTabs.html -->
+<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="font-size:11px;font-weight:900;color:#888;min-width:80px;">PJ・メンバー</span>
+    <button class="btn" id="tab_projects" onclick="switchTab('projects')">Projects</button>
+    <button class="btn" id="tab_members" onclick="switchTab('members')">Members</button>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="font-size:11px;font-weight:900;color:#888;min-width:80px;">知識・AI設定</span>
+    <button class="btn" id="tab_contexts" onclick="switchTab('contexts')">LLM Context</button>
+    <button class="btn" id="tab_extractors" onclick="switchTab('extractors')">AMD Protocol</button>
+    <button class="btn" id="tab_tsukuyomi" onclick="switchTab('tsukuyomi')">tsukuyomi</button>
+    <button class="btn" id="tab_protocols" onclick="switchTab('protocols')">Protocols</button>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="font-size:11px;font-weight:900;color:#888;min-width:80px;">請求・支払</span>
+    <button class="btn" id="tab_billing" onclick="switchTab('billing')">Billing</button>
+    <button class="btn" id="tab_payouts" onclick="switchTab('payouts')">Payouts</button>
+  </div>
+
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="font-size:11px;font-weight:900;color:#888;min-width:80px;">開発・管理</span>
+    <button class="btn" id="tab_settings" onclick="switchTab('settings')">Settings</button>
+  </div>
+
+</div>
+

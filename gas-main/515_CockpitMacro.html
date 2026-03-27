@@ -1,0 +1,39 @@
+<!-- 515_CockpitMacro.html
+     マクロトレンド提言の取得・描画。DB_TsukuyomiContextのprojectMacroをCockpit右カラムに表示する。
+     500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+function cpLoadMacroInsights() {
+  google.script.run
+    .withSuccessHandler(cpRenderMacroInsights)
+    .withFailureHandler(function() { cpRenderMacroInsights(null); })
+    .cockpit_api_getMacroInsights({ projectId: CP.projectId });
+}
+
+function cpRenderMacroInsights(res) {
+  var el = document.getElementById("cpMacroItems");
+  if (!el) return;
+
+  if (!res || !res.ok || !res.items || res.items.length === 0) {
+    el.innerHTML = '<div class="cp-nudge-empty">マクロ情報はまだありません</div>';
+    return;
+  }
+
+  var html = "";
+  var items = res.items;
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var score = it.priority || 0;
+    var scoreColor = score >= 9 ? "#e74c3c" : score >= 7 ? "#e67e22" : "#27ae60";
+    html += '<div class="cp-nudge-card info" style="cursor:default">';
+    html += '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
+    html += '    <span style="font-size:10px;color:#86868b">' + cpEsc(it.updatedAtJst || "") + '</span>';
+    html += '    <span style="font-size:11px;font-weight:bold;color:' + scoreColor + '">関連度 ' + score + '/10</span>';
+    html += '  </div>';
+    html += '  <div style="font-size:12px;margin-bottom:4px">' + cpEsc(it.evidenceSnippet || "") + '</div>';
+    html += '  <div style="font-size:12px;color:#1d1d1f">' + cpEsc(it.systemPrompt || "") + '</div>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+</script>

@@ -1,0 +1,381 @@
+<!-- 505_CockpitReport.html
+     月次報告書の生成・FIX・修正・Pending差分操作。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+function cpTriggerGenerateReport() {
+  var btn = document.getElementById("cpGenerateReportBtn");
+  var status = document.getElementById("cpGenerateReportStatus");
+  if (!btn || !status) return;
+
+  btn.disabled = true;
+  btn.textContent = "⏳ 生成中...";
+  status.textContent = "つくよみがデータを収集して報告書を作成しています。少し時間がかかるよ…";
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.success) {
+        status.textContent = "✅ 生成完了！報告書を読み込んでいます...";
+        setTimeout(function() {
+          google.script.run
+            .withSuccessHandler(cpRenderModal)
+            .withFailureHandler(function(err) {
+              status.textContent = "❌ 読み込み失敗: " + cpEsc(String(err));
+              btn.disabled = false;
+              btn.textContent = "🤖 つくよみに報告書を作ってもらう";
+            })
+            .cockpit_api_getMonthDetail({ projectId: CP.projectId, ym: CP.modalYm });
+        }, 800);
+      } else {
+        var errMsg = (res && res.error) ? res.error : ("不明なエラー (res=" + JSON.stringify(res) + ")");
+        status.textContent = "❌ 生成失敗: " + cpEsc(errMsg);
+        btn.disabled = false;
+        btn.textContent = "🤖 つくよみに報告書を作ってもらう";
+      }
+    })
+    .withFailureHandler(function(err) {
+      status.textContent = "❌ エラー: " + cpEsc(String(err));
+      btn.disabled = false;
+      btn.textContent = "🤖 つくよみに報告書を作ってもらう";
+    })
+    .api_generateMonthlyReport(CP.projectId, CP.modalYm, false);
+}
+
+function cpGenerateReportPdf() {
+  var btn = document.getElementById("cpReportPdfBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ 生成中..."; }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        alert("PDF生成失敗: " + (res ? res.message : "不明"));
+        if (btn) { btn.disabled = false; btn.textContent = CP.reportIsFixed ? "📄 PDF出力" : "📄 DRAFT PDF"; }
+        return;
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "✅ PDF生成完了";
+        btn.onclick = function() { window.open(res.pdfUrl, "_blank"); };
+      }
+      var linkHtml = '<div id="cpPdfLink" style="margin-top:8px;font-size:12px">'
+        + '📎 <a href="' + res.pdfUrl + '" target="_blank" style="color:#1B3A5C">PDFをDriveで開く</a>'
+        + (res.isDraft ? ' <span style="color:#92400e;font-size:11px">（DRAFT）</span>' : '')
+        + '</div>';
+      var fixBar = document.getElementById("cpReportFixBar");
+      var oldLink = document.getElementById("cpPdfLink");
+      if (oldLink) oldLink.remove();
+      if (fixBar) fixBar.insertAdjacentHTML("afterend", linkHtml);
+    })
+    .withFailureHandler(function(err) {
+      alert("エラー: " + String(err));
+      if (btn) { btn.disabled = false; btn.textContent = CP.reportIsFixed ? "📄 PDF出力" : "📄 DRAFT PDF"; }
+    })
+    .reportPdf_api_generate({ projectId: CP.projectId, ym: CP.modalYm });
+}
+
+function cpFixReportAction() {
+  if (!confirm("この内容で確定する？\n（確定後も編集は可能）")) return;
+  var btn = document.getElementById("cpReportFixBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "確定中..."; }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        alert("確定失敗: " + (res ? res.error : "不明"));
+        if (btn) { btn.disabled = false; btn.textContent = "✅ この内容で確定する"; }
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(cpRenderModal)
+        .cockpit_api_getMonthDetail({ projectId: CP.projectId, ym: CP.modalYm });
+    })
+    .withFailureHandler(function(err) {
+      alert("エラー: " + String(err));
+      if (btn) { btn.disabled = false; btn.textContent = "✅ この内容で確定する"; }
+    })
+    .mr_api_fixReport({ projectId: CP.projectId, ym: CP.modalYm });
+}
+
+function cpEnterReportEdit() {
+  var fixArea = document.getElementById("cpReportFixArea");
+  if (fixArea) fixArea.style.display = "";
+  var editBtn = document.getElementById("cpReportEditBtn");
+  if (editBtn) editBtn.style.display = "none";
+}
+
+function cpCancelReportEdit() {
+  var fixArea = document.getElementById("cpReportFixArea");
+  if (fixArea) fixArea.style.display = "none";
+  var editBtn = document.getElementById("cpReportEditBtn");
+  if (editBtn) editBtn.style.display = "";
+}
+
+function cpRefixReport() {
+  var content = CP.currentDraft || "";
+  if (!content) { alert("本文が空"); return; }
+
+  var btn = document.getElementById("cpRefixBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "確定中..."; }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        alert("再確定失敗: " + (res ? res.error : "不明"));
+        if (btn) { btn.disabled = false; btn.textContent = "✅ 再確定する"; }
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(cpRenderModal)
+        .cockpit_api_getMonthDetail({ projectId: CP.projectId, ym: CP.modalYm });
+    })
+    .withFailureHandler(function(err) {
+      alert("エラー: " + String(err));
+      if (btn) { btn.disabled = false; btn.textContent = "✅ 再確定する"; }
+    })
+    .mr_api_editAndRefix({ projectId: CP.projectId, ym: CP.modalYm, content: content });
+}
+
+function cpBuildDiffHtml(oldText, newText) {
+  if (typeof diff_match_patch === "undefined") {
+    return '<div class="cp-report-text" style="color:#856404">diffライブラリ未読み込み。更新版全文：\n' + cpEsc(newText) + '</div>';
+  }
+
+  var dmp = new diff_match_patch();
+  var diffs = dmp.diff_main(oldText, newText);
+  dmp.diff_cleanupSemantic(diffs);
+
+  var html = '<div style="font-size:12px;line-height:1.8;font-family:system-ui,sans-serif;white-space:pre-wrap;word-break:break-word">';
+  var CONTEXT_CHARS = 150;
+
+  var segments = [];
+  var hasChange = false;
+  for (var i = 0; i < diffs.length; i++) {
+    var op = diffs[i][0];
+    var text = diffs[i][1];
+    if (op !== 0) hasChange = true;
+    segments.push({ op: op, text: text });
+  }
+
+  if (!hasChange) return '<div style="color:#86868b;padding:8px">変更なし</div>';
+
+  var added = 0, removed = 0;
+  for (var i = 0; i < segments.length; i++) {
+    var seg = segments[i];
+    if (seg.op === 0) {
+      var prevIsChange = (i > 0 && segments[i - 1].op !== 0);
+      var nextIsChange = (i < segments.length - 1 && segments[i + 1].op !== 0);
+
+      if (seg.text.length <= CONTEXT_CHARS * 2 + 50) {
+        html += '<span style="color:#555">' + cpEsc(seg.text) + '</span>';
+      } else {
+        var head = prevIsChange ? seg.text.substring(0, CONTEXT_CHARS) : "";
+        var tail = nextIsChange ? seg.text.substring(seg.text.length - CONTEXT_CHARS) : "";
+        if (head) html += '<span style="color:#555">' + cpEsc(head) + '</span>';
+        var omitted = seg.text.length - head.length - tail.length;
+        if (omitted > 0) {
+          html += '<div style="text-align:center;color:#aaa;font-size:11px;padding:4px 0;border-top:1px dashed #e0e0e0;border-bottom:1px dashed #e0e0e0;margin:4px 0">';
+          html += '... 変更なし（約' + omitted + '文字 省略）...</div>';
+        }
+        if (tail) html += '<span style="color:#555">' + cpEsc(tail) + '</span>';
+      }
+    } else if (seg.op === -1) {
+      removed += seg.text.length;
+      html += '<span style="background:#fdd;color:#c0392b;text-decoration:line-through">' + cpEsc(seg.text) + '</span>';
+    } else {
+      added += seg.text.length;
+      html += '<span style="background:#d4edda;color:#155724">' + cpEsc(seg.text) + '</span>';
+    }
+  }
+  html += '</div>';
+
+  var summaryHtml = '<div style="font-size:11px;color:#86868b;padding:4px 0 8px">';
+  summaryHtml += '変更: <span style="color:#155724">+' + added + '文字</span>';
+  summaryHtml += ' / <span style="color:#c0392b">-' + removed + '文字</span>';
+  summaryHtml += '</div>';
+
+  return summaryHtml + html;
+}
+
+function cpExecuteFixReport() {
+  var textarea = document.getElementById("cpFixFeedback");
+  var btn = document.getElementById("cpFixBtn");
+  var status = document.getElementById("cpFixStatus");
+  if (!textarea || !btn) return;
+
+  var feedback = textarea.value.trim();
+  if (!feedback) {
+    if (status) { status.textContent = "修正指示を入力してね"; status.style.color = "#ff3b30"; }
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "🔧 修正中...";
+  if (status) { status.textContent = "LLMで修正中…"; status.style.color = "#86868b"; }
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      btn.disabled = false;
+      btn.textContent = "🔧 修正実行";
+
+      if (!result || !result.success) {
+        var errMsg = (result && result.error) ? result.error : "不明なエラー";
+        if (status) { status.textContent = "修正失敗: " + errMsg; status.style.color = "#ff3b30"; }
+        return;
+      }
+
+      var reportEl = document.getElementById("cpTabReport");
+      var fixArea = document.getElementById("cpReportFixArea");
+      var newContent = result.text || "";
+      CP.currentDraft = newContent;
+
+      if (newContent && typeof marked !== "undefined") {
+        reportEl.innerHTML = '<div class="cp-report-rendered">' + marked.parse(newContent) + '</div>';
+      } else if (newContent) {
+        reportEl.innerHTML = '<div class="cp-report-text">' + cpEsc(newContent) + '</div>';
+      }
+
+      if (fixArea) fixArea.remove();
+      var newFixDiv = document.createElement("div");
+      newFixDiv.id = "cpReportFixArea";
+      newFixDiv.style.cssText = "margin-top:16px;padding-top:12px;border-top:1px solid #e5e5e7";
+      newFixDiv.innerHTML = ''
+        + '<div style="font-size:12px;font-weight:600;color:#86868b;margin-bottom:6px">✏️ 修正指示</div>'
+        + '<textarea id="cpFixFeedback" rows="3" placeholder="続けて修正指示を出せるよ"'
+        + ' style="width:100%;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:13px;resize:vertical;font-family:inherit"></textarea>'
+        + '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;justify-content:flex-end">'
+        + '  <span id="cpFixStatus" style="font-size:11px;color:#1a7a2e">✅ 修正完了（' + (result.fixCount || 1) + '回目）</span>'
+        + '  <button class="cp-btn cp-btn-primary" onclick="cpExecuteFixReport()" id="cpFixBtn" style="font-size:12px;padding:6px 14px">🔧 修正実行</button>'
+        + '</div>';
+      reportEl.appendChild(newFixDiv);
+    })
+    .withFailureHandler(function(error) {
+      btn.disabled = false;
+      btn.textContent = "🔧 修正実行";
+      var errMsg = (error && error.message) ? error.message : String(error || "");
+      if (status) { status.textContent = "エラー: " + errMsg; status.style.color = "#ff3b30"; }
+    })
+    .mrweb_fixReport(CP.projectId, CP.modalYm, feedback);
+}
+
+function cpPendingShowFixUI() {
+  var area = document.getElementById("cpPendingFixArea");
+  if (area) area.style.display = "";
+  var diff = document.getElementById("cpPendingDiff");
+  if (diff && !diff.classList.contains("show")) {
+    cpPendingDiffTab("pending");
+    diff.classList.add("show");
+  }
+}
+
+function cpPendingHideFixUI() {
+  var area = document.getElementById("cpPendingFixArea");
+  if (area) area.style.display = "none";
+}
+
+function cpPendingFixExecute() {
+  var fb = (document.getElementById("cpPendingFixFeedback") || {}).value;
+  if (!fb || !fb.trim()) { alert("修正指示を入力してね"); return; }
+
+  var btn = document.getElementById("cpPendingFixBtn");
+  var status = document.getElementById("cpPendingFixStatus");
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ 修正中..."; }
+  if (status) status.textContent = "LLMに送信中…";
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (btn) { btn.disabled = false; btn.textContent = "🔧 修正実行"; }
+      if (!res || !res.success) {
+        if (status) status.textContent = "❌ " + (res ? res.error : "不明なエラー");
+        return;
+      }
+      CP.pendingDraft = res.text;
+      if (status) status.textContent = "✅ 修正完了（diffを確認してね）";
+      cpPendingDiffTab("pending");
+      var ta = document.getElementById("cpPendingFixFeedback");
+      if (ta) ta.value = "";
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = "🔧 修正実行"; }
+      if (status) status.textContent = "❌ " + String(err);
+    })
+    .api_fixPendingDelta(CP.projectId, CP.modalYm, fb.trim());
+}
+
+function cpPendingPreview() {
+  var diff = document.getElementById("cpPendingDiff");
+  if (!diff) return;
+  if (diff.classList.contains("show")) { diff.classList.remove("show"); return; }
+  cpPendingDiffTab("pending");
+  diff.classList.add("show");
+}
+
+function cpPendingDiffTab(which) {
+  var tabs = document.querySelectorAll(".cp-pending-diff-tab");
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].classList.toggle("active", tabs[i].getAttribute("data-diff") === which);
+  }
+  var body = document.getElementById("cpPendingDiffBody");
+  if (!body) return;
+
+  if (which === "pending") {
+    var oldText = CP.currentDraft || "";
+    var newText = CP.pendingDraft || "";
+    body.innerHTML = cpBuildDiffHtml(oldText, newText);
+  } else {
+    var current = CP.currentDraft || "";
+    if (current && typeof marked !== "undefined") {
+      body.innerHTML = '<div class="cp-report-rendered">' + marked.parse(current) + '</div>';
+    } else if (current) {
+      body.innerHTML = '<div class="cp-report-text">' + cpEsc(current) + '</div>';
+    } else {
+      body.innerHTML = '<div style="color:#aaa;padding:8px">現在版が空</div>';
+    }
+  }
+}
+
+function cpPendingApply() {
+  if (!confirm("差分更新を反映する？（現在の報告書が上書きされる）")) return;
+  var btn = document.getElementById("cpPendingApplyBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "反映中..."; }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.success) {
+        alert("反映失敗: " + (res ? res.error : "不明"));
+        if (btn) { btn.disabled = false; btn.textContent = "✅ 反映する"; }
+        return;
+      }
+      var banner = document.getElementById("cpPendingBanner");
+      if (banner) banner.remove();
+      google.script.run
+        .withSuccessHandler(cpRenderModal)
+        .cockpit_api_getMonthDetail({ projectId: CP.projectId, ym: CP.modalYm });
+    })
+    .withFailureHandler(function(err) {
+      alert("エラー: " + String(err));
+      if (btn) { btn.disabled = false; btn.textContent = "✅ 反映する"; }
+    })
+    .api_applyPendingDelta(CP.projectId, CP.modalYm);
+}
+
+function cpPendingReject() {
+  if (!confirm("差分更新を却下する？（保留データが破棄される）")) return;
+  var btn = document.getElementById("cpPendingRejectBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "処理中..."; }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.success) {
+        alert("却下失敗: " + (res ? res.error : "不明"));
+        if (btn) { btn.disabled = false; btn.textContent = "❌ 却下"; }
+        return;
+      }
+      var banner = document.getElementById("cpPendingBanner");
+      if (banner) banner.remove();
+    })
+    .withFailureHandler(function(err) {
+      alert("エラー: " + String(err));
+      if (btn) { btn.disabled = false; btn.textContent = "❌ 却下"; }
+    })
+    .api_rejectPendingDelta(CP.projectId, CP.modalYm);
+}
+</script>

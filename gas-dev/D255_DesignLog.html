@@ -1,0 +1,86 @@
+<!-- D255_DesignLog.html -->
+<!-- Dev GAS 設計ログタブ UI -->
+
+<style>
+  .dl-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .dl-table th, .dl-table td { border:1px solid var(--gray-300); padding:6px 8px; text-align:left; vertical-align:top; }
+  .dl-table th { background:var(--gray-100); white-space:nowrap; font-weight:600; }
+  .dl-cat { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+  .dl-cat-new      { background:#d1fae5; color:#065f46; }
+  .dl-cat-change   { background:#dbeafe; color:#1e40af; }
+  .dl-cat-delete   { background:#fee2e2; color:#991b1b; }
+  .dl-cat-refactor { background:#fef3c7; color:#92400e; }
+  .dl-form { display:flex; flex-direction:column; gap:8px; margin-bottom:16px;
+             padding:16px; border:1px solid var(--gray-300); border-radius:var(--radius);
+             background:var(--gray-50); }
+  .dl-form-row { display:flex; gap:8px; align-items:flex-start; }
+  .dl-form-row label { width:100px; font-weight:600; font-size:13px;
+                       flex-shrink:0; padding-top:8px; }
+  .dl-form-row input, .dl-form-row select, .dl-form-row textarea {
+    flex:1; padding:7px 10px; border:1px solid var(--gray-300);
+    border-radius:var(--radius); font-size:13px; font-family:inherit; outline:none; }
+  .dl-form-row input:focus, .dl-form-row select:focus, .dl-form-row textarea:focus {
+    border-color:var(--amd-blue); }
+  .dl-form-row textarea { min-height:56px; resize:vertical; }
+  .dl-section-title { font-weight:700; font-size:14px; margin-bottom:8px; color:var(--gray-900); }
+</style>
+
+<!-- ツールバー -->
+<div style="display:flex; gap:8px; margin-bottom:20px; align-items:center; flex-wrap:wrap;">
+  <button class="btn-primary" onclick="dlCopyForSession_()">設計ログをコピー（直近20件）</button>
+  <button class="btn-primary" onclick="dlExportAll_()">📥 全件エクスポート</button>
+  <button class="btn-primary" onclick="dlRebuildDoc_()">🔄 Doc再構築</button>
+  <span id="dlCopyStatus" style="font-size:13px; color:var(--gray-500);"></span>
+</div>
+
+<!-- 一括追加 -->
+<div class="dl-form">
+  <div class="dl-section-title">一括追加（えいみの出力を貼る）</div>
+  <div class="dl-form-row">
+    <textarea id="dlBulkJson" rows="5"
+      style="width:100%; font-family:monospace; font-size:12px;"
+      placeholder='[{"category":"new","targetFiles":"...","summary":"...","reason":"...","sessionNote":"..."}]'></textarea>
+  </div>
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <span id="dlBulkStatus" style="font-size:13px; color:var(--gray-500);"></span>
+    <button class="btn-primary" onclick="dlBulkSubmit_()">一括追加</button>
+  </div>
+</div>
+
+<!-- 手動入力 -->
+<div class="dl-form">
+  <div class="dl-section-title">手動で追加</div>
+  <div class="dl-form-row">
+    <label>カテゴリ</label>
+    <select id="dlCategory">
+      <option value="new">new（新規追加）</option>
+      <option value="change" selected>change（変更）</option>
+      <option value="delete">delete（削除）</option>
+      <option value="refactor">refactor（リファクタ）</option>
+    </select>
+  </div>
+  <div class="dl-form-row">
+    <label>対象ファイル</label>
+    <input type="text" id="dlTargetFiles" placeholder="D100_DevTicketRepo.gs, D202_DevTickets.html">
+  </div>
+  <div class="dl-form-row">
+    <label>何をしたか</label>
+    <input type="text" id="dlSummary" placeholder="チケット一覧のソート順を修正">
+  </div>
+  <div class="dl-form-row">
+    <label>なぜ</label>
+    <textarea id="dlReason" placeholder="新着順になっていなかったため"></textarea>
+  </div>
+  <div class="dl-form-row">
+    <label>備考</label>
+    <textarea id="dlSessionNote" placeholder="（任意）セッションで他に決めたこと"></textarea>
+  </div>
+  <div style="text-align:right; margin-top:4px;">
+    <button class="btn-primary" onclick="dlSubmit_()">追加</button>
+  </div>
+</div>
+
+<!-- ログ一覧 -->
+<div id="dlTableWrap">
+  <p class="loading-text">Design Logタブを開くとロードされます</p>
+</div>

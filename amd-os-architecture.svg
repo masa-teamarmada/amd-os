@@ -1,0 +1,447 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1100" font-family="'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#666"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrow-orange" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#f97316"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#10b981"/>
+    </marker>
+    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2" flood-opacity="0.08"/>
+    </filter>
+    <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="1100" fill="#f8fafc" rx="12"/>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="1400" height="56" fill="url(#headerGrad)" rx="12"/>
+  <rect x="0" y="40" width="1400" height="16" fill="url(#headerGrad)"/>
+  <text x="700" y="36" text-anchor="middle" fill="white" font-size="22" font-weight="700">AMD OS  --  Team ARMADA Business Operating System</text>
+  <text x="1380" y="36" text-anchor="end" fill="#94a3b8" font-size="11">GAS + Spreadsheet + Notion + Slack + freee</text>
+
+  <!-- ============================================ -->
+  <!-- EXTERNAL SERVICES (Top Row) -->
+  <!-- ============================================ -->
+  <text x="30" y="86" fill="#64748b" font-size="11" font-weight="600" letter-spacing="1.5">EXTERNAL SERVICES</text>
+
+  <!-- Slack -->
+  <rect x="30" y="96" width="130" height="52" rx="8" fill="#4A154B" filter="url(#shadow)"/>
+  <text x="95" y="118" text-anchor="middle" fill="white" font-size="13" font-weight="600">Slack</text>
+  <text x="95" y="134" text-anchor="middle" fill="#e2b7e3" font-size="9">Events / Commands</text>
+
+  <!-- Notion -->
+  <rect x="175" y="96" width="130" height="52" rx="8" fill="#191919" filter="url(#shadow)"/>
+  <text x="240" y="118" text-anchor="middle" fill="white" font-size="13" font-weight="600">Notion</text>
+  <text x="240" y="134" text-anchor="middle" fill="#aaa" font-size="9">Pages / DB</text>
+
+  <!-- Google Calendar -->
+  <rect x="320" y="96" width="130" height="52" rx="8" fill="#1a73e8" filter="url(#shadow)"/>
+  <text x="385" y="118" text-anchor="middle" fill="white" font-size="13" font-weight="600">Google Calendar</text>
+  <text x="385" y="134" text-anchor="middle" fill="#a8c7fa" font-size="9">Events / MTG</text>
+
+  <!-- Gmail -->
+  <rect x="465" y="96" width="110" height="52" rx="8" fill="#ea4335" filter="url(#shadow)"/>
+  <text x="520" y="118" text-anchor="middle" fill="white" font-size="13" font-weight="600">Gmail</text>
+  <text x="520" y="134" text-anchor="middle" fill="#f8b4b0" font-size="9">Threads</text>
+
+  <!-- Google Drive -->
+  <rect x="590" y="96" width="110" height="52" rx="8" fill="#0f9d58" filter="url(#shadow)"/>
+  <text x="645" y="118" text-anchor="middle" fill="white" font-size="13" font-weight="600">Google Drive</text>
+  <text x="645" y="134" text-anchor="middle" fill="#a8e6c1" font-size="9">Files / Docs</text>
+
+  <!-- freee -->
+  <rect x="715" y="96" width="110" height="52" rx="8" fill="#2e86de" filter="url(#shadow)"/>
+  <text x="770" y="118" text-anchor="middle" fill="white" font-size="13" font-weight="600">freee</text>
+  <text x="770" y="134" text-anchor="middle" fill="#a8d4f8" font-size="9">Accounting API</text>
+
+  <!-- Claude API -->
+  <rect x="840" y="96" width="120" height="52" rx="8" fill="#d97706" filter="url(#shadow)"/>
+  <text x="900" y="118" text-anchor="middle" fill="white" font-size="13" font-weight="600">Claude API</text>
+  <text x="900" y="134" text-anchor="middle" fill="#fde68a" font-size="9">LLM (Anthropic)</text>
+
+  <!-- Cloud Run -->
+  <rect x="975" y="96" width="140" height="52" rx="8" fill="#5f6368" filter="url(#shadow)"/>
+  <text x="1045" y="118" text-anchor="middle" fill="white" font-size="13" font-weight="600">Cloud Run</text>
+  <text x="1045" y="134" text-anchor="middle" fill="#bbb" font-size="9">amd-slack-webhook</text>
+
+  <!-- Google Meet -->
+  <rect x="1130" y="96" width="120" height="52" rx="8" fill="#00897b" filter="url(#shadow)"/>
+  <text x="1190" y="118" text-anchor="middle" fill="white" font-size="13" font-weight="600">Google Meet</text>
+  <text x="1190" y="134" text-anchor="middle" fill="#a8e6cf" font-size="9">Transcripts</text>
+
+  <!-- ============================================ -->
+  <!-- GAS PROJECTS (4 columns) -->
+  <!-- ============================================ -->
+  <text x="30" y="180" fill="#64748b" font-size="11" font-weight="600" letter-spacing="1.5">GAS PROJECTS (4 STANDALONE DEPLOYMENTS)</text>
+
+  <!-- ===== MAIN GAS (本体) ===== -->
+  <rect x="20" y="192" width="460" height="540" rx="10" fill="white" stroke="#3b82f6" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="192" width="460" height="32" rx="10" fill="#3b82f6"/>
+  <rect x="20" y="214" width="460" height="10" fill="#3b82f6"/>
+  <text x="250" y="213" text-anchor="middle" fill="white" font-size="14" font-weight="700">Main GAS (000-799)</text>
+  <text x="440" y="213" text-anchor="end" fill="#bfdbfe" font-size="9">UI + Core API</text>
+
+  <!-- Router -->
+  <rect x="35" y="236" width="190" height="36" rx="6" fill="#eff6ff" stroke="#93c5fd" stroke-width="1"/>
+  <text x="130" y="250" text-anchor="middle" fill="#1e40af" font-size="11" font-weight="600">01_Router.js</text>
+  <text x="130" y="263" text-anchor="middle" fill="#3b82f6" font-size="9">doGet / Page Routing</text>
+
+  <!-- Utils / Sheets -->
+  <rect x="240" y="236" width="115" height="36" rx="6" fill="#eff6ff" stroke="#93c5fd" stroke-width="1"/>
+  <text x="298" y="250" text-anchor="middle" fill="#1e40af" font-size="11" font-weight="600">10_Utils</text>
+  <text x="298" y="263" text-anchor="middle" fill="#3b82f6" font-size="9">toClientSafe_ etc</text>
+
+  <rect x="365" y="236" width="100" height="36" rx="6" fill="#eff6ff" stroke="#93c5fd" stroke-width="1"/>
+  <text x="415" y="250" text-anchor="middle" fill="#1e40af" font-size="11" font-weight="600">B_Sheets</text>
+  <text x="415" y="263" text-anchor="middle" fill="#3b82f6" font-size="9">DB Constants</text>
+
+  <!-- Pages Section -->
+  <text x="35" y="294" fill="#64748b" font-size="10" font-weight="600">HTML Pages (Web App)</text>
+
+  <rect x="35" y="300" width="86" height="44" rx="5" fill="#dbeafe" stroke="#93c5fd" stroke-width="1"/>
+  <text x="78" y="317" text-anchor="middle" fill="#1e3a8a" font-size="10" font-weight="600">Home</text>
+  <text x="78" y="332" text-anchor="middle" fill="#3b82f6" font-size="8">Dashboard</text>
+
+  <rect x="127" y="300" width="86" height="44" rx="5" fill="#dbeafe" stroke="#93c5fd" stroke-width="1"/>
+  <text x="170" y="317" text-anchor="middle" fill="#1e3a8a" font-size="10" font-weight="600">Charter</text>
+  <text x="170" y="332" text-anchor="middle" fill="#3b82f6" font-size="8">PJ Details</text>
+
+  <rect x="219" y="300" width="86" height="44" rx="5" fill="#dbeafe" stroke="#93c5fd" stroke-width="1"/>
+  <text x="262" y="317" text-anchor="middle" fill="#1e3a8a" font-size="10" font-weight="600">Navigator</text>
+  <text x="262" y="332" text-anchor="middle" fill="#3b82f6" font-size="8">Monthly Extract</text>
+
+  <rect x="311" y="300" width="86" height="44" rx="5" fill="#dbeafe" stroke="#93c5fd" stroke-width="1"/>
+  <text x="354" y="317" text-anchor="middle" fill="#1e3a8a" font-size="10" font-weight="600">Timeline</text>
+  <text x="354" y="332" text-anchor="middle" fill="#3b82f6" font-size="8">Stages/Tasks</text>
+
+  <rect x="403" y="300" width="66" height="44" rx="5" fill="#dbeafe" stroke="#93c5fd" stroke-width="1"/>
+  <text x="436" y="317" text-anchor="middle" fill="#1e3a8a" font-size="10" font-weight="600">Settings</text>
+  <text x="436" y="332" text-anchor="middle" fill="#3b82f6" font-size="8">Config</text>
+
+  <rect x="35" y="350" width="86" height="44" rx="5" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+  <text x="78" y="367" text-anchor="middle" fill="#92400e" font-size="10" font-weight="600">Billing</text>
+  <text x="78" y="382" text-anchor="middle" fill="#d97706" font-size="8">Invoices/freee</text>
+
+  <rect x="127" y="350" width="86" height="44" rx="5" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+  <text x="170" y="367" text-anchor="middle" fill="#92400e" font-size="10" font-weight="600">Reimburse</text>
+  <text x="170" y="382" text-anchor="middle" fill="#d97706" font-size="8">Expenses</text>
+
+  <rect x="219" y="350" width="86" height="44" rx="5" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+  <text x="262" y="367" text-anchor="middle" fill="#92400e" font-size="10" font-weight="600">Admin</text>
+  <text x="262" y="382" text-anchor="middle" fill="#d97706" font-size="8">Members/Users</text>
+
+  <rect x="311" y="350" width="86" height="44" rx="5" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+  <text x="354" y="367" text-anchor="middle" fill="#92400e" font-size="10" font-weight="600">Invoice PDF</text>
+  <text x="354" y="382" text-anchor="middle" fill="#d97706" font-size="8">Upload</text>
+
+  <rect x="403" y="350" width="66" height="44" rx="5" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+  <text x="436" y="367" text-anchor="middle" fill="#92400e" font-size="10" font-weight="600">Agree</text>
+  <text x="436" y="382" text-anchor="middle" fill="#d97706" font-size="8">Consent</text>
+
+  <!-- Core API Modules -->
+  <text x="35" y="416" fill="#64748b" font-size="10" font-weight="600">Core API / Domain</text>
+
+  <rect x="35" y="422" width="128" height="40" rx="5" fill="#f0fdf4" stroke="#86efac" stroke-width="1"/>
+  <text x="99" y="437" text-anchor="middle" fill="#166534" font-size="10" font-weight="600">ProjectRepo (040)</text>
+  <text x="99" y="450" text-anchor="middle" fill="#15803d" font-size="8">DB_Projects CRUD</text>
+
+  <rect x="170" y="422" width="128" height="40" rx="5" fill="#f0fdf4" stroke="#86efac" stroke-width="1"/>
+  <text x="234" y="437" text-anchor="middle" fill="#166534" font-size="10" font-weight="600">ValuePlan (085-086)</text>
+  <text x="234" y="450" text-anchor="middle" fill="#15803d" font-size="8">DB_ValueMilestones</text>
+
+  <rect x="305" y="422" width="160" height="40" rx="5" fill="#f0fdf4" stroke="#86efac" stroke-width="1"/>
+  <text x="385" y="437" text-anchor="middle" fill="#166534" font-size="10" font-weight="600">Payout (061-066)</text>
+  <text x="385" y="450" text-anchor="middle" fill="#15803d" font-size="8">Api / Repo / Domain / PaidRepo</text>
+
+  <rect x="35" y="468" width="128" height="40" rx="5" fill="#f0fdf4" stroke="#86efac" stroke-width="1"/>
+  <text x="99" y="483" text-anchor="middle" fill="#166534" font-size="10" font-weight="600">Billing (B_*)</text>
+  <text x="99" y="496" text-anchor="middle" fill="#15803d" font-size="8">Api / Domain / freee</text>
+
+  <rect x="170" y="468" width="128" height="40" rx="5" fill="#f0fdf4" stroke="#86efac" stroke-width="1"/>
+  <text x="234" y="483" text-anchor="middle" fill="#166534" font-size="10" font-weight="600">NavigatorRepo (073)</text>
+  <text x="234" y="496" text-anchor="middle" fill="#15803d" font-size="8">Monthly Fix API</text>
+
+  <rect x="305" y="468" width="160" height="40" rx="5" fill="#f0fdf4" stroke="#86efac" stroke-width="1"/>
+  <text x="385" y="483" text-anchor="middle" fill="#166534" font-size="10" font-weight="600">HomeApi / CharterApi</text>
+  <text x="385" y="496" text-anchor="middle" fill="#15803d" font-size="8">20-30 series</text>
+
+  <!-- LLM / Tsukuyomi -->
+  <text x="35" y="530" fill="#64748b" font-size="10" font-weight="600">LLM / AI</text>
+
+  <rect x="35" y="536" width="200" height="40" rx="5" fill="#fdf4ff" stroke="#d8b4fe" stroke-width="1"/>
+  <text x="135" y="551" text-anchor="middle" fill="#6b21a8" font-size="10" font-weight="600">090_OpenAIClient (Claude API)</text>
+  <text x="135" y="564" text-anchor="middle" fill="#7c3aed" font-size="8">163_LlmRouter / callJson</text>
+
+  <rect x="240" y="536" width="225" height="40" rx="5" fill="#fdf4ff" stroke="#d8b4fe" stroke-width="1"/>
+  <text x="353" y="551" text-anchor="middle" fill="#6b21a8" font-size="10" font-weight="600">Tsukuyomi (151-178)</text>
+  <text x="353" y="564" text-anchor="middle" fill="#7c3aed" font-size="8">Context / Memory / Reply / Nudge / Profiles</text>
+
+  <!-- Slack Integration -->
+  <text x="35" y="598" fill="#64748b" font-size="10" font-weight="600">Slack Integration</text>
+
+  <rect x="35" y="604" width="140" height="36" rx="5" fill="#faf5ff" stroke="#c084fc" stroke-width="1"/>
+  <text x="105" y="618" text-anchor="middle" fill="#581c87" font-size="10" font-weight="600">80_SlackWebhook</text>
+  <text x="105" y="630" text-anchor="middle" fill="#7c3aed" font-size="8">doPost handler</text>
+
+  <rect x="182" y="604" width="130" height="36" rx="5" fill="#faf5ff" stroke="#c084fc" stroke-width="1"/>
+  <text x="247" y="618" text-anchor="middle" fill="#581c87" font-size="10" font-weight="600">SlackClient</text>
+  <text x="247" y="630" text-anchor="middle" fill="#7c3aed" font-size="8">API Wrapper</text>
+
+  <rect x="319" y="604" width="146" height="36" rx="5" fill="#faf5ff" stroke="#c084fc" stroke-width="1"/>
+  <text x="392" y="618" text-anchor="middle" fill="#581c87" font-size="10" font-weight="600">115/185_SlackNotify</text>
+  <text x="392" y="630" text-anchor="middle" fill="#7c3aed" font-size="8">Notifications</text>
+
+  <!-- Calendar/Notion -->
+  <text x="35" y="662" fill="#64748b" font-size="10" font-weight="600">External Adapters</text>
+  <rect x="35" y="668" width="160" height="36" rx="5" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1"/>
+  <text x="115" y="682" text-anchor="middle" fill="#065f46" font-size="10" font-weight="600">CalendarApiAdapter</text>
+  <text x="115" y="694" text-anchor="middle" fill="#059669" font-size="8">Advanced Calendar API</text>
+
+  <rect x="202" y="668" width="180" height="36" rx="5" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1"/>
+  <text x="292" y="682" text-anchor="middle" fill="#065f46" font-size="10" font-weight="600">CalendarToNotionMinutes</text>
+  <text x="292" y="694" text-anchor="middle" fill="#059669" font-size="8">MTG Transcript → Notion</text>
+
+  <rect x="389" y="668" width="80" height="36" rx="5" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1"/>
+  <text x="429" y="682" text-anchor="middle" fill="#065f46" font-size="10" font-weight="600">NotionRepo</text>
+  <text x="429" y="694" text-anchor="middle" fill="#059669" font-size="8">122</text>
+
+  <!-- ===== REPORT GAS (R) ===== -->
+  <rect x="495" y="192" width="340" height="300" rx="10" fill="white" stroke="#f97316" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="495" y="192" width="340" height="32" rx="10" fill="#f97316"/>
+  <rect x="495" y="214" width="340" height="10" fill="#f97316"/>
+  <text x="665" y="213" text-anchor="middle" fill="white" font-size="14" font-weight="700">AMD-Report GAS (R)</text>
+  <text x="810" y="213" text-anchor="end" fill="#fed7aa" font-size="9">Cron Pipelines</text>
+
+  <!-- L1 Pipeline -->
+  <text x="510" y="240" fill="#9a3412" font-size="10" font-weight="700">L1 Pipeline (3:10 JST)</text>
+  <rect x="510" y="248" width="310" height="60" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1"/>
+  <text x="665" y="266" text-anchor="middle" fill="#9a3412" font-size="11" font-weight="600">R319_SourceCacheCron</text>
+  <text x="665" y="280" text-anchor="middle" fill="#c2410c" font-size="9">Notion / Slack / Gmail / Drive / GMeet</text>
+  <text x="665" y="294" text-anchor="middle" fill="#c2410c" font-size="9">→ DB_SourceCache (R311_Repo)</text>
+
+  <!-- L2 Pipeline -->
+  <text x="510" y="326" fill="#9a3412" font-size="10" font-weight="700">L2 Pipeline (5:00 JST)</text>
+  <rect x="510" y="334" width="310" height="90" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1"/>
+  <text x="665" y="352" text-anchor="middle" fill="#9a3412" font-size="11" font-weight="600">R301_MonthlyReport_Api</text>
+  <text x="665" y="368" text-anchor="middle" fill="#c2410c" font-size="9">302_Collector → 6 Extractors (305-309)</text>
+  <text x="665" y="382" text-anchor="middle" fill="#c2410c" font-size="9">→ 303_Generator (Claude LLM)</text>
+  <text x="665" y="396" text-anchor="middle" fill="#c2410c" font-size="9">→ 304_Repo → 310_Formatter</text>
+
+  <!-- GMeet -->
+  <rect x="510" y="436" width="310" height="36" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1"/>
+  <text x="665" y="454" text-anchor="middle" fill="#9a3412" font-size="11" font-weight="600">R320_SourceCacheGoogleMeet</text>
+  <text x="665" y="466" text-anchor="middle" fill="#c2410c" font-size="9">GMeet Transcript Collection</text>
+
+  <!-- ===== SLACK GAS (S) ===== -->
+  <rect x="850" y="192" width="265" height="300" rx="10" fill="white" stroke="#8b5cf6" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="850" y="192" width="265" height="32" rx="10" fill="#8b5cf6"/>
+  <rect x="850" y="214" width="265" height="10" fill="#8b5cf6"/>
+  <text x="983" y="213" text-anchor="middle" fill="white" font-size="14" font-weight="700">AMD-Slack GAS (S)</text>
+  <text x="1098" y="213" text-anchor="end" fill="#ddd6fe" font-size="9">Tsukuyomi</text>
+
+  <rect x="865" y="240" width="235" height="36" rx="6" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1"/>
+  <text x="983" y="256" text-anchor="middle" fill="#5b21b6" font-size="11" font-weight="600">S010_SlackApi</text>
+  <text x="983" y="268" text-anchor="middle" fill="#7c3aed" font-size="9">Slack API Base Layer</text>
+
+  <rect x="865" y="284" width="235" height="36" rx="6" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1"/>
+  <text x="983" y="300" text-anchor="middle" fill="#5b21b6" font-size="11" font-weight="600">S030_TsukuyomiReply</text>
+  <text x="983" y="312" text-anchor="middle" fill="#7c3aed" font-size="9">Thread Reply + Memory Extract</text>
+
+  <rect x="865" y="328" width="235" height="36" rx="6" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1"/>
+  <text x="983" y="344" text-anchor="middle" fill="#5b21b6" font-size="11" font-weight="600">S040_TsukuyomiContext</text>
+  <text x="983" y="356" text-anchor="middle" fill="#7c3aed" font-size="9">SystemPrompt + Memory Injection</text>
+
+  <rect x="865" y="372" width="112" height="36" rx="6" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1"/>
+  <text x="921" y="388" text-anchor="middle" fill="#5b21b6" font-size="11" font-weight="600">S060_Nudge</text>
+  <text x="921" y="400" text-anchor="middle" fill="#7c3aed" font-size="9">Monthly Post</text>
+
+  <rect x="984" y="372" width="116" height="36" rx="6" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1"/>
+  <text x="1042" y="388" text-anchor="middle" fill="#5b21b6" font-size="11" font-weight="600">S080_Billing</text>
+  <text x="1042" y="400" text-anchor="middle" fill="#7c3aed" font-size="9">Nudge DM</text>
+
+  <!-- ===== DEV GAS (D) ===== -->
+  <rect x="1130" y="192" width="250" height="300" rx="10" fill="white" stroke="#64748b" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="1130" y="192" width="250" height="32" rx="10" fill="#64748b"/>
+  <rect x="1130" y="214" width="250" height="10" fill="#64748b"/>
+  <text x="1255" y="213" text-anchor="middle" fill="white" font-size="14" font-weight="700">dev-AMD-OS (D)</text>
+  <text x="1365" y="213" text-anchor="end" fill="#cbd5e1" font-size="9">Dev Tools</text>
+
+  <rect x="1145" y="240" width="220" height="30" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="1255" y="260" text-anchor="middle" fill="#334155" font-size="11" font-weight="600">Tickets (Kanban)</text>
+
+  <rect x="1145" y="278" width="220" height="30" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="1255" y="298" text-anchor="middle" fill="#334155" font-size="11" font-weight="600">Design Log</text>
+
+  <rect x="1145" y="316" width="220" height="30" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="1255" y="336" text-anchor="middle" fill="#334155" font-size="11" font-weight="600">Blueprint</text>
+
+  <rect x="1145" y="354" width="220" height="30" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="1255" y="374" text-anchor="middle" fill="#334155" font-size="11" font-weight="600">Code Search (Cross-GAS)</text>
+
+  <rect x="1145" y="392" width="220" height="30" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="1255" y="412" text-anchor="middle" fill="#334155" font-size="11" font-weight="600">Files / Sheets Explorer</text>
+
+  <!-- ============================================ -->
+  <!-- SPREADSHEET DB LAYER -->
+  <!-- ============================================ -->
+  <text x="30" y="760" fill="#64748b" font-size="11" font-weight="600" letter-spacing="1.5">GOOGLE SPREADSHEET (Source of Truth)</text>
+
+  <!-- Main SS -->
+  <rect x="20" y="770" width="330" height="120" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="770" width="330" height="26" rx="8" fill="#22c55e"/>
+  <rect x="20" y="788" width="330" height="8" fill="#22c55e"/>
+  <text x="185" y="789" text-anchor="middle" fill="white" font-size="12" font-weight="700">Main Spreadsheet</text>
+  <text x="35" y="814" fill="#166534" font-size="10">DB_Projects / DB_Members / DB_BillingCycle</text>
+  <text x="35" y="830" fill="#166534" font-size="10">DB_TsukuyomiContext / DB_TsukuyomiContextTags</text>
+  <text x="35" y="846" fill="#166534" font-size="10">DB_LlmModelConfig / DB_ValueMilestones</text>
+  <text x="35" y="862" fill="#166534" font-size="10">DB_MilestoneMonthlyProgress / DB_MilestoneSubItems</text>
+  <text x="35" y="878" fill="#15803d" font-size="9" font-style="italic">Key: MAIN_SPREADSHEET_ID</text>
+
+  <!-- Navigator SS -->
+  <rect x="365" y="770" width="310" height="120" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="365" y="770" width="310" height="26" rx="8" fill="#3b82f6"/>
+  <rect x="365" y="788" width="310" height="8" fill="#3b82f6"/>
+  <text x="520" y="789" text-anchor="middle" fill="white" font-size="12" font-weight="700">Navigator Spreadsheet</text>
+  <text x="380" y="814" fill="#1e40af" font-size="10">DB_SourceCache / DB_Tasks</text>
+  <text x="380" y="830" fill="#1e40af" font-size="10">DB_ProjectKnowledge</text>
+  <text x="380" y="846" fill="#1e40af" font-size="10">DB_TsukuyomiMemory</text>
+  <text x="380" y="862" fill="#1e40af" font-size="10">DB_MonthlyReports</text>
+  <text x="380" y="878" fill="#2563eb" font-size="9" font-style="italic">Key: NAVIGATOR_SPREADSHEET_ID</text>
+
+  <!-- Admin SS -->
+  <rect x="690" y="770" width="240" height="120" rx="8" fill="#fefce8" stroke="#eab308" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="690" y="770" width="240" height="26" rx="8" fill="#eab308"/>
+  <rect x="690" y="788" width="240" height="8" fill="#eab308"/>
+  <text x="810" y="789" text-anchor="middle" fill="white" font-size="12" font-weight="700">Admin Spreadsheet</text>
+  <text x="705" y="814" fill="#854d0e" font-size="10">DB_Settings</text>
+  <text x="705" y="830" fill="#854d0e" font-size="10">DB_BillingNudgeLog</text>
+  <text x="705" y="878" fill="#a16207" font-size="9" font-style="italic">Key: ADMIN_SPREADSHEET_ID</text>
+
+  <!-- Dev SS -->
+  <rect x="945" y="770" width="240" height="120" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="945" y="770" width="240" height="26" rx="8" fill="#64748b"/>
+  <rect x="945" y="788" width="240" height="8" fill="#64748b"/>
+  <text x="1065" y="789" text-anchor="middle" fill="white" font-size="12" font-weight="700">Dev Spreadsheet</text>
+  <text x="960" y="814" fill="#334155" font-size="10">DB_DesignLog / DB_Blueprint</text>
+  <text x="960" y="830" fill="#334155" font-size="10">Cache_Temp</text>
+  <text x="960" y="878" fill="#475569" font-size="9" font-style="italic">Key: DEV_SHEET_ID</text>
+
+  <!-- ============================================ -->
+  <!-- DATA FLOW ARROWS -->
+  <!-- ============================================ -->
+
+  <!-- Slack → Cloud Run → Main GAS -->
+  <line x1="95" y1="148" x2="95" y2="158" stroke="#4A154B" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <path d="M95,158 Q95,170 1045,158" stroke="none" fill="none"/>
+  <line x1="1045" y1="148" x2="1045" y2="170" stroke="#5f6368" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="1045" y="166" text-anchor="middle" fill="#5f6368" font-size="8">3s bypass</text>
+
+  <!-- Cloud Run → Slack GAS doPost -->
+  <line x1="1045" y1="148" x2="983" y2="192" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+  <!-- Cloud Run → Main GAS doPost -->
+  <line x1="975" y1="136" x2="250" y2="192" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow-blue)"/>
+  <text x="600" y="168" text-anchor="middle" fill="#64748b" font-size="8">doPost (Slack events)</text>
+
+  <!-- Claude API → Main GAS -->
+  <line x1="900" y1="148" x2="350" y2="536" stroke="#d97706" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow-orange)"/>
+
+  <!-- Claude API → Report GAS -->
+  <line x1="900" y1="148" x2="720" y2="334" stroke="#d97706" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow-orange)"/>
+
+  <!-- freee → Main GAS Billing -->
+  <line x1="770" y1="148" x2="200" y2="350" stroke="#2e86de" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow-blue)"/>
+
+  <!-- External services → Report GAS L1 -->
+  <line x1="240" y1="148" x2="560" y2="248" stroke="#f97316" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow-orange)"/>
+  <line x1="385" y1="148" x2="620" y2="248" stroke="#f97316" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow-orange)"/>
+  <line x1="520" y1="148" x2="665" y2="248" stroke="#f97316" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow-orange)"/>
+  <line x1="645" y1="148" x2="710" y2="248" stroke="#f97316" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow-orange)"/>
+  <line x1="1190" y1="148" x2="770" y2="248" stroke="#f97316" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow-orange)"/>
+
+  <!-- GAS → Spreadsheets -->
+  <line x1="250" y1="720" x2="185" y2="770" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <line x1="665" y1="490" x2="520" y2="770" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <line x1="983" y1="408" x2="810" y2="770" stroke="#eab308" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="1255" y1="422" x2="1065" y2="770" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- ============================================ -->
+  <!-- DESIGN PRINCIPLES (Bottom) -->
+  <!-- ============================================ -->
+  <rect x="20" y="910" width="1360" height="80" rx="8" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="700" y="934" text-anchor="middle" fill="#f1f5f9" font-size="13" font-weight="700">Design Principles</text>
+
+  <text x="120" y="958" text-anchor="middle" fill="#94a3b8" font-size="11">Fact vs Interpretation</text>
+  <text x="120" y="974" text-anchor="middle" fill="#64748b" font-size="9">事実と解釈の分離</text>
+
+  <text x="350" y="958" text-anchor="middle" fill="#94a3b8" font-size="11">Append-Only</text>
+  <text x="350" y="974" text-anchor="middle" fill="#64748b" font-size="9">人の判断を消さない</text>
+
+  <text x="560" y="958" text-anchor="middle" fill="#94a3b8" font-size="11">codeName-Only</text>
+  <text x="560" y="974" text-anchor="middle" fill="#64748b" font-size="9">実名表示禁止</text>
+
+  <text x="770" y="958" text-anchor="middle" fill="#94a3b8" font-size="11">yyyymm Format</text>
+  <text x="770" y="974" text-anchor="middle" fill="#64748b" font-size="9">日付型自動変換回避</text>
+
+  <text x="980" y="958" text-anchor="middle" fill="#94a3b8" font-size="11">JST / Japanese</text>
+  <text x="980" y="974" text-anchor="middle" fill="#64748b" font-size="9">toISOString禁止</text>
+
+  <text x="1190" y="958" text-anchor="middle" fill="#94a3b8" font-size="11">Delta → Cumulative</text>
+  <text x="1190" y="974" text-anchor="middle" fill="#64748b" font-size="9">LLM増分 → DB累積</text>
+
+  <!-- ============================================ -->
+  <!-- CRON TIMELINE (右下) -->
+  <!-- ============================================ -->
+  <rect x="1200" y="510" width="180" height="200" rx="8" fill="white" stroke="#f97316" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="1290" y="534" text-anchor="middle" fill="#9a3412" font-size="11" font-weight="700">Daily Cron Schedule</text>
+
+  <circle cx="1230" cy="558" r="5" fill="#f97316"/>
+  <text x="1248" y="562" fill="#c2410c" font-size="10" font-weight="600">3:10 JST</text>
+  <text x="1248" y="575" fill="#9a3412" font-size="9">L1: SourceCache</text>
+
+  <line x1="1230" y1="563" x2="1230" y2="595" stroke="#fdba74" stroke-width="1.5"/>
+
+  <circle cx="1230" cy="600" r="5" fill="#f97316"/>
+  <text x="1248" y="604" fill="#c2410c" font-size="10" font-weight="600">5:00 JST</text>
+  <text x="1248" y="617" fill="#9a3412" font-size="9">L2: MonthlyReport</text>
+
+  <line x1="1230" y1="605" x2="1230" y2="637" stroke="#fdba74" stroke-width="1.5"/>
+
+  <circle cx="1230" cy="642" r="5" fill="#f97316"/>
+  <text x="1248" y="646" fill="#c2410c" font-size="10" font-weight="600">5:30 JST</text>
+  <text x="1248" y="659" fill="#9a3412" font-size="9">MsProgress Cache</text>
+
+  <line x1="1230" y1="647" x2="1230" y2="679" stroke="#fdba74" stroke-width="1.5"/>
+
+  <circle cx="1230" cy="684" r="5" fill="#8b5cf6"/>
+  <text x="1248" y="688" fill="#5b21b6" font-size="10" font-weight="600">Monthly</text>
+  <text x="1248" y="701" fill="#7c3aed" font-size="9">Nudge / BillingDM</text>
+
+  <!-- Legend -->
+  <rect x="1200" y="720" width="180" height="36" rx="4" fill="#f8fafc" stroke="#e2e8f0"/>
+  <line x1="1215" y1="740" x2="1235" y2="740" stroke="#666" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="1242" y="744" fill="#64748b" font-size="9">Data flow (async)</text>
+  <line x1="1295" y1="740" x2="1315" y2="740" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="1322" y="744" fill="#64748b" font-size="9">Read/Write</text>
+
+  <!-- Slack Architecture callout -->
+  <rect x="495" y="510" width="340" height="56" rx="6" fill="#faf5ff" stroke="#c4b5fd" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="665" y="530" text-anchor="middle" fill="#5b21b6" font-size="11" font-weight="700">Slack Event Flow</text>
+  <text x="665" y="548" text-anchor="middle" fill="#7c3aed" font-size="10">Slack → Cloud Run (asia-ne1) → GAS doPost</text>
+  <text x="665" y="560" text-anchor="middle" fill="#a78bfa" font-size="9">3s timeout bypass via async forwarding</text>
+
+  <!-- File count badge -->
+  <rect x="1290" y="1000" width="90" height="22" rx="11" fill="#e2e8f0"/>
+  <text x="1335" y="1015" text-anchor="middle" fill="#475569" font-size="10" font-weight="600">102 files</text>
+</svg>

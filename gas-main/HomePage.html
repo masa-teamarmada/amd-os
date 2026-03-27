@@ -1,0 +1,1342 @@
+<!-- HomePage.html -->
+<!doctype html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { --bg:#fafafa; --card:#fff; --line:#eaeaea; --text:#111; --sub:#666; }
+      body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; margin:0; background:var(--bg); color:var(--text); }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 20px; }
+      .title { margin:0; font-size: 22px; font-weight: 900; letter-spacing: .2px; }
+      .subtitle { margin:6px 0 0; color:var(--sub); font-size: 12px; }
+
+            .grid { margin-top: 16px; display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+            @media (max-width: 980px){ .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+            @media (max-width: 640px){ .grid { grid-template-columns: repeat(1, minmax(0, 1fr)); } }
+
+            /* ★ viewモード：カードは少し大きくしてもOKだけど、列数は強制しない */
+            body.viewMode .card { min-height: 220px; }
+
+            /* ★セクション一覧は “普通の縦並び” */
+            .sections{
+              margin-top: 16px;
+              display: block;
+            }
+      
+      .card:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.06); }
+      .card .h { font-weight: 900; margin:0; font-size: 18px; line-height: 1.25; }
+      .card .meta { margin-top: 6px; color: var(--sub); font-size: 12px; display:block; }
+      .pill { display:inline-flex; align-items:center; gap:6px; padding: 3px 8px; border-radius: 999px; border:1px solid var(--line); background:#fff; font-size:14px; }
+      .pill b { font-weight: 800; }
+
+      /* ★新規PJ登録カードを中央レイアウトに */
+.newCard{
+  border-style: dashed !important;
+  display:flex !important;
+  flex-direction: column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap: 14px !important;
+  min-height: 180px !important; /* ★縦長でもバランス取る */
+}
+
+.plus{
+  width: 58px !important;
+  height: 58px !important;
+  border-radius: 999px !important;
+  border: 2px solid var(--line) !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-weight: 900 !important;
+  font-size: 32px !important;
+}
+
+.newCardTitle{
+  font-weight: 900;
+  font-size: 16px;
+}
+.newCardSub{
+  font-size: 12px;
+  color: var(--sub);
+}
+
+/* ===== 全PJトグル（PJカード一覧の下に横幅いっぱい） ===== */
+.fullWidthToggle{
+  margin-top: 14px;
+  width: 100%;
+}
+
+.fullWidthToggleBtn{
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 12px;
+  cursor: pointer;
+  font-weight: 900;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.fullWidthToggleBtn:active{ transform: translateY(1px) scale(.99); }
+
+.fullWidthToggleBtn .label{
+  text-align:center;
+  line-height: 1.1;
+}
+
+.fullWidthToggleBtn .arrow{
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--sub);
+  font-weight: 900;
+}
+
+
+/* ★新規PJ登録のフローティング＋（常時見える） */
+.fab{
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 72px;
+  height: 64px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: #111;
+  color:#fff;
+  font-weight: 900;
+  font-size: 28px;
+  display:flex;
+  flex-direction: column;
+  align-items:center;
+  justify-content:center;
+  gap: 2px;
+  cursor:pointer;
+  box-shadow: 0 20px 70px rgba(0,0,0,.18);
+  z-index: 9999;
+}
+.fabLabel{
+  font-size: 10px;
+  font-weight: 800;
+  opacity: .85;
+  line-height: 1;
+}
+
+.fab:active{ transform: translateY(1px) scale(.99); }
+
+      .muted { color: var(--sub); font-size: 12px; margin-top: 10px; }
+
+      .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; padding: 18px; }
+      .modal { width: min(560px, 100%); background: #fff; border-radius: 16px; border: 1px solid var(--line); padding: 16px; box-shadow: 0 20px 70px rgba(0,0,0,.25); }
+      .mTop { display:flex; justify-content:space-between; align-items:center; gap: 10px; }
+      .mTitle { margin:0; font-weight: 900; font-size: 16px; }
+      .x { border:1px solid var(--line); background:#fff; border-radius: 10px; padding: 6px 10px; cursor:pointer; font-weight: 800; }
+      .row { margin-top: 12px; display:flex; gap: 10px; }
+      .row > div { flex:1; }
+      label { display:block; font-size: 12px; color: var(--sub); margin-bottom: 6px; }
+      input, textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 14px;
+        background: #fff;
+        outline: none;
+        box-sizing: border-box;
+      }
+      textarea { min-height: 90px; resize: vertical; }
+      .btns { display:flex; justify-content:flex-end; gap: 10px; margin-top: 14px; }
+      .btn { border:1px solid var(--line); background:#fff; border-radius: 12px; padding: 10px 12px; cursor:pointer; font-weight: 900; }
+      .btnPrimary { background: #111; color: #fff; border-color:#111; }
+      .err { margin-top: 10px; color:#b00020; font-size: 12px; display:none; }
+      .loading { opacity: .6; pointer-events: none; }
+            /* ★後ろの .card 定義が勝つので、ここで「クリックできるカード」に揃える */
+      .card { 
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px;
+        cursor: pointer; /* ★ default → pointer */
+        transition: transform .06s ease, box-shadow .06s ease;
+        box-shadow: 0 1px 0 rgba(0,0,0,.02);
+        min-height: 92px;
+        display:flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+
+
+      .rowTop { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+      .badge { font-size:12px; padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:#fff; white-space:nowrap; font-weight:900; }
+      .sec { margin-top:10px; }
+      .secLabel { font-size:11px; color:var(--sub); font-weight:900; letter-spacing:.02em; }
+      .secBody { margin-top:6px; font-size:13px; }
+      .remind { margin-top:6px; padding:8px 10px; border-radius:12px; background:#f9fafb; border:1px solid var(--line); }
+      .remindOver { border-color:#fecaca; background:#fff1f2; }
+      .linkLike { text-decoration:none; font-weight:900; }
+      .summaryRow { font-size:12px; color:#374151; margin-top:4px; }
+      .btnRow { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+      .btnMini { border:1px solid var(--line); background:#fff; border-radius:12px; padding:8px 10px; cursor:pointer; font-weight:900; font-size:13px; }
+      .btnMiniPrimary { background:#111; color:#fff; border-color:#111; }
+
+            .splitClick { margin-top: 10px; }
+      .monthlyBox {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 12px;
+        background:#fff;
+        cursor: pointer;
+        transition: border-color .15s ease, background .15s ease;
+      }
+      .monthlyBox:hover {
+        border-color:#4f46e5;
+        background:#f5f7ff;
+      }
+
+      /* ★Billingと同じノリで、ダッシュボードでも締切近い/超過を色で見せる */
+      /*HomePage.html：monthlyBox を黄/赤で枠色にする & 右上ヒントを危険度にする */
+      .monthlyBox.warn{
+        border-color:#f59e0b;
+        background:#fff7ed;
+      }
+      .monthlyBox.bad{
+        border-color:#ef4444;
+        background:#fff1f2;
+      }
+      
+
+
+      /* セクションタイトル（月次ルーティン / PJチャーター共通） */
+      .sectionTitle {
+        font-weight: 900;
+        font-size: 16px;          /* ★デカく */
+        color: var(--text);       /* ★薄グレーやめて読みやすく */
+        letter-spacing: .02em;
+      }
+
+      /* ★月次ヘッダ：ステータスを次行・左寄せに */
+      .monthlyHeadTop{
+        width:100%;
+      }
+
+      .monthlyHintRow{
+        margin-top: 4px;
+        width:100%;
+        display:flex;
+        justify-content:flex-start;
+      }
+
+      .monthlyHint{
+        font-size:11px;
+        color:var(--sub);
+        font-weight:900;
+      }
+
+      .hintWarn{
+        color:#b45309;   /* 濃い橙（危機感） */
+      }
+
+      .hintBad{
+        color:#b91c1c;   /* 濃い赤 */
+      }
+
+
+
+
+      .monthlyHead { display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
+      .monthlyTitle { /* 互換のため残す（HTML側はsectionTitle使う） */ font-weight:900; font-size:16px; color:var(--text); letter-spacing:.02em; }
+      .monthlyHint { font-size:11px; color:var(--sub); }
+
+      .charterHead { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+
+
+      .taskList { margin-top:8px; display:flex; flex-direction:column; gap:6px; }
+      .taskItem {
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:10px;
+        padding:8px 10px;
+        border-radius:10px;
+        border:1px solid var(--line);
+        background:#fafafa;
+        cursor: pointer;          /* ★ボタン化 */
+        transition: transform .06s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+      }
+
+      .taskItem:active{ transform: translateY(1px); }
+
+      /* ★未タスクの青後光（Home版） */
+      /* ★Home：次にやる1タスクだけ光らせる（静的・固定） */
+      .taskItem.nextGlow{
+        position: relative;
+      }
+
+      .taskItem.nextGlow::after{
+        content:"";
+        position:absolute;
+        inset: 0;
+        border-radius: 12px;
+        pointer-events:none;
+
+        box-shadow: 0 0 0 4px rgba(59,130,246,.65);
+        opacity: .25;
+        animation: glowSoft 4.8s ease-in-out infinite;
+      }
+
+      @keyframes glowSoft{
+        0%,100% { opacity:.18; }
+        50%     { opacity:.85; }
+      }
+
+      @keyframes todoPulse{
+        0%,100%{ box-shadow: 0 0 0 4px rgba(59,130,246,.20), 0 0 20px rgba(59,130,246,.28); }
+        50%{    box-shadow: 0 0 0 8px rgba(59,130,246,.30), 0 0 34px rgba(59,130,246,.42); }
+      }
+
+
+      .taskItem:hover {
+        background:#fafafa;       /* ★ 変化なし（もしくはこのhover行ごと削除でもOK） */
+      }
+
+      .taskLeft { display:flex; gap:8px; align-items:center; }
+      .taskName { font-size:13px; font-weight:800; }
+      .taskDue { font-size:11px; color:var(--sub); }
+
+      .statusPill { font-size:11px; padding:3px 8px; border-radius:999px; border:1px solid var(--line); background:#fff; font-weight:900; white-space:nowrap; }
+
+      .pjTextBox {
+        margin-top:10px;
+        border:1px solid var(--line);
+        border-radius:12px;
+        padding:10px 12px;
+        background:#fff;
+        cursor: pointer;
+        transition: border-color .15s ease, background .15s ease;
+      }
+      .pjTextBox:hover {
+        border-color:#4f46e5;
+        background:#f5f7ff;
+      }
+
+      .pjLabel { font-size:11px; color:var(--sub); font-weight:900; letter-spacing:.02em; }
+      .pjText { margin-top:6px; font-size:13px; white-space:pre-wrap; }
+      .pjText.muted { color:var(--sub); }
+      /* ===== OS Insight (Home only) ===== */
+      .osInsightWrap{
+        position: sticky;
+        top: 12px;
+        z-index: 5;
+        margin-top: 14px;
+        margin-bottom: 10px;
+        pointer-events: none; /* 全体は邪魔しない */
+      }
+      .osInsight{
+        pointer-events: auto; /* 中身はクリックできる余地を残す（次フェーズ用） */
+        display: inline-flex;
+        align-items: flex-start;
+        gap: 10px;
+        max-width: min(720px, 100%);
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(245,246,248,.92);
+        border: 1px solid rgba(0,0,0,.06);
+        box-shadow: 0 10px 40px rgba(0,0,0,.08);
+        backdrop-filter: blur(6px);
+      }
+      .osInsight .tail{
+        width: 0; height: 0;
+        border: 8px solid transparent;
+        border-right-color: rgba(245,246,248,.92);
+        margin-top: 10px;
+        filter: drop-shadow(0 1px 0 rgba(0,0,0,.06));
+      }
+      .osInsight .dot{
+        font-size: 10px;
+        margin-top: 4px;
+        opacity: .9;
+      }
+      .osInsight .text{
+        font-size: 13px;
+        line-height: 1.45;
+        color: #222;
+        font-weight: 700;
+        letter-spacing: .01em;
+      }
+      .osInsight .sub{
+        margin-top: 2px;
+        font-size: 11px;
+        color: var(--sub);
+        font-weight: 800;
+      }
+      .osInsight.loading .text{
+        opacity: .65;
+      }
+
+
+    </style>
+  </head>
+  <body class="<?= isAdmin ? '' : 'viewMode' ?>">
+    <?!= navHtml ?>
+    <div class="wrap">
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+        <div>
+          <h1 class="title">AMD OS ダッシュボード</h1>
+          <div class="muted">ログイン: <span id="whoami">-</span></div>
+        </div>
+
+        <div id="searchWrap" style="min-width:260px; max-width:420px; width:100%; display:none;">
+          <label style="margin:0 0 6px; display:block;">検索</label>
+          <input id="pjSearch" placeholder="PJ名 / Client / ID / PM で検索" />
+        </div>
+
+      </div>
+            <!-- OS Insight (Home only) -->
+      <div class="osInsightWrap" id="osInsightWrap" style="display:none;">
+        <div class="osInsight loading" id="osInsight">
+          <div class="tail"></div>
+          <div class="dot">●</div>
+          <div>
+            <div class="text" id="osInsightText">読み込み中…</div>
+            <div class="sub" id="osInsightSub">AMD OSの見立て</div>
+          </div>
+        </div>
+      </div>
+
+
+      <div id="grid" class="sections"></div>
+      <div class="muted" id="hint"></div>
+    </div> <!-- /.wrap -->
+
+    
+
+    <div id="overlay" class="overlay">
+      <div class="modal">
+        <div class="mTop">
+          <h3 class="mTitle">新規PJ登録</h3>
+          <button class="x" onclick="closeModal()">×</button>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>PJ名（必須）</label>
+            <input id="np_projectName" placeholder="例：PS2 / UST / JC など" />
+          </div>
+          <div>
+            <label>クライアント名（必須）</label>
+            <input id="np_clientName" placeholder="例：○○株式会社 / ○○大学 など" />
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <label>PM（必須）</label>
+          <select id="np_pmMemberId"></select>
+          <div class="muted" style="margin-top:6px;">※ここでPMを決めないとPJが始まらない仕様にする</div>
+        </div>
+
+
+        <div class="err" id="np_err"></div>
+
+        <div class="btns">
+          <button class="btn" onclick="closeModal()">キャンセル</button>
+          <button class="btn btnPrimary" id="np_submit" onclick="submitNewProject()">登録してチャーターへ</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const USER_EMAIL = "<?= userEmail ?>";
+      const IS_ADMIN = <?= isAdmin ?>;
+
+      // ★サーバに聞かずにURLを即組み立てる（クリック無反応の主犯を潰す）
+      let BASE_URL = "<?= baseUrl ?>";
+
+      function el(id){ return document.getElementById(id); }
+
+      // ★ JSが死んだらここに出す（今回の症状の可視化用）
+      window.onerror = function(message, source, lineno, colno, error){
+        const msg = `[JS ERROR] ${message} @ ${lineno}:${colno}`;
+        el('hint').textContent = msg;
+      };
+
+      function escapeHtml(s){
+        return String(s)
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;')
+          .replaceAll("'","&#39;");
+      }
+
+      // ★ WebアプリURLはサーバ側で確実に作る（page=charter 付き）
+      let __NAV_LOCK__ = false;
+
+      function ensureNavBlocker_(){
+        let b = document.getElementById("navBlocker");
+        if (b) return b;
+
+        b = document.createElement("div");
+        b.id = "navBlocker";
+        b.style.position = "fixed";
+        b.style.inset = "0";
+        b.style.background = "rgba(255,255,255,.72)";
+        b.style.display = "none";
+        b.style.alignItems = "center";
+        b.style.justifyContent = "center";
+        b.style.zIndex = "99999";
+        b.style.backdropFilter = "blur(4px)";
+
+        b.innerHTML = `
+          <div style="
+            display:flex; flex-direction:column; align-items:center; gap:12px;
+            padding:16px 18px; border-radius:16px;
+            border:1px solid var(--line); background:#fff;
+            box-shadow: 0 20px 70px rgba(0,0,0,.18);
+            min-width:220px;">
+            <div style="
+              width:54px; height:54px; border-radius:999px;
+              border:8px solid #e5e7eb; border-top-color:#111;
+              animation: spin .9s linear infinite;"></div>
+            <div style="font-weight:900;">開いてる…</div>
+            <div style="font-size:12px; color:var(--sub); font-weight:800;">まあ待て</div>
+          </div>
+          <style>@keyframes spin{to{transform:rotate(360deg);}}</style>
+        `;
+        document.body.appendChild(b);
+        return b;
+      }
+
+      function armNavigateUi_(){
+        const blocker = ensureNavBlocker_();
+        blocker.style.display = "flex";
+
+        // 連打・二重遷移を物理的に殺す
+        try{
+          document.documentElement.style.pointerEvents = "none";
+          document.body.style.pointerEvents = "none";
+        } catch(e){}
+      }
+
+      // ★ /exec の絶対URLを必ず作る（BASE_URLが空でも復旧）
+      function resolveBaseUrl_(){
+        // 1) テンプレ注入が正しければそれを使う
+        try{
+          const s = String(BASE_URL || "");
+          if (s && s.indexOf("/exec") >= 0){
+            const u = new URL(s);
+            return u.origin + u.pathname;
+          }
+        } catch(e){}
+
+        // 2) Nav内リンクから拾う（homeUrl等は必ず /exec を含む）
+        try{
+          const a = document.querySelector('a[href*="/exec"]');
+          if (a && a.href){
+            const u = new URL(a.href);
+            return u.origin + u.pathname;
+          }
+        } catch(e){}
+
+        // 3) いまのlocationが /exec ならそれ
+        try{
+          const u = new URL(location.href);
+          if (String(u.pathname || "").indexOf("/exec") >= 0){
+            return u.origin + u.pathname;
+          }
+        } catch(e){}
+
+        return "";
+      }
+
+      function buildUrlClient_(page, params){
+        // ★まず BASE_URL を信頼してみる → ダメなら resolveBaseUrl_() で自動復旧
+        const raw = String(BASE_URL || "").trim();
+
+        let base = "";
+        try{
+          if (raw){
+            const u = new URL(raw);
+            base = u.origin + u.pathname; // /exec まで（クエリは捨てる）
+          }
+        } catch(e){
+          base = "";
+        }
+
+        // ★復旧：Nav内リンクや location から /exec を拾う
+        if (!base || base.indexOf("/exec") < 0){
+          const recovered = resolveBaseUrl_();
+          if (recovered && recovered.indexOf("/exec") >= 0){
+            base = recovered;
+            BASE_URL = recovered; // 次回以降の安定化
+          }
+        }
+
+        if (!base || base.indexOf("/exec") < 0){
+          throw new Error("BASE_URL invalid: " + raw);
+        }
+
+        const q = [];
+        q.push("page=" + encodeURIComponent(page || "home"));
+
+        const p = params || {};
+        Object.keys(p).forEach(k => {
+          if (p[k] === undefined || p[k] === null) return;
+          const v = String(p[k]).trim();
+          if (!v) return;
+          q.push(encodeURIComponent(k) + "=" + encodeURIComponent(v));
+        });
+
+        return base + "?" + q.join("&");
+      }
+      
+      function go(page, params){
+        if (__NAV_LOCK__) return;
+        __NAV_LOCK__ = true;
+
+        function restoreUi_(){
+          __NAV_LOCK__ = false;
+          try{
+            const blocker = document.getElementById("navBlocker");
+            if (blocker) blocker.style.display = "none";
+            document.documentElement.style.pointerEvents = "";
+            document.body.style.pointerEvents = "";
+          } catch(e){}
+        }
+
+        try{
+          armNavigateUi_();
+          const url = buildUrlClient_(page, params || {});
+
+          if (String(url).indexOf("/exec?") < 0){
+            throw new Error("bad url: " + url);
+          }
+
+          // ★本丸：postMessageはGoogle側でdropされるので使わない
+          // ★ユーザー操作起点で _top に遷移させる（これが一番通る）
+          const a = document.createElement("a");
+          a.href = url;
+          a.target = "_top";
+          a.rel = "noopener noreferrer";
+          a.style.display = "none";
+          document.body.appendChild(a);
+
+          // clickは“今のクリックイベントの流れ”の中で呼ぶのが重要
+          a.click();
+
+          // 念のため掃除（ここまで来たら基本遷移する）
+          setTimeout(() => {
+            try{ a.remove(); } catch(e){}
+          }, 50);
+
+        } catch (err){
+          restoreUi_();
+          el('hint').textContent = '遷移でエラー… ' + (err && err.message ? err.message : err);
+        }
+      }
+
+      function openCharter(projectId){
+        go('charter', { projectId });
+      }
+
+      function openCockpit(projectId){
+        go('cockpit', { projectId });
+      }
+
+      function openModal(){
+        if (!IS_ADMIN){
+          el('hint').textContent = '閲覧モードなので新規PJ登録は出ないようにしてる';
+          return;
+        }
+        el('overlay').style.display = 'flex';
+        el('np_projectName').focus();
+        loadPmCandidates_();
+      }
+
+
+      function closeModal(){
+        el('overlay').style.display = 'none';
+        el('np_err').style.display = 'none';
+        el('np_err').textContent = '';
+        el('np_projectName').value = '';
+        el('np_clientName').value = '';
+        el('np_submit').classList.remove('loading');
+      }
+      function openCharterUrl(url){
+        window.location.assign(url);
+      }
+      function openMonthlyUrl(url){
+        window.location.assign(url);
+      }
+      function healthBadgeText(h){
+        if (h === 'red') return '🔴 Red';
+        if (h === 'yellow') return '🟡 Yellow';
+        return '🟢 On Track';
+      }
+
+      function openBilling(projectId, focus){
+        const params = { projectId };
+
+        // ★listProjectsが返す routine.defaultYmKey を最優先で使う（前月未完なら前月に固定）
+        try{
+          const p = (__ALL_PROJECTS__ || []).find(x => String(x.projectId||"").trim() === String(projectId||"").trim());
+          const ymKey = String(p?.routine?.defaultYmKey || "").trim(); // "YYYYMM"
+          if (/^\d{6}$/.test(ymKey)){
+            params.ym = `${ymKey.slice(0,4)}-${ymKey.slice(4,6)}`;      // "YYYY-MM"
+          }
+        } catch(e){}
+
+        const f = (focus === undefined || focus === null) ? "" : String(focus).trim();
+        if (f) params.focus = f;
+
+        // ★Home→BillingのタスクジャンプはSPAを使わず直遷移に固定
+        params.spa = "0";
+
+        go("billing", params);
+      }
+
+      function openTimeline(projectId){
+        const params = { projectId };
+
+        // Timelineは yyyymm を渡す（222側が吸収してる）
+        try{
+          const p = (__ALL_PROJECTS__ || []).find(x => String(x.projectId||"").trim() === String(projectId||"").trim());
+          const ymKey = String(p?.routine?.defaultYmKey || "").trim(); // "yyyymm"
+          if (/^\d{6}$/.test(ymKey)) params.ym = ymKey;
+        } catch(e){}
+
+        // ★Shellで開く（タブ切替の器）
+        params.spa = "1";
+
+        go("timeline", params);
+      }
+
+      function openTimelineTask(projectId, monthlyTaskKey){
+        const k = String(monthlyTaskKey || "").trim();
+
+        // Homeの月次タスクキー → TimelineのtaskKeyへ変換
+        const map = {
+          schedule: "meetingSched",
+          nextBudget: "budgetDraft",
+          allocation: "budgetDraft",
+          report: "report",
+          invoiceSend: "send",
+          paymentCheck: "paid"
+        };
+        const taskKey = map[k] || k || "";
+
+        const params = { projectId };
+
+        // Timelineは yyyymm を渡す（222側が吸収してる）
+        try{
+          const p = (__ALL_PROJECTS__ || []).find(x => String(x.projectId||"").trim() === String(projectId||"").trim());
+          const ymKey = String(p?.routine?.defaultYmKey || "").trim(); // "yyyymm"
+          if (/^\d{6}$/.test(ymKey)) params.ym = ymKey;
+        } catch(e){}
+
+        if (taskKey) params.taskKey = taskKey;
+
+        // ★Shellで開く（タブ切替の器）
+        params.spa = "1";
+
+        go("timeline", params);
+      }
+
+      function pickDefaultBillingYmFromProject_(p){
+        // 「前月未完」を示す情報が project に乗っている場合のみ、前月を返す
+        // それ以外は空文字（=ym無しで遷移）→ Billing側の自動スイッチに任せる
+
+        if (!p) return "";
+
+        const r = p.routine || {};
+
+        // 1) もしサーバが “前月未完” を直接教えてくれてるなら最優先（確実）
+        // 想定キー（どれが来ても拾えるようにする）
+        const directFlag =
+          (r.prevPending === true) ||
+          (r.isPrevPending === true) ||
+          (r.hasPrevPending === true) ||
+          (r.prevMonthPending === true);
+
+        // 2) もしサーバが「表示すべき業務月」を直接持ってるならそれ（確実）
+        // 例：defaultYm="2026-01" / displayYm="2026-01"
+        const directYm =
+          String(r.defaultYm || r.displayYm || r.bizYm || r.targetYm || "").trim();
+
+        if (directYm && /^\d{4}-\d{2}$/.test(directYm)) return directYm;
+
+        // 3) もしサーバが「yyyymm」を持ってるなら yyyy-mm に変換して使う（確実）
+        const directYmKey =
+          String(r.defaultYmKey || r.displayYmKey || r.bizYmKey || r.targetYmKey || "").trim();
+        if (/^\d{6}$/.test(directYmKey)) return ymInputFromKey_(directYmKey);
+
+        // 4) フラグだけあるなら「現在の業務月（yyyy-mm）」が取れる場合に限り前月へ
+        // ここで currentYm が取れないなら推測になるのでやらない
+        if (directFlag){
+          const current = String(r.currentYm || r.currentBizYm || r.ym || "").trim();
+          if (/^\d{4}-\d{2}$/.test(current)) return addMonthsYm_(current, -1);
+
+          const currentKey = String(r.currentYmKey || r.currentBizYmKey || "").trim();
+          if (/^\d{6}$/.test(currentKey)) return addMonthsYm_(ymInputFromKey_(currentKey), -1);
+
+          return "";
+        }
+
+        return "";
+      }
+
+      function ymInputFromKey_(ymKey){
+        const s = String(ymKey || "").trim();
+        if (!/^\d{6}$/.test(s)) return "";
+        return `${s.slice(0,4)}-${s.slice(4,6)}`;
+      }
+
+      function addMonthsYm_(ym, delta){
+        const [y,m] = String(ym).split("-").map(Number);
+        const d = new Date(y, (m||1)-1, 1);
+        d.setMonth(d.getMonth() + Number(delta||0));
+        const yy = d.getFullYear();
+        const mm = String(d.getMonth()+1).padStart(2,"0");
+        return `${yy}-${mm}`;
+      }
+
+      function render(projects){
+        const root = el('grid');
+        root.innerHTML = '';
+
+        function escapeHtml(s){
+          return String(s)
+            .replaceAll('&','&amp;')
+            .replaceAll('<','&lt;')
+            .replaceAll('>','&gt;')
+            .replaceAll('"','&quot;')
+            .replaceAll("'","&#39;");
+        }
+
+        // ====== 検索
+        const q = (el('pjSearch') ? el('pjSearch').value : '').trim().toLowerCase();
+        const filtered0 = (projects || []).filter(p => {
+          if (!q) return true;
+          const hay = [
+            p.projectName || "",
+            p.clientName || "",
+            p.projectId || "",
+            p.pmName || "",
+            p.closerName || "",
+            p.status || ""
+          ].join(" ").toLowerCase();
+          return hay.includes(q);
+        });
+
+        // ====== ステータス正規化（draftは営業中扱い）
+        function normStatus_(s){
+          const v = String(s || "").trim().toLowerCase();
+          if (!v) return "sales";
+          if (v === "draft") return "sales";
+          if (["active","sales","ended","frozen","lost"].includes(v)) return v;
+          return "sales";
+        }
+
+        const GROUPS = [
+          { key:"active", label:"PJ進行中" },
+          { key:"sales",  label:"営業中" },
+          { key:"ended",  label:"契約終了" },
+          { key:"frozen", label:"凍結中" },
+          { key:"lost",   label:"失注" }
+        ];
+
+        // 危険度 → 更新
+        function riskRank(p){
+          const r = (p && p.routine) ? p.routine : {};
+          const u = String(r.urgency || "").trim();
+          if (u === "bad") return 0;
+          if (u === "warn") return 1;
+          if (u === "ok") return 2;
+          return 3;
+        }
+
+        // グルーピング
+        const by = Object.create(null);
+        GROUPS.forEach(g => by[g.key] = []);
+        filtered0.forEach(p => {
+          const k = normStatus_(p.status);
+          (by[k] ||= []).push(p);
+        });
+
+        // セクションDOMを先に作る（salesに新規PJカードを差し込むため）
+        const gridByKey = {};
+
+        GROUPS.forEach(sec => {
+          const list = (by[sec.key] || []).slice();
+
+          // 空セクションは出さない（salesはadminなら出す）
+          if (!list.length) return;
+
+          // 見出し
+          // 見出し
+          const h2 = document.createElement("div");
+          h2.style.margin = "18px 0 8px";
+          h2.style.fontWeight = "900";
+          h2.style.fontSize = "16px";
+          h2.textContent = `${sec.label}（${list.length}）`;
+          root.appendChild(h2);
+
+          // そのセクション用のgrid（ここだけ grid）
+          const grid = document.createElement("div");
+          grid.className = "grid";
+          gridByKey[sec.key] = grid;
+          root.appendChild(grid);
+
+
+          // セクション内ソート
+          list.sort((a,b) => {
+            const ra = riskRank(a);
+            const rb = riskRank(b);
+            if (ra !== rb) return ra - rb;
+            const ta = (a && a.updatedAt) ? new Date(a.updatedAt).getTime() : 0;
+            const tb = (b && b.updatedAt) ? new Date(b.updatedAt).getTime() : 0;
+            return tb - ta;
+          });
+
+          // カード描画（元ロジックほぼ維持）
+          function healthLabel(h){
+            if (h === 'red') return { text:'🔴 Red', tone:'bad' };
+            if (h === 'yellow') return { text:'🟡 Yellow', tone:'warn' };
+            return { text:'🟢 On Track', tone:'ok' };
+          }
+
+          list.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'card';
+
+            card.addEventListener('click', (e) => {
+              if (e.target.closest('.monthlyBox')) return;
+              if (e.target.closest('.pjTextBox')) return;
+              openCockpit(p.projectId);
+            });
+
+            // ===== 上部
+            const top = document.createElement('div');
+
+            const row1 = document.createElement('div');
+            row1.className = 'rowTop';
+
+            const titleWrap = document.createElement('div');
+            titleWrap.style.display = 'flex';
+            titleWrap.style.flexWrap = 'wrap';
+            titleWrap.style.alignItems = 'baseline';
+            titleWrap.style.gap = '10px';
+
+            const h = document.createElement('p');
+            h.className = 'h';
+            h.textContent = p.projectName || p.projectId || '(no name)';
+
+            function fmtDT2(iso){
+              if (!iso) return "";
+              const d = new Date(iso);
+              if (isNaN(d.getTime())) return String(iso);
+              const y = d.getFullYear();
+              const m = d.getMonth()+1;
+              const day = d.getDate();
+              const hh = String(d.getHours()).padStart(2,"0");
+              const mm = String(d.getMinutes()).padStart(2,"0");
+              return `${y}/${m}/${day} ${hh}:${mm}`;
+            }
+
+            const updatedText = p.updatedAt ? `最終更新：${fmtDT2(p.updatedAt)}` : '';
+            const updatedSpan = document.createElement('span');
+            updatedSpan.style.fontSize = '11px';
+            updatedSpan.style.color = 'var(--sub)';
+            updatedSpan.style.fontWeight = '800';
+            updatedSpan.textContent = updatedText;
+
+            titleWrap.appendChild(h);
+            if (updatedText) titleWrap.appendChild(updatedSpan);
+
+            const hb = healthLabel(p.healthStatus);
+            const badge = document.createElement('span');
+            badge.className = 'badge';
+            badge.textContent = hb.text;
+
+            row1.appendChild(titleWrap);
+            row1.appendChild(badge);
+
+            const meta = document.createElement('div');
+            meta.className = 'meta';
+
+            const lines = [];
+            if (p.projectId) lines.push(`PJID：${p.projectId}`);
+            if (p.pmName) lines.push(`PM：${p.pmName}`);
+            if (p.closerName) lines.push(`Closer：${p.closerName}`);
+            meta.innerHTML = lines.map(x => `<div class="summaryRow">${escapeHtml(x)}</div>`).join("");
+
+            top.appendChild(row1);
+            top.appendChild(meta);
+            card.appendChild(top);
+
+            // ===== 月次（元のまま）
+            const split = document.createElement('div');
+            split.className = 'splitClick';
+
+            const monthlyBox = document.createElement('div');
+            monthlyBox.className = 'monthlyBox';
+
+            const doneSchedule = !!(p.routine && p.routine.scheduleDone);
+            const mh = document.createElement('div');
+            mh.className = 'monthlyHead';
+
+            const hasCycle = !!(p.routine && p.routine.hasCycle);
+            const urgency = (p.routine && p.routine.urgency) ? p.routine.urgency : "none";
+            const nextLabel = (p.routine && p.routine.nextTaskLabel) ? p.routine.nextTaskLabel : "";
+            const nextDue = (p.routine && p.routine.nextDueYmd) ? p.routine.nextDueYmd : "";
+
+            let headHint = "";
+            if (urgency === "bad") headHint = `🟥 期限超過：${nextLabel || "月次報告会 スケジューリング"}`;
+            else if (urgency === "warn") headHint = `🟨 期限接近：${nextLabel || "月次報告会 スケジューリング"}`;
+            else if (!hasCycle) headHint = "🆕 未着手（Billingを開いて開始）";
+            else headHint = doneSchedule ? "✅ スケジュール済み" : "⚠️ スケジュール未";
+
+            mh.innerHTML =
+              `<div class="monthlyHeadTop"><div class="sectionTitle">月次ルーティン</div></div>` +
+              `<div class="monthlyHintRow">` +
+                `<span class="monthlyHint ${urgency === "bad" ? "hintBad" : (urgency === "warn" ? "hintWarn" : "")}">` +
+                  `${escapeHtml(headHint)}${nextDue ? "（" + escapeHtml(nextDue) + "）" : ""}` +
+                `</span>` +
+              `</div>`;
+
+            monthlyBox.appendChild(mh);
+
+            monthlyBox.classList.remove("warn","bad");
+            if (urgency === "warn") monthlyBox.classList.add("warn");
+            if (urgency === "bad") monthlyBox.classList.add("bad");
+
+            const MONTHLY_TASKS = [
+              { key:'schedule',     name:'月次報告会 スケジューリング', due:'〜10日',  focus:'schedule' },
+              { key:'nextBudget',   name:'翌月予算の確定',                 due:'〜15日',  focus:'nextBudget' },
+              { key:'allocation',   name:'翌月配賦額の確定',               due:'〜15日',  focus:'allocation' },
+              { key:'report',       name:'月次報告書 アップロード',       due:'〜20日',  focus:'report' },
+              { key:'invoiceSend',  name:'請求書 送付',                    due:'翌月9日', focus:'invoiceSend' },
+              { key:'paymentCheck', name:'入金/振込 確認',                due:'翌月末',  focus:'paymentCheck' }
+            ];
+
+            const listEl = document.createElement('div');
+            listEl.className = 'taskList';
+            const bt = (p.routine && p.routine.tasks) ? p.routine.tasks : {};
+
+            function isDoneByKey(key){
+              if (key === 'schedule') return !!doneSchedule;
+              if (key === 'report') return !!bt.reportDone;
+              if (key === 'nextBudget') return !!bt.budgetDone;
+              if (key === 'allocation') return !!bt.allocationDone;
+              if (key === 'invoiceSend') return !!bt.invoiceSendDone;
+              if (key === 'paymentCheck') return !!bt.paymentDone;
+              return false;
+            }
+            function statusPill(done){ return done ? '✔︎ 完了' : '未'; }
+
+            const pendingTasks = MONTHLY_TASKS
+              .map(t => ({ ...t, done: isDoneByKey(t.key) }))
+              .filter(t => !t.done);
+
+            function dueRank(dueText){
+              const s = String(dueText || "").trim();
+              if (s.includes("翌月末")) return 200;
+              if (s.includes("翌月")) {
+                const n = parseInt(s.replace(/\D/g,""), 10);
+                return 100 + (isNaN(n) ? 99 : n);
+              }
+              const n = parseInt(s.replace(/\D/g,""), 10);
+              return (isNaN(n) ? 99 : n);
+            }
+            pendingTasks.sort((a,b) => dueRank(a.due) - dueRank(b.due));
+            const nextTaskKey = pendingTasks.length ? pendingTasks[0].key : null;
+
+            MONTHLY_TASKS.forEach(t => {
+              const done = isDoneByKey(t.key);
+              const item = document.createElement('div');
+              item.className = 'taskItem' + (t.key === nextTaskKey ? ' nextGlow' : '');
+              item.innerHTML = `
+                <div class="taskLeft">
+                  <div class="taskName">${escapeHtml(t.name)}</div>
+                  <div class="taskDue">${escapeHtml(t.due)}</div>
+                </div>
+                <div class="statusPill">${escapeHtml(statusPill(done))}</div>
+              `;
+              item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openTimelineTask(p.projectId, t.key);
+              });
+              listEl.appendChild(item);
+            });
+
+            monthlyBox.appendChild(listEl);
+            monthlyBox.addEventListener('click', (e) => {
+              e.stopPropagation();
+              openTimeline(p.projectId);
+            });
+
+            split.appendChild(monthlyBox);
+            card.appendChild(split);
+
+            // ===== PJチャーター（元のまま）
+            const pjBox = document.createElement('div');
+            pjBox.className = 'pjTextBox';
+            pjBox.addEventListener('click', (e) => {
+              e.stopPropagation();
+              openCharter(p.projectId);
+            });
+
+            const nextTodo = (p.nextMilestoneTitle || '').trim();
+            const shortGoal = (p.shortGoal || '').trim();
+            const midLong = (p.midLongGoal || '').trim();
+
+            pjBox.innerHTML = `
+              <div class="charterHead"><div class="sectionTitle">PJチャーター</div></div>
+              <div style="height:8px;"></div>
+
+              <div class="pjLabel">PJ 直近TODO</div>
+              <div class="pjText ${nextTodo ? '' : 'muted'}">${escapeHtml(nextTodo || '（未設定）')}</div>
+
+              <div style="height:10px;"></div>
+
+              <div class="pjLabel">短期目標</div>
+              <div class="pjText ${shortGoal ? '' : 'muted'}">${escapeHtml(shortGoal || '（未設定）')}</div>
+
+              <div style="height:10px;"></div>
+
+              <div class="pjLabel">中長期目標</div>
+              <div class="pjText ${midLong ? '' : 'muted'}">${escapeHtml(midLong || '（未設定）')}</div>
+            `;
+
+            card.appendChild(pjBox);
+
+            grid.appendChild(card);
+          });
+        });
+
+        // ★新規PJ登録カードは sales セクションの末尾に突っ込む（ここが正しい置き場）
+        // ★新規PJ登録カードは「PJ進行中」末尾（無ければ営業中）に1枚だけ置く
+        /* if (IS_ADMIN){
+          const activeGrid = gridByKey["active"] || gridByKey["sales"];
+          if (activeGrid){
+            const newCard = document.createElement('div');
+            newCard.className = 'card newCard';
+            newCard.addEventListener('click', (e) => {
+              e.stopPropagation();
+              openModal();
+            });
+
+            const plus = document.createElement('div');
+            plus.className = 'plus';
+            plus.textContent = '+';
+
+            const txt = document.createElement('div');
+            txt.innerHTML =
+              `<div class="newCardTitle">新規PJ登録</div>` +
+              `<div class="newCardSub">ここが新規PJ獲得の起点</div>`;
+
+            newCard.appendChild(plus);
+            newCard.appendChild(txt);
+            activeGrid.appendChild(newCard);
+          }
+        }*/
+
+
+        const mode = IS_ADMIN ? `admin` : `view`;
+        const total = filtered0.length;
+        el('hint').textContent = total ? `PJ数：${total} / ${mode}` : `該当PJなし / ${mode}`;
+
+        // ===== 全PJトグル（カード一覧の最下部に横幅いっぱい）=====
+        // 進行中だけ表示のときは「▼ 全PJを表示」
+        // 全表示のときは「▲ 進行中だけ表示」
+        const toggleWrap = document.createElement("div");
+        toggleWrap.className = "fullWidthToggle";
+
+        const btn = document.createElement("button");
+        btn.className = "fullWidthToggleBtn";
+        btn.type = "button";
+
+        const showAll = !!window.__AMD_SHOW_ALL__;
+        const label = showAll ? "進行中PJだけ表示" : "全PJを表示";
+        const arrow = showAll ? "▲" : "▼";
+
+        btn.innerHTML = `
+          <div class="label">
+            <div>${escapeHtml(label)}</div>
+            <div class="arrow">${arrow}</div>
+          </div>
+        `;
+
+        btn.addEventListener("click", () => {
+          toggleAllPjs();
+        });
+
+        toggleWrap.appendChild(btn);
+        root.appendChild(toggleWrap);
+      }
+
+      let __ALL_PROJECTS__ = [];
+
+      function load(){
+        el('hint').textContent = 'loading...';
+
+        // ★Homeのカード表示は従来どおりトグルで全PJを出したいなら、
+        // listProjects側に statusFilter を明示して渡す。
+        // ただし今回の要件「進行中PJのみ」はここを active 固定にする。
+        const showAll = !!window.__AMD_SHOW_ALL__;
+
+        const payload = showAll
+          ? { includeAll:true }                 // 全PJ表示（必要なら維持）
+          : { statusFilter:["active"], includeAll:false }; // ★進行中だけ
+
+        google.script.run
+          .withSuccessHandler(res => {
+            console.log("listProjects profile", res.profile);
+            console.table(res.profile);
+
+            if (!res || res.ok === false) {
+              el('whoami').textContent = (res && res.email) ? res.email : '-';
+              __ALL_PROJECTS__ = [];
+              render([]);
+              return;
+            }
+
+            el('whoami').textContent = res.email || '-';
+            __ALL_PROJECTS__ = res.projects || [];
+            render(__ALL_PROJECTS__);
+            // ===== OS Insight (Home only) =====
+            try{
+              const arr = Array.isArray(res.insightCandidates) ? res.insightCandidates : [];
+              let t = "";
+              if (arr.length){
+                t = String(arr[Math.floor(Math.random() * arr.length)] || "").trim();
+              } else {
+                t = String(res.insightText || "").trim();
+              }
+
+              if (t){
+                const w = el("osInsightWrap");
+                const box = el("osInsight");
+                const tx = el("osInsightText");
+                if (w && box && tx){
+                  w.style.display = "block";
+                  setTimeout(() => {
+                    tx.textContent = t;
+                    box.classList.remove("loading");
+                  }, 300);
+                }
+              } else {
+                const w = el("osInsightWrap");
+                if (w) w.style.display = "none";
+              }
+            } catch(e){}
+
+            const s = el('pjSearch');
+            if (s && !s.__bound) {
+              s.__bound = true;
+              s.addEventListener('input', () => render(__ALL_PROJECTS__));
+            }
+          })
+          .withFailureHandler(err => {
+            el('hint').textContent = err?.message || String(err);
+            __ALL_PROJECTS__ = [];
+            render([]);
+          })
+          .listProjects(payload);
+      }
+
+
+
+
+
+      function submitNewProject(){
+        const btn = el('np_submit');
+        btn.classList.add('loading');
+
+        const projectName = el('np_projectName').value.trim();
+        const clientName = el('np_clientName').value.trim();
+        const pmMemberId = (el('np_pmMemberId') ? el('np_pmMemberId').value : "").trim();
+
+        if (!projectName){
+          el('np_err').style.display = 'block';
+          el('np_err').textContent = 'PJ名は必須';
+          btn.classList.remove('loading');
+          return;
+        }
+        if (!clientName){
+          el('np_err').style.display = 'block';
+          el('np_err').textContent = 'クライアント名は必須';
+          btn.classList.remove('loading');
+          return;
+        }
+        if (!pmMemberId){
+          el('np_err').style.display = 'block';
+          el('np_err').textContent = 'PMは必須';
+          btn.classList.remove('loading');
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              el('np_err').style.display = 'block';
+              el('np_err').textContent = (res && res.message) ? res.message : '登録に失敗…';
+              btn.classList.remove('loading');
+              return;
+            }
+
+            load();         // Homeの一覧更新
+            closeModal();   // モーダル閉じる
+            openCharter(res.projectId); // すぐチャーターへ
+          })
+          .withFailureHandler(err => {
+            el('np_err').style.display = 'block';
+            el('np_err').textContent = '登録でエラー… ' + (err && err.message ? err.message : err);
+            btn.classList.remove('loading');
+          })
+          .createProject({ projectName, clientName, pmMemberId });
+      }
+
+      function loadPmCandidates_(){
+        const sel = el("np_pmMemberId");
+        if (!sel) return;
+
+        sel.innerHTML = `<option value="">loading...</option>`;
+
+        google.script.run
+          .withFailureHandler(err => {
+            sel.innerHTML = `<option value="">読込失敗</option>`;
+            el('hint').textContent = 'PM候補の読込でエラー… ' + (err?.message || String(err));
+          })
+          .withSuccessHandler(res => {
+            const list = (res && res.ok && Array.isArray(res.members)) ? res.members : [];
+            const opts = [`<option value="">選択してね（必須）</option>`]
+              .concat(list.map(m => `<option value="${escapeHtml(m.memberId)}">${escapeHtml(m.codeName)}</option>`));
+            sel.innerHTML = opts.join("");
+          })
+          .api_getMembersMasterForNewProject();
+      }
+      
+      window.__AMD_SHOW_ALL__ = false;
+
+      function toggleAllPjs(){
+        window.__AMD_SHOW_ALL__ = !window.__AMD_SHOW_ALL__;
+        const b = document.getElementById("btnToggleAll");
+        if (b) b.textContent = window.__AMD_SHOW_ALL__ ? "進行中PJだけ表示" : "全PJを表示";
+        load();
+      }
+
+      load();
+    </script>
+      <div class="fab" onclick="openModal()" title="新規PJ登録">
+        <div>+</div>
+        <div class="fabLabel">新規PJ登録</div>
+      </div>
+
+
+  </body>
+</html>

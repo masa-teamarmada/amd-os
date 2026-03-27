@@ -1,0 +1,161 @@
+<!-- A240_AdminPage.html -->
+<!doctype html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { --bg:#fafafa; --card:#fff; --line:#eaeaea; --text:#111; --sub:#666; }
+      body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; margin:0; background:var(--bg); color:var(--text); }
+      .wrap { max-width: none; margin: 0 auto; padding: 20px; }
+      .title { margin:0; font-size: 22px; font-weight: 900; letter-spacing: .2px; }
+      .muted { color: var(--sub); font-size: 12px; margin-top: 6px; }
+
+      .card{ margin-top: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+      .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:space-between; }
+      .rowLeft{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+      .btn{ border:1px solid var(--line); background:#fff; border-radius: 12px; padding: 10px 12px; cursor:pointer; font-weight: 900; }
+
+      .ctl{
+        border:1px solid var(--line);
+        background:#fff;
+        border-radius: 12px;
+        padding: 9px 10px;
+        font-size: 13px;
+        outline:none;
+        box-sizing: border-box;
+        max-width: 100%;
+      }
+
+      #appModalOverlay textarea,
+      #appModalOverlay input{
+        box-sizing: border-box;
+        max-width: 100%;
+      }
+
+      .ctlLabel{ font-size:12px; color:var(--sub); font-weight:900; }
+
+      .tableWrap{ margin-top: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; border-top: 1px solid var(--line); }
+      table{ width: 100%; min-width: 1500px; border-collapse: collapse; }
+      th, td{ border-bottom:1px solid var(--line); padding:10px 8px; text-align:left; font-size:13px; vertical-align: top; }
+      th{ font-size:12px; color:var(--sub); font-weight: 900; }
+
+      .nowrap{ white-space: nowrap; }
+      .pill{ display:inline-flex; padding:3px 8px; border-radius:999px; border:1px solid var(--line); font-weight:900; font-size:12px; background:#fff; white-space: nowrap; }
+      .pill.gray{ color:var(--sub); font-weight:800; }
+
+      .hint{ margin-top: 10px; font-size:12px; color:#374151; }
+      .err{ margin-top: 10px; font-size:12px; color:#b00020; }
+
+      .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      .small{ font-size:12px; color:var(--sub); }
+      .noteCell{ white-space: normal; word-break: break-word; }
+
+      .togRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+      .tog{ display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--line); border-radius:12px; background:#fff; font-size:12px; font-weight:900; color:var(--text); user-select:none; }
+      .tog input{ transform: translateY(1px); }
+
+      .candThin{ opacity: .35; }
+      .candCell{ white-space: normal; word-break: break-word; }
+
+      .candTable th, .candTable td{ white-space: normal; word-break: break-word; }
+      .candColBp{ width: 520px; }
+      .candColCr{ width: 1200px; }
+      .candColEv{ width: 1200px; }
+
+      .stickyTable thead th{
+        position: sticky;
+        top: 0;
+        background: var(--card);
+        z-index: 5;
+      }
+      .stickyTable thead th:first-child{
+        left: 0;
+        z-index: 6;
+        background: var(--card);
+      }
+      .stickyTable thead th:nth-child(2){
+        left: var(--sticky-col1-w, 56px);
+        z-index: 6;
+        background: var(--card);
+      }
+      .stickyTable tbody td:first-child{
+        position: sticky;
+        left: 0;
+        background: var(--card);
+        z-index: 4;
+      }
+      .stickyTable tbody td:nth-child(2){
+        position: sticky;
+        left: var(--sticky-col1-w, 56px);
+        background: var(--card);
+        z-index: 4;
+      }
+
+      .colDp{ width: 260px; }
+      .colDc{ width: 360px; }
+      .colAc{ width: 360px; }
+      .colEv{ width: 360px; }
+      .colPj{ width: 200px; }
+      .colConf{ width: 110px; }
+      .colImp{ width: 110px; }
+      .colTags{ width: 200px; }
+      .colSrcType{ width: 120px; }
+      .colSrcRef{ width: 220px; }
+      .colCreatedAt{ width: 160px; }
+      .colCreatedBy{ width: 160px; }
+      .colOp{ width: 180px; }
+      .colId{ width: 160px; }
+
+      .resizableTable thead th{ position: relative; overflow: hidden; }
+      .resizeHandle{
+        position:absolute;
+        top:0;
+        right:0;
+        width:10px;
+        height:100%;
+        cursor: col-resize;
+        user-select:none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <h1 class="title">Admin</h1>
+
+      <?!= include("A241_AdminTabs") ?>
+
+      <div class="muted" style="margin-top:8px;">
+        login: <b><?= userEmail ?></b>
+        / canAccessAdmin: <b><?= canAccessAdmin ? "true" : "false" ?></b>
+      </div>
+
+      <?!= include("A242_AdminMembers") ?>
+      <?!= include("A243_AdminProjects") ?>
+      <?!= include("A244_AdminProtocols") ?>
+      <?!= include("A245_AdminContexts") ?>
+      <?!= include("A246_AdminExtractors") ?>
+      <?!= include("A248_AdminModal") ?>
+      <?!= include("A251_AdminPayouts") ?>
+      <?!= include("A252_AdminPayoutsJs") ?>
+      <?!= include("A253_AdminProtocolsJs") ?>
+      <?!= include("A258_AdminContextsJs") ?>
+      <?!= include("A254_AdminBillingMatrix") ?>
+      <?!= include("A260_TsukuyomiTab") ?>
+      <?!= include("A271_AdminSettings") ?>
+
+    </div>
+    <script>
+      window.__ADMIN_CTX__ = {
+        canAccessAdmin: <?= canAccessAdmin ? "true" : "false" ?>,
+        userEmail: "<?= userEmail ?>"
+      };
+    </script>
+
+    <?!= include("A249_AdminScripts") ?>
+    <?!= include("A250_AdminDatalists") ?>
+  </body>
+</html>

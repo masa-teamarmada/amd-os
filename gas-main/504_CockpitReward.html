@@ -1,0 +1,872 @@
+<!-- 504_CockpitReward.html
+     報酬ダッシュボード・進捗バー・つくよみ推定・仮配賦表示。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+function cpRenderRewardDashboard(res) {
+  var el = document.getElementById("cpTabReward");
+  if (!res || !res.ok) {
+    el.innerHTML = '<div class="cp-empty">' + cpEsc(res ? res.message : "データなし") + '</div>';
+    return;
+  }
+  if (res.noPlan) {
+    el.innerHTML = '<div class="cp-empty">年間計画が未設定（ValuePlanから作成してね）</div>';
+    return;
+  }
+
+  CP.rewardData = res;
+
+  var plan = res.plan || {};
+  var ms = res.milestones || [];
+  var summary = res.monthSummary || {};
+  var events = res.events || [];
+  var members = summary.members || [];
+  var isV2 = (res.version === "v2");
+  var html = "";
+
+  var pLabel = (plan.startYm||"").substring(0,4) + "/" + (plan.startYm||"").substring(4)
+             + " 〜 " + (plan.endYm||"").substring(0,4) + "/" + (plan.endYm||"").substring(4);
+  html += '<div class="cp-plan-info">';
+  html += pLabel + '｜全' + plan.totalPoints + 'pt｜1pt = ¥' + cpFmtNum(plan.ptUnit);
+  if (bufferPt > 0) html += '｜<span style="color:#86868b;font-size:11px">バッファ: ' + bufferPt + 'pt</span>';
+  if (isV2) {
+    html += '｜<span style="color:#0066cc;font-weight:600">v2.0</span>';
+    html += ' <button class="cp-btn cp-btn-secondary" style="font-size:10px;padding:2px 8px;margin-left:6px" onclick="cpRunEstimate()" id="cpEstimateBtn">🤖 つくよみ推定</button>';
+  }
+  html += '</div>';
+
+  html += '<div class="cp-progress-box">';
+  var consumeLabel = (CP.data && CP.data.currentYm && CP.modalYm > CP.data.currentYm) ? "消化予定" : "今月消化";
+  html += cpProgressStat(summary.monthConsumedPt + "pt", consumeLabel);
+  html += cpProgressStat(summary.cumulativeConsumedPt + "/" + plan.totalPoints + "pt", "累計消化");
+  html += cpProgressStat(summary.progressPct + "%", "進捗率");
+  var expectedPct = summary.expectedPct !== undefined ? summary.expectedPct
+    : (plan.cycleMonths > 0 ? Math.round(cpElapsedMonths(plan.startYm, summary.ym) / plan.cycleMonths * 100) : 0);
+  html += cpProgressStat(expectedPct + "%", "期待進捗率");
+
+  var orTotal = 0, orAmd = 0, orCo = 0, orClient = 0, orExternal = 0;
+  for (var oi = 0; oi < events.length; oi++) {
+    if (events[oi].status === "rejected") continue;
+    orTotal++;
+    var orig = String(events[oi].initiativeOrigin || "unknown");
+    if (orig === "amd_proposed") orAmd++;
+    else if (orig === "co_decided") orCo++;
+    else if (orig === "client_requested" || orig === "partner_proposed") orClient++;
+    else if (orig === "external") orExternal++;
+  }
+  var orJudgeable = orTotal - orExternal;
+  if (orJudgeable >= 1) {
+    var orPct = Math.round((orAmd + orCo) / orJudgeable * 100);
+    var orColor = orPct >= 90 ? "#1a7a2e" : orPct >= 80 ? "#856404" : orPct >= 70 ? "#c0392b" : "#333";
+    html += '<div class="cp-progress-stat"><div class="val" style="color:' + orColor + '">' + orPct + '%</div><div class="label">先手力（当月）</div></div>';
+  }
+  html += '</div>';
+
+  html += '<div class="cp-reward-section">';
+  html += '  <div class="cp-reward-section-title" style="justify-content:space-between">';
+  html += '    <span>📊 マイルストーン消化状況</span>';
+  if (isV2) {
+    html += '    <div style="display:flex;gap:6px">';
+    html += '      <button class="cp-btn cp-btn-secondary" style="font-size:11px;padding:3px 10px" onclick="cpStartMsRevision()">🔄 MS改定</button>';
+    html += '      <button class="cp-btn cp-btn-secondary" style="font-size:11px;padding:3px 10px" onclick="cpToggleProgressEdit()" id="cpProgressEditBtn">✏️ Edit</button>';
+    html += '    </div>';
+  }
+  html += '  </div>';
+
+  var msNormal = [];
+  var msRoutine = [];
+  var msBuffer = [];
+  for (var i = 0; i < ms.length; i++) {
+    var tag = String(ms[i].tag || "").toLowerCase();
+    if (tag === "routine") {
+      msRoutine.push(ms[i]);
+    } else if (tag === "buffer") {
+      msBuffer.push(ms[i]);
+    } else {
+      msNormal.push(ms[i]);
+    }
+  }
+  var bufferPt = 0;
+  for (var i = 0; i < msBuffer.length; i++) bufferPt += msBuffer[i].maxPt;
+
+  html += '<div id="cpProgressView">';
+  for (var i = 0; i < msNormal.length; i++) {
+    html += cpRenderMsBarRow_(msNormal[i], isV2, expectedPct);
+  }
+  if (msRoutine.length > 0) {
+    html += '<div style="margin-top:14px;padding-top:10px;border-top:1px dashed #e5e5e7">';
+    html += '<div style="font-size:11px;font-weight:600;color:#86868b;margin-bottom:6px">🔄 定常業務</div>';
+    for (var i = 0; i < msRoutine.length; i++) {
+      html += cpRenderMsBarRow_(msRoutine[i], isV2, expectedPct);
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+
+  html += '<div id="cpProgressEdit" style="display:none">';
+  html += '<div style="font-size:11px;color:#86868b;margin-bottom:8px">各MSの累計進捗率（%）を入力 ※バーと連動</div>';
+  for (var i = 0; i < ms.length; i++) {
+    var m = ms[i];
+    if (String(m.tag || "").toLowerCase() === "buffer") continue;
+    var cumPct = m.pctUsed || 0;
+    var cumPt = Math.round(m.maxPt * cumPct / 100 * 10) / 10;
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">';
+    html += '  <span style="min-width:180px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + m.orderNo + '. ' + cpEsc(m.title) + '</span>';
+    html += '  <input type="range" min="0" max="100" step="5" value="' + cumPct + '"';
+    html += '    oninput="cpProgressSliderSync(this)" data-mskey="' + cpEsc(m.key) + '" data-maxpt="' + m.maxPt + '"';
+    html += '    style="flex:1;min-width:80px;accent-color:#0066cc">';
+    html += '  <input type="number" min="0" max="100" step="1" value="' + cumPct + '"';
+    html += '    onchange="cpProgressNumSync(this)" data-mskey="' + cpEsc(m.key) + '"';
+    html += '    style="width:50px;text-align:center;border:1px solid #ddd;border-radius:4px;padding:2px 4px;font-size:12px">%';
+    html += '  <span class="cp-progress-pt-preview" data-mskey="' + cpEsc(m.key) + '" style="font-size:11px;color:#0066cc;min-width:40px;text-align:right">';
+    html += '    ' + cumPt + 'pt</span>';
+    html += '</div>';
+  }
+  html += '<div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end">';
+  html += '  <button class="cp-btn cp-btn-secondary" onclick="cpToggleProgressEdit()">キャンセル</button>';
+  html += '  <button class="cp-btn cp-btn-primary" onclick="cpSaveProgress()" id="cpProgressSaveBtn">💾 保存</button>';
+  html += '</div>';
+  html += '</div>';
+  html += '</div>';
+
+  if (isV2) {
+    // ── 実績コミットスコア ──
+    html += '<div class="cp-reward-section">';
+    html += '  <div class="cp-reward-section-title"><span>💰 支払額（実績ベース）</span></div>';
+    html += '  <div id="cpRespContent">';
+    if (summary.capped) {
+      html += '<div class="cp-cap-warn">';
+      html += '⚠️ 月次キャップ適用中：本来の合計 ¥' + cpFmtNum(summary.totalPaySum + summary.carryOverYen);
+      html += ' → 上限 ¥' + cpFmtNum(summary.monthlyBudget65) + ' に圧縮';
+      html += '（繰越 ¥' + cpFmtNum(summary.carryOverYen) + '）';
+      html += '</div>';
+    }
+    if (members.length === 0) {
+      html += '<div class="cp-empty" style="color:#aaa;font-size:12px">今月の実績進捗なし（0pt）</div>';
+    } else {
+      html += '<table class="cp-member-table">';
+      if (summary.capped) {
+        html += '<tr><th>メンバー</th><th class="num">進捗pt</th><th class="num">本来額</th><th class="num">今月支払</th><th></th></tr>';
+      } else {
+        html += '<tr><th>メンバー</th><th class="num">進捗pt</th><th class="num">ベース報酬</th><th class="num">感謝bonus</th><th class="num">合計</th><th></th></tr>';
+      }
+      for (var mi = 0; mi < members.length; mi++) {
+        var mb = members[mi];
+        var bdId = 'cpMbBd_' + mi;
+        html += '<tr style="cursor:pointer" onclick="cpToggleMemberBreakdown(\'' + bdId + '\')">';
+        html += '  <td>' + cpEsc(mb.memberName || mb.memberId) + '</td>';
+        html += '  <td class="num">' + mb.earnedPt + 'pt</td>';
+        if (summary.capped) {
+          html += '  <td class="num" style="color:#aaa;text-decoration:line-through">¥' + cpFmtNum(mb.cappedFrom || mb.totalPay) + '</td>';
+          html += '  <td class="num"><strong>¥' + cpFmtNum(mb.totalPay || mb.basePay) + '</strong></td>';
+        } else {
+          html += '  <td class="num">¥' + cpFmtNum(mb.basePay) + '</td>';
+          html += '  <td class="num">¥' + cpFmtNum(mb.bonusPt || 0) + '</td>';
+          html += '  <td class="num"><strong>¥' + cpFmtNum(mb.totalPay || mb.basePay) + '</strong></td>';
+        }
+        html += '  <td class="num" style="color:#86868b;font-size:10px">▶ 内訳</td>';
+        html += '</tr>';
+        var bd = mb.breakdown || [];
+        html += '<tr id="' + bdId + '" style="display:none"><td colspan="' + (summary.capped ? 5 : 6) + '" style="padding:0 0 6px 16px">';
+        if (bd.length === 0) {
+          html += '<div style="font-size:11px;color:#aaa">内訳データなし</div>';
+        } else {
+          html += '<table style="font-size:11px;width:100%;border-collapse:collapse">';
+          html += '<tr style="color:#86868b"><th style="text-align:left;font-weight:normal;padding:2px 6px">MS</th><th style="text-align:right;font-weight:normal;padding:2px 6px">消化pt</th><th style="text-align:right;font-weight:normal;padding:2px 6px">シェア</th><th style="text-align:right;font-weight:normal;padding:2px 6px">獲得pt</th><th style="text-align:right;font-weight:normal;padding:2px 6px">獲得額</th></tr>';
+          for (var bi = 0; bi < bd.length; bi++) {
+            var bdi = bd[bi];
+            html += '<tr style="border-top:1px solid #f0f0f0">';
+            html += '<td style="padding:2px 6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + cpEsc(bdi.title) + '</td>';
+            html += '<td style="text-align:right;padding:2px 6px">' + bdi.msConsumedPt + 'pt</td>';
+            html += '<td style="text-align:right;padding:2px 6px">' + (Math.round(bdi.share * 100)) + '%</td>';
+            html += '<td style="text-align:right;padding:2px 6px">' + bdi.earnedPt + 'pt</td>';
+            html += '<td style="text-align:right;padding:2px 6px">¥' + cpFmtNum(Math.round(bdi.earnedPt * summary.ptUnit)) + '</td>';
+            html += '</tr>';
+          }
+          html += '</table>';
+        }
+        html += '</td></tr>';
+      }
+      html += '</table>';
+    }
+    html += '  </div>';
+    html += '</div>';
+
+    // ── 仮配賦（参考値・常に別セクション表示） ──
+    html += '<div class="cp-reward-section" id="cpBudgetEstimateSection">';
+    html += '  <div class="cp-reward-section-title" style="cursor:pointer" onclick="cpToggleBudgetEstimate()">';
+    html += '    <span style="color:#86868b;font-size:12px">📊 翌月予算の参考（均等割り）<span id="cpBudgetEstimateToggleIcon" style="margin-left:6px;font-size:10px">▶ 展開</span></span>';
+    html += '  </div>';
+    html += '  <div id="cpBudgetEstimateContent" style="display:none"><div style="font-size:12px;color:#aaa">読み込み中...</div></div>';
+    html += '</div>';
+
+  } else {
+    html += '<div class="cp-reward-section">';
+    html += '  <div class="cp-reward-section-title">💰 メンバー報酬（' + (summary.ym || "") + '）</div>';
+    if (members.length === 0) {
+      html += '  <div class="cp-empty">計算未実行</div>';
+    } else {
+      html += '<table class="cp-member-table">';
+      html += '<tr><th>メンバー</th><th class="num">獲得pt</th><th class="num">ベース</th><th class="num">感謝bonus</th><th class="num">合計</th><th>状態</th></tr>';
+      for (var mi = 0; mi < members.length; mi++) {
+        var mb = members[mi];
+        html += '<tr>';
+        html += '  <td>' + cpEsc(mb.memberName || mb.memberId) + '</td>';
+        html += '  <td class="num">' + (mb.earnedPoints || mb.earnedPt || 0) + 'pt</td>';
+        html += '  <td class="num">¥' + cpFmtNum(mb.basePay) + '</td>';
+        html += '  <td class="num">¥' + cpFmtNum(mb.appreciationBonus || mb.bonusPt || 0) + '</td>';
+        html += '  <td class="num"><strong>¥' + cpFmtNum(mb.totalPayout || mb.totalPay || mb.basePay) + '</strong></td>';
+        html += '  <td>' + ((mb.status || "") === "confirmed" ? "✅確定" : "📝下書き") + '</td>';
+        html += '</tr>';
+      }
+      html += '</table>';
+    }
+    html += '</div>';
+  }
+
+  // 以降イベントセクション・精算セクションは省略なし
+  if (events.length > 0) {
+    var activeEvents = [];
+    var rejectedEvents = [];
+    for (var e = 0; e < events.length; e++) {
+      if (events[e].status === "rejected") rejectedEvents.push(events[e]);
+      else activeEvents.push(events[e]);
+    }
+
+    html += '<div class="cp-reward-section">';
+    html += '  <div class="cp-reward-section-title" style="justify-content:space-between' + (isV2 ? ';color:#aaa' : '') + '">';
+    html += '    <span>📝 進捗イベント（' + (isV2 ? '参考 / ' : '') + activeEvents.length + '件）</span>';
+    html += '    <button class="cp-btn cp-btn-secondary" style="font-size:11px;padding:3px 10px" onclick="cpToggleEventEdit()" id="cpEventEditBtn">✏️ 修正</button>';
+    html += '  </div>';
+
+    var originCount = { amd_proposed: 0, co_decided: 0, partner_proposed: 0, external: 0, unknown: 0 };
+    for (var oi = 0; oi < activeEvents.length; oi++) {
+      var o = String(activeEvents[oi].initiativeOrigin || "unknown");
+      if (o === "client_requested") o = "partner_proposed";
+      if (originCount[o] !== undefined) originCount[o]++; else originCount.unknown++;
+    }
+    var originLabels = { amd_proposed: "AMD提案", co_decided: "協議決定", partner_proposed: "先方提案", external: "外部発生", unknown: "不明" };
+    var originClasses = { amd_proposed: "amd", co_decided: "co", partner_proposed: "partner", external: "external", unknown: "unknown" };
+    html += '<div class="cp-origin-summary">';
+    html += '<span style="font-size:11px;font-weight:600;color:#86868b">起点:</span>';
+    var originKeys = ["amd_proposed", "co_decided", "partner_proposed", "external", "unknown"];
+    for (var ok = 0; ok < originKeys.length; ok++) {
+      var oKey = originKeys[ok];
+      if (originCount[oKey] === 0) continue;
+      html += '<span class="cp-origin-stat"><span class="cp-origin-dot ' + originClasses[oKey] + '"></span>' + originLabels[oKey] + ' ' + originCount[oKey] + '</span>';
+    }
+    html += '</div>';
+
+    for (var e = 0; e < activeEvents.length; e++) {
+      var ev = activeEvents[e];
+      var statusLabel = ev.status === "confirmed" ? "✅" : "📝";
+      var evOrigin = String(ev.initiativeOrigin || "unknown");
+      html += '<div class="cp-event-card">';
+      html += '  <div class="cp-event-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
+      html += '    <span data-eid="' + cpEsc(ev.eventId) + '" data-field="title">' + statusLabel + ' ' + cpEsc(ev.eventTitle || "(無題)") + '</span>';
+      html += '    <span class="cp-origin-badge ' + cpEsc(evOrigin) + '" data-eid="' + cpEsc(ev.eventId) + '" onclick="cpToggleOriginDropdown(this)" title="クリックで変更">';
+      html += originLabels[evOrigin] || "不明";
+      html += '</span>';
+      html += '    <button class="cp-event-reject-btn" data-eid="' + cpEsc(ev.eventId) + '" style="display:none;font-size:10px;color:#ff3b30;background:none;border:1px solid #ff3b30;border-radius:4px;padding:1px 6px;cursor:pointer;white-space:nowrap" onclick="cpRejectEvent(\'' + cpEsc(ev.eventId) + '\')">❌ 除外</button>';
+      html += '  </div>';
+      if (ev.eventDescription) {
+        html += '  <div class="cp-event-desc" data-eid="' + cpEsc(ev.eventId) + '" data-field="desc">' + cpEsc(ev.eventDescription) + '</div>';
+      }
+      var resps = ev.responsibilities || [];
+      if (resps.length) {
+        html += '  <div style="margin-top:3px;font-size:11px;color:#86868b">担当: ';
+        for (var ri = 0; ri < resps.length; ri++) {
+          html += (ri > 0 ? ", " : "") + cpEsc(resps[ri].memberName || resps[ri].memberId) + "(" + Number(resps[ri].responsibility).toFixed(1) + ")";
+        }
+        html += '</div>';
+      }
+      if (ev.originLostReason) {
+        html += '<div style="margin-top:3px;font-size:11px;color:#9a3412;background:#fff7ed;padding:3px 8px;border-radius:4px">⚠️ 先手を逃した理由: ' + cpEsc(ev.originLostReason) + '</div>';
+      }
+      html += '</div>';
+    }
+
+    html += '<div class="cp-event-add-btn-wrap" style="display:none;margin:10px 0;text-align:center">';
+    html += '  <button class="cp-btn cp-btn-secondary" style="font-size:11px;padding:4px 14px" onclick="cpAddEvent()">＋ イベントを手動追加</button>';
+    html += '</div>';
+
+    if (rejectedEvents.length > 0) {
+      html += '<div style="margin:12px 0 8px;text-align:center;font-size:11px;color:#aaa;border-top:1px dashed #ddd;padding-top:8px">ーーー 除外済み（' + rejectedEvents.length + '件）ーーー</div>';
+      for (var e = 0; e < rejectedEvents.length; e++) {
+        var ev = rejectedEvents[e];
+        var evOrigin = String(ev.initiativeOrigin || "unknown");
+        html += '<div class="cp-event-card" style="opacity:0.5">';
+        html += '  <div class="cp-event-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
+        html += '    <span data-eid="' + cpEsc(ev.eventId) + '" data-field="title">❌ ' + cpEsc(ev.eventTitle || "(無題)") + '</span>';
+        html += '    <span class="cp-origin-badge ' + cpEsc(evOrigin) + '" style="pointer-events:none">';
+        html += originLabels[evOrigin] || "不明";
+        html += '</span>';
+        html += '  </div>';
+        if (ev.rejectReason) {
+          html += '<div style="margin-top:3px;font-size:11px;color:#ff3b30">除外理由: ' + cpEsc(ev.rejectReason) + '</div>';
+        }
+        html += '</div>';
+      }
+    }
+    html += '</div>';
+  }
+
+  html += '<div class="cp-reimb-section" id="cpReimbSection">';
+  html += '  <div class="cp-reimb-title">🧾 立替精算</div>';
+  html += '  <div id="cpReimbContent" style="font-size:11px;color:#aaa">読み込み中...</div>';
+  html += '</div>';
+
+  el.innerHTML = html;
+
+  var dotReport = document.getElementById("cpTabDotReport");
+  if (dotReport) dotReport.style.display = (res.pending && res.pending.hasPending) ? "inline-block" : "none";
+
+  cpLoadReimburseForMonth();
+
+  var _isV2 = isV2;
+  var _ms = ms;
+  if (_isV2) {
+    google.script.run
+      .withSuccessHandler(function(estRes) {
+        if (!estRes || !estRes.ok || !estRes.unconfirmed || estRes.unconfirmed.length === 0) return;
+        cpRenderEstimateBanner(estRes.unconfirmed, _ms);
+        var dotReward = document.getElementById("cpTabDotReward");
+        if (dotReward) dotReward.style.display = "inline-block";
+      })
+      .withFailureHandler(function() {})
+      .cockpit_api_getUnconfirmedEstimates({ projectId: CP.projectId, ym: CP.modalYm });
+  }
+
+  cpApplyBudgetLines();
+}
+
+function cpToggleProgressEdit() {
+  var view = document.getElementById("cpProgressView");
+  var edit = document.getElementById("cpProgressEdit");
+  var btn = document.getElementById("cpProgressEditBtn");
+  if (!view || !edit) return;
+  var isEditing = edit.style.display !== "none";
+  view.style.display = isEditing ? "" : "none";
+  edit.style.display = isEditing ? "none" : "";
+  if (btn) btn.textContent = isEditing ? "✏️ Edit" : "✏️ 閉じる";
+}
+
+function cpProgressSliderSync(slider) {
+  var key = slider.getAttribute("data-mskey");
+  var val = Number(slider.value);
+  var numInput = document.querySelector('input[type="number"][data-mskey="' + key + '"]');
+  if (numInput) numInput.value = val;
+  var maxPt = Number(slider.getAttribute("data-maxpt") || 0);
+  var preview = document.querySelector('.cp-progress-pt-preview[data-mskey="' + key + '"]');
+  if (preview) preview.textContent = (Math.round(maxPt * val / 100 * 10) / 10) + "pt";
+}
+
+function cpProgressNumSync(numInput) {
+  var key = numInput.getAttribute("data-mskey");
+  var val = Math.max(0, Math.min(100, Number(numInput.value) || 0));
+  numInput.value = val;
+  var slider = document.querySelector('input[type="range"][data-mskey="' + key + '"]');
+  if (slider) slider.value = val;
+  var maxPt = Number(slider ? slider.getAttribute("data-maxpt") : 0);
+  var preview = document.querySelector('.cp-progress-pt-preview[data-mskey="' + key + '"]');
+  if (preview) preview.textContent = (Math.round(maxPt * val / 100 * 10) / 10) + "pt";
+}
+
+function cpSaveProgress() {
+  var btn = document.getElementById("cpProgressSaveBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "保存中..."; }
+
+  var inputs = document.querySelectorAll('#cpProgressEdit input[type="number"]');
+  var milestones = [];
+  for (var i = 0; i < inputs.length; i++) {
+    milestones.push({
+      milestoneKey: inputs[i].getAttribute("data-mskey"),
+      progressPct: Number(inputs[i].value) || 0
+    });
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (btn) { btn.disabled = false; btn.textContent = "💾 保存"; }
+      if (!res || !res.ok) { alert("保存失敗: " + (res ? res.message : "不明")); return; }
+      google.script.run
+        .withSuccessHandler(cpRenderRewardDashboard)
+        .cockpit_api_getRewardDashboard({ projectId: CP.projectId, ym: CP.modalYm });
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = "💾 保存"; }
+      alert("エラー: " + String(err));
+    })
+    .cockpit_api_saveProgress({ projectId: CP.projectId, ym: CP.modalYm, milestones: milestones });
+}
+
+function cpRunEstimate() {
+  var btn = document.getElementById("cpEstimateBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "🤖 推定中..."; }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (btn) { btn.disabled = false; btn.textContent = "🤖 つくよみ推定"; }
+      if (!res || !res.ok) {
+        alert("推定失敗: " + (res ? res.message : "不明"));
+        return;
+      }
+      alert("推定完了！ " + res.savedProgress + "件のMSを更新（ソース: " + (res.sources || "") + "）");
+      setTimeout(function() {
+        google.script.run
+          .withSuccessHandler(cpRenderRewardDashboard)
+          .cockpit_api_getRewardDashboard({ projectId: CP.projectId, ym: CP.modalYm });
+      }, 1500);
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = "🤖 つくよみ推定"; }
+      alert("エラー: " + String(err));
+    })
+    .cockpit_api_runEstimate({ projectId: CP.projectId, ym: CP.modalYm });
+}
+
+function cpProgressStat(val, label) {
+  return '<div class="cp-progress-stat"><div class="val">' + val + '</div><div class="label">' + label + '</div></div>';
+}
+
+function cpToggleMemberBreakdown(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+function cpElapsedMonths(startYm, currentYm) {
+  if (!startYm || !currentYm) return 0;
+  var sy = parseInt(startYm.substring(0,4), 10);
+  var sm = parseInt(startYm.substring(4,6), 10);
+  var cy = parseInt(currentYm.substring(0,4), 10);
+  var cm = parseInt(currentYm.substring(4,6), 10);
+  return (cy - sy) * 12 + (cm - sm) + 1;
+}
+
+function cpRenderMsBarRow_(m, isV2, expectedPct) {
+  var h = "";
+  var pct = m.pctUsed;
+  var incrPct = m.thisMonthPct || 0;
+  var prevPct = Math.max(0, pct - incrPct);
+  var isUnconfirmed = (m.source === "tsukuyomi_estimate");
+
+  h += '<div class="cp-ms-bar-row">';
+  h += '  <span class="cp-ms-bar-label" title="' + cpEsc(m.title) + '">' + m.orderNo + '. ' + cpEsc(m.title) + '</span>';
+  h += '  <div class="cp-ms-bar-wrap" data-bar-msid="' + cpEsc(m.key) + '">';
+
+  // z=1（底）: つくよみ提案ストライプ（未確認の増分位置）
+  if (isUnconfirmed && incrPct > 0) {
+    h += '    <div class="cp-ms-bar-increment" style="left:' + Math.min(100, prevPct) + '%;width:' + Math.min(100 - prevPct, incrPct) + '%;z-index:1"></div>';
+  }
+
+  // z=2: 明るい緑（0〜pct、今月増分の背景として）
+  if (pct > 0 && !isUnconfirmed) {
+    h += '    <div style="position:absolute;left:0;width:' + Math.min(100, pct) + '%;height:100%;background:#22c55e;border-radius:4px;z-index:2"></div>';
+  }
+
+  // z=3: 濃い緑（0〜prevPct、前月までの確定済み）
+  if (prevPct > 0) {
+    h += '    <div style="position:absolute;left:0;width:' + Math.min(100, prevPct) + '%;height:100%;background:#15803d;border-radius:4px;z-index:3"></div>';
+  }
+
+  h += '  </div>';
+  h += '  <span class="cp-ms-bar-pct">' + pct + '%</span>';
+  h += '  <span class="cp-ms-bar-pts">' + m.consumedPt + '/' + m.maxPt + 'pt</span>';
+  h += '</div>';
+
+  if (isV2 && incrPct > 0) {
+    h += '<div style="padding-left:168px;font-size:10px;color:#86868b;margin-top:-2px;margin-bottom:2px">';
+    h += '今月 +' + incrPct + '% (+' + (m.thisMonthPt || 0) + 'pt)';
+    h += '</div>';
+  }
+  var subs = (CP.subItemsMap && CP.subItemsMap[m.key]) || [];
+  if (subs.length > 0) {
+    h += '<div style="padding-left:168px;margin-bottom:6px">';
+    h += cpRenderSubItems_(subs, m.key);
+    h += '</div>';
+  } else {
+    var msCriteria = String(m.successCriteria || "").trim();
+    if (msCriteria) {
+      h += '<div style="padding-left:168px;margin-bottom:6px">';
+      h += cpRenderCriteria(msCriteria, m.key, true, CP.modalYm);
+      h += '</div>';
+    }
+  }
+  return h;
+}
+
+function cpRenderBudgetEstimate(res) {
+  var el = document.getElementById('cpBudgetEstimate');
+  if (!el) return;
+  if (!res || !res.ok) {
+    el.innerHTML = res && res.noPlan ? '<div class="cp-empty">年間計画が未設定</div>'
+      : res && res.outOfRange ? '<div class="cp-empty">この月は計画期間外（' + res.startYm + '〜' + res.endYm + '）</div>'
+      : '<div class="cp-empty">仮配賦データなし</div>';
+    return;
+  }
+
+  var html = '<div style="font-size:13px;font-weight:700;color:#86868b;margin-bottom:8px">📊 月次仮配賦（方式B: 均等割り）</div>';
+  html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">';
+  html += '<div class="cp-progress-stat"><div class="val">' + res.monthlyPt + 'pt</div><div class="label">当月配賦pt</div></div>';
+  html += '<div class="cp-progress-stat"><div class="val">¥' + cpFmtNum(res.monthlyYen) + '</div><div class="label">当月配賦額</div></div>';
+  html += '<div class="cp-progress-stat"><div class="val">¥' + cpFmtNum(res.ptUnit) + '</div><div class="label">1pt単価</div></div>';
+  html += '</div>';
+
+  var msList = res.milestones || [];
+  if (msList.length > 0) {
+    html += '<div style="font-size:12px;font-weight:600;color:#86868b;margin-bottom:4px">MS別内訳</div>';
+    html += '<table class="cp-billing-table" style="font-size:12px">';
+    html += '<tr><th>MS</th><th style="text-align:right">pt/月</th><th style="text-align:right">金額/月</th><th>備考</th></tr>';
+    for (var i = 0; i < msList.length; i++) {
+      var m = msList[i];
+      html += '<tr>';
+      html += '<td>' + cpEsc((m.orderNo || (i+1)) + '. ' + m.title) + '</td>';
+      html += '<td style="text-align:right">' + m.pt + 'pt</td>';
+      html += '<td style="text-align:right">¥' + cpFmtNum(m.yen) + '</td>';
+      html += '<td style="color:#86868b">';
+      if (m.note) { html += cpEsc(m.note); }
+      else if (m.tag === 'buffer') { html += 'バッファ'; }
+      else { html += m.totalPt + 'pt÷' + m.msMonths + 'ヶ月'; }
+      html += '</td></tr>';
+    }
+    html += '</table>';
+  }
+
+  var members = res.members || [];
+  if (members.length > 0) {
+    html += '<div style="font-size:12px;font-weight:600;color:#86868b;margin-top:12px;margin-bottom:4px">メンバー別配賦</div>';
+    html += '<table class="cp-billing-table" style="font-size:12px">';
+    html += '<tr><th>メンバー</th><th style="text-align:right">pt</th><th style="text-align:right">配賦額</th></tr>';
+    for (var i = 0; i < members.length; i++) {
+      var mb = members[i];
+      html += '<tr><td>' + cpEsc(mb.codeName) + '</td>';
+      html += '<td style="text-align:right">' + mb.pt + 'pt</td>';
+      html += '<td style="text-align:right">¥' + cpFmtNum(mb.yen) + '</td></tr>';
+    }
+    html += '</table>';
+  }
+
+  el.innerHTML = html;
+}
+
+function cpRenderEstimateBanner(unconfirmed, milestones) {
+  var msNameMap = {};
+  var msOrderMap = {};
+  var msDeltaMap = {};
+  for (var i = 0; i < milestones.length; i++) {
+    var mk = milestones[i].key;
+    msNameMap[mk] = milestones[i].orderNo + '. ' + milestones[i].title;
+    msOrderMap[mk] = milestones[i].orderNo || 999;
+    var prevPct = Math.max(0, (milestones[i].pctUsed || 0) - (milestones[i].thisMonthPct || 0));
+    msDeltaMap[mk] = { prevPct: prevPct, curPct: milestones[i].pctUsed || 0 };
+  }
+
+  var filtered = [];
+  for (var i = 0; i < unconfirmed.length; i++) {
+    var u = unconfirmed[i];
+    if (!msDeltaMap[u.milestoneKey]) continue;
+    filtered.push(u);
+  }
+  if (filtered.length === 0) return;
+
+  filtered.sort(function(a, b) {
+    return (msOrderMap[a.milestoneKey] || 999) - (msOrderMap[b.milestoneKey] || 999);
+  });
+
+  for (var i = 0; i < filtered.length; i++) {
+    var msKey = filtered[i].milestoneKey;
+    var barWrap = document.querySelector('.cp-ms-bar-wrap[data-bar-msid="' + msKey + '"]');
+    if (!barWrap) continue;
+    var fills = barWrap.querySelectorAll('.cp-ms-bar-fill');
+    var delta = msDeltaMap[msKey] || {};
+    var prevPct = delta.prevPct || 0;
+    var curPct = delta.curPct || 0;
+    var incrPct = curPct - prevPct;
+    if (incrPct <= 0 || fills.length === 0) continue;
+    fills[0].style.width = Math.min(100, prevPct) + '%';
+    var existing = barWrap.querySelector('.cp-ms-bar-increment');
+    if (existing) existing.remove();
+    var stripe = document.createElement('div');
+    stripe.className = 'cp-ms-bar-increment ' + fills[0].className.replace('cp-ms-bar-fill','').trim();
+    stripe.style.left = Math.min(100, prevPct) + '%';
+    stripe.style.width = Math.min(100 - prevPct, incrPct) + '%';
+    barWrap.appendChild(stripe);
+  }
+
+  for (var i = 0; i < filtered.length; i++) {
+    var u = filtered[i];
+    var msKey = u.milestoneKey;
+    var delta = msDeltaMap[msKey] || {};
+    var prev = delta.prevPct || 0;
+
+    var barWrap = document.querySelector('.cp-ms-bar-wrap[data-bar-msid="' + msKey + '"]');
+    if (!barWrap) continue;
+    var barRow = barWrap.closest('.cp-ms-bar-row');
+    if (!barRow) continue;
+
+    var insertAfter = barRow;
+    var next = barRow.nextElementSibling;
+    while (next && !next.classList.contains('cp-ms-bar-row') && !next.classList.contains('cp-reward-section')) {
+      insertAfter = next;
+      next = next.nextElementSibling;
+    }
+
+    var card = document.createElement('div');
+    card.className = 'cp-est-inline';
+    card.id = 'cpEstItem_' + msKey;
+    var cardHtml = '';
+    cardHtml += '<div class="cp-est-inline-header">';
+    cardHtml += '  <span class="cp-est-inline-delta">' + prev + '% → ' + u.progressPct + '%</span>';
+    cardHtml += '</div>';
+    if (u.reason) {
+      cardHtml += '<div class="cp-est-inline-reason">💡 ' + cpEsc(u.reason) + '</div>';
+    }
+    cardHtml += '<div class="cp-estimate-item-actions">';
+    cardHtml += '  <button class="cp-est-btn adopt" onclick="cpEstAction(\'' + cpEsc(msKey) + '\',\'adopt\')">✅ 採用</button>';
+    cardHtml += '  <button class="cp-est-btn reject" onclick="cpEstAction(\'' + cpEsc(msKey) + '\',\'reject\')">❌ 不採用</button>';
+    cardHtml += '  <button class="cp-est-btn modify" onclick="cpEstAction(\'' + cpEsc(msKey) + '\',\'modify\')" data-sugpct="' + u.progressPct + '">✏️ 修正</button>';
+    cardHtml += '</div>';
+    card.innerHTML = cardHtml;
+    insertAfter.parentNode.insertBefore(card, insertAfter.nextSibling);
+  }
+
+  var summaryHtml = '<div class="cp-estimate-banner" id="cpEstimateBanner">';
+  summaryHtml += '<div class="cp-estimate-banner-title">🤖 つくよみ推定（未確認 ' + filtered.length + '件）各バーの下で確認してね</div>';
+  summaryHtml += '</div>';
+  var rewardTab = document.getElementById("cpTabReward");
+  if (rewardTab) rewardTab.insertAdjacentHTML("afterbegin", summaryHtml);
+}
+
+function cpEstAction(milestoneKey, action) {
+  if (action === 'reject') {
+    var reason = prompt("不採用の理由を入力してね（空でもOK）:");
+    if (reason === null) return;
+    cpEstSendAction(milestoneKey, 'reject', { reason: reason });
+  } else if (action === 'modify') {
+    var itemEl = document.getElementById('cpEstItem_' + milestoneKey);
+    var sugBtn = itemEl ? itemEl.querySelector('.cp-est-btn.modify') : null;
+    var sugPct = sugBtn ? Number(sugBtn.getAttribute('data-sugpct') || 0) : 0;
+    var newPctStr = prompt("修正後の進捗率（%）を入力:", String(sugPct));
+    if (newPctStr === null) return;
+    var newPct = parseInt(newPctStr, 10);
+    if (isNaN(newPct) || newPct < 0 || newPct > 100) {
+      alert("0〜100の数字で入力してね");
+      return;
+    }
+    var reason = prompt("修正理由を入力してね（学習に活用するよ）:");
+    if (reason === null) return;
+    cpEstSendAction(milestoneKey, 'modify', { newPct: newPct, reason: reason });
+  } else {
+    cpEstSendAction(milestoneKey, 'adopt', {});
+  }
+}
+
+function cpEstSendAction(milestoneKey, action, extras) {
+  var itemEl = document.getElementById('cpEstItem_' + milestoneKey);
+  if (itemEl) {
+    var btns = itemEl.querySelectorAll('.cp-est-btn');
+    for (var i = 0; i < btns.length; i++) btns[i].disabled = true;
+  }
+
+  var payload = {
+    projectId: CP.projectId,
+    ym: CP.modalYm,
+    milestoneKey: milestoneKey,
+    action: action
+  };
+  if (extras.reason !== undefined) payload.reason = extras.reason;
+  if (extras.newPct !== undefined) payload.newPct = extras.newPct;
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        alert("失敗: " + (res ? res.message : "不明"));
+        if (itemEl) {
+          var btns = itemEl.querySelectorAll('.cp-est-btn');
+          for (var i = 0; i < btns.length; i++) btns[i].disabled = false;
+        }
+        return;
+      }
+
+      var barWrap = document.querySelector('.cp-ms-bar-wrap[data-bar-msid="' + milestoneKey + '"]');
+      if (barWrap) {
+        var fills = barWrap.querySelectorAll('.cp-ms-bar-fill');
+        var stripe = barWrap.querySelector('.cp-ms-bar-increment');
+        if (action === 'adopt') {
+          var adoptPct = res.newPct !== undefined ? res.newPct
+            : (stripe ? (parseFloat(fills.length > 0 ? fills[0].style.width : '0') + parseFloat(stripe.style.width)) : 0);
+          if (stripe) stripe.remove();
+          if (fills.length > 0) {
+            fills[0].style.width = Math.min(100, adoptPct) + '%';
+          } else {
+            var fill = document.createElement('div');
+            fill.className = 'cp-ms-bar-fill high';
+            fill.style.width = Math.min(100, adoptPct) + '%';
+            barWrap.appendChild(fill);
+          }
+          var pctEl = barWrap.parentElement.querySelector('.cp-ms-bar-pct');
+          if (pctEl) pctEl.textContent = Math.min(100, adoptPct) + '%';
+        } else if (action === 'reject') {
+          if (stripe) stripe.remove();
+          var pctEl = barWrap.parentElement.querySelector('.cp-ms-bar-pct');
+          if (pctEl && res.revertedPct !== undefined) pctEl.textContent = res.revertedPct + '%';
+        } else if (action === 'modify') {
+          if (stripe) stripe.remove();
+          if (res.newPct !== undefined) {
+            if (fills.length > 0) {
+              fills[0].style.width = Math.min(100, res.newPct) + '%';
+            } else {
+              var fill = document.createElement('div');
+              fill.className = 'cp-ms-bar-fill high';
+              fill.style.width = Math.min(100, res.newPct) + '%';
+              barWrap.appendChild(fill);
+            }
+          }
+          var pctEl = barWrap.parentElement.querySelector('.cp-ms-bar-pct');
+          if (pctEl && res.newPct !== undefined) pctEl.textContent = res.newPct + '%';
+        }
+      }
+
+      if (itemEl) {
+        var label = action === 'adopt' ? '✅ 採用済み' :
+                    action === 'reject' ? '❌ 不採用' + (extras.reason ? '（' + extras.reason + '）' : '') :
+                    '✏️ 修正 → ' + (extras.newPct || '') + '%' + (extras.reason ? '（' + extras.reason + '）' : '');
+
+        var msTitle = '';
+        if (CP.rewardData && CP.rewardData.milestones) {
+          for (var mi = 0; mi < CP.rewardData.milestones.length; mi++) {
+            if (CP.rewardData.milestones[mi].key === milestoneKey) {
+              msTitle = CP.rewardData.milestones[mi].orderNo + '. ' + CP.rewardData.milestones[mi].title;
+              break;
+            }
+          }
+        }
+
+        var historyArea = document.getElementById('cpEstHistory');
+        if (!historyArea) {
+          var reimbSec = document.getElementById('cpReimbSection');
+          if (reimbSec) {
+            var hDiv = document.createElement('div');
+            hDiv.id = 'cpEstHistory';
+            hDiv.className = 'cp-est-history';
+            hDiv.innerHTML = '<details open><summary class="cp-est-history-summary">🤖 つくよみ推定の処理履歴</summary><div id="cpEstHistoryList"></div></details>';
+            reimbSec.parentNode.insertBefore(hDiv, reimbSec);
+          }
+        }
+        var histList = document.getElementById('cpEstHistoryList');
+        if (histList) {
+          var hEntry = document.createElement('div');
+          hEntry.className = 'cp-est-history-entry';
+          hEntry.innerHTML = '<span class="cp-est-history-ms">' + cpEsc(msTitle || milestoneKey) + '</span> ' + label;
+          histList.appendChild(hEntry);
+        }
+
+        itemEl.style.opacity = '0';
+        itemEl.style.transition = 'opacity 0.3s';
+        setTimeout(function() {
+          itemEl.remove();
+          var remaining = document.querySelectorAll('.cp-est-inline');
+          var banner = document.getElementById('cpEstimateBanner');
+          if (remaining.length === 0) {
+            if (banner) banner.remove();
+            var dot = document.getElementById('cpTabDotReward');
+            if (dot) dot.style.display = 'none';
+          } else if (banner) {
+            var titleEl = banner.querySelector('.cp-estimate-banner-title');
+            if (titleEl) titleEl.textContent = '🤖 つくよみ推定（未確認 ' + remaining.length + '件）各バーの下で確認してね';
+          }
+        }, 300);
+      }
+    })
+    .withFailureHandler(function(err) {
+      alert("エラー: " + String(err));
+      if (itemEl) {
+        var btns = itemEl.querySelectorAll('.cp-est-btn');
+        for (var i = 0; i < btns.length; i++) btns[i].disabled = false;
+      }
+    })
+    .cockpit_api_handleEstimateAction(payload);
+}
+
+function cpToggleBudgetEstimate() {
+  var content = document.getElementById('cpBudgetEstimateContent');
+  var icon = document.getElementById('cpBudgetEstimateToggleIcon');
+  if (!content) return;
+  var isOpen = content.style.display !== 'none';
+  content.style.display = isOpen ? 'none' : '';
+  if (icon) icon.textContent = isOpen ? '▶ 展開' : '▲ 閉じる';
+}
+
+function cpApplyBudgetLines() {
+  var est = CP.budgetEstimate;
+  if (!est || !est.ok || !est.milestones) return;
+
+  // 期待進捗ラインをバーに描画
+  var old = document.querySelectorAll('.cp-budget-line');
+  for (var i = 0; i < old.length; i++) old[i].remove();
+
+  var msList = est.milestones;
+  for (var i = 0; i < msList.length; i++) {
+    var ms = msList[i];
+    var pct = ms.expectedCumPct;
+    if (pct === undefined || pct === null) continue;
+    var bar = document.querySelector('[data-bar-msid="' + ms.milestoneId + '"]')
+           || document.querySelector('[data-bar-msid="' + (ms.milestoneKey || "") + '"]')
+           || document.querySelector('[data-bar-msid="' + (ms.key || "") + '"]');
+    if (!bar) continue;
+    var marker = document.createElement('div');
+    marker.className = 'cp-budget-line';
+    marker.style.left = Math.min(100, pct) + '%';
+    marker.title = '期待進捗 ' + pct + '%';
+    bar.appendChild(marker);
+  }
+
+  // 仮配賦セクションを描画（常に独立表示）
+  var estContent = document.getElementById('cpBudgetEstimateContent');
+  if (!estContent) return;
+
+  var estMembers = est.members || [];
+  var html = '<div style="font-size:11px;color:#86868b;margin-bottom:8px;padding:4px 8px;background:#f9f9fb;border-radius:6px">';
+  html += '均等割り参考値（翌月予算策定用）｜当月 ' + est.monthlyPt + 'pt ≒ ¥' + cpFmtNum(est.monthlyYen);
+  html += '</div>';
+
+  if (estMembers.length === 0) {
+    html += '<div style="font-size:12px;color:#aaa">担当設定なし</div>';
+  } else {
+    html += '<table class="cp-member-table">';
+    html += '<tr><th>メンバー</th><th class="num">配賦pt</th><th class="num">配賦額</th><th></th></tr>';
+    for (var i = 0; i < estMembers.length; i++) {
+      var mb = estMembers[i];
+      var bdId = 'cpEstMbBd_' + i;
+      html += '<tr style="cursor:pointer" onclick="cpToggleMemberBreakdown(\'' + bdId + '\')">';
+      html += '  <td>' + cpEsc(mb.codeName || mb.memberId) + '</td>';
+      html += '  <td class="num">' + mb.pt + 'pt</td>';
+      html += '  <td class="num">¥' + cpFmtNum(mb.yen) + '</td>';
+      html += '  <td class="num" style="color:#86868b;font-size:10px">▶ 内訳</td>';
+      html += '</tr>';
+      var bd = mb.breakdown || [];
+      html += '<tr id="' + bdId + '" style="display:none"><td colspan="4" style="padding:0 0 6px 16px">';
+      if (bd.length === 0) {
+        html += '<div style="font-size:11px;color:#aaa">内訳データなし</div>';
+      } else {
+        html += '<table style="font-size:11px;width:100%;border-collapse:collapse">';
+        html += '<tr style="color:#86868b"><th style="text-align:left;font-weight:normal;padding:2px 6px">MS</th><th style="text-align:right;font-weight:normal;padding:2px 6px">MS月次pt</th><th style="text-align:right;font-weight:normal;padding:2px 6px">シェア</th><th style="text-align:right;font-weight:normal;padding:2px 6px">配賦pt</th><th style="text-align:right;font-weight:normal;padding:2px 6px">配賦額</th></tr>';
+        for (var bi = 0; bi < bd.length; bi++) {
+          var bdi = bd[bi];
+          html += '<tr style="border-top:1px solid #f0f0f0">';
+          html += '<td style="padding:2px 6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + cpEsc(bdi.title) + '</td>';
+          html += '<td style="text-align:right;padding:2px 6px">' + bdi.msMonthlyPt + 'pt</td>';
+          html += '<td style="text-align:right;padding:2px 6px">' + (Math.round(bdi.share * 100)) + '%</td>';
+          html += '<td style="text-align:right;padding:2px 6px">' + bdi.earnedPt + 'pt</td>';
+          html += '<td style="text-align:right;padding:2px 6px">¥' + cpFmtNum(bdi.earnedYen) + '</td>';
+          html += '</tr>';
+        }
+        html += '</table>';
+      }
+      html += '</td></tr>';
+    }
+    html += '</table>';
+  }
+  estContent.innerHTML = html;
+}
+</script>

@@ -1,0 +1,717 @@
+<!-- A242_AdminMembers.html -->
+<div id="sec_members">
+  <!-- ===== Members ===== -->
+        <div class="card">
+          <div class="row">
+            <div>
+              <div style="font-weight:900;">アカウント台帳（DB_Members）</div>
+              <div class="muted">inactiveDays / 最終利用 / 通知ステージを見て、対応候補を一瞬で作る</div>
+            </div>
+
+            <div class="rowLeft">
+              <div>
+                <div class="ctlLabel">inactiveDays ≥</div>
+                <input id="fltDays" class="ctl" style="width:110px" placeholder="例: 30" />
+              </div>
+
+              <div>
+                <div class="ctlLabel">noticeStage</div>
+                <select id="fltStage" class="ctl" style="width:160px">
+                  <option value="">（全て）</option>
+                  <option value="none">none</option>
+                  <option value="warned">warned</option>
+                  <option value="final">final</option>
+                  <option value="done">done</option>
+                </select>
+              </div>
+
+              <div>
+                <div class="ctlLabel">状態</div>
+                <select id="fltStatus" class="ctl" style="width:140px">
+                  <option value="">（全て）</option>
+                  <option value="active">active</option>
+                  <option value="inactive">inactive</option>
+                </select>
+              </div>
+
+              <button class="btn" onclick="applyFilter()">絞り込み</button>
+              <button class="btn" onclick="resetFilter()">リセット</button>
+
+              <button class="btn" onclick="runInactiveNow()">inactiveDays 更新</button>
+              <button class="btn" onclick="setupTrigger()">日次トリガー作成</button>
+
+              <button class="btn" onclick="load()">更新</button>
+            </div>
+          </div>
+
+          <div id="meta" class="muted" style="margin-top:10px;">-</div>
+
+          <div id="hint" class="hint">-</div>
+          <div id="err" class="err" style="display:none;"></div>
+
+          <div class="tableWrap" style="max-height:calc(100vh - 280px); overflow-y:auto;">
+            <table class="stickyTable">
+              <thead>
+                <tr>
+                  <th style="width:120px;">codeName</th>
+                  <th style="width:90px;">memberId</th>
+                  <th style="width:160px;">表示名</th>
+
+                  <th style="width:100px;">Role（編集）</th>
+                  <th style="width:80px;">Status</th>
+
+                  <th style="width:100px;">joinYm</th>
+
+                  <th style="width:80px;">admin</th>
+                  <th style="width:350px;">スキルプロファイル（編集）</th>
+                  <th style="width:80px;">保存</th>
+
+                  <th style="width:110px;">OS inactive</th>
+                  <th style="width:110px;">Google inactive</th>
+                  <th style="width:110px;">Slack inactive</th>
+
+                  <th style="width:90px;">Google</th>
+                  <th style="width:120px;">Google last</th>
+                  <th style="width:90px;">Slack</th>
+                  <th style="width:120px;">Slack last</th>
+
+                  <th style="width:140px;">Email</th>
+                  <th style="width:100px;">leaveYm</th>
+
+                  <th style="width:100px;">Google通知</th>
+                  <th style="width:100px;">Slack通知</th>
+                </tr>
+              </thead>
+
+              <tbody id="tbody">
+                <tr><td colspan="20" class="muted">loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+<script>
+    // ===== Members list =====
+  let __ALL__ = [];
+
+  function inactiveDaysOrState_(days, state){
+    const s = String(state || "").trim().toLowerCase();
+    if (s === "free")      return `<span class="pill gray">無償</span>`;
+    if (s === "cancelled") return `<span class="pill" style="border-color:#fecaca; color:#b91c1c;">解約</span>`;
+    return `<b>${numOrDash(days)}</b>`;
+  }
+
+  function renderLicenseStateSelect_(kind, memberId, current){
+    const mid = escapeHtmlAttr(memberId || "");
+    const cur = String(current || "").trim().toLowerCase();
+    const normCur = (cur === "paid" || !cur) ? "" : cur;
+
+    const options = [
+      { value: "",          label: "有償" },
+      { value: "free",      label: "無償" },
+      { value: "cancelled", label: "解約" }
+    ];
+
+    return `
+      <select class="ctl" style="width:80px; font-size:11px;"
+        id="${kind}State_${mid}"
+        data-orig="${escapeHtmlAttr(normCur)}"
+        onchange="markDirtyMember('${mid}')"
+      >
+        ${options.map(o => {
+          const sel = (o.value === normCur) ? "selected" : "";
+          return `<option value="${escapeHtmlAttr(o.value)}" ${sel}>${escapeHtml(o.label)}</option>`;
+        }).join("")}
+      </select>
+    `;
+  }
+
+  function renderMembers_(list){
+    const tb = el("tbody");
+    const rows = Array.isArray(list) ? list : [];
+
+    const COLS = 20;
+
+    if (!rows.length){
+      tb.innerHTML = `<tr><td colspan="${COLS}" class="muted">該当なし</td></tr>`;
+      el("hint").textContent = `rows: 0`;
+      return;
+    }
+
+    tb.innerHTML = rows.map(u => {
+      const memberIdRaw = u.memberId || "";
+      const codeNameRaw = u.codeName || "";
+
+      const emRaw = u.email || "";
+      const emAttr = escapeHtmlAttr(emRaw);
+      const dnAttr = escapeHtmlAttr(u.displayName || "");
+
+      const midAttr = escapeHtmlAttr(memberIdRaw);
+
+      const joinNow = String(u.joinYm || "").trim();
+      const leaveNow = String(u.leaveYm || "").trim();
+      const joinAttr = escapeHtmlAttr(joinNow);
+      const leaveAttr = escapeHtmlAttr(leaveNow);
+
+      const emailCellStyle = "max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
+
+      return `
+        <tr data-mid="${midAttr}">
+          <td class="mono nowrap"><b>${escapeHtml(codeNameRaw)}</b></td>
+          <td class="mono nowrap">${escapeHtml(memberIdRaw)}</td>
+          <td class="nowrap">${escapeHtml(u.displayName||"")}</td>
+
+          <td class="nowrap">${renderRoleSelect_(memberIdRaw, u.role)}</td>
+          <td class="nowrap">${renderStatusSelect_(memberIdRaw, u.status)}</td>
+
+          <td class="nowrap">
+            <input
+              class="ctl mono"
+              style="width:90px"
+              id="joinYm_${midAttr}"
+              value="${joinAttr}"
+              data-orig="${joinAttr}"
+              placeholder="yyyymm"
+              oninput="markDirtyMember('${midAttr}')"
+              onchange="markDirtyMember('${midAttr}')"
+            />
+          </td>
+
+          <td class="nowrap">${renderIsAdminToggle_(memberIdRaw, u.isAdmin)}</td>
+
+          <td class="nowrap">
+            <textarea
+              class="ctl"
+              style="width:330px; height:60px; resize:vertical; font-size:12px;"
+              id="skill_${midAttr}"
+              data-orig="${escapeHtmlAttr(String(u.defaultSkillProfile || ''))}"
+              oninput="markDirtyMember('${midAttr}')"
+              placeholder="例: コンサル出身、事業計画が得意、PM業務に強い"
+            >${escapeHtml(String(u.defaultSkillProfile || ''))}</textarea>
+          </td>
+
+          <td class="nowrap">
+            <button class="btn" id="save_${midAttr}" onclick="saveMember('${midAttr}', this)" disabled>保存</button>
+          </td>
+
+          <td class="nowrap"><b>${numOrDash(u.osInactiveDays)}</b></td>
+          <td class="nowrap">${inactiveDaysOrState_(u.googleInactiveDays, u.googleState)}</td>
+          <td class="nowrap">${inactiveDaysOrState_(u.slackInactiveDays, u.slackState)}</td>
+
+          <td class="nowrap">${renderLicenseStateSelect_("google", memberIdRaw, u.googleState)}</td>
+          <td class="small nowrap">${escapeHtml(u.googleLastSeenAt||"-")}</td>
+          <td class="nowrap">${renderLicenseStateSelect_("slack", memberIdRaw, u.slackState)}</td>
+          <td class="small nowrap">${escapeHtml(u.slackLastSeenAt||"-")}</td>
+
+          <td class="mono" style="${emailCellStyle}" title="${emAttr}">${escapeHtml(emRaw)}</td>
+
+          <td class="nowrap">
+            <input
+              class="ctl mono"
+              style="width:90px"
+              id="leaveYm_${midAttr}"
+              value="${leaveAttr}"
+              data-orig="${leaveAttr}"
+              placeholder="yyyymm"
+              oninput="markDirtyMember('${midAttr}')"
+              onchange="markDirtyMember('${midAttr}')"
+            />
+          </td>
+
+          <td class="nowrap">
+            <button
+              class="btn"
+              onclick="sendGoogleDowngradeNotice('${emAttr}','${dnAttr}', this)"
+              title="このメンバーに Google 無償化の事前通知メールを送る"
+            >通知</button>
+          </td>
+
+          <td class="nowrap">
+            <button
+              class="btn"
+              onclick="sendSlackDowngradeNotice('${emAttr}','${dnAttr}', this)"
+              title="このメンバーに Slack 無償化の事前通知メールを送る"
+            >通知</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    el("hint").textContent =
+      `rows: ${rows.length}（ソート: memberId昇順 / inactiveDaysは 2026-01-14 起点を含む）`;
+  }
+
+  function renderRoleSelect_(memberId, current){
+    const mid = escapeHtmlAttr(memberId || "");
+    const cur = String(current || "").trim();
+
+    // ★roleTagに入れる値（この文字列でDBに保存される）
+    const options = ["", "マネージャー", "パートナー", "シニアアソシエイト", "アソシエイト", "クルー"];
+
+    return `
+      <select class="ctl" style="width:90px; font-size:11px;"
+        id="role_${mid}"
+        data-orig="${escapeHtmlAttr(cur)}"
+        onchange="markDirtyMember('${mid}')"
+      >
+        ${options.map(v => {
+          const vv = String(v);
+          const sel = (vv === cur) ? "selected" : "";
+          const label = vv ? vv : "（未設定）";
+          return `<option value="${escapeHtmlAttr(vv)}" ${sel}>${escapeHtml(label)}</option>`;
+        }).join("")}
+      </select>
+    `;
+  }
+
+  function renderStatusSelect_(memberId, current){
+    const mid = escapeHtmlAttr(memberId || "");
+    const cur = String(current || "").trim().toLowerCase();
+
+    const options = [
+      "", "active", "inactive", "paused"
+    ];
+
+    return `
+      <select class="ctl" style="width:80px; font-size:11px;"
+        id="status_${mid}"
+        data-orig="${escapeHtmlAttr(cur)}"
+        onchange="markDirtyMember('${mid}')"
+      >
+        ${options.map(v => {
+          const vv = String(v);
+          const sel = (vv.toLowerCase() === cur) ? "selected" : "";
+          const label = vv ? vv : "（未設定）";
+          return `<option value="${escapeHtmlAttr(vv)}" ${sel}>${escapeHtml(label)}</option>`;
+        }).join("")}
+      </select>
+    `;
+  }
+
+  function renderNotifyChannelSelect_(memberId, current){
+    const mid = escapeHtmlAttr(memberId || "");
+    const cur = String(current || "").trim().toLowerCase();
+
+    const options = ["gmail","slack"];
+
+    return `
+      <select class="ctl" style="width:140px"
+        id="notify_${mid}"
+        data-orig="${escapeHtmlAttr(cur || "gmail")}"
+        onchange="markDirtyMember('${mid}')"
+      >
+        ${options.map(v => {
+          const vv = String(v);
+          const sel = (vv === (cur || "gmail")) ? "selected" : "";
+          return `<option value="${escapeHtmlAttr(vv)}" ${sel}>${escapeHtml(vv)}</option>`;
+        }).join("")}
+      </select>
+    `;
+  }
+
+  function renderIsAdminToggle_(memberId, current){
+    const mid = escapeHtmlAttr(memberId || "");
+    const cur = String(current || "").trim().toLowerCase();
+    const checked = (cur === "true" || cur === "1" || cur === "yes") ? "checked" : "";
+
+    return `
+      <label class="rowLeft" style="gap:8px; align-items:center; margin:0;">
+        <input
+          type="checkbox"
+          id="isAdmin_${mid}"
+          data-orig="${checked ? "true" : "false"}"
+          onchange="markDirtyMember('${mid}')"
+        />
+        <span class="small">admin</span>
+      </label>
+    `.replace('id="isAdmin_' + mid + '"', `id="isAdmin_${mid}" ${checked}`);
+  }
+
+  function markDirtyMember(memberId){
+    const mid = (memberId || "").trim();
+    if (!mid) return;
+
+    const roleEl = el(`role_${mid}`);
+    const stEl = el(`status_${mid}`);
+    const ntEl = el(`notify_${mid}`);
+    const adEl = el(`isAdmin_${mid}`);
+
+    const jEl = el(`joinYm_${mid}`);
+    const lEl = el(`leaveYm_${mid}`);
+
+    const skEl = el(`skill_${mid}`);
+
+    const gsEl = el(`googleState_${mid}`);
+    const ssEl = el(`slackState_${mid}`);
+
+    const saveBtn = el(`save_${mid}`);
+    if (!roleEl || !stEl || !adEl || !jEl || !lEl || !saveBtn) return;
+
+    const roleOrig = String(roleEl.dataset.orig || "");
+    const stOrig = String(stEl.dataset.orig || "");
+    const ntOrig = ntEl ? String(ntEl.dataset.orig || "gmail") : "gmail";
+    const adOrig = String(adEl.dataset.orig || "false");
+
+    const jOrig = String(jEl.dataset.orig || "");
+    const lOrig = String(lEl.dataset.orig || "");
+
+    const roleNow = String(roleEl.value || "").trim().toLowerCase();
+    const stNow = String(stEl.value || "").trim().toLowerCase();
+    const ntNow = ntEl ? String(ntEl.value || "").trim().toLowerCase() : "gmail";
+    const adNow = adEl.checked ? "true" : "false";
+
+    const jNow = String(jEl.value || "").trim();
+    const lNow = String(lEl.value || "").trim();
+
+    const skOrig = String(skEl ? (skEl.dataset.orig || "") : "");
+    const skNow = String(skEl ? (skEl.value || "") : "");
+
+    const gsOrig = gsEl ? String(gsEl.dataset.orig || "") : "";
+    const gsNow  = gsEl ? String(gsEl.value || "")       : "";
+    const ssOrig = ssEl ? String(ssEl.dataset.orig || "") : "";
+    const ssNow  = ssEl ? String(ssEl.value || "")       : "";
+
+    const changed =
+      (roleNow !== roleOrig) ||
+      (stNow !== stOrig) ||
+      (ntNow !== ntOrig) ||
+      (adNow !== adOrig) ||
+      (jNow !== jOrig) ||
+      (lNow !== lOrig) ||
+      (skNow !== skOrig) ||
+      (gsNow !== gsOrig) ||
+      (ssNow !== ssOrig);
+
+    saveBtn.disabled = !changed;
+  }
+
+  function saveMember(memberId, btnEl){
+    const mid = (memberId || "").trim();
+    if (!mid){
+      showErr("memberId empty");
+      return;
+    }
+
+    const roleEl = el(`role_${mid}`);
+    const stEl = el(`status_${mid}`);
+    const ntEl = el(`notify_${mid}`); // UI削除済み→null
+    const adEl = el(`isAdmin_${mid}`);
+
+    const jEl = el(`joinYm_${mid}`);
+    const lEl = el(`leaveYm_${mid}`);
+
+    if (!roleEl || !stEl || !adEl || !jEl || !lEl){
+      showErr("role/status/notify/isAdmin/joinYm/leaveYm element not found");
+      return;
+    }
+
+    const joinYm = String(jEl.value || "").trim();
+    const leaveYm = String(lEl.value || "").trim();
+
+    function validYm(s){
+      const v = String(s || "").trim();
+      if (!v) return true;              // 空OK
+      if (!/^\d{6}$/.test(v)) return false;
+      const mm = Number(v.slice(4,6));
+      return (mm >= 1 && mm <= 12);
+    }
+
+    if (!validYm(joinYm)){
+      showErr("joinYm invalid（yyyymm / 月は01-12 / 空OK）");
+      return;
+    }
+    if (!validYm(leaveYm)){
+      showErr("leaveYm invalid（yyyymm / 月は01-12 / 空OK）");
+      return;
+    }
+
+    const skEl = el(`skill_${mid}`);
+
+    const gsEl = el(`googleState_${mid}`);
+    const ssEl = el(`slackState_${mid}`);
+
+    const payload = {
+      memberId: mid,
+      role: (roleEl.value || "").trim(),
+      status: (stEl.value || "").trim(),
+      notifyChannel: ntEl ? (ntEl.value || "").trim().toLowerCase() || "gmail" : "gmail",
+      isAdmin: adEl.checked ? "true" : "false",
+      joinYm: joinYm,
+      leaveYm: leaveYm,
+      defaultSkillProfile: (skEl ? skEl.value : "").trim(),
+      googleState: gsEl ? (gsEl.value || "").trim() : "",
+      slackState: ssEl ? (ssEl.value || "").trim() : ""
+    };
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "保存中...";
+    }
+    el("err").style.display = "none";
+    el("hint").textContent = `保存中... memberId=${mid}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "保存";
+        }
+        showErr(err?.message || String(err));
+        markDirtyMember(mid);
+      })
+      .withSuccessHandler(res => {
+        if (btnEl){
+          btnEl.textContent = "保存";
+        }
+        if (!res || !res.ok){
+          if (btnEl) btnEl.disabled = false;
+          showErr((res && res.message) ? res.message : "save failed");
+          markDirtyMember(mid);
+          return;
+        }
+
+        roleEl.dataset.orig = String(payload.role || "").trim().toLowerCase();
+        stEl.dataset.orig = String(payload.status || "").trim().toLowerCase();
+        if (ntEl) ntEl.dataset.orig = String(payload.notifyChannel || "gmail").trim().toLowerCase();
+        adEl.dataset.orig = payload.isAdmin;
+
+        jEl.dataset.orig = String(payload.joinYm || "").trim();
+        lEl.dataset.orig = String(payload.leaveYm || "").trim();
+        if (skEl) skEl.dataset.orig = String(payload.defaultSkillProfile || "");
+        if (gsEl) gsEl.dataset.orig = String(payload.googleState || "");
+        if (ssEl) ssEl.dataset.orig = String(payload.slackState || "");
+
+        el("hint").textContent = `保存完了：memberId=${mid}`;
+        markDirtyMember(mid);
+      })
+      .admin_updateMemberRoleStatus(payload);
+  }
+
+  function sendSlackDowngradeNotice(email, displayName, btnEl){
+    const em = (email || "").trim();
+    if (!em){
+      showErr("email empty");
+      return;
+    }
+
+    const name = (displayName || "").trim() || em;
+
+    const ok = window.confirm(
+      `Slack無償化通知メールを送る？\n` +
+      `宛先: ${name} <${em}>\n\n` +
+      `inactive days>30となったため無償プランに切り替えます。\n` +
+      `有償プランに戻す必要が生じたらマネージャーに言ってね！\n` +
+      `引き続き#a1-allは見れるしDMも送れるから安心してねー。`
+    );
+    if (!ok) return;
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "送信中...";
+    }
+    el("err").style.display = "none";
+    el("hint").textContent = `送信中... ${em}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "通知";
+        }
+        showErr(err?.message || String(err));
+      })
+      .withSuccessHandler(res => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "通知";
+        }
+        if (!res || !res.ok){
+          showErr((res && res.message) ? res.message : "send failed");
+          return;
+        }
+        el("hint").textContent = `送信完了：${em}`;
+      })
+      .admin_sendSlackDowngradeNotice(em);
+  }
+
+  function sendGoogleDowngradeNotice(email, displayName, btnEl){
+    const em = (email || "").trim();
+    if (!em){
+      showErr("email empty");
+      return;
+    }
+
+    const name = (displayName || "").trim() || em;
+
+    const ok = window.confirm(
+      `Google無償化通知メールを送る？\n` +
+      `宛先: ${name} <${em}>\n\n` +
+      `inactive days>30となったため無償プランに切り替えます。\n` +
+      `有償プランに戻す必要が生じたらマネージャーに言ってね！`
+    );
+    if (!ok) return;
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "送信中...";
+    }
+    el("err").style.display = "none";
+    el("hint").textContent = `送信中... ${em}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "通知";
+        }
+        showErr(err?.message || String(err));
+      })
+      .withSuccessHandler(res => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "通知";
+        }
+        if (!res || !res.ok){
+          showErr((res && res.message) ? res.message : "send failed");
+          return;
+        }
+        el("hint").textContent = `送信完了：${em}`;
+      })
+      .admin_sendGoogleDowngradeNotice(em);
+  }
+
+  function getMemberFilters_(){
+    const daysRaw = (el("fltDays").value || "").trim();
+    const days = daysRaw ? Number(daysRaw) : null;
+    const stage = (el("fltStage").value || "").trim().toLowerCase();
+    const status = (el("fltStatus").value || "").trim().toLowerCase();
+    return { days, stage, status };
+  }
+
+  function applyMemberFilter(){
+    const f = getMemberFilters_();
+    let rows = __ALL__.slice();
+
+    // ★inactiveDays ≥ は「OS/Google/Slack のうち最大のinactive日数」で判定
+    if (f.days !== null && !isNaN(f.days)){
+      rows = rows.filter(u => {
+        const os = Number(u.osInactiveDays || 0);
+        const gg = Number(u.googleInactiveDays || 0);
+        const sl = Number(u.slackInactiveDays || 0);
+        const mx = Math.max(os, gg, sl);
+        return mx >= f.days;
+      });
+    }
+
+    if (f.stage){
+      rows = rows.filter(u => String(u.licenseNoticeStage||"").trim().toLowerCase() === f.stage);
+    }
+    if (f.status){
+      rows = rows.filter(u => String(u.status||"").trim().toLowerCase() === f.status);
+    }
+
+    renderMembers_(rows);
+  }
+
+  function resetMemberFilter(){
+    el("fltDays").value = "";
+    el("fltStage").value = "";
+    el("fltStatus").value = "";
+    renderMembers_(__ALL__);
+  }
+
+    function loadMembers(){
+    try{
+      const cached = dcGet("members");
+      if (cached) {
+        __ALL__ = cached;
+        renderMembers_(__ALL__);
+        el("hint").textContent = "";
+        return;
+      }
+
+      el("err").style.display = "none";
+      el("hint").textContent = "loading...";
+      el("tbody").innerHTML = `<tr><td colspan="20" class="muted">loading...</td></tr>`;
+
+      if (!CAN_ACCESS_ADMIN){
+        showErr("権限なし（この画面が見えてる時点でルーティングおかしい）");
+        return;
+      }
+
+      callGAS_(
+        "listAdminUsers",
+        [],
+        (res) => {
+          try{
+            if (!res || !res.ok){
+              showErr((res && res.message) ? res.message : "load failed");
+              __ALL__ = [];
+              renderMembers_([]);
+              return;
+            }
+            __ALL__ = res.users || [];
+            __ALL__.sort((a,b)=> String(a.memberId||"").localeCompare(String(b.memberId||""), "ja"));
+            dcSet("members", __ALL__);
+            renderMembers_(__ALL__);
+            el("meta").textContent = res.meta
+              ? `データ生成: ${res.meta.generatedAtJst || "-"} / members updatedAt(max): ${res.meta.membersUpdatedAtMax || "-"}`
+              : "-";
+          } catch(e2){
+            showErr(e2?.message || String(e2));
+          }
+        },
+        (err) => {
+          showErr(err?.message || String(err));
+          try{
+            el("hint").textContent = "load failed（上のエラー見て）";
+            el("tbody").innerHTML = `<tr><td colspan="20" class="muted">load failed</td></tr>`;
+          } catch(_) {}
+        }
+      );
+    } catch(e){
+      showErr(e?.message || String(e));
+    }
+  }
+
+    function runInactiveNow(){
+    el("err").style.display = "none";
+    el("hint").textContent = "OS last / inactiveDays 更新中...";
+
+    google.script.run
+      .withFailureHandler(err => showErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showErr((res && res.message) ? res.message : "update failed");
+          return;
+        }
+        const os = res.osLastSeen || {};
+        const ina = res.inactiveDays || {};
+        el("hint").textContent =
+          `更新完了：osLastSeen updated=${os.updated||0} scanned=${os.scanned||0} / ` +
+          `inactiveDays updated=${ina.updated||0} scanned=${ina.scanned||0}`;
+        loadMembers();
+      })
+      .admin_runInactiveDaysNow();
+  }
+
+  function setupTrigger(){
+    el("err").style.display = "none";
+    el("hint").textContent = "トリガー確認中...";
+
+    google.script.run
+      .withFailureHandler(err => showErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showErr((res && res.message) ? res.message : "trigger setup failed");
+          return;
+        }
+        el("hint").textContent = res.created
+          ? "日次トリガー作成した（毎日6時台に回る）"
+          : "日次トリガーは既にある";
+      })
+      .setupDailyInactiveDaysTrigger();
+  }
+</script>
+</div> <!-- /#sec_members -->
+

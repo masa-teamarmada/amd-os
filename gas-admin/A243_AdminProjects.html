@@ -1,0 +1,1018 @@
+<!-- A243_AdminProjects.html -->
+<div id="sec_projects" style="display:none;">
+  <div class="card" id="pjCard">
+    <div class="row">
+      <div>
+        <div style="font-weight:900;">PJ台帳（DB_Projects）</div>
+        <div class="muted">PJ情報の一覧。テストPJの掃除はここでやる（カスケード削除）</div>
+      </div>
+
+      <div class="rowLeft">
+        <button class="btn" onclick="loadProjects()">PJ一覧 更新</button>
+        <button class="btn" id="btnReloadFreeePartners" onclick="reloadFreeePartners_()">取引先 再読み込み</button>
+        <button class="btn" onclick="openSlackTestModalForProject()">Slackテスト送信</button>
+      </div>
+    </div> <!-- ★これが抜けてた：row を閉じる -->
+    <div id="pjHint" class="hint">-</div>
+    <div id="pjErr" class="err" style="display:none;"></div>
+
+    <style>
+      #sec_projects .tableWrap { --sticky-col1-w: 56px; }
+      .pj-sticky-id   { width:56px; min-width:56px; max-width:56px; }
+      .pj-sticky-name  { width:64px; min-width:64px; max-width:64px;
+                          border-right: 2px solid rgba(0,0,0,.1); }
+    </style>
+
+    <div class="tableWrap" style="overflow-x:auto;">
+      <table class="stickyTable" style="min-width:1600px; table-layout:fixed;">
+        <thead>
+          <tr>
+            <th class="pj-sticky-id"   style="width:56px;">PJID</th>
+            <th class="pj-sticky-name" style="width:64px;">PJ名</th>
+            <th style="width:200px;">請求先（編集）</th>
+            <th style="width:80px;">freee ID</th>
+            <th style="width:140px;">Slack（編集）</th>
+            <th style="width:180px;">Drive Folder（編集）</th>
+            <th style="width:300px;">報告メール（編集）</th>
+            <th style="width:80px;">PM</th>
+            <th style="width:80px;">クローザー</th>
+            <th style="width:90px;">開始ym</th>
+            <th style="width:90px;">終了ym</th>
+            <th style="width:100px;">Status</th>
+            <th style="width:60px;">送付</th>
+            <th style="width:60px;">期日</th>
+            <th style="width:50px;">つくよみ</th>
+            <th style="width:56px;">保存</th>
+            <th style="width:90px;">Updated</th>
+            <th style="width:56px;">Open</th>
+            <th style="width:60px;">Delete</th>
+          </tr>
+        </thead>
+        <tbody id="pjTbody">
+          <tr><td colspan="19" class="muted" style="position:static;">loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="muted" style="margin-top:10px;">
+      ※削除は関連DBも全部消す（DB_ProjectMembers / DB_ProjectCharter / DB_BillingCycle / DB_PayoutDetail / DB_PayoutAgreement / ...）
+    </div>
+  </div>
+<script>
+  // Projectsタブ（PJ台帳）用：全件（draft含む）
+  let __PJS_ALL__ = [];
+  let __PROJ_MEMBERS__ = [];
+
+  function renderProjects(list){
+    const tb = el("pjTbody");
+    const rows = Array.isArray(list) ? list : [];
+
+    if (!rows.length){
+      tb.innerHTML = `<tr><td colspan="19" class="muted">PJなし</td></tr>`;
+      el("pjHint").textContent = `PJ: 0`;
+      return;
+    }
+
+    // ★activeメンバー候補（label=codeName / value=memberId）
+    const members = (Array.isArray(__PROJ_MEMBERS__) ? __PROJ_MEMBERS__ : [])
+      .map(m => ({
+        memberId: String(m?.memberId || "").trim(),
+        codeName: String(m?.codeName || "").trim()
+      }))
+      .filter(m => m.memberId);
+
+    function buildMemberSelectHtml_(kind, pidAttr, currentMemberId){
+      const cur = String(currentMemberId || "").trim();
+      const selId = `pj_${kind}_${pidAttr}`;
+
+      const opts = []
+        .concat([{ memberId:"", codeName:"未設定" }])
+        .concat(members);
+
+      return `
+        <select class="ctl" style="width:100%; min-width:80px; max-width:120px;"
+          id="${escapeHtmlAttr(selId)}"
+          data-orig="${escapeHtmlAttr(cur)}"
+          onchange="markDirtyProjectRow('${escapeHtmlAttr(pidAttr)}')"
+        >
+          ${opts.map(x => {
+            const mid = String(x.memberId || "");
+            const label = String(x.codeName || mid || "未設定");
+            const sel = (mid === cur) ? "selected" : "";
+            return `<option value="${escapeHtmlAttr(mid)}" ${sel}>${escapeHtml(label)}</option>`;
+          }).join("")}
+        </select>
+      `;
+    }
+
+    tb.innerHTML = rows.map(p => {
+      const projectIdRaw = String(p.projectId || "").trim();
+      const pid = escapeHtml(projectIdRaw);
+      const pidAttr = escapeHtmlAttr(projectIdRaw);
+
+      const pn = escapeHtml(p.projectName || "");
+      const pnAttr = escapeHtmlAttr(p.projectName || "");
+
+      const clientNow = String(p.clientName || "").trim();
+      const clientAttr = escapeHtmlAttr(clientNow);
+
+      const freeeIdNow = String(p.freeePartnerId || "").trim();
+      const freeeIdAttr = escapeHtmlAttr(freeeIdNow);
+
+      const slackChNow = String(p.slackChannelId || "").trim();
+      const slackChAttr = escapeHtmlAttr(slackChNow);
+
+      const driveNow = String(p.driveFolderId || "").trim();
+      const driveAttr = escapeHtmlAttr(driveNow);
+
+      const reportNow = String(p.reportEmails || "").trim();
+      const reportAttr = escapeHtmlAttr(reportNow);
+
+      const pmNow = String(p.pmMemberId || "").trim();
+      const closerNow = String(p.closerMemberId || "").trim();
+
+      const cur = String(p.status || "").trim().toLowerCase();
+      const updRaw = String(p.updatedAt || "").trim();
+      const upd = updRaw ? escapeHtml(formatDateYmd_(updRaw)) : "";
+
+      // ★追加：つくよみ介入（デフォ false）
+      const nudge = !!p.tsukuyomiNudgeEnabled;
+      const chkId = `pj_tky_${pidAttr}`;
+
+      return `
+        <tr data-pid="${pidAttr}">
+          <td class="mono nowrap pj-sticky-id"><b>${pid}</b></td>
+          <td class="noteCell pj-sticky-name" title="${pnAttr}" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${pn}</td>
+
+          <td class="noteCell">
+            <input
+              class="ctl"
+              style="width:100%;"
+              id="pjcl_${pidAttr}"
+              list="freeePartnerDatalist"
+              value="${clientAttr}"
+              data-orig="${clientAttr}"
+              placeholder="freee取引先名（候補から選ぶ or 直接入力）"
+              oninput="onProjectClientInput_('${pidAttr}')"
+              onchange="onProjectClientChange_('${pidAttr}')"
+            />
+          </td>
+
+          <td class="noteCell">
+            <input
+              class="ctl mono"
+              style="width:100%;"
+              id="pjfreee_${pidAttr}"
+              value="${freeeIdAttr}"
+              data-orig="${freeeIdAttr}"
+              placeholder="例: 123456789（空OK）"
+              oninput="markDirtyProjectRow('${pidAttr}')"
+            />
+          </td>
+
+          <td class="noteCell">
+            <input
+              class="ctl mono"
+              style="width:100%;"
+              id="pjslack_${pidAttr}"
+              value="${slackChAttr}"
+              data-orig="${slackChAttr}"
+              placeholder="例: C0123ABCDE（空なら晒し先なし）"
+              oninput="markDirtyProjectRow('${pidAttr}')"
+            />
+          </td>
+
+          <td class="noteCell">
+            <input
+              class="ctl mono"
+              style="width:100%;"
+              id="pjdrive_${pidAttr}"
+              value="${driveAttr}"
+              data-orig="${driveAttr}"
+              placeholder="例: 1ABcDeFgHiJkL...（DriveフォルダID）"
+              oninput="markDirtyProjectRow('${pidAttr}')"
+            />
+          </td>
+
+          <td class="noteCell">
+            <input
+              class="ctl"
+              style="width:100%;"
+              id="pjreport_${pidAttr}"
+              value="${reportAttr}"
+              data-orig="${reportAttr}"
+              placeholder="例: taro@ex.com,jiro@ex.com（カンマ区切り）"
+              oninput="markDirtyProjectRow('${pidAttr}')"
+            />
+          </td>
+
+          <td class="noteCell">
+            ${buildMemberSelectHtml_("pm", pidAttr, pmNow)}
+          </td>
+          <td class="noteCell">
+            ${buildMemberSelectHtml_("closer", pidAttr, closerNow)}
+          </td>
+
+          <td class="nowrap">
+            <input
+              class="ctl mono"
+              style="width:90px"
+              id="pjstartym_${pidAttr}"
+              value="${escapeHtmlAttr(String(p.startYm || '').trim())}"
+              data-orig="${escapeHtmlAttr(String(p.startYm || '').trim())}"
+              placeholder="yyyymm"
+              oninput="markDirtyProjectRow('${pidAttr}')"
+            />
+          </td>
+          <td class="nowrap">
+            <input
+              class="ctl mono"
+              style="width:90px"
+              id="pjendym_${pidAttr}"
+              value="${escapeHtmlAttr(String(p.endYm || '').trim())}"
+              data-orig="${escapeHtmlAttr(String(p.endYm || '').trim())}"
+              placeholder="yyyymm"
+              oninput="markDirtyProjectRow('${pidAttr}')"
+            />
+          </td>
+
+          <td class="nowrap">${renderProjectStatusSelect_(projectIdRaw, cur)}</td>
+
+          <!-- 送付モード -->
+          <td class="nowrap small">${(() => {
+            const m = String(p.invoiceSendManual || "").trim().toLowerCase();
+            return (m === "true" || m === "manual") ? "手動" : "自動";
+          })()}</td>
+
+          <!-- 発行期日 -->
+          <td class="nowrap small">${(() => {
+            const d = String(p.invoiceSendDeadlineRule || "").trim();
+            return d ? d + "日" : "10日";
+          })()}</td>
+
+          <!-- ★追加：つくよみ（即時保存） -->
+          <td class="nowrap">
+            <label class="rowLeft" style="gap:8px; align-items:center; margin:0;">
+              <input
+                type="checkbox"
+                id="${escapeHtmlAttr(chkId)}"
+                ${nudge ? "checked" : ""}
+                onchange="toggleTsukuyomiNudgeEnabled_('${pidAttr}', this)"
+              />
+              <span class="small">介入</span>
+            </label>
+          </td>
+
+          <td class="nowrap">
+            <button
+              class="btn"
+              id="pjsave_${pidAttr}"
+              onclick="saveProjectRow('${pidAttr}', this)"
+              disabled
+            >保存</button>
+          </td>
+
+          <td class="small nowrap pjUpdatedAt">${upd || "-"}</td>
+          <td class="nowrap">
+            <button class="btn" onclick="openPj('${pid}','${pnAttr}')">開く</button>
+          </td>
+          <td class="nowrap">
+            <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="deletePj('${pid}','${pnAttr}')">削除</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    el("pjHint").textContent = `PJ: ${rows.length}`;
+  }
+
+  function markDirtyProjectRow(projectId){
+    const pid = String(projectId || "").trim();
+    if (!pid) return;
+
+    const stEl = el(`pjst_${pid}`);
+    const clEl = el(`pjcl_${pid}`);
+    const frEl = el(`pjfreee_${pid}`);
+    const chEl = el(`pjslack_${pid}`);
+    const drEl = el(`pjdrive_${pid}`);
+    const reEl = el(`pjreport_${pid}`);
+
+    const syEl = el(`pjstartym_${pid}`);
+    const eyEl = el(`pjendym_${pid}`);
+
+    const pmEl = el(`pj_pm_${pid}`);
+    const crEl = el(`pj_closer_${pid}`);
+
+    const btn  = el(`pjsave_${pid}`);
+    if (!stEl || !clEl || !frEl || !chEl || !drEl || !reEl || !syEl || !eyEl || !pmEl || !crEl || !btn) return;
+
+    const stOrig = String(stEl.dataset.orig || "").trim().toLowerCase();
+    const stNow  = String(stEl.value || "").trim().toLowerCase();
+
+    const clOrig = String(clEl.dataset.orig || "").trim();
+    const clNow  = String(clEl.value || "").trim();
+
+    const frOrig = String(frEl.dataset.orig || "").trim();
+    const frNow  = String(frEl.value || "").trim();
+
+    const chOrig = String(chEl.dataset.orig || "").trim();
+    const chNow  = String(chEl.value || "").trim();
+
+    const drOrig = String(drEl.dataset.orig || "").trim();
+    const drNow  = String(drEl.value || "").trim();
+
+    const reOrig = String(reEl.dataset.orig || "").trim();
+    const reNow  = String(reEl.value || "").trim();
+
+    const syOrig = String(syEl.dataset.orig || "").trim();
+    const syNow  = String(syEl.value || "").trim();
+
+    const eyOrig = String(eyEl.dataset.orig || "").trim();
+    const eyNow  = String(eyEl.value || "").trim();
+
+    const pmOrig = String(pmEl.dataset.orig || "").trim();
+    const pmNow  = String(pmEl.value || "").trim();
+
+    const crOrig = String(crEl.dataset.orig || "").trim();
+    const crNow  = String(crEl.value || "").trim();
+
+    btn.disabled = (
+      stOrig === stNow &&
+      clOrig === clNow &&
+      frOrig === frNow &&
+      chOrig === chNow &&
+      drOrig === drNow &&
+      reOrig === reNow &&
+      syOrig === syNow &&
+      eyOrig === eyNow &&
+      pmOrig === pmNow &&
+      crOrig === crNow
+    );
+  }
+
+  function saveProjectRow(projectId, btnEl){
+    const pid = String(projectId || "").trim();
+    if (!pid) return;
+
+    const stEl = el(`pjst_${pid}`);
+    const clEl = el(`pjcl_${pid}`);
+    const frEl = el(`pjfreee_${pid}`);
+    const chEl = el(`pjslack_${pid}`);
+    const drEl = el(`pjdrive_${pid}`);
+    const reEl = el(`pjreport_${pid}`);
+    const syEl = el(`pjstartym_${pid}`);
+    const eyEl = el(`pjendym_${pid}`);
+    const pmEl = el(`pj_pm_${pid}`);
+    const crEl = el(`pj_closer_${pid}`);
+
+    if (!stEl || !clEl || !frEl || !chEl || !drEl || !reEl || !syEl || !eyEl || !pmEl || !crEl) return;
+
+    const nextStatus   = String(stEl.value || "").trim().toLowerCase();
+    const nextClient   = String(clEl.value || "").trim();
+    const nextFreeeId  = String(frEl.value || "").trim();
+    const nextSlackCh  = String(chEl.value || "").trim();
+    const nextDrive    = String(drEl.value || "").trim();
+    const nextReport   = String(reEl.value || "").trim();
+    const nextStartYm  = String(syEl.value || "").trim();
+    const nextEndYm    = String(eyEl.value || "").trim();
+    const nextPm       = String(pmEl.value || "").trim();
+    const nextCloser   = String(crEl.value || "").trim();
+
+    if (nextFreeeId && !/^\d+$/.test(nextFreeeId)){
+      showPjErr("freee取引先IDは数字のみ（空OK）");
+      return;
+    }
+
+    function validYmOrEmpty_(s){
+      var v = String(s||"").trim();
+      if (!v) return true;
+      if (!/^\d{6}$/.test(v)) return false;
+      var mm = Number(v.slice(4,6));
+      return (mm >= 1 && mm <= 12);
+    }
+    if (!validYmOrEmpty_(nextStartYm)){
+      showPjErr("開始ym不正（yyyymm / 月は01-12 / 空OK）");
+      return;
+    }
+    if (!validYmOrEmpty_(nextEndYm)){
+      showPjErr("終了ym不正（yyyymm / 月は01-12 / 空OK）");
+      return;
+    }
+
+    const createFreeeIfMissing = nextFreeeId ? false : true;
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "保存中...";
+    }
+
+    el("pjErr").style.display = "none";
+    el("pjHint").textContent = `保存中... ${pid}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){
+          btnEl.textContent = "保存";
+          btnEl.disabled = false;
+        }
+        showPjErr(err?.message || String(err));
+        markDirtyProjectRow(pid);
+      })
+      .withSuccessHandler(res => {
+        if (btnEl) btnEl.textContent = "保存";
+
+        if (!res || !res.ok){
+          if (btnEl) btnEl.disabled = false;
+          showPjErr((res && res.message) ? res.message : "save failed");
+          markDirtyProjectRow(pid);
+          return;
+        }
+
+        // origを更新
+        stEl.dataset.orig = nextStatus;
+        chEl.dataset.orig = nextSlackCh;
+        drEl.dataset.orig = nextDrive;
+        reEl.dataset.orig = nextReport;
+        syEl.dataset.orig = nextStartYm;
+        eyEl.dataset.orig = nextEndYm;
+        pmEl.dataset.orig = nextPm;
+        crEl.dataset.orig = nextCloser;
+
+        // サーバが正規化した値を反映
+        const fixedClient = String(res.clientName || nextClient).trim();
+        clEl.value = fixedClient;
+        clEl.dataset.orig = fixedClient;
+
+        const fixedFreeeId = String(res.freeePartnerId || nextFreeeId).trim();
+        frEl.value = fixedFreeeId;
+        frEl.dataset.orig = fixedFreeeId;
+
+        // updatedAt
+        const tr = document.querySelector(`tr[data-pid="${CSS.escape(pid)}"]`);
+        const updCell = tr ? tr.querySelector("td.pjUpdatedAt") : null;
+        const updatedAt = String(res.updatedAt || "").trim();
+        if (updCell && updatedAt) updCell.textContent = formatDateYmd_(updatedAt);
+
+        // キャッシュ更新
+        const hit = (__PJS_ALL__ || []).find(x => String(x.projectId||"").trim() === pid);
+        if (hit){
+          hit.status = nextStatus;
+          hit.clientName = fixedClient;
+          hit.freeePartnerId = fixedFreeeId;
+          hit.slackChannelId = nextSlackCh;
+          hit.driveFolderId = nextDrive;
+          hit.reportEmails = nextReport;
+          hit.startYm = nextStartYm;
+          hit.endYm = nextEndYm;
+          hit.pmMemberId = nextPm;
+          hit.closerMemberId = nextCloser;
+          if (updatedAt) hit.updatedAt = updatedAt;
+        }
+
+        if (btnEl) btnEl.disabled = true;
+        markDirtyProjectRow(pid);
+        el("pjHint").textContent = `保存完了：${pid}`;
+      })
+      .admin_updateProjectAllFields({
+        projectId: pid,
+        status: nextStatus,
+        clientName: nextClient,
+        freeePartnerId: nextFreeeId,
+        slackChannelId: nextSlackCh,
+        driveFolderId: nextDrive,
+        reportEmails: nextReport,
+        startYm: nextStartYm,
+        endYm: nextEndYm,
+        pmMemberId: nextPm,
+        closerMemberId: nextCloser,
+        createFreeeIfMissing: createFreeeIfMissing
+      });
+  }
+  function renderProjectStatusSelect_(projectId, current){
+    const pid = escapeHtmlAttr(String(projectId || "").trim());
+    const cur = String(current || "").trim().toLowerCase();
+
+    // DB側の許容値に合わせる（今までの会話で出てたセット）
+    const options = ["active","sales","ended","frozen","lost","draft"];
+
+    return `
+      <select class="ctl" style="width:180px"
+        id="pjst_${pid}"
+        data-orig="${escapeHtmlAttr(cur)}"
+        onchange="markDirtyProjectStatus('${pid}')"
+      >
+        ${options.map(v => {
+          const vv = String(v);
+          const sel = (vv === cur) ? "selected" : "";
+          return `<option value="${escapeHtmlAttr(vv)}" ${sel}>${escapeHtml(vv)}</option>`;
+        }).join("")}
+      </select>
+    `;
+  }
+
+  function markDirtyProjectStatus(projectId){
+    markDirtyProjectRow(projectId);
+  }
+
+  function saveProjectStatus(projectId, btnEl){
+    const pid = String(projectId || "").trim();
+    if (!pid){
+      showPjErr("projectId empty");
+      return;
+    }
+
+    const stEl = el(`pjst_${pid}`);
+    if (!stEl){
+      showPjErr("status element not found");
+      return;
+    }
+
+    const nextStatus = String(stEl.value || "").trim().toLowerCase();
+    if (!nextStatus){
+      showPjErr("nextStatus empty");
+      return;
+    }
+
+    const tr = document.querySelector(`tr[data-pid="${CSS.escape(pid)}"]`);
+    const updCell = tr ? tr.querySelector("td.pjUpdatedAt") : null;
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "保存中...";
+    }
+    el("pjErr").style.display = "none";
+    el("pjHint").textContent = `保存中... ${pid} -> ${nextStatus}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "保存";
+        }
+        showPjErr(err?.message || String(err));
+        markDirtyProjectStatus(pid);
+      })
+      .withSuccessHandler(res => {
+        if (btnEl) btnEl.textContent = "保存";
+
+        if (!res || !res.ok){
+          if (btnEl) btnEl.disabled = false;
+          showPjErr((res && res.message) ? res.message : "save failed");
+          markDirtyProjectStatus(pid);
+          return;
+        }
+
+        // orig更新（変更なし状態へ）
+        stEl.dataset.orig = String(nextStatus).toLowerCase();
+        markDirtyProjectStatus(pid);
+
+        // ★updatedAt表示だけ差し替え（全体リロードしない）
+        const updatedAt = (res.updatedAt || "").trim();
+        if (updCell){
+          updCell.textContent = updatedAt || "-";
+        }
+
+        // __PJS__（activeのみ）と __PJS_ALL__（全件）のキャッシュも更新
+        const hit1 = (__PJS__ || []).find(x => String(x.projectId||"").trim() === pid);
+        if (hit1){
+          hit1.status = nextStatus;
+          if (updatedAt) hit1.updatedAt = updatedAt;
+        }
+
+        const hit2 = (__PJS_ALL__ || []).find(x => String(x.projectId||"").trim() === pid);
+        if (hit2){
+          hit2.status = nextStatus;
+          if (updatedAt) hit2.updatedAt = updatedAt;
+        }
+
+
+        el("pjHint").textContent = `保存完了：${pid} -> ${res.status || nextStatus}`;
+      })
+      .admin_updateProjectStatus({ projectId: pid, nextStatus: nextStatus });
+  }
+  function openPj(projectId, projectName){
+    google.script.run
+      .withFailureHandler(err => showPjErr(err?.message || String(err)))
+      .withSuccessHandler(url => {
+        // ★ sandbox iframe対策：topを触らず自分のwindowで遷移
+        window.location.assign(url);
+      })
+      .buildWebAppUrl("charter", { projectId: projectId, projectName: projectName });
+  }
+  function loadProjects(){
+    const cached = dcGet("projects");
+    if (cached) {
+      __PJS_ALL__ = cached;
+      renderProjects(__PJS_ALL__);
+      el("pjHint").textContent = "";
+      return;
+    }
+
+    el("pjErr").style.display = "none";
+    el("pjHint").textContent = "loading...";
+    el("pjTbody").innerHTML = `<tr><td colspan="13" class="muted">loading...</td></tr>`;
+
+    google.script.run
+      .withFailureHandler(err => showPjErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          const detail = (res === null || res === undefined) ? "null" : JSON.stringify(res);
+          showPjErr((res && res.message) ? res.message : `load failed: ${detail}`);
+          __PJS_ALL__ = [];
+          renderProjects([]);
+          return;
+        }
+        if (Array.isArray(res.activeMembers)) __PROJ_MEMBERS__ = res.activeMembers;
+        __PJS_ALL__ = sortProjectsActiveFirst_(res.projects || []);
+        dcSet("projects", __PJS_ALL__);
+        renderProjects(__PJS_ALL__);
+      })
+      .admin_listProjectsFull();
+  }
+
+  // ★activeを最上段へ（それ以外はAPI返却順を維持＝安定）
+  function sortProjectsActiveFirst_(list){
+    const rows = Array.isArray(list) ? list : [];
+    return rows
+      .map((p, i) => ({ p, i }))
+      .sort((a, b) => {
+        const sa = String(a.p?.status || "").trim().toLowerCase();
+        const sb = String(b.p?.status || "").trim().toLowerCase();
+
+        const ra = (sa === "active") ? 0 : 1;
+        const rb = (sb === "active") ? 0 : 1;
+        if (ra !== rb) return ra - rb;
+
+        // 同ランク内は元の順序キープ（安定ソート）
+        return a.i - b.i;
+      })
+      .map(x => x.p);
+  }
+
+  function deletePj(projectId, projectName){
+    const name = projectName || projectId || "";
+    const ok = window.confirm(`PJを削除する？（関連DBも全部消える）\nPJ: ${name} (${projectId})\n\n※戻せない`);
+    if (!ok) return;
+
+    el("pjErr").style.display = "none";
+    el("pjHint").textContent = `削除中... ${projectId}`;
+
+    google.script.run
+      .withFailureHandler(err => showPjErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showPjErr((res && res.message) ? res.message : "delete failed");
+          return;
+        }
+        el("pjHint").textContent = `削除完了：${projectId}`;
+        loadProjects();
+      })
+      .admin_
+      
+      deleteProjectCascade(projectId);
+  }
+
+    // ===== freee partners (pulldown candidates for Projects->Client) =====
+  let __FREEE_PARTNERS__ = []; // [{id,name}]
+
+  function fillFreeePartnerDatalist_(){
+    const dl = el("freeePartnerDatalist");
+    if (!dl) return;
+
+    const rows = Array.isArray(__FREEE_PARTNERS__) ? __FREEE_PARTNERS__ : [];
+    const names = rows.map(x => String(x?.name || "").trim()).filter(x=>x);
+
+    const uniq = Array.from(new Set(names)).sort((a,b)=>a.localeCompare(b,"ja"));
+    dl.innerHTML = uniq.map(n => `<option value="${escapeHtmlAttr(n)}"></option>`).join("");
+  }
+
+  function loadFreeePartners_(){
+    // すでに入ってるなら叩かない（必要なら強制更新ボタン後で追加してもいい）
+    if (Array.isArray(__FREEE_PARTNERS__) && __FREEE_PARTNERS__.length){
+      fillFreeePartnerDatalist_();
+      return;
+    }
+
+    // サーバ側で freee取引先一覧を返す関数を用意する（後述）
+    google.script.run
+      .withFailureHandler(err => {
+        // 取引先が取れなくてもPJ一覧は出したいので握りつぶす
+        try{ console.warn(err); }catch(e){}
+        __FREEE_PARTNERS__ = [];
+        fillFreeePartnerDatalist_();
+      })
+      .withSuccessHandler(res => {
+        // res: {ok:true, partners:[{id,name}]} or array
+        if (Array.isArray(res)){
+          __FREEE_PARTNERS__ = res;
+        } else if (res && res.ok && Array.isArray(res.partners)){
+          __FREEE_PARTNERS__ = res.partners;
+        } else {
+          __FREEE_PARTNERS__ = [];
+        }
+        fillFreeePartnerDatalist_();
+      })
+      .admin_listFreeePartners();
+  }
+
+  function reloadFreeePartners_(){
+    const btn = el("btnReloadFreeePartners");
+    const origText = btn ? btn.textContent : "";
+
+    // ★即時フィードバック
+    if (btn){
+      btn.disabled = true;
+      btn.textContent = "再読み込み中...";
+    }
+    try{
+      el("pjErr").style.display = "none";
+      el("pjHint").textContent = "freee取引先を再読み込み中...";
+    }catch(e){}
+
+    // ★ローカル候補を一度空にして「変化」を見せる
+    __FREEE_PARTNERS__ = [];
+    fillFreeePartnerDatalist_();
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btn){
+          btn.disabled = false;
+          btn.textContent = origText;
+        }
+        try{
+          showPjErr("取引先 再読み込み失敗: " + (err?.message || String(err)));
+          el("pjHint").textContent = "失敗";
+        }catch(e){}
+      })
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          if (btn){
+            btn.disabled = false;
+            btn.textContent = origText;
+          }
+          try{
+            showPjErr((res && res.message) ? res.message : "取引先キャッシュクリア失敗");
+            el("pjHint").textContent = "失敗";
+          }catch(e){}
+          return;
+        }
+
+        // ★キャッシュ削除後、即再取得
+        google.script.run
+          .withFailureHandler(err2 => {
+            if (btn){
+              btn.disabled = false;
+              btn.textContent = origText;
+            }
+            try{
+              showPjErr("取引先 取得失敗: " + (err2?.message || String(err2)));
+              el("pjHint").textContent = "失敗";
+            }catch(e){}
+          })
+          .withSuccessHandler(res2 => {
+            if (btn){
+              btn.disabled = false;
+              btn.textContent = origText;
+            }
+
+            if (res2 && res2.ok && Array.isArray(res2.partners)){
+              __FREEE_PARTNERS__ = res2.partners;
+            } else {
+              __FREEE_PARTNERS__ = [];
+            }
+
+            fillFreeePartnerDatalist_();
+
+            try{
+              el("pjHint").textContent =
+                `freee取引先を再取得した（${__FREEE_PARTNERS__.length}件）`;
+            }catch(e){}
+          })
+          .admin_listFreeePartners();
+      })
+      .admin_clearFreeePartnersCache();
+  }
+
+  function markDirtyProjectClient(projectId){
+    const pid = String(projectId || "").trim();
+    if (!pid) return;
+
+    const inp = el(`pjcl_${pid}`);
+    const btn = el(`pjsave_${pid}`);
+    if (!inp || !btn) return;
+
+    const orig = String(inp.dataset.orig || "").trim();
+    const now  = String(inp.value || "").trim();
+
+    btn.disabled = (now === orig);
+  }
+
+  function saveProjectClient(projectId, btnEl){
+    const pid = String(projectId || "").trim();
+    if (!pid){
+      showPjErr("projectId empty");
+      return;
+    }
+
+    const inp = el(`pjcl_${pid}`);
+    if (!inp){
+      showPjErr("client input not found");
+      return;
+    }
+
+    const nextClientName = String(inp.value || "").trim();
+    if (!nextClientName){
+      showPjErr("請求先が空");
+      return;
+    }
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "保存中...";
+    }
+    el("pjErr").style.display = "none";
+    el("pjHint").textContent = `保存中... clientName ${pid} -> ${nextClientName}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "保存";
+        }
+        showPjErr(err?.message || String(err));
+        markDirtyProjectClient(pid);
+      })
+      .withSuccessHandler(res => {
+        if (btnEl) btnEl.textContent = "保存";
+
+        if (!res || !res.ok){
+          if (btnEl) btnEl.disabled = false;
+          showPjErr((res && res.message) ? res.message : "save failed");
+          markDirtyProjectClient(pid);
+          return;
+        }
+
+        // ★サーバが正規化した名前（freee側で作った結果など）を反映
+        const fixedName = String(res.clientName || nextClientName).trim();
+        inp.value = fixedName;
+        inp.dataset.orig = fixedName;
+
+        // updatedAtも差し替え
+        const tr = document.querySelector(`tr[data-pid="${CSS.escape(pid)}"]`);
+        const updCell = tr ? tr.querySelector("td.pjUpdatedAt") : null;
+        const updatedAt = String(res.updatedAt || "").trim();
+        if (updCell && updatedAt) updCell.textContent = formatDateYmd_(updatedAt);
+
+        // キャッシュも更新
+        const hit = (__PJS_ALL__ || []).find(x => String(x.projectId||"").trim() === pid);
+        if (hit){
+          hit.clientName = fixedName;
+          if (updatedAt) hit.updatedAt = updatedAt;
+        }
+
+        el("pjHint").textContent = `保存完了：clientName ${pid} -> ${fixedName}`;
+        markDirtyProjectClient(pid);
+      })
+      .admin_updateProjectClientName({
+        projectId: pid,
+        clientName: nextClientName,
+        // ★「候補にない入力で確定したらfreeeに追加」をAdmin側でやる前提
+        createFreeeIfMissing: true
+      });
+  }
+
+    // ★つくよみ介入対象フラグ（即時保存）
+  function toggleTsukuyomiNudgeEnabled_(projectId, chkEl){
+    const pid = String(projectId || "").trim();
+    if (!pid) return;
+
+    const nextEnabled = !!(chkEl && chkEl.checked);
+
+    // 夜間メンション禁止とかは「実際の介入投稿側（176〜）」で見るので、ここでは純粋にフラグだけ保存する
+    // UIは即フィードバック
+    try{
+      el("pjErr").style.display = "none";
+      el("pjHint").textContent = `保存中... つくよみ=${nextEnabled ? "ON" : "OFF"} ${pid}`;
+    }catch(e){}
+
+    if (chkEl) chkEl.disabled = true;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (chkEl) chkEl.disabled = false;
+
+        // 失敗したらUIを元に戻す（事故防止）
+        if (chkEl) chkEl.checked = !nextEnabled;
+
+        showPjErr(err?.message || String(err));
+        try{ el("pjHint").textContent = "失敗"; }catch(e){}
+      })
+      .withSuccessHandler(res => {
+        if (chkEl) chkEl.disabled = false;
+
+        if (!res || !res.ok){
+          if (chkEl) chkEl.checked = !nextEnabled;
+          showPjErr((res && res.message) ? res.message : "save failed");
+          try{ el("pjHint").textContent = "失敗"; }catch(e){}
+          return;
+        }
+
+        // updatedAt 表示だけ差し替え
+        const tr = document.querySelector(`tr[data-pid="${CSS.escape(pid)}"]`);
+        const updCell = tr ? tr.querySelector("td.pjUpdatedAt") : null;
+        const updatedAt = String(res.updatedAt || "").trim();
+        if (updCell && updatedAt) updCell.textContent = formatDateYmd_(updatedAt);
+
+        // キャッシュ更新（Projectsタブ内整合）
+        const hit = (__PJS_ALL__ || []).find(x => String(x.projectId||"").trim() === pid);
+        if (hit){
+          hit.tsukuyomiNudgeEnabled = !!res.enabled;
+          if (updatedAt) hit.updatedAt = updatedAt;
+        }
+
+        try{
+          el("pjHint").textContent = `保存完了：つくよみ=${res.enabled ? "ON" : "OFF"} ${pid}`;
+        }catch(e){}
+      })
+      .admin_updateProjectTsukuyomiNudgeEnabled({
+        projectId: pid,
+        enabled: nextEnabled
+      });
+  }
+
+  function showPjErr(msg){
+    el("pjErr").style.display = "block";
+    el("pjErr").textContent = msg || "error";
+  }
+
+    function normalizeFreeePartnerName_(s){
+    // ★まずは完全一致ベース（事故らせない）
+    // 将来ゆるくしたくなったらここで正規化を拡張すればいい
+    return String(s || "").trim();
+  }
+
+  function findFreeePartnerIdsByName_(name){
+    const key = normalizeFreeePartnerName_(name);
+    if (!key) return [];
+
+    const rows = Array.isArray(__FREEE_PARTNERS__) ? __FREEE_PARTNERS__ : [];
+    const hits = [];
+
+    for (let i=0; i<rows.length; i++){
+      const n = normalizeFreeePartnerName_(rows[i]?.name);
+      if (n === key){
+        const id = String(rows[i]?.id || "").trim();
+        if (id) hits.push(id);
+      }
+    }
+    // uniq
+    return Array.from(new Set(hits));
+  }
+
+  function syncFreeeIdFromClientName_(projectId){
+    const pid = String(projectId || "").trim();
+    if (!pid) return;
+
+    const clEl = el(`pjcl_${pid}`);
+    const frEl = el(`pjfreee_${pid}`);
+    if (!clEl || !frEl) return;
+
+    const clientName = String(clEl.value || "").trim();
+    if (!clientName) return;
+
+    const ids = findFreeePartnerIdsByName_(clientName);
+
+    if (ids.length === 1){
+      const nextId = String(ids[0] || "").trim();
+
+      // ★ユーザーが既にfreeeIdを手で入れてた場合は上書きしない（事故防止）
+      const curId = String(frEl.value || "").trim();
+      if (!curId){
+        frEl.value = nextId;
+      }
+
+      // ★origは更新しない（保存まではdirtyにしたい）
+      markDirtyProjectRow(pid);
+
+    } else if (ids.length >= 2){
+      // 同名が複数はfreee側でよく起きるので自動確定しない
+      // ここは "手で入れてね" に寄せる（安全第一）
+      try{
+        el("pjHint").textContent = `freee取引先が同名で複数ある：${clientName}（freeeIdは手入力して）`;
+      }catch(e){}
+    }
+  }
+
+  // 手入力中にも反応するけど、freeeId上書きは「空のときだけ」
+  function onProjectClientInput_(projectId){
+    syncFreeeIdFromClientName_(projectId);
+    markDirtyProjectRow(projectId);
+  }
+
+  // datalistから選んだときは確定度高いので同じ処理
+  function onProjectClientChange_(projectId){
+    syncFreeeIdFromClientName_(projectId);
+    markDirtyProjectRow(projectId);
+  }
+</script>
+</div>

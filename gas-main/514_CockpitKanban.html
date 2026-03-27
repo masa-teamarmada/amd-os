@@ -1,0 +1,530 @@
+<!-- 514_CockpitKanban.html
+     TODOカンバンUI。todo/doing/doneの3列表示、D&DでステータタS変更。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+var cpKanban = { tasks: [], dragging: null };
+
+function cpLoadKanban() {
+  if (!CP || !CP.projectId) return;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) return;
+      cpKanban.tasks = res.items || [];
+      // MS/サブMS名のlookupマップを構築
+      google.script.run
+        .withSuccessHandler(function(gRes) {
+          cpKanban.msMap = {};
+          cpKanban.subItemMap = {};
+          cpKanban.msList = [];
+          if (gRes && gRes.milestones) {
+            var all = (gRes.milestones.annual || []);
+            cpKanban.msList = all;
+            all.forEach(function(ms) {
+              cpKanban.msMap[ms.milestoneId] = (ms.orderNo ? 'MS' + ms.orderNo + '. ' : '') + (ms.title || ms.milestoneId);
+            });
+          }
+          google.script.run
+            .withSuccessHandler(function(sRes) {
+              cpKanban.subItemsRaw = {};
+              if (sRes && sRes.ok && sRes.subItemsMap) {
+                cpKanban.subItemsRaw = sRes.subItemsMap;
+                Object.keys(sRes.subItemsMap).forEach(function(msId) {
+                  (sRes.subItemsMap[msId] || []).forEach(function(si) {
+                    cpKanban.subItemMap[si.subItemId] = si.title || si.subItemId;
+                  });
+                });
+              }
+              cpRenderKanban();
+            })
+            .withFailureHandler(function() { cpRenderKanban(); })
+            .cockpit_api_getSubItems({ projectId: CP.projectId });
+        })
+        .withFailureHandler(function() { cpRenderKanban(); })
+        .cockpit_api_getGoalHierarchy({ projectId: CP.projectId });
+    })
+    .withFailureHandler(function(e) {
+      var el = document.getElementById('cp-kanban-board');
+      if (el) el.innerHTML = '<div style="color:#e53935;font-size:12px;padding:8px">' + cpEsc(String(e)) + '</div>';
+    })
+    .cockpit_api_getTasks({ projectId: CP.projectId });
+}
+
+function cpRenderKanban() {
+  var board = document.getElementById('cp-kanban-board');
+  if (!board) return;
+
+  // pending section
+  var pending = cpKanban.tasks.filter(function(t) { return t.status === 'pending'; });
+  var pendingHtml = '';
+  if (pending.length > 0) {
+    pendingHtml += '<div class="cp-kanban-pending-section">';
+    pendingHtml += '<div class="cp-kanban-pending-header">🤖 つくよみ提案（' + pending.length + '件）</div>';
+    for (var p = 0; p < pending.length; p++) {
+      pendingHtml += cpKanbanPendingCardHtml_(pending[p]);
+    }
+    pendingHtml += '</div>';
+  }
+
+  var cols = [
+    { status: 'todo',  label: 'Todo' },
+    { status: 'doing', label: 'Doing' },
+    { status: 'done',  label: 'Done' }
+  ];
+
+  var html = '';
+  for (var c = 0; c < cols.length; c++) {
+    var col   = cols[c];
+    var tasks = cpKanban.tasks.filter(function(t) { return t.status === col.status; });
+    html += '<div class="cp-kanban-col" data-status="' + col.status + '"'
+      + ' ondragover="cpKanbanDragOver(event)" ondrop="cpKanbanDrop(event,\'' + col.status + '\')">';
+    html += '<div class="cp-kanban-col-header">';
+    html += '<span class="cp-kanban-col-label">' + col.label + '</span>';
+    html += '<span class="cp-kanban-col-count">' + tasks.length + '</span>';
+    html += '<button class="cp-kanban-add-btn" onclick="cpKanbanOpenAdd(\'' + col.status + '\')">＋</button>';
+    html += '</div>';
+    html += '<div class="cp-kanban-cards" id="cp-kanban-cards-' + col.status + '">';
+    for (var i = 0; i < tasks.length; i++) {
+      html += cpKanbanCardHtml_(tasks[i]);
+    }
+    html += '</div>';
+    html += '</div>';
+  }
+  board.innerHTML = pendingHtml + '<div class="cp-kanban-cols">' + html + '</div>';
+}
+
+function cpKanbanPendingCardHtml_(task) {
+  var tid = cpEsc(task.taskId || '');
+  var h   = '<div class="cp-kanban-pending-card">';
+  h += '<div class="cp-kanban-card-title">' + cpEsc(task.title || '') + '</div>';
+  if (task.description) {
+    h += '<div class="cp-kanban-card-desc">' + cpEsc(task.description) + '</div>';
+  }
+  if (task.assignee) {
+    h += '<div class="cp-kanban-card-meta">👤 ' + cpEsc(task.assignee) + '</div>';
+  }
+  if (task.subItemId) {
+    var siName = (cpKanban.subItemMap && cpKanban.subItemMap[task.subItemId]) || task.subItemId;
+    var msName = (cpKanban.msMap && cpKanban.msMap[task.milestoneId]) || '';
+    h += '<div class="cp-kanban-card-meta">🔗 ' + cpEsc(msName ? msName + ' › ' + siName : siName) + '</div>';
+  } else if (task.milestoneId) {
+    var msName = (cpKanban.msMap && cpKanban.msMap[task.milestoneId]) || task.milestoneId;
+    h += '<div class="cp-kanban-card-meta">🔗 ' + cpEsc(msName) + '</div>';
+  } else {
+    h += '<div class="cp-kanban-card-meta" style="color:#e53935">⚠️ MS未紐づけ</div>';
+  }
+  if (task.sourceQuote) {
+    h += '<div class="cp-kanban-card-quote" style="margin-top:6px;padding:6px 8px;background:#f9f9f9;border-left:3px solid #90caf9;border-radius:4px;font-size:11px;color:#555;line-height:1.5">'
+      + '💬 ' + cpEsc(task.sourceQuote) + '</div>';
+  }
+  h += '<div class="cp-kanban-pending-actions">';
+  h += '<button onclick="cpKanbanApprove(\'' + tid + '\')" style="padding:4px 12px;background:#4caf50;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">✓ 承認</button>';
+  h += '<button onclick="cpKanbanEditPending(\'' + tid + '\')" style="padding:4px 12px;background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:6px;font-size:12px;cursor:pointer;margin-left:6px">✎ 編集</button>';
+  if (task.sourceCacheId) {
+    h += '<button onclick="cpKanbanShowSource_(\'' + tid + '\')" style="padding:4px 12px;background:#f3e5f5;color:#6a1b9a;border:1px solid #ce93d8;border-radius:6px;font-size:12px;cursor:pointer;margin-left:6px">📄 元データ</button>';
+  }
+  h += '<button onclick="cpKanbanReject(\'' + tid + '\')" style="padding:4px 12px;background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:6px;font-size:12px;cursor:pointer;margin-left:6px">✕ 却下</button>';
+  h += '</div>';
+  h += '</div>';
+  return h;
+}
+
+function cpKanbanEditPending(taskId) {
+  var task = cpKanban.tasks.filter(function(t) { return t.taskId === taskId; })[0];
+  if (!task) return;
+
+  var existing = document.getElementById('cpKanbanEditModal');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'cpKanbanEditModal';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px 28px;width:440px;max-width:90vw">'
+    + '<div style="font-size:15px;font-weight:600;color:#1d1d1f;margin-bottom:16px">✎ タスク編集</div>'
+    + '<div style="margin-bottom:12px">'
+    + '  <label style="font-size:12px;font-weight:600;color:#6b7280;display:block;margin-bottom:4px">タイトル *</label>'
+    + '  <input id="cpKanbanEditTitle" type="text" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px" value="' + cpEsc(task.title || '') + '">'
+    + '</div>'
+    + '<div style="margin-bottom:12px">'
+    + '  <label style="font-size:12px;font-weight:600;color:#6b7280;display:block;margin-bottom:4px">説明</label>'
+    + '  <textarea id="cpKanbanEditDesc" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;min-height:70px">' + cpEsc(task.description || '') + '</textarea>'
+    + '</div>'
+    + '<div style="margin-bottom:12px">'
+    + '  <label style="font-size:12px;font-weight:600;color:#6b7280;display:block;margin-bottom:4px">MS / サブMS紐づけ</label>'
+    + '  <select id="cpKanbanEditMs" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"><option value="">読み込み中...</option></select>'
+    + '</div>'
+    + '<div style="margin-bottom:20px">'
+    + '  <label style="font-size:12px;font-weight:600;color:#6b7280;display:block;margin-bottom:4px">担当者</label>'
+    + '  <select id="cpKanbanEditAssignee" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">'
+    + cpKanbanEditMemberOptions_(task.assignee)
+    + '  </select>'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;justify-content:flex-end">'
+    + '  <button onclick="document.getElementById(\'cpKanbanEditModal\').remove()" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">キャンセル</button>'
+    + '  <button onclick="cpKanbanSaveEditPending(\'' + cpEsc(taskId) + '\')" style="padding:8px 16px;border:none;border-radius:8px;background:#2196F3;color:#fff;cursor:pointer;font-size:13px;font-weight:600">保存</button>'
+    + '</div>'
+    + '</div>';
+
+  document.body.appendChild(overlay);
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  document.getElementById('cpKanbanEditTitle').focus();
+
+  // cpLoadKanban取得済みのキャッシュを使って即時構築
+  cpKanbanBuildMsSelect_(task);
+}
+
+function cpKanbanEditMemberOptions_(currentAssignee) {
+  var members = (CP.data && CP.data.members) || [];
+  var html = '<option value="">未割当</option>';
+  for (var i = 0; i < members.length; i++) {
+    var sel = members[i] === currentAssignee ? ' selected' : '';
+    html += '<option value="' + cpEsc(members[i]) + '"' + sel + '>' + cpEsc(members[i]) + '</option>';
+  }
+  return html;
+}
+
+function cpKanbanBuildMsSelect_(task) {
+  var sel = document.getElementById('cpKanbanEditMs');
+  if (!sel) return;
+
+  var msMap     = cpKanban.msMap     || {};
+  var siMap     = cpKanban.subItemMap || {};
+  var msList    = cpKanban.msList    || [];
+
+  if (msList.length === 0) {
+    sel.innerHTML = '<option value="">（MSデータなし）</option>';
+    return;
+  }
+
+  var normalMs  = msList.filter(function(m) { return m.tag !== 'buffer' && m.tag !== 'routine'; });
+  var routineMs = msList.filter(function(m) { return m.tag === 'routine'; });
+
+  function buildOptions(list) {
+    var html = '';
+    for (var i = 0; i < list.length; i++) {
+      var ms = list[i];
+      var msId = ms.milestoneId;
+      var prefix = ms.orderNo ? ('MS' + ms.orderNo + '. ') : '';
+      var subItems = cpKanban.subItemsRaw ? (cpKanban.subItemsRaw[msId] || []) : [];
+
+      if (subItems.length > 0) {
+        html += '<optgroup label="' + cpEsc(prefix + (ms.title || msId)) + '">';
+        for (var j = 0; j < subItems.length; j++) {
+          var si = subItems[j];
+          var val = JSON.stringify({ milestoneId: msId, subItemId: si.subItemId });
+          var selected = (task.subItemId && task.subItemId === si.subItemId) ? ' selected' : '';
+          html += '<option value=\'' + val + '\'' + selected + '>' + cpEsc(si.title || si.subItemId) + '</option>';
+        }
+        html += '</optgroup>';
+      } else {
+        var val = JSON.stringify({ milestoneId: msId, subItemId: '' });
+        var selected = (!task.subItemId && task.milestoneId === msId) ? ' selected' : '';
+        html += '<option value=\'' + val + '\'' + selected + '>' + cpEsc(prefix + (ms.title || msId)) + '</option>';
+      }
+    }
+    return html;
+  }
+
+  var options = '<option value="">紐づけなし</option>';
+  if (normalMs.length > 0) {
+    options += '<optgroup label="── マイルストーン ──" disabled></optgroup>';
+    options += buildOptions(normalMs);
+  }
+  if (routineMs.length > 0) {
+    options += '<optgroup label="── 🔄 定常業務 ──" disabled></optgroup>';
+    options += buildOptions(routineMs);
+  }
+  sel.innerHTML = options;
+}
+
+function cpKanbanSaveEditPending(taskId) {
+  var task = cpKanban.tasks.filter(function(t) { return t.taskId === taskId; })[0];
+  if (!task) return;
+  var title    = (document.getElementById('cpKanbanEditTitle').value || '').trim();
+  if (!title) { cpShowToast('⚠️ タイトルは必須'); return; }
+  var desc     = (document.getElementById('cpKanbanEditDesc').value || '').trim();
+  var assignee = (document.getElementById('cpKanbanEditAssignee').value || '').trim();
+  var msVal    = (document.getElementById('cpKanbanEditMs').value || '').trim();
+  document.getElementById('cpKanbanEditModal').remove();
+
+  var msObj = {};
+  try { if (msVal) msObj = JSON.parse(msVal); } catch(e) {}
+
+  var titleChanged = title !== (task.title || '').trim();
+  var descChanged  = desc  !== (task.description || '').trim();
+  if (titleChanged || descChanged) {
+    google.script.run
+      .withSuccessHandler(function() {})
+      .withFailureHandler(function() {})
+      .cockpit_api_recordTaskFeedback({
+        taskId:        taskId,
+        projectId:     CP.projectId,
+        feedbackType:  'edit',
+        originalTitle: task.title || '',
+        originalDesc:  task.description || '',
+        editedTitle:   titleChanged ? title : '',
+        editedDesc:    descChanged  ? desc  : ''
+      });
+  }
+
+  var updatedTask = {
+    taskId:        taskId,
+    projectId:     CP.projectId,
+    title:         title,
+    description:   desc,
+    assignee:      assignee || null,
+    milestoneId:   msObj.milestoneId || task.milestoneId || '',
+    subItemId:     msObj.subItemId   || '',
+    status:        'pending',
+    source:        task.source       || 'llm_extract',
+    sourceCacheId: task.sourceCacheId || '',
+    sourceQuote:   task.sourceQuote   || ''
+  };
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { cpShowToast('⚠️ 保存に失敗'); return; }
+      for (var i = 0; i < cpKanban.tasks.length; i++) {
+        if (cpKanban.tasks[i].taskId === taskId) {
+          cpKanban.tasks[i] = updatedTask;
+          break;
+        }
+      }
+      cpRenderKanban();
+      cpShowToast('✅ 更新した');
+    })
+    .withFailureHandler(function(e) { cpShowToast('⚠️ ' + String(e)); })
+    .cockpit_api_upsertTask(updatedTask);
+}
+
+function cpKanbanApprove(taskId) {
+  var task = cpKanban.tasks.filter(function(t) { return t.taskId === taskId; })[0];
+
+  google.script.run
+    .withSuccessHandler(function() {})
+    .withFailureHandler(function() {})
+    .cockpit_api_recordTaskFeedback({
+      taskId:        taskId,
+      projectId:     CP.projectId,
+      feedbackType:  'approve',
+      originalTitle: task ? (task.title || '') : '',
+      originalDesc:  task ? (task.description || '') : ''
+    });
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.success) { cpShowToast('⚠️ 承認に失敗'); return; }
+      cpShowToast('✅ タスクを承認した');
+      cpLoadKanban();
+    })
+    .withFailureHandler(function(e) { cpShowToast('⚠️ ' + String(e)); })
+    .tasksApi_approvePending(taskId);
+}
+
+function cpKanbanReject(taskId) {
+  var task = cpKanban.tasks.filter(function(t) { return t.taskId === taskId; })[0];
+  if (!task) return;
+
+  var existing = document.getElementById('cpKanbanRejectModal');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'cpKanbanRejectModal';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px 28px;width:400px;max-width:90vw">'
+    + '<div style="font-size:15px;font-weight:600;color:#1d1d1f;margin-bottom:8px">✕ 却下理由（必須）</div>'
+    + '<div style="font-size:12px;color:#666;margin-bottom:12px">タスク：' + cpEsc(task.title || '') + '</div>'
+    + '<textarea id="cpKanbanRejectReason" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;min-height:80px" placeholder="例：すでに完了済み / タスクではなく報告 / 重複"></textarea>'
+    + '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">'
+    + '  <button onclick="document.getElementById(\'cpKanbanRejectModal\').remove()" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">キャンセル</button>'
+    + '  <button onclick="cpKanbanRejectConfirm(\'' + cpEsc(taskId) + '\')" style="padding:8px 16px;border:none;border-radius:8px;background:#e53935;color:#fff;cursor:pointer;font-size:13px;font-weight:600">却下する</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  setTimeout(function() { var el = document.getElementById('cpKanbanRejectReason'); if (el) el.focus(); }, 50);
+}
+
+function cpKanbanRejectConfirm(taskId) {
+  var task = cpKanban.tasks.filter(function(t) { return t.taskId === taskId; })[0];
+  if (!task) return;
+  var reason = (document.getElementById('cpKanbanRejectReason').value || '').trim();
+  if (!reason) { cpShowToast('⚠️ 却下理由を入力してね'); return; }
+  document.getElementById('cpKanbanRejectModal').remove();
+
+  google.script.run
+    .withSuccessHandler(function() {})
+    .withFailureHandler(function() {})
+    .cockpit_api_recordTaskFeedback({
+      taskId:        taskId,
+      projectId:     CP.projectId,
+      feedbackType:  'reject',
+      originalTitle: task.title || '',
+      originalDesc:  task.description || '',
+      rejectReason:  reason
+    });
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.success) { cpShowToast('⚠️ 却下に失敗'); return; }
+      cpShowToast('🗑️ タスクを却下した');
+      cpLoadKanban();
+    })
+    .withFailureHandler(function(e) { cpShowToast('⚠️ ' + String(e)); })
+    .tasksApi_rejectPending(taskId);
+}
+
+function cpKanbanShowSource_(taskId) {
+  var task = cpKanban.tasks.filter(function(t) { return t.taskId === taskId; })[0];
+  if (!task || !task.sourceCacheId) return;
+
+  var existing = document.getElementById('cpKanbanSourceModal');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'cpKanbanSourceModal';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px 28px;width:560px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column">'
+    + '<div style="font-size:14px;font-weight:600;color:#1d1d1f;margin-bottom:4px">📄 元データ</div>'
+    + '<div style="font-size:11px;color:#999;margin-bottom:12px">タスク：' + cpEsc(task.title || '') + '</div>'
+    + '<div id="cpKanbanSourceBody" style="flex:1;overflow-y:auto;font-size:12px;color:#333;line-height:1.7;white-space:pre-wrap;background:#f9f9f9;padding:12px;border-radius:8px;border:1px solid #e5e7eb">読み込み中...</div>'
+    + '<div style="margin-top:16px;text-align:right">'
+    + '  <button onclick="document.getElementById(\'cpKanbanSourceModal\').remove()" style="padding:8px 18px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">閉じる</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      var el = document.getElementById('cpKanbanSourceBody');
+      if (!el) return;
+      if (!res || !res.ok) { el.textContent = '⚠️ 取得に失敗した'; return; }
+      el.textContent = res.item ? (res.item.title ? '【' + res.item.title + '】\n\n' : '') + (res.item.contentText || '（本文なし）') : '（データなし）';
+    })
+    .withFailureHandler(function(e) {
+      var el = document.getElementById('cpKanbanSourceBody');
+      if (el) el.textContent = '⚠️ ' + String(e);
+    })
+    .cockpit_api_getSourceCacheById({ sourceCacheId: task.sourceCacheId });
+}
+
+function cpKanbanCardHtml_(task) {
+  var tid = cpEsc(task.taskId || '');
+  var h = '<div class="cp-kanban-card" draggable="true" data-task-id="' + tid + '"'
+    + ' ondragstart="cpKanbanDragStart(event,\'' + tid + '\')">';
+  h += '  <div class="cp-kanban-card-title">' + cpEsc(task.title || '') + '</div>';
+  if (task.assignee) {
+    h += '  <div class="cp-kanban-card-meta">👤 ' + cpEsc(task.assignee) + '</div>';
+  }
+  if (task.dueDate) {
+    var d = String(task.dueDate);
+    var dLabel = d.length === 8 ? d.substring(0,4) + '/' + d.substring(4,6) + '/' + d.substring(6,8) : d;
+    h += '  <div class="cp-kanban-card-meta">📅 ' + cpEsc(dLabel) + '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function cpKanbanDragStart(event, taskId) {
+  cpKanban.dragging = taskId;
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+function cpKanbanDragOver(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+}
+
+function cpKanbanDrop(event, newStatus) {
+  event.preventDefault();
+  var taskId = cpKanban.dragging;
+  if (!taskId) return;
+  cpKanban.dragging = null;
+
+  var task = cpKanban.tasks.filter(function(t) { return t.taskId === taskId; })[0];
+  if (!task || task.status === newStatus) return;
+
+  task.status = newStatus;
+  cpRenderKanban();
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        cpShowToast('⚠️ ステータス更新に失敗');
+        cpLoadKanban();
+      }
+    })
+    .withFailureHandler(function(e) {
+      cpShowToast('⚠️ ' + String(e));
+      cpLoadKanban();
+    })
+    .cockpit_api_updateTaskStatus({ taskId: taskId, status: newStatus });
+}
+
+function cpKanbanOpenAdd(status) {
+  var existing = document.getElementById('cpKanbanAddModal');
+  if (existing) existing.remove();
+
+  var members = (CP.data && CP.data.members) || [];
+  var memberOptions = '<option value="">未割当</option>';
+  for (var i = 0; i < members.length; i++) {
+    memberOptions += '<option value="' + cpEsc(members[i]) + '">' + cpEsc(members[i]) + '</option>';
+  }
+
+  var overlay = document.createElement('div');
+  overlay.id = 'cpKanbanAddModal';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center';
+
+  overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px 28px;width:360px;max-width:90vw">'
+    + '<div style="font-size:15px;font-weight:600;color:#1d1d1f;margin-bottom:16px">📝 タスク追加</div>'
+    + '<div style="margin-bottom:12px">'
+    + '  <label style="font-size:12px;font-weight:600;color:#6b7280;display:block;margin-bottom:4px">タイトル *</label>'
+    + '  <input id="cpKanbanAddTitle" type="text" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px" placeholder="タスクタイトル">'
+    + '</div>'
+    + '<div style="margin-bottom:12px">'
+    + '  <label style="font-size:12px;font-weight:600;color:#6b7280;display:block;margin-bottom:4px">担当者</label>'
+    + '  <select id="cpKanbanAddAssignee" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">' + memberOptions + '</select>'
+    + '</div>'
+    + '<div style="margin-bottom:20px">'
+    + '  <label style="font-size:12px;font-weight:600;color:#6b7280;display:block;margin-bottom:4px">期日（任意）</label>'
+    + '  <input id="cpKanbanAddDue" type="date" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;justify-content:flex-end">'
+    + '  <button onclick="document.getElementById(\'cpKanbanAddModal\').remove()" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">キャンセル</button>'
+    + '  <button onclick="cpKanbanSaveAdd(\'' + status + '\')" style="padding:8px 16px;border:none;border-radius:8px;background:#2196F3;color:#fff;cursor:pointer;font-size:13px;font-weight:600">追加</button>'
+    + '</div>'
+    + '</div>';
+
+  document.body.appendChild(overlay);
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  document.getElementById('cpKanbanAddTitle').focus();
+}
+
+function cpKanbanSaveAdd(status) {
+  var title = (document.getElementById('cpKanbanAddTitle').value || '').trim();
+  if (!title) { cpShowToast('⚠️ タイトルは必須'); return; }
+
+  var assignee = (document.getElementById('cpKanbanAddAssignee').value || '').trim();
+  var dueRaw = (document.getElementById('cpKanbanAddDue').value || '').trim();
+  var dueDate = dueRaw ? dueRaw.replace(/-/g, '') : '';
+
+  var overlay = document.getElementById('cpKanbanAddModal');
+  if (overlay) overlay.remove();
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { cpShowToast('⚠️ 追加に失敗'); return; }
+      cpShowToast('✅ タスクを追加した');
+      cpLoadKanban();
+    })
+    .withFailureHandler(function(e) { cpShowToast('⚠️ ' + String(e)); })
+    .cockpit_api_upsertTask({
+      projectId: CP.projectId,
+      title: title,
+      status: status,
+      assignee: assignee || null,
+      dueDate: dueDate || null,
+      source: 'manual'
+    });
+}
+</script>

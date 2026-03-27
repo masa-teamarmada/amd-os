@@ -1,0 +1,1145 @@
+<!-- A253_AdminProtocolsJs.html
+     役割: Adminの「Protocols/Candidates」タブのJSロジック。A244_AdminProtocols.htmlと対になる。
+-->
+<script>
+    // ===== Protocols =====
+  function showProtErr(msg){
+    el("protErr").style.display = "block";
+    el("protErr").textContent = msg || "error";
+  }
+  function hideProtErr(){
+    el("protErr").style.display = "none";
+    el("protErr").textContent = "";
+  }
+
+  function stars_(n){
+    const x = String(n||"1").trim();
+    if (x === "3") return "★★★";
+    if (x === "2") return "★★";
+    return "★";
+  }
+
+  // ---- Genre tags master (pulldown) ----
+  // ここは運用しながら増やしてOK（表記ゆれが価値毀損するので、基本ここに集約）
+  let __GENRE_TAGS__ = [];
+
+  function reloadGenreTags(){
+    google.script.run
+      .withFailureHandler(err => showProtErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showProtErr((res && res.message) ? res.message : "listGenreTags failed");
+          __GENRE_TAGS__ = [];
+          fillGenreDatalist_();
+          return;
+        }
+        __GENRE_TAGS__ = Array.isArray(res.tags) ? res.tags : [];
+        fillGenreDatalist_();
+      })
+      .admin_listGenreTags();
+  }
+
+  function renderGenreTagList_(){
+    const wrap = el("genreTagList");
+    if (!wrap) return;
+
+    const tags = Array.isArray(__GENRE_TAGS__) ? __GENRE_TAGS__ : [];
+    if (!tags.length){
+      wrap.innerHTML = `<span class="pill gray">候補なし</span>`;
+      return;
+    }
+
+    wrap.innerHTML = tags.map(t => `
+      <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+        ${escapeHtml(t)}
+        <button class="btn" style="padding:2px 8px; font-weight:900; border-color:#fecaca; color:#b91c1c;"
+          onclick="removeGenreTag('${escapeHtmlAttr(t)}')">×</button>
+      </span>
+    `).join("");
+  }
+
+  function addGenreTag(){
+    const tag = (el("genreNewTag")?.value || "").trim();
+    if (!tag) return;
+
+    google.script.run
+      .withFailureHandler(err => showProtErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showProtErr((res && res.message) ? res.message : "addGenreTag failed");
+          return;
+        }
+        el("genreNewTag").value = "";
+        reloadGenreTags();
+      })
+      .admin_addGenreTag({ tag });
+  }
+
+  function removeGenreTag(tag){
+    const t = String(tag||"").trim();
+    if (!t) return;
+
+    const ok = window.confirm(`候補から削除する？（非表示化）\n${t}`);
+    if (!ok) return;
+
+    google.script.run
+      .withFailureHandler(err => showProtErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showProtErr((res && res.message) ? res.message : "removeGenreTag failed");
+          return;
+        }
+        reloadGenreTags();
+      })
+      .admin_removeGenreTag({ tag: t });
+  }
+
+  function getTagsFromHidden_(hiddenId){
+    const v = (el(hiddenId)?.value || "").trim();
+    if (!v) return [];
+    const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+    // uniq keep order
+    const seen = new Set();
+    const out = [];
+    arr.forEach(t => { if (!seen.has(t)) { seen.add(t); out.push(t); }});
+    return out;
+  }
+
+  function setTagsHidden_(hiddenId, tags){
+    const arr = Array.isArray(tags) ? tags : [];
+    el(hiddenId).value = arr.join(",");
+  }
+
+  function renderTagChips_(wrapId, hiddenId){
+    const wrap = el(wrapId);
+    if (!wrap) return;
+    const tags = getTagsFromHidden_(hiddenId);
+
+    if (!tags.length){
+      wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+      return;
+    }
+
+    wrap.innerHTML = tags.map(t => `
+      <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+        ${escapeHtml(t)}
+        <button class="btn" style="padding:2px 8px; font-weight:900;" onclick="removeTagFromHidden('${escapeHtmlAttr(hiddenId)}','${escapeHtmlAttr(t)}')">×</button>
+      </span>
+    `).join("");
+  }
+
+  function addNewTagFromPick(){
+    const pick = (el("protNewTagPick")?.value || "").trim();
+    if (!pick) return;
+
+    const tags = getTagsFromHidden_("protNewTagsHidden");
+    if (!tags.includes(pick)) tags.push(pick);
+
+    setTagsHidden_("protNewTagsHidden", tags);
+    renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+  }
+
+  function removeTagFromHidden(hiddenId, tag){
+    const hid = String(hiddenId||"").trim();
+    const t = String(tag||"").trim();
+    const tags = getTagsFromHidden_(hid).filter(x => x !== t);
+    setTagsHidden_(hid, tags);
+
+    // 現状は「新規追加フォーム」だけで使う（将来、行編集でも使える）
+    if (hid === "protNewTagsHidden"){
+      renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+    }
+  }
+
+  function fillProjectSelect_(){
+    const sel = el("protNewProjectName");
+    if (!sel) return;
+
+    const rows = Array.isArray(__PJS__) ? __PJS__ : [];
+
+    // ★activeだけ
+    const activeNames = rows
+      .filter(p => String(p.status || "").trim().toLowerCase() === "active")
+      .map(p => String(p.projectName || "").trim())
+      .filter(x => x);
+
+    const uniq = Array.from(new Set(activeNames)).sort((a,b)=>a.localeCompare(b,"ja"));
+
+    sel.innerHTML =
+      `<option value="">（選択）</option>` +
+      uniq.map(n => `<option value="${escapeHtmlAttr(n)}">${escapeHtml(n)}</option>`).join("");
+  }
+
+  function buildProjectNameDatalist_(){
+    const dl = el("protProjectNameList");
+    if (!dl) return;
+    if (!Array.isArray(__PJS__) || !__PJS__.length) return;
+
+    // ★activeだけ
+    const names = Array.from(new Set(
+      __PJS__
+        .filter(p => String(p.status||"").trim().toLowerCase() === "active")
+        .map(p => String(p.projectName||"").trim())
+        .filter(x=>x)
+    ));
+
+    dl.innerHTML = names.map(n => `<option value="${escapeHtmlAttr(n)}"></option>`).join("");
+  }
+
+  function getProtocolFilters_(){
+    return {
+      projectName: (el("protFltProjectName").value || "").trim(),
+      status: (el("protFltStatus").value || "").trim().toLowerCase(),
+      sourceType: (el("protFltSourceType").value || "").trim().toLowerCase(),
+      q: (el("protFltQ").value || "").trim(),
+      limit: 500
+    };
+  }
+
+function openNewProtocolInline(){
+    const box = el("protNewBox");
+    if (!box) return;
+    box.style.display = "block";
+
+    el("protNewTagsHidden").value = "";
+    renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+
+    reloadGenreTags();
+    try { initGenreInputHandlers_(); } catch(e){}
+    if (el("protNewTagInput")) el("protNewTagInput").value = "";
+
+    if (Array.isArray(__PJS__) && __PJS__.length){
+      fillProjectSelect_();
+      const pn = (el("protFltProjectName")?.value || "").trim();
+      if (pn && el("protNewProjectName")){
+        const opt = Array.from(el("protNewProjectName").options).some(o => o.value === pn);
+        if (opt) el("protNewProjectName").value = pn;
+      }
+      return;
+    }
+
+    google.script.run
+      .withFailureHandler(err => showProtErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (res && res.ok && Array.isArray(res.projects)){
+          __PJS__ = res.projects.filter(p => String(p.status||"").trim().toLowerCase() === "active");
+        } else {
+          __PJS__ = [];
+        }
+        fillProjectSelect_();
+        buildProjectNameDatalist_();
+        const pn = (el("protFltProjectName")?.value || "").trim();
+        if (pn && el("protNewProjectName")){
+          const opt = Array.from(el("protNewProjectName").options).some(o => o.value === pn);
+          if (opt) el("protNewProjectName").value = pn;
+        }
+      })
+      .admin_listProjectsFull();
+  }
+
+  function closeNewProtocolInline(){
+    const box = el("protNewBox");
+    if (!box) return;
+    box.style.display = "none";
+  }
+
+  function createProtocolManual(){
+    hideProtErr();
+
+    const projectName = (el("protNewProjectName")?.value || "").trim();
+    const decisionPoint = (el("protNewDecisionPoint")?.value || "").trim();
+    const decisionCriteria = (el("protNewDecisionCriteria")?.value || "").trim();
+    const actionText = (el("protNewAction")?.value || "").trim();
+
+    const importance = (el("protNewImportance")?.value || "1").trim();
+    const tags = (el("protNewTagsHidden")?.value || "").trim();
+
+    const sourceType = (el("protNewSourceType")?.value || "manual").trim().toLowerCase();
+    const sourceRef = (el("protNewSourceRef")?.value || "").trim();
+    const notesBase = (el("protNewNotes")?.value || "").trim();
+
+    if (!projectName) { showProtErr("PJ名が空"); return; }
+    if (!decisionPoint) { showProtErr("分岐点が空"); return; }
+    if (!decisionCriteria) { showProtErr("判断条件が空"); return; }
+
+    // ★actionは現状notesに埋め込む（DB/バックエンドを今はいじらない）
+    const notes = (notesBase || "") + (actionText ? ((notesBase ? "\n" : "") + "action: " + actionText) : "");
+
+    el("protHint").textContent = "作成中...";
+
+    google.script.run
+      .withFailureHandler(err => showProtErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showProtErr((res && res.message) ? res.message : "create failed");
+          return;
+        }
+
+        el("protHint").textContent = `作成した：${res.protocolId || "-"}`;
+
+        // 入力リセット（PJ名は残す）
+        if (el("protNewDecisionPoint")) el("protNewDecisionPoint").value = "";
+        if (el("protNewDecisionCriteria")) el("protNewDecisionCriteria").value = "";
+        if (el("protNewAction")) el("protNewAction").value = "";
+        if (el("protNewSourceRef")) el("protNewSourceRef").value = "";
+        if (el("protNewNotes")) el("protNewNotes").value = "";
+        if (el("protNewImportance")) el("protNewImportance").value = "1";
+
+        el("protNewTagsHidden").value = "";
+        renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+
+        closeNewProtocolInline();
+        loadProtocols();
+      })
+      .admin_createProtocolManual({
+        projectName,
+        decisionPoint,
+        decisionCriteria,
+        tags,
+        importance,
+        sourceType,
+        sourceRef,
+        notes
+      });
+  }
+
+  function renderTagBadges_(tagsStr){
+    const s = String(tagsStr||"").trim();
+    if (!s) return `<span class="pill gray">-</span>`;
+    const arr = s.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+    if (!arr.length) return `<span class="pill gray">-</span>`;
+    return arr.map(t=>`<span class="pill">${escapeHtml(t)}</span>`).join(" ");
+  }
+
+  function groupKeyByTags_(tagsStr){
+    const s = String(tagsStr||"").trim();
+    if (!s) return "（未分類）";
+    const arr = s.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+    return arr.length ? arr[0] : "（未分類）";
+  }
+
+  function editConfirmedProtocol_(protocolId, dp, dc, ac, tags, importance){
+    hideProtErr();
+    const id = String(protocolId||"").trim();
+    if (!id) { showProtErr("protocolId empty"); return; }
+
+    const bodyHtml = [
+      `<div style="margin-top:8px;">`,
+        `<div class="ctlLabel">分岐点</div>`,
+        `<input id="editProt_dp" class="ctl" style="width:100%;" value="${escapeHtmlAttr(dp)}" />`,
+      `</div>`,
+      `<div style="margin-top:8px;">`,
+        `<div class="ctlLabel">判断条件</div>`,
+        `<textarea id="editProt_dc" class="ctl" style="width:100%; height:100px; resize:vertical;">${escapeHtml(dc)}</textarea>`,
+      `</div>`,
+      `<div style="margin-top:8px;">`,
+        `<div class="ctlLabel">アクション</div>`,
+        `<textarea id="editProt_ac" class="ctl" style="width:100%; height:80px; resize:vertical;">${escapeHtml(ac)}</textarea>`,
+      `</div>`,
+      `<div style="margin-top:8px;">`,
+        `<div class="ctlLabel">タグ（カンマ区切り）</div>`,
+        `<input id="editProt_tags" class="ctl" style="width:100%;" value="${escapeHtmlAttr(tags)}" />`,
+      `</div>`,
+      `<div class="small muted" style="margin-top:8px;">protocolId: <span class="mono">${escapeHtml(id)}</span></div>`
+    ].join("");
+
+    openAppModal_(
+      "確定済みプロトコルを編集",
+      bodyHtml,
+      () => {
+        const newDp   = String(el("editProt_dp")?.value   || "").trim();
+        const newDc   = String(el("editProt_dc")?.value   || "").trim();
+        const newAc   = String(el("editProt_ac")?.value   || "").trim();
+        const newTags = String(el("editProt_tags")?.value || "").trim();
+
+        if (!newDp) { showProtErr("分岐点が空"); return; }
+        if (!newDc) { showProtErr("判断条件が空"); return; }
+
+        el("protHint").textContent = `更新中... ${id}`;
+
+        google.script.run
+          .withFailureHandler(err => showProtErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){ showProtErr((res && res.message) || "update failed"); return; }
+            el("protHint").textContent = `更新した：${id}`;
+            loadProtocols();
+          })
+          .admin_updateProtocol({
+            protocolId: id,
+            branchPoint: newDp,
+            criteria: newDc,
+            actionTaken: newAc,
+            tags: newTags,
+            importance: importance,
+            sourceType: "",
+            sourceRef: ""
+          });
+      },
+      { input: false }
+    );
+  }
+
+  function changeProtocolStatus(protocolId, nextStatus, btnEl){
+    hideProtErr();
+    const id = (protocolId || "").trim();
+    const st = (nextStatus || "").trim().toLowerCase();
+    if (!id) { showProtErr("protocolId empty"); return; }
+    if (!st) { showProtErr("nextStatus empty"); return; }
+
+    const ok = window.confirm(`status を ${st} にする？\nprotocolId=${id}`);
+    if (!ok) return;
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "処理中...";
+    }
+    el("protHint").textContent = `status更新中... ${id} -> ${st}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){ btnEl.disabled=false; btnEl.textContent=""; }
+        showProtErr(err?.message || String(err));
+      })
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showProtErr((res && res.message) ? res.message : "status change failed");
+          return;
+        }
+        el("protHint").textContent = `status更新：${id} -> ${res.status || st}`;
+        loadProtocols();
+      })
+      .admin_changeProtocolStatus({ protocolId:id, nextStatus: st });
+  }
+
+  function renderProtocolsTables_(candidateList, confirmedList){
+    const candTb = el("protCandTbody");
+    const confTb = el("protConfTbody");
+
+    const cands = Array.isArray(candidateList) ? candidateList : [];
+    const confs = Array.isArray(confirmedList) ? confirmedList : [];
+
+    // ★activeだけ
+    const pjOpts = (Array.isArray(__PJS__) ? __PJS__ : [])
+      .filter(p => String(p.status||"").trim().toLowerCase() === "active")
+      .map(p => ({ id:String(p.projectId||"").trim(), name:String(p.projectName||"").trim() }))
+      .filter(p => p.id && p.name);
+
+    function pjSelect_(selectedId, selId){
+      const opts = [`<option value="">（選択）</option>`].concat(
+        pjOpts.map(p=>{
+          const sel = (String(p.id) === String(selectedId)) ? "selected" : "";
+          return `<option value="${escapeHtmlAttr(p.id)}" ${sel}>${escapeHtml(p.name)} (${escapeHtml(p.id)})</option>`;
+        })
+      );
+      return `<select class="ctl" id="${escapeHtmlAttr(selId)}" style="width:180px">${opts.join("")}</select>`;
+    }
+
+    function confNum_(v){
+      if (v === null || v === undefined || v === "") return "";
+      const n = Number(v);
+      if (!isFinite(n)) return String(v);
+      return String(Math.round(n*100)/100);
+    }
+
+    function evidenceText_(p){
+      const ev = String(p.evidence || p.notes || "").trim();
+      if (ev) return ev;
+      // 確定済みProtocolはsourceRefにcandidateIdが入ってる
+      return String(p.sourceRef || "").trim();
+    }
+
+    function extractActionText_(p){
+      const a1 = String(p.actionTaken || p.action || "").trim();
+      if (a1) return a1;
+
+      const a2 = String(p.decision || "").trim();
+      if (a2) return a2;
+
+      return "";
+    }
+
+    function escOneLineAttr_(s){
+      return escapeHtmlAttr(String(s||"").replace(/[\r\n]+/g, " "));
+    }
+
+    function opButtons_(p, mode){
+      const kind = String(p.__kind||"");
+      if (kind === "notion_candidate"){
+        const id = escOneLineAttr_(p.id || "");
+        const dp = escOneLineAttr_(p.decisionPoint || "");
+        const dc = escOneLineAttr_(p.decisionCriteria || "");
+        const ac = escOneLineAttr_(extractActionText_(p) || "");
+        return `
+          <button class="btn" onclick="confirmNotionCandidate_('${id}')">確定</button>
+          <button class="btn" onclick="fixNotionCandidate_('${id}','${dp}','${dc}','${ac}')">修正</button>
+          <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="rejectNotionCandidate_('${id}','${dp}','${dc}','${ac}')">却下</button>
+        `;
+      }
+
+      const protocolId = escapeHtmlAttr(p.protocolId || "");
+      if (mode === "candidate"){
+        return `
+          <button class="btn" onclick="changeProtocolStatus('${protocolId}','confirmed', this)">確定</button>
+          <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="changeProtocolStatus('${protocolId}','archived', this)">却下</button>
+        `;
+      }
+      const dp = escOneLineAttr_(p.decisionPoint || "");
+      const dc = escOneLineAttr_(p.decisionCriteria || "");
+      const ac = escOneLineAttr_(extractActionText_(p) || "");
+      const tg = escOneLineAttr_(p.tags || "");
+      const im = escOneLineAttr_(p.importance || "1");
+      return `
+        <button class="btn" onclick="editConfirmedProtocol_('${protocolId}','${dp}','${dc}','${ac}','${tg}','${im}')">編集</button>
+        <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="changeProtocolStatus('${protocolId}','archived', this)">アーカイブ</button>
+      `;
+    }
+
+    function rowHtml_(p, mode){
+      const kind = String(p.__kind||"");
+      const idRaw = (p.protocolId || p.id || "");
+      const id = escapeHtml(idRaw);
+
+      const dp = escapeHtml(p.decisionPoint || "");
+      const dc = escapeHtml(p.decisionCriteria || "");
+      const ac = escapeHtml(extractActionText_(p));
+
+      const ev = escapeHtml(evidenceText_(p));
+
+      const pjName = escapeHtml(p.projectName || p.projectId || "");
+      const conf = escapeHtml(confNum_(p.confidence || "")) || "-";
+      const imp = stars_(p.importance || "1");
+      const tags = renderTagBadges_(p.tags || "");
+      const srcType = pill(p.sourceType || "");
+      const srcRef = escapeHtml(String(p.sourceRef || "").trim() || "-");
+      const createdAt = escapeHtml(p.createdAt || "") || "-";
+      const createdBy = escapeHtml(p.createdBy || "") || "-";
+
+      if (kind === "notion_candidate"){
+        const cid = escapeHtmlAttr(String(p.id||""));
+        const selPj = pjSelect_(String(p.projectId||""), `npj_${cid}`);
+        const selImp = `
+          <select class="ctl" id="nimp_${cid}" style="width:100px">
+            <option value="1">★</option>
+            <option value="2">★★</option>
+            <option value="3">★★★</option>
+          </select>
+        `;
+        const inpTags = `<input class="ctl" id="ntags_${cid}" style="width:180px" value="${escapeHtmlAttr(String(p.tags||""))}" />`;
+
+        return `
+          <tr>
+            <td class="noteCell"><b>${dp}</b></td>
+            <td class="noteCell">${dc}</td>
+            <td class="noteCell">${ac}</td>
+
+            <td class="nowrap">${opButtons_(p, mode)}</td>
+
+            <td class="noteCell"><pre class="muted" style="margin:0; white-space:pre-wrap;">${ev}</pre></td>
+            <td class="nowrap">${selPj}</td>
+
+            <td class="nowrap">${conf}</td>
+            <td class="nowrap">${selImp}</td>
+            <td class="nowrap">${inpTags}</td>
+
+            <td class="nowrap">${srcType}</td>
+            <td class="noteCell">${srcRef}</td>
+
+            <td class="small nowrap">${createdAt}</td>
+            <td class="small nowrap">${createdBy}</td>
+
+            <td class="mono nowrap">${id}</td>
+          </tr>
+        `;
+      }
+
+      return `
+        <tr>
+          <td class="noteCell"><b>${dp}</b></td>
+          <td class="noteCell">${dc}</td>
+          <td class="noteCell">${ac || `<span class="pill gray">-</span>`}</td>
+
+          <td class="nowrap">${opButtons_(p, mode)}</td>
+
+          <td class="noteCell"><pre class="muted" style="margin:0; white-space:pre-wrap;">${ev}</pre></td>
+          <td class="noteCell">${pjName}</td>
+
+          <td class="nowrap">${conf}</td>
+          <td class="nowrap">${imp}</td>
+          <td class="noteCell">${tags}</td>
+
+          <td class="nowrap">${srcType}</td>
+          <td class="noteCell">${srcRef}</td>
+
+          <td class="small nowrap">${createdAt}</td>
+          <td class="small nowrap">${createdBy}</td>
+
+          <td class="mono nowrap">${id}</td>
+        </tr>
+      `;
+    }
+
+    if (!cands.length){
+      candTb.innerHTML = `<tr><td colspan="14" class="muted">該当なし</td></tr>`;
+    } else {
+      cands.sort((a,b)=> String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+      candTb.innerHTML = cands.map(p => rowHtml_(p, "candidate")).join("");
+    }
+
+    if (!confs.length){
+      confTb.innerHTML = `<tr><td colspan="14" class="muted">該当なし</td></tr>`;
+    } else {
+      confs.sort((a,b)=> String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+      confTb.innerHTML = confs.map(p => rowHtml_(p, "confirmed")).join("");
+    }
+
+    initResizableColumns_("tblProtCandidate");
+    initResizableColumns_("tblProtConfirmed");
+  }
+
+  function loadProtocols(){
+    hideProtErr();
+
+    try { buildProjectNameDatalist_(); } catch(e){}
+
+    el("protHint").textContent = "loading...";
+    el("protCandTbody").innerHTML = `<tr><td colspan="14" class="muted">loading...</td></tr>`;
+    el("protConfTbody").innerHTML = `<tr><td colspan="14" class="muted">loading...</td></tr>`;
+
+    ensureProjectsLoaded_(() => {
+      google.script.run
+        .withFailureHandler(err => showProtErr(err?.message || String(err)))
+        .withSuccessHandler(resProt => {
+          if (!resProt || !resProt.ok){
+            const detail = (resProt === null || resProt === undefined) ? "null" : JSON.stringify(resProt);
+            showProtErr((resProt && resProt.message) ? resProt.message : `load failed: ${detail}`);
+            return;
+          }
+
+          const protRows = Array.isArray(resProt.protocols) ? resProt.protocols : [];
+          const candidates = protRows.filter(p => String(p.status||"").toLowerCase() === "candidate");
+          const confirmed  = protRows.filter(p => String(p.status||"").toLowerCase() === "confirmed");
+
+          google.script.run
+            .withFailureHandler(err => showProtErr(err?.message || String(err)))
+            .withSuccessHandler(resCand => {
+              const candRows = (resCand && resCand.ok && Array.isArray(resCand.candidates)) ? resCand.candidates : [];
+
+              const pjMap = Object.create(null);
+              (Array.isArray(__PJS__) ? __PJS__ : []).forEach(p=>{
+                const id = String(p.projectId||"").trim();
+                const name = String(p.projectName||"").trim();
+                if (id && name) pjMap[id] = name;
+              });
+
+              const notionAsProtocols = candRows.map(c => {
+                const pid = String(c.suggestedProjectId || "").trim();
+                const pjName = pjMap[pid] || (pid ? pid : "");
+
+                const evidence = (() => {
+                  try{
+                    const arr = JSON.parse(String(c.evidenceJson||"[]"));
+                    if (!Array.isArray(arr) || !arr.length) return "";
+                    return arr
+                      .slice(0,5)
+                      .map(x => String(x||"").trim())
+                      .filter(x => x)
+                      .join("\n");
+                  } catch(e){
+                    return String(c.evidenceJson||"").trim();
+                  }
+                })();
+
+                return {
+                  __kind: "notion_candidate",
+                  id: String(c.candidateId||"").trim(),
+                  status: "candidate",
+
+                  projectId: pid,
+                  projectName: pjName || (String(c.suggestedProjectName||"").trim() || ""),
+
+                  decisionPoint: String(c.branchPoint||""),
+                  decisionCriteria: String(c.criteria||""),
+                  action:      String(c.actionTaken||""),
+                  sourceRef:   String(c.sourceType||"") + (c.suggestedProjectId ? " " + String(c.suggestedProjectId) : "") + (c.sourceLastEditedAt ? " " + String(c.sourceLastEditedAt) : ""),
+                  evidence: evidence,
+
+                  confidence: String(c.confidence||""),
+                  importance: "1",
+                  tags: String(c.suggestedTags||""),
+                  sourceType: "notion",
+                  sourceRef: String(c.sourceType||"") + (c.suggestedProjectId ? " " + String(c.suggestedProjectId) : "") + (c.sourceLastEditedAt ? " " + String(c.sourceLastEditedAt) : ""),
+                  createdAt: String(c.createdAt||""),
+                  createdBy: ""
+                };
+              });
+
+              const mergedCandidates = candidates.concat(notionAsProtocols);
+
+              renderProtocolsTables_(mergedCandidates, confirmed);
+              el("protHint").textContent = `candidate:${mergedCandidates.length} / confirmed:${confirmed.length}`;
+            })
+            .admin_listProtocolCandidates({ status:"new", limit: 300 });
+        })
+        .admin_listProtocols(getProtocolFilters_());
+    });
+  }
+
+  // ===== Protocol Candidates =====
+  let __CANDS__ = [];
+  let __CAND_META__ = { lastRunId:"", lastSyncIso:"", stateUpdatedAt:"" };
+
+  function showCandErr(msg){
+    el("candErr").style.display = "block";
+    el("candErr").textContent = msg || "error";
+  }
+  function hideCandErr(){
+    el("candErr").style.display = "none";
+    el("candErr").textContent = "";
+  }
+
+  function ensureProjectsLoaded_(cb){
+    if (Array.isArray(__PJS__) && __PJS__.length){
+      cb && cb();
+      return;
+    }
+
+    google.script.run
+      .withFailureHandler(err => showCandErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (res && res.ok && Array.isArray(res.projects)){
+          __PJS__ = res.projects.filter(p => String(p.status||"").trim().toLowerCase() === "active");
+        } else {
+          __PJS__ = [];
+        }
+        try { buildProjectNameDatalist_(); } catch(e){}
+        cb && cb();
+      })
+      .admin_listProjectsFull();
+  }
+
+  function syncNotionCandidates_(dry){
+    hideCandErr();
+    el("candHint").textContent = dry ? "Notion同期（dry）中..." : "Notion同期（書込）中...";
+
+    ensureProjectsLoaded_(() => {
+      google.script.run
+        .withFailureHandler(err => showCandErr(err?.message || String(err)))
+        .withSuccessHandler(res => {
+          if (!res || !res.ok){
+            showCandErr((res && res.message) ? res.message : "sync failed");
+            return;
+          }
+
+          el("candHint").textContent =
+            `同期完了: pages=${res.pages} / noContent=${res.pagesNoContent} / candidates=${res.candidates} / lastSync=${res.lastSyncIso || "-"}`;
+
+          // ★NEW: 内容未入力アラート（コピペ忘れ検知）
+          const noCnt = Number(res.pagesNoContent || 0);
+          const ids = Array.isArray(res.noContentPageIds) ? res.noContentPageIds : [];
+          if (noCnt > 0 && ids.length){
+            const bodyHtml = [
+              `<div style="font-weight:900; margin-bottom:8px;">「内容」未入力の議事録がある</div>`,
+              `<div class="small">Notionのページ本文を「内容」プロパティにコピペしてから再同期してね。</div>`,
+              `<div class="small" style="margin-top:10px;"><b>対象 pageId</b></div>`,
+              `<div class="small mono" style="margin-top:6px; white-space:pre-wrap;">${escapeHtml(ids.join("\n"))}</div>`
+            ].join("");
+
+            openAppModal_(
+              "内容未入力アラート",
+              bodyHtml,
+              () => {},
+              { input:false }
+            );
+          }
+
+          loadCandidates();
+        })
+        .admin_syncNotionMinutesToProtocolCandidates({
+          dryRun: !!dry,
+          limit: 5
+        });
+    });
+  }
+
+  function notionPageUrl_(pageId){
+    const s = String(pageId||"").trim();
+    if (!s) return "";
+    const noHyphen = s.replaceAll("-", "");
+    return "https://www.notion.so/" + noHyphen;
+  }
+
+  function getCandUiFlags_(){
+    return {
+      onlyLatest: !!el("candOnlyLatestRun")?.checked,
+      onlyNotion: !!el("candOnlyNotion")?.checked,
+      thinLowConf: !!el("candThinLowConf")?.checked,
+      onlyUnknownPj: !!el("candOnlyUnknownPj")?.checked
+    };
+  }
+
+  function applyCandFilters_(rows){
+    const flags = getCandUiFlags_();
+    let out = Array.isArray(rows) ? rows.slice() : [];
+
+    const latestRun = String(__CAND_META__.lastRunId || "").trim()
+      || (out.length ? String(out[0].runId || "").trim() : ""); // フォールバック（createdAt desc前提）
+
+    if (flags.onlyLatest && latestRun){
+      out = out.filter(c => String(c.runId||"").trim() === latestRun);
+    }
+    if (flags.onlyNotion){
+      out = out.filter(c => String(c.sourceType||"").trim().toLowerCase() === "notion");
+    }
+    if (flags.onlyUnknownPj){
+      out = out.filter(c => String(c.suggestedProjectId||"").trim().toLowerCase() === "unknown");
+    }
+
+    // thinLowConfは render 側でCSS適用する（フィルタじゃない）
+    return out;
+  }
+
+  function applyCandFiltersAndRender_(){
+    const filtered = applyCandFilters_(__CANDS__);
+    renderCandidates(filtered);
+  }
+
+  function renderCandidates(list){
+    const tb = el("candTbody");
+    const rows = Array.isArray(list) ? list : [];
+
+    const latestRun = String(__CAND_META__.lastRunId || "").trim()
+      || (rows.length ? String(rows[0].runId || "").trim() : "");
+    const metaLine = el("candMetaLine");
+    if (metaLine){
+      metaLine.textContent =
+        `latestRunId: ${latestRun || "-"} / lastSync: ${String(__CAND_META__.lastSyncIso||"") || "-"} / stateUpdatedAt: ${String(__CAND_META__.stateUpdatedAt||"") || "-"}`;
+    }
+
+    if (!rows.length){
+      tb.innerHTML = `<tr><td colspan="12" class="muted">候補なし</td></tr>`;
+      el("candHint").textContent = `candidates: 0`;
+      return;
+    }
+
+    const flags = getCandUiFlags_();
+
+    // ★activeだけ
+    const pjOpts = (Array.isArray(__PJS__) ? __PJS__ : [])
+      .filter(p => String(p.status||"").trim().toLowerCase() === "active")
+      .map(p => ({ id:String(p.projectId||"").trim(), name:String(p.projectName||"").trim() }))
+      .filter(p => p.id && p.name);
+
+    const pjHtml = (selectedId, selId) => {
+      const opts = [`<option value="">（選択）</option>`]
+        .concat(pjOpts.map(p => {
+          const sel = (p.id === selectedId) ? "selected" : "";
+          return `<option value="${escapeHtmlAttr(p.id)}" ${sel}>${escapeHtml(p.name)} (${escapeHtml(p.id)})</option>`;
+        }));
+      return `<select class="ctl" id="${escapeHtmlAttr(selId)}" style="width:240px">${opts.join("")}</select>`;
+    };
+
+    function confIsLow_(v){
+      const n = Number(v);
+      if (!isFinite(n)) return false;
+      return n < 0.7;
+    }
+
+    tb.innerHTML = rows.map(c => {
+      const candId = String(c.candidateId||"").trim();
+      const candIdAttr = escapeHtmlAttr(candId);
+
+      const conf = (c.confidence !== "" && c.confidence !== null && c.confidence !== undefined)
+        ? String(c.confidence)
+        : "-";
+
+      const evText = (() => {
+        try{
+          const arr = JSON.parse(String(c.evidenceJson||"[]"));
+          if (!Array.isArray(arr) || !arr.length) return "";
+          return arr.slice(0,5).map(x => String(x||"").trim()).filter(x=>x).join(" / ");
+        } catch(e){
+          return String(c.evidenceJson||"").trim();
+        }
+      })();
+
+      const pjSelId = `cand_pj_${candIdAttr}`;
+      const impId = `cand_imp_${candIdAttr}`;
+      const tagsId = `cand_tags_${candIdAttr}`;
+
+      const srcUrl = notionPageUrl_(c.sourcePageId);
+
+      const thin = (flags.thinLowConf && confIsLow_(c.confidence)) ? "candThin" : "";
+
+      return `
+        <tr class="${thin}">
+          <td class="nowrap"><b>${escapeHtml(conf)}</b></td>
+
+          <td class="noteCell">${escapeHtml(c.branchPoint||"")}</td>
+          <td class="noteCell">${escapeHtml(c.criteria||"")}</td>
+          <td class="noteCell"><pre class="muted" style="margin:0; white-space:pre-wrap;">${escapeHtml(evText||"")}</pre></td>
+
+          <td class="nowrap">${pjHtml(String(c.suggestedProjectId||""), pjSelId)}</td>
+
+          <td class="nowrap">
+            <select class="ctl" id="${escapeHtmlAttr(impId)}" style="width:110px">
+              <option value="1">★</option>
+              <option value="2">★★</option>
+              <option value="3">★★★</option>
+            </select>
+          </td>
+
+          <td class="nowrap">
+            <input class="ctl" id="${escapeHtmlAttr(tagsId)}" style="width:280px"
+              placeholder="例: 事業計画,資本政策"
+              value="${escapeHtmlAttr(String(c.suggestedTags||""))}" />
+          </td>
+
+          <td class="nowrap">
+            <button class="btn" onclick="promoteCandidate('${candIdAttr}')">promote</button>
+          </td>
+
+          <td class="small nowrap">${escapeHtml(c.createdAt || "")}</td>
+          <td class="small mono nowrap">${escapeHtml(c.runId || "")}</td>
+
+          <td class="noteCell">
+            <div class="small mono">pageId: ${escapeHtml(c.sourcePageId||"")}</div>
+            <div class="small"><a href="${escapeHtmlAttr(srcUrl)}" target="_blank" rel="noopener noreferrer">Notionを開く</a></div>
+          </td>
+
+          <td class="mono nowrap">${escapeHtml(candId)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    el("candHint").textContent = `candidates: ${rows.length}`;
+  }
+
+  function loadCandidates(){
+    hideCandErr();
+    el("candHint").textContent = "loading candidates...";
+    el("candTbody").innerHTML = `<tr><td colspan="12" class="muted">loading...</td></tr>`;
+
+    ensureProjectsLoaded_(() => {
+      google.script.run
+        .withFailureHandler(err => showCandErr(err?.message || String(err)))
+        .withSuccessHandler(res => {
+          if (!res || !res.ok){
+            showCandErr((res && res.message) ? res.message : "load candidates failed");
+            __CANDS__ = [];
+            __CAND_META__ = { lastRunId:"", lastSyncIso:"", stateUpdatedAt:"" };
+            renderCandidates([]);
+            return;
+          }
+
+          __CANDS__ = res.candidates || [];
+          const m = res.meta || {};
+          __CAND_META__ = {
+            lastRunId: String(m.lastRunId || ""),
+            lastSyncIso: String(m.lastSyncIso || ""),
+            stateUpdatedAt: String(m.stateUpdatedAt || "")
+          };
+
+          applyCandFiltersAndRender_();
+        })
+        .admin_listProtocolCandidates({ status:"new", limit: 200 });
+    });
+  }
+
+  function promoteCandidate(candidateId){
+    hideCandErr();
+    const id = String(candidateId||"").trim();
+    if (!id) { showCandErr("candidateId empty"); return; }
+
+    const pjSel = el(`cand_pj_${id}`);
+    const impEl = el(`cand_imp_${id}`);
+    const tagsEl = el(`cand_tags_${id}`);
+
+    const projectId = String(pjSel?.value || "").trim();
+    const importance = String(impEl?.value || "1").trim();
+    const tags = String(tagsEl?.value || "").trim();
+
+    if (!projectId){
+      showCandErr("promote先PJが未選択");
+      return;
+    }
+
+    const ok = window.confirm(`promoteする？\ncandidateId=${id}\nprojectId=${projectId}`);
+    if (!ok) return;
+
+    el("candHint").textContent = `promote中... ${id}`;
+
+    google.script.run
+      .withFailureHandler(err => showCandErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCandErr((res && res.message) ? res.message : "promote failed");
+          return;
+        }
+        el("candHint").textContent = `promote完了：protocolId=${res.protocolId || "-"}`;
+        loadCandidates();
+        loadProtocols();
+      })
+      .admin_promoteProtocolCandidate({
+        candidateId: id,
+        projectId: projectId,
+        tags: tags,
+        importance: importance
+      });
+  }
+
+    function fixNotionCandidate_(candidateId, decisionPoint, decisionCriteria, actionText){
+    hideProtErr();
+    const id = String(candidateId||"").trim();
+    if (!id) { showProtErr("candidateId empty"); return; }
+
+    const dp = String(decisionPoint||"").trim();
+    const dc = String(decisionCriteria||"").trim();
+    const ac = String(actionText||"").trim();
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">修正指示</div>`,
+      `<div class="small" style="margin-top:6px;"><b>分岐点</b><br>${escapeHtml(dp || "-")}</div>`,
+      `<div class="small" style="margin-top:8px;"><b>判断条件</b><br>${escapeHtml(dc || "-")}</div>`,
+      `<div class="small" style="margin-top:8px;"><b>アクション</b><br>${escapeHtml(ac || "-")}</div>`,
+      `<div class="small" style="margin-top:10px; opacity:.8;">candidateId: <span class="mono">${escapeHtml(id)}</span></div>`
+    ].join("");
+
+    openAppModal_(
+      "候補を修正",
+      bodyHtml,
+      (val) => {
+        const instruction = String(val||"").trim();
+        if (!instruction){
+          showProtErr("修正指示が空");
+          return;
+        }
+
+        el("protHint").textContent = `修正中... ${id}`;
+
+        google.script.run
+          .withFailureHandler(err => showProtErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showProtErr((res && res.message) ? res.message : "fix failed");
+              return;
+            }
+            el("protHint").textContent = `修正した：candidateId=${id}`;
+            loadProtocols();
+          })
+          .admin_fixProtocolCandidate({ candidateId: id, instruction });
+      },
+      {
+        input: true,
+        inputLabel: "修正指示",
+        placeholder: "例：分岐点が抽象的すぎる。「〇〇するか否か」の形式に直して",
+        hint: "指示した箇所だけ修正され、他のフィールドはそのまま保持される"
+      }
+    );
+  }
+
+  function rejectNotionCandidate_(candidateId, decisionPoint, decisionCriteria, actionText){
+    hideProtErr();
+    const id = String(candidateId||"").trim();
+    if (!id) { showProtErr("candidateId empty"); return; }
+
+    const dp = String(decisionPoint||"").trim();
+    const dc = String(decisionCriteria||"").trim();
+    const ac = String(actionText||"").trim();
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">却下する内容</div>`,
+      `<div class="small" style="margin-top:6px;"><b>分岐点</b><br>${escapeHtml(dp || "-")}</div>`,
+      `<div class="small" style="margin-top:8px;"><b>判断条件</b><br>${escapeHtml(dc || "-")}</div>`,
+      `<div class="small" style="margin-top:8px;"><b>アクション</b><br>${escapeHtml(ac || "-")}</div>`,
+      `<div class="small" style="margin-top:10px; opacity:.8;">candidateId: <span class="mono">${escapeHtml(id)}</span></div>`
+    ].join("");
+
+    openAppModal_(
+      "候補を却下",
+      bodyHtml,
+      (val) => {
+        const reasonTrim = String(val||"").trim();
+        if (!reasonTrim){
+          showProtErr("reason empty（却下理由が空）。最低1行入れて。");
+          return;
+        }
+
+        el("protHint").textContent = `却下中... (notion candidate) ${id}`;
+
+        google.script.run
+          .withFailureHandler(err => showProtErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showProtErr((res && res.message) ? res.message : "reject failed");
+              return;
+            }
+            el("protHint").textContent = `却下した：candidateId=${id}`;
+            loadProtocols();
+          })
+          .admin_rejectProtocolCandidate({ candidateId: id, reason: reasonTrim });
+      },
+      {
+        input: true,
+        inputLabel: "却下理由（LLM改善に使う）",
+        placeholder: "例：分岐点が抽象的すぎる／判断条件じゃなく単なる事実／アクションがAMDの型になってない／重複 など",
+        hint: "コツ：NGタイプ＋何がダメ＋どう直す、の3点があると次の抽出が賢くなる"
+      }
+    );
+  }
+
+    // ---- Genre tags: datalist ----
+  function fillGenreDatalist_(){
+    const dl = el("genreTagDatalist");
+    if (!dl) return;
+
+    const tags = Array.isArray(__GENRE_TAGS__) ? __GENRE_TAGS__ : [];
+    const uniq = Array.from(new Set(tags.map(t => String(t||"").trim()).filter(x=>x)));
+
+    dl.innerHTML = uniq
+      .sort((a,b)=>a.localeCompare(b,"ja"))
+      .map(t => `<option value="${escapeHtmlAttr(t)}"></option>`)
+      .join("");
+  }
+
+  function addTagToHidden_(tag){
+    const t = String(tag||"").trim();
+    if (!t) return;
+
+    const tags = getTagsFromHidden_("protNewTagsHidden");
+    if (!tags.includes(t)) tags.push(t);
+
+    setTagsHidden_("protNewTagsHidden", tags);
+    renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+  }
+
+  function addTagFromGenreInput_(){
+    const inp = el("protNewTagInput");
+    if (!inp) return;
+
+    const raw = String(inp.value||"").trim();
+    if (!raw) return;
+
+    // ★マスタ未登録でもそのまま追加（LLMが増やす前提なので縛らない）
+    addTagToHidden_(raw);
+
+    // サジェスト体験だけ良くしたいので、ローカル配列には追加しておく（サーバー保存はしない）
+    if (!(__GENRE_TAGS__ || []).some(t => String(t||"").trim() === raw)){
+      __GENRE_TAGS__.push(raw);
+      try{ fillGenreDatalist_(); } catch(e){}
+    }
+
+    inp.value = "";
+  }
+
+  function initGenreInputHandlers_(){
+    const inp = el("protNewTagInput");
+    if (!inp) return;
+
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter"){
+        e.preventDefault();
+        addTagFromGenreInput_();
+      }
+    });
+  }
+</script>

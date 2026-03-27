@@ -1,0 +1,481 @@
+<!-- 221_PjShellPage.html -->
+<!doctype html>
+<html>
+  <head>
+    <base target="_top" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root{
+        --bg:#f6f7fb;
+        --card:#ffffff;
+        --line: rgba(17,24,39,.12);
+        --text:#111827;
+        --sub: rgba(15,23,42,.62);
+        --brand:#4f46e5;
+      }
+      html, body{
+        height: auto;
+        overflow-y: auto;     /* ★縦スクロール復活 */
+        overflow-x: hidden;   /* 横スクロールは抑制（必要なら後で） */
+      }
+      body{
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        margin:0;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .page{
+        max-width: 980px;
+        margin: 0 auto 80px;
+        padding: 0 16px;
+      }
+
+      /* sticky header (Charterのテンション) */
+      #stickyHeaderShell{
+        position: sticky;
+        top: var(--amdNavH, 72px);
+        z-index: 3000;
+
+        margin: 0 auto 10px;
+        max-width: 980px;
+
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,.92);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 1px 0 rgba(0,0,0,.02);
+      }
+      .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+      .pill{
+        display:inline-flex; align-items:center; gap:6px;
+        padding: 4px 10px; border-radius: 999px;
+        background:#eef2ff; border:1px solid #e0e7ff;
+        font-size:12px; font-weight:900; color:#3730a3;
+      }
+      .small{ font-size:12px; color:var(--sub); }
+
+      /* tabs + body connect (Charter仕様) */
+      .pjShell{
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 0 16px;
+      }
+      .pjTabsBar{
+        display:flex;
+        gap:6px;
+        align-items:flex-end;
+        flex-wrap:wrap;
+        margin: 10px 0 0;
+        padding: 0 10px;
+      }
+      .pjTab{
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: rgba(255,255,255,.55);
+        color: rgba(15,23,42,.65);
+        font-weight: 950;
+        font-size: 13px;
+        text-decoration:none;
+        cursor:pointer;
+        border-top-left-radius: 14px;
+        border-top-right-radius: 14px;
+        position: relative;
+        top: 1px;
+        z-index: 1;
+      }
+      .pjTab:hover{ background: rgba(255,255,255,.85); }
+      .pjTab.active{
+        background:#fff;
+        color: var(--text);
+        border-bottom-color:#fff;
+        top: 0;
+        z-index: 3;
+      }
+      .pjTab .dot{
+        width:8px; height:8px; border-radius:999px;
+        background: rgba(15,23,42,.25);
+      }
+      .pjTab.active .dot{ background: var(--brand); }
+
+      .pjTabBody{
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fff;
+        margin-top: -1px;
+        overflow: hidden;
+      }
+
+      /* iframe */
+      #contentFrame{
+        width: 100%;
+        border: none;
+        display:block;
+        min-height: 1200px; /* ★通知来る前も見える */
+        background:#fff;
+      }
+
+    </style>
+  </head>
+  <body>
+    <?!= navHtml ?>
+
+    <div class="page">
+      <div id="stickyHeaderShell">
+        <div class="row" style="justify-content:space-between; align-items:flex-start;">
+          <div style="min-width: 240px;">
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <div style="font-weight:900; font-size:15px;" id="pjTitleLine">
+                <?= (projectName ? projectName : projectId) ?> (<?= projectId ?>)
+              </div>
+              <div class="row" style="gap:8px;">
+                <span class="small" style="font-weight:900;">Status</span>
+                <span class="pill" id="pjStatusBadge">loading...</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="row" style="justify-content:flex-end;">
+            <span class="pill" id="pageStatusTop">ready</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pjTabsBar">
+        <a href="#" class="pjTab" id="tabCharter"><span class="dot"></span>Charter</a>
+        <a href="#" class="pjTab" id="tabNavigator"><span class="dot"></span>Navigator</a>
+        <a href="#" class="pjTab" id="tabTimeline"><span class="dot"></span>Timeline</a>
+        <a href="#" class="pjTab" id="tabBilling"><span class="dot"></span>Chronicle</a>
+      </div>
+
+        <div class="pjTabBody">
+          <div id="shellDebug" style="
+            padding:8px 12px;
+            font-size:12px;
+            color:#111827;
+            border-bottom:2px solid #ef4444;
+            background:#fff7ed;
+            min-height: 72px;
+            max-height: 140px;
+            overflow:auto;
+            white-space: pre-wrap;
+          ">
+          DEBUG: (empty)
+          </div>
+          <iframe id="contentFrame" src=""></iframe>
+        </div>
+      </div>
+    </div>
+
+<script>
+  let BASE_URL = "<?= baseUrl ?>";
+  const PROJECT_ID = "<?= projectId ?>";
+  const PROJECT_NAME = "<?= projectName ?>";
+  let current = "<?= initialTab ?>";
+
+  function qs(sel){ return document.querySelector(sel); }
+
+  function getParam_(name){
+    try{
+      const u = new URL(location.href);
+      return u.searchParams.get(name) || "";
+    } catch(e){
+      return "";
+    }
+  }
+
+  const DEBUG = (getParam_("debug") === "1");
+
+  function setDebug(msg){
+    const el = qs("#shellDebug");
+    if (!el) return;
+
+    if (!DEBUG){
+      el.style.display = "none";
+      return;
+    }
+    el.style.display = "block";
+
+    const now = new Date();
+    const ts = [
+      String(now.getHours()).padStart(2,"0"),
+      String(now.getMinutes()).padStart(2,"0"),
+      String(now.getSeconds()).padStart(2,"0")
+    ].join(":");
+
+    const line = `[${ts}] ${String(msg || "")}`;
+    const lines = (el.textContent || "").split("\n").filter(x=>x.trim() !== "");
+    lines.push(line);
+    while(lines.length > 30) lines.shift();
+    el.textContent = lines.join("\n");
+  }
+
+  // ★ /exec の絶対URLを必ず作る（BASE_URLが空でも復旧）
+  function resolveBaseUrl_(){
+    // 1) テンプレ注入が正しければそれを使う
+    try{
+      const s = String(BASE_URL || "");
+      if (s && s.indexOf("/exec") >= 0){
+        const u = new URL(s);
+        return u.origin + u.pathname; // クエリは捨てる
+      }
+    } catch(e){}
+
+    // 2) Nav内リンクから拾う（homeUrl等は必ず /exec を含む）
+    try{
+      const a = document.querySelector('a[href*="/exec"]');
+      if (a && a.href){
+        const u = new URL(a.href);
+        return u.origin + u.pathname;
+      }
+    } catch(e){}
+
+    // 3) いまのlocationが /exec ならそれ
+    try{
+      const u = new URL(location.href);
+      if (String(u.pathname || "").indexOf("/exec") >= 0){
+        return u.origin + u.pathname;
+      }
+    } catch(e){}
+
+    return "";
+  }
+
+  function buildEmbedUrl(page){
+    const base = resolveBaseUrl_();
+
+    // baseが取れないまま相対URLにすると googleusercontent に吸われて死ぬので停止
+    if (!base) return "about:blank";
+
+    // ★シェルのURLから ym / focus を拾って iframe に引き継ぐ
+    const ym = String(getParam_("ym") || "").trim();
+    const focus = String(getParam_("focus") || "").trim();
+
+    const q = [];
+    q.push("page=" + encodeURIComponent(page || "charter"));
+    if (PROJECT_ID) q.push("projectId=" + encodeURIComponent(PROJECT_ID));
+    if (PROJECT_NAME) q.push("projectName=" + encodeURIComponent(PROJECT_NAME));
+
+    // ★ここが本丸：Billingの着地に必要
+    if (ym) q.push("ym=" + encodeURIComponent(ym));
+    if (focus) q.push("focus=" + encodeURIComponent(focus));
+
+    q.push("spa=0");
+    q.push("embed=1");
+    return base + "?" + q.join("&");
+  }
+
+  const URLS = {
+    charter: buildEmbedUrl("charter"),
+    navigator: buildEmbedUrl("navigator"),
+    timeline: buildEmbedUrl("timeline"),
+    billing: buildEmbedUrl("billing"),
+  };
+
+  function setActive(tab){
+    current = tab;
+    ["charter","navigator","timeline","billing"].forEach(k=>{
+      const a = qs("#tab" + k[0].toUpperCase() + k.slice(1));
+      if (!a) return;
+      a.classList.toggle("active", k===tab);
+    });
+  }
+
+  // ===== iframe height: postMessage only (cross-origin OK) =====
+  function fitFrameToViewport_(){
+    const f = qs("#contentFrame");
+    if (!f) return;
+
+    const rect = f.getBoundingClientRect();
+    const pad = 16; // ちょい余白
+    const avail = Math.max(480, Math.floor(window.innerHeight - rect.top - pad));
+
+    if (fitFrameToViewport_._lastH === avail) return;
+    fitFrameToViewport_._lastH = avail;
+
+    f.style.height = avail + "px";
+  }
+
+  // 子iframeの高さ通知に合わせて iframe 自体を伸ばす（＝ブラウザ縦スクロールが生きる）
+  function applyIframeHeight_(h){
+    const f = qs("#contentFrame");
+    if (!f) return;
+
+    const n = Number(h || 0);
+    if (!n || isNaN(n)) return;
+
+    // 極端な値を抑制（暴走防止）
+    const clamped = Math.max(480, Math.min(20000, Math.floor(n)));
+
+    if (applyIframeHeight_._lastH === clamped) return;
+    applyIframeHeight_._lastH = clamped;
+
+    f.style.height = clamped + "px";
+  }
+
+  window.addEventListener("message", (ev)=>{
+    const raw = ev ? ev.data : null;
+
+    let msg = raw;
+    try{
+      if (typeof raw === "string" && raw.trim().startsWith("{")) msg = JSON.parse(raw);
+    } catch(e){ msg = raw; }
+
+    if (!msg || typeof msg !== "object") return;
+
+    // ===== 1) iframe height =====
+    if (msg.type === "AMD_OS_IFRAME_SIZE"){
+      const h = Number(msg.height || 0);
+      if (!h || isNaN(h)) return;
+
+      if (DEBUG) setDebug("recv size=" + h + " origin=" + (ev.origin || ""));
+      applyIframeHeight_(h);
+      return;
+    }
+
+    // ===== 2) 子画面から「遷移して」依頼 =====
+    if (msg.type === "AMD_OS_NAVIGATE_URL"){
+      const url = String(msg.url || "").trim();
+      const navId = String(msg.navId || "").trim();
+      if (!url) return;
+
+      // ★まずACKを返す（Home側が詰まないため）
+      try{
+        if (navId && ev && ev.source && typeof ev.source.postMessage === "function"){
+          ev.source.postMessage({ type:"AMD_OS_NAVIGATE_ACK", navId: navId }, "*");
+        }
+      } catch(e){}
+
+      try{
+        const target = new URL(url);
+
+        const isAllowedHost =
+          (target.hostname === "script.google.com") ||
+          (target.hostname === "script.googleusercontent.com");
+        const isExec = (target.pathname || "").indexOf("/exec") >= 0;
+
+        if (!isAllowedHost || !isExec){
+          if (DEBUG) setDebug("NAVIGATE blocked: " + target.hostname + " " + target.pathname);
+          return;
+        }
+
+        if (DEBUG) setDebug("NAVIGATE full -> " + url);
+
+        // ★フル遷移（Homeを確実にアンロードしてブロッカー残留を潰す）
+        location.assign(url);
+
+      } catch(e){
+        if (DEBUG) setDebug("NAVIGATE error: " + (e && e.message ? e.message : String(e)));
+      }
+      return;
+    }
+
+  }, true);
+
+  function loadTab(tab, push){
+    setActive(tab);
+    const f = qs("#contentFrame");
+
+    // ★毎回作り直す（URLの ym/focus が変わる前提）
+    const src = buildEmbedUrl(tab) || buildEmbedUrl("charter");
+
+    setDebug("BASE_URL=" + String(BASE_URL||""));
+    setDebug("resolvedBase=" + String(resolveBaseUrl_ ? resolveBaseUrl_() : "(no resolver)"));
+    if (DEBUG){
+      setDebug("PROJECT_ID=" + String(PROJECT_ID||""));
+      setDebug("PROJECT_NAME=" + String(PROJECT_NAME||""));
+      setDebug("iframe src=" + src);
+    }
+
+    if (f.src === src){
+      const u = new URL(src);
+      u.searchParams.set("_ts", String(Date.now()));
+      f.src = u.toString();
+    } else {
+      f.src = src;
+    }
+
+    if (push){
+      const u = new URL(location.href);
+      u.searchParams.set("page", tab);
+      u.searchParams.delete("spa");
+      u.searchParams.delete("embed");
+      history.pushState({tab}, "", u.toString());
+    }
+  }
+
+  (function bindFrameEvents(){
+    const f = qs("#contentFrame");
+    if (!f) return;
+
+    f.addEventListener("load", ()=>{
+      setDebug("iframe loaded: " + (f.src || ""));
+
+      // 子から size が来るまでの保険
+      if (!applyIframeHeight_._lastH){
+        try{ f.style.height = "1200px"; } catch(e){}
+      }
+
+      // ★上段の loading... を終わらせる（最低限の体感改善）
+      try{
+        const b = document.getElementById("pjStatusBadge");
+        if (b) b.textContent = "ready";
+      } catch(e){}
+
+      try{
+        const s = document.getElementById("pageStatusTop");
+        if (s) s.textContent = current || "ready";
+      } catch(e){}
+
+      // viewportフィットを毎回当てる
+      try{ fitFrameToViewport_(); } catch(e){}
+    });
+
+    f.addEventListener("error", ()=>{
+      setDebug("iframe ERROR: " + (f.src || ""));
+    });
+
+  })();
+
+  function bind(){
+    qs("#tabCharter").addEventListener("click", (e)=>{ e.preventDefault(); loadTab("charter", true); });
+    qs("#tabNavigator").addEventListener("click", (e)=>{ e.preventDefault(); loadTab("navigator", true); });
+    qs("#tabTimeline").addEventListener("click", (e)=>{ e.preventDefault(); loadTab("timeline", true); });
+    qs("#tabBilling").addEventListener("click", (e)=>{
+      e.preventDefault();
+      var url = "<?= baseUrl ?>" + "?page=chronicle"
+        + "&projectId=" + encodeURIComponent(PROJECT_ID)
+        + "&projectName=" + encodeURIComponent(PROJECT_NAME);
+      location.assign(url);
+    });
+
+    window.addEventListener("popstate", (e)=>{
+      const st = e.state || {};
+      const t = st.tab || (new URL(location.href)).searchParams.get("page") || "charter";
+      if (URLS[t]) loadTab(t, false);
+    });
+  }
+
+  (function init(){
+    bind();
+    if (!URLS[current]) current = "charter";
+    loadTab(current, false);
+    setTimeout(()=> fitFrameToViewport_(), 0);
+    window.addEventListener("resize", ()=> fitFrameToViewport_(), { passive:true });
+
+    if (!DEBUG){
+      const el = qs("#shellDebug");
+      if (el) el.style.display = "none";
+    } else {
+      setDebug("debug=1 enabled");
+    }
+  })();
+</script>
+
+  </body>
+</html>

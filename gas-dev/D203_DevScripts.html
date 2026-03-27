@@ -1,0 +1,1213 @@
+<!-- D203_DevScripts.html -->
+<!-- Dev GAS クライアントサイド JS -->
+<script>
+// ── State ──
+let allTickets  = [];
+let activeAppId = null;
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+  initTabs();
+  initApps_();
+});
+
+function initTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'designlog') dlOnShow_();
+      if (btn.dataset.tab === 'blueprint') dmOnShow_();
+      if (btn.dataset.tab === 'code')      codeOnShow_();
+      if (btn.dataset.tab === 'files')     filesOnShow_();
+      if (btn.dataset.tab === 'sheets')    sheetsOnShow_();
+    });
+  });
+}
+
+// ── Tickets ──
+function loadTickets() {
+  if (!activeAppId) { onTicketsLoaded([]); return; }
+  google.script.run
+    .withSuccessHandler(onTicketsLoaded)
+    .withFailureHandler(e => showToast('読み込みエラー: ' + e.message))
+    .api_getTickets(activeAppId);
+}
+
+function onTicketsLoaded(tickets) {
+  allTickets = Array.isArray(tickets) ? tickets : [];
+  renderTickets();
+}
+
+function renderTickets() {
+  const groups = {
+    high:   allTickets.filter(t => t.status === 'open' && t.priority === 'high'),
+    medium: allTickets.filter(t => t.status === 'open' && t.priority === 'medium'),
+    low:    allTickets.filter(t => t.status === 'open' && t.priority === 'low'),
+    done:   allTickets.filter(t => t.status === 'done'),
+  };
+  const openCount = groups.high.length + groups.medium.length + groups.low.length;
+  document.getElementById('ticketStats').textContent =
+    `未対応 ${openCount}件 ／ 解決済み ${groups.done.length}件`;
+
+  ['high','medium','low','done'].forEach(key => {
+    const list = groups[key].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    document.getElementById('count-' + key).textContent = list.length;
+    const container = document.getElementById('cards-' + key);
+    container.innerHTML = list.length
+      ? list.map(t => renderCard(t)).join('')
+      : '<p class="empty-text" style="padding:8px 4px;font-size:12px">なし</p>';
+  });
+}
+
+function renderCard(t) {
+  const isDone    = t.status === 'done';
+  const typeBadge = t.type === 'bug'
+    ? '<span class="badge badge-bug">🐛 Bug</span>'
+    : '<span class="badge badge-feature">✨ Feature</span>';
+  const dateStr = isDone ? `解決: ${t.resolvedAt || ''}` : `登録: ${t.createdAt || ''}`;
+
+  return `
+    <div class="ticket-card ${isDone ? 'done' : ''}" id="card-${t.ticketId}"
+      draggable="true"
+      ondragstart="onDragStart_(event,'${t.ticketId}')"
+      ondragend="onDragEnd_(event)"
+      style="display:block;padding:12px 14px;">
+      <div class="ticket-top" style="margin-bottom:6px;">
+        ${typeBadge}
+        <span style="font-size:11px;color:#9ca3af;">${t.ticketId}</span>
+      </div>
+      <div class="ticket-title" style="margin-bottom:6px;line-height:1.5;">${escHtml(t.title)}</div>
+      ${t.description ? `<div class="ticket-desc">${escHtml(t.description)}</div>` : ''}
+      ${t.targetFiles ? `<div class="ticket-files">📁 ${escHtml(t.targetFiles)}</div>` : ''}
+      <div class="ticket-meta" style="margin-top:8px;">${dateStr}</div>
+      <div style="display:flex;gap:6px;margin-top:10px;border-top:1px solid var(--gray-200);padding-top:8px;">
+        <button class="btn-icon" onclick="copyTicketJson_('${t.ticketId}')">コピー</button>
+        ${!isDone
+          ? `<button class="btn-icon" onclick="openEditModal('${t.ticketId}')">編集</button>`
+          : `<button class="btn-icon" onclick="toggleTicket('${t.ticketId}', false)">戻す</button>`
+        }
+        <button class="btn-icon" style="color:var(--red);border-color:#fecaca;" onclick="deleteTicket_('${t.ticketId}')">削除</button>
+      </div>
+    </div>`;
+}
+
+function toggleTicket(ticketId, checked) {
+  const fn = checked ? 'api_resolveTicket' : 'api_reopenTicket';
+  google.script.run
+    .withSuccessHandler(() => { loadTickets(); showToast(checked ? '解決済みにしました ✓' : '未対応に戻しました'); })
+    .withFailureHandler(e => { showToast('エラー: ' + e.message); loadTickets(); })
+    [fn](activeAppId, ticketId);
+}
+
+// ── Modal ──
+function openAddModal() {
+  document.getElementById('modalTitle').textContent = 'チケット追加';
+  document.getElementById('editTicketId').value = '';
+  document.getElementById('fTitle').value = '';
+  document.getElementById('fDesc').value = '';
+  document.getElementById('fType').value = 'feature';
+  document.getElementById('fPriority').value = 'medium';
+  document.getElementById('fFiles').value = '';
+  document.getElementById('ticketModal').classList.add('open');
+  document.getElementById('fTitle').focus();
+}
+
+function openEditModal(ticketId) {
+  const t = allTickets.find(x => x.ticketId === ticketId);
+  if (!t) return;
+  document.getElementById('modalTitle').textContent = 'チケット編集';
+  document.getElementById('editTicketId').value = ticketId;
+  document.getElementById('fTitle').value = t.title;
+  document.getElementById('fDesc').value = t.description || '';
+  document.getElementById('fType').value = t.type || 'feature';
+  document.getElementById('fPriority').value = t.priority || 'medium';
+  document.getElementById('fFiles').value = t.targetFiles || '';
+  document.getElementById('ticketModal').classList.add('open');
+  document.getElementById('fTitle').focus();
+}
+
+function closeModal() {
+  document.getElementById('ticketModal').classList.remove('open');
+}
+
+function submitTicket() {
+  const title = document.getElementById('fTitle').value.trim();
+  if (!title) { showToast('タイトルを入力してね'); return; }
+  const params = {
+    title,
+    description:  document.getElementById('fDesc').value.trim(),
+    type:         document.getElementById('fType').value,
+    priority:     document.getElementById('fPriority').value,
+    targetFiles:  document.getElementById('fFiles').value.trim(),
+  };
+  const editId = document.getElementById('editTicketId').value;
+  if (editId) {
+    google.script.run
+      .withSuccessHandler(() => { closeModal(); loadTickets(); showToast('更新しました'); })
+      .withFailureHandler(e => showToast('エラー: ' + e.message))
+      .api_updateTicket(activeAppId, editId, params);
+  } else {
+    google.script.run
+      .withSuccessHandler(res => { closeModal(); loadTickets(); showToast('追加しました: ' + res.ticketId); })
+      .withFailureHandler(e => showToast('エラー: ' + e.message))
+      .api_addTicket(activeAppId, params);
+  }
+}
+
+// モーダル外クリックで閉じる
+document.getElementById('ticketModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ── App Management ──
+function initApps_() {
+  google.script.run
+    .withSuccessHandler(apps => {
+      renderAppSelector_(apps);
+      const saved = localStorage.getItem('dev_activeAppId');
+      const found = apps.find(a => a.appId === saved);
+      const first = apps[0];
+      const target = found || first || null;
+      if (target) {
+        activeAppId = target.appId;
+        document.getElementById('appSelect').value = activeAppId;
+      }
+      loadTickets();
+    })
+    .withFailureHandler(e => {
+      document.getElementById('appSelect').innerHTML = '<option value="">エラー</option>';
+      showToast('アプリ読み込みエラー: ' + e.message);
+    })
+    .api_getApps();
+}
+
+function renderAppSelector_(apps) {
+  const sel = document.getElementById('appSelect');
+  if (!apps || !apps.length) {
+    sel.innerHTML = '<option value="">アプリなし（⚙から追加）</option>';
+    return;
+  }
+  sel.innerHTML = apps.map(a =>
+    `<option value="${escHtml(a.appId)}">${escHtml(a.appName)}</option>`
+  ).join('');
+}
+
+function onAppChange_(appId) {
+  activeAppId = appId || null;
+  if (appId) localStorage.setItem('dev_activeAppId', appId);
+  else localStorage.removeItem('dev_activeAppId');
+  allTickets   = [];
+  _dmData      = { schemaVersion:'2.0', updatedAt:'', entries:[] };
+  _filesData_  = null;
+  _sheetsData_ = null;
+  _fnCache_    = {};
+  // 各タブのDOM表示をリセット
+  const dlWrap = document.getElementById('dlTableWrap');
+  if (dlWrap) dlWrap.innerHTML = '<p class="loading-text">タブを開くとロードされます</p>';
+  const dmTbody = document.getElementById('dm-tbody');
+  if (dmTbody) dmTbody.innerHTML = '';
+  const filesResult = document.getElementById('filesResult');
+  if (filesResult) filesResult.innerHTML = '<p class="loading-text">更新ボタンを押してね</p>';
+  const sheetsResult = document.getElementById('sheetsResult');
+  if (sheetsResult) sheetsResult.innerHTML = '<p class="loading-text">更新ボタンを押してね（初回は少し時間がかかる）</p>';
+  loadTickets();
+  const activeTab = document.querySelector('.tab-btn.active');
+  if (activeTab && activeTab.dataset.tab === 'designlog') dlLoadTable_();
+}
+
+function openAppManager_() {
+  google.script.run
+    .withSuccessHandler(apps => {
+      renderAppList_(apps || []);
+      document.getElementById('appManagerModal').classList.add('open');
+    })
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .api_getApps();
+}
+
+function closeAppManager_() {
+  document.getElementById('appManagerModal').classList.remove('open');
+}
+
+function renderAppList_(apps) {
+  const wrap = document.getElementById('appList');
+  if (!apps.length) {
+    wrap.innerHTML = '<p class="empty-text">アプリなし。＋ 追加から登録してね</p>';
+    return;
+  }
+  wrap.innerHTML = apps.map(a => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-200)">
+      <div>
+        <div style="font-weight:600;font-size:14px">${escHtml(a.appName)}</div>
+        <div style="font-size:11px;font-family:monospace;color:var(--gray-500);margin-top:2px">${escHtml(a.appId)}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-icon" onclick="openAppForm_('${escHtml(a.appId)}')">編集</button>
+        <button class="btn-icon" style="color:var(--red)" onclick="deleteApp_('${escHtml(a.appId)}','${escHtml(a.appName)}')">削除</button>
+      </div>
+    </div>`).join('');
+}
+
+function openAppForm_(appId) {
+  document.getElementById('appFormTitle').textContent = appId ? 'アプリを編集' : 'アプリを追加';
+  document.getElementById('fAppId').value = appId || '';
+  if (appId) {
+    google.script.run
+      .withSuccessHandler(apps => {
+        const a = (apps || []).find(x => x.appId === appId);
+        if (!a) return;
+        document.getElementById('fAppName').value           = a.appName || '';
+        document.getElementById('fDevSheetId').value        = a.devSheetId || '';
+        document.getElementById('fMainSpreadsheetId').value = a.mainSpreadsheetId || '';
+        document.getElementById('fExportDocId').value       = a.exportDocId || '';
+        let gasText = '';
+        try {
+          const gp = JSON.parse(a.gasProjectsJson || '{}');
+          gasText = Object.entries(gp).map(([k,v]) => k+':'+v).join('\n');
+        } catch(e) {}
+        document.getElementById('fGasProjects').value = gasText;
+        document.getElementById('appFormModal').classList.add('open');
+      })
+      .withFailureHandler(e => showToast('エラー: ' + e.message))
+      .api_getApps();
+  } else {
+    ['fAppName','fDevSheetId','fMainSpreadsheetId','fExportDocId','fGasProjects'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('appFormModal').classList.add('open');
+  }
+}
+
+function closeAppForm_() {
+  document.getElementById('appFormModal').classList.remove('open');
+}
+
+function submitAppForm_() {
+  const appName = document.getElementById('fAppName').value.trim();
+  if (!appName) { showToast('アプリ名は必須だよ'); return; }
+  const devSheetId = document.getElementById('fDevSheetId').value.trim();
+  if (!devSheetId) { showToast('Dev Sheet IDは必須だよ'); return; }
+  const gasText = document.getElementById('fGasProjects').value.trim();
+  const gasProjects = {};
+  gasText.split('\n').forEach(line => {
+    const idx = line.indexOf(':');
+    if (idx < 0) return;
+    const k = line.substring(0, idx).trim();
+    const v = line.substring(idx + 1).trim();
+    if (k && v) gasProjects[k] = v;
+  });
+  const params = {
+    appId:              document.getElementById('fAppId').value || undefined,
+    appName,
+    devSheetId,
+    mainSpreadsheetId:  document.getElementById('fMainSpreadsheetId').value.trim(),
+    exportDocId:        document.getElementById('fExportDocId').value.trim(),
+    gasProjectsJson:    JSON.stringify(gasProjects),
+  };
+  google.script.run
+    .withSuccessHandler(res => {
+      closeAppForm_();
+      showToast('保存した！');
+      google.script.run
+        .withSuccessHandler(apps => {
+          renderAppList_(apps || []);
+          renderAppSelector_(apps || []);
+          if (!activeAppId && apps && apps.length) {
+            activeAppId = apps[0].appId;
+            document.getElementById('appSelect').value = activeAppId;
+            loadTickets();
+          }
+        })
+        .api_getApps();
+    })
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .api_upsertApp(params);
+}
+
+function deleteApp_(appId, appName) {
+  if (!confirm(appName + ' を削除する？')) return;
+  google.script.run
+    .withSuccessHandler(() => {
+      showToast('削除した');
+      if (activeAppId === appId) {
+        activeAppId = null;
+        document.getElementById('appSelect').value = '';
+      }
+      google.script.run
+        .withSuccessHandler(apps => {
+          renderAppList_(apps || []);
+          renderAppSelector_(apps || []);
+        })
+        .api_getApps();
+    })
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .api_deleteApp(appId);
+}
+
+// モーダル外クリックで閉じる
+const _appMgrModal_ = document.getElementById('appManagerModal');
+if (_appMgrModal_) _appMgrModal_.addEventListener('click', function(e) {
+  if (e.target === this) closeAppManager_();
+});
+const _appFrmModal_ = document.getElementById('appFormModal');
+if (_appFrmModal_) _appFrmModal_.addEventListener('click', function(e) {
+  if (e.target === this) closeAppForm_();
+});
+
+// ── Ticket Import ──
+function openImportModal() {
+  document.getElementById('importJson').value = '';
+  document.getElementById('importStatus').textContent = '';
+  document.getElementById('importModal').classList.add('open');
+  document.getElementById('importJson').focus();
+}
+
+function closeImportModal() {
+  document.getElementById('importModal').classList.remove('open');
+}
+
+function submitImport() {
+  const raw = document.getElementById('importJson').value.trim();
+  const status = document.getElementById('importStatus');
+  if (!raw) { status.textContent = '空だよ'; return; }
+  let items;
+  try { items = JSON.parse(raw); } catch(e) { status.textContent = 'JSONパース失敗: ' + e.message; return; }
+  if (!Array.isArray(items) || !items.length) { status.textContent = '配列じゃないか空'; return; }
+  status.textContent = 'インポート中...';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res && res.ok) {
+        closeImportModal();
+        loadTickets();
+        showToast(res.added + '件追加した！');
+      } else {
+        status.textContent = 'エラー: ' + (res && res.error || '不明');
+      }
+    })
+    .withFailureHandler(e => { status.textContent = 'エラー: ' + e.message; })
+    .api_bulkAddTickets(activeAppId, JSON.stringify(items));
+}
+
+// モーダル外クリックで閉じる（importModal）
+document.getElementById('importModal').addEventListener('click', function(e) {
+  if (e.target === this) closeImportModal();
+});
+
+// ── Sheets ──
+let _sheetsData_ = null;
+
+function sheetsOnShow_() {
+  if (_sheetsData_) {
+    sheetsRender_(_sheetsData_);
+  } else {
+    sheetsRefresh_(false);
+  }
+}
+
+function sheetsRefresh_(forceRefresh) {
+  document.getElementById('sheetsResult').innerHTML = '<p class="loading-text">読み込み中...</p>';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res || !res.ok) { document.getElementById('sheetsResult').innerHTML = '<p class="loading-text">エラー</p>'; return; }
+      _sheetsData_ = res.sheets;
+      sheetsRender_(_sheetsData_);
+    })
+    .withFailureHandler(e => {
+      document.getElementById('sheetsResult').innerHTML = '<p class="loading-text">エラー: ' + escHtml(String(e)) + '</p>';
+    })
+    .admin_listAllSheets(activeAppId, { forceRefresh: !!forceRefresh });
+}
+
+function sheetsRender_(sheets) {
+  if (!sheets || !sheets.length) { document.getElementById('sheetsResult').innerHTML = '<p class="loading-text">データなし</p>'; return; }
+  let html = '<table class="sheets-table"><thead><tr>'
+    + '<th>シート名</th><th>スプシ</th><th style="text-align:right">行数</th><th style="text-align:right">列数</th><th></th>'
+    + '</tr></thead><tbody>';
+  sheets.forEach(sh => {
+    if (sh.error) {
+      html += `<tr><td colspan="5" style="color:var(--red);font-size:13px;">${escHtml(sh.ssName)} — ${escHtml(sh.errorMsg || sh.name)}</td></tr>`;
+      return;
+    }
+    const headersText = (sh.headers || []).filter(h => h).join('\t');
+    const btnHtml     = headersText
+      ? `<button class="btn-icon" onclick="sheetsCopyHeader_(this,'${encodeURIComponent(headersText)}')">ヘッダコピー</button>`
+      : '';
+    const ssLink = sh.ssUrl
+      ? `<a href="${escHtml(sh.ssUrl)}" target="_blank" style="color:var(--amd-blue)">${escHtml(sh.ssName)}</a>`
+      : escHtml(sh.ssName);
+    html += `<tr>
+      <td>${escHtml(sh.name)}</td>
+      <td style="font-size:12px">${ssLink}</td>
+      <td style="text-align:right;color:var(--gray-500)">${sh.rows}</td>
+      <td style="text-align:right;color:var(--gray-500)">${sh.cols}</td>
+      <td>${btnHtml}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  html += `<div class="sheets-count">計 ${sheets.length} シート（全スプシ合計）</div>`;
+  document.getElementById('sheetsResult').innerHTML = html;
+}
+
+function sheetsCopyHeader_(btn, encoded) {
+  const text = decodeURIComponent(encoded);
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✅';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  });
+}
+
+// ── Files ──
+let _filesData_ = null;
+let _fnCache_   = {};
+
+function filesOnShow_() {
+  if (_filesData_) {
+    filesRender_(_filesData_);
+  } else {
+    filesRefresh_();
+  }
+}
+
+function filesRefresh_() {
+  _fnCache_ = {};
+  document.getElementById('filesResult').innerHTML = '<p class="loading-text">読み込み中...</p>';
+  document.getElementById('filesCopyBtn').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res || !res.ok) { document.getElementById('filesResult').innerHTML = '<p class="loading-text">エラー</p>'; return; }
+      _filesData_ = res.projects;
+      filesRender_(_filesData_);
+      document.getElementById('filesCopyBtn').style.display = 'inline-block';
+    })
+    .withFailureHandler(e => {
+      document.getElementById('filesResult').innerHTML = '<p class="loading-text">エラー: ' + escHtml(String(e)) + '</p>';
+    })
+    .admin_listAllGasFiles(activeAppId);
+}
+
+function filesRender_(projects) {
+  let html = '';
+  Object.keys(projects).forEach(gasName => {
+    const files = projects[gasName];
+    html += `<div class="files-gas-block">`;
+    html += `<div class="files-gas-title">📦 ${escHtml(gasName)}</div>`;
+    if (files.error) {
+      html += `<p style="color:var(--red);font-size:13px;">${escHtml(files.error)}</p>`;
+    } else {
+      html += `<table class="files-table"><thead><tr>
+        <th>ファイル名</th><th style="width:80px"></th><th style="width:100px">種別</th><th style="width:60px;text-align:right">行数</th>
+      </tr></thead><tbody>`;
+      files.forEach(f => {
+        const key        = filesKey_(gasName, f.name);
+        const gasNameEsc = gasName.replace(/'/g, "\\'");
+        const fileEsc    = f.name.replace(/'/g, "\\'");
+        html += `<tr>
+          <td style="font-family:monospace;font-size:12px">${escHtml(f.name)}</td>
+          <td><button class="btn-icon" onclick="filesToggleFunctions_('${gasNameEsc}','${fileEsc}',this)">関数▼</button></td>
+          <td style="color:var(--gray-500)">${escHtml(f.type)}</td>
+          <td style="text-align:right;color:var(--gray-500)">${f.lines}</td>
+        </tr>
+        <tr id="fnrow_${key}" style="display:none;" class="files-fn-row">
+          <td colspan="4" style="padding:10px 16px;">
+            <div id="fnlist_${key}"></div>
+          </td>
+        </tr>`;
+      });
+      html += `</tbody></table>`;
+      html += `<div class="files-count">計 ${files.length} ファイル</div>`;
+    }
+    html += `</div>`;
+  });
+  document.getElementById('filesResult').innerHTML = html;
+}
+
+function filesKey_(gasName, fileName) {
+  return (gasName + '__' + fileName).replace(/[^a-zA-Z0-9]/g, '_');
+}
+
+function filesToggleFunctions_(gasName, fileName, btnEl) {
+  const key = filesKey_(gasName, fileName);
+  const row = document.getElementById('fnrow_' + key);
+  if (!row) return;
+  const isOpen = row.style.display !== 'none';
+  if (isOpen) { row.style.display = 'none'; btnEl.textContent = '関数▼'; return; }
+  row.style.display = '';
+  btnEl.textContent = '関数▲';
+  if (_fnCache_[key]) { filesRenderFnList_(key, _fnCache_[key]); return; }
+  document.getElementById('fnlist_' + key).textContent = '読み込み中...';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res || !res.ok) {
+        document.getElementById('fnlist_' + key).textContent = 'エラー: ' + escHtml((res && res.message) || 'failed');
+        return;
+      }
+      _fnCache_[key] = res.functions || [];
+      filesRenderFnList_(key, _fnCache_[key]);
+    })
+    .withFailureHandler(e => {
+      document.getElementById('fnlist_' + key).textContent = 'エラー: ' + escHtml(String(e));
+    })
+    .admin_getFileFunctions(activeAppId, { projectName: gasName, fileName: fileName });
+}
+
+function filesRenderFnList_(key, fns) {
+  const wrap = document.getElementById('fnlist_' + key);
+  if (!wrap) return;
+  if (!fns || !fns.length) { wrap.innerHTML = '<span style="color:var(--gray-400);font-size:12px">関数なし</span>'; return; }
+  const keyEsc = key.replace(/'/g, "\\'");
+  wrap.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+      <span style="font-size:12px;color:var(--gray-500)">${fns.length}件</span>
+      <button class="btn-icon" onclick="filesCopyFnList_('${keyEsc}',this)">📋 コピー</button>
+    </div>
+    <div class="files-fn-list">${fns.map(f => escHtml(f)).join('\n')}</div>`;
+}
+
+function filesCopyFnList_(key, btnEl) {
+  const fns = _fnCache_[key];
+  if (!fns) return;
+  navigator.clipboard.writeText(fns.join('\n')).then(() => {
+    const orig = btnEl.textContent;
+    btnEl.textContent = '✅ 完了';
+    setTimeout(() => { btnEl.textContent = orig; }, 2000);
+  });
+}
+
+function filesCopy_() {
+  if (!_filesData_) return;
+  const lines = [];
+  Object.keys(_filesData_).forEach(gasName => {
+    const files = _filesData_[gasName];
+    lines.push('=== ' + gasName + ' ===');
+    if (files.error) {
+      lines.push('ERROR: ' + files.error);
+    } else {
+      files.forEach(f => lines.push(f.name + '\t' + f.type + '\t' + f.lines + '行'));
+      lines.push('計 ' + files.length + ' ファイル');
+    }
+    lines.push('');
+  });
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const btn = document.getElementById('filesCopyBtn');
+    const orig = btn.textContent;
+    btn.textContent = '✅ コピー完了';
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  });
+}
+
+// ── Code Search ──
+let _codeResults_ = [];
+
+function runCodeSearch_() {
+  const q = document.getElementById('codeQuery').value.trim();
+  if (!q) { showToast('検索ワードを入れてね'); return; }
+  const includeRefs = document.getElementById('codeIncludeRefs').checked;
+  setCodeStatus_('検索中...');
+  clearCodeErr_();
+  const payload = { query: q, includeReferences: includeRefs, maxResults: 200 };
+  google.script.run
+    .withSuccessHandler(res => {
+      setCodeStatus_('');
+      if (!res || !res.ok) { showCodeErr_(res ? res.message : '不明なエラー'); return; }
+      _codeResults_ = res.matches || [];
+      renderCodeTable_(_codeResults_);
+      setCodeStatus_(_codeResults_.length + '件ヒット');
+    })
+    .withFailureHandler(e => { setCodeStatus_(''); showCodeErr_(e.message); })
+    .admin_searchCode(payload);
+}
+
+function renderCodeTable_(matches) {
+  const tbody = document.getElementById('codeTbody');
+  if (!matches.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:16px 10px;color:var(--gray-400)">見つからなかった</td></tr>';
+    return;
+  }
+  tbody.innerHTML = matches.map(m => {
+    const kindClass = m.kind === 'definition' ? 'kind-def' : m.kind === 'reference' ? 'kind-ref' : 'kind-txt';
+    const kindLabel = m.kind === 'definition' ? 'def' : m.kind === 'reference' ? 'ref' : 'text';
+    return `<tr>
+      <td><span class="${kindClass}">${kindLabel}</span></td>
+      <td style="font-family:monospace;font-size:12px">${escHtml(m.fileName)}</td>
+      <td style="text-align:right;color:var(--gray-500)">${m.line}</td>
+      <td class="snippet-cell">${escHtml(m.snippet)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function copyAllCodeResults_() {
+  if (!_codeResults_.length) { showToast('検索結果がないよ'); return; }
+  const lines = _codeResults_.map(m =>
+    `[${m.kind}] ${m.fileName}:${m.line}  ${m.snippet}`
+  );
+  navigator.clipboard.writeText(lines.join('\n'))
+    .then(() => showToast('コピーした！（' + lines.length + '件）'));
+}
+
+function rebuildRegistry_() {
+  setCodeStatus_('台帳再生成中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setCodeStatus_(res && res.ok ? '台帳再生成完了（' + res.fileCount + 'ファイル）' : '失敗: ' + (res && res.message || ''));
+    })
+    .withFailureHandler(e => setCodeStatus_('エラー: ' + e.message))
+    .admin_rebuildCodeRegistry();
+}
+
+function codeOnShow_() {}
+
+function setCodeStatus_(msg) { document.getElementById('codeStatus').textContent = msg; }
+function showCodeErr_(msg)   { const el = document.getElementById('codeErr'); el.textContent = msg; el.style.display = 'block'; }
+function clearCodeErr_()     { const el = document.getElementById('codeErr'); el.textContent = ''; el.style.display = 'none'; }
+
+// ── Blueprint ──
+let _dmData = { schemaVersion: '2.0', updatedAt: '', entries: [] };
+const DM_VALID_TYPES_ = new Set(['vision','architecture','feature','principle','dataflow','datamap','decision','risk']);
+
+function dmOnShow_() {
+  if (_dmData.entries.length === 0) dmLoad_();
+}
+function dmLoad_() {
+  dmSetStatus_('読み込み中...');
+  google.script.run
+    .withSuccessHandler(r => {
+      if (r && r.ok) {
+        try {
+          const parsed = JSON.parse(r.json || '{}');
+          _dmData = parsed.entries ? parsed : { schemaVersion:'2.0', updatedAt:'', entries: parsed.entries || [] };
+          if (!_dmData.entries) _dmData.entries = [];
+        } catch(e) { _dmData = { schemaVersion:'2.0', updatedAt:'', entries:[] }; }
+      }
+      dmRenderTable_();
+      dmSetStatus_('');
+    })
+    .withFailureHandler(e => dmSetStatus_('読み込み失敗: ' + e))
+    .adminBlueprint_getAll(activeAppId);
+}
+function dmNorm_(e) {
+  const rawType = String(e.type || '').trim();
+  const isValid = DM_VALID_TYPES_.has(rawType);
+  return {
+    id:       e.id || '',
+    type:     isValid ? rawType : 'datamap',
+    domain:   e.domain || e.category || (!isValid && rawType ? rawType : '') || '',
+    priority: e.priority || 3,
+    title:    e.title || e.uiSection || e.uiFile || '',
+    content:  e.content || e.purpose || '',
+    status:   e.status || 'active',
+  };
+}
+function dmRenderTable_() {
+  const tbody   = document.getElementById('dm-tbody');
+  const entries = _dmData.entries || [];
+  const fType   = document.getElementById('dm-filter-type').value;
+  const fDomain = document.getElementById('dm-filter-domain').value;
+  const fPrio   = document.getElementById('dm-filter-priority').value;
+  const fSearch = (document.getElementById('dm-search').value || '').toLowerCase();
+  const filtered = entries.filter(e => {
+    const n = dmNorm_(e);
+    if (fType   && n.type   !== fType)   return false;
+    if (fDomain && n.domain !== fDomain) return false;
+    if (fPrio   && String(n.priority) !== fPrio) return false;
+    if (fSearch && !JSON.stringify(e).toLowerCase().includes(fSearch)) return false;
+    return true;
+  });
+  document.getElementById('dm-count').textContent = `${filtered.length} / ${entries.length} 件`;
+  tbody.innerHTML = filtered.map(e => {
+    const n       = dmNorm_(e);
+    const idx     = entries.indexOf(e);
+    const badge   = `<span class="dm-badge dm-badge-${n.type}">${n.type}</span>`;
+    const pBadge  = `<span class="dm-priority dm-p${n.priority}">${n.priority}</span>`;
+    const preview = escHtml(n.content.substring(0, 80)) + (n.content.length > 80 ? '…' : '');
+    const updDisp = dmFmtDate_(String(e.updatedAt || e.updated_at || ''));
+    return `<tr>
+      <td>${pBadge}</td>
+      <td>${badge}</td>
+      <td style="font-size:12px;color:var(--gray-500)">${escHtml(n.domain)}</td>
+      <td style="font-weight:500">${escHtml(n.title)}</td>
+      <td class="dm-content-preview" title="${escHtml(e.content||'')}">${preview}</td>
+      <td style="font-size:11px;color:#9ca3af;white-space:nowrap">${updDisp}</td>
+      <td>
+        <button class="dm-action-btn" onclick="dmOpenEdit_(${idx})">編集</button>
+        <button class="dm-action-btn" style="color:var(--red)" onclick="dmDeleteEntry_(${idx})">削除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function dmFilterTable()    { dmRenderTable_(); }
+function dmSetStatus_(msg)  { document.getElementById('dm-status').textContent = msg; }
+function dmFmtDate_(raw) {
+  if (!raw) return '-';
+  const s = String(raw).replace(/[^\d]/g, '');
+  return s.length >= 8 ? s.substring(0,4)+'/'+s.substring(4,6)+'/'+s.substring(6,8) : String(raw).substring(0,10) || '-';
+}
+function dmTypeChanged() {
+  document.getElementById('dm-mapping-section').style.display =
+    document.getElementById('dm-type').value === 'datamap' ? '' : 'none';
+}
+function dmOpenNew() {
+  document.getElementById('dm-modal-title').textContent = 'エントリを追加';
+  document.getElementById('dm-edit-id').value = '';
+  ['dm-title','dm-content','dm-rationale','dm-constraints','dm-map-ui','dm-map-api','dm-map-db'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('dm-type').value = 'vision';
+  document.getElementById('dm-priority').value = '3';
+  document.getElementById('dm-domain').value = '全体';
+  document.getElementById('dm-entry-status').value = 'active';
+  dmTypeChanged();
+  document.getElementById('dm-overlay').classList.add('active');
+}
+function dmOpenEdit_(idx) {
+  const e = (_dmData.entries || [])[idx];
+  if (!e) return;
+  document.getElementById('dm-modal-title').textContent = 'エントリを編集';
+  document.getElementById('dm-edit-id').value   = String(idx);
+  document.getElementById('dm-type').value      = e.type || 'vision';
+  document.getElementById('dm-priority').value  = String(e.priority || 3);
+  document.getElementById('dm-domain').value    = e.domain || '全体';
+  document.getElementById('dm-entry-status').value = e.status || 'active';
+  document.getElementById('dm-title').value     = e.title || '';
+  document.getElementById('dm-content').value   = e.content || '';
+  document.getElementById('dm-rationale').value = e.rationale || '';
+  document.getElementById('dm-constraints').value = (e.constraints || []).join(', ');
+  document.getElementById('dm-map-ui').value    = (e.mapping || {}).ui  || '';
+  document.getElementById('dm-map-api').value   = (e.mapping || {}).api || '';
+  document.getElementById('dm-map-db').value    = (e.mapping || {}).db  || '';
+  dmTypeChanged();
+  document.getElementById('dm-overlay').classList.add('active');
+}
+function dmCloseModal()  { document.getElementById('dm-overlay').classList.remove('active'); }
+function dmSaveEntry() {
+  const title   = document.getElementById('dm-title').value.trim();
+  const content = document.getElementById('dm-content').value.trim();
+  if (!title || !content) { showToast('title と content は必須だよ'); return; }
+  const idxStr = document.getElementById('dm-edit-id').value;
+  const type   = document.getElementById('dm-type').value;
+  const entry  = {
+    id:          idxStr === '' ? dmGenId_() : ((_dmData.entries||[])[parseInt(idxStr)] || {}).id || dmGenId_(),
+    type,
+    priority:    parseInt(document.getElementById('dm-priority').value) || 3,
+    domain:      document.getElementById('dm-domain').value,
+    title,
+    content,
+    rationale:   document.getElementById('dm-rationale').value.trim(),
+    constraints: document.getElementById('dm-constraints').value.split(',').map(s=>s.trim()).filter(Boolean),
+    status:      document.getElementById('dm-entry-status').value,
+    updatedAt:   new Date().toISOString().substring(0, 10),
+  };
+  if (type === 'datamap') {
+    entry.mapping = {
+      ui:  document.getElementById('dm-map-ui').value.trim(),
+      api: document.getElementById('dm-map-api').value.trim(),
+      db:  document.getElementById('dm-map-db').value.trim(),
+    };
+  }
+  if (!_dmData.entries) _dmData.entries = [];
+  if (idxStr === '') { _dmData.entries.push(entry); }
+  else               { _dmData.entries[parseInt(idxStr)] = entry; }
+  dmCloseModal();
+  dmPersist_();
+}
+function dmDeleteEntry_(idx) {
+  if (!confirm('削除する？')) return;
+  _dmData.entries.splice(idx, 1);
+  dmRenderTable_();
+  dmPersist_();
+}
+function dmGenId_() {
+  const now  = new Date();
+  const pad  = (n, d) => String(n).padStart(d, '0');
+  const rand = Math.random().toString(36).substring(2, 5);
+  return 'bp-' + now.getFullYear() + pad(now.getMonth()+1,2) + pad(now.getDate(),2)
+    + pad(now.getHours(),2) + pad(now.getMinutes(),2) + pad(now.getSeconds(),2) + '-' + rand;
+}
+function dmPersist_() {
+  _dmData.updatedAt = new Date().toISOString().replace('T',' ').substring(0,19);
+  dmSetStatus_('保存中...');
+  google.script.run
+    .withSuccessHandler(r => {
+      dmSetStatus_(r && r.ok ? '保存済み ✓' : '保存失敗');
+      dmRenderTable_();
+      setTimeout(() => dmSetStatus_(''), 3000);
+    })
+    .withFailureHandler(e => dmSetStatus_('保存失敗: ' + e))
+    .adminBlueprint_save(activeAppId, JSON.stringify(_dmData, null, 2));
+}
+function dmExportJson() {
+  navigator.clipboard.writeText(JSON.stringify(_dmData, null, 2))
+    .then(() => dmSetStatus_('JSONをコピーした ✓'));
+}
+function dmOpenImport() {
+  document.getElementById('dm-import-json').value = '';
+  document.getElementById('dm-import-overlay').classList.add('active');
+}
+function dmCloseImport() { document.getElementById('dm-import-overlay').classList.remove('active'); }
+function dmDoImport() {
+  const raw = document.getElementById('dm-import-json').value.trim();
+  if (!raw) return;
+  let incoming = [];
+  try {
+    const parsed = JSON.parse(raw);
+    incoming = Array.isArray(parsed) ? parsed : (parsed.entries || []);
+  } catch(e) { showToast('JSONパース失敗: ' + e.message); return; }
+  if (!incoming.length) { showToast('エントリが0件。JSONを確認して'); return; }
+  dmSetStatus_('現在のデータを取得中...');
+  google.script.run
+    .withSuccessHandler(r => {
+      if (r && r.ok) {
+        try {
+          const parsed = JSON.parse(r.json || '{}');
+          _dmData = parsed.entries ? parsed : { schemaVersion:'2.0', updatedAt:'', entries:[] };
+          if (!_dmData.entries) _dmData.entries = [];
+        } catch(e) { _dmData = { schemaVersion:'2.0', updatedAt:'', entries:[] }; }
+      }
+      incoming.forEach(e => {
+        if (!e.id) e.id = dmGenId_();
+        const idx = _dmData.entries.findIndex(x => x.id === e.id);
+        if (idx >= 0) _dmData.entries[idx] = e; else _dmData.entries.push(e);
+      });
+      dmCloseImport();
+      dmPersist_();
+    })
+    .withFailureHandler(e => dmSetStatus_('取得失敗: ' + e))
+    .adminBlueprint_getAll();
+}
+function dmGenerateViz_() {
+  const entries = (_dmData.entries || []).filter(e => e.status !== 'deprecated');
+  if (!entries.length) { showToast('エントリが0件です'); return; }
+  document.getElementById('dm-viz-content').innerHTML = '';
+  document.getElementById('dm-viz-status').textContent = '生成中... (20〜30秒かかります)';
+  document.getElementById('dm-viz-overlay').classList.add('active');
+  google.script.run
+    .withSuccessHandler(r => {
+      if (r && r.ok) {
+        document.getElementById('dm-viz-content').innerHTML = r.svg;
+        const svgEl = document.getElementById('dm-viz-content').querySelector('svg');
+        if (svgEl) { svgEl.style.width = '100%'; svgEl.style.height = 'auto'; }
+        document.getElementById('dm-viz-status').textContent = '生成完了';
+      } else {
+        document.getElementById('dm-viz-status').textContent = '生成失敗: ' + (r ? r.message : '不明なエラー');
+      }
+    })
+    .withFailureHandler(e => { document.getElementById('dm-viz-status').textContent = '通信エラー: ' + e; })
+    .adminBlueprint_generateViz(activeAppId, JSON.stringify(_dmData, null, 2));
+}
+
+function dmCloseViz_() { document.getElementById('dm-viz-overlay').classList.remove('active'); }
+
+function dmDownloadViz_() {
+  const svg = document.getElementById('dm-viz-content').querySelector('svg');
+  if (!svg) return;
+  const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'amd-os-architecture.svg'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function dmGenerateSpec_() {
+  const entries = (_dmData.entries || []).filter(e => e.status !== 'deprecated');
+  if (!entries.length) { showToast('エントリが0件です'); return; }
+  document.getElementById('dm-spec-content').textContent = '';
+  document.getElementById('dm-spec-status').textContent = '生成中... (20〜30秒かかります)';
+  document.getElementById('dm-spec-overlay').classList.add('active');
+  google.script.run
+    .withSuccessHandler(r => {
+      if (r && r.ok) {
+        document.getElementById('dm-spec-content').textContent = r.markdown;
+        document.getElementById('dm-spec-status').textContent = '生成完了 (' + entries.length + '件のエントリから生成)';
+      } else {
+        document.getElementById('dm-spec-status').textContent = '生成失敗: ' + (r ? r.message : '不明なエラー');
+      }
+    })
+    .withFailureHandler(e => { document.getElementById('dm-spec-status').textContent = '通信エラー: ' + e; })
+    .adminBlueprint_generateSpec(activeAppId, JSON.stringify(_dmData, null, 2));
+}
+
+function dmCloseSpec_() { document.getElementById('dm-spec-overlay').classList.remove('active'); }
+
+function dmCopySpec_() {
+  const text = document.getElementById('dm-spec-content').textContent;
+  navigator.clipboard.writeText(text)
+    .then(() => { document.getElementById('dm-spec-status').textContent = 'コピーした ✓'; });
+}
+
+function dmCopyLlmContext() {
+  const entries = (_dmData.entries || []).filter(e => e.status !== 'deprecated');
+  const types = ['vision','architecture','principle','feature','dataflow','decision','datamap','risk'];
+  const typeLabels = {
+    vision:'🧭 ビジョン・哲学', architecture:'🏗️ アーキテクチャ', principle:'📐 開発原則',
+    feature:'⚡ 機能仕様・優先度', dataflow:'🔄 データフロー', decision:'🎯 設計判断',
+    datamap:'🗺️ UI×API×DB対応', risk:'⚠️ リスク・課題',
+  };
+  let out = '## AMD OS システム設計コンテキスト\n';
+  out += `最終更新: ${_dmData.updatedAt || '不明'}\n\n`;
+  types.forEach(t => {
+    const group = entries.filter(e => e.type === t).sort((a,b)=>(a.priority||3)-(b.priority||3));
+    if (!group.length) return;
+    out += `### ${typeLabels[t]}\n`;
+    group.forEach(e => {
+      out += `**[P${e.priority||3}] ${e.title}** (${e.domain||'全体'})\n${e.content}\n`;
+      if (e.rationale)                  out += `> 理由: ${e.rationale}\n`;
+      if (e.constraints && e.constraints.length) out += `> 制約: ${e.constraints.join(' / ')}\n`;
+      if (e.mapping) out += `> UI: ${e.mapping.ui||'-'} / API: ${e.mapping.api||'-'} / DB: ${e.mapping.db||'-'}\n`;
+      out += '\n';
+    });
+  });
+  navigator.clipboard.writeText(out)
+    .then(() => dmSetStatus_('LLMコンテキストをコピーした ✓ (' + entries.length + '件)'));
+}
+
+// ── Design Log ──
+function dlOnShow_() {
+  dlLoadTable_();
+}
+
+  function dlCopyForSession_() {
+  const status = document.getElementById('dlCopyStatus');
+  status.textContent = '取得中...';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res || !res.ok || !res.logs || !res.logs.length) { status.textContent = 'ログなし'; return; }
+      const lines = ['【設計ログ（直近' + res.logs.length + '件）】'];
+      res.logs.forEach(l => {
+        lines.push(
+          l.datetime + ' [' + l.category + '] ' + l.targetFiles +
+          ' | ' + l.summary +
+          (l.reason      ? ' | 理由: ' + l.reason      : '') +
+          (l.sessionNote ? ' | 備考: ' + l.sessionNote : '')
+        );
+      });
+      const text = lines.join('\n');
+      navigator.clipboard.writeText(text)
+        .then(() => { status.textContent = 'コピーした！（' + res.logs.length + '件）'; })
+        .catch(() => { status.textContent = 'クリップボード失敗'; prompt('コピー用：', text); });
+    })
+    .withFailureHandler(e => { status.textContent = 'エラー: ' + e; })
+    .designLog_getRecent(activeAppId, 20);
+}
+
+function dlExportAll_() {
+  var status = document.getElementById('dlCopyStatus');
+  status.textContent = '取得中…';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || res.error) {
+        status.textContent = '取得失敗: ' + (res ? res.error : '不明');
+        return;
+      }
+      var json = JSON.stringify(res.logs, null, 2);
+      navigator.clipboard.writeText(json).then(function() {
+        status.textContent = '✅ 全' + res.logs.length + '件をコピーした';
+        setTimeout(function() { status.textContent = ''; }, 3000);
+      }).catch(function() {
+        status.textContent = 'クリップボードへのコピー失敗';
+      });
+    })
+    .withFailureHandler(function(e) {
+      status.textContent = 'エラー: ' + e.message;
+    })
+    .designLog_getAll(null);
+}
+
+function dlBulkSubmit_() {
+  const raw = document.getElementById('dlBulkJson').value.trim();
+  const status = document.getElementById('dlBulkStatus');
+  if (!raw) { status.textContent = '空だよ'; return; }
+  let items;
+  try { items = JSON.parse(raw); } catch(e) { status.textContent = 'JSONパース失敗: ' + e; return; }
+  if (!Array.isArray(items) || !items.length) { status.textContent = '配列じゃないか空'; return; }
+  let done = 0;
+  const total = items.length;
+  status.textContent = '保存中… 0/' + total;
+  items.forEach(item => {
+    google.script.run
+      .withSuccessHandler(() => {
+        done++;
+        status.textContent = done === total
+          ? total + '件追加完了！'
+          : '保存中… ' + done + '/' + total;
+        if (done === total) {
+          document.getElementById('dlBulkJson').value = '';
+          dlLoadTable_();
+        }
+      })
+      .withFailureHandler(e => { done++; status.textContent = 'エラーあり: ' + e; })
+      .designLog_append(activeAppId, item);
+  });
+}
+
+function dlSubmit_() {
+  const payload = {
+    category:    document.getElementById('dlCategory').value,
+    targetFiles: document.getElementById('dlTargetFiles').value.trim(),
+    summary:     document.getElementById('dlSummary').value.trim(),
+    reason:      document.getElementById('dlReason').value.trim(),
+    sessionNote: document.getElementById('dlSessionNote').value.trim(),
+  };
+  if (!payload.summary) { showToast('「何をしたか」は必須だよ'); return; }
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res && res.ok) {
+        ['dlTargetFiles','dlSummary','dlReason','dlSessionNote'].forEach(id => {
+          document.getElementById(id).value = '';
+        });
+        dlLoadTable_();
+        showToast('追加した！');
+      } else {
+        showToast('保存失敗: ' + (res && res.message || 'unknown'));
+      }
+    })
+    .withFailureHandler(e => showToast('エラー: ' + e))
+    .designLog_append(activeAppId, payload);
+}
+
+function dlLoadTable_() {
+  const wrap = document.getElementById('dlTableWrap');
+  wrap.innerHTML = '<p class="loading-text">読み込み中...</p>';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res || !res.ok) { wrap.innerHTML = '<p class="loading-text">取得失敗</p>'; return; }
+      const logs = res.logs || [];
+      if (!logs.length) { wrap.innerHTML = '<p class="empty-text">ログなし</p>'; return; }
+      let html = '<table class="dl-table"><tr>'
+        + '<th>日時</th><th>カテゴリ</th><th>対象</th><th>何をしたか</th><th>なぜ</th><th>備考</th>'
+        + '</tr>';
+      logs.forEach(l => {
+        const catClass = 'dl-cat dl-cat-' + (l.category || 'change');
+        html += '<tr>'
+          + '<td style="white-space:nowrap">' + escHtml(l.datetime) + '</td>'
+          + '<td><span class="' + catClass + '">' + escHtml(l.category) + '</span></td>'
+          + '<td>' + escHtml(l.targetFiles) + '</td>'
+          + '<td>' + escHtml(l.summary) + '</td>'
+          + '<td>' + escHtml(l.reason) + '</td>'
+          + '<td>' + escHtml(l.sessionNote) + '</td>'
+          + '</tr>';
+      });
+      html += '</table>';
+      wrap.innerHTML = html;
+    })
+    .withFailureHandler(e => {
+      wrap.innerHTML = '<p class="loading-text">エラー: ' + e + '</p>';
+    })
+    .designLog_getRecent(activeAppId, 50);
+}
+
+function dlRebuildDoc_() {
+  const status = document.getElementById('dlCopyStatus');
+  status.textContent = '再構築中...';
+  google.script.run
+    .withSuccessHandler(res => {
+      status.textContent = res && res.ok
+        ? '✅ 再構築完了（' + res.logCount + '件ログ / ' + res.fileCount + 'ファイル）'
+        : '失敗: ' + (res && res.message || 'unknown');
+    })
+    .withFailureHandler(e => { status.textContent = 'エラー: ' + e; })
+    .devExport_syncToDoc();
+}
+
+// ── Drag & Drop ──
+let dragTicketId_ = null;
+
+function onDragStart_(event, ticketId) {
+  dragTicketId_ = ticketId;
+  event.dataTransfer.effectAllowed = 'move';
+  event.currentTarget.classList.add('dragging');
+}
+
+function onDragEnd_(event) {
+  event.currentTarget.classList.remove('dragging');
+  dragTicketId_ = null;
+}
+
+function onDragOver_(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  event.currentTarget.classList.add('drag-over');
+}
+
+function onDragLeave_(event) {
+  if (!event.currentTarget.contains(event.relatedTarget)) {
+    event.currentTarget.classList.remove('drag-over');
+  }
+}
+
+function onDrop_(event) {
+  event.preventDefault();
+  const col = event.currentTarget;
+  col.classList.remove('drag-over');
+  if (!dragTicketId_) return;
+
+  const targetStatus   = col.dataset.status;
+  const targetPriority = col.dataset.priority || null;
+  const ticket = allTickets.find(t => t.ticketId === dragTicketId_);
+  if (!ticket) return;
+
+  if (targetStatus === 'done') {
+    if (ticket.status === 'done') return;
+    google.script.run
+      .withSuccessHandler(() => { loadTickets(); showToast('解決済みにした ✓'); })
+      .withFailureHandler(e => showToast('エラー: ' + e.message))
+      .api_resolveTicket(activeAppId, dragTicketId_);
+  } else {
+    if (ticket.status === 'open' && ticket.priority === targetPriority) return;
+    if (ticket.status === 'done') {
+      google.script.run
+        .withSuccessHandler(() => {
+          google.script.run
+            .withSuccessHandler(() => { loadTickets(); showToast('未対応に戻した'); })
+            .withFailureHandler(e => showToast('エラー: ' + e.message))
+            .api_updateTicket(activeAppId, dragTicketId_, { priority: targetPriority });
+        })
+        .withFailureHandler(e => showToast('エラー: ' + e.message))
+        .api_reopenTicket(activeAppId, dragTicketId_);
+    } else {
+      google.script.run
+        .withSuccessHandler(() => { loadTickets(); showToast('優先度を変更した'); })
+        .withFailureHandler(e => showToast('エラー: ' + e.message))
+        .api_updateTicket(activeAppId, dragTicketId_, { priority: targetPriority });
+    }
+  }
+}
+
+function deleteTicket_(ticketId) {
+  if (!confirm(`削除する？\n${ticketId}`)) return;
+  google.script.run
+    .withSuccessHandler(() => { loadTickets(); showToast(ticketId + ' を削除した'); })
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .api_deleteTicket(ticketId);
+}
+
+function copyTicketJson_(ticketId) {
+  const t = allTickets.find(x => x.ticketId === ticketId);
+  if (!t) return;
+  const json = JSON.stringify({
+    type:        t.type,
+    title:       t.title,
+    description: t.description || '',
+    priority:    t.priority,
+    targetFiles: t.targetFiles || '',
+  }, null, 2);
+  navigator.clipboard.writeText(json)
+    .then(() => showToast('コピーした！ ' + ticketId));
+}
+
+// ── Utils ──
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+</script>

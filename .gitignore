@@ -1,0 +1,8 @@
+# clasp credentials (contain script IDs and OAuth secrets)
+.clasp.json
+.clasprc.json
+creds.json
+client_secret*.json
+
+# Temp/debug files may contain API keys in ScriptProperties dumps
+*999*.js
