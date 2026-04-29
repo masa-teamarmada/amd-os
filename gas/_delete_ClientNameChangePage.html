@@ -1,0 +1,103 @@
+<!-- ClientNameChangePage.html -->
+<!doctype html>
+<html>
+  <head>
+    <base target="_top" />
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; max-width: 980px; }
+      .card { border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; background:#fff; }
+      .h1 { font-size: 26px; font-weight: 900; margin: 0; }
+      .muted { color:#6b7280; font-size: 12px; margin-top: 6px; }
+      .row { display:flex; gap: 12px; align-items:center; flex-wrap:wrap; margin-top: 12px; }
+      .label { font-weight: 900; font-size: 12px; color:#6b7280; letter-spacing:.04em; text-transform: uppercase; }
+      .val { font-weight: 900; font-size: 16px; }
+      input { width: min(720px, 100%); padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 14px; font-size: 16px; }
+      button { padding: 12px 16px; border-radius: 14px; border: 1px solid #111827; background:#111827; color:#fff; font-weight: 900; cursor:pointer; }
+      button:disabled { opacity:.5; cursor:not-allowed; }
+      .err { margin-top: 10px; color:#b91c1c; background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:10px; white-space:pre-wrap; display:none; }
+      .ok { margin-top: 10px; color:#065f46; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:12px; padding:10px; white-space:pre-wrap; display:none; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="h1">クライアント名の修正（承認）</div>
+      <div class="muted">この画面は きよ専用。承認したら閉じてOK。</div>
+
+      <div class="row">
+        <div>
+          <div class="label">PJ</div>
+          <div class="val" id="pjLine">-</div>
+        </div>
+        <div>
+          <div class="label">login</div>
+          <div class="val"><?= userEmail ?></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex:1; min-width: 280px;">
+          <div class="label">現状のクライアント名</div>
+          <div class="val" id="curClient">-</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex:1; min-width: 280px;">
+          <div class="label">申請されたクライアント名</div>
+          <input id="reqClient" disabled />
+          <div class="muted" id="reqMeta"></div>
+        </div>
+        <div>
+          <button id="btnApprove" type="button">承認して反映</button>
+        </div>
+      </div>
+
+      <div id="okBox" class="ok"></div>
+      <div id="errBox" class="err"></div>
+    </div>
+
+    <script>
+      const PROJECT_ID = "<?= projectId ?>";
+      const TOKEN = "<?= token ?>";
+
+      function el(id){ return document.getElementById(id); }
+      function showErr(msg){ el("errBox").style.display="block"; el("errBox").textContent=String(msg||""); }
+      function showOk(msg){ el("okBox").style.display="block"; el("okBox").textContent=String(msg||""); }
+
+      function load(){
+        google.script.run
+          .withFailureHandler(err => showErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){ showErr(res?.message || "load failed"); return; }
+
+            el("pjLine").textContent = `${res.projectName}（${res.projectId}）`;
+            el("curClient").textContent = res.currentClientName || "（未設定）";
+            el("reqClient").value = res.requestedClientName || "";
+            el("reqMeta").textContent =
+              `申請者：${res.requestedBy || "-"} / 申請時刻：${res.requestedAt || "-"}` +
+              (res.alreadyApproved ? " / ※すでに承認済み" : "");
+          })
+          .api_getClientNameChangeRequest({ projectId: PROJECT_ID, token: TOKEN });
+      }
+
+      el("btnApprove").addEventListener("click", () => {
+        el("btnApprove").disabled = true;
+
+        google.script.run
+          .withFailureHandler(err => {
+            el("btnApprove").disabled = false;
+            showErr(err?.message || String(err));
+          })
+          .withSuccessHandler(res => {
+            el("btnApprove").disabled = false;
+            if (!res || !res.ok){ showErr(res?.message || "approve failed"); return; }
+            showOk(`承認して反映したよ：${res.clientName}`);
+          })
+          .api_approveClientNameChange({ projectId: PROJECT_ID, token: TOKEN });
+      });
+
+      load();
+    </script>
+  </body>
+</html>

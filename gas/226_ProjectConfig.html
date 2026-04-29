@@ -1,0 +1,700 @@
+<!-- 226_ProjectConfig.html
+     PJ設定画面（Project Config）
+     基本情報・メンバー・契約条件・請求書送付先を一括管理。
+     コックピットの「チャーター→」リンクからprojectIdを受け取って表示。
+-->
+<?!= navHtml ?>
+<style>
+  .pc-wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px 80px; font-family: "Helvetica Neue", Arial, sans-serif; color: #1a1a1a; }
+  .pc-header { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .pc-header h1 { font-size: 20px; font-weight: 700; margin: 0; }
+  .pc-header .pc-badge { font-size: 12px; padding: 2px 10px; border-radius: 12px; font-weight: 600; }
+  .pc-badge-active { background: #d1fae5; color: #065f46; }
+  .pc-badge-paused { background: #fef3c7; color: #92400e; }
+  .pc-badge-completed { background: #dbeafe; color: #1e40af; }
+
+  .pc-section { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px 24px; margin-bottom: 20px; }
+  .pc-section-title { font-size: 14px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+
+  .pc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+  .pc-field { display: flex; flex-direction: column; gap: 4px; }
+  .pc-field.full { grid-column: 1 / -1; }
+  .pc-label { font-size: 12px; font-weight: 600; color: #6b7280; }
+  .pc-val-ro { font-size: 14px; color: #374151; padding: 6px 0; min-height: 24px; }
+  .pc-input { font-size: 14px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #1a1a1a; outline: none; transition: border 0.15s; }
+  .pc-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+  .pc-select { font-size: 14px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #1a1a1a; outline: none; }
+
+  /* Members table */
+  .pc-tbl-wrap { overflow-x: auto; }
+  .pc-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .pc-tbl th { text-align: left; font-size: 11px; font-weight: 700; color: #6b7280; padding: 6px 8px; border-bottom: 2px solid #e5e7eb; white-space: nowrap; }
+  .pc-tbl td { padding: 6px 8px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  .pc-tbl .pc-input, .pc-tbl .pc-select { width: 100%; box-sizing: border-box; font-size: 13px; padding: 4px 6px; }
+  .pc-tbl input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+  .pc-btn-sm { font-size: 12px; padding: 4px 10px; border: 1px solid #d1d5db; border-radius: 5px; background: #fff; cursor: pointer; color: #374151; transition: background 0.15s; }
+  .pc-btn-sm:hover { background: #f3f4f6; }
+  .pc-btn-del { color: #dc2626; border-color: #fca5a5; }
+  .pc-btn-del:hover { background: #fef2f2; }
+
+  .pc-add-row { margin-top: 10px; }
+
+  /* Save bar */
+  .pc-save-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #e5e7eb; padding: 12px 24px; display: flex; justify-content: flex-end; gap: 12px; z-index: 100; }
+  .pc-btn { font-size: 14px; padding: 8px 24px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: background 0.15s; }
+  .pc-btn-primary { background: #2563eb; color: #fff; }
+  .pc-btn-primary:hover { background: #1d4ed8; }
+  .pc-btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+  .pc-btn-secondary { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+  .pc-btn-secondary:hover { background: #e5e7eb; }
+
+  .pc-toast { position: fixed; bottom: 80px; right: 24px; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; z-index: 200; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .pc-toast.show { opacity: 1; }
+  .pc-toast-ok { background: #d1fae5; color: #065f46; }
+  .pc-toast-err { background: #fee2e2; color: #991b1b; }
+
+  .pc-loading { text-align: center; padding: 60px; color: #9ca3af; font-size: 14px; }
+
+  /* Deductions */
+  .pc-ded-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .pc-ded-tbl th { text-align: left; font-size: 11px; font-weight: 700; color: #6b7280; padding: 6px 8px; border-bottom: 2px solid #e5e7eb; white-space: nowrap; }
+  .pc-ded-tbl td { padding: 6px 8px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; font-size: 13px; }
+  .pc-ded-tbl .pc-input, .pc-ded-tbl .pc-select { width: 100%; box-sizing: border-box; font-size: 13px; padding: 4px 6px; }
+  .pc-ded-badge { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px; font-weight: 600; }
+  .pc-ded-badge-active { background: #d1fae5; color: #065f46; }
+  .pc-ded-badge-expired { background: #f3f4f6; color: #9ca3af; }
+  .pc-ded-badge-cancelled { background: #fee2e2; color: #991b1b; }
+  .pc-ded-summary { margin-top: 12px; padding: 12px 16px; background: #f9fafb; border-radius: 8px; font-size: 13px; color: #374151; line-height: 1.8; }
+  .pc-ded-summary strong { font-weight: 700; }
+  .pc-ded-form { margin-top: 16px; padding: 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; display: none; }
+  .pc-ded-form .pc-grid { gap: 8px 16px; }
+</style>
+
+<div class="pc-wrap" id="pcRoot">
+  <div class="pc-loading" id="pcLoading">読み込み中...</div>
+</div>
+
+<div class="pc-save-bar" id="pcSaveBar" style="display:none;">
+  <button class="pc-btn pc-btn-secondary" onclick="pcReload()">リセット</button>
+  <button class="pc-btn pc-btn-primary" id="pcSaveBtn" onclick="pcSaveAll()">保存</button>
+</div>
+
+<div class="pc-toast" id="pcToast"></div>
+
+<script>
+var PC = {
+  projectId: null,
+  project: null,
+  members: [],
+  memberMaster: [],
+  dirty: false
+};
+
+// ===== 初期化 =====
+function pcInit(projectId) {
+  PC.projectId = projectId;
+  console.log("[pcInit] projectId=", projectId);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      console.log("[pcInit] success, res=", res);
+      pcRender(res);
+    })
+    .withFailureHandler(function(e) {
+      console.log("[pcInit] failure", e);
+      document.getElementById("pcLoading").textContent = "エラー: " + e.message;
+    })
+    .projectConfig_api_getData({ projectId: projectId });
+}
+
+function pcRender(res) {
+  if (!res || !res.ok) {
+    document.getElementById("pcLoading").textContent = res ? res.message : "取得失敗";
+    return;
+  }
+  PC.project = res.project;
+  PC.members = res.members || [];
+  PC.memberMaster = res.memberMaster || [];
+
+  var root = document.getElementById("pcRoot");
+  var st = String(PC.project.projectStatus || "").toLowerCase();
+  var badgeCls = st === "active" ? "pc-badge-active" : (st === "paused" ? "pc-badge-paused" : "pc-badge-completed");
+
+  var html = '';
+
+  // Header
+  html += '<div class="pc-header">';
+  html += '  <a onclick="pcBackToCockpit()" style="cursor:pointer;font-size:13px;color:#374151;text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:20px;padding:6px 14px;transition:background 0.15s;" onmouseover="this.style.background=\'#e5e7eb\'" onmouseout="this.style.background=\'#f3f4f6\'">← コックピット</a>';
+  html += '  <h1>' + esc(PC.project.projectName) + '</h1>';
+  html += '  <span class="pc-badge ' + badgeCls + '">' + esc(PC.project.projectStatus || "—") + '</span>';
+  html += '</div>';
+
+  // Section 1: 基本情報
+  html += '<div class="pc-section">';
+  html += '  <div class="pc-section-title">基本情報</div>';
+  html += '  <div class="pc-grid">';
+  html += pcReadonly("PJ名", PC.project.projectName);
+  html += pcReadonly("freee取引先名", PC.project.clientName);
+  html += pcReadonly("PM", PC.project._pmName);
+  html += pcReadonly("クローザー", PC.project._closerName);
+  html += pcSelectField("ステータス", "projectStatus", PC.project.projectStatus, ["Active", "Paused", "Completed", "Archived"]);
+  html += pcTextField("主要メール送付先", "reportEmails", PC.project.reportEmails, true);
+  html += '  </div>';
+  html += '</div>';
+
+  // Section 2: メンバー
+  html += '<div class="pc-section">';
+  html += '  <div class="pc-section-title">メンバー</div>';
+  html += '  <div class="pc-tbl-wrap">';
+  html += '    <table class="pc-tbl" id="pcMemberTbl">';
+  html += '      <thead><tr>';
+  html += '        <th>メンバー</th><th>役割</th><th>PM</th><th>クローザー</th><th>参画月</th><th>離脱月</th><th>Active</th><th></th>';
+  html += '      </tr></thead>';
+  html += '      <tbody id="pcMemberBody">';
+  for (var i = 0; i < PC.members.length; i++) {
+    html += pcMemberRow(i, PC.members[i]);
+  }
+  html += '      </tbody>';
+  html += '    </table>';
+  html += '  </div>';
+  html += '  <div class="pc-add-row"><button class="pc-btn-sm" onclick="pcAddMember()">＋ メンバー追加</button></div>';
+  html += '</div>';
+
+  // Section 3: 契約・料金
+  html += '<div class="pc-section">';
+  html += '  <div class="pc-section-title">契約・料金</div>';
+  html += '  <div class="pc-grid">';
+  html += pcTextField("契約開始日", "contractStartDate", fmtDate(PC.project.contractStartDate));
+  html += pcTextField("契約終了日", "contractEndDate", fmtDate(PC.project.contractEndDate));
+  html += pcTextField("PJ開始月 (yyyymm)", "startYm", PC.project.startYm);
+  html += pcTextField("PJ終了月 (yyyymm)", "endYm", PC.project.endYm);
+  html += pcSelectField("業務委託料タイプ", "feeType", PC.project.feeType || "", ["monthly_fixed", "milestone", "variable"]);
+  html += pcNumberField("業務委託料額 (円)", "feeAmount", PC.project.feeAmount || "");
+  html += pcDeadlineDayField("請求書発行期日", "invoiceSendDeadlineRule", PC.project.invoiceSendDeadlineRule);
+  html += pcSelectFieldWithLabels("支払期日", "paymentDueRule", PC.project.paymentDueRule, [
+    { value: "issue_month_eom", label: "発行月末" },
+    { value: "next_month_eom",  label: "翌月末" },
+    { value: "next_month_15",   label: "翌月25日" }
+  ]);
+  html += '  </div>';
+  html += '</div>';
+
+  // Section 3.5: PJ予算控除枠（Deductions）
+  html += '<div class="pc-section">';
+  html += '  <div class="pc-section-title">PJ予算控除枠</div>';
+  html += '  <div id="pcDedLoading" style="color:#9ca3af;font-size:13px;">読み込み中...</div>';
+  html += '  <div id="pcDedContent" style="display:none;">';
+  html += '    <div id="pcDedSummary" class="pc-ded-summary"></div>';
+  html += '    <div class="pc-tbl-wrap" style="margin-top:12px;">';
+  html += '      <table class="pc-ded-tbl">';
+  html += '        <thead><tr><th>種別</th><th>ラベル</th><th>控除</th><th>対象者</th><th>期間</th><th>状態</th><th></th></tr></thead>';
+  html += '        <tbody id="pcDedBody"></tbody>';
+  html += '      </table>';
+  html += '    </div>';
+  html += '    <div class="pc-add-row"><button class="pc-btn-sm" onclick="pcDedShowForm()">＋ 控除枠を追加</button></div>';
+  html += '    <div class="pc-ded-form" id="pcDedForm">';
+  html += '      <div class="pc-grid">';
+  html += '        <div class="pc-field">';
+  html += '          <span class="pc-label">種別</span>';
+  html += '          <select class="pc-select" id="pcDedType"><option value="buffer">バッファ</option><option value="salesFee">営業費用</option><option value="advisor">アドバイザー謝礼</option><option value="other">その他</option></select>';
+  html += '        </div>';
+  html += '        <div class="pc-field">';
+  html += '          <span class="pc-label">控除モード</span>';
+  html += '          <select class="pc-select" id="pcDedMode" onchange="pcDedModeChanged()">';
+  html += '            <option value="rate">割合（%）</option><option value="fixed">固定額（円/月）</option>';
+  html += '          </select>';
+  html += '        </div>';
+  html += '        <div class="pc-field"><span class="pc-label">ラベル</span><input class="pc-input" id="pcDedLabel" placeholder="例：バッファ10%"></div>';
+  html += '        <div class="pc-field" id="pcDedRateWrap"><span class="pc-label">割合 (%)</span><input class="pc-input" type="number" id="pcDedRate" step="0.1" min="0" max="100"></div>';
+  html += '        <div class="pc-field" id="pcDedFixedWrap"><span class="pc-label">月額 (円)</span><input class="pc-input" type="number" id="pcDedFixed" min="0"></div>';
+  html += '        <div class="pc-field" id="pcDedMemberWrap">';
+  html += '          <span class="pc-label">支払先メンバー</span>';
+  html += '          <select class="pc-select" id="pcDedMember"><option value="">（なし）</option>';
+  for (var mi = 0; mi < PC.memberMaster.length; mi++) {
+    var mm = PC.memberMaster[mi];
+    var dispName = mm.codeName || mm.memberName;
+    html += '<option value="' + escAttr(mm.memberId) + '">' + esc(dispName) + '</option>';
+  }
+  html += '          </select>';
+  html += '        </div>';
+  html += '        <div class="pc-field"><span class="pc-label">開始月 (yyyymm)</span><input class="pc-input" id="pcDedStartYm" placeholder="202601"></div>';
+  html += '        <div class="pc-field" id="pcDedDurationWrap"><span class="pc-label">支払月数</span><input class="pc-input" type="number" id="pcDedDuration" min="1" max="120"></div>';
+  html += '        <div class="pc-field full"><span class="pc-label">メモ</span><input class="pc-input" id="pcDedNote" placeholder="任意"></div>';
+  html += '      </div>';
+  html += '      <div style="margin-top:12px;display:flex;gap:8px;">';
+  html += '        <button class="pc-btn-sm" onclick="pcDedAdd()" id="pcDedAddBtn">追加</button>';
+  html += '        <button class="pc-btn-sm" onclick="pcDedHideForm()">キャンセル</button>';
+  html += '      </div>';
+  html += '    </div>';
+  html += '  </div>';
+  html += '</div>';
+
+  // Section 4: 請求書送付（モード選択 + 送付先）
+  html += '<div class="pc-section">';
+  html += '  <div class="pc-section-title">請求書送付</div>';
+  html += '  <div class="pc-grid">';
+  var rawMode = PC.project.invoiceSendManual;
+  var curMode = (rawMode === false || rawMode === "FALSE" || rawMode === "auto") ? "auto" : "manual";
+  html += pcSelectField("送付モード", "invoiceSendManual", curMode, ["auto", "manual"]);
+  html += '  </div>';
+  html += '  <div id="pcInvoiceEmailBlock" class="pc-grid" style="margin-top:12px;' + (curMode === "manual" ? "display:none;" : "") + '">';
+  html += pcTextField("To", "invoiceToEmails", PC.project.invoiceToEmails, true);
+  html += pcTextField("CC", "invoiceCcEmails", PC.project.invoiceCcEmails, true);
+  html += pcTextField("BCC", "invoiceBccEmails", PC.project.invoiceBccEmails, true);
+  html += '  </div>';
+  html += '</div>';
+
+  root.innerHTML = html;
+  document.getElementById("pcSaveBar").style.display = "flex";
+  PC.dirty = false;
+
+  // change listener
+  root.addEventListener("input", function() { PC.dirty = true; });
+  root.addEventListener("change", function() { PC.dirty = true; });
+  pcInitSendModeToggle();
+  pcDedLoad();
+}
+
+// ===== フィールドヘルパー =====
+function pcReadonly(label, val) {
+  return '<div class="pc-field"><span class="pc-label">' + esc(label) + '</span><div class="pc-val-ro">' + esc(val || "—") + '</div></div>';
+}
+function pcTextField(label, key, val, full) {
+  return '<div class="pc-field' + (full ? " full" : "") + '"><span class="pc-label">' + esc(label) + '</span>'
+    + '<input class="pc-input" data-key="' + key + '" value="' + escAttr(val || "") + '"></div>';
+}
+function pcNumberField(label, key, val) {
+  return '<div class="pc-field"><span class="pc-label">' + esc(label) + '</span>'
+    + '<input class="pc-input" type="number" data-key="' + key + '" value="' + escAttr(val || "") + '"></div>';
+}
+function pcSelectField(label, key, val, opts) {
+  var h = '<div class="pc-field"><span class="pc-label">' + esc(label) + '</span><select class="pc-select" data-key="' + key + '">';
+  for (var i = 0; i < opts.length; i++) {
+    var sel = (String(val || "").toLowerCase() === opts[i].toLowerCase()) ? " selected" : "";
+    var dispLabel = opts[i] || "—";
+    h += '<option value="' + escAttr(opts[i]) + '"' + sel + '>' + esc(dispLabel) + '</option>';
+  }
+  h += '</select></div>';
+  return h;
+}
+
+function pcDeadlineDayField(label, key, val) {
+  var cur = String(val || "10");
+  var h = '<div class="pc-field full"><span class="pc-label">' + esc(label) + '</span>';
+  h += '<div style="display:flex;align-items:center;gap:6px;font-size:14px;">毎月 ';
+  h += '<select class="pc-select" data-key="' + key + '" style="width:80px;">';
+  for (var i = 1; i <= 30; i++) {
+    var s = String(i);
+    h += '<option value="' + s + '"' + (cur === s ? ' selected' : '') + '>' + s + '</option>';
+  }
+  h += '<option value="末"' + (cur === "末" ? ' selected' : '') + '>末</option>';
+  h += '</select> 日までに送付</div></div>';
+  return h;
+}
+
+function pcInitSendModeToggle() {
+  var sel = document.querySelector('[data-key="invoiceSendManual"]');
+  if (!sel) return;
+  sel.addEventListener("change", function() {
+    var block = document.getElementById("pcInvoiceEmailBlock");
+    if (block) block.style.display = (sel.value === "manual") ? "none" : "";
+  });
+}
+
+function pcSelectFieldWithLabels(label, key, val, opts) {
+  var h = '<div class="pc-field"><span class="pc-label">' + esc(label) + '</span><select class="pc-select" data-key="' + key + '">';
+  for (var i = 0; i < opts.length; i++) {
+    var sel = (String(val || "") === opts[i].value) ? " selected" : "";
+    h += '<option value="' + escAttr(opts[i].value) + '"' + sel + '>' + esc(opts[i].label) + '</option>';
+  }
+  h += '</select></div>';
+  return h;
+}
+
+function pcMemberRow(idx, m) {
+  var h = '<tr data-midx="' + idx + '">';
+  // メンバー選択
+  h += '<td><select class="pc-select pc-m" data-mf="memberId">';
+  h += '<option value="">選択...</option>';
+  for (var i = 0; i < PC.memberMaster.length; i++) {
+    var mm = PC.memberMaster[i];
+    var sel = (mm.memberId === m.memberId) ? " selected" : "";
+    var dispName = mm.memberName + (mm.codeName ? " (" + mm.codeName + ")" : "");
+    h += '<option value="' + escAttr(mm.memberId) + '"' + sel + '>' + esc(dispName) + '</option>';
+  }
+  // 既存メンバーがマスタにない場合（inactive等）
+  if (m.memberId && !PC.memberMaster.some(function(mm){ return mm.memberId === m.memberId; })) {
+    h += '<option value="' + escAttr(m.memberId) + '" selected>' + esc(m.memberName || m.memberId) + ' (inactive)</option>';
+  }
+  h += '</select></td>';
+  // 役割
+  h += '<td><input class="pc-input pc-m" data-mf="roleLabel" value="' + escAttr(m.roleLabel || "") + '" style="width:100px;"></td>';
+  // PM
+  h += '<td style="text-align:center;"><input type="checkbox" class="pc-m" data-mf="isPM"' + (m.isPM ? " checked" : "") + '></td>';
+  // クローザー
+  h += '<td style="text-align:center;"><input type="checkbox" class="pc-m" data-mf="isCloser"' + (m.isCloser ? " checked" : "") + '></td>';
+  // joinYm
+  h += '<td><input class="pc-input pc-m" data-mf="joinYm" value="' + escAttr(m.joinYm || "") + '" placeholder="yyyymm" style="width:80px;"></td>';
+  // leaveYm
+  h += '<td><input class="pc-input pc-m" data-mf="leaveYm" value="' + escAttr(m.leaveYm || "") + '" placeholder="yyyymm" style="width:80px;"></td>';
+  // isActive
+  h += '<td style="text-align:center;"><input type="checkbox" class="pc-m" data-mf="isActive"' + (m.isActive !== false ? " checked" : "") + '></td>';
+  // 削除
+  h += '<td><button class="pc-btn-sm pc-btn-del" onclick="pcDelMember(this)">✕</button></td>';
+  h += '</tr>';
+  return h;
+}
+
+function pcAddMember() {
+  var tbody = document.getElementById("pcMemberBody");
+  var idx = tbody.rows.length;
+  var tr = document.createElement("tr");
+  tr.setAttribute("data-midx", idx);
+  tr.innerHTML = pcMemberRow(idx, { memberId: "", roleLabel: "", isPM: false, joinYm: "", leaveYm: "", isActive: true }).replace(/^<tr[^>]*>/, "").replace(/<\/tr>$/, "");
+  tbody.appendChild(tr);
+  PC.dirty = true;
+}
+
+function pcDelMember(btn) {
+  var tr = btn.closest("tr");
+  tr.remove();
+  PC.dirty = true;
+}
+
+// ===== 保存 =====
+function pcSaveAll() {
+  var btn = document.getElementById("pcSaveBtn");
+  btn.disabled = true;
+  btn.textContent = "保存中...";
+
+  // 1) Project fields
+  var fields = {};
+  document.querySelectorAll("[data-key]").forEach(function(el) {
+    fields[el.getAttribute("data-key")] = el.value;
+  });
+  // auto/manual → TRUE/FALSE 変換（DB正本はinvoiceSendManual: TRUE=手動）
+  if (fields.invoiceSendManual !== undefined) {
+    fields.invoiceSendManual = (fields.invoiceSendManual === "manual") ? "TRUE" : "FALSE";
+  }
+
+  // 2) Members
+  var members = [];
+  document.querySelectorAll("#pcMemberBody tr").forEach(function(tr) {
+    var m = {};
+    tr.querySelectorAll("[data-mf]").forEach(function(el) {
+      var f = el.getAttribute("data-mf");
+      if (el.type === "checkbox") {
+        m[f] = el.checked;
+      } else {
+        m[f] = el.value;
+      }
+    });
+    if (m.memberId) members.push(m);
+  });
+
+  // Save project first, then members
+  google.script.run
+    .withSuccessHandler(function(res1) {
+      if (!res1 || !res1.ok) {
+        pcToast("PJ保存失敗: " + (res1 ? res1.message : ""), true);
+        btn.disabled = false;
+        btn.textContent = "保存";
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(res2) {
+          btn.disabled = false;
+          btn.textContent = "保存";
+          if (!res2 || !res2.ok) {
+            pcToast("メンバー保存失敗: " + (res2 ? res2.message : ""), true);
+          } else {
+            pcToast("保存完了 ✓", false);
+            PC.dirty = false;
+          }
+        })
+        .withFailureHandler(function(e) {
+          btn.disabled = false;
+          btn.textContent = "保存";
+          pcToast("メンバー保存エラー: " + e.message, true);
+        })
+        .projectConfig_api_saveMembers({ projectId: PC.projectId, members: members });
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.textContent = "保存";
+      pcToast("PJ保存エラー: " + e.message, true);
+    })
+    .projectConfig_api_saveProject({ projectId: PC.projectId, fields: fields });
+}
+
+function pcReload() {
+  if (PC.dirty && !confirm("未保存の変更があります。リセットしますか？")) return;
+  pcInit(PC.projectId);
+}
+
+// ===== ユーティリティ =====
+function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+function escAttr(s) { return String(s || "").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function fmtDate(v) {
+  if (!v) return "";
+  if (v instanceof Date) {
+    var y = v.getFullYear();
+    var m = ("0" + (v.getMonth() + 1)).slice(-2);
+    var d = ("0" + v.getDate()).slice(-2);
+    return y + "-" + m + "-" + d;
+  }
+  return String(v);
+}
+
+// ===== 初期化（Routerから呼ばれる） =====
+document.addEventListener("DOMContentLoaded", function() {
+  var pid = "<?= projectId ?>";
+  if (pid) pcInit(pid);
+});
+
+function pcBackToCockpit() {
+  if (PC.dirty && !confirm("未保存の変更があります。戻りますか？")) return;
+  window.top.location.href = '<?= cockpitUrl ?>';
+}
+
+function pcToast(msg, isErr) {
+  var el = document.getElementById("pcToast");
+  el.textContent = msg;
+  el.className = "pc-toast show " + (isErr ? "pc-toast-err" : "pc-toast-ok");
+  setTimeout(function() { el.className = "pc-toast"; }, 3000);
+}
+// ===== Deductions =====
+var PC_DED = { items: [] };
+
+function pcDedLoad() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      document.getElementById("pcDedLoading").style.display = "none";
+      document.getElementById("pcDedContent").style.display = "";
+      if (!res || !res.ok) return;
+      PC_DED.items = res.deductions || [];
+      PC_DED.planInfo = res.planInfo || {};
+      pcDedRenderTable();
+      pcDedRenderSummary();
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById("pcDedLoading").textContent = "控除枠の読み込みに失敗: " + e.message;
+    })
+    .projectConfig_api_getDeductions({ projectId: PC.projectId });
+}
+
+function pcDedRenderTable() {
+  var tbody = document.getElementById("pcDedBody");
+  if (!tbody) return;
+  var html = "";
+  for (var i = 0; i < PC_DED.items.length; i++) {
+    var d = PC_DED.items[i];
+    var st = String(d.status || "active");
+    if (st === "cancelled") continue;
+    var badgeCls = st === "active" ? "pc-ded-badge-active" : "pc-ded-badge-expired";
+
+    var dedText = "";
+    if (String(d.mode) === "rate") {
+      dedText = Number(d.ratePercent || 0) + "%";
+    } else {
+      dedText = "¥" + Number(d.fixedAmount || 0).toLocaleString() + "/月";
+    }
+
+    var period = String(d.startYm || "");
+    if (d.endYm) period += " ~ " + d.endYm;
+    else period += " ~";
+
+    html += "<tr>";
+    html += "<td>" + esc(pcDedTypeLabel(d.type)) + "</td>";
+    html += "<td>" + esc(d.label || "") + "</td>";
+    html += "<td><strong>" + esc(dedText) + "</strong></td>";
+    html += "<td>" + esc(d._targetMemberName || "—") + "</td>";
+    html += "<td>" + esc(period) + "</td>";
+    html += '<td><span class="pc-ded-badge ' + badgeCls + '">' + esc(st) + "</span></td>";
+    html += "<td style='white-space:nowrap;'>";
+    if (st === "active") {
+      html += '<button class="pc-btn-sm" onclick="pcDedExpire(\'' + esc(d.deductionId) + '\')" style="margin-right:4px;">停止</button>';
+      html += '<button class="pc-btn-sm pc-btn-del" onclick="pcDedCancel(\'' + esc(d.deductionId) + '\')">削除</button>';
+    } else if (st === "expired") {
+      html += '<button class="pc-btn-sm pc-btn-del" onclick="pcDedCancel(\'' + esc(d.deductionId) + '\')">削除</button>';
+    }
+    html += "</td>";
+    html += "</tr>";
+  }
+  if (PC_DED.items.length === 0) {
+    html = '<tr><td colspan="7" style="color:#9ca3af;text-align:center;padding:16px;">控除枠なし（PJ予算の65%がそのままpt原資）</td></tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function pcDedRenderSummary() {
+  var el = document.getElementById("pcDedSummary");
+  if (!el) return;
+  var fee = Number(PC.project.feeAmount || 0);
+  if (!fee) { el.innerHTML = "<em>業務委託料額が未設定</em>"; return; }
+
+  var monthlyGross = fee * 0.65;
+
+  // planCycle情報
+  var pi = (PC_DED.planInfo || {});
+  var totalPt = Number(pi.totalPt || 0);
+  var pStart = String(pi.periodStartYm || "");
+  var pEnd = String(pi.periodEndYm || "");
+  var cycleMonths = 1;
+  if (pStart && pEnd) {
+    var sY = parseInt(pStart.substring(0, 4), 10);
+    var sM = parseInt(pStart.substring(4, 6), 10);
+    var eY = parseInt(pEnd.substring(0, 4), 10);
+    var eM = parseInt(pEnd.substring(4, 6), 10);
+    cycleMonths = Math.max(1, (eY - sY) * 12 + (eM - sM) + 1);
+  }
+  var grossBudget = monthlyGross * cycleMonths;
+
+  // 月額ベースの控除内訳（表示用）
+  var rateTotal = 0;
+  var fixedMonthly = 0;
+  for (var i = 0; i < PC_DED.items.length; i++) {
+    var d = PC_DED.items[i];
+    if (String(d.status) !== "active") continue;
+    if (String(d.mode) === "rate") rateTotal += Number(d.ratePercent || 0);
+    else fixedMonthly += Number(d.fixedAmount || 0);
+  }
+
+  // サイクル全体の控除（059と同じロジック）
+  var cycleDeduction = 0;
+  // rate型: 全月にかかる
+  cycleDeduction += monthlyGross * rateTotal / 100 * cycleMonths;
+  // fixed型: 各行のactive月数分（簡易：FEではactive月数をstartYm~endYmで計算）
+  for (var i = 0; i < PC_DED.items.length; i++) {
+    var d = PC_DED.items[i];
+    if (String(d.status) !== "active" || String(d.mode) !== "fixed") continue;
+    var dStart = String(d.startYm || "");
+    var dEnd = String(d.endYm || "");
+    // サイクル期間とのオーバーラップ月数
+    var effStart = (dStart > pStart) ? dStart : pStart;
+    var effEnd = (dEnd && dEnd < pEnd) ? dEnd : pEnd;
+    if (effStart && effEnd && effStart <= effEnd) {
+      var esY = parseInt(effStart.substring(0, 4), 10);
+      var esM = parseInt(effStart.substring(4, 6), 10);
+      var eeY = parseInt(effEnd.substring(0, 4), 10);
+      var eeM = parseInt(effEnd.substring(4, 6), 10);
+      var months = (eeY - esY) * 12 + (eeM - esM) + 1;
+      cycleDeduction += Number(d.fixedAmount || 0) * months;
+    }
+  }
+
+  var netBudget = Math.max(0, grossBudget - cycleDeduction);
+  var ptUnit = totalPt > 0 ? Math.round(netBudget / totalPt) : 0;
+
+  // 月額内訳の表示
+  var bufferAmt = Math.round(monthlyGross * rateTotal / 100);
+  var monthlyNet = Math.max(0, monthlyGross - bufferAmt - fixedMonthly);
+
+  var h = "月額 <strong>¥" + fee.toLocaleString() + "</strong>";
+  h += " → AMD 30% + クローザー 5% → PJ予算(65%) <strong>¥" + Math.round(monthlyGross).toLocaleString() + "</strong>";
+  if (rateTotal > 0) h += " → バッファ " + rateTotal + "% (<strong>-¥" + bufferAmt.toLocaleString() + "</strong>)";
+  if (fixedMonthly > 0) h += " → 固定控除 <strong>-¥" + fixedMonthly.toLocaleString() + "</strong>/月";
+  h += " → 月次実質 <strong>¥" + monthlyNet.toLocaleString() + "</strong>";
+
+  if (totalPt > 0) {
+    h += "<br>サイクル " + cycleMonths + "ヶ月 × 実質予算 = <strong>¥" + Math.round(netBudget).toLocaleString() + "</strong>";
+    h += " ÷ " + totalPt + "pt = 1pt <strong>¥" + ptUnit.toLocaleString() + "</strong>";
+  } else {
+    h += "<br><em style='color:#9ca3af;'>（Value Plan未確定のため1pt単価は未算出）</em>";
+  }
+
+  el.innerHTML = h;
+}
+
+function pcDedTypeLabel(type) {
+  var map = { buffer: "バッファ", salesFee: "営業費用", advisor: "アドバイザー", other: "その他" };
+  return map[type] || type || "—";
+}
+
+function pcDedShowForm() {
+  document.getElementById("pcDedForm").style.display = "block";
+  pcDedModeChanged();
+}
+function pcDedHideForm() {
+  document.getElementById("pcDedForm").style.display = "none";
+}
+
+function pcDedModeChanged() {
+  var mode = document.getElementById("pcDedMode").value;
+  document.getElementById("pcDedRateWrap").style.display = (mode === "rate") ? "" : "none";
+  document.getElementById("pcDedFixedWrap").style.display = (mode === "fixed") ? "" : "none";
+  document.getElementById("pcDedMemberWrap").style.display = (mode === "fixed") ? "" : "none";
+  document.getElementById("pcDedDurationWrap").style.display = (mode === "fixed") ? "" : "none";
+}
+
+function pcDedAdd() {
+  var mode = document.getElementById("pcDedMode").value;
+  var payload = {
+    projectId: PC.projectId,
+    type: document.getElementById("pcDedType").value,
+    label: document.getElementById("pcDedLabel").value,
+    mode: mode,
+    startYm: document.getElementById("pcDedStartYm").value.trim(),
+    note: document.getElementById("pcDedNote").value
+  };
+  if (mode === "rate") {
+    payload.ratePercent = parseFloat(document.getElementById("pcDedRate").value) || 0;
+  } else {
+    payload.fixedAmount = parseInt(document.getElementById("pcDedFixed").value, 10) || 0;
+    payload.targetMemberId = document.getElementById("pcDedMember").value;
+    payload.durationMonths = parseInt(document.getElementById("pcDedDuration").value, 10) || 0;
+  }
+
+  if (!payload.startYm || !/^\d{6}$/.test(payload.startYm)) {
+    pcToast("開始月をyyyymm形式で入力して", true);
+    return;
+  }
+
+  var btn = document.getElementById("pcDedAddBtn");
+  btn.disabled = true;
+  btn.textContent = "追加中...";
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false;
+      btn.textContent = "追加";
+      if (!res || !res.ok) {
+        pcToast("追加失敗: " + (res ? res.message : ""), true);
+        return;
+      }
+      pcToast("控除枠を追加した ✓", false);
+      pcDedHideForm();
+      pcDedLoad(); // リロード
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.textContent = "追加";
+      pcToast("エラー: " + e.message, true);
+    })
+    .projectConfig_api_addDeduction(payload);
+}
+
+function pcDedCancel(dedId) {
+  if (!confirm("この控除枠を削除する？（cancelledになり計算から除外される）")) return;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { pcToast("削除失敗", true); return; }
+      pcToast("削除した ✓", false);
+      pcDedLoad();
+    })
+    .withFailureHandler(function(e) { pcToast("エラー: " + e.message, true); })
+    .projectConfig_api_cancelDeduction({ deductionId: dedId });
+}
+
+function pcDedExpire(dedId) {
+  if (!confirm("この控除枠を停止する？（過去分には影響しない）")) return;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { pcToast("停止失敗", true); return; }
+      pcToast("停止した ✓", false);
+      pcDedLoad();
+    })
+    .withFailureHandler(function(e) { pcToast("エラー: " + e.message, true); })
+    .projectConfig_api_expireDeduction({ deductionId: dedId });
+}
+</script>

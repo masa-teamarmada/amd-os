@@ -1,0 +1,11 @@
+.DS_Store
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+.swiftpm/
+.claude/
+.codex/
+*.log
+*.tmp
+AGENTS 2.md

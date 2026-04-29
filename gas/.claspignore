@@ -1,0 +1,6 @@
+.claude/**
+.git/**
+node_modules/**
+CLAUDE.md
+AMD_OS_Spec.md
+*.md

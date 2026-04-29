@@ -1,0 +1,450 @@
+<!-- 507_CockpitMsRevision.html
+     MS改定モーダル（つくよみチャット式diff生成→確定）。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+var MSREV = { sessionId: null, phase: null };
+
+function cpStartMsRevision() {
+  MSREV = { sessionId: null, phase: null };
+  var ym = CP.modalYm || CP.data.currentYm;
+  if (!ym) { alert("ymが不明"); return; }
+
+  var pjName = (CP && CP.projectName) ? CP.projectName : "";
+  var ymLabel = ym.substring(0, 4) + "/" + ym.substring(4, 6);
+  document.getElementById("cpMsRevTitle").textContent = "🔄 MS改定 - " + pjName + " (" + ymLabel + "〜)";
+
+  document.getElementById("cpMsRevPhaseStart").innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af">読み込み中...</div>';
+  document.getElementById("cpMsRevPhaseDiff").style.display = "none";
+  document.getElementById("cpMsRevChat").style.display = "none";
+  document.getElementById("cpMsRevChat").innerHTML = "";
+  document.getElementById("cpMsRevLoading").style.display = "none";
+  document.getElementById("cpMsRevInputArea").style.display = "none";
+  document.getElementById("cpMsRevActions").style.display = "none";
+
+  document.getElementById("cpMsRevOverlay").classList.add("open");
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        document.getElementById("cpMsRevPhaseStart").innerHTML =
+          '<div style="color:#ef4444;padding:20px">⚠️ ' + cpEsc(res ? res.message : "エラー") + '</div>';
+        return;
+      }
+      MSREV.sessionId = res.sessionId;
+      MSREV.phase = "started";
+      MSREV.planCycle = res.planCycle;
+      MSREV.frozenMs = res.frozenMs || [];
+      MSREV.frozenPtTotal = res.frozenPtTotal || 0;
+      MSREV.revisableMs = res.revisableMs || [];
+      cpMsRevRenderStart(res);
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById("cpMsRevPhaseStart").innerHTML =
+        '<div style="color:#ef4444;padding:20px">⚠️ ' + cpEsc(String(err)) + '</div>';
+    })
+    .msRevision_start({ projectId: CP.projectId, ym: ym });
+}
+
+function cpMsRevRenderStart(res) {
+  var pc = res.planCycle;
+  var frozen = res.frozenMs || [];
+  var revisable = res.revisableMs || [];
+  var html = "";
+
+  var pStart = String(pc.periodStartYm || "");
+  var pEnd = String(pc.periodEndYm || "");
+  var pLabel = pStart.substring(0,4) + "/" + pStart.substring(4) + " 〜 " + pEnd.substring(0,4) + "/" + pEnd.substring(4);
+  html += '<div style="padding:8px 12px;background:#f0f4ff;border-radius:8px;font-size:13px;margin-bottom:12px">';
+  html += '  <strong>' + pLabel + '</strong>｜' + pc.totalPoints + 'pt｜v' + pc.fixedVersion;
+  html += '</div>';
+
+  if (frozen.length > 0) {
+    html += '<div style="margin-bottom:12px">';
+    html += '  <div style="font-size:12px;font-weight:600;color:#86868b;margin-bottom:6px">🔒 変更不可（' + res.frozenPtTotal + 'pt）</div>';
+    for (var i = 0; i < frozen.length; i++) {
+      var m = frozen[i];
+      html += '<div style="font-size:12px;padding:3px 0;color:#aaa">';
+      html += '  #' + m.orderNo + ' ' + cpEsc(m.title) + ' (' + m.points + 'pt';
+      if (m.currentProgressPct > 0) html += ', ' + m.currentProgressPct + '%済';
+      html += ')';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  html += '<div style="margin-bottom:12px">';
+  html += '  <div style="font-size:12px;font-weight:600;color:#1d1d1f;margin-bottom:6px">✏️ 改定対象（' + (pc.totalPoints - res.frozenPtTotal) + 'pt）</div>';
+  if (revisable.length === 0) {
+    html += '<div style="font-size:12px;color:#aaa">改定対象のMSがありません</div>';
+  } else {
+    for (var i = 0; i < revisable.length; i++) {
+      var m = revisable[i];
+      html += '<div style="font-size:12px;padding:6px 0;border-bottom:1px solid #f0f0f0">';
+      html += '<div>';
+      html += '  <strong>#' + m.orderNo + '</strong> ' + cpEsc(m.title);
+      html += '  <span style="color:#86868b;margin-left:6px">' + m.points + 'pt';
+      var tYm = String(m.targetYm || "");
+      if (tYm.length === 6) html += ' 〆' + tYm.substring(0,4) + '/' + tYm.substring(4);
+      if (m.currentProgressPct > 0) html += ' (' + m.currentProgressPct + '%済)';
+      html += '</span>';
+      html += '</div>';
+      var resps = m.responsibilities || [];
+      if (resps.length > 0) {
+        var rParts = [];
+        for (var r = 0; r < resps.length; r++) {
+          var pct = Math.round(Number(resps[r].share || 0) * 100);
+          if (pct > 0) rParts.push(cpEsc(resps[r].codeName || resps[r].memberId || '?') + ' ' + pct + '%');
+        }
+        if (rParts.length > 0) {
+          html += '<div style="font-size:11px;color:#6b7280;margin-top:2px;padding-left:12px">👥 ' + rParts.join(' / ') + '</div>';
+        }
+      }
+      var subs = m.subItems || [];
+      if (subs.length > 0) {
+        html += '<div style="padding-left:12px;margin-top:4px">';
+        for (var s = 0; s < subs.length; s++) {
+          var sub = subs[s];
+          var subTym = String(sub.targetYm || "");
+          var subTymLabel = subTym.length === 6 ? ' <span style="color:#aaa">〜' + subTym.substring(0,4) + '/' + subTym.substring(4) + '</span>' : '';
+          html += '<div style="font-size:11px;color:#374151;padding:1px 0">';
+          html += (sub.isDone ? '☑' : '☐') + ' ' + cpEsc(sub.title) + subTymLabel;
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+  }
+  html += '</div>';
+
+  html += '<div style="font-size:12px;color:#6b7280;margin-top:8px;padding:8px 10px;background:#fffbf0;border-radius:6px;border:1px solid #fde68a">';
+  html += '💡 下の入力欄に改定指示を入力してね。期間変更・MS分割/統合・pt再配分、なんでもOK。';
+  html += '</div>';
+
+  document.getElementById("cpMsRevPhaseStart").innerHTML = html;
+  document.getElementById("cpMsRevInputArea").style.display = "";
+}
+
+function cpMsRevChat() {
+  var input = document.getElementById("cpMsRevInput");
+  var text = (input.value || "").trim();
+  if (!text || !MSREV.sessionId) return;
+
+  var chatDiv = document.getElementById("cpMsRevChat");
+  chatDiv.style.display = "";
+  cpMsRevAddBubble("user", text);
+  input.value = "";
+  input.disabled = true;
+
+  document.getElementById("cpMsRevLoading").style.display = "block";
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      input.disabled = false;
+      document.getElementById("cpMsRevLoading").style.display = "none";
+
+      if (!res || !res.ok) {
+        var errMsg = "⚠️ " + (res ? res.message : "エラー");
+        if (res && res.raw) errMsg += "\n\nraw: " + String(res.raw).substring(0, 300);
+        cpMsRevAddBubble("assistant", errMsg);
+        return;
+      }
+
+      MSREV.phase = "reviewed";
+      MSREV.revisedMs = res.revisedMs;
+      MSREV.diff = res.diff;
+      document.getElementById("cpMsRevPhaseDiff").style.display = "none";
+
+      if (res.message) cpMsRevAddBubble("assistant", res.message);
+
+      if (res.periodChange) {
+        var pcMsg = "📅 期間変更: endYm → " + res.periodChange.newEndYm + ", totalPoints → " + res.periodChange.newTotalPoints + "pt";
+        cpMsRevAddBubble("assistant", pcMsg);
+      }
+
+      cpMsRevRenderDiffInChat(res.diff, res.revisedMs);
+
+      document.getElementById("cpMsRevActions").style.display = "flex";
+      document.getElementById("cpMsRevRetryBtn").style.display = "";
+      document.getElementById("cpMsRevFixBtn").style.display = "";
+
+      var body = document.getElementById("cpMsRevBody");
+      body.scrollTop = body.scrollHeight;
+    })
+    .withFailureHandler(function(err) {
+      input.disabled = false;
+      document.getElementById("cpMsRevLoading").style.display = "none";
+      cpMsRevAddBubble("assistant", "⚠️ " + String(err));
+    })
+    .msRevision_chat({ sessionId: MSREV.sessionId, userText: text });
+}
+
+function cpMsRevRenderDiff(diff, revisedMs) {
+  var el = document.getElementById("cpMsRevPhaseDiff");
+  if (!diff || !diff.length) {
+    el.innerHTML = '<div style="color:#aaa;font-size:12px;padding:8px">diffデータなし</div>';
+    el.style.display = "";
+    return;
+  }
+
+  var html = '<div style="font-size:12px;font-weight:600;color:#1d1d1f;margin-bottom:8px">📊 改定diff</div>';
+
+  for (var i = 0; i < diff.length; i++) {
+    var d = diff[i];
+    var color, icon, bg;
+    if (d.type === "added") { color = "#166534"; icon = "＋"; bg = "#f0fdf4"; }
+    else if (d.type === "removed") { color = "#991b1b"; icon = "−"; bg = "#fef2f2"; }
+    else if (d.type === "modified") { color = "#92400e"; icon = "△"; bg = "#fffbeb"; }
+    else { color = "#6b7280"; icon = "＝"; bg = "#f9fafb"; }
+
+    html += '<div style="padding:6px 10px;margin-bottom:4px;border-radius:6px;background:' + bg + ';border-left:3px solid ' + color + '">';
+    html += '<div style="font-size:12px;font-weight:600;color:' + color + '">' + icon + ' ';
+    if (d.type === "removed") {
+      html += '<s>' + cpEsc(d.old.title) + '</s> (' + d.old.points + 'pt)';
+    } else if (d.type === "added") {
+      html += cpEsc(d.new.title) + ' (' + d.new.points + 'pt';
+      if (d.new.targetYm) html += ', 〆' + d.new.targetYm.substring(0,4) + '/' + d.new.targetYm.substring(4);
+      html += ')';
+    } else if (d.type === "modified") {
+      html += cpEsc(d.new.title) + ' (' + d.old.points + '→' + d.new.points + 'pt';
+      if (d.old.targetYm !== d.new.targetYm && d.new.targetYm) {
+        html += ', 〆' + d.new.targetYm.substring(0,4) + '/' + d.new.targetYm.substring(4);
+      }
+      html += ')';
+    } else {
+      html += cpEsc(d.new.title) + ' (' + d.new.points + 'pt) 変更なし';
+    }
+    html += '</div></div>';
+  }
+
+  var totalNewPt = 0;
+  for (var i = 0; i < revisedMs.length; i++) totalNewPt += Number(revisedMs[i].points || 0);
+  var expectedPt = (MSREV.planCycle ? MSREV.planCycle.totalPoints : 0) - MSREV.frozenPtTotal;
+  var ptOk = totalNewPt === expectedPt;
+  html += '<div style="margin-top:8px;font-size:12px;font-weight:600;color:' + (ptOk ? "#166534" : "#991b1b") + '">';
+  html += '改定対象pt合計: ' + totalNewPt + ' / ' + expectedPt + 'pt';
+  if (!ptOk) html += ' ⚠️ 不一致';
+  html += '</div>';
+
+  el.innerHTML = html;
+  el.style.display = "";
+}
+
+function cpMsRevRenderDiffInChat(diff, revisedMs) {
+  if (!diff || !diff.length) return;
+
+  var chatDiv = document.getElementById("cpMsRevChat");
+  var wrapper = document.createElement("div");
+  wrapper.style.cssText = "margin:8px 0;padding:10px 14px;background:#f9fafb;border-radius:10px;border:1px solid #e5e5e7";
+
+  var html = '<div style="font-size:12px;font-weight:600;color:#1d1d1f;margin-bottom:4px">📊 改定diff</div>';
+  html += '<div style="font-size:10px;color:#aaa;margin-bottom:8px">🟢追加 🟡変更 🔴削除 ⚪変更なし</div>';
+
+  for (var i = 0; i < diff.length; i++) {
+    var d = diff[i];
+    var color, label, bg;
+    if (d.type === "added") { color = "#166534"; label = "追加"; bg = "#f0fdf4"; }
+    else if (d.type === "removed") { color = "#991b1b"; label = "削除"; bg = "#fef2f2"; }
+    else if (d.type === "modified") { color = "#92400e"; label = "変更"; bg = "#fffbeb"; }
+    else { color = "#6b7280"; label = ""; bg = "#f9fafb"; }
+
+    html += '<div style="padding:6px 10px;margin-bottom:4px;border-radius:6px;background:' + bg + ';border-left:3px solid ' + color + '">';
+
+    if (d.type === "removed") {
+      html += '<div style="font-size:12px;font-weight:600;color:' + color + '">';
+      html += '#' + (d.old.orderNo || '?') + ' <s>' + cpEsc(d.old.title) + '</s>';
+      html += ' <span style="font-size:10px;font-weight:400;background:#fecaca;padding:1px 6px;border-radius:3px">' + label + '</span>';
+      html += '</div>';
+      html += '<div style="font-size:11px;color:#6b7280;margin-top:2px">' + d.old.points + 'pt | ' + cpEsc(d.old.tag) + '</div>';
+    } else if (d.type === "added") {
+      html += '<div style="font-size:12px;font-weight:600;color:' + color + '">';
+      html += '#' + (d.new.orderNo || '?') + ' ' + cpEsc(d.new.title);
+      html += ' <span style="font-size:10px;font-weight:400;background:#bbf7d0;padding:1px 6px;border-radius:3px">' + label + '</span>';
+      html += '</div>';
+      html += '<div style="font-size:11px;color:#6b7280;margin-top:2px">';
+      html += d.new.points + 'pt | ' + cpEsc(d.new.tag);
+      if (d.new.targetYm) html += ' | 〆' + d.new.targetYm.substring(0,4) + '/' + d.new.targetYm.substring(4);
+      html += '</div>';
+      if (d.new.subMilestones && d.new.subMilestones.length > 0) html += cpMsRevRenderSubMs_(d.new.subMilestones);
+    } else if (d.type === "modified") {
+      html += '<div style="font-size:12px;font-weight:600;color:' + color + '">';
+      html += '#' + (d.new.orderNo || '?') + ' ' + cpEsc(d.new.title);
+      html += ' <span style="font-size:10px;font-weight:400;background:#fde68a;padding:1px 6px;border-radius:3px">' + label + '</span>';
+      html += '</div>';
+      var changes = [];
+      if (d.old.points !== d.new.points) changes.push('pt: ' + d.old.points + '→' + d.new.points);
+      if (d.old.tag !== d.new.tag) changes.push('tag: ' + d.old.tag + '→' + d.new.tag);
+      if (d.old.targetYm !== d.new.targetYm) {
+        var oldYm = d.old.targetYm ? d.old.targetYm.substring(0,4) + '/' + d.old.targetYm.substring(4) : 'なし';
+        var newYm = d.new.targetYm ? d.new.targetYm.substring(0,4) + '/' + d.new.targetYm.substring(4) : 'なし';
+        changes.push('〆' + oldYm + '→' + newYm);
+      }
+      if (d.old.title !== d.new.title) changes.push('名称: ' + cpEsc(d.old.title) + '→' + cpEsc(d.new.title));
+      if (d.criteriaChanged) changes.push('完了条件変更');
+      html += '<div style="font-size:11px;color:#6b7280;margin-top:2px">';
+      html += d.new.points + 'pt | ' + cpEsc(d.new.tag);
+      if (d.new.targetYm) html += ' | 〆' + d.new.targetYm.substring(0,4) + '/' + d.new.targetYm.substring(4);
+      if (changes.length > 0) html += '<br><span style="color:' + color + '">' + changes.join(', ') + '</span>';
+      html += '</div>';
+      if (d.new.subMilestones && d.new.subMilestones.length > 0) html += cpMsRevRenderSubMs_(d.new.subMilestones);
+    } else {
+      html += '<div style="font-size:12px;color:' + color + '">';
+      html += '#' + (d.new.orderNo || '?') + ' ' + cpEsc(d.new.title);
+      html += '</div>';
+      html += '<div style="font-size:11px;color:#aaa;margin-top:2px">' + d.new.points + 'pt | ' + cpEsc(d.new.tag) + '</div>';
+      if (d.new.subMilestones && d.new.subMilestones.length > 0) html += cpMsRevRenderSubMs_(d.new.subMilestones);
+    }
+    html += '</div>';
+  }
+
+  var totalNewPt = 0;
+  for (var i = 0; i < revisedMs.length; i++) totalNewPt += Number(revisedMs[i].points || 0);
+  var expectedPt = (MSREV.planCycle ? MSREV.planCycle.totalPoints : 0) - MSREV.frozenPtTotal;
+  var ptOk = totalNewPt === expectedPt;
+  html += '<div style="margin-top:8px;font-size:12px;font-weight:600;color:' + (ptOk ? "#166534" : "#991b1b") + '">';
+  html += '改定対象pt合計: ' + totalNewPt + ' / ' + expectedPt + 'pt';
+  if (!ptOk) html += ' ⚠️ 不一致';
+  html += '</div>';
+
+  wrapper.innerHTML = html;
+  chatDiv.appendChild(wrapper);
+  var body = document.getElementById("cpMsRevBody");
+  body.scrollTop = body.scrollHeight;
+}
+
+function cpMsRevRenderSubMs_(subs) {
+  var h = '<div style="font-size:11px;color:#6b7280;margin-top:3px;padding-left:8px;border-left:2px solid #d1d5db">';
+  for (var i = 0; i < subs.length; i++) {
+    var sm = subs[i];
+    h += '☐ ' + cpEsc(sm.title);
+    if (sm.targetYm) h += ' <span style="color:#aaa">~' + sm.targetYm.substring(0,4) + '/' + sm.targetYm.substring(4) + '</span>';
+    h += '<br>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function cpMsRevAddBubble(role, text) {
+  var chatDiv = document.getElementById("cpMsRevChat");
+  var bubble = document.createElement("div");
+  bubble.className = "cp-msd-bubble " + (role === "user" ? "user" : "assistant");
+  var sender = document.createElement("div");
+  sender.className = "cp-msd-bubble-sender";
+  sender.textContent = role === "user" ? "あなた" : "🌙 つくよみ";
+  bubble.appendChild(sender);
+  var content = document.createElement("div");
+  content.innerHTML = cpEsc(text || "").replace(/\n/g, "<br>");
+  bubble.appendChild(content);
+  if (role === "user") {
+    var btn = document.createElement("button");
+    btn.textContent = "📌 PJナレッジに追加";
+    btn.style.cssText = "margin-top:6px;font-size:11px;color:#ffffff;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);border-radius:6px;padding:2px 8px;cursor:pointer;display:block";
+    (function(t, b) { b.onclick = function() { cpMsRevAddToKnowledge(t, b); }; })(text, btn);
+    bubble.appendChild(btn);
+  }
+  chatDiv.appendChild(bubble);
+}
+
+function cpMsRevRetry() {
+  document.getElementById("cpMsRevPhaseDiff").style.display = "none";
+  document.getElementById("cpMsRevActions").style.display = "none";
+  document.getElementById("cpMsRevRetryBtn").style.display = "none";
+  document.getElementById("cpMsRevFixBtn").style.display = "none";
+  MSREV.phase = "started";
+  cpMsRevAddBubble("assistant", "🔄 もう一度指示してね。前回の指示も踏まえて生成するよ。");
+  var body = document.getElementById("cpMsRevBody");
+  body.scrollTop = body.scrollHeight;
+}
+
+function cpMsRevFix() {
+  if (!MSREV.sessionId) return;
+  cpMsRevShowConfirm("この改定案で確定する？\n（確定後、旧MSは無効化されるよ）", function() {
+    var fixBtn = document.getElementById("cpMsRevFixBtn");
+    if (fixBtn) { fixBtn.disabled = true; fixBtn.textContent = "⏳ 確定中…"; }
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (fixBtn) { fixBtn.disabled = false; fixBtn.textContent = "✅ この改定案で確定"; }
+        if (!res || !res.ok) {
+          cpMsRevShowToast("⚠️ " + (res ? res.message : "確定に失敗"));
+          return;
+        }
+        MSREV.phase = "fixed";
+        cpMsRevAddBubble("assistant", "✅ MS改定を確定したよ！v" + res.newVersion + "（" + res.milestoneCount + "件, " + res.totalPoints + "pt）🌙");
+        document.getElementById("cpMsRevInputArea").style.display = "none";
+        document.getElementById("cpMsRevActions").style.display = "none";
+        setTimeout(function() {
+          if (typeof cpLoadGoals === "function") cpLoadGoals();
+          google.script.run
+            .withSuccessHandler(function(r) {
+              cpRenderRewardDashboard(r);
+              cpApplyBudgetLines();
+            })
+            .withFailureHandler(function() {})
+            .cockpit_api_getRewardDashboard({ projectId: CP.projectId, ym: CP.modalYm });
+        }, 1000);
+      })
+      .withFailureHandler(function(err) {
+        if (fixBtn) { fixBtn.disabled = false; fixBtn.textContent = "✅ この改定案で確定"; }
+        cpMsRevShowToast("⚠️ " + String(err));
+      })
+      .msRevision_fix({ sessionId: MSREV.sessionId });
+  });
+}
+
+function cpMsRevShowConfirm(msg, onYes) {
+  var old = document.getElementById("cpMsRevConfirmOverlay");
+  if (old) old.remove();
+  var overlay = document.createElement("div");
+  overlay.id = "cpMsRevConfirmOverlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:10100;display:flex;align-items:center;justify-content:center";
+  var box = document.createElement("div");
+  box.style.cssText = "background:#fff;border-radius:12px;padding:24px 28px;max-width:360px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,0.2);text-align:center";
+  box.innerHTML =
+    '<div style="font-size:14px;line-height:1.6;margin-bottom:20px;white-space:pre-line">' + cpEsc(msg) + '</div>' +
+    '<div style="display:flex;gap:12px;justify-content:center">' +
+      '<button id="cpMsRevConfirmNo" style="padding:8px 20px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">やめる</button>' +
+      '<button id="cpMsRevConfirmYes" style="padding:8px 20px;border:none;border-radius:8px;background:#22c55e;color:#fff;cursor:pointer;font-size:13px;font-weight:600">確定する</button>' +
+    '</div>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  document.getElementById("cpMsRevConfirmNo").onclick = function() { overlay.remove(); };
+  document.getElementById("cpMsRevConfirmYes").onclick = function() { overlay.remove(); onYes(); };
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+}
+
+function cpMsRevClose() {
+  document.getElementById("cpMsRevOverlay").classList.remove("open");
+  if (MSREV.phase === "fixed" && typeof cpLoadGoals === "function") cpLoadGoals();
+}
+
+function cpMsRevAddToKnowledge(text, btn) {
+  btn.disabled = true;
+  btn.textContent = "⏳ 追加中...";
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        btn.textContent = "✅ 追加済み";
+        btn.style.color = "#166534";
+        btn.style.borderColor = "#bbf7d0";
+      } else {
+        btn.disabled = false;
+        btn.textContent = "📌 PJナレッジに追加";
+        cpMsRevShowToast("⚠️ 追加失敗: " + (res ? res.message : "エラー"));
+      }
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled = false;
+      btn.textContent = "📌 PJナレッジに追加";
+      cpMsRevShowToast("⚠️ " + String(err));
+    })
+    .msRevision_addToKnowledge({ sessionId: MSREV.sessionId, projectId: CP.projectId, text: text });
+}
+
+function cpMsRevShowToast(msg) {
+  var toast = document.getElementById("cpMsRevToast");
+  toast.textContent = msg;
+  toast.classList.add("show");
+  setTimeout(function() { toast.classList.remove("show"); }, 2500);
+}
+</script>

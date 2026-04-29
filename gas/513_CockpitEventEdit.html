@@ -1,0 +1,136 @@
+<!-- 513_CockpitEventEdit.html
+     報酬イベントの編集・追加・除外・ダッシュボード再読み込み。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+var cpEventEditing = false;
+function cpToggleEventEdit() {
+  cpEventEditing = !cpEventEditing;
+  var btn = document.getElementById("cpEventEditBtn");
+  if (btn) btn.textContent = cpEventEditing ? "✏️ 完了" : "✏️ 修正";
+
+  var rejectBtns = document.querySelectorAll(".cp-event-reject-btn");
+  for (var i = 0; i < rejectBtns.length; i++) {
+    rejectBtns[i].style.display = cpEventEditing ? "inline-block" : "none";
+  }
+  var addWrap = document.querySelector(".cp-event-add-btn-wrap");
+  if (addWrap) addWrap.style.display = cpEventEditing ? "" : "none";
+
+  if (cpEventEditing) {
+    var titles = document.querySelectorAll('[data-field="title"]');
+    for (var i = 0; i < titles.length; i++) {
+      var el = titles[i];
+      var eid = el.getAttribute("data-eid");
+      var raw = el.textContent.replace(/^[✅❌📝]\s*/, "");
+      el.setAttribute("data-original", raw);
+      el.innerHTML = '<input type="text" value="' + cpEsc(raw) + '" data-eid="' + cpEsc(eid) + '" data-save="title"'
+        + ' style="width:100%;border:1px solid #ddd;border-radius:4px;padding:3px 6px;font-size:13px;font-weight:600">';
+    }
+    var descs = document.querySelectorAll('[data-field="desc"]');
+    for (var i = 0; i < descs.length; i++) {
+      var el = descs[i];
+      var eid = el.getAttribute("data-eid");
+      var raw = el.textContent;
+      el.setAttribute("data-original", raw);
+      el.innerHTML = '<textarea data-eid="' + cpEsc(eid) + '" data-save="desc" rows="2"'
+        + ' style="width:100%;border:1px solid #ddd;border-radius:4px;padding:4px 6px;font-size:12px;resize:vertical;font-family:inherit">'
+        + cpEsc(raw) + '</textarea>';
+    }
+  } else {
+    cpSaveEventEdits();
+  }
+}
+
+function cpSaveEventEdits() {
+  var inputs = document.querySelectorAll('[data-save="title"]');
+  var textareas = document.querySelectorAll('[data-save="desc"]');
+  var edits = {};
+
+  for (var i = 0; i < inputs.length; i++) {
+    var eid = inputs[i].getAttribute("data-eid");
+    var parent = inputs[i].closest("[data-field]");
+    var original = parent ? parent.getAttribute("data-original") : "";
+    var newVal = inputs[i].value.trim();
+    if (newVal !== original) {
+      if (!edits[eid]) edits[eid] = {};
+      edits[eid].eventTitle = newVal;
+    }
+  }
+  for (var i = 0; i < textareas.length; i++) {
+    var eid = textareas[i].getAttribute("data-eid");
+    var parent = textareas[i].closest("[data-field]");
+    var original = parent ? parent.getAttribute("data-original") : "";
+    var newVal = textareas[i].value.trim();
+    if (newVal !== original) {
+      if (!edits[eid]) edits[eid] = {};
+      edits[eid].eventDescription = newVal;
+    }
+  }
+
+  var eids = Object.keys(edits);
+  if (eids.length === 0) {
+    cpReloadRewardDashboard();
+    return;
+  }
+
+  var saved = 0;
+  var total = eids.length;
+  for (var i = 0; i < eids.length; i++) {
+    (function(eid, payload) {
+      payload.eventId = eid;
+      google.script.run
+        .withSuccessHandler(function() {
+          saved++;
+          if (saved >= total) cpReloadRewardDashboard();
+        })
+        .withFailureHandler(function() {
+          saved++;
+          if (saved >= total) cpReloadRewardDashboard();
+        })
+        .reward_api_updateEvent(payload);
+    })(eids[i], edits[eids[i]]);
+  }
+}
+
+function cpRejectEvent(eventId) {
+  var reason = prompt("除外理由（任意）:");
+  if (reason === null) return;
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { alert("除外失敗: " + (res ? res.message : "")); return; }
+      cpReloadRewardDashboard();
+    })
+    .withFailureHandler(function(err) { alert("エラー: " + String(err)); })
+    .reward_api_rejectEvent({ eventId: eventId, reason: reason });
+}
+
+function cpAddEvent() {
+  var title = prompt("イベントタイトルを入力:");
+  if (!title || !title.trim()) return;
+  var desc = prompt("説明（任意、空欄OK）:");
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        alert("追加失敗: " + (res ? res.message : "不明"));
+        return;
+      }
+      cpReloadRewardDashboard();
+    })
+    .withFailureHandler(function(err) { alert("エラー: " + err); })
+    .reward_api_addEvent({
+      projectId: CP.projectId,
+      ym: CP.modalYm,
+      eventTitle: title.trim(),
+      eventDescription: (desc || "").trim()
+    });
+}
+
+function cpReloadRewardDashboard() {
+  cpEventEditing = false;
+  google.script.run
+    .withSuccessHandler(cpRenderRewardDashboard)
+    .cockpit_api_getRewardDashboard({ projectId: CP.projectId, ym: CP.modalYm });
+  cpRefreshOriginBadge();
+}
+</script>

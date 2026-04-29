@@ -1,0 +1,46 @@
+<!-- 509_CockpitNudge.html
+     つくよみナッジキューの取得・描画。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+// ===== つくよみナッジキュー =====
+function cpLoadNudgeQueue() {
+  google.script.run
+    .withSuccessHandler(cpRenderNudgeQueue)
+    .withFailureHandler(function() { cpRenderNudgeQueue(null); })
+    .cockpit_api_getNudgeQueue({ projectId: CP.projectId });
+}
+
+function cpRenderNudgeQueue(res) {
+  var el = document.getElementById("cpNudgeItems");
+  if (!el) return;
+
+  if (!res || !res.ok || !res.items || res.items.length === 0) {
+    el.innerHTML = '<div class="cp-nudge-empty">🌙 今は特に気になることないよ。順調！</div>';
+    return;
+  }
+
+  var html = "";
+  var items = res.items;
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var level = it.level || "info";       // info / warn / danger / ok
+    var icon = it.icon || "🌙";
+    var text = it.text || "";
+    var href = it.href || "";             // クリック遷移先（AMD OS内パスまたはモーダルトリガー）
+    var action = it.action || "";         // JS関数名（モーダル開閉など）
+
+    html += '<div class="cp-nudge-card ' + cpEsc(level) + '"';
+    if (href) {
+      html += ' onclick="window.top.location.href=\'' + cpEsc(href) + '\'"';
+    } else if (action) {
+      html += ' onclick="' + action + '"';
+    }
+    html += '>';
+    html += '  <div class="cp-nudge-icon">' + icon + '</div>';
+    html += '  <div>' + cpEsc(text) + '</div>';
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+</script>

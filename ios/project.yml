@@ -1,0 +1,73 @@
+name: AMDOS
+options:
+  bundleIdPrefix: jp.team-armada.amdos
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: "9AH24QT45T"
+    CODE_SIGN_STYLE: Automatic
+    INFOPLIST_FILE: AMDOS/SupportingFiles/Info.plist
+
+packages:
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: "8.0.0"
+  Supabase:
+    url: https://github.com/supabase-community/supabase-swift
+    from: "2.0.0"
+
+targets:
+  AMDOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: AMDOS
+        excludes:
+          - "**/.DS_Store"
+    resources:
+      - path: AMDOS/Resources
+      - path: AMDOS/SupportingFiles/Info.plist
+        buildPhase: none
+    dependencies:
+      - package: GoogleSignIn
+        product: GoogleSignIn
+      - package: GoogleSignIn
+        product: GoogleSignInSwift
+      - package: Supabase
+        product: Supabase
+    entitlements:
+      path: AMDOS/SupportingFiles/AMDOS.entitlements
+      properties:
+        com.apple.developer.associated-domains:
+          - applinks:amd-os.team-armada.jp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: jp.team-armada.amdos
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: 21
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: false
+    info:
+      path: AMDOS/SupportingFiles/Info.plist
+      properties:
+        CFBundleDisplayName: AMD OS
+        CFBundleIconName: AppIcon
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchScreen: {}
+        UIRequiredDeviceCapabilities:
+          - armv7
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSFaceIDUsageDescription: "AMD OSへのログインにFace IDを使用します。"
+        GIDClientID: "1063456084878-1pui006kicgahn5r6eo6j18p4hiq5pnc.apps.googleusercontent.com"
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+            - "com.googleusercontent.apps.1063456084878-1pui006kicgahn5r6eo6j18p4hiq5pnc"
+            - "amdos"
+          - CFBundleURLName: "google-oauth-callback"

@@ -1,0 +1,372 @@
+<!-- 511_CockpitInvoice.html
+     請求書発行モーダル・月次報告会スケジュールモーダル。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+function cpOpenInvoiceModal(ym) {
+  cpInv.data = null;
+  cpInv.busy = true;
+  var ov = document.getElementById("cpInvOverlay");
+  ov.style.display = "flex";
+  document.getElementById("cpInvBody").innerHTML = '<div style="text-align:center;padding:40px"><div class="cp-spinner"></div><div style="margin-top:12px;color:#888">読み込み中…</div></div>';
+  document.getElementById("cpInvActions").style.display = "none";
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      cpInv.busy = false;
+      if (!res || !res.ok) {
+        document.getElementById("cpInvBody").innerHTML = '<div style="color:#e53935;padding:20px">' + cpEsc(res && res.message || "取得失敗") + '</div>';
+        return;
+      }
+      cpInv.data = res;
+      cpInvRender_();
+    })
+    .withFailureHandler(function(e) {
+      cpInv.busy = false;
+      document.getElementById("cpInvBody").innerHTML = '<div style="color:#e53935;padding:20px">' + cpEsc(String(e)) + '</div>';
+    })
+    .cockpit_api_getInvoicePreview({ projectId: CP.projectId, ym: ym });
+}
+
+function cpInvClose() {
+  if (cpInv.busy) return;
+  document.getElementById("cpInvOverlay").style.display = "none";
+}
+
+function cpInvRender_() {
+  var d = cpInv.data;
+  if (!d) return;
+
+  var warn = d.alreadyIssued
+    ? '<div class="cp-inv-warn">⚠️ この月は既に請求書発行済み。再発行するとレビュー・送付ステータスがリセットされるよ</div>'
+    : '';
+
+  if (!d.hasFreeeSettings) {
+    document.getElementById("cpInvBody").innerHTML = '<div style="padding:20px"><div class="cp-inv-warn" style="background:#ffebee;border-color:#e53935">❌ freee設定（取引先/テンプレ）が未完了。PJ設定画面で先に設定してね</div></div>';
+    return;
+  }
+
+  var h = warn;
+  h += '<div class="cp-inv-section">';
+  h += '  <label class="cp-inv-label">件名</label>';
+  var defaultSubject = d.invoiceSubject || ((d.clientName || d.projectName) + " 業務委託費");
+  h += '  <input type="text" id="cpInvSubject" class="cp-inv-input" value="' + cpEsc(defaultSubject) + '" placeholder="' + cpEsc(d.clientName || d.projectName) + ' 業務委託費">';
+  h += '</div>';
+
+  h += '<div class="cp-inv-section">';
+  h += '  <label class="cp-inv-label">基本明細行</label>';
+  if (d.feeAmount > 0) {
+    var feeLabel = d.feeType === 'fixed' ? '固定' : d.feeType === 'variable' ? '変動' : '';
+    h += '  <div class="cp-inv-fee-ref">契約月額' + (feeLabel ? '（' + feeLabel + '）' : '') + '：¥' + cpFmtNum(d.feeAmount) + '</div>';
+  }
+  h += '  <div class="cp-inv-line-header"><span class="cp-inv-hd-desc">明細</span><span class="cp-inv-hd-qty">数量</span><span class="cp-inv-hd-price">単価</span><span class="cp-inv-hd-amt">金額</span><span class="cp-inv-hd-del"></span></div>';
+  h += '  <div id="cpInvBaseRows">';
+  var bl = d.baseLines || [];
+  for (var i = 0; i < bl.length; i++) h += cpInvBaseRowHtml_(i, bl[i]);
+  h += '  </div>';
+  h += '  <button class="cp-inv-link-btn" onclick="cpInvAddBaseRow()">＋ 行を追加</button>';
+  h += '</div>';
+
+  h += '<div class="cp-inv-section">';
+  h += '  <label class="cp-inv-label">立替精算 <span style="color:#888;font-weight:normal">（自動集計・読み取り専用）</span></label>';
+  if (d.reimbItems && d.reimbItems.length > 0) {
+    h += '  <div class="cp-inv-reimb-summary">' + d.reimbItems.length + '件 / 合計 ¥' + cpFmtNum(d.reimbTotal) + '（税込）</div>';
+    h += '  <details class="cp-inv-details"><summary>明細を見る</summary><div class="cp-inv-reimb-list">';
+    for (var ri = 0; ri < d.reimbItems.length; ri++) {
+      var r = d.reimbItems[ri];
+      var rDate = String(r.date || "").replace(/^\d{4}-/, "").replace(/-/g, "/");
+      var rDesc = r.desc || "";
+      if (r.transportFrom || r.transportTo) rDesc = (r.transportFrom || "") + "→" + (r.transportTo || "") + (rDesc ? " " + rDesc : "");
+      h += '<div class="cp-inv-reimb-row"><span>' + cpEsc(rDate) + '</span><span>' + cpEsc(r.categoryLabel || r.category || "") + '</span><span>' + cpEsc(rDesc) + '</span><span class="num">¥' + cpFmtNum(r.amount || 0) + '</span></div>';
+    }
+    h += '</div></details>';
+  } else {
+    h += '  <div style="color:#aaa;font-size:12px">今月の立替なし</div>';
+  }
+  h += '</div>';
+
+  h += '<div class="cp-inv-section">';
+  h += '  <label class="cp-inv-label">調整行 <span style="color:#888;font-weight:normal">（値引き等）</span></label>';
+  h += '  <div class="cp-inv-line-header"><span class="cp-inv-hd-desc">明細</span><span class="cp-inv-hd-qty">数量</span><span class="cp-inv-hd-price">単価</span><span class="cp-inv-hd-amt">金額</span><span class="cp-inv-hd-del"></span></div>';
+  h += '  <div id="cpInvCustomRows">';
+  var cl = d.customLines || [];
+  for (var ci = 0; ci < cl.length; ci++) h += cpInvCustomRowHtml_(ci, cl[ci]);
+  h += '  </div>';
+  h += '  <button class="cp-inv-link-btn" onclick="cpInvAddCustomRow()">＋ 調整行を追加</button>';
+  h += '</div>';
+
+  h += '<div class="cp-inv-section cp-inv-date-row">';
+  h += '  <div><label class="cp-inv-label">請求日</label><input type="date" id="cpInvIssueDate" class="cp-inv-input" value="' + cpEsc(d.defaultIssueDate || "") + '"></div>';
+  h += '  <div><label class="cp-inv-label">支払期日</label><input type="date" id="cpInvDueDate" class="cp-inv-input" value="' + cpEsc(d.defaultDueDate || "") + '"></div>';
+  h += '</div>';
+
+  h += '<div class="cp-inv-section">';
+  h += '  <label class="cp-inv-label">備考</label>';
+  h += '  <textarea id="cpInvRemark" class="cp-inv-textarea" rows="2" placeholder="請求書に表示する備考（任意）">' + cpEsc(d.invoiceRemark || "") + '</textarea>';
+  h += '</div>';
+
+  h += '<div class="cp-inv-total" id="cpInvTotal"></div>';
+
+  document.getElementById("cpInvBody").innerHTML = h;
+  document.getElementById("cpInvActions").style.display = "flex";
+  cpInvCalcTotal_();
+}
+
+function cpInvBaseRowHtml_(idx, row) {
+  row = row || {};
+  var q = Number(row.quantity) || 1;
+  var p = Number(row.unit_price) || 0;
+  return '<div class="cp-inv-line-row" data-idx="' + idx + '">'
+    + '<input type="text" class="cp-inv-line-desc" value="' + cpEsc(row.description || "") + '" placeholder="品名" oninput="cpInvCalcTotal_()">'
+    + '<input type="number" class="cp-inv-line-qty" value="' + q + '" min="1" oninput="cpInvCalcTotal_()">'
+    + '<input type="number" class="cp-inv-line-price" value="' + p + '" oninput="cpInvCalcTotal_()">'
+    + '<span class="cp-inv-line-amt">¥' + cpFmtNum(q * p) + '</span>'
+    + '<button class="cp-inv-line-del" onclick="this.parentElement.remove();cpInvCalcTotal_()" title="削除">✕</button>'
+    + '</div>';
+}
+
+function cpInvAddBaseRow() {
+  var c = document.getElementById("cpInvBaseRows");
+  var idx = c.children.length;
+  c.insertAdjacentHTML("beforeend", cpInvBaseRowHtml_(idx, { description: "", quantity: 1, unit_price: 0 }));
+}
+
+function cpInvCustomRowHtml_(idx, row) {
+  row = row || {};
+  var q = Number(row.quantity) || 1;
+  var p = Number(row.unit_price) || 0;
+  return '<div class="cp-inv-line-row" data-cidx="' + idx + '">'
+    + '<input type="text" class="cp-inv-line-desc" value="' + cpEsc(row.description || "") + '" placeholder="調整内容" oninput="cpInvCalcTotal_()">'
+    + '<input type="number" class="cp-inv-line-qty" value="' + q + '" min="1" oninput="cpInvCalcTotal_()">'
+    + '<input type="number" class="cp-inv-line-price" value="' + p + '" oninput="cpInvCalcTotal_()">'
+    + '<span class="cp-inv-line-amt">¥' + cpFmtNum(q * p) + '</span>'
+    + '<button class="cp-inv-line-del" onclick="this.parentElement.remove();cpInvCalcTotal_()" title="削除">✕</button>'
+    + '</div>';
+}
+
+function cpInvAddCustomRow() {
+  var c = document.getElementById("cpInvCustomRows");
+  var idx = c.children.length;
+  c.insertAdjacentHTML("beforeend", cpInvCustomRowHtml_(idx, { description: "", quantity: 1, unit_price: 0 }));
+}
+
+function cpInvCalcTotal_() {
+  var sum = 0;
+  var bRows = document.querySelectorAll("#cpInvBaseRows .cp-inv-line-row");
+  for (var i = 0; i < bRows.length; i++) {
+    var q = Number(bRows[i].querySelector(".cp-inv-line-qty").value) || 1;
+    var p = Number(bRows[i].querySelector(".cp-inv-line-price").value) || 0;
+    var amt = q * p;
+    sum += amt;
+    var amtEl = bRows[i].querySelector(".cp-inv-line-amt");
+    if (amtEl) amtEl.textContent = "¥" + cpFmtNum(amt);
+  }
+  var cRows = document.querySelectorAll("#cpInvCustomRows .cp-inv-line-row");
+  for (var j = 0; j < cRows.length; j++) {
+    var q2 = Number(cRows[j].querySelector(".cp-inv-line-qty").value) || 1;
+    var p2 = Number(cRows[j].querySelector(".cp-inv-line-price").value) || 0;
+    var amt2 = q2 * p2;
+    sum += amt2;
+    var amtEl2 = cRows[j].querySelector(".cp-inv-line-amt");
+    if (amtEl2) amtEl2.textContent = "¥" + cpFmtNum(amt2);
+  }
+  var reimbTotal = (cpInv.data && cpInv.data.reimbTotal) || 0;
+  var el = document.getElementById("cpInvTotal");
+  if (el) {
+    el.innerHTML = '<div class="cp-inv-total-row"><span>基本＋調整 合計（税抜）</span><span>¥' + cpFmtNum(sum) + '</span></div>'
+      + (reimbTotal > 0 ? '<div class="cp-inv-total-row sub"><span>＋ 立替（税込参考）</span><span>¥' + cpFmtNum(reimbTotal) + '</span></div>' : '')
+      + '<div class="cp-inv-total-row grand"><span>概算合計</span><span>¥' + cpFmtNum(sum + reimbTotal) + '</span></div>';
+  }
+}
+
+function cpInvCollect_() {
+  var baseLines = [];
+  var bRows = document.querySelectorAll("#cpInvBaseRows .cp-inv-line-row");
+  for (var i = 0; i < bRows.length; i++) {
+    var desc = bRows[i].querySelector(".cp-inv-line-desc").value.trim();
+    if (!desc) continue;
+    baseLines.push({
+      description: desc,
+      quantity: Number(bRows[i].querySelector(".cp-inv-line-qty").value) || 1,
+      unit_price: Number(bRows[i].querySelector(".cp-inv-line-price").value) || 0
+    });
+  }
+  var customLines = [];
+  var cRows = document.querySelectorAll("#cpInvCustomRows .cp-inv-line-row");
+  for (var j = 0; j < cRows.length; j++) {
+    var cd = cRows[j].querySelector(".cp-inv-line-desc").value.trim();
+    if (!cd) continue;
+    customLines.push({
+      description: cd,
+      quantity: Number(cRows[j].querySelector(".cp-inv-line-qty").value) || 1,
+      unit_price: Number(cRows[j].querySelector(".cp-inv-line-price").value) || 0
+    });
+  }
+  return {
+    projectId: CP.projectId,
+    ym: cpInv.data.ym,
+    invoiceSubject: (document.getElementById("cpInvSubject").value || "").trim(),
+    invoiceBaseLines: baseLines,
+    invoiceRemark: (document.getElementById("cpInvRemark").value || "").trim(),
+    issueDate: (document.getElementById("cpInvIssueDate").value || "").trim(),
+    dueDate: (document.getElementById("cpInvDueDate").value || "").trim(),
+    lines: customLines
+  };
+}
+
+function cpInvIssue() {
+  if (cpInv.busy) return;
+  var payload = cpInvCollect_();
+  if (!payload.issueDate || !payload.dueDate) { alert("請求日と支払期日は必須"); return; }
+  if (!payload.invoiceBaseLines.length) { alert("基本明細行が空"); return; }
+
+  var sum = 0;
+  for (var i = 0; i < payload.invoiceBaseLines.length; i++) {
+    sum += (payload.invoiceBaseLines[i].unit_price || 0) * (payload.invoiceBaseLines[i].quantity || 1);
+  }
+  if (sum <= 0) { alert("基本行合計が0円以下"); return; }
+
+  var fee = Number(cpInv.data && cpInv.data.feeAmount || 0);
+  if (fee > 0 && sum !== fee) {
+    var diff = sum - fee;
+    var diffLabel = diff > 0 ? "+" + cpFmtNum(diff) + "円 超過" : cpFmtNum(Math.abs(diff)) + "円 不足";
+    if (!confirm("基本行合計（¥" + cpFmtNum(sum) + "）が契約月額（¥" + cpFmtNum(fee) + "）と異なるよ（" + diffLabel + "）。\nこのまま発行する？")) return;
+  }
+
+  if (cpInv.data.alreadyIssued) {
+    if (!confirm("既に発行済みです。再発行するとレビュー・送付がリセットされます。続行する？")) return;
+  }
+
+  cpInv.busy = true;
+  var btn = document.getElementById("cpInvIssueBtn");
+  btn.disabled = true;
+  btn.textContent = "発行中…";
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      cpInv.busy = false;
+      btn.disabled = false;
+      btn.textContent = "📄 freeeに発行";
+      if (!res || !res.ok) {
+        alert("発行失敗: " + (res && res.message || "不明なエラー"));
+        return;
+      }
+      document.getElementById("cpInvBody").innerHTML = '<div style="padding:30px;text-align:center">'
+        + '<div style="font-size:32px;margin-bottom:12px">✅</div>'
+        + '<div style="font-size:15px;font-weight:600;margin-bottom:8px">請求書を発行したよ！</div>'
+        + '<div style="color:#666;font-size:13px">'
+        + 'freee請求書番号: ' + cpEsc(res.freeeInvoiceNumber || "(取得中)") + '<br>'
+        + '請求額（税抜）: ¥' + cpFmtNum(res.gross || 0)
+        + (res.reimbYen > 0 ? ' ＋ 立替 ¥' + cpFmtNum(res.reimbYen) : '')
+        + '</div></div>';
+      document.getElementById("cpInvActions").style.display = "none";
+      setTimeout(function() {
+        cpInvClose();
+        if (typeof cpLoadAll === "function") cpLoadAll();
+      }, 3000);
+    })
+    .withFailureHandler(function(e) {
+      cpInv.busy = false;
+      btn.disabled = false;
+      btn.textContent = "📄 freeeに発行";
+      alert("発行エラー: " + String(e));
+    })
+    .cockpit_api_issueInvoice(payload);
+}
+
+function cpOpenMeetingScheduleModal(ym) {
+  var existing = document.getElementById("cpMeetingModal");
+  if (existing) existing.remove();
+
+  var modal = document.createElement("div");
+  modal.id = "cpMeetingModal";
+  modal.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center";
+  modal.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;width:360px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column">'
+    + '<h3 style="margin:0 0 16px;font-size:16px;color:#1B3A5C;flex-shrink:0">📅 月次報告会をスケジュール</h3>'
+    + '<div id="cpMeetingSlotArea" style="overflow-y:auto;flex:1;margin-bottom:16px"><div style="color:#888;font-size:13px">空き枠を取得中...</div></div>'
+    + '<div style="display:flex;justify-content:flex-end;flex-shrink:0">'
+    + '<button onclick="document.getElementById(\'cpMeetingModal\').remove()" style="padding:8px 16px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">キャンセル</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(modal);
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      var area = document.getElementById("cpMeetingSlotArea");
+      if (!area) return;
+      if (!res || !res.ok || !res.slots || !res.slots.length) {
+        area.innerHTML = '<div style="color:#888;font-size:13px">空き枠が見つからなかった。直接カレンダーで調整してね。</div>';
+        return;
+      }
+      var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+      for (var i = 0; i < res.slots.length; i++) {
+        var slot = res.slots[i];
+        html += '<button onclick="cpConfirmMeetingSlot(\'' + CP.projectId + '\',\'' + ym + '\',\'' + slot.startISO + '\',\'' + slot.endISO + '\',this)"'
+          + ' style="padding:10px;border:1px solid #1B3A5C;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;text-align:left;color:#1B3A5C">'
+          + slot.label + '</button>';
+      }
+      html += '</div>';
+      area.innerHTML = html;
+    })
+    .withFailureHandler(function(err) {
+      var area = document.getElementById("cpMeetingSlotArea");
+      if (area) area.innerHTML = '<div style="color:#c00;font-size:13px">取得に失敗: ' + String(err) + '</div>';
+    })
+    .api_getMeetingSlots({ projectId: CP.projectId, ym: ym });
+}
+
+function cpShowMeetingInfo(startISO) {
+  var existing = document.getElementById("cpMeetingModal");
+  if (existing) existing.remove();
+
+  var label = "（日時不明）";
+  try {
+    var d = new Date(startISO);
+    if (!isNaN(d.getTime())) {
+      var pad = function(n){ return n < 10 ? "0"+n : String(n); };
+      var jst = new Date(d.getTime() + 9*60*60*1000);
+      label = (jst.getUTCMonth()+1) + "月" + jst.getUTCDate() + "日 "
+        + pad(jst.getUTCHours()) + ":" + pad(jst.getUTCMinutes());
+    }
+  } catch(e) {}
+
+  var modal = document.createElement("div");
+  modal.id = "cpMeetingModal";
+  modal.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center";
+  modal.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;width:320px;max-width:90vw">'
+    + '<h3 style="margin:0 0 16px;font-size:16px;color:#1B3A5C">📅 月次報告会</h3>'
+    + '<div style="font-size:14px;color:#1d1d1f;margin-bottom:20px">📅 ' + label + '〜（30分）で確定済みだよ🌙</div>'
+    + '<div style="display:flex;justify-content:flex-end;gap:8px">'
+    + '<button onclick="document.getElementById(\'cpMeetingModal\').remove()" style="padding:8px 16px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">閉じる</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(modal);
+}
+
+function cpConfirmMeetingSlot(projectId, ym, startISO, endISO, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = "登録中..."; }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      var modal = document.getElementById("cpMeetingModal");
+      if (modal) modal.remove();
+      if (res && res.ok) {
+        cpShowToast("✅ 報告会を登録したよ！");
+        setTimeout(function() { cpLoadData(); }, 1000);
+      } else {
+        cpShowToast("⚠️ 登録に失敗: " + String(res && res.message ? res.message : "不明"), "error");
+      }
+    })
+    .withFailureHandler(function(err) {
+      var modal = document.getElementById("cpMeetingModal");
+      if (modal) modal.remove();
+      cpShowToast("⚠️ エラー: " + String(err), "error");
+    })
+    .api_admin_forceSetMonthlyMeeting({
+      projectId: projectId,
+      ym: ym,
+      startISO: startISO,
+      endISO: endISO,
+      _skipAdminCheck: true
+    });
+}
+</script>

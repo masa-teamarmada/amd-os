@@ -1,0 +1,5002 @@
+<!-- 249_AdminScripts.html -->
+<script>
+  const CAN_ACCESS_ADMIN =
+    !!(window.__ADMIN_CTX__ && window.__ADMIN_CTX__.canAccessAdmin);
+
+  function el(id){ return document.getElementById(id); }
+
+  function escapeHtml(s){
+    return String(s||"")
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#39;");
+  }
+
+  // ★ 属性用（onclickの引数など）に安全に突っ込む用
+  function escapeHtmlAttr(s){
+    // いったんHTML的に安全化 → さらに ' をエスケープ（JS文字列の事故防止）
+    return escapeHtml(s).replaceAll("'", "\\'");
+  }
+
+  function showErr(msg){
+    const m = msg || "error";
+
+    // Membersタブ用（既存）
+    try{
+      const e1 = el("err");
+      if (e1){
+        e1.style.display = "block";
+        e1.textContent = m;
+      }
+    }catch(e){}
+
+    // Codeタブ用（追加：ここが見えてないと詰む）
+    try{
+      const e2 = el("codeErr");
+      if (e2){
+        e2.style.display = "block";
+        e2.textContent = m;
+      }
+    }catch(e){}
+
+    // Protocol/Context/Extractorもついでに（見えてるタブに出す）
+    try{
+      const ids = ["protErr","ctxErr","exErr","pjErr","candErr"];
+      ids.forEach(id=>{
+        const x = el(id);
+        if (x){
+          x.style.display = "block";
+          x.textContent = m;
+        }
+      });
+    }catch(e){}
+  }
+
+
+  function pill(v){
+    const s = String(v||"").trim();
+    if (!s) return `<span class="pill gray">-</span>`;
+    return `<span class="pill">${escapeHtml(s)}</span>`;
+  }
+
+  function numOrDash(v){
+    if (v === null || v === undefined || v === "") return "-";
+    const n = Number(v);
+    if (isNaN(n)) return escapeHtml(String(v));
+    return String(n);
+  }
+
+  // ===== Members list =====
+  let __ALL__ = [];
+
+  function render(list){
+    const tb = el("tbody");
+    const rows = Array.isArray(list) ? list : [];
+
+    const COLS = 20;
+
+    if (!rows.length){
+      tb.innerHTML = `<tr><td colspan="${COLS}" class="muted">該当なし</td></tr>`;
+      el("hint").textContent = `rows: 0`;
+      return;
+    }
+
+    tb.innerHTML = rows.map(u => {
+      const memberIdRaw = u.memberId || "";
+      const codeNameRaw = u.codeName || "";
+
+      const emRaw = u.email || "";
+      const emAttr = escapeHtmlAttr(emRaw);
+      const dnAttr = escapeHtmlAttr(u.displayName || "");
+
+      const midAttr = escapeHtmlAttr(memberIdRaw);
+
+      const joinNow = String(u.joinYm || "").trim();
+      const leaveNow = String(u.leaveYm || "").trim();
+      const joinAttr = escapeHtmlAttr(joinNow);
+      const leaveAttr = escapeHtmlAttr(leaveNow);
+
+      // Emailは右側で省略表示（ホバーで全文）
+      const emailCellStyle = "max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
+
+      return `
+        <tr data-mid="${midAttr}">
+          <td class="mono nowrap"><b>${escapeHtml(codeNameRaw)}</b></td>
+          <td class="mono nowrap">${escapeHtml(memberIdRaw)}</td>
+
+          <td class="nowrap">${escapeHtml(u.displayName||"")}</td>
+
+          <td class="nowrap">${renderRoleSelect_(memberIdRaw, u.role)}</td>
+          <td class="nowrap">${renderStatusSelect_(memberIdRaw, u.status)}</td>
+
+          <td class="nowrap">
+            <input
+              class="ctl mono"
+              style="width:90px"
+              id="joinYm_${midAttr}"
+              value="${joinAttr}"
+              data-orig="${joinAttr}"
+              placeholder="yyyymm"
+              oninput="markDirty('${midAttr}')"
+              onchange="markDirty('${midAttr}')"
+            />
+          </td>
+          <td class="nowrap">
+            <input
+              class="ctl mono"
+              style="width:90px"
+              id="leaveYm_${midAttr}"
+              value="${leaveAttr}"
+              data-orig="${leaveAttr}"
+              placeholder="yyyymm"
+              oninput="markDirty('${midAttr}')"
+              onchange="markDirty('${midAttr}')"
+            />
+          </td>
+
+          <td class="nowrap">${renderNotifyChannelSelect_(memberIdRaw, u.notifyChannel)}</td>
+
+          <td class="nowrap">${renderIsAdminToggle_(memberIdRaw, u.isAdmin)}</td>
+
+          <td class="nowrap">
+            <button class="btn" id="save_${midAttr}" onclick="saveMember('${midAttr}', this)" disabled>保存</button>
+          </td>
+
+          <td class="nowrap"><b>${numOrDash(u.osInactiveDays)}</b></td>
+          <td class="nowrap"><b>${numOrDash(u.googleInactiveDays)}</b></td>
+          <td class="nowrap"><b>${numOrDash(u.slackInactiveDays)}</b></td>
+
+          <td class="nowrap">${pill(u.googleState)}</td>
+          <td class="small nowrap">${escapeHtml(u.googleLastSeenAt||"-")}</td>
+          <td class="nowrap">${pill(u.slackState)}</td>
+          <td class="small nowrap">${escapeHtml(u.slackLastSeenAt||"-")}</td>
+
+          <!-- ★Emailを右側へ、短く -->
+          <td class="mono" style="${emailCellStyle}" title="${emAttr}">${escapeHtml(emRaw)}</td>
+
+          <td class="nowrap">
+            <button
+              class="btn"
+              onclick="sendGoogleDowngradeNotice('${emAttr}','${dnAttr}', this)"
+              title="このメンバーに Google 無償化の事前通知メールを送る"
+            >通知</button>
+          </td>
+
+          <td class="nowrap">
+            <button
+              class="btn"
+              onclick="sendSlackDowngradeNotice('${emAttr}','${dnAttr}', this)"
+              title="このメンバーに Slack 無償化の事前通知メールを送る"
+            >通知</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    el("hint").textContent =
+      `rows: ${rows.length}（ソート: memberId昇順 / inactiveDaysは 2026-01-14 起点を含む）`;
+  }
+
+  function renderRoleSelect_(memberId, current){
+    const mid = escapeHtmlAttr(memberId || "");
+    const cur = String(current || "").trim();
+
+    // ★roleTagに入れる値（この文字列でDBに保存される）
+    const options = ["", "マネージャー", "パートナー", "シニアアソシエイト", "アソシエイト", "クルー"];
+
+    return `
+      <select class="ctl" style="width:210px"
+        id="role_${mid}"
+        data-orig="${escapeHtmlAttr(cur)}"
+        onchange="markDirty('${mid}')"
+      >
+        ${options.map(v => {
+          const vv = String(v);
+          const sel = (vv === cur) ? "selected" : "";
+          const label = vv ? vv : "（未設定）";
+          return `<option value="${escapeHtmlAttr(vv)}" ${sel}>${escapeHtml(label)}</option>`;
+        }).join("")}
+      </select>
+    `;
+  }
+
+  function renderStatusSelect_(memberId, current){
+    const mid = escapeHtmlAttr(memberId || "");
+    const cur = String(current || "").trim().toLowerCase();
+
+    const options = [
+      "", "active", "inactive", "paused"
+    ];
+
+    return `
+      <select class="ctl" style="width:140px"
+        id="status_${mid}"
+        data-orig="${escapeHtmlAttr(cur)}"
+        onchange="markDirty('${mid}')"
+      >
+        ${options.map(v => {
+          const vv = String(v);
+          const sel = (vv.toLowerCase() === cur) ? "selected" : "";
+          const label = vv ? vv : "（未設定）";
+          return `<option value="${escapeHtmlAttr(vv)}" ${sel}>${escapeHtml(label)}</option>`;
+        }).join("")}
+      </select>
+    `;
+  }
+
+  function renderNotifyChannelSelect_(memberId, current){
+    const mid = escapeHtmlAttr(memberId || "");
+    const cur = String(current || "").trim().toLowerCase();
+
+    const options = ["gmail","slack"];
+
+    return `
+      <select class="ctl" style="width:140px"
+        id="notify_${mid}"
+        data-orig="${escapeHtmlAttr(cur || "gmail")}"
+        onchange="markDirty('${mid}')"
+      >
+        ${options.map(v => {
+          const vv = String(v);
+          const sel = (vv === (cur || "gmail")) ? "selected" : "";
+          return `<option value="${escapeHtmlAttr(vv)}" ${sel}>${escapeHtml(vv)}</option>`;
+        }).join("")}
+      </select>
+    `;
+  }
+
+
+  function renderIsAdminToggle_(memberId, current){
+    const mid = escapeHtmlAttr(memberId || "");
+    const cur = String(current || "").trim().toLowerCase();
+    const checked = (cur === "true" || cur === "1" || cur === "yes") ? "checked" : "";
+
+    return `
+      <label class="rowLeft" style="gap:8px; align-items:center; margin:0;">
+        <input
+          type="checkbox"
+          id="isAdmin_${mid}"
+          data-orig="${checked ? "true" : "false"}"
+          onchange="markDirty('${mid}')"
+        />
+        <span class="small">admin</span>
+      </label>
+    `.replace('id="isAdmin_' + mid + '"', `id="isAdmin_${mid}" ${checked}`);
+  }
+
+  function markDirty(memberId){
+    const mid = (memberId || "").trim();
+    if (!mid) return;
+
+    const roleEl = el(`role_${mid}`);
+    const stEl = el(`status_${mid}`);
+    const ntEl = el(`notify_${mid}`);
+    const adEl = el(`isAdmin_${mid}`);
+
+    const jEl = el(`joinYm_${mid}`);
+    const lEl = el(`leaveYm_${mid}`);
+
+    const saveBtn = el(`save_${mid}`);
+    if (!roleEl || !stEl || !ntEl || !adEl || !jEl || !lEl || !saveBtn) return;
+
+    const roleOrig = String(roleEl.dataset.orig || "");
+    const stOrig = String(stEl.dataset.orig || "");
+    const ntOrig = String(ntEl.dataset.orig || "gmail");
+    const adOrig = String(adEl.dataset.orig || "false");
+
+    const jOrig = String(jEl.dataset.orig || "");
+    const lOrig = String(lEl.dataset.orig || "");
+
+    const roleNow = String(roleEl.value || "").trim().toLowerCase();
+    const stNow = String(stEl.value || "").trim().toLowerCase();
+    const ntNow = String(ntEl.value || "").trim().toLowerCase();
+    const adNow = adEl.checked ? "true" : "false";
+
+    const jNow = String(jEl.value || "").trim();
+    const lNow = String(lEl.value || "").trim();
+
+    const changed =
+      (roleNow !== roleOrig) ||
+      (stNow !== stOrig) ||
+      (ntNow !== ntOrig) ||
+      (adNow !== adOrig) ||
+      (jNow !== jOrig) ||
+      (lNow !== lOrig);
+
+    saveBtn.disabled = !changed;
+  }
+
+  function saveMember(memberId, btnEl){
+    const mid = (memberId || "").trim();
+    if (!mid){
+      showErr("memberId empty");
+      return;
+    }
+
+    const roleEl = el(`role_${mid}`);
+    const stEl = el(`status_${mid}`);
+    const ntEl = el(`notify_${mid}`);
+    const adEl = el(`isAdmin_${mid}`);
+
+    const jEl = el(`joinYm_${mid}`);
+    const lEl = el(`leaveYm_${mid}`);
+
+    if (!roleEl || !stEl || !ntEl || !adEl || !jEl || !lEl){
+      showErr("role/status/notify/isAdmin/joinYm/leaveYm element not found");
+      return;
+    }
+
+    const joinYm = String(jEl.value || "").trim();
+    const leaveYm = String(lEl.value || "").trim();
+
+    function validYm(s){
+      const v = String(s || "").trim();
+      if (!v) return true;              // 空OK
+      if (!/^\d{6}$/.test(v)) return false;
+      const mm = Number(v.slice(4,6));
+      return (mm >= 1 && mm <= 12);
+    }
+
+    if (!validYm(joinYm)){
+      showErr("joinYm invalid（yyyymm / 月は01-12 / 空OK）");
+      return;
+    }
+    if (!validYm(leaveYm)){
+      showErr("leaveYm invalid（yyyymm / 月は01-12 / 空OK）");
+      return;
+    }
+
+    const payload = {
+      memberId: mid,
+      role: (roleEl.value || "").trim(),
+      status: (stEl.value || "").trim(),
+      notifyChannel: (ntEl.value || "").trim().toLowerCase() || "gmail",
+      isAdmin: adEl.checked ? "true" : "false",
+
+      joinYm: joinYm,
+      leaveYm: leaveYm
+    };
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "保存中...";
+    }
+    el("err").style.display = "none";
+    el("hint").textContent = `保存中... memberId=${mid}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "保存";
+        }
+        showErr(err?.message || String(err));
+        markDirty(mid);
+      })
+      .withSuccessHandler(res => {
+        if (btnEl){
+          btnEl.textContent = "保存";
+        }
+        if (!res || !res.ok){
+          if (btnEl) btnEl.disabled = false;
+          showErr((res && res.message) ? res.message : "save failed");
+          markDirty(mid);
+          return;
+        }
+
+        roleEl.dataset.orig = String(payload.role || "").trim().toLowerCase();
+        stEl.dataset.orig = String(payload.status || "").trim().toLowerCase();
+        ntEl.dataset.orig = String(payload.notifyChannel || "gmail").trim().toLowerCase();
+        adEl.dataset.orig = payload.isAdmin;
+
+        jEl.dataset.orig = String(payload.joinYm || "").trim();
+        lEl.dataset.orig = String(payload.leaveYm || "").trim();
+
+        el("hint").textContent = `保存完了：memberId=${mid}`;
+        markDirty(mid);
+      })
+      .admin_updateMemberRoleStatus(payload);
+  }
+
+  function sendSlackDowngradeNotice(email, displayName, btnEl){
+    const em = (email || "").trim();
+    if (!em){
+      showErr("email empty");
+      return;
+    }
+
+    const name = (displayName || "").trim() || em;
+
+    const ok = window.confirm(
+      `Slack無償化通知メールを送る？\n` +
+      `宛先: ${name} <${em}>\n\n` +
+      `inactive days>30となったため無償プランに切り替えます。\n` +
+      `有償プランに戻す必要が生じたらマネージャーに言ってね！\n` +
+      `引き続き#a1-allは見れるしDMも送れるから安心してねー。`
+    );
+    if (!ok) return;
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "送信中...";
+    }
+    el("err").style.display = "none";
+    el("hint").textContent = `送信中... ${em}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "通知";
+        }
+        showErr(err?.message || String(err));
+      })
+      .withSuccessHandler(res => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "通知";
+        }
+        if (!res || !res.ok){
+          showErr((res && res.message) ? res.message : "send failed");
+          return;
+        }
+        el("hint").textContent = `送信完了：${em}`;
+      })
+      .admin_sendSlackDowngradeNotice(em);
+  }
+
+  function sendGoogleDowngradeNotice(email, displayName, btnEl){
+    const em = (email || "").trim();
+    if (!em){
+      showErr("email empty");
+      return;
+    }
+
+    const name = (displayName || "").trim() || em;
+
+    const ok = window.confirm(
+      `Google無償化通知メールを送る？\n` +
+      `宛先: ${name} <${em}>\n\n` +
+      `inactive days>30となったため無償プランに切り替えます。\n` +
+      `有償プランに戻す必要が生じたらマネージャーに言ってね！`
+    );
+    if (!ok) return;
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "送信中...";
+    }
+    el("err").style.display = "none";
+    el("hint").textContent = `送信中... ${em}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "通知";
+        }
+        showErr(err?.message || String(err));
+      })
+      .withSuccessHandler(res => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "通知";
+        }
+        if (!res || !res.ok){
+          showErr((res && res.message) ? res.message : "send failed");
+          return;
+        }
+        el("hint").textContent = `送信完了：${em}`;
+      })
+      .admin_sendGoogleDowngradeNotice(em);
+  }
+
+  function getFilters_(){
+    const daysRaw = (el("fltDays").value || "").trim();
+    const days = daysRaw ? Number(daysRaw) : null;
+    const stage = (el("fltStage").value || "").trim().toLowerCase();
+    const status = (el("fltStatus").value || "").trim().toLowerCase();
+    return { days, stage, status };
+  }
+
+  function applyFilter(){
+    const f = getFilters_();
+    let rows = __ALL__.slice();
+
+    // ★inactiveDays ≥ は「OS/Google/Slack のうち最大のinactive日数」で判定
+    if (f.days !== null && !isNaN(f.days)){
+      rows = rows.filter(u => {
+        const os = Number(u.osInactiveDays || 0);
+        const gg = Number(u.googleInactiveDays || 0);
+        const sl = Number(u.slackInactiveDays || 0);
+        const mx = Math.max(os, gg, sl);
+        return mx >= f.days;
+      });
+    }
+
+    if (f.stage){
+      rows = rows.filter(u => String(u.licenseNoticeStage||"").trim().toLowerCase() === f.stage);
+    }
+    if (f.status){
+      rows = rows.filter(u => String(u.status||"").trim().toLowerCase() === f.status);
+    }
+
+    render(rows);
+  }
+
+
+  function resetFilter(){
+    el("fltDays").value = "";
+    el("fltStage").value = "";
+    el("fltStatus").value = "";
+    render(__ALL__);
+  }
+
+  function callGAS_(fnName, args, onOk, onNg){
+    try{
+      const runner = google.script.run
+        .withSuccessHandler(onOk)
+        .withFailureHandler(onNg);
+
+      // ★関数名ズレをここで検知して、画面に出す
+      const f = runner && runner[fnName];
+      if (typeof f !== "function"){
+        throw new Error(`[GAS] ${fnName} is not a function（サーバ側に同名の公開関数が無い/名前が違う）`);
+      }
+
+      (Array.isArray(args) ? f.apply(runner, args) : f.call(runner, args));
+    } catch(e){
+      onNg && onNg(e);
+    }
+  }
+
+  function load(){
+    // ここが死ぬと「loading...固定」になるので、とにかく例外で落とさない
+    try{
+      el("err").style.display = "none";
+      el("hint").textContent = "loading...";
+      el("tbody").innerHTML = `<tr><td colspan="20" class="muted">loading...</td></tr>`;
+
+      if (!CAN_ACCESS_ADMIN){
+        showErr("権限なし（この画面が見えてる時点でルーティングおかしい）");
+        return;
+      }
+
+      callGAS_(
+        "listAdminUsers",
+        [],
+        (res) => {
+          try{
+            if (!res || !res.ok){
+              showErr((res && res.message) ? res.message : "load failed");
+              __ALL__ = [];
+              render([]);
+              return;
+            }
+
+            __ALL__ = res.users || [];
+            __ALL__.sort((a,b)=> String(a.memberId||"").localeCompare(String(b.memberId||""), "ja"));
+            render(__ALL__);
+
+            el("meta").textContent = res.meta
+              ? `データ生成: ${res.meta.generatedAtJst || "-"} / members updatedAt(max): ${res.meta.membersUpdatedAtMax || "-"}`
+              : "-";
+          } catch(e2){
+            showErr(e2?.message || String(e2));
+          }
+        },
+        (err) => {
+          showErr(err?.message || String(err));
+          // ★落ちてもタブ切替はできるように「loading...」を解除
+          try{
+            el("hint").textContent = "load failed（上のエラー見て）";
+            el("tbody").innerHTML = `<tr><td colspan="20" class="muted">load failed</td></tr>`;
+          } catch(_) {}
+        }
+      );
+
+    } catch(e){
+      showErr(e?.message || String(e));
+    }
+  }
+
+  // ===== PJ list =====
+  // __PJS__ は「Protocols/Candidates用：activeのみ」を入れる
+  let __PJS__ = [];
+
+  // Projectsタブ（PJ台帳）用：全件（draft含む）
+  let __PJS_ALL__ = [];
+
+  // ===== freee partners (pulldown candidates for Projects->Client) =====
+  let __FREEE_PARTNERS__ = []; // [{id,name}]
+
+  function fillFreeePartnerDatalist_(){
+    const dl = el("freeePartnerDatalist");
+    if (!dl) return;
+
+    const rows = Array.isArray(__FREEE_PARTNERS__) ? __FREEE_PARTNERS__ : [];
+    const names = rows.map(x => String(x?.name || "").trim()).filter(x=>x);
+
+    const uniq = Array.from(new Set(names)).sort((a,b)=>a.localeCompare(b,"ja"));
+    dl.innerHTML = uniq.map(n => `<option value="${escapeHtmlAttr(n)}"></option>`).join("");
+  }
+
+  function loadFreeePartners_(){
+    // すでに入ってるなら叩かない（必要なら強制更新ボタン後で追加してもいい）
+    if (Array.isArray(__FREEE_PARTNERS__) && __FREEE_PARTNERS__.length){
+      fillFreeePartnerDatalist_();
+      return;
+    }
+
+    // サーバ側で freee取引先一覧を返す関数を用意する（後述）
+    google.script.run
+      .withFailureHandler(err => {
+        // 取引先が取れなくてもPJ一覧は出したいので握りつぶす
+        try{ console.warn(err); }catch(e){}
+        __FREEE_PARTNERS__ = [];
+        fillFreeePartnerDatalist_();
+      })
+      .withSuccessHandler(res => {
+        // res: {ok:true, partners:[{id,name}]} or array
+        if (Array.isArray(res)){
+          __FREEE_PARTNERS__ = res;
+        } else if (res && res.ok && Array.isArray(res.partners)){
+          __FREEE_PARTNERS__ = res.partners;
+        } else {
+          __FREEE_PARTNERS__ = [];
+        }
+        fillFreeePartnerDatalist_();
+      })
+      .admin_listFreeePartners();
+  }
+
+  function reloadFreeePartners_(){
+    const btn = el("btnReloadFreeePartners");
+    const origText = btn ? btn.textContent : "";
+
+    // ★即時フィードバック
+    if (btn){
+      btn.disabled = true;
+      btn.textContent = "再読み込み中...";
+    }
+    try{
+      el("pjErr").style.display = "none";
+      el("pjHint").textContent = "freee取引先を再読み込み中...";
+    }catch(e){}
+
+    // ★ローカル候補を一度空にして「変化」を見せる
+    __FREEE_PARTNERS__ = [];
+    fillFreeePartnerDatalist_();
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btn){
+          btn.disabled = false;
+          btn.textContent = origText;
+        }
+        try{
+          showPjErr("取引先 再読み込み失敗: " + (err?.message || String(err)));
+          el("pjHint").textContent = "失敗";
+        }catch(e){}
+      })
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          if (btn){
+            btn.disabled = false;
+            btn.textContent = origText;
+          }
+          try{
+            showPjErr((res && res.message) ? res.message : "取引先キャッシュクリア失敗");
+            el("pjHint").textContent = "失敗";
+          }catch(e){}
+          return;
+        }
+
+        // ★キャッシュ削除後、即再取得
+        google.script.run
+          .withFailureHandler(err2 => {
+            if (btn){
+              btn.disabled = false;
+              btn.textContent = origText;
+            }
+            try{
+              showPjErr("取引先 取得失敗: " + (err2?.message || String(err2)));
+              el("pjHint").textContent = "失敗";
+            }catch(e){}
+          })
+          .withSuccessHandler(res2 => {
+            if (btn){
+              btn.disabled = false;
+              btn.textContent = origText;
+            }
+
+            if (res2 && res2.ok && Array.isArray(res2.partners)){
+              __FREEE_PARTNERS__ = res2.partners;
+            } else {
+              __FREEE_PARTNERS__ = [];
+            }
+
+            fillFreeePartnerDatalist_();
+
+            try{
+              el("pjHint").textContent =
+                `freee取引先を再取得した（${__FREEE_PARTNERS__.length}件）`;
+            }catch(e){}
+          })
+          .admin_listFreeePartners();
+      })
+      .admin_clearFreeePartnersCache();
+  }
+
+  function markDirtyProjectClient(projectId){
+    const pid = String(projectId || "").trim();
+    if (!pid) return;
+
+    const inp = el(`pjcl_${pid}`);
+    const btn = el(`pjsave_${pid}`);
+    if (!inp || !btn) return;
+
+    const orig = String(inp.dataset.orig || "").trim();
+    const now  = String(inp.value || "").trim();
+
+    btn.disabled = (now === orig);
+  }
+
+  function saveProjectClient(projectId, btnEl){
+    const pid = String(projectId || "").trim();
+    if (!pid){
+      showPjErr("projectId empty");
+      return;
+    }
+
+    const inp = el(`pjcl_${pid}`);
+    if (!inp){
+      showPjErr("client input not found");
+      return;
+    }
+
+    const nextClientName = String(inp.value || "").trim();
+    if (!nextClientName){
+      showPjErr("請求先が空");
+      return;
+    }
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "保存中...";
+    }
+    el("pjErr").style.display = "none";
+    el("pjHint").textContent = `保存中... clientName ${pid} -> ${nextClientName}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){
+          btnEl.disabled = false;
+          btnEl.textContent = "保存";
+        }
+        showPjErr(err?.message || String(err));
+        markDirtyProjectClient(pid);
+      })
+      .withSuccessHandler(res => {
+        if (btnEl) btnEl.textContent = "保存";
+
+        if (!res || !res.ok){
+          if (btnEl) btnEl.disabled = false;
+          showPjErr((res && res.message) ? res.message : "save failed");
+          markDirtyProjectClient(pid);
+          return;
+        }
+
+        // ★サーバが正規化した名前（freee側で作った結果など）を反映
+        const fixedName = String(res.clientName || nextClientName).trim();
+        inp.value = fixedName;
+        inp.dataset.orig = fixedName;
+
+        // updatedAtも差し替え
+        const tr = document.querySelector(`tr[data-pid="${CSS.escape(pid)}"]`);
+        const updCell = tr ? tr.querySelector("td.pjUpdatedAt") : null;
+        const updatedAt = String(res.updatedAt || "").trim();
+        if (updCell && updatedAt) updCell.textContent = updatedAt;
+
+        // キャッシュも更新
+        const hit = (__PJS_ALL__ || []).find(x => String(x.projectId||"").trim() === pid);
+        if (hit){
+          hit.clientName = fixedName;
+          if (updatedAt) hit.updatedAt = updatedAt;
+        }
+
+        el("pjHint").textContent = `保存完了：clientName ${pid} -> ${fixedName}`;
+        markDirtyProjectClient(pid);
+      })
+      .admin_updateProjectClientName({
+        projectId: pid,
+        clientName: nextClientName,
+        // ★「候補にない入力で確定したらfreeeに追加」をAdmin側でやる前提
+        createFreeeIfMissing: true
+      });
+  }
+
+    // ★つくよみ介入対象フラグ（即時保存）
+  function toggleTsukuyomiNudgeEnabled_(projectId, chkEl){
+    const pid = String(projectId || "").trim();
+    if (!pid) return;
+
+    const nextEnabled = !!(chkEl && chkEl.checked);
+
+    // 夜間メンション禁止とかは「実際の介入投稿側（176〜）」で見るので、ここでは純粋にフラグだけ保存する
+    // UIは即フィードバック
+    try{
+      el("pjErr").style.display = "none";
+      el("pjHint").textContent = `保存中... つくよみ=${nextEnabled ? "ON" : "OFF"} ${pid}`;
+    }catch(e){}
+
+    if (chkEl) chkEl.disabled = true;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (chkEl) chkEl.disabled = false;
+
+        // 失敗したらUIを元に戻す（事故防止）
+        if (chkEl) chkEl.checked = !nextEnabled;
+
+        showPjErr(err?.message || String(err));
+        try{ el("pjHint").textContent = "失敗"; }catch(e){}
+      })
+      .withSuccessHandler(res => {
+        if (chkEl) chkEl.disabled = false;
+
+        if (!res || !res.ok){
+          if (chkEl) chkEl.checked = !nextEnabled;
+          showPjErr((res && res.message) ? res.message : "save failed");
+          try{ el("pjHint").textContent = "失敗"; }catch(e){}
+          return;
+        }
+
+        // updatedAt 表示だけ差し替え
+        const tr = document.querySelector(`tr[data-pid="${CSS.escape(pid)}"]`);
+        const updCell = tr ? tr.querySelector("td.pjUpdatedAt") : null;
+        const updatedAt = String(res.updatedAt || "").trim();
+        if (updCell && updatedAt) updCell.textContent = updatedAt;
+
+        // キャッシュ更新（Projectsタブ内整合）
+        const hit = (__PJS_ALL__ || []).find(x => String(x.projectId||"").trim() === pid);
+        if (hit){
+          hit.tsukuyomiNudgeEnabled = !!res.enabled;
+          if (updatedAt) hit.updatedAt = updatedAt;
+        }
+
+        try{
+          el("pjHint").textContent = `保存完了：つくよみ=${res.enabled ? "ON" : "OFF"} ${pid}`;
+        }catch(e){}
+      })
+      .admin_updateProjectTsukuyomiNudgeEnabled({
+        projectId: pid,
+        enabled: nextEnabled
+      });
+  }
+
+
+
+  function showPjErr(msg){
+    el("pjErr").style.display = "block";
+    el("pjErr").textContent = msg || "error";
+  }
+
+  function renderProjects(list){
+    const tb = el("pjTbody");
+    const rows = Array.isArray(list) ? list : [];
+
+    if (!rows.length){
+      tb.innerHTML = `<tr><td colspan="13" class="muted">PJなし</td></tr>`;
+      el("pjHint").textContent = `PJ: 0`;
+      return;
+    }
+
+    // ★activeメンバー候補（label=codeName / value=memberId）
+    const members = (Array.isArray(__ALL__) ? __ALL__ : [])
+      .filter(m => String(m?.status || "").trim().toLowerCase() === "active")
+      .map(m => ({
+        memberId: String(m?.memberId || "").trim(),
+        codeName: String(m?.codeName || "").trim()
+      }))
+      .filter(m => m.memberId);
+
+    members.sort((a,b)=> String(a.codeName).localeCompare(String(b.codeName), "ja"));
+
+    function buildMemberSelectHtml_(kind, pidAttr, currentMemberId){
+      const cur = String(currentMemberId || "").trim();
+      const selId = `pj_${kind}_${pidAttr}`;
+
+      const opts = []
+        .concat([{ memberId:"", codeName:"未設定" }])
+        .concat(members);
+
+      return `
+        <select class="ctl" style="width:100%; min-width:160px;"
+          id="${escapeHtmlAttr(selId)}"
+          data-orig="${escapeHtmlAttr(cur)}"
+          onchange="markDirtyProjectRow('${escapeHtmlAttr(pidAttr)}')"
+        >
+          ${opts.map(x => {
+            const mid = String(x.memberId || "");
+            const label = String(x.codeName || mid || "未設定");
+            const sel = (mid === cur) ? "selected" : "";
+            return `<option value="${escapeHtmlAttr(mid)}" ${sel}>${escapeHtml(label)}</option>`;
+          }).join("")}
+        </select>
+      `;
+    }
+
+    tb.innerHTML = rows.map(p => {
+      const projectIdRaw = String(p.projectId || "").trim();
+      const pid = escapeHtml(projectIdRaw);
+      const pidAttr = escapeHtmlAttr(projectIdRaw);
+
+      const pn = escapeHtml(p.projectName || "");
+      const pnAttr = escapeHtmlAttr(p.projectName || "");
+
+      const clientNow = String(p.clientName || "").trim();
+      const clientAttr = escapeHtmlAttr(clientNow);
+
+      const freeeIdNow = String(p.freeePartnerId || "").trim();
+      const freeeIdAttr = escapeHtmlAttr(freeeIdNow);
+
+      const slackChNow = String(p.slackChannelId || "").trim();
+      const slackChAttr = escapeHtmlAttr(slackChNow);
+
+      const driveNow = String(p.driveFolderId || "").trim();
+      const driveAttr = escapeHtmlAttr(driveNow);
+
+      const reportNow = String(p.reportEmails || "").trim();
+      const reportAttr = escapeHtmlAttr(reportNow);
+
+      const pmNow = String(p.pmMemberId || "").trim();
+      const closerNow = String(p.closerMemberId || "").trim();
+
+      const cur = String(p.status || "").trim().toLowerCase();
+      const updRaw = String(p.updatedAt || "").trim();
+      const upd = updRaw ? escapeHtml(updRaw.slice(0,10)) : "";
+
+      // ★追加：つくよみ介入（デフォ false）
+      const nudge = !!p.tsukuyomiNudgeEnabled;
+      const chkId = `pj_tky_${pidAttr}`;
+
+      return `
+        <tr data-pid="${pidAttr}">
+          <td class="mono nowrap pj-sticky-id"><b>${pid}</b></td>
+          <td class="noteCell pj-sticky-name" title="${pnAttr}" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${pn}</td>
+
+          <td class="noteCell">
+            <input
+              class="ctl"
+              style="width:100%;"
+              id="pjcl_${pidAttr}"
+              list="freeePartnerDatalist"
+              value="${clientAttr}"
+              data-orig="${clientAttr}"
+              placeholder="freee取引先名（候補から選ぶ or 直接入力）"
+              oninput="onProjectClientInput_('${pidAttr}')"
+              onchange="onProjectClientChange_('${pidAttr}')"
+            />
+          </td>
+
+          <td class="noteCell">
+            <input
+              class="ctl mono"
+              style="width:100%;"
+              id="pjfreee_${pidAttr}"
+              value="${freeeIdAttr}"
+              data-orig="${freeeIdAttr}"
+              placeholder="例: 123456789（空OK）"
+              oninput="markDirtyProjectRow('${pidAttr}')"
+            />
+          </td>
+
+          <td class="noteCell">
+            <input
+              class="ctl mono"
+              style="width:100%;"
+              id="pjslack_${pidAttr}"
+              value="${slackChAttr}"
+              data-orig="${slackChAttr}"
+              placeholder="例: C0123ABCDE（空なら晒し先なし）"
+              oninput="markDirtyProjectRow('${pidAttr}')"
+            />
+          </td>
+
+          <td class="noteCell">
+            <input
+              class="ctl mono"
+              style="width:100%;"
+              id="pjdrive_${pidAttr}"
+              value="${driveAttr}"
+              data-orig="${driveAttr}"
+              placeholder="例: 1ABcDeFgHiJkL...（DriveフォルダID）"
+              oninput="markDirtyProjectRow('${pidAttr}')"
+            />
+          </td>
+
+          <td class="noteCell">
+            <input
+              class="ctl"
+              style="width:100%;"
+              id="pjreport_${pidAttr}"
+              value="${reportAttr}"
+              data-orig="${reportAttr}"
+              placeholder="例: taro@ex.com,jiro@ex.com（カンマ区切り）"
+              oninput="markDirtyProjectRow('${pidAttr}')"
+            />
+          </td>
+
+          <td class="noteCell">
+            ${buildMemberSelectHtml_("pm", pidAttr, pmNow)}
+          </td>
+          <td class="noteCell">
+            ${buildMemberSelectHtml_("closer", pidAttr, closerNow)}
+          </td>
+
+          <td class="nowrap">${renderProjectStatusSelect_(projectIdRaw, cur)}</td>
+
+          <!-- ★追加：つくよみ（即時保存） -->
+          <td class="nowrap">
+            <label class="rowLeft" style="gap:8px; align-items:center; margin:0;">
+              <input
+                type="checkbox"
+                id="${escapeHtmlAttr(chkId)}"
+                ${nudge ? "checked" : ""}
+                onchange="toggleTsukuyomiNudgeEnabled_('${pidAttr}', this)"
+              />
+              <span class="small">介入</span>
+            </label>
+          </td>
+
+          <td class="nowrap">
+            <button
+              class="btn"
+              id="pjsave_${pidAttr}"
+              onclick="saveProjectRow('${pidAttr}', this)"
+              disabled
+            >保存</button>
+          </td>
+
+          <td class="small nowrap pjUpdatedAt">${upd || "-"}</td>
+          <td class="nowrap">
+            <button class="btn" onclick="openPj('${pid}','${pnAttr}')">開く</button>
+          </td>
+          <td class="nowrap">
+            <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="deletePj('${pid}','${pnAttr}')">削除</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    el("pjHint").textContent = `PJ: ${rows.length}`;
+  }
+
+  // ★PJ行用：activeメンバーのプルダウン（label=codeName / value=memberId）
+  function renderProjectMemberSelect_(kind, projectId, currentMemberId){
+    const pid = String(projectId || "").trim();
+    const cur = String(currentMemberId || "").trim();
+    const k = String(kind || "").trim(); // "pm" or "closer"
+
+    // Membersタブでロードされた __ALL__ を使う（DB_Members相当）
+    const src = Array.isArray(__ALL__) ? __ALL__ : [];
+    const actives = src
+      .filter(m => String(m?.status || "").trim().toLowerCase() === "active")
+      .map(m => ({
+        memberId: String(m?.memberId || "").trim(),
+        codeName: String(m?.codeName || "").trim()
+      }))
+      .filter(m => m.memberId);
+
+    // 表示安定：codeName昇順
+    actives.sort((a,b)=> String(a.codeName).localeCompare(String(b.codeName), "ja"));
+
+    const selId = `pj_${k}_${pid}`;
+
+    const opts = []
+      // 未設定（value空）
+      .concat([{ memberId:"", codeName:"未設定" }])
+      .concat(actives);
+
+    return `
+      <select class="ctl" style="width:100%; min-width:160px;"
+        id="${escapeHtmlAttr(selId)}"
+        data-orig="${escapeHtmlAttr(cur)}"
+        onchange="markDirtyProjectRow('${escapeHtmlAttr(pid)}')"
+      >
+        ${opts.map(x => {
+          const mid = String(x.memberId || "");
+          const label = String(x.codeName || mid || "未設定");
+          const sel = (mid === cur) ? "selected" : "";
+          return `<option value="${escapeHtmlAttr(mid)}" ${sel}>${escapeHtml(label)}</option>`;
+        }).join("")}
+      </select>
+    `;
+  }
+
+  function markDirtyProjectRow(projectId){
+    const pid = String(projectId || "").trim();
+    if (!pid) return;
+
+    const stEl = el(`pjst_${pid}`);
+    const clEl = el(`pjcl_${pid}`);
+    const frEl = el(`pjfreee_${pid}`);
+    const chEl = el(`pjslack_${pid}`);
+    const drEl = el(`pjdrive_${pid}`);
+    const reEl = el(`pjreport_${pid}`);
+
+    const pmEl = el(`pj_pm_${pid}`);
+    const crEl = el(`pj_closer_${pid}`);
+
+    const btn  = el(`pjsave_${pid}`);
+    if (!stEl || !clEl || !frEl || !chEl || !drEl || !reEl || !pmEl || !crEl || !btn) return;
+
+    const stOrig = String(stEl.dataset.orig || "").trim().toLowerCase();
+    const stNow  = String(stEl.value || "").trim().toLowerCase();
+
+    const clOrig = String(clEl.dataset.orig || "").trim();
+    const clNow  = String(clEl.value || "").trim();
+
+    const frOrig = String(frEl.dataset.orig || "").trim();
+    const frNow  = String(frEl.value || "").trim();
+
+    const chOrig = String(chEl.dataset.orig || "").trim();
+    const chNow  = String(chEl.value || "").trim();
+
+    const drOrig = String(drEl.dataset.orig || "").trim();
+    const drNow  = String(drEl.value || "").trim();
+
+    const reOrig = String(reEl.dataset.orig || "").trim();
+    const reNow  = String(reEl.value || "").trim();
+
+    const pmOrig = String(pmEl.dataset.orig || "").trim();
+    const pmNow  = String(pmEl.value || "").trim();
+
+    const crOrig = String(crEl.dataset.orig || "").trim();
+    const crNow  = String(crEl.value || "").trim();
+
+    btn.disabled = (
+      stOrig === stNow &&
+      clOrig === clNow &&
+      frOrig === frNow &&
+      chOrig === chNow &&
+      drOrig === drNow &&
+      reOrig === reNow &&
+      pmOrig === pmNow &&
+      crOrig === crNow
+    );
+  }
+
+  function saveProjectRow(projectId, btnEl){
+    const pid = String(projectId || "").trim();
+    if (!pid) return;
+
+    const stEl = el(`pjst_${pid}`);
+    const clEl = el(`pjcl_${pid}`);
+    const frEl = el(`pjfreee_${pid}`);
+    const chEl = el(`pjslack_${pid}`);
+    const drEl = el(`pjdrive_${pid}`);
+    const reEl = el(`pjreport_${pid}`);
+    const pmEl = el(`pj_pm_${pid}`);
+    const crEl = el(`pj_closer_${pid}`);
+
+    if (!stEl || !clEl || !frEl || !chEl || !drEl || !reEl || !pmEl || !crEl) return;
+
+    const nextStatus   = String(stEl.value || "").trim().toLowerCase();
+    const nextClient   = String(clEl.value || "").trim();
+    const nextFreeeId  = String(frEl.value || "").trim();
+    const nextSlackCh  = String(chEl.value || "").trim();
+    const nextDrive    = String(drEl.value || "").trim();
+    const nextReport   = String(reEl.value || "").trim();
+    const nextPm       = String(pmEl.value || "").trim();
+    const nextCloser   = String(crEl.value || "").trim();
+
+    if (nextFreeeId && !/^\d+$/.test(nextFreeeId)){
+      showPjErr("freee取引先IDは数字のみ（空OK）");
+      return;
+    }
+
+    const createFreeeIfMissing = nextFreeeId ? false : true;
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "保存中...";
+    }
+
+    el("pjErr").style.display = "none";
+    el("pjHint").textContent = `保存中... ${pid}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){
+          btnEl.textContent = "保存";
+          btnEl.disabled = false;
+        }
+        showPjErr(err?.message || String(err));
+        markDirtyProjectRow(pid);
+      })
+      .withSuccessHandler(res => {
+        if (btnEl) btnEl.textContent = "保存";
+
+        if (!res || !res.ok){
+          if (btnEl) btnEl.disabled = false;
+          showPjErr((res && res.message) ? res.message : "save failed");
+          markDirtyProjectRow(pid);
+          return;
+        }
+
+        // origを更新
+        stEl.dataset.orig = nextStatus;
+        chEl.dataset.orig = nextSlackCh;
+        drEl.dataset.orig = nextDrive;
+        reEl.dataset.orig = nextReport;
+        pmEl.dataset.orig = nextPm;
+        crEl.dataset.orig = nextCloser;
+
+        // サーバが正規化した値を反映
+        const fixedClient = String(res.clientName || nextClient).trim();
+        clEl.value = fixedClient;
+        clEl.dataset.orig = fixedClient;
+
+        const fixedFreeeId = String(res.freeePartnerId || nextFreeeId).trim();
+        frEl.value = fixedFreeeId;
+        frEl.dataset.orig = fixedFreeeId;
+
+        // updatedAt
+        const tr = document.querySelector(`tr[data-pid="${CSS.escape(pid)}"]`);
+        const updCell = tr ? tr.querySelector("td.pjUpdatedAt") : null;
+        const updatedAt = String(res.updatedAt || "").trim();
+        if (updCell && updatedAt) updCell.textContent = updatedAt;
+
+        // キャッシュ更新
+        const hit = (__PJS_ALL__ || []).find(x => String(x.projectId||"").trim() === pid);
+        if (hit){
+          hit.status = nextStatus;
+          hit.clientName = fixedClient;
+          hit.freeePartnerId = fixedFreeeId;
+          hit.slackChannelId = nextSlackCh;
+          hit.driveFolderId = nextDrive;
+          hit.reportEmails = nextReport;
+          hit.pmMemberId = nextPm;
+          hit.closerMemberId = nextCloser;
+          if (updatedAt) hit.updatedAt = updatedAt;
+        }
+
+        if (btnEl) btnEl.disabled = true;
+        markDirtyProjectRow(pid);
+        el("pjHint").textContent = `保存完了：${pid}`;
+      })
+      .admin_updateProjectAllFields({
+        projectId: pid,
+        status: nextStatus,
+        clientName: nextClient,
+        freeePartnerId: nextFreeeId,
+        slackChannelId: nextSlackCh,
+        driveFolderId: nextDrive,
+        reportEmails: nextReport,
+        pmMemberId: nextPm,
+        closerMemberId: nextCloser,
+        createFreeeIfMissing: createFreeeIfMissing
+      });
+  }
+
+  function renderProjectStatusSelect_(projectId, current){
+  const pid = escapeHtmlAttr(String(projectId || "").trim());
+  const cur = String(current || "").trim().toLowerCase();
+
+  // DB側の許容値に合わせる（今までの会話で出てたセット）
+  const options = ["active","sales","ended","frozen","lost","draft"];
+
+  return `
+    <select class="ctl" style="width:180px"
+      id="pjst_${pid}"
+      data-orig="${escapeHtmlAttr(cur)}"
+      onchange="markDirtyProjectStatus('${pid}')"
+    >
+      ${options.map(v => {
+        const vv = String(v);
+        const sel = (vv === cur) ? "selected" : "";
+        return `<option value="${escapeHtmlAttr(vv)}" ${sel}>${escapeHtml(vv)}</option>`;
+      }).join("")}
+    </select>
+  `;
+}
+
+function markDirtyProjectStatus(projectId){
+  markDirtyProjectRow(projectId);
+}
+
+function saveProjectStatus(projectId, btnEl){
+  const pid = String(projectId || "").trim();
+  if (!pid){
+    showPjErr("projectId empty");
+    return;
+  }
+
+  const stEl = el(`pjst_${pid}`);
+  if (!stEl){
+    showPjErr("status element not found");
+    return;
+  }
+
+  const nextStatus = String(stEl.value || "").trim().toLowerCase();
+  if (!nextStatus){
+    showPjErr("nextStatus empty");
+    return;
+  }
+
+  const tr = document.querySelector(`tr[data-pid="${CSS.escape(pid)}"]`);
+  const updCell = tr ? tr.querySelector("td.pjUpdatedAt") : null;
+
+  if (btnEl){
+    btnEl.disabled = true;
+    btnEl.textContent = "保存中...";
+  }
+  el("pjErr").style.display = "none";
+  el("pjHint").textContent = `保存中... ${pid} -> ${nextStatus}`;
+
+  google.script.run
+    .withFailureHandler(err => {
+      if (btnEl){
+        btnEl.disabled = false;
+        btnEl.textContent = "保存";
+      }
+      showPjErr(err?.message || String(err));
+      markDirtyProjectStatus(pid);
+    })
+    .withSuccessHandler(res => {
+      if (btnEl) btnEl.textContent = "保存";
+
+      if (!res || !res.ok){
+        if (btnEl) btnEl.disabled = false;
+        showPjErr((res && res.message) ? res.message : "save failed");
+        markDirtyProjectStatus(pid);
+        return;
+      }
+
+      // orig更新（変更なし状態へ）
+      stEl.dataset.orig = String(nextStatus).toLowerCase();
+      markDirtyProjectStatus(pid);
+
+      // ★updatedAt表示だけ差し替え（全体リロードしない）
+      const updatedAt = (res.updatedAt || "").trim();
+      if (updCell){
+        updCell.textContent = updatedAt || "-";
+      }
+
+      // __PJS__（activeのみ）と __PJS_ALL__（全件）のキャッシュも更新
+      const hit1 = (__PJS__ || []).find(x => String(x.projectId||"").trim() === pid);
+      if (hit1){
+        hit1.status = nextStatus;
+        if (updatedAt) hit1.updatedAt = updatedAt;
+      }
+
+      const hit2 = (__PJS_ALL__ || []).find(x => String(x.projectId||"").trim() === pid);
+      if (hit2){
+        hit2.status = nextStatus;
+        if (updatedAt) hit2.updatedAt = updatedAt;
+      }
+
+
+      el("pjHint").textContent = `保存完了：${pid} -> ${res.status || nextStatus}`;
+    })
+    .admin_updateProjectStatus({ projectId: pid, nextStatus: nextStatus });
+}
+
+
+  function openPj(projectId, projectName){
+    google.script.run
+      .withFailureHandler(err => showPjErr(err?.message || String(err)))
+      .withSuccessHandler(url => {
+        // ★ sandbox iframe対策：topを触らず自分のwindowで遷移
+        window.location.assign(url);
+      })
+      .buildWebAppUrl("charter", { projectId: projectId, projectName: projectName });
+  }
+
+  function loadProjects(){
+    el("pjErr").style.display = "none";
+    el("pjHint").textContent = "loading...";
+    el("pjTbody").innerHTML = `<tr><td colspan="13" class="muted">loading...</td></tr>`;
+
+    google.script.run
+      .withFailureHandler(err => showPjErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (Array.isArray(res)){
+          __PJS_ALL__ = res;
+          __PJS_ALL__ = sortProjectsActiveFirst_(__PJS_ALL__);
+          renderProjects(__PJS_ALL__);
+          return;
+        }
+
+        if (res && Array.isArray(res.projects) && (res.ok === undefined)){
+          __PJS_ALL__ = res.projects;
+          __PJS_ALL__ = sortProjectsActiveFirst_(__PJS_ALL__);
+          renderProjects(__PJS_ALL__);
+          return;
+        }
+
+        if (!res || !res.ok){
+          const detail = (res === null || res === undefined) ? "null" : JSON.stringify(res);
+          showPjErr((res && res.message) ? res.message : `load failed: ${detail}`);
+          __PJS_ALL__ = [];
+          renderProjects([]);
+          return;
+        }
+
+        __PJS_ALL__ = res.projects || [];
+        __PJS_ALL__ = sortProjectsActiveFirst_(__PJS_ALL__);
+        renderProjects(__PJS_ALL__);
+      })
+      .admin_listProjectsFull();
+  }
+
+  // ★activeを最上段へ（それ以外はAPI返却順を維持＝安定）
+  function sortProjectsActiveFirst_(list){
+    const rows = Array.isArray(list) ? list : [];
+    return rows
+      .map((p, i) => ({ p, i }))
+      .sort((a, b) => {
+        const sa = String(a.p?.status || "").trim().toLowerCase();
+        const sb = String(b.p?.status || "").trim().toLowerCase();
+
+        const ra = (sa === "active") ? 0 : 1;
+        const rb = (sb === "active") ? 0 : 1;
+        if (ra !== rb) return ra - rb;
+
+        // 同ランク内は元の順序キープ（安定ソート）
+        return a.i - b.i;
+      })
+      .map(x => x.p);
+  }
+
+
+  function deletePj(projectId, projectName){
+    const name = projectName || projectId || "";
+    const ok = window.confirm(`PJを削除する？（関連DBも全部消える）\nPJ: ${name} (${projectId})\n\n※戻せない`);
+    if (!ok) return;
+
+    el("pjErr").style.display = "none";
+    el("pjHint").textContent = `削除中... ${projectId}`;
+
+    google.script.run
+      .withFailureHandler(err => showPjErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showPjErr((res && res.message) ? res.message : "delete failed");
+          return;
+        }
+        el("pjHint").textContent = `削除完了：${projectId}`;
+        loadProjects();
+      })
+      .admin_deleteProjectCascade(projectId);
+  }
+
+  function runInactiveNow(){
+    el("err").style.display = "none";
+    el("hint").textContent = "OS last / inactiveDays 更新中...";
+
+    google.script.run
+      .withFailureHandler(err => showErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showErr((res && res.message) ? res.message : "update failed");
+          return;
+        }
+        const os = res.osLastSeen || {};
+        const ina = res.inactiveDays || {};
+        el("hint").textContent =
+          `更新完了：osLastSeen updated=${os.updated||0} scanned=${os.scanned||0} / ` +
+          `inactiveDays updated=${ina.updated||0} scanned=${ina.scanned||0}`;
+        load();
+      })
+      .admin_runInactiveDaysNow();
+  }
+
+  function setupTrigger(){
+    el("err").style.display = "none";
+    el("hint").textContent = "トリガー確認中...";
+
+    google.script.run
+      .withFailureHandler(err => showErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showErr((res && res.message) ? res.message : "trigger setup failed");
+          return;
+        }
+        el("hint").textContent = res.created
+          ? "日次トリガー作成した（毎日6時台に回る）"
+          : "日次トリガーは既にある";
+      })
+      .setupDailyInactiveDaysTrigger();
+  }
+
+  // ===== Tabs (lazy load) =====
+  const __LOADED__ = { members:false, projects:false, protocols:false, contexts:false, extractors:false, code:false, payouts:false, tsukuyomi:false, status:false };
+
+  function setActiveTabBtn_(key){
+    ["members","projects","protocols","contexts","extractors","code","payouts","tsukuyomi","status"].forEach(k=>{
+      const b = el("tab_"+k);
+      if (!b) return;
+      if (k === key) {
+        b.style.background = "#111827";
+        b.style.color = "#fff";
+        b.style.borderColor = "#111827";
+      } else {
+        b.style.background = "#fff";
+        b.style.color = "#111827";
+        b.style.borderColor = "var(--line)";
+      }
+    });
+  }
+
+  function switchTab(key){
+    // 既存の sec_*** を切替
+    el("sec_members").style.display   = (key==="members")   ? "block" : "none";
+    el("sec_projects").style.display  = (key==="projects")  ? "block" : "none";
+    el("sec_protocols").style.display = (key==="protocols") ? "block" : "none";
+    el("sec_contexts").style.display  = (key==="contexts")  ? "block" : "none";
+    el("sec_extractors").style.display= (key==="extractors")? "block" : "none";
+    el("sec_code").style.display      = (key==="code")      ? "block" : "none";
+
+    // ★Payouts（新規）
+    const paySec = el("sec_payouts");
+    if (paySec) paySec.style.display  = (key==="payouts") ? "block" : "none";
+
+    // ★つくよみは sec_ じゃなく pane_ で差し込んでる想定
+    const tkyPane = el("pane_tsukuyomi");
+    if (tkyPane) tkyPane.style.display = (key==="tsukuyomi") ? "block" : "none";
+
+    setActiveTabBtn_(key);
+
+    if (key === "members" && !__LOADED__.members){
+      __LOADED__.members = true;
+      load();
+    }
+
+    if (key === "projects" && !__LOADED__.projects){
+      __LOADED__.projects = true;
+      try{ loadFreeePartners_(); } catch(e){}
+      loadProjects();
+    }
+
+    if (key === "protocols" && !__LOADED__.protocols){
+      __LOADED__.protocols = true;
+      try{ reloadGenreTags(); } catch(e){}
+      try{ loadCandidates(); } catch(e){}
+      loadProtocols();
+    }
+
+    if (key === "contexts" && !__LOADED__.contexts){
+      __LOADED__.contexts = true;
+      loadContexts();
+    }
+
+    if (key === "extractors" && !__LOADED__.extractors){
+      __LOADED__.extractors = true;
+      loadExtractorConfigs();
+      loadActiveExtractor_();
+    }
+
+    if (key === "code" && !__LOADED__.code){
+      __LOADED__.code = true;
+      initCodeSearchUi();
+    }
+
+    // ★Payouts：初回だけロード、2回目以降は軽く更新
+    if (key === "payouts" && !__LOADED__.payouts){
+      __LOADED__.payouts = true;
+      try{ if (typeof payoutsOnShow === "function") payoutsOnShow(); } catch(e){}
+    } else if (key === "payouts") {
+      try{ if (typeof payoutsRefresh === "function") payoutsRefresh(); } catch(e){}
+    }
+
+    // ★Status
+    const statusSec = el("sec_memberStatus");
+    if (statusSec) statusSec.style.display = (key === "status") ? "block" : "none";
+
+    if (key === "status" && !__LOADED__.status){
+      __LOADED__.status = true;
+      try{ if (typeof memberStatusOnShow === "function") memberStatusOnShow(); } catch(e){}
+    } else if (key === "status") {
+      try{ if (typeof memberStatusRefresh === "function") memberStatusRefresh(); } catch(e){}
+    }
+
+    // ★つくよみ：表示時にPJ一覧 + persona（LLM Contextタグ）をロード
+    if (key === "tsukuyomi" && !__LOADED__.tsukuyomi){
+      __LOADED__.tsukuyomi = true;
+      try{ if (typeof tkyOnShow === "function") tkyOnShow(); } catch(e){}
+    } else if (key === "tsukuyomi") {
+      // 2回目以降も、押したら軽く更新したい（PJ増えてる可能性）
+      try{ if (typeof tkyRefresh === "function") tkyRefresh(); } catch(e){}
+    }
+  }
+
+  // ===== Protocols =====
+  function showProtErr(msg){
+    el("protErr").style.display = "block";
+    el("protErr").textContent = msg || "error";
+  }
+  function hideProtErr(){
+    el("protErr").style.display = "none";
+    el("protErr").textContent = "";
+  }
+
+  function stars_(n){
+    const x = String(n||"1").trim();
+    if (x === "3") return "★★★";
+    if (x === "2") return "★★";
+    return "★";
+  }
+
+  // ---- Genre tags master (pulldown) ----
+  // ここは運用しながら増やしてOK（表記ゆれが価値毀損するので、基本ここに集約）
+  let __GENRE_TAGS__ = [];
+
+  function reloadGenreTags(){
+    google.script.run
+      .withFailureHandler(err => showProtErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showProtErr((res && res.message) ? res.message : "listGenreTags failed");
+          __GENRE_TAGS__ = [];
+          fillGenreDatalist_();
+          return;
+        }
+        __GENRE_TAGS__ = Array.isArray(res.tags) ? res.tags : [];
+        fillGenreDatalist_();
+      })
+      .admin_listGenreTags();
+  }
+
+  function renderGenreTagList_(){
+    const wrap = el("genreTagList");
+    if (!wrap) return;
+
+    const tags = Array.isArray(__GENRE_TAGS__) ? __GENRE_TAGS__ : [];
+    if (!tags.length){
+      wrap.innerHTML = `<span class="pill gray">候補なし</span>`;
+      return;
+    }
+
+    wrap.innerHTML = tags.map(t => `
+      <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+        ${escapeHtml(t)}
+        <button class="btn" style="padding:2px 8px; font-weight:900; border-color:#fecaca; color:#b91c1c;"
+          onclick="removeGenreTag('${escapeHtmlAttr(t)}')">×</button>
+      </span>
+    `).join("");
+  }
+
+  function addGenreTag(){
+    const tag = (el("genreNewTag")?.value || "").trim();
+    if (!tag) return;
+
+    google.script.run
+      .withFailureHandler(err => showProtErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showProtErr((res && res.message) ? res.message : "addGenreTag failed");
+          return;
+        }
+        el("genreNewTag").value = "";
+        reloadGenreTags();
+      })
+      .admin_addGenreTag({ tag });
+  }
+
+  function removeGenreTag(tag){
+    const t = String(tag||"").trim();
+    if (!t) return;
+
+    const ok = window.confirm(`候補から削除する？（非表示化）\n${t}`);
+    if (!ok) return;
+
+    google.script.run
+      .withFailureHandler(err => showProtErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showProtErr((res && res.message) ? res.message : "removeGenreTag failed");
+          return;
+        }
+        reloadGenreTags();
+      })
+      .admin_removeGenreTag({ tag: t });
+  }
+
+  function getTagsFromHidden_(hiddenId){
+    const v = (el(hiddenId)?.value || "").trim();
+    if (!v) return [];
+    const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+    // uniq keep order
+    const seen = new Set();
+    const out = [];
+    arr.forEach(t => { if (!seen.has(t)) { seen.add(t); out.push(t); }});
+    return out;
+  }
+
+  function setTagsHidden_(hiddenId, tags){
+    const arr = Array.isArray(tags) ? tags : [];
+    el(hiddenId).value = arr.join(",");
+  }
+
+  function renderTagChips_(wrapId, hiddenId){
+    const wrap = el(wrapId);
+    if (!wrap) return;
+    const tags = getTagsFromHidden_(hiddenId);
+
+    if (!tags.length){
+      wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+      return;
+    }
+
+    wrap.innerHTML = tags.map(t => `
+      <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+        ${escapeHtml(t)}
+        <button class="btn" style="padding:2px 8px; font-weight:900;" onclick="removeTagFromHidden('${escapeHtmlAttr(hiddenId)}','${escapeHtmlAttr(t)}')">×</button>
+      </span>
+    `).join("");
+  }
+
+  function addNewTagFromPick(){
+    const pick = (el("protNewTagPick")?.value || "").trim();
+    if (!pick) return;
+
+    const tags = getTagsFromHidden_("protNewTagsHidden");
+    if (!tags.includes(pick)) tags.push(pick);
+
+    setTagsHidden_("protNewTagsHidden", tags);
+    renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+  }
+
+  function removeTagFromHidden(hiddenId, tag){
+    const hid = String(hiddenId||"").trim();
+    const t = String(tag||"").trim();
+    const tags = getTagsFromHidden_(hid).filter(x => x !== t);
+    setTagsHidden_(hid, tags);
+
+    // 現状は「新規追加フォーム」だけで使う（将来、行編集でも使える）
+    if (hid === "protNewTagsHidden"){
+      renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+    }
+  }
+
+  function fillProjectSelect_(){
+    const sel = el("protNewProjectName");
+    if (!sel) return;
+
+    const rows = Array.isArray(__PJS__) ? __PJS__ : [];
+
+    // ★activeだけ
+    const activeNames = rows
+      .filter(p => String(p.status || "").trim().toLowerCase() === "active")
+      .map(p => String(p.projectName || "").trim())
+      .filter(x => x);
+
+    const uniq = Array.from(new Set(activeNames)).sort((a,b)=>a.localeCompare(b,"ja"));
+
+    sel.innerHTML =
+      `<option value="">（選択）</option>` +
+      uniq.map(n => `<option value="${escapeHtmlAttr(n)}">${escapeHtml(n)}</option>`).join("");
+  }
+
+
+  function buildProjectNameDatalist_(){
+    const dl = el("protProjectNameList");
+    if (!dl) return;
+    if (!Array.isArray(__PJS__) || !__PJS__.length) return;
+
+    // ★activeだけ
+    const names = Array.from(new Set(
+      __PJS__
+        .filter(p => String(p.status||"").trim().toLowerCase() === "active")
+        .map(p => String(p.projectName||"").trim())
+        .filter(x=>x)
+    ));
+
+    dl.innerHTML = names.map(n => `<option value="${escapeHtmlAttr(n)}"></option>`).join("");
+  }
+
+
+  function getProtocolFilters_(){
+    return {
+      projectName: (el("protFltProjectName").value || "").trim(),
+      status: (el("protFltStatus").value || "").trim().toLowerCase(),
+      sourceType: (el("protFltSourceType").value || "").trim().toLowerCase(),
+      q: (el("protFltQ").value || "").trim(),
+      limit: 500
+    };
+  }
+
+  function openNewProtocolInline(){
+    const box = el("protNewBox");
+    if (!box) return;
+    box.style.display = "block";
+
+    // タグ初期化
+    el("protNewTagsHidden").value = "";
+    renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+
+    // 候補ロード（datalist更新）
+    reloadGenreTags();
+    try { initGenreInputHandlers_(); } catch(e){}
+    if (el("protNewTagInput")) el("protNewTagInput").value = "";
+
+    // PJ一覧が既にあるなら即反映
+    if (Array.isArray(__PJS__) && __PJS__.length){
+      fillProjectSelect_();
+
+      // フィルタPJ名が実在するなら選択
+      const pn = (el("protFltProjectName")?.value || "").trim();
+      if (pn && el("protNewProjectName")){
+        const opt = Array.from(el("protNewProjectName").options).some(o => o.value === pn);
+        if (opt) el("protNewProjectName").value = pn;
+      }
+      return;
+    }
+
+    // PJ一覧が無いならここで取得してから反映（Protocols直行でも安全に）
+    google.script.run
+      .withFailureHandler(err => showProtErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (res && res.ok && Array.isArray(res.projects)){
+          __PJS__ = res.projects || [];
+        } else if (Array.isArray(res)){
+          __PJS__ = res;
+        } else if (res && Array.isArray(res.projects) && (res.ok === undefined)){
+          __PJS__ = res.projects;
+        } else {
+          __PJS__ = [];
+        }
+
+        fillProjectSelect_();
+        buildProjectNameDatalist_();
+
+        const pn = (el("protFltProjectName")?.value || "").trim();
+        if (pn && el("protNewProjectName")){
+          const opt = Array.from(el("protNewProjectName").options).some(o => o.value === pn);
+          if (opt) el("protNewProjectName").value = pn;
+        }
+      })
+      .listProjects({ statusFilter:["active"], includeAll:false, limit:0 });
+  }
+
+  function closeNewProtocolInline(){
+    const box = el("protNewBox");
+    if (!box) return;
+    box.style.display = "none";
+  }
+
+  function createProtocolManual(){
+    hideProtErr();
+
+    const projectName = (el("protNewProjectName")?.value || "").trim();
+    const decisionPoint = (el("protNewDecisionPoint")?.value || "").trim();
+    const decisionCriteria = (el("protNewDecisionCriteria")?.value || "").trim();
+    const actionText = (el("protNewAction")?.value || "").trim();
+
+    const importance = (el("protNewImportance")?.value || "1").trim();
+    const tags = (el("protNewTagsHidden")?.value || "").trim();
+
+    const sourceType = (el("protNewSourceType")?.value || "manual").trim().toLowerCase();
+    const sourceRef = (el("protNewSourceRef")?.value || "").trim();
+    const notesBase = (el("protNewNotes")?.value || "").trim();
+
+    if (!projectName) { showProtErr("PJ名が空"); return; }
+    if (!decisionPoint) { showProtErr("分岐点が空"); return; }
+    if (!decisionCriteria) { showProtErr("判断条件が空"); return; }
+
+    // ★actionは現状notesに埋め込む（DB/バックエンドを今はいじらない）
+    const notes = (notesBase || "") + (actionText ? ((notesBase ? "\n" : "") + "action: " + actionText) : "");
+
+    el("protHint").textContent = "作成中...";
+
+    google.script.run
+      .withFailureHandler(err => showProtErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showProtErr((res && res.message) ? res.message : "create failed");
+          return;
+        }
+
+        el("protHint").textContent = `作成した：${res.protocolId || "-"}`;
+
+        // 入力リセット（PJ名は残す）
+        if (el("protNewDecisionPoint")) el("protNewDecisionPoint").value = "";
+        if (el("protNewDecisionCriteria")) el("protNewDecisionCriteria").value = "";
+        if (el("protNewAction")) el("protNewAction").value = "";
+        if (el("protNewSourceRef")) el("protNewSourceRef").value = "";
+        if (el("protNewNotes")) el("protNewNotes").value = "";
+        if (el("protNewImportance")) el("protNewImportance").value = "1";
+
+        el("protNewTagsHidden").value = "";
+        renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+
+        closeNewProtocolInline();
+        loadProtocols();
+      })
+      .admin_createProtocolManual({
+        projectName,
+        decisionPoint,
+        decisionCriteria,
+        tags,
+        importance,
+        sourceType,
+        sourceRef,
+        notes
+      });
+  }
+
+
+  function renderTagBadges_(tagsStr){
+    const s = String(tagsStr||"").trim();
+    if (!s) return `<span class="pill gray">-</span>`;
+    const arr = s.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+    if (!arr.length) return `<span class="pill gray">-</span>`;
+    return arr.map(t=>`<span class="pill">${escapeHtml(t)}</span>`).join(" ");
+  }
+
+  function groupKeyByTags_(tagsStr){
+    const s = String(tagsStr||"").trim();
+    if (!s) return "（未分類）";
+    const arr = s.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+    return arr.length ? arr[0] : "（未分類）";
+  }
+
+  function changeProtocolStatus(protocolId, nextStatus, btnEl){
+    hideProtErr();
+    const id = (protocolId || "").trim();
+    const st = (nextStatus || "").trim().toLowerCase();
+    if (!id) { showProtErr("protocolId empty"); return; }
+    if (!st) { showProtErr("nextStatus empty"); return; }
+
+    const ok = window.confirm(`status を ${st} にする？\nprotocolId=${id}`);
+    if (!ok) return;
+
+    if (btnEl){
+      btnEl.disabled = true;
+      btnEl.textContent = "処理中...";
+    }
+    el("protHint").textContent = `status更新中... ${id} -> ${st}`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        if (btnEl){ btnEl.disabled=false; btnEl.textContent=""; }
+        showProtErr(err?.message || String(err));
+      })
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showProtErr((res && res.message) ? res.message : "status change failed");
+          return;
+        }
+        el("protHint").textContent = `status更新：${id} -> ${res.status || st}`;
+        loadProtocols();
+      })
+      .admin_changeProtocolStatus({ protocolId:id, nextStatus: st });
+  }
+
+  function renderProtocolsTables_(candidateList, confirmedList){
+    const candTb = el("protCandTbody");
+    const confTb = el("protConfTbody");
+
+    const cands = Array.isArray(candidateList) ? candidateList : [];
+    const confs = Array.isArray(confirmedList) ? confirmedList : [];
+
+    // ★activeだけ
+    const pjOpts = (Array.isArray(__PJS__) ? __PJS__ : [])
+      .filter(p => String(p.status||"").trim().toLowerCase() === "active")
+      .map(p => ({ id:String(p.projectId||"").trim(), name:String(p.projectName||"").trim() }))
+      .filter(p => p.id && p.name);
+
+    function pjSelect_(selectedId, selId){
+      const opts = [`<option value="">（選択）</option>`].concat(
+        pjOpts.map(p=>{
+          const sel = (String(p.id) === String(selectedId)) ? "selected" : "";
+          return `<option value="${escapeHtmlAttr(p.id)}" ${sel}>${escapeHtml(p.name)} (${escapeHtml(p.id)})</option>`;
+        })
+      );
+      return `<select class="ctl" id="${escapeHtmlAttr(selId)}" style="width:180px">${opts.join("")}</select>`;
+    }
+
+    function confNum_(v){
+      if (v === null || v === undefined || v === "") return "";
+      const n = Number(v);
+      if (!isFinite(n)) return String(v);
+      return String(Math.round(n*100)/100);
+    }
+
+    function evidenceText_(p){
+      const ev = String(p.evidence || p.notes || "").trim();
+      return ev;
+    }
+
+    function extractActionText_(p){
+      const a1 = String(p.action || "").trim();
+      if (a1) return a1;
+
+      const a2 = String(p.decision || "").trim();
+      if (a2) return a2;
+
+      const notes = String(p.notes || "").trim();
+      const m = notes.match(/(?:^|\n)\s*action\s*:\s*(.+)$/i);
+      if (m && m[1]) return String(m[1]).trim();
+
+      return "";
+    }
+
+    function escOneLineAttr_(s){
+      return escapeHtmlAttr(String(s||"").replace(/[\r\n]+/g, " "));
+    }
+
+    function opButtons_(p, mode){
+      const kind = String(p.__kind||"");
+      if (kind === "notion_candidate"){
+        const id = escOneLineAttr_(p.id || "");
+        const dp = escOneLineAttr_(p.decisionPoint || "");
+        const dc = escOneLineAttr_(p.decisionCriteria || "");
+        const ac = escOneLineAttr_(extractActionText_(p) || "");
+        return `
+          <button class="btn" onclick="confirmNotionCandidate_('${id}')">確定</button>
+          <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="rejectNotionCandidate_('${id}','${dp}','${dc}','${ac}')">却下</button>
+        `;
+      }
+
+      const protocolId = escapeHtmlAttr(p.protocolId || "");
+      if (mode === "candidate"){
+        return `
+          <button class="btn" onclick="changeProtocolStatus('${protocolId}','confirmed', this)">確定</button>
+          <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="changeProtocolStatus('${protocolId}','archived', this)">却下</button>
+        `;
+      }
+      return `<button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="changeProtocolStatus('${protocolId}','archived', this)">アーカイブ</button>`;
+    }
+
+    function stars_(n){
+      const x = String(n||"1").trim();
+      if (x === "3") return "★★★";
+      if (x === "2") return "★★";
+      return "★";
+    }
+
+    function renderTagBadges_(tagsStr){
+      const s = String(tagsStr||"").trim();
+      if (!s) return `<span class="pill gray">-</span>`;
+      const arr = s.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+      if (!arr.length) return `<span class="pill gray">-</span>`;
+      return arr.map(t=>`<span class="pill">${escapeHtml(t)}</span>`).join(" ");
+    }
+
+    function rowHtml_(p, mode){
+      const kind = String(p.__kind||"");
+      const idRaw = (p.protocolId || p.id || "");
+      const id = escapeHtml(idRaw);
+
+      const dp = escapeHtml(p.decisionPoint || "");
+      const dc = escapeHtml(p.decisionCriteria || "");
+      const ac = escapeHtml(extractActionText_(p));
+
+      const ev = escapeHtml(evidenceText_(p));
+
+      const pjName = escapeHtml(p.projectName || p.projectId || "");
+      const conf = escapeHtml(confNum_(p.confidence || "")) || "-";
+      const imp = stars_(p.importance || "1");
+      const tags = renderTagBadges_(p.tags || "");
+      const srcType = pill(p.sourceType || "");
+      const srcRef = escapeHtml(String(p.sourceRef || "").trim() || "-");
+      const createdAt = escapeHtml(p.createdAt || "") || "-";
+      const createdBy = escapeHtml(p.createdBy || "") || "-";
+
+      if (kind === "notion_candidate"){
+        const cid = escapeHtmlAttr(String(p.id||""));
+        const selPj = pjSelect_(String(p.projectId||""), `npj_${cid}`);
+        const selImp = `
+          <select class="ctl" id="nimp_${cid}" style="width:100px">
+            <option value="1">★</option>
+            <option value="2">★★</option>
+            <option value="3">★★★</option>
+          </select>
+        `;
+        const inpTags = `<input class="ctl" id="ntags_${cid}" style="width:180px" value="${escapeHtmlAttr(String(p.tags||""))}" />`;
+
+        return `
+          <tr>
+            <td class="noteCell"><b>${dp}</b></td>
+            <td class="noteCell">${dc}</td>
+            <td class="noteCell">${ac}</td>
+
+            <td class="nowrap">${opButtons_(p, mode)}</td>
+
+            <td class="noteCell"><pre class="muted" style="margin:0; white-space:pre-wrap;">${ev}</pre></td>
+            <td class="nowrap">${selPj}</td>
+
+            <td class="nowrap">${conf}</td>
+            <td class="nowrap">${selImp}</td>
+            <td class="nowrap">${inpTags}</td>
+
+            <td class="nowrap">${srcType}</td>
+            <td class="noteCell">${srcRef}</td>
+
+            <td class="small nowrap">${createdAt}</td>
+            <td class="small nowrap">${createdBy}</td>
+
+            <td class="mono nowrap">${id}</td>
+          </tr>
+        `;
+      }
+
+      return `
+        <tr>
+          <td class="noteCell"><b>${dp}</b></td>
+          <td class="noteCell">${dc}</td>
+          <td class="noteCell">${ac || `<span class="pill gray">-</span>`}</td>
+
+          <td class="nowrap">${opButtons_(p, mode)}</td>
+
+          <td class="noteCell"><pre class="muted" style="margin:0; white-space:pre-wrap;">${ev}</pre></td>
+          <td class="noteCell">${pjName}</td>
+
+          <td class="nowrap">${conf}</td>
+          <td class="nowrap">${imp}</td>
+          <td class="noteCell">${tags}</td>
+
+          <td class="nowrap">${srcType}</td>
+          <td class="noteCell">${srcRef}</td>
+
+          <td class="small nowrap">${createdAt}</td>
+          <td class="small nowrap">${createdBy}</td>
+
+          <td class="mono nowrap">${id}</td>
+        </tr>
+      `;
+    }
+
+    if (!cands.length){
+      candTb.innerHTML = `<tr><td colspan="14" class="muted">該当なし</td></tr>`;
+    } else {
+      cands.sort((a,b)=> String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+      candTb.innerHTML = cands.map(p => rowHtml_(p, "candidate")).join("");
+    }
+
+    if (!confs.length){
+      confTb.innerHTML = `<tr><td colspan="14" class="muted">該当なし</td></tr>`;
+    } else {
+      confs.sort((a,b)=> String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+      confTb.innerHTML = confs.map(p => rowHtml_(p, "confirmed")).join("");
+    }
+
+    initResizableColumns_("tblProtCandidate");
+    initResizableColumns_("tblProtConfirmed");
+  }
+
+
+
+
+  function loadProtocols(){
+    hideProtErr();
+
+    try { buildProjectNameDatalist_(); } catch(e){}
+
+    el("protHint").textContent = "loading...";
+    el("protCandTbody").innerHTML = `<tr><td colspan="14" class="muted">loading...</td></tr>`;
+    el("protConfTbody").innerHTML = `<tr><td colspan="14" class="muted">loading...</td></tr>`;
+
+    ensureProjectsLoaded_(() => {
+      google.script.run
+        .withFailureHandler(err => showProtErr(err?.message || String(err)))
+        .withSuccessHandler(resProt => {
+          if (!resProt || !resProt.ok){
+            const detail = (resProt === null || resProt === undefined) ? "null" : JSON.stringify(resProt);
+            showProtErr((resProt && resProt.message) ? resProt.message : `load failed: ${detail}`);
+            return;
+          }
+
+          const protRows = Array.isArray(resProt.protocols) ? resProt.protocols : [];
+          const candidates = protRows.filter(p => String(p.status||"").toLowerCase() === "candidate");
+          const confirmed  = protRows.filter(p => String(p.status||"").toLowerCase() === "confirmed");
+
+          google.script.run
+            .withFailureHandler(err => showProtErr(err?.message || String(err)))
+            .withSuccessHandler(resCand => {
+              const candRows = (resCand && resCand.ok && Array.isArray(resCand.candidates)) ? resCand.candidates : [];
+
+              const pjMap = Object.create(null);
+              (Array.isArray(__PJS__) ? __PJS__ : []).forEach(p=>{
+                const id = String(p.projectId||"").trim();
+                const name = String(p.projectName||"").trim();
+                if (id && name) pjMap[id] = name;
+              });
+
+              const notionAsProtocols = candRows.map(c => {
+                const pid = String(c.suggestedProjectId || "").trim();
+                const pjName = pjMap[pid] || (pid ? pid : "");
+
+                const evidence = (() => {
+                  try{
+                    const arr = JSON.parse(String(c.evidenceJson||"[]"));
+                    if (!Array.isArray(arr) || !arr.length) return "";
+                    return arr
+                      .slice(0,5)
+                      .map(x => String(x||"").trim())
+                      .filter(x => x)
+                      .join("\n");
+                  } catch(e){
+                    return String(c.evidenceJson||"").trim();
+                  }
+                })();
+
+                return {
+                  __kind: "notion_candidate",
+                  id: String(c.candidateId||"").trim(),
+                  status: "candidate",
+
+                  projectId: pid,
+                  projectName: pjName || (String(c.suggestedProjectName||"").trim() || ""),
+
+                  decisionPoint: String(c.branchPoint||""),
+                  decisionCriteria: String(c.criteria||""),
+                  decision: String(c.decision||""), // ★これが無いとUIのアクションが空になる
+                  evidence: evidence,
+
+                  confidence: String(c.confidence||""),
+                  importance: "1",
+                  tags: String(c.suggestedTags||""),
+                  sourceType: "notion",
+                  sourceRef: String(c.sourcePageId||""),
+                  createdAt: String(c.createdAt||""),
+                  createdBy: ""
+                };
+              });
+
+              const mergedCandidates = candidates.concat(notionAsProtocols);
+
+              renderProtocolsTables_(mergedCandidates, confirmed);
+              el("protHint").textContent = `candidate:${mergedCandidates.length} / confirmed:${confirmed.length}`;
+            })
+            .admin_listProtocolCandidates({ status:"new", limit: 300 });
+        })
+        .admin_listProtocols(getProtocolFilters_());
+    });
+  }
+
+
+
+
+
+  // ===== Protocol Candidates =====
+  let __CANDS__ = [];
+  let __CAND_META__ = { lastRunId:"", lastSyncIso:"", stateUpdatedAt:"" };
+
+  function showCandErr(msg){
+    el("candErr").style.display = "block";
+    el("candErr").textContent = msg || "error";
+  }
+  function hideCandErr(){
+    el("candErr").style.display = "none";
+    el("candErr").textContent = "";
+  }
+
+  function ensureProjectsLoaded_(cb){
+    if (Array.isArray(__PJS__) && __PJS__.length){
+      cb && cb();
+      return;
+    }
+
+    google.script.run
+      .withFailureHandler(err => showCandErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        // listProjects は {ok:true, projects:[...]} の形
+        if (res && res.ok && Array.isArray(res.projects)){
+          __PJS__ = res.projects || [];
+        } else if (Array.isArray(res)) {
+          // 念のため配列返しも許容（将来の互換）
+          __PJS__ = res;
+        } else if (res && Array.isArray(res.projects) && (res.ok === undefined)) {
+          __PJS__ = res.projects;
+        } else {
+          __PJS__ = [];
+        }
+
+        try { buildProjectNameDatalist_(); } catch(e){}
+        cb && cb();
+      })
+      .listProjects({ statusFilter:["active"], includeAll:false, limit:0 });
+  }
+
+
+  function syncNotionCandidates_(dry){
+    hideCandErr();
+    el("candHint").textContent = dry ? "Notion同期（dry）中..." : "Notion同期（書込）中...";
+
+    ensureProjectsLoaded_(() => {
+      google.script.run
+        .withFailureHandler(err => showCandErr(err?.message || String(err)))
+        .withSuccessHandler(res => {
+          if (!res || !res.ok){
+            showCandErr((res && res.message) ? res.message : "sync failed");
+            return;
+          }
+
+          el("candHint").textContent =
+            `同期完了: pages=${res.pages} / noContent=${res.pagesNoContent} / candidates=${res.candidates} / lastSync=${res.lastSyncIso || "-"}`;
+
+          // ★NEW: 内容未入力アラート（コピペ忘れ検知）
+          const noCnt = Number(res.pagesNoContent || 0);
+          const ids = Array.isArray(res.noContentPageIds) ? res.noContentPageIds : [];
+          if (noCnt > 0 && ids.length){
+            const bodyHtml = [
+              `<div style="font-weight:900; margin-bottom:8px;">「内容」未入力の議事録がある</div>`,
+              `<div class="small">Notionのページ本文を「内容」プロパティにコピペしてから再同期してね。</div>`,
+              `<div class="small" style="margin-top:10px;"><b>対象 pageId</b></div>`,
+              `<div class="small mono" style="margin-top:6px; white-space:pre-wrap;">${escapeHtml(ids.join("\n"))}</div>`
+            ].join("");
+
+            openAppModal_(
+              "内容未入力アラート",
+              bodyHtml,
+              () => {},
+              { input:false }
+            );
+          }
+
+          loadCandidates();
+        })
+        .admin_syncNotionMinutesToProtocolCandidates({
+          dryRun: !!dry,
+          limit: 5
+        });
+    });
+  }
+
+
+  function notionPageUrl_(pageId){
+    const s = String(pageId||"").trim();
+    if (!s) return "";
+    const noHyphen = s.replaceAll("-", "");
+    return "https://www.notion.so/" + noHyphen;
+  }
+
+  function getCandUiFlags_(){
+    return {
+      onlyLatest: !!el("candOnlyLatestRun")?.checked,
+      onlyNotion: !!el("candOnlyNotion")?.checked,
+      thinLowConf: !!el("candThinLowConf")?.checked,
+      onlyUnknownPj: !!el("candOnlyUnknownPj")?.checked
+    };
+  }
+
+  function applyCandFilters_(rows){
+    const flags = getCandUiFlags_();
+    let out = Array.isArray(rows) ? rows.slice() : [];
+
+    const latestRun = String(__CAND_META__.lastRunId || "").trim()
+      || (out.length ? String(out[0].runId || "").trim() : ""); // フォールバック（createdAt desc前提）
+
+    if (flags.onlyLatest && latestRun){
+      out = out.filter(c => String(c.runId||"").trim() === latestRun);
+    }
+    if (flags.onlyNotion){
+      out = out.filter(c => String(c.sourceType||"").trim().toLowerCase() === "notion");
+    }
+    if (flags.onlyUnknownPj){
+      out = out.filter(c => String(c.suggestedProjectId||"").trim().toLowerCase() === "unknown");
+    }
+
+    // thinLowConfは render 側でCSS適用する（フィルタじゃない）
+    return out;
+  }
+
+  function applyCandFiltersAndRender_(){
+    const filtered = applyCandFilters_(__CANDS__);
+    renderCandidates(filtered);
+  }
+
+  function renderCandidates(list){
+    const tb = el("candTbody");
+    const rows = Array.isArray(list) ? list : [];
+
+    const latestRun = String(__CAND_META__.lastRunId || "").trim()
+      || (rows.length ? String(rows[0].runId || "").trim() : "");
+    const metaLine = el("candMetaLine");
+    if (metaLine){
+      metaLine.textContent =
+        `latestRunId: ${latestRun || "-"} / lastSync: ${String(__CAND_META__.lastSyncIso||"") || "-"} / stateUpdatedAt: ${String(__CAND_META__.stateUpdatedAt||"") || "-"}`;
+    }
+
+    if (!rows.length){
+      tb.innerHTML = `<tr><td colspan="12" class="muted">候補なし</td></tr>`;
+      el("candHint").textContent = `candidates: 0`;
+      return;
+    }
+
+    const flags = getCandUiFlags_();
+
+    // ★activeだけ
+    const pjOpts = (Array.isArray(__PJS__) ? __PJS__ : [])
+      .filter(p => String(p.status||"").trim().toLowerCase() === "active")
+      .map(p => ({ id:String(p.projectId||"").trim(), name:String(p.projectName||"").trim() }))
+      .filter(p => p.id && p.name);
+
+    const pjHtml = (selectedId, selId) => {
+      const opts = [`<option value="">（選択）</option>`]
+        .concat(pjOpts.map(p => {
+          const sel = (p.id === selectedId) ? "selected" : "";
+          return `<option value="${escapeHtmlAttr(p.id)}" ${sel}>${escapeHtml(p.name)} (${escapeHtml(p.id)})</option>`;
+        }));
+      return `<select class="ctl" id="${escapeHtmlAttr(selId)}" style="width:240px">${opts.join("")}</select>`;
+    };
+
+    function confIsLow_(v){
+      const n = Number(v);
+      if (!isFinite(n)) return false;
+      return n < 0.7;
+    }
+
+    tb.innerHTML = rows.map(c => {
+      const candId = String(c.candidateId||"").trim();
+      const candIdAttr = escapeHtmlAttr(candId);
+
+      const conf = (c.confidence !== "" && c.confidence !== null && c.confidence !== undefined)
+        ? String(c.confidence)
+        : "-";
+
+      const evText = (() => {
+        try{
+          const arr = JSON.parse(String(c.evidenceJson||"[]"));
+          if (!Array.isArray(arr) || !arr.length) return "";
+          return arr.slice(0,5).map(x => String(x||"").trim()).filter(x=>x).join(" / ");
+        } catch(e){
+          return String(c.evidenceJson||"").trim();
+        }
+      })();
+
+      const pjSelId = `cand_pj_${candIdAttr}`;
+      const impId = `cand_imp_${candIdAttr}`;
+      const tagsId = `cand_tags_${candIdAttr}`;
+
+      const srcUrl = notionPageUrl_(c.sourcePageId);
+
+      const thin = (flags.thinLowConf && confIsLow_(c.confidence)) ? "candThin" : "";
+
+      return `
+        <tr class="${thin}">
+          <td class="nowrap"><b>${escapeHtml(conf)}</b></td>
+
+          <td class="noteCell">${escapeHtml(c.branchPoint||"")}</td>
+          <td class="noteCell">${escapeHtml(c.criteria||"")}</td>
+          <td class="noteCell"><pre class="muted" style="margin:0; white-space:pre-wrap;">${escapeHtml(evText||"")}</pre></td>
+
+          <td class="nowrap">${pjHtml(String(c.suggestedProjectId||""), pjSelId)}</td>
+
+          <td class="nowrap">
+            <select class="ctl" id="${escapeHtmlAttr(impId)}" style="width:110px">
+              <option value="1">★</option>
+              <option value="2">★★</option>
+              <option value="3">★★★</option>
+            </select>
+          </td>
+
+          <td class="nowrap">
+            <input class="ctl" id="${escapeHtmlAttr(tagsId)}" style="width:280px"
+              placeholder="例: 事業計画,資本政策"
+              value="${escapeHtmlAttr(String(c.suggestedTags||""))}" />
+          </td>
+
+          <td class="nowrap">
+            <button class="btn" onclick="promoteCandidate('${candIdAttr}')">promote</button>
+          </td>
+
+          <td class="small nowrap">${escapeHtml(c.createdAt || "")}</td>
+          <td class="small mono nowrap">${escapeHtml(c.runId || "")}</td>
+
+          <td class="noteCell">
+            <div class="small mono">pageId: ${escapeHtml(c.sourcePageId||"")}</div>
+            <div class="small"><a href="${escapeHtmlAttr(srcUrl)}" target="_blank" rel="noopener noreferrer">Notionを開く</a></div>
+          </td>
+
+          <td class="mono nowrap">${escapeHtml(candId)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    el("candHint").textContent = `candidates: ${rows.length}`;
+  }
+
+
+  function loadCandidates(){
+    hideCandErr();
+    el("candHint").textContent = "loading candidates...";
+    el("candTbody").innerHTML = `<tr><td colspan="12" class="muted">loading...</td></tr>`;
+
+    ensureProjectsLoaded_(() => {
+      google.script.run
+        .withFailureHandler(err => showCandErr(err?.message || String(err)))
+        .withSuccessHandler(res => {
+          if (!res || !res.ok){
+            showCandErr((res && res.message) ? res.message : "load candidates failed");
+            __CANDS__ = [];
+            __CAND_META__ = { lastRunId:"", lastSyncIso:"", stateUpdatedAt:"" };
+            renderCandidates([]);
+            return;
+          }
+
+          __CANDS__ = res.candidates || [];
+          const m = res.meta || {};
+          __CAND_META__ = {
+            lastRunId: String(m.lastRunId || ""),
+            lastSyncIso: String(m.lastSyncIso || ""),
+            stateUpdatedAt: String(m.stateUpdatedAt || "")
+          };
+
+          applyCandFiltersAndRender_();
+        })
+        .admin_listProtocolCandidates({ status:"new", limit: 200 });
+    });
+  }
+
+  function promoteCandidate(candidateId){
+    hideCandErr();
+    const id = String(candidateId||"").trim();
+    if (!id) { showCandErr("candidateId empty"); return; }
+
+    const pjSel = el(`cand_pj_${id}`);
+    const impEl = el(`cand_imp_${id}`);
+    const tagsEl = el(`cand_tags_${id}`);
+
+    const projectId = String(pjSel?.value || "").trim();
+    const importance = String(impEl?.value || "1").trim();
+    const tags = String(tagsEl?.value || "").trim();
+
+    if (!projectId){
+      showCandErr("promote先PJが未選択");
+      return;
+    }
+
+    const ok = window.confirm(`promoteする？\ncandidateId=${id}\nprojectId=${projectId}`);
+    if (!ok) return;
+
+    el("candHint").textContent = `promote中... ${id}`;
+
+    google.script.run
+      .withFailureHandler(err => showCandErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCandErr((res && res.message) ? res.message : "promote failed");
+          return;
+        }
+        el("candHint").textContent = `promote完了：protocolId=${res.protocolId || "-"}`;
+        loadCandidates();
+        loadProtocols();
+      })
+      .admin_promoteProtocolCandidate({
+        candidateId: id,
+        projectId: projectId,
+        tags: tags,
+        importance: importance
+      });
+  }
+
+  // ---- App Modal helpers ----
+  function closeAppModal_(){
+    const ov = el("appModalOverlay");
+    if (ov) ov.style.display = "none";
+  }
+
+  function openAppModal_(title, bodyHtml, onOk, opt){
+    const ov = el("appModalOverlay");
+    if (!ov) return;
+
+    opt = opt || {};
+
+    el("appModalTitle").textContent = title || "確認";
+
+    // ★HTMLとして表示したいので innerHTML
+    el("appModalBody").innerHTML = bodyHtml || "";
+
+    const wrap = el("appModalInputWrap");
+    const inp  = el("appModalInput");
+    const lab  = el("appModalInputLabel");
+    const hint = el("appModalInputHint");
+
+    if (opt.input){
+      wrap.style.display = "block";
+      lab.textContent = String(opt.inputLabel || "入力");
+      inp.value = String(opt.defaultValue || "");
+      inp.placeholder = String(opt.placeholder || "");
+      hint.textContent = String(opt.hint || "");
+    } else {
+      wrap.style.display = "none";
+      inp.value = "";
+      inp.placeholder = "";
+      hint.textContent = "";
+    }
+
+    const okBtn = el("appModalOk");
+    const ngBtn = el("appModalCancel");
+
+    okBtn.onclick = () => {
+      const val = String(inp.value || "");
+      closeAppModal_();
+      try{ onOk && onOk(val); }catch(e){}
+    };
+    ngBtn.onclick = () => { closeAppModal_(); };
+
+    ov.style.display = "flex";
+
+    // 入力モードならフォーカス
+    if (opt.input){
+      try{ setTimeout(()=> inp.focus(), 50); }catch(e){}
+    }
+  }
+
+  // ---- Genre tags: datalist ----
+  function fillGenreDatalist_(){
+    const dl = el("genreTagDatalist");
+    if (!dl) return;
+
+    const tags = Array.isArray(__GENRE_TAGS__) ? __GENRE_TAGS__ : [];
+    const uniq = Array.from(new Set(tags.map(t => String(t||"").trim()).filter(x=>x)));
+
+    dl.innerHTML = uniq
+      .sort((a,b)=>a.localeCompare(b,"ja"))
+      .map(t => `<option value="${escapeHtmlAttr(t)}"></option>`)
+      .join("");
+  }
+
+  function addTagToHidden_(tag){
+    const t = String(tag||"").trim();
+    if (!t) return;
+
+    const tags = getTagsFromHidden_("protNewTagsHidden");
+    if (!tags.includes(t)) tags.push(t);
+
+    setTagsHidden_("protNewTagsHidden", tags);
+    renderTagChips_("protNewTagsChips", "protNewTagsHidden");
+  }
+
+  function addTagFromGenreInput_(){
+    const inp = el("protNewTagInput");
+    if (!inp) return;
+
+    const raw = String(inp.value||"").trim();
+    if (!raw) return;
+
+    // ★マスタ未登録でもそのまま追加（LLMが増やす前提なので縛らない）
+    addTagToHidden_(raw);
+
+    // サジェスト体験だけ良くしたいので、ローカル配列には追加しておく（サーバー保存はしない）
+    if (!(__GENRE_TAGS__ || []).some(t => String(t||"").trim() === raw)){
+      __GENRE_TAGS__.push(raw);
+      try{ fillGenreDatalist_(); } catch(e){}
+    }
+
+    inp.value = "";
+  }
+
+
+  function initGenreInputHandlers_(){
+    const inp = el("protNewTagInput");
+    if (!inp) return;
+
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter"){
+        e.preventDefault();
+        addTagFromGenreInput_();
+      }
+    });
+  }
+
+  // ===== LLM Context tags master (datalist + chips) =====
+  let __CTX_TAGS__ = [];
+
+  function fillCtxTagDatalist_(){
+    const dl = el("ctxTagDatalist");
+    if (!dl) return;
+
+    const tags = Array.isArray(__CTX_TAGS__) ? __CTX_TAGS__ : [];
+    const uniq = Array.from(new Set(tags.map(t => String(t||"").trim()).filter(x=>x)));
+
+    dl.innerHTML = uniq
+      .sort((a,b)=>a.localeCompare(b,"ja"))
+      .map(t => `<option value="${escapeHtmlAttr(t)}"></option>`)
+      .join("");
+  }
+
+  function getCtxTags_(){
+    const v = (el("ctxNewTagsHidden")?.value || "").trim();
+    if (!v) return [];
+    const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+    const seen = new Set();
+    const out = [];
+    arr.forEach(t => { if (!seen.has(t)) { seen.add(t); out.push(t); }});
+    return out;
+  }
+
+  function setCtxTags_(tags){
+    const arr = Array.isArray(tags) ? tags : [];
+    if (el("ctxNewTagsHidden")) el("ctxNewTagsHidden").value = arr.join(",");
+  }
+
+  function renderCtxTagChips_(){
+    const wrap = el("ctxNewTagsChips");
+    if (!wrap) return;
+
+    const tags = getCtxTags_();
+    if (!tags.length){
+      wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+      return;
+    }
+
+    wrap.innerHTML = tags.map(t => `
+      <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+        ${escapeHtml(t)}
+        <button class="btn" style="padding:2px 8px; font-weight:900;"
+          onclick="removeCtxTag_('${escapeHtmlAttr(t)}')">×</button>
+      </span>
+    `).join("");
+  }
+
+  function addCtxTag_(tag){
+    const t = String(tag||"").trim();
+    if (!t) return;
+
+    const tags = getCtxTags_();
+    if (!tags.includes(t)) tags.push(t);
+
+    setCtxTags_(tags);
+    renderCtxTagChips_();
+  }
+
+  function removeCtxTag_(tag){
+    const t = String(tag||"").trim();
+    const tags = getCtxTags_().filter(x => x !== t);
+    setCtxTags_(tags);
+    renderCtxTagChips_();
+  }
+
+  function addCtxTagFromInput_(){
+    const inp = el("ctxNewTagInput");
+    if (!inp) return;
+
+    const raw = String(inp.value||"").trim();
+    if (!raw) return;
+
+    addCtxTag_(raw);
+
+    // サジェスト体験だけ良くする（即サーバ保存はしない）
+    if (!(__CTX_TAGS__ || []).some(t => String(t||"").trim() === raw)){
+      __CTX_TAGS__.push(raw);
+      fillCtxTagDatalist_();
+    }
+
+    inp.value = "";
+  }
+
+  function initCtxTagInputHandlers_(){
+    const inp = el("ctxNewTagInput");
+    if (!inp) return;
+
+    // 二重登録防止
+    if (inp.dataset.bound === "1") return;
+    inp.dataset.bound = "1";
+
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter"){
+        e.preventDefault();
+        addCtxTagFromInput_();
+      }
+    });
+  }
+
+
+  function showCtxErr(msg){
+    el("ctxErr").style.display = "block";
+    el("ctxErr").textContent = msg || "error";
+  }
+  function hideCtxErr(){
+    el("ctxErr").style.display = "none";
+    el("ctxErr").textContent = "";
+  }
+
+  function getContextFilters_(){
+    return {
+      q: (el("ctxQ")?.value || "").trim(),
+      status: (el("ctxStatus")?.value || "").trim().toLowerCase()
+    };
+  }
+
+  function openNewContextModal(){
+    hideCtxErr();
+
+    // 候補タグは都度更新（軽い）
+    try{ reloadContextTags(); } catch(e){}
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">LLM Context 追加</div>`,
+      `<div class="small" style="margin-bottom:10px; opacity:.85;">最小入力：tags / content</div>`,
+
+      `<div class="ctlLabel">tags（プルダウンで追加）</div>`,
+      `<div class="row" style="margin-top:6px; align-items:center;">`,
+      `  <div class="rowLeft">`,
+      `    <select id="ctxAdd_tagPick" class="ctl" style="width:280px">`,
+      `      <option value="">（選択）</option>`,
+      `    </select>`,
+      `    <button class="btn" onclick="ctxAdd_addPickedTag_()">追加</button>`,
+      `    <button class="btn" onclick="openCtxTagManager_()">候補編集</button>`,
+      `  </div>`,
+      `</div>`,
+      `<div id="ctxAdd_tagsChips" style="margin-top:8px;"></div>`,
+      `<input type="hidden" id="ctxAdd_tagsHidden" value="" />`,
+
+      `<div class="ctlLabel" style="margin-top:12px;">content</div>`,
+      `<textarea id="ctxAdd_content" class="ctl" style="width:100%; height:180px; resize:vertical; margin-top:6px;" `,
+      `  placeholder="例：AMDにとって最大の価値資産は『成果物』ではなく『判断』…"></textarea>`
+    ].join("");
+
+    openAppModal_(
+      "LLM Context 追加",
+      bodyHtml,
+      () => {
+        const content = (document.getElementById("ctxAdd_content")?.value || "").trim();
+        if (!content){
+          showCtxErr("content empty");
+          return;
+        }
+
+        const tagArr = ctxTagsFromHidden_("ctxAdd_tagsHidden");
+        const tags = tagArr.join(",");
+
+        el("ctxHint").textContent = "作成中...";
+
+        google.script.run
+          .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showCtxErr((res && res.message) ? res.message : "create failed");
+              return;
+            }
+            el("ctxHint").textContent = `作成した：${res.contextId || "-"}`;
+            loadContexts();
+          })
+          .admin_createLLMContext({ content, tags, status:"active" });
+      },
+      { input:false }
+    );
+
+    setTimeout(()=>{
+      try{
+        ctxFillTagPick_();
+        const hid = document.getElementById("ctxAdd_tagsHidden");
+        if (hid) hid.value = "";
+        ctxRenderChips_("ctxAdd_tagsChips","ctxAdd_tagsHidden");
+        document.getElementById("ctxAdd_content")?.focus();
+      }catch(e){}
+    }, 60);
+  }
+
+
+  // ===== Context Add Modal helpers =====
+  function ctxFillTagPick_(){
+    const sel = document.getElementById("ctxAdd_tagPick");
+    if (!sel) return;
+
+    const tags = Array.isArray(__CTX_TAGS__) ? __CTX_TAGS__ : [];
+    const uniq = Array.from(new Set(tags.map(t=>String(t||"").trim()).filter(x=>x)))
+      .sort((a,b)=>a.localeCompare(b,"ja"));
+
+    sel.innerHTML = `<option value="">（選択）</option>` + uniq.map(t =>
+      `<option value="${escapeHtmlAttr(t)}">${escapeHtml(t)}</option>`
+    ).join("");
+  }
+
+  function ctxTagsFromHidden_(hiddenId){
+    const v = (document.getElementById(hiddenId)?.value || "").trim();
+    if (!v) return [];
+    const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+    const seen = new Set();
+    const out = [];
+    arr.forEach(t=>{ if(!seen.has(t)){ seen.add(t); out.push(t);} });
+    return out;
+  }
+
+  function ctxSetHidden_(hiddenId, tags){
+    const arr = Array.isArray(tags) ? tags : [];
+    const elh = document.getElementById(hiddenId);
+    if (elh) elh.value = arr.join(",");
+  }
+
+  function ctxRenderChips_(wrapId, hiddenId, removeFnName){
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+
+    const tags = ctxTagsFromHidden_(hiddenId);
+    if (!tags.length){
+      wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+      return;
+    }
+
+    wrap.innerHTML = tags.map(t => `
+      <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+        ${escapeHtml(t)}
+        <button class="btn" style="padding:2px 8px; font-weight:900;"
+          onclick="${removeFnName}('${escapeHtmlAttr(hiddenId)}','${escapeHtmlAttr(t)}')">×</button>
+      </span>
+    `).join("");
+  }
+
+  function ctxAdd_addPickedTag_(){
+    const sel = document.getElementById("ctxAdd_tagPick");
+    if (!sel) return;
+    const pick = String(sel.value||"").trim();
+    if (!pick) return;
+
+    const tags = ctxTagsFromHidden_("ctxAdd_tagsHidden");
+    if (!tags.includes(pick)) tags.push(pick);
+    ctxSetHidden_("ctxAdd_tagsHidden", tags);
+    ctxRenderChips_("ctxAdd_tagsChips","ctxAdd_tagsHidden","ctxAdd_removeTagFromHidden_");
+
+    sel.value = "";
+  }
+
+  function ctxAdd_removeTagFromHidden_(hiddenId, tag){
+    const hid = String(hiddenId||"").trim();
+    const t = String(tag||"").trim();
+    const tags = ctxTagsFromHidden_(hid).filter(x=>x !== t);
+    ctxSetHidden_(hid, tags);
+    ctxRenderChips_("ctxAdd_tagsChips","ctxAdd_tagsHidden","ctxAdd_removeTagFromHidden_");
+  }
+
+  function loadContexts(){
+    hideCtxErr();
+
+    // contextsタブに来たら候補タグは都度更新（軽い）
+    try{ reloadContextTags(); } catch(e){}
+
+    el("ctxHint").textContent = "loading...";
+    el("ctxTbody").innerHTML = `<tr><td colspan="6" class="muted">loading...</td></tr>`;
+
+    const f = getContextFilters_();
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "load failed");
+          return;
+        }
+
+        const rows = Array.isArray(res.contexts) ? res.contexts : [];
+        if (!rows.length){
+          el("ctxTbody").innerHTML = `<tr><td colspan="6" class="muted">該当なし</td></tr>`;
+          el("ctxHint").textContent = "rows: 0";
+          return;
+        }
+
+        el("ctxTbody").innerHTML = rows.map(c => {
+          const id = escapeHtmlAttr(c.contextId||"");
+          const content = String(c.content || "");
+          const tags = String(c.tags || "");
+
+          return `
+            <tr data-cid="${id}">
+              <td class="nowrap">
+                <select class="ctl" id="cx_st_${id}" style="width:110px">
+                  <option value="active" ${String(c.status||"")==="active"?"selected":""}>active</option>
+                  <option value="archived" ${String(c.status||"")==="archived"?"selected":""}>archived</option>
+                </select>
+              </td>
+
+              <td class="noteCell">
+                <textarea class="ctl" id="cx_c_${id}" style="width:100%; height:120px; resize:vertical;">${escapeHtml(content)}</textarea>
+              </td>
+
+              <td class="noteCell">
+                <div class="row" style="align-items:center; gap:8px;">
+                  <select class="ctl" id="cx_tagPick_${id}" style="width:220px">
+                    <option value="">（選択）</option>
+                  </select>
+                  <button class="btn" onclick="cxAddTagToRow_('${id}')">追加</button>
+                  <button class="btn" onclick="openCtxTagManager_()">候補編集</button>
+                </div>
+
+                <div id="cx_tagsChips_${id}" style="margin-top:8px;"></div>
+
+                <!-- 実保存用（カンマ区切りで保持）※見せない -->
+                <input type="hidden" id="cx_tags_${id}" value="${escapeHtmlAttr(tags)}" />
+
+              </td>
+
+
+              <td class="small nowrap" id="cx_upd_${id}">${escapeHtml(c.updatedAt||"-")}</td>
+
+              <td class="nowrap">
+                <button class="btn" onclick="saveContext('${id}')">保存</button>
+                <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="archiveContext('${id}')">非表示</button>
+                <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="deleteContext('${id}')">削除</button>
+              </td>
+
+              <td class="mono nowrap">${escapeHtml(c.contextId||"")}</td>
+            </tr>
+          `;
+        }).join("");
+
+        // 行ごとにタグ候補selectを埋める + chips表示
+        try{
+          rows.forEach(c => {
+            const id = String(c.contextId||"").trim();
+            cxFillRowTagPick_(id);
+            cxRenderRowChips_(id);
+          });
+        }catch(e){}
+
+        // 行ごとにタグ候補selectを埋める + chips表示
+        try{
+          rows.forEach(c => {
+            const rid = String(c.contextId||"").trim();
+            cxFillRowTagPick_(rid);
+            cxRenderRowChips_(rid);
+          });
+        }catch(e){}
+
+        el("ctxHint").textContent = `rows: ${rows.length}`;
+      })
+      .admin_listLLMContexts({ q: f.q, status: f.status });
+  }
+
+  function saveContext(contextId){
+    hideCtxErr();
+    const id = String(contextId||"").trim();
+    if (!id) return;
+
+    const status = (el(`cx_st_${id}`)?.value || "active").trim();
+    const content = (el(`cx_c_${id}`)?.value || "").trim();
+    let tagsStr = (el(`cx_tags_${id}`)?.value || "").trim(); // hidden想定
+
+    if (!content){
+      showCtxErr("content empty");
+      return;
+    }
+
+    // tags 正規化（trim + uniq + 空除去）
+    const rawArr = tagsStr
+      ? tagsStr.split(",").map(x=>String(x||"").trim()).filter(x=>x)
+      : [];
+    const seen = new Set();
+    const tagArr = [];
+    rawArr.forEach(t=>{ if(!seen.has(t)){ seen.add(t); tagArr.push(t);} });
+
+    tagsStr = tagArr.join(",");
+    if (el(`cx_tags_${id}`)) el(`cx_tags_${id}`).value = tagsStr;
+
+    el("ctxHint").textContent = `保存中... ${id}`;
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "save failed");
+          return;
+        }
+
+        // 保存した行だけ更新
+        const upd = String(res.updatedAt || "").trim();
+        const updEl = el(`cx_upd_${id}`);
+        if (updEl && upd){
+          updEl.textContent = upd;
+        }
+
+        el("ctxHint").textContent = `保存した：${id}`;
+      })
+      .admin_updateLLMContext({ contextId: id, status, content, tags: tagsStr });
+  }
+
+
+
+
+  function archiveContext(contextId){
+    hideCtxErr();
+    const id = String(contextId||"").trim();
+    if (!id) return;
+    const ok = window.confirm(`非表示（archived）にする？\ncontextId=${id}`);
+    if (!ok) return;
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "archive failed");
+          return;
+        }
+        loadContexts();
+      })
+      .admin_deleteLLMContext({ contextId:id, mode:"archive" });
+  }
+
+  function deleteContext(contextId){
+    hideCtxErr();
+    const id = String(contextId||"").trim();
+    if (!id) return;
+    const ok = window.confirm(`削除する？（物理削除）\ncontextId=${id}\n※戻せない`);
+    if (!ok) return;
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "delete failed");
+          return;
+        }
+        loadContexts();
+      })
+      .admin_deleteLLMContext({ contextId:id, mode:"delete" });
+  }
+
+        // ===== Extractor Prompt =====
+  let __EX_CFGS__ = [];
+  let __EX_SELECTED_ID__ = "";
+
+  function showExErr(msg){
+    el("exErr").style.display = "block";
+    el("exErr").textContent = msg || "error";
+  }
+  function hideExErr(){
+    el("exErr").style.display = "none";
+    el("exErr").textContent = "";
+  }
+
+  function exName_(){
+    return String(el("exName")?.value || "protocol_extract").trim() || "protocol_extract";
+  }
+
+  function setExtractorButtonsEnabled_(enabled){
+    const b1 = el("btnExActivate");
+    const b2 = el("btnExArchive");
+    if (b1) b1.disabled = !enabled;
+    if (b2) b2.disabled = !enabled;
+  }
+
+  function fillExtractorEditor_(cfg){
+    cfg = cfg || {};
+    __EX_SELECTED_ID__ = String(cfg.configId || "").trim();
+
+    if (el("exConfigId")) el("exConfigId").value = String(cfg.configId || "");
+    if (el("exStatus")) el("exStatus").value = String(cfg.status || "(unknown)");
+    if (el("exVersion")) el("exVersion").value = String(cfg.version || "");
+    if (el("exNote")) el("exNote").value = String(cfg.note || "");
+    if (el("exSystemPrompt")) el("exSystemPrompt").value = String(cfg.systemPrompt || "");
+
+    setExtractorButtonsEnabled_(!!__EX_SELECTED_ID__);
+  }
+
+  function renderExtractorList_(rows){
+    const tb = el("exTbody");
+    const list = Array.isArray(rows) ? rows : [];
+
+    if (!list.length){
+      tb.innerHTML = `<tr><td colspan="6" class="muted">なし</td></tr>`;
+      return;
+    }
+
+    tb.innerHTML = list.map(c => {
+      const id = String(c.configId || "").trim();
+      const idAttr = escapeHtmlAttr(id);
+
+      const st = String(c.status || "");
+      const ver = String(c.version || "");
+      const note = String(c.note || "");
+      const upd = String(c.updatedAt || "");
+
+      const pickBtn = `<button class="btn" onclick="pickExtractor_('${idAttr}')">編集</button>`;
+      const actBtn  = `<button class="btn" onclick="activateExtractor_('${idAttr}')">有効化</button>`;
+      const arcBtn  = `<button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="archiveExtractor_('${idAttr}')">アーカイブ</button>`;
+
+      return `
+        <tr>
+          <td class="nowrap">${pill(st)}</td>
+          <td class="noteCell">${escapeHtml(ver)}</td>
+          <td class="noteCell">${escapeHtml(note)}</td>
+          <td class="small nowrap">${escapeHtml(upd || "-")}</td>
+          <td class="nowrap">${pickBtn} ${actBtn} ${arcBtn}</td>
+          <td class="mono nowrap">${escapeHtml(id)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function loadExtractorConfigs(){
+    hideExErr();
+    el("exHint").textContent = "loading...";
+
+    const name = exName_();
+
+    google.script.run
+      .withFailureHandler(err => showExErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showExErr((res && res.message) ? res.message : "load failed");
+          __EX_CFGS__ = [];
+          renderExtractorList_([]);
+          el("exHint").textContent = "rows: 0";
+          return;
+        }
+        __EX_CFGS__ = Array.isArray(res.configs) ? res.configs : [];
+        renderExtractorList_(__EX_CFGS__);
+        el("exHint").textContent = `rows: ${__EX_CFGS__.length} / name: ${name}`;
+      })
+      .admin_listExtractorConfigs({ name: name });
+  }
+
+  function loadActiveExtractor_(){
+    hideExErr();
+    el("exHint").textContent = "loading active...";
+
+    const name = exName_();
+
+    google.script.run
+      .withFailureHandler(err => showExErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showExErr((res && res.message) ? res.message : "getActive failed");
+          return;
+        }
+        const cfg = res.config || null;
+        if (!cfg){
+          fillExtractorEditor_({ status:"(no active)", version:"", note:"", systemPrompt:"" });
+          el("exHint").textContent = "activeなし（新規作って有効化して）";
+          return;
+        }
+        fillExtractorEditor_(cfg);
+        el("exHint").textContent = `active loaded: ${String(cfg.version||"") || "-"}`;
+      })
+      .admin_getActiveExtractorConfig({ name: name });
+  }
+
+  function pickExtractor_(configId){
+    const id = String(configId||"").trim();
+    const hit = (__EX_CFGS__ || []).find(x => String(x.configId||"").trim() === id);
+    if (!hit){
+      showExErr("not found in list");
+      return;
+    }
+    fillExtractorEditor_(hit);
+    el("exHint").textContent = `picked: ${String(hit.version||"") || "-"} / ${id}`;
+  }
+
+  function openNewExtractorInline(){
+    hideExErr();
+    __EX_SELECTED_ID__ = "";
+    fillExtractorEditor_({
+      configId: "",
+      status: "archived",
+      version: "",
+      note: "",
+      systemPrompt: ""
+    });
+    el("exHint").textContent = "新規作成モード（保存でarchived作成→有効化）";
+  }
+
+  function saveExtractorConfig_(){
+    hideExErr();
+
+    const name = exName_();
+    const configId = String(el("exConfigId")?.value || "").trim(); // empty ok
+    const version = String(el("exVersion")?.value || "").trim();
+    const note = String(el("exNote")?.value || "").trim();
+    const systemPrompt = String(el("exSystemPrompt")?.value || "").trim();
+
+    if (!systemPrompt){
+      showExErr("systemPrompt empty");
+      return;
+    }
+
+    el("exHint").textContent = "保存中...";
+
+    google.script.run
+      .withFailureHandler(err => showExErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showExErr((res && res.message) ? res.message : "save failed");
+          return;
+        }
+        el("exHint").textContent = res.created ? "作成した（archived）" : "更新した";
+        loadExtractorConfigs();
+        // 新規作成なら editor のIDも更新したいので、active読み込みではなく一覧から再pickする
+        if (res.configId){
+          __EX_SELECTED_ID__ = String(res.configId||"");
+          if (el("exConfigId")) el("exConfigId").value = __EX_SELECTED_ID__;
+          setExtractorButtonsEnabled_(true);
+        }
+      })
+      .admin_saveExtractorConfig({
+        configId: configId || "",
+        name: name,
+        version: version,
+        note: note,
+        systemPrompt: systemPrompt
+      });
+  }
+
+  function activateExtractor_(configId){
+    hideExErr();
+    const id = String(configId||"").trim();
+    if (!id){
+      showExErr("configId empty");
+      return;
+    }
+
+    const ok = window.confirm(`この設定を有効化する？\nconfigId=${id}`);
+    if (!ok) return;
+
+    el("exHint").textContent = "有効化中...";
+
+    google.script.run
+      .withFailureHandler(err => showExErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showExErr((res && res.message) ? res.message : "activate failed");
+          return;
+        }
+        el("exHint").textContent = "有効化した";
+        loadExtractorConfigs();
+        loadActiveExtractor_();
+      })
+      .admin_activateExtractorConfig({ configId: id });
+  }
+
+  function archiveExtractor_(configId){
+    hideExErr();
+    const id = String(configId||"").trim();
+    if (!id){
+      showExErr("configId empty");
+      return;
+    }
+
+    const ok = window.confirm(`アーカイブする？\nconfigId=${id}`);
+    if (!ok) return;
+
+    el("exHint").textContent = "アーカイブ中...";
+
+    google.script.run
+      .withFailureHandler(err => showExErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showExErr((res && res.message) ? res.message : "archive failed");
+          return;
+        }
+        el("exHint").textContent = "アーカイブした";
+        loadExtractorConfigs();
+        loadActiveExtractor_();
+      })
+      .admin_archiveExtractorConfig({ configId: id });
+  }
+
+  function activateSelectedExtractor_(){
+    const id = String(el("exConfigId")?.value || "").trim();
+    if (!id) { showExErr("configId empty"); return; }
+    activateExtractor_(id);
+  }
+
+  function archiveSelectedExtractor_(){
+    const id = String(el("exConfigId")?.value || "").trim();
+    if (!id) { showExErr("configId empty"); return; }
+    archiveExtractor_(id);
+  }
+
+
+  // ===== init =====
+  function attachGlobalErrorHandlers_(){
+  // ★JSが死んだとき、画面に出して「原因見える化」
+  window.addEventListener("error", (ev) => {
+    try{
+      const msg = ev?.error?.message || ev?.message || String(ev);
+      showErr("[JS ERROR] " + msg);
+    } catch(_) {}
+  });
+
+  window.addEventListener("unhandledrejection", (ev) => {
+    try{
+      const msg = ev?.reason?.message || String(ev?.reason || ev);
+      showErr("[PROMISE ERROR] " + msg);
+    } catch(_) {}
+  });
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  attachGlobalErrorHandlers_();
+
+  // ★初期ロードでコケても、UI全体を殺さない
+  try{
+    switchTab("members");
+  } catch(e){
+    try{ showErr(e?.message || String(e)); } catch(_) {}
+  }
+});
+
+
+        function initResizableColumns_(tableId){
+    const tbl = el(tableId);
+    if (!tbl) return;
+
+    const keyPrefix = "colw:" + tableId + ":";
+
+    const ths = tbl.querySelectorAll("thead th");
+    ths.forEach((th, idx) => {
+      // handleを二重に付けない
+      if (th.querySelector(".resizeHandle")) return;
+
+      // 保存済み幅を反映
+      const colKey = th.getAttribute("data-colkey") || String(idx);
+      const saved = localStorage.getItem(keyPrefix + colKey);
+      if (saved){
+        th.style.width = saved + "px";
+      }
+
+      // ハンドル追加
+      const h = document.createElement("div");
+      h.className = "resizeHandle";
+      th.appendChild(h);
+
+      let startX = 0;
+      let startW = 0;
+
+      h.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        startX = e.clientX;
+        startW = th.getBoundingClientRect().width;
+
+        const onMove = (ev) => {
+          const dx = ev.clientX - startX;
+          const w = Math.max(80, Math.round(startW + dx));
+          th.style.width = w + "px";
+        };
+
+        const onUp = (ev) => {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+
+          const w = Math.round(th.getBoundingClientRect().width);
+          localStorage.setItem(keyPrefix + colKey, String(w));
+        };
+
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+      });
+    });
+  }
+
+  function confirmNotionCandidate_(candidateId){
+    hideProtErr();
+    const id = String(candidateId||"").trim();
+    if (!id) { showProtErr("candidateId empty"); return; }
+
+    const pjSel = el(`npj_${id}`);
+    const impEl = el(`nimp_${id}`);
+    const tagsEl = el(`ntags_${id}`);
+
+    const projectId = String(pjSel?.value || "").trim();
+    const importance = String(impEl?.value || "1").trim();
+    const tags = String(tagsEl?.value || "").trim();
+
+    if (!projectId){
+      showProtErr("PJが未選択");
+      return;
+    }
+
+    const ok = window.confirm(`確定する？\n(candidateId=${id})\nprojectId=${projectId}`);
+    if (!ok) return;
+
+    el("protHint").textContent = `確定中... (notion candidate) ${id}`;
+
+    google.script.run
+      .withFailureHandler(err => showProtErr(err?.message || String(err)))
+      .withSuccessHandler(res1 => {
+        if (!res1 || !res1.ok){
+          showProtErr((res1 && res1.message) ? res1.message : "promote failed");
+          return;
+        }
+        const protocolId = String(res1.protocolId||"").trim();
+        if (!protocolId){
+          showProtErr("protocolId missing");
+          return;
+        }
+
+        google.script.run
+          .withFailureHandler(err => showProtErr(err?.message || String(err)))
+          .withSuccessHandler(res2 => {
+            if (!res2 || !res2.ok){
+              showProtErr((res2 && res2.message) ? res2.message : "confirm failed");
+              return;
+            }
+            el("protHint").textContent = `確定した：protocolId=${protocolId}`;
+            loadProtocols();
+          })
+          .admin_changeProtocolStatus({ protocolId: protocolId, nextStatus: "confirmed" });
+      })
+      .admin_promoteProtocolCandidate({ candidateId: id, projectId: projectId, tags: tags, importance: importance });
+  }
+
+  function rejectNotionCandidate_(candidateId, decisionPoint, decisionCriteria, actionText){
+    hideProtErr();
+    const id = String(candidateId||"").trim();
+    if (!id) { showProtErr("candidateId empty"); return; }
+
+    const dp = String(decisionPoint||"").trim();
+    const dc = String(decisionCriteria||"").trim();
+    const ac = String(actionText||"").trim();
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">却下する内容</div>`,
+      `<div class="small" style="margin-top:6px;"><b>分岐点</b><br>${escapeHtml(dp || "-")}</div>`,
+      `<div class="small" style="margin-top:8px;"><b>判断条件</b><br>${escapeHtml(dc || "-")}</div>`,
+      `<div class="small" style="margin-top:8px;"><b>アクション</b><br>${escapeHtml(ac || "-")}</div>`,
+      `<div class="small" style="margin-top:10px; opacity:.8;">candidateId: <span class="mono">${escapeHtml(id)}</span></div>`
+    ].join("");
+
+    openAppModal_(
+      "候補を却下",
+      bodyHtml,
+      (val) => {
+        const reasonTrim = String(val||"").trim();
+        if (!reasonTrim){
+          showProtErr("reason empty（却下理由が空）。最低1行入れて。");
+          return;
+        }
+
+        el("protHint").textContent = `却下中... (notion candidate) ${id}`;
+
+        google.script.run
+          .withFailureHandler(err => showProtErr(err?.message || String(err)))
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showProtErr((res && res.message) ? res.message : "reject failed");
+              return;
+            }
+            el("protHint").textContent = `却下した：candidateId=${id}`;
+            loadProtocols();
+          })
+          .admin_rejectProtocolCandidate({ candidateId: id, reason: reasonTrim });
+      },
+      {
+        input: true,
+        inputLabel: "却下理由（LLM改善に使う）",
+        placeholder: "例：分岐点が抽象的すぎる／判断条件じゃなく単なる事実／アクションがAMDの型になってない／重複 など",
+        hint: "コツ：NGタイプ＋何がダメ＋どう直す、の3点があると次の抽出が賢くなる"
+      }
+    );
+  }
+
+  function openCtxTagManager_(){
+    hideCtxErr();
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">LLM Context タグ候補 編集</div>`,
+      `<div class="small" style="opacity:.8; margin-bottom:10px;">追加 / リネーム / 削除（archived）をここでやる。DB_LLMContext の既存データは自動では置換しない（安全のため）。</div>`,
+
+      `<div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">`,
+      `  <div style="flex:1; min-width:260px;">`,
+      `    <div class="ctlLabel">新規タグ</div>`,
+      `    <input id="ctxTagMng_newTag" class="ctl" style="width:100%;" placeholder="例: CX / 略語 / scope:global など" />`,
+      `  </div>`,
+      `  <div style="flex:2; min-width:260px;">`,
+      `    <div class="ctlLabel">note（任意）</div>`,
+      `    <input id="ctxTagMng_newNote" class="ctl" style="width:100%;" placeholder="任意メモ" />`,
+      `  </div>`,
+      `  <button class="btn" onclick="ctxTagMng_add_()">追加</button>`,
+      `</div>`,
+
+      `<div class="ctlLabel" style="margin-top:12px;">active tags</div>`,
+      `<div id="ctxTagMng_list" class="small" style="margin-top:6px;">loading...</div>`,
+
+      `<div class="row" style="margin-top:12px;">`,
+      `  <div class="rowLeft">`,
+      `    <button class="btn" onclick="closeAppModal_()">閉じる</button>`,
+      `  </div>`,
+      `</div>`
+    ].join("");
+
+    openAppModal_("タグ候補編集", bodyHtml, ()=>{}, { input:false });
+
+    // 一覧描画
+    ctxTagMng_reload_();
+  }
+
+  function ctxTagMng_reload_(){
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "admin_listContextTags failed");
+          const wrap = document.getElementById("ctxTagMng_list");
+          if (wrap) wrap.innerHTML = `<span class="pill gray">読み込み失敗</span>`;
+          return;
+        }
+
+        const tags = Array.isArray(res.tags) ? res.tags : [];
+        const wrap = document.getElementById("ctxTagMng_list");
+        if (!wrap) return;
+
+        if (!tags.length){
+          wrap.innerHTML = `<span class="pill gray">タグなし</span>`;
+          return;
+        }
+
+        wrap.innerHTML = tags.map(t => {
+          const ta = escapeHtmlAttr(t);
+          return `
+            <div style="display:flex; gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid var(--line);">
+              <div style="min-width:220px;" class="mono">${escapeHtml(t)}</div>
+
+              <input class="ctl" id="ctxTagMng_to_${ta}" style="flex:1; min-width:240px;" placeholder="リネーム先（空なら変更なし）" />
+
+              <button class="btn" onclick="ctxTagMng_rename_('${ta}')">リネーム</button>
+              <button class="btn" style="border-color:#fecaca; color:#b91c1c;" onclick="ctxTagMng_remove_('${ta}')">削除</button>
+            </div>
+          `;
+        }).join("");
+
+        // ローカル候補も更新して、プルダウン側へ反映
+        __CTX_TAGS__ = tags.slice();
+        try{ fillCtxTagDatalist_(); } catch(e){}
+        try{ ctxFillTagPick_(); } catch(e){}
+
+        // 一覧行のselectも更新したい（表示中の分だけ）
+        try{
+          const rows = document.querySelectorAll("[id^='cx_tagPick_']");
+          rows.forEach(sel=>{
+            const rowId = String(sel.id||"").replace("cx_tagPick_","");
+            cxFillRowTagPick_(rowId);
+          });
+        }catch(e){}
+      })
+      .admin_listContextTags();
+  }
+
+  function ctxTagMng_add_(){
+    const tag = String(document.getElementById("ctxTagMng_newTag")?.value || "").trim();
+    const note = String(document.getElementById("ctxTagMng_newNote")?.value || "").trim();
+    if (!tag) { showCtxErr("tag empty"); return; }
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "admin_addContextTag failed");
+          return;
+        }
+        document.getElementById("ctxTagMng_newTag").value = "";
+        document.getElementById("ctxTagMng_newNote").value = "";
+        ctxTagMng_reload_();
+      })
+      .admin_addContextTag({ tag: tag, note: note });
+  }
+
+  function ctxTagMng_remove_(tag){
+    const t = String(tag||"").trim();
+    if (!t) return;
+
+    const ok = window.confirm(`候補から削除（archived）する？\n${t}`);
+    if (!ok) return;
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "admin_removeContextTag failed");
+          return;
+        }
+        ctxTagMng_reload_();
+      })
+      .admin_removeContextTag({ tag: t });
+  }
+
+  function ctxTagMng_rename_(fromTag){
+    const from = String(fromTag||"").trim();
+    if (!from) return;
+
+    const to = String(document.getElementById(`ctxTagMng_to_${from}`)?.value || "").trim();
+    if (!to){
+      showCtxErr("toTag empty（リネーム先が空）");
+      return;
+    }
+
+    const ok = window.confirm(`リネームする？\n${from} -> ${to}\n\n※DB_LLMContextの既存tagsは自動置換しない（必要なら別途置換をかける）`);
+    if (!ok) return;
+
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCtxErr((res && res.message) ? res.message : "admin_renameContextTag failed");
+          return;
+        }
+        ctxTagMng_reload_();
+      })
+      .admin_renameContextTag({ fromTag: from, toTag: to, note: "" });
+  }
+
+
+  // ===== LLM Context tags master =====
+  function reloadContextTags(){
+    google.script.run
+      .withFailureHandler(err => showCtxErr(err?.message || String(err)))
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          __CTX_TAGS__ = [];
+          fillCtxTagDatalist_();
+          return;
+        }
+        __CTX_TAGS__ = Array.isArray(res.tags) ? res.tags : [];
+        fillCtxTagDatalist_();
+      })
+      .admin_listContextTags();
+  }
+  function cxFillRowTagPick_(rowId){
+    const sel = el(`cx_tagPick_${rowId}`);
+    if (!sel) return;
+
+    const tags = Array.isArray(__CTX_TAGS__) ? __CTX_TAGS__ : [];
+    const uniq = Array.from(new Set(tags.map(t=>String(t||"").trim()).filter(x=>x)))
+      .sort((a,b)=>a.localeCompare(b,"ja"));
+
+    sel.innerHTML = `<option value="">（選択）</option>` + uniq.map(t =>
+      `<option value="${escapeHtmlAttr(t)}">${escapeHtml(t)}</option>`
+    ).join("");
+  }
+
+  function cxTagsFromInput_(rowId){
+    const v = (el(`cx_tags_${rowId}`)?.value || "").trim();
+    if (!v) return [];
+    const arr = v.split(",").map(x=>String(x||"").trim()).filter(x=>x);
+    const seen = new Set();
+    const out = [];
+    arr.forEach(t=>{ if(!seen.has(t)){ seen.add(t); out.push(t);} });
+    return out;
+  }
+
+  function cxSetTagsToInput_(rowId, tags){
+    const arr = Array.isArray(tags) ? tags : [];
+    const inp = el(`cx_tags_${rowId}`);
+    if (inp) inp.value = arr.join(",");
+  }
+
+  function cxRenderRowChips_(rowId){
+    const wrap = el(`cx_tagsChips_${rowId}`);
+    if (!wrap) return;
+
+    const tags = cxTagsFromInput_(rowId);
+    if (!tags.length){
+      wrap.innerHTML = `<span class="pill gray">（未設定）</span>`;
+      return;
+    }
+
+    wrap.innerHTML = tags.map(t => `
+      <span class="pill" style="margin-right:6px; margin-bottom:6px; display:inline-flex; align-items:center; gap:6px;">
+        ${escapeHtml(t)}
+        <button class="btn" style="padding:2px 8px; font-weight:900;"
+          onclick="cxRemoveTagFromRow_('${escapeHtmlAttr(rowId)}','${escapeHtmlAttr(t)}')">×</button>
+      </span>
+    `).join("");
+  }
+
+  function cxAddTagToRow_(rowId){
+    const sel = el(`cx_tagPick_${rowId}`);
+    if (!sel) return;
+    const pick = String(sel.value||"").trim();
+    if (!pick) return;
+
+    const tags = cxTagsFromInput_(rowId);
+    if (!tags.includes(pick)) tags.push(pick);
+    cxSetTagsToInput_(rowId, tags);
+    cxRenderRowChips_(rowId);
+
+    sel.value = "";
+  }
+
+  function cxRemoveTagFromRow_(rowId, tag){
+    const t = String(tag||"").trim();
+    const tags = cxTagsFromInput_(rowId).filter(x=>x !== t);
+    cxSetTagsToInput_(rowId, tags);
+    cxRenderRowChips_(rowId);
+  }
+
+  // ===== Code Search =====
+  function showCodeErr(msg){
+    el("codeErr").style.display = "block";
+    el("codeErr").textContent = msg || "error";
+  }
+  function hideCodeErr(){
+    el("codeErr").style.display = "none";
+    el("codeErr").textContent = "";
+  }
+  function initCodeSearchUi(){
+    try{
+      const inp = el("codeQuery");
+      if (inp && inp.dataset.bound !== "1"){
+        inp.dataset.bound = "1";
+        inp.addEventListener("keydown", (e)=>{
+          if (e.key === "Enter"){
+            e.preventDefault();
+            runCodeSearch();
+          }
+        });
+      }
+    } catch(e){}
+  }
+
+  function runCodeSearch(){
+    hideCodeErr();
+
+    const q = String(el("codeQuery")?.value || "").trim();
+    const includeRefs = !!el("codeIncludeRefs")?.checked;
+
+    if (!q){
+      showCodeErr("query empty");
+      return;
+    }
+
+    el("codeHint").textContent = "検索中...";
+    el("codeTbody").innerHTML = `<tr><td colspan="5" class="muted">loading...</td></tr>`;
+
+    google.script.run
+      .withFailureHandler(err => {
+        showCodeErr(err?.message || String(err));
+        el("codeHint").textContent = "失敗";
+        el("codeTbody").innerHTML = `<tr><td colspan="5" class="muted">error</td></tr>`;
+      })
+      .withSuccessHandler(res => {
+        if (!res || !res.ok){
+          showCodeErr((res && res.message) ? res.message : "search failed");
+          el("codeHint").textContent = "見つからない";
+          el("codeTbody").innerHTML = `<tr><td colspan="5" class="muted">not found</td></tr>`;
+          return;
+        }
+
+        const rows = Array.isArray(res.matches) ? res.matches : [];
+        el("codeHint").textContent = `hits: ${rows.length}`;
+
+        if (!rows.length){
+          el("codeTbody").innerHTML = `<tr><td colspan="5" class="muted">not found</td></tr>`;
+          return;
+        }
+
+        el("codeTbody").innerHTML = rows.map(r => {
+          const kind = String(r.kind || "");
+          const file = String(r.fileName || "");
+          const line = String(r.line || "");
+          const snip = String(r.snippet || "");
+
+          const copyText = `${kind}\t${file}:${line}\t${snip}`.replace(/[\r\n]+/g," ");
+          const copyAttr = escapeHtmlAttr(copyText);
+
+          return `
+            <tr>
+              <td class="nowrap">${pill(kind)}</td>
+              <td class="mono nowrap">${escapeHtml(file)}</td>
+              <td class="mono nowrap">${escapeHtml(line)}</td>
+              <td class="noteCell mono">${escapeHtml(snip)}</td>
+              <td class="nowrap">
+                <button class="btn" onclick="copyToClipboard('${copyAttr}')">Copy</button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      })
+      .admin_searchCode({
+        query: q,
+        includeReferences: includeRefs,
+        maxResults: 300
+      });
+  }
+
+  function copyToClipboard(text){
+    const s = String(text || "");
+    try{
+      navigator.clipboard.writeText(s);
+    } catch(e){
+      // fallback
+      try{
+        const ta = document.createElement("textarea");
+        ta.value = s;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch(e2){}
+    }
+  }
+
+  function openSlackTestModalForProject(){
+    // Projectsが未ロードならまずロード
+    if (!Array.isArray(__PJS_ALL__) || !__PJS_ALL__.length){
+      try{ loadProjects(); } catch(e){}
+    }
+
+    const opts = (Array.isArray(__PJS_ALL__) ? __PJS_ALL__ : [])
+      .map(p => ({
+        projectId: String(p.projectId||"").trim(),
+        projectName: String(p.projectName||"").trim(),
+        slackChannelId: String(p.slackChannelId||"").trim()
+      }))
+      .filter(p => p.projectId);
+
+    const listHtml = opts.slice(0, 200).map(p => {
+      const label = `${escapeHtml(p.projectName || p.projectId)} (${escapeHtml(p.projectId)})`;
+      const warn = p.slackChannelId ? "" : `<span class="pill gray" style="margin-left:6px;">slack未設定</span>`;
+      return `<option value="${escapeHtmlAttr(p.projectId)}">${label}</option>`;
+    }).join("");
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">Slack テスト送信（PJの晒し先へ投稿）</div>`,
+      `<div class="small" style="opacity:.85;">DB_Projects.slackChannelId に投稿する。未設定PJはエラーになる。</div>`,
+
+      `<div class="ctlLabel" style="margin-top:10px;">project</div>`,
+      `<select id="slackTest_projectId" class="ctl" style="width:100%; margin-top:6px;">`,
+      `<option value="">（選択）</option>`,
+      listHtml,
+      `</select>`,
+
+      `<div class="ctlLabel" style="margin-top:12px;">message</div>`,
+      `<textarea id="slackTest_message" class="ctl" style="width:100%; height:140px; resize:vertical; margin-top:6px;"`,
+      `placeholder="例：いま未完了：①請求書送付 ②入金確認 ③支払承認\n今日18:00までに詰まり箇所だけ共有して〜！"></textarea>`
+    ].join("");
+
+    openAppModal_(
+      "Slackテスト送信",
+      bodyHtml,
+      () => {
+        const projectId = String(document.getElementById("slackTest_projectId")?.value || "").trim();
+        const message = String(document.getElementById("slackTest_message")?.value || "").trim();
+        if (!projectId){ showPjErr("project 未選択"); return; }
+        if (!message){ showPjErr("message empty"); return; }
+
+        el("pjHint").textContent = "Slack送信中...";
+        el("pjErr").style.display = "none";
+
+        google.script.run
+          .withFailureHandler(err => {
+            showPjErr(err?.message || String(err));
+            el("pjHint").textContent = "失敗";
+          })
+          .withSuccessHandler(res => {
+            if (!res || !res.ok){
+              showPjErr((res && res.message) ? res.message : "send failed");
+              el("pjHint").textContent = "失敗";
+              return;
+            }
+            el("pjHint").textContent = `Slack送信した（PJ=${projectId} / channel=${res.slackChannelId || "-"}）`;
+          })
+          .admin_testSlackPostToProject({ projectId, message });
+      },
+      { input:false }
+    );
+  }
+
+  function normalizeFreeePartnerName_(s){
+    // ★まずは完全一致ベース（事故らせない）
+    // 将来ゆるくしたくなったらここで正規化を拡張すればいい
+    return String(s || "").trim();
+  }
+
+  function findFreeePartnerIdsByName_(name){
+    const key = normalizeFreeePartnerName_(name);
+    if (!key) return [];
+
+    const rows = Array.isArray(__FREEE_PARTNERS__) ? __FREEE_PARTNERS__ : [];
+    const hits = [];
+
+    for (let i=0; i<rows.length; i++){
+      const n = normalizeFreeePartnerName_(rows[i]?.name);
+      if (n === key){
+        const id = String(rows[i]?.id || "").trim();
+        if (id) hits.push(id);
+      }
+    }
+    // uniq
+    return Array.from(new Set(hits));
+  }
+
+  function syncFreeeIdFromClientName_(projectId){
+    const pid = String(projectId || "").trim();
+    if (!pid) return;
+
+    const clEl = el(`pjcl_${pid}`);
+    const frEl = el(`pjfreee_${pid}`);
+    if (!clEl || !frEl) return;
+
+    const clientName = String(clEl.value || "").trim();
+    if (!clientName) return;
+
+    const ids = findFreeePartnerIdsByName_(clientName);
+
+    if (ids.length === 1){
+      const nextId = String(ids[0] || "").trim();
+
+      // ★ユーザーが既にfreeeIdを手で入れてた場合は上書きしない（事故防止）
+      const curId = String(frEl.value || "").trim();
+      if (!curId){
+        frEl.value = nextId;
+      }
+
+      // ★origは更新しない（保存まではdirtyにしたい）
+      markDirtyProjectRow(pid);
+
+    } else if (ids.length >= 2){
+      // 同名が複数はfreee側でよく起きるので自動確定しない
+      // ここは "手で入れてね" に寄せる（安全第一）
+      try{
+        el("pjHint").textContent = `freee取引先が同名で複数ある：${clientName}（freeeIdは手入力して）`;
+      }catch(e){}
+    }
+  }
+
+  // 手入力中にも反応するけど、freeeId上書きは「空のときだけ」
+  function onProjectClientInput_(projectId){
+    syncFreeeIdFromClientName_(projectId);
+    markDirtyProjectRow(projectId);
+  }
+
+  // datalistから選んだときは確定度高いので同じ処理
+  function onProjectClientChange_(projectId){
+    syncFreeeIdFromClientName_(projectId);
+    markDirtyProjectRow(projectId);
+  }
+
+  // ===== Payouts state =====
+  let __PAYOUT_ROWS__ = [];          // latest rows
+  let __PAYOUT_ROW_MAP__ = {};       // memberId -> row
+
+  function payoutsSetCache(rows){
+    __PAYOUT_ROWS__ = Array.isArray(rows) ? rows : [];
+    __PAYOUT_ROW_MAP__ = {};
+    __PAYOUT_ROWS__.forEach(r=>{
+      const mid = String(r?.memberId || "").trim();
+      if (mid) __PAYOUT_ROW_MAP__[mid] = r;
+    });
+  }
+
+  // ===== Payouts (stub) =====
+  function payoutsShowErr(msg){
+    const e = el("payoutErr");
+    if (!e) return;
+    e.style.display = "block";
+    e.textContent = msg || "error";
+  }
+  function payoutsHideErr(){
+    const e = el("payoutErr");
+    if (!e) return;
+    e.style.display = "none";
+    e.textContent = "";
+  }
+
+  function payoutsFillYmSelect(){
+    const sel = el("payoutYm");
+    if (!sel) return;
+
+    // JST基準でymNow
+    const now = new Date();
+    const jst = new Date(now.getTime() + 9*60*60*1000);
+    const y = jst.getUTCFullYear();
+    const m = jst.getUTCMonth() + 1;
+    const ymNow = String(y) + String(m).padStart(2,"0");
+
+    sel.innerHTML = `<option value="${escapeHtmlAttr(ymNow)}" selected>${escapeHtml(ymNow)}</option>`;
+
+    callGAS_(
+      "admin_listPayoutYmCandidates",
+      [],
+      (res) => {
+        try{
+          const list = (res && res.ok && Array.isArray(res.yms)) ? res.yms : [];
+          const yms = list.map(x => String(x||"").trim()).filter(x => /^\d{6}$/.test(x));
+          const uniq = Array.from(new Set(yms));
+          const finalList = uniq.length ? uniq : [ymNow];
+
+          // 表示は新しい順
+          const desc = finalList.slice().sort((a,b)=>b.localeCompare(a));
+          sel.innerHTML = desc.map(v => `<option value="${escapeHtmlAttr(v)}">${escapeHtml(v)}</option>`).join("");
+
+          // 選択は「未振込が残る最古」
+          const asc = finalList.slice().sort((a,b)=>a.localeCompare(b));
+          payoutsPickOldestUnpaidYm_(asc, (pickedYm) => {
+            const useYm = pickedYm || ymNow || (desc[0] || "");
+            if (useYm) sel.value = useYm;
+            payoutsRefresh();
+          });
+
+        } catch(e){
+          try{ sel.value = ymNow; } catch(_) {}
+          payoutsRefresh();
+        }
+      },
+      (_err) => {
+        try{ sel.value = ymNow; } catch(_) {}
+        payoutsRefresh();
+      }
+    );
+  }
+
+  function payoutsPickOldestUnpaidYm_(ymsAsc, cb){
+    const list = Array.isArray(ymsAsc) ? ymsAsc.slice() : [];
+    let i = 0;
+
+    const step = () => {
+      if (i >= list.length){
+        cb && cb("");
+        return;
+      }
+      const ym = String(list[i] || "").trim();
+      i++;
+
+      callGAS_(
+        "admin_getPayoutTable",
+        [{ ym }],
+        (res) => {
+          try{
+            const rows = (res && res.ok && Array.isArray(res.rows)) ? res.rows : [];
+            const hasUnpaid = rows.some(r => {
+              const total = Number(r.totalYen || 0);
+              if (!isFinite(total) || total <= 0) return false;
+              const paid = !!(r.paid && r.paid.isPaid);
+              return !paid;
+            });
+
+            if (hasUnpaid){
+              cb && cb(ym);
+              return;
+            }
+            step();
+          } catch(e){
+            step();
+          }
+        },
+        (_err) => step()
+      );
+    };
+
+    step();
+  }
+
+  // ★未振込が残る最古ymを探す（無ければ "" を返す）
+  function payoutsPickOldestUnpaidYm_(ymsAsc, cb){
+    const list = Array.isArray(ymsAsc) ? ymsAsc.slice() : [];
+    let i = 0;
+
+    const step = () => {
+      if (i >= list.length){
+        cb && cb("");
+        return;
+      }
+      const ym = String(list[i] || "").trim();
+      i++;
+
+      callGAS_(
+        "admin_getPayoutTable",
+        [{ ym }],
+        (res) => {
+          try{
+            const rows = (res && res.ok && Array.isArray(res.rows)) ? res.rows : [];
+            // “未振込が残る” 判定：totalYen>0 かつ paid.isPaid が false の行が1つでもある
+            const hasUnpaid = rows.some(r => {
+              const total = Number(r.totalYen || 0);
+              if (!isFinite(total) || total <= 0) return false;
+              const paid = !!(r.paid && r.paid.isPaid);
+              return !paid;
+            });
+
+            if (hasUnpaid){
+              cb && cb(ym);
+              return;
+            }
+            step();
+          } catch(e){
+            step();
+          }
+        },
+        (_err) => {
+          step();
+        }
+      );
+    };
+
+    step();
+  }
+
+  function payoutsOnShow(){
+    try{
+      payoutsFillYmSelect();
+      payoutsRefresh();
+    } catch(e){
+      payoutsShowErr(e?.message || String(e));
+    }
+  }
+
+  function payoutsRefresh(){
+    payoutsHideErr();
+
+    const ym = String(el("payoutYm")?.value || "").trim();
+    if (!ym || !/^\d{6}$/.test(ym)){
+      payoutsShowErr("ym invalid（yyyymm）");
+      return;
+    }
+
+    const hint = el("payoutHint");
+    const tb = el("payoutTbody");
+    if (hint) hint.textContent = `loading... ym=${ym}`;
+    if (tb) tb.innerHTML = `<tr><td colspan="7" class="muted">loading...</td></tr>`;
+
+    callGAS_(
+      "admin_getPayoutTable",
+      [{ ym }],
+      (res) => {
+        try{
+          if (!res || !res.ok){
+            payoutsShowErr((res && res.message) ? res.message : "load failed");
+            payoutsSetCache([]);
+            if (tb) tb.innerHTML = `<tr><td colspan="7" class="muted">load failed</td></tr>`;
+            if (hint) hint.textContent = `failed: ym=${ym}`;
+            return;
+          }
+
+          const rows = Array.isArray(res.rows) ? res.rows : [];
+          payoutsSetCache(rows);
+
+          const meta = res.meta || {};
+          const gen = String(meta.generatedAtJst || "").trim() || "-";
+          if (hint) hint.textContent = `ym=${ym} / rows=${rows.length} / generatedAt=${gen}`;
+
+          payoutsRenderTable(__PAYOUT_ROWS__);
+        } catch(e2){
+          payoutsShowErr(e2?.message || String(e2));
+          payoutsSetCache([]);
+          if (tb) tb.innerHTML = `<tr><td colspan="7" class="muted">render error</td></tr>`;
+        }
+      },
+      (err) => {
+        payoutsShowErr(err?.message || String(err));
+        payoutsSetCache([]);
+        if (tb) tb.innerHTML = `<tr><td colspan="7" class="muted">error</td></tr>`;
+        if (hint) hint.textContent = `failed: ym=${ym}`;
+      }
+    );
+  }
+
+  function payoutsRenderTable(rows){
+    const tb = el("payoutTbody");
+    if (!tb) return;
+
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length){
+      tb.innerHTML = `<tr><td colspan="7" class="muted">該当なし</td></tr>`;
+      return;
+    }
+
+    function yen(n){
+      const x = Number(n || 0);
+      if (!isFinite(x)) return "-";
+      return x.toLocaleString("ja-JP") + "円";
+    }
+
+    function payoutLinesHtml(payouts, totalYen){
+      const arr = Array.isArray(payouts) ? payouts : [];
+      const lines = arr.map(p => {
+        const pn = String(p.projectName || p.projectId || "").trim();
+        const y = yen(p.yen);
+        return `<div class="row" style="justify-content:space-between; gap:10px;">
+          <span>${escapeHtml(pn)}</span>
+          <b class="mono">${escapeHtml(y)}</b>
+        </div>`;
+      }).join("");
+
+      const total = `<div style="border-top:1px solid var(--line); margin-top:8px; padding-top:8px;" class="row">
+        <span class="muted">合計</span>
+        <b class="mono">${escapeHtml(yen(totalYen))}</b>
+      </div>`;
+
+      return `<div style="min-width:260px;">${lines || `<span class="muted">-</span>`}${total}</div>`;
+    }
+
+    function mark_(st){
+      const s = String(st || "").trim().toLowerCase();
+      const ok = (s === "done");
+      return ok
+        ? `<span class="pill" style="border-color:#34d399; color:#065f46; font-weight:900;">✅</span>`
+        : `<span class="pill gray" style="font-weight:900;">⚠️</span>`;
+    }
+
+    function pjStatusHtml(payouts){
+      const arr = Array.isArray(payouts) ? payouts : [];
+      if (!arr.length) return `<span class="muted">-</span>`;
+
+      return arr.map(p => {
+        const pn = String(p.projectName || p.projectId || "").trim();
+        const r = String(p.routineStatus || "pending").trim();
+        const c = String(p.cashInStatus || "pending").trim();
+        return `<div style="margin-bottom:8px;">
+          <div><b>${escapeHtml(pn)}</b></div>
+          <div class="small rowLeft" style="gap:8px; margin-top:4px;">
+            <span class="muted">月次</span>${mark_(r)}
+            <span class="muted">入金</span>${mark_(c)}
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    tb.innerHTML = list.map(r => {
+      const memberId = String(r.memberId || "").trim();
+      const codeName = String(r.codeName || "").trim();
+
+      const payouts = Array.isArray(r.payouts) ? r.payouts : [];
+      const totalYen = r.totalYen;
+
+      const notice = r.notice || {};
+      const pdfUrl = String(notice.pdfUrl || "").trim();
+
+      const canIssue = !!r.canIssueNotice;
+      const canSend  = !!r.canSendNotice || (String((notice && notice.status) || "").trim() === "issued");
+      const canMarkPaid = !!r.canMarkPaid;
+      const isPaid = !!(r.paid && r.paid.isPaid);
+
+      const statusId = `payoutIssueStatus_${escapeHtmlAttr(memberId)}`;
+
+      const issueBtn = `
+        <button class="btn" ${canIssue ? "" : "disabled"} onclick="payoutsIssueNotice('${escapeHtmlAttr(memberId)}', this)">発行</button>
+        <div class="payoutInlineStatus" id="${statusId}"></div>
+      `;
+
+      const pdfBtn = pdfUrl
+        ? `<button class="btn" onclick="window.open('${escapeHtmlAttr(pdfUrl)}','_blank')">PDF</button>`
+        : `<button class="btn" disabled>PDF</button>`;
+
+      const sendBtn  = `<button class="btn" ${canSend ? "" : "disabled"} onclick="payoutsSendNotice('${escapeHtmlAttr(memberId)}')">送付</button>`;
+
+      const reasonText = Array.isArray(r.blockReasons) && r.blockReasons.length
+        ? r.blockReasons.join(" / ")
+        : "";
+
+      const paidChk = `
+        <input type="checkbox"
+          ${isPaid ? "checked" : ""}
+          ${canMarkPaid ? "" : "disabled"}
+          title="${escapeHtmlAttr(reasonText)}"
+          onchange="payoutsTogglePaid('${escapeHtmlAttr(memberId)}', this)"
+        />
+      `;
+
+      return `
+        <tr>
+          <td class="mono nowrap">
+            <b>${escapeHtml(codeName || "-")}</b>
+            <div class="small">${escapeHtml(memberId || "")}</div>
+          </td>
+
+          <td class="noteCell">${payoutLinesHtml(payouts, totalYen)}</td>
+
+          <td class="nowrap">${issueBtn}</td>
+          <td class="nowrap">${pdfBtn}</td>
+          <td class="nowrap">${sendBtn}</td>
+
+          <td class="noteCell">${pjStatusHtml(payouts)}</td>
+
+          <td class="nowrap">${paidChk}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function payoutsIssueNotice(memberId, btnEl){
+    payoutsHideErr();
+
+    const mid = String(memberId || "").trim();
+    if (!mid) return payoutsShowErr("memberId empty");
+
+    const ym = String(el("payoutYm")?.value || "").trim();
+    if (!ym) return payoutsShowErr("ym empty");
+
+    const row = __PAYOUT_ROW_MAP__[mid];
+    if (!row) return payoutsShowErr("row not found (refresh first)");
+
+    const who = row.codeName || mid;
+    const total = Number(row.totalYen || 0);
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">支払通知書を発行する？</div>`,
+      `<div class="small">member: <b>${escapeHtml(who)}</b></div>`,
+      `<div class="small">ym: <b class="mono">${escapeHtml(ym)}</b></div>`,
+      `<div class="small">金額: <b>${escapeHtml(total.toLocaleString("ja-JP"))}円</b></div>`
+    ].join("");
+
+    openAppModal_(
+      "支払通知書 発行",
+      bodyHtml,
+      () => {
+        const st = el(`payoutIssueStatus_${mid}`);
+        if (st){
+          st.className = "payoutInlineStatus busy";
+          st.textContent = "発行中…";
+        }
+        if (btnEl){
+          btnEl.disabled = true;
+          btnEl.textContent = "発行中...";
+        }
+
+        callGAS_(
+          "admin_issuePayoutNotice",
+          [{ memberId: mid, ym }],
+          (res) => {
+            if (btnEl){
+              btnEl.disabled = false;
+              btnEl.textContent = "発行";
+            }
+            if (!res || !res.ok){
+              if (st){
+                st.className = "payoutInlineStatus err";
+                st.textContent = "失敗";
+              }
+              payoutsShowErr(res?.message || "issue failed");
+              return;
+            }
+
+            row.notice = row.notice || {};
+            row.notice.status = "issued";
+            row.notice.freeeId = String(res.freeeNoticeId || "");
+            row.notice.freeeNo = String(res.freeeNoticeNo || "");
+            row.notice.pdfUrl = String(res.pdfUrl || "");
+            row.notice.issuedAtJst = String(res.issuedAtJst || "");
+
+            row.canSendNotice = true;
+
+            if (st){
+              st.className = "payoutInlineStatus";
+              st.textContent = "発行完了";
+            }
+
+            payoutsRenderTable(__PAYOUT_ROWS__);
+          },
+          (err) => {
+            if (btnEl){
+              btnEl.disabled = false;
+              btnEl.textContent = "発行";
+            }
+            if (st){
+              st.className = "payoutInlineStatus err";
+              st.textContent = "失敗";
+            }
+            payoutsShowErr(err?.message || String(err));
+          }
+        );
+      },
+      { input:false }
+    );
+  }
+
+  function payoutsSendNotice(memberId){
+    payoutsHideErr();
+
+    const mid = String(memberId || "").trim();
+    if (!mid) return payoutsShowErr("memberId empty");
+
+    const ym = String(el("payoutYm")?.value || "").trim();
+    if (!ym) return payoutsShowErr("ym empty");
+
+    const row = __PAYOUT_ROW_MAP__[mid];
+    if (!row) return payoutsShowErr("row not found (refresh first)");
+
+    const to = String(row.email || "").trim();
+    if (!to){
+      payoutsShowErr("email empty（DB_Members.email が空）");
+      return;
+    }
+
+    const notice = row.notice || {};
+    const status = String(notice.status || "none").trim();
+    if (status !== "issued" && status !== "sent"){
+      payoutsShowErr("支払通知書が未発行（先に「発行」）");
+      return;
+    }
+
+    const pdfUrl = String(notice.pdfUrl || "").trim();
+    const who = row.codeName || mid;
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">支払通知書を送付する？</div>`,
+      `<div class="small">宛先: <b>${escapeHtml(to)}</b></div>`,
+      `<div class="small">member: <b>${escapeHtml(who)}</b></div>`,
+      `<div class="small">ym: <b class="mono">${escapeHtml(ym)}</b></div>`,
+      `<div class="small">PDF: ${pdfUrl ? "あり" : "未取得"}</div>`
+    ].join("");
+
+    openAppModal_(
+      "支払通知書 送付",
+      bodyHtml,
+      () => {
+        el("payoutHint").textContent = `送付中... ${to}`;
+
+        callGAS_(
+          "admin_sendPayoutNoticeMail",
+          [{ to, ym, memberId: mid, pdfUrl }],
+          (res) => {
+            if (!res || !res.ok){
+              payoutsShowErr(res?.message || "send failed");
+              el("payoutHint").textContent = "失敗";
+              return;
+            }
+
+            row.notice = row.notice || {};
+            row.notice.status = "sent";
+            row.notice.sentAtJst = String(res.sentAtJst || "");
+
+            el("payoutHint").textContent = `送付完了：${to}`;
+            payoutsRenderTable(__PAYOUT_ROWS__);
+          },
+          (err) => {
+            payoutsShowErr(err?.message || String(err));
+            el("payoutHint").textContent = "失敗";
+          }
+        );
+      },
+      { input:false }
+    );
+  }
+
+  function payoutsTogglePaid(memberId, chk){
+    payoutsHideErr();
+
+    const mid = String(memberId || "").trim();
+    if (!mid){
+      payoutsShowErr("memberId empty");
+      chk.checked = !chk.checked;
+      return;
+    }
+
+    const ym = String(el("payoutYm")?.value || "").trim();
+    if (!/^\d{6}$/.test(ym)){
+      payoutsShowErr("ym invalid（yyyymm）");
+      chk.checked = !chk.checked;
+      return;
+    }
+
+    const row = __PAYOUT_ROW_MAP__[mid];
+    if (!row){
+      payoutsShowErr("row not found (refresh first)");
+      chk.checked = !chk.checked;
+      return;
+    }
+
+    // UI上の意図（チェック後の状態）
+    const nextPaid = !!chk.checked;
+
+    // 事故防止：未許可なら元に戻す
+    if (!row.canMarkPaid){
+      payoutsShowErr("この行は振込完了にできない（ゲート未達）");
+      chk.checked = !nextPaid;
+      return;
+    }
+
+    const who = row.codeName || mid;
+    const ok = window.confirm(`振込完了を ${nextPaid ? "ON" : "OFF"} にする？\nmember=${who}\nym=${ym}`);
+    if (!ok){
+      chk.checked = !nextPaid;
+      return;
+    }
+
+    el("payoutHint").textContent = `保存中... memberId=${mid} paid=${nextPaid ? "true" : "false"}`;
+
+    callGAS_(
+      "admin_setPayoutPaid",
+      [{ ym, memberId: mid, isPaid: nextPaid, note: "" }],
+      (res) => {
+        if (!res || !res.ok){
+          payoutsShowErr((res && res.message) ? res.message : "save failed");
+          chk.checked = !nextPaid;
+          el("payoutHint").textContent = "失敗";
+          return;
+        }
+
+        // JSキャッシュへ反映（リロード無しでも表示整合）
+        row.paid = row.paid || {};
+        row.paid.isPaid = nextPaid;
+        row.paid.checkedAtJst = String(res.checkedAtJst || "");
+        row.paid.checkedBy = String(res.checkedBy || "");
+        row.paid.note = String(res.note || "");
+
+        el("payoutHint").textContent = `保存完了：${mid}`;
+        payoutsRenderTable(__PAYOUT_ROWS__);
+      },
+      (err) => {
+        payoutsShowErr(err?.message || String(err));
+        chk.checked = !nextPaid;
+        el("payoutHint").textContent = "失敗";
+      }
+    );
+  }
+
+  function payoutsEditBankInfo(memberId, codeName, bankText){
+    const mid = String(memberId || "").trim();
+    if (!mid){
+      payoutsShowErr("memberId empty");
+      return;
+    }
+
+    const name = String(codeName || "").trim() || mid;
+    const current = String(bankText || "").trim();
+
+    const bodyHtml = [
+      `<div style="font-weight:900; margin-bottom:8px;">振込先情報 編集</div>`,
+      `<div class="small muted" style="margin-bottom:10px;">member: <b>${escapeHtml(name)}</b> (${escapeHtml(mid)})</div>`,
+      `<div class="ctlLabel">振込先（複数行OK）</div>`,
+      `<textarea id="payoutBankEditText" class="ctl" style="width:100%; height:160px; resize:vertical; margin-top:6px;"`,
+      `placeholder="例：\n三井住友銀行 渋谷支店\n普通 1234567\nヤマダ タロウ">${escapeHtml(current)}</textarea>`
+    ].join("");
+
+    openAppModal_(
+      "振込先 編集",
+      bodyHtml,
+      () => {
+        const next = String(el("payoutBankEditText")?.value || "").trim();
+
+        payoutsHideErr();
+        el("payoutHint").textContent = `保存中... memberId=${mid}`;
+
+        callGAS_(
+          "payoutUpdateMemberBankInfo",
+          [{ memberId: mid, bankInfo: next }],
+          (res) => {
+            if (!res || !res.ok){
+              payoutsShowErr((res && res.message) ? res.message : "save failed");
+              return;
+            }
+            el("payoutHint").textContent = `保存完了：${mid}`;
+            // 再読込して反映
+            payoutsRefresh();
+          },
+          (err) => {
+            payoutsShowErr(err?.message || String(err));
+          }
+        );
+      },
+      { input:false }
+    );
+  }
+
+  function payoutsExportTsv(){
+    payoutsHideErr();
+
+    const ym = String(el("payoutYm")?.value || "").trim();
+    if (!/^\d{6}$/.test(ym)){
+      payoutsShowErr("ym invalid（yyyymm）");
+      return;
+    }
+
+    const rows = Array.isArray(__PAYOUT_ROWS__) ? __PAYOUT_ROWS__ : [];
+    if (!rows.length){
+      payoutsShowErr("rows empty（先に更新）");
+      return;
+    }
+
+    // 擬似メンバー除外（UIでも安全側）
+    function isPseudoMember(r){
+      const mid = String(r?.memberId || "").trim();
+      if (mid === "ID017") return true;
+      const em = String(r?.email || "").trim().toLowerCase();
+      if (!em) return true;
+      if (em.startsWith("info@")) return true;
+      return false;
+    }
+
+    // bankText は人間向け自由文なので、TSV用には “そのまま1セル” に押し込む
+    // （銀行インポート最適化は次段で bankInfoを構造化してから）
+    const targets = rows.filter(r => {
+      if (!r) return false;
+      if (isPseudoMember(r)) return false;
+
+      const total = Number(r.totalYen || 0);
+      if (!isFinite(total) || total <= 0) return false;
+
+      const hasLines = Array.isArray(r.payouts) && r.payouts.length > 0;
+      if (!hasLines) return false;
+
+      if (!r.canMarkPaid) return false;
+
+      return true;
+    });
+
+    if (!targets.length){
+      payoutsShowErr("TSV対象が0件（条件を満たす行がない）");
+      return;
+    }
+
+    // ヘッダ
+    const header = [
+      "ym",
+      "memberId",
+      "codeName",
+      "totalYen",
+      "bankText"
+    ];
+
+    const lines = targets.map(r => {
+      const bank = String(r.bankText || "").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+      // TSVなのでタブと改行は潰す（銀行情報は1行に畳む）
+      const bankOne = bank.replace(/\t/g," ").replace(/\n+/g," / ").trim();
+
+      return [
+        ym,
+        String(r.memberId || ""),
+        String(r.codeName || ""),
+        String(Math.trunc(Number(r.totalYen || 0))),
+        bankOne
+      ].join("\t");
+    });
+
+    const tsv = [header.join("\t")].concat(lines).join("\n");
+
+    try{
+      navigator.clipboard.writeText(tsv);
+      el("payoutHint").textContent = `TSVコピーした：${targets.length}件（ym=${ym}）`;
+    } catch(e){
+      // fallback
+      try{
+        const ta = document.createElement("textarea");
+        ta.value = tsv;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        el("payoutHint").textContent = `TSVコピーした：${targets.length}件（ym=${ym}）`;
+      } catch(e2){
+        payoutsShowErr("clipboard copy failed（ブラウザ制限っぽい）");
+      }
+    }
+  }
+
+  // ===== Member Status =====
+  let __STATUS_ALL__ = [];
+  const CAN_ACCESS_ADMIN = window.__ADMIN_CTX__ ? window.__ADMIN_CTX__.canAccessAdmin : false;
+
+  function memberStatusOnShow(){ memberStatusLoadAll_(); }
+  function memberStatusRefresh(){ memberStatusLoadAll_(); }
+
+  function memberStatusLoadAll_(){
+    el("statusErr").style.display = "none";
+    el("statusHint").textContent = "loading...";
+    google.script.run
+      .withFailureHandler(function(err){ statusShowErr_(String(err)); })
+      .withSuccessHandler(function(res){
+        if (!res || !res.ok) { statusShowErr_(res ? res.message : "error"); return; }
+        __STATUS_ALL__ = res.members || [];
+        renderMemberStatusList_(__STATUS_ALL__);
+        el("statusHint").textContent = "members: " + __STATUS_ALL__.length + " / computed: " + (res.meta ? res.meta.computedAtJst : "");
+      })
+      .admin_listMemberStatus();
+  }
+
+  function statusShowErr_(msg){
+    el("statusErr").style.display = "block";
+    el("statusErr").textContent = msg || "error";
+    el("statusHint").textContent = "";
+  }
+
+  function renderMemberStatusList_(members){
+    const tb = el("statusTbody");
+    if (!members.length){ tb.innerHTML = '<tr><td colspan="9" class="muted">該当なし</td></tr>'; return; }
+
+    tb.innerHTML = members.map(function(m){
+      const avg = Math.round((
+        Number(m.scoreInitiative||0) + Number(m.scoreExecution||0) +
+        Number(m.scoreCommunication||0) + Number(m.scoreCollaboration||0) +
+        Number(m.scoreGrowth||0)) / 5);
+      const titles = JSON.parse(m.titlesJson || "[]");
+      const titlePills = titles.map(function(t){ return '<span class="pill">' + escapeHtml(t.titleLabel) + '</span>'; }).join(" ");
+
+      return '<tr>' +
+        '<td><span class="st-name-link" onclick="selectMemberStatus_(\'' + escapeHtmlAttr(m.memberId) + '\')">' + escapeHtml(m.codeName) + '</span></td>' +
+        '<td class="st-score-cell"><b>' + avg + '</b></td>' +
+        statusScoreCell_(m.scoreInitiative) +
+        statusScoreCell_(m.scoreExecution) +
+        statusScoreCell_(m.scoreCommunication) +
+        statusScoreCell_(m.scoreCollaboration) +
+        statusScoreCell_(m.scoreGrowth) +
+        '<td>' + (titlePills || '<span class="muted">—</span>') + '</td>' +
+        '<td class="st-score-cell">' + Number(m.completionPct||0) + '%</td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  function statusScoreCell_(val){
+    const v = Number(val||0);
+    const color = v >= 80 ? "#10b981" : v >= 60 ? "#3b82f6" : v >= 40 ? "#f59e0b" : v > 0 ? "#ef4444" : "#ddd";
+    return '<td class="st-score-cell">' +
+      '<div style="display:inline-flex;align-items:center;gap:4px;">' +
+      '<span class="st-bar st-bar-bg"><span class="st-bar st-bar-fill" style="width:' + Math.max(v*0.8,1) + 'px;background:' + color + '"></span></span>' +
+      '<span style="font-size:12px;font-weight:700;color:' + color + '">' + v + '</span>' +
+      '</div></td>';
+  }
+
+  function selectMemberStatus_(memberId){
+    const card = el("statusDetailCard");
+    card.style.display = "block";
+    card.innerHTML = '<div class="muted">loading...</div>';
+
+    google.script.run
+      .withFailureHandler(function(err){ card.innerHTML = '<div class="err">' + escapeHtml(String(err)) + '</div>'; })
+      .withSuccessHandler(function(res){
+        if (!res || !res.ok){ card.innerHTML = '<div class="err">' + escapeHtml(res ? res.message : "error") + '</div>'; return; }
+        renderMemberStatusDetail_(res.member);
+      })
+      .admin_getMemberStatusDetail({ memberId: memberId });
+  }
+
+  function renderMemberStatusDetail_(m){
+    const card = el("statusDetailCard");
+    const s = m.scores || {};
+    const titles = m.titles || [];
+    const knowledge = m.knowledge || [];
+    const avg = Math.round((s.initiative + s.execution + s.communication + s.collaboration + s.growth) / 5);
+
+    let html = '';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">';
+    html += '<div style="font-size:18px;font-weight:900;">' + escapeHtml(m.codeName) + '</div>';
+    html += '<button class="btn" onclick="el(\'statusDetailCard\').style.display=\'none\'" style="font-size:12px;padding:6px 10px;">閉じる</button>';
+    html += '</div>';
+
+    html += '<div class="st-detail-grid">';
+
+    // 左: レーダーチャート
+    html += '<div class="st-radar-wrap">' + renderRadarSvg_(s, 240) + '</div>';
+
+    // 右: スコアバー + 称号 + 充填率
+    html += '<div>';
+    html += statusScoreRow_("先手力", s.initiative, "#3b82f6");
+    html += statusScoreRow_("実行力", s.execution, "#10b981");
+    html += statusScoreRow_("発信力", s.communication, "#8b5cf6");
+    html += statusScoreRow_("連携力", s.collaboration, "#f59e0b");
+    html += statusScoreRow_("成長力", s.growth, "#ef4444");
+    html += '<div style="margin-top:6px;font-size:12px;color:var(--sub);">総合: <b>' + avg + '</b></div>';
+
+    // 称号
+    html += '<div class="st-titles-wrap">';
+    if (titles.length){
+      titles.forEach(function(t){ html += '<span class="pill" title="' + escapeHtmlAttr(t.reason) + '">' + escapeHtml(t.titleLabel) + '</span>'; });
+    } else {
+      html += '<span class="muted" style="font-size:12px;">称号なし — いずれかのスコアが80を超えると獲得</span>';
+    }
+    html += '</div>';
+
+    // 充填率
+    html += '<div style="margin-top:12px;">';
+    html += '<div style="font-size:11px;font-weight:700;color:var(--sub);">充填率 ' + m.completionPct + '%</div>';
+    html += '<div class="st-completion-bar"><div class="st-completion-fill" style="width:' + m.completionPct + '%;"></div></div>';
+    if (m.nextFillableItems && m.nextFillableItems.length){
+      html += '<div style="margin-top:4px;font-size:11px;color:#888;">';
+      m.nextFillableItems.forEach(function(h){ html += '・' + escapeHtml(h) + '<br>'; });
+      html += '</div>';
+    }
+    html += '</div>';
+
+    html += '</div>'; // right column
+    html += '</div>'; // grid
+
+    // ナレッジスロット
+    html += '<div style="margin-top:16px;font-size:13px;font-weight:700;">ナレッジプロファイル</div>';
+    html += renderKnowledgeSlots_(knowledge);
+
+    card.innerHTML = html;
+  }
+
+  function statusScoreRow_(label, val, color){
+    const v = Number(val||0);
+    return '<div class="st-score-row">' +
+      '<span class="st-score-label">' + label + '</span>' +
+      '<div class="st-score-bar-outer"><div class="st-score-bar-inner" style="width:' + v + '%;background:' + color + ';"></div></div>' +
+      '<span class="st-score-val" style="color:' + color + ';">' + v + '</span>' +
+    '</div>';
+  }
+
+  function renderRadarSvg_(scores, size){
+    const cx = size/2, cy = size/2, R = size/2 - 30;
+    const axes = [
+      { key:"initiative", label:"先手力" },
+      { key:"execution", label:"実行力" },
+      { key:"communication", label:"発信力" },
+      { key:"collaboration", label:"連携力" },
+      { key:"growth", label:"成長力" }
+    ];
+    const n = axes.length;
+
+    function pt(i, ratio){
+      const angle = (Math.PI*2*i)/n - Math.PI/2;
+      return [cx + R*ratio*Math.cos(angle), cy + R*ratio*Math.sin(angle)];
+    }
+
+    let svg = '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" style="display:block;">';
+
+    // グリッド（同心五角形）
+    [0.2,0.4,0.6,0.8,1.0].forEach(function(level){
+      let points = [];
+      for(let i=0;i<n;i++) points.push(pt(i,level).join(","));
+      svg += '<polygon points="'+points.join(" ")+'" fill="none" stroke="#e5e7eb" stroke-width="1"/>';
+    });
+
+    // 軸線
+    for(let i=0;i<n;i++){
+      const p = pt(i,1);
+      svg += '<line x1="'+cx+'" y1="'+cy+'" x2="'+p[0]+'" y2="'+p[1]+'" stroke="#e5e7eb" stroke-width="1"/>';
+    }
+
+    // スコアポリゴン
+    let scorePoints = [];
+    for(let i=0;i<n;i++){
+      const v = Number(scores[axes[i].key]||0)/100;
+      scorePoints.push(pt(i,v).join(","));
+    }
+    svg += '<polygon points="'+scorePoints.join(" ")+'" fill="rgba(59,130,246,0.2)" stroke="#3b82f6" stroke-width="2"/>';
+
+    // スコア点
+    for(let i=0;i<n;i++){
+      const v = Number(scores[axes[i].key]||0)/100;
+      const p = pt(i,v);
+      svg += '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="4" fill="#3b82f6"/>';
+    }
+
+    // ラベル
+    for(let i=0;i<n;i++){
+      const p = pt(i,1.18);
+      const val = Number(scores[axes[i].key]||0);
+      svg += '<text x="'+p[0]+'" y="'+p[1]+'" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="700" fill="#374151">'+axes[i].label+'</text>';
+      const p2 = pt(i,1.32);
+      svg += '<text x="'+p2[0]+'" y="'+p2[1]+'" text-anchor="middle" dominant-baseline="central" font-size="10" fill="#6b7280">'+val+'</text>';
+    }
+
+    svg += '</svg>';
+    return svg;
+  }
+
+  function renderKnowledgeSlots_(knowledge){
+    const categories = [
+      { key:"skills", label:"スキル" },
+      { key:"personality", label:"性格" },
+      { key:"communication_style", label:"コミュニケーション" },
+      { key:"growth_areas", label:"成長エリア" },
+      { key:"work_style", label:"仕事のスタイル" },
+      { key:"interests", label:"興味・趣味" },
+      { key:"episodes", label:"エピソード" }
+    ];
+    const kMap = {};
+    (knowledge||[]).forEach(function(k){ kMap[k.category] = k; });
+
+    let html = '<div class="st-knowledge-grid">';
+    categories.forEach(function(cat){
+      const k = kMap[cat.key];
+      if (k && k.summaryText){
+        html += '<div class="st-knowledge-slot st-knowledge-filled">';
+        html += '<div style="font-weight:700;font-size:11px;color:var(--sub);margin-bottom:4px;">' + cat.label + ' <span style="font-weight:400;">('+k.entityCount+'件)</span></div>';
+        html += '<div>' + escapeHtml(k.summaryText) + '</div>';
+        html += '</div>';
+      } else {
+        html += '<div class="st-knowledge-slot st-knowledge-empty">';
+        html += '<div style="font-weight:700;font-size:11px;margin-bottom:4px;">' + cat.label + '</div>';
+        html += '<div style="font-size:11px;">未収集 — Slackでの会話から自動収集されます</div>';
+        html += '</div>';
+      }
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function recomputeStatus_(){
+    el("statusErr").style.display = "none";
+    el("statusHint").textContent = "再計算中...";
+    google.script.run
+      .withFailureHandler(function(err){ statusShowErr_(String(err)); })
+      .withSuccessHandler(function(res){
+        if (!res || !res.ok){ statusShowErr_(res ? res.message : "error"); return; }
+        el("statusHint").textContent = res.message || "完了";
+        memberStatusLoadAll_();
+      })
+      .admin_recomputeMemberStatus();
+  }
+
+
+</script>

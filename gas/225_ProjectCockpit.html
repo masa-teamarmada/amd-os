@@ -1,0 +1,666 @@
+<!-- 225_ProjectCockpit.html
+     PJコックピット画面。
+     目標階層（プレースホルダー）＋月次タイムライン＋詳細モーダル。
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ===== リセット＋ベース ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f5f5f7;color:#1d1d1f;font-size:14px;line-height:1.6}
+button{cursor:pointer;font:inherit;border:none;background:none}
+a{color:#0066cc;text-decoration:none}
+
+/* ===== レイアウト ===== */
+.cp-wrap{max-width:720px;margin:0 auto;padding:16px 12px 80px}
+
+/* ===== PJヘッダー ===== */
+.cp-header{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #e5e5e7}
+.cp-header h1{font-size:18px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:#e8e8ed;color:#636366;white-space:nowrap}
+.cp-badge.active{background:#d1f5d3;color:#1a7a2e}
+
+/* ===== ゴール階層 ===== */
+.cp-goals{margin-top:16px;padding:14px 16px;background:#fff;border-radius:12px;border:1px solid #e5e5e7}
+.cp-goals-title{font-size:13px;font-weight:700;color:#86868b;margin-bottom:8px}
+.cp-goal-row{display:flex;align-items:baseline;gap:8px;padding:5px 0;font-size:13px;color:#636366}
+.cp-goal-row .label{font-weight:600;min-width:80px;color:#1d1d1f}
+.cp-goal-row .value{flex:1;color:#86868b;font-style:italic}
+
+/* ===== 月次タイムライン ===== */
+.cp-timeline{margin-top:20px}
+.cp-month-card{background:#fff;border-radius:12px;border:1px solid #e5e5e7;margin-bottom:10px;overflow:hidden;transition:box-shadow .15s}
+.cp-month-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.cp-month-card.current{border-color:#0066cc;border-width:2px}
+
+.cp-month-head{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;user-select:none}
+.cp-month-ym{font-size:15px;font-weight:700;min-width:64px}
+.cp-month-badges{display:flex;gap:4px;flex-wrap:wrap;flex:1}
+.cp-pill{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px}
+.cp-pill.done{background:#d1f5d3;color:#1a7a2e}
+.cp-pill.pending{background:#fef3cd;color:#856404}
+.cp-pill.none{background:#f1f1f1;color:#aaa}
+.cp-month-arrow{font-size:12px;color:#86868b;transition:transform .2s}
+.cp-month-card.open .cp-month-arrow{transform:rotate(180deg)}
+
+.cp-month-body{display:none;padding:0 16px 14px;font-size:13px;color:#636366}
+.cp-month-card.open .cp-month-body{display:block}
+.cp-excerpt{margin-top:6px;line-height:1.5;white-space:pre-wrap}
+.cp-month-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.cp-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;transition:background .15s}
+.cp-btn-primary{background:#0066cc;color:#fff}
+.cp-btn-primary:hover{background:#0055b3}
+.cp-btn-secondary{background:#e8e8ed;color:#1d1d1f}
+.cp-btn-secondary:hover{background:#d8d8dd}
+
+/* ===== モーダル ===== */
+.cp-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;justify-content:center;align-items:flex-start;padding:40px 16px}
+.cp-overlay.show{display:flex}
+.cp-modal{background:#fff;border-radius:16px;width:100%;max-width:680px;max-height:calc(100vh - 80px);display:flex;flex-direction:column;overflow:hidden}
+.cp-modal-header{display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid #e5e5e7}
+.cp-modal-header h2{flex:1;font-size:16px;font-weight:700}
+.cp-modal-close{width:28px;height:28px;border-radius:50%;background:#e8e8ed;display:flex;align-items:center;justify-content:center;font-size:16px;color:#636366}
+.cp-modal-close:hover{background:#d8d8dd}
+
+/* モーダルタブ */
+.cp-tabs{display:flex;border-bottom:1px solid #e5e5e7;padding:0 20px}
+.cp-tab{padding:10px 16px;font-size:13px;font-weight:600;color:#86868b;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.cp-tab.active{color:#0066cc;border-bottom-color:#0066cc}
+
+.cp-modal-body{flex:1;overflow-y:auto;padding:20px}
+.cp-tab-content{display:none}
+.cp-tab-content.active{display:block}
+
+/* 報告書（プレーンテキストfallback） */
+.cp-report-text{white-space:pre-wrap;font-size:13px;line-height:1.7;color:#1d1d1f}
+/* 報告書（Markdownレンダリング済み） */
+.cp-report-rendered{font-size:13px;line-height:1.8;color:#1d1d1f}
+.cp-report-rendered h1{font-size:18px;font-weight:700;margin:20px 0 8px;padding-bottom:6px;border-bottom:1px solid #e5e5e7}
+.cp-report-rendered h2{font-size:16px;font-weight:700;margin:18px 0 6px}
+.cp-report-rendered h3{font-size:14px;font-weight:700;margin:14px 0 4px}
+.cp-report-rendered p{margin:6px 0}
+.cp-report-rendered ul,.cp-report-rendered ol{margin:6px 0;padding-left:20px}
+.cp-report-rendered li{margin:3px 0}
+.cp-report-rendered strong{font-weight:700}
+.cp-report-rendered hr{border:none;border-top:1px solid #e5e5e7;margin:12px 0}
+.cp-report-rendered table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px}
+.cp-report-rendered th,.cp-report-rendered td{padding:4px 8px;border:1px solid #e5e5e7;text-align:left}
+.cp-report-rendered th{background:#f5f5f7;font-weight:600}
+
+/* 予算配賦 */
+.cp-billing-table{width:100%;border-collapse:collapse;font-size:13px}
+.cp-billing-table th{text-align:left;padding:6px 8px;color:#86868b;font-weight:600;border-bottom:1px solid #e5e5e7}
+.cp-billing-table td{padding:6px 8px;border-bottom:1px solid #f0f0f0}
+
+/* 報酬イベント */
+.cp-event-card{padding:10px 0;border-bottom:1px solid #f0f0f0}
+.cp-event-card:last-child{border-bottom:none}
+.cp-event-title{font-weight:600;font-size:13px;color:#1d1d1f}
+.cp-event-meta{font-size:12px;color:#86868b;margin-top:2px}
+.cp-event-desc{font-size:12px;color:#636366;margin-top:4px}
+
+/* ローディング */
+.cp-loading{text-align:center;padding:40px;color:#86868b}
+.cp-spinner{display:inline-block;width:20px;height:20px;border:2px solid #e5e5e7;border-top-color:#0066cc;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* empty */
+.cp-empty{text-align:center;padding:24px;color:#86868b;font-size:13px}
+
+/* ===== ゴール階層（実データ版） ===== */
+.cp-goals-section{margin-bottom:10px}
+.cp-goals-level{font-size:12px;font-weight:700;color:#86868b;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.cp-goals-level .icon{font-size:14px}
+.cp-ms-list{padding-left:4px}
+.cp-ms-item{display:flex;align-items:baseline;gap:8px;padding:4px 0;font-size:13px;border-bottom:1px solid #f5f5f7}
+.cp-ms-item:last-child{border-bottom:none}
+.cp-ms-order{font-size:11px;font-weight:700;color:#86868b;min-width:22px}
+.cp-ms-title{flex:1;color:#1d1d1f}
+.cp-ms-pts{font-size:12px;font-weight:600;color:#0066cc;white-space:nowrap}
+.cp-ms-tag{font-size:10px;padding:1px 5px;border-radius:3px;background:#e8e8ed;color:#636366}
+.cp-ms-tag.buffer{background:#fef3cd;color:#856404}
+.cp-ms-criteria{font-size:11px;color:#86868b;padding:2px 0 2px 30px}
+.cp-goals-empty{font-size:12px;color:#aaa;font-style:italic;padding:4px 0}
+.cp-goals-cycle-info{font-size:11px;color:#86868b;margin-bottom:8px;padding:4px 8px;background:#f9f9fb;border-radius:6px}
+
+/* ===== 報酬ダッシュボード ===== */
+.cp-reward-section{margin-bottom:16px}
+.cp-reward-section-title{font-size:12px;font-weight:700;color:#86868b;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.cp-plan-info{font-size:11px;color:#86868b;padding:6px 8px;background:#f9f9fb;border-radius:6px;margin-bottom:10px}
+
+/* マイルストーン消化バー */
+.cp-ms-bar-row{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px}
+.cp-ms-bar-label{min-width:160px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1d1d1f}
+.cp-ms-bar-wrap{flex:1;height:14px;background:#f0f0f0;border-radius:7px;position:relative;overflow:hidden;min-width:80px}
+.cp-ms-bar-fill{height:100%;border-radius:7px;transition:width .3s}
+.cp-ms-bar-fill.low{background:#34c759}
+.cp-ms-bar-fill.mid{background:#ff9500}
+.cp-ms-bar-fill.high{background:#ff3b30}
+.cp-ms-bar-pct{font-size:11px;font-weight:600;min-width:36px;text-align:right;color:#636366}
+.cp-ms-bar-pts{font-size:10px;color:#86868b;min-width:60px;text-align:right}
+
+/* イベント詳細（拡張） */
+.cp-ev-contribs{margin-top:4px;padding-left:12px;font-size:11px;color:#636366}
+.cp-ev-contrib-item{display:flex;gap:6px;padding:1px 0}
+.cp-ev-contrib-pt{font-weight:600;color:#0066cc;min-width:30px}
+
+/* メンバー配分 */
+.cp-member-table{width:100%;border-collapse:collapse;font-size:12px}
+.cp-member-table th{text-align:left;padding:5px 6px;color:#86868b;font-weight:600;border-bottom:1px solid #e5e5e7;font-size:11px}
+.cp-member-table td{padding:5px 6px;border-bottom:1px solid #f0f0f0}
+.cp-member-table .num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* 進捗サマリ */
+.cp-progress-box{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.cp-progress-stat{flex:1;min-width:100px;padding:8px 10px;background:#f9f9fb;border-radius:8px;text-align:center}
+.cp-progress-stat .val{font-size:18px;font-weight:700;color:#1d1d1f}
+.cp-progress-stat .label{font-size:10px;color:#86868b;margin-top:2px}
+</style>
+</head>
+<body>
+
+<?!= navHtml ?>
+
+<div class="cp-wrap" id="cpRoot">
+  <div class="cp-loading"><div class="cp-spinner"></div><div style="margin-top:8px">読み込み中...</div></div>
+</div>
+
+<!-- モーダル -->
+<div class="cp-overlay" id="cpOverlay" onclick="cpCloseModalOnOverlay(event)">
+  <div class="cp-modal">
+    <div class="cp-modal-header">
+      <h2 id="cpModalTitle">-</h2>
+      <button class="cp-modal-close" onclick="cpCloseModal()">&times;</button>
+    </div>
+    <div class="cp-tabs">
+      <div class="cp-tab active" data-tab="report" onclick="cpSwitchTab('report')">月次報告書</div>
+      <div class="cp-tab" data-tab="billing" onclick="cpSwitchTab('billing')">予算・配賦</div>
+      <div class="cp-tab" data-tab="reward" onclick="cpSwitchTab('reward')">報酬配分</div>
+    </div>
+    <div class="cp-modal-body">
+      <div class="cp-tab-content active" id="cpTabReport">
+        <div class="cp-loading"><div class="cp-spinner"></div></div>
+      </div>
+      <div class="cp-tab-content" id="cpTabBilling">
+        <div class="cp-loading"><div class="cp-spinner"></div></div>
+      </div>
+      <div class="cp-tab-content" id="cpTabReward">
+        <div class="cp-loading"><div class="cp-spinner"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 状態 =====
+var CP = {
+  projectId: "<?= projectId ?>",
+  projectName: "<?= projectName ?>",
+  baseUrl: "<?= baseUrl ?>",
+  data: null,
+  modalYm: null
+};
+
+// ===== 初期化 =====
+document.addEventListener("DOMContentLoaded", function() {
+  cpLoadData();
+});
+
+function cpLoadData() {
+  google.script.run
+    .withSuccessHandler(cpRenderPage)
+    .withFailureHandler(function(err) {
+      document.getElementById("cpRoot").innerHTML =
+        '<div class="cp-empty">データ取得に失敗: ' + cpEsc(String(err)) + '</div>';
+    })
+    .cockpit_api_getData({ projectId: CP.projectId });
+}
+
+// ===== ページ描画 =====
+function cpRenderPage(res) {
+  if (!res || !res.ok) {
+    document.getElementById("cpRoot").innerHTML =
+      '<div class="cp-empty">' + cpEsc(res ? res.message : "不明なエラー") + '</div>';
+    return;
+  }
+  CP.data = res;
+
+  var p = res.project || {};
+  var isActive = (p.status || "").toLowerCase() !== "closed";
+
+  var html = "";
+
+  // PJヘッダー
+  html += '<div class="cp-header">';
+  html += '  <h1>' + cpEsc(p.projectName || CP.projectName || CP.projectId) + '</h1>';
+  if (p.clientName) html += '  <span style="font-size:12px;color:#86868b">' + cpEsc(p.clientName) + '</span>';
+  html += '  <span class="cp-badge ' + (isActive ? "active" : "") + '">' + (isActive ? "Active" : "Closed") + '</span>';
+  html += '  <a class="cp-btn cp-btn-secondary" href="' + CP.baseUrl + '?page=charter&projectId=' + encodeURIComponent(CP.projectId) + '" style="font-size:11px;padding:4px 10px;margin-left:4px">チャーター →</a>';
+  html += '</div>';
+
+  // ゴール階層（API読み込み）
+  html += '<div class="cp-goals" id="cpGoals">';
+  html += '  <div class="cp-goals-title">目標階層</div>';
+  html += '  <div style="color:#aaa;font-size:12px">読み込み中...</div>';
+  html += '</div>';
+
+  // 月次タイムライン
+  html += '<div class="cp-timeline">';
+  var summaries = res.monthlySummaries || [];
+  for (var i = 0; i < summaries.length; i++) {
+    var s = summaries[i];
+    var isCurrent = (s.ym === res.currentYm);
+    var ymLabel = s.ym.substring(0, 4) + "/" + s.ym.substring(4, 6);
+
+    html += '<div class="cp-month-card' + (isCurrent ? " current open" : "") + '" data-ym="' + s.ym + '">';
+
+    // ヘッダー
+    html += '  <div class="cp-month-head" onclick="cpToggleMonth(this)">';
+    html += '    <span class="cp-month-ym">' + ymLabel + '</span>';
+    html += '    <div class="cp-month-badges">';
+    html += cpPill("会議", s.meetingDone);
+    html += cpPill("予算", s.budgetDone);
+    html += cpPill("配賦", s.allocDone);
+    html += cpPill("報告", s.reportDone);
+    html += cpPill("請求", s.invoiceDone);
+    html += cpPill("入金", s.paymentDone);
+    html += '    </div>';
+    html += '    <span class="cp-month-arrow">▼</span>';
+    html += '  </div>';
+
+    // ボディ（今月だけ最初から開く）
+    html += '  <div class="cp-month-body">';
+    if (s.reportExcerpt) {
+      html += '    <div class="cp-excerpt">' + cpEsc(s.reportExcerpt) + '...</div>';
+    } else {
+      html += '    <div class="cp-excerpt" style="color:#aaa">報告書なし</div>';
+    }
+    if (s.billingAmount > 0) {
+      html += '    <div style="margin-top:6px;font-size:12px;color:#1d1d1f">請求額: ¥' + cpFmtNum(s.billingAmount) + '</div>';
+    }
+    html += '    <div class="cp-month-actions">';
+    html += '      <button class="cp-btn cp-btn-primary" onclick="cpOpenModal(\'' + s.ym + '\')">詳細を開く</button>';
+    html += '      <a class="cp-btn cp-btn-secondary" href="' + CP.baseUrl + '?page=billing&projectId=' + encodeURIComponent(CP.projectId) + '&ym=' + s.ym + '">Billingへ →</a>';
+    html += '    </div>';
+    html += '  </div>';
+
+    html += '</div>';
+  }
+  html += '</div>';
+
+  document.getElementById("cpRoot").innerHTML = html;
+
+  // ゴール階層を非同期で取得
+  cpLoadGoals();
+}
+
+function cpLoadGoals() {
+  google.script.run
+    .withSuccessHandler(cpRenderGoals)
+    .withFailureHandler(function() { cpRenderGoals(null); })
+    .cockpit_api_getGoalHierarchy({ projectId: CP.projectId });
+}
+
+function cpRenderGoals(res) {
+  var el = document.getElementById("cpGoals");
+  if (!el) return;
+
+  var html = '<div class="cp-goals-title">目標階層</div>';
+
+  if (!res || !res.ok || !res.planCycle) {
+    html += '<div class="cp-goals-empty">年間計画が未設定（ValuePlanから作成）</div>';
+    el.innerHTML = html;
+    return;
+  }
+
+  var pc = res.planCycle;
+  var ms = res.milestones || {};
+
+  // サイクル情報
+  var period = String(pc.periodStartYm || "");
+  var periodEnd = String(pc.periodEndYm || "");
+  if (period) {
+    var pLabel = period.substring(0,4) + "/" + period.substring(4) + " 〜 " + periodEnd.substring(0,4) + "/" + periodEnd.substring(4);
+    html += '<div class="cp-goals-cycle-info">';
+    html += pLabel + '｜' + Number(pc.totalPoints || 100) + 'pt｜';
+    html += (String(pc.status || "") === "fixed" ? "確定" : "下書き");
+    html += '</div>';
+  }
+
+  // 年間マイルストーン
+  html += cpRenderMsSection("annual", "年間目標", ms.annual || []);
+
+  // Q目標（targetYmの降順で表示）
+  var qKeys = Object.keys(ms.quarterly || {}).sort().reverse();
+  if (qKeys.length > 0) {
+    for (var qi = 0; qi < qKeys.length; qi++) {
+      var qYm = qKeys[qi];
+      var qLabel = "Q目標 (" + qYm.substring(0,4) + "/" + qYm.substring(4) + "〜)";
+      html += cpRenderMsSection("quarterly", qLabel, ms.quarterly[qYm]);
+    }
+  } else {
+    html += '<div class="cp-goals-section">';
+    html += '  <div class="cp-goals-level"><span class="icon">📊</span>Q目標</div>';
+    html += '  <div class="cp-goals-empty">未設定</div>';
+    html += '</div>';
+  }
+
+  // 月次目標（直近3ヶ月だけ表示）
+  var mKeys = Object.keys(ms.monthly || {}).sort().reverse().slice(0, 3);
+  if (mKeys.length > 0) {
+    for (var mi = 0; mi < mKeys.length; mi++) {
+      var mYm = mKeys[mi];
+      var mLabel = "月次目標 (" + mYm.substring(0,4) + "/" + mYm.substring(4) + ")";
+      html += cpRenderMsSection("monthly", mLabel, ms.monthly[mYm]);
+    }
+  } else {
+    html += '<div class="cp-goals-section">';
+    html += '  <div class="cp-goals-level"><span class="icon">📅</span>月次目標</div>';
+    html += '  <div class="cp-goals-empty">未設定</div>';
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function cpRenderMsSection(level, label, items) {
+  var icons = { annual: "🎯", quarterly: "📊", monthly: "📅" };
+  var h = '<div class="cp-goals-section">';
+  h += '  <div class="cp-goals-level"><span class="icon">' + (icons[level] || "📌") + '</span>' + cpEsc(label) + '</div>';
+
+  if (!items || items.length === 0) {
+    h += '  <div class="cp-goals-empty">未設定</div>';
+    h += '</div>';
+    return h;
+  }
+
+  h += '  <div class="cp-ms-list">';
+  for (var i = 0; i < items.length; i++) {
+    var m = items[i];
+    var tag = String(m.tag || "normal").toLowerCase();
+    var pts = Number(m.points || 0);
+
+    h += '<div class="cp-ms-item">';
+    h += '  <span class="cp-ms-order">' + (Number(m.orderNo) || (i+1)) + '.</span>';
+    h += '  <span class="cp-ms-title">' + cpEsc(m.title || "(無題)") + '</span>';
+    if (pts > 0) h += '  <span class="cp-ms-pts">' + pts + 'pt</span>';
+    if (tag === "buffer") h += '  <span class="cp-ms-tag buffer">buffer</span>';
+    h += '</div>';
+
+    var criteria = String(m.successCriteria || "").trim();
+    if (criteria) {
+      h += '<div class="cp-ms-criteria">' + cpEsc(criteria) + '</div>';
+    }
+  }
+  h += '  </div>';
+  h += '</div>';
+  return h;
+}
+
+// ===== 月次カード開閉 =====
+function cpToggleMonth(headEl) {
+  var card = headEl.parentElement;
+  card.classList.toggle("open");
+}
+
+// ===== モーダル =====
+function cpOpenModal(ym) {
+  CP.modalYm = ym;
+  var ymLabel = ym.substring(0, 4) + "/" + ym.substring(4, 6);
+  document.getElementById("cpModalTitle").textContent = ymLabel + " 詳細";
+
+  // タブリセット
+  cpSwitchTab("report");
+
+  // ローディング表示
+  document.getElementById("cpTabReport").innerHTML = '<div class="cp-loading"><div class="cp-spinner"></div></div>';
+  document.getElementById("cpTabBilling").innerHTML = '<div class="cp-loading"><div class="cp-spinner"></div></div>';
+  document.getElementById("cpTabReward").innerHTML = '<div class="cp-loading"><div class="cp-spinner"></div></div>';
+
+  document.getElementById("cpOverlay").classList.add("show");
+
+  // データ取得
+  google.script.run
+    .withSuccessHandler(cpRenderModal)
+    .withFailureHandler(function(err) {
+      document.getElementById("cpTabReport").innerHTML =
+        '<div class="cp-empty">取得失敗: ' + cpEsc(String(err)) + '</div>';
+    })
+    .cockpit_api_getMonthDetail({ projectId: CP.projectId, ym: ym });
+
+  // 報酬ダッシュボード取得
+  google.script.run
+    .withSuccessHandler(cpRenderRewardDashboard)
+    .withFailureHandler(function(err) {
+      document.getElementById("cpTabReward").innerHTML =
+        '<div class="cp-empty">報酬データ取得失敗: ' + cpEsc(String(err)) + '</div>';
+    })
+    .cockpit_api_getRewardDashboard({ projectId: CP.projectId, ym: ym });
+}
+
+
+function cpCloseModal() {
+  document.getElementById("cpOverlay").classList.remove("show");
+  CP.modalYm = null;
+}
+
+function cpCloseModalOnOverlay(e) {
+  if (e.target === document.getElementById("cpOverlay")) cpCloseModal();
+}
+
+function cpSwitchTab(tab) {
+  var tabs = document.querySelectorAll(".cp-tab");
+  var contents = document.querySelectorAll(".cp-tab-content");
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].classList.toggle("active", tabs[i].getAttribute("data-tab") === tab);
+  }
+  for (var j = 0; j < contents.length; j++) {
+    contents[j].classList.toggle("active", contents[j].id === "cpTab" + tab.charAt(0).toUpperCase() + tab.slice(1));
+  }
+}
+
+// ===== モーダル描画 =====
+function cpRenderModal(res) {
+  if (!res || !res.ok) {
+    document.getElementById("cpTabReport").innerHTML = '<div class="cp-empty">データなし</div>';
+    return;
+  }
+
+  // タブ1: 報告書（Markdownレンダリング）
+  var rpt = res.report;
+  if (rpt) {
+    var content = rpt.finalContent || rpt.draftContent || "";
+    if (content && typeof marked !== "undefined") {
+      document.getElementById("cpTabReport").innerHTML =
+        '<div class="cp-report-rendered">' + marked.parse(content) + '</div>';
+    } else if (content) {
+      document.getElementById("cpTabReport").innerHTML =
+        '<div class="cp-report-text">' + cpEsc(content) + '</div>';
+    } else {
+      document.getElementById("cpTabReport").innerHTML = '<div class="cp-empty">報告書が未作成</div>';
+    }
+  } else {
+    document.getElementById("cpTabReport").innerHTML = '<div class="cp-empty">報告書が見つからない</div>';
+  }
+
+  // タブ2: 予算・配賦
+  var b = res.billing;
+  if (b) {
+    var bHtml = '<table class="cp-billing-table">';
+    bHtml += '<tr><th>項目</th><th>値</th></tr>';
+    var fields = [
+      ["請求額", b.billingAmount || b.invoiceAmount || b.amount],
+      ["会議", b.meetingScheduled],
+      ["予算確定", b.budgetConfirmed],
+      ["配賦確定", b.allocationConfirmed],
+      ["請求書送付", b.invoiceSent],
+      ["入金確認", b.paymentConfirmed]
+    ];
+    for (var fi = 0; fi < fields.length; fi++) {
+      bHtml += '<tr><td>' + cpEsc(fields[fi][0]) + '</td><td>' + cpEsc(String(fields[fi][1] || "-")) + '</td></tr>';
+    }
+    bHtml += '</table>';
+    document.getElementById("cpTabBilling").innerHTML = bHtml;
+  } else {
+    document.getElementById("cpTabBilling").innerHTML = '<div class="cp-empty">Billingデータなし</div>';
+  }
+}
+
+// ===== ヘルパー =====
+function cpPill(label, done) {
+  var cls = done ? "done" : "pending";
+  return '<span class="cp-pill ' + cls + '">' + label + '</span>';
+}
+
+function cpEsc(s) {
+  var d = document.createElement("div");
+  d.textContent = String(s || "");
+  return d.innerHTML;
+}
+
+function cpFmtNum(n) {
+  return String(Number(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+// ===== 報酬ダッシュボード描画 =====
+function cpRenderRewardDashboard(res) {
+  var el = document.getElementById("cpTabReward");
+  if (!res || !res.ok) {
+    el.innerHTML = '<div class="cp-empty">' + cpEsc(res ? res.message : "データなし") + '</div>';
+    return;
+  }
+  if (res.noPlan) {
+    el.innerHTML = '<div class="cp-empty">年間計画が未設定（ValuePlanから作成してね）</div>';
+    return;
+  }
+
+  var plan = res.plan || {};
+  var ms = res.milestones || [];
+  var summary = res.monthSummary || {};
+  var events = res.events || [];
+  var members = summary.members || [];
+  var html = "";
+
+  // --- サマリ ---
+  var pLabel = (plan.startYm||"").substring(0,4) + "/" + (plan.startYm||"").substring(4)
+             + " 〜 " + (plan.endYm||"").substring(0,4) + "/" + (plan.endYm||"").substring(4);
+  html += '<div class="cp-plan-info">';
+  html += pLabel + '｜全' + plan.totalPoints + 'pt｜1pt = ¥' + cpFmtNum(plan.ptUnit);
+  html += '</div>';
+
+  html += '<div class="cp-progress-box">';
+  html += cpProgressStat(summary.monthConsumedPt + "pt", "今月消化");
+  html += cpProgressStat(summary.cumulativeConsumedPt + "/" + plan.totalPoints + "pt", "累計消化");
+  html += cpProgressStat(summary.progressPct + "%", "進捗率");
+  var expectedPct = plan.cycleMonths > 0
+    ? Math.round(cpElapsedMonths(plan.startYm, summary.ym) / plan.cycleMonths * 100) : 0;
+  html += cpProgressStat(expectedPct + "%", "期待進捗率");
+  html += '</div>';
+
+  // --- マイルストーン消化バー ---
+  html += '<div class="cp-reward-section">';
+  html += '  <div class="cp-reward-section-title">📊 マイルストーン消化状況</div>';
+  for (var i = 0; i < ms.length; i++) {
+    var m = ms[i];
+    var pct = m.pctUsed;
+    var barClass = pct < 60 ? "low" : pct < 90 ? "mid" : "high";
+    html += '<div class="cp-ms-bar-row">';
+    html += '  <span class="cp-ms-bar-label" title="' + cpEsc(m.title) + '">' + m.orderNo + '. ' + cpEsc(m.title) + '</span>';
+    html += '  <div class="cp-ms-bar-wrap"><div class="cp-ms-bar-fill ' + barClass + '" style="width:' + Math.min(100, pct) + '%"></div></div>';
+    html += '  <span class="cp-ms-bar-pct">' + pct + '%</span>';
+    html += '  <span class="cp-ms-bar-pts">' + m.consumedPt + '/' + m.maxPt + 'pt</span>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // --- イベント詳細 ---
+  html += '<div class="cp-reward-section">';
+  html += '  <div class="cp-reward-section-title">📝 進捗イベント（' + events.length + '件）</div>';
+  if (events.length === 0) {
+    html += '  <div class="cp-empty">イベントなし</div>';
+  }
+  for (var e = 0; e < events.length; e++) {
+    var ev = events[e];
+    var statusLabel = ev.status === "confirmed" ? "✅" : ev.status === "rejected" ? "❌" : "📝";
+    html += '<div class="cp-event-card">';
+    html += '  <div class="cp-event-title">' + statusLabel + ' ' + cpEsc(ev.eventTitle || "(無題)") + '</div>';
+    html += '  <div class="cp-event-meta">';
+    html += '    Impact <strong>' + ev.impact + '</strong> × Depth <strong>' + ev.depth + '</strong> = <strong>' + ev.eventValue + '</strong>';
+    html += '  </div>';
+    if (ev.eventDescription) {
+      html += '  <div class="cp-event-desc">' + cpEsc(ev.eventDescription) + '</div>';
+    }
+    // responsibilities
+    var resps = ev.responsibilities || [];
+    if (resps.length) {
+      html += '  <div style="margin-top:3px;font-size:11px;color:#86868b">担当: ';
+      for (var ri = 0; ri < resps.length; ri++) {
+        html += (ri > 0 ? ", " : "") + cpEsc(resps[ri].memberName || resps[ri].memberId) + "(" + Number(resps[ri].responsibility).toFixed(1) + ")";
+      }
+      html += '</div>';
+    }
+    // contributions → milestone
+    var contribs = ev.contributions || [];
+    if (contribs.length) {
+      html += '<div class="cp-ev-contribs">';
+      for (var ci = 0; ci < contribs.length; ci++) {
+        var ct = contribs[ci];
+        html += '<div class="cp-ev-contrib-item">';
+        html += '  <span class="cp-ev-contrib-pt">' + ct.contribPt + 'pt</span>';
+        html += '  <span>→ ' + cpEsc(ct.milestoneDesc || ct.milestoneKey) + '</span>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    if (ev.status === "rejected" && ev.rejectReason) {
+      html += '<div style="margin-top:3px;font-size:11px;color:#ff3b30">除外理由: ' + cpEsc(ev.rejectReason) + '</div>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // --- メンバー配分 ---
+  html += '<div class="cp-reward-section">';
+  html += '  <div class="cp-reward-section-title">💰 メンバー報酬（' + (summary.ym || "") + '）</div>';
+  if (members.length === 0) {
+    html += '  <div class="cp-empty">計算未実行</div>';
+  } else {
+    html += '<table class="cp-member-table">';
+    html += '<tr><th>メンバー</th><th class="num">獲得pt</th><th class="num">ベース</th><th class="num">感謝bonus</th><th class="num">合計</th><th>状態</th></tr>';
+    for (var mi = 0; mi < members.length; mi++) {
+      var mb = members[mi];
+      html += '<tr>';
+      html += '  <td>' + cpEsc(mb.memberName || mb.memberId) + '</td>';
+      html += '  <td class="num">' + mb.earnedPoints + 'pt</td>';
+      html += '  <td class="num">¥' + cpFmtNum(mb.basePay) + '</td>';
+      html += '  <td class="num">¥' + cpFmtNum(mb.appreciationBonus) + '</td>';
+      html += '  <td class="num"><strong>¥' + cpFmtNum(mb.totalPayout) + '</strong></td>';
+      html += '  <td>' + (mb.status === "confirmed" ? "✅確定" : "📝下書き") + '</td>';
+      html += '</tr>';
+    }
+    html += '</table>';
+  }
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+
+function cpProgressStat(val, label) {
+  return '<div class="cp-progress-stat"><div class="val">' + val + '</div><div class="label">' + label + '</div></div>';
+}
+
+function cpElapsedMonths(startYm, currentYm) {
+  if (!startYm || !currentYm) return 0;
+  var sy = parseInt(startYm.substring(0,4), 10);
+  var sm = parseInt(startYm.substring(4,6), 10);
+  var cy = parseInt(currentYm.substring(0,4), 10);
+  var cm = parseInt(currentYm.substring(4,6), 10);
+  return (cy - sy) * 12 + (cm - sm) + 1;
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+</body>
+</html>

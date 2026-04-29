@@ -1,0 +1,77 @@
+<!-- 512_CockpitReimburse.html
+     立替精算の取得・描画。500_CockpitPage.htmlからincludeされる。
+-->
+<script>
+function cpLoadReimburseForMonth() {
+  google.script.run
+    .withSuccessHandler(cpRenderReimburse)
+    .withFailureHandler(function() { cpRenderReimburse(null); })
+    .cockpit_api_getReimburseForMonth({ projectId: CP.projectId, ym: CP.modalYm });
+}
+
+function cpRenderReimburse(res) {
+  var el = document.getElementById("cpReimbContent");
+  if (!el) return;
+
+  if (!res || !res.ok) {
+    el.innerHTML = '<div style="color:#aaa;font-size:12px">立替データ取得失敗</div>';
+    return;
+  }
+
+  var items = res.items || [];
+  if (items.length === 0) {
+    el.innerHTML = '<div style="color:#aaa;font-size:12px">今月の立替なし</div>';
+    return;
+  }
+
+  var html = '<table class="cp-reimb-table">';
+  html += '<tr><th>日付</th><th>区分</th><th>摘要</th><th class="num">金額</th><th>承認</th></tr>';
+
+  var totalAmount = 0;
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var dateStr = String(it.date || "").replace(/^\d{4}-/, "").replace(/-/g, "/");
+    var cat = it.categoryLabel || it.category || "";
+    var desc = it.desc || "";
+    var amount = Number(it.amount || 0);
+    totalAmount += amount;
+
+    if (it.transportFrom || it.transportTo) {
+      desc = (it.transportFrom || "") + "→" + (it.transportTo || "");
+      if (it.transportMode) desc += "（" + it.transportMode;
+      if (it.transportTrip) desc += "・" + it.transportTrip;
+      if (it.transportMode) desc += "）";
+      if (it.desc) desc += " " + it.desc;
+    }
+
+    var statusClass = "pending";
+    var statusLabel = "未承認";
+    if (it.billedYm) {
+      statusClass = "billed";
+      statusLabel = "請求済";
+    } else if (it.adminApprovedAt) {
+      statusClass = "approved";
+      statusLabel = "承認済";
+    } else if (it.pmApprovedAt) {
+      statusClass = "pm-ok";
+      statusLabel = "PM済";
+    }
+
+    html += '<tr>';
+    html += '  <td style="white-space:nowrap">' + cpEsc(dateStr) + '</td>';
+    html += '  <td>' + cpEsc(cat) + '</td>';
+    html += '  <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + cpEsc(desc) + '">' + cpEsc(desc) + '</td>';
+    html += '  <td class="num">¥' + cpFmtNum(amount) + '</td>';
+    html += '  <td><span class="cp-reimb-status ' + statusClass + '">' + statusLabel + '</span></td>';
+    html += '</tr>';
+  }
+  html += '</table>';
+
+  html += '<div class="cp-reimb-total">';
+  html += '  <span>' + items.length + '件</span>';
+  html += '  <span>合計 ¥' + cpFmtNum(totalAmount) + '</span>';
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+</script>

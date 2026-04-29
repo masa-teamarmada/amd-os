@@ -1,0 +1,52 @@
+<!-- 245_AdminContexts.html -->
+<div id="sec_contexts" style="display:none;">
+  <div class="card" id="ctxCard">
+    <div class="row">
+      <div>
+        <div style="font-weight:900;">LLM Context（DB_LLMContext）</div>
+        <div class="muted">略語・PJ背景・人物メモなど。抽出/回答の背景知識として注入する。</div>
+      </div>
+
+      <div class="rowLeft">
+        <div>
+          <div class="ctlLabel">検索</div>
+          <input id="ctxQ" class="ctl" style="width:220px" placeholder="CX / 神谷 / 略語 など" />
+        </div>
+        <div>
+          <div class="ctlLabel">status</div>
+          <select id="ctxStatus" class="ctl" style="width:140px">
+            <option value="">（全て）</option>
+            <option value="active">active</option>
+            <option value="archived">archived</option>
+          </select>
+        </div>
+
+        <button class="btn" onclick="loadContexts()">更新</button>
+        <button class="btn" onclick="openNewContextModal()">追加</button>
+
+      </div>
+    </div>
+
+    <div id="ctxHint" class="hint">-</div>
+    <div id="ctxErr" class="err" style="display:none;"></div>
+
+    <div class="tableWrap" style="margin-top:12px;">
+      <table class="stickyTable" style="min-width: 1700px;">
+        <thead>
+          <tr>
+            <th style="width:120px;">status</th>
+            <th style="width:920px;">content</th>
+            <th style="width:380px;">tags</th>
+            <th style="width:160px;">updatedAt</th>
+            <th style="width:220px;">操作</th>
+            <th style="width:220px;">contextId</th>
+          </tr>
+        </thead>
+        <tbody id="ctxTbody">
+          <tr><td colspan="10" class="muted">loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div><!-- /#sec_contexts -->
