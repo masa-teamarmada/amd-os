@@ -1060,6 +1060,20 @@ actor SupabaseService {
             body["member_allocations_json"] = allocations
         }
         try await patchBillingCycle(projectId: projectId, ym: ym, body: body)
+
+        // admin に Slack DM で承認 nudge（失敗しても申告自体はノーエラー）
+        Task.detached { [self] in
+            try? await self.sendBudgetApprovalNudge(projectId: projectId, ym: ym, pmEmail: byEmail)
+        }
+    }
+
+    func sendBudgetApprovalNudge(projectId: String, ym: String, pmEmail: String) async throws {
+        struct NudgeResult: Decodable { let ok: Bool }
+        let _: NudgeResult = try await callEdgeFunction("send-budget-approval-nudge", body: [
+            "projectId": projectId,
+            "ym": ym,
+            "pmEmail": pmEmail
+        ])
     }
 
     /// 予算承認: 請求額 × 65% - バッファ = PJ予算（budget_yen）
@@ -1072,6 +1086,21 @@ actor SupabaseService {
             "budget_confirmed_by": byEmail
         ]
         try await patchBillingCycle(projectId: projectId, ym: ym, body: body)
+    }
+
+    /// billing_cycles の status だけを軽量取得（マイページ TODO フィルタ用）
+    func fetchBillingCycleStatusSimple(projectId: String, ym: String) async throws -> String? {
+        struct Row: Decodable {
+            let status: String?
+        }
+        let rows: [Row] = (try? await client.database
+            .from("billing_cycles")
+            .select("status")
+            .eq("project_id", value: projectId)
+            .eq("ym", value: ym)
+            .limit(1)
+            .execute().value) ?? []
+        return rows.first?.status
     }
 
     // MARK: - Payout Notice (Member-grouped Admin View)
@@ -2028,6 +2057,9 @@ actor SupabaseService {
                         projectId: pid,
                         yms: [flow.bizYm]
                     )) ?? [:]
+                    // billing_cycles.status を取得して「申告済み＝admin待ち」の budget ステップを PM 側 TODO から除外
+                    let billingStatus = (try? await self.fetchBillingCycleStatusSimple(projectId: pid, ym: flow.bizYm)) ?? "draft"
+
                     let notes = visibleRoutineSteps(
                         for: projectType,
                         in: flow,
@@ -2038,7 +2070,9 @@ actor SupabaseService {
                             actionableStatuses.contains(step.status) &&
                             !step.done &&
                             !step.isDeferred &&
-                            step.isTappable
+                            step.isTappable &&
+                            // PM が申告済み（reported）なら budget ステップは admin 待ち → PM 側 TODO から除外
+                            !(step.stepId == "budget" && billingStatus == "reported")
                         }
                         .map { step in
                             MyPageNotification(
