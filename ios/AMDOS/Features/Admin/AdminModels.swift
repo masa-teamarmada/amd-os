@@ -214,6 +214,19 @@ struct PayoutNoticeMemberPJ: Hashable {
     let isAllocated: Bool
 }
 
+/// AdminTabView 上部の「今月やること」カード用サマリ。
+/// 各カウンタは active PJ × 直近6ヶ月の billing_cycles を集計したもの。
+struct AdminPendingSummary: Equatable {
+    let budgetApprovalCount: Int       // status='reported'
+    let payoutNoticeCount: Int         // 請求書発行済み × 通知書未送付
+    let paymentUnconfirmedCount: Int   // 請求書送付済み × 入金未確認
+    let rewardUnpaidCount: Int         // 入金確認済み × 報酬未支払い
+
+    var totalCount: Int {
+        budgetApprovalCount + payoutNoticeCount + paymentUnconfirmedCount + rewardUnpaidCount
+    }
+}
+
 /// send-payout-notice Edge Function の戻り値
 struct PayoutNoticeEdgeResult: Decodable {
     let ok: Bool

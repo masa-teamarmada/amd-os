@@ -1103,6 +1103,105 @@ actor SupabaseService {
         return rows.first?.status
     }
 
+    // MARK: - Admin Pending Tasks Summary
+
+    /// Admin の「今月やること」カード用サマリ
+    func fetchAdminPendingSummary() async throws -> AdminPendingSummary {
+        struct ProjRow: Decodable {
+            let projectId: String?
+            enum CodingKeys: String, CodingKey { case projectId = "project_id" }
+        }
+        struct CycleRow: Decodable {
+            let projectId: String?
+            let ym: String?
+            let status: String?
+            let invoiceIssuedAt: String?
+            let invoiceSentAt: String?
+            let payoutNoticeUploadedAt: String?
+            let paymentConfirmedAt: String?
+            let rewardPaidAt: String?
+            enum CodingKeys: String, CodingKey {
+                case projectId = "project_id"
+                case ym
+                case status
+                case invoiceIssuedAt = "invoice_issued_at"
+                case invoiceSentAt = "invoice_sent_at"
+                case payoutNoticeUploadedAt = "payout_notice_uploaded_at"
+                case paymentConfirmedAt = "payment_confirmed_at"
+                case rewardPaidAt = "reward_paid_at"
+            }
+        }
+
+        // 1. active PJ id 一覧
+        let projects: [ProjRow] = (try? await client.database
+            .from("projects")
+            .select("project_id")
+            .eq("status", value: "active")
+            .execute().value) ?? []
+        let activeProjectIds = projects.compactMap(\.projectId).filter { !$0.isEmpty }
+        guard !activeProjectIds.isEmpty else {
+            return AdminPendingSummary(
+                budgetApprovalCount: 0,
+                payoutNoticeCount: 0,
+                paymentUnconfirmedCount: 0,
+                rewardUnpaidCount: 0
+            )
+        }
+
+        // 2. active PJ の billing_cycles（直近6ヶ月で十分）
+        let now = Date()
+        let cal = Calendar(identifier: .gregorian)
+        let comps = cal.dateComponents(in: TimeZone(identifier: "Asia/Tokyo") ?? .current, from: now)
+        let curY = comps.year ?? 2026
+        let curM = comps.month ?? 1
+        var ymCandidates: [String] = []
+        for offset in -6...0 {
+            var m = curM + offset
+            var y = curY
+            while m <= 0 { m += 12; y -= 1 }
+            while m > 12 { m -= 12; y += 1 }
+            ymCandidates.append(String(format: "%04d%02d", y, m))
+        }
+
+        let cycles: [CycleRow] = (try? await client.database
+            .from("billing_cycles")
+            .select("project_id, ym, status, invoice_issued_at, invoice_sent_at, payout_notice_uploaded_at, payment_confirmed_at, reward_paid_at")
+            .in("project_id", values: activeProjectIds)
+            .in("ym", values: ymCandidates)
+            .execute().value) ?? []
+
+        var budgetApproval = 0
+        var payoutNotice = 0
+        var paymentUnconfirmed = 0
+        var rewardUnpaid = 0
+
+        for cycle in cycles {
+            // 予算承認待ち（status='reported'）
+            if cycle.status == "reported" {
+                budgetApproval += 1
+            }
+            // 支払通知書未送付（請求書発行済み かつ 通知書未送付）
+            if (cycle.invoiceIssuedAt?.isEmpty == false) && (cycle.payoutNoticeUploadedAt?.isEmpty != false) {
+                payoutNotice += 1
+            }
+            // 入金未確認（請求書送付済み かつ 入金未確認）
+            if (cycle.invoiceSentAt?.isEmpty == false) && (cycle.paymentConfirmedAt?.isEmpty != false) {
+                paymentUnconfirmed += 1
+            }
+            // 報酬未支払い（入金確認済み かつ 報酬未支払い）
+            if (cycle.paymentConfirmedAt?.isEmpty == false) && (cycle.rewardPaidAt?.isEmpty != false) {
+                rewardUnpaid += 1
+            }
+        }
+
+        return AdminPendingSummary(
+            budgetApprovalCount: budgetApproval,
+            payoutNoticeCount: payoutNotice,
+            paymentUnconfirmedCount: paymentUnconfirmed,
+            rewardUnpaidCount: rewardUnpaid
+        )
+    }
+
     // MARK: - Payout Notice (Member-grouped Admin View)
 
     /// 指定 ym の支払通知書一覧を「すべての active メンバー × すべての active 参加PJ」で組み立てる。

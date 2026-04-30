@@ -209,16 +209,16 @@ extension RoutineStep {
     }
 }
 
+// 月次ルーティンは「その月内に完結する PM 中心のタスク」に限定する。
+// payoutNotice / payment / payout は月次後のadmin処理なので、AdminTabView の
+// 「今月やること」カードで扱う（routine からは除外）。
 private let standardVisibleStepOrder = [
     "budget",
     "meeting",
     "reportFix",
     "reimburseConfirm",
     "invoiceIssue",
-    "invoiceSend",
-    "payoutNotice",
-    "payment",
-    "payout"
+    "invoiceSend"
 ]
 
 private let ctbVisibleStepOrder = [
@@ -228,10 +228,7 @@ private let ctbVisibleStepOrder = [
     "invoiceIssue",
     "invoiceSend",
     "reportFix",
-    "reimburseConfirm",
-    "payoutNotice",
-    "payment",
-    "payout"
+    "reimburseConfirm"
 ]
 
 private let ctbEstimateStepId = "estimateSend"

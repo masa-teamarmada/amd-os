@@ -9,3 +9,6 @@ xcuserdata/
 *.log
 *.tmp
 AGENTS 2.md
+
+# Supabase CLI
+supabase/.temp/

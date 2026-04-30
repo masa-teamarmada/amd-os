@@ -7,10 +7,22 @@ import QuickLook
 
 struct AdminTabView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var pendingSummary: AdminPendingSummary?
+    @State private var isLoadingSummary = false
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    AdminMonthlyTasksCard(
+                        summary: pendingSummary,
+                        isLoading: isLoadingSummary
+                    )
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+
                 Section("管理") {
                     NavigationLink {
                         ProjectConfigListView()
@@ -61,7 +73,147 @@ struct AdminTabView: View {
                     Button("閉じる") { dismiss() }
                 }
             }
+            .task { await loadSummary() }
+            .refreshable { await loadSummary() }
         }
+    }
+
+    private func loadSummary() async {
+        isLoadingSummary = pendingSummary == nil
+        let result = (try? await SupabaseService.shared.fetchAdminPendingSummary())
+        await MainActor.run {
+            pendingSummary = result
+            isLoadingSummary = false
+        }
+    }
+}
+
+// MARK: - 今月やることカード
+
+private struct AdminMonthlyTasksCard: View {
+    let summary: AdminPendingSummary?
+    let isLoading: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "bell.badge.fill")
+                    .foregroundStyle(.orange)
+                Text("今月やること")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                if let summary, summary.totalCount > 0 {
+                    Text("\(summary.totalCount)件")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.orange.opacity(0.18))
+                        .foregroundStyle(.orange)
+                        .clipShape(Capsule())
+                }
+            }
+
+            if isLoading && summary == nil {
+                ProgressView()
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 8)
+            } else if let summary, summary.totalCount == 0 {
+                Text("今すぐ対応が必要なタスクはありません")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if let summary {
+                VStack(spacing: 8) {
+                    if summary.budgetApprovalCount > 0 {
+                        NavigationLink {
+                            BudgetApprovalView()
+                        } label: {
+                            taskRow(
+                                icon: "checkmark.seal.fill",
+                                color: .blue,
+                                label: "予算承認待ち",
+                                count: summary.budgetApprovalCount
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    if summary.payoutNoticeCount > 0 {
+                        NavigationLink {
+                            PayoutNoticeAdminListView()
+                        } label: {
+                            taskRow(
+                                icon: "doc.text.fill",
+                                color: .orange,
+                                label: "支払通知書未送付",
+                                count: summary.payoutNoticeCount
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    if summary.paymentUnconfirmedCount > 0 {
+                        NavigationLink {
+                            BillingMatrixView()
+                        } label: {
+                            taskRow(
+                                icon: "yensign.circle.fill",
+                                color: .purple,
+                                label: "入金未確認",
+                                count: summary.paymentUnconfirmedCount
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    if summary.rewardUnpaidCount > 0 {
+                        NavigationLink {
+                            BillingMatrixView()
+                        } label: {
+                            taskRow(
+                                icon: "person.crop.circle.badge.checkmark",
+                                color: .green,
+                                label: "報酬未支払い",
+                                count: summary.rewardUnpaidCount
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.secondarySystemBackground))
+        )
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+
+    private func taskRow(icon: String, color: Color, label: String, count: Int) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(color.opacity(0.14))
+                    .frame(width: 32, height: 32)
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(color)
+            }
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+            Spacer(minLength: 8)
+            Text("\(count)件")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(color)
+            Image(systemName: "chevron.right")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 4)
+        .contentShape(Rectangle())
     }
 }
 

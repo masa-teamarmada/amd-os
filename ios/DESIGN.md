@@ -88,9 +88,19 @@ PJ一覧 + 各PJの当月ステップ進捗バー。
 | 3 | reportFix | `ReportFixStepView` | 月次レポート確定（つくよみ草案 → PM承認） |
 | 4 | invoice | `InvoiceStepView` | 請求書発行（freee連携） |
 | 5 | invoiceSent | `InvoiceStepView` | 請求書送付（メール送付 or 手動マーク） |
-| 6 | paymentNotice | (Admin Tab に飛ぶ) | 支払通知書送付（メンバー単位、後述） |
-| 7 | payment | (Admin Tab) | 入金確認 |
-| 8 | rewardPaid | (Admin Tab) | 報酬支払い完了マーク |
+
+**月次後の admin 処理（routine からは除外、AdminTabView「今月やること」カードで管理）:**
+- 支払通知書送付（メンバー単位） — `PayoutNoticeAdminListView`
+- 入金確認 — `BillingMatrixView`
+- 報酬支払い完了 — `BillingMatrixView`
+
+これらは「その月内に完結する PM 中心のタスク」ではなく、月次後の admin 専任タスクなので、
+月次ルーティンには出さず、Admin タブの「今月やること」カードに集約する（後述 2.5.0）。
+
+#### 2.2.x PM 側 TODO の絞り込み（`fetchMyPageNotifications`）
+- マイページ「いまやること」の budget ステップは、`billing_cycles.status='reported'`
+  （PM 申告済み・admin 承認待ち）の場合は **除外**する（PM はすでに自分の作業を終えている）
+- 申告と同時に `send-budget-approval-nudge` Edge Function が admin 全員に Slack DM を投げる
 
 #### 2.2.3 BudgetStepView の入力ロジック（重要）
 - `billing_cycles.status` で表示が分岐:
@@ -157,6 +167,22 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
 ### 2.5 Admin タブ（AdminTabView）
 
 **表示条件**: `members.is_admin = true` のメンバーのみ。
+
+#### 2.5.0 「今月やること」カード（`AdminMonthlyTasksCard`）
+
+AdminTabView 上部に常時表示するサマリカード。月次ルーティンから除外した admin 専任タスクや、
+admin がアクション必要なものを集約する。
+
+データ源: `fetchAdminPendingSummary()`（active PJ × 直近6ヶ月の billing_cycles を集計）。
+
+| 表示行 | 条件 | タップ先 |
+|---|---|---|
+| 予算承認待ち | `status='reported'` | `BudgetApprovalView` |
+| 支払通知書未送付 | 請求書発行済み × `payout_notice_uploaded_at` 未設定 | `PayoutNoticeAdminListView` |
+| 入金未確認 | 請求書送付済み × `payment_confirmed_at` 未設定 | `BillingMatrixView` |
+| 報酬未支払い | 入金確認済み × `reward_paid_at` 未設定 | `BillingMatrixView` |
+
+`.task` と `.refreshable` でロード／再読み込み。0件の項目は行ごと非表示。
 
 #### 2.5.1 PJ Config（ProjectConfigDetailView）
 **目的**: PJ単位の業務委託料・送付ルール・送付先メールを設定。
