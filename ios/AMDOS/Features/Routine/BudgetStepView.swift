@@ -23,6 +23,8 @@ struct BudgetStepView: View {
     @State private var toastMessage: String? = nil
     @State private var toastIsError = false
     @State private var showEditArea = false
+    @State private var showWithdrawConfirm = false
+    @State private var isWithdrawing = false
 
     private var ymLabel: String {
         guard bizYm.count == 6 else { return bizYm }
@@ -165,11 +167,43 @@ struct BudgetStepView: View {
                     infoRow(memberDisplayName(memberId), fmtYen(Double(amount)))
                 }
             }
+            Divider()
+            withdrawButton
         }
         .padding(14)
         .background(Color.green.opacity(0.08))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.green.opacity(0.3)))
         .cornerRadius(10)
+    }
+
+    /// 申告・承認後の「取り下げる」ボタン。draft に戻して全フィールドをクリアする。
+    private var withdrawButton: some View {
+        Button(role: .destructive) {
+            showWithdrawConfirm = true
+        } label: {
+            HStack {
+                if isWithdrawing { ProgressView().controlSize(.small) }
+                Text(isWithdrawing ? "取り下げ中..." : "取り下げる")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.bordered)
+        .disabled(isWithdrawing)
+        .confirmationDialog(
+            "予算を取り下げますか？",
+            isPresented: $showWithdrawConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("取り下げる", role: .destructive) {
+                Task { await withdraw() }
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("申告・承認・配賦額がすべてクリアされ、未申告状態に戻ります。")
+        }
     }
 
     // MARK: - 申告済み
@@ -206,13 +240,32 @@ struct BudgetStepView: View {
             inputForm(d)
         }
 
-        Button(showEditArea ? "修正をやめる" : "修正する") {
-            showEditArea.toggle()
-            if showEditArea { invoiceText = ""; bufferText = ""; resetAllocations() }
+        HStack {
+            Button(showEditArea ? "修正をやめる" : "修正する") {
+                showEditArea.toggle()
+                if showEditArea { invoiceText = ""; bufferText = ""; resetAllocations() }
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
+            Spacer()
+            Button("取り下げる", role: .destructive) {
+                showWithdrawConfirm = true
+            }
+            .font(.caption)
+            .disabled(isWithdrawing)
         }
-        .font(.caption)
-        .foregroundColor(.secondary)
-        .frame(maxWidth: .infinity, alignment: .trailing)
+        .confirmationDialog(
+            "予算を取り下げますか？",
+            isPresented: $showWithdrawConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("取り下げる", role: .destructive) {
+                Task { await withdraw() }
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("申告・配賦額がクリアされ、未申告状態に戻ります。")
+        }
     }
 
     // MARK: - 入力フォーム
@@ -476,6 +529,22 @@ struct BudgetStepView: View {
             toastIsError = true
         }
         isSubmitting = false
+    }
+
+    private func withdraw() async {
+        isWithdrawing = true
+        toastMessage = nil
+        do {
+            try await SupabaseService.shared.withdrawBudget(projectId: projectId, ym: bizYm)
+            toastMessage = "取り下げました"
+            toastIsError = false
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            dismiss()
+        } catch {
+            toastMessage = error.localizedDescription
+            toastIsError = true
+        }
+        isWithdrawing = false
     }
 
     // MARK: - Formatters

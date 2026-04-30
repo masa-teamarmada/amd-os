@@ -1088,6 +1088,24 @@ actor SupabaseService {
         try await patchBillingCycle(projectId: projectId, ym: ym, body: body)
     }
 
+    /// 予算取り下げ: status を draft に戻し、申告・承認関連のフィールドを全て NULL クリア。
+    /// PM 申告後でも、admin 承認後でも、いつでも呼べる。配賦額（member_allocations_json）も
+    /// クリアして、ゼロから入力し直せる状態にする。
+    func withdrawBudget(projectId: String, ym: String) async throws {
+        let body: [String: Any] = [
+            "status": "draft",
+            "budget_reported_amount": NSNull(),
+            "budget_buffer_amount": NSNull(),
+            "budget_reported_at": NSNull(),
+            "budget_reported_by": NSNull(),
+            "budget_yen": NSNull(),
+            "budget_confirmed_at": NSNull(),
+            "budget_confirmed_by": NSNull(),
+            "member_allocations_json": NSNull()
+        ]
+        try await patchBillingCycle(projectId: projectId, ym: ym, body: body)
+    }
+
     /// billing_cycles の status だけを軽量取得（マイページ TODO フィルタ用）
     func fetchBillingCycleStatusSimple(projectId: String, ym: String) async throws -> String? {
         struct Row: Decodable {
@@ -1101,6 +1119,41 @@ actor SupabaseService {
             .limit(1)
             .execute().value) ?? []
         return rows.first?.status
+    }
+
+    // MARK: - Members (Admin)
+
+    /// Admin メンバーリスト用：全メンバーを取得
+    func fetchAllMembersAdmin() async throws -> [AdminMemberRow] {
+        let rows: [AdminMemberRow] = (try? await client.database
+            .from("members")
+            .select("member_id, code_name, member_name, email, slack_id, member_address, bank_info, is_admin, status, exclude_from_payout_notice, joined_at, left_at, slack_plan, google_plan")
+            .order("status", ascending: false)
+            .order("code_name")
+            .execute().value) ?? []
+        return rows
+    }
+
+    /// Admin: 1メンバーの詳細フィールドを更新
+    func updateMemberAdmin(memberId: String, body: [String: Any]) async throws {
+        let encoded = memberId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? memberId
+        guard let url = URL(string: "https://nbnhrhybjslbawdukvvk.supabase.co/rest/v1/members?member_id=eq.\(encoded)") else {
+            throw URLError(.badURL)
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.timeoutInterval = 8
+        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("return=minimal", forHTTPHeaderField: "Prefer")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+            let body = String(data: data, encoding: .utf8) ?? "(empty)"
+            throw NSError(domain: "members.PATCH", code: http.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey: "members PATCH \(http.statusCode): \(body)"])
+        }
     }
 
     // MARK: - Admin Pending Tasks Summary
@@ -1276,10 +1329,13 @@ actor SupabaseService {
             .select("project_id, project_name, status, start_ym, end_ym")
             .eq("status", value: "active")
             .execute().value
+        // exclude_from_payout_notice = true のメンバーは支払通知書送付対象から除外する
+        // (役員報酬・無償出向など、ARMADA から金銭を払わないメンバー)
         async let membersTask: [MemberRow] = client.database
             .from("members")
             .select("member_id, code_name, email")
             .eq("status", value: "active")
+            .eq("exclude_from_payout_notice", value: false)
             .execute().value
         async let projectMembersTask: [PMRow] = client.database
             .from("project_members")

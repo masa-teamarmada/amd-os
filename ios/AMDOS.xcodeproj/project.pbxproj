@@ -43,6 +43,7 @@
 		9DC4E04B1AD120F6F497EB09 /* MyPageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E107E118826DE68EAE329E3 /* MyPageModels.swift */; };
 		A008650CC3E761AE1707088B /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326FB30E4B4C25B8778D51D8 /* DesignSystem.swift */; };
 		A98B86D3008DDC2E9518AFFA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB600E9E4CBF01382876593 /* SettingsView.swift */; };
+		B09073C04552BE567DB6BAA5 /* MemberListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA5B8E5896A2CF59F7901F5 /* MemberListView.swift */; };
 		B6F1F8A8B1BCF79FD858F2AC /* MsRevisionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 624E5E50F9A1729C297DECED /* MsRevisionViews.swift */; };
 		B8A7E239D3A266B0349B9FB1 /* AdminModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA4937A6E037A12CEFABD92 /* AdminModels.swift */; };
 		BD5E37215C5C86DA4B1A775E /* ProposalComposeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 204312933B91C5173ABDF7B3 /* ProposalComposeSheet.swift */; };
@@ -98,6 +99,7 @@
 		A77774A56AAE57AFC0DAB33E /* ReimburseFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReimburseFormView.swift; sourceTree = "<group>"; };
 		A854FCA12F62F88B9AE1A3A4 /* BudgetStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetStepView.swift; sourceTree = "<group>"; };
 		AEED249ABC7816254023EDB7 /* MonthlyModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyModal.swift; sourceTree = "<group>"; };
+		AFA5B8E5896A2CF59F7901F5 /* MemberListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemberListView.swift; sourceTree = "<group>"; };
 		CA06F580A2AFA0FD392A7B7C /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		CAA6CD36CDB0FEACDF89E17B /* ReimburseModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReimburseModels.swift; sourceTree = "<group>"; };
 		CAA8EB921DBCE3978EF3D744 /* ProposalThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProposalThreadView.swift; sourceTree = "<group>"; };
@@ -253,6 +255,7 @@
 				1747E464F65752741A3C86A0 /* AdminTabView.swift */,
 				8D9A62C4F0159E59C0041B34 /* BillingMatrixView.swift */,
 				F6F23CC7E31D94E8D3CA77F7 /* BudgetApprovalView.swift */,
+				AFA5B8E5896A2CF59F7901F5 /* MemberListView.swift */,
 				A23680BC4AD742E2A3D84DC7 /* PayoutNoticePerMemberView.swift */,
 				5991876808A3A6BC1B27E238 /* ProposalInboxView.swift */,
 				8B1E94D02C055C87FA59F561 /* TsukuyomiLearningsView.swift */,
@@ -424,6 +427,7 @@
 				D1025A035A3D8E47636516EB /* LoginView.swift in Sources */,
 				C1E31BCB8BA098E7693F1AD2 /* MainTabView.swift in Sources */,
 				F21DB2347EA1365472C66993 /* MeetingStepView.swift in Sources */,
+				B09073C04552BE567DB6BAA5 /* MemberListView.swift in Sources */,
 				97061AA63C4667DDB25B86C0 /* MilestoneManagementSheet.swift in Sources */,
 				ED4FCDC0BFD18F0963DBEC75 /* MonthlyModal.swift in Sources */,
 				DAED1A26D193A9104003A37B /* MsProgressEditSheet.swift in Sources */,
@@ -469,7 +473,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "jp.team-armada.amdos";
 				SDKROOT = iphoneos;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -548,7 +552,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "jp.team-armada.amdos";
 				SDKROOT = iphoneos;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;

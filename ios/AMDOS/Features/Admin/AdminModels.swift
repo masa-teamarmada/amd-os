@@ -214,6 +214,45 @@ struct PayoutNoticeMemberPJ: Hashable {
     let isAllocated: Bool
 }
 
+/// Admin メンバーリスト行
+struct AdminMemberRow: Identifiable, Decodable, Equatable {
+    var id: String { memberId }
+    let memberId: String
+    let codeName: String?
+    let memberName: String?
+    let email: String?
+    let slackId: String?
+    let memberAddress: String?
+    let bankInfo: String?
+    let isAdmin: Bool?
+    let status: String?
+    let excludeFromPayoutNotice: Bool?
+    let joinedAt: String?
+    let leftAt: String?
+    let slackPlan: String?
+    let googlePlan: String?
+
+    enum CodingKeys: String, CodingKey {
+        case memberId = "member_id"
+        case codeName = "code_name"
+        case memberName = "member_name"
+        case email
+        case slackId = "slack_id"
+        case memberAddress = "member_address"
+        case bankInfo = "bank_info"
+        case isAdmin = "is_admin"
+        case status
+        case excludeFromPayoutNotice = "exclude_from_payout_notice"
+        case joinedAt = "joined_at"
+        case leftAt = "left_at"
+        case slackPlan = "slack_plan"
+        case googlePlan = "google_plan"
+    }
+
+    var displayName: String { codeName ?? memberId }
+    var isActive: Bool { (status ?? "").lowercased() == "active" }
+}
+
 /// AdminTabView 上部の「今月やること」カード用サマリ。
 /// 各カウンタは active PJ × 直近6ヶ月の billing_cycles を集計したもの。
 struct AdminPendingSummary: Equatable {

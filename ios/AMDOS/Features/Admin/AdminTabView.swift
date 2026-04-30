@@ -5,18 +5,31 @@ import PDFKit
 import QuickLook
 #endif
 
+enum AdminDestination: Hashable {
+    case projectConfig
+    case knowledgeSession
+    case billingMatrix
+    case budgetApproval
+    case payoutNotice
+    case proposalInbox
+    case tsukuyomiLearnings
+    case memberList
+}
+
 struct AdminTabView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var pendingSummary: AdminPendingSummary?
     @State private var isLoadingSummary = false
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 Section {
                     AdminMonthlyTasksCard(
                         summary: pendingSummary,
-                        isLoading: isLoadingSummary
+                        isLoading: isLoadingSummary,
+                        onTap: { dest in path.append(dest) }
                     )
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
@@ -24,50 +37,45 @@ struct AdminTabView: View {
                 }
 
                 Section("管理") {
-                    NavigationLink {
-                        ProjectConfigListView()
-                    } label: {
-                        Label("PJ Config", systemImage: "slider.horizontal.3")
+                    Button { path.append(AdminDestination.projectConfig) } label: {
+                        adminMenuLabel("PJ Config", icon: "slider.horizontal.3")
                     }
-
-                    NavigationLink {
-                        KnowledgeSessionListView()
-                    } label: {
-                        Label("ナレッジ会", systemImage: "person.3.sequence")
+                    Button { path.append(AdminDestination.memberList) } label: {
+                        adminMenuLabel("メンバー", icon: "person.2")
                     }
-
-                    NavigationLink {
-                        BillingMatrixView()
-                    } label: {
-                        Label("Billing Matrix", systemImage: "tablecells")
+                    Button { path.append(AdminDestination.knowledgeSession) } label: {
+                        adminMenuLabel("ナレッジ会", icon: "person.3.sequence")
                     }
-
-                    NavigationLink {
-                        BudgetApprovalView()
-                    } label: {
-                        Label("予算承認", systemImage: "checkmark.seal")
+                    Button { path.append(AdminDestination.billingMatrix) } label: {
+                        adminMenuLabel("Billing Matrix", icon: "tablecells")
                     }
-
-                    NavigationLink {
-                        PayoutNoticeAdminListView()
-                    } label: {
-                        Label("支払通知書作成", systemImage: "doc.text")
+                    Button { path.append(AdminDestination.budgetApproval) } label: {
+                        adminMenuLabel("予算承認", icon: "checkmark.seal")
                     }
-
-                    NavigationLink {
-                        ProposalInboxView()
-                    } label: {
-                        Label("提案箱", systemImage: "tray.full")
+                    Button { path.append(AdminDestination.payoutNotice) } label: {
+                        adminMenuLabel("支払通知書作成", icon: "doc.text")
                     }
-
-                    NavigationLink {
-                        TsukuyomiLearningsView()
-                    } label: {
-                        Label("つくよみの学び", systemImage: "brain")
+                    Button { path.append(AdminDestination.proposalInbox) } label: {
+                        adminMenuLabel("提案箱", icon: "tray.full")
+                    }
+                    Button { path.append(AdminDestination.tsukuyomiLearnings) } label: {
+                        adminMenuLabel("つくよみの学び", icon: "brain")
                     }
                 }
             }
             .navigationTitle("Admin")
+            .navigationDestination(for: AdminDestination.self) { dest in
+                switch dest {
+                case .projectConfig: ProjectConfigListView()
+                case .knowledgeSession: KnowledgeSessionListView()
+                case .billingMatrix: BillingMatrixView()
+                case .budgetApproval: BudgetApprovalView()
+                case .payoutNotice: PayoutNoticeAdminListView()
+                case .proposalInbox: ProposalInboxView()
+                case .tsukuyomiLearnings: TsukuyomiLearningsView()
+                case .memberList: MemberListView()
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("閉じる") { dismiss() }
@@ -75,6 +83,17 @@ struct AdminTabView: View {
             }
             .task { await loadSummary() }
             .refreshable { await loadSummary() }
+        }
+    }
+
+    private func adminMenuLabel(_ title: String, icon: String) -> some View {
+        HStack {
+            Label(title, systemImage: icon)
+                .foregroundStyle(.primary)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
     }
 
@@ -93,6 +112,7 @@ struct AdminTabView: View {
 private struct AdminMonthlyTasksCard: View {
     let summary: AdminPendingSummary?
     let isLoading: Bool
+    let onTap: (AdminDestination) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -126,54 +146,26 @@ private struct AdminMonthlyTasksCard: View {
             } else if let summary {
                 VStack(spacing: 8) {
                     if summary.budgetApprovalCount > 0 {
-                        NavigationLink {
-                            BudgetApprovalView()
-                        } label: {
-                            taskRow(
-                                icon: "checkmark.seal.fill",
-                                color: .blue,
-                                label: "予算承認待ち",
-                                count: summary.budgetApprovalCount
-                            )
+                        Button { onTap(.budgetApproval) } label: {
+                            taskRow(icon: "checkmark.seal.fill", color: .blue, label: "予算承認待ち", count: summary.budgetApprovalCount)
                         }
                         .buttonStyle(.plain)
                     }
                     if summary.payoutNoticeCount > 0 {
-                        NavigationLink {
-                            PayoutNoticeAdminListView()
-                        } label: {
-                            taskRow(
-                                icon: "doc.text.fill",
-                                color: .orange,
-                                label: "支払通知書未送付",
-                                count: summary.payoutNoticeCount
-                            )
+                        Button { onTap(.payoutNotice) } label: {
+                            taskRow(icon: "doc.text.fill", color: .orange, label: "支払通知書未送付", count: summary.payoutNoticeCount)
                         }
                         .buttonStyle(.plain)
                     }
                     if summary.paymentUnconfirmedCount > 0 {
-                        NavigationLink {
-                            BillingMatrixView()
-                        } label: {
-                            taskRow(
-                                icon: "yensign.circle.fill",
-                                color: .purple,
-                                label: "入金未確認",
-                                count: summary.paymentUnconfirmedCount
-                            )
+                        Button { onTap(.billingMatrix) } label: {
+                            taskRow(icon: "yensign.circle.fill", color: .purple, label: "入金未確認", count: summary.paymentUnconfirmedCount)
                         }
                         .buttonStyle(.plain)
                     }
                     if summary.rewardUnpaidCount > 0 {
-                        NavigationLink {
-                            BillingMatrixView()
-                        } label: {
-                            taskRow(
-                                icon: "person.crop.circle.badge.checkmark",
-                                color: .green,
-                                label: "報酬未支払い",
-                                count: summary.rewardUnpaidCount
-                            )
+                        Button { onTap(.billingMatrix) } label: {
+                            taskRow(icon: "person.crop.circle.badge.checkmark", color: .green, label: "報酬未支払い", count: summary.rewardUnpaidCount)
                         }
                         .buttonStyle(.plain)
                     }

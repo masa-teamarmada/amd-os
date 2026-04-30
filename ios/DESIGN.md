@@ -102,6 +102,13 @@ PJ一覧 + 各PJの当月ステップ進捗バー。
   （PM 申告済み・admin 承認待ち）の場合は **除外**する（PM はすでに自分の作業を終えている）
 - 申告と同時に `send-budget-approval-nudge` Edge Function が admin 全員に Slack DM を投げる
 
+#### 2.2.2.5 BudgetStepView 取り下げ機能
+- 申告済み（reported）/ 承認済み（allocation_confirmed / budget_confirmed）どちらの状態でも
+  「取り下げる」ボタンを表示
+- 押下 → confirmation dialog → `withdrawBudget(projectId:ym:)` で `status='draft'` に戻し、
+  `budget_reported_*` / `budget_confirmed_*` / `budget_yen` / `member_allocations_json` を全て NULL クリア
+- これで PM は再入力 → 再申告できる
+
 #### 2.2.3 BudgetStepView の入力ロジック（重要）
 - `billing_cycles.status` で表示が分岐:
   - `draft` → 入力フォーム（請求額・バッファ・メンバー配賦額）
@@ -167,6 +174,25 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
 ### 2.5 Admin タブ（AdminTabView）
 
 **表示条件**: `members.is_admin = true` のメンバーのみ。
+
+#### 2.5.-1 メンバー（`MemberListView` / `MemberDetailView`）
+
+AMD メンバーの全項目を一覧・編集する admin 専用画面。
+
+**MemberListView**: active / 離脱済み で2セクション表示。離脱済みはトグルで開閉。
+各行に admin バッジ、`exclude_from_payout_notice=true` なら「通知書対象外」バッジを付ける。
+
+**MemberDetailView**: 以下のフィールドを編集可能。
+- 基本: code_name / member_name / email / slack_id
+- 権限・ステータス: is_admin / status (active|inactive) / **exclude_from_payout_notice** ⭐
+- 参加・離脱: joined_at / left_at （DATE）
+- プラン課金状況: slack_plan / google_plan （"paid" | "free" | NULL）
+- 支払通知書: member_address / bank_info
+
+**`exclude_from_payout_notice` の効果**:
+- `fetchPayoutNoticeMembers(ym:)` が `.eq("exclude_from_payout_notice", value: false)` で絞り込む
+- 役員報酬を別建てにしているメンバー（masa等）や、無償出向（りり等）を支払通知書送付対象から除外
+- DB 既定値は `false`（送付対象）
 
 #### 2.5.0 「今月やること」カード（`AdminMonthlyTasksCard`）
 
