@@ -1,11 +1,89 @@
 # HANDOFF: AMD OS PWA再構築
 
 ## 最終更新
-2026-05-04 (えいみ) — Venture Map Phase 7: XRL時系列シード・SU個別ビュー・マクロ遡及cron・数理モデル設計書
+2026-05-04 (えいみ・午後セッション) — Phase 7 を本番反映、960行マクロ遡及データ投入、types/database.ts コミット
 
 ---
 
-## 作業状態（2026-05-04）— Venture Map 完成
+## 作業状態（2026-05-04 午後セッション）— Venture Map 本番反映完了
+
+### 今回やったこと
+
+1. **Vercel deploy 完了** (commit `3d67e05` 含む最新HEAD)
+   - deployment id: `dpl_EuyyvrKdcmvUkTNjLSLk1ntXmW54`
+   - alias: https://amd-os-pwa.vercel.app
+   - SU個別ビュー (`/venture-map/su/[id]`) と macro-backfill cron が本番に反映
+
+2. **macro-backfill-historical 手動キック完了**
+   - 5レーン × 192月 = **960行** INSERT、所要 250秒（300s 上限内）
+   - サンプル品質 OK: gx_energy 2020-10（菅カーボンニュートラル宣言）で 0.67→0.84 ジャンプ
+   - 全レーン 192件ずつ揃った状態 (gx_circular/gx_energy/life/materials/robo)
+
+3. **types/database.ts コミット** (`3d67e05`)
+   - 4ファイル (CockpitKanban/Goals/Routine + mock-data) から import されてたが untracked だった
+   - 別マシンで build 失敗するリスクを解消
+
+4. **デモ動作確認 (Chrome MCP)**
+   - View A: 9社全 `<a href="/venture-map/su/{id}">` リンク化確認
+   - SU個別ビュー (tiem): h1/outcome/SVG 4 path/24 circle/年表7行/「ボトルネック: HRL」表示
+   - SU個別ビュー (bwe): h1/SVG 4 path/17 circle/マクロ指数 path 2736 文字（2010-2025 連続データ）
+
+### 前セッション (午前) でやったこと（すべて commit & push 済み: `feb45c9`, `4038e39`）
+
+#### 1. ventures_xrl_log 9社シード値投入
+- ファイル: `pwa/scripts/migrations/007_ventures_xrl_log_seeds.sql`
+- Supabase に適用済み（`python3 -X utf8 scripts/apply_ddl.py` で OK 確認）
+- 9社 × 複数観測点。`bottleneck` フィールドで XRL ボトルネックレイヤを記録
+- ティエム: HRL2 で終了 / YD: BRL2 で終了 / JC: BRL3 で終了
+
+#### 2. SU 個別ビュー
+- `pwa/src/app/(app)/venture-map/su/[id]/page.tsx` — Server component
+- `pwa/src/components/venture-map/SuDetailView.tsx` — Client component
+  - SVG で TRL(青)/BRL(橙)/HRL(緑) 折れ線 × そのレーンのマクロ指数(破線)を重ね表示
+  - ボトルネックポイントに輪を付与
+  - マイルストーン年表テーブル付き
+- `venture-map-data.ts` に `fetchXrlLog()` / `fetchVentureById()` 追加
+- View A の SU ドットに `<a href="/venture-map/su/{id}">` でリンク追加
+
+#### 3. マクロ指数遡及拡張 cron（Sonnet 駆動）
+- `pwa/src/app/api/cron/macro-backfill-historical/route.ts`
+- レーンごとに Sonnet へ政策マイルストーン文脈を渡し、2010-2025 の月次 index_value を推定
+- 既存行は ON CONFLICT DO NOTHING で保護
+- `vercel.json` に `"schedule": "0 3 * * 0"` (毎週日曜 03:00 UTC) 追加
+
+#### 4. 数理モデル設計書
+- `pwa/design_log/2026-05_venture_map_model.md`
+- 数式①〜④ の変数定義・データソース・未解決論点を網羅
+- 他セッションでモデルを議論する起点として整備
+
+#### 5. ティエム・JC knowledge 追記
+- `pwa/design_log/2026-05_su_knowledge_tiem_jc.md`
+- デモナレーション向けの SU 背景・XRL 軌跡・AMD 教訓を記録
+
+### Venture Map の現データ状態
+
+| 要素 | 状態 |
+|---|---|
+| 9社プロット | ✅ Supabase ventures |
+| XRL 時系列 | ✅ ventures_xrl_log（推定シード値）|
+| 論文数 | ✅ papers_log（OpenAlex 2010-2026）|
+| マクロ指数 2026- | ✅ macro_index_log（Atlas 集計）|
+| マクロ指数 2010-2025 | ✅ Sonnet 推定 960行投入済み |
+| XRL × マクロ SU個別ビュー | ✅ 本番反映済み |
+| 重みパラメータ | ✅ macro_lane_weights（Sonnet 毎日 18:30 UTC 更新）|
+
+### 次の最初のアクション
+
+5/20 スタパデモまでの残課題：
+
+1. **未解決論点5点を議論・決定**（`pwa/design_log/2026-05_venture_map_model.md` に結論追記）
+2. **`B_i(t)` 予算データ投入** (NEDO/AMED 公開データから)
+3. **競合密度 $C_i(t)$ の実装方法決定**
+4. （状況に応じて）デモナレーション資料の確認（`2026-05_venture_map_theory_strategy.pptx` がリポに置かれている）
+
+---
+
+## 作業状態（2026-05-04 午前）— Venture Map Phase 7 完成
 
 ### 今回やったこと（すべて commit & push 済み: `feb45c9`, `4038e39`）
 
