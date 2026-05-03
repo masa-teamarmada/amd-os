@@ -490,10 +490,10 @@ $$
 
 ### 修正方針
 
-第 2 項を**典型的な加速度値** $\ddot{M}^*_i$ で割って、**無次元化**する:
+第 2 項を**典型的な加速度値** $\ddot{M}^{*}_i$ で割って、**無次元化**する:
 
 $$
-\sigma_{SU,i} = \langle T_i \rangle_{\Delta t_i} + \mu_M \cdot \frac{\ddot{M}_i|_{t_0}}{\ddot{M}^*_i} + \mu_D \cdot \frac{D'_i|_{t_0}}{{D'_i}^*}
+\sigma_{SU,i} = \langle T_i \rangle_{\Delta t_i} + \mu_M \cdot \frac{\ddot{M}_i|_{t_0}}{\ddot{M}^{*}_i} + \mu_D \cdot \frac{D'_i|_{t_0}}{{D'_i}^{*}}
 $$
 
 各レーンの「典型的な値」で割ることで、両項とも無次元の比較可能なスコアになる。
@@ -543,7 +543,7 @@ v0.1 の $\sigma_{SU}$ は **T 平均と M″ の 2 つだけ**で構成され�
 $D'$ 項を加えて、**3 軸合成**にする:
 
 $$
-\sigma_{SU,i} = \langle T_i \rangle_{\Delta t_i} + \mu_M \cdot \frac{\ddot{M}_i}{\ddot{M}^*_i} + \mu_D \cdot \frac{D'_i}{{D'_i}^*} - \rho \cdot \mathrm{Var}[T_i]
+\sigma_{SU,i} = \langle T_i \rangle_{\Delta t_i} + \mu_M \cdot \frac{\ddot{M}_i}{\ddot{M}^{*}_i} + \mu_D \cdot \frac{D'_i}{{D'_i}^{*}} - \rho \cdot \mathrm{Var}[T_i]
 $$
 
 T 平均、$\ddot{M}$、$D'$ が独立に「波の現状」「加速度」「研究-政策乖離」を捉える。
