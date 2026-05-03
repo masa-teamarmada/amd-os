@@ -1,6 +1,78 @@
 # HANDOFF: AMD OS PWA再構築
 
 ## 最終更新
+2026-05-04 (えいみ) — Venture Map Phase 7: XRL時系列シード・SU個別ビュー・マクロ遡及cron・数理モデル設計書
+
+---
+
+## 作業状態（2026-05-04）— Venture Map 完成
+
+### 今回やったこと（すべて commit & push 済み: `feb45c9`, `4038e39`）
+
+#### 1. ventures_xrl_log 9社シード値投入
+- ファイル: `pwa/scripts/migrations/007_ventures_xrl_log_seeds.sql`
+- Supabase に適用済み（`python3 -X utf8 scripts/apply_ddl.py` で OK 確認）
+- 9社 × 複数観測点。`bottleneck` フィールドで XRL ボトルネックレイヤを記録
+- ティエム: HRL2 で終了 / YD: BRL2 で終了 / JC: BRL3 で終了
+
+#### 2. SU 個別ビュー
+- `pwa/src/app/(app)/venture-map/su/[id]/page.tsx` — Server component
+- `pwa/src/components/venture-map/SuDetailView.tsx` — Client component
+  - SVG で TRL(青)/BRL(橙)/HRL(緑) 折れ線 × そのレーンのマクロ指数(破線)を重ね表示
+  - ボトルネックポイントに輪を付与
+  - マイルストーン年表テーブル付き
+- `venture-map-data.ts` に `fetchXrlLog()` / `fetchVentureById()` 追加
+- View A の SU ドットに `<a href="/venture-map/su/{id}">` でリンク追加
+
+#### 3. マクロ指数遡及拡張 cron（Sonnet 駆動）
+- `pwa/src/app/api/cron/macro-backfill-historical/route.ts`
+- レーンごとに Sonnet へ政策マイルストーン文脈を渡し、2010-2025 の月次 index_value を推定
+- 既存行は ON CONFLICT DO NOTHING で保護
+- `vercel.json` に `"schedule": "0 3 * * 0"` (毎週日曜 03:00 UTC) 追加
+
+#### 4. 数理モデル設計書
+- `pwa/design_log/2026-05_venture_map_model.md`
+- 数式①〜④ の変数定義・データソース・未解決論点を網羅
+- 他セッションでモデルを議論する起点として整備
+
+#### 5. ティエム・JC knowledge 追記
+- `pwa/design_log/2026-05_su_knowledge_tiem_jc.md`
+- デモナレーション向けの SU 背景・XRL 軌跡・AMD 教訓を記録
+
+### ビルド・デプロイ状態
+- `npx tsc --noEmit` → エラーなし ✅
+- Vercel deploy: **未実行** ⚠️ 次セッションで deploy + 動作確認が必要
+
+### Venture Map の現データ状態
+
+| 要素 | 状態 |
+|---|---|
+| 9社プロット | ✅ Supabase ventures |
+| XRL 時系列 | ✅ ventures_xrl_log（推定シード値）|
+| 論文数 | ✅ papers_log（OpenAlex 2010-2026）|
+| マクロ指数 2026- | ✅ macro_index_log（Atlas 集計）|
+| マクロ指数 2010-2025 | ⚠️ cron 未実行（Sonnet 推定値は初回 cron 後に入る）|
+| XRL × マクロ SU個別ビュー | ✅ 実装済み・未 deploy |
+| 重みパラメータ | ✅ macro_lane_weights（Sonnet 毎日 18:30 UTC 更新）|
+
+### 次の最初のアクション
+
+1. **Vercel deploy** — `venture-map/su/[id]` を本番反映する
+2. **macro-backfill-historical 手動キック** — `CRON_SECRET` を Authorization ヘッダーにセットして一度叩いて 2010-2025 の macro_index_log を埋める
+3. **デモ通し確認** — View A ピンクリック → SU 個別ビューの遷移・グラフ表示を確認
+4. （必要なら）投資データ `V_i(t)` の実数値投入 — 現在は仮値（macro と papers の平均）
+
+### モデル議論が必要な未解決論点（`2026-05_venture_map_model.md` 参照）
+
+1. $D'$ 極大 = 最適投入点か？（変曲点の少し後が良いという仮説あり）
+2. $\sigma_{\mathrm{SU}}$ の積分窓 $\Delta t$ はレーン依存にすべきか
+3. 競合密度 $C_i(t)$ の実装方法
+4. XRL の $\kappa$ チューニング vs TRL 下限閾値ルール
+5. $B_i(t)$ 予算データ投入（NEDO/AMED 公開データ）
+
+---
+
+## 最終更新（旧: 2026-05-02）
 2026-05-02 (Codex) — PWA正本運用、Gmail抽出ブリッジ、MyPage報酬除外、admin.billing Swift寄せ + インライン操作
 
 ## 現在の正本パス
@@ -133,23 +205,46 @@ curl -I https://amd-os-pwa.vercel.app/mypage
 - worktreeは大きくdirty/untracked。移行後の正本化による差分が多く、無関係な削除/変更を戻さないこと。
 - `AGENTS.md` / `CLAUDE.md` に古いパスが混ざる可能性がある。作業時は `pwd` で `/Users/masa/projects/AMD/amd-os/pwa` を確認する。
 
-## 次セッション開始プロンプト
+## 次セッション開始プロンプト（2026-05-04 更新版）
 
 ```text
 AMD OS PWAの作業を `/Users/masa/projects/AMD/amd-os/pwa` で再開して。
-まず `HANDOFF_pwa_rebuild.md`、`BUGS.md`、`AGENTS.md`、`CLAUDE.md` を読んで現状を確認して。
+まず `pwa/HANDOFF_pwa_rebuild.md`、`pwa/BUGS.md`、`pwa/AGENTS.md`、`CLAUDE.md` を読んで現状を確認して。
 
-直近の焦点は admin.billing。
-PWAのadmin.billingはSwift寄せで月別PJリスト+タスクチップ表示になっていて、チップクリックで「完了にする」「未完にする」を直接実行できる。
-ただし `立替確認` は手動変更不可で、reimbursementsから自動判定。
-最新ルールは「対象稼働月の翌月4日、土日なら前営業日」を締切とし、締切日前は未完、締切日以降に submitted/pmapproved の未処理立替がなければ完了。
-例: 2026年6月稼働分は2026-07-03に完了判定。
+## 直近の作業状態（2026-05-04 時点）
 
-最初にログイン済みブラウザで https://amd-os-pwa.vercel.app/admin/billing を確認して、2026年6月の立替確認が未完になっているか、チップの完了/未完更新がSupabaseへ実際に通るかを検証して。
-build/deployが必要なら必ず:
-PATH=/tmp/codex-npm-bin:/Users/masa/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/masa/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --run build
-PATH=/tmp/codex-npm-bin:/Users/masa/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os/pwa
-を使うこと。
+Venture Map (5/20 スタパデモ向け) の実装が一通り完了している。
+最終コミット: feb45c9（PWA rebuild + Venture Map Phase 1-7）, 4038e39（数理モデル設計書）
+
+### やったこと（コミット済み）
+- ventures_xrl_log 9社 TRL/BRL/HRL 時系列シード → Supabase 投入済み
+- SU個別ビュー `/venture-map/su/[id]` (XRL折れ線 × マクロ指数)
+- マクロ指数遡及拡張 cron (`/api/cron/macro-backfill-historical`) — Sonnet で 2010-2025 推定
+- 数理モデル設計書: `pwa/design_log/2026-05_venture_map_model.md`
+- ティエム/JC knowledge: `pwa/design_log/2026-05_su_knowledge_tiem_jc.md`
+
+### 次にやること（優先順）
+1. Vercel deploy（SU個別ビューを本番反映）
+2. macro-backfill-historical を手動キック（CRON_SECRET 付きで叩いて 2010-2025 macro_index_log を埋める）
+3. デモ動作確認（View A ピンクリック → SU 個別ビューの遷移・グラフ確認）
+
+### build/deploy コマンド
+```bash
+# build
+cd /Users/masa/projects/AMD/amd-os/pwa && npm run build
+
+# deploy
+npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os/pwa
+```
+
+### macro backfill 手動キック
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://amd-os-pwa.vercel.app/api/cron/macro-backfill-historical
+```
+
+### 数式モデルについて議論したい場合
+`pwa/design_log/2026-05_venture_map_model.md` を最初に読むこと。
+未解決論点5点あり（D' 極大の解釈、Δt 最適化、競合密度実装、κ チューニング、予算データ投入）。
 ```
 
 ## 最終更新
