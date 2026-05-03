@@ -2,7 +2,11 @@
 
 このリポジトリで AMD OS を触るえいみは、作業前に必ず以下を読むこと。
 
-**正本は GitHub (`masa-teamarmada/amd-os-ios`)。作業場所は `~/dev/amd-os-ios`。**
+まず必ず以下の共通ルールを読む。
+
+@/Users/masa/projects/AGENTS.common.md
+
+**正本は GitHub (`masa-teamarmada/amd-os-ios`)。作業場所は `/Users/masa/projects/amd-os/ios`。**
 **Drive 上の `共有ドライブ/claude/AMD_OS/amd-os-ios/` は廃止済み。参照しない。**
 
 ## 必読（リポジトリルート、読む順）

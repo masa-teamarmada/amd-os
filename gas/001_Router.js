@@ -129,6 +129,10 @@ function doGet(e) {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
+  if (mode === "pwaApi") {
+    return pwaApi_handle_(e);
+  }
+
   // ===== 通常ページ =====
   const page = (e && e.parameter && e.parameter.page) ? String(e.parameter.page) : "home";
   const projectId = (e && e.parameter && e.parameter.projectId) ? String(e.parameter.projectId) : "";

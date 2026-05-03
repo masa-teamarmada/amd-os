@@ -3,6 +3,7 @@ ios/build/
 ios/DerivedData/
 pwa/node_modules/
 pwa/.next/
+pwa_legacy_*/
 android/.gradle/
 android/build/
 *.log

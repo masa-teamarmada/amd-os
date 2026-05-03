@@ -13,6 +13,9 @@
  */
 
 function tsukuyomi_runNudgePosterTick(){
+  // 2026-05-01: Slackへのつくよみ自動ナッジは停止。通知はアプリ側へ移行する。
+  return { ok:true, posted:0, disabled:true, note:"Tsukuyomi Slack nudge posting is disabled; app notifications are the active path." };
+
   const now = new Date();
   const jstHour = Number(Utilities.formatDate(now, "Asia/Tokyo", "H"));
   const jstMin  = Number(Utilities.formatDate(now, "Asia/Tokyo", "m"));

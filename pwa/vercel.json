@@ -1,0 +1,44 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/daily-estimate",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/atlas-daily",
+      "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/cron/atlas-weekly",
+      "schedule": "0 8 * * 5"
+    },
+    {
+      "path": "/api/cron/atlas-monthly",
+      "schedule": "0 22 1 * *"
+    },
+    {
+      "path": "/api/cron/atlas-collect",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/atlas-collect-policy",
+      "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/cron/atlas-divergence",
+      "schedule": "0 21 * * 0"
+    },
+    {
+      "path": "/api/cron/member-activities",
+      "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/relearn-lane-weights",
+      "schedule": "30 18 * * *"
+    },
+    {
+      "path": "/api/cron/macro-backfill-historical",
+      "schedule": "0 3 * * 0"
+    }
+  ]
+}

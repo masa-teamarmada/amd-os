@@ -1,4 +1,8 @@
+@../../CLAUDE.md
+
 # CLAUDE.md — AMD OS 開発コンテキスト
+
+共通の人格・作業姿勢・ハンドオフ・記憶管理は `/Users/masa/projects/CLAUDE.md` と `/Users/masa/projects/AGENTS.common.md` に従う。
 
 ## プロジェクト概要
 

@@ -18,6 +18,9 @@
  */
 
 function admin_tsukuyomi_postMonthlyRoutineReminders(payload){
+  // 2026-05-03: つくよみのSlackルーティン通知は停止。通知はアプリ側へ移行する。
+  return { ok:true, disabled:true, posted:0, note:"Tsukuyomi Slack routine reminders are disabled; app notifications are the active path." };
+
   payload = payload || {};
   const dryRun = !!payload.dryRun;
 
@@ -841,6 +844,9 @@ function test_reminder_post_p20(){
  * GASトリガー：毎日1回実行。日付で自動分岐。
  */
 function cron_meetingScheduleReminder() {
+  // 2026-05-03: つくよみのSlackルーティン通知は停止。通知はアプリ側へ移行する。
+  return { ok:true, disabled:true, posted:0, note:"Tsukuyomi Slack meeting schedule reminders are disabled; app notifications are the active path." };
+
   var day = Number(Utilities.formatDate(new Date(), "Asia/Tokyo", "d"));
   if (day !== 10 && day !== 15 && day !== 20) return;
 
@@ -997,6 +1003,9 @@ function install_cron_meetingScheduleReminder() {
 // ================================================================
 
 function cron_invoiceWorkflowDaily(){
+  // 2026-05-03: つくよみのSlackルーティン通知は停止。通知はアプリ側へ移行する。
+  return { ok:true, disabled:true, posted:0, note:"Tsukuyomi Slack invoice workflow reminders are disabled; app notifications are the active path." };
+
   var day = Number(Utilities.formatDate(new Date(), "Asia/Tokyo", "d"));
   if (day !== 1 && day !== 3 && day !== 5) return;
 
@@ -1204,6 +1213,9 @@ function install_cron_invoiceWorkflowDaily() {
 // - 毎月3日 9:00 JST：まだ未FIXならフォローアップ
 // ================================================================
 function cron_reportFixReminder(){
+  // 2026-05-03: つくよみのSlackルーティン通知は停止。通知はアプリ側へ移行する。
+  return { ok:true, disabled:true, posted:0, note:"Tsukuyomi Slack report fix reminders are disabled; app notifications are the active path." };
+
   var day = Number(Utilities.formatDate(new Date(), "Asia/Tokyo", "d"));
   if (day !== 1 && day !== 3) return;
 

@@ -1,0 +1,2713 @@
+"use client";
+
+import { useState, useEffect, Fragment } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+// ─── 型定義 ─────────────────────────────────────────────────────────────────
+
+interface Report {
+  draftExcerpt: string;
+  finalExcerpt: string;
+  hasDraft: boolean;
+  hasFinal: boolean;
+  status: string;
+  generatedAt: string | null;
+  fixedAt: string | null;
+}
+
+interface RewardBreakdown {
+  msKey: string;
+  title: string;
+  share: number;
+  earnedPt: number;
+  msConsumedPt: number;
+}
+
+interface RewardMember {
+  memberId: string;
+  memberName?: string;
+  earnedPt: number;
+  basePay: number;
+  bonusPt: number;
+  totalPay: number;
+  cappedFrom?: number;
+  breakdown: RewardBreakdown[];
+}
+
+interface RewardSummary {
+  capped?: boolean;
+  ptUnit?: number;
+  carryOverYen?: number;
+  totalPaySum?: number;
+  monthlyBudget65?: number;
+  members: RewardMember[];
+}
+
+interface Billing {
+  status: string;
+  budgetYen: number;
+  meetingStartAt: string | null;
+  reportFixedAt: string | null;
+  invoiceSentAt: string | null;
+  paymentConfirmedAt: string | null;
+  budgetReportedAmount: number;
+  msProgressSummaryJson?: unknown;
+  rewardSummaryJson?: RewardSummary | null;
+}
+
+interface MilestoneInfo {
+  milestoneId: string;
+  title: string;
+  points: number;
+  tag: string;
+  successCriteria?: string;
+  sortOrder?: number;
+}
+
+interface ProgressInfo {
+  milestoneKey: string;
+  ym: string;
+  progressPct: number;
+  consumedPt: number;
+  source?: string;
+  note?: string | null;
+}
+
+interface Responsibility {
+  milestoneId: string;
+  memberId: string;
+  share: number;
+}
+
+interface SubItem {
+  subItemId: string;
+  milestoneId: string;
+  title: string;
+  weight: number;
+  status: string;
+  assignee: string;
+}
+
+interface PlanCycleShape {
+  planCycleId: string;
+  status: string;
+  budgetYen: number;
+  totalPoints: number;
+  periodStartYm: string;
+  periodEndYm: string;
+}
+
+interface UnconfirmedEstimate {
+  milestoneKey: string;
+  progressPct: number;
+  prevPct: number;
+  reason: string;
+}
+
+interface ProgressEvent {
+  eventId: string;
+  eventTitle: string;
+  eventDescription?: string;
+  status: string;
+  initiativeOrigin?: string;
+  rejectReason?: string;
+  originLostReason?: string;
+  responsibilities?: Array<{ memberName?: string; memberId: string; responsibility: number }>;
+}
+
+interface ReimburseItem {
+  id?: string;
+  description: string;
+  amount: number;
+  memberName?: string;
+  date?: string;
+}
+
+interface MemberMsActivityInfo {
+  memberId: string;
+  milestoneId: string;
+  ym: string;
+  narrative?: string | null;
+  learnedAddendum?: string | null;
+  generatedAt?: string | null;
+}
+
+interface MemberActivityInfo {
+  id: string;
+  memberId: string;
+  projectId: string;
+  ym: string;
+  source: string;
+  sourceItemId: string;
+  milestoneId?: string | null;
+  title?: string | null;
+  contentPreview?: string | null;
+  itemDate?: string | null;
+  extractedAt: string;
+}
+
+interface MsRevisionMessage {
+  id: string;
+  revisionId: string;
+  senderKind: "pm" | "tsukuyomi";
+  body: string;
+  createdAt?: string | null;
+}
+
+interface MsRevision {
+  id: string;
+  projectId: string;
+  milestoneId: string;
+  ym: string;
+  currentPct?: number | null;
+  currentNote?: string | null;
+  revisedPct?: number | null;
+  revisedNote?: string | null;
+  status: "pending" | "confirmed" | "discarded";
+  messages: MsRevisionMessage[];
+}
+
+interface Props {
+  ym: string;
+  projectId: string;
+  report: Report | null;
+  billing: Billing | null;
+  milestones: MilestoneInfo[];
+  progress: ProgressInfo[];
+  responsibilities: Responsibility[];
+  memberMap: Record<string, string>;
+  planCycle: PlanCycleShape | null;
+  subItems: SubItem[];
+  msActivities?: MemberMsActivityInfo[];
+  memberActivities?: MemberActivityInfo[];
+  currentYm: string;
+  onProgressSaved?: (patches: ProgressInfo[]) => void;
+  onClose: () => void;
+}
+
+// ─── ユーティリティ ──────────────────────────────────────────────────────────
+
+function formatYm(ym: string) {
+  if (!ym || ym.length < 6) return ym;
+  return `${ym.slice(0, 4)}/${ym.slice(4)}`;
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  if (iso === "done") return "✓";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "✓";
+    return d.toLocaleDateString("ja-JP");
+  } catch {
+    return "—";
+  }
+}
+
+function ymToMonths(ym: string): number {
+  return parseInt(ym.slice(0, 4), 10) * 12 + parseInt(ym.slice(4, 6), 10);
+}
+
+function prevYmStr(ym: string): string {
+  const y = parseInt(ym.slice(0, 4), 10);
+  const m = parseInt(ym.slice(4, 6), 10);
+  const pm = m === 1 ? 12 : m - 1;
+  const py = m === 1 ? y - 1 : y;
+  return `${py}${String(pm).padStart(2, "0")}`;
+}
+
+function computeExpectedPct(planCycle: PlanCycleShape, ym: string): number {
+  const cycleMonths = ymToMonths(planCycle.periodEndYm) - ymToMonths(planCycle.periodStartYm) + 1;
+  const elapsed = ymToMonths(ym) - ymToMonths(planCycle.periodStartYm) + 1;
+  if (cycleMonths <= 0) return 0;
+  return Math.min(100, Math.round((elapsed / cycleMonths) * 100));
+}
+
+function computeSignal(expectedPct: number, overallPct: number): string {
+  const diff = expectedPct - overallPct;
+  if (diff <= 10) return "🟢";
+  if (diff <= 25) return "🟡";
+  return "🔴";
+}
+
+function latestProgressBefore(progress: ProgressInfo[], milestoneId: string, ym: string): ProgressInfo | null {
+  let latest: ProgressInfo | null = null;
+  for (const p of progress) {
+    if (p.milestoneKey !== milestoneId || p.ym > ym) continue;
+    if (!latest || p.ym > latest.ym) latest = p;
+  }
+  return latest;
+}
+
+function buildEffectiveProgressMap(progress: ProgressInfo[], milestones: MilestoneInfo[], ym: string): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const ms of milestones) {
+    map.set(ms.milestoneId, latestProgressBefore(progress, ms.milestoneId, ym)?.progressPct || 0);
+  }
+  return map;
+}
+
+function buildEffectiveConsumedMap(progress: ProgressInfo[], milestones: MilestoneInfo[], ym: string): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const ms of milestones) {
+    map.set(ms.milestoneId, latestProgressBefore(progress, ms.milestoneId, ym)?.consumedPt || 0);
+  }
+  return map;
+}
+
+function normalizeTextForMatch(text: string) {
+  return text.replace(/[のをにへとがはもで、。・（）()[\]\s]/g, "").toLowerCase();
+}
+
+function milestoneKeywords(title: string) {
+  const normalized = normalizeTextForMatch(title);
+  const chunks = title
+    .split(/[のをにへとがはもで、。・（）()[\]\s]+/)
+    .map((s) => normalizeTextForMatch(s))
+    .filter((s) => s.length >= 2);
+  return Array.from(new Set([normalized, ...chunks])).filter((s) => s.length >= 2);
+}
+
+function extractReportSnippets(report: Report | null, title: string, includeFallback = false): string[] {
+  const text = report?.finalExcerpt || report?.draftExcerpt || "";
+  if (!text.trim()) return [];
+  const keywords = milestoneKeywords(title);
+  const paragraphs = text
+    .split(/\n{2,}|(?<=。)\s*/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const matches: string[] = [];
+  for (const paragraph of paragraphs) {
+    const normalized = normalizeTextForMatch(paragraph);
+    const hitCount = keywords.filter((keyword) => normalized.includes(keyword)).length;
+    if (hitCount === 0) continue;
+    matches.push(paragraph.length > 220 ? `${paragraph.slice(0, 220)}...` : paragraph);
+    if (matches.length >= 2) break;
+  }
+  if (matches.length === 0 && includeFallback) {
+    const fallbackKeywords = ["コスト", "試算", "収益", "経済性", "ワークシート", "市場", "調査", "事業計画", "設立", "進捗", "資本政策", "poc"];
+    for (const paragraph of paragraphs) {
+      const normalized = normalizeTextForMatch(paragraph);
+      if (!fallbackKeywords.some((keyword) => normalized.includes(normalizeTextForMatch(keyword)))) continue;
+      matches.push(paragraph.length > 220 ? `${paragraph.slice(0, 220)}...` : paragraph);
+      if (matches.length >= 2) break;
+    }
+  }
+  return matches;
+}
+
+// シンプルなMarkdownレンダラー（react-markdown不要）
+function parseBold(text: string): React.ReactNode {
+  const parts = text.split(/\*\*([^*]+)\*\*/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? <strong key={i}>{part}</strong> : part
+      )}
+    </>
+  );
+}
+
+function SimpleMarkdown({ text }: { text: string }) {
+  if (!text) return null;
+  const lines = text.split("\n");
+  return (
+    <div className="text-sm leading-relaxed">
+      {lines.map((line, i) => {
+        if (line.startsWith("### ")) {
+          return <h4 key={i} className="text-sm font-semibold mt-3 mb-0.5">{line.slice(4)}</h4>;
+        }
+        if (line.startsWith("## ")) {
+          return <h3 key={i} className="text-base font-semibold mt-4 mb-1 text-foreground">{line.slice(3)}</h3>;
+        }
+        if (line.startsWith("# ")) {
+          return <h2 key={i} className="text-lg font-bold mt-4 mb-1">{line.slice(2)}</h2>;
+        }
+        if (line.match(/^[-*] /)) {
+          return (
+            <div key={i} className="flex gap-1.5 ml-2 my-0.5">
+              <span className="text-muted-foreground shrink-0 mt-px">•</span>
+              <span>{parseBold(line.slice(2))}</span>
+            </div>
+          );
+        }
+        if (line.startsWith("> ")) {
+          return (
+            <blockquote key={i} className="text-sm border-l-2 border-muted-foreground/30 pl-3 text-muted-foreground my-1">
+              {line.slice(2)}
+            </blockquote>
+          );
+        }
+        if (line.trim() === "") {
+          return <div key={i} className="h-2" />;
+        }
+        return <p key={i} className="my-0.5">{parseBold(line)}</p>;
+      })}
+    </div>
+  );
+}
+
+// ─── メインコンポーネント ────────────────────────────────────────────────────
+
+export function CockpitMonthlyModal({
+  ym,
+  projectId,
+  report,
+  billing,
+  milestones,
+  progress,
+  responsibilities,
+  memberMap,
+  planCycle,
+  subItems,
+  msActivities = [],
+  memberActivities = [],
+  currentYm,
+  onProgressSaved,
+  onClose,
+}: Props) {
+  const [tab, setTab] = useState<"reward" | "report" | "invoice">("reward");
+
+  // 総合進捗（シグナル計算用）
+  const ymProgressMap = buildEffectiveProgressMap(progress, milestones, ym);
+  const totalPts = milestones.reduce((s, m) => s + m.points, 0);
+  const weightedPct = totalPts > 0
+    ? milestones.reduce((s, m) => s + (ymProgressMap.get(m.milestoneId) || 0) * m.points, 0) / totalPts
+    : 0;
+  const overallPct = Math.round(weightedPct);
+  const expectedPct = planCycle ? computeExpectedPct(planCycle, ym) : null;
+  const signal = expectedPct !== null ? computeSignal(expectedPct, overallPct) : null;
+
+  // 閉じる時: （将来: GASキャッシュリフレッシュ）
+  const handleClose = () => {
+    onClose();
+  };
+
+  const isFuture = ym > currentYm;
+
+  return (
+    <Dialog open onOpenChange={handleClose}>
+      <DialogContent className="!max-w-[1400px] sm:!max-w-[1400px] w-[95vw] max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {formatYm(ym)}
+            {signal && (
+              <span className="text-base" title={`期待進捗率: ${expectedPct}% / 実績: ${overallPct}%`}>
+                {signal}
+              </span>
+            )}
+            {isFuture && (
+              <span className="text-xs text-muted-foreground">(予定)</span>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* タブ切り替え */}
+        <div className="flex gap-1 border-b border-border pb-0 mb-4">
+          {(["reward", "report", "invoice"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`text-sm px-3 py-1.5 border-b-2 transition-colors ${
+                tab === t
+                  ? "border-primary text-foreground font-medium"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t === "reward" ? "進捗確認" : t === "report" ? "レポート" : "請求書"}
+            </button>
+          ))}
+        </div>
+
+        {tab === "reward" && (
+          <RewardTab
+            billing={billing}
+            milestones={milestones}
+            progress={progress}
+            ym={ym}
+            projectId={projectId}
+            report={report}
+            responsibilities={responsibilities}
+            memberMap={memberMap}
+            planCycle={planCycle}
+            subItems={subItems}
+            msActivities={msActivities}
+            memberActivities={memberActivities}
+            currentYm={currentYm}
+            expectedPct={expectedPct}
+            onProgressSaved={onProgressSaved}
+          />
+        )}
+        {tab === "report" && (
+          <ReportTab report={report} projectId={projectId} ym={ym} />
+        )}
+        {tab === "invoice" && (
+          <InvoiceTab projectId={projectId} ym={ym} billing={billing} />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── RewardTab ───────────────────────────────────────────────────────────────
+
+function RewardTab({
+  billing,
+  milestones,
+  progress,
+  ym,
+  projectId,
+  report,
+  responsibilities,
+  memberMap,
+  planCycle,
+  subItems,
+  msActivities,
+  memberActivities,
+  currentYm,
+  expectedPct,
+  onProgressSaved,
+}: {
+  billing: Billing | null;
+  milestones: MilestoneInfo[];
+  progress: ProgressInfo[];
+  ym: string;
+  projectId: string;
+  report: Report | null;
+  responsibilities: Responsibility[];
+  memberMap: Record<string, string>;
+  planCycle: PlanCycleShape | null;
+  subItems: SubItem[];
+  msActivities: MemberMsActivityInfo[];
+  memberActivities: MemberActivityInfo[];
+  currentYm: string;
+  expectedPct: number | null;
+  onProgressSaved?: (patches: ProgressInfo[]) => void;
+}) {
+  const [localProgress, setLocalProgress] = useState<ProgressInfo[]>(progress);
+  const [estimating, setEstimating] = useState(false);
+  const [estimateMsg, setEstimateMsg] = useState<string | null>(null);
+  const [unconfirmed, setUnconfirmed] = useState<UnconfirmedEstimate[]>([]);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [modifyingKey, setModifyingKey] = useState<string | null>(null);
+  const [modifyPct, setModifyPct] = useState<string>("0");
+  const [modifyReason, setModifyReason] = useState<string>("");
+  const [manualEditKey, setManualEditKey] = useState<string | null>(null);
+  const [manualEditPct, setManualEditPct] = useState<string>("0");
+  const [revisions, setRevisions] = useState<MsRevision[]>([]);
+  const [revisionLoading, setRevisionLoading] = useState(false);
+  const [revisionTarget, setRevisionTarget] = useState<string | null>(null);
+  const [revisionText, setRevisionText] = useState("");
+  const [revisionMsg, setRevisionMsg] = useState<string | null>(null);
+  const [localMemberActivities, setLocalMemberActivities] = useState<MemberActivityInfo[]>(memberActivities);
+
+  // 全体Editモード
+  const [editMode, setEditMode] = useState(false);
+  const [editPcts, setEditPcts] = useState<Record<string, number>>({});
+  const [savingBatch, setSavingBatch] = useState(false);
+
+  // 進捗イベント
+  const [events, setEvents] = useState<ProgressEvent[] | null>(null);
+  const [eventsLoading, setEventsLoading] = useState(false);
+
+  // 立替精算
+  const [reimburse, setReimburse] = useState<ReimburseItem[] | null>(null);
+  const [reimburseLoading, setReimburseLoading] = useState(false);
+
+  const isFuture = ym > currentYm;
+
+  const upsertLocalProgress = (patches: ProgressInfo[]) => {
+    setLocalProgress((prev) => {
+      const map = new Map(prev.map((p) => [`${p.milestoneKey}_${p.ym}`, p]));
+      for (const patch of patches) {
+        const key = `${patch.milestoneKey}_${patch.ym}`;
+        map.set(key, { ...map.get(key), ...patch });
+      }
+      return Array.from(map.values());
+    });
+    onProgressSaved?.(patches);
+  };
+
+  useEffect(() => {
+    setLocalProgress(progress);
+  }, [progress, ym]);
+
+  useEffect(() => {
+    setLocalMemberActivities(memberActivities);
+  }, [memberActivities, ym]);
+
+  // 未確認推定
+  const fetchUnconfirmed = async () => {
+    try {
+      const res = await fetch(`/api/progress/unconfirmed?projectId=${projectId}&ym=${ym}`);
+      const data = await res.json();
+      if (data.ok) setUnconfirmed(data.unconfirmed || []);
+    } catch { /* silent */ }
+  };
+
+  useEffect(() => {
+    fetchUnconfirmed();
+    loadEvents();
+    loadReimburse();
+    loadRevisions();
+  }, [projectId, ym]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadRevisions = async () => {
+    setRevisionLoading(true);
+    try {
+      const res = await fetch(`/api/progress/revisions?projectId=${projectId}&ym=${ym}`);
+      const data = await res.json();
+      setRevisions(data.ok ? data.revisions || [] : []);
+    } catch {
+      setRevisions([]);
+    } finally {
+      setRevisionLoading(false);
+    }
+  };
+
+  // 進捗イベント取得（展開時）
+  const loadEvents = async () => {
+    if (events !== null) return;
+    setEventsLoading(true);
+    try {
+      const res = await fetch(`/api/progress/events?projectId=${projectId}&ym=${ym}`);
+      const data = await res.json();
+      setEvents(data.events || []);
+    } catch {
+      setEvents([]);
+    } finally {
+      setEventsLoading(false);
+    }
+  };
+
+  // 立替精算取得（展開時）
+  const loadReimburse = async () => {
+    if (reimburse !== null) return;
+    setReimburseLoading(true);
+    try {
+      const res = await fetch(`/api/progress/reimbursement?projectId=${projectId}&ym=${ym}`);
+      const data = await res.json();
+      setReimburse(data.items || []);
+    } catch {
+      setReimburse([]);
+    } finally {
+      setReimburseLoading(false);
+    }
+  };
+
+  // AI再推定
+  const handleEstimate = async () => {
+    setEstimating(true);
+    setEstimateMsg(null);
+    try {
+      const res = await fetch("/api/progress/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ym }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "推定に失敗しました");
+
+      if (data.details?.length > 0) {
+        const patches: ProgressInfo[] = [];
+        for (const d of data.details) {
+          if (d.skipped || d.cumulative === 0) continue;
+          const msPts = milestones.find((m) => m.milestoneId === d.milestoneKey)?.points || 0;
+          patches.push({
+            milestoneKey: d.milestoneKey,
+            ym,
+            progressPct: d.cumulative,
+            consumedPt: Math.round(msPts * d.cumulative / 100 * 100) / 100,
+            source: "tsukuyomi_estimate",
+            note: d.reason || null,
+          });
+        }
+        if (patches.length > 0) {
+          upsertLocalProgress(patches);
+          for (const patch of patches) {
+            setUnconfirmed((prev) => {
+              const others = prev.filter((u) => u.milestoneKey !== patch.milestoneKey);
+              const previous = prevProgress.get(patch.milestoneKey) || 0;
+              return [
+                ...others,
+                {
+                  milestoneKey: patch.milestoneKey,
+                  progressPct: patch.progressPct,
+                  prevPct: previous,
+                  reason: patch.note || "",
+                },
+              ];
+            });
+          }
+        }
+      }
+
+      const msg = data.message
+        ? `⚠ ${data.message}`
+        : `✓ ${data.saved}件のMS進捗を更新しました`;
+      setEstimateMsg(msg);
+      await fetchUnconfirmed();
+
+      const reasonMap: Record<string, string> = {};
+      for (const d of data.details || []) {
+        if (d.reason) reasonMap[d.milestoneKey] = d.reason;
+      }
+      if (Object.keys(reasonMap).length > 0) {
+        setUnconfirmed((prev) => prev.map((u) => ({
+          ...u, reason: reasonMap[u.milestoneKey] || u.reason,
+        })));
+      }
+    } catch (e) {
+      setEstimateMsg(`❌ ${e instanceof Error ? e.message : "エラー"}`);
+    } finally {
+      setEstimating(false);
+    }
+  };
+
+  // 推定アクション（採用/不採用/修正）
+  const handleAction = async (
+    milestoneKey: string,
+    action: "adopt" | "reject" | "modify" | "manual",
+    options?: { reason?: string; newPct?: number }
+  ) => {
+    setActionLoading(milestoneKey);
+    try {
+      const res = await fetch("/api/progress/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ym, milestoneKey, action, ...options }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setUnconfirmed((prev) => prev.filter((u) => u.milestoneKey !== milestoneKey));
+      setModifyingKey(null);
+      setManualEditKey(null);
+
+      if (action === "reject" && data.revertedPct !== undefined) {
+        const msPts = milestones.find((m) => m.milestoneId === milestoneKey)?.points || 0;
+        upsertLocalProgress([{
+          milestoneKey,
+          ym,
+          progressPct: data.revertedPct,
+          consumedPt: Math.round(msPts * data.revertedPct / 100 * 100) / 100,
+          source: "pm_rejected",
+        }]);
+      } else if ((action === "adopt" || action === "modify" || action === "manual") && data.newPct !== undefined) {
+        const msPts = milestones.find((m) => m.milestoneId === milestoneKey)?.points || 0;
+        const newConsumed = Math.round(msPts * data.newPct / 100 * 100) / 100;
+        upsertLocalProgress([{
+          milestoneKey,
+          ym,
+          progressPct: data.newPct,
+          consumedPt: newConsumed,
+          source: action === "manual" ? "pm_manual" : "pm_confirmed",
+          note: options?.reason || null,
+        }]);
+      }
+    } catch (e) {
+      console.error("action error:", e);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const submitRevision = async (milestoneId: string, existingRevisionId?: string) => {
+    const requestText = revisionText.trim();
+    if (!requestText) return;
+    setRevisionMsg("つくよみに送信中...");
+    try {
+      const ms = milestones.find((m) => m.milestoneId === milestoneId);
+      const res = await fetch("/api/progress/revisions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          milestoneId,
+          ym,
+          requestText,
+          currentPct: ymProgress.get(milestoneId) || 0,
+          currentNote: progressDetailMap.get(milestoneId)?.note || "",
+          milestoneTitle: ms?.title || milestoneId,
+          revisionId: existingRevisionId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "送信に失敗しました");
+      if (Array.isArray(data.activities) && data.activities.length > 0) {
+        setLocalMemberActivities((prev) => {
+          const map = new Map(prev.map((a) => [a.id, a]));
+          for (const activity of data.activities) map.set(activity.id, activity);
+          return Array.from(map.values());
+        });
+      }
+      setRevisionTarget(null);
+      setRevisionText("");
+      const collected = Number(data.collection?.saved || 0);
+      const extracted = Number(data.activities?.length || 0);
+      setRevisionMsg(collected > 0 || extracted > 0
+        ? `つくよみが提案を返したよ（Gmail収集 ${collected}件 / 活動抽出 ${extracted}件）`
+        : "つくよみが提案を返したよ");
+      await loadRevisions();
+    } catch (e) {
+      setRevisionMsg(`エラー: ${e instanceof Error ? e.message : "送信失敗"}`);
+    }
+  };
+
+  const updateRevision = async (revisionId: string, action: "confirm" | "discard") => {
+    setRevisionMsg(action === "confirm" ? "確定中..." : "破棄中...");
+    try {
+      const res = await fetch("/api/progress/revisions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revisionId, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "更新に失敗しました");
+      if (action === "confirm" && data.progress) {
+        upsertLocalProgress([data.progress]);
+      }
+      setRevisionMsg(action === "confirm" ? "確定して学習したよ" : "破棄したよ");
+      await loadRevisions();
+    } catch (e) {
+      setRevisionMsg(`エラー: ${e instanceof Error ? e.message : "更新失敗"}`);
+    }
+  };
+
+  // 全体Editモード: 開始
+  const enterEditMode = () => {
+    const pcts: Record<string, number> = {};
+    for (const ms of milestones) {
+      pcts[ms.milestoneId] = ymProgress.get(ms.milestoneId) || 0;
+    }
+    setEditPcts(pcts);
+    setEditMode(true);
+  };
+
+  // 全体Editモード: 一括保存
+  const handleBatchSave = async () => {
+    setSavingBatch(true);
+    try {
+      const payload = Object.entries(editPcts).map(([milestoneKey, progressPct]) => ({
+        milestoneKey,
+        progressPct,
+      }));
+      const res = await fetch("/api/progress/batch-save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ym, milestones: payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      // ローカル進捗を更新（consumedPt も再計算して報酬予定額に即時反映）
+      const msPtsMap = new Map(milestones.map((m) => [m.milestoneId, m.points]));
+      const patches = Object.entries(editPcts).map(([msKey, pct]) => {
+        const msPts = msPtsMap.get(msKey) || 0;
+        return {
+          milestoneKey: msKey,
+          ym,
+          progressPct: pct,
+          consumedPt: Math.round(msPts * pct / 100 * 100) / 100,
+          source: "pm_manual",
+          note: "一括編集",
+        };
+      });
+      upsertLocalProgress(patches);
+      setEditMode(false);
+    } catch (e) {
+      console.error("batch save error:", e);
+    } finally {
+      setSavingBatch(false);
+    }
+  };
+
+  if (!billing) {
+    return <p className="text-sm text-muted-foreground py-4">この月の請求データがありません</p>;
+  }
+
+  // ── 進捗計算 ──
+  const ymProgress = buildEffectiveProgressMap(localProgress, milestones, ym);
+
+  // 前月進捗（今月消化pt計算用）
+  const prevYm = prevYmStr(ym);
+  const prevConsumedMap = buildEffectiveConsumedMap(localProgress, milestones, prevYm);
+  const currConsumedMap = buildEffectiveConsumedMap(localProgress, milestones, ym);
+  const monthConsumedPt = milestones.reduce((s, m) => {
+    const curr = currConsumedMap.get(m.milestoneId) || 0;
+    const prev = prevConsumedMap.get(m.milestoneId) || 0;
+    return s + Math.max(0, curr - prev);
+  }, 0);
+  const cumulativeConsumedPt = milestones.reduce((s, m) => s + (currConsumedMap.get(m.milestoneId) || 0), 0);
+
+  const respMap = new Map<string, Responsibility[]>();
+  for (const r of responsibilities) {
+    const arr = respMap.get(r.milestoneId) || [];
+    arr.push(r);
+    respMap.set(r.milestoneId, arr);
+  }
+
+  const subItemsMap = new Map<string, SubItem[]>();
+  for (const si of subItems) {
+    const arr = subItemsMap.get(si.milestoneId) || [];
+    arr.push(si);
+    subItemsMap.set(si.milestoneId, arr);
+  }
+
+  const progressDetailMap = new Map<string, ProgressInfo>();
+  for (const p of localProgress) {
+    if (p.ym === ym) progressDetailMap.set(p.milestoneKey, p);
+  }
+
+  const activityMap = new Map<string, MemberMsActivityInfo[]>();
+  for (const activity of msActivities) {
+    if (activity.ym !== ym) continue;
+    const arr = activityMap.get(activity.milestoneId) || [];
+    arr.push(activity);
+    activityMap.set(activity.milestoneId, arr);
+  }
+
+  const memberActivityMap = new Map<string, MemberActivityInfo[]>();
+  for (const activity of localMemberActivities) {
+    if (activity.ym !== ym || !activity.milestoneId) continue;
+    const arr = memberActivityMap.get(activity.milestoneId) || [];
+    arr.push(activity);
+    memberActivityMap.set(activity.milestoneId, arr);
+  }
+
+  const unconfirmedMap = new Map<string, UnconfirmedEstimate>();
+  for (const u of unconfirmed) unconfirmedMap.set(u.milestoneKey, u);
+  const prevProgress = buildEffectiveProgressMap(localProgress, milestones, prevYm);
+  const revisionsByMs = new Map<string, MsRevision[]>();
+  for (const revision of revisions) {
+    const arr = revisionsByMs.get(revision.milestoneId) || [];
+    arr.push(revision);
+    revisionsByMs.set(revision.milestoneId, arr);
+  }
+
+  const totalPts = milestones.reduce((s, m) => s + m.points, 0);
+  const weightedPct = totalPts > 0
+    ? milestones.reduce((s, m) => s + (ymProgress.get(m.milestoneId) || 0) * m.points, 0) / totalPts
+    : 0;
+  const overallPct = Math.round(weightedPct);
+
+  // ptUnit 計算
+  const planPtUnit = planCycle && planCycle.totalPoints > 0
+    ? Math.round(planCycle.budgetYen / planCycle.totalPoints)
+    : billing.rewardSummaryJson?.ptUnit || 0;
+
+  // MS分類
+  const msNormal = milestones.filter((m) => {
+    const tag = (m.tag || "").toLowerCase();
+    return tag !== "routine" && tag !== "buffer";
+  });
+  const msRoutine = milestones.filter((m) => (m.tag || "").toLowerCase() === "routine");
+  const msBuffer = milestones.filter((m) => (m.tag || "").toLowerCase() === "buffer");
+  const bufferPt = msBuffer.reduce((s, m) => s + m.points, 0);
+
+  return (
+    <div className="space-y-4">
+      {/* ── プラン情報バー ── */}
+      {planCycle && (
+        <div className="text-[12px] text-muted-foreground bg-muted/20 rounded-lg px-3 py-2 flex flex-wrap gap-3 items-center">
+          <span>{formatYm(planCycle.periodStartYm)} 〜 {formatYm(planCycle.periodEndYm)}</span>
+          <span>全 {planCycle.totalPoints}pt</span>
+          {planPtUnit > 0 && <span>1pt = ¥{planPtUnit.toLocaleString()}</span>}
+          {bufferPt > 0 && (
+            <span className="text-[11px] text-muted-foreground/70">バッファ: {bufferPt}pt</span>
+          )}
+        </div>
+      )}
+
+      {/* ── 5指標ステータス行 ── */}
+      <div className="grid grid-cols-5 gap-2">
+        <StatCard
+          label={isFuture ? "消化予定" : "今月消化"}
+          value={`${Math.round(monthConsumedPt * 10) / 10}pt`}
+        />
+        <StatCard
+          label="累計消化"
+          value={totalPts > 0
+            ? `${Math.round(cumulativeConsumedPt * 10) / 10}/${totalPts}pt`
+            : `${Math.round(cumulativeConsumedPt * 10) / 10}pt`
+          }
+        />
+        <StatCard label="進捗率" value={`${overallPct}%`} />
+        {expectedPct !== null && (
+          <StatCard label="期待進捗率" value={`${expectedPct}%`} />
+        )}
+        <StatCard label="会議" value={formatDate(billing.meetingStartAt)} />
+      </div>
+
+      {/* ── 未確認推定バナー ── */}
+      {unconfirmed.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 flex items-center gap-2">
+          <span className="text-amber-600 text-[13px] font-medium">
+            🤖 つくよみ推定（未確認 {unconfirmed.length}件）各MSの右側で確認してね
+          </span>
+        </div>
+      )}
+
+      {/* ── AI再推定 + MS改定 + Editボタン ── */}
+      {milestones.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleEstimate}
+            disabled={estimating}
+            className="text-xs px-3 py-1.5 rounded-md border border-[#007aff]/40 text-[#007aff] hover:bg-[#007aff]/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {estimating ? "推定中…" : "🤖 AIで再推定"}
+          </button>
+          <button
+            disabled
+            title="MS改定: 次のセッションで実装予定"
+            className="text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground opacity-50 cursor-not-allowed"
+          >
+            🔄 MS改定
+          </button>
+          <button
+            onClick={editMode ? () => setEditMode(false) : enterEditMode}
+            className="text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {editMode ? "✏️ 閉じる" : "✏️ Edit"}
+          </button>
+          {estimateMsg && (
+            <span className={`text-[12px] ${estimateMsg.startsWith("❌") ? "text-red-500" : estimateMsg.startsWith("⚠") ? "text-amber-600" : "text-emerald-600"}`}>
+              {estimateMsg}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* ── MS全体Editモード ── */}
+      {editMode && (
+        <div className="border border-border rounded-lg p-4 bg-muted/10 space-y-3">
+          <p className="text-[12px] text-muted-foreground">各MSの累計進捗率（%）を入力</p>
+          {milestones.filter((m) => (m.tag || "").toLowerCase() !== "buffer").map((ms) => {
+            const pct = editPcts[ms.milestoneId] ?? ymProgress.get(ms.milestoneId) ?? 0;
+            const earnedPt = Math.round(ms.points * pct / 100 * 10) / 10;
+            return (
+              <div key={ms.milestoneId} className="flex items-center gap-2">
+                <span className="text-[12px] min-w-[180px] max-w-[200px] truncate flex-shrink-0">
+                  {ms.title}
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={pct}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setEditPcts((prev) => ({ ...prev, [ms.milestoneId]: v }));
+                  }}
+                  className="flex-1 min-w-[80px] accent-[#0066cc]"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={pct}
+                  onChange={(e) => {
+                    const v = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                    setEditPcts((prev) => ({ ...prev, [ms.milestoneId]: v }));
+                  }}
+                  className="w-14 text-center text-[12px] border border-border rounded px-1 py-0.5"
+                />
+                <span className="text-[11px] text-muted-foreground">%</span>
+                <span className="text-[11px] text-[#0066cc] min-w-[44px] text-right">{earnedPt}pt</span>
+              </div>
+            );
+          })}
+          <div className="flex gap-2 justify-end pt-1">
+            <button
+              onClick={() => setEditMode(false)}
+              className="text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted/30"
+            >
+              キャンセル
+            </button>
+            <button
+              onClick={handleBatchSave}
+              disabled={savingBatch}
+              className="text-xs px-3 py-1.5 rounded-md bg-[#0066cc] text-white hover:bg-[#0055aa] disabled:opacity-50"
+            >
+              {savingBatch ? "保存中…" : "💾 保存"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 全体進捗バー ── */}
+      {milestones.length > 0 && !editMode && (
+        <div className="bg-muted/30 rounded-lg p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[13px] font-medium">MS進捗（加重平均）</span>
+            <div className="flex items-center gap-2">
+              {expectedPct !== null && (
+                <span className="text-[11px] text-muted-foreground">期待: {expectedPct}%</span>
+              )}
+              <span className={`text-[14px] font-semibold ${
+                overallPct >= 80 ? "text-emerald-600" : overallPct > 0 ? "text-[#0066cc]" : "text-muted-foreground"
+              }`}>
+                {overallPct}%
+              </span>
+            </div>
+          </div>
+          <div className="relative h-2.5 bg-[#e5e7eb] rounded-full overflow-hidden">
+            {/* 期待進捗マーカー */}
+            {expectedPct !== null && expectedPct > 0 && (
+              <div
+                className="absolute top-0 h-full w-0.5 bg-muted-foreground/40 z-10"
+                style={{ left: `${Math.min(expectedPct, 100)}%` }}
+                title={`期待: ${expectedPct}%`}
+              />
+            )}
+            <div
+              className={`h-full rounded-full transition-all ${
+                overallPct >= 80 ? "bg-emerald-500" : overallPct > 0 ? "bg-[#0066cc]" : "bg-[#d1d5db]"
+              }`}
+              style={{ width: `${Math.min(overallPct, 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── MS別進捗 ── */}
+      {milestones.length > 0 && !editMode && (
+        <div className="space-y-2">
+          <p className="text-[12px] text-muted-foreground font-medium">MS別進捗</p>
+
+          {/* ノーマルMS */}
+          {msNormal.map((ms) => (
+            <MsBarRow
+              key={ms.milestoneId}
+              ms={ms}
+              pct={ymProgress.get(ms.milestoneId) || 0}
+              resps={respMap.get(ms.milestoneId) || []}
+              est={unconfirmedMap.get(ms.milestoneId)}
+              memberMap={memberMap}
+              subItems={subItemsMap.get(ms.milestoneId) || []}
+              progressNote={progressDetailMap.get(ms.milestoneId)?.note || null}
+              activities={activityMap.get(ms.milestoneId) || []}
+              memberActivities={memberActivityMap.get(ms.milestoneId) || []}
+              reportSnippets={extractReportSnippets(report, ms.title, Math.max(0, (ymProgress.get(ms.milestoneId) || 0) - (prevProgress.get(ms.milestoneId) || 0)) > 0)}
+              prevPct={prevProgress.get(ms.milestoneId) || 0}
+              expectedPct={expectedPct}
+              monthlyDeltaPct={Math.max(0, (ymProgress.get(ms.milestoneId) || 0) - (prevProgress.get(ms.milestoneId) || 0))}
+              revisions={revisionsByMs.get(ms.milestoneId) || []}
+              revisionLoading={revisionLoading}
+              revisionTarget={revisionTarget}
+              revisionText={revisionText}
+              revisionMsg={revisionMsg}
+              isManualEditing={manualEditKey === ms.milestoneId}
+              manualEditPct={manualEditPct}
+              isModifying={modifyingKey === ms.milestoneId}
+              modifyPct={modifyPct}
+              modifyReason={modifyReason}
+              actionLoading={actionLoading}
+              onManualEdit={() => {
+                setManualEditKey(ms.milestoneId);
+                setManualEditPct(String(ymProgress.get(ms.milestoneId) || 0));
+              }}
+              onManualEditCancel={() => setManualEditKey(null)}
+              onManualEditPctChange={setManualEditPct}
+              onManualSave={() => handleAction(ms.milestoneId, "manual", { newPct: Number(manualEditPct || 0) })}
+              onAdopt={() => handleAction(ms.milestoneId, "adopt")}
+              onReject={() => handleAction(ms.milestoneId, "reject")}
+              onModifyStart={() => {
+                setModifyingKey(ms.milestoneId);
+                setModifyPct(String(ymProgress.get(ms.milestoneId) || 0));
+                setModifyReason("");
+              }}
+              onModifyCancel={() => setModifyingKey(null)}
+              onModifyPctChange={setModifyPct}
+              onModifyReasonChange={setModifyReason}
+              onModifySave={() => handleAction(ms.milestoneId, "modify", {
+                newPct: Number(modifyPct || 0), reason: modifyReason,
+              })}
+              onRevisionStart={() => {
+                setRevisionTarget(ms.milestoneId);
+                setRevisionText("");
+                setRevisionMsg(null);
+              }}
+              onRevisionCancel={() => setRevisionTarget(null)}
+              onRevisionTextChange={setRevisionText}
+              onRevisionSubmit={(revisionId) => submitRevision(ms.milestoneId, revisionId)}
+              onRevisionConfirm={(revisionId) => updateRevision(revisionId, "confirm")}
+              onRevisionDiscard={(revisionId) => updateRevision(revisionId, "discard")}
+            />
+          ))}
+
+          {/* ルーティンMS（区切り線付き） */}
+          {msRoutine.length > 0 && (
+            <div className="pt-2 mt-2 border-t border-dashed border-border">
+              <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">🔄 定常業務</p>
+              {msRoutine.map((ms) => (
+                <MsBarRow
+                  key={ms.milestoneId}
+                  ms={ms}
+                  pct={ymProgress.get(ms.milestoneId) || 0}
+                  resps={respMap.get(ms.milestoneId) || []}
+                  est={unconfirmedMap.get(ms.milestoneId)}
+                  memberMap={memberMap}
+                  subItems={subItemsMap.get(ms.milestoneId) || []}
+                  progressNote={progressDetailMap.get(ms.milestoneId)?.note || null}
+                  activities={activityMap.get(ms.milestoneId) || []}
+                  memberActivities={memberActivityMap.get(ms.milestoneId) || []}
+                  reportSnippets={extractReportSnippets(report, ms.title, Math.max(0, (ymProgress.get(ms.milestoneId) || 0) - (prevProgress.get(ms.milestoneId) || 0)) > 0)}
+                  prevPct={prevProgress.get(ms.milestoneId) || 0}
+                  expectedPct={expectedPct}
+                  monthlyDeltaPct={Math.max(0, (ymProgress.get(ms.milestoneId) || 0) - (prevProgress.get(ms.milestoneId) || 0))}
+                  revisions={revisionsByMs.get(ms.milestoneId) || []}
+                  revisionLoading={revisionLoading}
+                  revisionTarget={revisionTarget}
+                  revisionText={revisionText}
+                  revisionMsg={revisionMsg}
+                  isManualEditing={manualEditKey === ms.milestoneId}
+                  manualEditPct={manualEditPct}
+                  isModifying={modifyingKey === ms.milestoneId}
+                  modifyPct={modifyPct}
+                  modifyReason={modifyReason}
+                  actionLoading={actionLoading}
+                  onManualEdit={() => {
+                    setManualEditKey(ms.milestoneId);
+                    setManualEditPct(String(ymProgress.get(ms.milestoneId) || 0));
+                  }}
+                  onManualEditCancel={() => setManualEditKey(null)}
+                  onManualEditPctChange={setManualEditPct}
+                  onManualSave={() => handleAction(ms.milestoneId, "manual", { newPct: Number(manualEditPct || 0) })}
+                  onAdopt={() => handleAction(ms.milestoneId, "adopt")}
+                  onReject={() => handleAction(ms.milestoneId, "reject")}
+                  onModifyStart={() => {
+                    setModifyingKey(ms.milestoneId);
+                    setModifyPct(String(ymProgress.get(ms.milestoneId) || 0));
+                    setModifyReason("");
+                  }}
+                  onModifyCancel={() => setModifyingKey(null)}
+                  onModifyPctChange={setModifyPct}
+                  onModifyReasonChange={setModifyReason}
+                  onModifySave={() => handleAction(ms.milestoneId, "modify", {
+                    newPct: Number(modifyPct || 0), reason: modifyReason,
+                  })}
+                  onRevisionStart={() => {
+                    setRevisionTarget(ms.milestoneId);
+                    setRevisionText("");
+                    setRevisionMsg(null);
+                  }}
+                  onRevisionCancel={() => setRevisionTarget(null)}
+                  onRevisionTextChange={setRevisionText}
+                  onRevisionSubmit={(revisionId) => submitRevision(ms.milestoneId, revisionId)}
+                  onRevisionConfirm={(revisionId) => updateRevision(revisionId, "confirm")}
+                  onRevisionDiscard={(revisionId) => updateRevision(revisionId, "discard")}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 今月の報酬予定額 ── */}
+      {planCycle && milestones.length > 0 && (
+        <div className="border border-border rounded-lg overflow-hidden">
+          <div className="px-4 py-2.5 text-[12px] text-muted-foreground font-medium border-b border-border bg-muted/10">
+            💰 今月の報酬予定額
+          </div>
+          <BudgetEstimateSection
+            planCycle={planCycle}
+            milestones={milestones}
+            responsibilities={responsibilities}
+            memberMap={memberMap}
+            ym={ym}
+            progress={localProgress}
+          />
+        </div>
+      )}
+
+      {/* ── 💰 メンバー報酬 ── */}
+      {billing.rewardSummaryJson?.members && billing.rewardSummaryJson.members.length > 0 && (
+        <MemberPayoutSection reward={billing.rewardSummaryJson} memberMap={memberMap} />
+      )}
+
+      {/* ── 進捗イベント ── */}
+      <div className="border border-border rounded-lg overflow-hidden">
+        <div className="px-4 py-2.5 text-[12px] font-medium border-b border-border bg-muted/10">
+          📝 進捗イベント
+          {events !== null && ` (${events.filter((e) => e.status !== "rejected").length}件)`}
+        </div>
+        <div className="px-4 pb-4">
+          {eventsLoading ? (
+            <p className="text-[12px] text-muted-foreground py-2">読み込み中...</p>
+          ) : events === null || events.length === 0 ? (
+            <p className="text-[12px] text-muted-foreground py-2">イベントデータなし</p>
+          ) : (
+            <EventsSection events={events} />
+          )}
+        </div>
+      </div>
+
+      {/* ── 立替精算 ── */}
+      <div className="border border-border rounded-lg overflow-hidden">
+        <div className="px-4 py-2.5 text-[12px] font-medium border-b border-border bg-muted/10">
+          🧾 立替精算
+          {reimburse !== null && reimburse.length > 0 && ` (${reimburse.length}件)`}
+        </div>
+        <div className="px-4 pb-4">
+          {reimburseLoading ? (
+            <p className="text-[12px] text-muted-foreground py-2">読み込み中...</p>
+          ) : reimburse === null || reimburse.length === 0 ? (
+            <p className="text-[12px] text-muted-foreground py-2">精算データなし</p>
+          ) : (
+            <ReimburseSection items={reimburse} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── MS進捗バー行 ────────────────────────────────────────────────────────────
+
+function MsBarRow({
+  ms, pct, resps, est, memberMap, subItems,
+  progressNote, activities, memberActivities, reportSnippets, prevPct, expectedPct, monthlyDeltaPct,
+  revisions, revisionLoading, revisionTarget, revisionText, revisionMsg,
+  isManualEditing, manualEditPct, isModifying, modifyPct, modifyReason, actionLoading,
+  onManualEdit, onManualEditCancel, onManualEditPctChange, onManualSave,
+  onAdopt, onReject, onModifyStart, onModifyCancel, onModifyPctChange, onModifyReasonChange, onModifySave,
+  onRevisionStart, onRevisionCancel, onRevisionTextChange, onRevisionSubmit, onRevisionConfirm, onRevisionDiscard,
+}: {
+  ms: MilestoneInfo;
+  pct: number;
+  resps: Responsibility[];
+  est: UnconfirmedEstimate | undefined;
+  memberMap: Record<string, string>;
+  subItems: SubItem[];
+  progressNote?: string | null;
+  activities: MemberMsActivityInfo[];
+  memberActivities: MemberActivityInfo[];
+  reportSnippets: string[];
+  prevPct: number;
+  expectedPct: number | null;
+  monthlyDeltaPct: number;
+  revisions: MsRevision[];
+  revisionLoading: boolean;
+  revisionTarget: string | null;
+  revisionText: string;
+  revisionMsg: string | null;
+  isManualEditing: boolean;
+  manualEditPct: string;
+  isModifying: boolean;
+  modifyPct: string;
+  modifyReason: string;
+  actionLoading: string | null;
+  onManualEdit: () => void;
+  onManualEditCancel: () => void;
+  onManualEditPctChange: (v: string) => void;
+  onManualSave: () => void;
+  onAdopt: () => void;
+  onReject: () => void;
+  onModifyStart: () => void;
+  onModifyCancel: () => void;
+  onModifyPctChange: (v: string) => void;
+  onModifyReasonChange: (v: string) => void;
+  onModifySave: () => void;
+  onRevisionStart: () => void;
+  onRevisionCancel: () => void;
+  onRevisionTextChange: (v: string) => void;
+  onRevisionSubmit: (revisionId?: string) => void;
+  onRevisionConfirm: (revisionId: string) => void;
+  onRevisionDiscard: (revisionId: string) => void;
+}) {
+  const isUnconfirmed = !!est;
+  const basePct = Math.max(0, Math.min(100, isUnconfirmed ? est.prevPct : prevPct));
+  const displayedPct = Math.max(0, Math.min(100, isUnconfirmed ? est.progressPct : pct));
+  const actualDeltaPct = isUnconfirmed ? 0 : Math.max(0, displayedPct - basePct);
+  const estimateDeltaPct = isUnconfirmed ? Math.max(0, displayedPct - basePct) : 0;
+  const pctColor = displayedPct > 0 ? "text-[#0066cc]" : "text-muted-foreground";
+  const tagLower = (ms.tag || "").toLowerCase();
+  const tagBadge = tagLower === "routine" ? (
+    <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded">定常</span>
+  ) : tagLower === "buffer" ? (
+    <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded">バッファ</span>
+  ) : null;
+  const hasWork = !!progressNote?.trim()
+    || activities.some((a) => a.narrative?.trim() || a.learnedAddendum?.trim())
+    || memberActivities.some((a) => a.contentPreview?.trim() || a.title?.trim())
+    || reportSnippets.length > 0;
+  const pendingRevision = revisions.find((r) => r.status === "pending");
+  const isRevisionEditing = revisionTarget === ms.milestoneId;
+
+  return (
+    <div className="mb-2">
+      <div className="flex gap-3 items-stretch">
+        {/* 左: 進捗バー */}
+        <div className="w-[480px] shrink-0 bg-muted/20 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[12px] flex-1 min-w-0 truncate">{ms.title}</span>
+            {tagBadge}
+            {resps.length > 0 && (
+              <span className="flex gap-0.5 shrink-0">
+                {resps.map((r) => (
+                  <span key={r.memberId} className="text-[10px] text-[#007aff] bg-[#007aff]/8 px-1 rounded">
+                    {memberMap[r.memberId] || "PM"}
+                    {resps.length > 1 && r.share > 0 && (
+                      <span className="text-[9px] opacity-70"> {Math.round(r.share * 100)}%</span>
+                    )}
+                  </span>
+                ))}
+              </span>
+            )}
+            <span className="text-[11px] text-muted-foreground shrink-0">{ms.points}pt</span>
+            <span className={`text-[12px] font-semibold w-10 text-right shrink-0 ${pctColor}`}>
+              {displayedPct}%
+            </span>
+            {!isUnconfirmed && (
+              <button
+                onClick={onManualEdit}
+                className="text-[10px] text-muted-foreground hover:text-foreground shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+                title="手動で編集"
+              >
+                ✏️
+              </button>
+            )}
+          </div>
+
+          {/* 進捗バー */}
+          <div className="relative h-2 bg-[#e5e7eb] rounded-full overflow-hidden">
+            {basePct > 0 && (
+              <div
+                className="absolute top-0 left-0 h-full bg-[#94a3b8]"
+                style={{ width: `${basePct}%` }}
+                title={`前月まで: ${basePct}%`}
+              />
+            )}
+            {actualDeltaPct > 0 && (
+              <div
+                className="absolute top-0 h-full bg-[#007aff]"
+                style={{ left: `${basePct}%`, width: `${Math.min(actualDeltaPct, 100 - basePct)}%` }}
+                title={`今月分: +${actualDeltaPct}%`}
+              />
+            )}
+            {estimateDeltaPct > 0 && (
+              <div
+                className="absolute top-0 h-full"
+                style={{
+                  left: `${basePct}%`,
+                  width: `${Math.min(estimateDeltaPct, 100 - basePct)}%`,
+                  background: "repeating-linear-gradient(45deg,#f59e0b,#f59e0b 3px,#fde68a 3px,#fde68a 6px)",
+                }}
+                title={`つくよみ推定: +${estimateDeltaPct}%`}
+              />
+            )}
+            {expectedPct !== null && expectedPct > 0 && (
+              <div
+                className="absolute top-0 h-full w-0.5 bg-[#1d1d1f] z-10"
+                style={{ left: `${Math.min(expectedPct, 100)}%` }}
+                title={`期待進捗: ${expectedPct}%`}
+              />
+            )}
+          </div>
+
+          <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+            <span>前月 {basePct}%</span>
+            {actualDeltaPct > 0 && <span className="text-[#007aff]">今月 +{actualDeltaPct}%</span>}
+            {estimateDeltaPct > 0 && <span className="text-amber-600">推定 +{estimateDeltaPct}%</span>}
+            {expectedPct !== null && <span>期待 {expectedPct}%</span>}
+          </div>
+
+          {/* 手動編集インライン */}
+          {isManualEditing && (
+            <div className="mt-2 flex items-center gap-1.5">
+              <input
+                type="text" inputMode="numeric" value={manualEditPct}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9]/g, "");
+                  onManualEditPctChange(v === "" ? "" : String(Math.min(100, Number(v))));
+                }}
+                onFocus={(e) => e.target.select()}
+                className="w-14 text-center text-[12px] border border-border rounded px-1 py-0.5"
+              />
+              <span className="text-[11px] text-muted-foreground">%</span>
+              <button
+                onClick={onManualSave}
+                disabled={!!actionLoading}
+                className="text-[10px] px-2 py-0.5 rounded border border-[#0066cc] text-[#0066cc] hover:bg-blue-50 disabled:opacity-50"
+              >
+                保存
+              </button>
+              <button
+                onClick={onManualEditCancel}
+                className="text-[10px] px-2 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted/30"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* サブアイテム / 成功基準 */}
+          {subItems.length > 0 ? (
+            <div className="mt-1.5 space-y-0.5">
+              {subItems.map((si) => (
+                <div key={si.subItemId} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <span>{si.status === "done" ? "✅" : "○"}</span>
+                  <span className={si.status === "done" ? "line-through opacity-60" : ""}>{si.title}</span>
+                  {si.weight > 0 && <span className="opacity-60">{Math.round(si.weight * 100)}%</span>}
+                </div>
+              ))}
+            </div>
+          ) : ms.successCriteria ? (
+            <div className="mt-1.5 text-[10px] text-muted-foreground/70 leading-tight whitespace-pre-line line-clamp-2">
+              {ms.successCriteria}
+            </div>
+          ) : null}
+        </div>
+
+        {/* 右: その月の仕事 / 推定カード */}
+        <div className="flex-1 min-w-0 space-y-2">
+          {isUnconfirmed && (
+            <div className="bg-amber-50/80 border border-amber-200 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="text-[10px] text-amber-600 font-medium">🤖 推定根拠</span>
+                <span className="text-[10px] text-amber-500">{basePct}% → {displayedPct}%</span>
+              </div>
+              {est.reason && (
+                <p className="text-[11px] text-slate-600 leading-snug mb-2">{est.reason}</p>
+              )}
+              {isModifying ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text" inputMode="numeric" value={modifyPct}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^0-9]/g, "");
+                        onModifyPctChange(v === "" ? "" : String(Math.min(100, Number(v))));
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      className="w-16 text-center text-[12px] border border-border rounded px-1 py-0.5"
+                    />
+                    <span className="text-[11px] text-muted-foreground">%</span>
+                  </div>
+                  <input
+                    type="text" placeholder="修正理由（任意）" value={modifyReason}
+                    onChange={(e) => onModifyReasonChange(e.target.value)}
+                    className="w-full text-[11px] border border-border rounded px-2 py-0.5"
+                  />
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={onModifySave}
+                      disabled={!!actionLoading}
+                      className="text-[10px] px-2 py-0.5 rounded border border-[#0066cc] text-[#0066cc] hover:bg-blue-50 disabled:opacity-50"
+                    >
+                      確定
+                    </button>
+                    <button
+                      onClick={onModifyCancel}
+                      className="text-[10px] px-2 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted/30"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-1.5 flex-wrap">
+                  <button
+                    onClick={onAdopt}
+                    disabled={!!actionLoading}
+                    className="text-[10px] px-2 py-0.5 rounded border border-emerald-600 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                  >
+                    {actionLoading === ms.milestoneId ? "…" : "✅ 採用"}
+                  </button>
+                  <button
+                    onClick={onReject}
+                    disabled={!!actionLoading}
+                    className="text-[10px] px-2 py-0.5 rounded border border-red-400 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {actionLoading === ms.milestoneId ? "…" : "❌ 不採用"}
+                  </button>
+                  <button
+                    onClick={onModifyStart}
+                    disabled={!!actionLoading}
+                    className="text-[10px] px-2 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted/30 disabled:opacity-50"
+                  >
+                    ✏️ 修正
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="bg-white border border-border rounded-lg px-3 py-2 min-h-[72px]">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="text-[10px] text-muted-foreground font-medium">この月の仕事</div>
+              <button
+                type="button"
+                onClick={onRevisionStart}
+                className="ml-auto text-[10px] px-2 py-0.5 rounded border border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+              >
+                つくよみに修正依頼
+              </button>
+            </div>
+            {hasWork ? (
+              <div className="space-y-1.5">
+                {progressNote?.trim() && (
+                  <p className="text-[11px] text-slate-700 leading-snug whitespace-pre-wrap">{progressNote.trim()}</p>
+                )}
+                {activities.map((activity, index) => {
+                  const body = activity.narrative?.trim() || activity.learnedAddendum?.trim();
+                  if (!body) return null;
+                  return (
+                    <p key={`${activity.memberId}_${index}`} className="text-[11px] text-muted-foreground leading-snug whitespace-pre-wrap">
+                      <span className="font-medium text-slate-600">{memberMap[activity.memberId] || "PM"}: </span>{body}
+                    </p>
+                  );
+                })}
+                {memberActivities.map((activity) => {
+                  const body = activity.contentPreview?.trim() || activity.title?.trim();
+                  if (!body) return null;
+                  return (
+                    <p key={activity.id} className="text-[11px] text-muted-foreground leading-snug whitespace-pre-wrap">
+                      <span className="font-medium text-slate-600">{memberMap[activity.memberId] || "PM"}: </span>
+                      {activity.title?.trim() && activity.contentPreview?.trim()
+                        ? `${activity.title.trim()} - ${activity.contentPreview.trim()}`
+                        : body}
+                    </p>
+                  );
+                })}
+                {reportSnippets.map((snippet, index) => (
+                  <p key={`report_${index}`} className="text-[11px] text-muted-foreground leading-snug whitespace-pre-wrap">
+                    <span className="font-medium text-slate-600">月次レポート: </span>{snippet}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground/70">
+                {monthlyDeltaPct > 0 ? `作業本文未抽出（進捗 +${Math.round(monthlyDeltaPct)}%）` : "この月の新規作業なし"}
+              </p>
+            )}
+          </div>
+
+          {(isRevisionEditing || revisions.length > 0 || revisionLoading) && (
+            <div className="bg-indigo-50/70 border border-indigo-200 rounded-lg px-3 py-2 space-y-2">
+              <div className="text-[10px] text-indigo-700 font-medium">
+                つくよみ修正依頼
+                {revisionLoading ? " 読み込み中..." : ""}
+              </div>
+              {revisions.map((revision) => (
+                <div key={revision.id} className="bg-white/80 border border-indigo-100 rounded-md px-2 py-2 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-semibold ${
+                      revision.status === "pending" ? "text-amber-700" :
+                      revision.status === "confirmed" ? "text-emerald-700" : "text-slate-500"
+                    }`}>
+                      {revision.status === "pending" ? "確認待ち" : revision.status === "confirmed" ? "確定済" : "破棄"}
+                    </span>
+                    {revision.revisedPct != null && (
+                      <span className="text-[10px] text-indigo-700">提案 {Math.round(revision.revisedPct)}%</span>
+                    )}
+                  </div>
+                  {revision.messages.map((msg) => (
+                    <p key={msg.id} className={`text-[11px] leading-snug whitespace-pre-wrap ${
+                      msg.senderKind === "pm" ? "text-slate-700" : "text-indigo-800"
+                    }`}>
+                      <span className="font-medium">{msg.senderKind === "pm" ? "PM" : "つくよみ"}: </span>{msg.body}
+                    </p>
+                  ))}
+                  {revision.revisedNote && (
+                    <p className="text-[11px] text-slate-700 leading-snug whitespace-pre-wrap">{revision.revisedNote}</p>
+                  )}
+                  {revision.status === "pending" && (
+                    <div className="flex gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={onRevisionStart}
+                        className="text-[10px] px-2 py-0.5 rounded border border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                      >
+                        再依頼
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onRevisionDiscard(revision.id)}
+                        className="text-[10px] px-2 py-0.5 rounded border border-red-300 text-red-600 hover:bg-red-50"
+                      >
+                        破棄
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onRevisionConfirm(revision.id)}
+                        className="text-[10px] px-2 py-0.5 rounded border border-emerald-500 text-emerald-700 hover:bg-emerald-50"
+                      >
+                        OK確定
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {isRevisionEditing && (
+                <div className="space-y-1.5">
+                  <textarea
+                    value={revisionText}
+                    onChange={(e) => onRevisionTextChange(e.target.value)}
+                    placeholder="どう直してほしいかを書く"
+                    className="w-full min-h-20 text-[12px] border border-indigo-200 rounded-md px-2 py-1.5 bg-white"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onRevisionSubmit(pendingRevision?.id)}
+                      disabled={!revisionText.trim()}
+                      className="text-[11px] px-2.5 py-1 rounded bg-indigo-600 text-white disabled:opacity-50"
+                    >
+                      送信
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onRevisionCancel}
+                      className="text-[11px] px-2.5 py-1 rounded border border-border text-muted-foreground"
+                    >
+                      キャンセル
+                    </button>
+                    {revisionMsg && <span className="text-[10px] text-muted-foreground">{revisionMsg}</span>}
+                  </div>
+                </div>
+              )}
+              {!isRevisionEditing && revisionMsg && <p className="text-[10px] text-muted-foreground">{revisionMsg}</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 今月の報酬予定額セクション ──────────────────────────────────────────────
+
+function BudgetEstimateSection({
+  planCycle,
+  milestones,
+  responsibilities,
+  memberMap,
+  ym,
+  progress,
+}: {
+  planCycle: PlanCycleShape;
+  milestones: MilestoneInfo[];
+  responsibilities: Responsibility[];
+  memberMap: Record<string, string>;
+  ym: string;
+  progress: ProgressInfo[];
+}) {
+  const ptUnit = planCycle.totalPoints > 0 ? Math.round(planCycle.budgetYen / planCycle.totalPoints) : 0;
+
+  const activeMilestones = milestones.filter((m) => (m.tag || "").toLowerCase() !== "buffer");
+
+  // 前月の消化ptマップ（今月増分計算用）
+  const prevYm = prevYmStr(ym);
+  const prevConsumedMap = buildEffectiveConsumedMap(progress, milestones, prevYm);
+  const currConsumedMap = buildEffectiveConsumedMap(progress, milestones, ym);
+
+  // メンバー別実績報酬計算（今月の消化pt増分 × 担当割合 × pt単価）
+  const memberTotals: Record<string, { pt: number; yen: number; breakdown: { title: string; pt: number; yen: number }[] }> = {};
+  for (const ms of activeMilestones) {
+    const currPt = currConsumedMap.get(ms.milestoneId) ?? 0;
+    const prevPt = prevConsumedMap.get(ms.milestoneId) ?? 0;
+    const thisMonthPt = Math.max(0, currPt - prevPt);
+    if (thisMonthPt === 0) continue;
+    const resps = responsibilities.filter((r) => r.milestoneId === ms.milestoneId);
+    for (const r of resps) {
+      if (!memberTotals[r.memberId]) memberTotals[r.memberId] = { pt: 0, yen: 0, breakdown: [] };
+      const memberPt = thisMonthPt * r.share;
+      const memberYen = Math.round(memberPt * ptUnit);
+      memberTotals[r.memberId].pt += memberPt;
+      memberTotals[r.memberId].yen += memberYen;
+      memberTotals[r.memberId].breakdown.push({ title: ms.title, pt: memberPt, yen: memberYen });
+    }
+  }
+
+  const members = Object.entries(memberTotals).map(([memberId, data]) => ({
+    memberId,
+    codeName: memberMap[memberId] || "PM",
+    pt: Math.round(data.pt * 10) / 10,
+    yen: data.yen,
+    breakdown: data.breakdown,
+  }));
+
+  const totalYen = members.reduce((s, m) => s + m.yen, 0);
+
+  const [expandedMember, setExpandedMember] = useState<string | null>(null);
+
+  const hasData = members.length > 0;
+
+  return (
+    <div className="px-4 pb-4 space-y-3">
+      <div className="text-[11px] text-muted-foreground bg-muted/20 rounded px-3 py-1.5">
+        {hasData
+          ? `当月進捗増分 × 担当割合 × pt単価（¥${ptUnit.toLocaleString()}/pt）｜合計 ¥${totalYen.toLocaleString()}`
+          : `当月の進捗増分がまだ記録されていません（pt単価 ¥${ptUnit.toLocaleString()}/pt）`}
+      </div>
+
+      {/* MS別内訳 */}
+      {activeMilestones.length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold text-muted-foreground mb-1">MS別今月増分</p>
+          <div className="overflow-hidden rounded-lg border border-border">
+            <table className="w-full text-[11px]">
+              <thead className="bg-muted/20 text-muted-foreground">
+                <tr>
+                  <th className="text-left px-3 py-1 font-medium">MS</th>
+                  <th className="text-right px-3 py-1 font-medium w-20">今月増分</th>
+                  <th className="text-right px-3 py-1 font-medium w-24">金額換算</th>
+                  <th className="text-right px-3 py-1 font-medium w-36">消化pt（前月→今月）</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeMilestones.map((ms, i) => {
+                  const currPt = currConsumedMap.get(ms.milestoneId) ?? 0;
+                  const prevPt = prevConsumedMap.get(ms.milestoneId) ?? 0;
+                  const delta = Math.max(0, currPt - prevPt);
+                  const deltaYen = Math.round(delta * ptUnit);
+                  return (
+                    <tr key={ms.milestoneId} className={`border-t border-border ${i % 2 === 0 ? "" : "bg-muted/10"}`}>
+                      <td className="px-3 py-1 truncate max-w-[180px]">{ms.title}</td>
+                      <td className="px-3 py-1 text-right">{Math.round(delta * 10) / 10}pt</td>
+                      <td className="px-3 py-1 text-right">¥{deltaYen.toLocaleString()}</td>
+                      <td className="px-3 py-1 text-right text-muted-foreground/70">{Math.round(prevPt * 10) / 10}→{Math.round(currPt * 10) / 10}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* メンバー別配賦 */}
+      {members.length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold text-muted-foreground mb-1">メンバー別配賦</p>
+          <div className="overflow-hidden rounded-lg border border-border">
+            <table className="w-full text-[11px]">
+              <thead className="bg-muted/20 text-muted-foreground">
+                <tr>
+                  <th className="text-left px-3 py-1 font-medium">メンバー</th>
+                  <th className="text-right px-3 py-1 font-medium w-16">配賦pt</th>
+                  <th className="text-right px-3 py-1 font-medium w-24">配賦額</th>
+                  <th className="px-3 py-1 w-12"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((mb) => (
+                  <Fragment key={mb.memberId}>
+                    <tr
+                      className="border-t border-border cursor-pointer hover:bg-muted/20"
+                      onClick={() => setExpandedMember(expandedMember === mb.memberId ? null : mb.memberId)}
+                    >
+                      <td className="px-3 py-1">{mb.codeName}</td>
+                      <td className="px-3 py-1 text-right">{mb.pt}pt</td>
+                      <td className="px-3 py-1 text-right">¥{mb.yen.toLocaleString()}</td>
+                      <td className="px-3 py-1 text-right text-muted-foreground">
+                        {expandedMember === mb.memberId ? "▼" : "▶"}
+                      </td>
+                    </tr>
+                    {expandedMember === mb.memberId && (
+                      <tr className="bg-muted/10">
+                        <td colSpan={4} className="px-6 py-1 pb-2">
+                          {mb.breakdown.map((bd, bi) => (
+                            <div key={bi} className="flex justify-between text-[10px] text-muted-foreground py-0.5">
+                              <span className="truncate">{bd.title}</span>
+                              <span className="shrink-0 ml-2">{Math.round(bd.pt * 10) / 10}pt / ¥{bd.yen.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── 進捗イベントセクション ──────────────────────────────────────────────────
+
+const ORIGIN_LABELS: Record<string, string> = {
+  amd_proposed: "AMD提案",
+  co_decided: "協議決定",
+  partner_proposed: "先方提案",
+  client_requested: "先方提案",
+  external: "外部発生",
+  unknown: "不明",
+};
+
+const ORIGIN_COLORS: Record<string, string> = {
+  amd_proposed: "bg-blue-100 text-blue-700",
+  co_decided: "bg-emerald-100 text-emerald-700",
+  partner_proposed: "bg-amber-100 text-amber-700",
+  client_requested: "bg-amber-100 text-amber-700",
+  external: "bg-gray-100 text-gray-600",
+  unknown: "bg-gray-100 text-gray-500",
+};
+
+function EventsSection({ events }: { events: ProgressEvent[] }) {
+  const activeEvents = events.filter((e) => e.status !== "rejected");
+  const rejectedEvents = events.filter((e) => e.status === "rejected");
+
+  // 先手力計算
+  const orTotal = activeEvents.length;
+  const orExternal = activeEvents.filter((e) => e.initiativeOrigin === "external").length;
+  const orJudgeable = orTotal - orExternal;
+  const orAmdCo = activeEvents.filter(
+    (e) => e.initiativeOrigin === "amd_proposed" || e.initiativeOrigin === "co_decided"
+  ).length;
+  const senshoryoku = orJudgeable >= 1 ? Math.round((orAmdCo / orJudgeable) * 100) : null;
+
+  // 起点集計
+  const originCount: Record<string, number> = {};
+  for (const e of activeEvents) {
+    const o = e.initiativeOrigin || "unknown";
+    originCount[o] = (originCount[o] || 0) + 1;
+  }
+
+  return (
+    <div className="space-y-2 pt-1">
+      {/* 先手力 + 起点サマリ */}
+      <div className="flex flex-wrap items-center gap-2">
+        {senshoryoku !== null && (
+          <span className={`text-[12px] font-semibold px-2 py-0.5 rounded ${
+            senshoryoku >= 90 ? "text-emerald-700 bg-emerald-50" :
+            senshoryoku >= 70 ? "text-amber-700 bg-amber-50" : "text-red-600 bg-red-50"
+          }`}>
+            先手力 {senshoryoku}%
+          </span>
+        )}
+        <span className="text-[11px] font-semibold text-muted-foreground">起点:</span>
+        {Object.entries(originCount).map(([key, count]) => (
+          <span key={key} className={`text-[10px] px-1.5 py-0.5 rounded ${ORIGIN_COLORS[key] || "bg-gray-100 text-gray-500"}`}>
+            {ORIGIN_LABELS[key] || key} {count}
+          </span>
+        ))}
+      </div>
+
+      {/* イベントカード */}
+      {activeEvents.map((ev) => {
+        const origin = ev.initiativeOrigin || "unknown";
+        const statusIcon = ev.status === "confirmed" ? "✅" : "📝";
+        return (
+          <div key={ev.eventId} className="bg-muted/10 border border-border rounded-lg px-3 py-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[12px]">{statusIcon} {ev.eventTitle || "(無題)"}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded ${ORIGIN_COLORS[origin] || "bg-gray-100 text-gray-500"}`}>
+                {ORIGIN_LABELS[origin] || origin}
+              </span>
+            </div>
+            {ev.eventDescription && (
+              <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{ev.eventDescription}</p>
+            )}
+            {ev.responsibilities && ev.responsibilities.length > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                担当: {ev.responsibilities.map((r) => `${r.memberName || r.memberId}(${r.responsibility})`).join(", ")}
+              </p>
+            )}
+            {ev.originLostReason && (
+              <div className="mt-1 text-[10px] text-red-600 bg-red-50 px-2 py-1 rounded">
+                ⚠️ 先手を逃した理由: {ev.originLostReason}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* 除外済み */}
+      {rejectedEvents.length > 0 && (
+        <>
+          <div className="text-center text-[11px] text-muted-foreground border-t border-dashed border-border pt-2 mt-2">
+            ーーー 除外済み（{rejectedEvents.length}件）ーーー
+          </div>
+          {rejectedEvents.map((ev) => (
+            <div key={ev.eventId} className="opacity-50 bg-muted/10 border border-border rounded-lg px-3 py-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[12px]">❌ {ev.eventTitle || "(無題)"}</span>
+              </div>
+              {ev.rejectReason && (
+                <p className="text-[10px] text-red-600 mt-1">除外理由: {ev.rejectReason}</p>
+              )}
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── 立替精算セクション ──────────────────────────────────────────────────────
+
+function ReimburseSection({ items }: { items: ReimburseItem[] }) {
+  const total = items.reduce((s, i) => s + (i.amount || 0), 0);
+  return (
+    <div className="space-y-2 pt-1">
+      <div className="overflow-hidden rounded-lg border border-border">
+        <table className="w-full text-[12px]">
+          <thead className="bg-muted/20 text-muted-foreground">
+            <tr>
+              <th className="text-left px-3 py-1.5 font-medium">内容</th>
+              <th className="text-left px-3 py-1.5 font-medium w-20">担当者</th>
+              <th className="text-right px-3 py-1.5 font-medium w-24">金額</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, i) => (
+              <tr key={item.id || i} className="border-t border-border">
+                <td className="px-3 py-1.5">{item.description}</td>
+                <td className="px-3 py-1.5 text-muted-foreground">{item.memberName || "—"}</td>
+                <td className="px-3 py-1.5 text-right">¥{(item.amount || 0).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="border-t border-border bg-muted/10">
+            <tr>
+              <td colSpan={2} className="px-3 py-1.5 text-right font-medium text-[12px]">合計</td>
+              <td className="px-3 py-1.5 text-right font-semibold">¥{total.toLocaleString()}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── メンバー報酬セクション ──────────────────────────────────────────────────
+
+function MemberPayoutSection({
+  reward,
+  memberMap,
+}: {
+  reward: RewardSummary;
+  memberMap: Record<string, string>;
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const ptUnit = reward.ptUnit || 0;
+  const capped = !!reward.capped;
+
+  const toggle = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-[13px] font-medium">💰 メンバー報酬{capped ? "（実績ベース）" : ""}</p>
+        {ptUnit > 0 && (
+          <span className="text-[10px] text-muted-foreground">1pt = ¥{ptUnit.toLocaleString()}</span>
+        )}
+      </div>
+
+      {capped && reward.totalPaySum !== undefined && reward.monthlyBudget65 !== undefined && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-800">
+          ⚠️ 月次キャップ適用中：本来の合計 ¥{(reward.totalPaySum + (reward.carryOverYen || 0)).toLocaleString()} → 上限 ¥{reward.monthlyBudget65.toLocaleString()} に圧縮
+          {reward.carryOverYen ? `（繰越 ¥${reward.carryOverYen.toLocaleString()}）` : ""}
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-lg border border-border">
+        <table className="w-full text-[12px]">
+          <thead className="bg-muted/30 text-[11px] text-muted-foreground">
+            <tr>
+              <th className="text-left px-3 py-1.5 font-medium">メンバー</th>
+              <th className="text-right px-3 py-1.5 font-medium w-20">獲得pt</th>
+              {capped ? (
+                <>
+                  <th className="text-right px-3 py-1.5 font-medium w-28">本来額</th>
+                  <th className="text-right px-3 py-1.5 font-medium w-28">今月支払</th>
+                </>
+              ) : (
+                <>
+                  <th className="text-right px-3 py-1.5 font-medium w-24">基本報酬</th>
+                  <th className="text-right px-3 py-1.5 font-medium w-24">ボーナス</th>
+                  <th className="text-right px-3 py-1.5 font-medium w-28">合計</th>
+                </>
+              )}
+              <th className="text-right px-3 py-1.5 font-medium w-16"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {reward.members.map((mb, idx) => {
+              const rowId = `${mb.memberId}-${idx}`;
+              const isOpen = expanded.has(rowId);
+              const codeName = memberMap[mb.memberId] || "PM";
+              return (
+                <Fragment key={rowId}>
+                  <tr
+                    className="border-t border-border cursor-pointer hover:bg-muted/20"
+                    onClick={() => toggle(rowId)}
+                  >
+                    <td className="px-3 py-2">{codeName}</td>
+                    <td className="px-3 py-2 text-right">{mb.earnedPt}pt</td>
+                    {capped ? (
+                      <>
+                        <td className="px-3 py-2 text-right text-muted-foreground line-through">
+                          ¥{(mb.cappedFrom || mb.totalPay).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold">
+                          ¥{(mb.totalPay || mb.basePay).toLocaleString()}
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-3 py-2 text-right">¥{mb.basePay.toLocaleString()}</td>
+                        <td className="px-3 py-2 text-right">¥{(mb.bonusPt || 0).toLocaleString()}</td>
+                        <td className="px-3 py-2 text-right font-semibold">
+                          ¥{(mb.totalPay || mb.basePay).toLocaleString()}
+                        </td>
+                      </>
+                    )}
+                    <td className="px-3 py-2 text-right text-[10px] text-muted-foreground">
+                      {isOpen ? "▼" : "▶"} 内訳
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="bg-muted/10">
+                      <td colSpan={capped ? 5 : 6} className="px-3 py-2">
+                        {!mb.breakdown || mb.breakdown.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground">内訳データなし</p>
+                        ) : (
+                          <table className="w-full text-[11px]">
+                            <thead className="text-muted-foreground">
+                              <tr>
+                                <th className="text-left font-normal py-1 pl-2">MS</th>
+                                <th className="text-right font-normal py-1 px-2 w-20">消化pt</th>
+                                <th className="text-right font-normal py-1 px-2 w-16">share</th>
+                                <th className="text-right font-normal py-1 px-2 w-20">獲得pt</th>
+                                <th className="text-right font-normal py-1 px-2 w-24">獲得額</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {mb.breakdown.map((bd, bi) => (
+                                <tr key={`${bd.msKey}-${bi}`} className="border-t border-border/50">
+                                  <td className="py-1 pl-2 truncate max-w-[280px]">{bd.title}</td>
+                                  <td className="py-1 px-2 text-right">{bd.msConsumedPt}pt</td>
+                                  <td className="py-1 px-2 text-right">{Math.round((bd.share || 0) * 100)}%</td>
+                                  <td className="py-1 px-2 text-right">{bd.earnedPt}pt</td>
+                                  <td className="py-1 px-2 text-right">
+                                    ¥{Math.round((bd.earnedPt || 0) * ptUnit).toLocaleString()}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── ReportTab ───────────────────────────────────────────────────────────────
+
+function ReportTab({ report, projectId, ym }: { report: Report | null; projectId: string; ym: string }) {
+  const [generating, setGenerating] = useState(false);
+  const [fixing, setFixing] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [content, setContent] = useState(report?.finalExcerpt || report?.draftExcerpt || "");
+  const [status, setStatus] = useState(report?.status || "");
+  const [error, setError] = useState("");
+  const [showMarkdown, setShowMarkdown] = useState(true);
+
+  const isFixed = status === "fixed" || (report?.hasFinal && !!report?.fixedAt);
+
+  const handleGenerate = async (feedbackText?: string) => {
+    setGenerating(true);
+    setError("");
+    try {
+      const res = await fetch("/api/report/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ym, ...(feedbackText ? { feedback: feedbackText } : {}) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "生成に失敗しました");
+      setContent(data.draftContent);
+      setStatus("draft");
+      if (feedbackText) {
+        setShowFeedback(false);
+        setFeedback("");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "エラーが発生しました");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleFix = async () => {
+    setFixing(true);
+    setError("");
+    try {
+      const res = await fetch("/api/report/fix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ym }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "確定に失敗しました");
+      setStatus("fixed");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "エラーが発生しました");
+    } finally {
+      setFixing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* ステータス + アクション */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {content && (
+          <span className={`text-xs px-2 py-0.5 rounded ${
+            isFixed ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+          }`}>
+            {isFixed ? "確定済" : "ドラフト"}
+          </span>
+        )}
+
+        {!isFixed && (
+          <>
+            <button
+              onClick={() => handleGenerate()}
+              disabled={generating}
+              className="text-xs px-3 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {generating ? "生成中..." : content ? "再生成" : "報告書を生成"}
+            </button>
+
+            {content && (
+              <>
+                <button
+                  onClick={() => setShowFeedback(!showFeedback)}
+                  className="text-xs px-3 py-1 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors"
+                >
+                  修正指示
+                </button>
+                <button
+                  onClick={handleFix}
+                  disabled={fixing}
+                  className="text-xs px-3 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                >
+                  {fixing ? "確定中..." : "FIX（確定）"}
+                </button>
+              </>
+            )}
+          </>
+        )}
+
+        {isFixed && (
+          <button
+            onClick={() => handleGenerate(feedback || undefined)}
+            disabled={generating}
+            className="text-xs px-3 py-1 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50 transition-colors"
+            title="確定後も再生成可能"
+          >
+            {generating ? "再生成中..." : "再生成"}
+          </button>
+        )}
+
+        {/* PDF出力（スタブ） */}
+        <button
+          disabled
+          title="PDF出力: 次のセッションで実装予定"
+          className="text-xs px-3 py-1 rounded-md border border-border text-muted-foreground opacity-50 cursor-not-allowed"
+        >
+          📄 PDF
+        </button>
+
+        {/* 表示切り替え */}
+        {content && (
+          <button
+            onClick={() => setShowMarkdown(!showMarkdown)}
+            className="text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground transition-colors ml-auto"
+          >
+            {showMarkdown ? "プレーンテキスト" : "Markdown"}
+          </button>
+        )}
+      </div>
+
+      {/* 修正指示 */}
+      {showFeedback && (
+        <div className="space-y-2">
+          <textarea
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            placeholder="修正指示を入力（例: 「概要をもっと簡潔に」「技術的な成果を強調して」）"
+            className="w-full text-sm border rounded-lg p-3 min-h-[80px] resize-y focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <button
+            onClick={() => handleGenerate(feedback)}
+            disabled={!feedback.trim() || generating}
+            className="text-xs px-3 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
+          >
+            {generating ? "修正中..." : "修正を適用"}
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="text-xs text-red-600 bg-red-50 rounded-lg p-2">{error}</div>
+      )}
+
+      {/* コンテンツ表示 */}
+      {content ? (
+        <div className="bg-muted/30 rounded-lg p-4 max-h-[480px] overflow-y-auto">
+          {showMarkdown ? (
+            <SimpleMarkdown text={content} />
+          ) : (
+            <div className="text-sm whitespace-pre-wrap leading-relaxed">{content}</div>
+          )}
+        </div>
+      ) : !generating ? (
+        <p className="text-sm text-muted-foreground py-4">
+          報告書がまだ作成されていません。「報告書を生成」ボタンで自動生成できます。
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+// ─── InvoiceTab ──────────────────────────────────────────────────────────────
+
+interface InvoiceLine {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+interface AdjustmentLine {
+  id: string;
+  description: string;
+  amount: number;
+}
+
+function InvoiceTab({ projectId, ym, billing }: { projectId: string; ym: string; billing: Billing | null }) {
+  const [loading, setLoading] = useState(false);
+  const [issuing, setIssuing] = useState(false);
+  const [preview, setPreview] = useState<{
+    projectName: string;
+    clientName: string;
+    budget: number;
+    hasFreeeSettings: boolean;
+    alreadyIssued: boolean;
+    defaultIssueDate: string;
+    defaultDueDate: string;
+    baseLines: { description: string; quantity: number; unitPrice: number }[];
+    contractType?: string;
+  } | null>(null);
+  const [issueDate, setIssueDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [subject, setSubject] = useState("");
+  const [remark, setRemark] = useState("");
+  const [editableLines, setEditableLines] = useState<InvoiceLine[]>([]);
+  const [adjustmentLines, setAdjustmentLines] = useState<AdjustmentLine[]>([]);
+  const [result, setResult] = useState<{ freeeInvoiceNumber: string; totalAmount: number } | null>(null);
+  const [error, setError] = useState("");
+  const [showReimburse, setShowReimburse] = useState(false);
+  const [reimburseItems, setReimburseItems] = useState<ReimburseItem[]>([]);
+
+  // タブ表示時に自動ロード
+  const loadPreview = async () => {
+    if (preview || loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/invoice/preview?projectId=${projectId}&ym=${ym}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPreview(data);
+      setIssueDate(data.defaultIssueDate);
+      setDueDate(data.defaultDueDate);
+      setSubject(`${data.projectName} ${ym.slice(0, 4)}年${parseInt(ym.slice(4))}月 業務委託報酬`);
+      // 編集可能な明細ラインに変換
+      setEditableLines(
+        (data.baseLines || []).map((l: { description: string; quantity: number; unitPrice: number }, i: number) => ({
+          id: `base-${i}`,
+          description: l.description,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+        }))
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "プレビュー取得に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPreview();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 立替精算読み込み
+  const loadReimburseItems = async () => {
+    if (reimburseItems.length > 0) return;
+    try {
+      const res = await fetch(`/api/progress/reimbursement?projectId=${projectId}&ym=${ym}`);
+      const data = await res.json();
+      setReimburseItems(data.items || []);
+    } catch { /* silent */ }
+  };
+
+  // 明細行操作
+  const addBaseLine = () => {
+    setEditableLines((prev) => [
+      ...prev,
+      { id: `new-${Date.now()}`, description: "", quantity: 1, unitPrice: 0 },
+    ]);
+  };
+
+  const removeBaseLine = (id: string) => {
+    setEditableLines((prev) => prev.filter((l) => l.id !== id));
+  };
+
+  const updateBaseLine = (id: string, field: keyof InvoiceLine, value: string | number) => {
+    setEditableLines((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, [field]: value } : l))
+    );
+  };
+
+  // 調整行操作
+  const addAdjustmentLine = () => {
+    setAdjustmentLines((prev) => [
+      ...prev,
+      { id: `adj-${Date.now()}`, description: "", amount: 0 },
+    ]);
+  };
+
+  const removeAdjustmentLine = (id: string) => {
+    setAdjustmentLines((prev) => prev.filter((l) => l.id !== id));
+  };
+
+  const updateAdjustmentLine = (id: string, field: keyof AdjustmentLine, value: string | number) => {
+    setAdjustmentLines((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, [field]: value } : l))
+    );
+  };
+
+  // 合計計算
+  const baseLinesTotal = editableLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
+  const adjustLinesTotal = adjustmentLines.reduce((s, l) => s + l.amount, 0);
+  const reimburseTotal = reimburseItems.reduce((s, i) => s + i.amount, 0);
+  const grandTotal = baseLinesTotal + adjustLinesTotal + reimburseTotal;
+
+  // 請求書発行
+  const handleIssue = async () => {
+    if (!preview) return;
+    if (preview.alreadyIssued || !!billing?.invoiceSentAt) {
+      if (!confirm("この月の請求書は発行済みです。再発行するとfreeeのステータスがリセットされます。続けますか？")) {
+        return;
+      }
+    }
+    setIssuing(true);
+    setError("");
+    try {
+      const lines = [
+        ...editableLines.map((l) => ({ description: l.description, quantity: l.quantity, unitPrice: l.unitPrice })),
+        ...adjustmentLines.map((l) => ({ description: l.description, quantity: 1, unitPrice: l.amount })),
+        ...(showReimburse ? reimburseItems.map((i) => ({
+          description: `【立替】${i.description}`,
+          quantity: 1,
+          unitPrice: i.amount,
+        })) : []),
+      ];
+      const res = await fetch("/api/invoice/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ym, issueDate, dueDate, subject, lines, remark }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setResult({ freeeInvoiceNumber: data.freeeInvoiceNumber, totalAmount: data.totalAmount });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "請求書発行に失敗しました");
+    } finally {
+      setIssuing(false);
+    }
+  };
+
+  const alreadyIssued = !!billing?.invoiceSentAt || preview?.alreadyIssued;
+
+  if (loading) {
+    return <div className="py-6 text-center text-sm text-muted-foreground">読み込み中...</div>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* 発行済みバナー */}
+      {alreadyIssued && !result && (
+        <div className="text-xs bg-emerald-50 text-emerald-700 rounded-lg p-2 flex items-center gap-2">
+          <span>✅ この月の請求書は発行済みです（{formatDate(billing?.invoiceSentAt || null)}）</span>
+          <span className="text-emerald-500 text-[10px]">再発行するとステータスがリセットされます</span>
+        </div>
+      )}
+
+      {result ? (
+        <div className="bg-emerald-50 rounded-lg p-4 space-y-2">
+          <p className="text-sm font-medium text-emerald-700">請求書を発行しました</p>
+          <p className="text-xs text-emerald-600">
+            請求書番号: {result.freeeInvoiceNumber}<br />
+            合計金額: ¥{result.totalAmount.toLocaleString()}
+          </p>
+        </div>
+      ) : error && !preview ? (
+        <div className="text-xs text-red-600 bg-red-50 rounded-lg p-2">{error}</div>
+      ) : preview ? (
+        <div className="space-y-3">
+          {/* クライアント・契約情報 */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground">クライアント</label>
+              <p className="text-sm font-medium">{preview.clientName || "—"}</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">契約金額</label>
+              <p className="text-sm font-medium">¥{preview.budget.toLocaleString()}</p>
+            </div>
+            {preview.contractType && (
+              <div>
+                <label className="text-xs text-muted-foreground">契約形態</label>
+                <p className="text-sm">{preview.contractType}</p>
+              </div>
+            )}
+          </div>
+
+          {/* freee設定チェック */}
+          {!preview.hasFreeeSettings && (
+            <div className="text-xs bg-amber-50 text-amber-700 rounded-lg p-2">
+              freee取引先IDが未設定です。管理画面で設定してください。
+            </div>
+          )}
+
+          {/* 件名 */}
+          <div>
+            <label className="text-xs text-muted-foreground">件名</label>
+            <input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="w-full text-sm border rounded-lg px-3 py-2 mt-1"
+            />
+          </div>
+
+          {/* 日付 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground">請求日</label>
+              <input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)}
+                className="w-full text-sm border rounded-lg px-3 py-2 mt-1" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">支払期限</label>
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+                className="w-full text-sm border rounded-lg px-3 py-2 mt-1" />
+            </div>
+          </div>
+
+          {/* 基本明細（編集可） */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs text-muted-foreground">明細（編集可）</label>
+              <button
+                onClick={addBaseLine}
+                className="text-xs text-[#007aff] hover:underline"
+              >
+                ＋ 行を追加
+              </button>
+            </div>
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/30">
+                  <tr>
+                    <th className="text-left px-3 py-1.5 text-xs font-medium">内容</th>
+                    <th className="text-right px-3 py-1.5 text-xs font-medium w-16">数量</th>
+                    <th className="text-right px-3 py-1.5 text-xs font-medium w-28">単価</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {editableLines.map((line) => (
+                    <tr key={line.id} className="border-t">
+                      <td className="px-2 py-1">
+                        <input
+                          type="text"
+                          value={line.description}
+                          onChange={(e) => updateBaseLine(line.id, "description", e.target.value)}
+                          className="w-full text-xs border-0 focus:ring-0 bg-transparent"
+                        />
+                      </td>
+                      <td className="px-2 py-1">
+                        <input
+                          type="number"
+                          value={line.quantity}
+                          onChange={(e) => updateBaseLine(line.id, "quantity", Number(e.target.value))}
+                          className="w-full text-xs text-right border-0 focus:ring-0 bg-transparent"
+                        />
+                      </td>
+                      <td className="px-2 py-1">
+                        <input
+                          type="number"
+                          value={line.unitPrice}
+                          onChange={(e) => updateBaseLine(line.id, "unitPrice", Number(e.target.value))}
+                          className="w-full text-xs text-right border-0 focus:ring-0 bg-transparent"
+                        />
+                      </td>
+                      <td className="px-1 py-1 text-center">
+                        <button onClick={() => removeBaseLine(line.id)}
+                          className="text-[11px] text-red-400 hover:text-red-600">✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 調整行 */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs text-muted-foreground">調整行（値引き・追加請求など）</label>
+              <button onClick={addAdjustmentLine} className="text-xs text-[#007aff] hover:underline">
+                ＋ 追加
+              </button>
+            </div>
+            {adjustmentLines.length > 0 && (
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/20">
+                    <tr>
+                      <th className="text-left px-3 py-1 text-xs font-medium">内容</th>
+                      <th className="text-right px-3 py-1 text-xs font-medium w-28">金額（値引はマイナス）</th>
+                      <th className="w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adjustmentLines.map((line) => (
+                      <tr key={line.id} className="border-t">
+                        <td className="px-2 py-1">
+                          <input type="text" value={line.description}
+                            onChange={(e) => updateAdjustmentLine(line.id, "description", e.target.value)}
+                            className="w-full text-xs border-0 focus:ring-0 bg-transparent" />
+                        </td>
+                        <td className="px-2 py-1">
+                          <input type="number" value={line.amount}
+                            onChange={(e) => updateAdjustmentLine(line.id, "amount", Number(e.target.value))}
+                            className="w-full text-xs text-right border-0 focus:ring-0 bg-transparent" />
+                        </td>
+                        <td className="px-1 py-1 text-center">
+                          <button onClick={() => removeAdjustmentLine(line.id)}
+                            className="text-[11px] text-red-400 hover:text-red-600">✕</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* 立替精算（オプション） */}
+          <div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground">立替精算を含める</label>
+              <button
+                onClick={() => {
+                  setShowReimburse(!showReimburse);
+                  if (!showReimburse) loadReimburseItems();
+                }}
+                className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                  showReimburse
+                    ? "border-[#007aff] text-[#007aff] bg-[#007aff]/5"
+                    : "border-border text-muted-foreground hover:border-[#007aff]"
+                }`}
+              >
+                {showReimburse ? "含める ✓" : "含める"}
+              </button>
+            </div>
+            {showReimburse && reimburseItems.length > 0 && (
+              <div className="mt-2 text-xs text-muted-foreground border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <tbody>
+                    {reimburseItems.map((item, i) => (
+                      <tr key={i} className="border-t first:border-0">
+                        <td className="px-3 py-1">{item.description}</td>
+                        <td className="px-3 py-1 text-right">¥{item.amount.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* 合計 */}
+          <div className="bg-muted/20 rounded-lg px-4 py-2 flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">請求合計（税抜）</span>
+            <span className="text-base font-semibold">¥{grandTotal.toLocaleString()}</span>
+          </div>
+
+          {/* 備考 */}
+          <div>
+            <label className="text-xs text-muted-foreground">備考</label>
+            <textarea
+              value={remark}
+              onChange={(e) => setRemark(e.target.value)}
+              placeholder="備考（任意）"
+              className="w-full text-sm border rounded-lg px-3 py-2 mt-1 min-h-[60px] resize-y"
+            />
+          </div>
+
+          <button
+            onClick={handleIssue}
+            disabled={issuing || !preview.hasFreeeSettings}
+            className="w-full text-sm px-4 py-2.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
+          >
+            {issuing ? "発行中..." : "freeeで請求書を発行"}
+          </button>
+        </div>
+      ) : null}
+
+      {error && preview && (
+        <div className="text-xs text-red-600 bg-red-50 rounded-lg p-2">{error}</div>
+      )}
+    </div>
+  );
+}
+
+// ─── StatCard ────────────────────────────────────────────────────────────────
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-muted/30 rounded-lg p-3">
+      <p className="text-[10px] text-muted-foreground mb-1">{label}</p>
+      <p className="text-sm font-medium">{value}</p>
+    </div>
+  );
+}

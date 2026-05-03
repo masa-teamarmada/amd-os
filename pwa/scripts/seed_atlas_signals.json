@@ -1,0 +1,292 @@
+{
+  "signals": [
+    {
+      "title": "イラン軍ドローン攻撃でカタール液化基地停止、世界ヘリウム供給の30%が一時喪失",
+      "content": "2026年2月28日、イラン軍ドローン・ミサイルがカタールエネルギーのラスラファン液化基地を攻撃し、半導体グレードのヘリウム生産2大基地のうち1つがオフラインに。世界供給の約30%が数日で消失した。台湾・韓国の半導体ファブはヘリウム配給制に。EUVリソグラフィの冷却にヘリウムは代替不能で、4月以降のチップ生産制約が現実化。ロシア・アムールGPPは制裁とトラブルで稼働低迷、サスカチュワン・タンザニア・南アの新規探索は数年先。",
+      "source_url": "https://www.tomshardware.com/tech-industry/semiconductors/the-global-helium-shortage-is-a-direct-threat-to-chipmaking",
+      "source_type": "news",
+      "domain": "C.素材・原料",
+      "importance": "high",
+      "submitted_at": "2026-04-22T09:00:00+09:00"
+    },
+    {
+      "title": "中国の希土類・ガリウム・ゲルマニウム輸出規制、米国向けに2026年11月まで一時停止",
+      "content": "2025年11月のトランプ・習会談を経て、中国商務部はガリウム・ゲルマニウム・アンチモン・超硬材料の対米輸出禁止を2026年11月27日まで一時停止。ただし輸出ライセンス制は維持され、軍事用途は引き続き禁止。中国は2024年時点で世界ガリウム供給の99%を握る。半導体・防衛各国メーカーには「次のラウンド」までの1年の猶予期間。",
+      "source_url": "https://finance.yahoo.com/news/china-suspends-ban-rare-earth-162038224.html",
+      "source_type": "news",
+      "domain": "C.素材・原料",
+      "importance": "high",
+      "submitted_at": "2026-04-10T10:30:00+09:00"
+    },
+    {
+      "title": "中国炭酸リチウム価格、4月時点で年初来50%高 — データセンター電池需要も寄与",
+      "content": "2026年4月、中国の炭酸リチウム価格は1トンあたり17.5万元（約2.5万ドル）まで上昇し3か月ぶりの高値、年初来約32-50%高。EVバッテリー需要に加え、AI データセンター用蓄電システム需要が新規買い手として出現。北京は2027年までに国内EV充電容量を2倍の180GWへ拡張すると表明。供給は2026年上半期通じてタイト見通し。",
+      "source_url": "https://www.caixinglobal.com/2026-04-23/lithium-prices-poised-for-volatile-2026-rise-as-supply-tightens-storage-demand-surges-102437255.html",
+      "source_type": "news",
+      "domain": "C.素材・原料",
+      "importance": "high",
+      "submitted_at": "2026-04-23T11:00:00+09:00"
+    },
+    {
+      "title": "EU AI法 — 汎用AIモデル提供者への執行権限が2026年8月2日発動",
+      "content": "EU AI法（Chapter V）に基づく欧州委員会の汎用AIモデル提供者への監督・執行権限が2026年8月2日に発効。義務自体は2025年8月から既に発動済み。2025年8月以降に市場投入されたモデルは即時準拠が必要、それ以前のモデルは2027年8月までに準拠義務。システミックリスクのある最先端モデルはAI Officeへの通知義務あり。",
+      "source_url": "https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai",
+      "source_type": "news",
+      "domain": "B.規制・政策",
+      "importance": "high",
+      "submitted_at": "2026-04-05T09:00:00+09:00"
+    },
+    {
+      "title": "EU、リチウムイオン電池ブラックマスを「危険廃棄物」に分類、2026年11月から非OECD輸出禁止",
+      "content": "EU委員会は2025年3月、ブラックマス（廃LIB処理から得られる活物質粉）を新コード19 14 02の有害廃棄物に分類。2026年11月9日から非OECD国への輸出を禁止し、欧州域内に滞留させる。これによりEUの域内リサイクル能力強化と中国依存低減が狙い。EU電池規則2023/1542のリサイクル効率最低基準も2025年末から適用開始。",
+      "source_url": "https://www.bdlaw.com/publications/china-and-europe-diverge-on-classification-of-black-mass-from-recycling-of-lithium-ion-batteries/",
+      "source_type": "report",
+      "domain": "O.サーキュラーエコノミー",
+      "importance": "medium",
+      "submitted_at": "2026-04-08T10:00:00+09:00"
+    },
+    {
+      "title": "Helion、Polarisで核融合プラズマ1.5億度を達成 — 民間で初の重水素・三重水素核融合",
+      "content": "2026年2月13日、Sam Altman 出資の Helion Energy が試作炉 Polaris で1.5億度のプラズマ温度を達成し、民間としては初めて測定可能な重水素・三重水素（D-T）核融合を実証。商用核融合の閾値とされる1億度を大きく超える。Microsoftとの2028年からの電力供給契約に向け前進。Commonwealth Fusion Systems の SPARC は2026年内に主要組立完了、2027年にプラズマ発生予定。",
+      "source_url": "https://www.helionenergy.com/articles/helion-achieves-new-fusion-energy-milestones/",
+      "source_type": "news",
+      "domain": "D.エネルギー",
+      "importance": "high",
+      "submitted_at": "2026-04-12T15:00:00+09:00"
+    },
+    {
+      "title": "CATL、全固体電池のエネルギー密度500Wh/kgパイロット量産、2027年小規模量産へ",
+      "content": "CATL は全固体電池の試験生産で 500Wh/kg を実証、技術成熟度（TRL）4 から 2027 年中に 7-8 達成を目標。2026-2028 年で銅箔 626,000トン（約84億ユーロ）を確保し量産準備。Toyota は2028年に全固体EV発売予定で「スケジュール通り」と再確認。業界コンセンサスでは2030年前の大規模商用化は依然不透明。",
+      "source_url": "https://www.electrive.com/2026/03/13/catl-makes-progress-on-its-solid-state-battery/",
+      "source_type": "news",
+      "domain": "D.エネルギー",
+      "importance": "medium",
+      "submitted_at": "2026-04-01T12:00:00+09:00"
+    },
+    {
+      "title": "クリーン水素プロジェクトのキャンセル続出 — 2025年に60件、年産490万トン分が消滅",
+      "content": "S&P Globalによれば2025年だけで約60件のクリーン水素プロジェクトがキャンセル。Topsoe + Air Products の40億ドル青色水素、ArcelorMittal のドイツ DRI 鋼（独政府13億ユーロ補助あり）、Trafigura の豪7.5億豪ドル など。原因は需要側の引取意欲不足による「viability gap」、長期契約未締結、資本コスト・インフレ、政策不透明性。EU の green H2 容量29GW以上が2024年末までに棚上げ。",
+      "source_url": "https://www.chemistryworld.com/news/clean-hydrogen-project-cancellations-point-to-narrower-future/4023051.article",
+      "source_type": "news",
+      "domain": "D.エネルギー",
+      "importance": "high",
+      "submitted_at": "2026-04-15T10:00:00+09:00"
+    },
+    {
+      "title": "ペロブスカイト・タンデム太陽電池、商用34%効率到達 — Oxford PV/LONGi/Trina が量産",
+      "content": "2026年は perovskite-silicon tandem の商用元年。Oxford PV が独ブランデンブルクで生産ライン稼働、住宅用60セルモジュールで Fraunhofer 認証 26.9%。LONGi が世界記録、Trina が32.6%、認証セル記録は34.85%でショックレー・クワイサー単接合限界を突破。日本研究チームは全ペロブスカイトタンデムで30.2%達成。住宅普及は2027-28以降、まず公益事業向け。",
+      "source_url": "https://www.pv-magazine.com/2026/04/24/japanese-scientists-build-all-perovskite-tandem-solar-cell-with-30-2-efficiency/",
+      "source_type": "news",
+      "domain": "D.エネルギー",
+      "importance": "medium",
+      "submitted_at": "2026-04-24T13:00:00+09:00"
+    },
+    {
+      "title": "中国人民解放軍「Justice Mission 2025」 — 台湾海峡で前例のない封鎖演習",
+      "content": "PLA は早期2026年に「内封・外封」ドクトリンを実演する大規模実弾演習を実施。米台は2026年1月、半導体・テクノロジー企業から2500億ドル直接投資+2500億ドル信用保証で米国内チップ生産能力を増強する貿易協定に合意。目標は台湾半導体サプライチェーンの40%を米国に移すこと。台湾は「N-1ルール」（海外製造は台湾より1世代遅れ）を投資審査で運用中。",
+      "source_url": "https://thehilltoponline.com/2026/04/13/taiwan-strait-tensions-push-countries-to-diversify-semiconductor-supply-chains/",
+      "source_type": "news",
+      "domain": "A.地政学・マクロ経済",
+      "importance": "high",
+      "submitted_at": "2026-04-13T08:00:00+09:00"
+    },
+    {
+      "title": "Casgevy（CRISPR-Cas9鎌状赤血球症治療）、ロールアウト難航 — 細胞採取がボトルネック",
+      "content": "Vertex の Casgevy は世界初承認の CRISPR/Cas9 遺伝子治療として商業化2年超だが、患者からの造血幹細胞採取に時間がかかり普及が遅れている。後発の reni-cel 治療では28例中27例で疼痛発作消失、胎児ヘモグロビン正常化を達成。CRISPR治療は次フェーズ（多剤対応・複数Phase 3）へ。実装現場のオペレーション課題が次世代治療共通の壁。",
+      "source_url": "https://www.statnews.com/2026/02/05/vertex-crispr-sickle-cell-treatment-casgevy-faces-rollout-bottleneck/",
+      "source_type": "news",
+      "domain": "F.バイオ・医療",
+      "importance": "medium",
+      "submitted_at": "2026-04-04T11:00:00+09:00"
+    },
+    {
+      "title": "GLP-1 経口剤、Novo・Lilly が2026年Q1-Q2投入 — 注射剤の供給不足は再発回避方針",
+      "content": "Novo Nordisk が世界初の GLP-1 経口減量薬を2026年1月にFDA承認・発売（1.5mg開始用量月149ドル）、Lilly の orforglipron はQ1にFDA承認、Q2発売予定。ノースカロライナ41億ドル新工場稼働で注射剤時代のような不足は回避方針。経口化により普及加速、雇用主負担モデルの再構築期。",
+      "source_url": "https://www.cnbc.com/2026/01/10/2026-is-the-year-of-obesity-pills-from-novo-nordisk-eli-lilly-.html",
+      "source_type": "news",
+      "domain": "F.バイオ・医療",
+      "importance": "medium",
+      "submitted_at": "2026-04-02T10:00:00+09:00"
+    },
+    {
+      "title": "AIデータセンター電力需要、2025年に17%急増 — 米送電網がボトルネックに",
+      "content": "IEAによれば2025年データセンター電力需要は前年比17%増、AI特化型はさらに高速で世界電力需要伸び3%を大きく上回る。2030年までにDC電力消費は倍増、AI特化は3倍に。米国では送電網接続キューが数年単位で滞留、地域容量不足が2026年から顕在化。GAFAM級5社のCAPEXは2025年に4000億ドル超、2026年さらに+75%。",
+      "source_url": "https://www.iea.org/news/data-centre-electricity-use-surged-in-2025-even-with-tightening-bottlenecks-driving-a-scramble-for-solutions",
+      "source_type": "report",
+      "domain": "I.ICT・AI",
+      "importance": "high",
+      "submitted_at": "2026-04-18T09:00:00+09:00"
+    },
+    {
+      "title": "エンタープライズAIエージェント — 2026年末までに業務アプリの40%に組み込み（Gartner）",
+      "content": "Gartner予測では2026年末までにエンタープライズアプリの40%にタスク特化AIエージェントが組み込まれる（2025年は5%未満）。経営幹部97%が過去1年でAIエージェント導入、社員52%が利用中。McKinseyは2030年までに最大2.9兆ドルの経済価値を試算。一方ROI実感は agentic AI で23%、生成AI 全体で29%にとどまる。組織再設計込みでないと効果出ない。",
+      "source_url": "https://www.gartner.com/en/newsroom/press-releases/2025-08-26-gartner-predicts-40-percent-of-enterprise-apps-will-feature-task-specific-ai-agents-by-2026-up-from-less-than-5-percent-in-2025",
+      "source_type": "report",
+      "domain": "I.ICT・AI",
+      "importance": "high",
+      "submitted_at": "2026-04-20T10:00:00+09:00"
+    },
+    {
+      "title": "中国商業宇宙打上、2026年に140回目標 — 米中で世界打上の9割超",
+      "content": "2026年は宇宙打上史上最多年、世界で250回超見込み。SpaceXが約40%、中国が140回（前年比大幅増）。中国民間ロケット（Landspace, iSpace, Space Pioneer, CAS Space, Galactic Energy）が再使用ロケットで台頭、ITUの「Use it or Lose it」周波数枠失効回避が衛星コンステ展開を後押し。SpaceX は2026年下期にIPO、評価額8000億ドル想定。Starship は軌道上燃料補給テストへ。",
+      "source_url": "https://spacenews.com/china-targets-140-launches-in-2026-amid-commercial-space-surge/",
+      "source_type": "news",
+      "domain": "J.宇宙・防衛",
+      "importance": "medium",
+      "submitted_at": "2026-04-09T14:00:00+09:00"
+    },
+    {
+      "title": "日本、エリアベースLevel 4ドローン配送デモ初実施 — 長崎・小値賀島で薬と日用品",
+      "content": "Sora-iina が日本初のエリアベース Level 4（有人地帯BVLOS）ドローン配送実証を長崎県小値賀町青方地区で完了。固定翼+マルチコプターで薬剤・日用品を屋上配送。地上ロボとの「空地連携」最終ライン構築。MLITは2023年に10件のパイロットを認可済、UTMは2026年度以降完成予定。航空法は2022年改正でLevel 4許可制を導入済み。",
+      "source_url": "https://dronelife.com/2026/01/28/japan-announces-first-area-based-level-4-drone-delivery/",
+      "source_type": "news",
+      "domain": "G.モビリティ・ロボティクス",
+      "importance": "medium",
+      "submitted_at": "2026-04-06T11:00:00+09:00"
+    },
+    {
+      "title": "サウジNEOM「The Line」、建設停止 — 戦略レビュー中、2030人口目標を1.5M→300K未満へ",
+      "content": "PIF は2025年9月16日に The Line 建設を停止、戦略レビュー中。2030年人口目標は1.5Mから300K未満へ大幅縮小、170km 全長は2045年完成へ後退。Trojena スキーリゾートは2029アジア冬季大会延期、3月にトンネル工事大型契約も解約。一方 Oxagon の green hydrogen プラントは80%完成、DataVolt と50億ドルの AI データセンター提携で産業・物流ハブへ軸足移行。",
+      "source_url": "https://www.euronews.com/culture/2026/01/26/neom-no-more-saudi-arabia-reduces-ambitious-plans-for-the-line-and-futuristic-megacity",
+      "source_type": "news",
+      "domain": "H.建築・インフラ",
+      "importance": "medium",
+      "submitted_at": "2026-04-15T10:00:00+09:00"
+    },
+    {
+      "title": "TSMC、アリゾナ第2工場の装置搬入をQ3 2026に前倒し — 3nm生産は2027年",
+      "content": "TSMC はアリゾナ第2工場の装置インストールを2026年Q3に前倒し、2027年に3nm 量産開始へ。第1工場（N4）は2024年末から HVM、歩留まりは台湾比+4%とむしろ高い。日本熊本第2工場は4nmへの仕様変更を検討中、ドイツは遅延気味。米台貿易協定に伴い計12のアリゾナ工場建設の報道も。海外ファブ立ち上げが急速にスケール化フェーズへ。",
+      "source_url": "https://www.trendforce.com/news/2025/12/18/news-tsmc-reportedly-accelerates-arizona-2nd-fab-eyes-3q26-tool-install-2027-3nm-production/",
+      "source_type": "news",
+      "domain": "E.製造・プロセス技術",
+      "importance": "high",
+      "submitted_at": "2026-04-11T13:00:00+09:00"
+    },
+    {
+      "title": "台湾水資源逼迫 — TSMCの水使用は2026年に日量3.6万トン（2020比3倍超）",
+      "content": "台湾の半導体ファブ水使用量は日量約1万トンから2026年に3.6万トン規模へ。チップ製造業全体では2050年までに用水を6倍消費の見通し、ファブ単位の水使用効率は逆に2倍以上悪化。世界の既存ファブの40%が2030-40年に高/極高水ストレス流域に位置する見込み。台湾では農業（全用水の70%消費）と水を巡る競合が深刻化、TSMCは2030年までに2010年比30%削減を目標。",
+      "source_url": "https://www.weforum.org/stories/2024/12/how-climate-change-and-water-stress-is-risking-the-semiconductor-supply-chain/",
+      "source_type": "report",
+      "domain": "N.海洋・水資源",
+      "importance": "high",
+      "submitted_at": "2026-04-19T10:00:00+09:00"
+    },
+    {
+      "title": "日銀、4月会合で政策金利0.75%据置 — 内部に1.0%への利上げ提案も",
+      "content": "日銀は2026年4月28日会合で短期金利を0.75%に据置（30年ぶり高水準）も、Nakagawa/Takata/Tamuraの3委員が1.0%への利上げを提案し反対票。市場は2026年中に最低50bpの追加利上げを織込み済。2026年度成長見通しは1%→0.5%に下方修正、コアCPIは1.9%→2.8%に上方修正。イラン情勢由来のインフレ警戒。円高方向に反応。",
+      "source_url": "https://www.cnbc.com/2026/04/28/bank-of-japan-keeps-policy-rate-steady-cpi-iran-war-gdp.html",
+      "source_type": "news",
+      "domain": "L.金融・資本市場",
+      "importance": "high",
+      "submitted_at": "2026-04-28T16:00:00+09:00"
+    },
+    {
+      "title": "日本人口、2070年までに30%減少見通し — 外国人居住者は3.6Mで過去最高",
+      "content": "2026年日本人口は約1.224億人、2070年までに30%減見通し。外国人居住者は前年+10%超で過去最高の360万人、デジタルノマドビザ・外国人技能向上プランも開始。一方で言語・社会保障・教育支援は依然脆弱、地域受入態勢が政策追従できていない。少子化は引き続き「異次元」対策の主戦場。",
+      "source_url": "https://thediplomat.com/2025/12/japans-grim-demographic-reality/",
+      "source_type": "report",
+      "domain": "M.社会構造・社会課題",
+      "importance": "medium",
+      "submitted_at": "2026-04-07T09:00:00+09:00"
+    },
+    {
+      "title": "2025/26穀物年度、世界小麦在庫が過去最高 — EU+20%, アルゼンチン+51%生産",
+      "content": "2025/26 マーケティングイヤーは小麦生産が前年比+6%で記録更新、EU+20%、アルゼンチン+51%、ロシア・カナダ各+11%。世界小麦在庫は+3.6%、コメ在庫は+2.2%でいずれも過去最高水準。一方で気候変動と貿易関係の脆弱性は残存、生産・輸出の国別集中が価格ボラとサプライ寸断リスクを内包。短期は供給潤沢で価格圧力は下方。",
+      "source_url": "https://www.fao.org/newsroom/detail/fao-food-outlook-points-to-broad-based-increase-in-global-food-commodity-production/en",
+      "source_type": "report",
+      "domain": "K.食・農・水産",
+      "importance": "low",
+      "submitted_at": "2026-04-14T11:00:00+09:00"
+    },
+    {
+      "title": "ホルムズ海峡封鎖リスク — 米イラン緊張3週目で台湾半導体産業への直接影響懸念",
+      "content": "イラン情勢の長期化により、ホルムズ海峡封鎖が現実的シナリオに浮上。台湾半導体産業はヘリウム・LNG・原油すべてで中東依存度が高く、封鎖実現なら数日でファブ稼働制約。アルミニウム供給も同時に毀損。地政学リスクが半導体・エネルギー・化学の同時連鎖を作る構造が露わに。",
+      "source_url": "https://www.tomshardware.com/tech-industry/global-chip-supply-chain-under-threat-as-us-iran-conflict-enters-third-week-strait-of-hormuz-blockade-is-days-away-from-crippling-taiwans-semiconductor-industry",
+      "source_type": "news",
+      "domain": "A.地政学・マクロ経済",
+      "importance": "high",
+      "submitted_at": "2026-04-25T10:00:00+09:00"
+    },
+    {
+      "title": "NEOM Oxagon、DataVoltと50億ドルAIデータセンター提携 — メガプロジェクトの軸足転換",
+      "content": "サウジNEOMの工業ゾーン Oxagon が DataVolt と50億ドル規模のAIデータセンター連携を発表。グリーン水素プラント80%完成と並び、未来都市から産業・物流・エネルギーインフラへの戦略軸シフトを象徴。中東は安価な電力と土地を武器に「AIインフラ立地」競争に参入、湾岸はエネルギー輸出国から計算リソース輸出国へ。",
+      "source_url": "https://www.thenationalnews.com/business/economy/2026/04/17/how-saudi-arabia-is-repositioning-neom-as-key-logistics-hub-and-economic-anchor/",
+      "source_type": "news",
+      "domain": "I.ICT・AI",
+      "importance": "medium",
+      "submitted_at": "2026-04-17T12:00:00+09:00"
+    },
+    {
+      "title": "中国LFP電池スクラップ・ブラックマス価格急騰 — 国内回収量不足で輸入依存高まる",
+      "content": "中国LFP電池スクラップとブラックマス価格が2026年に急騰、回収・前処理能力に対し国内供給が不足。EUのブラックマス輸出規制（2026年11月発効）と並走し、世界の電池材料リサイクルが地政学的論点に。ニッケル・コバルト・リチウム再生材の囲い込みが電池産業政策の主戦場へ。",
+      "source_url": "https://www.fastmarkets.com/insights/lfp-black-mass-and-battery-scrap-prices-surge-in-china/",
+      "source_type": "news",
+      "domain": "O.サーキュラーエコノミー",
+      "importance": "medium",
+      "submitted_at": "2026-04-16T10:00:00+09:00"
+    },
+    {
+      "title": "ハフニウム供給逼迫 — 高誘電率ゲート絶縁膜と防衛用合金で需要増",
+      "content": "ハフニウム（Hf）は high-k ゲート絶縁膜（HfO2）として最先端ロジック半導体に必須、ジルコニウム精錬の副産物として希少。米中貿易再緊張時の輸出ライセンス対象候補に常に挙がる。防衛・原子炉用合金需要も重なり、サプライ集中度（中国・フランス・ロシア・米）が問題化。代替材料研究は10年単位で停滞気味。",
+      "source_url": "https://www.csis.org/analysis/beyond-rare-earths-chinas-growing-threat-gallium-supply-chains",
+      "source_type": "report",
+      "domain": "C.素材・原料",
+      "importance": "medium",
+      "submitted_at": "2026-04-21T11:00:00+09:00"
+    },
+    {
+      "title": "Commonwealth Fusion Systems の SPARC、超伝導磁石搬入開始 — 2027年プラズマ目標",
+      "content": "MIT spin-off の Commonwealth Fusion Systems は Devens マサチューセッツの SPARC tokamak で2026年1月、計18基の高磁場超伝導磁石のうち1基目を据付。2026年内に主要組立完了、2027年にファーストプラズマ、その後ネットエナジーゲイン実証へ。Helion とは別物理（tokamak vs FRC）の双方が並行で商用化マイルストーンを刻んでいる。",
+      "source_url": "https://www.helionenergy.com/articles/helion-achieves-new-fusion-energy-milestones/",
+      "source_type": "news",
+      "domain": "D.エネルギー",
+      "importance": "medium",
+      "submitted_at": "2026-04-03T10:00:00+09:00"
+    },
+    {
+      "title": "Anthropic 2026 Agentic Coding Trends — 開発タスクの自律実行が定常化",
+      "content": "Anthropic「2026 Agentic Coding Trends Report」によれば、開発タスクの自律実行（コード変更→テスト→PR）がエンタープライズ開発の定常運用に移行。エージェントが自然言語要件から直接コードベース改修を完了する比率が増大、CIパイプラインへのエージェント統合が標準パターン化。コードレビュー・テスト・運用も含めた「全工程自律化」が次の論点。",
+      "source_url": "https://resources.anthropic.com/hubfs/2026%20Agentic%20Coding%20Trends%20Report.pdf",
+      "source_type": "report",
+      "domain": "I.ICT・AI",
+      "importance": "medium",
+      "submitted_at": "2026-04-26T09:00:00+09:00"
+    },
+    {
+      "title": "EU、廃電池・希土類くずの輸出制限を強化 — 中国依存低減で循環経済を産業政策化",
+      "content": "EUはブラックマス分類に続き、使用済み電池本体および希土類含有電子廃棄物の域外輸出制限を打ち出す。背景は中国による回収・精製プロセス独占への懸念。2026年は「リサイクル＝資源安全保障」が完全に重なる年。日本・米国も域内ループ構築の追随圧力を受ける。",
+      "source_url": "https://rhomotion.com/eu-moves-to-restrict-export-of-end-of-life-batteries-and-black-mass/",
+      "source_type": "news",
+      "domain": "B.規制・政策",
+      "importance": "medium",
+      "submitted_at": "2026-04-13T11:00:00+09:00"
+    },
+    {
+      "title": "CATL、銅箔626,000トンを2026-28で確保 — 約84億ユーロ規模、量産スケール準備",
+      "content": "CATLは広東Jiayuan Technologyから2026-2028年で銅箔約626,000トン（評価額約84億ユーロ）を予約確保。全固体電池および次世代LIBの大規模量産を見据えた供給網ロックイン。電池セルの上流部材で寡占化が進むと、モジュール価格・調達リードタイムの構造が変わる。日韓電池メーカーの素材戦略も同時に試される局面。",
+      "source_url": "https://www.electrive.com/2026/03/13/catl-makes-progress-on-its-solid-state-battery/",
+      "source_type": "news",
+      "domain": "C.素材・原料",
+      "importance": "medium",
+      "submitted_at": "2026-04-02T11:00:00+09:00"
+    },
+    {
+      "title": "AIデータセンター用蓄電 — 新たな「リチウムの大口買い手」として登場",
+      "content": "AI/HPCデータセンターのバックアップ・ピークシフト用蓄電池がリチウム需要の新規ドライバとして可視化。EVバッテリーより容量当たりリチウム使用量が多く、ハイパースケーラーの設備投資（2026年+75%予定）と連動。電力網接続待ちの代替策としてオンサイト蓄電容量増加。電池資源と計算インフラが直結する構造に。",
+      "source_url": "https://www.iea.org/reports/energy-and-ai/energy-demand-from-ai",
+      "source_type": "report",
+      "domain": "I.ICT・AI",
+      "importance": "high",
+      "submitted_at": "2026-04-27T10:00:00+09:00"
+    },
+    {
+      "title": "Toyota が固体電池EV発売を2028年に再確認 — 充電10分・航続+20-50%",
+      "content": "Toyota Carbon Neutral Advanced Engineering Development Center 社長は2028年の全固体電池EV市販を「スケジュール通り」と再確認。充電時間10分、航続距離+20-50%が目標仕様。量産は2027-28年、競合 CATL は2027年に小規模量産。日本勢が出遅れる懸念が薄れた一方、商用化までのプロセス品質が依然リスク。",
+      "source_url": "https://electrek.co/2025/10/30/toyotas-solid-state-ev-battery-dreams-might-actually-come-true/",
+      "source_type": "news",
+      "domain": "G.モビリティ・ロボティクス",
+      "importance": "medium",
+      "submitted_at": "2026-04-08T09:00:00+09:00"
+    }
+  ]
+}

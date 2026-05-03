@@ -1,17 +1,21 @@
+@../../CLAUDE.md
+
 # CLAUDE.md — AMD OS iOS (Swift / SwiftUI)
 
 このリポジトリで作業する Claude (Mac 側) が **必ず守る** ルール。
+
+共通の人格・作業姿勢・ハンドオフ・記憶管理は `/Users/masa/projects/CLAUDE.md` と `/Users/masa/projects/AGENTS.common.md` に従う。
 
 ---
 
 ## 🚨 最重要: 正本は GitHub、Drive は廃止済み
 
 - **正本**: `github.com/masa-teamarmada/amd-os-ios`
-- **Mac での作業場所**: `~/dev/amd-os-ios`（Drive 外のローカルクローン）
+- **Mac での作業場所**: `/Users/masa/projects/amd-os/ios`（Drive 外のローカルクローン）
 - **Drive 上の `共有ドライブ/claude/AMD_OS/amd-os-ios/` は廃止済み。**
   - 参照しない。書き込まない。同期トラブルで壊れる前提なので信用できない。
 
-すべての作業は `~/dev/amd-os-ios`（または worktree）で行い、
+すべての作業は `/Users/masa/projects/amd-os/ios`（または worktree）で行い、
 GitHub の `main` ブランチに push する。
 
 ---
@@ -22,7 +26,7 @@ GitHub の `main` ブランチに push する。
 以下を毎セッション開始時に必ず行う:
 
 ```sh
-cd ~/dev/amd-os-ios
+cd /Users/masa/projects/amd-os/ios
 
 # 1. リモート状態を取り込む
 git fetch --all --prune
@@ -88,8 +92,8 @@ git push origin --tags  # TestFlight タグを切った場合
 | 場所 | 役割 | 信頼性 |
 |------|------|--------|
 | `github.com/masa-teamarmada/amd-os-ios` | **正本**。Mac/Win 双方が参照する | ✅ 高 |
-| `~/dev/amd-os-ios` | Mac での実作業ローカルクローン | ✅ 高 |
-| `~/dev/amd-os-ios/.claude/worktrees/...` | 一時的な git worktree | ✅ 高 |
+| `/Users/masa/projects/amd-os/ios` | Mac での実作業ローカルクローン | ✅ 高 |
+| `/Users/masa/projects/amd-os/ios/.claude/worktrees/...` | 一時的な git worktree | ✅ 高 |
 | `<Drive>/共有ドライブ/claude/AMD_OS/amd-os-ios/` | **廃止**。参照禁止 | ❌ |
 
 ---
@@ -118,7 +122,7 @@ git push origin --tags  # TestFlight タグを切った場合
 ```
 [Mac] セッション開始時の 4 ステップ実行（未 push commit 検知）
   ↓
-[Mac] ~/dev/amd-os-ios で Swift コード編集
+[Mac] /Users/masa/projects/amd-os/ios で Swift コード編集
   ↓ git commit（**機能単位で小まめに**、エラー閉じ対策）
 [Mac] git push origin <作業ブランチ>（**毎 commit 後に push**）
   ↓
