@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import TsukuyomiMascot from "@/components/tsukuyomi/Mascot";
 import type { User } from "@supabase/supabase-js";
 
 const NAV_ITEMS = [
@@ -113,6 +114,9 @@ export default function DashboardLayout({
 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto bg-white">{children}</main>
+
+      {/* Tsukuyomi mascot (floats over viewport) */}
+      <TsukuyomiMascot />
     </div>
   );
 }
