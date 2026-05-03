@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { GlobalNav } from "@/components/nav/GlobalNav";
-import TsukuyomiMascot from "@/components/tsukuyomi/Mascot";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({
@@ -29,7 +28,6 @@ export default async function AppLayout({
     <>
       <GlobalNav userCodeName={userCodeName} />
       <main className="flex-1">{children}</main>
-      <TsukuyomiMascot />
     </>
   );
 }
