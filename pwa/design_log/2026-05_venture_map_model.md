@@ -179,7 +179,7 @@ Vercel cron → `/api/cron/relearn-lane-weights` → Sonnet 4.6 が以下を参�
 
 | SU | アウトカム | ボトルネック | 教訓 |
 |---|---|---|---|
-| ティエムファクトリ | burnout | HRL2 | 市場形成が致命的に低かった。TRL5 まで行っても HRL2 では資金切れ |
+| ティエムファクトリ | CEO 移譲・存続中 | TRL3 で設立 | TRL が低すぎる段階で立ち上げ → VC が製品化に期待した資金がラボレベル開発に消費 → 興味企業の PoC 実施にも時間。HRL は問題ではなかった。CEO は CFO 倉田氏 → 技術メンバー橘氏へ引継ぎ、現在も存続。|
 | Yellow Duck | ue_fail | BRL2 | PoC 達成も事業化構造が固まらなかった。UE 不成立 |
 | JOYCLE | deep_pivot | BRL3 | 技術の deep 化は成功したが BRL の出口（産廃契約）未完で終了 |
 
@@ -227,7 +227,7 @@ Vercel cron → `/api/cron/relearn-lane-weights` → Sonnet 4.6 が以下を参�
    現在 0 扱い。J-Startup や IPA などのオープンデータから「同領域のスタートアップ数の時系列」を取れれば $C_i$ を実数値にできる。
 
 4. **XRL の $\kappa$ チューニング**  
-   $S_i^{\kappa}$ のシーズ成熟度項。現在 $\kappa = 0.7$ の固定値。ティエムの失敗（TRL3 で設立）を考えると TRL に下限閾値を設けるルールの方が単純で有効かもしれない。
+   $S_i^{\kappa}$ のシーズ成熟度項。現在 $\kappa = 0.7$ の固定値。ティエムが TRL3 段階で設立してしまったことで、製品化フェーズに入るまでに想定外の時間とコストがかかった経験を踏まえると、TRL に下限閾値を設けるルールの方が単純で有効かもしれない。
 
 5. **$B_i(t)$ 予算データの投入**  
    NEDO / AMED の公募予算額は e-Gov や JST の公開データから取れる可能性がある。$\beta$ が突出して高い life レーンで効果が大きい。
@@ -294,7 +294,7 @@ v0.1（式①〜④）を AMD メンバーへの共有・学術発表を見越�
 - **3.4** $D'$ 極大 = 最適投入点ではない → **$D'$ 極大は先行指標、$\sigma_{\mathrm{SU}}$ 最大点が実行点**（時間順序: $D'$ 極大 → $\ddot{M}$ 単独極大 → $\sigma_{\mathrm{SU}}$ 最大）
 
 #### 式④（投入シグナル σ_SU）
-- **4.1** 二項の単位が違うまま足し算 → **$\ddot{M}$ を典型値 $\ddot{M}^{*}$ で正規化**
+- **4.1** 二項の単位が違うまま足し算 → **$\ddot{M}$ を典型値 $\ddot{M}^{\ast}$ で正規化**
 - **4.2** $\Delta t$ 6ヶ月固定はレーンに不適 → **$\Delta t_i$ をレーン依存に**（規制 6 ヶ月、エネルギー 1 年など波長スケール）
 - **4.3** $D'$ がシグナルに入っていない → **3 軸（$\langle T \rangle$, $\ddot{M}$, $D'$）を独立に重ね合わせ**
 - **4.4** リスク項が抜けている → **平均-分散最適化（$-\rho \cdot \mathrm{Var}[T]$）で AMD のリスク許容度を反映**
@@ -347,11 +347,11 @@ $$
 #### 数式④' — 改訂版 投入シグナル
 
 $$
-\sigma_{\mathrm{SU},\, i}(t_0) \;=\; \langle T_i \rangle_{\Delta t_i} \;+\; \mu_M \frac{\ddot{M}_i|_{t_0}}{\ddot{M}^{*}_i} \;+\; \mu_D \frac{D'_i|_{t_0}}{{D'_i}^{*}} \;-\; \rho \cdot \mathrm{Var}[T_i]_{\Delta t_i}
+\sigma_{\mathrm{SU},\, i}(t_0) \;=\; \langle T_i \rangle_{\Delta t_i} \;+\; \mu_M \frac{\ddot{M}_i|_{t_0}}{\ddot{M}^{\ast}_i} \;+\; \mu_D \frac{D'_i|_{t_0}}{{D'_i}^{\ast}} \;-\; \rho \cdot \mathrm{Var}[T_i]_{\Delta t_i}
 $$
 
 - $\Delta t_i$: レーン依存統合窓
-- $\ddot{M}^{*}_i, {D'_i}^{*}$: 各レーンの典型加速度・典型乖離値（正規化用）
+- $\ddot{M}^{\ast}_i, {D'_i}^{\ast}$: 各レーンの典型加速度・典型乖離値（正規化用）
 - $\mu_M, \mu_D$: 加速度ボーナス・乖離ボーナスの重み
 - $\rho$: AMD のリスク許容度（平均-分散最適化）
 
@@ -359,7 +359,7 @@ $$
 
 ### 影響範囲
 
-- **`pwa/src/app/api/cron/relearn-lane-weights/route.ts`** — 推定対象パラメータの拡張（$w_i^X$, $\lambda_i^X$, $\omega_{ij}$, $d_i$, $q_i$, $c_i$, $\Delta t_i$, $\ddot{M}^{*}_i$, $\rho$ 等）。事前分布の構成を Bayesian 枠組みで再設計。
+- **`pwa/src/app/api/cron/relearn-lane-weights/route.ts`** — 推定対象パラメータの拡張（$w_i^X$, $\lambda_i^X$, $\omega_{ij}$, $d_i$, $q_i$, $c_i$, $\Delta t_i$, $\ddot{M}^{\ast}_i$, $\rho$ 等）。事前分布の構成を Bayesian 枠組みで再設計。
 - **`macro_lane_weights` テーブル** — カラム拡張（変数別の重み・減衰率を保持）。schema migration 必要。
 - **`papers_log` テーブル** — 引用数・Top 引用比率カラム追加（$q_i$ 算出のため）。
 - **AMD OS View（A/B/C）** — $D, D'$ の表示を対数微分ベース・スムージング適用版に切り替え。
