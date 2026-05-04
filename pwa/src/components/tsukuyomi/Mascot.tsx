@@ -11,10 +11,10 @@ const MOOD_MAX_MS = 90_000;
 const MOOD_DURATION_MS = 1800;
 
 const FPS: Record<TsukuyomiAnimation, number> = {
-  idle: 11,
-  happy: 14,
-  thinking: 11,
-  wave: 14,
+  idle: 5,
+  happy: 7,
+  thinking: 5,
+  wave: 7,
 };
 
 function rand(min: number, max: number) {
