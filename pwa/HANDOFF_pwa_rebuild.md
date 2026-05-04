@@ -1,7 +1,64 @@
 # HANDOFF: AMD OS PWA再構築
 
 ## 最終更新
-2026-05-04 (えいみ・午後セッション) — Phase 7 を本番反映、960行マクロ遡及データ投入、types/database.ts コミット
+2026-05-04 (えいみ・夜セッション) — つくよみマスコット本番投入完了
+
+---
+
+## 作業状態（2026-05-04 夜セッション）— つくよみマスコット本番投入
+
+### 今回やったこと
+
+#### 概要
+`(app)` レイアウト全画面の右下にチビキャラのつくよみアニメーションを常駐させた。
+
+#### 経緯（要点）
+1. 最初: 元シート (`tsukuyomi-sheet.png`、ラベル/区切り線/数字込みの参考用) を pixel filter + 連結成分で自動クリーン → 線残り・透過抜けが解決できず、ユーザーから NG
+2. 一旦実装をすべて削除 (commit `76bb5a6`)
+3. ユーザーが Codex に依頼してクリーンな v2 素材を生成してもらった
+4. v2 素材 (`/Users/masa/projects/masa/output/tsukuyomi_animations_amd/`) を採用 → 一発で OK
+
+#### 採用した素材 (v2)
+- 場所: `/Users/masa/projects/masa/output/tsukuyomi_animations_amd/`
+- 4 アニメ: idle / happy / thinking / wave
+- 各 18 frames × 128×128px、足元アンカー (64, 124) で正規化済
+- 全部透過処理済、artifact 一切なし
+
+#### 実装
+- `pwa/src/components/tsukuyomi/Sprite.tsx` — 単純な CSS background-position で 1 アニメを描画。`flipX` prop で左右反転対応
+- `pwa/src/components/tsukuyomi/Mascot.tsx` — corner 常駐、定期的に mood swap (30-90s 間隔で happy/thinking/wave に 1.8s 切替)、タップで wave、`flipX` 適用で左向き
+- `pwa/public/tsukuyomi/sheet-v4.png` — 統合シート 2304×512 (18 frames × 4 anims)
+- `pwa/src/app/(app)/layout.tsx` — `<TsukuyomiMascot />` を `<main>` の後に mount
+
+#### FPS 設定 (final, 半分まで落とした)
+```ts
+{ idle: 5, happy: 7, thinking: 5, wave: 7 }
+```
+
+#### Commit / Deploy
+- main commits:
+  - `c9c7a1a` PWA dashboard: add Tsukuyomi floating mascot ← **古い実装(削除済)**
+  - `76bb5a6` PWA: remove Tsukuyomi mascot (rolling back to pre-implementation)
+  - `57d0fbd` PWA: add Tsukuyomi mascot to (app) layout ← **採用版**
+  - `662fb94` PWA: halve Tsukuyomi mascot FPS for calmer feel
+- 本番 alias: https://amd-os-pwa.vercel.app
+- 確認済: `/dashboard` ログイン後の右下に左向きで常駐、緑背景テストでも transparency 完璧
+
+### つくよみ実装の補助スクリプト
+再生成や別シート化のときの参考:
+- `/tmp/combine_v2_frames.py` — Codex frames を統合シートにする (FRAMES_PER_ROW=18 に合わせ済)
+- `/tmp/rebuild_sprite.py` — 旧 annotated sheet 用クリーナー (もう使わない、参考用)
+
+### 未解決 / 改善候補
+- 走るモーション・横切り・ジャンプ等の「移動するアニメ」は廃止 (元素材に無し、ユーザーは calm 系を希望)
+- 状態(loading / empty / error)に応じてアニメを切り替える機能はまだ無い (将来やるなら Mascot に context API 追加)
+- mood pickup は均等ランダム → 重み付けや時間帯依存にする余地あり
+
+### 注意・ハマり
+- Vercel デプロイは git 連携ではなく **`vercel deploy --prod` (CLI 直叩き)** が運用ルール (HANDOFF doc 上部参照)
+- main checkout `/Users/masa/projects/AMD/amd-os/pwa` から CLI で直接 deploy する。worktree から deploy しても OK だが cwd を必ず `/Users/masa/projects/AMD/amd-os/pwa` に
+- `/tsukuyomi-test` を一時的に作ったが、本番投入時に削除済 (middleware の例外も revert 済)
+- 元シート `tsukuyomi-sheet.png` (root に置いてる、git 未追跡) は今後使わない。気になるなら削除可
 
 ---
 
