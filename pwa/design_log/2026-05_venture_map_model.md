@@ -257,7 +257,7 @@ Vercel cron → `/api/cron/relearn-lane-weights` → Sonnet 4.6 が以下を参�
 | `pwa/scripts/migrations/006_venture_map.sql` | テーブル DDL |
 | `pwa/scripts/migrations/006_venture_map_seeds.sql` | 9社 + 初期重み シード |
 | `pwa/scripts/migrations/007_ventures_xrl_log_seeds.sql` | XRL 時系列シード |
-| `pwa/design_log/2026-05_su_knowledge_tiem_jc.md` | ティエム・JC 詳細背景 |
+| `knowledge/su.md` | AMD SU 知識ベース正本 (ティエム・JC・他 SU 全部) |
 | `pwa/design_log/2026-05_venture_map_theory_strategy.pptx` | v0.1→v0.2 改訂プロセスの図解 |
 
 ---
