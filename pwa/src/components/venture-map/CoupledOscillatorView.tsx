@@ -236,8 +236,8 @@ export function CoupledOscillatorView() {
       // この step で発火すべきイベントを全部適用
       while (evCursor < evSteps.length && evSteps[evCursor].step === s) {
         const { ev } = evSteps[evCursor];
-        if (ev.isJump) {
-          oscillator.applyJump(ev.target, ev.magnitude);
+        if (ev.effectType === "shift") {
+          oscillator.applyShift(ev.target, ev.magnitude);
         } else {
           oscillator.applyImpulse(ev.target, ev.magnitude);
         }
@@ -342,8 +342,8 @@ export function CoupledOscillatorView() {
                   <span style={{ fontFamily: "ui-monospace", fontWeight: 600 }}>
                     {monthIndexToLabel(ev.timeMonths)}
                   </span>{" "}
-                  <span style={{ color: ev.isJump ? "#9333ea" : "#0f172a" }}>
-                    {ev.isJump && "⚡"}
+                  <span style={{ color: ev.effectType === "shift" ? "#9333ea" : "#0f172a" }}>
+                    {ev.effectType === "shift" ? "🔀 " : "⚡ "}
                     {ev.label}
                   </span>
                 </div>
@@ -409,7 +409,8 @@ export function CoupledOscillatorView() {
         <div className="rounded-lg border bg-white p-4 shadow-sm">
           <h3 className="font-semibold text-sm mb-3">外力 E (イベント)</h3>
           <div className="text-[10px] text-muted-foreground mb-2">
-            クリックすると該当年から 20 年スパンに設定
+            クリックすると該当年から 20 年スパンに設定。
+            <span className="inline-block ml-1">🔀 = 恒久シフト (戻らない) / ⚡ = 一時インパルス</span>
           </div>
           <div className="flex flex-col gap-1.5">
             {EVENT_PRESETS.map((preset) => (
@@ -417,13 +418,13 @@ export function CoupledOscillatorView() {
                 key={preset.id}
                 onClick={() => handleEvent(preset)}
                 className={`text-left text-xs px-3 py-2 rounded border transition ${
-                  preset.isJump
+                  preset.effectType === "shift"
                     ? "bg-purple-50 border-purple-300 hover:bg-purple-100"
                     : "bg-slate-50 border-slate-300 hover:bg-slate-100"
                 }`}
               >
                 <div className="font-medium">
-                  {preset.isJump && "⚡ "}
+                  {preset.effectType === "shift" ? "🔀 " : "⚡ "}
                   {preset.label}
                 </div>
                 <div className="text-[10px] text-muted-foreground">

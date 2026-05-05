@@ -71,31 +71,38 @@ export const BONDS: Bond[] = [
 
 /**
  * 質量 (慣性) — 大きいほど動きにくい
- * - N: 累積論文 → 大 (慣性大)
- * - P: 政策 → 大 (政策は変わりにくい)
- * - B, I_R, V: 中
- * - R: 言及 → 小 (流行はすぐ動く)
+ *
+ * 周期 T = 2π √(m / k_0) で決まる。k_0 = 0.05 と組み合わせると:
+ * - m = 5 → T ≈ 63 月 ≈ 5 年 (政策サイクル)
+ * - m = 2 → T ≈ 40 月 ≈ 3.3 年
+ * - m = 1 → T ≈ 28 月 ≈ 2.3 年 (流行)
  */
 export const MASSES: Record<NodeId, number> = {
-  P: 3.0,
-  B: 2.0,
-  I_R: 2.0,
-  N: 4.0,
-  V: 2.0,
-  R: 1.0,
+  P: 5.0,   // T ≈ 5 年 (政策サイクル)
+  B: 4.0,   // T ≈ 4.5 年
+  I_R: 3.0, // T ≈ 4 年
+  N: 6.0,   // T ≈ 5.5 年
+  V: 3.5,   // T ≈ 4.2 年 (VC ファンドサイクル前半)
+  R: 1.0,   // T ≈ 2.3 年 (流行)
 };
 
 /**
  * 減衰係数 (摩擦) — 大きいほど揺れがすぐ収まる
+ *
+ * クリティカルダンピング: 2√(m k_0)
+ * アンダーダンプ (= クリティカル未満) で 2-3 周期で収束するよう調整
  */
 export const DAMPING: Record<NodeId, number> = {
-  P: 0.4,
-  B: 0.5,
-  I_R: 0.5,
-  N: 0.3,
-  V: 0.6,
-  R: 1.0,
+  P: 0.20,
+  B: 0.25,
+  I_R: 0.25,
+  N: 0.15,
+  V: 0.30,
+  R: 0.45,  // 流行は早く減衰
 };
+
+/** ベース復元力 (全ノード共通)。これで周期スケールを年単位にする */
+export const K0 = 0.05;
 
 /**
  * 連成振動シミュレータ
@@ -110,11 +117,18 @@ export class CoupledOscillator {
   velocities: Record<NodeId, number>;
   /** 適用中の外力 F_E (毎ステップでクリアされる) */
   externalForces: Record<NodeId, number>;
+  /**
+   * 平衡点シフト q_i (恒久的変化)
+   * 復元力は -k_0 (x_i - q_i) で計算され、振動はこの新平衡点中心になる
+   * 例: 中西PMSQ発見 → q_N += 5、N の振動中心が +5 に移動 (戻らない)
+   */
+  equilibriumShifts: Record<NodeId, number>;
 
   constructor() {
     this.positions = { P: 0, B: 0, I_R: 0, N: 0, V: 0, R: 0 };
     this.velocities = { P: 0, B: 0, I_R: 0, N: 0, V: 0, R: 0 };
     this.externalForces = { P: 0, B: 0, I_R: 0, N: 0, V: 0, R: 0 };
+    this.equilibriumShifts = { P: 0, B: 0, I_R: 0, N: 0, V: 0, R: 0 };
   }
 
   /** 全ノードに対するばね力を計算 */
@@ -122,25 +136,26 @@ export class CoupledOscillator {
     const forces: Record<NodeId, number> = { P: 0, B: 0, I_R: 0, N: 0, V: 0, R: 0 };
     for (const bond of BONDS) {
       // フックの法則: F = k (x_to - x_from)
-      const delta = this.positions[bond.to] - this.positions[bond.from];
+      // ただし「平衡からの相対変位」で結合を計算 (q シフトを差し引く)
+      const xFromRel = this.positions[bond.from] - this.equilibriumShifts[bond.from];
+      const xToRel = this.positions[bond.to] - this.equilibriumShifts[bond.to];
+      const delta = xToRel - xFromRel;
       forces[bond.from] += bond.k * delta;
       forces[bond.to] -= bond.k * delta;
     }
     return forces;
   }
 
-  /** 各ノードへの全力 (ばね + 減衰 + 外力 + 復元力 -k0 x) */
+  /** 各ノードへの全力 (ばね + 減衰 + 外力 + 復元力 -k0 (x - q)) */
   private computeAcceleration(): Record<NodeId, number> {
     const spring = this.computeSpringForces();
     const acc: Record<NodeId, number> = { P: 0, B: 0, I_R: 0, N: 0, V: 0, R: 0 };
-    // ベース復元力 (= 平衡位置に戻す引力、すべてのノードに k0 = 0.5 程度)
-    const k0 = 0.5;
     for (const id of NODE_IDS) {
       const totalForce =
         spring[id] +
         this.externalForces[id] -
         DAMPING[id] * this.velocities[id] -
-        k0 * this.positions[id];
+        K0 * (this.positions[id] - this.equilibriumShifts[id]);
       acc[id] = totalForce / MASSES[id];
     }
     return acc;
@@ -168,19 +183,25 @@ export class CoupledOscillator {
   }
 
   /**
-   * 外力 (E のインパルス) を加える。指定ノードに大きな力を与える
-   * (実装簡略化のため、瞬時インパルスとして 1 step 限定で力を入れる)
+   * 一時的インパルス (例: 震災・ホルムズ封鎖)
+   * 速度に瞬時の力を加え、揺り戻しで元の平衡 (またはシフト後平衡) に戻る
    */
   applyImpulse(target: NodeId, magnitude: number) {
     this.externalForces[target] += magnitude;
   }
 
   /**
-   * ジャンプ (V03-N) — N に階段状の変位を与える
-   * 連続項とは別レイヤーで N に大きな衝撃を与える
+   * 恒久的シフト (例: 青色LED発見・コロナ後オフィス需要・IRA成立)
+   * 平衡点 q_i を永続的に変更する。振動はその新平衡中心に。
+   * V03-N (ジャンプ過程) と V03-? (恒久変化) を統合した実装。
    */
+  applyShift(target: NodeId, magnitude: number) {
+    this.equilibriumShifts[target] += magnitude;
+  }
+
+  /** ジャンプ (V03-N) — applyShift のエイリアス (後方互換) */
   applyJump(target: NodeId = "N", magnitude: number = 5) {
-    this.velocities[target] += magnitude;
+    this.applyShift(target, magnitude);
   }
 
   /** 全停止 (リセット用) */
@@ -189,6 +210,7 @@ export class CoupledOscillator {
       this.positions[id] = 0;
       this.velocities[id] = 0;
       this.externalForces[id] = 0;
+      this.equilibriumShifts[id] = 0;
     }
   }
 
@@ -217,8 +239,12 @@ export interface EventPreset {
   description: string;
   target: NodeId;
   magnitude: number;
-  /** ジャンプか否か (Nに直接衝撃) */
-  isJump?: boolean;
+  /**
+   * 効果のタイプ:
+   * - "impulse": 一時的な力 (揺り戻しで元 or 新平衡に戻る)
+   * - "shift": 恒久的な平衡点シフト (戻らない、新平衡中心で振動)
+   */
+  effectType: "impulse" | "shift";
   /** 発生年 */
   year: number;
   /** 発生月 (1-12、デフォルト 1) */
@@ -229,92 +255,110 @@ export const EVENT_PRESETS: EventPreset[] = [
   {
     id: "blueled",
     label: "青色 LED 発見 (1993)",
-    description: "N に大ジャンプ。最終的に大規模事業化へ",
+    description: "N の平衡を恒久シフト。発光ダイオード分野が新次元へ",
     target: "N",
     magnitude: 8,
-    isJump: true,
+    effectType: "shift",
     year: 1993,
     month: 11,
   },
   {
     id: "nakanishi",
     label: "中西先生 PMSQ 発見 (2007)",
-    description: "N に階段状ジャンプ。論文蓄積からのブレークスルー (Adv. Mater. 2007)",
+    description: "N の平衡を恒久シフト。透明モノリスエアロゲルの基盤論文",
     target: "N",
     magnitude: 6,
-    isJump: true,
+    effectType: "shift",
     year: 2007,
     month: 1,
   },
   {
     id: "lehman",
     label: "リーマンショック (2008)",
-    description: "V に大マイナスインパルス",
+    description: "V に大マイナスインパルス (一時的、回復に数年)",
     target: "V",
-    magnitude: -8,
+    magnitude: -10,
+    effectType: "impulse",
     year: 2008,
     month: 9,
   },
   {
     id: "epbd",
     label: "EU EPBD recast (2010)",
-    description: "P (海外政策模倣)・B (省エネ予算) に当たる",
+    description: "P (海外政策模倣) を恒久シフト。建築物省エネ義務化の流れ",
     target: "P",
-    magnitude: 5,
+    magnitude: 4,
+    effectType: "shift",
     year: 2010,
     month: 5,
   },
   {
     id: "earthquake",
     label: "東日本大震災 (2011)",
-    description: "P 近傍に当たる。省エネ政策・断熱政策が加速",
+    description: "P に一時的大インパルス (省エネ政策が一時的に強化)",
     target: "P",
-    magnitude: 8,
+    magnitude: 10,
+    effectType: "impulse",
     year: 2011,
     month: 3,
   },
   {
     id: "paris",
     label: "パリ協定 (2015)",
-    description: "P (国際合意) に当たる、GX 系 B 押し上げ",
+    description: "P を恒久シフト。GX 系の長期レジーム確立",
     target: "P",
     magnitude: 5,
+    effectType: "shift",
     year: 2015,
     month: 12,
   },
   {
     id: "covid",
     label: "COVID-19 (2020)",
-    description: "R に大インパルス、流行は短期で減衰",
+    description: "R に大インパルス (流行) + R 平衡微シフト (DX 新常態)",
     target: "R",
-    magnitude: 5,
+    magnitude: 8,
+    effectType: "impulse",
     year: 2020,
     month: 3,
   },
   {
+    id: "covid_shift",
+    label: "└ コロナ後 DX 常態化",
+    description: "R を恒久シフト (情報発信量の新常態)。covid と一緒に押す",
+    target: "R",
+    magnitude: 2,
+    effectType: "shift",
+    year: 2020,
+    month: 6,
+  },
+  {
     id: "vc_boom",
     label: "VC ファンドブーム (2021)",
-    description: "V に直接インパルス",
+    description: "V に大インパルス (一時的ピーク、2022 で冷え込み)",
     target: "V",
-    magnitude: 6,
+    magnitude: 8,
+    effectType: "impulse",
     year: 2021,
     month: 6,
   },
   {
     id: "ira",
     label: "米 IRA 成立 (2022)",
-    description: "B (海外モチベ予算) に直接当たる",
+    description: "B を恒久シフト (海外モチベ予算の新レジーム)",
     target: "B",
-    magnitude: 6,
+    magnitude: 5,
+    effectType: "shift",
     year: 2022,
     month: 8,
   },
   {
     id: "hormuz",
     label: "ホルムズ海峡封鎖 (仮想)",
-    description: "P 近傍に当たる。エネルギー政策が動く",
+    description: "P に一時的大インパルス (エネルギー安保政策が動く)",
     target: "P",
-    magnitude: 7,
+    magnitude: 8,
+    effectType: "impulse",
     year: 2024,
     month: 6,
   },
