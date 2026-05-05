@@ -219,38 +219,13 @@ export interface EventPreset {
   magnitude: number;
   /** ジャンプか否か (Nに直接衝撃) */
   isJump?: boolean;
+  /** 発生年 */
+  year: number;
+  /** 発生月 (1-12、デフォルト 1) */
+  month?: number;
 }
 
 export const EVENT_PRESETS: EventPreset[] = [
-  {
-    id: "earthquake",
-    label: "東日本大震災 (2011)",
-    description: "P 近傍に当たる。省エネ政策・断熱政策が加速",
-    target: "P",
-    magnitude: 8,
-  },
-  {
-    id: "hormuz",
-    label: "ホルムズ海峡封鎖",
-    description: "P 近傍に当たる。エネルギー政策が動く",
-    target: "P",
-    magnitude: 7,
-  },
-  {
-    id: "epbd",
-    label: "EU EPBD recast (2010)",
-    description: "P (海外政策模倣) と B (省エネ予算) に当たる",
-    target: "P",
-    magnitude: 5,
-  },
-  {
-    id: "nakanishi",
-    label: "中西先生 PMSQ 発見 (2007)",
-    description: "N に階段状ジャンプ (V03-N)。論文蓄積からのブレークスルー",
-    target: "N",
-    magnitude: 6,
-    isJump: true,
-  },
   {
     id: "blueled",
     label: "青色 LED 発見 (1993)",
@@ -258,20 +233,63 @@ export const EVENT_PRESETS: EventPreset[] = [
     target: "N",
     magnitude: 8,
     isJump: true,
+    year: 1993,
+    month: 11,
   },
   {
-    id: "ira",
-    label: "米 IRA 成立 (2022)",
-    description: "B (海外モチベ予算) に直接当たる",
-    target: "B",
+    id: "nakanishi",
+    label: "中西先生 PMSQ 発見 (2007)",
+    description: "N に階段状ジャンプ。論文蓄積からのブレークスルー (Adv. Mater. 2007)",
+    target: "N",
     magnitude: 6,
+    isJump: true,
+    year: 2007,
+    month: 1,
+  },
+  {
+    id: "lehman",
+    label: "リーマンショック (2008)",
+    description: "V に大マイナスインパルス",
+    target: "V",
+    magnitude: -8,
+    year: 2008,
+    month: 9,
+  },
+  {
+    id: "epbd",
+    label: "EU EPBD recast (2010)",
+    description: "P (海外政策模倣)・B (省エネ予算) に当たる",
+    target: "P",
+    magnitude: 5,
+    year: 2010,
+    month: 5,
+  },
+  {
+    id: "earthquake",
+    label: "東日本大震災 (2011)",
+    description: "P 近傍に当たる。省エネ政策・断熱政策が加速",
+    target: "P",
+    magnitude: 8,
+    year: 2011,
+    month: 3,
+  },
+  {
+    id: "paris",
+    label: "パリ協定 (2015)",
+    description: "P (国際合意) に当たる、GX 系 B 押し上げ",
+    target: "P",
+    magnitude: 5,
+    year: 2015,
+    month: 12,
   },
   {
     id: "covid",
     label: "COVID-19 (2020)",
-    description: "全ノードに分散インパルス、特に R に大きく",
+    description: "R に大インパルス、流行は短期で減衰",
     target: "R",
     magnitude: 5,
+    year: 2020,
+    month: 3,
   },
   {
     id: "vc_boom",
@@ -279,5 +297,25 @@ export const EVENT_PRESETS: EventPreset[] = [
     description: "V に直接インパルス",
     target: "V",
     magnitude: 6,
+    year: 2021,
+    month: 6,
+  },
+  {
+    id: "ira",
+    label: "米 IRA 成立 (2022)",
+    description: "B (海外モチベ予算) に直接当たる",
+    target: "B",
+    magnitude: 6,
+    year: 2022,
+    month: 8,
+  },
+  {
+    id: "hormuz",
+    label: "ホルムズ海峡封鎖 (仮想)",
+    description: "P 近傍に当たる。エネルギー政策が動く",
+    target: "P",
+    magnitude: 7,
+    year: 2024,
+    month: 6,
   },
 ];
