@@ -186,10 +186,10 @@ function TimeSeriesCanvas({
     const h = rect.height;
     ctx.clearRect(0, 0, w, h);
 
-    const padL = 32;
-    const padR = 12;
-    const padT = 8;
-    const padB = 18;
+    const padL = 24;
+    const padR = 8;
+    const padT = 14;
+    const padB = 12;
     const plotW = w - padL - padR;
     const plotH = h - padT - padB;
 
@@ -241,20 +241,20 @@ function TimeSeriesCanvas({
       ctx.setLineDash([]);
     }
 
-    // 凡例
-    ctx.font = "11px sans-serif";
-    let lx = padL + 4;
+    // 凡例 (上端、横並び)
+    ctx.font = "10px sans-serif";
+    let lx = padL + 2;
     labels.forEach((lbl, k) => {
       ctx.fillStyle = colors[k];
-      ctx.fillText(lbl, lx, padT + 12);
-      lx += ctx.measureText(lbl).width + 12;
+      ctx.fillText(lbl, lx, 10);
+      lx += ctx.measureText(lbl).width + 8;
     });
 
     // 軸ラベル
     ctx.fillStyle = "#94a3b8";
-    ctx.font = "10px sans-serif";
-    ctx.fillText("0", 16, yMid + 3);
-    ctx.fillText("t", padL + plotW - 6, h - 4);
+    ctx.font = "9px sans-serif";
+    ctx.fillText("0", 12, yMid + 3);
+    ctx.fillText("t", padL + plotW - 4, h - 2);
   }, [series, colors, labels, currentIdx]);
 
   return <canvas ref={ref} className="w-full" style={{ height }} />;
@@ -520,10 +520,10 @@ export function TripleHelixView() {
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* 上段: 隠れ状態時系列 + 観測量時系列 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card title="隠れ状態 μ_A (学), μ_I (産), μ_G (官) — 灰色領域 = 直接観測できない">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+        <Card title="隠れ状態 μ_A (学), μ_I (産), μ_G (官) — 直接観測不能">
           <div
             style={{
               background:
@@ -533,29 +533,29 @@ export function TripleHelixView() {
             <TimeSeriesCanvas
               series={stateByVar}
               colors={HELIX_COLORS}
-              labels={["μ_A (学)", "μ_I (産)", "μ_G (官)"]}
+              labels={["μ_A", "μ_I", "μ_G"]}
               currentIdx={currentIdx}
-              height={140}
+              height={80}
             />
           </div>
         </Card>
-        <Card title="観測量 P, B, V, R, I_R, N — データから取れるもの">
+        <Card title="観測量 P, B, V, R, I_R, N — データから取得可">
           <TimeSeriesCanvas
             series={obsByVar}
             colors={OBS_COLORS}
             labels={model.obsNames}
             currentIdx={currentIdx}
-            height={140}
+            height={80}
           />
         </Card>
       </div>
 
-      {/* 中段: 3D 軌道 + 固有値 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <Card title="状態軌道 (3D) — μ_A × μ_I × μ_G 空間、Triple Helix の螺旋">
+      {/* 中段: 3D 軌道 + 固有値 + 操作 */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+        <div className="lg:col-span-7">
+          <Card title="状態軌道 (3D) — μ_A × μ_I × μ_G">
             <div
-              style={{ height: 380, minHeight: 0 }}
+              style={{ height: 240, minHeight: 0 }}
               className="rounded bg-slate-50 border border-slate-200"
             >
               <Canvas camera={{ position: [5, 4, 5], fov: 45 }}>
@@ -570,9 +570,9 @@ export function TripleHelixView() {
             </div>
           </Card>
         </div>
-        <div>
+        <div className="lg:col-span-5">
           <Card title="A 行列の固有値 (複素平面)">
-            <div className="aspect-square">
+            <div style={{ height: 200 }}>
               <EigenCanvas eig={eig} />
             </div>
             <EigenSummary eig={eig} />
@@ -580,122 +580,120 @@ export function TripleHelixView() {
         </div>
       </div>
 
-      {/* 操作 + ショック */}
-      <Card title="操作">
-        <div className="flex items-center gap-3 mb-3 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setPlaying((p) => !p)}
-            className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
-          >
-            {playing ? "⏸ Pause" : "▶ Play"}
-          </button>
-          <button
-            type="button"
-            onClick={reset}
-            className="px-3 py-1.5 rounded border border-slate-300 text-sm hover:bg-slate-50"
-          >
-            Shocks Reset
-          </button>
-          <button
-            type="button"
-            onClick={resetModel}
-            className="px-3 py-1.5 rounded border border-slate-300 text-sm hover:bg-slate-50"
-          >
-            Model Reset
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={SIM_STEPS - 1}
-            step={1}
-            value={currentIdx}
-            onChange={(e) => {
-              setPlaying(false);
-              setCurrentIdx(Number(e.target.value));
-            }}
-            className="flex-1 min-w-[200px]"
-          />
-          <div className="text-xs text-slate-500 tabular-nums w-16 text-right">
-            t = {currentIdx}
-          </div>
+      {/* 下段: 操作 + A 行列を横並び */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+        <div className="lg:col-span-5">
+          <Card title="操作・ショック投入">
+            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setPlaying((p) => !p)}
+                className="px-2.5 py-1 rounded bg-blue-600 text-white text-xs hover:bg-blue-700"
+              >
+                {playing ? "⏸" : "▶"}
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                className="px-2 py-1 rounded border border-slate-300 text-[11px] hover:bg-slate-50"
+              >
+                Shocks Reset
+              </button>
+              <button
+                type="button"
+                onClick={resetModel}
+                className="px-2 py-1 rounded border border-slate-300 text-[11px] hover:bg-slate-50"
+              >
+                Model Reset
+              </button>
+            </div>
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="range"
+                min={0}
+                max={SIM_STEPS - 1}
+                step={1}
+                value={currentIdx}
+                onChange={(e) => {
+                  setPlaying(false);
+                  setCurrentIdx(Number(e.target.value));
+                }}
+                className="flex-1"
+              />
+              <div className="text-[10px] text-slate-500 tabular-nums w-12 text-right">
+                t={currentIdx}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {EVENT_PRESETS.map((ev) => (
+                <button
+                  key={ev.id}
+                  type="button"
+                  onClick={() => fireShock(ev)}
+                  title={ev.description}
+                  className="px-1.5 py-1 rounded border border-slate-300 text-[10px] hover:bg-slate-50 whitespace-nowrap"
+                >
+                  {ev.emoji} {ev.label}
+                </button>
+              ))}
+            </div>
+            {shocks.length > 0 && (
+              <div className="mt-1.5 text-[10px] text-slate-500 truncate">
+                投入: {shocks.map((s) => `${s.event.emoji}@${s.t}`).join(", ")}
+              </div>
+            )}
+          </Card>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <span className="text-xs text-slate-600 self-center mr-1">
-            t={currentIdx} に外生ショック注入:
-          </span>
-          {EVENT_PRESETS.map((ev) => (
-            <button
-              key={ev.id}
-              type="button"
-              onClick={() => fireShock(ev)}
-              title={ev.description}
-              className="px-2.5 py-1.5 rounded border border-slate-300 text-xs hover:bg-slate-50"
-            >
-              {ev.emoji} {ev.label}
-            </button>
-          ))}
-        </div>
-
-        {shocks.length > 0 && (
-          <div className="mt-2 text-[11px] text-slate-500">
-            投入済み: {shocks.map((s) => `${s.event.emoji}@t=${s.t}`).join(", ")}
-          </div>
-        )}
-      </Card>
-
-      {/* A 行列マトリクス UI */}
-      <Card title="A 行列 (3×3) — 各 helix の慣性 (対角) と役割交差 (非対角)">
-        <div className="overflow-x-auto">
-          <table className="text-xs border-collapse">
-            <thead>
-              <tr>
-                <th className="p-1.5"></th>
-                {[0, 1, 2].map((j) => (
-                  <th key={j} className="p-1.5 font-medium text-slate-600">
-                    ← {model.stateNames[j]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {[0, 1, 2].map((i) => (
-                <tr key={i}>
-                  <th className="p-1.5 text-right font-medium text-slate-600 whitespace-nowrap">
-                    {model.stateNames[i]} →
-                  </th>
+        <div className="lg:col-span-7">
+          <Card title="A 行列 (3×3) — 対角=慣性、非対角=役割交差 (非対称→螺旋)">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr>
+                  <th className="px-1 py-0.5 w-12"></th>
                   {[0, 1, 2].map((j) => (
-                    <td key={j} className="p-1.5">
-                      <div className="flex flex-col items-center min-w-[100px]">
-                        <span className="tabular-nums text-[11px]">
-                          {model.A[i][j].toFixed(2)}
-                        </span>
-                        <input
-                          type="range"
-                          min={i === j ? 0 : -0.5}
-                          max={i === j ? 1.1 : 0.5}
-                          step={0.01}
-                          value={model.A[i][j]}
-                          onChange={(e) =>
-                            updateA(i, j, Number(e.target.value))
-                          }
-                          className="w-full"
-                        />
-                      </div>
-                    </td>
+                    <th
+                      key={j}
+                      className="px-1 py-0.5 font-medium text-slate-500 text-[10px]"
+                    >
+                      ← {model.stateNames[j]}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {[0, 1, 2].map((i) => (
+                  <tr key={i}>
+                    <th className="px-1 py-0.5 text-right font-medium text-slate-500 text-[10px] whitespace-nowrap">
+                      {model.stateNames[i]} →
+                    </th>
+                    {[0, 1, 2].map((j) => (
+                      <td key={j} className="px-1 py-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="tabular-nums text-[10px] w-9 text-right">
+                            {model.A[i][j].toFixed(2)}
+                          </span>
+                          <input
+                            type="range"
+                            min={i === j ? 0 : -0.5}
+                            max={i === j ? 1.1 : 0.5}
+                            step={0.01}
+                            value={model.A[i][j]}
+                            onChange={(e) =>
+                              updateA(i, j, Number(e.target.value))
+                            }
+                            className="flex-1 h-1"
+                          />
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
         </div>
-        <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">
-          対角 (a_ii) = 各 helix の慣性 / persistence。非対角 (a_ij, i≠j) = 「j
-          → i」の役割交差係数 (Etzkowitz の意味で「役割の引き受け合い」)。
-          非対角を非対称にすると複素固有値が出て、軌道が螺旋になる。
-        </p>
-      </Card>
+      </div>
     </div>
   );
 }
@@ -712,8 +710,10 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
-      <div className="text-xs font-medium text-slate-700 mb-2">{title}</div>
+    <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+      <div className="text-[10px] font-medium text-slate-600 mb-1 uppercase tracking-wide">
+        {title}
+      </div>
       {children}
     </div>
   );
@@ -726,26 +726,26 @@ function EigenSummary({ eig }: { eig: EigenAnalysis3 }) {
     unstable: "text-rose-600",
   };
   return (
-    <div className="mt-2 text-[11px] text-slate-600 space-y-0.5 font-mono">
+    <div className="mt-1 text-[10px] text-slate-600 font-mono leading-tight">
       {eig.lambdas.map((l, i) => (
         <div key={i}>
-          λ{i + 1} = {l.re.toFixed(3)}
+          λ{i + 1}={l.re.toFixed(2)}
           {l.isComplex
-            ? ` ${l.im >= 0 ? "+" : "−"} ${Math.abs(l.im).toFixed(3)}i`
+            ? `${l.im >= 0 ? "+" : "−"}${Math.abs(l.im).toFixed(2)}i`
             : ""}{" "}
-          (|λ|={l.abs.toFixed(3)})
+          |λ|={l.abs.toFixed(2)}
         </div>
       ))}
-      <div className="font-sans pt-1">
+      <div className="font-sans pt-0.5">
         <span className={stabColor[eig.stability]}>
           {eig.stability === "stable"
-            ? "安定 (減衰)"
+            ? "安定"
             : eig.stability === "neutral"
-              ? "境界 (持続)"
-              : "不安定 (発散)"}
+              ? "境界"
+              : "発散"}
         </span>
-        {eig.period && ` / 周期 ≈ ${eig.period.toFixed(1)} step`}
-        {eig.decayTime && ` / 減衰 ≈ ${eig.decayTime.toFixed(1)} step`}
+        {eig.period && ` / T≈${eig.period.toFixed(1)}`}
+        {eig.decayTime && ` / τ≈${eig.decayTime.toFixed(1)}`}
       </div>
     </div>
   );
