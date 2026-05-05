@@ -124,9 +124,11 @@ function Spring({
 interface SceneProps {
   oscillator: CoupledOscillator;
   isPaused: boolean;
+  simTimeRef: React.MutableRefObject<number>;
+  speedRef: React.MutableRefObject<number>;
 }
 
-function Scene({ oscillator, isPaused }: SceneProps) {
+function Scene({ oscillator, isPaused, simTimeRef, speedRef }: SceneProps) {
   const [, forceRender] = useState(0);
 
   useFrame((_, delta) => {
@@ -136,6 +138,8 @@ function Scene({ oscillator, isPaused }: SceneProps) {
     for (let i = 0; i < subSteps; i++) {
       oscillator.step(dt);
     }
+    // シミュ時刻 (月単位) を進める。speed = 月/秒
+    simTimeRef.current += Math.min(delta, 0.05) * speedRef.current;
     forceRender((n) => n + 1);
   });
 
@@ -186,18 +190,47 @@ function Scene({ oscillator, isPaused }: SceneProps) {
 }
 
 // =====================================================================
+// シミュ時刻 (月数) → "YYYY-MM" 表示
+// =====================================================================
+const START_YEAR = 2010;
+const START_MONTH = 1;
+
+function formatSimDate(monthsFromStart: number): string {
+  const totalMonths = Math.floor(monthsFromStart);
+  const year = START_YEAR + Math.floor((START_MONTH - 1 + totalMonths) / 12);
+  const month = ((START_MONTH - 1 + totalMonths) % 12) + 1;
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+// =====================================================================
 // 全体コンポーネント
 // =====================================================================
 
+const SPEED_PRESETS = [
+  { label: "1月/秒", value: 1 },
+  { label: "3月/秒", value: 3 },
+  { label: "6月/秒", value: 6 },
+  { label: "1年/秒", value: 12 },
+  { label: "2年/秒", value: 24 },
+];
+
 export function CoupledOscillatorView() {
   const oscillatorRef = useRef<CoupledOscillator>(new CoupledOscillator());
+  const simTimeRef = useRef<number>(0); // 月数 (2010-01 起点)
+  const speedRef = useRef<number>(6); // デフォルト: 6 ヶ月/秒
   const [isPaused, setIsPaused] = useState(false);
+  const [speed, setSpeed] = useState(6);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => setTick((t) => t + 1), 100);
     return () => clearInterval(interval);
   }, []);
+
+  // speed state を ref と同期
+  useEffect(() => {
+    speedRef.current = speed;
+  }, [speed]);
 
   const handleEvent = (preset: EventPreset) => {
     if (preset.isJump) {
@@ -209,9 +242,11 @@ export function CoupledOscillatorView() {
 
   const handleReset = () => {
     oscillatorRef.current.reset();
+    simTimeRef.current = 0;
   };
 
   const M = oscillatorRef.current.computeM();
+  const currentDate = formatSimDate(simTimeRef.current);
   void tick;
 
   return (
@@ -225,8 +260,35 @@ export function CoupledOscillatorView() {
           camera={{ position: [7, 8, 9], fov: 50 }}
           style={{ width: "100%", height: "100%" }}
         >
-          <Scene oscillator={oscillatorRef.current} isPaused={isPaused} />
+          <Scene
+            oscillator={oscillatorRef.current}
+            isPaused={isPaused}
+            simTimeRef={simTimeRef}
+            speedRef={speedRef}
+          />
         </Canvas>
+        {/* 時間表示オーバーレイ */}
+        <div
+          style={{
+            position: "absolute",
+            top: 16,
+            left: 16,
+            background: "rgba(15,23,42,0.85)",
+            color: "white",
+            padding: "8px 14px",
+            borderRadius: 8,
+            fontFamily: "ui-monospace, SFMono-Regular, monospace",
+            fontSize: 22,
+            fontWeight: 700,
+            letterSpacing: 1,
+            pointerEvents: "none",
+          }}
+        >
+          {currentDate}
+          <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.8, letterSpacing: 0 }}>
+            シミュ時刻 (2010-01 起点)
+          </div>
+        </div>
       </div>
 
       {/* 右: コントロール */}
@@ -271,7 +333,7 @@ export function CoupledOscillatorView() {
 
         <div className="rounded-lg border bg-white p-4 shadow-sm">
           <h3 className="font-semibold text-sm mb-2">操作</h3>
-          <div className="flex gap-2">
+          <div className="flex gap-2 mb-3">
             <button
               onClick={() => setIsPaused((p) => !p)}
               className="flex-1 text-xs px-3 py-2 rounded border bg-slate-50 hover:bg-slate-100"
@@ -284,6 +346,22 @@ export function CoupledOscillatorView() {
             >
               リセット
             </button>
+          </div>
+          <div className="text-xs text-muted-foreground mb-1">速度</div>
+          <div className="grid grid-cols-5 gap-1">
+            {SPEED_PRESETS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setSpeed(p.value)}
+                className={`text-[10px] px-1 py-1 rounded border transition ${
+                  speed === p.value
+                    ? "bg-blue-100 border-blue-400 text-blue-900 font-semibold"
+                    : "bg-slate-50 border-slate-300 hover:bg-slate-100"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
         </div>
 

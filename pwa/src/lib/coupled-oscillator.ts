@@ -36,12 +36,12 @@ const pent = (i: number) => ({
 });
 
 export const NODE_META: Record<NodeId, NodeMeta> = {
-  P: { id: "P", label: "P", description: "政策密度", equilibrium: pent(0), color: "#2563eb" },
-  B: { id: "B", label: "B", description: "公募予算", equilibrium: pent(1), color: "#0891b2" },
-  V: { id: "V", label: "V", description: "VC投資", equilibrium: pent(2), color: "#16a34a" },
-  R: { id: "R", label: "R", description: "言及・PR", equilibrium: pent(3), color: "#ea580c" },
-  I_R: { id: "I_R", label: "I_R", description: "研究費投入", equilibrium: pent(4), color: "#a16207" },
-  N: { id: "N", label: "N", description: "論文 (累積)", equilibrium: { x: 0, z: 0 }, color: "#dc2626" },
+  P: { id: "P", label: "P", description: "政策密度 (年率)", equilibrium: pent(0), color: "#2563eb" },
+  B: { id: "B", label: "B", description: "公募予算 (年率)", equilibrium: pent(1), color: "#0891b2" },
+  V: { id: "V", label: "V", description: "VC投資 (年率)", equilibrium: pent(2), color: "#16a34a" },
+  R: { id: "R", label: "R", description: "言及・PR (年率)", equilibrium: pent(3), color: "#ea580c" },
+  I_R: { id: "I_R", label: "I_R", description: "研究費 (年率)", equilibrium: pent(4), color: "#a16207" },
+  N: { id: "N", label: "Ṅ", description: "論文 (年率 dN/dt)", equilibrium: { x: 0, z: 0 }, color: "#dc2626" },
 };
 
 export interface Bond {
