@@ -2,13 +2,7 @@
 
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Line, Html } from "@react-three/drei";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import {
   eigenvalues3x3,
@@ -31,8 +25,9 @@ import {
  * 観測量 (m=6):  P, B, V, R, I_R, N
  * 外生 (p=3):    海外政策 / 災害 / 地政学
  *
- * Etzkowitz & Leydesdorff (1995) の Triple Helix を状態空間モデル化したもの。
- * A 行列が複素固有値を持つとき、3 状態が螺旋的に共進化する (= triple helix 比喩の数学的実体)。
+ * 2026-05-05 改修: アニメーション廃止 + 全軌跡描画 + σ_SU 強調表示
+ *   - σ_SU(t) = min(μ_A, μ_I, μ_G) を曲線色 / ピーク球で表現
+ *   - 立ち上げ好機 (σ_SU 高い区間) を緑バンドでハイライト
  */
 
 const SIM_STEPS = 240;
@@ -46,36 +41,108 @@ const OBS_COLORS = [
   "#7c3aed", // N  purple
 ];
 
+// σ_SU = min(μ_A, μ_I, μ_G) の閾値
+const SIGMA_GO_THRESHOLD = 0.4;
+
+// =====================================================================
+// σ_SU 計算とピーク検出
+// =====================================================================
+
+function computeSigmaSU(states: number[][]): number[] {
+  return states.map((s) => Math.min(s[HELIX.A], s[HELIX.I], s[HELIX.G]));
+}
+
+interface PeakInfo {
+  t: number;
+  sigma: number;
+  position: THREE.Vector3;
+}
+
+function detectPeaks(
+  sigmaSU: number[],
+  positions: THREE.Vector3[],
+  threshold: number,
+  windowSize = 4,
+  maxPeaks = 5,
+): PeakInfo[] {
+  const peaks: PeakInfo[] = [];
+  for (let t = windowSize; t < sigmaSU.length - windowSize; t++) {
+    const v = sigmaSU[t];
+    if (v < threshold) continue;
+    let isPeak = true;
+    for (let dt = -windowSize; dt <= windowSize; dt++) {
+      if (dt === 0) continue;
+      if (sigmaSU[t + dt] > v) {
+        isPeak = false;
+        break;
+      }
+    }
+    if (isPeak) {
+      peaks.push({ t, sigma: v, position: positions[t] });
+    }
+  }
+  // ピーク同士が近すぎたら高い方だけ残す
+  peaks.sort((a, b) => a.t - b.t);
+  const dedup: PeakInfo[] = [];
+  for (const p of peaks) {
+    const last = dedup[dedup.length - 1];
+    if (last && p.t - last.t < 8) {
+      if (p.sigma > last.sigma) dedup[dedup.length - 1] = p;
+    } else {
+      dedup.push(p);
+    }
+  }
+  // σ_SU 大きい順にトップ N
+  return dedup.sort((a, b) => b.sigma - a.sigma).slice(0, maxPeaks);
+}
+
+// σ_SU の値で色を決める (グレー→緑のグラデーション)
+function sigmaToColor(sigma: number): THREE.Color {
+  const norm = Math.max(0, Math.min(1, (sigma + 0.3) / 1.0));
+  const lowR = 0.6, lowG = 0.6, lowB = 0.65; // gray
+  const highR = 0.06, highG = 0.73, highB = 0.31; // green-600
+  return new THREE.Color(
+    lowR + (highR - lowR) * norm,
+    lowG + (highG - lowG) * norm,
+    lowB + (highB - lowB) * norm,
+  );
+}
+
 // =====================================================================
 // 3D 状態軌道 (R3F)
 // =====================================================================
 
 function StateTrajectory3D({
   states,
-  currentIdx,
+  sigmaSU,
 }: {
   states: number[][];
-  currentIdx: number;
+  sigmaSU: number[];
 }) {
-  // 軌道と現在位置のスケーリング (state 値を 3D 空間に直接マッピング)
   const scale = 1.5;
-  const points = useMemo(() => {
-    return states.map(
-      (s) =>
-        new THREE.Vector3(
-          s[HELIX.A] * scale,
-          s[HELIX.G] * scale, // 縦軸を G (官)、見やすさのため
-          s[HELIX.I] * scale,
-        ),
-    );
-  }, [states]);
 
-  const traceUpTo = useMemo(
-    () => points.slice(0, Math.max(1, currentIdx + 1)),
-    [points, currentIdx],
+  const points = useMemo(
+    () =>
+      states.map(
+        (s) =>
+          new THREE.Vector3(
+            s[HELIX.A] * scale,
+            s[HELIX.G] * scale, // 縦軸を G (官)
+            s[HELIX.I] * scale,
+          ),
+      ),
+    [states],
   );
 
-  const cur = points[Math.min(currentIdx, points.length - 1)];
+  const segmentColors = useMemo(
+    () => sigmaSU.map((v) => sigmaToColor(v)),
+    [sigmaSU],
+  );
+
+  const peaks = useMemo(
+    () => detectPeaks(sigmaSU, points, SIGMA_GO_THRESHOLD),
+    [sigmaSU, points],
+  );
 
   return (
     <group>
@@ -90,22 +157,64 @@ function StateTrajectory3D({
         <meshBasicMaterial color="#94a3b8" />
       </mesh>
 
-      {/* 軌道 */}
-      {traceUpTo.length >= 2 && (
-        <Line points={traceUpTo} color="#475569" lineWidth={1.2} />
+      {/* 軌道全体 (色付き) */}
+      {points.length >= 2 && (
+        <Line
+          points={points}
+          vertexColors={segmentColors}
+          lineWidth={1.6}
+        />
       )}
 
-      {/* 現在位置 */}
-      {cur && (
-        <mesh position={cur}>
-          <sphereGeometry args={[0.18, 24, 24]} />
-          <meshStandardMaterial
-            color="#facc15"
-            emissive="#fbbf24"
-            emissiveIntensity={0.35}
-          />
-        </mesh>
-      )}
+      {/* σ_SU ピーク (光る球 + ラベル) */}
+      {peaks.map((p, idx) => (
+        <PeakMarker
+          key={`${p.t}-${idx}`}
+          position={p.position}
+          sigma={p.sigma}
+          t={p.t}
+        />
+      ))}
+    </group>
+  );
+}
+
+function PeakMarker({
+  position,
+  sigma,
+  t,
+}: {
+  position: THREE.Vector3;
+  sigma: number;
+  t: number;
+}) {
+  return (
+    <group position={position}>
+      <mesh>
+        <sphereGeometry args={[0.16, 24, 24]} />
+        <meshStandardMaterial
+          color="#10b981"
+          emissive="#34d399"
+          emissiveIntensity={0.7}
+        />
+      </mesh>
+      <Html position={[0, 0.3, 0]} center distanceFactor={9} occlude={false}>
+        <div
+          style={{
+            background: "rgba(16, 185, 129, 0.95)",
+            color: "white",
+            fontSize: 10,
+            fontWeight: 600,
+            padding: "1px 5px",
+            borderRadius: 3,
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            fontFamily: "ui-monospace, monospace",
+          }}
+        >
+          σ={sigma.toFixed(2)} @t={t}
+        </div>
+      </Html>
     </group>
   );
 }
@@ -159,13 +268,14 @@ function TimeSeriesCanvas({
   series,
   colors,
   labels,
-  currentIdx,
+  goRanges,
   height,
 }: {
   series: number[][]; // [m][T+1]
   colors: string[];
   labels: string[];
-  currentIdx: number;
+  /** σ_SU が threshold を超える時間帯 (緑バンド) */
+  goRanges: Array<[number, number]>;
   height: number;
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
@@ -193,7 +303,6 @@ function TimeSeriesCanvas({
     const plotW = w - padL - padR;
     const plotH = h - padT - padB;
 
-    // y スケール (絶対値最大で対称、0.5 を最低保証)
     let maxAbs = 0.5;
     for (const s of series) {
       for (const v of s) {
@@ -205,6 +314,14 @@ function TimeSeriesCanvas({
 
     const T = series[0]?.length ?? 0;
     const xScale = plotW / Math.max(1, T - 1);
+
+    // GO バンド (σ_SU が高い時間帯を緑でハイライト)
+    ctx.fillStyle = "rgba(16, 185, 129, 0.18)";
+    for (const [start, end] of goRanges) {
+      const x1 = padL + start * xScale;
+      const x2 = padL + end * xScale;
+      ctx.fillRect(x1, padT, x2 - x1, plotH);
+    }
 
     // ゼロ線
     ctx.strokeStyle = "#cbd5e1";
@@ -228,20 +345,7 @@ function TimeSeriesCanvas({
       ctx.stroke();
     });
 
-    // 現在位置
-    if (currentIdx >= 0 && currentIdx < T) {
-      const px = padL + currentIdx * xScale;
-      ctx.strokeStyle = "#dc2626";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([3, 3]);
-      ctx.beginPath();
-      ctx.moveTo(px, padT);
-      ctx.lineTo(px, padT + plotH);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    // 凡例 (上端、横並び)
+    // 凡例
     ctx.font = "10px sans-serif";
     let lx = padL + 2;
     labels.forEach((lbl, k) => {
@@ -255,7 +359,108 @@ function TimeSeriesCanvas({
     ctx.font = "9px sans-serif";
     ctx.fillText("0", 12, yMid + 3);
     ctx.fillText("t", padL + plotW - 4, h - 2);
-  }, [series, colors, labels, currentIdx]);
+  }, [series, colors, labels, goRanges]);
+
+  return <canvas ref={ref} className="w-full" style={{ height }} />;
+}
+
+// =====================================================================
+// σ_SU 専用時系列 (太線、GO 閾値線あり)
+// =====================================================================
+
+function SigmaSUCanvas({
+  sigma,
+  goRanges,
+  threshold,
+  height,
+}: {
+  sigma: number[];
+  goRanges: Array<[number, number]>;
+  threshold: number;
+  height: number;
+}) {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+
+    const w = rect.width;
+    const h = rect.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const padL = 24;
+    const padR = 8;
+    const padT = 14;
+    const padB = 12;
+    const plotW = w - padL - padR;
+    const plotH = h - padT - padB;
+
+    let maxAbs = 0.5;
+    for (const v of sigma) if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
+    const yScale = plotH / 2 / (maxAbs * 1.1);
+    const yMid = padT + plotH / 2;
+    const xScale = plotW / Math.max(1, sigma.length - 1);
+
+    // GO バンド
+    ctx.fillStyle = "rgba(16, 185, 129, 0.22)";
+    for (const [start, end] of goRanges) {
+      const x1 = padL + start * xScale;
+      const x2 = padL + end * xScale;
+      ctx.fillRect(x1, padT, x2 - x1, plotH);
+    }
+
+    // ゼロ線
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, yMid);
+    ctx.lineTo(padL + plotW, yMid);
+    ctx.stroke();
+
+    // 閾値線
+    const thY = yMid - threshold * yScale;
+    ctx.strokeStyle = "#10b981";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(padL, thY);
+    ctx.lineTo(padL + plotW, thY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#10b981";
+    ctx.font = "9px sans-serif";
+    ctx.fillText(`θ=${threshold}`, padL + 2, thY - 2);
+
+    // σ_SU 曲線 (色を値で変える)
+    for (let i = 0; i < sigma.length - 1; i++) {
+      const c = sigmaToColor(sigma[i]);
+      ctx.strokeStyle = `rgb(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)})`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(padL + i * xScale, yMid - sigma[i] * yScale);
+      ctx.lineTo(padL + (i + 1) * xScale, yMid - sigma[i + 1] * yScale);
+      ctx.stroke();
+    }
+
+    // 凡例
+    ctx.font = "10px sans-serif";
+    ctx.fillStyle = "#10b981";
+    ctx.fillText("σ_SU = min(μ_A, μ_I, μ_G)", padL + 2, 10);
+
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "9px sans-serif";
+    ctx.fillText("0", 12, yMid + 3);
+    ctx.fillText("t", padL + plotW - 4, h - 2);
+  }, [sigma, goRanges, threshold]);
 
   return <canvas ref={ref} className="w-full" style={{ height }} />;
 }
@@ -287,7 +492,6 @@ function EigenCanvas({ eig }: { eig: EigenAnalysis3 }) {
     const cy = h / 2;
     const r = Math.min(w, h) / 2 - 24;
 
-    // 軸
     ctx.strokeStyle = "#e2e8f0";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -297,7 +501,6 @@ function EigenCanvas({ eig }: { eig: EigenAnalysis3 }) {
     ctx.lineTo(cx, h);
     ctx.stroke();
 
-    // 単位円
     const ringColor =
       eig.stability === "unstable"
         ? "#ef4444"
@@ -312,7 +515,6 @@ function EigenCanvas({ eig }: { eig: EigenAnalysis3 }) {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // 固有値プロット
     eig.lambdas.forEach((l) => {
       const px = cx + l.re * r;
       const py = cy - l.im * r;
@@ -340,10 +542,13 @@ function EigenCanvas({ eig }: { eig: EigenAnalysis3 }) {
 // =====================================================================
 
 interface ScheduledShock {
-  /** 注入する時刻 t */
+  id: string;
   t: number;
   event: EventShock;
 }
+
+let shockCounter = 0;
+const newShockId = () => `s-${++shockCounter}`;
 
 export function TripleHelixView() {
   const [model, setModel] = useState<StateSpaceModel>(() => ({
@@ -352,45 +557,39 @@ export function TripleHelixView() {
     B: DEFAULT_TRIPLE_HELIX.B.map((row) => [...row]),
     C: DEFAULT_TRIPLE_HELIX.C.map((row) => [...row]),
   }));
-  const [shocks, setShocks] = useState<ScheduledShock[]>([]);
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const rafRef = useRef<number | null>(null);
+  const [shocks, setShocks] = useState<ScheduledShock[]>([
+    { id: newShockId(), t: 30, event: EVENT_PRESETS[0] }, // IRA
+  ]);
+  const [shockTime, setShockTime] = useState(120);
 
-  // シミュレーション (shocks や model が変わると再計算)
   const sim: SimulationResult = useMemo(() => {
     const inputs: number[][] = new Array(SIM_STEPS)
       .fill(null)
       .map(() => new Array(model.p).fill(0));
-    // shocks を inputs に注入
-    let x0 = new Array(model.n).fill(0);
+    const x0 = new Array(model.n).fill(0);
+
     for (const s of shocks) {
       if (s.t < 0 || s.t >= SIM_STEPS) continue;
       for (let j = 0; j < model.p; j++) {
         inputs[s.t][j] += s.event.uVector[j];
       }
-      // ジャンプ (state を直接動かす) は t=0 のときだけ初期状態に入れる
       if (s.event.stateJump && s.t === 0) {
         for (let i = 0; i < model.n; i++) {
           x0[i] += s.event.stateJump[i];
         }
       }
     }
+
     let result = simulateStateSpace(model, x0, SIM_STEPS, inputs, 1234);
-    // ジャンプ (t > 0 の場合) はシミュレーション後に直接状態に加える形で再実行
+
     const jumps = shocks.filter((s) => s.event.stateJump && s.t > 0);
     if (jumps.length > 0) {
-      // 再シミュレーションを step ごとに行う (ジャンプ反映)
       const states: number[][] = [x0.slice()];
       const observations: number[][] = [];
       const matVecLocal = (M: number[][], v: number[]) =>
-        M.map((row) =>
-          row.reduce((s, mij, j) => s + mij * v[j], 0),
-        );
-      const c0 = matVecLocal(model.C, x0);
-      observations.push(c0);
+        M.map((row) => row.reduce((s, mij, j) => s + mij * v[j], 0));
+      observations.push(matVecLocal(model.C, x0));
       let x = x0.slice();
-      // 再現性のため簡易乱数列を使い回す
       let seed = 1234;
       const rng = () => {
         seed = (seed + 0x6d2b79f5) >>> 0;
@@ -412,7 +611,6 @@ export function TripleHelixView() {
         for (let i = 0; i < model.n; i++) {
           xNext[i] = Ax[i] + Bu[i] + model.qSigma[i] * rn();
         }
-        // ジャンプ反映
         for (const j of jumps) {
           if (j.t === t + 1 && j.event.stateJump) {
             for (let i = 0; i < model.n; i++) {
@@ -432,7 +630,26 @@ export function TripleHelixView() {
     return result;
   }, [model, shocks]);
 
-  // 観測時系列を [m][T+1] に転置
+  const sigmaSU = useMemo(() => computeSigmaSU(sim.states), [sim.states]);
+
+  // GO バンド (σ_SU > threshold が連続する区間)
+  const goRanges = useMemo<Array<[number, number]>>(() => {
+    const out: Array<[number, number]> = [];
+    let start: number | null = null;
+    for (let t = 0; t < sigmaSU.length; t++) {
+      if (sigmaSU[t] >= SIGMA_GO_THRESHOLD) {
+        if (start === null) start = t;
+      } else {
+        if (start !== null) {
+          out.push([start, t]);
+          start = null;
+        }
+      }
+    }
+    if (start !== null) out.push([start, sigmaSU.length - 1]);
+    return out;
+  }, [sigmaSU]);
+
   const obsByVar = useMemo(() => {
     const T = sim.observations.length;
     const arr: number[][] = Array.from({ length: model.m }, () =>
@@ -457,56 +674,37 @@ export function TripleHelixView() {
 
   const eig = useMemo(() => eigenvalues3x3(model.A), [model.A]);
 
-  // アニメーション
-  useEffect(() => {
-    if (!playing) {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      return;
-    }
-    let last = performance.now();
-    const tick = (now: number) => {
-      const dt = now - last;
-      if (dt > 50) {
-        last = now;
-        setCurrentIdx((idx) => {
-          if (idx >= SIM_STEPS - 1) {
-            setPlaying(false);
-            return idx;
-          }
-          return idx + 1;
-        });
-      }
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [playing]);
-
-  const reset = useCallback(() => {
-    setShocks([]);
-    setCurrentIdx(0);
-    setPlaying(false);
-  }, []);
-
   const fireShock = useCallback(
     (event: EventShock) => {
-      setShocks((prev) => [...prev, { t: currentIdx, event }]);
+      setShocks((prev) => [
+        ...prev,
+        { id: newShockId(), t: shockTime, event },
+      ]);
     },
-    [currentIdx],
+    [shockTime],
   );
 
-  const updateA = useCallback(
-    (i: number, j: number, v: number) => {
-      setModel((m) => {
-        const A = m.A.map((row) => [...row]);
-        A[i][j] = v;
-        return { ...m, A };
-      });
-    },
-    [],
-  );
+  const removeShock = useCallback((id: string) => {
+    setShocks((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
+  const updateShockTime = useCallback((id: string, t: number) => {
+    setShocks((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, t } : s)),
+    );
+  }, []);
+
+  const resetShocks = useCallback(() => {
+    setShocks([]);
+  }, []);
+
+  const updateA = useCallback((i: number, j: number, v: number) => {
+    setModel((m) => {
+      const A = m.A.map((row) => [...row]);
+      A[i][j] = v;
+      return { ...m, A };
+    });
+  }, []);
 
   const resetModel = useCallback(() => {
     setModel({
@@ -515,15 +713,13 @@ export function TripleHelixView() {
       B: DEFAULT_TRIPLE_HELIX.B.map((row) => [...row]),
       C: DEFAULT_TRIPLE_HELIX.C.map((row) => [...row]),
     });
-    setShocks([]);
-    setCurrentIdx(0);
   }, []);
 
   return (
     <div className="space-y-2">
-      {/* 上段: 隠れ状態時系列 + 観測量時系列 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-        <Card title="隠れ状態 μ_A (学), μ_I (産), μ_G (官) — 直接観測不能">
+      {/* 上段: 隠れ状態時系列 + σ_SU + 観測量時系列 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+        <Card title="隠れ状態 μ_A (学), μ_I (産), μ_G (官)">
           <div
             style={{
               background:
@@ -534,45 +730,50 @@ export function TripleHelixView() {
               series={stateByVar}
               colors={HELIX_COLORS}
               labels={["μ_A", "μ_I", "μ_G"]}
-              currentIdx={currentIdx}
-              height={80}
+              goRanges={goRanges}
+              height={90}
             />
           </div>
         </Card>
-        <Card title="観測量 P, B, V, R, I_R, N — データから取得可">
+        <Card title="σ_SU = min(μ_A, μ_I, μ_G) — 立ち上げマクロシグナル">
+          <SigmaSUCanvas
+            sigma={sigmaSU}
+            goRanges={goRanges}
+            threshold={SIGMA_GO_THRESHOLD}
+            height={90}
+          />
+        </Card>
+        <Card title="観測量 P, B, V, R, I_R, N">
           <TimeSeriesCanvas
             series={obsByVar}
             colors={OBS_COLORS}
             labels={model.obsNames}
-            currentIdx={currentIdx}
-            height={80}
+            goRanges={goRanges}
+            height={90}
           />
         </Card>
       </div>
 
-      {/* 中段: 3D 軌道 + 固有値 + 操作 */}
+      {/* 中段: 3D 軌道 + 固有値 */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
-        <div className="lg:col-span-7">
-          <Card title="状態軌道 (3D) — μ_A × μ_I × μ_G">
+        <div className="lg:col-span-8">
+          <Card title="状態軌道 (3D) — σ_SU で着色、緑ピーク = 立ち上げ好機">
             <div
-              style={{ height: 240, minHeight: 0 }}
+              style={{ height: 280, minHeight: 0 }}
               className="rounded bg-slate-50 border border-slate-200"
             >
               <Canvas camera={{ position: [5, 4, 5], fov: 45 }}>
                 <ambientLight intensity={0.7} />
                 <directionalLight position={[5, 8, 5]} intensity={0.6} />
-                <StateTrajectory3D
-                  states={sim.states}
-                  currentIdx={currentIdx}
-                />
+                <StateTrajectory3D states={sim.states} sigmaSU={sigmaSU} />
                 <OrbitControls />
               </Canvas>
             </div>
           </Card>
         </div>
-        <div className="lg:col-span-5">
-          <Card title="A 行列の固有値 (複素平面)">
-            <div style={{ height: 200 }}>
+        <div className="lg:col-span-4">
+          <Card title="A 行列の固有値">
+            <div style={{ height: 220 }}>
               <EigenCanvas eig={eig} />
             </div>
             <EigenSummary eig={eig} />
@@ -580,51 +781,28 @@ export function TripleHelixView() {
         </div>
       </div>
 
-      {/* 下段: 操作 + A 行列を横並び */}
+      {/* 下段: ショック投入 + A 行列 */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
         <div className="lg:col-span-5">
-          <Card title="操作・ショック投入">
-            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setPlaying((p) => !p)}
-                className="px-2.5 py-1 rounded bg-blue-600 text-white text-xs hover:bg-blue-700"
-              >
-                {playing ? "⏸" : "▶"}
-              </button>
-              <button
-                type="button"
-                onClick={reset}
-                className="px-2 py-1 rounded border border-slate-300 text-[11px] hover:bg-slate-50"
-              >
-                Shocks Reset
-              </button>
-              <button
-                type="button"
-                onClick={resetModel}
-                className="px-2 py-1 rounded border border-slate-300 text-[11px] hover:bg-slate-50"
-              >
-                Model Reset
-              </button>
-            </div>
+          <Card title="外生ショック (時刻指定)">
             <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] text-slate-600 whitespace-nowrap">
+                時刻 t=
+              </span>
               <input
                 type="range"
                 min={0}
                 max={SIM_STEPS - 1}
                 step={1}
-                value={currentIdx}
-                onChange={(e) => {
-                  setPlaying(false);
-                  setCurrentIdx(Number(e.target.value));
-                }}
+                value={shockTime}
+                onChange={(e) => setShockTime(Number(e.target.value))}
                 className="flex-1"
               />
-              <div className="text-[10px] text-slate-500 tabular-nums w-12 text-right">
-                t={currentIdx}
-              </div>
+              <span className="text-[10px] tabular-nums w-8 text-right">
+                {shockTime}
+              </span>
             </div>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1 mb-2">
               {EVENT_PRESETS.map((ev) => (
                 <button
                   key={ev.id}
@@ -636,10 +814,59 @@ export function TripleHelixView() {
                   {ev.emoji} {ev.label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={resetShocks}
+                className="px-1.5 py-1 rounded border border-slate-300 text-[10px] hover:bg-slate-50 ml-auto"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={resetModel}
+                className="px-1.5 py-1 rounded border border-slate-300 text-[10px] hover:bg-slate-50"
+              >
+                Reset A
+              </button>
             </div>
-            {shocks.length > 0 && (
-              <div className="mt-1.5 text-[10px] text-slate-500 truncate">
-                投入: {shocks.map((s) => `${s.event.emoji}@${s.t}`).join(", ")}
+            {shocks.length === 0 ? (
+              <div className="text-[10px] text-slate-400">
+                ショック未投入
+              </div>
+            ) : (
+              <div className="space-y-1 max-h-[110px] overflow-y-auto">
+                {shocks
+                  .slice()
+                  .sort((a, b) => a.t - b.t)
+                  .map((s) => (
+                    <div key={s.id} className="flex items-center gap-1.5">
+                      <span className="text-[10px] whitespace-nowrap w-[110px] truncate">
+                        {s.event.emoji} {s.event.label}
+                      </span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={SIM_STEPS - 1}
+                        step={1}
+                        value={s.t}
+                        onChange={(e) =>
+                          updateShockTime(s.id, Number(e.target.value))
+                        }
+                        className="flex-1 h-1"
+                      />
+                      <span className="text-[10px] tabular-nums w-7 text-right">
+                        {s.t}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeShock(s.id)}
+                        className="text-[10px] text-slate-400 hover:text-rose-500 px-1"
+                        aria-label="remove"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
               </div>
             )}
           </Card>
