@@ -10,3 +10,4 @@ android/build/
 .env
 .env.local
 .claude/
+.vercel
