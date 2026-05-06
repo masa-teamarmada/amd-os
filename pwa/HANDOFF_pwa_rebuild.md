@@ -34,9 +34,30 @@
 
 詳細: `design_log/sessions_2026-05.md` の 2026-05-06 (cool-booth-b72d09) セクション。
 
-### 反省 (詳細は BUGS.md)
+### config リンクの正体 (まさと一緒に調査して特定)
 
-`CockpitHeader` に独断で `⚙️ config` リンク (`/admin/projects` 行き) を追加してまさに却下された。「過去にあったリンクの復活」を git history 確認せず推測実装した結果。最後にロールバック済。教訓は BUGS.md に記載。
+PWA の git 履歴では「config リンク」は私が e6038d8 で追加したのが初出だが、**GAS版 cockpit に元ページが存在する**ことを確認:
+
+- [`gas/500_CockpitPage.html:139`](gas/500_CockpitPage.html:139): cockpit ヘッダー右に `Chronicle →` (沿革) と `Config →` の 2 リンク
+- `?page=config&projectId=X` → [`gas/226_ProjectConfig.html`](gas/226_ProjectConfig.html) (約 700 行) に飛ぶ
+- 中身 = **PJ ごとに一括管理する専用画面**:
+  - 基本情報 (project_name / client_name / status / start_ym / end_ym 等)
+  - メンバー (project_members の一覧編集)
+  - 契約条件
+  - 請求書送付先
+  - Deductions (控除情報)
+
+つまり、まさが「コックピットから config に飛ぶリンク」と呼んでいたのは **GAS の `226_ProjectConfig.html` 相当の PJ 個別設定ページ**。PWA にはまだ存在しない。
+
+### 現在の実装 (暫定)
+
+- `CockpitHeader` に `⚙️ config` リンクを残してある
+- href: `/admin/projects#${projectId}` (PJ 台帳の当該行に hash anchor)
+- `AdminProjectsTable` の `<tr>` に `id={p.project_id}` + `target:bg-amber-50` でハイライト
+- title 属性に「暫定: PJ 台帳の当該行 — 本来の飛び先要確認」と明記
+- コードコメントに「次セッションで直す」旨
+
+→ **次セッションの最大タスク: PWA に `/project/[projectId]/config` ページを新規作成**して、GAS `226_ProjectConfig.html` を移植する。CockpitHeader の Link 先を `/admin/projects#...` から新ページに直す。
 
 ---
 
@@ -55,8 +76,8 @@
 
 ### 設計層 (まさの判断待ち)
 
+- **PWA `/project/[projectId]/config` ページ新規作成** (上記 config リンクの飛び先) — GAS [`226_ProjectConfig.html`](../gas/226_ProjectConfig.html) を移植する。基本情報 / メンバー / 契約条件 / 請求書送付先 / Deductions の 5 セクション。完了後 `CockpitHeader` の href を `/admin/projects#${projectId}` から直す
 - **AMD スコアの正本式**: `Before Zero Theory v3.x` で別セッション議論中。確定したら `pwa/src/lib/venture-status-data.ts` の `computeAmdScoreSeries` / `computeAmdScoreBreakdown` を差し替え
-- **コックピットの "config" リンクの飛び先**: 過去にあったとまさが言うが git 履歴では特定不能。次セッションで「飛び先 = どのページか」を聞いて、`CockpitHeader` に再追加する
 - Timeline 3D 拡張 (前 session の継続): スコア式正本化、過去 22 PJ への拡張、AMD 参画期間の正確化、Bloom postprocessing
 - Venture Map モデル: 数式モデルの未解決論点 5 点 (`design_log/2026-05_venture_map_model.md`)、競合密度 / 予算データ未投入
 
@@ -74,5 +95,5 @@
 1. リポ状態 4 ステップ (`git fetch --all --prune` → `git log --branches --not --remotes --oneline` → `git branch -a` → `git status -s`)
 2. **`design_log/2026-05_pj_status_cockpit.md` を読む** (PJ Status コックピットの設計正本、冒頭に「既存 UI を勝手に消すな」のルール)
 3. `SPEC_pwa.md` で全体像、`BUGS.md` で 2026-05-06 の config 事故を確認
-4. まさに「config リンクの本来の飛び先」を確認 → 確認できたら `CockpitHeader` に追加
+4. **GAS の `gas/226_ProjectConfig.html` (約 700 行) を読んで PWA 移植計画を立てる** → まさに合意とった上で `/project/[projectId]/config` 新規ページを作る → CockpitHeader の Link 先を新ページに直す
 5. **PWA は常に本番で確認** (`pwa/AGENTS.md` 参照)。tsc 通ったら commit → push → main merge → `npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os` まで一気に通す

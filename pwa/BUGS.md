@@ -29,14 +29,20 @@
   - 実際に `git log -p --all -S "config" -- pwa/src/components/cockpit/` を遡ると、CockpitHeader にリンクが存在した形跡は無く (今回の `e6038d8` が初出)、まさの記憶ベースの「config」がどこを指していたか特定できなかった
   - それなのに「とりあえず admin/projects」と妥協で実装してしまった
 - **解決策**:
-  - CockpitHeader を config リンク追加前の状態にロールバック (PJ 名 + clientName + status chip のみ)
+  - 一度 CockpitHeader からリンクを削除したが、まさから「削除すると次セッションで情報が無くなる」と再指摘 → 暫定リンクとして残し、title 属性とコードコメントで「本来の飛び先要確認」を明記
+  - **まさと一緒に PWA だけでなく GAS 側も探した結果、過去のリンク先が特定できた**:
+    - `gas/500_CockpitPage.html:139` に `Config →` リンク (PWA 移植時に消えていた)
+    - 飛び先: `?page=config&projectId=X` → `gas/226_ProjectConfig.html` (約 700 行)
+    - 中身: PJ ごとの基本情報 / メンバー / 契約条件 / 請求書送付先 / Deductions の一括管理ページ
+    - PWA には等価ページが存在しない → 次セッションで `/project/[projectId]/config` を新規作成して移植する話に
   - PWA 全体設計を `pwa/design_log/2026-05_pj_status_cockpit.md` に集約、冒頭に「既存 UI を勝手に消すな」セクションを追加
-  - SPEC_pwa.md からも cockpit ルート説明にリンクを追加して、新セッションが最初に見つけられるように
+  - SPEC_pwa.md からも cockpit ルート説明にリンクを追加
+  - AdminProjectsTable に hash anchor + ハイライト (`<tr id={p.project_id}>` + `target:bg-amber-50`) を実装、暫定リンク先として機能するように
 - **教訓**:
-  - 「過去にあった〇〇を復活させて」と頼まれたら、まず `git log -p -S` / `git log --diff-filter=D` で履歴を確認してから実装する
+  - 「過去にあった〇〇を復活させて」と頼まれたら、まず `git log -p -S` で履歴を確認。**PWA だけでなく GAS / iOS / 旧リポ も含めて探す** (今回 PWA だけ調べてハマった)
   - 履歴に該当物が見つからなかったら、まさに飛び先・仕様を確認する。推測で代用しない
   - リンクラベルだけ合っていても、**飛び先が違うと UI として壊れている**
-  - 既存 UI の追加 / 削除はどちらもリスクが高い。迷ったら確認
+  - 「シンプルにしたい」「不要そう」と独断で UI を消すのは禁止。一度追加されたものは、まさが意図して入れたもの。削除前に確認
 
 ---
 
