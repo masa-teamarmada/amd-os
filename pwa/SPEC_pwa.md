@@ -91,7 +91,7 @@ pwa/
 |---|---|
 | `/dashboard` | トップ。PJ 一覧 + Atlas/Venture Map/MyPage/Admin への入口 |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 月次報酬予定 (取り消し線 = 未完月次ルーティンによる除外) |
-| `/project/[projectId]/cockpit` | PJ コックピット (MS / 月次カード / カンバン / ナッジ / 月次ルーティン) |
+| `/project/[projectId]/cockpit` | PJ コックピット (PJ Status (SU 系のみ) / MS / 月次カード / カンバン / ナッジ / 月次ルーティン)。詳細は [`design_log/2026-05_pj_status_cockpit.md`](design_log/2026-05_pj_status_cockpit.md) |
 | `/reimburse` | 立替精算 |
 | `/settings` | 設定 |
 | `/atlas` | シグナル & ストーリー一覧 |
@@ -358,3 +358,4 @@ npx tsc --noEmit     # 型チェック
 | 政策シグナル設計 | `design_log/2026-04_policy_signals.md` |
 | 進捗推定設計 | `design_log/2026-04_progress_estimation.md` |
 | Venture Map 数理モデル | `design_log/2026-05_venture_map_model.md` |
+| PJ Status コックピット (SU 系 PJ の上部セクション) | `design_log/2026-05_pj_status_cockpit.md` ⭐ |
