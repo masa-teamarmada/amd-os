@@ -356,9 +356,9 @@ export function VentureMapView({ ventures, laneWeights, seeds, macroLog, papersL
               );
             })}
 
-            {/* SU プロット (DB から) */}
-            {ventures.map((v) => {
-              const founded = dateToYearDecimal(v.founded_at);
+            {/* SU プロット (DB から、founded_at がある PJ のみ) */}
+            {ventures.filter((v) => v.founded_at).map((v) => {
+              const founded = dateToYearDecimal(v.founded_at!);
               const data = series[v.lane];
               const sorted = [...data].sort((a, b) => a.y - b.y);
               let macro = sorted[0].macro;
@@ -374,7 +374,7 @@ export function VentureMapView({ ventures, laneWeights, seeds, macroLog, papersL
               const dimmed = highlightLane && highlightLane !== v.lane;
               const color = PATTERNS[v.outcome_pattern]?.color || "#888";
               return (
-                <a key={v.id} href={`/venture-map/su/${v.id}`}>
+                <a key={v.project_id} href={`/venture-map/su/${v.project_id}`}>
                   <g
                     opacity={dimmed ? 0.2 : 1}
                     onMouseEnter={() => setHoveredVenture(v)}
@@ -383,7 +383,7 @@ export function VentureMapView({ ventures, laneWeights, seeds, macroLog, papersL
                   >
                     <circle cx={xOf(founded)} cy={yOfMacro(macro)} r={6.5} fill={color} stroke="#fff" strokeWidth={1.5} />
                     <text x={xOf(founded) + 10} y={yOfMacro(macro) - 6} fontSize={11} fontWeight={700} fill={color}>
-                      {v.short_label || v.id.toUpperCase()}
+                      {v.short_label || v.project_id.toUpperCase()}
                     </text>
                   </g>
                 </a>

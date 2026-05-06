@@ -101,7 +101,7 @@ pwa/
 | `/atlas/divergence` | マクロトレンドマップ (世界×日本 3 ビュー: カード / 散布図 / ヒートマップ) |
 | `/atlas/decisions` | 判断ログ |
 | `/atlas/admin/themes` | テーマクラスタリング管理 |
-| `/venture-map` | 9 社 SU プロット (View A) |
+| `/venture-map` | 9 PJ プロット (View A) |
 | `/venture-map/su/[id]` | SU 個別ビュー (XRL × マクロ指数) |
 | `/venture-map/oscillator` | (実験) coupled oscillator 可視化 |
 | `/venture-map/state-space` | (実験) Triple Helix 状態空間 |
@@ -171,8 +171,9 @@ pwa/
 
 | table | 内容 |
 |---|---|
-| `ventures` | 9 社 SU |
-| `ventures_xrl_log` | TRL/BRL/HRL 時系列 + `bottleneck` |
+| `project_ventures` | SU 系 PJ の基本情報 (`project_id` PK = `projects.project_id` FK)。9 PJ。`ventures` を廃止して 008 で統合 |
+| `project_xrl_log` | TRL/BRL/HRL 時系列 + `bottleneck` (旧 `ventures_xrl_log`、008 で rename) |
+| `project_events` | PJ ごとの汎用イベントログ (`kind` ∈ hire/funding/deal/governance/note 等、`occurred_on` + `meta` jsonb)。AMD スコア・沿革生成の元データ |
 | `seeds` | seed 管理 |
 | `papers_log` | OpenAlex 論文数 (lane × month) |
 | `macro_index_log` | マクロ指数 (lane × month、Atlas 集計 + Sonnet 2010-2025 推定) |

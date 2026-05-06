@@ -9,7 +9,9 @@
 ## 背景と設計思想
 
 AMD（チームアルマダ）は深技術（deep-tech）スタートアップスタジオ。
-過去 9社の SU（スタートアップ）立ち上げ経験から、**「マクロ波の何処に投入するか」が SU の生存を大きく左右する**という仮説を持っている。
+過去 9 PJ の SU（スタートアップ）立ち上げ経験から、**「マクロ波の何処に投入するか」が SU の生存を大きく左右する**という仮説を持っている。
+
+> ⚠️ **単位は「PJ」**: AMD は SU を「社」「ventures」「会社」と数えない。設立前 (pre-founding) の PJ も常時存在するため、エンティティとしてのカウントは語義矛盾になる。詳細は `AGENTS.common.md` の「単位ルール: SU は『PJ』と数える」を参照。
 
 従来は定性的・経験的に判断していたものを、**定量化・LLM 自動更新する仕組み**として AMD OS に組み込んだのがこのモデル。
 
@@ -157,7 +159,7 @@ $$
 Vercel cron → `/api/cron/relearn-lane-weights` → Sonnet 4.6 が以下を参照して推定:
 - `macro_index_log`（月次マクロ指数の実績）
 - `papers_log`（論文数トレンド）
-- `ventures`（9社の outcome_pattern × 設立時期）
+- `project_ventures`（9 PJ の outcome_pattern × 設立時期 / `project_id` を PK として `projects` に統合済み）
 
 ---
 
@@ -194,7 +196,7 @@ Vercel cron → `/api/cron/relearn-lane-weights` → Sonnet 4.6 が以下を参�
   Sonnet 推定   ──→  macro_index_log（月次・2010-2025、週次 cron で更新）
 
 モデル学習
-  macro_index_log + papers_log + ventures
+  macro_index_log + papers_log + project_ventures
   ──→  Sonnet 4.6  ──→  macro_lane_weights（α/β/γ/δ/λ/η）
 
 フロントエンド
@@ -206,8 +208,8 @@ Vercel cron → `/api/cron/relearn-lane-weights` → Sonnet 4.6 が以下を参�
 
 | テーブル | 内容 | 更新頻度 |
 |---|---|---|
-| `ventures` | 9社の基本情報・outcome_pattern | 手動 |
-| `ventures_xrl_log` | 各社の TRL/BRL/HRL 時系列 | 手動（推定値） |
+| `project_ventures` | 9 PJ の基本情報・outcome_pattern (`project_id` PK = `projects.project_id` FK) | 手動 |
+| `project_xrl_log` | PJ ごとの TRL/BRL/HRL 時系列 | 手動 + LLM proposal |
 | `macro_index_log` | レーン別月次マクロ指数 | cron（日次 / 週次） |
 | `macro_lane_weights` | α/β/γ/δ/λ/η の最新推定値 | cron（毎日 18:30 UTC） |
 | `papers_log` | レーン別年次論文数 | cron（年1回程度） |
@@ -254,9 +256,10 @@ Vercel cron → `/api/cron/relearn-lane-weights` → Sonnet 4.6 が以下を参�
 | `pwa/src/lib/venture-map-data.ts` | Supabase アクセス層 |
 | `pwa/src/app/api/cron/relearn-lane-weights/route.ts` | α/β/γ/δ/λ/η 再学習 cron |
 | `pwa/src/app/api/cron/macro-backfill-historical/route.ts` | 2010-2025 推定 cron |
-| `pwa/scripts/migrations/006_venture_map.sql` | テーブル DDL |
-| `pwa/scripts/migrations/006_venture_map_seeds.sql` | 9社 + 初期重み シード |
+| `pwa/scripts/migrations/006_venture_map.sql` | テーブル DDL (旧 `ventures` 系。008 で `project_ventures` に統合) |
+| `pwa/scripts/migrations/006_venture_map_seeds.sql` | 9 PJ + 初期重み シード |
 | `pwa/scripts/migrations/007_ventures_xrl_log_seeds.sql` | XRL 時系列シード |
+| `pwa/scripts/migrations/008_project_ventures.sql` | `ventures` 廃止 → `project_ventures` (`project_id` PK) に統合、`project_xrl_log` rename |
 | `knowledge/su.md` | AMD SU 知識ベース正本 (ティエム・JC・他 SU 全部) |
 | `pwa/design_log/2026-05_venture_map_theory_strategy.pptx` | v0.1→v0.2 改訂プロセスの図解 |
 
@@ -371,7 +374,7 @@ $$
 1. **★★★ 単位整合修正**（3.1, 1.2, 4.1）を最優先で `relearn-lane-weights` cron に反映
 2. **★★ パラメータ拡張**に伴う `macro_lane_weights` schema migration（migration 008）
 3. **★★ スムージング層**（3.2）を `papers_log` 取得時の前処理に挿入
-4. **★ リスク項 $\rho$** の運用値を 9 社 retrofit から推定
+4. **★ リスク項 $\rho$** の運用値を 9 PJ retrofit から推定
 5. **★ Bayesian 推定枠組み**（5.2）への書き換え（学会発表前に必須）
 6. v0.2 ベースで **NIMS 試験導入**（2026 Q2）のテストケース構築
 

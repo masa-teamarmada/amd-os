@@ -231,7 +231,7 @@ export function SuDetailModal({ venture, xrl, onClose }: Props) {
                       textTransform: "uppercase",
                     }}
                   >
-                    [{venture.short_label || venture.id}]
+                    [{venture.short_label || venture.project_id}]
                   </span>
                 </div>
                 <div

@@ -22,7 +22,7 @@ interface WeightSet {
  * 過去データ:
  *   - macro_index_log (lane × month の atlas_signals 集計)
  *   - papers_log (lane × year の OpenAlex 論文数)
- *   - ventures (9社の outcome_pattern と founded_at)
+ *   - project_ventures (9 PJ の outcome_pattern と founded_at)
  * を LLM (Sonnet 4.6/4.7) に投げて、各レーンの最も妥当な重みを推定 → macro_lane_weights に新行 INSERT。
  *
  * Bearer ${CRON_SECRET} 認証 + 手動キック対応。
@@ -56,9 +56,9 @@ export async function GET(req: NextRequest) {
       .select("lane, observed_at, paper_count, source")
       .order("observed_at", { ascending: true }),
     db
-      .from("ventures")
-      .select("id, lane, founded_at, outcome_pattern, status")
-      .order("founded_at", { ascending: true }),
+      .from("project_ventures")
+      .select("project_id, lane, founded_at, outcome_pattern")
+      .order("founded_at", { ascending: true, nullsFirst: false }),
   ]);
 
   const macroLog = macroResp.data || [];
