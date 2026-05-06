@@ -12,16 +12,19 @@
  * 単位ルール: SU は「PJ」と数える。「ventures」「社」表記は禁止。
  */
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchVentureStatus,
-  computeAmdScoreSeries,
+  computeCockpitAmdScoreSeries,
   confirmXrlObservation,
   type VentureStatusBundle,
   type ProjectEventRow,
   type ProjectEventKind,
   type ProjectXrlRow,
 } from "@/lib/venture-status-data";
+import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
+import { ALPHA_DEFAULT, PHASE_COLOR, PHASE_LABEL_JP, calculateAmdScore, classifyPhase, type AlphaWeights, type AmdScorePhase } from "@/lib/amd-score";
 import { CockpitVentureStatusEditModal } from "./CockpitVentureStatusEditModal";
 import { CockpitVentureMetaEditModal } from "./CockpitVentureMetaEditModal";
 import { CockpitNarrativeModal } from "./CockpitNarrativeModal";
@@ -108,6 +111,8 @@ type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" 
 
 export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const [bundle, setBundle] = useState<VentureStatusBundle | null>(null);
+  const [amdInputs, setAmdInputs] = useState<AmdScoreInputRow[]>([]);
+  const [alpha, setAlpha] = useState<AlphaWeights>(ALPHA_DEFAULT);
   const [loading, setLoading] = useState(true);
   const [editingEvent, setEditingEvent] = useState<ProjectEventRow | null>(null);
   const [creatingAt, setCreatingAt] = useState<string | null>(null); // YYYY-MM-DD
@@ -124,20 +129,32 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchVentureStatus(projectId).then((b) => {
+    Promise.all([
+      fetchVentureStatus(projectId),
+      fetchAmdScoreInputs(projectId),
+      fetchActiveAlpha(),
+    ]).then(([b, inputs, alphaRes]) => {
       if (!cancelled) {
         setBundle(b);
+        setAmdInputs(inputs);
+        setAlpha(alphaRes.alpha);
         setLoading(false);
       }
     });
     return () => {
-      cancelled = false;
+      cancelled = true;
     };
   }, [projectId]);
 
   const reload = async () => {
-    const b = await fetchVentureStatus(projectId);
+    const [b, inputs, alphaRes] = await Promise.all([
+      fetchVentureStatus(projectId),
+      fetchAmdScoreInputs(projectId),
+      fetchActiveAlpha(),
+    ]);
     setBundle(b);
+    setAmdInputs(inputs);
+    setAlpha(alphaRes.alpha);
   };
 
   const onConfirmProposal = async (id: string, action: "confirm" | "reject") => {
@@ -171,15 +188,28 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const xOfDate = (iso: string) => xOf(dateToYearDecimal(iso));
   const xToYearDecimal = (svgX: number) => range.xMin + ((svgX - ML) / PW) * (range.xMax - range.xMin);
 
-  // AMD スコア時系列
-  const scoreSeries = useMemo(() => (bundle ? computeAmdScoreSeries(bundle) : []), [bundle]);
-  const yOfScore = (s: number) => MT + PH - ((s + 100) / 200) * PH;
+  // AMD スコア時系列 (Before Zero Theory v3.2 — 7 軸 Cobb-Douglas)
+  const scoreSeries = useMemo(
+    () => computeCockpitAmdScoreSeries(amdInputs, alpha),
+    [amdInputs, alpha]
+  );
+  // Y 軸 log scale: 1 → 100,000 (IPO 級)
+  const Y_LOG_MIN = 0;        // log10(1) = 0
+  const Y_LOG_MAX = 5;        // log10(100,000) = 5
+  const yOfScore = (s: number) => {
+    const logV = Math.log10(Math.max(1, s));
+    const ratio = Math.max(0, Math.min(1, (logV - Y_LOG_MIN) / (Y_LOG_MAX - Y_LOG_MIN)));
+    return MT + PH - ratio * PH;
+  };
   const scorePath = scoreSeries.length < 2
     ? ""
     : "M " + scoreSeries.map((p) => `${xOfDate(p.date).toFixed(1)},${yOfScore(p.score).toFixed(1)}`).join(" L ");
 
   // 現在のスコア (最新点)
   const latestScore = scoreSeries[scoreSeries.length - 1]?.score;
+  const latestPhase: AmdScorePhase | null = latestScore != null ? classifyPhase(latestScore) : null;
+  const latestPhaseColor = latestPhase ? PHASE_COLOR[latestPhase] : "#94a3b8";
+  const latestInput = amdInputs[amdInputs.length - 1] ?? null;
 
   // XRL 軸
   const yOfXrl = (v: number) => MT + PH - (v / 9) * PH;
@@ -319,18 +349,24 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         >
           📊 試算表
         </button>
-        {latestScore != null && (
+        {latestScore != null && latestPhase && (
           <button
             onClick={() => setScoreBreakdownOpen(true)}
             className="text-[11px] font-mono px-2 py-0.5 rounded-full border hover:bg-[#fafafa]"
-            style={{
-              borderColor: latestScore >= 0 ? "#16a34a" : "#ef4444",
-              color: latestScore >= 0 ? "#16a34a" : "#ef4444",
-            }}
-            title="クリックで計算式と内訳を表示"
+            style={{ borderColor: latestPhaseColor, color: latestPhaseColor }}
+            title={`${PHASE_LABEL_JP[latestPhase]} — クリックで内訳`}
           >
-            AMD score: {latestScore.toFixed(0)} ▾
+            AMD: {latestScore < 1 ? latestScore.toFixed(2) : Math.round(latestScore).toLocaleString()} · {PHASE_LABEL_JP[latestPhase]} ▾
           </button>
+        )}
+        {latestScore == null && (
+          <Link
+            href={`/venture-map/amd-score/${projectId}`}
+            className="text-[11px] font-mono px-2 py-0.5 rounded-full border border-dashed border-slate-300 text-muted-foreground hover:bg-slate-50"
+            title="AMD Score 未評価。クリックで入力"
+          >
+            AMD: 未評価 →
+          </Link>
         )}
       </div>
 
@@ -347,11 +383,22 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
 
       {/* Chart 1: AMD スコア */}
       <div className="px-2 pt-3">
-        <div className="px-2 flex items-center justify-between">
-          <h3 className="text-[12px] font-semibold">AMD スコア</h3>
-          <span className="text-[10px] text-muted-foreground">
-            グラフをタップでイベント追加 / ドットタップで編集 (※ AMD スコア計算式は Before Zero Theory v3.x 確定待ち、現状ダミー)
-          </span>
+        <div className="px-2 flex items-center justify-between flex-wrap gap-2">
+          <h3 className="text-[12px] font-semibold">
+            AMD スコア
+            <span className="ml-2 text-[9px] text-muted-foreground font-normal">log scale (1 - 100k IPO 級)</span>
+          </h3>
+          <div className="flex items-center gap-2 text-[10px]">
+            <Link
+              href={`/venture-map/amd-score/${projectId}`}
+              className="text-cyan-700 hover:underline"
+            >
+              7 軸を編集 →
+            </Link>
+            <span className="text-muted-foreground">
+              · グラフをタップでイベント追加 / ドットタップで編集
+            </span>
+          </div>
         </div>
         <svg
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
@@ -359,12 +406,19 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           style={{ minWidth: 600 }}
           onClick={onScoreChartClick}
         >
-          {/* Y axis: -100 / 0 / 100 */}
-          {[-100, -50, 0, 50, 100].map((v) => (
+          {/* Y axis: log scale 1 / 30 / 300 / 1.5k / 3.5k / 15k / 50k / 100k */}
+          {[1, 30, 300, 1500, 3500, 15000, 50000, 100000].map((v) => (
             <g key={v}>
-              <line x1={ML} y1={yOfScore(v)} x2={ML + PW} y2={yOfScore(v)} stroke={v === 0 ? "#cbd5e1" : "#f1f5f9"} />
+              <line
+                x1={ML}
+                y1={yOfScore(v)}
+                x2={ML + PW}
+                y2={yOfScore(v)}
+                stroke={v === 1500 || v === 3500 ? "#cbd5e1" : "#f1f5f9"}
+                strokeDasharray={v === 1500 || v === 3500 ? "3 2" : undefined}
+              />
               <text x={ML - 6} y={yOfScore(v) + 3} fontSize={9} fill="#94a3b8" textAnchor="end">
-                {v}
+                {v >= 1000 ? `${v / 1000}k` : v}
               </text>
             </g>
           ))}
@@ -399,11 +453,13 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           {scorePath && (
             <path d={scorePath} fill="none" stroke="#0f172a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
           )}
-          {/* events ドット */}
+          {/* events ドット (annotation) — score 曲線上の最近点に置く */}
           {(bundle?.events ?? []).map((ev) => {
             const yd = dateToYearDecimal(ev.occurred_on);
-            const found = scoreSeries.find((p) => p.date === ev.occurred_on);
-            const score = found?.score ?? 0;
+            // event 時点以前の score 系列の最終点
+            const before = scoreSeries.filter((p) => p.date <= ev.occurred_on);
+            const after = scoreSeries.filter((p) => p.date > ev.occurred_on);
+            const refScore = before[before.length - 1]?.score ?? after[0]?.score ?? 1;
             const color = KIND_LABELS[ev.kind]?.color ?? "#0f172a";
             return (
               <g
@@ -414,7 +470,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   setEditingEvent(ev);
                 }}
               >
-                <circle cx={xOf(yd)} cy={yOfScore(score)} r={18} fill={color} stroke="#fff" strokeWidth={2} />
+                <circle cx={xOf(yd)} cy={yOfScore(refScore)} r={14} fill={color} stroke="#fff" strokeWidth={2} />
                 <title>{`${KIND_LABELS[ev.kind]?.label ?? ev.kind} / ${ev.occurred_on} / ${ev.label}`}</title>
               </g>
             );
@@ -625,9 +681,11 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         />
       )}
 
-      {scoreBreakdownOpen && bundle && (
+      {scoreBreakdownOpen && (
         <CockpitAmdScoreBreakdownModal
-          bundle={bundle}
+          projectId={projectId}
+          latestInput={latestInput}
+          alpha={alpha}
           onClose={() => setScoreBreakdownOpen(false)}
         />
       )}

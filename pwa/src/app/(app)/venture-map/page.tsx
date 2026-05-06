@@ -42,13 +42,21 @@ export default async function VentureMapPage() {
             実データは 2026-01 以降。それ以前は補助モック値。
           </p>
         </div>
-        <a
-          href="/venture-map/timeline-3d"
-          className="shrink-0 text-xs px-3 py-1.5 rounded border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10 transition-colors font-mono"
-          style={{ textShadow: "0 0 6px rgba(34,211,238,0.4)" }}
-        >
-          Timeline 3D →
-        </a>
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href="/venture-map/amd-score"
+            className="text-xs px-3 py-1.5 rounded border border-purple-500/40 text-purple-700 hover:bg-purple-500/10 transition-colors font-mono"
+          >
+            AMD Score →
+          </a>
+          <a
+            href="/venture-map/timeline-3d"
+            className="text-xs px-3 py-1.5 rounded border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10 transition-colors font-mono"
+            style={{ textShadow: "0 0 6px rgba(34,211,238,0.4)" }}
+          >
+            Timeline 3D →
+          </a>
+        </div>
       </div>
       <VentureMapView
         ventures={ventures}

@@ -656,169 +656,44 @@ export async function confirmXrlObservation(
 }
 
 // ============================================================
-// AMD スコアのダミー計算
+// AMD スコアは Before Zero Theory v3.2 (7 軸 Cobb-Douglas) に移行済。
 //
-// ⚠️ 正本の AMD スコア式は Before Zero Theory v3.x で別セッションで定義中。
-//    確定したらここを差し替える。現状はダミー (まさ承認済み 2026-05-06)。
-//
-// ダミーロジック:
-//   - 設立日前: 線形に -100 → 0 (5 年前を -100、設立日で 0)
-//   - 設立日以降: ((TRL+BRL+HRL)/27) * 100 を基底に、
-//                 各 event を kind ごとの bonus で加算 (上限 +100)
+// 新ロジックは:
+//   - 軸定義 / 計算: src/lib/amd-score.ts
+//   - データアクセス: src/lib/amd-score-data.ts (amd_score_inputs / amd_score_alpha)
+//   - cockpit 用時系列ヘルパー: computeCockpitAmdScoreSeries() 以下
 // ============================================================
 
 export interface AmdScorePoint {
-  date: string;       // YYYY-MM-DD
-  score: number;      // -100 〜 +100
+  date: string;     // YYYY-MM-DD
+  score: number;    // log scale (1 - 100,000)
 }
 
-export const EVENT_BONUS: Record<ProjectEventKind, number> = {
-  hire: 3,
-  funding: 8,
-  deal: 5,
-  tech_progress: 4,
-  governance: 2,
-  note: 0,
-  xrl_obs: 0,
-  amd_score_override: 0,
-};
+import { calculateAmdScore, type AlphaWeights } from "@/lib/amd-score";
+import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 
-export interface AmdScoreBreakdown {
-  asOf: string;                       // 計算時点 (今日)
-  founded_at: string | null;
-  isBeforeZero: boolean;              // 設立日 > 今日
-  // Before 0 (線形補間)
-  beforeZeroAnchor?: { date: string; score: number };  // 5 年前 -100
-  beforeZeroToday?: { date: string; score: number };   // 設立日 0
-  // After 0 (XRL + event bonuses)
-  latestXrl?: { observed_at: string; trl: number | null; brl: number | null; hrl: number | null };
-  xrlSum: number;
-  xrlScore: number;                   // (xrlSum / 27) * 60
-  eventBonuses: Array<{
-    occurred_on: string;
-    kind: ProjectEventKind;
-    label: string;
-    bonus: number;
-  }>;
-  eventBonusTotal: number;
-  rawScore: number;                   // xrlScore + eventBonusTotal (cap 前)
-  finalScore: number;                 // min(100, rawScore) もしくは Before 0 線形補間結果
-}
-
-export function computeAmdScoreBreakdown(bundle: VentureStatusBundle): AmdScoreBreakdown | null {
-  const venture = bundle.venture;
-  if (!venture) return null;
-  const today = new Date().toISOString().slice(0, 10);
-  const foundedAt = venture.founded_at;
-  const isBeforeZero = !!foundedAt && new Date(foundedAt) > new Date(today);
-
-  if (foundedAt && isBeforeZero) {
-    // Before 0: 5 年前を -100、設立日で 0、今日は線形補間
-    const f = new Date(foundedAt);
-    const anchorDate = new Date(f.getFullYear() - 5, f.getMonth(), f.getDate());
-    const anchorIso = anchorDate.toISOString().slice(0, 10);
-    const t = new Date(today).getTime();
-    const range = f.getTime() - anchorDate.getTime();
-    const ratio = range > 0 ? (t - anchorDate.getTime()) / range : 1;
-    const score = -100 + ratio * 100;
-    return {
-      asOf: today,
-      founded_at: foundedAt,
-      isBeforeZero: true,
-      beforeZeroAnchor: { date: anchorIso, score: -100 },
-      beforeZeroToday: { date: today, score },
-      xrlSum: 0,
-      xrlScore: 0,
-      eventBonuses: [],
-      eventBonusTotal: 0,
-      rawScore: score,
-      finalScore: score,
-    };
-  }
-
-  // After 0
-  const xrlAtToday = bundle.xrlLog.filter((r) => r.observed_at <= today);
-  const latestXrl = xrlAtToday[xrlAtToday.length - 1];
-  const xrlSum =
-    (latestXrl?.trl ?? 0) + (latestXrl?.brl ?? 0) + (latestXrl?.hrl ?? 0);
-  const xrlScore = (xrlSum / 27) * 60;
-
-  const eventBonuses = bundle.events
-    .filter((e) => e.occurred_on <= today)
-    .map((e) => ({
-      occurred_on: e.occurred_on,
-      kind: e.kind,
-      label: e.label,
-      bonus: EVENT_BONUS[e.kind] ?? 0,
-    }))
-    .filter((b) => b.bonus !== 0);
-  const eventBonusTotal = eventBonuses.reduce((s, b) => s + b.bonus, 0);
-
-  const rawScore = xrlScore + eventBonusTotal;
-  const finalScore = Math.min(100, rawScore);
-
-  return {
-    asOf: today,
-    founded_at: foundedAt,
-    isBeforeZero: false,
-    latestXrl: latestXrl
-      ? { observed_at: latestXrl.observed_at, trl: latestXrl.trl, brl: latestXrl.brl, hrl: latestXrl.hrl }
-      : undefined,
-    xrlSum,
-    xrlScore,
-    eventBonuses,
-    eventBonusTotal,
-    rawScore,
-    finalScore,
-  };
-}
-
-export function computeAmdScoreSeries(
-  bundle: VentureStatusBundle,
-  opts?: { dummyVersion?: string }
+/** amd_score_inputs (古い順) と alpha から、cockpit チャート用の時系列を作る */
+export function computeCockpitAmdScoreSeries(
+  inputs: AmdScoreInputRow[],
+  alpha: AlphaWeights
 ): AmdScorePoint[] {
-  const venture = bundle.venture;
-  if (!venture) return [];
-
-  // 観測時点を集める: founded_at, xrl observations, events の occurred_on
-  const dates = new Set<string>();
-  if (venture.founded_at) dates.add(venture.founded_at);
-  for (const r of bundle.xrlLog) dates.add(r.observed_at);
-  for (const e of bundle.events) dates.add(e.occurred_on);
-
-  // 5 年前を最古点として初期 -100 を打つ
-  if (venture.founded_at) {
-    const f = new Date(venture.founded_at);
-    const start = new Date(f.getFullYear() - 5, f.getMonth(), 1);
-    dates.add(start.toISOString().slice(0, 10));
-  }
-
-  const sortedDates = [...dates].sort();
-  const founded = venture.founded_at ? new Date(venture.founded_at).getTime() : null;
-
-  return sortedDates.map((d) => {
-    const t = new Date(d).getTime();
-    if (founded != null && t < founded) {
-      // Before zero: 線形 -100 → 0 (5 年前 = -100)
-      const earliest = new Date(sortedDates[0]).getTime();
-      const range = founded - earliest;
-      if (range <= 0) return { date: d, score: 0 };
-      const ratio = (t - earliest) / range;
-      return { date: d, score: -100 + ratio * 100 };
-    }
-
-    // After zero: XRL 累積 + event bonus 累積
-    const xrlAtDate = bundle.xrlLog.filter((r) => r.observed_at <= d);
-    const latestXrl = xrlAtDate[xrlAtDate.length - 1];
-    const xrlSum =
-      (latestXrl?.trl ?? 0) + (latestXrl?.brl ?? 0) + (latestXrl?.hrl ?? 0);
-    const xrlScore = (xrlSum / 27) * 60; // XRL 部分を最大 60 点
-
-    const eventBonus = bundle.events
-      .filter((e) => e.occurred_on <= d)
-      .reduce((sum, e) => sum + (EVENT_BONUS[e.kind] ?? 0), 0);
-
-    const score = Math.min(100, xrlScore + eventBonus);
-    return { date: d, score };
-  });
+  return inputs
+    .filter((r) => r.mu_A != null && r.mu_I != null && r.mu_G != null)
+    .map((r) => {
+      const result = calculateAmdScore(
+        {
+          mu_A: r.mu_A ?? 0,
+          mu_I: r.mu_I ?? 0,
+          mu_G: r.mu_G ?? 0,
+          TRL: r.shallow_tech_mode ? null : r.trl ?? 0,
+          BRL: r.brl ?? 0,
+          GRL: r.grl ?? 0,
+          SRL: r.srl ?? 0,
+          HRL: r.hrl ?? 0,
+          FRL: r.frl ?? 0,
+        },
+        alpha
+      );
+      return { date: r.evaluated_at.slice(0, 10), score: result.score };
+    });
 }

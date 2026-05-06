@@ -13,41 +13,52 @@
 
 ## 最終更新
 
-2026-05-06 — PJ Status コックピット拡張 (6 phase) + マスコットチャット永続化 + config リンク事故修正
+2026-05-07 — AMD Score (Before Zero Theory v3.2 — 7 軸 Cobb-Douglas) フル実装
 
 ---
 
 ## 直近セッション要約
 
-`/project/[projectId]/cockpit` の上部に SU 系 PJ 用の **PJ Status セクション** を追加した。設計は `pwa/design_log/2026-05_pj_status_cockpit.md` に集約 (構造図・モーダル一覧・データモデル・API・cron・学習ループ・反省事項)。
+理論正本 [`/Users/masa/projects/before-zero/theory/amd_score.md`](../../../before-zero/theory/amd_score.md) (Before Zero Theory v3.2) の AMD Score を AMD OS に実装。設計詳細は `pwa/design_log/2026-05_amd_score.md`。
 
 主な変更:
 
-- migration 008-012 適用 (本番): `project_ventures` / `project_xrl_log` / `project_events` / `project_venture_members` / `project_partners` / `project_pl_monthly` / `project_pl_hearings` / `narrative_feedbacks` / `xrl_feedbacks` / `tsukuyomi_learnings_status` / `tsukuyomi_chat_logs`
-- ボタン群: 沿革 (リスト形式 + 修正依頼 ✏ → 即時 Gemini 再生成 + Sonnet lesson 抽出) / メンバー (member_kind: amd_internal/su_internal/support_org) / 事業会社 (collab/customer) / 月次試算表 (縦横ピボット + つくよみヒアリングモード) / 事業概要詳細 (つくよみマージ + Anthropic web_search)
-- AMD スコア: chip クリックで内訳モーダル (現状ダミー、`Before Zero Theory v3.x` 確定待ち)
-- XRL: 各軸ドット個別クリックで軸別詳細 + Gemini 修正、`source_note` を `{trl/brl/hrl_reason}` JSON で保存、情報不足な軸は「情報不足」と明示
-- 右下マスコット: クリックで吹き出し風小ウィンドウ → Sonnet が画面 context 込みで会話 + tool 修正 + localStorage 永続化
-- /admin/tsukuyomi: 日時 JST 固定、`tsukuyomi_learnings_status` を memory layer に統合 (source=`pj_status:<...>`)
-- イベント kind: 「採用」→「人事」、「技術進捗」追加、@メンション機能、ゾンビ化/中小企業化 outcome 追加
-- 終了 PJ で月次ルーティン非表示
+- 新 lib `src/lib/amd-score.ts` (`calculateAmdScore` / `computeSigmaSU` / `classifyPhase` / `ALPHA_DEFAULT`)
+- 新 data `src/lib/amd-score-data.ts` (amd_score_inputs / amd_score_alpha CRUD)
+- 新ページ:
+  - `/venture-map/amd-score` — 全 SU PJ 一覧 (score 降順 + phase filter)
+  - `/venture-map/amd-score/[projectId]` — 個別 (Hero / Radar / 寄与表 / 経時 / 軸スライダー / α サイドバー)
+- migration 013 (本番適用済): `amd_score_inputs` + `amd_score_alpha` + base alpha + 8 PJ retrofit seed
+- cockpit 連携: AMD スコアグラフ log scale (1 → 100k)、phase 色チップ、breakdown モーダル 7 軸版に置換、`/venture-map/amd-score/[projectId]` への「7 軸を編集 →」link
+- `/venture-map` ヘッダに「AMD Score →」ボタン
+- 旧 `EVENT_BONUS` / `computeAmdScoreSeries(bundle)` / `computeAmdScoreBreakdown(bundle)` 削除、`computeCockpitAmdScoreSeries(inputs, alpha)` に集約
 
-詳細: `design_log/sessions_2026-05.md` の 2026-05-06 (cool-booth-b72d09) セクション。
+数式:
+```
+AMD Score = K · Π (X_i + 1)^α_i,  X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
+σ_SU      = ((μ_A+1)(μ_I+1)(μ_G+1))^(1/3) - 1
+K         = 100,000 / 10^Σα   (Shallow Tech は TRL 抜きで再校正)
+base α    = FRL=1.5 / σ_SU=1.3 / HRL=1.1 / TRL=1.0 / BRL=0.6 / GRL=0.3 / SRL=0.2 (Σ=6.0)
+```
 
-### 反省 (詳細は BUGS.md)
+期待値 vs 計算 (理論 §8 表):
+- sx 2027: 4,791 vs 4,785 = -0.1% (ほぼ完全)
+- bwe 2025: 3,193 vs 2,615 = -18% (seed の μ 値が §8 想定より低い)
+- ctb: 1,658 vs 1,855 = +12%
+- フェーズ判定は全て理論通り
 
-`CockpitHeader` に独断で `⚙️ config` リンク (`/admin/projects` 行き) を追加してまさに却下された。「過去にあったリンクの復活」を git history 確認せず推測実装した結果。最後にロールバック済。教訓は BUGS.md に記載。
+→ **数式は正しい**。seed の μ_A/μ_I/μ_G は粗い見積りなので、まさが UI スライダーで PJ ごとに調整する運用方針。
+
+詳細: `design_log/sessions_2026-05.md` の 2026-05-07 セクション。
 
 ---
 
 ## リポ状態
 
-- 作業 worktree: `/Users/masa/projects/AMD/amd-os/.claude/worktrees/cool-booth-b72d09`
-- 作業 branch: `claude/cool-booth-b72d09` (main にも順次 merge + push 済)
-- main HEAD: `81aae77` (これから最後の commit が乗る)
-- 本番デプロイ: 最新 `https://amd-os-pwa.vercel.app` (毎 commit ごとに deploy 済)
-- 未 commit (このセッション末尾分): 後述「次の一手」で commit + deploy する予定
-- uncommitted (まさの作業 — **触らない**): main checkout 側に `?? design_log/` `?? tsukuyomi-sheet.png` 等あり
+- 作業 worktree: `/Users/masa/projects/AMD/amd-os/.claude/worktrees/blissful-kepler-9e95b0`
+- 作業 branch: `claude/blissful-kepler-9e95b0` (main にも merge + push する予定)
+- main HEAD (このセッション開始時): `ad0e1e0`
+- 本番デプロイ: `https://amd-os-pwa.vercel.app` (deploy 後に AMD Score ページが見える)
 
 ---
 
@@ -55,15 +66,18 @@
 
 ### 設計層 (まさの判断待ち)
 
-- **AMD スコアの正本式**: `Before Zero Theory v3.x` で別セッション議論中。確定したら `pwa/src/lib/venture-status-data.ts` の `computeAmdScoreSeries` / `computeAmdScoreBreakdown` を差し替え
-- **コックピットの "config" リンクの飛び先**: 過去にあったとまさが言うが git 履歴では特定不能。次セッションで「飛び先 = どのページか」を聞いて、`CockpitHeader` に再追加する
-- Timeline 3D 拡張 (前 session の継続): スコア式正本化、過去 22 PJ への拡張、AMD 参画期間の正確化、Bloom postprocessing
-- Venture Map モデル: 数式モデルの未解決論点 5 点 (`design_log/2026-05_venture_map_model.md`)、競合密度 / 予算データ未投入
+- **コックピットの "config" リンクの飛び先**: 前回まさに聞いた際に AMD Score 実装が優先されたため未確定。git 履歴では特定不能。次セッションで「飛び先 = どのページか」を確認してから `CockpitHeader` に追加する
+- **AMD Score 期待値とのズレ**: bwe / yd など `~20%` 低く出る (seed の μ 値が §8 表より小さい)。まさが UI スライダーで PJ ごとに合わせる方針だが、希望なら seed 行を直接書き換えるオプションあり
+- **Shallow Tech モードの重み再分配**: 理論 §11.3 で TRL=1.0 を BRL/HRL に再分配して K=1.0 にする案。現状は単純に TRL 軸を除外しているだけ。jc が 1,226 (期待 100-300) と高めに出ている件と関連
+- Timeline 3D 拡張 (前々セッションの継続): スコア式 (今 AMD Score にした) を Timeline 3D にも反映するか、過去 22 PJ への拡張、AMD 参画期間の正確化、Bloom postprocessing
+- Venture Map モデル: 数式モデルの未解決論点 5 点 (`design_log/2026-05_venture_map_model.md`)
 
 ### 実装層
 
-- マスコットチャット会話の永続化は localStorage で実装済だが、「同一 session 内で別 PJ に移動したら別キーで保存される」設計。意図通りか、それとも session ID 単位でグローバル保存にすべきかは要確認
-- XRL の axis 別 reason は今後の cron / xrl-revise から JSON 形式で書かれるが、既存の plain text source_note (旧形式) の PJ もある。次回 cron で全部上書きされるまでは「旧形式」フォールバック表示
+- σ_SU を `/venture-map/state-space` の Triple Helix 状態空間モデル推定値に自動連携 (現状は amd_score_inputs に手動入力した μ_A/μ_I/μ_G)
+- データ駆動 α 推定 (9 PJ 階層 Bayesian)
+- VC valuation との比較ビュー (理論 §10) で AMD Score 高 + valuation 低 = 過小評価サイン
+- AMD Score の cron 自動更新 (atlas signal が来たら関連 PJ の σ_SU を再評価)
 
 中長期 TODO は `SPEC_pwa.md` の「10. 既知の TODO / 未着手」。
 
@@ -72,7 +86,8 @@
 ## 次セッションの最初の一手
 
 1. リポ状態 4 ステップ (`git fetch --all --prune` → `git log --branches --not --remotes --oneline` → `git branch -a` → `git status -s`)
-2. **`design_log/2026-05_pj_status_cockpit.md` を読む** (PJ Status コックピットの設計正本、冒頭に「既存 UI を勝手に消すな」のルール)
-3. `SPEC_pwa.md` で全体像、`BUGS.md` で 2026-05-06 の config 事故を確認
-4. まさに「config リンクの本来の飛び先」を確認 → 確認できたら `CockpitHeader` に追加
-5. **PWA は常に本番で確認** (`pwa/AGENTS.md` 参照)。tsc 通ったら commit → push → main merge → `npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os` まで一気に通す
+2. **`design_log/2026-05_amd_score.md`** を読む (AMD Score 設計の正本、冒頭に「既存 UI を勝手に消すな」のルール)
+3. `SPEC_pwa.md` で全体像、`BUGS.md` で過去事故を確認
+4. 本番 (`https://amd-os-pwa.vercel.app/venture-map/amd-score`) でまさが触ってフィードバック → 必要なら μ 値・α 値・閾値を tune
+5. config リンクの飛び先をまさに確認 → 確定したら `CockpitHeader` に追加
+6. **PWA は常に本番で確認** (`pwa/AGENTS.md`)。tsc 通ったら commit → push → main merge → `npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os` まで一気に通す
