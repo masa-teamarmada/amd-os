@@ -1,14 +1,28 @@
 "use client";
 
 /**
- * 沿革モーダル: events / xrl / 概要を Gemini が時系列の物語にする。
- * - キャッシュ valid なら即表示
- * - invalid (events 編集後など) or なし → 自動再生成
- * - 「再生成」ボタンで強制再生成
+ * 沿革モーダル: 一般的な「会社沿革」スタイルの年月+一行リスト。
+ * 各項目をタップで詳細展開。
+ *
+ * 沿革本体の生成は 午前 3 時 cron (/api/cron/venture-narrative-refresh) が担当。
+ * このモーダルは保存済みのキャッシュ (project_ventures.narrative_text、JSON 配列文字列) を表示するだけ。
  */
 
 import { useEffect, useState } from "react";
-import { generateNarrative } from "@/lib/venture-status-data";
+import { createClient } from "@supabase/supabase-js";
+
+interface NarrativeItem {
+  date: string;     // 'YYYY-MM' or 'YYYY-MM-DD'
+  title: string;    // 一行サマリ
+  detail: string;   // タップで展開される詳細
+}
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(
+  supabaseUrl || "https://placeholder.supabase.co",
+  supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder"
+);
 
 interface Props {
   projectId: string;
@@ -16,29 +30,72 @@ interface Props {
   onClose: () => void;
 }
 
-export function CockpitNarrativeModal({ projectId, displayName, onClose }: Props) {
-  const [text, setText] = useState<string>("");
-  const [loading, setLoading] = useState(true);
-  const [cached, setCached] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = async (force: boolean) => {
-    setLoading(true);
-    setError(null);
-    const r = await generateNarrative(projectId, { force });
-    setLoading(false);
-    if (!r) {
-      setError("沿革の生成に失敗しました");
-      return;
+function safeParse(text: string | null): NarrativeItem[] | null {
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) {
+      return parsed.filter(
+        (it): it is NarrativeItem =>
+          typeof it === "object" &&
+          it !== null &&
+          typeof (it as NarrativeItem).date === "string" &&
+          typeof (it as NarrativeItem).title === "string"
+      );
     }
-    setText(r.text);
-    setCached(r.cached);
-  };
+  } catch {
+    // 旧形式 (markdown 文字列) はリスト形式に解釈不可
+  }
+  return null;
+}
+
+export function CockpitNarrativeModal({ projectId, displayName, onClose }: Props) {
+  const [items, setItems] = useState<NarrativeItem[] | null>(null);
+  const [legacyText, setLegacyText] = useState<string | null>(null);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [invalidatedAt, setInvalidatedAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    load(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    setLoading(true);
+    supabase
+      .from("project_ventures")
+      .select("narrative_text, narrative_generated_at, narrative_invalidated_at")
+      .eq("project_id", projectId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const text = (data?.narrative_text as string | null) ?? null;
+        const parsed = safeParse(text);
+        if (parsed) {
+          setItems(parsed);
+        } else {
+          setLegacyText(text);
+        }
+        setGeneratedAt((data?.narrative_generated_at as string | null) ?? null);
+        setInvalidatedAt((data?.narrative_invalidated_at as string | null) ?? null);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [projectId]);
+
+  const toggle = (i: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  };
+
+  const isStale =
+    !!generatedAt &&
+    !!invalidatedAt &&
+    new Date(invalidatedAt) > new Date(generatedAt);
 
   return (
     <div
@@ -51,32 +108,61 @@ export function CockpitNarrativeModal({ projectId, displayName, onClose }: Props
       >
         <div className="px-4 py-3 border-b border-[#e5e5e7] flex items-center justify-between">
           <h3 className="text-sm font-semibold">{displayName} の沿革</h3>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => load(true)}
-              disabled={loading}
-              className="text-[11px] text-blue-600 hover:underline disabled:opacity-40 disabled:no-underline"
-            >
-              ✨ 再生成
-            </button>
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
-              ✕
-            </button>
-          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
+            ✕
+          </button>
         </div>
         <div className="px-4 py-4">
           {loading ? (
-            <p className="text-[12px] text-muted-foreground">Gemini が沿革を組み立てています…</p>
-          ) : error ? (
-            <p className="text-[12px] text-red-600">{error}</p>
+            <p className="text-[12px] text-muted-foreground">読み込み中…</p>
+          ) : items && items.length > 0 ? (
+            <ol className="text-[12.5px] leading-relaxed text-slate-800 divide-y divide-[#f1f5f9]">
+              {items.map((it, i) => {
+                const open = expanded.has(i);
+                return (
+                  <li key={i} className="py-2">
+                    <button
+                      onClick={() => toggle(i)}
+                      className="w-full flex items-start gap-3 text-left hover:bg-[#fafafa] rounded px-1 py-0.5"
+                    >
+                      <span className="text-[10px] font-mono text-muted-foreground w-[68px] shrink-0 mt-0.5">
+                        {it.date}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5">{open ? "▼" : "▶"}</span>
+                      <span className="flex-1">{it.title}</span>
+                    </button>
+                    {open && it.detail && (
+                      <p className="ml-[88px] mt-1 mr-1 text-[12px] text-slate-600 whitespace-pre-wrap">
+                        {it.detail}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          ) : legacyText ? (
+            <div className="text-[12px] whitespace-pre-wrap text-slate-700">{legacyText}</div>
           ) : (
-            <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-800">{text}</div>
-          )}
-          {!loading && !error && (
-            <p className="mt-3 text-[10px] text-muted-foreground">
-              {cached ? "キャッシュ表示。イベント追加・編集で次回再生成されます。" : "今この瞬間に Gemini が生成しました。"}
+            <p className="text-[12px] text-muted-foreground">
+              沿革はまだ生成されていません。<br />
+              毎朝 03:00 (JST) の cron で events / XRL / メタの差分があれば自動生成されます。
             </p>
           )}
+
+          <div className="mt-4 text-[10px] text-muted-foreground">
+            {generatedAt ? (
+              <>
+                最終生成: {generatedAt.replace("T", " ").slice(0, 16)}
+                {isStale && (
+                  <span className="ml-2 text-amber-600">
+                    (差分あり、次の 03:00 で再生成予定)
+                  </span>
+                )}
+              </>
+            ) : (
+              "未生成 (次の 03:00 で生成予定)"
+            )}
+          </div>
         </div>
       </div>
     </div>

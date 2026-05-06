@@ -35,15 +35,56 @@ export interface ProjectVentureRow {
   short_label: string | null;
   lane: LaneId;
   founded_at: string | null;
-  outcome_pattern: OutcomePattern;
+  outcome_pattern: OutcomePattern | "tbd" | "planning" | "stalled";
   origin_org: string | null;
   origin_pi: string | null;
   amd_role: string | null;
   short_description: string | null;
+  long_description: string | null;
+  amd_support_started_at: string | null;
+  amd_support_ended_at: string | null;
   is_public: boolean;
   narrative_text: string | null;
   narrative_generated_at: string | null;
   narrative_invalidated_at: string | null;
+}
+
+export interface ProjectVentureMember {
+  id: string;
+  project_id: string;
+  full_name: string;
+  role: string;
+  started_at: string | null;
+  ended_at: string | null;
+  note: string | null;
+}
+
+export type PartnerType = "collab" | "customer";
+
+export interface ProjectPartner {
+  id: string;
+  project_id: string;
+  partner_name: string;
+  partner_type: PartnerType;
+  partner_role: string | null;             // collab 用
+  sales_target_date: string | null;        // customer 用
+  remaining_conditions: string | null;     // customer 用
+  is_sold: boolean;                        // customer 用
+  sales_actuals: Record<string, unknown>;  // customer 用
+  notes: string | null;
+}
+
+export interface ProjectPlMonthly {
+  id: string;
+  project_id: string;
+  ym: string;
+  revenue_yen: number;
+  cogs_yen: number;
+  personnel_yen: number;
+  rd_yen: number;
+  marketing_yen: number;
+  other_opex_yen: number;
+  notes: string | null;
 }
 
 export interface ProjectXrlRow {
@@ -90,15 +131,12 @@ export interface VentureStatusBundle {
 // 取得
 // ============================================================
 
+const VENTURE_COLUMNS =
+  "project_id, display_name, short_label, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, long_description, amd_support_started_at, amd_support_ended_at, is_public, narrative_text, narrative_generated_at, narrative_invalidated_at";
+
 export async function fetchVentureStatus(projectId: string): Promise<VentureStatusBundle> {
   const [ventureRes, xrlRes, eventRes] = await Promise.all([
-    supabase
-      .from("project_ventures")
-      .select(
-        "project_id, display_name, short_label, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public, narrative_text, narrative_generated_at, narrative_invalidated_at"
-      )
-      .eq("project_id", projectId)
-      .maybeSingle(),
+    supabase.from("project_ventures").select(VENTURE_COLUMNS).eq("project_id", projectId).maybeSingle(),
     supabase
       .from("project_xrl_log")
       .select("id, project_id, observed_at, trl, brl, hrl, bottleneck, milestone_label, source")
@@ -120,6 +158,187 @@ export async function fetchVentureStatus(projectId: string): Promise<VentureStat
     xrlLog: (xrlRes.data as ProjectXrlRow[] | null) ?? [],
     events: (eventRes.data as ProjectEventRow[] | null) ?? [],
   };
+}
+
+// ---- members --------------------------------------------------
+
+export async function fetchVentureMembers(projectId: string): Promise<ProjectVentureMember[]> {
+  const { data, error } = await supabase
+    .from("project_venture_members")
+    .select("id, project_id, full_name, role, started_at, ended_at, note")
+    .eq("project_id", projectId)
+    .order("started_at", { ascending: true, nullsFirst: false });
+  if (error) {
+    console.error("[fetchVentureMembers]", error);
+    return [];
+  }
+  return (data as ProjectVentureMember[]) ?? [];
+}
+
+export async function upsertVentureMember(
+  projectId: string,
+  input: Omit<ProjectVentureMember, "id" | "project_id"> & { id?: string }
+): Promise<ProjectVentureMember | null> {
+  const auth = getAuthClient();
+  const payload = {
+    project_id: projectId,
+    full_name: input.full_name,
+    role: input.role,
+    started_at: input.started_at,
+    ended_at: input.ended_at,
+    note: input.note,
+    updated_at: new Date().toISOString(),
+  };
+  const q = input.id
+    ? auth.from("project_venture_members").update(payload).eq("id", input.id).select().single()
+    : auth.from("project_venture_members").insert(payload).select().single();
+  const { data, error } = await q;
+  if (error) {
+    console.error("[upsertVentureMember]", error);
+    return null;
+  }
+  await invalidateNarrative(projectId);
+  return data as ProjectVentureMember;
+}
+
+export async function deleteVentureMember(projectId: string, id: string): Promise<boolean> {
+  const auth = getAuthClient();
+  const { error } = await auth.from("project_venture_members").delete().eq("id", id);
+  if (!error) await invalidateNarrative(projectId);
+  return !error;
+}
+
+// ---- partners --------------------------------------------------
+
+export async function fetchPartners(projectId: string): Promise<ProjectPartner[]> {
+  const { data, error } = await supabase
+    .from("project_partners")
+    .select("id, project_id, partner_name, partner_type, partner_role, sales_target_date, remaining_conditions, is_sold, sales_actuals, notes")
+    .eq("project_id", projectId)
+    .order("partner_type", { ascending: true });
+  if (error) {
+    console.error("[fetchPartners]", error);
+    return [];
+  }
+  return (data as ProjectPartner[]) ?? [];
+}
+
+export async function upsertPartner(
+  projectId: string,
+  input: Omit<ProjectPartner, "id" | "project_id"> & { id?: string }
+): Promise<ProjectPartner | null> {
+  const auth = getAuthClient();
+  const payload = {
+    project_id: projectId,
+    partner_name: input.partner_name,
+    partner_type: input.partner_type,
+    partner_role: input.partner_role,
+    sales_target_date: input.sales_target_date,
+    remaining_conditions: input.remaining_conditions,
+    is_sold: input.is_sold,
+    sales_actuals: input.sales_actuals ?? {},
+    notes: input.notes,
+    updated_at: new Date().toISOString(),
+  };
+  const q = input.id
+    ? auth.from("project_partners").update(payload).eq("id", input.id).select().single()
+    : auth.from("project_partners").insert(payload).select().single();
+  const { data, error } = await q;
+  if (error) {
+    console.error("[upsertPartner]", error);
+    return null;
+  }
+  await invalidateNarrative(projectId);
+  return data as ProjectPartner;
+}
+
+export async function deletePartner(projectId: string, id: string): Promise<boolean> {
+  const auth = getAuthClient();
+  const { error } = await auth.from("project_partners").delete().eq("id", id);
+  if (!error) await invalidateNarrative(projectId);
+  return !error;
+}
+
+// ---- monthly P&L --------------------------------------------------
+
+export async function fetchPlMonthly(projectId: string): Promise<ProjectPlMonthly[]> {
+  const { data, error } = await supabase
+    .from("project_pl_monthly")
+    .select("id, project_id, ym, revenue_yen, cogs_yen, personnel_yen, rd_yen, marketing_yen, other_opex_yen, notes")
+    .eq("project_id", projectId)
+    .order("ym", { ascending: true });
+  if (error) {
+    console.error("[fetchPlMonthly]", error);
+    return [];
+  }
+  return (data as ProjectPlMonthly[]) ?? [];
+}
+
+export async function upsertPlMonthly(
+  projectId: string,
+  input: Omit<ProjectPlMonthly, "id" | "project_id"> & { id?: string }
+): Promise<ProjectPlMonthly | null> {
+  const auth = getAuthClient();
+  const payload = {
+    project_id: projectId,
+    ym: input.ym,
+    revenue_yen: input.revenue_yen,
+    cogs_yen: input.cogs_yen,
+    personnel_yen: input.personnel_yen,
+    rd_yen: input.rd_yen,
+    marketing_yen: input.marketing_yen,
+    other_opex_yen: input.other_opex_yen,
+    notes: input.notes,
+    updated_at: new Date().toISOString(),
+  };
+  // ym で UNIQUE 制約あり → onConflict 指定の upsert
+  const { data, error } = await auth
+    .from("project_pl_monthly")
+    .upsert(payload, { onConflict: "project_id,ym" })
+    .select()
+    .single();
+  if (error) {
+    console.error("[upsertPlMonthly]", error);
+    return null;
+  }
+  return data as ProjectPlMonthly;
+}
+
+export async function deletePlMonthly(projectId: string, id: string): Promise<boolean> {
+  const auth = getAuthClient();
+  const { error } = await auth.from("project_pl_monthly").delete().eq("id", id);
+  if (error) console.error("[deletePlMonthly]", error);
+  return !error;
+}
+
+// ---- helpers --------------------------------------------------
+
+async function invalidateNarrative(projectId: string) {
+  const auth = getAuthClient();
+  await auth
+    .from("project_ventures")
+    .update({ narrative_invalidated_at: new Date().toISOString() })
+    .eq("project_id", projectId);
+}
+
+// ---- description merge (つくよみ) -----------------------------
+
+export async function mergeDescriptionWithLLM(input: {
+  projectId: string;
+  addition: string;
+}): Promise<{ long_description: string; short_description: string } | null> {
+  try {
+    const res = await fetch(`/api/project-ventures/${input.projectId}/description-merge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ addition: input.addition }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    console.error("[mergeDescriptionWithLLM]", e);
+    return null;
+  }
 }
 
 // ============================================================
@@ -199,11 +418,14 @@ export interface VentureMetaPatch {
   short_label?: string | null;
   lane?: LaneId;
   founded_at?: string | null;
-  outcome_pattern?: OutcomePattern;
+  outcome_pattern?: OutcomePattern | "tbd" | "planning" | "stalled";
   origin_org?: string | null;
   origin_pi?: string | null;
   amd_role?: string | null;
+  amd_support_started_at?: string | null;
+  amd_support_ended_at?: string | null;
   short_description?: string | null;
+  long_description?: string | null;
 }
 
 export async function updateProjectVenture(
@@ -253,39 +475,6 @@ export async function parseEventTextWithLLM(input: {
     return json.meta ?? null;
   } catch (e) {
     console.error("[parseEventTextWithLLM]", e);
-    return null;
-  }
-}
-
-export async function generateNarrative(
-  projectId: string,
-  opts?: { force?: boolean }
-): Promise<{ text: string; cached: boolean } | null> {
-  try {
-    const res = await fetch(`/api/project-ventures/${projectId}/narrative`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ force: !!opts?.force }),
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return { text: json.narrative as string, cached: !!json.cached };
-  } catch (e) {
-    console.error("[generateNarrative]", e);
-    return null;
-  }
-}
-
-export async function proposeXrlLevels(projectId: string): Promise<ProjectXrlRow | null> {
-  try {
-    const res = await fetch(`/api/project-ventures/${projectId}/xrl-propose`, {
-      method: "POST",
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return (json.proposal as ProjectXrlRow) ?? null;
-  } catch (e) {
-    console.error("[proposeXrlLevels]", e);
     return null;
   }
 }
