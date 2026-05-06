@@ -21,6 +21,7 @@ import {
   deletePlMonthly,
   type ProjectPlMonthly,
 } from "@/lib/venture-status-data";
+import { CockpitPlHearingModal } from "./CockpitPlHearingModal";
 
 interface Props {
   projectId: string;
@@ -77,6 +78,7 @@ export function CockpitPlMonthlyModal({ projectId, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
+  const [hearingOpen, setHearingOpen] = useState(false);
 
   const reload = async () => {
     setLoading(true);
@@ -170,9 +172,18 @@ export function CockpitPlMonthlyModal({ projectId, onClose }: Props) {
       >
         <div className="px-4 py-3 border-b border-[#e5e5e7] flex items-center justify-between">
           <h3 className="text-sm font-semibold">月次試算表</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
-            ✕
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setHearingOpen(true)}
+              className="text-[11px] px-2 py-1 rounded-md bg-purple-600 text-white hover:bg-purple-700"
+              title="つくよみが質問を投げて、回答から試算表を組み立てる"
+            >
+              ✨ つくよみとヒアリング
+            </button>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
+              ✕
+            </button>
+          </div>
         </div>
 
         <div className="px-4 py-3">
@@ -321,6 +332,16 @@ export function CockpitPlMonthlyModal({ projectId, onClose }: Props) {
           )}
         </div>
       </div>
+
+      {hearingOpen && (
+        <CockpitPlHearingModal
+          projectId={projectId}
+          onClose={() => setHearingOpen(false)}
+          onApplied={async () => {
+            await reload();
+          }}
+        />
+      )}
     </div>
   );
 }

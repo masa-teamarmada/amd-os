@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { CockpitNarrativeFeedbackModal } from "./CockpitNarrativeFeedbackModal";
 
 interface NarrativeItem {
   date: string;     // 'YYYY-MM' or 'YYYY-MM-DD'
@@ -56,6 +57,11 @@ export function CockpitNarrativeModal({ projectId, displayName, onClose }: Props
   const [invalidatedAt, setInvalidatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [feedbackTarget, setFeedbackTarget] = useState<{
+    item_date: string | null;
+    item_title: string | null;
+  } | null>(null);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,9 +114,18 @@ export function CockpitNarrativeModal({ projectId, displayName, onClose }: Props
       >
         <div className="px-4 py-3 border-b border-[#e5e5e7] flex items-center justify-between">
           <h3 className="text-sm font-semibold">{displayName} の沿革</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
-            ✕
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setFeedbackTarget({ item_date: null, item_title: null })}
+              className="text-[11px] text-purple-600 hover:underline"
+              title="沿革全体に対する修正依頼"
+            >
+              ✏ 全体に修正依頼
+            </button>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
+              ✕
+            </button>
+          </div>
         </div>
         <div className="px-4 py-4">
           {loading ? (
@@ -120,7 +135,7 @@ export function CockpitNarrativeModal({ projectId, displayName, onClose }: Props
               {items.map((it, i) => {
                 const open = expanded.has(i);
                 return (
-                  <li key={i} className="py-2">
+                  <li key={i} className="py-2 group">
                     <button
                       onClick={() => toggle(i)}
                       className="w-full flex items-start gap-3 text-left hover:bg-[#fafafa] rounded px-1 py-0.5"
@@ -130,6 +145,16 @@ export function CockpitNarrativeModal({ projectId, displayName, onClose }: Props
                       </span>
                       <span className="text-[10px] text-muted-foreground mt-0.5">{open ? "▼" : "▶"}</span>
                       <span className="flex-1">{it.title}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFeedbackTarget({ item_date: it.date, item_title: it.title });
+                        }}
+                        className="text-[10px] text-purple-500 hover:text-purple-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="この項目に修正依頼を送る"
+                      >
+                        ✏
+                      </button>
                     </button>
                     {open && it.detail && (
                       <p className="ml-[88px] mt-1 mr-1 text-[12px] text-slate-600 whitespace-pre-wrap">
@@ -153,18 +178,34 @@ export function CockpitNarrativeModal({ projectId, displayName, onClose }: Props
             {generatedAt ? (
               <>
                 最終生成: {generatedAt.replace("T", " ").slice(0, 16)}
-                {isStale && (
+                {(isStale || feedbackSubmitted) && (
                   <span className="ml-2 text-amber-600">
-                    (差分あり、次の 03:00 で再生成予定)
+                    (差分あり、次の 03:45 で再生成予定)
                   </span>
                 )}
               </>
             ) : (
-              "未生成 (次の 03:00 で生成予定)"
+              "未生成 (次の 03:45 で生成予定)"
             )}
+            <div className="mt-1 text-[10px]">
+              項目右の <span className="text-purple-500">✏</span> でつくよみに修正依頼を送れます。フィードバックは学習されます。
+            </div>
           </div>
         </div>
       </div>
+
+      {feedbackTarget && (
+        <CockpitNarrativeFeedbackModal
+          projectId={projectId}
+          itemDate={feedbackTarget.item_date}
+          itemTitle={feedbackTarget.item_title}
+          onClose={() => setFeedbackTarget(null)}
+          onSubmitted={() => {
+            setFeedbackTarget(null);
+            setFeedbackSubmitted(true);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -29,6 +29,7 @@ import { CockpitMembersModal } from "./CockpitMembersModal";
 import { CockpitPartnersModal } from "./CockpitPartnersModal";
 import { CockpitPlMonthlyModal } from "./CockpitPlMonthlyModal";
 import { CockpitDescriptionDetailModal } from "./CockpitDescriptionDetailModal";
+import { CockpitAmdScoreBreakdownModal } from "./CockpitAmdScoreBreakdownModal";
 
 const LANE_LABELS: Record<string, string> = {
   gx_energy: "GX / エネルギー",
@@ -112,6 +113,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const [partnersOpen, setPartnersOpen] = useState(false);
   const [plOpen, setPlOpen] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
+  const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false);
   const [pendingXrl, setPendingXrl] = useState<ProjectXrlRow | null>(null);
 
   useEffect(() => {
@@ -313,16 +315,17 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           📊 試算表
         </button>
         {latestScore != null && (
-          <span
-            className="text-[11px] font-mono px-2 py-0.5 rounded-full border"
+          <button
+            onClick={() => setScoreBreakdownOpen(true)}
+            className="text-[11px] font-mono px-2 py-0.5 rounded-full border hover:bg-[#fafafa]"
             style={{
               borderColor: latestScore >= 0 ? "#16a34a" : "#ef4444",
               color: latestScore >= 0 ? "#16a34a" : "#ef4444",
             }}
-            title="AMD スコア計算式は Before Zero Theory v3.x 確定待ち。現状はダミー (XRL 合計 + イベント kind 別ボーナス)"
+            title="クリックで計算式と内訳を表示"
           >
-            AMD score: {latestScore.toFixed(0)}
-          </span>
+            AMD score: {latestScore.toFixed(0)} ▾
+          </button>
         )}
       </div>
 
@@ -603,6 +606,13 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           onSaved={async () => {
             await reload();
           }}
+        />
+      )}
+
+      {scoreBreakdownOpen && bundle && (
+        <CockpitAmdScoreBreakdownModal
+          bundle={bundle}
+          onClose={() => setScoreBreakdownOpen(false)}
         />
       )}
     </section>

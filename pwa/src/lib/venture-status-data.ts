@@ -49,14 +49,36 @@ export interface ProjectVentureRow {
   narrative_invalidated_at: string | null;
 }
 
+export type MemberKind = "amd_internal" | "su_internal" | "support_org";
+
 export interface ProjectVentureMember {
   id: string;
   project_id: string;
   full_name: string;
   role: string;
+  member_kind: MemberKind;
+  amd_member_id: string | null;
   started_at: string | null;
   ended_at: string | null;
   note: string | null;
+}
+
+export interface AmdMemberLite {
+  member_id: string;        // 'ID001' 等のコードネーム
+  name: string;
+  email?: string;
+}
+
+export async function fetchAmdMembers(): Promise<AmdMemberLite[]> {
+  const { data, error } = await supabase
+    .from("members")
+    .select("member_id, name, email")
+    .order("member_id", { ascending: true });
+  if (error) {
+    console.error("[fetchAmdMembers]", error);
+    return [];
+  }
+  return (data as AmdMemberLite[]) ?? [];
 }
 
 export type PartnerType = "collab" | "customer";
@@ -162,10 +184,12 @@ export async function fetchVentureStatus(projectId: string): Promise<VentureStat
 
 // ---- members --------------------------------------------------
 
+const MEMBER_COLUMNS = "id, project_id, full_name, role, member_kind, amd_member_id, started_at, ended_at, note";
+
 export async function fetchVentureMembers(projectId: string): Promise<ProjectVentureMember[]> {
   const { data, error } = await supabase
     .from("project_venture_members")
-    .select("id, project_id, full_name, role, started_at, ended_at, note")
+    .select(MEMBER_COLUMNS)
     .eq("project_id", projectId)
     .order("started_at", { ascending: true, nullsFirst: false });
   if (error) {
@@ -184,14 +208,16 @@ export async function upsertVentureMember(
     project_id: projectId,
     full_name: input.full_name,
     role: input.role,
+    member_kind: input.member_kind,
+    amd_member_id: input.amd_member_id,
     started_at: input.started_at,
     ended_at: input.ended_at,
     note: input.note,
     updated_at: new Date().toISOString(),
   };
   const q = input.id
-    ? auth.from("project_venture_members").update(payload).eq("id", input.id).select().single()
-    : auth.from("project_venture_members").insert(payload).select().single();
+    ? auth.from("project_venture_members").update(payload).eq("id", input.id).select(MEMBER_COLUMNS).single()
+    : auth.from("project_venture_members").insert(payload).select(MEMBER_COLUMNS).single();
   const { data, error } = await q;
   if (error) {
     console.error("[upsertVentureMember]", error);
@@ -337,6 +363,80 @@ export async function mergeDescriptionWithLLM(input: {
     return await res.json();
   } catch (e) {
     console.error("[mergeDescriptionWithLLM]", e);
+    return null;
+  }
+}
+
+// ---- narrative feedback ---------------------------------------
+
+export interface NarrativeFeedback {
+  id: string;
+  project_id: string;
+  item_date: string | null;
+  item_title: string | null;
+  feedback: string;
+  status: "open" | "applied";
+  applied_note: string | null;
+  created_at: string;
+  applied_at: string | null;
+}
+
+export async function submitNarrativeFeedback(
+  projectId: string,
+  input: { item_date: string | null; item_title: string | null; feedback: string }
+): Promise<NarrativeFeedback | null> {
+  const auth = getAuthClient();
+  const { data, error } = await auth
+    .from("narrative_feedbacks")
+    .insert({
+      project_id: projectId,
+      item_date: input.item_date,
+      item_title: input.item_title,
+      feedback: input.feedback,
+    })
+    .select()
+    .single();
+  if (error) {
+    console.error("[submitNarrativeFeedback]", error);
+    return null;
+  }
+  await invalidateNarrative(projectId);
+  return data as NarrativeFeedback;
+}
+
+// ---- PL hearing (試算表ヒアリング) -----------------------------
+
+export interface PlHearingTurnResponse {
+  done: boolean;
+  question?: string;             // 次の質問 (done=false)
+  monthly?: Array<{
+    ym: string;
+    revenue_yen: number;
+    cogs_yen: number;
+    personnel_yen: number;
+    rd_yen: number;
+    marketing_yen: number;
+    other_opex_yen: number;
+    notes: string;
+  }>;                           // 完了時 (done=true) に生成された月次 PL
+  summary?: string;
+}
+
+export async function plHearingTurn(
+  projectId: string,
+  history: { q: string; a: string }[],
+  newAnswer?: string
+): Promise<PlHearingTurnResponse | null> {
+  try {
+    const res = await fetch(`/api/project-ventures/${projectId}/pl-hearing/turn`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history, new_answer: newAnswer }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    console.error("[plHearingTurn]", e);
     return null;
   }
 }
@@ -512,7 +612,7 @@ export interface AmdScorePoint {
   score: number;      // -100 〜 +100
 }
 
-const EVENT_BONUS: Record<ProjectEventKind, number> = {
+export const EVENT_BONUS: Record<ProjectEventKind, number> = {
   hire: 3,
   funding: 8,
   deal: 5,
@@ -521,6 +621,96 @@ const EVENT_BONUS: Record<ProjectEventKind, number> = {
   xrl_obs: 0,
   amd_score_override: 0,
 };
+
+export interface AmdScoreBreakdown {
+  asOf: string;                       // 計算時点 (今日)
+  founded_at: string | null;
+  isBeforeZero: boolean;              // 設立日 > 今日
+  // Before 0 (線形補間)
+  beforeZeroAnchor?: { date: string; score: number };  // 5 年前 -100
+  beforeZeroToday?: { date: string; score: number };   // 設立日 0
+  // After 0 (XRL + event bonuses)
+  latestXrl?: { observed_at: string; trl: number | null; brl: number | null; hrl: number | null };
+  xrlSum: number;
+  xrlScore: number;                   // (xrlSum / 27) * 60
+  eventBonuses: Array<{
+    occurred_on: string;
+    kind: ProjectEventKind;
+    label: string;
+    bonus: number;
+  }>;
+  eventBonusTotal: number;
+  rawScore: number;                   // xrlScore + eventBonusTotal (cap 前)
+  finalScore: number;                 // min(100, rawScore) もしくは Before 0 線形補間結果
+}
+
+export function computeAmdScoreBreakdown(bundle: VentureStatusBundle): AmdScoreBreakdown | null {
+  const venture = bundle.venture;
+  if (!venture) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const foundedAt = venture.founded_at;
+  const isBeforeZero = !!foundedAt && new Date(foundedAt) > new Date(today);
+
+  if (foundedAt && isBeforeZero) {
+    // Before 0: 5 年前を -100、設立日で 0、今日は線形補間
+    const f = new Date(foundedAt);
+    const anchorDate = new Date(f.getFullYear() - 5, f.getMonth(), f.getDate());
+    const anchorIso = anchorDate.toISOString().slice(0, 10);
+    const t = new Date(today).getTime();
+    const range = f.getTime() - anchorDate.getTime();
+    const ratio = range > 0 ? (t - anchorDate.getTime()) / range : 1;
+    const score = -100 + ratio * 100;
+    return {
+      asOf: today,
+      founded_at: foundedAt,
+      isBeforeZero: true,
+      beforeZeroAnchor: { date: anchorIso, score: -100 },
+      beforeZeroToday: { date: today, score },
+      xrlSum: 0,
+      xrlScore: 0,
+      eventBonuses: [],
+      eventBonusTotal: 0,
+      rawScore: score,
+      finalScore: score,
+    };
+  }
+
+  // After 0
+  const xrlAtToday = bundle.xrlLog.filter((r) => r.observed_at <= today);
+  const latestXrl = xrlAtToday[xrlAtToday.length - 1];
+  const xrlSum =
+    (latestXrl?.trl ?? 0) + (latestXrl?.brl ?? 0) + (latestXrl?.hrl ?? 0);
+  const xrlScore = (xrlSum / 27) * 60;
+
+  const eventBonuses = bundle.events
+    .filter((e) => e.occurred_on <= today)
+    .map((e) => ({
+      occurred_on: e.occurred_on,
+      kind: e.kind,
+      label: e.label,
+      bonus: EVENT_BONUS[e.kind] ?? 0,
+    }))
+    .filter((b) => b.bonus !== 0);
+  const eventBonusTotal = eventBonuses.reduce((s, b) => s + b.bonus, 0);
+
+  const rawScore = xrlScore + eventBonusTotal;
+  const finalScore = Math.min(100, rawScore);
+
+  return {
+    asOf: today,
+    founded_at: foundedAt,
+    isBeforeZero: false,
+    latestXrl: latestXrl
+      ? { observed_at: latestXrl.observed_at, trl: latestXrl.trl, brl: latestXrl.brl, hrl: latestXrl.hrl }
+      : undefined,
+    xrlSum,
+    xrlScore,
+    eventBonuses,
+    eventBonusTotal,
+    rawScore,
+    finalScore,
+  };
+}
 
 export function computeAmdScoreSeries(
   bundle: VentureStatusBundle,
