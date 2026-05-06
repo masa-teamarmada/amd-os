@@ -45,6 +45,7 @@ export interface NarrativeInput {
   members: Array<{
     full_name: string;
     role: string;
+    member_kind?: string;
     started_at: string | null;
     ended_at: string | null;
     note: string | null;
@@ -56,15 +57,34 @@ export interface NarrativeInput {
     sales_target_date: string | null;
     is_sold: boolean;
   }>;
+  /** 過去のフィードバックから学んだルール (全 PJ 共通 + この PJ 専用) */
+  learnings?: string[];
+  /** この PJ で未反映 (status=open) の修正依頼 */
+  open_feedbacks?: Array<{
+    item_date: string | null;
+    item_title: string | null;
+    feedback: string;
+  }>;
 }
 
 export async function generateNarrativeItems(
   geminiApiKey: string,
   input: NarrativeInput
 ): Promise<NarrativeItem[]> {
+  const learningsBlock =
+    input.learnings && input.learnings.length > 0
+      ? `\n過去のフィードバックから学んだルール (必ず守ること):\n${input.learnings.map((l, i) => `  - ${l}`).join("\n")}\n`
+      : "";
+  const feedbackBlock =
+    input.open_feedbacks && input.open_feedbacks.length > 0
+      ? `\nこの PJ への未反映の修正依頼 (今回反映してください):\n${input.open_feedbacks
+          .map((f) => `  - ${f.item_date ?? "(全体)"} / ${f.item_title ?? "(全体)"}: ${f.feedback}`)
+          .join("\n")}\n`
+      : "";
+
   const prompt = `AMD (株式会社チームアルマダ) のディープテック PJ「${input.display_name}」の沿革を、
 一般的な会社の「沿革」のように、年月とそのときに起きたことを並べたリストとして書いてください。
-
+${learningsBlock}${feedbackBlock}
 PJ メタ:
 - レーン: ${input.lane}
 - 起源: ${input.origin_org ?? "?"} / 代表 / PI: ${input.origin_pi ?? "?"}
