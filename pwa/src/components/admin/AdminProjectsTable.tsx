@@ -188,7 +188,8 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               return (
                 <tr
                   key={p.id}
-                  className={`border-t border-border ${isEditing ? "bg-blue-50/50" : "hover:bg-muted/20"}`}
+                  id={p.project_id}
+                  className={`border-t border-border target:bg-amber-50 ${isEditing ? "bg-blue-50/50" : "hover:bg-muted/20"}`}
                 >
                   <td className="px-3 py-2 font-mono font-bold sticky left-0 bg-background">{p.project_id}</td>
                   <td className="px-3 py-2 font-medium sticky left-14 bg-background border-r border-border max-w-[112px] truncate" title={p.project_name}>
