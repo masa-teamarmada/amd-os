@@ -29,13 +29,17 @@ Next.js 16 + React 19 + Tailwind CSS v4
 - `.vercel/project.json`: projectName `amd-os-pwa` / projectId `prj_raZW3HSKIszzPUwNTHfy7xDGzLHm`
 - Claude/Codexがdeployする場合は、必ずこのローカルcheckoutから `--cwd /Users/masa/projects/AMD/amd-os/pwa` を指定してVercel CLI deployする。
 
-## ハンドオフ・設計ログの場所
+## ドキュメント構成（**この順で読む**）
 
-| ファイル | 場所 |
-|---|---|
-| セッション引き継ぎ | `/Users/masa/projects/AMD/amd-os/pwa/HANDOFF_pwa_rebuild.md` |
-| バグ記録 | `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md` |
-| 設計ログ | `/Users/masa/projects/AMD/amd-os/pwa/design_log/` |
+| 何を知りたいか | ファイル | 内容 |
+|---|---|---|
+| **PWA 全体の正本仕様** ⭐ | `pwa/SPEC_pwa.md` | 画面・ルート・データモデル・cron・共通インフラ・運用コマンド・実装規約 |
+| 直近セッション + 次の一手 | `pwa/HANDOFF_pwa_rebuild.md` | スリム保持 (~200 行以下)。過去ログは design_log へ |
+| バグ・教訓 | `pwa/BUGS.md` | 症状/原因/解決策/教訓 形式。新バグはここに追記 |
+| 過去セッションの作業ログ | `pwa/design_log/sessions_YYYY-MM.md` | 月単位の作業ログ |
+| 個別設計議論 | `pwa/design_log/2026-MM_*.md` | テーマ別 (Atlas / Venture Map モデル等) |
+
+**新セッションは SPEC_pwa.md を最初に読んで全体像を掴んでから HANDOFF を見る。** 仕様変更は SPEC を同じ commit で更新。バグ発生時は BUGS に追記。セッションごとの作業は design_log/sessions_YYYY-MM.md に append。役割分離の詳細は handoff skill を参照。
 
 ---
 

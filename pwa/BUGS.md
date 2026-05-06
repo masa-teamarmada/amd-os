@@ -97,3 +97,64 @@
 - **原因**: 不明 (フォント取得失敗、Next.js 16 + React 19 との互換性問題、Turbopack ビルドとの相性などの可能性)。
 - **解決策**: `<Text>` をやめて drei の `<Html>` で HTML オーバーレイラベルに置換。
 - **教訓**: drei の Text はフォントロードや WebGL シェーダー周りで silent fail する可能性がある。シンプルな 2D ラベルなら Html overlay の方が安全で、CSS で柔軟にスタイル可能。
+
+---
+
+### [AMD OS PWA] Vercel 環境変数を `.env.local` に書いても本番に反映されない
+
+- **発見日**: 2026-04-17
+- **状態**: ✅ 解決済み
+- **症状**: ローカルでは動くが本番で `SUPABASE_SERVICE_ROLE_KEY` / `ANTHROPIC_API_KEY` / `FREEE_*` が undefined で API ルートが 500 になった
+- **原因**: Vercel は `.env.local` を読まない。`vercel env add` で明示登録しないと production env に入らない
+- **解決策**: `.env.local` をパースして `echo $value | vercel env add $key production` をループで一括追加
+- **教訓**: 新しい env key を追加したら **同じ commit で Vercel にも追加する**。`vercel env ls --scope armada0130` で抜けが無いか定期的に確認
+
+---
+
+### [AMD OS PWA] shadcn Dialog の `max-w-[1400px]` が効かない
+
+- **発見日**: 2026-04-17
+- **状態**: ✅ 解決済み
+- **症状**: 月次モーダルの幅を広げたいのに `max-w-[1400px]` を指定しても変わらない
+- **原因**: shadcn Dialog の base に `sm:max-w-sm` が仕込まれていて、tailwind-merge はレスポンシブ variant を別グループとして扱うので overrides されない
+- **解決策**: `!important` 付きで両方指定 → `!max-w-[1400px] sm:!max-w-[1400px] w-[95vw]`
+- **教訓**: shadcn のレスポンシブ class を上書きする時は **同じブレークポイントの variant を `!` 付きで明示**。base の指定だけ書くと `sm:` 以上のサイズでしか効かないので注意
+
+---
+
+### [AMD OS PWA] shadcn Dialog で `type="number"` 入力の "0" が消せない
+
+- **発見日**: 2026-04-17
+- **状態**: ✅ 解決済み
+- **症状**: 進捗 % の数値入力で初期値 "0" を消そうとしてもブラウザが消させない
+- **原因**: HTML `input[type=number]` のブラウザ仕様 (空文字を許可しない実装が混在)
+- **解決策**: `type="text" inputMode="numeric"` + `onFocus={(e)=>e.target.select()}` で代替。バリデーションは onChange 側で正規表現で弾く
+- **教訓**: 数値入力は UX 重視で `type="text" inputMode="numeric"` を第一選択にする
+
+---
+
+### [AMD OS PWA] Google OAuth Client Secret のフォントで `I` と `l` が区別不能
+
+- **発見日**: 2026-04-21
+- **状態**: ✅ 解決済み (回避策あり)
+- **症状**: Google Console は 2026-04 時点でシークレットの「表示・ダウンロード」を廃止。新規作成直後だけ一度表示されるが、画面の `I` (大文字 i) と `l` (小文字 L) がフォント上区別できず Supabase に貼り間違える
+- **原因**: Google Console UI のフォント仕様 + シークレット表示制限
+- **解決策**: Chrome の `read_page` (アクセシビリティツリー取得) を使う。コピーボタンの `aria-label` に `クリップボードにコピー: GOCSPX-xxxxx` というフルテキストが入っていて機械可読
+  1. Google Console の OAuth クライアントページを開く
+  2. 既存シークレット 2 つあれば 1 つを無効化→削除してスロットを空ける (上限 2 つ)
+  3. 「+ Add secret」→ シークレット新規作成
+  4. `read_page(filter="interactive")` で `button "クリップボードにコピー: GOCSPX-..."` の aria-label からフルテキストを取得
+  5. Supabase Auth プロバイダーの Client Secret に貼り付け
+- **教訓**: 視覚的に曖昧な文字列はアクセシビリティツリーから取る。あと **Supabase Google プロバイダ設定の Client IDs は `web,iOS` の順** (先頭が OAuth code flow で使われる)
+
+---
+
+### [AMD OS PWA] Supabase DDL を SQL Editor から手動投入し続けて事故
+
+- **発見日**: 2026-04 中旬
+- **状態**: ✅ 解決済み (Management API ベースのフローを確立)
+- **症状**: マイグレーション履歴がローカルにもリポにも残らず、別マシンで再現できない / 適用済か不明
+- **原因**: `supabase-js` REST には `rpc("exec_sql")` が存在しない、`npx supabase db push` は PAT が要る、SQL Editor 手動は履歴が残らない
+- **解決策**: `scripts/apply_ddl.py` で Supabase Management API (`/v1/projects/{ref}/database/query`) を直叩く。`SUPABASE_ACCESS_TOKEN` (sbp_…) を使い、**User-Agent ヘッダー必須** (Cloudflare 1010 回避)。migration は必ず `scripts/migrations/NNN_name.sql` に残す
+- **教訓**: DDL は人間の手作業に頼らない。Management API + ファイル化したマイグレーション + リポ commit の 3 点セットを徹底
+
