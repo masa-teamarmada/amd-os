@@ -13,12 +13,13 @@ export type LaneId = "gx_energy" | "gx_circular" | "materials" | "life" | "robo"
 export type OutcomePattern = "rocket" | "lifted" | "deep_pivot" | "burnout" | "ue_fail";
 
 export interface VentureRow {
-  id: string;
+  /** projects.project_id (例: 'p03', 'p11')。旧 ventures.id ('tiem' 等) は廃止済み (008 migration) */
+  project_id: string;
   display_name: string;
   short_label: string | null;
   lane: LaneId;
-  founded_at: string; // ISO date
-  status: string;
+  founded_at: string | null; // ISO date (pre-founding は null)
+  status: string;            // projects.status 由来 ('active' | 'sales' | 'ended' | 'frozen' | 'lost')
   outcome_pattern: OutcomePattern;
   origin_org: string | null;
   origin_pi: string | null;
@@ -53,19 +54,55 @@ export interface SeedRow {
   is_public: boolean;
 }
 
-/** 公開可な venture を全件、設立日昇順で取得 */
+type RawVentureRow = {
+  project_id: string;
+  display_name: string;
+  short_label: string | null;
+  lane: LaneId;
+  founded_at: string | null;
+  outcome_pattern: OutcomePattern;
+  origin_org: string | null;
+  origin_pi: string | null;
+  amd_role: string | null;
+  short_description: string | null;
+  is_public: boolean;
+  projects: { status: string } | { status: string }[] | null;
+};
+
+function flattenVentureRow(r: RawVentureRow): VentureRow {
+  const project = Array.isArray(r.projects) ? r.projects[0] : r.projects;
+  return {
+    project_id: r.project_id,
+    display_name: r.display_name,
+    short_label: r.short_label,
+    lane: r.lane,
+    founded_at: r.founded_at,
+    status: project?.status ?? "active",
+    outcome_pattern: r.outcome_pattern,
+    origin_org: r.origin_org,
+    origin_pi: r.origin_pi,
+    amd_role: r.amd_role,
+    short_description: r.short_description,
+    is_public: r.is_public,
+  };
+}
+
+const VENTURE_SELECT =
+  "project_id, display_name, short_label, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public, projects(status)";
+
+/** 公開可な PJ (SU 系) を全件、設立日昇順で取得 */
 export async function fetchVenturesForMap(): Promise<VentureRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("ventures")
-    .select("id, display_name, short_label, lane, founded_at, status, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public")
+    .from("project_ventures")
+    .select(VENTURE_SELECT)
     .eq("is_public", true)
-    .order("founded_at", { ascending: true });
+    .order("founded_at", { ascending: true, nullsFirst: false });
   if (error) {
     console.error("[fetchVenturesForMap]", error);
     return [];
   }
-  return (data || []) as VentureRow[];
+  return (data || []).map((r) => flattenVentureRow(r as unknown as RawVentureRow));
 }
 
 /** 各レーンの最新の重みベクトルを1件ずつ取得 */
@@ -157,7 +194,7 @@ export async function fetchSeedsForMap(): Promise<SeedRow[]> {
 
 export interface XrlLogRow {
   id: string;
-  venture_id: string;
+  project_id: string;
   observed_at: string; // ISO date
   trl: number | null;
   brl: number | null;
@@ -168,13 +205,13 @@ export interface XrlLogRow {
   milestone_label: string | null;
 }
 
-/** SU個別ビュー用: venture_id の XRL 時系列を取得 */
-export async function fetchXrlLog(ventureId: string): Promise<XrlLogRow[]> {
+/** PJ コックピット用: project_id の XRL 時系列を取得 */
+export async function fetchXrlLog(projectId: string): Promise<XrlLogRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("ventures_xrl_log")
-    .select("id, venture_id, observed_at, trl, brl, hrl, grl, srl, bottleneck, milestone_label")
-    .eq("venture_id", ventureId)
+    .from("project_xrl_log")
+    .select("id, project_id, observed_at, trl, brl, hrl, grl, srl, bottleneck, milestone_label")
+    .eq("project_id", projectId)
     .order("observed_at", { ascending: true });
   if (error) {
     console.error("[fetchXrlLog]", error);
@@ -183,64 +220,65 @@ export async function fetchXrlLog(ventureId: string): Promise<XrlLogRow[]> {
   return (data || []) as XrlLogRow[];
 }
 
-/** Timeline 3D 用: 全 venture と XRL 時系列をまとめて取得 (1 venture = 1 折れ線) */
+/** Timeline 3D 用: 全 SU 系 PJ と XRL 時系列をまとめて取得 (1 PJ = 1 折れ線) */
 export async function fetchAllVenturesWithXrl(opts?: {
   activeOnly?: boolean;
 }): Promise<{ venture: VentureRow; xrl: XrlLogRow[] }[]> {
   const supabase = await createClient();
 
-  const venturesQuery = supabase
-    .from("ventures")
-    .select("id, display_name, short_label, lane, founded_at, status, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public")
+  const { data: rawRows, error: vErr } = await supabase
+    .from("project_ventures")
+    .select(VENTURE_SELECT)
     .eq("is_public", true)
-    .order("founded_at", { ascending: true });
+    .order("founded_at", { ascending: true, nullsFirst: false });
 
-  const { data: ventures, error: vErr } = await venturesQuery;
-  if (vErr || !ventures) {
-    console.error("[fetchAllVenturesWithXrl] ventures", vErr);
+  if (vErr || !rawRows) {
+    console.error("[fetchAllVenturesWithXrl] project_ventures", vErr);
     return [];
   }
 
-  const filtered = (ventures as VentureRow[]).filter((v) => {
+  const ventures = (rawRows as unknown as RawVentureRow[]).map(flattenVentureRow);
+
+  const filtered = ventures.filter((v) => {
     if (!opts?.activeOnly) return true;
     return v.status === "active";
   });
 
   if (filtered.length === 0) return [];
 
-  const ids = filtered.map((v) => v.id);
+  const ids = filtered.map((v) => v.project_id);
   const { data: xrlRows, error: xErr } = await supabase
-    .from("ventures_xrl_log")
-    .select("id, venture_id, observed_at, trl, brl, hrl, grl, srl, bottleneck, milestone_label")
-    .in("venture_id", ids)
+    .from("project_xrl_log")
+    .select("id, project_id, observed_at, trl, brl, hrl, grl, srl, bottleneck, milestone_label")
+    .in("project_id", ids)
     .order("observed_at", { ascending: true });
 
   if (xErr) {
     console.error("[fetchAllVenturesWithXrl] xrl_log", xErr);
   }
 
-  const byVenture = new Map<string, XrlLogRow[]>();
+  const byProject = new Map<string, XrlLogRow[]>();
   for (const row of (xrlRows || []) as XrlLogRow[]) {
-    if (!byVenture.has(row.venture_id)) byVenture.set(row.venture_id, []);
-    byVenture.get(row.venture_id)!.push(row);
+    if (!byProject.has(row.project_id)) byProject.set(row.project_id, []);
+    byProject.get(row.project_id)!.push(row);
   }
 
   return filtered.map((venture) => ({
     venture,
-    xrl: byVenture.get(venture.id) || [],
+    xrl: byProject.get(venture.project_id) || [],
   }));
 }
 
-/** SU個別ビュー用: 1件の venture を取得 */
-export async function fetchVentureById(id: string): Promise<VentureRow | null> {
+/** PJ 個別ビュー用: 1 件の SU 系 PJ を取得 */
+export async function fetchVentureById(projectId: string): Promise<VentureRow | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("ventures")
-    .select("id, display_name, short_label, lane, founded_at, status, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public")
-    .eq("id", id)
-    .single();
+    .from("project_ventures")
+    .select(VENTURE_SELECT)
+    .eq("project_id", projectId)
+    .maybeSingle();
   if (error || !data) return null;
-  return data as VentureRow;
+  return flattenVentureRow(data as unknown as RawVentureRow);
 }
 
 export interface SnapshotData {

@@ -71,10 +71,12 @@ function deriveTimeRange(data: VentureWithXrl[]): [number, number] {
   let min = Number.POSITIVE_INFINITY;
   let max = Number.NEGATIVE_INFINITY;
   for (const { venture, xrl } of data) {
-    const f = +new Date(venture.founded_at);
-    if (Number.isFinite(f)) {
-      if (f < min) min = f;
-      if (f > max) max = f;
+    if (venture.founded_at) {
+      const f = +new Date(venture.founded_at);
+      if (Number.isFinite(f)) {
+        if (f < min) min = f;
+        if (f > max) max = f;
+      }
     }
     for (const r of xrl) {
       const t = +new Date(r.observed_at);
@@ -373,7 +375,7 @@ function Scene({
         const lastY = (lastSum / 25) * Z_HEIGHT;
 
         return (
-          <group key={vd.venture.id}>
+          <group key={vd.venture.project_id}>
             <VentureStackedArea
               vd={vd}
               zPos={zPos}
@@ -408,7 +410,7 @@ function Scene({
                     "polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px)",
                 }}
               >
-                ▸ {(vd.venture.short_label || vd.venture.id).toUpperCase()}
+                ▸ {(vd.venture.short_label || vd.venture.project_id).toUpperCase()}
               </div>
             </Html>
           </group>

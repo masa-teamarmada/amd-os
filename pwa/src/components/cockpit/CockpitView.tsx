@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CockpitHeader } from "./CockpitHeader";
+import { CockpitVentureStatus } from "./CockpitVentureStatus";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
 import { CockpitKanbanGas } from "./CockpitKanbanGas";
 import { CockpitMonthlyList } from "./CockpitMonthlyList";
@@ -225,6 +226,9 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm }: CockpitV
       <div className="flex-1 max-w-[720px] min-w-0 flex flex-col gap-3">
         {/* [A] Project Header */}
         <CockpitHeader project={project} />
+
+        {/* [A2] PJ Status (SU 系 PJ のみ。`project_ventures` 未登録なら自動で非表示) */}
+        <CockpitVentureStatus projectId={project.projectId} />
 
         {/* [B] Milestones — 現在の期間（トップ表示） */}
         {planCycle && milestones.length > 0 && (

@@ -80,7 +80,7 @@ export function SuDetailView({ venture, xrlLog, macroLog }: Props) {
   const outcome = OUTCOME_LABELS[venture.outcome_pattern];
 
   // X軸範囲
-  const foundedYear = isoToYear(venture.founded_at);
+  const foundedYear = venture.founded_at ? isoToYear(venture.founded_at) : new Date().getFullYear();
   const xMin = Math.max(2009, Math.floor(foundedYear) - 2);
   const xMax = xMin + Math.max(8, Math.ceil(foundedYear) - xMin + 6);
 
@@ -151,7 +151,7 @@ export function SuDetailView({ venture, xrlLog, macroLog }: Props) {
             <div className="mt-2 text-[13px] text-muted-foreground space-x-3">
               {venture.origin_org && <span>{venture.origin_org}</span>}
               {venture.origin_pi && <span>/ {venture.origin_pi}</span>}
-              <span>/ 設立 {venture.founded_at.slice(0, 7)}</span>
+              {venture.founded_at && <span>/ 設立 {venture.founded_at.slice(0, 7)}</span>}
               <span>/ {venture.status}</span>
             </div>
             {venture.short_description && (
@@ -222,18 +222,22 @@ export function SuDetailView({ venture, xrlLog, macroLog }: Props) {
               <text x={ML - 32} y={MT - 8} fontSize={9} fill="#475569">XRLレベル</text>
               <text x={ML + PW + 6} y={MT - 8} fontSize={9} fill="#475569">マクロ指数</text>
 
-              {/* 設立タイミング */}
-              <line
-                x1={xOf(foundedYear, xMin, xMax)} y1={MT}
-                x2={xOf(foundedYear, xMin, xMax)} y2={MT + PH}
-                stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4 2" opacity={0.7}
-              />
-              <text
-                x={xOf(foundedYear, xMin, xMax) + 4} y={MT + 12}
-                fontSize={9} fill="#b45309"
-              >
-                設立 {venture.founded_at.slice(0, 7)}
-              </text>
+              {/* 設立タイミング (founded_at がある PJ のみ) */}
+              {venture.founded_at && (
+                <>
+                  <line
+                    x1={xOf(foundedYear, xMin, xMax)} y1={MT}
+                    x2={xOf(foundedYear, xMin, xMax)} y2={MT + PH}
+                    stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4 2" opacity={0.7}
+                  />
+                  <text
+                    x={xOf(foundedYear, xMin, xMax) + 4} y={MT + 12}
+                    fontSize={9} fill="#b45309"
+                  >
+                    設立 {venture.founded_at.slice(0, 7)}
+                  </text>
+                </>
+              )}
 
               {/* マクロ指数 破線 */}
               {macroPath && (
