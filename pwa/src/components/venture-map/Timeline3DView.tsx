@@ -520,7 +520,7 @@ export default function Timeline3DView({ data }: Props) {
           zIndex: 10,
         }}
       >
-        <HudFrame variant="compact" padding="6px 18px">
+        <HudFrame variant="bar" padding="14px 90px">
           <div
             style={{
               display: "flex",
@@ -564,7 +564,7 @@ export default function Timeline3DView({ data }: Props) {
           zIndex: 10,
         }}
       >
-        <HudFrame variant="compact" padding={0}>
+        <HudFrame variant="bar" padding="6px 80px">
           <div style={{ display: "flex" }}>
             {(["xz", "iso", "yz", "xy"] as Preset[]).map((p, idx) => (
               <button
@@ -605,7 +605,7 @@ export default function Timeline3DView({ data }: Props) {
           zIndex: 10,
         }}
       >
-        <HudFrame variant="compact" padding="9px 18px">
+        <HudFrame variant="bar" padding="14px 90px">
           <div
             style={{
               display: "flex",
