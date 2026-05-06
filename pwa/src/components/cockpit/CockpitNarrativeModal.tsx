@@ -63,30 +63,30 @@ export function CockpitNarrativeModal({ projectId, displayName, onClose }: Props
   } | null>(null);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const reload = async () => {
     setLoading(true);
-    supabase
+    const { data } = await supabase
       .from("project_ventures")
       .select("narrative_text, narrative_generated_at, narrative_invalidated_at")
       .eq("project_id", projectId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled) return;
-        const text = (data?.narrative_text as string | null) ?? null;
-        const parsed = safeParse(text);
-        if (parsed) {
-          setItems(parsed);
-        } else {
-          setLegacyText(text);
-        }
-        setGeneratedAt((data?.narrative_generated_at as string | null) ?? null);
-        setInvalidatedAt((data?.narrative_invalidated_at as string | null) ?? null);
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .maybeSingle();
+    const text = (data?.narrative_text as string | null) ?? null;
+    const parsed = safeParse(text);
+    if (parsed) {
+      setItems(parsed);
+      setLegacyText(null);
+    } else {
+      setItems(null);
+      setLegacyText(text);
+    }
+    setGeneratedAt((data?.narrative_generated_at as string | null) ?? null);
+    setInvalidatedAt((data?.narrative_invalidated_at as string | null) ?? null);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   const toggle = (i: number) => {
@@ -200,9 +200,10 @@ export function CockpitNarrativeModal({ projectId, displayName, onClose }: Props
           itemDate={feedbackTarget.item_date}
           itemTitle={feedbackTarget.item_title}
           onClose={() => setFeedbackTarget(null)}
-          onSubmitted={() => {
-            setFeedbackTarget(null);
+          onSubmitted={async () => {
             setFeedbackSubmitted(true);
+            // 即時再生成された沿革を再フェッチ。Modal は閉じない (まさが結果サマリ確認できる)
+            await reload();
           }}
         />
       )}
