@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchPlMonthly,
+  fetchVentureStatus,
   upsertPlMonthly,
   deletePlMonthly,
   type ProjectPlMonthly,
@@ -26,6 +27,33 @@ import { CockpitPlHearingModal } from "./CockpitPlHearingModal";
 interface Props {
   projectId: string;
   onClose: () => void;
+}
+
+/** 設立日 (or 支援開始日 or 今日) から 36 ヶ月分の YYYY-MM 配列を返す */
+function makeMonthGrid(startIso: string | null): string[] {
+  const start = startIso ? new Date(startIso) : new Date();
+  const out: string[] = [];
+  for (let i = 0; i < 36; i += 1) {
+    const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+/** 完全に空の P&L 行 (id なし、virtual) */
+function emptyPlRow(projectId: string, ym: string): ProjectPlMonthly {
+  return {
+    id: `__virtual__${ym}`,
+    project_id: projectId,
+    ym,
+    revenue_yen: 0,
+    cogs_yen: 0,
+    personnel_yen: 0,
+    rd_yen: 0,
+    marketing_yen: 0,
+    other_opex_yen: 0,
+    notes: null,
+  };
 }
 
 interface Draft {
@@ -75,6 +103,7 @@ function operatingProfit(r: ProjectPlMonthly): number {
 
 export function CockpitPlMonthlyModal({ projectId, onClose }: Props) {
   const [rows, setRows] = useState<ProjectPlMonthly[]>([]);
+  const [gridStart, setGridStart] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
@@ -82,7 +111,16 @@ export function CockpitPlMonthlyModal({ projectId, onClose }: Props) {
 
   const reload = async () => {
     setLoading(true);
-    setRows(await fetchPlMonthly(projectId));
+    const [pl, status] = await Promise.all([
+      fetchPlMonthly(projectId),
+      fetchVentureStatus(projectId),
+    ]);
+    setRows(pl);
+    setGridStart(
+      status.venture?.founded_at ||
+        status.venture?.amd_support_started_at ||
+        new Date().toISOString().slice(0, 10)
+    );
     setLoading(false);
   };
   useEffect(() => {
@@ -97,8 +135,9 @@ export function CockpitPlMonthlyModal({ projectId, onClose }: Props) {
   };
 
   const startEdit = (r: ProjectPlMonthly) => {
+    const isVirtual = r.id.startsWith("__virtual__");
     setDraft({
-      id: r.id,
+      id: isVirtual ? undefined : r.id,
       ym: r.ym,
       revenue_yen: String(r.revenue_yen),
       cogs_yen: String(r.cogs_yen),
@@ -136,6 +175,17 @@ export function CockpitPlMonthlyModal({ projectId, onClose }: Props) {
     setSaving(false);
     await reload();
   };
+
+  // 表示行 = 実データ行 + 空グリッドを merge (実データ優先)。常に 36 ヶ月分は出す
+  const displayRows = useMemo(() => {
+    const grid = makeMonthGrid(gridStart);
+    const byYm = new Map<string, ProjectPlMonthly>();
+    for (const r of rows) byYm.set(r.ym, r);
+    // 実データ行で grid に無い ym があれば前に置く
+    const extraYms = rows.map((r) => r.ym).filter((ym) => !grid.includes(ym));
+    const allYms = [...extraYms, ...grid].sort();
+    return allYms.map((ym) => byYm.get(ym) ?? emptyPlRow(projectId, ym));
+  }, [rows, gridStart, projectId]);
 
   const totals = useMemo(() => {
     const acc = {
@@ -189,13 +239,17 @@ export function CockpitPlMonthlyModal({ projectId, onClose }: Props) {
         <div className="px-4 py-3">
           {loading ? (
             <p className="text-[12px] text-muted-foreground">読み込み中…</p>
-          ) : rows.length === 0 ? (
-            <p className="text-[12px] text-muted-foreground">まだデータなし。「+ 月を追加」から。</p>
           ) : (
             <div className="overflow-x-auto">
+              {rows.length === 0 && (
+                <p className="text-[11px] text-muted-foreground mb-2">
+                  まだ実データなし。下表は設立日 (or 支援開始 or 今日) から 36 ヶ月のスケルトンです。
+                  「✨ つくよみとヒアリング」で値を埋めるか、行をクリックして直接入力できます。
+                </p>
+              )}
               <table className="w-full text-[11px] border-collapse">
                 <thead>
-                  <tr className="text-left border-b border-[#e5e5e7] text-muted-foreground">
+                  <tr className="text-left border-b border-[#e5e5e7] text-muted-foreground sticky top-0 bg-white">
                     <th className="py-1.5 pr-2 font-medium">月</th>
                     <th className="py-1.5 pr-2 font-medium text-right">売上</th>
                     <th className="py-1.5 pr-2 font-medium text-right">原価</th>
@@ -209,10 +263,16 @@ export function CockpitPlMonthlyModal({ projectId, onClose }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => {
+                  {displayRows.map((r) => {
+                    const isVirtual = r.id.startsWith("__virtual__");
                     const op = operatingProfit(r);
                     return (
-                      <tr key={r.id} className="border-b border-[#f1f5f9] hover:bg-[#fafafa]">
+                      <tr
+                        key={r.id}
+                        className={`border-b border-[#f1f5f9] hover:bg-[#fafafa] ${
+                          isVirtual ? "text-muted-foreground/70" : ""
+                        }`}
+                      >
                         <td className="py-1.5 pr-2 font-mono">{r.ym}</td>
                         <td className="py-1.5 pr-2 font-mono text-right">{fmt(Number(r.revenue_yen))}</td>
                         <td className="py-1.5 pr-2 font-mono text-right">{fmt(Number(r.cogs_yen))}</td>
@@ -223,18 +283,20 @@ export function CockpitPlMonthlyModal({ projectId, onClose }: Props) {
                         <td className="py-1.5 pr-2 font-mono text-right">{fmt(Number(r.other_opex_yen))}</td>
                         <td
                           className="py-1.5 pr-2 font-mono text-right"
-                          style={{ color: op >= 0 ? "#16a34a" : "#ef4444" }}
+                          style={{ color: op >= 0 ? "#16a34a" : op < 0 ? "#ef4444" : undefined }}
                         >
                           {fmt(op)}
                         </td>
                         <td className="py-1.5 pr-2">
                           <div className="flex gap-1.5">
                             <button onClick={() => startEdit(r)} className="text-blue-600 hover:underline">
-                              編集
+                              {isVirtual ? "入力" : "編集"}
                             </button>
-                            <button onClick={() => onDelete(r.id)} className="text-red-600 hover:underline">
-                              削除
-                            </button>
+                            {!isVirtual && (
+                              <button onClick={() => onDelete(r.id)} className="text-red-600 hover:underline">
+                                削除
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

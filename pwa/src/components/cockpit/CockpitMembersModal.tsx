@@ -12,7 +12,7 @@
 import { useEffect, useState } from "react";
 import {
   fetchVentureMembers,
-  fetchAmdMembers,
+  fetchAssignedAmdMembers,
   upsertVentureMember,
   deleteVentureMember,
   type ProjectVentureMember,
@@ -67,7 +67,10 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
 
   const reload = async () => {
     setLoading(true);
-    const [m, am] = await Promise.all([fetchVentureMembers(projectId), fetchAmdMembers()]);
+    const [m, am] = await Promise.all([
+      fetchVentureMembers(projectId),
+      fetchAssignedAmdMembers(projectId),
+    ]);
     setMembers(m);
     setAmdMembers(am);
     setLoading(false);
@@ -130,8 +133,7 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
 
   const displayNameFor = (m: ProjectVentureMember): string => {
     if (m.member_kind === "amd_internal" && m.amd_member_id) {
-      const am = amdMembers.find((x) => x.member_id === m.amd_member_id);
-      return am ? `${am.member_id} (${am.name})` : m.amd_member_id;
+      return m.amd_member_id;
     }
     return m.full_name;
   };
@@ -222,19 +224,27 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
 
               {draft.member_kind === "amd_internal" ? (
                 <label className="flex flex-col gap-0.5 text-[11px] col-span-2">
-                  <span className="text-muted-foreground">AMD コードネーム</span>
-                  <select
-                    value={draft.amd_member_id ?? ""}
-                    onChange={(e) => setDraft({ ...draft, amd_member_id: e.target.value || null })}
-                    className="border border-[#e5e5e7] rounded-md px-2 py-1 text-[13px]"
-                  >
-                    <option value="">— 選択 —</option>
-                    {amdMembers.map((am) => (
-                      <option key={am.member_id} value={am.member_id}>
-                        {am.member_id} ({am.name})
-                      </option>
-                    ))}
-                  </select>
+                  <span className="text-muted-foreground">
+                    AMD コードネーム (この PJ にアサイン済の社員のみ)
+                  </span>
+                  {amdMembers.length === 0 ? (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                      この PJ にアサイン済の AMD 社員がいません。先に admin/projects で project_members に追加してください。
+                    </p>
+                  ) : (
+                    <select
+                      value={draft.amd_member_id ?? ""}
+                      onChange={(e) => setDraft({ ...draft, amd_member_id: e.target.value || null })}
+                      className="border border-[#e5e5e7] rounded-md px-2 py-1 text-[13px] font-mono"
+                    >
+                      <option value="">— 選択 —</option>
+                      {amdMembers.map((am) => (
+                        <option key={am.member_id} value={am.member_id}>
+                          {am.member_id}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </label>
               ) : (
                 <label className="flex flex-col gap-0.5 text-[11px] col-span-2">

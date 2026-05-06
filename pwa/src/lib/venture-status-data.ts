@@ -65,20 +65,21 @@ export interface ProjectVentureMember {
 
 export interface AmdMemberLite {
   member_id: string;        // 'ID001' 等のコードネーム
-  name: string;
-  email?: string;
 }
 
-export async function fetchAmdMembers(): Promise<AmdMemberLite[]> {
+/** その PJ にアサインされている AMD 社員のコードネームを取得 (project_members 経由) */
+export async function fetchAssignedAmdMembers(projectId: string): Promise<AmdMemberLite[]> {
   const { data, error } = await supabase
-    .from("members")
-    .select("member_id, name, email")
+    .from("project_members")
+    .select("member_id, is_active")
+    .eq("project_id", projectId)
+    .eq("is_active", true)
     .order("member_id", { ascending: true });
   if (error) {
-    console.error("[fetchAmdMembers]", error);
+    console.error("[fetchAssignedAmdMembers]", error);
     return [];
   }
-  return (data as AmdMemberLite[]) ?? [];
+  return ((data as { member_id: string }[] | null) ?? []).map((r) => ({ member_id: r.member_id }));
 }
 
 export type PartnerType = "collab" | "customer";
@@ -402,6 +403,23 @@ export async function submitNarrativeFeedback(
   }
   await invalidateNarrative(projectId);
   return data as NarrativeFeedback;
+}
+
+/** その PJ の沿革を即時再生成 (修正依頼の反映用)。フォアグラウンドで叩く。 */
+export async function regenerateNarrativeNow(
+  projectId: string
+): Promise<{ ok: boolean; count: number; lessons: number } | null> {
+  try {
+    const res = await fetch(`/api/project-ventures/${projectId}/narrative-regen`, {
+      method: "POST",
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return { ok: !!json.ok, count: json.count ?? 0, lessons: json.lessons ?? 0 };
+  } catch (e) {
+    console.error("[regenerateNarrativeNow]", e);
+    return null;
+  }
 }
 
 // ---- PL hearing (試算表ヒアリング) -----------------------------

@@ -6,7 +6,7 @@
  */
 
 import { useState } from "react";
-import { submitNarrativeFeedback } from "@/lib/venture-status-data";
+import { submitNarrativeFeedback, regenerateNarrativeNow } from "@/lib/venture-status-data";
 
 interface Props {
   projectId: string;
@@ -25,22 +25,38 @@ export function CockpitNarrativeFeedbackModal({
 }: Props) {
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "saving" | "regenerating" | "done">("idle");
+  const [result, setResult] = useState<{ count: number; lessons: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async () => {
     if (!text.trim()) return;
     setSaving(true);
+    setPhase("saving");
     setError(null);
     const r = await submitNarrativeFeedback(projectId, {
       item_date: itemDate,
       item_title: itemTitle,
       feedback: text.trim(),
     });
-    setSaving(false);
     if (!r) {
+      setSaving(false);
+      setPhase("idle");
       setError("送信に失敗しました");
       return;
     }
+    // 即時再生成 (cron を待たない)
+    setPhase("regenerating");
+    const regen = await regenerateNarrativeNow(projectId);
+    setSaving(false);
+    if (!regen || !regen.ok) {
+      setError("沿革の即時反映に失敗しました。次の 03:45 cron で反映されます。");
+      setPhase("done");
+      // フィードバック自体は保存できているので onSubmitted は呼ばない (モーダルは開いたまま)
+      return;
+    }
+    setResult({ count: regen.count, lessons: regen.lessons });
+    setPhase("done");
     onSubmitted();
   };
 
@@ -87,10 +103,19 @@ export function CockpitNarrativeFeedbackModal({
           </label>
 
           <p className="text-[10px] text-muted-foreground">
-            次回の 03:45 cron で つくよみが反映 + 学習します。
-            「学習」の対象になった内容は、以降の他 PJ の沿革生成にもルールとして使われます。
+            送信したら すぐに つくよみが沿革を直して、学んだルールは admin/tsukuyomi に残ります。
+            一般化できるルールは他 PJ の沿革生成にも反映されます。
           </p>
 
+          {phase === "regenerating" && (
+            <p className="text-[12px] text-purple-600">つくよみが沿革を書き直しています…</p>
+          )}
+          {phase === "done" && result && (
+            <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
+              ✓ 沿革を {result.count} 件で再生成しました
+              {result.lessons > 0 && ` / 学習ルールを ${result.lessons} 件抽出`}
+            </p>
+          )}
           {error && <p className="text-[12px] text-red-600">{error}</p>}
         </div>
 
@@ -100,15 +125,21 @@ export function CockpitNarrativeFeedbackModal({
             disabled={saving}
             className="text-[12px] px-3 py-1.5 rounded-md border border-[#e5e5e7] hover:bg-[#fafafa] disabled:opacity-50"
           >
-            キャンセル
+            {phase === "done" ? "閉じる" : "キャンセル"}
           </button>
-          <button
-            onClick={onSubmit}
-            disabled={saving || !text.trim()}
-            className="text-[12px] px-3 py-1.5 rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
-          >
-            {saving ? "送信中…" : "つくよみに送る"}
-          </button>
+          {phase !== "done" && (
+            <button
+              onClick={onSubmit}
+              disabled={saving || !text.trim()}
+              className="text-[12px] px-3 py-1.5 rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+            >
+              {phase === "saving"
+                ? "送信中…"
+                : phase === "regenerating"
+                ? "再生成中…"
+                : "つくよみに送る"}
+            </button>
+          )}
         </div>
       </div>
     </div>
