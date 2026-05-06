@@ -56,6 +56,181 @@ function emptyPlRow(projectId: string, ym: string): ProjectPlMonthly {
   };
 }
 
+// =====================================================================
+// PL ピボットテーブル: 行 = 項目、列 = 月
+// =====================================================================
+
+interface PivotProps {
+  rows: ProjectPlMonthly[];
+  totals: { revenue: number; cogs: number; personnel: number; rd: number; marketing: number; other: number };
+  gpAll: number;
+  opAll: number;
+  onCellClick: (row: ProjectPlMonthly) => void;
+  onDelete: (id: string) => void;
+}
+
+interface ItemDef {
+  key: keyof Pick<
+    ProjectPlMonthly,
+    "revenue_yen" | "cogs_yen" | "personnel_yen" | "rd_yen" | "marketing_yen" | "other_opex_yen"
+  > | "gross_profit" | "operating_profit";
+  label: string;
+  variant: "input" | "calc";
+  group: "revenue" | "calc" | "opex" | "result";
+}
+
+const ITEMS: ItemDef[] = [
+  { key: "revenue_yen", label: "売上", variant: "input", group: "revenue" },
+  { key: "cogs_yen", label: "売上原価", variant: "input", group: "revenue" },
+  { key: "gross_profit", label: "粗利", variant: "calc", group: "calc" },
+  { key: "personnel_yen", label: "人件費", variant: "input", group: "opex" },
+  { key: "rd_yen", label: "R&D 費", variant: "input", group: "opex" },
+  { key: "marketing_yen", label: "マーケ費", variant: "input", group: "opex" },
+  { key: "other_opex_yen", label: "その他", variant: "input", group: "opex" },
+  { key: "operating_profit", label: "営業利益", variant: "calc", group: "result" },
+];
+
+function valueOf(item: ItemDef, r: ProjectPlMonthly): number {
+  if (item.key === "gross_profit") return Number(r.revenue_yen) - Number(r.cogs_yen);
+  if (item.key === "operating_profit") {
+    return (
+      Number(r.revenue_yen) -
+      Number(r.cogs_yen) -
+      (Number(r.personnel_yen) + Number(r.rd_yen) + Number(r.marketing_yen) + Number(r.other_opex_yen))
+    );
+  }
+  return Number(r[item.key as keyof ProjectPlMonthly] as number);
+}
+
+function totalOf(item: ItemDef, totals: PivotProps["totals"], gpAll: number, opAll: number): number {
+  switch (item.key) {
+    case "revenue_yen":
+      return totals.revenue;
+    case "cogs_yen":
+      return totals.cogs;
+    case "personnel_yen":
+      return totals.personnel;
+    case "rd_yen":
+      return totals.rd;
+    case "marketing_yen":
+      return totals.marketing;
+    case "other_opex_yen":
+      return totals.other;
+    case "gross_profit":
+      return gpAll;
+    case "operating_profit":
+      return opAll;
+  }
+}
+
+function PlPivotTable({ rows, totals, gpAll, opAll, onCellClick, onDelete }: PivotProps) {
+  return (
+    <div className="overflow-x-auto max-h-[60vh]">
+      <table className="text-[11px] border-collapse">
+        <thead>
+          <tr className="bg-white">
+            <th
+              className="sticky left-0 top-0 bg-white z-20 px-2 py-1.5 text-left font-medium text-muted-foreground border-b border-r border-[#e5e5e7] min-w-[110px]"
+            >
+              項目
+            </th>
+            {rows.map((r) => {
+              const isVirtual = r.id.startsWith("__virtual__");
+              return (
+                <th
+                  key={r.id}
+                  className="sticky top-0 bg-white px-2 py-1.5 text-right font-medium text-muted-foreground border-b border-[#e5e5e7] min-w-[88px] z-10"
+                >
+                  <button
+                    onClick={() => onCellClick(r)}
+                    className="font-mono hover:text-foreground hover:underline decoration-dotted"
+                    title={isVirtual ? "値を入力" : "編集"}
+                  >
+                    {r.ym}
+                  </button>
+                  {!isVirtual && (
+                    <button
+                      onClick={() => onDelete(r.id)}
+                      className="ml-1 text-red-500 hover:text-red-700 text-[9px]"
+                      title="削除"
+                    >
+                      ×
+                    </button>
+                  )}
+                </th>
+              );
+            })}
+            <th className="sticky right-0 top-0 bg-[#fafafa] z-20 px-2 py-1.5 text-right font-semibold border-b border-l border-[#cbd5e1] min-w-[100px]">
+              累計
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {ITEMS.map((item) => {
+            const isResult = item.group === "result";
+            const isCalc = item.variant === "calc";
+            return (
+              <tr
+                key={item.key}
+                className={`hover:bg-[#fafafa] ${isResult ? "border-t-2 border-[#cbd5e1] font-semibold" : ""}`}
+              >
+                <td
+                  className={`sticky left-0 z-10 bg-white px-2 py-1.5 border-b border-r border-[#f1f5f9] ${
+                    isCalc ? "text-slate-700 font-medium" : "text-muted-foreground"
+                  }`}
+                >
+                  {item.label}
+                </td>
+                {rows.map((r) => {
+                  const val = valueOf(item, r);
+                  const isVirtual = r.id.startsWith("__virtual__");
+                  const muted = isVirtual && val === 0;
+                  let color: string | undefined;
+                  if (isResult) color = val > 0 ? "#16a34a" : val < 0 ? "#ef4444" : undefined;
+                  return (
+                    <td
+                      key={r.id}
+                      className={`px-2 py-1.5 text-right font-mono border-b border-[#f1f5f9] ${
+                        muted ? "text-muted-foreground/50" : ""
+                      } ${isCalc ? "bg-[#f9fafb]" : ""}`}
+                      style={{ color }}
+                    >
+                      {isCalc ? (
+                        <span>{val === 0 ? "—" : val.toLocaleString()}</span>
+                      ) : (
+                        <button
+                          onClick={() => onCellClick(r)}
+                          className="hover:underline decoration-dotted"
+                          title={`${r.ym} の ${item.label} を編集`}
+                        >
+                          {val === 0 ? "—" : val.toLocaleString()}
+                        </button>
+                      )}
+                    </td>
+                  );
+                })}
+                {(() => {
+                  const tot = totalOf(item, totals, gpAll, opAll);
+                  let color: string | undefined;
+                  if (isResult) color = tot > 0 ? "#16a34a" : tot < 0 ? "#ef4444" : undefined;
+                  return (
+                    <td
+                      className="sticky right-0 z-10 bg-[#fafafa] px-2 py-1.5 text-right font-mono font-semibold border-b border-l border-[#cbd5e1]"
+                      style={{ color }}
+                    >
+                      {tot === 0 ? "—" : tot.toLocaleString()}
+                    </td>
+                  );
+                })()}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 interface Draft {
   id?: string;
   ym: string;
@@ -78,28 +253,6 @@ const emptyDraft = (defaultYm: string): Draft => ({
   other_opex_yen: "0",
   notes: "",
 });
-
-function fmt(n: number): string {
-  if (n === 0) return "—";
-  return n.toLocaleString();
-}
-
-function totalOpex(r: ProjectPlMonthly): number {
-  return (
-    Number(r.personnel_yen) +
-    Number(r.rd_yen) +
-    Number(r.marketing_yen) +
-    Number(r.other_opex_yen)
-  );
-}
-
-function grossProfit(r: ProjectPlMonthly): number {
-  return Number(r.revenue_yen) - Number(r.cogs_yen);
-}
-
-function operatingProfit(r: ProjectPlMonthly): number {
-  return grossProfit(r) - totalOpex(r);
-}
 
 export function CockpitPlMonthlyModal({ projectId, onClose }: Props) {
   const [rows, setRows] = useState<ProjectPlMonthly[]>([]);
@@ -240,87 +393,21 @@ export function CockpitPlMonthlyModal({ projectId, onClose }: Props) {
           {loading ? (
             <p className="text-[12px] text-muted-foreground">読み込み中…</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div>
               {rows.length === 0 && (
                 <p className="text-[11px] text-muted-foreground mb-2">
                   まだ実データなし。下表は設立日 (or 支援開始 or 今日) から 36 ヶ月のスケルトンです。
-                  「✨ つくよみとヒアリング」で値を埋めるか、行をクリックして直接入力できます。
+                  「✨ つくよみとヒアリング」で値を埋めるか、列ヘッダーの月をクリックして直接入力できます。
                 </p>
               )}
-              <table className="w-full text-[11px] border-collapse">
-                <thead>
-                  <tr className="text-left border-b border-[#e5e5e7] text-muted-foreground sticky top-0 bg-white">
-                    <th className="py-1.5 pr-2 font-medium">月</th>
-                    <th className="py-1.5 pr-2 font-medium text-right">売上</th>
-                    <th className="py-1.5 pr-2 font-medium text-right">原価</th>
-                    <th className="py-1.5 pr-2 font-medium text-right">粗利</th>
-                    <th className="py-1.5 pr-2 font-medium text-right">人件費</th>
-                    <th className="py-1.5 pr-2 font-medium text-right">R&D</th>
-                    <th className="py-1.5 pr-2 font-medium text-right">マーケ</th>
-                    <th className="py-1.5 pr-2 font-medium text-right">その他</th>
-                    <th className="py-1.5 pr-2 font-medium text-right">営業利益</th>
-                    <th className="py-1.5 pr-2 font-medium" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayRows.map((r) => {
-                    const isVirtual = r.id.startsWith("__virtual__");
-                    const op = operatingProfit(r);
-                    return (
-                      <tr
-                        key={r.id}
-                        className={`border-b border-[#f1f5f9] hover:bg-[#fafafa] ${
-                          isVirtual ? "text-muted-foreground/70" : ""
-                        }`}
-                      >
-                        <td className="py-1.5 pr-2 font-mono">{r.ym}</td>
-                        <td className="py-1.5 pr-2 font-mono text-right">{fmt(Number(r.revenue_yen))}</td>
-                        <td className="py-1.5 pr-2 font-mono text-right">{fmt(Number(r.cogs_yen))}</td>
-                        <td className="py-1.5 pr-2 font-mono text-right">{fmt(grossProfit(r))}</td>
-                        <td className="py-1.5 pr-2 font-mono text-right">{fmt(Number(r.personnel_yen))}</td>
-                        <td className="py-1.5 pr-2 font-mono text-right">{fmt(Number(r.rd_yen))}</td>
-                        <td className="py-1.5 pr-2 font-mono text-right">{fmt(Number(r.marketing_yen))}</td>
-                        <td className="py-1.5 pr-2 font-mono text-right">{fmt(Number(r.other_opex_yen))}</td>
-                        <td
-                          className="py-1.5 pr-2 font-mono text-right"
-                          style={{ color: op >= 0 ? "#16a34a" : op < 0 ? "#ef4444" : undefined }}
-                        >
-                          {fmt(op)}
-                        </td>
-                        <td className="py-1.5 pr-2">
-                          <div className="flex gap-1.5">
-                            <button onClick={() => startEdit(r)} className="text-blue-600 hover:underline">
-                              {isVirtual ? "入力" : "編集"}
-                            </button>
-                            {!isVirtual && (
-                              <button onClick={() => onDelete(r.id)} className="text-red-600 hover:underline">
-                                削除
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  <tr className="border-t-2 border-[#cbd5e1] bg-[#fafafa] font-semibold">
-                    <td className="py-1.5 pr-2 text-[12px]">累計</td>
-                    <td className="py-1.5 pr-2 font-mono text-right">{fmt(totals.revenue)}</td>
-                    <td className="py-1.5 pr-2 font-mono text-right">{fmt(totals.cogs)}</td>
-                    <td className="py-1.5 pr-2 font-mono text-right">{fmt(gpAll)}</td>
-                    <td className="py-1.5 pr-2 font-mono text-right">{fmt(totals.personnel)}</td>
-                    <td className="py-1.5 pr-2 font-mono text-right">{fmt(totals.rd)}</td>
-                    <td className="py-1.5 pr-2 font-mono text-right">{fmt(totals.marketing)}</td>
-                    <td className="py-1.5 pr-2 font-mono text-right">{fmt(totals.other)}</td>
-                    <td
-                      className="py-1.5 pr-2 font-mono text-right"
-                      style={{ color: opAll >= 0 ? "#16a34a" : "#ef4444" }}
-                    >
-                      {fmt(opAll)}
-                    </td>
-                    <td />
-                  </tr>
-                </tbody>
-              </table>
+              <PlPivotTable
+                rows={displayRows}
+                totals={totals}
+                gpAll={gpAll}
+                opAll={opAll}
+                onCellClick={(r) => startEdit(r)}
+                onDelete={(id) => onDelete(id)}
+              />
             </div>
           )}
 

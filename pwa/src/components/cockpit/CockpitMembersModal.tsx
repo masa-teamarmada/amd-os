@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import {
   fetchVentureMembers,
   fetchAssignedAmdMembers,
+  fetchAllAmdCodeNames,
   upsertVentureMember,
   deleteVentureMember,
   type ProjectVentureMember,
@@ -61,18 +62,21 @@ const emptyDraft = (): Draft => ({
 export function CockpitMembersModal({ projectId, onClose }: Props) {
   const [members, setMembers] = useState<ProjectVentureMember[]>([]);
   const [amdMembers, setAmdMembers] = useState<AmdMemberLite[]>([]);
+  const [allCodeNames, setAllCodeNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
 
   const reload = async () => {
     setLoading(true);
-    const [m, am] = await Promise.all([
+    const [m, am, names] = await Promise.all([
       fetchVentureMembers(projectId),
       fetchAssignedAmdMembers(projectId),
+      fetchAllAmdCodeNames(),
     ]);
     setMembers(m);
     setAmdMembers(am);
+    setAllCodeNames(names);
     setLoading(false);
   };
 
@@ -133,7 +137,7 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
 
   const displayNameFor = (m: ProjectVentureMember): string => {
     if (m.member_kind === "amd_internal" && m.amd_member_id) {
-      return m.amd_member_id;
+      return allCodeNames[m.amd_member_id] || m.amd_member_id;
     }
     return m.full_name;
   };
@@ -235,12 +239,12 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
                     <select
                       value={draft.amd_member_id ?? ""}
                       onChange={(e) => setDraft({ ...draft, amd_member_id: e.target.value || null })}
-                      className="border border-[#e5e5e7] rounded-md px-2 py-1 text-[13px] font-mono"
+                      className="border border-[#e5e5e7] rounded-md px-2 py-1 text-[13px]"
                     >
                       <option value="">— 選択 —</option>
                       {amdMembers.map((am) => (
                         <option key={am.member_id} value={am.member_id}>
-                          {am.member_id}
+                          {am.code_name}
                         </option>
                       ))}
                     </select>
