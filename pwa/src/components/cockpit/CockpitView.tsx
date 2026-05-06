@@ -326,13 +326,16 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm }: CockpitV
       </div>
 
       {/* ===== RIGHT COLUMN — 220px sticky ===== */}
+      {/* 終了 PJ (status='ended'/'lost'/'frozen') では月次ルーティンは表示しない */}
       <div className="w-[220px] shrink-0 sticky top-12 max-h-[calc(100vh-60px)] overflow-y-auto pl-4 flex flex-col gap-3">
-        <CockpitRoutineGas
-          billingCycles={billingCycles}
-          currentYm={currentYm}
-          projectType={project.projectType}
-          onOpenModal={(ym) => setModalYm(ym)}
-        />
+        {project.status === "active" || project.status === "sales" ? (
+          <CockpitRoutineGas
+            billingCycles={billingCycles}
+            currentYm={currentYm}
+            projectType={project.projectType}
+            onOpenModal={(ym) => setModalYm(ym)}
+          />
+        ) : null}
         <CockpitNudge nudges={nudges} />
       </div>
 

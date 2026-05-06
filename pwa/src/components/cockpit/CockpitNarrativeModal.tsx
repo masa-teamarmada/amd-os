@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { CockpitNarrativeFeedbackModal } from "./CockpitNarrativeFeedbackModal";
+import { MentionDisplay } from "./MentionTextarea";
 
 interface NarrativeItem {
   date: string;     // 'YYYY-MM' or 'YYYY-MM-DD'
@@ -144,7 +145,7 @@ export function CockpitNarrativeModal({ projectId, displayName, onClose }: Props
                         {it.date}
                       </span>
                       <span className="text-[10px] text-muted-foreground mt-0.5">{open ? "▼" : "▶"}</span>
-                      <span className="flex-1">{it.title}</span>
+                      <span className="flex-1"><MentionDisplay text={it.title} /></span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -158,7 +159,7 @@ export function CockpitNarrativeModal({ projectId, displayName, onClose }: Props
                     </button>
                     {open && it.detail && (
                       <p className="ml-[88px] mt-1 mr-1 text-[12px] text-slate-600 whitespace-pre-wrap">
-                        {it.detail}
+                        <MentionDisplay text={it.detail} />
                       </p>
                     )}
                   </li>

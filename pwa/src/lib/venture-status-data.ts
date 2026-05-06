@@ -135,6 +135,7 @@ export interface ProjectXrlRow {
   hrl: number | null;
   bottleneck: string | null;
   milestone_label: string | null;
+  source_note: string | null;
   source: string;
 }
 
@@ -178,7 +179,7 @@ export async function fetchVentureStatus(projectId: string): Promise<VentureStat
     supabase.from("project_ventures").select(VENTURE_COLUMNS).eq("project_id", projectId).maybeSingle(),
     supabase
       .from("project_xrl_log")
-      .select("id, project_id, observed_at, trl, brl, hrl, bottleneck, milestone_label, source")
+      .select("id, project_id, observed_at, trl, brl, hrl, bottleneck, milestone_label, source_note, source")
       .eq("project_id", projectId)
       .order("observed_at", { ascending: true }),
     supabase
@@ -419,6 +420,30 @@ export async function submitNarrativeFeedback(
   }
   await invalidateNarrative(projectId);
   return data as NarrativeFeedback;
+}
+
+/** XRL 観測ドットへの修正依頼を投げる */
+export async function submitXrlFeedback(
+  projectId: string,
+  input: { xrl_log_id: string; axis?: "TRL" | "BRL" | "HRL" | null; feedback: string }
+): Promise<{ id: string } | null> {
+  const auth = getAuthClient();
+  const { data, error } = await auth
+    .from("xrl_feedbacks")
+    .insert({
+      project_id: projectId,
+      xrl_log_id: input.xrl_log_id,
+      axis: input.axis ?? null,
+      feedback: input.feedback,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    console.error("[submitXrlFeedback]", error);
+    return null;
+  }
+  await invalidateNarrative(projectId);
+  return data as { id: string };
 }
 
 /** その PJ の沿革を即時再生成 (修正依頼の反映用)。フォアグラウンドで叩く。 */

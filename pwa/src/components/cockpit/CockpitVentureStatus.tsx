@@ -30,6 +30,7 @@ import { CockpitPartnersModal } from "./CockpitPartnersModal";
 import { CockpitPlMonthlyModal } from "./CockpitPlMonthlyModal";
 import { CockpitDescriptionDetailModal } from "./CockpitDescriptionDetailModal";
 import { CockpitAmdScoreBreakdownModal } from "./CockpitAmdScoreBreakdownModal";
+import { CockpitXrlDetailModal } from "./CockpitXrlDetailModal";
 
 const LANE_LABELS: Record<string, string> = {
   gx_energy: "GX / エネルギー",
@@ -56,6 +57,8 @@ const OUTCOME_LABELS: Record<string, { emoji: string; label: string; color: stri
   rocket:     { emoji: "🚀", label: "離陸中", color: "#0ea5e9" },
   lifted:     { emoji: "✈️", label: "離陸完了", color: "#16a34a" },
   deep_pivot: { emoji: "🔄", label: "後付けdeep化", color: "#8b5cf6" },
+  zombie:     { emoji: "🧟", label: "ゾンビ化", color: "#a855f7" },
+  smb:        { emoji: "🏪", label: "中小企業化", color: "#0d9488" },
   burnout:    { emoji: "🔥", label: "燃え尽き", color: "#ef4444" },
   ue_fail:    { emoji: "💀", label: "UE失敗", color: "#6b7280" },
 };
@@ -115,6 +118,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const [descOpen, setDescOpen] = useState(false);
   const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false);
   const [pendingXrl, setPendingXrl] = useState<ProjectXrlRow | null>(null);
+  const [xrlDetailRow, setXrlDetailRow] = useState<ProjectXrlRow | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -409,7 +413,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   setEditingEvent(ev);
                 }}
               >
-                <circle cx={xOf(yd)} cy={yOfScore(score)} r={6} fill={color} stroke="#fff" strokeWidth={1.5} />
+                <circle cx={xOf(yd)} cy={yOfScore(score)} r={18} fill={color} stroke="#fff" strokeWidth={2} />
                 <title>{`${KIND_LABELS[ev.kind]?.label ?? ev.kind} / ${ev.occurred_on} / ${ev.label}`}</title>
               </g>
             );
@@ -495,20 +499,20 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
             const isProposal = r.source === "llm_proposal";
             const onClickDot = isProposal
               ? () => setPendingXrl(r)
-              : undefined;
-            const cursor = isProposal ? "pointer" : "default";
+              : () => setXrlDetailRow(r);
             const opacity = isProposal ? 0.55 : 1;
-            const strokeDasharray = isProposal ? "2 2" : undefined;
+            const strokeDasharray = isProposal ? "3 3" : undefined;
+            const baseR = isProposal ? 15 : 12;
             return (
-              <g key={r.id} style={{ cursor }} onClick={onClickDot}>
+              <g key={r.id} style={{ cursor: "pointer" }} onClick={onClickDot}>
                 {r.trl != null && (
                   <circle
                     cx={xOfDate(r.observed_at)}
                     cy={yOfXrl(r.trl)}
-                    r={isProposal ? 5 : 4}
+                    r={baseR}
                     fill={XRL_COLORS.trl}
                     stroke={isProposal ? XRL_COLORS.trl : "#fff"}
-                    strokeWidth={isProposal ? 1.4 : 1}
+                    strokeWidth={isProposal ? 1.8 : 2}
                     strokeDasharray={strokeDasharray}
                     fillOpacity={opacity}
                   />
@@ -517,10 +521,10 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   <circle
                     cx={xOfDate(r.observed_at)}
                     cy={yOfXrl(r.brl)}
-                    r={isProposal ? 5 : 4}
+                    r={baseR}
                     fill={XRL_COLORS.brl}
                     stroke={isProposal ? XRL_COLORS.brl : "#fff"}
-                    strokeWidth={isProposal ? 1.4 : 1}
+                    strokeWidth={isProposal ? 1.8 : 2}
                     strokeDasharray={strokeDasharray}
                     fillOpacity={opacity}
                   />
@@ -529,10 +533,10 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   <circle
                     cx={xOfDate(r.observed_at)}
                     cy={yOfXrl(r.hrl)}
-                    r={isProposal ? 5 : 4}
+                    r={baseR}
                     fill={XRL_COLORS.hrl}
                     stroke={isProposal ? XRL_COLORS.hrl : "#fff"}
-                    strokeWidth={isProposal ? 1.4 : 1}
+                    strokeWidth={isProposal ? 1.8 : 2}
                     strokeDasharray={strokeDasharray}
                     fillOpacity={opacity}
                   />
@@ -540,7 +544,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                 <title>
                   {`${r.observed_at} / TRL ${r.trl ?? "—"} BRL ${r.brl ?? "—"} HRL ${r.hrl ?? "—"}${
                     r.bottleneck ? ` / bottleneck ${r.bottleneck}` : ""
-                  }${isProposal ? " (LLM 提案 ・ 採用 / 却下を判断)" : ""}`}
+                  }${isProposal ? " — LLM 提案、クリックで採用 / 却下" : " — クリックで詳細・修正依頼"}`}
                 </title>
               </g>
             );
@@ -613,6 +617,18 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         <CockpitAmdScoreBreakdownModal
           bundle={bundle}
           onClose={() => setScoreBreakdownOpen(false)}
+        />
+      )}
+
+      {xrlDetailRow && (
+        <CockpitXrlDetailModal
+          projectId={projectId}
+          row={xrlDetailRow}
+          onClose={() => setXrlDetailRow(null)}
+          onUpdated={async () => {
+            setXrlDetailRow(null);
+            await reload();
+          }}
         />
       )}
     </section>

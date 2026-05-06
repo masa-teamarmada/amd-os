@@ -28,7 +28,14 @@ PJ の事業概要を、まさからの追記でマージするのがあなた�
 - 文体は事業説明として自然に。専門用語は残し、敬語にしない
 - 単位ルール: SU を「社」「ventures」と書かない。「PJ」と書く
 - short_description (1〜2 行サマリ) も必要なら更新。変更不要なら既存のまま返す
-- 出力は \`\`\`json\`\`\` で囲んだ JSON オブジェクトのみ:
+
+# Web 検索について
+- まさが「ネットで調べて」「最新情報を入れて」「調査して」と書いていたら、必ず web_search ツールを使って実際に検索すること
+- 推測・捏造は禁止。検索結果から得た事実だけを書く
+- 検索した出典 URL は long_description の末尾に "出典:" として箇条書きで残してよい
+
+# 出力フォーマット
+\`\`\`json\`\`\` で囲んだ JSON オブジェクトのみ:
   { "long_description": "<更新後>", "short_description": "<更新後 or 既存>" }`;
 
 export async function POST(
@@ -78,9 +85,11 @@ JSON で返してください。`;
     const client = new Anthropic({ apiKey });
     const r = await client.messages.create({
       model: "claude-sonnet-4-5-20250929",
-      max_tokens: 2000,
+      max_tokens: 4000,
       system: SYSTEM,
       messages: [{ role: "user", content: userPrompt }],
+      // Anthropic 公式 web_search tool。まさが「ネットで調べて」と言ったら自動で検索する
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }] as unknown as Anthropic.Messages.Tool[],
     });
     const text = r.content
       .filter((c) => c.type === "text")

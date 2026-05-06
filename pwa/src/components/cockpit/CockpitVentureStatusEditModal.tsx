@@ -18,9 +18,10 @@ import {
   type ProjectEventRow,
   type ProjectEventKind,
 } from "@/lib/venture-status-data";
+import { MentionTextarea } from "./MentionTextarea";
 
 const KIND_OPTIONS: { value: ProjectEventKind; label: string; placeholder: string }[] = [
-  { value: "hire", label: "採用", placeholder: "例: 山田太郎が CTO として入社、博士号 (機械工学) 持ち、報酬は月 80 万円 + ストックオプション" },
+  { value: "hire", label: "人事", placeholder: "例: @まさ がCEOから降任、@きよ がCFOに就任 / 山田太郎が CTO として入社、報酬は月 80 万円 + ストックオプション" },
   { value: "funding", label: "資金調達", placeholder: "例: シードラウンドで Build VC からリード 3000 万円、エンジェル 2 名で 500 万円、合計 3500 万円調達" },
   { value: "deal", label: "事業契約", placeholder: "例: 大学発ベンチャー A 社と PoC 契約 (期間 6 ヶ月、金額 200 万円)" },
   { value: "governance", label: "ガバナンス", placeholder: "例: 取締役会で資金調達方針を決議、まさが議長、決議事項 3 件すべて承認" },
@@ -204,15 +205,16 @@ export function CockpitVentureStatusEditModal({
                 {parsing ? "解析中…" : "✨ LLM で構造化プレビュー"}
               </button>
             </span>
-            <textarea
+            <MentionTextarea
+              projectId={projectId}
               value={rawText}
-              onChange={(e) => {
-                setRawText(e.target.value);
+              onChange={(v) => {
+                setRawText(v);
                 if (parsedPreview) setParsedPreview(null);
               }}
               placeholder={placeholder}
               rows={5}
-              className="border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[12px]"
+              className="w-full border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[12px]"
             />
             <span className="text-[10px] text-muted-foreground">
               文章で書けば OK。保存時に Gemini が裏で構造化 (金額・人名・期間等を自動抽出) します。
