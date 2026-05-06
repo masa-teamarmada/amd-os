@@ -14,7 +14,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const runtime = "nodejs";
@@ -54,7 +54,7 @@ export async function POST(
     return NextResponse.json({ error: "GEMINI_API_KEY not set" }, { status: 500 });
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: venture, error: vErr } = await supabase
     .from("project_ventures")
     .select("display_name, lane, founded_at, outcome_pattern, short_description")
