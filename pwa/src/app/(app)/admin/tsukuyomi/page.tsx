@@ -1,11 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { AdminTsukuyomiClient } from "@/components/admin/AdminTsukuyomiClient";
-import { AdminTsukuyomiPjStatusLearnings } from "@/components/admin/AdminTsukuyomiPjStatusLearnings";
 
 export default async function AdminTsukuyomiPage() {
   const supabase = await createClient();
 
-  const [projectsRes, contextsRes, learningsRes, statusLearningsRes, narrativeFeedbacksRes, chatLogsRes] = await Promise.all([
+  const [projectsRes, contextsRes, learningsRes, statusLearningsRes] = await Promise.all([
     supabase
       .from("projects")
       .select("project_id, project_name, status, slack_channel_id")
@@ -20,20 +19,12 @@ export default async function AdminTsukuyomiPage() {
       .from("tsukuyomi_learnings")
       .select("id, scope, scope_key, content, source, source_ref, status, created_at, created_by, removed_at, removed_by, removed_reason")
       .order("created_at", { ascending: false })
-      .limit(100),
+      .limit(200),
+    // PJ Status コックピットからの学習も同じリストに統合表示する
+    // (scope='memory' に振り、source='pj_status:<narrative|xrl|description|pl_hearing|all>' で由来を残す)
     supabase
       .from("tsukuyomi_learnings_status")
       .select("id, scope, target_project_id, lesson_text, source_feedback_id, created_at")
-      .order("created_at", { ascending: false })
-      .limit(200),
-    supabase
-      .from("narrative_feedbacks")
-      .select("id, project_id, item_date, item_title, feedback, status, applied_at, applied_note, created_at")
-      .order("created_at", { ascending: false })
-      .limit(200),
-    supabase
-      .from("tsukuyomi_chat_logs")
-      .select("id, project_id, session_id, page_path, role, content, applied_actions, created_at")
       .order("created_at", { ascending: false })
       .limit(200),
   ]);
@@ -48,38 +39,6 @@ export default async function AdminTsukuyomiPage() {
         PJチャンネルへAIで生成したナッジを送信したり、LLM Contextを確認できます。
         実際の発言はGAS（AMD-Slack）のWebApp経由で実行されます。
       </p>
-      <AdminTsukuyomiPjStatusLearnings
-        learnings={(statusLearningsRes.data ?? []).map((l) => ({
-          id: l.id,
-          scope: l.scope,
-          targetProjectId: l.target_project_id ?? null,
-          lessonText: l.lesson_text,
-          sourceFeedbackId: l.source_feedback_id ?? null,
-          createdAt: l.created_at ?? null,
-        }))}
-        feedbacks={(narrativeFeedbacksRes.data ?? []).map((f) => ({
-          id: f.id,
-          projectId: f.project_id,
-          itemDate: f.item_date ?? null,
-          itemTitle: f.item_title ?? null,
-          feedback: f.feedback,
-          status: f.status,
-          appliedAt: f.applied_at ?? null,
-          appliedNote: f.applied_note ?? null,
-          createdAt: f.created_at ?? null,
-        }))}
-        chatLogs={(chatLogsRes.data ?? []).map((c) => ({
-          id: c.id,
-          projectId: c.project_id ?? null,
-          sessionId: c.session_id,
-          pagePath: c.page_path ?? null,
-          role: c.role,
-          content: c.content,
-          appliedActions: (c.applied_actions as Array<{ kind: string; detail: string }> | null) ?? null,
-          createdAt: c.created_at ?? null,
-        }))}
-      />
-
       <AdminTsukuyomiClient
         projects={(projectsRes.data ?? []).map((p) => ({
           id: p.project_id,
@@ -90,20 +49,37 @@ export default async function AdminTsukuyomiPage() {
           contextId: c.context_id,
           tags: c.tags ?? "",
         }))}
-        learnings={(learningsRes.data ?? []).map((l) => ({
-          id: l.id,
-          scope: l.scope,
-          scopeKey: l.scope_key ?? null,
-          content: l.content,
-          source: l.source ?? null,
-          sourceRef: l.source_ref ?? null,
-          status: l.status,
-          createdAt: l.created_at ?? null,
-          createdBy: l.created_by ?? null,
-          removedAt: l.removed_at ?? null,
-          removedBy: l.removed_by ?? null,
-          removedReason: l.removed_reason ?? null,
-        }))}
+        learnings={[
+          ...(learningsRes.data ?? []).map((l) => ({
+            id: l.id,
+            scope: l.scope,
+            scopeKey: l.scope_key ?? null,
+            content: l.content,
+            source: l.source ?? null,
+            sourceRef: l.source_ref ?? null,
+            status: l.status,
+            createdAt: l.created_at ?? null,
+            createdBy: l.created_by ?? null,
+            removedAt: l.removed_at ?? null,
+            removedBy: l.removed_by ?? null,
+            removedReason: l.removed_reason ?? null,
+          })),
+          // PJ Status コックピットからの学習を memory layer に投入
+          ...(statusLearningsRes.data ?? []).map((l) => ({
+            id: l.id,
+            scope: "memory",                                    // 既存 layer に揃えて memory 扱い
+            scopeKey: l.target_project_id ?? "all",             // 全 PJ なら "all"、PJ 個別なら project_id
+            content: l.lesson_text,
+            source: `pj_status:${l.scope}`,                     // narrative / xrl / description / pl_hearing / all
+            sourceRef: l.source_feedback_id ?? null,
+            status: "active",
+            createdAt: l.created_at ?? null,
+            createdBy: "tsukuyomi",
+            removedAt: null,
+            removedBy: null,
+            removedReason: null,
+          })),
+        ]}
       />
     </div>
   );

@@ -64,9 +64,10 @@ const OUTCOME_LABELS: Record<string, { emoji: string; label: string; color: stri
 };
 
 const KIND_LABELS: Record<ProjectEventKind, { label: string; color: string }> = {
-  hire: { label: "採用", color: "#0ea5e9" },
+  hire: { label: "人事", color: "#0ea5e9" },
   funding: { label: "資金調達", color: "#16a34a" },
   deal: { label: "事業契約", color: "#f59e0b" },
+  tech_progress: { label: "技術進捗", color: "#06b6d4" },
   governance: { label: "ガバナンス", color: "#8b5cf6" },
   note: { label: "メモ", color: "#94a3b8" },
   xrl_obs: { label: "XRL 観測", color: "#be185d" },
@@ -118,7 +119,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const [descOpen, setDescOpen] = useState(false);
   const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false);
   const [pendingXrl, setPendingXrl] = useState<ProjectXrlRow | null>(null);
-  const [xrlDetailRow, setXrlDetailRow] = useState<ProjectXrlRow | null>(null);
+  const [xrlDetailTarget, setXrlDetailTarget] = useState<{ row: ProjectXrlRow; axis: "TRL" | "BRL" | "HRL" } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -497,14 +498,18 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           {hrlPath && <path d={hrlPath} fill="none" stroke={XRL_COLORS.hrl} strokeWidth={2} />}
           {(bundle?.xrlLog ?? []).map((r) => {
             const isProposal = r.source === "llm_proposal";
-            const onClickDot = isProposal
-              ? () => setPendingXrl(r)
-              : () => setXrlDetailRow(r);
             const opacity = isProposal ? 0.55 : 1;
             const strokeDasharray = isProposal ? "3 3" : undefined;
             const baseR = isProposal ? 15 : 12;
+            const onClickAxis = (axis: "TRL" | "BRL" | "HRL") => () => {
+              if (isProposal) {
+                setPendingXrl(r);
+              } else {
+                setXrlDetailTarget({ row: r, axis });
+              }
+            };
             return (
-              <g key={r.id} style={{ cursor: "pointer" }} onClick={onClickDot}>
+              <g key={r.id}>
                 {r.trl != null && (
                   <circle
                     cx={xOfDate(r.observed_at)}
@@ -515,7 +520,11 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                     strokeWidth={isProposal ? 1.8 : 2}
                     strokeDasharray={strokeDasharray}
                     fillOpacity={opacity}
-                  />
+                    style={{ cursor: "pointer" }}
+                    onClick={onClickAxis("TRL")}
+                  >
+                    <title>{`TRL ${r.trl} (${r.observed_at})${isProposal ? " — LLM 提案" : " — クリックで詳細"}`}</title>
+                  </circle>
                 )}
                 {r.brl != null && (
                   <circle
@@ -527,7 +536,11 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                     strokeWidth={isProposal ? 1.8 : 2}
                     strokeDasharray={strokeDasharray}
                     fillOpacity={opacity}
-                  />
+                    style={{ cursor: "pointer" }}
+                    onClick={onClickAxis("BRL")}
+                  >
+                    <title>{`BRL ${r.brl} (${r.observed_at})${isProposal ? " — LLM 提案" : " — クリックで詳細"}`}</title>
+                  </circle>
                 )}
                 {r.hrl != null && (
                   <circle
@@ -539,13 +552,12 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                     strokeWidth={isProposal ? 1.8 : 2}
                     strokeDasharray={strokeDasharray}
                     fillOpacity={opacity}
-                  />
+                    style={{ cursor: "pointer" }}
+                    onClick={onClickAxis("HRL")}
+                  >
+                    <title>{`HRL ${r.hrl} (${r.observed_at})${isProposal ? " — LLM 提案" : " — クリックで詳細"}`}</title>
+                  </circle>
                 )}
-                <title>
-                  {`${r.observed_at} / TRL ${r.trl ?? "—"} BRL ${r.brl ?? "—"} HRL ${r.hrl ?? "—"}${
-                    r.bottleneck ? ` / bottleneck ${r.bottleneck}` : ""
-                  }${isProposal ? " — LLM 提案、クリックで採用 / 却下" : " — クリックで詳細・修正依頼"}`}
-                </title>
               </g>
             );
           })}
@@ -620,13 +632,14 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         />
       )}
 
-      {xrlDetailRow && (
+      {xrlDetailTarget && (
         <CockpitXrlDetailModal
           projectId={projectId}
-          row={xrlDetailRow}
-          onClose={() => setXrlDetailRow(null)}
+          row={xrlDetailTarget.row}
+          axis={xrlDetailTarget.axis}
+          onClose={() => setXrlDetailTarget(null)}
           onUpdated={async () => {
-            setXrlDetailRow(null);
+            setXrlDetailTarget(null);
             await reload();
           }}
         />

@@ -33,7 +33,9 @@ interface XrlPropose {
   hrl: number | null;
   bottleneck: string | null;
   milestone_label: string;
-  evidence: string;
+  trl_reason?: string;
+  brl_reason?: string;
+  hrl_reason?: string;
 }
 
 async function proposeForProject(
@@ -67,13 +69,22 @@ ${JSON.stringify(events ?? [], null, 2)}
 ${JSON.stringify(members ?? [], null, 2)}
 
 判定ルール:
-- TRL/BRL/HRL は 1-9 整数、確信できなければ null
+- TRL/BRL/HRL は 1-9 整数、確信できない / 情報不足なら null
 - bottleneck: 最も低い軸の名前 (TRL/BRL/HRL)、一意でなければ null
 - milestone_label: 一行
-- evidence: 2-3 行
+- 評価理由は軸別に分けて書く。情報不足な軸は "情報不足" と明記
 
 出力は \`\`\`json\`\`\` で囲んだ JSON のみ:
-{ "trl": <int|null>, "brl": <int|null>, "hrl": <int|null>, "bottleneck": "TRL"|"BRL"|"HRL"|null, "milestone_label": "<>", "evidence": "<>" }`;
+{
+  "trl": <int|null>,
+  "brl": <int|null>,
+  "hrl": <int|null>,
+  "bottleneck": "TRL"|"BRL"|"HRL"|null,
+  "milestone_label": "<>",
+  "trl_reason": "<TRL の評価理由 or '情報不足'>",
+  "brl_reason": "<BRL の評価理由 or '情報不足'>",
+  "hrl_reason": "<HRL の評価理由 or '情報不足'>"
+}`;
 
   try {
     const gen = new GoogleGenerativeAI(geminiKey);
@@ -162,6 +173,11 @@ export async function GET(req: Request) {
       results.push({ project_id: v.project_id, status: "error" });
       continue;
     }
+    const sourceNoteJson = JSON.stringify({
+      trl_reason: proposal.trl_reason ?? "情報不足",
+      brl_reason: proposal.brl_reason ?? "情報不足",
+      hrl_reason: proposal.hrl_reason ?? "情報不足",
+    });
     await supabase.from("project_xrl_log").insert({
       project_id: v.project_id,
       observed_at: today,
@@ -170,7 +186,7 @@ export async function GET(req: Request) {
       hrl: proposal.hrl,
       bottleneck: proposal.bottleneck,
       milestone_label: proposal.milestone_label,
-      source_note: proposal.evidence,
+      source_note: sourceNoteJson,
       source: "llm_proposal",
     });
     await supabase
