@@ -8,9 +8,12 @@ import {
   GizmoHelper,
   GizmoViewport,
 } from "@react-three/drei";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { VentureRow, XrlLogRow, LaneId } from "@/lib/venture-map-data";
+import { HudFrame } from "./HudFrame";
+import { SuDetailModal } from "./SuDetailModal";
 
 // ============================================================
 // 設計
@@ -18,16 +21,13 @@ import type { VentureRow, XrlLogRow, LaneId } from "@/lib/venture-map-data";
 // ユーザー軸 → Three.js 軸:
 //   X (時間)        → Three.X
 //   Y (SU 奥行き)   → Three.Z
-//   Z (スコア / 高さ) → Three.Y
+//   Z (スコア)      → Three.Y (Y-up)
 //
-// 折れ線ではなく stacked area (5 レイヤー = TRL/BRL/HRL/GRL/SRL)
-// 各 SU は X-Y 平面に半透明面が積層、Z=各 SU 位置 に並ぶ
-//
-// 配色: 白純背景 + 細い黒系線 + dark-tone neon (HUD 風サイバー)
-// UI: corner-cut フレーム + tabular monospace + uppercase
+// stacked area (5 RL レイヤー) を ShapeGeometry で描き、
+// emissive material + Bloom postprocessing でネオン発光感
+// 各 SU は invisible plane で onClick 受け、SuDetailModal を開く
 // ============================================================
 
-// pastel neon (white-base × bright saturated)
 const RL_COLORS = {
   trl: "#22d3ee", // cyan-400
   brl: "#fb923c", // orange-400
@@ -42,25 +42,19 @@ type RlKey = (typeof RL_KEYS)[number];
 const HUD_INK = "#0a0e15";
 const HUD_LINE = "#475569";
 const HUD_MUTE = "#64748b";
-const HUD_BG = "#ffffff";
-const HUD_AMBER = "#f59e0b";
-// glassmorphic panel
-const PANEL_BG = "rgba(255,255,255,0.72)";
-const PANEL_BORDER = "rgba(10,14,21,0.85)";
-const PANEL_BLUR = "blur(10px) saturate(140%)";
-// neon accent for active states
-const NEON_GRAD = "linear-gradient(135deg, #22d3ee 0%, #a78bfa 50%, #f472b6 100%)";
+const NEON_GRAD =
+  "linear-gradient(135deg, #22d3ee 0%, #a78bfa 50%, #f472b6 100%)";
 
 const X_LEN = 22;
 const Y_GAP = 2.6;
-const Z_HEIGHT = 10; // スコア軸を更に長く (動きが見えやすく)
+const Z_HEIGHT = 10;
 
 const _LANE_COLORS_RESERVED: Record<LaneId, string> = {
-  gx_energy: "#0891b2",
-  gx_circular: "#059669",
-  materials: "#ea580c",
-  life: "#db2777",
-  robo: "#7c3aed",
+  gx_energy: "#22d3ee",
+  gx_circular: "#34d399",
+  materials: "#fb923c",
+  life: "#f472b6",
+  robo: "#a78bfa",
 };
 void _LANE_COLORS_RESERVED;
 
@@ -117,30 +111,30 @@ const PRESET_LABEL: Record<Preset, string> = {
 };
 
 // ============================================================
-// VentureStackedArea: 1 SU の 5 レイヤー stacked area
+// VentureStackedArea: 1 SU の 5 レイヤー stacked area + onClick
 // ============================================================
 
 function VentureStackedArea({
-  xrl,
+  vd,
   zPos,
   mapTime,
+  onClick,
 }: {
-  xrl: XrlLogRow[];
+  vd: VentureWithXrl;
   zPos: number;
   mapTime: (iso: string) => number;
+  onClick: () => void;
 }) {
-  const layers = useMemo(() => {
-    if (xrl.length < 2) return [];
-    const N = xrl.length;
-    const xs = xrl.map((r) => mapTime(r.observed_at));
-    const cumY: number[][] = xrl.map((r) => {
+  const { layers, bbox } = useMemo(() => {
+    if (vd.xrl.length < 2) {
+      return { layers: [], bbox: { xMin: 0, xMax: 0, yMax: 0 } };
+    }
+    const xs = vd.xrl.map((r) => mapTime(r.observed_at));
+    const cumY: number[][] = vd.xrl.map((r) => {
       const vals = RL_KEYS.map((k) =>
         Math.min(
           5,
-          Math.max(
-            0,
-            (r as unknown as Record<string, number | null>)[k] || 0,
-          ),
+          Math.max(0, (r as unknown as Record<string, number | null>)[k] || 0),
         ),
       );
       const cums: number[] = [];
@@ -151,7 +145,7 @@ function VentureStackedArea({
       }
       return cums;
     });
-
+    const N = vd.xrl.length;
     const result: { key: RlKey; shape: THREE.Shape }[] = [];
     for (let i = 0; i < RL_KEYS.length; i++) {
       const shape = new THREE.Shape();
@@ -163,62 +157,66 @@ function VentureStackedArea({
       shape.closePath();
       result.push({ key: RL_KEYS[i], shape });
     }
-    return result;
-  }, [xrl, mapTime]);
+    const xMin = Math.min(...xs);
+    const xMax = Math.max(...xs);
+    const yMax = Math.max(...cumY.map((c) => c[c.length - 1]));
+    return { layers: result, bbox: { xMin, xMax, yMax } };
+  }, [vd, mapTime]);
+
+  const [hover, setHover] = useState(false);
 
   if (layers.length === 0) return null;
 
+  const bboxW = bbox.xMax - bbox.xMin;
+  const bboxH = Math.max(0.5, bbox.yMax);
+
   return (
     <group position={[0, 0, zPos]}>
+      {/* 各 RL レイヤー: emissive で発光 */}
       {layers.map((layer, i) => (
         <mesh key={layer.key} renderOrder={i}>
           <shapeGeometry args={[layer.shape]} />
-          <meshBasicMaterial
+          <meshStandardMaterial
             color={RL_COLORS[layer.key]}
+            emissive={RL_COLORS[layer.key]}
+            emissiveIntensity={hover ? 1.6 : 1.05}
             transparent
-            opacity={0.55}
+            opacity={hover ? 0.7 : 0.6}
             side={THREE.DoubleSide}
             depthWrite={false}
             toneMapped={false}
+            roughness={0.4}
+            metalness={0.0}
           />
         </mesh>
       ))}
+
+      {/* invisible click target (bounding plane) */}
+      <mesh
+        position={[bbox.xMin + bboxW / 2, bboxH / 2, 0.02]}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setHover(true);
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => {
+          setHover(false);
+          document.body.style.cursor = "default";
+        }}
+      >
+        <planeGeometry args={[Math.max(0.5, bboxW), bboxH]} />
+        <meshBasicMaterial visible={false} side={THREE.DoubleSide} />
+      </mesh>
     </group>
   );
 }
 
 // ============================================================
-// AmdPeriodStrip: 地面に AMD 参画期間の amber 帯
-// ============================================================
-
-function AmdPeriodStrip({
-  xStart,
-  xEnd,
-  zPos,
-}: {
-  xStart: number;
-  xEnd: number;
-  zPos: number;
-}) {
-  const w = xEnd - xStart;
-  if (w <= 0) return null;
-  const xMid = (xStart + xEnd) / 2;
-  return (
-    <mesh position={[xMid, -0.45, zPos]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[w, 0.95]} />
-      <meshBasicMaterial
-        color={HUD_AMBER}
-        transparent
-        opacity={0.32}
-        depthWrite={false}
-        toneMapped={false}
-      />
-    </mesh>
-  );
-}
-
-// ============================================================
-// VentureEvents: milestone marker
+// VentureEvents
 // ============================================================
 
 function VentureEvents({
@@ -247,11 +245,11 @@ function VentureEvents({
         return (
           <group key={r.id} position={[x, y, zPos]}>
             <mesh>
-              <sphereGeometry args={[0.12, 16, 16]} />
+              <sphereGeometry args={[0.13, 16, 16]} />
               <meshStandardMaterial
-                color={HUD_AMBER}
-                emissive={HUD_AMBER}
-                emissiveIntensity={0.9}
+                color="#fbbf24"
+                emissive="#fbbf24"
+                emissiveIntensity={2.2}
                 toneMapped={false}
               />
             </mesh>
@@ -267,9 +265,8 @@ function VentureEvents({
                     fontSize: 9,
                     fontFamily:
                       "ui-monospace, SFMono-Regular, Menlo, monospace",
-                    fontFeatureSettings: "'tnum'",
                     color: HUD_INK,
-                    background: HUD_BG,
+                    background: "rgba(255,255,255,0.95)",
                     border: `1px solid ${HUD_INK}`,
                     padding: "2px 6px",
                     whiteSpace: "nowrap",
@@ -342,9 +339,11 @@ function CameraRig({
 function Scene({
   data,
   preset,
+  onSelectVenture,
 }: {
   data: VentureWithXrl[];
   preset: Preset;
+  onSelectVenture: (vd: VentureWithXrl) => void;
 }) {
   const tRange = useMemo(() => deriveTimeRange(data), [data]);
   const mapTime = useMemo(() => {
@@ -357,24 +356,12 @@ function Scene({
   }, [tRange]);
 
   const center = (data.length - 1) / 2;
-  const now = Date.now();
 
   return (
     <>
       {data.map((vd, i) => {
         if (vd.xrl.length < 2) return null;
         const zPos = (i - center) * Y_GAP;
-
-        const amdStartT = +new Date(vd.venture.founded_at);
-        const amdEndT =
-          vd.venture.status === "active"
-            ? now
-            : +new Date(vd.xrl[vd.xrl.length - 1].observed_at);
-        const xAmdStart = mapTime(
-          new Date(amdStartT).toISOString().slice(0, 10),
-        );
-        const xAmdEnd = mapTime(new Date(amdEndT).toISOString().slice(0, 10));
-
         const lastP = vd.xrl[vd.xrl.length - 1];
         const lastSum =
           (lastP.trl || 0) +
@@ -387,15 +374,11 @@ function Scene({
 
         return (
           <group key={vd.venture.id}>
-            <AmdPeriodStrip
-              xStart={xAmdStart}
-              xEnd={xAmdEnd}
-              zPos={zPos}
-            />
             <VentureStackedArea
-              xrl={vd.xrl}
+              vd={vd}
               zPos={zPos}
               mapTime={mapTime}
+              onClick={() => onSelectVenture(vd)}
             />
             <VentureEvents
               xrl={vd.xrl}
@@ -411,7 +394,6 @@ function Scene({
                 style={{
                   fontSize: 10,
                   fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                  fontFeatureSettings: "'tnum'",
                   color: HUD_INK,
                   background: "rgba(255,255,255,0.85)",
                   border: `1px solid ${HUD_INK}`,
@@ -442,20 +424,15 @@ function Scene({
 function AxesGuide() {
   return (
     <>
-      {/* X 軸 */}
       <mesh position={[0, -0.45, 0]}>
         <boxGeometry args={[X_LEN + 2, 0.025, 0.025]} />
         <meshBasicMaterial color={HUD_INK} toneMapped={false} />
       </mesh>
-      {/* Z 軸 (= ユーザーの SCORE) */}
       <mesh position={[-X_LEN / 2 - 0.5, Z_HEIGHT / 2, 0]}>
         <boxGeometry args={[0.025, Z_HEIGHT + 1, 0.025]} />
         <meshBasicMaterial color={HUD_INK} toneMapped={false} />
       </mesh>
-      <Html
-        position={[X_LEN / 2 + 1.2, -0.45, 0]}
-        style={{ pointerEvents: "none" }}
-      >
+      <Html position={[X_LEN / 2 + 1.2, -0.45, 0]} style={{ pointerEvents: "none" }}>
         <div
           style={{
             color: HUD_INK,
@@ -469,10 +446,7 @@ function AxesGuide() {
           [ T ▸ ]
         </div>
       </Html>
-      <Html
-        position={[-X_LEN / 2 - 0.5, Z_HEIGHT + 0.7, 0]}
-        style={{ pointerEvents: "none" }}
-      >
+      <Html position={[-X_LEN / 2 - 0.5, Z_HEIGHT + 0.7, 0]} style={{ pointerEvents: "none" }}>
         <div
           style={{
             color: HUD_INK,
@@ -509,42 +483,12 @@ function GridFloor() {
 }
 
 // ============================================================
-// HUD UI fragments
-// ============================================================
-
-function CornerMarker({
-  pos,
-}: {
-  pos: { top?: number; left?: number; right?: number; bottom?: number };
-}) {
-  const isTop = pos.top !== undefined;
-  const isLeft = pos.left !== undefined;
-  return (
-    <div
-      style={{
-        position: "absolute",
-        width: 16,
-        height: 16,
-        ...pos,
-        zIndex: 5,
-        pointerEvents: "none",
-        borderTop: isTop ? `1.5px solid ${HUD_INK}` : "none",
-        borderBottom: !isTop ? `1.5px solid ${HUD_INK}` : "none",
-        borderLeft: isLeft ? `1.5px solid ${HUD_INK}` : "none",
-        borderRight: !isLeft ? `1.5px solid ${HUD_INK}` : "none",
-      }}
-    />
-  );
-}
-
-const CLIP_CORNER = "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)";
-
-// ============================================================
 // Top-level
 // ============================================================
 
 export default function Timeline3DView({ data }: Props) {
   const [preset, setPreset] = useState<Preset>("iso");
+  const [selected, setSelected] = useState<VentureWithXrl | null>(null);
   const controlsRef = useRef<{
     enabled: boolean;
     target: THREE.Vector3;
@@ -563,13 +507,7 @@ export default function Timeline3DView({ data }: Props) {
         overflow: "hidden",
       }}
     >
-      {/* corner markers (HUD 4-corner ticks) */}
-      <CornerMarker pos={{ top: 8, left: 8 }} />
-      <CornerMarker pos={{ top: 8, right: 8 }} />
-      <CornerMarker pos={{ bottom: 8, left: 8 }} />
-      <CornerMarker pos={{ bottom: 8, right: 8 }} />
-
-      {/* HUD header bar (status line) */}
+      {/* HUD header */}
       <div
         style={{
           position: "absolute",
@@ -577,138 +515,133 @@ export default function Timeline3DView({ data }: Props) {
           left: "50%",
           transform: "translateX(-50%)",
           zIndex: 10,
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          padding: "6px 16px",
-          background: PANEL_BG,
-          border: `1px solid ${PANEL_BORDER}`,
-          backdropFilter: PANEL_BLUR,
-          WebkitBackdropFilter: PANEL_BLUR,
-          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-          fontSize: 10,
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-          color: HUD_INK,
-          fontWeight: 600,
-          clipPath: CLIP_CORNER,
-          boxShadow: "0 4px 16px rgba(167,139,250,0.12)",
         }}
       >
-        <span
-          style={{
-            background: NEON_GRAD,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            fontWeight: 800,
-            letterSpacing: "0.12em",
-          }}
-        >
-          ▶▶▶
-        </span>
-        <span style={{ fontWeight: 700 }}>VENTURE TIMELINE / 3D</span>
-        <span style={{ color: HUD_MUTE }}>│</span>
-        <span style={{ fontVariantNumeric: "tabular-nums" }}>
-          {data.length.toString().padStart(2, "0")} ACTIVE SU
-        </span>
-        <span style={{ color: HUD_MUTE }}>│</span>
-        <span style={{ color: "#0891b2" }}>● READY</span>
+        <HudFrame variant="compact" padding="6px 18px">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              fontSize: 10,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: HUD_INK,
+              fontWeight: 600,
+            }}
+          >
+            <span
+              style={{
+                background: NEON_GRAD,
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                fontWeight: 800,
+              }}
+            >
+              ▶▶▶
+            </span>
+            <span style={{ fontWeight: 700 }}>VENTURE TIMELINE / 3D</span>
+            <span style={{ color: HUD_MUTE }}>│</span>
+            <span style={{ fontVariantNumeric: "tabular-nums" }}>
+              {data.length.toString().padStart(2, "0")} ACTIVE SU
+            </span>
+            <span style={{ color: HUD_MUTE }}>│</span>
+            <span style={{ color: "#0891b2" }}>● READY</span>
+          </div>
+        </HudFrame>
       </div>
 
       {/* preset selector */}
       <div
         style={{
           position: "absolute",
-          top: 60,
+          top: 64,
           left: 24,
           zIndex: 10,
-          display: "flex",
-          gap: 0,
-          padding: 0,
-          background: PANEL_BG,
-          border: `1px solid ${PANEL_BORDER}`,
-          backdropFilter: PANEL_BLUR,
-          WebkitBackdropFilter: PANEL_BLUR,
-          clipPath: CLIP_CORNER,
-          boxShadow: "0 4px 16px rgba(167,139,250,0.12)",
         }}
       >
-        {(["xz", "iso", "yz", "xy"] as Preset[]).map((p, idx) => (
-          <button
-            key={p}
-            onClick={() => setPreset(p)}
-            style={{
-              padding: "9px 16px",
-              fontSize: 10,
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-              color: preset === p ? "#fff" : HUD_INK,
-              background: preset === p ? NEON_GRAD : "transparent",
-              border: "none",
-              borderLeft:
-                idx === 0 ? "none" : `1px solid rgba(10,14,21,0.4)`,
-              cursor: "pointer",
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              transition: "all 0.15s",
-              textShadow:
-                preset === p ? "0 1px 2px rgba(0,0,0,0.18)" : "none",
-            }}
-          >
-            {PRESET_LABEL[p]}
-          </button>
-        ))}
+        <HudFrame variant="compact" padding={0}>
+          <div style={{ display: "flex" }}>
+            {(["xz", "iso", "yz", "xy"] as Preset[]).map((p, idx) => (
+              <button
+                key={p}
+                onClick={() => setPreset(p)}
+                style={{
+                  padding: "9px 16px",
+                  fontSize: 10,
+                  fontFamily:
+                    "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  color: preset === p ? "#fff" : HUD_INK,
+                  background: preset === p ? NEON_GRAD : "transparent",
+                  border: "none",
+                  borderLeft:
+                    idx === 0 ? "none" : `1px solid rgba(10,14,21,0.4)`,
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                  transition: "all 0.15s",
+                  textShadow:
+                    preset === p ? "0 1px 2px rgba(0,0,0,0.18)" : "none",
+                }}
+              >
+                {PRESET_LABEL[p]}
+              </button>
+            ))}
+          </div>
+        </HudFrame>
       </div>
 
       {/* legend */}
       <div
         style={{
           position: "absolute",
-          top: 60,
+          top: 64,
           right: 24,
           zIndex: 10,
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          padding: "9px 16px",
-          background: PANEL_BG,
-          border: `1px solid ${PANEL_BORDER}`,
-          backdropFilter: PANEL_BLUR,
-          WebkitBackdropFilter: PANEL_BLUR,
-          fontSize: 10,
-          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          clipPath: CLIP_CORNER,
-          boxShadow: "0 4px 16px rgba(167,139,250,0.12)",
         }}
       >
-        <span style={{ color: HUD_MUTE, fontWeight: 600 }}>LAYERS ▸</span>
-        {RL_KEYS.map((k) => (
-          <span
-            key={k}
+        <HudFrame variant="compact" padding="9px 18px">
+          <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 5,
-              color: HUD_INK,
-              fontWeight: 700,
+              gap: 14,
+              fontSize: 10,
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
             }}
           >
-            <span
-              style={{
-                display: "inline-block",
-                width: 14,
-                height: 10,
-                background: RL_COLORS[k],
-                opacity: 0.65,
-                border: `1px solid ${RL_COLORS[k]}`,
-                boxShadow: `0 0 6px ${RL_COLORS[k]}66`,
-              }}
-            />
-            {k.toUpperCase()}
-          </span>
-        ))}
+            <span style={{ color: HUD_MUTE, fontWeight: 600 }}>LAYERS ▸</span>
+            {RL_KEYS.map((k) => (
+              <span
+                key={k}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  color: HUD_INK,
+                  fontWeight: 700,
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 14,
+                    height: 10,
+                    background: RL_COLORS[k],
+                    opacity: 0.7,
+                    border: `1px solid ${RL_COLORS[k]}`,
+                    boxShadow: `0 0 8px ${RL_COLORS[k]}88`,
+                  }}
+                />
+                {k.toUpperCase()}
+              </span>
+            ))}
+          </div>
+        </HudFrame>
       </div>
 
       {/* hint footer */}
@@ -730,12 +663,12 @@ export default function Timeline3DView({ data }: Props) {
         }}
       >
         <div style={{ display: "flex", gap: 14 }}>
+          <span>[CLICK] OPEN SU</span>
           <span>[DRAG] ROTATE</span>
           <span>[SCROLL] ZOOM</span>
-          <span style={{ color: HUD_AMBER }}>▭ AMD PERIOD</span>
-          <span style={{ color: HUD_AMBER }}>● MILESTONE</span>
+          <span style={{ color: "#d97706" }}>● MILESTONE</span>
         </div>
-        <div>SYS // VENTURE-MAP-3D v0.1</div>
+        <div>SYS // VENTURE-MAP-3D v0.2</div>
       </div>
 
       <Canvas
@@ -745,15 +678,19 @@ export default function Timeline3DView({ data }: Props) {
       >
         <color attach="background" args={["#fbfaff"]} />
         <fog attach="fog" args={["#f5f3ff", 38, 100]} />
-        <ambientLight intensity={1.0} />
+        <ambientLight intensity={0.85} />
         <directionalLight
           position={[12, 22, 12]}
-          intensity={0.45}
+          intensity={0.4}
           color="#ffffff"
         />
 
         <Suspense fallback={null}>
-          <Scene data={data} preset={preset} />
+          <Scene
+            data={data}
+            preset={preset}
+            onSelectVenture={(vd) => setSelected(vd)}
+          />
         </Suspense>
 
         <OrbitControls
@@ -768,10 +705,26 @@ export default function Timeline3DView({ data }: Props) {
         <GizmoHelper alignment="top-right" margin={[80, 130]}>
           <GizmoViewport
             axisColors={[HUD_INK, HUD_INK, HUD_INK]}
-            labelColor={HUD_BG}
+            labelColor="#ffffff"
           />
         </GizmoHelper>
+        <EffectComposer multisampling={2}>
+          <Bloom
+            intensity={0.85}
+            luminanceThreshold={0.35}
+            luminanceSmoothing={0.6}
+            mipmapBlur
+          />
+        </EffectComposer>
       </Canvas>
+
+      {selected && (
+        <SuDetailModal
+          venture={selected.venture}
+          xrl={selected.xrl}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }
