@@ -143,6 +143,7 @@ export type ProjectEventKind =
   | "hire"
   | "funding"
   | "deal"
+  | "tech_progress"
   | "governance"
   | "note"
   | "xrl_obs"
@@ -675,6 +676,7 @@ export const EVENT_BONUS: Record<ProjectEventKind, number> = {
   hire: 3,
   funding: 8,
   deal: 5,
+  tech_progress: 4,
   governance: 2,
   note: 0,
   xrl_obs: 0,

@@ -16,19 +16,53 @@ import { useState } from "react";
 import { MentionTextarea } from "./MentionTextarea";
 import { submitXrlFeedback, type ProjectXrlRow } from "@/lib/venture-status-data";
 
+type Axis = "TRL" | "BRL" | "HRL";
+
 interface Props {
   projectId: string;
   row: ProjectXrlRow;
+  axis: Axis;                      // クリックされた軸
   onClose: () => void;
   onUpdated: () => void;
 }
 
-const AXIS_COLORS = { TRL: "#0ea5e9", BRL: "#f59e0b", HRL: "#16a34a" };
+const AXIS_COLORS: Record<Axis, string> = { TRL: "#0ea5e9", BRL: "#f59e0b", HRL: "#16a34a" };
+const AXIS_DESC: Record<Axis, string> = {
+  TRL: "Technology Readiness Level — 技術成熟度",
+  BRL: "Business Readiness Level — 事業化成熟度",
+  HRL: "Human Readiness Level — 人材・市場成熟度",
+};
 
-export function CockpitXrlDetailModal({ projectId, row, onClose, onUpdated }: Props) {
+/** source_note を { trl_reason, brl_reason, hrl_reason } の JSON として読む。
+ *  parse 失敗 (旧 plain text or null) のときは null を返す。 */
+function parseAxisReasons(text: string | null | undefined): { trl?: string; brl?: string; hrl?: string } | null {
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === "object") {
+      const out: { trl?: string; brl?: string; hrl?: string } = {};
+      if (typeof parsed.trl_reason === "string") out.trl = parsed.trl_reason;
+      if (typeof parsed.brl_reason === "string") out.brl = parsed.brl_reason;
+      if (typeof parsed.hrl_reason === "string") out.hrl = parsed.hrl_reason;
+      if (out.trl || out.brl || out.hrl) return out;
+    }
+  } catch {
+    // not JSON
+  }
+  return null;
+}
+
+export function CockpitXrlDetailModal({ projectId, row, axis, onClose, onUpdated }: Props) {
   const [feedback, setFeedback] = useState("");
   const [phase, setPhase] = useState<"idle" | "saving" | "regenerating" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
+
+  const axisLower = axis.toLowerCase() as "trl" | "brl" | "hrl";
+  const value = row[axisLower] as number | null;
+  const color = AXIS_COLORS[axis];
+  const reasons = parseAxisReasons(row.source_note);
+  const axisReason = reasons?.[axisLower] ?? null;
+  const isBottleneck = row.bottleneck === axis;
 
   const onSubmit = async () => {
     if (!feedback.trim()) return;
@@ -49,7 +83,7 @@ export function CockpitXrlDetailModal({ projectId, row, onClose, onUpdated }: Pr
       const res = await fetch(`/api/project-ventures/${projectId}/xrl-revise`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ xrl_log_id: row.id, feedback: feedback.trim() }),
+        body: JSON.stringify({ xrl_log_id: row.id, axis, feedback: feedback.trim() }),
       });
       if (!res.ok) {
         setError("再評価に失敗。次の 03:15 cron で再評価されます。");
@@ -76,14 +110,19 @@ export function CockpitXrlDetailModal({ projectId, row, onClose, onUpdated }: Pr
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-4 py-3 border-b border-[#e5e5e7] flex items-center justify-between">
-          <h3 className="text-sm font-semibold">XRL 観測の詳細</h3>
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <span className="font-mono text-base" style={{ color }}>
+              {axis}
+            </span>
+            <span>観測の詳細</span>
+          </h3>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
             ✕
           </button>
         </div>
 
         <div className="px-4 py-3 flex flex-col gap-3 text-[12px]">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-mono text-[11px] text-muted-foreground">{row.observed_at}</span>
             {row.source && (
               <span
@@ -98,33 +137,26 @@ export function CockpitXrlDetailModal({ projectId, row, onClose, onUpdated }: Pr
                 {row.source}
               </span>
             )}
-          </div>
-
-          <div className="flex gap-3">
-            {(["trl", "brl", "hrl"] as const).map((k) => {
-              const v = row[k] as number | null;
-              const color = AXIS_COLORS[k.toUpperCase() as keyof typeof AXIS_COLORS];
-              return (
-                <div key={k} className="flex-1 border border-[#e5e5e7] rounded-md px-3 py-2">
-                  <div className="text-[10px] uppercase font-mono" style={{ color }}>
-                    {k}
-                  </div>
-                  <div className="text-2xl font-bold" style={{ color }}>
-                    {v ?? "—"}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {row.bottleneck && (
-            <div className="text-[12px]">
-              <span className="text-muted-foreground">ボトルネック: </span>
-              <span className="font-mono font-bold" style={{ color: AXIS_COLORS[row.bottleneck as keyof typeof AXIS_COLORS] }}>
-                {row.bottleneck}
+            {isBottleneck && (
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-red-50 text-red-700">
+                ⚠ この軸がボトルネック
               </span>
+            )}
+          </div>
+
+          {/* クリックされた軸の値だけ大きく */}
+          <div className="border-2 rounded-md px-4 py-3 flex items-center gap-4" style={{ borderColor: color }}>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-mono uppercase" style={{ color }}>
+                {axis}
+              </div>
+              <div className="text-[10px] text-muted-foreground">{AXIS_DESC[axis]}</div>
             </div>
-          )}
+            <div className="text-5xl font-bold leading-none" style={{ color }}>
+              {value ?? "—"}
+            </div>
+            <div className="text-[10px] text-muted-foreground self-end">/ 9</div>
+          </div>
 
           {row.milestone_label && (
             <div className="text-[12px]">
@@ -133,20 +165,50 @@ export function CockpitXrlDetailModal({ projectId, row, onClose, onUpdated }: Pr
             </div>
           )}
 
-          {row.source_note && (
-            <div className="border border-blue-100 bg-blue-50/40 rounded-md px-3 py-2">
-              <div className="text-[10px] text-blue-700 mb-1">評価理由</div>
-              <div className="text-[12px] whitespace-pre-wrap text-slate-800">{row.source_note}</div>
+          {/* 軸別の評価理由 */}
+          <div
+            className="border rounded-md px-3 py-2"
+            style={{ borderColor: color + "40", backgroundColor: color + "0d" }}
+          >
+            <div className="text-[10px] mb-1" style={{ color }}>
+              {axis} をこのレベルにした理由
             </div>
-          )}
+            {axisReason ? (
+              <div className="text-[12px] whitespace-pre-wrap text-slate-800">{axisReason}</div>
+            ) : reasons ? (
+              <div className="text-[12px] text-amber-700 italic">
+                情報不足 — つくよみがこの軸の評価理由を書いていません。
+                下のフィードバック欄に「{axis} はもっと高い、理由は〜」と書けば再評価します。
+              </div>
+            ) : row.source_note ? (
+              <div>
+                <div className="text-[12px] whitespace-pre-wrap text-slate-800">{row.source_note}</div>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  (旧形式の理由 — 軸別に分かれていません。次回の再評価で軸別になります)
+                </p>
+              </div>
+            ) : (
+              <div className="text-[12px] text-amber-700 italic">
+                情報不足 — 評価理由が記録されていません。
+              </div>
+            )}
+          </div>
 
           <div className="border-t border-[#e5e5e7] pt-3 flex flex-col gap-1">
-            <span className="text-[11px] text-muted-foreground">✨ つくよみに修正依頼</span>
+            <span className="text-[11px] text-muted-foreground">
+              ✨ つくよみに {axis} の修正依頼
+            </span>
             <MentionTextarea
               projectId={projectId}
               value={feedback}
               onChange={setFeedback}
-              placeholder="例: ここはもっと TRL 高いよ。理由は @まさ が再現実験を確認し、ロット品質も安定してきたから"
+              placeholder={`例: ${axis} はもっと高いはず。理由は @まさ が${
+                axis === "TRL"
+                  ? "再現実験を確認し、ロット品質も安定"
+                  : axis === "BRL"
+                  ? "PoC 契約 2 件まとまったので事業化が進んだ"
+                  : "コアメンバー 3 名揃って人材成熟度が上がった"
+              }`}
               rows={4}
               className="w-full border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[12px]"
             />

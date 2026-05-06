@@ -24,6 +24,7 @@ const KIND_OPTIONS: { value: ProjectEventKind; label: string; placeholder: strin
   { value: "hire", label: "人事", placeholder: "例: @まさ がCEOから降任、@きよ がCFOに就任 / 山田太郎が CTO として入社、報酬は月 80 万円 + ストックオプション" },
   { value: "funding", label: "資金調達", placeholder: "例: シードラウンドで Build VC からリード 3000 万円、エンジェル 2 名で 500 万円、合計 3500 万円調達" },
   { value: "deal", label: "事業契約", placeholder: "例: 大学発ベンチャー A 社と PoC 契約 (期間 6 ヶ月、金額 200 万円)" },
+  { value: "tech_progress", label: "技術進捗", placeholder: "例: 試作 3 号機が稼働、収率 85% で安定。TRL 4→5 相当の進展" },
   { value: "governance", label: "ガバナンス", placeholder: "例: 取締役会で資金調達方針を決議、まさが議長、決議事項 3 件すべて承認" },
   { value: "xrl_obs", label: "XRL 観測", placeholder: "例: ラボでの試作機が稼働、TRL 4 相当。ボトルネックは収率の安定化" },
   { value: "amd_score_override", label: "AMD スコア手動補正", placeholder: "例: 大型契約で勢いつき、+10 加点したい" },

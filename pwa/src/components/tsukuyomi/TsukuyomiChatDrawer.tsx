@@ -107,16 +107,31 @@ export function TsukuyomiChatDrawer({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-[70]">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+    <>
+      {/* 背景クリックで閉じる (透明 — マスコットは隠さない) */}
+      <div className="fixed inset-0 z-[65]" onClick={onClose} />
+      {/* マスコットの上に吹き出し風で表示。
+         右端 = マスコットの右端揃え (right: 8px、マスコットも right-2)
+         下端 = マスコット高さ (~140px) + 余白 */}
       <div
-        className="absolute right-0 top-0 bottom-0 w-[420px] max-w-[92vw] bg-white shadow-2xl flex flex-col"
+        className="fixed right-2 z-[70] bg-white shadow-2xl flex flex-col rounded-2xl rounded-br-sm border border-[#e5e5e7]"
+        style={{
+          bottom: "168px",
+          width: "min(380px, 92vw)",
+          height: "min(540px, calc(100vh - 200px))",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-4 py-3 border-b border-[#e5e5e7] flex items-center justify-between">
+        {/* 吹き出しのしっぽ */}
+        <div
+          className="absolute right-6 -bottom-2 w-4 h-4 bg-white border-r border-b border-[#e5e5e7]"
+          style={{ transform: "rotate(45deg)" }}
+        />
+
+        <div className="px-3 py-2 border-b border-[#e5e5e7] flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg">🌙</span>
-            <h3 className="text-sm font-semibold">つくよみと話す</h3>
+            <span className="text-base">🌙</span>
+            <h3 className="text-[13px] font-semibold">つくよみと話す</h3>
             {projectId && (
               <span className="text-[10px] font-mono text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">
                 {projectId}
@@ -191,6 +206,6 @@ export function TsukuyomiChatDrawer({ onClose }: Props) {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

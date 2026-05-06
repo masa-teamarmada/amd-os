@@ -32,6 +32,11 @@ const SCHEMA_HINTS: Record<string, string> = {
   "amount_yen": <金額|省略>, "duration_months": <期間|省略>,
   "stage": "negotiation|signed|in_progress|closed"
 }`,
+  tech_progress: `{
+  "summary": "<技術進捗のサマリ>",
+  "trl_implication": <0-9|null>, "brl_implication": <0-9|null>, "hrl_implication": <0-9|null>,
+  "metrics": { "<KPI 名>": "<値>" }
+}`,
   governance: `{
   "topic": "<議題>", "decision": "<決議内容>",
   "participants": ["<出席者>"], "follow_up": "<フォロー事項|省略>"
