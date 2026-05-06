@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import TsukuyomiSprite, { type TsukuyomiAnimation } from "./Sprite";
+import { TsukuyomiChatDrawer } from "./TsukuyomiChatDrawer";
 
 const CORNER_SCALE = 0.9;
 const CORNER_BOTTOM_PX = 16;
@@ -29,6 +30,7 @@ function pickMood(): TsukuyomiAnimation {
 export default function Mascot() {
   const [animation, setAnimation] = useState<TsukuyomiAnimation>("idle");
   const animationRef = useRef<TsukuyomiAnimation>("idle");
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     animationRef.current = animation;
@@ -67,22 +69,26 @@ export default function Mascot() {
   function handleTap() {
     setAnimation("wave");
     window.setTimeout(() => setAnimation("idle"), MOOD_DURATION_MS);
+    setChatOpen(true);
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleTap}
-      className="fixed right-2 z-30 opacity-95 active:opacity-70 transition-opacity"
-      style={{ bottom: `${CORNER_BOTTOM_PX}px` }}
-      aria-label="つくよみ"
-    >
-      <TsukuyomiSprite
-        animation={animation}
-        fps={FPS[animation]}
-        scale={CORNER_SCALE}
-        flipX
-      />
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={handleTap}
+        className="fixed right-2 z-30 opacity-95 active:opacity-70 transition-opacity"
+        style={{ bottom: `${CORNER_BOTTOM_PX}px` }}
+        aria-label="つくよみと話す"
+      >
+        <TsukuyomiSprite
+          animation={animation}
+          fps={FPS[animation]}
+          scale={CORNER_SCALE}
+          flipX
+        />
+      </button>
+      {chatOpen && <TsukuyomiChatDrawer onClose={() => setChatOpen(false)} />}
+    </>
   );
 }

@@ -25,6 +25,8 @@ const OUTCOME_OPTIONS: { value: string; label: string; group: "pre" | "post" }[]
   { value: "rocket", label: "🚀 離陸中 (After 0、伸びてる)", group: "post" },
   { value: "lifted", label: "✈️ 離陸完了 (After 0、卒業見えた)", group: "post" },
   { value: "deep_pivot", label: "🔄 後付け deep 化 (pivot 成功)", group: "post" },
+  { value: "zombie", label: "🧟 ゾンビ化 (存続中だが伸び悩み)", group: "post" },
+  { value: "smb", label: "🏪 中小企業化 (大規模 SU 化せず堅実継続)", group: "post" },
   { value: "burnout", label: "🔥 燃え尽き (XRL 不足)", group: "post" },
   { value: "ue_fail", label: "💀 UE 失敗", group: "post" },
 ];

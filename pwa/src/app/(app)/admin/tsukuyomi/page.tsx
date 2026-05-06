@@ -5,7 +5,7 @@ import { AdminTsukuyomiPjStatusLearnings } from "@/components/admin/AdminTsukuyo
 export default async function AdminTsukuyomiPage() {
   const supabase = await createClient();
 
-  const [projectsRes, contextsRes, learningsRes, statusLearningsRes, narrativeFeedbacksRes] = await Promise.all([
+  const [projectsRes, contextsRes, learningsRes, statusLearningsRes, narrativeFeedbacksRes, chatLogsRes] = await Promise.all([
     supabase
       .from("projects")
       .select("project_id, project_name, status, slack_channel_id")
@@ -29,6 +29,11 @@ export default async function AdminTsukuyomiPage() {
     supabase
       .from("narrative_feedbacks")
       .select("id, project_id, item_date, item_title, feedback, status, applied_at, applied_note, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("tsukuyomi_chat_logs")
+      .select("id, project_id, session_id, page_path, role, content, applied_actions, created_at")
       .order("created_at", { ascending: false })
       .limit(200),
   ]);
@@ -62,6 +67,16 @@ export default async function AdminTsukuyomiPage() {
           appliedAt: f.applied_at ?? null,
           appliedNote: f.applied_note ?? null,
           createdAt: f.created_at ?? null,
+        }))}
+        chatLogs={(chatLogsRes.data ?? []).map((c) => ({
+          id: c.id,
+          projectId: c.project_id ?? null,
+          sessionId: c.session_id,
+          pagePath: c.page_path ?? null,
+          role: c.role,
+          content: c.content,
+          appliedActions: (c.applied_actions as Array<{ kind: string; detail: string }> | null) ?? null,
+          createdAt: c.created_at ?? null,
         }))}
       />
 

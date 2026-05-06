@@ -31,9 +31,21 @@ interface Feedback {
   createdAt: string | null;
 }
 
+interface ChatLog {
+  id: string;
+  projectId: string | null;
+  sessionId: string;
+  pagePath: string | null;
+  role: string;
+  content: string;
+  appliedActions: Array<{ kind: string; detail: string }> | null;
+  createdAt: string | null;
+}
+
 interface Props {
   learnings: Learning[];
   feedbacks: Feedback[];
+  chatLogs?: ChatLog[];
 }
 
 function formatDt(iso: string | null): string {
@@ -41,8 +53,8 @@ function formatDt(iso: string | null): string {
   return iso.replace("T", " ").slice(0, 16);
 }
 
-export function AdminTsukuyomiPjStatusLearnings({ learnings, feedbacks }: Props) {
-  const [tab, setTab] = useState<"general" | "pj" | "feedbacks">("general");
+export function AdminTsukuyomiPjStatusLearnings({ learnings, feedbacks, chatLogs = [] }: Props) {
+  const [tab, setTab] = useState<"general" | "pj" | "feedbacks" | "chat">("general");
 
   const general = learnings.filter((l) => l.targetProjectId === null);
   const perPj = learnings.filter((l) => l.targetProjectId !== null);
@@ -68,10 +80,11 @@ export function AdminTsukuyomiPjStatusLearnings({ learnings, feedbacks }: Props)
         </p>
       </div>
 
-      <div className="px-4 py-3 flex gap-2">
+      <div className="px-4 py-3 flex gap-2 flex-wrap">
         {tabBtn("general", "一般ルール (全 PJ 共通)", general.length)}
         {tabBtn("pj", "PJ 個別ルール", perPj.length)}
         {tabBtn("feedbacks", "修正依頼履歴", feedbacks.length)}
+        {tabBtn("chat", "🌙 マスコットチャット", chatLogs.length)}
       </div>
 
       <div className="px-4 pb-4">
@@ -145,6 +158,36 @@ export function AdminTsukuyomiPjStatusLearnings({ learnings, feedbacks }: Props)
                       </span>
                     )}
                     <div className="text-slate-800 whitespace-pre-wrap">{f.feedback}</div>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )
+        )}
+
+        {tab === "chat" && (
+          chatLogs.length === 0 ? (
+            <p className="text-[12px] text-muted-foreground">まだ無し。右下のつくよみマスコットをタップで会話開始。</p>
+          ) : (
+            <ul className="text-[12.5px] divide-y divide-[#f1f5f9]">
+              {chatLogs.map((c) => (
+                <li key={c.id} className="py-2 flex items-start gap-3 flex-wrap">
+                  <span className="text-[10px] font-mono text-muted-foreground w-[110px] shrink-0">
+                    {formatDt(c.createdAt)}
+                  </span>
+                  <span className="text-[10px] font-mono text-purple-600 w-[60px] shrink-0">
+                    {c.projectId ?? "—"}
+                  </span>
+                  <span className={`text-[10px] font-mono w-[64px] shrink-0 ${c.role === "assistant" ? "text-purple-700" : "text-slate-700"}`}>
+                    {c.role === "assistant" ? "つくよみ" : "まさ"}
+                  </span>
+                  <span className="flex-1 min-w-[200px]">
+                    <div className="text-slate-800 whitespace-pre-wrap">{c.content}</div>
+                    {c.appliedActions && c.appliedActions.length > 0 && (
+                      <div className="mt-1 text-[10px] text-emerald-700">
+                        ✓ 適用: {c.appliedActions.map((a) => `${a.kind} (${a.detail})`).join(" / ")}
+                      </div>
+                    )}
                   </span>
                 </li>
               ))}
