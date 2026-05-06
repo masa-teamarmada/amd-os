@@ -19,6 +19,27 @@
 
 ---
 
+### [AMD OS PWA] 「過去にあったリンクの復活」を推測で実装して別の場所に飛ばした
+
+- **発見日**: 2026-05-06
+- **状態**: ✅ 解決済み (rollback)
+- **症状**: まさが「コックピットから config に飛ぶリンクが消えてる、復活させて」と指示。Claude が `CockpitHeader` に `⚙️ config` リンクを追加したが、href を `/admin/projects#${projectId}` (= PJ 台帳ページ) にした → まさが「PJ 台帳に飛んじゃってる、元通りにして」と却下
+- **原因**:
+  - 「config」というラベルだけ受け取って、過去の飛び先を `git log -S "config"` 等で確認せずに推測で実装した
+  - 実際に `git log -p --all -S "config" -- pwa/src/components/cockpit/` を遡ると、CockpitHeader にリンクが存在した形跡は無く (今回の `e6038d8` が初出)、まさの記憶ベースの「config」がどこを指していたか特定できなかった
+  - それなのに「とりあえず admin/projects」と妥協で実装してしまった
+- **解決策**:
+  - CockpitHeader を config リンク追加前の状態にロールバック (PJ 名 + clientName + status chip のみ)
+  - PWA 全体設計を `pwa/design_log/2026-05_pj_status_cockpit.md` に集約、冒頭に「既存 UI を勝手に消すな」セクションを追加
+  - SPEC_pwa.md からも cockpit ルート説明にリンクを追加して、新セッションが最初に見つけられるように
+- **教訓**:
+  - 「過去にあった〇〇を復活させて」と頼まれたら、まず `git log -p -S` / `git log --diff-filter=D` で履歴を確認してから実装する
+  - 履歴に該当物が見つからなかったら、まさに飛び先・仕様を確認する。推測で代用しない
+  - リンクラベルだけ合っていても、**飛び先が違うと UI として壊れている**
+  - 既存 UI の追加 / 削除はどちらもリスクが高い。迷ったら確認
+
+---
+
 ### [AMD OS PWA] annotation 付きスプライトシートの自動クリーンは沼る
 
 - **発見日**: 2026-05-04

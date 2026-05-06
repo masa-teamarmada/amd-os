@@ -42,6 +42,59 @@ function uuid(): string {
   });
 }
 
+/** localStorage に保存するチャット状態。
+ *  ブラウザのキャッシュがある限り、別タップで閉じても会話が続く。
+ *  PJ ごとに分けたいので、project_id (or 'no_project') ごとに保存する。 */
+const LS_VERSION = "v1";
+const LS_PREFIX = "tsukuyomi_chat";
+
+interface PersistedChat {
+  sessionId: string;
+  messages: ChatMessage[];
+  appliedSummary: ApplyAction[];
+  updatedAt: string;
+}
+
+function lsKey(projectId: string | null): string {
+  return `${LS_PREFIX}:${LS_VERSION}:${projectId ?? "no_project"}`;
+}
+
+function loadPersisted(projectId: string | null): PersistedChat | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(lsKey(projectId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed.sessionId || !Array.isArray(parsed.messages)) return null;
+    return {
+      sessionId: parsed.sessionId,
+      messages: parsed.messages,
+      appliedSummary: Array.isArray(parsed.appliedSummary) ? parsed.appliedSummary : [],
+      updatedAt: parsed.updatedAt ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function savePersisted(projectId: string | null, state: PersistedChat) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(lsKey(projectId), JSON.stringify(state));
+  } catch {
+    // localStorage が満杯 / 無効な環境では諦める
+  }
+}
+
+function clearPersisted(projectId: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(lsKey(projectId));
+  } catch {
+    // ignore
+  }
+}
+
 interface Props {
   onClose: () => void;
 }
@@ -49,23 +102,63 @@ interface Props {
 export function TsukuyomiChatDrawer({ onClose }: Props) {
   const pathname = usePathname();
   const projectId = extractProjectId(pathname);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: "assistant",
-      content: projectId
-        ? `この PJ コックピットで何が知りたい? 修正したいことがあれば直接言ってくれれば直します。`
-        : `何を見て、何を直しましょうか? PJ コックピットを開きながら話しかけると、その PJ の情報を直接修正できます。`,
-    },
-  ]);
+
+  // 初回 mount 時に localStorage から復元 (なければ greeting + 新 session)
+  const initial = (() => {
+    const persisted = loadPersisted(projectId);
+    if (persisted && persisted.messages.length > 0) {
+      return persisted;
+    }
+    return {
+      sessionId: uuid(),
+      messages: [
+        {
+          role: "assistant" as const,
+          content: projectId
+            ? `この PJ コックピットで何が知りたい? 修正したいことがあれば直接言ってくれれば直します。`
+            : `何を見て、何を直しましょうか? PJ コックピットを開きながら話しかけると、その PJ の情報を直接修正できます。`,
+        },
+      ],
+      appliedSummary: [] as ApplyAction[],
+      updatedAt: new Date().toISOString(),
+    };
+  })();
+
+  const [messages, setMessages] = useState<ChatMessage[]>(initial.messages);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [appliedSummary, setAppliedSummary] = useState<ApplyAction[]>([]);
-  const sessionIdRef = useRef<string>(uuid());
+  const [appliedSummary, setAppliedSummary] = useState<ApplyAction[]>(initial.appliedSummary);
+  const sessionIdRef = useRef<string>(initial.sessionId);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // 状態が変わるたび localStorage に保存 → ブラウザを閉じる / 別ページに行っても会話を継続
+  useEffect(() => {
+    savePersisted(projectId, {
+      sessionId: sessionIdRef.current,
+      messages,
+      appliedSummary,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [messages, appliedSummary, projectId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy]);
+
+  const startFreshSession = () => {
+    if (!confirm("会話を初期化しますか? (履歴は admin/tsukuyomi に残ります)")) return;
+    sessionIdRef.current = uuid();
+    setMessages([
+      {
+        role: "assistant",
+        content: projectId
+          ? `この PJ コックピットで何が知りたい? 修正したいことがあれば直接言ってくれれば直します。`
+          : `何を見て、何を直しましょうか? PJ コックピットを開きながら話しかけると、その PJ の情報を直接修正できます。`,
+      },
+    ]);
+    setAppliedSummary([]);
+    clearPersisted(projectId);
+  };
 
   const send = async () => {
     if (!input.trim() || busy) return;
@@ -138,9 +231,18 @@ export function TsukuyomiChatDrawer({ onClose }: Props) {
               </span>
             )}
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={startFreshSession}
+              className="text-[10px] text-muted-foreground hover:text-foreground hover:underline"
+              title="会話を初期化 (履歴は admin/tsukuyomi に残る)"
+            >
+              新しい会話
+            </button>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
+              ✕
+            </button>
+          </div>
         </div>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3 bg-[#fafbff]">

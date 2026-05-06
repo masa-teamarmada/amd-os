@@ -295,3 +295,81 @@ handoff skill (`~/.agents/skills/handoff/SKILL.md`) も同時更新:
 | `4d9be8b` | docs(pwa): split HANDOFF into SPEC + design_log + slim handoff |
 | `b489494` | feat(venture-map): add Timeline 3D view (cyber-style three.js) |
 | (この後 commit) | docs(pwa): update Vercel deploy command + record cwd accident in BUGS |
+
+---
+
+## セッション (2026-05-06, cool-booth-b72d09 worktree, Opus 4.7)
+
+PJ Status コックピット拡張を 6 phase で実装。`/project/[projectId]/cockpit` の上部に SU 系 PJ 用の Status セクションを追加。
+
+設計の正本は **`pwa/design_log/2026-05_pj_status_cockpit.md`** に集約 (構造図・モーダル一覧・データモデル・API・cron・学習ループ・反省事項を含む)。
+
+### Phase 1: スキーマ統合 (migration 008)
+- 旧 `ventures` (id TEXT 'tiem' 等) 廃止 → `project_ventures` (project_id PK FK to projects.project_id)
+- `ventures_xrl_log` → `project_xrl_log` rename + venture_id → project_id
+- `project_events` 新規 (kind: hire / funding / deal / governance / xrl_obs / amd_score_override / note + 後に tech_progress)
+- `seeds.linked_venture_id` → `linked_project_id`
+- 既存 `venture-map-data.ts` / `VentureMapView` / `SuDetailView` / `Timeline3DView` / `relearn-lane-weights` cron も rename 反映
+
+### Phase 2-3: Status セクション本体
+- `CockpitVentureStatus.tsx`: AMD スコア折れ線 (-100〜+100) + XRL 折れ線 (TRL/BRL/HRL)
+- 横軸はデータ実 min/max ± 6% にフィット
+- ヘッダー全要素クリック → `CockpitVentureMetaEditModal` (該当フィールドにフォーカス)
+- イベント編集モーダル: 自由文 textarea + 保存後に `/api/project-events/parse` (Gemini) で kind 別 schema に構造化
+- 専用モーダル群: メンバー / パートナー / 月次試算表 (縦横ピボット) / 事業概要詳細 (つくよみマージ)
+
+### Phase 4: つくよみ沿革学習ループ
+- migration 010-011: `narrative_feedbacks`, `tsukuyomi_learnings_status`, `xrl_feedbacks`, `tsukuyomi_chat_logs`, `project_pl_hearings`, `project_venture_members`, `project_partners`, `project_pl_monthly`, etc
+- 沿革モーダル: リスト形式 (年月+一行+詳細展開)、行 ✏ で `CockpitNarrativeFeedbackModal`
+- 修正依頼 → `submitNarrativeFeedback` → 即時 `/api/project-ventures/[id]/narrative-regen` 叩く
+- 共通 lib `narrative-refresh.ts` `refreshNarrativeForProject()`: cron + 単発 API 共有
+  - open feedbacks + learnings (general + per-PJ) を Gemini プロンプト注入
+  - 沿革再生成
+  - Sonnet が feedback から lesson 抽出 (general / individual)
+  - `tsukuyomi_learnings_status` に保存
+  - feedback applied 化
+
+### Phase 5: XRL 軸別評価 + マスコットチャット
+- XRL ドット 3 倍化 (r=4 → r=12 / proposal r=15)、各軸 (TRL/BRL/HRL) 個別 onClick
+- `CockpitXrlDetailModal` (axis prop): クリック軸の値だけ大きく + 軸別評価理由を表示
+- `source_note` を JSON 文字列に変更: `{ trl_reason, brl_reason, hrl_reason }`
+  - 情報不足な軸は「情報不足」と明示
+  - 旧 plain text source_note は「(旧形式)」フォールバック表示
+- `xrl-revise` / `xrl-refresh` cron 両方が JSON 形式で出力するよう更新
+- `description-merge` に Anthropic 公式 `web_search_20250305` tool 追加 (「ネットで調べて」と書かれたら捏造禁止で検索)
+
+### Phase 6: マスコットチャット
+- 右下マスコットクリック → 吹き出し風小ウィンドウ (drawer ではなく `bottom: 168px / right-2 / 380x540px / 三角しっぽ`)
+- マスコット本体は隠れない
+- 会話状態は **localStorage に永続化** (`tsukuyomi_chat:v1:<projectId>`)
+  - ブラウザ閉じても、別タップで閉じても、再開時に履歴復元
+  - 「新しい会話」ボタンで明示リセット
+- `/api/tsukuyomi/chat`: Sonnet + tool use (`update_short_long_description` / `invalidate_narrative` / `record_xrl_feedback` / `web_search`)
+- 全会話 + applied actions を `tsukuyomi_chat_logs` に保存
+- admin/tsukuyomi に統合 (memory layer の中に `pj_status:narrative` source として混在表示、JST 固定)
+
+### その他
+- 終了 PJ で月次ルーティン非表示 (`status === 'active' || 'sales'` のときだけ render)
+- イベント kind: 「採用」→「人事」、「技術進捗」追加 (event_bonus +4)
+- @メンション機能 (MentionTextarea / MentionDisplay): @入力 → コードネーム dropdown / 表示時に青字 span
+- アウトカム追加: ゾンビ化 / 中小企業化
+- AMD スコア breakdown モーダル (chip クリックで計算式 + 各値の内訳表示)
+- メンバー属性 (member_kind: amd_internal / su_internal / support_org)、AMD は project_members アサイン済社員のみコードネーム dropdown
+
+### 反省 (詳細は BUGS.md)
+- `CockpitHeader` に独断で `⚙️ config` リンク (`/admin/projects` = PJ 台帳) を追加 → まさに却下
+- 「過去にあったリンクの復活」依頼に対し git history を確認せず推測で実装した
+- セッション末尾で `CockpitHeader` を config 追加前の状態にロールバック
+
+### Commits (このセッションで主に進めた branch: `claude/cool-booth-b72d09`)
+| commit | 概要 |
+|---|---|
+| 473512a | feat(cockpit): PJ Status section v1 + ventures→project_ventures schema unification (migration 008) |
+| 9570cd4 | feat(cockpit): PJ Status v2 — meta-edit, free-text events, Gemini narrative & XRL proposal |
+| 73d1cd2 | fix(cockpit): RLS write policies for PJ Status + service_role for server APIs (migration 009) |
+| 6951cd0 | feat(cockpit): v3 — narrative list / cron / members / partners / monthly P&L / つくよみ description merge (migration 010) |
+| (途中複数) | fix: PL skeleton, AMD member dropdown, immediate narrative regen, JST display etc |
+| 66cb868 | fix(cockpit): AMD member shows code_name (まさ/きよ) + monthly P&L pivoted |
+| cf7ec93 | feat(cockpit): outcomes ゾンビ化/中小企業化, @mention, web search, XRL detail+revise, mascot chat, routine fix (migration 012) |
+| e6038d8 | fix(cockpit): JST display / merge PJ-status learnings into main list / mascot bubble / axis-specific XRL / 技術進捗 / config link (誤実装) |
+| (これから commit) | fix(cockpit): revert config link / persist mascot chat in localStorage + design doc |
