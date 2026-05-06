@@ -18,36 +18,51 @@ import type { VentureRow, XrlLogRow, LaneId } from "@/lib/venture-map-data";
 // ユーザー軸 → Three.js 軸:
 //   X (時間)        → Three.X
 //   Y (SU 奥行き)   → Three.Z
-//   Z (スコア / 高さ) → Three.Y (Three は Y-up が標準)
+//   Z (スコア / 高さ) → Three.Y
 //
-// プリセット名はユーザー軸ベースで命名。
-//   "xz"  : 時間 × スコア (重ねた 2D)   → camera (0,0,+dist), look (0,0,0)
-//   "yz"  : SU × スコア (棒グラフ)      → camera (+dist,0,0)
-//   "xy"  : 時間 × SU (沿革)           → camera (0,+dist,0)
-//   "iso" : 3D 等角視点
+// 折れ線ではなく stacked area (5 レイヤー = TRL/BRL/HRL/GRL/SRL)
+// 各 SU は X-Y 平面に半透明面が積層、Z=各 SU 位置 に並ぶ
+//
+// 配色: 白純背景 + 細い黒系線 + dark-tone neon (HUD 風サイバー)
+// UI: corner-cut フレーム + tabular monospace + uppercase
 // ============================================================
 
-const LANE_COLORS: Record<LaneId, string> = {
-  gx_energy: "#22d3ee",   // cyan
-  gx_circular: "#34d399", // emerald
-  materials: "#fb923c",   // orange
-  life: "#f472b6",        // pink
-  robo: "#a78bfa",        // violet
-};
-
+// pastel neon (white-base × bright saturated)
 const RL_COLORS = {
-  trl: "#22d3ee",
-  brl: "#fb923c",
-  hrl: "#34d399",
-  grl: "#a78bfa",
-  srl: "#f472b6",
+  trl: "#22d3ee", // cyan-400
+  brl: "#fb923c", // orange-400
+  hrl: "#34d399", // emerald-400
+  grl: "#a78bfa", // violet-400
+  srl: "#f472b6", // pink-400
 } as const;
 
-const X_LEN = 24;       // 時間軸の長さ
-const Y_GAP = 2.4;      // SU 間距離
-const Z_HEIGHT = 4;     // スコア上限 (score=1 → height=Z_HEIGHT)
-const TUBE_RADIUS = 0.08;
-const TUBE_RADIUS_AMD = 0.13; // AMD 参画期間は太く
+const RL_KEYS = ["trl", "brl", "hrl", "grl", "srl"] as const;
+type RlKey = (typeof RL_KEYS)[number];
+
+const HUD_INK = "#0a0e15";
+const HUD_LINE = "#475569";
+const HUD_MUTE = "#64748b";
+const HUD_BG = "#ffffff";
+const HUD_AMBER = "#f59e0b";
+// glassmorphic panel
+const PANEL_BG = "rgba(255,255,255,0.72)";
+const PANEL_BORDER = "rgba(10,14,21,0.85)";
+const PANEL_BLUR = "blur(10px) saturate(140%)";
+// neon accent for active states
+const NEON_GRAD = "linear-gradient(135deg, #22d3ee 0%, #a78bfa 50%, #f472b6 100%)";
+
+const X_LEN = 22;
+const Y_GAP = 2.6;
+const Z_HEIGHT = 10; // スコア軸を更に長く (動きが見えやすく)
+
+const _LANE_COLORS_RESERVED: Record<LaneId, string> = {
+  gx_energy: "#0891b2",
+  gx_circular: "#059669",
+  materials: "#ea580c",
+  life: "#db2777",
+  robo: "#7c3aed",
+};
+void _LANE_COLORS_RESERVED;
 
 export interface VentureWithXrl {
   venture: VentureRow;
@@ -56,12 +71,6 @@ export interface VentureWithXrl {
 
 interface Props {
   data: VentureWithXrl[];
-}
-
-function computeScore(r: XrlLogRow): number {
-  const sum =
-    (r.trl || 0) + (r.brl || 0) + (r.hrl || 0) + (r.grl || 0) + (r.srl || 0);
-  return Math.min(1, Math.max(0, sum / 25));
 }
 
 function deriveTimeRange(data: VentureWithXrl[]): [number, number] {
@@ -85,64 +94,123 @@ function deriveTimeRange(data: VentureWithXrl[]): [number, number] {
     const now = Date.now();
     return [now - 365 * 24 * 3600 * 1000, now];
   }
-  // 最低 1 年幅は確保
   const span = max - min;
   const minSpan = 365 * 24 * 3600 * 1000;
-  if (span < minSpan) {
-    return [min, min + minSpan];
-  }
+  if (span < minSpan) return [min, min + minSpan];
   return [min, max];
 }
 
 type Preset = "iso" | "xz" | "yz" | "xy";
 
 const PRESET_CAM: Record<Preset, [number, number, number]> = {
-  iso: [18, 13, 22],
-  xz: [0, 0, 30],
-  yz: [30, 0, 0.0001],
-  xy: [0, 30, 0.0001],
+  iso: [22, 17, 27],
+  xz: [0, Z_HEIGHT / 2, 36],
+  yz: [38, Z_HEIGHT / 2, 0.0001],
+  xy: [0, 40, 0.0001],
 };
 
 const PRESET_LABEL: Record<Preset, string> = {
   iso: "3D",
-  xz: "時間 × スコア",
-  yz: "SU × スコア",
-  xy: "時間 × SU (沿革)",
+  xz: "T × SCORE",
+  yz: "SU × SCORE",
+  xy: "T × SU",
 };
 
 // ============================================================
-// VentureTube: 1 SU の折れ線 (CatmullRom + Tube geometry)
-// 期間内 (AMD 参画) は太く emissive 強め、期間外は細く暗く
+// VentureStackedArea: 1 SU の 5 レイヤー stacked area
 // ============================================================
 
-function VentureTube({
-  points,
-  color,
-  intensity,
-  radius,
+function VentureStackedArea({
+  xrl,
+  zPos,
+  mapTime,
 }: {
-  points: THREE.Vector3[];
-  color: string;
-  intensity: number;
-  radius: number;
+  xrl: XrlLogRow[];
+  zPos: number;
+  mapTime: (iso: string) => number;
 }) {
-  const { curve, segments } = useMemo(() => {
-    if (points.length < 2) return { curve: null, segments: 0 };
-    const c = new THREE.CatmullRomCurve3(points, false, "centripetal", 0.5);
-    return { curve: c, segments: Math.max(48, points.length * 16) };
-  }, [points]);
+  const layers = useMemo(() => {
+    if (xrl.length < 2) return [];
+    const N = xrl.length;
+    const xs = xrl.map((r) => mapTime(r.observed_at));
+    const cumY: number[][] = xrl.map((r) => {
+      const vals = RL_KEYS.map((k) =>
+        Math.min(
+          5,
+          Math.max(
+            0,
+            (r as unknown as Record<string, number | null>)[k] || 0,
+          ),
+        ),
+      );
+      const cums: number[] = [];
+      let cum = 0;
+      for (const v of vals) {
+        cum += v;
+        cums.push((cum / 25) * Z_HEIGHT);
+      }
+      return cums;
+    });
 
-  if (!curve) return null;
+    const result: { key: RlKey; shape: THREE.Shape }[] = [];
+    for (let i = 0; i < RL_KEYS.length; i++) {
+      const shape = new THREE.Shape();
+      const lowerY = (k: number) => (i === 0 ? 0 : cumY[k][i - 1]);
+      const upperY = (k: number) => cumY[k][i];
+      shape.moveTo(xs[0], lowerY(0));
+      for (let k = 1; k < N; k++) shape.lineTo(xs[k], lowerY(k));
+      for (let k = N - 1; k >= 0; k--) shape.lineTo(xs[k], upperY(k));
+      shape.closePath();
+      result.push({ key: RL_KEYS[i], shape });
+    }
+    return result;
+  }, [xrl, mapTime]);
+
+  if (layers.length === 0) return null;
 
   return (
-    <mesh>
-      <tubeGeometry args={[curve, segments, radius, 10, false]} />
-      <meshStandardMaterial
-        color={color}
-        emissive={color}
-        emissiveIntensity={intensity}
-        roughness={0.25}
-        metalness={0.55}
+    <group position={[0, 0, zPos]}>
+      {layers.map((layer, i) => (
+        <mesh key={layer.key} renderOrder={i}>
+          <shapeGeometry args={[layer.shape]} />
+          <meshBasicMaterial
+            color={RL_COLORS[layer.key]}
+            transparent
+            opacity={0.55}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ============================================================
+// AmdPeriodStrip: 地面に AMD 参画期間の amber 帯
+// ============================================================
+
+function AmdPeriodStrip({
+  xStart,
+  xEnd,
+  zPos,
+}: {
+  xStart: number;
+  xEnd: number;
+  zPos: number;
+}) {
+  const w = xEnd - xStart;
+  if (w <= 0) return null;
+  const xMid = (xStart + xEnd) / 2;
+  return (
+    <mesh position={[xMid, -0.45, zPos]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[w, 0.95]} />
+      <meshBasicMaterial
+        color={HUD_AMBER}
+        transparent
+        opacity={0.32}
+        depthWrite={false}
         toneMapped={false}
       />
     </mesh>
@@ -150,82 +218,40 @@ function VentureTube({
 }
 
 // ============================================================
-// VentureBars: 5 RL の積層棒 (Y-Z 視点で映える)
-// 各 SU の最新観測点を SU 位置に立てる
-// ============================================================
-
-function VentureBars({
-  vd,
-  z,
-  xPos,
-}: {
-  vd: VentureWithXrl;
-  z: number;
-  xPos: number;
-}) {
-  if (vd.xrl.length === 0) return null;
-  const latest = vd.xrl[vd.xrl.length - 1];
-  const vals = [
-    { key: "trl" as const, val: (latest.trl || 0) / 5 },
-    { key: "brl" as const, val: (latest.brl || 0) / 5 },
-    { key: "hrl" as const, val: (latest.hrl || 0) / 5 },
-    { key: "grl" as const, val: (latest.grl || 0) / 5 },
-    { key: "srl" as const, val: (latest.srl || 0) / 5 },
-  ];
-  const segH = Z_HEIGHT / 5;
-  let cum = 0;
-  return (
-    <group position={[xPos, 0, z]}>
-      {vals.map((rl) => {
-        const h = Math.max(0.01, rl.val * segH);
-        const yCenter = cum + h / 2;
-        cum += h;
-        return (
-          <mesh key={rl.key} position={[0, yCenter, 0]}>
-            <boxGeometry args={[0.45, h, 0.45]} />
-            <meshStandardMaterial
-              color={RL_COLORS[rl.key]}
-              emissive={RL_COLORS[rl.key]}
-              emissiveIntensity={0.9}
-              toneMapped={false}
-            />
-          </mesh>
-        );
-      })}
-    </group>
-  );
-}
-
-// ============================================================
-// VentureEvents: milestone_label を持つ点に光る球 + Html ラベル
-// X-Y view (沿革) のときだけ Html を表示する
+// VentureEvents: milestone marker
 // ============================================================
 
 function VentureEvents({
-  vd,
-  z,
+  xrl,
+  zPos,
   mapTime,
   showLabels,
 }: {
-  vd: VentureWithXrl;
-  z: number;
+  xrl: XrlLogRow[];
+  zPos: number;
   mapTime: (iso: string) => number;
   showLabels: boolean;
 }) {
-  const events = vd.xrl.filter((r) => r.milestone_label);
+  const events = xrl.filter((r) => r.milestone_label);
   return (
     <>
       {events.map((r) => {
         const x = mapTime(r.observed_at);
-        const y = computeScore(r) * Z_HEIGHT;
+        const sum =
+          (r.trl || 0) +
+          (r.brl || 0) +
+          (r.hrl || 0) +
+          (r.grl || 0) +
+          (r.srl || 0);
+        const y = (sum / 25) * Z_HEIGHT;
         return (
-          <group key={r.id} position={[x, y, z]}>
+          <group key={r.id} position={[x, y, zPos]}>
             <mesh>
-              <sphereGeometry args={[0.13, 16, 16]} />
+              <sphereGeometry args={[0.12, 16, 16]} />
               <meshStandardMaterial
-                color="#fef3c7"
-                emissive="#fbbf24"
-                emissiveIntensity={1.6}
+                color={HUD_AMBER}
+                emissive={HUD_AMBER}
+                emissiveIntensity={0.9}
                 toneMapped={false}
               />
             </mesh>
@@ -233,22 +259,27 @@ function VentureEvents({
               <Html
                 center
                 distanceFactor={14}
-                position={[0, 0.4, 0]}
+                position={[0, 0.5, 0]}
                 style={{ pointerEvents: "none" }}
               >
                 <div
                   style={{
-                    fontSize: 10,
-                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                    color: "#fde68a",
-                    background: "rgba(8,12,20,0.7)",
-                    border: "1px solid rgba(251,191,36,0.4)",
+                    fontSize: 9,
+                    fontFamily:
+                      "ui-monospace, SFMono-Regular, Menlo, monospace",
+                    fontFeatureSettings: "'tnum'",
+                    color: HUD_INK,
+                    background: HUD_BG,
+                    border: `1px solid ${HUD_INK}`,
                     padding: "2px 6px",
-                    borderRadius: 3,
                     whiteSpace: "nowrap",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    clipPath:
+                      "polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px)",
                   }}
                 >
-                  {r.milestone_label}
+                  ◆ {r.milestone_label}
                 </div>
               </Html>
             )}
@@ -260,8 +291,7 @@ function VentureEvents({
 }
 
 // ============================================================
-// CameraRig: preset 切替で camera position を smooth lerp
-// 完了したら OrbitControls の自由回転に戻す
+// CameraRig
 // ============================================================
 
 function CameraRig({
@@ -269,7 +299,11 @@ function CameraRig({
   controlsRef,
 }: {
   preset: Preset;
-  controlsRef: React.RefObject<{ enabled: boolean; target: THREE.Vector3; update: () => void } | null>;
+  controlsRef: React.RefObject<{
+    enabled: boolean;
+    target: THREE.Vector3;
+    update: () => void;
+  } | null>;
 }) {
   const targetPos = useRef(new THREE.Vector3(...PRESET_CAM[preset]));
   const animating = useRef(true);
@@ -284,12 +318,13 @@ function CameraRig({
   useFrame(() => {
     if (!animating.current) return;
     camera.position.lerp(targetPos.current, 0.08);
-    camera.lookAt(0, 0, 0);
+    const lookY = preset === "xz" || preset === "yz" ? Z_HEIGHT / 2 : 0;
+    camera.lookAt(0, lookY, 0);
     if (camera.position.distanceTo(targetPos.current) < 0.05) {
       camera.position.copy(targetPos.current);
-      camera.lookAt(0, 0, 0);
+      camera.lookAt(0, lookY, 0);
       if (controlsRef.current) {
-        controlsRef.current.target.set(0, 0, 0);
+        controlsRef.current.target.set(0, lookY, 0);
         controlsRef.current.enabled = true;
         controlsRef.current.update();
       }
@@ -301,10 +336,16 @@ function CameraRig({
 }
 
 // ============================================================
-// Scene: 全 SU を組み立てる
+// Scene
 // ============================================================
 
-function Scene({ data, preset }: { data: VentureWithXrl[]; preset: Preset }) {
+function Scene({
+  data,
+  preset,
+}: {
+  data: VentureWithXrl[];
+  preset: Preset;
+}) {
   const tRange = useMemo(() => deriveTimeRange(data), [data]);
   const mapTime = useMemo(() => {
     const span = tRange[1] - tRange[0] || 1;
@@ -322,99 +363,76 @@ function Scene({ data, preset }: { data: VentureWithXrl[]; preset: Preset }) {
     <>
       {data.map((vd, i) => {
         if (vd.xrl.length < 2) return null;
-        const z = (i - center) * Y_GAP;
-        const color = LANE_COLORS[vd.venture.lane];
+        const zPos = (i - center) * Y_GAP;
 
-        // AMD 参画期間: founded_at 〜 (active なら今日 / それ以外は最終 xrl)
-        const amdStart = +new Date(vd.venture.founded_at);
-        const amdEnd =
+        const amdStartT = +new Date(vd.venture.founded_at);
+        const amdEndT =
           vd.venture.status === "active"
             ? now
             : +new Date(vd.xrl[vd.xrl.length - 1].observed_at);
-
-        // 観測点を期間内 / 期間外に分ける
-        const inAmd: THREE.Vector3[] = [];
-        const outAmd: THREE.Vector3[] = [];
-        vd.xrl.forEach((r) => {
-          const t = +new Date(r.observed_at);
-          const v = new THREE.Vector3(
-            mapTime(r.observed_at),
-            computeScore(r) * Z_HEIGHT,
-            z,
-          );
-          if (t >= amdStart && t <= amdEnd) {
-            inAmd.push(v);
-          } else {
-            outAmd.push(v);
-          }
-        });
+        const xAmdStart = mapTime(
+          new Date(amdStartT).toISOString().slice(0, 10),
+        );
+        const xAmdEnd = mapTime(new Date(amdEndT).toISOString().slice(0, 10));
 
         const lastP = vd.xrl[vd.xrl.length - 1];
-        const lastV = new THREE.Vector3(
-          mapTime(lastP.observed_at),
-          computeScore(lastP) * Z_HEIGHT,
-          z,
-        );
+        const lastSum =
+          (lastP.trl || 0) +
+          (lastP.brl || 0) +
+          (lastP.hrl || 0) +
+          (lastP.grl || 0) +
+          (lastP.srl || 0);
+        const lastX = mapTime(lastP.observed_at);
+        const lastY = (lastSum / 25) * Z_HEIGHT;
 
         return (
           <group key={vd.venture.id}>
-            {outAmd.length >= 2 && (
-              <VentureTube
-                points={outAmd}
-                color={color}
-                intensity={0.4}
-                radius={TUBE_RADIUS}
-              />
-            )}
-            {inAmd.length >= 2 && (
-              <VentureTube
-                points={inAmd}
-                color={color}
-                intensity={1.8}
-                radius={TUBE_RADIUS_AMD}
-              />
-            )}
-            {/* 最新点に光る球 */}
-            <mesh position={lastV.toArray()}>
-              <sphereGeometry args={[0.18, 16, 16]} />
-              <meshStandardMaterial
-                color={color}
-                emissive={color}
-                emissiveIntensity={2.2}
-                toneMapped={false}
-              />
-            </mesh>
-            {/* SU ラベル (折れ線の右端) */}
+            <AmdPeriodStrip
+              xStart={xAmdStart}
+              xEnd={xAmdEnd}
+              zPos={zPos}
+            />
+            <VentureStackedArea
+              xrl={vd.xrl}
+              zPos={zPos}
+              mapTime={mapTime}
+            />
+            <VentureEvents
+              xrl={vd.xrl}
+              zPos={zPos}
+              mapTime={mapTime}
+              showLabels={preset === "xy"}
+            />
             <Html
-              position={[lastV.x + 0.5, lastV.y, z]}
+              position={[lastX + 0.4, lastY + 0.1, zPos]}
               style={{ pointerEvents: "none" }}
             >
               <div
                 style={{
-                  fontSize: 11,
+                  fontSize: 10,
                   fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                  color,
-                  textShadow: "0 0 6px rgba(0,0,0,0.8)",
+                  fontFeatureSettings: "'tnum'",
+                  color: HUD_INK,
+                  background: "rgba(255,255,255,0.85)",
+                  border: `1px solid ${HUD_INK}`,
+                  padding: "1px 6px",
                   whiteSpace: "nowrap",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  backdropFilter: "blur(4px)",
+                  WebkitBackdropFilter: "blur(4px)",
+                  clipPath:
+                    "polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px)",
                 }}
               >
-                {vd.venture.short_label || vd.venture.id}
+                ▸ {(vd.venture.short_label || vd.venture.id).toUpperCase()}
               </div>
             </Html>
-            {/* Y-Z 視点用 内訳棒 (常時描画、X 軸右端に出すので X-Z 視点では端っこに見える) */}
-            <VentureBars vd={vd} z={z} xPos={X_LEN / 2 + 1.4} />
-            {/* milestone events */}
-            <VentureEvents
-              vd={vd}
-              z={z}
-              mapTime={mapTime}
-              showLabels={preset === "xy"}
-            />
           </group>
         );
       })}
 
-      {/* 軸ガイド */}
       <AxesGuide />
       <GridFloor />
     </>
@@ -424,24 +442,49 @@ function Scene({ data, preset }: { data: VentureWithXrl[]; preset: Preset }) {
 function AxesGuide() {
   return (
     <>
-      {/* X 軸線 (時間) */}
+      {/* X 軸 */}
       <mesh position={[0, -0.45, 0]}>
-        <boxGeometry args={[X_LEN + 2, 0.02, 0.02]} />
-        <meshBasicMaterial color="#22d3ee" toneMapped={false} />
+        <boxGeometry args={[X_LEN + 2, 0.025, 0.025]} />
+        <meshBasicMaterial color={HUD_INK} toneMapped={false} />
       </mesh>
-      {/* Y 軸線 (スコア) */}
+      {/* Z 軸 (= ユーザーの SCORE) */}
       <mesh position={[-X_LEN / 2 - 0.5, Z_HEIGHT / 2, 0]}>
-        <boxGeometry args={[0.02, Z_HEIGHT + 1, 0.02]} />
-        <meshBasicMaterial color="#a78bfa" toneMapped={false} />
+        <boxGeometry args={[0.025, Z_HEIGHT + 1, 0.025]} />
+        <meshBasicMaterial color={HUD_INK} toneMapped={false} />
       </mesh>
-      <Html position={[X_LEN / 2 + 1.2, -0.45, 0]} style={{ pointerEvents: "none" }}>
-        <div style={{ color: "#22d3ee", fontFamily: "monospace", fontSize: 10 }}>TIME →</div>
+      <Html
+        position={[X_LEN / 2 + 1.2, -0.45, 0]}
+        style={{ pointerEvents: "none" }}
+      >
+        <div
+          style={{
+            color: HUD_INK,
+            fontFamily: "monospace",
+            fontSize: 10,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+          }}
+        >
+          [ T ▸ ]
+        </div>
       </Html>
       <Html
         position={[-X_LEN / 2 - 0.5, Z_HEIGHT + 0.7, 0]}
         style={{ pointerEvents: "none" }}
       >
-        <div style={{ color: "#a78bfa", fontFamily: "monospace", fontSize: 10 }}>SCORE ↑</div>
+        <div
+          style={{
+            color: HUD_INK,
+            fontFamily: "monospace",
+            fontSize: 10,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+          }}
+        >
+          [ SCORE ▴ ]
+        </div>
       </Html>
     </>
   );
@@ -452,21 +495,52 @@ function GridFloor() {
     <Grid
       position={[0, -0.5, 0]}
       args={[60, 60]}
-      cellColor="#1e293b"
-      sectionColor="#0e7490"
-      cellThickness={0.5}
-      sectionThickness={1}
+      cellColor="#cbd5e1"
+      sectionColor={HUD_LINE}
+      cellThickness={0.4}
+      sectionThickness={0.9}
       cellSize={1}
       sectionSize={4}
-      fadeDistance={60}
-      fadeStrength={1.5}
+      fadeDistance={75}
+      fadeStrength={1.4}
       infiniteGrid
     />
   );
 }
 
 // ============================================================
-// Top-level component
+// HUD UI fragments
+// ============================================================
+
+function CornerMarker({
+  pos,
+}: {
+  pos: { top?: number; left?: number; right?: number; bottom?: number };
+}) {
+  const isTop = pos.top !== undefined;
+  const isLeft = pos.left !== undefined;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        width: 16,
+        height: 16,
+        ...pos,
+        zIndex: 5,
+        pointerEvents: "none",
+        borderTop: isTop ? `1.5px solid ${HUD_INK}` : "none",
+        borderBottom: !isTop ? `1.5px solid ${HUD_INK}` : "none",
+        borderLeft: isLeft ? `1.5px solid ${HUD_INK}` : "none",
+        borderRight: !isLeft ? `1.5px solid ${HUD_INK}` : "none",
+      }}
+    />
+  );
+}
+
+const CLIP_CORNER = "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)";
+
+// ============================================================
+// Top-level
 // ============================================================
 
 export default function Timeline3DView({ data }: Props) {
@@ -485,39 +559,100 @@ export default function Timeline3DView({ data }: Props) {
         height: "calc(100vh - 84px)",
         minHeight: 600,
         background:
-          "radial-gradient(ellipse at center, #0a0f1a 0%, #050810 60%, #02040a 100%)",
+          "radial-gradient(ellipse at 30% 20%, #ecfeff 0%, #ffffff 35%, #fdf4ff 70%, #f5f3ff 100%)",
+        overflow: "hidden",
       }}
     >
+      {/* corner markers (HUD 4-corner ticks) */}
+      <CornerMarker pos={{ top: 8, left: 8 }} />
+      <CornerMarker pos={{ top: 8, right: 8 }} />
+      <CornerMarker pos={{ bottom: 8, left: 8 }} />
+      <CornerMarker pos={{ bottom: 8, right: 8 }} />
+
+      {/* HUD header bar (status line) */}
+      <div
+        style={{
+          position: "absolute",
+          top: 18,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          padding: "6px 16px",
+          background: PANEL_BG,
+          border: `1px solid ${PANEL_BORDER}`,
+          backdropFilter: PANEL_BLUR,
+          WebkitBackdropFilter: PANEL_BLUR,
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          fontSize: 10,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: HUD_INK,
+          fontWeight: 600,
+          clipPath: CLIP_CORNER,
+          boxShadow: "0 4px 16px rgba(167,139,250,0.12)",
+        }}
+      >
+        <span
+          style={{
+            background: NEON_GRAD,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            fontWeight: 800,
+            letterSpacing: "0.12em",
+          }}
+        >
+          ▶▶▶
+        </span>
+        <span style={{ fontWeight: 700 }}>VENTURE TIMELINE / 3D</span>
+        <span style={{ color: HUD_MUTE }}>│</span>
+        <span style={{ fontVariantNumeric: "tabular-nums" }}>
+          {data.length.toString().padStart(2, "0")} ACTIVE SU
+        </span>
+        <span style={{ color: HUD_MUTE }}>│</span>
+        <span style={{ color: "#0891b2" }}>● READY</span>
+      </div>
+
       {/* preset selector */}
       <div
         style={{
           position: "absolute",
-          top: 16,
-          left: 16,
+          top: 60,
+          left: 24,
           zIndex: 10,
           display: "flex",
-          gap: 8,
-          padding: 8,
-          background: "rgba(8,12,20,0.8)",
-          border: "1px solid rgba(34,211,238,0.3)",
-          borderRadius: 6,
-          backdropFilter: "blur(8px)",
+          gap: 0,
+          padding: 0,
+          background: PANEL_BG,
+          border: `1px solid ${PANEL_BORDER}`,
+          backdropFilter: PANEL_BLUR,
+          WebkitBackdropFilter: PANEL_BLUR,
+          clipPath: CLIP_CORNER,
+          boxShadow: "0 4px 16px rgba(167,139,250,0.12)",
         }}
       >
-        {(["xz", "iso", "yz", "xy"] as Preset[]).map((p) => (
+        {(["xz", "iso", "yz", "xy"] as Preset[]).map((p, idx) => (
           <button
             key={p}
             onClick={() => setPreset(p)}
             style={{
-              padding: "6px 12px",
-              fontSize: 11,
+              padding: "9px 16px",
+              fontSize: 10,
               fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-              color: preset === p ? "#0a0f1a" : "#67e8f9",
-              background: preset === p ? "#22d3ee" : "transparent",
-              border: `1px solid ${preset === p ? "#22d3ee" : "rgba(34,211,238,0.4)"}`,
-              borderRadius: 4,
+              color: preset === p ? "#fff" : HUD_INK,
+              background: preset === p ? NEON_GRAD : "transparent",
+              border: "none",
+              borderLeft:
+                idx === 0 ? "none" : `1px solid rgba(10,14,21,0.4)`,
               cursor: "pointer",
-              textShadow: preset === p ? "none" : "0 0 6px rgba(34,211,238,0.5)",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              transition: "all 0.15s",
+              textShadow:
+                preset === p ? "0 1px 2px rgba(0,0,0,0.18)" : "none",
             }}
           >
             {PRESET_LABEL[p]}
@@ -525,19 +660,82 @@ export default function Timeline3DView({ data }: Props) {
         ))}
       </div>
 
-      {/* hint */}
+      {/* legend */}
       <div
         style={{
           position: "absolute",
-          bottom: 12,
-          left: 16,
+          top: 60,
+          right: 24,
           zIndex: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          padding: "9px 16px",
+          background: PANEL_BG,
+          border: `1px solid ${PANEL_BORDER}`,
+          backdropFilter: PANEL_BLUR,
+          WebkitBackdropFilter: PANEL_BLUR,
           fontSize: 10,
           fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-          color: "rgba(103,232,249,0.5)",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          clipPath: CLIP_CORNER,
+          boxShadow: "0 4px 16px rgba(167,139,250,0.12)",
         }}
       >
-        DRAG: rotate · SCROLL: zoom · 太線 = AMD 参画期間 · 黄球 = milestone
+        <span style={{ color: HUD_MUTE, fontWeight: 600 }}>LAYERS ▸</span>
+        {RL_KEYS.map((k) => (
+          <span
+            key={k}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              color: HUD_INK,
+              fontWeight: 700,
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: 14,
+                height: 10,
+                background: RL_COLORS[k],
+                opacity: 0.65,
+                border: `1px solid ${RL_COLORS[k]}`,
+                boxShadow: `0 0 6px ${RL_COLORS[k]}66`,
+              }}
+            />
+            {k.toUpperCase()}
+          </span>
+        ))}
+      </div>
+
+      {/* hint footer */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 18,
+          left: 24,
+          right: 24,
+          zIndex: 10,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          fontSize: 9,
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          color: HUD_MUTE,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+        }}
+      >
+        <div style={{ display: "flex", gap: 14 }}>
+          <span>[DRAG] ROTATE</span>
+          <span>[SCROLL] ZOOM</span>
+          <span style={{ color: HUD_AMBER }}>▭ AMD PERIOD</span>
+          <span style={{ color: HUD_AMBER }}>● MILESTONE</span>
+        </div>
+        <div>SYS // VENTURE-MAP-3D v0.1</div>
       </div>
 
       <Canvas
@@ -545,12 +743,14 @@ export default function Timeline3DView({ data }: Props) {
         gl={{ antialias: true, alpha: false }}
         style={{ width: "100%", height: "100%" }}
       >
-        <color attach="background" args={["#02040a"]} />
-        <fog attach="fog" args={["#02040a", 30, 80]} />
-        <ambientLight intensity={0.35} />
-        <pointLight position={[0, 12, 12]} intensity={1.2} color="#22d3ee" />
-        <pointLight position={[12, -8, -12]} intensity={0.9} color="#a78bfa" />
-        <directionalLight position={[-10, 20, 10]} intensity={0.4} color="#fff" />
+        <color attach="background" args={["#fbfaff"]} />
+        <fog attach="fog" args={["#f5f3ff", 38, 100]} />
+        <ambientLight intensity={1.0} />
+        <directionalLight
+          position={[12, 22, 12]}
+          intensity={0.45}
+          color="#ffffff"
+        />
 
         <Suspense fallback={null}>
           <Scene data={data} preset={preset} />
@@ -562,13 +762,13 @@ export default function Timeline3DView({ data }: Props) {
           enableDamping
           dampingFactor={0.08}
           minDistance={6}
-          maxDistance={80}
+          maxDistance={100}
         />
         <CameraRig preset={preset} controlsRef={controlsRef} />
-        <GizmoHelper alignment="top-right" margin={[60, 60]}>
+        <GizmoHelper alignment="top-right" margin={[80, 130]}>
           <GizmoViewport
-            axisColors={["#22d3ee", "#a78bfa", "#fb923c"]}
-            labelColor="#0a0f1a"
+            axisColors={[HUD_INK, HUD_INK, HUD_INK]}
+            labelColor={HUD_BG}
           />
         </GizmoHelper>
       </Canvas>
