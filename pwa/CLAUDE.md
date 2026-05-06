@@ -46,10 +46,14 @@ Next.js 16 + React 19 + Tailwind CSS v4
 ## ⚠️ Vercel デプロイコマンド（正本・必ずこれを使う）
 
 ```bash
-npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os/pwa
+npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os
 ```
 
-**`--cwd` は必須。** シェルの現在地に依存すると別ディレクトリの設定ファイルだけがアップロードされ、全ルート 404 になる事故が起きる。
+**`--cwd` は リポジトリ root** (`pwa/` ではない)。Vercel project `amd-os-pwa` の Settings → Build → Root Directory に `pwa` が設定されているため、`--cwd .../pwa` だと `pwa/pwa` 二重で失敗する (BUGS.md 2026-05-06 参照)。
+
+事前確認:
+- リポ root の `.vercel/project.json` が `amd-os-pwa` (`prj_raZW3HSKIszzPUwNTHfy7xDGzLHm`) を指していること。空だと `--yes` で誤って新プロジェクト `amd-os` が作られる
+- 無ければ `cp -r /Users/masa/projects/AMD/amd-os/pwa/.vercel /Users/masa/projects/AMD/amd-os/.vercel` で復元
 
 ロールバック方法（緊急時）:
 ```bash

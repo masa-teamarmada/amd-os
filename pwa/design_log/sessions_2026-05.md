@@ -200,3 +200,98 @@ PWA セッションの作業ログを月単位で集約。
 - 状態 (loading/empty/error) に応じてアニメ切替 (Mascot に Context API 追加が必要)
 - mood pickup の重み付け / 時間帯依存
 - クリックでつくよみ AI (`/admin/tsukuyomi` の知識ベース) と連携させる導線
+
+---
+
+## 2026-05-06 — ドキュメント大整理 + Venture Map Timeline 3D + Vercel 正本コマンド修正
+
+3 本立て。すべて main 反映 + 本番デプロイ完了 (`dpl_86rPErgtMCMMkGk3X45GY8DuPya2`)。
+
+### A. ドキュメント大整理 (commit `4d9be8b`)
+
+948 行の `HANDOFF_pwa_rebuild.md` を 4 ファイル責務分離に再編。
+
+- 新規 `pwa/SPEC_pwa.md` (PWA 正本仕様 356 行: 画面・ルート・データモデル・cron・共通インフラ・運用コマンド・実装規約)
+- 新規 `pwa/design_log/sessions_2026-04.md` (4 月セッション)
+- 新規 `pwa/design_log/sessions_2026-05.md` (このファイル)
+- HANDOFF を 948 → 68 行にスリム化
+- `pwa/BUGS.md` に HANDOFF 内に埋もれていた教訓 5 件を追記:
+  - Vercel 環境変数は `vercel env add` で明示登録必要
+  - shadcn Dialog 幅は `!important` で variant 上書き
+  - shadcn Dialog で `type="number"` の "0" が消せない → `type="text" inputMode="numeric"`
+  - Google OAuth Client Secret のフォントで `I/l` 区別不能 → Chrome `read_page` で aria-label 取得
+  - Supabase DDL は SQL Editor 手動でなく Management API 経由 + ファイル化
+- `pwa/AGENTS.md` `pwa/CLAUDE.md` の冒頭に SPEC への入口を追加 (新セッションが最初にここを読む)
+- `pwa/AGENTS.md` に **「PWA は常に本番で確認」** ワークフローを明記
+  - 標準: 実装 → tsc → commit → push → main merge → `vercel --prod --cwd ...amd-os` → 本番 URL 目視
+  - えいみへの含意: 確認質問で止まらず一気に通す
+
+handoff skill (`~/.agents/skills/handoff/SKILL.md`) も同時更新:
+- HANDOFF / SPEC / design_log / BUGS の役割を表で明示
+- 「6 か月後も真であれば SPEC か BUGS、HANDOFF ではない」を cardinal rule に
+- HANDOFF は 200 行以下、超えたら同じハンドオフで design_log に切り出す
+- 既存 HANDOFF が肥大化してたら spec/log の分離を提案 (3 ファイル超の変更は確認)
+
+### B. Venture Map Timeline 3D 新ページ (commit `b489494`)
+
+`/venture-map/timeline-3d` 新設。現行 9 SU を 3D 折れ線で可視化。
+
+**座標系**: ユーザー軸 (X=時間 / Y=SU並び / Z=スコア) を Three.js Y-up にマップ:
+- Three.X = 時間
+- Three.Z = SU 並び (奥行き)
+- Three.Y = スコア (高さ)
+
+**スコア**: `(TRL+BRL+HRL+GRL+SRL) / 25` を `computeScore(xrl)` 1 関数に閉じる (差し替え容易)
+
+**折れ線**: `THREE.CatmullRomCurve3` (centripetal) + `tubeGeometry` で滑らかな光るパイプ。lane 別色:
+- gx_energy = cyan, gx_circular = emerald, materials = orange, life = pink, robo = violet
+
+**AMD 参画期間**: `founded_at 〜 (active なら今日 / 終了なら最終 xrl)` の範囲を:
+- 太い (radius 0.13) + emissiveIntensity 1.8
+- 期間外は radius 0.08 + intensity 0.4 で暗く
+
+期間データの正本は `projects.start_ym` / `end_ym` だが `ventures ↔ projects` の直接 FK が無いため fallback。後で `ventures.project_id` カラム追加するのが TODO。
+
+**5RL 内訳棒**: 各 SU の最新観測点を 5 段積層 (TRL/BRL/HRL/GRL/SRL の色付き box) で X 軸右端に立てる → Y-Z プリセット (SU × スコア) で正面から並んで見える
+
+**イベント**: `milestone_label` を持つ観測点に琥珀色の球。X-Y (沿革) プリセットでだけ HTML ラベル展開
+
+**カメラプリセット** (smooth lerp + 完了後 OrbitControls 自由回転):
+| ボタン | カメラ位置 | 見える視点 |
+|---|---|---|
+| 時間 × スコア (xz) | (0, 0, +30) | 全 SU 折れ線が 2D で重なる |
+| 3D iso | (18, 13, 22) | 等角視点、奥行きに SU が並ぶ |
+| SU × スコア (yz) | (+30, 0, 0) | 5RL 内訳棒が並ぶ |
+| 時間 × SU 沿革 (xy) | (0, +30, 0) | top-down、AMD 参画期間 + milestone ラベル |
+
+**サイバー感**: dark radial bg + drei `<Grid>` floor (cyan section line) + `<fog>` + `<GizmoViewport>` + emissive material + `toneMapped: false`。Bloom postprocessing は MVP では未導入 (要なら `@react-three/postprocessing` を追加)。
+
+**新規/変更ファイル**:
+- 新規 `pwa/src/components/venture-map/Timeline3DView.tsx` (577 行)
+- 新規 `pwa/src/app/(app)/venture-map/timeline-3d/page.tsx`
+- 変更 `pwa/src/lib/venture-map-data.ts` (`fetchAllVenturesWithXrl({ activeOnly })` 追加)
+- 変更 `pwa/src/app/(app)/venture-map/page.tsx` (Timeline 3D へのリンク追加)
+
+完成度上がったら dashboard トップに移植する予定。
+
+### C. Vercel デプロイ正本コマンド変更 + 事故記録
+
+事故: `--cwd /Users/masa/projects/AMD/amd-os/pwa` で deploy したら `Error: The provided path "~/projects/AMD/amd-os/pwa/pwa" does not exist`。リトライで `--cwd` をリポ root にしたら、リポ root に `.vercel/project.json` が無かったため `--yes` で勝手に **新プロジェクト `amd-os` (`amd-os.vercel.app`)** が作られた。
+
+原因: 2026-05-05 で Vercel project `amd-os-pwa` の Settings → Build → Root Directory に `pwa` を入れた (Git Integration 用)。CLI の `--cwd` は project 設定の Root Directory と結合されるので二重になる。CLAUDE.md と SPEC の正本コマンドは Git Integration 入る前のままで時代遅れだった。
+
+対処:
+1. リポ root に `.vercel/project.json` (amd-os-pwa を指す) を配置: `cp -r pwa/.vercel ./.vercel`
+2. 正本コマンドを **リポ root を `--cwd`** に変更: `npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os`
+3. 誤プロジェクト `amd-os` を `npx vercel projects rm amd-os` で削除
+4. `pwa/CLAUDE.md` `pwa/SPEC_pwa.md` の正本コマンドを更新
+5. `pwa/BUGS.md` に詳細エントリ追加
+
+新本番デプロイ: `dpl_86rPErgtMCMMkGk3X45GY8DuPya2` (`https://amd-os-pwa.vercel.app`)。スモーク `/venture-map/timeline-3d` で `307` (auth redirect) 返る = ルート存在 + auth gate OK。
+
+### Commit ログ
+| commit | 概要 |
+|---|---|
+| `4d9be8b` | docs(pwa): split HANDOFF into SPEC + design_log + slim handoff |
+| `b489494` | feat(venture-map): add Timeline 3D view (cyber-style three.js) |
+| (この後 commit) | docs(pwa): update Vercel deploy command + record cwd accident in BUGS |

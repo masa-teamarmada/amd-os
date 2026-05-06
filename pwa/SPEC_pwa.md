@@ -244,10 +244,13 @@ pwa/
 ### Vercel デプロイ (正本)
 
 ```bash
-npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os/pwa
+npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os
 ```
 
-**`--cwd` 必須。** シェル CWD に依存させると別ディレクトリの設定だけがアップロードされて全ルート 404 になる事故が過去にある (BUGS.md 参照)。Git 連携は使っていない。
+- **`--cwd` はリポジトリ root** (`pwa/` ではない)。Vercel project `amd-os-pwa` の Settings → Build → Root Directory が `pwa` のため、`--cwd .../pwa` だと `pwa/pwa` 二重で失敗する
+- リポ root に `.vercel/project.json` (amd-os-pwa を指す) があること。無いと `--yes` で誤って `amd-os` 新プロジェクトが作られる (2026-05-06 BUGS 参照)
+- 復元: `cp -r /Users/masa/projects/AMD/amd-os/pwa/.vercel /Users/masa/projects/AMD/amd-os/.vercel`
+- 確認は **常に本番環境** (`amd-os-pwa.vercel.app`) で行う方針 (`pwa/AGENTS.md` 参照)
 
 ロールバック:
 ```bash

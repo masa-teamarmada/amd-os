@@ -158,3 +158,23 @@
 - **解決策**: `scripts/apply_ddl.py` で Supabase Management API (`/v1/projects/{ref}/database/query`) を直叩く。`SUPABASE_ACCESS_TOKEN` (sbp_…) を使い、**User-Agent ヘッダー必須** (Cloudflare 1010 回避)。migration は必ず `scripts/migrations/NNN_name.sql` に残す
 - **教訓**: DDL は人間の手作業に頼らない。Management API + ファイル化したマイグレーション + リポ commit の 3 点セットを徹底
 
+---
+
+### [AMD OS PWA] vercel deploy で `--cwd .../pwa` が "pwa/pwa does not exist" で失敗 + 誤プロジェクトが作られる
+
+- **発見日**: 2026-05-06
+- **状態**: ✅ 解決済み
+- **症状**:
+  1. `npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os/pwa` を実行すると `Error: The provided path "~/projects/AMD/amd-os/pwa/pwa" does not exist` で失敗
+  2. リトライで `--cwd` をリポ root にすると、リポ root に `.vercel/project.json` が無かったため `--yes` フラグで勝手に **新プロジェクト `amd-os` (`amd-os.vercel.app`)** が作られて、本番 `amd-os-pwa.vercel.app` ではなくそちらに 1 秒で空ビルドがデプロイされた
+- **原因**: 2026-05-05 の Vercel Git Integration 設定で project `amd-os-pwa` の Settings → Build → Root Directory に `pwa` を入れた。CLI の `--cwd` は project 設定の Root Directory と結合されるので、`--cwd .../pwa` を渡すと `pwa/pwa` を探しに行って失敗。CLAUDE.md / SPEC の正本コマンドは Git Integration 入る前のままで時代遅れになっていた
+- **解決策**:
+  1. リポ root の `.vercel/project.json` を amd-os-pwa を指すように設定: `cp -r /Users/masa/projects/AMD/amd-os/pwa/.vercel /Users/masa/projects/AMD/amd-os/.vercel`
+  2. 正本コマンドを **リポ root を `--cwd` に渡す** に変更: `npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os`
+  3. 誤って作られた `amd-os` プロジェクトは `npx vercel projects rm amd-os` (対話 y) で削除
+  4. CLAUDE.md / SPEC_pwa.md の正本コマンドを更新
+- **教訓**:
+  - Vercel project 設定 (Root Directory 等) を変えたら CLI deploy の正本コマンドも同じ commit で更新する
+  - `--yes` を使うときは事前に `cat .vercel/project.json` で対象プロジェクトを必ず確認する。空なら新プロジェクトが作られる
+  - 「全ルート 404」事故と同型: `--cwd` が想定と違うパスを指すと、誤った場所にデプロイされる
+
