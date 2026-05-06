@@ -7,12 +7,13 @@ import type { VentureRow, XrlLogRow } from "@/lib/venture-map-data";
 const RL_KEYS = ["trl", "brl", "hrl", "grl", "srl"] as const;
 type RlKey = (typeof RL_KEYS)[number];
 
+// Timeline3DView と同じ濃いネオン色 (saturated cyber)
 const RL_COLORS: Record<RlKey, string> = {
-  trl: "#22d3ee",
-  brl: "#fb923c",
-  hrl: "#34d399",
-  grl: "#a78bfa",
-  srl: "#f472b6",
+  trl: "#06b6d4", // cyan-500
+  brl: "#f97316", // orange-500
+  hrl: "#10b981", // emerald-500
+  grl: "#8b5cf6", // violet-500
+  srl: "#ec4899", // pink-500
 };
 
 interface Props {
@@ -386,7 +387,7 @@ export function SuDetailModal({ venture, xrl, onClose }: Props) {
                         key={p.key}
                         d={p.d}
                         fill={RL_COLORS[p.key]}
-                        opacity={0.55}
+                        opacity={0.78}
                       />
                     ) : null,
                   )}

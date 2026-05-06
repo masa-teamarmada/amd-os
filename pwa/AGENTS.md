@@ -18,6 +18,24 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 
 **開発中の動作確認は常に本番環境で行う。** `npm run dev` のローカル確認は基本やらない (まさが手元で見るのは本番デプロイ後の URL)。
 
-標準ワークフロー: 実装 → `tsc --noEmit` 通過 → commit → push → main に merge → `npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os/pwa` → 本番 URL で目視確認。
+標準ワークフロー: 実装 → `tsc --noEmit` 通過 → commit → push → main に merge → `npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os` (リポ root、pwa ではない) → 本番 URL で目視確認。
 
 **えいみへの含意**: まさからの確認待ちで止まらず、tsc が通ったら commit/push/deploy まで一気に通す。確認質問が連続して時間を溶かすほうが損失が大きい。本番反映後の見た目で「ここ違う」と言われたら直す、のループの方が速い。
+
+# 🚨 画像生成ごまかし禁止 (絶対ルール)
+
+まさが「画像生成して」「imagegen で作って」「フレーム画像を作って」「テクスチャ作って」等を依頼してきた場合:
+
+1. **手元の MCP / Tool に本物の画像生成 (DALL-E / Imagen / Midjourney / Stable Diffusion / NanoBanana 等) があるか必ず確認する**
+   - `ToolSearch` で `image generation imagen dall-e generate` 等で検索
+   - 2026-05 時点では Drive / Slack / Notion / Calendar / Gmail / DocuSign / Chrome MCP のみで画像生成 MCP は無い
+2. **無ければ必ずまさにそう伝える**:
+   - 「画像生成 MCP が手元に無いので、ChatGPT / Midjourney / Imagen / NanoBanana 等の外部サービスで生成して、PNG/JPG ファイルを返してもらえれば `pwa/public/` 配下に置いて背景として組み込みます」
+   - まさが外部で生成 → 画像をくれる → こちらは public に配置して `<img>` / `background-image: url(...)` で使う
+3. **🚫 絶対禁止**: 画像生成できないからといって、SVG / CSS / inline gradient / 絵文字 / ASCII art / drei `<Plane>` 装飾 / Three.js shader 自作 等で **「それっぽい画像っぽさ」を自作してごまかすこと**
+   - これは「画像をくれと言われたのに自作で誤魔化した」ことになり、まさの意図 (本物の生成画像のクオリティ・一貫性・ブランド感) を裏切る
+   - 「コードで頑張って描いた装飾」と「画像生成のアセット」は本質的に別物。混同するな
+   - 「SVG で frame っぽいの描きました」「CSS で frame っぽいの作りました」は **画像生成タスクの完了ではない**
+4. **画像生成タスクの完了条件**: `pwa/public/` 配下に **本物の画像ファイル (PNG/JPG/WebP/SVG-from-imagegen)** が存在し、それを `<img src>` / `next/image` / `background-image: url(...)` で使っていること
+
+**過去事例 (2026-05-06)**: フレーム画像生成依頼に対して SVG `<polyline>` で角飾りや `>>>` arrow を自作して「画像の代わり」と称した。後でまさから「画像生成やってないよね」と指摘されて本ルール追加。同じ過ちを繰り返さない。

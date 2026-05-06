@@ -28,12 +28,13 @@ import { SuDetailModal } from "./SuDetailModal";
 // 各 SU は invisible plane で onClick 受け、SuDetailModal を開く
 // ============================================================
 
+// 濃いネオン色 (saturated cyber、薄いパステルではない)
 const RL_COLORS = {
-  trl: "#22d3ee", // cyan-400
-  brl: "#fb923c", // orange-400
-  hrl: "#34d399", // emerald-400
-  grl: "#a78bfa", // violet-400
-  srl: "#f472b6", // pink-400
+  trl: "#06b6d4", // cyan-500
+  brl: "#f97316", // orange-500
+  hrl: "#10b981", // emerald-500
+  grl: "#8b5cf6", // violet-500
+  srl: "#ec4899", // pink-500
 } as const;
 
 const RL_KEYS = ["trl", "brl", "hrl", "grl", "srl"] as const;
@@ -181,13 +182,13 @@ function VentureStackedArea({
           <meshStandardMaterial
             color={RL_COLORS[layer.key]}
             emissive={RL_COLORS[layer.key]}
-            emissiveIntensity={hover ? 1.6 : 1.05}
+            emissiveIntensity={hover ? 2.4 : 1.8}
             transparent
-            opacity={hover ? 0.7 : 0.6}
+            opacity={hover ? 0.92 : 0.82}
             side={THREE.DoubleSide}
             depthWrite={false}
             toneMapped={false}
-            roughness={0.4}
+            roughness={0.3}
             metalness={0.0}
           />
         </mesh>
@@ -712,9 +713,9 @@ export default function Timeline3DView({ data }: Props) {
         </GizmoHelper>
         <EffectComposer multisampling={2}>
           <Bloom
-            intensity={0.85}
-            luminanceThreshold={0.35}
-            luminanceSmoothing={0.6}
+            intensity={1.6}
+            luminanceThreshold={0.2}
+            luminanceSmoothing={0.55}
             mipmapBlur
           />
         </EffectComposer>
