@@ -544,7 +544,7 @@ export default function Timeline3DView({ data }: Props) {
             <span style={{ fontWeight: 700 }}>VENTURE TIMELINE / 3D</span>
             <span style={{ color: HUD_MUTE }}>│</span>
             <span style={{ fontVariantNumeric: "tabular-nums" }}>
-              {data.length.toString().padStart(2, "0")} ACTIVE SU
+              {data.length.toString().padStart(2, "0")} SU TRACKED
             </span>
             <span style={{ color: HUD_MUTE }}>│</span>
             <span style={{ color: "#0891b2" }}>● READY</span>

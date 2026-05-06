@@ -8,7 +8,9 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function Timeline3DPage() {
-  const data = await fetchAllVenturesWithXrl({ activeOnly: true });
+  // is_public=true の全 SU を取得 (status='active' で絞ると現状 0 件になる、
+  // ventures.status は active 以外も含む。フィルタは将来必要になったら復活)
+  const data = await fetchAllVenturesWithXrl();
 
   return (
     <div className="w-full">
