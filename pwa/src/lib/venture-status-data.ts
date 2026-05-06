@@ -64,14 +64,15 @@ export interface ProjectVentureMember {
 }
 
 export interface AmdMemberLite {
-  member_id: string;        // 'ID001' 等のコードネーム
+  member_id: string;        // 'ID001' (内部 ID、DB 保存用)
+  code_name: string;        // 'まさ' / 'きよ' 等 (表示用コードネーム)
 }
 
-/** その PJ にアサインされている AMD 社員のコードネームを取得 (project_members 経由) */
+/** その PJ にアサインされている AMD 社員のコードネームを取得 (project_members → members JOIN) */
 export async function fetchAssignedAmdMembers(projectId: string): Promise<AmdMemberLite[]> {
   const { data, error } = await supabase
     .from("project_members")
-    .select("member_id, is_active")
+    .select("member_id, is_active, members(code_name)")
     .eq("project_id", projectId)
     .eq("is_active", true)
     .order("member_id", { ascending: true });
@@ -79,7 +80,22 @@ export async function fetchAssignedAmdMembers(projectId: string): Promise<AmdMem
     console.error("[fetchAssignedAmdMembers]", error);
     return [];
   }
-  return ((data as { member_id: string }[] | null) ?? []).map((r) => ({ member_id: r.member_id }));
+  return ((data as Array<{ member_id: string; members: { code_name: string | null } | { code_name: string | null }[] | null }> | null) ?? [])
+    .map((r) => {
+      const m = Array.isArray(r.members) ? r.members[0] : r.members;
+      return { member_id: r.member_id, code_name: m?.code_name ?? r.member_id };
+    });
+}
+
+/** 全 AMD 社員のコードネーム lookup (member_id → code_name 表示用)。アサインに関係なく既存メンバー row を表示するときに使う。 */
+export async function fetchAllAmdCodeNames(): Promise<Record<string, string>> {
+  const { data, error } = await supabase.from("members").select("member_id, code_name");
+  if (error || !data) return {};
+  const map: Record<string, string> = {};
+  for (const r of data as { member_id: string; code_name: string | null }[]) {
+    map[r.member_id] = r.code_name ?? r.member_id;
+  }
+  return map;
 }
 
 export type PartnerType = "collab" | "customer";
