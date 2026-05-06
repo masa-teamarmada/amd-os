@@ -124,9 +124,9 @@ export function SuDetailModal({ venture, xrl, onClose }: Props) {
           inset: 0,
           zIndex: 100,
           background:
-            "radial-gradient(ellipse at center, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%)",
-          backdropFilter: "blur(4px)",
-          WebkitBackdropFilter: "blur(4px)",
+            "radial-gradient(ellipse at center, rgba(8,12,24,0.55) 0%, rgba(8,12,24,0.78) 100%)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
           animation: "ventureModalFade 0.18s ease-out",
         }}
       />
@@ -148,8 +148,9 @@ export function SuDetailModal({ venture, xrl, onClose }: Props) {
         <div
           style={{
             pointerEvents: "auto",
-            width: "min(880px, 92vw)",
-            maxHeight: "88vh",
+            width: "min(1080px, 92vw)",
+            aspectRatio: "1.83 / 1", // cyber-frame.png (1600×872) のアスペクト比に固定
+            maxHeight: "82vh",
             position: "relative",
             transform: mounted ? "scale(1)" : "scale(0.92)",
             opacity: mounted ? 1 : 0,
@@ -160,7 +161,11 @@ export function SuDetailModal({ venture, xrl, onClose }: Props) {
               "transform 0.32s cubic-bezier(0.16,1,0.3,1), opacity 0.28s ease-out, clip-path 0.4s cubic-bezier(0.22,1,0.36,1)",
           }}
         >
-          <HudFrame variant="modal" padding={0}>
+          <HudFrame
+            variant="modal"
+            padding={0}
+            style={{ width: "100%", height: "100%" }}
+          >
             {/* scan line */}
             <div
               aria-hidden
@@ -187,16 +192,28 @@ export function SuDetailModal({ venture, xrl, onClose }: Props) {
               />
             </div>
 
+            {/* content scroll wrapper (HudFrame の中で content を収める) */}
+            <div
+              style={{
+                position: "absolute",
+                inset: "8% 9%",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "auto",
+                zIndex: 1,
+              }}
+            >
             {/* header */}
             <div
               style={{
-                padding: "14px 22px 10px",
+                padding: "8px 14px 8px",
                 borderBottom: "1px solid rgba(10,14,21,0.18)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 gap: 12,
                 animation: "glitchIn 0.4s ease-out",
+                flexShrink: 0,
               }}
             >
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -272,16 +289,24 @@ export function SuDetailModal({ venture, xrl, onClose }: Props) {
             {/* body: SVG X-Z chart */}
             <div
               style={{
-                padding: "18px 22px 22px",
+                padding: "10px 14px 8px",
                 animation: "glitchIn 0.5s ease-out 0.05s backwards",
+                flex: "1 1 auto",
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
               }}
             >
               <svg
                 viewBox={`0 0 ${W} ${H}`}
+                preserveAspectRatio="xMidYMid meet"
                 style={{
                   width: "100%",
                   height: "auto",
+                  maxHeight: "100%",
                   display: "block",
+                  flex: "1 1 auto",
+                  minHeight: 0,
                   background:
                     "linear-gradient(180deg, rgba(236,254,255,0.4) 0%, rgba(245,243,255,0.4) 100%)",
                 }}
@@ -454,16 +479,17 @@ export function SuDetailModal({ venture, xrl, onClose }: Props) {
               {/* layer legend */}
               <div
                 style={{
-                  marginTop: 14,
+                  marginTop: 8,
                   display: "flex",
-                  gap: 16,
+                  gap: 14,
                   flexWrap: "wrap",
                   fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                  fontSize: 10,
+                  fontSize: 9,
                   color: "#0a0e15",
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
                   fontWeight: 700,
+                  flexShrink: 0,
                 }}
               >
                 {RL_KEYS.map((k) => {
@@ -494,6 +520,7 @@ export function SuDetailModal({ venture, xrl, onClose }: Props) {
                 })}
               </div>
             </div>
+            </div>{/* end content scroll wrapper */}
           </HudFrame>
         </div>
       </div>
