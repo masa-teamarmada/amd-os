@@ -372,4 +372,69 @@ PJ Status コックピット拡張を 6 phase で実装。`/project/[projectId]/
 | 66cb868 | fix(cockpit): AMD member shows code_name (まさ/きよ) + monthly P&L pivoted |
 | cf7ec93 | feat(cockpit): outcomes ゾンビ化/中小企業化, @mention, web search, XRL detail+revise, mascot chat, routine fix (migration 012) |
 | e6038d8 | fix(cockpit): JST display / merge PJ-status learnings into main list / mascot bubble / axis-specific XRL / 技術進捗 / config link (誤実装) |
-| (これから commit) | fix(cockpit): revert config link / persist mascot chat in localStorage + design doc |
+| 66b6ac3 | fix(cockpit): rollback config link / persist mascot chat in localStorage + design doc & handoff |
+
+---
+
+## 2026-05-07 — AMD Score フル実装 (Before Zero Theory v3.2)
+
+`/Users/masa/projects/before-zero/theory/amd_score.md` の正本式 (7 軸 Cobb-Douglas) を AMD OS に組み込んだ。詳細は `design_log/2026-05_amd_score.md`。
+
+### 数式
+- AMD Score = K · Π (X_i + 1)^α_i, X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
+- σ_SU = ((μ_A+1)(μ_I+1)(μ_G+1))^(1/3) - 1
+- K = 100,000 / 10^Σα (Shallow Tech は TRL 抜きで再校正)
+- base alpha (Σα=6.0): FRL=1.5 / σ_SU=1.3 / HRL=1.1 / TRL=1.0 / BRL=0.6 / GRL=0.3 / SRL=0.2
+
+### 実装
+- 新 lib: `src/lib/amd-score.ts` (calculateAmdScore / classifyPhase / ALPHA_DEFAULT)
+- 新 data: `src/lib/amd-score-data.ts` (fetchAmdScoreInputs / fetchActiveAlpha / upsertAmdScoreInput / saveNewAlpha)
+- 新ページ:
+  - `/venture-map/amd-score` (一覧、score 降順 + phase filter)
+  - `/venture-map/amd-score/[projectId]` (個別 + 編集 + α サイドバー)
+- 新 component:
+  - `AmdScoreList.tsx` (一覧)
+  - `AmdScoreView.tsx` (Hero / Radar / 寄与表 / 経時 line / 入力スライダー / α サイドバー)
+- migration 013: `amd_score_inputs` + `amd_score_alpha` + base alpha + 8 PJ retrofit seed (本番適用済)
+  - ID mapping: tiem→p03, bwe→p11, jc→p09, ctb→p06, cx→p20, sx→p21, yd→p18
+
+### Cockpit 連携
+- `CockpitVentureStatus.tsx`: amd_score_inputs + active alpha を fetch、AMD スコア経時グラフを log scale (1 - 100k IPO 級) に変更、フェーズ閾値ガイドライン入り
+- AMD スコアチップ: `<score> · <phase>` を phase 色で表示、未評価時は `AMD: 未評価 →` link
+- 「7 軸を編集 →」link を AMD スコアグラフのヘッダに追加 (`/venture-map/amd-score/[projectId]` へ)
+- `CockpitAmdScoreBreakdownModal.tsx`: 7 軸 contribution 表 + 詳細編集ページ link に置換 (旧ダミー実装と差し替え)
+- `venture-status-data.ts`: 旧 `EVENT_BONUS` / `computeAmdScoreSeries(bundle)` / `computeAmdScoreBreakdown(bundle)` を削除、新ヘルパー `computeCockpitAmdScoreSeries(inputs, alpha)` に置換
+
+### ナビ
+- `/venture-map` 右上に「AMD Score →」ボタン (Timeline 3D の隣)
+
+### 検証 (期待値 vs 計算)
+| PJ | 期待 | 実測 | 差 |
+|---|---|---|---|
+| sx 2027 | 4,791 | 4,785 | -0.1% (ほぼ完全) |
+| bwe 2025 | 3,193 | 2,615 | -18% (μ seed 値が §8 より低い) |
+| ctb | 1,658 | 1,855 | +12% |
+| 全体 | — | フェーズ判定は全て理論通り | — |
+
+→ 数式は正しい。seed の μ 値は粗い見積りなのでまさが UI スライダーで調整可。詳細は design log。
+
+### 主な変更ファイル
+- `src/lib/amd-score.ts` (新規)
+- `src/lib/amd-score-data.ts` (新規)
+- `src/components/venture-map/AmdScoreView.tsx` (新規)
+- `src/components/venture-map/AmdScoreList.tsx` (新規)
+- `src/app/(app)/venture-map/amd-score/page.tsx` (新規)
+- `src/app/(app)/venture-map/amd-score/[projectId]/page.tsx` (新規)
+- `src/app/(app)/venture-map/page.tsx` (AMD Score ボタン追加)
+- `src/components/cockpit/CockpitVentureStatus.tsx` (新ロジックに連携)
+- `src/components/cockpit/CockpitAmdScoreBreakdownModal.tsx` (7 軸 breakdown に置換)
+- `src/lib/venture-status-data.ts` (旧 AMD スコアロジック削除 → cockpit 用ヘルパーに集約)
+- `pwa/scripts/migrations/013_amd_score.sql` (新規、本番適用済)
+- `pwa/design_log/2026-05_amd_score.md` (新規、設計正本)
+
+### 反省 / TODO
+- σ_SU を `/venture-map/state-space` の Triple Helix 状態空間モデル推定値に自動連携 (現状は手動入力)
+- データ駆動 α 推定 (9 PJ 階層 Bayesian)
+- Shallow Tech モードの重み再分配 (理論 §11.3) — TRL=1.0 を BRL/HRL に再分配して K=1.0 と数値スケール一致を狙う
+- VC valuation との比較ビュー (理論 §10) で AMD Score 高 + valuation 低 = 過小評価サイン
+- AMD Score の cron 自動更新 (atlas signal が来たら関連 PJ の σ_SU を再評価)

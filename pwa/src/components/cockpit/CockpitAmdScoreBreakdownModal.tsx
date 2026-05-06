@@ -1,33 +1,35 @@
 "use client";
 
 /**
- * AMD スコア breakdown モーダル: chip クリックで開く。
- * 計算式・各パラメータの値・寄与を表示。
+ * AMD Score breakdown モーダル — Before Zero Theory v3.2 (7 軸 Cobb-Douglas)。
  *
- * 現状はダミー (Before Zero Theory v3.x 確定待ち)。式と値の対応を一目で見せる。
+ * 計算式: AMD Score = K · Π (X_i + 1)^α_i  (X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL})
+ * Shallow Tech モード (TRL=null) では TRL 軸を除外、6 軸 + K 再校正。
+ *
+ * 詳細編集 (μ_A/μ_I/μ_G + 5 XRL + FRL のスライダー、α 重み調整) は
+ * /venture-map/amd-score/[projectId] で。ここはチップクリック時の sneak peek。
  */
 
-import { computeAmdScoreBreakdown, type VentureStatusBundle } from "@/lib/venture-status-data";
+import Link from "next/link";
+import {
+  AMD_SCORE_AXES,
+  AXIS_COLOR,
+  AXIS_LABEL_JP,
+  PHASE_COLOR,
+  PHASE_LABEL_JP,
+  calculateAmdScore,
+  type AlphaWeights,
+} from "@/lib/amd-score";
+import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 
 interface Props {
-  bundle: VentureStatusBundle;
+  projectId: string;
+  latestInput: AmdScoreInputRow | null;
+  alpha: AlphaWeights;
   onClose: () => void;
 }
 
-const KIND_LABEL_JP: Record<string, string> = {
-  hire: "採用",
-  funding: "資金調達",
-  deal: "事業契約",
-  governance: "ガバナンス",
-  note: "メモ",
-  xrl_obs: "XRL 観測",
-  amd_score_override: "スコア手動補正",
-};
-
-export function CockpitAmdScoreBreakdownModal({ bundle, onClose }: Props) {
-  const b = computeAmdScoreBreakdown(bundle);
-  if (!b) return null;
-
+export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -45,125 +47,157 @@ export function CockpitAmdScoreBreakdownModal({ bundle, onClose }: Props) {
         </div>
 
         <div className="px-4 py-4 flex flex-col gap-4">
-          <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-            ⚠️ 計算式は <strong>ダミー</strong> です。Before Zero Theory v3.x で正本確定予定。確定したら
-            <code className="font-mono text-[10px] mx-1">computeAmdScoreBreakdown()</code>を差し替え。
+          <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-2 leading-relaxed">
+            Before Zero Theory v3.2 — 7 軸 Cobb-Douglas 統合指標。
+            <code className="font-mono text-[10px] mx-1">Score = K · Π (X+1)^α</code>
+            (X = σ_SU / TRL / BRL / GRL / SRL / HRL / FRL)。
           </div>
 
-          <div className="text-[12px] leading-relaxed">
-            <div className="text-muted-foreground mb-1">計算時点</div>
-            <div className="font-mono text-[13px]">{b.asOf}</div>
-          </div>
-
-          <div className="text-[12px] leading-relaxed">
-            <div className="text-muted-foreground mb-1">設立日</div>
-            <div className="font-mono text-[13px]">
-              {b.founded_at || "未設立"}
-              {b.isBeforeZero && <span className="ml-2 text-blue-600">(Before 0)</span>}
-              {!b.isBeforeZero && b.founded_at && <span className="ml-2 text-emerald-600">(After 0)</span>}
+          {!latestInput ? (
+            <div className="text-[12px] text-muted-foreground py-6 text-center">
+              この PJ の AMD Score 入力はまだ登録されていません。
+              <div className="mt-3">
+                <Link
+                  href={`/venture-map/amd-score/${projectId}`}
+                  className="inline-block px-3 py-1.5 rounded bg-slate-900 text-white text-[11px]"
+                >
+                  入力ページを開く
+                </Link>
+              </div>
             </div>
-          </div>
-
-          {b.isBeforeZero && (
-            <>
-              <div className="border border-[#e5e5e7] rounded-md p-3 bg-[#fafbff]">
-                <div className="text-[12px] font-semibold mb-1">Before 0 線形補間</div>
-                <pre className="text-[11px] font-mono whitespace-pre-wrap text-slate-700">
-{`score(t) = -100 × (founded - t) / (founded - anchor)
-       + 0  × (t - anchor) / (founded - anchor)
-
-ここで:
-  anchor = founded_at - 5 年 = ${b.beforeZeroAnchor?.date}      (score = -100)
-  founded = ${b.founded_at}      (score = 0)
-  t       = ${b.asOf}      (今日)
-`}
-                </pre>
-                <div className="mt-2 text-[12px]">
-                  → 今日のスコア: <strong className="font-mono">{b.beforeZeroToday?.score.toFixed(1)}</strong>
-                </div>
-              </div>
-            </>
-          )}
-
-          {!b.isBeforeZero && (
-            <>
-              <div className="border border-[#e5e5e7] rounded-md p-3 bg-[#fafbff]">
-                <div className="text-[12px] font-semibold mb-1">After 0 計算式</div>
-                <pre className="text-[11px] font-mono whitespace-pre-wrap text-slate-700">
-{`score = min(100,
-  ((TRL + BRL + HRL) / 27) × 60   ← XRL 部分 (最大 60)
-  + Σ event_bonus(kind)            ← イベント加点
-)
-
-event_bonus:
-  hire=+3 / funding=+8 / deal=+5 / governance=+2
-  (note / xrl_obs / amd_score_override は 0)
-`}
-                </pre>
-              </div>
-
-              <div className="border border-[#e5e5e7] rounded-md p-3">
-                <div className="text-[12px] font-semibold mb-1">XRL 部分</div>
-                {b.latestXrl ? (
-                  <div className="text-[12px] leading-relaxed">
-                    最新観測: <span className="font-mono">{b.latestXrl.observed_at}</span> /
-                    TRL <span className="font-mono">{b.latestXrl.trl ?? "—"}</span> ·
-                    BRL <span className="font-mono">{b.latestXrl.brl ?? "—"}</span> ·
-                    HRL <span className="font-mono">{b.latestXrl.hrl ?? "—"}</span>
-                    <div className="mt-1">
-                      合計 <span className="font-mono">{b.xrlSum}</span> / 27 →
-                      score 寄与 <strong className="font-mono">{b.xrlScore.toFixed(1)}</strong>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-[12px] text-muted-foreground">XRL 観測なし → 0</div>
-                )}
-              </div>
-
-              <div className="border border-[#e5e5e7] rounded-md p-3">
-                <div className="text-[12px] font-semibold mb-1">イベント加点 ({b.eventBonuses.length} 件)</div>
-                {b.eventBonuses.length === 0 ? (
-                  <div className="text-[12px] text-muted-foreground">加点対象イベントなし → 0</div>
-                ) : (
-                  <ul className="text-[11.5px] divide-y divide-[#f1f5f9]">
-                    {b.eventBonuses.map((e, i) => (
-                      <li key={i} className="py-1 flex items-start gap-2">
-                        <span className="font-mono text-[10px] text-muted-foreground w-[80px] shrink-0">
-                          {e.occurred_on}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground w-[64px] shrink-0">
-                          {KIND_LABEL_JP[e.kind] ?? e.kind}
-                        </span>
-                        <span className="flex-1">{e.label}</span>
-                        <span className="font-mono text-emerald-700">+{e.bonus}</span>
-                      </li>
-                    ))}
-                    <li className="py-1 flex items-center gap-2 mt-1 border-t-2 border-slate-300 pt-2 font-semibold">
-                      <span className="flex-1 text-right">小計</span>
-                      <span className="font-mono text-emerald-700">+{b.eventBonusTotal}</span>
-                    </li>
-                  </ul>
-                )}
-              </div>
-            </>
-          )}
-
-          <div className="border-t-2 border-slate-300 pt-3 flex items-baseline justify-between">
-            <span className="text-[12px] text-muted-foreground">最終スコア (cap 100):</span>
-            <span
-              className="text-2xl font-mono font-bold"
-              style={{ color: b.finalScore >= 0 ? "#16a34a" : "#ef4444" }}
-            >
-              {b.finalScore.toFixed(1)}
-            </span>
-          </div>
-          {!b.isBeforeZero && b.rawScore > 100 && (
-            <div className="text-[10px] text-muted-foreground -mt-2 text-right">
-              (raw {b.rawScore.toFixed(1)} → 100 で cap)
-            </div>
+          ) : (
+            <BreakdownContent latestInput={latestInput} alpha={alpha} projectId={projectId} />
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+function BreakdownContent({
+  latestInput,
+  alpha,
+  projectId,
+}: {
+  latestInput: AmdScoreInputRow;
+  alpha: AlphaWeights;
+  projectId: string;
+}) {
+  const result = calculateAmdScore(
+    {
+      mu_A: latestInput.mu_A ?? 0,
+      mu_I: latestInput.mu_I ?? 0,
+      mu_G: latestInput.mu_G ?? 0,
+      TRL: latestInput.shallow_tech_mode ? null : latestInput.trl ?? 0,
+      BRL: latestInput.brl ?? 0,
+      GRL: latestInput.grl ?? 0,
+      SRL: latestInput.srl ?? 0,
+      HRL: latestInput.hrl ?? 0,
+      FRL: latestInput.frl ?? 0,
+    },
+    alpha
+  );
+
+  const phaseColor = PHASE_COLOR[result.phase];
+  const axes = AMD_SCORE_AXES.filter((a) => !(a === "TRL" && result.shallowTechMode));
+
+  return (
+    <>
+      <div className="border border-[#e5e5e7] rounded-md p-3 flex items-baseline justify-between">
+        <div>
+          <div className="text-[10px] text-muted-foreground">最新評価 ({latestInput.evaluated_at.slice(0, 10)})</div>
+          <div className="text-3xl font-mono font-bold" style={{ color: phaseColor }}>
+            {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
+          </div>
+        </div>
+        <div className="text-right">
+          <span
+            className="inline-block px-2 py-0.5 rounded-full text-[10px] text-white"
+            style={{ backgroundColor: phaseColor }}
+          >
+            {PHASE_LABEL_JP[result.phase]}
+          </span>
+          <div className="text-[10px] text-muted-foreground mt-1">
+            律速: <span className="font-mono">{AXIS_LABEL_JP[result.bottleneck]}</span>
+          </div>
+          {result.shallowTechMode && (
+            <div className="text-[10px] text-amber-700 mt-1">Shallow Tech モード</div>
+          )}
+        </div>
+      </div>
+
+      <div className="border border-[#e5e5e7] rounded-md p-3">
+        <div className="text-[12px] font-semibold mb-2">軸ごとの寄与</div>
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="text-muted-foreground border-b border-[#e5e5e7]">
+              <th className="text-left py-1">軸</th>
+              <th className="text-right py-1 font-mono">値</th>
+              <th className="text-right py-1 font-mono">α</th>
+              <th className="text-right py-1 font-mono">(X+1)^α</th>
+              <th className="text-right py-1 font-mono">share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {axes.map((axis) => {
+              const value =
+                axis === "sigma_SU"
+                  ? result.sigma_SU
+                  : axis === "TRL"
+                    ? latestInput.trl ?? 0
+                    : axis === "BRL"
+                      ? latestInput.brl ?? 0
+                      : axis === "GRL"
+                        ? latestInput.grl ?? 0
+                        : axis === "SRL"
+                          ? latestInput.srl ?? 0
+                          : axis === "HRL"
+                            ? latestInput.hrl ?? 0
+                            : latestInput.frl ?? 0;
+              const c = result.contributions[axis] ?? 1;
+              const share = (result.contributionShares[axis] ?? 0) * 100;
+              const isBottleneck = axis === result.bottleneck;
+              return (
+                <tr
+                  key={axis}
+                  className="border-b border-[#f1f5f9]"
+                  style={isBottleneck ? { backgroundColor: "#fee2e2" } : undefined}
+                >
+                  <td className="py-1">
+                    <span style={{ color: AXIS_COLOR[axis] }}>●</span>{" "}
+                    {axis === "sigma_SU" ? "σ_SU" : axis}
+                    {isBottleneck && <span className="ml-1 text-[9px] text-red-600">律速</span>}
+                  </td>
+                  <td className="text-right font-mono">{Number(value).toFixed(2)}</td>
+                  <td className="text-right font-mono">{alpha[axis].toFixed(2)}</td>
+                  <td className="text-right font-mono">{c.toFixed(2)}</td>
+                  <td className="text-right font-mono">{share.toFixed(1)}%</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="text-[10px] text-muted-foreground space-x-2">
+        <span>K = <span className="font-mono">{result.K.toFixed(4)}</span></span>
+        <span>·</span>
+        <span>Σα = <span className="font-mono">{result.alphaSum.toFixed(2)}</span></span>
+        <span>·</span>
+        <span>σ_SU = <span className="font-mono">{result.sigma_SU.toFixed(2)}</span></span>
+      </div>
+
+      <div className="border-t border-slate-200 pt-3 flex items-center justify-between gap-3">
+        <span className="text-[11px] text-muted-foreground">
+          7 軸を編集・α を調整するには:
+        </span>
+        <Link
+          href={`/venture-map/amd-score/${projectId}`}
+          className="px-3 py-1 rounded bg-slate-900 text-white text-[11px]"
+        >
+          AMD Score 詳細ページ →
+        </Link>
+      </div>
+    </>
   );
 }

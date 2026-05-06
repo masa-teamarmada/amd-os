@@ -103,6 +103,8 @@ pwa/
 | `/atlas/admin/themes` | テーマクラスタリング管理 |
 | `/venture-map` | 9 PJ プロット (View A) |
 | `/venture-map/su/[id]` | SU 個別ビュー (XRL × マクロ指数) |
+| `/venture-map/amd-score` | AMD Score 一覧 (Before Zero Theory v3.2、7 軸 Cobb-Douglas)。詳細は [`design_log/2026-05_amd_score.md`](design_log/2026-05_amd_score.md) |
+| `/venture-map/amd-score/[projectId]` | AMD Score 個別 (radar / 経時 / 軸スライダー / α サイドバー) |
 | `/venture-map/oscillator` | (実験) coupled oscillator 可視化 |
 | `/venture-map/state-space` | (実験) Triple Helix 状態空間 |
 | `/admin/billing` | admin 立替/請求マトリクス (チップ操作で billing_cycles 直更新) |
@@ -173,7 +175,9 @@ pwa/
 |---|---|
 | `project_ventures` | SU 系 PJ の基本情報 (`project_id` PK = `projects.project_id` FK)。9 PJ。`ventures` を廃止して 008 で統合 |
 | `project_xrl_log` | TRL/BRL/HRL 時系列 + `bottleneck` (旧 `ventures_xrl_log`、008 で rename) |
-| `project_events` | PJ ごとの汎用イベントログ (`kind` ∈ hire/funding/deal/governance/note 等、`occurred_on` + `meta` jsonb)。AMD スコア・沿革生成の元データ |
+| `project_events` | PJ ごとの汎用イベントログ (`kind` ∈ hire/funding/deal/governance/note 等、`occurred_on` + `meta` jsonb)。沿革生成の元データ + AMD スコアグラフのアノテーション |
+| `amd_score_inputs` | AMD Score の 7 軸入力 (μ_A/I/G + 5 XRL + FRL, shallow_tech_mode)。`UNIQUE(project_id, evaluated_at)` (013 migration) |
+| `amd_score_alpha` | 弾力性 α_i のバージョン管理 (`effective_from` / `effective_to`、jsonb)。base case を seed 済 |
 | `seeds` | seed 管理 |
 | `papers_log` | OpenAlex 論文数 (lane × month) |
 | `macro_index_log` | マクロ指数 (lane × month、Atlas 集計 + Sonnet 2010-2025 推定) |
@@ -359,3 +363,4 @@ npx tsc --noEmit     # 型チェック
 | 進捗推定設計 | `design_log/2026-04_progress_estimation.md` |
 | Venture Map 数理モデル | `design_log/2026-05_venture_map_model.md` |
 | PJ Status コックピット (SU 系 PJ の上部セクション) | `design_log/2026-05_pj_status_cockpit.md` ⭐ |
+| AMD Score (Before Zero Theory v3.2、7 軸 Cobb-Douglas) | `design_log/2026-05_amd_score.md` ⭐ |
