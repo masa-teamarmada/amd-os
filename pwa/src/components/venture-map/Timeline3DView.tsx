@@ -182,13 +182,13 @@ function VentureStackedArea({
           <meshStandardMaterial
             color={RL_COLORS[layer.key]}
             emissive={RL_COLORS[layer.key]}
-            emissiveIntensity={hover ? 2.4 : 1.8}
+            emissiveIntensity={hover ? 0.6 : 0.35}
             transparent
-            opacity={hover ? 0.92 : 0.82}
+            opacity={hover ? 0.88 : 0.78}
             side={THREE.DoubleSide}
             depthWrite={false}
             toneMapped={false}
-            roughness={0.3}
+            roughness={0.45}
             metalness={0.0}
           />
         </mesh>
@@ -250,9 +250,9 @@ function VentureEvents({
             <mesh>
               <sphereGeometry args={[0.13, 16, 16]} />
               <meshStandardMaterial
-                color="#fbbf24"
+                color="#f59e0b"
                 emissive="#fbbf24"
-                emissiveIntensity={2.2}
+                emissiveIntensity={0.8}
                 toneMapped={false}
               />
             </mesh>
@@ -711,11 +711,12 @@ export default function Timeline3DView({ data }: Props) {
             labelColor="#ffffff"
           />
         </GizmoHelper>
+        {/* 白背景なので Bloom は控えめ。highlight (emissive 強い部分) だけ薄く滲ませる */}
         <EffectComposer multisampling={2}>
           <Bloom
-            intensity={1.6}
-            luminanceThreshold={0.2}
-            luminanceSmoothing={0.55}
+            intensity={0.35}
+            luminanceThreshold={0.85}
+            luminanceSmoothing={0.4}
             mipmapBlur
           />
         </EffectComposer>
