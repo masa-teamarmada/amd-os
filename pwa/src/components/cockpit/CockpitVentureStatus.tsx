@@ -16,7 +16,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   fetchVentureStatus,
   computeAmdScoreSeries,
-  proposeXrlLevels,
   confirmXrlObservation,
   type VentureStatusBundle,
   type ProjectEventRow,
@@ -26,6 +25,10 @@ import {
 import { CockpitVentureStatusEditModal } from "./CockpitVentureStatusEditModal";
 import { CockpitVentureMetaEditModal } from "./CockpitVentureMetaEditModal";
 import { CockpitNarrativeModal } from "./CockpitNarrativeModal";
+import { CockpitMembersModal } from "./CockpitMembersModal";
+import { CockpitPartnersModal } from "./CockpitPartnersModal";
+import { CockpitPlMonthlyModal } from "./CockpitPlMonthlyModal";
+import { CockpitDescriptionDetailModal } from "./CockpitDescriptionDetailModal";
 
 const LANE_LABELS: Record<string, string> = {
   gx_energy: "GX / エネルギー",
@@ -44,11 +47,16 @@ const LANE_COLORS: Record<string, string> = {
 };
 
 const OUTCOME_LABELS: Record<string, { emoji: string; label: string; color: string }> = {
-  rocket: { emoji: "🚀", label: "離陸中", color: "#0ea5e9" },
-  lifted: { emoji: "✈️", label: "離陸完了", color: "#16a34a" },
+  // 設立前 (Before 0)
+  tbd:        { emoji: "🌱", label: "未確定 (Before 0)", color: "#6366f1" },
+  planning:   { emoji: "🛠",  label: "計画中 (Before 0)", color: "#0891b2" },
+  stalled:    { emoji: "⏸",  label: "停滞 (Before 0)",   color: "#94a3b8" },
+  // 設立後 (After 0)
+  rocket:     { emoji: "🚀", label: "離陸中", color: "#0ea5e9" },
+  lifted:     { emoji: "✈️", label: "離陸完了", color: "#16a34a" },
   deep_pivot: { emoji: "🔄", label: "後付けdeep化", color: "#8b5cf6" },
-  burnout: { emoji: "🔥", label: "燃え尽き", color: "#ef4444" },
-  ue_fail: { emoji: "💀", label: "UE失敗", color: "#6b7280" },
+  burnout:    { emoji: "🔥", label: "燃え尽き", color: "#ef4444" },
+  ue_fail:    { emoji: "💀", label: "UE失敗", color: "#6b7280" },
 };
 
 const KIND_LABELS: Record<ProjectEventKind, { label: string; color: string }> = {
@@ -100,7 +108,10 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const [creatingAt, setCreatingAt] = useState<string | null>(null); // YYYY-MM-DD
   const [metaEditing, setMetaEditing] = useState<MetaFocus | null>(null);
   const [narrativeOpen, setNarrativeOpen] = useState(false);
-  const [proposingXrl, setProposingXrl] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [partnersOpen, setPartnersOpen] = useState(false);
+  const [plOpen, setPlOpen] = useState(false);
+  const [descOpen, setDescOpen] = useState(false);
   const [pendingXrl, setPendingXrl] = useState<ProjectXrlRow | null>(null);
 
   useEffect(() => {
@@ -120,18 +131,6 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const reload = async () => {
     const b = await fetchVentureStatus(projectId);
     setBundle(b);
-  };
-
-  const onProposeXrl = async () => {
-    setProposingXrl(true);
-    const proposal = await proposeXrlLevels(projectId);
-    setProposingXrl(false);
-    if (proposal) {
-      setPendingXrl(proposal);
-      await reload();
-    } else {
-      alert("XRL 判定に失敗。Gemini API キーや権限を確認してください。");
-    }
   };
 
   const onConfirmProposal = async (id: string, action: "confirm" | "reject") => {
@@ -288,9 +287,30 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         <button
           onClick={() => setNarrativeOpen(true)}
           className="text-[11px] px-2 py-0.5 rounded-full border border-[#e5e5e7] hover:bg-[#fafafa]"
-          title="LLM が events から沿革を生成"
+          title="毎朝 03:00 cron で生成した沿革を見る"
         >
           📜 沿革
+        </button>
+        <button
+          onClick={() => setMembersOpen(true)}
+          className="text-[11px] px-2 py-0.5 rounded-full border border-[#e5e5e7] hover:bg-[#fafafa]"
+          title="関連メンバー (HRL 評価のベース)"
+        >
+          👥 メンバー
+        </button>
+        <button
+          onClick={() => setPartnersOpen(true)}
+          className="text-[11px] px-2 py-0.5 rounded-full border border-[#e5e5e7] hover:bg-[#fafafa]"
+          title="興味事業会社 (協業先 / 顧客候補)"
+        >
+          🤝 事業会社
+        </button>
+        <button
+          onClick={() => setPlOpen(true)}
+          className="text-[11px] px-2 py-0.5 rounded-full border border-[#e5e5e7] hover:bg-[#fafafa]"
+          title="月次試算表"
+        >
+          📊 試算表
         </button>
         {latestScore != null && (
           <span
@@ -299,29 +319,30 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
               borderColor: latestScore >= 0 ? "#16a34a" : "#ef4444",
               color: latestScore >= 0 ? "#16a34a" : "#ef4444",
             }}
-            title="AMD スコア (ダミー、Before Zero Theory v3.x で正本確定予定)"
+            title="AMD スコア計算式は Before Zero Theory v3.x 確定待ち。現状はダミー (XRL 合計 + イベント kind 別ボーナス)"
           >
             AMD score: {latestScore.toFixed(0)}
           </span>
         )}
       </div>
 
-      {(venture.short_description || true) && (
-        <button
-          onClick={() => setMetaEditing("description")}
-          className="block w-full text-left px-4 pt-3 text-[12px] text-slate-700 hover:underline decoration-dotted"
-          title="概要を編集"
-        >
-          {venture.short_description || <span className="text-muted-foreground">概要を入力…</span>}
-        </button>
-      )}
+      <button
+        onClick={() => setDescOpen(true)}
+        className="block w-full text-left px-4 pt-3 text-[12px] text-slate-700 hover:underline decoration-dotted"
+        title="事業詳細を表示・編集 (つくよみがマージ)"
+      >
+        {venture.short_description || <span className="text-muted-foreground">事業概要を入力…</span>}
+        {venture.long_description && (
+          <span className="ml-1 text-[10px] text-muted-foreground">[詳細あり]</span>
+        )}
+      </button>
 
       {/* Chart 1: AMD スコア */}
       <div className="px-2 pt-3">
         <div className="px-2 flex items-center justify-between">
           <h3 className="text-[12px] font-semibold">AMD スコア</h3>
           <span className="text-[10px] text-muted-foreground">
-            グラフをタップでイベント追加 / ドットタップで編集 (※ ダミーロジック)
+            グラフをタップでイベント追加 / ドットタップで編集 (※ AMD スコア計算式は Before Zero Theory v3.x 確定待ち、現状ダミー)
           </span>
         </div>
         <svg
@@ -404,14 +425,9 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                 <span className="uppercase font-mono">{k}</span>
               </span>
             ))}
-            <button
-              onClick={onProposeXrl}
-              disabled={proposingXrl}
-              className="text-[10px] px-2 py-0.5 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-40"
-              title="events と XRL 履歴から Gemini が現在の TRL/BRL/HRL を判定"
-            >
-              {proposingXrl ? "判定中…" : "✨ LLM で XRL 判定"}
-            </button>
+            <span className="text-[10px] text-muted-foreground">
+              毎朝 03:15 (JST) に差分があれば LLM が自動判定 → 提案ドットを採用 / 却下できる
+            </span>
           </div>
         </div>
 
@@ -563,6 +579,30 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           projectId={projectId}
           displayName={venture.display_name}
           onClose={() => setNarrativeOpen(false)}
+        />
+      )}
+
+      {membersOpen && (
+        <CockpitMembersModal projectId={projectId} onClose={() => setMembersOpen(false)} />
+      )}
+
+      {partnersOpen && (
+        <CockpitPartnersModal projectId={projectId} onClose={() => setPartnersOpen(false)} />
+      )}
+
+      {plOpen && (
+        <CockpitPlMonthlyModal projectId={projectId} onClose={() => setPlOpen(false)} />
+      )}
+
+      {descOpen && venture && (
+        <CockpitDescriptionDetailModal
+          projectId={projectId}
+          shortDescription={venture.short_description}
+          longDescription={venture.long_description}
+          onClose={() => setDescOpen(false)}
+          onSaved={async () => {
+            await reload();
+          }}
         />
       )}
     </section>

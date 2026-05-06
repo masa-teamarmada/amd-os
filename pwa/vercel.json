@@ -39,6 +39,14 @@
     {
       "path": "/api/cron/macro-backfill-historical",
       "schedule": "0 3 * * 0"
+    },
+    {
+      "path": "/api/cron/venture-xrl-refresh",
+      "schedule": "15 18 * * *"
+    },
+    {
+      "path": "/api/cron/venture-narrative-refresh",
+      "schedule": "45 18 * * *"
     }
   ]
 }

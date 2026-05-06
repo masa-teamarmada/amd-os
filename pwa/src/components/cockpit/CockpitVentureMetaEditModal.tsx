@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { updateProjectVenture, type ProjectVentureRow } from "@/lib/venture-status-data";
-import type { LaneId, OutcomePattern } from "@/lib/venture-map-data";
+import type { LaneId } from "@/lib/venture-map-data";
 
 const LANE_OPTIONS: { value: LaneId; label: string }[] = [
   { value: "gx_energy", label: "GX / エネルギー" },
@@ -17,12 +17,16 @@ const LANE_OPTIONS: { value: LaneId; label: string }[] = [
   { value: "robo", label: "ロボ / 農・モビリティ" },
 ];
 
-const OUTCOME_OPTIONS: { value: OutcomePattern; label: string }[] = [
-  { value: "rocket", label: "🚀 離陸中" },
-  { value: "lifted", label: "✈️ 離陸完了" },
-  { value: "deep_pivot", label: "🔄 後付けdeep化" },
-  { value: "burnout", label: "🔥 燃え尽き" },
-  { value: "ue_fail", label: "💀 UE 失敗" },
+/** 設立前 / 設立後 を一気通貫で扱うため outcome は文字列。CHECK 制約は元々ないので運用追加可能。 */
+const OUTCOME_OPTIONS: { value: string; label: string; group: "pre" | "post" }[] = [
+  { value: "tbd", label: "🌱 未確定 (Before 0、構想段階)", group: "pre" },
+  { value: "planning", label: "🛠 計画中 (Before 0、設立準備)", group: "pre" },
+  { value: "stalled", label: "⏸ 停滞 (Before 0、停止中)", group: "pre" },
+  { value: "rocket", label: "🚀 離陸中 (After 0、伸びてる)", group: "post" },
+  { value: "lifted", label: "✈️ 離陸完了 (After 0、卒業見えた)", group: "post" },
+  { value: "deep_pivot", label: "🔄 後付け deep 化 (pivot 成功)", group: "post" },
+  { value: "burnout", label: "🔥 燃え尽き (XRL 不足)", group: "post" },
+  { value: "ue_fail", label: "💀 UE 失敗", group: "post" },
 ];
 
 const AMD_ROLE_OPTIONS = [
@@ -44,10 +48,12 @@ export function CockpitVentureMetaEditModal({ venture, focus, onClose, onSaved }
   const [shortLabel, setShortLabel] = useState(venture.short_label ?? "");
   const [lane, setLane] = useState<LaneId>(venture.lane);
   const [foundedAt, setFoundedAt] = useState(venture.founded_at ?? "");
-  const [outcome, setOutcome] = useState<OutcomePattern>(venture.outcome_pattern);
+  const [outcome, setOutcome] = useState<string>(venture.outcome_pattern);
   const [originOrg, setOriginOrg] = useState(venture.origin_org ?? "");
   const [originPi, setOriginPi] = useState(venture.origin_pi ?? "");
   const [amdRole, setAmdRole] = useState(venture.amd_role ?? "");
+  const [amdSupportStart, setAmdSupportStart] = useState(venture.amd_support_started_at ?? "");
+  const [amdSupportEnd, setAmdSupportEnd] = useState(venture.amd_support_ended_at ?? "");
   const [shortDescription, setShortDescription] = useState(venture.short_description ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,10 +70,12 @@ export function CockpitVentureMetaEditModal({ venture, focus, onClose, onSaved }
       short_label: shortLabel.trim() || null,
       lane,
       founded_at: foundedAt || null,
-      outcome_pattern: outcome,
+      outcome_pattern: outcome as ProjectVentureRow["outcome_pattern"],
       origin_org: originOrg.trim() || null,
       origin_pi: originPi.trim() || null,
       amd_role: amdRole.trim() || null,
+      amd_support_started_at: amdSupportStart || null,
+      amd_support_ended_at: amdSupportEnd || null,
       short_description: shortDescription.trim() || null,
     });
     setSaving(false);
@@ -149,15 +157,24 @@ export function CockpitVentureMetaEditModal({ venture, focus, onClose, onSaved }
             <span className="text-muted-foreground">アウトカム</span>
             <select
               value={outcome}
-              onChange={(e) => setOutcome(e.target.value as OutcomePattern)}
+              onChange={(e) => setOutcome(e.target.value)}
               autoFocus={focus === "outcome"}
               className="border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[13px]"
             >
-              {OUTCOME_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
+              <optgroup label="設立前 (Before 0)">
+                {OUTCOME_OPTIONS.filter((o) => o.group === "pre").map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="設立後 (After 0)">
+                {OUTCOME_OPTIONS.filter((o) => o.group === "post").map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </label>
 
@@ -197,6 +214,26 @@ export function CockpitVentureMetaEditModal({ venture, focus, onClose, onSaved }
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-[12px]">
+            <span className="text-muted-foreground">AMD 支援開始</span>
+            <input
+              type="date"
+              value={amdSupportStart ? amdSupportStart.slice(0, 10) : ""}
+              onChange={(e) => setAmdSupportStart(e.target.value)}
+              className="border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[13px]"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-[12px]">
+            <span className="text-muted-foreground">AMD 支援終了 (空 = 継続中)</span>
+            <input
+              type="date"
+              value={amdSupportEnd ? amdSupportEnd.slice(0, 10) : ""}
+              onChange={(e) => setAmdSupportEnd(e.target.value)}
+              className="border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[13px]"
+            />
           </label>
 
           <label className={`flex flex-col gap-1 text-[12px] col-span-2 ${focusRing("description")} rounded`}>
