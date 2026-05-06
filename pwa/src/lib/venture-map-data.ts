@@ -183,6 +183,54 @@ export async function fetchXrlLog(ventureId: string): Promise<XrlLogRow[]> {
   return (data || []) as XrlLogRow[];
 }
 
+/** Timeline 3D 用: 全 venture と XRL 時系列をまとめて取得 (1 venture = 1 折れ線) */
+export async function fetchAllVenturesWithXrl(opts?: {
+  activeOnly?: boolean;
+}): Promise<{ venture: VentureRow; xrl: XrlLogRow[] }[]> {
+  const supabase = await createClient();
+
+  const venturesQuery = supabase
+    .from("ventures")
+    .select("id, display_name, short_label, lane, founded_at, status, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public")
+    .eq("is_public", true)
+    .order("founded_at", { ascending: true });
+
+  const { data: ventures, error: vErr } = await venturesQuery;
+  if (vErr || !ventures) {
+    console.error("[fetchAllVenturesWithXrl] ventures", vErr);
+    return [];
+  }
+
+  const filtered = (ventures as VentureRow[]).filter((v) => {
+    if (!opts?.activeOnly) return true;
+    return v.status === "active";
+  });
+
+  if (filtered.length === 0) return [];
+
+  const ids = filtered.map((v) => v.id);
+  const { data: xrlRows, error: xErr } = await supabase
+    .from("ventures_xrl_log")
+    .select("id, venture_id, observed_at, trl, brl, hrl, grl, srl, bottleneck, milestone_label")
+    .in("venture_id", ids)
+    .order("observed_at", { ascending: true });
+
+  if (xErr) {
+    console.error("[fetchAllVenturesWithXrl] xrl_log", xErr);
+  }
+
+  const byVenture = new Map<string, XrlLogRow[]>();
+  for (const row of (xrlRows || []) as XrlLogRow[]) {
+    if (!byVenture.has(row.venture_id)) byVenture.set(row.venture_id, []);
+    byVenture.get(row.venture_id)!.push(row);
+  }
+
+  return filtered.map((venture) => ({
+    venture,
+    xrl: byVenture.get(venture.id) || [],
+  }));
+}
+
 /** SU個別ビュー用: 1件の venture を取得 */
 export async function fetchVentureById(id: string): Promise<VentureRow | null> {
   const supabase = await createClient();
