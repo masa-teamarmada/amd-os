@@ -16,11 +16,16 @@ import { useEffect, useMemo, useState } from "react";
 import {
   fetchVentureStatus,
   computeAmdScoreSeries,
+  proposeXrlLevels,
+  confirmXrlObservation,
   type VentureStatusBundle,
   type ProjectEventRow,
   type ProjectEventKind,
+  type ProjectXrlRow,
 } from "@/lib/venture-status-data";
 import { CockpitVentureStatusEditModal } from "./CockpitVentureStatusEditModal";
+import { CockpitVentureMetaEditModal } from "./CockpitVentureMetaEditModal";
+import { CockpitNarrativeModal } from "./CockpitNarrativeModal";
 
 const LANE_LABELS: Record<string, string> = {
   gx_energy: "GX / エネルギー",
@@ -86,11 +91,17 @@ function yearDecimalToYm(yd: number): string {
 // Component
 // ============================================================
 
+type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "name" | "description";
+
 export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const [bundle, setBundle] = useState<VentureStatusBundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingEvent, setEditingEvent] = useState<ProjectEventRow | null>(null);
   const [creatingAt, setCreatingAt] = useState<string | null>(null); // YYYY-MM-DD
+  const [metaEditing, setMetaEditing] = useState<MetaFocus | null>(null);
+  const [narrativeOpen, setNarrativeOpen] = useState(false);
+  const [proposingXrl, setProposingXrl] = useState(false);
+  const [pendingXrl, setPendingXrl] = useState<ProjectXrlRow | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,20 +122,43 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
     setBundle(b);
   };
 
+  const onProposeXrl = async () => {
+    setProposingXrl(true);
+    const proposal = await proposeXrlLevels(projectId);
+    setProposingXrl(false);
+    if (proposal) {
+      setPendingXrl(proposal);
+      await reload();
+    } else {
+      alert("XRL 判定に失敗。Gemini API キーや権限を確認してください。");
+    }
+  };
+
+  const onConfirmProposal = async (id: string, action: "confirm" | "reject") => {
+    const ok = await confirmXrlObservation(id, action);
+    if (ok) {
+      setPendingXrl(null);
+      await reload();
+    }
+  };
+
   const venture = bundle?.venture;
 
-  // 軸範囲 (founded ± 7 年を基本)
+  // 軸範囲: 観測されたデータの実 min/max にフィット
+  // (founded_at / xrl observations / events / today を全部集めて min-max + 余白 0.5 年)
   const range = useMemo(() => {
-    if (!venture) return { xMin: 2020, xMax: 2028 };
-    const founded = venture.founded_at ? dateToYearDecimal(venture.founded_at) : new Date().getFullYear();
-    const xrlYears = (bundle?.xrlLog ?? []).map((r) => dateToYearDecimal(r.observed_at));
-    const eventYears = (bundle?.events ?? []).map((e) => dateToYearDecimal(e.occurred_on));
-    const all = [founded, ...xrlYears, ...eventYears];
-    const dataMin = all.length ? Math.min(...all) : founded;
-    const dataMax = all.length ? Math.max(...all) : founded;
-    const xMin = Math.floor(Math.min(founded - 5, dataMin - 0.5));
-    const xMax = Math.ceil(Math.max(founded + 3, dataMax + 0.5, new Date().getFullYear() + 0.5));
-    return { xMin, xMax };
+    const today = new Date().getFullYear() + (new Date().getMonth() + 0.5) / 12;
+    const ys: number[] = [];
+    if (venture?.founded_at) ys.push(dateToYearDecimal(venture.founded_at));
+    for (const r of bundle?.xrlLog ?? []) ys.push(dateToYearDecimal(r.observed_at));
+    for (const e of bundle?.events ?? []) ys.push(dateToYearDecimal(e.occurred_on));
+    ys.push(today);
+    if (ys.length === 0) return { xMin: today - 1, xMax: today + 1 };
+    const dataMin = Math.min(...ys);
+    const dataMax = Math.max(...ys);
+    const span = Math.max(0.8, dataMax - dataMin);
+    const pad = Math.max(0.3, span * 0.06);
+    return { xMin: dataMin - pad, xMax: dataMax + pad };
   }, [venture, bundle]);
 
   const xOf = (yd: number) => ML + ((yd - range.xMin) / (range.xMax - range.xMin)) * PW;
@@ -188,38 +222,76 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const lane = LANE_LABELS[venture.lane] ?? venture.lane;
   const laneColor = LANE_COLORS[venture.lane] ?? "#888";
   const outcome = OUTCOME_LABELS[venture.outcome_pattern];
-  const yearTicks = Array.from({ length: range.xMax - range.xMin + 1 }, (_, i) => range.xMin + i);
+  // 整数年の tick (xMin/xMax は実数なので floor/ceil で囲む)
+  const tickYearStart = Math.ceil(range.xMin);
+  const tickYearEnd = Math.floor(range.xMax);
+  const yearTicks = Array.from({ length: Math.max(0, tickYearEnd - tickYearStart + 1) }, (_, i) => tickYearStart + i);
 
   return (
     <section className="rounded-xl border border-[#e5e5e7] bg-white">
-      {/* Header */}
+      {/* Header (各要素クリックで編集) */}
       <div className="px-4 py-3 border-b border-[#e5e5e7] flex flex-wrap items-center gap-2">
-        <span className="text-lg">{outcome?.emoji}</span>
-        <h2 className="text-[15px] font-bold">{venture.display_name}</h2>
-        <span
-          className="text-[10px] font-mono px-1.5 py-0.5 rounded-full border"
+        <button
+          onClick={() => setMetaEditing("outcome")}
+          className="text-lg hover:opacity-70"
+          title="アウトカムを編集"
+        >
+          {outcome?.emoji}
+        </button>
+        <button
+          onClick={() => setMetaEditing("name")}
+          className="text-[15px] font-bold hover:underline decoration-dotted"
+          title="PJ 名を編集"
+        >
+          {venture.display_name}
+        </button>
+        <button
+          onClick={() => setMetaEditing("lane")}
+          className="text-[10px] font-mono px-1.5 py-0.5 rounded-full border hover:bg-[#fafafa]"
           style={{ color: laneColor, borderColor: laneColor }}
+          title="レーンを編集"
         >
           {lane}
-        </span>
+        </button>
         {outcome && (
-          <span
-            className="text-[10px] font-mono px-1.5 py-0.5 rounded-full"
+          <button
+            onClick={() => setMetaEditing("outcome")}
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded-full hover:opacity-80"
             style={{ backgroundColor: outcome.color + "22", color: outcome.color }}
+            title="アウトカムを編集"
           >
             {outcome.label}
-          </span>
+          </button>
         )}
-        {venture.founded_at && (
-          <span className="text-[11px] text-muted-foreground">設立 {venture.founded_at.slice(0, 7)}</span>
-        )}
-        {venture.origin_org && (
-          <span className="text-[11px] text-muted-foreground">/ {venture.origin_org}</span>
-        )}
-        {venture.origin_pi && (
-          <span className="text-[11px] text-muted-foreground">/ {venture.origin_pi}</span>
-        )}
+        <button
+          onClick={() => setMetaEditing("founded_at")}
+          className="text-[11px] text-muted-foreground hover:text-foreground hover:underline decoration-dotted"
+          title="設立日を編集"
+        >
+          {venture.founded_at ? `設立 ${venture.founded_at.slice(0, 7)}` : "設立日未設定"}
+        </button>
+        <button
+          onClick={() => setMetaEditing("origin_org")}
+          className="text-[11px] text-muted-foreground hover:text-foreground hover:underline decoration-dotted"
+          title="起源機関を編集"
+        >
+          / {venture.origin_org || "起源機関未設定"}
+        </button>
+        <button
+          onClick={() => setMetaEditing("origin_pi")}
+          className="text-[11px] text-muted-foreground hover:text-foreground hover:underline decoration-dotted"
+          title="代表者 / PI を編集"
+        >
+          / {venture.origin_pi || "代表者未設定"}
+        </button>
         <div className="flex-1" />
+        <button
+          onClick={() => setNarrativeOpen(true)}
+          className="text-[11px] px-2 py-0.5 rounded-full border border-[#e5e5e7] hover:bg-[#fafafa]"
+          title="LLM が events から沿革を生成"
+        >
+          📜 沿革
+        </button>
         {latestScore != null && (
           <span
             className="text-[11px] font-mono px-2 py-0.5 rounded-full border"
@@ -234,8 +306,14 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         )}
       </div>
 
-      {venture.short_description && (
-        <p className="px-4 pt-3 text-[12px] text-slate-700">{venture.short_description}</p>
+      {(venture.short_description || true) && (
+        <button
+          onClick={() => setMetaEditing("description")}
+          className="block w-full text-left px-4 pt-3 text-[12px] text-slate-700 hover:underline decoration-dotted"
+          title="概要を編集"
+        >
+          {venture.short_description || <span className="text-muted-foreground">概要を入力…</span>}
+        </button>
       )}
 
       {/* Chart 1: AMD スコア */}
@@ -317,7 +395,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
 
       {/* Chart 2: XRL */}
       <div className="px-2 pt-2 pb-3">
-        <div className="px-2 flex items-center justify-between">
+        <div className="px-2 flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-[12px] font-semibold">XRL 進捗 (TRL / BRL / HRL)</h3>
           <div className="flex items-center gap-3 text-[10px]">
             {(["trl", "brl", "hrl"] as const).map((k) => (
@@ -326,8 +404,42 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                 <span className="uppercase font-mono">{k}</span>
               </span>
             ))}
+            <button
+              onClick={onProposeXrl}
+              disabled={proposingXrl}
+              className="text-[10px] px-2 py-0.5 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+              title="events と XRL 履歴から Gemini が現在の TRL/BRL/HRL を判定"
+            >
+              {proposingXrl ? "判定中…" : "✨ LLM で XRL 判定"}
+            </button>
           </div>
         </div>
+
+        {pendingXrl && (
+          <div className="mx-2 mt-2 px-3 py-2 rounded-md border border-blue-200 bg-blue-50 text-[12px]">
+            <div className="font-semibold text-blue-900">
+              LLM 提案: TRL {pendingXrl.trl ?? "—"} / BRL {pendingXrl.brl ?? "—"} / HRL {pendingXrl.hrl ?? "—"}
+              {pendingXrl.bottleneck && <span className="ml-2 text-blue-700">ボトルネック: {pendingXrl.bottleneck}</span>}
+            </div>
+            {pendingXrl.milestone_label && (
+              <div className="text-[11px] text-slate-700 mt-0.5">「{pendingXrl.milestone_label}」</div>
+            )}
+            <div className="mt-1 flex gap-2">
+              <button
+                onClick={() => onConfirmProposal(pendingXrl.id, "confirm")}
+                className="text-[11px] px-2 py-0.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+              >
+                ✓ 採用
+              </button>
+              <button
+                onClick={() => onConfirmProposal(pendingXrl.id, "reject")}
+                className="text-[11px] px-2 py-0.5 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-100"
+              >
+                ✕ 却下
+              </button>
+            </div>
+          </div>
+        )}
         <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-auto block" style={{ minWidth: 600 }}>
           {[1, 3, 5, 7, 9].map((lv) => (
             <g key={lv}>
@@ -360,19 +472,60 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           {trlPath && <path d={trlPath} fill="none" stroke={XRL_COLORS.trl} strokeWidth={2} />}
           {brlPath && <path d={brlPath} fill="none" stroke={XRL_COLORS.brl} strokeWidth={2} />}
           {hrlPath && <path d={hrlPath} fill="none" stroke={XRL_COLORS.hrl} strokeWidth={2} />}
-          {(bundle?.xrlLog ?? []).map((r) => (
-            <g key={r.id}>
-              {r.trl != null && (
-                <circle cx={xOfDate(r.observed_at)} cy={yOfXrl(r.trl)} r={4} fill={XRL_COLORS.trl} stroke="#fff" />
-              )}
-              {r.brl != null && (
-                <circle cx={xOfDate(r.observed_at)} cy={yOfXrl(r.brl)} r={4} fill={XRL_COLORS.brl} stroke="#fff" />
-              )}
-              {r.hrl != null && (
-                <circle cx={xOfDate(r.observed_at)} cy={yOfXrl(r.hrl)} r={4} fill={XRL_COLORS.hrl} stroke="#fff" />
-              )}
-            </g>
-          ))}
+          {(bundle?.xrlLog ?? []).map((r) => {
+            const isProposal = r.source === "llm_proposal";
+            const onClickDot = isProposal
+              ? () => setPendingXrl(r)
+              : undefined;
+            const cursor = isProposal ? "pointer" : "default";
+            const opacity = isProposal ? 0.55 : 1;
+            const strokeDasharray = isProposal ? "2 2" : undefined;
+            return (
+              <g key={r.id} style={{ cursor }} onClick={onClickDot}>
+                {r.trl != null && (
+                  <circle
+                    cx={xOfDate(r.observed_at)}
+                    cy={yOfXrl(r.trl)}
+                    r={isProposal ? 5 : 4}
+                    fill={XRL_COLORS.trl}
+                    stroke={isProposal ? XRL_COLORS.trl : "#fff"}
+                    strokeWidth={isProposal ? 1.4 : 1}
+                    strokeDasharray={strokeDasharray}
+                    fillOpacity={opacity}
+                  />
+                )}
+                {r.brl != null && (
+                  <circle
+                    cx={xOfDate(r.observed_at)}
+                    cy={yOfXrl(r.brl)}
+                    r={isProposal ? 5 : 4}
+                    fill={XRL_COLORS.brl}
+                    stroke={isProposal ? XRL_COLORS.brl : "#fff"}
+                    strokeWidth={isProposal ? 1.4 : 1}
+                    strokeDasharray={strokeDasharray}
+                    fillOpacity={opacity}
+                  />
+                )}
+                {r.hrl != null && (
+                  <circle
+                    cx={xOfDate(r.observed_at)}
+                    cy={yOfXrl(r.hrl)}
+                    r={isProposal ? 5 : 4}
+                    fill={XRL_COLORS.hrl}
+                    stroke={isProposal ? XRL_COLORS.hrl : "#fff"}
+                    strokeWidth={isProposal ? 1.4 : 1}
+                    strokeDasharray={strokeDasharray}
+                    fillOpacity={opacity}
+                  />
+                )}
+                <title>
+                  {`${r.observed_at} / TRL ${r.trl ?? "—"} BRL ${r.brl ?? "—"} HRL ${r.hrl ?? "—"}${
+                    r.bottleneck ? ` / bottleneck ${r.bottleneck}` : ""
+                  }${isProposal ? " (LLM 提案 ・ 採用 / 却下を判断)" : ""}`}
+                </title>
+              </g>
+            );
+          })}
         </svg>
       </div>
 
@@ -390,6 +543,26 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
             setCreatingAt(null);
             await reload();
           }}
+        />
+      )}
+
+      {metaEditing && venture && (
+        <CockpitVentureMetaEditModal
+          venture={venture}
+          focus={metaEditing}
+          onClose={() => setMetaEditing(null)}
+          onSaved={async () => {
+            setMetaEditing(null);
+            await reload();
+          }}
+        />
+      )}
+
+      {narrativeOpen && venture && (
+        <CockpitNarrativeModal
+          projectId={projectId}
+          displayName={venture.display_name}
+          onClose={() => setNarrativeOpen(false)}
         />
       )}
     </section>

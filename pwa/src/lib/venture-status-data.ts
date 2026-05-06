@@ -191,6 +191,122 @@ export async function deleteProjectEvent(eventId: string): Promise<boolean> {
 }
 
 // ============================================================
+// project_ventures メタ更新 (lane / founded_at / outcome / origin 等)
+// ============================================================
+
+export interface VentureMetaPatch {
+  display_name?: string;
+  short_label?: string | null;
+  lane?: LaneId;
+  founded_at?: string | null;
+  outcome_pattern?: OutcomePattern;
+  origin_org?: string | null;
+  origin_pi?: string | null;
+  amd_role?: string | null;
+  short_description?: string | null;
+}
+
+export async function updateProjectVenture(
+  projectId: string,
+  patch: VentureMetaPatch
+): Promise<ProjectVentureRow | null> {
+  const auth = getAuthClient();
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  for (const k of Object.keys(patch) as (keyof VentureMetaPatch)[]) {
+    update[k] = patch[k] as unknown;
+  }
+  const { data, error } = await auth
+    .from("project_ventures")
+    .update(update)
+    .eq("project_id", projectId)
+    .select()
+    .single();
+  if (error) {
+    console.error("[updateProjectVenture]", error);
+    return null;
+  }
+  // メタ更新で沿革も古くなる
+  await auth
+    .from("project_ventures")
+    .update({ narrative_invalidated_at: new Date().toISOString() })
+    .eq("project_id", projectId);
+  return data as ProjectVentureRow;
+}
+
+// ============================================================
+// LLM 呼び出し API ラッパ (server side で Gemini 走らせる)
+// ============================================================
+
+export async function parseEventTextWithLLM(input: {
+  kind: ProjectEventKind;
+  label: string;
+  raw_text: string;
+}): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch("/api/project-events/parse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.meta ?? null;
+  } catch (e) {
+    console.error("[parseEventTextWithLLM]", e);
+    return null;
+  }
+}
+
+export async function generateNarrative(
+  projectId: string,
+  opts?: { force?: boolean }
+): Promise<{ text: string; cached: boolean } | null> {
+  try {
+    const res = await fetch(`/api/project-ventures/${projectId}/narrative`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: !!opts?.force }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return { text: json.narrative as string, cached: !!json.cached };
+  } catch (e) {
+    console.error("[generateNarrative]", e);
+    return null;
+  }
+}
+
+export async function proposeXrlLevels(projectId: string): Promise<ProjectXrlRow | null> {
+  try {
+    const res = await fetch(`/api/project-ventures/${projectId}/xrl-propose`, {
+      method: "POST",
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json.proposal as ProjectXrlRow) ?? null;
+  } catch (e) {
+    console.error("[proposeXrlLevels]", e);
+    return null;
+  }
+}
+
+export async function confirmXrlObservation(
+  observationId: string,
+  action: "confirm" | "reject"
+): Promise<boolean> {
+  const auth = getAuthClient();
+  if (action === "reject") {
+    const { error } = await auth.from("project_xrl_log").delete().eq("id", observationId);
+    return !error;
+  }
+  const { error } = await auth
+    .from("project_xrl_log")
+    .update({ source: "pm_confirmed" })
+    .eq("id", observationId);
+  return !error;
+}
+
+// ============================================================
 // AMD スコアのダミー計算
 //
 // ⚠️ 正本の AMD スコア式は Before Zero Theory v3.x で別セッションで定義中。
