@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
+import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
 
 const CTB_ESTIMATE_MARKER = "[[CTB_ESTIMATE_SENT]]";
 
@@ -360,9 +361,10 @@ export function CockpitRoutineInvoiceModal({ projectId, ym, documentType, open, 
       };
       if (subject) body.invoiceSubject = subject;
 
-      const { data, error: invokeError } = await supabase.functions.invoke("issue-invoice", { body });
-      if (invokeError) throw invokeError;
-      const result = data as { ok: boolean; freeeInvoiceNumber?: string; message?: string };
+      const result = await callEdgeFunctionPOST<{ ok: boolean; freeeInvoiceNumber?: string; message?: string }>(
+        "issue-invoice",
+        body
+      );
       if (result.ok) {
         const num = result.freeeInvoiceNumber || "";
         setToast({
@@ -386,11 +388,11 @@ export function CockpitRoutineInvoiceModal({ projectId, ym, documentType, open, 
     setShowCancelConfirm(false);
     setToast(null);
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke("cancel-invoice", {
-        body: { projectId, ym, documentType },
+      const result = await callEdgeFunctionPOST<{ ok: boolean; message?: string }>("cancel-invoice", {
+        projectId,
+        ym,
+        documentType,
       });
-      if (invokeError) throw invokeError;
-      const result = data as { ok: boolean; message?: string };
       if (result.ok) {
         setToast({
           msg: result.message || `${documentType === "quotation" ? "見積書" : "請求書"}の発行を取り消したよ`,
