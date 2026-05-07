@@ -219,7 +219,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-32">停止 / 再開予定</th>
               <th className="text-left px-3 py-2 font-medium w-40">PL / PM / クローザー</th>
               <th className="text-left px-3 py-2 font-medium w-40">請求先</th>
-              <th className="text-left px-3 py-2 font-medium w-48">報告メール</th>
+              <th className="text-left px-3 py-2 font-medium w-48">関係先メールアドレス</th>
               <th className="text-left px-3 py-2 font-medium w-32">請求書送付</th>
               <th className="text-left px-3 py-2 font-medium w-20">支払期日</th>
               <th className="text-left px-3 py-2 font-medium w-20">開始ym</th>

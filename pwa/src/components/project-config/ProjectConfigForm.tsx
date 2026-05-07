@@ -274,7 +274,7 @@ export function ProjectConfigForm({ projectId }: Props) {
             onChange={(v) => updateForm("status", v)}
           />
           <TextField
-            label="主要メール送付先"
+            label="関係先メールアドレス"
             value={form.reportEmails}
             onChange={(v) => updateForm("reportEmails", v)}
             full
