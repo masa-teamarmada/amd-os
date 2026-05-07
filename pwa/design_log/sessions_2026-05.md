@@ -492,3 +492,42 @@ Commit: `db27ded`
 - 改修 component: `AmdScoreView.tsx` (FrlAlqPanel + AMD 支援期間背景), `CockpitVentureStatus.tsx` (5 軸 XRL + AMD 支援期間), `CockpitXrlDetailModal.tsx` (5 軸 + NextLevelProgress), `CockpitAmdScoreBreakdownModal.tsx` (KaTeX), `TsukuyomiChatDrawer.tsx` (添付)
 - 改修 API: `src/app/api/tsukuyomi/chat/route.ts` (8 tool + AMD Score context + 添付)
 - design log: `design_log/2026-05_amd_score.md` (FRL ALQ + XRL 次レベル進捗 セクション追記)
+
+---
+
+## 2026-05-07 (晩) — 過去生データから 9 PJ × 71 評価点 一括抽出 (L2 batch)
+
+「過去の生データから一気に AMD Score timeline を抽出してほしい、ネット情報も補完で」というまさ要望に対応。私 (Claude Code) のセッション内で MCP (Notion/Slack/Drive) + WebSearch + Anthropic API + Supabase Management API を組み合わせて 9 PJ 一括処理。
+
+### 抽出スクリプト
+`pwa/scripts/extract_amd_score_from_l2.py` を新規作成。汎用化、引数: project_id, raw_text_file。Anthropic API (Sonnet 4.5) で生データ → JSON timeline 抽出 → Supabase Management API で `amd_score_inputs` に upsert。
+
+### 各 PJ の生データ収集 (per-PJ raw text 約 2-5KB)
+- Notion: PJ ごとの Project Charter / 経緯 / FY25 事業報告 / キックオフ MTG 等
+- Slack: 会社名検索で主要メッセージ 20 件
+- WebSearch: 「<PJ名> 資金調達 / 設立 / 本店移転」等で過去のニュース・受賞・ピッチ実績を補完
+- Before Zero Theory `su_timelines.ts` のメタも raw text に含める
+
+### 抽出結果 (9 PJ × 計 71 評価点)
+- p03 ティエムファクトリ: 8 pts (2007-2022, smb)
+- p04 輝翠TECH: 6 pts (2021-2026, lifted)
+- p06 CrestecBio: 8 pts (2020-2026, rocket)
+- p07 LiSTie: 8 pts (2023-2026, rocket)
+- p09 JOYCLE: 10 pts (2023-2026, deep_pivot)
+- p11 BWE: 8 pts (前 batch 完了済)
+- p18 Yellow Duck: 7 pts (2023-2025, ue_fail)
+- p20 CryoX: 8 pts (2024-2026, rocket pre-launch)
+- p21 SolvioraX: 8 pts (2025-2028, planning)
+
+詳細・洞察は `design_log/2026-05_amd_score.md` 末尾の「過去分一括抽出 (2026-05-07 batch)」セクション。
+
+### 限界 / 次の段階
+1. **MCP 接続は私のセッション内のみ**: 本番から定期実行するには Slack/Drive/Notion API token + Vercel env + API route 実装
+2. **cron 化**: `/api/cron/amd-score-l2-refresh` 等の route 化が次タスク
+3. **WebSearch も同様**: Anthropic 公式 web_search tool or Google Custom Search API
+4. **抽出精度の検証**: まさが UI で実値と照らし合わせて補正していく運用
+
+### 主な変更
+- 新 script: `pwa/scripts/extract_amd_score_from_l2.py`
+- design log + sessions log 更新
+- DB に 71 評価点投入済 (本番反映)

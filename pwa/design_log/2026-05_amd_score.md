@@ -181,6 +181,54 @@ CockpitXrlDetailModal に `<NextLevelProgress>` セクションを追加して�
 
 ---
 
+## 過去分一括抽出 (2026-05-07 batch)
+
+「過去の生データから一気に AMD Score timeline を抽出して欲しい」というまさ要望に対し、私 (Claude Code) のセッション内で MCP (Notion / Slack / Drive) + WebSearch + Anthropic API + Supabase Management API を組み合わせて 9 PJ 一括処理した。
+
+### 抽出スクリプト
+`pwa/scripts/extract_amd_score_from_l2.py` (汎用化、引数: project_id, raw_text_file)
+- Anthropic API (Sonnet 4.5) で生データ → JSON timeline 抽出
+- Supabase Management API で `amd_score_inputs` に upsert (`UNIQUE(project_id, evaluated_at)`)
+- 出力: `/tmp/amd-l2-extract/<projectId>_timeline.json` + `<projectId>_upsert.sql`
+- evaluator は `'l2_extract_sonnet'` で記録
+
+### 各 PJ の抽出元 (1 PJ あたり raw text 約 2-5KB)
+- Notion: PJ ごとの Project Charter / 経緯 / FY25 事業報告 / キックオフ MTG 等を fetch
+- Slack: `slack_search_public` で会社名検索 → 主要メッセージ 20 件
+- WebSearch: 「<PJ名> 資金調達 / 設立 / 本店移転」等で過去のニュース・受賞・ピッチ実績を補完
+- 既存 `amd_score_inputs` の seed (013 migration) と Before Zero Theory `su_timelines.ts` のメタも raw text に含める
+
+### 抽出結果サマリ (9 PJ × 71 評価点)
+
+| PJ | 評価点 | 期間 | outcome | 主要洞察 |
+|---|---|---|---|---|
+| p03 ティエムファクトリ | 8 | 2007-2022 | smb | 「TRL ゲート違反」典型例。μ_A=8 だが TRL=0 で設立 → 2022 燃え尽き |
+| p04 輝翠TECH | 6 | 2021-2026 | lifted | 月面探査 → 農業転用、AMD 支援卒業後シリーズ A 1.5億 → デット 1.37億 → 量産 |
+| p06 CrestecBio | 8 | 2020-2026 | rocket | 創薬 long-cycle、2024 資金難航 → 2025-09 アルマダ復帰 → 12 月シード 1.5億 |
+| p07 LiSTie | 8 | 2023-2026 | rocket | UMI シード 1.5億 + SBIR 核融合 15億 + QST 出資、2026-04 メディア『脱・中国 99.99% 国産リチウム』で SRL ジャンプ |
+| p09 JOYCLE | 10 | 2023-2026 | deep_pivot | Shallow Tech 設立 → 群大野田研合流で deep化、2026-03 AMD 関与終結 (リバウンド失敗) |
+| p11 BWE | 8 | 2024-2026 | lifted | (前 batch 完了済) |
+| p18 Yellow Duck | 7 | 2023-2025 | ue_fail | UE 課題で PoC TRL=4 達成も Pre-Seed 調達不能 → 2025-09 ue_fail 終結 |
+| p20 CryoX | 8 | 2024-2026 | rocket | NIMS 神谷氏 20+年研究、市場調査 → 国家戦略接続 → 2026-08 設立予定 |
+| p21 SolvioraX | 8 | 2025-2028 | planning | 2025-12 PSI Step2 採択で μ_G ジャンプ、2027-04 NewCo 設立予定 |
+
+### Sonnet が拾った重要洞察 (timeline 各点の `notes` フィールドに記録)
+- **tiem** の HRL 1-3 停滞: まさ個人の技術偏重・営業力不足が燃え尽きの根本原因
+- **CrestecBio** の 2024 停滞 → 2025 復帰の波形: 創薬特有 long-cycle で AMD 支援の中断・復帰パターン
+- **LiSTie** メディア露出後 SRL ジャンプ
+- **JOYCLE** 関与終結時の R&D コミット低下: AMD 卒業後リバウンド失敗パターン
+- **YD** の UE 課題: 理論的にコスト合わず PoC TRL4 でも Pre-Seed 調達不能
+- **BWE** の CEO 移譲過渡期で FRL 一時低下 → 体制安定化で回復
+
+### このセッションでの限界 / 次の段階に必要なこと
+
+1. **MCP 接続は私 (Claude Code) のセッション内のみ**: 本番 PWA から定期的に Slack/Drive/Notion を叩くには Slack/Drive/Notion API の bot token を Vercel env に追加 + API route 実装が必要
+2. **cron 化**: 各 PJ について「最新の生データ差分から評価点を再評価」する cron (週次か月次) は別作業。`/api/cron/amd-score-l2-refresh` 等の route 化が必要
+3. **WebSearch も同様**: Anthropic 公式 web_search tool を使うか、Google Custom Search API を vercel env に登録するか
+4. **抽出精度の検証**: 71 評価点それぞれの μ/XRL/FRL 値はあくまで Sonnet の推定。まさが UI で実値と照らし合わせて補正していく運用
+
+---
+
 ## TODO (次回以降)
 
 1. **σ_SU を /venture-map/state-space と連携**: 現状 amd_score_inputs に手動入力した μ_A/μ_I/μ_G を使うが、本来は Triple Helix 状態空間モデルの推定値を pull すべき

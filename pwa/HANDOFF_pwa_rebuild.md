@@ -13,11 +13,29 @@
 
 ## 最終更新
 
-2026-05-07 — AMD Score 周りの 8 改修 (XRL 5 軸 / FRL ALQ / KaTeX / つくよみ tools 拡張 / 添付対応 etc)
+2026-05-07 (晩) — 過去生データから 9 PJ × 71 評価点 一括抽出 (L2 batch) + 同日 8 改修 (XRL 5 軸 / FRL ALQ / KaTeX / つくよみ tools 拡張 / 添付対応)
 
 ---
 
-## 直近セッション要約 (4 phase に分けて連続 deploy)
+## 直近セッション要約
+
+### 過去生データ → 9 PJ × 71 評価点 一括抽出 (このセッション末尾)
+
+「過去の生データから一気に AMD Score timeline を抽出してほしい、ネット情報も補完で」というまさ要望対応。私 (Claude Code) のセッション内で MCP (Notion/Slack/Drive) + WebSearch + Anthropic API + Supabase Management API を組み合わせて 9 PJ batch 処理。
+
+- 新 script: `pwa/scripts/extract_amd_score_from_l2.py` (汎用化、引数: project_id, raw_text_file)
+- 各 PJ の raw text は `/tmp/amd-l2-extract/<projectId>_raw.txt` に dump (Notion + Slack + WebSearch + 既存 seed)
+- Sonnet 4.5 が timeline JSON 生成 → Supabase Management API で `amd_score_inputs` に upsert (evaluator='l2_extract_sonnet')
+- 結果: p03 8 / p04 6 / p06 8 / p07 8 / p09 10 / p11 8 / p18 7 / p20 8 / p21 8 = **計 71 評価点**
+- 詳細・洞察は `design_log/2026-05_amd_score.md` 末尾「過去分一括抽出 (2026-05-07 batch)」セクション
+
+**次の段階 (まさ要望「cron は別で必要」に対応)**:
+1. Slack/Drive/Notion API token を Vercel env に追加 (本番 PWA からも叩けるように)
+2. `/api/cron/amd-score-l2-refresh` route 化 (週次 / 月次)
+3. WebSearch も Anthropic 公式 web_search tool を本番に組み込むか Google Custom Search API
+4. UI で各評価点をまさが補正できる仕組み (既に AmdScoreView でできるが UX 改善余地)
+
+---
 
 ### Phase A — 軽量 UX 修正
 - (3) project_xrl_log に grl/srl 列追加 (migration 014)、cockpit XRL グラフを TRL/BRL/GRL/SRL/HRL の 5 軸に拡張
