@@ -95,8 +95,10 @@ async function inferActivities(
     .in("member_id", memberIds);
 
   const memberCodeNames: Record<string, string> = {};
+  const codeNameToMemberId: Record<string, string> = {};
   (members || []).forEach((m: { member_id: string; code_name: string }) => {
     memberCodeNames[m.member_id] = m.code_name || m.member_id;
+    if (m.code_name) codeNameToMemberId[m.code_name] = m.member_id;
   });
 
   // 責任者マトリクスのテキスト化
@@ -105,7 +107,7 @@ async function inferActivities(
 
   const responsibilityText = responsibilities
     .map((r: { milestone_id: string; member_id: string; role: string; task_description: string | null }) =>
-      `- ${memberCodeNames[r.member_id] || r.member_id}: [${msMap[r.milestone_id] || r.milestone_id}] 役割=${r.role}${r.task_description ? ` 業務=${r.task_description}` : ""}`
+      `- memberId=${r.member_id} (code_name=${memberCodeNames[r.member_id] || ""}): [${msMap[r.milestone_id] || r.milestone_id}] 役割=${r.role}${r.task_description ? ` 業務=${r.task_description}` : ""}`
     )
     .join("\n");
 
@@ -135,7 +137,7 @@ ${reportContent.substring(0, 3000)}
   try {
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
+      max_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -143,9 +145,17 @@ ${reportContent.substring(0, 3000)}
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
-      inferredActivities = (parsed.activities || []).filter(
-        (a: InferredActivity) => a.memberId && a.title
-      );
+      // LLM が memberId に code_name (例: "まさ") を返してきても、code_name → member_id に変換する。
+      // 不明な ID/名前は捨てる (DB の uuid 列に入れるとエラーになるため)。
+      inferredActivities = (parsed.activities || [])
+        .map((a: InferredActivity) => {
+          if (!a || !a.memberId) return null;
+          let mid: string = a.memberId;
+          if (codeNameToMemberId[mid]) mid = codeNameToMemberId[mid];
+          if (!memberCodeNames[mid]) return null; // 責任者マトリクスに無い ID は無視
+          return { ...a, memberId: mid };
+        })
+        .filter((a: InferredActivity | null): a is InferredActivity => !!a && !!a.title);
     }
   } catch (err) {
     console.error("[member-activities] LLM error:", err);
