@@ -205,73 +205,108 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
           <thead>
             <tr className="bg-muted/50 text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 bg-muted/50 w-14">PJID</th>
-              <th className="text-left px-3 py-2 font-medium sticky left-14 bg-muted/50 w-28 border-r border-border">PJ名</th>
-              <th className="text-left px-3 py-2 font-medium w-40">請求先（編集）</th>
-              <th className="text-left px-3 py-2 font-medium w-24">freee ID</th>
-              <th className="text-left px-3 py-2 font-medium w-32">Slack CH（編集）</th>
-              <th className="text-left px-3 py-2 font-medium w-40">Drive Folder（編集）</th>
+              <th className="text-left px-3 py-2 font-medium sticky left-14 bg-muted/50 w-32 border-r border-border">PJ名</th>
+              <th className="text-left px-3 py-2 font-medium w-24">Status</th>
+              <th className="text-left px-3 py-2 font-medium w-32">停止 / 再開予定</th>
               <th className="text-left px-3 py-2 font-medium w-40">PL / PM / クローザー</th>
-              <th className="text-left px-3 py-2 font-medium w-48">報告メール（編集）</th>
-              <th className="text-left px-3 py-2 font-medium w-32">請求書送付（編集）</th>
+              <th className="text-left px-3 py-2 font-medium w-40">請求先</th>
+              <th className="text-left px-3 py-2 font-medium w-48">報告メール</th>
+              <th className="text-left px-3 py-2 font-medium w-32">請求書送付</th>
               <th className="text-left px-3 py-2 font-medium w-20">支払期日</th>
               <th className="text-left px-3 py-2 font-medium w-20">開始ym</th>
               <th className="text-left px-3 py-2 font-medium w-20">終了ym</th>
-              <th className="text-left px-3 py-2 font-medium w-24">Status</th>
-              <th className="text-left px-3 py-2 font-medium w-28">凍結 / 再開予定</th>
-              <th className="text-left px-3 py-2 font-medium w-16">操作</th>
+              <th className="text-left px-3 py-2 font-medium w-24">freee ID</th>
+              <th className="text-left px-3 py-2 font-medium w-32">Slack CH</th>
+              <th className="text-left px-3 py-2 font-medium w-40">Drive Folder</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((p) => {
               const isEditing = editingId === p.id;
+              // セルクリックで編集開始するハンドラ (編集中はクリック無効)
+              const cellClick = isEditing ? undefined : () => startEdit(p);
+              const cellCls = isEditing ? "px-3 py-2" : "px-3 py-2 cursor-pointer";
               return (
                 <tr
                   key={p.id}
                   id={p.project_id}
                   className={`border-t border-border target:bg-amber-50 ${isEditing ? "bg-blue-50/50" : "hover:bg-muted/20"}`}
                 >
-                  <td className="px-3 py-2 font-mono font-bold sticky left-0 bg-background">{p.project_id}</td>
-                  <td className="px-3 py-2 font-medium sticky left-14 bg-background border-r border-border max-w-[112px] truncate" title={p.project_name}>
-                    {p.project_name}
+                  <td className="px-3 py-2 font-mono font-bold sticky left-0 bg-background" onClick={cellClick}>{p.project_id}</td>
+
+                  {/* PJ名 — 編集中なら 保存/取消 ボタンを表示 */}
+                  <td className="px-3 py-2 sticky left-14 bg-background border-r border-border" onClick={isEditing ? undefined : cellClick}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium max-w-[120px] truncate" title={p.project_name}>{p.project_name}</span>
+                      {isEditing && (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); saveEdit(p); }}
+                            disabled={saving === p.id}
+                            className="text-[10px] bg-foreground text-background px-2 py-0.5 rounded disabled:opacity-50"
+                          >
+                            {saving === p.id ? "…" : "保存"}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); cancelEdit(); }}
+                            className="text-[10px] text-muted-foreground border border-border px-2 py-0.5 rounded"
+                          >
+                            取消
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </td>
 
-                  {/* client_name */}
-                  <td className="px-3 py-2">
+                  {/* status */}
+                  <td className={cellCls} onClick={cellClick}>
                     {isEditing ? (
-                      <input type="text" value={editVals.client_name as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, client_name: e.target.value }))}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background" />
-                    ) : <span className="text-muted-foreground">{p.client_name || "—"}</span>}
+                      <select value={editVals.status as string}
+                        onChange={(e) => setEditVals((v) => ({ ...v, status: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                        className="border border-border rounded px-1.5 py-0.5 text-[12px] bg-background">
+                        {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    ) : <StatusBadge status={p.status} />}
                   </td>
 
-                  {/* freee_partner_id */}
-                  <td className="px-3 py-2">
+                  {/* 停止 / 再開予定 (#18) */}
+                  <td className={`${cellCls} align-top`} onClick={cellClick}>
                     {isEditing ? (
-                      <input type="text" value={editVals.freee_partner_id as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, freee_partner_id: e.target.value }))}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-20 bg-background font-mono" />
-                    ) : <span className="font-mono text-muted-foreground">{p.freee_partner_id || "—"}</span>}
+                      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground w-14">停止開始:</span>
+                          <input type="text" value={editVals.freeze_from_ym as string}
+                            onChange={(e) => setEditVals((v) => ({ ...v, freeze_from_ym: e.target.value }))}
+                            placeholder="202604"
+                            className="border border-border rounded px-1 py-0.5 text-[11px] w-16 bg-background font-mono" />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground w-14">再開予定:</span>
+                          <input type="text" value={editVals.restart_expected_ym as string}
+                            onChange={(e) => setEditVals((v) => ({ ...v, restart_expected_ym: e.target.value }))}
+                            placeholder="202606"
+                            className="border border-border rounded px-1 py-0.5 text-[11px] w-16 bg-background font-mono" />
+                        </div>
+                        <p className="text-[9px] text-muted-foreground">両方セットすると「N月〜M月停止中」</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-0.5 text-[11px]">
+                        {p.freeze_from_ym && p.restart_expected_ym && (
+                          <div className="text-slate-700">❄️ {p.freeze_from_ym} 〜 {p.restart_expected_ym} 直前 停止中</div>
+                        )}
+                        {p.freeze_from_ym && !p.restart_expected_ym && (
+                          <div className="text-amber-700">⚠️ {p.freeze_from_ym} から停止</div>
+                        )}
+                        {!p.freeze_from_ym && p.restart_expected_ym && (
+                          <div className="text-blue-700">📅 {p.restart_expected_ym} から再開予定</div>
+                        )}
+                        {!p.freeze_from_ym && !p.restart_expected_ym && <span className="text-muted-foreground">—</span>}
+                      </div>
+                    )}
                   </td>
 
-                  {/* slack_channel_id */}
-                  <td className="px-3 py-2">
-                    {isEditing ? (
-                      <input type="text" value={editVals.slack_channel_id as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, slack_channel_id: e.target.value }))}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background font-mono" />
-                    ) : <span className="font-mono text-muted-foreground text-[11px]">{p.slack_channel_id || "—"}</span>}
-                  </td>
-
-                  {/* drive_folder_id */}
-                  <td className="px-3 py-2">
-                    {isEditing ? (
-                      <input type="text" value={editVals.drive_folder_id as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, drive_folder_id: e.target.value }))}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background font-mono" />
-                    ) : <span className="font-mono text-muted-foreground text-[11px] truncate block max-w-[150px]">{p.drive_folder_id || "—"}</span>}
-                  </td>
-
-                  {/* PL / PM / クローザー (project_members 経由、編集はモーダル) */}
+                  {/* PL / PM / クローザー (別モーダル編集なので click→edit は無効) */}
                   <td className="px-3 py-2 align-top">
                     <div className="space-y-0.5 text-[11px]">
                       {p.pls.length > 0 && <div><span className="text-blue-700 font-semibold">PL:</span> {p.pls.join(", ")}</div>}
@@ -280,7 +315,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                       {p.pls.length === 0 && p.pms.length === 0 && p.closers.length === 0 && <div className="text-muted-foreground">—</div>}
                       <button
                         type="button"
-                        onClick={() => setMembersModalProjectId(p.project_id)}
+                        onClick={(e) => { e.stopPropagation(); setMembersModalProjectId(p.project_id); }}
                         className="text-[10px] text-muted-foreground hover:text-foreground border border-border px-1.5 py-0.5 rounded mt-0.5"
                       >
                         ✏️ 編集
@@ -288,19 +323,30 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     </div>
                   </td>
 
+                  {/* client_name (請求先) */}
+                  <td className={cellCls} onClick={cellClick}>
+                    {isEditing ? (
+                      <input type="text" value={editVals.client_name as string}
+                        onChange={(e) => setEditVals((v) => ({ ...v, client_name: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background" />
+                    ) : <span className="text-muted-foreground">{p.client_name || "—"}</span>}
+                  </td>
+
                   {/* report_emails */}
-                  <td className="px-3 py-2">
+                  <td className={cellCls} onClick={cellClick}>
                     {isEditing ? (
                       <input type="text" value={editVals.report_emails as string}
                         onChange={(e) => setEditVals((v) => ({ ...v, report_emails: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
                         className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background" placeholder="a@b.com, c@d.com" />
                     ) : <span className="text-muted-foreground text-[11px] truncate block max-w-[180px]">{p.report_emails || "—"}</span>}
                   </td>
 
                   {/* 請求書送付 (mode + To/CC/BCC) */}
-                  <td className="px-3 py-2">
+                  <td className={cellCls} onClick={cellClick}>
                     {isEditing ? (
-                      <div className="space-y-1">
+                      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                         <select
                           value={editVals.invoice_send_manual ? "manual" : "auto"}
                           onChange={(e) => setEditVals((v) => ({ ...v, invoice_send_manual: e.target.value === "manual" }))}
@@ -335,10 +381,10 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     )}
                   </td>
 
-                  {/* payment_due_day (翌月 N 日に支払期日 — InvoiceModal でデフォルト計算用) */}
-                  <td className="px-3 py-2">
+                  {/* payment_due_day */}
+                  <td className={cellCls} onClick={cellClick}>
                     {isEditing ? (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <span className="text-[10px] text-muted-foreground">翌月</span>
                         <input type="number" value={editVals.payment_due_day as string}
                           onChange={(e) => setEditVals((v) => ({ ...v, payment_due_day: e.target.value }))}
@@ -354,88 +400,53 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                   </td>
 
                   {/* start_ym */}
-                  <td className="px-3 py-2">
+                  <td className={cellCls} onClick={cellClick}>
                     {isEditing ? (
                       <input type="text" value={editVals.start_ym as string}
                         onChange={(e) => setEditVals((v) => ({ ...v, start_ym: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
                         className="border border-border rounded px-1.5 py-0.5 text-[12px] w-20 bg-background" placeholder="202401" />
                     ) : <span className="text-muted-foreground">{p.start_ym || "—"}</span>}
                   </td>
 
                   {/* end_ym */}
-                  <td className="px-3 py-2">
+                  <td className={cellCls} onClick={cellClick}>
                     {isEditing ? (
                       <input type="text" value={editVals.end_ym as string}
                         onChange={(e) => setEditVals((v) => ({ ...v, end_ym: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
                         className="border border-border rounded px-1.5 py-0.5 text-[12px] w-20 bg-background" placeholder="202512" />
                     ) : <span className="text-muted-foreground">{p.end_ym || "—"}</span>}
                   </td>
 
-                  {/* status */}
-                  <td className="px-3 py-2">
+                  {/* freee_partner_id */}
+                  <td className={cellCls} onClick={cellClick}>
                     {isEditing ? (
-                      <select value={editVals.status as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, status: e.target.value }))}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] bg-background">
-                        {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    ) : <StatusBadge status={p.status} />}
+                      <input type="text" value={editVals.freee_partner_id as string}
+                        onChange={(e) => setEditVals((v) => ({ ...v, freee_partner_id: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-20 bg-background font-mono" />
+                    ) : <span className="font-mono text-muted-foreground">{p.freee_partner_id || "—"}</span>}
                   </td>
 
-                  {/* freeze / restart 予定 (#18) */}
-                  <td className="px-3 py-2 align-top">
+                  {/* slack_channel_id */}
+                  <td className={cellCls} onClick={cellClick}>
                     {isEditing ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground w-12">凍結:</span>
-                          <input type="text" value={editVals.freeze_from_ym as string}
-                            onChange={(e) => setEditVals((v) => ({ ...v, freeze_from_ym: e.target.value }))}
-                            placeholder="202607"
-                            className="border border-border rounded px-1 py-0.5 text-[11px] w-16 bg-background font-mono" />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground w-12">再開:</span>
-                          <input type="text" value={editVals.restart_expected_ym as string}
-                            onChange={(e) => setEditVals((v) => ({ ...v, restart_expected_ym: e.target.value }))}
-                            placeholder="202606"
-                            className="border border-border rounded px-1 py-0.5 text-[11px] w-16 bg-background font-mono" />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-0.5 text-[11px]">
-                        {p.freeze_from_ym && <div className="text-amber-700">⚠️ {p.freeze_from_ym} から凍結</div>}
-                        {p.restart_expected_ym && <div className="text-blue-700">📅 {p.restart_expected_ym} から再開予定</div>}
-                        {!p.freeze_from_ym && !p.restart_expected_ym && <span className="text-muted-foreground">—</span>}
-                      </div>
-                    )}
+                      <input type="text" value={editVals.slack_channel_id as string}
+                        onChange={(e) => setEditVals((v) => ({ ...v, slack_channel_id: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background font-mono" />
+                    ) : <span className="font-mono text-muted-foreground text-[11px]">{p.slack_channel_id || "—"}</span>}
                   </td>
 
-                  {/* Actions */}
-                  <td className="px-3 py-2">
+                  {/* drive_folder_id */}
+                  <td className={cellCls} onClick={cellClick}>
                     {isEditing ? (
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => saveEdit(p)}
-                          disabled={saving === p.id}
-                          className="text-[11px] bg-foreground text-background px-2 py-0.5 rounded disabled:opacity-50"
-                        >
-                          {saving === p.id ? "…" : "保存"}
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="text-[11px] text-muted-foreground border border-border px-2 py-0.5 rounded"
-                        >
-                          取消
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => startEdit(p)}
-                        className="text-[11px] text-muted-foreground hover:text-foreground border border-border px-2 py-0.5 rounded"
-                      >
-                        編集
-                      </button>
-                    )}
+                      <input type="text" value={editVals.drive_folder_id as string}
+                        onChange={(e) => setEditVals((v) => ({ ...v, drive_folder_id: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background font-mono" />
+                    ) : <span className="font-mono text-muted-foreground text-[11px] truncate block max-w-[150px]">{p.drive_folder_id || "—"}</span>}
                   </td>
                 </tr>
               );
