@@ -443,7 +443,6 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                         id="buffer-amount"
                         type="text"
                         inputMode="numeric"
-                        placeholder="0"
                         value={bufferText}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => setBufferText(e.target.value.replace(/\D/g, ""))}
@@ -478,7 +477,6 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                         <Input
                           type="text"
                           inputMode="numeric"
-                          placeholder="0"
                           value={allocationTexts[member.memberId] || ""}
                           onFocus={(e) => e.target.select()}
                           onChange={(e) =>
