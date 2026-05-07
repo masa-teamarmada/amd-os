@@ -67,6 +67,8 @@ export interface CockpitData {
     clientName: string;
     status: string;
     projectType?: string;
+    freezeFromYm?: string | null;
+    restartExpectedYm?: string | null;
   };
   currentYm: string;
   billingCycles: BillingCycleDetail[];
@@ -1726,6 +1728,8 @@ export async function fetchCockpitFromSupabase(
       clientName: pj.client_name || "",
       status: pj.status || "",
       projectType: pj.project_type || "",
+      freezeFromYm: pj.freeze_from_ym || null,
+      restartExpectedYm: pj.restart_expected_ym || null,
     },
     currentYm,
     billingCycles,
