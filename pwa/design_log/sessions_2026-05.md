@@ -595,3 +595,60 @@ Commit: `db27ded`
 - `package.json` (deps 3 個追加)
 - `SPEC_pwa.md` (env vars + cron 表に追記)
 - `HANDOFF_pwa_rebuild.md` (運用開始条件)
+
+---
+
+## 2026-05-07 — VC List フル実装 (quirky-driscoll worktree, Opus 4.7)
+
+国内ディープテック VC マスタを PWA に追加。詳細は [`design_log/2026-05_vc_list.md`](2026-05_vc_list.md)。
+
+設計議論で決まった大方針:
+- Atlas (世界マクロ) と分離。VC ニュースは `vc_news` の独立系統
+- `support_org_members` (PJ 立ち上げ前メンバー) と分離。投資家関係は `vc_contacts` + `project_vc_relations` を新設
+- DPE 残額は出所 (estimated/heard_from_contact/public_disclosure) を必ず記録
+- `vcs.amd_rating` (★1-5) で AMD 内部相性評価
+- 自動収集が骨格、つくよみ chat / 手入力は補完
+
+### 実装範囲 (Phase 1-6 一気)
+
+**Phase 1: スキーマ + 型 + データ層 + seed**
+- migration `016_vc_list.sql` (vcs/vc_funds/vc_investments/vc_contacts/project_vc_relations/vc_news の 6 テーブル) → 本番適用済
+- `src/types/vc.ts`
+- `src/lib/vc-data.ts` (read + write API + format util + label map)
+- `src/app/api/admin/seed-vcs/route.ts` (Claude + web_search で国内 VC 一括生成 → upsert)
+
+**Phase 2: 閲覧 UI**
+- GlobalNav に「VC」を Venture Map の右に追加。inbox 未確認件数バッジ
+- `/vcs` リスト (sortable: 接点数/最終接触/DPE残/★/vintage/名前 + 検索 + type/募集中ファセット)
+- `/vcs/[id]` 4 ペイン詳細 (特性 / ファンド + DPE残 / PJ 接点 / 出資先 + ニュース)
+
+**Phase 3: 編集 UI**
+- `/vcs/[id]/edit` (基本情報フォーム + 5 セクション: funds/investments/contacts/relations/news manual add、各モーダル CRUD)
+
+**Phase 4: 自動収集**
+- `/api/cron/vc-news-ingest` (Claude Sonnet 4.6 + web_search、毎朝 09:00 JST、25 VC/run round-robin)
+- vercel.json cron 追加 (`0 0 * * *` UTC)
+- `/vcs/inbox` 受信箱 (verify / dismiss / fundraise → ファンド情報反映 1 クリック)
+
+**Phase 5: つくよみ統合**
+- 7 tool 追加: `upsert_vc` `upsert_vc_fund` `update_vc_dry_powder` `add_vc_investment` `add_vc_contact` `add_vc_news` `link_project_vc`
+- `/vcs/[uuid]` ページ context 自動同梱 (`loadVcContext`)
+- system prompt に VC tool 群と使い分け例を追記
+
+**Phase 6: docs + deploy**
+- SPEC_pwa.md (ルーティング表 / cron 表 / データモデル「VC List」セクション)
+- design_log/2026-05_vc_list.md 新規
+
+### 主な変更ファイル
+- migration: `scripts/migrations/016_vc_list.sql` 適用済
+- 新 lib/types: `src/types/vc.ts`, `src/lib/vc-data.ts`
+- 新 page: `src/app/(app)/vcs/page.tsx`, `vcs/[id]/page.tsx`, `vcs/[id]/edit/page.tsx`, `vcs/inbox/page.tsx`
+- 新 API: `src/app/api/admin/seed-vcs/route.ts`, `src/app/api/cron/vc-news-ingest/route.ts`
+- 改修: `src/components/nav/GlobalNav.tsx` (VC nav + バッジ), `src/app/api/tsukuyomi/chat/route.ts` (VC tool 7 個 + page-aware context), `src/app/globals.css` (.i input util), `vercel.json` (cron), `SPEC_pwa.md`
+- 新 design log: `design_log/2026-05_vc_list.md`
+
+### 初期投入手順 (本番反映後)
+```bash
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" \
+  https://amd-os-pwa.vercel.app/api/admin/seed-vcs
+```

@@ -51,6 +51,10 @@
     {
       "path": "/api/cron/amd-score-l2-refresh",
       "schedule": "0 18 * * 0"
+    },
+    {
+      "path": "/api/cron/vc-news-ingest",
+      "schedule": "0 0 * * *"
     }
   ]
 }

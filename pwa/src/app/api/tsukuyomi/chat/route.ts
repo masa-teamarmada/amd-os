@@ -123,6 +123,20 @@ K     = 100,000 / 10^Σα   (全軸 9 で IPO 級 100,000 に校正)
 - add_project_partner(partner_name, partner_type, partner_role?, sales_target_date?, notes?): project_partners 追加。partner_type ∈ {collab, customer}
 - add_pl_monthly(ym, revenue_yen?, cogs_yen?, personnel_yen?, rd_yen?, marketing_yen?, other_opex_yen?, notes?): project_pl_monthly に upsert
 
+## VC List (PJ コックピット外でも使える、vc_name で指定)
+- upsert_vc(name, name_en?, type?, thesis?, stage_focus?, ticket_min/max_jpy?, hq?, website?, notes?, amd_rating?, amd_rating_note?): VC を vcs に upsert (name 一意)
+- upsert_vc_fund(vc_name, fund_no, name?, size_jpy?, vintage_year?, status?, target_close_at?, final_close_at?, source_url?): X 号ファンドを upsert (status: raising/first_closed/final_closed/investing/harvesting/closed/unknown)
+- update_vc_dry_powder(vc_name, fund_no, dry_powder_jpy_low?, dry_powder_jpy_high?, source, contact_name?, note?): DPE 残額を更新。source は estimated / heard_from_contact / public_disclosure 必須。聞いた相手は contact_name で指定 (vc_contacts.name と一致)
+- add_vc_investment(vc_name, target_company, fund_no?, amount_jpy?, round?, invested_at?, is_lead?, our_project_id?, source_url?): 出資を vc_investments に追加。自社 PJ なら our_project_id (p03 等) を埋める
+- add_vc_contact(vc_name, name, role?, email?, phone?, linkedin?, notes?): VC 担当者を追加
+- add_vc_news(vc_name, kind, title, body?, occurred_on?, source_url?): ニュースを vc_news に verified=true で追加 (kind: fundraise/investment/personnel/fund_close/thesis_change/press/other)
+- link_project_vc(vc_name, project_id?, status, amd_owner_code_name?, contact_name?, last_touch_at?, expected_amount_jpy?, notes?): PJ × VC のリレーションを upsert (status: not_contacted/pitching/evaluating/dd/term_sheet/invested/passed/declined)
+
+VC 系の使い分け:
+- Abies の 2 号ファンド 80億で 2026/5 クローズ予定 → upsert_vc_fund + add_vc_news
+- VC 担当 田中さんから「うちは残り 30 億」と聞いた → update_vc_dry_powder(source='heard_from_contact', contact_name='田中')
+- うちと話してる VC を「タームシートまで来た」に更新 → link_project_vc(status='term_sheet')
+
 ## ネット検索
 - web_search: ネットで検索して事実情報を取る (推測ではなく実データを得たいとき)
 
@@ -452,9 +466,435 @@ const TOOLS: Anthropic.Messages.Tool[] = [
       required: ["ym"],
     },
   },
+  // === VC List 系 tool (PJ コックピット外でも使える。vc_name で VC を指定) ===
+  {
+    name: "upsert_vc",
+    description:
+      "VC を vcs に upsert (name 一意)。既に存在する VC の特性更新にも使う。" +
+      "amd_rating は AMD 視点の相性 1-5 (空 OK)。",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "VC 名 (正式)" },
+        name_en: { type: "string" },
+        type: { type: "string", enum: ["independent", "cvc", "gov", "corporate", "overseas"] },
+        thesis: { type: "string", description: "投資テーゼ" },
+        stage_focus: { type: "array", items: { type: "string" }, description: "投資ステージの配列" },
+        ticket_min_jpy: { type: "number" },
+        ticket_max_jpy: { type: "number" },
+        hq: { type: "string" },
+        website: { type: "string" },
+        notes: { type: "string" },
+        amd_rating: { type: "number", description: "AMD 相性 1-5" },
+        amd_rating_note: { type: "string", description: "評価理由" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "upsert_vc_fund",
+    description:
+      "VC のファンド情報 (X 号目) を vc_funds に upsert (vc_name + fund_no 一意)。" +
+      "fundraise / final close のニュースを聞いたら呼ぶ。size_jpy は円整数 (80億 = 8000000000)。",
+    input_schema: {
+      type: "object",
+      properties: {
+        vc_name: { type: "string", description: "対象 VC 名" },
+        fund_no: { type: "number", description: "X 号目 (1, 2, 3, ...)" },
+        name: { type: "string", description: "正式名称 (例: Abies II 投資事業有限責任組合)" },
+        size_jpy: { type: "number", description: "確定サイズ (円)" },
+        size_jpy_low: { type: "number", description: "募集中レンジ下限 (円)" },
+        size_jpy_high: { type: "number", description: "募集中レンジ上限 (円)" },
+        vintage_year: { type: "number" },
+        status: {
+          type: "string",
+          enum: ["raising", "first_closed", "final_closed", "investing", "harvesting", "closed", "unknown"],
+        },
+        first_close_at: { type: "string", description: "1st クローズ日 YYYY-MM-DD" },
+        final_close_at: { type: "string", description: "ファイナルクローズ日 YYYY-MM-DD" },
+        target_close_at: { type: "string", description: "目標クローズ日 (募集中の時)" },
+        source_url: { type: "string", description: "一次情報 URL" },
+        notes: { type: "string" },
+      },
+      required: ["vc_name", "fund_no"],
+    },
+  },
+  {
+    name: "update_vc_dry_powder",
+    description:
+      "VC ファンドの ドライパウダー残額 (推定 or 担当直聞き or 公表値) を更新する。" +
+      "source は必ず指定: estimated=推定 / heard_from_contact=担当から直接聞いた / public_disclosure=公表値。" +
+      "heard_from_contact のときは contact_name を埋める。",
+    input_schema: {
+      type: "object",
+      properties: {
+        vc_name: { type: "string" },
+        fund_no: { type: "number" },
+        dry_powder_jpy_low: { type: "number" },
+        dry_powder_jpy_high: { type: "number" },
+        source: {
+          type: "string",
+          enum: ["estimated", "heard_from_contact", "public_disclosure"],
+        },
+        contact_name: { type: "string", description: "heard_from_contact のとき、誰から聞いたか (vc_contacts.name と一致)" },
+        note: { type: "string" },
+      },
+      required: ["vc_name", "fund_no", "source"],
+    },
+  },
+  {
+    name: "add_vc_investment",
+    description:
+      "VC の出資イベントを vc_investments に追加。target_company は文字列。自社 PJ なら our_project_id (例: p03) を埋める。",
+    input_schema: {
+      type: "object",
+      properties: {
+        vc_name: { type: "string" },
+        target_company: { type: "string" },
+        target_company_en: { type: "string" },
+        fund_no: { type: "number", description: "どの号ファンドから出したか (不明可)" },
+        amount_jpy: { type: "number" },
+        round: { type: "string", description: "seed / series_a など" },
+        invested_at: { type: "string", description: "YYYY-MM-DD" },
+        is_lead: { type: "boolean" },
+        our_project_id: { type: "string", description: "自社 PJ の project_id (p03 等)。該当なしなら省略" },
+        source_url: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["vc_name", "target_company"],
+    },
+  },
+  {
+    name: "add_vc_contact",
+    description: "VC 担当者 (投資家としての関係) を vc_contacts に追加。GAP ファンド事業化推進機関で参画する場合は add_project_member を使う。",
+    input_schema: {
+      type: "object",
+      properties: {
+        vc_name: { type: "string" },
+        name: { type: "string" },
+        name_en: { type: "string" },
+        role: { type: "string", description: "GP / Partner / Principal / Associate など" },
+        email: { type: "string" },
+        phone: { type: "string" },
+        linkedin: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["vc_name", "name"],
+    },
+  },
+  {
+    name: "add_vc_news",
+    description:
+      "VC 関連ニュースを vc_news に追加 (verified=true / ingested_by='tsukuyomi')。" +
+      "Atlas (世界マクロ) とは別系統。VC のファンドレイズ / 出資 / 人事 / テーゼ変化など。",
+    input_schema: {
+      type: "object",
+      properties: {
+        vc_name: { type: "string" },
+        kind: {
+          type: "string",
+          enum: ["fundraise", "investment", "personnel", "fund_close", "thesis_change", "press", "other"],
+        },
+        title: { type: "string" },
+        body: { type: "string" },
+        occurred_on: { type: "string" },
+        source_url: { type: "string" },
+      },
+      required: ["vc_name", "kind", "title"],
+    },
+  },
+  {
+    name: "link_project_vc",
+    description:
+      "PJ × VC のリレーション (検討〜投資ステータス) を project_vc_relations に upsert (project_id + vc_name 一意)。" +
+      "status はピッチ → 検討 → DD → タームシート → 投資 / 見送り / 辞退 のいずれか。",
+    input_schema: {
+      type: "object",
+      properties: {
+        vc_name: { type: "string" },
+        project_id: { type: "string", description: "対象 PJ (p03 等)。コックピット内なら自動補完" },
+        status: {
+          type: "string",
+          enum: ["not_contacted", "pitching", "evaluating", "dd", "term_sheet", "invested", "passed", "declined"],
+        },
+        amd_owner_code_name: { type: "string", description: "AMD 側担当 (members.code_name)" },
+        contact_name: { type: "string", description: "VC 担当 (vc_contacts.name)" },
+        first_contact_at: { type: "string" },
+        last_touch_at: { type: "string" },
+        expected_amount_jpy: { type: "number" },
+        notes: { type: "string" },
+      },
+      required: ["vc_name", "status"],
+    },
+  },
   // 公式 web_search tool (推論時にネット検索)。SDK の型に未対応なので as unknown
   { type: "web_search_20250305", name: "web_search", max_uses: 5 } as unknown as Anthropic.Messages.Tool,
 ];
+
+async function resolveVcId(
+  supabase: ReturnType<typeof createAdminClient>,
+  vcName: string
+): Promise<string | null> {
+  const { data } = await supabase.from("vcs").select("id").eq("name", vcName).maybeSingle();
+  return (data as { id: string } | null)?.id ?? null;
+}
+
+async function executeVcTool(
+  supabase: ReturnType<typeof createAdminClient>,
+  contextProjectId: string | null,
+  name: string,
+  input: Record<string, unknown>
+): Promise<{ ok: boolean; summary: string } | null> {
+  const vcName = typeof input.vc_name === "string" ? input.vc_name : null;
+
+  if (name === "upsert_vc") {
+    const vName = typeof input.name === "string" ? input.name : null;
+    if (!vName) return { ok: false, summary: "name 必須" };
+    const slug = (typeof input.name_en === "string" ? input.name_en : vName)
+      .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || null;
+    const payload: Record<string, unknown> = {
+      name: vName,
+      name_en: typeof input.name_en === "string" ? input.name_en : null,
+      slug,
+      type: typeof input.type === "string" ? input.type : null,
+      thesis: typeof input.thesis === "string" ? input.thesis : null,
+      stage_focus: Array.isArray(input.stage_focus) ? input.stage_focus : null,
+      ticket_min_jpy: typeof input.ticket_min_jpy === "number" ? input.ticket_min_jpy : null,
+      ticket_max_jpy: typeof input.ticket_max_jpy === "number" ? input.ticket_max_jpy : null,
+      hq: typeof input.hq === "string" ? input.hq : null,
+      website: typeof input.website === "string" ? input.website : null,
+      notes: typeof input.notes === "string" ? input.notes : null,
+      updated_at: new Date().toISOString(),
+    };
+    if (typeof input.amd_rating === "number") {
+      payload.amd_rating = Math.max(1, Math.min(5, Math.round(input.amd_rating)));
+      payload.amd_rating_note = typeof input.amd_rating_note === "string" ? input.amd_rating_note : null;
+      payload.amd_rating_updated_at = new Date().toISOString();
+    }
+    const { error } = await supabase.from("vcs").upsert(payload, { onConflict: "name" });
+    if (error) return { ok: false, summary: `vc upsert 失敗: ${error.message}` };
+    return { ok: true, summary: `VC upsert (${vName})` };
+  }
+
+  if (name === "upsert_vc_fund") {
+    if (!vcName) return { ok: false, summary: "vc_name 必須" };
+    const fundNo = typeof input.fund_no === "number" ? input.fund_no : null;
+    if (fundNo == null) return { ok: false, summary: "fund_no 必須" };
+    const vcId = await resolveVcId(supabase, vcName);
+    if (!vcId) return { ok: false, summary: `VC '${vcName}' が見つからない (まず upsert_vc から)` };
+    const { error } = await supabase.from("vc_funds").upsert(
+      {
+        vc_id: vcId,
+        fund_no: fundNo,
+        name: typeof input.name === "string" ? input.name : null,
+        size_jpy: typeof input.size_jpy === "number" ? input.size_jpy : null,
+        size_jpy_low: typeof input.size_jpy_low === "number" ? input.size_jpy_low : null,
+        size_jpy_high: typeof input.size_jpy_high === "number" ? input.size_jpy_high : null,
+        vintage_year: typeof input.vintage_year === "number" ? input.vintage_year : null,
+        status: typeof input.status === "string" ? input.status : "unknown",
+        first_close_at: typeof input.first_close_at === "string" ? input.first_close_at : null,
+        final_close_at: typeof input.final_close_at === "string" ? input.final_close_at : null,
+        target_close_at: typeof input.target_close_at === "string" ? input.target_close_at : null,
+        source_url: typeof input.source_url === "string" ? input.source_url : null,
+        notes: typeof input.notes === "string" ? input.notes : null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "vc_id,fund_no" }
+    );
+    if (error) return { ok: false, summary: `fund upsert 失敗: ${error.message}` };
+    return { ok: true, summary: `${vcName} #${fundNo} ファンドを upsert` };
+  }
+
+  if (name === "update_vc_dry_powder") {
+    if (!vcName) return { ok: false, summary: "vc_name 必須" };
+    const fundNo = typeof input.fund_no === "number" ? input.fund_no : null;
+    const source = typeof input.source === "string" ? input.source : null;
+    if (fundNo == null || !source) return { ok: false, summary: "fund_no と source 必須" };
+    const vcId = await resolveVcId(supabase, vcName);
+    if (!vcId) return { ok: false, summary: `VC '${vcName}' が見つからない` };
+    let heardFromId: string | null = null;
+    if (source === "heard_from_contact" && typeof input.contact_name === "string") {
+      const { data: c } = await supabase
+        .from("vc_contacts")
+        .select("id")
+        .eq("vc_id", vcId)
+        .eq("name", input.contact_name)
+        .maybeSingle();
+      heardFromId = (c as { id: string } | null)?.id ?? null;
+    }
+    const { error } = await supabase
+      .from("vc_funds")
+      .update({
+        dry_powder_jpy_low: typeof input.dry_powder_jpy_low === "number" ? input.dry_powder_jpy_low : null,
+        dry_powder_jpy_high: typeof input.dry_powder_jpy_high === "number" ? input.dry_powder_jpy_high : null,
+        dry_powder_source: source,
+        dry_powder_heard_from: heardFromId,
+        dry_powder_note: typeof input.note === "string" ? input.note : null,
+        dry_powder_updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("vc_id", vcId)
+      .eq("fund_no", fundNo);
+    if (error) return { ok: false, summary: `DPE update 失敗: ${error.message}` };
+    return { ok: true, summary: `${vcName} #${fundNo} DPE 更新 (${source})` };
+  }
+
+  if (name === "add_vc_investment") {
+    if (!vcName) return { ok: false, summary: "vc_name 必須" };
+    const target = typeof input.target_company === "string" ? input.target_company : null;
+    if (!target) return { ok: false, summary: "target_company 必須" };
+    const vcId = await resolveVcId(supabase, vcName);
+    if (!vcId) return { ok: false, summary: `VC '${vcName}' が見つからない` };
+    let fundId: string | null = null;
+    if (typeof input.fund_no === "number") {
+      const { data: f } = await supabase
+        .from("vc_funds")
+        .select("id")
+        .eq("vc_id", vcId)
+        .eq("fund_no", input.fund_no)
+        .maybeSingle();
+      fundId = (f as { id: string } | null)?.id ?? null;
+    }
+    const { error } = await supabase.from("vc_investments").insert({
+      vc_id: vcId,
+      target_company: target,
+      target_company_en: typeof input.target_company_en === "string" ? input.target_company_en : null,
+      fund_id: fundId,
+      our_project_id: typeof input.our_project_id === "string" ? input.our_project_id : null,
+      amount_jpy: typeof input.amount_jpy === "number" ? input.amount_jpy : null,
+      round: typeof input.round === "string" ? input.round : null,
+      invested_at: typeof input.invested_at === "string" ? input.invested_at : null,
+      is_lead: !!input.is_lead,
+      source_url: typeof input.source_url === "string" ? input.source_url : null,
+      notes: typeof input.notes === "string" ? input.notes : null,
+    });
+    if (error) return { ok: false, summary: `investment insert 失敗: ${error.message}` };
+    return { ok: true, summary: `${vcName} → ${target} 出資を記録` };
+  }
+
+  if (name === "add_vc_contact") {
+    if (!vcName) return { ok: false, summary: "vc_name 必須" };
+    const personName = typeof input.name === "string" ? input.name : null;
+    if (!personName) return { ok: false, summary: "name 必須" };
+    const vcId = await resolveVcId(supabase, vcName);
+    if (!vcId) return { ok: false, summary: `VC '${vcName}' が見つからない` };
+    const { error } = await supabase.from("vc_contacts").insert({
+      vc_id: vcId,
+      name: personName,
+      name_en: typeof input.name_en === "string" ? input.name_en : null,
+      role: typeof input.role === "string" ? input.role : null,
+      email: typeof input.email === "string" ? input.email : null,
+      phone: typeof input.phone === "string" ? input.phone : null,
+      linkedin: typeof input.linkedin === "string" ? input.linkedin : null,
+      notes: typeof input.notes === "string" ? input.notes : null,
+    });
+    if (error) return { ok: false, summary: `contact insert 失敗: ${error.message}` };
+    return { ok: true, summary: `${vcName} 担当 ${personName} を追加` };
+  }
+
+  if (name === "add_vc_news") {
+    if (!vcName) return { ok: false, summary: "vc_name 必須" };
+    const title = typeof input.title === "string" ? input.title : null;
+    const kind = typeof input.kind === "string" ? input.kind : null;
+    if (!title || !kind) return { ok: false, summary: "title / kind 必須" };
+    const vcId = await resolveVcId(supabase, vcName);
+    if (!vcId) return { ok: false, summary: `VC '${vcName}' が見つからない` };
+    const { error } = await supabase.from("vc_news").insert({
+      vc_id: vcId,
+      kind,
+      title,
+      body: typeof input.body === "string" ? input.body : null,
+      occurred_on: typeof input.occurred_on === "string" ? input.occurred_on : null,
+      source_url: typeof input.source_url === "string" ? input.source_url : null,
+      ingested_by: "tsukuyomi",
+      verified: true,
+    });
+    if (error) return { ok: false, summary: `vc_news insert 失敗: ${error.message}` };
+    return { ok: true, summary: `${vcName} ニュース追加 (${kind})` };
+  }
+
+  if (name === "link_project_vc") {
+    if (!vcName) return { ok: false, summary: "vc_name 必須" };
+    const status = typeof input.status === "string" ? input.status : null;
+    if (!status) return { ok: false, summary: "status 必須" };
+    const projectId = typeof input.project_id === "string" ? input.project_id : contextProjectId;
+    if (!projectId) return { ok: false, summary: "project_id 必須 (PJ コックピット外では明示指定)" };
+    const vcId = await resolveVcId(supabase, vcName);
+    if (!vcId) return { ok: false, summary: `VC '${vcName}' が見つからない` };
+
+    let amdOwnerId: string | null = null;
+    if (typeof input.amd_owner_code_name === "string") {
+      const { data: m } = await supabase
+        .from("members")
+        .select("member_id")
+        .eq("code_name", input.amd_owner_code_name)
+        .maybeSingle();
+      amdOwnerId = (m as { member_id: string } | null)?.member_id ?? null;
+    }
+    let contactId: string | null = null;
+    if (typeof input.contact_name === "string") {
+      const { data: c } = await supabase
+        .from("vc_contacts")
+        .select("id")
+        .eq("vc_id", vcId)
+        .eq("name", input.contact_name)
+        .maybeSingle();
+      contactId = (c as { id: string } | null)?.id ?? null;
+    }
+
+    const { error } = await supabase.from("project_vc_relations").upsert(
+      {
+        project_id: projectId,
+        vc_id: vcId,
+        status,
+        amd_owner_member_id: amdOwnerId,
+        vc_contact_id: contactId,
+        first_contact_at: typeof input.first_contact_at === "string" ? input.first_contact_at : null,
+        last_touch_at: typeof input.last_touch_at === "string" ? input.last_touch_at : null,
+        expected_amount_jpy: typeof input.expected_amount_jpy === "number" ? input.expected_amount_jpy : null,
+        notes: typeof input.notes === "string" ? input.notes : null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "project_id,vc_id" }
+    );
+    if (error) return { ok: false, summary: `relation upsert 失敗: ${error.message}` };
+    return { ok: true, summary: `${projectId} × ${vcName} → ${status}` };
+  }
+
+  return null; // VC tool ではない
+}
+
+interface VcChatContext {
+  vc: Record<string, unknown>;
+  funds: unknown[];
+  investments: unknown[];
+  contacts: unknown[];
+  relations: unknown[];
+  recent_news: unknown[];
+}
+
+async function loadVcContext(
+  supabase: ReturnType<typeof createAdminClient>,
+  vcId: string
+): Promise<VcChatContext | null> {
+  const [{ data: vc }, { data: funds }, { data: invs }, { data: contacts }, { data: rels }, { data: news }] = await Promise.all([
+    supabase.from("vcs").select("*").eq("id", vcId).maybeSingle(),
+    supabase.from("vc_funds").select("*").eq("vc_id", vcId).order("fund_no"),
+    supabase.from("vc_investments").select("target_company, fund_id, our_project_id, amount_jpy, round, invested_at, is_lead, source_url").eq("vc_id", vcId).order("invested_at", { ascending: false }).limit(50),
+    supabase.from("vc_contacts").select("name, role, email").eq("vc_id", vcId),
+    supabase.from("project_vc_relations").select("project_id, status, last_touch_at, amd_owner_member_id, vc_contact_id").eq("vc_id", vcId),
+    supabase.from("vc_news").select("kind, title, body, occurred_on, source_url, verified, ingested_by").eq("vc_id", vcId).order("occurred_on", { ascending: false, nullsFirst: false }).limit(20),
+  ]);
+  if (!vc) return null;
+  return {
+    vc: vc as Record<string, unknown>,
+    funds: funds ?? [],
+    investments: invs ?? [],
+    contacts: contacts ?? [],
+    relations: rels ?? [],
+    recent_news: news ?? [],
+  };
+}
 
 async function executeTool(
   supabase: ReturnType<typeof createAdminClient>,
@@ -462,6 +902,10 @@ async function executeTool(
   name: string,
   input: Record<string, unknown>
 ): Promise<{ ok: boolean; summary: string }> {
+  // VC 系 tool は projectId 不要
+  const vcRes = await executeVcTool(supabase, projectId, name, input);
+  if (vcRes) return vcRes;
+
   if (!projectId) return { ok: false, summary: "PJ コックピット外なので適用できない" };
 
   if (name === "update_short_long_description") {
@@ -683,6 +1127,15 @@ export async function POST(req: Request) {
     const ctx = await loadProjectContext(supabase, body.project_id);
     if (ctx) {
       contextBlock = `\n# 画面に表示されている PJ コックピットの全 context (${body.project_id})\n${JSON.stringify(ctx, null, 2)}\n`;
+    }
+  }
+
+  // /vcs/[uuid] / /vcs/[uuid]/edit の場合は VC context を載せる
+  const vcMatch = (body.page_path ?? "").match(/^\/vcs\/([0-9a-f-]{36})/i);
+  if (vcMatch) {
+    const vcCtx = await loadVcContext(supabase, vcMatch[1]);
+    if (vcCtx) {
+      contextBlock += `\n# 画面に表示されている VC の全 context\n${JSON.stringify(vcCtx, null, 2)}\n`;
     }
   }
 
