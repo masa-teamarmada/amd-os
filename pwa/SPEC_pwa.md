@@ -110,6 +110,10 @@ pwa/
 | `/admin/billing` | admin 立替/請求マトリクス (チップ操作で billing_cycles 直更新) |
 | `/admin/payouts` | 報酬支払 |
 | `/admin/projects` `/members` `/contexts` `/protocols` `/tsukuyomi` `/settings` | 各 admin |
+| `/vcs` | VC リスト (国内ディープテック VC マスタ。ソート/ファセット/検索) |
+| `/vcs/[id]` | VC 詳細 (4 ペイン: 特性 / ファンド + DPE残 / PJ 接点 / 出資先 + ニュース) |
+| `/vcs/[id]/edit` | VC 編集 (基本情報 + amd_rating + funds/investments/contacts/relations モーダル CRUD) |
+| `/vcs/inbox` | VC ニュース受信箱 (verify / dismiss / fundraise → ファンド情報反映)。詳細は [`design_log/2026-05_vc_list.md`](design_log/2026-05_vc_list.md) |
 
 ### API routes (`/api/`)
 
@@ -132,6 +136,7 @@ pwa/
 | `cron/member-activities` | `0 19 * * *` | 04:00 daily | 月次レポート + responsibility → Haiku 推論 → member_activities |
 | `cron/relearn-lane-weights` | `30 18 * * *` | 03:30 daily | macro lane weights 再学習 |
 | `cron/macro-backfill-historical` | `0 3 * * 0` | 12:00 sun | 2010-2025 macro_index_log を Sonnet 推定で埋める |
+| `cron/vc-news-ingest` | `0 0 * * *` | 09:00 daily | VC ごとに直近7日のニュースを web_search で取得 → vc_news (verified=false)。fundraise/fund_close は suggested_fund_patch で fund 更新提案 |
 
 認証: 全 cron route が `Authorization: Bearer ${CRON_SECRET}` を確認。`CRON_SECRET` 未設定なら処理スキップ。
 
@@ -186,6 +191,21 @@ pwa/
 ### つくよみ / その他
 
 `tsukuyomi_nudge_queue` `tsukuyomi_learnings` `ms_progress_revisions` `ms_revision_messages` `source_cache` (legacy / 実質空)
+
+### VC List (PWA 起源)
+
+| テーブル | 役割 |
+|---|---|
+| `vcs` | VC マスタ。`amd_rating` (★1-5) で AMD 視点の相性評価 |
+| `vc_funds` | ファンド単位 (vc_id + fund_no 一意)。size / status / `dry_powder_*` (出所: estimated/heard_from_contact/public_disclosure) |
+| `vc_investments` | 出資イベント。自社 PJ なら `our_project_id` で `projects` に紐付け |
+| `vc_contacts` | VC 担当者 (投資家としての関係。GAP 事業化推進機関は `project_venture_members` を使う) |
+| `project_vc_relations` | PJ × VC × AMD担当 × ステータス (not_contacted/pitching/evaluating/dd/term_sheet/invested/passed/declined) |
+| `vc_news` | VC 関連ニュース (Atlas とは独立系統)。`verified` / `dismissed` で受信箱状態管理。`suggested_fund_patch` でファンド更新候補 |
+
+データ流入: cron `vc-news-ingest` (毎朝 09:00 JST、Claude + web_search) / つくよみ chat tool 群 (`upsert_vc` `upsert_vc_fund` `update_vc_dry_powder` `add_vc_investment` `add_vc_contact` `add_vc_news` `link_project_vc`) / `/vcs/[id]/edit` 手動。詳細は [`design_log/2026-05_vc_list.md`](design_log/2026-05_vc_list.md)。
+
+初期投入: `POST /api/admin/seed-vcs` (Bearer CRON_SECRET) で Claude + web_search に国内ディープテック VC を一括生成させ、`vcs` / `vc_funds` / `vc_investments` を upsert。再実行可。
 
 ---
 

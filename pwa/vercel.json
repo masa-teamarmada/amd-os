@@ -47,6 +47,10 @@
     {
       "path": "/api/cron/venture-narrative-refresh",
       "schedule": "45 18 * * *"
+    },
+    {
+      "path": "/api/cron/vc-news-ingest",
+      "schedule": "0 0 * * *"
     }
   ]
 }

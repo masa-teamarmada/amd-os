@@ -128,3 +128,11 @@
     @apply font-sans;
   }
 }
+
+/* VC edit form shorthand: compact text input */
+.i {
+  @apply w-full px-2 py-1.5 rounded border border-border bg-background text-xs;
+}
+.i:focus {
+  @apply outline-none ring-1 ring-primary/40;
+}
