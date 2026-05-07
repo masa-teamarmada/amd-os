@@ -13,21 +13,47 @@
 
 ## 最終更新
 
-2026-05-07 (晩) — 過去生データから 9 PJ × 71 評価点 一括抽出 (L2 batch) + 同日 8 改修 (XRL 5 軸 / FRL ALQ / KaTeX / つくよみ tools 拡張 / 添付対応)
+2026-05-07 (深夜) — AMD Score L2 cron 実装 (6 ソース週 1 自動抽出) + 過去 9 PJ × 71 評価点 一括抽出 + 8 改修 (XRL 5 軸 / FRL ALQ / KaTeX / つくよみ tools 拡張 / 添付対応)
+
+## ⚠️ env vars 設定が必要 (cron 起動条件)
+
+以下を Vercel production env に追加 (まさに依頼):
+- `SLACK_BOT_TOKEN` — Slack Bot (xoxb-…)。scopes: search:read, channels:history, channels:read, groups:history, groups:read
+- `NOTION_API_KEY` — Notion Integration (secret_…)。Integration を AMD workspace の root ページに招待
+- `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `GOOGLE_OAUTH_REFRESH_TOKEN` — Google OAuth (Drive/Gmail/Calendar 共通)
+- (`ANTHROPIC_API_KEY` / `CRON_SECRET` は既存のものを流用)
+
+env 未設定でも各 source は graceful degradation (skip して 0 件返す) → cron は動くが空データになる。フル動作には全 token 必要。
 
 ---
 
 ## 直近セッション要約
 
-### 1) 過去生データ → 9 PJ × 71 評価点 一括抽出 (L2 batch、セッション末尾)
+### 0) AMD Score L2 cron 実装 (6 ソース週 1 自動抽出、セッション最末尾)
+
+「Slack/Drive/Notion/Gmail/Calendar/ネット検索の 6 ソースから cron で情報抽出」というまさ要望に対応。本番 PWA から定期実行できる cron route として実装:
+
+- 新 lib `src/lib/sources/{slack,notion,drive,gmail,calendar,web-search,google}.ts` (6 ソースクライアント + 共通 Google 認証)
+- 新 lib `src/lib/amd-score-l2-extract.ts` (orchestrator: 6 ソース → Sonnet 4.5 → amd_score_inputs upsert)
+- 新 route `/api/cron/amd-score-l2-refresh` (週 1 cron、毎週月曜 03:00 JST = `0 18 * * 0` UTC)
+- vercel.json 更新
+- 各 source は env 未設定なら skip (graceful degradation)
+- evaluator は `'cron_l2_extract'` で記録 (まさ手動 / 一括 batch とも区別可能)
+- maxDuration=300s (Hobby 上限)。9 PJ × ~30s ≈ 270s 想定
+
+依存追加: `@slack/web-api` `@notionhq/client` `googleapis`
+
+**運用開始条件**: 上記 env vars をまさが Vercel に登録 → 翌週月曜 03:00 JST で初回実行 (もしくは `curl -H "Authorization: Bearer $CRON_SECRET" https://amd-os-pwa.vercel.app/api/cron/amd-score-l2-refresh` で即時実行可)
+
+### 1) 過去生データ → 9 PJ × 71 評価点 一括抽出 (このセッション末尾)
 
 「過去の生データから一気に AMD Score timeline を抽出してほしい、ネット情報も補完で」というまさ要望対応。私 (Claude Code) のセッション内で MCP (Notion/Slack/Drive) + WebSearch + Anthropic API + Supabase Management API を組み合わせて 9 PJ batch 処理。
 
 - 新 script: `pwa/scripts/extract_amd_score_from_l2.py` (汎用化、引数: project_id, raw_text_file)
-- 各 PJ の raw text は `/tmp/amd-l2-extract/<projectId>_raw.txt` (Notion + Slack + WebSearch + 既存 seed)
+- 各 PJ の raw text は `/tmp/amd-l2-extract/<projectId>_raw.txt` に dump (Notion + Slack + WebSearch + 既存 seed)
 - Sonnet 4.5 が timeline JSON 生成 → Supabase Management API で `amd_score_inputs` に upsert (evaluator='l2_extract_sonnet')
 - 結果: p03 8 / p04 6 / p06 8 / p07 8 / p09 10 / p11 8 / p18 7 / p20 8 / p21 8 = **計 71 評価点**
-- 詳細・洞察は `design_log/2026-05_amd_score.md` 末尾「過去分一括抽出 (2026-05-07 batch)」
+- 詳細・洞察は `design_log/2026-05_amd_score.md` 末尾「過去分一括抽出 (2026-05-07 batch)」セクション
 
 **次の段階 (まさ要望「cron は別で必要」に対応)**:
 1. Slack/Drive/Notion API token を Vercel env に追加 (本番 PWA からも叩けるように)
@@ -35,51 +61,39 @@
 3. WebSearch も Anthropic 公式 web_search tool を本番に組み込むか Google Custom Search API
 4. UI で各評価点をまさが補正できる仕組み (既に AmdScoreView でできるが UX 改善余地)
 
-### 2) AMD Score 周りの 8 改修 (4 phase 連続 deploy)
+---
 
-理論正本 [`/Users/masa/projects/before-zero/theory/amd_score.md`](../../../before-zero/theory/amd_score.md) (Before Zero Theory v3.2) の AMD Score を AMD OS にフル実装後、まさからの 8 改修を 4 phase で連続 deploy:
-
-#### Phase A — 軽量 UX 修正
-- (3) project_xrl_log に grl/srl 列追加 (migration 014)、cockpit XRL グラフを 5 軸 (TRL/BRL/GRL/SRL/HRL) に拡張、CockpitXrlDetailModal も 5 軸対応
+### Phase A — 軽量 UX 修正
+- (3) project_xrl_log に grl/srl 列追加 (migration 014)、cockpit XRL グラフを TRL/BRL/GRL/SRL/HRL の 5 軸に拡張
 - (4) cockpit AMD スコアグラフ + AMD Score 経時 chart に AMD 支援期間 (amd_support_started_at - ended_at) を背景帯で明示
-- (7) CockpitAmdScoreBreakdownModal を KaTeX で数式描画 + XRL を `{TRL,BRL,GRL,SRL,HRL}` と集約表記
+- (7) CockpitAmdScoreBreakdownModal を KaTeX で数式描画 + XRL を集約表記に変更
 - (8) AmdScoreView ヘッダに「↩ <PJ名> のコックピットに戻る」リンク追加
 
-#### Phase B — FRL 構造化評価 + XRL 次レベル進捗
-- (2) migration 015: amd_score_inputs に Walumbwa 2008 ALQ 4 次元 + frl_notes 追加。AmdScoreView に FrlAlqPanel (4 軸ミニレーダー + スライダー + 自由備考 + 自動算出 / 手動切替)
-- 「FRL 学術定義から見て ALQ + 備考だけでは何が足りないか」を展開可能セクションで明示 (360° feedback / Founder Quality / Founder Experience / Achievement Motivation / Psychological Safety / 動的観測 / Founder Network 効果 が不足)
-- 新 lib `xrl-level-definitions.ts`: 内閣府 SIP 9 段階定義 (TRL/BRL/GRL/SRL/HRL 各 9 レベル) を網羅。CockpitXrlDetailModal に NextLevelProgress (現 Lv → 次 Lv の説明 + 進捗 % + exit_criteria 明示)
+### Phase B — FRL 構造化評価 + XRL 次レベル進捗
+- (2) migration 015: amd_score_inputs に Walumbwa 2008 ALQ 4 次元 (alq_self_awareness/relational_transparency/balanced_processing/internalized_moral) + frl_notes を追加
+- AmdScoreView に FrlAlqPanel: 4 軸ミニレーダー + スライダー + 自由備考 + 自動算出 (ALQ 平均) ⇄ 手動 FRL 切替
+- 「FRL 学術定義から見て ALQ + 備考だけでは何が足りないか」を展開可能セクションで明示 (360° / Founder Quality / Founder Experience / Achievement Motivation / Psychological Safety / 動的観測 / Founder Network 効果 が不足)
+- 新 lib `xrl-level-definitions.ts`: 内閣府 SIP 9 段階定義 (TRL/BRL/GRL/SRL/HRL 各 9 レベル) を網羅
+- CockpitXrlDetailModal に NextLevelProgress: 現 Lv → 次 Lv の説明 + 進捗 % + exit_criteria 明示
 
-#### Phase C — つくよみチャットに AMD Score 認識 + L2 入力 tool 群
+### Phase C — つくよみチャットに AMD Score 認識 + L2 入力 tool 群
 - (1)+(5) system prompt に AMD Score の数式 / フェーズ / FRL ALQ 構造を明記
 - ProjectContext に amd_score (latest_input + 計算済 score + phase + bottleneck + alpha) と xrl_next_levels (5 軸の現/次 Lv + 進捗 % + exit_criteria) を含める
-- 新 tool 群 (8 個): update_amd_score_input / update_amd_score_alpha / add_xrl_observation / record_xrl_feedback (5 軸) / add_project_event / add_project_member / add_project_partner / add_pl_monthly
+- 新 tool 群:
+  - `update_amd_score_input`: μ_A/I/G + 5 XRL + FRL/ALQ + frl_notes upsert (部分上書き)
+  - `update_amd_score_alpha`: 重み α 新版保存 (前版を close)
+  - `add_xrl_observation`: project_xrl_log 追加 (5 軸対応)
+  - `record_xrl_feedback`: 5 軸対応
+  - `add_project_event`: 沿革駆動イベント (hire/funding/deal/tech_progress/governance/note)
+  - `add_project_member`: メンバー追加
+  - `add_project_partner`: 事業会社追加
+  - `add_pl_monthly`: 月次試算表 upsert
 - system prompt に「L2 情報を貼られたら分類して複数 tool 並行呼び出し」例
 
-#### Phase D — つくよみチャットに添付サポート
+### Phase D — つくよみチャットに添付サポート
 - (6) TsukuyomiChatDrawer: 📎 添付ボタン + ドラッグ&ドロップ (画像 / PDF / テキスト最大 5 ファイル × 8MB)
 - API: 添付を Anthropic content blocks (image / document / text) に変換して Sonnet に渡す
-
-詳細: `design_log/2026-05_amd_score.md` と `design_log/sessions_2026-05.md` の 2026-05-07 セクション。
-
-### 3) config リンクの正体特定 (前 commit `5b3c1a9`、まさ + 私で共同調査済)
-
-PWA の git 履歴では「config リンク」は私が e6038d8 で追加したのが初出だが、**GAS版 cockpit に元ページが存在する**ことを確認:
-
-- [`gas/500_CockpitPage.html:139`](../gas/500_CockpitPage.html:139): cockpit ヘッダー右に `Chronicle →` (沿革) と `Config →` の 2 リンク
-- `?page=config&projectId=X` → [`gas/226_ProjectConfig.html`](../gas/226_ProjectConfig.html) (約 700 行) に飛ぶ
-- 中身 = **PJ ごとに一括管理する専用画面**: 基本情報 / メンバー / 契約条件 / 請求書送付先 / Deductions
-
-つまり、まさが「コックピットから config に飛ぶリンク」と呼んでいたのは **GAS の `226_ProjectConfig.html` 相当の PJ 個別設定ページ**。PWA にはまだ存在しない。
-
-#### 暫定実装 (前 commit `5b3c1a9` で main に入った)
-
-- `CockpitHeader` に `⚙️ config` リンクが残っている
-- href: `/admin/projects#${projectId}` (PJ 台帳の当該行に hash anchor)
-- `AdminProjectsTable` の `<tr>` に `id={p.project_id}` + `target:bg-amber-50` でハイライト
-- title 属性に「暫定: PJ 台帳の当該行 — 本来の飛び先要確認」と明記
-
-→ **次セッションの大きなタスク**: PWA に `/project/[projectId]/config` ページを新規作成して GAS `226_ProjectConfig.html` を移植する。CockpitHeader の Link 先を `/admin/projects#...` から新ページに直す。
+- tsukuyomi_chat_logs に添付ファイル名 metadata を保存
 
 ---
 
@@ -87,10 +101,9 @@ PWA の git 履歴では「config リンク」は私が e6038d8 で追加した�
 
 - 作業 worktree: `/Users/masa/projects/AMD/amd-os/.claude/worktrees/blissful-kepler-9e95b0`
 - 作業 branch: `claude/blissful-kepler-9e95b0` (main にも順次 merge + push 済)
-- 本番デプロイ: `https://amd-os-pwa.vercel.app` (Phase A→B→C→D 順次 deploy 済、L2 batch は DB のみ更新で UI は変わらない)
+- main HEAD: AMD Score 改修 4 phase が乗っている
+- 本番デプロイ: `https://amd-os-pwa.vercel.app` (Phase A→B→C→D 順次 deploy 済)
 - migrations: 013 (amd_score), 014 (project_xrl_log grl/srl), 015 (amd_score_inputs alq) 全て本番適用済
-- amd_score_inputs: 9 PJ × 71 評価点 投入済
-- uncommitted (まさの作業 — **触らない**): main checkout 側に `?? design_log/` `?? tsukuyomi-sheet.png` 等あり
 
 ---
 
@@ -98,16 +111,15 @@ PWA の git 履歴では「config リンク」は私が e6038d8 で追加した�
 
 ### 設計層 (まさの判断待ち)
 
-- **PWA `/project/[projectId]/config` ページ新規作成** (config 暫定リンクの正式化、GAS 226_ProjectConfig.html 移植)
-- **L2 batch の cron 化**: 上記の Slack/Drive/Notion API token + `/api/cron/amd-score-l2-refresh` route 化
-- **AMD Score 期待値とのズレ**: 71 評価点それぞれの μ/XRL/FRL は Sonnet 推定。まさが UI で実値補正していく運用
-- **Shallow Tech モードの重み再分配** (理論 §11.3): TRL=1.0 を BRL/HRL に再分配
-- **σ_SU を /venture-map/state-space と連携**: 現状は手動入力 μ_A/μ_I/μ_G、本来 Triple Helix 状態空間モデル推定値を pull
+- **PWA `/project/[projectId]/config` ページ新規作成** (前 commit `5b3c1a9` の暫定リンクの正式化) — GAS `226_ProjectConfig.html` を PWA 移植する
+- **AMD Score 期待値とのズレ**: 一部 PJ で seed の μ 値が §8 表より低めに出ている件。まさが UI スライダーで PJ ごとに合わせる方針 (もしくは tsukuyomi に L2 情報渡して update_amd_score_input してもらう)
+- **Shallow Tech モードの重み再分配** (理論 §11.3): TRL=1.0 を BRL/HRL に再分配して K=1.0 にする案
+- **σ_SU を /venture-map/state-space と連携**: 現状は手動入力 μ_A/μ_I/μ_G、本来は Triple Helix 状態空間モデル推定値を pull すべき
 - Timeline 3D 拡張、Venture Map 数式モデル深化
 
 ### 実装層
 
-- データ駆動 α 推定 (9 PJ + 各 PJ 8 評価点 × Sonnet 推定値で階層 Bayesian の素地ができた)
+- データ駆動 α 推定 (9 PJ 階層 Bayesian)
 - VC valuation との比較ビュー (理論 §10)
 - AMD Score の cron 自動更新 (atlas signal が来たら関連 PJ の σ_SU を再評価)
 - FRL の 360° feedback 取り込み (現状 ALQ 自己申告のみ)
@@ -121,10 +133,10 @@ PWA の git 履歴では「config リンク」は私が e6038d8 で追加した�
 1. リポ状態 4 ステップ (`git fetch --all --prune` → `git log --branches --not --remotes --oneline` → `git branch -a` → `git status -s`)
 2. **`design_log/2026-05_amd_score.md`** と **`design_log/2026-05_pj_status_cockpit.md`** を読む (両方とも冒頭に「既存 UI を勝手に消すな」ルール)
 3. `SPEC_pwa.md` で全体像、`BUGS.md` で過去事故を確認
-4. 本番 (`https://amd-os-pwa.vercel.app/venture-map/amd-score`) でまさが触ってフィードバック (71 評価点 timeline 表示、各 PJ の経時グラフ)
-5. まさに優先順位を確認 → 候補:
-   a. **GAS `gas/226_ProjectConfig.html` 移植** → `/project/[projectId]/config` ページ新規作成
-   b. **L2 batch の cron 化** (Slack/Drive/Notion API token + route 化)
-   c. **AMD Score / FRL ALQ / つくよみ拡張 (tools + 添付) を本番で触ってもらってフィードバック**
-   d. その他 (Timeline 3D / Venture Map モデル深化 / FRL 360° / α データ駆動推定)
+4. 本番 (`https://amd-os-pwa.vercel.app/venture-map/amd-score`) でまさが触ってフィードバック → tune
+5. 候補 (まさに優先確認):
+   a. **GAS `gas/226_ProjectConfig.html` 移植** → `/project/[projectId]/config` ページ新規作成 (CockpitHeader リンク先を直す)
+   b. **AMD Score / FRL ALQ / 添付つくよみチャット** の本番触ってもらってフィードバック
+   c. AMD Score の cron 化 (atlas signal → σ_SU 自動更新)
+   d. その他
 6. **PWA は常に本番で確認** (`pwa/AGENTS.md`)。tsc 通ったら commit → push → main merge → `npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os` まで一気に通す
