@@ -492,32 +492,31 @@ export function CockpitRoutineInvoiceModal({ projectId, ym, documentType, open, 
                           onChange={(e) => updateLine(line.id, { description: e.target.value })}
                           className="text-sm"
                         />
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <span className="text-muted-foreground">数量</span>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-muted-foreground text-xs">数量</span>
                           <Input
                             type="text"
                             inputMode="decimal"
                             value={line.quantity}
                             onFocus={(e) => e.target.select()}
                             onChange={(e) => updateLine(line.id, { quantity: e.target.value })}
-                            className="w-14 h-7 text-right font-mono text-xs px-1"
+                            className="w-16 h-9 text-right font-mono px-2"
                           />
-                          <span className="text-muted-foreground">×</span>
+                          <span className="text-muted-foreground text-xs">×</span>
                           <span className="text-muted-foreground">¥</span>
                           <Input
                             type="text"
                             inputMode="numeric"
-                            placeholder="0"
                             value={line.unitPrice}
                             onFocus={(e) => e.target.select()}
                             onChange={(e) =>
                               updateLine(line.id, { unitPrice: e.target.value.replace(/\D/g, "") })
                             }
-                            className="w-24 h-7 text-right font-mono text-xs px-1"
+                            className="w-32 h-9 text-right font-mono px-2"
                           />
                           <span className="flex-1" />
                           {Number(line.unitPrice) > 0 && Number(line.quantity) > 0 && (
-                            <span className="font-mono text-muted-foreground">
+                            <span className="font-mono text-muted-foreground text-xs">
                               = ¥{fmtYen(Number(line.unitPrice) * Number(line.quantity))}
                             </span>
                           )}
