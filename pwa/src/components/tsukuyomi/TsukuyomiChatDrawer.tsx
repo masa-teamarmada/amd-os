@@ -65,8 +65,11 @@ interface TurnResponse {
 
 function extractProjectId(pathname: string | null): string | null {
   if (!pathname) return null;
-  const m = pathname.match(/\/project\/([^\/]+)\/cockpit/) ||
-            pathname.match(/\/venture-map\/su\/([^\/]+)/);
+  const m =
+    pathname.match(/\/project\/([^\/]+)\/cockpit/) ||
+    pathname.match(/\/project\/([^\/]+)\/config/) ||
+    pathname.match(/\/venture-map\/su\/([^\/]+)/) ||
+    pathname.match(/\/venture-map\/amd-score\/([^\/]+)/);
   return m ? m[1] : null;
 }
 
