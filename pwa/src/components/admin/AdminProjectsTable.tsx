@@ -101,8 +101,13 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
     });
   }, [projects, filterStatus, filterQ]);
 
-  const startEdit = (p: ProjectRow) => {
-    setEditingId(p.id);
+  // セル単位編集に移行 (まさ要望、2026-05-07):
+  // editingCell = `${rowId}:${fieldGroup}` 形式。クリックされたセルだけが編集モードになる。
+  // fieldGroup は単一カラムの場合はカラム名、複合 (請求書送付・停止/再開予定) は合成名。
+  const editingCell = editingId; // 互換のため変数名再利用 (state は editingId だが意味が変わった)
+
+  const startEditCell = (p: ProjectRow, field: string) => {
+    setEditingId(`${p.id}:${field}`);
     setEditVals({
       client_name: p.client_name ?? "",
       freee_partner_id: p.freee_partner_id ?? "",
@@ -122,40 +127,44 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
     });
   };
 
+  const isEditingField = (p: ProjectRow, field: string) => editingCell === `${p.id}:${field}`;
+  const isEditingRow = (p: ProjectRow) => editingCell?.startsWith(`${p.id}:`) ?? false;
   const cancelEdit = () => { setEditingId(null); setEditVals({}); };
 
-  const saveEdit = async (p: ProjectRow) => {
+  const saveCell = async (p: ProjectRow, field: string) => {
     setSaving(p.id);
-    const patch = {
-      client_name: (editVals.client_name as string) || null,
-      freee_partner_id: (editVals.freee_partner_id as string) || null,
-      slack_channel_id: (editVals.slack_channel_id as string) || null,
-      drive_folder_id: (editVals.drive_folder_id as string) || null,
-      report_emails: (editVals.report_emails as string) || null,
-      start_ym: (editVals.start_ym as string) || null,
-      end_ym: (editVals.end_ym as string) || null,
-      status: editVals.status as string,
-      invoice_send_manual: !!editVals.invoice_send_manual,
-      invoice_to_emails: (editVals.invoice_to_emails as string) || null,
-      invoice_cc_emails: (editVals.invoice_cc_emails as string) || null,
-      invoice_bcc_emails: (editVals.invoice_bcc_emails as string) || null,
-      payment_due_day: editVals.payment_due_day && editVals.payment_due_day.trim() !== ""
-        ? Number(editVals.payment_due_day)
-        : null,
-      freeze_from_ym: (editVals.freeze_from_ym as string)?.trim() || null,
-      restart_expected_ym: (editVals.restart_expected_ym as string)?.trim() || null,
-      updated_at: new Date().toISOString(),
-    };
-    const { error } = await supabase
-      .from("projects")
-      .update(patch)
-      .eq("id", p.id);
-
+    // field ごとに patch を組む。null/empty 扱いを丁寧に。
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    switch (field) {
+      case "client_name": patch.client_name = (editVals.client_name as string) || null; break;
+      case "freee_partner_id": patch.freee_partner_id = (editVals.freee_partner_id as string) || null; break;
+      case "slack_channel_id": patch.slack_channel_id = (editVals.slack_channel_id as string) || null; break;
+      case "drive_folder_id": patch.drive_folder_id = (editVals.drive_folder_id as string) || null; break;
+      case "report_emails": patch.report_emails = (editVals.report_emails as string) || null; break;
+      case "start_ym": patch.start_ym = (editVals.start_ym as string) || null; break;
+      case "end_ym": patch.end_ym = (editVals.end_ym as string) || null; break;
+      case "status": patch.status = editVals.status as string; break;
+      case "payment_due_day":
+        patch.payment_due_day = editVals.payment_due_day && editVals.payment_due_day.trim() !== ""
+          ? Number(editVals.payment_due_day) : null;
+        break;
+      case "invoice_send":
+        patch.invoice_send_manual = !!editVals.invoice_send_manual;
+        patch.invoice_to_emails = (editVals.invoice_to_emails as string) || null;
+        patch.invoice_cc_emails = (editVals.invoice_cc_emails as string) || null;
+        patch.invoice_bcc_emails = (editVals.invoice_bcc_emails as string) || null;
+        break;
+      case "freeze_restart":
+        patch.freeze_from_ym = (editVals.freeze_from_ym as string)?.trim() || null;
+        patch.restart_expected_ym = (editVals.restart_expected_ym as string)?.trim() || null;
+        break;
+    }
+    const { error } = await supabase.from("projects").update(patch).eq("id", p.id);
     if (error) {
       setHint(`保存エラー: ${error.message}`);
     } else {
       setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, ...patch } : x));
-      setHint(`${p.project_name} を保存しました`);
+      setHint(`${p.project_name} の ${field} を保存しました`);
       setEditingId(null);
     }
     setSaving(null);
@@ -222,57 +231,58 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
           </thead>
           <tbody>
             {filtered.map((p) => {
-              const isEditing = editingId === p.id;
-              // セルクリックで編集開始するハンドラ (編集中はクリック無効)
-              const cellClick = isEditing ? undefined : () => startEdit(p);
-              const cellCls = isEditing ? "px-3 py-2" : "px-3 py-2 cursor-pointer";
+              const rowEditing = isEditingRow(p);
+              // セル単位の保存/取消ボタン
+              const cellActions = (field: string) => (
+                <div className="flex gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => saveCell(p, field)} disabled={saving === p.id}
+                    className="text-[10px] bg-foreground text-background px-2 py-0.5 rounded disabled:opacity-50">
+                    {saving === p.id ? "…" : "保存"}
+                  </button>
+                  <button onClick={cancelEdit}
+                    className="text-[10px] text-muted-foreground border border-border px-2 py-0.5 rounded">
+                    取消
+                  </button>
+                </div>
+              );
+              // セル click ハンドラ — 既に他セル編集中なら無効
+              const enterCell = (field: string) => () => {
+                if (rowEditing && !isEditingField(p, field)) return; // 他セル編集中は無視
+                if (!isEditingField(p, field)) startEditCell(p, field);
+              };
+              const cellCls = (field: string) => isEditingField(p, field)
+                ? "px-3 py-2"
+                : "px-3 py-2 cursor-pointer hover:bg-muted/30";
               return (
                 <tr
                   key={p.id}
                   id={p.project_id}
-                  className={`border-t border-border target:bg-amber-50 ${isEditing ? "bg-blue-50/50" : "hover:bg-muted/20"}`}
+                  className={`border-t border-border target:bg-amber-50 ${rowEditing ? "bg-blue-50/30" : "hover:bg-muted/20"}`}
                 >
-                  <td className="px-3 py-2 font-mono font-bold sticky left-0 bg-background" onClick={cellClick}>{p.project_id}</td>
+                  <td className="px-3 py-2 font-mono font-bold sticky left-0 bg-background">{p.project_id}</td>
 
-                  {/* PJ名 — 編集中なら 保存/取消 ボタンを表示 */}
-                  <td className="px-3 py-2 sticky left-14 bg-background border-r border-border" onClick={isEditing ? undefined : cellClick}>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium max-w-[120px] truncate" title={p.project_name}>{p.project_name}</span>
-                      {isEditing && (
-                        <div className="flex gap-1">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); saveEdit(p); }}
-                            disabled={saving === p.id}
-                            className="text-[10px] bg-foreground text-background px-2 py-0.5 rounded disabled:opacity-50"
-                          >
-                            {saving === p.id ? "…" : "保存"}
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); cancelEdit(); }}
-                            className="text-[10px] text-muted-foreground border border-border px-2 py-0.5 rounded"
-                          >
-                            取消
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                  {/* PJ名 — 表示のみ (PJ名そのものは varying でなく safe) */}
+                  <td className="px-3 py-2 sticky left-14 bg-background border-r border-border font-medium max-w-[120px] truncate" title={p.project_name}>
+                    {p.project_name}
                   </td>
 
                   {/* status */}
-                  <td className={cellCls} onClick={cellClick}>
-                    {isEditing ? (
-                      <select value={editVals.status as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, status: e.target.value }))}
-                        onClick={(e) => e.stopPropagation()}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] bg-background">
-                        {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
+                  <td className={cellCls("status")} onClick={enterCell("status")}>
+                    {isEditingField(p, "status") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <select value={editVals.status as string}
+                          onChange={(e) => setEditVals((v) => ({ ...v, status: e.target.value }))}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] bg-background">
+                          {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        {cellActions("status")}
+                      </div>
                     ) : <StatusBadge status={p.status} />}
                   </td>
 
-                  {/* 停止 / 再開予定 (#18) */}
-                  <td className={`${cellCls} align-top`} onClick={cellClick}>
-                    {isEditing ? (
+                  {/* 停止 / 再開予定 (compound: freeze_from_ym + restart_expected_ym) */}
+                  <td className={`${cellCls("freeze_restart")} align-top`} onClick={enterCell("freeze_restart")}>
+                    {isEditingField(p, "freeze_restart") ? (
                       <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] text-muted-foreground w-14">停止開始:</span>
@@ -289,6 +299,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                             className="border border-border rounded px-1 py-0.5 text-[11px] w-16 bg-background font-mono" />
                         </div>
                         <p className="text-[9px] text-muted-foreground">両方セットすると「N月〜M月停止中」</p>
+                        {cellActions("freeze_restart")}
                       </div>
                     ) : (
                       <div className="space-y-0.5 text-[11px]">
@@ -306,7 +317,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     )}
                   </td>
 
-                  {/* PL / PM / クローザー (別モーダル編集なので click→edit は無効) */}
+                  {/* PL / PM / クローザー (別モーダル編集) */}
                   <td className="px-3 py-2 align-top">
                     <div className="space-y-0.5 text-[11px]">
                       {p.pls.length > 0 && <div><span className="text-blue-700 font-semibold">PL:</span> {p.pls.join(", ")}</div>}
@@ -315,7 +326,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                       {p.pls.length === 0 && p.pms.length === 0 && p.closers.length === 0 && <div className="text-muted-foreground">—</div>}
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setMembersModalProjectId(p.project_id); }}
+                        onClick={() => setMembersModalProjectId(p.project_id)}
                         className="text-[10px] text-muted-foreground hover:text-foreground border border-border px-1.5 py-0.5 rounded mt-0.5"
                       >
                         ✏️ 編集
@@ -323,29 +334,35 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     </div>
                   </td>
 
-                  {/* client_name (請求先) */}
-                  <td className={cellCls} onClick={cellClick}>
-                    {isEditing ? (
-                      <input type="text" value={editVals.client_name as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, client_name: e.target.value }))}
-                        onClick={(e) => e.stopPropagation()}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background" />
+                  {/* client_name */}
+                  <td className={cellCls("client_name")} onClick={enterCell("client_name")}>
+                    {isEditingField(p, "client_name") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input type="text" value={editVals.client_name as string} autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, client_name: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "client_name"); if (e.key === "Escape") cancelEdit(); }}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background" />
+                        {cellActions("client_name")}
+                      </div>
                     ) : <span className="text-muted-foreground">{p.client_name || "—"}</span>}
                   </td>
 
                   {/* report_emails */}
-                  <td className={cellCls} onClick={cellClick}>
-                    {isEditing ? (
-                      <input type="text" value={editVals.report_emails as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, report_emails: e.target.value }))}
-                        onClick={(e) => e.stopPropagation()}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background" placeholder="a@b.com, c@d.com" />
+                  <td className={cellCls("report_emails")} onClick={enterCell("report_emails")}>
+                    {isEditingField(p, "report_emails") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input type="text" value={editVals.report_emails as string} autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, report_emails: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "report_emails"); if (e.key === "Escape") cancelEdit(); }}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background" placeholder="a@b.com, c@d.com" />
+                        {cellActions("report_emails")}
+                      </div>
                     ) : <span className="text-muted-foreground text-[11px] truncate block max-w-[180px]">{p.report_emails || "—"}</span>}
                   </td>
 
-                  {/* 請求書送付 (mode + To/CC/BCC) */}
-                  <td className={cellCls} onClick={cellClick}>
-                    {isEditing ? (
+                  {/* 請求書送付 (compound) */}
+                  <td className={cellCls("invoice_send")} onClick={enterCell("invoice_send")}>
+                    {isEditingField(p, "invoice_send") ? (
                       <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                         <select
                           value={editVals.invoice_send_manual ? "manual" : "auto"}
@@ -368,6 +385,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                               placeholder="BCC" className="border border-border rounded px-1.5 py-0.5 text-[11px] w-full bg-background" />
                           </>
                         )}
+                        {cellActions("invoice_send")}
                       </div>
                     ) : (
                       <div className="text-[11px] text-muted-foreground">
@@ -382,15 +400,19 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                   </td>
 
                   {/* payment_due_day */}
-                  <td className={cellCls} onClick={cellClick}>
-                    {isEditing ? (
-                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        <span className="text-[10px] text-muted-foreground">翌月</span>
-                        <input type="number" value={editVals.payment_due_day as string}
-                          onChange={(e) => setEditVals((v) => ({ ...v, payment_due_day: e.target.value }))}
-                          className="border border-border rounded px-1 py-0.5 text-[12px] w-12 bg-background"
-                          min="1" max="31" placeholder="末" />
-                        <span className="text-[10px] text-muted-foreground">日</span>
+                  <td className={cellCls("payment_due_day")} onClick={enterCell("payment_due_day")}>
+                    {isEditingField(p, "payment_due_day") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground">翌月</span>
+                          <input type="number" value={editVals.payment_due_day as string} autoFocus
+                            onChange={(e) => setEditVals((v) => ({ ...v, payment_due_day: e.target.value }))}
+                            onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "payment_due_day"); if (e.key === "Escape") cancelEdit(); }}
+                            className="border border-border rounded px-1 py-0.5 text-[12px] w-12 bg-background"
+                            min="1" max="31" placeholder="末" />
+                          <span className="text-[10px] text-muted-foreground">日</span>
+                        </div>
+                        {cellActions("payment_due_day")}
                       </div>
                     ) : (
                       <span className="text-muted-foreground text-[11px]">
@@ -400,52 +422,67 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                   </td>
 
                   {/* start_ym */}
-                  <td className={cellCls} onClick={cellClick}>
-                    {isEditing ? (
-                      <input type="text" value={editVals.start_ym as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, start_ym: e.target.value }))}
-                        onClick={(e) => e.stopPropagation()}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-20 bg-background" placeholder="202401" />
+                  <td className={cellCls("start_ym")} onClick={enterCell("start_ym")}>
+                    {isEditingField(p, "start_ym") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input type="text" value={editVals.start_ym as string} autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, start_ym: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "start_ym"); if (e.key === "Escape") cancelEdit(); }}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-20 bg-background" placeholder="202401" />
+                        {cellActions("start_ym")}
+                      </div>
                     ) : <span className="text-muted-foreground">{p.start_ym || "—"}</span>}
                   </td>
 
                   {/* end_ym */}
-                  <td className={cellCls} onClick={cellClick}>
-                    {isEditing ? (
-                      <input type="text" value={editVals.end_ym as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, end_ym: e.target.value }))}
-                        onClick={(e) => e.stopPropagation()}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-20 bg-background" placeholder="202512" />
+                  <td className={cellCls("end_ym")} onClick={enterCell("end_ym")}>
+                    {isEditingField(p, "end_ym") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input type="text" value={editVals.end_ym as string} autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, end_ym: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "end_ym"); if (e.key === "Escape") cancelEdit(); }}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-20 bg-background" placeholder="202512" />
+                        {cellActions("end_ym")}
+                      </div>
                     ) : <span className="text-muted-foreground">{p.end_ym || "—"}</span>}
                   </td>
 
                   {/* freee_partner_id */}
-                  <td className={cellCls} onClick={cellClick}>
-                    {isEditing ? (
-                      <input type="text" value={editVals.freee_partner_id as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, freee_partner_id: e.target.value }))}
-                        onClick={(e) => e.stopPropagation()}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-20 bg-background font-mono" />
+                  <td className={cellCls("freee_partner_id")} onClick={enterCell("freee_partner_id")}>
+                    {isEditingField(p, "freee_partner_id") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input type="text" value={editVals.freee_partner_id as string} autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, freee_partner_id: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "freee_partner_id"); if (e.key === "Escape") cancelEdit(); }}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-20 bg-background font-mono" />
+                        {cellActions("freee_partner_id")}
+                      </div>
                     ) : <span className="font-mono text-muted-foreground">{p.freee_partner_id || "—"}</span>}
                   </td>
 
                   {/* slack_channel_id */}
-                  <td className={cellCls} onClick={cellClick}>
-                    {isEditing ? (
-                      <input type="text" value={editVals.slack_channel_id as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, slack_channel_id: e.target.value }))}
-                        onClick={(e) => e.stopPropagation()}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background font-mono" />
+                  <td className={cellCls("slack_channel_id")} onClick={enterCell("slack_channel_id")}>
+                    {isEditingField(p, "slack_channel_id") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input type="text" value={editVals.slack_channel_id as string} autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, slack_channel_id: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "slack_channel_id"); if (e.key === "Escape") cancelEdit(); }}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background font-mono" />
+                        {cellActions("slack_channel_id")}
+                      </div>
                     ) : <span className="font-mono text-muted-foreground text-[11px]">{p.slack_channel_id || "—"}</span>}
                   </td>
 
                   {/* drive_folder_id */}
-                  <td className={cellCls} onClick={cellClick}>
-                    {isEditing ? (
-                      <input type="text" value={editVals.drive_folder_id as string}
-                        onChange={(e) => setEditVals((v) => ({ ...v, drive_folder_id: e.target.value }))}
-                        onClick={(e) => e.stopPropagation()}
-                        className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background font-mono" />
+                  <td className={cellCls("drive_folder_id")} onClick={enterCell("drive_folder_id")}>
+                    {isEditingField(p, "drive_folder_id") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input type="text" value={editVals.drive_folder_id as string} autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, drive_folder_id: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "drive_folder_id"); if (e.key === "Escape") cancelEdit(); }}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background font-mono" />
+                        {cellActions("drive_folder_id")}
+                      </div>
                     ) : <span className="font-mono text-muted-foreground text-[11px] truncate block max-w-[150px]">{p.drive_folder_id || "—"}</span>}
                   </td>
                 </tr>
