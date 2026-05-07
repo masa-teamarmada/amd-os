@@ -215,14 +215,47 @@ export async function GET(req: NextRequest) {
     else inserted += chunk.length;
   }
 
+  // 3. report_emails (関係先メールアドレス) を再生成
+  //    PJ × メンバー の email リストを members.email から集約 → projects.report_emails に書く
+  const allMemberIds = Array.from(new Set(pmRows.map((r) => r.member_id)));
+  const { data: memberRows } = allMemberIds.length > 0
+    ? await supabase.from("members").select("member_id, email").in("member_id", allMemberIds)
+    : { data: [] };
+  const emailMap = new Map<string, string>();
+  for (const m of memberRows ?? []) {
+    if (m.email) emailMap.set(m.member_id, m.email);
+  }
+  const reportEmailsByPj = new Map<string, string[]>();
+  for (const r of pmRows) {
+    if (!r.is_active) continue;
+    const email = emailMap.get(r.member_id);
+    if (!email) continue;
+    const list = reportEmailsByPj.get(r.project_id) ?? [];
+    if (!list.includes(email)) list.push(email);
+    reportEmailsByPj.set(r.project_id, list);
+  }
+  let reportEmailsUpdated = 0;
+  const reportEmailsErrors: string[] = [];
+  for (const [projectId, emails] of reportEmailsByPj.entries()) {
+    const joined = emails.join(", ");
+    const { error } = await supabase
+      .from("projects")
+      .update({ report_emails: joined })
+      .eq("project_id", projectId);
+    if (error) reportEmailsErrors.push(`${projectId}: ${error.message}`);
+    else reportEmailsUpdated++;
+  }
+
   return NextResponse.json({
-    ok: insertErrors.length === 0,
+    ok: insertErrors.length === 0 && reportEmailsErrors.length === 0,
     projectsTotal: pjPatches.length,
     projectsUpdated: pjUpdated,
     projectErrors: pjErrors,
     projectMembersTotal: pmRows.length,
     projectMembersInserted: inserted,
     projectMembersErrors: insertErrors,
+    reportEmailsUpdated,
+    reportEmailsErrors,
     plPreserved: plSet.size,
   });
 }
