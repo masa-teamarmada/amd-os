@@ -438,3 +438,57 @@ PJ Status コックピット拡張を 6 phase で実装。`/project/[projectId]/
 - Shallow Tech モードの重み再分配 (理論 §11.3) — TRL=1.0 を BRL/HRL に再分配して K=1.0 と数値スケール一致を狙う
 - VC valuation との比較ビュー (理論 §10) で AMD Score 高 + valuation 低 = 過小評価サイン
 - AMD Score の cron 自動更新 (atlas signal が来たら関連 PJ の σ_SU を再評価)
+
+---
+
+## 2026-05-07 — AMD Score 周りの 8 改修 (4 phase 連続 deploy)
+
+まさからの 8 修正要望に対応。詳細は `design_log/2026-05_amd_score.md` 末尾。
+
+### Phase A: 軽量 UX
+- (3) project_xrl_log に grl/srl 列追加 (migration 014)、cockpit XRL グラフを 5 軸 (TRL/BRL/GRL/SRL/HRL) に拡張、CockpitXrlDetailModal も 5 軸対応
+- (4) cockpit AMD スコアグラフ + AMD Score 経時 chart に AMD 支援期間 (amd_support_started_at - ended_at) を背景帯で明示。VentureRow に amd_support_* 追加
+- (7) CockpitAmdScoreBreakdownModal を KaTeX で数式描画 + XRL を集約表記
+- (8) AmdScoreView ヘッダに「↩ <PJ名> のコックピットに戻る」リンク追加
+
+Commit: `32dd422`
+
+### Phase B: FRL 構造化評価 + XRL 次レベル進捗
+- (2) migration 015: amd_score_inputs に Walumbwa 2008 ALQ 4 次元 + frl_notes 追加
+- AmdScoreView に FrlAlqPanel: 4 軸ミニレーダー + スライダー + 自由備考 + 「ALQ 平均から自動算出」⇄ 手動 FRL
+- 「FRL 学術定義から見て ALQ + 備考だけでは何が足りないか」を展開可能セクション化:
+  → 360° feedback / Founder Quality (Bernstein 2017) / Founder Experience (Hsu 2007) / Achievement Motivation (Stewart 2007) / Psychological Safety (Edmondson 1999) / 動的観測 / Founder Network 効果
+- (XRL 次レベル進捗) 新 lib `xrl-level-definitions.ts`: 内閣府 SIP 9 段階定義 (TRL/BRL/GRL/SRL/HRL 各 9 レベル) を網羅
+- CockpitXrlDetailModal に NextLevelProgress: 現 Lv → 次 Lv の説明 + 進捗 % + exit_criteria 明示
+
+Commit: `3bca999`
+
+### Phase C: つくよみチャットに AMD Score 認識 + L2 入力 tool 群
+- (1)+(5) system prompt に AMD Score 数式 / フェーズ / FRL ALQ 構造を明記
+- ProjectContext に `amd_score` (latest_input + 計算済 score + phase + bottleneck + alpha) と `xrl_next_levels` (5 軸の現/次 Lv + 進捗 % + exit_criteria) を含める
+- 新 tool 群 (8 個):
+  - `update_amd_score_input` (μ_A/I/G + 5 XRL + FRL/ALQ + frl_notes upsert、部分上書き)
+  - `update_amd_score_alpha` (重み α 新版保存)
+  - `add_xrl_observation` (project_xrl_log 追加、5 軸対応)
+  - `record_xrl_feedback` (5 軸対応)
+  - `add_project_event` (沿革駆動: hire/funding/deal/tech_progress/governance/note)
+  - `add_project_member` (メンバー追加)
+  - `add_project_partner` (事業会社追加)
+  - `add_pl_monthly` (月次試算表 upsert)
+- system prompt に「L2 情報を貼られたら分類して複数 tool 並行呼び出し」例
+
+Commit: `db27ded`
+
+### Phase D: つくよみチャットに添付サポート
+- (6) TsukuyomiChatDrawer: 📎 添付ボタン + ドラッグ&ドロップ (画像 / PDF / テキスト最大 5 ファイル × 8MB)
+- API: 添付を Anthropic content blocks (image / document / text) に変換して Sonnet に渡す
+- メッセージ表示にも添付ファイル名 chip を表示
+- tsukuyomi_chat_logs に添付ファイル名 metadata を保存
+
+### 主な変更ファイル (このセッション全体)
+- migrations: 014 (project_xrl_log grl/srl), 015 (amd_score_inputs alq + frl_notes) 全て本番適用済
+- 新 lib: `src/lib/xrl-level-definitions.ts`
+- 改修 lib: `src/lib/amd-score.ts`, `src/lib/amd-score-data.ts`, `src/lib/venture-status-data.ts`, `src/lib/venture-map-data.ts`
+- 改修 component: `AmdScoreView.tsx` (FrlAlqPanel + AMD 支援期間背景), `CockpitVentureStatus.tsx` (5 軸 XRL + AMD 支援期間), `CockpitXrlDetailModal.tsx` (5 軸 + NextLevelProgress), `CockpitAmdScoreBreakdownModal.tsx` (KaTeX), `TsukuyomiChatDrawer.tsx` (添付)
+- 改修 API: `src/app/api/tsukuyomi/chat/route.ts` (8 tool + AMD Score context + 添付)
+- design log: `design_log/2026-05_amd_score.md` (FRL ALQ + XRL 次レベル進捗 セクション追記)
