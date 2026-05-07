@@ -15,6 +15,7 @@
 import { useState } from "react";
 import { MentionTextarea } from "./MentionTextarea";
 import { submitXrlFeedback, type ProjectXrlRow } from "@/lib/venture-status-data";
+import { getLevelInfo, type XrlAxisKey } from "@/lib/xrl-level-definitions";
 
 type Axis = "TRL" | "BRL" | "GRL" | "SRL" | "HRL";
 type AxisLower = "trl" | "brl" | "grl" | "srl" | "hrl";
@@ -111,6 +112,49 @@ export function CockpitXrlDetailModal({ projectId, row, axis, onClose, onUpdated
     onUpdated();
   };
 
+  function NextLevelProgress({ axis, value }: { axis: Axis; value: number | null }) {
+    const axisLower = axis.toLowerCase() as XrlAxisKey;
+    const info = getLevelInfo(axisLower, value);
+    return (
+      <div className="border border-slate-200 rounded-md px-3 py-2 bg-slate-50/50 text-[11px] flex flex-col gap-2">
+        <div className="text-[10px] text-muted-foreground">次レベルへの進捗 — 内閣府 SIP 9 段階定義より</div>
+        {info.current && (
+          <div>
+            <span className="text-[10px] text-slate-500">現在 (Lv.{info.current.level} {info.current.label}): </span>
+            <span className="text-slate-800">{info.current.description}</span>
+          </div>
+        )}
+        {info.next && info.current && info.next.level !== info.current.level && (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-500 w-[140px] shrink-0">Lv.{info.current.level} → Lv.{info.next.level} 進捗</span>
+              <div className="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div className="h-full bg-emerald-500" style={{ width: `${info.progressPct}%` }} />
+              </div>
+              <span className="font-mono text-[10px] w-[44px] text-right">{info.progressPct}%</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-500">次レベル到達条件: </span>
+              <span className="text-slate-800">{info.current.exit_criteria}</span>
+            </div>
+            <div className="text-[10px] text-slate-600 italic">
+              ↳ 次のステージ Lv.{info.next.level} 「{info.next.label}」: {info.next.description}
+            </div>
+          </>
+        )}
+        {info.current && info.next && info.next.level === info.current.level && (
+          <div className="text-[11px] text-emerald-700">最終段階 (Lv.9) に到達 — 上限</div>
+        )}
+        {!info.current && info.next && (
+          <div className="text-[11px] text-slate-700">
+            未着手 (Lv.0)。Lv.1 「{info.next.label}」 に到達するには:{" "}
+            <span className="text-slate-800">{info.next.description}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -175,6 +219,10 @@ export function CockpitXrlDetailModal({ projectId, row, axis, onClose, onUpdated
               <span className="text-slate-800">{row.milestone_label}</span>
             </div>
           )}
+
+          {/* 次レベル進捗 (SIP 9 段階定義) */}
+          <NextLevelProgress axis={axis} value={value} />
+
 
           {/* 軸別の評価理由 */}
           <div

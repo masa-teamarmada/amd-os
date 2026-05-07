@@ -56,11 +56,23 @@ interface EditableInput {
   srl: number;
   hrl: number;
   frl: number;
+  // FRL ALQ 内訳 (Walumbwa 2008)
+  alq_self_awareness: number | null;
+  alq_relational_transparency: number | null;
+  alq_balanced_processing: number | null;
+  alq_internalized_moral: number | null;
+  alq_auto_derive_frl: boolean;   // true なら ALQ 平均を frl に自動反映 (UI のみ、DB には保存しない)
+  frl_notes: string;
   shallow_tech_mode: boolean;
   notes: string;
 }
 
 function rowToEditable(r: AmdScoreInputRow): EditableInput {
+  const hasAlq =
+    r.alq_self_awareness != null ||
+    r.alq_relational_transparency != null ||
+    r.alq_balanced_processing != null ||
+    r.alq_internalized_moral != null;
   return {
     evaluated_at: r.evaluated_at.slice(0, 10),
     mu_A: r.mu_A ?? 0,
@@ -72,6 +84,12 @@ function rowToEditable(r: AmdScoreInputRow): EditableInput {
     srl: r.srl ?? 0,
     hrl: r.hrl ?? 0,
     frl: r.frl ?? 0,
+    alq_self_awareness: r.alq_self_awareness,
+    alq_relational_transparency: r.alq_relational_transparency,
+    alq_balanced_processing: r.alq_balanced_processing,
+    alq_internalized_moral: r.alq_internalized_moral,
+    alq_auto_derive_frl: hasAlq,    // ALQ が入っているなら自動算出 ON で表示
+    frl_notes: r.frl_notes ?? "",
     shallow_tech_mode: r.shallow_tech_mode,
     notes: r.notes ?? "",
   };
@@ -81,9 +99,25 @@ function emptyEditable(): EditableInput {
   return {
     evaluated_at: new Date().toISOString().slice(0, 10),
     mu_A: 0, mu_I: 0, mu_G: 0, trl: 0, brl: 0, grl: 0, srl: 0, hrl: 0, frl: 0,
+    alq_self_awareness: null, alq_relational_transparency: null,
+    alq_balanced_processing: null, alq_internalized_moral: null,
+    alq_auto_derive_frl: false,
+    frl_notes: "",
     shallow_tech_mode: false,
     notes: "",
   };
+}
+
+/** ALQ 4 次元の平均 → FRL 推定値 (0-9)。null は除外して残った要素の平均。全部 null なら null。 */
+export function deriveFrlFromAlq(e: Pick<EditableInput, "alq_self_awareness" | "alq_relational_transparency" | "alq_balanced_processing" | "alq_internalized_moral">): number | null {
+  const vals = [
+    e.alq_self_awareness,
+    e.alq_relational_transparency,
+    e.alq_balanced_processing,
+    e.alq_internalized_moral,
+  ].filter((v): v is number => typeof v === "number");
+  if (vals.length === 0) return null;
+  return vals.reduce((s, v) => s + v, 0) / vals.length;
 }
 
 export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
@@ -97,7 +131,10 @@ export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
   const [savingAlpha, startSaveAlpha] = useTransition();
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  // ---- 現在の編集値で score 計算 ----
+  // ---- 現在の編集値で score 計算 (FRL は ALQ auto-derive モードなら平均) ----
+  const effectiveFrl = editable.alq_auto_derive_frl
+    ? deriveFrlFromAlq(editable) ?? editable.frl
+    : editable.frl;
   const result = useMemo(() => {
     return calculateAmdScore(
       {
@@ -109,11 +146,11 @@ export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
         GRL: editable.grl,
         SRL: editable.srl,
         HRL: editable.hrl,
-        FRL: editable.frl,
+        FRL: effectiveFrl,
       },
       alpha
     );
-  }, [editable, alpha]);
+  }, [editable, alpha, effectiveFrl]);
 
   // ---- 経時データ (DB 入力 + 計算結果) ----
   const series = useMemo(() => {
@@ -144,6 +181,9 @@ export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
   function onSaveInput() {
     setFeedback(null);
     startSaveInput(async () => {
+      const finalFrl = editable.alq_auto_derive_frl
+        ? deriveFrlFromAlq(editable) ?? editable.frl
+        : editable.frl;
       const saved = await upsertAmdScoreInput({
         id: editingId ?? undefined,
         project_id: venture.project_id,
@@ -156,7 +196,12 @@ export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
         grl: editable.grl,
         srl: editable.srl,
         hrl: editable.hrl,
-        frl: editable.frl,
+        frl: finalFrl,
+        alq_self_awareness: editable.alq_self_awareness,
+        alq_relational_transparency: editable.alq_relational_transparency,
+        alq_balanced_processing: editable.alq_balanced_processing,
+        alq_internalized_moral: editable.alq_internalized_moral,
+        frl_notes: editable.frl_notes || null,
         shallow_tech_mode: editable.shallow_tech_mode,
         notes: editable.notes || null,
         evaluator: "amy",
@@ -234,6 +279,7 @@ export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
             saving={savingInput}
             sigmaSU={result.sigma_SU}
           />
+          <FrlAlqPanel editable={editable} setEditable={setEditable} effectiveFrl={effectiveFrl} />
         </div>
 
         <AlphaSidebar
@@ -771,6 +817,181 @@ function ScoreSlider({
         onChange={(e) => onChange(Number(e.target.value))}
       />
       <span className="font-mono text-[11px] text-right">{value.toFixed(1)}</span>
+    </div>
+  );
+}
+
+// ============================================================
+// FRL ALQ Panel — Walumbwa et al. (2008) ALQ 4 次元 + 自由備考
+// ============================================================
+const ALQ_AXES = [
+  { key: "alq_self_awareness" as const, label: "自己認識", desc: "Self-awareness — 自分の強み・弱み・価値観の理解度" },
+  { key: "alq_relational_transparency" as const, label: "関係透明性", desc: "Relational transparency — 本音と建前の一致、誠実性" },
+  { key: "alq_balanced_processing" as const, label: "均衡的処理", desc: "Balanced processing — 反対意見も含めた客観評価" },
+  { key: "alq_internalized_moral" as const, label: "道徳観", desc: "Internalized moral perspective — 倫理基準への一貫性" },
+];
+
+function FrlAlqPanel({
+  editable,
+  setEditable,
+  effectiveFrl,
+}: {
+  editable: EditableInput;
+  setEditable: (e: EditableInput) => void;
+  effectiveFrl: number;
+}) {
+  const W = 320;
+  const H = 280;
+  const cx = W / 2;
+  const cy = H / 2;
+  const R = 90;
+  const angle = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / 4;
+
+  const points = ALQ_AXES.map((a, i) => {
+    const v = (editable[a.key] as number | null) ?? 0;
+    const r = (Math.max(0, Math.min(9, v)) / 9) * R;
+    return { ...a, value: v, x: cx + r * Math.cos(angle(i)), y: cy + r * Math.sin(angle(i)) };
+  });
+  const grid = [0.25, 0.5, 0.75, 1.0];
+  const derived = deriveFrlFromAlq(editable);
+
+  return (
+    <div className="border border-[#e5e5e7] rounded-xl p-4 bg-white">
+      <div className="flex items-baseline justify-between mb-2">
+        <div>
+          <div className="text-[12px] font-semibold">FRL — Founder Readiness Level</div>
+          <div className="text-[10px] text-muted-foreground">
+            Walumbwa et al. (2008) <em>Authentic Leadership Questionnaire</em> 4 次元 (各 0-9)。
+            自動算出モードでは 4 次元の平均が FRL になる。
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] text-muted-foreground">現在の FRL</div>
+          <div className="text-2xl font-mono font-bold text-red-600">{effectiveFrl.toFixed(1)}</div>
+          {editable.alq_auto_derive_frl && derived != null && (
+            <div className="text-[9px] text-muted-foreground">ALQ 平均から自動</div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-3 mt-3">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+          {grid.map((g, gi) => (
+            <polygon
+              key={gi}
+              points={ALQ_AXES.map((_, i) => {
+                const x = cx + g * R * Math.cos(angle(i));
+                const y = cy + g * R * Math.sin(angle(i));
+                return `${x},${y}`;
+              }).join(" ")}
+              fill="none"
+              stroke="#e5e5e7"
+              strokeWidth={0.5}
+            />
+          ))}
+          {ALQ_AXES.map((a, i) => {
+            const x = cx + R * Math.cos(angle(i));
+            const y = cy + R * Math.sin(angle(i));
+            return (
+              <g key={a.key}>
+                <line x1={cx} y1={cy} x2={x} y2={y} stroke="#e5e5e7" strokeWidth={0.5} />
+                <text
+                  x={cx + (R + 18) * Math.cos(angle(i))}
+                  y={cy + (R + 18) * Math.sin(angle(i))}
+                  fontSize={10}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="#475569"
+                >
+                  {a.label}
+                </text>
+              </g>
+            );
+          })}
+          <polygon
+            points={points.map((p) => `${p.x},${p.y}`).join(" ")}
+            fill="rgba(220,38,38,0.18)"
+            stroke="#dc2626"
+            strokeWidth={1.5}
+          />
+          {points.map((p) => (
+            <circle key={p.key} cx={p.x} cy={p.y} r={4} fill="#dc2626" />
+          ))}
+        </svg>
+
+        <div className="flex flex-col gap-2">
+          {ALQ_AXES.map((a) => (
+            <div key={a.key}>
+              <div className="grid grid-cols-[110px_1fr_44px] gap-2 items-center">
+                <label className="text-[11px]" title={a.desc}>{a.label}</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={9}
+                  step={0.5}
+                  value={(editable[a.key] as number | null) ?? 0}
+                  onChange={(e) => setEditable({ ...editable, [a.key]: Number(e.target.value) })}
+                />
+                <span className="font-mono text-[11px] text-right">{((editable[a.key] as number | null) ?? 0).toFixed(1)}</span>
+              </div>
+              <div className="text-[9px] text-muted-foreground ml-[110px]">{a.desc}</div>
+            </div>
+          ))}
+          <label className="flex items-center gap-2 text-[11px] mt-2 border-t border-slate-200 pt-2">
+            <input
+              type="checkbox"
+              checked={editable.alq_auto_derive_frl}
+              onChange={(e) => setEditable({ ...editable, alq_auto_derive_frl: e.target.checked })}
+            />
+            FRL を ALQ 4 次元の平均から自動算出する
+          </label>
+          {!editable.alq_auto_derive_frl && (
+            <div className="grid grid-cols-[110px_1fr_44px] gap-2 items-center">
+              <label className="text-[11px] text-red-600 font-semibold">FRL (手動)</label>
+              <input
+                type="range"
+                min={0}
+                max={9}
+                step={0.5}
+                value={editable.frl}
+                onChange={(e) => setEditable({ ...editable, frl: Number(e.target.value) })}
+              />
+              <span className="font-mono text-[11px] text-right">{editable.frl.toFixed(1)}</span>
+            </div>
+          )}
+          <div>
+            <label className="text-[11px] text-muted-foreground">FRL 自由備考</label>
+            <textarea
+              value={editable.frl_notes}
+              onChange={(e) => setEditable({ ...editable, frl_notes: e.target.value })}
+              placeholder="ALQ 4 次元では拾えない要素 (チーム外の信頼度、過去 SU 経験、Founder Network、健康状態など)"
+              className="w-full border border-slate-300 rounded px-2 py-1 text-[11px]"
+              rows={3}
+            />
+          </div>
+        </div>
+      </div>
+
+      <details className="mt-3 text-[10px] text-muted-foreground">
+        <summary className="cursor-pointer text-slate-700">⚠ FRL の学術定義から見て、ALQ 4 次元 + 備考だけでは何が足りないか</summary>
+        <div className="mt-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded text-[10.5px] leading-relaxed">
+          <strong>厳密にはこれだけでは足りない</strong>。本実装は ALQ (Walumbwa 2008) 由来の Authentic Leadership 4 次元 + 自由備考を採用しているが、
+          FRL を Deeptech SU の文脈で評価するには以下の要素も本来必要:
+          <ul className="list-disc pl-4 mt-1 space-y-0.5">
+            <li><strong>外部評価データ</strong>: 投資家・顧客・取締役・チームメンバーからの 360° フィードバック (ALQ 自己申告だけでは <em>self-bias</em> が乗る)</li>
+            <li><strong>Founder Quality (Bernstein et al. 2017 JF)</strong>: チーム全体のクオリティ (CEO 単体ではない)、教育背景、過去の SU 経験、業界ネットワーク</li>
+            <li><strong>Founder Experience (Hsu 2007 RP)</strong>: 過去の起業経験、過去の VC 調達実績、過去の M&A/IPO 実績</li>
+            <li><strong>Achievement Motivation (Stewart & Roth 2007)</strong>: 起業家特有の達成動機・リスク許容度のメタ分析尺度</li>
+            <li><strong>Psychological Safety への寄与 (Edmondson 1999)</strong>: チーム内で発言しやすい雰囲気を作れているか (HRL とも一部重なる)</li>
+            <li><strong>動的観測</strong>: 危機対応時の挙動、ピボット時の意思決定スピード、ストレス下での倫理判断 (静的 ALQ では取れない)</li>
+            <li><strong>Founder Network 効果 (Hsu 2007)</strong>: 魅力的な CEO は他軸 (技術/人材/資金) を引き上げるという間接効果。これは FRL と他軸の交差項として表現すべき</li>
+          </ul>
+          <p className="mt-2">
+            実用上は ALQ + 自由備考でも <em>FRL の主成分</em> はカバーできるので、現状仕様で運用しつつ、上記不足項目は備考欄で補う運用方針。
+            学術論文化する時は 360° フィードバックとアウトカム指標 (調達額・ピボット成功率) との相関分析が必要。
+          </p>
+        </div>
+      </details>
     </div>
   );
 }
