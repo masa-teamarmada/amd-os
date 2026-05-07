@@ -77,7 +77,15 @@ const KIND_LABELS: Record<ProjectEventKind, { label: string; color: string }> = 
   amd_score_override: { label: "スコア手動", color: "#ef4444" },
 };
 
-const XRL_COLORS = { trl: "#0ea5e9", brl: "#f59e0b", hrl: "#16a34a" };
+const XRL_COLORS = {
+  trl: "#0ea5e9",
+  brl: "#f59e0b",
+  grl: "#475569",
+  srl: "#9333ea",
+  hrl: "#16a34a",
+} as const;
+type XrlAxisKey = keyof typeof XRL_COLORS;
+const XRL_AXES: XrlAxisKey[] = ["trl", "brl", "grl", "srl", "hrl"];
 
 // ============================================================
 // SVG geometry
@@ -124,7 +132,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const [descOpen, setDescOpen] = useState(false);
   const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false);
   const [pendingXrl, setPendingXrl] = useState<ProjectXrlRow | null>(null);
-  const [xrlDetailTarget, setXrlDetailTarget] = useState<{ row: ProjectXrlRow; axis: "TRL" | "BRL" | "HRL" } | null>(null);
+  const [xrlDetailTarget, setXrlDetailTarget] = useState<{ row: ProjectXrlRow; axis: "TRL" | "BRL" | "GRL" | "SRL" | "HRL" } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -211,18 +219,22 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const latestPhaseColor = latestPhase ? PHASE_COLOR[latestPhase] : "#94a3b8";
   const latestInput = amdInputs[amdInputs.length - 1] ?? null;
 
-  // XRL 軸
+  // XRL 軸 (5 軸: TRL/BRL/GRL/SRL/HRL)
   const yOfXrl = (v: number) => MT + PH - (v / 9) * PH;
-  const buildXrlPath = (k: "trl" | "brl" | "hrl") => {
+  const buildXrlPath = (k: XrlAxisKey) => {
     const pts = (bundle?.xrlLog ?? [])
       .filter((r) => r[k] != null)
       .map((r) => ({ y: dateToYearDecimal(r.observed_at), v: r[k] as number }));
     if (pts.length < 2) return "";
     return "M " + pts.map((p) => `${xOf(p.y).toFixed(1)},${yOfXrl(p.v).toFixed(1)}`).join(" L ");
   };
-  const trlPath = buildXrlPath("trl");
-  const brlPath = buildXrlPath("brl");
-  const hrlPath = buildXrlPath("hrl");
+  const xrlPaths: Record<XrlAxisKey, string> = {
+    trl: buildXrlPath("trl"),
+    brl: buildXrlPath("brl"),
+    grl: buildXrlPath("grl"),
+    srl: buildXrlPath("srl"),
+    hrl: buildXrlPath("hrl"),
+  };
 
   // SVG 座標変換 (clientX → SVG)
   const svgCoord = (e: React.MouseEvent<SVGSVGElement, MouseEvent>): { x: number; y: number } => {
@@ -406,6 +418,34 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           style={{ minWidth: 600 }}
           onClick={onScoreChartClick}
         >
+          {/* AMD 支援期間の背景帯 (started_at - ended_at もしくは present) */}
+          {venture.amd_support_started_at && (() => {
+            const x1 = xOfDate(venture.amd_support_started_at);
+            const endIso = venture.amd_support_ended_at ?? new Date().toISOString().slice(0, 10);
+            const x2 = xOfDate(endIso);
+            const left = Math.max(ML, Math.min(x1, x2));
+            const right = Math.min(ML + PW, Math.max(x1, x2));
+            if (right <= left) return null;
+            return (
+              <g>
+                <rect
+                  x={left}
+                  y={MT}
+                  width={right - left}
+                  height={PH}
+                  fill="#ec4899"
+                  fillOpacity={0.07}
+                />
+                <line x1={x1} y1={MT} x2={x1} y2={MT + PH} stroke="#ec4899" strokeWidth={1} strokeDasharray="3 2" opacity={0.5} />
+                {venture.amd_support_ended_at && (
+                  <line x1={x2} y1={MT} x2={x2} y2={MT + PH} stroke="#ec4899" strokeWidth={1} strokeDasharray="3 2" opacity={0.5} />
+                )}
+                <text x={(left + right) / 2} y={MT + 10} fontSize={9} fill="#be185d" textAnchor="middle" opacity={0.85}>
+                  AMD 支援期間
+                </text>
+              </g>
+            );
+          })()}
           {/* Y axis: log scale 1 / 30 / 300 / 1.5k / 3.5k / 15k / 50k / 100k */}
           {[1, 30, 300, 1500, 3500, 15000, 50000, 100000].map((v) => (
             <g key={v}>
@@ -481,9 +521,9 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
       {/* Chart 2: XRL */}
       <div className="px-2 pt-2 pb-3">
         <div className="px-2 flex items-center justify-between flex-wrap gap-2">
-          <h3 className="text-[12px] font-semibold">XRL 進捗 (TRL / BRL / HRL)</h3>
+          <h3 className="text-[12px] font-semibold">XRL 進捗 (TRL / BRL / GRL / SRL / HRL)</h3>
           <div className="flex items-center gap-3 text-[10px]">
-            {(["trl", "brl", "hrl"] as const).map((k) => (
+            {XRL_AXES.map((k) => (
               <span key={k} className="flex items-center gap-1">
                 <span style={{ color: XRL_COLORS[k] }}>—</span>
                 <span className="uppercase font-mono">{k}</span>
@@ -498,7 +538,12 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         {pendingXrl && (
           <div className="mx-2 mt-2 px-3 py-2 rounded-md border border-blue-200 bg-blue-50 text-[12px]">
             <div className="font-semibold text-blue-900">
-              LLM 提案: TRL {pendingXrl.trl ?? "—"} / BRL {pendingXrl.brl ?? "—"} / HRL {pendingXrl.hrl ?? "—"}
+              LLM 提案:
+              {XRL_AXES.map((k) => (
+                <span key={k} className="ml-2">
+                  {k.toUpperCase()} {pendingXrl[k] ?? "—"}
+                </span>
+              ))}
               {pendingXrl.bottleneck && <span className="ml-2 text-blue-700">ボトルネック: {pendingXrl.bottleneck}</span>}
             </div>
             {pendingXrl.milestone_label && (
@@ -549,15 +594,15 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
               opacity={0.6}
             />
           )}
-          {trlPath && <path d={trlPath} fill="none" stroke={XRL_COLORS.trl} strokeWidth={2} />}
-          {brlPath && <path d={brlPath} fill="none" stroke={XRL_COLORS.brl} strokeWidth={2} />}
-          {hrlPath && <path d={hrlPath} fill="none" stroke={XRL_COLORS.hrl} strokeWidth={2} />}
+          {XRL_AXES.map((k) => (
+            xrlPaths[k] && <path key={`p-${k}`} d={xrlPaths[k]} fill="none" stroke={XRL_COLORS[k]} strokeWidth={2} />
+          ))}
           {(bundle?.xrlLog ?? []).map((r) => {
             const isProposal = r.source === "llm_proposal";
             const opacity = isProposal ? 0.55 : 1;
             const strokeDasharray = isProposal ? "3 3" : undefined;
-            const baseR = isProposal ? 15 : 12;
-            const onClickAxis = (axis: "TRL" | "BRL" | "HRL") => () => {
+            const baseR = isProposal ? 13 : 10;
+            const onClickAxis = (axis: "TRL" | "BRL" | "GRL" | "SRL" | "HRL") => () => {
               if (isProposal) {
                 setPendingXrl(r);
               } else {
@@ -566,54 +611,28 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
             };
             return (
               <g key={r.id}>
-                {r.trl != null && (
-                  <circle
-                    cx={xOfDate(r.observed_at)}
-                    cy={yOfXrl(r.trl)}
-                    r={baseR}
-                    fill={XRL_COLORS.trl}
-                    stroke={isProposal ? XRL_COLORS.trl : "#fff"}
-                    strokeWidth={isProposal ? 1.8 : 2}
-                    strokeDasharray={strokeDasharray}
-                    fillOpacity={opacity}
-                    style={{ cursor: "pointer" }}
-                    onClick={onClickAxis("TRL")}
-                  >
-                    <title>{`TRL ${r.trl} (${r.observed_at})${isProposal ? " — LLM 提案" : " — クリックで詳細"}`}</title>
-                  </circle>
-                )}
-                {r.brl != null && (
-                  <circle
-                    cx={xOfDate(r.observed_at)}
-                    cy={yOfXrl(r.brl)}
-                    r={baseR}
-                    fill={XRL_COLORS.brl}
-                    stroke={isProposal ? XRL_COLORS.brl : "#fff"}
-                    strokeWidth={isProposal ? 1.8 : 2}
-                    strokeDasharray={strokeDasharray}
-                    fillOpacity={opacity}
-                    style={{ cursor: "pointer" }}
-                    onClick={onClickAxis("BRL")}
-                  >
-                    <title>{`BRL ${r.brl} (${r.observed_at})${isProposal ? " — LLM 提案" : " — クリックで詳細"}`}</title>
-                  </circle>
-                )}
-                {r.hrl != null && (
-                  <circle
-                    cx={xOfDate(r.observed_at)}
-                    cy={yOfXrl(r.hrl)}
-                    r={baseR}
-                    fill={XRL_COLORS.hrl}
-                    stroke={isProposal ? XRL_COLORS.hrl : "#fff"}
-                    strokeWidth={isProposal ? 1.8 : 2}
-                    strokeDasharray={strokeDasharray}
-                    fillOpacity={opacity}
-                    style={{ cursor: "pointer" }}
-                    onClick={onClickAxis("HRL")}
-                  >
-                    <title>{`HRL ${r.hrl} (${r.observed_at})${isProposal ? " — LLM 提案" : " — クリックで詳細"}`}</title>
-                  </circle>
-                )}
+                {XRL_AXES.map((k) => {
+                  const v = r[k];
+                  if (v == null) return null;
+                  const upper = k.toUpperCase() as "TRL" | "BRL" | "GRL" | "SRL" | "HRL";
+                  return (
+                    <circle
+                      key={`${r.id}-${k}`}
+                      cx={xOfDate(r.observed_at)}
+                      cy={yOfXrl(v)}
+                      r={baseR}
+                      fill={XRL_COLORS[k]}
+                      stroke={isProposal ? XRL_COLORS[k] : "#fff"}
+                      strokeWidth={isProposal ? 1.8 : 2}
+                      strokeDasharray={strokeDasharray}
+                      fillOpacity={opacity}
+                      style={{ cursor: "pointer" }}
+                      onClick={onClickAxis(upper)}
+                    >
+                      <title>{`${upper} ${v} (${r.observed_at})${isProposal ? " — LLM 提案" : " — クリックで詳細"}`}</title>
+                    </circle>
+                  );
+                })}
               </g>
             );
           })}

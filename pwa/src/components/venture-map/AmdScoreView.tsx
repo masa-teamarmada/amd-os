@@ -195,9 +195,15 @@ export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-4 py-6">
-      <div className="flex items-baseline gap-3 mb-4">
-        <Link href="/venture-map/amd-score" className="text-xs text-cyan-400 hover:underline">← AMD Score 一覧</Link>
-        <h1 className="text-xl font-semibold">{venture.display_name}</h1>
+      <div className="flex items-baseline gap-3 mb-4 flex-wrap">
+        <Link href="/venture-map/amd-score" className="text-xs text-cyan-700 hover:underline">← AMD Score 一覧</Link>
+        <Link
+          href={`/project/${venture.project_id}/cockpit`}
+          className="text-xs text-cyan-700 hover:underline"
+        >
+          ↩ {venture.display_name} のコックピットに戻る
+        </Link>
+        <h1 className="text-xl font-semibold ml-2">{venture.display_name}</h1>
         <span className="text-xs text-muted-foreground">AMD Score</span>
       </div>
 
@@ -208,7 +214,15 @@ export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
             <RadarChart result={result} />
             <ContributionTable result={result} alpha={alpha} />
           </div>
-          <TimeSeriesChart series={series} latest={editable.evaluated_at} latestScore={result.score} />
+          <TimeSeriesChart
+            series={series}
+            latest={editable.evaluated_at}
+            latestScore={result.score}
+            amdSupport={{
+              startedAt: venture.amd_support_started_at ?? null,
+              endedAt: venture.amd_support_ended_at ?? null,
+            }}
+          />
           <InputEditor
             editable={editable}
             setEditable={setEditable}
@@ -466,10 +480,12 @@ function TimeSeriesChart({
   series,
   latest,
   latestScore,
+  amdSupport,
 }: {
   series: { id: string; evaluated_at: string; score: number }[];
   latest: string;
   latestScore: number;
+  amdSupport: { startedAt: string | null; endedAt: string | null };
 }) {
   const W = 800;
   const H = 220;
@@ -520,6 +536,27 @@ function TimeSeriesChart({
     <div className="border border-[#e5e5e7] rounded-xl p-3 bg-white">
       <div className="text-[11px] text-muted-foreground mb-1">AMD Score 経時 (log scale)</div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+        {/* AMD 支援期間の背景帯 */}
+        {amdSupport.startedAt && (() => {
+          const x1 = xOf(new Date(amdSupport.startedAt).getTime());
+          const endIso = amdSupport.endedAt ?? new Date().toISOString().slice(0, 10);
+          const x2 = xOf(new Date(endIso).getTime());
+          const left = Math.max(ML, Math.min(x1, x2));
+          const right = Math.min(W - MR, Math.max(x1, x2));
+          if (right <= left) return null;
+          return (
+            <g>
+              <rect x={left} y={MT} width={right - left} height={PH} fill="#ec4899" fillOpacity={0.07} />
+              <line x1={x1} y1={MT} x2={x1} y2={MT + PH} stroke="#ec4899" strokeWidth={1} strokeDasharray="3 2" opacity={0.5} />
+              {amdSupport.endedAt && (
+                <line x1={x2} y1={MT} x2={x2} y2={MT + PH} stroke="#ec4899" strokeWidth={1} strokeDasharray="3 2" opacity={0.5} />
+              )}
+              <text x={(left + right) / 2} y={MT + 10} fontSize={9} fill="#be185d" textAnchor="middle" opacity={0.85}>
+                AMD 支援期間
+              </text>
+            </g>
+          );
+        })()}
         {/* phase guide lines */}
         {phaseGuides.map((g) => (
           <g key={g}>

@@ -16,7 +16,8 @@ import { useState } from "react";
 import { MentionTextarea } from "./MentionTextarea";
 import { submitXrlFeedback, type ProjectXrlRow } from "@/lib/venture-status-data";
 
-type Axis = "TRL" | "BRL" | "HRL";
+type Axis = "TRL" | "BRL" | "GRL" | "SRL" | "HRL";
+type AxisLower = "trl" | "brl" | "grl" | "srl" | "hrl";
 
 interface Props {
   projectId: string;
@@ -26,25 +27,35 @@ interface Props {
   onUpdated: () => void;
 }
 
-const AXIS_COLORS: Record<Axis, string> = { TRL: "#0ea5e9", BRL: "#f59e0b", HRL: "#16a34a" };
+const AXIS_COLORS: Record<Axis, string> = {
+  TRL: "#0ea5e9",
+  BRL: "#f59e0b",
+  GRL: "#475569",
+  SRL: "#9333ea",
+  HRL: "#16a34a",
+};
 const AXIS_DESC: Record<Axis, string> = {
   TRL: "Technology Readiness Level — 技術成熟度",
   BRL: "Business Readiness Level — 事業化成熟度",
+  GRL: "Governance Readiness Level — 制度・規制適合性",
+  SRL: "Social Readiness Level — 社会受容性",
   HRL: "Human Readiness Level — 人材・市場成熟度",
 };
 
-/** source_note を { trl_reason, brl_reason, hrl_reason } の JSON として読む。
+/** source_note を { trl_reason, brl_reason, grl_reason, srl_reason, hrl_reason } の JSON として読む。
  *  parse 失敗 (旧 plain text or null) のときは null を返す。 */
-function parseAxisReasons(text: string | null | undefined): { trl?: string; brl?: string; hrl?: string } | null {
+function parseAxisReasons(text: string | null | undefined): Partial<Record<AxisLower, string>> | null {
   if (!text) return null;
   try {
     const parsed = JSON.parse(text);
     if (parsed && typeof parsed === "object") {
-      const out: { trl?: string; brl?: string; hrl?: string } = {};
-      if (typeof parsed.trl_reason === "string") out.trl = parsed.trl_reason;
-      if (typeof parsed.brl_reason === "string") out.brl = parsed.brl_reason;
-      if (typeof parsed.hrl_reason === "string") out.hrl = parsed.hrl_reason;
-      if (out.trl || out.brl || out.hrl) return out;
+      const out: Partial<Record<AxisLower, string>> = {};
+      const axes: AxisLower[] = ["trl", "brl", "grl", "srl", "hrl"];
+      for (const a of axes) {
+        const v = (parsed as Record<string, unknown>)[`${a}_reason`];
+        if (typeof v === "string") out[a] = v;
+      }
+      if (Object.keys(out).length > 0) return out;
     }
   } catch {
     // not JSON
@@ -57,7 +68,7 @@ export function CockpitXrlDetailModal({ projectId, row, axis, onClose, onUpdated
   const [phase, setPhase] = useState<"idle" | "saving" | "regenerating" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const axisLower = axis.toLowerCase() as "trl" | "brl" | "hrl";
+  const axisLower = axis.toLowerCase() as AxisLower;
   const value = row[axisLower] as number | null;
   const color = AXIS_COLORS[axis];
   const reasons = parseAxisReasons(row.source_note);
@@ -207,13 +218,17 @@ export function CockpitXrlDetailModal({ projectId, row, axis, onClose, onUpdated
                   ? "再現実験を確認し、ロット品質も安定"
                   : axis === "BRL"
                   ? "PoC 契約 2 件まとまったので事業化が進んだ"
+                  : axis === "GRL"
+                  ? "規制当局のヒアリングをパスし、許認可の見通しが立った"
+                  : axis === "SRL"
+                  ? "業界団体・消費者団体の前向き反応を得た"
                   : "コアメンバー 3 名揃って人材成熟度が上がった"
               }`}
               rows={4}
               className="w-full border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[12px]"
             />
             <p className="text-[10px] text-muted-foreground">
-              送信したらすぐに つくよみが TRL/BRL/HRL を再評価します。
+              送信したらすぐに つくよみが TRL/BRL/GRL/SRL/HRL を再評価します。
             </p>
             {phase === "regenerating" && (
               <p className="text-[12px] text-purple-600">つくよみが再評価しています…</p>

@@ -26,6 +26,8 @@ export interface VentureRow {
   amd_role: string | null;
   short_description: string | null;
   is_public: boolean;
+  amd_support_started_at: string | null; // AMD 支援開始 (背景帯の左端)
+  amd_support_ended_at: string | null;   // AMD 支援終了 (null = 継続中)
 }
 
 export interface LaneWeightRow {
@@ -66,6 +68,8 @@ type RawVentureRow = {
   amd_role: string | null;
   short_description: string | null;
   is_public: boolean;
+  amd_support_started_at: string | null;
+  amd_support_ended_at: string | null;
   projects: { status: string } | { status: string }[] | null;
 };
 
@@ -84,11 +88,13 @@ function flattenVentureRow(r: RawVentureRow): VentureRow {
     amd_role: r.amd_role,
     short_description: r.short_description,
     is_public: r.is_public,
+    amd_support_started_at: r.amd_support_started_at,
+    amd_support_ended_at: r.amd_support_ended_at,
   };
 }
 
 const VENTURE_SELECT =
-  "project_id, display_name, short_label, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public, projects(status)";
+  "project_id, display_name, short_label, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public, amd_support_started_at, amd_support_ended_at, projects(status)";
 
 /** 公開可な PJ (SU 系) を全件、設立日昇順で取得 */
 export async function fetchVenturesForMap(): Promise<VentureRow[]> {

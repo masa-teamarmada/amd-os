@@ -132,6 +132,8 @@ export interface ProjectXrlRow {
   observed_at: string;
   trl: number | null;
   brl: number | null;
+  grl: number | null;       // Governance Readiness Level (014 migration)
+  srl: number | null;       // Social Readiness Level (014 migration)
   hrl: number | null;
   bottleneck: string | null;
   milestone_label: string | null;
@@ -180,7 +182,7 @@ export async function fetchVentureStatus(projectId: string): Promise<VentureStat
     supabase.from("project_ventures").select(VENTURE_COLUMNS).eq("project_id", projectId).maybeSingle(),
     supabase
       .from("project_xrl_log")
-      .select("id, project_id, observed_at, trl, brl, hrl, bottleneck, milestone_label, source_note, source")
+      .select("id, project_id, observed_at, trl, brl, grl, srl, hrl, bottleneck, milestone_label, source_note, source")
       .eq("project_id", projectId)
       .order("observed_at", { ascending: true }),
     supabase
