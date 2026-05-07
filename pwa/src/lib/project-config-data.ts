@@ -204,23 +204,17 @@ export interface MemberInput {
 
 /**
  * project_members を全件差し替え保存 (GAS の saveMembers と同じ「全削除→挿入」方式)
+ *
+ * RLS が anon を弾く (insert/delete 不可) ため、サーバー API route 経由で
+ * service_role を使って書き込む。
  */
 export async function saveProjectMembers(
   projectId: string,
   members: MemberInput[]
 ): Promise<{ ok: boolean; message?: string; saved: number }> {
-  // 1) 既存の該当 PJ 行を全削除
-  const { error: delErr } = await supabase
-    .from("project_members")
-    .delete()
-    .eq("project_id", projectId);
-  if (delErr) return { ok: false, message: delErr.message, saved: 0 };
-
-  // 2) 新規行を挿入 (memberId が空の行はスキップ)
   const rows = members
     .filter((m) => m.memberId.trim().length > 0)
     .map((m) => ({
-      project_id: projectId,
       member_id: m.memberId.trim(),
       is_pm: m.isPM,
       is_closer: m.isCloser,
@@ -231,9 +225,18 @@ export async function saveProjectMembers(
       is_active: m.isActive,
     }));
 
-  if (rows.length === 0) return { ok: true, saved: 0 };
-
-  const { error: insErr } = await supabase.from("project_members").insert(rows);
-  if (insErr) return { ok: false, message: insErr.message, saved: 0 };
-  return { ok: true, saved: rows.length };
+  try {
+    const res = await fetch("/api/admin/project-members", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, members: rows }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) {
+      return { ok: false, message: json.message || `HTTP ${res.status}`, saved: 0 };
+    }
+    return { ok: true, saved: json.saved ?? rows.length };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e), saved: 0 };
+  }
 }
