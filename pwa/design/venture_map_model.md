@@ -261,7 +261,7 @@ Vercel cron → `/api/cron/relearn-lane-weights` → Sonnet 4.6 が以下を参�
 | `pwa/scripts/migrations/007_ventures_xrl_log_seeds.sql` | XRL 時系列シード |
 | `pwa/scripts/migrations/008_project_ventures.sql` | `ventures` 廃止 → `project_ventures` (`project_id` PK) に統合、`project_xrl_log` rename |
 | `knowledge/su.md` | AMD SU 知識ベース正本 (ティエム・JC・他 SU 全部) |
-| `pwa/design_log/2026-05_venture_map_theory_strategy.pptx` | v0.1→v0.2 改訂プロセスの図解 |
+| `pwa/venture_map_theory_strategy.pptx` | v0.1→v0.2 改訂プロセスの図解 |
 
 ---
 
@@ -380,8 +380,8 @@ $$
 
 ### 参照
 
-- **v0.2 の図解とプロセス記録**: `pwa/design_log/2026-05_venture_map_theory_strategy.pptx` Slide 7-11
-- **批判 18 点の詳細解説 (メンバー向け)**: `pwa/design_log/2026-05_venture_map_v01_critique_explained.md` — 数学に詳しくないメンバーでも理解できるよう、各批判の問題点・修正方針・対応理由を丁寧に解説
+- **v0.2 の図解とプロセス記録**: `pwa/venture_map_theory_strategy.pptx` Slide 7-11
+- **批判 18 点の詳細解説 (メンバー向け)**: `pwa/venture_map_v01_critique.md` — 数学に詳しくないメンバーでも理解できるよう、各批判の問題点・修正方針・対応理由を丁寧に解説
 - **議論ログ**: えいみ × まさ チャット（2026-05-03 〜 04）
 
 ---

@@ -20,6 +20,10 @@ export interface ProjectRow {
   report_emails: string | null;
   start_ym: string | null;
   end_ym: string | null;
+  invoice_send_manual: boolean;
+  invoice_to_emails: string | null;
+  invoice_cc_emails: string | null;
+  invoice_bcc_emails: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -56,6 +60,10 @@ type EditVals = {
   start_ym: string;
   end_ym: string;
   status: string;
+  invoice_send_manual: boolean;
+  invoice_to_emails: string;
+  invoice_cc_emails: string;
+  invoice_bcc_emails: string;
 };
 
 export function AdminProjectsTable({ projects: initialProjects }: Props) {
@@ -93,6 +101,10 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       start_ym: p.start_ym ?? "",
       end_ym: p.end_ym ?? "",
       status: p.status,
+      invoice_send_manual: !!p.invoice_send_manual,
+      invoice_to_emails: p.invoice_to_emails ?? "",
+      invoice_cc_emails: p.invoice_cc_emails ?? "",
+      invoice_bcc_emails: p.invoice_bcc_emails ?? "",
     });
   };
 
@@ -109,6 +121,10 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       start_ym: (editVals.start_ym as string) || null,
       end_ym: (editVals.end_ym as string) || null,
       status: editVals.status as string,
+      invoice_send_manual: !!editVals.invoice_send_manual,
+      invoice_to_emails: (editVals.invoice_to_emails as string) || null,
+      invoice_cc_emails: (editVals.invoice_cc_emails as string) || null,
+      invoice_bcc_emails: (editVals.invoice_bcc_emails as string) || null,
       updated_at: new Date().toISOString(),
     };
     const { error } = await supabase
@@ -176,6 +192,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-32">Slack CH（編集）</th>
               <th className="text-left px-3 py-2 font-medium w-40">Drive Folder（編集）</th>
               <th className="text-left px-3 py-2 font-medium w-48">報告メール（編集）</th>
+              <th className="text-left px-3 py-2 font-medium w-32">請求書送付（編集）</th>
               <th className="text-left px-3 py-2 font-medium w-20">開始ym</th>
               <th className="text-left px-3 py-2 font-medium w-20">終了ym</th>
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
@@ -241,6 +258,44 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     ) : <span className="text-muted-foreground text-[11px] truncate block max-w-[180px]">{p.report_emails || "—"}</span>}
                   </td>
 
+                  {/* 請求書送付 (mode + To/CC/BCC) */}
+                  <td className="px-3 py-2">
+                    {isEditing ? (
+                      <div className="space-y-1">
+                        <select
+                          value={editVals.invoice_send_manual ? "manual" : "auto"}
+                          onChange={(e) => setEditVals((v) => ({ ...v, invoice_send_manual: e.target.value === "manual" }))}
+                          className="border border-border rounded px-1.5 py-0.5 text-[11px] bg-background w-full"
+                        >
+                          <option value="auto">auto (自動送付)</option>
+                          <option value="manual">manual (手動送付)</option>
+                        </select>
+                        {!editVals.invoice_send_manual && (
+                          <>
+                            <input type="text" value={editVals.invoice_to_emails as string}
+                              onChange={(e) => setEditVals((v) => ({ ...v, invoice_to_emails: e.target.value }))}
+                              placeholder="To" className="border border-border rounded px-1.5 py-0.5 text-[11px] w-full bg-background" />
+                            <input type="text" value={editVals.invoice_cc_emails as string}
+                              onChange={(e) => setEditVals((v) => ({ ...v, invoice_cc_emails: e.target.value }))}
+                              placeholder="CC" className="border border-border rounded px-1.5 py-0.5 text-[11px] w-full bg-background" />
+                            <input type="text" value={editVals.invoice_bcc_emails as string}
+                              onChange={(e) => setEditVals((v) => ({ ...v, invoice_bcc_emails: e.target.value }))}
+                              placeholder="BCC" className="border border-border rounded px-1.5 py-0.5 text-[11px] w-full bg-background" />
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-muted-foreground">
+                        <span className={p.invoice_send_manual ? "text-amber-700 font-medium" : ""}>
+                          {p.invoice_send_manual ? "manual" : "auto"}
+                        </span>
+                        {!p.invoice_send_manual && p.invoice_to_emails && (
+                          <div className="truncate max-w-[140px]" title={p.invoice_to_emails}>{p.invoice_to_emails}</div>
+                        )}
+                      </div>
+                    )}
+                  </td>
+
                   {/* start_ym */}
                   <td className="px-3 py-2">
                     {isEditing ? (
@@ -302,7 +357,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={12} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>

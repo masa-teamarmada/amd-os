@@ -402,6 +402,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
       <div className="w-[220px] shrink-0 sticky top-12 max-h-[calc(100vh-60px)] overflow-y-auto pl-4 flex flex-col gap-3">
         {project.status === "active" || project.status === "sales" ? (
           <CockpitRoutineGas
+            projectId={project.projectId}
             billingCycles={billingCycles}
             currentYm={currentYm}
             projectType={project.projectType}

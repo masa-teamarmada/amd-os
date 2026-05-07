@@ -168,7 +168,7 @@ GAS 版差分 41 項目を移植、その後追加改修:
 
 ## Session 10 — Atlas 政府方針シグナル (2026-04 後半)
 
-- 設計ログ: `design_log/2026-04_policy_signals.md` 新規
+- 設計ログ: `design/policy_signals.md` 新規
 - 既存 `atlas_signals` に同居 (PJ/topic 階層化禁止を継承)
 - 直近 1 か月 RSS で 125 件 / 65 ストーリー / high=18 件 投入
 

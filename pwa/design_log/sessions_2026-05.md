@@ -93,7 +93,7 @@ PWA セッションの作業ログを月単位で集約。
 - `vercel.json` に `"schedule": "0 3 * * 0"` (毎週日曜 03:00 UTC)
 
 ### 数理モデル設計書
-- `pwa/design_log/2026-05_venture_map_model.md`
+- `pwa/design/venture_map_model.md`
 - 数式①〜④ の変数定義・データソース・未解決論点
 
 ### ティエム・JC knowledge
@@ -136,7 +136,7 @@ PWA セッションの作業ログを月単位で集約。
 | 重みパラメータ | ✅ macro_lane_weights (Sonnet 毎日 18:30 UTC 更新) |
 
 ### 残課題 (5/20 スタパデモまで)
-1. 未解決論点 5 点を議論・決定 (`pwa/design_log/2026-05_venture_map_model.md`)
+1. 未解決論点 5 点を議論・決定 (`pwa/design/venture_map_model.md`)
 2. `B_i(t)` 予算データ投入 (NEDO/AMED 公開データ)
 3. 競合密度 `C_i(t)` の実装方法決定
 4. (状況次第) デモナレーション資料 `2026-05_venture_map_theory_strategy.pptx` 確認
@@ -302,7 +302,7 @@ handoff skill (`~/.agents/skills/handoff/SKILL.md`) も同時更新:
 
 PJ Status コックピット拡張を 6 phase で実装。`/project/[projectId]/cockpit` の上部に SU 系 PJ 用の Status セクションを追加。
 
-設計の正本は **`pwa/design_log/2026-05_pj_status_cockpit.md`** に集約 (構造図・モーダル一覧・データモデル・API・cron・学習ループ・反省事項を含む)。
+設計の正本は **`pwa/design/cockpit.md`** に集約 (構造図・モーダル一覧・データモデル・API・cron・学習ループ・反省事項を含む)。
 
 ### Phase 1: スキーマ統合 (migration 008)
 - 旧 `ventures` (id TEXT 'tiem' 等) 廃止 → `project_ventures` (project_id PK FK to projects.project_id)
@@ -378,7 +378,7 @@ PJ Status コックピット拡張を 6 phase で実装。`/project/[projectId]/
 
 ## 2026-05-07 — AMD Score フル実装 (Before Zero Theory v3.2)
 
-`/Users/masa/projects/before-zero/theory/amd_score.md` の正本式 (7 軸 Cobb-Douglas) を AMD OS に組み込んだ。詳細は `design_log/2026-05_amd_score.md`。
+`/Users/masa/projects/before-zero/theory/amd_score.md` の正本式 (7 軸 Cobb-Douglas) を AMD OS に組み込んだ。詳細は `design/amd_score.md`。
 
 ### 数式
 - AMD Score = K · Π (X_i + 1)^α_i, X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
@@ -430,7 +430,7 @@ PJ Status コックピット拡張を 6 phase で実装。`/project/[projectId]/
 - `src/components/cockpit/CockpitAmdScoreBreakdownModal.tsx` (7 軸 breakdown に置換)
 - `src/lib/venture-status-data.ts` (旧 AMD スコアロジック削除 → cockpit 用ヘルパーに集約)
 - `pwa/scripts/migrations/013_amd_score.sql` (新規、本番適用済)
-- `pwa/design_log/2026-05_amd_score.md` (新規、設計正本)
+- `pwa/design/amd_score.md` (新規、設計正本)
 
 ### 反省 / TODO
 - σ_SU を `/venture-map/state-space` の Triple Helix 状態空間モデル推定値に自動連携 (現状は手動入力)
@@ -443,7 +443,7 @@ PJ Status コックピット拡張を 6 phase で実装。`/project/[projectId]/
 
 ## 2026-05-07 — AMD Score 周りの 8 改修 (4 phase 連続 deploy)
 
-まさからの 8 修正要望に対応。詳細は `design_log/2026-05_amd_score.md` 末尾。
+まさからの 8 修正要望に対応。詳細は `design/amd_score.md` 末尾。
 
 ### Phase A: 軽量 UX
 - (3) project_xrl_log に grl/srl 列追加 (migration 014)、cockpit XRL グラフを 5 軸 (TRL/BRL/GRL/SRL/HRL) に拡張、CockpitXrlDetailModal も 5 軸対応
@@ -491,7 +491,7 @@ Commit: `db27ded`
 - 改修 lib: `src/lib/amd-score.ts`, `src/lib/amd-score-data.ts`, `src/lib/venture-status-data.ts`, `src/lib/venture-map-data.ts`
 - 改修 component: `AmdScoreView.tsx` (FrlAlqPanel + AMD 支援期間背景), `CockpitVentureStatus.tsx` (5 軸 XRL + AMD 支援期間), `CockpitXrlDetailModal.tsx` (5 軸 + NextLevelProgress), `CockpitAmdScoreBreakdownModal.tsx` (KaTeX), `TsukuyomiChatDrawer.tsx` (添付)
 - 改修 API: `src/app/api/tsukuyomi/chat/route.ts` (8 tool + AMD Score context + 添付)
-- design log: `design_log/2026-05_amd_score.md` (FRL ALQ + XRL 次レベル進捗 セクション追記)
+- design log: `design/amd_score.md` (FRL ALQ + XRL 次レベル進捗 セクション追記)
 
 ---
 
@@ -519,7 +519,7 @@ Commit: `db27ded`
 - p20 CryoX: 8 pts (2024-2026, rocket pre-launch)
 - p21 SolvioraX: 8 pts (2025-2028, planning)
 
-詳細・洞察は `design_log/2026-05_amd_score.md` 末尾の「過去分一括抽出 (2026-05-07 batch)」セクション。
+詳細・洞察は `design/amd_score.md` 末尾の「過去分一括抽出 (2026-05-07 batch)」セクション。
 
 ### 限界 / 次の段階
 1. **MCP 接続は私のセッション内のみ**: 本番から定期実行するには Slack/Drive/Notion API token + Vercel env + API route 実装
@@ -600,7 +600,7 @@ Commit: `db27ded`
 
 ## 2026-05-07 — VC List フル実装 (quirky-driscoll worktree, Opus 4.7)
 
-国内ディープテック VC マスタを PWA に追加。詳細は [`design_log/2026-05_vc_list.md`](2026-05_vc_list.md)。
+国内ディープテック VC マスタを PWA に追加。詳細は [`design/vc_list.md`](2026-05_vc_list.md)。
 
 設計議論で決まった大方針:
 - Atlas (世界マクロ) と分離。VC ニュースは `vc_news` の独立系統
@@ -637,7 +637,7 @@ Commit: `db27ded`
 
 **Phase 6: docs + deploy**
 - SPEC_pwa.md (ルーティング表 / cron 表 / データモデル「VC List」セクション)
-- design_log/2026-05_vc_list.md 新規
+- design/vc_list.md 新規
 
 ### 主な変更ファイル
 - migration: `scripts/migrations/016_vc_list.sql` 適用済
@@ -645,7 +645,7 @@ Commit: `db27ded`
 - 新 page: `src/app/(app)/vcs/page.tsx`, `vcs/[id]/page.tsx`, `vcs/[id]/edit/page.tsx`, `vcs/inbox/page.tsx`
 - 新 API: `src/app/api/admin/seed-vcs/route.ts`, `src/app/api/cron/vc-news-ingest/route.ts`
 - 改修: `src/components/nav/GlobalNav.tsx` (VC nav + バッジ), `src/app/api/tsukuyomi/chat/route.ts` (VC tool 7 個 + page-aware context), `src/app/globals.css` (.i input util), `vercel.json` (cron), `SPEC_pwa.md`
-- 新 design log: `design_log/2026-05_vc_list.md`
+- 新 design log: `design/vc_list.md`
 
 ### 初期投入手順 (本番反映後)
 ```bash

@@ -12,7 +12,24 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 
 # AMD OS PWA — 入口
 
-**まず `pwa/SPEC_pwa.md` を読む** (画面・データモデル・cron・運用コマンドの正本)。次に `pwa/HANDOFF_pwa_rebuild.md` で直近の状態と次の一手を確認。固有の運用ルール (デプロイコマンド・DDL 適用) は `pwa/CLAUDE.md`、バグ・教訓は `pwa/BUGS.md`、過去セッションログは `pwa/design_log/sessions_YYYY-MM.md`。
+## 📚 必読: `pwa/design/` フォルダ ⭐
+
+**設計の正本は [`pwa/design/`](design/) に集約されている。新セッションは必ず以下をこの順で読む:**
+
+1. [`pwa/design/README.md`](design/README.md) — 設計フォルダ全体のインデックス
+2. [`pwa/design/SPEC_pwa.md`](design/SPEC_pwa.md) ⭐ — PWA 全体仕様 (画面・データモデル・cron・運用コマンド・実装規約)
+3. [`pwa/design/cockpit.md`](design/cockpit.md) ⭐ — コックピット詳細 (PJ Status / 月次ルーティン)
+4. [`pwa/design/routine.md`](design/routine.md) ⭐ — 月次ルーティン stepId × クリック挙動 (回帰多発エリア)
+5. その他テーマ別 md は `pwa/design/README.md` の表を参照
+
+そのあとで:
+- [`pwa/HANDOFF_pwa_rebuild.md`](HANDOFF_pwa_rebuild.md) — 直近セッションの状態・次の一手
+- [`pwa/BUGS.md`](BUGS.md) — バグ・教訓・回帰防止メモ
+- [`pwa/CLAUDE.md`](CLAUDE.md) — PWA 固有運用 (デプロイコマンド・DDL)
+- [`pwa/design_log/sessions_YYYY-MM.md`](design_log/) — 過去セッションログ (時系列)
+
+**設計変更を入れるときは必ず `pwa/design/` 配下を同じ commit で更新する**。
+新規の設計 md を `design_log/` に作らない (見落とされる)。
 
 # 確認方針 (PWA は常に本番)
 

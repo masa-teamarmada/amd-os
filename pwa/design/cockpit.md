@@ -201,4 +201,4 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → cron `/ven
                             DDL 変更があれば applyDDL.py で先に適用
 ```
 
-詳細は [`SPEC_pwa.md`](../SPEC_pwa.md) の「8. 運用コマンド」参照。
+詳細は [`SPEC_pwa.md`](SPEC_pwa.md) の「8. 運用コマンド」参照。

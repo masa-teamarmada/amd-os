@@ -444,44 +444,10 @@ export function ProjectConfigForm({ projectId }: Props) {
         </Grid>
       </Section>
 
-      {/* Section 4: 請求書送付 */}
-      <Section title="請求書送付">
-        <Grid>
-          <SelectField
-            label="送付モード"
-            value={form.invoiceSendManual ? "manual" : "auto"}
-            options={[
-              { value: "auto", label: "auto (自動送付)" },
-              { value: "manual", label: "manual (手動送付)" },
-            ]}
-            onChange={(v) => updateForm("invoiceSendManual", v === "manual")}
-          />
-        </Grid>
-        {!form.invoiceSendManual && (
-          <Grid className="mt-3">
-            <TextField
-              label="To"
-              value={form.invoiceToEmails}
-              onChange={(v) => updateForm("invoiceToEmails", v)}
-              full
-              placeholder="invoice@client.com"
-            />
-            <TextField
-              label="CC"
-              value={form.invoiceCcEmails}
-              onChange={(v) => updateForm("invoiceCcEmails", v)}
-              full
-              placeholder="cc1@client.com, cc2@client.com"
-            />
-            <TextField
-              label="BCC"
-              value={form.invoiceBccEmails}
-              onChange={(v) => updateForm("invoiceBccEmails", v)}
-              full
-            />
-          </Grid>
-        )}
-      </Section>
+      {/* Section 4: 請求書送付
+          → 「請求書送付」設定は admin/projects の PJ リスト列で一括管理する方針に変更 (2026-05-07)。
+          ここのセクションは削除。
+       */}
 
       {/* Save bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border px-6 py-3 flex justify-end gap-3 z-50">

@@ -2,7 +2,7 @@
 
 次セッションが文脈を聞き直さずに再開できる **直近の引き継ぎだけ** をここに書く。
 
-- 仕様 → `SPEC_pwa.md`
+- 仕様 → `design/SPEC_pwa.md` (設計フォルダ全体の入口は `design/README.md`)
 - バグ・教訓 (症状/原因/解決策/教訓) → `BUGS.md`
 - 過去セッションの作業ログ → `design_log/sessions_YYYY-MM.md`
 - 共通運用ルール → リポ root の `CLAUDE.md`、PWA 確認方針 → `pwa/AGENTS.md`
@@ -67,7 +67,7 @@ GAS `gas/226_ProjectConfig.html` (約 700 行) を PWA に移植。前セッシ�
 - 各 PJ の raw text は `/tmp/amd-l2-extract/<projectId>_raw.txt` に dump (Notion + Slack + WebSearch + 既存 seed)
 - Sonnet 4.5 が timeline JSON 生成 → Supabase Management API で `amd_score_inputs` に upsert (evaluator='l2_extract_sonnet')
 - 結果: p03 8 / p04 6 / p06 8 / p07 8 / p09 10 / p11 8 / p18 7 / p20 8 / p21 8 = **計 71 評価点**
-- 詳細・洞察は `design_log/2026-05_amd_score.md` 末尾「過去分一括抽出 (2026-05-07 batch)」セクション
+- 詳細・洞察は `design/amd_score.md` 末尾「過去分一括抽出 (2026-05-07 batch)」セクション
 
 **次の段階 (まさ要望「cron は別で必要」に対応)**:
 1. Slack/Drive/Notion API token を Vercel env に追加 (本番 PWA からも叩けるように)
@@ -146,7 +146,7 @@ GAS `gas/226_ProjectConfig.html` (約 700 行) を PWA に移植。前セッシ�
 ## 次セッションの最初の一手
 
 1. リポ状態 4 ステップ (`git fetch --all --prune` → `git log --branches --not --remotes --oneline` → `git branch -a` → `git status -s`)
-2. **`design_log/2026-05_amd_score.md`** と **`design_log/2026-05_pj_status_cockpit.md`** を読む (両方とも冒頭に「既存 UI を勝手に消すな」ルール)
+2. **`design/amd_score.md`** と **`design/cockpit.md`** を読む (両方とも冒頭に「既存 UI を勝手に消すな」ルール)
 3. `SPEC_pwa.md` で全体像、`BUGS.md` で過去事故を確認
 4. 本番 (`https://amd-os-pwa.vercel.app/venture-map/amd-score`) でまさが触ってフィードバック → tune
 5. 候補 (まさに優先確認):
