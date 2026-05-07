@@ -319,22 +319,51 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
             - draft or 外部トリガー: directCycleIdで直接編集
             - active確定済: 次の期間設定バナー（終了3か月前から）
         */}
-        {planCycle && (planCycle.status === "draft" || editingCurrentCycle) ? (
-          <CockpitNextPeriodSetup
-            projectId={project.projectId}
-            currentYm={currentYm}
-            currentPlanCycle={planCycle}
-            directCycleId={planCycle.planCycleId}
-            autoOpen={editingCurrentCycle}
-            onModalClose={() => setEditingCurrentCycle(false)}
-          />
-        ) : planCycle ? (
-          <CockpitNextPeriodSetup
-            projectId={project.projectId}
-            currentYm={currentYm}
-            currentPlanCycle={planCycle}
-          />
-        ) : null}
+        {(() => {
+          // 期間外で planCycle が null の場合は、最も最新の過去 plan_cycle を fallback に使う。
+          // これで「3月で期間終了 → 4月以降は期未設定」状態でもバナーが表示される (#4)。
+          const effectivePlanCycle = planCycle
+            ?? [...(pastPlanCycles ?? [])]
+                 .map((b) => b.planCycle)
+                 .sort((a, b) => b.periodEndYm.localeCompare(a.periodEndYm))[0]
+            ?? null;
+          if (!effectivePlanCycle) {
+            return (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                ⚠️ この PJ には MS 期間 (plan_cycle) が一度も設定されていません。
+                admin から初期 MS を設定してください。
+              </div>
+            );
+          }
+          const isPeriodExpired = currentYm > effectivePlanCycle.periodEndYm;
+          if (effectivePlanCycle.status === "draft" || editingCurrentCycle) {
+            return (
+              <CockpitNextPeriodSetup
+                projectId={project.projectId}
+                currentYm={currentYm}
+                currentPlanCycle={effectivePlanCycle}
+                directCycleId={effectivePlanCycle.planCycleId}
+                autoOpen={editingCurrentCycle}
+                onModalClose={() => setEditingCurrentCycle(false)}
+              />
+            );
+          }
+          return (
+            <>
+              {isPeriodExpired && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  ⚠️ 今期の MS 期間 ({formatYm(effectivePlanCycle.periodEndYm)}) は終了しています。
+                  下のバナーから次期 MS を設定してください。
+                </div>
+              )}
+              <CockpitNextPeriodSetup
+                projectId={project.projectId}
+                currentYm={currentYm}
+                currentPlanCycle={effectivePlanCycle}
+              />
+            </>
+          );
+        })()}
 
         {/* [B3] 過去の期間（折りたたみ） */}
         {pastPlanCycles && pastPlanCycles.length > 0 && (
