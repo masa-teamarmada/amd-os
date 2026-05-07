@@ -40,16 +40,36 @@ echo "▶ Waiting for production build to be Ready ..."
 echo "  (URL: ${DEPLOY_URL:-unknown})"
 
 # 最大 10 分 polling
+# Status 列は色付きの ● + " " + "Ready"|"Building"|... 形式で来るため、
+# awk の位置参照は壊れやすい (Project 列幅やフラグ追加でズレる)。
+# grep でステータス文字列を直接探す方式に統一する。
 MAX_TRIES=120
 TRY=0
 while [ $TRY -lt $MAX_TRIES ]; do
-  STATUS=$(npx vercel ls --scope "$SCOPE" "$PROJECT" 2>/dev/null \
-    | awk -v url="$DEPLOY_URL" '$3 == url {print $5; exit}')
+  LIST_OUTPUT=$(npx vercel ls --scope "$SCOPE" "$PROJECT" 2>/dev/null)
 
-  # URL マッチで取れなかった場合は最新の Production 行をフォールバック
-  if [ -z "$STATUS" ]; then
-    STATUS=$(npx vercel ls --scope "$SCOPE" "$PROJECT" 2>/dev/null \
-      | awk '$6 == "Production" {print $5; exit}')
+  # DEPLOY_URL マッチ行を取る (取れなければ Production の最新行をフォールバック)
+  if [ -n "$DEPLOY_URL" ]; then
+    LINE=$(echo "$LIST_OUTPUT" | grep -F "$DEPLOY_URL" | head -1)
+  else
+    LINE=""
+  fi
+  if [ -z "$LINE" ]; then
+    LINE=$(echo "$LIST_OUTPUT" | grep -E "Production|Preview" | head -1)
+  fi
+
+  if echo "$LINE" | grep -qF "Ready"; then
+    STATUS="Ready"
+  elif echo "$LINE" | grep -qF "Error"; then
+    STATUS="Error"
+  elif echo "$LINE" | grep -qF "Canceled"; then
+    STATUS="Canceled"
+  elif echo "$LINE" | grep -qF "Building"; then
+    STATUS="Building"
+  elif echo "$LINE" | grep -qF "Queued"; then
+    STATUS="Queued"
+  else
+    STATUS=""
   fi
 
   case "$STATUS" in
@@ -68,7 +88,7 @@ while [ $TRY -lt $MAX_TRIES ]; do
       osascript -e "display notification \"$MSG\" with title \"AMD OS PWA — Deploy 失敗\" sound name \"Basso\"" 2>/dev/null || true
       exit 1
       ;;
-    Building|Queued|Initializing|"")
+    Building|Queued|"")
       ;;
     *)
       echo "  status=$STATUS (waiting...)"

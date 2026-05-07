@@ -59,7 +59,15 @@ interface PlanCycleBundle {
 
 interface CockpitViewProps {
   cockpit: {
-    project: { projectId: string; projectName: string; clientName: string; status: string; projectType?: string };
+    project: {
+      projectId: string;
+      projectName: string;
+      clientName: string;
+      status: string;
+      projectType?: string;
+      freezeFromYm?: string | null;
+      restartExpectedYm?: string | null;
+    };
     currentYm: string;
     billingCycles: Array<{
       projectId: string; ym: string; status: string; budgetYen: number;
@@ -427,18 +435,54 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
       </div>
 
       {/* ===== RIGHT COLUMN — 220px sticky ===== */}
-      {/* 終了 PJ (status='ended'/'lost'/'frozen') では月次ルーティンは表示しない */}
+      {/* 終了 PJ (status='ended'/'lost'/'frozen') では月次ルーティンは表示しない。
+          freeze_from_ym 設定済 + 当該 ym 到達後も非表示。restart_expected_ym 設定済 + 未到達でも非表示 (#18) */}
       <div className="w-[220px] shrink-0 sticky top-12 max-h-[calc(100vh-60px)] overflow-y-auto pl-4 flex flex-col gap-3">
-        {project.status === "active" || project.status === "sales" ? (
-          <CockpitRoutineGas
-            projectId={project.projectId}
-            billingCycles={billingCycles}
-            currentYm={currentYm}
-            projectType={project.projectType}
-            onOpenModal={(ym) => setModalYm(ym)}
-            onStepClick={handleStepClick}
-          />
-        ) : null}
+        {(() => {
+          const baseActive = project.status === "active" || project.status === "sales";
+          const frozenNow = !!project.freezeFromYm && currentYm >= project.freezeFromYm;
+          const waitingRestart = !!project.restartExpectedYm && currentYm < project.restartExpectedYm;
+          const showRoutine = baseActive && !frozenNow && !waitingRestart;
+
+          // ステータス予定のバッジ
+          const badges: Array<{ key: string; cls: string; text: string }> = [];
+          if (project.freezeFromYm) {
+            if (currentYm >= project.freezeFromYm) {
+              badges.push({ key: "frozen-now", cls: "bg-slate-100 text-slate-700 border-slate-300", text: `❄️ ${formatYm(project.freezeFromYm)} 〜 凍結中` });
+            } else {
+              badges.push({ key: "frozen-future", cls: "bg-amber-50 text-amber-800 border-amber-300", text: `⚠️ ${formatYm(project.freezeFromYm)} から凍結予定` });
+            }
+          }
+          if (project.restartExpectedYm) {
+            if (currentYm < project.restartExpectedYm) {
+              badges.push({ key: "restart", cls: "bg-blue-50 text-blue-800 border-blue-300", text: `📅 ${formatYm(project.restartExpectedYm)} から再開予定` });
+            }
+          }
+
+          return (
+            <>
+              {badges.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  {badges.map((b) => (
+                    <span key={b.key} className={`text-[11px] px-2 py-1 rounded-md border ${b.cls}`}>
+                      {b.text}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {showRoutine ? (
+                <CockpitRoutineGas
+                  projectId={project.projectId}
+                  billingCycles={billingCycles}
+                  currentYm={currentYm}
+                  projectType={project.projectType}
+                  onOpenModal={(ym) => setModalYm(ym)}
+                  onStepClick={handleStepClick}
+                />
+              ) : null}
+            </>
+          );
+        })()}
         <CockpitNudge nudges={nudges} />
       </div>
 

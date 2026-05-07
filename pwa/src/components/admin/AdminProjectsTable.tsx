@@ -26,6 +26,8 @@ export interface ProjectRow {
   invoice_cc_emails: string | null;
   invoice_bcc_emails: string | null;
   payment_due_day: number | null;
+  freeze_from_ym: string | null;
+  restart_expected_ym: string | null;
   pms: string[];
   closers: string[];
   pls: string[];
@@ -70,6 +72,8 @@ type EditVals = {
   invoice_cc_emails: string;
   invoice_bcc_emails: string;
   payment_due_day: string;
+  freeze_from_ym: string;
+  restart_expected_ym: string;
 };
 
 export function AdminProjectsTable({ projects: initialProjects }: Props) {
@@ -113,6 +117,8 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       invoice_cc_emails: p.invoice_cc_emails ?? "",
       invoice_bcc_emails: p.invoice_bcc_emails ?? "",
       payment_due_day: p.payment_due_day != null ? String(p.payment_due_day) : "",
+      freeze_from_ym: p.freeze_from_ym ?? "",
+      restart_expected_ym: p.restart_expected_ym ?? "",
     });
   };
 
@@ -136,6 +142,8 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       payment_due_day: editVals.payment_due_day && editVals.payment_due_day.trim() !== ""
         ? Number(editVals.payment_due_day)
         : null,
+      freeze_from_ym: (editVals.freeze_from_ym as string)?.trim() || null,
+      restart_expected_ym: (editVals.restart_expected_ym as string)?.trim() || null,
       updated_at: new Date().toISOString(),
     };
     const { error } = await supabase
@@ -209,6 +217,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-20">開始ym</th>
               <th className="text-left px-3 py-2 font-medium w-20">終了ym</th>
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
+              <th className="text-left px-3 py-2 font-medium w-28">凍結 / 再開予定</th>
               <th className="text-left px-3 py-2 font-medium w-16">操作</th>
             </tr>
           </thead>
@@ -373,6 +382,34 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     ) : <StatusBadge status={p.status} />}
                   </td>
 
+                  {/* freeze / restart 予定 (#18) */}
+                  <td className="px-3 py-2 align-top">
+                    {isEditing ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground w-12">凍結:</span>
+                          <input type="text" value={editVals.freeze_from_ym as string}
+                            onChange={(e) => setEditVals((v) => ({ ...v, freeze_from_ym: e.target.value }))}
+                            placeholder="202607"
+                            className="border border-border rounded px-1 py-0.5 text-[11px] w-16 bg-background font-mono" />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground w-12">再開:</span>
+                          <input type="text" value={editVals.restart_expected_ym as string}
+                            onChange={(e) => setEditVals((v) => ({ ...v, restart_expected_ym: e.target.value }))}
+                            placeholder="202606"
+                            className="border border-border rounded px-1 py-0.5 text-[11px] w-16 bg-background font-mono" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-0.5 text-[11px]">
+                        {p.freeze_from_ym && <div className="text-amber-700">⚠️ {p.freeze_from_ym} から凍結</div>}
+                        {p.restart_expected_ym && <div className="text-blue-700">📅 {p.restart_expected_ym} から再開予定</div>}
+                        {!p.freeze_from_ym && !p.restart_expected_ym && <span className="text-muted-foreground">—</span>}
+                      </div>
+                    )}
+                  </td>
+
                   {/* Actions */}
                   <td className="px-3 py-2">
                     {isEditing ? (
@@ -405,7 +442,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={14} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={15} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>
