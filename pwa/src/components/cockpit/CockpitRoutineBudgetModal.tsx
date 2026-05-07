@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
+import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
 
 interface Props {
   projectId: string;
@@ -256,9 +257,11 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
       if (updateError) throw updateError;
 
       // admin に Slack DM (失敗してもノーエラー)
-      void supabase.functions.invoke("send-budget-approval-nudge", {
-        body: { projectId, ym, pmEmail: byEmail },
-      });
+      callEdgeFunctionPOST("send-budget-approval-nudge", {
+        projectId,
+        ym,
+        pmEmail: byEmail,
+      }).catch(() => { /* ignore */ });
 
       setToast({ msg: "申告しました", isError: false });
       setTimeout(() => onClose(), 900);

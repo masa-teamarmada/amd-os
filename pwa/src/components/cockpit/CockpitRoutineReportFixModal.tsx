@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
 
 interface Props {
   projectId: string;
@@ -114,11 +115,11 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
       const email = userData.user?.email;
       if (!email) throw new Error("ログイン情報が取得できません");
 
-      const { data, error: invokeError } = await supabase.functions.invoke("send-slack-dm", {
-        body: { projectId, ym, email },
+      const result = await callEdgeFunctionPOST<{ ok: boolean; message?: string }>("send-slack-dm", {
+        projectId,
+        ym,
+        email,
       });
-      if (invokeError) throw invokeError;
-      const result = data as { ok: boolean; message?: string };
       if (result.ok) {
         setToast({ msg: result.message || "Slackに送ったよ！", isError: false });
       } else {
