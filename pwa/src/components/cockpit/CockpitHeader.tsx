@@ -25,12 +25,10 @@ export function CockpitHeader({ project }: Props) {
         {project.status === "active" ? "Active" : project.status}
       </span>
       <div className="flex-1" />
-      {/* ⚠️ 暫定リンク: まさが指す本来の飛び先は不明 (git 履歴で特定不能、要確認)。
-         情報を失わないために残す。次セッションで正しい飛び先に直す。詳細は HANDOFF / BUGS 2026-05-06 */}
       <Link
-        href={`/admin/projects#${project.projectId}`}
+        href={`/project/${project.projectId}/config`}
         className="text-[12px] text-[#86868b] hover:text-foreground hover:underline"
-        title="config (暫定: PJ 台帳の当該行 — 本来の飛び先要確認)"
+        title="PJ 設定 (基本情報 / メンバー / 契約 / 請求書)"
       >
         ⚙️ config
       </Link>

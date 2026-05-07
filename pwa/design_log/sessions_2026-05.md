@@ -652,3 +652,55 @@ Commit: `db27ded`
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" \
   https://amd-os-pwa.vercel.app/api/admin/seed-vcs
 ```
+
+---
+
+## 2026-05-07 — `/project/[projectId]/config` 移植 (naughty-lehmann worktree)
+
+### 経緯
+前セッション (5b3c1a9) で「コックピットの ⚙️ config リンクの本来の飛び先」が GAS `gas/226_ProjectConfig.html` だと特定済 (約 700 行の PJ 設定画面)。暫定で `/admin/projects#${projectId}` アンカーに繋いでいたが、PWA 側に等価ページが無かったため移植。
+
+### スコープ (Phase 1)
+GAS 226 の **基本情報 / メンバー / 契約・料金 / 請求書送付** を PWA に移植。
+**Deductions (PJ予算控除枠)** は専用テーブルが PWA 側に未存在なので Phase 2 (別セッション) に分離。
+**contract_start_date / contract_end_date** は projects table に列が無いので今回スキップ (start_ym / end_ym で代替)。
+
+### 実装
+
+**Migration 017**: `pwa/scripts/migrations/017_project_members_role_columns.sql`
+- `project_members` に `is_pm` / `is_closer` / `role_label` 列追加
+- 既存の `members.role='pm'` を `project_members.is_pm=true` に back-fill
+- 本番適用済
+
+**新 lib**: `pwa/src/lib/project-config-data.ts`
+- 型: `ProjectConfigProject` / `ProjectConfigMember` / `MemberMasterRow` / `ProjectConfigData`
+- `fetchProjectConfig(projectId)`: projects + project_members + members を並列取得 → PM/Closer 名解決
+- `saveProjectConfig(projectUuid, patch)`: ホワイトリスト式部分更新 (status / report_emails / start_ym / end_ym / fee_type / fee_amount / invoice_*)
+- `saveProjectMembers(projectId, members)`: GAS と同じ「全削除→挿入」方式 (履歴保持はしない)
+
+**新 component**: `pwa/src/components/project-config/ProjectConfigForm.tsx`
+- 4 section: 基本情報 / メンバー / 契約・料金 / 請求書送付
+- メンバー section は table CRUD + 「＋ メンバー追加」ボタン (memberMaster ドロップダウン)
+- 「送付モード = manual」のときは To/CC/BCC 入力ブロックを隠す (GAS と同じ挙動)
+- 固定下部「保存バー」+ 右下 toast (3 秒)
+- 未保存変更時は「未保存の変更あり」を表示、未変更時は保存ボタン disabled
+
+**新 page**: `pwa/src/app/(app)/project/[projectId]/config/page.tsx`
+- `useParams()` → `<ProjectConfigForm projectId={...} />`
+
+**配線**: `pwa/src/components/cockpit/CockpitHeader.tsx`
+- 暫定リンク `/admin/projects#${projectId}` → 正規ルート `/project/${projectId}/config`
+- 「⚠️ 暫定リンク」コメントは撤去
+
+### スキップした項目 / 次回フォローアップ
+- **PJ予算控除枠 (Deductions)**: GAS 226 で 5 番目のセクション (rate / fixed モード、buffer / salesFee / advisor / other 種別、planCycle 連携でのpt単価表示)。PWA に `project_deductions` table が無いので、別セッションで table 設計から
+- **契約期間 (contract_start_date / contract_end_date)**: projects table に列が無い。`start_ym` / `end_ym` で代替できているか要確認。必要なら migration 018 で追加
+- **PM / Closer の確定**: 現状は project_members の `is_pm` / `is_closer` フラグで決まる (基本情報セクションに readonly 表示)。projects table に `pm_member_id` / `closer_member_id` を別途持つかは設計判断 (前者は member の参画期間に追従するメリット、後者は membership 履歴と独立で堅い)
+
+### 主な変更ファイル
+- 新 migration: `pwa/scripts/migrations/017_project_members_role_columns.sql` (適用済)
+- 新 lib: `pwa/src/lib/project-config-data.ts`
+- 新 component: `pwa/src/components/project-config/ProjectConfigForm.tsx`
+- 新 page: `pwa/src/app/(app)/project/[projectId]/config/page.tsx`
+- 改修: `pwa/src/components/cockpit/CockpitHeader.tsx` (リンク先正規化)
+- 改修: `pwa/SPEC_pwa.md` (ルーティング表に `/project/[projectId]/config` 追加)

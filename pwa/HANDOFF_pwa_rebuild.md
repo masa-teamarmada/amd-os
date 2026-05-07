@@ -13,7 +13,7 @@
 
 ## 最終更新
 
-2026-05-07 (深夜) — AMD Score L2 cron 実装 (6 ソース週 1 自動抽出) + 過去 9 PJ × 71 評価点 一括抽出 + 8 改修 (XRL 5 軸 / FRL ALQ / KaTeX / つくよみ tools 拡張 / 添付対応)
+2026-05-07 (続き) — `/project/[projectId]/config` 移植 (GAS 226_ProjectConfig.html → PWA Phase 1: 基本情報 / メンバー / 契約・料金 / 請求書送付)
 
 ## ⚠️ env vars 設定が必要 (cron 起動条件)
 
@@ -29,7 +29,21 @@ env 未設定でも各 source は graceful degradation (skip して 0 件返す)
 
 ## 直近セッション要約
 
-### 0) AMD Score L2 cron 実装 (6 ソース週 1 自動抽出、セッション最末尾)
+### -1) `/project/[projectId]/config` 移植 (このセッション末尾)
+
+GAS `gas/226_ProjectConfig.html` (約 700 行) を PWA に移植。前セッション (5b3c1a9) で「config リンクの本来の飛び先」が GAS 226 と特定済だったが、PWA に等価ページが無く暫定で `/admin/projects#${projectId}` にアンカーしていた。
+
+- 新 migration 017: `project_members` に `is_pm` / `is_closer` / `role_label` 列追加 (本番適用済)
+- 新 lib `pwa/src/lib/project-config-data.ts`: `fetchProjectConfig` / `saveProjectConfig` / `saveProjectMembers`
+- 新 component `pwa/src/components/project-config/ProjectConfigForm.tsx`: 4 section (基本情報 / メンバー table CRUD / 契約・料金 / 請求書送付)、固定下部保存バー、右下 toast
+- 新 page `pwa/src/app/(app)/project/[projectId]/config/page.tsx`
+- `CockpitHeader` の暫定リンクを正規ルート `/project/${projectId}/config` に繋ぎ替え
+
+**スキップ (Phase 2 で別セッション)**:
+- **Deductions (PJ予算控除枠)** — `project_deductions` table が PWA 未存在。GAS 226 のセクション 3.5 (rate/fixed モード、buffer/salesFee/advisor/other、planCycle 連携 pt 単価)
+- **contract_start_date / contract_end_date** — projects table に列が無い。`start_ym` / `end_ym` で代替できるか要確認
+
+### 0) AMD Score L2 cron 実装 (6 ソース週 1 自動抽出)
 
 「Slack/Drive/Notion/Gmail/Calendar/ネット検索の 6 ソースから cron で情報抽出」というまさ要望に対応。本番 PWA から定期実行できる cron route として実装:
 
@@ -111,7 +125,8 @@ env 未設定でも各 source は graceful degradation (skip して 0 件返す)
 
 ### 設計層 (まさの判断待ち)
 
-- **PWA `/project/[projectId]/config` ページ新規作成** (前 commit `5b3c1a9` の暫定リンクの正式化) — GAS `226_ProjectConfig.html` を PWA 移植する
+- **`/project/[projectId]/config` Phase 2** — Deductions セクション。GAS 226 セクション 3.5 (PJ予算控除枠)。`project_deductions` table 設計から (rate/fixed mode、buffer/salesFee/advisor/other 種別、planCycle 連携)
+- **`/project/[projectId]/config` 契約期間** — projects table に `contract_start_date` / `contract_end_date` 列を追加するか、`start_ym` / `end_ym` で十分か (まさ確認)
 - **AMD Score 期待値とのズレ**: 一部 PJ で seed の μ 値が §8 表より低めに出ている件。まさが UI スライダーで PJ ごとに合わせる方針 (もしくは tsukuyomi に L2 情報渡して update_amd_score_input してもらう)
 - **Shallow Tech モードの重み再分配** (理論 §11.3): TRL=1.0 を BRL/HRL に再分配して K=1.0 にする案
 - **σ_SU を /venture-map/state-space と連携**: 現状は手動入力 μ_A/μ_I/μ_G、本来は Triple Helix 状態空間モデル推定値を pull すべき
@@ -135,8 +150,8 @@ env 未設定でも各 source は graceful degradation (skip して 0 件返す)
 3. `SPEC_pwa.md` で全体像、`BUGS.md` で過去事故を確認
 4. 本番 (`https://amd-os-pwa.vercel.app/venture-map/amd-score`) でまさが触ってフィードバック → tune
 5. 候補 (まさに優先確認):
-   a. **GAS `gas/226_ProjectConfig.html` 移植** → `/project/[projectId]/config` ページ新規作成 (CockpitHeader リンク先を直す)
-   b. **AMD Score / FRL ALQ / 添付つくよみチャット** の本番触ってもらってフィードバック
+   a. **`/project/[projectId]/config` Phase 2 (Deductions)** — `project_deductions` table 設計 + 控除枠 UI
+   b. **AMD Score / FRL ALQ / 添付つくよみチャット / config** の本番触ってもらってフィードバック
    c. AMD Score の cron 化 (atlas signal → σ_SU 自動更新)
    d. その他
 6. **PWA は常に本番で確認** (`pwa/AGENTS.md`)。tsc 通ったら commit → push → main merge → `npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os` まで一気に通す
