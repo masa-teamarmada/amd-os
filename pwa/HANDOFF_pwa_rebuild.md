@@ -13,13 +13,39 @@
 
 ## 最終更新
 
-2026-05-07 (晩) — 過去生データから 9 PJ × 71 評価点 一括抽出 (L2 batch) + 同日 8 改修 (XRL 5 軸 / FRL ALQ / KaTeX / つくよみ tools 拡張 / 添付対応)
+2026-05-07 (深夜) — AMD Score L2 cron 実装 (6 ソース週 1 自動抽出) + 過去 9 PJ × 71 評価点 一括抽出 + 8 改修 (XRL 5 軸 / FRL ALQ / KaTeX / つくよみ tools 拡張 / 添付対応)
+
+## ⚠️ env vars 設定が必要 (cron 起動条件)
+
+以下を Vercel production env に追加 (まさに依頼):
+- `SLACK_BOT_TOKEN` — Slack Bot (xoxb-…)。scopes: search:read, channels:history, channels:read, groups:history, groups:read
+- `NOTION_API_KEY` — Notion Integration (secret_…)。Integration を AMD workspace の root ページに招待
+- `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `GOOGLE_OAUTH_REFRESH_TOKEN` — Google OAuth (Drive/Gmail/Calendar 共通)
+- (`ANTHROPIC_API_KEY` / `CRON_SECRET` は既存のものを流用)
+
+env 未設定でも各 source は graceful degradation (skip して 0 件返す) → cron は動くが空データになる。フル動作には全 token 必要。
 
 ---
 
 ## 直近セッション要約
 
-### 過去生データ → 9 PJ × 71 評価点 一括抽出 (このセッション末尾)
+### 0) AMD Score L2 cron 実装 (6 ソース週 1 自動抽出、セッション最末尾)
+
+「Slack/Drive/Notion/Gmail/Calendar/ネット検索の 6 ソースから cron で情報抽出」というまさ要望に対応。本番 PWA から定期実行できる cron route として実装:
+
+- 新 lib `src/lib/sources/{slack,notion,drive,gmail,calendar,web-search,google}.ts` (6 ソースクライアント + 共通 Google 認証)
+- 新 lib `src/lib/amd-score-l2-extract.ts` (orchestrator: 6 ソース → Sonnet 4.5 → amd_score_inputs upsert)
+- 新 route `/api/cron/amd-score-l2-refresh` (週 1 cron、毎週月曜 03:00 JST = `0 18 * * 0` UTC)
+- vercel.json 更新
+- 各 source は env 未設定なら skip (graceful degradation)
+- evaluator は `'cron_l2_extract'` で記録 (まさ手動 / 一括 batch とも区別可能)
+- maxDuration=300s (Hobby 上限)。9 PJ × ~30s ≈ 270s 想定
+
+依存追加: `@slack/web-api` `@notionhq/client` `googleapis`
+
+**運用開始条件**: 上記 env vars をまさが Vercel に登録 → 翌週月曜 03:00 JST で初回実行 (もしくは `curl -H "Authorization: Bearer $CRON_SECRET" https://amd-os-pwa.vercel.app/api/cron/amd-score-l2-refresh` で即時実行可)
+
+### 1) 過去生データ → 9 PJ × 71 評価点 一括抽出 (このセッション末尾)
 
 「過去の生データから一気に AMD Score timeline を抽出してほしい、ネット情報も補完で」というまさ要望対応。私 (Claude Code) のセッション内で MCP (Notion/Slack/Drive) + WebSearch + Anthropic API + Supabase Management API を組み合わせて 9 PJ batch 処理。
 

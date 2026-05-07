@@ -531,3 +531,67 @@ Commit: `db27ded`
 - 新 script: `pwa/scripts/extract_amd_score_from_l2.py`
 - design log + sessions log 更新
 - DB に 71 評価点投入済 (本番反映)
+
+---
+
+## 2026-05-07 (深夜) — AMD Score L2 cron 実装 (6 ソース週 1 自動抽出)
+
+「Slack/Drive/Notion/Gmail/Calendar/ネット検索の 6 ソースから cron で情報抽出」というまさ要望に対応。本番 PWA から定期実行できる cron route として実装。
+
+### 認証方針 (まさ判断)
+- 全部直接認証 (Service Account / OAuth refresh token を Vercel env)
+- Slack: Bot Token (xoxb-…) を `SLACK_BOT_TOKEN`
+- Notion: Integration Token (secret_…) を `NOTION_API_KEY`
+- Google (Drive/Gmail/Calendar 共通): OAuth refresh token を `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `GOOGLE_OAUTH_REFRESH_TOKEN`
+- WebSearch: Anthropic 公式 web_search tool (既存 `ANTHROPIC_API_KEY` 流用)
+
+### 頻度・スコープ (まさ判断)
+- 週 1 回 (毎週月曜 03:00 JST = 日曜 18:00 UTC)
+- cron だけ (全 PJ 自動)、UI ボタン無し
+
+### 新規ファイル
+- `src/lib/sources/slack.ts` — `WebClient` で search.messages + conversations.history (主要 channel 横断)
+- `src/lib/sources/notion.ts` — `@notionhq/client` で search + blocks.children.list (各ページ最大 4KB)
+- `src/lib/sources/google.ts` — Drive/Gmail/Calendar 共通の OAuth/Service Account auth
+- `src/lib/sources/drive.ts` — files.list + files.export (Docs/Sheets/Slides を text 化、PDF はメタのみ)
+- `src/lib/sources/gmail.ts` — users.messages.list + get (Subject + Snippet + 本文 2KB)
+- `src/lib/sources/calendar.ts` — events.list (過去 24ヶ月 + 未来 12ヶ月)
+- `src/lib/sources/web-search.ts` — Anthropic web_search tool wrapper (Sonnet が時系列要約)
+- `src/lib/amd-score-l2-extract.ts` — orchestrator
+  - `extractAmdScoreForPj(projectId)`: 1 PJ → 6 ソース並列 → Sonnet → upsert
+  - `extractAmdScoreForAllPjs()`: 全 SU 系 PJ 順次
+- `src/app/api/cron/amd-score-l2-refresh/route.ts` — Vercel cron route (Bearer auth、maxDuration=300s)
+- vercel.json — `0 18 * * 0` (週 1)
+- evaluator は `'cron_l2_extract'` で記録 (手動 / 一括 batch / cron 全部区別可)
+
+### 依存追加
+- `@slack/web-api`
+- `@notionhq/client`
+- `googleapis`
+
+### Graceful degradation
+- 各 source は env 未設定なら skip + 0 件返す → cron は動くが空データ
+- 全 source 揃ったら本格運用、部分的に揃えても動く
+
+### 運用開始条件
+1. まさが Vercel env に上記 4 つの token を登録
+   - Slack Bot Token (workspace admin で作成、scopes: search:read, channels:history, channels:read, groups:history, groups:read)
+   - Notion Integration (Notion settings で作成 → AMD workspace の root ページに招待)
+   - Google OAuth (Google Cloud Console → OAuth client ID 作成 → refresh token 取得 — Drive/Gmail/Calendar scope)
+2. 翌週月曜 03:00 JST で初回 cron 実行
+3. もしくは即時実行: `curl -H "Authorization: Bearer $CRON_SECRET" https://amd-os-pwa.vercel.app/api/cron/amd-score-l2-refresh`
+4. 結果: amd_score_inputs に evaluator='cron_l2_extract' で upsert される
+
+### 注意点
+- Vercel Hobby plan の maxDuration=300s 上限。9 PJ × ~30s ≈ 270s で収まる想定だが、超過するなら PJ chunk 化 (3 PJ ずつ別 cron path) 検討
+- LLM コスト: 9 PJ × 週 1 × Sonnet 4.5 (input ~10KB, output ~5KB) = 月 36 回の Sonnet 呼び出し
+- AmdScoreView に「再抽出」ボタンは付けていない (UI 不要というまさ判断)、必要なら別途追加
+
+### 主な変更ファイル (この phase)
+- `src/lib/sources/{slack,notion,google,drive,gmail,calendar,web-search}.ts` (新規 7 ファイル)
+- `src/lib/amd-score-l2-extract.ts` (新規)
+- `src/app/api/cron/amd-score-l2-refresh/route.ts` (新規)
+- `vercel.json` (cron 1 行追加)
+- `package.json` (deps 3 個追加)
+- `SPEC_pwa.md` (env vars + cron 表に追記)
+- `HANDOFF_pwa_rebuild.md` (運用開始条件)

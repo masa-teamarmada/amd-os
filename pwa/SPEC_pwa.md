@@ -132,6 +132,7 @@ pwa/
 | `cron/member-activities` | `0 19 * * *` | 04:00 daily | 月次レポート + responsibility → Haiku 推論 → member_activities |
 | `cron/relearn-lane-weights` | `30 18 * * *` | 03:30 daily | macro lane weights 再学習 |
 | `cron/macro-backfill-historical` | `0 3 * * 0` | 12:00 sun | 2010-2025 macro_index_log を Sonnet 推定で埋める |
+| `cron/amd-score-l2-refresh` | `0 18 * * 0` | 03:00 mon | 6 ソース (Slack/Drive/Notion/Gmail/Calendar/WebSearch) から AMD Score timeline を Sonnet 抽出 → amd_score_inputs に upsert (全 SU 系 PJ) |
 
 認証: 全 cron route が `Authorization: Bearer ${CRON_SECRET}` を確認。`CRON_SECRET` 未設定なら処理スキップ。
 
@@ -239,6 +240,10 @@ pwa/
 | `FREEE_CLIENT_ID` `FREEE_CLIENT_SECRET` `FREEE_COMPANY_ID` `FREEE_REFRESH_TOKEN` | freee invoice |
 | `NEXT_PUBLIC_GAS_WEBAPP_URL` `NEXT_PUBLIC_GAS_API_KEY` | GAS bridge |
 | `NEXT_PUBLIC_DEV_MODE` | `'true'` で DEV モード (anon read 全開) |
+| `SLACK_BOT_TOKEN` | Slack Bot (xoxb-…)。AMD Score L2 cron 用。scopes: search:read, channels:history, channels:read, groups:history, groups:read |
+| `NOTION_API_KEY` | Notion Integration (secret_…)。AMD Score L2 cron 用。Integration を root ページに招待 |
+| `GOOGLE_OAUTH_CLIENT_ID` `GOOGLE_OAUTH_CLIENT_SECRET` `GOOGLE_OAUTH_REFRESH_TOKEN` | Google OAuth (個人 Gmail/Calendar 代理)。L2 cron で Drive/Gmail/Calendar 全部使う |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | (任意、OAuth refresh token の代替) Service Account JSON。Drive のみ用、Gmail/Calendar には domain-wide delegation 必須 |
 
 **注意**: `.env.local` を変更しても Vercel に自動反映されない。`vercel env add <KEY> production` で明示追加が必要。
 
