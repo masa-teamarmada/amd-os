@@ -13,8 +13,14 @@ import { getGoogleAuthAsync } from "@/lib/sources/google";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin();
-  if (!auth.ok) return auth.errorResponse;
+  // ad-hoc admin script なので CRON_SECRET でも認証可 (まさ + えいみが curl で叩く用)
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = req.headers.get("authorization");
+  const isCronAuth = !!cronSecret && authHeader === `Bearer ${cronSecret}`;
+  if (!isCronAuth) {
+    const auth = await requireAdmin();
+    if (!auth.ok) return auth.errorResponse;
+  }
 
   const { searchParams } = new URL(req.url);
   const spreadsheetId = searchParams.get("spreadsheetId");
