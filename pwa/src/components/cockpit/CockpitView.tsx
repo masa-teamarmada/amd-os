@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CockpitHeader } from "./CockpitHeader";
 import { CockpitVentureStatus } from "./CockpitVentureStatus";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
@@ -11,6 +12,11 @@ import { CockpitNudge } from "./CockpitNudge";
 import { CockpitRoutineGas } from "./CockpitRoutineGas";
 import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
 import { CockpitNextPeriodSetup } from "./CockpitNextPeriodSetup";
+import { CockpitRoutineBudgetModal } from "./CockpitRoutineBudgetModal";
+import { CockpitRoutineMeetingModal } from "./CockpitRoutineMeetingModal";
+import { CockpitRoutineReportFixModal } from "./CockpitRoutineReportFixModal";
+import { CockpitRoutineInvoiceModal } from "./CockpitRoutineInvoiceModal";
+import { CockpitRoutineInvoiceSendConfirm } from "./CockpitRoutineInvoiceSendConfirm";
 
 interface PlanCycleShape {
   planCycleId: string; status: string; budgetYen: number; totalPoints: number;
@@ -132,11 +138,53 @@ interface CockpitViewProps {
     assignee?: string; priority?: string; description?: string;
   }>;
   initialModalYm?: string | null;
+  /** mypage や URL `?step=` から渡される、起動時に開くべきステップ */
+  initialStep?: { ym: string; stepId: string } | null;
 }
 
 function formatYm(ym: string) {
   if (!ym || ym.length < 6) return ym;
   return `${ym.slice(0, 4)}/${ym.slice(4)}`;
+}
+
+/** stepId → 開くべきモーダル種別を決める。reimburseConfirm は遷移するだけなので null を返す。 */
+type BillingCycleShape = {
+  ym: string;
+  meetingEventId?: string | null;
+  meetingStartAt: string | null;
+  reportFixedAt: string | null;
+};
+
+function resolveStepModalFromTap(
+  ym: string,
+  stepId: string,
+  cycle: BillingCycleShape | undefined,
+  onReimburseConfirm: () => void
+): StepModal {
+  switch (stepId) {
+    case "budget":
+      return { kind: "budget", ym };
+    case "estimateSend":
+      return { kind: "invoice", ym, documentType: "quotation" };
+    case "meeting": {
+      const isDone = !!cycle?.meetingEventId || !!cycle?.meetingStartAt;
+      // iOS の「done時、href があればそのままカレンダーに飛ぶ」分岐は、PWA では
+      // どちらにせよモーダル内で確定済み表示にする (Calendar 直リンクは未対応)
+      const doneAction = cycle?.meetingStartAt ? `cpShowMeetingInfo('${cycle.meetingStartAt}')` : null;
+      return { kind: "meeting", ym, isDone, doneAction };
+    }
+    case "reportFix":
+      return { kind: "reportFix", ym, isDone: !!cycle?.reportFixedAt };
+    case "reimburseConfirm":
+      onReimburseConfirm();
+      return null;
+    case "invoiceIssue":
+      return { kind: "invoice", ym, documentType: "invoice" };
+    case "invoiceSend":
+      return { kind: "invoiceSend", ym };
+    default:
+      return null;
+  }
 }
 
 function latestProgressPct(
@@ -179,11 +227,35 @@ function monthlyProgressItems(
   }));
 }
 
-export function CockpitView({ cockpit, nudges, tasks, initialModalYm }: CockpitViewProps) {
+type StepModal =
+  | { kind: "budget"; ym: string }
+  | { kind: "meeting"; ym: string; isDone: boolean; doneAction: string | null }
+  | { kind: "reportFix"; ym: string; isDone: boolean }
+  | { kind: "invoice"; ym: string; documentType: "invoice" | "quotation" }
+  | { kind: "invoiceSend"; ym: string }
+  | null;
+
+export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialStep }: CockpitViewProps) {
+  const router = useRouter();
   const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
   const [pastExpanded, setPastExpanded] = useState(false);
   const [editingCurrentCycle, setEditingCurrentCycle] = useState(false);
   const [progressPatches, setProgressPatches] = useState<ProgressShape[]>([]);
+  const [stepModal, setStepModal] = useState<StepModal>(() => {
+    if (!initialStep) return null;
+    const cycle = cockpit.billingCycles.find((bc) => bc.ym === initialStep.ym);
+    return resolveStepModalFromTap(initialStep.ym, initialStep.stepId, cycle, () => {});
+  });
+
+  function handleStepClick(ym: string, stepId: string) {
+    if (stepId === "reimburseConfirm") {
+      router.push("/reimburse");
+      return;
+    }
+    const cycle = cockpit.billingCycles.find((bc) => bc.ym === ym);
+    const next = resolveStepModalFromTap(ym, stepId, cycle, () => router.push("/reimburse"));
+    if (next) setStepModal(next);
+  }
   const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities } = cockpit;
 
   const currentProgress = mergeProgress(progress, progressPatches);
@@ -334,6 +406,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm }: CockpitV
             currentYm={currentYm}
             projectType={project.projectType}
             onOpenModal={(ym) => setModalYm(ym)}
+            onStepClick={handleStepClick}
           />
         ) : null}
         <CockpitNudge nudges={nudges} />
@@ -357,6 +430,52 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm }: CockpitV
           currentYm={currentYm}
           onProgressSaved={(patches) => setProgressPatches((prev) => mergeProgress(prev, patches))}
           onClose={() => setModalYm(null)}
+        />
+      )}
+
+      {/* ===== Step Modals (各ルーティンタスク → 専用ウィンドウ) ===== */}
+      {stepModal?.kind === "budget" && (
+        <CockpitRoutineBudgetModal
+          projectId={project.projectId}
+          ym={stepModal.ym}
+          open
+          onClose={() => setStepModal(null)}
+        />
+      )}
+      {stepModal?.kind === "meeting" && (
+        <CockpitRoutineMeetingModal
+          projectId={project.projectId}
+          ym={stepModal.ym}
+          isDone={stepModal.isDone}
+          doneAction={stepModal.doneAction}
+          open
+          onClose={() => setStepModal(null)}
+        />
+      )}
+      {stepModal?.kind === "reportFix" && (
+        <CockpitRoutineReportFixModal
+          projectId={project.projectId}
+          ym={stepModal.ym}
+          isDone={stepModal.isDone}
+          open
+          onClose={() => setStepModal(null)}
+        />
+      )}
+      {stepModal?.kind === "invoice" && (
+        <CockpitRoutineInvoiceModal
+          projectId={project.projectId}
+          ym={stepModal.ym}
+          documentType={stepModal.documentType}
+          open
+          onClose={() => setStepModal(null)}
+        />
+      )}
+      {stepModal?.kind === "invoiceSend" && (
+        <CockpitRoutineInvoiceSendConfirm
+          projectId={project.projectId}
+          ym={stepModal.ym}
+          open
+          onClose={() => setStepModal(null)}
         />
       )}
     </div>

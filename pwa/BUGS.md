@@ -19,6 +19,35 @@
 
 ---
 
+### [AMD OS PWA] 月次ルーティンの各ステップが全部「月次モーダル」を開く回帰 (3度目)
+
+- **発見日**: 2026-05-07
+- **状態**: ✅ 解決済み
+- **症状**: cockpit 右カラムの「月次ルーティン」内の各タスク (請求額確定 / 報告会日程調整 / 月次報告書FIX / 立替精算確認 / 請求書発行 / 請求書送付) を **どれをクリックしても同じ月次モーダル** が開く。本来は stepId 別に専用モーダル/遷移を開くべき
+- **原因**:
+  - 元実装は別リポ (archive 済 `amd-os-pwa`) にあり、それを Swift に移植した。さらに今のモノレポでは PWA を rebuild した際に **PJ コックピット周りは作り直し** たが、月次ルーティンのステップ別モーダル (BudgetStepView 相当 4種) は **PWA 側に作られなかった**
+  - `CockpitRoutineGas.tsx` の各ステップ button が `onOpenModal?.(ym)` (月次モーダルを開く関数) を呼ぶ実装になっており、stepId 別の振り分けが無かった
+  - SPEC_pwa.md の「月次ルーティン」節には「並び順」「期限超過の取消線」しか書かれておらず、**「各タスクをクリックしたら何が開くか」の正本仕様が無かった** ため、新セッションが触るたび「全部月次モーダルでいいや」に戻る
+  - まさは「3 度目くらい」と言ってる。SPEC に書かれてないと、次のセッションでも同じ回帰が起きる
+- **解決策**:
+  - iOS `RoutineFlowView.handleTap()` を正本として、PWA に **逆移植**:
+    - `CockpitRoutineBudgetModal.tsx` (請求額確定: billing_cycles + project_members 直叩き、申告/取り下げ)
+    - `CockpitRoutineMeetingModal.tsx` (報告会: Edge Fn `meeting-slots` / `schedule-meeting` GET)
+    - `CockpitRoutineReportFixModal.tsx` (月次報告書FIX: monthly_reports 直読み、Edge Fn `send-slack-dm` for PC編集依頼)
+    - `CockpitRoutineInvoiceModal.tsx` (請求書/見積書発行: documentType `invoice`/`quotation` 2モード、明細編集、Edge Fn `issue-invoice`/`cancel-invoice`)
+    - `CockpitRoutineInvoiceSendConfirm.tsx` (請求書送付: 確認ダイアログのみ、billing_cycles UPDATE)
+  - GET 用 Edge Function 呼び出しヘルパー `pwa/src/lib/supabase/edge-functions.ts` を新設 (`supabase.functions.invoke` は POST 専用)
+  - `CockpitView.resolveStepModalFromTap()` で stepId → モーダル種別を振り分け。`reimburseConfirm` だけは `/reimburse` に router.push (iOS と同じ)
+  - cockpit/page.tsx で `?step=` query param を読み取って `initialStep` として `CockpitView` に渡す → mypage TODO からのディープリンクが各ステップ専用モーダルを起動時に開く
+  - **SPEC_pwa.md** の「月次ルーティン」節に **stepId × クリック挙動表** + 回帰防止注意書きを追記
+- **教訓**:
+  - **「画面の何がどこを開くか」は SPEC に表で書く**。「各タスクをクリックしたらモーダルが開く」だけだとどのモーダルか分からず、毎回同じ regression が起きる
+  - PWA の Routine 周りは iOS が事実上の正本になってる (PWA rebuild で消えた → iOS から逆移植する形になってる)。新規モーダル追加時はまず iOS の対応 View を読む
+  - `supabase.functions.invoke` は POST 前提。GET の Edge Function (`meeting-slots` / `schedule-meeting` 等) は `fetch` で URL パラメータ付きで叩く
+  - PWA worktree は node_modules が無いので、tsc 叩くまえに `npm install --prefer-offline` 必要 (今回 6秒、キャッシュ済)
+
+---
+
 ### [AMD OS PWA] 「過去にあったリンクの復活」を推測で実装して別の場所に飛ばした
 
 - **発見日**: 2026-05-06

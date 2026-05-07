@@ -339,6 +339,28 @@ npx tsc --noEmit     # 型チェック
 - 期限超過かつ未完なら mypage の月次報酬から **取り消し線** で除外
 - ただし `billing_cycles.status` が `payment_confirmed` / `reward_paid` / `completed`、または `payment_confirmed_at` / `reward_paid_at` あれば admin 救済済みとして除外しない
 
+#### 各ステップクリック時の挙動 ⭐
+
+cockpit 右カラムの月次ルーティンで「タスク行」をクリックしたら **stepId 別に専用モーダル/遷移を開く**。**月次モーダル (CockpitMonthlyModal) は開かない**。月次モーダルが開くのは**月見出し (`YYYY.MM稼働分`) クリック時のみ**。
+
+正本は iOS `RoutineFlowView.handleTap()` ([ios/AMDOS/Features/Routine/RoutineFlowView.swift](../ios/AMDOS/Features/Routine/RoutineFlowView.swift))。PWA では `CockpitView.resolveStepModalFromTap()` ([pwa/src/components/cockpit/CockpitView.tsx](src/components/cockpit/CockpitView.tsx)) で振り分ける。
+
+| stepId | 開く UI | 実装 |
+|---|---|---|
+| `budget` (請求額確定) | `CockpitRoutineBudgetModal` | billing_cycles 直叩き / Edge Fn `send-budget-approval-nudge` |
+| `estimateSend` (見積書送付・CTBのみ) | `CockpitRoutineInvoiceModal` (documentType=`quotation`) | billing_cycles 直叩き / Edge Fn `issue-invoice` `cancel-invoice` |
+| `meeting` (報告会日程調整) | `CockpitRoutineMeetingModal` | Edge Fn `meeting-slots` (GET) / `schedule-meeting` (GET) |
+| `reportFix` (月次報告書FIX) | `CockpitRoutineReportFixModal` | monthly_reports 直読み + billing_cycles UPDATE / Edge Fn `send-slack-dm` |
+| `reimburseConfirm` (立替精算確認) | `/reimburse` ページに **遷移** (モーダルではない) | iOS は `navigation.selectedTab = .reimburse` |
+| `invoiceIssue` (請求書発行) | `CockpitRoutineInvoiceModal` (documentType=`invoice`) | 同上 estimateSend |
+| `invoiceSend` (請求書送付) | `CockpitRoutineInvoiceSendConfirm` 確認ダイアログ | billing_cycles UPDATE (`invoice_sent_at`) |
+
+**🚨 回帰防止ルール**: PWA に新機能を載せるとき、各ステップ用モーダルが「全部 CockpitMonthlyModal を開くようになる」回帰が **過去 3 回起きてる** (BUGS.md 参照)。月次モーダルへフォールバックするコードを追加するときは、上の表が崩れていないか必ず手動で確認する。
+
+#### URL クエリでステップを直接開く
+
+`/project/[projectId]/cockpit?ym=YYYYMM&step=<stepId>` で、起動時にそのステップ用モーダルを開ける。mypage の TODO カード ([pwa/src/app/(app)/mypage/page.tsx:593](src/app/(app)/mypage/page.tsx)) からこの URL に飛ばしてる。`?ym=` だけなら従来通り月次モーダル。
+
 ### admin.billing のステップ定義
 - 標準: `予算確定 / 報告会 / 報告書 / 立替確認 / 請求発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払`
 - CTB: `予算確定 / 見積送付 / 請求発行 / 報告会 / 請求送付 / 報告書 / 立替確認 / 支払通知 / 入金確認 / 報酬支払`

@@ -53,12 +53,19 @@ export default function CockpitPage() {
     );
   }
 
+  const stepParam = searchParams.get("step");
+  const ymParam = searchParams.get("ym");
+  // ?step=xxx&ym=YYYYMM が両方あれば、stepId 別の専用モーダルを起動時に開く。
+  // 月次モーダルを開きたいときは ?ym だけ。
+  const initialStep = stepParam && ymParam ? { ym: ymParam, stepId: stepParam } : null;
+
   return (
     <CockpitView
       cockpit={cockpit}
       nudges={cockpit.nudges || []}
       tasks={cockpit.tasks || []}
-      initialModalYm={searchParams.get("ym")}
+      initialModalYm={initialStep ? null : ymParam}
+      initialStep={initialStep}
     />
   );
 }
