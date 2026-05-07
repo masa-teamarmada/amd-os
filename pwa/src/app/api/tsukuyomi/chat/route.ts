@@ -23,9 +23,57 @@ import { getLevelInfo, type XrlAxisKey } from "@/lib/xrl-level-definitions";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+interface IncomingAttachment {
+  name: string;
+  mediaType: string;             // "image/png" | "application/pdf" | "text/plain" 等
+  size: number;
+  data: string;                  // base64
+}
+
 interface IncomingMessage {
   role: "user" | "assistant";
   content: string;
+  attachments?: IncomingAttachment[];
+}
+
+// Sonnet が直接受けられる media types
+const ANTHROPIC_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const ANTHROPIC_DOC_TYPES = new Set(["application/pdf"]);
+
+function attachmentToContentBlock(a: IncomingAttachment): Anthropic.Messages.ContentBlockParam | null {
+  if (ANTHROPIC_IMAGE_TYPES.has(a.mediaType)) {
+    return {
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: a.mediaType as "image/png" | "image/jpeg" | "image/webp" | "image/gif",
+        data: a.data,
+      },
+    };
+  }
+  if (ANTHROPIC_DOC_TYPES.has(a.mediaType)) {
+    return {
+      type: "document",
+      source: {
+        type: "base64",
+        media_type: "application/pdf",
+        data: a.data,
+      },
+    } as unknown as Anthropic.Messages.ContentBlockParam;   // SDK 型に未対応な場合のフォールバック
+  }
+  // テキスト系は decode して text として渡す
+  if (a.mediaType.startsWith("text/")) {
+    try {
+      // base64 → utf-8
+      const binary = Buffer.from(a.data, "base64").toString("utf-8");
+      // 巨大な貼り付けを防ぐため 200KB で truncate
+      const trimmed = binary.length > 200_000 ? binary.slice(0, 200_000) + "\n... (truncated)" : binary;
+      return { type: "text", text: `[添付ファイル: ${a.name}]\n${trimmed}` };
+    } catch {
+      return { type: "text", text: `[添付ファイル: ${a.name} — decode 失敗]` };
+    }
+  }
+  return { type: "text", text: `[添付ファイル: ${a.name} (${a.mediaType}) — Sonnet 未対応形式]` };
 }
 
 interface ApplyAction {
@@ -640,23 +688,35 @@ export async function POST(req: Request) {
 
   const fullSystem = SYSTEM + contextBlock;
 
-  // 直近のユーザー発話を保存
+  // 直近のユーザー発話を保存 (添付ファイル名は content 末尾に付記)
   const lastUser = [...body.messages].reverse().find((m) => m.role === "user");
   if (lastUser) {
+    const attachLine = lastUser.attachments && lastUser.attachments.length > 0
+      ? "\n\n[添付: " + lastUser.attachments.map((a) => `${a.name} (${a.mediaType})`).join(", ") + "]"
+      : "";
     await supabase.from("tsukuyomi_chat_logs").insert({
       project_id: body.project_id ?? null,
       session_id: body.session_id,
       page_path: body.page_path ?? null,
       role: "user",
-      content: lastUser.content,
+      content: lastUser.content + attachLine,
     });
   }
 
   const anthropic = new Anthropic({ apiKey });
-  const conversation: Anthropic.Messages.MessageParam[] = body.messages.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
+  // user メッセージで attachments があれば content を array (text + image/document blocks) に変換
+  const conversation: Anthropic.Messages.MessageParam[] = body.messages.map((m) => {
+    if (m.role === "user" && m.attachments && m.attachments.length > 0) {
+      const blocks: Anthropic.Messages.ContentBlockParam[] = [];
+      if (m.content) blocks.push({ type: "text", text: m.content });
+      for (const a of m.attachments) {
+        const b = attachmentToContentBlock(a);
+        if (b) blocks.push(b);
+      }
+      return { role: m.role, content: blocks };
+    }
+    return { role: m.role, content: m.content };
+  });
 
   // tool ループ (最大 5 ラウンド)
   const applied: ApplyAction[] = [];

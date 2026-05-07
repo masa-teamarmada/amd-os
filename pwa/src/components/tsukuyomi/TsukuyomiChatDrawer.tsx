@@ -15,6 +15,42 @@ import { usePathname } from "next/navigation";
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  attachments?: AttachedFile[];   // user メッセージのみ
+}
+
+export interface AttachedFile {
+  name: string;
+  mediaType: string;             // "image/png" | "application/pdf" | "text/plain" 等
+  size: number;
+  data: string;                  // base64 (no data: prefix)
+}
+
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;   // 8 MB / file (Sonnet image 5MB / PDF 32MB の中間)
+const MAX_ATTACHMENTS_PER_TURN = 5;
+const ACCEPTED_MEDIA = "image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/markdown,text/csv";
+
+async function fileToAttached(file: File): Promise<AttachedFile> {
+  const buf = await file.arrayBuffer();
+  // base64 化 (大きいファイルでも一度に処理可能)
+  let bin = "";
+  const bytes = new Uint8Array(buf);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+  }
+  const data = btoa(bin);
+  return {
+    name: file.name,
+    mediaType: file.type || "application/octet-stream",
+    size: file.size,
+    data,
+  };
+}
+
+function formatBytes(b: number): string {
+  if (b < 1024) return `${b}B`;
+  if (b < 1024 * 1024) return `${Math.round(b / 1024)}KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)}MB`;
 }
 
 interface ApplyAction {
@@ -128,8 +164,11 @@ export function TsukuyomiChatDrawer({ onClose }: Props) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [appliedSummary, setAppliedSummary] = useState<ApplyAction[]>(initial.appliedSummary);
+  const [attachments, setAttachments] = useState<AttachedFile[]>([]);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const sessionIdRef = useRef<string>(initial.sessionId);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // 状態が変わるたび localStorage に保存 → ブラウザを閉じる / 別ページに行っても会話を継続
   useEffect(() => {
@@ -160,12 +199,44 @@ export function TsukuyomiChatDrawer({ onClose }: Props) {
     clearPersisted(projectId);
   };
 
+  const onPickFiles = async (files: FileList | null) => {
+    if (!files) return;
+    setAttachError(null);
+    const next: AttachedFile[] = [...attachments];
+    for (const file of Array.from(files)) {
+      if (next.length >= MAX_ATTACHMENTS_PER_TURN) {
+        setAttachError(`添付は最大 ${MAX_ATTACHMENTS_PER_TURN} ファイルまで`);
+        break;
+      }
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        setAttachError(`${file.name} は ${formatBytes(file.size)} で大きすぎ (上限 ${formatBytes(MAX_ATTACHMENT_BYTES)})`);
+        continue;
+      }
+      try {
+        next.push(await fileToAttached(file));
+      } catch (e) {
+        setAttachError(`${file.name} 読み込み失敗: ${String(e)}`);
+      }
+    }
+    setAttachments(next);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeAttachment = (idx: number) => {
+    setAttachments(attachments.filter((_, i) => i !== idx));
+  };
+
   const send = async () => {
-    if (!input.trim() || busy) return;
+    if ((!input.trim() && attachments.length === 0) || busy) return;
     const userMsg = input.trim();
+    const sentAttachments = attachments;
     setInput("");
+    setAttachments([]);
     setBusy(true);
-    const newMessages: ChatMessage[] = [...messages, { role: "user", content: userMsg }];
+    const newMessages: ChatMessage[] = [
+      ...messages,
+      { role: "user", content: userMsg, attachments: sentAttachments.length > 0 ? sentAttachments : undefined },
+    ];
     setMessages(newMessages);
 
     try {
@@ -259,6 +330,20 @@ export function TsukuyomiChatDrawer({ onClose }: Props) {
                 {m.role === "assistant" ? "つくよみ" : "まさ"}
               </div>
               {m.content}
+              {m.attachments && m.attachments.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {m.attachments.map((a, ai) => (
+                    <div
+                      key={ai}
+                      className="text-[10px] px-2 py-1 rounded bg-white/60 border border-slate-200 flex items-center gap-1"
+                    >
+                      <span>{a.mediaType.startsWith("image/") ? "🖼" : a.mediaType === "application/pdf" ? "📄" : "📎"}</span>
+                      <span className="font-mono">{a.name}</span>
+                      <span className="text-slate-500">{formatBytes(a.size)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           {busy && (
@@ -278,7 +363,40 @@ export function TsukuyomiChatDrawer({ onClose }: Props) {
           )}
         </div>
 
-        <div className="px-4 py-3 border-t border-[#e5e5e7] flex flex-col gap-2">
+        <div
+          className="px-4 py-3 border-t border-[#e5e5e7] flex flex-col gap-2"
+          onDragOver={(e) => {
+            e.preventDefault();
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            void onPickFiles(e.dataTransfer.files);
+          }}
+        >
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {attachments.map((a, i) => (
+                <div
+                  key={i}
+                  className="text-[10px] px-2 py-1 rounded bg-slate-100 border border-slate-200 flex items-center gap-1"
+                >
+                  <span>{a.mediaType.startsWith("image/") ? "🖼" : a.mediaType === "application/pdf" ? "📄" : "📎"}</span>
+                  <span className="font-mono">{a.name}</span>
+                  <span className="text-slate-500">{formatBytes(a.size)}</span>
+                  <button
+                    onClick={() => removeAttachment(i)}
+                    className="ml-1 text-slate-400 hover:text-slate-700"
+                    aria-label="削除"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {attachError && (
+            <div className="text-[10px] text-red-600">{attachError}</div>
+          )}
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -290,17 +408,34 @@ export function TsukuyomiChatDrawer({ onClose }: Props) {
             }}
             placeholder={
               projectId
-                ? "例: 概要を「最新の量産進捗込み」で書き直して / 沿革の○○を直して"
+                ? "例: 概要を「最新の量産進捗込み」で書き直して / 沿革の○○を直して / [📎 で資料を添付してから「これ反映して」]"
                 : "PJ コックピットを開いてから話すと、その PJ の情報を直接修正できます"
             }
             rows={3}
             disabled={busy}
             className="border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[13px] disabled:bg-[#fafafa]"
           />
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={ACCEPTED_MEDIA}
+              onChange={(e) => void onPickFiles(e.target.files)}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={busy || attachments.length >= MAX_ATTACHMENTS_PER_TURN}
+              className="text-[12px] px-2 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 disabled:opacity-40"
+              title="画像 / PDF / テキストを添付 (ドラッグ&ドロップも可)"
+            >
+              📎 添付
+            </button>
             <button
               onClick={send}
-              disabled={busy || !input.trim()}
+              disabled={busy || (!input.trim() && attachments.length === 0)}
               className="text-[12px] px-3 py-1.5 rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-40"
             >
               送信 (⌘+Enter)
