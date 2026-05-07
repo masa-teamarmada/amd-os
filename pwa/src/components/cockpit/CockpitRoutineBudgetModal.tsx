@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
+import { notifyPlReview } from "@/lib/notify-pl";
 
 interface Props {
   projectId: string;
@@ -263,8 +264,14 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
         pmEmail: byEmail,
       }).catch(() => { /* ignore */ });
 
-      setToast({ msg: "申告しました", isError: false });
-      setTimeout(() => onClose(), 900);
+      // PL にも確認依頼を Slack DM (#13)
+      const plRes = await notifyPlReview({ projectId, ym, taskKind: "budget", taskLabel: "予算確定" });
+
+      setToast({
+        msg: plRes.sent > 0 ? `申告しました (PL ${plRes.sent} 名に通知)` : "申告しました",
+        isError: false,
+      });
+      setTimeout(() => onClose(), 1300);
     } catch (e) {
       setToast({ msg: e instanceof Error ? e.message : String(e), isError: true });
     } finally {
@@ -518,9 +525,9 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                   </section>
                 )}
 
-                <div className="flex justify-end">
+                <div className="flex flex-col gap-2">
                   <Button onClick={submit} disabled={submitting || !invoiceText}>
-                    {submitting ? "申告中..." : "申告する"}
+                    {submitting ? "申告中..." : "📨 PLに確認依頼する"}
                   </Button>
                 </div>
               </div>

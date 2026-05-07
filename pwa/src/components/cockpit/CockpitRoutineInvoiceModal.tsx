@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
+import { computePaymentDueDate } from "@/lib/japanese-holidays";
+import { notifyPlReview } from "@/lib/notify-pl";
 
 const CTB_ESTIMATE_MARKER = "[[CTB_ESTIMATE_SENT]]";
 
@@ -44,6 +46,10 @@ interface PreviewData {
   fromPrevMonth: boolean;
   issuedAt: string;
   freeeInvoiceNumber: string;
+  invoicePdfUrl: string;
+  paymentDueDay: number | null;
+  previousInvoiceNumber: string | null;
+  previousInvoicePdfUrl: string | null;
 }
 
 interface EditableLine {
@@ -97,20 +103,9 @@ function ymStartDate(ym: string) {
   return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`;
 }
 
-/** 翌月末（土日なら前営業日）を yyyy-MM-dd で */
-function computeDefaultDueDate(ym: string): string {
-  if (ym.length !== 6) return new Date().toISOString().slice(0, 10);
-  const y = Number(ym.slice(0, 4));
-  const m = Number(ym.slice(4, 6));
-  const ny = m >= 12 ? y + 1 : y;
-  const nm = m >= 12 ? 1 : m + 1;
-  // 翌々月の1日 - 1日 = 翌月末
-  const lastDay = new Date(Date.UTC(ny, nm, 0));
-  while (lastDay.getUTCDay() === 0 || lastDay.getUTCDay() === 6) {
-    lastDay.setUTCDate(lastDay.getUTCDate() - 1);
-  }
-  return lastDay.toISOString().slice(0, 10);
-}
+// 支払期日は computePaymentDueDate (japanese-holidays.ts) を使う。
+// PJ ごとの payment_due_day が設定されていればそれを翌月の N 日に、
+// 無ければ翌月末をデフォルトに、土日祝なら前営業日に補正する。
 
 function todayJst(): string {
   const d = new Date();
@@ -123,7 +118,8 @@ function stripMarker(arr: BaseLineRaw[]): BaseLineRaw[] {
 }
 
 async function fetchPreview(projectId: string, ym: string): Promise<PreviewData> {
-  const [cycleRes, projectRes, reimbRes] = await Promise.all([
+  const prev = prevYm(ym);
+  const [cycleRes, projectRes, reimbRes, prevCycleRes] = await Promise.all([
     supabase
       .from("billing_cycles")
       .select(
@@ -132,7 +128,7 @@ async function fetchPreview(projectId: string, ym: string): Promise<PreviewData>
       .eq("project_id", projectId)
       .eq("ym", ym)
       .maybeSingle(),
-    supabase.from("projects").select("project_name").eq("project_id", projectId).maybeSingle(),
+    supabase.from("projects").select("project_name, payment_due_day").eq("project_id", projectId).maybeSingle(),
     supabase
       .from("reimbursements")
       .select("description, amount, date, category")
@@ -140,10 +136,17 @@ async function fetchPreview(projectId: string, ym: string): Promise<PreviewData>
       .eq("status", "approved")
       .gte("date", ymStartDate(ym))
       .lt("date", nextYmStart(ym)),
+    supabase
+      .from("billing_cycles")
+      .select("freee_invoice_number, invoice_pdf_url")
+      .eq("project_id", projectId)
+      .eq("ym", prev)
+      .maybeSingle(),
   ]);
 
   const cycle = cycleRes.data;
   const project = projectRes.data;
+  const prevCycle = prevCycleRes.data;
   const reimbs: ReimbItem[] = ((reimbRes.data as ReimbItem[] | null) || []).map((r) => ({
     description: r.description,
     amount: r.amount,
@@ -200,6 +203,10 @@ async function fetchPreview(projectId: string, ym: string): Promise<PreviewData>
     fromPrevMonth,
     issuedAt: cycle?.invoice_issued_at ?? "",
     freeeInvoiceNumber: cycle?.freee_invoice_number ?? "",
+    invoicePdfUrl: cycle?.invoice_pdf_url ?? "",
+    paymentDueDay: project?.payment_due_day ?? null,
+    previousInvoiceNumber: prevCycle?.freee_invoice_number ?? null,
+    previousInvoicePdfUrl: prevCycle?.invoice_pdf_url ?? null,
   };
 }
 
@@ -271,7 +278,7 @@ export function CockpitRoutineInvoiceModal({ projectId, ym, documentType, open, 
           }));
         setLines(editable.length > 0 ? editable : [newLine("item")]);
         setIssueDate(todayJst());
-        setDueDate(computeDefaultDueDate(ym));
+        setDueDate(computePaymentDueDate(ym, data.paymentDueDay));
         setActuallyDone(documentType === "invoice" && !!data.issuedAt);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -367,8 +374,12 @@ export function CockpitRoutineInvoiceModal({ projectId, ym, documentType, open, 
       );
       if (result.ok) {
         const num = result.freeeInvoiceNumber || "";
+        const taskKind = documentType === "quotation" ? "estimateSend" : "invoiceIssue";
+        const taskLabel = documentType === "quotation" ? "見積書発行" : "請求書発行";
+        const plRes = await notifyPlReview({ projectId, ym, taskKind, taskLabel });
+        const baseMsg = num ? `発行完了！（${num}）` : `${documentType === "quotation" ? "見積書" : "請求書"}を発行したよ！`;
         setToast({
-          msg: num ? `発行完了！（${num}）` : `${title.replace("発行", "")}を発行したよ！`,
+          msg: plRes.sent > 0 ? `${baseMsg} (PL ${plRes.sent} 名に通知)` : baseMsg,
           isError: false,
         });
         setActuallyDone(true);
@@ -431,6 +442,29 @@ export function CockpitRoutineInvoiceModal({ projectId, ym, documentType, open, 
               <span className="font-semibold">{ymLabel(ym)}</span>
               {actuallyDone && <span className="text-xs text-emerald-700">✓ 発行済み</span>}
             </div>
+
+            {/* 前月の請求書リンク (#12) — 過去の請求番号やPDFを参照しやすく */}
+            {documentType === "invoice" && (preview.previousInvoiceNumber || preview.previousInvoicePdfUrl) && (
+              <section className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-xs space-y-1">
+                <div className="font-semibold text-blue-700">📎 前月の請求書</div>
+                {preview.previousInvoiceNumber && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">請求書番号</span>
+                    <span className="font-mono">{preview.previousInvoiceNumber}</span>
+                  </div>
+                )}
+                {preview.previousInvoicePdfUrl && (
+                  <a
+                    href={preview.previousInvoicePdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-blue-600 hover:underline truncate"
+                  >
+                    {preview.previousInvoicePdfUrl}
+                  </a>
+                )}
+              </section>
+            )}
 
             {actuallyDone && documentType === "invoice" && (
               <section className="rounded-lg border border-border p-3 space-y-2 bg-muted/30">
@@ -658,7 +692,7 @@ export function CockpitRoutineInvoiceModal({ projectId, ym, documentType, open, 
               </Button>
               {!actuallyDone && (
                 <Button onClick={issue} disabled={issuing || gross <= 0}>
-                  {issuing ? "発行中..." : `📄 ${issueButtonLabel}`}
+                  {issuing ? "発行中..." : `📨 PLに確認依頼する (${issueButtonLabel})`}
                 </Button>
               )}
             </div>
