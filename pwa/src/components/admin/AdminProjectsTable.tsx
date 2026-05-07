@@ -357,7 +357,11 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                           className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background" placeholder="a@b.com, c@d.com" />
                         {cellActions("report_emails")}
                       </div>
-                    ) : <span className="text-muted-foreground text-[11px] truncate block max-w-[180px]">{p.report_emails || "—"}</span>}
+                    ) : (
+                      <div className="text-muted-foreground text-[11px] whitespace-pre-line break-all max-w-[200px]">
+                        {p.report_emails ? p.report_emails.split(",").map((e) => e.trim()).filter(Boolean).join("\n") : "—"}
+                      </div>
+                    )}
                   </td>
 
                   {/* 請求書送付 (compound) */}
