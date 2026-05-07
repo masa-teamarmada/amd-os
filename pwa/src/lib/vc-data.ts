@@ -355,7 +355,9 @@ export const VC_TYPE_LABEL: Record<string, string> = {
   independent: "独立系",
   cvc: "CVC",
   gov: "政府系",
+  government: "政府系",
   corporate: "事業会社系",
+  university_affiliated: "大学発",
   overseas: "海外",
 };
 
