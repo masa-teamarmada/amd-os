@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -169,9 +170,32 @@ export function TsukuyomiChatDrawer({ onClose }: Props) {
   const [appliedSummary, setAppliedSummary] = useState<ApplyAction[]>(initial.appliedSummary);
   const [attachments, setAttachments] = useState<AttachedFile[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
+  // ログイン中ユーザーの code_name (ハードコードしない、各ユーザーで異なる)
+  const [userCodeName, setUserCodeName] = useState<string>("あなた");
   const sessionIdRef = useRef<string>(initial.sessionId);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const email = user?.email?.toLowerCase();
+        if (!email) return;
+        const { data: member } = await supabase
+          .from("members")
+          .select("code_name")
+          .eq("email", email)
+          .maybeSingle();
+        if (!cancelled && member?.code_name) setUserCodeName(member.code_name);
+      } catch {
+        /* silent */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // 状態が変わるたび localStorage に保存 → ブラウザを閉じる / 別ページに行っても会話を継続
   useEffect(() => {
@@ -330,7 +354,7 @@ export function TsukuyomiChatDrawer({ onClose }: Props) {
               }`}
             >
               <div className="text-[10px] mb-0.5 opacity-60">
-                {m.role === "assistant" ? "つくよみ" : "まさ"}
+                {m.role === "assistant" ? "つくよみ" : userCodeName}
               </div>
               {m.content}
               {m.attachments && m.attachments.length > 0 && (

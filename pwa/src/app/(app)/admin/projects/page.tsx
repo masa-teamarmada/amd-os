@@ -21,6 +21,10 @@ export default async function AdminProjectsPage() {
     report_emails: p.report_emails ?? null,
     start_ym: p.start_ym ?? null,
     end_ym: p.end_ym ?? null,
+    invoice_send_manual: !!p.invoice_send_manual,
+    invoice_to_emails: p.invoice_to_emails ?? null,
+    invoice_cc_emails: p.invoice_cc_emails ?? null,
+    invoice_bcc_emails: p.invoice_bcc_emails ?? null,
     created_at: p.created_at,
     updated_at: p.updated_at,
   }));

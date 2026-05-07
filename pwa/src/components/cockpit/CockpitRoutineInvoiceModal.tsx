@@ -512,7 +512,10 @@ export function CockpitRoutineInvoiceModal({ projectId, ym, documentType, open, 
                             value={line.unitPrice}
                             onFocus={(e) => e.target.select()}
                             onChange={(e) =>
-                              updateLine(line.id, { unitPrice: e.target.value.replace(/\D/g, "") })
+                              updateLine(line.id, {
+                                // マイナス記号 (先頭のみ) と数字を許可。数字以外は除外
+                                unitPrice: e.target.value.replace(/(?!^-)[^\d]/g, "").replace(/^-+/, "-"),
+                              })
                             }
                             className="w-32 h-9 text-right font-mono px-2"
                           />

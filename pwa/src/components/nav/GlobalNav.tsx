@@ -33,9 +33,10 @@ export function GlobalNav({ userCodeName }: GlobalNavProps) {
         {/* Left: Logo */}
         <Link
           href="/dashboard"
-          className="flex items-center gap-1.5 font-semibold text-sm shrink-0"
+          className="flex items-center gap-2 font-semibold text-sm shrink-0"
         >
-          <span className="text-primary font-bold">A</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/amd-logo.png" alt="AMD" className="h-5 w-5" />
           <span>AMD OS</span>
         </Link>
 

@@ -33,21 +33,34 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 | 何を知りたいか | ファイル | 内容 |
 |---|---|---|
-| **PWA 全体の正本仕様** ⭐ | `pwa/SPEC_pwa.md` | 画面・ルート・データモデル・cron・共通インフラ・運用コマンド・実装規約 |
-| 直近セッション + 次の一手 | `pwa/HANDOFF_pwa_rebuild.md` | スリム保持 (~200 行以下)。過去ログは design_log へ |
-| バグ・教訓 | `pwa/BUGS.md` | 症状/原因/解決策/教訓 形式。新バグはここに追記 |
-| 過去セッションの作業ログ | `pwa/design_log/sessions_YYYY-MM.md` | 月単位の作業ログ |
-| 個別設計議論 | `pwa/design_log/2026-MM_*.md` | テーマ別 (Atlas / Venture Map モデル等) |
+| **設計 md フォルダ全体の入口** ⭐ | `pwa/design/README.md` | 設計の正本フォルダのインデックス。**まずここを読んで「次に何を読むか」を決める** |
+| **PWA 全体の正本仕様** ⭐ | `pwa/design/SPEC_pwa.md` | 画面・ルート・データモデル・cron・共通インフラ・運用コマンド・実装規約 |
+| **コックピット詳細 / 月次ルーティン** ⭐ | `pwa/design/cockpit.md` | PJ Status / 月次ルーティン stepId × クリック挙動 (回帰多発) |
+| テーマ別設計 (Atlas / Venture Map / AMD Score / VC List 等) | `pwa/design/<topic>.md` | `pwa/design/README.md` の表参照 |
+| 直近セッション + 次の一手 | `pwa/HANDOFF_pwa_rebuild.md` | スリム保持 (~200 行以下) |
+| バグ・教訓 | `pwa/BUGS.md` | 症状/原因/解決策/教訓 形式 |
+| 過去セッションの作業ログ | `pwa/design_log/sessions_YYYY-MM.md` | 月単位の作業ログ (append-only) |
 
-**新セッションは SPEC_pwa.md を最初に読んで全体像を掴んでから HANDOFF を見る。** 仕様変更は SPEC を同じ commit で更新。バグ発生時は BUGS に追記。セッションごとの作業は design_log/sessions_YYYY-MM.md に append。役割分離の詳細は handoff skill を参照。
+**🚨 重要 — 設計 md の置き場所ルール**:
+- 設計判断・仕様変更は必ず `pwa/design/` 配下に置く
+- `pwa/design_log/` には **過去セッションの sessions_*.md** だけ。新規設計 md を作ってはいけない (次セッションのえいみが見落とす)
+- 新セッション開始時は **必ず `pwa/design/README.md` から読む**
 
 ---
 
 ## ⚠️ Vercel デプロイコマンド（正本・必ずこれを使う）
 
 ```bash
-npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os
+bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 ```
+
+このスクリプトは:
+1. `npx vercel --prod --yes --cwd <repo-root>` で deploy トリガー
+2. Build が Ready になるまで polling (最大 10 分)
+3. 完了 → macOS 通知 (Glass 音) でまさに知らせる
+4. 失敗 → Basso 音でエラー通知
+
+**直接 `npx vercel` を叩かないこと**。Build 完了通知が出ないので、まさが「終わった?」と確認しに来る無駄が発生する (2026-05-07 のフィードバック)。
 
 **`--cwd` は リポジトリ root** (`pwa/` ではない)。Vercel project `amd-os-pwa` の Settings → Build → Root Directory に `pwa` が設定されているため、`--cwd .../pwa` だと `pwa/pwa` 二重で失敗する (BUGS.md 2026-05-06 参照)。
 

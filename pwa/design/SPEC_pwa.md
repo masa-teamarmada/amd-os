@@ -91,7 +91,7 @@ pwa/
 |---|---|
 | `/dashboard` | トップ。PJ 一覧 + Atlas/Venture Map/MyPage/Admin への入口 |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 月次報酬予定 (取り消し線 = 未完月次ルーティンによる除外) |
-| `/project/[projectId]/cockpit` | PJ コックピット (PJ Status (SU 系のみ) / MS / 月次カード / カンバン / ナッジ / 月次ルーティン)。詳細は [`design_log/2026-05_pj_status_cockpit.md`](design_log/2026-05_pj_status_cockpit.md) |
+| `/project/[projectId]/cockpit` | PJ コックピット (PJ Status (SU 系のみ) / MS / 月次カード / カンバン / ナッジ / 月次ルーティン)。詳細は [`cockpit.md`](cockpit.md) |
 | `/project/[projectId]/config` | PJ 設定 (基本情報 / メンバー / 契約・料金 / 請求書送付)。GAS `226_ProjectConfig.html` の PWA 移植 |
 | `/reimburse` | 立替精算 |
 | `/settings` | 設定 |
@@ -104,7 +104,7 @@ pwa/
 | `/atlas/admin/themes` | テーマクラスタリング管理 |
 | `/venture-map` | 9 PJ プロット (View A) |
 | `/venture-map/su/[id]` | SU 個別ビュー (XRL × マクロ指数) |
-| `/venture-map/amd-score` | AMD Score 一覧 (Before Zero Theory v3.2、7 軸 Cobb-Douglas)。詳細は [`design_log/2026-05_amd_score.md`](design_log/2026-05_amd_score.md) |
+| `/venture-map/amd-score` | AMD Score 一覧 (Before Zero Theory v3.2、7 軸 Cobb-Douglas)。詳細は [`amd_score.md`](amd_score.md) |
 | `/venture-map/amd-score/[projectId]` | AMD Score 個別 (radar / 経時 / 軸スライダー / α サイドバー) |
 | `/venture-map/oscillator` | (実験) coupled oscillator 可視化 |
 | `/venture-map/state-space` | (実験) Triple Helix 状態空間 |
@@ -114,7 +114,7 @@ pwa/
 | `/vcs` | VC リスト (国内ディープテック VC マスタ。ソート/ファセット/検索) |
 | `/vcs/[id]` | VC 詳細 (4 ペイン: 特性 / ファンド + DPE残 / PJ 接点 / 出資先 + ニュース) |
 | `/vcs/[id]/edit` | VC 編集 (基本情報 + amd_rating + funds/investments/contacts/relations モーダル CRUD) |
-| `/vcs/inbox` | VC ニュース受信箱 (verify / dismiss / fundraise → ファンド情報反映)。詳細は [`design_log/2026-05_vc_list.md`](design_log/2026-05_vc_list.md) |
+| `/vcs/inbox` | VC ニュース受信箱 (verify / dismiss / fundraise → ファンド情報反映)。詳細は [`vc_list.md`](vc_list.md) |
 
 ### API routes (`/api/`)
 
@@ -205,7 +205,7 @@ pwa/
 | `project_vc_relations` | PJ × VC × AMD担当 × ステータス (not_contacted/pitching/evaluating/dd/term_sheet/invested/passed/declined) |
 | `vc_news` | VC 関連ニュース (Atlas とは独立系統)。`verified` / `dismissed` で受信箱状態管理。`suggested_fund_patch` でファンド更新候補 |
 
-データ流入: cron `vc-news-ingest` (毎朝 09:00 JST、Claude + web_search) / つくよみ chat tool 群 (`upsert_vc` `upsert_vc_fund` `update_vc_dry_powder` `add_vc_investment` `add_vc_contact` `add_vc_news` `link_project_vc`) / `/vcs/[id]/edit` 手動。詳細は [`design_log/2026-05_vc_list.md`](design_log/2026-05_vc_list.md)。
+データ流入: cron `vc-news-ingest` (毎朝 09:00 JST、Claude + web_search) / つくよみ chat tool 群 (`upsert_vc` `upsert_vc_fund` `update_vc_dry_powder` `add_vc_investment` `add_vc_contact` `add_vc_news` `link_project_vc`) / `/vcs/[id]/edit` 手動。詳細は [`vc_list.md`](vc_list.md)。
 
 初期投入: `POST /api/admin/seed-vcs` (Bearer CRON_SECRET) で Claude + web_search に国内ディープテック VC を一括生成させ、`vcs` / `vc_funds` / `vc_investments` を upsert。再実行可。
 
@@ -387,13 +387,13 @@ cockpit 右カラムの月次ルーティンで「タスク行」をクリック
 
 設計レベルで残っている課題。新規実装着手時はここを更新する。
 
-- **AMD プロトコル本体**: Atlas (判断の地図) は完成、プロトコル (判断のフレーム) は未着手 (`design_log/2026-04_atlas.md` 参照)
+- **AMD プロトコル本体**: Atlas (判断の地図) は完成、プロトコル (判断のフレーム) は未着手 (`atlas.md` 参照)
 - **Atlas タグ正規化 UI**: 表記揺れ (semiconductor / 半導体 等) 統合管理が数百シグナル超で必要 (`/admin/atlas/tags` 候補)
 - **本番認証**: 現状 DEV_MODE。Supabase Auth + RLS ポリシー再構築 (再帰なし) が必要
 - **`source_cache` 依存**: `/api/report/generate` が legacy 参照中。GAS L1 cron 廃止で空。レポートは MMO マシン Claude Code で生成 → `monthly_reports` 直接読みに置換するか、PWA 側 generate を廃止するか要決定
 - **GAS bridge → PWA 直抽出**: Gmail/source 抽出を PWA サーバーから直接やる設計に置換
 - **Supabase → スプシ逆同期**: 現在は GAS → Supabase 一方向のみ。バックアップ手段未定
-- **Venture Map**: 数式モデルの未解決論点 5 点 (`design_log/2026-05_venture_map_model.md`)、競合密度 / 予算データ未投入
+- **Venture Map**: 数式モデルの未解決論点 5 点 (`venture_map_model.md`)、競合密度 / 予算データ未投入
 
 ---
 
@@ -406,9 +406,9 @@ cockpit 右カラムの月次ルーティンで「タスク行」をクリック
 | 既知バグ・教訓 (PWA) | `BUGS.md` |
 | 直近セッション + 次の一手 | `HANDOFF_pwa_rebuild.md` |
 | 過去セッションログ | `design_log/sessions_YYYY-MM.md` |
-| Atlas 全体設計 | `design_log/2026-04_atlas.md` |
-| 政策シグナル設計 | `design_log/2026-04_policy_signals.md` |
-| 進捗推定設計 | `design_log/2026-04_progress_estimation.md` |
-| Venture Map 数理モデル | `design_log/2026-05_venture_map_model.md` |
-| PJ Status コックピット (SU 系 PJ の上部セクション) | `design_log/2026-05_pj_status_cockpit.md` ⭐ |
-| AMD Score (Before Zero Theory v3.2、7 軸 Cobb-Douglas) | `design_log/2026-05_amd_score.md` ⭐ |
+| Atlas 全体設計 | `atlas.md` |
+| 政策シグナル設計 | `policy_signals.md` |
+| 進捗推定設計 | `progress_estimation.md` |
+| Venture Map 数理モデル | `venture_map_model.md` |
+| PJ Status コックピット (SU 系 PJ の上部セクション) | `cockpit.md` ⭐ |
+| AMD Score (Before Zero Theory v3.2、7 軸 Cobb-Douglas) | `amd_score.md` ⭐ |

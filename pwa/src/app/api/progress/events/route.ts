@@ -1,12 +1,27 @@
 /**
  * GET /api/progress/events?projectId=...&ym=...
- * 進捗イベント一覧を取得する（GAS rewardDashboard プロキシ）
+ *
+ * 月次モーダル右下の「進捗イベント」セクションのデータ。
+ * 旧実装は GAS rewardDashboard を bridge 経由で叩いていたが:
+ *  - GAS bridge env が未設定の環境では空配列が返って「イベントデータなし」になる
+ *  - GAS への round trip で数十秒かかってモーダル表示がブロックされる
+ * (BUGS.md / design/routine.md 参照)
+ *
+ * 今は Supabase の `member_activities` を直接取って ProgressEvent 形式にマップする。
+ * cron `/api/cron/member-activities` が毎日 04:00 JST に書き込んでる。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 
-const GAS_BASE_URL = process.env.NEXT_PUBLIC_GAS_WEBAPP_URL || "";
-const GAS_API_KEY = process.env.NEXT_PUBLIC_GAS_API_KEY || "";
+interface ProgressEvent {
+  eventId: string;
+  eventTitle: string;
+  eventDescription?: string;
+  status: string;
+  initiativeOrigin?: string;
+  rejectReason?: string;
+  originLostReason?: string;
+}
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin();
@@ -20,25 +35,38 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "projectId and ym required" }, { status: 400 });
   }
 
-  if (!GAS_BASE_URL) {
-    return NextResponse.json({ ok: true, events: [] });
+  const supabase = auth.supabase;
+
+  // member_activities (cron member-activities が書く)
+  const { data: activities } = await supabase
+    .from("member_activities")
+    .select("id, member_id, source, source_item_id, milestone_id, title, content_preview, item_date, extracted_at")
+    .eq("project_id", projectId)
+    .eq("ym", ym)
+    .order("item_date", { ascending: false })
+    .limit(80);
+
+  // members の code_name 解決用
+  const memberIds = Array.from(new Set((activities ?? []).map((a) => a.member_id).filter(Boolean)));
+  let memberMap: Record<string, string> = {};
+  if (memberIds.length > 0) {
+    const { data: members } = await supabase
+      .from("members")
+      .select("member_id, code_name")
+      .in("member_id", memberIds);
+    memberMap = Object.fromEntries((members ?? []).map((m: { member_id: string; code_name: string | null }) => [m.member_id, m.code_name || m.member_id]));
   }
 
-  try {
-    const url = new URL(GAS_BASE_URL);
-    url.searchParams.set("mode", "pwaApi");
-    url.searchParams.set("key", GAS_API_KEY);
-    url.searchParams.set("action", "rewardDashboard");
-    url.searchParams.set("projectId", projectId);
-    url.searchParams.set("ym", ym);
+  const events: ProgressEvent[] = (activities ?? []).map((a) => ({
+    eventId: a.id,
+    eventTitle: a.title || (a.content_preview ? a.content_preview.slice(0, 80) : "(無題)"),
+    eventDescription: [
+      memberMap[a.member_id] && `by ${memberMap[a.member_id]}`,
+      a.source,
+      a.item_date && a.item_date.slice(0, 10),
+    ].filter(Boolean).join(" · "),
+    status: "active",
+  }));
 
-    const res = await fetch(url.toString(), { cache: "no-store" });
-    if (!res.ok) return NextResponse.json({ ok: true, events: [] });
-
-    const json = await res.json();
-    const events = json?.data?.events ?? json?.events ?? [];
-    return NextResponse.json({ ok: true, events });
-  } catch {
-    return NextResponse.json({ ok: true, events: [] });
-  }
+  return NextResponse.json({ ok: true, events });
 }

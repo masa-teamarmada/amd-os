@@ -64,7 +64,7 @@
     - 飛び先: `?page=config&projectId=X` → `gas/226_ProjectConfig.html` (約 700 行)
     - 中身: PJ ごとの基本情報 / メンバー / 契約条件 / 請求書送付先 / Deductions の一括管理ページ
     - PWA には等価ページが存在しない → 次セッションで `/project/[projectId]/config` を新規作成して移植する話に
-  - PWA 全体設計を `pwa/design_log/2026-05_pj_status_cockpit.md` に集約、冒頭に「既存 UI を勝手に消すな」セクションを追加
+  - PWA 全体設計を `pwa/design/cockpit.md` に集約、冒頭に「既存 UI を勝手に消すな」セクションを追加
   - SPEC_pwa.md からも cockpit ルート説明にリンクを追加
   - AdminProjectsTable に hash anchor + ハイライト (`<tr id={p.project_id}>` + `target:bg-amber-50`) を実装、暫定リンク先として機能するように
 - **教訓**:

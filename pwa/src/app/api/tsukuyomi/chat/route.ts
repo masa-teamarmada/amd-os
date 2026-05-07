@@ -81,11 +81,13 @@ interface ApplyAction {
   detail: string;
 }
 
-const SYSTEM = `あなたは「つくよみ」、AMD (株式会社チームアルマダ) のディープテックスタジオの専属マスコット LLM。
+function buildSystemPrompt(userName: string, userRole: string): string {
+  return `あなたは「つくよみ」、AMD (株式会社チームアルマダ) のディープテックスタジオの専属マスコット LLM。
 20 代女子っぽく、明るくキレのある書き手。書くときの声はドライでまっすぐ。
 
 # 役割
-ユーザーは AMD CEO のまさ。画面に表示されている PJ コックピットの情報をすべて把握した状態で会話する。
+今チャットしてる相手は AMD ${userRole}の **${userName}** (members.code_name)。${userName} と呼びかけて。
+画面に表示されている PJ コックピットの情報をすべて把握した状態で会話する。
 - 「○○ について教えて」 → 持っている情報から答える
 - 「○○ を直して」「これ追加しといて」「この情報を入れて」 → 該当する tool を呼んで反映する
 - 生データ (論文/メール/メモ/ニュース/会議メモ) を貼られたら、L2 情報を抽出して該当 tool で適切なセクションに追記する
@@ -144,12 +146,13 @@ VC 系の使い分け:
 - SU を「社」「ventures」と書かない、「PJ」と書く
 
 # 修正系の発話への対応
-- まさが「直して」「書き直して」「追加して」「これ反映して」と言ったら必ず該当 tool を呼ぶ。確認質問で時間を使わない
+- ${userName}が「直して」「書き直して」「追加して」「これ反映して」と言ったら必ず該当 tool を呼ぶ。確認質問で時間を使わない
 - 修正したら、何をどう直したか 1-2 行で報告する
 - 「ネットで調べて」と言われたら必ず web_search を使う。推測・捏造は禁止
 - L2 情報 (論文/メール抜粋/会議メモなど) を貼られたら、該当する内容を分類して適切な tool を複数並行で呼ぶ:
   例: 「YYYY-MM-DD に Co-Founder の山田さんが正式参画 + 試作機が SIP 採択審査をパス」
        → add_project_member(...) + add_project_event(kind="hire", ...) + add_project_event(kind="governance", ...) + record_xrl_feedback(axis="GRL", ...)`;
+}
 
 interface ProjectContext {
   display_name: string;
@@ -1122,6 +1125,27 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
+  // ログイン中ユーザーの code_name と role を取得 (つくよみ system prompt 用)
+  // requireAuth が落ちても DEV_MODE 等で fallback できるようにエラー時は「ユーザー」「メンバー」
+  let userName = "ユーザー";
+  let userRole = "メンバー";
+  try {
+    const auth = await (await import("@/lib/supabase/server")).createClient();
+    const { data: { user } } = await auth.auth.getUser();
+    const email = user?.email?.toLowerCase();
+    if (email) {
+      const { data: member } = await supabase
+        .from("members")
+        .select("code_name, is_admin")
+        .eq("email", email)
+        .maybeSingle();
+      if (member?.code_name) userName = member.code_name;
+      if (member?.is_admin) userRole = "admin (CEO/COO 等)";
+    }
+  } catch {
+    // 認証取得失敗は致命ではないので silent (fallback 値を使う)
+  }
+
   let contextBlock = "";
   if (body.project_id) {
     const ctx = await loadProjectContext(supabase, body.project_id);
@@ -1139,7 +1163,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const fullSystem = SYSTEM + contextBlock;
+  const fullSystem = buildSystemPrompt(userName, userRole) + contextBlock;
 
   // 直近のユーザー発話を保存 (添付ファイル名は content 末尾に付記)
   const lastUser = [...body.messages].reverse().find((m) => m.role === "user");
