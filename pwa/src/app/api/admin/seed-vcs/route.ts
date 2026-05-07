@@ -116,14 +116,14 @@ const PROMPT = `あなたは AMD (株式会社チームアルマダ) のディ�
   ]
 }
 
-# ルール
-- 必ず 25-30 社入れる (40 は多すぎる、出力が切れる)
+# ルール (出力長制限あり、コンパクトに)
+- 18-22 社程度 (出力 16K トークン以内)
 - size_jpy は 円 整数 (80億 = 8000000000)
 - ファンドのキーは "name" (NOT "fund_name")
-- investments は各 VC につき 3-5 社まで (網羅性より代表性)
+- investments は各 VC につき 2-3 社まで (代表的なものだけ)
 - 推測しか出来ないフィールドは省略 (null OK)
-- source_url は必ず一次情報 (公式リリース / 公式サイト / 主要メディア)
-- thesis / notes は 100 字以内に圧縮
+- source_url は一次情報優先 (公式 > メディア)
+- thesis は 60 字以内、notes は 80 字以内に圧縮
 - 返答は説明文なし、JSON のみ <vcs_json>...</vcs_json>`;
 
 export async function POST(req: NextRequest) {
@@ -141,12 +141,12 @@ export async function POST(req: NextRequest) {
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 32000,
+    max_tokens: 16000,
     tools: [
       {
         type: "web_search_20250305",
         name: "web_search",
-        max_uses: 30,
+        max_uses: 15,
       },
     ],
     messages: [{ role: "user", content: PROMPT }],
