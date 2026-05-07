@@ -39,35 +39,29 @@ echo ""
 echo "▶ Waiting for production build to be Ready ..."
 echo "  (URL: ${DEPLOY_URL:-unknown})"
 
-# 最大 10 分 polling
-# Status 列は色付きの ● + " " + "Ready"|"Building"|... 形式で来るため、
-# awk の位置参照は壊れやすい (Project 列幅やフラグ追加でズレる)。
-# grep でステータス文字列を直接探す方式に統一する。
+# 最大 10 分 polling。
+#
+# 注意: `vercel ls` は pipe 経由 (非 tty) だと URL だけしか出力しない (status 列が出ない)。
+# 過去のバグ: grep ベースで status を取ろうとしたが、行に URL しかないので Ready が
+# 永遠に検出できず timeout していた。
+# → `vercel inspect <url>` で個別 deployment の status を取る方式に変更。
 MAX_TRIES=120
 TRY=0
 while [ $TRY -lt $MAX_TRIES ]; do
-  LIST_OUTPUT=$(npx vercel ls --scope "$SCOPE" "$PROJECT" 2>/dev/null)
-
-  # DEPLOY_URL マッチ行を取る (取れなければ Production の最新行をフォールバック)
   if [ -n "$DEPLOY_URL" ]; then
-    LINE=$(echo "$LIST_OUTPUT" | grep -F "$DEPLOY_URL" | head -1)
+    INSPECT_OUTPUT=$(npx vercel inspect "$DEPLOY_URL" --scope "$SCOPE" 2>&1)
   else
-    LINE=""
-  fi
-  if [ -z "$LINE" ]; then
-    LINE=$(echo "$LIST_OUTPUT" | grep -E "Production|Preview" | head -1)
+    INSPECT_OUTPUT=""
   fi
 
-  if echo "$LINE" | grep -qF "Ready"; then
+  if echo "$INSPECT_OUTPUT" | grep -qE 'status[[:space:]]+.*Ready'; then
     STATUS="Ready"
-  elif echo "$LINE" | grep -qF "Error"; then
+  elif echo "$INSPECT_OUTPUT" | grep -qE 'status[[:space:]]+.*Error'; then
     STATUS="Error"
-  elif echo "$LINE" | grep -qF "Canceled"; then
+  elif echo "$INSPECT_OUTPUT" | grep -qE 'status[[:space:]]+.*Canceled'; then
     STATUS="Canceled"
-  elif echo "$LINE" | grep -qF "Building"; then
+  elif echo "$INSPECT_OUTPUT" | grep -qE 'status[[:space:]]+.*(Building|Queued|Initializing)'; then
     STATUS="Building"
-  elif echo "$LINE" | grep -qF "Queued"; then
-    STATUS="Queued"
   else
     STATUS=""
   fi
