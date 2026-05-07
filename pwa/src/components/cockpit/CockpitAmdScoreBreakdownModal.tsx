@@ -21,6 +21,7 @@ import {
   type AlphaWeights,
 } from "@/lib/amd-score";
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
+import { Tex } from "@/components/venture-map/Tex";
 
 interface Props {
   projectId: string;
@@ -47,10 +48,25 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
         </div>
 
         <div className="px-4 py-4 flex flex-col gap-4">
-          <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-2 leading-relaxed">
-            Before Zero Theory v3.2 — 7 軸 Cobb-Douglas 統合指標。
-            <code className="font-mono text-[10px] mx-1">Score = K · Π (X+1)^α</code>
-            (X = σ_SU / TRL / BRL / GRL / SRL / HRL / FRL)。
+          <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-3 leading-relaxed flex flex-col gap-2">
+            <div>Before Zero Theory v3.2 — 7 軸 Cobb-Douglas 統合指標。</div>
+            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
+              <Tex
+                display
+                tex={String.raw`\text{Score} \;=\; K \cdot (\sigma_{SU}+1)^{\alpha_{\sigma}} \cdot \prod_{x \in \text{XRL}} (x+1)^{\alpha_x} \cdot (\text{FRL}+1)^{\alpha_{F}}`}
+              />
+            </div>
+            <div className="bg-white rounded px-3 py-2 overflow-x-auto text-[11px]">
+              <Tex
+                display
+                tex={String.raw`\sigma_{SU} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1, \qquad K \;=\; \frac{100{,}000}{10^{\sum_i \alpha_i}}`}
+              />
+            </div>
+            <div className="text-[10px] text-muted-foreground">
+              <span className="font-mono">XRL = {`{TRL, BRL, GRL, SRL, HRL}`}</span> ·
+              内閣府 SIP 9 段階互換 ·
+              Shallow Tech モードでは TRL を除外して K を再校正。
+            </div>
           </div>
 
           {!latestInput ? (
