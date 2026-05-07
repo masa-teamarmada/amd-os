@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
+import { notifyPlReview } from "@/lib/notify-pl";
 
 interface Props {
   projectId: string;
@@ -147,7 +148,12 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
         .eq("project_id", projectId)
         .eq("ym", ym);
       if (updateError) throw updateError;
-      setToast({ msg: "レポートをFIXしました", isError: false });
+      // PL に Slack DM (#13)
+      const plRes = await notifyPlReview({ projectId, ym, taskKind: "reportFix", taskLabel: "月次報告書FIX" });
+      setToast({
+        msg: plRes.sent > 0 ? `FIXしました (PL ${plRes.sent} 名に通知)` : "FIXしました",
+        isError: false,
+      });
       setTimeout(() => onClose(), 1300);
     } catch (e) {
       setToast({ msg: e instanceof Error ? e.message : String(e), isError: true });
@@ -223,7 +229,7 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
                   onClick={fixReport}
                   disabled={fixing || requestingEdit || !content}
                 >
-                  {fixing ? "処理中..." : "✓ レポートをFIXする"}
+                  {fixing ? "処理中..." : "📨 PLに確認依頼する"}
                 </Button>
               </div>
             )}

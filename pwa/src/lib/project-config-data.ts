@@ -47,8 +47,10 @@ export interface ProjectConfigMember {
   memberId: string;
   memberName: string;
   codeName: string;
+  email?: string | null;
   isPM: boolean;
   isCloser: boolean;
+  isPL: boolean;
   roleLabel: string;
   joinYm: string;
   leaveYm: string;
@@ -109,6 +111,7 @@ export async function fetchProjectConfig(projectId: string): Promise<ProjectConf
       codeName: lookup?.code ?? "",
       isPM: !!row.is_pm,
       isCloser: !!row.is_closer,
+      isPL: !!row.is_pl,
       roleLabel: row.role_label ?? "",
       joinYm: row.join_ym ?? "",
       leaveYm: row.leave_ym ?? "",
@@ -192,6 +195,7 @@ export interface MemberInput {
   memberId: string;
   isPM: boolean;
   isCloser: boolean;
+  isPL: boolean;
   roleLabel: string;
   joinYm: string;
   leaveYm: string;
@@ -220,6 +224,7 @@ export async function saveProjectMembers(
       member_id: m.memberId.trim(),
       is_pm: m.isPM,
       is_closer: m.isCloser,
+      is_pl: m.isPL,
       role_label: m.roleLabel.trim() || null,
       join_ym: m.joinYm.trim() || null,
       leave_ym: m.leaveYm.trim() || null,

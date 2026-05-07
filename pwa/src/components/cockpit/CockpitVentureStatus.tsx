@@ -24,6 +24,7 @@ import {
   type ProjectXrlRow,
 } from "@/lib/venture-status-data";
 import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
+import { createClient } from "@/lib/supabase/client";
 import { ALPHA_DEFAULT, PHASE_COLOR, PHASE_LABEL_JP, calculateAmdScore, classifyPhase, type AlphaWeights, type AmdScorePhase } from "@/lib/amd-score";
 import { CockpitVentureStatusEditModal } from "./CockpitVentureStatusEditModal";
 import { CockpitVentureMetaEditModal } from "./CockpitVentureMetaEditModal";
@@ -117,10 +118,17 @@ function yearDecimalToYm(yd: number): string {
 
 type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "name" | "description";
 
+interface RoleMembers {
+  pls: string[];
+  pms: string[];
+  closers: string[];
+}
+
 export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const [bundle, setBundle] = useState<VentureStatusBundle | null>(null);
   const [amdInputs, setAmdInputs] = useState<AmdScoreInputRow[]>([]);
   const [alpha, setAlpha] = useState<AlphaWeights>(ALPHA_DEFAULT);
+  const [roles, setRoles] = useState<RoleMembers>({ pls: [], pms: [], closers: [] });
   const [loading, setLoading] = useState(true);
   const [editingEvent, setEditingEvent] = useState<ProjectEventRow | null>(null);
   const [creatingAt, setCreatingAt] = useState<string | null>(null); // YYYY-MM-DD
@@ -137,15 +145,40 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    const supabase = createClient();
     Promise.all([
       fetchVentureStatus(projectId),
       fetchAmdScoreInputs(projectId),
       fetchActiveAlpha(),
-    ]).then(([b, inputs, alphaRes]) => {
+      // PL/PM/クローザー の codeName を取得 (#15)
+      (async () => {
+        const { data: pm } = await supabase
+          .from("project_members")
+          .select("member_id, is_pm, is_closer, is_pl")
+          .eq("project_id", projectId)
+          .eq("is_active", true);
+        const ids = (pm ?? []).map((r) => r.member_id);
+        if (ids.length === 0) return { pls: [], pms: [], closers: [] } as RoleMembers;
+        const { data: ms } = await supabase
+          .from("members")
+          .select("member_id, code_name")
+          .in("member_id", ids);
+        const nameMap = Object.fromEntries((ms ?? []).map((m) => [m.member_id, m.code_name || m.member_id]));
+        const out: RoleMembers = { pls: [], pms: [], closers: [] };
+        for (const r of pm ?? []) {
+          const name = nameMap[r.member_id] || r.member_id;
+          if (r.is_pl) out.pls.push(name);
+          if (r.is_pm) out.pms.push(name);
+          if (r.is_closer) out.closers.push(name);
+        }
+        return out;
+      })(),
+    ]).then(([b, inputs, alphaRes, roleData]) => {
       if (!cancelled) {
         setBundle(b);
         setAmdInputs(inputs);
         setAlpha(alphaRes.alpha);
+        setRoles(roleData);
         setLoading(false);
       }
     });
@@ -381,6 +414,30 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           </Link>
         )}
       </div>
+
+      {/* PL / PM / クローザー / AMD 契約期間 / SU 設立年月日 (#15) */}
+      {(roles.pls.length > 0 || roles.pms.length > 0 || roles.closers.length > 0 || venture.amd_support_started_at || venture.founded_at) && (
+        <div className="px-4 pt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+          {roles.pls.length > 0 && (
+            <span><b className="text-blue-700">PL</b> {roles.pls.join(", ")}</span>
+          )}
+          {roles.pms.length > 0 && (
+            <span><b className="text-emerald-700">PM</b> {roles.pms.join(", ")}</span>
+          )}
+          {roles.closers.length > 0 && (
+            <span><b className="text-orange-700">クローザー</b> {roles.closers.join(", ")}</span>
+          )}
+          {venture.founded_at && (
+            <span><b>SU 設立</b> {venture.founded_at.slice(0, 7)}</span>
+          )}
+          {venture.amd_support_started_at && (
+            <span>
+              <b>AMD 支援</b> {venture.amd_support_started_at.slice(0, 7)}
+              〜{venture.amd_support_ended_at?.slice(0, 7) || "支援中"}
+            </span>
+          )}
+        </div>
+      )}
 
       <button
         onClick={() => setDescOpen(true)}

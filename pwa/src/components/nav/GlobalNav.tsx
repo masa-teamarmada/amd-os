@@ -36,7 +36,7 @@ export function GlobalNav({ userCodeName }: GlobalNavProps) {
           className="flex items-center gap-2 font-semibold text-sm shrink-0"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/amd-logo.png" alt="AMD" className="h-5 w-5" />
+          <img src="/amd-logo.png" alt="AMD" className="h-7 w-7" />
           <span>AMD OS</span>
         </Link>
 

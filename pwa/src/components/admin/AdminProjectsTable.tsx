@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { AdminProjectMembersModal } from "./AdminProjectMembersModal";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,6 +25,10 @@ export interface ProjectRow {
   invoice_to_emails: string | null;
   invoice_cc_emails: string | null;
   invoice_bcc_emails: string | null;
+  payment_due_day: number | null;
+  pms: string[];
+  closers: string[];
+  pls: string[];
   created_at: string;
   updated_at: string;
 }
@@ -64,6 +69,7 @@ type EditVals = {
   invoice_to_emails: string;
   invoice_cc_emails: string;
   invoice_bcc_emails: string;
+  payment_due_day: string;
 };
 
 export function AdminProjectsTable({ projects: initialProjects }: Props) {
@@ -74,6 +80,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
   const [editVals, setEditVals] = useState<Partial<EditVals>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [hint, setHint] = useState("");
+  const [membersModalProjectId, setMembersModalProjectId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return projects.filter((p) => {
@@ -105,6 +112,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       invoice_to_emails: p.invoice_to_emails ?? "",
       invoice_cc_emails: p.invoice_cc_emails ?? "",
       invoice_bcc_emails: p.invoice_bcc_emails ?? "",
+      payment_due_day: p.payment_due_day != null ? String(p.payment_due_day) : "",
     });
   };
 
@@ -125,6 +133,9 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       invoice_to_emails: (editVals.invoice_to_emails as string) || null,
       invoice_cc_emails: (editVals.invoice_cc_emails as string) || null,
       invoice_bcc_emails: (editVals.invoice_bcc_emails as string) || null,
+      payment_due_day: editVals.payment_due_day && editVals.payment_due_day.trim() !== ""
+        ? Number(editVals.payment_due_day)
+        : null,
       updated_at: new Date().toISOString(),
     };
     const { error } = await supabase
@@ -191,8 +202,10 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-24">freee ID</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack CH（編集）</th>
               <th className="text-left px-3 py-2 font-medium w-40">Drive Folder（編集）</th>
+              <th className="text-left px-3 py-2 font-medium w-40">PL / PM / クローザー</th>
               <th className="text-left px-3 py-2 font-medium w-48">報告メール（編集）</th>
               <th className="text-left px-3 py-2 font-medium w-32">請求書送付（編集）</th>
+              <th className="text-left px-3 py-2 font-medium w-20">支払期日</th>
               <th className="text-left px-3 py-2 font-medium w-20">開始ym</th>
               <th className="text-left px-3 py-2 font-medium w-20">終了ym</th>
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
@@ -249,6 +262,23 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     ) : <span className="font-mono text-muted-foreground text-[11px] truncate block max-w-[150px]">{p.drive_folder_id || "—"}</span>}
                   </td>
 
+                  {/* PL / PM / クローザー (project_members 経由、編集はモーダル) */}
+                  <td className="px-3 py-2 align-top">
+                    <div className="space-y-0.5 text-[11px]">
+                      {p.pls.length > 0 && <div><span className="text-blue-700 font-semibold">PL:</span> {p.pls.join(", ")}</div>}
+                      {p.pms.length > 0 && <div><span className="text-emerald-700 font-semibold">PM:</span> {p.pms.join(", ")}</div>}
+                      {p.closers.length > 0 && <div><span className="text-orange-700 font-semibold">クローザー:</span> {p.closers.join(", ")}</div>}
+                      {p.pls.length === 0 && p.pms.length === 0 && p.closers.length === 0 && <div className="text-muted-foreground">—</div>}
+                      <button
+                        type="button"
+                        onClick={() => setMembersModalProjectId(p.project_id)}
+                        className="text-[10px] text-muted-foreground hover:text-foreground border border-border px-1.5 py-0.5 rounded mt-0.5"
+                      >
+                        ✏️ 編集
+                      </button>
+                    </div>
+                  </td>
+
                   {/* report_emails */}
                   <td className="px-3 py-2">
                     {isEditing ? (
@@ -293,6 +323,24 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                           <div className="truncate max-w-[140px]" title={p.invoice_to_emails}>{p.invoice_to_emails}</div>
                         )}
                       </div>
+                    )}
+                  </td>
+
+                  {/* payment_due_day (翌月 N 日に支払期日 — InvoiceModal でデフォルト計算用) */}
+                  <td className="px-3 py-2">
+                    {isEditing ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-muted-foreground">翌月</span>
+                        <input type="number" value={editVals.payment_due_day as string}
+                          onChange={(e) => setEditVals((v) => ({ ...v, payment_due_day: e.target.value }))}
+                          className="border border-border rounded px-1 py-0.5 text-[12px] w-12 bg-background"
+                          min="1" max="31" placeholder="末" />
+                        <span className="text-[10px] text-muted-foreground">日</span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-[11px]">
+                        {p.payment_due_day ? `翌月${p.payment_due_day}日` : "—"}
+                      </span>
                     )}
                   </td>
 
@@ -357,7 +405,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={14} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>
@@ -365,6 +413,18 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
           </tbody>
         </table>
       </div>
+
+      {membersModalProjectId && (
+        <AdminProjectMembersModal
+          projectId={membersModalProjectId}
+          open
+          onClose={() => setMembersModalProjectId(null)}
+          onSaved={() => {
+            // 役割更新後にページリロードで表示反映 (PJ × メンバー多くないので軽い)
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

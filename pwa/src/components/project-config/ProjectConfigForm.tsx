@@ -64,6 +64,7 @@ function memberRowFromExisting(m: ProjectConfigMember): MemberRow {
     codeName: m.codeName,
     isPM: m.isPM,
     isCloser: m.isCloser,
+    isPL: m.isPL,
     roleLabel: m.roleLabel,
     joinYm: m.joinYm,
     leaveYm: m.leaveYm,
@@ -158,6 +159,7 @@ export function ProjectConfigForm({ projectId }: Props) {
         codeName: "",
         isPM: false,
         isCloser: false,
+        isPL: false,
         roleLabel: "",
         joinYm: "",
         leaveYm: "",
@@ -209,23 +211,18 @@ export function ProjectConfigForm({ projectId }: Props) {
         return;
       }
 
-      const memberInputs: MemberInput[] = members.map((m) => ({
-        memberId: m.memberId,
-        isPM: m.isPM,
-        isCloser: m.isCloser,
-        roleLabel: m.roleLabel,
-        joinYm: m.joinYm,
-        leaveYm: m.leaveYm,
-        isActive: m.isActive,
-      }));
-      const memberRes = await saveProjectMembers(data.project.projectId, memberInputs);
-      if (!memberRes.ok) {
-        showToast(`メンバー保存失敗: ${memberRes.message}`, true);
+      // メンバー編集は admin/projects に移動した (#14)。config 保存ではメンバーを更新しない。
+      const memberRes = { saved: 0 };
+      if (false as boolean) {
+        const _unused: MemberInput[] = [];
+        void _unused;
+        showToast("", true);
         setSaving(false);
         return;
       }
 
-      showToast(`保存完了 ✓ (members: ${memberRes.saved})`);
+      showToast(`保存完了 ✓`);
+      void memberRes;
       setDirty(false);
       await reload();
     } finally {
@@ -286,8 +283,20 @@ export function ProjectConfigForm({ projectId }: Props) {
         </Grid>
       </Section>
 
-      {/* Section 2: メンバー */}
+      {/* Section 2: メンバー
+          → メンバー編集 (PL/PM/クローザー含む) は admin/projects のリスト列に集約 (#14, 2026-05-07)。
+          このセクションは案内のみ。
+       */}
       <Section title="メンバー">
+        <p className="text-xs text-muted-foreground">
+          メンバーの追加・編集 (PL / PM / クローザー / 役割ラベル / 参画月 / 離脱月) は
+          <a href="/admin/projects" className="text-blue-600 hover:underline mx-1">PJ台帳 (admin/projects)</a>
+          の該当 PJ 行 → 「✏️ 編集」から行ってください。
+        </p>
+      </Section>
+
+      {/* 旧メンバー編集 UI — PL/PM/クローザーは admin/projects に移動したため非表示 */}
+      <div className="hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-[13px] border-collapse">
             <thead>
@@ -402,7 +411,7 @@ export function ProjectConfigForm({ projectId }: Props) {
             ＋ メンバー追加
           </button>
         </div>
-      </Section>
+      </div>
 
       {/* Section 3: 契約・料金 */}
       <Section title="契約・料金">
