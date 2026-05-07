@@ -131,6 +131,56 @@ Shallow Tech (jc) は K = 1.0 (TRL 抜き) で校正されるため数値スケ�
 
 ---
 
+## FRL の構造化評価 (2026-05-07 追加)
+
+`amd_score_inputs` に Walumbwa et al. (2008) ALQ 由来の 4 次元を追加 (migration 015):
+- `alq_self_awareness` (自己認識 0-9)
+- `alq_relational_transparency` (関係透明性 0-9)
+- `alq_balanced_processing` (均衡的処理 0-9)
+- `alq_internalized_moral` (内在化された道徳観 0-9)
+- `frl_notes` (自由備考)
+
+UI: AmdScoreView の `FrlAlqPanel` で:
+- ALQ 4 軸ミニレーダー + スライダー
+- 「ALQ 平均から FRL を自動算出する」チェック (デフォルト ON)
+- 自由備考テキストエリア (ALQ で拾えない要素を補う)
+- 詳細テーブル「FRL の学術定義から見て、ALQ 4 次元 + 備考だけでは何が足りないか」を展開可能
+
+### FRL 学術定義からの不足要素 (運用上の妥協を明記)
+
+ALQ 4 次元 + 自由備考だけでは厳密には不十分。本来は以下も必要:
+
+1. **外部評価データ (360° feedback)**: ALQ は self-report で self-bias がある。投資家・顧客・取締役・チームメンバーからのフィードバックを取りたい
+2. **Founder Quality (Bernstein et al. 2017 JF)**: チーム全体のクオリティ (CEO 単体ではない)、教育背景、過去 SU 経験、業界ネットワーク
+3. **Founder Experience (Hsu 2007 RP)**: 過去の起業経験、過去の VC 調達実績、過去の M&A/IPO 実績
+4. **Achievement Motivation (Stewart & Roth 2007 JSBM)**: 起業家特有の達成動機・リスク許容度のメタ分析尺度
+5. **Psychological Safety への寄与 (Edmondson 1999 ASQ)**: チーム内発言しやすさへの寄与 (HRL とも一部重なる)
+6. **動的観測**: 危機対応時の挙動、ピボット時の意思決定スピード、ストレス下での倫理判断 (静的 ALQ では取れない)
+7. **Founder Network 効果 (Hsu 2007 RP)**: 魅力的 CEO は他軸 (技術/人材/資金) を引き上げる間接効果。FRL × 他軸の交差項として表現すべき
+
+→ 実用上は ALQ + 自由備考でも「主成分」はカバーできるので、現状仕様で運用しつつ、上記不足項目は備考欄で補う方針。学術論文化する時は 360° + アウトカム指標 (調達額・ピボット成功率) との相関分析が必要。
+
+---
+
+## XRL 次レベル進捗表示 (2026-05-07 追加)
+
+`src/lib/xrl-level-definitions.ts` に内閣府 SIP「サーキュラーエコノミーシステム構築」2023 公募要領 PDF p11-15 互換の 9 段階定義を全 5 軸 (TRL/BRL/GRL/SRL/HRL) で網羅:
+
+```
+{ level, label, description, exit_criteria }
+```
+
+`getLevelInfo(axis, value)` で:
+- current 段階 (`Math.floor(value)`)
+- next 段階 (`current+1`)
+- progressPct (`(value - floor(value)) * 100`)
+
+CockpitXrlDetailModal に `<NextLevelProgress>` セクションを追加して、現在 Lv. → 次 Lv. の説明、進捗バー (%)、次レベル到達条件 (exit_criteria) を明示。
+
+「細かい進捗だけではレベルを 1 つ上げることはできないが、その蓄積で上がっていく」(まさ要望 2026-05-07) という思想を可視化。
+
+---
+
 ## TODO (次回以降)
 
 1. **σ_SU を /venture-map/state-space と連携**: 現状 amd_score_inputs に手動入力した μ_A/μ_I/μ_G を使うが、本来は Triple Helix 状態空間モデルの推定値を pull すべき

@@ -38,6 +38,12 @@ export interface AmdScoreInputRow {
   srl: number | null;
   hrl: number | null;
   frl: number | null;
+  // FRL 内訳 (ALQ — Walumbwa et al. 2008)
+  alq_self_awareness: number | null;
+  alq_relational_transparency: number | null;
+  alq_balanced_processing: number | null;
+  alq_internalized_moral: number | null;
+  frl_notes: string | null;
   shallow_tech_mode: boolean;
   evaluator: string | null;
   notes: string | null;
@@ -52,7 +58,7 @@ export interface AmdScoreAlphaRow {
 }
 
 const INPUT_COLUMNS =
-  "id, project_id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, shallow_tech_mode, evaluator, notes";
+  "id, project_id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_notes, shallow_tech_mode, evaluator, notes";
 
 type RawInputRow = {
   id: string;
@@ -67,6 +73,11 @@ type RawInputRow = {
   srl: number | null;
   hrl: number | null;
   frl: number | null;
+  alq_self_awareness: number | null;
+  alq_relational_transparency: number | null;
+  alq_balanced_processing: number | null;
+  alq_internalized_moral: number | null;
+  frl_notes: string | null;
   shallow_tech_mode: boolean;
   evaluator: string | null;
   notes: string | null;
@@ -86,6 +97,11 @@ function flattenInput(r: RawInputRow): AmdScoreInputRow {
     srl: r.srl,
     hrl: r.hrl,
     frl: r.frl,
+    alq_self_awareness: r.alq_self_awareness,
+    alq_relational_transparency: r.alq_relational_transparency,
+    alq_balanced_processing: r.alq_balanced_processing,
+    alq_internalized_moral: r.alq_internalized_moral,
+    frl_notes: r.frl_notes,
     shallow_tech_mode: r.shallow_tech_mode,
     evaluator: r.evaluator,
     notes: r.notes,
@@ -133,6 +149,11 @@ export interface AmdScoreInputUpsert {
   srl: number | null;
   hrl: number | null;
   frl: number | null;
+  alq_self_awareness?: number | null;
+  alq_relational_transparency?: number | null;
+  alq_balanced_processing?: number | null;
+  alq_internalized_moral?: number | null;
+  frl_notes?: string | null;
   shallow_tech_mode: boolean;
   evaluator?: string | null;
   notes?: string | null;
@@ -155,6 +176,11 @@ export async function upsertAmdScoreInput(
     srl: input.srl,
     hrl: input.hrl,
     frl: input.frl,
+    alq_self_awareness: input.alq_self_awareness ?? null,
+    alq_relational_transparency: input.alq_relational_transparency ?? null,
+    alq_balanced_processing: input.alq_balanced_processing ?? null,
+    alq_internalized_moral: input.alq_internalized_moral ?? null,
+    frl_notes: input.frl_notes ?? null,
     shallow_tech_mode: input.shallow_tech_mode,
     evaluator: input.evaluator ?? null,
     notes: input.notes ?? null,
