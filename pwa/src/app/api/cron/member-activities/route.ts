@@ -199,7 +199,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });
   }
 
-  const ym = currentYmJST();
+  // ?ym=YYYYMM で任意月を処理可能 (手動再抽出用)。未指定なら当月。
+  const ymParam = req.nextUrl.searchParams.get("ym");
+  const ym = ymParam && /^\d{6}$/.test(ymParam) ? ymParam : currentYmJST();
   const supabase = getServiceClient();
   const anthropic = new Anthropic({ apiKey: anthropicKey });
 
