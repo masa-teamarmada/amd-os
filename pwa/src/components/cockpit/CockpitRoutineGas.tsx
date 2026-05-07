@@ -32,7 +32,10 @@ interface Props {
   billingCycles: BillingCycle[];
   currentYm: string;
   projectType?: string;
+  /** 月見出し（YYYY.MM稼働分）クリック → 月次モーダル */
   onOpenModal?: (ym: string) => void;
+  /** 各ステップクリック → stepId 別の専用モーダル（CockpitView で振り分け） */
+  onStepClick?: (ym: string, stepId: string) => void;
 }
 
 const STANDARD_ORDER = [
@@ -160,7 +163,7 @@ function visibleMonths(billingCycles: BillingCycle[], currentYm: string) {
     });
 }
 
-export function CockpitRoutineGas({ billingCycles, currentYm, projectType, onOpenModal }: Props) {
+export function CockpitRoutineGas({ billingCycles, currentYm, projectType, onOpenModal, onStepClick }: Props) {
   const isCTB = (projectType || "").toLowerCase() === "ctb";
   const months = visibleMonths(billingCycles, currentYm);
 
@@ -213,7 +216,7 @@ export function CockpitRoutineGas({ billingCycles, currentYm, projectType, onOpe
                   <button
                     key={step.id}
                     type="button"
-                    onClick={() => onOpenModal?.(ym)}
+                    onClick={() => onStepClick ? onStepClick(ym, step.id) : onOpenModal?.(ym)}
                     className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-[#fafafa] transition-colors border-b border-[#f2f2f7] last:border-b-0"
                   >
                     <StepBadge step={step} index={index + 1} />
