@@ -37,6 +37,7 @@ interface SeedVc {
 interface SeedFund {
   fund_no: number;
   name?: string;
+  fund_name?: string;             // alias (LLM がときどき間違える)
   size_jpy?: number;
   size_jpy_low?: number;
   size_jpy_high?: number;
@@ -116,10 +117,13 @@ const PROMPT = `あなたは AMD (株式会社チームアルマダ) のディ�
 }
 
 # ルール
-- 必ず最低 25 社、できれば 30〜40 社入れる
-- size_jpy / amount_jpy は 円 整数 (80億 = 8000000000)
+- 必ず 25-30 社入れる (40 は多すぎる、出力が切れる)
+- size_jpy は 円 整数 (80億 = 8000000000)
+- ファンドのキーは "name" (NOT "fund_name")
+- investments は各 VC につき 3-5 社まで (網羅性より代表性)
 - 推測しか出来ないフィールドは省略 (null OK)
 - source_url は必ず一次情報 (公式リリース / 公式サイト / 主要メディア)
+- thesis / notes は 100 字以内に圧縮
 - 返答は説明文なし、JSON のみ <vcs_json>...</vcs_json>`;
 
 export async function POST(req: NextRequest) {
@@ -137,7 +141,7 @@ export async function POST(req: NextRequest) {
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 16000,
+    max_tokens: 32000,
     tools: [
       {
         type: "web_search_20250305",
@@ -153,16 +157,56 @@ export async function POST(req: NextRequest) {
     .map((b) => (b.type === "text" ? b.text : ""))
     .join("\n");
 
+  // 通常パス: <vcs_json>...</vcs_json> で囲まれてる
   const tagMatch = fullText.match(/<vcs_json>([\s\S]*?)<\/vcs_json>/);
-  if (!tagMatch) {
-    return NextResponse.json({ error: "no vcs_json block in response", raw: fullText.slice(0, 2000) }, { status: 500 });
-  }
-
   let parsed: { vcs?: SeedVc[] } = {};
-  try {
-    parsed = JSON.parse(tagMatch[1].trim());
-  } catch (e) {
-    return NextResponse.json({ error: `JSON parse failed: ${(e as Error).message}`, raw: tagMatch[1].slice(0, 2000) }, { status: 500 });
+  let salvaged = false;
+
+  if (tagMatch) {
+    try {
+      parsed = JSON.parse(tagMatch[1].trim());
+    } catch (e) {
+      return NextResponse.json({ error: `JSON parse failed: ${(e as Error).message}`, raw: tagMatch[1].slice(0, 2000) }, { status: 500 });
+    }
+  } else {
+    // Salvage: max_tokens で出力が切れて closing tag がない場合
+    // <vcs_json>{"vcs":[ ... 途中 ... ]} の形を組み立てて部分パース
+    const openIdx = fullText.indexOf("<vcs_json>");
+    if (openIdx === -1) {
+      return NextResponse.json({ error: "no vcs_json block in response", raw: fullText.slice(0, 2000) }, { status: 500 });
+    }
+    const partial = fullText.slice(openIdx + "<vcs_json>".length);
+    // 最後の完全な VC オブジェクトの末尾を見つけて切り詰める
+    const arrayStart = partial.indexOf('[');
+    if (arrayStart === -1) {
+      return NextResponse.json({ error: "no array start", raw: partial.slice(0, 2000) }, { status: 500 });
+    }
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let lastObjectEnd = -1;
+    for (let i = arrayStart + 1; i < partial.length; i++) {
+      const c = partial[i];
+      if (escape) { escape = false; continue; }
+      if (c === '\\') { escape = true; continue; }
+      if (c === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (c === '{') depth++;
+      else if (c === '}') {
+        depth--;
+        if (depth === 0) lastObjectEnd = i;
+      }
+    }
+    if (lastObjectEnd === -1) {
+      return NextResponse.json({ error: "no complete vc object", raw: partial.slice(0, 2000) }, { status: 500 });
+    }
+    const reconstructed = `{"vcs":[${partial.slice(arrayStart + 1, lastObjectEnd + 1)}]}`;
+    try {
+      parsed = JSON.parse(reconstructed);
+      salvaged = true;
+    } catch (e) {
+      return NextResponse.json({ error: `salvage parse failed: ${(e as Error).message}`, raw: reconstructed.slice(0, 2000) }, { status: 500 });
+    }
   }
 
   const vcs = Array.isArray(parsed.vcs) ? parsed.vcs : [];
@@ -233,7 +277,7 @@ export async function POST(req: NextRequest) {
           {
             vc_id: vcId,
             fund_no: f.fund_no,
-            name: f.name ?? null,
+            name: f.name ?? f.fund_name ?? null,
             size_jpy: f.size_jpy ?? null,
             size_jpy_low: f.size_jpy_low ?? null,
             size_jpy_high: f.size_jpy_high ?? null,
@@ -278,5 +322,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, total_vcs_in_response: vcs.length, ...stats });
+  return NextResponse.json({ ok: true, salvaged, total_vcs_in_response: vcs.length, ...stats });
 }
