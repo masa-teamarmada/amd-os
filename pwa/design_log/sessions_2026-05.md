@@ -704,3 +704,117 @@ GAS 226 の **基本情報 / メンバー / 契約・料金 / 請求書送付** 
 - 新 page: `pwa/src/app/(app)/project/[projectId]/config/page.tsx`
 - 改修: `pwa/src/components/cockpit/CockpitHeader.tsx` (リンク先正規化)
 - 改修: `pwa/SPEC_pwa.md` (ルーティング表に `/project/[projectId]/config` 追加)
+
+---
+
+## 2026-05-07 〜 2026-05-08 — blissful-mcclintock セッション (大量フィードバック修正)
+
+長時間の対話セッション。まさからの 18+ 個のフィードバックに連続対応した記録。
+
+### 月次ルーティン × 各ステップ専用モーダル (大規模)
+- **iOS RoutineFlowView を正本として PWA に逆移植** (回帰 3 度目に終止符)
+- 新規モーダル: `CockpitRoutineBudgetModal` / `CockpitRoutineMeetingModal` / `CockpitRoutineReportFixModal` / `CockpitRoutineInvoiceModal` (見積/請求 2 モード) / `CockpitRoutineInvoiceSendConfirm`
+- `CockpitView.resolveStepModalFromTap()` で stepId → モーダル振り分け、reimburseConfirm のみ `/reimburse` 遷移
+- `?step=` URL クエリ対応 (mypage TODO ディープリンク)
+- `pwa/src/lib/supabase/edge-functions.ts` 新設 (callEdgeFunctionGET / POST、生 fetch ベース)
+- `supabase.functions.invoke` が "Failed to send a request" エラーになるため全部生 fetch に置換 (BUGS 参照)
+
+### 設計 md の集約 (`pwa/design/`)
+- `pwa/SPEC_pwa.md` を含めて全設計 md を `pwa/design/` に移動
+- `pwa/design/README.md` 新設 (インデックス + 必読順序)
+- `pwa/design/routine.md` 新設 (月次ルーティンの正本仕様)
+- AGENTS.md / CLAUDE.md / HANDOFF / BUGS / sessions の参照を一括更新
+- 「`design_log/` には sessions_*.md だけ。新規設計 md を作らない」ルール追加
+
+### deploy 自動通知 (`pwa/scripts/deploy.sh`)
+- macOS osascript で Build Ready 通知を鳴らす
+- vercel ls がパイプ経由で URL のみ返す → `vercel inspect` で status 取得に変更 (BUGS 参照)
+- CLAUDE.md の正本 deploy コマンドをこの script に置換
+
+### 凍結予定 / 再開予定 UI
+- migration 021: projects に `freeze_from_ym` / `restart_expected_ym` 追加
+- admin/projects 列追加。両方セットで「❄️ N月〜M月直前 停止中」表示
+- cockpit 右カラムに状態バッジ + 月次ルーティンの自動非表示
+- status は active のまま運用、履歴を乱さない設計
+
+### admin/projects 大改修
+- 「編集」ボタン削除、各セルクリックでセル単位編集 (Enter 保存 / Esc 取消)
+- 列順並び替え: 左に頻繁更新項目、右に freee/Slack/Drive
+- 列追加: PL/PM/クローザー (project_members 経由、別モーダル AdminProjectMembersModal)、停止/再開予定、支払期日、請求書送付モード
+- 関係先メールアドレス列を複数行折り返し表示
+- 「報告メール」ラベル → 「関係先メールアドレス」に変更
+- migration 018: project_members.is_pl 追加 (PL = Project Leader)、projects.payment_due_day 追加
+- migration 019: 全 PJ デフォルト invoice_send_manual=true に
+- `/api/admin/project-members` 新規 (RLS bypass で service_role 経由 upsert)
+
+### 各タスクに「PL に確認依頼」CTA
+- `/api/notify/pl-review` 新規。project_members.is_pl=true の slack_id 全員に Slack DM
+- BudgetModal / ReportFixModal / InvoiceModal の CTA に `notifyPlReview` 連携
+- `pwa/src/lib/notify-pl.ts` 新設
+
+### 請求書 InvoiceModal 拡張
+- 単価入力でマイナス記号許可 (返品/値引き行)
+- 単価入力欄サイズ拡大、placeholder "0" 削除 (紛らわしい)
+- 前月の請求書リンク (freee 番号 + PDF URL) を表示
+- 支払期日デフォルト = `payment_due_day` (admin/projects で設定) で計算
+- 土日祝なら前営業日に補正 (`pwa/src/lib/japanese-holidays.ts`、再帰なし無限ループ防止)
+
+### スコアリングボード拡張
+- CockpitVentureStatus に PL/PM/クローザー/AMD 支援期間/SU 設立年月日 行を追加
+- `project_members` を fetch して各 PJ の役割を表示
+
+### つくよみが全員「まさ」と認識
+- `/api/tsukuyomi/chat` の SYSTEM プロンプトをハードコードから動的に
+- ログイン中ユーザーの code_name + role を members から引いて挿入
+- TsukuyomiChatDrawer.tsx 表示も "まさ" 固定 → 動的 code_name に
+
+### /api/progress/events / reimbursement の GAS bridge → Supabase 直読み
+- `/api/progress/events` を GAS rewardDashboard 経由 → Supabase `member_activities` 直読みに置換
+- `/api/progress/reimbursement` 同様 (GAS reimburseForMonth → reimbursements 直読み)
+- 月次モーダルの数十秒の遅延が解消
+
+### CX 4月「イベントなし」の根本原因
+- `member_activities` テーブルが空。複数の bug が連鎖していた:
+  1. `member_activities.milestone_id` カラム欠落 (migration 020)
+  2. `member_activities.member_id` / `project_id` が UUID 型 (migration 022 で text に)
+  3. `member_activities.source` の check 制約に "inferred" が無かった (migration 023)
+- cron `member-activities` が UUID syntax error で全件失敗、空のままだった
+- それに加えて plan_cycle 期間切れの PJ (CX, CTB, SE, p11) は「no active plan cycle」で skip
+- まさのフィードバックで「データが詰まってる」じゃなく「DB 列定義 + 期未設定」が原因と判明
+
+### スプシから projects + project_members 復元
+- `/api/admin/inspect-sheet` / `/api/admin/restore-from-sheet` 新規 (CRON_SECRET 認証)
+- `1v_xW_itzi4QSH-kXNoL_nOw7wLR_4oaqezG7JxvDtkE` の DB_Projects + DB_ProjectMembers + DB_Members から:
+  - projects.client_name / freee_partner_id / invoice_to_emails 復元 (9 PJ)
+  - project_members 全置換 (25 行、PM/クローザー復活)
+  - projects.report_emails (関係先メールアドレス) を members.email 集約で再生成 (10 PJ)
+- 4月再抽出 (`/api/cron/member-activities?ym=202604`) で p21=11件 / p19=5件 保存成功
+
+### 月次モーダルに「期未設定」警告
+- CockpitView で planCycle が null の場合、過去最新 plan_cycle を fallback として CockpitNextPeriodSetup に渡す
+- 期間切れ時に「⚠️ 今期の MS 期間 (YYYY/MM) は終了しています」警告
+
+### 立替精算ページ
+- `/reimburse` の Coming Soon を解消、自分の立替リスト read-only 表示 (iOS ReimburseListView の最小移植)
+
+### その他軽微
+- 立替精算が期日前なのに完了になるバグ修正 (CockpitRoutineGas に `isPastReimburseDeadline()` 追加)
+- ヘッダーロゴ表示 (`pwa/public/amd-logo.png` を ios/logo_trans.png から流用、サイズ h-7 w-7)
+- 「A AMD OS」→ ロゴ + 「AMD OS」
+- 月次ルーティンの月見出しに「請求月」変更ピッカー復活 (`InvoiceYmPicker`)
+- ProjectConfigForm からメンバー/請求書送付セクション削除 (admin/projects に集約)
+
+### 主な migration
+- 018: project_members.is_pl + projects.payment_due_day
+- 019: 全 PJ デフォルト invoice_send_manual=true
+- 020: member_activities.milestone_id 追加
+- 021: projects.freeze_from_ym + restart_expected_ym
+- 022: member_activities.member_id / project_id を text に変換
+- 023: member_activities.source check 緩和 (inferred / manual / cron_l2_extract 許可)
+
+### 残タスク (次セッションで)
+- **CX (p20) / CTB (p06) / SE (p10) / p11 で次期 MS 期間 (2026 Q2 〜) を設定** → 4月以降のメンバー活動が cron で自動的に埋まる
+- **過去 monthly_reports (4月分等) の復元** → スプシ DB_MonthlyReports からの restore script 未実装
+- 5月の monthly_reports 生成 (no report content)
+- まさが #15 表示 (PL/PM/クローザー / AMD 期間バッジ) の最終目視確認 — hard reload 推奨
+- `saveProjectMembers` 全削除→挿入をやめて incremental update に (将来事故防止、まだ未対応)

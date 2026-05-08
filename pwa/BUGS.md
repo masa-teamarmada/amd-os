@@ -19,6 +19,75 @@
 
 ---
 
+### [AMD OS PWA] member_activities が UUID 型 + source check 制約で cron が空のまま (連鎖 3 件)
+
+- **発見日**: 2026-05-08
+- **状態**: ✅ 解決済み
+- **症状**: 「CX 4月のイベントなし」とまさがフィードバック。member_activities テーブル全件 0 行で、cron `/api/cron/member-activities` を手動 trigger しても全 PJ で失敗していた
+- **原因**: 連鎖 3 件
+  1. `member_activities.milestone_id` カラムが DB に存在しなかった (cron は upsert key として使用)
+  2. `member_activities.member_id` / `project_id` が **UUID 型** だった。PWA 全体は text "ID001" / "p20" で扱っているのに、insert で UUID syntax error
+  3. `source` の check 制約が `slack | notion | gmail | gmeet | drive` のみ。cron は `inferred` を書こうとして check 違反
+- **解決策**:
+  - migration 020 で `milestone_id text` 追加
+  - migration 022 で `member_id` / `project_id` を text に変換 (RLS policy / FK を一旦 DROP → ALTER → 再作成)
+  - migration 023 で source check に `inferred` / `manual` / `cron_l2_extract` を追加
+  - cron route 側でも LLM 出力の memberId が code_name (例: "まさ") の場合 member_id (ID001) に変換する fallback 追加
+  - 結果: 4月再抽出で p21=11件 / p19=5件 保存成功
+- **教訓**:
+  - スプシ起源 (GAS が created) のテーブル + PWA で書き込む場合、列の型がアプリ側の前提と違ってないか **migration 適用前に必ず確認** する。`information_schema.columns` で SELECT すれば一発
+  - check 制約は migration ファイルだけでは追いづらい。`pg_get_constraintdef()` で出力するスクリプトを残しておく
+  - 「データが詰まってる」とユーザーが言っても、まず DB 列定義 / RLS / check 制約を疑う。表面の挙動だけ見ると遠回りする
+
+---
+
+### [AMD OS PWA] supabase.functions.invoke が "Failed to send a request to the Edge Function"
+
+- **発見日**: 2026-05-07
+- **状態**: ✅ 解決済み
+- **症状**: 月次ルーティンの「請求書発行」ボタンを押すと `Failed to send a request to the Edge Function` エラーで発行できない。BudgetModal の admin nudge 送信なども同様
+- **原因**: `supabase-js` の `client.functions.invoke()` が PWA + Vercel 本番環境で動作不安定。CORS / Network レイヤで失敗するケースがある (再現条件は不明)
+- **解決策**: `pwa/src/lib/supabase/edge-functions.ts` に `callEdgeFunctionGET` / `callEdgeFunctionPOST` を新設。`fetch` で直接 `${NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}` を叩く。Authorization は anon key を Bearer で。iOS 版 (`URLSession` 直叩き) と同じ方式
+- **教訓**: Edge Function 呼び出しは `supabase.functions.invoke` を使わず、生 fetch のヘルパーで統一する。POST/GET 両対応。GET (URL パラメータ) は `functions.invoke` ではそもそも叩けないので必須
+
+---
+
+### [AMD OS PWA] vercel ls がパイプ経由で URL のみ返す → deploy 通知が timeout
+
+- **発見日**: 2026-05-07
+- **状態**: ✅ 解決済み
+- **症状**: `pwa/scripts/deploy.sh` の Build Ready polling が 10 分 timeout になり「ピコン」音が鳴らない (Build 自体は 5 分弱で成功してるのに)
+- **原因**: `vercel ls --scope X projectName` を tty 以外 (パイプ) から呼ぶと、表ヘッダや status 列を出力せず **URL の行だけ** 返す仕様。awk / grep でステータス検出ができなかった
+- **解決策**: `vercel inspect <deployment-url> --scope X` で個別 deployment の `status\t● Ready` 行を grep する方式に変更。これは tty 非依存で安定
+- **教訓**: `vercel ls` は CLI tool として表示用。スクリプトから個別 deployment の状態を取りたい時は `vercel inspect` か Vercel REST API。CLI の挙動が tty 有無で変わるツールには注意
+
+---
+
+### [AMD OS PWA] /api/progress/events / reimbursement が GAS bridge 経由で数十秒の遅延
+
+- **発見日**: 2026-05-07
+- **状態**: ✅ 解決済み
+- **症状**: 月次モーダルを開いてから「読み込み中」が出て、データが出るまで数十秒。まさが「supabase じゃなくてスプシ見に行ってない?」と疑問
+- **原因**: `/api/progress/events` も `/api/progress/reimbursement` も `NEXT_PUBLIC_GAS_WEBAPP_URL` 経由で GAS の `rewardDashboard` / `reimburseForMonth` を叩いていた。GAS はスプシ読み出しなので遅い (1 リクエスト 5-15 秒)
+- **解決策**:
+  - `/api/progress/events` を Supabase の `member_activities` テーブル直読みに置換
+  - `/api/progress/reimbursement` を `reimbursements` テーブル直読みに置換
+  - 両方とも auth.supabase 経由 (RLS で安全)
+- **教訓**: PWA は「Supabase 直読みが正本、GAS bridge は legacy」の方針 (`design/SPEC_pwa.md`)。GAS bridge 残ってるルートは順次 Supabase 直読みに置き換える
+
+---
+
+### [AMD OS PWA] project_members の編集が anon RLS で書き込めない
+
+- **発見日**: 2026-05-07
+- **状態**: ✅ 解決済み
+- **症状**: AdminProjectMembersModal で PM/クローザーチェック変更 → 保存で `new row violates row-level security policy for table "project_members"` エラー
+- **原因**: `saveProjectMembers` が browser anon クライアントで delete/insert していた。RLS が anon の write を弾く
+- **解決策**: `/api/admin/project-members` route 新設 (createAdminClient で service_role)。`saveProjectMembers` は fetch でこの route を叩く形に
+- **教訓**: 書き込みが必要な admin 機能はすべて API route 経由 + service_role。client-side で書こうとしない (RLS にあたる)
+
+---
+
 ### [AMD OS PWA] 月次ルーティンの各ステップが全部「月次モーダル」を開く回帰 (3度目)
 
 - **発見日**: 2026-05-07
