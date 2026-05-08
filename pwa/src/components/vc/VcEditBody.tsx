@@ -121,6 +121,7 @@ function VcMainForm({
     website: vc.website ?? "",
     logo_url: vc.logo_url ?? "",
     notes: vc.notes ?? "",
+    investment_constraints: vc.investment_constraints ?? "",
     amd_rating: vc.amd_rating?.toString() ?? "",
     amd_rating_note: vc.amd_rating_note ?? "",
   });
@@ -144,6 +145,7 @@ function VcMainForm({
       website: form.website || null,
       logo_url: form.logo_url || null,
       notes: form.notes || null,
+      investment_constraints: form.investment_constraints || null,
       amd_rating: form.amd_rating ? Number(form.amd_rating) : null,
       amd_rating_note: form.amd_rating_note || null,
       ...(ratingChanged && me
@@ -196,6 +198,9 @@ function VcMainForm({
       </div>
       <Field label="thesis (投資テーゼ)">
         <textarea className="i min-h-[80px]" value={form.thesis} onChange={(e) => setForm({ ...form, thesis: e.target.value })} />
+      </Field>
+      <Field label="投資制約 / 適用条件 (例: 創薬限定 / 初回ラウンド限定 / val 2.5億固定 / リード時の取締役選任権 など)">
+        <textarea className="i min-h-[60px]" value={form.investment_constraints} onChange={(e) => setForm({ ...form, investment_constraints: e.target.value })} />
       </Field>
       <Field label="備考">
         <textarea className="i min-h-[60px]" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />

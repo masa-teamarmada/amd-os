@@ -237,10 +237,17 @@ CX=p20 (CryoX) / SX=p21 (SolvioraX) / r3kt や OPT や SE や MC や MS は他 P
 - 「メール送付」「mtg実施」「再アプローチ」など → pitching
 - 何も書いてない / "対象外" → not_contacted (この場合は出力に含めなくてよい)
 
-# 担当者名抽出ルール
-- シート上に名前っぽい文字列があれば contact_names に入れる
-- 「鶴岡」「中島」など漢字 1〜3 文字、または「Atsushi Take」「Dave Lin」のような英名
-- 「資料送付済」「メールで打診」等は contact_names ではなく general_memo
+# 担当者名抽出ルール (CRITICAL)
+- VC 側の担当者名のみ contact_names に入れる
+- 以下は AMD 内部の人物 / PJ 側の人物 → contact_names に絶対入れない:
+  - 山地 / 山地正洋 / masa = AMD CEO まさ本人
+  - タミル / Tamil = KT (輝翠TECH) の CEO (PJ 側)
+  - 飯野 / 下里 / 武田 / 丸島 = AMD 内 or PJ 側の関係者
+  - 「○○ルート」「○○経由」と書かれてる人 = 紹介者であり VC 担当ではない
+- 「資料送付済」「メールで打診」「再アプローチ」等は contact_names ではなく general_memo
+- 「鶴岡」「中島」「Atsushi Take」「Dave Lin」「曽我部 崇」のように、
+  VC 名と隣接して記載され、明確に先方の担当として書かれてる人だけ抽出
+- 不確かな場合は contact_names を省略
 
 # 出力形式 (必ず <contacts_json>...</contacts_json> で囲む)
 

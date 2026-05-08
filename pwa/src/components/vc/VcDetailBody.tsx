@@ -82,6 +82,14 @@ export function VcDetailBody({ data, onEdit }: { data: VcDetail; onEdit?: () => 
                 />
               )}
             </dl>
+            {vc.investment_constraints && (
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <div className="text-[10px] text-muted-foreground mb-1">投資制約 / 適用条件</div>
+                <p className="text-xs whitespace-pre-wrap text-foreground/90 bg-amber-500/5 border border-amber-500/20 rounded p-2">
+                  {vc.investment_constraints}
+                </p>
+              </div>
+            )}
             {vc.amd_rating_note && (
               <div className="mt-3 pt-3 border-t border-border/50">
                 <div className="text-[10px] text-muted-foreground mb-1">AMD 相性メモ</div>
