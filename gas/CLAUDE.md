@@ -133,6 +133,18 @@ Cloud RunでSlackの3秒タイムアウトを回避し、GASに非同期転送�
 
 ---
 
+## クロスプラットフォーム機能の正本仕様 (PWA / Supabase 横断)
+
+GAS は外部サービスから Supabase へデータを供給するハブ役。Supabase スキーマや PWA 表示と密に絡む機能の仕様は PWA 側 `pwa/design/` 配下に正本がある。GAS 側で改修する前に必ず読む。
+
+| 機能 | 正本 md | GAS 側責務 |
+|---|---|---|
+| **MTG サマリ** (各回 decided/progress/nextActions/risks) | [`pwa/design/meeting_summaries.md`](../pwa/design/meeting_summaries.md) | 議事録ページごとに Gemini で抽出 → Supabase `project_meeting_summaries` upsert (daily cron 03:00 JST、source_hash で差分検知)。R313 monthly_reports は会議サマリの集約に書き換え |
+
+新規にクロスプラットフォーム機能を追加するときも `pwa/design/` に正本を作り、ここに行を追加する。
+
+---
+
 ## 主要ファイルマップ（本体GAS）
 
 | ファイル | 役割 |
