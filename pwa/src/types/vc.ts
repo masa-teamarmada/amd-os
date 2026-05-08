@@ -164,6 +164,12 @@ export interface VcNews {
 
 // 集約ビュー用 (リスト画面 / カード)
 
+export interface AmdPjInvestmentRef {
+  project_id: string;
+  project_name: string;
+  amount_jpy: number | null;
+}
+
 export interface VcListItem extends Vc {
   active_fund: VcFund | null;          // status='raising' or 'investing' で最新の vintage
   fund_count: number;                   // ファンド数
@@ -172,6 +178,8 @@ export interface VcListItem extends Vc {
   unverified_news_count: number;        // 未確認ニュース数
   total_dry_powder_low: number | null;  // 全 active fund の DPE 合計レンジ下限
   total_dry_powder_high: number | null;
+  amd_pj_investments: AmdPjInvestmentRef[];  // この VC が出した自社 PJ への出資 (vc_investments.our_project_id 経由)
+  amd_pj_total_amount_jpy: number;           // 自社 PJ への出資合計 (amount_jpy 不明分は 0 扱い)
 }
 
 export interface VcDetail {
