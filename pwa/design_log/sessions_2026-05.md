@@ -1049,3 +1049,21 @@ GAS 226 の **基本情報 / メンバー / 契約・料金 / 請求書送付** 
 
 - worktree からは `.env.local` が無いので `apply_ddl.py` は main worktree 経由で absolute path 指定して実行する
 - migration 番号は他 worktree の作業と衝突する可能性あり、`ls scripts/migrations/` で必ず確認してから新規番号を割り当てる
+
+### 2026-05-09 後半: p21 (SX) 202604 で Phase 2 動作確認 OK
+
+- まさ追加情報「p20=CX で Notion のみ」「p21=SX で Gmail に議事録大量」を踏まえ、p21 で Phase 2 本番テスト
+- `mr_gmail_getProjectInfo_` で reportEmails 確認:
+  - p20 (CX): `kamiya.koji@nims.go.jp`, `NATSUME.Kyohei@nims.go.jp` (NIMS 関係者個人 2 件)
+  - p21 (SX): `renkei@stu.ehime-u.ac.jp` 等 + `@ehime-u.ac.jp` ドメインワイルドカード (5 件)
+- p21 × 202604 バックフィル結果:
+  - 月単位 Gmail 取得: 15 thread
+  - `inserted (sourceKinds: notion+gmail)`: 2 件 ← Phase 2 のコア機能成功
+  - `inserted (sourceKinds: notion)`: 5 件
+  - `inserted_none` (議事録なしマーカー): 13 件
+  - `skipped_no_event_id` (古い議事録、eventId 空): 14 件
+  - `deferred_maxItems` (maxItems=8 打ち切り): 19 件 → daily cron で順次処理される
+  - `error_llm` (Gemini 偶発失敗): 1 件 → 次回 cron で再試行
+- これで Phase 2 (Notion + Gmail 結合 → Gemini 抽出 → calendar event 単位 upsert) は **動作確認済**
+- `notion+gmail` が 2/20 件と少ないのは、議事録メールが「会議当日 〜 翌日」に届かず、もっと後で届く可能性。Phase 2.1 で pickup ウィンドウを ±1日 → ±3日 〜 ±7日 に広げる余地あり (任意)
+- 命名訂正: 前段で「p20 (SX)」と書いていたのは間違い。正しくは **p20=CX**, **p21=SX**。md/HANDOFF を訂正済

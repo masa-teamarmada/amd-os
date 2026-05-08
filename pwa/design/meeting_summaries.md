@@ -250,7 +250,10 @@ PWA 側は Phase 2 移行で **コード変更不要**。Schema 追加カラム 
 - **議事録ページ未作成回**: `cron_createMinutesFromCalendar` で対象外 (allDay / `+`prefix / `EXCLUDE` alias) になった calendar event は議事録ページが無いので Phase 2 cron では拾えない。これは仕様 (= MTG ではないと判定された)
 - **古い議事録 (eventId プロパティなし)**: CalendarToNotionMinutes 導入前の手動議事録ページは `eventId` が空で、Phase 2 では meeting_id を作れないので skip される (`action: "skipped_no_event_id"`)。Phase 1 で入れた 7 行も migration 027 の DELETE で消えてる
 - **PJ 関係ないメールが Gmail cache に混じる**: `reportEmails` filter で from/to のいずれか一致のものだけ取るが、それでも会議無関係のメールが混ざることはある。±1日に絞り、最終的に LLM 側で選別する設計
-- **2026-05-09 初回バックフィル時の観察**: p20 (SX) 202604 で `inserted_none` が大半、`inserted` (Notion 本文あり) が 1 件、`gmailThreads: 0` が大半。reportEmails 設定が空 or CircleBack/GMeet 通知が登録アドレスに届いていない可能性。次セッションで `DB_Projects.reportEmails` の中身を確認 + 議事録メール経路の整備が必要 (Phase 2.1 と呼ぶ)
+- **PJ 別の議事録経路の傾向** (2026-05-09 まさ確認):
+  - **p20 = CX (NIMS 関係)**: 議事録は Notion メインで Gmail には来ない傾向。`reportEmails` は NIMS 関係者の個人メール 2 件
+  - **p21 = SX (愛媛大関係)**: Gmail に議事録 (CircleBack 要約 / メール議事録) が大量に来る。`reportEmails` に `@ehime-u.ac.jp` ドメインワイルドカード等 5 件登録済
+  - PJ ごとに議事録経路の主軸が違うので、`source_kinds` 列で「どこから取れたか」が確認できる設計にしてある
 - **Notion API レート**: 1 ym につき (Notion query 1 回 + Notion blocks API n 回) なので 30 件 MTG なら ~31 リクエスト。Notion レート制限は 3 req/sec 程度なので余裕あり
 - **GmailApp.search コスト**: PJ × ym ごとに 1 回呼び (max 200 thread)。月 7 active PJ × 1 cron 実行 = 7 回 / 日。問題なし
 - **Gemini レート / クォータ**: daily で会議数ぶんコールするが差分検知でほぼスキップされる。まさのアカウントは余裕あり
@@ -284,6 +287,7 @@ Phase 2 完了後:
 | 2026-05-09 | gas/092_AdminLLMExtractors.js: meeting_extract prompt v2 (combined sources) + version 260509_02 | 同上 |
 | 2026-05-09 | migration 027 適用 (既存 7 行 DELETE + notion_page_id / gmail_thread_ids / source_kinds カラム追加) | 同上 |
 | 2026-05-09 | GAS deploy v1425 + Protocol Store の meeting_extract prompt 更新 | 同上 |
-| 2026-05-09 | p20 (SX) 202604 初回バックフィル: `inserted` 1 / `inserted_none` 多数。Gmail thread 取得 0 件のため reportEmails 整備は Phase 2.1 で対応 | 同上 |
+| 2026-05-09 | p20 (**CX**, NIMS) 202604 初回バックフィル: `inserted` 1 / `inserted_none` 多数。p20 は元々 Notion メインなので `gmailThreads: 0` は想定通り | 同上 |
+| 2026-05-09 | p21 (SX, 愛媛大) 202604 で **Phase 2 動作確認 OK**: 月 15 Gmail thread、`notion+gmail` 2 件 / `notion` 5 件 / `inserted_none` 13 件 / `skipped_no_event_id` 14 件 / `deferred_maxItems` 19 件 (daily cron で順次処理) / `error_llm` 1 件 | 同上 |
 | TBD | Phase 2.1: reportEmails の整備 + CircleBack / GMeet 議事録メールの経路確認 | |
 | TBD | Phase 2.5: AMD-Report GAS の R313 を会議サマリ集約に書き換え (別セッション) | |
