@@ -115,6 +115,8 @@ pwa/
 | `/vcs/[id]` | VC 詳細 (4 ペイン: 特性 / ファンド + DPE残 / PJ 接点 / 出資先 + ニュース) |
 | `/vcs/[id]/edit` | VC 編集 (基本情報 + amd_rating + funds/investments/contacts/relations モーダル CRUD) |
 | `/vcs/inbox` | VC ニュース受信箱 (verify / dismiss / fundraise → ファンド情報反映)。詳細は [`vc_list.md`](vc_list.md) |
+| `/seeds` | 研究シーズリスト (大学・国研・高専のシーズ × AMD 視点の事業化適性)。検索/ファセット/ソート/モーダル詳細編集。詳細は [`seeds.md`](seeds.md) |
+| `/seeds/[id]` | シーズ詳細 (URL 直接アクセス用フォールバック)。リスト画面でのモーダルが正規 |
 
 ### API routes (`/api/`)
 
@@ -204,6 +206,17 @@ pwa/
 | `vc_contacts` | VC 担当者 (投資家としての関係。GAP 事業化推進機関は `project_venture_members` を使う) |
 | `project_vc_relations` | PJ × VC × AMD担当 × ステータス (not_contacted/pitching/evaluating/dd/term_sheet/invested/passed/declined) |
 | `vc_news` | VC 関連ニュース (Atlas とは独立系統)。`verified` / `dismissed` で受信箱状態管理。`suggested_fund_patch` でファンド更新候補 |
+
+### Seeds (研究シーズリスト、PWA 起源 — 024_seeds_overhaul.sql)
+
+| テーブル | 役割 |
+|---|---|
+| `seeds` | 研究シーズマスタ。機関 + PI + シーズ情報を 1 行に統合。`status` 候補→調査中→接触済→協議中→PJ化/見送り、`amd_rating` (★1-5)、`spun_off_project_id` で PJ 紐付け |
+| `seed_funding` | 補助金履歴 (NEDO/AMED/JST GAP 等の採択) |
+| `seed_news` | 関連ニュース・論文・プレス (Atlas とは独立系統) |
+| `seed_contact_log` | AMD メンバー × シーズ の接触履歴 |
+
+旧 `seeds` (006_venture_map.sql の予兆 4 件用) は 024 で破棄。Venture Map のグラフ予兆プロットも同時に削除。詳細は [`seeds.md`](seeds.md)。
 
 データ流入: cron `vc-news-ingest` (毎朝 09:00 JST、Claude + web_search) / つくよみ chat tool 群 (`upsert_vc` `upsert_vc_fund` `update_vc_dry_powder` `add_vc_investment` `add_vc_contact` `add_vc_news` `link_project_vc`) / `/vcs/[id]/edit` 手動。詳細は [`vc_list.md`](vc_list.md)。
 

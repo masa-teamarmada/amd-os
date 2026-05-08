@@ -84,6 +84,19 @@ export function GlobalNav({ userCodeName }: GlobalNavProps) {
           Venture Map
         </Link>
 
+        {/* Seeds */}
+        <Link
+          href="/seeds"
+          className={cn(
+            "text-xs px-2.5 py-1 rounded-md transition-colors",
+            pathname.startsWith("/seeds")
+              ? "bg-accent text-accent-foreground font-medium"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Seeds
+        </Link>
+
         {/* VC + 受信箱バッジ */}
         <Link
           href="/vcs"

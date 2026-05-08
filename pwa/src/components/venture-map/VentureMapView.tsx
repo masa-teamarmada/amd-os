@@ -7,7 +7,6 @@ import type {
   MacroIndexRow,
   OutcomePattern,
   PaperRow,
-  SeedRow,
   SnapshotData,
   VentureRow,
 } from "@/lib/venture-map-data";
@@ -137,7 +136,9 @@ const POLICY_EVENTS: PolicyEvent[] = [
 // =====================================================================
 
 function compositeScore(r: SnapshotData) {
-  return 0.4 * r.macro + 0.2 * r.papers + 0.2 * r.policy + 0.1 * r.invest + 0.1 * r.seeds;
+  // 旧重み (0.4 macro + 0.2 papers + 0.2 policy + 0.1 invest + 0.1 seeds) から
+  // seeds を削除し、その 0.1 を invest に再配分 (合計 1.0 維持)
+  return 0.4 * r.macro + 0.2 * r.papers + 0.2 * r.policy + 0.2 * r.invest;
 }
 
 // =====================================================================
@@ -181,7 +182,6 @@ function dateToYearDecimal(iso: string): number {
 interface Props {
   ventures: VentureRow[];
   laneWeights: Partial<Record<LaneId, LaneWeightRow>>;
-  seeds: SeedRow[];
   macroLog: MacroIndexRow[];
   papersLog: PaperRow[];
   snapshot: SnapshotData[];
@@ -238,7 +238,7 @@ function buildSeries(
   return merged;
 }
 
-export function VentureMapView({ ventures, laneWeights, seeds, macroLog, papersLog, snapshot, lastLearnedAt }: Props) {
+export function VentureMapView({ ventures, laneWeights, macroLog, papersLog, snapshot, lastLearnedAt }: Props) {
   const [hoveredVenture, setHoveredVenture] = useState<VentureRow | null>(null);
   const [highlightLane, setHighlightLane] = useState<LaneId | null>(null);
 
@@ -390,25 +390,6 @@ export function VentureMapView({ ventures, laneWeights, seeds, macroLog, papersL
               );
             })}
 
-            {/* 予兆シーズ (DB から) */}
-            {seeds.map((s, i) => {
-              if (!s.lane) return null;
-              const data = series[s.lane];
-              const lastMacro = data[data.length - 1].macro + 0.04 * (i + 1);
-              const x = xOf(NOW + 0.45 + (i % 2) * 0.15);
-              const y = yOfMacro(Math.min(lastMacro, 0.95));
-              return (
-                <g key={s.id}>
-                  <circle cx={x} cy={y} r={6} fill="#fbbf24" opacity={0.85}>
-                    <animate attributeName="r" values="6;11;6" dur="1.6s" repeatCount="indefinite" />
-                    <animate attributeName="opacity" values="0.85;0.2;0.85" dur="1.6s" repeatCount="indefinite" />
-                  </circle>
-                  <circle cx={x} cy={y} r={3} fill="#f59e0b" />
-                  <text x={x + 9} y={y + 3} fontSize={9} fill="#92400e">{s.title}</text>
-                </g>
-              );
-            })}
-
             {/* NOW */}
             <line x1={xOf(NOW)} y1={M_TOP} x2={xOf(NOW)} y2={M_TOP + PLOT_H} stroke="#dc2626" strokeWidth={1.5} strokeDasharray="4 2" opacity={0.7} />
             <text x={xOf(NOW) + 4} y={M_TOP + PLOT_H + 30} fontSize={10} fill="#dc2626" fontWeight={600}>NOW</text>
@@ -453,7 +434,6 @@ export function VentureMapView({ ventures, laneWeights, seeds, macroLog, papersL
                 <th className="py-1.5 font-medium">論文数</th>
                 <th className="py-1.5 font-medium">政策密度</th>
                 <th className="py-1.5 font-medium">投資密度</th>
-                <th className="py-1.5 font-medium">シーズ在庫</th>
                 <th className="py-1.5 font-medium">総合温度</th>
                 <th className="py-1.5 font-medium">判定</th>
               </tr>
@@ -475,7 +455,6 @@ export function VentureMapView({ ventures, laneWeights, seeds, macroLog, papersL
                     <Cell v={r.papers} />
                     <Cell v={r.policy} />
                     <Cell v={r.invest} />
-                    <Cell v={r.seeds} />
                     <td className="py-2 font-bold">
                       {(score * 100).toFixed(0)}{isTop && " 🔥"}
                     </td>

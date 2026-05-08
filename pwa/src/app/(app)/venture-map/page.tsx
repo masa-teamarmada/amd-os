@@ -2,7 +2,6 @@ import { VentureMapView } from "@/components/venture-map/VentureMapView";
 import {
   fetchVenturesForMap,
   fetchLatestLaneWeights,
-  fetchSeedsForMap,
   fetchMacroIndexLog,
   fetchPapersLog,
   fetchSnapshot,
@@ -15,15 +14,14 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function VentureMapPage() {
-  const [ventures, laneWeights, seeds, macroLog, papersLog] = await Promise.all([
+  const [ventures, laneWeights, macroLog, papersLog] = await Promise.all([
     fetchVenturesForMap(),
     fetchLatestLaneWeights(),
-    fetchSeedsForMap(),
     fetchMacroIndexLog(),
     fetchPapersLog(),
   ]);
 
-  const snapshot = await fetchSnapshot(macroLog, papersLog, seeds);
+  const snapshot = await fetchSnapshot(macroLog, papersLog);
 
   const lastLearnedAt = Object.values(laneWeights)
     .map((w) => w?.computed_at)
@@ -37,9 +35,9 @@ export default async function VentureMapPage() {
         <div>
           <h1 className="text-xl font-semibold">Venture Map</h1>
           <p className="text-xs text-muted-foreground mt-1">
-            マクロトレンドの波 × シーズ在庫 × 過去SU実績の統合マップ。
-            ventures / macro_lane_weights / seeds / macro_index_log (Atlas集計) / papers_log (OpenAlex) を統合。
-            実データは 2026-01 以降。それ以前は補助モック値。
+            マクロトレンドの波 × 過去SU実績の統合マップ。
+            project_ventures / macro_lane_weights / macro_index_log (Atlas集計) / papers_log (OpenAlex) を統合。
+            実データは 2026-01 以降。それ以前は補助モック値。シーズ候補は <a href="/seeds" className="underline hover:text-foreground">/seeds</a> を参照。
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -61,7 +59,6 @@ export default async function VentureMapPage() {
       <VentureMapView
         ventures={ventures}
         laneWeights={laneWeights}
-        seeds={seeds}
         macroLog={macroLog}
         papersLog={papersLog}
         snapshot={snapshot}

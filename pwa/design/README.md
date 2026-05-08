@@ -27,6 +27,7 @@
 | Atlas 政策シグナル | [policy_signals.md](policy_signals.md) |
 | 進捗推定 (Tsukuyomi MS 推定) | [progress_estimation.md](progress_estimation.md) |
 | Venture Map | [venture_map_model.md](venture_map_model.md) / [venture_map_demo.md](venture_map_demo.md) / [venture_map_v01_critique.md](venture_map_v01_critique.md) |
+| Seeds (研究シーズリスト) ⭐ | [seeds.md](seeds.md) |
 | VC List | [vc_list.md](vc_list.md) |
 | 請求書 URL / Payout 認証 | [invoice_url_payout_auth.md](invoice_url_payout_auth.md) |
 | Supabase migration 履歴 | [supabase_migration.md](supabase_migration.md) |

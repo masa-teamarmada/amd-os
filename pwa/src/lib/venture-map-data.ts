@@ -1,9 +1,12 @@
 /**
  * Venture Map データアクセス層
- * Server Component から Supabase の ventures / macro_lane_weights / seeds を読む。
+ * Server Component から Supabase の project_ventures / macro_lane_weights を読む。
  *
  * macro_index_log / papers_log は Phase 4/5 で実データ投入後に追加する。
  * それまでは VentureMapView 側のハードコード SERIES を使う。
+ *
+ * 旧 seeds (Venture Map 予兆プロット用 4 件) は 024_seeds_overhaul で破棄され、
+ * シーズリスト本体に再構築された (pwa/design/seeds.md)。
  */
 
 import { createClient } from "@/lib/supabase/server";
@@ -40,20 +43,6 @@ export interface LaneWeightRow {
   eta: number | null;
   computed_at: string;
   computed_by: string | null;
-}
-
-export interface SeedRow {
-  id: string;
-  title: string;
-  description: string | null;
-  origin_org: string | null;
-  origin_pi: string | null;
-  lane: LaneId | null;
-  trl: number | null;
-  brl: number | null;
-  hrl: number | null;
-  status: string;
-  is_public: boolean;
 }
 
 type RawVentureRow = {
@@ -183,21 +172,6 @@ export async function fetchPapersLog(): Promise<PaperRow[]> {
   }));
 }
 
-/** 公開可な予兆シーズを取得 */
-export async function fetchSeedsForMap(): Promise<SeedRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("seeds")
-    .select("id, title, description, origin_org, origin_pi, lane, trl, brl, hrl, status, is_public")
-    .eq("is_public", true)
-    .order("created_at", { ascending: true });
-  if (error) {
-    console.error("[fetchSeedsForMap]", error);
-    return [];
-  }
-  return (data || []) as SeedRow[];
-}
-
 export interface XrlLogRow {
   id: string;
   project_id: string;
@@ -293,7 +267,6 @@ export interface SnapshotData {
   papers: number;    // 0-1
   policy: number;    // 0-1
   invest: number;    // 0-1 (投資データ未投入のため当面 macro と相関する仮値)
-  seeds: number;     // 0-1
 }
 
 const ALL_LANES: LaneId[] = ["gx_energy", "gx_circular", "materials", "life", "robo"];
@@ -301,8 +274,7 @@ const ALL_LANES: LaneId[] = ["gx_energy", "gx_circular", "materials", "life", "r
 /** View B 用: 各レーンの最新指標を実データから組み立て */
 export async function fetchSnapshot(
   macroLog: MacroIndexRow[],
-  papersLog: PaperRow[],
-  seeds: SeedRow[]
+  papersLog: PaperRow[]
 ): Promise<SnapshotData[]> {
   // 各レーンの最新3ヶ月平均をマクロ指数として使う
   const byLaneMacro = new Map<LaneId, MacroIndexRow[]>();
@@ -333,15 +305,6 @@ export async function fetchSnapshot(
     if (!cur || year > cur.year) latestYearByLane.set(r.lane, { year, count: r.paper_count });
   }
 
-  // シーズ在庫: lane × seeds 件数
-  const seedCountByLane = new Map<LaneId, number>();
-  let maxSeedCount = 0;
-  for (const s of seeds) {
-    if (!s.lane) continue;
-    seedCountByLane.set(s.lane, (seedCountByLane.get(s.lane) || 0) + 1);
-    maxSeedCount = Math.max(maxSeedCount, seedCountByLane.get(s.lane)!);
-  }
-
   return ALL_LANES.map((lane) => {
     const recentMacro = (byLaneMacro.get(lane) || []).slice(0, 3);
     const macro = recentMacro.length
@@ -355,8 +318,6 @@ export async function fetchSnapshot(
     const max = maxPapersByLane.get(lane) || 1;
     const papers = latest ? Math.min(1, latest.count / max) : 0;
 
-    const seedScore = maxSeedCount > 0 ? (seedCountByLane.get(lane) || 0) / Math.max(2, maxSeedCount) : 0;
-
     // 投資密度はデータソース未投入。当面はマクロと論文の中間値を仮置き
     const invest = (macro + papers) / 2;
 
@@ -366,7 +327,6 @@ export async function fetchSnapshot(
       papers,
       policy,
       invest,
-      seeds: seedScore,
     };
   });
 }
