@@ -348,6 +348,7 @@ export interface NextPlanCycleInput {
 }
 
 export interface NextMilestoneInput {
+  milestoneId?: string;
   title: string;
   points: number;
   tag: "normal" | "routine" | "buffer";
@@ -396,27 +397,16 @@ export async function upsertNextMilestones(
 ): Promise<boolean> {
   const authClient = getAuthClient();
 
-  // FK制約のため、子テーブル（responsibility / sub_items）を先に削除
   const { data: existingMs } = await authClient
     .from("value_milestones")
     .select("milestone_id")
     .eq("plan_cycle_id", planCycleId);
   const existingIds = (existingMs || []).map((m) => m.milestone_id);
-  if (existingIds.length > 0) {
-    await authClient.from("milestone_responsibility").delete().in("milestone_id", existingIds);
-    await authClient.from("milestone_sub_items").delete().in("milestone_id", existingIds);
-  }
-
-  // 既存のマイルストーンを削除してから再挿入
-  await authClient
-    .from("value_milestones")
-    .delete()
-    .eq("plan_cycle_id", planCycleId);
 
   if (milestones.length === 0) return true;
 
   const rows = milestones.map((ms, idx) => ({
-    milestone_id: `MS-${planCycleId}-${idx + 1}`,
+    milestone_id: ms.milestoneId || `MS-${planCycleId}-${idx + 1}`,
     plan_cycle_id: planCycleId,
     title: ms.title,
     points: ms.points,
@@ -426,10 +416,19 @@ export async function upsertNextMilestones(
     success_criteria: ms.successCriteria || null,
     sort_order: ms.sortOrder,
   }));
+  const nextIds = rows.map((r) => r.milestone_id);
+
+  // 編集モーダルでは既存のMS IDを維持する。削除されたMSだけ子テーブルごと消す。
+  const removedIds = existingIds.filter((id) => !nextIds.includes(id));
+  if (removedIds.length > 0) {
+    await authClient.from("milestone_responsibility").delete().in("milestone_id", removedIds);
+    await authClient.from("milestone_sub_items").delete().in("milestone_id", removedIds);
+    await authClient.from("value_milestones").delete().in("milestone_id", removedIds);
+  }
 
   const { error } = await authClient
     .from("value_milestones")
-    .insert(rows);
+    .upsert(rows, { onConflict: "milestone_id" });
 
   if (error) {
     console.error("upsertNextMilestones:", error.message);
@@ -448,6 +447,7 @@ export async function fetchMilestonesForPlanCycle(
     .from("value_milestones")
     .select("*")
     .eq("plan_cycle_id", planCycleId)
+    .eq("is_active", true)
     .order("sort_order");
 
   if (error) {
