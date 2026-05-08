@@ -331,3 +331,90 @@
   - `--yes` を使うときは事前に `cat .vercel/project.json` で対象プロジェクトを必ず確認する。空なら新プロジェクトが作られる
   - 「全ルート 404」事故と同型: `--cwd` が想定と違うパスを指すと、誤った場所にデプロイされる
 
+
+---
+
+### [AMD OS PWA] 報告会日程調整の予約完了がタスクに反映されない
+
+- **発見日**: 2026-05-08
+- **状態**: ✅ 解決済み
+- **症状**: CockpitRoutineMeetingModal で日程予約しても、月次ルーティンの「報告会日程調整」が done にならない。再オープン時も「日程選択」UI が出て、予約完了状態にならない
+- **原因**: `CockpitView.cockpit.billingCycles` が SSR fetch のスナップショットで、Edge Function `schedule-meeting` が `billing_cycles.meeting_event_id` / `meeting_start_at` を upsert した後も親の状態は古いまま。`isDone = !!cycle?.meetingEventId || !!cycle?.meetingStartAt` がずっと false
+- **解決策**: モーダル成功時に `router.refresh()` で親 (cockpit page サーバーコンポーネント) を再フェッチ。即時 UI フィードバックは `localConfirmedISO` で予約直後すぐ「予約完了」表示に切替。自動 close (1.3秒) は削除して、ユーザーが完了画面を確認してから閉じる流れに
+- **教訓**:
+  - Next.js App Router の SSR fetch スナップショットは Client Component から能動的にしか reload できない。サーバー側を変えた直後は `router.refresh()` をセットで呼ぶ
+  - 即時 UI フィードバックと「正規データの再フェッチ」を**両方**セットでやらないと、ユーザーが「効いてないように見える」体験になる
+  - 「自動 close + サーバー反映待ち」は race condition の温床。完了画面で意図的に止める方が事故率低い
+
+---
+
+### [AMD OS PWA / GAS] ScriptProperties キー名を推測で書いて事故 (`SUPABASE_SERVICE_ROLE_KEY` ≠ `SUPABASE_SERVICE_KEY`)
+
+- **発見日**: 2026-05-08
+- **状態**: ✅ 解決済み
+- **症状**: 新規 GAS Supabase client が「`SUPABASE_SERVICE_ROLE_KEY` missing in ScriptProperties」と起動時エラー。まさから「もう入ってる、SUPABASE_SERVICE_KEY という名前で」と指摘されて発覚
+- **原因**: PWA 側の `.env.local` が `SUPABASE_SERVICE_ROLE_KEY` という名前なのに引きずられて、GAS の ScriptProperties も同じ名前と推測してハードコード。GAS 側の正しい名前は `SUPABASE_SERVICE_KEY` (`_ROLE` 無し)
+- **解決策**:
+  1. `gas/180_SupabaseClient.js` の参照を `SUPABASE_SERVICE_KEY` に修正
+  2. `gas/099_PwaApi.js` に `listProps` admin action を追加して、現状の ScriptProperties キー一覧を Web App 経由で取得できるようにした
+  3. `pwa/design/L2_DATA.md` 新設 + 6 入口に導線追加で「次のえいみは推測しなくて済む」状態に
+- **教訓**:
+  - **`gas/CLAUDE.md` ルール9「ScriptPropertiesキー名は推測しない」を破った**。同じ過ちを繰り返さない
+  - キー名の正本リストが md に無いと推測事故が起きる → 今後は新キーを追加したら必ず L2_DATA.md or 該当 spec md に記録する
+  - 不明なキー名は `listProps` action (`?action=listProps`) で確認可能、ハードコード前に必ず叩く
+
+---
+
+### [AMD OS PWA / GAS] Gemini モデル名 `gemini-2.0-flash` が 404 (新規ユーザー利用不可で廃止)
+
+- **発見日**: 2026-05-08
+- **状態**: ✅ 解決済み
+- **症状**: `_meeting_extractWithLLM_` で全議事録の Gemini 抽出が `Gemini API 404: This model models/gemini-2.0-flash is no longer available to new users` で失敗
+- **原因**: 私の知識カットオフでは gemini-2.0-flash が現役だったが、Google が新規ユーザー向けには廃止していた
+- **解決策**: `gemini-2.5-flash` に変更 (LlmRouter デフォルト + DB_LlmModelConfig の meeting_extract レコード + 074_MeetingSummaryRepo.js の generated_by_model)
+- **教訓**:
+  - LLM のモデル名は知識カットオフを超えて変わるので、ハードコードしたら必ず DB_LlmModelConfig の usageKey 経由で差し替え可能にしておく
+  - 失敗時のエラーメッセージに「This model X is no longer available」が含まれていれば即モデル名更新の判断ができる
+
+---
+
+### [AMD OS PWA / GAS] PostgREST `in.(...)` で URL 長制限超過 (UrlFetchApp 落ち)
+
+- **発見日**: 2026-05-08
+- **状態**: ✅ 解決済み
+- **症状**: `nav_meeting_extractForProjectYm_` 実行時に「Exception: 上限を超えています: URLFetch URL の長さ」で落ちる
+- **原因**: `_meeting_loadExistingByIds_` で議事録 ID (UUID 36 文字) を全件 `meeting_id=in.("uuid1","uuid2",...)` に詰めて URL に含めていた。1 PJ 27 件 × ~50 文字 で URL 長制限超え
+- **解決策**: `_meeting_loadExistingForProjectYm_(projectId, ymKey)` に置き換え。`project_id=eq.X&ym=eq.Y` で取得して meeting_id を Map 化
+- **教訓**:
+  - PostgREST `in.()` は ID 数が多くなると URL 長制限に引っかかる。**インデックスがあるなら別のフィルタで絞ってから取得する方が安全**
+  - GAS の UrlFetchApp は URL 長制限が厳しい (~2KB?)。fetch 系の URL は短く保つのを基本に
+
+---
+
+### [AMD OS PWA] migration の RLS policy を `TO authenticated` だけにすると anon key で読めない
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み
+- **症状**: PWA Cockpit の MTGサマリ枠が「直近1年データなし」のまま。Supabase には 7 行入ってるのに表示されない
+- **原因**: migration 024 で `CREATE POLICY ... TO authenticated USING (true)` だけにしていた。`pwa/src/lib/supabase-data.ts` の冒頭コメント通り「PWA は anon key で read-only」なので、anon が SELECT 出来なくて空配列が返ってた
+- **解決策**: migration 025 で `DROP POLICY ... CREATE POLICY ... TO anon, authenticated USING (true)` に修正
+- **教訓**:
+  - 新規テーブル + RLS を作るときは **PWA の readクライアントが anon か authenticated か** を必ず先に確認する。`pwa/src/lib/supabase-data.ts` のコメントが正本
+  - 「anon でも read-only」は AMD OS の標準パターン (書き込みは service_role 経由)。`TO anon, authenticated` で SELECT、書き込みは policy 無し (service_role が RLS バイパス)
+
+---
+
+### [AMD OS PWA / GAS] GAS Web App 6 分実行制限 (議事録1件 ~60秒で大量バックフィル不可)
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 緩和 (maxItems=8 で対応)
+- **症状**: `nav_meeting_extractForProjectYm_` を SX 1 PJ × 1 ym で実行すると 6 分超えて Web App が「起動時間の最大値を超えました」エラー HTML を返す
+- **原因**: 議事録 1 件あたり Notion API call (本文取得 + relation page title 解決) + Gemini API call で平均 60 秒。27 件処理しようとして 6 分超え
+- **解決策**:
+  - `maxItems` パラメータ (default 8) を追加して 1 関数呼び出し当たりの LLM コール数を制限
+  - `hasMore: true` を返して、上位ループで同関数を繰り返し呼ぶことで全件処理
+  - source_hash で変更なし議事録は LLM 呼ばずスキップする差分検知ロジックも維持
+- **教訓**:
+  - GAS Web App の同期実行は 6 分制限。それ以上かかる処理は必ずバッチ分割する設計にする
+  - daily cron (`nav_cronMonthlyExtractAt3`) は実行制限が緩い (6分超えても trigger 単独だと 30 分まで OK な場合あり) が、Web App 経由の手動 trigger は厳格に 6 分
+  - LLM コールが遅い理由は別途調査の余地 (Notion API 直列が時間食ってる可能性、並列化検討)

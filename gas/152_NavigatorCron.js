@@ -59,6 +59,31 @@ function nav_cronMonthlyExtractAt3(){
         message: String(e && (e.message || e.stack || e) ? (e.message || e.stack || e) : e)
       });
     }
+
+    // ★ MTG サマリ抽出 (会議単位、Supabase project_meeting_summaries)
+    // 仕様: pwa/design/meeting_summaries.md
+    // source_hash で差分検知済 → 変わってない議事録は LLM 呼ばずスキップ
+    try{
+      if (typeof nav_meeting_extractForProjectYm_ === "function"){
+        const mres = nav_meeting_extractForProjectYm_(projectId, ym);
+        out.results.push({
+          projectId: projectId,
+          phase: "meeting_summary",
+          ok: !!(mres && mres.ok),
+          processed: (mres && mres.processed) || 0,
+          skipped: (mres && mres.skipped) || 0,
+          errors: (mres && mres.errors) || 0,
+          message: (mres && mres.message) || ""
+        });
+      }
+    } catch(e){
+      out.results.push({
+        projectId: projectId,
+        phase: "meeting_summary",
+        ok: false,
+        message: String(e && (e.message || e.stack || e) ? (e.message || e.stack || e) : e)
+      });
+    }
   }
 
   Logger.log("[nav_cronMonthlyExtractAt3]\n" + JSON.stringify(out, null, 2));

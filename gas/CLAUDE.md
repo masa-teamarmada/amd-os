@@ -139,6 +139,7 @@ GAS は外部サービスから Supabase へデータを供給するハブ役。
 
 | 機能 | 正本 md | GAS 側責務 |
 |---|---|---|
+| **AMD OS 中核データ正本 (L2 + cron)** ⭐⭐⭐ | [`pwa/design/L2_DATA.md`](../pwa/design/L2_DATA.md) | **データに触る GAS 作業の前に必ず読む**。L2 6 種 / 全 cron / 動作状況の正本 |
 | **MTG サマリ** (各回 decided/progress/nextActions/risks) | [`pwa/design/meeting_summaries.md`](../pwa/design/meeting_summaries.md) | 議事録ページごとに Gemini で抽出 → Supabase `project_meeting_summaries` upsert (daily cron 03:00 JST、source_hash で差分検知)。R313 monthly_reports は会議サマリの集約に書き換え |
 
 新規にクロスプラットフォーム機能を追加するときも `pwa/design/` に正本を作り、ここに行を追加する。
@@ -240,6 +241,97 @@ GAS は外部サービスから Supabase へデータを供給するハブ役。
 - 本体WebアプリURL: `ScriptProperties['WEBAPP_BASE_URL']`
 - AdminページURL: `ScriptProperties['ADMIN_WEBAPP_URL']`
 - `ScriptApp.getService().getUrl()` は使用禁止（デプロイごとにURLが変わる）
+
+---
+
+## ScriptProperties 正本リスト (本体 GAS)
+
+**えいみへ**: ルール 9「キー名は推測しない」遵守。ここに無いキーを使うときは推測せず、まず以下の手順で listProps を叩いて確認する。
+
+最終確認日: 2026-05-08 (リストは `?action=listProps` で随時取得可能)。
+
+| キー | 用途 |
+|---|---|
+| `ANTHROPIC_API_KEY` | Claude (Anthropic) API |
+| `OPENAI_API_KEY` / `OPENAI_MODEL` | OpenAI API |
+| `GEMINI_API_KEY` | Gemini (Google AI Studio) API ← MTG サマリ抽出 (2026-05-08 追加) |
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SERVICE_KEY` | Supabase service_role secret (※ `_ROLE_KEY` ではない) |
+| `NOTION_TOKEN` / `NOTION_DATABASE_ID` / `NOTION_PJ_DATABASE_ID` | Notion API + 議事録 DB / PJ DB |
+| `NOTION_LAST_SYNC_ISO` | Notion 同期 last cursor |
+| `MAIN_SPREADSHEET_ID` (※未確認) / `NAVIGATOR_SPREADSHEET_ID` / `NAVIGATOR_STORE_SPREADSHEET_ID` / `PROTOCOL_STORE_SPREADSHEET_ID` / `DEV_SHEET_ID` / `COLOR_PJ_CONFIG_SPREADSHEET_ID` | スプシ ID 各種 |
+| `WEBAPP_BASE_URL` / `ADMIN_WEBAPP_URL` | Web App URL |
+| `FREEE_*` (CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN, REFRESH_TOKEN, ACCESS_TOKEN_EXPIRES_AT, COMPANY_ID, INVOICE_FOLDER_ID) | freee API |
+| `SLACK_BOT_TOKEN` / `SLACK_TSUKUYOMI_BOT_TOKEN` / `SLACK_TSUKUYOMI_BOT_USER_ID` / `SLACK_ADMIN_CHANNEL_ID` / `SLACK_ACTIVITY_CHANNELS` / `SLACK_INTERACTIVE_QUEUE_JSON` | Slack API |
+| `MONTHLY_REPORT_SLIDE_TEMPLATE_ID` | 月次レポート slide テンプレ |
+| `PAYOUT_*` (LOGOTYPE_FILE_ID, LOGO_FILE_ID, NOTICE_TEMPLATE_SLIDES_ID, PREVIEW_FOLDER_ID) | 支払通知書 |
+| `REIMBURSE_NOTIFY_QUEUE_JSON` | 立替精算通知キュー |
+| `DEV_EXPORT_DOC_ID` | dev export Doc |
+| `_BACKFILL_SLACK_POINTER` | Slack バックフィル進捗 cursor |
+
+新規キーを追加するときはこの表を更新する。
+
+---
+
+## GAS 関数を CLI/curl から実行する手順 (えいみ用)
+
+`clasp run` は Cloud Project mismatch でうまく動かない。代わりに **Web App pwaApi の `runFunc` action** で任意関数を実行できる仕組みを `099_PwaApi.js` に組み込み済み (2026-05-08)。
+
+### 1. コード反映 (clasp push + deployment update)
+
+```bash
+cd /Users/masa/projects/AMD/amd-os/gas   # または worktree の gas/
+npx --yes @google/clasp@latest push --force
+npx --yes @google/clasp@latest deploy \
+  --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G \
+  --description "v<NNNN>_<short_desc>"
+```
+
+`--deploymentId` は **PWA が叩いてる本番 deployment** (`amd-os-pwa` の `NEXT_PUBLIC_GAS_WEBAPP_URL` で使用中)。これを update することで `/exec` が新コードを serve するようになる。
+
+### 2. 関数を呼ぶ (curl / GET only)
+
+```bash
+URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | cut -d= -f2- | tr -d '"')
+KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | cut -d= -f2- | tr -d '"')
+
+# 引数なし
+curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=run_installMeetingExtractorConfig"
+
+# 引数あり (JSON 配列を URL encode)
+ARGS=$(node -e 'console.log(encodeURIComponent(JSON.stringify(["p21","202604"])))')
+curl -sL --max-time 360 \
+  "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_meeting_extractForProjectYm_&args=$ARGS"
+```
+
+レスポンスは `{ok, data: {fn, ms, result}}` の JSON。
+
+### 3. ScriptProperties キー一覧を取る
+
+```bash
+curl -sL "$URL?mode=pwaApi&key=$KEY&action=listProps"
+# → {"ok":true,"data":{"keys":[...], "count": N}}
+```
+
+値は伏せる仕様 (key 名のみ)。値を直接見たいときは GAS Editor の「プロジェクトの設定」を使う。
+
+### 4. ScriptProperties に値をセット
+
+`oneTime_setScriptProperty(name, value)` (180_SupabaseClient.js) を runFunc で呼ぶ。値は伏せて返却。
+
+```bash
+ARGS=$(node -e 'console.log(encodeURIComponent(JSON.stringify(["GEMINI_API_KEY","<key>"])))')
+curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=oneTime_setScriptProperty&args=$ARGS"
+```
+
+### 5. 制約
+
+- **GAS Web App 実行制限 6 分**。1 関数呼び出しでこれを超えないこと。
+- 長い処理は `maxItems` などのバッチ制限を入れて、bash ループ等で外側から繰り返し叩く。
+- POST は doPost が未実装で 404 → GET のみ。値が長い場合は base64 等で encode。
+- 認証は `NEXT_PUBLIC_GAS_API_KEY` (= `PWA_API_KEY`) のみ。漏れると任意関数を実行されるため、キー漏洩には特に注意。
+
+詳細は `099_PwaApi.js` の `pwaApi_handle_` 内 `listProps` / `runFunc` 分岐参照。
 
 ---
 

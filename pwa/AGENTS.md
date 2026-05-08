@@ -16,6 +16,7 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 
 **設計の正本は [`pwa/design/`](design/) に集約されている。新セッションは必ず以下をこの順で読む:**
 
+0. [`pwa/design/L2_DATA.md`](design/L2_DATA.md) ⭐⭐⭐ — **AMD OS の中核データ正本** (L2 6 種 + レポート + 全 cron)。データに触る作業の前に必ず読む
 1. [`pwa/design/README.md`](design/README.md) — 設計フォルダ全体のインデックス
 2. [`pwa/design/SPEC_pwa.md`](design/SPEC_pwa.md) ⭐ — PWA 全体仕様 (画面・データモデル・cron・運用コマンド・実装規約)
 3. [`pwa/design/cockpit.md`](design/cockpit.md) ⭐ — コックピット詳細 (PJ Status / 月次ルーティン)

@@ -33,6 +33,7 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 | 何を知りたいか | ファイル | 内容 |
 |---|---|---|
+| **AMD OS 中核データ正本** ⭐⭐⭐ | `pwa/design/L2_DATA.md` | **L2 6 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ) + レポート + 全 cron**。データに触る作業の前に必ず読む |
 | **設計 md フォルダ全体の入口** ⭐ | `pwa/design/README.md` | 設計の正本フォルダのインデックス。**まずここを読んで「次に何を読むか」を決める** |
 | **PWA 全体の正本仕様** ⭐ | `pwa/design/SPEC_pwa.md` | 画面・ルート・データモデル・cron・共通インフラ・運用コマンド・実装規約 |
 | **コックピット詳細 / 月次ルーティン** ⭐ | `pwa/design/cockpit.md` | PJ Status / 月次ルーティン stepId × クリック挙動 (回帰多発) |
