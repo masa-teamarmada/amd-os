@@ -33,17 +33,47 @@ function getAuthClient() {
 
 /** リスト画面: 集約済みカード一覧 */
 export async function fetchVcList(): Promise<VcListItem[]> {
-  const [vcsRes, fundsRes, relsRes, newsRes] = await Promise.all([
+  const [vcsRes, fundsRes, relsRes, newsRes, amdInvRes] = await Promise.all([
     supabase.from("vcs").select("*"),
     supabase.from("vc_funds").select("*"),
     supabase.from("project_vc_relations").select("vc_id, last_touch_at"),
     supabase.from("vc_news").select("vc_id, verified, dismissed"),
+    supabase
+      .from("vc_investments")
+      .select("vc_id, our_project_id, amount_jpy")
+      .not("our_project_id", "is", null),
   ]);
 
   const vcs = (vcsRes.data ?? []) as Vc[];
   const funds = (fundsRes.data ?? []) as VcFund[];
   const rels = (relsRes.data ?? []) as { vc_id: string; last_touch_at: string | null }[];
   const news = (newsRes.data ?? []) as { vc_id: string; verified: boolean; dismissed: boolean }[];
+  const amdInvs = (amdInvRes.data ?? []) as { vc_id: string; our_project_id: string; amount_jpy: number | null }[];
+
+  // AMD PJ 名解決
+  const pjIds = Array.from(new Set(amdInvs.map((i) => i.our_project_id)));
+  const pjNameMap = new Map<string, string>();
+  if (pjIds.length > 0) {
+    const { data: pjs } = await supabase
+      .from("project_ventures")
+      .select("project_id, display_name, short_label")
+      .in("project_id", pjIds);
+    for (const p of (pjs ?? []) as { project_id: string; display_name: string; short_label: string | null }[]) {
+      pjNameMap.set(p.project_id, p.short_label ?? p.display_name);
+    }
+  }
+
+  // VC ごとに集計
+  const amdInvByVc = new Map<string, { project_id: string; project_name: string; amount_jpy: number | null }[]>();
+  for (const inv of amdInvs) {
+    const list = amdInvByVc.get(inv.vc_id) ?? [];
+    list.push({
+      project_id: inv.our_project_id,
+      project_name: pjNameMap.get(inv.our_project_id) ?? inv.our_project_id,
+      amount_jpy: inv.amount_jpy,
+    });
+    amdInvByVc.set(inv.vc_id, list);
+  }
 
   const fundsByVc = new Map<string, VcFund[]>();
   for (const f of funds) {
@@ -85,6 +115,11 @@ export async function fetchVcList(): Promise<VcListItem[]> {
       }
     }
 
+    const amdInvs = (amdInvByVc.get(v.id) ?? []).slice();
+    // 出資額が大きい順 → 名前順 でソート
+    amdInvs.sort((a, b) => (b.amount_jpy ?? -1) - (a.amount_jpy ?? -1) || a.project_name.localeCompare(b.project_name));
+    const amdTotal = amdInvs.reduce((s, x) => s + (x.amount_jpy ?? 0), 0);
+
     return {
       ...v,
       active_fund: active,
@@ -94,6 +129,8 @@ export async function fetchVcList(): Promise<VcListItem[]> {
       unverified_news_count: unverifiedByVc.get(v.id) ?? 0,
       total_dry_powder_low: dpLow,
       total_dry_powder_high: dpHigh,
+      amd_pj_investments: amdInvs,
+      amd_pj_total_amount_jpy: amdTotal,
     };
   });
 }

@@ -23,37 +23,41 @@ type SortKey =
   | "active_fund_vintage"
   | "dry_powder"
   | "fund_count"
+  | "amd_pj_total"
   | "pj_relation_count"
   | "last_touch_at"
   | "unverified_news";
 
 interface Column {
-  key: SortKey;
+  id: string;            // unique identifier (React key)
+  sortKey: SortKey;      // sort by which key (multiple columns can share)
   label: string;
   align?: "left" | "right" | "center";
   width?: string;
 }
 
 const COLUMNS: Column[] = [
-  { key: "name", label: "VC", align: "left" },
-  { key: "type", label: "type", align: "left", width: "w-20" },
-  { key: "amd_rating", label: "★", align: "center", width: "w-16" },
-  { key: "stage", label: "stage", align: "left", width: "w-32" },
-  { key: "ticket", label: "ticket", align: "right", width: "w-24" },
-  { key: "active_fund_status", label: "active fund", align: "left", width: "w-28" },
-  { key: "active_fund_size", label: "size", align: "right", width: "w-20" },
-  { key: "active_fund_vintage", label: "vintage", align: "right", width: "w-16" },
-  { key: "dry_powder", label: "DPE残", align: "right", width: "w-24" },
-  { key: "fund_count", label: "fund#", align: "right", width: "w-12" },
-  { key: "pj_relation_count", label: "接点", align: "right", width: "w-12" },
-  { key: "last_touch_at", label: "最終接触", align: "left", width: "w-24" },
-  { key: "unverified_news", label: "未確認", align: "right", width: "w-12" },
+  { id: "name", sortKey: "name", label: "VC", align: "left" },
+  { id: "type", sortKey: "type", label: "type", align: "left", width: "w-20" },
+  { id: "amd_rating", sortKey: "amd_rating", label: "★", align: "center", width: "w-24" },
+  { id: "stage", sortKey: "stage", label: "stage", align: "left", width: "w-32" },
+  { id: "ticket", sortKey: "ticket", label: "ticket", align: "right", width: "w-24" },
+  { id: "active_fund_status", sortKey: "active_fund_status", label: "active fund", align: "left", width: "w-28" },
+  { id: "active_fund_size", sortKey: "active_fund_size", label: "size", align: "right", width: "w-20" },
+  { id: "active_fund_vintage", sortKey: "active_fund_vintage", label: "vintage", align: "right", width: "w-16" },
+  { id: "dry_powder", sortKey: "dry_powder", label: "DPE残", align: "right", width: "w-24" },
+  { id: "fund_count", sortKey: "fund_count", label: "fund#", align: "right", width: "w-12" },
+  { id: "amd_pj_tabs", sortKey: "amd_pj_total", label: "AMD PJ 出資", align: "left" },
+  { id: "amd_pj_total", sortKey: "amd_pj_total", label: "AMD PJ 計", align: "right", width: "w-24" },
+  { id: "pj_relation_count", sortKey: "pj_relation_count", label: "接点", align: "right", width: "w-12" },
+  { id: "last_touch_at", sortKey: "last_touch_at", label: "最終接触", align: "left", width: "w-24" },
+  { id: "unverified_news", sortKey: "unverified_news", label: "未確認", align: "right", width: "w-12" },
 ];
 
 export default function VcListPage() {
   const [items, setItems] = useState<VcListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortKey, setSortKey] = useState<SortKey>("pj_relation_count");
+  const [sortKey, setSortKey] = useState<SortKey>("amd_pj_total");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -160,20 +164,20 @@ export default function VcListPage() {
               <tr>
                 {COLUMNS.map((c) => (
                   <th
-                    key={c.key}
-                    onClick={() => onSort(c.key)}
+                    key={c.id}
+                    onClick={() => onSort(c.sortKey)}
                     className={`px-2 py-2 cursor-pointer select-none hover:bg-muted/60 ${
                       c.width ?? ""
                     } ${c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "text-left"} ${
-                      sortKey === c.key ? "text-foreground" : ""
+                      sortKey === c.sortKey ? "text-foreground" : ""
                     }`}
                   >
                     <span className="flex items-center gap-1 inline-flex">
-                      {c.align === "right" && sortKey === c.key && (
+                      {c.align === "right" && sortKey === c.sortKey && (
                         <span className="text-[9px]">{sortDir === "desc" ? "▼" : "▲"}</span>
                       )}
                       <span>{c.label}</span>
-                      {c.align !== "right" && sortKey === c.key && (
+                      {c.align !== "right" && sortKey === c.sortKey && (
                         <span className="text-[9px]">{sortDir === "desc" ? "▼" : "▲"}</span>
                       )}
                     </span>
@@ -196,7 +200,7 @@ export default function VcListPage() {
 }
 
 function Row({ v, onSelect }: { v: VcListItem; onSelect: () => void }) {
-  const stars = v.amd_rating ? "★".repeat(v.amd_rating) : null;
+  const r = v.amd_rating ?? 0;
   const af = v.active_fund;
   return (
     <tr
@@ -210,12 +214,11 @@ function Row({ v, onSelect }: { v: VcListItem; onSelect: () => void }) {
       <td className="px-2 py-2 text-muted-foreground">
         {v.type ? VC_TYPE_LABEL[v.type] ?? v.type : "—"}
       </td>
-      <td className="px-2 py-2 text-center">
-        {stars ? (
-          <span className="text-amber-500" title={v.amd_rating_note ?? ""}>{stars}</span>
-        ) : (
-          <span className="text-muted-foreground/40">—</span>
-        )}
+      <td className="px-2 py-2 text-center" title={v.amd_rating_note ?? (v.amd_rating ? "" : "未評価")}>
+        <span className="whitespace-nowrap">
+          <span className="text-amber-500">{"★".repeat(r)}</span>
+          <span className="text-muted-foreground/40">{"☆".repeat(5 - r)}</span>
+        </span>
       </td>
       <td className="px-2 py-2 text-muted-foreground">
         {(v.stage_focus ?? []).slice(0, 3).join(" / ") || "—"}
@@ -263,6 +266,32 @@ function Row({ v, onSelect }: { v: VcListItem; onSelect: () => void }) {
         )}
       </td>
       <td className="px-2 py-2 text-right text-muted-foreground">{v.fund_count}</td>
+      <td className="px-2 py-2">
+        {v.amd_pj_investments.length === 0 ? (
+          <span className="text-muted-foreground/40">—</span>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {v.amd_pj_investments.map((p) => (
+              <span
+                key={p.project_id}
+                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30"
+              >
+                <span className="font-medium">{p.project_name}</span>
+                {p.amount_jpy != null && (
+                  <span className="text-primary/70">{formatJpy(p.amount_jpy)}</span>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
+      </td>
+      <td className="px-2 py-2 text-right">
+        {v.amd_pj_total_amount_jpy > 0 ? (
+          <span className="font-medium">{formatJpy(v.amd_pj_total_amount_jpy)}</span>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        )}
+      </td>
       <td className="px-2 py-2 text-right">
         {v.pj_relation_count > 0 ? (
           <span className="font-medium">{v.pj_relation_count}</span>
@@ -311,6 +340,8 @@ function compareBy(key: SortKey, a: VcListItem, b: VcListItem): number {
         (b.total_dry_powder_high ?? b.total_dry_powder_low ?? -1);
     case "fund_count":
       return a.fund_count - b.fund_count;
+    case "amd_pj_total":
+      return a.amd_pj_total_amount_jpy - b.amd_pj_total_amount_jpy;
     case "pj_relation_count":
       return a.pj_relation_count - b.pj_relation_count;
     case "last_touch_at":

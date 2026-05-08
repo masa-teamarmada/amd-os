@@ -21,7 +21,7 @@ export function VcDetailBody({ data }: { data: VcDetail }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 pr-10">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
             {vc.type && <span>{VC_TYPE_LABEL[vc.type] ?? vc.type}</span>}
