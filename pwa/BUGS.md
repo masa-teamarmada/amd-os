@@ -19,6 +19,34 @@
 
 ---
 
+### [AMD OS PWA] PL/PM/クローザー編集で project_members が全部消える (全削除→挿入の副作用)
+
+- **発見日**: 2026-05-08
+- **状態**: ✅ 解決済み
+- **症状**: admin/projects の「PL / PM / クローザー」列「✏️ 編集」で開く `AdminProjectMembersModal` で保存すると、これまでアサインしていた情報が「すべて削除されたように見える」現象。まさが連続で踏んだ
+- **原因**:
+  - `/api/admin/project-members` POST が "全削除→挿入" 方式: `DELETE FROM project_members WHERE project_id=?` → `INSERT` 渡された rows
+  - INSERT する row には `role`, `id`, 既存の `role_label`, `join_ym` などが含まれず、副作用で値がリセットされる (`id` は新 UUID 再生成)
+  - モーダル側でメンバー行が空配列になりうるパス (race / autocomplete blank / silent fetch fail) があると、削除だけ走って挿入 0 件 → 全行消失
+  - HANDOFF 残タスクに「saveProjectMembers 全削除→挿入をやめて incremental update に」が放置されていた
+- **解決策**:
+  - `/api/admin/project-members` (POST) と `AdminProjectMembersModal` を **削除**
+  - **新 API** `/api/admin/project-members/role` 新設: ロール (`pl|pm|closer`) 単位で集合を incremental 更新
+    - 既存行 + 集合外 → `is_<role>=false` に UPDATE (行は残す)
+    - 既存行 + 集合内 → `is_<role>=true` に UPDATE
+    - 行なし + 集合内 → 新規行 INSERT (`is_<role>=true`、他フラグ false)
+    - **他のフラグ・他のメンバー行・他の列 (role / role_label / join_ym / id) は一切触らない**
+  - **新モーダル** `AdminProjectRoleEditModal`: ロール 1 つだけのチェックリスト + 「修正」ボタン
+  - admin/projects テーブルの「PL / PM / クローザー」列を 3 列に分割、列セルクリックで該当ロール用モーダル
+  - `lib/project-config-data.ts` の `saveProjectMembers` 関数を削除 (`MemberInput` 型は ProjectConfigForm の dead code が依存しているため互換目的で残す)
+  - テーブル `min-width: 1200px → 1600px` に拡張 (列増分の横スクロール許容)
+- **教訓**:
+  - 「全削除→挿入」は同テーブルの他列を巻き込んで破壊する。incremental update が原則
+  - 「all-or-nothing」型の API は、UI 側のどんな race / blank state でも全消失を引き起こす。書き込みは「触る列だけ更新」「触らない列は読まない」で書く
+  - HANDOFF 残タスクで「再発防止」が書かれていたら優先度を上げる。同じ事故が起きた
+
+---
+
 ### [AMD OS PWA] member_activities が UUID 型 + source check 制約で cron が空のまま (連鎖 3 件)
 
 - **発見日**: 2026-05-08

@@ -11,7 +11,9 @@
 
 ## 最終更新
 
-2026-05-08 (blissful-mcclintock セッション) — 月次ルーティン × 各ステップ専用モーダル逆移植、設計 md 集約 (`pwa/design/`)、admin/projects 大改修 (セル単位編集 / PL/PM/クローザー / 凍結再開予定 / 支払期日 / 関係先メアド)、`member_activities` 連鎖 3 件修正で cron 復活、スプシから projects + project_members 復元、deploy.sh Ready 通知。
+2026-05-08 (keen-wescoff セッション) — admin/projects の PL/PM/クローザー編集を **集合 incremental 更新** に再設計。「全削除→挿入」事故を根絶。1 列 → 3 列分割、編集ボタン廃止、セルクリックでロール別モーダル → 「修正」で FIX。テーブル `min-width: 1600px` に拡張。
+
+[2026-05-08 (blissful-mcclintock セッション)] — 月次ルーティン × 各ステップ専用モーダル逆移植、設計 md 集約 (`pwa/design/`)、admin/projects 大改修 (セル単位編集 / PL/PM/クローザー / 凍結再開予定 / 支払期日 / 関係先メアド)、`member_activities` 連鎖 3 件修正で cron 復活、スプシから projects + project_members 復元、deploy.sh Ready 通知。
 
 詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) の末尾エントリ参照。
 
@@ -19,9 +21,9 @@
 
 ## リポ状態
 
-- 作業 worktree: `/Users/masa/projects/AMD/amd-os/.claude/worktrees/blissful-mcclintock-0f9b61`
-- 作業 branch: `claude/blissful-mcclintock-0f9b61` (main にも順次 merge + push 済)
-- main HEAD: `803eb61` (2026-05-08 時点の最終 merge)
+- 作業 worktree: `/Users/masa/projects/AMD/amd-os/.claude/worktrees/keen-wescoff-c6a97b`
+- 作業 branch: `claude/keen-wescoff-c6a97b` (main にも順次 merge + push 済)
+- main HEAD: `54f99c2` (2026-05-08 blissful-mcclintock の最終 merge)
 - 本番デプロイ: `https://amd-os-pwa.vercel.app` 反映済
 - 適用済 migrations: 018 / 019 / 020 / 021 / 022 / 023
 
@@ -41,7 +43,7 @@
 ### 中優先 — UI / UX 確認
 3. CX cockpit でスコアリングボードの PL/PM/クローザー / AMD 期間バッジが表示されているか **まさが目視確認** (hard reload 推奨)
 4. admin/projects のセル単位編集が問題なく動くかまさが触って確認
-5. `saveProjectMembers` の「全削除→挿入」をやめて incremental update に (将来の事故防止、まだ未対応)
+5. ✅ ~~`saveProjectMembers` の「全削除→挿入」をやめて incremental update に~~ (2026-05-08 keen-wescoff セッションで完了。`AdminProjectMembersModal` / 旧 `/api/admin/project-members` POST / `saveProjectMembers` 関数は削除済。代わりに `/api/admin/project-members/role` ロール別 incremental API + `AdminProjectRoleEditModal`)
 
 ### 低優先 — 仕組み改善
 6. invoice_to_emails (請求書送付先) の自動セット — スプシ `DB_Projects` に値が入っていない PJ が多い。現状は admin/projects で手入力する想定だが、復元戦略を検討

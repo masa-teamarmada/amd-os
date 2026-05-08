@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   fetchProjectConfig,
   saveProjectConfig,
-  saveProjectMembers,
   type ProjectConfigData,
   type ProjectConfigMember,
   type MemberInput,
@@ -211,18 +210,9 @@ export function ProjectConfigForm({ projectId }: Props) {
         return;
       }
 
-      // メンバー編集は admin/projects に移動した (#14)。config 保存ではメンバーを更新しない。
-      const memberRes = { saved: 0 };
-      if (false as boolean) {
-        const _unused: MemberInput[] = [];
-        void _unused;
-        showToast("", true);
-        setSaving(false);
-        return;
-      }
-
+      // メンバー編集は admin/projects のロール別モーダルに移動した (2026-05-07)。
+      // config 保存では project_members を更新しない。
       showToast(`保存完了 ✓`);
-      void memberRes;
       setDirty(false);
       await reload();
     } finally {

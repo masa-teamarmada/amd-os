@@ -818,3 +818,55 @@ GAS 226 の **基本情報 / メンバー / 契約・料金 / 請求書送付** 
 - 5月の monthly_reports 生成 (no report content)
 - まさが #15 表示 (PL/PM/クローザー / AMD 期間バッジ) の最終目視確認 — hard reload 推奨
 - `saveProjectMembers` 全削除→挿入をやめて incremental update に (将来事故防止、まだ未対応)
+
+---
+
+## 2026-05-08 — admin/projects PL/PM/クローザー編集を集合 incremental に再設計 (keen-wescoff worktree)
+
+前セッションの「全削除→挿入」事故 (saveProjectMembers が項目消失を引き起こす) をまさが連続で踏んで修正依頼。3 件まとめて対応。
+
+### まさの依頼
+1. PL/PM/クローザーを編集すると **これまでアサインしていた情報がすべて削除される** → 原因特定 + 再発防止
+2. PL/PM/クローザー 表示は 1 列にまとめず、**3 列に分ける**。編集ボタン削除し、セル内の名前 (例: PL に「まさ」) クリックで編集モーダル → 「修正」ボタンで FIX
+3. 列増えるので **横スクロール許容**
+
+### 原因
+- `/api/admin/project-members` POST が "全削除→挿入" 方式: `DELETE FROM project_members WHERE project_id=?` → `INSERT` 渡された rows
+- INSERT する row には `role` (古い列), `id` (UUID), 既存の `role_label`, `join_ym` などが含まれず、**副作用で値がリセット** (`id` 新 UUID 再生成、`role` NULL 化)
+- モーダル側でメンバー行が空配列になりうるパス (race / autocomplete blank / silent fetch fail) があると、削除だけ走って挿入 0 件 → 全消失
+- HANDOFF 残タスクに「saveProjectMembers の incremental 化」が放置されていた
+
+### 修正
+- **新 API** `pwa/src/app/api/admin/project-members/role/route.ts`
+  - body: `{ projectId, role: 'pl'|'pm'|'closer', memberIds: string[] }`
+  - 既存行 + 集合外 → `is_<role>=false` に UPDATE (行は残す)
+  - 既存行 + 集合内 → `is_<role>=true` に UPDATE
+  - 行なし + 集合内 → 新規行 INSERT (`is_<role>=true`、他フラグ false、is_active=true)
+  - 他のフラグ・他のメンバー行・他の列は一切触らない (incremental)
+- **新モーダル** `pwa/src/components/admin/AdminProjectRoleEditModal.tsx`
+  - ロール 1 つだけのチェックリスト
+  - 「修正」ボタン (dirty=false なら disabled)
+  - members マスタ取得 + active メンバー + 既割当てメンバーを列挙
+- **AdminProjectsTable.tsx** 改修
+  - thead: 「PL / PM / クローザー」1 列 → **PL / PM / クローザー 3 列**
+  - tbody: 各列セルクリックで該当ロール用モーダル
+  - 旧「✏️ 編集」ボタン削除
+  - `min-width: 1200px → 1600px` (横スクロール)
+- **削除した資産**
+  - `pwa/src/components/admin/AdminProjectMembersModal.tsx` (旧 全部編集モーダル)
+  - `pwa/src/app/api/admin/project-members/route.ts` (旧 全削除→挿入 POST)
+  - `lib/project-config-data.ts` の `saveProjectMembers` 関数 (`MemberInput` 型は ProjectConfigForm の dead code が依存しているため互換目的で残す)
+- **ProjectConfigForm.tsx** dead code 整理
+  - `saveProjectMembers` import 削除
+  - `if (false as boolean) { _unused: MemberInput[]; ... }` ブロック削除
+
+### 主な変更ファイル
+- 新: `pwa/src/app/api/admin/project-members/role/route.ts`, `pwa/src/components/admin/AdminProjectRoleEditModal.tsx`
+- 改修: `pwa/src/components/admin/AdminProjectsTable.tsx`, `pwa/src/components/project-config/ProjectConfigForm.tsx`, `pwa/src/lib/project-config-data.ts`
+- 削除: `pwa/src/components/admin/AdminProjectMembersModal.tsx`, `pwa/src/app/api/admin/project-members/route.ts`
+- ドキュメント: `pwa/BUGS.md` (新 entry), `pwa/HANDOFF_pwa_rebuild.md` (残タスクから消し込み)
+
+### 教訓
+- 「全削除→挿入」は同テーブルの他列を巻き込んで破壊する。incremental update が原則
+- 「all-or-nothing」型の API は、UI 側のどんな race / blank state でも全消失を引き起こす。書き込みは「触る列だけ更新」「触らない列は読まない」で書く
+- HANDOFF 残タスクで「再発防止」が書かれていたら優先度を上げる。同じ事故が起きた
