@@ -11,7 +11,10 @@
 
 ## 最終更新
 
-2026-05-08 (keen-wescoff セッション) — admin/projects の PL/PM/クローザー編集を **集合 incremental 更新** に再設計。「全削除→挿入」事故を根絶。1 列 → 3 列分割、編集ボタン廃止、セルクリックでロール別モーダル → 「修正」で FIX。テーブル `min-width: 1600px` に拡張。
+2026-05-08 (keen-wescoff セッション、3 ラウンド) —
+- ラウンド 1: PL/PM/クローザー編集を **集合 incremental 更新** に再設計 (「全削除→挿入」事故根絶)、1 列 → 3 列分割、セルクリックでロール別モーダル
+- ラウンド 2 (PWA 6 件): active メンバー限定 / report_emails スプシ復元 / カンマ区切り表示 / status セル保存 (auth client 化) / 停止再開列を終了ym 右へ / 月次報告書FIXモーダル改修 (PCボタン削除 + つくよみ修正欄 + 手動編集) + 新 API 2 本
+- ラウンド 3 (GAS): 請求書送付 nudge cron + Slack interactive button を AMD-Slack GAS に実装。`017_InvoiceSendNudge.js` 新規 + 既存 worker / doPost 拡張。production deploy @1424、自動セットアップ完了 (5 トリガー作成 + Supabase ScriptProperties セット)
 
 [2026-05-08 (blissful-mcclintock セッション)] — 月次ルーティン × 各ステップ専用モーダル逆移植、設計 md 集約 (`pwa/design/`)、admin/projects 大改修 (セル単位編集 / PL/PM/クローザー / 凍結再開予定 / 支払期日 / 関係先メアド)、`member_activities` 連鎖 3 件修正で cron 復活、スプシから projects + project_members 復元、deploy.sh Ready 通知。
 

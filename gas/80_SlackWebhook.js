@@ -8,6 +8,27 @@ function doPost(e){
   const payloadStr = (e && e.parameter && e.parameter.payload) ? String(e.parameter.payload) : "";
   const hasInteractivePayload = !!payloadStr.trim();
 
+  // ===== 0a) internal_setup (1 回限り、SUPABASE_SERVICE_ROLE_KEY 未設定時のみ受け付け) =====
+  // 自動セットアップ用。017_InvoiceSendNudge.js / invoiceSend_runInternalSetup_ に転送。
+  if (mode === "internal_setup"){
+    try{
+      const raw = (e && e.postData && e.postData.contents) ? String(e.postData.contents) : "";
+      const body = raw ? JSON.parse(raw) : {};
+      const action = String(body.action || "").trim();
+      let result = { ok: false, message: "unknown action: " + action };
+      if (action === "invoiceSendNudge" && typeof invoiceSend_runInternalSetup_ === "function"){
+        result = invoiceSend_runInternalSetup_(body);
+      }
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch(err){
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok:false, message: String(err && err.message ? err.message : err) }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   if (mode === "slack_interactive" || hasInteractivePayload){
     try{
       // ★3秒制限：シート書き込み禁止、UrlFetch禁止
@@ -473,11 +494,13 @@ function slackQueueInteractiveCacheFromPayload_(payloadStr){
   const actionValue = String(act.value || "").trim();
 
   // ★reimb系：PM + admin を許可
+  // ★invoice_send_done: 請求書送付ボタン (017_InvoiceSendNudge.js)
   const allow = {
     reimb_approve: true,
     reimb_reject: true,
     reimb_admin_approve: true,
-    reimb_admin_reject: true
+    reimb_admin_reject: true,
+    invoice_send_done: true
   };
   if (!allow[actionId]) return;
 

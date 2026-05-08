@@ -870,3 +870,76 @@ GAS 226 の **基本情報 / メンバー / 契約・料金 / 請求書送付** 
 - 「全削除→挿入」は同テーブルの他列を巻き込んで破壊する。incremental update が原則
 - 「all-or-nothing」型の API は、UI 側のどんな race / blank state でも全消失を引き起こす。書き込みは「触る列だけ更新」「触らない列は読まない」で書く
 - HANDOFF 残タスクで「再発防止」が書かれていたら優先度を上げる。同じ事故が起きた
+
+---
+
+## 2026-05-08 (続) — まさからの 6 件修正 (PWA) + 請求書送付 nudge (GAS)
+
+### PWA 6 件 (commit `628ac72` + `d53549c`)
+
+1. **AdminProjectRoleEditModal の候補を active メンバー限定**
+   - `members.status='active'` のみ。inactive な既割当てメンバーは候補から消えて、selected も active 内集合だけに init
+   - dirty 判定は維持 (active な既割当てが orig)
+
+2. **report_emails をスプシ DB_Projects.reportEmails から再復元**
+   - 旧: `members.email` 集約で AMD メンバーのメアドが入っていた誤動作 → 廃止
+   - `restore-from-sheet` route で `reportEmails` 列を直接コピー、null/空値も上書き対象に
+   - `?onlyReportEmails=1` モード追加: project_members 全置換は走らせず report_emails ピンポイント上書きだけ
+   - 22 PJ 全件で UPDATE 実行成功
+
+3. **関係先メールアドレス表示をカンマ区切り**
+   - 旧: 改行 (`whitespace-pre-line` + `\n` join) → 横スペース節約のため改行
+   - 新: `, ` で 1 行表示。max-width 200→260px に微増
+
+4. **PJ status セル保存反映バグ修正**
+   - 原因: `AdminProjectsTable` が anon クライアント (`@supabase/supabase-js` 直接) で update → RLS で silent に弾かれていた
+   - 修正: `@/lib/supabase/client` の `createClient` (= `createBrowserClient`、auth 込み) に切替
+   - status 以外の cell も同じ問題があり得るため一括解決
+
+5. **「停止/再開予定」列を「終了ym」の右へ**
+   - thead と tbody の両方で freeze/restart セルを移動
+   - 列順: PJID / PJ名 / Status / PL / PM / クローザー / 請求先 / 関係先メアド / 請求書送付 / 支払期日 / 開始ym / 終了ym / **停止再開** / freee ID / Slack CH / Drive Folder
+
+6. **月次報告書FIXモーダル改修**
+   - 「PCで内容を編集する」ボタン削除 (PC で開いてるのに表示されるのは違和感)
+   - 「✨ つくよみに修正させる」ボタン: textarea で指示 → `/api/monthly-report/edit-by-tsukuyomi` (Sonnet 4.6 が `<revised_report>` タグで本文返す → `draft_content` 上書き → 再ロード)
+   - 「📝 手動で修正」ボタン: textarea で本文編集 → `/api/monthly-report/manual-update` で `draft_content` 直接保存
+   - 「📨 PLに確認依頼する」ボタンは残す (FIX 完了マーカー)
+   - mode state (`view` / `tsukuyomi` / `manual`) で UI 切替
+
+### 請求書送付 nudge cron + Slack interactive button (GAS / commit 別途)
+
+#### 仕様
+- 投稿先: PJ 専用 Slack チャンネル (`projects.slack_channel_id`)
+- メンション: `project_members.is_pm=true` かつ `is_active=true` のメンバーの `members.slack_id` を `<@U...>` で全員
+- スケジュール: 6 occurrence
+  - 締切前日 17:00 / 20:00
+  - 締切日 10:00 / 12:00 / 15:00 / 17:00
+- 締切日 = 翌月 9 日 (CTB は当月 28 日)、土日のみ前営業日 (祝日は未対応 — 簡易ロジック)
+- 「✅ 送信済み」ボタン押下 → Supabase `billing_cycles.invoice_sent_at = NOW()` に PATCH
+- ボタン押下時の元 nudge **絶対上書き禁止** (gas/CLAUDE.md ルール 4)。完了通知は **新メッセージ**で post
+
+#### 実装
+- 新 GAS ファイル `gas/017_InvoiceSendNudge.js`
+  - `cron_invoiceSendNudge_()`: 5 トリガーから呼ばれる (10/12/15/17/20 時 JST)、各 PJ × 過去 2 ヶ月〜来月の ym で締切判定
+  - `invoiceSend_handleDoneFromQueue_(job)`: worker から呼ばれる完了処理
+  - `invoiceSend_runInternalSetup_(body)`: 1 回限り自動セットアップ (ScriptProperties + トリガー作成)
+  - Supabase REST helper (`invoiceSend_supabaseRequest_`)
+  - 送信済みログシート `DB_InvoiceSendNudgeLog` (projectId / ym / occurrence / sentAt / messageTs)
+  - 重複送信抑止 + dedup (CacheService 5 分)
+- 既存 `gas/081_SlackInteractive.js` の `slackInteractiveWorker` に invoice_send_done 分岐追加
+- 既存 `gas/80_SlackWebhook.js` の doPost に `mode=internal_setup` 追加 + `slackQueueInteractiveCacheFromPayload_` の `allow` に `invoice_send_done: true`
+
+#### 自動セットアップ (まさ作業ゼロ)
+- `clasp push` + production deployment update (`@1422 → @1424`)
+- PWA `.env.local` から `NEXT_PUBLIC_GAS_WEBAPP_URL` + `SUPABASE_SERVICE_ROLE_KEY` を取得 → curl で `?mode=internal_setup` POST
+- GAS 側で `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` を ScriptProperties に格納 + 5 トリガー作成 + slackInteractiveWorker トリガー確認 → `{ok:true, message:"setup complete"}`
+
+#### 動作確認
+- 次回 cron 発火時刻 (10/12/15/17/20 時 JST) に各 PJ で締切判定 + 該当 occurrence で nudge 送信
+- 1 PJ ずつ実 PJ で動作する見込み (CX や CTB など、現実の請求書送付タスクが起きる PJ で観察)
+
+### 教訓
+- GAS 側のセットアップ作業 (ScriptProperties 設定 + トリガー作成) も `clasp push` + `clasp deploy --deploymentId` + Web App URL に POST する `internal_setup` mode を作ることで、まさを 1 回も触らせずに完遂可能
+- production deployment update には `--deploymentId <既存ID>` 必須。これを忘れると新 URL になって Slack Interactivity URL の差し替え作業が発生する
+- production の deploymentId は `clasp deployments` 一覧 + `.env.local` の Webapp URL prefix で特定可能

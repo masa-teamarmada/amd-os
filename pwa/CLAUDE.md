@@ -87,9 +87,3 @@ python -X utf8 scripts/apply_ddl.py scripts/migrations/NNN_name.sql
 - migrations は `scripts/migrations/NNN_name.sql` に必ず残す
 - supabase-js REST + `rpc("exec_sql")` は存在しない。SQL Editor 手動依頼もNG
 
----
-
-## AMD OS 固有ルール
-
-GASとの連携・DB設計・ScriptPropertiesキー等は `AMD_OS/CLAUDE.md` を参照。
-このセッションはPWA（フロントエンド）に集中する。GAS側の変更が必要になったら別セッションで対応する。
