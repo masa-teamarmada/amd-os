@@ -47,6 +47,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const spreadsheetId = searchParams.get("spreadsheetId");
   const dryRun = searchParams.get("dryRun") === "1";
+  // report_emails だけピンポイントで上書きしたい場合 (project_members 全置換は走らせない)
+  const onlyReportEmails = searchParams.get("onlyReportEmails") === "1";
   if (!spreadsheetId) {
     return NextResponse.json({ error: "spreadsheetId required" }, { status: 400 });
   }
@@ -178,13 +180,18 @@ export async function GET(req: NextRequest) {
   const pjErrors: string[] = [];
   for (const patch of pjPatches) {
     const upd: Record<string, unknown> = {};
-    if (patch.client_name) upd.client_name = patch.client_name;
-    if (patch.freee_partner_id) upd.freee_partner_id = patch.freee_partner_id;
-    if (patch.invoice_to_emails) upd.invoice_to_emails = patch.invoice_to_emails;
-    // report_emails (関係先メアド) はスプシの reportEmails 列を直接コピー。
-    // 過去に members.email から再生成する処理があったが、AMD メンバーのメアドが
-    // 入る誤動作だったため廃止 (2026-05-08)
-    if (patch.report_emails) upd.report_emails = patch.report_emails;
+    if (onlyReportEmails) {
+      // ピンポイントモード: report_emails 列だけ上書き (スプシに列がある場合は null も上書き対象)
+      if (idxReportEmails >= 0) upd.report_emails = patch.report_emails;
+    } else {
+      if (patch.client_name) upd.client_name = patch.client_name;
+      if (patch.freee_partner_id) upd.freee_partner_id = patch.freee_partner_id;
+      if (patch.invoice_to_emails) upd.invoice_to_emails = patch.invoice_to_emails;
+      // report_emails (関係先メアド) はスプシの reportEmails 列を直接コピー。
+      // 過去に members.email から再生成する処理があったが、AMD メンバーのメアドが
+      // 入る誤動作だったため廃止 (2026-05-08)
+      if (idxReportEmails >= 0) upd.report_emails = patch.report_emails;
+    }
     if (Object.keys(upd).length === 0) continue;
     const { error } = await supabase
       .from("projects")
@@ -192,6 +199,17 @@ export async function GET(req: NextRequest) {
       .eq("project_id", patch.project_id);
     if (error) pjErrors.push(`${patch.project_id}: ${error.message}`);
     else pjUpdated++;
+  }
+
+  // onlyReportEmails モードでは project_members 全置換は走らせない (まさ要望: ピンポイント実行)
+  if (onlyReportEmails) {
+    return NextResponse.json({
+      ok: pjErrors.length === 0,
+      mode: "onlyReportEmails",
+      projectsTotal: pjPatches.length,
+      projectsUpdated: pjUpdated,
+      projectErrors: pjErrors,
+    });
   }
 
   // 2. project_members 全置換
