@@ -66,6 +66,7 @@ export interface Vc {
   website: string | null;
   logo_url: string | null;
   notes: string | null;
+  investment_constraints: string | null;   // 分野限定 / val 固定 / 初回ラウンドのみ 等
   amd_rating: number | null;          // 1-5
   amd_rating_note: string | null;
   amd_rating_updated_by: string | null;
