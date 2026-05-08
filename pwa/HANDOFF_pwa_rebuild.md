@@ -19,7 +19,9 @@
 - migration 027 適用 (既存 7 行 DELETE + `notion_page_id` / `gmail_thread_ids` / `source_kinds` 追加)
 - gas/074_MeetingSummaryRepo.js を全書き直し / gas/092 prompt v2 / GAS deploy v1425
 - 仕様正本 [`pwa/design/meeting_summaries.md`](design/meeting_summaries.md) を Phase 2 で全書き直し (まさの指摘「md に書いてないのが問題」対応)
-- 初回バックフィル p20 (SX) 202604: `inserted` 1 件 + `inserted_none` 多数。`gmailThreads: 0` が大半 → **Phase 2.1 で reportEmails 整備が必要** (CircleBack / GMeet 通知メールアドレス登録)
+- p20 (**CX**, NIMS 関係) 202604 バックフィル: `inserted` 1 / `inserted_none` 多数 / `gmailThreads:0` 大半。p20 は議事録 Notion メイン (まさ確認) で想定通り
+- **p21 (SX, 愛媛大) 202604 バックフィルで Phase 2 動作確認 OK**: 月単位 Gmail 取得 15 thread、`sourceKinds: "notion+gmail"` で 2 件、`notion` で 5 件、`inserted_none` 13 件、`skipped_no_event_id` 14 件、`deferred_maxItems` 19 件 (= 後続 daily cron で順次処理される)、`error_llm` 1 件 (次回再試行)
+- **Phase 2 は成功**: Gmail 議事録経路 (CircleBack/メール議事録) が `reportEmails` (`@ehime-u.ac.jp` ワイルドカード等) を通じて拾われ、Notion 本文と結合されて Gemini で抽出されている
 
 詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) の末尾エントリ参照。
 
@@ -53,13 +55,19 @@
 
 ### 高優先 (Phase 2 の積み残し)
 
-1. **MTGサマリ Phase 2.1: reportEmails 整備**
-   - 初回バックフィルで `gmailThreads: 0` が大半。CircleBack 通知メール / GMeet recording 通知メール / クライアント議事録メールが届く先を `DB_Projects.reportEmails` (カンマ区切り) に登録する運用が必要
-   - 確認手順: GAS で `mr_gmail_getProjectInfo_("p20")` を呼んで reportEmails の現状を見る
-   - CircleBack 通知メールの from アドレス確認 (まさのアカウントで届いてるはず)
-   - 必要なら meeting_summaries.md に「reportEmails 標準セット」を追記
+1. **MTGサマリ Phase 2 残バッチの消化** (低工数、放置でも OK)
+   - p21 202604 で `deferred_maxItems` 19 件あり (maxItems=8 で打ち切ったため)
+   - 放置すれば daily cron が翌日以降順次処理 (差分検知あり、ムダにならない)
+   - 急ぎたい場合は curl で `nav_meeting_backfillForProject_(["p21"], ["202604"])` を retryHasMore=true で呼ぶ
+   - 他 active PJ (p00 / p02 / p06 / p10 / p19 / p20) もまだ未バックフィル
 
-2. **MTGサマリ Phase 2.5: AMD-Report GAS R313 を会議サマリ集約方式に書き換え**
+2. **MTGサマリ Phase 2.1: pickup ウィンドウ拡大検討** (任意)
+   - 現状 calendar event 日 ±1日で Gmail thread を pickup
+   - p21 (SX) では Gmail 月 15 thread あるが、各 event の ±1 日に first/last message が入る thread は少なめ (notion+gmail が 2/20 件)
+   - 議事録メールが「会議の翌日 〜 1週間後」に届く運用なら、ウィンドウを ±3日 〜 ±7日に拡大する余地あり
+   - ただし関係ない thread の混入も増えるので Gemini 側に「この MTG 関係だけ拾え」とより強く指示する必要が出る (現プロンプトでも対応してる)
+
+3. **MTGサマリ Phase 2.5: AMD-Report GAS R313 を会議サマリ集約方式に書き換え**
    - 別 clasp project (このリポ外) なので別セッションで対応
    - 集約ロジック: `project_meeting_summaries.where(project_id, ym=当月).order(meeting_date)` → Sonnet で集約 → `monthly_reports.draft_content / final_content` 更新
    - これで Phase 1 の navigator_extract (月単位フラット) は完全廃止できる
