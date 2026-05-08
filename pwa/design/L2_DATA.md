@@ -28,7 +28,7 @@ L1 を経由する構成は廃止された ([progress_estimation.md](progress_es
 | ③ **MS進捗** | マイルストーン進捗% | `milestone_monthly_progress` | `cron/daily-estimate` (PWA, 03:00 daily) | PWA `app/api/cron/daily-estimate` | ✅ 稼働 (158 行) |
 | ④ **PJナレッジ** | PJ にまつわる事実・人物・組織・進行中事項 | `project_knowledge` | **書き込み元不明 (2024 行ある)**。今後は AMD-Report GAS の新機能として実装予定 | (TBD: AMD-Report GAS) | ⚠️ データはあるが流入元不明 |
 | ⑤ **メンバーナレッジ** | メンバーごとの強み・スキル・関心 | `member_knowledge` | (本来 cron で蓄積すべき) | (TBD) | ❌ **未稼働 (0 行)** |
-| ⑥ **MTGサマリ** | カレンダーイベント1回ごとの decided/progress/nextActions/risks | `project_meeting_summaries` | `nav_cronMonthlyExtractAt3` (本体GAS, 03:00 daily) | 本体GAS `152_NavigatorCron.js` + `074_MeetingSummaryRepo.js` | 🚧 Phase 1 稼働 (Notion単独, 7行)、Phase 2 で 5 生データ統合中 ([meeting_summaries.md](meeting_summaries.md)) |
+| ⑥ **MTGサマリ** | calendar event 1 回ごとの decided/progress/nextActions/risks (PK = calendar event id) | `project_meeting_summaries` | `nav_cronMonthlyExtractAt3` (本体GAS, 03:00 daily) | 本体GAS `152_NavigatorCron.js` + `074_MeetingSummaryRepo.js` | ✅ **Phase 2 稼働** (Notion 本文 + Gmail reportEmails ±1日 結合)。議事録なし MTG はマーカー行 (summary_short="議事録なし") で残す ([meeting_summaries.md](meeting_summaries.md))。reportEmails 整備は Phase 2.1 で対応予定 |
 
 **重要**: 5 生データから抽出した結果 = L2 だけ。Atlas / VC ニュース / マクロ index は外部ソース由来なので **L2 ではなく「レポート関連」**カテゴリ。
 
@@ -115,3 +115,4 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | 日付 | 変更 |
 |---|---|
 | 2026-05-09 | 初版。MTGサマリ追加で L2 が 5 → 6 になったタイミングで正本化。AMDプロトコル / メンバーナレッジ未稼働を可視化、PJナレッジ流入元不明を可視化 |
+| 2026-05-09 | MTGサマリ Phase 2 移行 (Notion 本文 + Gmail 議事録メール 結合、calendar event id を PK に)。状態列を Phase 2 稼働に更新 |
