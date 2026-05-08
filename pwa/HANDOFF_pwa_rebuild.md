@@ -7,151 +7,63 @@
 - 過去セッションの作業ログ → `design_log/sessions_YYYY-MM.md`
 - 共通運用ルール → リポ root の `CLAUDE.md`、PWA 確認方針 → `pwa/AGENTS.md`
 
-このファイルが 200 行を超えそうになったら、過去セッションを `design_log/sessions_YYYY-MM.md` へ切り出してスリム化する。
-
 ---
 
 ## 最終更新
 
-2026-05-07 (続き) — `/project/[projectId]/config` 移植 (GAS 226_ProjectConfig.html → PWA Phase 1: 基本情報 / メンバー / 契約・料金 / 請求書送付)
+2026-05-08 (blissful-mcclintock セッション) — 月次ルーティン × 各ステップ専用モーダル逆移植、設計 md 集約 (`pwa/design/`)、admin/projects 大改修 (セル単位編集 / PL/PM/クローザー / 凍結再開予定 / 支払期日 / 関係先メアド)、`member_activities` 連鎖 3 件修正で cron 復活、スプシから projects + project_members 復元、deploy.sh Ready 通知。
 
-## ⚠️ env vars 設定が必要 (cron 起動条件)
-
-以下を Vercel production env に追加 (まさに依頼):
-- `SLACK_BOT_TOKEN` — Slack Bot (xoxb-…)。scopes: search:read, channels:history, channels:read, groups:history, groups:read
-- `NOTION_API_KEY` — Notion Integration (secret_…)。Integration を AMD workspace の root ページに招待
-- `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `GOOGLE_OAUTH_REFRESH_TOKEN` — Google OAuth (Drive/Gmail/Calendar 共通)
-- (`ANTHROPIC_API_KEY` / `CRON_SECRET` は既存のものを流用)
-
-env 未設定でも各 source は graceful degradation (skip して 0 件返す) → cron は動くが空データになる。フル動作には全 token 必要。
-
----
-
-## 直近セッション要約
-
-### -1) `/project/[projectId]/config` 移植 (このセッション末尾)
-
-GAS `gas/226_ProjectConfig.html` (約 700 行) を PWA に移植。前セッション (5b3c1a9) で「config リンクの本来の飛び先」が GAS 226 と特定済だったが、PWA に等価ページが無く暫定で `/admin/projects#${projectId}` にアンカーしていた。
-
-- 新 migration 017: `project_members` に `is_pm` / `is_closer` / `role_label` 列追加 (本番適用済)
-- 新 lib `pwa/src/lib/project-config-data.ts`: `fetchProjectConfig` / `saveProjectConfig` / `saveProjectMembers`
-- 新 component `pwa/src/components/project-config/ProjectConfigForm.tsx`: 4 section (基本情報 / メンバー table CRUD / 契約・料金 / 請求書送付)、固定下部保存バー、右下 toast
-- 新 page `pwa/src/app/(app)/project/[projectId]/config/page.tsx`
-- `CockpitHeader` の暫定リンクを正規ルート `/project/${projectId}/config` に繋ぎ替え
-
-**スキップ (Phase 2 で別セッション)**:
-- **Deductions (PJ予算控除枠)** — `project_deductions` table が PWA 未存在。GAS 226 のセクション 3.5 (rate/fixed モード、buffer/salesFee/advisor/other、planCycle 連携 pt 単価)
-- **contract_start_date / contract_end_date** — projects table に列が無い。`start_ym` / `end_ym` で代替できるか要確認
-
-### 0) AMD Score L2 cron 実装 (6 ソース週 1 自動抽出)
-
-「Slack/Drive/Notion/Gmail/Calendar/ネット検索の 6 ソースから cron で情報抽出」というまさ要望に対応。本番 PWA から定期実行できる cron route として実装:
-
-- 新 lib `src/lib/sources/{slack,notion,drive,gmail,calendar,web-search,google}.ts` (6 ソースクライアント + 共通 Google 認証)
-- 新 lib `src/lib/amd-score-l2-extract.ts` (orchestrator: 6 ソース → Sonnet 4.5 → amd_score_inputs upsert)
-- 新 route `/api/cron/amd-score-l2-refresh` (週 1 cron、毎週月曜 03:00 JST = `0 18 * * 0` UTC)
-- vercel.json 更新
-- 各 source は env 未設定なら skip (graceful degradation)
-- evaluator は `'cron_l2_extract'` で記録 (まさ手動 / 一括 batch とも区別可能)
-- maxDuration=300s (Hobby 上限)。9 PJ × ~30s ≈ 270s 想定
-
-依存追加: `@slack/web-api` `@notionhq/client` `googleapis`
-
-**運用開始条件**: 上記 env vars をまさが Vercel に登録 → 翌週月曜 03:00 JST で初回実行 (もしくは `curl -H "Authorization: Bearer $CRON_SECRET" https://amd-os-pwa.vercel.app/api/cron/amd-score-l2-refresh` で即時実行可)
-
-### 1) 過去生データ → 9 PJ × 71 評価点 一括抽出 (このセッション末尾)
-
-「過去の生データから一気に AMD Score timeline を抽出してほしい、ネット情報も補完で」というまさ要望対応。私 (Claude Code) のセッション内で MCP (Notion/Slack/Drive) + WebSearch + Anthropic API + Supabase Management API を組み合わせて 9 PJ batch 処理。
-
-- 新 script: `pwa/scripts/extract_amd_score_from_l2.py` (汎用化、引数: project_id, raw_text_file)
-- 各 PJ の raw text は `/tmp/amd-l2-extract/<projectId>_raw.txt` に dump (Notion + Slack + WebSearch + 既存 seed)
-- Sonnet 4.5 が timeline JSON 生成 → Supabase Management API で `amd_score_inputs` に upsert (evaluator='l2_extract_sonnet')
-- 結果: p03 8 / p04 6 / p06 8 / p07 8 / p09 10 / p11 8 / p18 7 / p20 8 / p21 8 = **計 71 評価点**
-- 詳細・洞察は `design/amd_score.md` 末尾「過去分一括抽出 (2026-05-07 batch)」セクション
-
-**次の段階 (まさ要望「cron は別で必要」に対応)**:
-1. Slack/Drive/Notion API token を Vercel env に追加 (本番 PWA からも叩けるように)
-2. `/api/cron/amd-score-l2-refresh` route 化 (週次 / 月次)
-3. WebSearch も Anthropic 公式 web_search tool を本番に組み込むか Google Custom Search API
-4. UI で各評価点をまさが補正できる仕組み (既に AmdScoreView でできるが UX 改善余地)
-
----
-
-### Phase A — 軽量 UX 修正
-- (3) project_xrl_log に grl/srl 列追加 (migration 014)、cockpit XRL グラフを TRL/BRL/GRL/SRL/HRL の 5 軸に拡張
-- (4) cockpit AMD スコアグラフ + AMD Score 経時 chart に AMD 支援期間 (amd_support_started_at - ended_at) を背景帯で明示
-- (7) CockpitAmdScoreBreakdownModal を KaTeX で数式描画 + XRL を集約表記に変更
-- (8) AmdScoreView ヘッダに「↩ <PJ名> のコックピットに戻る」リンク追加
-
-### Phase B — FRL 構造化評価 + XRL 次レベル進捗
-- (2) migration 015: amd_score_inputs に Walumbwa 2008 ALQ 4 次元 (alq_self_awareness/relational_transparency/balanced_processing/internalized_moral) + frl_notes を追加
-- AmdScoreView に FrlAlqPanel: 4 軸ミニレーダー + スライダー + 自由備考 + 自動算出 (ALQ 平均) ⇄ 手動 FRL 切替
-- 「FRL 学術定義から見て ALQ + 備考だけでは何が足りないか」を展開可能セクションで明示 (360° / Founder Quality / Founder Experience / Achievement Motivation / Psychological Safety / 動的観測 / Founder Network 効果 が不足)
-- 新 lib `xrl-level-definitions.ts`: 内閣府 SIP 9 段階定義 (TRL/BRL/GRL/SRL/HRL 各 9 レベル) を網羅
-- CockpitXrlDetailModal に NextLevelProgress: 現 Lv → 次 Lv の説明 + 進捗 % + exit_criteria 明示
-
-### Phase C — つくよみチャットに AMD Score 認識 + L2 入力 tool 群
-- (1)+(5) system prompt に AMD Score の数式 / フェーズ / FRL ALQ 構造を明記
-- ProjectContext に amd_score (latest_input + 計算済 score + phase + bottleneck + alpha) と xrl_next_levels (5 軸の現/次 Lv + 進捗 % + exit_criteria) を含める
-- 新 tool 群:
-  - `update_amd_score_input`: μ_A/I/G + 5 XRL + FRL/ALQ + frl_notes upsert (部分上書き)
-  - `update_amd_score_alpha`: 重み α 新版保存 (前版を close)
-  - `add_xrl_observation`: project_xrl_log 追加 (5 軸対応)
-  - `record_xrl_feedback`: 5 軸対応
-  - `add_project_event`: 沿革駆動イベント (hire/funding/deal/tech_progress/governance/note)
-  - `add_project_member`: メンバー追加
-  - `add_project_partner`: 事業会社追加
-  - `add_pl_monthly`: 月次試算表 upsert
-- system prompt に「L2 情報を貼られたら分類して複数 tool 並行呼び出し」例
-
-### Phase D — つくよみチャットに添付サポート
-- (6) TsukuyomiChatDrawer: 📎 添付ボタン + ドラッグ&ドロップ (画像 / PDF / テキスト最大 5 ファイル × 8MB)
-- API: 添付を Anthropic content blocks (image / document / text) に変換して Sonnet に渡す
-- tsukuyomi_chat_logs に添付ファイル名 metadata を保存
+詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) の末尾エントリ参照。
 
 ---
 
 ## リポ状態
 
-- 作業 worktree: `/Users/masa/projects/AMD/amd-os/.claude/worktrees/blissful-kepler-9e95b0`
-- 作業 branch: `claude/blissful-kepler-9e95b0` (main にも順次 merge + push 済)
-- main HEAD: AMD Score 改修 4 phase が乗っている
-- 本番デプロイ: `https://amd-os-pwa.vercel.app` (Phase A→B→C→D 順次 deploy 済)
-- migrations: 013 (amd_score), 014 (project_xrl_log grl/srl), 015 (amd_score_inputs alq) 全て本番適用済
+- 作業 worktree: `/Users/masa/projects/AMD/amd-os/.claude/worktrees/blissful-mcclintock-0f9b61`
+- 作業 branch: `claude/blissful-mcclintock-0f9b61` (main にも順次 merge + push 済)
+- main HEAD: `803eb61` (2026-05-08 時点の最終 merge)
+- 本番デプロイ: `https://amd-os-pwa.vercel.app` 反映済
+- 適用済 migrations: 018 / 019 / 020 / 021 / 022 / 023
 
 ---
 
-## 未解決タスク
+## 残タスク (次セッションで対応)
 
-### 設計層 (まさの判断待ち)
+### 高優先 — データの欠損を埋める
+1. **CX (p20) / CTB (p06) / SE (p10) / p11 で次期 MS 期間 (2026 Q2 〜) を設定**
+   - 現状 plan_cycle が 2026-03 で切れている。cockpit 開いた時に「⚠️ 今期の MS 期間 (2026/03) は終了しています」警告 + 次期 MS 設定バナーが表示される
+   - 設定すれば cron が member_activities を自動で埋める
+2. **過去 monthly_reports (4月分等) の復元**
+   - スプシ `DB_MonthlyReports` (sheetId=1184379351) からの restore script は **未実装**
+   - 既存の `/api/admin/restore-from-sheet` route と同じパターンで実装可能
+   - 5月分はそもそもまだ生成されていない (`no report content`) → 別途生成 (PWA に generate ボタン or cron)
 
-- **`/project/[projectId]/config` Phase 2** — Deductions セクション。GAS 226 セクション 3.5 (PJ予算控除枠)。`project_deductions` table 設計から (rate/fixed mode、buffer/salesFee/advisor/other 種別、planCycle 連携)
-- **`/project/[projectId]/config` 契約期間** — projects table に `contract_start_date` / `contract_end_date` 列を追加するか、`start_ym` / `end_ym` で十分か (まさ確認)
-- **AMD Score 期待値とのズレ**: 一部 PJ で seed の μ 値が §8 表より低めに出ている件。まさが UI スライダーで PJ ごとに合わせる方針 (もしくは tsukuyomi に L2 情報渡して update_amd_score_input してもらう)
-- **Shallow Tech モードの重み再分配** (理論 §11.3): TRL=1.0 を BRL/HRL に再分配して K=1.0 にする案
-- **σ_SU を /venture-map/state-space と連携**: 現状は手動入力 μ_A/μ_I/μ_G、本来は Triple Helix 状態空間モデル推定値を pull すべき
-- Timeline 3D 拡張、Venture Map 数式モデル深化
+### 中優先 — UI / UX 確認
+3. CX cockpit でスコアリングボードの PL/PM/クローザー / AMD 期間バッジが表示されているか **まさが目視確認** (hard reload 推奨)
+4. admin/projects のセル単位編集が問題なく動くかまさが触って確認
+5. `saveProjectMembers` の「全削除→挿入」をやめて incremental update に (将来の事故防止、まだ未対応)
 
-### 実装層
-
-- データ駆動 α 推定 (9 PJ 階層 Bayesian)
-- VC valuation との比較ビュー (理論 §10)
-- AMD Score の cron 自動更新 (atlas signal が来たら関連 PJ の σ_SU を再評価)
-- FRL の 360° feedback 取り込み (現状 ALQ 自己申告のみ)
-
-中長期 TODO は `SPEC_pwa.md` の「10. 既知の TODO / 未着手」。
+### 低優先 — 仕組み改善
+6. invoice_to_emails (請求書送付先) の自動セット — スプシ `DB_Projects` に値が入っていない PJ が多い。現状は admin/projects で手入力する想定だが、復元戦略を検討
+7. 5月分の monthly_reports 自動生成 cron の検討
 
 ---
 
 ## 次セッションの最初の一手
 
-1. リポ状態 4 ステップ (`git fetch --all --prune` → `git log --branches --not --remotes --oneline` → `git branch -a` → `git status -s`)
-2. **`design/amd_score.md`** と **`design/cockpit.md`** を読む (両方とも冒頭に「既存 UI を勝手に消すな」ルール)
-3. `SPEC_pwa.md` で全体像、`BUGS.md` で過去事故を確認
-4. 本番 (`https://amd-os-pwa.vercel.app/venture-map/amd-score`) でまさが触ってフィードバック → tune
-5. 候補 (まさに優先確認):
-   a. **`/project/[projectId]/config` Phase 2 (Deductions)** — `project_deductions` table 設計 + 控除枠 UI
-   b. **AMD Score / FRL ALQ / 添付つくよみチャット / config** の本番触ってもらってフィードバック
-   c. AMD Score の cron 化 (atlas signal → σ_SU 自動更新)
-   d. その他
-6. **PWA は常に本番で確認** (`pwa/AGENTS.md`)。tsc 通ったら commit → push → main merge → `npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os` まで一気に通す
+1. **`pwa/design/README.md` から読む**。設計の入口
+2. その後 `pwa/design/SPEC_pwa.md` (全体仕様) → `pwa/design/cockpit.md` → `pwa/design/routine.md` (月次ルーティン正本仕様)
+3. `BUGS.md` の最新 5 エントリ (member_activities 連鎖 3 件、supabase.functions.invoke、vercel ls、GAS bridge、RLS) を読む
+4. リポ状態 4 ステップ (`git fetch --all --prune` → `git log --branches --not --remotes --oneline` → `git branch -a` → `git status -s`)
+5. 上記「残タスク 1.」(CX 等で次期 MS 設定) から着手
+   - もしくはまさが別件を優先するならその指示に従う
+
+---
+
+## 運用コマンド (このセッションで確立した正本)
+
+- **本番 deploy + 通知**: `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`
+  - macOS Glass 音で Build Ready を通知。直接 `npx vercel` を叩かない
+- **DDL 適用**: `python -X utf8 scripts/apply_ddl.py scripts/migrations/NNN_name.sql` (リポ pwa/ から)
+- **cron 手動 trigger**: `curl -H "Authorization: Bearer $CRON_SECRET" "https://amd-os-pwa.vercel.app/api/cron/<name>?ym=YYYYMM"`
+- **スプシから復元**: `curl -H "Authorization: Bearer $CRON_SECRET" "https://amd-os-pwa.vercel.app/api/admin/restore-from-sheet?spreadsheetId=..."`
