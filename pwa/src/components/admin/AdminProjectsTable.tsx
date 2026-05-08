@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient as createBrowserAuthClient } from "@/lib/supabase/client";
 import { AdminProjectRoleEditModal, type RoleKind } from "./AdminProjectRoleEditModal";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// auth (browser) client。anon RLS で write が弾かれるため、ログイン中ユーザーで書き込む
+// (例: status の CHECK / UPDATE policy が anon を弾く回帰が 2026-05-08 に発生)
+const supabase = createBrowserAuthClient();
 
 export interface ProjectRow {
   id: string;
@@ -216,16 +215,16 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium sticky left-0 bg-muted/50 w-14">PJID</th>
               <th className="text-left px-3 py-2 font-medium sticky left-14 bg-muted/50 w-32 border-r border-border">PJ名</th>
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
-              <th className="text-left px-3 py-2 font-medium w-32">停止 / 再開予定</th>
               <th className="text-left px-3 py-2 font-medium w-32">PL</th>
               <th className="text-left px-3 py-2 font-medium w-32">PM</th>
               <th className="text-left px-3 py-2 font-medium w-32">クローザー</th>
               <th className="text-left px-3 py-2 font-medium w-40">請求先</th>
-              <th className="text-left px-3 py-2 font-medium w-48">関係先メールアドレス</th>
+              <th className="text-left px-3 py-2 font-medium w-56">関係先メールアドレス</th>
               <th className="text-left px-3 py-2 font-medium w-32">請求書送付</th>
               <th className="text-left px-3 py-2 font-medium w-20">支払期日</th>
               <th className="text-left px-3 py-2 font-medium w-20">開始ym</th>
               <th className="text-left px-3 py-2 font-medium w-20">終了ym</th>
+              <th className="text-left px-3 py-2 font-medium w-32">停止 / 再開予定</th>
               <th className="text-left px-3 py-2 font-medium w-24">freee ID</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack CH</th>
               <th className="text-left px-3 py-2 font-medium w-40">Drive Folder</th>
@@ -280,43 +279,6 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                         {cellActions("status")}
                       </div>
                     ) : <StatusBadge status={p.status} />}
-                  </td>
-
-                  {/* 停止 / 再開予定 (compound: freeze_from_ym + restart_expected_ym) */}
-                  <td className={`${cellCls("freeze_restart")} align-top`} onClick={enterCell("freeze_restart")}>
-                    {isEditingField(p, "freeze_restart") ? (
-                      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground w-14">停止開始:</span>
-                          <input type="text" value={editVals.freeze_from_ym as string}
-                            onChange={(e) => setEditVals((v) => ({ ...v, freeze_from_ym: e.target.value }))}
-                            placeholder="202604"
-                            className="border border-border rounded px-1 py-0.5 text-[11px] w-16 bg-background font-mono" />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground w-14">再開予定:</span>
-                          <input type="text" value={editVals.restart_expected_ym as string}
-                            onChange={(e) => setEditVals((v) => ({ ...v, restart_expected_ym: e.target.value }))}
-                            placeholder="202606"
-                            className="border border-border rounded px-1 py-0.5 text-[11px] w-16 bg-background font-mono" />
-                        </div>
-                        <p className="text-[9px] text-muted-foreground">両方セットすると「N月〜M月停止中」</p>
-                        {cellActions("freeze_restart")}
-                      </div>
-                    ) : (
-                      <div className="space-y-0.5 text-[11px]">
-                        {p.freeze_from_ym && p.restart_expected_ym && (
-                          <div className="text-slate-700">❄️ {p.freeze_from_ym} 〜 {p.restart_expected_ym} 直前 停止中</div>
-                        )}
-                        {p.freeze_from_ym && !p.restart_expected_ym && (
-                          <div className="text-amber-700">⚠️ {p.freeze_from_ym} から停止</div>
-                        )}
-                        {!p.freeze_from_ym && p.restart_expected_ym && (
-                          <div className="text-blue-700">📅 {p.restart_expected_ym} から再開予定</div>
-                        )}
-                        {!p.freeze_from_ym && !p.restart_expected_ym && <span className="text-muted-foreground">—</span>}
-                      </div>
-                    )}
                   </td>
 
                   {/* PL (列クリックでロール別モーダル) */}
@@ -382,8 +344,8 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                         {cellActions("report_emails")}
                       </div>
                     ) : (
-                      <div className="text-muted-foreground text-[11px] whitespace-pre-line break-all max-w-[200px]">
-                        {p.report_emails ? p.report_emails.split(",").map((e) => e.trim()).filter(Boolean).join("\n") : "—"}
+                      <div className="text-muted-foreground text-[11px] break-all max-w-[260px]">
+                        {p.report_emails ? p.report_emails.split(",").map((e) => e.trim()).filter(Boolean).join(", ") : "—"}
                       </div>
                     )}
                   </td>
@@ -473,6 +435,43 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                         {cellActions("end_ym")}
                       </div>
                     ) : <span className="text-muted-foreground">{p.end_ym || "—"}</span>}
+                  </td>
+
+                  {/* 停止 / 再開予定 (compound: freeze_from_ym + restart_expected_ym) */}
+                  <td className={`${cellCls("freeze_restart")} align-top`} onClick={enterCell("freeze_restart")}>
+                    {isEditingField(p, "freeze_restart") ? (
+                      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground w-14">停止開始:</span>
+                          <input type="text" value={editVals.freeze_from_ym as string}
+                            onChange={(e) => setEditVals((v) => ({ ...v, freeze_from_ym: e.target.value }))}
+                            placeholder="202604"
+                            className="border border-border rounded px-1 py-0.5 text-[11px] w-16 bg-background font-mono" />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground w-14">再開予定:</span>
+                          <input type="text" value={editVals.restart_expected_ym as string}
+                            onChange={(e) => setEditVals((v) => ({ ...v, restart_expected_ym: e.target.value }))}
+                            placeholder="202606"
+                            className="border border-border rounded px-1 py-0.5 text-[11px] w-16 bg-background font-mono" />
+                        </div>
+                        <p className="text-[9px] text-muted-foreground">両方セットすると「N月〜M月停止中」</p>
+                        {cellActions("freeze_restart")}
+                      </div>
+                    ) : (
+                      <div className="space-y-0.5 text-[11px]">
+                        {p.freeze_from_ym && p.restart_expected_ym && (
+                          <div className="text-slate-700">❄️ {p.freeze_from_ym} 〜 {p.restart_expected_ym} 直前 停止中</div>
+                        )}
+                        {p.freeze_from_ym && !p.restart_expected_ym && (
+                          <div className="text-amber-700">⚠️ {p.freeze_from_ym} から停止</div>
+                        )}
+                        {!p.freeze_from_ym && p.restart_expected_ym && (
+                          <div className="text-blue-700">📅 {p.restart_expected_ym} から再開予定</div>
+                        )}
+                        {!p.freeze_from_ym && !p.restart_expected_ym && <span className="text-muted-foreground">—</span>}
+                      </div>
+                    )}
                   </td>
 
                   {/* freee_partner_id */}

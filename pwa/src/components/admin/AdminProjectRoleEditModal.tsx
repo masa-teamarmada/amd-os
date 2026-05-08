@@ -85,15 +85,20 @@ export function AdminProjectRoleEditModal({ projectId, projectName, role, open, 
           if (r[flagCol]) assignedSet.add(String(r.member_id));
         }
 
+        // active メンバーだけを候補にする (まさ要望 2026-05-08)。
+        // inactive な既割当てメンバーがいる場合も候補から外す
+        // → API で送信される memberIds に含まれず、自動的に role flag が外れる挙動。
         const opts: MemberOption[] = (memRes.data ?? [])
-          .filter((m) => (m.status ?? "active") === "active" || assignedSet.has(m.member_id))
+          .filter((m) => (m.status ?? "active") === "active")
           .map((m) => ({
             memberId: m.member_id,
             display: m.code_name || m.member_name || m.member_id,
             isAssigned: assignedSet.has(m.member_id),
           }));
         setOptions(opts);
-        setSelected(new Set(assignedSet));
+        // selected は options に含まれる人だけ。inactive な既割当ては候補から消す
+        const optMemberIds = new Set(opts.map((o) => o.memberId));
+        setSelected(new Set(Array.from(assignedSet).filter((id) => optMemberIds.has(id))));
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       } finally {
