@@ -1,6 +1,6 @@
 # MTG サマリ — 設計の正本
 
-作成: 2026-05-08
+最終更新: 2026-05-09 (Phase 2 移行)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -9,359 +9,268 @@
 
 PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** に「定例MTG各回のサマリを時系列で並べる」機能の仕様。
 
-- データソース: Notion 議事録 DB (1ページ = 1回の MTG)
-- 抽出: GAS の daily cron が各議事録ページごとに Gemini で `summary_short` + `decided / progress / nextActions / risks` を生成
-- 保存: Supabase の新テーブル `project_meeting_summaries`
+- データソース: **Notion 議事録ページ本文 + Gmail 議事録メール (CircleBack 要約 / GMeet recording 通知 等)** の結合
+- 抽出: GAS の daily cron が **calendar event 単位** に Gemini で `summary_short` + `decided / progress / nextActions / risks` を生成
+- 保存: Supabase の `project_meeting_summaries` (PK: `meeting_id` = calendar event id)
 - 表示: PWA の `CockpitMeetingSummary` が Supabase を直読み
 
-このドキュメントは **PWA / GAS / Supabase 横断の正本**。GAS 別セッションもここを正本として実装する。
+このドキュメントは **PWA / GAS / Supabase 横断の正本**。
 
 ---
 
-## 大方針 (重要 — 設計判断)
+## Phase 2 の大方針 (Phase 1 から何を変えたか)
 
-**現状**: GAS の `nav_repo_makeMonthlyExtractDraft_` ([gas/073_NavigatorRepo.js:505](../../gas/073_NavigatorRepo.js)) が daily cron (毎日 03:00 JST、[gas/152_NavigatorCron.js:22](../../gas/152_NavigatorCron.js)) で:
-- PJ の Notion 議事録を当月分まとめてテキスト連結
-- LLM 1発で月単位のフラットな items を抽出 (`itemType: decided / progress / nextAction / risk` × 月内全部混在)
-- 保存先は GAS スプシの `DB_NavigatorMonthlyItems` のみ (Supabase 未到達)
+| 観点 | Phase 1 (廃) | Phase 2 (現行) |
+|---|---|---|
+| 主軸 | Notion 議事録ページ単独 | **1 calendar event = 1 行** |
+| `meeting_id` PK | Notion page id | **calendar event id** (Notion 議事録ページの `eventId` プロパティから) |
+| 議事録ソース | Notion ページ本文のみ | **Notion ページ本文 + Gmail (reportEmails ±1日)** を結合 |
+| 議事録なし扱い | 抽出スキップ (= 行が出ない) | `summary_short = "議事録なし"` でマーカー行を残す |
+| 範囲 | 1 PJ × 1 ym | 同左 (cron は daily 実行で当月分を再走) |
+| 差分検知 | 本文 sha256 | (Notion 本文 + Gmail 結合テキスト) sha256 |
 
-**問題**: 月単位フラット抽出のため「**どの items がどの回で出たか**」が紐付かない。MTG サマリの要件 (各回ごとに `decided/progress/nextActions/risks` を表示) と構造が合わない。
-
-**新方針**: **抽出を「会議単位」に作り変える**。Monthly Report は会議サマリの集約結果として組み立てる。
-
-```
-新パイプ (daily cron):
-  Notion 議事録ページ 1個
-    ↓ source_hash で差分検知 (本文ハッシュが変わってなければスキップ)
-    ↓ Gemini Flash 1発 (会議単位)
-  { summary_short, decided[], progress[], nextActions[], risks[] }
-    ↓
-  Supabase: project_meeting_summaries に upsert
-    ↓
-  集約 → monthly_reports に書き込み (R313 系の生成ロジックは「会議サマリの集約」に書き換え)
-```
-
-**メリット**:
-- 会議とのひも付けが構造的に正しい
-- `source_hash` で差分検知できるので、daily 実行でも実 LLM コール数は最小 (議事録未更新なら呼ばない)
-- monthly_report は集約結果になり、議事録から直接生成しなくて良い (整合性が保たれる)
-- PWA は `project_meeting_summaries` を直読みするだけ
-
-**デメリット (受容)**:
-- LLM コール回数は会議数ぶんに増えるが、差分検知で最小化
-- GAS 側の大改修 (本体GAS の `nav_repo_makeMonthlyExtractDraft_` 系 + AMD-Report GAS の R313 系)
-- 過去議事録ぶんは初回バックフィル必要 (one-time 関数)
+**変えた理由**: Phase 1 は Notion 議事録の本文が薄い (タイトルだけ等) と Gemini も「内容なし」を返してしまい、大半が空 items になっていた。実運用では「**議事録の中身は Notion とは限らず、CircleBack 要約や GMeet recording 通知が Gmail に流れてきて、それを議事録として使ってる**」(まさの運用)。だから議事録ソースを広げる。
 
 ---
 
 ## データフロー
 
 ```
-[Notion 議事録 DB]
-    │  PJ プロパティ (relation) で PJ resolve
-    │  日付プロパティで yyyymm フィルタ
-    ↓
-[GAS 本体 daily cron 03:00 JST]
-    nav_cronMonthlyExtractAt3 (152_NavigatorCron.js)
-    対象: DB_Projects の status=active/frozen
-    │
-    │ for each PJ:
-    │   for each 議事録ページ in 当月内:
-    │     1. 本文取得 (Notion blocks API)
-    │     2. source_hash = sha256(本文)
-    │     3. project_meeting_summaries に同 meeting_id があり source_hash 同じならスキップ
-    │     4. Gemini Flash に渡して { summary_short, decided[], progress[], nextActions[], risks[] } 取得
-    │     5. project_meeting_summaries に upsert
-    │
-    ↓
+[Calendar event] (PJ ごとの色 / alias で PJ 判定)
+   │ cron_createMinutesFromCalendar (CalendarToNotionMinutes.js, 03:00 JST 既存)
+   ↓
+[Notion 議事録 DB] 1 page = 1 calendar event (eventId プロパティで紐付け)
+   │
+   ↓
+[GAS daily cron 03:00 JST]
+   nav_cronMonthlyExtractAt3 (152_NavigatorCron.js)
+     ↓ for each active PJ:
+        nav_meeting_extractForProjectYm_(projectId, currentYm) (074_MeetingSummaryRepo.js)
+          │ a) Notion 議事録 DB を当月 query (305 流用)
+          │ b) PJ 解決 → 当該 PJ のページに絞る (Notion PJ relation)
+          │ c) Gmail を **当月 1 回** mr_extractFromGmail_ で取得しキャッシュ (307 流用)
+          │ d) for each Notion page:
+          │      - eventId プロパティ = calendar event id (= meeting_id PK)
+          │      - Notion 本文取得 (props 「内容」 + blocks 結合)
+          │      - Gmail キャッシュから「event 日 ±1日」の thread を pickup
+          │      - 結合テキストの sha256 で差分検知 → 変わってれば Gemini call
+          │      - 議事録なしケースは summary_short="議事録なし" で upsert (LLM 呼ばない)
+          ↓
 [Supabase: project_meeting_summaries]
-    │
-    ↓
-[GAS AMD-Report daily cron 05:00 JST]
-    R313_MonthlyReport_Cron
-    │ for each PJ:
-    │   project_meeting_summaries から当月分を会議日付順に取得
-    │   集約して monthly_reports.draft_content / final_content を組み立て
-    ↓
-[Supabase: monthly_reports]  (PWA の月次レポート画面はそのまま)
-
-[PWA]
-  CockpitMeetingSummary が Supabase project_meeting_summaries を直読み
+   ↓
+[PWA] CockpitMeetingSummary が直読み
 ```
+
+**重要**: Notion 議事録ページが無ければこの cron では拾えない。
+ただし上流の `cron_createMinutesFromCalendar` (CalendarToNotionMinutes.js) が
+毎日 03:00 で **明日分の calendar event について議事録枠を自動生成** しているので、
+通常は Notion 議事録ページが存在する状態で当 cron が走る。allDay event /
+`+`プレフィックス / `EXCLUDE` alias は除外される (= 議事録ページが作られない)。
+
+---
+
+## 議事録ソース: 取得方法の正本
+
+**🚨 まさの運用ルール**: 議事録は Notion とは限らない。CircleBack 要約 / GMeet recording 通知 / クライアント側議事録メール を **Gmail から拾う** 運用が混在。Phase 2 はこの両方を結合する。
+
+### ソース 1: Notion 議事録ページ本文
+
+- `nav_repo_notion_queryMinutesByYmFull_(token, dbId, ym)` ([gas/073_NavigatorRepo.js:1527](../../gas/073_NavigatorRepo.js)) で当月分の Notion ページ全件取得
+- `_meeting_resolveProjectIdFromPage_` で PJ relation → AMD projectId 解決、対象 PJ のものに絞る
+- `_notion_extractPropertyText_(page, "内容")` (props) + `nav_repo_notion_fetchPageBodyText` ([gas/122_NotionBlocksRepo.js:11](../../gas/122_NotionBlocksRepo.js)、blocks 本文 maxChars=20000) を結合
+
+### ソース 2: Gmail スレッド (議事録メール)
+
+- `mr_extractFromGmail_(projectId, startDate, endDate)` ([gas/307_MonthlyReport_GmailExtract.js](../../gas/307_MonthlyReport_GmailExtract.js)) を **daily cron 実行のうち、その 1 PJ × 1 ym で 1 回だけ** 月単位で呼ぶ → memory cache。
+- 内部で `DB_Projects.reportEmails` (カンマ区切り複数) を `(from:X OR to:X)` でフィルタ。**ここに CircleBack の通知メールアドレス / GMeet recording の通知アドレス / クライアントメール を登録しておくと議事録メールが入る** (PJ ごとの reportEmails 設定運用)。
+- 各 calendar event について、cache から「event 日 ±1日」の thread を `_meeting_pickRelevantGmailThreads_` で pickup
+- 各 thread は最大 5 messages × 各 800 字で本文抜粋 (LLM トークン抑制)
+
+### 議事録なしケース (Phase 2 マーカー)
+
+両ソースとも 30 字未満なら:
+- `summary_short = "議事録なし"`
+- `decided / progress / next_actions / risks` 全て空配列
+- `source_kinds = "none"`
+- `source_hash = sha256("none|" + meetingDate + "|" + title)`
+
+これにより calendar event はあるが議事録が無い MTG が UI 上「議事録なし」表示として残る。
 
 ---
 
 ## Supabase スキーマ
 
 ```sql
--- pwa/scripts/migrations/024_project_meeting_summaries.sql
+-- 024 (Phase 1 初版) + 025 (anon read 開放) + 027 (Phase 2 移行)
 
-CREATE TABLE IF NOT EXISTS project_meeting_summaries (
-  meeting_id          TEXT PRIMARY KEY,           -- Notion page id (UUID 形式、hyphen 含)
-  project_id          TEXT NOT NULL,              -- AMD projectId (例: "tiem", "bwe")
-  ym                  TEXT NOT NULL,              -- yyyymm (例: "202604")
-  meeting_date        DATE NOT NULL,              -- Notion 日付プロパティ
-  meeting_start_at    TIMESTAMPTZ,                -- カレンダーから取れれば (任意)
-  title               TEXT NOT NULL,              -- Notion ページタイトル
-  notion_url          TEXT,                       -- Notion ページ URL
-  calendar_event_id   TEXT,                       -- BillingLite meetingEventId 経由で逆引き (任意)
+CREATE TABLE project_meeting_summaries (
+  meeting_id          TEXT PRIMARY KEY,           -- ⭐ Phase 2: calendar event id
+  project_id          TEXT NOT NULL,
+  ym                  TEXT NOT NULL,              -- yyyymm
+  meeting_date        DATE NOT NULL,
+  meeting_start_at    TIMESTAMPTZ,
+  title               TEXT NOT NULL,
 
-  summary_short       TEXT NOT NULL DEFAULT '',   -- 1〜2 行の要約 (Gemini)
-  decided             JSONB NOT NULL DEFAULT '[]'::jsonb,  -- string[]: 決定事項
-  progress            JSONB NOT NULL DEFAULT '[]'::jsonb,  -- string[]: 進捗
-  next_actions        JSONB NOT NULL DEFAULT '[]'::jsonb,  -- string[]: 次アクション
-  risks               JSONB NOT NULL DEFAULT '[]'::jsonb,  -- string[]: リスク
+  -- Phase 1 互換 (UI が「Notion で開く」リンクに使用)
+  notion_url          TEXT,
+  notion_page_id      TEXT,                       -- Phase 2 (027) 追加
+  calendar_event_id   TEXT,                       -- 通常 = meeting_id (PK)
 
-  source_hash         TEXT,                       -- Notion 本文の sha256 (差分検知)
+  -- 議事録抽出結果
+  summary_short       TEXT NOT NULL DEFAULT '',
+  decided             JSONB NOT NULL DEFAULT '[]'::jsonb,
+  progress            JSONB NOT NULL DEFAULT '[]'::jsonb,
+  next_actions        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  risks               JSONB NOT NULL DEFAULT '[]'::jsonb,
+
+  -- Phase 2 (027) 追加メタ
+  gmail_thread_ids    JSONB NOT NULL DEFAULT '[]'::jsonb,  -- 取得元 thread id 配列
+  source_kinds        TEXT,                                -- 'notion' | 'gmail' | 'notion+gmail' | 'none'
+
+  source_hash         TEXT,
   generated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  generated_by_model  TEXT,                       -- 例: "gemini-2.0-flash"
+  generated_by_model  TEXT,                                -- 例: 'gemini-2.5-flash' / NULL (none)
 
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_pms_project_date
-  ON project_meeting_summaries(project_id, meeting_date DESC);
-
-CREATE INDEX IF NOT EXISTS idx_pms_project_ym
-  ON project_meeting_summaries(project_id, ym);
-
--- updated_at 自動更新トリガ
-CREATE OR REPLACE FUNCTION trg_pms_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS pms_updated_at ON project_meeting_summaries;
-CREATE TRIGGER pms_updated_at
-  BEFORE UPDATE ON project_meeting_summaries
-  FOR EACH ROW EXECUTE FUNCTION trg_pms_updated_at();
-
--- RLS: 認証済みユーザーは read 可、書き込みは service_role のみ
-ALTER TABLE project_meeting_summaries ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY pms_read_authenticated
-  ON project_meeting_summaries
-  FOR SELECT
-  TO authenticated
-  USING (true);
-
--- service_role は RLS をバイパスするので明示 policy 不要
+-- RLS: anon, authenticated とも SELECT 可 (PWA は anon key で読む)
+-- 書き込みは service_role 経由 (GAS supa_upsert)
 ```
-
-### カラム設計の意図
-
-- **meeting_id = Notion page id**: 1議事録 = 1MTG。meeting_id をそのまま PK にすることで upsert がシンプル
-- **decided / progress / next_actions / risks は JSONB の string[]**: items の数は会議によって 0〜10 程度、配列のまま入れる方がクエリも UI もシンプル。テーブル分割するほどの構造化は不要
-- **source_hash**: 差分検知の正本。Notion 本文の sha256。GAS cron がこれをチェックして同値ならスキップ
-- **calendar_event_id (任意)**: 将来「Calendar の MTG とこのサマリを紐付けたい」要件が出たとき用の予約席
 
 ---
 
-## GAS 側仕様 (別セッションで実装)
+## GAS 側仕様 (Phase 2)
 
-### 改修ファイル
+### 主要ファイル
 
-| ファイル | 改修内容 |
+| ファイル | 役割 |
 |---|---|
-| [gas/073_NavigatorRepo.js](../../gas/073_NavigatorRepo.js) | `nav_repo_makeMonthlyExtractDraft_` を会議単位抽出に書き換え。月単位フラット items 生成は廃止 |
-| [gas/092_AdminLLMExtractors.js](../../gas/092_AdminLLMExtractors.js) | Protocol Store の prompt を新規 `meeting_extract` として登録 (既存 `navigator_extract` は当面残しつつ非推奨マーク) |
-| AMD-Report GAS の R313_MonthlyReport_Cron | `monthly_reports` の組み立てを `project_meeting_summaries` 集約に書き換え |
-| 新規: `gas/801_OneTimeFunctions.js` または別 800 番台 | 過去議事録の初回バックフィル one-time 関数 |
-| 新規: Supabase 書き込み helper | service_role キーで `project_meeting_summaries` に upsert する関数 |
+| [gas/074_MeetingSummaryRepo.js](../../gas/074_MeetingSummaryRepo.js) | **本ロジック正本**。`nav_meeting_extractForProjectYm_` / `nav_meeting_backfillForProject_` |
+| [gas/152_NavigatorCron.js](../../gas/152_NavigatorCron.js) | daily cron 入口。`nav_meeting_extractForProjectYm_(projectId, ymKey)` を呼ぶ |
+| [gas/092_AdminLLMExtractors.js](../../gas/092_AdminLLMExtractors.js) | Protocol Store の `meeting_extract` プロンプト (`run_installMeetingExtractorConfig` で install) |
+| [gas/180_SupabaseClient.js](../../gas/180_SupabaseClient.js) | Supabase 書き込み helper (`supa_upsert` / `supa_select`) |
+| [gas/307_MonthlyReport_GmailExtract.js](../../gas/307_MonthlyReport_GmailExtract.js) | **流用先**: `mr_gmail_getProjectInfo_` / `mr_gmail_buildSearchQuery_` (reportEmails) |
+| [gas/305_MonthlyReport_NotionExtract.js](../../gas/305_MonthlyReport_NotionExtract.js) | **流用先**: Notion DB query 系 |
+| [gas/122_NotionBlocksRepo.js](../../gas/122_NotionBlocksRepo.js) | **流用先**: Notion ページ本文取得 |
+| [gas/CalendarToNotionMinutes.js](../../gas/CalendarToNotionMinutes.js) | 上流: 毎日 03:00 で明日分の Notion 議事録枠を作る (`cron_createMinutesFromCalendar`) |
 
-### Gemini プロンプト仕様 (Protocol Store: `meeting_extract`)
+### Gemini プロンプト (Protocol Store: `meeting_extract` v2)
 
-入力: 1回の MTG 議事録ページ本文 (Notion 「内容」プロパティ + blocks API 補完)
-出力: 厳密 JSON。前後の文章禁止。
+入力: 1 calendar event ぶんの結合テキスト
+```
+=== notion ===
+<Notion 議事録ページ本文>
 
+=== gmail ===
+--- mail [MM/dd HH:mm] subject: ... ---
+<本文抜粋>
+
+--- mail [MM/dd HH:mm] subject: ... ---
+...
+```
+
+出力: 厳密 JSON
 ```json
 {
-  "summary_short": "2 行以内、80 字以内。会議の要点を一言で。",
-  "decided":      ["決まったこと 1〜3 行で1件、最大5件"],
-  "progress":     ["進んだこと 1〜3 行で1件、最大5件"],
-  "next_actions": ["次やること (担当者/期限が読み取れるなら含める) 最大5件"],
-  "risks":        ["リスク・詰まり・未解決事項 最大5件"]
+  "summary_short": "2 行以内・80 字以内",
+  "decided":      ["..."],
+  "progress":     ["..."],
+  "next_actions": ["..."],
+  "risks":        ["..."]
 }
 ```
 
-ルール:
-- 入力に書かれてない推測は禁止
-- 感想・雑談・抽象論・願望は捨てる
-- 重複する内容はまとめる
-- どのフィールドも items が無ければ空配列 `[]` を返す
-- LLM 失敗時 (JSON パース不可) は前回の値を維持し、`generated_at` は更新しない
+ルール (詳細は [gas/092_AdminLLMExtractors.js](../../gas/092_AdminLLMExtractors.js) `meeting_extract_basePrompt_`):
+- `gmail` セクションには **会議と関係ないメール** が混ざりうる → LLM 側で選別
+- 同一事項が両方にあれば 1 つにまとめる、より具体的な記述を優先
+- 自動通知文・署名・URL は捨てる
+- 各配列最大 5 件、入力に書かれてない推測禁止
 
-プロンプト本文は Protocol Store の `DB_LLMExtractorConfig` の name=`meeting_extract` レコードに格納する (gas/CLAUDE.md ルール「LLM プロンプトはコードに書かない」遵守)。
-
-### 差分検知ロジック
+### 差分検知
 
 ```
-for each Notion 議事録ページ:
-  notionContent = fetch_notion_content(pageId)        // 「内容」+blocks
-  newHash = sha256(notionContent)
-
-  existing = supabase.select('source_hash, generated_at')
-                     .from('project_meeting_summaries')
-                     .where(meeting_id = pageId)
-
-  if existing && existing.source_hash === newHash:
-    continue  // 何も呼ばない
-
-  result = gemini_extract(notionContent)              // 失敗時は continue
-  supabase.upsert('project_meeting_summaries', {
-    meeting_id: pageId,
-    project_id, ym, meeting_date, title, notion_url,
-    summary_short: result.summary_short,
-    decided: result.decided,
-    progress: result.progress,
-    next_actions: result.next_actions,
-    risks: result.risks,
-    source_hash: newHash,
-    generated_at: now(),
-    generated_by_model: 'gemini-2.0-flash'
-  })
+combinedText = (Notion 本文 + "\n\n" + Gmail 抜粋)
+newHash = sha256(combinedText)
+if existing.source_hash === newHash: skip (LLM 呼ばない)
 ```
 
-### 対象 PJ
+毎日 cron で同じ議事録が再 query されても、本文が変わってない限り Gemini call はされない。
 
-`nav_cron_listTargetProjectIds_` ([gas/152_NavigatorCron.js](../../gas/152_NavigatorCron.js)) と同じ — `DB_Projects.status` が `active` または `frozen`。
+### GAS 6 分制限対策
 
-### 対象期間
+`maxItems` で 1 回の関数呼び出しでの **LLM call 回数** を制限 (default 8、cron では 5)。
+それを超えると `hasMore: true` を返して deferred。同関数を再度呼べば残りが処理される (差分検知ありなのでムダにならない)。
 
-cron 実行時点の **当月** + **前月** (前月の議事録が後から修正されることがあるため)。
-バックフィルは one-time 関数で過去全期間を埋める。
+`nav_meeting_backfillForProject_` は内部で hasMore の限り最大 8 回再呼び。
 
-### Supabase 書き込みの認証
+### ScriptProperties
 
-- `service_role` キーを ScriptProperties に追加: `SUPABASE_SERVICE_ROLE_KEY`
-- 既存の Supabase 連携 helper を流用 (無ければ新規作成)
-- Supabase URL は ScriptProperties: `SUPABASE_URL` (既存)
+| キー | 用途 |
+|---|---|
+| `NOTION_TOKEN` | Notion API |
+| `NOTION_DATABASE_ID` | 議事録 DB |
+| `NOTION_PJ_DATABASE_ID` | PJ DB |
+| `NOTION_MINUTES_DATE_PROP` | 議事録 DB の日付プロパティ名 (default: "日付") |
+| `GEMINI_API_KEY` | Gemini |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | Supabase service_role 書き込み |
+| `PROTOCOL_STORE_SPREADSHEET_ID` | Protocol Store (`DB_LLMExtractorConfig`) |
+| `COLOR_PJ_CONFIG_SPREADSHEET_ID` | CFG_ColorPJHistory / CFG_PJAlias (PJ 判定) |
+
+`SUPABASE_SERVICE_KEY` は `_ROLE_KEY` ではない (gas/CLAUDE.md ルール 9 + BUGS.md 2026-05-08)。
 
 ---
 
 ## PWA 側仕様
 
-### 改修ファイル
+### 主要ファイル
 
-| ファイル | 改修内容 |
+| ファイル | 役割 |
 |---|---|
-| [pwa/scripts/migrations/024_project_meeting_summaries.sql](../scripts/migrations/) | 新規 (上記スキーマ) |
-| [pwa/src/lib/supabase-data.ts](../src/lib/supabase-data.ts) | `fetchProjectMeetingSummaries(projectId, opts)` 追加 |
-| [pwa/src/components/cockpit/CockpitMeetingSummary.tsx](../src/components/cockpit/CockpitMeetingSummary.tsx) | 全面書き換え (`source_cache` から `project_meeting_summaries` へ、UI 仕様も更新) |
+| [pwa/scripts/migrations/024_project_meeting_summaries.sql](../scripts/migrations/024_project_meeting_summaries.sql) | 初版 (Phase 1) |
+| [pwa/scripts/migrations/025_pms_anon_read.sql](../scripts/migrations/025_pms_anon_read.sql) | RLS anon, authenticated |
+| [pwa/scripts/migrations/027_pms_phase2_calendar_event.sql](../scripts/migrations/027_pms_phase2_calendar_event.sql) | Phase 2 移行 (DELETE 全行 + カラム追加) |
+| [pwa/src/lib/supabase-data.ts](../src/lib/supabase-data.ts) | `fetchProjectMeetingSummaries` (Phase 1 と同じ) |
+| [pwa/src/components/cockpit/CockpitMeetingSummary.tsx](../src/components/cockpit/CockpitMeetingSummary.tsx) | UI (Phase 1 と同じ、`item.notionUrl` チェックで NULL 行も対応済) |
 
-### `fetchProjectMeetingSummaries` シグネチャ
+PWA 側は Phase 2 移行で **コード変更不要**。Schema 追加カラム (`notion_page_id` / `gmail_thread_ids` / `source_kinds`) は UI には出さない (将来必要になったら supabase-data.ts に足す)。
 
-```ts
-export interface ProjectMeetingSummary {
-  meetingId: string;
-  projectId: string;
-  ym: string;
-  meetingDate: string;        // ISO date "YYYY-MM-DD"
-  meetingStartAt: string | null;
-  title: string;
-  notionUrl: string | null;
-  calendarEventId: string | null;
-  summaryShort: string;
-  decided: string[];
-  progress: string[];
-  nextActions: string[];
-  risks: string[];
-  generatedAt: string;
-  generatedByModel: string | null;
-}
+### UI 仕様 (変更なし)
 
-export async function fetchProjectMeetingSummaries(
-  projectId: string,
-  opts?: { sinceDate?: string; limit?: number }
-): Promise<ProjectMeetingSummary[]>;
-```
-
-### `CockpitMeetingSummary` UI 仕様
-
-**配置**: `CockpitView` の現状の `[G/E]` 枠 (cockpit.md の構造図参照)。場所は変えない。
-
-**初期表示 (直近1年)**:
-- 今日から 365 日前まで `meeting_date >= today - 365d` のサマリを取得
-- `meeting_date DESC` で降順ソート
-- 月でグルーピング (例: `2026年4月` のヘッダ → 4月の MTG が縦に並ぶ)
-
-**過去ぶん表示**:
-- セクション末尾に `▼ それより前を表示` トグル
-- 押下で 1 年より前の全件を追加ロード
-
-**1行レイアウト (折りたたみ時)**:
-```
-4/22 (火) 14:00  ティエム定例
-  └ summary_short (1〜2 行、line-clamp-2)
-```
-
-**展開時 (行クリックで開閉)**:
-```
-4/22 (火) 14:00  ティエム定例                                        [Notion で開く ↗]
-  📝 summary_short
-
-  ✅ 決まったこと
-    • 量産ライン X 工程の歩留まり改善案を Y で進める方針確定
-    • ...
-  📈 進んだこと
-    • ...
-  🎯 次やること
-    • ...
-  ⚠️ リスク
-    • ...
-```
-
-各セクションは items が空なら非表示。Notion リンクがあれば右上にボタン。
-
-**空状態**:
-- 議事録が 1 件もない PJ: 「議事録データなし」表示 (現状と同じ)
-- ロード中: スピナー or 「読み込み中…」テキスト
-
-**スタイル**:
-- 既存 Apple-ish デザイン踏襲 (`bg-white`, `rounded-xl`, `border-[#e5e5e7]`, 13px/12px/11px の階層)
-- 月ヘッダは `text-[12px] font-medium text-[#86868b]` でセクション区切り
-
----
-
-## 実装順序
-
-1. **本セッション** (PWA worktree):
-   - 本仕様 md 作成 (このファイル)
-   - `pwa/design/README.md` の「テーマ別」表に追加
-   - `gas/CLAUDE.md` に「MTG サマリ cron 仕様: pwa/design/meeting_summaries.md 参照」を追加
-   - migration `024_project_meeting_summaries.sql` 作成 + apply_ddl.py で本番適用
-   - `fetchProjectMeetingSummaries` を supabase-data.ts に追加
-   - `CockpitMeetingSummary.tsx` を新方針で書き換え (空テーブルでも UI が壊れない実装)
-   - tsc → commit → push → Vercel deploy
-   - **この時点の挙動**: テーブルは空なので「議事録データなし」表示。GAS が書き込み始めたら自動で出る
-
-2. **GAS 別セッション** (本仕様 md を見ながら実装):
-   - Protocol Store に `meeting_extract` プロンプト登録
-   - Supabase 書き込み helper 用意 (`SUPABASE_SERVICE_ROLE_KEY` 設定)
-   - `nav_repo_makeMonthlyExtractDraft_` を会議単位抽出に書き換え
-   - 当月+前月だけ daily 抽出 (差分検知あり)
-   - one-time 関数で過去議事録バックフィル
-   - R313 を集約に書き換え
-
-3. **GAS 完了後**:
-   - PWA で表示確認
-   - 不具合あればこの仕様 md を更新
+- 月でグルーピング、`meeting_date DESC` 降順
+- 直近 1 年デフォルト + 「▼ それより前を表示」トグル
+- 行クリックで折り畳み展開
+- 議事録なしマーカー行は `summary_short` だけ "議事録なし" が出る (decided/progress/... は空なので非表示、`Notion で開く` リンクは notion_url があれば出る)
 
 ---
 
 ## 既知の制約・運用上の注意
 
-- **議事録未作成回**: Notion議事録が無い MTG はこの機能では出てこない。Notion議事録を書く運用は別途まさが管理
-- **PJ resolve 失敗**: 議事録の「PJ」relation が空 / 不明なページは抽出スキップ ([gas/073_NavigatorRepo.js:1909 nav_repo_notion_collectMinutesTextForProject_](../../gas/073_NavigatorRepo.js) の resolveProjectIdFromPjRelation_ ロジックを流用)
-- **古い議事録の再抽出**: source_hash が変われば再抽出される。LLM 出力が前より悪い結果になる可能性は受容 (前回値を保持しない方針 — 「最新が真実」)
-- **Gemini レート / クォータ**: daily で会議数ぶんコールするが、まさのアカウントは余裕あり (本人言)。差分検知で更にコール数は最小化される
-- **GAS 6 分実行制限 → maxItems バッチ化** (2026-05-08 判明): Notion query + Gemini call で 1 議事録 ~30〜60 秒。`nav_meeting_extractForProjectYm_(projectId, ymKey, {maxItems})` で 1 回あたり最大 maxItems 件処理 (default 5、上限 8 ぐらいで時間切れリスク)。`hasMore: true` で残りあり → 同関数を繰り返し呼ぶ。daily cron 内では maxItems=5 ぶんを 1 回だけ呼んで残りは翌日 cron に任せる方針 (差分検知あるので何度繰り返してもムダにならない)
-- **Notion 「日付」フィルタが効かないケース** (2026-05-08 判明): `nav_repo_notion_queryMinutesByYmFull_` に ym=202604 を渡しても 2025-12〜2026-04 の議事録が混じって返る。Notion ページの「日付」プロパティが空 or 範囲外でも query を通過するため。実害は無い (`meeting_date` は議事録ページ自身の「日付」プロパティを保存するので、PWA 側で正しく時系列ソート・フィルタされる) が、無駄な処理が含まれる。次セッション以降で改善余地
-- **「内容なし」議事録**: Notion 議事録の本文が薄い (タイトルだけ等) ページは Gemini も「内容の記載なし」と返してくる。空 `decided/progress/...` 配列のまま upsert される。PWA 側で「サマリ未生成」表示に倒れる。本文取得は「内容」プロパティ + blocks 本文の **両方を結合** して Gemini に渡してる ([gas/074_MeetingSummaryRepo.js](../../gas/074_MeetingSummaryRepo.js))
+- **議事録ページ未作成回**: `cron_createMinutesFromCalendar` で対象外 (allDay / `+`prefix / `EXCLUDE` alias) になった calendar event は議事録ページが無いので Phase 2 cron では拾えない。これは仕様 (= MTG ではないと判定された)
+- **古い議事録 (eventId プロパティなし)**: CalendarToNotionMinutes 導入前の手動議事録ページは `eventId` が空で、Phase 2 では meeting_id を作れないので skip される (`action: "skipped_no_event_id"`)。Phase 1 で入れた 7 行も migration 027 の DELETE で消えてる
+- **PJ 関係ないメールが Gmail cache に混じる**: `reportEmails` filter で from/to のいずれか一致のものだけ取るが、それでも会議無関係のメールが混ざることはある。±1日に絞り、最終的に LLM 側で選別する設計
+- **2026-05-09 初回バックフィル時の観察**: p20 (SX) 202604 で `inserted_none` が大半、`inserted` (Notion 本文あり) が 1 件、`gmailThreads: 0` が大半。reportEmails 設定が空 or CircleBack/GMeet 通知が登録アドレスに届いていない可能性。次セッションで `DB_Projects.reportEmails` の中身を確認 + 議事録メール経路の整備が必要 (Phase 2.1 と呼ぶ)
+- **Notion API レート**: 1 ym につき (Notion query 1 回 + Notion blocks API n 回) なので 30 件 MTG なら ~31 リクエスト。Notion レート制限は 3 req/sec 程度なので余裕あり
+- **GmailApp.search コスト**: PJ × ym ごとに 1 回呼び (max 200 thread)。月 7 active PJ × 1 cron 実行 = 7 回 / 日。問題なし
+- **Gemini レート / クォータ**: daily で会議数ぶんコールするが差分検知でほぼスキップされる。まさのアカウントは余裕あり
+- **GAS 6 分実行制限 → maxItems バッチ化**: 1 回の cron 実行で各 PJ × 5 LLM call 上限。残りは翌日 cron に流れる (差分検知あり)
+
+---
+
+## R313 monthly_reports cron との関係 (TODO 別セッション)
+
+R313 (AMD-Report GAS) の月次レポート生成は、Phase 2 完成後に「会議サマリ集約方式」に書き換える予定:
+
+```
+Phase 2 完了後:
+  R313_MonthlyReport_Cron
+    project_meeting_summaries.where(project_id, ym=当月).order(meeting_date)
+      ↓ Sonnet で集約
+    monthly_reports.draft_content / final_content を更新
+```
+
+これは AMD-Report GAS (本リポ外、別 clasp) の改修なので、別セッションで対応する。
 
 ---
 
@@ -369,9 +278,12 @@ export async function fetchProjectMeetingSummaries(
 
 | 日付 | 範囲 | commit / 状態 |
 |---|---|---|
-| 2026-05-08 | 仕様 md 初版作成 (PWA セッション) | commit `7b77017` 後 main merge `c1cea1c` |
-| 2026-05-08 | PWA UI 実装 + Supabase migration 024 適用 | 同上 |
-| 2026-05-08 | **Phase 1 GAS 実装完了** (本体 GAS のみ。AMD-Report GAS の R313 集約書き換えは Phase 2) | 本セッション |
-| 2026-05-08 | 追加: gas/180_SupabaseClient.js / gas/074_MeetingSummaryRepo.js / 092 の meeting_extract installer / 163 の Gemini 対応 / 152 cron に呼び出し追加 / 099 PwaApi に listProps + runFunc admin actions / 801 にバックフィル one-time 関数 | 本セッション |
-| 2026-05-08 | gas/CLAUDE.md に「ScriptProperties 正本」「GAS 関数の実行手順」セクション追加 | 本セッション |
-| TBD | Phase 2: AMD-Report GAS の R313_MonthlyReport_Cron を `project_meeting_summaries` 集約方式に書き換え | 別セッション |
+| 2026-05-08 | Phase 1 仕様 md 初版 + PWA UI + GAS 実装 + migration 024 / 025 | 7f1aa74 |
+| 2026-05-09 | **Phase 2 移行** (本仕様書き直し) | brave-cohen-15d352 セッション |
+| 2026-05-09 | gas/074_MeetingSummaryRepo.js を Phase 2 に書き直し (Notion + Gmail 結合) | 同上 |
+| 2026-05-09 | gas/092_AdminLLMExtractors.js: meeting_extract prompt v2 (combined sources) + version 260509_02 | 同上 |
+| 2026-05-09 | migration 027 適用 (既存 7 行 DELETE + notion_page_id / gmail_thread_ids / source_kinds カラム追加) | 同上 |
+| 2026-05-09 | GAS deploy v1425 + Protocol Store の meeting_extract prompt 更新 | 同上 |
+| 2026-05-09 | p20 (SX) 202604 初回バックフィル: `inserted` 1 / `inserted_none` 多数。Gmail thread 取得 0 件のため reportEmails 整備は Phase 2.1 で対応 | 同上 |
+| TBD | Phase 2.1: reportEmails の整備 + CircleBack / GMeet 議事録メールの経路確認 | |
+| TBD | Phase 2.5: AMD-Report GAS の R313 を会議サマリ集約に書き換え (別セッション) | |

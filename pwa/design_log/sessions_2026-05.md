@@ -1001,3 +1001,51 @@ GAS 226 の **基本情報 / メンバー / 契約・料金 / 請求書送付** 
 - **MTGサマリ Phase 2 実装** (Calendar event 主軸 + 5 生データ統合) — 074_MeetingSummaryRepo.js 全面書き換え + meeting_summaries.md spec 書き直し
 - 上記 spawn 2 件は別 worktree で並行可能
 - 既存 7 件の SX 抽出データは Phase 2 で再生成 (現状中身薄いだけなので消すか維持か Phase 2 設計次第)
+
+---
+
+## 2026-05-09 — MTGサマリ Phase 2 移行 (brave-cohen-15d352 セッション)
+
+前セッション (funny-perlman) で Phase 1 までで止めた MTGサマリを Phase 2 仕様に移行。
+
+### 何を変えたか
+
+| 観点 | Phase 1 | Phase 2 |
+|---|---|---|
+| 主軸 | Notion 議事録ページ単独 | **1 calendar event = 1 行** (`meeting_id` PK = calendar event id) |
+| 議事録ソース | Notion ページ本文のみ | **Notion 本文 + Gmail (`reportEmails` ±1日)** を結合 |
+| 議事録なし扱い | 抽出スキップ | `summary_short = "議事録なし"` でマーカー行を残す |
+| 差分検知 | 本文 sha256 | (Notion 本文 + Gmail 結合テキスト) sha256 |
+
+### 実装
+
+- migration 027 (`027_pms_phase2_calendar_event.sql`) 適用: 既存 7 行 DELETE + `notion_page_id` / `gmail_thread_ids` / `source_kinds` カラム追加
+- `gas/074_MeetingSummaryRepo.js` 全書き直し: Notion 議事録 query → eventId 抽出 → Gmail 月単位キャッシュ → event 日 ±1日で thread pickup → 結合 sha256 → Gemini call → upsert
+- `gas/092_AdminLLMExtractors.js` の `meeting_extract` プロンプトを v2 に更新 (combined sources 対応、version 260509_02)
+- GAS push + deploy v1425 + Protocol Store install (`run_installMeetingExtractorConfig`)
+
+### Gmail 流用ロジック
+
+`mr_extractFromGmail_(projectId, startDate, endDate)` ([gas/307_MonthlyReport_GmailExtract.js](../../gas/307_MonthlyReport_GmailExtract.js)) を **daily cron 実行のうち、その 1 PJ × 1 ym で 1 回だけ** 月単位で呼ぶ → memory cache。`DB_Projects.reportEmails` (カンマ区切り複数) を `(from:X OR to:X)` でフィルタ。CircleBack / GMeet recording 通知 / クライアント議事録メールがここに流れてくる前提。
+
+### 初回バックフィル結果 (p20 = SX × 202604)
+
+- `inserted` 1 件 ("[CX] inner mtg.", sourceKinds: "notion")
+- `inserted_none` 多数 (議事録なしマーカー行)
+- `skipped_no_event_id` 多数 (CalendarToNotionMinutes 導入前 or 手動作成の Notion ページで eventId プロパティが空)
+- **`gmailThreads: 0` が大半** → reportEmails の中身に CircleBack / GMeet 通知メールアドレスが入ってない or 議事録メールが届いていない
+
+### 残課題 (Phase 2.1)
+
+- `DB_Projects.reportEmails` の各 PJ の現状を確認 + CircleBack 通知メール / GMeet recording 通知メールの from アドレスを登録
+- これにより議事録メールが Gmail cache に乗り、`source_kinds` が `notion+gmail` / `gmail` で稼働する MTG が増える
+
+### Phase 2.5 (別セッション、AMD-Report GAS)
+
+- R313_MonthlyReport_Cron を `project_meeting_summaries` 集約方式に書き換え
+- Phase 1 の navigator_extract (月単位フラット) を完全廃止可能に
+
+### 今回確立した運用知見
+
+- worktree からは `.env.local` が無いので `apply_ddl.py` は main worktree 経由で absolute path 指定して実行する
+- migration 番号は他 worktree の作業と衝突する可能性あり、`ls scripts/migrations/` で必ず確認してから新規番号を割り当てる
