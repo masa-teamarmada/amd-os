@@ -818,3 +818,64 @@ GAS 226 の **基本情報 / メンバー / 契約・料金 / 請求書送付** 
 - 5月の monthly_reports 生成 (no report content)
 - まさが #15 表示 (PL/PM/クローザー / AMD 期間バッジ) の最終目視確認 — hard reload 推奨
 - `saveProjectMembers` 全削除→挿入をやめて incremental update に (将来事故防止、まだ未対応)
+
+---
+
+## 2026-05-08 〜 09 (funny-perlman セッション) — MTGサマリ機能 + L2_DATA 正本化
+
+### 報告会日程調整 (CockpitRoutineMeetingModal) のステータス反映バグ修正
+- **症状**: 予約完了しても「報告会日程調整」タスクが done にならず、再オープン時も「日程選択」UI が出る
+- **原因**: `CockpitView.cockpit.billingCycles` が SSR fetch のスナップショットで、Edge Function (`schedule-meeting`) 後に再 fetch されない
+- **解決策**: 予約成功時に `router.refresh()` で親 (cockpit page サーバーコンポーネント) を再フェッチ + `localConfirmedISO` で即時UI切替 + 自動 close を削除
+- 詳細は BUGS.md「報告会日程調整の予約完了が反映されない」エントリ
+
+### MTG サマリ機能 Phase 1 (本セッション完了範囲)
+- 新方針: 月次フラット抽出 (`navigator_extract`) と並走で **会議単位** に Gemini 抽出 → Supabase `project_meeting_summaries` に upsert
+- **PWA 側 (本 worktree)**:
+  - migration 024: `project_meeting_summaries` 新設 (meeting_id PK, summary_short, decided/progress/next_actions/risks JSONB)
+  - migration 025: RLS policy を `TO authenticated` のみ → `TO anon, authenticated` に修正 (PWA は anon key で read-only のため)
+  - `supabase-data.ts` に `fetchProjectMeetingSummaries`
+  - `CockpitMeetingSummary.tsx` 全面書き換え (月グルーピング、直近1年表示+トグル、行展開で topics)
+- **GAS 側 (本 worktree)**:
+  - `gas/180_SupabaseClient.js` 新規 (service_key で REST upsert/select、`_supa_props_` でプロパティ取得、`oneTime_setScriptProperty` 汎用)
+  - `gas/074_MeetingSummaryRepo.js` 新規 (`nav_meeting_extractForProjectYm_` + バックフィル、source_hash で差分検知、maxItems=8 で 6 分制限避け)
+  - `gas/092_AdminLLMExtractors.js` に `meeting_extract_basePrompt_` + `run_installMeetingExtractorConfig` 追加 (Protocol Store + DB_LlmModelConfig 同時登録)
+  - `gas/163_LlmRouter.js` に Gemini 対応 (`llm_callGemini_`、`gemini-2.5-flash`)
+  - `gas/152_NavigatorCron.js` の daily cron に新関数呼び出し追加
+  - `gas/099_PwaApi.js` に admin actions `listProps` / `runFunc` 追加 (clasp run の代替)
+  - `gas/appsscript.json` に `executionApi.access=MYSELF` 追加 (将来 clasp run 用、現状 webapp 経由で十分)
+- **GAS デプロイ**: deployment ID `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` を v1421 に update
+- **動作確認**: SX (p21) で 7 件抽出成功 (中身ありは 1 件のみ、6 件は議事録本文薄い → Phase 2 で全ソース統合する必要あり)
+
+### Phase 2 が必要な理由 (まさ判断)
+- Phase 1 は **Notion 議事録単独** で抽出 → 大半が「会議内容なし」になる (議事録本文が薄いだけで、実際の議論は Slack/Gmail/Calendar 説明文等に分散)
+- 本来あるべき設計は: **1 MTG = 1 カレンダーイベント** を主軸にして、その周辺の Notion議事録 + Calendar + Slack + Gmail + Drive + GMeet を全部集めて Gemini に投げる
+- データ収集の時間範囲ロジック (前後数日 etc) は既存 305-309 / R320 をそのまま流用
+- 議事録なしイベントは `summary_short = "議事録なし"` で残す
+- monthly_reports は会議サマリの集約結果として組み立てる (R313 改修、AMD-Report GAS 別セッション)
+
+### L2 データ正本化 (まさの最重要指示)
+- **`pwa/design/L2_DATA.md` 新設** ← AMD OS 中核データ正本
+- L1 / L2 の定義 (まさ正本): 5 生データ (Gmail/Drive/Calendar/Slack/Notion) → L2 = 「欲しい情報の形」で抽出した正本
+- L2 6 種: ① monthly report ② AMDプロトコル ③ MS進捗 ④ PJナレッジ ⑤ メンバーナレッジ ⑥ MTGサマリ
+- 全テーブル / cron / 動作状況を表化、レポート関連 (Atlas / VC / AMD Score 等) も別カテゴリで列挙、cron を時系列タイムラインで可視化
+- 6 入口に導線: AGENTS.common.md / pwa/CLAUDE.md / pwa/AGENTS.md / pwa/design/README.md / gas/CLAUDE.md / knowledge/amd_os_vision.md (Claude / Codex / GPT 全エージェントから辿れる構成)
+
+### 動作実態の発見
+| L2 | 行数 | 状態 |
+|---|---|---|
+| monthly_reports | 58 | ✅ R313 (AMD-Report GAS, 05:00) |
+| **protocols** | **0** | ❌ **未稼働** (UI 削除されてる、スプシから掘り起こし要) |
+| milestone_monthly_progress | 158 | ✅ cron/daily-estimate (PWA, 03:00) |
+| **project_knowledge** | 2024 | ⚠️ データはあるが **書き込み元不明** |
+| **member_knowledge** | **0** | ❌ **未稼働** |
+| project_meeting_summaries | 7 | 🚧 Phase 1 稼働中 (Phase 2 で全ソース統合へ) |
+
+### spawn 出した別タスク (chip)
+1. **AMDプロトコル UI 復活 + スプシ掘り起こし** — 元はトップメニューの Atlas 左にあった、復活要
+2. **PJナレッジ + メンバーナレッジ を AMD-Report GAS の cron で実装** — まさ判断「ReportGAS の仕事」
+
+### 残タスク (次セッションで)
+- **MTGサマリ Phase 2 実装** (Calendar event 主軸 + 5 生データ統合) — 074_MeetingSummaryRepo.js 全面書き換え + meeting_summaries.md spec 書き直し
+- 上記 spawn 2 件は別 worktree で並行可能
+- 既存 7 件の SX 抽出データは Phase 2 で再生成 (現状中身薄いだけなので消すか維持か Phase 2 設計次第)

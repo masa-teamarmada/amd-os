@@ -32,6 +32,9 @@ function llm_call(usageKey, systemPrompt, userPrompt, opts) {
   if (provider === "openai") {
     return llm_callOpenAi_(model, systemPrompt, userPrompt, maxTokens, temperature);
   }
+  if (provider === "gemini" || provider === "google") {
+    return llm_callGemini_(model, systemPrompt, userPrompt, maxTokens, temperature);
+  }
   return llm_callAnthropic_(model, systemPrompt, userPrompt, maxTokens, temperature);
 }
 
@@ -80,8 +83,8 @@ function admin_upsertLlmModelConfig(payload) {
   if (!usageKey) return { ok: false, message: "usageKey empty" };
 
   var provider = String(payload.provider || "anthropic").trim().toLowerCase();
-  if (provider !== "openai" && provider !== "anthropic") {
-    return { ok: false, message: "provider must be 'anthropic' or 'openai'" };
+  if (provider !== "openai" && provider !== "anthropic" && provider !== "gemini" && provider !== "google") {
+    return { ok: false, message: "provider must be 'anthropic' | 'openai' | 'gemini'" };
   }
 
   var model = String(payload.model || "").trim();
@@ -223,6 +226,58 @@ function llm_callOpenAi_(model, systemPrompt, userPrompt, maxTokens, temperature
     }
   } catch (_e) {}
 
+  return "";
+}
+
+// ===== Gemini =====
+
+function llm_callGemini_(model, systemPrompt, userPrompt, maxTokens, temperature) {
+  var props = PropertiesService.getScriptProperties();
+  var apiKey = String(props.getProperty("GEMINI_API_KEY") || "").trim();
+  if (!apiKey) throw new Error("GEMINI_API_KEY missing");
+  if (!model) model = "gemini-2.5-flash";
+
+  // v1beta generateContent。systemInstruction を別フィールドで渡す。
+  var endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" +
+                 encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(apiKey);
+
+  var payload = {
+    contents: [
+      { role: "user", parts: [{ text: String(userPrompt || "").trim() }] }
+    ],
+    generationConfig: {
+      maxOutputTokens: Number(maxTokens || 1024),
+      temperature: (temperature !== undefined && temperature !== null) ? Number(temperature) : 0.7
+    }
+  };
+  var sys = String(systemPrompt || "").trim();
+  if (sys) {
+    payload.systemInstruction = { role: "system", parts: [{ text: sys }] };
+  }
+
+  var resp = UrlFetchApp.fetch(endpoint, {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  var code = resp.getResponseCode();
+  var text = resp.getContentText();
+  if (code < 200 || code >= 300) {
+    throw new Error("Gemini API " + code + ": " + text.slice(0, 500));
+  }
+
+  var data = JSON.parse(text);
+  if (data.error) throw new Error("Gemini: " + (data.error.message || JSON.stringify(data.error)));
+
+  var candidates = Array.isArray(data.candidates) ? data.candidates : [];
+  for (var i = 0; i < candidates.length; i++) {
+    var parts = candidates[i].content && Array.isArray(candidates[i].content.parts) ? candidates[i].content.parts : [];
+    for (var j = 0; j < parts.length; j++) {
+      if (parts[j].text) return String(parts[j].text).trim();
+    }
+  }
   return "";
 }
 

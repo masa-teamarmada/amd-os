@@ -514,3 +514,86 @@ function test_updateMsProgressSummary() {
     Logger.log('[' + yms[j] + '] ' + pcts.join(', '));
   }
 }
+
+// ============================================================
+// MTG サマリ バックフィル
+// 仕様: pwa/design/meeting_summaries.md
+// ============================================================
+
+/**
+ * 指定 PJ × 期間 (yyyymm 範囲) の Notion 議事録をすべて Gemini で抽出して
+ * Supabase project_meeting_summaries に upsert する one-time バックフィル。
+ *
+ * 使い方:
+ *   GAS エディタで実行 (デフォルト引数 = SX = p21、過去 14 ヶ月) もしくは
+ *   clasp run --params '["p21", "202504", "202605"]' oneTime_backfillMeetingSummaries
+ *
+ * @param {string} projectId AMD projectId (例: "p21")
+ * @param {string} ymStart yyyymm (含む)
+ * @param {string} ymEnd   yyyymm (含む)
+ */
+function oneTime_backfillMeetingSummaries(projectId, ymStart, ymEnd) {
+  // GAS エディタ手動実行用のデフォルト
+  if (!projectId) projectId = "p21";       // SX
+  if (!ymStart)   ymStart   = "202503";    // 過去 14 ヶ月
+  if (!ymEnd) {
+    var d = new Date();
+    var y = d.getFullYear();
+    var m = ("0" + (d.getMonth() + 1)).slice(-2);
+    ymEnd = String(y) + String(m);
+  }
+
+  var ymList = _oneTime_buildYmList_(ymStart, ymEnd);
+  Logger.log("[backfill] projectId=" + projectId + " range=" + ymStart + "-" + ymEnd + " (" + ymList.length + " months)");
+
+  if (typeof nav_meeting_backfillForProject_ !== "function") {
+    throw new Error("nav_meeting_backfillForProject_ missing (074_MeetingSummaryRepo.js)");
+  }
+
+  var result = nav_meeting_backfillForProject_(projectId, ymList);
+  Logger.log("[backfill] done: " + JSON.stringify(result, null, 2));
+  return result;
+}
+
+/**
+ * 全 active/frozen PJ の MTG サマリを 1 ym ぶん抽出 (定期 cron 想定の手動 trigger)
+ */
+function oneTime_runMeetingExtractAllProjects(ymKey) {
+  if (!ymKey) {
+    var d = new Date();
+    ymKey = String(d.getFullYear()) + ("0" + (d.getMonth() + 1)).slice(-2);
+  }
+  if (typeof nav_cron_listTargetProjectIds_ !== "function") {
+    throw new Error("nav_cron_listTargetProjectIds_ missing");
+  }
+  var pids = nav_cron_listTargetProjectIds_();
+  var out = { ym: ymKey, results: [] };
+  for (var i = 0; i < pids.length; i++) {
+    var pid = pids[i];
+    try {
+      var r = nav_meeting_extractForProjectYm_(pid, ymKey);
+      out.results.push({ projectId: pid, processed: r.processed || 0, skipped: r.skipped || 0, errors: r.errors || 0, ok: !!r.ok, message: r.message || "" });
+    } catch (e) {
+      out.results.push({ projectId: pid, ok: false, message: String(e && e.message ? e.message : e) });
+    }
+  }
+  Logger.log("[meetingExtractAll] " + JSON.stringify(out, null, 2));
+  return out;
+}
+
+/** ym 範囲から ym 配列を生成 */
+function _oneTime_buildYmList_(ymStart, ymEnd) {
+  var out = [];
+  var sy = Number(ymStart.slice(0, 4));
+  var sm = Number(ymStart.slice(4, 6));
+  var ey = Number(ymEnd.slice(0, 4));
+  var em = Number(ymEnd.slice(4, 6));
+  var y = sy;
+  var m = sm;
+  while (y < ey || (y === ey && m <= em)) {
+    out.push(String(y) + ("0" + m).slice(-2));
+    m++;
+    if (m > 12) { y++; m = 1; }
+  }
+  return out;
+}

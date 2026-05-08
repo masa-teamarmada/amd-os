@@ -359,6 +359,9 @@ export async function fetchProjectMeetingSummaries(
 - **PJ resolve 失敗**: 議事録の「PJ」relation が空 / 不明なページは抽出スキップ ([gas/073_NavigatorRepo.js:1909 nav_repo_notion_collectMinutesTextForProject_](../../gas/073_NavigatorRepo.js) の resolveProjectIdFromPjRelation_ ロジックを流用)
 - **古い議事録の再抽出**: source_hash が変われば再抽出される。LLM 出力が前より悪い結果になる可能性は受容 (前回値を保持しない方針 — 「最新が真実」)
 - **Gemini レート / クォータ**: daily で会議数ぶんコールするが、まさのアカウントは余裕あり (本人言)。差分検知で更にコール数は最小化される
+- **GAS 6 分実行制限 → maxItems バッチ化** (2026-05-08 判明): Notion query + Gemini call で 1 議事録 ~30〜60 秒。`nav_meeting_extractForProjectYm_(projectId, ymKey, {maxItems})` で 1 回あたり最大 maxItems 件処理 (default 5、上限 8 ぐらいで時間切れリスク)。`hasMore: true` で残りあり → 同関数を繰り返し呼ぶ。daily cron 内では maxItems=5 ぶんを 1 回だけ呼んで残りは翌日 cron に任せる方針 (差分検知あるので何度繰り返してもムダにならない)
+- **Notion 「日付」フィルタが効かないケース** (2026-05-08 判明): `nav_repo_notion_queryMinutesByYmFull_` に ym=202604 を渡しても 2025-12〜2026-04 の議事録が混じって返る。Notion ページの「日付」プロパティが空 or 範囲外でも query を通過するため。実害は無い (`meeting_date` は議事録ページ自身の「日付」プロパティを保存するので、PWA 側で正しく時系列ソート・フィルタされる) が、無駄な処理が含まれる。次セッション以降で改善余地
+- **「内容なし」議事録**: Notion 議事録の本文が薄い (タイトルだけ等) ページは Gemini も「内容の記載なし」と返してくる。空 `decided/progress/...` 配列のまま upsert される。PWA 側で「サマリ未生成」表示に倒れる。本文取得は「内容」プロパティ + blocks 本文の **両方を結合** して Gemini に渡してる ([gas/074_MeetingSummaryRepo.js](../../gas/074_MeetingSummaryRepo.js))
 
 ---
 
@@ -366,6 +369,9 @@ export async function fetchProjectMeetingSummaries(
 
 | 日付 | 範囲 | commit / 状態 |
 |---|---|---|
-| 2026-05-08 | 仕様 md 初版作成 (PWA 担当セッション) | (TBD: 本セッションの commit hash) |
-| TBD | PWA UI 実装 + migration 適用 | (TBD) |
-| TBD | GAS 側実装 | (GAS 別セッション) |
+| 2026-05-08 | 仕様 md 初版作成 (PWA セッション) | commit `7b77017` 後 main merge `c1cea1c` |
+| 2026-05-08 | PWA UI 実装 + Supabase migration 024 適用 | 同上 |
+| 2026-05-08 | **Phase 1 GAS 実装完了** (本体 GAS のみ。AMD-Report GAS の R313 集約書き換えは Phase 2) | 本セッション |
+| 2026-05-08 | 追加: gas/180_SupabaseClient.js / gas/074_MeetingSummaryRepo.js / 092 の meeting_extract installer / 163 の Gemini 対応 / 152 cron に呼び出し追加 / 099 PwaApi に listProps + runFunc admin actions / 801 にバックフィル one-time 関数 | 本セッション |
+| 2026-05-08 | gas/CLAUDE.md に「ScriptProperties 正本」「GAS 関数の実行手順」セクション追加 | 本セッション |
+| TBD | Phase 2: AMD-Report GAS の R313_MonthlyReport_Cron を `project_meeting_summaries` 集約方式に書き換え | 別セッション |
