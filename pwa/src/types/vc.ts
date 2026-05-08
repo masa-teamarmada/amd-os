@@ -170,6 +170,14 @@ export interface AmdPjInvestmentRef {
   amount_jpy: number | null;
 }
 
+export interface AmdPjContactRef {
+  project_id: string;
+  project_name: string;
+  status: ProjectVcStatus;
+  contact_names: string[];           // VC 側担当者の名前 (複数可、漢字・英名混合可)
+  last_touch_at: string | null;
+}
+
 export interface VcListItem extends Vc {
   active_fund: VcFund | null;          // status='raising' or 'investing' で最新の vintage
   fund_count: number;                   // ファンド数
@@ -180,6 +188,7 @@ export interface VcListItem extends Vc {
   total_dry_powder_high: number | null;
   amd_pj_investments: AmdPjInvestmentRef[];  // この VC が出した自社 PJ への出資 (vc_investments.our_project_id 経由)
   amd_pj_total_amount_jpy: number;           // 自社 PJ への出資合計 (amount_jpy 不明分は 0 扱い)
+  amd_pj_contacts: AmdPjContactRef[];        // この VC が AMD PJ に接触した履歴 (出資未完含む)
 }
 
 export interface VcDetail {
