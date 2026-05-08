@@ -39,6 +39,13 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
                                   ※ ended/lost/frozen の PJ では Routine 非表示
 ```
 
+### 今期MSの表示対象
+
+`CockpitGoalsCompact` のトップ表示は、原則として `currentYm` が `periodStartYm`〜`periodEndYm` に含まれる plan cycle を使う。
+
+例外として、現在月を含む cycle が存在せず、次に始まる future cycle が登録済みの場合は、その future cycle をトップ表示に使う。  
+これにより、5月時点で6-9月の次期MSを先行入力したCXのようなケースでも、コックピット上で設定済みMSを確認できる。
+
 ---
 
 ## CockpitVentureStatus の中身

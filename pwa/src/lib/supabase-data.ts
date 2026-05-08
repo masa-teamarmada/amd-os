@@ -1618,10 +1618,15 @@ export async function fetchCockpitFromSupabase(
     periodEndYm: pc.period_end_ym,
   }));
 
-  // 現在の期間: currentYmが start〜end に含まれるもの。該当なければnull（過去扱い）
+  // 現在の期間: currentYmが start〜end に含まれるもの。
+  // 該当がない場合は、次に始まるcycleをトップ表示に使う。
+  // 例: 5月中に6-9月のMSを先に設定した場合、コックピットで設定済みMSを確認できるようにする。
   let planCycle: PlanCycle | null = allPlanCycles.find(
     (pc) => currentYm >= pc.periodStartYm && currentYm <= pc.periodEndYm
-  ) ?? null;
+  ) ?? allPlanCycles
+    .filter((pc) => currentYm < pc.periodStartYm)
+    .sort((a, b) => a.periodStartYm.localeCompare(b.periodStartYm))[0]
+    ?? null;
 
   const pastPlanCycleRaws = allPlanCycles.filter((pc) => pc.planCycleId !== planCycle?.planCycleId);
 
