@@ -1397,6 +1397,76 @@ export async function fetchSourceCache(
 }
 
 // ============================================================
+// Project Meeting Summaries (各回 MTG サマリ)
+// 仕様: pwa/design/meeting_summaries.md
+// ============================================================
+
+export interface ProjectMeetingSummary {
+  meetingId: string;
+  projectId: string;
+  ym: string;
+  meetingDate: string;            // "YYYY-MM-DD"
+  meetingStartAt: string | null;
+  title: string;
+  notionUrl: string | null;
+  calendarEventId: string | null;
+  summaryShort: string;
+  decided: string[];
+  progress: string[];
+  nextActions: string[];
+  risks: string[];
+  generatedAt: string;
+  generatedByModel: string | null;
+}
+
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => (typeof x === "string" ? x : String(x ?? ""))).filter((s) => s.length > 0);
+}
+
+/**
+ * project_meeting_summaries: PJ × MTG サマリを meeting_date DESC で取得
+ * - sinceDate: "YYYY-MM-DD" 以降のみ (省略で全期間)
+ */
+export async function fetchProjectMeetingSummaries(
+  projectId: string,
+  opts?: { sinceDate?: string; limit?: number }
+): Promise<ProjectMeetingSummary[]> {
+  let query = supabase
+    .from("project_meeting_summaries")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("meeting_date", { ascending: false });
+
+  if (opts?.sinceDate) query = query.gte("meeting_date", opts.sinceDate);
+  if (opts?.limit) query = query.limit(opts.limit);
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("fetchProjectMeetingSummaries:", error.message);
+    return [];
+  }
+
+  return (data || []).map((r) => ({
+    meetingId: r.meeting_id,
+    projectId: r.project_id,
+    ym: r.ym || "",
+    meetingDate: r.meeting_date,
+    meetingStartAt: r.meeting_start_at,
+    title: r.title || "",
+    notionUrl: r.notion_url,
+    calendarEventId: r.calendar_event_id,
+    summaryShort: r.summary_short || "",
+    decided: asStringArray(r.decided),
+    progress: asStringArray(r.progress),
+    nextActions: asStringArray(r.next_actions),
+    risks: asStringArray(r.risks),
+    generatedAt: r.generated_at,
+    generatedByModel: r.generated_by_model,
+  }));
+}
+
+// ============================================================
 // データ取得関数
 // ============================================================
 

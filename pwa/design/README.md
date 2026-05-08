@@ -26,6 +26,7 @@
 | Atlas (判断の地図) | [atlas.md](atlas.md) |
 | Atlas 政策シグナル | [policy_signals.md](policy_signals.md) |
 | 進捗推定 (Tsukuyomi MS 推定) | [progress_estimation.md](progress_estimation.md) |
+| MTG サマリ (各回 decided/progress/nextActions/risks) ⭐ | [meeting_summaries.md](meeting_summaries.md) |
 | Venture Map | [venture_map_model.md](venture_map_model.md) / [venture_map_demo.md](venture_map_demo.md) / [venture_map_v01_critique.md](venture_map_v01_critique.md) |
 | Seeds (研究シーズリスト) ⭐ | [seeds.md](seeds.md) |
 | VC List | [vc_list.md](vc_list.md) |
