@@ -378,7 +378,7 @@ PJ Status コックピット拡張を 6 phase で実装。`/project/[projectId]/
 
 ## 2026-05-07 — AMD Score フル実装 (Before Zero Theory v3.2)
 
-`/Users/masa/projects/before-zero/theory/amd_score.md` の正本式 (7 軸 Cobb-Douglas) を AMD OS に組み込んだ。詳細は `design/amd_score.md`。
+`/Users/masa/projects/AMD/before-zero/theory/amd_score.md` の正本式 (7 軸 Cobb-Douglas) を AMD OS に組み込んだ。詳細は `design/amd_score.md`。
 
 ### 数式
 - AMD Score = K · Π (X_i + 1)^α_i, X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
