@@ -50,16 +50,20 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
         <div className="px-4 py-4 flex flex-col gap-4">
           <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-3 leading-relaxed flex flex-col gap-3">
             <div>
-              Before Zero Theory v3.2 — <strong>マクロトレンド M</strong> ×{" "}
-              <strong>案件 readiness R</strong> の 2 大要素を Cobb-Douglas で統合。
+              Before Zero Theory v3.2 —{" "}
+              <strong>マクロ M</strong> ×{" "}
+              <strong>会社の XRL X</strong> ×{" "}
+              <strong>CEO の FRL F</strong> の 3 大要素を Cobb-Douglas で統合。
+              <br />
+              マクロトレンドの流れがあって、会社の XRL が整っていて、それを FRL 高い CEO が牽引する。
             </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
               <div className="text-[10px] text-muted-foreground mb-1">全体式 (S = AMD Score)</div>
-              <Tex display tex={String.raw`S \;=\; K \cdot M \cdot R`} />
+              <Tex display tex={String.raw`S \;=\; K \cdot M \cdot X \cdot F`} />
             </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
               <div className="text-[10px] text-muted-foreground mb-1">
-                ① マクロトレンド M (Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
+                ① マクロ M (外部環境 / Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
               </div>
               <Tex
                 display
@@ -68,12 +72,18 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
             </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
               <div className="text-[10px] text-muted-foreground mb-1">
-                ② 案件 readiness R (FRL は重み α_F が別格 — 他 5 軸 XRL は内閣府 SIP 互換)
+                ② 会社の XRL X (会社に帰属する 5 軸 readiness、内閣府 SIP 互換)
               </div>
               <Tex
                 display
-                tex={String.raw`R \;=\; (\mathrm{FRL}+1)^{\alpha_F} \cdot \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x}`}
+                tex={String.raw`X \;=\; \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x}`}
               />
+            </div>
+            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
+              <div className="text-[10px] text-muted-foreground mb-1">
+                ③ CEO の FRL F (個人に帰属する CEO リーダーシップ / ALQ ベース、α_F が最大の重み)
+              </div>
+              <Tex display tex={String.raw`F \;=\; (\mathrm{FRL}+1)^{\alpha_F}`} />
             </div>
             <div className="text-[10px] text-muted-foreground space-y-1">
               <div>
