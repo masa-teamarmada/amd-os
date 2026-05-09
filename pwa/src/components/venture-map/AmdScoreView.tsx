@@ -30,6 +30,7 @@ import {
 } from "@/lib/amd-score";
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import type { VentureRow, XrlLogRow } from "@/lib/venture-map-data";
+import type { AtlasMacroSignals, AtlasSignalShort } from "@/lib/atlas-macro-signals";
 
 interface Props {
   venture: VentureRow;
@@ -37,6 +38,8 @@ interface Props {
   initialAlpha: AlphaWeights;
   /** 最新の XRL 観測 (source_note を XRL 各軸の根拠 fallback として使う) */
   latestXrlLog?: XrlLogRow | null;
+  /** Atlas のマクロシグナル (μ_I / μ_G の根拠 fallback として domain で分類済) */
+  atlasMacroSignals?: AtlasMacroSignals | null;
 }
 
 /**
@@ -193,10 +196,23 @@ export const deriveFrlFromAlq = deriveFrl;
  *
  * 値の表示には `editable` を読む (旧 state を読むだけにし、setEditable はしない)。
  */
-export function AmdScoreView({ venture, inputs, initialAlpha, latestXrlLog = null }: Props) {
+export function AmdScoreView({
+  venture,
+  inputs,
+  initialAlpha,
+  latestXrlLog = null,
+  atlasMacroSignals = null,
+}: Props) {
   // α は表示のみ (編集は retrofit ページへ移設)
   const alpha = initialAlpha;
-  const latest = inputs[inputs.length - 1];
+  // 「最新」は今日以前の評価で最新を選ぶ (未来 retrofit 予想値を表示しないため)
+  const today = new Date().toISOString().slice(0, 10);
+  const latest = (() => {
+    for (let i = inputs.length - 1; i >= 0; i--) {
+      if (inputs[i].evaluated_at.slice(0, 10) <= today) return inputs[i];
+    }
+    return null;
+  })();
   // editable は表示用に latest から固定 (setEditable しない、Tsukuyomi が DB を更新したら window reload で反映)
   const editable: EditableInput = latest ? rowToEditable(latest) : emptyEditable();
   const effectiveFrl = editable.alq_auto_derive_frl
@@ -278,6 +294,7 @@ export function AmdScoreView({ venture, inputs, initialAlpha, latestXrlLog = nul
           editable={editable}
           ventureName={venture.display_name}
           latestXrlLog={latestXrlLog}
+          atlasMacroSignals={atlasMacroSignals}
         />
         <TimeSeriesChart
           series={series}
@@ -592,13 +609,24 @@ function Factor3Breakdown({
   editable,
   ventureName,
   latestXrlLog,
+  atlasMacroSignals,
 }: {
   result: ReturnType<typeof calculateAmdScore>;
   alpha: AlphaWeights;
   editable: EditableInput;
   ventureName: string;
   latestXrlLog: XrlLogRow | null;
+  atlasMacroSignals: AtlasMacroSignals | null;
 }) {
+  /** Atlas シグナル群を「観測 YYYY-MM-DD: タイトル」形式で連結 (subtitle 用) */
+  function atlasFallbackText(signals: AtlasSignalShort[] | undefined): string | null {
+    if (!signals || signals.length === 0) return null;
+    const items = signals.slice(0, 3).map((s) => {
+      const date = s.submitted_at?.slice(0, 10) ?? "?";
+      return `[${date}] ${s.title}`;
+    });
+    return `(Atlas マクロシグナル, PJ 横断) ${items.join(" / ")}`;
+  }
   const fmt = (n: number, digits = 2) =>
     n < 1 ? n.toFixed(digits) : n < 100 ? n.toFixed(2) : Math.round(n).toLocaleString();
 
@@ -628,25 +656,36 @@ function Factor3Breakdown({
         formula="M = (σ_SU+1)^α_σ"
         bottleneck={result.bottleneck === "sigma_SU"}
       >
+        {/* μ_A: 当面 atlas に学術 domain なし → 仮置き or 入力 notes。次セッションで論文 DB 構築予定。 */}
         <DetailFactorRow
           name="μ_A (学術)"
           value={fmt(editable.mu_A, 1)}
-          subtitle={editable.mu_notes_a || FALLBACK_NOTE}
+          subtitle={editable.mu_notes_a || `${FALLBACK_NOTE} (Atlas に学術 domain 未対応 — 論文 DB 連携は今後)`}
           subtitleIsFallback={!editable.mu_notes_a}
           onClick={() => openTsukuyomiPrefill(ventureName, "μ_A (学術)", fmt(editable.mu_A, 1), editable.mu_notes_a || null)}
         />
+        {/* μ_I: input notes → atlas_signals (domain C-K) → 仮置き */}
         <DetailFactorRow
           name="μ_I (産業)"
           value={fmt(editable.mu_I, 1)}
-          subtitle={editable.mu_notes_i || FALLBACK_NOTE}
-          subtitleIsFallback={!editable.mu_notes_i}
+          subtitle={
+            editable.mu_notes_i ||
+            atlasFallbackText(atlasMacroSignals?.mu_i) ||
+            FALLBACK_NOTE
+          }
+          subtitleIsFallback={!editable.mu_notes_i && !atlasFallbackText(atlasMacroSignals?.mu_i)}
           onClick={() => openTsukuyomiPrefill(ventureName, "μ_I (産業)", fmt(editable.mu_I, 1), editable.mu_notes_i || null)}
         />
+        {/* μ_G: input notes → atlas_signals (domain A, B) → 仮置き */}
         <DetailFactorRow
           name="μ_G (政府)"
           value={fmt(editable.mu_G, 1)}
-          subtitle={editable.mu_notes_g || FALLBACK_NOTE}
-          subtitleIsFallback={!editable.mu_notes_g}
+          subtitle={
+            editable.mu_notes_g ||
+            atlasFallbackText(atlasMacroSignals?.mu_g) ||
+            FALLBACK_NOTE
+          }
+          subtitleIsFallback={!editable.mu_notes_g && !atlasFallbackText(atlasMacroSignals?.mu_g)}
           onClick={() => openTsukuyomiPrefill(ventureName, "μ_G (政府)", fmt(editable.mu_G, 1), editable.mu_notes_g || null)}
         />
         <DetailFactorRow

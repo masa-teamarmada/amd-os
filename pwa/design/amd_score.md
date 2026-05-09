@@ -187,6 +187,58 @@ PJ {ventureName} の {fieldName} = {currentValue} の評価を見直したい。
 
 まさが「論文 N 件しかないから 5 にして」と返答 → Tsukuyomi が `update_amd_score_input` tool で `mu_A=5, mu_notes_a="..."` を upsert → ページリロードで反映。
 
+### 根拠 fallback (2026-05-09 後期 改修)
+
+各軸の評価根拠 (subtitle) は以下の優先順で fallback:
+
+**XRL 5 軸 (TRL/BRL/GRL/SRL/HRL)**:
+1. `amd_score_inputs.xrl_notes.{axis}` (Tsukuyomi 経由で投入)
+2. `project_xrl_log.source_note` の JSON `{axis}_reason` を parse して引用 (既存 LLM 評価データ豊富)
+3. 「根拠となる情報がないため仮置き」(slate-400 で薄く表示)
+
+**μ_A (学術)**:
+1. `amd_score_inputs.mu_notes.a`
+2. **未実装** — atlas_signals に学術 domain なし
+3. 「Atlas に学術 domain 未対応 — 論文 DB 連携は今後」
+
+**μ_I (産業) / μ_G (政府)**:
+1. `amd_score_inputs.mu_notes.{i|g}`
+2. `atlas_signals` (status='accepted', domain で分類済) の最新 5 件
+   - μ_G: domain ∈ {A.地政学・マクロ経済, B.規制・政策}
+   - μ_I: domain ∈ {C.素材・原料, D.エネルギー, E.製造・プロセス, F.バイオ・医療, G.モビリティ・ロボティクス, H.建築・インフラ, I.ICT・AI, J.宇宙・防衛, K.食・農・水産, N.海洋・水資源, O.サーキュラーエコノミー}
+3. 「仮置き」
+
+**FRL**:
+1. `amd_score_inputs.frl_notes`
+2. 「仮置き」
+
+### 内閣府 SIP 9 段階定義の Tsukuyomi prompt 埋め込み (2026-05-09 後期)
+
+`update_amd_score_input` tool description に各 XRL の 9 段階定義を埋め込み:
+- TRL (NASA Mankins 1995): 1=基本原理 / 4=ラボ試作 / 6=実環境近似 / 7=実環境デモ / 9=運用実績
+- BRL: 1-3=仮説 / 4-6=検証 / 7-9=拡大
+- GRL: 1-3=規制リスク特定 / 4-6=届出/認証 / 7-9=業界/国際標準化
+- SRL (EU H2020): 1-3=社会課題認知 / 4-6=メディア/世論 / 7-9=社会実装定着
+- HRL: 1-3=創業期 1-3 名 / 4-6=コア機能カバー / 7-9=複数階層・後継 plan
+
+これで Tsukuyomi が値を upsert する時に SIP 段階に整合した値を選ぶことを期待。
+
+### 「最新評価」の選び方 (2026-05-09 後期)
+
+`amd_score_inputs` に未来予想 (retrofit seed で 2028 年まで) が含まれてるため、
+**`evaluated_at <= today` でフィルタした上で最新を選ぶ**ことで、
+現在観測 (`project_xrl_log`) と整合する評価を表示する。
+
+経時グラフは全期間表示で OK (未来予想 timeline も見えてよい)。
+
+### 次セッション TODO: μ_A 用 論文 DB 構築
+
+`atlas_signals` には学術専用 domain がなく、μ_A の根拠を Atlas からは拾えない。次セッションで:
+- Crossref API + 該当 lane キーワードで論文 metadata 取得
+- 科研費 / NEDO / SIP / JST 採択リストの取り込み
+- `atlas_papers` テーブル新設、`fetchAtlasMacroSignals` に `mu_a` 追加
+- AmdScoreView の μ_A 行 fallback で参照
+
 ### Retrofit ページ (α 重み調整) — 2026-05-09 追加
 
 Path: `/venture-map/amd-score/retrofit` (タブバーには出さない、詳細ページからのリンクのみ)

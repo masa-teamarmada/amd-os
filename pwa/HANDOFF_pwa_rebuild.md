@@ -12,7 +12,35 @@
 
 ## 最終更新
 
-2026-05-09 (quirky-moore-b60501 セッション) — **Phase 4 ③ MS進捗 毎時 polling 化 完了**。
+2026-05-09 (elegant-swanson-7a0123 セッション) — **AMD Score 詳細ページ全面改修 + Tsukuyomi 連携 + 内閣府 SIP 定義埋め込み**。
+
+**AMD Score 全面改修 (本セッション):**
+- 律速判定を `argmax(α_i / (X_i+1))` に修正 (旧 `argmin(share)` だと SRL が常に律速になる退化バグ)
+- FRL を 6 因子拡張 (ALQ 4 + Grit Duckworth 2007 + Resilience Markman 2005)、theory `amd_score.md` §3.F.5 + Changelog 同期
+- 詳細ページ = ScoreHero / BalanceBar / FormulaPanel(引用文献つき) / Factor3Breakdown / TimeSeries / FrlAlqPanel
+- スコア入力 UI (slider) を**完全廃止** → 各軸クリックで Tsukuyomi drawer 起動 + prefill ("tsukuyomi:open" / "tsukuyomi:prefill" window event)
+- α 編集を `/venture-map/amd-score/retrofit` 別ページに移設 (タブバー非表示、詳細から link、全 PJ シミュレーション)
+- 「最新評価」を `evaluated_at <= today` でフィルタ (未来 retrofit 値が出ないように)
+- XRL の根拠 fallback: `amd_score_inputs.xrl_notes` → `project_xrl_log.source_note` の `{axis}_reason` (JSON parse) → 「根拠仮置き」
+- μ_I / μ_G の根拠 fallback: `amd_score_inputs.mu_notes` → `atlas_signals` (domain 分類 = G:A,B / I:C-K,N,O) → 「仮置き」
+- Tsukuyomi `update_amd_score_input` tool に内閣府 SIP 9 段階定義を embed (TRL/BRL/GRL/SRL/HRL の各 level 説明)
+- 関連 migration: 030 (mu_notes/xrl_notes JSONB) / 031 (frl_grit/frl_resilience REAL)、本番適用済
+
+### ⚠️ 次セッション必須: μ_A (学術) の根拠データ DB 構築
+
+`atlas_signals` には学術専用 domain がなく、μ_A の根拠を Atlas からは拾えない。次セッションで:
+
+- 論文 DB 構築 (Crossref API + 該当 lane キーワードで論文 metadata 取得)
+- 研究費データ取り込み (科研費 / NEDO / SIP / JST 採択リスト)
+- 論文 / 特許 / 学会発表の時系列カウント → μ_A の数値根拠
+- `atlas_papers` (or 同等) テーブル新設、`fetchAtlasMacroSignals` を拡張して `mu_a` 配列を返す
+- `AmdScoreView` の μ_A 行 fallback を「atlas_papers の最新 N 件」を使うように更新
+
+現状は μ_A subtitle に "Atlas に学術 domain 未対応 — 論文 DB 連携は今後" と明記済。
+
+仕様: [`design/amd_score.md`](design/amd_score.md) を本セッションで全面更新済。
+
+### 1 つ前 (Phase 4 ③ MS進捗 毎時 polling 化, quirky-moore-b60501)
 
 **Phase 4 ③ MS進捗 (毎時 polling + source_hash 差分検知)**:
 - 旧 `cron/daily-estimate` (03:00 daily) を削除、新 `cron/hourly-estimate` を新設

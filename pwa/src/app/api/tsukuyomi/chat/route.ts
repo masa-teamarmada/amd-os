@@ -346,38 +346,57 @@ const TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "update_amd_score_input",
     description:
-      "AMD Score の 7 軸入力 (μ_A/I/G + 5 XRL + FRL/ALQ + 各軸 notes) を amd_score_inputs に upsert する。" +
-      "evaluated_at を省略すると今日。既存行があれば部分上書き、なければ 0 で初期化して指定値を入れる。" +
-      "値だけでなく必ず根拠 notes も書く (mu_notes_a/i/g, xrl_notes_trl/brl/grl/srl/hrl, frl_notes)。",
+      "AMD Score の 7 軸入力 (μ_A/I/G + 5 XRL + FRL/ALQ + 各軸 notes) を amd_score_inputs に upsert する。\n\n" +
+      "## 各軸の正式定義 (内閣府 SIP / NASA 9 段階) — レベリング時は必ずこの定義に沿う\n\n" +
+      "**TRL** (Technology Readiness Level, NASA Mankins 1995, 内閣府 SIP 互換):\n" +
+      "  1=基本原理確認 / 2=技術概念定式化 / 3=実験的概念検証\n" +
+      "  4=ラボ環境試作 / 5=関連環境試作 / 6=実環境近似試作\n" +
+      "  7=実環境デモ / 8=実機完成・認証 / 9=実運用実績\n" +
+      "**BRL** (Business Readiness Level, 内閣府 SIP):\n" +
+      "  1-3=仮説段階 (1: 課題仮説 / 2: 顧客仮説 / 3: 収益モデル draft)\n" +
+      "  4-6=検証段階 (4: PoC / 5: 初期顧客 N 社 / 6: 継続契約・MRR)\n" +
+      "  7-9=拡大段階 (7: 量産・複数地域展開 / 8: 黒字化 / 9: 業界 leader)\n" +
+      "**GRL** (Governance Readiness Level): 規制適合性 + 標準化\n" +
+      "  1-3=規制リスク特定段階 / 4-6=届出・認証取得段階 / 7-9=業界標準・国際標準化主導\n" +
+      "**SRL** (Social Readiness Level, EU H2020 互換): 一般消費者・世論の受容性\n" +
+      "  1-3=社会課題認知段階 / 4-6=一般メディア露出・世論形成 / 7-9=社会実装・受容定着\n" +
+      "**HRL** (Human Resources Readiness Level): チーム補完性・スキル分布\n" +
+      "  1-3=創業期 1-3 名 / 4-6=コア機能カバー (技術/事業/ガバナンス) / 7-9=複数階層・後継 plan あり\n" +
+      "**FRL**: 6 因子の重み付け平均 = 0.6·ALQ_4 + 0.2·Grit + 0.2·Resilience\n" +
+      "**σ_SU**: ((μ_A+1)(μ_I+1)(μ_G+1))^(1/3) - 1 (自動算出、入力不要)\n\n" +
+      "## 必須運用\n" +
+      "- 値だけでなく必ず根拠 notes も書く (mu_notes_a/i/g, xrl_notes_trl/brl/grl/srl/hrl, frl_notes)\n" +
+      "- 値が現在の SIP 段階定義と整合してるか自問してから upsert\n" +
+      "- 既存値より大きく動かす場合は理由を notes に明記",
     input_schema: {
       type: "object",
       properties: {
         evaluated_at: { type: "string", description: "評価日 YYYY-MM-DD (省略時は今日)" },
-        mu_A: { type: "number", description: "学術 μ_A 0-9" },
-        mu_I: { type: "number", description: "産業 μ_I 0-9" },
-        mu_G: { type: "number", description: "政府 μ_G 0-9" },
-        mu_notes_a: { type: "string", description: "μ_A の評価根拠 (例: Adv. Mater. 2024 で N 件論文急増)" },
-        mu_notes_i: { type: "string", description: "μ_I の評価根拠 (例: 大手 N 社の R&D 投資発表)" },
-        mu_notes_g: { type: "string", description: "μ_G の評価根拠 (例: 内閣府 SIP 採択、補助金 X 億円)" },
-        trl: { type: "number", description: "TRL 0-9 (Shallow Tech モード時は null)" },
-        brl: { type: "number", description: "BRL 0-9" },
-        grl: { type: "number", description: "GRL 0-9" },
-        srl: { type: "number", description: "SRL 0-9" },
-        hrl: { type: "number", description: "HRL 0-9" },
-        xrl_notes_trl: { type: "string", description: "TRL の評価根拠 (内閣府 SIP 9 段階に対する position)" },
-        xrl_notes_brl: { type: "string", description: "BRL の評価根拠 (顧客検証・収益モデル状況)" },
-        xrl_notes_grl: { type: "string", description: "GRL の評価根拠 (規制適合・標準化状況)" },
-        xrl_notes_srl: { type: "string", description: "SRL の評価根拠 (一般受容・メディア露出)" },
-        xrl_notes_hrl: { type: "string", description: "HRL の評価根拠 (チーム補完性・スキル分布)" },
-        frl: { type: "number", description: "FRL 0-9 (ALQ 平均で自動算出可)" },
-        alq_self_awareness: { type: "number", description: "ALQ 自己認識 0-9 (Walumbwa 2008)" },
-        alq_relational_transparency: { type: "number", description: "ALQ 関係透明性 0-9 (Walumbwa 2008)" },
-        alq_balanced_processing: { type: "number", description: "ALQ 均衡的処理 0-9 (Walumbwa 2008)" },
-        alq_internalized_moral: { type: "number", description: "ALQ 内在化された道徳観 0-9 (Walumbwa 2008)" },
-        frl_grit: { type: "number", description: "Grit (集中力) 0-9 — 脇目も振らず長期目標に邁進 (Duckworth 2007)" },
+        mu_A: { type: "number", description: "学術 μ_A 0-9 (Triple Helix 学術観測量。論文急増/学会動向/科研費等)" },
+        mu_I: { type: "number", description: "産業 μ_I 0-9 (Triple Helix 産業観測量。大手 R&D 投資/SU 動向/特許)" },
+        mu_G: { type: "number", description: "政府 μ_G 0-9 (Triple Helix 政府観測量。SIP/NEDO 採択/補助金/規制動向)" },
+        mu_notes_a: { type: "string", description: "μ_A の評価根拠 (例: Adv. Mater. 2024 で N 件論文急増、関連特許も成長中)" },
+        mu_notes_i: { type: "string", description: "μ_I の評価根拠 (例: 大手 N 社が R&D 投資発表、SoC スピンアウト動向)" },
+        mu_notes_g: { type: "string", description: "μ_G の評価根拠 (例: 内閣府 SIP 採択、補助金 X 億円規模)" },
+        trl: { type: "number", description: "TRL 0-9 (NASA 9 段階: 1=基本原理 / 4=ラボ試作 / 6=実環境試作 / 7=実環境デモ / 9=運用実績)。Shallow Tech モード時は null" },
+        brl: { type: "number", description: "BRL 0-9 (1-3=仮説 / 4-6=検証 / 7-9=拡大)" },
+        grl: { type: "number", description: "GRL 0-9 (1-3=規制リスク特定 / 4-6=届出/認証 / 7-9=業界/国際標準化)" },
+        srl: { type: "number", description: "SRL 0-9 (1-3=社会課題認知 / 4-6=メディア/世論 / 7-9=社会実装定着)" },
+        hrl: { type: "number", description: "HRL 0-9 (1-3=創業期 1-3 名 / 4-6=コア機能カバー / 7-9=複数階層・後継 plan)" },
+        xrl_notes_trl: { type: "string", description: "TRL の評価根拠 (NASA/SIP 9 段階定義のどの位置か、その判断材料)" },
+        xrl_notes_brl: { type: "string", description: "BRL の評価根拠 (顧客検証・収益モデル状況、SIP 段階位置)" },
+        xrl_notes_grl: { type: "string", description: "GRL の評価根拠 (規制適合・標準化状況、SIP 段階位置)" },
+        xrl_notes_srl: { type: "string", description: "SRL の評価根拠 (一般受容・メディア露出、EU H2020 段階位置)" },
+        xrl_notes_hrl: { type: "string", description: "HRL の評価根拠 (チーム補完性・スキル分布、SIP 段階位置)" },
+        frl: { type: "number", description: "FRL 0-9 (6 因子平均で自動算出可: 0.6·ALQ_avg + 0.2·Grit + 0.2·Resilience)" },
+        alq_self_awareness: { type: "number", description: "ALQ 自己認識 0-9 (Walumbwa 2008) — 自分の強み/弱み/価値観の理解" },
+        alq_relational_transparency: { type: "number", description: "ALQ 関係透明性 0-9 — 本音と建前の一致、誠実性" },
+        alq_balanced_processing: { type: "number", description: "ALQ 均衡的処理 0-9 — 反対意見も含む客観評価" },
+        alq_internalized_moral: { type: "number", description: "ALQ 内在化された道徳観 0-9 — 倫理基準への一貫性" },
+        frl_grit: { type: "number", description: "Grit (集中力) 0-9 — 脇目も振らず長期目標に邁進する passion + perseverance (Duckworth 2007)" },
         frl_resilience: { type: "number", description: "Resilience (タフさ) 0-9 — VC 拒絶等の失敗からの回復力 (Markman 2005)" },
-        frl_notes: { type: "string", description: "FRL 自由備考 (CEO 像、外部評価、Founder Network 効果など)" },
-        shallow_tech_mode: { type: "boolean", description: "Shallow Tech モード (TRL 軸を計算から除外)" },
+        frl_notes: { type: "string", description: "FRL 自由備考 (CEO 像、外部評価、Founder Network 効果、過去 SU 経験など)" },
+        shallow_tech_mode: { type: "boolean", description: "Shallow Tech モード (独自技術なし SU で TRL 軸を計算から除外)" },
         notes: { type: "string", description: "全体に対する備考" },
         reason: { type: "string", description: "なぜこう更新したか、まさへの 1 行報告" },
       },
