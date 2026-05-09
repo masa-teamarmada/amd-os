@@ -378,7 +378,7 @@ PJ Status コックピット拡張を 6 phase で実装。`/project/[projectId]/
 
 ## 2026-05-07 — AMD Score フル実装 (Before Zero Theory v3.2)
 
-`/Users/masa/projects/before-zero/theory/amd_score.md` の正本式 (7 軸 Cobb-Douglas) を AMD OS に組み込んだ。詳細は `design/amd_score.md`。
+`/Users/masa/projects/AMD/before-zero/theory/amd_score.md` の正本式 (7 軸 Cobb-Douglas) を AMD OS に組み込んだ。詳細は `design/amd_score.md`。
 
 ### 数式
 - AMD Score = K · Π (X_i + 1)^α_i, X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
@@ -1366,3 +1366,70 @@ Phase 4 の 4 L2 (③⑤④②) の通知系統を聞かれて「現状なし、
 - iOS Swift 側で `l2_notifications` 受信実装 (= `HANDOFF_l2_notifications.md` 参照)
 - iOS は既存の `meeting_notifications` (⑥) と新規 `l2_notifications` (③⑤④②) の両方を捕捉する `NotificationRepository` 設計を推奨
 - 集約方針 (importance=1 をどうするか) はまさと要相談
+
+---
+
+## 2026-05-09 (続々々) — iOS Swift APNs 受信実装 完了 (quirky-moore-b60501 セッション継続)
+
+### 着手の背景
+
+まさからの追加指示「このまま swift 実装まで進めてほしい。現状だと確認ができないので。」 を受けて、iOS Swift 側の通知受信実装まで本セッションで完了させる。
+
+### 設計判断
+
+**1 ファイル (AMDOSApp.swift) に Models + Service 集約**:
+- worktree 環境に xcodegen / brew が未インストール → 新規 `.swift` ファイル追加には `project.pbxproj` 手動編集必要 = リスク
+- 既存 AMDOSApp.swift は project に登録済 → 中身を拡張する形にすれば **手動編集ゼロで済む**
+- 整理性は犠牲だが「動かすこと」最優先。後続セッションで xcodegen 導入 → 分離可能
+- 当面の AMDOSApp.swift のサイズ: ~270 行 (許容範囲)
+
+**両テーブル (l2_notifications + meeting_notifications) を同一 Service で扱う**:
+- HANDOFF_l2_notifications.md の推奨に従う
+- `NotificationService.pollAllAndShowNotifications()` で両 fetch を `async let` で並行実行
+- 失敗は各 try/catch で握って他を止めない
+
+**Polling 戦略 (洪水回避)**:
+- 起動時 + foreground 復帰時のみ fetch (= scenePhase==.active 監視)
+- 集約は当面なし、importance>=3 なら .defaultCritical sound、それ以外は .default
+- 通知洪水になったら importance ベース集約を導入する余地
+
+### 主な変更
+
+**iOS**:
+- `ios/AMDOS/AMDOSApp.swift` 全面書き直し (~270 行に拡大):
+  - `@UIApplicationDelegateAdaptor(AppDelegate.self)` 追加
+  - `@StateObject private var notificationService = NotificationService.shared`
+  - `.task { ... }` で起動時 polling
+  - `.onChange(of: scenePhase) { ... }` で foreground 復帰時 polling
+  - `AppDelegate` (UNUserNotificationCenterDelegate): `willPresent` で foreground 中も banner+sound 表示、`didReceive` (タップ) は当面 print のみ
+  - `enum L2Kind` / `struct L2Notification` / `struct MeetingNotification` 追加 (Codable + Identifiable + Sendable)
+  - `final class NotificationService: ObservableObject` (@MainActor):
+    - `requestAuthorizationIfNeeded` (許可ダイアログ)
+    - `pollAllAndShowNotifications` (両テーブル並行 fetch)
+    - `pollL2Notifications` / `showL2LocalNotification` / `markL2Notified`
+    - `pollMeetingNotifications` / `showMeetingLocalNotification` / `markMeetingNotified`
+    - 内部 SupabaseClient (anon key、認証状態は既存 SupabaseService と Keychain 経由で共有される)
+
+**iOS HANDOFF**:
+- `ios/HANDOFF_l2_notifications.md` の反映状況に「iOS Swift 受信実装 完了」追記
+- `ios/HANDOFF_meeting_notifications.md` の反映状況も同様に追記 (l2 と統合実装した旨)
+
+### 動作確認
+
+- Simulator ビルド: SUCCEEDED
+- Device ビルド (masaiPhone iPhone 16 Pro, ID `22F6F889...`): SUCCEEDED
+- `xcrun devicectl device install app --device <ID> AMDOS.app`: 成功 (bundleID jp.team-armada.amdos)
+- `xcrun devicectl device process launch --device <ID> jp.team-armada.amdos`: 成功 (`Launched application with jp.team-armada.amdos bundle identifier.`)
+- 実際の通知到達確認: まさのスマホで起動 → 通知許可 → ホーム画面復帰 で 👤/🗂️/⚖️/📈/📋 が降ってくるかは目視待ち
+
+### 次セッションへ
+
+- 通知タップ時の画面遷移を l2_kind ごとに実装 (現状 print のみ):
+  - member_knowledge → メンバー詳細
+  - project_knowledge → PJ コックピット ナレッジ枠
+  - protocols → PJ プロトコル candidate 一覧 (UI 既存)
+  - ms_progress → PJ コックピット 月次モーダル
+  - meeting → PJ コックピット MTG サマリ枠
+- AMDプロトコル UI に「candidate → confirmed 昇格」ボタン追加 (= PWA `AdminProtocolsClient.tsx` または iOS Features/Admin に追加)
+- xcodegen を入れて Models / Service を別ファイルに切り出す (整理性回復)
+- 通知の集約方針 (importance=1 をリアルタイム or 日次まとめ) をまさと相談
