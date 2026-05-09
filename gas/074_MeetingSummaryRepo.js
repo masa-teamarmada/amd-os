@@ -214,8 +214,9 @@ function nav_meeting_extractForProjectYm_(projectId, ymKey, opts) {
         hasNotion ? "=== notion ===\n" + notionText : "",
         hasGmail ? "=== gmail ===\n" + gmailText : ""
       ].filter(function (s) { return s.length > 0; }).join("\n\n").trim();
-      // prompt rev を入力に混ぜる → prompt 改訂時に全行 hash 不一致 → 再抽出
-      const newHash = _meeting_sha256_("rev=" + MEETING_EXTRACT_PROMPT_REV + "\n" + combinedText);
+      // prompt rev + feedback hash を入力に混ぜる → 修正依頼追加で hash 不一致 → 自動再抽出
+      const fbHashInput = _meeting_feedbackHashInput_(projectId, eventId);
+      const newHash = _meeting_sha256_("rev=" + MEETING_EXTRACT_PROMPT_REV + "\nfb=" + fbHashInput + "\n" + combinedText);
       const existing = existingByMeetingId[eventId];
       if (existing && String(existing.source_hash || "") === newHash) {
         items.push({ meetingId: eventId, action: "skipped_unchanged" });
@@ -234,7 +235,7 @@ function nav_meeting_extractForProjectYm_(projectId, ymKey, opts) {
       llmCalls++;
       const extracted = _meeting_extractWithLLM_(combinedText, {
         projectId: projectId, ymKey: ymKey, sourceKinds: sourceKinds,
-        meetingTitle: title, meetingDate: meetingDate
+        meetingTitle: title, meetingDate: meetingDate, meetingId: eventId
       });
       if (!extracted) {
         items.push({ meetingId: eventId, action: "error_llm" });
@@ -434,12 +435,13 @@ function nav_meeting_processOneEvent_(eventId, projectId) {
     return { ok: true, action: existing ? "updated_none" : "inserted_none", meetingId: eventId, title: title, projectId: pid, sourceKinds: "none" };
   }
 
-  // 9) 結合 + sha256 (prompt rev を混ぜる → prompt 改訂で全行再抽出)
+  // 9) 結合 + sha256 (prompt rev + feedback hash を混ぜる → 修正依頼追加で自動再抽出)
   const combinedText = [
     hasNotion ? "=== notion ===\n" + notionText : "",
     hasGmail ? "=== gmail ===\n" + gmailText : ""
   ].filter(function (s) { return s.length > 0; }).join("\n\n").trim();
-  const newHash = _meeting_sha256_("rev=" + MEETING_EXTRACT_PROMPT_REV + "\n" + combinedText);
+  const fbHashInput = _meeting_feedbackHashInput_(pid, eventId);
+  const newHash = _meeting_sha256_("rev=" + MEETING_EXTRACT_PROMPT_REV + "\nfb=" + fbHashInput + "\n" + combinedText);
   if (existing && String(existing.source_hash || "") === newHash) {
     return { ok: true, action: "skipped_unchanged", meetingId: eventId, title: title, projectId: pid, sourceKinds: sourceKinds };
   }
@@ -447,7 +449,7 @@ function nav_meeting_processOneEvent_(eventId, projectId) {
   // 10) Gemini 抽出
   const extracted = _meeting_extractWithLLM_(combinedText, {
     projectId: pid, ymKey: ymKey, sourceKinds: sourceKinds,
-    meetingTitle: title, meetingDate: meetingDate
+    meetingTitle: title, meetingDate: meetingDate, meetingId: eventId
   });
   if (!extracted) {
     return { ok: false, action: "error_llm", meetingId: eventId, title: title, projectId: pid };
@@ -628,7 +630,26 @@ function _meeting_resolveProjectName_(projectId) {
 }
 
 /** prompt revision identifier (= source_hash の入力に混ぜて prompt 改訂時に全行再抽出を保証) */
-const MEETING_EXTRACT_PROMPT_REV = "v4_alias_meta";
+const MEETING_EXTRACT_PROMPT_REV = "v4_alias_feedback";
+
+/** meeting_summary 用 feedback hash 入力 (active feedback の id+text を hash 化、feedback 追加で source_hash 変わる) */
+function _meeting_feedbackHashInput_(projectId, eventId) {
+  if (typeof supa_select !== "function" || !projectId) return "";
+  const filter = "l2_kind=eq.meeting_summary&target_id=eq." + encodeURIComponent(String(projectId)) +
+                 "&status=eq.active";
+  const res = supa_select("l2_feedbacks", {
+    select: "feedback_id,scope_key,feedback_text,created_at",
+    filter: filter,
+    order: "created_at.desc",
+    limit: 30
+  });
+  if (!res.ok || !res.rows || !res.rows.length) return "";
+  const rows = res.rows.filter(function (r) {
+    return r.scope_key === eventId || r.scope_key === "global";
+  });
+  if (!rows.length) return "";
+  return rows.map(function (r) { return r.feedback_id + "|" + (r.feedback_text || ""); }).join("\n");
+}
 
 function _meeting_sha256_(text) {
   const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(text || ""), Utilities.Charset.UTF_8);
@@ -1015,30 +1036,54 @@ function _meeting_extractWithLLM_(combinedText, meta) {
     throw new Error("meeting_extract prompt missing (run run_installMeetingExtractorConfig)");
   }
 
-  // === v4_alias 拡張 ===
-  // - meeting_meta セクション (BUGS.md `[GAS] BWE 株主総会の MTGサマリ枠に CX のメールが混入` 参照): 対象 PJ の唯一の正解
-  // - alias block (BUGS.md `[GAS] member_knowledge 抽出で...` 参照): 山田氏 = りょー 等の表記揺れマップ
+  // === v4_alias_feedback 拡張 ===
+  // - meeting_meta セクション (BUGS.md 参照): 対象 PJ の唯一の正解
+  // - alias block (BUGS.md 参照): 山田氏 = りょー 等の表記揺れマップ
+  // - feedback block: まさからの修正依頼 (PWA /notifications で「つくよみに修正依頼」)
   const projectName = (typeof _meeting_resolveProjectName_ === "function")
     ? _meeting_resolveProjectName_(meta.projectId) : String(meta.projectId || "");
   const aliasBlock = (typeof nameAlias_buildBlock === "function") ? nameAlias_buildBlock() : "";
+
+  // 過去 feedback を取得 (l2_kind='meeting_summary', target_id=projectId, scope_key=meetingId or 'global')
+  const eventId = String(meta.meetingId || "");
+  let feedbackBlock = "";
+  let feedbackIds = [];
+  if (typeof _l2_loadFeedbackBlock_ === "function" && meta.projectId) {
+    try {
+      // 同 event 専用の feedback (scope_key=eventId) と、PJ 全体に効く feedback (scope_key='global') の両方を取る
+      const fbEv = _l2_loadFeedbackBlock_("meeting_summary", String(meta.projectId), eventId || "global");
+      if (fbEv && fbEv.block) {
+        feedbackBlock = fbEv.block;
+        feedbackIds = fbEv.ids || [];
+      }
+    } catch (_e) {}
+  }
+
   const userPrompt = [
-    "extractor: meeting_summary_v4_alias",
+    "extractor: meeting_summary_v4_alias_feedback",
     "",
     "=== meeting_meta (これが対象 PJ の唯一の正解。これと無関係な内容は完全に無視) ===",
     "projectId: " + String(meta.projectId || ""),
     "projectName: " + String(projectName || ""),
     "meetingTitle: " + String(meta.meetingTitle || ""),
     "meetingDate: " + String(meta.meetingDate || ""),
+    "meetingId: " + eventId,
     "ym: " + String(meta.ymKey || ""),
     "sourceKinds: " + String(meta.sourceKinds || ""),
     "",
     aliasBlock,
+    "",
+    feedbackBlock,
     "",
     "=== combined sources (notion + gmail) ===",
     String(combinedText || "")
   ].filter(function (s) { return s !== null && s !== undefined; }).join("\n");
 
   const parsed = llm_callJson("meeting_extract", baseText, userPrompt, { maxTokens: 2048, temperature: 0.2 });
+  // feedback を反映できたら applied_count++
+  if (parsed && feedbackIds.length && typeof _l2_recordFeedbackApplied_ === "function") {
+    try { _l2_recordFeedbackApplied_(feedbackIds); } catch (_e) {}
+  }
   if (!parsed || typeof parsed !== "object") return null;
 
   return {

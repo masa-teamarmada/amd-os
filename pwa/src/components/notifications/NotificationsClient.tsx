@@ -37,24 +37,24 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
   // 既読セクション全体のトグル (default 折りたたみ)
   const [readSectionOpen, setReadSectionOpen] = useState<boolean>(false);
 
-  // 通知を時系列でマージ (l2 + meeting) + readMap を当てて notifiedAt を上書き
+  // 通知を時系列でマージ (l2 + meeting)
   const items: UnifiedItem[] = useMemo(() => {
-    const merged: UnifiedItem[] = [];
-    for (const x of l2) {
-      const k = `l2-${x.notification_id}`;
-      const overrideAt = readMap[k];
-      merged.push({ kind: "l2", data: overrideAt && !x.notified_at ? { ...x, notified_at: overrideAt } : x });
-    }
-    for (const x of mtg) {
-      const k = `mtg-${x.meeting_id}`;
-      const overrideAt = readMap[k];
-      merged.push({ kind: "meeting", data: overrideAt && !x.notified_at ? { ...x, notified_at: overrideAt } : x });
-    }
+    const merged: UnifiedItem[] = [
+      ...l2.map((x) => ({ kind: "l2" as const, data: x })),
+      ...mtg.map((x) => ({ kind: "meeting" as const, data: x })),
+    ];
     merged.sort((a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime());
     return merged;
-  }, [l2, mtg, readMap]);
+  }, [l2, mtg]);
 
-  // フィルタ
+  // 表示判定: server の notified_at (= 永続) または readMap (= 当該セッションで開いた)
+  // これでバッジ/背景は即座に既読化される一方、グループ分け (= server 値だけで判定) は
+  // 当該セッション内では未読セクションのまま → 次回再読込で既読セクションに自然移動
+  const itemKey = (i: UnifiedItem): string =>
+    i.kind === "l2" ? `l2-${i.data.notification_id}` : `mtg-${i.data.meeting_id}`;
+  const isReadUi = (i: UnifiedItem): boolean => !!i.data.notified_at || !!readMap[itemKey(i)];
+
+  // フィルタ (バッジ表示は readMap 反映、ただしグループ分けは server 値だけで判定)
   const filtered = useMemo(() => {
     if (filter === "unread") {
       return items.filter((i) => !i.data.notified_at);
@@ -74,9 +74,6 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
     }
     return items;
   }, [items, filter, localFeedbacks]);
-
-  const itemKey = (i: UnifiedItem): string =>
-    i.kind === "l2" ? `l2-${i.data.notification_id}` : `mtg-${i.data.meeting_id}`;
 
   // 展開した瞬間に未読なら notified_at = now() で UPDATE → 楽観的に readMap に反映
   // (= 既読セクションには次回再描画時に移る、ただし当該カードは展開状態で残す)
@@ -322,7 +319,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
           すべて ({items.length})
         </FilterButton>
         <FilterButton active={filter === "unread"} onClick={() => setFilter("unread")}>
-          未読 ({items.filter((i) => !i.data.notified_at).length})
+          未読 ({items.filter((i) => !isReadUi(i)).length})
         </FilterButton>
         <FilterButton active={filter === "feedback"} onClick={() => setFilter("feedback")}>
           修正依頼あり ({localFeedbacks.length > 0 ? items.filter((i) => findFeedbacksFor(i).length > 0).length : 0})
@@ -335,8 +332,10 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
 
       {(() => {
         // 未読/既読に分ける (= readMap で楽観的に既読化されたものは、開いたままでも既読扱い)
-        const unreadItems = filtered.filter((i) => !i.data.notified_at);
-        const readItems = filtered.filter((i) => !!i.data.notified_at);
+        // グループ分けは「server 値 + readMap 反映」 = isReadUi で統一
+        // → 開いた未読カードは即既読セクションに移動 (まさの仕様通り「次回開いたら折りたたまれてる」)
+        const unreadItems = filtered.filter((i) => !isReadUi(i));
+        const readItems = filtered.filter((i) => isReadUi(i));
 
         const renderCard = (i: UnifiedItem) => {
           const key = itemKey(i);
@@ -347,7 +346,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
             <div
               key={key}
               className={`border rounded-lg overflow-hidden ${
-                i.data.notified_at ? "bg-card" : "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900"
+                isReadUi(i) ? "bg-card" : "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900"
               }`}
             >
               {/* ヘッダ (クリック展開) */}
@@ -362,7 +361,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                     {i.kind === "l2"
                       ? `${i.data.l2_kind} / ${displayTarget(i.data.target_id, i.data.scope_key, projectMap)}`
                       : `meeting / ${projectMap[i.data.project_id] ?? i.data.project_id}`}
-                    {!i.data.notified_at && <span className="ml-2 text-blue-600 dark:text-blue-400">● 未読</span>}
+                    {!isReadUi(i) && <span className="ml-2 text-blue-600 dark:text-blue-400">● 未読</span>}
                     {itemFeedbacks.length > 0 && (
                       <span className="ml-2 text-amber-600 dark:text-amber-400">⚠️ 修正依頼 {itemFeedbacks.length} 件</span>
                     )}
