@@ -17,7 +17,7 @@
  */
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Grid, Line, Html, Sparkles, Stars, MeshDistortMaterial, MeshWobbleMaterial } from "@react-three/drei";
+import { OrbitControls, Grid, Line, Html, Sparkles, Stars, MeshDistortMaterial } from "@react-three/drei";
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from "@react-three/postprocessing";
 import { BlendFunction } from "postprocessing";
 import { Suspense, useMemo, useRef, useState } from "react";
@@ -473,95 +473,129 @@ function AxisLabels() {
 }
 
 // ============================================================
-// 揺らめくクリスタルコア (中心オーナメント)
-// 4 レイヤー: 内 emissive distort / 中 wireframe icosahedron / 外 wireframe wobble /
-// 最外 halo + 浮遊リング (回転)
+// CrystalOfData — 八面体クリスタル + 内部流体エネルギー + 中央オレンジライン
+//
+// Sabo Sugi "Crystal of Data" (codepen.io/sabosugi/full/LEbGORv) のテイストを R3F で近似:
+//   - 外殻: octahedron (上下に尖った菱形) を半透明 + wireframe で 2 重描画
+//   - 内部: 5 層の icosahedron + MeshDistortMaterial を別速度で重ねて流体的乱流を作る
+//   - 中央: 強発光オレンジコア + 横一文字エネルギーライン (Bloom で滲ませる)
+//   - 内部 sparkles + point light で奥行き感
 // ============================================================
 
-function WaveCore() {
-  const inner = useRef<THREE.Mesh>(null);
-  const wire = useRef<THREE.Mesh>(null);
-  const wobble = useRef<THREE.Mesh>(null);
-  const ring1 = useRef<THREE.Mesh>(null);
-  const ring2 = useRef<THREE.Mesh>(null);
+interface FluidLayer {
+  r: number;
+  distort: number;
+  speed: number;
+  color: string;
+  opacity: number;
+}
+
+const FLUID_LAYERS: FluidLayer[] = [
+  { r: 1.85, distort: 0.5, speed: 1.4, color: "#22d3ee", opacity: 0.16 },
+  { r: 1.55, distort: 0.7, speed: 2.0, color: "#0ea5e9", opacity: 0.20 },
+  { r: 1.25, distort: 0.65, speed: 2.6, color: "#3b82f6", opacity: 0.24 },
+  { r: 0.95, distort: 0.85, speed: 3.2, color: "#60a5fa", opacity: 0.30 },
+  { r: 0.65, distort: 0.6, speed: 3.8, color: "#93c5fd", opacity: 0.40 },
+];
+
+function FluidLayerMesh({ layer, index }: { layer: FluidLayer; index: number }) {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    const t = clock.elapsedTime;
+    ref.current.rotation.x = t * (0.10 + index * 0.04);
+    ref.current.rotation.y = t * (0.08 - index * 0.03);
+    ref.current.rotation.z = t * (0.05 + index * 0.025);
+  });
+  return (
+    <mesh ref={ref}>
+      <icosahedronGeometry args={[layer.r, 6]} />
+      <MeshDistortMaterial
+        color={layer.color}
+        emissive={layer.color}
+        emissiveIntensity={1.5}
+        distort={layer.distort}
+        speed={layer.speed}
+        transparent
+        opacity={layer.opacity}
+        depthWrite={false}
+        metalness={0.2}
+        roughness={0.15}
+      />
+    </mesh>
+  );
+}
+
+function CrystalOfData() {
+  const octaWire = useRef<THREE.Mesh>(null);
+  const octaShell = useRef<THREE.Mesh>(null);
+  const energyLine = useRef<THREE.Mesh>(null);
+  const core = useRef<THREE.Mesh>(null);
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    if (inner.current) {
-      inner.current.rotation.x = t * 0.18;
-      inner.current.rotation.y = t * 0.24;
+    if (octaWire.current) {
+      octaWire.current.rotation.y = t * 0.15;
+      octaWire.current.rotation.x = Math.sin(t * 0.2) * 0.05;
     }
-    if (wire.current) {
-      wire.current.rotation.x = -t * 0.12;
-      wire.current.rotation.y = -t * 0.18;
-      wire.current.rotation.z = t * 0.08;
+    if (octaShell.current) {
+      octaShell.current.rotation.y = t * 0.15;
+      octaShell.current.rotation.x = Math.sin(t * 0.2) * 0.05;
     }
-    if (wobble.current) {
-      wobble.current.rotation.y = t * 0.07;
-      wobble.current.rotation.x = Math.sin(t * 0.3) * 0.4;
+    if (energyLine.current) {
+      const pulse = 1 + Math.sin(t * 3.5) * 0.18;
+      energyLine.current.scale.x = pulse;
+      const m = energyLine.current.material as THREE.MeshBasicMaterial;
+      m.opacity = 0.85 + Math.sin(t * 5) * 0.15;
     }
-    if (ring1.current) {
-      ring1.current.rotation.z = t * 0.5;
-      ring1.current.rotation.x = Math.PI / 2 + Math.sin(t * 0.3) * 0.2;
-    }
-    if (ring2.current) {
-      ring2.current.rotation.z = -t * 0.35;
-      ring2.current.rotation.y = Math.PI / 2 + Math.cos(t * 0.4) * 0.2;
+    if (core.current) {
+      const s = 1 + Math.sin(t * 4.5) * 0.2;
+      core.current.scale.setScalar(s);
     }
   });
 
   return (
     <group position={[WORLD / 2, WORLD / 2, WORLD / 2]}>
-      {/* 0. innermost glowing distort core */}
-      <mesh ref={inner}>
-        <icosahedronGeometry args={[0.7, 24]} />
-        <MeshDistortMaterial
-          color="#22d3ee"
-          emissive="#22d3ee"
-          emissiveIntensity={2.6}
-          distort={0.55}
-          speed={2.2}
-          metalness={0.3}
-          roughness={0.15}
+      {/* 1. 外殻 octahedron solid (透明ガラス感) */}
+      <mesh ref={octaShell}>
+        <octahedronGeometry args={[2.5, 0]} />
+        <meshBasicMaterial
+          color="#0ea5e9"
           transparent
-          opacity={0.92}
+          opacity={0.04}
+          side={THREE.DoubleSide}
+          depthWrite={false}
         />
       </mesh>
-      {/* 1. wireframe icosahedron (mid) */}
-      <mesh ref={wire}>
-        <icosahedronGeometry args={[1.15, 2]} />
-        <meshBasicMaterial color="#f472b6" wireframe transparent opacity={0.55} />
+      {/* 2. 外殻 wireframe (edge を強調) */}
+      <mesh ref={octaWire}>
+        <octahedronGeometry args={[2.5, 0]} />
+        <meshBasicMaterial color="#22d3ee" wireframe transparent opacity={0.7} />
       </mesh>
-      {/* 2. wobble outer shell */}
-      <mesh ref={wobble}>
-        <icosahedronGeometry args={[1.7, 4]} />
-        <MeshWobbleMaterial
-          color="#a78bfa"
-          emissive="#a78bfa"
-          emissiveIntensity={1.2}
-          factor={0.4}
-          speed={1.5}
-          wireframe
-          transparent
-          opacity={0.4}
-        />
+      {/* 3. 内部の流体レイヤー (5 層) */}
+      {FLUID_LAYERS.map((l, i) => (
+        <FluidLayerMesh key={i} layer={l} index={i} />
+      ))}
+      {/* 4. 横一文字のエネルギーライン (Crystal of Data 特徴) */}
+      <mesh ref={energyLine}>
+        <boxGeometry args={[5.5, 0.05, 0.05]} />
+        <meshBasicMaterial color="#fef3c7" toneMapped={false} />
       </mesh>
-      {/* 3. halo */}
+      {/* 5. 中央の小さなオレンジコア */}
+      <mesh ref={core}>
+        <sphereGeometry args={[0.18, 16, 16]} />
+        <meshBasicMaterial color="#fb923c" toneMapped={false} />
+      </mesh>
       <mesh>
-        <sphereGeometry args={[2.4, 24, 24]} />
-        <meshBasicMaterial color="#22d3ee" transparent opacity={0.05} depthWrite={false} />
+        <sphereGeometry args={[0.4, 16, 16]} />
+        <meshBasicMaterial color="#fb923c" transparent opacity={0.18} depthWrite={false} />
       </mesh>
-      {/* 4. orbit rings */}
-      <mesh ref={ring1}>
-        <torusGeometry args={[2.6, 0.025, 12, 96]} />
-        <meshBasicMaterial color="#22d3ee" transparent opacity={0.7} />
-      </mesh>
-      <mesh ref={ring2}>
-        <torusGeometry args={[3.0, 0.02, 12, 96]} />
-        <meshBasicMaterial color="#f472b6" transparent opacity={0.55} />
-      </mesh>
-      {/* 5. central spark */}
-      <pointLight color="#22d3ee" intensity={1.4} distance={8} decay={2} />
+      {/* 6. 内部 sparkles (粒子の流れ) */}
+      <Sparkles count={70} scale={[3.5, 4.5, 3.5]} size={2.5} speed={0.6} color="#22d3ee" opacity={0.9} />
+      <Sparkles count={20} scale={[2.0, 2.0, 2.0]} size={3} speed={0.4} color="#fb923c" opacity={0.9} />
+      {/* 7. 内部光源 */}
+      <pointLight color="#22d3ee" intensity={2.4} distance={12} decay={2} />
+      <pointLight color="#fb923c" intensity={1.6} distance={5} decay={2} />
     </group>
   );
 }
@@ -647,7 +681,7 @@ function Scene({
         followCamera={false}
       />
       <AxisLabels />
-      <WaveCore />
+      <CrystalOfData />
       {ISO_SHELLS.map((s) => (
         <IsoShell
           key={s.score}
