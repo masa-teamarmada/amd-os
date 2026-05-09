@@ -12,6 +12,21 @@
 
 ## 最終更新
 
+2026-05-09 (quirky-moore-b60501 セッション) — **Phase 4 ③ MS進捗 毎時 polling 化 完了**。
+
+**Phase 4 ③ MS進捗 (毎時 polling + source_hash 差分検知)**:
+- 旧 `cron/daily-estimate` (03:00 daily) を削除、新 `cron/hourly-estimate` (毎時 0 分) を新設
+- `progress_estimate_state` テーブル新設 (migration 029): PK=(project_id, ym), source_hash + last_processed_at で差分検知
+- `estimateProgress(projectId, ym, { force?: boolean })` シグネチャ拡張。force=false (cron) なら hash 一致で LLM スキップ + last_processed_at touch + `unchanged: true` を return。手動 UI ボタン / report/generate fire-and-forget は force=true (既存挙動維持)
+- target list = アクティブ PJ × {当月, 前月}、`last_processed_at` 古い順 sort、maxItems 14 で打ち切り
+- 仕様正本: [`design/ms_progress.md`](design/ms_progress.md) 新規、[`design/L2_DATA.md`](design/L2_DATA.md) 状態列を Phase 4 で更新
+- TS 型チェック OK / migration 029 + Vercel deploy は commit 後に実施
+- 詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾エントリ
+
+---
+
+## 1 つ前のセッション
+
 2026-05-09 (brave-cohen-15d352 セッション) — **MTGサマリ Phase 2 + Phase 3 完了 + Phase 4 方針確定**。
 
 **Phase 2 (前段)**: 1 MTG = 1 calendar event 主軸 / Notion 本文 + Gmail (`reportEmails` ±1日) 結合 / Gemini Flash 抽出 / 議事録なしマーカー / migration 027。動作確認 OK (p21 SX で `notion+gmail` 2 件 / `notion` 5 件 等)。
@@ -51,7 +66,7 @@
 |---|---|
 | ① monthly report | ✅ R313 (AMD-Report GAS, 05:00) — 集計性が強いので Phase 4 では別扱い |
 | ② **AMDプロトコル** | ❌ **未稼働 (0 行、UI も削除済)** ← Phase 4 で復活予定 |
-| ③ MS進捗 | ✅ cron/daily-estimate (PWA, 03:00) ← **Phase 4 最優先で毎時化** |
+| ③ MS進捗 | ✅ **Phase 4 完了** cron/hourly-estimate (PWA, 毎時 0 分) + source_hash 差分検知 ([ms_progress.md](design/ms_progress.md)) |
 | ④ PJナレッジ | ⚠️ 2024 行あるが流入元不明 ← Phase 4 で新規実装 |
 | ⑤ **メンバーナレッジ** | ❌ **未稼働 (0 行)** ← Phase 4 で新規実装 |
 | ⑥ MTGサマリ | ✅ **Phase 3 稼働** (毎時 polling、Notion + Gmail 結合) |
@@ -62,7 +77,11 @@
 
 ### 高優先
 
-1. **Phase 4: L2 全データ毎時 polling 化** ← chip 経由で次セッション (詳細は [L2_DATA.md](design/L2_DATA.md) Phase 4 セクション)
+1. **Phase 4 残り** (詳細は [L2_DATA.md](design/L2_DATA.md) Phase 4 セクション):
+   - ③ MS進捗 ✅ **完了 2026-05-09 (本セッション)** ([ms_progress.md](design/ms_progress.md))
+   - ⑤ メンバーナレッジ — 新規実装 (5 生データ → Sonnet → member_knowledge upsert、毎時 polling)
+   - ④ PJナレッジ — 流入元新規実装 (同上、project_knowledge upsert)
+   - ② AMDプロトコル — UI 復活 + 自動抽出 cron
 2. **iOS Swift 側の APNs 受信実装** ← 別セッション、ios/ worktree で ([`ios/HANDOFF_meeting_notifications.md`](../ios/HANDOFF_meeting_notifications.md))
 
 ### 並行 / 既存
@@ -81,10 +100,11 @@
 
 1. リポ状態 4 ステップ (`git fetch --all --prune` → `git log --branches --not --remotes --oneline` → `git branch -a` → `git status -s`)
 2. **`pwa/design/L2_DATA.md` を読む** ← Phase 4 仕様の正本
-3. **`pwa/design/meeting_summaries.md` を読む** ← Phase 3 のパターン (横展開元)
-4. **`gas/153_MeetingHourlyTrigger.js` を読む** ← Phase 3 参考実装
-5. **`BUGS.md` 最新 3 件を読む** (worktree 取り違え / GAS trigger 上限 / Web App Session)
-6. Phase 4 着手 (③ MS進捗から優先順で)
+3. **`pwa/design/ms_progress.md` を読む** ← ③ MS進捗 Phase 4 完了仕様 (横展開のパターン元)
+4. **`pwa/design/meeting_summaries.md` を読む** ← Phase 3 のパターン (横展開元)
+5. **`gas/153_MeetingHourlyTrigger.js` を読む** ← Phase 3 参考実装
+6. **`BUGS.md` 最新 3 件を読む** (worktree 取り違え / GAS trigger 上限 / Web App Session)
+7. Phase 4 残り (⑤ メンバーナレッジ → ④ PJナレッジ → ② AMDプロトコル) 着手
 
 ---
 
