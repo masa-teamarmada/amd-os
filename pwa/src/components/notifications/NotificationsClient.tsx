@@ -31,16 +31,28 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
   const [filter, setFilter] = useState<"all" | "unread" | "feedback">("all");
   // 展開時に取得した実データ (key = itemKey(item))
   const [details, setDetails] = useState<Record<string, DetailRow>>({});
+  // notified_at の楽観的更新 (展開時に即既読にするため)
+  // key = itemKey(item) → ISO 文字列 (= now() で UPDATE 済 の表示用)
+  const [readMap, setReadMap] = useState<Record<string, string>>({});
+  // 既読セクション全体のトグル (default 折りたたみ)
+  const [readSectionOpen, setReadSectionOpen] = useState<boolean>(false);
 
-  // 通知を時系列でマージ (l2 + meeting)
+  // 通知を時系列でマージ (l2 + meeting) + readMap を当てて notifiedAt を上書き
   const items: UnifiedItem[] = useMemo(() => {
-    const merged: UnifiedItem[] = [
-      ...l2.map((x) => ({ kind: "l2" as const, data: x })),
-      ...mtg.map((x) => ({ kind: "meeting" as const, data: x })),
-    ];
+    const merged: UnifiedItem[] = [];
+    for (const x of l2) {
+      const k = `l2-${x.notification_id}`;
+      const overrideAt = readMap[k];
+      merged.push({ kind: "l2", data: overrideAt && !x.notified_at ? { ...x, notified_at: overrideAt } : x });
+    }
+    for (const x of mtg) {
+      const k = `mtg-${x.meeting_id}`;
+      const overrideAt = readMap[k];
+      merged.push({ kind: "meeting", data: overrideAt && !x.notified_at ? { ...x, notified_at: overrideAt } : x });
+    }
     merged.sort((a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime());
     return merged;
-  }, [l2, mtg]);
+  }, [l2, mtg, readMap]);
 
   // フィルタ
   const filtered = useMemo(() => {
@@ -65,6 +77,32 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
 
   const itemKey = (i: UnifiedItem): string =>
     i.kind === "l2" ? `l2-${i.data.notification_id}` : `mtg-${i.data.meeting_id}`;
+
+  // 展開した瞬間に未読なら notified_at = now() で UPDATE → 楽観的に readMap に反映
+  // (= 既読セクションには次回再描画時に移る、ただし当該カードは展開状態で残す)
+  const markAsRead = useCallback(async (i: UnifiedItem) => {
+    if (i.data.notified_at) return; // 既読は何もしない
+    const key = itemKey(i);
+    const nowIso = new Date().toISOString();
+    setReadMap((prev) => ({ ...prev, [key]: nowIso }));
+    try {
+      const supabase = createClient();
+      if (i.kind === "l2") {
+        await supabase
+          .from("l2_notifications")
+          .update({ notified_at: nowIso })
+          .eq("notification_id", i.data.notification_id);
+      } else {
+        await supabase
+          .from("meeting_notifications")
+          .update({ notified_at: nowIso })
+          .eq("meeting_id", i.data.meeting_id);
+      }
+    } catch (e) {
+      // RLS / network などで失敗しても UI は楽観的に既読のまま (= 次回再読込で server と整合)
+      console.warn("[notifications] markAsRead failed:", e);
+    }
+  }, []);
 
   const loadDetails = useCallback(async (i: UnifiedItem) => {
     const key = itemKey(i);
@@ -208,9 +246,12 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
         next.delete(key);
       } else {
         next.add(key);
-        // 初回展開時に lazy fetch
+        // 初回展開時に lazy fetch + 即既読化
         if (!details[key]) {
           void loadDetails(i);
+        }
+        if (!i.data.notified_at) {
+          void markAsRead(i);
         }
       }
       return next;
@@ -292,8 +333,12 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
         <p className="text-sm text-muted-foreground py-8 text-center">該当する通知はありません</p>
       )}
 
-      <div className="space-y-3">
-        {filtered.map((i) => {
+      {(() => {
+        // 未読/既読に分ける (= readMap で楽観的に既読化されたものは、開いたままでも既読扱い)
+        const unreadItems = filtered.filter((i) => !i.data.notified_at);
+        const readItems = filtered.filter((i) => !!i.data.notified_at);
+
+        const renderCard = (i: UnifiedItem) => {
           const key = itemKey(i);
           const isExpanded = expanded.has(key);
           const isSubmitting = submitting.has(key);
@@ -398,8 +443,38 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
               )}
             </div>
           );
-        })}
-      </div>
+        };
+
+        return (
+          <>
+            {/* 未読 */}
+            {unreadItems.length > 0 && (
+              <div className="space-y-3">
+                {unreadItems.map((i) => renderCard(i))}
+              </div>
+            )}
+
+            {/* 既読 (デフォルト折りたたみ) */}
+            {readItems.length > 0 && (
+              <div className={unreadItems.length > 0 ? "mt-6" : ""}>
+                <button
+                  onClick={() => setReadSectionOpen((v) => !v)}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground py-2 w-full text-left"
+                  aria-expanded={readSectionOpen}
+                >
+                  <span>{readSectionOpen ? "▼" : "▶"}</span>
+                  <span>既読 ({readItems.length} 件)</span>
+                </button>
+                {readSectionOpen && (
+                  <div className="space-y-3 mt-2 opacity-80">
+                    {readItems.map((i) => renderCard(i))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
