@@ -59,6 +59,9 @@ export interface AmdScoreInputRow {
   alq_relational_transparency: number | null;
   alq_balanced_processing: number | null;
   alq_internalized_moral: number | null;
+  // FRL 6 因子拡張: Grit (Duckworth 2007) + Resilience (Markman 2005)
+  frl_grit: number | null;
+  frl_resilience: number | null;
   frl_notes: string | null;
   // 各軸の評価根拠 (2026-05-09 追加)
   mu_notes: MuNotes | null;
@@ -77,7 +80,7 @@ export interface AmdScoreAlphaRow {
 }
 
 const INPUT_COLUMNS =
-  "id, project_id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, evaluator, notes";
+  "id, project_id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, evaluator, notes";
 
 type RawInputRow = {
   id: string;
@@ -96,6 +99,8 @@ type RawInputRow = {
   alq_relational_transparency: number | null;
   alq_balanced_processing: number | null;
   alq_internalized_moral: number | null;
+  frl_grit: number | null;
+  frl_resilience: number | null;
   frl_notes: string | null;
   mu_notes: MuNotes | null;
   xrl_notes: XrlNotes | null;
@@ -122,6 +127,8 @@ function flattenInput(r: RawInputRow): AmdScoreInputRow {
     alq_relational_transparency: r.alq_relational_transparency,
     alq_balanced_processing: r.alq_balanced_processing,
     alq_internalized_moral: r.alq_internalized_moral,
+    frl_grit: r.frl_grit,
+    frl_resilience: r.frl_resilience,
     frl_notes: r.frl_notes,
     mu_notes: r.mu_notes ?? null,
     xrl_notes: r.xrl_notes ?? null,
@@ -176,6 +183,8 @@ export interface AmdScoreInputUpsert {
   alq_relational_transparency?: number | null;
   alq_balanced_processing?: number | null;
   alq_internalized_moral?: number | null;
+  frl_grit?: number | null;
+  frl_resilience?: number | null;
   frl_notes?: string | null;
   mu_notes?: MuNotes | null;
   xrl_notes?: XrlNotes | null;
@@ -205,6 +214,8 @@ export async function upsertAmdScoreInput(
     alq_relational_transparency: input.alq_relational_transparency ?? null,
     alq_balanced_processing: input.alq_balanced_processing ?? null,
     alq_internalized_moral: input.alq_internalized_moral ?? null,
+    frl_grit: input.frl_grit ?? null,
+    frl_resilience: input.frl_resilience ?? null,
     frl_notes: input.frl_notes ?? null,
     mu_notes: input.mu_notes ?? null,
     xrl_notes: input.xrl_notes ?? null,

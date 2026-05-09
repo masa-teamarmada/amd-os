@@ -24,7 +24,7 @@ import {
 } from "@/lib/amd-score";
 // PHASE_COLOR / PHASE_LABEL_JP は使用しない (検証データ蓄積後に復活検討、2026-05-09)
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
-import { Tex } from "@/components/venture-map/Tex";
+// Tex は使用しない (数式は詳細ページに移設済み 2026-05-09)
 
 interface Props {
   projectId: string;
@@ -51,83 +51,18 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
         </div>
 
         <div className="px-4 py-4 flex flex-col gap-4">
-          <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-3 leading-relaxed flex flex-col gap-3">
+          {/* 数式と律速の根拠は詳細ページに移設済み (2026-05-09)。モーダルでは値の内訳のみ表示。 */}
+          <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-2 leading-relaxed flex items-center justify-between gap-3">
             <div>
-              Before Zero Theory v3.2 —{" "}
-              <strong>マクロ M</strong> ×{" "}
-              <strong>会社の XRL X</strong> ×{" "}
-              <strong>CEO の FRL F</strong> の 3 大要素を Cobb-Douglas で統合。
-              <br />
-              マクロトレンドの流れがあって、会社の XRL が整っていて、それを FRL 高い CEO が牽引する。
+              <strong>マクロ M × 会社の XRL X × CEO の FRL F</strong> の 3 大要素を統合 (Before Zero Theory v3.2)。
+              数式・律速の経済学的根拠は詳細ページに記載。
             </div>
-            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
-              <div className="text-[10px] text-muted-foreground mb-1">
-                全体式 (S = AMD Score、k は IPO 級への校正定数)
-              </div>
-              <Tex display tex={String.raw`S \;=\; k \cdot M \cdot X \cdot F`} />
-            </div>
-            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
-              <div className="text-[10px] text-muted-foreground mb-1">
-                ① マクロ M (外部環境 / Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
-              </div>
-              <Tex
-                display
-                tex={String.raw`M \;=\; (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}, \quad \sigma_{\mathrm{SU}} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`}
-              />
-            </div>
-            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
-              <div className="text-[10px] text-muted-foreground mb-1">
-                ② 会社の XRL X (会社に帰属する 5 軸 readiness、内閣府 SIP 互換)
-              </div>
-              <Tex
-                display
-                tex={String.raw`X \;=\; \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x}`}
-              />
-            </div>
-            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
-              <div className="text-[10px] text-muted-foreground mb-1">
-                ③ CEO の FRL F (個人に帰属する CEO リーダーシップ / ALQ ベース、α_F が最大の重み)
-              </div>
-              <Tex display tex={String.raw`F \;=\; (\mathrm{FRL}+1)^{\alpha_F}`} />
-            </div>
-            <div className="text-[10px] text-muted-foreground space-y-1">
-              <div>
-                重み (default): α_F=<span className="font-mono">1.5</span> &gt;
-                α_σ=<span className="font-mono">1.3</span> &gt;
-                α_HRL=<span className="font-mono">1.1</span> &gt;
-                α_TRL=<span className="font-mono">1.0</span> &gt;
-                α_BRL=<span className="font-mono">0.6</span> &gt;
-                α_GRL=<span className="font-mono">0.3</span> &gt;
-                α_SRL=<span className="font-mono">0.2</span>
-              </div>
-              <div>
-                k = <span className="font-mono">100,000 / 10^Σα</span> で全軸 9 (= IPO 級) を 100,000
-                に校正 · Shallow Tech モード (TRL=null) では TRL を X から除外して k を再校正。
-              </div>
-            </div>
-          </div>
-
-          {/* 律速 (rate-limiting) の経済学的根拠 */}
-          <div className="text-[10px] text-slate-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 leading-relaxed flex flex-col gap-1">
-            <div className="text-[11px] font-semibold">律速 (rate-limiting) の定義</div>
-            <div>
-              「1 段階上げたとき S が最も大きく増える軸」を律速とする。Cobb-Douglas
-              の偏微分から:
-            </div>
-            <div className="bg-white rounded px-2 py-1 overflow-x-auto">
-              <Tex
-                display
-                tex={String.raw`\frac{\partial S}{\partial X_i} \;=\; \frac{\alpha_i \cdot S}{X_i + 1} \quad\Rightarrow\quad \text{bottleneck} \;=\; \arg\max_i \frac{\alpha_i}{X_i + 1}`}
-              />
-            </div>
-            <div>
-              重み α が大きいのに値 X が低い軸 = 限界収益 (marginal contribution) が最大の軸 =
-              経営アクションで最初に手当てすべき軸。
-            </div>
-            <div className="text-[9px] text-muted-foreground">
-              根拠: Cobb, C. W. &amp; Douglas, P. H. (1928). &quot;A theory of production.&quot;{" "}
-              <em>American Economic Review</em>, 18(1), 139-165.
-            </div>
+            <Link
+              href={`/venture-map/amd-score/${projectId}`}
+              className="shrink-0 px-2 py-1 rounded bg-violet-600 text-white text-[10px] hover:bg-violet-700"
+            >
+              数式 →
+            </Link>
           </div>
 
           {!latestInput ? (
