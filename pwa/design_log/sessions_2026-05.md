@@ -1488,5 +1488,100 @@ iOS 通知が降ってきた直後、まさから:
 ### 次セッションへ
 
 - iOS 側通知タップ → `/notifications#<notification_id>` (or ネイティブ画面) へ遷移
-- gas/074 (MTGサマリ) と pwa progress-estimator (③ MS進捗) にも feedback ブロック追加
 - l2_feedbacks の archive UI
+
+---
+
+## 2026-05-09 (続々々々々) — Notion AI 議事録対応 + 名前正規化 + MTGサマリ feedback + 通知 UI 完成 + 汚染防御 (quirky-moore-b60501 セッション継続、最終)
+
+セッション終盤、まさからの実利用フィードバックを矢継ぎ早に解決。
+
+### A. 通知 UI の使い勝手改善
+
+1. **既読折りたたみ + 即既読化**: 開いた瞬間に `notified_at = now()` で UPDATE → グループ分けは `server 値で固定` (= セッション内は未読セクションに残る、ページリロードで初めて既読セクションに移動 + トグル下に折りたたまれる)
+2. **GlobalNav 通知ベル** (📬) + 未読バッジ (15 秒 polling) + Dashboard 通知バナー (= 直近 2 件のタイトル表示)
+3. **展開時に lazy fetch で実データ表示**: `member_knowledge` / `project_knowledge` / `protocols` / `milestone_monthly_progress` / `project_meeting_summaries` から l2_kind 別に fetch
+4. **修正依頼の即時反映**: POST `/api/notifications/feedback` の末尾で fire-and-forget で対応 GAS 関数 (`nav_meeting_processOneEvent_` / `nav_member_knowledge_extractOne_` / `nav_project_knowledge_extractOneForYm_` / `nav_protocol_extractOneForYm_`) を runFunc で叩く
+
+### B. BWE 議事録抽出を完全成功
+
+1. **原因究明**: 1 会議で 2 ページ生成 (= cron テンプレ "Meet（ここで /meet を打つ）..." + Notion AI 自動生成)。AI ページは `transcription` block 1 個で `summary_block_id` 配下に標準 block。
+2. **対応 (まさ判断)**: cron テンプレ生成 (`gas/CalendarToNotionMinutes.js` `run_createMinutes_apply`) を **trigger 削除して停止**。今後 Notion AI 一本化。
+3. **実装 (gas/074)**:
+   - `_meeting_fetchAiNotesBody_` 新設: `transcription` block → `summary_block_id` + `notes_block_id` の子 block を再帰取得 (paragraph / heading_1〜4 / bulleted_list_item / to_do / quote / callout を markdown 風に結合)
+   - `_meeting_fetchBlockChildrenText_` 新設: `/blocks/{id}/children` 直叩き
+   - `_meeting_estimatePageBodyLength_` に AI body 加算
+   - `_meeting_findNotionPageByEventId_` の選択ロジックを `last_edited_time 降順 sort で先頭採用` に簡素化
+   - `_meeting_resolveProjectName_` 新設 (project_id → project_name resolver、project_meta 用)
+4. **prompt v4_alias_feedback 化**: meeting_meta セクション + alias block + feedback block + meetingId を userPrompt に追加。source_hash に prompt rev + active feedback hash を混ぜる (= 改訂 / 修正依頼追加で自動再抽出)
+5. **検証**: BWE 5/9 force 再抽出 → decided 4 件抽出成功 (取締役辞任 / 株式譲渡 第1号 + 第2号議案 / 採決結果)。alias で「山地正洋氏 → まさ」「吉﨑万莉氏 → まり」も正規化
+
+### C. 名前正規化マップ (gas/079 NameAliasMap)
+
+- まさからの指摘: 「山田氏」=「りょー」、「chiko」=「ちこ」、「山地」=「まさ」が別人カウントされる
+- migration 不要、`members.member_name` + email から動的生成:
+  - 例: code_name='まさ' / member_name='山地 正洋' / email='masa@team-armada.jp' → aliases = ['山地', '正洋', 'masa']
+  - 姓・名を空白で分割
+  - email local part (= '@' 手前) も alias 化 (ID プレフィックスは除外)
+  - inactive メンバーも含めて全 29 人がマップに入る (= 過去議事録の歴史記録対応)
+- LLM プロンプトに「正規化マップ (同一人物の別表記)」ブロックを冒頭で渡す
+- gas/074 (MTGサマリ) + gas/155 (3 extractor) 双方に組み込み
+
+### D. MTGサマリ feedback 連携
+
+- まさからの指摘: 「つくよみに修正依頼しても修正されない」
+- 原因: gas/074 で `_l2_loadFeedbackBlock_` 未呼び出し + source_hash 差分検知でスキップ
+- 対応:
+  - 074 の userPrompt に feedback block を追加 (`_l2_loadFeedbackBlock_("meeting_summary", projectId, meetingId or 'global')`)
+  - source_hash 入力に active feedback hash (= feedback_id + feedback_text の連結) を混ぜる → 修正依頼追加で hash 不一致 → 自動再抽出
+  - saved>0 で `_l2_recordFeedbackApplied_` で applied_count++ + last_applied_at = now() (= UI の「(未反映)」が「(反映 N 回)」に切り替わる)
+  - `MEETING_EXTRACT_PROMPT_REV = "v4_alias_feedback"` にバンプ
+- POST `/api/notifications/feedback` の末尾で **即 force 再抽出を fire-and-forget**:
+  - meeting_summary → `nav_meeting_processOneEvent_(meetingId, projectId)`
+  - member_knowledge → `nav_member_knowledge_extractOne_(codeName, memberId, {force:true})` (member_id は server 側で resolve)
+  - project_knowledge → `nav_project_knowledge_extractOneForYm_(projectId, ym, {force:true})`
+  - protocols → `nav_protocol_extractOneForYm_(projectId, ym, {force:true})`
+
+### E. monthly_reports 汚染防御 (gas/155 v4_meta_strict)
+
+- まさの指摘「SE のナレッジに CX の情報が入ってる」
+- 原因: PJナレッジ抽出のバグでなく、**入力ソース monthly_reports 自体の汚染**
+  - p10 (SE) 202604 の draft_content 全体が CX (CryoX/神谷/磁気冷凍) の内容
+  - p20 (CX) 202604 も同じ内容だが mojibake (= charset 失敗)
+  - generated_at が 43 分差で連続 → リポ外 cron / 手動投入で project_id を p10 と誤紐付けた事故痕跡
+- 対応 (二段防御):
+  1. PJナレッジ抽出に `project_meta` セクション + 「他 PJ 内容で汚染されているケースは items: [] を返せ」プロンプト
+  2. `monthly_reports.status=neq.invalid` フィルタ追加 → 汚染レポートを `status='invalid'` でマークすると入力対象外
+- データ修復:
+  - p10/202604 monthly_report.status='invalid'
+  - p10 source='l2_hourly_extract' project_knowledge 27 件 DELETE
+  - l2_extract_state / l2_notifications の対応行 リセット
+- 未対応: 全 monthly_reports 汚染検出関数、上流生成プロセス (R313 / MMO Claude Code task) の調査
+
+### F. DB schema reference 自動生成 (= 列名想像バグの根本対策)
+
+- まさの指摘: 「列名を勝手に想像して進めるバグはこれまで何度もやってる、防ぐ仕組みを作って」
+- `pwa/scripts/dump_schema.py` 新設: Supabase Management API → `information_schema.columns` + PK + UNIQUE + 行数概算 を取得して md 化
+- `pwa/design/db_schema.md` 自動生成 (88 テーブル / 948 列、各テーブルに `# / column / type / nullable / default` 表)
+- `pwa/CLAUDE.md` に運用ルール追加: 「新規 cron / API / Edge Function / GAS 関数で Supabase テーブルを叩く前に必ず db_schema.md を grep」「DDL 変更したら同 commit で再生成」
+
+### G. メンバーナレッジに役割分担データ統合
+
+- まさの指摘: 「きよ は入札業務とか事務対応だけ担当だけど、ロジックで見極められてない」
+- 原因: 入力に member_activities (90日) + 関連 PJ の meeting_summaries (60日) しかなく、公式の役割分担が反映されていなかった
+- gas/155 `nav_member_knowledge_extractOne_` の入力に **section C (公式の役割分担)** 追加:
+  - `milestone_responsibility` WHERE share>0 → JOIN `value_milestones` (title / success_criteria / points) → `value_plan_cycles` で project_id 解決
+  - LLM プロンプトに「グラウンドトゥルース、skills/work_style はここから」と明示
+- きよ force 再抽出で正しく「請求書処理・契約管理等の月次事務手続き、入札対応全般、クラウド会計・経理処理フロー構築」が抽出された
+
+### 動作確認
+
+- 全 GAS deploy v1438 → v1447 (内部 @1447)
+- migration 029 / 030 / 031 / 032 全 4 個適用済
+- Vercel deploy 完了済 (`amd-os-pwa.vercel.app`)
+- BWE 議事録 / きよ メンバーナレッジ / SE 汚染修復 など個別検証済
+- iOS Swift APNs 通知 受信実装も別セッションで完了 (masaiPhone install + launch 確認)
+
+### 次セッションへ (本ハンドオフ Step 7)
+
+[`pwa/HANDOFF_pwa_rebuild.md`](../HANDOFF_pwa_rebuild.md) と [`pwa/design/L2_DATA.md`](../design/L2_DATA.md) の改訂履歴に最新状態を反映済。残タスクは HANDOFF 参照。

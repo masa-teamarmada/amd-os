@@ -127,6 +127,8 @@ curl -sL --max-time 300 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_project
 | 日付 | 変更 |
 |---|---|
 | 2026-05-09 | Phase 4 初版稼働。GAS 155 で毎時 polling + source_hash 差分検知 + 二次集約 (monthly_reports + meeting_summaries → Gemini → SELECT/INSERT/PATCH) |
+| 2026-05-09 | **alias map 統合**: `gas/079 nameAlias_buildBlock` でメンバー名の表記揺れマップを LLM プロンプトに渡す。`pv: "v3_with_aliases"` で全行再抽出 |
+| 2026-05-09 | **v4_meta_strict 防御強化** (BUGS.md 「PJナレッジ抽出で SE に CryoX/神谷 が紛れ込む」事故対応): userPrompt 冒頭に `=== project_meta ===` セクション (projectId / projectName / ym) 追加 + systemPrompt に「monthly_report が他 PJ 内容で汚染されているケース (例: projectName='SE' なのに CryoX/NIMS神谷 が書かれている) は items: [] を返せ」明示。`monthly_reports.status=neq.invalid` フィルタで汚染レポートは入力対象外に。汚染レポートは手動で `status='invalid'` にマーク運用 |
 
 ---
 

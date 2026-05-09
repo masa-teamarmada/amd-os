@@ -1,6 +1,6 @@
 # MTG サマリ — 設計の正本
 
-最終更新: 2026-05-09 (v3 prompt PJ 隔離 + meeting_meta 明示)
+最終更新: 2026-05-09 (Phase 2 移行)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -226,26 +226,10 @@ CREATE TABLE project_meeting_summaries (
 | [gas/122_NotionBlocksRepo.js](../../gas/122_NotionBlocksRepo.js) | **流用先**: Notion ページ本文取得 |
 | [gas/CalendarToNotionMinutes.js](../../gas/CalendarToNotionMinutes.js) | 上流: 毎日 03:00 で明日分の Notion 議事録枠を作る (`cron_createMinutesFromCalendar`) |
 
-### Gemini プロンプト (Protocol Store: `meeting_extract` v3、Protocol Store version `260509_03`)
+### Gemini プロンプト (Protocol Store: `meeting_extract` v2)
 
-> **🚨 v3 重要変更 (2026-05-09)**: 「BWE 株主総会の議事録枠に CX (Kiutra/CryoX) のメールが混入」事故 ([BUGS.md](../BUGS.md) 該当エントリ参照) を受けて、対象 PJ と無関係な thread の混入を LLM 側で排除する設計に強化。
-> - userPrompt 冒頭に `=== meeting_meta ===` セクション (projectId / projectName / meetingTitle / meetingDate / ym / sourceKinds) を必ず付ける = LLM が「対象が何か」を必ず知る
-> - system prompt に「対象 PJ と無関係な内容は完全に無視せよ。NIMS / 大学 / 大企業など複数 PJ 重複組織の cc 経由混入の実例あり (BWE/CX 事故)」を明記
-> - 関係なければ各配列を空 [] で返し、`summary_short` を「対象 PJ に関連する議事録が確認できず」と書いて良い
-
-入力: 1 calendar event ぶんの結合テキスト (v3)
+入力: 1 calendar event ぶんの結合テキスト
 ```
-extractor: meeting_summary_v3
-
-=== meeting_meta (この会議の対象 PJ・タイトル・日付。これと無関係な内容は無視する) ===
-projectId: p11
-projectName: BWE
-meetingTitle: BWE 臨時株主総会
-meetingDate: 2026-05-09
-ym: 202605
-sourceKinds: notion+gmail
-
-=== combined sources (notion + gmail) ===
 === notion ===
 <Notion 議事録ページ本文>
 
@@ -269,23 +253,20 @@ sourceKinds: notion+gmail
 ```
 
 ルール (詳細は [gas/092_AdminLLMExtractors.js](../../gas/092_AdminLLMExtractors.js) `meeting_extract_basePrompt_`):
-- **対象 PJ 名 / 会議タイトル / 日付と直接結びつかない内容は枠を埋めるな** (= 関係なければ空配列を返せ)
-- gmail thread は reportEmails の to/from 一致だけで集めたものなので、別 PJ メールが混入する。**meeting_meta を起点に判定**
-- 同一事項が notion と gmail の両方にあれば、より具体的な記述を優先して 1 つにまとめる
+- `gmail` セクションには **会議と関係ないメール** が混ざりうる → LLM 側で選別
+- 同一事項が両方にあれば 1 つにまとめる、より具体的な記述を優先
 - 自動通知文・署名・URL は捨てる
 - 各配列最大 5 件、入力に書かれてない推測禁止
 
-### 差分検知 (v3 で prompt version を hash に混入)
+### 差分検知
 
 ```
 combinedText = (Notion 本文 + "\n\n" + Gmail 抜粋)
-newHash = sha256("prompt=" + MEETING_EXTRACT_PROMPT_VERSION + "\n" + combinedText)
-                  ↑ "v3" 。074 冒頭の定数を bump すれば既存行も再抽出される
+newHash = sha256(combinedText)
 if existing.source_hash === newHash: skip (LLM 呼ばない)
 ```
 
-毎日 cron で同じ議事録が再 query されても、本文と prompt version が変わってない限り Gemini call はされない。
-**プロンプト改訂時は `MEETING_EXTRACT_PROMPT_VERSION` を bump する** (074 冒頭) → 全行 hash が変わって再抽出される。
+毎日 cron で同じ議事録が再 query されても、本文が変わってない限り Gemini call はされない。
 
 ### GAS 6 分制限対策
 
@@ -385,6 +366,12 @@ Phase 2 完了後:
 | 2026-05-09 | ios/HANDOFF_meeting_notifications.md 新規 (iOS Swift 側 APNs 通知の受け取り仕様、別セッション実装予定) | 同上 |
 | 2026-05-09 | 初回 ad-hoc scheduling 試行 (3 trigger set) → GAS time-trigger 上限超え → **毎時 polling 方式に変更** | 同上 |
 | 2026-05-09 | nav_meeting_pollRecentlyEndedEvents (毎時 polling) + nav_meeting_setupHourlyPollTrigger_ (setup) で再実装。GAS deploy v1430 / hourly poll trigger 1 個 set / 動作確認 OK | 同上 |
-| 2026-05-09 | **prompt v3 化 (PJ 隔離)**: 「BWE 株主総会枠に CX (Kiutra/CryoX) メールが混入」事故を受けて 092 `meeting_extract_basePrompt_` を v3 / Protocol Store version `260509_03` に書き換え。`=== meeting_meta ===` セクション追加 + 「対象 PJ と無関係な thread の内容で枠を埋めるな」を強調。074 に `MEETING_EXTRACT_PROMPT_VERSION = "v3"` 定数 + source_hash に prompt version を混入 (= prompt 改訂で全行再抽出)。`_meeting_resolveProjectName_` helper 追加。157_MeetingDebugInspector.js 新規 (`debug_meeting_inspectEvent` で Notion/Gmail 生テキスト確認)。GAS deploy v1437。BWE 5/9 event 再抽出で CX 記述完全排除を検算済 | gallant-euler-273e3a セッション。詳細 BUGS.md 該当エントリ |
-| TBD | Phase 2.1: reportEmails の整備 + CircleBack / GMeet 議事録メールの経路確認 (運用ルール: PJ 専属メアドだけ登録するのが理想。重複組織は LLM 側でフィルタ責務) | |
+| 2026-05-09 | **prompt v3 化** (gas/092 meeting_extract): meeting_meta セクション (projectId/projectName/meetingTitle/meetingDate/sourceKinds) を冒頭に追加し「対象 PJ と無関係なら無視」明示。`_meeting_resolveProjectName_` 新設、source_hash に prompt version を混ぜる設計 (改訂で全行再抽出)。BUGS.md 「BWE 株主総会の MTGサマリ枠に CX のメールが混入」事故の再発防止 | 別セッション |
+| **2026-05-09** | **Notion 議事録 cron 停止** (まさ判断、quirky-moore-b60501): 1 会議で 2 ページ生成 (cron テンプレ + Notion AI 自動生成) の事故により `gas/CalendarToNotionMinutes.js` の `run_createMinutes_apply` trigger 全削除 + ファイル冒頭に DEPRECATED 警告。今後は Notion AI / Meet 連携のページのみが議事録 DB に並ぶ | 72293f4 |
+| **2026-05-09** | **AI 議事録ページ対応** (gas/074): `_meeting_fetchAiNotesBody_` 新設で `transcription` block → `summary_block_id` + `notes_block_id` 配下の標準 block を再帰取得 (heading_1〜4/paragraph/bulleted_list_item/to_do/quote/callout)。BWE 5/9 で検証成功 (decided 4 件 / 取締役辞任 + 株式譲渡 2 議案 + 採決結果 抽出) | fbeabb5 |
+| **2026-05-09** | **page 選択ロジック簡素化**: cron テンプレ vs AI ページの本文厚さ比較を廃止し `last_edited_time 降順 sort で先頭採用` に統一 | 同上 |
+| **2026-05-09** | **alias map 統合** (gas/079 NameAliasMap 新設): `members.member_name` + email から動的に正規化マップ生成 (「山田氏」=「りょー」「山地」=「まさ」「chiko」=「ちこ」)。074 / 155 双方の LLM プロンプトに渡す。BWE 検証で「山地正洋氏 → まさ」「吉﨑万莉氏 → まり」の正規化を確認 | 72293f4 |
+| **2026-05-09** | **MTGサマリ feedback 対応** (gas/074 v4_alias_feedback): `_l2_loadFeedbackBlock_("meeting_summary", projectId, meetingId)` で過去依頼を取得 → userPrompt に追加。saved>0 で `_l2_recordFeedbackApplied_` で applied_count++。source_hash に active feedback hash を混ぜる → 修正依頼追加で自動再抽出。`POST /api/notifications/feedback` 末尾で **即 force 再抽出を fire-and-forget** | ac23ec1 |
+| **2026-05-09** | **debug_meeting_inspectBlocks(pageId)** 新設 (gas/158): 任意ページの blocks 構造を JSON で返す常設 debug 関数 | fbeabb5 |
+| TBD | Phase 2.1: reportEmails の整備 + CircleBack / GMeet 議事録メールの経路確認 | |
 | TBD | Phase 2.5: AMD-Report GAS の R313 を会議サマリ集約に書き換え (別セッション) | |
