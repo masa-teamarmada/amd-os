@@ -72,7 +72,7 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
   // 集計
   const fundingCountBySeed = new Map<string, number>();
   const fundingTotalBySeed = new Map<string, number>();
-  const fundingProgramsBySeed = new Map<string, Set<string>>();
+  const fundingProgramsBySeed = new Map<string, { program: string; year: number | null }[]>();
   // 採択年度の新しい順 → プログラム名昇順 で並べる準備
   const sortedFundings = [...fundings].sort((a, b) => {
     const ay = a.fiscal_year ?? -1;
@@ -86,9 +86,12 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
       fundingTotalBySeed.set(f.seed_id, (fundingTotalBySeed.get(f.seed_id) ?? 0) + f.amount_jpy);
     }
     if (f.program_short) {
-      const set = fundingProgramsBySeed.get(f.seed_id) ?? new Set<string>();
-      set.add(f.program_short);
-      fundingProgramsBySeed.set(f.seed_id, set);
+      const list = fundingProgramsBySeed.get(f.seed_id) ?? [];
+      // 同じ program は最新年度のみを残す (sortedFundings は年度 desc 順なので最初を保持)
+      if (!list.some((x) => x.program === f.program_short)) {
+        list.push({ program: f.program_short, year: f.fiscal_year });
+        fundingProgramsBySeed.set(f.seed_id, list);
+      }
     }
   }
 
@@ -110,7 +113,7 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
     ...s,
     funding_count: fundingCountBySeed.get(s.id) ?? 0,
     funding_total_jpy: fundingTotalBySeed.get(s.id) ?? 0,
-    funding_programs: Array.from(fundingProgramsBySeed.get(s.id) ?? []),
+    funding_programs: fundingProgramsBySeed.get(s.id) ?? [],
     news_count: newsCountBySeed.get(s.id) ?? 0,
     contact_log_count: contactCountBySeed.get(s.id) ?? 0,
     last_contacted_on: lastContactBySeed.get(s.id) ?? null,

@@ -154,7 +154,7 @@ export interface SeedContactLog {
 export interface SeedListItem extends Seed {
   funding_count: number;       // 採択補助金件数
   funding_total_jpy: number;   // 採択補助金合計
-  funding_programs: string[];  // 採択プログラム short 名 (例: ['JST D-Global', 'AMED preF']) — 重複排除済
+  funding_programs: { program: string; year: number | null }[];  // 採択プログラム short 名 + 年度 (年度 desc 順、program で重複排除)
   news_count: number;          // ニュース件数
   contact_log_count: number;   // 接触履歴件数
   last_contacted_on: string | null;  // 最終接触日
