@@ -1,7 +1,7 @@
 /**
  * AMD Score — 7 軸 Cobb-Douglas 統合指標
  *
- * 正本: /Users/masa/projects/before-zero/theory/amd_score.md (Before Zero Theory v3.2)
+ * 正本: /Users/masa/projects/AMD/before-zero/theory/amd_score.md (Before Zero Theory v3.2)
  *
  * AMD Score = K · Π (X_i + 1)^α_i
  *   X ∈ { σ_SU, TRL, BRL, GRL, SRL, HRL, FRL }, 各軸 0-9

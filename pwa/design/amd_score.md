@@ -21,7 +21,7 @@
 Before Zero Theory v3.2 の **AMD Score (7 軸 Cobb-Douglas 統合指標)** を AMD OS に実装した。
 cockpit の AMD スコアチップ・経時グラフ・breakdown モーダルも新ロジックに置き換え。
 
-理論正本: [`/Users/masa/projects/before-zero/theory/amd_score.md`](../../../../before-zero/theory/amd_score.md)
+理論正本: [`/Users/masa/projects/AMD/before-zero/theory/amd_score.md`](../../../before-zero/theory/amd_score.md)
 
 ---
 
@@ -242,8 +242,8 @@ CockpitXrlDetailModal に `<NextLevelProgress>` セクションを追加して�
 
 ## 関連
 
-- 理論正本: [`/Users/masa/projects/before-zero/theory/amd_score.md`](../../../../before-zero/theory/amd_score.md)
-- 8 PJ メタ: [`/Users/masa/projects/before-zero/retrofit/su_timelines.ts`](../../../../before-zero/retrofit/su_timelines.ts)
-- v3.2 状態空間モデル: [`/Users/masa/projects/before-zero/theory/state_space_model.md`](../../../../before-zero/theory/state_space_model.md)
+- 理論正本: [`/Users/masa/projects/AMD/before-zero/theory/amd_score.md`](../../../before-zero/theory/amd_score.md)
+- 8 PJ メタ: [`/Users/masa/projects/AMD/before-zero/retrofit/su_timelines.ts`](../../../before-zero/retrofit/su_timelines.ts)
+- v3.2 状態空間モデル: [`/Users/masa/projects/AMD/before-zero/theory/state_space_model.md`](../../../before-zero/theory/state_space_model.md)
 - PJ Status コックピット: [`./2026-05_pj_status_cockpit.md`](2026-05_pj_status_cockpit.md)
 - Venture Map モデル: [`./2026-05_venture_map_model.md`](2026-05_venture_map_model.md)
