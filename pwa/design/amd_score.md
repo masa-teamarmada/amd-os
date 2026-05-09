@@ -141,29 +141,63 @@ amd_score_alpha (alpha jsonb, effective_from / effective_to)
 - **読み取り (Cockpit モーダル)**: `CockpitAmdScoreBreakdownModal.tsx` の `FactorRow` の `subtitle` で同じく italic で根拠表示
 - **Tsukuyomi 統合**: `update_amd_score_input` tool に `mu_notes_a/i/g` `xrl_notes_trl/brl/grl/srl/hrl` パラメータ追加。LLM がスコアを更新するときに**値だけでなく必ず根拠も書く**運用
 
-### 詳細ページのレイアウト (2026-05-09 改修)
+### 詳細ページのレイアウト (2026-05-09 改修 後期)
 
-旧レイアウト:
+最終レイアウト:
 ```
-ScoreHeroCard
-[ RadarChart | ContributionTable ]
-TimeSeriesChart, InputEditor, FrlAlqPanel
-```
-
-新レイアウト:
-```
+ヘッダ (← 一覧 / コックピットリンク / α retrofit へのリンク)
+案内バー (値の修正は Tsukuyomi 経由)
 ScoreHeroCard          (S 値、log バー、律速軸ラベル、K/Σα/σ_SU、lane)
 BalanceBar             (3 要素 M/X/F の max 達成率を水平バーで)
-FormulaPanel           (全体式 + 3 要素式 + 律速の経済学的根拠 Cobb-Douglas 偏微分)
-Factor3Breakdown       (3 要素カード — モーダルと同じ FactorCard 構造、notes を subtitle 表示)
-TimeSeriesChart, InputEditor, FrlAlqPanel
+FormulaPanel           (全体式 + 3 要素式 + 律速の経済学的根拠 + 各式の引用文献)
+Factor3Breakdown       (3 要素カード — 各軸クリックで Tsukuyomi 起動)
+TimeSeriesChart        (経時 line chart)
+FrlAlqPanel            (FRL 6 因子表示 + ALQ radar — 各因子クリックで Tsukuyomi 起動)
 ```
 
-理由:
-- **RadarChart 削除**: 寄与度シェアは α が大きい軸 (σ_SU/HRL/FRL) ばかり高くなる構造的偏りで情報量低い (まさフィードバック 2026-05-09)
-- **BalanceBar 追加**: 各要素を独立に「max に対する達成率」で見せれば α 偏りが出ず 3 要素のバランスが直感的
-- **数式の移設**: モーダルから詳細ページへ。スコアチップクリック時はコンパクトに、深掘りは詳細ページで完結
-- **3 要素カードを詳細ページにも**: 同じデータを編集と表示で同時に見られるように
+削除したもの:
+- **RadarChart (寄与度シェア)**: α が大きい軸ほど大きく見える構造的偏りで情報量低い (まさフィードバック 2026-05-09)
+- **ContributionTable (旧)**: Factor3Breakdown で同等以上の情報を提供
+- **InputEditor (スライダー入力 + textarea)**: スライダーぽちぽち入力は使われない、Tsukuyomi 経由に転換 (まさ判断 2026-05-09)
+- **AlphaSidebar**: α は重要パラメータで日常 UI に出さない、retrofit 別ページに移設 (まさ判断 2026-05-09)
+
+各式の引用文献を `FormulaPanel` 内に小さく表示:
+- 全体式: Cobb &amp; Douglas (1928), American Economic Review
+- M (Triple Helix): Etzkowitz &amp; Leydesdorff (2000), Research Policy
+- X (5 XRL): Mankins (1995) NASA TRL + 内閣府 SIP 公募要領 (令和 5) + EU H2020 SRL
+- F (FRL 6 因子): Bernstein 2017 JF / Walumbwa 2008 JoM / Duckworth 2007 JPSP / Markman 2005 JOB / Hsu 2007 RP
+
+### Tsukuyomi 連携 (各軸クリックで修正依頼) — 2026-05-09 追加
+
+人が入力するスライダー UI は廃止 (まさ判断「人が入力する UI は使われない」)。値の修正は **Tsukuyomi (右下マスコット) 経由**:
+
+- 詳細ページの `Factor3Breakdown` の各軸 (μ_A/I/G、TRL/BRL/GRL/SRL/HRL、FRL) に `onClick` ハンドラ
+- `FrlAlqPanel` の各 6 因子 (ALQ 4 + Grit + Resilience + FRL + 自由備考) も同様
+- クリックすると `window.dispatchEvent("tsukuyomi:open", { detail: { message: "..." } })` を発火
+- `Mascot` がイベントを受け取って drawer を open + `localStorage["tsukuyomi:pending-prefill"]` に message を保存
+- `TsukuyomiChatDrawer` はマウント時にこの localStorage を読んで input box に挿入 + `tsukuyomi:prefill` event の listener も持つ (Drawer が既に開いてる場合用)
+
+prefill template:
+```
+PJ {ventureName} の {fieldName} = {currentValue} の評価を見直したい。
+現在の根拠: {currentNote or "（未入力）"}
+
+（私のコメント: 例「論文 N 件しかないから 5 にして」「もう少し根拠を詳しく」など）
+```
+
+まさが「論文 N 件しかないから 5 にして」と返答 → Tsukuyomi が `update_amd_score_input` tool で `mu_A=5, mu_notes_a="..."` を upsert → ページリロードで反映。
+
+### Retrofit ページ (α 重み調整) — 2026-05-09 追加
+
+Path: `/venture-map/amd-score/retrofit` (タブバーには出さない、詳細ページからのリンクのみ)
+
+理由: α は全 PJ のスコアに同時に効く重要パラメータ。スライダーで気軽に変えられる UI を日常画面に置くと事故が起きる (まさフィードバック 2026-05-09)。
+
+画面構成:
+- 左 (sticky): α 7 軸 slider (0-2.0、0.05 刻み)、現役 α / default との差分も表示
+- 右: 全 PJ × [現役 α score / 新 α score / 差分%] の表 (新 α 順)
+- α を動かすたび右の表がリアルタイム更新 → retrofit (過去 PJ の設立タイミング判定が当たるか) を見ながら慎重に決められる
+- 「現役 α に戻す」「base case (default) に戻す」「新しい α を保存」ボタン
 
 ### FRL 6 因子拡張 (2026-05-09 追加)
 

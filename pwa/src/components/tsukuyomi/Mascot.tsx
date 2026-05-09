@@ -72,6 +72,29 @@ export default function Mascot() {
     setChatOpen(true);
   }
 
+  // 外部からチャット起動 + prefill を要求するイベント。
+  // window.dispatchEvent(new CustomEvent("tsukuyomi:open", { detail: { message: "..." } })) で発火。
+  // 受け取った message は localStorage に置き、Drawer mount 時に読み込まれる。
+  // (Drawer はマウント直後に "tsukuyomi:pending-prefill" を読んで input に挿入する)
+  useEffect(() => {
+    function onOpenRequest(e: Event) {
+      const ce = e as CustomEvent<{ message?: string }>;
+      const msg = ce.detail?.message;
+      if (typeof msg === "string" && msg.length > 0) {
+        try {
+          window.localStorage.setItem("tsukuyomi:pending-prefill", msg);
+        } catch {
+          /* ignore */
+        }
+      }
+      setChatOpen(true);
+      setAnimation("wave");
+      window.setTimeout(() => setAnimation("idle"), MOOD_DURATION_MS);
+    }
+    window.addEventListener("tsukuyomi:open", onOpenRequest);
+    return () => window.removeEventListener("tsukuyomi:open", onOpenRequest);
+  }, []);
+
   return (
     <>
       <button
