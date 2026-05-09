@@ -88,3 +88,24 @@ python -X utf8 scripts/apply_ddl.py scripts/migrations/NNN_name.sql
 - migrations は `scripts/migrations/NNN_name.sql` に必ず残す
 - supabase-js REST + `rpc("exec_sql")` は存在しない。SQL Editor 手動依頼もNG
 
+---
+
+## 🚨 列名・テーブル名は想像で書かない (`db_schema.md` を必ず参照)
+
+新規 cron / API route / Edge Function / GAS 関数で Supabase テーブルを叩く前に、
+**[`design/db_schema.md`](design/db_schema.md) を必ず grep して実際の列名を確認**してから
+select / filter / insert / upsert を書くこと。
+
+過去事故: `member_activities` の列を `code_name` / `created_at` / `activity_text` / `kind` と
+想像で書いたら全部間違ってて (実体は `member_id` / `extracted_at` / `content_preview` /
+`source`)、PostgREST 42703 エラーで `actsRes.ok=false` → 入力ゼロで進行 → 他人の活動が
+本人のものとして LLM 抽出される事故 (BUGS.md `[GAS] member_knowledge 抽出で「きよ」に他人の活動が紐付くカオス` 参照)。
+
+**運用**:
+- DDL を変更したら同じ commit で `python3 -X utf8 scripts/dump_schema.py` を実行して `design/db_schema.md` を再生成 → commit に含める
+- 他の md (HANDOFF / 設計 md) で「テーブル X の列 Y」を書くときも、必ず `db_schema.md` から正しい列名をコピーする (= 二次情報を参照しない)
+- えいみが新セッション開始時に「列名を書く必要があるなら必ず先に `db_schema.md` を grep する」セルフルールを徹底
+
+`db_schema.md` は自動生成 (Supabase Management API → information_schema.columns)。
+手動編集禁止 (= 次回再生成で消える)。
+
