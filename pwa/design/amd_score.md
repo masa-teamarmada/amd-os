@@ -118,6 +118,7 @@ migration:
 - [`pwa/scripts/migrations/013_amd_score.sql`](../scripts/migrations/013_amd_score.sql) (本番適用済 2026-05-06) — 7 軸の生値
 - [`pwa/scripts/migrations/015_amd_score_frl_alq.sql`](../scripts/migrations/015_amd_score_frl_alq.sql) (本番適用済 2026-05-07) — FRL ALQ 4 次元 + frl_notes
 - [`pwa/scripts/migrations/030_amd_score_axis_notes.sql`](../scripts/migrations/030_amd_score_axis_notes.sql) (本番適用済 2026-05-09) — `mu_notes` (JSONB: a/i/g) と `xrl_notes` (JSONB: trl/brl/grl/srl/hrl) を追加。**各軸の値の根拠**を保存・表示するための拡張
+- [`pwa/scripts/migrations/031_amd_score_frl_grit_resilience.sql`](../scripts/migrations/031_amd_score_frl_grit_resilience.sql) (本番適用済 2026-05-09) — FRL を 6 因子 (ALQ 4 + Grit + Resilience) に拡張。`frl_grit` (Duckworth 2007) と `frl_resilience` (Markman 2005) を追加
 
 ```
 amd_score_inputs (project_id FK projects, evaluated_at, mu_A/I/G + 5 XRL + FRL, shallow_tech_mode)
@@ -136,8 +137,47 @@ amd_score_alpha (alpha jsonb, effective_from / effective_to)
 まさフィードバック「XRL / μ / FRL の値の根拠が UI で見たい」に対応:
 
 - **入力 (詳細ページ)**: `AmdScoreView.tsx` の `AxisSliderWithNote` で各軸スライダーの直下に textarea で根拠を入力
-- **読み取り (Cockpit モーダル)**: `CockpitAmdScoreBreakdownModal.tsx` の `FactorRow` の `subtitle` で各軸ラベル直下に italic で根拠表示
+- **読み取り (詳細ページ)**: `Factor3Breakdown` の 3 要素カード内で各軸ラベル直下に italic で根拠表示 (リアルタイム反映)
+- **読み取り (Cockpit モーダル)**: `CockpitAmdScoreBreakdownModal.tsx` の `FactorRow` の `subtitle` で同じく italic で根拠表示
 - **Tsukuyomi 統合**: `update_amd_score_input` tool に `mu_notes_a/i/g` `xrl_notes_trl/brl/grl/srl/hrl` パラメータ追加。LLM がスコアを更新するときに**値だけでなく必ず根拠も書く**運用
+
+### 詳細ページのレイアウト (2026-05-09 改修)
+
+旧レイアウト:
+```
+ScoreHeroCard
+[ RadarChart | ContributionTable ]
+TimeSeriesChart, InputEditor, FrlAlqPanel
+```
+
+新レイアウト:
+```
+ScoreHeroCard          (S 値、log バー、律速軸ラベル、K/Σα/σ_SU、lane)
+BalanceBar             (3 要素 M/X/F の max 達成率を水平バーで)
+FormulaPanel           (全体式 + 3 要素式 + 律速の経済学的根拠 Cobb-Douglas 偏微分)
+Factor3Breakdown       (3 要素カード — モーダルと同じ FactorCard 構造、notes を subtitle 表示)
+TimeSeriesChart, InputEditor, FrlAlqPanel
+```
+
+理由:
+- **RadarChart 削除**: 寄与度シェアは α が大きい軸 (σ_SU/HRL/FRL) ばかり高くなる構造的偏りで情報量低い (まさフィードバック 2026-05-09)
+- **BalanceBar 追加**: 各要素を独立に「max に対する達成率」で見せれば α 偏りが出ず 3 要素のバランスが直感的
+- **数式の移設**: モーダルから詳細ページへ。スコアチップクリック時はコンパクトに、深掘りは詳細ページで完結
+- **3 要素カードを詳細ページにも**: 同じデータを編集と表示で同時に見られるように
+
+### FRL 6 因子拡張 (2026-05-09 追加)
+
+`theory/amd_score.md` §3.F.5 で正式化。`pwa/src/components/venture-map/AmdScoreView.tsx` の `deriveFrl` で計算:
+
+```
+FRL = 0.6 · ALQ_4_avg + 0.2 · Grit + 0.2 · Resilience
+```
+
+- ALQ 4 次元 (Walumbwa 2008) = authenticity 操作化、まさの「裏表がない・分かりやすさ」に対応
+- Grit (Duckworth 2007) = 「脇目も振らず長期目標に邁進する集中力」
+- Resilience (Markman 2005) = 「VC 拒絶等の失敗からの回復力、タフさ」
+
+`FrlAlqPanel` に Grit / Resilience の slider と引用文献を追加。Tsukuyomi tool にもパラメータ追加。
 
 RLS: `anon_read` (全行 SELECT) + `admin_all` (`is_admin()`) + `service_role_bypass`。
 

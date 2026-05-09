@@ -114,7 +114,7 @@ K     = 100,000 / 10^Σα   (全軸 9 で IPO 級 100,000 に校正)
 ## XRL / AMD Score
 - record_xrl_feedback(axis?, feedback): TRL/BRL/GRL/SRL/HRL の修正依頼を記録 (cron / 個別 API で再評価)
 - add_xrl_observation(observed_at, trl?/brl?/grl?/srl?/hrl?, milestone_label?, source_note?): 新しい XRL 観測を project_xrl_log に追加
-- update_amd_score_input(evaluated_at?, mu_A/I/G?/trl/brl/grl/srl/hrl?/frl?/alq_*?/frl_notes?/mu_notes_a/i/g?/xrl_notes_trl/brl/grl/srl/hrl?, shallow_tech_mode?, notes?): AMD Score の 7 軸入力 + 各軸の評価根拠 notes を upsert (値だけでなく必ず根拠も書く)
+- update_amd_score_input(evaluated_at?, mu_A/I/G?/trl/brl/grl/srl/hrl?/frl?/alq_*?/frl_grit/resilience?/frl_notes?/mu_notes_*?/xrl_notes_*?, shallow_tech_mode?, notes?): AMD Score の 7 軸入力 + 各軸の評価根拠 notes を upsert。FRL は ALQ 4 + Grit (Duckworth 2007) + Resilience (Markman 2005) の 6 因子。値だけでなく必ず根拠も書く
 - update_amd_score_alpha(alpha, notes?): 重み α を新版で保存 (前版を closeする)
 
 ## 沿革を駆動するイベント
@@ -207,7 +207,7 @@ async function loadProjectContext(
     supabase.from("project_xrl_log").select("observed_at, trl, brl, grl, srl, hrl, bottleneck, milestone_label, source_note, source").eq("project_id", projectId).order("observed_at", { ascending: true }),
     supabase.from("project_pl_monthly").select("ym, revenue_yen, cogs_yen, personnel_yen, rd_yen, marketing_yen, other_opex_yen, notes").eq("project_id", projectId).order("ym", { ascending: true }),
     supabase.from("amd_score_inputs")
-      .select("id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, evaluator, notes")
+      .select("id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, evaluator, notes")
       .eq("project_id", projectId).order("evaluated_at", { ascending: true }),
     supabase.from("amd_score_alpha").select("alpha").is("effective_to", null).order("effective_from", { ascending: false }).limit(1).maybeSingle(),
   ]);
@@ -370,11 +370,13 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         xrl_notes_srl: { type: "string", description: "SRL の評価根拠 (一般受容・メディア露出)" },
         xrl_notes_hrl: { type: "string", description: "HRL の評価根拠 (チーム補完性・スキル分布)" },
         frl: { type: "number", description: "FRL 0-9 (ALQ 平均で自動算出可)" },
-        alq_self_awareness: { type: "number", description: "ALQ 自己認識 0-9" },
-        alq_relational_transparency: { type: "number", description: "ALQ 関係透明性 0-9" },
-        alq_balanced_processing: { type: "number", description: "ALQ 均衡的処理 0-9" },
-        alq_internalized_moral: { type: "number", description: "ALQ 内在化された道徳観 0-9" },
-        frl_notes: { type: "string", description: "FRL 自由備考 (CEO 像、不足要素、外部評価)" },
+        alq_self_awareness: { type: "number", description: "ALQ 自己認識 0-9 (Walumbwa 2008)" },
+        alq_relational_transparency: { type: "number", description: "ALQ 関係透明性 0-9 (Walumbwa 2008)" },
+        alq_balanced_processing: { type: "number", description: "ALQ 均衡的処理 0-9 (Walumbwa 2008)" },
+        alq_internalized_moral: { type: "number", description: "ALQ 内在化された道徳観 0-9 (Walumbwa 2008)" },
+        frl_grit: { type: "number", description: "Grit (集中力) 0-9 — 脇目も振らず長期目標に邁進 (Duckworth 2007)" },
+        frl_resilience: { type: "number", description: "Resilience (タフさ) 0-9 — VC 拒絶等の失敗からの回復力 (Markman 2005)" },
+        frl_notes: { type: "string", description: "FRL 自由備考 (CEO 像、外部評価、Founder Network 効果など)" },
         shallow_tech_mode: { type: "boolean", description: "Shallow Tech モード (TRL 軸を計算から除外)" },
         notes: { type: "string", description: "全体に対する備考" },
         reason: { type: "string", description: "なぜこう更新したか、まさへの 1 行報告" },
@@ -985,7 +987,7 @@ async function executeTool(
     // 既存 row 取得 (部分上書き)
     const { data: existing } = await supabase
       .from("amd_score_inputs")
-      .select("id, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, notes")
+      .select("id, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, notes")
       .eq("project_id", projectId)
       .eq("evaluated_at", evaluated_at_iso)
       .maybeSingle();
@@ -1021,6 +1023,8 @@ async function executeTool(
       alq_relational_transparency: typeof input.alq_relational_transparency === "number" ? input.alq_relational_transparency : existingRow?.alq_relational_transparency ?? null,
       alq_balanced_processing: typeof input.alq_balanced_processing === "number" ? input.alq_balanced_processing : existingRow?.alq_balanced_processing ?? null,
       alq_internalized_moral: typeof input.alq_internalized_moral === "number" ? input.alq_internalized_moral : existingRow?.alq_internalized_moral ?? null,
+      frl_grit: typeof input.frl_grit === "number" ? input.frl_grit : existingRow?.frl_grit ?? null,
+      frl_resilience: typeof input.frl_resilience === "number" ? input.frl_resilience : existingRow?.frl_resilience ?? null,
       frl_notes: typeof input.frl_notes === "string" ? input.frl_notes : existingRow?.frl_notes ?? null,
       mu_notes: muNotes,
       xrl_notes: xrlNotes,
