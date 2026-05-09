@@ -42,9 +42,9 @@ const COLUMNS: Column[] = [
   { id: "status", sortKey: "status", label: "状態", align: "center", width: "w-20" },
   { id: "amd_rating", sortKey: "amd_rating", label: "★", align: "center", width: "w-24" },
   { id: "amd_owner", sortKey: "amd_owner", label: "担当", align: "left", width: "w-20" },
+  { id: "funding", sortKey: "funding_total_jpy", label: "資金獲得実績", align: "left" },
   { id: "next_action", sortKey: "updated_at", label: "次の一手", align: "left" },
   { id: "last_contacted_on", sortKey: "last_contacted_on", label: "最終接触", align: "left", width: "w-24" },
-  { id: "funding_total_jpy", sortKey: "funding_total_jpy", label: "助成 計", align: "right", width: "w-20" },
 ];
 
 export default function SeedsListPage() {
@@ -304,6 +304,9 @@ function Row({ s, onSelect }: { s: SeedListItem; onSelect: () => void }) {
       <td className="px-2 py-2 text-muted-foreground">
         {s.amd_owner_code_name ?? <span className="text-muted-foreground/40">—</span>}
       </td>
+      <td className="px-2 py-2">
+        <FundingChips programs={s.funding_programs} totalJpy={s.funding_total_jpy} />
+      </td>
       <td className="px-2 py-2 text-muted-foreground">
         {s.next_action ? (
           <span className="line-clamp-1">{s.next_action}</span>
@@ -314,16 +317,56 @@ function Row({ s, onSelect }: { s: SeedListItem; onSelect: () => void }) {
       <td className="px-2 py-2 text-muted-foreground">
         {s.last_contacted_on ?? <span className="text-muted-foreground/40">—</span>}
       </td>
-      <td className="px-2 py-2 text-right">
-        {s.funding_total_jpy > 0 ? (
-          <span className="font-medium">{formatJpy(s.funding_total_jpy)}</span>
-        ) : s.funding_count > 0 ? (
-          <span className="text-muted-foreground text-[10px]">{s.funding_count}件</span>
-        ) : (
-          <span className="text-muted-foreground/40">—</span>
-        )}
-      </td>
     </tr>
+  );
+}
+
+// プログラム種別ごとの色分け (採択元の系統で識別)
+function fundingChipColor(program: string): string {
+  if (program.startsWith("JST D-Global")) return "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30";
+  if (program.includes("GAP")) return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
+  if (program.startsWith("NEP")) return "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30";
+  if (program.startsWith("AMED")) return "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30";
+  if (program.startsWith("NEDO")) return "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30";
+  if (program.startsWith("SBIR")) return "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30";
+  if (program.startsWith("SIP")) return "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30";
+  if (program.includes("科研費")) return "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30";
+  if (program.includes("先導研究")) return "bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border-yellow-500/30";
+  return "bg-muted text-muted-foreground border-border";
+}
+
+function FundingChips({ programs, totalJpy }: { programs: string[]; totalJpy: number }) {
+  if (!programs || programs.length === 0) {
+    return totalJpy > 0 ? (
+      <span className="text-muted-foreground text-[10px]">{formatJpy(totalJpy)}</span>
+    ) : (
+      <span className="text-muted-foreground/40 text-[10px]">—</span>
+    );
+  }
+  const visible = programs.slice(0, 3);
+  const more = programs.length - visible.length;
+  return (
+    <div className="flex flex-wrap items-center gap-0.5">
+      {visible.map((p) => (
+        <span
+          key={p}
+          className={`text-[9px] px-1 py-0.5 rounded border whitespace-nowrap ${fundingChipColor(p)}`}
+          title={p}
+        >
+          {p}
+        </span>
+      ))}
+      {more > 0 && (
+        <span className="text-[9px] text-muted-foreground" title={programs.slice(3).join(", ")}>
+          +{more}
+        </span>
+      )}
+      {totalJpy > 0 && (
+        <span className="text-[10px] text-muted-foreground ml-0.5 font-medium">
+          {formatJpy(totalJpy)}
+        </span>
+      )}
+    </div>
   );
 }
 

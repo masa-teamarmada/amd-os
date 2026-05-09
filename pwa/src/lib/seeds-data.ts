@@ -33,13 +33,13 @@ function getAuthClient() {
 export async function fetchSeedList(): Promise<SeedListItem[]> {
   const [seedsRes, fundingRes, newsRes, contactRes] = await Promise.all([
     supabase.from("seeds").select("*"),
-    supabase.from("seed_funding").select("seed_id, amount_jpy, status"),
+    supabase.from("seed_funding").select("seed_id, amount_jpy, status, program_short, fiscal_year"),
     supabase.from("seed_news").select("seed_id, dismissed"),
     supabase.from("seed_contact_log").select("seed_id, contacted_on"),
   ]);
 
   const seeds = (seedsRes.data ?? []) as Seed[];
-  const fundings = (fundingRes.data ?? []) as { seed_id: string; amount_jpy: number | null; status: string | null }[];
+  const fundings = (fundingRes.data ?? []) as { seed_id: string; amount_jpy: number | null; status: string | null; program_short: string | null; fiscal_year: number | null }[];
   const news = (newsRes.data ?? []) as { seed_id: string; dismissed: boolean }[];
   const contacts = (contactRes.data ?? []) as { seed_id: string; contacted_on: string }[];
 
@@ -72,10 +72,23 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
   // 集計
   const fundingCountBySeed = new Map<string, number>();
   const fundingTotalBySeed = new Map<string, number>();
-  for (const f of fundings) {
+  const fundingProgramsBySeed = new Map<string, Set<string>>();
+  // 採択年度の新しい順 → プログラム名昇順 で並べる準備
+  const sortedFundings = [...fundings].sort((a, b) => {
+    const ay = a.fiscal_year ?? -1;
+    const by = b.fiscal_year ?? -1;
+    if (ay !== by) return by - ay;
+    return (a.program_short ?? "").localeCompare(b.program_short ?? "");
+  });
+  for (const f of sortedFundings) {
     fundingCountBySeed.set(f.seed_id, (fundingCountBySeed.get(f.seed_id) ?? 0) + 1);
     if (f.amount_jpy != null) {
       fundingTotalBySeed.set(f.seed_id, (fundingTotalBySeed.get(f.seed_id) ?? 0) + f.amount_jpy);
+    }
+    if (f.program_short) {
+      const set = fundingProgramsBySeed.get(f.seed_id) ?? new Set<string>();
+      set.add(f.program_short);
+      fundingProgramsBySeed.set(f.seed_id, set);
     }
   }
 
@@ -97,6 +110,7 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
     ...s,
     funding_count: fundingCountBySeed.get(s.id) ?? 0,
     funding_total_jpy: fundingTotalBySeed.get(s.id) ?? 0,
+    funding_programs: Array.from(fundingProgramsBySeed.get(s.id) ?? []),
     news_count: newsCountBySeed.get(s.id) ?? 0,
     contact_log_count: contactCountBySeed.get(s.id) ?? 0,
     last_contacted_on: lastContactBySeed.get(s.id) ?? null,
