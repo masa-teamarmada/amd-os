@@ -662,12 +662,17 @@ function _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId, op
     primaryPage = results.length ? results[0] : null;
   } catch (_e) { primaryPage = null; }
 
-  // 2) primary page の本文長を測る (薄ければ fallback)
+  // 2) primary page の本文長を測る
   const primaryBodyLen = primaryPage ? _meeting_estimatePageBodyLength_(notionToken, primaryPage) : 0;
-  if (primaryPage && primaryBodyLen >= 200) return primaryPage; // 十分厚いのでそのまま
+  // ⚠️ 早期 return しない: cron テンプレページは "## Meet（ここで /meet を打つ）/ ## 背景 / ## 本日の着地点 / ## メモ"
+  // で 200 字超えする一方、Notion AI 自動生成ページがそれより遥かに厚いケースが普通。
+  // 常に fallback 検索を走らせて本文厚さで比較する。
 
   // 3) fallback: 日付プロパティで同日のページ全部取得 → 本文厚い順に評価
-  if (!opts.meetingDate || !/^\d{4}-\d{2}-\d{2}$/.test(opts.meetingDate)) return primaryPage;
+  if (!opts.meetingDate || !/^\d{4}-\d{2}-\d{2}$/.test(opts.meetingDate)) {
+    // hint 無しなら primary をそのまま返す (= 古い呼び出し側との互換)
+    return primaryPage;
+  }
   let dateProp = "日付";
   try {
     const props = PropertiesService.getScriptProperties();
