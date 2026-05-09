@@ -25,7 +25,8 @@ import {
 } from "@/lib/venture-status-data";
 import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
 import { createClient } from "@/lib/supabase/client";
-import { ALPHA_DEFAULT, PHASE_COLOR, PHASE_LABEL_JP, calculateAmdScore, classifyPhase, type AlphaWeights, type AmdScorePhase } from "@/lib/amd-score";
+import { ALPHA_DEFAULT, calculateAmdScore, type AlphaWeights } from "@/lib/amd-score";
+// PHASE_COLOR / PHASE_LABEL_JP / AmdScorePhase / classifyPhase は使用しない (検証データ蓄積後に復活検討、2026-05-09)
 import { CockpitVentureStatusEditModal } from "./CockpitVentureStatusEditModal";
 import { CockpitVentureMetaEditModal } from "./CockpitVentureMetaEditModal";
 import { CockpitNarrativeModal } from "./CockpitNarrativeModal";
@@ -248,8 +249,6 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
 
   // 現在のスコア (最新点)
   const latestScore = scoreSeries[scoreSeries.length - 1]?.score;
-  const latestPhase: AmdScorePhase | null = latestScore != null ? classifyPhase(latestScore) : null;
-  const latestPhaseColor = latestPhase ? PHASE_COLOR[latestPhase] : "#94a3b8";
   const latestInput = amdInputs[amdInputs.length - 1] ?? null;
 
   // XRL 軸 (5 軸: TRL/BRL/GRL/SRL/HRL)
@@ -394,14 +393,13 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         >
           📊 試算表
         </button>
-        {latestScore != null && latestPhase && (
+        {latestScore != null && (
           <button
             onClick={() => setScoreBreakdownOpen(true)}
-            className="text-[11px] font-mono px-2 py-0.5 rounded-full border hover:bg-[#fafafa]"
-            style={{ borderColor: latestPhaseColor, color: latestPhaseColor }}
-            title={`${PHASE_LABEL_JP[latestPhase]} — クリックで内訳`}
+            className="text-[11px] font-mono px-2 py-0.5 rounded-full border border-slate-300 text-slate-700 hover:bg-[#fafafa]"
+            title="クリックで内訳"
           >
-            AMD: {latestScore < 1 ? latestScore.toFixed(2) : Math.round(latestScore).toLocaleString()} · {PHASE_LABEL_JP[latestPhase]} ▾
+            AMD: {latestScore < 1 ? latestScore.toFixed(2) : Math.round(latestScore).toLocaleString()} ▾
           </button>
         )}
         {latestScore == null && (

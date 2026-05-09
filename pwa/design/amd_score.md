@@ -35,6 +35,32 @@ K         = 100,000 / 10^Σα                       (全軸 9 で IPO 級 100,00
 
 Shallow Tech モード (TRL=null) は TRL 軸を計算から除外、6 軸 + K 再校正。
 
+### UI 表示構造 (3 大要素)
+
+理論層は 7 軸 1 つの ∏ だが、UI では「マクロ M × 会社の XRL X × CEO の FRL F」の **3 大要素**で見せる:
+
+```
+S = k · M · X · F                 (k = 100,000 / 10^Σα、小文字で定数感)
+M = (σ_SU+1)^α_σ                  外部環境 (Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
+X = ∏_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x   会社に帰属する 5 軸 readiness
+F = (FRL+1)^α_F                   個人に帰属する CEO リーダーシップ (ALQ ベース)
+```
+
+哲学 (まさ言語化): 「マクロトレンドの流れがあって、会社の XRL が整っていて、それを FRL 高い CEO が牽引する」。
+
+**FRL を XRL の積に呑み込まない** (理論層 §5: FRL/σ_SU 合計 α=2.8 が AMD スタジオ哲学の支柱、α_F=1.5 は他 5 XRL とは別格の重み)。
+
+### 律速判定 (Marginal Sensitivity)
+
+```
+∂S/∂X_i  =  α_i · S / (X_i + 1)
+bottleneck  =  argmax_i  α_i / (X_i + 1)
+```
+
+「1 段階上げたとき S が最も大きく増える軸」が律速 = 経営アクションで最初に手当てすべき軸。
+
+旧実装 (~2026-05-09) は `argmin(contribution share)` で「α が小さい軸が常に律速」になる退化バグがあり、α_SRL=0.2 が default 最小なため SRL が常に律速マークされる回帰があった。Cobb & Douglas (1928), AER, 18(1) の偏微分定義に揃えて修正済み。
+
 ### Base case alpha (Σα = 6.0, K = 0.1)
 
 | 軸 | α | 根拠 |
@@ -47,7 +73,7 @@ Shallow Tech モード (TRL=null) は TRL 軸を計算から除外、6 軸 + K �
 | GRL | 0.3 | Deeptech では遅効的 (5-10 年) |
 | SRL | 0.2 | 一般受容、σ_SU と一部重複 |
 
-### フェーズ閾値
+### フェーズ閾値 (UI では一旦非表示、2026-05-09)
 
 | score | フェーズ |
 |---|---|
@@ -58,6 +84,8 @@ Shallow Tech モード (TRL=null) は TRL 軸を計算から除外、6 軸 + K �
 | 3,500-15,000 | launch_go (設立判定 GO) |
 | 15,000-50,000 | scale (シリーズ A/B) |
 | 50,000-100,000 | graduation (IPO/卒業) |
+
+**UI 上は非表示**: 現状実証データが少なくスコアレベルとフェーズ判定の精度が不十分なため、コックピット PJ Status / AMD Score 詳細ページ / Score 一覧 / breakdown モーダルの全箇所で **フェーズタブ・色付け・フィルタを非表示**にしている (まさ判断 2026-05-09)。`classifyPhase` / `PHASE_LABEL_JP` / `PHASE_COLOR` 自体は LLM context (Tsukuyomi chat) で内部利用するため残す。検証データが揃ったら復活検討。
 
 ---
 
@@ -77,9 +105,10 @@ Shallow Tech モード (TRL=null) は TRL 軸を計算から除外、6 軸 + K �
 ### Cockpit 連携
 
 - `CockpitVentureStatus.tsx` が amd_score_inputs + active alpha を fetch
-- AMD スコア経時グラフは log scale (1 → 100,000、フェーズ閾値ガイドライン入り)
-- スコアチップは「<score> · <フェーズ名>」を phase 色で表示
-- breakdown モーダルは 7 軸 contribution table + 詳細編集ページへの link
+- AMD スコア経時グラフは log scale (1 → 100,000)
+- スコアチップは「AMD: <score>」のみ (フェーズ名・色は非表示、2026-05-09)
+- breakdown モーダルは **3 大要素 M × X × F カード**で内訳表示 + 詳細編集ページへの link
+- モーダル冒頭に 3 つの式 (M / X / F) と律速の経済学的根拠 (∂S/∂X = α·S/(X+1)) を引用文献つきで掲載
 - 「7 軸を編集 →」リンク、未評価時は「AMD: 未評価 →」link
 - events ドットは annotation として残し、score 線上の最近点に置く
 

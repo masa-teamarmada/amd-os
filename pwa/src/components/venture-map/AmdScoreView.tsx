@@ -21,8 +21,7 @@ import {
   AMD_SCORE_AXES,
   AXIS_COLOR,
   AXIS_LABEL_JP,
-  PHASE_COLOR,
-  PHASE_LABEL_JP,
+  // PHASE_COLOR / PHASE_LABEL_JP は使用しない (検証データ蓄積後に復活検討、2026-05-09)
   calculateAmdScore,
   computeK,
   computeSigmaSU,
@@ -30,7 +29,6 @@ import {
   sumAlpha,
   type AlphaWeights,
   type AmdScoreAxis,
-  type AmdScorePhase,
 } from "@/lib/amd-score";
 import {
   saveNewAlpha,
@@ -312,24 +310,20 @@ function ScoreHeroCard({
   venture: VentureRow;
 }) {
   const norm = logScaleNormalize(result.score);
-  const phaseColor = PHASE_COLOR[result.phase as AmdScorePhase];
+  // フェーズタブは検証データ蓄積後に復活検討のため非表示 (2026-05-09)。
+  // スコア数値・bar は中立色 (slate-900) で固定表示。
+  const scoreColor = "#0f172a";
   return (
     <div className="border border-[#e5e5e7] rounded-xl p-5 bg-white">
       <div className="flex items-baseline justify-between gap-4 mb-3">
         <div>
           <div className="text-[11px] text-muted-foreground">AMD Score</div>
-          <div className="text-4xl font-mono font-bold" style={{ color: phaseColor }}>
+          <div className="text-4xl font-mono font-bold" style={{ color: scoreColor }}>
             {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
           </div>
         </div>
         <div className="text-right">
-          <span
-            className="inline-block px-3 py-1 rounded-full text-xs font-semibold text-white"
-            style={{ backgroundColor: phaseColor }}
-          >
-            {PHASE_LABEL_JP[result.phase as AmdScorePhase]}
-          </span>
-          <div className="text-[10px] text-muted-foreground mt-1">
+          <div className="text-[10px] text-muted-foreground">
             律速: <span className="font-mono">{AXIS_LABEL_JP[result.bottleneck]}</span>
           </div>
           {result.shallowTechMode && (
@@ -342,7 +336,7 @@ function ScoreHeroCard({
       <div className="relative h-2 bg-slate-200 rounded-full overflow-hidden">
         <div
           className="h-full"
-          style={{ width: `${norm * 100}%`, backgroundColor: phaseColor, transition: "width 200ms" }}
+          style={{ width: `${norm * 100}%`, backgroundColor: scoreColor, transition: "width 200ms" }}
         />
       </div>
       <div className="flex justify-between text-[9px] text-muted-foreground font-mono mt-1">
