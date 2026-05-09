@@ -80,6 +80,45 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 
 ---
 
+## 🚨 次セッションで実装: L2 全データ毎時 polling 化 (Phase 4)
+
+⭐ **2026-05-09 まさ方針確定**: 「全部の L2 データ取得を 60 分ごとに」
+
+Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検知」パターンを **L2 6 種すべて** に横展開する。
+
+**メリット (まさの想定)**:
+- リアルタイム性: 「いますっごい貴重なやり取りしてるけど、L2 として抽出されるかな」→ 1 時間以内に確認できる (= 「明日確認しよう→忘れた」問題解消)
+- 軽量化: 1 回の cron が小さくなる (1 PJ × 1 ms / 1 メンバー単位の処理)
+- タイムアウト減: GAS 6 分 / Vercel Hobby 5 分の制限を回避しやすい
+- 差分検知前提: 何度走らせても同じ source_hash ならスキップ、無駄ゼロ
+
+**改修優先順位** (推奨):
+
+| L2 | 現状 | 改修内容 | 優先度 |
+|---|---|---|---|
+| ③ MS進捗 | PWA `cron/daily-estimate` 03:00 daily | vercel.json 毎時化 + ロジックを 1 PJ × 1 ms 単位に分解 + source_hash 差分検知。Schema に last_processed_at 追加検討 | ⭐⭐⭐ 1 |
+| ⑤ メンバーナレッジ | ❌ 未稼働 | 新規 cron + 抽出ロジック (5 生データ → Sonnet → member_knowledge upsert)。最初から毎時 polling で実装 | ⭐⭐⭐ 2 |
+| ④ PJナレッジ | ⚠️ 流入元不明 (2024 行はある) | 流入元を新規実装 (5 生データ → Sonnet → project_knowledge upsert)、毎時 polling | ⭐⭐⭐ 2 |
+| ② AMDプロトコル | ❌ 未稼働 (UI も削除済) | UI 復活 + 自動抽出 cron 設計 (毎時 polling)。スプシ復活も並行 | ⭐⭐ 3 |
+| ⑥ MTGサマリ | ✅ Phase 3 で毎時化済 | (済) | - |
+| ① monthly_report | R313 05:00 daily (AMD-Report GAS) | 集計性が強いので毎時化の意味は薄い。代わりに Phase 2.5 (会議サマリ集約方式に書き換え) で実質リアルタイム化 | ⭐ 後 |
+
+**設計パターン (Phase 3 から流用)**:
+- 毎時 0 分の time-based trigger 1 個 (GAS or Vercel cron)
+- 過去 60-180 分に「変更があった対象」だけスキャン (ソース別)
+- source_hash で差分検知 → 変わってれば LLM call → upsert
+- GAS 6 分 / Vercel 5 分制限を超えそうなら maxItems で打ち切り、次回 cron で残りを処理
+
+**実装上の注意**:
+- Vercel cron の毎時化は Hobby plan で動くか要確認 (= cron 数の上限)
+- GAS time-trigger 上限 (1 script 20-100 個) に注意 (本体GAS 既に 17+ 個、cron_invoiceSendNudge_ 4 重複の整理が先)
+- Schema 変更が必要なケース (last_processed_at 列追加など) は migration を都度切る
+- 各 L2 の「ソース 〜 抽出ロジック 〜 ストレージ」の正本仕様 md を `pwa/design/<L2_name>.md` に必ず残す
+
+詳細実装は次セッションの spawn task に渡す (= L2 全データ毎時 polling 化)。
+
+---
+
 ## L2 で「動いてない」もの (TODO)
 
 | L2 | 問題 | 対応予定 |
@@ -117,3 +156,4 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | 2026-05-09 | 初版。MTGサマリ追加で L2 が 5 → 6 になったタイミングで正本化。AMDプロトコル / メンバーナレッジ未稼働を可視化、PJナレッジ流入元不明を可視化 |
 | 2026-05-09 | MTGサマリ Phase 2 移行 (Notion 本文 + Gmail 議事録メール 結合、calendar event id を PK に)。状態列を Phase 2 稼働に更新 |
 | 2026-05-09 | MTGサマリ Phase 3 移行 (会議終了 +60 分 ad-hoc trigger + iOS APNs 通知用 meeting_notifications)。03:00 daily は scheduling + 拾い漏れ救済 fallback の二役に |
+| 2026-05-09 | Phase 3 設計 (毎時 polling + source_hash 差分検知) を **L2 全データに横展開する方針** をまさが確定。次セッションで Phase 4 として一気に実装予定 (③→⑤④→②→①) |
