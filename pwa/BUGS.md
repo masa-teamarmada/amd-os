@@ -19,6 +19,42 @@
 
 ---
 
+### [GAS] BWE 株主総会の MTGサマリ枠に CX (Kiutra/CryoX) のメールが混入
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み (LLM プロンプト v3 化 + 会議メタ明示で再発防止)
+- **症状**: PWA `/notifications` で 5/9 13:00 「BWE 臨時株主総会」のサマリを開いたら、決定事項に「NIMS 神谷氏と CEO 候補に関する打ち合わせを 5/7 14:00 に実施」「末永氏が神谷PJ に参画」、進捗に「Kiutra への質問事項に関する量子冷却技術の調査アップデート」、リスクに「CryoX が想定する初期市場と Kiutra の棲み分け整理が必要」など、**完全に CX (p20、神谷PJ) の話** が並んでいた。
+- **原因 (Gmail 経由の他 PJ 混入)**:
+  1. Notion 議事録ページは `cron_createMinutesFromCalendar` 由来のテンプレ ("Meet（ここで /meet を打つ）/ 背景 / 本日の着地点 / メモ") のままで本文 64 字。実議事録は書かれていなかった
+  2. `mr_extractFromGmail_` が p11 (BWE) の `reportEmails` で会議日 ±1日 (5/8〜5/10) の Gmail を検索 → 3 thread 取得:
+     - "お打ち合わせのお願い" (KAMIYA Koji ↔ 鮫島昌弘、CX の CEO 候補打合わせ)
+     - "新メンバー「あき」着任" (神谷PJ メンバーへの末永氏アナウンス)
+     - "【CryoX】量子冷却技術に関する調査アップデート（末永）"
+  3. すべて CX の打ち合わせメール。BWE.reportEmails にヒットした理由は **NIMS 関係者 6 人** (`MATSUMOTO.Shinsuke@nims.go.jp` 等) が登録されており、CX の打ち合わせメールに NIMS 関係者が CC されると `(from:X OR to:X)` フィルタを通過するため
+  4. LLM プロンプト (v2) には会議タイトル / PJ 名 / 日付が一切渡らず、`projectId: p11` という符号のみ。「これは BWE 株主総会で、CX/NIMS の話は別 PJ」を判別する材料がなかった
+  5. → LLM が Gmail 3 thread の内容を「BWE 株主総会の議事録」として真面目に抽出し、4 軸すべて CX 内容で埋めた
+- **解決策 (v3 化、再発防止)**:
+  - **(A) LLM プロンプト v3 (`gas/092_AdminLLMExtractors.js` `meeting_extract_basePrompt_` + Protocol Store version `260509_03`)**:
+    - 入力構造に `=== meeting_meta ===` セクション (projectId / projectName / meetingTitle / meetingDate / ym / sourceKinds) を冒頭追加し「これが**唯一の正解**」と明示
+    - 「🚨 最重要ルール: 対象 PJ と無関係な内容は完全に無視する」を強調。NIMS / 大学 / 大企業など複数 PJ 重複組織の cc 経由混入の実例 (BWE/CX の事故そのもの) をプロンプトに明記
+    - 関連が無ければ「対象 PJ に関連する議事録が確認できず」と書いて配列は空 [] を返せ、と命令
+  - **(B) `gas/074_MeetingSummaryRepo.js`**:
+    - 定数 `MEETING_EXTRACT_PROMPT_VERSION = "v3"` 追加
+    - userPrompt に meeting_meta セクションを追加 (projectName は新 helper `_meeting_resolveProjectName_` で resolve、`mr_gmail_getProjectInfo_` の DB_Projects 経由)
+    - `source_hash` 計算に prompt version を **混ぜる**: `sha256("prompt=v3\n" + combinedText)` → prompt 改訂で全行再抽出される
+    - `nav_meeting_extractForProjectYm_` / `nav_meeting_processOneEvent_` 双方で適用
+  - **(C) debug 関数 `gas/157_MeetingDebugInspector.js` 新規**:
+    - `debug_meeting_inspectEvent(eventId, projectId)` で Notion 本文 + Gmail thread の subject/from/body 抜粋を返す。今後の汚染調査用に常設
+  - **(D) 検算済**: BWE 5/9 event を `nav_meeting_processOneEvent_` で再抽出 → 4 軸すべて空 `[]`、`summary_short = "BWE臨時株主総会に関する具体的な議事録や関連情報は確認できませんでした。"` で上書き成功
+- **教訓**:
+  - **LLM に対象を判別させるなら、対象のメタ情報を必ずプロンプトに明示する**。`projectId: p11` のような符号だけ渡しても LLM は「p11 が BWE か CX か」分からない。`projectName` / `meetingTitle` / `meetingDate` は必須メタ
+  - **メアドフィルタは内容フィルタではない**。`reportEmails` の OR フィルタは to/from ヒットだけで集めるので、複数 PJ 重複組織 (NIMS / 大学 / 大企業) の人を登録すると別 PJ メールが流入する。**運用ルール**: reportEmails には PJ 専属の人だけ登録するのが理想。重複組織の人を登録するなら LLM 側でフィルタする責務を持つ
+  - **prompt version を source_hash に混ぜる**設計は、prompt 改訂時の自動再抽出 (差分検知だけだと永遠にスキップされる) を保証する。今後の MTGサマリ系 prompt 変更時もこのパターンに従う
+  - **debug 関数を常設しておく**(`debug_meeting_inspectEvent`)。汚染が疑われたら 1 コマンドで Notion 本文 + Gmail thread の生テキストを取れる状態にしておくと、原因特定が一瞬で終わる
+  - **修正依頼ループ (l2_feedbacks)** は症状を見つけてからの後処理。**根本原因 (プロンプト + メタ欠落)** と切り分けて、両方で対策する
+
+---
+
 ### [GAS] time-trigger 上限 (1 script 20-100 個) を考慮せず ad-hoc trigger 設計してハマった
 
 - **発見日**: 2026-05-09

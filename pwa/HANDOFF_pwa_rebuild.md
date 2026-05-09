@@ -12,6 +12,22 @@
 
 ## 最終更新
 
+2026-05-09 (gallant-euler-273e3a セッション) — **MTGサマリ prompt v3 化 (PJ 隔離) + BWE/CX 汚染対策 + 再発防止**。
+
+「BWE 5/9 臨時株主総会のサマリ枠に CX (Kiutra/CryoX/NIMS神谷氏) のメール内容が混入」事故対応。原因は (1) BWE.reportEmails に NIMS 関係者 6 人登録 + (2) CX 打ち合わせメールに NIMS 関係者が cc → BWE filter ヒット + (3) Notion 議事録ページが空テンプレ + (4) LLM プロンプトに会議メタ無し で「対象 PJ と関係ない thread を排除する判定材料が無かった」こと。
+
+実装:
+- gas/092 `meeting_extract_basePrompt_` v3 化 (Protocol Store version `260509_03`、入力構造に `=== meeting_meta ===` セクション追加 + 「対象 PJ と無関係な内容で枠を埋めるな」を強調 + NIMS / 大学 / 大企業など複数 PJ 重複組織 cc 経由混入の実例 (BWE/CX) を明記)
+- gas/074 に `MEETING_EXTRACT_PROMPT_VERSION = "v3"` 定数 + userPrompt に meeting_meta セクション + `source_hash = sha256("prompt=v3\n" + combinedText)` で prompt 改訂時の自動再抽出を保証 + helper `_meeting_resolveProjectName_` (DB_Projects 経由)
+- gas/157_MeetingDebugInspector.js 新規: `debug_meeting_inspectEvent(eventId, projectId)` で Notion/Gmail 生テキストを 1 コマンドで取得 (今後の汚染調査用に常設)
+- GAS deploy v1437 + Protocol Store install 済
+- BWE 5/9 event を `nav_meeting_processOneEvent_` で再抽出 → 4 軸全て空 `[]` + summary_short = "BWE臨時株主総会に関する具体的な議事録や関連情報は確認できませんでした。" で上書き成功 (= CX 内容完全排除)
+- 詳細: [`BUGS.md`](BUGS.md) 「BWE 株主総会の MTGサマリ枠に CX (Kiutra/CryoX) のメールが混入」エントリ、[`design/meeting_summaries.md`](design/meeting_summaries.md) v3 セクション
+
+---
+
+## 1 つ前のセッション (Phase 4 一括完了)
+
 2026-05-09 (quirky-moore-b60501 セッション) — **Phase 4 全 4 L2 (③ MS進捗 + ⑤ メンバーナレッジ + ④ PJナレッジ + ② AMDプロトコル) 一括完了**。
 
 **Phase 4 ③ MS進捗** (差分検知パターンの先行実装):
@@ -76,13 +92,13 @@
 
 ## リポ状態
 
-- 作業 worktree: `/Users/masa/projects/AMD/amd-os/.claude/worktrees/brave-cohen-15d352`
-- 作業 branch: `claude/brave-cohen-15d352`
-- main HEAD: **`e200e2c`** (Phase 4 方針 md commit まで反映済)
-- 適用済 migrations: …024 / 025 / 026 (seeds_data_round2、別セッション) / **027 (pms phase2)** / **028 (meeting_notifications)**
-- GAS Web App deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` → **v1430** (`v1430_phase3_hourly_polling`)
-- 設置済 trigger: `nav_meeting_pollRecentlyEndedEvents` 毎時 0 分 1 個 (本番で次の正時に発火)
-- PWA Vercel deploy: ✅ 完了 5分51秒 / 本番 URL `amd-os-pwa.vercel.app` 反映済
+- 作業 worktree: `/Users/masa/projects/AMD/amd-os/.claude/worktrees/gallant-euler-273e3a`
+- 作業 branch: `claude/gallant-euler-273e3a`
+- 適用済 migrations: …027 / 028 / 029 / 030 / 031 / **032 (l2_feedbacks)**
+- GAS Web App deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` → **v1437** (`v1437_meeting_extract_v3_pj_isolation`)
+- Protocol Store `meeting_extract` version: **`260509_03`** (v3, PJ 隔離 / meeting_meta 明示)
+- 設置済 trigger: `nav_meeting_pollRecentlyEndedEvents` 毎時 0 分 1 個 + Phase 4 各 L2 trigger
+- PWA Vercel deploy: 前セッション (Phase 4 完了) で本番反映済 (本セッションは GAS のみ変更、PWA 本体コード差分なし)
 
 ---
 
@@ -115,23 +131,24 @@
 
 3. **MTGサマリ Phase 2.5: AMD-Report GAS R313 を会議サマリ集約方式に書き換え** (別 clasp、別セッション)
 4. **MTGサマリ Phase 2.1: pickup ウィンドウ ±1日 → ±3〜±7日 拡大検討** (任意、議事録メールが遅れて届く運用なら効く)
-5. **CX (p20) / CTB (p06) / SE (p10) / p11 で次期 MS 期間 (2026 Q2 〜) を設定**
-6. **過去 monthly_reports (4月分等) の復元** — restore script 未実装
-7. **5月分の monthly_reports 自動生成** (no report content) — cron 検討
-8. `saveProjectMembers` 全削除→挿入をやめて incremental update に (将来事故防止)
-9. 本体GAS `cron_invoiceSendNudge_` が 4 重複 → 整理 (GAS time-trigger 枠浪費)
+5. **reportEmails 整備運用ルール明文化**: PJ 専属メアドだけ登録するのが理想。NIMS / 大学 / 大企業など複数 PJ 重複組織の人を登録するなら LLM 側でフィルタ責務を持つ (本セッションで v3 prompt 側は対策済)
+6. **CX (p20) / CTB (p06) / SE (p10) / p11 で次期 MS 期間 (2026 Q2 〜) を設定**
+7. **過去 monthly_reports (4月分等) の復元** — restore script 未実装
+8. **5月分の monthly_reports 自動生成** (no report content) — cron 検討
+9. **gas/074 (MTGサマリ) と pwa/progress-estimator (③ MS進捗) の l2_feedbacks 連携** ← 前セッションで残したまま (155 の 3 extractor は連携済)
+10. `saveProjectMembers` 全削除→挿入をやめて incremental update に (将来事故防止)
+11. 本体GAS `cron_invoiceSendNudge_` が 4 重複 → 整理 (GAS time-trigger 枠浪費)
 
 ---
 
 ## 次セッションの最初の一手
 
 1. リポ状態 4 ステップ (`git fetch --all --prune` → `git log --branches --not --remotes --oneline` → `git branch -a` → `git status -s`)
-2. **`pwa/design/L2_DATA.md` を読む** ← Phase 4 仕様の正本
-3. **`pwa/design/ms_progress.md` を読む** ← ③ MS進捗 Phase 4 完了仕様 (横展開のパターン元)
-4. **`pwa/design/meeting_summaries.md` を読む** ← Phase 3 のパターン (横展開元)
-5. **`gas/153_MeetingHourlyTrigger.js` を読む** ← Phase 3 参考実装
-6. **`BUGS.md` 最新 3 件を読む** (worktree 取り違え / GAS trigger 上限 / Web App Session)
-7. Phase 4 残り (⑤ メンバーナレッジ → ④ PJナレッジ → ② AMDプロトコル) 着手
+2. **`pwa/design/L2_DATA.md` を読む** ← AMD OS 中核データ正本 (Phase 4 完了状態)
+3. **`pwa/BUGS.md` 最新エントリ「BWE 株主総会の MTGサマリ枠に CX のメールが混入」** ← 本セッションの再発防止策 (v3 prompt + meeting_meta + source_hash version 混入)
+4. **`pwa/design/meeting_summaries.md` v3 セクション** ← prompt 改訂時の正解パターン (定数 bump + Protocol Store install)
+5. 何か MTGサマリの異常があれば `gas/157_MeetingDebugInspector.js` の `debug_meeting_inspectEvent(eventId, projectId)` を curl で呼んで生テキスト確認
+6. 進める場合: 残タスク 9 (l2_feedbacks 連携 074 + progress-estimator) or Phase 4.x deepening (二次集約 → 5 生データ直結) or 残タスク 5 (reportEmails 運用ルール明文化)
 
 ---
 
