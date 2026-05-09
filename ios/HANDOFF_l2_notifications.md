@@ -208,4 +208,4 @@ func markNotified(notificationId: UUID) async throws {
 | 日付 | 範囲 | commit / 状態 |
 |---|---|---|
 | 2026-05-09 | 上流 (PWA/GAS) Phase 4 全 4 L2 通知 完了 + 本ハンドオフ作成 | quirky-moore-b60501 セッション |
-| TBD | iOS 側で受信処理実装 (HANDOFF_meeting_notifications と一緒に) | (別セッション) |
+| 2026-05-09 | **iOS Swift 受信実装 完了 (両テーブル同時対応)**: AMDOSApp.swift に `NotificationService` (`@MainActor` `ObservableObject`) + Models (`L2Notification` / `MeetingNotification`) を集約実装。起動時 + scenePhase==.active 復帰時に `pollAllAndShowNotifications()` で両テーブル fetch → UNUserNotificationCenter ローカル通知 → notified_at = now() で UPDATE。許可リクエストは `requestAuthorizationIfNeeded()`。masaiPhone (iPhone 16 Pro) に install + launch 成功確認。**画面遷移は print のみ (= 後続セッションで深化)** | quirky-moore-b60501 セッション継続 |

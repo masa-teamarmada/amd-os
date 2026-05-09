@@ -36,7 +36,8 @@
 - 新規 `l2_notifications` テーブル (migration 031, ⑥ `meeting_notifications` の姉妹)
 - UNIQUE(l2_kind, target_id, scope_key) で同抽出を 1 行集約、`saved_count`/title/summary 変化で trigger が `notified_at=NULL` に戻して再通知
 - GAS 155 の 3 extractor + PWA progress-estimator.ts 末尾から `saved>0` のとき upsert
-- iOS Swift 側受信は別セッション → [`ios/HANDOFF_l2_notifications.md`](../ios/HANDOFF_l2_notifications.md) (⑥ の `HANDOFF_meeting_notifications.md` と並列)
+- ✅ **iOS Swift 受信実装も同セッションで完了**: AMDOSApp.swift に `NotificationService` (`@MainActor` `ObservableObject`) + Models 集約。起動時 + scenePhase==.active 復帰時に両テーブル fetch → ローカル通知 → notified_at マーク。masaiPhone (iPhone 16 Pro) install + launch 成功確認済。仕様: [`ios/HANDOFF_l2_notifications.md`](../ios/HANDOFF_l2_notifications.md) / [`ios/HANDOFF_meeting_notifications.md`](../ios/HANDOFF_meeting_notifications.md)
+- 通知タップ時の画面遷移は当面 print のみ → 後続 ios セッションで l2_kind 別 navigation 実装
 
 詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾エントリ
 
