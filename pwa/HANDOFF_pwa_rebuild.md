@@ -39,6 +39,14 @@
 - ✅ **iOS Swift 受信実装も同セッションで完了**: AMDOSApp.swift に `NotificationService` (`@MainActor` `ObservableObject`) + Models 集約。起動時 + scenePhase==.active 復帰時に両テーブル fetch → ローカル通知 → notified_at マーク。masaiPhone (iPhone 16 Pro) install + launch 成功確認済。仕様: [`ios/HANDOFF_l2_notifications.md`](../ios/HANDOFF_l2_notifications.md) / [`ios/HANDOFF_meeting_notifications.md`](../ios/HANDOFF_meeting_notifications.md)
 - 通知タップ時の画面遷移は当面 print のみ → 後続 ios セッションで l2_kind 別 navigation 実装
 
+**修正依頼ループ (l2_feedbacks) 完了** (= まさからの追加要望「BWE の議事録に CX が出てきてカオス、つくよみに修正できるように」):
+- migration 032 (`l2_feedbacks` テーブル) + PWA `/notifications` ページ + POST `/api/notifications/feedback` 新規
+- GAS 155 の 3 extractor で過去 feedback を `_l2_loadFeedbackBlock_` で取得 → LLM プロンプト末尾に "=== 過去のユーザーフィードバック (重要・必ず反映すること) ===" として追加
+- saved>0 時に `_l2_recordFeedbackApplied_` で applied_count++ / last_applied_at = now()
+- まさは PWA `/notifications` で通知一覧 + 元データ deep link + 修正依頼 textarea を使う
+- gas/074 (MTGサマリ) と pwa/progress-estimator (③ MS進捗) の feedback 連携は **次セッション送り**
+- 仕様正本: [`design/notifications.md`](design/notifications.md)
+
 詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾エントリ
 
 ---

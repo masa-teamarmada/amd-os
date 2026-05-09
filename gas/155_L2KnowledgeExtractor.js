@@ -198,7 +198,9 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
     "- 名前 (code_name) を summary に含めない (テーブル別カラムで管理されるため)"
   ].join("\n");
 
-  const userPrompt = "code_name: " + codeName + "\n\n" + inputText;
+  // 過去 feedback を LLM プロンプトに含める
+  const fb = _l2_loadFeedbackBlock_("member_knowledge", codeName, "global");
+  const userPrompt = "code_name: " + codeName + "\n\n" + inputText + (fb.block ? "\n\n" + fb.block : "");
   let parsed = null;
   try { parsed = llm_callJson("default", systemPrompt, userPrompt, { maxTokens: 2048, temperature: 0.2 }); } catch (e) { parsed = null; }
   if (!parsed || !Array.isArray(parsed.categories)) {
@@ -228,6 +230,9 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
     source_hash: newHash, saved_count: saved, total_count: parsed.categories.length,
     llm_model: "gemini-2.5-flash", message: null
   });
+
+  // 過去 feedback を LLM が参照したことを記録 (= applied_count++)
+  if (saved > 0 && fb.ids && fb.ids.length) _l2_recordFeedbackApplied_(fb.ids);
 
   // 通知 (saved > 0 のときだけ)
   if (saved > 0) {
@@ -367,7 +372,8 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
     "- 同じ entity_name は category 別なら別行 OK"
   ].join("\n");
 
-  const userPrompt = "project_id: " + projectId + " / ym: " + ym + "\n\n" + inputText;
+  const fb = _l2_loadFeedbackBlock_("project_knowledge", projectId, ym);
+  const userPrompt = "project_id: " + projectId + " / ym: " + ym + "\n\n" + inputText + (fb.block ? "\n\n" + fb.block : "");
   let parsed = null;
   try { parsed = llm_callJson("default", systemPrompt, userPrompt, { maxTokens: 3072, temperature: 0.2 }); } catch (e) { parsed = null; }
   if (!parsed || !Array.isArray(parsed.items)) {
@@ -420,6 +426,8 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
     source_hash: newHash, saved_count: saved, total_count: parsed.items.length,
     llm_model: "gemini-2.5-flash", message: null
   });
+
+  if (saved > 0 && fb.ids && fb.ids.length) _l2_recordFeedbackApplied_(fb.ids);
 
   if (saved > 0) {
     try {
@@ -551,7 +559,8 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
     "- 4 要素全て埋まらない場合は確証ある要素だけ書く"
   ].join("\n");
 
-  const userPrompt = "project_id: " + projectId + " / ym: " + ym + "\n\n" + inputText;
+  const fb = _l2_loadFeedbackBlock_("protocols", projectId, ym);
+  const userPrompt = "project_id: " + projectId + " / ym: " + ym + "\n\n" + inputText + (fb.block ? "\n\n" + fb.block : "");
   let parsed = null;
   try { parsed = llm_callJson("default", systemPrompt, userPrompt, { maxTokens: 2048, temperature: 0.3 }); } catch (e) { parsed = null; }
   if (!parsed || !Array.isArray(parsed.protocols)) {
@@ -587,6 +596,8 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
     source_hash: newHash, saved_count: saved, total_count: parsed.protocols.length,
     llm_model: "gemini-2.5-flash", message: null
   });
+
+  if (saved > 0 && fb.ids && fb.ids.length) _l2_recordFeedbackApplied_(fb.ids);
 
   if (saved > 0) {
     try {
@@ -780,6 +791,70 @@ function _l2_supaUrl_() {
 }
 function _l2_supaKey_() {
   return String(PropertiesService.getScriptProperties().getProperty("SUPABASE_SERVICE_KEY") || "").trim();
+}
+
+/** l2_feedbacks から「対象 (l2_kind, target_id, scope_key) + global の active feedback」を取得し
+ *  LLM プロンプトに含める文字列に整形する。
+ *  scope_key は完全一致または 'global' (= メンバー系の汎用フィードバック) を取る。
+ *
+ *  使い方:
+ *    const feedbackBlock = _l2_loadFeedbackBlock_("project_knowledge", "p21", "202605");
+ *    const userPrompt = "...通常の入力..." + (feedbackBlock ? "\n\n" + feedbackBlock : "");
+ *    // 抽出後、saved>0 で _l2_recordFeedbackApplied_(...) を呼んで applied_count をインクリメント
+ */
+function _l2_loadFeedbackBlock_(l2Kind, targetId, scopeKey) {
+  const filter = "l2_kind=eq." + encodeURIComponent(l2Kind) +
+                 "&target_id=eq." + encodeURIComponent(targetId) +
+                 "&status=eq.active";
+  const res = supa_select("l2_feedbacks", {
+    select: "feedback_id,scope_key,feedback_text,created_at,created_by",
+    filter: filter,
+    order: "created_at.desc",
+    limit: 20
+  });
+  if (!res.ok) return { block: "", ids: [] };
+  const rows = (res.rows || []).filter(function (r) {
+    // scope_key 完全一致 or 'global' (= 全 scope に適用するフィードバック)
+    return r.scope_key === scopeKey || r.scope_key === "global";
+  });
+  if (!rows.length) return { block: "", ids: [] };
+  const lines = rows.slice(0, 10).map(function (r, idx) {
+    const date = (r.created_at || "").slice(0, 10);
+    const by = r.created_by || "user";
+    return "  " + (idx + 1) + ". [" + date + " " + by + "] " + String(r.feedback_text || "").trim();
+  });
+  const block = "=== 過去のユーザーフィードバック (重要・必ず反映すること) ===\n" + lines.join("\n");
+  return { block: block, ids: rows.map(function (r) { return r.feedback_id; }) };
+}
+
+/** 抽出が成功した (saved > 0) ときに、参照した feedback_ids について
+ *  applied_count++、last_applied_at = now() で UPDATE する。
+ */
+function _l2_recordFeedbackApplied_(feedbackIds) {
+  if (!Array.isArray(feedbackIds) || !feedbackIds.length) return;
+  const url = _l2_supaUrl_() + "/rest/v1/rpc/l2f_record_applied";  // RPC 不在ケースは PATCH で対応
+  // 簡易: 1 件ずつ PATCH する (件数少ないので OK)
+  const key = _l2_supaKey_();
+  for (let i = 0; i < feedbackIds.length; i++) {
+    try {
+      const fid = feedbackIds[i];
+      // 取得 → applied_count++ → PATCH (race は許容、cron は同時実行されない)
+      const sel = supa_select("l2_feedbacks", {
+        select: "applied_count",
+        filter: "feedback_id=eq." + encodeURIComponent(fid),
+        limit: 1
+      });
+      const cur = sel.ok && sel.rows && sel.rows[0] ? Number(sel.rows[0].applied_count || 0) : 0;
+      const patchUrl = _l2_supaUrl_() + "/rest/v1/l2_feedbacks?feedback_id=eq." + encodeURIComponent(fid);
+      UrlFetchApp.fetch(patchUrl, {
+        method: "patch",
+        contentType: "application/json",
+        headers: { "apikey": key, "Authorization": "Bearer " + key, "Prefer": "return=minimal" },
+        payload: JSON.stringify({ applied_count: cur + 1, last_applied_at: new Date().toISOString() }),
+        muteHttpExceptions: true
+      });
+    } catch (_e) {}
+  }
 }
 
 /** l2_notifications テーブルに upsert (Swift APNs 通知用)。
