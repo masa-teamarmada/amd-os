@@ -3,11 +3,11 @@
 /**
  * AMD Score breakdown モーダル — Before Zero Theory v3.2 (3 大要素 M × X × F)。
  *
- * 理論層: AMD Score = K · Π (X_i + 1)^α_i  (X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL})
- * 表示層: S = M · X · F (校正定数 K = 100,000/10^Σα は k = ∛K として 3 要素均等分配)
- *   - M = k · (σ_SU+1)^α_σ                          マクロ (Triple Helix 外部環境)
- *   - X = k · Π_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x  会社に帰属する 5 軸 readiness
- *   - F = k · (FRL+1)^α_F                            CEO 個人に帰属するリーダーシップ
+ * S = K · M · X · F
+ *   - M = (σ_SU+1)^α_σ                              マクロ (Triple Helix 外部環境)
+ *   - X = Π_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x   会社に帰属する 5 軸 readiness
+ *   - F = (FRL+1)^α_F                               CEO 個人に帰属するリーダーシップ
+ *   - K = 100,000 / 10^Σα                           IPO 級 100,000 への校正定数
  *
  * Shallow Tech モード (TRL=null): TRL 軸を X から除外、K 再校正。
  *
@@ -62,8 +62,10 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
               マクロトレンドの流れがあって、会社の XRL が整っていて、それを FRL 高い CEO が牽引する。
             </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
-              <div className="text-[10px] text-muted-foreground mb-1">全体式 (S = AMD Score)</div>
-              <Tex display tex={String.raw`S \;=\; M \cdot X \cdot F`} />
+              <div className="text-[10px] text-muted-foreground mb-1">
+                全体式 (S = AMD Score、K は IPO 級への校正定数)
+              </div>
+              <Tex display tex={String.raw`S \;=\; K \cdot M \cdot X \cdot F`} />
             </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
               <div className="text-[10px] text-muted-foreground mb-1">
@@ -71,7 +73,7 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
               </div>
               <Tex
                 display
-                tex={String.raw`M \;=\; k \cdot (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}, \quad \sigma_{\mathrm{SU}} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`}
+                tex={String.raw`M \;=\; (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}, \quad \sigma_{\mathrm{SU}} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`}
               />
             </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
@@ -80,14 +82,14 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
               </div>
               <Tex
                 display
-                tex={String.raw`X \;=\; k \cdot \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x}`}
+                tex={String.raw`X \;=\; \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x}`}
               />
             </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
               <div className="text-[10px] text-muted-foreground mb-1">
                 ③ CEO の FRL F (個人に帰属する CEO リーダーシップ / ALQ ベース、α_F が最大の重み)
               </div>
-              <Tex display tex={String.raw`F \;=\; k \cdot (\mathrm{FRL}+1)^{\alpha_F}`} />
+              <Tex display tex={String.raw`F \;=\; (\mathrm{FRL}+1)^{\alpha_F}`} />
             </div>
             <div className="text-[10px] text-muted-foreground space-y-1">
               <div>
@@ -100,9 +102,8 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
                 α_SRL=<span className="font-mono">0.2</span>
               </div>
               <div>
-                k = <span className="font-mono">∛(100,000 / 10^Σα)</span> は IPO 級
-                100,000 への校正定数を 3 要素に均等分配したもの (default で k ≈ 0.464) ·
-                Shallow Tech モード (TRL=null) では TRL を X から除外して k を再校正。
+                K = <span className="font-mono">100,000 / 10^Σα</span> で全軸 9 (= IPO 級) を 100,000
+                に校正 · Shallow Tech モード (TRL=null) では TRL を X から除外して K を再校正。
               </div>
             </div>
           </div>
@@ -153,26 +154,22 @@ function BreakdownContent({
   );
 
   const phaseColor = PHASE_COLOR[result.phase];
-  // K を 3 要素に均等分配 (k = ∛K)。M·X·F = K · Π = score を保つ。
-  const k = Math.cbrt(result.K);
 
-  // ① M = k · (σ_SU+1)^α_σ
-  const mContribution = result.contributions.sigma_SU ?? 1;
-  const M = k * mContribution;
+  // ① M = (σ_SU+1)^α_σ
+  const M = result.contributions.sigma_SU ?? 1;
 
-  // ② X = k · ∏_{x ∈ XRL_5} (x+1)^α_x  (Shallow Tech では TRL を除外)
+  // ② X = ∏_{x ∈ XRL_5} (x+1)^α_x  (Shallow Tech では TRL を除外)
   const xrlAxes: AmdScoreAxis[] = ["TRL", "BRL", "GRL", "SRL", "HRL"];
-  let xrlProduct = 1;
+  let X = 1;
   for (const axis of xrlAxes) {
     if (axis === "TRL" && result.shallowTechMode) continue;
-    xrlProduct *= result.contributions[axis] ?? 1;
+    X *= result.contributions[axis] ?? 1;
   }
-  const X = k * xrlProduct;
 
-  // ③ F = k · (FRL+1)^α_F
-  const fContribution = result.contributions.FRL ?? 1;
-  const F = k * fContribution;
+  // ③ F = (FRL+1)^α_F
+  const F = result.contributions.FRL ?? 1;
 
+  // S = K · M · X · F (sanity check; result.score と一致)
   const fmt = (n: number, digits = 2) =>
     n < 1 ? n.toFixed(digits) : n < 100 ? n.toFixed(2) : Math.round(n).toLocaleString();
 
@@ -185,7 +182,7 @@ function BreakdownContent({
             S = {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
           </div>
           <div className="text-[10px] text-muted-foreground font-mono mt-1">
-            = M({fmt(M)}) × X({fmt(X)}) × F({fmt(F)})
+            = K({result.K.toFixed(3)}) × M({fmt(M)}) × X({fmt(X)}) × F({fmt(F)})
           </div>
         </div>
         <div className="text-right">
@@ -199,7 +196,7 @@ function BreakdownContent({
             <div className="text-[10px] text-amber-700 mt-1">Shallow Tech モード</div>
           )}
           <div className="text-[10px] text-muted-foreground mt-1">
-            k = <span className="font-mono">{k.toFixed(3)}</span>
+            Σα = <span className="font-mono">{result.alphaSum.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -211,7 +208,7 @@ function BreakdownContent({
         sub="外部環境 / Triple Helix"
         value={M}
         color={AXIS_COLOR.sigma_SU}
-        formula="M = k · (σ_SU+1)^α_σ"
+        formula="M = (σ_SU+1)^α_σ"
         bottleneck={result.bottleneck === "sigma_SU"}
       >
         <FactorRow name="μ_A (学術)" value={fmt(latestInput.mu_A ?? 0, 1)} />
@@ -223,12 +220,11 @@ function BreakdownContent({
           highlight
         />
         <FactorRow
-          name="(σ_SU+1)^α_σ"
-          value={fmt(mContribution)}
+          name="= M = (σ_SU+1)^α_σ"
+          value={fmt(M)}
           note={`α_σ = ${alpha.sigma_SU.toFixed(2)}`}
+          total
         />
-        <FactorRow name="× k" value={k.toFixed(3)} note="校正定数" />
-        <FactorRow name="= M" value={fmt(M)} total />
       </FactorCard>
 
       {/* ② 会社の XRL X */}
@@ -238,7 +234,7 @@ function BreakdownContent({
         sub="会社に帰属する 5 軸 readiness"
         value={X}
         color={AXIS_COLOR.TRL}
-        formula="X = k · ∏ (x+1)^α_x"
+        formula="X = ∏ (x+1)^α_x"
       >
         {xrlAxes.map((axis) => {
           if (axis === "TRL" && result.shallowTechMode) return null;
@@ -265,9 +261,7 @@ function BreakdownContent({
             />
           );
         })}
-        <FactorRow name="∏ (x+1)^α_x" value={fmt(xrlProduct)} highlight />
-        <FactorRow name="× k" value={k.toFixed(3)} note="校正定数" />
-        <FactorRow name="= X" value={fmt(X)} total />
+        <FactorRow name="= X = ∏ (x+1)^α_x" value={fmt(X)} total />
       </FactorCard>
 
       {/* ③ CEO の FRL F */}
@@ -277,19 +271,22 @@ function BreakdownContent({
         sub="個人に帰属 / ALQ ベース"
         value={F}
         color={AXIS_COLOR.FRL}
-        formula="F = k · (FRL+1)^α_F"
+        formula="F = (FRL+1)^α_F"
         bottleneck={result.bottleneck === "FRL"}
       >
         <FactorRow name={`FRL = ${fmt(latestInput.frl ?? 0, 1)}`} value={fmt(latestInput.frl ?? 0, 1)} />
         <FactorRow
-          name="(FRL+1)^α_F"
-          value={fmt(fContribution)}
+          name="= F = (FRL+1)^α_F"
+          value={fmt(F)}
           note={`α_F = ${alpha.FRL.toFixed(2)} (最大重み)`}
-          highlight
+          total
         />
-        <FactorRow name="× k" value={k.toFixed(3)} note="校正定数" />
-        <FactorRow name="= F" value={fmt(F)} total />
       </FactorCard>
+
+      <div className="text-[10px] text-muted-foreground text-center font-mono">
+        S = K × M × X × F = {result.K.toFixed(3)} × {fmt(M)} × {fmt(X)} × {fmt(F)} ≈{" "}
+        {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
+      </div>
 
       <div className="border-t border-slate-200 pt-3 flex items-center justify-between gap-3">
         <span className="text-[11px] text-muted-foreground">
