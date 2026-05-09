@@ -54,6 +54,13 @@ export default async function VentureMapPage() {
           >
             Timeline 3D →
           </a>
+          <a
+            href="/venture-map/cyberspace"
+            className="text-xs px-3 py-1.5 rounded border border-pink-500/40 text-pink-300 hover:bg-pink-500/10 transition-colors font-mono"
+            style={{ textShadow: "0 0 6px rgba(244,114,182,0.4)" }}
+          >
+            CYBERSPACE →
+          </a>
         </div>
       </div>
       <VentureMapView
