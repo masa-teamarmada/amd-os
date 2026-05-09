@@ -28,7 +28,7 @@ L1 を経由する構成は廃止された ([progress_estimation.md](progress_es
 | ③ **MS進捗** | マイルストーン進捗% | `milestone_monthly_progress` | `cron/daily-estimate` (PWA, 03:00 daily) | PWA `app/api/cron/daily-estimate` | ✅ 稼働 (158 行) |
 | ④ **PJナレッジ** | PJ にまつわる事実・人物・組織・進行中事項 | `project_knowledge` | **書き込み元不明 (2024 行ある)**。今後は AMD-Report GAS の新機能として実装予定 | (TBD: AMD-Report GAS) | ⚠️ データはあるが流入元不明 |
 | ⑤ **メンバーナレッジ** | メンバーごとの強み・スキル・関心 | `member_knowledge` | (本来 cron で蓄積すべき) | (TBD) | ❌ **未稼働 (0 行)** |
-| ⑥ **MTGサマリ** | calendar event 1 回ごとの decided/progress/nextActions/risks (PK = calendar event id) | `project_meeting_summaries` | **Phase 3** = 各会議終了 +60 分 ad-hoc trigger (本体GAS `153_MeetingHourlyTrigger.js`) + Phase 2 fallback = `nav_cronMonthlyExtractAt3` (本体GAS, 03:00 daily) | 本体GAS `152_NavigatorCron.js` + `153_MeetingHourlyTrigger.js` + `074_MeetingSummaryRepo.js` | ✅ **Phase 3 稼働** (Notion + Gmail 結合)。拾えれば iOS APNs 通知用 `meeting_notifications` テーブルに upsert (Swift 側受信は別セッション)。議事録なしマーカー / 抽出空 区別表示。詳細 [meeting_summaries.md](meeting_summaries.md) |
+| ⑥ **MTGサマリ** | calendar event 1 回ごとの decided/progress/nextActions/risks (PK = calendar event id) | **Phase 3** = 毎時 0 分 polling cron (本体GAS `153_MeetingHourlyTrigger.js` `nav_meeting_pollRecentlyEndedEvents`、過去 60-180 分に終わった events をスキャン) + **Phase 2 fallback** = `nav_cronMonthlyExtractAt3` (本体GAS, 03:00 daily) | 本体GAS `152_NavigatorCron.js` + `153_MeetingHourlyTrigger.js` + `074_MeetingSummaryRepo.js` | ✅ **Phase 3 稼働** (Notion + Gmail 結合)。拾えれば iOS APNs 通知用 `meeting_notifications` テーブル (PK=meeting_id) に upsert (Swift 側受信は別セッション、[ios/HANDOFF_meeting_notifications.md](../../ios/HANDOFF_meeting_notifications.md))。議事録なしマーカー / 抽出空 区別表示。詳細 [meeting_summaries.md](meeting_summaries.md) |
 
 **重要**: 5 生データから抽出した結果 = L2 だけ。Atlas / VC ニュース / マクロ index は外部ソース由来なので **L2 ではなく「レポート関連」**カテゴリ。
 
@@ -60,8 +60,9 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 
 | 時刻 | cron | 目的 | 場所 |
 |---|---|---|---|
-| **03:00** | `nav_cronMonthlyExtractAt3` | MTGサマリ抽出 (L2 ⑥) + 既存 navigator monthly extract | 本体GAS |
-| **03:00** | `cron/daily-estimate` | MS進捗推定 (L2 ③) | PWA |
+| **毎時 0 分** | `nav_meeting_pollRecentlyEndedEvents` | **MTGサマリ Phase 3 毎時 polling** (過去 60-180 分終了 events を 1 event 抽出 + iOS 通知 upsert) | 本体GAS (153_MeetingHourlyTrigger.js) |
+| **03:00** | `nav_cronMonthlyExtractAt3` | MTGサマリ Phase 2 月単位 fallback (L2 ⑥) + 既存 navigator monthly extract | 本体GAS |
+| **毎時 0 分** | `cron/hourly-estimate` | MS進捗推定 (L2 ③, **Phase 4**) | PWA |
 | **03:15** | `cron/venture-xrl-refresh` | PJ XRL llm_proposal | PWA |
 | **03:30** | `cron/relearn-lane-weights` | macro lane weights 再学習 | PWA |
 | **03:45** | `cron/venture-narrative-refresh` | PJ 沿革再生成 | PWA |
@@ -96,7 +97,7 @@ Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検�
 
 | L2 | 現状 | 改修内容 | 優先度 |
 |---|---|---|---|
-| ③ MS進捗 | PWA `cron/daily-estimate` 03:00 daily | vercel.json 毎時化 + ロジックを 1 PJ × 1 ms 単位に分解 + source_hash 差分検知。Schema に last_processed_at 追加検討 | ⭐⭐⭐ 1 |
+| ③ MS進捗 | ✅ **Phase 4 完了 2026-05-09** | `cron/hourly-estimate` 毎時 + `progress_estimate_state.source_hash` 差分検知 + maxItems 14 打ち切り。詳細 [ms_progress.md](ms_progress.md) | (済) |
 | ⑤ メンバーナレッジ | ❌ 未稼働 | 新規 cron + 抽出ロジック (5 生データ → Sonnet → member_knowledge upsert)。最初から毎時 polling で実装 | ⭐⭐⭐ 2 |
 | ④ PJナレッジ | ⚠️ 流入元不明 (2024 行はある) | 流入元を新規実装 (5 生データ → Sonnet → project_knowledge upsert)、毎時 polling | ⭐⭐⭐ 2 |
 | ② AMDプロトコル | ❌ 未稼働 (UI も削除済) | UI 復活 + 自動抽出 cron 設計 (毎時 polling)。スプシ復活も並行 | ⭐⭐ 3 |
@@ -133,7 +134,7 @@ Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検�
 
 - ① monthly report の生成詳細 → AMD-Report GAS の R313 系 (このリポにはソース無し、別 clasp)
 - ② AMDプロトコルの設計思想 → [`knowledge/amd_os_vision.md`](../../../knowledge/amd_os_vision.md) の「AMDプロトコルの 4 要素」
-- ③ MS進捗推定 → [`progress_estimation.md`](progress_estimation.md)
+- ③ MS進捗推定 → [`ms_progress.md`](ms_progress.md) ⭐ (Phase 4 正本) / 旧経緯は [`progress_estimation.md`](progress_estimation.md)
 - ⑥ MTGサマリ → [`meeting_summaries.md`](meeting_summaries.md)
 - 全体的な PWA 仕様 → [`SPEC_pwa.md`](SPEC_pwa.md)
 
@@ -157,3 +158,4 @@ Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検�
 | 2026-05-09 | MTGサマリ Phase 2 移行 (Notion 本文 + Gmail 議事録メール 結合、calendar event id を PK に)。状態列を Phase 2 稼働に更新 |
 | 2026-05-09 | MTGサマリ Phase 3 移行 (会議終了 +60 分 ad-hoc trigger + iOS APNs 通知用 meeting_notifications)。03:00 daily は scheduling + 拾い漏れ救済 fallback の二役に |
 | 2026-05-09 | Phase 3 設計 (毎時 polling + source_hash 差分検知) を **L2 全データに横展開する方針** をまさが確定。次セッションで Phase 4 として一気に実装予定 (③→⑤④→②→①) |
+| 2026-05-09 | **Phase 4 ③ MS進捗 完了**: `cron/daily-estimate` (03:00 daily) → `cron/hourly-estimate` (毎時 0 分) にリネーム + `progress_estimate_state` テーブル新設 (migration 029) で source_hash 差分検知 + maxItems 14 打ち切り。仕様正本: [ms_progress.md](ms_progress.md) |

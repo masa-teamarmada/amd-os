@@ -1126,3 +1126,77 @@ GAS 226 の **基本情報 / メンバー / 契約・料金 / 請求書送付** 
 
 - iOS 側: `ios/HANDOFF_meeting_notifications.md` に従って Swift APNs 受信実装
 - 明朝以降: pending trigger が順次発火 → meeting_notifications に行が積もるか確認
+
+---
+
+## 2026-05-09 — Phase 4 ③ MS進捗 毎時 polling 化 (quirky-moore-b60501 セッション)
+
+### 着手の背景
+
+L2_DATA.md の「次セッションで実装: L2 全データ毎時 polling 化 (Phase 4)」優先度 1 = ③ MS進捗。
+方針正本: [pwa/design/L2_DATA.md](../design/L2_DATA.md) Phase 4 セクション + Phase 3 (MTGサマリ) で確立した
+「毎時 polling + source_hash 差分検知」パターンを横展開する。
+
+### 設計判断
+
+**1 PJ × 1 ms 単位でなく 1 PJ × 全 MS 一括の現行 LLM call を維持した**:
+- L2_DATA.md には「1 PJ × 1 ms 単位に分解」とあったが、実装時に再検討
+- 1 PJ × 9 MS にすると LLM call 数が 9 倍。差分検知前提でも初回登録時には 9 call 必要
+- MS 横断推論 (「MS 1 完了 → MS 2 着手」) を LLM がしやすい
+- source_hash は monthly_report 本文単位なので PJ 粒度で十分な差分検知ができる
+
+**新規テーブル `progress_estimate_state` (PK: project_id+ym)** で source_hash + last_processed_at を持つ:
+- 既存 `milestone_monthly_progress` は MS 単位なので「PJ 単位の差分検知 state」を別テーブルに分けた
+- `last_processed_at` 古い順 sort で PJ 公平に処理
+
+### 主な変更
+
+**PWA**:
+- `pwa/src/lib/progress-estimator.ts`:
+  - `EstimateOptions { force?: boolean }` 追加。default `force = true` (= 既存呼び出し側挙動を変えない)
+  - 関数冒頭で source_hash 計算 (= sha256(JSON({rb, rs, ms, prev, curr, sp})))
+  - `progress_estimate_state` から既存取得 → `force=false && existing.source_hash === new` で LLM スキップ + last_processed_at だけ touch + `unchanged: true` を return
+  - 完了時に `progress_estimate_state` を upsert (source_hash, saved_count, total_count, llm_model, last_processed_at)
+- `pwa/src/app/api/cron/hourly-estimate/route.ts` 新規:
+  - `maxDuration = 300` (Vercel Pro)
+  - target list = アクティブ PJ × {当月, 前月} (月跨ぎ救済)
+  - `progress_estimate_state.last_processed_at` 古い順 (NULL = 未処理優先) sort
+  - `force=false` で `estimateProgress` 呼び出し
+  - LLM call 数 ≥ maxItems (default 14) で打ち切り → `hasMore=true` を return、次時 cron で残り処理
+  - クエリ `?force=1` で強制再推定、`?ym=YYYYMM` で特定月、`?maxItems=N` で打ち切り上限変更
+- `pwa/src/app/api/cron/daily-estimate/route.ts` 削除 (旧 03:00 daily cron)
+- `pwa/vercel.json` 更新: `path: /api/cron/hourly-estimate`, `schedule: "0 * * * *"`
+
+**Supabase**:
+- `pwa/scripts/migrations/029_progress_estimate_state.sql` 新規:
+  - PK = (project_id, ym)
+  - `source_hash` `last_processed_at` `saved_count` `skipped_count` `total_count` `llm_model` `message` 列
+  - `idx_pes_last_processed_at` で sort 高速化
+  - RLS: SELECT anon/authenticated 開放、書き込みは service_role
+
+**仕様 md**:
+- `pwa/design/ms_progress.md` 新規 (本 Phase の正本仕様書)。`progress_estimation.md` は Phase 1〜2 履歴として残置
+- `pwa/design/L2_DATA.md` の状態列 / cron 表 / 改修優先度表 / 関連 md / 改訂履歴 を Phase 4 完了で更新
+
+### 実装上の注意点
+
+- `progress_estimate_state` の `source_hash` 入力には `tsukuyomi_context.system_prompt` (reward_estimate tag) も含めた → 推定プロンプトを書き換えたら自動的に全 PJ 再推定
+- `pm_manual` / `criteria_toggle` で手動確定済み MS は LLM を呼んでも save 段階でスキップされる (現行通り)
+- `monthly_report` 本文不在 PJ は早期 return で state テーブルに書き込まない (= 次時再チェック)
+- 手動「AIで再推定」ボタン (`/api/progress/estimate`) と `report/generate` 直後 fire-and-forget は force=true (default) で source_hash 無視
+
+### 動作確認
+
+- TS 型チェック: `tsc --noEmit` exit 0
+- migration 029 適用: TBD (commit 後に apply_ddl.py)
+- Vercel deploy: TBD (push + main merge 後に自動)
+- 本番動作: 次時 0 分 cron で実走、`progress_estimate_state` に各 PJ × {当月, 前月} の行が積もる想定
+
+### 次セッションへ
+
+- 残り Phase 4 タスク (優先順):
+  - ⑤ メンバーナレッジ 新規実装 (5 生データ → Sonnet → member_knowledge upsert、毎時 polling)
+  - ④ PJナレッジ 流入元新規実装 (同上、project_knowledge upsert)
+  - ② AMDプロトコル UI 復活 + 自動抽出 cron
+- 本 Phase の動作確認: 翌日朝 `progress_estimate_state` を SELECT して各 PJ の last_processed_at が時間ごとに更新されているか
+- ⚠️ Vercel Production env vars `CRON_SECRET` / `SUPABASE_SERVICE_ROLE_KEY` / `ANTHROPIC_API_KEY` がないと cron が動かない (既設定済の前提)
