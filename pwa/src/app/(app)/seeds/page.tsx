@@ -335,7 +335,7 @@ function fundingChipColor(program: string): string {
   return "bg-muted text-muted-foreground border-border";
 }
 
-function FundingChips({ programs, totalJpy }: { programs: string[]; totalJpy: number }) {
+function FundingChips({ programs, totalJpy }: { programs: { program: string; year: number | null }[]; totalJpy: number }) {
   if (!programs || programs.length === 0) {
     return totalJpy > 0 ? (
       <span className="text-muted-foreground text-[10px]">{formatJpy(totalJpy)}</span>
@@ -345,19 +345,24 @@ function FundingChips({ programs, totalJpy }: { programs: string[]; totalJpy: nu
   }
   const visible = programs.slice(0, 3);
   const more = programs.length - visible.length;
+  const yearSuffix = (y: number | null) => (y == null ? "" : ` '${String(y).slice(-2)}`);
   return (
     <div className="flex flex-wrap items-center gap-0.5">
       {visible.map((p) => (
         <span
-          key={p}
-          className={`text-[9px] px-1 py-0.5 rounded border whitespace-nowrap ${fundingChipColor(p)}`}
-          title={p}
+          key={p.program + (p.year ?? "")}
+          className={`text-[9px] px-1 py-0.5 rounded border whitespace-nowrap ${fundingChipColor(p.program)}`}
+          title={`${p.program}${p.year ? ` (令和${p.year - 2018}/${p.year}年度)` : ""}`}
         >
-          {p}
+          {p.program}
+          {p.year != null && <span className="ml-0.5 opacity-70 font-mono">{yearSuffix(p.year)}</span>}
         </span>
       ))}
       {more > 0 && (
-        <span className="text-[9px] text-muted-foreground" title={programs.slice(3).join(", ")}>
+        <span
+          className="text-[9px] text-muted-foreground"
+          title={programs.slice(3).map((x) => `${x.program}${yearSuffix(x.year)}`).join(", ")}
+        >
           +{more}
         </span>
       )}
