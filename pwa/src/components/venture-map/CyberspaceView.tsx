@@ -17,7 +17,7 @@
  */
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Grid, Line, Html, Sparkles, Stars } from "@react-three/drei";
+import { OrbitControls, Grid, Line, Html, Sparkles, Stars, MeshDistortMaterial, MeshWobbleMaterial } from "@react-three/drei";
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from "@react-three/postprocessing";
 import { BlendFunction } from "postprocessing";
 import { Suspense, useMemo, useRef, useState } from "react";
@@ -472,6 +472,100 @@ function AxisLabels() {
   );
 }
 
+// ============================================================
+// 揺らめくクリスタルコア (中心オーナメント)
+// 4 レイヤー: 内 emissive distort / 中 wireframe icosahedron / 外 wireframe wobble /
+// 最外 halo + 浮遊リング (回転)
+// ============================================================
+
+function WaveCore() {
+  const inner = useRef<THREE.Mesh>(null);
+  const wire = useRef<THREE.Mesh>(null);
+  const wobble = useRef<THREE.Mesh>(null);
+  const ring1 = useRef<THREE.Mesh>(null);
+  const ring2 = useRef<THREE.Mesh>(null);
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    if (inner.current) {
+      inner.current.rotation.x = t * 0.18;
+      inner.current.rotation.y = t * 0.24;
+    }
+    if (wire.current) {
+      wire.current.rotation.x = -t * 0.12;
+      wire.current.rotation.y = -t * 0.18;
+      wire.current.rotation.z = t * 0.08;
+    }
+    if (wobble.current) {
+      wobble.current.rotation.y = t * 0.07;
+      wobble.current.rotation.x = Math.sin(t * 0.3) * 0.4;
+    }
+    if (ring1.current) {
+      ring1.current.rotation.z = t * 0.5;
+      ring1.current.rotation.x = Math.PI / 2 + Math.sin(t * 0.3) * 0.2;
+    }
+    if (ring2.current) {
+      ring2.current.rotation.z = -t * 0.35;
+      ring2.current.rotation.y = Math.PI / 2 + Math.cos(t * 0.4) * 0.2;
+    }
+  });
+
+  return (
+    <group position={[WORLD / 2, WORLD / 2, WORLD / 2]}>
+      {/* 0. innermost glowing distort core */}
+      <mesh ref={inner}>
+        <icosahedronGeometry args={[0.7, 24]} />
+        <MeshDistortMaterial
+          color="#22d3ee"
+          emissive="#22d3ee"
+          emissiveIntensity={2.6}
+          distort={0.55}
+          speed={2.2}
+          metalness={0.3}
+          roughness={0.15}
+          transparent
+          opacity={0.92}
+        />
+      </mesh>
+      {/* 1. wireframe icosahedron (mid) */}
+      <mesh ref={wire}>
+        <icosahedronGeometry args={[1.15, 2]} />
+        <meshBasicMaterial color="#f472b6" wireframe transparent opacity={0.55} />
+      </mesh>
+      {/* 2. wobble outer shell */}
+      <mesh ref={wobble}>
+        <icosahedronGeometry args={[1.7, 4]} />
+        <MeshWobbleMaterial
+          color="#a78bfa"
+          emissive="#a78bfa"
+          emissiveIntensity={1.2}
+          factor={0.4}
+          speed={1.5}
+          wireframe
+          transparent
+          opacity={0.4}
+        />
+      </mesh>
+      {/* 3. halo */}
+      <mesh>
+        <sphereGeometry args={[2.4, 24, 24]} />
+        <meshBasicMaterial color="#22d3ee" transparent opacity={0.05} depthWrite={false} />
+      </mesh>
+      {/* 4. orbit rings */}
+      <mesh ref={ring1}>
+        <torusGeometry args={[2.6, 0.025, 12, 96]} />
+        <meshBasicMaterial color="#22d3ee" transparent opacity={0.7} />
+      </mesh>
+      <mesh ref={ring2}>
+        <torusGeometry args={[3.0, 0.02, 12, 96]} />
+        <meshBasicMaterial color="#f472b6" transparent opacity={0.55} />
+      </mesh>
+      {/* 5. central spark */}
+      <pointLight color="#22d3ee" intensity={1.4} distance={8} decay={2} />
+    </group>
+  );
+}
+
 function BoundingBox() {
   const verts: [number, number, number][] = [
     [0, 0, 0], [WORLD, 0, 0], [WORLD, 0, WORLD], [0, 0, WORLD],
@@ -553,6 +647,7 @@ function Scene({
         followCamera={false}
       />
       <AxisLabels />
+      <WaveCore />
       {ISO_SHELLS.map((s) => (
         <IsoShell
           key={s.score}
