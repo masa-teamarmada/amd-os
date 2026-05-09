@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-09 17:36 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-09 18:16 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -354,7 +354,7 @@ PRIMARY KEY: `base_ym`
 
 ## l2_extract_state
 
-行数 (概算): 34
+行数 (概算): 29
 PRIMARY KEY: `l2_kind, target_id, scope_key`
 
 | # | column | type | nullable | default |
@@ -520,7 +520,7 @@ PRIMARY KEY: `id`
 
 ## member_knowledge
 
-行数 (概算): -1
+行数 (概算): 0
 PRIMARY KEY: `id`
 UNIQUE: `(code_name,category)` (constraint: `member_knowledge_code_name_category_key`)
 
@@ -991,7 +991,7 @@ PRIMARY KEY: `id`
 
 ## project_meeting_summaries
 
-行数 (概算): 0
+行数 (概算): 33
 PRIMARY KEY: `meeting_id`
 
 | # | column | type | nullable | default |

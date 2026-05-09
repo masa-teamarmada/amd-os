@@ -115,6 +115,31 @@
 
 ---
 
+### [GAS] Notion 議事録ページが 1 会議で 2 つ生成される (cron テンプレ + Notion AI 自動生成) → cron 停止して一本化
+
+- **発見日**: 2026-05-09 (BWE 臨時株主総会で cron テンプレ側が拾われて空抽出になる事故が継続発生)
+- **状態**: ✅ 解決済 (cron 停止 + 074 fallback 強化、ただし既存 AI ページ救済は次セッション)
+- **症状**: 1 会議で Notion 議事録 DB に 2 ページ並ぶ:
+  - cron テンプレページ (35997749...): `eventId` プロパティ入り、本文は "Meet（ここで /meet を打つ）" の固定テンプレ 64 字
+  - Notion AI / Meet 連携の自動生成ページ (35b97749...): `eventId` プロパティ空、本文は decided/採決結果まで詳細
+  - `gas/074` の `_meeting_findNotionPageByEventId_` は eventId equals filter なので cron テンプレ側が掴まれて「議事録なし」抽出
+- **原因**:
+  - `gas/CalendarToNotionMinutes.js` の `cron_createMinutesFromCalendar` (実 trigger handler は `run_createMinutes_apply`) が前日 03:00 に「明日分の calendar event について議事録枠を自動生成」して Notion AI と分裂
+  - 当初は Notion AI が議事録 DB にページを作ってくれない前提だったが、最近 Notion AI / Meet 連携が会議終了時に自動でページ生成するようになって (= eventId プロパティが空のまま) 重複に
+- **解決策**:
+  - **(A) cron 停止** (まさ判断): `nav_l2_pruneDuplicateTriggers("run_createMinutes_apply", 0)` で trigger 全削除 (1 → 0 個)
+  - **(B) gas/CalendarToNotionMinutes.js 冒頭に DEPRECATED 警告**: 復活時の注意書き
+  - **(C) gas/074 fallback 強化**: `_meeting_findNotionPageByEventId_` を eventId equals + 同日付 + タイトル contains の 3 段階 fallback に拡張。本文厚いページ優先採用
+  - **(D) prompt v4_alias_meta 化**: meeting_meta セクション (projectId/projectName/meetingTitle/meetingDate) + alias block を userPrompt に追加、source_hash 入力に prompt rev を混ぜて全行再抽出を保証
+  - GAS deploy v1438→v1441
+  - 既存 AI ページ (35b97749...) の救済: title contains fallback でもなぜか Notion API から取れない (integration permission か filter 仕様の問題)。**次セッションで Notion connection の AI page access を確認 + AI page に eventId を後付けする one-time script を実装する** タスクが残る
+- **教訓**:
+  - **複数の自動生成主体が同じ DB に書き込む設計はダメ**。Notion AI が議事録を作る時代に、cron で空テンプレを並行生成すると分裂事故になる
+  - L2_DATA.md / meeting_summaries.md に「議事録の自動生成は Notion AI 一本化、cron テンプレ自動生成は廃止」を明記する (運用ルール)
+  - cron を止める判断は早めに。「念のため作っておく」が事故の元になることがある
+
+---
+
 ### [GAS] member_knowledge 抽出で「きよ」に他人の活動が紐付くカオス (member_activities 列名 4 つ間違い)
 
 - **発見日**: 2026-05-09 (Phase 4 メンバーナレッジ稼働後、まさからの直接指摘)
