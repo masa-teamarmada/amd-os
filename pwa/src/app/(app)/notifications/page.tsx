@@ -1,17 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
 import { NotificationsClient } from "@/components/notifications/NotificationsClient";
+import { AppNotificationsSection } from "@/components/notifications/AppNotificationsSection";
 
 export const dynamic = "force-dynamic";
 
 /**
- * /notifications — Phase 4 抽出通知の確認 + つくよみへの修正依頼ページ
+ * /notifications — 統合通知ページ
  *
  * 仕様正本: pwa/design/notifications.md
  *
- * - l2_notifications (Phase 4: ③⑤④②) と meeting_notifications (Phase 3: ⑥) の一覧
- * - 各通知から元データ (member_knowledge / project_knowledge / protocols / milestone_monthly_progress / project_meeting_summaries) を展開表示
- * - 「⚠️ つくよみに修正依頼」フォームから l2_feedbacks INSERT
- *   → 次回の cron 抽出時に LLM プロンプトに含められる
+ * 表示する通知:
+ *  1. app_notifications: VC discover / VC news ingest / つくよみ等 (Web 系、AppNotificationsSection)
+ *  2. l2_notifications (Phase 4: ③⑤④②) と meeting_notifications (Phase 3: ⑥) の一覧
+ *  3. 各通知から元データ (member_knowledge / project_knowledge / protocols / milestone_monthly_progress / project_meeting_summaries) を展開表示
+ *  4. 「⚠️ つくよみに修正依頼」フォームから l2_feedbacks INSERT
+ *     → 次回の cron 抽出時に LLM プロンプトに含められる
  */
 export default async function NotificationsPage() {
   const supabase = await createClient();
@@ -51,8 +54,13 @@ export default async function NotificationsPage() {
         </span>
       </div>
       <p className="text-xs text-muted-foreground mb-6">
-        Phase 4 cron が抽出した内容。誤抽出があれば「⚠️ つくよみに修正依頼」で次回以降の抽出を改善できる。
+        cron / つくよみ / Phase 4 抽出 等の通知を統合表示。誤抽出があれば「⚠️ つくよみに修正依頼」で次回以降の抽出を改善できる。
       </p>
+
+      {/* VC 系 / Web 通知 (app_notifications) */}
+      <AppNotificationsSection />
+
+      {/* L2 抽出 / MTG サマリ通知 */}
       <NotificationsClient
         l2={(l2Res.data ?? []) as Notification[]}
         mtg={(mtgRes.data ?? []) as MeetingNotification[]}

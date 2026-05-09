@@ -174,6 +174,7 @@ export function GlobalNav({ userCodeName }: GlobalNavProps) {
 }
 
 // 通知ベル (= /notifications へのリンク + 未読バッジ、15 秒 polling)
+// l2_notifications + meeting_notifications + app_notifications の未読合算。
 function NotificationBell() {
   const pathname = usePathname();
   const [unread, setUnread] = useState(0);
@@ -183,7 +184,7 @@ function NotificationBell() {
       try {
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
-        const [l2Res, mtgRes] = await Promise.all([
+        const [l2Res, mtgRes, appRes] = await Promise.all([
           supabase
             .from("l2_notifications")
             .select("notification_id", { count: "exact", head: true })
@@ -192,8 +193,13 @@ function NotificationBell() {
             .from("meeting_notifications")
             .select("meeting_id", { count: "exact", head: true })
             .is("notified_at", null),
+          supabase
+            .from("app_notifications")
+            .select("id", { count: "exact", head: true })
+            .is("read_at", null)
+            .is("dismissed_at", null),
         ]);
-        const total = (l2Res.count ?? 0) + (mtgRes.count ?? 0);
+        const total = (l2Res.count ?? 0) + (mtgRes.count ?? 0) + (appRes.count ?? 0);
         setUnread(total);
       } catch {
         // ignore
