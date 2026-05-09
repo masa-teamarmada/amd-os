@@ -32,15 +32,32 @@ L2 ③ MS進捗 (`milestone_monthly_progress`) の自動更新 cron 全般。
 
 - **リアルタイム性**: 月次レポートを書き換えた直後、最大 1 時間で MS 進捗バーが追従する。daily 03:00 のままだと「翌朝まで反映されない」
 - **軽量化**: 1 cron 内で 14 LLM call まで打ち切り。差分検知前提なので何度走らせても無駄ゼロ
-- **タイムアウト減**: Vercel Pro `maxDuration: 300` 秒以内に確実に収まる
+- **タイムアウト減**: Vercel Hobby `maxDuration: 60` 秒に近い処理時間。差分検知でほとんど skip されるので実走 < 60 秒
 - **公平性**: `last_processed_at` 古い順に処理 → 全 PJ が等しく処理される
+
+---
+
+## ⚠️ Vercel Hobby plan の cron 制約と本構成
+
+**Vercel Hobby plan は cron schedule が "1 日 1 回まで" に制限される** (`0 * * * *` のような毎時 schedule は deploy 時に reject される)。Pro 移行は別件 (まさの判断待ち) なので、当 Phase 4 では:
+
+- `/api/cron/hourly-estimate` route 自体は実装済 (PWA 側に実装、`Authorization: Bearer $CRON_SECRET` 認証)
+- **vercel.json の crons から `/api/cron/hourly-estimate` を外す** (= Vercel cron として登録しない)
+- **本体GAS の毎時 0 分 time-trigger** から `nav_pwa_pingHourlyEstimate` (`gas/154_PwaCronCaller.js`) で URL を curl で叩く構成
+
+これにより Vercel Hobby のままで毎時 polling が実現できる。Pro 移行したら vercel.json に戻して GAS trigger を消すだけで切り替え可能。
 
 ---
 
 ## データフロー
 
 ```
-[毎時 0 分 cron] /api/cron/hourly-estimate (vercel.json)
+[毎時 0 分 GAS time-trigger]
+   │
+   ├─ nav_pwa_pingHourlyEstimate (gas/154_PwaCronCaller.js)
+   │     UrlFetchApp で `${PWA_BASE_URL}/api/cron/hourly-estimate` を `Bearer $CRON_SECRET` で GET
+   │
+[/api/cron/hourly-estimate] (PWA, Vercel)
    │
    ├─ 1. アクティブ PJ 取得 (status='active')
    │
@@ -94,13 +111,32 @@ L2_DATA.md には「1 PJ × 1 ms 単位に分解」と書いてあるが、実�
 
 ## 認証 / 呼び出し方
 
-### Vercel Cron (本番)
+### 本番 (毎時 0 分): GAS time-trigger 経由
 ```
+[GAS] nav_pwa_pingHourlyEstimate (gas/154_PwaCronCaller.js)
+   ↓ UrlFetchApp.fetch
 GET https://amd-os-pwa.vercel.app/api/cron/hourly-estimate
-Authorization: Bearer $CRON_SECRET   # Vercel が自動付与
+Authorization: Bearer $CRON_SECRET   # ScriptProperties から取得
 ```
 
-### 手動実行 (curl)
+GAS ScriptProperties:
+| キー | 用途 |
+|---|---|
+| `PWA_BASE_URL` | `https://amd-os-pwa.vercel.app` |
+| `CRON_SECRET` | Vercel Production env の `CRON_SECRET` と同じ値 |
+
+setup (1 度だけ):
+```sh
+# ScriptProperties に PWA_BASE_URL + CRON_SECRET を入れる
+SECRET=$(grep '^CRON_SECRET=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | sed 's/^CRON_SECRET=//' | tr -d '"')
+ARGS=$(node -e "console.log(encodeURIComponent(JSON.stringify([{PWA_BASE_URL:'https://amd-os-pwa.vercel.app',CRON_SECRET:'$SECRET'}])))")
+curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_pwa_setProps_&args=$ARGS"
+
+# 毎時 0 分の trigger を立てる
+curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_pwa_setupHourlyPwaTrigger_"
+```
+
+### 手動実行 (curl 直叩き、本番動作確認用)
 ```sh
 # 当月 + 前月 を回す (default)
 curl -H "Authorization: Bearer $CRON_SECRET" \
@@ -179,7 +215,8 @@ CREATE INDEX idx_pes_last_processed_at ON progress_estimate_state (last_processe
 | [pwa/src/app/api/report/generate/route.ts](../src/app/api/report/generate/route.ts) | レポート生成成功後の fire-and-forget |
 | [pwa/src/components/cockpit/CockpitMonthlyModal.tsx](../src/components/cockpit/CockpitMonthlyModal.tsx) | 進捗確認タブの UI + 「🤖 AIで再推定」ボタン |
 | [pwa/scripts/migrations/029_progress_estimate_state.sql](../scripts/migrations/029_progress_estimate_state.sql) | state テーブル DDL |
-| [pwa/vercel.json](../vercel.json) | cron schedule (`0 * * * *` 毎時) |
+| [pwa/vercel.json](../vercel.json) | Vercel cron 一覧 (Hobby 制約により `/api/cron/hourly-estimate` は **登録しない**) |
+| [gas/154_PwaCronCaller.js](../../gas/154_PwaCronCaller.js) | **GAS 毎時 trigger** から PWA cron を curl で叩く (Hobby 回避策) |
 
 ---
 
@@ -192,9 +229,16 @@ Vercel production env vars (本番):
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase ref 抽出元 |
 | `SUPABASE_SERVICE_ROLE_KEY` | RLS 越えて milestone_monthly_progress / progress_estimate_state 書き込み |
 | `ANTHROPIC_API_KEY` | Sonnet 4.5 |
-| `CRON_SECRET` | Vercel Cron 認証 |
+| `CRON_SECRET` | `/api/cron/hourly-estimate` 認証 (GAS が `Bearer` で送る) |
 
 ⚠️ Vercel local の .env.local に書いただけでは本番に反映されない。`vercel env add` 必要 ([progress_estimation.md](progress_estimation.md) 「環境変数の欠落」参照)。
+
+GAS ScriptProperties:
+
+| 変数 | 用途 |
+|---|---|
+| `PWA_BASE_URL` | `https://amd-os-pwa.vercel.app` |
+| `CRON_SECRET` | Vercel Production env と同じ値 (= 上記表のもの) |
 
 ---
 
@@ -207,8 +251,10 @@ Vercel production env vars (本番):
 - **delta=0**: 「今月は進んでない」を意味する。LLM が 0 を返したら save しない (= 既存値そのまま)
 - **`tsukuyomi_context` の system prompt 変更も差分検知に含む**: prompt を更新したら次回 cron で全 PJ が再推定対象になる (意図通り)
 - **maxItems 打ち切り**: default 14。アクティブ PJ × 2 ym = 14 を全部 LLM で回せる想定。差分検知でほとんど skip されるので実際の LLM call は 0-3 程度になることが多い
-- **Vercel Pro maxDuration 300秒**: 1 cron で確実に収まる (LLM 14 call × 10秒 ≒ 140秒)
+- **Vercel Hobby maxDuration 60秒**: route 自体は `export const maxDuration = 300` で書いてあるが Hobby plan では 60 秒が天井。差分検知で実走 LLM call は少ないので問題は出ない想定。Pro 移行後は 300 秒まで使える
 - **手動 UI ボタンの force=true**: 差分検知を意図的に無視。「とにかく再推定したい」というユーザ意図を尊重
+- **GAS UrlFetchApp タイムアウト**: GAS 側 fetch のタイムアウトは default で 60 秒程度。本 cron は 60 秒以内に終わる想定なので OK だが、もし PJ が増えて重くなったら `?maxItems=N` を分割呼び出しする
+- **本体GAS time-trigger 上限 (1 script 100 個)**: 現状 18+ 個 → 本 trigger 1 個追加で 19+ 個。十分余裕
 
 ---
 
@@ -220,6 +266,7 @@ Vercel production env vars (本番):
 | 2026-04-17 | Vercel env vars 追加 (`SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`) |
 | 2026-04-17 | 月次モーダル「AIで再推定」ボタン追加 |
 | **2026-05-09** | **Phase 4 移行** (本仕様初版): 毎時 polling + `progress_estimate_state` 差分検知 + cron/daily-estimate → cron/hourly-estimate にリネーム + maxItems 打ち切り |
+| 2026-05-09 | Vercel Hobby plan の "daily 1 回まで" cron 制約に阻まれて vercel.json から外し、**本体GAS の毎時 trigger から `nav_pwa_pingHourlyEstimate` で叩く構成** に変更 (`gas/154_PwaCronCaller.js` 新規) |
 
 ---
 
