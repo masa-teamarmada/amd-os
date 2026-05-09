@@ -47,6 +47,20 @@
  */
 
 // ============================================================
+// 定数
+// ============================================================
+
+/**
+ * meeting_extract プロンプトの version。
+ * source_hash の計算に含めるため、prompt を変えたらここを bump → 既存行も再抽出される。
+ *
+ * v1: Phase 1 単一 (Notion only)
+ * v2: Phase 2 移行 (Notion + Gmail 結合)
+ * v3 (2026-05-09): 会議メタ (meetingTitle / projectName / meetingDate) を user prompt に明示 + 対象PJ無関係 thread 排除ルール強化 (BWE/CX 汚染対策)
+ */
+var MEETING_EXTRACT_PROMPT_VERSION = "v3";
+
+// ============================================================
 // 公開関数
 // ============================================================
 
@@ -204,12 +218,12 @@ function nav_meeting_extractForProjectYm_(projectId, ymKey, opts) {
         continue;
       }
 
-      // 11) 結合テキスト + sha256 で差分検知
+      // 11) 結合テキスト + sha256 で差分検知 (prompt version を含める = prompt 改訂で再抽出)
       const combinedText = [
         hasNotion ? "=== notion ===\n" + notionText : "",
         hasGmail ? "=== gmail ===\n" + gmailText : ""
       ].filter(function (s) { return s.length > 0; }).join("\n\n").trim();
-      const newHash = _meeting_sha256_(combinedText);
+      const newHash = _meeting_sha256_("prompt=" + MEETING_EXTRACT_PROMPT_VERSION + "\n" + combinedText);
       const existing = existingByMeetingId[eventId];
       if (existing && String(existing.source_hash || "") === newHash) {
         items.push({ meetingId: eventId, action: "skipped_unchanged" });
@@ -224,9 +238,14 @@ function nav_meeting_extractForProjectYm_(projectId, ymKey, opts) {
         continue;
       }
 
-      // 13) Gemini 抽出
+      // 13) Gemini 抽出 (会議メタ付きで対象 PJ と無関係な thread を排除させる)
       llmCalls++;
-      const extracted = _meeting_extractWithLLM_(combinedText, { projectId: projectId, ymKey: ymKey, sourceKinds: sourceKinds });
+      const projectName = _meeting_resolveProjectName_(projectId);
+      const extracted = _meeting_extractWithLLM_(combinedText, {
+        projectId: projectId, projectName: projectName,
+        ymKey: ymKey, sourceKinds: sourceKinds,
+        meetingTitle: title, meetingDate: meetingDate
+      });
       if (!extracted) {
         items.push({ meetingId: eventId, action: "error_llm" });
         errors++;
@@ -406,18 +425,23 @@ function nav_meeting_processOneEvent_(eventId, projectId) {
     return { ok: true, action: existing ? "updated_none" : "inserted_none", meetingId: eventId, title: title, projectId: pid, sourceKinds: "none" };
   }
 
-  // 9) 結合 + sha256
+  // 9) 結合 + sha256 (prompt version を含める = prompt 改訂で再抽出)
   const combinedText = [
     hasNotion ? "=== notion ===\n" + notionText : "",
     hasGmail ? "=== gmail ===\n" + gmailText : ""
   ].filter(function (s) { return s.length > 0; }).join("\n\n").trim();
-  const newHash = _meeting_sha256_(combinedText);
+  const newHash = _meeting_sha256_("prompt=" + MEETING_EXTRACT_PROMPT_VERSION + "\n" + combinedText);
   if (existing && String(existing.source_hash || "") === newHash) {
     return { ok: true, action: "skipped_unchanged", meetingId: eventId, title: title, projectId: pid, sourceKinds: sourceKinds };
   }
 
-  // 10) Gemini 抽出
-  const extracted = _meeting_extractWithLLM_(combinedText, { projectId: pid, ymKey: ymKey, sourceKinds: sourceKinds });
+  // 10) Gemini 抽出 (会議メタ付きで対象 PJ と無関係な thread を排除させる)
+  const projectName = _meeting_resolveProjectName_(pid);
+  const extracted = _meeting_extractWithLLM_(combinedText, {
+    projectId: pid, projectName: projectName,
+    ymKey: ymKey, sourceKinds: sourceKinds,
+    meetingTitle: title, meetingDate: meetingDate
+  });
   if (!extracted) {
     return { ok: false, action: "error_llm", meetingId: eventId, title: title, projectId: pid };
   }
@@ -509,6 +533,24 @@ function nav_meeting_backfillForProject_(projectId, ymList, opts) {
 // ============================================================
 // 内部 helper
 // ============================================================
+
+/**
+ * projectId (例 "p11") → projectName (例 "BWE") を resolve。
+ * meeting_extract_v3 で LLM プロンプトに会議メタとして渡す用。
+ * 307 の mr_gmail_getProjectInfo_ を流用 (DB_Projects 経由)。
+ * 失敗時は projectId をそのまま返す (LLM プロンプト的にも空欄よりは符号がある方がマシ)。
+ */
+function _meeting_resolveProjectName_(projectId) {
+  const pid = String(projectId || "").trim();
+  if (!pid) return "";
+  try {
+    if (typeof mr_gmail_getProjectInfo_ === "function") {
+      const info = mr_gmail_getProjectInfo_(pid);
+      if (info && info.projectName) return String(info.projectName).trim();
+    }
+  } catch (_e) {}
+  return pid;
+}
 
 function _meeting_resolveProjectIdFromPage_(notionToken, pageObj) {
   if (typeof _notion_extractRelationIds_ === "function" &&
@@ -781,9 +823,16 @@ function _meeting_extractWithLLM_(combinedText, meta) {
     throw new Error("meeting_extract prompt missing (run run_installMeetingExtractorConfig)");
   }
 
+  // === meeting_meta === セクションを冒頭に置くことで、LLM が
+  // 「対象 PJ と関係ない gmail thread」を排除できるようにする (BWE/CX 汚染対策、v3)
   const userPrompt = [
-    "extractor: meeting_summary_v2",
+    "extractor: meeting_summary_" + MEETING_EXTRACT_PROMPT_VERSION,
+    "",
+    "=== meeting_meta (この会議の対象 PJ・タイトル・日付。これと無関係な内容は無視する) ===",
     "projectId: " + String(meta.projectId || ""),
+    "projectName: " + String(meta.projectName || ""),
+    "meetingTitle: " + String(meta.meetingTitle || ""),
+    "meetingDate: " + String(meta.meetingDate || ""),
     "ym: " + String(meta.ymKey || ""),
     "sourceKinds: " + String(meta.sourceKinds || ""),
     "",
