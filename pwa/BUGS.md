@@ -19,6 +19,66 @@
 
 ---
 
+### [GAS] time-trigger 上限 (1 script 20-100 個) を考慮せず ad-hoc trigger 設計してハマった
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み (設計変更)
+- **症状**: MTGサマリ Phase 3 で「会議終了 +60 分にピンポイント発火」を実現するために、calendar event 1 個ごとに `ScriptApp.newTrigger.at(date)` で個別 time-trigger を作成する設計を実装。3 個 set した時点で `nav_meeting_setupHourlyScheduleTrigger_` が「このスクリプトに含まれているトリガーの数が多すぎます」エラーで弾かれた
+- **原因**:
+  - GAS の time-based trigger は **1 script あたり 20-100 個上限**
+  - 本体GAS には既に 17+ 個の cron trigger があった (中には `cron_invoiceSendNudge_` が 4 重複してたものも)
+  - そこに 1 週間ぶんの会議数 = 数十個の ad-hoc trigger を追加すれば確実に上限超え
+  - 設計時にこの上限を考慮していなかった
+- **解決策**:
+  - ad-hoc trigger 方式を捨てて **「毎時 0 分の polling cron 1 個」** に切替
+  - cron 内で「過去 60-180 分に終わった events」をスキャンする方式 (`nav_meeting_pollRecentlyEndedEvents`)
+  - 重複処理は Supabase の `source_hash` 差分検知で防ぐ (=何度走らせても OK)
+  - 終了 +60 分ピッタリには発火しないが +60 〜 +180 分のどこかで処理されるので実用上問題なし
+- **教訓**:
+  - GAS で「N 個のものに個別 trigger」設計は **絶対にダメ**。time-trigger は固定数 (= 数個) に抑え、callback 内で対象を loop する設計にする
+  - 既存 trigger 数を `ScriptApp.getProjectTriggers().length` で先に確認するクセ
+  - 重複 trigger (`cron_invoiceSendNudge_` × 4 等) は枠を浪費するので別途整理する (= TODO)
+
+---
+
+### [GAS] Web App curl 経由実行で `Session.getActiveUser().getEmail()` が空になる
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み
+- **症状**: `nav_meeting_scheduleUpcomingTriggers_` を pwaApi 経由 curl で叩いたら `Error: calendarId empty (Session.getActiveUser().getEmail() returned "")` で失敗。ロジック内で「fallback で実行ユーザーのメール = まさのカレンダー」を取りに行ってたが空が返ってきた
+- **原因**:
+  - GAS Web App は実行モードが「Anyone (anonymous)」な場合、`Session.getActiveUser()` は空を返す
+  - time-trigger 経由 (= deployment owner として実行) なら本来は取れるが、curl/Web App ルートでは取れない
+- **解決策**:
+  - `Session.getEffectiveUser().getEmail()` (= deployment owner = まさ) で代替
+  - Web App 設定が "Execute as: Me" であれば effective user で deployment owner のメールが取れる
+  - 加えて優先順位: 引数 override > CFG_CalendarImport > ScriptProperties.MAIN_CALENDAR_ID > Session.getEffectiveUser、で多段 fallback に
+- **教訓**:
+  - GAS の `Session.getActiveUser()` (実行者) と `Session.getEffectiveUser()` (script owner) の違いを覚える
+  - Web App 経由でテストできるロジックは「引数 override」を実装してテスト容易性を上げる
+  - 環境依存の値 (calendarId など) は ScriptProperties に逃がせる選択肢を作っておく
+
+---
+
+### [運用] worktree 取り違えで main worktree (作業ブランチ外) にコード書き込み事故
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み (リカバリ)
+- **症状**: claude/brave-cohen-15d352 worktree で作業してたつもりが、Edit/Write ツールが `/Users/masa/projects/AMD/amd-os/` (= main worktree) のファイルに書いてしまった。`gas/074_MeetingSummaryRepo.js` の Phase 2 全書き直し / `gas/092_AdminLLMExtractors.js` / `pwa/scripts/migrations/026_pms_phase2_calendar_event.sql` (= 番号 026 が seeds_data_round2 と衝突！)
+- **原因**:
+  - 当セッションの worktree は `/Users/masa/projects/AMD/amd-os/.claude/worktrees/brave-cohen-15d352/` だが、Bash の cwd 操作や Edit パスで `/Users/masa/projects/AMD/amd-os/` (main worktree のルート) を直接指定してしまった
+  - Migration 番号も別 worktree が既に 026 を取ってたが確認せず重複命名
+- **解決策**:
+  - main worktree の変更を brave-cohen worktree に `cp` でコピー、main の方は `git restore` + `rm` で巻き戻し
+  - Migration を 026 → 027 にリネーム (中身の `-- 026:` も書き直し)
+  - DDL apply は `.env.local` が main worktree にしか無いので main worktree から absolute path で実行する形に
+- **教訓**:
+  - worktree 内で作業中は **絶対パスでも worktree 配下を指す** こと。`/Users/masa/projects/AMD/amd-os/.claude/worktrees/<worktree>/` を起点にする習慣
+  - Migration ファイル新規作成時は `ls scripts/migrations/` で **既存の番号を必ず確認** してから命名
+  - `.env.local` が必要な script (= apply_ddl.py) は main worktree 経由で呼ぶ運用パターンを HANDOFF に明記
+
+---
+
 ### [AMD OS PWA] PL/PM/クローザー編集で project_members が全部消える (全削除→挿入の副作用)
 
 - **発見日**: 2026-05-08
