@@ -120,26 +120,32 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
   opts = opts || {};
   const force = !!opts.force;
 
-  // a) 入力ソース: 直近 90 日の member_activities + そのメンバーが居る PJ の最近 meeting summaries
+  // a) 入力ソース: 直近 90 日の member_activities (member_id で正しく filter)
+  // ⚠️ 2026-05-09 バグ修正: 過去版は code_name/created_at/activity_text/kind で filter+select していて
+  // member_activities の実スキーマ (member_id/extracted_at/title/content_preview/source) と合わず
+  // PostgREST エラーで activities がゼロで返ってた → meeting_summaries だけが LLM 入力になり
+  // 他人の活動を本人のものと誤抽出していた (BUGS.md 参照)
+  if (!memberId) {
+    return { ok: false, action: "no_member_id", codeName: codeName, message: "memberId required (column member_id is the FK)" };
+  }
   const sinceIso = _l2_isoDaysAgo_(90);
   const actsRes = supa_select("member_activities", {
-    select: "code_name,project_id,activity_text,kind,created_at,milestone_id",
-    filter: "code_name=eq." + encodeURIComponent(codeName) + "&created_at=gte." + encodeURIComponent(sinceIso),
-    order: "created_at.desc",
+    select: "member_id,project_id,ym,title,content_preview,source,extracted_at,milestone_id",
+    filter: "member_id=eq." + encodeURIComponent(memberId) + "&extracted_at=gte." + encodeURIComponent(sinceIso),
+    order: "extracted_at.desc",
     limit: 200
   });
   const acts = actsRes.ok ? (actsRes.rows || []) : [];
 
   // 関連 PJ ids 取得 → meeting summaries (直近 60 日)
-  let projectIds = [];
-  if (memberId) {
-    const pmRes = supa_select("project_members", {
-      select: "project_id,is_active",
-      filter: "member_id=eq." + encodeURIComponent(memberId) + "&is_active=is.true",
-      limit: 50
-    });
-    if (pmRes.ok) projectIds = (pmRes.rows || []).map(function (r) { return r.project_id; });
-  }
+  // ⚠️ meeting_summaries は PJ 全体のサマリで「本人が主体的にやった」とは限らない。
+  // LLM プロンプトで「本人 (code_name) が明示的に主体として書かれている事項のみ抽出」と強く指示。
+  const pmRes = supa_select("project_members", {
+    select: "project_id,is_active",
+    filter: "member_id=eq." + encodeURIComponent(memberId) + "&is_active=is.true",
+    limit: 50
+  });
+  const projectIds = pmRes.ok ? (pmRes.rows || []).map(function (r) { return r.project_id; }) : [];
   let summaries = [];
   if (projectIds.length) {
     const inFilter = "project_id=in.(" + projectIds.map(function (p) { return encodeURIComponent(p); }).join(",") + ")";
@@ -156,7 +162,8 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
   // b) source_hash
   const inputJson = JSON.stringify({
     cn: codeName,
-    acts: acts.map(function (a) { return { p: a.project_id, k: a.kind, t: String(a.activity_text || "").slice(0, 600) }; }),
+    mid: memberId,
+    acts: acts.map(function (a) { return { p: a.project_id, ym: a.ym, ti: String(a.title || ""), cp: String(a.content_preview || "").slice(0, 400) }; }),
     sums: summaries.map(function (s) { return { p: s.project_id, d: s.meeting_date, ss: String(s.summary_short || ""), dec: s.decided || [] }; })
   });
   const newHash = _l2_sha256_(inputJson);
@@ -174,28 +181,48 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
   }
 
   // d) Gemini に渡すテキスト構築
+  // 重要: section A は「本人が主体の活動 (member_activities)」、section B は「PJ 全体の会議サマリ
+  // (本人が主体とは限らない、文脈情報)」と明確に区別する。プロンプトでも警告。
   const inputText = [
-    "=== member_activities (直近 90 日, max 200) ===",
-    acts.slice(0, 100).map(function (a) {
-      return "[" + (a.created_at || "").slice(0, 10) + " " + (a.project_id || "") + "/" + (a.kind || "") + "] " + String(a.activity_text || "").slice(0, 400);
-    }).join("\n"),
+    "=== A) " + codeName + " 本人の活動ログ (member_activities, 直近 90 日, max 200) ===",
+    "[このセクションは本人が主体の活動。ここからは自由に抽出して OK]",
+    acts.length === 0 ? "(該当なし)" :
+      acts.slice(0, 100).map(function (a) {
+        return "[" + (a.extracted_at || "").slice(0, 10) + " " + (a.project_id || "") + "/" + (a.ym || "") + "/" + (a.source || "") + "] " +
+               (a.title ? a.title + ": " : "") + String(a.content_preview || "").slice(0, 400);
+      }).join("\n"),
     "",
-    "=== project_meeting_summaries (直近 60 日, source_kinds!=none) ===",
-    summaries.slice(0, 40).map(function (s) {
-      const dec = Array.isArray(s.decided) ? s.decided.join(" / ") : "";
-      return "[" + (s.meeting_date || "") + " " + (s.project_id || "") + "] " + (s.title || "") + " :: " + (s.summary_short || "") + (dec ? " | decided: " + dec : "");
-    }).join("\n")
+    "=== B) " + codeName + " が PJ メンバーである PJ の会議サマリ (project_meeting_summaries, 直近 60 日) ===",
+    "[⚠️ このセクションは PJ 全体のサマリ。" + codeName + " 本人が主体とは限らない。",
+    " 例えば「神谷氏との CEO 候補面談」と書かれていても、実施したのは PL/PM の可能性が高い。",
+    " このセクションからは『" + codeName + " (= 本人) が明示的に主体として書かれている事項』だけ抽出すること。",
+    " 本人名が出てこなければ、たとえ PJ にいたとしても抽出しない (skip)。]",
+    summaries.length === 0 ? "(該当なし)" :
+      summaries.slice(0, 40).map(function (s) {
+        const dec = Array.isArray(s.decided) ? s.decided.join(" / ") : "";
+        return "[" + (s.meeting_date || "") + " " + (s.project_id || "") + "] " + (s.title || "") + " :: " + (s.summary_short || "") + (dec ? " | decided: " + dec : "");
+      }).join("\n")
   ].join("\n").slice(0, 18000);
 
   const systemPrompt = [
-    "あなたはチームメンバーの活動ログから、その人物像を構造化して抽出するアシスタントです。",
+    "あなたはチームメンバーの人物像を構造化抽出するアシスタント。対象メンバーは入力の code_name で指定される。",
+    "",
+    "🚨 重要な制約:",
+    "- セクション A (member_activities) = 本人が主体の活動ログ。ここから自由に抽出 OK。",
+    "- セクション B (project_meeting_summaries) = PJ 全体の会議サマリで、**本人が主体とは限らない**。",
+    "  → 本人 (code_name) の名前が明示的に登場しているか、本人が主体としてやったと明確に書かれている事項だけ抽出。",
+    "  → 「PJ で議論された」「決定された」だけでは本人の活動ではない (= skip)。",
+    "  → 確証なければ抽出しない。誤抽出 (他人の活動を本人のものと書く) は厳禁。",
+    "",
     "出力は JSON のみ:",
     '{ "categories": [ { "category": "skills|personality|communication_style|growth_areas|work_style|interests|episodes", "summary": "100字以内の日本語要約" } ] }',
+    "",
     "ルール:",
-    "- category は 7 種から複数選択可。確証のあるものだけ出す",
+    "- category は 7 種から複数選択可。**確証のあるものだけ**",
     "- summary は箇条書きでなく自然文 100 字以内",
-    "- 入力に書かれてない推測は禁止 (= 各 category 0-5 件)",
-    "- 名前 (code_name) を summary に含めない (テーブル別カラムで管理されるため)"
+    "- 入力に書かれてない推測は禁止",
+    "- 名前 (code_name) を summary に含めない (テーブル別カラムで管理されるため)",
+    "- セクション A が空でセクション B しかない場合、抽出 0 件を出力してよい (= categories: [])"
   ].join("\n");
 
   // 過去 feedback を LLM プロンプトに含める
