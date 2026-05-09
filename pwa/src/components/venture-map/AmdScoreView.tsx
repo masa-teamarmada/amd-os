@@ -61,6 +61,15 @@ interface EditableInput {
   alq_internalized_moral: number | null;
   alq_auto_derive_frl: boolean;   // true なら ALQ 平均を frl に自動反映 (UI のみ、DB には保存しない)
   frl_notes: string;
+  // 各軸の評価根拠 (2026-05-09 追加)
+  mu_notes_a: string;
+  mu_notes_i: string;
+  mu_notes_g: string;
+  xrl_notes_trl: string;
+  xrl_notes_brl: string;
+  xrl_notes_grl: string;
+  xrl_notes_srl: string;
+  xrl_notes_hrl: string;
   shallow_tech_mode: boolean;
   notes: string;
 }
@@ -88,6 +97,14 @@ function rowToEditable(r: AmdScoreInputRow): EditableInput {
     alq_internalized_moral: r.alq_internalized_moral,
     alq_auto_derive_frl: hasAlq,    // ALQ が入っているなら自動算出 ON で表示
     frl_notes: r.frl_notes ?? "",
+    mu_notes_a: r.mu_notes?.a ?? "",
+    mu_notes_i: r.mu_notes?.i ?? "",
+    mu_notes_g: r.mu_notes?.g ?? "",
+    xrl_notes_trl: r.xrl_notes?.trl ?? "",
+    xrl_notes_brl: r.xrl_notes?.brl ?? "",
+    xrl_notes_grl: r.xrl_notes?.grl ?? "",
+    xrl_notes_srl: r.xrl_notes?.srl ?? "",
+    xrl_notes_hrl: r.xrl_notes?.hrl ?? "",
     shallow_tech_mode: r.shallow_tech_mode,
     notes: r.notes ?? "",
   };
@@ -101,6 +118,8 @@ function emptyEditable(): EditableInput {
     alq_balanced_processing: null, alq_internalized_moral: null,
     alq_auto_derive_frl: false,
     frl_notes: "",
+    mu_notes_a: "", mu_notes_i: "", mu_notes_g: "",
+    xrl_notes_trl: "", xrl_notes_brl: "", xrl_notes_grl: "", xrl_notes_srl: "", xrl_notes_hrl: "",
     shallow_tech_mode: false,
     notes: "",
   };
@@ -200,6 +219,18 @@ export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
         alq_balanced_processing: editable.alq_balanced_processing,
         alq_internalized_moral: editable.alq_internalized_moral,
         frl_notes: editable.frl_notes || null,
+        mu_notes: {
+          a: editable.mu_notes_a || null,
+          i: editable.mu_notes_i || null,
+          g: editable.mu_notes_g || null,
+        },
+        xrl_notes: {
+          trl: editable.xrl_notes_trl || null,
+          brl: editable.xrl_notes_brl || null,
+          grl: editable.xrl_notes_grl || null,
+          srl: editable.xrl_notes_srl || null,
+          hrl: editable.xrl_notes_hrl || null,
+        },
         shallow_tech_mode: editable.shallow_tech_mode,
         notes: editable.notes || null,
         evaluator: "amy",
@@ -728,20 +759,29 @@ function InputEditor({
             />
           </div>
 
-          <ScoreSlider
+          <AxisSliderWithNote
             label="μ_A (学術)"
             value={editable.mu_A}
             onChange={(v) => setEditable({ ...editable, mu_A: v })}
+            note={editable.mu_notes_a}
+            onNoteChange={(v) => setEditable({ ...editable, mu_notes_a: v })}
+            placeholder="例: Adv. Mater. 2024 で N 件論文急増、特許も成長"
           />
-          <ScoreSlider
+          <AxisSliderWithNote
             label="μ_I (産業)"
             value={editable.mu_I}
             onChange={(v) => setEditable({ ...editable, mu_I: v })}
+            note={editable.mu_notes_i}
+            onNoteChange={(v) => setEditable({ ...editable, mu_notes_i: v })}
+            placeholder="例: 大手 N 社が研究開発投資を発表、SoC スピンアウト動向"
           />
-          <ScoreSlider
+          <AxisSliderWithNote
             label="μ_G (政府)"
             value={editable.mu_G}
             onChange={(v) => setEditable({ ...editable, mu_G: v })}
+            note={editable.mu_notes_g}
+            onNoteChange={(v) => setEditable({ ...editable, mu_notes_g: v })}
+            placeholder="例: 内閣府 SIP 採択、補助金 X 億円規模"
           />
           <div className="text-[10px] text-muted-foreground -mt-1">
             → σ_SU = <span className="font-mono">{sigmaSU.toFixed(2)}</span> (自動算出)
@@ -763,16 +803,47 @@ function InputEditor({
           </label>
 
           {!editable.shallow_tech_mode && (
-            <ScoreSlider
+            <AxisSliderWithNote
               label="TRL"
               value={editable.trl ?? 0}
               onChange={(v) => setEditable({ ...editable, trl: v })}
+              note={editable.xrl_notes_trl}
+              onNoteChange={(v) => setEditable({ ...editable, xrl_notes_trl: v })}
+              placeholder="例: ラボ試作完了 (TRL 4)、SIP 9 段階定義に対する位置づけ"
             />
           )}
-          <ScoreSlider label="BRL" value={editable.brl} onChange={(v) => setEditable({ ...editable, brl: v })} />
-          <ScoreSlider label="GRL" value={editable.grl} onChange={(v) => setEditable({ ...editable, grl: v })} />
-          <ScoreSlider label="SRL" value={editable.srl} onChange={(v) => setEditable({ ...editable, srl: v })} />
-          <ScoreSlider label="HRL" value={editable.hrl} onChange={(v) => setEditable({ ...editable, hrl: v })} />
+          <AxisSliderWithNote
+            label="BRL"
+            value={editable.brl}
+            onChange={(v) => setEditable({ ...editable, brl: v })}
+            note={editable.xrl_notes_brl}
+            onNoteChange={(v) => setEditable({ ...editable, xrl_notes_brl: v })}
+            placeholder="例: 顧客仮説 N 件検証済、収益モデル draft 完成"
+          />
+          <AxisSliderWithNote
+            label="GRL"
+            value={editable.grl}
+            onChange={(v) => setEditable({ ...editable, grl: v })}
+            note={editable.xrl_notes_grl}
+            onNoteChange={(v) => setEditable({ ...editable, xrl_notes_grl: v })}
+            placeholder="例: 規制 X 法 適合性確認済、標準化検討開始"
+          />
+          <AxisSliderWithNote
+            label="SRL"
+            value={editable.srl}
+            onChange={(v) => setEditable({ ...editable, srl: v })}
+            note={editable.xrl_notes_srl}
+            onNoteChange={(v) => setEditable({ ...editable, xrl_notes_srl: v })}
+            placeholder="例: 一般消費者向け調査 N 件、メディア露出 N 件"
+          />
+          <AxisSliderWithNote
+            label="HRL"
+            value={editable.hrl}
+            onChange={(v) => setEditable({ ...editable, hrl: v })}
+            note={editable.xrl_notes_hrl}
+            onNoteChange={(v) => setEditable({ ...editable, xrl_notes_hrl: v })}
+            placeholder="例: コア人材 N 名、補完性カバー X / Y、欠員 Z 人"
+          />
           <ScoreSlider label="FRL" value={editable.frl} onChange={(v) => setEditable({ ...editable, frl: v })} />
 
           <div>
@@ -811,6 +882,36 @@ function ScoreSlider({
         onChange={(e) => onChange(Number(e.target.value))}
       />
       <span className="font-mono text-[11px] text-right">{value.toFixed(1)}</span>
+    </div>
+  );
+}
+
+/** スライダー + 評価根拠の textarea を 1 セットで。値の根拠を必ず併記して保存できるように。 */
+function AxisSliderWithNote({
+  label,
+  value,
+  onChange,
+  note,
+  onNoteChange,
+  placeholder,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  note: string;
+  onNoteChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <ScoreSlider label={label} value={value} onChange={onChange} />
+      <textarea
+        value={note}
+        onChange={(e) => onNoteChange(e.target.value)}
+        placeholder={placeholder ?? "評価根拠 (任意)"}
+        className="w-full border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-700 placeholder:text-slate-400 leading-snug"
+        rows={2}
+      />
     </div>
   );
 }
