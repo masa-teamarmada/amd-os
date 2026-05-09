@@ -15,43 +15,40 @@
 
 ## 最終更新
 
-2026-05-09 〜 10 (elegant-swanson-7a0123) — **AMD Score 詳細ページ全面改修 + Tsukuyomi 連携 + 内閣府 SIP 定義 embed**。
+2026-05-10 (affectionate-easley-9b52b8) — **μ_A (学術) 根拠 DB `scholar` 構築 + Crossref ingest cron + Scholar タブ**。
 
 ### 本セッションの主要成果
 
-- **律速判定ロジック修正**: `argmin(share)` → `argmax(α/(X+1))` (Cobb-Douglas 偏微分根拠)。詳細は [`BUGS.md`](BUGS.md) の該当エントリ
-- **FRL 6 因子拡張**: ALQ 4 + Grit (Duckworth 2007) + Resilience (Markman 2005)。migration 031 / theory `amd_score.md` §3.F.5
-- **詳細ページ全面改修**: ScoreHero / BalanceBar / FormulaPanel(引用文献つき) / Factor3Breakdown / TimeSeries / FrlAlqPanel
-- **スコア入力 UI 完全廃止 → Tsukuyomi 軸クリック連携**: `window.dispatchEvent("tsukuyomi:open", { detail: { message } })` で drawer 起動 + prefill
-- **α 編集を `/venture-map/amd-score/retrofit` 別ページに移設** (タブバー非表示、詳細から link、全 PJ シミュレーション)
-- **「最新評価」を `evaluated_at <= today` でフィルタ** (BUGS.md 参照: 未来 retrofit seed が latest になる罠)
-- **根拠 fallback**: XRL は `xrl_notes` → `project_xrl_log.source_note` の `{axis}_reason` JSON parse → 仮置き / μ_I/μ_G は `mu_notes` → `atlas_signals` (domain 分類) → 仮置き
-- **Tsukuyomi tool に内閣府 SIP 9 段階定義 embed**: TRL/BRL/GRL/SRL/HRL の各 level 文章を `update_amd_score_input` description に
-- migration: `030_amd_score_axis_notes` / `031_amd_score_frl_grit_resilience` 本番適用済 (※同番号で別ファイルが quirky-moore 側にある: `030_l2_extract_state` 等。ファイル名識別なので衝突なし)
+- **`scholar` テーブル新設** (migration 035、本番適用済): 論文 / grant / patent / award を一元管理。DOI UNIQUE (partial)、`(lane, published_at DESC)` index。RLS は `anon_read` のみ (書き込みは service_role cron)
+- **Crossref ingest cron** [`/api/cron/scholar-ingest`](src/app/api/cron/scholar-ingest/route.ts): 5 lane × keyword で直近 1 年最新 20 件取得 → DOI 重複チェック → bulk insert。vercel.json に 18:20 UTC (= 03:20 JST) 毎日登録。手動キック: `curl -H "Authorization: Bearer $CRON_SECRET" https://amd-os-pwa.vercel.app/api/cron/scholar-ingest`
+- **`fetchAtlasMacroSignals` 拡張**: 戻り値に `mu_a: ScholarShort[]` 追加 (status≠'rejected' 最新 N 件、PJ 横断、lane フィルタ Phase 2)
+- **`AmdScoreView` の μ_A 行 fallback** を scholar 引用に: `editable.mu_notes_a` → `(Crossref 学術シグナル) [YYYY-MM-DD] Title (Journal) / ...` → 仮置き
+- **Scholar タブ** GlobalNav の Atlas の右に追加。`/scholar` で lane / source_type フィルタ + DOI link 一覧 (タイトル → DOI、journal、authors)
 - 詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾エントリ
 
-### ⚠️ 次セッション必須: μ_A (学術) の根拠データ DB 構築
+### ⚠️ 前回 HANDOFF からの継続タスク (Phase 2 = 次セッション以降)
 
-`atlas_signals` には学術専用 domain がなく、μ_A の根拠を Atlas からは拾えない。次セッションで:
+- **KAKEN API ingest** (科研費・researcher 紐付き・和文)
+- **NEDO / SIP / JST 採択リスト scrape** (source_type='grant' / 'award')
+- **Semantic Scholar 引用ネットワーク**
+- **`scholar.lane` を PJ.lane で個別フィルタ** (現状は全 PJ 横断 fallback、`AmdScoreView` で PJ ごとに絞る)
+- **`scholar.suggested_tags`** で keyword tag 拡充 (Phase 1 は Crossref subject をそのまま入れてる)
 
-- 論文 DB 構築 (Crossref / Semantic Scholar API + 該当 lane キーワードで論文 metadata 取得)
-- 研究費データ取り込み (科研費 KAKEN API / NEDO / SIP / JST 採択リスト)
-- 論文 / 特許 / 学会発表の時系列カウント → μ_A の数値根拠
-- `atlas_papers` (or 同等) テーブル新設、`fetchAtlasMacroSignals` を拡張して `mu_a` 配列を返す
-- `AmdScoreView` の μ_A 行 fallback を「atlas_papers の最新 N 件」を使うように更新
+### ⚠️ 次セッションの最初の確認
 
-現状 μ_A subtitle は "Atlas に学術 domain 未対応 — 論文 DB 連携は今後" の仮置き。
+1. 初回 cron で Crossref から 5 lane × 20 件 (= 100 件) 入ってるか `/scholar` で目視 (cron 初回が 03:20 JST、または手動キック実行済かを `git log` で確認)
+2. AMD Score 詳細ページの μ_A 行 subtitle が `(Crossref 学術シグナル, PJ 横断) [YYYY-MM-DD] Title (Journal)` で表示されてるか
 
-仕様: [`design/amd_score.md`](design/amd_score.md) 末尾「次セッション TODO」参照。
+仕様: [`design/amd_score.md`](design/amd_score.md) 末尾「Scholar (μ_A 根拠 DB)」参照。
 
 ---
 
 ## リポ状態 (2026-05-10)
 
-- main HEAD: `cea9ace` (Merge `claude/elegant-swanson-7a0123` で AMD Score 改修まで反映)
-- 適用済 migrations: …029 / **030 (l2_extract_state)** + **030 (amd_score_axis_notes)** / **031 (l2_notifications)** + **031 (amd_score_frl_grit_resilience)** / **032 (l2_feedbacks)** ← 同番号で別ファイル名、apply_ddl はファイル名識別
+- main HEAD: `cea9ace` → 本セッション merge で更新予定
+- 適用済 migrations: …029 / 030 / 031 / 032 / 033 / 034 / **035 (scholar)** ← 本セッション追加
 - GAS Web App deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` → `v1447`
-- PWA Vercel deploy: ✅ 直近完了 (`amd-os-pwa.vercel.app`、AMD Score 改修反映済)
+- PWA Vercel deploy: ✅ scholar 反映 deploy 予定 (`amd-os-pwa.vercel.app`)
 
 ---
 

@@ -74,6 +74,19 @@ export function GlobalNav({ userCodeName }: GlobalNavProps) {
           )}
         </Link>
 
+        {/* Scholar (μ_A 学術根拠) */}
+        <Link
+          href="/scholar"
+          className={cn(
+            "text-xs px-2.5 py-1 rounded-md transition-colors",
+            pathname.startsWith("/scholar")
+              ? "bg-accent text-accent-foreground font-medium"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Scholar
+        </Link>
+
         {/* Venture Map */}
         <Link
           href="/venture-map"
