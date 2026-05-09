@@ -286,52 +286,10 @@ export async function deleteSeedContactLog(id: string): Promise<{ ok: boolean; e
 }
 
 // =====================================================================
-// 受信箱 (cron 自動収集分の未確認シーズ) — discovery_status='discovered' のみ
+// discovery_status (cron 識別用) の verify / dismiss
+// 通知 UI は /notifications に統合済 (app_notifications)。
+// 個別シーズの状態更新が必要になった場合に使う。
 // =====================================================================
-
-export interface SeedInboxItem extends Seed {
-  funding_programs: { program: string; year: number | null }[];
-}
-
-/** /seeds/inbox 画面: cron が新規発見した未確認シーズを新着順で取得 */
-export async function fetchSeedInbox(): Promise<SeedInboxItem[]> {
-  const [seedsRes, fundingRes] = await Promise.all([
-    supabase
-      .from("seeds")
-      .select("*")
-      .eq("discovery_status", "discovered")
-      .order("created_at", { ascending: false })
-      .limit(200),
-    supabase.from("seed_funding").select("seed_id, program_short, fiscal_year"),
-  ]);
-  const seeds = (seedsRes.data ?? []) as Seed[];
-  const fundings = (fundingRes.data ?? []) as { seed_id: string; program_short: string | null; fiscal_year: number | null }[];
-
-  const fundingProgramsBySeed = new Map<string, { program: string; year: number | null }[]>();
-  const sortedFundings = [...fundings].sort((a, b) => (b.fiscal_year ?? -1) - (a.fiscal_year ?? -1));
-  for (const f of sortedFundings) {
-    if (!f.program_short) continue;
-    const list = fundingProgramsBySeed.get(f.seed_id) ?? [];
-    if (!list.some((x) => x.program === f.program_short)) {
-      list.push({ program: f.program_short, year: f.fiscal_year });
-      fundingProgramsBySeed.set(f.seed_id, list);
-    }
-  }
-
-  return seeds.map((s) => ({
-    ...s,
-    funding_programs: fundingProgramsBySeed.get(s.id) ?? [],
-  }));
-}
-
-/** GlobalNav バッジ用: 未確認 (discovered) シーズ件数 */
-export async function fetchSeedInboxCount(): Promise<number> {
-  const { count } = await supabase
-    .from("seeds")
-    .select("*", { count: "exact", head: true })
-    .eq("discovery_status", "discovered");
-  return count ?? 0;
-}
 
 export async function verifySeed(id: string): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();

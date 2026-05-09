@@ -3,12 +3,12 @@
  *
  * 毎週 月曜 09:00 JST (日曜 00:00 UTC) に Anthropic の web_search で
  * 主要な公的シーズ採択 (GAPファンド各PF / NEDO NEP / AMED preF / JST D-Global /
- * CREST / 創発 / 先導研究 等) の直近採択を発見し、
- * `seeds` に discovery_status='discovered' で投入する。
+ * CREST / 創発 / 先導研究 等) の直近採択を発見し、`seeds` に投入する。
  *
  * - 既存 seeds との重複は (researcher_name + title) の部分一致でチェック
- * - cron が拾った seeds は /seeds/inbox に並び、人が verify (採用) / dismiss (却下) する
- * - GlobalNav に未確認件数バッジ (sky 色) で表示
+ * - 新規シーズは seeds に discovery_status='discovered' で投入
+ * - 同時に app_notifications にも kind='seed_new' で push → /notifications で通知
+ *   (右上 NotificationBell に未読バッジ。VC discover / news ingest と同じ統一導線)
  *
  * Atlas / VC とは独立した系統。出資ニュースではなく、研究シーズの一次情報を拾う。
  */
@@ -85,6 +85,7 @@ export async function GET(req: NextRequest) {
   const stats = {
     sources_processed: 0,
     seeds_inserted: 0,
+    notifications_created: 0,
     skipped_dupes: 0,
     errors: [] as string[],
   };
@@ -243,6 +244,38 @@ export async function GET(req: NextRequest) {
             { onConflict: "seed_id,source_url", ignoreDuplicates: true }
           );
         }
+
+        // app_notifications に push (/notifications で表示)
+        const notifTitle = `🌱 新シーズ発見: ${d.title}`.slice(0, 200);
+        const notifBody =
+          [
+            d.org_name + (d.researcher_name ? ` / ${d.researcher_name}` : ""),
+            d.funding_program_short
+              ? `採択: ${d.funding_program_short}${d.funding_year ? ` '${String(d.funding_year).slice(-2)}` : ""}`
+              : null,
+            d.summary ?? null,
+          ]
+            .filter(Boolean)
+            .join("\n");
+        const { error: notifErr } = await db.from("app_notifications").insert({
+          kind: "seed_new",
+          title: notifTitle,
+          body: notifBody,
+          link: `/seeds/${seedId}`,
+          meta: {
+            source_url: d.source_url ?? null,
+            funding_program_short: d.funding_program_short ?? null,
+            funding_year: d.funding_year ?? null,
+            org_name: d.org_name,
+            researcher_name: d.researcher_name ?? null,
+            domain_lane: d.domain_lane ?? null,
+            ingest_source: source.name,
+          },
+          related_seed_id: seedId,
+          source: "cron_seeds_ingest",
+        });
+        if (notifErr) stats.errors.push(`notif ${d.title}: ${notifErr.message}`);
+        else stats.notifications_created++;
       }
     } catch (e) {
       stats.errors.push(`${source.name}: ${(e as Error).message}`);

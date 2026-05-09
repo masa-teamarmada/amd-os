@@ -38,9 +38,9 @@ export function AppNotificationsSection() {
   return (
     <section className="mb-6 border border-border rounded-lg p-4">
       <div className="flex items-baseline gap-3 mb-3 flex-wrap">
-        <h2 className="text-sm font-semibold">🌐 VC / Web 通知</h2>
+        <h2 className="text-sm font-semibold">🌐 VC / Seeds / Web 通知</h2>
         <span className="text-xs text-muted-foreground">
-          (cron vc-discover / vc-news-ingest / つくよみ から)
+          (cron vc-discover / vc-news-ingest / seeds-ingest / つくよみ から)
         </span>
         <div className="ml-auto flex items-center gap-2 text-xs">
           {(["unread", "all"] as const).map((k) => (
@@ -77,7 +77,7 @@ export function AppNotificationsSection() {
         <div className="text-center text-muted-foreground py-6 text-xs">読み込み中…</div>
       ) : visible.length === 0 ? (
         <div className="text-center text-muted-foreground py-6 text-xs">
-          {filter === "unread" ? "未読の通知なし。" : "通知なし。"}次の cron は毎朝 03:05 / 09:00 JST。
+          {filter === "unread" ? "未読の通知なし。" : "通知なし。"}次の cron は毎朝 03:05 / 09:00 JST + 月曜 09:00 JST (seeds)。
         </div>
       ) : (
         <ul className="space-y-2">
@@ -125,6 +125,7 @@ function NotificationRow({ item, onChange }: { item: AppNotification; onChange: 
             <span className="text-muted-foreground text-[10px]">
               {item.source === "cron_vc_discover" && "🤖 vc-discover"}
               {item.source === "cron_vc_news_ingest" && "🤖 vc-news-ingest"}
+              {item.source === "cron_seeds_ingest" && "🌱 seeds-ingest"}
               {item.source === "tsukuyomi" && "🌙 つくよみ"}
               {item.source === "manual" && "✋ 手動"}
               {item.source === "system" && "⚙️ system"}

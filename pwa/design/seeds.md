@@ -72,10 +72,10 @@ AMD 視点:       status, amd_rating (1-5), amd_owner_member_id, next_action,
 
 | パス | 役割 |
 |---|---|
-| `/seeds` | リスト画面 (検索 / フィルタ / ソート / 行クリックで `SeedDetailModal`)。新規発見シーズは行頭に 🆕 マーク、右上に「受信箱」リンク + バッジ |
+| `/seeds` | リスト画面 (検索 / フィルタ / ソート / 行クリックで `SeedDetailModal`)。新規発見シーズは行頭に 🆕 マーク |
 | `/seeds/[id]` | 単独詳細ページ。直接 URL アクセス用フォールバック (リスト画面で開く Modal を full-page で表示) |
-| `/seeds/inbox` | 受信箱 (cron 自動収集分の未確認シーズ)。verify=採用 / dismiss=非表示 |
-| `/api/cron/seeds-ingest` | 毎週 月曜 09:00 JST に Claude Sonnet + web_search で 7 ソース (GAP/NEP/AMED/D-Global/CREST/創発/先導研究) を巡回 → discovery_status='discovered' で投入 |
+| `/notifications` | cron 発見シーズの通知が並ぶ統一受信箱 (VC discover / news ingest と同居)。kind='seed_new'、link で /seeds/[id] に飛ぶ |
+| `/api/cron/seeds-ingest` | 毎週 月曜 09:00 JST に Claude Sonnet + web_search で 7 ソース (GAP/NEP/AMED/D-Global/CREST/創発/先導研究) を巡回 → discovery_status='discovered' で投入 + app_notifications に push |
 
 GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](../src/components/nav/GlobalNav.tsx))。
 
@@ -112,9 +112,10 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 
 ### Phase 2 (一部実装済 / 残り TODO)
 
-- ✅ **`/seeds/inbox`**: 自動収集された未確認シーズの受信箱 (vcs/inbox 同型)
 - ✅ **`cron/seeds-ingest`**: 毎週 月曜 09:00 JST で web_search 自動発見 (下記参照)
-- ✅ **GlobalNav バッジ**: Seeds に sky 色の未確認件数バッジ
+- ✅ **`/notifications` 統合**: cron 発見シーズは `app_notifications` に kind='seed_new' で push
+   → 右上 NotificationBell の未読バッジ + `/notifications` 一覧で消化 (verify/dismiss)
+   → 旧 `/seeds/inbox` + GlobalNav Seeds バッジは廃止 (まさ指示 2026-05-09 で /notifications に統一)
 - ⬜ **既存 PJ から逆引き seed 化**: `project_ventures.origin_org` / `origin_pi` を参照して、既存 9 PJ の起源を seeds に登録 (status='spun_off')
 - ⬜ **HSFC 残り 23 件 / さきがけ 175件** の収集
 

@@ -19,6 +19,9 @@ export type NotificationKind =
   | "vc_new"
   | "vc_news"
   | "vc_fund"
+  | "seed_new"
+  | "seed_news"
+  | "seed_funding"
   | "misc";
 
 export interface AppNotification {
@@ -29,6 +32,7 @@ export interface AppNotification {
   link: string | null;
   meta: Record<string, unknown> | null;
   related_vc_id: string | null;
+  related_seed_id: string | null;
   source: string;
   read_at: string | null;
   dismissed_at: string | null;
@@ -40,6 +44,9 @@ export const NOTIFICATION_KIND_LABEL: Record<string, string> = {
   vc_new: "🆕 新 VC",
   vc_news: "📰 VC ニュース",
   vc_fund: "💰 ファンド更新",
+  seed_new: "🌱 新シーズ",
+  seed_news: "📰 シーズニュース",
+  seed_funding: "💴 シーズ資金獲得",
   misc: "その他",
 };
 
