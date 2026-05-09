@@ -48,24 +48,40 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
         </div>
 
         <div className="px-4 py-4 flex flex-col gap-4">
-          <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-3 leading-relaxed flex flex-col gap-2">
-            <div>Before Zero Theory v3.2 — 7 軸 Cobb-Douglas 統合指標。</div>
+          <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-3 leading-relaxed flex flex-col gap-3">
+            <div>
+              Before Zero Theory v3.2 — <strong>マクロトレンド</strong> ×{" "}
+              <strong>その案件の XRL</strong> の 2 大要素を Cobb-Douglas で統合。
+            </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
+              <div className="text-[10px] text-muted-foreground mb-1">全体式</div>
               <Tex
                 display
-                tex={String.raw`\text{Score} \;=\; K \cdot (\sigma_{SU}+1)^{\alpha_{\sigma}} \cdot \prod_{x \in \text{XRL}} (x+1)^{\alpha_x} \cdot (\text{FRL}+1)^{\alpha_{F}}`}
+                tex={String.raw`\text{AMD Score} \;=\; K \cdot \underbrace{\text{Macro}}_{\text{マクロトレンド}} \cdot \underbrace{\text{XRL}}_{\text{案件の readiness}}`}
               />
             </div>
-            <div className="bg-white rounded px-3 py-2 overflow-x-auto text-[11px]">
+            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
+              <div className="text-[10px] text-muted-foreground mb-1">
+                ① マクロトレンド（外部追い風: 市場 μ_A / 業界 μ_I / 政府 μ_G）
+              </div>
               <Tex
                 display
-                tex={String.raw`\sigma_{SU} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1, \qquad K \;=\; \frac{100{,}000}{10^{\sum_i \alpha_i}}`}
+                tex={String.raw`\text{Macro} \;=\; (\sigma_{SU}+1)^{\alpha_{\sigma}}, \quad \sigma_{SU} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`}
+              />
+            </div>
+            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
+              <div className="text-[10px] text-muted-foreground mb-1">
+                ② その案件の XRL（内部 readiness: 技術/事業/ガバナンス/社会/人材/ファウンダー）
+              </div>
+              <Tex
+                display
+                tex={String.raw`\text{XRL} \;=\; \prod_{x \in \{\text{TRL}, \text{BRL}, \text{GRL}, \text{SRL}, \text{HRL}, \text{FRL}\}} (x+1)^{\alpha_x}`}
               />
             </div>
             <div className="text-[10px] text-muted-foreground">
-              <span className="font-mono">XRL = {`{TRL, BRL, GRL, SRL, HRL}`}</span> ·
-              内閣府 SIP 9 段階互換 ·
-              Shallow Tech モードでは TRL を除外して K を再校正。
+              K = <span className="font-mono">100,000 / 10^Σα</span> で全軸 9 (= IPO 級) を
+              100,000 に校正 · 内閣府 SIP 9 段階互換 · Shallow Tech モード (TRL=null)
+              では TRL を除外して K を再校正。
             </div>
           </div>
 
