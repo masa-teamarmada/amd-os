@@ -86,6 +86,9 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
   );
 }
 
+/** モーダルの subtitle 用フォールバック (notes が空のとき表示) */
+const FALLBACK_NOTE_MODAL = "根拠となる情報がないため仮置き";
+
 function BreakdownContent({
   latestInput,
   alpha,
@@ -167,17 +170,20 @@ function BreakdownContent({
         <FactorRow
           name="μ_A (学術)"
           value={fmt(latestInput.mu_A ?? 0, 1)}
-          subtitle={latestInput.mu_notes?.a ?? undefined}
+          subtitle={latestInput.mu_notes?.a ?? FALLBACK_NOTE_MODAL}
+          subtitleIsFallback={!latestInput.mu_notes?.a}
         />
         <FactorRow
           name="μ_I (産業)"
           value={fmt(latestInput.mu_I ?? 0, 1)}
-          subtitle={latestInput.mu_notes?.i ?? undefined}
+          subtitle={latestInput.mu_notes?.i ?? FALLBACK_NOTE_MODAL}
+          subtitleIsFallback={!latestInput.mu_notes?.i}
         />
         <FactorRow
           name="μ_G (政府)"
           value={fmt(latestInput.mu_G ?? 0, 1)}
-          subtitle={latestInput.mu_notes?.g ?? undefined}
+          subtitle={latestInput.mu_notes?.g ?? FALLBACK_NOTE_MODAL}
+          subtitleIsFallback={!latestInput.mu_notes?.g}
         />
         <FactorRow
           name="σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) − 1"
@@ -225,7 +231,8 @@ function BreakdownContent({
               note={`α = ${alpha[axis].toFixed(2)}`}
               dotColor={AXIS_COLOR[axis]}
               bottleneck={isBottleneck}
-              subtitle={axisNote}
+              subtitle={axisNote ?? FALLBACK_NOTE_MODAL}
+              subtitleIsFallback={!axisNote}
             />
           );
         })}
@@ -245,7 +252,8 @@ function BreakdownContent({
         <FactorRow
           name={`FRL = ${fmt(latestInput.frl ?? 0, 1)}`}
           value={fmt(latestInput.frl ?? 0, 1)}
-          subtitle={latestInput.frl_notes ?? undefined}
+          subtitle={latestInput.frl_notes ?? FALLBACK_NOTE_MODAL}
+          subtitleIsFallback={!latestInput.frl_notes}
         />
         <FactorRow
           name="= F = (FRL+1)^α_F"
@@ -335,6 +343,7 @@ function FactorRow({
   total = false,
   bottleneck = false,
   subtitle,
+  subtitleIsFallback = false,
 }: {
   name: string;
   value: string;
@@ -349,6 +358,8 @@ function FactorRow({
    * 値の根拠を見える化するためのフィールド。
    */
   subtitle?: string;
+  /** subtitle が「根拠仮置き」のフォールバックの場合は薄めて表示する */
+  subtitleIsFallback?: boolean;
 }) {
   const bg = bottleneck ? "#fee2e2" : highlight ? "#f5f3ff" : total ? "#ecfdf5" : undefined;
   const fontWeight = total ? 600 : 400;
@@ -361,7 +372,9 @@ function FactorRow({
           {bottleneck && <span className="ml-1 text-[9px] text-red-600">律速</span>}
         </div>
         {subtitle && (
-          <div className="text-[9px] text-muted-foreground italic font-normal mt-0.5 leading-snug">
+          <div
+            className={`text-[9px] italic font-normal mt-0.5 leading-snug ${subtitleIsFallback ? "text-slate-400" : "text-muted-foreground"}`}
+          >
             {subtitle}
           </div>
         )}
