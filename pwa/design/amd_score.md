@@ -21,7 +21,7 @@
 Before Zero Theory v3.2 の **AMD Score (7 軸 Cobb-Douglas 統合指標)** を AMD OS に実装した。
 cockpit の AMD スコアチップ・経時グラフ・breakdown モーダルも新ロジックに置き換え。
 
-理論正本: [`/Users/masa/projects/before-zero/theory/amd_score.md`](../../../../before-zero/theory/amd_score.md)
+理論正本: [`/Users/masa/projects/AMD/before-zero/theory/amd_score.md`](../../../before-zero/theory/amd_score.md)
 
 ---
 
@@ -35,6 +35,32 @@ K         = 100,000 / 10^Σα                       (全軸 9 で IPO 級 100,00
 
 Shallow Tech モード (TRL=null) は TRL 軸を計算から除外、6 軸 + K 再校正。
 
+### UI 表示構造 (3 大要素)
+
+理論層は 7 軸 1 つの ∏ だが、UI では「マクロ M × 会社の XRL X × CEO の FRL F」の **3 大要素**で見せる:
+
+```
+S = k · M · X · F                 (k = 100,000 / 10^Σα、小文字で定数感)
+M = (σ_SU+1)^α_σ                  外部環境 (Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
+X = ∏_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x   会社に帰属する 5 軸 readiness
+F = (FRL+1)^α_F                   個人に帰属する CEO リーダーシップ (ALQ ベース)
+```
+
+哲学 (まさ言語化): 「マクロトレンドの流れがあって、会社の XRL が整っていて、それを FRL 高い CEO が牽引する」。
+
+**FRL を XRL の積に呑み込まない** (理論層 §5: FRL/σ_SU 合計 α=2.8 が AMD スタジオ哲学の支柱、α_F=1.5 は他 5 XRL とは別格の重み)。
+
+### 律速判定 (Marginal Sensitivity)
+
+```
+∂S/∂X_i  =  α_i · S / (X_i + 1)
+bottleneck  =  argmax_i  α_i / (X_i + 1)
+```
+
+「1 段階上げたとき S が最も大きく増える軸」が律速 = 経営アクションで最初に手当てすべき軸。
+
+旧実装 (~2026-05-09) は `argmin(contribution share)` で「α が小さい軸が常に律速」になる退化バグがあり、α_SRL=0.2 が default 最小なため SRL が常に律速マークされる回帰があった。Cobb & Douglas (1928), AER, 18(1) の偏微分定義に揃えて修正済み。
+
 ### Base case alpha (Σα = 6.0, K = 0.1)
 
 | 軸 | α | 根拠 |
@@ -47,7 +73,7 @@ Shallow Tech モード (TRL=null) は TRL 軸を計算から除外、6 軸 + K �
 | GRL | 0.3 | Deeptech では遅効的 (5-10 年) |
 | SRL | 0.2 | 一般受容、σ_SU と一部重複 |
 
-### フェーズ閾値
+### フェーズ閾値 (UI では一旦非表示、2026-05-09)
 
 | score | フェーズ |
 |---|---|
@@ -58,6 +84,8 @@ Shallow Tech モード (TRL=null) は TRL 軸を計算から除外、6 軸 + K �
 | 3,500-15,000 | launch_go (設立判定 GO) |
 | 15,000-50,000 | scale (シリーズ A/B) |
 | 50,000-100,000 | graduation (IPO/卒業) |
+
+**UI 上は非表示**: 現状実証データが少なくスコアレベルとフェーズ判定の精度が不十分なため、コックピット PJ Status / AMD Score 詳細ページ / Score 一覧 / breakdown モーダルの全箇所で **フェーズタブ・色付け・フィルタを非表示**にしている (まさ判断 2026-05-09)。`classifyPhase` / `PHASE_LABEL_JP` / `PHASE_COLOR` 自体は LLM context (Tsukuyomi chat) で内部利用するため残す。検証データが揃ったら復活検討。
 
 ---
 
@@ -77,24 +105,39 @@ Shallow Tech モード (TRL=null) は TRL 軸を計算から除外、6 軸 + K �
 ### Cockpit 連携
 
 - `CockpitVentureStatus.tsx` が amd_score_inputs + active alpha を fetch
-- AMD スコア経時グラフは log scale (1 → 100,000、フェーズ閾値ガイドライン入り)
-- スコアチップは「<score> · <フェーズ名>」を phase 色で表示
-- breakdown モーダルは 7 軸 contribution table + 詳細編集ページへの link
+- AMD スコア経時グラフは log scale (1 → 100,000)
+- スコアチップは「AMD: <score>」のみ (フェーズ名・色は非表示、2026-05-09)
+- breakdown モーダルは **3 大要素 M × X × F カード**で内訳表示 + 詳細編集ページへの link
+- モーダル冒頭に 3 つの式 (M / X / F) と律速の経済学的根拠 (∂S/∂X = α·S/(X+1)) を引用文献つきで掲載
 - 「7 軸を編集 →」リンク、未評価時は「AMD: 未評価 →」link
 - events ドットは annotation として残し、score 線上の最近点に置く
 
 ### Supabase
 
-migration: [`pwa/scripts/migrations/013_amd_score.sql`](../scripts/migrations/013_amd_score.sql) (本番適用済 2026-05-06)
+migration:
+- [`pwa/scripts/migrations/013_amd_score.sql`](../scripts/migrations/013_amd_score.sql) (本番適用済 2026-05-06) — 7 軸の生値
+- [`pwa/scripts/migrations/015_amd_score_frl_alq.sql`](../scripts/migrations/015_amd_score_frl_alq.sql) (本番適用済 2026-05-07) — FRL ALQ 4 次元 + frl_notes
+- [`pwa/scripts/migrations/030_amd_score_axis_notes.sql`](../scripts/migrations/030_amd_score_axis_notes.sql) (本番適用済 2026-05-09) — `mu_notes` (JSONB: a/i/g) と `xrl_notes` (JSONB: trl/brl/grl/srl/hrl) を追加。**各軸の値の根拠**を保存・表示するための拡張
 
 ```
 amd_score_inputs (project_id FK projects, evaluated_at, mu_A/I/G + 5 XRL + FRL, shallow_tech_mode)
   UNIQUE(project_id, evaluated_at)
+  ALQ 4 次元 + frl_notes (FRL 内訳・自由備考)
+  mu_notes  JSONB {a, i, g}              -- Triple Helix μ_A/I/G の評価根拠
+  xrl_notes JSONB {trl, brl, grl, srl, hrl} -- 5 XRL の評価根拠
 amd_score_alpha (alpha jsonb, effective_from / effective_to)
   base case を 1 行 seed
 8 PJ の retrofit データを seed (tiem ×2 / bwe / cx / sx / ctb / yd / jc)
   ID mapping (008): tiem→p03, bwe→p11, jc→p09, ctb→p06, cx→p20, sx→p21, yd→p18
 ```
+
+### 各軸の評価根拠 (notes) — 2026-05-09 追加
+
+まさフィードバック「XRL / μ / FRL の値の根拠が UI で見たい」に対応:
+
+- **入力 (詳細ページ)**: `AmdScoreView.tsx` の `AxisSliderWithNote` で各軸スライダーの直下に textarea で根拠を入力
+- **読み取り (Cockpit モーダル)**: `CockpitAmdScoreBreakdownModal.tsx` の `FactorRow` の `subtitle` で各軸ラベル直下に italic で根拠表示
+- **Tsukuyomi 統合**: `update_amd_score_input` tool に `mu_notes_a/i/g` `xrl_notes_trl/brl/grl/srl/hrl` パラメータ追加。LLM がスコアを更新するときに**値だけでなく必ず根拠も書く**運用
 
 RLS: `anon_read` (全行 SELECT) + `admin_all` (`is_admin()`) + `service_role_bypass`。
 
@@ -242,8 +285,8 @@ CockpitXrlDetailModal に `<NextLevelProgress>` セクションを追加して�
 
 ## 関連
 
-- 理論正本: [`/Users/masa/projects/before-zero/theory/amd_score.md`](../../../../before-zero/theory/amd_score.md)
-- 8 PJ メタ: [`/Users/masa/projects/before-zero/retrofit/su_timelines.ts`](../../../../before-zero/retrofit/su_timelines.ts)
-- v3.2 状態空間モデル: [`/Users/masa/projects/before-zero/theory/state_space_model.md`](../../../../before-zero/theory/state_space_model.md)
+- 理論正本: [`/Users/masa/projects/AMD/before-zero/theory/amd_score.md`](../../../before-zero/theory/amd_score.md)
+- 8 PJ メタ: [`/Users/masa/projects/AMD/before-zero/retrofit/su_timelines.ts`](../../../before-zero/retrofit/su_timelines.ts)
+- v3.2 状態空間モデル: [`/Users/masa/projects/AMD/before-zero/theory/state_space_model.md`](../../../before-zero/theory/state_space_model.md)
 - PJ Status コックピット: [`./2026-05_pj_status_cockpit.md`](2026-05_pj_status_cockpit.md)
 - Venture Map モデル: [`./2026-05_venture_map_model.md`](2026-05_venture_map_model.md)

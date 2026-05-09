@@ -191,6 +191,15 @@ export async function saveProjectConfig(
   return { ok: true };
 }
 
+/**
+ * 旧 `MemberInput` 型は ProjectConfigForm の dead code が import 経由で参照しているため
+ * 互換のために残す。新規実装からは使わないこと。
+ *
+ * 旧 `saveProjectMembers` は「全削除→挿入」方式で role / id / role_label / join_ym 等を
+ * 副作用で破壊する事故が起きたため 2026-05-08 に削除した。
+ * メンバー編集は admin/projects のロール別モーダル
+ * (`/api/admin/project-members/role` への POST) 経由で incremental 更新する。
+ */
 export interface MemberInput {
   memberId: string;
   isPM: boolean;
@@ -200,43 +209,4 @@ export interface MemberInput {
   joinYm: string;
   leaveYm: string;
   isActive: boolean;
-}
-
-/**
- * project_members を全件差し替え保存 (GAS の saveMembers と同じ「全削除→挿入」方式)
- *
- * RLS が anon を弾く (insert/delete 不可) ため、サーバー API route 経由で
- * service_role を使って書き込む。
- */
-export async function saveProjectMembers(
-  projectId: string,
-  members: MemberInput[]
-): Promise<{ ok: boolean; message?: string; saved: number }> {
-  const rows = members
-    .filter((m) => m.memberId.trim().length > 0)
-    .map((m) => ({
-      member_id: m.memberId.trim(),
-      is_pm: m.isPM,
-      is_closer: m.isCloser,
-      is_pl: m.isPL,
-      role_label: m.roleLabel.trim() || null,
-      join_ym: m.joinYm.trim() || null,
-      leave_ym: m.leaveYm.trim() || null,
-      is_active: m.isActive,
-    }));
-
-  try {
-    const res = await fetch("/api/admin/project-members", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, members: rows }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.ok) {
-      return { ok: false, message: json.message || `HTTP ${res.status}`, saved: 0 };
-    }
-    return { ok: true, saved: json.saved ?? rows.length };
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : String(e), saved: 0 };
-  }
 }

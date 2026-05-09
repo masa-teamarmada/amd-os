@@ -1,0 +1,1713 @@
+# DB Schema Reference — AMD OS Supabase
+
+> ⚠️ **このファイルは自動生成。手動で編集しないこと。**
+
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-09 18:16 JST
+
+
+## ⛔ 列名は想像で書かない
+
+`member_activities` の列名を `code_name`/`created_at`/`activity_text`/`kind` と想像で書いてバグった事故 (BUGS.md `[GAS] member_knowledge 抽出で「きよ」に他人の活動が紐付くカオス` 参照)。新規 cron / API / Edge Function 実装時は **必ずこの md を grep して列名を確認** してから select / filter / insert を書くこと。
+
+## 索引
+
+[`amd_score_alpha`](#amd-score-alpha) / [`amd_score_inputs`](#amd-score-inputs) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`issues`](#issues) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`llm_model_config`](#llm-model-config) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_knowledge`](#member-knowledge) / [`member_ms_activities`](#member-ms-activities) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`progress_estimate_state`](#progress-estimate-state) / [`project_config`](#project-config) / [`project_events`](#project-events) / [`project_knowledge`](#project-knowledge) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocols`](#protocols) / [`reimbursements`](#reimbursements) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seeds`](#seeds) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`tasks`](#tasks) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`xrl_feedbacks`](#xrl-feedbacks)
+
+---
+
+## amd_score_alpha
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `alpha` | `jsonb` | NOT NULL | `` |
+| 3 | `effective_from` | `timestamptz` | NOT NULL | `` |
+| 4 | `effective_to` | `timestamptz` | NULL | `` |
+| 5 | `notes` | `text` | NULL | `` |
+| 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## amd_score_inputs
+
+行数 (概算): 71
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,evaluated_at)` (constraint: `amd_score_inputs_project_id_evaluated_at_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `evaluated_at` | `timestamptz` | NOT NULL | `` |
+| 4 | `mu_a` | `float4` | NULL | `` |
+| 5 | `mu_i` | `float4` | NULL | `` |
+| 6 | `mu_g` | `float4` | NULL | `` |
+| 7 | `trl` | `float4` | NULL | `` |
+| 8 | `brl` | `float4` | NULL | `` |
+| 9 | `grl` | `float4` | NULL | `` |
+| 10 | `srl` | `float4` | NULL | `` |
+| 11 | `hrl` | `float4` | NULL | `` |
+| 12 | `frl` | `float4` | NULL | `` |
+| 13 | `shallow_tech_mode` | `bool` | NOT NULL | `false` |
+| 14 | `evaluator` | `text` | NULL | `` |
+| 15 | `notes` | `text` | NULL | `` |
+| 16 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 17 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 18 | `alq_self_awareness` | `float4` | NULL | `` |
+| 19 | `alq_relational_transparency` | `float4` | NULL | `` |
+| 20 | `alq_balanced_processing` | `float4` | NULL | `` |
+| 21 | `alq_internalized_moral` | `float4` | NULL | `` |
+| 22 | `frl_notes` | `text` | NULL | `` |
+
+## atlas_decisions
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `topic_id` | `uuid` | NULL | `` |
+| 3 | `decided_at` | `timestamptz` | NULL | `now()` |
+| 4 | `action` | `text` | NULL | `` |
+| 5 | `rationale` | `text` | NULL | `` |
+| 6 | `outcome_eval_at` | `timestamptz` | NULL | `` |
+| 7 | `outcome` | `text` | NULL | `` |
+| 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## atlas_divergences
+
+行数 (概算): 54
+PRIMARY KEY: `id`
+UNIQUE: `(theme_id)` (constraint: `atlas_divergences_theme_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `theme_id` | `uuid` | NOT NULL | `` |
+| 3 | `global_summary` | `text` | NULL | `` |
+| 4 | `japan_summary` | `text` | NULL | `` |
+| 5 | `divergence_message` | `text` | NULL | `` |
+| 6 | `divergence_score` | `float8` | NULL | `` |
+| 7 | `global_intensity` | `float8` | NULL | `` |
+| 8 | `japan_intensity` | `float8` | NULL | `` |
+| 9 | `global_signal_count` | `int4` | NOT NULL | `0` |
+| 10 | `japan_signal_count` | `int4` | NOT NULL | `0` |
+| 11 | `signal_breakdown` | `jsonb` | NULL | `` |
+| 12 | `generated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## atlas_edges
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `from_node` | `uuid` | NULL | `` |
+| 3 | `to_node` | `uuid` | NULL | `` |
+| 4 | `relation_type` | `text` | NOT NULL | `` |
+| 5 | `strength` | `numeric` | NULL | `0.5` |
+| 6 | `note` | `text` | NULL | `` |
+| 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## atlas_nodes
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `type` | `text` | NOT NULL | `` |
+| 3 | `title` | `text` | NOT NULL | `` |
+| 4 | `summary` | `text` | NULL | `` |
+| 5 | `metadata` | `jsonb` | NULL | `'{}'::jsonb` |
+| 6 | `importance` | `text` | NULL | `'medium'::text` |
+| 7 | `status` | `text` | NULL | `'active'::text` |
+| 8 | `tags` | `_text` | NULL | `'{}'::text[]` |
+| 9 | `last_updated` | `timestamptz` | NULL | `now()` |
+| 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## atlas_observations
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `node_id` | `uuid` | NULL | `` |
+| 3 | `observed_at` | `timestamptz` | NULL | `now()` |
+| 4 | `content` | `text` | NOT NULL | `` |
+| 5 | `source_url` | `text` | NULL | `` |
+| 6 | `source_type` | `text` | NULL | `` |
+
+## atlas_reports
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `type` | `text` | NOT NULL | `` |
+| 3 | `title` | `text` | NOT NULL | `` |
+| 4 | `period_start` | `timestamptz` | NULL | `` |
+| 5 | `period_end` | `timestamptz` | NULL | `` |
+| 6 | `signal_count` | `int4` | NULL | `0` |
+| 7 | `high_count` | `int4` | NULL | `0` |
+| 8 | `medium_count` | `int4` | NULL | `0` |
+| 9 | `low_count` | `int4` | NULL | `0` |
+| 10 | `signals_json` | `jsonb` | NULL | `'[]'::jsonb` |
+| 11 | `macro_summary` | `text` | NULL | `` |
+| 12 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## atlas_signals
+
+行数 (概算): 390
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `title` | `text` | NOT NULL | `` |
+| 3 | `content` | `text` | NOT NULL | `` |
+| 4 | `source_url` | `text` | NULL | `` |
+| 5 | `source_type` | `text` | NULL | `` |
+| 6 | `domain` | `text` | NULL | `` |
+| 7 | `suggested_tags` | `_text` | NULL | `'{}'::text[]` |
+| 8 | `importance` | `text` | NULL | `'medium'::text` |
+| 9 | `status` | `text` | NULL | `'inbox'::text` |
+| 10 | `target_node_id` | `uuid` | NULL | `` |
+| 11 | `submitted_at` | `timestamptz` | NULL | `now()` |
+| 12 | `reviewed_at` | `timestamptz` | NULL | `` |
+| 13 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 14 | `story_id` | `uuid` | NULL | `` |
+| 15 | `metadata` | `jsonb` | NULL | `` |
+
+## atlas_stories
+
+行数 (概算): 179
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `title` | `text` | NOT NULL | `` |
+| 3 | `summary` | `text` | NULL | `` |
+| 4 | `status` | `text` | NOT NULL | `'ongoing'::text` |
+| 5 | `importance` | `text` | NOT NULL | `'medium'::text` |
+| 6 | `tags` | `_text` | NOT NULL | `'{}'::text[]` |
+| 7 | `primary_domain` | `text` | NULL | `` |
+| 8 | `started_at` | `timestamptz` | NOT NULL | `now()` |
+| 9 | `last_updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `signal_count` | `int4` | NOT NULL | `0` |
+| 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## atlas_story_merges
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `merged_from_title` | `text` | NOT NULL | `` |
+| 3 | `merged_from_summary` | `text` | NULL | `` |
+| 4 | `merged_to_id` | `uuid` | NULL | `` |
+| 5 | `merged_to_title` | `text` | NOT NULL | `` |
+| 6 | `reason` | `text` | NULL | `` |
+| 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## atlas_story_themes
+
+行数 (概算): 154
+PRIMARY KEY: `story_id, theme_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `story_id` | `uuid` | NOT NULL | `` |
+| 2 | `theme_id` | `uuid` | NOT NULL | `` |
+| 3 | `confidence` | `float8` | NULL | `` |
+| 4 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## atlas_themes
+
+行数 (概算): 54
+PRIMARY KEY: `id`
+UNIQUE: `(name)` (constraint: `atlas_themes_name_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `name` | `text` | NOT NULL | `` |
+| 3 | `description` | `text` | NULL | `` |
+| 4 | `primary_domain` | `text` | NULL | `` |
+| 5 | `tag_keywords` | `_text` | NOT NULL | `'{}'::text[]` |
+| 6 | `status` | `text` | NOT NULL | `'active'::text` |
+| 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 8 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## billing_cycles
+
+行数 (概算): 135
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,ym)` (constraint: `billing_cycles_project_id_ym_key`)
+UNIQUE: `(project_id,ym)` (constraint: `billing_cycles_project_ym_unique`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `ym` | `text` | NOT NULL | `` |
+| 4 | `budget_yen` | `int4` | NULL | `` |
+| 5 | `status` | `text` | NOT NULL | `'not_started'::text` |
+| 6 | `meeting_start_at` | `timestamptz` | NULL | `` |
+| 7 | `report_fixed_at` | `timestamptz` | NULL | `` |
+| 8 | `invoice_sent_at` | `timestamptz` | NULL | `` |
+| 9 | `payment_confirmed_at` | `timestamptz` | NULL | `` |
+| 10 | `ms_progress_summary_json` | `jsonb` | NULL | `` |
+| 11 | `member_allocations_json` | `jsonb` | NULL | `` |
+| 12 | `reward_summary_json` | `jsonb` | NULL | `` |
+| 13 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 14 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 15 | `budget_confirmed_at` | `timestamptz` | NULL | `` |
+| 16 | `invoice_issued_at` | `timestamptz` | NULL | `` |
+| 17 | `payout_notice_uploaded_at` | `timestamptz` | NULL | `` |
+| 18 | `meeting_html_link` | `text` | NULL | `` |
+| 19 | `meeting_event_id` | `text` | NULL | `` |
+| 20 | `invoice_ym` | `text` | NULL | `` |
+| 21 | `cycle_id` | `text` | NULL | `` |
+| 22 | `budget_reported_by` | `text` | NULL | `` |
+| 23 | `invoice_issued_by` | `text` | NULL | `` |
+| 24 | `invoice_sent_by` | `text` | NULL | `` |
+| 25 | `payment_confirmed_by` | `text` | NULL | `` |
+| 26 | `report_fixed_by` | `text` | NULL | `` |
+| 27 | `budget_reported_amount` | `numeric` | NULL | `` |
+| 28 | `budget_reported_at` | `text` | NULL | `` |
+| 29 | `budget_confirmed_by` | `text` | NULL | `` |
+| 30 | `reward_paid_at` | `text` | NULL | `` |
+| 31 | `reward_paid_by` | `text` | NULL | `` |
+| 32 | `meeting_skipped` | `bool` | NULL | `false` |
+| 33 | `budget_buffer_amount` | `int4` | NULL | `0` |
+| 34 | `invoice_base_lines_json` | `text` | NULL | `` |
+| 35 | `invoice_subject` | `text` | NULL | `` |
+| 36 | `freee_invoice_number` | `text` | NULL | `` |
+| 37 | `invoice_pdf_url` | `text` | NULL | `` |
+
+## billing_log
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `ym` | `text` | NOT NULL | `` |
+| 4 | `action` | `text` | NOT NULL | `` |
+| 5 | `actor` | `text` | NULL | `` |
+| 6 | `detail` | `jsonb` | NULL | `` |
+| 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## issues
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(issue_id)` (constraint: `issues_issue_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `issue_id` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `title` | `text` | NOT NULL | `` |
+| 5 | `description` | `text` | NULL | `` |
+| 6 | `status` | `text` | NOT NULL | `'open'::text` |
+| 7 | `severity` | `text` | NULL | `` |
+| 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## knowledge_sessions
+
+行数 (概算): -1
+PRIMARY KEY: `base_ym`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `base_ym` | `text` | NOT NULL | `` |
+| 2 | `offline_enabled` | `bool` | NOT NULL | `false` |
+| 3 | `event_date` | `date` | NULL | `` |
+| 4 | `venue_name` | `text` | NULL | `` |
+| 5 | `venue_address` | `text` | NULL | `` |
+| 6 | `venue_link` | `text` | NULL | `` |
+| 7 | `participant_member_ids` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 8 | `message_to_pm` | `text` | NULL | `` |
+| 9 | `announcement_draft` | `text` | NULL | `` |
+| 10 | `announcement_channel_id` | `text` | NULL | `` |
+| 11 | `announcement_posted_at` | `timestamptz` | NULL | `` |
+| 12 | `announcement_posted_by` | `text` | NULL | `` |
+| 13 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 14 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## l2_extract_state
+
+行数 (概算): 29
+PRIMARY KEY: `l2_kind, target_id, scope_key`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `l2_kind` | `text` | NOT NULL | `` |
+| 2 | `target_id` | `text` | NOT NULL | `` |
+| 3 | `scope_key` | `text` | NOT NULL | `` |
+| 4 | `source_hash` | `text` | NOT NULL | `` |
+| 5 | `saved_count` | `int4` | NOT NULL | `0` |
+| 6 | `total_count` | `int4` | NOT NULL | `0` |
+| 7 | `llm_model` | `text` | NULL | `` |
+| 8 | `message` | `text` | NULL | `` |
+| 9 | `last_processed_at` | `timestamptz` | NOT NULL | `now()` |
+
+## l2_feedbacks
+
+行数 (概算): -1
+PRIMARY KEY: `feedback_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `feedback_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `l2_kind` | `text` | NOT NULL | `` |
+| 3 | `target_id` | `text` | NOT NULL | `` |
+| 4 | `scope_key` | `text` | NOT NULL | `'global'::text` |
+| 5 | `notification_id` | `uuid` | NULL | `` |
+| 6 | `meeting_id` | `text` | NULL | `` |
+| 7 | `feedback_text` | `text` | NOT NULL | `` |
+| 8 | `status` | `text` | NOT NULL | `'active'::text` |
+| 9 | `created_by` | `text` | NULL | `` |
+| 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 11 | `applied_count` | `int4` | NOT NULL | `0` |
+| 12 | `last_applied_at` | `timestamptz` | NULL | `` |
+
+## l2_notifications
+
+行数 (概算): -1
+PRIMARY KEY: `notification_id`
+UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `notification_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `l2_kind` | `text` | NOT NULL | `` |
+| 3 | `target_id` | `text` | NOT NULL | `` |
+| 4 | `scope_key` | `text` | NOT NULL | `` |
+| 5 | `title` | `text` | NOT NULL | `` |
+| 6 | `summary` | `text` | NULL | `` |
+| 7 | `saved_count` | `int4` | NOT NULL | `0` |
+| 8 | `total_count` | `int4` | NOT NULL | `0` |
+| 9 | `importance` | `int4` | NOT NULL | `1` |
+| 10 | `notified_at` | `timestamptz` | NULL | `` |
+| 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## llm_model_config
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(config_id)` (constraint: `llm_model_config_config_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `config_id` | `text` | NOT NULL | `` |
+| 3 | `model_name` | `text` | NOT NULL | `` |
+| 4 | `provider` | `text` | NOT NULL | `` |
+| 5 | `is_default` | `bool` | NULL | `false` |
+| 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## macro_index_log
+
+行数 (概算): 983
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `lane` | `text` | NOT NULL | `` |
+| 3 | `observed_at` | `date` | NOT NULL | `` |
+| 4 | `index_value` | `numeric` | NOT NULL | `` |
+| 5 | `policy_density` | `numeric` | NULL | `` |
+| 6 | `budget_amount` | `numeric` | NULL | `` |
+| 7 | `investment_amount` | `numeric` | NULL | `` |
+| 8 | `policy_mention_count` | `numeric` | NULL | `` |
+| 9 | `raw_signal_count` | `int4` | NULL | `` |
+| 10 | `computed_at` | `timestamptz` | NOT NULL | `now()` |
+
+## macro_lane_weights
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `lane` | `text` | NOT NULL | `` |
+| 3 | `alpha` | `numeric` | NOT NULL | `` |
+| 4 | `beta` | `numeric` | NOT NULL | `` |
+| 5 | `gamma` | `numeric` | NOT NULL | `` |
+| 6 | `delta` | `numeric` | NOT NULL | `` |
+| 7 | `lambda` | `numeric` | NULL | `` |
+| 8 | `eta` | `numeric` | NULL | `` |
+| 9 | `computed_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `computed_by` | `text` | NULL | `` |
+| 11 | `source_data_window_days` | `int4` | NULL | `` |
+
+## meeting_notifications
+
+行数 (概算): -1
+PRIMARY KEY: `meeting_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `meeting_id` | `text` | NOT NULL | `` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `title` | `text` | NOT NULL | `` |
+| 4 | `source_kinds` | `text` | NOT NULL | `` |
+| 5 | `summary_short` | `text` | NOT NULL | `''::text` |
+| 6 | `notified_at` | `timestamptz` | NULL | `` |
+| 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 8 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## member_activities
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(member_id,project_id,source,source_item_id)` (constraint: `member_activities_member_id_project_id_source_source_item_i_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `member_id` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `ym` | `text` | NOT NULL | `` |
+| 5 | `source` | `text` | NOT NULL | `` |
+| 6 | `source_item_id` | `text` | NOT NULL | `` |
+| 7 | `title` | `text` | NULL | `` |
+| 8 | `content_preview` | `text` | NULL | `` |
+| 9 | `item_date` | `timestamptz` | NULL | `` |
+| 10 | `raw_metadata` | `jsonb` | NULL | `` |
+| 11 | `extracted_at` | `timestamptz` | NULL | `now()` |
+| 12 | `milestone_id` | `text` | NULL | `` |
+
+## member_app_notifications
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `member_id` | `text` | NOT NULL | `` |
+| 3 | `notification_type` | `text` | NOT NULL | `` |
+| 4 | `title` | `text` | NOT NULL | `` |
+| 5 | `body` | `text` | NOT NULL | `` |
+| 6 | `project_id` | `text` | NULL | `` |
+| 7 | `ym` | `text` | NULL | `` |
+| 8 | `payload_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 9 | `delivered_at` | `timestamptz` | NULL | `` |
+| 10 | `read_at` | `timestamptz` | NULL | `` |
+| 11 | `created_at` | `timestamptz` | NOT NULL | `timezone('utc'::text, now())` |
+
+## member_knowledge
+
+行数 (概算): 0
+PRIMARY KEY: `id`
+UNIQUE: `(code_name,category)` (constraint: `member_knowledge_code_name_category_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `code_name` | `text` | NOT NULL | `` |
+| 3 | `category` | `text` | NOT NULL | `` |
+| 4 | `summary` | `text` | NULL | `` |
+| 5 | `source` | `text` | NULL | `'slack_conversation'::text` |
+| 6 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## member_ms_activities
+
+行数 (概算): 34
+PRIMARY KEY: `id`
+UNIQUE: `(member_id,milestone_id,ym)` (constraint: `member_ms_activities_member_id_milestone_id_ym_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `member_id` | `text` | NOT NULL | `` |
+| 3 | `milestone_id` | `text` | NOT NULL | `` |
+| 4 | `ym` | `text` | NOT NULL | `` |
+| 5 | `narrative` | `text` | NULL | `` |
+| 6 | `source_note` | `text` | NULL | `` |
+| 7 | `generated_at` | `timestamptz` | NULL | `now()` |
+| 8 | `learned_addendum` | `text` | NULL | `` |
+
+## members
+
+行数 (概算): 28
+PRIMARY KEY: `id`
+UNIQUE: `(email)` (constraint: `members_email_key`)
+UNIQUE: `(member_id)` (constraint: `members_member_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `member_id` | `text` | NOT NULL | `` |
+| 3 | `code_name` | `text` | NOT NULL | `` |
+| 4 | `email` | `text` | NOT NULL | `` |
+| 5 | `role` | `text` | NULL | `` |
+| 6 | `status` | `text` | NOT NULL | `'active'::text` |
+| 7 | `slack_id` | `text` | NULL | `` |
+| 8 | `is_admin` | `bool` | NOT NULL | `false` |
+| 9 | `join_ym` | `text` | NULL | `` |
+| 10 | `leave_ym` | `text` | NULL | `` |
+| 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 13 | `member_name` | `text` | NULL | `` |
+| 14 | `member_address` | `text` | NULL | `` |
+| 15 | `bank_info` | `text` | NULL | `` |
+| 16 | `exclude_from_payout_notice` | `bool` | NOT NULL | `false` |
+| 17 | `joined_at` | `date` | NULL | `` |
+| 18 | `left_at` | `date` | NULL | `` |
+| 19 | `slack_plan` | `text` | NULL | `` |
+| 20 | `google_plan` | `text` | NULL | `` |
+
+## michinori_app_config
+
+行数 (概算): -1
+PRIMARY KEY: `key`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `key` | `text` | NOT NULL | `` |
+| 2 | `value` | `bool` | NOT NULL | `` |
+| 3 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## michinori_friendships
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(requester_id,addressee_id)` (constraint: `michinori_friendships_unique_pair`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `requester_id` | `uuid` | NOT NULL | `` |
+| 3 | `addressee_id` | `uuid` | NOT NULL | `` |
+| 4 | `status` | `text` | NOT NULL | `'pending'::text` |
+| 5 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 6 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## michinori_leaderboard_entries
+
+行数 (概算): -1
+PRIMARY KEY: `user_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `user_id` | `uuid` | NOT NULL | `` |
+| 2 | `total_score` | `int4` | NOT NULL | `0` |
+| 3 | `rank_label` | `text` | NOT NULL | `'旅人'::text` |
+| 4 | `total_km` | `float8` | NOT NULL | `0` |
+| 5 | `roads_conquered` | `int4` | NOT NULL | `0` |
+| 6 | `roads_driven` | `int4` | NOT NULL | `0` |
+| 7 | `prefectures_unlocked` | `int4` | NOT NULL | `0` |
+| 8 | `quests_earned` | `int4` | NOT NULL | `0` |
+| 9 | `home_prefecture` | `text` | NULL | `` |
+| 10 | `display_name` | `text` | NULL | `` |
+| 11 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## michinori_profiles
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(username)` (constraint: `michinori_profiles_username_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `` |
+| 2 | `username` | `text` | NOT NULL | `` |
+| 3 | `display_name` | `text` | NOT NULL | `` |
+| 4 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 5 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## milestone_monthly_progress
+
+行数 (概算): 158
+PRIMARY KEY: `id`
+UNIQUE: `(milestone_key,ym)` (constraint: `milestone_monthly_progress_milestone_key_ym_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `milestone_key` | `text` | NOT NULL | `` |
+| 3 | `ym` | `text` | NOT NULL | `` |
+| 4 | `progress_pct` | `numeric` | NOT NULL | `0` |
+| 5 | `consumed_pt` | `numeric` | NOT NULL | `0` |
+| 6 | `source` | `text` | NULL | `` |
+| 7 | `confirmed_at` | `timestamptz` | NULL | `` |
+| 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 9 | `note` | `text` | NULL | `` |
+
+## milestone_responsibility
+
+行数 (概算): 225
+PRIMARY KEY: `id`
+UNIQUE: `(milestone_id,member_id,role)` (constraint: `milestone_responsibility_ms_member_role_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `milestone_id` | `text` | NOT NULL | `` |
+| 3 | `member_id` | `text` | NOT NULL | `` |
+| 4 | `share` | `numeric` | NOT NULL | `0` |
+| 5 | `role` | `text` | NOT NULL | `'担当'::text` |
+| 6 | `task_description` | `text` | NULL | `` |
+
+## milestone_sub_items
+
+行数 (概算): 173
+PRIMARY KEY: `id`
+UNIQUE: `(sub_item_id)` (constraint: `milestone_sub_items_sub_item_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `sub_item_id` | `text` | NOT NULL | `` |
+| 3 | `milestone_id` | `text` | NOT NULL | `` |
+| 4 | `title` | `text` | NOT NULL | `` |
+| 5 | `weight` | `numeric` | NULL | `1` |
+| 6 | `status` | `text` | NULL | `'open'::text` |
+| 7 | `assignee` | `text` | NULL | `` |
+| 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## monthly_report_revision_messages
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `revision_id` | `uuid` | NOT NULL | `` |
+| 3 | `sender_kind` | `text` | NOT NULL | `` |
+| 4 | `body` | `text` | NOT NULL | `` |
+| 5 | `created_at` | `timestamptz` | NULL | `now()` |
+
+## monthly_report_revisions
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `ym` | `text` | NOT NULL | `` |
+| 4 | `instruction` | `text` | NOT NULL | `` |
+| 5 | `requested_by` | `text` | NULL | `` |
+| 6 | `revised_content` | `text` | NULL | `` |
+| 7 | `status` | `text` | NOT NULL | `'pending'::text` |
+| 8 | `created_at` | `timestamptz` | NULL | `now()` |
+| 9 | `updated_at` | `timestamptz` | NULL | `now()` |
+
+## monthly_reports
+
+行数 (概算): 58
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,ym)` (constraint: `monthly_reports_project_id_ym_key`)
+UNIQUE: `(report_id)` (constraint: `monthly_reports_report_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `report_id` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `ym` | `text` | NOT NULL | `` |
+| 5 | `draft_content` | `text` | NULL | `` |
+| 6 | `final_content` | `text` | NULL | `` |
+| 7 | `status` | `text` | NULL | `'pending'::text` |
+| 8 | `collection_summary_json` | `jsonb` | NULL | `` |
+| 9 | `generated_at` | `timestamptz` | NULL | `` |
+| 10 | `fixed_at` | `timestamptz` | NULL | `` |
+| 11 | `slide_file_id` | `text` | NULL | `` |
+| 12 | `pdf_file_id` | `text` | NULL | `` |
+| 13 | `last_cron_at` | `timestamptz` | NULL | `` |
+| 14 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 15 | `section_members` | `text` | NULL | `` |
+
+## monthly_reward_payout
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,ym,member_id)` (constraint: `monthly_reward_payout_project_id_ym_member_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `ym` | `text` | NOT NULL | `` |
+| 4 | `member_id` | `text` | NOT NULL | `` |
+| 5 | `earned_pt` | `numeric` | NULL | `0` |
+| 6 | `base_pay` | `numeric` | NULL | `0` |
+| 7 | `bonus_pt` | `numeric` | NULL | `0` |
+| 8 | `total_pay` | `numeric` | NULL | `0` |
+| 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## ms_progress_proposals
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `member_id` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `milestone_id` | `text` | NOT NULL | `` |
+| 5 | `ym` | `text` | NOT NULL | `` |
+| 6 | `suggested_pct` | `numeric` | NULL | `` |
+| 7 | `suggested_text` | `text` | NULL | `` |
+| 8 | `status` | `text` | NOT NULL | `'pending'::text` |
+| 9 | `reject_reason_raw` | `text` | NULL | `` |
+| 10 | `reviewed_by` | `text` | NULL | `` |
+| 11 | `reviewed_at` | `timestamptz` | NULL | `` |
+| 12 | `created_at` | `timestamptz` | NULL | `now()` |
+| 13 | `updated_at` | `timestamptz` | NULL | `now()` |
+
+## ms_progress_revisions
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `milestone_id` | `text` | NOT NULL | `` |
+| 4 | `ym` | `text` | NOT NULL | `` |
+| 5 | `current_pct` | `numeric` | NULL | `` |
+| 6 | `current_note` | `text` | NULL | `` |
+| 7 | `revised_pct` | `numeric` | NULL | `` |
+| 8 | `revised_note` | `text` | NULL | `` |
+| 9 | `status` | `text` | NOT NULL | `'pending'::text` |
+| 10 | `requested_by` | `text` | NULL | `` |
+| 11 | `confirmed_by` | `text` | NULL | `` |
+| 12 | `confirmed_at` | `timestamptz` | NULL | `` |
+| 13 | `created_at` | `timestamptz` | NULL | `now()` |
+| 14 | `updated_at` | `timestamptz` | NULL | `now()` |
+
+## ms_proposal_messages
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `proposal_id` | `uuid` | NOT NULL | `` |
+| 3 | `sender_kind` | `text` | NOT NULL | `` |
+| 4 | `body` | `text` | NOT NULL | `` |
+| 5 | `created_at` | `timestamptz` | NULL | `now()` |
+
+## ms_revision_messages
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `revision_id` | `uuid` | NOT NULL | `` |
+| 3 | `sender_kind` | `text` | NOT NULL | `` |
+| 4 | `body` | `text` | NOT NULL | `` |
+| 5 | `created_at` | `timestamptz` | NULL | `now()` |
+
+## narrative_feedbacks
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `item_date` | `text` | NULL | `` |
+| 4 | `item_title` | `text` | NULL | `` |
+| 5 | `feedback` | `text` | NOT NULL | `` |
+| 6 | `status` | `text` | NOT NULL | `'open'::text` |
+| 7 | `applied_note` | `text` | NULL | `` |
+| 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 9 | `applied_at` | `timestamptz` | NULL | `` |
+
+## navigator_history
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(history_id)` (constraint: `navigator_history_history_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `history_id` | `text` | NOT NULL | `` |
+| 3 | `item_id` | `text` | NOT NULL | `` |
+| 4 | `action` | `text` | NOT NULL | `` |
+| 5 | `changed_by` | `text` | NULL | `` |
+| 6 | `changed_at` | `timestamptz` | NOT NULL | `now()` |
+
+## navigator_items
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(item_id)` (constraint: `navigator_items_item_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `item_id` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `block_type` | `text` | NULL | `` |
+| 5 | `content` | `text` | NULL | `` |
+| 6 | `tags` | `text` | NULL | `` |
+| 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 8 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## papers_log
+
+行数 (概算): 85
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `lane` | `text` | NOT NULL | `` |
+| 3 | `observed_at` | `date` | NOT NULL | `` |
+| 4 | `paper_count` | `int4` | NOT NULL | `` |
+| 5 | `source` | `text` | NOT NULL | `` |
+| 6 | `query_hash` | `text` | NULL | `` |
+| 7 | `computed_at` | `timestamptz` | NOT NULL | `now()` |
+
+## payout_agreement
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,member_id)` (constraint: `payout_agreement_project_id_member_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `member_id` | `text` | NOT NULL | `` |
+| 4 | `agreed_at` | `timestamptz` | NULL | `` |
+| 5 | `token` | `text` | NULL | `` |
+
+## payout_notices
+
+行数 (概算): -1
+PRIMARY KEY: `member_id, ym`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `member_id` | `text` | NOT NULL | `` |
+| 2 | `ym` | `text` | NOT NULL | `` |
+| 3 | `sent_at` | `timestamptz` | NULL | `` |
+| 4 | `notice_no` | `text` | NULL | `` |
+| 5 | `pdf_url` | `text` | NULL | `` |
+| 6 | `total_yen` | `int4` | NULL | `` |
+
+## progress_estimate_state
+
+行数 (概算): -1
+PRIMARY KEY: `project_id, ym`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `project_id` | `text` | NOT NULL | `` |
+| 2 | `ym` | `text` | NOT NULL | `` |
+| 3 | `source_hash` | `text` | NOT NULL | `` |
+| 4 | `saved_count` | `int4` | NOT NULL | `0` |
+| 5 | `skipped_count` | `int4` | NOT NULL | `0` |
+| 6 | `total_count` | `int4` | NOT NULL | `0` |
+| 7 | `llm_model` | `text` | NULL | `` |
+| 8 | `message` | `text` | NULL | `` |
+| 9 | `last_processed_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_config
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,key)` (constraint: `project_config_project_id_key_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `key` | `text` | NOT NULL | `` |
+| 4 | `value` | `text` | NULL | `` |
+| 5 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_events
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `occurred_on` | `date` | NOT NULL | `` |
+| 4 | `kind` | `text` | NOT NULL | `` |
+| 5 | `label` | `text` | NOT NULL | `` |
+| 6 | `meta` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 7 | `source` | `text` | NOT NULL | `'manual'::text` |
+| 8 | `created_by` | `text` | NULL | `` |
+| 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_knowledge
+
+行数 (概算): 2,024
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `category` | `text` | NOT NULL | `` |
+| 4 | `entity_name` | `text` | NOT NULL | `` |
+| 5 | `fact_text` | `text` | NULL | `` |
+| 6 | `confidence` | `text` | NULL | `'medium'::text` |
+| 7 | `source` | `text` | NULL | `` |
+| 8 | `status` | `text` | NULL | `'active'::text` |
+| 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_meeting_summaries
+
+行数 (概算): 33
+PRIMARY KEY: `meeting_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `meeting_id` | `text` | NOT NULL | `` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `ym` | `text` | NOT NULL | `` |
+| 4 | `meeting_date` | `date` | NOT NULL | `` |
+| 5 | `meeting_start_at` | `timestamptz` | NULL | `` |
+| 6 | `title` | `text` | NOT NULL | `` |
+| 7 | `notion_url` | `text` | NULL | `` |
+| 8 | `calendar_event_id` | `text` | NULL | `` |
+| 9 | `summary_short` | `text` | NOT NULL | `''::text` |
+| 10 | `decided` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 11 | `progress` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 12 | `next_actions` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 13 | `risks` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 14 | `source_hash` | `text` | NULL | `` |
+| 15 | `generated_at` | `timestamptz` | NOT NULL | `now()` |
+| 16 | `generated_by_model` | `text` | NULL | `` |
+| 17 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 18 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 19 | `notion_page_id` | `text` | NULL | `` |
+| 20 | `gmail_thread_ids` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 21 | `source_kinds` | `text` | NULL | `` |
+
+## project_members
+
+行数 (概算): 28
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,member_id)` (constraint: `project_members_project_id_member_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `member_id` | `text` | NOT NULL | `` |
+| 4 | `role` | `text` | NULL | `` |
+| 5 | `is_active` | `bool` | NOT NULL | `true` |
+| 6 | `join_ym` | `text` | NULL | `` |
+| 7 | `leave_ym` | `text` | NULL | `` |
+| 8 | `is_pm` | `bool` | NOT NULL | `false` |
+| 9 | `is_closer` | `bool` | NOT NULL | `false` |
+| 10 | `role_label` | `text` | NULL | `` |
+| 11 | `is_pl` | `bool` | NOT NULL | `false` |
+
+## project_partners
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `partner_name` | `text` | NOT NULL | `` |
+| 4 | `partner_type` | `text` | NOT NULL | `` |
+| 5 | `partner_role` | `text` | NULL | `` |
+| 6 | `sales_target_date` | `date` | NULL | `` |
+| 7 | `remaining_conditions` | `text` | NULL | `` |
+| 8 | `is_sold` | `bool` | NOT NULL | `false` |
+| 9 | `sales_actuals` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 10 | `notes` | `text` | NULL | `` |
+| 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_pl_hearings
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `q_a` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 4 | `status` | `text` | NOT NULL | `'in_progress'::text` |
+| 5 | `generated_pl` | `jsonb` | NULL | `` |
+| 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 7 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_pl_monthly
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,ym)` (constraint: `project_pl_monthly_project_id_ym_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `ym` | `text` | NOT NULL | `` |
+| 4 | `revenue_yen` | `int8` | NOT NULL | `0` |
+| 5 | `cogs_yen` | `int8` | NOT NULL | `0` |
+| 6 | `personnel_yen` | `int8` | NOT NULL | `0` |
+| 7 | `rd_yen` | `int8` | NOT NULL | `0` |
+| 8 | `marketing_yen` | `int8` | NOT NULL | `0` |
+| 9 | `other_opex_yen` | `int8` | NOT NULL | `0` |
+| 10 | `notes` | `text` | NULL | `` |
+| 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_vc_relations
+
+行数 (概算): 113
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,vc_id)` (constraint: `project_vc_relations_project_id_vc_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `vc_id` | `uuid` | NOT NULL | `` |
+| 4 | `vc_contact_id` | `uuid` | NULL | `` |
+| 5 | `amd_owner_member_id` | `text` | NULL | `` |
+| 6 | `status` | `text` | NOT NULL | `'not_contacted'::text` |
+| 7 | `first_contact_at` | `date` | NULL | `` |
+| 8 | `last_touch_at` | `date` | NULL | `` |
+| 9 | `expected_amount_jpy` | `int8` | NULL | `` |
+| 10 | `notes` | `text` | NULL | `` |
+| 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_venture_members
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `full_name` | `text` | NOT NULL | `` |
+| 4 | `role` | `text` | NOT NULL | `` |
+| 5 | `started_at` | `date` | NULL | `` |
+| 6 | `ended_at` | `date` | NULL | `` |
+| 7 | `note` | `text` | NULL | `` |
+| 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `member_kind` | `text` | NOT NULL | `'su_internal'::text` |
+| 11 | `amd_member_id` | `text` | NULL | `` |
+
+## project_ventures
+
+行数 (概算): 10
+PRIMARY KEY: `project_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `project_id` | `text` | NOT NULL | `` |
+| 2 | `lane` | `text` | NOT NULL | `` |
+| 3 | `founded_at` | `date` | NULL | `` |
+| 4 | `outcome_pattern` | `text` | NOT NULL | `` |
+| 5 | `origin_org` | `text` | NULL | `` |
+| 6 | `origin_pi` | `text` | NULL | `` |
+| 7 | `amd_role` | `text` | NULL | `` |
+| 8 | `short_description` | `text` | NULL | `` |
+| 9 | `is_public` | `bool` | NOT NULL | `true` |
+| 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 11 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 12 | `narrative_text` | `text` | NULL | `` |
+| 13 | `narrative_generated_at` | `timestamptz` | NULL | `` |
+| 14 | `narrative_invalidated_at` | `timestamptz` | NULL | `` |
+| 15 | `display_name` | `text` | NOT NULL | `` |
+| 16 | `short_label` | `text` | NULL | `` |
+| 17 | `amd_support_started_at` | `date` | NULL | `` |
+| 18 | `amd_support_ended_at` | `date` | NULL | `` |
+| 19 | `long_description` | `text` | NULL | `` |
+
+## project_xrl_log
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `observed_at` | `date` | NOT NULL | `` |
+| 4 | `trl` | `int4` | NULL | `` |
+| 5 | `brl` | `int4` | NULL | `` |
+| 6 | `hrl` | `int4` | NULL | `` |
+| 7 | `grl` | `int4` | NULL | `` |
+| 8 | `srl` | `int4` | NULL | `` |
+| 9 | `bottleneck` | `text` | NULL | `` |
+| 10 | `milestone_label` | `text` | NULL | `` |
+| 11 | `source_note` | `text` | NULL | `` |
+| 12 | `source` | `text` | NOT NULL | `'manual'::text` |
+| 13 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## projects
+
+行数 (概算): 22
+PRIMARY KEY: `id`
+UNIQUE: `(project_id)` (constraint: `projects_project_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `project_name` | `text` | NOT NULL | `` |
+| 4 | `client_name` | `text` | NULL | `` |
+| 5 | `status` | `text` | NOT NULL | `'active'::text` |
+| 6 | `slack_channel_id` | `text` | NULL | `` |
+| 7 | `drive_folder_id` | `text` | NULL | `` |
+| 8 | `freee_partner_id` | `text` | NULL | `` |
+| 9 | `start_ym` | `text` | NULL | `` |
+| 10 | `end_ym` | `text` | NULL | `` |
+| 11 | `report_emails` | `text` | NULL | `` |
+| 12 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 13 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 14 | `project_type` | `text` | NOT NULL | `'standard'::text` |
+| 15 | `fee_type` | `text` | NULL | `` |
+| 16 | `fee_amount` | `numeric` | NULL | `` |
+| 17 | `invoice_send_deadline_rule` | `text` | NULL | `` |
+| 18 | `payment_due_rule` | `text` | NULL | `` |
+| 19 | `invoice_send_manual` | `bool` | NOT NULL | `true` |
+| 20 | `invoice_to_emails` | `text` | NULL | `` |
+| 21 | `invoice_cc_emails` | `text` | NULL | `` |
+| 22 | `invoice_bcc_emails` | `text` | NULL | `` |
+| 23 | `payment_due_day` | `int4` | NULL | `` |
+| 24 | `freeze_from_ym` | `text` | NULL | `` |
+| 25 | `restart_expected_ym` | `text` | NULL | `` |
+
+## protocols
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(protocol_id)` (constraint: `protocols_protocol_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `protocol_id` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NULL | `` |
+| 4 | `title` | `text` | NOT NULL | `` |
+| 5 | `content` | `text` | NULL | `` |
+| 6 | `status` | `text` | NULL | `'candidate'::text` |
+| 7 | `importance` | `int4` | NULL | `1` |
+| 8 | `source` | `text` | NULL | `'manual'::text` |
+| 9 | `tags` | `text` | NULL | `` |
+| 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 11 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## reimbursements
+
+行数 (概算): -1
+PRIMARY KEY: `reimbursement_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `reimbursement_id` | `text` | NOT NULL | `` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `project_name` | `text` | NULL | `` |
+| 4 | `date` | `text` | NOT NULL | `` |
+| 5 | `category` | `text` | NOT NULL | `` |
+| 6 | `amount` | `numeric` | NOT NULL | `0` |
+| 7 | `tax_rate` | `numeric` | NOT NULL | `0.1` |
+| 8 | `description` | `text` | NULL | `` |
+| 9 | `transport_mode` | `text` | NULL | `` |
+| 10 | `transport_from` | `text` | NULL | `` |
+| 11 | `transport_to` | `text` | NULL | `` |
+| 12 | `transport_trip` | `text` | NULL | `` |
+| 13 | `status` | `text` | NOT NULL | `'submitted'::text` |
+| 14 | `created_by` | `text` | NOT NULL | `` |
+| 15 | `pm_approved_by` | `text` | NULL | `` |
+| 16 | `pm_approved_at` | `text` | NULL | `` |
+| 17 | `admin_approved_by` | `text` | NULL | `` |
+| 18 | `admin_approved_at` | `text` | NULL | `` |
+| 19 | `created_at` | `timestamptz` | NULL | `now()` |
+| 20 | `updated_at` | `timestamptz` | NULL | `now()` |
+| 21 | `billed_ym` | `text` | NULL | `` |
+
+## seed_contact_log
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `seed_id` | `uuid` | NOT NULL | `` |
+| 3 | `contacted_on` | `date` | NOT NULL | `` |
+| 4 | `method` | `text` | NULL | `` |
+| 5 | `amd_member_id` | `text` | NULL | `` |
+| 6 | `note` | `text` | NOT NULL | `` |
+| 7 | `next_action` | `text` | NULL | `` |
+| 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## seed_funding
+
+行数 (概算): 69
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `seed_id` | `uuid` | NOT NULL | `` |
+| 3 | `program` | `text` | NOT NULL | `` |
+| 4 | `program_short` | `text` | NULL | `` |
+| 5 | `amount_jpy` | `int8` | NULL | `` |
+| 6 | `fiscal_year` | `int4` | NULL | `` |
+| 7 | `status` | `text` | NULL | `` |
+| 8 | `source_url` | `text` | NULL | `` |
+| 9 | `notes` | `text` | NULL | `` |
+| 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 11 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## seed_news
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(seed_id,source_url)` (constraint: `seed_news_seed_id_source_url_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `seed_id` | `uuid` | NOT NULL | `` |
+| 3 | `kind` | `text` | NOT NULL | `` |
+| 4 | `title` | `text` | NOT NULL | `` |
+| 5 | `body` | `text` | NULL | `` |
+| 6 | `occurred_on` | `date` | NULL | `` |
+| 7 | `source_url` | `text` | NULL | `` |
+| 8 | `ingested_by` | `text` | NOT NULL | `'manual'::text` |
+| 9 | `verified` | `bool` | NOT NULL | `true` |
+| 10 | `dismissed` | `bool` | NOT NULL | `false` |
+| 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## seeds
+
+行数 (概算): 51
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `title` | `text` | NOT NULL | `` |
+| 3 | `summary` | `text` | NULL | `` |
+| 4 | `org_name` | `text` | NOT NULL | `` |
+| 5 | `org_type` | `text` | NULL | `` |
+| 6 | `org_region` | `text` | NULL | `` |
+| 7 | `org_url` | `text` | NULL | `` |
+| 8 | `researcher_name` | `text` | NULL | `` |
+| 9 | `researcher_title` | `text` | NULL | `` |
+| 10 | `lab_name` | `text` | NULL | `` |
+| 11 | `researcher_url` | `text` | NULL | `` |
+| 12 | `domain_lane` | `text` | NULL | `` |
+| 13 | `industry_target` | `_text` | NULL | `` |
+| 14 | `keywords` | `_text` | NULL | `` |
+| 15 | `trl` | `int2` | NULL | `` |
+| 16 | `brl` | `int2` | NULL | `` |
+| 17 | `hrl` | `int2` | NULL | `` |
+| 18 | `status` | `text` | NOT NULL | `'candidate'::text` |
+| 19 | `amd_rating` | `int2` | NULL | `` |
+| 20 | `amd_rating_note` | `text` | NULL | `` |
+| 21 | `amd_owner_member_id` | `text` | NULL | `` |
+| 22 | `next_action` | `text` | NULL | `` |
+| 23 | `internal_notes` | `text` | NULL | `` |
+| 24 | `public_summary` | `text` | NULL | `` |
+| 25 | `is_public` | `bool` | NOT NULL | `false` |
+| 26 | `spun_off_project_id` | `text` | NULL | `` |
+| 27 | `source` | `text` | NULL | `` |
+| 28 | `source_detail` | `text` | NULL | `` |
+| 29 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 30 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 31 | `created_by` | `text` | NULL | `` |
+| 32 | `updated_by` | `text` | NULL | `` |
+
+## settings
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(key)` (constraint: `settings_key_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `key` | `text` | NOT NULL | `` |
+| 3 | `value` | `text` | NULL | `` |
+| 4 | `updated_by` | `text` | NULL | `` |
+| 5 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## source_cache
+
+行数 (概算): 2,613
+PRIMARY KEY: `id`
+UNIQUE: `(cache_id)` (constraint: `source_cache_cache_id_key`)
+UNIQUE: `(project_id,source,item_id)` (constraint: `source_cache_project_id_source_item_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `cache_id` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `ym` | `text` | NOT NULL | `` |
+| 5 | `source` | `text` | NOT NULL | `` |
+| 6 | `item_id` | `text` | NOT NULL | `` |
+| 7 | `title` | `text` | NULL | `` |
+| 8 | `item_date` | `timestamptz` | NULL | `` |
+| 9 | `content_text` | `text` | NULL | `` |
+| 10 | `char_count` | `int4` | NULL | `0` |
+| 11 | `metadata_json` | `jsonb` | NULL | `` |
+| 12 | `collected_at` | `timestamptz` | NOT NULL | `now()` |
+
+## tasks
+
+行数 (概算): 13
+PRIMARY KEY: `id`
+UNIQUE: `(task_id)` (constraint: `tasks_task_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `task_id` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `title` | `text` | NOT NULL | `` |
+| 5 | `description` | `text` | NULL | `` |
+| 6 | `status` | `text` | NOT NULL | `'todo'::text` |
+| 7 | `assignee` | `text` | NULL | `` |
+| 8 | `priority` | `text` | NULL | `` |
+| 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## tsukuyomi_chat_logs
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NULL | `` |
+| 3 | `session_id` | `uuid` | NOT NULL | `` |
+| 4 | `page_path` | `text` | NULL | `` |
+| 5 | `role` | `text` | NOT NULL | `` |
+| 6 | `content` | `text` | NOT NULL | `` |
+| 7 | `applied_actions` | `jsonb` | NULL | `` |
+| 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## tsukuyomi_context
+
+行数 (概算): 61
+PRIMARY KEY: `id`
+UNIQUE: `(context_id)` (constraint: `tsukuyomi_context_context_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `context_id` | `text` | NOT NULL | `` |
+| 3 | `tags` | `text` | NOT NULL | `` |
+| 4 | `priority` | `int4` | NULL | `0` |
+| 5 | `system_prompt` | `text` | NOT NULL | `` |
+| 6 | `status` | `text` | NULL | `'active'::text` |
+| 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 8 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## tsukuyomi_learnings
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `scope` | `text` | NOT NULL | `` |
+| 3 | `scope_key` | `text` | NULL | `` |
+| 4 | `content` | `text` | NOT NULL | `` |
+| 5 | `source` | `text` | NULL | `` |
+| 6 | `source_ref` | `text` | NULL | `` |
+| 7 | `status` | `text` | NOT NULL | `'active'::text` |
+| 8 | `created_at` | `timestamptz` | NULL | `now()` |
+| 9 | `created_by` | `text` | NULL | `` |
+| 10 | `removed_at` | `timestamptz` | NULL | `` |
+| 11 | `removed_by` | `text` | NULL | `` |
+| 12 | `removed_reason` | `text` | NULL | `` |
+
+## tsukuyomi_learnings_status
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `scope` | `text` | NOT NULL | `` |
+| 3 | `target_project_id` | `text` | NULL | `` |
+| 4 | `lesson_text` | `text` | NOT NULL | `` |
+| 5 | `source_feedback_id` | `uuid` | NULL | `` |
+| 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## tsukuyomi_memory
+
+行数 (概算): 45
+PRIMARY KEY: `id`
+UNIQUE: `(memory_id)` (constraint: `tsukuyomi_memory_memory_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `memory_id` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NULL | `` |
+| 4 | `content` | `text` | NOT NULL | `` |
+| 5 | `source` | `text` | NULL | `'slack_conversation'::text` |
+| 6 | `status` | `text` | NULL | `'active'::text` |
+| 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## tsukuyomi_nudge_queue
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(nudge_id)` (constraint: `tsukuyomi_nudge_queue_nudge_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `nudge_id` | `text` | NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `ym` | `text` | NOT NULL | `` |
+| 5 | `message` | `text` | NOT NULL | `` |
+| 6 | `status` | `text` | NULL | `'ready'::text` |
+| 7 | `posted_at` | `timestamptz` | NULL | `` |
+| 8 | `error_note` | `text` | NULL | `` |
+| 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## tsukuyomi_sessions
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(session_id)` (constraint: `tsukuyomi_sessions_session_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `session_id` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NULL | `` |
+| 4 | `member_id` | `text` | NULL | `` |
+| 5 | `started_at` | `timestamptz` | NOT NULL | `now()` |
+
+## value_milestones
+
+行数 (概算): 153
+PRIMARY KEY: `id`
+UNIQUE: `(milestone_id)` (constraint: `value_milestones_milestone_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `milestone_id` | `text` | NOT NULL | `` |
+| 3 | `plan_cycle_id` | `text` | NOT NULL | `` |
+| 4 | `title` | `text` | NOT NULL | `` |
+| 5 | `points` | `int4` | NOT NULL | `0` |
+| 6 | `tag` | `text` | NOT NULL | `'normal'::text` |
+| 7 | `goal_level` | `text` | NULL | `` |
+| 8 | `is_active` | `bool` | NOT NULL | `true` |
+| 9 | `success_criteria` | `text` | NULL | `` |
+| 10 | `sort_order` | `int4` | NOT NULL | `0` |
+| 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## value_plan_cycles
+
+行数 (概算): 9
+PRIMARY KEY: `id`
+UNIQUE: `(plan_cycle_id)` (constraint: `value_plan_cycles_plan_cycle_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `plan_cycle_id` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `status` | `text` | NOT NULL | `'active'::text` |
+| 5 | `budget_yen` | `int4` | NOT NULL | `0` |
+| 6 | `total_points` | `int4` | NOT NULL | `0` |
+| 7 | `period_start_ym` | `text` | NOT NULL | `` |
+| 8 | `period_end_ym` | `text` | NOT NULL | `` |
+| 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## vc_contacts
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `vc_id` | `uuid` | NOT NULL | `` |
+| 3 | `name` | `text` | NOT NULL | `` |
+| 4 | `name_en` | `text` | NULL | `` |
+| 5 | `role` | `text` | NULL | `` |
+| 6 | `email` | `text` | NULL | `` |
+| 7 | `phone` | `text` | NULL | `` |
+| 8 | `linkedin` | `text` | NULL | `` |
+| 9 | `notes` | `text` | NULL | `` |
+| 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 11 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## vc_funds
+
+行数 (概算): 41
+PRIMARY KEY: `id`
+UNIQUE: `(vc_id,fund_no)` (constraint: `vc_funds_vc_id_fund_no_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `vc_id` | `uuid` | NOT NULL | `` |
+| 3 | `fund_no` | `int4` | NOT NULL | `` |
+| 4 | `name` | `text` | NULL | `` |
+| 5 | `size_jpy` | `int8` | NULL | `` |
+| 6 | `size_jpy_low` | `int8` | NULL | `` |
+| 7 | `size_jpy_high` | `int8` | NULL | `` |
+| 8 | `vintage_year` | `int4` | NULL | `` |
+| 9 | `status` | `text` | NOT NULL | `'unknown'::text` |
+| 10 | `first_close_at` | `date` | NULL | `` |
+| 11 | `final_close_at` | `date` | NULL | `` |
+| 12 | `target_close_at` | `date` | NULL | `` |
+| 13 | `dry_powder_jpy_low` | `int8` | NULL | `` |
+| 14 | `dry_powder_jpy_high` | `int8` | NULL | `` |
+| 15 | `dry_powder_source` | `text` | NULL | `` |
+| 16 | `dry_powder_heard_from` | `uuid` | NULL | `` |
+| 17 | `dry_powder_note` | `text` | NULL | `` |
+| 18 | `dry_powder_updated_at` | `timestamptz` | NULL | `` |
+| 19 | `source_url` | `text` | NULL | `` |
+| 20 | `notes` | `text` | NULL | `` |
+| 21 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 22 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## vc_investments
+
+行数 (概算): 117
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `vc_id` | `uuid` | NOT NULL | `` |
+| 3 | `fund_id` | `uuid` | NULL | `` |
+| 4 | `target_company` | `text` | NOT NULL | `` |
+| 5 | `target_company_en` | `text` | NULL | `` |
+| 6 | `our_project_id` | `text` | NULL | `` |
+| 7 | `amount_jpy` | `int8` | NULL | `` |
+| 8 | `round` | `text` | NULL | `` |
+| 9 | `invested_at` | `date` | NULL | `` |
+| 10 | `is_lead` | `bool` | NOT NULL | `false` |
+| 11 | `source_url` | `text` | NULL | `` |
+| 12 | `notes` | `text` | NULL | `` |
+| 13 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 14 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## vc_news
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(vc_id,source_url)` (constraint: `vc_news_vc_id_source_url_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `vc_id` | `uuid` | NOT NULL | `` |
+| 3 | `kind` | `text` | NOT NULL | `` |
+| 4 | `title` | `text` | NOT NULL | `` |
+| 5 | `body` | `text` | NULL | `` |
+| 6 | `occurred_on` | `date` | NULL | `` |
+| 7 | `source_url` | `text` | NULL | `` |
+| 8 | `ingested_by` | `text` | NOT NULL | `'manual'::text` |
+| 9 | `verified` | `bool` | NOT NULL | `false` |
+| 10 | `dismissed` | `bool` | NOT NULL | `false` |
+| 11 | `related_fund_id` | `uuid` | NULL | `` |
+| 12 | `suggested_fund_patch` | `jsonb` | NULL | `` |
+| 13 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 14 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## vcs
+
+行数 (概算): 157
+PRIMARY KEY: `id`
+UNIQUE: `(name)` (constraint: `vcs_name_key`)
+UNIQUE: `(slug)` (constraint: `vcs_slug_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `name` | `text` | NOT NULL | `` |
+| 3 | `name_en` | `text` | NULL | `` |
+| 4 | `slug` | `text` | NULL | `` |
+| 5 | `type` | `text` | NULL | `` |
+| 6 | `thesis` | `text` | NULL | `` |
+| 7 | `stage_focus` | `_text` | NULL | `` |
+| 8 | `ticket_min_jpy` | `int8` | NULL | `` |
+| 9 | `ticket_max_jpy` | `int8` | NULL | `` |
+| 10 | `hq` | `text` | NULL | `` |
+| 11 | `website` | `text` | NULL | `` |
+| 12 | `logo_url` | `text` | NULL | `` |
+| 13 | `notes` | `text` | NULL | `` |
+| 14 | `amd_rating` | `int2` | NULL | `` |
+| 15 | `amd_rating_note` | `text` | NULL | `` |
+| 16 | `amd_rating_updated_by` | `text` | NULL | `` |
+| 17 | `amd_rating_updated_at` | `timestamptz` | NULL | `` |
+| 18 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 19 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 20 | `investment_constraints` | `text` | NULL | `` |
+
+## xrl_feedbacks
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `xrl_log_id` | `uuid` | NULL | `` |
+| 4 | `axis` | `text` | NULL | `` |
+| 5 | `feedback` | `text` | NOT NULL | `` |
+| 6 | `status` | `text` | NOT NULL | `'open'::text` |
+| 7 | `applied_at` | `timestamptz` | NULL | `` |
+| 8 | `applied_note` | `text` | NULL | `` |
+| 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |

@@ -33,6 +33,7 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 | 何を知りたいか | ファイル | 内容 |
 |---|---|---|
+| **AMD OS 中核データ正本** ⭐⭐⭐ | `pwa/design/L2_DATA.md` | **L2 6 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ) + レポート + 全 cron**。データに触る作業の前に必ず読む |
 | **設計 md フォルダ全体の入口** ⭐ | `pwa/design/README.md` | 設計の正本フォルダのインデックス。**まずここを読んで「次に何を読むか」を決める** |
 | **PWA 全体の正本仕様** ⭐ | `pwa/design/SPEC_pwa.md` | 画面・ルート・データモデル・cron・共通インフラ・運用コマンド・実装規約 |
 | **コックピット詳細 / 月次ルーティン** ⭐ | `pwa/design/cockpit.md` | PJ Status / 月次ルーティン stepId × クリック挙動 (回帰多発) |
@@ -89,7 +90,22 @@ python -X utf8 scripts/apply_ddl.py scripts/migrations/NNN_name.sql
 
 ---
 
-## AMD OS 固有ルール
+## 🚨 列名・テーブル名は想像で書かない (`db_schema.md` を必ず参照)
 
-GASとの連携・DB設計・ScriptPropertiesキー等は `AMD_OS/CLAUDE.md` を参照。
-このセッションはPWA（フロントエンド）に集中する。GAS側の変更が必要になったら別セッションで対応する。
+新規 cron / API route / Edge Function / GAS 関数で Supabase テーブルを叩く前に、
+**[`design/db_schema.md`](design/db_schema.md) を必ず grep して実際の列名を確認**してから
+select / filter / insert / upsert を書くこと。
+
+過去事故: `member_activities` の列を `code_name` / `created_at` / `activity_text` / `kind` と
+想像で書いたら全部間違ってて (実体は `member_id` / `extracted_at` / `content_preview` /
+`source`)、PostgREST 42703 エラーで `actsRes.ok=false` → 入力ゼロで進行 → 他人の活動が
+本人のものとして LLM 抽出される事故 (BUGS.md `[GAS] member_knowledge 抽出で「きよ」に他人の活動が紐付くカオス` 参照)。
+
+**運用**:
+- DDL を変更したら同じ commit で `python3 -X utf8 scripts/dump_schema.py` を実行して `design/db_schema.md` を再生成 → commit に含める
+- 他の md (HANDOFF / 設計 md) で「テーブル X の列 Y」を書くときも、必ず `db_schema.md` から正しい列名をコピーする (= 二次情報を参照しない)
+- えいみが新セッション開始時に「列名を書く必要があるなら必ず先に `db_schema.md` を grep する」セルフルールを徹底
+
+`db_schema.md` は自動生成 (Supabase Management API → information_schema.columns)。
+手動編集禁止 (= 次回再生成で消える)。
+

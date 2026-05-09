@@ -19,6 +19,274 @@
 
 ---
 
+### [GAS] BWE 株主総会の MTGサマリ枠に CX (Kiutra/CryoX) のメールが混入
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み (LLM プロンプト v3 化 + 会議メタ明示で再発防止)
+- **症状**: PWA `/notifications` で 5/9 13:00 「BWE 臨時株主総会」のサマリを開いたら、決定事項に「NIMS 神谷氏と CEO 候補に関する打ち合わせを 5/7 14:00 に実施」「末永氏が神谷PJ に参画」、進捗に「Kiutra への質問事項に関する量子冷却技術の調査アップデート」、リスクに「CryoX が想定する初期市場と Kiutra の棲み分け整理が必要」など、**完全に CX (p20、神谷PJ) の話** が並んでいた。
+- **原因 (Gmail 経由の他 PJ 混入)**:
+  1. Notion 議事録ページは `cron_createMinutesFromCalendar` 由来のテンプレ ("Meet（ここで /meet を打つ）/ 背景 / 本日の着地点 / メモ") のままで本文 64 字。実議事録は書かれていなかった
+  2. `mr_extractFromGmail_` が p11 (BWE) の `reportEmails` で会議日 ±1日 (5/8〜5/10) の Gmail を検索 → 3 thread 取得:
+     - "お打ち合わせのお願い" (KAMIYA Koji ↔ 鮫島昌弘、CX の CEO 候補打合わせ)
+     - "新メンバー「あき」着任" (神谷PJ メンバーへの末永氏アナウンス)
+     - "【CryoX】量子冷却技術に関する調査アップデート（末永）"
+  3. すべて CX の打ち合わせメール。BWE.reportEmails にヒットした理由は **NIMS 関係者 6 人** (`MATSUMOTO.Shinsuke@nims.go.jp` 等) が登録されており、CX の打ち合わせメールに NIMS 関係者が CC されると `(from:X OR to:X)` フィルタを通過するため
+  4. LLM プロンプト (v2) には会議タイトル / PJ 名 / 日付が一切渡らず、`projectId: p11` という符号のみ。「これは BWE 株主総会で、CX/NIMS の話は別 PJ」を判別する材料がなかった
+  5. → LLM が Gmail 3 thread の内容を「BWE 株主総会の議事録」として真面目に抽出し、4 軸すべて CX 内容で埋めた
+- **解決策 (v3 化、再発防止)**:
+  - **(A) LLM プロンプト v3 (`gas/092_AdminLLMExtractors.js` `meeting_extract_basePrompt_` + Protocol Store version `260509_03`)**:
+    - 入力構造に `=== meeting_meta ===` セクション (projectId / projectName / meetingTitle / meetingDate / ym / sourceKinds) を冒頭追加し「これが**唯一の正解**」と明示
+    - 「🚨 最重要ルール: 対象 PJ と無関係な内容は完全に無視する」を強調。NIMS / 大学 / 大企業など複数 PJ 重複組織の cc 経由混入の実例 (BWE/CX の事故そのもの) をプロンプトに明記
+    - 関連が無ければ「対象 PJ に関連する議事録が確認できず」と書いて配列は空 [] を返せ、と命令
+  - **(B) `gas/074_MeetingSummaryRepo.js`**:
+    - 定数 `MEETING_EXTRACT_PROMPT_VERSION = "v3"` 追加
+    - userPrompt に meeting_meta セクションを追加 (projectName は新 helper `_meeting_resolveProjectName_` で resolve、`mr_gmail_getProjectInfo_` の DB_Projects 経由)
+    - `source_hash` 計算に prompt version を **混ぜる**: `sha256("prompt=v3\n" + combinedText)` → prompt 改訂で全行再抽出される
+    - `nav_meeting_extractForProjectYm_` / `nav_meeting_processOneEvent_` 双方で適用
+  - **(C) debug 関数 `gas/157_MeetingDebugInspector.js` 新規**:
+    - `debug_meeting_inspectEvent(eventId, projectId)` で Notion 本文 + Gmail thread の subject/from/body 抜粋を返す。今後の汚染調査用に常設
+  - **(D) 検算済**: BWE 5/9 event を `nav_meeting_processOneEvent_` で再抽出 → 4 軸すべて空 `[]`、`summary_short = "BWE臨時株主総会に関する具体的な議事録や関連情報は確認できませんでした。"` で上書き成功
+- **教訓**:
+  - **LLM に対象を判別させるなら、対象のメタ情報を必ずプロンプトに明示する**。`projectId: p11` のような符号だけ渡しても LLM は「p11 が BWE か CX か」分からない。`projectName` / `meetingTitle` / `meetingDate` は必須メタ
+  - **メアドフィルタは内容フィルタではない**。`reportEmails` の OR フィルタは to/from ヒットだけで集めるので、複数 PJ 重複組織 (NIMS / 大学 / 大企業) の人を登録すると別 PJ メールが流入する。**運用ルール**: reportEmails には PJ 専属の人だけ登録するのが理想。重複組織の人を登録するなら LLM 側でフィルタする責務を持つ
+  - **prompt version を source_hash に混ぜる**設計は、prompt 改訂時の自動再抽出 (差分検知だけだと永遠にスキップされる) を保証する。今後の MTGサマリ系 prompt 変更時もこのパターンに従う
+  - **debug 関数を常設しておく**(`debug_meeting_inspectEvent`)。汚染が疑われたら 1 コマンドで Notion 本文 + Gmail thread の生テキストを取れる状態にしておくと、原因特定が一瞬で終わる
+  - **修正依頼ループ (l2_feedbacks)** は症状を見つけてからの後処理。**根本原因 (プロンプト + メタ欠落)** と切り分けて、両方で対策する
+
+---
+
+### [GAS] time-trigger 上限 (1 script 20-100 個) を考慮せず ad-hoc trigger 設計してハマった
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み (設計変更)
+- **症状**: MTGサマリ Phase 3 で「会議終了 +60 分にピンポイント発火」を実現するために、calendar event 1 個ごとに `ScriptApp.newTrigger.at(date)` で個別 time-trigger を作成する設計を実装。3 個 set した時点で `nav_meeting_setupHourlyScheduleTrigger_` が「このスクリプトに含まれているトリガーの数が多すぎます」エラーで弾かれた
+- **原因**:
+  - GAS の time-based trigger は **1 script あたり 20-100 個上限**
+  - 本体GAS には既に 17+ 個の cron trigger があった (中には `cron_invoiceSendNudge_` が 4 重複してたものも)
+  - そこに 1 週間ぶんの会議数 = 数十個の ad-hoc trigger を追加すれば確実に上限超え
+  - 設計時にこの上限を考慮していなかった
+- **解決策**:
+  - ad-hoc trigger 方式を捨てて **「毎時 0 分の polling cron 1 個」** に切替
+  - cron 内で「過去 60-180 分に終わった events」をスキャンする方式 (`nav_meeting_pollRecentlyEndedEvents`)
+  - 重複処理は Supabase の `source_hash` 差分検知で防ぐ (=何度走らせても OK)
+  - 終了 +60 分ピッタリには発火しないが +60 〜 +180 分のどこかで処理されるので実用上問題なし
+- **教訓**:
+  - GAS で「N 個のものに個別 trigger」設計は **絶対にダメ**。time-trigger は固定数 (= 数個) に抑え、callback 内で対象を loop する設計にする
+  - 既存 trigger 数を `ScriptApp.getProjectTriggers().length` で先に確認するクセ
+  - 重複 trigger (`cron_invoiceSendNudge_` × 4 等) は枠を浪費するので別途整理する (= TODO)
+
+---
+
+### [GAS] Web App curl 経由実行で `Session.getActiveUser().getEmail()` が空になる
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み
+- **症状**: `nav_meeting_scheduleUpcomingTriggers_` を pwaApi 経由 curl で叩いたら `Error: calendarId empty (Session.getActiveUser().getEmail() returned "")` で失敗。ロジック内で「fallback で実行ユーザーのメール = まさのカレンダー」を取りに行ってたが空が返ってきた
+- **原因**:
+  - GAS Web App は実行モードが「Anyone (anonymous)」な場合、`Session.getActiveUser()` は空を返す
+  - time-trigger 経由 (= deployment owner として実行) なら本来は取れるが、curl/Web App ルートでは取れない
+- **解決策**:
+  - `Session.getEffectiveUser().getEmail()` (= deployment owner = まさ) で代替
+  - Web App 設定が "Execute as: Me" であれば effective user で deployment owner のメールが取れる
+  - 加えて優先順位: 引数 override > CFG_CalendarImport > ScriptProperties.MAIN_CALENDAR_ID > Session.getEffectiveUser、で多段 fallback に
+- **教訓**:
+  - GAS の `Session.getActiveUser()` (実行者) と `Session.getEffectiveUser()` (script owner) の違いを覚える
+  - Web App 経由でテストできるロジックは「引数 override」を実装してテスト容易性を上げる
+  - 環境依存の値 (calendarId など) は ScriptProperties に逃がせる選択肢を作っておく
+
+---
+
+### [運用] worktree 取り違えで main worktree (作業ブランチ外) にコード書き込み事故
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み (リカバリ)
+- **症状**: claude/brave-cohen-15d352 worktree で作業してたつもりが、Edit/Write ツールが `/Users/masa/projects/AMD/amd-os/` (= main worktree) のファイルに書いてしまった。`gas/074_MeetingSummaryRepo.js` の Phase 2 全書き直し / `gas/092_AdminLLMExtractors.js` / `pwa/scripts/migrations/026_pms_phase2_calendar_event.sql` (= 番号 026 が seeds_data_round2 と衝突！)
+- **原因**:
+  - 当セッションの worktree は `/Users/masa/projects/AMD/amd-os/.claude/worktrees/brave-cohen-15d352/` だが、Bash の cwd 操作や Edit パスで `/Users/masa/projects/AMD/amd-os/` (main worktree のルート) を直接指定してしまった
+  - Migration 番号も別 worktree が既に 026 を取ってたが確認せず重複命名
+- **解決策**:
+  - main worktree の変更を brave-cohen worktree に `cp` でコピー、main の方は `git restore` + `rm` で巻き戻し
+  - Migration を 026 → 027 にリネーム (中身の `-- 026:` も書き直し)
+  - DDL apply は `.env.local` が main worktree にしか無いので main worktree から absolute path で実行する形に
+- **教訓**:
+  - worktree 内で作業中は **絶対パスでも worktree 配下を指す** こと。`/Users/masa/projects/AMD/amd-os/.claude/worktrees/<worktree>/` を起点にする習慣
+  - Migration ファイル新規作成時は `ls scripts/migrations/` で **既存の番号を必ず確認** してから命名
+  - `.env.local` が必要な script (= apply_ddl.py) は main worktree 経由で呼ぶ運用パターンを HANDOFF に明記
+
+---
+
+### [GAS] Notion 議事録ページが 1 会議で 2 つ生成される (cron テンプレ + Notion AI 自動生成) → cron 停止して一本化
+
+- **発見日**: 2026-05-09 (BWE 臨時株主総会で cron テンプレ側が拾われて空抽出になる事故が継続発生)
+- **状態**: ✅ 解決済 (cron 停止 + 074 fallback 強化、ただし既存 AI ページ救済は次セッション)
+- **症状**: 1 会議で Notion 議事録 DB に 2 ページ並ぶ:
+  - cron テンプレページ (35997749...): `eventId` プロパティ入り、本文は "Meet（ここで /meet を打つ）" の固定テンプレ 64 字
+  - Notion AI / Meet 連携の自動生成ページ (35b97749...): `eventId` プロパティ空、本文は decided/採決結果まで詳細
+  - `gas/074` の `_meeting_findNotionPageByEventId_` は eventId equals filter なので cron テンプレ側が掴まれて「議事録なし」抽出
+- **原因**:
+  - `gas/CalendarToNotionMinutes.js` の `cron_createMinutesFromCalendar` (実 trigger handler は `run_createMinutes_apply`) が前日 03:00 に「明日分の calendar event について議事録枠を自動生成」して Notion AI と分裂
+  - 当初は Notion AI が議事録 DB にページを作ってくれない前提だったが、最近 Notion AI / Meet 連携が会議終了時に自動でページ生成するようになって (= eventId プロパティが空のまま) 重複に
+- **解決策**:
+  - **(A) cron 停止** (まさ判断): `nav_l2_pruneDuplicateTriggers("run_createMinutes_apply", 0)` で trigger 全削除 (1 → 0 個)
+  - **(B) gas/CalendarToNotionMinutes.js 冒頭に DEPRECATED 警告**: 復活時の注意書き
+  - **(C) gas/074 fallback 強化**: `_meeting_findNotionPageByEventId_` を eventId equals + 同日付 + タイトル contains の 3 段階 fallback に拡張。本文厚いページ優先採用
+  - **(D) prompt v4_alias_meta 化**: meeting_meta セクション (projectId/projectName/meetingTitle/meetingDate) + alias block を userPrompt に追加、source_hash 入力に prompt rev を混ぜて全行再抽出を保証
+  - GAS deploy v1438→v1441
+  - 既存 AI ページ (35b97749...) の救済: title contains fallback でもなぜか Notion API から取れない (integration permission か filter 仕様の問題)。**次セッションで Notion connection の AI page access を確認 + AI page に eventId を後付けする one-time script を実装する** タスクが残る
+- **教訓**:
+  - **複数の自動生成主体が同じ DB に書き込む設計はダメ**。Notion AI が議事録を作る時代に、cron で空テンプレを並行生成すると分裂事故になる
+  - L2_DATA.md / meeting_summaries.md に「議事録の自動生成は Notion AI 一本化、cron テンプレ自動生成は廃止」を明記する (運用ルール)
+  - cron を止める判断は早めに。「念のため作っておく」が事故の元になることがある
+
+---
+
+### [GAS] PJナレッジ抽出で SE に CryoX/神谷 が紛れ込む (上流 monthly_reports の他 PJ 内容汚染)
+
+- **発見日**: 2026-05-09 (まさからの直接指摘「SE のナレッジに CX の情報が入ってる」)
+- **状態**: ✅ 解決済 (gas/155 防御強化 + 汚染レポートを status='invalid' で隔離)
+- **症状**: PWA `/notifications` で「🗂️ SE (202604) PJナレッジ更新 (19 件)」展開すると CryoX/神谷/磁気冷凍/プランB/高砂 など **完全に CX (p20、神谷PJ) の内容**が SE PJ の knowledge として保存されていた (people: 神谷 / org: NIMS / strategy: MOU 先行 など 27 件)
+- **原因**:
+  - **PJナレッジ抽出のバグではなく、その入力ソース monthly_reports (= L2 ①) の汚染**
+  - p10 (SE) 202604 の `draft_content` 全体が CX (CryoX/神谷/磁気冷凍) の内容で書かれていた
+  - p20 (CX) 202604 も同じ CX 内容だが mojibake (= "?" だらけ、charset 失敗)
+  - generated_at は p10 が 2026-04-01T10:31:15、p20 が 11:14:24 (= 約 43 分差で連続)
+  - → **誰か (本リポ外: AMD-Report GAS R313 cron / MMO マシンの Claude Code scheduled task / 手動投入) が 4/1 に CX レポートを書こうとして project_id を p10 と誤紐付け、43 分後に p20 で再書き込みするも mojibake、最初の p10 行は削除されず残った** という事故痕跡
+  - 仮説 A (reportEmails 経由 CX メール混入) は却下: SE.report_emails には CX 関係者は含まれていない
+  - LLM はそれを「SE PJ のレポート」として渡されているので、書かれている CryoX/神谷 を SE のナレッジとして真面目に抽出 → 当然の挙動
+- **解決策**:
+  - **(A) PJナレッジ抽出の防御強化** (`gas/155_L2KnowledgeExtractor.js` `nav_project_knowledge_extractOneForYm_`):
+    - userPrompt 冒頭に `=== project_meta ===` セクション (projectId / projectName / ym) を追加
+    - systemPrompt に「monthly_report が他 PJ 内容で汚染されているケースがある (例: projectName='SE' なのに CryoX/NIMS神谷 が書かれている)。この場合は items: [] を返せ」と明示
+    - source_hash 入力に `pv: "v4_meta_strict"` を混ぜて全行再抽出
+    - これで上流データ汚染があっても LLM が他 PJ 内容を抽出しない二段防御
+  - **(B) status='invalid' フィルタ**:
+    - gas/155 の monthly_reports SELECT に `&status=neq.invalid` 追加 → `status='invalid'` のレポートは cron 入力対象外
+    - 汚染レポートを発見したら `status='invalid'` でマーク → 自動的に再抽出対象外
+  - **(C) データ修復** (= 即時):
+    - p10/202604 monthly_report.status = 'invalid' に PATCH (= 1 行)
+    - p10 source='l2_hourly_extract' な project_knowledge 27 行 DELETE
+    - l2_extract_state (project_knowledge / p10) 2 行 DELETE → 次回 cron で fresh 再抽出
+    - l2_notifications (project_knowledge / p10) 1 行 DELETE
+  - GAS deploy v1447
+- **教訓**:
+  - **L2 抽出の防御は入力データの汚染を前提にする**。monthly_reports が手動 or リポ外 cron で汚染される可能性は常にあるので、抽出側で「project_meta と無関係な内容は抽出 0 件」防御を入れる (= 議事録 v3 化と同じパターン)
+  - **手動投入 / リポ外 cron は project_id 取り違えが起きうる**。書き込み時に `draft_content` の冒頭に projectName を含める運用ルールにすると、後から汚染検出が容易
+  - **次のタスク**: 全 monthly_reports をスキャンして汚染を検出する関数 (= projectName と無関係なキーワード混入を測る) を作る、上流の生成プロセス (R313 / MMO Claude Code task) の調査と修正は別セッション (= 本リポ外)
+  - 同様に汚染している可能性: 他 monthly_reports 全件を探したいときは `draft_content ilike '%キーワード%'` で suspect を出して目視確認
+
+---
+
+### [GAS] member_knowledge 抽出で「きよ」に他人の活動が紐付くカオス (member_activities 列名 4 つ間違い)
+
+- **発見日**: 2026-05-09 (Phase 4 メンバーナレッジ稼働後、まさからの直接指摘)
+- **状態**: ✅ 解決済み (列名修正 + プロンプト強化 + 既存誤データ削除 + force 再抽出で確認)
+- **症状**: PWA `/notifications` で `👤 きよ のメンバーナレッジ更新 (3件)` を展開したら以下が抽出されていた:
+  - episodes: "NIMS 神谷氏との CEO 候補面談を調整、新メンバー末永氏のプロジェクト参画をサポート、プレシードからシリーズ A までの資金調達..."
+  - skills: "資金調達ラウンド別の財務モデル設計、ピッチデック準備、VC 関係構築..."
+  - work_style: "株主総会や資金調達に関する戦略的な打ち合わせに参加..."
+  - **きよ は経営戦略系の活動はしていない事務担当**。BWE (p11) や SX (p21) の会議で議論された他人の活動が「きよ自身の活動」として抽出されていた
+- **原因**:
+  - `gas/155_L2KnowledgeExtractor.js` の `nav_member_knowledge_extractOne_` で `member_activities` テーブルから select する際、列名を 4 つ間違えていた:
+    | 私が書いた | 実スキーマ |
+    |---|---|
+    | `code_name` | **`member_id`** |
+    | `created_at` | **`extracted_at`** |
+    | `activity_text` | **`content_preview`** (or `title`) |
+    | `kind` | **`source`** |
+  - PostgREST は存在しない列で filter すると `42703` エラーで返す → `actsRes.ok = false` → `acts = []` で進行
+  - 結果、本人の活動 0 件 + そのメンバーが PJ メンバーである **全 PJ の会議サマリ** だけが LLM 入力に
+  - きよ の場合 p10/p11/p20/p21 の 4 PJ の会議サマリ全部が入力になり、BWE 臨時株主総会 (= 神谷氏 / 末永氏の話) や SX) int-納品物相談 (= 資金調達ラウンド議論) を「きよの活動」として LLM が誤抽出
+  - 設計時に member_activities の実スキーマを確認せず、HANDOFF の文章 (「member_activities テーブル」) だけ見て想像で書いた
+- **解決策**:
+  1. **列名修正**: `member_id` / `extracted_at` / `title` / `content_preview` / `source` で select + filter に修正。memberId が無いケースは early return (= no_member_id action)
+  2. **プロンプト強化**: 入力テキストを `=== A) 本人の活動ログ ===` (= 自由抽出 OK) と `=== B) PJ 全体の会議サマリ ===` (= **本人が主体として明示されている事項のみ抽出**) で明確に分離。systemPrompt にも「セクション B は本人が主体とは限らない、確証なければ skip」と強調
+  3. **既存誤データ削除**: `member_knowledge WHERE source='l2_hourly_extract'` (12 行) + `l2_extract_state WHERE l2_kind='member_knowledge'` (13 行) + `l2_notifications WHERE l2_kind='member_knowledge'` (2 行) を全 DELETE → 次回 cron で fresh 再抽出
+  4. **検証**: きよ を `force=true` で 1 件再抽出 → 結果 `work_style: "愛媛大学との業務委託契約において、完了報告書や請求書の準備・送付など事務処理..."` (= きよの実業務として正しい)。skills/episodes が出ないのは「確証あるものだけ」の正しい挙動
+  5. GAS deploy v1436 (clasp deploy 実体は @1438)
+- **教訓**:
+  - **新規 cron 実装時は対象テーブルの実スキーマを必ず Supabase 直叩きで確認** (= 列名を想像で書かない)。`curl ".../rest/v1/<table>?limit=1"` で 1 行取れば全列名がわかる
+  - PostgREST の filter 不正列エラーは `.ok = false` で握り潰されると気づきにくい → 開発時は body を Logger.log するクセが欲しい
+  - LLM 抽出系では「**入力ソースの主体性**」が常に焦点。複数ソースを混ぜるなら「これは本人主体」「これは PJ 全体 (本人主体とは限らない)」と LLM に明示分離する
+  - フィードバック (l2_feedbacks) で個別に直すのではなく、**根本の入力ロジックを直す**ことが必要なケース (= まさの「ロジック見直して」が正解)
+
+---
+
+### [GAS] Phase 4 完成時点で cron_invoiceSendNudge_ が 5 重複に増えてた (汎用 prune 関数を追加)
+
+- **発見日**: 2026-05-09 (Phase 4 ⑤④② 一括完了セッション)
+- **状態**: ✅ 解決済み (今回 4 削除、根本原因の重複生成元の整理は別タスク)
+- **症状**: `nav_l2_setupAllL2HourlyTriggers_` を実行したら GAS time-trigger 上限 (1 script 20 個) に達して 2 個目以降の作成が失敗。trigger 一覧確認したら `cron_invoiceSendNudge_` が **5 重複** (前回 brave-cohen セッションでは 4 重複と記録、間で 1 増えた)
+- **原因**:
+  - どこかの cron 内で `ScriptApp.newTrigger("cron_invoiceSendNudge_").timeBased()...create()` が無条件で呼ばれており、既存削除なしで毎回 1 個追加されている
+  - GAS time-trigger 上限 = 20 個 (Workspace アカウントでも上限は変わらない)
+- **解決策**:
+  - 汎用整理関数 `nav_l2_pruneDuplicateTriggers(handlerName, keepCount)` を `gas/155_L2KnowledgeExtractor.js` 末尾に追加
+  - 今回 `cron_invoiceSendNudge_` を keep=1 で 4 削除 → 18 個に減って Phase 4 用 3 trigger を追加できた
+  - 汎用関数なので、将来も「重複 trigger N → keep M 個に整理」を curl 一発でできる
+- **教訓**:
+  - GAS で `newTrigger` を呼ぶ前は **必ず同名 trigger を delete してから create** する。ms_progress / Phase 4 各 setup 関数は既にそのパターンを採用済
+  - 上限事故が起きたら `nav_l2_pruneDuplicateTriggers(handlerName, keepCount)` で即整理可能
+  - **根本原因の重複生成元を特定して止める** タスクが残ってる (= grep で `newTrigger("cron_invoiceSendNudge_"` を find → 既存 delete を入れる)
+
+---
+
+### [AMD OS PWA] Vercel Hobby plan は cron schedule が daily 1 回までという制約
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み (GAS 経由構成で回避)
+- **症状**: Phase 4 ③ MS進捗を毎時化するため `vercel.json` の `crons[].schedule` を `"0 * * * *"` に変更して `npx vercel --prod --yes` したら deploy が即時失敗:
+  ```
+  Error: Hobby accounts are limited to daily cron jobs.
+  This cron expression (0 * * * *) would run more than once per day.
+  Upgrade to the Pro plan to unlock all Cron Jobs features on Vercel.
+  ```
+- **原因**:
+  - Vercel Hobby plan の cron 制約は「**個々の cron schedule が "1 日 1 回まで"**」(回数の制約)。cron **数** の上限ではない
+  - 既存 14 cron は全て daily 1 回未満 (毎日 1 回 / 週 1 / 月 1 等) だったので Hobby のまま動いてた → 「14 cron あるから Pro plan」と誤推測した
+  - cron schedule をチェックしていれば事前に分かった (`0 * * * *` は 1 時間ごと = 1 日 24 回 → NG)
+- **解決策**:
+  - `vercel.json` から `/api/cron/hourly-estimate` を削除 (route 自体は残す)
+  - 本体GAS に `gas/154_PwaCronCaller.js` 新規:
+    - `nav_pwa_pingHourlyEstimate(opts?)` — UrlFetchApp で `${PWA_BASE_URL}/api/cron/hourly-estimate` を `Bearer $CRON_SECRET` で叩く
+    - `nav_pwa_setupHourlyPwaTrigger_()` — 毎時 0 分 time-trigger 設置
+    - `nav_pwa_setProps_(props)` — ScriptProperties (PWA_BASE_URL / CRON_SECRET) を curl 経由で設定
+  - GAS の毎時 trigger が PWA route を叩くことで、Vercel Hobby のままで毎時 polling を実現
+  - Pro 移行後は vercel.json に schedule を戻して GAS trigger を消すだけで切替可能
+- **教訓**:
+  - Vercel plan の制約を確認するときは「cron 数」ではなく「個々の cron schedule の頻度」を必ず見る
+  - Hobby plan で複数回/日 cron が必要なら、GAS / Cloud Scheduler / Lambda 等の外部 trigger から PWA route を `Bearer $CRON_SECRET` で叩く構成にする (route 自体は plan 非依存)
+  - 「設定に阻まれたらまさに設定変更を依頼する」より「自動化で完結する代替案を検討する」を先に考える ([feedback memory] のセットアップ最小化方針に従う)
+
+---
+
+### [AMD OS PWA] PL/PM/クローザー編集で project_members が全部消える (全削除→挿入の副作用)
+
+- **発見日**: 2026-05-08
+- **状態**: ✅ 解決済み
+- **症状**: admin/projects の「PL / PM / クローザー」列「✏️ 編集」で開く `AdminProjectMembersModal` で保存すると、これまでアサインしていた情報が「すべて削除されたように見える」現象。まさが連続で踏んだ
+- **原因**:
+  - `/api/admin/project-members` POST が "全削除→挿入" 方式: `DELETE FROM project_members WHERE project_id=?` → `INSERT` 渡された rows
+  - INSERT する row には `role`, `id`, 既存の `role_label`, `join_ym` などが含まれず、副作用で値がリセットされる (`id` は新 UUID 再生成)
+  - モーダル側でメンバー行が空配列になりうるパス (race / autocomplete blank / silent fetch fail) があると、削除だけ走って挿入 0 件 → 全行消失
+  - HANDOFF 残タスクに「saveProjectMembers 全削除→挿入をやめて incremental update に」が放置されていた
+- **解決策**:
+  - `/api/admin/project-members` (POST) と `AdminProjectMembersModal` を **削除**
+  - **新 API** `/api/admin/project-members/role` 新設: ロール (`pl|pm|closer`) 単位で集合を incremental 更新
+    - 既存行 + 集合外 → `is_<role>=false` に UPDATE (行は残す)
+    - 既存行 + 集合内 → `is_<role>=true` に UPDATE
+    - 行なし + 集合内 → 新規行 INSERT (`is_<role>=true`、他フラグ false)
+    - **他のフラグ・他のメンバー行・他の列 (role / role_label / join_ym / id) は一切触らない**
+  - **新モーダル** `AdminProjectRoleEditModal`: ロール 1 つだけのチェックリスト + 「修正」ボタン
+  - admin/projects テーブルの「PL / PM / クローザー」列を 3 列に分割、列セルクリックで該当ロール用モーダル
+  - `lib/project-config-data.ts` の `saveProjectMembers` 関数を削除 (`MemberInput` 型は ProjectConfigForm の dead code が依存しているため互換目的で残す)
+  - テーブル `min-width: 1200px → 1600px` に拡張 (列増分の横スクロール許容)
+- **教訓**:
+  - 「全削除→挿入」は同テーブルの他列を巻き込んで破壊する。incremental update が原則
+  - 「all-or-nothing」型の API は、UI 側のどんな race / blank state でも全消失を引き起こす。書き込みは「触る列だけ更新」「触らない列は読まない」で書く
+  - HANDOFF 残タスクで「再発防止」が書かれていたら優先度を上げる。同じ事故が起きた
+
+---
+
 ### [AMD OS PWA] member_activities が UUID 型 + source check 制約で cron が空のまま (連鎖 3 件)
 
 - **発見日**: 2026-05-08
@@ -303,3 +571,90 @@
   - `--yes` を使うときは事前に `cat .vercel/project.json` で対象プロジェクトを必ず確認する。空なら新プロジェクトが作られる
   - 「全ルート 404」事故と同型: `--cwd` が想定と違うパスを指すと、誤った場所にデプロイされる
 
+
+---
+
+### [AMD OS PWA] 報告会日程調整の予約完了がタスクに反映されない
+
+- **発見日**: 2026-05-08
+- **状態**: ✅ 解決済み
+- **症状**: CockpitRoutineMeetingModal で日程予約しても、月次ルーティンの「報告会日程調整」が done にならない。再オープン時も「日程選択」UI が出て、予約完了状態にならない
+- **原因**: `CockpitView.cockpit.billingCycles` が SSR fetch のスナップショットで、Edge Function `schedule-meeting` が `billing_cycles.meeting_event_id` / `meeting_start_at` を upsert した後も親の状態は古いまま。`isDone = !!cycle?.meetingEventId || !!cycle?.meetingStartAt` がずっと false
+- **解決策**: モーダル成功時に `router.refresh()` で親 (cockpit page サーバーコンポーネント) を再フェッチ。即時 UI フィードバックは `localConfirmedISO` で予約直後すぐ「予約完了」表示に切替。自動 close (1.3秒) は削除して、ユーザーが完了画面を確認してから閉じる流れに
+- **教訓**:
+  - Next.js App Router の SSR fetch スナップショットは Client Component から能動的にしか reload できない。サーバー側を変えた直後は `router.refresh()` をセットで呼ぶ
+  - 即時 UI フィードバックと「正規データの再フェッチ」を**両方**セットでやらないと、ユーザーが「効いてないように見える」体験になる
+  - 「自動 close + サーバー反映待ち」は race condition の温床。完了画面で意図的に止める方が事故率低い
+
+---
+
+### [AMD OS PWA / GAS] ScriptProperties キー名を推測で書いて事故 (`SUPABASE_SERVICE_ROLE_KEY` ≠ `SUPABASE_SERVICE_KEY`)
+
+- **発見日**: 2026-05-08
+- **状態**: ✅ 解決済み
+- **症状**: 新規 GAS Supabase client が「`SUPABASE_SERVICE_ROLE_KEY` missing in ScriptProperties」と起動時エラー。まさから「もう入ってる、SUPABASE_SERVICE_KEY という名前で」と指摘されて発覚
+- **原因**: PWA 側の `.env.local` が `SUPABASE_SERVICE_ROLE_KEY` という名前なのに引きずられて、GAS の ScriptProperties も同じ名前と推測してハードコード。GAS 側の正しい名前は `SUPABASE_SERVICE_KEY` (`_ROLE` 無し)
+- **解決策**:
+  1. `gas/180_SupabaseClient.js` の参照を `SUPABASE_SERVICE_KEY` に修正
+  2. `gas/099_PwaApi.js` に `listProps` admin action を追加して、現状の ScriptProperties キー一覧を Web App 経由で取得できるようにした
+  3. `pwa/design/L2_DATA.md` 新設 + 6 入口に導線追加で「次のえいみは推測しなくて済む」状態に
+- **教訓**:
+  - **`gas/CLAUDE.md` ルール9「ScriptPropertiesキー名は推測しない」を破った**。同じ過ちを繰り返さない
+  - キー名の正本リストが md に無いと推測事故が起きる → 今後は新キーを追加したら必ず L2_DATA.md or 該当 spec md に記録する
+  - 不明なキー名は `listProps` action (`?action=listProps`) で確認可能、ハードコード前に必ず叩く
+
+---
+
+### [AMD OS PWA / GAS] Gemini モデル名 `gemini-2.0-flash` が 404 (新規ユーザー利用不可で廃止)
+
+- **発見日**: 2026-05-08
+- **状態**: ✅ 解決済み
+- **症状**: `_meeting_extractWithLLM_` で全議事録の Gemini 抽出が `Gemini API 404: This model models/gemini-2.0-flash is no longer available to new users` で失敗
+- **原因**: 私の知識カットオフでは gemini-2.0-flash が現役だったが、Google が新規ユーザー向けには廃止していた
+- **解決策**: `gemini-2.5-flash` に変更 (LlmRouter デフォルト + DB_LlmModelConfig の meeting_extract レコード + 074_MeetingSummaryRepo.js の generated_by_model)
+- **教訓**:
+  - LLM のモデル名は知識カットオフを超えて変わるので、ハードコードしたら必ず DB_LlmModelConfig の usageKey 経由で差し替え可能にしておく
+  - 失敗時のエラーメッセージに「This model X is no longer available」が含まれていれば即モデル名更新の判断ができる
+
+---
+
+### [AMD OS PWA / GAS] PostgREST `in.(...)` で URL 長制限超過 (UrlFetchApp 落ち)
+
+- **発見日**: 2026-05-08
+- **状態**: ✅ 解決済み
+- **症状**: `nav_meeting_extractForProjectYm_` 実行時に「Exception: 上限を超えています: URLFetch URL の長さ」で落ちる
+- **原因**: `_meeting_loadExistingByIds_` で議事録 ID (UUID 36 文字) を全件 `meeting_id=in.("uuid1","uuid2",...)` に詰めて URL に含めていた。1 PJ 27 件 × ~50 文字 で URL 長制限超え
+- **解決策**: `_meeting_loadExistingForProjectYm_(projectId, ymKey)` に置き換え。`project_id=eq.X&ym=eq.Y` で取得して meeting_id を Map 化
+- **教訓**:
+  - PostgREST `in.()` は ID 数が多くなると URL 長制限に引っかかる。**インデックスがあるなら別のフィルタで絞ってから取得する方が安全**
+  - GAS の UrlFetchApp は URL 長制限が厳しい (~2KB?)。fetch 系の URL は短く保つのを基本に
+
+---
+
+### [AMD OS PWA] migration の RLS policy を `TO authenticated` だけにすると anon key で読めない
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み
+- **症状**: PWA Cockpit の MTGサマリ枠が「直近1年データなし」のまま。Supabase には 7 行入ってるのに表示されない
+- **原因**: migration 024 で `CREATE POLICY ... TO authenticated USING (true)` だけにしていた。`pwa/src/lib/supabase-data.ts` の冒頭コメント通り「PWA は anon key で read-only」なので、anon が SELECT 出来なくて空配列が返ってた
+- **解決策**: migration 025 で `DROP POLICY ... CREATE POLICY ... TO anon, authenticated USING (true)` に修正
+- **教訓**:
+  - 新規テーブル + RLS を作るときは **PWA の readクライアントが anon か authenticated か** を必ず先に確認する。`pwa/src/lib/supabase-data.ts` のコメントが正本
+  - 「anon でも read-only」は AMD OS の標準パターン (書き込みは service_role 経由)。`TO anon, authenticated` で SELECT、書き込みは policy 無し (service_role が RLS バイパス)
+
+---
+
+### [AMD OS PWA / GAS] GAS Web App 6 分実行制限 (議事録1件 ~60秒で大量バックフィル不可)
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 緩和 (maxItems=8 で対応)
+- **症状**: `nav_meeting_extractForProjectYm_` を SX 1 PJ × 1 ym で実行すると 6 分超えて Web App が「起動時間の最大値を超えました」エラー HTML を返す
+- **原因**: 議事録 1 件あたり Notion API call (本文取得 + relation page title 解決) + Gemini API call で平均 60 秒。27 件処理しようとして 6 分超え
+- **解決策**:
+  - `maxItems` パラメータ (default 8) を追加して 1 関数呼び出し当たりの LLM コール数を制限
+  - `hasMore: true` を返して、上位ループで同関数を繰り返し呼ぶことで全件処理
+  - source_hash で変更なし議事録は LLM 呼ばずスキップする差分検知ロジックも維持
+- **教訓**:
+  - GAS Web App の同期実行は 6 分制限。それ以上かかる処理は必ずバッチ分割する設計にする
+  - daily cron (`nav_cronMonthlyExtractAt3`) は実行制限が緩い (6分超えても trigger 単独だと 30 分まで OK な場合あり) が、Web App 経由の手動 trigger は厳格に 6 分
+  - LLM コールが遅い理由は別途調査の余地 (Notion API 直列が時間食ってる可能性、並列化検討)

@@ -348,6 +348,7 @@ export interface NextPlanCycleInput {
 }
 
 export interface NextMilestoneInput {
+  milestoneId?: string;
   title: string;
   points: number;
   tag: "normal" | "routine" | "buffer";
@@ -396,27 +397,16 @@ export async function upsertNextMilestones(
 ): Promise<boolean> {
   const authClient = getAuthClient();
 
-  // FK制約のため、子テーブル（responsibility / sub_items）を先に削除
   const { data: existingMs } = await authClient
     .from("value_milestones")
     .select("milestone_id")
     .eq("plan_cycle_id", planCycleId);
   const existingIds = (existingMs || []).map((m) => m.milestone_id);
-  if (existingIds.length > 0) {
-    await authClient.from("milestone_responsibility").delete().in("milestone_id", existingIds);
-    await authClient.from("milestone_sub_items").delete().in("milestone_id", existingIds);
-  }
-
-  // 既存のマイルストーンを削除してから再挿入
-  await authClient
-    .from("value_milestones")
-    .delete()
-    .eq("plan_cycle_id", planCycleId);
 
   if (milestones.length === 0) return true;
 
   const rows = milestones.map((ms, idx) => ({
-    milestone_id: `MS-${planCycleId}-${idx + 1}`,
+    milestone_id: ms.milestoneId || `MS-${planCycleId}-${idx + 1}`,
     plan_cycle_id: planCycleId,
     title: ms.title,
     points: ms.points,
@@ -426,10 +416,19 @@ export async function upsertNextMilestones(
     success_criteria: ms.successCriteria || null,
     sort_order: ms.sortOrder,
   }));
+  const nextIds = rows.map((r) => r.milestone_id);
+
+  // 編集モーダルでは既存のMS IDを維持する。削除されたMSだけ子テーブルごと消す。
+  const removedIds = existingIds.filter((id) => !nextIds.includes(id));
+  if (removedIds.length > 0) {
+    await authClient.from("milestone_responsibility").delete().in("milestone_id", removedIds);
+    await authClient.from("milestone_sub_items").delete().in("milestone_id", removedIds);
+    await authClient.from("value_milestones").delete().in("milestone_id", removedIds);
+  }
 
   const { error } = await authClient
     .from("value_milestones")
-    .insert(rows);
+    .upsert(rows, { onConflict: "milestone_id" });
 
   if (error) {
     console.error("upsertNextMilestones:", error.message);
@@ -448,6 +447,7 @@ export async function fetchMilestonesForPlanCycle(
     .from("value_milestones")
     .select("*")
     .eq("plan_cycle_id", planCycleId)
+    .eq("is_active", true)
     .order("sort_order");
 
   if (error) {
@@ -1397,6 +1397,78 @@ export async function fetchSourceCache(
 }
 
 // ============================================================
+// Project Meeting Summaries (各回 MTG サマリ)
+// 仕様: pwa/design/meeting_summaries.md
+// ============================================================
+
+export interface ProjectMeetingSummary {
+  meetingId: string;
+  projectId: string;
+  ym: string;
+  meetingDate: string;            // "YYYY-MM-DD"
+  meetingStartAt: string | null;
+  title: string;
+  notionUrl: string | null;
+  calendarEventId: string | null;
+  summaryShort: string;
+  decided: string[];
+  progress: string[];
+  nextActions: string[];
+  risks: string[];
+  generatedAt: string;
+  generatedByModel: string | null;
+  sourceKinds: string | null;     // 'notion' | 'gmail' | 'notion+gmail' | 'none' (Phase 2 027)
+}
+
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => (typeof x === "string" ? x : String(x ?? ""))).filter((s) => s.length > 0);
+}
+
+/**
+ * project_meeting_summaries: PJ × MTG サマリを meeting_date DESC で取得
+ * - sinceDate: "YYYY-MM-DD" 以降のみ (省略で全期間)
+ */
+export async function fetchProjectMeetingSummaries(
+  projectId: string,
+  opts?: { sinceDate?: string; limit?: number }
+): Promise<ProjectMeetingSummary[]> {
+  let query = supabase
+    .from("project_meeting_summaries")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("meeting_date", { ascending: false });
+
+  if (opts?.sinceDate) query = query.gte("meeting_date", opts.sinceDate);
+  if (opts?.limit) query = query.limit(opts.limit);
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("fetchProjectMeetingSummaries:", error.message);
+    return [];
+  }
+
+  return (data || []).map((r) => ({
+    meetingId: r.meeting_id,
+    projectId: r.project_id,
+    ym: r.ym || "",
+    meetingDate: r.meeting_date,
+    meetingStartAt: r.meeting_start_at,
+    title: r.title || "",
+    notionUrl: r.notion_url,
+    calendarEventId: r.calendar_event_id,
+    summaryShort: r.summary_short || "",
+    decided: asStringArray(r.decided),
+    progress: asStringArray(r.progress),
+    nextActions: asStringArray(r.next_actions),
+    risks: asStringArray(r.risks),
+    generatedAt: r.generated_at,
+    generatedByModel: r.generated_by_model,
+    sourceKinds: r.source_kinds ?? null,
+  }));
+}
+
+// ============================================================
 // データ取得関数
 // ============================================================
 
@@ -1548,10 +1620,15 @@ export async function fetchCockpitFromSupabase(
     periodEndYm: pc.period_end_ym,
   }));
 
-  // 現在の期間: currentYmが start〜end に含まれるもの。該当なければnull（過去扱い）
+  // 現在の期間: currentYmが start〜end に含まれるもの。
+  // 該当がない場合は、次に始まるcycleをトップ表示に使う。
+  // 例: 5月中に6-9月のMSを先に設定した場合、コックピットで設定済みMSを確認できるようにする。
   let planCycle: PlanCycle | null = allPlanCycles.find(
     (pc) => currentYm >= pc.periodStartYm && currentYm <= pc.periodEndYm
-  ) ?? null;
+  ) ?? allPlanCycles
+    .filter((pc) => currentYm < pc.periodStartYm)
+    .sort((a, b) => a.periodStartYm.localeCompare(b.periodStartYm))[0]
+    ?? null;
 
   const pastPlanCycleRaws = allPlanCycles.filter((pc) => pc.planCycleId !== planCycle?.planCycleId);
 

@@ -133,6 +133,20 @@ Cloud RunでSlackの3秒タイムアウトを回避し、GASに非同期転送�
 
 ---
 
+## クロスプラットフォーム機能の正本仕様 (PWA / Supabase 横断)
+
+GAS は外部サービスから Supabase へデータを供給するハブ役。Supabase スキーマや PWA 表示と密に絡む機能の仕様は PWA 側 `pwa/design/` 配下に正本がある。GAS 側で改修する前に必ず読む。
+
+| 機能 | 正本 md | GAS 側責務 |
+|---|---|---|
+| **AMD OS 中核データ正本 (L2 + cron)** ⭐⭐⭐ | [`pwa/design/L2_DATA.md`](../pwa/design/L2_DATA.md) | **データに触る GAS 作業の前に必ず読む**。L2 6 種 / 全 cron / 動作状況の正本 |
+| **MTG サマリ** (各回 decided/progress/nextActions/risks) | [`pwa/design/meeting_summaries.md`](../pwa/design/meeting_summaries.md) | **Phase 3 (毎時 polling)**: 153 が 60-180 分前に終わった events を毎時スキャン → 074 で Notion + Gmail 結合 → Gemini → Supabase `project_meeting_summaries` upsert (source_hash 差分検知) → 拾えれば `meeting_notifications` に upsert (iOS Swift APNs 連携)。Phase 2 月単位 fallback は 152 が 03:00 daily で実行 |
+| **iOS APNs 通知** (議事録拾い時) | [`ios/HANDOFF_meeting_notifications.md`](../ios/HANDOFF_meeting_notifications.md) | Supabase `meeting_notifications` テーブルに upsert する役。Swift 側が notified_at IS NULL を polling/realtime sub で受信 → APNs 送信 → notified_at = now() に UPDATE |
+
+新規にクロスプラットフォーム機能を追加するときも `pwa/design/` に正本を作り、ここに行を追加する。
+
+---
+
 ## 主要ファイルマップ（本体GAS）
 
 | ファイル | 役割 |
@@ -147,12 +161,21 @@ Cloud RunでSlackの3秒タイムアウトを回避し、GASに非同期転送�
 | `060_RewardV2_Estimator.gs` | LLM進捗推定 |
 | `068_CockpitNudgeQueue_Api.gs` | ナッジキュー |
 | `069_SubItemRepo.gs` | DB_MilestoneSubItems CRUD |
+| `074_MeetingSummaryRepo.js` | **MTGサマリ Phase 2/3 抽出ロジック** (1 PJ × 1 ym + 1 event 単位)。`nav_meeting_extractForProjectYm_` / `nav_meeting_processOneEvent_`。仕様 `pwa/design/meeting_summaries.md` |
 | `086_ValuePlanRepo.gs` | DB_ValueMilestones CRUD |
+| `092_AdminLLMExtractors.js` | Protocol Store の LLM プロンプト install 関数 (`run_installMeetingExtractorConfig` 等) |
 | `097_BillingBudget_Repo.gs` | 請求額申告Repo |
 | `098_BillingBudget_Api.gs` | 請求額申告API |
+| `099_PwaApi.js` | PWA から GAS 関数を curl で叩くための Web App エンドポイント (listProps / runFunc) |
+| `122_NotionBlocksRepo.js` | Notion ページ本文 (blocks) を rich_text として取得 |
+| `152_NavigatorCron.js` | 03:00 daily cron (`nav_cronMonthlyExtractAt3`)。MTGサマリ Phase 2 月単位 fallback もここから呼ぶ |
+| `153_MeetingHourlyTrigger.js` | **MTGサマリ Phase 3 毎時 polling cron** (`nav_meeting_pollRecentlyEndedEvents`) + setup (`nav_meeting_setupHourlyPollTrigger_`) |
 | `163_LlmRouter.gs` | LLM呼び出し共通ルーター |
 | `172_TsukuyomiContextRepo.gs` | DB_TsukuyomiContext読み書き |
+| `180_SupabaseClient.js` | Supabase REST 共通クライアント (`supa_upsert` / `supa_select`、service_role 権限) |
 | `313_MsProgressSummary_Cron.gs` | 毎日5:30のMS進捗サマリ更新cron |
+| `CalendarToNotionMinutes.js` | 毎日 03:00 で「明日分の calendar event について Notion 議事録枠を自動生成」する cron (`cron_createMinutesFromCalendar`)。Phase 3 の上流 |
+| `CalendarPJResolver.js` | CFG_ColorPJHistory + CFG_PJAlias で calendar event → PJ 判定 |
 
 ### Cockpit HTMLファイル（500番台）
 
@@ -228,6 +251,99 @@ Cloud RunでSlackの3秒タイムアウトを回避し、GASに非同期転送�
 - 本体WebアプリURL: `ScriptProperties['WEBAPP_BASE_URL']`
 - AdminページURL: `ScriptProperties['ADMIN_WEBAPP_URL']`
 - `ScriptApp.getService().getUrl()` は使用禁止（デプロイごとにURLが変わる）
+
+---
+
+## ScriptProperties 正本リスト (本体 GAS)
+
+**えいみへ**: ルール 9「キー名は推測しない」遵守。ここに無いキーを使うときは推測せず、まず以下の手順で listProps を叩いて確認する。
+
+最終確認日: 2026-05-08 (リストは `?action=listProps` で随時取得可能)。
+
+| キー | 用途 |
+|---|---|
+| `ANTHROPIC_API_KEY` | Claude (Anthropic) API |
+| `OPENAI_API_KEY` / `OPENAI_MODEL` | OpenAI API |
+| `GEMINI_API_KEY` | Gemini (Google AI Studio) API ← MTG サマリ抽出 (2026-05-08 追加) |
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SERVICE_KEY` | Supabase service_role secret (※ `_ROLE_KEY` ではない) |
+| `NOTION_TOKEN` / `NOTION_DATABASE_ID` / `NOTION_PJ_DATABASE_ID` | Notion API + 議事録 DB / PJ DB |
+| `NOTION_LAST_SYNC_ISO` | Notion 同期 last cursor |
+| `MAIN_SPREADSHEET_ID` (※未確認) / `NAVIGATOR_SPREADSHEET_ID` / `NAVIGATOR_STORE_SPREADSHEET_ID` / `PROTOCOL_STORE_SPREADSHEET_ID` / `DEV_SHEET_ID` / `COLOR_PJ_CONFIG_SPREADSHEET_ID` | スプシ ID 各種 |
+| `WEBAPP_BASE_URL` / `ADMIN_WEBAPP_URL` | Web App URL |
+| `FREEE_*` (CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN, REFRESH_TOKEN, ACCESS_TOKEN_EXPIRES_AT, COMPANY_ID, INVOICE_FOLDER_ID) | freee API |
+| `SLACK_BOT_TOKEN` / `SLACK_TSUKUYOMI_BOT_TOKEN` / `SLACK_TSUKUYOMI_BOT_USER_ID` / `SLACK_ADMIN_CHANNEL_ID` / `SLACK_ACTIVITY_CHANNELS` / `SLACK_INTERACTIVE_QUEUE_JSON` | Slack API |
+| `MAIN_CALENDAR_ID` | (任意) MTG サマリ Phase 3 毎時 polling 用 calendar id override。本番 cron では Session.getEffectiveUser で取れるので未設定でも OK (2026-05-09 追加) |
+| `MEETING_PENDING_TRIGGERS` | (廃) Phase 3 ad-hoc trigger 試作時の名残 (現在は使用してない、polling 方式に切替) |
+| `MONTHLY_REPORT_SLIDE_TEMPLATE_ID` | 月次レポート slide テンプレ |
+| `PAYOUT_*` (LOGOTYPE_FILE_ID, LOGO_FILE_ID, NOTICE_TEMPLATE_SLIDES_ID, PREVIEW_FOLDER_ID) | 支払通知書 |
+| `REIMBURSE_NOTIFY_QUEUE_JSON` | 立替精算通知キュー |
+| `DEV_EXPORT_DOC_ID` | dev export Doc |
+| `_BACKFILL_SLACK_POINTER` | Slack バックフィル進捗 cursor |
+
+新規キーを追加するときはこの表を更新する。
+
+---
+
+## GAS 関数を CLI/curl から実行する手順 (えいみ用)
+
+`clasp run` は Cloud Project mismatch でうまく動かない。代わりに **Web App pwaApi の `runFunc` action** で任意関数を実行できる仕組みを `099_PwaApi.js` に組み込み済み (2026-05-08)。
+
+### 1. コード反映 (clasp push + deployment update)
+
+```bash
+cd /Users/masa/projects/AMD/amd-os/gas   # または worktree の gas/
+npx --yes @google/clasp@latest push --force
+npx --yes @google/clasp@latest deploy \
+  --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G \
+  --description "v<NNNN>_<short_desc>"
+```
+
+`--deploymentId` は **PWA が叩いてる本番 deployment** (`amd-os-pwa` の `NEXT_PUBLIC_GAS_WEBAPP_URL` で使用中)。これを update することで `/exec` が新コードを serve するようになる。
+
+### 2. 関数を呼ぶ (curl / GET only)
+
+```bash
+URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | cut -d= -f2- | tr -d '"')
+KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | cut -d= -f2- | tr -d '"')
+
+# 引数なし
+curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=run_installMeetingExtractorConfig"
+
+# 引数あり (JSON 配列を URL encode)
+ARGS=$(node -e 'console.log(encodeURIComponent(JSON.stringify(["p21","202604"])))')
+curl -sL --max-time 360 \
+  "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_meeting_extractForProjectYm_&args=$ARGS"
+```
+
+レスポンスは `{ok, data: {fn, ms, result}}` の JSON。
+
+### 3. ScriptProperties キー一覧を取る
+
+```bash
+curl -sL "$URL?mode=pwaApi&key=$KEY&action=listProps"
+# → {"ok":true,"data":{"keys":[...], "count": N}}
+```
+
+値は伏せる仕様 (key 名のみ)。値を直接見たいときは GAS Editor の「プロジェクトの設定」を使う。
+
+### 4. ScriptProperties に値をセット
+
+`oneTime_setScriptProperty(name, value)` (180_SupabaseClient.js) を runFunc で呼ぶ。値は伏せて返却。
+
+```bash
+ARGS=$(node -e 'console.log(encodeURIComponent(JSON.stringify(["GEMINI_API_KEY","<key>"])))')
+curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=oneTime_setScriptProperty&args=$ARGS"
+```
+
+### 5. 制約
+
+- **GAS Web App 実行制限 6 分**。1 関数呼び出しでこれを超えないこと。
+- 長い処理は `maxItems` などのバッチ制限を入れて、bash ループ等で外側から繰り返し叩く。
+- POST は doPost が未実装で 404 → GET のみ。値が長い場合は base64 等で encode。
+- 認証は `NEXT_PUBLIC_GAS_API_KEY` (= `PWA_API_KEY`) のみ。漏れると任意関数を実行されるため、キー漏洩には特に注意。
+
+詳細は `099_PwaApi.js` の `pwaApi_handle_` 内 `listProps` / `runFunc` 分岐参照。
 
 ---
 

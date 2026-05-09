@@ -25,6 +25,22 @@ function getAuthClient() {
   return createBrowserSupabase();
 }
 
+/** Triple Helix μ_A/I/G の評価根拠 (各軸ごとに自由記述)。 */
+export interface MuNotes {
+  a?: string | null;
+  i?: string | null;
+  g?: string | null;
+}
+
+/** 5 XRL の評価根拠 (各軸ごとに自由記述、内閣府 SIP 9 段階定義に対する position 説明)。 */
+export interface XrlNotes {
+  trl?: string | null;
+  brl?: string | null;
+  grl?: string | null;
+  srl?: string | null;
+  hrl?: string | null;
+}
+
 export interface AmdScoreInputRow {
   id: string;
   project_id: string;
@@ -44,6 +60,9 @@ export interface AmdScoreInputRow {
   alq_balanced_processing: number | null;
   alq_internalized_moral: number | null;
   frl_notes: string | null;
+  // 各軸の評価根拠 (2026-05-09 追加)
+  mu_notes: MuNotes | null;
+  xrl_notes: XrlNotes | null;
   shallow_tech_mode: boolean;
   evaluator: string | null;
   notes: string | null;
@@ -58,7 +77,7 @@ export interface AmdScoreAlphaRow {
 }
 
 const INPUT_COLUMNS =
-  "id, project_id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_notes, shallow_tech_mode, evaluator, notes";
+  "id, project_id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, evaluator, notes";
 
 type RawInputRow = {
   id: string;
@@ -78,6 +97,8 @@ type RawInputRow = {
   alq_balanced_processing: number | null;
   alq_internalized_moral: number | null;
   frl_notes: string | null;
+  mu_notes: MuNotes | null;
+  xrl_notes: XrlNotes | null;
   shallow_tech_mode: boolean;
   evaluator: string | null;
   notes: string | null;
@@ -102,6 +123,8 @@ function flattenInput(r: RawInputRow): AmdScoreInputRow {
     alq_balanced_processing: r.alq_balanced_processing,
     alq_internalized_moral: r.alq_internalized_moral,
     frl_notes: r.frl_notes,
+    mu_notes: r.mu_notes ?? null,
+    xrl_notes: r.xrl_notes ?? null,
     shallow_tech_mode: r.shallow_tech_mode,
     evaluator: r.evaluator,
     notes: r.notes,
@@ -154,6 +177,8 @@ export interface AmdScoreInputUpsert {
   alq_balanced_processing?: number | null;
   alq_internalized_moral?: number | null;
   frl_notes?: string | null;
+  mu_notes?: MuNotes | null;
+  xrl_notes?: XrlNotes | null;
   shallow_tech_mode: boolean;
   evaluator?: string | null;
   notes?: string | null;
@@ -181,6 +206,8 @@ export async function upsertAmdScoreInput(
     alq_balanced_processing: input.alq_balanced_processing ?? null,
     alq_internalized_moral: input.alq_internalized_moral ?? null,
     frl_notes: input.frl_notes ?? null,
+    mu_notes: input.mu_notes ?? null,
+    xrl_notes: input.xrl_notes ?? null,
     shallow_tech_mode: input.shallow_tech_mode,
     evaluator: input.evaluator ?? null,
     notes: input.notes ?? null,

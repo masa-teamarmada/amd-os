@@ -114,7 +114,7 @@ K     = 100,000 / 10^Σα   (全軸 9 で IPO 級 100,000 に校正)
 ## XRL / AMD Score
 - record_xrl_feedback(axis?, feedback): TRL/BRL/GRL/SRL/HRL の修正依頼を記録 (cron / 個別 API で再評価)
 - add_xrl_observation(observed_at, trl?/brl?/grl?/srl?/hrl?, milestone_label?, source_note?): 新しい XRL 観測を project_xrl_log に追加
-- update_amd_score_input(evaluated_at?, mu_A?/mu_I?/mu_G?/trl?/brl?/grl?/srl?/hrl?/frl?/alq_*?/frl_notes?, shallow_tech_mode?, notes?): AMD Score の 7 軸入力を upsert
+- update_amd_score_input(evaluated_at?, mu_A/I/G?/trl/brl/grl/srl/hrl?/frl?/alq_*?/frl_notes?/mu_notes_a/i/g?/xrl_notes_trl/brl/grl/srl/hrl?, shallow_tech_mode?, notes?): AMD Score の 7 軸入力 + 各軸の評価根拠 notes を upsert (値だけでなく必ず根拠も書く)
 - update_amd_score_alpha(alpha, notes?): 重み α を新版で保存 (前版を closeする)
 
 ## 沿革を駆動するイベント
@@ -207,7 +207,7 @@ async function loadProjectContext(
     supabase.from("project_xrl_log").select("observed_at, trl, brl, grl, srl, hrl, bottleneck, milestone_label, source_note, source").eq("project_id", projectId).order("observed_at", { ascending: true }),
     supabase.from("project_pl_monthly").select("ym, revenue_yen, cogs_yen, personnel_yen, rd_yen, marketing_yen, other_opex_yen, notes").eq("project_id", projectId).order("ym", { ascending: true }),
     supabase.from("amd_score_inputs")
-      .select("id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_notes, shallow_tech_mode, evaluator, notes")
+      .select("id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, evaluator, notes")
       .eq("project_id", projectId).order("evaluated_at", { ascending: true }),
     supabase.from("amd_score_alpha").select("alpha").is("effective_to", null).order("effective_from", { ascending: false }).limit(1).maybeSingle(),
   ]);
@@ -346,8 +346,9 @@ const TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "update_amd_score_input",
     description:
-      "AMD Score の 7 軸入力 (μ_A/I/G + 5 XRL + FRL/ALQ + frl_notes) を amd_score_inputs に upsert する。" +
-      "evaluated_at を省略すると今日。既存行があれば部分上書き、なければ 0 で初期化して指定値を入れる。",
+      "AMD Score の 7 軸入力 (μ_A/I/G + 5 XRL + FRL/ALQ + 各軸 notes) を amd_score_inputs に upsert する。" +
+      "evaluated_at を省略すると今日。既存行があれば部分上書き、なければ 0 で初期化して指定値を入れる。" +
+      "値だけでなく必ず根拠 notes も書く (mu_notes_a/i/g, xrl_notes_trl/brl/grl/srl/hrl, frl_notes)。",
     input_schema: {
       type: "object",
       properties: {
@@ -355,17 +356,25 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         mu_A: { type: "number", description: "学術 μ_A 0-9" },
         mu_I: { type: "number", description: "産業 μ_I 0-9" },
         mu_G: { type: "number", description: "政府 μ_G 0-9" },
+        mu_notes_a: { type: "string", description: "μ_A の評価根拠 (例: Adv. Mater. 2024 で N 件論文急増)" },
+        mu_notes_i: { type: "string", description: "μ_I の評価根拠 (例: 大手 N 社の R&D 投資発表)" },
+        mu_notes_g: { type: "string", description: "μ_G の評価根拠 (例: 内閣府 SIP 採択、補助金 X 億円)" },
         trl: { type: "number", description: "TRL 0-9 (Shallow Tech モード時は null)" },
         brl: { type: "number", description: "BRL 0-9" },
         grl: { type: "number", description: "GRL 0-9" },
         srl: { type: "number", description: "SRL 0-9" },
         hrl: { type: "number", description: "HRL 0-9" },
+        xrl_notes_trl: { type: "string", description: "TRL の評価根拠 (内閣府 SIP 9 段階に対する position)" },
+        xrl_notes_brl: { type: "string", description: "BRL の評価根拠 (顧客検証・収益モデル状況)" },
+        xrl_notes_grl: { type: "string", description: "GRL の評価根拠 (規制適合・標準化状況)" },
+        xrl_notes_srl: { type: "string", description: "SRL の評価根拠 (一般受容・メディア露出)" },
+        xrl_notes_hrl: { type: "string", description: "HRL の評価根拠 (チーム補完性・スキル分布)" },
         frl: { type: "number", description: "FRL 0-9 (ALQ 平均で自動算出可)" },
         alq_self_awareness: { type: "number", description: "ALQ 自己認識 0-9" },
         alq_relational_transparency: { type: "number", description: "ALQ 関係透明性 0-9" },
         alq_balanced_processing: { type: "number", description: "ALQ 均衡的処理 0-9" },
         alq_internalized_moral: { type: "number", description: "ALQ 内在化された道徳観 0-9" },
-        frl_notes: { type: "string", description: "FRL 自由備考" },
+        frl_notes: { type: "string", description: "FRL 自由備考 (CEO 像、不足要素、外部評価)" },
         shallow_tech_mode: { type: "boolean", description: "Shallow Tech モード (TRL 軸を計算から除外)" },
         notes: { type: "string", description: "全体に対する備考" },
         reason: { type: "string", description: "なぜこう更新したか、まさへの 1 行報告" },
@@ -976,29 +985,47 @@ async function executeTool(
     // 既存 row 取得 (部分上書き)
     const { data: existing } = await supabase
       .from("amd_score_inputs")
-      .select("id, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_notes, shallow_tech_mode, notes")
+      .select("id, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, notes")
       .eq("project_id", projectId)
       .eq("evaluated_at", evaluated_at_iso)
       .maybeSingle();
+    const existingRow = existing as Record<string, unknown> | null;
+    // mu_notes / xrl_notes は JSONB なのでフィールド単位でマージ。
+    const existingMuNotes = (existingRow?.mu_notes ?? {}) as Record<string, unknown>;
+    const existingXrlNotes = (existingRow?.xrl_notes ?? {}) as Record<string, unknown>;
+    const muNotes = {
+      a: typeof input.mu_notes_a === "string" ? input.mu_notes_a : existingMuNotes.a ?? null,
+      i: typeof input.mu_notes_i === "string" ? input.mu_notes_i : existingMuNotes.i ?? null,
+      g: typeof input.mu_notes_g === "string" ? input.mu_notes_g : existingMuNotes.g ?? null,
+    };
+    const xrlNotes = {
+      trl: typeof input.xrl_notes_trl === "string" ? input.xrl_notes_trl : existingXrlNotes.trl ?? null,
+      brl: typeof input.xrl_notes_brl === "string" ? input.xrl_notes_brl : existingXrlNotes.brl ?? null,
+      grl: typeof input.xrl_notes_grl === "string" ? input.xrl_notes_grl : existingXrlNotes.grl ?? null,
+      srl: typeof input.xrl_notes_srl === "string" ? input.xrl_notes_srl : existingXrlNotes.srl ?? null,
+      hrl: typeof input.xrl_notes_hrl === "string" ? input.xrl_notes_hrl : existingXrlNotes.hrl ?? null,
+    };
     const merged: Record<string, unknown> = {
       project_id: projectId,
       evaluated_at: evaluated_at_iso,
-      mu_a: typeof input.mu_A === "number" ? input.mu_A : (existing as Record<string, unknown> | null)?.mu_a ?? null,
-      mu_i: typeof input.mu_I === "number" ? input.mu_I : (existing as Record<string, unknown> | null)?.mu_i ?? null,
-      mu_g: typeof input.mu_G === "number" ? input.mu_G : (existing as Record<string, unknown> | null)?.mu_g ?? null,
-      trl: typeof input.trl === "number" ? input.trl : (existing as Record<string, unknown> | null)?.trl ?? null,
-      brl: typeof input.brl === "number" ? input.brl : (existing as Record<string, unknown> | null)?.brl ?? null,
-      grl: typeof input.grl === "number" ? input.grl : (existing as Record<string, unknown> | null)?.grl ?? null,
-      srl: typeof input.srl === "number" ? input.srl : (existing as Record<string, unknown> | null)?.srl ?? null,
-      hrl: typeof input.hrl === "number" ? input.hrl : (existing as Record<string, unknown> | null)?.hrl ?? null,
-      frl: typeof input.frl === "number" ? input.frl : (existing as Record<string, unknown> | null)?.frl ?? null,
-      alq_self_awareness: typeof input.alq_self_awareness === "number" ? input.alq_self_awareness : (existing as Record<string, unknown> | null)?.alq_self_awareness ?? null,
-      alq_relational_transparency: typeof input.alq_relational_transparency === "number" ? input.alq_relational_transparency : (existing as Record<string, unknown> | null)?.alq_relational_transparency ?? null,
-      alq_balanced_processing: typeof input.alq_balanced_processing === "number" ? input.alq_balanced_processing : (existing as Record<string, unknown> | null)?.alq_balanced_processing ?? null,
-      alq_internalized_moral: typeof input.alq_internalized_moral === "number" ? input.alq_internalized_moral : (existing as Record<string, unknown> | null)?.alq_internalized_moral ?? null,
-      frl_notes: typeof input.frl_notes === "string" ? input.frl_notes : (existing as Record<string, unknown> | null)?.frl_notes ?? null,
-      shallow_tech_mode: typeof input.shallow_tech_mode === "boolean" ? input.shallow_tech_mode : (existing as Record<string, unknown> | null)?.shallow_tech_mode ?? false,
-      notes: typeof input.notes === "string" ? input.notes : (existing as Record<string, unknown> | null)?.notes ?? null,
+      mu_a: typeof input.mu_A === "number" ? input.mu_A : existingRow?.mu_a ?? null,
+      mu_i: typeof input.mu_I === "number" ? input.mu_I : existingRow?.mu_i ?? null,
+      mu_g: typeof input.mu_G === "number" ? input.mu_G : existingRow?.mu_g ?? null,
+      trl: typeof input.trl === "number" ? input.trl : existingRow?.trl ?? null,
+      brl: typeof input.brl === "number" ? input.brl : existingRow?.brl ?? null,
+      grl: typeof input.grl === "number" ? input.grl : existingRow?.grl ?? null,
+      srl: typeof input.srl === "number" ? input.srl : existingRow?.srl ?? null,
+      hrl: typeof input.hrl === "number" ? input.hrl : existingRow?.hrl ?? null,
+      frl: typeof input.frl === "number" ? input.frl : existingRow?.frl ?? null,
+      alq_self_awareness: typeof input.alq_self_awareness === "number" ? input.alq_self_awareness : existingRow?.alq_self_awareness ?? null,
+      alq_relational_transparency: typeof input.alq_relational_transparency === "number" ? input.alq_relational_transparency : existingRow?.alq_relational_transparency ?? null,
+      alq_balanced_processing: typeof input.alq_balanced_processing === "number" ? input.alq_balanced_processing : existingRow?.alq_balanced_processing ?? null,
+      alq_internalized_moral: typeof input.alq_internalized_moral === "number" ? input.alq_internalized_moral : existingRow?.alq_internalized_moral ?? null,
+      frl_notes: typeof input.frl_notes === "string" ? input.frl_notes : existingRow?.frl_notes ?? null,
+      mu_notes: muNotes,
+      xrl_notes: xrlNotes,
+      shallow_tech_mode: typeof input.shallow_tech_mode === "boolean" ? input.shallow_tech_mode : existingRow?.shallow_tech_mode ?? false,
+      notes: typeof input.notes === "string" ? input.notes : existingRow?.notes ?? null,
       evaluator: "tsukuyomi",
       updated_at: new Date().toISOString(),
     };

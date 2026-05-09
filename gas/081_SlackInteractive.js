@@ -159,6 +159,15 @@ function slackInteractiveWorker(){
   const job = arr.shift();
   cache.put(key, JSON.stringify(arr), 600);
 
+  // invoice_send_done (請求書送付ボタン) は別ハンドラに転送
+  // → 017_InvoiceSendNudge.js / invoiceSend_handleDoneFromQueue_
+  if (String(job.actionId || "") === "invoice_send_done") {
+    try { invoiceSend_handleDoneFromQueue_(job); } catch (e) {
+      Logger.log("invoice_send_done handler failed: " + (e && e.message ? e.message : e));
+    }
+    return;
+  }
+
   let av = {};
   try { av = job.actionValue ? JSON.parse(String(job.actionValue)) : {}; } catch(_e){ av = {}; }
   const reimbursementId = String(av.reimbursementId || "").trim();

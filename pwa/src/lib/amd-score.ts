@@ -1,7 +1,7 @@
 /**
  * AMD Score — 7 軸 Cobb-Douglas 統合指標
  *
- * 正本: /Users/masa/projects/before-zero/theory/amd_score.md (Before Zero Theory v3.2)
+ * 正本: /Users/masa/projects/AMD/before-zero/theory/amd_score.md (Before Zero Theory v3.2)
  *
  * AMD Score = K · Π (X_i + 1)^α_i
  *   X ∈ { σ_SU, TRL, BRL, GRL, SRL, HRL, FRL }, 各軸 0-9
@@ -143,9 +143,18 @@ export interface AmdScoreResult {
   shallowTechMode: boolean;
   /** 各軸の (X+1)^α 値。score = K × Π contributions[axis]。 */
   contributions: Partial<Record<AmdScoreAxis, number>>;
-  /** 軸ごとの寄与シェア (Σ=1)。律速可視化用。 */
+  /** 軸ごとの寄与シェア (Σ=1)。可視化用 (律速判定には使わない)。 */
   contributionShares: Partial<Record<AmdScoreAxis, number>>;
-  /** 寄与シェアが最小の軸 = 律速軸。 */
+  /**
+   * 軸ごとの marginal sensitivity = α_i / (X_i + 1)。∂S/∂X_i = sensitivity × S。
+   * 律速判定はこの値の argmax で行う (Cobb-Douglas の偏微分根拠)。
+   */
+  sensitivities: Partial<Record<AmdScoreAxis, number>>;
+  /**
+   * 律速軸 = argmax_i (α_i / (X_i + 1))。
+   * 「1 段階上げたとき S が最も大きく増える軸」 = 経営アクションで最初に手当てすべき軸。
+   * 根拠: Cobb & Douglas (1928), American Economic Review, 18(1), 139-165.
+   */
   bottleneck: AmdScoreAxis;
   phase: AmdScorePhase;
 }
@@ -201,13 +210,22 @@ export function calculateAmdScore(
     contributionShares[axis] = totalLogContribution > 0 ? Math.log(c) / totalLogContribution : 0;
   }
 
+  // 律速判定: ∂S/∂X_i = α_i · S / (X_i + 1) なので、argmax(α_i / (X_i + 1)) が律速。
+  // 「1 段階上げたときに S が最も大きく増える軸」= 経営アクションで最初に手当てすべき軸。
+  // 旧実装は argmin(contribution_share) で「α が小さい軸が常に律速」になるバグだった。
+  // 根拠: Cobb & Douglas (1928), American Economic Review, 18(1), 139-165.
+  const sensitivities: Partial<Record<AmdScoreAxis, number>> = {};
   let bottleneck: AmdScoreAxis = "sigma_SU";
-  let minShare = Infinity;
+  let maxSensitivity = -Infinity;
   for (const axis of AMD_SCORE_AXES) {
-    const share = contributionShares[axis];
-    if (share == null) continue;
-    if (share < minShare) {
-      minShare = share;
+    if (shallowTechMode && axis === "TRL") continue;
+    const value = axisValues[axis];
+    if (value == null) continue;
+    const clipped = Math.max(0, Math.min(9, value));
+    const sensitivity = (alpha[axis] ?? 0) / (clipped + 1);
+    sensitivities[axis] = sensitivity;
+    if (sensitivity > maxSensitivity) {
+      maxSensitivity = sensitivity;
       bottleneck = axis;
     }
   }
@@ -222,6 +240,7 @@ export function calculateAmdScore(
     shallowTechMode,
     contributions,
     contributionShares,
+    sensitivities,
     bottleneck,
     phase,
   };

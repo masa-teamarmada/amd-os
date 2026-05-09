@@ -8,6 +8,7 @@ import {
   formatJpyRange,
   VC_TYPE_LABEL,
   FUND_STATUS_LABEL,
+  PVR_STATUS_LABEL,
 } from "@/lib/vc-data";
 import type { VcListItem } from "@/types/vc";
 import { VcDetailModal } from "@/components/vc/VcDetailModal";
@@ -24,6 +25,7 @@ type SortKey =
   | "dry_powder"
   | "fund_count"
   | "amd_pj_total"
+  | "amd_pj_contact_count"
   | "pj_relation_count"
   | "last_touch_at"
   | "unverified_news";
@@ -49,7 +51,8 @@ const COLUMNS: Column[] = [
   { id: "fund_count", sortKey: "fund_count", label: "fund#", align: "right", width: "w-12" },
   { id: "amd_pj_tabs", sortKey: "amd_pj_total", label: "AMD PJ 出資", align: "left" },
   { id: "amd_pj_total", sortKey: "amd_pj_total", label: "AMD PJ 計", align: "right", width: "w-24" },
-  { id: "pj_relation_count", sortKey: "pj_relation_count", label: "接点", align: "right", width: "w-12" },
+  { id: "amd_pj_contacts", sortKey: "amd_pj_contact_count", label: "コンタクト (担当者)", align: "left" },
+  { id: "pj_relation_count", sortKey: "pj_relation_count", label: "接点数", align: "right", width: "w-12" },
   { id: "last_touch_at", sortKey: "last_touch_at", label: "最終接触", align: "left", width: "w-24" },
   { id: "unverified_news", sortKey: "unverified_news", label: "未確認", align: "right", width: "w-12" },
 ];
@@ -292,6 +295,36 @@ function Row({ v, onSelect }: { v: VcListItem; onSelect: () => void }) {
           <span className="text-muted-foreground/40">—</span>
         )}
       </td>
+      <td className="px-2 py-2">
+        {v.amd_pj_contacts.length === 0 ? (
+          <span className="text-muted-foreground/40">—</span>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {v.amd_pj_contacts.map((c) => {
+              const statusColor =
+                c.status === "term_sheet" || c.status === "dd"
+                  ? "bg-blue-500/15 text-blue-700 border-blue-500/30 dark:text-blue-300"
+                  : c.status === "evaluating" || c.status === "pitching"
+                  ? "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300"
+                  : c.status === "passed" || c.status === "declined"
+                  ? "bg-muted text-muted-foreground border-border"
+                  : "bg-muted text-muted-foreground border-border";
+              return (
+                <span
+                  key={c.project_id}
+                  className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${statusColor}`}
+                  title={`${c.project_name} - ${PVR_STATUS_LABEL[c.status] ?? c.status}${c.last_touch_at ? ` (${c.last_touch_at})` : ""}`}
+                >
+                  <span className="font-medium">{c.project_name}</span>
+                  {c.contact_names.length > 0 && (
+                    <span className="text-[9px] opacity-80">{c.contact_names.join(",")}</span>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </td>
       <td className="px-2 py-2 text-right">
         {v.pj_relation_count > 0 ? (
           <span className="font-medium">{v.pj_relation_count}</span>
@@ -342,6 +375,8 @@ function compareBy(key: SortKey, a: VcListItem, b: VcListItem): number {
       return a.fund_count - b.fund_count;
     case "amd_pj_total":
       return a.amd_pj_total_amount_jpy - b.amd_pj_total_amount_jpy;
+    case "amd_pj_contact_count":
+      return a.amd_pj_contacts.length - b.amd_pj_contacts.length;
     case "pj_relation_count":
       return a.pj_relation_count - b.pj_relation_count;
     case "last_touch_at":

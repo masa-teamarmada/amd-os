@@ -10,6 +10,7 @@
 
 | 順 | ファイル | 内容 |
 |---|---|---|
+| **0** | [**L2_DATA.md**](L2_DATA.md) ⭐⭐⭐ | **AMD OS 中核データ正本** — L2 6 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ) + レポート + 全 cron。データに触る前に必ず読む |
 | 1 | [SPEC_pwa.md](SPEC_pwa.md) ⭐ | **PWA 全体の正本仕様** — 画面・ルート・データモデル・cron・運用コマンド・実装規約 |
 | 2 | [cockpit.md](cockpit.md) ⭐ | コックピット (`/project/[projectId]/cockpit`) — PJ Status / MS / カンバン / 月次ルーティン (stepId × クリック挙動表) |
 | 3 | [routine.md](routine.md) ⭐ | 月次ルーティン (請求・報告・立替・予算) のステップ別仕様。Cockpit 右カラム + iOS RoutineFlowView の正本 |
@@ -26,6 +27,7 @@
 | Atlas (判断の地図) | [atlas.md](atlas.md) |
 | Atlas 政策シグナル | [policy_signals.md](policy_signals.md) |
 | 進捗推定 (Tsukuyomi MS 推定) | [progress_estimation.md](progress_estimation.md) |
+| MTG サマリ (各回 decided/progress/nextActions/risks) ⭐ | [meeting_summaries.md](meeting_summaries.md) |
 | Venture Map | [venture_map_model.md](venture_map_model.md) / [venture_map_demo.md](venture_map_demo.md) / [venture_map_v01_critique.md](venture_map_v01_critique.md) |
 | Seeds (研究シーズリスト) ⭐ | [seeds.md](seeds.md) |
 | VC List | [vc_list.md](vc_list.md) |

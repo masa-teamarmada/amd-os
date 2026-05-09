@@ -47,6 +47,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const spreadsheetId = searchParams.get("spreadsheetId");
   const dryRun = searchParams.get("dryRun") === "1";
+  // report_emails だけピンポイントで上書きしたい場合 (project_members 全置換は走らせない)
+  const onlyReportEmails = searchParams.get("onlyReportEmails") === "1";
   if (!spreadsheetId) {
     return NextResponse.json({ error: "spreadsheetId required" }, { status: 400 });
   }
@@ -86,6 +88,7 @@ export async function GET(req: NextRequest) {
   const idxFreeePartnerId = findColIndex(pjHeader, "freeePartnerId");
   const idxInvoiceToName = findColIndex(pjHeader, "invoiceToName");
   const idxInvoiceToEmails = findColIndex(pjHeader, "invoiceToEmails");
+  const idxReportEmails = findColIndex(pjHeader, "reportEmails");
   const idxContractStartDate = findColIndex(pjHeader, "contractStartDate");
   const idxContractEndDate = findColIndex(pjHeader, "contractEndDate");
   if (idxProjectId < 0) {
@@ -99,6 +102,7 @@ export async function GET(req: NextRequest) {
     freee_partner_id?: string | null;
     invoice_to_emails?: string | null;
     invoice_to_name?: string | null;
+    report_emails?: string | null;
   }
   const pjPatches: PjPatch[] = [];
   for (const row of pjRows.slice(1)) {
@@ -110,6 +114,7 @@ export async function GET(req: NextRequest) {
       freee_partner_id: idxFreeePartnerId >= 0 ? nullIfEmpty(row[idxFreeePartnerId]) : null,
       invoice_to_emails: idxInvoiceToEmails >= 0 ? nullIfEmpty(row[idxInvoiceToEmails]) : null,
       invoice_to_name: idxInvoiceToName >= 0 ? nullIfEmpty(row[idxInvoiceToName]) : null,
+      report_emails: idxReportEmails >= 0 ? nullIfEmpty(row[idxReportEmails]) : null,
     });
     void idxContractStartDate;
     void idxContractEndDate;
@@ -175,9 +180,18 @@ export async function GET(req: NextRequest) {
   const pjErrors: string[] = [];
   for (const patch of pjPatches) {
     const upd: Record<string, unknown> = {};
-    if (patch.client_name) upd.client_name = patch.client_name;
-    if (patch.freee_partner_id) upd.freee_partner_id = patch.freee_partner_id;
-    if (patch.invoice_to_emails) upd.invoice_to_emails = patch.invoice_to_emails;
+    if (onlyReportEmails) {
+      // ピンポイントモード: report_emails 列だけ上書き (スプシに列がある場合は null も上書き対象)
+      if (idxReportEmails >= 0) upd.report_emails = patch.report_emails;
+    } else {
+      if (patch.client_name) upd.client_name = patch.client_name;
+      if (patch.freee_partner_id) upd.freee_partner_id = patch.freee_partner_id;
+      if (patch.invoice_to_emails) upd.invoice_to_emails = patch.invoice_to_emails;
+      // report_emails (関係先メアド) はスプシの reportEmails 列を直接コピー。
+      // 過去に members.email から再生成する処理があったが、AMD メンバーのメアドが
+      // 入る誤動作だったため廃止 (2026-05-08)
+      if (idxReportEmails >= 0) upd.report_emails = patch.report_emails;
+    }
     if (Object.keys(upd).length === 0) continue;
     const { error } = await supabase
       .from("projects")
@@ -185,6 +199,17 @@ export async function GET(req: NextRequest) {
       .eq("project_id", patch.project_id);
     if (error) pjErrors.push(`${patch.project_id}: ${error.message}`);
     else pjUpdated++;
+  }
+
+  // onlyReportEmails モードでは project_members 全置換は走らせない (まさ要望: ピンポイント実行)
+  if (onlyReportEmails) {
+    return NextResponse.json({
+      ok: pjErrors.length === 0,
+      mode: "onlyReportEmails",
+      projectsTotal: pjPatches.length,
+      projectsUpdated: pjUpdated,
+      projectErrors: pjErrors,
+    });
   }
 
   // 2. project_members 全置換
@@ -215,47 +240,18 @@ export async function GET(req: NextRequest) {
     else inserted += chunk.length;
   }
 
-  // 3. report_emails (関係先メールアドレス) を再生成
-  //    PJ × メンバー の email リストを members.email から集約 → projects.report_emails に書く
-  const allMemberIds = Array.from(new Set(pmRows.map((r) => r.member_id)));
-  const { data: memberRows } = allMemberIds.length > 0
-    ? await supabase.from("members").select("member_id, email").in("member_id", allMemberIds)
-    : { data: [] };
-  const emailMap = new Map<string, string>();
-  for (const m of memberRows ?? []) {
-    if (m.email) emailMap.set(m.member_id, m.email);
-  }
-  const reportEmailsByPj = new Map<string, string[]>();
-  for (const r of pmRows) {
-    if (!r.is_active) continue;
-    const email = emailMap.get(r.member_id);
-    if (!email) continue;
-    const list = reportEmailsByPj.get(r.project_id) ?? [];
-    if (!list.includes(email)) list.push(email);
-    reportEmailsByPj.set(r.project_id, list);
-  }
-  let reportEmailsUpdated = 0;
-  const reportEmailsErrors: string[] = [];
-  for (const [projectId, emails] of reportEmailsByPj.entries()) {
-    const joined = emails.join(", ");
-    const { error } = await supabase
-      .from("projects")
-      .update({ report_emails: joined })
-      .eq("project_id", projectId);
-    if (error) reportEmailsErrors.push(`${projectId}: ${error.message}`);
-    else reportEmailsUpdated++;
-  }
+  // 旧: report_emails を members.email から集約再生成する処理があったが、
+  // AMD メンバーのメアドが報告先になってしまう誤動作だったため廃止 (2026-05-08)。
+  // 現在は上の (1) で patch.report_emails (DB_Projects.reportEmails 列) を直接コピーする。
 
   return NextResponse.json({
-    ok: insertErrors.length === 0 && reportEmailsErrors.length === 0,
+    ok: insertErrors.length === 0,
     projectsTotal: pjPatches.length,
     projectsUpdated: pjUpdated,
     projectErrors: pjErrors,
     projectMembersTotal: pmRows.length,
     projectMembersInserted: inserted,
     projectMembersErrors: insertErrors,
-    reportEmailsUpdated,
-    reportEmailsErrors,
     plPreserved: plSet.size,
   });
 }

@@ -14,8 +14,10 @@ import type { VcDetail } from "@/types/vc";
 
 /**
  * VC 詳細の中身。/vcs/[id] ページと VC リストのモーダルから共通利用される。
+ * onEdit が渡されたら 編集ボタンはそれを呼ぶ (モーダル内で view↔edit 切替用)。
+ * onEdit 無しなら /vcs/[id]/edit へのリンクとして描画 (単独ページ用)。
  */
-export function VcDetailBody({ data }: { data: VcDetail }) {
+export function VcDetailBody({ data, onEdit }: { data: VcDetail; onEdit?: () => void }) {
   const { vc, funds, investments, contacts, relations, news } = data;
   const stars = vc.amd_rating ? "★".repeat(vc.amd_rating) + "☆".repeat(5 - vc.amd_rating) : "☆☆☆☆☆";
 
@@ -39,12 +41,21 @@ export function VcDetailBody({ data }: { data: VcDetail }) {
           >
             {stars}
           </div>
-          <Link
-            href={`/vcs/${vc.id}/edit`}
-            className="text-xs px-3 py-1.5 rounded border border-border hover:bg-accent transition-colors"
-          >
-            編集
-          </Link>
+          {onEdit ? (
+            <button
+              onClick={onEdit}
+              className="text-xs px-3 py-1.5 rounded border border-border hover:bg-accent transition-colors"
+            >
+              編集
+            </button>
+          ) : (
+            <Link
+              href={`/vcs/${vc.id}/edit`}
+              className="text-xs px-3 py-1.5 rounded border border-border hover:bg-accent transition-colors"
+            >
+              編集
+            </Link>
+          )}
         </div>
       </div>
 
@@ -71,6 +82,14 @@ export function VcDetailBody({ data }: { data: VcDetail }) {
                 />
               )}
             </dl>
+            {vc.investment_constraints && (
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <div className="text-[10px] text-muted-foreground mb-1">投資制約 / 適用条件</div>
+                <p className="text-xs whitespace-pre-wrap text-foreground/90 bg-amber-500/5 border border-amber-500/20 rounded p-2">
+                  {vc.investment_constraints}
+                </p>
+              </div>
+            )}
             {vc.amd_rating_note && (
               <div className="mt-3 pt-3 border-t border-border/50">
                 <div className="text-[10px] text-muted-foreground mb-1">AMD 相性メモ</div>

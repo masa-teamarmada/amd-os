@@ -15,6 +15,7 @@
  *   - upsert conflict: milestone_key, ym
  */
 
+import { createHash } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -39,12 +40,18 @@ function prevYm(ym: string): string {
   return `${py}${String(pm).padStart(2, "0")}`;
 }
 
+function sha256(text: string): string {
+  return createHash("sha256").update(text, "utf8").digest("hex");
+}
+
 export interface EstimateResult {
   ok: boolean;
   saved: number;
   total: number;
   skipped: number;
   message?: string;
+  /** source_hash 一致でスキップしたとき true (毎時 polling 用) */
+  unchanged?: boolean;
   diagnostics?: {
     planCycleFound: boolean;
     milestoneCount: number;
@@ -57,14 +64,26 @@ export interface EstimateResult {
     beforeWriteCount?: number;
     afterWriteCount?: number;
     afterWriteSample?: Array<{ milestone_key: string; ym: string; progress_pct: number; source: string }>;
+    sourceHash?: string;
   };
   details?: Array<{ milestoneKey: string; delta: number; cumulative: number; reason: string; skipped?: boolean; skipReason?: string }>;
 }
 
+export interface EstimateOptions {
+  /**
+   * true = 必ず LLM を呼んで再推定する (手動「AIで再推定」ボタン / report/generate 直後 fire-and-forget)。
+   * false = source_hash 一致なら LLM 呼ばずスキップ (毎時 cron polling 用)。
+   * 未指定なら true (= 既存呼び出し側の挙動を変えない)。
+   */
+  force?: boolean;
+}
+
 export async function estimateProgress(
   projectId: string,
-  ym: string
+  ym: string,
+  opts: EstimateOptions = {}
 ): Promise<EstimateResult> {
+  const force = opts.force !== false; // default true
   const supabase = getServiceClient();
   const pym = prevYm(ym);
   const usingServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -206,6 +225,56 @@ export async function estimateProgress(
       ? ctxRows[0].system_prompt
       : "各MSの今月の追加進捗率（今月だけの増分、0〜100の整数）を推定し、JSON形式で回答してください。フォーマット: { \"progress\": [{ \"milestoneKey\": \"id\", \"progressPct\": 整数, \"reason\": \"根拠\" }] }";
 
+  // 5.5 source_hash 差分検知 (毎時 polling 用)。
+  //   force=false (cron 経由) かつ前回と source_hash 一致なら LLM 呼ばずスキップ。
+  //   hash 入力 = レポート本文 + status + milestones メタ + 前月累計 + system prompt + 現在登録値。
+  //   reportBody 不在は上の early return で既に弾かれているのでここでは reportBody は必ずある。
+  const hashInput = JSON.stringify({
+    rb: reportBody,
+    rs: reportRow?.status || "",
+    ms: milestones.map((m) => ({
+      id: m.milestone_id, ti: m.title, pt: m.points, tg: m.tag, gl: m.goal_level,
+    })),
+    prev: prevMap,
+    curr: Object.fromEntries(Object.entries(currMap).map(([k, v]) => [k, { p: v.pct, s: v.source }])),
+    sp: systemPrompt,
+  });
+  const newHash = sha256(hashInput);
+
+  const { data: stateRow } = await supabase
+    .from("progress_estimate_state")
+    .select("source_hash, last_processed_at")
+    .eq("project_id", projectId)
+    .eq("ym", ym)
+    .maybeSingle();
+
+  if (!force && stateRow && String(stateRow.source_hash || "") === newHash) {
+    // 入力が変わってないので LLM 呼ばずスキップ。last_processed_at だけ touch して
+    // 「いつ確認したか」の可視化を保つ。
+    await supabase
+      .from("progress_estimate_state")
+      .update({ last_processed_at: new Date().toISOString() })
+      .eq("project_id", projectId)
+      .eq("ym", ym);
+    return {
+      ok: true,
+      saved: 0,
+      total: 0,
+      skipped: 0,
+      unchanged: true,
+      message: "source unchanged (LLM skipped)",
+      diagnostics: {
+        planCycleFound: true,
+        milestoneCount: milestones.length,
+        sourceItemCount: 1,
+        sourceItemCountRaw,
+        sourceBreakdown,
+        usingServiceRole,
+        sourceHash: newHash,
+      },
+    };
+  }
+
   // 6. プロンプト組み立て
   const displayYm = `${ym.slice(0, 4)}/${ym.slice(4)}`;
   const msListText = milestones
@@ -346,10 +415,66 @@ export async function estimateProgress(
     }
   }
 
+  // 差分検知 state を更新 (LLM 呼んだ後は必ず更新)。
+  // upsert: 同 (project_id, ym) は source_hash + counts + last_processed_at を更新。
+  const totalCount = (parsed.progress || []).length;
+  await supabase
+    .from("progress_estimate_state")
+    .upsert(
+      {
+        project_id: projectId,
+        ym,
+        source_hash: newHash,
+        saved_count: saved,
+        skipped_count: skipped,
+        total_count: totalCount,
+        llm_model: "claude-sonnet-4-5-20250929",
+        message: null,
+        last_processed_at: new Date().toISOString(),
+      },
+      { onConflict: "project_id,ym" }
+    );
+
+  // Swift APNs 通知用: saved > 0 のときだけ l2_notifications に upsert (l2_kind='ms_progress')。
+  // 同 (l2_kind, target_id, scope_key) は trigger で saved_count 変化時に notified_at=NULL に戻り再通知される。
+  // 仕様正本: ios/HANDOFF_l2_notifications.md
+  if (saved > 0) {
+    try {
+      const { data: pjRow } = await supabase
+        .from("projects")
+        .select("project_name")
+        .eq("project_id", projectId)
+        .maybeSingle();
+      const pjName = pjRow?.project_name || projectId;
+      const topMs = (details || [])
+        .filter((d) => !d.skipped)
+        .slice(0, 3)
+        .map((d) => `${d.milestoneKey}:+${d.delta}%`)
+        .join(" / ");
+      await supabase
+        .from("l2_notifications")
+        .upsert(
+          {
+            l2_kind: "ms_progress",
+            target_id: projectId,
+            scope_key: ym,
+            title: `📈 ${pjName} (${ym}) MS進捗 更新 (${saved}件)`,
+            summary: topMs.slice(0, 500),
+            saved_count: saved,
+            total_count: totalCount,
+            importance: 1,
+          },
+          { onConflict: "l2_kind,target_id,scope_key" }
+        );
+    } catch (e) {
+      console.warn("[progress-estimator] l2_notifications upsert failed:", e);
+    }
+  }
+
   return {
     ok: true,
     saved,
-    total: (parsed.progress || []).length,
+    total: totalCount,
     skipped,
     diagnostics: {
       planCycleFound: true,
@@ -368,6 +493,7 @@ export async function estimateProgress(
         progress_pct: Number(r.progress_pct),
         source: r.source || "",
       })),
+      sourceHash: newHash,
     },
     details,
   };

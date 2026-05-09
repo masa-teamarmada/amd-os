@@ -54,6 +54,54 @@ function pwaApi_handle_(e) {
       });
     }
 
+    // ============================================================
+    // Admin actions — PWA_API_KEY 認証を通れば任意関数を呼べる
+    // (えいみが clasp run の代わりに使う窓口。仕様: gas/CLAUDE.md「GAS 関数の実行手順」)
+    // ============================================================
+
+    // ScriptProperties のキー一覧 (値は伏せる)
+    if (action === "listProps") {
+      var keys = PropertiesService.getScriptProperties().getKeys();
+      keys.sort();
+      return pwaApi_ok_({ keys: keys, count: keys.length });
+    }
+
+    // 任意関数を名前指定で実行
+    //   ?action=runFunc&fn=<関数名>&args=<JSON配列文字列>
+    // または POST body に { fn, args }
+    if (action === "runFunc") {
+      var fnName = String(p.fn || "").trim();
+      if (!fnName) {
+        try {
+          var body = (e && e.postData && e.postData.contents) ? JSON.parse(e.postData.contents) : {};
+          fnName = String(body.fn || "").trim();
+        } catch (_e) {}
+      }
+      if (!fnName) return pwaApi_err_("fn required");
+      var fn = (typeof globalThis !== "undefined" && globalThis[fnName]) || this[fnName];
+      if (typeof fn !== "function") return pwaApi_err_("function not found: " + fnName);
+
+      var args = [];
+      try {
+        if (p.args) args = JSON.parse(String(p.args));
+        else if (e && e.postData && e.postData.contents) {
+          var bd = JSON.parse(e.postData.contents);
+          if (Array.isArray(bd.args)) args = bd.args;
+        }
+      } catch (_e) {}
+      if (!Array.isArray(args)) args = [];
+
+      var startTs = new Date().getTime();
+      var result;
+      try {
+        result = fn.apply(null, args);
+      } catch (err) {
+        return pwaApi_err_("runFunc throw: " + (err && err.stack ? err.stack : err));
+      }
+      var ms = new Date().getTime() - startTs;
+      return pwaApi_ok_({ fn: fnName, ms: ms, result: result });
+    }
+
     return pwaApi_err_("unknown action: " + action);
   } catch (err) {
     return pwaApi_err_(err && err.stack ? err.stack : err);

@@ -1,10 +1,15 @@
 "use client";
 
 /**
- * AMD Score breakdown モーダル — Before Zero Theory v3.2 (7 軸 Cobb-Douglas)。
+ * AMD Score breakdown モーダル — Before Zero Theory v3.2 (3 大要素 M × X × F)。
  *
- * 計算式: AMD Score = K · Π (X_i + 1)^α_i  (X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL})
- * Shallow Tech モード (TRL=null) では TRL 軸を除外、6 軸 + K 再校正。
+ * S = k · M · X · F
+ *   - M = (σ_SU+1)^α_σ                              マクロ (Triple Helix 外部環境)
+ *   - X = Π_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x   会社に帰属する 5 軸 readiness
+ *   - F = (FRL+1)^α_F                               CEO 個人に帰属するリーダーシップ
+ *   - k = 100,000 / 10^Σα                           IPO 級 100,000 への校正定数 (小文字)
+ *
+ * Shallow Tech モード (TRL=null): TRL 軸を X から除外、k 再校正。
  *
  * 詳細編集 (μ_A/μ_I/μ_G + 5 XRL + FRL のスライダー、α 重み調整) は
  * /venture-map/amd-score/[projectId] で。ここはチップクリック時の sneak peek。
@@ -12,14 +17,12 @@
 
 import Link from "next/link";
 import {
-  AMD_SCORE_AXES,
   AXIS_COLOR,
-  AXIS_LABEL_JP,
-  PHASE_COLOR,
-  PHASE_LABEL_JP,
   calculateAmdScore,
   type AlphaWeights,
+  type AmdScoreAxis,
 } from "@/lib/amd-score";
+// PHASE_COLOR / PHASE_LABEL_JP は使用しない (検証データ蓄積後に復活検討、2026-05-09)
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import { Tex } from "@/components/venture-map/Tex";
 
@@ -48,24 +51,82 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
         </div>
 
         <div className="px-4 py-4 flex flex-col gap-4">
-          <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-3 leading-relaxed flex flex-col gap-2">
-            <div>Before Zero Theory v3.2 — 7 軸 Cobb-Douglas 統合指標。</div>
+          <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-3 leading-relaxed flex flex-col gap-3">
+            <div>
+              Before Zero Theory v3.2 —{" "}
+              <strong>マクロ M</strong> ×{" "}
+              <strong>会社の XRL X</strong> ×{" "}
+              <strong>CEO の FRL F</strong> の 3 大要素を Cobb-Douglas で統合。
+              <br />
+              マクロトレンドの流れがあって、会社の XRL が整っていて、それを FRL 高い CEO が牽引する。
+            </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
+              <div className="text-[10px] text-muted-foreground mb-1">
+                全体式 (S = AMD Score、k は IPO 級への校正定数)
+              </div>
+              <Tex display tex={String.raw`S \;=\; k \cdot M \cdot X \cdot F`} />
+            </div>
+            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
+              <div className="text-[10px] text-muted-foreground mb-1">
+                ① マクロ M (外部環境 / Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
+              </div>
               <Tex
                 display
-                tex={String.raw`\text{Score} \;=\; K \cdot (\sigma_{SU}+1)^{\alpha_{\sigma}} \cdot \prod_{x \in \text{XRL}} (x+1)^{\alpha_x} \cdot (\text{FRL}+1)^{\alpha_{F}}`}
+                tex={String.raw`M \;=\; (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}, \quad \sigma_{\mathrm{SU}} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`}
               />
             </div>
-            <div className="bg-white rounded px-3 py-2 overflow-x-auto text-[11px]">
+            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
+              <div className="text-[10px] text-muted-foreground mb-1">
+                ② 会社の XRL X (会社に帰属する 5 軸 readiness、内閣府 SIP 互換)
+              </div>
               <Tex
                 display
-                tex={String.raw`\sigma_{SU} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1, \qquad K \;=\; \frac{100{,}000}{10^{\sum_i \alpha_i}}`}
+                tex={String.raw`X \;=\; \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x}`}
               />
             </div>
-            <div className="text-[10px] text-muted-foreground">
-              <span className="font-mono">XRL = {`{TRL, BRL, GRL, SRL, HRL}`}</span> ·
-              内閣府 SIP 9 段階互換 ·
-              Shallow Tech モードでは TRL を除外して K を再校正。
+            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
+              <div className="text-[10px] text-muted-foreground mb-1">
+                ③ CEO の FRL F (個人に帰属する CEO リーダーシップ / ALQ ベース、α_F が最大の重み)
+              </div>
+              <Tex display tex={String.raw`F \;=\; (\mathrm{FRL}+1)^{\alpha_F}`} />
+            </div>
+            <div className="text-[10px] text-muted-foreground space-y-1">
+              <div>
+                重み (default): α_F=<span className="font-mono">1.5</span> &gt;
+                α_σ=<span className="font-mono">1.3</span> &gt;
+                α_HRL=<span className="font-mono">1.1</span> &gt;
+                α_TRL=<span className="font-mono">1.0</span> &gt;
+                α_BRL=<span className="font-mono">0.6</span> &gt;
+                α_GRL=<span className="font-mono">0.3</span> &gt;
+                α_SRL=<span className="font-mono">0.2</span>
+              </div>
+              <div>
+                k = <span className="font-mono">100,000 / 10^Σα</span> で全軸 9 (= IPO 級) を 100,000
+                に校正 · Shallow Tech モード (TRL=null) では TRL を X から除外して k を再校正。
+              </div>
+            </div>
+          </div>
+
+          {/* 律速 (rate-limiting) の経済学的根拠 */}
+          <div className="text-[10px] text-slate-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 leading-relaxed flex flex-col gap-1">
+            <div className="text-[11px] font-semibold">律速 (rate-limiting) の定義</div>
+            <div>
+              「1 段階上げたとき S が最も大きく増える軸」を律速とする。Cobb-Douglas
+              の偏微分から:
+            </div>
+            <div className="bg-white rounded px-2 py-1 overflow-x-auto">
+              <Tex
+                display
+                tex={String.raw`\frac{\partial S}{\partial X_i} \;=\; \frac{\alpha_i \cdot S}{X_i + 1} \quad\Rightarrow\quad \text{bottleneck} \;=\; \arg\max_i \frac{\alpha_i}{X_i + 1}`}
+              />
+            </div>
+            <div>
+              重み α が大きいのに値 X が低い軸 = 限界収益 (marginal contribution) が最大の軸 =
+              経営アクションで最初に手当てすべき軸。
+            </div>
+            <div className="text-[9px] text-muted-foreground">
+              根拠: Cobb, C. W. &amp; Douglas, P. H. (1928). &quot;A theory of production.&quot;{" "}
+              <em>American Economic Review</em>, 18(1), 139-165.
             </div>
           </div>
 
@@ -114,93 +175,154 @@ function BreakdownContent({
     alpha
   );
 
-  const phaseColor = PHASE_COLOR[result.phase];
-  const axes = AMD_SCORE_AXES.filter((a) => !(a === "TRL" && result.shallowTechMode));
+  // フェーズタブは検証データ蓄積後に復活検討のため非表示 (2026-05-09)。
+  // スコア数値は中立色 (slate-900) で固定表示。
+  const scoreColor = "#0f172a";
+
+  // ① M = (σ_SU+1)^α_σ
+  const M = result.contributions.sigma_SU ?? 1;
+
+  // ② X = ∏_{x ∈ XRL_5} (x+1)^α_x  (Shallow Tech では TRL を除外)
+  const xrlAxes: AmdScoreAxis[] = ["TRL", "BRL", "GRL", "SRL", "HRL"];
+  let X = 1;
+  for (const axis of xrlAxes) {
+    if (axis === "TRL" && result.shallowTechMode) continue;
+    X *= result.contributions[axis] ?? 1;
+  }
+
+  // ③ F = (FRL+1)^α_F
+  const F = result.contributions.FRL ?? 1;
+
+  // S = k · M · X · F (sanity check; result.score と一致。result.K は API 名のまま)
+  const fmt = (n: number, digits = 2) =>
+    n < 1 ? n.toFixed(digits) : n < 100 ? n.toFixed(2) : Math.round(n).toLocaleString();
 
   return (
     <>
       <div className="border border-[#e5e5e7] rounded-md p-3 flex items-baseline justify-between">
         <div>
           <div className="text-[10px] text-muted-foreground">最新評価 ({latestInput.evaluated_at.slice(0, 10)})</div>
-          <div className="text-3xl font-mono font-bold" style={{ color: phaseColor }}>
-            {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
+          <div className="text-3xl font-mono font-bold" style={{ color: scoreColor }}>
+            S = {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
+          </div>
+          <div className="text-[10px] text-muted-foreground font-mono mt-1">
+            = k({result.K.toFixed(3)}) × M({fmt(M)}) × X({fmt(X)}) × F({fmt(F)})
           </div>
         </div>
         <div className="text-right">
-          <span
-            className="inline-block px-2 py-0.5 rounded-full text-[10px] text-white"
-            style={{ backgroundColor: phaseColor }}
-          >
-            {PHASE_LABEL_JP[result.phase]}
-          </span>
-          <div className="text-[10px] text-muted-foreground mt-1">
-            律速: <span className="font-mono">{AXIS_LABEL_JP[result.bottleneck]}</span>
-          </div>
           {result.shallowTechMode && (
-            <div className="text-[10px] text-amber-700 mt-1">Shallow Tech モード</div>
+            <div className="text-[10px] text-amber-700">Shallow Tech モード</div>
           )}
+          <div className="text-[10px] text-muted-foreground mt-1">
+            Σα = <span className="font-mono">{result.alphaSum.toFixed(2)}</span>
+          </div>
         </div>
       </div>
 
-      <div className="border border-[#e5e5e7] rounded-md p-3">
-        <div className="text-[12px] font-semibold mb-2">軸ごとの寄与</div>
-        <table className="w-full text-[11px]">
-          <thead>
-            <tr className="text-muted-foreground border-b border-[#e5e5e7]">
-              <th className="text-left py-1">軸</th>
-              <th className="text-right py-1 font-mono">値</th>
-              <th className="text-right py-1 font-mono">α</th>
-              <th className="text-right py-1 font-mono">(X+1)^α</th>
-              <th className="text-right py-1 font-mono">share</th>
-            </tr>
-          </thead>
-          <tbody>
-            {axes.map((axis) => {
-              const value =
-                axis === "sigma_SU"
-                  ? result.sigma_SU
-                  : axis === "TRL"
-                    ? latestInput.trl ?? 0
-                    : axis === "BRL"
-                      ? latestInput.brl ?? 0
-                      : axis === "GRL"
-                        ? latestInput.grl ?? 0
-                        : axis === "SRL"
-                          ? latestInput.srl ?? 0
-                          : axis === "HRL"
-                            ? latestInput.hrl ?? 0
-                            : latestInput.frl ?? 0;
-              const c = result.contributions[axis] ?? 1;
-              const share = (result.contributionShares[axis] ?? 0) * 100;
-              const isBottleneck = axis === result.bottleneck;
-              return (
-                <tr
-                  key={axis}
-                  className="border-b border-[#f1f5f9]"
-                  style={isBottleneck ? { backgroundColor: "#fee2e2" } : undefined}
-                >
-                  <td className="py-1">
-                    <span style={{ color: AXIS_COLOR[axis] }}>●</span>{" "}
-                    {axis === "sigma_SU" ? "σ_SU" : axis}
-                    {isBottleneck && <span className="ml-1 text-[9px] text-red-600">律速</span>}
-                  </td>
-                  <td className="text-right font-mono">{Number(value).toFixed(2)}</td>
-                  <td className="text-right font-mono">{alpha[axis].toFixed(2)}</td>
-                  <td className="text-right font-mono">{c.toFixed(2)}</td>
-                  <td className="text-right font-mono">{share.toFixed(1)}%</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {/* ① マクロ M */}
+      <FactorCard
+        label="M"
+        ja="マクロ"
+        sub="外部環境 / Triple Helix"
+        value={M}
+        color={AXIS_COLOR.sigma_SU}
+        formula="M = (σ_SU+1)^α_σ"
+        bottleneck={result.bottleneck === "sigma_SU"}
+      >
+        <FactorRow
+          name="μ_A (学術)"
+          value={fmt(latestInput.mu_A ?? 0, 1)}
+          subtitle={latestInput.mu_notes?.a ?? undefined}
+        />
+        <FactorRow
+          name="μ_I (産業)"
+          value={fmt(latestInput.mu_I ?? 0, 1)}
+          subtitle={latestInput.mu_notes?.i ?? undefined}
+        />
+        <FactorRow
+          name="μ_G (政府)"
+          value={fmt(latestInput.mu_G ?? 0, 1)}
+          subtitle={latestInput.mu_notes?.g ?? undefined}
+        />
+        <FactorRow
+          name="σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) − 1"
+          value={fmt(result.sigma_SU)}
+          highlight
+        />
+        <FactorRow
+          name="= M = (σ_SU+1)^α_σ"
+          value={fmt(M)}
+          note={`α_σ = ${alpha.sigma_SU.toFixed(2)}`}
+          total
+        />
+      </FactorCard>
 
-      <div className="text-[10px] text-muted-foreground space-x-2">
-        <span>K = <span className="font-mono">{result.K.toFixed(4)}</span></span>
-        <span>·</span>
-        <span>Σα = <span className="font-mono">{result.alphaSum.toFixed(2)}</span></span>
-        <span>·</span>
-        <span>σ_SU = <span className="font-mono">{result.sigma_SU.toFixed(2)}</span></span>
+      {/* ② 会社の XRL X */}
+      <FactorCard
+        label="X"
+        ja="会社の XRL"
+        sub="会社に帰属する 5 軸 readiness"
+        value={X}
+        color={AXIS_COLOR.TRL}
+        formula="X = ∏ (x+1)^α_x"
+      >
+        {xrlAxes.map((axis) => {
+          if (axis === "TRL" && result.shallowTechMode) return null;
+          const rawValue =
+            axis === "TRL"
+              ? latestInput.trl ?? 0
+              : axis === "BRL"
+                ? latestInput.brl ?? 0
+                : axis === "GRL"
+                  ? latestInput.grl ?? 0
+                  : axis === "SRL"
+                    ? latestInput.srl ?? 0
+                    : latestInput.hrl ?? 0;
+          const contribution = result.contributions[axis] ?? 1;
+          const isBottleneck = result.bottleneck === axis;
+          const noteKey = axis.toLowerCase() as "trl" | "brl" | "grl" | "srl" | "hrl";
+          const axisNote = latestInput.xrl_notes?.[noteKey] ?? undefined;
+          return (
+            <FactorRow
+              key={axis}
+              name={`${axis} = ${fmt(rawValue, 1)}`}
+              value={`(${fmt(rawValue, 1)}+1)^${alpha[axis].toFixed(2)} = ${fmt(contribution)}`}
+              note={`α = ${alpha[axis].toFixed(2)}`}
+              dotColor={AXIS_COLOR[axis]}
+              bottleneck={isBottleneck}
+              subtitle={axisNote}
+            />
+          );
+        })}
+        <FactorRow name="= X = ∏ (x+1)^α_x" value={fmt(X)} total />
+      </FactorCard>
+
+      {/* ③ CEO の FRL F */}
+      <FactorCard
+        label="F"
+        ja="CEO の FRL"
+        sub="個人に帰属 / ALQ ベース"
+        value={F}
+        color={AXIS_COLOR.FRL}
+        formula="F = (FRL+1)^α_F"
+        bottleneck={result.bottleneck === "FRL"}
+      >
+        <FactorRow
+          name={`FRL = ${fmt(latestInput.frl ?? 0, 1)}`}
+          value={fmt(latestInput.frl ?? 0, 1)}
+          subtitle={latestInput.frl_notes ?? undefined}
+        />
+        <FactorRow
+          name="= F = (FRL+1)^α_F"
+          value={fmt(F)}
+          note={`α_F = ${alpha.FRL.toFixed(2)} (最大重み)`}
+          total
+        />
+      </FactorCard>
+
+      <div className="text-[10px] text-muted-foreground text-center font-mono">
+        S = k × M × X × F = {result.K.toFixed(3)} × {fmt(M)} × {fmt(X)} × {fmt(F)} ≈{" "}
+        {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
       </div>
 
       <div className="border-t border-slate-200 pt-3 flex items-center justify-between gap-3">
@@ -215,5 +337,104 @@ function BreakdownContent({
         </Link>
       </div>
     </>
+  );
+}
+
+function FactorCard({
+  label,
+  ja,
+  sub,
+  value,
+  color,
+  formula,
+  bottleneck = false,
+  children,
+}: {
+  label: string;
+  ja: string;
+  sub: string;
+  value: number;
+  color: string;
+  formula: string;
+  bottleneck?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="border rounded-md p-3"
+      style={{
+        borderColor: bottleneck ? "#fca5a5" : "#e5e5e7",
+        backgroundColor: bottleneck ? "#fef2f2" : undefined,
+      }}
+    >
+      <div className="flex items-baseline justify-between mb-1">
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl font-mono font-bold" style={{ color }}>
+            {label}
+          </span>
+          <span className="text-[12px] font-semibold">{ja}</span>
+          {bottleneck && (
+            <span className="text-[9px] text-red-600 font-semibold">律速</span>
+          )}
+        </div>
+        <span className="text-xl font-mono font-bold" style={{ color }}>
+          {value < 1 ? value.toFixed(2) : value < 100 ? value.toFixed(2) : Math.round(value).toLocaleString()}
+        </span>
+      </div>
+      <div className="text-[10px] text-muted-foreground mb-2">
+        {sub} · <span className="font-mono">{formula}</span>
+      </div>
+      <table className="w-full text-[11px]">
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function FactorRow({
+  name,
+  value,
+  note,
+  dotColor,
+  highlight = false,
+  total = false,
+  bottleneck = false,
+  subtitle,
+}: {
+  name: string;
+  value: string;
+  /** 行末の小さい注記 (α 値など、機械的に表示するメタ情報)。 */
+  note?: string;
+  dotColor?: string;
+  highlight?: boolean;
+  total?: boolean;
+  bottleneck?: boolean;
+  /**
+   * 軸ラベル直下に出す自由記述の根拠 (mu_notes.a / xrl_notes.trl / frl_notes など)。
+   * 値の根拠を見える化するためのフィールド。
+   */
+  subtitle?: string;
+}) {
+  const bg = bottleneck ? "#fee2e2" : highlight ? "#f5f3ff" : total ? "#ecfdf5" : undefined;
+  const fontWeight = total ? 600 : 400;
+  return (
+    <tr className="border-b border-[#f1f5f9]" style={{ backgroundColor: bg, fontWeight }}>
+      <td className="py-1 align-top">
+        <div>
+          {dotColor && <span style={{ color: dotColor }}>● </span>}
+          {name}
+          {bottleneck && <span className="ml-1 text-[9px] text-red-600">律速</span>}
+        </div>
+        {subtitle && (
+          <div className="text-[9px] text-muted-foreground italic font-normal mt-0.5 leading-snug">
+            {subtitle}
+          </div>
+        )}
+      </td>
+      <td className="text-right font-mono py-1 align-top">{value}</td>
+      <td className="text-right text-[10px] text-muted-foreground py-1 pl-2 whitespace-nowrap align-top">
+        {note ?? ""}
+      </td>
+    </tr>
   );
 }

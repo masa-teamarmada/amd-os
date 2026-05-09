@@ -378,7 +378,7 @@ PJ Status コックピット拡張を 6 phase で実装。`/project/[projectId]/
 
 ## 2026-05-07 — AMD Score フル実装 (Before Zero Theory v3.2)
 
-`/Users/masa/projects/before-zero/theory/amd_score.md` の正本式 (7 軸 Cobb-Douglas) を AMD OS に組み込んだ。詳細は `design/amd_score.md`。
+`/Users/masa/projects/AMD/before-zero/theory/amd_score.md` の正本式 (7 軸 Cobb-Douglas) を AMD OS に組み込んだ。詳細は `design/amd_score.md`。
 
 ### 数式
 - AMD Score = K · Π (X_i + 1)^α_i, X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
@@ -818,3 +818,675 @@ GAS 226 の **基本情報 / メンバー / 契約・料金 / 請求書送付** 
 - 5月の monthly_reports 生成 (no report content)
 - まさが #15 表示 (PL/PM/クローザー / AMD 期間バッジ) の最終目視確認 — hard reload 推奨
 - `saveProjectMembers` 全削除→挿入をやめて incremental update に (将来事故防止、まだ未対応)
+
+---
+
+## 2026-05-08 — admin/projects PL/PM/クローザー編集を集合 incremental に再設計 (keen-wescoff worktree)
+
+前セッションの「全削除→挿入」事故 (saveProjectMembers が項目消失を引き起こす) をまさが連続で踏んで修正依頼。3 件まとめて対応。
+
+### まさの依頼
+1. PL/PM/クローザーを編集すると **これまでアサインしていた情報がすべて削除される** → 原因特定 + 再発防止
+2. PL/PM/クローザー 表示は 1 列にまとめず、**3 列に分ける**。編集ボタン削除し、セル内の名前 (例: PL に「まさ」) クリックで編集モーダル → 「修正」ボタンで FIX
+3. 列増えるので **横スクロール許容**
+
+### 原因
+- `/api/admin/project-members` POST が "全削除→挿入" 方式: `DELETE FROM project_members WHERE project_id=?` → `INSERT` 渡された rows
+- INSERT する row には `role` (古い列), `id` (UUID), 既存の `role_label`, `join_ym` などが含まれず、**副作用で値がリセット** (`id` 新 UUID 再生成、`role` NULL 化)
+- モーダル側でメンバー行が空配列になりうるパス (race / autocomplete blank / silent fetch fail) があると、削除だけ走って挿入 0 件 → 全消失
+- HANDOFF 残タスクに「saveProjectMembers の incremental 化」が放置されていた
+
+### 修正
+- **新 API** `pwa/src/app/api/admin/project-members/role/route.ts`
+  - body: `{ projectId, role: 'pl'|'pm'|'closer', memberIds: string[] }`
+  - 既存行 + 集合外 → `is_<role>=false` に UPDATE (行は残す)
+  - 既存行 + 集合内 → `is_<role>=true` に UPDATE
+  - 行なし + 集合内 → 新規行 INSERT (`is_<role>=true`、他フラグ false、is_active=true)
+  - 他のフラグ・他のメンバー行・他の列は一切触らない (incremental)
+- **新モーダル** `pwa/src/components/admin/AdminProjectRoleEditModal.tsx`
+  - ロール 1 つだけのチェックリスト
+  - 「修正」ボタン (dirty=false なら disabled)
+  - members マスタ取得 + active メンバー + 既割当てメンバーを列挙
+- **AdminProjectsTable.tsx** 改修
+  - thead: 「PL / PM / クローザー」1 列 → **PL / PM / クローザー 3 列**
+  - tbody: 各列セルクリックで該当ロール用モーダル
+  - 旧「✏️ 編集」ボタン削除
+  - `min-width: 1200px → 1600px` (横スクロール)
+- **削除した資産**
+  - `pwa/src/components/admin/AdminProjectMembersModal.tsx` (旧 全部編集モーダル)
+  - `pwa/src/app/api/admin/project-members/route.ts` (旧 全削除→挿入 POST)
+  - `lib/project-config-data.ts` の `saveProjectMembers` 関数 (`MemberInput` 型は ProjectConfigForm の dead code が依存しているため互換目的で残す)
+- **ProjectConfigForm.tsx** dead code 整理
+  - `saveProjectMembers` import 削除
+  - `if (false as boolean) { _unused: MemberInput[]; ... }` ブロック削除
+
+### 主な変更ファイル
+- 新: `pwa/src/app/api/admin/project-members/role/route.ts`, `pwa/src/components/admin/AdminProjectRoleEditModal.tsx`
+- 改修: `pwa/src/components/admin/AdminProjectsTable.tsx`, `pwa/src/components/project-config/ProjectConfigForm.tsx`, `pwa/src/lib/project-config-data.ts`
+- 削除: `pwa/src/components/admin/AdminProjectMembersModal.tsx`, `pwa/src/app/api/admin/project-members/route.ts`
+- ドキュメント: `pwa/BUGS.md` (新 entry), `pwa/HANDOFF_pwa_rebuild.md` (残タスクから消し込み)
+
+### 教訓
+- 「全削除→挿入」は同テーブルの他列を巻き込んで破壊する。incremental update が原則
+- 「all-or-nothing」型の API は、UI 側のどんな race / blank state でも全消失を引き起こす。書き込みは「触る列だけ更新」「触らない列は読まない」で書く
+- HANDOFF 残タスクで「再発防止」が書かれていたら優先度を上げる。同じ事故が起きた
+
+---
+
+## 2026-05-08 (続) — まさからの 6 件修正 (PWA) + 請求書送付 nudge (GAS)
+
+### PWA 6 件 (commit `628ac72` + `d53549c`)
+
+1. **AdminProjectRoleEditModal の候補を active メンバー限定**
+   - `members.status='active'` のみ。inactive な既割当てメンバーは候補から消えて、selected も active 内集合だけに init
+   - dirty 判定は維持 (active な既割当てが orig)
+
+2. **report_emails をスプシ DB_Projects.reportEmails から再復元**
+   - 旧: `members.email` 集約で AMD メンバーのメアドが入っていた誤動作 → 廃止
+   - `restore-from-sheet` route で `reportEmails` 列を直接コピー、null/空値も上書き対象に
+   - `?onlyReportEmails=1` モード追加: project_members 全置換は走らせず report_emails ピンポイント上書きだけ
+   - 22 PJ 全件で UPDATE 実行成功
+
+3. **関係先メールアドレス表示をカンマ区切り**
+   - 旧: 改行 (`whitespace-pre-line` + `\n` join) → 横スペース節約のため改行
+   - 新: `, ` で 1 行表示。max-width 200→260px に微増
+
+4. **PJ status セル保存反映バグ修正**
+   - 原因: `AdminProjectsTable` が anon クライアント (`@supabase/supabase-js` 直接) で update → RLS で silent に弾かれていた
+   - 修正: `@/lib/supabase/client` の `createClient` (= `createBrowserClient`、auth 込み) に切替
+   - status 以外の cell も同じ問題があり得るため一括解決
+
+5. **「停止/再開予定」列を「終了ym」の右へ**
+   - thead と tbody の両方で freeze/restart セルを移動
+   - 列順: PJID / PJ名 / Status / PL / PM / クローザー / 請求先 / 関係先メアド / 請求書送付 / 支払期日 / 開始ym / 終了ym / **停止再開** / freee ID / Slack CH / Drive Folder
+
+6. **月次報告書FIXモーダル改修**
+   - 「PCで内容を編集する」ボタン削除 (PC で開いてるのに表示されるのは違和感)
+   - 「✨ つくよみに修正させる」ボタン: textarea で指示 → `/api/monthly-report/edit-by-tsukuyomi` (Sonnet 4.6 が `<revised_report>` タグで本文返す → `draft_content` 上書き → 再ロード)
+   - 「📝 手動で修正」ボタン: textarea で本文編集 → `/api/monthly-report/manual-update` で `draft_content` 直接保存
+   - 「📨 PLに確認依頼する」ボタンは残す (FIX 完了マーカー)
+   - mode state (`view` / `tsukuyomi` / `manual`) で UI 切替
+
+### 請求書送付 nudge cron + Slack interactive button (GAS / commit 別途)
+
+#### 仕様
+- 投稿先: PJ 専用 Slack チャンネル (`projects.slack_channel_id`)
+- メンション: `project_members.is_pm=true` かつ `is_active=true` のメンバーの `members.slack_id` を `<@U...>` で全員
+- スケジュール: 6 occurrence
+  - 締切前日 17:00 / 20:00
+  - 締切日 10:00 / 12:00 / 15:00 / 17:00
+- 締切日 = 翌月 9 日 (CTB は当月 28 日)、土日のみ前営業日 (祝日は未対応 — 簡易ロジック)
+- 「✅ 送信済み」ボタン押下 → Supabase `billing_cycles.invoice_sent_at = NOW()` に PATCH
+- ボタン押下時の元 nudge **絶対上書き禁止** (gas/CLAUDE.md ルール 4)。完了通知は **新メッセージ**で post
+
+#### 実装
+- 新 GAS ファイル `gas/017_InvoiceSendNudge.js`
+  - `cron_invoiceSendNudge_()`: 5 トリガーから呼ばれる (10/12/15/17/20 時 JST)、各 PJ × 過去 2 ヶ月〜来月の ym で締切判定
+  - `invoiceSend_handleDoneFromQueue_(job)`: worker から呼ばれる完了処理
+  - `invoiceSend_runInternalSetup_(body)`: 1 回限り自動セットアップ (ScriptProperties + トリガー作成)
+  - Supabase REST helper (`invoiceSend_supabaseRequest_`)
+  - 送信済みログシート `DB_InvoiceSendNudgeLog` (projectId / ym / occurrence / sentAt / messageTs)
+  - 重複送信抑止 + dedup (CacheService 5 分)
+- 既存 `gas/081_SlackInteractive.js` の `slackInteractiveWorker` に invoice_send_done 分岐追加
+- 既存 `gas/80_SlackWebhook.js` の doPost に `mode=internal_setup` 追加 + `slackQueueInteractiveCacheFromPayload_` の `allow` に `invoice_send_done: true`
+
+#### 自動セットアップ (まさ作業ゼロ)
+- `clasp push` + production deployment update (`@1422 → @1424`)
+- PWA `.env.local` から `NEXT_PUBLIC_GAS_WEBAPP_URL` + `SUPABASE_SERVICE_ROLE_KEY` を取得 → curl で `?mode=internal_setup` POST
+- GAS 側で `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` を ScriptProperties に格納 + 5 トリガー作成 + slackInteractiveWorker トリガー確認 → `{ok:true, message:"setup complete"}`
+
+#### 動作確認
+- 次回 cron 発火時刻 (10/12/15/17/20 時 JST) に各 PJ で締切判定 + 該当 occurrence で nudge 送信
+- 1 PJ ずつ実 PJ で動作する見込み (CX や CTB など、現実の請求書送付タスクが起きる PJ で観察)
+
+### 教訓
+- GAS 側のセットアップ作業 (ScriptProperties 設定 + トリガー作成) も `clasp push` + `clasp deploy --deploymentId` + Web App URL に POST する `internal_setup` mode を作ることで、まさを 1 回も触らせずに完遂可能
+- production deployment update には `--deploymentId <既存ID>` 必須。これを忘れると新 URL になって Slack Interactivity URL の差し替え作業が発生する
+- production の deploymentId は `clasp deployments` 一覧 + `.env.local` の Webapp URL prefix で特定可能
+## 2026-05-08 〜 09 (funny-perlman セッション) — MTGサマリ機能 + L2_DATA 正本化
+
+### 報告会日程調整 (CockpitRoutineMeetingModal) のステータス反映バグ修正
+- **症状**: 予約完了しても「報告会日程調整」タスクが done にならず、再オープン時も「日程選択」UI が出る
+- **原因**: `CockpitView.cockpit.billingCycles` が SSR fetch のスナップショットで、Edge Function (`schedule-meeting`) 後に再 fetch されない
+- **解決策**: 予約成功時に `router.refresh()` で親 (cockpit page サーバーコンポーネント) を再フェッチ + `localConfirmedISO` で即時UI切替 + 自動 close を削除
+- 詳細は BUGS.md「報告会日程調整の予約完了が反映されない」エントリ
+
+### MTG サマリ機能 Phase 1 (本セッション完了範囲)
+- 新方針: 月次フラット抽出 (`navigator_extract`) と並走で **会議単位** に Gemini 抽出 → Supabase `project_meeting_summaries` に upsert
+- **PWA 側 (本 worktree)**:
+  - migration 024: `project_meeting_summaries` 新設 (meeting_id PK, summary_short, decided/progress/next_actions/risks JSONB)
+  - migration 025: RLS policy を `TO authenticated` のみ → `TO anon, authenticated` に修正 (PWA は anon key で read-only のため)
+  - `supabase-data.ts` に `fetchProjectMeetingSummaries`
+  - `CockpitMeetingSummary.tsx` 全面書き換え (月グルーピング、直近1年表示+トグル、行展開で topics)
+- **GAS 側 (本 worktree)**:
+  - `gas/180_SupabaseClient.js` 新規 (service_key で REST upsert/select、`_supa_props_` でプロパティ取得、`oneTime_setScriptProperty` 汎用)
+  - `gas/074_MeetingSummaryRepo.js` 新規 (`nav_meeting_extractForProjectYm_` + バックフィル、source_hash で差分検知、maxItems=8 で 6 分制限避け)
+  - `gas/092_AdminLLMExtractors.js` に `meeting_extract_basePrompt_` + `run_installMeetingExtractorConfig` 追加 (Protocol Store + DB_LlmModelConfig 同時登録)
+  - `gas/163_LlmRouter.js` に Gemini 対応 (`llm_callGemini_`、`gemini-2.5-flash`)
+  - `gas/152_NavigatorCron.js` の daily cron に新関数呼び出し追加
+  - `gas/099_PwaApi.js` に admin actions `listProps` / `runFunc` 追加 (clasp run の代替)
+  - `gas/appsscript.json` に `executionApi.access=MYSELF` 追加 (将来 clasp run 用、現状 webapp 経由で十分)
+- **GAS デプロイ**: deployment ID `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` を v1421 に update
+- **動作確認**: SX (p21) で 7 件抽出成功 (中身ありは 1 件のみ、6 件は議事録本文薄い → Phase 2 で全ソース統合する必要あり)
+
+### Phase 2 が必要な理由 (まさ判断)
+- Phase 1 は **Notion 議事録単独** で抽出 → 大半が「会議内容なし」になる (議事録本文が薄いだけで、実際の議論は Slack/Gmail/Calendar 説明文等に分散)
+- 本来あるべき設計は: **1 MTG = 1 カレンダーイベント** を主軸にして、その周辺の Notion議事録 + Calendar + Slack + Gmail + Drive + GMeet を全部集めて Gemini に投げる
+- データ収集の時間範囲ロジック (前後数日 etc) は既存 305-309 / R320 をそのまま流用
+- 議事録なしイベントは `summary_short = "議事録なし"` で残す
+- monthly_reports は会議サマリの集約結果として組み立てる (R313 改修、AMD-Report GAS 別セッション)
+
+### L2 データ正本化 (まさの最重要指示)
+- **`pwa/design/L2_DATA.md` 新設** ← AMD OS 中核データ正本
+- L1 / L2 の定義 (まさ正本): 5 生データ (Gmail/Drive/Calendar/Slack/Notion) → L2 = 「欲しい情報の形」で抽出した正本
+- L2 6 種: ① monthly report ② AMDプロトコル ③ MS進捗 ④ PJナレッジ ⑤ メンバーナレッジ ⑥ MTGサマリ
+- 全テーブル / cron / 動作状況を表化、レポート関連 (Atlas / VC / AMD Score 等) も別カテゴリで列挙、cron を時系列タイムラインで可視化
+- 6 入口に導線: AGENTS.common.md / pwa/CLAUDE.md / pwa/AGENTS.md / pwa/design/README.md / gas/CLAUDE.md / knowledge/amd_os_vision.md (Claude / Codex / GPT 全エージェントから辿れる構成)
+
+### 動作実態の発見
+| L2 | 行数 | 状態 |
+|---|---|---|
+| monthly_reports | 58 | ✅ R313 (AMD-Report GAS, 05:00) |
+| **protocols** | **0** | ❌ **未稼働** (UI 削除されてる、スプシから掘り起こし要) |
+| milestone_monthly_progress | 158 | ✅ cron/daily-estimate (PWA, 03:00) |
+| **project_knowledge** | 2024 | ⚠️ データはあるが **書き込み元不明** |
+| **member_knowledge** | **0** | ❌ **未稼働** |
+| project_meeting_summaries | 7 | 🚧 Phase 1 稼働中 (Phase 2 で全ソース統合へ) |
+
+### spawn 出した別タスク (chip)
+1. **AMDプロトコル UI 復活 + スプシ掘り起こし** — 元はトップメニューの Atlas 左にあった、復活要
+2. **PJナレッジ + メンバーナレッジ を AMD-Report GAS の cron で実装** — まさ判断「ReportGAS の仕事」
+
+### 残タスク (次セッションで)
+- **MTGサマリ Phase 2 実装** (Calendar event 主軸 + 5 生データ統合) — 074_MeetingSummaryRepo.js 全面書き換え + meeting_summaries.md spec 書き直し
+- 上記 spawn 2 件は別 worktree で並行可能
+- 既存 7 件の SX 抽出データは Phase 2 で再生成 (現状中身薄いだけなので消すか維持か Phase 2 設計次第)
+
+---
+
+## 2026-05-09 — MTGサマリ Phase 2 移行 (brave-cohen-15d352 セッション)
+
+前セッション (funny-perlman) で Phase 1 までで止めた MTGサマリを Phase 2 仕様に移行。
+
+### 何を変えたか
+
+| 観点 | Phase 1 | Phase 2 |
+|---|---|---|
+| 主軸 | Notion 議事録ページ単独 | **1 calendar event = 1 行** (`meeting_id` PK = calendar event id) |
+| 議事録ソース | Notion ページ本文のみ | **Notion 本文 + Gmail (`reportEmails` ±1日)** を結合 |
+| 議事録なし扱い | 抽出スキップ | `summary_short = "議事録なし"` でマーカー行を残す |
+| 差分検知 | 本文 sha256 | (Notion 本文 + Gmail 結合テキスト) sha256 |
+
+### 実装
+
+- migration 027 (`027_pms_phase2_calendar_event.sql`) 適用: 既存 7 行 DELETE + `notion_page_id` / `gmail_thread_ids` / `source_kinds` カラム追加
+- `gas/074_MeetingSummaryRepo.js` 全書き直し: Notion 議事録 query → eventId 抽出 → Gmail 月単位キャッシュ → event 日 ±1日で thread pickup → 結合 sha256 → Gemini call → upsert
+- `gas/092_AdminLLMExtractors.js` の `meeting_extract` プロンプトを v2 に更新 (combined sources 対応、version 260509_02)
+- GAS push + deploy v1425 + Protocol Store install (`run_installMeetingExtractorConfig`)
+
+### Gmail 流用ロジック
+
+`mr_extractFromGmail_(projectId, startDate, endDate)` ([gas/307_MonthlyReport_GmailExtract.js](../../gas/307_MonthlyReport_GmailExtract.js)) を **daily cron 実行のうち、その 1 PJ × 1 ym で 1 回だけ** 月単位で呼ぶ → memory cache。`DB_Projects.reportEmails` (カンマ区切り複数) を `(from:X OR to:X)` でフィルタ。CircleBack / GMeet recording 通知 / クライアント議事録メールがここに流れてくる前提。
+
+### 初回バックフィル結果 (p20 = SX × 202604)
+
+- `inserted` 1 件 ("[CX] inner mtg.", sourceKinds: "notion")
+- `inserted_none` 多数 (議事録なしマーカー行)
+- `skipped_no_event_id` 多数 (CalendarToNotionMinutes 導入前 or 手動作成の Notion ページで eventId プロパティが空)
+- **`gmailThreads: 0` が大半** → reportEmails の中身に CircleBack / GMeet 通知メールアドレスが入ってない or 議事録メールが届いていない
+
+### 残課題 (Phase 2.1)
+
+- `DB_Projects.reportEmails` の各 PJ の現状を確認 + CircleBack 通知メール / GMeet recording 通知メールの from アドレスを登録
+- これにより議事録メールが Gmail cache に乗り、`source_kinds` が `notion+gmail` / `gmail` で稼働する MTG が増える
+
+### Phase 2.5 (別セッション、AMD-Report GAS)
+
+- R313_MonthlyReport_Cron を `project_meeting_summaries` 集約方式に書き換え
+- Phase 1 の navigator_extract (月単位フラット) を完全廃止可能に
+
+### 今回確立した運用知見
+
+- worktree からは `.env.local` が無いので `apply_ddl.py` は main worktree 経由で absolute path 指定して実行する
+- migration 番号は他 worktree の作業と衝突する可能性あり、`ls scripts/migrations/` で必ず確認してから新規番号を割り当てる
+
+### 2026-05-09 後半: p21 (SX) 202604 で Phase 2 動作確認 OK
+
+- まさ追加情報「p20=CX で Notion のみ」「p21=SX で Gmail に議事録大量」を踏まえ、p21 で Phase 2 本番テスト
+- `mr_gmail_getProjectInfo_` で reportEmails 確認:
+  - p20 (CX): `kamiya.koji@nims.go.jp`, `NATSUME.Kyohei@nims.go.jp` (NIMS 関係者個人 2 件)
+  - p21 (SX): `renkei@stu.ehime-u.ac.jp` 等 + `@ehime-u.ac.jp` ドメインワイルドカード (5 件)
+- p21 × 202604 バックフィル結果:
+  - 月単位 Gmail 取得: 15 thread
+  - `inserted (sourceKinds: notion+gmail)`: 2 件 ← Phase 2 のコア機能成功
+  - `inserted (sourceKinds: notion)`: 5 件
+  - `inserted_none` (議事録なしマーカー): 13 件
+  - `skipped_no_event_id` (古い議事録、eventId 空): 14 件
+  - `deferred_maxItems` (maxItems=8 打ち切り): 19 件 → daily cron で順次処理される
+  - `error_llm` (Gemini 偶発失敗): 1 件 → 次回 cron で再試行
+- これで Phase 2 (Notion + Gmail 結合 → Gemini 抽出 → calendar event 単位 upsert) は **動作確認済**
+- `notion+gmail` が 2/20 件と少ないのは、議事録メールが「会議当日 〜 翌日」に届かず、もっと後で届く可能性。Phase 2.1 で pickup ウィンドウを ±1日 → ±3日 〜 ±7日 に広げる余地あり (任意)
+- 命名訂正: 前段で「p20 (SX)」と書いていたのは間違い。正しくは **p20=CX**, **p21=SX**。md/HANDOFF を訂正済
+
+### 2026-05-09 終盤: Phase 3 (会議終了 +60 分 trigger + iOS APNs 通知用テーブル)
+
+まさからスクショで確認: 4/29 (水) が「サマリ未生成」表示 (= Gemini 空回答ケース)、3/25 など「議事録なし」マーカーは想定通り表示されてる。
+追加要望:
+- 「会議が終わって1時間後にその会議の議事録だけをピンポイントで収集」する仕組みを追加
+- 拾えたら通知 (Slack ではなく Swift APNs)
+- 03:00 cron は議事録部分を軽量化
+
+### 確定事項
+- 通知方式: **Swift APNs** (iOS ネイティブ、PWA Web Push でなく)
+- cron 頻度: 毎X分でなく、**会議認識時に終了+60分の ad-hoc trigger** を 1 回だけ
+- 03:00 daily cron: **拾い漏れ救済 fallback として残す** (Phase 3 trigger が立てそこなった分を翌朝救済)
+
+### 実装
+
+**UI (PWA)**:
+- `pwa/src/lib/supabase-data.ts`: `ProjectMeetingSummary` に `sourceKinds` 列追加
+- `pwa/src/components/cockpit/CockpitMeetingSummary.tsx`: `source_kinds='none'` を「議事録なし」、それ以外で内容空を「議事録あり・抽出空 (本文薄い or LLM 失敗)」と区別表示
+
+**GAS**:
+- `gas/074_MeetingSummaryRepo.js`:
+  - `nav_meeting_processOneEvent_(eventId, projectId)` 新設 (1 event ピンポイント抽出)
+  - `_meeting_findNotionPageByEventId_` 新設 (Notion DB query で eventId equals filter)
+  - `_meeting_loadOneByMeetingId_` 新設 (差分検知用)
+- `gas/153_MeetingHourlyTrigger.js` 新規:
+  - `nav_meeting_scheduleUpcomingTriggers_(calendarIdOverride?)` — 「今日 〜 7 日先」の events を取り、各 event の終了 +60 分に `ScriptApp.newTrigger.at(date)` で 1 回限り time-trigger をセット。重複防止に `ScriptProperties.MEETING_PENDING_TRIGGERS` で記録。allDay/+prefix/EXCLUDE alias/pjCode=AMD は除外
+  - `nav_meeting_triggerCallback` (アンダースコアなし、trigger 発火コールバック) — pending から fireAtMs <= now を取り、`nav_meeting_processOneEvent_` で抽出 → 拾えたら `meeting_notifications` upsert → 発火済 trigger 削除
+  - `nav_meeting_listPendingTriggers` (デバッグ)
+  - `nav_meeting_clearAllPendingTriggers_` (緊急用)
+  - `_meeting_insertNotification_` (Supabase upsert)
+  - calendar id 取得は (引数 > CFG_CalendarImport > ScriptProperties.MAIN_CALENDAR_ID > Session.getEffectiveUser) の優先順 (Web App curl 経由実行を考慮)
+- `gas/152_NavigatorCron.js`:
+  - `nav_meeting_extractForProjectYm_` の phase 名を `meeting_summary` → `meeting_summary_fallback` に
+  - 末尾に `nav_meeting_scheduleUpcomingTriggers_` 呼び出し追加 (= 新 phase `meeting_schedule_upcoming`)
+
+**Supabase**:
+- `pwa/scripts/migrations/028_meeting_notifications.sql` 新規:
+  - PK = meeting_id (FK to project_meeting_summaries, CASCADE)
+  - notified_at TIMESTAMPTZ で送信済管理 (Swift 側が UPDATE)
+  - source_kinds / summary_short / title 変更時に notified_at を NULL に戻すトリガで自動再通知
+  - RLS: SELECT anon/authenticated, UPDATE authenticated (Swift が打つ)
+  - partial index `idx_meeting_notifications_unsent` (notified_at IS NULL) で Swift polling 高速化
+
+**iOS ハンドオフ**:
+- `ios/HANDOFF_meeting_notifications.md` 新規: Swift 側の受信処理仕様 (Realtime sub or polling、ローカル通知、画面遷移、notified_at マーク)。実装は別セッション
+
+### 動作確認
+
+- migration 028 適用 OK (201)
+- GAS deploy v1426 → v1427 → v1428 (calendarId override + Session.getEffectiveUser で curl 経由実行を可能に)
+- 初回 scheduleUpcomingTriggers_ 結果: scanned 24 / scheduled 3 / skipped_excluded 13 / skipped_no_pj 6 / errored 2
+- 3 pending triggers: p19 ZeMA定例MTG / p07 LiSTie経営会議 / p21 SX-JAFCO MTG → 各会議終了 +60 分に発火する予定
+- errored 2 件は Logger.log に記録 (本番では問題なし、内容確認は GAS Editor から)
+
+### 次セッションへ
+
+- iOS 側: `ios/HANDOFF_meeting_notifications.md` に従って Swift APNs 受信実装
+- 明朝以降: pending trigger が順次発火 → meeting_notifications に行が積もるか確認
+
+---
+
+## 2026-05-09 — Phase 4 ③ MS進捗 毎時 polling 化 (quirky-moore-b60501 セッション)
+
+### 着手の背景
+
+L2_DATA.md の「次セッションで実装: L2 全データ毎時 polling 化 (Phase 4)」優先度 1 = ③ MS進捗。
+方針正本: [pwa/design/L2_DATA.md](../design/L2_DATA.md) Phase 4 セクション + Phase 3 (MTGサマリ) で確立した
+「毎時 polling + source_hash 差分検知」パターンを横展開する。
+
+### 設計判断
+
+**1 PJ × 1 ms 単位でなく 1 PJ × 全 MS 一括の現行 LLM call を維持した**:
+- L2_DATA.md には「1 PJ × 1 ms 単位に分解」とあったが、実装時に再検討
+- 1 PJ × 9 MS にすると LLM call 数が 9 倍。差分検知前提でも初回登録時には 9 call 必要
+- MS 横断推論 (「MS 1 完了 → MS 2 着手」) を LLM がしやすい
+- source_hash は monthly_report 本文単位なので PJ 粒度で十分な差分検知ができる
+
+**新規テーブル `progress_estimate_state` (PK: project_id+ym)** で source_hash + last_processed_at を持つ:
+- 既存 `milestone_monthly_progress` は MS 単位なので「PJ 単位の差分検知 state」を別テーブルに分けた
+- `last_processed_at` 古い順 sort で PJ 公平に処理
+
+### 主な変更
+
+**PWA**:
+- `pwa/src/lib/progress-estimator.ts`:
+  - `EstimateOptions { force?: boolean }` 追加。default `force = true` (= 既存呼び出し側挙動を変えない)
+  - 関数冒頭で source_hash 計算 (= sha256(JSON({rb, rs, ms, prev, curr, sp})))
+  - `progress_estimate_state` から既存取得 → `force=false && existing.source_hash === new` で LLM スキップ + last_processed_at だけ touch + `unchanged: true` を return
+  - 完了時に `progress_estimate_state` を upsert (source_hash, saved_count, total_count, llm_model, last_processed_at)
+- `pwa/src/app/api/cron/hourly-estimate/route.ts` 新規:
+  - `maxDuration = 300` (Vercel Pro)
+  - target list = アクティブ PJ × {当月, 前月} (月跨ぎ救済)
+  - `progress_estimate_state.last_processed_at` 古い順 (NULL = 未処理優先) sort
+  - `force=false` で `estimateProgress` 呼び出し
+  - LLM call 数 ≥ maxItems (default 14) で打ち切り → `hasMore=true` を return、次時 cron で残り処理
+  - クエリ `?force=1` で強制再推定、`?ym=YYYYMM` で特定月、`?maxItems=N` で打ち切り上限変更
+- `pwa/src/app/api/cron/daily-estimate/route.ts` 削除 (旧 03:00 daily cron)
+- `pwa/vercel.json` 更新: `path: /api/cron/hourly-estimate`, `schedule: "0 * * * *"`
+
+**Supabase**:
+- `pwa/scripts/migrations/029_progress_estimate_state.sql` 新規:
+  - PK = (project_id, ym)
+  - `source_hash` `last_processed_at` `saved_count` `skipped_count` `total_count` `llm_model` `message` 列
+  - `idx_pes_last_processed_at` で sort 高速化
+  - RLS: SELECT anon/authenticated 開放、書き込みは service_role
+
+**仕様 md**:
+- `pwa/design/ms_progress.md` 新規 (本 Phase の正本仕様書)。`progress_estimation.md` は Phase 1〜2 履歴として残置
+- `pwa/design/L2_DATA.md` の状態列 / cron 表 / 改修優先度表 / 関連 md / 改訂履歴 を Phase 4 完了で更新
+
+### 実装上の注意点
+
+- `progress_estimate_state` の `source_hash` 入力には `tsukuyomi_context.system_prompt` (reward_estimate tag) も含めた → 推定プロンプトを書き換えたら自動的に全 PJ 再推定
+- `pm_manual` / `criteria_toggle` で手動確定済み MS は LLM を呼んでも save 段階でスキップされる (現行通り)
+- `monthly_report` 本文不在 PJ は早期 return で state テーブルに書き込まない (= 次時再チェック)
+- 手動「AIで再推定」ボタン (`/api/progress/estimate`) と `report/generate` 直後 fire-and-forget は force=true (default) で source_hash 無視
+
+### Vercel Hobby plan に阻まれて GAS 経由構成へピボット (本セッションの大事な学び)
+
+最初に Vercel deploy を試したら以下のエラー:
+
+```
+Error: Hobby accounts are limited to daily cron jobs.
+This cron expression (0 * * * *) would run more than once per day.
+Upgrade to the Pro plan to unlock all Cron Jobs features on Vercel.
+```
+
+事前確認では「14 cron 持ってるので Pro plan」と推測したが誤り。Hobby plan は **cron 数の上限はない (= 任意数 OK)** が、**個々の cron schedule が "1 日 1 回まで"** という制約がある。だから既存 14 cron は全て daily 1 回未満の schedule になっていた。
+
+対応: Pro upgrade はまさのカード設定が必要なため、**自動化で完結させる方針**に切替:
+
+- `vercel.json` から `/api/cron/hourly-estimate` を削除 (route 自体は残す = curl で直接叩ける)
+- 新規 `gas/154_PwaCronCaller.js`:
+  - `nav_pwa_pingHourlyEstimate(opts?)` — UrlFetchApp で `${PWA_BASE_URL}/api/cron/hourly-estimate` を `Bearer $CRON_SECRET` で GET
+  - `nav_pwa_setupHourlyPwaTrigger_()` — 毎時 0 分 time-trigger 設置
+  - `nav_pwa_setProps_(props)` — ScriptProperties (PWA_BASE_URL / CRON_SECRET) を curl 経由で設定 (= まさの手動設定不要)
+- GAS ScriptProperties に PWA_BASE_URL + CRON_SECRET 追加 (.env.local から runFunc 経由で投入)
+- 本体GAS time-trigger は +1 で 19+ 個 (上限 100 にまだ余裕)
+
+Pro 移行後は vercel.json に schedule を戻して GAS trigger を消すだけで切替可能。設計上、route 自体は触らない。
+
+### 動作確認
+
+- TS 型チェック: `tsc --noEmit` exit 0
+- migration 029 適用 OK (Supabase 201)
+- Vercel deploy: cron 0 個減らした構成で再 deploy (本セッション内で実施)
+- GAS push + deploy + ScriptProperties 投入 + trigger setup: 本セッション内で実施
+- 手動 ping (`runFunc&fn=nav_pwa_pingHourlyEstimate`) で本番動作確認
+
+### 次セッションへ
+
+- 残り Phase 4 タスク (優先順):
+  - ⑤ メンバーナレッジ 新規実装 (5 生データ → Sonnet → member_knowledge upsert、毎時 polling)
+  - ④ PJナレッジ 流入元新規実装 (同上、project_knowledge upsert)
+  - ② AMDプロトコル UI 復活 + 自動抽出 cron
+- 本 Phase の動作確認: 翌日朝 `progress_estimate_state` を SELECT して各 PJ の last_processed_at が時間ごとに更新されているか
+- まさへの判断材料: Vercel Pro plan に upgrade するか? 現状 GAS 経由で機能的には十分だが、Pro なら vercel.json に書くだけでシンプル化できる。Pro = 月 20 USD / cron 上限 40 個 / maxDuration 300秒
+
+---
+
+## 2026-05-09 (続) — Phase 4 残り 3 L2 一括完了 (quirky-moore-b60501 セッション継続)
+
+### 着手の背景
+
+まさからの指示「そのままここで全部終わらせて！」 を受けて、Phase 4 の残り (⑤ メンバーナレッジ + ④ PJナレッジ + ② AMDプロトコル) を本セッションで一括実装。
+
+### 設計判断
+
+**1 ファイル `gas/155_L2KnowledgeExtractor.js` に 3 extractor を集約**:
+- 各 L2 ごとにファイル分けすると 3 ファイル分の boilerplate が増える
+- 共通 helper (_l2_sha256_, _l2_loadStateMap_, _l2_upsertState_, _l2_touchState_, _l2_patchProjectKnowledge_, etc.) を 1 ファイルに集約できる
+- 関心の分離は関数名 namespace (nav_member_knowledge_* / nav_project_knowledge_* / nav_protocol_*) で実現
+
+**1 統合 state テーブル `l2_extract_state` (PK: l2_kind, target_id, scope_key)**:
+- L2 ごとに別テーブル (member_state / project_state / protocol_state) を切ると 3 migration + 3 helper
+- 1 統合テーブルで scope_key を `'global'` (member系) と `ym` (PJ系) で使い分けて差分検知
+- 既存 `progress_estimate_state` (ms_progress 用) はそのまま温存 (= 全部統合する大規模リファクタは別 Phase)
+
+**入力ソースは "二次集約" 版 (= 既存 L2 を Sonnet/Gemini で再処理)**:
+- まさのルール「L2 = 5 生データから直接抽出」に厳密には反するが、Phase 4 初版は時間最適化を優先
+- ⑤ member: `member_activities` (90日) + `project_meeting_summaries` (60日)
+- ④ project: `monthly_reports` + `project_meeting_summaries` (当月)
+- ② protocol: `project_meeting_summaries.decided/risks/next_actions` (当月+前月)
+- 各 design md に「Phase 4.x で 5 生データ直結に改善予定」と明記
+- 5 生データ直結は GAS の 305-309 (mr_extractFromNotion_ / mr_extractFromSlack_ 等) を流用すれば実装可能だが、メンバー単位の Slack 取得など新規追加が必要 → 別 Phase
+
+**`④ project_knowledge` の既存 2024 行を破壊しない設計**:
+- UNIQUE 制約 (project_id, category, entity_name) を追加すると、重複行がある場合に migration が失敗するリスク
+- 代わりに cron 内で SELECT → 既存有り PATCH (id 指定の REST PATCH) / 無し INSERT で重複回避
+- 「2024 行が何由来か不明」の状態を温存しつつ、新規 cron 由来は `source='l2_hourly_extract'` で識別
+
+**`② protocols` の `protocol_id` 命名規則**:
+- `"p4-{projectId}-{ym}-{sha8(title)}"` → 同月同タイトルの再抽出は同 ID で update (重複行を作らない)
+- `status='candidate'` で入る → PM が UI で confirmed 昇格運用 (UI 実装は将来)
+
+### 主な変更
+
+**Supabase**:
+- `pwa/scripts/migrations/030_l2_extract_state.sql` 新規 + 適用 OK (Supabase 201)
+
+**GAS**:
+- `gas/155_L2KnowledgeExtractor.js` 新規:
+  - `nav_member_knowledge_pollAll` / `nav_member_knowledge_extractOne_`
+  - `nav_project_knowledge_pollAll` / `nav_project_knowledge_extractOneForYm_`
+  - `nav_protocol_pollAll` / `nav_protocol_extractOneForYm_`
+  - `nav_l2_setupAllL2HourlyTriggers_` (3 trigger を一括設置)
+  - 内部 helper 群 (sha256 / state load / upsert / touch / project_knowledge PATCH)
+- LLM = Gemini Flash (既存 `llm_callJson("default", ...)` 流用)
+- maxItems: member=5, project=4, protocol=4 (Vercel Hobby と違って GAS は 6 分以内なら OK だが、UrlFetchApp タイムアウト ~60秒を考慮した安全値)
+
+**仕様 md**:
+- `pwa/design/member_knowledge.md` 新規
+- `pwa/design/project_knowledge.md` 新規
+- `pwa/design/amd_protocol.md` 新規
+- `pwa/design/L2_DATA.md` の状態列 / cron 表 / 改修優先度表 / 改訂履歴 を Phase 4 全完了で更新
+- `pwa/HANDOFF_pwa_rebuild.md` を Phase 4 全完了で更新
+
+### 実装上の注意点
+
+- LLM プロンプトは「入力に書かれてない推測禁止 / 推奨件数を明示」で過剰生成を抑制
+- ② protocol の重要度フィルタは LLM プロンプトで「月次の最重要 1-3 件」と明示。瑣末な決定は除外
+- ⑤ member の system prompt で「name (code_name) を summary に含めない」と指定 (テーブル別カラムで管理されるため重複情報を避ける)
+- GAS time-trigger は分単位指定不可なので、`everyHours(1)` で 3 trigger を別ハンドラ名で立てる → GAS が分散発火する
+- `_l2_patchProjectKnowledge_` は PostgREST の PATCH を直叩き (`supa_upsert` は INSERT+merge=UPDATE on conflict だが project_knowledge には UNIQUE 制約がないので id 指定 PATCH が必要)
+
+### 動作確認
+
+- migration 030 適用 OK (Supabase 201)
+- GAS deploy v1432: clasp push → deploy
+- ScriptProperties 既設定 (Phase 4 ③ で設定済の SUPABASE_URL / SUPABASE_SERVICE_KEY / GEMINI_API_KEY を流用)
+- trigger setup: `nav_l2_setupAllL2HourlyTriggers_` で 3 trigger 設置
+- 手動 ping (各 pollAll を runFunc 経由) で動作確認
+
+### 次セッションへ
+
+- **Phase 4 全 6 L2 完了** (③⑤④② + ⑥ 既完了 + ① は別構造で OK)
+- **Phase 4.x 改善案 (将来)**:
+  - 5 生データ直結: ⑤ メンバー知識を Slack 個人 DM / mention search から直接抽出
+  - 5 生データ直結: ④ PJナレッジを Notion 経営戦略 page / Slack channel から直接抽出
+  - ② AMDプロトコル UI に「candidate → confirmed 昇格」ボタン追加
+- 観察ポイント: 翌日朝 `l2_extract_state` を SELECT して 3 L2 × 各 target が積もり、`last_processed_at` が時間ごとに更新されているか
+- 別件: iOS Swift 側の APNs 受信実装 (ios/HANDOFF_meeting_notifications.md + 新規 ios/HANDOFF_l2_notifications.md)、MTGサマリ Phase 2.5 (R313 集約方式書き換え)
+
+---
+
+## 2026-05-09 (続々) — Phase 4 全 4 L2 を Swift APNs 通知に接続 (quirky-moore-b60501 セッション継続)
+
+### 着手の背景
+
+Phase 4 の 4 L2 (③⑤④②) の通知系統を聞かれて「現状なし、Slack/iOS/PWA UI のどれが好み?」と回答したら、まさから「好みっていうか、もう Swift 通知に決めてたよね」と指摘。前セッションの ⑥ MTGサマリ Phase 3 (`meeting_notifications` テーブル + iOS APNs 通知) は **L2 全般の通知設計の標準パターン** として位置付けられていた。Phase 4 の 4 L2 もそのパターンで横展開すべきだった。
+
+### 設計判断
+
+**新規 `l2_notifications` テーブル (= meeting_notifications の姉妹) を作る**:
+- 既存 `meeting_notifications` は FK to project_meeting_summaries CASCADE 持ち → 別 L2 行を入れると FK violation
+- `l2_notifications` は FK 持たず、`l2_kind` discriminator で 4 L2 + 将来追加分を統一
+- UNIQUE(l2_kind, target_id, scope_key) で同抽出を 1 行集約 → 同 PJ × 同 ym で繰り返し抽出されても 1 行に upsert
+
+**`saved_count` 変化で再通知トリガ**:
+- meeting_notifications では `source_kinds`/`summary_short`/`title` 変化で notified_at=NULL に戻す設計
+- l2_notifications では `title`/`summary`/`saved_count` 変化で同様 (= 抽出件数が増えたら再通知)
+- 同じ saved_count なら notified_at は保持される = 重複通知しない
+
+**通知タイトルは l2_kind ごとに絵文字統一**:
+- ⑤ member: 👤 (`👤 まさ のメンバーナレッジ更新 (3件)`)
+- ④ project: 🗂️ (`🗂️ SX (202605) PJナレッジ更新 (5件)`)
+- ② protocol: ⚖️ (`⚖️ SX (202605) AMDプロトコル candidate (2件)`)
+- ③ ms_progress: 📈 (`📈 SX (202605) MS進捗 更新 (3件)`)
+- ⑥ meeting (既存): 📋 (継続)
+
+### 主な変更
+
+**Supabase**:
+- `pwa/scripts/migrations/031_l2_notifications.sql` 新規 + 適用 OK
+
+**GAS**:
+- `gas/155_L2KnowledgeExtractor.js` の 3 extractor に通知 upsert 追加:
+  - `_l2_insertNotification_(payload)` helper 追加
+  - `_l2_resolvePjName_(projectId)` helper 追加 (project_id → 表示名 cache)
+  - 各 extractor で `if (saved > 0)` で通知 upsert
+
+**PWA**:
+- `pwa/src/lib/progress-estimator.ts` 末尾に `saved > 0` のとき `l2_notifications` upsert (l2_kind='ms_progress')
+
+**iOS HANDOFF**:
+- `ios/HANDOFF_l2_notifications.md` 新規 (= `HANDOFF_meeting_notifications.md` の姉妹)
+- l2_kind ごとの遷移先案 / 集約方針議論 / 上流テーブル仕様
+
+### 動作確認
+
+- migration 031 適用 OK (Supabase 201)
+- GAS push v1434 + Vercel deploy + 手動 ping で 4 L2 全部の通知が `l2_notifications` に積もるか確認 (= 本セッション内で実施)
+
+### 次セッションへ
+
+- iOS Swift 側で `l2_notifications` 受信実装 (= `HANDOFF_l2_notifications.md` 参照)
+- iOS は既存の `meeting_notifications` (⑥) と新規 `l2_notifications` (③⑤④②) の両方を捕捉する `NotificationRepository` 設計を推奨
+- 集約方針 (importance=1 をどうするか) はまさと要相談
+
+---
+
+## 2026-05-09 (続々々) — iOS Swift APNs 受信実装 完了 (quirky-moore-b60501 セッション継続)
+
+### 着手の背景
+
+まさからの追加指示「このまま swift 実装まで進めてほしい。現状だと確認ができないので。」 を受けて、iOS Swift 側の通知受信実装まで本セッションで完了させる。
+
+### 設計判断
+
+**1 ファイル (AMDOSApp.swift) に Models + Service 集約**:
+- worktree 環境に xcodegen / brew が未インストール → 新規 `.swift` ファイル追加には `project.pbxproj` 手動編集必要 = リスク
+- 既存 AMDOSApp.swift は project に登録済 → 中身を拡張する形にすれば **手動編集ゼロで済む**
+- 整理性は犠牲だが「動かすこと」最優先。後続セッションで xcodegen 導入 → 分離可能
+- 当面の AMDOSApp.swift のサイズ: ~270 行 (許容範囲)
+
+**両テーブル (l2_notifications + meeting_notifications) を同一 Service で扱う**:
+- HANDOFF_l2_notifications.md の推奨に従う
+- `NotificationService.pollAllAndShowNotifications()` で両 fetch を `async let` で並行実行
+- 失敗は各 try/catch で握って他を止めない
+
+**Polling 戦略 (洪水回避)**:
+- 起動時 + foreground 復帰時のみ fetch (= scenePhase==.active 監視)
+- 集約は当面なし、importance>=3 なら .defaultCritical sound、それ以外は .default
+- 通知洪水になったら importance ベース集約を導入する余地
+
+### 主な変更
+
+**iOS**:
+- `ios/AMDOS/AMDOSApp.swift` 全面書き直し (~270 行に拡大):
+  - `@UIApplicationDelegateAdaptor(AppDelegate.self)` 追加
+  - `@StateObject private var notificationService = NotificationService.shared`
+  - `.task { ... }` で起動時 polling
+  - `.onChange(of: scenePhase) { ... }` で foreground 復帰時 polling
+  - `AppDelegate` (UNUserNotificationCenterDelegate): `willPresent` で foreground 中も banner+sound 表示、`didReceive` (タップ) は当面 print のみ
+  - `enum L2Kind` / `struct L2Notification` / `struct MeetingNotification` 追加 (Codable + Identifiable + Sendable)
+  - `final class NotificationService: ObservableObject` (@MainActor):
+    - `requestAuthorizationIfNeeded` (許可ダイアログ)
+    - `pollAllAndShowNotifications` (両テーブル並行 fetch)
+    - `pollL2Notifications` / `showL2LocalNotification` / `markL2Notified`
+    - `pollMeetingNotifications` / `showMeetingLocalNotification` / `markMeetingNotified`
+    - 内部 SupabaseClient (anon key、認証状態は既存 SupabaseService と Keychain 経由で共有される)
+
+**iOS HANDOFF**:
+- `ios/HANDOFF_l2_notifications.md` の反映状況に「iOS Swift 受信実装 完了」追記
+- `ios/HANDOFF_meeting_notifications.md` の反映状況も同様に追記 (l2 と統合実装した旨)
+
+### 動作確認
+
+- Simulator ビルド: SUCCEEDED
+- Device ビルド (masaiPhone iPhone 16 Pro, ID `22F6F889...`): SUCCEEDED
+- `xcrun devicectl device install app --device <ID> AMDOS.app`: 成功 (bundleID jp.team-armada.amdos)
+- `xcrun devicectl device process launch --device <ID> jp.team-armada.amdos`: 成功 (`Launched application with jp.team-armada.amdos bundle identifier.`)
+- 実際の通知到達確認: まさのスマホで起動 → 通知許可 → ホーム画面復帰 で 👤/🗂️/⚖️/📈/📋 が降ってくるかは目視待ち
+
+### 次セッションへ
+
+- 通知タップ時の画面遷移を l2_kind ごとに実装 (現状 print のみ):
+  - member_knowledge → メンバー詳細
+  - project_knowledge → PJ コックピット ナレッジ枠
+  - protocols → PJ プロトコル candidate 一覧 (UI 既存)
+  - ms_progress → PJ コックピット 月次モーダル
+  - meeting → PJ コックピット MTG サマリ枠
+- AMDプロトコル UI に「candidate → confirmed 昇格」ボタン追加 (= PWA `AdminProtocolsClient.tsx` または iOS Features/Admin に追加)
+- xcodegen を入れて Models / Service を別ファイルに切り出す (整理性回復)
+- 通知の集約方針 (importance=1 をリアルタイム or 日次まとめ) をまさと相談
+
+---
+
+## 2026-05-09 (続々々々) — 修正依頼ループ (l2_feedbacks) PWA 側実装 (quirky-moore-b60501 セッション継続)
+
+### 着手の背景
+
+iOS 通知が降ってきた直後、まさから:
+> 「BWE の総会の議事録きたけど、BWE じゃなくて CX の神谷さんが登場する内容になってたりしてカオスだから、それをつくよみに伝えて修正できるようにしてほしい。PWA 側でも同様に通知の内容をチェックできるようにしてほしい。PWA 側でのチェックを先に実装して！」
+
+= 通知の誤抽出を直接 LLM 抽出 cron に伝える仕組みが必要。**PWA 側を先に実装**。
+
+### 設計判断
+
+**新規 `l2_feedbacks` テーブル (migration 032)** を作って、既存 tsukuyomi_learnings / ms_progress_revisions とは独立に持つ:
+- 既存の tsukuyomi 系は ms_progress 専用に密に絡んでて流用しづらい
+- `l2_feedbacks` は L2 全種 (member/project/protocols/ms_progress/meeting_summary) で統一して使えるシンプル設計
+- (l2_kind, target_id, scope_key) で対応 cron が引ける + scope_key='global' で全 ym 共通の指摘も書ける
+
+**LLM プロンプトに「過去のフィードバック」セクションを末尾追加**:
+- userPrompt 末尾に block を append (= 既存挙動を壊さない)
+- "=== 過去のユーザーフィードバック (重要・必ず反映すること) ===" のラベルで明示
+- 最大 10 件まで (= プロンプト膨張防止)
+- saved>0 時に applied_count++
+
+### 主な変更
+
+**Supabase**:
+- `pwa/scripts/migrations/032_l2_feedbacks.sql` 新規 + 適用
+
+**PWA**:
+- `pwa/src/app/(app)/notifications/page.tsx` 新規 (Server)
+- `pwa/src/components/notifications/NotificationsClient.tsx` 新規 (Client UI)
+- `pwa/src/app/api/notifications/feedback/route.ts` 新規 (POST)
+
+**GAS**:
+- `gas/155_L2KnowledgeExtractor.js`:
+  - `_l2_loadFeedbackBlock_` / `_l2_recordFeedbackApplied_` 追加
+  - 3 extractor の userPrompt 末尾に feedback ブロック追加 + saved>0 時に applied 記録
+- deploy v1435
+
+**仕様 md**:
+- `pwa/design/notifications.md` 新規
+- `pwa/design/L2_DATA.md` 改訂履歴 / `pwa/HANDOFF_pwa_rebuild.md` 最終更新を追記
+
+### 動作確認
+
+- migration 032 適用 OK
+- TS check exit 0
+- GAS deploy v1435
+- Vercel deploy 進行中 → まさが `/notifications` で実機確認 (本セッション内)
+
+### 次セッションへ
+
+- iOS 側通知タップ → `/notifications#<notification_id>` (or ネイティブ画面) へ遷移
+- gas/074 (MTGサマリ) と pwa progress-estimator (③ MS進捗) にも feedback ブロック追加
+- l2_feedbacks の archive UI

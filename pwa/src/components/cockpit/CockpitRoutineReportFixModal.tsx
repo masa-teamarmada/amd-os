@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
 import { notifyPlReview } from "@/lib/notify-pl";
 
 interface Props {
@@ -57,13 +56,19 @@ function statusLabel(s: string | null): string {
   return s;
 }
 
+type Mode = "view" | "tsukuyomi" | "manual";
+
 export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<ReportContent | null>(null);
   const [exists, setExists] = useState(false);
   const [fixing, setFixing] = useState(false);
-  const [requestingEdit, setRequestingEdit] = useState(false);
+  const [mode, setMode] = useState<Mode>("view");
+  const [tsukuyomiInstruction, setTsukuyomiInstruction] = useState("");
+  const [tsukuyomiBusy, setTsukuyomiBusy] = useState(false);
+  const [manualDraft, setManualDraft] = useState("");
+  const [manualBusy, setManualBusy] = useState(false);
   const [toast, setToast] = useState<{ msg: string; isError: boolean } | null>(null);
 
   useEffect(() => {
@@ -72,6 +77,8 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
     setLoading(true);
     setError(null);
     setToast(null);
+    setMode("view");
+    setTsukuyomiInstruction("");
 
     (async () => {
       try {
@@ -108,28 +115,65 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
     };
   }, [open, projectId, ym]);
 
-  async function requestEditOnPC() {
-    setRequestingEdit(true);
+  async function reloadReport() {
+    const { data } = await supabase
+      .from("monthly_reports")
+      .select("report_id, draft_content, final_content, status, generated_at")
+      .eq("project_id", projectId)
+      .eq("ym", ym)
+      .maybeSingle();
+    if (data) {
+      setReport({
+        reportId: data.report_id ?? null,
+        draftContent: data.draft_content ?? null,
+        finalContent: data.final_content ?? null,
+        status: data.status ?? null,
+        generatedAt: data.generated_at ?? null,
+      });
+    }
+  }
+
+  async function runTsukuyomi() {
+    if (!tsukuyomiInstruction.trim()) return;
+    setTsukuyomiBusy(true);
     setToast(null);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const email = userData.user?.email;
-      if (!email) throw new Error("ログイン情報が取得できません");
-
-      const result = await callEdgeFunctionPOST<{ ok: boolean; message?: string }>("send-slack-dm", {
-        projectId,
-        ym,
-        email,
+      const res = await fetch("/api/monthly-report/edit-by-tsukuyomi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ym, instruction: tsukuyomiInstruction.trim() }),
       });
-      if (result.ok) {
-        setToast({ msg: result.message || "Slackに送ったよ！", isError: false });
-      } else {
-        setToast({ msg: result.message || "エラーが発生しました", isError: true });
-      }
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.message || `HTTP ${res.status}`);
+      await reloadReport();
+      setToast({ msg: "つくよみが修正したよ", isError: false });
+      setTsukuyomiInstruction("");
+      setMode("view");
     } catch (e) {
       setToast({ msg: e instanceof Error ? e.message : String(e), isError: true });
     } finally {
-      setRequestingEdit(false);
+      setTsukuyomiBusy(false);
+    }
+  }
+
+  async function saveManual() {
+    setManualBusy(true);
+    setToast(null);
+    try {
+      const res = await fetch("/api/monthly-report/manual-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ym, content: manualDraft }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.message || `HTTP ${res.status}`);
+      await reloadReport();
+      setToast({ msg: "保存したよ", isError: false });
+      setMode("view");
+    } catch (e) {
+      setToast({ msg: e instanceof Error ? e.message : String(e), isError: true });
+    } finally {
+      setManualBusy(false);
     }
   }
 
@@ -148,7 +192,6 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
         .eq("project_id", projectId)
         .eq("ym", ym);
       if (updateError) throw updateError;
-      // PL に Slack DM (#13)
       const plRes = await notifyPlReview({ projectId, ym, taskKind: "reportFix", taskLabel: "月次報告書FIX" });
       setToast({
         msg: plRes.sent > 0 ? `FIXしました (PL ${plRes.sent} 名に通知)` : "FIXしました",
@@ -163,6 +206,7 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
   }
 
   const content = report?.finalContent || report?.draftContent || "";
+  const busyAny = fixing || tsukuyomiBusy || manualBusy;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -206,28 +250,103 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
               )}
             </div>
 
-            {content ? (
-              <div className="rounded-lg bg-muted/50 p-3 max-h-[40vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">
-                {content}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">レポート本文がありません</p>
+            {mode === "view" && (
+              content ? (
+                <div className="rounded-lg bg-muted/50 p-3 max-h-[40vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">
+                  {content}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">レポート本文がありません</p>
+              )
             )}
 
-            {!isDone && (
+            {mode === "tsukuyomi" && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  つくよみへの修正指示を書いてね。指示通りに本文を改訂するよ。
+                </p>
+                <textarea
+                  value={tsukuyomiInstruction}
+                  onChange={(e) => setTsukuyomiInstruction(e.target.value)}
+                  rows={6}
+                  placeholder="例: 「ビジネス進捗」セクションに、4/15 の高砂とのMTG結果を 1 行追加して。プランBの非公開方針を強調しつつ、CryoX への影響を明記して。"
+                  className="w-full border border-border rounded-md p-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                  disabled={tsukuyomiBusy}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => { setMode("view"); setTsukuyomiInstruction(""); }}
+                    disabled={tsukuyomiBusy}
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={runTsukuyomi}
+                    disabled={tsukuyomiBusy || !tsukuyomiInstruction.trim()}
+                  >
+                    {tsukuyomiBusy ? "つくよみが書き直し中…" : "✨ 修正させる"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {mode === "manual" && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  本文を直接編集して「保存」を押してね。
+                </p>
+                <textarea
+                  value={manualDraft}
+                  onChange={(e) => setManualDraft(e.target.value)}
+                  rows={16}
+                  className="w-full border border-border rounded-md p-2 text-sm bg-background font-mono focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                  disabled={manualBusy}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setMode("view")}
+                    disabled={manualBusy}
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={saveManual}
+                    disabled={manualBusy || manualDraft === content}
+                  >
+                    {manualBusy ? "保存中…" : "💾 保存"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {mode === "view" && !isDone && (
               <div className="space-y-2">
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={requestEditOnPC}
-                  disabled={requestingEdit || fixing}
+                  onClick={() => setMode("tsukuyomi")}
+                  disabled={busyAny || !content}
                 >
-                  {requestingEdit ? "送信中..." : "🖥 PCで内容を編集する"}
+                  ✨ つくよみに修正させる
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => { setManualDraft(content); setMode("manual"); }}
+                  disabled={busyAny}
+                >
+                  📝 手動で修正する
                 </Button>
                 <Button
                   className="w-full"
                   onClick={fixReport}
-                  disabled={fixing || requestingEdit || !content}
+                  disabled={busyAny || !content}
                 >
                   {fixing ? "処理中..." : "📨 PLに確認依頼する"}
                 </Button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { callEdgeFunctionGET } from "@/lib/supabase/edge-functions";
@@ -48,15 +49,22 @@ function formatMeetingDate(iso: string): string {
 }
 
 export function CockpitRoutineMeetingModal({ projectId, ym, isDone, doneAction, open, onClose }: Props) {
+  const router = useRouter();
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slots, setSlots] = useState<MeetingSlot[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingSlot, setPendingSlot] = useState<MeetingSlot | null>(null);
   const [scheduling, setScheduling] = useState(false);
   const [toast, setToast] = useState<{ msg: string; isError: boolean } | null>(null);
+  // 予約直後に props の billingCycles 再 fetch を待たずに「予約完了」表示へ即時切替
+  const [localConfirmedISO, setLocalConfirmedISO] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open || isDone) return;
+    if (!open) {
+      setLocalConfirmedISO(null);
+      return;
+    }
+    if (isDone) return;
     let cancelled = false;
     setLoadingSlots(true);
     setLoadError(null);
@@ -95,15 +103,22 @@ export function CockpitRoutineMeetingModal({ projectId, ym, isDone, doneAction, 
     setScheduling(true);
     setToast(null);
     try {
-      const result = await callEdgeFunctionGET<{ ok: boolean; message?: string }>("schedule-meeting", {
-        projectId,
-        ym,
-        startISO: slot.startISO,
-        endISO: slot.endISO,
-      });
+      const result = await callEdgeFunctionGET<{ ok: boolean; message?: string; meetingStartAt?: string }>(
+        "schedule-meeting",
+        {
+          projectId,
+          ym,
+          startISO: slot.startISO,
+          endISO: slot.endISO,
+        }
+      );
       if (result.ok) {
         setToast({ msg: result.message || "登録しました", isError: false });
-        setTimeout(() => onClose(), 1300);
+        // 即時に「予約完了」UI に切り替え
+        setLocalConfirmedISO(result.meetingStartAt || slot.startISO);
+        // 親 (CockpitView の cockpit.billingCycles) をサーバーから再フェッチ
+        // → ルーティンタスクの「報告会日程調整」が done になり、再オープン時に isDone=true で渡る
+        router.refresh();
       } else {
         setToast({ msg: result.message || "登録に失敗しました", isError: true });
       }
@@ -114,7 +129,8 @@ export function CockpitRoutineMeetingModal({ projectId, ym, isDone, doneAction, 
     }
   }
 
-  const confirmedISO = isDone ? parseMeetingISO(doneAction) : null;
+  const effectiveIsDone = isDone || !!localConfirmedISO;
+  const confirmedISO = localConfirmedISO || (isDone ? parseMeetingISO(doneAction) : null);
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -123,12 +139,12 @@ export function CockpitRoutineMeetingModal({ projectId, ym, isDone, doneAction, 
           <DialogTitle>報告会日程調整</DialogTitle>
         </DialogHeader>
 
-        {isDone && (
+        {effectiveIsDone && (
           <div className="py-6 space-y-4 text-center">
             <div className="text-5xl">📅</div>
             {confirmedISO ? (
               <div className="space-y-1">
-                <p className="text-sm font-medium">報告会が確定しています</p>
+                <p className="text-sm font-medium">この日時で予約完了</p>
                 <p className="text-lg font-semibold">{formatMeetingDate(confirmedISO)}</p>
                 <p className="text-xs text-muted-foreground">〜（30分）</p>
               </div>
@@ -139,7 +155,7 @@ export function CockpitRoutineMeetingModal({ projectId, ym, isDone, doneAction, 
           </div>
         )}
 
-        {!isDone && (
+        {!effectiveIsDone && (
           <div className="space-y-3">
             <div className="text-sm">
               <p className="font-semibold">{ymLabel(ym)}の報告会日程を選択</p>

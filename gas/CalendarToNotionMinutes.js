@@ -1,6 +1,27 @@
 // CalendarToNotionMinutes.gs
 // ============================================================
-// Google Calendar -> Notion 議事録DB 自動生成
+// 🚨 DEPRECATED 2026-05-09 (まさ判断)
+// ----------------------------------------------------------------
+// このファイルが提供する「Calendar → Notion 議事録ページ自動生成」(`run_createMinutes_apply`
+// / `cron_createMinutesFromCalendar` / `admin_installMinutesDailyTrigger` 等) は
+// **trigger 削除済**で停止中。以下の理由で重複・分裂事故が起きていた:
+//
+// - Notion AI / Meet 連携が会議終了時に「BWE 臨時株主総会 @今日 13:00」のような
+//   議事録ページを **議事録 DB に自動生成** する (= 内容のあるページ)
+// - 並行で本 cron が「Meet（ここで /meet を打つ）/ 背景 / 本日の着地点 / メモ」の
+//   空テンプレページを別 page として生成 (= eventId プロパティ入りだが本文 64 字)
+// - 結果、同じ会議で 2 ページが議事録 DB に並ぶ → cron テンプレ側 (eventId 入り) を
+//   gas/074 が掴んで「議事録なし」判定 → 本物の AI 議事録が拾われない
+//
+// → 本 cron を止めて Notion AI 一本化。本 cron の関数を **再有効化する前**に、
+//   gas/074 `_meeting_findNotionPageByEventId_` の fallback (eventId 空の AI ページを
+//   日付/タイトルで掘る) と整合するか必ず確認すること。
+//
+// trigger 削除手順 (curl):
+//   ARGS=$(node -e 'console.log(encodeURIComponent(JSON.stringify(["run_createMinutes_apply",0])))')
+//   curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_l2_pruneDuplicateTriggers&args=$ARGS"
+// ============================================================
+// (旧) Google Calendar -> Notion 議事録DB 自動生成
 // - eventId で重複排除（推定なし）
 // - PJ は calendarColorId / eventColorId -> pjCode -> Notion PJ relation
 //

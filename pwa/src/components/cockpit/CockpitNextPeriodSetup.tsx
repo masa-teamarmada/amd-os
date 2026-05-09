@@ -132,6 +132,7 @@ export function CockpitNextPeriodSetup({ projectId, currentYm, currentPlanCycle,
       if (existingMs.length > 0) {
         setMilestones(
           existingMs.map((ms) => ({
+            milestoneId: ms.milestoneId,
             title: ms.title,
             points: ms.points,
             tag: ms.tag as "normal" | "routine" | "buffer",
@@ -255,7 +256,7 @@ export function CockpitNextPeriodSetup({ projectId, currentYm, currentPlanCycle,
     let validIdx = 0;
     for (let i = 0; i < milestones.length; i++) {
       if (!milestones[i].title.trim()) continue;
-      const msId = `MS-${planCycleId}-${validIdx + 1}`;
+      const msId = milestones[i].milestoneId || `MS-${planCycleId}-${validIdx + 1}`;
       const msCommits = commitMap[String(i)] || {};
       const msRoles = roleMap[String(i)] || {};
       for (const [memberId, pct] of Object.entries(msCommits)) {
