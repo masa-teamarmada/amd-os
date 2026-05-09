@@ -229,9 +229,21 @@ function BreakdownContent({
         formula="M = (σ_SU+1)^α_σ"
         bottleneck={result.bottleneck === "sigma_SU"}
       >
-        <FactorRow name="μ_A (学術)" value={fmt(latestInput.mu_A ?? 0, 1)} />
-        <FactorRow name="μ_I (産業)" value={fmt(latestInput.mu_I ?? 0, 1)} />
-        <FactorRow name="μ_G (政府)" value={fmt(latestInput.mu_G ?? 0, 1)} />
+        <FactorRow
+          name="μ_A (学術)"
+          value={fmt(latestInput.mu_A ?? 0, 1)}
+          subtitle={latestInput.mu_notes?.a ?? undefined}
+        />
+        <FactorRow
+          name="μ_I (産業)"
+          value={fmt(latestInput.mu_I ?? 0, 1)}
+          subtitle={latestInput.mu_notes?.i ?? undefined}
+        />
+        <FactorRow
+          name="μ_G (政府)"
+          value={fmt(latestInput.mu_G ?? 0, 1)}
+          subtitle={latestInput.mu_notes?.g ?? undefined}
+        />
         <FactorRow
           name="σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) − 1"
           value={fmt(result.sigma_SU)}
@@ -268,6 +280,8 @@ function BreakdownContent({
                     : latestInput.hrl ?? 0;
           const contribution = result.contributions[axis] ?? 1;
           const isBottleneck = result.bottleneck === axis;
+          const noteKey = axis.toLowerCase() as "trl" | "brl" | "grl" | "srl" | "hrl";
+          const axisNote = latestInput.xrl_notes?.[noteKey] ?? undefined;
           return (
             <FactorRow
               key={axis}
@@ -276,6 +290,7 @@ function BreakdownContent({
               note={`α = ${alpha[axis].toFixed(2)}`}
               dotColor={AXIS_COLOR[axis]}
               bottleneck={isBottleneck}
+              subtitle={axisNote}
             />
           );
         })}
@@ -292,7 +307,11 @@ function BreakdownContent({
         formula="F = (FRL+1)^α_F"
         bottleneck={result.bottleneck === "FRL"}
       >
-        <FactorRow name={`FRL = ${fmt(latestInput.frl ?? 0, 1)}`} value={fmt(latestInput.frl ?? 0, 1)} />
+        <FactorRow
+          name={`FRL = ${fmt(latestInput.frl ?? 0, 1)}`}
+          value={fmt(latestInput.frl ?? 0, 1)}
+          subtitle={latestInput.frl_notes ?? undefined}
+        />
         <FactorRow
           name="= F = (FRL+1)^α_F"
           value={fmt(F)}
@@ -380,26 +399,40 @@ function FactorRow({
   highlight = false,
   total = false,
   bottleneck = false,
+  subtitle,
 }: {
   name: string;
   value: string;
+  /** 行末の小さい注記 (α 値など、機械的に表示するメタ情報)。 */
   note?: string;
   dotColor?: string;
   highlight?: boolean;
   total?: boolean;
   bottleneck?: boolean;
+  /**
+   * 軸ラベル直下に出す自由記述の根拠 (mu_notes.a / xrl_notes.trl / frl_notes など)。
+   * 値の根拠を見える化するためのフィールド。
+   */
+  subtitle?: string;
 }) {
   const bg = bottleneck ? "#fee2e2" : highlight ? "#f5f3ff" : total ? "#ecfdf5" : undefined;
   const fontWeight = total ? 600 : 400;
   return (
     <tr className="border-b border-[#f1f5f9]" style={{ backgroundColor: bg, fontWeight }}>
-      <td className="py-1">
-        {dotColor && <span style={{ color: dotColor }}>● </span>}
-        {name}
-        {bottleneck && <span className="ml-1 text-[9px] text-red-600">律速</span>}
+      <td className="py-1 align-top">
+        <div>
+          {dotColor && <span style={{ color: dotColor }}>● </span>}
+          {name}
+          {bottleneck && <span className="ml-1 text-[9px] text-red-600">律速</span>}
+        </div>
+        {subtitle && (
+          <div className="text-[9px] text-muted-foreground italic font-normal mt-0.5 leading-snug">
+            {subtitle}
+          </div>
+        )}
       </td>
-      <td className="text-right font-mono py-1">{value}</td>
-      <td className="text-right text-[10px] text-muted-foreground py-1 pl-2 whitespace-nowrap">
+      <td className="text-right font-mono py-1 align-top">{value}</td>
+      <td className="text-right text-[10px] text-muted-foreground py-1 pl-2 whitespace-nowrap align-top">
         {note ?? ""}
       </td>
     </tr>

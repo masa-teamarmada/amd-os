@@ -114,16 +114,30 @@ bottleneck  =  argmax_i  α_i / (X_i + 1)
 
 ### Supabase
 
-migration: [`pwa/scripts/migrations/013_amd_score.sql`](../scripts/migrations/013_amd_score.sql) (本番適用済 2026-05-06)
+migration:
+- [`pwa/scripts/migrations/013_amd_score.sql`](../scripts/migrations/013_amd_score.sql) (本番適用済 2026-05-06) — 7 軸の生値
+- [`pwa/scripts/migrations/015_amd_score_frl_alq.sql`](../scripts/migrations/015_amd_score_frl_alq.sql) (本番適用済 2026-05-07) — FRL ALQ 4 次元 + frl_notes
+- [`pwa/scripts/migrations/030_amd_score_axis_notes.sql`](../scripts/migrations/030_amd_score_axis_notes.sql) (本番適用済 2026-05-09) — `mu_notes` (JSONB: a/i/g) と `xrl_notes` (JSONB: trl/brl/grl/srl/hrl) を追加。**各軸の値の根拠**を保存・表示するための拡張
 
 ```
 amd_score_inputs (project_id FK projects, evaluated_at, mu_A/I/G + 5 XRL + FRL, shallow_tech_mode)
   UNIQUE(project_id, evaluated_at)
+  ALQ 4 次元 + frl_notes (FRL 内訳・自由備考)
+  mu_notes  JSONB {a, i, g}              -- Triple Helix μ_A/I/G の評価根拠
+  xrl_notes JSONB {trl, brl, grl, srl, hrl} -- 5 XRL の評価根拠
 amd_score_alpha (alpha jsonb, effective_from / effective_to)
   base case を 1 行 seed
 8 PJ の retrofit データを seed (tiem ×2 / bwe / cx / sx / ctb / yd / jc)
   ID mapping (008): tiem→p03, bwe→p11, jc→p09, ctb→p06, cx→p20, sx→p21, yd→p18
 ```
+
+### 各軸の評価根拠 (notes) — 2026-05-09 追加
+
+まさフィードバック「XRL / μ / FRL の値の根拠が UI で見たい」に対応:
+
+- **入力 (詳細ページ)**: `AmdScoreView.tsx` の `AxisSliderWithNote` で各軸スライダーの直下に textarea で根拠を入力
+- **読み取り (Cockpit モーダル)**: `CockpitAmdScoreBreakdownModal.tsx` の `FactorRow` の `subtitle` で各軸ラベル直下に italic で根拠表示
+- **Tsukuyomi 統合**: `update_amd_score_input` tool に `mu_notes_a/i/g` `xrl_notes_trl/brl/grl/srl/hrl` パラメータ追加。LLM がスコアを更新するときに**値だけでなく必ず根拠も書く**運用
 
 RLS: `anon_read` (全行 SELECT) + `admin_all` (`is_admin()`) + `service_role_bypass`。
 
