@@ -1225,3 +1225,88 @@ Pro 移行後は vercel.json に schedule を戻して GAS trigger を消すだ�
   - ② AMDプロトコル UI 復活 + 自動抽出 cron
 - 本 Phase の動作確認: 翌日朝 `progress_estimate_state` を SELECT して各 PJ の last_processed_at が時間ごとに更新されているか
 - まさへの判断材料: Vercel Pro plan に upgrade するか? 現状 GAS 経由で機能的には十分だが、Pro なら vercel.json に書くだけでシンプル化できる。Pro = 月 20 USD / cron 上限 40 個 / maxDuration 300秒
+
+---
+
+## 2026-05-09 (続) — Phase 4 残り 3 L2 一括完了 (quirky-moore-b60501 セッション継続)
+
+### 着手の背景
+
+まさからの指示「そのままここで全部終わらせて！」 を受けて、Phase 4 の残り (⑤ メンバーナレッジ + ④ PJナレッジ + ② AMDプロトコル) を本セッションで一括実装。
+
+### 設計判断
+
+**1 ファイル `gas/155_L2KnowledgeExtractor.js` に 3 extractor を集約**:
+- 各 L2 ごとにファイル分けすると 3 ファイル分の boilerplate が増える
+- 共通 helper (_l2_sha256_, _l2_loadStateMap_, _l2_upsertState_, _l2_touchState_, _l2_patchProjectKnowledge_, etc.) を 1 ファイルに集約できる
+- 関心の分離は関数名 namespace (nav_member_knowledge_* / nav_project_knowledge_* / nav_protocol_*) で実現
+
+**1 統合 state テーブル `l2_extract_state` (PK: l2_kind, target_id, scope_key)**:
+- L2 ごとに別テーブル (member_state / project_state / protocol_state) を切ると 3 migration + 3 helper
+- 1 統合テーブルで scope_key を `'global'` (member系) と `ym` (PJ系) で使い分けて差分検知
+- 既存 `progress_estimate_state` (ms_progress 用) はそのまま温存 (= 全部統合する大規模リファクタは別 Phase)
+
+**入力ソースは "二次集約" 版 (= 既存 L2 を Sonnet/Gemini で再処理)**:
+- まさのルール「L2 = 5 生データから直接抽出」に厳密には反するが、Phase 4 初版は時間最適化を優先
+- ⑤ member: `member_activities` (90日) + `project_meeting_summaries` (60日)
+- ④ project: `monthly_reports` + `project_meeting_summaries` (当月)
+- ② protocol: `project_meeting_summaries.decided/risks/next_actions` (当月+前月)
+- 各 design md に「Phase 4.x で 5 生データ直結に改善予定」と明記
+- 5 生データ直結は GAS の 305-309 (mr_extractFromNotion_ / mr_extractFromSlack_ 等) を流用すれば実装可能だが、メンバー単位の Slack 取得など新規追加が必要 → 別 Phase
+
+**`④ project_knowledge` の既存 2024 行を破壊しない設計**:
+- UNIQUE 制約 (project_id, category, entity_name) を追加すると、重複行がある場合に migration が失敗するリスク
+- 代わりに cron 内で SELECT → 既存有り PATCH (id 指定の REST PATCH) / 無し INSERT で重複回避
+- 「2024 行が何由来か不明」の状態を温存しつつ、新規 cron 由来は `source='l2_hourly_extract'` で識別
+
+**`② protocols` の `protocol_id` 命名規則**:
+- `"p4-{projectId}-{ym}-{sha8(title)}"` → 同月同タイトルの再抽出は同 ID で update (重複行を作らない)
+- `status='candidate'` で入る → PM が UI で confirmed 昇格運用 (UI 実装は将来)
+
+### 主な変更
+
+**Supabase**:
+- `pwa/scripts/migrations/030_l2_extract_state.sql` 新規 + 適用 OK (Supabase 201)
+
+**GAS**:
+- `gas/155_L2KnowledgeExtractor.js` 新規:
+  - `nav_member_knowledge_pollAll` / `nav_member_knowledge_extractOne_`
+  - `nav_project_knowledge_pollAll` / `nav_project_knowledge_extractOneForYm_`
+  - `nav_protocol_pollAll` / `nav_protocol_extractOneForYm_`
+  - `nav_l2_setupAllL2HourlyTriggers_` (3 trigger を一括設置)
+  - 内部 helper 群 (sha256 / state load / upsert / touch / project_knowledge PATCH)
+- LLM = Gemini Flash (既存 `llm_callJson("default", ...)` 流用)
+- maxItems: member=5, project=4, protocol=4 (Vercel Hobby と違って GAS は 6 分以内なら OK だが、UrlFetchApp タイムアウト ~60秒を考慮した安全値)
+
+**仕様 md**:
+- `pwa/design/member_knowledge.md` 新規
+- `pwa/design/project_knowledge.md` 新規
+- `pwa/design/amd_protocol.md` 新規
+- `pwa/design/L2_DATA.md` の状態列 / cron 表 / 改修優先度表 / 改訂履歴 を Phase 4 全完了で更新
+- `pwa/HANDOFF_pwa_rebuild.md` を Phase 4 全完了で更新
+
+### 実装上の注意点
+
+- LLM プロンプトは「入力に書かれてない推測禁止 / 推奨件数を明示」で過剰生成を抑制
+- ② protocol の重要度フィルタは LLM プロンプトで「月次の最重要 1-3 件」と明示。瑣末な決定は除外
+- ⑤ member の system prompt で「name (code_name) を summary に含めない」と指定 (テーブル別カラムで管理されるため重複情報を避ける)
+- GAS time-trigger は分単位指定不可なので、`everyHours(1)` で 3 trigger を別ハンドラ名で立てる → GAS が分散発火する
+- `_l2_patchProjectKnowledge_` は PostgREST の PATCH を直叩き (`supa_upsert` は INSERT+merge=UPDATE on conflict だが project_knowledge には UNIQUE 制約がないので id 指定 PATCH が必要)
+
+### 動作確認
+
+- migration 030 適用 OK (Supabase 201)
+- GAS deploy v1432: clasp push → deploy
+- ScriptProperties 既設定 (Phase 4 ③ で設定済の SUPABASE_URL / SUPABASE_SERVICE_KEY / GEMINI_API_KEY を流用)
+- trigger setup: `nav_l2_setupAllL2HourlyTriggers_` で 3 trigger 設置
+- 手動 ping (各 pollAll を runFunc 経由) で動作確認
+
+### 次セッションへ
+
+- **Phase 4 全 6 L2 完了** (③⑤④② + ⑥ 既完了 + ① は別構造で OK)
+- **Phase 4.x 改善案 (将来)**:
+  - 5 生データ直結: ⑤ メンバー知識を Slack 個人 DM / mention search から直接抽出
+  - 5 生データ直結: ④ PJナレッジを Notion 経営戦略 page / Slack channel から直接抽出
+  - ② AMDプロトコル UI に「candidate → confirmed 昇格」ボタン追加
+- 観察ポイント: 翌日朝 `l2_extract_state` を SELECT して 3 L2 × 各 target が積もり、`last_processed_at` が時間ごとに更新されているか
+- 別件: iOS Swift 側の APNs 受信実装 (ios/HANDOFF_meeting_notifications.md)、MTGサマリ Phase 2.5 (R313 集約方式書き換え)

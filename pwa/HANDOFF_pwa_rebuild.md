@@ -12,17 +12,27 @@
 
 ## 最終更新
 
-2026-05-09 (quirky-moore-b60501 セッション) — **Phase 4 ③ MS進捗 毎時 polling 化 完了**。
+2026-05-09 (quirky-moore-b60501 セッション) — **Phase 4 全 4 L2 (③ MS進捗 + ⑤ メンバーナレッジ + ④ PJナレッジ + ② AMDプロトコル) 一括完了**。
 
-**Phase 4 ③ MS進捗 (毎時 polling + source_hash 差分検知)**:
-- 旧 `cron/daily-estimate` (03:00 daily) を削除、新 `cron/hourly-estimate` を新設
-- `progress_estimate_state` テーブル新設 (migration 029): PK=(project_id, ym), source_hash + last_processed_at で差分検知
-- `estimateProgress(projectId, ym, { force?: boolean })` シグネチャ拡張。force=false (cron) なら hash 一致で LLM スキップ + last_processed_at touch + `unchanged: true` を return。手動 UI ボタン / report/generate fire-and-forget は force=true (既存挙動維持)
-- target list = アクティブ PJ × {当月, 前月}、`last_processed_at` 古い順 sort、maxItems 14 で打ち切り
-- ⚠️ **Vercel Hobby plan は cron schedule が "1日1回まで" 制約**で `0 * * * *` を deploy 時に reject される → vercel.json から外し、**本体GAS の毎時 trigger (`gas/154_PwaCronCaller.js` `nav_pwa_pingHourlyEstimate`) から `Bearer $CRON_SECRET` で curl** で叩く構成。Pro 移行後は vercel.json に戻すだけで切替可能
-- 仕様正本: [`design/ms_progress.md`](design/ms_progress.md) 新規、[`design/L2_DATA.md`](design/L2_DATA.md) 状態列を Phase 4 で更新
-- TS 型チェック OK / migration 029 適用済 / Vercel deploy + GAS deploy + ScriptProperties + trigger setup は本セッション内で実施
-- 詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾エントリ
+**Phase 4 ③ MS進捗** (差分検知パターンの先行実装):
+- 旧 `cron/daily-estimate` (03:00 daily) → 新 `cron/hourly-estimate` (PWA route)
+- `progress_estimate_state` テーブル新設 (migration 029) で source_hash 差分検知
+- ⚠️ Vercel Hobby plan の "daily 1 回まで" cron 制約で vercel.json には載せられない → 本体GAS `nav_pwa_pingHourlyEstimate` ([gas/154_PwaCronCaller.js](../gas/154_PwaCronCaller.js)) から毎時 curl で叩く構成 (Pro 移行後は vercel.json に戻すだけ)
+- 仕様正本: [`design/ms_progress.md`](design/ms_progress.md)
+
+**Phase 4 ⑤ メンバーナレッジ + ④ PJナレッジ + ② AMDプロトコル** (1 ファイルに 3 extractor):
+- `gas/155_L2KnowledgeExtractor.js` 新規 (3 extractor + setup 関数)
+- `l2_extract_state` 統合テーブル (migration 030, PK=(l2_kind, target_id, scope_key)) で 3 L2 共通の差分検知
+- 入力は **既存 L2 を二次集約** する初版設計 (Phase 4.x で 5 生データ直結に改善予定):
+  - ⑤ member: `member_activities` (90日) + 関連 PJ の `project_meeting_summaries` (60日)
+  - ④ project: 当月 `monthly_reports.final_content/draft_content` + 当月 `project_meeting_summaries`
+  - ② protocol: 当月/前月 `project_meeting_summaries.decided/risks/next_actions` から経営判断 1-3 件抽出
+- LLM = Gemini Flash (既存 `llm_callJson` 流用)
+- ② AMDプロトコル の `protocol_id = "p4-{projectId}-{ym}-{sha8(title)}"` で同月同タイトル再抽出時に同 ID で update。`status='candidate'` で入る → PM が UI で confirmed 昇格運用
+- ④ PJナレッジ は既存 2024 行を破壊しないよう UNIQUE 制約は追加せず、`(project_id, category, entity_name)` SELECT → 既存有り PATCH / 無し INSERT で重複回避
+- 仕様正本: [`design/member_knowledge.md`](design/member_knowledge.md) / [`design/project_knowledge.md`](design/project_knowledge.md) / [`design/amd_protocol.md`](design/amd_protocol.md)
+
+詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾エントリ
 
 ---
 
@@ -65,11 +75,11 @@
 
 | L2 | 状態 |
 |---|---|
-| ① monthly report | ✅ R313 (AMD-Report GAS, 05:00) — 集計性が強いので Phase 4 では別扱い |
-| ② **AMDプロトコル** | ❌ **未稼働 (0 行、UI も削除済)** ← Phase 4 で復活予定 |
-| ③ MS進捗 | ✅ **Phase 4 完了** cron/hourly-estimate (PWA, 毎時 0 分) + source_hash 差分検知 ([ms_progress.md](design/ms_progress.md)) |
-| ④ PJナレッジ | ⚠️ 2024 行あるが流入元不明 ← Phase 4 で新規実装 |
-| ⑤ **メンバーナレッジ** | ❌ **未稼働 (0 行)** ← Phase 4 で新規実装 |
+| ① monthly report | ✅ R313 (AMD-Report GAS, 05:00) — 集計性が強いので Phase 4 では別扱い (Phase 2.5 = MTGサマリ集約に書き換え予定) |
+| ② **AMDプロトコル** | ✅ **Phase 4 完了** GAS 155 `nav_protocol_pollAll` 毎時 + 二次集約 ([amd_protocol.md](design/amd_protocol.md))。UI 既存 |
+| ③ MS進捗 | ✅ **Phase 4 完了** GAS → PWA `cron/hourly-estimate` 毎時 + 差分検知 ([ms_progress.md](design/ms_progress.md)) |
+| ④ PJナレッジ | ✅ **Phase 4 完了** GAS 155 `nav_project_knowledge_pollAll` 毎時 + 二次集約 + 既存 2024 行を破壊しない ([project_knowledge.md](design/project_knowledge.md)) |
+| ⑤ **メンバーナレッジ** | ✅ **Phase 4 完了** GAS 155 `nav_member_knowledge_pollAll` 毎時 + 二次集約 ([member_knowledge.md](design/member_knowledge.md)) |
 | ⑥ MTGサマリ | ✅ **Phase 3 稼働** (毎時 polling、Notion + Gmail 結合) |
 
 ---
@@ -78,11 +88,12 @@
 
 ### 高優先
 
-1. **Phase 4 残り** (詳細は [L2_DATA.md](design/L2_DATA.md) Phase 4 セクション):
-   - ③ MS進捗 ✅ **完了 2026-05-09 (本セッション)** ([ms_progress.md](design/ms_progress.md))
-   - ⑤ メンバーナレッジ — 新規実装 (5 生データ → Sonnet → member_knowledge upsert、毎時 polling)
-   - ④ PJナレッジ — 流入元新規実装 (同上、project_knowledge upsert)
-   - ② AMDプロトコル — UI 復活 + 自動抽出 cron
+1. **Phase 4 全 L2 完了** (本セッションで一括完了):
+   - ③ MS進捗 ✅ ([ms_progress.md](design/ms_progress.md))
+   - ⑤ メンバーナレッジ ✅ ([member_knowledge.md](design/member_knowledge.md))
+   - ④ PJナレッジ ✅ ([project_knowledge.md](design/project_knowledge.md))
+   - ② AMDプロトコル ✅ ([amd_protocol.md](design/amd_protocol.md))
+   - **次の改善 (Phase 4.x)**: 二次集約 → 5 生データ直結への深化 (Slack 個人 DM / Notion 経営戦略 page から直接抽出)、AMDプロトコル UI に「candidate → confirmed 昇格」ボタン追加
 2. **iOS Swift 側の APNs 受信実装** ← 別セッション、ios/ worktree で ([`ios/HANDOFF_meeting_notifications.md`](../ios/HANDOFF_meeting_notifications.md))
 
 ### 並行 / 既存

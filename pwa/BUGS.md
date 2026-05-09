@@ -79,6 +79,25 @@
 
 ---
 
+### [GAS] Phase 4 完成時点で cron_invoiceSendNudge_ が 5 重複に増えてた (汎用 prune 関数を追加)
+
+- **発見日**: 2026-05-09 (Phase 4 ⑤④② 一括完了セッション)
+- **状態**: ✅ 解決済み (今回 4 削除、根本原因の重複生成元の整理は別タスク)
+- **症状**: `nav_l2_setupAllL2HourlyTriggers_` を実行したら GAS time-trigger 上限 (1 script 20 個) に達して 2 個目以降の作成が失敗。trigger 一覧確認したら `cron_invoiceSendNudge_` が **5 重複** (前回 brave-cohen セッションでは 4 重複と記録、間で 1 増えた)
+- **原因**:
+  - どこかの cron 内で `ScriptApp.newTrigger("cron_invoiceSendNudge_").timeBased()...create()` が無条件で呼ばれており、既存削除なしで毎回 1 個追加されている
+  - GAS time-trigger 上限 = 20 個 (Workspace アカウントでも上限は変わらない)
+- **解決策**:
+  - 汎用整理関数 `nav_l2_pruneDuplicateTriggers(handlerName, keepCount)` を `gas/155_L2KnowledgeExtractor.js` 末尾に追加
+  - 今回 `cron_invoiceSendNudge_` を keep=1 で 4 削除 → 18 個に減って Phase 4 用 3 trigger を追加できた
+  - 汎用関数なので、将来も「重複 trigger N → keep M 個に整理」を curl 一発でできる
+- **教訓**:
+  - GAS で `newTrigger` を呼ぶ前は **必ず同名 trigger を delete してから create** する。ms_progress / Phase 4 各 setup 関数は既にそのパターンを採用済
+  - 上限事故が起きたら `nav_l2_pruneDuplicateTriggers(handlerName, keepCount)` で即整理可能
+  - **根本原因の重複生成元を特定して止める** タスクが残ってる (= grep で `newTrigger("cron_invoiceSendNudge_"` を find → 既存 delete を入れる)
+
+---
+
 ### [AMD OS PWA] Vercel Hobby plan は cron schedule が daily 1 回までという制約
 
 - **発見日**: 2026-05-09

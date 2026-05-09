@@ -24,10 +24,10 @@ L1 を経由する構成は廃止された ([progress_estimation.md](progress_es
 | L2 | 意味 | テーブル | cron / 書き込み元 | 場所 | 状態 |
 |---|---|---|---|---|---|
 | ① **monthly report** | PJ 月次レポート本文 | `monthly_reports` | `R313_MonthlyReport_Cron` (05:00 daily) | AMD-Report GAS (別 clasp) | ✅ 稼働 (58 行) |
-| ② **AMDプロトコル** ⭐ | 経営判断の構造化記録 (分岐点 / 判断材料 / アクション / 結果・学習)。**AMD の最重要知財** ([amd_os_vision.md](../../../knowledge/amd_os_vision.md)) | `protocols` | (本来 cron で蓄積すべき) 現在は `/admin/protocols` 画面の手動 insert のみ | PWA `AdminProtocolsClient.tsx` | ❌ **未稼働 (0 行)**。スプシ復活 + UI 復活が必要 (TODO) |
+| ② **AMDプロトコル** ⭐ | 経営判断の構造化記録 (分岐点 / 判断材料 / アクション / 結果・学習)。**AMD の最重要知財** ([amd_os_vision.md](../../../knowledge/amd_os_vision.md)) | `protocols` | **Phase 4** = 本体GAS 毎時 trigger (`nav_protocol_pollAll` / 155) → `project_meeting_summaries` 二次集約 → Gemini → `protocols` (status='candidate') upsert | 本体GAS `155_L2KnowledgeExtractor.js` + PWA `AdminProtocolsClient.tsx` (UI 既存) | ✅ **Phase 4 稼働 (毎時 polling、二次集約)**。詳細 [amd_protocol.md](amd_protocol.md) |
 | ③ **MS進捗** | マイルストーン進捗% | `milestone_monthly_progress` | **Phase 4** = 本体GAS 毎時 trigger (`nav_pwa_pingHourlyEstimate` / 154) → PWA `cron/hourly-estimate` を curl → `progress_estimate_state.source_hash` 差分検知 | PWA `app/api/cron/hourly-estimate` + `lib/progress-estimator.ts` + 本体GAS `154_PwaCronCaller.js` | ✅ **Phase 4 稼働 (毎時 polling、Hobby 制約により GAS 経由)**。詳細 [ms_progress.md](ms_progress.md) |
-| ④ **PJナレッジ** | PJ にまつわる事実・人物・組織・進行中事項 | `project_knowledge` | **書き込み元不明 (2024 行ある)**。今後は AMD-Report GAS の新機能として実装予定 | (TBD: AMD-Report GAS) | ⚠️ データはあるが流入元不明 |
-| ⑤ **メンバーナレッジ** | メンバーごとの強み・スキル・関心 | `member_knowledge` | (本来 cron で蓄積すべき) | (TBD) | ❌ **未稼働 (0 行)** |
+| ④ **PJナレッジ** | PJ にまつわる事実・人物・組織・進行中事項 | `project_knowledge` | **Phase 4** = 本体GAS 毎時 trigger (`nav_project_knowledge_pollAll` / 155) → `monthly_reports` + `project_meeting_summaries` 二次集約 → Gemini → SELECT/INSERT/PATCH (既存 2024 行を破壊しない) | 本体GAS `155_L2KnowledgeExtractor.js` | ✅ **Phase 4 稼働 (毎時 polling、二次集約)**。詳細 [project_knowledge.md](project_knowledge.md) |
+| ⑤ **メンバーナレッジ** | メンバーごとの強み・スキル・関心 | `member_knowledge` | **Phase 4** = 本体GAS 毎時 trigger (`nav_member_knowledge_pollAll` / 155) → `member_activities` + `project_meeting_summaries` 二次集約 → Gemini → 7 category upsert | 本体GAS `155_L2KnowledgeExtractor.js` | ✅ **Phase 4 稼働 (毎時 polling、二次集約)**。詳細 [member_knowledge.md](member_knowledge.md) |
 | ⑥ **MTGサマリ** | calendar event 1 回ごとの decided/progress/nextActions/risks (PK = calendar event id) | **Phase 3** = 毎時 0 分 polling cron (本体GAS `153_MeetingHourlyTrigger.js` `nav_meeting_pollRecentlyEndedEvents`、過去 60-180 分に終わった events をスキャン) + **Phase 2 fallback** = `nav_cronMonthlyExtractAt3` (本体GAS, 03:00 daily) | 本体GAS `152_NavigatorCron.js` + `153_MeetingHourlyTrigger.js` + `074_MeetingSummaryRepo.js` | ✅ **Phase 3 稼働** (Notion + Gmail 結合)。拾えれば iOS APNs 通知用 `meeting_notifications` テーブル (PK=meeting_id) に upsert (Swift 側受信は別セッション、[ios/HANDOFF_meeting_notifications.md](../../ios/HANDOFF_meeting_notifications.md))。議事録なしマーカー / 抽出空 区別表示。詳細 [meeting_summaries.md](meeting_summaries.md) |
 
 **重要**: 5 生データから抽出した結果 = L2 だけ。Atlas / VC ニュース / マクロ index は外部ソース由来なので **L2 ではなく「レポート関連」**カテゴリ。
@@ -63,6 +63,9 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **毎時 0 分** | `nav_meeting_pollRecentlyEndedEvents` | **MTGサマリ Phase 3 毎時 polling** (過去 60-180 分終了 events を 1 event 抽出 + iOS 通知 upsert) | 本体GAS (153_MeetingHourlyTrigger.js) |
 | **03:00** | `nav_cronMonthlyExtractAt3` | MTGサマリ Phase 2 月単位 fallback (L2 ⑥) + 既存 navigator monthly extract | 本体GAS |
 | **毎時 0 分** | `nav_pwa_pingHourlyEstimate` → `cron/hourly-estimate` | MS進捗推定 (L2 ③, **Phase 4**, GAS trigger → PWA route) | 本体GAS (154) + PWA |
+| **毎時** | `nav_member_knowledge_pollAll` | メンバーナレッジ抽出 (L2 ⑤, **Phase 4**) | 本体GAS (155) |
+| **毎時** | `nav_project_knowledge_pollAll` | PJナレッジ抽出 (L2 ④, **Phase 4**) | 本体GAS (155) |
+| **毎時** | `nav_protocol_pollAll` | AMDプロトコル抽出 (L2 ②, **Phase 4**) | 本体GAS (155) |
 | **03:15** | `cron/venture-xrl-refresh` | PJ XRL llm_proposal | PWA |
 | **03:30** | `cron/relearn-lane-weights` | macro lane weights 再学習 | PWA |
 | **03:45** | `cron/venture-narrative-refresh` | PJ 沿革再生成 | PWA |
@@ -98,9 +101,9 @@ Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検�
 | L2 | 現状 | 改修内容 | 優先度 |
 |---|---|---|---|
 | ③ MS進捗 | ✅ **Phase 4 完了 2026-05-09** | `cron/hourly-estimate` 毎時 + `progress_estimate_state.source_hash` 差分検知 + maxItems 14 打ち切り。詳細 [ms_progress.md](ms_progress.md) | (済) |
-| ⑤ メンバーナレッジ | ❌ 未稼働 | 新規 cron + 抽出ロジック (5 生データ → Sonnet → member_knowledge upsert)。最初から毎時 polling で実装 | ⭐⭐⭐ 2 |
-| ④ PJナレッジ | ⚠️ 流入元不明 (2024 行はある) | 流入元を新規実装 (5 生データ → Sonnet → project_knowledge upsert)、毎時 polling | ⭐⭐⭐ 2 |
-| ② AMDプロトコル | ❌ 未稼働 (UI も削除済) | UI 復活 + 自動抽出 cron 設計 (毎時 polling)。スプシ復活も並行 | ⭐⭐ 3 |
+| ⑤ メンバーナレッジ | ✅ **Phase 4 完了 2026-05-09** | GAS 155 で毎時 polling + l2_extract_state 差分検知 + 二次集約 (member_activities + meeting_summaries → Gemini → 7 category)。詳細 [member_knowledge.md](member_knowledge.md) | (済) |
+| ④ PJナレッジ | ✅ **Phase 4 完了 2026-05-09** | GAS 155 で毎時 polling + 差分検知 + 二次集約 (monthly_reports + meeting_summaries → Gemini → SELECT/INSERT/PATCH、既存 2024 行を破壊しない)。詳細 [project_knowledge.md](project_knowledge.md) | (済) |
+| ② AMDプロトコル | ✅ **Phase 4 完了 2026-05-09** | GAS 155 で毎時 polling + 差分検知 + 二次集約 (project_meeting_summaries → Gemini → status='candidate' で upsert、UI で confirmed 昇格運用)。詳細 [amd_protocol.md](amd_protocol.md) | (済) |
 | ⑥ MTGサマリ | ✅ Phase 3 で毎時化済 | (済) | - |
 | ① monthly_report | R313 05:00 daily (AMD-Report GAS) | 集計性が強いので毎時化の意味は薄い。代わりに Phase 2.5 (会議サマリ集約方式に書き換え) で実質リアルタイム化 | ⭐ 後 |
 
@@ -160,3 +163,4 @@ Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検�
 | 2026-05-09 | Phase 3 設計 (毎時 polling + source_hash 差分検知) を **L2 全データに横展開する方針** をまさが確定。次セッションで Phase 4 として一気に実装予定 (③→⑤④→②→①) |
 | 2026-05-09 | **Phase 4 ③ MS進捗 完了**: `cron/daily-estimate` (03:00 daily) → `cron/hourly-estimate` (毎時 0 分) にリネーム + `progress_estimate_state` テーブル新設 (migration 029) で source_hash 差分検知 + maxItems 14 打ち切り。仕様正本: [ms_progress.md](ms_progress.md) |
 | 2026-05-09 | Vercel Hobby plan の "daily 1 回まで" cron 制約 (deploy 時に reject される) のため、vercel.json から `/api/cron/hourly-estimate` を外して **本体GAS 毎時 trigger (`gas/154_PwaCronCaller.js` `nav_pwa_pingHourlyEstimate`)** から curl で叩く構成に切替。Pro 移行後は vercel.json に戻すだけで切替可能 |
+| 2026-05-09 | **Phase 4 ⑤ メンバーナレッジ + ④ PJナレッジ + ② AMDプロトコル 一括完了**: `gas/155_L2KnowledgeExtractor.js` 新規 + `l2_extract_state` テーブル (migration 030) で 3 L2 共通の差分検知。本体GAS の毎時 trigger 3 個 (member 0分 / project 15分 / protocol 30分 を狙うが GAS は分指定不可なので分散発火) で稼働。Phase 4 初版は **既存 L2 を二次集約** する設計 (5 生データ直結は Phase 4.x 改善案)。仕様正本: [member_knowledge.md](member_knowledge.md) / [project_knowledge.md](project_knowledge.md) / [amd_protocol.md](amd_protocol.md) |
