@@ -134,7 +134,12 @@ function nav_meeting_extractForProjectYm_(projectId, ymKey, opts) {
       try {
         blockText = String(nav_repo_notion_fetchPageBodyText(notionToken, pageId, { maxChars: 20000 }) || "").trim();
       } catch (_e2) {}
-      const notionText = [propText, blockText]
+      // AI 自動生成議事録ページ (transcription block 構造) の本文も結合
+      let aiText = "";
+      try {
+        aiText = String(_meeting_fetchAiNotesBody_(notionToken, pageId, { maxChars: 18000 }) || "").trim();
+      } catch (_e3) {}
+      const notionText = [propText, blockText, aiText]
         .filter(function (s) { return s && s.length > 0; })
         .join("\n\n")
         .trim();
@@ -349,7 +354,12 @@ function nav_meeting_processOneEvent_(eventId, projectId) {
   try {
     blockText = String(nav_repo_notion_fetchPageBodyText(notionToken, pageId, { maxChars: 20000 }) || "").trim();
   } catch (_e2) {}
-  const notionText = [propText, blockText]
+  // AI 自動生成議事録ページ (transcription block 構造) の本文も結合
+  let aiText = "";
+  try {
+    aiText = String(_meeting_fetchAiNotesBody_(notionToken, pageId, { maxChars: 18000 }) || "").trim();
+  } catch (_e3) {}
+  const notionText = [propText, blockText, aiText]
     .filter(function (s) { return s && s.length > 0; })
     .join("\n\n")
     .trim();
@@ -630,19 +640,21 @@ function _meeting_sha256_(text) {
 }
 
 /**
- * Notion 議事録 DB から eventId プロパティ equals でページを 1 件取得 (Phase 3)。
- * 1 event 抽出 (nav_meeting_processOneEvent_) 用。
+ * Notion 議事録 DB から calendar event に対応するページを 1 件取得。
  *
- * ⚠️ 2026-05-09 fallback 追加:
- *   `cron_createMinutesFromCalendar` が前日 03:00 に作る空テンプレページは eventId 入りだが
- *   Notion AI / Meet 連携が当日自動生成する議事録ページは eventId 空 のまま分裂することがある。
- *   eventId equals で取れたページの本文が薄い (< 200 字) 場合、calendar event の
- *   日付 + タイトルで議事録 DB を fallback 検索して内容厚いページを優先採用する。
+ * 2026-05-09 (まさ判断 + cron テンプレ生成停止後の簡素化版):
+ *   `cron_createMinutesFromCalendar` (= run_createMinutes_apply) は trigger 削除済で
+ *   今後は Notion AI / Meet 連携の議事録ページのみが議事録 DB に並ぶ。
+ *   AI ページは eventId プロパティが空のままなので、検索は:
+ *     1) eventId equals (= 過去に cron テンプレが残ってる場合のみヒット)
+ *     2) タイトル contains + 日付 equals (= AI ページを拾う)
+ *   候補集合を **last_edited_time 降順** で並べ、先頭 (= 最新更新) を返す。
+ *   cron テンプレと AI ページが両方あれば、後で更新された AI ページが選ばれる。
  *
  * @param {string} notionToken
  * @param {string} notionDbRaw
  * @param {string} eventId
- * @param {Object} [opts] {meetingDate?: 'YYYY-MM-DD', titleHint?: string} fallback 用 hints
+ * @param {Object} [opts] {meetingDate?: 'YYYY-MM-DD', titleHint?: string}
  */
 function _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId, opts) {
   opts = opts || {};
@@ -651,92 +663,168 @@ function _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId, op
   if (!dbId) return null;
   const url = "https://api.notion.com/v1/databases/" + dbId + "/query";
 
-  // 1) eventId equals で取得
-  let primaryPage = null;
-  try {
-    const res = _notion_fetch_(notionToken, url, "post", {
-      filter: { property: "eventId", rich_text: { equals: String(eventId) } },
-      page_size: 5
-    });
-    const results = res && Array.isArray(res.results) ? res.results : [];
-    primaryPage = results.length ? results[0] : null;
-  } catch (_e) { primaryPage = null; }
-
-  // 2) primary page の本文長を測る
-  const primaryBodyLen = primaryPage ? _meeting_estimatePageBodyLength_(notionToken, primaryPage) : 0;
-  // ⚠️ 早期 return しない: cron テンプレページは "## Meet（ここで /meet を打つ）/ ## 背景 / ## 本日の着地点 / ## メモ"
-  // で 200 字超えする一方、Notion AI 自動生成ページがそれより遥かに厚いケースが普通。
-  // 常に fallback 検索を走らせて本文厚さで比較する。
-
-  // 3) fallback: 日付プロパティで同日のページ全部取得 → 本文厚い順に評価
-  if (!opts.meetingDate || !/^\d{4}-\d{2}-\d{2}$/.test(opts.meetingDate)) {
-    // hint 無しなら primary をそのまま返す (= 古い呼び出し側との互換)
-    return primaryPage;
-  }
   let dateProp = "日付";
   try {
     const props = PropertiesService.getScriptProperties();
     dateProp = String(props.getProperty("NOTION_MINUTES_DATE_PROP") || "日付").trim() || "日付";
   } catch (e) {}
 
-  let candidates = [];
+  const candidates = [];
+  const seenIds = {};
+  const addCandidates = function (results) {
+    for (const r of (results || [])) {
+      const id = String(r.id || "");
+      if (id && !seenIds[id]) { seenIds[id] = true; candidates.push(r); }
+    }
+  };
+
+  // 1) eventId equals (= 旧 cron テンプレが残ってる場合に取れる)
   try {
     const res = _notion_fetch_(notionToken, url, "post", {
-      filter: { property: dateProp, date: { equals: opts.meetingDate } },
-      page_size: 20
+      filter: { property: "eventId", rich_text: { equals: String(eventId) } },
+      page_size: 5
     });
-    candidates = res && Array.isArray(res.results) ? res.results : [];
-  } catch (_e) { candidates = []; }
+    addCandidates(res && res.results);
+  } catch (_e) {}
 
-  // 3-b) Notion AI 自動生成ページは「日付」プロパティが空のことがある (= mention-date でタイトルに埋め込み)
-  //      → タイトル contains で追加検索 (titleHint があれば)
+  // 2) タイトル contains (= AI 自動生成ページを拾う、eventId 空でも OK)
   if (opts.titleHint) {
     try {
       const res = _notion_fetch_(notionToken, url, "post", {
         filter: { property: "名前", title: { contains: String(opts.titleHint) } },
         page_size: 10
       });
-      const more = res && Array.isArray(res.results) ? res.results : [];
-      for (const m of more) {
-        const mid = String(m.id || "");
-        if (!candidates.some(function (c) { return String(c.id || "") === mid; })) {
-          candidates.push(m);
-        }
-      }
+      addCandidates(res && res.results);
     } catch (_e) {}
   }
 
-  // primary も候補に含めて、本文厚い順に sort
-  if (primaryPage) {
-    const pid = String(primaryPage.id || "");
-    if (!candidates.some(function (p) { return String(p.id || "") === pid; })) {
-      candidates.push(primaryPage);
-    }
-  }
-  if (!candidates.length) return primaryPage;
-
-  // タイトル類似度で絞る (eventTitle hint があれば)
-  const titleHint = String(opts.titleHint || "").trim();
-  if (titleHint) {
-    const filtered = candidates.filter(function (p) {
-      const t = _meeting_extractTitleFromPage_(p);
-      return t && (t.indexOf(titleHint) >= 0 || titleHint.indexOf(t) >= 0);
-    });
-    if (filtered.length) candidates = filtered;
+  // 3) 同日付 (= cron テンプレや 日付プロパティ入りのページ)
+  if (opts.meetingDate && /^\d{4}-\d{2}-\d{2}$/.test(opts.meetingDate)) {
+    try {
+      const res = _notion_fetch_(notionToken, url, "post", {
+        filter: { property: dateProp, date: { equals: opts.meetingDate } },
+        page_size: 10
+      });
+      addCandidates(res && res.results);
+    } catch (_e) {}
   }
 
-  // 本文厚い順
-  const scored = candidates.map(function (p) {
-    return { page: p, len: _meeting_estimatePageBodyLength_(notionToken, p) };
-  }).sort(function (a, b) { return b.len - a.len; });
+  if (!candidates.length) return null;
 
-  Logger.log("[_meeting_findNotionPageByEventId_] fallback eventId=" + eventId + " date=" + opts.meetingDate +
-    " primaryLen=" + primaryBodyLen + " candidates=" + scored.map(function (s) { return s.len; }).join(","));
+  // last_edited_time 降順 (= 新しく更新されたページを優先 = AI ページ通常)
+  candidates.sort(function (a, b) {
+    const at = String(a.last_edited_time || a.created_time || "");
+    const bt = String(b.last_edited_time || b.created_time || "");
+    return bt.localeCompare(at);
+  });
 
-  return scored[0] && scored[0].len > primaryBodyLen ? scored[0].page : primaryPage;
+  Logger.log("[_meeting_findNotionPageByEventId_] eventId=" + eventId + " candidates=" + candidates.length +
+    " selected=" + candidates[0].id + " last_edited=" + (candidates[0].last_edited_time || ""));
+
+  return candidates[0];
 }
 
-/** Notion ページの本文長を概算 (props "内容" + blocks の合計、低コスト計算) */
+/**
+ * Notion AI 自動生成議事録ページの transcription block 内 summary + notes 本文を取得。
+ * 標準 block (paragraph 等) のみ取得する nav_repo_notion_fetchPageBodyText では取れないため。
+ *
+ * 構造:
+ *   page → blocks → 1 個の transcription type block →
+ *     transcription.children.summary_block_id (= 別 block) → 中に heading/bulleted_list_item
+ *     transcription.children.notes_block_id   (= 別 block) → 同様
+ *     transcription.children.transcript_block_id → 重いので skip
+ *
+ * @param {string} notionToken
+ * @param {string} pageId
+ * @param {Object} [opts] {maxChars?: 8000}
+ * @return {string} 結合本文 (空なら "")
+ */
+function _meeting_fetchAiNotesBody_(notionToken, pageId, opts) {
+  opts = opts || {};
+  const maxChars = Number(opts.maxChars || 8000);
+  if (!pageId) return "";
+
+  const blocksUrl = "https://api.notion.com/v1/blocks/" + encodeURIComponent(pageId) + "/children?page_size=100";
+  let topRes;
+  try {
+    topRes = UrlFetchApp.fetch(blocksUrl, {
+      method: "get",
+      headers: { "Authorization": "Bearer " + notionToken, "Notion-Version": "2022-06-28" },
+      muteHttpExceptions: true
+    });
+  } catch (_e) { return ""; }
+  if (topRes.getResponseCode() < 200 || topRes.getResponseCode() >= 300) return "";
+  let topBody;
+  try { topBody = JSON.parse(topRes.getContentText()); } catch (_e) { return ""; }
+  const topBlocks = (topBody && topBody.results) || [];
+
+  let outText = "";
+  let totalLen = 0;
+  for (const b of topBlocks) {
+    if (b && b.type === "transcription" && b.transcription && b.transcription.children) {
+      const ids = [];
+      if (b.transcription.children.summary_block_id) ids.push({ kind: "summary", id: b.transcription.children.summary_block_id });
+      if (b.transcription.children.notes_block_id)   ids.push({ kind: "notes",   id: b.transcription.children.notes_block_id });
+      // transcript_block_id は重いので skip (= 数千〜数万字)
+      for (const ent of ids) {
+        if (totalLen >= maxChars) break;
+        const sub = _meeting_fetchBlockChildrenText_(notionToken, ent.id, maxChars - totalLen);
+        if (sub) {
+          outText += "\n\n=== " + ent.kind + " ===\n" + sub;
+          totalLen += sub.length + 20;
+        }
+      }
+    }
+  }
+  return outText.trim();
+}
+
+/** Notion API /blocks/{id}/children を読んで標準 block (heading/paragraph/bulleted_list_item 等) の plain_text を結合 */
+function _meeting_fetchBlockChildrenText_(notionToken, blockId, maxChars) {
+  if (!blockId) return "";
+  const url = "https://api.notion.com/v1/blocks/" + encodeURIComponent(blockId) + "/children?page_size=100";
+  let res;
+  try {
+    res = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: { "Authorization": "Bearer " + notionToken, "Notion-Version": "2022-06-28" },
+      muteHttpExceptions: true
+    });
+  } catch (_e) { return ""; }
+  if (res.getResponseCode() < 200 || res.getResponseCode() >= 300) return "";
+  let body;
+  try { body = JSON.parse(res.getContentText()); } catch (_e) { return ""; }
+  const blocks = (body && body.results) || [];
+
+  const lines = [];
+  let total = 0;
+  const extractRichText = function (rt) {
+    if (!Array.isArray(rt)) return "";
+    return rt.map(function (x) { return String(x && x.plain_text ? x.plain_text : ""); }).join("");
+  };
+  for (const b of blocks) {
+    if (total >= maxChars) break;
+    const t = b && b.type;
+    let line = "";
+    if (t === "paragraph" && b.paragraph) line = extractRichText(b.paragraph.rich_text);
+    else if (t === "heading_1" && b.heading_1) line = "# " + extractRichText(b.heading_1.rich_text);
+    else if (t === "heading_2" && b.heading_2) line = "## " + extractRichText(b.heading_2.rich_text);
+    else if (t === "heading_3" && b.heading_3) line = "### " + extractRichText(b.heading_3.rich_text);
+    else if (t === "heading_4" && b.heading_4) line = "#### " + extractRichText(b.heading_4.rich_text);
+    else if (t === "bulleted_list_item" && b.bulleted_list_item) line = "- " + extractRichText(b.bulleted_list_item.rich_text);
+    else if (t === "numbered_list_item" && b.numbered_list_item) line = "1. " + extractRichText(b.numbered_list_item.rich_text);
+    else if (t === "to_do" && b.to_do) line = "- [ ] " + extractRichText(b.to_do.rich_text);
+    else if (t === "quote" && b.quote) line = "> " + extractRichText(b.quote.rich_text);
+    else if (t === "callout" && b.callout) line = extractRichText(b.callout.rich_text);
+    if (line && line.trim()) {
+      lines.push(line.trim());
+      total += line.length + 1;
+    }
+  }
+  return lines.join("\n");
+}
+
+/** Notion ページの本文長を概算 (props "内容" + 標準 blocks + AI transcription block の合計) */
 function _meeting_estimatePageBodyLength_(notionToken, page) {
   let total = 0;
   try {
@@ -748,6 +836,13 @@ function _meeting_estimatePageBodyLength_(notionToken, page) {
     if (typeof nav_repo_notion_fetchPageBodyText === "function" && page && page.id) {
       const body = nav_repo_notion_fetchPageBodyText(notionToken, page.id, { maxChars: 3000 });
       total += String(body || "").length;
+    }
+  } catch (_e) {}
+  // AI 自動生成議事録ページ対応
+  try {
+    if (page && page.id) {
+      const aiBody = _meeting_fetchAiNotesBody_(String(PropertiesService.getScriptProperties().getProperty("NOTION_TOKEN") || ""), page.id, { maxChars: 3000 });
+      total += String(aiBody || "").length;
     }
   } catch (_e) {}
   return total;
