@@ -1067,3 +1067,62 @@ GAS 226 の **基本情報 / メンバー / 契約・料金 / 請求書送付** 
 - これで Phase 2 (Notion + Gmail 結合 → Gemini 抽出 → calendar event 単位 upsert) は **動作確認済**
 - `notion+gmail` が 2/20 件と少ないのは、議事録メールが「会議当日 〜 翌日」に届かず、もっと後で届く可能性。Phase 2.1 で pickup ウィンドウを ±1日 → ±3日 〜 ±7日 に広げる余地あり (任意)
 - 命名訂正: 前段で「p20 (SX)」と書いていたのは間違い。正しくは **p20=CX**, **p21=SX**。md/HANDOFF を訂正済
+
+### 2026-05-09 終盤: Phase 3 (会議終了 +60 分 trigger + iOS APNs 通知用テーブル)
+
+まさからスクショで確認: 4/29 (水) が「サマリ未生成」表示 (= Gemini 空回答ケース)、3/25 など「議事録なし」マーカーは想定通り表示されてる。
+追加要望:
+- 「会議が終わって1時間後にその会議の議事録だけをピンポイントで収集」する仕組みを追加
+- 拾えたら通知 (Slack ではなく Swift APNs)
+- 03:00 cron は議事録部分を軽量化
+
+### 確定事項
+- 通知方式: **Swift APNs** (iOS ネイティブ、PWA Web Push でなく)
+- cron 頻度: 毎X分でなく、**会議認識時に終了+60分の ad-hoc trigger** を 1 回だけ
+- 03:00 daily cron: **拾い漏れ救済 fallback として残す** (Phase 3 trigger が立てそこなった分を翌朝救済)
+
+### 実装
+
+**UI (PWA)**:
+- `pwa/src/lib/supabase-data.ts`: `ProjectMeetingSummary` に `sourceKinds` 列追加
+- `pwa/src/components/cockpit/CockpitMeetingSummary.tsx`: `source_kinds='none'` を「議事録なし」、それ以外で内容空を「議事録あり・抽出空 (本文薄い or LLM 失敗)」と区別表示
+
+**GAS**:
+- `gas/074_MeetingSummaryRepo.js`:
+  - `nav_meeting_processOneEvent_(eventId, projectId)` 新設 (1 event ピンポイント抽出)
+  - `_meeting_findNotionPageByEventId_` 新設 (Notion DB query で eventId equals filter)
+  - `_meeting_loadOneByMeetingId_` 新設 (差分検知用)
+- `gas/153_MeetingHourlyTrigger.js` 新規:
+  - `nav_meeting_scheduleUpcomingTriggers_(calendarIdOverride?)` — 「今日 〜 7 日先」の events を取り、各 event の終了 +60 分に `ScriptApp.newTrigger.at(date)` で 1 回限り time-trigger をセット。重複防止に `ScriptProperties.MEETING_PENDING_TRIGGERS` で記録。allDay/+prefix/EXCLUDE alias/pjCode=AMD は除外
+  - `nav_meeting_triggerCallback` (アンダースコアなし、trigger 発火コールバック) — pending から fireAtMs <= now を取り、`nav_meeting_processOneEvent_` で抽出 → 拾えたら `meeting_notifications` upsert → 発火済 trigger 削除
+  - `nav_meeting_listPendingTriggers` (デバッグ)
+  - `nav_meeting_clearAllPendingTriggers_` (緊急用)
+  - `_meeting_insertNotification_` (Supabase upsert)
+  - calendar id 取得は (引数 > CFG_CalendarImport > ScriptProperties.MAIN_CALENDAR_ID > Session.getEffectiveUser) の優先順 (Web App curl 経由実行を考慮)
+- `gas/152_NavigatorCron.js`:
+  - `nav_meeting_extractForProjectYm_` の phase 名を `meeting_summary` → `meeting_summary_fallback` に
+  - 末尾に `nav_meeting_scheduleUpcomingTriggers_` 呼び出し追加 (= 新 phase `meeting_schedule_upcoming`)
+
+**Supabase**:
+- `pwa/scripts/migrations/028_meeting_notifications.sql` 新規:
+  - PK = meeting_id (FK to project_meeting_summaries, CASCADE)
+  - notified_at TIMESTAMPTZ で送信済管理 (Swift 側が UPDATE)
+  - source_kinds / summary_short / title 変更時に notified_at を NULL に戻すトリガで自動再通知
+  - RLS: SELECT anon/authenticated, UPDATE authenticated (Swift が打つ)
+  - partial index `idx_meeting_notifications_unsent` (notified_at IS NULL) で Swift polling 高速化
+
+**iOS ハンドオフ**:
+- `ios/HANDOFF_meeting_notifications.md` 新規: Swift 側の受信処理仕様 (Realtime sub or polling、ローカル通知、画面遷移、notified_at マーク)。実装は別セッション
+
+### 動作確認
+
+- migration 028 適用 OK (201)
+- GAS deploy v1426 → v1427 → v1428 (calendarId override + Session.getEffectiveUser で curl 経由実行を可能に)
+- 初回 scheduleUpcomingTriggers_ 結果: scanned 24 / scheduled 3 / skipped_excluded 13 / skipped_no_pj 6 / errored 2
+- 3 pending triggers: p19 ZeMA定例MTG / p07 LiSTie経営会議 / p21 SX-JAFCO MTG → 各会議終了 +60 分に発火する予定
+- errored 2 件は Logger.log に記録 (本番では問題なし、内容確認は GAS Editor から)
+
+### 次セッションへ
+
+- iOS 側: `ios/HANDOFF_meeting_notifications.md` に従って Swift APNs 受信実装
+- 明朝以降: pending trigger が順次発火 → meeting_notifications に行が積もるか確認

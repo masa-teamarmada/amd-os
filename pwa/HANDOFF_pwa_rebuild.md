@@ -12,7 +12,17 @@
 
 ## 最終更新
 
-2026-05-09 (brave-cohen-15d352 セッション) — **MTGサマリ Phase 2 移行完了**。
+2026-05-09 (brave-cohen-15d352 セッション) — **MTGサマリ Phase 2 + Phase 3 完了**。
+
+**Phase 3 (会議終了 +60 分 ad-hoc trigger + iOS APNs 通知用テーブル)**:
+- 03:00 daily cron で「今日 〜 7 日先」の calendar event 各々について **終了 +60 分に発火する 1 回限り time-trigger** を ScriptApp.newTrigger.at(date) でセット
+- trigger callback で `nav_meeting_processOneEvent_(eventId, projectId)` (074 新設) を呼び 1 event ピンポイント抽出
+- 拾えたら `meeting_notifications` テーブル (migration 028 新設) に upsert → iOS Swift が polling して APNs 通知 → [`ios/HANDOFF_meeting_notifications.md`](../ios/HANDOFF_meeting_notifications.md) で別セッションへハンドオフ
+- 03:00 cron の Phase 2 月単位抽出は **拾い漏れ救済 fallback** として残す
+- UI: `source_kinds='none'` は「議事録なし」、それ以外で内容空は「議事録あり・抽出空」と区別表示
+- GAS deploy v1428 / 初回 scheduling: 24 scan / 3 trigger set (p19 ZeMA / p07 LiSTie / p21 SX-JAFCO) / 13 excluded / 6 no_pj / 2 errored
+
+**Phase 2 (前段で完了済)**:
 - 1 MTG = 1 calendar event を主軸 (`meeting_id` PK = calendar event id)
 - 議事録ソース = Notion 本文 + Gmail (reportEmails ±1日) を結合 → Gemini Flash 抽出
 - 議事録なし MTG は `summary_short = "議事録なし"` のマーカー行で残す
@@ -32,7 +42,7 @@
 - 作業 worktree: `/Users/masa/projects/AMD/amd-os/.claude/worktrees/brave-cohen-15d352`
 - 作業 branch: `claude/brave-cohen-15d352`
 - main HEAD (本セッション開始時): `c5396c3` (`Merge branch 'claude/funny-perlman-401669'`)
-- 適用済 migrations: …024 / 025 / 026 (seeds_data_round2, 別セッション) / **027 (pms phase2)**
+- 適用済 migrations: …024 / 025 / 026 (seeds_data_round2, 別セッション) / **027 (pms phase2)** / **028 (meeting_notifications)**
 - GAS Web App deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` → **v1425** (`v1422_meeting_phase2_combined_sources` description だが actual is 1425)
 - PWA は Phase 2 で **コード変更なし** (CockpitMeetingSummary は notion_url が NULL でも安全に動く既存実装) → Vercel deploy 不要
 
@@ -53,21 +63,27 @@
 
 ## 残タスク (次セッションで対応)
 
-### 高優先 (Phase 2 の積み残し)
+### 高優先 (Phase 3 のフォロー)
 
-1. **MTGサマリ Phase 2 残バッチの消化** (低工数、放置でも OK)
-   - p21 202604 で `deferred_maxItems` 19 件あり (maxItems=8 で打ち切ったため)
-   - 放置すれば daily cron が翌日以降順次処理 (差分検知あり、ムダにならない)
-   - 急ぎたい場合は curl で `nav_meeting_backfillForProject_(["p21"], ["202604"])` を retryHasMore=true で呼ぶ
-   - 他 active PJ (p00 / p02 / p06 / p10 / p19 / p20) もまだ未バックフィル
+1. **iOS Swift 側の APNs 受信実装** (別セッション、ios/ worktree で)
+   - ハンドオフ doc: [`ios/HANDOFF_meeting_notifications.md`](../ios/HANDOFF_meeting_notifications.md)
+   - Supabase `meeting_notifications` テーブルから notified_at IS NULL を polling or realtime sub
+   - APNs ローカル通知 → notified_at = now() で UPDATE
+   - 通知タップ → CockpitView (該当 PJ) に遷移
 
-2. **MTGサマリ Phase 2.1: pickup ウィンドウ拡大検討** (任意)
+2. **本番 03:00 cron の動作確認** (明朝)
+   - 明日 03:00 JST に nav_cronMonthlyExtractAt3 が走る → Phase 3 scheduling が automatically 走る
+   - 同日中の 3 trigger (p19/p07/p21) が発火するはず
+   - 翌々日にもう一度 `nav_meeting_listPendingTriggers` を見て、pending が消化されてるか確認
+
+3. **MTGサマリ Phase 2 残バッチの消化** (低工数、放置でも OK)
+   - p21 202604 で `deferred_maxItems` 19 件あり、daily cron で順次処理される
+
+4. **MTGサマリ Phase 2.1: pickup ウィンドウ拡大検討** (任意)
    - 現状 calendar event 日 ±1日で Gmail thread を pickup
-   - p21 (SX) では Gmail 月 15 thread あるが、各 event の ±1 日に first/last message が入る thread は少なめ (notion+gmail が 2/20 件)
    - 議事録メールが「会議の翌日 〜 1週間後」に届く運用なら、ウィンドウを ±3日 〜 ±7日に拡大する余地あり
-   - ただし関係ない thread の混入も増えるので Gemini 側に「この MTG 関係だけ拾え」とより強く指示する必要が出る (現プロンプトでも対応してる)
 
-3. **MTGサマリ Phase 2.5: AMD-Report GAS R313 を会議サマリ集約方式に書き換え**
+5. **MTGサマリ Phase 2.5: AMD-Report GAS R313 を会議サマリ集約方式に書き換え**
    - 別 clasp project (このリポ外) なので別セッションで対応
    - 集約ロジック: `project_meeting_summaries.where(project_id, ym=当月).order(meeting_date)` → Sonnet で集約 → `monthly_reports.draft_content / final_content` 更新
    - これで Phase 1 の navigator_extract (月単位フラット) は完全廃止できる

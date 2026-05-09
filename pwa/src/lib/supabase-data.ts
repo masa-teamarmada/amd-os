@@ -1417,6 +1417,7 @@ export interface ProjectMeetingSummary {
   risks: string[];
   generatedAt: string;
   generatedByModel: string | null;
+  sourceKinds: string | null;     // 'notion' | 'gmail' | 'notion+gmail' | 'none' (Phase 2 027)
 }
 
 function asStringArray(v: unknown): string[] {
@@ -1463,6 +1464,7 @@ export async function fetchProjectMeetingSummaries(
     risks: asStringArray(r.risks),
     generatedAt: r.generated_at,
     generatedByModel: r.generated_by_model,
+    sourceKinds: r.source_kinds ?? null,
   }));
 }
 

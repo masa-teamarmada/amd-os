@@ -249,7 +249,11 @@ function MeetingRow({ item, isOpen, onClick }: RowProps) {
           <TopicSection emoji="⚠️" label="リスク" items={item.risks} />
 
           {!hasTopics && !item.summaryShort && (
-            <p className="text-[11px] text-[#86868b]">サマリ未生成</p>
+            item.sourceKinds === "none" ? (
+              <p className="text-[11px] text-[#86868b]">議事録なし</p>
+            ) : (
+              <p className="text-[11px] text-[#86868b]">議事録あり・抽出空 (本文薄い or LLM 失敗)</p>
+            )
           )}
 
           {item.notionUrl && (

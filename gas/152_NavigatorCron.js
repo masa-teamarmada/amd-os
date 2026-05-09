@@ -60,15 +60,17 @@ function nav_cronMonthlyExtractAt3(){
       });
     }
 
-    // ★ MTG サマリ抽出 (会議単位、Supabase project_meeting_summaries)
+    // ★ MTG サマリ抽出 (Phase 2 月単位 fallback、Supabase project_meeting_summaries)
     // 仕様: pwa/design/meeting_summaries.md
-    // source_hash で差分検知済 → 変わってない議事録は LLM 呼ばずスキップ
+    // - Phase 3 (153_MeetingHourlyTrigger) の「会議終了 +60 分 trigger」が正規ルート
+    // - これは「終了 +60 分が過ぎてた = 過去の会議」「trigger 抜け落ち」等の拾い漏れ救済 fallback
+    // - 差分検知 (source_hash) があるので Phase 3 で抽出済の event は LLM 呼ばずスキップ
     try{
       if (typeof nav_meeting_extractForProjectYm_ === "function"){
         const mres = nav_meeting_extractForProjectYm_(projectId, ym);
         out.results.push({
           projectId: projectId,
-          phase: "meeting_summary",
+          phase: "meeting_summary_fallback",
           ok: !!(mres && mres.ok),
           processed: (mres && mres.processed) || 0,
           skipped: (mres && mres.skipped) || 0,
@@ -79,12 +81,16 @@ function nav_cronMonthlyExtractAt3(){
     } catch(e){
       out.results.push({
         projectId: projectId,
-        phase: "meeting_summary",
+        phase: "meeting_summary_fallback",
         ok: false,
         message: String(e && (e.message || e.stack || e) ? (e.message || e.stack || e) : e)
       });
     }
   }
+
+  // ★ Phase 3 polling は別 trigger (毎時 0 分の nav_meeting_pollRecentlyEndedEvents)
+  // 153_MeetingHourlyTrigger.js — setup 関数 nav_meeting_setupHourlyPollTrigger_() を 1 度実行で稼働開始
+  // 03:00 daily からは呼ばない (毎時独立 trigger)
 
   Logger.log("[nav_cronMonthlyExtractAt3]\n" + JSON.stringify(out, null, 2));
   return out;
