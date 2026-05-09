@@ -1185,12 +1185,37 @@ L2_DATA.md の「次セッションで実装: L2 全データ毎時 polling 化 
 - `monthly_report` 本文不在 PJ は早期 return で state テーブルに書き込まない (= 次時再チェック)
 - 手動「AIで再推定」ボタン (`/api/progress/estimate`) と `report/generate` 直後 fire-and-forget は force=true (default) で source_hash 無視
 
+### Vercel Hobby plan に阻まれて GAS 経由構成へピボット (本セッションの大事な学び)
+
+最初に Vercel deploy を試したら以下のエラー:
+
+```
+Error: Hobby accounts are limited to daily cron jobs.
+This cron expression (0 * * * *) would run more than once per day.
+Upgrade to the Pro plan to unlock all Cron Jobs features on Vercel.
+```
+
+事前確認では「14 cron 持ってるので Pro plan」と推測したが誤り。Hobby plan は **cron 数の上限はない (= 任意数 OK)** が、**個々の cron schedule が "1 日 1 回まで"** という制約がある。だから既存 14 cron は全て daily 1 回未満の schedule になっていた。
+
+対応: Pro upgrade はまさのカード設定が必要なため、**自動化で完結させる方針**に切替:
+
+- `vercel.json` から `/api/cron/hourly-estimate` を削除 (route 自体は残す = curl で直接叩ける)
+- 新規 `gas/154_PwaCronCaller.js`:
+  - `nav_pwa_pingHourlyEstimate(opts?)` — UrlFetchApp で `${PWA_BASE_URL}/api/cron/hourly-estimate` を `Bearer $CRON_SECRET` で GET
+  - `nav_pwa_setupHourlyPwaTrigger_()` — 毎時 0 分 time-trigger 設置
+  - `nav_pwa_setProps_(props)` — ScriptProperties (PWA_BASE_URL / CRON_SECRET) を curl 経由で設定 (= まさの手動設定不要)
+- GAS ScriptProperties に PWA_BASE_URL + CRON_SECRET 追加 (.env.local から runFunc 経由で投入)
+- 本体GAS time-trigger は +1 で 19+ 個 (上限 100 にまだ余裕)
+
+Pro 移行後は vercel.json に schedule を戻して GAS trigger を消すだけで切替可能。設計上、route 自体は触らない。
+
 ### 動作確認
 
 - TS 型チェック: `tsc --noEmit` exit 0
-- migration 029 適用: TBD (commit 後に apply_ddl.py)
-- Vercel deploy: TBD (push + main merge 後に自動)
-- 本番動作: 次時 0 分 cron で実走、`progress_estimate_state` に各 PJ × {当月, 前月} の行が積もる想定
+- migration 029 適用 OK (Supabase 201)
+- Vercel deploy: cron 0 個減らした構成で再 deploy (本セッション内で実施)
+- GAS push + deploy + ScriptProperties 投入 + trigger setup: 本セッション内で実施
+- 手動 ping (`runFunc&fn=nav_pwa_pingHourlyEstimate`) で本番動作確認
 
 ### 次セッションへ
 
@@ -1199,4 +1224,4 @@ L2_DATA.md の「次セッションで実装: L2 全データ毎時 polling 化 
   - ④ PJナレッジ 流入元新規実装 (同上、project_knowledge upsert)
   - ② AMDプロトコル UI 復活 + 自動抽出 cron
 - 本 Phase の動作確認: 翌日朝 `progress_estimate_state` を SELECT して各 PJ の last_processed_at が時間ごとに更新されているか
-- ⚠️ Vercel Production env vars `CRON_SECRET` / `SUPABASE_SERVICE_ROLE_KEY` / `ANTHROPIC_API_KEY` がないと cron が動かない (既設定済の前提)
+- まさへの判断材料: Vercel Pro plan に upgrade するか? 現状 GAS 経由で機能的には十分だが、Pro なら vercel.json に書くだけでシンプル化できる。Pro = 月 20 USD / cron 上限 40 個 / maxDuration 300秒

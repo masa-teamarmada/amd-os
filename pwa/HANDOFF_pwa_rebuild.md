@@ -15,12 +15,13 @@
 2026-05-09 (quirky-moore-b60501 セッション) — **Phase 4 ③ MS進捗 毎時 polling 化 完了**。
 
 **Phase 4 ③ MS進捗 (毎時 polling + source_hash 差分検知)**:
-- 旧 `cron/daily-estimate` (03:00 daily) を削除、新 `cron/hourly-estimate` (毎時 0 分) を新設
+- 旧 `cron/daily-estimate` (03:00 daily) を削除、新 `cron/hourly-estimate` を新設
 - `progress_estimate_state` テーブル新設 (migration 029): PK=(project_id, ym), source_hash + last_processed_at で差分検知
 - `estimateProgress(projectId, ym, { force?: boolean })` シグネチャ拡張。force=false (cron) なら hash 一致で LLM スキップ + last_processed_at touch + `unchanged: true` を return。手動 UI ボタン / report/generate fire-and-forget は force=true (既存挙動維持)
 - target list = アクティブ PJ × {当月, 前月}、`last_processed_at` 古い順 sort、maxItems 14 で打ち切り
+- ⚠️ **Vercel Hobby plan は cron schedule が "1日1回まで" 制約**で `0 * * * *` を deploy 時に reject される → vercel.json から外し、**本体GAS の毎時 trigger (`gas/154_PwaCronCaller.js` `nav_pwa_pingHourlyEstimate`) から `Bearer $CRON_SECRET` で curl** で叩く構成。Pro 移行後は vercel.json に戻すだけで切替可能
 - 仕様正本: [`design/ms_progress.md`](design/ms_progress.md) 新規、[`design/L2_DATA.md`](design/L2_DATA.md) 状態列を Phase 4 で更新
-- TS 型チェック OK / migration 029 + Vercel deploy は commit 後に実施
+- TS 型チェック OK / migration 029 適用済 / Vercel deploy + GAS deploy + ScriptProperties + trigger setup は本セッション内で実施
 - 詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾エントリ
 
 ---

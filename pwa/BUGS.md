@@ -19,6 +19,35 @@
 
 ---
 
+### [AMD OS PWA] Vercel Hobby plan は cron schedule が daily 1 回までという制約
+
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み (GAS 経由構成で回避)
+- **症状**: Phase 4 ③ MS進捗を毎時化するため `vercel.json` の `crons[].schedule` を `"0 * * * *"` に変更して `npx vercel --prod --yes` したら deploy が即時失敗:
+  ```
+  Error: Hobby accounts are limited to daily cron jobs.
+  This cron expression (0 * * * *) would run more than once per day.
+  Upgrade to the Pro plan to unlock all Cron Jobs features on Vercel.
+  ```
+- **原因**:
+  - Vercel Hobby plan の cron 制約は「**個々の cron schedule が "1 日 1 回まで"**」(回数の制約)。cron **数** の上限ではない
+  - 既存 14 cron は全て daily 1 回未満 (毎日 1 回 / 週 1 / 月 1 等) だったので Hobby のまま動いてた → 「14 cron あるから Pro plan」と誤推測した
+  - cron schedule をチェックしていれば事前に分かった (`0 * * * *` は 1 時間ごと = 1 日 24 回 → NG)
+- **解決策**:
+  - `vercel.json` から `/api/cron/hourly-estimate` を削除 (route 自体は残す)
+  - 本体GAS に `gas/154_PwaCronCaller.js` 新規:
+    - `nav_pwa_pingHourlyEstimate(opts?)` — UrlFetchApp で `${PWA_BASE_URL}/api/cron/hourly-estimate` を `Bearer $CRON_SECRET` で叩く
+    - `nav_pwa_setupHourlyPwaTrigger_()` — 毎時 0 分 time-trigger 設置
+    - `nav_pwa_setProps_(props)` — ScriptProperties (PWA_BASE_URL / CRON_SECRET) を curl 経由で設定
+  - GAS の毎時 trigger が PWA route を叩くことで、Vercel Hobby のままで毎時 polling を実現
+  - Pro 移行後は vercel.json に schedule を戻して GAS trigger を消すだけで切替可能
+- **教訓**:
+  - Vercel plan の制約を確認するときは「cron 数」ではなく「個々の cron schedule の頻度」を必ず見る
+  - Hobby plan で複数回/日 cron が必要なら、GAS / Cloud Scheduler / Lambda 等の外部 trigger から PWA route を `Bearer $CRON_SECRET` で叩く構成にする (route 自体は plan 非依存)
+  - 「設定に阻まれたらまさに設定変更を依頼する」より「自動化で完結する代替案を検討する」を先に考える ([feedback memory] のセットアップ最小化方針に従う)
+
+---
+
 ### [AMD OS PWA] PL/PM/クローザー編集で project_members が全部消える (全削除→挿入の副作用)
 
 - **発見日**: 2026-05-08
