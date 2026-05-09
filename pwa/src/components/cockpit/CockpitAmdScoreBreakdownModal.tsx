@@ -18,12 +18,11 @@
 import Link from "next/link";
 import {
   AXIS_COLOR,
-  PHASE_COLOR,
-  PHASE_LABEL_JP,
   calculateAmdScore,
   type AlphaWeights,
   type AmdScoreAxis,
 } from "@/lib/amd-score";
+// PHASE_COLOR / PHASE_LABEL_JP は使用しない (検証データ蓄積後に復活検討、2026-05-09)
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import { Tex } from "@/components/venture-map/Tex";
 
@@ -108,6 +107,29 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
             </div>
           </div>
 
+          {/* 律速 (rate-limiting) の経済学的根拠 */}
+          <div className="text-[10px] text-slate-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 leading-relaxed flex flex-col gap-1">
+            <div className="text-[11px] font-semibold">律速 (rate-limiting) の定義</div>
+            <div>
+              「1 段階上げたとき S が最も大きく増える軸」を律速とする。Cobb-Douglas
+              の偏微分から:
+            </div>
+            <div className="bg-white rounded px-2 py-1 overflow-x-auto">
+              <Tex
+                display
+                tex={String.raw`\frac{\partial S}{\partial X_i} \;=\; \frac{\alpha_i \cdot S}{X_i + 1} \quad\Rightarrow\quad \text{bottleneck} \;=\; \arg\max_i \frac{\alpha_i}{X_i + 1}`}
+              />
+            </div>
+            <div>
+              重み α が大きいのに値 X が低い軸 = 限界収益 (marginal contribution) が最大の軸 =
+              経営アクションで最初に手当てすべき軸。
+            </div>
+            <div className="text-[9px] text-muted-foreground">
+              根拠: Cobb, C. W. &amp; Douglas, P. H. (1928). &quot;A theory of production.&quot;{" "}
+              <em>American Economic Review</em>, 18(1), 139-165.
+            </div>
+          </div>
+
           {!latestInput ? (
             <div className="text-[12px] text-muted-foreground py-6 text-center">
               この PJ の AMD Score 入力はまだ登録されていません。
@@ -153,7 +175,9 @@ function BreakdownContent({
     alpha
   );
 
-  const phaseColor = PHASE_COLOR[result.phase];
+  // フェーズタブは検証データ蓄積後に復活検討のため非表示 (2026-05-09)。
+  // スコア数値は中立色 (slate-900) で固定表示。
+  const scoreColor = "#0f172a";
 
   // ① M = (σ_SU+1)^α_σ
   const M = result.contributions.sigma_SU ?? 1;
@@ -178,7 +202,7 @@ function BreakdownContent({
       <div className="border border-[#e5e5e7] rounded-md p-3 flex items-baseline justify-between">
         <div>
           <div className="text-[10px] text-muted-foreground">最新評価 ({latestInput.evaluated_at.slice(0, 10)})</div>
-          <div className="text-3xl font-mono font-bold" style={{ color: phaseColor }}>
+          <div className="text-3xl font-mono font-bold" style={{ color: scoreColor }}>
             S = {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
           </div>
           <div className="text-[10px] text-muted-foreground font-mono mt-1">
@@ -186,14 +210,8 @@ function BreakdownContent({
           </div>
         </div>
         <div className="text-right">
-          <span
-            className="inline-block px-2 py-0.5 rounded-full text-[10px] text-white"
-            style={{ backgroundColor: phaseColor }}
-          >
-            {PHASE_LABEL_JP[result.phase]}
-          </span>
           {result.shallowTechMode && (
-            <div className="text-[10px] text-amber-700 mt-1">Shallow Tech モード</div>
+            <div className="text-[10px] text-amber-700">Shallow Tech モード</div>
           )}
           <div className="text-[10px] text-muted-foreground mt-1">
             Σα = <span className="font-mono">{result.alphaSum.toFixed(2)}</span>

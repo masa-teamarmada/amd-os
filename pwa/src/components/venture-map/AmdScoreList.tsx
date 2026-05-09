@@ -14,12 +14,10 @@ import { useMemo, useState } from "react";
 import {
   AMD_SCORE_AXES,
   AXIS_LABEL_JP,
-  PHASE_COLOR,
-  PHASE_LABEL_JP,
   calculateAmdScore,
   type AlphaWeights,
-  type AmdScorePhase,
 } from "@/lib/amd-score";
+// PHASE_COLOR / PHASE_LABEL_JP / AmdScorePhase は使用しない (検証データ蓄積後に復活検討、2026-05-09)
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import type { VentureRow } from "@/lib/venture-map-data";
 
@@ -35,19 +33,9 @@ interface Props {
   alpha: AlphaWeights;
 }
 
-const PHASE_FILTERS: Array<AmdScorePhase | "all"> = [
-  "all",
-  "seed_watch",
-  "seed_emerging",
-  "pre_launch",
-  "launch_prep",
-  "launch_go",
-  "scale",
-  "graduation",
-];
+// フェーズフィルタは検証データ蓄積後に復活検討のため非表示 (2026-05-09)。
 
 export function AmdScoreList({ ventures, inputs, alpha }: Props) {
-  const [phaseFilter, setPhaseFilter] = useState<AmdScorePhase | "all">("all");
   const [sortBy, setSortBy] = useState<"score_desc" | "score_asc" | "name">("score_desc");
 
   const rows: PjRow[] = useMemo(() => {
@@ -81,11 +69,7 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
   }, [ventures, inputs, alpha]);
 
   const filtered = useMemo(() => {
-    let list = rows;
-    if (phaseFilter !== "all") {
-      list = list.filter((r) => r.result?.phase === phaseFilter);
-    }
-    list = [...list];
+    const list = [...rows];
     if (sortBy === "score_desc") {
       list.sort((a, b) => (b.result?.score ?? 0) - (a.result?.score ?? 0));
     } else if (sortBy === "score_asc") {
@@ -94,7 +78,7 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
       list.sort((a, b) => a.venture.display_name.localeCompare(b.venture.display_name));
     }
     return list;
-  }, [rows, phaseFilter, sortBy]);
+  }, [rows, sortBy]);
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6">
@@ -111,17 +95,7 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
       <AlphaCard alpha={alpha} />
 
       <div className="flex items-center gap-3 my-3 text-xs">
-        <label className="text-muted-foreground">フェーズ:</label>
-        <select
-          value={phaseFilter}
-          onChange={(e) => setPhaseFilter(e.target.value as AmdScorePhase | "all")}
-          className="border border-slate-300 rounded px-2 py-1"
-        >
-          {PHASE_FILTERS.map((p) => (
-            <option key={p} value={p}>{p === "all" ? "全フェーズ" : PHASE_LABEL_JP[p as AmdScorePhase]}</option>
-          ))}
-        </select>
-        <label className="text-muted-foreground ml-3">並び:</label>
+        <label className="text-muted-foreground">並び:</label>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
@@ -141,7 +115,6 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
               <th className="text-left px-3 py-2">PJ</th>
               <th className="text-left px-3 py-2">Lane</th>
               <th className="text-right px-3 py-2 font-mono">Score</th>
-              <th className="text-left px-3 py-2">フェーズ</th>
               <th className="text-left px-3 py-2">律速軸</th>
               <th className="text-left px-3 py-2">最終評価</th>
             </tr>
@@ -149,53 +122,37 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">
                   該当 PJ なし
                 </td>
               </tr>
             )}
-            {filtered.map((r) => {
-              const phase = r.result?.phase as AmdScorePhase | undefined;
-              const phaseColor = phase ? PHASE_COLOR[phase] : "#94a3b8";
-              return (
-                <tr key={r.venture.project_id} className="border-t border-[#f1f5f9] hover:bg-slate-50">
-                  <td className="px-3 py-2">
-                    <Link
-                      href={`/venture-map/amd-score/${r.venture.project_id}`}
-                      className="hover:underline font-medium"
-                    >
-                      {r.venture.display_name}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2 font-mono text-[10px] text-muted-foreground">{r.venture.lane}</td>
-                  <td className="px-3 py-2 text-right font-mono font-semibold">
-                    {r.result
-                      ? r.result.score < 1
-                        ? r.result.score.toFixed(2)
-                        : Math.round(r.result.score).toLocaleString()
-                      : "—"}
-                  </td>
-                  <td className="px-3 py-2">
-                    {phase ? (
-                      <span
-                        className="inline-block px-2 py-0.5 rounded-full text-[10px] text-white"
-                        style={{ backgroundColor: phaseColor }}
-                      >
-                        {PHASE_LABEL_JP[phase]}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground text-[10px]">未評価</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-[10px]">
-                    {r.result ? AXIS_LABEL_JP[r.result.bottleneck] : "—"}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-[10px] text-muted-foreground">
-                    {r.latest?.evaluated_at.slice(0, 10) ?? "未登録"}
-                  </td>
-                </tr>
-              );
-            })}
+            {filtered.map((r) => (
+              <tr key={r.venture.project_id} className="border-t border-[#f1f5f9] hover:bg-slate-50">
+                <td className="px-3 py-2">
+                  <Link
+                    href={`/venture-map/amd-score/${r.venture.project_id}`}
+                    className="hover:underline font-medium"
+                  >
+                    {r.venture.display_name}
+                  </Link>
+                </td>
+                <td className="px-3 py-2 font-mono text-[10px] text-muted-foreground">{r.venture.lane}</td>
+                <td className="px-3 py-2 text-right font-mono font-semibold">
+                  {r.result
+                    ? r.result.score < 1
+                      ? r.result.score.toFixed(2)
+                      : Math.round(r.result.score).toLocaleString()
+                    : "—"}
+                </td>
+                <td className="px-3 py-2 text-[10px]">
+                  {r.result ? AXIS_LABEL_JP[r.result.bottleneck] : "—"}
+                </td>
+                <td className="px-3 py-2 font-mono text-[10px] text-muted-foreground">
+                  {r.latest?.evaluated_at.slice(0, 10) ?? "未登録"}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
