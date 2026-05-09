@@ -79,3 +79,47 @@ function debug_meeting_query(eventId, meetingDate, titleHint) {
 
   return { ok: true, params: { eventId: eventId, meetingDate: meetingDate, titleHint: titleHint }, out: out };
 }
+
+/** Notion ページの blocks を直接 fetch して block type 一覧 + 各 block の生 JSON を返す
+ *  AI 自動生成ページの <meeting-notes> 構造を解明する用。
+ */
+function debug_meeting_inspectBlocks(pageId) {
+  const props = PropertiesService.getScriptProperties();
+  const notionToken = String(props.getProperty("NOTION_TOKEN") || "").trim();
+  if (!notionToken) return { ok: false, message: "NOTION_TOKEN missing" };
+
+  const url = "https://api.notion.com/v1/blocks/" + encodeURIComponent(pageId) + "/children?page_size=100";
+  let res;
+  try {
+    res = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: {
+        "Authorization": "Bearer " + notionToken,
+        "Notion-Version": "2022-06-28"
+      },
+      muteHttpExceptions: true
+    });
+  } catch (e) { return { ok: false, message: "fetch error: " + e }; }
+  const status = res.getResponseCode();
+  let body = null;
+  try { body = JSON.parse(res.getContentText()); } catch (_e) { body = null; }
+  if (status < 200 || status >= 300) {
+    return { ok: false, status: status, body: String(res.getContentText() || "").slice(0, 600) };
+  }
+  const blocks = (body && body.results) || [];
+  const types = {};
+  for (const b of blocks) {
+    types[b.type || "unknown"] = (types[b.type || "unknown"] || 0) + 1;
+  }
+  return {
+    ok: true,
+    pageId: pageId,
+    blockCount: blocks.length,
+    typesSummary: types,
+    blocks: blocks.slice(0, 30).map(function (b) {
+      // block の生 JSON を 1500 字までに truncate して返す
+      const raw = JSON.stringify(b).slice(0, 1500);
+      return { id: b.id, type: b.type, has_children: b.has_children, raw: raw };
+    })
+  };
+}
