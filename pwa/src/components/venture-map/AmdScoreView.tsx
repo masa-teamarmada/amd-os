@@ -1,41 +1,34 @@
 "use client";
 
 /**
- * AMD Score 個別 PJ ビュー — Before Zero Theory v3.2 の 7 軸 Cobb-Douglas を可視化。
+ * AMD Score 個別 PJ ビュー — Before Zero Theory v3.2 の 3 大要素 (M × X × F) を可視化。
  *
- * 構成:
- *   - 大きな score 数値 (log scale バー)、phase バッジ、律速軸
- *   - 7 軸 Radar (現在値、律速軸赤強調)
- *   - 経時 line chart (y log scale)
- *   - 軸スライダー編集 (0-9, 0.5 刻み) + Shallow Tech 切替 + 保存
- *   - 寄与度テーブル
- *   - α 重み調整サイドバー (0.0-2.0, 0.1 刻み, K 自動再校正)
+ * 構成 (2026-05-09 改修):
+ *   - ScoreHeroCard: 大きな score 数値 (log scale バー)、律速軸ラベル
+ *   - BalanceBar: 3 要素 M/X/F の max 達成率を水平バーで
+ *   - FormulaPanel: 全体式 + 3 要素式 + 律速の経済学的根拠 (引用つき)
+ *   - Factor3Breakdown: 3 要素カード (M/X/F)、各軸クリックで Tsukuyomi 起動
+ *   - TimeSeriesChart: 経時 line chart (log scale)
+ *   - FrlAlqPanel: FRL 6 因子の表示 + radar、各軸クリックで Tsukuyomi 起動
  *
- * 仕様: pwa/design_log/2026-05_amd_score.md
+ * 値編集はすべて Tsukuyomi 経由。α 編集は別ページ (/venture-map/amd-score/retrofit)。
+ *
+ * 仕様: pwa/design/amd_score.md
  */
 
 import Link from "next/link";
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Tex } from "@/components/venture-map/Tex";
 import {
-  ALPHA_DEFAULT,
-  AMD_SCORE_AXES,
   AXIS_COLOR,
   AXIS_LABEL_JP,
   // PHASE_COLOR / PHASE_LABEL_JP は使用しない (検証データ蓄積後に復活検討、2026-05-09)
   calculateAmdScore,
-  computeK,
-  computeSigmaSU,
   logScaleNormalize,
-  sumAlpha,
   type AlphaWeights,
   type AmdScoreAxis,
 } from "@/lib/amd-score";
-import {
-  saveNewAlpha,
-  upsertAmdScoreInput,
-  type AmdScoreInputRow,
-} from "@/lib/amd-score-data";
+import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import type { VentureRow } from "@/lib/venture-map-data";
 
 interface Props {
@@ -170,21 +163,25 @@ export function deriveFrl(e: Pick<EditableInput, "alq_self_awareness" | "alq_rel
 /** Backward compatibility: 旧名で deriveFrl を再 export (新規コードは deriveFrl を使う) */
 export const deriveFrlFromAlq = deriveFrl;
 
+/**
+ * AMD Score 詳細ページ — 表示 + Tsukuyomi 連携。
+ *
+ * 旧来の InputEditor (スライダー + textarea) と AlphaSidebar (α 編集) は削除。
+ * 値の修正は Tsukuyomi 経由 (各軸クリック → drawer 起動 + prefill)、α 編集は別ページ
+ * (/venture-map/amd-score/retrofit) で全 PJ シミュレーション付きで行う方針 (まさ判断 2026-05-09)。
+ *
+ * 値の表示には `editable` を読む (旧 state を読むだけにし、setEditable はしない)。
+ */
 export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
-  const [alpha, setAlpha] = useState<AlphaWeights>(initialAlpha);
+  // α は表示のみ (編集は retrofit ページへ移設)
+  const alpha = initialAlpha;
   const latest = inputs[inputs.length - 1];
-  const [editable, setEditable] = useState<EditableInput>(
-    latest ? rowToEditable(latest) : emptyEditable()
-  );
-  const [editingId, setEditingId] = useState<string | null>(latest?.id ?? null);
-  const [savingInput, startSaveInput] = useTransition();
-  const [savingAlpha, startSaveAlpha] = useTransition();
-  const [feedback, setFeedback] = useState<string | null>(null);
-
-  // ---- 現在の編集値で score 計算 (FRL は ALQ auto-derive モードなら平均) ----
+  // editable は表示用に latest から固定 (setEditable しない、Tsukuyomi が DB を更新したら window reload で反映)
+  const editable: EditableInput = latest ? rowToEditable(latest) : emptyEditable();
   const effectiveFrl = editable.alq_auto_derive_frl
     ? deriveFrl(editable) ?? editable.frl
     : editable.frl;
+
   const result = useMemo(() => {
     return calculateAmdScore(
       {
@@ -202,12 +199,10 @@ export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
     );
   }, [editable, alpha, effectiveFrl]);
 
-  // ---- 経時データ (DB 入力 + 計算結果) ----
+  // ---- 経時データ ----
   const series = useMemo(() => {
     return inputs
-      .filter((r) => {
-        return r.mu_A != null && r.mu_I != null && r.mu_G != null;
-      })
+      .filter((r) => r.mu_A != null && r.mu_I != null && r.mu_G != null)
       .map((r) => {
         const calc = calculateAmdScore(
           {
@@ -227,83 +222,8 @@ export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
       });
   }, [inputs, alpha]);
 
-  // ---- 編集値の保存 ----
-  function onSaveInput() {
-    setFeedback(null);
-    startSaveInput(async () => {
-      const finalFrl = editable.alq_auto_derive_frl
-        ? deriveFrl(editable) ?? editable.frl
-        : editable.frl;
-      const saved = await upsertAmdScoreInput({
-        id: editingId ?? undefined,
-        project_id: venture.project_id,
-        evaluated_at: editable.evaluated_at + "T00:00:00.000Z",
-        mu_A: editable.mu_A,
-        mu_I: editable.mu_I,
-        mu_G: editable.mu_G,
-        trl: editable.shallow_tech_mode ? null : editable.trl,
-        brl: editable.brl,
-        grl: editable.grl,
-        srl: editable.srl,
-        hrl: editable.hrl,
-        frl: finalFrl,
-        alq_self_awareness: editable.alq_self_awareness,
-        alq_relational_transparency: editable.alq_relational_transparency,
-        alq_balanced_processing: editable.alq_balanced_processing,
-        alq_internalized_moral: editable.alq_internalized_moral,
-        frl_grit: editable.frl_grit,
-        frl_resilience: editable.frl_resilience,
-        frl_notes: editable.frl_notes || null,
-        mu_notes: {
-          a: editable.mu_notes_a || null,
-          i: editable.mu_notes_i || null,
-          g: editable.mu_notes_g || null,
-        },
-        xrl_notes: {
-          trl: editable.xrl_notes_trl || null,
-          brl: editable.xrl_notes_brl || null,
-          grl: editable.xrl_notes_grl || null,
-          srl: editable.xrl_notes_srl || null,
-          hrl: editable.xrl_notes_hrl || null,
-        },
-        shallow_tech_mode: editable.shallow_tech_mode,
-        notes: editable.notes || null,
-        evaluator: "amy",
-      });
-      if (saved) {
-        setFeedback(`保存しました (${saved.evaluated_at.slice(0, 10)})`);
-        setEditingId(saved.id);
-        setTimeout(() => window.location.reload(), 600);
-      } else {
-        setFeedback("保存失敗。RLS / 認証を確認");
-      }
-    });
-  }
-
-  function onPickRow(r: AmdScoreInputRow) {
-    setEditingId(r.id);
-    setEditable(rowToEditable(r));
-  }
-
-  function onNewRow() {
-    setEditingId(null);
-    setEditable(emptyEditable());
-  }
-
-  function onSaveAlpha() {
-    setFeedback(null);
-    startSaveAlpha(async () => {
-      const saved = await saveNewAlpha(alpha, "UI 編集 (AmdScoreView)");
-      setFeedback(saved ? "重み α を保存しました" : "重み保存失敗");
-    });
-  }
-
-  function onResetAlpha() {
-    setAlpha({ ...ALPHA_DEFAULT });
-  }
-
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-4 py-6">
+    <div className="mx-auto w-full max-w-[1200px] px-4 py-6">
       <div className="flex items-baseline gap-3 mb-4 flex-wrap">
         <Link href="/venture-map/amd-score" className="text-xs text-cyan-700 hover:underline">← AMD Score 一覧</Link>
         <Link
@@ -314,52 +234,35 @@ export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
         </Link>
         <h1 className="text-xl font-semibold ml-2">{venture.display_name}</h1>
         <span className="text-xs text-muted-foreground">AMD Score</span>
+        <Link
+          href="/venture-map/amd-score/retrofit"
+          className="ml-auto text-[11px] px-3 py-1 rounded bg-slate-900 text-white hover:bg-slate-800"
+        >
+          α 重みを retrofit で調整 →
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-        <div className="flex flex-col gap-4">
-          <ScoreHeroCard result={result} venture={venture} />
-          <BalanceBar result={result} alpha={alpha} />
-          <FormulaPanel alpha={alpha} />
-          <Factor3Breakdown result={result} alpha={alpha} editable={editable} />
-          <TimeSeriesChart
-            series={series}
-            latest={editable.evaluated_at}
-            latestScore={result.score}
-            amdSupport={{
-              startedAt: venture.amd_support_started_at ?? null,
-              endedAt: venture.amd_support_ended_at ?? null,
-            }}
-          />
-          <InputEditor
-            editable={editable}
-            setEditable={setEditable}
-            inputs={inputs}
-            editingId={editingId}
-            onPickRow={onPickRow}
-            onNewRow={onNewRow}
-            onSave={onSaveInput}
-            saving={savingInput}
-            sigmaSU={result.sigma_SU}
-          />
-          <FrlAlqPanel editable={editable} setEditable={setEditable} effectiveFrl={effectiveFrl} />
-        </div>
+      <div className="text-[10.5px] text-slate-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4 leading-relaxed">
+        💬 値の修正は <strong>Tsukuyomi 経由</strong>。各軸の値や根拠をクリックすると、その軸についてつくよみに話しかけられる
+        (例: 「論文 N 件しかないから μ_A は 5 にして」など)。スライダーぽちぽち入力 UI は廃止 (まさ判断 2026-05-09)。
+      </div>
 
-        <AlphaSidebar
-          alpha={alpha}
-          setAlpha={setAlpha}
-          onSave={onSaveAlpha}
-          onReset={onResetAlpha}
-          saving={savingAlpha}
-          shallowTechMode={editable.shallow_tech_mode}
+      <div className="flex flex-col gap-4">
+        <ScoreHeroCard result={result} venture={venture} />
+        <BalanceBar result={result} alpha={alpha} />
+        <FormulaPanel alpha={alpha} />
+        <Factor3Breakdown result={result} alpha={alpha} editable={editable} ventureName={venture.display_name} />
+        <TimeSeriesChart
+          series={series}
+          latest={editable.evaluated_at}
+          latestScore={result.score}
+          amdSupport={{
+            startedAt: venture.amd_support_started_at ?? null,
+            endedAt: venture.amd_support_ended_at ?? null,
+          }}
         />
+        <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.display_name} />
       </div>
-
-      {feedback && (
-        <div className="fixed bottom-4 right-4 bg-slate-900 text-white text-xs px-3 py-2 rounded shadow-lg z-50">
-          {feedback}
-        </div>
-      )}
     </div>
   );
 }
@@ -543,6 +446,10 @@ function FormulaPanel({ alpha }: { alpha: AlphaWeights }) {
           全体式 (S = AMD Score、k は IPO 級への校正定数)
         </div>
         <Tex display tex={String.raw`S \;=\; k \cdot M \cdot X \cdot F`} />
+        <div className="text-[9px] text-muted-foreground mt-1">
+          根拠: Cobb &amp; Douglas (1928). &quot;A theory of production.&quot;{" "}
+          <em>American Economic Review</em>, 18(1), 139-165. — 多因子統合の経済学標準。各 α は弾力性 (= X が 1% 増えたとき S が何 % 増えるか) を表す。
+        </div>
       </div>
       <div className="bg-white rounded px-3 py-2 overflow-x-auto">
         <div className="text-[10px] text-muted-foreground mb-1">
@@ -552,6 +459,10 @@ function FormulaPanel({ alpha }: { alpha: AlphaWeights }) {
           display
           tex={String.raw`M \;=\; (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}, \quad \sigma_{\mathrm{SU}} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`}
         />
+        <div className="text-[9px] text-muted-foreground mt-1">
+          根拠: Etzkowitz &amp; Leydesdorff (2000). &quot;The dynamics of innovation: from National Systems and Mode 2 to a Triple Helix of university–industry–government relations.&quot;{" "}
+          <em>Research Policy</em>, 29(2), 109-123. — Triple Helix 状態空間モデル。
+        </div>
       </div>
       <div className="bg-white rounded px-3 py-2 overflow-x-auto">
         <div className="text-[10px] text-muted-foreground mb-1">
@@ -561,12 +472,46 @@ function FormulaPanel({ alpha }: { alpha: AlphaWeights }) {
           display
           tex={String.raw`X \;=\; \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x}`}
         />
+        <div className="text-[9px] text-muted-foreground mt-1 space-y-0.5">
+          <div>
+            根拠 (TRL): Mankins, J. C. (1995). &quot;Technology readiness levels.&quot;{" "}
+            <em>NASA White Paper</em>. — 9 段階の技術成熟度の起源。
+          </div>
+          <div>
+            根拠 (5 XRL 並列): 内閣府 SIP サーキュラーエコノミーシステム構築 公募要領 (令和 5 年, Ver 1.1). — TRL/BRL/GRL/SRL/HRL を**並列の評価軸**と規定。
+          </div>
+          <div>
+            根拠 (SRL): EU Horizon Europe Multi-RL framework. — 社会受容性 9 段階。
+          </div>
+        </div>
       </div>
       <div className="bg-white rounded px-3 py-2 overflow-x-auto">
         <div className="text-[10px] text-muted-foreground mb-1">
-          ③ CEO の FRL F (個人に帰属する CEO リーダーシップ / ALQ + Grit + Resilience)
+          ③ CEO の FRL F (個人に帰属する CEO リーダーシップ / 6 因子 = ALQ 4 + Grit + Resilience)
         </div>
-        <Tex display tex={String.raw`F \;=\; (\mathrm{FRL}+1)^{\alpha_F}`} />
+        <Tex display tex={String.raw`F \;=\; (\mathrm{FRL}+1)^{\alpha_F}, \quad \mathrm{FRL} \;=\; 0.6 \cdot \overline{\mathrm{ALQ}_4} + 0.2 \cdot \mathrm{Grit} + 0.2 \cdot \mathrm{Resilience}`} />
+        <div className="text-[9px] text-muted-foreground mt-1 space-y-0.5">
+          <div>
+            根拠 (Founder Quality 重要性): Bernstein, Korteweg &amp; Laws (2017). &quot;Attracting early-stage investors.&quot;{" "}
+            <em>Journal of Finance</em>, 72(2), 509-538. — AngelList RCT で Founder Quality が VC 意思決定の最大要因と実証 → α_F=1.5 の根拠。
+          </div>
+          <div>
+            根拠 (ALQ 4 次元 = オーセンティシティ): Walumbwa, Avolio, Gardner, Wernsing &amp; Peterson (2008). &quot;Authentic leadership: Development and validation of a theory-based measure.&quot;{" "}
+            <em>Journal of Management</em>, 34(1), 89-126.
+          </div>
+          <div>
+            根拠 (Grit = 集中力): Duckworth, Peterson, Matthews &amp; Kelly (2007). &quot;Grit: Perseverance and passion for long-term goals.&quot;{" "}
+            <em>Journal of Personality and Social Psychology</em>, 92(6), 1087-1101.
+          </div>
+          <div>
+            根拠 (Resilience = タフさ): Markman, Baron &amp; Balkin (2005). &quot;Are perseverance and self-efficacy costless?&quot;{" "}
+            <em>Journal of Organizational Behavior</em>, 26(1), 1-19.
+          </div>
+          <div>
+            根拠 (Founder Network 効果): Hsu, D. H. (2007). &quot;Experienced entrepreneurial founders, organizational capital, and venture capital funding.&quot;{" "}
+            <em>Research Policy</em>, 36(5), 722-741.
+          </div>
+        </div>
       </div>
       <div className="text-[10px] text-muted-foreground space-y-1">
         <div>
@@ -618,10 +563,12 @@ function Factor3Breakdown({
   result,
   alpha,
   editable,
+  ventureName,
 }: {
   result: ReturnType<typeof calculateAmdScore>;
   alpha: AlphaWeights;
   editable: EditableInput;
+  ventureName: string;
 }) {
   const fmt = (n: number, digits = 2) =>
     n < 1 ? n.toFixed(digits) : n < 100 ? n.toFixed(2) : Math.round(n).toLocaleString();
@@ -652,9 +599,24 @@ function Factor3Breakdown({
         formula="M = (σ_SU+1)^α_σ"
         bottleneck={result.bottleneck === "sigma_SU"}
       >
-        <DetailFactorRow name="μ_A (学術)" value={fmt(editable.mu_A, 1)} subtitle={editable.mu_notes_a || undefined} />
-        <DetailFactorRow name="μ_I (産業)" value={fmt(editable.mu_I, 1)} subtitle={editable.mu_notes_i || undefined} />
-        <DetailFactorRow name="μ_G (政府)" value={fmt(editable.mu_G, 1)} subtitle={editable.mu_notes_g || undefined} />
+        <DetailFactorRow
+          name="μ_A (学術)"
+          value={fmt(editable.mu_A, 1)}
+          subtitle={editable.mu_notes_a || undefined}
+          onClick={() => openTsukuyomiPrefill(ventureName, "μ_A (学術)", fmt(editable.mu_A, 1), editable.mu_notes_a || null)}
+        />
+        <DetailFactorRow
+          name="μ_I (産業)"
+          value={fmt(editable.mu_I, 1)}
+          subtitle={editable.mu_notes_i || undefined}
+          onClick={() => openTsukuyomiPrefill(ventureName, "μ_I (産業)", fmt(editable.mu_I, 1), editable.mu_notes_i || null)}
+        />
+        <DetailFactorRow
+          name="μ_G (政府)"
+          value={fmt(editable.mu_G, 1)}
+          subtitle={editable.mu_notes_g || undefined}
+          onClick={() => openTsukuyomiPrefill(ventureName, "μ_G (政府)", fmt(editable.mu_G, 1), editable.mu_notes_g || null)}
+        />
         <DetailFactorRow
           name="σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) − 1"
           value={fmt(result.sigma_SU)}
@@ -708,6 +670,7 @@ function Factor3Breakdown({
               dotColor={AXIS_COLOR[axis]}
               bottleneck={result.bottleneck === axis}
               subtitle={noteKey || undefined}
+              onClick={() => openTsukuyomiPrefill(ventureName, axis, fmt(rawValue, 1), noteKey || null)}
             />
           );
         })}
@@ -727,6 +690,7 @@ function Factor3Breakdown({
           name={`FRL = ${fmt(editable.frl, 1)}`}
           value={fmt(editable.frl, 1)}
           subtitle={editable.frl_notes || undefined}
+          onClick={() => openTsukuyomiPrefill(ventureName, "FRL", fmt(editable.frl, 1), editable.frl_notes || null)}
         />
         <DetailFactorRow
           name="= F = (FRL+1)^α_F"
@@ -799,6 +763,7 @@ function DetailFactorRow({
   total = false,
   bottleneck = false,
   subtitle,
+  onClick,
 }: {
   name: string;
   value: string;
@@ -808,16 +773,25 @@ function DetailFactorRow({
   total?: boolean;
   bottleneck?: boolean;
   subtitle?: string;
+  /** クリック可能にして Tsukuyomi 起動などの handler を実行。指定すると行が hover で背景色変化。 */
+  onClick?: () => void;
 }) {
   const bg = bottleneck ? "#fee2e2" : highlight ? "#f5f3ff" : total ? "#ecfdf5" : undefined;
   const fontWeight = total ? 600 : 400;
+  const isClickable = !!onClick;
   return (
-    <tr className="border-b border-[#f1f5f9]" style={{ backgroundColor: bg, fontWeight }}>
+    <tr
+      className={`border-b border-[#f1f5f9]${isClickable ? " hover:bg-slate-50 cursor-pointer" : ""}`}
+      style={{ backgroundColor: bg, fontWeight }}
+      onClick={onClick}
+      title={isClickable ? "クリックでつくよみに修正を依頼" : undefined}
+    >
       <td className="py-1 align-top">
         <div>
           {dotColor && <span style={{ color: dotColor }}>● </span>}
           {name}
           {bottleneck && <span className="ml-1 text-[9px] text-red-600">律速</span>}
+          {isClickable && <span className="ml-1 text-[9px] text-cyan-600">💬</span>}
         </div>
         {subtitle && (
           <div className="text-[9.5px] text-muted-foreground italic font-normal mt-0.5 leading-snug">
@@ -966,246 +940,6 @@ function TimeSeriesChart({
 }
 
 // ============================================================
-// Input Editor (sliders + history list)
-// ============================================================
-function InputEditor({
-  editable,
-  setEditable,
-  inputs,
-  editingId,
-  onPickRow,
-  onNewRow,
-  onSave,
-  saving,
-  sigmaSU,
-}: {
-  editable: EditableInput;
-  setEditable: (e: EditableInput) => void;
-  inputs: AmdScoreInputRow[];
-  editingId: string | null;
-  onPickRow: (r: AmdScoreInputRow) => void;
-  onNewRow: () => void;
-  onSave: () => void;
-  saving: boolean;
-  sigmaSU: number;
-}) {
-  return (
-    <div className="border border-[#e5e5e7] rounded-xl p-4 bg-white">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <div className="text-[12px] font-semibold">入力編集</div>
-          <div className="text-[10px] text-muted-foreground">
-            μ_A / μ_I / μ_G から σ_SU が自動算出される。各軸 0-9 (0.5 刻み)。
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onNewRow}
-            className="text-[11px] px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
-          >
-            ＋ 新規評価時点
-          </button>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={onSave}
-            className="text-[11px] px-3 py-1 rounded bg-slate-900 text-white disabled:opacity-50"
-          >
-            {saving ? "保存中…" : editingId ? "上書き保存" : "新規保存"}
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4">
-        <div>
-          <div className="text-[11px] text-muted-foreground mb-1">過去の評価時点</div>
-          <ul className="text-[11px] divide-y divide-[#f1f5f9] max-h-[260px] overflow-y-auto border border-[#e5e5e7] rounded">
-            {inputs.length === 0 && (
-              <li className="px-2 py-2 text-muted-foreground">未登録</li>
-            )}
-            {[...inputs].reverse().map((r) => (
-              <li
-                key={r.id}
-                className={`px-2 py-1 cursor-pointer hover:bg-slate-50 ${editingId === r.id ? "bg-cyan-50" : ""}`}
-                onClick={() => onPickRow(r)}
-              >
-                <div className="font-mono">{r.evaluated_at.slice(0, 10)}</div>
-                {r.notes && <div className="text-[10px] text-muted-foreground line-clamp-1">{r.notes}</div>}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-2 gap-2 items-center">
-            <label className="text-[11px]">評価日</label>
-            <input
-              type="date"
-              value={editable.evaluated_at}
-              onChange={(e) => setEditable({ ...editable, evaluated_at: e.target.value })}
-              className="border border-slate-300 rounded px-2 py-1 text-[11px] font-mono"
-            />
-          </div>
-
-          <AxisSliderWithNote
-            label="μ_A (学術)"
-            value={editable.mu_A}
-            onChange={(v) => setEditable({ ...editable, mu_A: v })}
-            note={editable.mu_notes_a}
-            onNoteChange={(v) => setEditable({ ...editable, mu_notes_a: v })}
-            placeholder="例: Adv. Mater. 2024 で N 件論文急増、特許も成長"
-          />
-          <AxisSliderWithNote
-            label="μ_I (産業)"
-            value={editable.mu_I}
-            onChange={(v) => setEditable({ ...editable, mu_I: v })}
-            note={editable.mu_notes_i}
-            onNoteChange={(v) => setEditable({ ...editable, mu_notes_i: v })}
-            placeholder="例: 大手 N 社が研究開発投資を発表、SoC スピンアウト動向"
-          />
-          <AxisSliderWithNote
-            label="μ_G (政府)"
-            value={editable.mu_G}
-            onChange={(v) => setEditable({ ...editable, mu_G: v })}
-            note={editable.mu_notes_g}
-            onNoteChange={(v) => setEditable({ ...editable, mu_notes_g: v })}
-            placeholder="例: 内閣府 SIP 採択、補助金 X 億円規模"
-          />
-          <div className="text-[10px] text-muted-foreground -mt-1">
-            → σ_SU = <span className="font-mono">{sigmaSU.toFixed(2)}</span> (自動算出)
-          </div>
-
-          <div className="border-t border-slate-200 my-1" />
-
-          <label className="flex items-center gap-2 text-[11px]">
-            <input
-              type="checkbox"
-              checked={editable.shallow_tech_mode}
-              onChange={(e) => setEditable({
-                ...editable,
-                shallow_tech_mode: e.target.checked,
-                trl: e.target.checked ? null : 0,
-              })}
-            />
-            Shallow Tech モード (TRL 軸を除外)
-          </label>
-
-          {!editable.shallow_tech_mode && (
-            <AxisSliderWithNote
-              label="TRL"
-              value={editable.trl ?? 0}
-              onChange={(v) => setEditable({ ...editable, trl: v })}
-              note={editable.xrl_notes_trl}
-              onNoteChange={(v) => setEditable({ ...editable, xrl_notes_trl: v })}
-              placeholder="例: ラボ試作完了 (TRL 4)、SIP 9 段階定義に対する位置づけ"
-            />
-          )}
-          <AxisSliderWithNote
-            label="BRL"
-            value={editable.brl}
-            onChange={(v) => setEditable({ ...editable, brl: v })}
-            note={editable.xrl_notes_brl}
-            onNoteChange={(v) => setEditable({ ...editable, xrl_notes_brl: v })}
-            placeholder="例: 顧客仮説 N 件検証済、収益モデル draft 完成"
-          />
-          <AxisSliderWithNote
-            label="GRL"
-            value={editable.grl}
-            onChange={(v) => setEditable({ ...editable, grl: v })}
-            note={editable.xrl_notes_grl}
-            onNoteChange={(v) => setEditable({ ...editable, xrl_notes_grl: v })}
-            placeholder="例: 規制 X 法 適合性確認済、標準化検討開始"
-          />
-          <AxisSliderWithNote
-            label="SRL"
-            value={editable.srl}
-            onChange={(v) => setEditable({ ...editable, srl: v })}
-            note={editable.xrl_notes_srl}
-            onNoteChange={(v) => setEditable({ ...editable, xrl_notes_srl: v })}
-            placeholder="例: 一般消費者向け調査 N 件、メディア露出 N 件"
-          />
-          <AxisSliderWithNote
-            label="HRL"
-            value={editable.hrl}
-            onChange={(v) => setEditable({ ...editable, hrl: v })}
-            note={editable.xrl_notes_hrl}
-            onNoteChange={(v) => setEditable({ ...editable, xrl_notes_hrl: v })}
-            placeholder="例: コア人材 N 名、補完性カバー X / Y、欠員 Z 人"
-          />
-          <ScoreSlider label="FRL" value={editable.frl} onChange={(v) => setEditable({ ...editable, frl: v })} />
-
-          <div>
-            <label className="text-[11px] text-muted-foreground">備考</label>
-            <textarea
-              value={editable.notes}
-              onChange={(e) => setEditable({ ...editable, notes: e.target.value })}
-              className="w-full border border-slate-300 rounded px-2 py-1 text-[11px]"
-              rows={2}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ScoreSlider({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div className="grid grid-cols-[80px_1fr_44px] gap-2 items-center">
-      <label className="text-[11px]">{label}</label>
-      <input
-        type="range"
-        min={0}
-        max={9}
-        step={0.5}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-      <span className="font-mono text-[11px] text-right">{value.toFixed(1)}</span>
-    </div>
-  );
-}
-
-/** スライダー + 評価根拠の textarea を 1 セットで。値の根拠を必ず併記して保存できるように。 */
-function AxisSliderWithNote({
-  label,
-  value,
-  onChange,
-  note,
-  onNoteChange,
-  placeholder,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  note: string;
-  onNoteChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <ScoreSlider label={label} value={value} onChange={onChange} />
-      <textarea
-        value={note}
-        onChange={(e) => onNoteChange(e.target.value)}
-        placeholder={placeholder ?? "評価根拠 (任意)"}
-        className="w-full border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-700 placeholder:text-slate-400 leading-snug"
-        rows={2}
-      />
-    </div>
-  );
-}
-
-// ============================================================
 // FRL ALQ Panel — Walumbwa et al. (2008) ALQ 4 次元 + 自由備考
 // ============================================================
 const ALQ_AXES = [
@@ -1217,12 +951,12 @@ const ALQ_AXES = [
 
 function FrlAlqPanel({
   editable,
-  setEditable,
   effectiveFrl,
+  ventureName,
 }: {
   editable: EditableInput;
-  setEditable: (e: EditableInput) => void;
   effectiveFrl: number;
+  ventureName: string;
 }) {
   const W = 320;
   const H = 280;
@@ -1305,96 +1039,52 @@ function FrlAlqPanel({
 
         <div className="flex flex-col gap-2">
           {ALQ_AXES.map((a) => (
-            <div key={a.key}>
-              <div className="grid grid-cols-[110px_1fr_44px] gap-2 items-center">
-                <label className="text-[11px]" title={a.desc}>{a.label}</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={9}
-                  step={0.5}
-                  value={(editable[a.key] as number | null) ?? 0}
-                  onChange={(e) => setEditable({ ...editable, [a.key]: Number(e.target.value) })}
-                />
-                <span className="font-mono text-[11px] text-right">{((editable[a.key] as number | null) ?? 0).toFixed(1)}</span>
-              </div>
-              <div className="text-[9px] text-muted-foreground ml-[110px]">{a.desc}</div>
-            </div>
+            <FrlAxisRow
+              key={a.key}
+              ventureName={ventureName}
+              label={a.label}
+              fieldName={a.label}
+              value={(editable[a.key] as number | null) ?? null}
+              desc={a.desc}
+            />
           ))}
-          {/* Grit (Duckworth 2007) */}
           <div className="border-t border-slate-200 pt-2 mt-2">
             <div className="text-[10.5px] font-semibold text-slate-700">追加因子 (起業特化、ALQ には含まれない)</div>
             <div className="text-[9px] text-muted-foreground italic mt-0.5">
-              ALQ はオーセンティシティ特化のため、起業重要因子の Grit / Resilience が抜ける。これらを別軸で追加。
+              ALQ はオーセンティシティ特化。起業重要因子の Grit / Resilience を別軸で追加。
             </div>
           </div>
-          <div>
-            <div className="grid grid-cols-[110px_1fr_44px] gap-2 items-center">
-              <label className="text-[11px]" title="Grit — 脇目も振らず長期目標に邁進する集中力">Grit (集中力)</label>
-              <input
-                type="range"
-                min={0}
-                max={9}
-                step={0.5}
-                value={editable.frl_grit ?? 0}
-                onChange={(e) => setEditable({ ...editable, frl_grit: Number(e.target.value) })}
-              />
-              <span className="font-mono text-[11px] text-right">{(editable.frl_grit ?? 0).toFixed(1)}</span>
-            </div>
-            <div className="text-[9px] text-muted-foreground ml-[110px]">
-              Duckworth et al. (2007) — 長期目標への passion + perseverance、脇目を振らない
-            </div>
-          </div>
-          <div>
-            <div className="grid grid-cols-[110px_1fr_44px] gap-2 items-center">
-              <label className="text-[11px]" title="Resilience — 失敗・拒絶からの回復、タフさ">Resilience (タフさ)</label>
-              <input
-                type="range"
-                min={0}
-                max={9}
-                step={0.5}
-                value={editable.frl_resilience ?? 0}
-                onChange={(e) => setEditable({ ...editable, frl_resilience: Number(e.target.value) })}
-              />
-              <span className="font-mono text-[11px] text-right">{(editable.frl_resilience ?? 0).toFixed(1)}</span>
-            </div>
-            <div className="text-[9px] text-muted-foreground ml-[110px]">
-              Markman et al. (2005) — VC 拒絶等の失敗からの回復力、打たれ強さ
-            </div>
-          </div>
-
-          <label className="flex items-center gap-2 text-[11px] mt-2 border-t border-slate-200 pt-2">
-            <input
-              type="checkbox"
-              checked={editable.alq_auto_derive_frl}
-              onChange={(e) => setEditable({ ...editable, alq_auto_derive_frl: e.target.checked })}
-            />
-            FRL を 6 因子の重み付き平均から自動算出する (0.6·ALQ + 0.2·Grit + 0.2·Resilience)
-          </label>
-          {!editable.alq_auto_derive_frl && (
-            <div className="grid grid-cols-[110px_1fr_44px] gap-2 items-center">
-              <label className="text-[11px] text-red-600 font-semibold">FRL (手動)</label>
-              <input
-                type="range"
-                min={0}
-                max={9}
-                step={0.5}
-                value={editable.frl}
-                onChange={(e) => setEditable({ ...editable, frl: Number(e.target.value) })}
-              />
-              <span className="font-mono text-[11px] text-right">{editable.frl.toFixed(1)}</span>
-            </div>
-          )}
-          <div>
-            <label className="text-[11px] text-muted-foreground">FRL 自由備考</label>
-            <textarea
-              value={editable.frl_notes}
-              onChange={(e) => setEditable({ ...editable, frl_notes: e.target.value })}
-              placeholder="ALQ 4 次元では拾えない要素 (チーム外の信頼度、過去 SU 経験、Founder Network、健康状態など)"
-              className="w-full border border-slate-300 rounded px-2 py-1 text-[11px]"
-              rows={3}
+          <FrlAxisRow
+            ventureName={ventureName}
+            label="Grit (集中力)"
+            fieldName="Grit (集中力)"
+            value={editable.frl_grit}
+            desc="Duckworth et al. (2007) — 長期目標への passion + perseverance"
+          />
+          <FrlAxisRow
+            ventureName={ventureName}
+            label="Resilience (タフさ)"
+            fieldName="Resilience (タフさ)"
+            value={editable.frl_resilience}
+            desc="Markman et al. (2005) — VC 拒絶等の失敗からの回復力"
+          />
+          <div className="border-t border-slate-200 pt-2 mt-2">
+            <FrlAxisRow
+              ventureName={ventureName}
+              label="FRL (合計)"
+              fieldName="FRL"
+              value={editable.frl}
+              desc={editable.alq_auto_derive_frl ? "6 因子の重み付き平均で自動算出 (0.6·ALQ + 0.2·Grit + 0.2·Resilience)" : "手動値"}
+              highlight
             />
           </div>
+          <FactorClickable
+            label="FRL 自由備考"
+            ventureName={ventureName}
+            fieldName="FRL 自由備考"
+            value={editable.frl_notes || "（未入力）"}
+            currentNote={editable.frl_notes || null}
+          />
         </div>
       </div>
 
@@ -1426,81 +1116,104 @@ function FrlAlqPanel({
   );
 }
 
+
 // ============================================================
-// Alpha Sidebar
+// FRL 6 因子の各行 — 値表示 + クリックで Tsukuyomi 起動
 // ============================================================
-function AlphaSidebar({
-  alpha,
-  setAlpha,
-  onSave,
-  onReset,
-  saving,
-  shallowTechMode,
+function FrlAxisRow({
+  ventureName,
+  label,
+  fieldName,
+  value,
+  desc,
+  highlight = false,
 }: {
-  alpha: AlphaWeights;
-  setAlpha: (a: AlphaWeights) => void;
-  onSave: () => void;
-  onReset: () => void;
-  saving: boolean;
-  shallowTechMode: boolean;
+  ventureName: string;
+  label: string;
+  fieldName: string;
+  value: number | null;
+  desc: string;
+  highlight?: boolean;
 }) {
-  const sumActive = sumAlpha(alpha, !shallowTechMode);
-  const K = computeK(alpha, shallowTechMode);
-  const isModified = AMD_SCORE_AXES.some((a) => alpha[a] !== ALPHA_DEFAULT[a]);
-
+  const v = value ?? 0;
   return (
-    <aside className="border border-[#e5e5e7] rounded-xl p-4 bg-white h-fit lg:sticky lg:top-4">
-      <div className="text-[12px] font-semibold mb-1">重み α (弾力性)</div>
-      <div className="text-[10px] text-muted-foreground mb-3">
-        各軸の <span className="font-mono">α_i</span> (0.0-2.0, 0.1 刻み)。
-        合計が変わると <span className="font-mono">K = 100,000 / 10^Σα</span> で IPO 級に再校正。
+    <button
+      type="button"
+      onClick={() => openTsukuyomiPrefill(ventureName, fieldName, v.toFixed(1), null)}
+      className="text-left grid grid-cols-[110px_1fr_44px] gap-x-2 items-center hover:bg-slate-50 rounded px-1 py-0.5"
+      title={`クリックでつくよみに「${fieldName} を見直したい」と話す`}
+    >
+      <label
+        className="text-[11px] cursor-pointer"
+        style={highlight ? { color: "#dc2626", fontWeight: 600 } : undefined}
+      >
+        {label}
+      </label>
+      <div className="h-1.5 bg-slate-100 rounded relative overflow-hidden">
+        <div
+          className="h-full rounded"
+          style={{
+            width: `${(v / 9) * 100}%`,
+            backgroundColor: highlight ? "#dc2626" : "#94a3b8",
+          }}
+        />
       </div>
-
-      <div className="flex flex-col gap-2 mb-3">
-        {AMD_SCORE_AXES.map((axis) => (
-          <div key={axis} className="grid grid-cols-[88px_1fr_36px] gap-2 items-center">
-            <label className="text-[10px]" style={{ color: AXIS_COLOR[axis] }}>
-              {axis === "sigma_SU" ? "σ_SU" : axis}
-            </label>
-            <input
-              type="range"
-              min={0}
-              max={2}
-              step={0.1}
-              value={alpha[axis]}
-              onChange={(e) => setAlpha({ ...alpha, [axis]: Number(e.target.value) })}
-            />
-            <span className="font-mono text-[10px] text-right">{alpha[axis].toFixed(1)}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="border-t border-slate-200 pt-2 text-[10px] text-muted-foreground space-y-1 mb-3">
-        <div>Σα {shallowTechMode && "(TRL 抜き)"}: <span className="font-mono">{sumActive.toFixed(2)}</span></div>
-        <div>K: <span className="font-mono">{K.toFixed(4)}</span></div>
-        <div className="text-[9px] text-muted-foreground">
-          base case: FRL=1.5 / σ_SU=1.3 / HRL=1.1 / TRL=1.0 / BRL=0.6 / GRL=0.3 / SRL=0.2
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={onReset}
-          disabled={!isModified}
-          className="text-[11px] px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
-        >
-          base case に戻す
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={saving}
-          className="text-[11px] px-3 py-1.5 rounded bg-slate-900 text-white disabled:opacity-50"
-        >
-          {saving ? "保存中…" : "新しい α を保存"}
-        </button>
-      </div>
-    </aside>
+      <span className="font-mono text-[11px] text-right">{v.toFixed(1)}</span>
+      <div className="col-span-3 text-[9px] text-muted-foreground ml-[114px] -mt-0.5">{desc}</div>
+    </button>
   );
+}
+
+/** 自由テキスト clickable 行 (FRL 自由備考など)。 */
+function FactorClickable({
+  label,
+  ventureName,
+  fieldName,
+  value,
+  currentNote,
+}: {
+  label: string;
+  ventureName: string;
+  fieldName: string;
+  value: string;
+  currentNote: string | null;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => openTsukuyomiPrefill(ventureName, fieldName, "(自由記述)", currentNote)}
+      className="text-left mt-1 px-2 py-1 rounded border border-dashed border-slate-200 hover:bg-slate-50"
+      title={`クリックでつくよみに「${fieldName} を見直したい」と話す`}
+    >
+      <div className="text-[10px] text-muted-foreground">{label}</div>
+      <div className="text-[11px] text-slate-700 italic">{value}</div>
+    </button>
+  );
+}
+
+/**
+ * Tsukuyomi drawer を起動 + prefill メッセージを送り込む。
+ * window event を使うので、Mascot/Drawer がページに常駐している必要がある (global layout で常駐済)。
+ *
+ * 使用例:
+ *   <button onClick={() => openTsukuyomiPrefill("CX", "μ_A (学術)", "7.0", "現在の根拠テキスト")}>
+ */
+export function openTsukuyomiPrefill(
+  ventureName: string,
+  fieldName: string,
+  currentValue: string,
+  currentNote: string | null
+) {
+  const noteLine =
+    currentNote && currentNote.length > 0
+      ? `現在の根拠: ${currentNote}`
+      : "現在の根拠: （未入力）";
+  const message =
+    `PJ ${ventureName} の ${fieldName} = ${currentValue} の評価を見直したい。\n` +
+    `${noteLine}\n` +
+    `\n` +
+    `（私のコメント: 例「論文 N 件しかないから 5 にして」「もう少し根拠を詳しく」など）`;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("tsukuyomi:open", { detail: { message } }));
+  }
 }

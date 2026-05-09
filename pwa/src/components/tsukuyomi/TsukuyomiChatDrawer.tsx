@@ -211,6 +211,34 @@ export function TsukuyomiChatDrawer({ onClose }: Props) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy]);
 
+  // 外部 (例: AMD Score 詳細ページの軸クリック) から prefill メッセージを送り込む。
+  // window.dispatchEvent(new CustomEvent("tsukuyomi:prefill", { detail: { message: "..." } })) で発火。
+  // Drawer 起動時の prefill は Mascot 側で localStorage を介して受け取り、ここでも同じ key を読む。
+  useEffect(() => {
+    function onPrefill(e: Event) {
+      const ce = e as CustomEvent<{ message?: string }>;
+      const msg = ce.detail?.message;
+      if (typeof msg === "string" && msg.length > 0) {
+        setInput((prev) => (prev ? prev + "\n" + msg : msg));
+      }
+    }
+    window.addEventListener("tsukuyomi:prefill", onPrefill);
+    return () => window.removeEventListener("tsukuyomi:prefill", onPrefill);
+  }, []);
+
+  // Drawer 起動時 (open 直後) に localStorage の prefill を読む
+  useEffect(() => {
+    try {
+      const pending = window.localStorage.getItem("tsukuyomi:pending-prefill");
+      if (pending) {
+        setInput((prev) => (prev ? prev + "\n" + pending : pending));
+        window.localStorage.removeItem("tsukuyomi:pending-prefill");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const startFreshSession = () => {
     if (!confirm("会話を初期化しますか? (履歴は admin/tsukuyomi に残ります)")) return;
     sessionIdRef.current = uuid();
