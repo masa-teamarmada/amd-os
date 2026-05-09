@@ -159,11 +159,71 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
     if (sumRes.ok) summaries = sumRes.rows || [];
   }
 
-  // b) source_hash
+  // a-2) 公式の役割分担 (= グラウンドトゥルース): milestone_responsibility WHERE share>0
+  //  + value_milestones で title/success_criteria を JOIN + value_plan_cycles で project_id を resolve
+  // 列名はすべて design/db_schema.md で確認済 (member_id, milestone_id, share, role, task_description /
+  //  milestone_id, plan_cycle_id, title, success_criteria, points, goal_level / plan_cycle_id, project_id)
+  let roleAssignments = [];
+  const respRes = supa_select("milestone_responsibility", {
+    select: "milestone_id,share,role,task_description",
+    filter: "member_id=eq." + encodeURIComponent(memberId) + "&share=gt.0",
+    limit: 100
+  });
+  if (respRes.ok && respRes.rows && respRes.rows.length) {
+    const msIds = respRes.rows.map(function (r) { return r.milestone_id; });
+    const msInFilter = "milestone_id=in.(" + msIds.map(function (s) { return encodeURIComponent(s); }).join(",") + ")";
+    const msRes = supa_select("value_milestones", {
+      select: "milestone_id,plan_cycle_id,title,points,goal_level,success_criteria,is_active",
+      filter: msInFilter + "&is_active=is.true",
+      limit: 100
+    });
+    const msMap = {};
+    const planIds = [];
+    if (msRes.ok) {
+      for (const m of msRes.rows || []) {
+        msMap[String(m.milestone_id)] = m;
+        if (m.plan_cycle_id && planIds.indexOf(m.plan_cycle_id) < 0) planIds.push(m.plan_cycle_id);
+      }
+    }
+    // plan_cycle_id → project_id resolve
+    const pcMap = {};
+    if (planIds.length) {
+      const pcInFilter = "plan_cycle_id=in.(" + planIds.map(function (s) { return encodeURIComponent(s); }).join(",") + ")";
+      const pcRes = supa_select("value_plan_cycles", {
+        select: "plan_cycle_id,project_id,period_start_ym,period_end_ym,status",
+        filter: pcInFilter,
+        limit: 100
+      });
+      if (pcRes.ok) for (const p of pcRes.rows || []) pcMap[String(p.plan_cycle_id)] = p;
+    }
+    // role assignments を構築 (アクティブな MS のみ)
+    for (const r of respRes.rows) {
+      const m = msMap[String(r.milestone_id)];
+      if (!m) continue;
+      const pc = pcMap[String(m.plan_cycle_id)] || {};
+      roleAssignments.push({
+        projectId: pc.project_id || "",
+        share: Number(r.share || 0),
+        role: r.role || "",
+        taskDescription: r.task_description || "",
+        msTitle: m.title || "",
+        msPoints: Number(m.points || 0),
+        msGoalLevel: m.goal_level || "",
+        msSuccessCriteria: m.success_criteria || "",
+        period: (pc.period_start_ym || "") + "-" + (pc.period_end_ym || "")
+      });
+    }
+  }
+
+  // b) source_hash (役割分担も含めて差分検知 → 役割変更で再抽出)
   const inputJson = JSON.stringify({
     cn: codeName,
     mid: memberId,
+    pv: "v2_with_roles", // ロジック改訂で全行 hash 不一致 → 再抽出
     acts: acts.map(function (a) { return { p: a.project_id, ym: a.ym, ti: String(a.title || ""), cp: String(a.content_preview || "").slice(0, 400) }; }),
+    roles: roleAssignments.map(function (r) {
+      return { p: r.projectId, sh: r.share, ro: r.role, td: r.taskDescription, mt: r.msTitle, sc: String(r.msSuccessCriteria || "").slice(0, 600) };
+    }),
     sums: summaries.map(function (s) { return { p: s.project_id, d: s.meeting_date, ss: String(s.summary_short || ""), dec: s.decided || [] }; })
   });
   const newHash = _l2_sha256_(inputJson);
@@ -181,9 +241,26 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
   }
 
   // d) Gemini に渡すテキスト構築
-  // 重要: section A は「本人が主体の活動 (member_activities)」、section B は「PJ 全体の会議サマリ
-  // (本人が主体とは限らない、文脈情報)」と明確に区別する。プロンプトでも警告。
+  // 3 セクション構成:
+  //   C) 公式の役割分担 (milestone_responsibility) ← 本人の業務範囲のグラウンドトゥルース
+  //   A) 本人の活動ログ (member_activities) ← 本人主体、自由抽出 OK
+  //   B) PJ 全体の会議サマリ (project_meeting_summaries) ← 本人主体とは限らない、慎重抽出
   const inputText = [
+    "=== C) " + codeName + " の公式の役割分担 (milestone_responsibility, share>0) ===",
+    "[このセクションは本人が公式に担当している業務範囲のグラウンドトゥルース。",
+    " skills / work_style 等を抽出するときに最も信頼できる根拠。",
+    " ここに書かれていない領域 (例: 経営戦略 / 資金調達 / 技術開発 等) は **本人の業務外** の可能性が高い。]",
+    roleAssignments.length === 0 ? "(該当なし — 公式に担当する MS が登録されていない)" :
+      roleAssignments.map(function (r) {
+        const lines = [
+          "[" + r.projectId + " " + r.period + "] [share=" + r.share + "] [role=" + r.role + "] " +
+            "MS: " + r.msTitle + " (" + r.msPoints + "pt, " + r.msGoalLevel + ")"
+        ];
+        if (r.taskDescription) lines.push("  task_description: " + r.taskDescription);
+        if (r.msSuccessCriteria) lines.push("  success_criteria: " + String(r.msSuccessCriteria).replace(/\n/g, " / ").slice(0, 600));
+        return lines.join("\n");
+      }).join("\n"),
+    "",
     "=== A) " + codeName + " 本人の活動ログ (member_activities, 直近 90 日, max 200) ===",
     "[このセクションは本人が主体の活動。ここからは自由に抽出して OK]",
     acts.length === 0 ? "(該当なし)" :
@@ -196,23 +273,26 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
     "[⚠️ このセクションは PJ 全体のサマリ。" + codeName + " 本人が主体とは限らない。",
     " 例えば「神谷氏との CEO 候補面談」と書かれていても、実施したのは PL/PM の可能性が高い。",
     " このセクションからは『" + codeName + " (= 本人) が明示的に主体として書かれている事項』だけ抽出すること。",
-    " 本人名が出てこなければ、たとえ PJ にいたとしても抽出しない (skip)。]",
+    " 本人名が出てこなければ、たとえ PJ にいたとしても抽出しない (skip)。",
+    " さらに **セクション C (公式の役割分担) と整合しない事項は無視する** (= 役割外の話を本人スキルにしない)。]",
     summaries.length === 0 ? "(該当なし)" :
       summaries.slice(0, 40).map(function (s) {
         const dec = Array.isArray(s.decided) ? s.decided.join(" / ") : "";
         return "[" + (s.meeting_date || "") + " " + (s.project_id || "") + "] " + (s.title || "") + " :: " + (s.summary_short || "") + (dec ? " | decided: " + dec : "");
       }).join("\n")
-  ].join("\n").slice(0, 18000);
+  ].join("\n").slice(0, 20000);
 
   const systemPrompt = [
     "あなたはチームメンバーの人物像を構造化抽出するアシスタント。対象メンバーは入力の code_name で指定される。",
     "",
-    "🚨 重要な制約:",
-    "- セクション A (member_activities) = 本人が主体の活動ログ。ここから自由に抽出 OK。",
+    "🚨 入力 3 セクションの取扱い:",
+    "- セクション C (milestone_responsibility) = **公式の役割分担、グラウンドトゥルース**。ここが本人の業務範囲。",
+    "  → skills / work_style は **基本ここから抽出**。MS タイトル + task_description + success_criteria を本人の担当業務として読む。",
+    "  → 例: MS タイトル『入札書類作成・契約事務』share=1.0 → skills: 入札書類作成・契約事務 が確実。",
+    "- セクション A (member_activities) = 本人が主体の活動ログ。自由抽出 OK。",
     "- セクション B (project_meeting_summaries) = PJ 全体の会議サマリで、**本人が主体とは限らない**。",
-    "  → 本人 (code_name) の名前が明示的に登場しているか、本人が主体としてやったと明確に書かれている事項だけ抽出。",
-    "  → 「PJ で議論された」「決定された」だけでは本人の活動ではない (= skip)。",
-    "  → 確証なければ抽出しない。誤抽出 (他人の活動を本人のものと書く) は厳禁。",
+    "  → 本人名が明示登場 + セクション C の役割範囲と整合する事項のみ抽出。",
+    "  → 役割範囲外の議論 (例: 事務担当なのに経営戦略議論) を本人スキルにしてはいけない。",
     "",
     "出力は JSON のみ:",
     '{ "categories": [ { "category": "skills|personality|communication_style|growth_areas|work_style|interests|episodes", "summary": "100字以内の日本語要約" } ] }',
@@ -222,7 +302,7 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
     "- summary は箇条書きでなく自然文 100 字以内",
     "- 入力に書かれてない推測は禁止",
     "- 名前 (code_name) を summary に含めない (テーブル別カラムで管理されるため)",
-    "- セクション A が空でセクション B しかない場合、抽出 0 件を出力してよい (= categories: [])"
+    "- セクション C も A も空でセクション B だけある場合、抽出 0 件 (= categories: []) を出力する"
   ].join("\n");
 
   // 過去 feedback を LLM プロンプトに含める
