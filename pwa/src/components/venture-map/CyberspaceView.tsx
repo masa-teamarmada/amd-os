@@ -17,8 +17,9 @@
  */
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Grid, Line, Html, Text } from "@react-three/drei";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { OrbitControls, Grid, Line, Html, Sparkles, Stars } from "@react-three/drei";
+import { EffectComposer, Bloom, ChromaticAberration, Vignette } from "@react-three/postprocessing";
+import { BlendFunction } from "postprocessing";
 import { Suspense, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import {
@@ -400,46 +401,100 @@ function PjSphere({
 // シーン
 // ============================================================
 
-function AxisLabels() {
-  const fontSize = 0.5;
+function AxisLine({ start, end, color }: { start: [number, number, number]; end: [number, number, number]; color: string }) {
   return (
     <>
-      {/* X 軸: M (マクロ) */}
-      <Line points={[[0, 0, 0], [WORLD * 1.05, 0, 0]]} color="#22d3ee" lineWidth={2} />
-      <Text position={[WORLD * 1.15, 0, 0]} fontSize={fontSize} color="#22d3ee" anchorX="left" anchorY="middle">
+      <Line points={[start, end]} color={color} lineWidth={3} transparent opacity={1.0} />
+      <Line points={[start, end]} color={color} lineWidth={6} transparent opacity={0.25} />
+    </>
+  );
+}
+
+function NeonLabel({ position, color, children, anchor = "left" }: {
+  position: [number, number, number];
+  color: string;
+  children: React.ReactNode;
+  anchor?: "left" | "center";
+}) {
+  return (
+    <Html position={position} center distanceFactor={14} occlude={false} style={{ pointerEvents: "none" }}>
+      <div
+        style={{
+          color,
+          fontFamily: "ui-monospace, SFMono-Regular, monospace",
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: 2,
+          textShadow: `0 0 8px ${color}, 0 0 16px ${color}, 0 0 2px #000`,
+          whiteSpace: "nowrap",
+          textAlign: anchor === "center" ? "center" : "left",
+          opacity: 0.95,
+          pointerEvents: "none",
+        }}
+      >
+        {children}
+      </div>
+    </Html>
+  );
+}
+
+function AxisLabels() {
+  return (
+    <>
+      <AxisLine start={[0, 0, 0]} end={[WORLD * 1.08, 0, 0]} color="#22d3ee" />
+      <NeonLabel position={[WORLD * 1.2, 0.2, 0]} color="#22d3ee">
         M · MACRO σ_SU
-      </Text>
-      {/* Y 軸: X (XRL) */}
-      <Line points={[[0, 0, 0], [0, WORLD * 1.05, 0]]} color="#fb923c" lineWidth={2} />
-      <Text position={[0, WORLD * 1.1, 0]} fontSize={fontSize} color="#fb923c" anchorX="center" anchorY="bottom">
+      </NeonLabel>
+      <AxisLine start={[0, 0, 0]} end={[0, WORLD * 1.08, 0]} color="#fb923c" />
+      <NeonLabel position={[0, WORLD * 1.2, 0]} color="#fb923c" anchor="center">
         X · XRL5 (TRL/BRL/GRL/SRL/HRL)
-      </Text>
-      {/* Z 軸: F (FRL) */}
-      <Line points={[[0, 0, 0], [0, 0, WORLD * 1.05]]} color="#f472b6" lineWidth={2} />
-      <Text position={[0, 0, WORLD * 1.15]} fontSize={fontSize} color="#f472b6" anchorX="left" anchorY="middle">
+      </NeonLabel>
+      <AxisLine start={[0, 0, 0]} end={[0, 0, WORLD * 1.08]} color="#f472b6" />
+      <NeonLabel position={[0, 0.2, WORLD * 1.2]} color="#f472b6">
         F · CEO FRL
-      </Text>
-      {/* corner glow */}
+      </NeonLabel>
+      {/* origin marker */}
+      <mesh position={[0, 0, 0]}>
+        <sphereGeometry args={[0.18, 16, 16]} />
+        <meshBasicMaterial color="#22d3ee" />
+      </mesh>
+      {/* corner: IPO */}
       <mesh position={[WORLD, WORLD, WORLD]}>
-        <sphereGeometry args={[0.12, 8, 8]} />
+        <sphereGeometry args={[0.22, 16, 16]} />
         <meshBasicMaterial color="#ffffff" />
       </mesh>
-      <Html position={[WORLD, WORLD + 0.5, WORLD]} center distanceFactor={15}>
-        <div
-          style={{
-            color: "#ffffff",
-            fontFamily: "ui-monospace, SFMono-Regular, monospace",
-            fontSize: 10,
-            letterSpacing: 1.5,
-            textShadow: "0 0 8px #fff",
-            whiteSpace: "nowrap",
-            pointerEvents: "none",
-            opacity: 0.7,
-          }}
-        >
-          IPO · S=100,000
-        </div>
-      </Html>
+      <NeonLabel position={[WORLD, WORLD + 0.7, WORLD]} color="#ffffff" anchor="center">
+        IPO · S=100,000
+      </NeonLabel>
+      {/* bounding box edges (wireframe cube) */}
+      <BoundingBox />
+    </>
+  );
+}
+
+function BoundingBox() {
+  const verts: [number, number, number][] = [
+    [0, 0, 0], [WORLD, 0, 0], [WORLD, 0, WORLD], [0, 0, WORLD],
+    [0, WORLD, 0], [WORLD, WORLD, 0], [WORLD, WORLD, WORLD], [0, WORLD, WORLD],
+  ];
+  // 12 edges
+  const edges: Array<[number, number]> = [
+    [0, 1], [1, 2], [2, 3], [3, 0],
+    [4, 5], [5, 6], [6, 7], [7, 4],
+    [0, 4], [1, 5], [2, 6], [3, 7],
+  ];
+  return (
+    <>
+      {edges.map(([a, b], i) => (
+        <Line
+          key={i}
+          points={[verts[a], verts[b]]}
+          color="#1e3a5f"
+          lineWidth={1}
+          transparent
+          opacity={0.55}
+        />
+      ))}
     </>
   );
 }
@@ -463,23 +518,37 @@ function Scene({
 }) {
   return (
     <>
-      <color attach="background" args={["#04060d"]} />
-      <ambientLight intensity={0.25} />
-      <pointLight position={[15, 15, 15]} intensity={0.6} color="#22d3ee" />
-      <pointLight position={[-15, 5, -15]} intensity={0.4} color="#f472b6" />
-      <pointLight position={[5, 20, -5]} intensity={0.3} color="#fb923c" />
-      {/* 床グリッド */}
+      <color attach="background" args={["#02030a"]} />
+      <fog attach="fog" args={["#02030a", 30, 80]} />
+      <ambientLight intensity={0.4} />
+      <pointLight position={[18, 18, 18]} intensity={1.2} color="#22d3ee" />
+      <pointLight position={[-15, 8, -15]} intensity={0.9} color="#f472b6" />
+      <pointLight position={[5, 22, -8]} intensity={0.7} color="#fb923c" />
+      <pointLight position={[WORLD / 2, WORLD / 2, WORLD / 2]} intensity={0.5} color="#ffffff" distance={20} />
+      {/* 星空 (奥行き) */}
+      <Stars radius={80} depth={50} count={3000} factor={3} saturation={0.5} fade speed={0.6} />
+      {/* 漂うパーティクル (cyan) */}
+      <Sparkles
+        count={120}
+        scale={[WORLD * 1.6, WORLD * 1.6, WORLD * 1.6]}
+        position={[WORLD / 2, WORLD / 2, WORLD / 2]}
+        size={3}
+        speed={0.3}
+        opacity={0.7}
+        color="#22d3ee"
+      />
+      {/* 床グリッド (派手) */}
       <Grid
         position={[WORLD / 2, -0.01, WORLD / 2]}
-        args={[WORLD * 2.4, WORLD * 2.4]}
+        args={[WORLD * 3, WORLD * 3]}
         cellSize={1}
-        cellColor="#0e2236"
-        cellThickness={0.5}
+        cellColor="#0a4a6b"
+        cellThickness={1}
         sectionSize={5}
-        sectionColor="#1e3a5f"
-        sectionThickness={1}
-        fadeDistance={45}
-        fadeStrength={1.3}
+        sectionColor="#22d3ee"
+        sectionThickness={1.5}
+        fadeDistance={55}
+        fadeStrength={1.2}
         infiniteGrid={false}
         followCamera={false}
       />
@@ -896,7 +965,10 @@ export function CyberspaceView({ ventures, inputs, alpha }: Props) {
         overflow: "hidden",
       }}
     >
-      <Canvas camera={{ position: PRESET_CAM[preset], fov: 50, near: 0.1, far: 200 }}>
+      <Canvas
+        camera={{ position: PRESET_CAM[preset], fov: 50, near: 0.1, far: 200 }}
+        gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+      >
         <Suspense fallback={null}>
           <Scene
             points={points}
@@ -907,17 +979,32 @@ export function CyberspaceView({ ventures, inputs, alpha }: Props) {
             setHovered={setHovered}
             setSelected={setSelected}
           />
-          <CameraRig preset={preset} />
-          <OrbitControls
-            target={[WORLD / 2, WORLD / 2, WORLD / 2]}
-            enablePan
-            minDistance={8}
-            maxDistance={60}
-          />
-          <EffectComposer>
-            <Bloom intensity={0.9} luminanceThreshold={0.2} luminanceSmoothing={0.6} mipmapBlur />
-          </EffectComposer>
         </Suspense>
+        <CameraRig preset={preset} />
+        <OrbitControls
+          target={[WORLD / 2, WORLD / 2, WORLD / 2]}
+          enablePan
+          minDistance={6}
+          maxDistance={70}
+          enableDamping
+          dampingFactor={0.08}
+        />
+        <EffectComposer multisampling={4}>
+          <Bloom
+            intensity={1.6}
+            luminanceThreshold={0.08}
+            luminanceSmoothing={0.7}
+            mipmapBlur
+            radius={0.85}
+          />
+          <ChromaticAberration
+            blendFunction={BlendFunction.NORMAL}
+            offset={[0.0006, 0.0006] as unknown as [number, number]}
+            radialModulation={false}
+            modulationOffset={0}
+          />
+          <Vignette eskil={false} offset={0.2} darkness={0.7} />
+        </EffectComposer>
       </Canvas>
       <TitleBar />
       <PresetSwitcher value={preset} onChange={setPreset} />
