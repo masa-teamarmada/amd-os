@@ -332,10 +332,10 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
 
       {(() => {
         // 未読/既読に分ける (= readMap で楽観的に既読化されたものは、開いたままでも既読扱い)
-        // グループ分けは「server 値 + readMap 反映」 = isReadUi で統一
-        // → 開いた未読カードは即既読セクションに移動 (まさの仕様通り「次回開いたら折りたたまれてる」)
-        const unreadItems = filtered.filter((i) => !isReadUi(i));
-        const readItems = filtered.filter((i) => isReadUi(i));
+        // グループ分けは server 値だけで判定 (= 開いてもセッション中は未読セクションに残す)
+        // バッジ/背景の既読化は isReadUi で即時、リロードで初めて既読セクションへ移動 (まさの仕様)
+        const unreadItems = filtered.filter((i) => !i.data.notified_at);
+        const readItems = filtered.filter((i) => !!i.data.notified_at);
 
         const renderCard = (i: UnifiedItem) => {
           const key = itemKey(i);
