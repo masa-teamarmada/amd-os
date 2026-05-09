@@ -1309,4 +1309,60 @@ Pro 移行後は vercel.json に schedule を戻して GAS trigger を消すだ�
   - 5 生データ直結: ④ PJナレッジを Notion 経営戦略 page / Slack channel から直接抽出
   - ② AMDプロトコル UI に「candidate → confirmed 昇格」ボタン追加
 - 観察ポイント: 翌日朝 `l2_extract_state` を SELECT して 3 L2 × 各 target が積もり、`last_processed_at` が時間ごとに更新されているか
-- 別件: iOS Swift 側の APNs 受信実装 (ios/HANDOFF_meeting_notifications.md)、MTGサマリ Phase 2.5 (R313 集約方式書き換え)
+- 別件: iOS Swift 側の APNs 受信実装 (ios/HANDOFF_meeting_notifications.md + 新規 ios/HANDOFF_l2_notifications.md)、MTGサマリ Phase 2.5 (R313 集約方式書き換え)
+
+---
+
+## 2026-05-09 (続々) — Phase 4 全 4 L2 を Swift APNs 通知に接続 (quirky-moore-b60501 セッション継続)
+
+### 着手の背景
+
+Phase 4 の 4 L2 (③⑤④②) の通知系統を聞かれて「現状なし、Slack/iOS/PWA UI のどれが好み?」と回答したら、まさから「好みっていうか、もう Swift 通知に決めてたよね」と指摘。前セッションの ⑥ MTGサマリ Phase 3 (`meeting_notifications` テーブル + iOS APNs 通知) は **L2 全般の通知設計の標準パターン** として位置付けられていた。Phase 4 の 4 L2 もそのパターンで横展開すべきだった。
+
+### 設計判断
+
+**新規 `l2_notifications` テーブル (= meeting_notifications の姉妹) を作る**:
+- 既存 `meeting_notifications` は FK to project_meeting_summaries CASCADE 持ち → 別 L2 行を入れると FK violation
+- `l2_notifications` は FK 持たず、`l2_kind` discriminator で 4 L2 + 将来追加分を統一
+- UNIQUE(l2_kind, target_id, scope_key) で同抽出を 1 行集約 → 同 PJ × 同 ym で繰り返し抽出されても 1 行に upsert
+
+**`saved_count` 変化で再通知トリガ**:
+- meeting_notifications では `source_kinds`/`summary_short`/`title` 変化で notified_at=NULL に戻す設計
+- l2_notifications では `title`/`summary`/`saved_count` 変化で同様 (= 抽出件数が増えたら再通知)
+- 同じ saved_count なら notified_at は保持される = 重複通知しない
+
+**通知タイトルは l2_kind ごとに絵文字統一**:
+- ⑤ member: 👤 (`👤 まさ のメンバーナレッジ更新 (3件)`)
+- ④ project: 🗂️ (`🗂️ SX (202605) PJナレッジ更新 (5件)`)
+- ② protocol: ⚖️ (`⚖️ SX (202605) AMDプロトコル candidate (2件)`)
+- ③ ms_progress: 📈 (`📈 SX (202605) MS進捗 更新 (3件)`)
+- ⑥ meeting (既存): 📋 (継続)
+
+### 主な変更
+
+**Supabase**:
+- `pwa/scripts/migrations/031_l2_notifications.sql` 新規 + 適用 OK
+
+**GAS**:
+- `gas/155_L2KnowledgeExtractor.js` の 3 extractor に通知 upsert 追加:
+  - `_l2_insertNotification_(payload)` helper 追加
+  - `_l2_resolvePjName_(projectId)` helper 追加 (project_id → 表示名 cache)
+  - 各 extractor で `if (saved > 0)` で通知 upsert
+
+**PWA**:
+- `pwa/src/lib/progress-estimator.ts` 末尾に `saved > 0` のとき `l2_notifications` upsert (l2_kind='ms_progress')
+
+**iOS HANDOFF**:
+- `ios/HANDOFF_l2_notifications.md` 新規 (= `HANDOFF_meeting_notifications.md` の姉妹)
+- l2_kind ごとの遷移先案 / 集約方針議論 / 上流テーブル仕様
+
+### 動作確認
+
+- migration 031 適用 OK (Supabase 201)
+- GAS push v1434 + Vercel deploy + 手動 ping で 4 L2 全部の通知が `l2_notifications` に積もるか確認 (= 本セッション内で実施)
+
+### 次セッションへ
+
+- iOS Swift 側で `l2_notifications` 受信実装 (= `HANDOFF_l2_notifications.md` 参照)
+- iOS は既存の `meeting_notifications` (⑥) と新規 `l2_notifications` (③⑤④②) の両方を捕捉する `NotificationRepository` 設計を推奨
+- 集約方針 (importance=1 をどうするか) はまさと要相談

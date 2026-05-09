@@ -229,6 +229,23 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
     llm_model: "gemini-2.5-flash", message: null
   });
 
+  // 通知 (saved > 0 のときだけ)
+  if (saved > 0) {
+    try {
+      const cats = parsed.categories.slice(0, saved).map(function (c) { return c.category; }).filter(function (c) { return !!c; });
+      _l2_insertNotification_({
+        l2_kind: "member_knowledge",
+        target_id: codeName,
+        scope_key: "global",
+        title: "👤 " + codeName + " のメンバーナレッジ更新 (" + saved + "件)",
+        summary: cats.join(" / "),
+        saved_count: saved,
+        total_count: parsed.categories.length,
+        importance: 1
+      });
+    } catch (e) { Logger.log("[member_knowledge] notify error: " + e); }
+  }
+
   return { ok: true, action: "saved", codeName: codeName, saved: saved, total: parsed.categories.length };
 }
 
@@ -404,6 +421,23 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
     llm_model: "gemini-2.5-flash", message: null
   });
 
+  if (saved > 0) {
+    try {
+      const pjName = _l2_resolvePjName_(projectId);
+      const top = parsed.items.slice(0, 3).map(function (it) { return (it.category || "") + ":" + (it.entity_name || ""); }).join(" / ");
+      _l2_insertNotification_({
+        l2_kind: "project_knowledge",
+        target_id: projectId,
+        scope_key: ym,
+        title: "🗂️ " + pjName + " (" + ym + ") PJナレッジ更新 (" + saved + "件)",
+        summary: top + (parsed.items.length > 3 ? " 他" : ""),
+        saved_count: saved,
+        total_count: parsed.items.length,
+        importance: 1
+      });
+    } catch (e) { Logger.log("[project_knowledge] notify error: " + e); }
+  }
+
   return { ok: true, action: "saved", projectId: projectId, ym: ym, saved: saved, total: parsed.items.length };
 }
 
@@ -553,6 +587,24 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
     source_hash: newHash, saved_count: saved, total_count: parsed.protocols.length,
     llm_model: "gemini-2.5-flash", message: null
   });
+
+  if (saved > 0) {
+    try {
+      const pjName = _l2_resolvePjName_(projectId);
+      const titles = parsed.protocols.slice(0, 3).map(function (p) { return String(p.title || "").trim(); }).filter(Boolean).join(" / ");
+      const maxImp = parsed.protocols.reduce(function (m, p) { return Math.max(m, Number(p.importance || 1)); }, 1);
+      _l2_insertNotification_({
+        l2_kind: "protocols",
+        target_id: projectId,
+        scope_key: ym,
+        title: "⚖️ " + pjName + " (" + ym + ") AMDプロトコル candidate (" + saved + "件)",
+        summary: titles + (parsed.protocols.length > 3 ? " 他" : ""),
+        saved_count: saved,
+        total_count: parsed.protocols.length,
+        importance: maxImp
+      });
+    } catch (e) { Logger.log("[protocols] notify error: " + e); }
+  }
 
   return { ok: true, action: "saved", projectId: projectId, ym: ym, saved: saved, total: parsed.protocols.length };
 }
@@ -728,4 +780,39 @@ function _l2_supaUrl_() {
 }
 function _l2_supaKey_() {
   return String(PropertiesService.getScriptProperties().getProperty("SUPABASE_SERVICE_KEY") || "").trim();
+}
+
+/** l2_notifications テーブルに upsert (Swift APNs 通知用)。
+ *  内容変わってれば trigger で notified_at=NULL に戻り、Swift 側が再通知する。
+ *  saved_count==0 なら呼ばないこと (= 通知不要)。
+ *
+ *  仕様正本: ios/HANDOFF_l2_notifications.md
+ */
+function _l2_insertNotification_(payload) {
+  const row = {
+    l2_kind: String(payload.l2_kind || ""),
+    target_id: String(payload.target_id || ""),
+    scope_key: String(payload.scope_key || ""),
+    title: String(payload.title || "").slice(0, 200),
+    summary: String(payload.summary || "").slice(0, 1000),
+    saved_count: Number(payload.saved_count || 0),
+    total_count: Number(payload.total_count || 0),
+    importance: Number(payload.importance || 1)
+  };
+  if (!row.l2_kind || !row.target_id || !row.scope_key || !row.title) return { ok: false, message: "required fields missing" };
+  return supa_upsert("l2_notifications", row, "l2_kind,target_id,scope_key");
+}
+
+/** project_id → 表示用 PJ 名 (memo cache) */
+const _l2_pjNameCache = {};
+function _l2_resolvePjName_(projectId) {
+  if (_l2_pjNameCache[projectId]) return _l2_pjNameCache[projectId];
+  const res = supa_select("projects", {
+    select: "project_id,project_name",
+    filter: "project_id=eq." + encodeURIComponent(projectId),
+    limit: 1
+  });
+  const name = res.ok && res.rows && res.rows[0] && res.rows[0].project_name ? res.rows[0].project_name : projectId;
+  _l2_pjNameCache[projectId] = name;
+  return name;
 }
