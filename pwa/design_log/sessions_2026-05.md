@@ -1700,3 +1700,56 @@ iOS 通知が降ってきた直後、まさから:
 
 - BUGS: `bottleneck argmin(share)` 退化 / amd_score_inputs に未来 retrofit seed の罠
 - memory: `feedback_question_own_proposals.md` (恣意的な数学操作を提案しない、まさの違和感シグナルで立ち止まる) / `feedback_read_full_theory_md.md` (正本 theory md を全文 Read してから動く)
+
+---
+
+## 2026-05-10 — μ_A (学術) 根拠 DB `scholar` 構築 + Crossref ingest cron + Scholar タブ (affectionate-easley-9b52b8)
+
+前セッション (elegant-swanson-7a0123) の継続タスク。`atlas_signals` には学術 domain がないため μ_A 根拠 fallback が「仮置き」のみだった問題を解決。
+
+### 主要変更
+
+**Supabase**:
+- `pwa/scripts/migrations/035_scholar.sql` 新規 + 本番適用済
+- `scholar` テーブル: 論文 / grant / patent / award を一元管理。`doi UNIQUE (partial)`、`(lane, published_at DESC)` index、`anon_read` RLS のみ (書き込みは service_role cron)
+
+**PWA**:
+- `pwa/src/app/api/cron/scholar-ingest/route.ts` 新規: Crossref API で 5 lane × keyword × 直近 1 年 × 最新 20 件取得 → DOI 重複除外 → bulk insert。POLITE_UA mode (mailto)、Bearer ${CRON_SECRET} 認証
+- `pwa/vercel.json` に毎日 18:20 UTC (= 03:20 JST) 登録
+- `pwa/src/lib/atlas-macro-signals.ts`: `ScholarShort` interface 追加、`AtlasMacroSignals` に `mu_a: ScholarShort[]` 追加、`fetchAtlasMacroSignals` で scholar も並行 fetch
+- `pwa/src/components/venture-map/AmdScoreView.tsx`: Factor3Breakdown の μ_A 行 fallback を `editable.mu_notes_a → scholarFallbackText → 仮置き` の 3 段階に
+- `pwa/src/app/(app)/scholar/page.tsx` + `pwa/src/components/scholar/ScholarList.tsx` 新規: Scholar 一覧ページ (lane / source_type フィルタ + DOI link)
+- `pwa/src/components/nav/GlobalNav.tsx`: GlobalNav の Atlas の右に Scholar タブ追加
+
+**仕様 md**:
+- `pwa/HANDOFF_pwa_rebuild.md` 最終更新を本セッション内容に書き換え
+- `pwa/design/amd_score.md`: μ_A fallback 順を「scholar 経由」に更新 + 「Scholar (μ_A 根拠 DB)」セクション新設 (Phase 1 完了 + Phase 2 TODO)
+- `pwa/design/db_schema.md` 自動再生成 (90 tables / 982 columns)
+
+### 設計判断
+
+- **テーブル名**: `atlas_papers` 案を出したが、まさが「scholar」を選択 (atlas_signals と独立、論文以外も入る将来想定で命名独立)
+- **タブバー位置**: GlobalNav の Atlas の右 (まさ指定)。Atlas → Scholar → Venture Map → Seeds → VC の順
+- **lane クエリ**: 既存 `scripts/fetch_papers_openalex.py` の `LANE_QUERIES` をそのまま流用 (papers_log との整合性、運用シンプル化)
+- **Phase 1 スコープ**: Crossref のみ (KAKEN / NEDO / SIP / JST は Phase 2)。理由: Crossref が認証不要・metadata 豊富・論文だけでなく書誌情報まで取れる
+- **重複制御**: DOI を partial UNIQUE INDEX (`WHERE doi IS NOT NULL`) で。upsert ではなく「既存 DOI を SELECT → 新規分のみ INSERT」方式 (partial unique index は Supabase JS upsert と相性悪い可能性を回避)
+- **fallback の lane フィルタ無し**: μ_I/μ_G と同じく現状は「全 PJ 横断のマクロ観察」。PJ.lane 個別絞り込みは Phase 2 (理由: lane 個別だとデータ薄い PJ で空になり仮置き表示になる)
+
+### worktree 取り違え事故 (BUGS.md パターン再発)
+
+migration 035_scholar.sql 作成時に `Edit/Write` で `/Users/masa/projects/AMD/amd-os/pwa/...` (= main worktree) に書き込んでしまい、`apply_ddl.py` が worktree の絶対 path を受け取ったら FileNotFoundError。リカバリで `cp` → `rm` してリトライ。本セッション以降は **worktree 配下の絶対 path を起点**にする習慣徹底。
+
+### 動作確認
+
+- migration 035 適用 OK (`OK (201)`)
+- db_schema.md 再生成 OK (`90 tables, 982 columns`)
+- tsc --noEmit エラー無し
+- 本番 deploy + cron 初回投入 + `/scholar` 目視 + AmdScoreView μ_A 行表示確認 (本セッション内)
+
+### 次セッションへ
+
+[`pwa/HANDOFF_pwa_rebuild.md`](../HANDOFF_pwa_rebuild.md) の Phase 2 TODO 参照:
+- KAKEN API ingest (科研費)
+- NEDO / SIP / JST 採択リスト scrape
+- Semantic Scholar 引用ネットワーク
+- `scholar.lane` を PJ.lane で個別フィルタ

@@ -59,6 +59,10 @@
     {
       "path": "/api/cron/vc-discover",
       "schedule": "5 18 * * *"
+    },
+    {
+      "path": "/api/cron/scholar-ingest",
+      "schedule": "20 18 * * *"
     }
   ]
 }

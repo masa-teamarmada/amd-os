@@ -198,8 +198,8 @@ PJ {ventureName} の {fieldName} = {currentValue} の評価を見直したい。
 
 **μ_A (学術)**:
 1. `amd_score_inputs.mu_notes.a`
-2. **未実装** — atlas_signals に学術 domain なし
-3. 「Atlas に学術 domain 未対応 — 論文 DB 連携は今後」
+2. **`scholar` テーブル** (Crossref ingest cron `/api/cron/scholar-ingest` 経由、status≠'rejected' 最新 N 件、PJ 横断)
+3. 「根拠仮置き」
 
 **μ_I (産業) / μ_G (政府)**:
 1. `amd_score_inputs.mu_notes.{i|g}`
@@ -231,13 +231,31 @@ PJ {ventureName} の {fieldName} = {currentValue} の評価を見直したい。
 
 経時グラフは全期間表示で OK (未来予想 timeline も見えてよい)。
 
-### 次セッション TODO: μ_A 用 論文 DB 構築
+### Scholar (μ_A 根拠 DB) — 2026-05-10 追加
 
-`atlas_signals` には学術専用 domain がなく、μ_A の根拠を Atlas からは拾えない。次セッションで:
-- Crossref API + 該当 lane キーワードで論文 metadata 取得
-- 科研費 / NEDO / SIP / JST 採択リストの取り込み
-- `atlas_papers` テーブル新設、`fetchAtlasMacroSignals` に `mu_a` 追加
-- AmdScoreView の μ_A 行 fallback で参照
+`atlas_signals` には学術専用 domain がない問題を解決するため、独立テーブル `scholar` を新設 (migration 035)。
+
+**列構成** (`design/db_schema.md` 参照):
+- `id` / `title` / `authors` (text[]) / `journal` / `doi` (UNIQUE partial)
+- `published_at` (date) / `lane` (gx_energy / gx_circular / materials / life / robo / null)
+- `suggested_tags` (text[]) / `source_type` ('paper' / 'grant' / 'patent' / 'award')
+- `source_url` / `status` ('auto' / 'verified' / 'rejected') / `notes` / `metadata` (jsonb)
+- `ingested_by` ('crossref' / 'kaken' / 'manual') / `submitted_at` / `created_at`
+
+**Phase 1 (2026-05-10 reach、本セッション)**:
+- Crossref API ingest cron `/api/cron/scholar-ingest` (毎日 18:20 UTC = 03:20 JST)
+- 5 lane × keyword で直近 1 年最新 20 件 → DOI 重複除外 → bulk insert
+- lane クエリは `scripts/fetch_papers_openalex.py` の `LANE_QUERIES` と同一 (= papers_log と整合)
+- `fetchAtlasMacroSignals` 戻り値に `mu_a: ScholarShort[]` 追加
+- `AmdScoreView` Factor3Breakdown の μ_A 行 fallback で `(Crossref 学術シグナル, PJ 横断) [YYYY-MM-DD] Title (Journal) / ...` を表示
+- `/scholar` ページ + GlobalNav タブ (Atlas の右)
+
+**Phase 2 TODO**:
+- KAKEN API ingest (科研費・researcher 紐付き・和文)
+- NEDO / SIP / JST 採択リスト scrape (source_type='grant'/'award')
+- Semantic Scholar 引用ネットワーク
+- `scholar.lane` を PJ.lane で個別フィルタ (現状は全 PJ 横断)
+- `verified` フラグ運用ルール検討
 
 ### Retrofit ページ (α 重み調整) — 2026-05-09 追加
 

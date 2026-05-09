@@ -30,7 +30,7 @@ import {
 } from "@/lib/amd-score";
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import type { VentureRow, XrlLogRow } from "@/lib/venture-map-data";
-import type { AtlasMacroSignals, AtlasSignalShort } from "@/lib/atlas-macro-signals";
+import type { AtlasMacroSignals, AtlasSignalShort, ScholarShort } from "@/lib/atlas-macro-signals";
 
 interface Props {
   venture: VentureRow;
@@ -627,6 +627,16 @@ function Factor3Breakdown({
     });
     return `(Atlas マクロシグナル, PJ 横断) ${items.join(" / ")}`;
   }
+  /** Scholar (μ_A 根拠) 群を「[YYYY-MM-DD] Title (Journal)」形式で連結 (subtitle 用) */
+  function scholarFallbackText(papers: ScholarShort[] | undefined): string | null {
+    if (!papers || papers.length === 0) return null;
+    const items = papers.slice(0, 3).map((p) => {
+      const date = p.published_at?.slice(0, 10) ?? "?";
+      const journal = p.journal ? ` (${p.journal})` : "";
+      return `[${date}] ${p.title}${journal}`;
+    });
+    return `(Crossref 学術シグナル, PJ 横断) ${items.join(" / ")}`;
+  }
   const fmt = (n: number, digits = 2) =>
     n < 1 ? n.toFixed(digits) : n < 100 ? n.toFixed(2) : Math.round(n).toLocaleString();
 
@@ -656,12 +666,16 @@ function Factor3Breakdown({
         formula="M = (σ_SU+1)^α_σ"
         bottleneck={result.bottleneck === "sigma_SU"}
       >
-        {/* μ_A: 当面 atlas に学術 domain なし → 仮置き or 入力 notes。次セッションで論文 DB 構築予定。 */}
+        {/* μ_A: input notes → scholar (Crossref ingest cron で投入) → 仮置き */}
         <DetailFactorRow
           name="μ_A (学術)"
           value={fmt(editable.mu_A, 1)}
-          subtitle={editable.mu_notes_a || `${FALLBACK_NOTE} (Atlas に学術 domain 未対応 — 論文 DB 連携は今後)`}
-          subtitleIsFallback={!editable.mu_notes_a}
+          subtitle={
+            editable.mu_notes_a ||
+            scholarFallbackText(atlasMacroSignals?.mu_a) ||
+            FALLBACK_NOTE
+          }
+          subtitleIsFallback={!editable.mu_notes_a && !scholarFallbackText(atlasMacroSignals?.mu_a)}
           onClick={() => openTsukuyomiPrefill(ventureName, "μ_A (学術)", fmt(editable.mu_A, 1), editable.mu_notes_a || null)}
         />
         {/* μ_I: input notes → atlas_signals (domain C-K) → 仮置き */}
