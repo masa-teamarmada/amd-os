@@ -10,6 +10,11 @@ export type SeedStatus =
   | "spun_off"       // PJ化
   | "declined";      // 見送り
 
+export type SeedDiscoveryStatus =
+  | "reviewed"     // 人が確認済 (デフォルト)
+  | "discovered"   // cron が新規発見、未確認
+  | "dismissed";   // ノイズ扱い
+
 export type SeedOrgType =
   | "university"
   | "national_lab"
@@ -101,6 +106,7 @@ export interface Seed {
   spun_off_project_id: string | null;
   source: SeedSource | null;
   source_detail: string | null;
+  discovery_status: SeedDiscoveryStatus;
   // 監査
   created_at: string;
   updated_at: string;

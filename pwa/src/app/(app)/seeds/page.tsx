@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   fetchSeedList,
+  fetchSeedInboxCount,
   formatJpy,
   SEED_STATUS_LABEL,
   SEED_STATUS_COLOR,
@@ -59,12 +61,14 @@ export default function SeedsListPage() {
   const [search, setSearch] = useState("");
   const [selectedSeedId, setSelectedSeedId] = useState<string | null>(null);
   const [createMode, setCreateMode] = useState(false);
+  const [inboxCount, setInboxCount] = useState(0);
 
   useEffect(() => {
     setLoading(true);
     fetchSeedList()
       .then((rows) => setItems(rows))
       .finally(() => setLoading(false));
+    fetchSeedInboxCount().then(setInboxCount);
   }, [reloadKey]);
 
   const onSort = (key: SortKey) => {
@@ -132,12 +136,25 @@ export default function SeedsListPage() {
             ここから協議が始まり一部が PJ になる。状態: 候補 → 調査中 → 接触済 → 協議中 → PJ化 / 見送り。
           </p>
         </div>
-        <button
-          onClick={() => setCreateMode(true)}
-          className="text-xs px-3 py-1.5 rounded border border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10 transition-colors font-mono"
-        >
-          + 新規シーズ
-        </button>
+        <div className="flex gap-2 shrink-0">
+          <Link
+            href="/seeds/inbox"
+            className="relative text-xs px-3 py-1.5 rounded border border-sky-500/40 text-sky-700 hover:bg-sky-500/10 transition-colors font-mono"
+          >
+            受信箱 →
+            {inboxCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-4 px-0.5 bg-sky-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+                {inboxCount > 99 ? "99+" : inboxCount}
+              </span>
+            )}
+          </Link>
+          <button
+            onClick={() => setCreateMode(true)}
+            className="text-xs px-3 py-1.5 rounded border border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10 transition-colors font-mono"
+          >
+            + 新規シーズ
+          </button>
+        </div>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
@@ -248,7 +265,12 @@ function Row({ s, onSelect }: { s: SeedListItem; onSelect: () => void }) {
       className="border-t border-border/40 hover:bg-accent/40 cursor-pointer"
     >
       <td className="px-2 py-2">
-        <div className="font-medium">{s.title}</div>
+        <div className="font-medium flex items-center gap-1.5">
+          {s.discovery_status === "discovered" && (
+            <span className="text-[9px] px-1 py-0.5 rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 shrink-0" title="cron が新規発見、未確認">🆕</span>
+          )}
+          <span>{s.title}</span>
+        </div>
         {s.summary && (
           <div className="text-[10px] text-muted-foreground line-clamp-1">{s.summary}</div>
         )}
