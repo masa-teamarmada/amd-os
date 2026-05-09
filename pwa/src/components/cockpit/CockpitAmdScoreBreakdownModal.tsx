@@ -50,38 +50,45 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
         <div className="px-4 py-4 flex flex-col gap-4">
           <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-3 leading-relaxed flex flex-col gap-3">
             <div>
-              Before Zero Theory v3.2 — <strong>マクロトレンド</strong> ×{" "}
-              <strong>その案件の XRL</strong> の 2 大要素を Cobb-Douglas で統合。
+              Before Zero Theory v3.2 — <strong>マクロトレンド M</strong> ×{" "}
+              <strong>案件 readiness R</strong> の 2 大要素を Cobb-Douglas で統合。
             </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
-              <div className="text-[10px] text-muted-foreground mb-1">全体式</div>
+              <div className="text-[10px] text-muted-foreground mb-1">全体式 (S = AMD Score)</div>
+              <Tex display tex={String.raw`S \;=\; K \cdot M \cdot R`} />
+            </div>
+            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
+              <div className="text-[10px] text-muted-foreground mb-1">
+                ① マクロトレンド M (Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
+              </div>
               <Tex
                 display
-                tex={String.raw`\text{AMD Score} \;=\; K \cdot \underbrace{\text{Macro}}_{\text{マクロトレンド}} \cdot \underbrace{\text{XRL}}_{\text{案件の readiness}}`}
+                tex={String.raw`M \;=\; (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}, \quad \sigma_{\mathrm{SU}} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`}
               />
             </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
               <div className="text-[10px] text-muted-foreground mb-1">
-                ① マクロトレンド（外部追い風: 市場 μ_A / 業界 μ_I / 政府 μ_G）
+                ② 案件 readiness R (FRL は重み α_F が別格 — 他 5 軸 XRL は内閣府 SIP 互換)
               </div>
               <Tex
                 display
-                tex={String.raw`\text{Macro} \;=\; (\sigma_{SU}+1)^{\alpha_{\sigma}}, \quad \sigma_{SU} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`}
+                tex={String.raw`R \;=\; (\mathrm{FRL}+1)^{\alpha_F} \cdot \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x}`}
               />
             </div>
-            <div className="bg-white rounded px-3 py-2 overflow-x-auto">
-              <div className="text-[10px] text-muted-foreground mb-1">
-                ② その案件の XRL（内部 readiness: 技術/事業/ガバナンス/社会/人材/ファウンダー）
+            <div className="text-[10px] text-muted-foreground space-y-1">
+              <div>
+                重み (default): α_F=<span className="font-mono">1.5</span> &gt;
+                α_σ=<span className="font-mono">1.3</span> &gt;
+                α_HRL=<span className="font-mono">1.1</span> &gt;
+                α_TRL=<span className="font-mono">1.0</span> &gt;
+                α_BRL=<span className="font-mono">0.6</span> &gt;
+                α_GRL=<span className="font-mono">0.3</span> &gt;
+                α_SRL=<span className="font-mono">0.2</span>
               </div>
-              <Tex
-                display
-                tex={String.raw`\text{XRL} \;=\; \prod_{x \in \{\text{TRL}, \text{BRL}, \text{GRL}, \text{SRL}, \text{HRL}, \text{FRL}\}} (x+1)^{\alpha_x}`}
-              />
-            </div>
-            <div className="text-[10px] text-muted-foreground">
-              K = <span className="font-mono">100,000 / 10^Σα</span> で全軸 9 (= IPO 級) を
-              100,000 に校正 · 内閣府 SIP 9 段階互換 · Shallow Tech モード (TRL=null)
-              では TRL を除外して K を再校正。
+              <div>
+                K = <span className="font-mono">100,000 / 10^Σα</span> で全軸 9 (= IPO 級) を 100,000
+                に校正 · Shallow Tech モード (TRL=null) では TRL を除外して K を再校正。
+              </div>
             </div>
           </div>
 
