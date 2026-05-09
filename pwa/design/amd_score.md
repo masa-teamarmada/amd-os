@@ -231,31 +231,64 @@ PJ {ventureName} の {fieldName} = {currentValue} の評価を見直したい。
 
 経時グラフは全期間表示で OK (未来予想 timeline も見えてよい)。
 
-### Scholar (μ_A 根拠 DB) — 2026-05-10 追加
+### Triple Helix 観測モデル (μ_A/I/G の根拠) — 2026-05-10 改訂
 
-`atlas_signals` には学術専用 domain がない問題を解決するため、独立テーブル `scholar` を新設 (migration 035)。
+**μ_A/I/G は Triple Helix の隠れ状態** (state_space_model.md §4.1)。観測量 (P, B, V, R, I_R, N, C) から **C 行列 loading** で生成される。**個別論文の蓄積ではなく、観測量の lane × quarter trend** が μ_A 等の根拠。
 
-**列構成** (`design/db_schema.md` 参照):
-- `id` / `title` / `authors` (text[]) / `journal` / `doi` (UNIQUE partial)
-- `published_at` (date) / `lane` (gx_energy / gx_circular / materials / life / robo / null)
-- `suggested_tags` (text[]) / `source_type` ('paper' / 'grant' / 'patent' / 'award')
-- `source_url` / `status` ('auto' / 'verified' / 'rejected') / `notes` / `metadata` (jsonb)
-- `ingested_by` ('crossref' / 'kaken' / 'manual') / `submitted_at` / `created_at`
+#### モデル構造 (詳細ページ M カードで全部表示)
 
-**Phase 1 (2026-05-10 reach、本セッション)**:
-- Crossref API ingest cron `/api/cron/scholar-ingest` (毎日 18:20 UTC = 03:20 JST)
-- 5 lane × keyword で直近 1 年最新 20 件 → DOI 重複除外 → bulk insert
-- lane クエリは `scripts/fetch_papers_openalex.py` の `LANE_QUERIES` と同一 (= papers_log と整合)
-- `fetchAtlasMacroSignals` 戻り値に `mu_a: ScholarShort[]` 追加
-- `AmdScoreView` Factor3Breakdown の μ_A 行 fallback で `(Crossref 学術シグナル, PJ 横断) [YYYY-MM-DD] Title (Journal) / ...` を表示
-- `/scholar` ページ + GlobalNav タブ (Atlas の右)
+```
+M = (σ_SU+1)^α_σ                                          ← 数式 ①
+σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) - 1                       ← 数式 ②
+μ_x = Σ_p c_xp · ỹ_p / Σ_p c_xp   p ∈ {P,B,V,R,I_R,N,C}   ← 数式 ③
+ỹ_p = 9 · (y_p - min) / (max - min)  (過去 16 quarter)     ← 数式 ④
+```
 
-**Phase 2 TODO**:
-- KAKEN API ingest (科研費・researcher 紐付き・和文)
-- NEDO / SIP / JST 採択リスト scrape (source_type='grant'/'award')
-- Semantic Scholar 引用ネットワーク
-- `scholar.lane` を PJ.lane で個別フィルタ (現状は全 PJ 横断)
-- `verified` フラグ運用ルール検討
+#### C 行列 (`triple_helix_loading` テーブル、bvar_prior §3.2)
+
+| 観測量 | μ_A | μ_I | μ_G | 単位 | データソース |
+|---|---|---|---|---|---|
+| P (政策密度) | 0.05 | 0.05 | **0.95** | 件/Q | atlas_signals (domain LIKE 'B.%') ✅ |
+| B (公募予算) | 0.10 | 0.05 | **0.85** | 億円/Q | atlas_signals (source_type='grant') ❌ Phase 2 |
+| V (VC 投資) | 0.10 | **0.85** | 0.10 | 億円/Q | Crunchbase / INITIAL ❌ Phase 2 |
+| R (言及・PR) | 0.40 | 0.35 | 0.30 | 件/Q | atlas_signals (status='accepted') ✅ |
+| I_R (研究費) | **0.70** | 0.10 | 0.40 | 億円/Q | KAKEN API ❌ Phase 2 |
+| N (論文) | **0.90** | 0.05 | 0.05 | 本/Q | OpenAlex (papers_log) ✅ |
+| C_compete (競合) | 0.05 | **0.85** | 0.10 | 社 | project_ventures 集計 ❌ Phase 2 |
+
+#### 詳細ページ UI (M カード = `TripleHelixMatrix`)
+
+`pwa/src/components/venture-map/TripleHelixMatrix.tsx` で:
+1. **数式 4 段** (Tex 表示)
+2. **μ ラダー**: μ_A / μ_I / μ_G のチップ → ↓ → σ_SU → ↓ → M
+3. **6×3 マトリクス**: 行 = 観測量、列 = μ_A/I/G + 観測値
+   - セル背景色 = loading 強度のヒートマップ
+   - セル hover で `c × ỹ = 寄与値` ポップアップ
+   - 観測値 bar = ỹ_p の 0-9 正規化
+   - 未取得観測量はグレーアウト + 「未取得」明示
+4. **被覆率**: `X / 7 (Y%)` でデータ完備率を透明化
+
+#### 実装ファイル
+
+- migration 036_scholar_drop.sql: 旧個別論文 cron を廃止
+- migration 037_papers_log_quarterly.sql: papers_log を quarter 単位に再構築 (UNIQUE lane+observed_at)
+- migration 038_triple_helix_loading.sql: C 行列 prior を 7 行 seed
+- `src/lib/triple-helix-observations.ts`: 観測量 fetcher / 正規化 / μ 計算
+- `src/components/venture-map/TripleHelixMatrix.tsx`: M カード本体
+- `src/app/api/cron/papers-quarterly-ingest/route.ts`: OpenAlex weekly cron (5 lane × 16 Q)
+- `src/app/(app)/scholar/page.tsx` + `src/components/scholar/ScholarTrendView.tsx`: lane × quarter trend chart
+
+#### Phase 2 TODO (観測量の網羅)
+
+- KAKEN API ingest (I_R)
+- NEDO / SIP / JST 採択リスト scrape (B)
+- Crunchbase / INITIAL ingest (V)
+- project_ventures 内部集計 (C_compete)
+- PJ.lane × atlas_signals.suggested_tags 突合 (P / R を lane 個別に)
+
+#### Phase 3 TODO (隠れ状態推定)
+
+state_space_model.md §4.5 に従い、BVAR Kalman filter で μ_A(t)/μ_I(t)/μ_G(t) を観測量から逆推定。観測モデル C は `triple_helix_loading` を prior、Bayesian update でデータから学習。
 
 ### Retrofit ページ (α 重み調整) — 2026-05-09 追加
 

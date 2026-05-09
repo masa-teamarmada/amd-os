@@ -61,8 +61,8 @@
       "schedule": "5 18 * * *"
     },
     {
-      "path": "/api/cron/scholar-ingest",
-      "schedule": "20 18 * * *"
+      "path": "/api/cron/papers-quarterly-ingest",
+      "schedule": "20 18 * * 1"
     }
   ]
 }

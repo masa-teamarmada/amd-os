@@ -3,6 +3,7 @@ import { AmdScoreView } from "@/components/venture-map/AmdScoreView";
 import { fetchActiveAlpha, fetchAmdScoreInputs } from "@/lib/amd-score-data";
 import { fetchVentureById, fetchXrlLog } from "@/lib/venture-map-data";
 import { fetchAtlasMacroSignals } from "@/lib/atlas-macro-signals";
+import { fetchTripleHelixComputed } from "@/lib/triple-helix-observations";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,10 @@ export default async function AmdScorePjPage({ params }: Props) {
   if (!venture) notFound();
   // 最新の XRL 観測 (source_note があればフォールバック根拠として使う)
   const latestXrlLog = xrlLog.length > 0 ? xrlLog[xrlLog.length - 1] : null;
+
+  // Triple Helix 観測モデル (M カード用) — venture.lane を引数に
+  const tripleHelix = venture.lane ? await fetchTripleHelixComputed(venture.lane) : null;
+
   return (
     <AmdScoreView
       venture={venture}
@@ -29,6 +34,7 @@ export default async function AmdScorePjPage({ params }: Props) {
       initialAlpha={alpha}
       latestXrlLog={latestXrlLog}
       atlasMacroSignals={atlasMacroSignals}
+      tripleHelix={tripleHelix}
     />
   );
 }
