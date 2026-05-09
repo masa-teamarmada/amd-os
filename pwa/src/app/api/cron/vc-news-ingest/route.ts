@@ -174,15 +174,24 @@ ${fundsHint || "(まだ未登録)"}
           dismissed: false,
         };
 
+        let inserted = false;
         if (d.source_url) {
-          // source_url ありなら upsert (重複は skip)
-          const { error } = await db
+          // source_url ありなら upsert (既存 source_url なら skip)
+          const { data: existDup } = await db
             .from("vc_news")
-            .upsert(payload, { onConflict: "vc_id,source_url", ignoreDuplicates: true });
-          if (error) {
-            stats.errors.push(`${vc.name}: insert - ${error.message}`);
+            .select("id")
+            .eq("vc_id", vc.id)
+            .eq("source_url", d.source_url)
+            .maybeSingle();
+          if (existDup) {
+            stats.skipped_dupes++;
           } else {
-            stats.news_inserted++;
+            const { error } = await db.from("vc_news").insert(payload);
+            if (error) stats.errors.push(`${vc.name}: insert - ${error.message}`);
+            else {
+              stats.news_inserted++;
+              inserted = true;
+            }
           }
         } else {
           // source_url 無しは title 重複チェックして insert
@@ -194,11 +203,32 @@ ${fundsHint || "(まだ未登録)"}
             .maybeSingle();
           if (dup) {
             stats.skipped_dupes++;
-            continue;
+          } else {
+            const { error } = await db.from("vc_news").insert(payload);
+            if (error) stats.errors.push(`${vc.name}: insert(no url) - ${error.message}`);
+            else {
+              stats.news_inserted++;
+              inserted = true;
+            }
           }
-          const { error } = await db.from("vc_news").insert(payload);
-          if (error) stats.errors.push(`${vc.name}: insert(no url) - ${error.message}`);
-          else stats.news_inserted++;
+        }
+
+        // 新規挿入時のみ通知を作成
+        if (inserted) {
+          await db.from("app_notifications").insert({
+            kind: "vc_news",
+            title: `📰 ${vc.name}: ${payload.title}`.slice(0, 200),
+            body: payload.body ?? payload.title,
+            link: `/vcs/${vc.id}`,
+            meta: {
+              news_kind: payload.kind,
+              source_url: payload.source_url,
+              is_new_vc: false,
+              vc_name: vc.name,
+            },
+            related_vc_id: vc.id,
+            source: "cron_vc_news_ingest",
+          });
         }
       }
     } catch (e) {
