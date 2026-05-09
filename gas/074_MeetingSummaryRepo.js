@@ -286,6 +286,181 @@ function nav_meeting_extractForProjectYm_(projectId, ymKey, opts) {
 }
 
 /**
+ * 1 calendar event をピンポイントで抽出して Supabase upsert。
+ * 153_MeetingHourlyTrigger.js の trigger callback から呼ばれる
+ * (会議終了 60 分後に 1 event だけを処理する Phase 3 ロジック)。
+ *
+ * @param {string} eventId calendar event id
+ * @param {string} [projectId] (任意) PJ id がわかってれば渡す。無ければ Notion 議事録ページから resolve
+ * @return {Object} {ok, action, sourceKinds, meetingId, title, projectId, message?}
+ */
+function nav_meeting_processOneEvent_(eventId, projectId) {
+  eventId = String(eventId || "").trim();
+  if (!eventId) return { ok: false, message: "eventId empty" };
+
+  const props = PropertiesService.getScriptProperties();
+  const notionToken = String(props.getProperty("NOTION_TOKEN") || "").trim();
+  const notionDbRaw = String(props.getProperty("NOTION_DATABASE_ID") || "").trim();
+  if (!notionToken) return { ok: false, message: "NOTION_TOKEN missing" };
+  if (!notionDbRaw) return { ok: false, message: "NOTION_DATABASE_ID missing" };
+
+  // 1) Notion 議事録 DB から eventId プロパティ equals でページを 1 件取得
+  const page = _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId);
+  if (!page) {
+    return { ok: false, action: "notion_page_not_found", eventId: eventId };
+  }
+  const pageId = String(page.id || "").trim();
+
+  // 2) projectId 解決 (引数優先、無ければ Notion ページから resolve)
+  let pid = String(projectId || "").trim();
+  if (!pid) {
+    pid = _meeting_resolveProjectIdFromPage_(notionToken, page);
+  }
+  if (!pid) {
+    return { ok: false, action: "project_id_unresolved", eventId: eventId, pageId: pageId };
+  }
+
+  // 3) Notion 本文 (props 「内容」 + blocks)
+  let propText = "";
+  let blockText = "";
+  try {
+    if (typeof _notion_extractPropertyText_ === "function") {
+      propText = String(_notion_extractPropertyText_(page, "内容") || "").trim();
+    }
+  } catch (_e1) {}
+  try {
+    blockText = String(nav_repo_notion_fetchPageBodyText(notionToken, pageId, { maxChars: 20000 }) || "").trim();
+  } catch (_e2) {}
+  const notionText = [propText, blockText]
+    .filter(function (s) { return s && s.length > 0; })
+    .join("\n\n")
+    .trim();
+
+  // 4) Calendar event 日付
+  const dateStart = _meeting_extractDateStartFromPage_(page);
+  const meetingDate = dateStart && /^\d{4}-\d{2}-\d{2}/.test(dateStart)
+    ? dateStart.slice(0, 10)
+    : Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd");
+  const meetingStartAt = dateStart && /T/.test(dateStart) ? dateStart : null;
+  const ymKey = meetingDate.slice(0, 4) + meetingDate.slice(5, 7);
+
+  // 5) Gmail を「会議日 ±1 日」だけクエリ (1 event 用なので狭い範囲で十分)
+  const gmailWindowStart = new Date(new Date(meetingDate + "T00:00:00+09:00").getTime() - 24 * 60 * 60 * 1000);
+  const gmailWindowEnd = new Date(new Date(meetingDate + "T00:00:00+09:00").getTime() + 2 * 24 * 60 * 60 * 1000);
+  let gmailCache = { threads: [] };
+  try {
+    gmailCache = _meeting_loadGmailCacheForMonth_(pid, gmailWindowStart, gmailWindowEnd);
+  } catch (e) {
+    gmailCache = { threads: [], note: "gmail load error: " + (e && e.message ? e.message : String(e)) };
+  }
+  const relevantThreads = _meeting_pickRelevantGmailThreads_(gmailCache.threads, meetingDate);
+  const gmailText = _meeting_formatGmailThreadsForLLM_(relevantThreads);
+  const gmailThreadIds = relevantThreads.map(function (t) { return t.threadId; });
+
+  // 6) source_kinds 判定
+  const hasNotion = notionText.length >= 30;
+  const hasGmail = gmailText.length >= 30;
+  const sourceKinds = hasNotion && hasGmail
+    ? "notion+gmail"
+    : hasNotion ? "notion"
+      : hasGmail ? "gmail"
+        : "none";
+
+  const title = _meeting_extractTitleFromPage_(page) || "MTG";
+  const notionUrl = String(page && page.url ? page.url : "").trim();
+
+  // 7) 既存サマリ取得 (差分検知)
+  const existing = _meeting_loadOneByMeetingId_(eventId);
+
+  // 8) 議事録なしケース
+  if (sourceKinds === "none") {
+    const noneHash = _meeting_sha256_("none|" + meetingDate + "|" + title);
+    if (existing && String(existing.source_hash || "") === noneHash) {
+      return { ok: true, action: "skipped_none_unchanged", meetingId: eventId, title: title, projectId: pid };
+    }
+    const row = {
+      meeting_id: eventId,
+      project_id: pid,
+      ym: ymKey,
+      meeting_date: meetingDate,
+      meeting_start_at: meetingStartAt,
+      title: title,
+      notion_url: notionUrl || null,
+      notion_page_id: pageId,
+      calendar_event_id: eventId,
+      gmail_thread_ids: [],
+      source_kinds: "none",
+      summary_short: "議事録なし",
+      decided: [],
+      progress: [],
+      next_actions: [],
+      risks: [],
+      source_hash: noneHash,
+      generated_at: new Date().toISOString(),
+      generated_by_model: null
+    };
+    const upRes = supa_upsert("project_meeting_summaries", row, "meeting_id");
+    if (!upRes.ok) {
+      return { ok: false, action: "error_upsert_none", status: upRes.status, body: String(upRes.body || "").slice(0, 300), meetingId: eventId };
+    }
+    return { ok: true, action: existing ? "updated_none" : "inserted_none", meetingId: eventId, title: title, projectId: pid, sourceKinds: "none" };
+  }
+
+  // 9) 結合 + sha256
+  const combinedText = [
+    hasNotion ? "=== notion ===\n" + notionText : "",
+    hasGmail ? "=== gmail ===\n" + gmailText : ""
+  ].filter(function (s) { return s.length > 0; }).join("\n\n").trim();
+  const newHash = _meeting_sha256_(combinedText);
+  if (existing && String(existing.source_hash || "") === newHash) {
+    return { ok: true, action: "skipped_unchanged", meetingId: eventId, title: title, projectId: pid, sourceKinds: sourceKinds };
+  }
+
+  // 10) Gemini 抽出
+  const extracted = _meeting_extractWithLLM_(combinedText, { projectId: pid, ymKey: ymKey, sourceKinds: sourceKinds });
+  if (!extracted) {
+    return { ok: false, action: "error_llm", meetingId: eventId, title: title, projectId: pid };
+  }
+
+  // 11) upsert
+  const row = {
+    meeting_id: eventId,
+    project_id: pid,
+    ym: ymKey,
+    meeting_date: meetingDate,
+    meeting_start_at: meetingStartAt,
+    title: title,
+    notion_url: notionUrl || null,
+    notion_page_id: pageId,
+    calendar_event_id: eventId,
+    gmail_thread_ids: gmailThreadIds,
+    source_kinds: sourceKinds,
+    summary_short: String(extracted.summary_short || ""),
+    decided: Array.isArray(extracted.decided) ? extracted.decided : [],
+    progress: Array.isArray(extracted.progress) ? extracted.progress : [],
+    next_actions: Array.isArray(extracted.next_actions) ? extracted.next_actions : [],
+    risks: Array.isArray(extracted.risks) ? extracted.risks : [],
+    source_hash: newHash,
+    generated_at: new Date().toISOString(),
+    generated_by_model: "gemini-2.5-flash"
+  };
+  const upRes = supa_upsert("project_meeting_summaries", row, "meeting_id");
+  if (!upRes.ok) {
+    return { ok: false, action: "error_upsert", status: upRes.status, body: String(upRes.body || "").slice(0, 300), meetingId: eventId };
+  }
+  return {
+    ok: true,
+    action: existing ? "updated" : "inserted",
+    meetingId: eventId,
+    title: title,
+    projectId: pid,
+    sourceKinds: sourceKinds,
+    gmailThreads: gmailThreadIds.length,
+    summaryShort: row.summary_short
+  };
+}
+
+/**
  * 1 PJ × 複数 ym のバックフィル (Phase 2)。
  * 各 ym で hasMore の限り再呼び (差分検知あるので何度繰り返してもムダにならない)。
  *
@@ -410,6 +585,46 @@ function _meeting_sha256_(text) {
     const h = v.toString(16);
     return h.length === 1 ? ("0" + h) : h;
   }).join("");
+}
+
+/**
+ * Notion 議事録 DB から eventId プロパティ equals でページを 1 件取得 (Phase 3)。
+ * 1 event 抽出 (nav_meeting_processOneEvent_) 用。
+ */
+function _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId) {
+  if (typeof _notion_normId_ !== "function") return null;
+  const dbId = _notion_normId_(notionDbRaw);
+  if (!dbId) return null;
+  const url = "https://api.notion.com/v1/databases/" + dbId + "/query";
+  const payload = {
+    filter: {
+      property: "eventId",
+      rich_text: { equals: String(eventId) }
+    },
+    page_size: 5
+  };
+  let res = null;
+  try {
+    res = _notion_fetch_(notionToken, url, "post", payload);
+  } catch (e) {
+    return null;
+  }
+  const results = res && Array.isArray(res.results) ? res.results : [];
+  if (!results.length) return null;
+  return results[0];
+}
+
+/** 1 meeting_id 用の既存サマリ取得 (差分検知用) */
+function _meeting_loadOneByMeetingId_(meetingId) {
+  const filter = "meeting_id=eq." + encodeURIComponent(meetingId);
+  const res = supa_select("project_meeting_summaries", {
+    select: "meeting_id,source_hash",
+    filter: filter,
+    limit: 1
+  });
+  if (!res.ok) return null;
+  const rows = Array.isArray(res.rows) ? res.rows : [];
+  return rows.length ? rows[0] : null;
 }
 
 function _meeting_loadExistingForProjectYm_(projectId, ymKey) {

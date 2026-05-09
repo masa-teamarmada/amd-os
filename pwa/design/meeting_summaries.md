@@ -20,7 +20,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 
 ## Phase 2 の大方針 (Phase 1 から何を変えたか)
 
-| 観点 | Phase 1 (廃) | Phase 2 (現行) |
+| 観点 | Phase 1 (廃) | Phase 2 → Phase 3 (現行) |
 |---|---|---|
 | 主軸 | Notion 議事録ページ単独 | **1 calendar event = 1 行** |
 | `meeting_id` PK | Notion page id | **calendar event id** (Notion 議事録ページの `eventId` プロパティから) |
@@ -66,6 +66,76 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 毎日 03:00 で **明日分の calendar event について議事録枠を自動生成** しているので、
 通常は Notion 議事録ページが存在する状態で当 cron が走る。allDay event /
 `+`プレフィックス / `EXCLUDE` alias は除外される (= 議事録ページが作られない)。
+
+---
+
+## Phase 3: 毎時 polling + iOS APNs 通知
+
+Phase 2 (月単位 fallback) に加えて、Phase 3 (毎時 0 分の cron で「会議終了直後の events」を polling して抽出) を追加。これが議事録抽出の**正規ルート**。
+
+> **設計判断**: 当初 `ScriptApp.newTrigger.at(終了+60分)` で各 event ごとに ad-hoc trigger をセットする方式を試したが、GAS の time-trigger 上限 (1 script 20-100 個) に引っかかった。代わりに「毎時 0 分の cron 1 個だけ」で「過去 60-180 分に終わった events」を毎回スキャンする方式に切り替え。終了 +60 分ピッタリには発火しないが +60 〜 +180 分のどこかで処理されるので実用上 OK。**直前追加 MTG への対応もこれで担保される** (開催前 scheduling 不要)。
+
+### 動き方
+
+```
+[03:00 daily cron] (152_NavigatorCron.js nav_cronMonthlyExtractAt3)
+   └ Phase 2 fallback だけ (各 active PJ × 当月で nav_meeting_extractForProjectYm_)
+     = 拾い漏れ救済 + 「議事録なし」確定 + 差分検知で重複処理回避
+
+[毎時 0 分 trigger] (153_MeetingHourlyTrigger.js)
+   nav_meeting_pollRecentlyEndedEvents
+        │ a) listEventsByApi_(calendarId, now-4h, now) で過去 4h 全 events 取得
+        │ b) 終了時刻が「now の 60〜180 分前」の events だけ filter
+        │    (= 会議終わって 1〜3 時間が経過したあたりを毎時拾う)
+        │    重複処理は Supabase の source_hash 差分検知で防ぐので窓は広めでも問題ない
+        │ c) PJ 判定 (CFG_ColorPJHistory + CFG_PJAlias)
+        │    allDay / +prefix / EXCLUDE alias / pjCode=AMD は除外
+        │ d) 各 event について nav_meeting_processOneEvent_(eventId, projectId)  ← 074_MeetingSummaryRepo.js
+        │      - Notion 議事録 DB から eventId プロパティ equals でページを 1 件取得
+        │        (新 helper _meeting_findNotionPageByEventId_)
+        │      - Notion ページ本文 (props 「内容」 + blocks)
+        │      - Gmail を「会議日 ±1 日」だけクエリ (1 event 用)
+        │      - 結合 → Gemini → upsert (Phase 2 と同じロジック)
+        │ e) sourceKinds != 'none' なら meeting_notifications に upsert (Swift APNs 通知用)
+        ↓
+[Supabase: meeting_notifications]
+   meeting_id PK / notified_at NULL の状態で挿入
+        ↓
+[iOS Swift] (★ ios/HANDOFF_meeting_notifications.md 参照、別セッション実装)
+   notified_at IS NULL を polling or realtime sub
+        ↓ APNs ローカル通知
+        ↓ notified_at = now() に UPDATE
+```
+
+### Phase 2 fallback の役割
+
+- **拾い漏れ救済**: Phase 3 polling が漏らした event (= cron が落ちてた等)、または Phase 3 で抽出失敗した event を翌朝 03:00 に再走査
+- **「議事録なし」確定**: 会議終了から十分時間が経った event (= 当月分の過去会議) を「議事録なし」マーカーで残す
+- 差分検知 (source_hash) があるので Phase 3 で抽出済の event は LLM 呼ばずスキップ
+
+### Setup (1 度だけ実行)
+
+```bash
+# 毎時 0 分の hourly poll trigger を設置
+curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_meeting_setupHourlyPollTrigger_"
+```
+
+### ScriptProperties
+
+| キー | 用途 |
+|---|---|
+| `MAIN_CALENDAR_ID` | (任意) curl/手動テスト用 calendar id override。本番 cron では `Session.getEffectiveUser().getEmail()` で取れる |
+
+### 制約・注意点
+
+- **GAS time-based trigger は 1 script あたり 20-100 個上限**。Phase 3 は固定 1 個 (毎時) に抑えてあるが、本体GAS 全体では他 cron 含めて 18 個前後 (cron_invoiceSendNudge_ が 4 重複で枠を浪費、要整理 — 別件)
+- **窓 60〜180 分**: cron 跨ぎや遅延の取りこぼし防止のため広めに取ってある。重複処理は source_hash で防ぐ
+- **Web App 経由 (curl) 実行時**: `Session.getActiveUser()` が空。`Session.getEffectiveUser()` (= deployment owner = まさ) で代替するため、Web App 設定が "Execute as: Me" 必須
+- **直前追加 MTG**: 会議が始まる前の scheduling は不要 (= 終了後の polling だけで拾える)。03:00 以降に追加された MTG も最大 1 時間以内に検知される
+
+### 通知 (iOS Swift)
+
+Phase 3 で議事録が拾えたら `meeting_notifications` テーブル (PK: meeting_id) に upsert される。Swift 側は `notified_at IS NULL` を polling or realtime sub で取り、APNs ローカル通知 → `notified_at = now()` で UPDATE。詳細は [`ios/HANDOFF_meeting_notifications.md`](../../ios/HANDOFF_meeting_notifications.md)。
 
 ---
 
@@ -289,5 +359,12 @@ Phase 2 完了後:
 | 2026-05-09 | GAS deploy v1425 + Protocol Store の meeting_extract prompt 更新 | 同上 |
 | 2026-05-09 | p20 (**CX**, NIMS) 202604 初回バックフィル: `inserted` 1 / `inserted_none` 多数。p20 は元々 Notion メインなので `gmailThreads: 0` は想定通り | 同上 |
 | 2026-05-09 | p21 (SX, 愛媛大) 202604 で **Phase 2 動作確認 OK**: 月 15 Gmail thread、`notion+gmail` 2 件 / `notion` 5 件 / `inserted_none` 13 件 / `skipped_no_event_id` 14 件 / `deferred_maxItems` 19 件 (daily cron で順次処理) / `error_llm` 1 件 | 同上 |
+| 2026-05-09 | **Phase 3 実装** (会議終了 +60 分 trigger + 1 event 抽出 + iOS APNs 通知用 meeting_notifications テーブル) | 同上 |
+| 2026-05-09 | gas/074: nav_meeting_processOneEvent_ + _meeting_findNotionPageByEventId_ + _meeting_loadOneByMeetingId_ 追加。153_MeetingHourlyTrigger.js 新規。152 cron に scheduling + fallback 構成 | 同上 |
+| 2026-05-09 | migration 028: meeting_notifications テーブル作成 + RLS (anon/authenticated SELECT, authenticated UPDATE for notified_at) + 内容変更で notified_at 自動 NULL リセットトリガ | 同上 |
+| 2026-05-09 | UI: source_kinds='none' を「議事録なし」、それ以外で内容空を「議事録あり・抽出空」と区別 (CockpitMeetingSummary.tsx + supabase-data.ts) | 同上 |
+| 2026-05-09 | ios/HANDOFF_meeting_notifications.md 新規 (iOS Swift 側 APNs 通知の受け取り仕様、別セッション実装予定) | 同上 |
+| 2026-05-09 | 初回 ad-hoc scheduling 試行 (3 trigger set) → GAS time-trigger 上限超え → **毎時 polling 方式に変更** | 同上 |
+| 2026-05-09 | nav_meeting_pollRecentlyEndedEvents (毎時 polling) + nav_meeting_setupHourlyPollTrigger_ (setup) で再実装。GAS deploy v1430 / hourly poll trigger 1 個 set / 動作確認 OK | 同上 |
 | TBD | Phase 2.1: reportEmails の整備 + CircleBack / GMeet 議事録メールの経路確認 | |
 | TBD | Phase 2.5: AMD-Report GAS の R313 を会議サマリ集約に書き換え (別セッション) | |
