@@ -435,6 +435,42 @@ export async function estimateProgress(
       { onConflict: "project_id,ym" }
     );
 
+  // Swift APNs 通知用: saved > 0 のときだけ l2_notifications に upsert (l2_kind='ms_progress')。
+  // 同 (l2_kind, target_id, scope_key) は trigger で saved_count 変化時に notified_at=NULL に戻り再通知される。
+  // 仕様正本: ios/HANDOFF_l2_notifications.md
+  if (saved > 0) {
+    try {
+      const { data: pjRow } = await supabase
+        .from("projects")
+        .select("project_name")
+        .eq("project_id", projectId)
+        .maybeSingle();
+      const pjName = pjRow?.project_name || projectId;
+      const topMs = (details || [])
+        .filter((d) => !d.skipped)
+        .slice(0, 3)
+        .map((d) => `${d.milestoneKey}:+${d.delta}%`)
+        .join(" / ");
+      await supabase
+        .from("l2_notifications")
+        .upsert(
+          {
+            l2_kind: "ms_progress",
+            target_id: projectId,
+            scope_key: ym,
+            title: `📈 ${pjName} (${ym}) MS進捗 更新 (${saved}件)`,
+            summary: topMs.slice(0, 500),
+            saved_count: saved,
+            total_count: totalCount,
+            importance: 1,
+          },
+          { onConflict: "l2_kind,target_id,scope_key" }
+        );
+    } catch (e) {
+      console.warn("[progress-estimator] l2_notifications upsert failed:", e);
+    }
+  }
+
   return {
     ok: true,
     saved,

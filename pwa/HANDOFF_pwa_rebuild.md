@@ -32,6 +32,12 @@
 - ④ PJナレッジ は既存 2024 行を破壊しないよう UNIQUE 制約は追加せず、`(project_id, category, entity_name)` SELECT → 既存有り PATCH / 無し INSERT で重複回避
 - 仕様正本: [`design/member_knowledge.md`](design/member_knowledge.md) / [`design/project_knowledge.md`](design/project_knowledge.md) / [`design/amd_protocol.md`](design/amd_protocol.md)
 
+**Phase 4 全 4 L2 (③⑤④②) を Swift APNs 通知に接続** (= まさが事前に決めてた標準パターン):
+- 新規 `l2_notifications` テーブル (migration 031, ⑥ `meeting_notifications` の姉妹)
+- UNIQUE(l2_kind, target_id, scope_key) で同抽出を 1 行集約、`saved_count`/title/summary 変化で trigger が `notified_at=NULL` に戻して再通知
+- GAS 155 の 3 extractor + PWA progress-estimator.ts 末尾から `saved>0` のとき upsert
+- iOS Swift 側受信は別セッション → [`ios/HANDOFF_l2_notifications.md`](../ios/HANDOFF_l2_notifications.md) (⑥ の `HANDOFF_meeting_notifications.md` と並列)
+
 詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾エントリ
 
 ---
