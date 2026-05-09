@@ -3,13 +3,13 @@
 /**
  * AMD Score breakdown モーダル — Before Zero Theory v3.2 (3 大要素 M × X × F)。
  *
- * S = K · M · X · F
+ * S = k · M · X · F
  *   - M = (σ_SU+1)^α_σ                              マクロ (Triple Helix 外部環境)
  *   - X = Π_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x   会社に帰属する 5 軸 readiness
  *   - F = (FRL+1)^α_F                               CEO 個人に帰属するリーダーシップ
- *   - K = 100,000 / 10^Σα                           IPO 級 100,000 への校正定数
+ *   - k = 100,000 / 10^Σα                           IPO 級 100,000 への校正定数 (小文字)
  *
- * Shallow Tech モード (TRL=null): TRL 軸を X から除外、K 再校正。
+ * Shallow Tech モード (TRL=null): TRL 軸を X から除外、k 再校正。
  *
  * 詳細編集 (μ_A/μ_I/μ_G + 5 XRL + FRL のスライダー、α 重み調整) は
  * /venture-map/amd-score/[projectId] で。ここはチップクリック時の sneak peek。
@@ -63,9 +63,9 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
             </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
               <div className="text-[10px] text-muted-foreground mb-1">
-                全体式 (S = AMD Score、K は IPO 級への校正定数)
+                全体式 (S = AMD Score、k は IPO 級への校正定数)
               </div>
-              <Tex display tex={String.raw`S \;=\; K \cdot M \cdot X \cdot F`} />
+              <Tex display tex={String.raw`S \;=\; k \cdot M \cdot X \cdot F`} />
             </div>
             <div className="bg-white rounded px-3 py-2 overflow-x-auto">
               <div className="text-[10px] text-muted-foreground mb-1">
@@ -102,8 +102,8 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
                 α_SRL=<span className="font-mono">0.2</span>
               </div>
               <div>
-                K = <span className="font-mono">100,000 / 10^Σα</span> で全軸 9 (= IPO 級) を 100,000
-                に校正 · Shallow Tech モード (TRL=null) では TRL を X から除外して K を再校正。
+                k = <span className="font-mono">100,000 / 10^Σα</span> で全軸 9 (= IPO 級) を 100,000
+                に校正 · Shallow Tech モード (TRL=null) では TRL を X から除外して k を再校正。
               </div>
             </div>
           </div>
@@ -169,7 +169,7 @@ function BreakdownContent({
   // ③ F = (FRL+1)^α_F
   const F = result.contributions.FRL ?? 1;
 
-  // S = K · M · X · F (sanity check; result.score と一致)
+  // S = k · M · X · F (sanity check; result.score と一致。result.K は API 名のまま)
   const fmt = (n: number, digits = 2) =>
     n < 1 ? n.toFixed(digits) : n < 100 ? n.toFixed(2) : Math.round(n).toLocaleString();
 
@@ -182,7 +182,7 @@ function BreakdownContent({
             S = {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
           </div>
           <div className="text-[10px] text-muted-foreground font-mono mt-1">
-            = K({result.K.toFixed(3)}) × M({fmt(M)}) × X({fmt(X)}) × F({fmt(F)})
+            = k({result.K.toFixed(3)}) × M({fmt(M)}) × X({fmt(X)}) × F({fmt(F)})
           </div>
         </div>
         <div className="text-right">
@@ -284,7 +284,7 @@ function BreakdownContent({
       </FactorCard>
 
       <div className="text-[10px] text-muted-foreground text-center font-mono">
-        S = K × M × X × F = {result.K.toFixed(3)} × {fmt(M)} × {fmt(X)} × {fmt(F)} ≈{" "}
+        S = k × M × X × F = {result.K.toFixed(3)} × {fmt(M)} × {fmt(X)} × {fmt(F)} ≈{" "}
         {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
       </div>
 
