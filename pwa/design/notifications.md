@@ -148,6 +148,9 @@ RLS:
 | 日付 | 変更 |
 |---|---|
 | 2026-05-09 | 初版。`l2_feedbacks` テーブル + `/notifications` ページ + POST API + GAS 155 の 3 extractor で feedback 取り込み |
+| 2026-05-09 | **MTGサマリ feedback 連携完成** (gas/074): `_l2_loadFeedbackBlock_("meeting_summary", projectId, meetingId)` で過去依頼を取得 → userPrompt に追加。saved>0 で `_l2_recordFeedbackApplied_` で applied_count++ + last_applied_at = now()。source_hash 入力に active feedback hash を混ぜる → 修正依頼追加で自動再抽出 (`_meeting_feedbackHashInput_`)。prompt rev "v4_alias_feedback" にバンプ |
+| 2026-05-09 | **POST `/api/notifications/feedback` 末尾で 即 force 再抽出 fire-and-forget**: l2_kind ごとに対応 GAS 関数を runFunc で叩く (meeting_summary → `nav_meeting_processOneEvent_`、member_knowledge → `nav_member_knowledge_extractOne_` (member_id を server side で resolve)、project_knowledge → `nav_project_knowledge_extractOneForYm_`、protocols → `nav_protocol_extractOneForYm_`)。修正依頼を投げた瞬間に数十秒後に再抽出 → applied_count++ で UI 即反映 |
+| 2026-05-09 | **通知 UI 改善**: `/notifications` の既読は折りたたみトグル (default closed)、開いた瞬間 `notified_at = now()` PATCH (= 即既読化)。ただし **グループ分けは server 値で固定** (= 開いた未読カードはセッション内は未読セクションに残って中身読める、リロードで初めて既読セクションへ移動)。GlobalNav 通知ベル (15 秒 polling) + Dashboard バナー追加。展開時に lazy fetch で実データ表示 (member_knowledge / project_knowledge / protocols / milestone_monthly_progress / project_meeting_summaries) |
 
 ---
 

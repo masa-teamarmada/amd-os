@@ -139,6 +139,9 @@ curl -sL --max-time 360 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_member_
 | 日付 | 変更 |
 |---|---|
 | 2026-05-09 | Phase 4 初版稼働。GAS 155 で毎時 polling + source_hash 差分検知 + 二次集約 (member_activities + meeting_summaries → Gemini → upsert) |
+| 2026-05-09 | **member_activities 列名 4 つ間違いバグ修正** (`code_name`/`created_at`/`activity_text`/`kind` → `member_id`/`extracted_at`/`content_preview`/`source`)。PostgREST 42703 エラーで activities ゼロ → 他 PJ meeting_summaries だけが LLM 入力になり「きよ」のナレッジに「神谷氏との CEO 候補面談」等が誤抽出されていた事故を修正。BUGS.md 参照 |
+| 2026-05-09 | **役割分担データ統合 (Section C 追加)**: 入力に `milestone_responsibility` (share>0) × `value_milestones` (title/success_criteria) × `value_plan_cycles` (project_id) JOIN で「公式の役割分担」をグラウンドトゥルースとして渡す。LLM プロンプトで「skills/work_style はここから抽出」と明示。きよ で検証 → 「請求書処理・契約管理等の月次事務手続き、入札対応全般」が正しく抽出された (= まさの事務担当像と整合) |
+| 2026-05-09 | **alias map 統合**: `gas/079 nameAlias_buildBlock` でメンバー名の表記揺れマップを LLM プロンプトに渡す。`pv: "v3_with_aliases"` で全行再抽出 |
 
 ---
 

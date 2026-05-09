@@ -366,5 +366,12 @@ Phase 2 完了後:
 | 2026-05-09 | ios/HANDOFF_meeting_notifications.md 新規 (iOS Swift 側 APNs 通知の受け取り仕様、別セッション実装予定) | 同上 |
 | 2026-05-09 | 初回 ad-hoc scheduling 試行 (3 trigger set) → GAS time-trigger 上限超え → **毎時 polling 方式に変更** | 同上 |
 | 2026-05-09 | nav_meeting_pollRecentlyEndedEvents (毎時 polling) + nav_meeting_setupHourlyPollTrigger_ (setup) で再実装。GAS deploy v1430 / hourly poll trigger 1 個 set / 動作確認 OK | 同上 |
+| 2026-05-09 | **prompt v3 化** (gas/092 meeting_extract): meeting_meta セクション (projectId/projectName/meetingTitle/meetingDate/sourceKinds) を冒頭に追加し「対象 PJ と無関係なら無視」明示。`_meeting_resolveProjectName_` 新設、source_hash に prompt version を混ぜる設計 (改訂で全行再抽出)。BUGS.md 「BWE 株主総会の MTGサマリ枠に CX のメールが混入」事故の再発防止 | 別セッション |
+| **2026-05-09** | **Notion 議事録 cron 停止** (まさ判断、quirky-moore-b60501): 1 会議で 2 ページ生成 (cron テンプレ + Notion AI 自動生成) の事故により `gas/CalendarToNotionMinutes.js` の `run_createMinutes_apply` trigger 全削除 + ファイル冒頭に DEPRECATED 警告。今後は Notion AI / Meet 連携のページのみが議事録 DB に並ぶ | 72293f4 |
+| **2026-05-09** | **AI 議事録ページ対応** (gas/074): `_meeting_fetchAiNotesBody_` 新設で `transcription` block → `summary_block_id` + `notes_block_id` 配下の標準 block を再帰取得 (heading_1〜4/paragraph/bulleted_list_item/to_do/quote/callout)。BWE 5/9 で検証成功 (decided 4 件 / 取締役辞任 + 株式譲渡 2 議案 + 採決結果 抽出) | fbeabb5 |
+| **2026-05-09** | **page 選択ロジック簡素化**: cron テンプレ vs AI ページの本文厚さ比較を廃止し `last_edited_time 降順 sort で先頭採用` に統一 | 同上 |
+| **2026-05-09** | **alias map 統合** (gas/079 NameAliasMap 新設): `members.member_name` + email から動的に正規化マップ生成 (「山田氏」=「りょー」「山地」=「まさ」「chiko」=「ちこ」)。074 / 155 双方の LLM プロンプトに渡す。BWE 検証で「山地正洋氏 → まさ」「吉﨑万莉氏 → まり」の正規化を確認 | 72293f4 |
+| **2026-05-09** | **MTGサマリ feedback 対応** (gas/074 v4_alias_feedback): `_l2_loadFeedbackBlock_("meeting_summary", projectId, meetingId)` で過去依頼を取得 → userPrompt に追加。saved>0 で `_l2_recordFeedbackApplied_` で applied_count++。source_hash に active feedback hash を混ぜる → 修正依頼追加で自動再抽出。`POST /api/notifications/feedback` 末尾で **即 force 再抽出を fire-and-forget** | ac23ec1 |
+| **2026-05-09** | **debug_meeting_inspectBlocks(pageId)** 新設 (gas/158): 任意ページの blocks 構造を JSON で返す常設 debug 関数 | fbeabb5 |
 | TBD | Phase 2.1: reportEmails の整備 + CircleBack / GMeet 議事録メールの経路確認 | |
 | TBD | Phase 2.5: AMD-Report GAS の R313 を会議サマリ集約に書き換え (別セッション) | |
