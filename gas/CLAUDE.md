@@ -140,7 +140,8 @@ GAS は外部サービスから Supabase へデータを供給するハブ役。
 | 機能 | 正本 md | GAS 側責務 |
 |---|---|---|
 | **AMD OS 中核データ正本 (L2 + cron)** ⭐⭐⭐ | [`pwa/design/L2_DATA.md`](../pwa/design/L2_DATA.md) | **データに触る GAS 作業の前に必ず読む**。L2 6 種 / 全 cron / 動作状況の正本 |
-| **MTG サマリ** (各回 decided/progress/nextActions/risks) | [`pwa/design/meeting_summaries.md`](../pwa/design/meeting_summaries.md) | 議事録ページごとに Gemini で抽出 → Supabase `project_meeting_summaries` upsert (daily cron 03:00 JST、source_hash で差分検知)。R313 monthly_reports は会議サマリの集約に書き換え |
+| **MTG サマリ** (各回 decided/progress/nextActions/risks) | [`pwa/design/meeting_summaries.md`](../pwa/design/meeting_summaries.md) | **Phase 3 (毎時 polling)**: 153 が 60-180 分前に終わった events を毎時スキャン → 074 で Notion + Gmail 結合 → Gemini → Supabase `project_meeting_summaries` upsert (source_hash 差分検知) → 拾えれば `meeting_notifications` に upsert (iOS Swift APNs 連携)。Phase 2 月単位 fallback は 152 が 03:00 daily で実行 |
+| **iOS APNs 通知** (議事録拾い時) | [`ios/HANDOFF_meeting_notifications.md`](../ios/HANDOFF_meeting_notifications.md) | Supabase `meeting_notifications` テーブルに upsert する役。Swift 側が notified_at IS NULL を polling/realtime sub で受信 → APNs 送信 → notified_at = now() に UPDATE |
 
 新規にクロスプラットフォーム機能を追加するときも `pwa/design/` に正本を作り、ここに行を追加する。
 
@@ -160,12 +161,21 @@ GAS は外部サービスから Supabase へデータを供給するハブ役。
 | `060_RewardV2_Estimator.gs` | LLM進捗推定 |
 | `068_CockpitNudgeQueue_Api.gs` | ナッジキュー |
 | `069_SubItemRepo.gs` | DB_MilestoneSubItems CRUD |
+| `074_MeetingSummaryRepo.js` | **MTGサマリ Phase 2/3 抽出ロジック** (1 PJ × 1 ym + 1 event 単位)。`nav_meeting_extractForProjectYm_` / `nav_meeting_processOneEvent_`。仕様 `pwa/design/meeting_summaries.md` |
 | `086_ValuePlanRepo.gs` | DB_ValueMilestones CRUD |
+| `092_AdminLLMExtractors.js` | Protocol Store の LLM プロンプト install 関数 (`run_installMeetingExtractorConfig` 等) |
 | `097_BillingBudget_Repo.gs` | 請求額申告Repo |
 | `098_BillingBudget_Api.gs` | 請求額申告API |
+| `099_PwaApi.js` | PWA から GAS 関数を curl で叩くための Web App エンドポイント (listProps / runFunc) |
+| `122_NotionBlocksRepo.js` | Notion ページ本文 (blocks) を rich_text として取得 |
+| `152_NavigatorCron.js` | 03:00 daily cron (`nav_cronMonthlyExtractAt3`)。MTGサマリ Phase 2 月単位 fallback もここから呼ぶ |
+| `153_MeetingHourlyTrigger.js` | **MTGサマリ Phase 3 毎時 polling cron** (`nav_meeting_pollRecentlyEndedEvents`) + setup (`nav_meeting_setupHourlyPollTrigger_`) |
 | `163_LlmRouter.gs` | LLM呼び出し共通ルーター |
 | `172_TsukuyomiContextRepo.gs` | DB_TsukuyomiContext読み書き |
+| `180_SupabaseClient.js` | Supabase REST 共通クライアント (`supa_upsert` / `supa_select`、service_role 権限) |
 | `313_MsProgressSummary_Cron.gs` | 毎日5:30のMS進捗サマリ更新cron |
+| `CalendarToNotionMinutes.js` | 毎日 03:00 で「明日分の calendar event について Notion 議事録枠を自動生成」する cron (`cron_createMinutesFromCalendar`)。Phase 3 の上流 |
+| `CalendarPJResolver.js` | CFG_ColorPJHistory + CFG_PJAlias で calendar event → PJ 判定 |
 
 ### Cockpit HTMLファイル（500番台）
 
@@ -263,6 +273,8 @@ GAS は外部サービスから Supabase へデータを供給するハブ役。
 | `WEBAPP_BASE_URL` / `ADMIN_WEBAPP_URL` | Web App URL |
 | `FREEE_*` (CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN, REFRESH_TOKEN, ACCESS_TOKEN_EXPIRES_AT, COMPANY_ID, INVOICE_FOLDER_ID) | freee API |
 | `SLACK_BOT_TOKEN` / `SLACK_TSUKUYOMI_BOT_TOKEN` / `SLACK_TSUKUYOMI_BOT_USER_ID` / `SLACK_ADMIN_CHANNEL_ID` / `SLACK_ACTIVITY_CHANNELS` / `SLACK_INTERACTIVE_QUEUE_JSON` | Slack API |
+| `MAIN_CALENDAR_ID` | (任意) MTG サマリ Phase 3 毎時 polling 用 calendar id override。本番 cron では Session.getEffectiveUser で取れるので未設定でも OK (2026-05-09 追加) |
+| `MEETING_PENDING_TRIGGERS` | (廃) Phase 3 ad-hoc trigger 試作時の名残 (現在は使用してない、polling 方式に切替) |
 | `MONTHLY_REPORT_SLIDE_TEMPLATE_ID` | 月次レポート slide テンプレ |
 | `PAYOUT_*` (LOGOTYPE_FILE_ID, LOGO_FILE_ID, NOTICE_TEMPLATE_SLIDES_ID, PREVIEW_FOLDER_ID) | 支払通知書 |
 | `REIMBURSE_NOTIFY_QUEUE_JSON` | 立替精算通知キュー |
