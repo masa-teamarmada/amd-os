@@ -209,7 +209,8 @@ function nav_meeting_extractForProjectYm_(projectId, ymKey, opts) {
         hasNotion ? "=== notion ===\n" + notionText : "",
         hasGmail ? "=== gmail ===\n" + gmailText : ""
       ].filter(function (s) { return s.length > 0; }).join("\n\n").trim();
-      const newHash = _meeting_sha256_(combinedText);
+      // prompt rev を入力に混ぜる → prompt 改訂時に全行 hash 不一致 → 再抽出
+      const newHash = _meeting_sha256_("rev=" + MEETING_EXTRACT_PROMPT_REV + "\n" + combinedText);
       const existing = existingByMeetingId[eventId];
       if (existing && String(existing.source_hash || "") === newHash) {
         items.push({ meetingId: eventId, action: "skipped_unchanged" });
@@ -226,7 +227,10 @@ function nav_meeting_extractForProjectYm_(projectId, ymKey, opts) {
 
       // 13) Gemini 抽出
       llmCalls++;
-      const extracted = _meeting_extractWithLLM_(combinedText, { projectId: projectId, ymKey: ymKey, sourceKinds: sourceKinds });
+      const extracted = _meeting_extractWithLLM_(combinedText, {
+        projectId: projectId, ymKey: ymKey, sourceKinds: sourceKinds,
+        meetingTitle: title, meetingDate: meetingDate
+      });
       if (!extracted) {
         items.push({ meetingId: eventId, action: "error_llm" });
         errors++;
@@ -305,7 +309,21 @@ function nav_meeting_processOneEvent_(eventId, projectId) {
   if (!notionDbRaw) return { ok: false, message: "NOTION_DATABASE_ID missing" };
 
   // 1) Notion 議事録 DB から eventId プロパティ equals でページを 1 件取得
-  const page = _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId);
+  //    + 内容薄ければ「同日付・タイトル類似」の fallback ページに切替
+  let primaryPage = _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId);
+  if (primaryPage) {
+    const dateStartTmp = _meeting_extractDateStartFromPage_(primaryPage);
+    const meetingDateTmp = dateStartTmp && /^\d{4}-\d{2}-\d{2}/.test(dateStartTmp) ? dateStartTmp.slice(0, 10) : "";
+    const titleTmp = _meeting_extractTitleFromPage_(primaryPage) || "";
+    if (meetingDateTmp) {
+      const better = _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId, {
+        meetingDate: meetingDateTmp,
+        titleHint: titleTmp.replace(/\s*<mention-date.*$/, "").replace(/\s*@今日.*$/, "").replace(/\s+\d{1,2}:\d{2}.*$/, "").trim()
+      });
+      if (better) primaryPage = better;
+    }
+  }
+  const page = primaryPage;
   if (!page) {
     return { ok: false, action: "notion_page_not_found", eventId: eventId };
   }
@@ -406,18 +424,21 @@ function nav_meeting_processOneEvent_(eventId, projectId) {
     return { ok: true, action: existing ? "updated_none" : "inserted_none", meetingId: eventId, title: title, projectId: pid, sourceKinds: "none" };
   }
 
-  // 9) 結合 + sha256
+  // 9) 結合 + sha256 (prompt rev を混ぜる → prompt 改訂で全行再抽出)
   const combinedText = [
     hasNotion ? "=== notion ===\n" + notionText : "",
     hasGmail ? "=== gmail ===\n" + gmailText : ""
   ].filter(function (s) { return s.length > 0; }).join("\n\n").trim();
-  const newHash = _meeting_sha256_(combinedText);
+  const newHash = _meeting_sha256_("rev=" + MEETING_EXTRACT_PROMPT_REV + "\n" + combinedText);
   if (existing && String(existing.source_hash || "") === newHash) {
     return { ok: true, action: "skipped_unchanged", meetingId: eventId, title: title, projectId: pid, sourceKinds: sourceKinds };
   }
 
   // 10) Gemini 抽出
-  const extracted = _meeting_extractWithLLM_(combinedText, { projectId: pid, ymKey: ymKey, sourceKinds: sourceKinds });
+  const extracted = _meeting_extractWithLLM_(combinedText, {
+    projectId: pid, ymKey: ymKey, sourceKinds: sourceKinds,
+    meetingTitle: title, meetingDate: meetingDate
+  });
   if (!extracted) {
     return { ok: false, action: "error_llm", meetingId: eventId, title: title, projectId: pid };
   }
@@ -578,6 +599,27 @@ function _meeting_extractEventIdFromPage_(p) {
   } catch (e) { return ""; }
 }
 
+/** project_id から表示用 project_name を取得 (memo cache) */
+const _meeting_pjNameCache = {};
+function _meeting_resolveProjectName_(projectId) {
+  projectId = String(projectId || "").trim();
+  if (!projectId) return "";
+  if (_meeting_pjNameCache[projectId]) return _meeting_pjNameCache[projectId];
+  try {
+    const res = supa_select("projects", {
+      select: "project_id,project_name",
+      filter: "project_id=eq." + encodeURIComponent(projectId),
+      limit: 1
+    });
+    const name = res.ok && res.rows && res.rows[0] && res.rows[0].project_name ? res.rows[0].project_name : projectId;
+    _meeting_pjNameCache[projectId] = name;
+    return name;
+  } catch (_e) { return projectId; }
+}
+
+/** prompt revision identifier (= source_hash の入力に混ぜて prompt 改訂時に全行再抽出を保証) */
+const MEETING_EXTRACT_PROMPT_REV = "v4_alias_meta";
+
 function _meeting_sha256_(text) {
   const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(text || ""), Utilities.Charset.UTF_8);
   return bytes.map(function (b) {
@@ -590,28 +632,120 @@ function _meeting_sha256_(text) {
 /**
  * Notion 議事録 DB から eventId プロパティ equals でページを 1 件取得 (Phase 3)。
  * 1 event 抽出 (nav_meeting_processOneEvent_) 用。
+ *
+ * ⚠️ 2026-05-09 fallback 追加:
+ *   `cron_createMinutesFromCalendar` が前日 03:00 に作る空テンプレページは eventId 入りだが
+ *   Notion AI / Meet 連携が当日自動生成する議事録ページは eventId 空 のまま分裂することがある。
+ *   eventId equals で取れたページの本文が薄い (< 200 字) 場合、calendar event の
+ *   日付 + タイトルで議事録 DB を fallback 検索して内容厚いページを優先採用する。
+ *
+ * @param {string} notionToken
+ * @param {string} notionDbRaw
+ * @param {string} eventId
+ * @param {Object} [opts] {meetingDate?: 'YYYY-MM-DD', titleHint?: string} fallback 用 hints
  */
-function _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId) {
+function _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId, opts) {
+  opts = opts || {};
   if (typeof _notion_normId_ !== "function") return null;
   const dbId = _notion_normId_(notionDbRaw);
   if (!dbId) return null;
   const url = "https://api.notion.com/v1/databases/" + dbId + "/query";
-  const payload = {
-    filter: {
-      property: "eventId",
-      rich_text: { equals: String(eventId) }
-    },
-    page_size: 5
-  };
-  let res = null;
+
+  // 1) eventId equals で取得
+  let primaryPage = null;
   try {
-    res = _notion_fetch_(notionToken, url, "post", payload);
-  } catch (e) {
-    return null;
+    const res = _notion_fetch_(notionToken, url, "post", {
+      filter: { property: "eventId", rich_text: { equals: String(eventId) } },
+      page_size: 5
+    });
+    const results = res && Array.isArray(res.results) ? res.results : [];
+    primaryPage = results.length ? results[0] : null;
+  } catch (_e) { primaryPage = null; }
+
+  // 2) primary page の本文長を測る (薄ければ fallback)
+  const primaryBodyLen = primaryPage ? _meeting_estimatePageBodyLength_(notionToken, primaryPage) : 0;
+  if (primaryPage && primaryBodyLen >= 200) return primaryPage; // 十分厚いのでそのまま
+
+  // 3) fallback: 日付プロパティで同日のページ全部取得 → 本文厚い順に評価
+  if (!opts.meetingDate || !/^\d{4}-\d{2}-\d{2}$/.test(opts.meetingDate)) return primaryPage;
+  let dateProp = "日付";
+  try {
+    const props = PropertiesService.getScriptProperties();
+    dateProp = String(props.getProperty("NOTION_MINUTES_DATE_PROP") || "日付").trim() || "日付";
+  } catch (e) {}
+
+  let candidates = [];
+  try {
+    const res = _notion_fetch_(notionToken, url, "post", {
+      filter: { property: dateProp, date: { equals: opts.meetingDate } },
+      page_size: 20
+    });
+    candidates = res && Array.isArray(res.results) ? res.results : [];
+  } catch (_e) { candidates = []; }
+
+  // 3-b) Notion AI 自動生成ページは「日付」プロパティが空のことがある (= mention-date でタイトルに埋め込み)
+  //      → タイトル contains で追加検索 (titleHint があれば)
+  if (opts.titleHint) {
+    try {
+      const res = _notion_fetch_(notionToken, url, "post", {
+        filter: { property: "名前", title: { contains: String(opts.titleHint) } },
+        page_size: 10
+      });
+      const more = res && Array.isArray(res.results) ? res.results : [];
+      for (const m of more) {
+        const mid = String(m.id || "");
+        if (!candidates.some(function (c) { return String(c.id || "") === mid; })) {
+          candidates.push(m);
+        }
+      }
+    } catch (_e) {}
   }
-  const results = res && Array.isArray(res.results) ? res.results : [];
-  if (!results.length) return null;
-  return results[0];
+
+  // primary も候補に含めて、本文厚い順に sort
+  if (primaryPage) {
+    const pid = String(primaryPage.id || "");
+    if (!candidates.some(function (p) { return String(p.id || "") === pid; })) {
+      candidates.push(primaryPage);
+    }
+  }
+  if (!candidates.length) return primaryPage;
+
+  // タイトル類似度で絞る (eventTitle hint があれば)
+  const titleHint = String(opts.titleHint || "").trim();
+  if (titleHint) {
+    const filtered = candidates.filter(function (p) {
+      const t = _meeting_extractTitleFromPage_(p);
+      return t && (t.indexOf(titleHint) >= 0 || titleHint.indexOf(t) >= 0);
+    });
+    if (filtered.length) candidates = filtered;
+  }
+
+  // 本文厚い順
+  const scored = candidates.map(function (p) {
+    return { page: p, len: _meeting_estimatePageBodyLength_(notionToken, p) };
+  }).sort(function (a, b) { return b.len - a.len; });
+
+  Logger.log("[_meeting_findNotionPageByEventId_] fallback eventId=" + eventId + " date=" + opts.meetingDate +
+    " primaryLen=" + primaryBodyLen + " candidates=" + scored.map(function (s) { return s.len; }).join(","));
+
+  return scored[0] && scored[0].len > primaryBodyLen ? scored[0].page : primaryPage;
+}
+
+/** Notion ページの本文長を概算 (props "内容" + blocks の合計、低コスト計算) */
+function _meeting_estimatePageBodyLength_(notionToken, page) {
+  let total = 0;
+  try {
+    if (typeof _notion_extractPropertyText_ === "function") {
+      total += String(_notion_extractPropertyText_(page, "内容") || "").length;
+    }
+  } catch (_e) {}
+  try {
+    if (typeof nav_repo_notion_fetchPageBodyText === "function" && page && page.id) {
+      const body = nav_repo_notion_fetchPageBodyText(notionToken, page.id, { maxChars: 3000 });
+      total += String(body || "").length;
+    }
+  } catch (_e) {}
+  return total;
 }
 
 /** 1 meeting_id 用の既存サマリ取得 (差分検知用) */
@@ -781,15 +915,28 @@ function _meeting_extractWithLLM_(combinedText, meta) {
     throw new Error("meeting_extract prompt missing (run run_installMeetingExtractorConfig)");
   }
 
+  // === v4_alias 拡張 ===
+  // - meeting_meta セクション (BUGS.md `[GAS] BWE 株主総会の MTGサマリ枠に CX のメールが混入` 参照): 対象 PJ の唯一の正解
+  // - alias block (BUGS.md `[GAS] member_knowledge 抽出で...` 参照): 山田氏 = りょー 等の表記揺れマップ
+  const projectName = (typeof _meeting_resolveProjectName_ === "function")
+    ? _meeting_resolveProjectName_(meta.projectId) : String(meta.projectId || "");
+  const aliasBlock = (typeof nameAlias_buildBlock === "function") ? nameAlias_buildBlock() : "";
   const userPrompt = [
-    "extractor: meeting_summary_v2",
+    "extractor: meeting_summary_v4_alias",
+    "",
+    "=== meeting_meta (これが対象 PJ の唯一の正解。これと無関係な内容は完全に無視) ===",
     "projectId: " + String(meta.projectId || ""),
+    "projectName: " + String(projectName || ""),
+    "meetingTitle: " + String(meta.meetingTitle || ""),
+    "meetingDate: " + String(meta.meetingDate || ""),
     "ym: " + String(meta.ymKey || ""),
     "sourceKinds: " + String(meta.sourceKinds || ""),
     "",
+    aliasBlock,
+    "",
     "=== combined sources (notion + gmail) ===",
     String(combinedText || "")
-  ].join("\n");
+  ].filter(function (s) { return s !== null && s !== undefined; }).join("\n");
 
   const parsed = llm_callJson("meeting_extract", baseText, userPrompt, { maxTokens: 2048, temperature: 0.2 });
   if (!parsed || typeof parsed !== "object") return null;

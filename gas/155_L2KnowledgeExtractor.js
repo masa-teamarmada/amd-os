@@ -219,7 +219,7 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
   const inputJson = JSON.stringify({
     cn: codeName,
     mid: memberId,
-    pv: "v2_with_roles", // ロジック改訂で全行 hash 不一致 → 再抽出
+    pv: "v3_with_aliases", // alias block 追加で全 hash 不一致 → 再抽出
     acts: acts.map(function (a) { return { p: a.project_id, ym: a.ym, ti: String(a.title || ""), cp: String(a.content_preview || "").slice(0, 400) }; }),
     roles: roleAssignments.map(function (r) {
       return { p: r.projectId, sh: r.share, ro: r.role, td: r.taskDescription, mt: r.msTitle, sc: String(r.msSuccessCriteria || "").slice(0, 600) };
@@ -305,9 +305,13 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
     "- セクション C も A も空でセクション B だけある場合、抽出 0 件 (= categories: []) を出力する"
   ].join("\n");
 
-  // 過去 feedback を LLM プロンプトに含める
+  // 過去 feedback + 名前正規化マップ を LLM プロンプトに含める
   const fb = _l2_loadFeedbackBlock_("member_knowledge", codeName, "global");
-  const userPrompt = "code_name: " + codeName + "\n\n" + inputText + (fb.block ? "\n\n" + fb.block : "");
+  const aliasBlock = (typeof nameAlias_buildBlock === "function") ? nameAlias_buildBlock() : "";
+  const userPrompt = "code_name: " + codeName + "\n\n" +
+    (aliasBlock ? aliasBlock + "\n\n" : "") +
+    inputText +
+    (fb.block ? "\n\n" + fb.block : "");
   let parsed = null;
   try { parsed = llm_callJson("default", systemPrompt, userPrompt, { maxTokens: 2048, temperature: 0.2 }); } catch (e) { parsed = null; }
   if (!parsed || !Array.isArray(parsed.categories)) {
@@ -442,6 +446,7 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
 
   const inputJson = JSON.stringify({
     p: projectId, ym: ym,
+    pv: "v3_with_aliases", // alias block 追加で全 hash 不一致 → 再抽出
     rb: reportBody.slice(0, 12000),
     sums: summaries.map(function (s) { return { d: s.meeting_date, t: s.title, ss: s.summary_short, dec: s.decided || [] }; })
   });
@@ -480,7 +485,11 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
   ].join("\n");
 
   const fb = _l2_loadFeedbackBlock_("project_knowledge", projectId, ym);
-  const userPrompt = "project_id: " + projectId + " / ym: " + ym + "\n\n" + inputText + (fb.block ? "\n\n" + fb.block : "");
+  const aliasBlock = (typeof nameAlias_buildBlock === "function") ? nameAlias_buildBlock() : "";
+  const userPrompt = "project_id: " + projectId + " / ym: " + ym + "\n\n" +
+    (aliasBlock ? aliasBlock + "\n\n" : "") +
+    inputText +
+    (fb.block ? "\n\n" + fb.block : "");
   let parsed = null;
   try { parsed = llm_callJson("default", systemPrompt, userPrompt, { maxTokens: 3072, temperature: 0.2 }); } catch (e) { parsed = null; }
   if (!parsed || !Array.isArray(parsed.items)) {
@@ -629,6 +638,7 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
 
   const inputJson = JSON.stringify({
     p: projectId, ym: ym,
+    pv: "v3_with_aliases", // alias block 追加で全 hash 不一致 → 再抽出
     sums: summaries.map(function (s) { return { mid: s.meeting_id, d: s.meeting_date, t: s.title, ss: s.summary_short, dec: s.decided || [], rk: s.risks || [], na: s.next_actions || [] }; })
   });
   const newHash = _l2_sha256_(inputJson);
@@ -667,7 +677,11 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
   ].join("\n");
 
   const fb = _l2_loadFeedbackBlock_("protocols", projectId, ym);
-  const userPrompt = "project_id: " + projectId + " / ym: " + ym + "\n\n" + inputText + (fb.block ? "\n\n" + fb.block : "");
+  const aliasBlock = (typeof nameAlias_buildBlock === "function") ? nameAlias_buildBlock() : "";
+  const userPrompt = "project_id: " + projectId + " / ym: " + ym + "\n\n" +
+    (aliasBlock ? aliasBlock + "\n\n" : "") +
+    inputText +
+    (fb.block ? "\n\n" + fb.block : "");
   let parsed = null;
   try { parsed = llm_callJson("default", systemPrompt, userPrompt, { maxTokens: 2048, temperature: 0.3 }); } catch (e) { parsed = null; }
   if (!parsed || !Array.isArray(parsed.protocols)) {
