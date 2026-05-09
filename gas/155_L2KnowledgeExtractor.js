@@ -428,9 +428,11 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
   const force = !!opts.force;
 
   // 入力: 当月 monthly_reports + 当月 + 前月 project_meeting_summaries
+  // ⚠️ status='invalid' は除外 (= 他 PJ 内容で汚染されたレポートが status='invalid' でマークされる運用)
+  //   BUGS.md `[GAS] monthly_reports に他 PJ 内容が混入する事故` 参照
   const repRes = supa_select("monthly_reports", {
     select: "project_id,ym,final_content,draft_content,status",
-    filter: "project_id=eq." + encodeURIComponent(projectId) + "&ym=eq." + encodeURIComponent(ym),
+    filter: "project_id=eq." + encodeURIComponent(projectId) + "&ym=eq." + encodeURIComponent(ym) + "&status=neq.invalid",
     limit: 1
   });
   const report = repRes.ok && repRes.rows && repRes.rows[0] ? repRes.rows[0] : null;
@@ -446,7 +448,7 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
 
   const inputJson = JSON.stringify({
     p: projectId, ym: ym,
-    pv: "v3_with_aliases", // alias block 追加で全 hash 不一致 → 再抽出
+    pv: "v4_meta_strict", // project_meta + 他PJ無視 防御を追加 → 全 hash 不一致で再抽出
     rb: reportBody.slice(0, 12000),
     sums: summaries.map(function (s) { return { d: s.meeting_date, t: s.title, ss: s.summary_short, dec: s.decided || [] }; })
   });
@@ -462,7 +464,15 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
     return { ok: true, action: "no_input", projectId: projectId, ym: ym, saved: 0 };
   }
 
+  const projectName = (typeof _meeting_resolveProjectName_ === "function")
+    ? _meeting_resolveProjectName_(projectId) : projectId;
+
   const inputText = [
+    "=== project_meta (これが対象 PJ の唯一の正解。これと無関係な内容は完全に無視) ===",
+    "projectId: " + projectId,
+    "projectName: " + projectName,
+    "ym: " + ym,
+    "",
     "=== monthly_report (status=" + (report ? report.status : "n/a") + ") ===",
     reportBody.slice(0, 12000),
     "",
@@ -475,13 +485,24 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
 
   const systemPrompt = [
     "あなたはプロジェクトに関する事実情報を構造化して抽出するアシスタントです。",
+    "",
+    "🚨 最重要ルール:",
+    "- 入力の project_meta (= projectId + projectName) が対象 PJ の唯一の正解。これと無関係な内容は完全に無視する。",
+    "- monthly_report 本文や meeting_summaries が他 PJ の内容で汚染されているケース (= 入力データのバグ) がある。",
+    "  例: projectName='SE' (= 翔エンジニアリング) なのに monthly_report に 'CryoX' / 'NIMS神谷' / '磁気冷凍' (= CX PJ の内容) が書かれている。",
+    "  この場合は **抽出しない** (= items: [] を返す)。汚染データを真面目に抽出して別 PJ の事実として保存してはいけない。",
+    "- 入力に projectName と無関係な固有名詞 / 組織 / 技術が書かれていたら、それは汚染データの可能性が高い。",
+    "  確証が無ければ抽出 0 件。",
+    "",
     "出力は JSON のみ:",
     '{ "items": [ { "category": "people|tech|ip|org|funding|market|competitor|strategy|term", "entity_name": "対象名", "fact_text": "事実の説明 (200字以内)", "confidence": "high|medium|low" } ] }',
+    "",
     "ルール:",
     "- category は 9 種から選ぶ",
     "- entity_name は固有名詞・組織名・技術名など",
     "- fact_text は入力に書かれていることだけ。推測禁止",
-    "- 同じ entity_name は category 別なら別行 OK"
+    "- 同じ entity_name は category 別なら別行 OK",
+    "- 対象 PJ と関係性が確証できない事項は無視する"
   ].join("\n");
 
   const fb = _l2_loadFeedbackBlock_("project_knowledge", projectId, ym);

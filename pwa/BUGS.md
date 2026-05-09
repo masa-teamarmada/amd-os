@@ -140,6 +140,42 @@
 
 ---
 
+### [GAS] PJナレッジ抽出で SE に CryoX/神谷 が紛れ込む (上流 monthly_reports の他 PJ 内容汚染)
+
+- **発見日**: 2026-05-09 (まさからの直接指摘「SE のナレッジに CX の情報が入ってる」)
+- **状態**: ✅ 解決済 (gas/155 防御強化 + 汚染レポートを status='invalid' で隔離)
+- **症状**: PWA `/notifications` で「🗂️ SE (202604) PJナレッジ更新 (19 件)」展開すると CryoX/神谷/磁気冷凍/プランB/高砂 など **完全に CX (p20、神谷PJ) の内容**が SE PJ の knowledge として保存されていた (people: 神谷 / org: NIMS / strategy: MOU 先行 など 27 件)
+- **原因**:
+  - **PJナレッジ抽出のバグではなく、その入力ソース monthly_reports (= L2 ①) の汚染**
+  - p10 (SE) 202604 の `draft_content` 全体が CX (CryoX/神谷/磁気冷凍) の内容で書かれていた
+  - p20 (CX) 202604 も同じ CX 内容だが mojibake (= "?" だらけ、charset 失敗)
+  - generated_at は p10 が 2026-04-01T10:31:15、p20 が 11:14:24 (= 約 43 分差で連続)
+  - → **誰か (本リポ外: AMD-Report GAS R313 cron / MMO マシンの Claude Code scheduled task / 手動投入) が 4/1 に CX レポートを書こうとして project_id を p10 と誤紐付け、43 分後に p20 で再書き込みするも mojibake、最初の p10 行は削除されず残った** という事故痕跡
+  - 仮説 A (reportEmails 経由 CX メール混入) は却下: SE.report_emails には CX 関係者は含まれていない
+  - LLM はそれを「SE PJ のレポート」として渡されているので、書かれている CryoX/神谷 を SE のナレッジとして真面目に抽出 → 当然の挙動
+- **解決策**:
+  - **(A) PJナレッジ抽出の防御強化** (`gas/155_L2KnowledgeExtractor.js` `nav_project_knowledge_extractOneForYm_`):
+    - userPrompt 冒頭に `=== project_meta ===` セクション (projectId / projectName / ym) を追加
+    - systemPrompt に「monthly_report が他 PJ 内容で汚染されているケースがある (例: projectName='SE' なのに CryoX/NIMS神谷 が書かれている)。この場合は items: [] を返せ」と明示
+    - source_hash 入力に `pv: "v4_meta_strict"` を混ぜて全行再抽出
+    - これで上流データ汚染があっても LLM が他 PJ 内容を抽出しない二段防御
+  - **(B) status='invalid' フィルタ**:
+    - gas/155 の monthly_reports SELECT に `&status=neq.invalid` 追加 → `status='invalid'` のレポートは cron 入力対象外
+    - 汚染レポートを発見したら `status='invalid'` でマーク → 自動的に再抽出対象外
+  - **(C) データ修復** (= 即時):
+    - p10/202604 monthly_report.status = 'invalid' に PATCH (= 1 行)
+    - p10 source='l2_hourly_extract' な project_knowledge 27 行 DELETE
+    - l2_extract_state (project_knowledge / p10) 2 行 DELETE → 次回 cron で fresh 再抽出
+    - l2_notifications (project_knowledge / p10) 1 行 DELETE
+  - GAS deploy v1447
+- **教訓**:
+  - **L2 抽出の防御は入力データの汚染を前提にする**。monthly_reports が手動 or リポ外 cron で汚染される可能性は常にあるので、抽出側で「project_meta と無関係な内容は抽出 0 件」防御を入れる (= 議事録 v3 化と同じパターン)
+  - **手動投入 / リポ外 cron は project_id 取り違えが起きうる**。書き込み時に `draft_content` の冒頭に projectName を含める運用ルールにすると、後から汚染検出が容易
+  - **次のタスク**: 全 monthly_reports をスキャンして汚染を検出する関数 (= projectName と無関係なキーワード混入を測る) を作る、上流の生成プロセス (R313 / MMO Claude Code task) の調査と修正は別セッション (= 本リポ外)
+  - 同様に汚染している可能性: 他 monthly_reports 全件を探したいときは `draft_content ilike '%キーワード%'` で suspect を出して目視確認
+
+---
+
 ### [GAS] member_knowledge 抽出で「きよ」に他人の活動が紐付くカオス (member_activities 列名 4 つ間違い)
 
 - **発見日**: 2026-05-09 (Phase 4 メンバーナレッジ稼働後、まさからの直接指摘)
