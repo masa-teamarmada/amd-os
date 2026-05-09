@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Notification, MeetingNotification, Feedback } from "@/app/(app)/notifications/page";
 
@@ -15,12 +15,22 @@ type UnifiedItem =
   | { kind: "l2"; data: Notification }
   | { kind: "meeting"; data: MeetingNotification };
 
+// 展開時に lazy fetch する実データの型
+type DetailRow = {
+  loading: boolean;
+  error?: string;
+  // 1 行 = 1 抽出項目
+  rows?: Array<{ heading: string; body: string; sub?: string }>;
+};
+
 export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [feedbackTexts, setFeedbackTexts] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState<Set<string>>(new Set());
   const [localFeedbacks, setLocalFeedbacks] = useState<Feedback[]>(feedbacks);
   const [filter, setFilter] = useState<"all" | "unread" | "feedback">("all");
+  // 展開時に取得した実データ (key = itemKey(item))
+  const [details, setDetails] = useState<Record<string, DetailRow>>({});
 
   // 通知を時系列でマージ (l2 + meeting)
   const items: UnifiedItem[] = useMemo(() => {
@@ -56,11 +66,153 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
   const itemKey = (i: UnifiedItem): string =>
     i.kind === "l2" ? `l2-${i.data.notification_id}` : `mtg-${i.data.meeting_id}`;
 
-  const toggleExpand = (key: string) => {
+  const loadDetails = useCallback(async (i: UnifiedItem) => {
+    const key = itemKey(i);
+    setDetails((prev) => ({ ...prev, [key]: { loading: true } }));
+    try {
+      const supabase = createClient();
+      let rows: DetailRow["rows"] = [];
+
+      if (i.kind === "l2") {
+        const n = i.data;
+        if (n.l2_kind === "member_knowledge") {
+          const { data, error } = await supabase
+            .from("member_knowledge")
+            .select("category, summary, updated_at")
+            .eq("code_name", n.target_id)
+            .order("updated_at", { ascending: false });
+          if (error) throw error;
+          rows = (data ?? []).map((r) => ({
+            heading: String(r.category),
+            body: String(r.summary ?? ""),
+          }));
+        } else if (n.l2_kind === "project_knowledge") {
+          // 当該 PJ × 当該 ym で source='l2_hourly_extract' なものを優先表示
+          const { data, error } = await supabase
+            .from("project_knowledge")
+            .select("category, entity_name, fact_text, confidence, updated_at, source")
+            .eq("project_id", n.target_id)
+            .eq("source", "l2_hourly_extract")
+            .order("updated_at", { ascending: false })
+            .limit(50);
+          if (error) throw error;
+          rows = (data ?? []).map((r) => ({
+            heading: `[${r.category}] ${r.entity_name}`,
+            body: String(r.fact_text ?? ""),
+            sub: r.confidence ? `confidence: ${r.confidence}` : undefined,
+          }));
+        } else if (n.l2_kind === "protocols") {
+          const { data, error } = await supabase
+            .from("protocols")
+            .select("title, content, status, importance, tags, updated_at")
+            .eq("project_id", n.target_id)
+            .like("protocol_id", `p4-${n.target_id}-${n.scope_key}-%`)
+            .order("updated_at", { ascending: false })
+            .limit(20);
+          if (error) throw error;
+          rows = (data ?? []).map((r) => ({
+            heading: `${"⭐".repeat(Math.max(1, Math.min(3, Number(r.importance ?? 1))))} ${r.title} [${r.status}]`,
+            body: String(r.content ?? ""),
+            sub: r.tags ? `tags: ${r.tags}` : undefined,
+          }));
+        } else if (n.l2_kind === "ms_progress") {
+          // milestone_monthly_progress + value_milestones JOIN は client では難しいので 2 回 fetch
+          const { data: progRows } = await supabase
+            .from("milestone_monthly_progress")
+            .select("milestone_key, progress_pct, consumed_pt, source, note")
+            .eq("ym", n.scope_key);
+          const keys = (progRows ?? []).map((r) => r.milestone_key);
+          // 当該 PJ の milestones だけにフィルタ
+          const { data: msRows } = await supabase
+            .from("value_milestones")
+            .select("milestone_id, title, points, plan_cycle_id, value_plan_cycles!inner(project_id)")
+            .in("milestone_id", keys.length > 0 ? keys : ["__none__"]);
+          // value_plan_cycles ⇄ project_id でフィルタするため別 fetch
+          const { data: pcRows } = await supabase
+            .from("value_plan_cycles")
+            .select("plan_cycle_id, project_id")
+            .eq("project_id", n.target_id);
+          const validPlanIds = new Set((pcRows ?? []).map((p) => p.plan_cycle_id));
+          const msMap: Record<string, { title: string; points: number }> = {};
+          for (const m of msRows ?? []) {
+            if (validPlanIds.has(String(m.plan_cycle_id))) {
+              msMap[String(m.milestone_id)] = {
+                title: String(m.title ?? ""),
+                points: Number(m.points ?? 0),
+              };
+            }
+          }
+          rows = (progRows ?? [])
+            .filter((p) => msMap[p.milestone_key])
+            .map((p) => {
+              const m = msMap[p.milestone_key];
+              return {
+                heading: `${m.title} (${m.points}pt)`,
+                body: `進捗 ${p.progress_pct}% (consumed ${p.consumed_pt}pt) [source=${p.source ?? ""}]`,
+                sub: p.note ? `📝 ${p.note}` : undefined,
+              };
+            });
+        }
+      } else {
+        // meeting_summary: project_meeting_summaries から実内容取得
+        const m = i.data;
+        const { data, error } = await supabase
+          .from("project_meeting_summaries")
+          .select("meeting_date, title, summary_short, decided, progress, next_actions, risks, source_kinds")
+          .eq("meeting_id", m.meeting_id)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) {
+          const r = data as {
+            meeting_date: string;
+            title: string;
+            summary_short: string;
+            decided: string[] | null;
+            progress: string[] | null;
+            next_actions: string[] | null;
+            risks: string[] | null;
+            source_kinds: string;
+          };
+          rows = [
+            { heading: "概要", body: r.summary_short || "(なし)", sub: `${r.meeting_date} ・ source=${r.source_kinds}` },
+            ...(r.decided && r.decided.length > 0
+              ? [{ heading: "決定事項", body: r.decided.map((s) => `・${s}`).join("\n") }]
+              : []),
+            ...(r.progress && r.progress.length > 0
+              ? [{ heading: "進捗", body: r.progress.map((s) => `・${s}`).join("\n") }]
+              : []),
+            ...(r.next_actions && r.next_actions.length > 0
+              ? [{ heading: "次のアクション", body: r.next_actions.map((s) => `・${s}`).join("\n") }]
+              : []),
+            ...(r.risks && r.risks.length > 0
+              ? [{ heading: "リスク", body: r.risks.map((s) => `・${s}`).join("\n") }]
+              : []),
+          ];
+        }
+      }
+
+      setDetails((prev) => ({ ...prev, [key]: { loading: false, rows } }));
+    } catch (e) {
+      setDetails((prev) => ({
+        ...prev,
+        [key]: { loading: false, error: e instanceof Error ? e.message : "fetch error" },
+      }));
+    }
+  }, []);
+
+  const toggleExpand = (i: UnifiedItem) => {
+    const key = itemKey(i);
     setExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+        // 初回展開時に lazy fetch
+        if (!details[key]) {
+          void loadDetails(i);
+        }
+      }
       return next;
     });
   };
@@ -156,7 +308,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
               {/* ヘッダ (クリック展開) */}
               <button
                 className="w-full flex items-start justify-between p-3 hover:bg-muted/50 text-left"
-                onClick={() => toggleExpand(key)}
+                onClick={() => toggleExpand(i)}
               >
                 <div className="flex-1">
                   <div className="font-medium text-sm leading-snug">{i.data.title}</div>
@@ -177,20 +329,23 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
               {/* 展開部 */}
               {isExpanded && (
                 <div className="px-3 pb-3 border-t pt-3 space-y-3">
-                  {/* summary */}
+                  {/* 通知 summary (上流が付けた一覧用見出し) */}
                   {i.kind === "l2" ? (
-                    <div className="text-sm whitespace-pre-wrap text-muted-foreground">
-                      {i.data.summary || "(summary なし)"}
+                    <div className="text-xs text-muted-foreground italic">
+                      通知ヘッドライン: {i.data.summary || "(なし)"}
                     </div>
                   ) : (
-                    <div className="text-sm whitespace-pre-wrap text-muted-foreground">
-                      {i.data.summary_short || `[${i.data.source_kinds}]`}
+                    <div className="text-xs text-muted-foreground italic">
+                      通知ヘッドライン: {i.data.summary_short || `[${i.data.source_kinds}]`}
                     </div>
                   )}
 
-                  {/* 元データへのリンク */}
+                  {/* 実データ (lazy fetch) */}
+                  <DetailSection detail={details[key]} />
+
+                  {/* 元データへの deep link */}
                   <div className="text-xs">
-                    <span className="text-muted-foreground">元データ: </span>
+                    <span className="text-muted-foreground">他の場所でも確認: </span>
                     {i.kind === "l2" ? (
                       <DeepLinkForL2 n={i.data} />
                     ) : (
@@ -259,6 +414,33 @@ function FilterButton({ active, onClick, children }: { active: boolean; onClick:
     >
       {children}
     </button>
+  );
+}
+
+// 展開時の実データ表示セクション
+function DetailSection({ detail }: { detail: DetailRow | undefined }) {
+  if (!detail) return null;
+  if (detail.loading) {
+    return <div className="text-xs text-muted-foreground italic">📥 抽出された内容を読み込み中...</div>;
+  }
+  if (detail.error) {
+    return <div className="text-xs text-red-500">読み込み失敗: {detail.error}</div>;
+  }
+  const rows = detail.rows ?? [];
+  if (rows.length === 0) {
+    return <div className="text-xs text-muted-foreground italic">抽出された行が見つかりませんでした (= まだ DB に反映されてない可能性あり)</div>;
+  }
+  return (
+    <div className="space-y-2 bg-muted/30 rounded p-2">
+      <div className="text-xs font-medium text-muted-foreground">📦 抽出された内容 ({rows.length} 件)</div>
+      {rows.map((r, idx) => (
+        <div key={idx} className="border-l-2 border-primary/30 pl-2 py-0.5">
+          <div className="text-sm font-medium">{r.heading}</div>
+          <div className="text-sm whitespace-pre-wrap text-foreground/80">{r.body}</div>
+          {r.sub && <div className="text-[10px] text-muted-foreground mt-0.5">{r.sub}</div>}
+        </div>
+      ))}
+    </div>
   );
 }
 
