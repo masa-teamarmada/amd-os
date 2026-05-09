@@ -1753,3 +1753,77 @@ migration 035_scholar.sql 作成時に `Edit/Write` で `/Users/masa/projects/AM
 - NEDO / SIP / JST 採択リスト scrape
 - Semantic Scholar 引用ネットワーク
 - `scholar.lane` を PJ.lane で個別フィルタ
+
+---
+
+## 2026-05-10 (夜) — Triple Helix 観測モデルへの全面再設計 (affectionate-easley-9b52b8 続)
+
+夕方に投入した個別論文 cron `scholar` をまさが指摘:
+> 「世界中の論文を１つずつ集めていくってこと？ｗ 目的のために何をすべきかを再度考えてみてほしい」
+> 「μ はマクロのアカデミアの動きを表す指数にならないといけない」
+> 「論文ではμ_Aはどういうデータと定義されてるの？そこから外れたらそもそも信頼性がゼロになる」
+
+→ 正本 md (state_space_model.md §4.1 / data_specification.md §N / bvar_prior.md §3.2) を全文 Read で確認。**μ_A は Triple Helix の隠れ状態 (Academia momentum)** で、観測量 N (lane × quarter の論文出版件数) が主観測量。**個別論文の DB は μ_A の根拠ではない**。
+
+さらにまさが Phase 1.2 を発展させた:
+> 「Mの中身をどう表現するか。Mは３つのμで構成されている。そのμと６パラメータは、それぞれ異なる強度で相関がある。この相関を示すマトリクスが新たに必要ってことか」
+> 「とにかくスコア詳細ページでは、視覚的にこのモデルが分かりやすくなっていて、そのPJのケースではどの数字がどのようにスコアに効いているかが明確に表示される必要がある」
+> 「必要となる数式も全部UI上に表示してね。そのページを見るだけでモデルの構造と実際のデータが分かるように」
+
+→ bvar_prior.md §3.2 に **C 行列の数値 prior が既存** (再発明不要) を発見。これを正本としてモデル化 + UI 化。
+
+### 主要変更
+
+**Supabase**:
+- migration 036_scholar_drop.sql: 個別論文 `scholar` テーブル + `scholar-ingest` cron 廃止 (μ_A 定義から外れる)
+- migration 037_papers_log_quarterly.sql: papers_log を quarter 単位に再構築。UNIQUE (lane, observed_at) 追加、既存 year 単位 85 行クリア
+- migration 038_triple_helix_loading.sql: C 行列の loading prior (bvar_prior §3.2) を 7 行 seed (P/B/V/R/I_R/N/C_compete × μ_A/μ_I/μ_G + available フラグ + データソース)
+
+**PWA**:
+- `src/app/api/cron/papers-quarterly-ingest/route.ts` 新規: OpenAlex で 5 lane × 直近 16 quarter の論文数を upsert。weekly cron (毎週月曜 18:20 UTC = 03:20 JST 火曜)。data_specification.md §5.2 / §N 準拠
+- `src/lib/triple-helix-observations.ts` 新規:
+  - C 行列 fetcher (`triple_helix_loading`)
+  - 観測量 fetcher (papers_log + atlas_signals)
+  - min-max 正規化 (過去 16 quarter で 0-9)
+  - μ_x = Σ c_xp · ỹ_p / Σ c_xp (取れてる観測量だけで重み付き平均)
+  - σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) - 1
+  - 被覆率 covered/total
+- `src/components/venture-map/TripleHelixMatrix.tsx` 新規: M カード本体
+  - 数式 4 段 (Tex で M / σ_SU / μ_x / ỹ_p)
+  - μ ラダー (μ_A / μ_I / μ_G チップ → σ_SU → M)
+  - 6×3 マトリクス (loading セル背景色 = ヒートマップ、hover で `c × ỹ` 寄与値)
+  - 観測値 bar (ỹ_p の 0-9 正規化を ▓▓▓░ で塗り)
+  - 未取得観測量グレーアウト + 「未取得」表示
+  - 被覆率カード (例: 3/7 (43%))
+- `src/components/venture-map/AmdScoreView.tsx`: Factor3Breakdown の M カードを `<TripleHelixMatrix />` に置換。人間入力 notes (Tsukuyomi) は補助として下部に残す
+- `src/app/(app)/venture-map/amd-score/[projectId]/page.tsx`: `fetchTripleHelixComputed(venture.lane)` を Promise.all に追加、AmdScoreView へ prop で渡す
+- `src/lib/atlas-macro-signals.ts`: scholar 関連 (mu_a / ScholarShort) を削除、μ_I/μ_G の atlas fallback だけに戻す (Phase 1 の 035 で追加した分)
+- `src/app/(app)/scholar/page.tsx` + `src/components/scholar/ScholarTrendView.tsx`: 個別論文一覧 → lane × quarter trend chart に作り変え (5 lane SVG line + 前年同期比カード + Quarterly テーブル)。タブ名は Scholar のまま (まさ指定)
+- `vercel.json`: scholar-ingest 削除、papers-quarterly-ingest 登録
+
+**仕様 md**:
+- `pwa/HANDOFF_pwa_rebuild.md` 最終更新を本セッション内容に書き換え
+- `pwa/design/amd_score.md`: 旧「Scholar (μ_A 根拠 DB)」セクションを「Triple Helix 観測モデル」に書き換え。C 行列表 + UI 構造 + Phase 2/3 TODO 明示
+- `pwa/design/db_schema.md` 自動再生成 (90 tables / 976 columns、scholar 削除 + triple_helix_loading 追加)
+
+### 設計判断
+
+- **テーブル名**: 観測モデル正本に合わせ `triple_helix_loading` (C 行列 prior 保存用)
+- **観測粒度**: data_spec で **四半期** 規定 (月次・週次は publish lag で noisy、年次は trend 検知遅い)
+- **正規化**: 過去 16 quarter (4 年) で min-max → 0-9。Phase 3 で z-score / log に置き換え可能
+- **未取得観測量の扱い**: μ 計算時に除外 + 重み再正規化 (取れてる分の Σc で割る)。被覆率を UI で透明化 (擬装しない)
+- **C 行列**: bvar_prior §3.2 を seed、行で正規化しない (I_R が μ_A 0.70 + μ_G 0.40 の multi-loading は構造仮説そのまま)
+- **個別論文 cron 廃止**: μ_A 定義 (= マクロ) から外れる。世界の論文を 1 件ずつ集めてもマクロにならない (まさ指摘)
+
+### 動作確認
+
+- migration 036 / 037 / 038 全 3 個適用済 (`OK (201)`)
+- db_schema.md 再生成 (90 tables / 976 columns)
+- tsc --noEmit エラー無し (修正: ScholarList 残存削除 + Tex の API を `<Tex tex={...} />` に修正)
+- 本番 deploy + papers-quarterly-ingest 手動キック + `/scholar` 目視 + AmdScoreView M カード確認 (本セッション内)
+
+### 教訓
+
+- **正本 md を grep じゃなく Read で全文通す**: state_space_model.md §4.1 (C 行列 loading) と bvar_prior.md §3.2 (C 行列数値 prior) を読み込んでなかった結果、scholar (個別論文蓄積) を作って後で全廃。**μ_A を考えるなら Triple Helix の状態空間モデルを読むべきだった**
+- **「自分の提案を疑う」を実装前に**: 「μ_A 根拠 = 論文 DB」と短絡的に解いた。μ_A の論文上の定義 (= 隠れ状態) を確認してから設計するのが順序
+- **観測量と隠れ状態の区別**: μ は隠れ状態、N (論文) は観測量、両者は C 行列で結ばれる。これを混同すると「個別論文を蓄積する」誤った方向に走る

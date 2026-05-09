@@ -30,7 +30,9 @@ import {
 } from "@/lib/amd-score";
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import type { VentureRow, XrlLogRow } from "@/lib/venture-map-data";
-import type { AtlasMacroSignals, AtlasSignalShort, ScholarShort } from "@/lib/atlas-macro-signals";
+import type { AtlasMacroSignals } from "@/lib/atlas-macro-signals";
+import type { TripleHelixComputed } from "@/lib/triple-helix-observations";
+import { TripleHelixMatrix } from "@/components/venture-map/TripleHelixMatrix";
 
 interface Props {
   venture: VentureRow;
@@ -40,6 +42,8 @@ interface Props {
   latestXrlLog?: XrlLogRow | null;
   /** Atlas のマクロシグナル (μ_I / μ_G の根拠 fallback として domain で分類済) */
   atlasMacroSignals?: AtlasMacroSignals | null;
+  /** Triple Helix 観測モデル C 行列 + 観測値 + μ 計算結果 (M カードで表示) */
+  tripleHelix?: TripleHelixComputed | null;
 }
 
 /**
@@ -202,6 +206,7 @@ export function AmdScoreView({
   initialAlpha,
   latestXrlLog = null,
   atlasMacroSignals = null,
+  tripleHelix = null,
 }: Props) {
   // α は表示のみ (編集は retrofit ページへ移設)
   const alpha = initialAlpha;
@@ -295,6 +300,7 @@ export function AmdScoreView({
           ventureName={venture.display_name}
           latestXrlLog={latestXrlLog}
           atlasMacroSignals={atlasMacroSignals}
+          tripleHelix={tripleHelix}
         />
         <TimeSeriesChart
           series={series}
@@ -609,7 +615,8 @@ function Factor3Breakdown({
   editable,
   ventureName,
   latestXrlLog,
-  atlasMacroSignals,
+  atlasMacroSignals: _atlasMacroSignals,
+  tripleHelix,
 }: {
   result: ReturnType<typeof calculateAmdScore>;
   alpha: AlphaWeights;
@@ -617,26 +624,12 @@ function Factor3Breakdown({
   ventureName: string;
   latestXrlLog: XrlLogRow | null;
   atlasMacroSignals: AtlasMacroSignals | null;
+  tripleHelix: TripleHelixComputed | null;
 }) {
-  /** Atlas シグナル群を「観測 YYYY-MM-DD: タイトル」形式で連結 (subtitle 用) */
-  function atlasFallbackText(signals: AtlasSignalShort[] | undefined): string | null {
-    if (!signals || signals.length === 0) return null;
-    const items = signals.slice(0, 3).map((s) => {
-      const date = s.submitted_at?.slice(0, 10) ?? "?";
-      return `[${date}] ${s.title}`;
-    });
-    return `(Atlas マクロシグナル, PJ 横断) ${items.join(" / ")}`;
-  }
-  /** Scholar (μ_A 根拠) 群を「[YYYY-MM-DD] Title (Journal)」形式で連結 (subtitle 用) */
-  function scholarFallbackText(papers: ScholarShort[] | undefined): string | null {
-    if (!papers || papers.length === 0) return null;
-    const items = papers.slice(0, 3).map((p) => {
-      const date = p.published_at?.slice(0, 10) ?? "?";
-      const journal = p.journal ? ` (${p.journal})` : "";
-      return `[${date}] ${p.title}${journal}`;
-    });
-    return `(Crossref 学術シグナル, PJ 横断) ${items.join(" / ")}`;
-  }
+  // _atlasMacroSignals は M カード新設計 (TripleHelixMatrix) で内部 fetch するため未使用。
+  // Cockpit モーダル等で再利用する可能性があり Props には残す。
+  void _atlasMacroSignals;
+
   const fmt = (n: number, digits = 2) =>
     n < 1 ? n.toFixed(digits) : n < 100 ? n.toFixed(2) : Math.round(n).toLocaleString();
 
@@ -660,59 +653,48 @@ function Factor3Breakdown({
       <DetailFactorCard
         label="M"
         ja="マクロ"
-        sub="外部環境 / Triple Helix"
+        sub="外部環境 / Triple Helix 観測モデル"
         value={M}
         color={AXIS_COLOR.sigma_SU}
         formula="M = (σ_SU+1)^α_σ"
         bottleneck={result.bottleneck === "sigma_SU"}
       >
-        {/* μ_A: input notes → scholar (Crossref ingest cron で投入) → 仮置き */}
-        <DetailFactorRow
-          name="μ_A (学術)"
-          value={fmt(editable.mu_A, 1)}
-          subtitle={
-            editable.mu_notes_a ||
-            scholarFallbackText(atlasMacroSignals?.mu_a) ||
-            FALLBACK_NOTE
-          }
-          subtitleIsFallback={!editable.mu_notes_a && !scholarFallbackText(atlasMacroSignals?.mu_a)}
-          onClick={() => openTsukuyomiPrefill(ventureName, "μ_A (学術)", fmt(editable.mu_A, 1), editable.mu_notes_a || null)}
-        />
-        {/* μ_I: input notes → atlas_signals (domain C-K) → 仮置き */}
-        <DetailFactorRow
-          name="μ_I (産業)"
-          value={fmt(editable.mu_I, 1)}
-          subtitle={
-            editable.mu_notes_i ||
-            atlasFallbackText(atlasMacroSignals?.mu_i) ||
-            FALLBACK_NOTE
-          }
-          subtitleIsFallback={!editable.mu_notes_i && !atlasFallbackText(atlasMacroSignals?.mu_i)}
-          onClick={() => openTsukuyomiPrefill(ventureName, "μ_I (産業)", fmt(editable.mu_I, 1), editable.mu_notes_i || null)}
-        />
-        {/* μ_G: input notes → atlas_signals (domain A, B) → 仮置き */}
-        <DetailFactorRow
-          name="μ_G (政府)"
-          value={fmt(editable.mu_G, 1)}
-          subtitle={
-            editable.mu_notes_g ||
-            atlasFallbackText(atlasMacroSignals?.mu_g) ||
-            FALLBACK_NOTE
-          }
-          subtitleIsFallback={!editable.mu_notes_g && !atlasFallbackText(atlasMacroSignals?.mu_g)}
-          onClick={() => openTsukuyomiPrefill(ventureName, "μ_G (政府)", fmt(editable.mu_G, 1), editable.mu_notes_g || null)}
-        />
-        <DetailFactorRow
-          name="σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) − 1"
-          value={fmt(result.sigma_SU)}
-          highlight
-        />
-        <DetailFactorRow
-          name="= M = (σ_SU+1)^α_σ"
-          value={fmt(M)}
-          note={`α_σ = ${alpha.sigma_SU.toFixed(2)}`}
-          total
-        />
+        {/* Triple Helix 観測モデル: 6 観測量 × 3 隠れ状態 (μ_A/I/G) の C 行列を表示 */}
+        <TripleHelixMatrix helix={tripleHelix} alphaSigma={alpha.sigma_SU} />
+
+        {/* 入力 notes (人間が Tsukuyomi 経由で投入した値の根拠) があれば併記 */}
+        {(editable.mu_notes_a || editable.mu_notes_i || editable.mu_notes_g) && (
+          <div className="mt-3 rounded-md border border-cyan-200 bg-cyan-50/50 p-2 text-[11px] dark:border-cyan-800 dark:bg-cyan-950/30">
+            <div className="font-medium text-cyan-900 dark:text-cyan-200">人間入力 notes (Tsukuyomi 経由)</div>
+            {editable.mu_notes_a && (
+              <button
+                type="button"
+                onClick={() => openTsukuyomiPrefill(ventureName, "μ_A (学術)", fmt(editable.mu_A, 1), editable.mu_notes_a || null)}
+                className="mt-1 block w-full text-left text-cyan-800 hover:underline dark:text-cyan-200"
+              >
+                <span className="font-mono text-emerald-700 dark:text-emerald-400">μ_A:</span> {editable.mu_notes_a}
+              </button>
+            )}
+            {editable.mu_notes_i && (
+              <button
+                type="button"
+                onClick={() => openTsukuyomiPrefill(ventureName, "μ_I (産業)", fmt(editable.mu_I, 1), editable.mu_notes_i || null)}
+                className="mt-1 block w-full text-left text-cyan-800 hover:underline dark:text-cyan-200"
+              >
+                <span className="font-mono text-amber-700 dark:text-amber-400">μ_I:</span> {editable.mu_notes_i}
+              </button>
+            )}
+            {editable.mu_notes_g && (
+              <button
+                type="button"
+                onClick={() => openTsukuyomiPrefill(ventureName, "μ_G (政府)", fmt(editable.mu_G, 1), editable.mu_notes_g || null)}
+                className="mt-1 block w-full text-left text-cyan-800 hover:underline dark:text-cyan-200"
+              >
+                <span className="font-mono text-indigo-700 dark:text-indigo-400">μ_G:</span> {editable.mu_notes_g}
+              </button>
+            )}
+          </div>
+        )}
       </DetailFactorCard>
 
       <DetailFactorCard

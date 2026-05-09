@@ -15,40 +15,68 @@
 
 ## 最終更新
 
-2026-05-10 (affectionate-easley-9b52b8) — **μ_A (学術) 根拠 DB `scholar` 構築 + Crossref ingest cron + Scholar タブ**。
+2026-05-10 (affectionate-easley-9b52b8、夜) — **AMD Score の M カードを Triple Helix 観測モデル (6 観測量 × 3 隠れ状態 C 行列) に全面再設計**。
+
+### モデル定義の確立 (理論正本との整合)
+
+まさ判断: 個別論文の蓄積 (旧 scholar) は μ_A の根拠にならない。μ_A は **Triple Helix の隠れ状態**で、観測量 N (lane × 期間の論文数) を主観測量とする **マクロ指標**。
+
+- `before-zero/theory/state_space_model.md §4.1`: 隠れ状態 (μ_A, μ_I, μ_G) と観測量 (P, B, V, R, I_R, N) の C 行列 loading
+- `before-zero/theory/data_specification.md §3, §N`: 各観測量の操作的定義 (四半期粒度、データソース)
+- `before-zero/theory/bvar_prior.md §3.2`: C 行列の数値 prior
 
 ### 本セッションの主要成果
 
-- **`scholar` テーブル新設** (migration 035、本番適用済): 論文 / grant / patent / award を一元管理。DOI UNIQUE (partial)、`(lane, published_at DESC)` index。RLS は `anon_read` のみ (書き込みは service_role cron)
-- **Crossref ingest cron** [`/api/cron/scholar-ingest`](src/app/api/cron/scholar-ingest/route.ts): 5 lane × keyword で直近 1 年最新 20 件取得 → DOI 重複チェック → bulk insert。vercel.json に 18:20 UTC (= 03:20 JST) 毎日登録。手動キック: `curl -H "Authorization: Bearer $CRON_SECRET" https://amd-os-pwa.vercel.app/api/cron/scholar-ingest`
-- **`fetchAtlasMacroSignals` 拡張**: 戻り値に `mu_a: ScholarShort[]` 追加 (status≠'rejected' 最新 N 件、PJ 横断、lane フィルタ Phase 2)
-- **`AmdScoreView` の μ_A 行 fallback** を scholar 引用に: `editable.mu_notes_a` → `(Crossref 学術シグナル) [YYYY-MM-DD] Title (Journal) / ...` → 仮置き
-- **Scholar タブ** GlobalNav の Atlas の右に追加。`/scholar` で lane / source_type フィルタ + DOI link 一覧 (タイトル → DOI、journal、authors)
+- **scholar テーブル + 個別論文 cron 廃止** (migration 036_scholar_drop): μ_A 定義から外れる
+- **papers_log を quarter 単位に再構築** (migration 037): UNIQUE (lane, observed_at) 追加、既存 85 行 (year 単位) クリア
+- **OpenAlex weekly cron** [`/api/cron/papers-quarterly-ingest`](src/app/api/cron/papers-quarterly-ingest/route.ts): 5 lane × 直近 16 quarter → upsert。vercel.json に毎週月曜 18:20 UTC (= 03:20 JST 火曜) 登録
+- **`triple_helix_loading` テーブル新設** (migration 038): bvar_prior §3.2 の C 行列を 7 行 seed (P/B/V/R/I_R/N/C_compete × μ_A/μ_I/μ_G + available フラグ + データソース)
+- **`src/lib/triple-helix-observations.ts` 新設**: 観測量 fetcher + min-max 正規化 (過去 16 Q) + 重み付き μ 計算 + 未取得観測量除外
+- **`src/components/venture-map/TripleHelixMatrix.tsx` 新設**: 詳細ページ M カード本体。数式 4 段 (Tex) / μ ラダー (μ_A→σ_SU→M) / 6×3 マトリクス (loading 強度ヒートマップ + 寄与値 hover) / 観測値 bar / 被覆率
+- **`AmdScoreView` の M カード書き換え**: 旧 μ_A/I/G 単純行 → TripleHelixMatrix 全部入り。人間入力 notes (Tsukuyomi) は補助表示として下部に
+- **`/scholar` ページ作り変え**: 個別論文一覧 → 5 lane × quarter trend chart (SVG line + 前年同期比カード + Quarterly テーブル)。タブ名は Scholar のまま (まさ指定)
 - 詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾エントリ
 
-### ⚠️ 前回 HANDOFF からの継続タスク (Phase 2 = 次セッション以降)
+### Phase 1 で実装した観測量
 
-- **KAKEN API ingest** (科研費・researcher 紐付き・和文)
-- **NEDO / SIP / JST 採択リスト scrape** (source_type='grant' / 'award')
-- **Semantic Scholar 引用ネットワーク**
-- **`scholar.lane` を PJ.lane で個別フィルタ** (現状は全 PJ 横断 fallback、`AmdScoreView` で PJ ごとに絞る)
-- **`scholar.suggested_tags`** で keyword tag 拡充 (Phase 1 は Crossref subject をそのまま入れてる)
+| 観測量 | データソース | 状態 |
+|---|---|---|
+| **N** (論文) | OpenAlex → papers_log (weekly cron) | ✅ 取れてる (lane × quarter) |
+| **P** (政策) | atlas_signals.domain LIKE 'B.%' | ✅ 取れてる (全社共通、lane フィルタ Phase 2) |
+| **R** (言及) | atlas_signals.status='accepted' 全件 | ✅ 取れてる (全社共通) |
+| **B** (予算) | atlas_signals.source_type='grant' | ❌ Phase 2 (NEDO/AMED scrape) |
+| **V** (VC) | Crunchbase / INITIAL | ❌ Phase 2 |
+| **I_R** (研究費) | KAKEN API | ❌ Phase 2 |
+| **C_compete** (競合) | project_ventures 集計 | ❌ Phase 2 |
+
+被覆率 = 3/7 (43%)。AmdScoreView 内で「データ被覆率: X/7」と透明化表示。
 
 ### ⚠️ 次セッションの最初の確認
 
-1. 初回 cron で Crossref から 5 lane × 20 件 (= 100 件) 入ってるか `/scholar` で目視 (cron 初回が 03:20 JST、または手動キック実行済かを `git log` で確認)
-2. AMD Score 詳細ページの μ_A 行 subtitle が `(Crossref 学術シグナル, PJ 横断) [YYYY-MM-DD] Title (Journal)` で表示されてるか
+1. 初回 cron 投入: `curl -H "Authorization: Bearer $CRON_SECRET" https://amd-os-pwa.vercel.app/api/cron/papers-quarterly-ingest` (一度キックして papers_log を埋める)
+2. `/scholar` で 5 lane × 16 quarter trend chart が表示されるか
+3. AMD Score 詳細ページ (例 `/venture-map/amd-score/p20`) の M カードに 6×3 マトリクス、数式 4 段、μ ラダー、観測値 bar、被覆率 3/7 が表示されるか
+4. C 行列の loading が `triple_helix_loading` テーブルから引かれてるか (`SELECT * FROM triple_helix_loading;` で 7 行)
 
-仕様: [`design/amd_score.md`](design/amd_score.md) 末尾「Scholar (μ_A 根拠 DB)」参照。
+### Phase 2 (次セッション以降) — 観測量の網羅
+
+- **KAKEN API ingest** で I_R (研究費) 取得 → C 行列 loading に追加
+- **NEDO / SIP / JST scrape** で B (公募予算)
+- **Crunchbase or INITIAL** で V (VC 投資)
+- **`project_ventures` 内部集計**で C_compete (競合密度)
+- **PJ.lane × atlas_signals.suggested_tags 突合**で P/R を lane 個別に絞る (現状は全社共通)
+- **Phase 3**: BVAR Kalman filter で隠れ状態 μ_A(t)/μ_I(t)/μ_G(t) を観測量から逆推定 (state_space_model.md §4.5)
+
+仕様: [`design/amd_score.md`](design/amd_score.md)「Triple Helix 観測モデル」セクション参照。
 
 ---
 
-## リポ状態 (2026-05-10)
+## リポ状態 (2026-05-10 夜)
 
-- main HEAD: `cea9ace` → 本セッション merge で更新予定
-- 適用済 migrations: …029 / 030 / 031 / 032 / 033 / 034 / **035 (scholar)** ← 本セッション追加
+- main HEAD: 本セッション merge で更新予定
+- 適用済 migrations: …035 (scholar、廃止前) → **036 (scholar_drop) / 037 (papers_log_quarterly) / 038 (triple_helix_loading)** ← 本セッション追加
 - GAS Web App deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` → `v1447`
-- PWA Vercel deploy: ✅ scholar 反映 deploy 予定 (`amd-os-pwa.vercel.app`)
+- PWA Vercel deploy: ✅ Triple Helix 観測モデル反映 deploy 予定 (`amd-os-pwa.vercel.app`)
 
 ---
 
