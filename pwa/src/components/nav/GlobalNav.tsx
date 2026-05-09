@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { fetchAtlasInboxCount } from "@/lib/supabase-data";
 import { fetchVcInboxCount } from "@/lib/vc-data";
+import { fetchSeedInboxCount } from "@/lib/seeds-data";
 
 interface GlobalNavProps {
   userCodeName?: string;
@@ -15,12 +16,14 @@ export function GlobalNav({ userCodeName }: GlobalNavProps) {
   const pathname = usePathname();
   const [inboxCount, setInboxCount] = useState(0);
   const [vcInboxCount, setVcInboxCount] = useState(0);
+  const [seedInboxCount, setSeedInboxCount] = useState(0);
 
   useEffect(() => {
     // Inboxバッジ: 15秒ごとにポーリング
     const load = () => {
       fetchAtlasInboxCount().then(setInboxCount);
       fetchVcInboxCount().then(setVcInboxCount);
+      fetchSeedInboxCount().then(setSeedInboxCount);
     };
     load();
     const timer = setInterval(load, 15000);
@@ -84,17 +87,22 @@ export function GlobalNav({ userCodeName }: GlobalNavProps) {
           Venture Map
         </Link>
 
-        {/* Seeds */}
+        {/* Seeds + 受信箱バッジ */}
         <Link
           href="/seeds"
           className={cn(
-            "text-xs px-2.5 py-1 rounded-md transition-colors",
+            "relative text-xs px-2.5 py-1 rounded-md transition-colors",
             pathname.startsWith("/seeds")
               ? "bg-accent text-accent-foreground font-medium"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
           Seeds
+          {seedInboxCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-sky-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+              {seedInboxCount > 99 ? "99+" : seedInboxCount}
+            </span>
+          )}
         </Link>
 
         {/* VC + 受信箱バッジ */}

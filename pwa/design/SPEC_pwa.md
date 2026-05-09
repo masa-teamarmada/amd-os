@@ -117,6 +117,7 @@ pwa/
 | `/vcs/inbox` | VC ニュース受信箱 (verify / dismiss / fundraise → ファンド情報反映)。詳細は [`vc_list.md`](vc_list.md) |
 | `/seeds` | 研究シーズリスト (大学・国研・高専のシーズ × AMD 視点の事業化適性)。検索/ファセット/ソート/モーダル詳細編集。詳細は [`seeds.md`](seeds.md) |
 | `/seeds/[id]` | シーズ詳細 (URL 直接アクセス用フォールバック)。リスト画面でのモーダルが正規 |
+| `/seeds/inbox` | Seeds 受信箱 (cron 自動収集分の未確認シーズ)。verify/dismiss で消化。GlobalNav に sky 色バッジ |
 
 ### API routes (`/api/`)
 
@@ -141,6 +142,7 @@ pwa/
 | `cron/macro-backfill-historical` | `0 3 * * 0` | 12:00 sun | 2010-2025 macro_index_log を Sonnet 推定で埋める |
 | `cron/amd-score-l2-refresh` | `0 18 * * 0` | 03:00 mon | 6 ソース (Slack/Drive/Notion/Gmail/Calendar/WebSearch) から AMD Score timeline を Sonnet 抽出 → amd_score_inputs に upsert (全 SU 系 PJ) |
 | `cron/vc-news-ingest` | `0 0 * * *` | 09:00 daily | VC ごとに直近7日のニュースを web_search で取得 → vc_news (verified=false)。fundraise/fund_close は suggested_fund_patch で fund 更新提案 |
+| `cron/seeds-ingest` | `0 0 * * 1` | 09:00 mon | GAP/NEP/AMED/D-Global/CREST/創発 等の直近採択を web_search で発見 → seeds (discovery_status='discovered')。/seeds/inbox に並ぶ、GlobalNav に未確認バッジ。詳細は [`seeds.md`](seeds.md) |
 
 認証: 全 cron route が `Authorization: Bearer ${CRON_SECRET}` を確認。`CRON_SECRET` 未設定なら処理スキップ。
 
