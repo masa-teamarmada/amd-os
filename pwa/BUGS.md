@@ -79,6 +79,41 @@
 
 ---
 
+### [GAS] member_knowledge 抽出で「きよ」に他人の活動が紐付くカオス (member_activities 列名 4 つ間違い)
+
+- **発見日**: 2026-05-09 (Phase 4 メンバーナレッジ稼働後、まさからの直接指摘)
+- **状態**: ✅ 解決済み (列名修正 + プロンプト強化 + 既存誤データ削除 + force 再抽出で確認)
+- **症状**: PWA `/notifications` で `👤 きよ のメンバーナレッジ更新 (3件)` を展開したら以下が抽出されていた:
+  - episodes: "NIMS 神谷氏との CEO 候補面談を調整、新メンバー末永氏のプロジェクト参画をサポート、プレシードからシリーズ A までの資金調達..."
+  - skills: "資金調達ラウンド別の財務モデル設計、ピッチデック準備、VC 関係構築..."
+  - work_style: "株主総会や資金調達に関する戦略的な打ち合わせに参加..."
+  - **きよ は経営戦略系の活動はしていない事務担当**。BWE (p11) や SX (p21) の会議で議論された他人の活動が「きよ自身の活動」として抽出されていた
+- **原因**:
+  - `gas/155_L2KnowledgeExtractor.js` の `nav_member_knowledge_extractOne_` で `member_activities` テーブルから select する際、列名を 4 つ間違えていた:
+    | 私が書いた | 実スキーマ |
+    |---|---|
+    | `code_name` | **`member_id`** |
+    | `created_at` | **`extracted_at`** |
+    | `activity_text` | **`content_preview`** (or `title`) |
+    | `kind` | **`source`** |
+  - PostgREST は存在しない列で filter すると `42703` エラーで返す → `actsRes.ok = false` → `acts = []` で進行
+  - 結果、本人の活動 0 件 + そのメンバーが PJ メンバーである **全 PJ の会議サマリ** だけが LLM 入力に
+  - きよ の場合 p10/p11/p20/p21 の 4 PJ の会議サマリ全部が入力になり、BWE 臨時株主総会 (= 神谷氏 / 末永氏の話) や SX) int-納品物相談 (= 資金調達ラウンド議論) を「きよの活動」として LLM が誤抽出
+  - 設計時に member_activities の実スキーマを確認せず、HANDOFF の文章 (「member_activities テーブル」) だけ見て想像で書いた
+- **解決策**:
+  1. **列名修正**: `member_id` / `extracted_at` / `title` / `content_preview` / `source` で select + filter に修正。memberId が無いケースは early return (= no_member_id action)
+  2. **プロンプト強化**: 入力テキストを `=== A) 本人の活動ログ ===` (= 自由抽出 OK) と `=== B) PJ 全体の会議サマリ ===` (= **本人が主体として明示されている事項のみ抽出**) で明確に分離。systemPrompt にも「セクション B は本人が主体とは限らない、確証なければ skip」と強調
+  3. **既存誤データ削除**: `member_knowledge WHERE source='l2_hourly_extract'` (12 行) + `l2_extract_state WHERE l2_kind='member_knowledge'` (13 行) + `l2_notifications WHERE l2_kind='member_knowledge'` (2 行) を全 DELETE → 次回 cron で fresh 再抽出
+  4. **検証**: きよ を `force=true` で 1 件再抽出 → 結果 `work_style: "愛媛大学との業務委託契約において、完了報告書や請求書の準備・送付など事務処理..."` (= きよの実業務として正しい)。skills/episodes が出ないのは「確証あるものだけ」の正しい挙動
+  5. GAS deploy v1436 (clasp deploy 実体は @1438)
+- **教訓**:
+  - **新規 cron 実装時は対象テーブルの実スキーマを必ず Supabase 直叩きで確認** (= 列名を想像で書かない)。`curl ".../rest/v1/<table>?limit=1"` で 1 行取れば全列名がわかる
+  - PostgREST の filter 不正列エラーは `.ok = false` で握り潰されると気づきにくい → 開発時は body を Logger.log するクセが欲しい
+  - LLM 抽出系では「**入力ソースの主体性**」が常に焦点。複数ソースを混ぜるなら「これは本人主体」「これは PJ 全体 (本人主体とは限らない)」と LLM に明示分離する
+  - フィードバック (l2_feedbacks) で個別に直すのではなく、**根本の入力ロジックを直す**ことが必要なケース (= まさの「ロジック見直して」が正解)
+
+---
+
 ### [GAS] Phase 4 完成時点で cron_invoiceSendNudge_ が 5 重複に増えてた (汎用 prune 関数を追加)
 
 - **発見日**: 2026-05-09 (Phase 4 ⑤④② 一括完了セッション)
