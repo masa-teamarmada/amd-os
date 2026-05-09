@@ -17,7 +17,8 @@
  */
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Grid, Line, Html, Sparkles, Stars, MeshDistortMaterial } from "@react-three/drei";
+import { OrbitControls, Grid, Line, Html, Sparkles, Stars } from "@react-three/drei";
+import { CrystalShaderBg } from "./CrystalShaderBg";
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from "@react-three/postprocessing";
 import { BlendFunction } from "postprocessing";
 import { Suspense, useMemo, useRef, useState } from "react";
@@ -472,133 +473,9 @@ function AxisLabels() {
   );
 }
 
-// ============================================================
-// CrystalOfData — 八面体クリスタル + 内部流体エネルギー + 中央オレンジライン
-//
-// Sabo Sugi "Crystal of Data" (codepen.io/sabosugi/full/LEbGORv) のテイストを R3F で近似:
-//   - 外殻: octahedron (上下に尖った菱形) を半透明 + wireframe で 2 重描画
-//   - 内部: 5 層の icosahedron + MeshDistortMaterial を別速度で重ねて流体的乱流を作る
-//   - 中央: 強発光オレンジコア + 横一文字エネルギーライン (Bloom で滲ませる)
-//   - 内部 sparkles + point light で奥行き感
-// ============================================================
-
-interface FluidLayer {
-  r: number;
-  distort: number;
-  speed: number;
-  color: string;
-  opacity: number;
-}
-
-const FLUID_LAYERS: FluidLayer[] = [
-  { r: 1.85, distort: 0.5, speed: 1.4, color: "#22d3ee", opacity: 0.16 },
-  { r: 1.55, distort: 0.7, speed: 2.0, color: "#0ea5e9", opacity: 0.20 },
-  { r: 1.25, distort: 0.65, speed: 2.6, color: "#3b82f6", opacity: 0.24 },
-  { r: 0.95, distort: 0.85, speed: 3.2, color: "#60a5fa", opacity: 0.30 },
-  { r: 0.65, distort: 0.6, speed: 3.8, color: "#93c5fd", opacity: 0.40 },
-];
-
-function FluidLayerMesh({ layer, index }: { layer: FluidLayer; index: number }) {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame(({ clock }) => {
-    if (!ref.current) return;
-    const t = clock.elapsedTime;
-    ref.current.rotation.x = t * (0.10 + index * 0.04);
-    ref.current.rotation.y = t * (0.08 - index * 0.03);
-    ref.current.rotation.z = t * (0.05 + index * 0.025);
-  });
-  return (
-    <mesh ref={ref}>
-      <icosahedronGeometry args={[layer.r, 6]} />
-      <MeshDistortMaterial
-        color={layer.color}
-        emissive={layer.color}
-        emissiveIntensity={1.5}
-        distort={layer.distort}
-        speed={layer.speed}
-        transparent
-        opacity={layer.opacity}
-        depthWrite={false}
-        metalness={0.2}
-        roughness={0.15}
-      />
-    </mesh>
-  );
-}
-
-function CrystalOfData() {
-  const octaWire = useRef<THREE.Mesh>(null);
-  const octaShell = useRef<THREE.Mesh>(null);
-  const energyLine = useRef<THREE.Mesh>(null);
-  const core = useRef<THREE.Mesh>(null);
-
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-    if (octaWire.current) {
-      octaWire.current.rotation.y = t * 0.15;
-      octaWire.current.rotation.x = Math.sin(t * 0.2) * 0.05;
-    }
-    if (octaShell.current) {
-      octaShell.current.rotation.y = t * 0.15;
-      octaShell.current.rotation.x = Math.sin(t * 0.2) * 0.05;
-    }
-    if (energyLine.current) {
-      const pulse = 1 + Math.sin(t * 3.5) * 0.18;
-      energyLine.current.scale.x = pulse;
-      const m = energyLine.current.material as THREE.MeshBasicMaterial;
-      m.opacity = 0.85 + Math.sin(t * 5) * 0.15;
-    }
-    if (core.current) {
-      const s = 1 + Math.sin(t * 4.5) * 0.2;
-      core.current.scale.setScalar(s);
-    }
-  });
-
-  return (
-    <group position={[WORLD / 2, WORLD / 2, WORLD / 2]}>
-      {/* 1. 外殻 octahedron solid (透明ガラス感) */}
-      <mesh ref={octaShell}>
-        <octahedronGeometry args={[2.5, 0]} />
-        <meshBasicMaterial
-          color="#0ea5e9"
-          transparent
-          opacity={0.04}
-          side={THREE.DoubleSide}
-          depthWrite={false}
-        />
-      </mesh>
-      {/* 2. 外殻 wireframe (edge を強調) */}
-      <mesh ref={octaWire}>
-        <octahedronGeometry args={[2.5, 0]} />
-        <meshBasicMaterial color="#22d3ee" wireframe transparent opacity={0.7} />
-      </mesh>
-      {/* 3. 内部の流体レイヤー (5 層) */}
-      {FLUID_LAYERS.map((l, i) => (
-        <FluidLayerMesh key={i} layer={l} index={i} />
-      ))}
-      {/* 4. 横一文字のエネルギーライン (Crystal of Data 特徴) */}
-      <mesh ref={energyLine}>
-        <boxGeometry args={[5.5, 0.05, 0.05]} />
-        <meshBasicMaterial color="#fef3c7" toneMapped={false} />
-      </mesh>
-      {/* 5. 中央の小さなオレンジコア */}
-      <mesh ref={core}>
-        <sphereGeometry args={[0.18, 16, 16]} />
-        <meshBasicMaterial color="#fb923c" toneMapped={false} />
-      </mesh>
-      <mesh>
-        <sphereGeometry args={[0.4, 16, 16]} />
-        <meshBasicMaterial color="#fb923c" transparent opacity={0.18} depthWrite={false} />
-      </mesh>
-      {/* 6. 内部 sparkles (粒子の流れ) */}
-      <Sparkles count={70} scale={[3.5, 4.5, 3.5]} size={2.5} speed={0.6} color="#22d3ee" opacity={0.9} />
-      <Sparkles count={20} scale={[2.0, 2.0, 2.0]} size={3} speed={0.4} color="#fb923c" opacity={0.9} />
-      {/* 7. 内部光源 */}
-      <pointLight color="#22d3ee" intensity={2.4} distance={12} decay={2} />
-      <pointLight color="#fb923c" intensity={1.6} distance={5} decay={2} />
-    </group>
-  );
-}
+// CrystalOfData (icosahedron 流体近似版) は Sabo Sugi 本物の raymarching shader
+// (CrystalShaderBg コンポーネント、別ファイル) に置き換え済み。
+// 背景レイヤー (CSS absolute, z=0) として CyberspaceView 直下にレンダリングされる。
 
 function BoundingBox() {
   const verts: [number, number, number][] = [
@@ -646,7 +523,8 @@ function Scene({
 }) {
   return (
     <>
-      <color attach="background" args={["#02030a"]} />
+      {/* 背景は外側の CrystalShaderBg (raymarching shader, alpha 透過) に任せる。
+          Canvas の clearColor は 0x000000 透過 (gl.alpha=true) */}
       <fog attach="fog" args={["#02030a", 30, 80]} />
       <ambientLight intensity={0.4} />
       <pointLight position={[18, 18, 18]} intensity={1.2} color="#22d3ee" />
@@ -681,7 +559,6 @@ function Scene({
         followCamera={false}
       />
       <AxisLabels />
-      <CrystalOfData />
       {ISO_SHELLS.map((s) => (
         <IsoShell
           key={s.score}
@@ -1090,13 +967,24 @@ export function CyberspaceView({ ventures, inputs, alpha }: Props) {
         position: "relative",
         width: "100%",
         height: "calc(100vh - 64px)",
-        background: "#04060d",
+        background: "#000000",
         overflow: "hidden",
       }}
     >
+      {/* 背景: Sabo Sugi raymarching shader (透過 canvas, z=0) */}
+      <CrystalShaderBg
+        rotationSpeed={0.25}
+        shapeStretch={0.65}
+        shapeSize={2.7}
+        plasmaDensity={0.05}
+        plasmaColor={0xb8d4ff}
+        frameColor={0xeef1ff}
+        opacity={0.85}
+      />
       <Canvas
+        style={{ position: "absolute", inset: 0, zIndex: 1 }}
         camera={{ position: PRESET_CAM[preset], fov: 50, near: 0.1, far: 200 }}
-        gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+        gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       >
         <Suspense fallback={null}>
           <Scene
