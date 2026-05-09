@@ -1433,3 +1433,60 @@ Phase 4 の 4 L2 (③⑤④②) の通知系統を聞かれて「現状なし、
 - AMDプロトコル UI に「candidate → confirmed 昇格」ボタン追加 (= PWA `AdminProtocolsClient.tsx` または iOS Features/Admin に追加)
 - xcodegen を入れて Models / Service を別ファイルに切り出す (整理性回復)
 - 通知の集約方針 (importance=1 をリアルタイム or 日次まとめ) をまさと相談
+
+---
+
+## 2026-05-09 (続々々々) — 修正依頼ループ (l2_feedbacks) PWA 側実装 (quirky-moore-b60501 セッション継続)
+
+### 着手の背景
+
+iOS 通知が降ってきた直後、まさから:
+> 「BWE の総会の議事録きたけど、BWE じゃなくて CX の神谷さんが登場する内容になってたりしてカオスだから、それをつくよみに伝えて修正できるようにしてほしい。PWA 側でも同様に通知の内容をチェックできるようにしてほしい。PWA 側でのチェックを先に実装して！」
+
+= 通知の誤抽出を直接 LLM 抽出 cron に伝える仕組みが必要。**PWA 側を先に実装**。
+
+### 設計判断
+
+**新規 `l2_feedbacks` テーブル (migration 032)** を作って、既存 tsukuyomi_learnings / ms_progress_revisions とは独立に持つ:
+- 既存の tsukuyomi 系は ms_progress 専用に密に絡んでて流用しづらい
+- `l2_feedbacks` は L2 全種 (member/project/protocols/ms_progress/meeting_summary) で統一して使えるシンプル設計
+- (l2_kind, target_id, scope_key) で対応 cron が引ける + scope_key='global' で全 ym 共通の指摘も書ける
+
+**LLM プロンプトに「過去のフィードバック」セクションを末尾追加**:
+- userPrompt 末尾に block を append (= 既存挙動を壊さない)
+- "=== 過去のユーザーフィードバック (重要・必ず反映すること) ===" のラベルで明示
+- 最大 10 件まで (= プロンプト膨張防止)
+- saved>0 時に applied_count++
+
+### 主な変更
+
+**Supabase**:
+- `pwa/scripts/migrations/032_l2_feedbacks.sql` 新規 + 適用
+
+**PWA**:
+- `pwa/src/app/(app)/notifications/page.tsx` 新規 (Server)
+- `pwa/src/components/notifications/NotificationsClient.tsx` 新規 (Client UI)
+- `pwa/src/app/api/notifications/feedback/route.ts` 新規 (POST)
+
+**GAS**:
+- `gas/155_L2KnowledgeExtractor.js`:
+  - `_l2_loadFeedbackBlock_` / `_l2_recordFeedbackApplied_` 追加
+  - 3 extractor の userPrompt 末尾に feedback ブロック追加 + saved>0 時に applied 記録
+- deploy v1435
+
+**仕様 md**:
+- `pwa/design/notifications.md` 新規
+- `pwa/design/L2_DATA.md` 改訂履歴 / `pwa/HANDOFF_pwa_rebuild.md` 最終更新を追記
+
+### 動作確認
+
+- migration 032 適用 OK
+- TS check exit 0
+- GAS deploy v1435
+- Vercel deploy 進行中 → まさが `/notifications` で実機確認 (本セッション内)
+
+### 次セッションへ
+
+- iOS 側通知タップ → `/notifications#<notification_id>` (or ネイティブ画面) へ遷移
+- gas/074 (MTGサマリ) と pwa progress-estimator (③ MS進捗) にも feedback ブロック追加
+- l2_feedbacks の archive UI
