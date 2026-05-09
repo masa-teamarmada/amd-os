@@ -1585,3 +1585,118 @@ iOS 通知が降ってきた直後、まさから:
 ### 次セッションへ (本ハンドオフ Step 7)
 
 [`pwa/HANDOFF_pwa_rebuild.md`](../HANDOFF_pwa_rebuild.md) と [`pwa/design/L2_DATA.md`](../design/L2_DATA.md) の改訂履歴に最新状態を反映済。残タスクは HANDOFF 参照。
+
+---
+
+## 2026-05-09 〜 10 — AMD Score 詳細ページ全面改修 + Tsukuyomi 連携 + SIP 定義 embed (elegant-swanson-7a0123)
+
+まさフィードバック多数を 1 セッションで連続反映。AMD Score の数式表示・律速判定・FRL 内訳・UI レイアウト・α 編集導線を全面再設計。
+
+### 主要変更 (時系列)
+
+1. **数式の表示構造を「3 大要素 (M × X × F)」に**
+   - 全体式: `S = K · M · X · F` → `K` は単独の校正定数 (大文字 → 小文字 k に変更で「定数感」を出す)
+   - M = (σ_SU+1)^α_σ (マクロ、Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
+   - X = ∏(x+1)^α_x for {TRL,BRL,GRL,SRL,HRL} (会社に帰属する 5 軸 readiness)
+   - F = (FRL+1)^α_F (CEO に帰属、6 因子拡張)
+   - まさ言語化: 「マクロトレンドの流れがあって、会社の XRL が整っていて、それを FRL 高い CEO が牽引する」
+
+2. **律速判定を `argmax(α_i / (X_i+1))` に修正** (BUGS.md 参照)
+   - Cobb-Douglas 偏微分 `∂S/∂X_i = α_i · S / (X_i+1)` から導出
+   - 旧 `argmin(contribution share)` は α 小さい軸が常に律速になる退化
+   - 理論ファイル `before-zero/theory/amd_score.md` に §6.6 新規追加
+
+3. **FRL 6 因子拡張** (まさ実務直感 = ALQ で足りない 2 因子を学術ベースで追加)
+   - ALQ 4 次元 (Walumbwa et al. 2008) はオーセンティシティ特化、起業文脈の Grit/Resilience は別軸
+   - **Grit** (Duckworth, Peterson, Matthews & Kelly 2007 JPSP): 長期目標への passion + perseverance、脇目を振らない集中力
+   - **Resilience** (Markman, Baron & Balkin 2005 JOB): VC 拒絶等の失敗からの回復力、タフさ
+   - migration `031_amd_score_frl_grit_resilience` で `frl_grit` `frl_resilience` REAL 列追加 (本番適用済)
+   - 計算式: `FRL = 0.6·ALQ_4_avg + 0.2·Grit + 0.2·Resilience`
+   - 理論ファイル §3.F.5 新規追加
+
+4. **詳細ページ全面改修** (`AmdScoreView.tsx`)
+   - 旧: ScoreHero / RadarChart / ContributionTable / TimeSeries / InputEditor / FrlAlqPanel / AlphaSidebar
+   - 新: ScoreHero / **BalanceBar** / **FormulaPanel** / **Factor3Breakdown** / TimeSeries / FrlAlqPanel
+   - **RadarChart 削除**: 寄与度シェアは α が大きい軸 (σ_SU/HRL/FRL) ばかり高くなる構造的偏りで情報量低い
+   - **ContributionTable 削除**: Factor3Breakdown で同等以上を提供
+   - **InputEditor 削除**: 「人が入力する UI は使われない」(まさ判断) → Tsukuyomi 経由に転換
+   - **AlphaSidebar 削除**: α は重要パラメータで日常 UI に出さない、retrofit 別ページへ移設
+   - **BalanceBar 新設**: 3 要素を「全軸 9 (= IPO 級) max に対する達成率」で水平バー表示。M_max=10^α_σ ≈ 19.95 / X_max=10^Σα_X ≈ 1585 / F_max=10^α_F ≈ 31.62。各要素を独立に「埋まり具合」で見せるので α 偏りが消える
+   - **FormulaPanel 新設**: 全体式 + 3 要素式 + 律速の経済学的根拠 + 各式の引用文献 (Cobb & Douglas 1928 / Etzkowitz & Leydesdorff 2000 / Mankins 1995 / 内閣府 SIP / EU H2020 / Bernstein 2017 / Walumbwa 2008 / Duckworth 2007 / Markman 2005 / Hsu 2007)
+   - **Factor3Breakdown 新設**: 3 要素カード (M/X/F) で内訳 + notes を subtitle 表示
+
+5. **スコア入力 UI 廃止 + Tsukuyomi 軸クリック連携**
+   - 各軸 (μ_A/I/G、TRL/BRL/GRL/SRL/HRL、FRL、ALQ 4、Grit、Resilience、自由備考) を `<button onClick>` で clickable に
+   - クリック → `window.dispatchEvent("tsukuyomi:open", { detail: { message } })` を発火
+   - `Mascot.tsx` に listener: drawer open + localStorage に prefill 保存
+   - `TsukuyomiChatDrawer.tsx` にマウント時 localStorage 読み込み + `"tsukuyomi:prefill"` event listener
+   - prefill template:
+     ```
+     PJ {ventureName} の {fieldName} = {currentValue} の評価を見直したい。
+     現在の根拠: {currentNote or "（未入力）"}
+
+     （私のコメント: 例「論文 N 件しかないから 5 にして」「もう少し根拠を詳しく」など）
+     ```
+   - まさが自然言語で修正依頼 → Tsukuyomi が `update_amd_score_input` tool で値+notes upsert → ページリロードで反映
+
+6. **α 編集 retrofit ページ新設**
+   - `/venture-map/amd-score/retrofit` (タブバー非表示、詳細ページからリンクのみ)
+   - 左 sticky の α slider 7 個 (0-2.0、0.05 刻み)、現役/default との差分表示
+   - 右に全 PJ × [現行 α score / 新 α score / 差分%] の表 (新 α 順)
+   - α 動かすと表がリアルタイム更新 → retrofit 検証可能
+   - 詳細ページに「α 重みを retrofit で調整 →」ヘッダリンク
+
+7. **各軸の評価根拠 (notes) 機能** (migration 030 + UI 連携)
+   - migration `030_amd_score_axis_notes` で `mu_notes` (JSONB: a/i/g) と `xrl_notes` (JSONB: trl/brl/grl/srl/hrl) 追加 (本番適用済)
+   - データ層 (`amd-score-data.ts`) に `MuNotes` `XrlNotes` 型 + I/O 同期
+   - Tsukuyomi tool に各 notes パラメータ追加 (`mu_notes_a/i/g`, `xrl_notes_trl/brl/grl/srl/hrl`)
+
+8. **根拠 fallback 連鎖 (atlas_signals / project_xrl_log 引用)**
+   - **XRL fallback 順**: `amd_score_inputs.xrl_notes.{axis}` → `project_xrl_log.source_note` を JSON parse して `{axis}_reason` 抽出 → 「根拠仮置き」(slate-400 で薄く表示)
+   - **μ_I/μ_G fallback 順**: `amd_score_inputs.mu_notes.{i|g}` → **`atlas_signals` (domain 分類で μ_G ← {A,B} / μ_I ← {C,D,E,F,G,H,I,J,K,N,O})** → 「仮置き」
+   - **μ_A**: 仮置きのみ (atlas_signals に学術 domain なし、次セッションで論文 DB)
+   - **FRL**: `amd_score_inputs.frl_notes` → 「仮置き」
+   - 新規 `pwa/src/lib/atlas-macro-signals.ts`: `fetchAtlasMacroSignals(limit)` 関数
+   - `XrlLogRow` に `source_note` 列追加、`fetchXrlLog` SELECT 同期
+
+9. **フェーズタブ非表示** (検証データ蓄積後復活)
+   - `AmdScoreView` / `AmdScoreList` (フィルタ含む) / `CockpitVentureStatus` (チップ) / `CockpitAmdScoreBreakdownModal` 全削除
+   - `classifyPhase` / `PHASE_LABEL_JP` 自体は LLM context 内部利用で残す (Tsukuyomi route.ts で参照)
+
+10. **TRL 値乖離バグ修正** (BUGS.md 参照): `evaluated_at <= today` で latest フィルタ。
+
+11. **Tsukuyomi tool に内閣府 SIP 9 段階定義 embed**
+    - `update_amd_score_input` description を大幅拡張 (TRL/BRL/GRL/SRL/HRL の各 9 段階を文章化)
+    - 「値が SIP 段階定義と整合してるか自問してから upsert」を必須運用に明記
+    - これで LLM が値を選ぶときに SIP 定義に沿うことを期待
+
+### 設計判断ログ (試行錯誤を含む)
+
+- **k = ∛K 三乗根分配を撤回**: 「全体式から K を消して 3 大要素にする」案で `k = K^(1/3)` で対称分配を提案 → まさが「美しくない (各要素 max が非対称)」と否定 → `S = K · M · X · F` に戻して `K → k` 小文字化だけで「定数感」を出す方式に着地。
+  - **教訓**: 数学的恣意性を「見栄え」のために導入しない。`memory/feedback_question_own_proposals.md` に保存
+- **「人が入力する UI は使われない」**: スライダーぽちぽち入力 UI を完全廃止 (まさ判断)。AMD OS 全体の方針として、値の更新は Tsukuyomi の自然言語経由に統一する流れ
+- **2 大要素 → 3 大要素**: 当初「マクロ × XRL の 2 大要素」で提案 → まさが理論ファイル §5 の哲学 (FRL/σ_SU が 2 大支柱) を踏まえ「マクロ × 会社 XRL × CEO FRL の 3 大要素」に変更。ロジック歪み (FRL を XRL の積に呑み込んだ) を訂正
+- **Atlas 連携の段階的アプローチ**: 当初 μ_I/μ_G のみ atlas_signals 連携、μ_A は次セッションで論文 DB を別途構築する方針
+- **フェーズタブ精度不足**: 「設立GO」「スケール期」分類は実証データ少なく精度低い → 全 UI から非表示、検証データが揃うまで保留
+
+### 関連 commit (worktree branch `claude/elegant-swanson-7a0123`)
+
+- 詳細は `git log claude/elegant-swanson-7a0123` 参照。最終 main HEAD は `cea9ace` で merge 済
+- migration: `030_amd_score_axis_notes.sql` / `031_amd_score_frl_grit_resilience.sql` (本番適用済)
+- 別セッション (quirky-moore-b60501) も同番号 030/031/032 で別ファイル投入済 (l2_extract_state / l2_notifications / l2_feedbacks)。番号衝突は名前識別で問題なし、apply_ddl はファイル名ベース
+
+### 次セッション必須: μ_A (学術) の根拠 DB 構築
+
+`atlas_signals` には学術専用 domain がなく μ_A の根拠を Atlas からは拾えない。設計案:
+- Crossref / Semantic Scholar / 科研費 KAKEN API / NEDO 採択リスト / SIP 採択 / JST 採択リスト 取り込み
+- 新規 `atlas_papers` (or 同等) テーブルを migration で作成
+- 取り込み cron (PWA `cron/atlas-papers-ingest` or GAS) を Phase 4 と同じ枠組みで
+- `pwa/src/lib/atlas-macro-signals.ts` の `fetchAtlasMacroSignals` を拡張して `mu_a: AtlasPaperShort[]` を返す
+- `AmdScoreView` の μ_A 行 fallback を「atlas_papers の最新 N 件」を使うように更新
+- PJ.lane との紐付け: keyword / suggested_tags 経由で
+- 仕様: `pwa/design/amd_score.md` 末尾の「次セッション TODO」参照
+
+### 教訓 (memory / BUGS に保存済)
+
+- BUGS: `bottleneck argmin(share)` 退化 / amd_score_inputs に未来 retrofit seed の罠
+- memory: `feedback_question_own_proposals.md` (恣意的な数学操作を提案しない、まさの違和感シグナルで立ち止まる) / `feedback_read_full_theory_md.md` (正本 theory md を全文 Read してから動く)

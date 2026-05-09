@@ -5,6 +5,35 @@
 
 ---
 
+### [AMD OS PWA] AMD Score 律速判定が α 小さい軸を常に選ぶ退化バグ
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み
+- **症状**: AMD Score 詳細ページ・モーダルでどの PJ も律速軸が **SRL** にマークされていた。SRL は default で α=0.2 (最小)。
+- **原因**: `pwa/src/lib/amd-score.ts` の `calculateAmdScore` で `bottleneck = argmin(contributionShares[axis])` としていた。寄与シェア = `α_i · log(X_i + 1) / Σ` なので、**α が小さい軸ほど share も小さい** → α が小さい軸が常に律速になる。値 X が低いから律速ではなく、重み α が小さいから律速、という退化した定義だった。
+- **解決策**: Cobb-Douglas の偏微分から `∂S/∂X_i = α_i · S / (X_i + 1)` なので、`bottleneck = argmax_i α_i / (X_i + 1)` に修正。重み α が大きいのに値 X が低い軸 = 限界収益最大 = 経営アクションで最初に手当てすべき軸。
+- **教訓**: 「律速」「ボトルネック」「rate-limiting」のような経済概念を実装するときは、原典の偏微分定義 (Cobb-Douglas なら `∂S/∂X_i`) から逆算する。シェアや寄与度から argmin/argmax を雑に取ると退化する可能性。理論ファイル `before-zero/theory/amd_score.md` §6.6 を新規追加して Cobb & Douglas (1928) の引用つきで定義した。
+
+---
+
+### [AMD OS PWA] amd_score_inputs に未来 retrofit seed が入って「最新」が未来評価になる罠
+- **発見日**: 2026-05-09
+- **状態**: ✅ 解決済み
+- **症状**: SX (p21) の AMD Score 詳細ページで TRL=6 と表示してるのに subtitle 引用 (project_xrl_log) は「TRL4 が維持」と矛盾。CX (p20) も同様。
+- **原因**: `amd_score_inputs` テーブルに retrofit 用の **未来予想 (2027-04, 2027-05, 2028-09 等)** seed が入っていた (理論検証用、Phase D セッションで投入)。`AmdScoreView` で `inputs[inputs.length - 1]` を「最新」として取ると、未来評価が選ばれる。一方 `project_xrl_log` の現在観測は 2026-05 時点なので、両者がミスマッチ。
+- **解決策**: `evaluated_at <= today` でフィルタしてから最新を取る。経時グラフは全期間表示維持。
+  ```ts
+  const today = new Date().toISOString().slice(0, 10);
+  const latest = (() => {
+    for (let i = inputs.length - 1; i >= 0; i--) {
+      if (inputs[i].evaluated_at.slice(0, 10) <= today) return inputs[i];
+    }
+    return null;
+  })();
+  ```
+- **教訓**: retrofit / シミュレーション用の **未来データ** を本番テーブルに seed する場合、「最新」を取るロジックは **現在時刻でフィルタする必要がある**。同様の罠は他のテーブル (project_events, l2_extract_state 等) にも潜在。今後 `evaluated_at` / `observed_at` を持つテーブルで latest を取るときは today filter を意識する。
+
+---
+
 ## フォーマット
 
 ```

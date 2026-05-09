@@ -6,6 +6,7 @@
 - ⭐⭐⭐ **AMD OS 中核データ正本** → [`design/L2_DATA.md`](design/L2_DATA.md) (L2 6 種 + cron + 動作状況)
 - ⭐⭐ **DB スキーマ正本** → [`design/db_schema.md`](design/db_schema.md) (列名は必ずここを grep、想像で書かない)
 - 仕様 → [`design/SPEC_pwa.md`](design/SPEC_pwa.md) ([`design/README.md`](design/README.md) が入口)
+- AMD Score 仕様 → [`design/amd_score.md`](design/amd_score.md)
 - バグ・教訓 → [`BUGS.md`](BUGS.md)
 - 過去セッションの作業ログ → [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md)
 - 共通運用ルール → リポ root `CLAUDE.md`、PWA 確認方針 → [`AGENTS.md`](AGENTS.md)
@@ -14,63 +15,43 @@
 
 ## 最終更新
 
-2026-05-09 — 同日に **2 つのセッションが並行** (両方 main にマージ済):
+2026-05-09 〜 10 (elegant-swanson-7a0123) — **AMD Score 詳細ページ全面改修 + Tsukuyomi 連携 + 内閣府 SIP 定義 embed**。
 
-### A. AMD Score 詳細ページ全面改修 (elegant-swanson-7a0123)
+### 本セッションの主要成果
 
-- 律速判定を `argmax(α_i / (X_i+1))` に修正 (旧 `argmin(share)` だと SRL が常に律速になる退化バグ)
-- FRL を 6 因子拡張 (ALQ 4 + Grit Duckworth 2007 + Resilience Markman 2005)、theory `amd_score.md` §3.F.5 + Changelog 同期
-- 詳細ページ = ScoreHero / BalanceBar / FormulaPanel(引用文献つき) / Factor3Breakdown / TimeSeries / FrlAlqPanel
-- スコア入力 UI (slider) を**完全廃止** → 各軸クリックで Tsukuyomi drawer 起動 + prefill ("tsukuyomi:open" / "tsukuyomi:prefill" window event)
-- α 編集を `/venture-map/amd-score/retrofit` 別ページに移設 (タブバー非表示、詳細から link、全 PJ シミュレーション)
-- 「最新評価」を `evaluated_at <= today` でフィルタ (未来 retrofit 値が出ないように)
-- XRL の根拠 fallback: `amd_score_inputs.xrl_notes` → `project_xrl_log.source_note` の `{axis}_reason` (JSON parse) → 「根拠仮置き」
-- μ_I / μ_G の根拠 fallback: `amd_score_inputs.mu_notes` → `atlas_signals` (domain 分類 = G:A,B / I:C-K,N,O) → 「仮置き」
-- Tsukuyomi `update_amd_score_input` tool に内閣府 SIP 9 段階定義を embed (TRL/BRL/GRL/SRL/HRL の各 level 説明)
-- 関連 migration: `030_amd_score_axis_notes` (mu_notes/xrl_notes JSONB) / `031_amd_score_frl_grit_resilience` (frl_grit/frl_resilience REAL)、本番適用済 (※同番号で別ファイルが quirky-moore 側にある: `030_l2_extract_state` 等。番号衝突は名前識別で問題なし)
+- **律速判定ロジック修正**: `argmin(share)` → `argmax(α/(X+1))` (Cobb-Douglas 偏微分根拠)。詳細は [`BUGS.md`](BUGS.md) の該当エントリ
+- **FRL 6 因子拡張**: ALQ 4 + Grit (Duckworth 2007) + Resilience (Markman 2005)。migration 031 / theory `amd_score.md` §3.F.5
+- **詳細ページ全面改修**: ScoreHero / BalanceBar / FormulaPanel(引用文献つき) / Factor3Breakdown / TimeSeries / FrlAlqPanel
+- **スコア入力 UI 完全廃止 → Tsukuyomi 軸クリック連携**: `window.dispatchEvent("tsukuyomi:open", { detail: { message } })` で drawer 起動 + prefill
+- **α 編集を `/venture-map/amd-score/retrofit` 別ページに移設** (タブバー非表示、詳細から link、全 PJ シミュレーション)
+- **「最新評価」を `evaluated_at <= today` でフィルタ** (BUGS.md 参照: 未来 retrofit seed が latest になる罠)
+- **根拠 fallback**: XRL は `xrl_notes` → `project_xrl_log.source_note` の `{axis}_reason` JSON parse → 仮置き / μ_I/μ_G は `mu_notes` → `atlas_signals` (domain 分類) → 仮置き
+- **Tsukuyomi tool に内閣府 SIP 9 段階定義 embed**: TRL/BRL/GRL/SRL/HRL の各 level 文章を `update_amd_score_input` description に
+- migration: `030_amd_score_axis_notes` / `031_amd_score_frl_grit_resilience` 本番適用済 (※同番号で別ファイルが quirky-moore 側にある: `030_l2_extract_state` 等。ファイル名識別なので衝突なし)
+- 詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾エントリ
 
-#### ⚠️ 次セッション必須: μ_A (学術) の根拠データ DB 構築
+### ⚠️ 次セッション必須: μ_A (学術) の根拠データ DB 構築
 
 `atlas_signals` には学術専用 domain がなく、μ_A の根拠を Atlas からは拾えない。次セッションで:
 
-- 論文 DB 構築 (Crossref API + 該当 lane キーワードで論文 metadata 取得)
-- 研究費データ取り込み (科研費 / NEDO / SIP / JST 採択リスト)
+- 論文 DB 構築 (Crossref / Semantic Scholar API + 該当 lane キーワードで論文 metadata 取得)
+- 研究費データ取り込み (科研費 KAKEN API / NEDO / SIP / JST 採択リスト)
 - 論文 / 特許 / 学会発表の時系列カウント → μ_A の数値根拠
 - `atlas_papers` (or 同等) テーブル新設、`fetchAtlasMacroSignals` を拡張して `mu_a` 配列を返す
 - `AmdScoreView` の μ_A 行 fallback を「atlas_papers の最新 N 件」を使うように更新
 
-現状は μ_A subtitle に "Atlas に学術 domain 未対応 — 論文 DB 連携は今後" と明記済。
+現状 μ_A subtitle は "Atlas に学術 domain 未対応 — 論文 DB 連携は今後" の仮置き。
 
-仕様: [`design/amd_score.md`](design/amd_score.md) を本セッションで全面更新済。
-
-### B. Phase 4 全 4 L2 + 通知 UI + 修正依頼ループ + Notion AI 議事録対応 + 名前正規化 + DB schema reference 自動生成 + 多数のバグ修正 (quirky-moore-b60501、長時間)
-
-詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾エントリ群。
-
-### 本セッションの主要成果
-
-1. **Phase 4 全 4 L2 (③⑤④②) 抽出 cron** 完成 — GAS 155 + PWA progress-estimator + GAS 154 (Vercel Hobby cron 制約の回避策で curl)
-2. **Swift APNs 通知** 実装 (= iOS AMDOSApp.swift NotificationService 完成、masaiPhone install/launch 確認済)
-3. **PWA `/notifications` 画面** 新規 (一覧 + 元データ展開 + 修正依頼フォーム)、ヘッダー 📬 ベル + Dashboard 通知バナー
-4. **修正依頼ループ (l2_feedbacks)** — POST 直後に **即 force 再抽出を fire-and-forget**、`applied_count` で反映状況可視化
-5. **Notion AI 議事録ページ対応** (gas/074): `transcription` block 内 `summary_block_id` を再帰取得して BWE 株主総会 採決まで完全抽出成功
-6. **名前正規化マップ** (gas/079): `members.member_name` から動的生成、「山田氏=りょー」「山地=まさ」「chiko=ちこ」等
-7. **DB schema reference 自動生成** (`pwa/design/db_schema.md`、88 テーブル/948 列、`scripts/dump_schema.py`)
-8. **Notion 議事録 cron 停止** (= 1 会議 2 ページ生成事故対応、AI 一本化)
-9. **既読折りたたみ + 即既読化 UI** (= 開いた瞬間 notified_at = now() PATCH、グループ分けは server 値固定)
-10. **多数のバグ修正** (member_activities 列名 4 つ間違い / monthly_reports 他 PJ 内容汚染 防御 / Vercel Hobby cron 制約回避 / GAS time-trigger 上限整理)
+仕様: [`design/amd_score.md`](design/amd_score.md) 末尾「次セッション TODO」参照。
 
 ---
 
-## リポ状態
+## リポ状態 (2026-05-10)
 
-- 作業 worktree: `/Users/masa/projects/AMD/amd-os/.claude/worktrees/quirky-moore-b60501`
-- 作業 branch: `claude/quirky-moore-b60501`
-- main HEAD: **`a0db8c1`** (PJナレッジ汚染防御 + p10/202604 修復)
-- 適用済 migrations: …028 / **029 (progress_estimate_state)** / **030 (l2_extract_state)** / **031 (l2_notifications)** / **032 (l2_feedbacks)**
-- GAS Web App deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` → **v1447** (`v1447_pj_meta_strict_invalid_filter`)
-- PWA Vercel deploy: ✅ 直近完了 (`amd-os-pwa.vercel.app`)
-- 設置済 GAS trigger 17 個 (= MTGサマリ毎時 / Phase 4 ⑤④② 毎時 3 個 / PWA 毎時 ping / その他 既存)
+- main HEAD: `cea9ace` (Merge `claude/elegant-swanson-7a0123` で AMD Score 改修まで反映)
+- 適用済 migrations: …029 / **030 (l2_extract_state)** + **030 (amd_score_axis_notes)** / **031 (l2_notifications)** + **031 (amd_score_frl_grit_resilience)** / **032 (l2_feedbacks)** ← 同番号で別ファイル名、apply_ddl はファイル名識別
+- GAS Web App deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` → `v1447`
+- PWA Vercel deploy: ✅ 直近完了 (`amd-os-pwa.vercel.app`、AMD Score 改修反映済)
 
 ---
 
@@ -79,11 +60,11 @@
 | L2 | 状態 |
 |---|---|
 | ① monthly report | ✅ R313 (AMD-Report GAS, 別 clasp、05:00 daily) |
-| ② **AMDプロトコル** | ✅ **Phase 4 稼働** GAS 155 `nav_protocol_pollAll` 毎時 |
-| ③ MS進捗 | ✅ **Phase 4 稼働** GAS 154 → PWA `cron/hourly-estimate` 毎時 |
-| ④ PJナレッジ | ✅ **Phase 4 稼働** GAS 155 `nav_project_knowledge_pollAll` 毎時 (汚染防御 v4_meta_strict) |
-| ⑤ メンバーナレッジ | ✅ **Phase 4 稼働** GAS 155 `nav_member_knowledge_pollAll` 毎時 (役割分担統合) |
-| ⑥ MTGサマリ | ✅ **Phase 4 稼働** GAS 153 毎時 polling + AI 議事録対応 + alias + feedback |
+| ② AMDプロトコル | ✅ Phase 4 稼働 GAS 155 `nav_protocol_pollAll` 毎時 |
+| ③ MS進捗 | ✅ Phase 4 稼働 GAS 154 → PWA `cron/hourly-estimate` 毎時 |
+| ④ PJナレッジ | ✅ Phase 4 稼働 GAS 155 `nav_project_knowledge_pollAll` 毎時 |
+| ⑤ メンバーナレッジ | ✅ Phase 4 稼働 GAS 155 `nav_member_knowledge_pollAll` 毎時 |
+| ⑥ MTGサマリ | ✅ Phase 4 稼働 GAS 153 毎時 polling + AI 議事録対応 + alias + feedback |
 
 通知: ⑥ → `meeting_notifications`、③⑤④② → `l2_notifications`、両方 Swift APNs 受信実装済 (= masaiPhone)。
 
@@ -91,42 +72,39 @@
 
 ## 残タスク (次セッションで対応)
 
-### 高優先
+### 高優先 (次セッションのメインタスク)
 
-1. **データ汚染検出 + 上流修正**:
-   - 全 monthly_reports 汚染検出関数 (= projectName と無関係キーワード混入を測る)。`p10/202604` (CX 内容で SE PJ に保存) のような他事故も見つける
-   - 汚染源 (AMD-Report GAS R313 / MMO マシンの Claude Code scheduled task / 手動投入) の調査と修正 ← **本リポ外なので別環境で**
-2. **iOS Swift 通知タップ → 該当画面へ navigation**:
-   - 当面 print のみ。l2_kind 別 (member_knowledge → メンバー詳細 / project_knowledge → cockpit / protocols → /admin/protocols / ms_progress → cockpit)
-   - ios/HANDOFF_l2_notifications.md 参照
+1. **μ_A 論文 DB 構築** (上記「⚠️ 次セッション必須」参照)
 
-### 中優先
+### 中優先 (前セッションから継続)
 
-3. **AMDプロトコル UI に candidate → confirmed 昇格ボタン**: 現状 status='candidate' で蓄積されるが UI 上で確定昇格できない
-4. **Phase 4.x = 5 生データ直結**:
-   - ⑤ メンバーナレッジを Slack 個人 DM / mention search から直接抽出
-   - ④ PJナレッジを Notion 経営戦略 page / Slack channel から直接抽出
-5. **xcodegen 入れて iOS の Models/Service 別ファイル化** (= 現状 AMDOSApp.swift に同梱)
-6. **MTGサマリ Phase 2.5: AMD-Report GAS R313 を会議サマリ集約方式に書き換え** (別 clasp、別セッション)
-7. **本体GAS `cron_invoiceSendNudge_` 重複生成元の特定** (= grep で `newTrigger("cron_invoiceSendNudge_"` を find → 既存 delete を入れる)
-8. **l2_feedbacks の archive UI** (古い指摘を archive)
+2. **データ汚染検出 + 上流修正**: 全 monthly_reports 汚染検出関数。汚染源 (AMD-Report GAS R313 / MMO マシンの Claude Code scheduled task / 手動投入) 調査と修正
+3. **iOS Swift 通知タップ → 該当画面へ navigation**: 当面 print のみ。l2_kind 別 (member_knowledge → メンバー詳細 / project_knowledge → cockpit / protocols → /admin/protocols / ms_progress → cockpit)
+4. **AMDプロトコル UI に candidate → confirmed 昇格ボタン**: 現状 status='candidate' で蓄積されるが UI 上で確定昇格できない
+5. **Phase 4.x = 5 生データ直結**: ⑤ メンバーナレッジを Slack 個人 DM / mention search から直接抽出 / ④ PJナレッジを Notion 経営戦略 page / Slack channel から直接抽出
+6. **xcodegen 入れて iOS の Models/Service 別ファイル化**
+7. **MTGサマリ Phase 2.5: AMD-Report GAS R313 を会議サマリ集約方式に書き換え**
+8. **本体GAS `cron_invoiceSendNudge_` 重複生成元の特定**
+9. **l2_feedbacks の archive UI**
 
 ### 低優先 / 既存
 
-9. CX (p20) / CTB (p06) / SE (p10) / p11 で次期 MS 期間 (2026 Q2 〜) を設定
-10. 5月分の monthly_reports 自動生成 検討
-11. `saveProjectMembers` 全削除→挿入をやめて incremental update に
+10. CX (p20) / CTB (p06) / SE (p10) / p11 で次期 MS 期間 (2026 Q2 〜) を設定
+11. 5月分の monthly_reports 自動生成 検討
+12. `saveProjectMembers` 全削除→挿入をやめて incremental update に
 
 ---
 
 ## 次セッションの最初の一手
 
 1. リポ状態 4 ステップ (`git fetch --all --prune` → `git log --branches --not --remotes --oneline` → `git branch -a` → `git status -s`)
-2. **`pwa/design/L2_DATA.md`** を読む ← 中核データ正本
-3. **`pwa/design/db_schema.md`** を grep して列名確認 ← コード書く前に必ず
-4. **`pwa/BUGS.md`** 最新 3 件を読む (= 直近事故の教訓)
-5. **`pwa/design_log/sessions_2026-05.md`** 末尾セクションを読む ← 直近セッションの作業ログ詳細
-6. やりたいタスクが Phase 4 関連なら該当機能 md (ms_progress / member_knowledge / project_knowledge / amd_protocol / notifications / meeting_summaries) を読む
+2. **`pwa/HANDOFF_pwa_rebuild.md`** (このファイル) の最新更新を確認
+3. **`pwa/design/amd_score.md`** 末尾の「次セッション TODO: μ_A 用 論文 DB 構築」を読む ← 次タスクの仕様
+4. **`pwa/BUGS.md`** 最新 2 件 (律速 argmin / retrofit seed 罠) を読む
+5. **`pwa/design_log/sessions_2026-05.md`** 末尾セクション (AMD Score 改修) を読む ← 直近セッション詳細
+6. **`pwa/design/db_schema.md`** で既存 atlas_*  / project_* 列名を確認 ← migration 設計の前
+7. **`pwa/src/lib/atlas-macro-signals.ts`** を読む ← μ_A 拡張のテンプレ
+8. 論文 DB 設計案を出す → まさ承認 → migration 033 〜 投入 → fetcher 拡張 → AmdScoreView 連携 → deploy
 
 ---
 
