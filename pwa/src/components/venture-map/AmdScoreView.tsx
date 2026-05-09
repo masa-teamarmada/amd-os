@@ -29,13 +29,34 @@ import {
   type AmdScoreAxis,
 } from "@/lib/amd-score";
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
-import type { VentureRow } from "@/lib/venture-map-data";
+import type { VentureRow, XrlLogRow } from "@/lib/venture-map-data";
 
 interface Props {
   venture: VentureRow;
   inputs: AmdScoreInputRow[];     // 古い順
   initialAlpha: AlphaWeights;
+  /** 最新の XRL 観測 (source_note を XRL 各軸の根拠 fallback として使う) */
+  latestXrlLog?: XrlLogRow | null;
 }
+
+/**
+ * project_xrl_log.source_note は JSON 文字列で {"trl_reason": ..., "brl_reason": ..., "hrl_reason": ...} の形。
+ * 軸ごとの reason を取り出すヘルパ。grl_reason / srl_reason は通常含まれない。
+ */
+function extractXrlReason(sourceNote: string | null, axis: AmdScoreAxis): string | null {
+  if (!sourceNote) return null;
+  try {
+    const parsed = JSON.parse(sourceNote) as Record<string, unknown>;
+    const key = `${axis.toLowerCase()}_reason`;
+    const v = parsed[key];
+    return typeof v === "string" && v.length > 0 ? v : null;
+  } catch {
+    // source_note が JSON でない (フリーテキスト) の場合はそのまま返す
+    return sourceNote;
+  }
+}
+
+const FALLBACK_NOTE = "根拠となる情報がないため仮置き";
 
 interface EditableInput {
   evaluated_at: string;           // ISO date 'YYYY-MM-DD'
@@ -172,7 +193,7 @@ export const deriveFrlFromAlq = deriveFrl;
  *
  * 値の表示には `editable` を読む (旧 state を読むだけにし、setEditable はしない)。
  */
-export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
+export function AmdScoreView({ venture, inputs, initialAlpha, latestXrlLog = null }: Props) {
   // α は表示のみ (編集は retrofit ページへ移設)
   const alpha = initialAlpha;
   const latest = inputs[inputs.length - 1];
@@ -251,7 +272,13 @@ export function AmdScoreView({ venture, inputs, initialAlpha }: Props) {
         <ScoreHeroCard result={result} venture={venture} />
         <BalanceBar result={result} alpha={alpha} />
         <FormulaPanel alpha={alpha} />
-        <Factor3Breakdown result={result} alpha={alpha} editable={editable} ventureName={venture.display_name} />
+        <Factor3Breakdown
+          result={result}
+          alpha={alpha}
+          editable={editable}
+          ventureName={venture.display_name}
+          latestXrlLog={latestXrlLog}
+        />
         <TimeSeriesChart
           series={series}
           latest={editable.evaluated_at}
@@ -564,11 +591,13 @@ function Factor3Breakdown({
   alpha,
   editable,
   ventureName,
+  latestXrlLog,
 }: {
   result: ReturnType<typeof calculateAmdScore>;
   alpha: AlphaWeights;
   editable: EditableInput;
   ventureName: string;
+  latestXrlLog: XrlLogRow | null;
 }) {
   const fmt = (n: number, digits = 2) =>
     n < 1 ? n.toFixed(digits) : n < 100 ? n.toFixed(2) : Math.round(n).toLocaleString();
@@ -602,19 +631,22 @@ function Factor3Breakdown({
         <DetailFactorRow
           name="μ_A (学術)"
           value={fmt(editable.mu_A, 1)}
-          subtitle={editable.mu_notes_a || undefined}
+          subtitle={editable.mu_notes_a || FALLBACK_NOTE}
+          subtitleIsFallback={!editable.mu_notes_a}
           onClick={() => openTsukuyomiPrefill(ventureName, "μ_A (学術)", fmt(editable.mu_A, 1), editable.mu_notes_a || null)}
         />
         <DetailFactorRow
           name="μ_I (産業)"
           value={fmt(editable.mu_I, 1)}
-          subtitle={editable.mu_notes_i || undefined}
+          subtitle={editable.mu_notes_i || FALLBACK_NOTE}
+          subtitleIsFallback={!editable.mu_notes_i}
           onClick={() => openTsukuyomiPrefill(ventureName, "μ_I (産業)", fmt(editable.mu_I, 1), editable.mu_notes_i || null)}
         />
         <DetailFactorRow
           name="μ_G (政府)"
           value={fmt(editable.mu_G, 1)}
-          subtitle={editable.mu_notes_g || undefined}
+          subtitle={editable.mu_notes_g || FALLBACK_NOTE}
+          subtitleIsFallback={!editable.mu_notes_g}
           onClick={() => openTsukuyomiPrefill(ventureName, "μ_G (政府)", fmt(editable.mu_G, 1), editable.mu_notes_g || null)}
         />
         <DetailFactorRow
@@ -661,6 +693,19 @@ function Factor3Breakdown({
                   : axis === "SRL"
                     ? editable.xrl_notes_srl
                     : editable.xrl_notes_hrl;
+          // 根拠フォールバック: amd_score_inputs.xrl_notes → project_xrl_log.source_note の {axis}_reason → 仮置き
+          const xrlLogReason = extractXrlReason(latestXrlLog?.source_note ?? null, axis);
+          const subtitleSource: "input" | "xrl_log" | "fallback" = noteKey
+            ? "input"
+            : xrlLogReason
+              ? "xrl_log"
+              : "fallback";
+          const subtitleText =
+            subtitleSource === "input"
+              ? noteKey!
+              : subtitleSource === "xrl_log"
+                ? `(XRL 観測 ${latestXrlLog?.observed_at ?? ""} より) ${xrlLogReason}`
+                : FALLBACK_NOTE;
           return (
             <DetailFactorRow
               key={axis}
@@ -669,8 +714,9 @@ function Factor3Breakdown({
               note={`α = ${alpha[axis].toFixed(2)}`}
               dotColor={AXIS_COLOR[axis]}
               bottleneck={result.bottleneck === axis}
-              subtitle={noteKey || undefined}
-              onClick={() => openTsukuyomiPrefill(ventureName, axis, fmt(rawValue, 1), noteKey || null)}
+              subtitle={subtitleText}
+              subtitleIsFallback={subtitleSource === "fallback"}
+              onClick={() => openTsukuyomiPrefill(ventureName, axis, fmt(rawValue, 1), noteKey || xrlLogReason)}
             />
           );
         })}
@@ -689,7 +735,8 @@ function Factor3Breakdown({
         <DetailFactorRow
           name={`FRL = ${fmt(editable.frl, 1)}`}
           value={fmt(editable.frl, 1)}
-          subtitle={editable.frl_notes || undefined}
+          subtitle={editable.frl_notes || FALLBACK_NOTE}
+          subtitleIsFallback={!editable.frl_notes}
           onClick={() => openTsukuyomiPrefill(ventureName, "FRL", fmt(editable.frl, 1), editable.frl_notes || null)}
         />
         <DetailFactorRow
@@ -763,6 +810,7 @@ function DetailFactorRow({
   total = false,
   bottleneck = false,
   subtitle,
+  subtitleIsFallback = false,
   onClick,
 }: {
   name: string;
@@ -773,6 +821,8 @@ function DetailFactorRow({
   total?: boolean;
   bottleneck?: boolean;
   subtitle?: string;
+  /** subtitle が「根拠仮置き」のフォールバックの場合は薄めて表示する */
+  subtitleIsFallback?: boolean;
   /** クリック可能にして Tsukuyomi 起動などの handler を実行。指定すると行が hover で背景色変化。 */
   onClick?: () => void;
 }) {
@@ -794,7 +844,9 @@ function DetailFactorRow({
           {isClickable && <span className="ml-1 text-[9px] text-cyan-600">💬</span>}
         </div>
         {subtitle && (
-          <div className="text-[9.5px] text-muted-foreground italic font-normal mt-0.5 leading-snug">
+          <div
+            className={`text-[9.5px] italic font-normal mt-0.5 leading-snug ${subtitleIsFallback ? "text-slate-400" : "text-muted-foreground"}`}
+          >
             {subtitle}
           </div>
         )}
@@ -1164,7 +1216,7 @@ function FrlAxisRow({
   );
 }
 
-/** 自由テキスト clickable 行 (FRL 自由備考など)。 */
+/** 自由テキスト clickable 行 (FRL 自由備考など)。空のときはフォールバック表示で薄く。 */
 function FactorClickable({
   label,
   ventureName,
@@ -1178,6 +1230,8 @@ function FactorClickable({
   value: string;
   currentNote: string | null;
 }) {
+  const isFallback = !currentNote;
+  const displayValue = currentNote && currentNote.length > 0 ? value : FALLBACK_NOTE;
   return (
     <button
       type="button"
@@ -1186,7 +1240,7 @@ function FactorClickable({
       title={`クリックでつくよみに「${fieldName} を見直したい」と話す`}
     >
       <div className="text-[10px] text-muted-foreground">{label}</div>
-      <div className="text-[11px] text-slate-700 italic">{value}</div>
+      <div className={`text-[11px] italic ${isFallback ? "text-slate-400" : "text-slate-700"}`}>{displayValue}</div>
     </button>
   );
 }

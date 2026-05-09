@@ -183,6 +183,8 @@ export interface XrlLogRow {
   srl: number | null;
   bottleneck: string | null;
   milestone_label: string | null;
+  /** 評価理由・観測根拠 (任意)。AMD Score の XRL 根拠 fallback として使う。 */
+  source_note: string | null;
 }
 
 /** PJ コックピット用: project_id の XRL 時系列を取得 */
@@ -190,7 +192,7 @@ export async function fetchXrlLog(projectId: string): Promise<XrlLogRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("project_xrl_log")
-    .select("id, project_id, observed_at, trl, brl, hrl, grl, srl, bottleneck, milestone_label")
+    .select("id, project_id, observed_at, trl, brl, hrl, grl, srl, bottleneck, milestone_label, source_note")
     .eq("project_id", projectId)
     .order("observed_at", { ascending: true });
   if (error) {
@@ -229,7 +231,7 @@ export async function fetchAllVenturesWithXrl(opts?: {
   const ids = filtered.map((v) => v.project_id);
   const { data: xrlRows, error: xErr } = await supabase
     .from("project_xrl_log")
-    .select("id, project_id, observed_at, trl, brl, hrl, grl, srl, bottleneck, milestone_label")
+    .select("id, project_id, observed_at, trl, brl, hrl, grl, srl, bottleneck, milestone_label, source_note")
     .in("project_id", ids)
     .order("observed_at", { ascending: true });
 
