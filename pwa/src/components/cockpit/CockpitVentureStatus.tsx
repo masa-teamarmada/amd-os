@@ -31,6 +31,7 @@ import { CockpitVentureStatusEditModal } from "./CockpitVentureStatusEditModal";
 import { CockpitVentureMetaEditModal } from "./CockpitVentureMetaEditModal";
 import { CockpitNarrativeModal } from "./CockpitNarrativeModal";
 import { CockpitMembersModal } from "./CockpitMembersModal";
+import { CockpitFoundingMembersModal } from "./CockpitFoundingMembersModal";
 import { CockpitPartnersModal } from "./CockpitPartnersModal";
 import { CockpitPlMonthlyModal } from "./CockpitPlMonthlyModal";
 import { CockpitDescriptionDetailModal } from "./CockpitDescriptionDetailModal";
@@ -136,6 +137,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const [metaEditing, setMetaEditing] = useState<MetaFocus | null>(null);
   const [narrativeOpen, setNarrativeOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [foundingMembersOpen, setFoundingMembersOpen] = useState(false);
   const [partnersOpen, setPartnersOpen] = useState(false);
   const [plOpen, setPlOpen] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
@@ -375,9 +377,16 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         <button
           onClick={() => setMembersOpen(true)}
           className="text-[11px] px-2 py-0.5 rounded-full border border-[#e5e5e7] hover:bg-[#fafafa]"
-          title="関連メンバー (HRL 評価のベース)"
+          title="AMD 内部メンバー (project_members の share)"
         >
           👥 メンバー
+        </button>
+        <button
+          onClick={() => setFoundingMembersOpen(true)}
+          className="text-[11px] px-2 py-0.5 rounded-full border border-[#e5e5e7] hover:bg-[#fafafa]"
+          title="創業メンバー全員 (AMD 内外含む、LLM 抽出、HRL 推定の主要根拠)"
+        >
+          🧑‍🤝‍🧑 創業
         </button>
         <button
           onClick={() => setPartnersOpen(true)}
@@ -731,6 +740,13 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         />
       )}
 
+      {foundingMembersOpen && (
+        <CockpitFoundingMembersModal
+          projectId={projectId}
+          ventureName={venture.display_name}
+          onClose={() => setFoundingMembersOpen(false)}
+        />
+      )}
       {membersOpen && (
         <CockpitMembersModal projectId={projectId} onClose={() => setMembersOpen(false)} />
       )}
