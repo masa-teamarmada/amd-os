@@ -10,58 +10,18 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+// ASPI 8 domain の型・定数は client/server 両用なので別モジュール (aspi-lanes) に分離している。
+// LaneBadges 等の "use client" コンポネントは直接 @/lib/aspi-lanes から import すること。
+import type { LaneWeight } from "@/lib/aspi-lanes";
+export {
+  ASPI_DOMAIN_IDS,
+  ASPI_DOMAIN_LABEL_JP,
+  ASPI_DOMAIN_SHORT_LABEL,
+} from "@/lib/aspi-lanes";
+export type { AspiDomainId, LaneWeight } from "@/lib/aspi-lanes";
 
 /** 旧 5 lane (gx_energy/gx_circular/materials/life/robo)。cron 系移行が終わるまで併存。 */
 export type LaneId = "gx_energy" | "gx_circular" | "materials" | "life" | "robo";
-
-/** ASPI Critical Technology Tracker 8 domains。正本: pwa/design/aspi_lanes.md */
-export type AspiDomainId =
-  | "advanced_ict"
-  | "advanced_materials_manufacturing"
-  | "ai_technologies"
-  | "biotechnology"
-  | "defence_space_robotics_transport"
-  | "energy_environment"
-  | "quantum"
-  | "sensing_timing_navigation";
-
-export const ASPI_DOMAIN_IDS: readonly AspiDomainId[] = [
-  "advanced_ict",
-  "advanced_materials_manufacturing",
-  "ai_technologies",
-  "biotechnology",
-  "defence_space_robotics_transport",
-  "energy_environment",
-  "quantum",
-  "sensing_timing_navigation",
-];
-
-export const ASPI_DOMAIN_LABEL_JP: Record<AspiDomainId, string> = {
-  advanced_ict: "通信・ICT",
-  advanced_materials_manufacturing: "先端材料・製造",
-  ai_technologies: "AI",
-  biotechnology: "バイオ・医療",
-  defence_space_robotics_transport: "防衛・宇宙・ロボ",
-  energy_environment: "エネルギー・環境",
-  quantum: "量子",
-  sensing_timing_navigation: "センシング",
-};
-
-export const ASPI_DOMAIN_SHORT_LABEL: Record<AspiDomainId, string> = {
-  advanced_ict: "ICT",
-  advanced_materials_manufacturing: "材料",
-  ai_technologies: "AI",
-  biotechnology: "バイオ",
-  defence_space_robotics_transport: "防衛/宇宙/ロボ",
-  energy_environment: "エネ/環境",
-  quantum: "量子",
-  sensing_timing_navigation: "センシング",
-};
-
-export interface LaneWeight {
-  domain: AspiDomainId;
-  weight: number; // 0-1、配列内合計 = 1.0
-}
 
 export type OutcomePattern = "rocket" | "lifted" | "deep_pivot" | "burnout" | "ue_fail";
 
