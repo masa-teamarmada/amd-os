@@ -158,11 +158,12 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
     value: papersByQ.get(q.observedAt) ?? 0,
   }));
 
-  // 3. P (政策密度): atlas_signals.domain LIKE 'B.%' を quarter 集計 (全社共通)
-  // 4. R (言及): atlas_signals.status='accepted' を全 domain で quarter 集計
+  // 3. P (政策密度): atlas_signals.source_type='policy' OR domain LIKE 'B.%' で quarter 集計
+  // 4. R (言及): atlas_signals.source_type='news' で quarter 集計 (純粋なメディア言及)
+  // 注: source_type は policy(125) / news(166) / report(10) など atlas-collect-policy cron で設定
   const { data: atlasData } = await supabase
     .from("atlas_signals")
-    .select("submitted_at, domain")
+    .select("submitted_at, domain, source_type")
     .eq("status", "accepted")
     .gte("submitted_at", earliestObservedAt);
 
@@ -202,12 +203,16 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
 
   const pCountByQ = new Map<string, number>();
   const rCountByQ = new Map<string, number>();
-  for (const r of (atlasData ?? []) as { submitted_at: string | null; domain: string | null }[]) {
+  for (const r of (atlasData ?? []) as { submitted_at: string | null; domain: string | null; source_type: string | null }[]) {
     if (!r.submitted_at) continue;
     const { observedAt } = dateToQuarterStart(r.submitted_at);
-    rCountByQ.set(observedAt, (rCountByQ.get(observedAt) ?? 0) + 1);
-    if (r.domain && r.domain.startsWith("B.")) {
+    // P: 政策ドキュメント本文 (source_type='policy') または規制・政策 domain (B.*)
+    if (r.source_type === "policy" || (r.domain && r.domain.startsWith("B."))) {
       pCountByQ.set(observedAt, (pCountByQ.get(observedAt) ?? 0) + 1);
+    }
+    // R: メディア言及のみ (source_type='news') を純粋カウント
+    if (r.source_type === "news") {
+      rCountByQ.set(observedAt, (rCountByQ.get(observedAt) ?? 0) + 1);
     }
   }
   const pHistory: ObservationHistoryPoint[] = quarters.map((q) => ({
