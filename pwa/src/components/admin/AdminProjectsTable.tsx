@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { createClient as createBrowserAuthClient } from "@/lib/supabase/client";
 import { AdminProjectRoleEditModal, type RoleKind } from "./AdminProjectRoleEditModal";
 import { LaneBadges, LaneEditor } from "@/components/lanes/LaneBadges";
-import type { LaneWeight } from "@/lib/venture-map-data";
+import type { LaneWeight } from "@/lib/aspi-lanes";
 
 // auth (browser) client。anon RLS で write が弾かれるため、ログイン中ユーザーで書き込む
 // (例: status の CHECK / UPDATE policy が anon を弾く回帰が 2026-05-08 に発生)

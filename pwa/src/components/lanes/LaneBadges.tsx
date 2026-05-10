@@ -14,7 +14,7 @@ import {
   ASPI_DOMAIN_SHORT_LABEL,
   type AspiDomainId,
   type LaneWeight,
-} from "@/lib/venture-map-data";
+} from "@/lib/aspi-lanes";
 
 /** 読み取り専用 badge 表示。lanes が null なら fallback (= 旧 lane TEXT) を muted で出す。 */
 export function LaneBadges({

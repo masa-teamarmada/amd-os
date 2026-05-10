@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { AdminProjectsTable, type ProjectRow } from "@/components/admin/AdminProjectsTable";
-import type { LaneWeight } from "@/lib/venture-map-data";
+import type { LaneWeight } from "@/lib/aspi-lanes";
 
 export default async function AdminProjectsPage() {
   const supabase = await createClient();
