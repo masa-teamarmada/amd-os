@@ -15,7 +15,26 @@
 
 ## 最終更新
 
-2026-05-10 (affectionate-easley-9b52b8、夜) — **AMD Score の M カードを Triple Helix 観測モデル (6 観測量 × 3 隠れ状態 C 行列) に全面再設計**。
+2026-05-10 (affectionate-easley-9b52b8、深夜) — **創業メンバー LLM 推定 + Triple Helix Phase 2-A/B + UI 改善多数**。
+
+### 本セッション 後半の主要成果
+
+- **創業メンバー LLM 推定** (大新機能): migration 040 + `/api/cron/founding-members-extract` + `CockpitFoundingMembersModal` + `estimateHrlFromMembers`
+  - **AMD 内外含む全員** (大学 PI / VC / 産業パートナー / 政府担当者) を Sonnet 4.5 で抽出
+  - 5 PJ (p06/p09/p11/p20/p21) で **66 名抽出成功**: SX 13 名 (杉浦先生・中島先生・石原・戒能・種市・黒田・堀淵 等まさ期待通り)
+  - HRL 簡易推定 (ルールベース 0-9): 0-3 (1-3 名) / 3-6 (4-9 名) / 5-9 (10+ 名 + 多様性)
+  - l2_notifications (kind='founding_members') 連携、毎週月曜 03:30 JST cron
+- **Phase 2-A: C_compete (競合密度)**: project_ventures 集計、観測量カバレッジ 3/7 → 4/7
+- **Phase 2-B: lane 個別フィルタ**: atlas_signals.domain prefix → lane mapping、P/R を lane 個別に
+- **プログレスバー**: 1k-50k log scale (3.5k 設立 GO マーカー)
+- **XRL 整数表示**: 詳細 + Cockpit モーダル両方
+- **数式 LaTeX 化**: 紫枠 (M 4 段に拡張) + 詳細 + Cockpit モーダル全部
+- **経時グラフプロットクリック → S+M/X/F popup**
+- **SX MTGサマリ原因調査** → BUGS.md (繰り返し MTG の Notion 議事録放置 + AI 議事録未生成)
+
+---
+
+## 前回 (2026-05-10 夜) — Triple Helix 観測モデル全面再設計
 
 ### モデル定義の確立 (理論正本との整合)
 

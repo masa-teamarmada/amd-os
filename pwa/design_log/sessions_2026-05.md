@@ -1827,3 +1827,77 @@ migration 035_scholar.sql 作成時に `Edit/Write` で `/Users/masa/projects/AM
 - **正本 md を grep じゃなく Read で全文通す**: state_space_model.md §4.1 (C 行列 loading) と bvar_prior.md §3.2 (C 行列数値 prior) を読み込んでなかった結果、scholar (個別論文蓄積) を作って後で全廃。**μ_A を考えるなら Triple Helix の状態空間モデルを読むべきだった**
 - **「自分の提案を疑う」を実装前に**: 「μ_A 根拠 = 論文 DB」と短絡的に解いた。μ_A の論文上の定義 (= 隠れ状態) を確認してから設計するのが順序
 - **観測量と隠れ状態の区別**: μ は隠れ状態、N (論文) は観測量、両者は C 行列で結ばれる。これを混同すると「個別論文を蓄積する」誤った方向に走る
+
+---
+
+## 2026-05-10 (深夜) — 創業メンバー LLM 抽出 + Triple Helix Phase 2-A/B + UI 改善 (affectionate-easley-9b52b8 続)
+
+まさフィードバック多数 (お風呂前 + お風呂上がり) を一気に消化。
+
+### 主要変更
+
+**まさフィードバック対応**:
+- プログレスバー: 0/100k → 1k-50k log scale (3.5k = 設立 GO 閾値マーカー)
+- XRL 整数表示 (詳細ページ + Cockpit モーダル両方、Math.round / Tex `(5+1)^{1.00}`)
+- Cockpit AMD Score breakdown モーダルの全数式を LaTeX 化 (M / X / F / σ_SU)
+- 経時グラフのプロットクリック → S + M/X/F + 律速 + k + σ_SU を popup 表示
+- 紫枠 (FormulaPanel) の M 式を Triple Helix 4 段に拡張 (M / σ_SU / μ_x / ỹ_p) + retrofit ページにも組み込み
+- SX (p21) MTGサマリ原因調査 → BUGS.md に記録 (繰り返し MTG の Notion 議事録テンプレ放置 + AI 議事録なし)
+
+**Phase 2-A: C_compete (競合密度) 観測量**:
+- migration 039 で triple_helix_loading.C_compete を available=TRUE
+- triple-helix-observations.ts で project_ventures 集計 (lane × quarter alive count)
+- 死亡パターン (burnout / ue_fail) は amd_support_ended_at 以降除外
+- 観測量カバレッジ 3/7 → 4/7 (57%)
+
+**Phase 2-B: lane 個別フィルタ**:
+- atlas_signals.domain prefix → lane マッピング追加 (gx_energy=D./life=F./materials=C.+E./robo=G.+I./gx_circular=O.)
+- P (政策) は政策ドキュメント全件 + B.* (lane 横断的に μ_G に効く構造仮説)
+- R (言及) は当該 lane domain にヒットする news のみ (lane 個別メディア言及)
+- P/R を atlas_signals.source_type で分離 (P=policy 125 件 / R=news 166 件)
+
+**タスク 1: 創業メンバー LLM 推定 (大新機能)**:
+- まさ判断: 「メンバー」= AMD 内外含む創業に関わる全員。SX なら愛媛大 PI / VC パートナー / 産業協業先などすべて。`members` table とは別。HRL 推定の主要根拠。
+- migration 040: project_founding_members テーブル新設
+  - (project_id, person_name) UNIQUE
+  - role enum (ceo_candidate / co_founder / tech_lead / business_advisor / investor / amd_support / researcher / partner)
+  - category enum (amd / university / vc / partner_company / government / individual)
+  - source_documents JSONB / status / extracted_by / first_observed_at / last_observed_at
+- /api/cron/founding-members-extract 新規:
+  - 入力: monthly_reports (6ヶ月) + project_meeting_summaries (3ヶ月) + project_knowledge (6ヶ月) + project_ventures.origin_org/origin_pi
+  - Anthropic Sonnet 4.5 で人物抽出 (PROMPT_REV=v1_2026-05-10)
+  - upsert + diff 検出 → 新規 / 役割変更があれば l2_notifications (kind='founding_members') に通知
+  - GET ?project_id=p21 で単一 PJ、引数なしで全 PJ ループ。Bearer ${CRON_SECRET}
+  - vercel.json に毎週月曜 18:30 UTC (= 03:30 JST 火) 登録
+- src/lib/founding-members-data.ts:
+  - fetchFoundingMembers / fetchFoundingMembersSummary
+  - estimateHrlFromMembers (Phase 1 ルールベース 0-9):
+    - 0 名 → 0 / 1-3 名 → 1 + coreCount / 4-9 名 → 3 + coreCount / 10+ 名 → 5 + coreCount + 多様性
+    - coreCount = CEO+技術+事業+投資家 役割充足数 (0-4)
+- CockpitFoundingMembersModal 新規:
+  - カテゴリ別 (AMD/大学/VC/産業/政府/個人) にグループ表示
+  - 各メンバーの affiliation / 役割バッジ / responsibility / contribution / 出典
+  - 末尾に HRL 簡易推定 (rationale 付き、amd_score_inputs.hrl の人間入力とは別)
+- CockpitVentureStatus に「🧑‍🤝‍🧑 創業」ボタン追加 (既存「👥 メンバー」と並列)
+
+### 動作確認
+
+- migration 036 / 037 / 038 / 039 / 040 全 5 個適用済
+- tsc --noEmit エラー無し
+- Vercel deploy 4 連発 (Triple Helix M カード / XRL+プログレスバー / source_type 分離 / founding members + UI)
+- /scholar / /venture-map/amd-score/* 全 200
+- founding-members-extract 初回 cron キックは deploy 完了後 (本セッション内に手動キック予定)
+
+### 教訓
+
+- **「自分の提案を疑う」を習慣化**: 個別論文蓄積 (scholar) → μ_A の正本定義から外れて全廃 → 観測モデル C 行列の正本 (bvar_prior §3.2) を読み直して再構築。今回も「メンバーも LLM 推定」の意図を**確認待ち** (「お風呂上がり」) で正しい設計に着地できた
+- **観測モデル ≠ 蓄積モデル**: μ_A は隠れ状態 (Triple Helix Academia momentum)、観測量 N (論文数) を C 行列で寄与させる。個別論文は観測量にもならない
+- **HRL 推定は Phase 1 ルールベース、Phase 3 で Bayesian update**: 人間入力値 (Tsukuyomi 経由) を上書きせず、独立した「LLM 推定」値として並列表示
+
+### 次セッションへ
+
+- founding-members 全 PJ 初回キック後の検算 (どの PJ で何名抽出されたか、まさ感覚と整合するか)
+- AMD Score 詳細ページの HRL 行 subtitle にも LLM 推定値を併記
+- 創業メンバーが追加されたら通知バッジ + iOS Swift APNs
+- Phase 2-C: KAKEN API ingest (I_R) / Phase 2-D: NEDO/SIP/JST scrape (B) / Phase 2-E: Crunchbase (V)
+- SX MTGサマリの修正候補 (Notion AI 設定確認 / Gmail alias 拡張 / Slack ingest)
