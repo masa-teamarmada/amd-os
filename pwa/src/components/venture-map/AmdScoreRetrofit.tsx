@@ -28,6 +28,8 @@ import {
 } from "@/lib/amd-score";
 import { saveNewAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
 import type { VentureRow } from "@/lib/venture-map-data";
+import { Tex } from "@/components/venture-map/Tex";
+import { AmdScoreFormulaPanel } from "@/components/venture-map/AmdScoreFormulaPanel";
 
 interface Props {
   ventures: VentureRow[];
@@ -111,13 +113,26 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
         retrofit (過去 PJ の設立タイミング判定が当たるか) を見ながら選ぶ。
       </div>
 
+      {/* モデル説明 (詳細ページと同じ FormulaPanel を再利用) */}
+      <details className="mb-4">
+        <summary className="text-xs text-slate-700 hover:text-slate-900 cursor-pointer select-none px-2 py-1 inline-block">
+          📐 モデル構造 (M × X × F + Triple Helix 観測モデル) を表示
+        </summary>
+        <div className="mt-2">
+          <AmdScoreFormulaPanel alpha={alpha} />
+        </div>
+      </details>
+
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4">
         {/* 左: α 編集 */}
         <aside className="border border-[#e5e5e7] rounded-xl p-4 bg-white h-fit lg:sticky lg:top-4">
           <div className="text-[12px] font-semibold mb-1">重み α (弾力性)</div>
-          <div className="text-[10px] text-muted-foreground mb-3">
-            各軸 0.0-2.0 (0.05 刻み)。Σα が変わると{" "}
-            <span className="font-mono">k = 100,000 / 10^Σα</span> で IPO 級に再校正。
+          <div className="text-[10px] text-muted-foreground mb-3 flex flex-wrap items-center gap-1">
+            <span>各軸 0.0-2.0 (0.05 刻み)。</span>
+            <Tex tex={String.raw`\Sigma \alpha`} />
+            <span>が変わると</span>
+            <Tex tex={String.raw`k = 100{,}000 / 10^{\Sigma \alpha}`} />
+            <span>で IPO 級に再校正。</span>
           </div>
 
           <div className="flex flex-col gap-3 mb-3">
