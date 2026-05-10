@@ -3,6 +3,8 @@
 import { useState, useMemo } from "react";
 import { createClient as createBrowserAuthClient } from "@/lib/supabase/client";
 import { AdminProjectRoleEditModal, type RoleKind } from "./AdminProjectRoleEditModal";
+import { LaneBadges, LaneEditor } from "@/components/lanes/LaneBadges";
+import type { LaneWeight } from "@/lib/venture-map-data";
 
 // auth (browser) client。anon RLS で write が弾かれるため、ログイン中ユーザーで書き込む
 // (例: status の CHECK / UPDATE policy が anon を弾く回帰が 2026-05-08 に発生)
@@ -30,6 +32,8 @@ export interface ProjectRow {
   pms: string[];
   closers: string[];
   pls: string[];
+  /** ASPI 8 domain weighted lanes (project_ventures.lanes 由来)。SU 未化 PJ は null。 */
+  lanes: LaneWeight[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -130,6 +134,23 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
   const isEditingRow = (p: ProjectRow) => editingCell?.startsWith(`${p.id}:`) ?? false;
   const cancelEdit = () => { setEditingId(null); setEditVals({}); };
 
+  // lanes は project_ventures テーブルへの書き込み (projects とは別) なので別 handler。
+  const saveLanes = async (p: ProjectRow, lanes: LaneWeight[]) => {
+    setSaving(p.id);
+    const { error } = await supabase
+      .from("project_ventures")
+      .update({ lanes, updated_at: new Date().toISOString() })
+      .eq("project_id", p.project_id);
+    if (error) {
+      setHint(`lanes 保存エラー: ${error.message}`);
+    } else {
+      setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, lanes } : x));
+      setHint(`${p.project_name} の lanes を保存しました`);
+      setEditingId(null);
+    }
+    setSaving(null);
+  };
+
   const saveCell = async (p: ProjectRow, field: string) => {
     setSaving(p.id);
     // field ごとに patch を組む。null/empty 扱いを丁寧に。
@@ -215,6 +236,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium sticky left-0 bg-muted/50 w-14">PJID</th>
               <th className="text-left px-3 py-2 font-medium sticky left-14 bg-muted/50 w-32 border-r border-border">PJ名</th>
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
+              <th className="text-left px-3 py-2 font-medium w-44">Lane (ASPI)</th>
               <th className="text-left px-3 py-2 font-medium w-32">PL</th>
               <th className="text-left px-3 py-2 font-medium w-32">PM</th>
               <th className="text-left px-3 py-2 font-medium w-32">クローザー</th>
@@ -279,6 +301,22 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                         {cellActions("status")}
                       </div>
                     ) : <StatusBadge status={p.status} />}
+                  </td>
+
+                  {/* Lane (ASPI 8 domains weighted, project_ventures.lanes) */}
+                  <td className={cellCls("lanes")} onClick={enterCell("lanes")}>
+                    {isEditingField(p, "lanes") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <LaneEditor
+                          initial={p.lanes}
+                          onCancel={cancelEdit}
+                          onSave={(lanes) => saveLanes(p, lanes)}
+                          saving={saving === p.id}
+                        />
+                      </div>
+                    ) : (
+                      <LaneBadges lanes={p.lanes} fallback={p.lanes === null ? "未設定" : null} />
+                    )}
                   </td>
 
                   {/* PL (列クリックでロール別モーダル) */}
@@ -517,7 +555,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={16} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={17} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>

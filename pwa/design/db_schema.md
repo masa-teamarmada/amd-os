@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-10 12:18 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-11 01:06 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -545,7 +545,7 @@ PRIMARY KEY: `id`
 
 ## member_knowledge
 
-行数 (概算): 0
+行数 (概算): 20
 PRIMARY KEY: `id`
 UNIQUE: `(code_name,category)` (constraint: `member_knowledge_code_name_category_key`)
 
@@ -1000,7 +1000,7 @@ PRIMARY KEY: `id`
 
 ## project_founding_members
 
-行数 (概算): -1
+行数 (概算): 53
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,person_name)` (constraint: `project_founding_members_project_id_person_name_key`)
 
@@ -1212,6 +1212,7 @@ PRIMARY KEY: `project_id`
 | 17 | `amd_support_started_at` | `date` | NULL | `` |
 | 18 | `amd_support_ended_at` | `date` | NULL | `` |
 | 19 | `long_description` | `text` | NULL | `` |
+| 20 | `lanes` | `jsonb` | NULL | `` |
 
 ## project_xrl_log
 

@@ -20,6 +20,7 @@ import {
 // PHASE_COLOR / PHASE_LABEL_JP / AmdScorePhase は使用しない (検証データ蓄積後に復活検討、2026-05-09)
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import type { VentureRow } from "@/lib/venture-map-data";
+import { LaneBadges } from "@/components/lanes/LaneBadges";
 
 interface PjRow {
   venture: VentureRow;
@@ -137,7 +138,7 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
                     {r.venture.display_name}
                   </Link>
                 </td>
-                <td className="px-3 py-2 font-mono text-[10px] text-muted-foreground">{r.venture.lane}</td>
+                <td className="px-3 py-2"><LaneBadges lanes={r.venture.lanes} fallback={r.venture.lane} /></td>
                 <td className="px-3 py-2 text-right font-mono font-semibold">
                   {r.result
                     ? r.result.score < 1

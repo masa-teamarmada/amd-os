@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { AdminProjectsTable, type ProjectRow } from "@/components/admin/AdminProjectsTable";
+import type { LaneWeight } from "@/lib/venture-map-data";
 
 export default async function AdminProjectsPage() {
   const supabase = await createClient();
@@ -8,6 +9,14 @@ export default async function AdminProjectsPage() {
     .select("*")
     .order("status")
     .order("project_name");
+
+  // ASPI 8 domain lanes (project_ventures.lanes) を別 query で取って Map で merge。
+  // SU 化されてない PJ (project_ventures に行がない) は lanes = null。
+  const { data: pvData } = await supabase
+    .from("project_ventures")
+    .select("project_id, lanes");
+  const lanesByPj = new Map<string, LaneWeight[] | null>();
+  for (const r of pvData ?? []) lanesByPj.set(r.project_id as string, (r.lanes as LaneWeight[] | null) ?? null);
 
   // 全 PJ の メンバー × 役割 を 1 クエリで取って、各 PJ ごとに code_name の配列にまとめる
   const { data: pmData } = await supabase
@@ -56,6 +65,7 @@ export default async function AdminProjectsPage() {
       pms: r.pms,
       closers: r.closers,
       pls: r.pls,
+      lanes: lanesByPj.get(p.project_id) ?? null,
       created_at: p.created_at,
       updated_at: p.updated_at,
     };
