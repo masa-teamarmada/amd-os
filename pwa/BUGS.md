@@ -5,40 +5,75 @@
 
 ---
 
-### [GAS] SX (p21) 繰り返し MTG `int) SX 社内打ち合わせ` で議事録抽出が空になる
-- **発見日**: 2026-05-10 (まさ指摘)、2026-05-11 再検証
-- **状態**: 🟡 原因再調査中 (前回結論を疑い直し)
-- **症状**: PWA `/project/p21/cockpit` で SX の MTG サマリを開くと、3/24 の `SX)int-納品物相談` 以外は summary_short が空 / 「議事録なし」 / 「対象 PJ に関連する議事録が確認できず」。`project_meeting_summaries` 直接 query では 2026-04 で SX は 4/29 / 4/8 しか登録されてない。**まさは 4/14 / 4/16 / 4/17 / 4/28 にも議事録が存在すると指摘** (2026-05-11)。
+### [GAS] SX (p21) 繰り返し MTG で議事録抽出が空になる (Notion AI ページの 3 プロパティ空問題)
+- **発見日**: 2026-05-10 (まさ指摘)、2026-05-11 真因特定 + 大半解決
+- **状態**: ✅ 設計修正完了 (cron self-healing) / 🟡 副次バグ `error_llm` 残課題
+- **症状**: PWA `/project/p21/cockpit` で SX の MTG サマリを開くと、3/24 単発以外は summary_short が空 / 「議事録なし」 / 「対象 PJ に関連する議事録が確認できず」。`project_meeting_summaries` 直接 query では 2026-04 で SX は 4/29 / 4/8 しか登録されてない。まさは 4/14 / 4/16 / 4/17 / 4/28 にも議事録が存在すると指摘。
+- **真因 (2026-05-11 確定)**:
+  - **Notion AI が会議終了時に自動生成する議事録ページは「日付」「eventId」「PJ relation」の 3 プロパティとも空のまま生成される設計バグ**
+  - 例: 4/14 SX定例MTG ページ id `34297749c608807aa79fdd02eca6ee29` は title=`SX定例MTG 2026-04-14T16:00:00.000+09:00`、PJ=SX 入り、ただし `日付`空 / `eventId`空。created_time = 2026-04-14
+  - これにより:
+    1. `nav_repo_notion_queryMinutesByYmFull_` の date filter で漏れる
+    2. `_meeting_findNotionPageByEventId_` の eventId equals でも漏れる
+    3. cron polling 経由でも primary 取得 (eventId equals のみ) で page_not_found となる
+  - cron 起点 (= calendar event を毎時 polling) なのに「対応する議事録ページが空のまま生成された」場合の補修ロジックが無かった
+- **解決策 (2026-05-11)**:
 
-#### 本セッション (2026-05-11) で確認したこと
-- `project_meeting_summaries` 上は SX 4/29 が `notion+gmail` だが summary が空、4/8 は内容薄め、それ以外の繰り返し instance は `source_kinds=none` 表示
-- `_meeting_fetchAiNotesBody_` (gas/074 L763) は **2026-05-09 の BWE 対応で実装済**。`transcription` block の `summary_block_id` + `notes_block_id` を再帰取得する仕組みは **既に動く** (sessions log L1495-1517)
-- `nameAlias_buildBlock` (gas/079) はメンバー人物名のみ。**PJ alias (SX = SolvioraX 等) は LLM プロンプトに渡っていない**
-- `CFG_PJAlias` 外部スプシ (`_loadPJAliasesForMinutes_` で読み込み) が PJ alias の **唯一正本**。LLM 抽出側 (gas/074) はこれを再利用すべき。**コード内 alias 管理は禁止** (まさルール)
+  **Phase A: 過去分救済 (one-time)** — `gas/160_MeetingAiBackfill.js` `nav_meeting_backfillAiPages_`:
+  - Notion 議事録 DB を sinceDays で query (last_edited_time / created_time の or filter)
+  - title から ISO 日時 regex parse (例: `2026-04-14T16:00:00`) → 「日付」用 YYYY-MM-DD と event 検索用 timestamp
+  - CFG_PJAlias で title から pjCode 判定 (= 既存 `_loadPJAliasesForMinutes_` + `_matchAlias_` 再利用、コード内 alias 持たず)
+  - PJ DB で pjCode → Notion page id 引き当て (`_notion_buildPjCodeToPageIdMap_`、6h cache)
+  - calendar API で同時刻 ±5 分の event を listEventsByApi_ で取得、タイトル類似度で 1 件絞り込み → eventId
+  - Notion API で空プロパティ (`日付`/`eventId`/`PJ`) のみ patch、dryRun 対応
+  - **SX 35 件 patch 成功 (errors=0, ambig=0)**: 2025-11 〜 2026-04 まで全期間カバー
 
-#### 未確認 (次に潰す)
-- (a) **Notion 議事録 DB に SX 4/14 / 4/16 / 4/17 / 4/28 のページが実在するか** (= AI ページが eventId 紐付けなしで生成されてる可能性最有力)
-- (b) AI ページに `transcription` block が実在し、`_meeting_fetchAiNotesBody_` で本文が取得できるか
-- (c) `_meeting_findNotionPageByEventId_` が SX の繰り返し event id でその AI ページを拾えてるか (eventId 空 + title contains fallback の動作確認)
-- (d) `_meeting_resolveProjectIdFromPage_` が PJ relation 経由で SX (p21) に正しく resolve できてるか
-- (e) `CFG_PJAlias` シートに SX/p21 alias 行 (例: `SX → p21`, `SolvioraX → p21`, `solvioraX → p21`) が登録されてるか
+  **Phase B: 恒久対応 (cron 内 self-healing)** — `gas/074_MeetingSummaryRepo.js` `nav_meeting_processOneEvent_` 改修:
+  - 引数に `opts.eventTitle` / `opts.eventStartAt` 追加 (cron が calendar event から取れる情報)
+  - `_meeting_findNotionPageByEventId_` の 3 段階 fallback (eventId equals → titleHint contains → 同日付) を **primary 取得から** 有効化 → AI ページが eventId 空でも title contains で拾える
+  - page hit 後、空プロパティ (`日付`/`eventId`/`PJ`) を CFG_PJAlias 経由で patch (= self-healing)
+  - 次回以降は eventId equals fallback で正常動作 (= 1 度処理されたページは恒久的に修復)
+  - `gas/153_MeetingHourlyTrigger.js` `nav_meeting_pollRecentlyEndedEvents` から calendar event の title / startAt を渡すよう修正
+- **動作確認 (2026-05-11)**:
+  - SX 35 件 backfill 後 force 再抽出: 11 件サマリ復活 (1/16 杉浦先生 / 1/18 SX 事業計画 / 2/18 SX 内部 / 2/26 SX 内部 / 3/3 SX 定例 / 3/3 懇親会 / 3/3 ブロック / 3/24 納品物相談 / 11/14 PS2 等)
+  - 残り 24 件は (a) 既存 source_hash 一致で skipped_unchanged、(b) Gemini 抽出失敗 (= `error_llm`、別バグ、下記)、(c) gmail のみで関係なし判定、のいずれか
+- **教訓**:
+  - **「Notion 議事録が空」と早合点しない**。前回 (2026-05-10) はこの結論で止まった。AI ページが別 ID で生成されてれば cron が拾えてないだけの可能性
+  - **既存仕組みを確認してから新規実装する**。`_meeting_fetchAiNotesBody_` (= transcription block 抽出) は 2026-05-09 BWE 対応で動作確認済み。このセッションで sessions log L1495-1517 から掘り起こした
+  - **alias 管理はコード内禁止**。`CFG_PJAlias` 外部スプシが唯一正本 (まさルール 2026-05-11)
+  - **「PJ relation は GAS が入れる」**。Notion 側は手動で入れない前提。GAS 側のロジック漏れがあれば自動 set ロジックを直すのが先決 (まさルール 2026-05-11、PJ relation の有無で救済対象を絞る案を否定された)
+  - **「カレンダー起点の cron なら対応議事録の補修もそこでやれ」** (まさ 2026-05-11)。one-time backfill 関数を恒常運用するのではなく、毎時 cron 内に self-healing を組み込む方が設計として綺麗
 
-#### 修正候補 (確認順)
-1. **【最有力】AI 議事録ページの eventId backfill**: Notion 議事録 DB を `name contains 'SX'` で 2026-04 全件 search → eventId 空 + 本文厚いページがあるか → あれば eventId を後付けする one-time script `nav_meeting_backfillEventIdToAiPages_` を gas/074 に追加 → 実行 → `nav_meeting_processOneEvent_(force:true)` で再抽出
-2. **Notion AI 設定**: SX 繰り返し instance で AI 議事録自動生成が有効か (運用確認、まさ実行)
-3. **CFG_PJAlias シート追記**: SX 系 alias が漏れてれば追加 (LLM 抽出側でも `_loadPJAliasesForMinutes_` を呼んで prompt に注入)
-4. **Slack ingest** (Phase 4.x、中長期)
+---
 
-#### 推奨アプローチ (debug-first)
-`gas/157_MeetingDebugInspector.js` に下記 2 関数追加 → push & deploy → 実行 → 事実を見てから修正方針確定:
-- `debug_meeting_inspectYm(projectId, ym)`: 202604 全 Notion ページ → 各ページの `[pageId, title, eventId, lastEdited, pjRelationIds, resolvedProjectId, hasTranscriptionBlock, bodyChars]`
-- `debug_pjAliases_dump()`: `_loadPJAliasesForMinutes_` 全件 dump
+### [GAS] Notion AI ページ Gemini 抽出で `error_llm` 連発 (4/14, 4/16, 4/28, 3/31 等)
+- **発見日**: 2026-05-11 (上記 SX バグ修正の検証中)
+- **状態**: 🟡 原因未確定、次セッション調査
+- **症状**: SX 35 件で `nav_meeting_processOneEvent_(force)` を回したら、4/14 / 4/16 / 4/28 / 3/31 などの AI ページで一貫して `action=error_llm` (= `_meeting_extractWithLLM_` が null 返却)。同じ event を複数回叩いても再現する (rate limit ではない)
+- **既知**: AI 本文 1553 字 (= 4/14)、内容は普通の議事録 (アクションアイテム / 会社設立スケジュール / 倉敷市連携 / 等)、特殊文字も見当たらず
+- **仮説**:
+  - (a) Gemini safety filter で response が block されてる (`finishReason: SAFETY` か?)
+  - (b) Gemini が JSON 不正 response を返してる (= コードフェンス付きで `llm_parseJsonSafe_` が null を返す)
+  - (c) Gemini が token 超えで途中切断
+  - `llm_callGemini_` (gas/163) は parts[0].text を抽出するだけで、finishReason / safetyRatings は無視する → null 返却で原因が握り潰される
+- **次セッションで使う debug**:
+  - `debug_llm_geminiRaw(systemPrompt, userPrompt, opts)` (gas/158、2026-05-11 追加): Gemini API を直接叩いて生 response (`finishReason` / `safetyRatings` / `promptFeedback` / 全 parts) を返す。`error_llm` の真因を切り分け可能
+  - **未済課題**: GAS Web App の URL 長すぎ (HTTP 400) で combinedText を直接渡せない問題あり。POST 対応 or `debug_meeting_attemptExtract(eventId, projectId)` (= eventId だけ渡せば内部で再現実行する debug) を新設するのが次の一手
+- **暫定回避**: モデルを Gemini → Anthropic Sonnet 4.5 に切り替えれば抽出できる可能性 (= `DB_LlmModelConfig` の `meeting_extract` row の `provider/model` を変える)
 
-#### 教訓
-- **「Notion 議事録が空」と早合点しない**。前回 (2026-05-10) はこの結論で止まったが、AI ページが別 ID で生成されてれば cron が拾えてないだけの可能性
-- **既存仕組みを確認してから新規実装する**。`_meeting_fetchAiNotesBody_` が動くことを sessions log で確認せず、prompt v5 化を先走り提案した
-- **alias 管理はコード内禁止**。`CFG_PJAlias` 外部スプシが唯一正本 (まさルール)
-- 議事録抽出が空のとき「LLM が空返した」「Notion ページが空」「Gmail に関連 thread なし」「Notion ページがそもそも検索ヒットしてない」を切り分ける必要
+---
+
+### [GAS] 4/17 SX-インタビュー (title に ISO 日時無し) パターン
+- **発見日**: 2026-05-11
+- **状態**: 🟡 残課題、次セッション
+- **症状**: AI ページ id `34597749c6088011b49bd771cc21e606` は title=`SX-インタビュー（原田様）` で **ISO 日時を含まない**。`nav_meeting_backfillAiPages_` の title regex から漏れる
+- **メカニズム**: Notion AI が会議終了時に自動生成するパターンに 2 系統ある:
+  1. title に ISO 日時付き (= 大多数、例: `SX定例MTG 2026-04-14T16:00:00.000+09:00`) — backfill で救済可
+  2. title に ISO 無し (= 一部、例: `SX-インタビュー（原田様）`) — created_time から日付推定が必要
+- **解決方針 (次セッション)**:
+  - backfill 第 2 弾: `nav_meeting_backfillAiPages_` の拡張で「title ISO 取れない + transcription block あり + PJ relation 既入り or CFG_PJAlias title hit + 「日付」空」のページに対し `created_time` から日付を推定して set
+  - eventId は title に手がかり無いので埋められない → `_meeting_findNotionPageByEventId_` の title contains fallback で拾われる前提 (cron self-healing が完了してれば次回 polling で eventId も埋まる)
+  - もしくは self-healing の Phase B が回り始めれば (= cron が動けば) AI ページの「日付」が埋まる流れで自然解決する可能性
 
 ---
 
