@@ -80,6 +80,143 @@ function debug_meeting_query(eventId, meetingDate, titleHint) {
   return { ok: true, params: { eventId: eventId, meetingDate: meetingDate, titleHint: titleHint }, out: out };
 }
 
+/** 1 PJ × 1 ym の Notion 議事録 DB ページを全件 inspect。
+ *
+ * SX (p21) 4/14 / 4/16 / 4/17 / 4/28 のように「議事録あるはずなのに
+ * project_meeting_summaries に登録されてない」ケースの原因切り分け用。
+ *
+ * 各ページについて:
+ *   - eventId プロパティ値 (空かどうか = AI ページ自動生成判定)
+ *   - PJ relation の page id + 解決した PJ 名
+ *   - _meeting_resolveProjectIdFromPage_ の結果 (= projectId)
+ *   - 本文長 (props "内容" + 標準 blocks)
+ *   - transcription block の有無 (= AI 議事録ページ判定)
+ * を返す。
+ *
+ * @param {string} projectId 絞り込みたい AMD projectId ("p21" 等)
+ * @param {string} ymKey yyyymm (例: "202604")
+ * @return {Object} {ok, projectId, ym, totalPages, matched, pages: [...]}
+ */
+function debug_meeting_inspectYm(projectId, ymKey) {
+  projectId = String(projectId || "").trim();
+  ymKey = String(ymKey || "").trim();
+  if (!projectId) return { ok: false, message: "projectId empty" };
+  if (!/^\d{6}$/.test(ymKey)) return { ok: false, message: "ymKey invalid (need yyyymm)" };
+
+  const props = PropertiesService.getScriptProperties();
+  const notionToken = String(props.getProperty("NOTION_TOKEN") || "").trim();
+  const notionDbRaw = String(props.getProperty("NOTION_DATABASE_ID") || "").trim();
+  if (!notionToken) return { ok: false, message: "NOTION_TOKEN missing" };
+  if (!notionDbRaw) return { ok: false, message: "NOTION_DATABASE_ID missing" };
+
+  let pages;
+  try {
+    pages = nav_repo_notion_queryMinutesByYmFull_(notionToken, notionDbRaw, ymKey);
+  } catch (e) {
+    Logger.log("[debug_meeting_inspectYm] queryMinutesByYmFull error: " + (e && e.stack ? e.stack : e));
+    return { ok: false, message: "queryMinutesByYmFull error: " + e };
+  }
+  pages = Array.isArray(pages) ? pages : [];
+
+  const items = [];
+  let matched = 0;
+  for (const p of pages) {
+    const pageId = String(p && p.id ? p.id : "").trim();
+    const title = (typeof _meeting_extractTitleFromPage_ === "function") ? _meeting_extractTitleFromPage_(p) : "";
+    const dateStart = (typeof _meeting_extractDateStartFromPage_ === "function") ? _meeting_extractDateStartFromPage_(p) : "";
+    const eventId = (typeof _meeting_extractEventIdFromPage_ === "function") ? _meeting_extractEventIdFromPage_(p) : "";
+    const lastEdited = String(p && p.last_edited_time ? p.last_edited_time : "");
+
+    let pjRelationIds = [];
+    try {
+      if (typeof _notion_extractRelationIds_ === "function") {
+        pjRelationIds = _notion_extractRelationIds_(p, "PJ") || [];
+      }
+    } catch (e) { Logger.log("[debug_meeting_inspectYm] PJ relation extract error: " + e); }
+
+    const pjRelationNames = [];
+    if (typeof _notion_resolvePageTitleCached_ === "function") {
+      for (const relId of pjRelationIds) {
+        try {
+          const name = String(_notion_resolvePageTitleCached_(notionToken, relId) || "").trim();
+          if (name) pjRelationNames.push(name);
+        } catch (e) { Logger.log("[debug_meeting_inspectYm] resolvePageTitle error: " + e); }
+      }
+    }
+
+    let resolvedProjectId = "";
+    try {
+      if (typeof _meeting_resolveProjectIdFromPage_ === "function") {
+        resolvedProjectId = _meeting_resolveProjectIdFromPage_(notionToken, p) || "";
+      }
+    } catch (e) { Logger.log("[debug_meeting_inspectYm] resolveProjectId error: " + e); }
+
+    const isTarget = resolvedProjectId === projectId;
+
+    let bodyChars = 0;
+    let hasTranscriptionBlock = false;
+    let aiBodyChars = 0;
+    if (isTarget) {
+      try {
+        if (typeof nav_repo_notion_fetchPageBodyText === "function") {
+          const body = nav_repo_notion_fetchPageBodyText(notionToken, pageId, { maxChars: 3000 });
+          bodyChars = String(body || "").length;
+        }
+      } catch (e) { Logger.log("[debug_meeting_inspectYm] fetchPageBodyText error: " + e); }
+
+      try {
+        const blocksUrl = "https://api.notion.com/v1/blocks/" + encodeURIComponent(pageId) + "/children?page_size=100";
+        const res = UrlFetchApp.fetch(blocksUrl, {
+          method: "get",
+          headers: { "Authorization": "Bearer " + notionToken, "Notion-Version": "2022-06-28" },
+          muteHttpExceptions: true
+        });
+        if (res.getResponseCode() >= 200 && res.getResponseCode() < 300) {
+          const j = JSON.parse(res.getContentText());
+          const blocks = (j && j.results) || [];
+          for (const b of blocks) {
+            if (b && b.type === "transcription") { hasTranscriptionBlock = true; break; }
+          }
+        }
+      } catch (e) { Logger.log("[debug_meeting_inspectYm] fetch blocks error: " + e); }
+
+      try {
+        if (hasTranscriptionBlock && typeof _meeting_fetchAiNotesBody_ === "function") {
+          const aiBody = _meeting_fetchAiNotesBody_(notionToken, pageId, { maxChars: 3000 });
+          aiBodyChars = String(aiBody || "").length;
+        }
+      } catch (e) { Logger.log("[debug_meeting_inspectYm] fetchAiNotesBody error: " + e); }
+    }
+
+    if (isTarget) matched++;
+
+    items.push({
+      pageId: pageId,
+      title: title,
+      dateStart: dateStart,
+      eventId: eventId,
+      lastEdited: lastEdited,
+      pjRelationIds: pjRelationIds,
+      pjRelationNames: pjRelationNames,
+      resolvedProjectId: resolvedProjectId,
+      isTarget: isTarget,
+      bodyChars: bodyChars,
+      hasTranscriptionBlock: hasTranscriptionBlock,
+      aiBodyChars: aiBodyChars,
+      url: String(p && p.url ? p.url : "")
+    });
+  }
+
+  return {
+    ok: true,
+    projectId: projectId,
+    ym: ymKey,
+    totalPages: pages.length,
+    matched: matched,
+    pages: items
+  };
+}
+
 /** Notion ページの blocks を直接 fetch して block type 一覧 + 各 block の生 JSON を返す
  *  AI 自動生成ページの <meeting-notes> 構造を解明する用。
  */
