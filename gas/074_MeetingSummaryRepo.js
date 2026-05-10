@@ -327,24 +327,14 @@ function nav_meeting_processOneEvent_(eventId, projectId, opts) {
     meetingDateHint = eventStartAtArg.slice(0, 10);
   }
 
-  // 1) Notion 議事録 DB から eventId / titleHint / meetingDate の 3 段階 fallback でページ取得
-  let primaryPage = _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId, {
+  // 1) Notion 議事録 DB から段階的 fallback (eventId equals → titleHint+date → date equals) でページ取得
+  //    旧実装は 3 段全部の結果を merge して last_edited_time sort してたが、
+  //    titleHint='SX定例MTG' のような広いマッチで多月のページが混入し、最新更新ページが
+  //    誤って選ばれる事故 (2026-05-11 SX 4/14 で発覚) があったため、段階的 fallback に修正。
+  const page = _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId, {
     titleHint: titleHintArg || undefined,
     meetingDate: meetingDateHint || undefined
   });
-  if (primaryPage) {
-    const dateStartTmp = _meeting_extractDateStartFromPage_(primaryPage);
-    const meetingDateTmp = dateStartTmp && /^\d{4}-\d{2}-\d{2}/.test(dateStartTmp) ? dateStartTmp.slice(0, 10) : meetingDateHint;
-    const titleTmp = _meeting_extractTitleFromPage_(primaryPage) || "";
-    if (meetingDateTmp) {
-      const better = _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId, {
-        meetingDate: meetingDateTmp,
-        titleHint: (titleTmp || titleHintArg).replace(/\s*\d{4}-\d{2}-\d{2}T.*$/, "").replace(/\s*<mention-date.*$/, "").replace(/\s*@今日.*$/, "").replace(/\s+\d{1,2}:\d{2}.*$/, "").trim()
-      });
-      if (better) primaryPage = better;
-    }
-  }
-  const page = primaryPage;
   if (!page) {
     return { ok: false, action: "notion_page_not_found", eventId: eventId };
   }
@@ -745,59 +735,81 @@ function _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId, op
     dateProp = String(props.getProperty("NOTION_MINUTES_DATE_PROP") || "日付").trim() || "日付";
   } catch (e) {}
 
-  const candidates = [];
-  const seenIds = {};
-  const addCandidates = function (results) {
-    for (const r of (results || [])) {
-      const id = String(r.id || "");
-      if (id && !seenIds[id]) { seenIds[id] = true; candidates.push(r); }
-    }
+  // 各段の結果を last_edited_time 降順で sort して 1 件返す helper。
+  // 「異段の結果を merge して sort」は誤判定の元 (例: titleHint 'SX定例MTG' で多月のページ全部ヒット
+  // → 最新更新の別月ページが選ばれて事故、2026-05-11 SX 4/14 で発覚) なので必ず段ごとに完結させる。
+  const pickLatest = function (results) {
+    results = results || [];
+    if (!results.length) return null;
+    results.sort(function (a, b) {
+      const at = String(a.last_edited_time || a.created_time || "");
+      const bt = String(b.last_edited_time || b.created_time || "");
+      return bt.localeCompare(at);
+    });
+    return results[0];
   };
 
-  // 1) eventId equals (= 旧 cron テンプレが残ってる場合に取れる)
+  // Stage 1: eventId equals (backfill / self-healing 後の AI ページもここで取れる)
   try {
     const res = _notion_fetch_(notionToken, url, "post", {
       filter: { property: "eventId", rich_text: { equals: String(eventId) } },
       page_size: 5
     });
-    addCandidates(res && res.results);
+    const hit = pickLatest(res && res.results);
+    if (hit) {
+      Logger.log("[_meeting_findNotionPageByEventId_] stage1 eventId=" + eventId + " selected=" + hit.id);
+      return hit;
+    }
   } catch (_e) {}
 
-  // 2) タイトル contains (= AI 自動生成ページを拾う、eventId 空でも OK)
+  // Stage 2: titleHint contains + 同日付の created_time 絞り込み
+  // (AI ページが eventId 空 / 日付空のケース。created_time = 会議終了時刻なので会議日と一致する)
   if (opts.titleHint) {
     try {
       const res = _notion_fetch_(notionToken, url, "post", {
         filter: { property: "名前", title: { contains: String(opts.titleHint) } },
-        page_size: 10
+        page_size: 30
       });
-      addCandidates(res && res.results);
+      let results = (res && res.results) || [];
+      if (opts.meetingDate && /^\d{4}-\d{2}-\d{2}$/.test(opts.meetingDate)) {
+        const target = opts.meetingDate;
+        results = results.filter(function (p) {
+          const ct = String(p.created_time || "").slice(0, 10);
+          if (ct === target) return true;
+          // created_time は UTC のため ±1 日まで許容 (JST 深夜の MTG が UTC で前日になるケース)
+          const ctDate = new Date(ct + "T00:00:00Z");
+          const tgtDate = new Date(target + "T00:00:00Z");
+          if (isNaN(ctDate.getTime()) || isNaN(tgtDate.getTime())) return false;
+          const diff = Math.abs(ctDate.getTime() - tgtDate.getTime());
+          return diff <= 24 * 60 * 60 * 1000;
+        });
+      }
+      const hit = pickLatest(results);
+      if (hit) {
+        Logger.log("[_meeting_findNotionPageByEventId_] stage2 eventId=" + eventId + " titleHint=" + opts.titleHint +
+          " meetingDate=" + (opts.meetingDate || "(none)") + " selected=" + hit.id);
+        return hit;
+      }
     } catch (_e) {}
   }
 
-  // 3) 同日付 (= cron テンプレや 日付プロパティ入りのページ)
+  // Stage 3: 日付プロパティ equals (= cron テンプレ や 「日付」入りのページ)
   if (opts.meetingDate && /^\d{4}-\d{2}-\d{2}$/.test(opts.meetingDate)) {
     try {
       const res = _notion_fetch_(notionToken, url, "post", {
         filter: { property: dateProp, date: { equals: opts.meetingDate } },
         page_size: 10
       });
-      addCandidates(res && res.results);
+      const hit = pickLatest(res && res.results);
+      if (hit) {
+        Logger.log("[_meeting_findNotionPageByEventId_] stage3 eventId=" + eventId + " meetingDate=" + opts.meetingDate + " selected=" + hit.id);
+        return hit;
+      }
     } catch (_e) {}
   }
 
-  if (!candidates.length) return null;
-
-  // last_edited_time 降順 (= 新しく更新されたページを優先 = AI ページ通常)
-  candidates.sort(function (a, b) {
-    const at = String(a.last_edited_time || a.created_time || "");
-    const bt = String(b.last_edited_time || b.created_time || "");
-    return bt.localeCompare(at);
-  });
-
-  Logger.log("[_meeting_findNotionPageByEventId_] eventId=" + eventId + " candidates=" + candidates.length +
-    " selected=" + candidates[0].id + " last_edited=" + (candidates[0].last_edited_time || ""));
-
-  return candidates[0];
+  Logger.log("[_meeting_findNotionPageByEventId_] no hit eventId=" + eventId + " titleHint=" + (opts.titleHint || "") + " meetingDate=" + (opts.meetingDate || ""));
+  return null;
 }
 
 /**
