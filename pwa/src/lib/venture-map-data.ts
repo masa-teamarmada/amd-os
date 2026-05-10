@@ -11,7 +11,57 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+/** 旧 5 lane (gx_energy/gx_circular/materials/life/robo)。cron 系移行が終わるまで併存。 */
 export type LaneId = "gx_energy" | "gx_circular" | "materials" | "life" | "robo";
+
+/** ASPI Critical Technology Tracker 8 domains。正本: pwa/design/aspi_lanes.md */
+export type AspiDomainId =
+  | "advanced_ict"
+  | "advanced_materials_manufacturing"
+  | "ai_technologies"
+  | "biotechnology"
+  | "defence_space_robotics_transport"
+  | "energy_environment"
+  | "quantum"
+  | "sensing_timing_navigation";
+
+export const ASPI_DOMAIN_IDS: readonly AspiDomainId[] = [
+  "advanced_ict",
+  "advanced_materials_manufacturing",
+  "ai_technologies",
+  "biotechnology",
+  "defence_space_robotics_transport",
+  "energy_environment",
+  "quantum",
+  "sensing_timing_navigation",
+];
+
+export const ASPI_DOMAIN_LABEL_JP: Record<AspiDomainId, string> = {
+  advanced_ict: "通信・ICT",
+  advanced_materials_manufacturing: "先端材料・製造",
+  ai_technologies: "AI",
+  biotechnology: "バイオ・医療",
+  defence_space_robotics_transport: "防衛・宇宙・ロボ",
+  energy_environment: "エネルギー・環境",
+  quantum: "量子",
+  sensing_timing_navigation: "センシング",
+};
+
+export const ASPI_DOMAIN_SHORT_LABEL: Record<AspiDomainId, string> = {
+  advanced_ict: "ICT",
+  advanced_materials_manufacturing: "材料",
+  ai_technologies: "AI",
+  biotechnology: "バイオ",
+  defence_space_robotics_transport: "防衛/宇宙/ロボ",
+  energy_environment: "エネ/環境",
+  quantum: "量子",
+  sensing_timing_navigation: "センシング",
+};
+
+export interface LaneWeight {
+  domain: AspiDomainId;
+  weight: number; // 0-1、配列内合計 = 1.0
+}
 
 export type OutcomePattern = "rocket" | "lifted" | "deep_pivot" | "burnout" | "ue_fail";
 
@@ -20,7 +70,10 @@ export interface VentureRow {
   project_id: string;
   display_name: string;
   short_label: string | null;
+  /** 旧 5 lane (cron 互換用に当面残置)。新 UI / 集計は lanes (ASPI 8 domain) を優先。 */
   lane: LaneId;
+  /** ASPI 8 domain weighted (migration 041)。null = 未設定 (新規 PJ 用)。 */
+  lanes: LaneWeight[] | null;
   founded_at: string | null; // ISO date (pre-founding は null)
   status: string;            // projects.status 由来 ('active' | 'sales' | 'ended' | 'frozen' | 'lost')
   outcome_pattern: OutcomePattern;
@@ -50,6 +103,7 @@ type RawVentureRow = {
   display_name: string;
   short_label: string | null;
   lane: LaneId;
+  lanes: LaneWeight[] | null;
   founded_at: string | null;
   outcome_pattern: OutcomePattern;
   origin_org: string | null;
@@ -69,6 +123,7 @@ function flattenVentureRow(r: RawVentureRow): VentureRow {
     display_name: r.display_name,
     short_label: r.short_label,
     lane: r.lane,
+    lanes: r.lanes,
     founded_at: r.founded_at,
     status: project?.status ?? "active",
     outcome_pattern: r.outcome_pattern,
@@ -83,7 +138,7 @@ function flattenVentureRow(r: RawVentureRow): VentureRow {
 }
 
 const VENTURE_SELECT =
-  "project_id, display_name, short_label, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public, amd_support_started_at, amd_support_ended_at, projects(status)";
+  "project_id, display_name, short_label, lane, lanes, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public, amd_support_started_at, amd_support_ended_at, projects(status)";
 
 /** 公開可な PJ (SU 系) を全件、設立日昇順で取得 */
 export async function fetchVenturesForMap(): Promise<VentureRow[]> {
