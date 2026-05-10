@@ -1958,11 +1958,35 @@ migration 035_scholar.sql 作成時に `Edit/Write` で `/Users/masa/projects/AM
 - 再抽出後 11 件サマリ復活 (1/16 杉浦先生 / 1/18 SX 事業計画 / 2/18 / 2/26 / 3/3 (3 件) / 3/24 / 11/14 等)
 - GAS deploy v1448 → v1449 → v1450 → v1451 → v1452_self_healing
 
+### Phase C: LLM 切替 (まさ承認 2026-05-11)
+
+`error_llm` 連発の根本対応として `DB_LlmModelConfig.meeting_extract` を Gemini → Anthropic Sonnet 4.5 に upsert (provider=`anthropic`, model=`claude-sonnet-4-5-20250929`, maxTokens=2048, temperature=0.2)。`admin_upsertLlmModelConfig` 経由。
+
+### Phase D: `_meeting_findNotionPageByEventId_` 事故修正
+
+Sonnet 切替後 4/14 で再試行したら **selected page が 1/20 ページ** という奇怪な事故。原因は 3 段 fallback (eventId equals / titleHint contains / date equals) の **結果を merge して last_edited_time 降順 sort で 1 件選ぶ実装** で、titleHint='SX定例MTG' で多月ページがヒット → 最近 patch されたページが先頭に来てた。
+
+修正: 段階的 fallback (1 段目 hit → return、空なら次、各段内で last_edited 降順 1 件)。stage 2 では `created_time` を meetingDate ±1日でフィルタして AI ページの正しい event 日のみに絞り込み。`nav_meeting_processOneEvent_` の primary 後の "better fallback" も削除 (= 段階的 fallback で不要)。
+
+### 副次修正: generated_by_model のハードコード解消
+
+`_meeting_extractWithLLM_` の戻り値に `modelName` (= `provider:model`) 追加。upsert 時の `generated_by_model` をハードコード `gemini-2.5-flash` から `llm_getConfig("meeting_extract")` 由来に動的化。
+
+### 最終検証 (2026-05-11 19:00)
+
+- SX 全 35 件 force 再抽出 (Sonnet + 段階 fallback): **OK=22 / SKIP=13 / ERR=0**
+- supabase project_meeting_summaries (SX, p21):
+  - 修正前: have=11 / empty=17 / total=28 (誤った meeting_id 紐付けあり)
+  - 修正後: **have=30 / empty=16 / total=46**
+- 4/14 / 4/16 / 4/28 / 3/31 / 3/24 / 3/19 / 1/20 / 1/16 / 12/24 / 11/14 等まさ認知の MTG 全部復活
+- 残 16 件 empty: (a) Notion + Gmail 両方無し (b) Gmail のみで LLM が真に PJ 無関係判定 (両方とも内容的に正しい)
+- GAS deploy: v1448 → v1449 → v1450 → v1451 → v1452 → v1453 → **v1454_dynamic_model_label**
+
 ### 残課題 (次セッション)
 
-1. **`error_llm` 連発 (4/14 / 4/16 / 4/28 / 3/31 等 4+ 件)**: AI ページ取得後 Gemini 抽出 null → action=error_llm。再現性高い (rate limit ではない)。仮説: safety filter / JSON 不正 / token 超え。`llm_callGemini_` (gas/163) が finishReason / safetyRatings 無視するので原因握り潰される。`debug_llm_geminiRaw` 用意したが GAS Web App URL 長すぎ (HTTP 400) で combinedText 直接渡せない → `debug_meeting_attemptExtract(eventId, projectId)` 新設 (eventId だけで内部再現) が次の一手。または `DB_LlmModelConfig` の `meeting_extract` を Gemini → Anthropic Sonnet 4.5 切替で即解決可能性
-2. **4/17 SX-インタビュー (title ISO 無し)**: AI が ISO 自動付与しないパターン。backfill regex から漏れる。self-healing が cron で回ればタイトル contains "SX-インタビュー" でヒットして自動補修される可能性 → 1 サイクル待って観察
-3. **self-healing 本番運用検証**: cron 1 サイクル待ちで Logger.log の `[processOneEvent] self-heal patched: ...` を確認
+1. **self-healing 本番運用検証**: 毎時 cron 1 サイクル待ちで Logger.log の `[processOneEvent] self-heal patched: ...` を確認
+2. **4/17 SX-インタビュー (title ISO 無し)**: backfill regex から漏れたが、self-healing が cron で回ればタイトル contains "SX-インタビュー" でヒット → 自動補修される可能性 (1 サイクル待ち)
+3. **Gemini error_llm 真因究明 (低優先)**: Sonnet 切替で運用復旧済。Gemini が何故 null 返したか (= safety filter / JSON 不正 / token 超え) は未究明。`debug_llm_geminiRaw` は追加済だが URL 長すぎ問題で使えてない。POST 対応 or `debug_meeting_attemptExtract` 新設で次回調査可能
 
 ### 教訓
 
