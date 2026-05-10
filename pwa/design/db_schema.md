@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-10 02:50 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-10 10:39 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -214,7 +214,7 @@ PRIMARY KEY: `id`
 
 ## atlas_stories
 
-行数 (概算): 179
+行数 (概算): 182
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -907,7 +907,7 @@ UNIQUE: `(item_id)` (constraint: `navigator_items_item_id_key`)
 
 ## papers_log
 
-行数 (概算): 0
+行数 (概算): 80
 PRIMARY KEY: `id`
 UNIQUE: `(lane,observed_at)` (constraint: `papers_log_lane_observed_at_uq`)
 

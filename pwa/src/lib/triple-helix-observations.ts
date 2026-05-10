@@ -166,6 +166,40 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
     .eq("status", "accepted")
     .gte("submitted_at", earliestObservedAt);
 
+  // 5. C_compete (競合密度): project_ventures から lane × quarter で生存中 PJ 数を計算
+  //    操作的定義 (data_specification.md §C):
+  //      C_lane(t) = #{ SU s : lane(s)=lane, alive(s, t) }
+  //    alive 判定: founded_at <= quarter end かつ outcome_pattern NOT IN ('burnout', 'ue_fail')
+  //                またはまだ AMD 支援中 (amd_support_ended_at IS NULL or >= quarter start)
+  const { data: ventureData } = await supabase
+    .from("project_ventures")
+    .select("lane, founded_at, amd_support_started_at, amd_support_ended_at, outcome_pattern")
+    .eq("lane", lane);
+
+  const ventures = (ventureData ?? []) as {
+    lane: string;
+    founded_at: string | null;
+    amd_support_started_at: string | null;
+    amd_support_ended_at: string | null;
+    outcome_pattern: string;
+  }[];
+
+  const cCompeteHistory: ObservationHistoryPoint[] = quarters.map((q) => {
+    const qStart = q.observedAt;
+    const qEnd = quarterStartDate(q.q === 4 ? q.year + 1 : q.year, q.q === 4 ? 1 : ((q.q + 1) as 1 | 2 | 3 | 4));
+    let count = 0;
+    for (const v of ventures) {
+      // 創業前 (founded_at が null or > quarter end) は除外
+      const founded = v.founded_at ?? v.amd_support_started_at;
+      if (!founded || founded > qEnd) continue;
+      // 死亡パターン (burnout / ue_fail) の場合、AMD 支援終了以降は除外
+      const dead = v.outcome_pattern === "burnout" || v.outcome_pattern === "ue_fail";
+      if (dead && v.amd_support_ended_at && v.amd_support_ended_at < qStart) continue;
+      count++;
+    }
+    return { quarter: q.quarter, observed_at: q.observedAt, value: count };
+  });
+
   const pCountByQ = new Map<string, number>();
   const rCountByQ = new Map<string, number>();
   for (const r of (atlasData ?? []) as { submitted_at: string | null; domain: string | null }[]) {
@@ -247,7 +281,7 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
     buildObs("R", rHistory),
     buildObs("I_R", null),
     buildObs("N", nHistory),
-    buildObs("C_compete", null),
+    buildObs("C_compete", cCompeteHistory),
   ].sort((a, b) => a.loading.display_order - b.loading.display_order);
 
   // 6. μ 計算: 取れてる観測量だけで重み付き平均

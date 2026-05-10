@@ -16,6 +16,7 @@
  */
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   AXIS_COLOR,
   calculateAmdScore,
@@ -24,7 +25,7 @@ import {
 } from "@/lib/amd-score";
 // PHASE_COLOR / PHASE_LABEL_JP は使用しない (検証データ蓄積後に復活検討、2026-05-09)
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
-// Tex は使用しない (数式は詳細ページに移設済み 2026-05-09)
+import { Tex } from "@/components/venture-map/Tex";
 
 interface Props {
   projectId: string;
@@ -164,7 +165,7 @@ function BreakdownContent({
         sub="外部環境 / Triple Helix"
         value={M}
         color={AXIS_COLOR.sigma_SU}
-        formula="M = (σ_SU+1)^α_σ"
+        formula={<Tex tex={String.raw`M = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}`} />}
         bottleneck={result.bottleneck === "sigma_SU"}
       >
         <FactorRow
@@ -186,12 +187,12 @@ function BreakdownContent({
           subtitleIsFallback={!latestInput.mu_notes?.g}
         />
         <FactorRow
-          name="σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) − 1"
+          name={<Tex tex={String.raw`\sigma_{\mathrm{SU}} = \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`} />}
           value={fmt(result.sigma_SU)}
           highlight
         />
         <FactorRow
-          name="= M = (σ_SU+1)^α_σ"
+          name={<><span className="font-mono">= M =</span> <Tex tex={String.raw`(\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}`} /></>}
           value={fmt(M)}
           note={`α_σ = ${alpha.sigma_SU.toFixed(2)}`}
           total
@@ -205,7 +206,7 @@ function BreakdownContent({
         sub="会社に帰属する 5 軸 readiness"
         value={X}
         color={AXIS_COLOR.TRL}
-        formula="X = ∏ (x+1)^α_x"
+        formula={<Tex tex={String.raw`X = \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}} (x+1)^{\alpha_x}`} />}
       >
         {xrlAxes.map((axis) => {
           if (axis === "TRL" && result.shallowTechMode) return null;
@@ -226,8 +227,13 @@ function BreakdownContent({
           return (
             <FactorRow
               key={axis}
-              name={`${axis} = ${fmt(rawValue, 1)}`}
-              value={`(${fmt(rawValue, 1)}+1)^${alpha[axis].toFixed(2)} = ${fmt(contribution)}`}
+              name={`${axis} = ${Math.round(rawValue)}`}
+              value={
+                <>
+                  <Tex tex={String.raw`(${Math.round(rawValue)}+1)^{${alpha[axis].toFixed(2)}}`} />
+                  <span className="ml-1 font-mono">= {fmt(contribution)}</span>
+                </>
+              }
               note={`α = ${alpha[axis].toFixed(2)}`}
               dotColor={AXIS_COLOR[axis]}
               bottleneck={isBottleneck}
@@ -236,7 +242,11 @@ function BreakdownContent({
             />
           );
         })}
-        <FactorRow name="= X = ∏ (x+1)^α_x" value={fmt(X)} total />
+        <FactorRow
+          name={<><span className="font-mono">= X =</span> <Tex tex={String.raw`\prod_x (x+1)^{\alpha_x}`} /></>}
+          value={fmt(X)}
+          total
+        />
       </FactorCard>
 
       {/* ③ CEO の FRL F */}
@@ -246,7 +256,7 @@ function BreakdownContent({
         sub="個人に帰属 / ALQ ベース"
         value={F}
         color={AXIS_COLOR.FRL}
-        formula="F = (FRL+1)^α_F"
+        formula={<Tex tex={String.raw`F = (\mathrm{FRL}+1)^{\alpha_F}`} />}
         bottleneck={result.bottleneck === "FRL"}
       >
         <FactorRow
@@ -256,7 +266,7 @@ function BreakdownContent({
           subtitleIsFallback={!latestInput.frl_notes}
         />
         <FactorRow
-          name="= F = (FRL+1)^α_F"
+          name={<><span className="font-mono">= F =</span> <Tex tex={String.raw`(\mathrm{FRL}+1)^{\alpha_F}`} /></>}
           value={fmt(F)}
           note={`α_F = ${alpha.FRL.toFixed(2)} (最大重み)`}
           total
@@ -298,9 +308,9 @@ function FactorCard({
   sub: string;
   value: number;
   color: string;
-  formula: string;
+  formula: ReactNode;
   bottleneck?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div
@@ -345,10 +355,10 @@ function FactorRow({
   subtitle,
   subtitleIsFallback = false,
 }: {
-  name: string;
-  value: string;
+  name: ReactNode;
+  value: ReactNode;
   /** 行末の小さい注記 (α 値など、機械的に表示するメタ情報)。 */
-  note?: string;
+  note?: ReactNode;
   dotColor?: string;
   highlight?: boolean;
   total?: boolean;

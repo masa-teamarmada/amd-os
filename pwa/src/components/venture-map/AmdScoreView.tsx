@@ -353,7 +353,15 @@ function ScoreHeroCard({
   result: ReturnType<typeof calculateAmdScore>;
   venture: VentureRow;
 }) {
-  const norm = logScaleNormalize(result.score);
+  // bar 範囲 = log10(1000) 〜 log10(50,000) (まさ判断 2026-05-10):
+  //   PJ 化済が 1k 前後、卒業が 50k 前後なので、その帯を見える化
+  //   < 1,000 は 0%、> 50,000 は 100% で clip
+  const norm = (() => {
+    const lo = Math.log10(1000);
+    const hi = Math.log10(50000);
+    const v = Math.log10(Math.max(1, result.score));
+    return Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+  })();
   // フェーズタブは検証データ蓄積後に復活検討のため非表示 (2026-05-09)。
   // スコア数値・bar は中立色 (slate-900) で固定表示。
   const scoreColor = "#0f172a";
@@ -376,15 +384,31 @@ function ScoreHeroCard({
         </div>
       </div>
 
-      {/* log scale バー */}
+      {/* log scale バー (1k-50k focus、< 1k と > 50k は飽和) */}
       <div className="relative h-2 bg-slate-200 rounded-full overflow-hidden">
         <div
           className="h-full"
           style={{ width: `${norm * 100}%`, backgroundColor: scoreColor, transition: "width 200ms" }}
         />
+        {/* 設立 GO 閾値 (3,500) のマーカー */}
+        {(() => {
+          const lo = Math.log10(1000);
+          const hi = Math.log10(50000);
+          const goPct = ((Math.log10(3500) - lo) / (hi - lo)) * 100;
+          return (
+            <div
+              className="absolute top-[-2px] h-3 w-px bg-amber-500"
+              style={{ left: `${goPct}%` }}
+              title="設立 GO 閾値 = 3,500"
+            />
+          );
+        })()}
       </div>
-      <div className="flex justify-between text-[9px] text-muted-foreground font-mono mt-1">
-        <span>1</span><span>30</span><span>300</span><span>1.5k</span><span>3.5k</span><span>15k</span><span>50k</span><span>100k</span>
+      <div className="relative mt-1 text-[9px] text-muted-foreground font-mono h-3">
+        <span className="absolute" style={{ left: "0%" }}>1k</span>
+        <span className="absolute" style={{ left: `${((Math.log10(3500) - Math.log10(1000)) / (Math.log10(50000) - Math.log10(1000))) * 100}%`, transform: "translateX(-50%)" }}>3.5k</span>
+        <span className="absolute" style={{ left: `${((Math.log10(15000) - Math.log10(1000)) / (Math.log10(50000) - Math.log10(1000))) * 100}%`, transform: "translateX(-50%)" }}>15k</span>
+        <span className="absolute right-0">50k</span>
       </div>
 
       <div className="mt-3 text-[11px] text-muted-foreground flex flex-wrap items-center gap-2">
@@ -775,14 +799,19 @@ function Factor3Breakdown({
           return (
             <DetailFactorRow
               key={axis}
-              name={`${axis} = ${fmt(rawValue, 1)}`}
-              value={`(${fmt(rawValue, 1)}+1)^${alpha[axis].toFixed(2)} = ${fmt(contribution)}`}
+              name={`${axis} = ${Math.round(rawValue)}`}
+              value={
+                <>
+                  <Tex tex={String.raw`(${Math.round(rawValue)}+1)^{${alpha[axis].toFixed(2)}}`} />
+                  <span className="ml-1 font-mono">= {fmt(contribution)}</span>
+                </>
+              }
               note={`α = ${alpha[axis].toFixed(2)}`}
               dotColor={AXIS_COLOR[axis]}
               bottleneck={result.bottleneck === axis}
               subtitle={subtitleText}
               subtitleIsFallback={subtitleSource === "fallback"}
-              onClick={() => openTsukuyomiPrefill(ventureName, axis, fmt(rawValue, 1), noteKey || xrlLogReason)}
+              onClick={() => openTsukuyomiPrefill(ventureName, axis, String(Math.round(rawValue)), noteKey || xrlLogReason)}
             />
           );
         })}
