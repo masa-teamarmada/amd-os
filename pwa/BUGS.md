@@ -5,6 +5,25 @@
 
 ---
 
+### [GAS] SX (p21) 繰り返し MTG `int) SX 社内打ち合わせ` で議事録抽出が空になる
+- **発見日**: 2026-05-10 (まさ指摘)
+- **状態**: 🟡 原因特定済 (修正は次セッション)
+- **症状**: PWA `/project/p21/cockpit` で SX の MTG サマリを開くと、3/24 の `SX)int-納品物相談` 以外は summary_short が空 / 「議事録なし」 / 「対象 PJ に関連する議事録が確認できず」
+- **原因**:
+  - 繰り返しイベント `timth289ausur5avf894qtpekl_*` / `738970jsaspt5h9vcv4l1ef2hk_*` の Notion 議事録ページが **cron テンプレ「Meet（ここで /meet を打つ）」のままで本文ゼロ**。`sourceAiPageId` 空 (= AI 議事録ページが生成されてない)
+  - 3/24 だけ中身あるのは単発イベント `0tji7sracmp1lvgtkbbv15i3iq` で、別途 Notion AI ページか人手議事録があったため
+  - Gmail thread 2 件取れるが、LLM が「SX に関連しない」と判定して空返却 (gas/074 v4_alias_feedback プロンプトが SX = solvioraX を alias resolve できない可能性)
+  - cron テンプレ停止後 (`run_createMinutes_apply` trigger 削除済) Notion AI 一本化したが、SX 繰り返し MTG では Notion AI が議事録自動生成してない (= 録音 OFF or 機能未連携)
+- **次セッションの修正候補**:
+  - (a) **Notion AI 設定確認**: SX 系 MTG (繰り返し instance) で AI 議事録自動生成が有効になってるかまさが確認
+  - (b) **Gmail 関連性判定の緩和**: gas/074 のプロンプトで「SX = solvioraX」alias を強める。`_meeting_resolveProjectName_` 拡張
+  - (c) **Slack ingest**: SX 専用 Slack channel から MTG 周辺のメッセージを取り込む新ロジック (Phase 4.x で計画済)
+- **教訓**:
+  - 議事録抽出が空のとき「LLM が空返した」「Notion ページが空」「Gmail に関連 thread なし」を区別する必要
+  - `nav_meeting_processOneEvent_` を `force:true` で叩くと sourceKinds / gmailThreads / summaryShort が分かるので原因切り分けに使える
+
+---
+
 ### [AMD OS PWA] AMD Score 律速判定が α 小さい軸を常に選ぶ退化バグ
 - **発見日**: 2026-05-09
 - **状態**: ✅ 解決済み
