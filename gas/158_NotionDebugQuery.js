@@ -217,6 +217,31 @@ function debug_meeting_inspectYm(projectId, ymKey) {
   };
 }
 
+/** _meeting_fetchAiNotesBody_ の戻り値をそのまま返す debug。
+ *  Gemini への入力 (combinedText の AI 部分) を実際に見る用。
+ */
+function debug_meeting_dumpAiBody(pageId) {
+  pageId = String(pageId || "").trim();
+  const props = PropertiesService.getScriptProperties();
+  const notionToken = String(props.getProperty("NOTION_TOKEN") || "").trim();
+  if (!notionToken) return { ok: false, message: "NOTION_TOKEN missing" };
+  if (!pageId) return { ok: false, message: "pageId empty" };
+  if (typeof _meeting_fetchAiNotesBody_ !== "function") return { ok: false, message: "_meeting_fetchAiNotesBody_ unavailable" };
+
+  let body = "";
+  try {
+    body = String(_meeting_fetchAiNotesBody_(notionToken, pageId, { maxChars: 20000 }) || "");
+  } catch (e) {
+    return { ok: false, message: "fetchAiNotesBody error: " + (e && e.message ? e.message : e) };
+  }
+  return {
+    ok: true,
+    pageId: pageId,
+    bodyLength: body.length,
+    body: body
+  };
+}
+
 /** Notion ページの properties を直接 fetch して全プロパティ + メタを返す。
  *  AI 自動生成ページの「日付 / PJ / eventId プロパティが入ってるか」を確認する用。
  */
