@@ -1901,3 +1901,74 @@ migration 035_scholar.sql 作成時に `Edit/Write` で `/Users/masa/projects/AM
 - 創業メンバーが追加されたら通知バッジ + iOS Swift APNs
 - Phase 2-C: KAKEN API ingest (I_R) / Phase 2-D: NEDO/SIP/JST scrape (B) / Phase 2-E: Crunchbase (V)
 - SX MTGサマリの修正候補 (Notion AI 設定確認 / Gmail alias 拡張 / Slack ingest)
+
+---
+
+## 2026-05-11 — SX MTG サマリ抽出バグ 真因特定 + 設計修正 (nervous-elbakyan-c1323e)
+
+前セッション (affectionate-easley-9b52b8) で「Notion 議事録テンプレ放置 + AI 議事録なし」と結論されていた SX (p21) MTG サマリ未抽出バグを再検証。まさの「4/14 / 4/16 / 4/17 / 4/28 にも議事録あるはず」指摘で早合点だったと判明、真因を特定して設計レベルで修正。
+
+### 真因 (2026-05-11 確定)
+
+**Notion AI が会議終了時に自動生成する議事録ページは「日付」「eventId」「PJ relation」3 プロパティとも空のまま生成される**。これにより:
+1. `nav_repo_notion_queryMinutesByYmFull_` の date filter から漏れる
+2. `_meeting_findNotionPageByEventId_` の eventId equals fallback でも漏れる
+3. cron polling 経由でも primary 取得でヒットせず page_not_found
+
+例: 4/14 SX定例MTG `34297749c608807aa79fdd02eca6ee29` は title=`SX定例MTG 2026-04-14T16:00:00.000+09:00`、PJ=SX 入り、ただし `日付`空 / `eventId`空。created_time = 2026-04-14。
+
+### Phase A: 過去分救済 (one-time backfill)
+
+**`gas/160_MeetingAiBackfill.js` 新規** `nav_meeting_backfillAiPages_(opts)`:
+- Notion 議事録 DB を sinceDays で query (last_edited_time / created_time の or filter)
+- title から ISO 日時 regex parse → 「日付」用 YYYY-MM-DD と event 検索用 timestamp
+- CFG_PJAlias 経由 (= `_loadPJAliasesForMinutes_` + `_matchAlias_` 既存関数) で title から pjCode 判定。**コード内 alias 一切持たず** (まさルール)
+- PJ DB で pjCode → Notion page id 引き当て (`_notion_buildPjCodeToPageIdMap_`、6h cache)
+- calendar API で同時刻 ±5 分の events を `listEventsByApi_` で取得、タイトル類似度で 1 件絞り込み → eventId
+- Notion API で空プロパティ (`日付`/`eventId`/`PJ`) のみ patch、dryRun 対応、ambiguous 検出
+
+**SX (p21) 35 件 patch 成功** (errors=0、ambig=0、2025-11 〜 2026-04 全期間カバー)。35 件のうち 14 件は `[日付, eventId, PJ]` 3 つとも空、21 件は `[日付, eventId]` 2 つ空 (PJ は元々入ってる)。
+
+### Phase B: 恒久対応 (cron 内 self-healing) — まさ指示で設計変更
+
+最初は backfill を恒常 cron として回す案だったが、まさが「カレンダー起点の cron なら対応議事録の補修もそこでやれ」と core 指摘。one-time backfill ではなく毎時 cron 内 self-healing に統合。
+
+**`gas/074_MeetingSummaryRepo.js` `nav_meeting_processOneEvent_` 改修**:
+- 引数に `opts.eventTitle` / `opts.eventStartAt` 追加
+- `_meeting_findNotionPageByEventId_` の 3 段階 fallback (eventId / titleHint / date) を **primary 取得から** 有効化 → AI ページが eventId 空でも title contains で拾える
+- page hit 後、空プロパティ (`日付`/`eventId`/`PJ`) を CFG_PJAlias 経由で patch (= self-healing)
+- 次回以降は eventId equals fallback で正常動作 = **1 度処理されたページは恒久的に修復**
+
+**`gas/153_MeetingHourlyTrigger.js` `nav_meeting_pollRecentlyEndedEvents`**: `processOneEvent` 呼び出しに calendar event の title / startAt を渡すよう修正
+
+### debug 関数 5 個追加
+
+- `gas/158` `debug_meeting_inspectYm(projectId, ym)`: ym 全 Notion ページを inspect (eventId / pjRelation / resolvedProjectId / hasTranscriptionBlock / bodyChars)
+- `gas/158` `debug_meeting_inspectPage(pageId)`: 1 ページの properties 全件 dump
+- `gas/158` `debug_meeting_dumpAiBody(pageId)`: AI 議事録本文を直接取得
+- `gas/158` `debug_llm_geminiRaw(systemPrompt, userPrompt, opts)`: Gemini 生 response 確認 (finishReason / safetyRatings / promptFeedback)
+- `gas/159_PJAliasDebug.js` `debug_pjAliases_dump(pjCodeFilter?)`: CFG_PJAlias 全件 dump
+
+### 動作確認
+
+- `debug_meeting_inspectYm("p21","202604")`: SX 53 件中、AI ページで eventId 空 + transcription あり = 12 件確認
+- `debug_meeting_inspectPage("34297749c608807aa79fdd02eca6ee29")`: 4/14 ページの「日付」空 / 「eventId」空 / 「PJ」=SX 確認 → 真因確定
+- `debug_pjAliases_dump()`: CFG_PJAlias 69 行確認 (SX/SolvioraX/愛媛/杉浦/シアノ/PS2 等の SX alias 既登録、コード内 alias 不要)
+- backfill SX 35 件 patch 成功
+- 再抽出後 11 件サマリ復活 (1/16 杉浦先生 / 1/18 SX 事業計画 / 2/18 / 2/26 / 3/3 (3 件) / 3/24 / 11/14 等)
+- GAS deploy v1448 → v1449 → v1450 → v1451 → v1452_self_healing
+
+### 残課題 (次セッション)
+
+1. **`error_llm` 連発 (4/14 / 4/16 / 4/28 / 3/31 等 4+ 件)**: AI ページ取得後 Gemini 抽出 null → action=error_llm。再現性高い (rate limit ではない)。仮説: safety filter / JSON 不正 / token 超え。`llm_callGemini_` (gas/163) が finishReason / safetyRatings 無視するので原因握り潰される。`debug_llm_geminiRaw` 用意したが GAS Web App URL 長すぎ (HTTP 400) で combinedText 直接渡せない → `debug_meeting_attemptExtract(eventId, projectId)` 新設 (eventId だけで内部再現) が次の一手。または `DB_LlmModelConfig` の `meeting_extract` を Gemini → Anthropic Sonnet 4.5 切替で即解決可能性
+2. **4/17 SX-インタビュー (title ISO 無し)**: AI が ISO 自動付与しないパターン。backfill regex から漏れる。self-healing が cron で回ればタイトル contains "SX-インタビュー" でヒットして自動補修される可能性 → 1 サイクル待って観察
+3. **self-healing 本番運用検証**: cron 1 サイクル待ちで Logger.log の `[processOneEvent] self-heal patched: ...` を確認
+
+### 教訓
+
+- **「自分の提案を疑う」**: 前セッション「Notion 議事録テンプレ放置」結論を疑わず受け入れたら、AI ページ別生成の真因を見落とし続けてた。まさの「あるって言ったらある」指摘で前提検証するきっかけ
+- **「正本 md は最初に Read で全文通す」**: AGENTS.common.md を最初に Read してなくて「僕」言葉や 20 代女子人格を忘れた。新セッション最初に必ず Read するルール
+- **「PJ relation は GAS が入れる」**: 「PJ 入ってるページのみ救済」案をまさが即否定。Notion 側 (人) で入れる前提にロジックを書かない。GAS 側のロジック漏れがあれば自動 set するのが正しい
+- **「カレンダー起点の cron なら対応議事録の補修もそこでやれ」**: one-time backfill 関数を恒常運用するのではなく、毎時 cron 内に self-healing を組み込む方が設計として綺麗
+- **コード内 alias 管理禁止**: PJ alias は CFG_PJAlias 外部スプシが唯一正本。`projects.project_name` / `project_ventures.display_name` 等から自動生成する案は却下されるべきだった
+- **早合点しない**: 前セッション supabase 28 行の集計を「全件」と勘違いして「16 件は救えない」と即結論したが、実は cron 自体が漏れてて 35+ 件が登録されてなかった。前提を疑え
