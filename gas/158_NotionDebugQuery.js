@@ -217,6 +217,81 @@ function debug_meeting_inspectYm(projectId, ymKey) {
   };
 }
 
+/** Notion ページの properties を直接 fetch して全プロパティ + メタを返す。
+ *  AI 自動生成ページの「日付 / PJ / eventId プロパティが入ってるか」を確認する用。
+ */
+function debug_meeting_inspectPage(pageId) {
+  pageId = String(pageId || "").trim();
+  const props = PropertiesService.getScriptProperties();
+  const notionToken = String(props.getProperty("NOTION_TOKEN") || "").trim();
+  if (!notionToken) return { ok: false, message: "NOTION_TOKEN missing" };
+  if (!pageId) return { ok: false, message: "pageId empty" };
+
+  const url = "https://api.notion.com/v1/pages/" + encodeURIComponent(pageId);
+  let res;
+  try {
+    res = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: { "Authorization": "Bearer " + notionToken, "Notion-Version": "2022-06-28" },
+      muteHttpExceptions: true
+    });
+  } catch (e) {
+    Logger.log("[debug_meeting_inspectPage] fetch error: " + e);
+    return { ok: false, message: "fetch error: " + e };
+  }
+  const status = res.getResponseCode();
+  if (status < 200 || status >= 300) {
+    return { ok: false, status: status, body: String(res.getContentText() || "").slice(0, 800) };
+  }
+  let body;
+  try {
+    body = JSON.parse(res.getContentText());
+  } catch (e) {
+    Logger.log("[debug_meeting_inspectPage] parse error: " + e);
+    return { ok: false, message: "parse error" };
+  }
+
+  const propSummary = {};
+  const properties = (body && body.properties) || {};
+  for (const k in properties) {
+    const p = properties[k];
+    let val = "";
+    if (p.type === "title" && Array.isArray(p.title)) {
+      val = p.title.map(function (x) { return String((x && x.plain_text) || ""); }).join("");
+    } else if (p.type === "rich_text" && Array.isArray(p.rich_text)) {
+      val = p.rich_text.map(function (x) { return String((x && x.plain_text) || ""); }).join("");
+    } else if (p.type === "date" && p.date) {
+      val = String(p.date.start || "") + (p.date.end ? " ~ " + p.date.end : "");
+    } else if (p.type === "date") {
+      val = "<empty>";
+    } else if (p.type === "relation" && Array.isArray(p.relation)) {
+      val = p.relation.map(function (x) { return x.id; }).join(",");
+    } else if (p.type === "select" && p.select) {
+      val = String(p.select.name || "");
+    } else if (p.type === "select") {
+      val = "<empty>";
+    } else if (p.type === "multi_select" && Array.isArray(p.multi_select)) {
+      val = p.multi_select.map(function (x) { return x.name; }).join(",");
+    } else if (p.type === "people" && Array.isArray(p.people)) {
+      val = p.people.map(function (x) { return x.id; }).join(",");
+    } else {
+      val = JSON.stringify(p).slice(0, 200);
+    }
+    propSummary[k] = { type: p.type, value: val };
+  }
+
+  return {
+    ok: true,
+    pageId: body.id,
+    url: body.url,
+    created_time: body.created_time,
+    last_edited_time: body.last_edited_time,
+    archived: body.archived,
+    parent: body.parent,
+    properties: propSummary
+  };
+}
+
 /** Notion ページの blocks を直接 fetch して block type 一覧 + 各 block の生 JSON を返す
  *  AI 自動生成ページの <meeting-notes> 構造を解明する用。
  */
