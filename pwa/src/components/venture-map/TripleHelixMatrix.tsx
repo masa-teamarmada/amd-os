@@ -36,8 +36,7 @@ export function TripleHelixMatrix({ helix, alphaSigma }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* === 数式パネル (3 段) === */}
-      <FormulaPanel />
+      {/* 数式は紫枠 (AmdScoreFormulaPanel) で全段表示済 — 重複避け */}
 
       {/* === μ 値カード × 3 + σ_SU + M === */}
       <ValueLadder
@@ -59,10 +58,11 @@ export function TripleHelixMatrix({ helix, alphaSigma }: Props) {
 }
 
 // =====================================================================
-// 数式パネル — モデル構造を全段表示
+// 数式パネル — 紫枠 (AmdScoreFormulaPanel) で表示するため、ここは未使用 stub。
 // =====================================================================
 
-function FormulaPanel() {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _UnusedFormulaPanel() {
   return (
     <div className="rounded-md border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/40">
       <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -126,16 +126,20 @@ function ValueLadder({
         <MuChip label="μ_I" subtitle="産 (Industry)" value={muI} color="amber" />
         <MuChip label="μ_G" subtitle="官 (Government)" value={muG} color="indigo" />
       </div>
-      <div className="flex items-center justify-center text-slate-400">↓ ∛((μ_A+1)(μ_I+1)(μ_G+1)) − 1</div>
+      <div className="flex items-center justify-center gap-1 text-slate-400 text-[11px]">
+        <span>↓</span>
+        <Tex tex={String.raw`\sigma_{\mathrm{SU}} = \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`} />
+      </div>
       <div className="rounded-md border border-slate-300 bg-white p-2 text-center text-sm dark:border-slate-700 dark:bg-slate-900">
-        <span className="text-slate-500">σ_SU = </span>
-        <span className="font-mono text-base font-semibold tabular-nums">
+        <Tex tex={String.raw`\sigma_{\mathrm{SU}} = `} />
+        <span className="ml-1 font-mono text-base font-semibold tabular-nums">
           {FORMAT_NUM(sigmaSu, 2)}
         </span>
         <span className="ml-2 text-[10px] text-slate-400">(0-9 スケール)</span>
       </div>
-      <div className="flex items-center justify-center text-slate-400">
-        ↓ (σ_SU+1)^α_σ &nbsp;
+      <div className="flex items-center justify-center gap-1 text-slate-400 text-[11px]">
+        <span>↓</span>
+        <Tex tex={String.raw`M = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}`} />
         <span className="text-[10px]">(α_σ = {alphaSigma.toFixed(2)})</span>
       </div>
       <div className="rounded-md border border-slate-900 bg-slate-900 p-2 text-center text-sm dark:border-slate-100 dark:bg-slate-100">

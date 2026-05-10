@@ -17,7 +17,7 @@
  */
 
 import Link from "next/link";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Tex } from "@/components/venture-map/Tex";
 import {
   AXIS_COLOR,
@@ -33,6 +33,7 @@ import type { VentureRow, XrlLogRow } from "@/lib/venture-map-data";
 import type { AtlasMacroSignals } from "@/lib/atlas-macro-signals";
 import type { TripleHelixComputed } from "@/lib/triple-helix-observations";
 import { TripleHelixMatrix } from "@/components/venture-map/TripleHelixMatrix";
+import { AmdScoreFormulaPanel } from "@/components/venture-map/AmdScoreFormulaPanel";
 
 interface Props {
   venture: VentureRow;
@@ -260,7 +261,21 @@ export function AmdScoreView({
           },
           alpha
         );
-        return { id: r.id, evaluated_at: r.evaluated_at.slice(0, 10), score: calc.score };
+        // 各プロットの M / X / F 内訳 (popup 用)
+        const xrlAxes: AmdScoreAxis[] = ["TRL", "BRL", "GRL", "SRL", "HRL"];
+        const M = calc.contributions.sigma_SU ?? 1;
+        let X = 1;
+        for (const a of xrlAxes) {
+          if (a === "TRL" && calc.shallowTechMode) continue;
+          X *= calc.contributions[a] ?? 1;
+        }
+        const F = calc.contributions.FRL ?? 1;
+        return {
+          id: r.id,
+          evaluated_at: r.evaluated_at.slice(0, 10),
+          score: calc.score,
+          breakdown: { M, X, F, sigma_su: calc.sigma_SU, K: calc.K, bottleneck: calc.bottleneck },
+        };
       });
   }, [inputs, alpha]);
 
@@ -292,7 +307,7 @@ export function AmdScoreView({
       <div className="flex flex-col gap-4">
         <ScoreHeroCard result={result} venture={venture} />
         <BalanceBar result={result} alpha={alpha} />
-        <FormulaPanel alpha={alpha} />
+        <AmdScoreFormulaPanel alpha={alpha} />
         <Factor3Breakdown
           result={result}
           alpha={alpha}
@@ -306,6 +321,17 @@ export function AmdScoreView({
           series={series}
           latest={editable.evaluated_at}
           latestScore={result.score}
+          latestBreakdown={(() => {
+            const xrlAxes: AmdScoreAxis[] = ["TRL", "BRL", "GRL", "SRL", "HRL"];
+            const Mc = result.contributions.sigma_SU ?? 1;
+            let Xc = 1;
+            for (const a of xrlAxes) {
+              if (a === "TRL" && result.shallowTechMode) continue;
+              Xc *= result.contributions[a] ?? 1;
+            }
+            const Fc = result.contributions.FRL ?? 1;
+            return { M: Mc, X: Xc, F: Fc, sigma_su: result.sigma_SU, K: result.K, bottleneck: result.bottleneck };
+          })()}
           amdSupport={{
             startedAt: venture.amd_support_started_at ?? null,
             endedAt: venture.amd_support_ended_at ?? null,
@@ -479,10 +505,15 @@ function BalanceBarRow({
 }
 
 // ============================================================
-// Formula Panel — 全体式 + 3 要素式 + 律速の経済学的根拠 (引用つき)
+// FormulaPanel は別ファイル化 (AmdScoreFormulaPanel.tsx) して retrofit ページと共有。
+// 旧実装は紫枠の M 式が古かった (Triple Helix 観測モデルの μ_x = Σ c_xp ỹ_p / Σ c_xp と
+// ỹ_p min-max が抜けてた) ためまさが指摘 (2026-05-10 夜)。AmdScoreFormulaPanel.tsx で 4 段に拡張。
 // ============================================================
-function FormulaPanel({ alpha }: { alpha: AlphaWeights }) {
-  void alpha; // alpha 一覧は将来表示用 (現在は static text)
+
+// 削除済 stub (本来 ../AmdScoreFormulaPanel.tsx を使う)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _DeletedFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
+  void alpha;
   return (
     <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 leading-relaxed flex flex-col gap-3">
       <div>
@@ -656,7 +687,7 @@ function Factor3Breakdown({
         sub="外部環境 / Triple Helix 観測モデル"
         value={M}
         color={AXIS_COLOR.sigma_SU}
-        formula="M = (σ_SU+1)^α_σ"
+        formula={<Tex tex={String.raw`M = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}`} />}
         bottleneck={result.bottleneck === "sigma_SU"}
       >
         {/* Triple Helix 観測モデル: 6 観測量 × 3 隠れ状態 (μ_A/I/G) の C 行列を表示 */}
@@ -703,7 +734,7 @@ function Factor3Breakdown({
         sub="会社に帰属する 5 軸 readiness"
         value={X}
         color={AXIS_COLOR.TRL}
-        formula="X = ∏ (x+1)^α_x"
+        formula={<Tex tex={String.raw`X = \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}} (x+1)^{\alpha_x}`} />}
       >
         {xrlAxes.map((axis) => {
           if (axis === "TRL" && result.shallowTechMode) return null;
@@ -755,7 +786,11 @@ function Factor3Breakdown({
             />
           );
         })}
-        <DetailFactorRow name="= X = ∏ (x+1)^α_x" value={fmt(X)} total />
+        <DetailFactorRow
+          name={<><span className="font-mono">= X = </span><Tex tex={String.raw`\prod_{x} (x+1)^{\alpha_x}`} /></>}
+          value={fmt(X)}
+          total
+        />
       </DetailFactorCard>
 
       <DetailFactorCard
@@ -764,7 +799,7 @@ function Factor3Breakdown({
         sub="個人に帰属 / ALQ + Grit + Resilience"
         value={F}
         color={AXIS_COLOR.FRL}
-        formula="F = (FRL+1)^α_F"
+        formula={<Tex tex={String.raw`F = (\mathrm{FRL}+1)^{\alpha_F}`} />}
         bottleneck={result.bottleneck === "FRL"}
       >
         <DetailFactorRow
@@ -775,9 +810,9 @@ function Factor3Breakdown({
           onClick={() => openTsukuyomiPrefill(ventureName, "FRL", fmt(editable.frl, 1), editable.frl_notes || null)}
         />
         <DetailFactorRow
-          name="= F = (FRL+1)^α_F"
+          name={<><span className="font-mono">= F = </span><Tex tex={String.raw`(\mathrm{FRL}+1)^{\alpha_F}`} /></>}
           value={fmt(F)}
-          note={`α_F = ${alpha.FRL.toFixed(2)} (最大重み)`}
+          note={<>α_F = {alpha.FRL.toFixed(2)} (最大重み)</>}
           total
         />
       </DetailFactorCard>
@@ -800,7 +835,7 @@ function DetailFactorCard({
   sub: string;
   value: number;
   color: string;
-  formula: string;
+  formula: ReactNode; // string も可、Tex も可
   bottleneck?: boolean;
   children: ReactNode;
 }) {
@@ -828,7 +863,7 @@ function DetailFactorCard({
       </div>
       <div className="text-[10.5px] text-muted-foreground mb-2">
         {sub} · <span className="font-mono">{formula}</span>
-      </div>
+      </div>{/* formula は ReactNode (string or <Tex/>) を受ける */}
       <table className="w-full text-[11px]">
         <tbody>{children}</tbody>
       </table>
@@ -848,9 +883,9 @@ function DetailFactorRow({
   subtitleIsFallback = false,
   onClick,
 }: {
-  name: string;
-  value: string;
-  note?: string;
+  name: ReactNode; // string も可、<Tex /> も可
+  value: ReactNode;
+  note?: ReactNode;
   dotColor?: string;
   highlight?: boolean;
   total?: boolean;
@@ -897,17 +932,36 @@ function DetailFactorRow({
 // ============================================================
 // Time Series Chart
 // ============================================================
+interface ScoreBreakdown {
+  M: number;
+  X: number;
+  F: number;
+  sigma_su: number;
+  K: number;
+  bottleneck: AmdScoreAxis | "sigma_SU";
+}
+
 function TimeSeriesChart({
   series,
   latest,
   latestScore,
+  latestBreakdown,
   amdSupport,
 }: {
-  series: { id: string; evaluated_at: string; score: number }[];
+  series: { id: string; evaluated_at: string; score: number; breakdown: ScoreBreakdown }[];
   latest: string;
   latestScore: number;
+  latestBreakdown: ScoreBreakdown;
   amdSupport: { startedAt: string | null; endedAt: string | null };
 }) {
+  const [active, setActive] = useState<{
+    id: string;
+    evaluated_at: string;
+    score: number;
+    breakdown: ScoreBreakdown;
+    px: number;
+    py: number;
+  } | null>(null);
   const W = 800;
   const H = 220;
   const ML = 56;
@@ -920,7 +974,7 @@ function TimeSeriesChart({
   // x 軸: 評価日 (一意)
   const allPoints = [
     ...series.map((p) => ({ ...p, kind: "saved" as const })),
-    { id: "current", evaluated_at: latest, score: latestScore, kind: "current" as const },
+    { id: "current", evaluated_at: latest, score: latestScore, breakdown: latestBreakdown, kind: "current" as const },
   ].sort((a, b) => a.evaluated_at.localeCompare(b.evaluated_at));
 
   if (allPoints.length === 0) {
@@ -954,8 +1008,20 @@ function TimeSeriesChart({
   const phaseGuides = [30, 300, 1500, 3500, 15000, 50000];
 
   return (
-    <div className="border border-[#e5e5e7] rounded-xl p-3 bg-white">
-      <div className="text-[11px] text-muted-foreground mb-1">AMD Score 経時 (log scale)</div>
+    <div className="border border-[#e5e5e7] rounded-xl p-3 bg-white relative">
+      <div className="text-[11px] text-muted-foreground mb-1 flex items-center gap-2">
+        <span>AMD Score 経時 (log scale)</span>
+        <span className="text-[9px] text-slate-400">プロットをクリックで内訳ポップアップ</span>
+        {active && (
+          <button
+            type="button"
+            onClick={() => setActive(null)}
+            className="ml-auto text-[9px] text-cyan-700 hover:underline"
+          >
+            ポップアップを閉じる
+          </button>
+        )}
+      </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
         {/* AMD 支援期間の背景帯 */}
         {amdSupport.startedAt && (() => {
@@ -991,18 +1057,34 @@ function TimeSeriesChart({
         <line x1={ML} y1={MT} x2={ML} y2={MT + PH} stroke="#475569" strokeWidth={0.5} />
 
         <path d={path} fill="none" stroke="#7c3aed" strokeWidth={1.5} />
-        {allPoints.map((p) => (
-          <g key={p.id}>
-            <circle
-              cx={xOf(new Date(p.evaluated_at).getTime())}
-              cy={yOf(p.score)}
-              r={p.kind === "current" ? 6 : 4}
-              fill={p.kind === "current" ? "#dc2626" : "#7c3aed"}
-              stroke="white"
-              strokeWidth={1}
-            />
-          </g>
-        ))}
+        {allPoints.map((p) => {
+          const cx = xOf(new Date(p.evaluated_at).getTime());
+          const cy = yOf(p.score);
+          const isActive = active?.id === p.id;
+          return (
+            <g key={p.id}>
+              {/* 透明 hit area (= clickable 範囲を広げる) */}
+              <circle
+                cx={cx}
+                cy={cy}
+                r={12}
+                fill="transparent"
+                style={{ cursor: "pointer" }}
+                onClick={() => setActive({ id: p.id, evaluated_at: p.evaluated_at, score: p.score, breakdown: p.breakdown, px: cx, py: cy })}
+              />
+              <circle
+                cx={cx}
+                cy={cy}
+                r={isActive ? 7 : (p.kind === "current" ? 6 : 4)}
+                fill={p.kind === "current" ? "#dc2626" : "#7c3aed"}
+                stroke={isActive ? "#0f172a" : "white"}
+                strokeWidth={isActive ? 2 : 1}
+                style={{ cursor: "pointer", transition: "r 100ms" }}
+                onClick={() => setActive({ id: p.id, evaluated_at: p.evaluated_at, score: p.score, breakdown: p.breakdown, px: cx, py: cy })}
+              />
+            </g>
+          );
+        })}
         {/* x labels */}
         {allPoints.map((p, i) => (
           <text
@@ -1022,6 +1104,90 @@ function TimeSeriesChart({
           </text>
         ))}
       </svg>
+      {active && (
+        <ScorePopup
+          point={active}
+          chartW={W}
+          chartH={H}
+          onClose={() => setActive(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ScorePopup({
+  point,
+  chartW,
+  chartH,
+  onClose,
+}: {
+  point: {
+    id: string;
+    evaluated_at: string;
+    score: number;
+    breakdown: ScoreBreakdown;
+    px: number;
+    py: number;
+  };
+  chartW: number;
+  chartH: number;
+  onClose: () => void;
+}) {
+  // SVG 内座標 (px, py) → 親 div 内 % 座標に変換
+  const leftPct = (point.px / chartW) * 100;
+  const topPct = (point.py / chartH) * 100;
+  // 右端だと右にはみ出るので flip
+  const flipRight = leftPct > 65;
+  const flipBottom = topPct > 55;
+  const fmt = (n: number) =>
+    n < 1 ? n.toFixed(3) : n < 100 ? n.toFixed(2) : Math.round(n).toLocaleString();
+  return (
+    <div
+      className="absolute z-10 rounded-lg border border-slate-300 bg-white shadow-lg p-3 text-[11px] min-w-[220px]"
+      style={{
+        left: flipRight ? "auto" : `calc(${leftPct}% + 12px)`,
+        right: flipRight ? `calc(${100 - leftPct}% + 12px)` : "auto",
+        top: flipBottom ? "auto" : `calc(${topPct}% + 12px)`,
+        bottom: flipBottom ? `calc(${100 - topPct}% + 12px)` : "auto",
+      }}
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-mono text-[10px] text-slate-500">{point.evaluated_at}</span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-[10px] text-slate-400 hover:text-slate-700"
+          aria-label="閉じる"
+        >
+          ×
+        </button>
+      </div>
+      <div className="text-[10px] text-slate-500">AMD Score S</div>
+      <div className="font-mono text-2xl font-bold text-slate-900 leading-none">
+        {fmt(point.score)}
+      </div>
+      <div className="text-[9px] text-slate-400 mt-0.5">
+        律速: {AXIS_LABEL_JP[point.breakdown.bottleneck]}
+      </div>
+      <div className="border-t border-slate-200 mt-2 pt-2 grid grid-cols-3 gap-2">
+        <div className="text-center">
+          <div className="text-[9px] text-emerald-700">M (マクロ)</div>
+          <div className="font-mono font-semibold text-slate-900">{fmt(point.breakdown.M)}</div>
+        </div>
+        <div className="text-center">
+          <div className="text-[9px] text-amber-700">X (XRL)</div>
+          <div className="font-mono font-semibold text-slate-900">{fmt(point.breakdown.X)}</div>
+        </div>
+        <div className="text-center">
+          <div className="text-[9px] text-indigo-700">F (FRL)</div>
+          <div className="font-mono font-semibold text-slate-900">{fmt(point.breakdown.F)}</div>
+        </div>
+      </div>
+      <div className="text-[9px] text-slate-500 mt-2 leading-tight">
+        S = k · M · X · F<br />
+        k = {fmt(point.breakdown.K)}, σ_SU = {fmt(point.breakdown.sigma_su)}
+      </div>
     </div>
   );
 }
