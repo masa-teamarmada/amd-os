@@ -131,6 +131,12 @@ Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検�
 | ④ PJナレッジ | 書き込み元不明 (2024 行はあるが) | 別タスク: AMD-Report GAS の新 cron として実装 |
 | ⑤ メンバーナレッジ | 完全未稼働 | 別タスク: AMD-Report GAS の新 cron として実装 |
 
+## L2 候補 (Phase 2 で追加検討中、まさ確認待ち)
+
+| 候補 L2 | 状態 | データ流入 |
+|---|---|---|
+| ⑦ **創業メンバー** | 🟡 雛形実装済 (2026-05-10、affectionate-easley-9b52b8) | PWA `cron/founding-members-extract` 毎週月曜 03:30 JST。L2 の 5 種 (monthly_reports + project_meeting_summaries + project_knowledge) を入力に LLM (Sonnet 4.5) で **PJ 創業メンバー (AMD 内外含む全員)** を抽出 → `project_founding_members` テーブル + `l2_notifications` (kind='founding_members')。HRL 推定の主要根拠。L2 ⑦ として正式採用するかはまさの判断待ち。詳細仕様は [`amd_score.md`](amd_score.md) 「Triple Helix 観測モデル」+ migration 040 |
+
 ---
 
 ## 関連 md (詳細仕様への入口)

@@ -105,9 +105,11 @@ pwa/
 | `/venture-map` | 9 PJ プロット (View A) |
 | `/venture-map/su/[id]` | SU 個別ビュー (XRL × マクロ指数) |
 | `/venture-map/amd-score` | AMD Score 一覧 (Before Zero Theory v3.2、7 軸 Cobb-Douglas)。詳細は [`amd_score.md`](amd_score.md) |
-| `/venture-map/amd-score/[projectId]` | AMD Score 個別 (radar / 経時 / 軸スライダー / α サイドバー) |
+| `/venture-map/amd-score/[projectId]` | AMD Score 個別 (Triple Helix M カード / X / F / 経時 / 軸クリックで Tsukuyomi) |
+| `/venture-map/amd-score/retrofit` | α 重み調整 + 全 PJ シミュレーション (タブバー非表示、詳細ページからリンク) |
 | `/venture-map/oscillator` | (実験) coupled oscillator 可視化 |
 | `/venture-map/state-space` | (実験) Triple Helix 状態空間 |
+| `/scholar` | 学術トレンド (μ_A 観測量 N) — lane × quarter の論文数 line chart + 前年同期比。OpenAlex 由来。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
 | `/admin/billing` | admin 立替/請求マトリクス (チップ操作で billing_cycles 直更新) |
 | `/admin/payouts` | 報酬支払 |
 | `/admin/projects` `/members` `/contexts` `/protocols` `/tsukuyomi` `/settings` | 各 admin |
@@ -143,6 +145,9 @@ pwa/
 | `cron/amd-score-l2-refresh` | `0 18 * * 0` | 03:00 mon | 6 ソース (Slack/Drive/Notion/Gmail/Calendar/WebSearch) から AMD Score timeline を Sonnet 抽出 → amd_score_inputs に upsert (全 SU 系 PJ) |
 | `cron/vc-news-ingest` | `0 0 * * *` | 09:00 daily | VC ごとに直近7日のニュースを web_search で取得 → vc_news (verified=false)。fundraise/fund_close は suggested_fund_patch で fund 更新提案 |
 | `cron/seeds-ingest` | `0 0 * * 1` | 09:00 mon | GAP/NEP/AMED/D-Global/CREST/創発 等の直近採択を web_search で発見 → seeds (discovery_status='discovered')。/seeds/inbox に並ぶ、GlobalNav に未確認バッジ。詳細は [`seeds.md`](seeds.md) |
+| `cron/vc-discover` | `5 18 * * *` | 03:05 daily | VC マスタの discover (web_search) |
+| `cron/papers-quarterly-ingest` | `20 18 * * 1` | 03:20 火 | OpenAlex で 5 lane × 直近 16 quarter の論文数を papers_log に upsert (μ_A 観測量 N の供給)。Triple Helix 観測モデルの主入力。詳細は [`amd_score.md`](amd_score.md) |
+| `cron/founding-members-extract` | `30 18 * * 1` | 03:30 火 | 全 PJ の monthly_reports + meeting_summaries + project_knowledge から **創業メンバー** (AMD 内外含む全員) を Sonnet 4.5 で抽出 → project_founding_members に upsert + l2_notifications (kind='founding_members')。HRL 推定の主要根拠 |
 
 認証: 全 cron route が `Authorization: Bearer ${CRON_SECRET}` を確認。`CRON_SECRET` 未設定なら処理スキップ。
 
@@ -190,9 +195,11 @@ pwa/
 | `amd_score_inputs` | AMD Score の 7 軸入力 (μ_A/I/G + 5 XRL + FRL, shallow_tech_mode)。`UNIQUE(project_id, evaluated_at)` (013 migration) |
 | `amd_score_alpha` | 弾力性 α_i のバージョン管理 (`effective_from` / `effective_to`、jsonb)。base case を seed 済 |
 | `seeds` | seed 管理 |
-| `papers_log` | OpenAlex 論文数 (lane × month) |
+| `papers_log` | OpenAlex 論文数 (lane × **quarter**、UNIQUE lane+observed_at)。Triple Helix 観測量 N の供給。`cron/papers-quarterly-ingest` で投入 |
 | `macro_index_log` | マクロ指数 (lane × month、Atlas 集計 + Sonnet 2010-2025 推定) |
 | `macro_lane_weights` | レーン重み (Sonnet が毎日再学習) |
+| `triple_helix_loading` | C 行列 (6 観測量 × 3 隠れ状態 μ_A/I/G の loading prior、bvar_prior §3.2)。AmdScoreView の M カードで参照 |
+| `project_founding_members` | PJ 創業メンバー (AMD 内外含む)。HRL 推定の主要根拠。LLM 抽出 (`cron/founding-members-extract`)。`(project_id, person_name)` UNIQUE。詳細は [`amd_score.md`](amd_score.md) |
 
 ### つくよみ / その他
 

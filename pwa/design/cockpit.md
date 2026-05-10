@@ -55,7 +55,7 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
 │ Header (全要素クリックで CockpitVentureMetaEditModal)      │
 │  - emoji (outcome) / PJ 名 / lane chip / outcome chip      │
 │  - 設立日 / origin_org / origin_pi                         │
-│  - [📜 沿革] [👥 メンバー] [🤝 事業会社] [📊 試算表]       │
+│  - [📜 沿革] [👥 メンバー] [🧑‍🤝‍🧑 創業] [🤝 事業会社] [📊 試算表] │
 │  - AMD score chip (クリックで CockpitAmdScoreBreakdownModal)│
 │                                                              │
 │ short_description (クリックで CockpitDescriptionDetailModal)│
@@ -86,6 +86,7 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
 | CockpitVentureMetaEditModal      | Header 各要素タップ                      | display_name / lane / founded_at / outcome / AMD 支援期間 / origin / 概要 |
 | CockpitVentureStatusEditModal    | AMD スコアチャート空白 / ドットタップ    | イベント追加・編集 (自由文 + Gemini 構造化)                          |
 | CockpitMembersModal              | 👥 メンバー                              | project_venture_members 編集 (member_kind: amd_internal / su_internal / support_org) |
+| CockpitFoundingMembersModal      | 🧑‍🤝‍🧑 創業                                | project_founding_members 表示 (AMD 内外含む創業に関わる全員、LLM 抽出)。HRL 簡易推定 (ルールベース 0-9) を末尾表示。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
 | CockpitPartnersModal             | 🤝 事業会社                              | project_partners (collab / customer)                                 |
 | CockpitPlMonthlyModal            | 📊 試算表                                | project_pl_monthly 縦横ピボット表示 + 直接入力                       |
 | CockpitPlHearingModal            | 試算表内「✨ つくよみとヒアリング」      | Sonnet が質問→回答→月次 PL 36ヶ月生成 → upsert                       |
