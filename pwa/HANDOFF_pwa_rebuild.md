@@ -11,50 +11,65 @@
 - バグ・教訓 → [`BUGS.md`](BUGS.md)
 - 過去セッションの作業ログ → [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md)
 - 共通運用ルール → リポ root `CLAUDE.md`、PWA 確認方針 → [`AGENTS.md`](AGENTS.md)
+- えいみ人格・共通ルール正本 → [`/Users/masa/projects/AGENTS.common.md`](/Users/masa/projects/AGENTS.common.md)
 
 ---
 
-## 🚨 次セッション最優先タスク
+## ⚠️ 必読: 既存の AI 議事録抽出ロジック (= 早合点防止)
 
-**SX (p21) MTGサマリ抽出バグの対応**。詳細は [`BUGS.md`](BUGS.md) 最新エントリ「SX (p21) 繰り返し MTG `int) SX 社内打ち合わせ` で議事録抽出が空になる」参照。
+**「Notion 議事録が空」と早合点しない。** 2026-05-09 セッション ([`design_log/sessions_2026-05.md` L1495-1517](design_log/sessions_2026-05.md)) で BWE 議事録対応のために以下が **既に実装済**:
 
-### 原因 (調査済)
-- 繰り返しイベント `timth289ausur5avf894qtpekl_*` / `738970jsaspt5h9vcv4l1ef2hk_*` の Notion 議事録ページが **cron テンプレ「Meet（ここで /meet を打つ）」のままで本文ゼロ**。`sourceAiPageId` 空 (= AI 議事録ページ未生成)
-- Gmail thread 2 件取れるが LLM が「SX に関連しない」と判定 (gas/074 v4_alias_feedback プロンプトが SX = solvioraX を alias resolve できない可能性)
-- 3/24 の `SX)int-納品物相談` だけ中身あるのは **単発イベント** (別 Notion ページ存在)
+- [`gas/074_MeetingSummaryRepo.js`](../gas/074_MeetingSummaryRepo.js) L763 `_meeting_fetchAiNotesBody_`: Notion AI 自動生成議事録ページの `transcription` block → `summary_block_id` + `notes_block_id` の子 block を再帰取得 (paragraph / heading_1〜4 / bulleted_list_item / to_do / quote / callout を markdown 風に結合)
+- L680 `_meeting_findNotionPageByEventId_`: 3 段階 fallback (eventId equals → タイトル contains → 同日付)、`last_edited_time 降順 sort` で先頭採用
+- BWE 5/9 force 再抽出で **decided 4 件抽出成功** が確認済 (取締役辞任 / 株式譲渡 第1号 + 第2号議案 / 採決結果)
+- `MEETING_EXTRACT_PROMPT_REV = "v4_alias_feedback"` (現状)
 
-### 修正候補 3 案 (優先順)
-1. **(b) Gmail 関連性判定の緩和**: gas/074 のプロンプトで「SX = solvioraX」alias を強める。`_meeting_resolveProjectName_` を拡張 (DB_Projects + project_ventures.display_name 両方から alias 候補を生成)
-2. **(a) Notion AI 設定確認**: SX 系 MTG (繰り返し instance) で AI 議事録自動生成が有効になってるかまさが Notion 側で確認 (= 運用タスク)
-3. **(c) Slack ingest**: SX 専用 Slack channel から MTG 周辺のメッセージを取り込む新ロジック (Phase 4.x で計画済)
-
-### 作業手順 (推奨)
-1. `nav_meeting_processOneEvent_` を `force:true` で SX の各 meeting_id を叩いて sourceKinds / gmailThreads / summaryShort を確認
-2. gas/074 の `_meeting_resolveProjectName_` を読む → alias 拡張箇所を特定
-3. プロンプト v5 化 (alias 強化、source_hash に prompt rev 含める) → deploy → 再抽出
-4. SX 各 meeting で summary_short が「議事録なし」以外になるか検証
-5. 同じ問題が他 PJ で起きてないかも合わせて確認 (`SELECT project_id, COUNT(*) FILTER (WHERE summary_short = '議事録なし') FROM project_meeting_summaries GROUP BY 1`)
+**つまり「Notion AI ページから transcription を読む仕組み」は動く**。SX で動いてないのは別レイヤの問題なので、まずそこを切り分ける。
 
 ---
 
-## 直近セッション (2026-05-10、affectionate-easley-9b52b8)
+## 🚨 次セッション最優先タスク — SX (p21) MTGサマリ抽出バグ修正
 
-### 主要成果
-- **創業メンバー LLM 推定** (大新機能 / 雛形完成、L2 候補 ⑦):
-  - migration 040 + `cron/founding-members-extract` + `CockpitFoundingMembersModal` + `estimateHrlFromMembers` (HRL ルールベース 0-9)
-  - 5 PJ で 66 名抽出成功 (SX 13 名で愛媛大 PI / VC パートナーズ / 堀淵さんまで全部)
-  - l2_notifications (kind='founding_members') 連携、毎週月曜 03:30 JST cron
-- **Triple Helix 観測モデル M カード**:
-  - migration 036 (scholar 廃止) / 037 (papers_log quarter 化) / 038 (triple_helix_loading) / 039 (C_compete available) / 040 (founding_members)
-  - 観測量カバレッジ 4/7 (N=papers_log / P=atlas policy / R=atlas news / C_compete=project_ventures)
-  - 紫枠 FormulaPanel が Triple Helix 4 段 (M / σ_SU / μ_x / ỹ_p) に拡張、全数式 LaTeX 化
-  - C 行列 6×3 ヒートマップ + 観測値 bar + 寄与値 hover が AMD Score 詳細ページ M カードに
-- **UI 改善 (まさフィードバック対応)**:
-  - プログレスバー 1k-50k log scale (3.5k = 設立 GO マーカー)
-  - XRL 整数表示 (詳細ページ + Cockpit モーダル)
-  - 経時グラフプロットクリック → S + M/X/F popup
-  - retrofit ページに FormulaPanel 折り畳み + 数式 LaTeX
-- **SX MTGサマリ原因調査** → BUGS.md に記録 (上記「最優先タスク」参照)
+PWA `/project/p21/cockpit` で SX の繰り返し MTG (`int) SX 社内打ち合わせ`) のサマリが「議事録なし」 / 「対象 PJ に関連する議事録が確認できず」になる。3/24 の `SX)int-納品物相談` 単発のみ正常。
+
+### 早合点しないこと
+
+`project_meeting_summaries` を直接見ると 2026-04 の SX は 4/29 / 4/8 しか登録されていないが、**まさは 4/14 / 4/16 / 4/17 / 4/28 にも議事録があると言っている**。つまり:
+- ❌ 「Notion 議事録が空」(= 2026-05-10 の前回調査結論) は誤りの可能性
+- ⭕ 実際は **AI 議事録ページが eventId 紐付けなしで生成され、cron が拾えてない** が最有力
+
+### 確認順 (優先順)
+
+1. **【最有力】AI 議事録ページが eventId 紐付けなしで生成されてる**
+   - Notion 議事録 DB を `name contains 'SX'` で 2026-04 全件 search
+   - `eventId` プロパティ空 + `transcription` block ありの厚いページがあるか
+   - 見つかったら → eventId を後付けする one-time script `nav_meeting_backfillEventIdToAiPages_` を gas/074 に追加 → 実行 → `nav_meeting_processOneEvent_(force:true)` で再抽出
+2. **AI 議事録ページがそもそも生成されてない** → Notion AI 録音 OFF / 機能未連携 (まさ運用確認 = えいみ実行不可)
+3. **Gmail alias 不足** → CFG_PJAlias シート (= alias 正本、外部スプシ) に SX/p21 alias 追加 (まさシート編集 or えいみが可能ならスプシ API 経由)。**コード内 alias 管理禁止**
+4. **Slack ingest** (Phase 4.x、中長期)
+
+### 推奨アプローチ (= debug-first)
+
+`gas/157_MeetingDebugInspector.js` 既存に下記 2 関数追加 → push & deploy → 実行 → 事実を見てから修正方針確定:
+
+- `debug_meeting_inspectYm(projectId, ym)`: 202604 全 Notion ページ → 各ページの `[pageId, title, eventId, lastEdited, pjRelationIds, resolvedProjectId, hasTranscriptionBlock, bodyChars]` を返す
+- `debug_pjAliases_dump()`: `_loadPJAliasesForMinutes_()` で CFG_PJAlias シートを丸ごと dump、特に SX/p21 行があるか確認
+
+これで仮説 (a)〜(d) のどれが真因か **事実ベース** で切れる。修正を急がず、まず観察。
+
+### コード内 alias 管理は禁止 (まさルール、2026-05-11 強調)
+
+`projects.project_name` / `project_ventures.display_name` / `origin_org` / `origin_pi` などの DB 列を resolve して prompt に渡す案を出したら却下された。**alias は外部スプシ `CFG_PJAlias` が唯一正本**。`gas/CalendarToNotionMinutes.js` `_loadPJAliasesForMinutes_` で読まれる構造 (alias / pjCode / priority / matchType 列) があるので、LLM 抽出側もこれを再利用する。
+
+---
+
+## 直近セッション 2026-05-10 (affectionate-easley-9b52b8) の主要成果
+
+- **創業メンバー LLM 推定** (大新機能 / 雛形): migration 040 + cron + UI + HRL 簡易推定
+  → 5 PJ で 66 名抽出 (SX 13 名で愛媛大 PI / VC パートナー / 堀渕さんまで全部)
+- **Triple Helix 観測モデル M カード**: migration 036-040、観測量カバレッジ 4/7、紫枠 FormulaPanel 4 段、6×3 マトリクス
+- **UI 改善**: プログレスバー 1k-50k log scale、XRL 整数表示、経時グラフ popup、Cockpit モーダル LaTeX 化
+- **SX MTG バグ調査** (= 本最優先タスクの起点) → 当時は「Notion 議事録テンプレ放置 + AI 議事録なし」と結論したが、**本セッション 2026-05-11 で再検証** が必要
 
 詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾セクション
 
@@ -64,44 +79,44 @@
 
 | 観測量 | データソース | 状態 |
 |---|---|---|
-| **N** (論文) | OpenAlex → papers_log (lane × quarter, weekly) | ✅ 取れてる |
-| **P** (政策) | atlas_signals.source_type='policy' OR domain LIKE 'B.%' | ✅ 取れてる |
-| **R** (言及) | atlas_signals.source_type='news' (lane domain ヒットのみ) | ✅ 取れてる |
-| **C_compete** | project_ventures (lane × quarter alive count) | ✅ 取れてる |
+| **N** (論文) | OpenAlex → papers_log (lane × quarter, weekly) | ✅ |
+| **P** (政策) | atlas_signals.source_type='policy' OR domain LIKE 'B.%' | ✅ |
+| **R** (言及) | atlas_signals.source_type='news' (lane domain ヒットのみ) | ✅ |
+| **C_compete** | project_ventures (lane × quarter alive count) | ✅ |
 | **B** (予算) | atlas_signals.source_type='grant' / NEDO/AMED scrape | ❌ Phase 2-D |
 | **V** (VC) | Crunchbase / INITIAL | ❌ Phase 2-E |
 | **I_R** (研究費) | KAKEN API | ❌ Phase 2-C |
 
 ---
 
-## リポ状態 (2026-05-10 深夜)
+## リポ状態 (2026-05-11 朝)
 
-- main HEAD: `3ac5cad` (Merge claude/affectionate-easley-9b52b8)
-- 適用済 migrations: …035 (scholar、廃止前) / **036 / 037 / 038 / 039 / 040** ← 本セッション 5 個追加
+- main HEAD: 本ハンドオフ commit 後に `git log -1 --oneline` で確認 (hash は commit 時に動的)
+- 適用済 migrations: …035 (廃止前) / **036 / 037 / 038 / 039 / 040** (5/10 セッション追加)
 - GAS Web App deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` → `v1447`
-- PWA Vercel deploy: ✅ 4 連発全完了 (`amd-os-pwa.vercel.app`)
-- 未 push commit: なし
+- PWA Vercel deploy: ✅ `amd-os-pwa.vercel.app`
+- 未 push commit: なし (5/10 終了時点)
 
 ---
 
 ## 残タスク
 
 ### 高優先 (次セッションのメイン)
-1. **🚨 SX MTGサマリ抽出バグ修正** (上記「最優先タスク」参照)
+1. **🚨 SX MTGサマリ抽出バグ修正** (上記「最優先タスク」参照、AI ページ eventId backfill が最有力)
 
 ### 中優先 (Phase 2 観測量網羅)
 2. **Phase 2-C: KAKEN API ingest** (I_R 研究費、認証なし、和文 researcher 紐付き)
-3. **Phase 2-D: NEDO/SIP/JST 採択 scrape** (B 公募予算、scraping)
+3. **Phase 2-D: NEDO/SIP/JST 採択 scrape** (B 公募予算)
 4. **Phase 2-E: Crunchbase / INITIAL ingest** (V VC 投資、API key 必要)
-5. **創業メンバー全 PJ 検算**: 66 名抽出のまさ感覚との整合確認 (特に役割・所属判定)
-6. **AMD Score 詳細ページ HRL 行に LLM 推定値併記**: 現状は CockpitFoundingMembersModal 末尾のみ表示
-7. **Phase 3: BVAR Kalman filter** で μ_A(t)/μ_I(t)/μ_G(t) を観測量から逆推定 ([`state_space_model.md §4.5`](../../before-zero/theory/state_space_model.md))
+5. **創業メンバー全 PJ 検算**: 66 名抽出のまさ感覚との整合確認
+6. **AMD Score 詳細ページ HRL 行に LLM 推定値併記**: 現状は CockpitFoundingMembersModal 末尾のみ
+7. **Phase 3: BVAR Kalman filter** で μ_A(t)/μ_I(t)/μ_G(t) 推定
 
 ### 中優先 (前セッションから継続)
-8. **データ汚染検出**: 全 monthly_reports 汚染検出関数 (R313 / MMO scheduled task / 手動投入の汚染源調査)
+8. **データ汚染検出**: 全 monthly_reports 汚染検出関数 (R313 / MMO / 手動投入の汚染源調査)
 9. **iOS Swift 通知タップ → 該当画面 navigation** (l2_kind 別)
 10. **AMDプロトコル UI candidate → confirmed 昇格ボタン**
-11. **Phase 4.x = 5 生データ直結**: ⑤ メンバーナレッジ Slack DM / ④ PJナレッジ Notion 経営戦略 page
+11. **Phase 4.x = ⑤ メンバーナレッジ Slack DM / ④ PJナレッジ Notion 経営戦略 page 直結**
 12. **xcodegen で iOS Models/Service 別ファイル化**
 13. **MTGサマリ Phase 2.5: R313 を会議サマリ集約方式に**
 14. **本体GAS `cron_invoiceSendNudge_` 重複生成元 特定**
@@ -117,11 +132,12 @@
 ## 次セッションの最初の一手
 
 1. リポ状態 4 ステップ (`cd /Users/masa/projects/AMD/amd-os && git fetch --all --prune && git log --branches --not --remotes --oneline && git branch -a && git status -s`)
-2. このファイル (HANDOFF) の「🚨 次セッション最優先タスク」を読む
-3. [`BUGS.md`](BUGS.md) 冒頭の SX MTGサマリ エントリを読む
-4. [`design/db_schema.md`](design/db_schema.md) で `project_meeting_summaries` の列名を grep
-5. SX (p21) の現状確認: `nav_meeting_processOneEvent_` を `force:true` で叩いて sourceKinds / gmailThreads を取る
-6. gas/074 の `_meeting_resolveProjectName_` + プロンプト v4_alias_feedback を読んで alias 拡張案を出す → まさ承認 → 実装 → deploy → 再抽出 → 検証
+2. このファイル冒頭 ⚠️ セクション (= 既存 AI 議事録抽出ロジック) を読む
+3. [`BUGS.md`](BUGS.md) 冒頭 SX エントリの「本セッションで確認したこと」「未確認」を読む
+4. `gas/157_MeetingDebugInspector.js` に `debug_meeting_inspectYm(projectId, ym)` + `debug_pjAliases_dump()` を追加
+5. clasp push + deploy → 関数を pwaApi 経由 curl で実行 → 結果から仮説 (a)〜(d) のどれが真因か特定
+6. 真因に応じて修正 (eventId backfill / PJAlias シート追記 / PJ resolve バグ fix のいずれか)
+7. SX 全 meeting で `nav_meeting_processOneEvent_(force:true)` 再抽出 → cockpit で目視
 
 ---
 
@@ -134,8 +150,8 @@
   ```sh
   URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | sed 's/^NEXT_PUBLIC_GAS_WEBAPP_URL=//' | tr -d '"')
   KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | sed 's/^NEXT_PUBLIC_GAS_API_KEY=//' | tr -d '"')
-  ARGS=$(node -e 'console.log(encodeURIComponent(JSON.stringify(["meeting_id","p21",{"force":true}])))')
-  curl -sL --max-time 360 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_meeting_processOneEvent_&args=$ARGS"
+  ARGS=$(node -e 'console.log(encodeURIComponent(JSON.stringify(["p21","202604"])))')
+  curl -sL --max-time 360 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=debug_meeting_inspectYm&args=$ARGS"
   ```
 - **GAS push + deploy update**:
   ```sh
@@ -147,5 +163,4 @@
   ```sh
   SECRET=$(grep '^CRON_SECRET=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | sed 's/^CRON_SECRET=//' | tr -d '"')
   curl -sL --max-time 290 -H "Authorization: Bearer $SECRET" https://amd-os-pwa.vercel.app/api/cron/founding-members-extract
-  curl -sL --max-time 290 -H "Authorization: Bearer $SECRET" https://amd-os-pwa.vercel.app/api/cron/papers-quarterly-ingest
   ```

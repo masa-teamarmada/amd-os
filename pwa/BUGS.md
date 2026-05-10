@@ -6,21 +6,39 @@
 ---
 
 ### [GAS] SX (p21) 繰り返し MTG `int) SX 社内打ち合わせ` で議事録抽出が空になる
-- **発見日**: 2026-05-10 (まさ指摘)
-- **状態**: 🟡 原因特定済 (修正は次セッション)
-- **症状**: PWA `/project/p21/cockpit` で SX の MTG サマリを開くと、3/24 の `SX)int-納品物相談` 以外は summary_short が空 / 「議事録なし」 / 「対象 PJ に関連する議事録が確認できず」
-- **原因**:
-  - 繰り返しイベント `timth289ausur5avf894qtpekl_*` / `738970jsaspt5h9vcv4l1ef2hk_*` の Notion 議事録ページが **cron テンプレ「Meet（ここで /meet を打つ）」のままで本文ゼロ**。`sourceAiPageId` 空 (= AI 議事録ページが生成されてない)
-  - 3/24 だけ中身あるのは単発イベント `0tji7sracmp1lvgtkbbv15i3iq` で、別途 Notion AI ページか人手議事録があったため
-  - Gmail thread 2 件取れるが、LLM が「SX に関連しない」と判定して空返却 (gas/074 v4_alias_feedback プロンプトが SX = solvioraX を alias resolve できない可能性)
-  - cron テンプレ停止後 (`run_createMinutes_apply` trigger 削除済) Notion AI 一本化したが、SX 繰り返し MTG では Notion AI が議事録自動生成してない (= 録音 OFF or 機能未連携)
-- **次セッションの修正候補**:
-  - (a) **Notion AI 設定確認**: SX 系 MTG (繰り返し instance) で AI 議事録自動生成が有効になってるかまさが確認
-  - (b) **Gmail 関連性判定の緩和**: gas/074 のプロンプトで「SX = solvioraX」alias を強める。`_meeting_resolveProjectName_` 拡張
-  - (c) **Slack ingest**: SX 専用 Slack channel から MTG 周辺のメッセージを取り込む新ロジック (Phase 4.x で計画済)
-- **教訓**:
-  - 議事録抽出が空のとき「LLM が空返した」「Notion ページが空」「Gmail に関連 thread なし」を区別する必要
-  - `nav_meeting_processOneEvent_` を `force:true` で叩くと sourceKinds / gmailThreads / summaryShort が分かるので原因切り分けに使える
+- **発見日**: 2026-05-10 (まさ指摘)、2026-05-11 再検証
+- **状態**: 🟡 原因再調査中 (前回結論を疑い直し)
+- **症状**: PWA `/project/p21/cockpit` で SX の MTG サマリを開くと、3/24 の `SX)int-納品物相談` 以外は summary_short が空 / 「議事録なし」 / 「対象 PJ に関連する議事録が確認できず」。`project_meeting_summaries` 直接 query では 2026-04 で SX は 4/29 / 4/8 しか登録されてない。**まさは 4/14 / 4/16 / 4/17 / 4/28 にも議事録が存在すると指摘** (2026-05-11)。
+
+#### 本セッション (2026-05-11) で確認したこと
+- `project_meeting_summaries` 上は SX 4/29 が `notion+gmail` だが summary が空、4/8 は内容薄め、それ以外の繰り返し instance は `source_kinds=none` 表示
+- `_meeting_fetchAiNotesBody_` (gas/074 L763) は **2026-05-09 の BWE 対応で実装済**。`transcription` block の `summary_block_id` + `notes_block_id` を再帰取得する仕組みは **既に動く** (sessions log L1495-1517)
+- `nameAlias_buildBlock` (gas/079) はメンバー人物名のみ。**PJ alias (SX = SolvioraX 等) は LLM プロンプトに渡っていない**
+- `CFG_PJAlias` 外部スプシ (`_loadPJAliasesForMinutes_` で読み込み) が PJ alias の **唯一正本**。LLM 抽出側 (gas/074) はこれを再利用すべき。**コード内 alias 管理は禁止** (まさルール)
+
+#### 未確認 (次に潰す)
+- (a) **Notion 議事録 DB に SX 4/14 / 4/16 / 4/17 / 4/28 のページが実在するか** (= AI ページが eventId 紐付けなしで生成されてる可能性最有力)
+- (b) AI ページに `transcription` block が実在し、`_meeting_fetchAiNotesBody_` で本文が取得できるか
+- (c) `_meeting_findNotionPageByEventId_` が SX の繰り返し event id でその AI ページを拾えてるか (eventId 空 + title contains fallback の動作確認)
+- (d) `_meeting_resolveProjectIdFromPage_` が PJ relation 経由で SX (p21) に正しく resolve できてるか
+- (e) `CFG_PJAlias` シートに SX/p21 alias 行 (例: `SX → p21`, `SolvioraX → p21`, `solvioraX → p21`) が登録されてるか
+
+#### 修正候補 (確認順)
+1. **【最有力】AI 議事録ページの eventId backfill**: Notion 議事録 DB を `name contains 'SX'` で 2026-04 全件 search → eventId 空 + 本文厚いページがあるか → あれば eventId を後付けする one-time script `nav_meeting_backfillEventIdToAiPages_` を gas/074 に追加 → 実行 → `nav_meeting_processOneEvent_(force:true)` で再抽出
+2. **Notion AI 設定**: SX 繰り返し instance で AI 議事録自動生成が有効か (運用確認、まさ実行)
+3. **CFG_PJAlias シート追記**: SX 系 alias が漏れてれば追加 (LLM 抽出側でも `_loadPJAliasesForMinutes_` を呼んで prompt に注入)
+4. **Slack ingest** (Phase 4.x、中長期)
+
+#### 推奨アプローチ (debug-first)
+`gas/157_MeetingDebugInspector.js` に下記 2 関数追加 → push & deploy → 実行 → 事実を見てから修正方針確定:
+- `debug_meeting_inspectYm(projectId, ym)`: 202604 全 Notion ページ → 各ページの `[pageId, title, eventId, lastEdited, pjRelationIds, resolvedProjectId, hasTranscriptionBlock, bodyChars]`
+- `debug_pjAliases_dump()`: `_loadPJAliasesForMinutes_` 全件 dump
+
+#### 教訓
+- **「Notion 議事録が空」と早合点しない**。前回 (2026-05-10) はこの結論で止まったが、AI ページが別 ID で生成されてれば cron が拾えてないだけの可能性
+- **既存仕組みを確認してから新規実装する**。`_meeting_fetchAiNotesBody_` が動くことを sessions log で確認せず、prompt v5 化を先走り提案した
+- **alias 管理はコード内禁止**。`CFG_PJAlias` 外部スプシが唯一正本 (まさルール)
+- 議事録抽出が空のとき「LLM が空返した」「Notion ページが空」「Gmail に関連 thread なし」「Notion ページがそもそも検索ヒットしてない」を切り分ける必要
 
 ---
 
