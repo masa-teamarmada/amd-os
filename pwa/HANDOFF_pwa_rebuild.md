@@ -3,176 +3,139 @@
 次セッションが文脈を聞き直さずに再開できる **直近の引き継ぎだけ** をここに書く。
 詳細は各正本 md / sessions log を参照。
 
-- ⭐⭐⭐ **AMD OS 中核データ正本** → [`design/L2_DATA.md`](design/L2_DATA.md) (L2 6 種 + cron + 動作状況)
+- ⭐⭐⭐ **AMD OS 中核データ正本** → [`design/L2_DATA.md`](design/L2_DATA.md) (L2 6 種 + 候補 ⑦ 創業メンバー)
 - ⭐⭐ **DB スキーマ正本** → [`design/db_schema.md`](design/db_schema.md) (列名は必ずここを grep、想像で書かない)
 - 仕様 → [`design/SPEC_pwa.md`](design/SPEC_pwa.md) ([`design/README.md`](design/README.md) が入口)
-- AMD Score 仕様 → [`design/amd_score.md`](design/amd_score.md)
+- AMD Score 仕様 (Triple Helix 観測モデル含む) → [`design/amd_score.md`](design/amd_score.md)
+- コックピット仕様 → [`design/cockpit.md`](design/cockpit.md)
 - バグ・教訓 → [`BUGS.md`](BUGS.md)
 - 過去セッションの作業ログ → [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md)
 - 共通運用ルール → リポ root `CLAUDE.md`、PWA 確認方針 → [`AGENTS.md`](AGENTS.md)
 
 ---
 
-## 最終更新
+## 🚨 次セッション最優先タスク
 
-2026-05-10 (affectionate-easley-9b52b8、深夜) — **創業メンバー LLM 推定 + Triple Helix Phase 2-A/B + UI 改善多数**。
+**SX (p21) MTGサマリ抽出バグの対応**。詳細は [`BUGS.md`](BUGS.md) 最新エントリ「SX (p21) 繰り返し MTG `int) SX 社内打ち合わせ` で議事録抽出が空になる」参照。
 
-### 本セッション 後半の主要成果
+### 原因 (調査済)
+- 繰り返しイベント `timth289ausur5avf894qtpekl_*` / `738970jsaspt5h9vcv4l1ef2hk_*` の Notion 議事録ページが **cron テンプレ「Meet（ここで /meet を打つ）」のままで本文ゼロ**。`sourceAiPageId` 空 (= AI 議事録ページ未生成)
+- Gmail thread 2 件取れるが LLM が「SX に関連しない」と判定 (gas/074 v4_alias_feedback プロンプトが SX = solvioraX を alias resolve できない可能性)
+- 3/24 の `SX)int-納品物相談` だけ中身あるのは **単発イベント** (別 Notion ページ存在)
 
-- **創業メンバー LLM 推定** (大新機能): migration 040 + `/api/cron/founding-members-extract` + `CockpitFoundingMembersModal` + `estimateHrlFromMembers`
-  - **AMD 内外含む全員** (大学 PI / VC / 産業パートナー / 政府担当者) を Sonnet 4.5 で抽出
-  - 5 PJ (p06/p09/p11/p20/p21) で **66 名抽出成功**: SX 13 名 (杉浦先生・中島先生・石原・戒能・種市・黒田・堀淵 等まさ期待通り)
-  - HRL 簡易推定 (ルールベース 0-9): 0-3 (1-3 名) / 3-6 (4-9 名) / 5-9 (10+ 名 + 多様性)
-  - l2_notifications (kind='founding_members') 連携、毎週月曜 03:30 JST cron
-- **Phase 2-A: C_compete (競合密度)**: project_ventures 集計、観測量カバレッジ 3/7 → 4/7
-- **Phase 2-B: lane 個別フィルタ**: atlas_signals.domain prefix → lane mapping、P/R を lane 個別に
-- **プログレスバー**: 1k-50k log scale (3.5k 設立 GO マーカー)
-- **XRL 整数表示**: 詳細 + Cockpit モーダル両方
-- **数式 LaTeX 化**: 紫枠 (M 4 段に拡張) + 詳細 + Cockpit モーダル全部
-- **経時グラフプロットクリック → S+M/X/F popup**
-- **SX MTGサマリ原因調査** → BUGS.md (繰り返し MTG の Notion 議事録放置 + AI 議事録未生成)
+### 修正候補 3 案 (優先順)
+1. **(b) Gmail 関連性判定の緩和**: gas/074 のプロンプトで「SX = solvioraX」alias を強める。`_meeting_resolveProjectName_` を拡張 (DB_Projects + project_ventures.display_name 両方から alias 候補を生成)
+2. **(a) Notion AI 設定確認**: SX 系 MTG (繰り返し instance) で AI 議事録自動生成が有効になってるかまさが Notion 側で確認 (= 運用タスク)
+3. **(c) Slack ingest**: SX 専用 Slack channel から MTG 周辺のメッセージを取り込む新ロジック (Phase 4.x で計画済)
+
+### 作業手順 (推奨)
+1. `nav_meeting_processOneEvent_` を `force:true` で SX の各 meeting_id を叩いて sourceKinds / gmailThreads / summaryShort を確認
+2. gas/074 の `_meeting_resolveProjectName_` を読む → alias 拡張箇所を特定
+3. プロンプト v5 化 (alias 強化、source_hash に prompt rev 含める) → deploy → 再抽出
+4. SX 各 meeting で summary_short が「議事録なし」以外になるか検証
+5. 同じ問題が他 PJ で起きてないかも合わせて確認 (`SELECT project_id, COUNT(*) FILTER (WHERE summary_short = '議事録なし') FROM project_meeting_summaries GROUP BY 1`)
 
 ---
 
-## 前回 (2026-05-10 夜) — Triple Helix 観測モデル全面再設計
+## 直近セッション (2026-05-10、affectionate-easley-9b52b8)
 
-### モデル定義の確立 (理論正本との整合)
+### 主要成果
+- **創業メンバー LLM 推定** (大新機能 / 雛形完成、L2 候補 ⑦):
+  - migration 040 + `cron/founding-members-extract` + `CockpitFoundingMembersModal` + `estimateHrlFromMembers` (HRL ルールベース 0-9)
+  - 5 PJ で 66 名抽出成功 (SX 13 名で愛媛大 PI / VC パートナーズ / 堀淵さんまで全部)
+  - l2_notifications (kind='founding_members') 連携、毎週月曜 03:30 JST cron
+- **Triple Helix 観測モデル M カード**:
+  - migration 036 (scholar 廃止) / 037 (papers_log quarter 化) / 038 (triple_helix_loading) / 039 (C_compete available) / 040 (founding_members)
+  - 観測量カバレッジ 4/7 (N=papers_log / P=atlas policy / R=atlas news / C_compete=project_ventures)
+  - 紫枠 FormulaPanel が Triple Helix 4 段 (M / σ_SU / μ_x / ỹ_p) に拡張、全数式 LaTeX 化
+  - C 行列 6×3 ヒートマップ + 観測値 bar + 寄与値 hover が AMD Score 詳細ページ M カードに
+- **UI 改善 (まさフィードバック対応)**:
+  - プログレスバー 1k-50k log scale (3.5k = 設立 GO マーカー)
+  - XRL 整数表示 (詳細ページ + Cockpit モーダル)
+  - 経時グラフプロットクリック → S + M/X/F popup
+  - retrofit ページに FormulaPanel 折り畳み + 数式 LaTeX
+- **SX MTGサマリ原因調査** → BUGS.md に記録 (上記「最優先タスク」参照)
 
-まさ判断: 個別論文の蓄積 (旧 scholar) は μ_A の根拠にならない。μ_A は **Triple Helix の隠れ状態**で、観測量 N (lane × 期間の論文数) を主観測量とする **マクロ指標**。
+詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾セクション
 
-- `before-zero/theory/state_space_model.md §4.1`: 隠れ状態 (μ_A, μ_I, μ_G) と観測量 (P, B, V, R, I_R, N) の C 行列 loading
-- `before-zero/theory/data_specification.md §3, §N`: 各観測量の操作的定義 (四半期粒度、データソース)
-- `before-zero/theory/bvar_prior.md §3.2`: C 行列の数値 prior
+---
 
-### 本セッションの主要成果
-
-- **scholar テーブル + 個別論文 cron 廃止** (migration 036_scholar_drop): μ_A 定義から外れる
-- **papers_log を quarter 単位に再構築** (migration 037): UNIQUE (lane, observed_at) 追加、既存 85 行 (year 単位) クリア
-- **OpenAlex weekly cron** [`/api/cron/papers-quarterly-ingest`](src/app/api/cron/papers-quarterly-ingest/route.ts): 5 lane × 直近 16 quarter → upsert。vercel.json に毎週月曜 18:20 UTC (= 03:20 JST 火曜) 登録
-- **`triple_helix_loading` テーブル新設** (migration 038): bvar_prior §3.2 の C 行列を 7 行 seed (P/B/V/R/I_R/N/C_compete × μ_A/μ_I/μ_G + available フラグ + データソース)
-- **`src/lib/triple-helix-observations.ts` 新設**: 観測量 fetcher + min-max 正規化 (過去 16 Q) + 重み付き μ 計算 + 未取得観測量除外
-- **`src/components/venture-map/TripleHelixMatrix.tsx` 新設**: 詳細ページ M カード本体。数式 4 段 (Tex) / μ ラダー (μ_A→σ_SU→M) / 6×3 マトリクス (loading 強度ヒートマップ + 寄与値 hover) / 観測値 bar / 被覆率
-- **`AmdScoreView` の M カード書き換え**: 旧 μ_A/I/G 単純行 → TripleHelixMatrix 全部入り。人間入力 notes (Tsukuyomi) は補助表示として下部に
-- **`/scholar` ページ作り変え**: 個別論文一覧 → 5 lane × quarter trend chart (SVG line + 前年同期比カード + Quarterly テーブル)。タブ名は Scholar のまま (まさ指定)
-- 詳細: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾エントリ
-
-### Phase 1 で実装した観測量
+## 観測量カバレッジ (Triple Helix M カード)
 
 | 観測量 | データソース | 状態 |
 |---|---|---|
-| **N** (論文) | OpenAlex → papers_log (weekly cron) | ✅ 取れてる (lane × quarter) |
-| **P** (政策) | atlas_signals.domain LIKE 'B.%' | ✅ 取れてる (全社共通、lane フィルタ Phase 2) |
-| **R** (言及) | atlas_signals.status='accepted' 全件 | ✅ 取れてる (全社共通) |
-| **B** (予算) | atlas_signals.source_type='grant' | ❌ Phase 2 (NEDO/AMED scrape) |
-| **V** (VC) | Crunchbase / INITIAL | ❌ Phase 2 |
-| **I_R** (研究費) | KAKEN API | ❌ Phase 2 |
-| **C_compete** (競合) | project_ventures 集計 | ❌ Phase 2 |
-
-被覆率 = 3/7 (43%)。AmdScoreView 内で「データ被覆率: X/7」と透明化表示。
-
-### ⚠️ 次セッションの最初の確認
-
-1. 初回 cron 投入: `curl -H "Authorization: Bearer $CRON_SECRET" https://amd-os-pwa.vercel.app/api/cron/papers-quarterly-ingest` (一度キックして papers_log を埋める)
-2. `/scholar` で 5 lane × 16 quarter trend chart が表示されるか
-3. AMD Score 詳細ページ (例 `/venture-map/amd-score/p20`) の M カードに 6×3 マトリクス、数式 4 段、μ ラダー、観測値 bar、被覆率 3/7 が表示されるか
-4. C 行列の loading が `triple_helix_loading` テーブルから引かれてるか (`SELECT * FROM triple_helix_loading;` で 7 行)
-
-### Phase 2 (次セッション以降) — 観測量の網羅
-
-- **KAKEN API ingest** で I_R (研究費) 取得 → C 行列 loading に追加
-- **NEDO / SIP / JST scrape** で B (公募予算)
-- **Crunchbase or INITIAL** で V (VC 投資)
-- **`project_ventures` 内部集計**で C_compete (競合密度)
-- **PJ.lane × atlas_signals.suggested_tags 突合**で P/R を lane 個別に絞る (現状は全社共通)
-- **Phase 3**: BVAR Kalman filter で隠れ状態 μ_A(t)/μ_I(t)/μ_G(t) を観測量から逆推定 (state_space_model.md §4.5)
-
-仕様: [`design/amd_score.md`](design/amd_score.md)「Triple Helix 観測モデル」セクション参照。
+| **N** (論文) | OpenAlex → papers_log (lane × quarter, weekly) | ✅ 取れてる |
+| **P** (政策) | atlas_signals.source_type='policy' OR domain LIKE 'B.%' | ✅ 取れてる |
+| **R** (言及) | atlas_signals.source_type='news' (lane domain ヒットのみ) | ✅ 取れてる |
+| **C_compete** | project_ventures (lane × quarter alive count) | ✅ 取れてる |
+| **B** (予算) | atlas_signals.source_type='grant' / NEDO/AMED scrape | ❌ Phase 2-D |
+| **V** (VC) | Crunchbase / INITIAL | ❌ Phase 2-E |
+| **I_R** (研究費) | KAKEN API | ❌ Phase 2-C |
 
 ---
 
-## リポ状態 (2026-05-10 夜)
+## リポ状態 (2026-05-10 深夜)
 
-- main HEAD: 本セッション merge で更新予定
-- 適用済 migrations: …035 (scholar、廃止前) → **036 (scholar_drop) / 037 (papers_log_quarterly) / 038 (triple_helix_loading)** ← 本セッション追加
+- main HEAD: `3ac5cad` (Merge claude/affectionate-easley-9b52b8)
+- 適用済 migrations: …035 (scholar、廃止前) / **036 / 037 / 038 / 039 / 040** ← 本セッション 5 個追加
 - GAS Web App deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` → `v1447`
-- PWA Vercel deploy: ✅ Triple Helix 観測モデル反映 deploy 予定 (`amd-os-pwa.vercel.app`)
+- PWA Vercel deploy: ✅ 4 連発全完了 (`amd-os-pwa.vercel.app`)
+- 未 push commit: なし
 
 ---
 
-## L2 データ動作状況サマリ (詳細は [`design/L2_DATA.md`](design/L2_DATA.md))
+## 残タスク
 
-| L2 | 状態 |
-|---|---|
-| ① monthly report | ✅ R313 (AMD-Report GAS, 別 clasp、05:00 daily) |
-| ② AMDプロトコル | ✅ Phase 4 稼働 GAS 155 `nav_protocol_pollAll` 毎時 |
-| ③ MS進捗 | ✅ Phase 4 稼働 GAS 154 → PWA `cron/hourly-estimate` 毎時 |
-| ④ PJナレッジ | ✅ Phase 4 稼働 GAS 155 `nav_project_knowledge_pollAll` 毎時 |
-| ⑤ メンバーナレッジ | ✅ Phase 4 稼働 GAS 155 `nav_member_knowledge_pollAll` 毎時 |
-| ⑥ MTGサマリ | ✅ Phase 4 稼働 GAS 153 毎時 polling + AI 議事録対応 + alias + feedback |
+### 高優先 (次セッションのメイン)
+1. **🚨 SX MTGサマリ抽出バグ修正** (上記「最優先タスク」参照)
 
-通知: ⑥ → `meeting_notifications`、③⑤④② → `l2_notifications`、両方 Swift APNs 受信実装済 (= masaiPhone)。
-
----
-
-## 残タスク (次セッションで対応)
-
-### 高優先 (次セッションのメインタスク)
-
-1. **μ_A 論文 DB 構築** (上記「⚠️ 次セッション必須」参照)
+### 中優先 (Phase 2 観測量網羅)
+2. **Phase 2-C: KAKEN API ingest** (I_R 研究費、認証なし、和文 researcher 紐付き)
+3. **Phase 2-D: NEDO/SIP/JST 採択 scrape** (B 公募予算、scraping)
+4. **Phase 2-E: Crunchbase / INITIAL ingest** (V VC 投資、API key 必要)
+5. **創業メンバー全 PJ 検算**: 66 名抽出のまさ感覚との整合確認 (特に役割・所属判定)
+6. **AMD Score 詳細ページ HRL 行に LLM 推定値併記**: 現状は CockpitFoundingMembersModal 末尾のみ表示
+7. **Phase 3: BVAR Kalman filter** で μ_A(t)/μ_I(t)/μ_G(t) を観測量から逆推定 ([`state_space_model.md §4.5`](../../before-zero/theory/state_space_model.md))
 
 ### 中優先 (前セッションから継続)
+8. **データ汚染検出**: 全 monthly_reports 汚染検出関数 (R313 / MMO scheduled task / 手動投入の汚染源調査)
+9. **iOS Swift 通知タップ → 該当画面 navigation** (l2_kind 別)
+10. **AMDプロトコル UI candidate → confirmed 昇格ボタン**
+11. **Phase 4.x = 5 生データ直結**: ⑤ メンバーナレッジ Slack DM / ④ PJナレッジ Notion 経営戦略 page
+12. **xcodegen で iOS Models/Service 別ファイル化**
+13. **MTGサマリ Phase 2.5: R313 を会議サマリ集約方式に**
+14. **本体GAS `cron_invoiceSendNudge_` 重複生成元 特定**
+15. **l2_feedbacks の archive UI**
 
-2. **データ汚染検出 + 上流修正**: 全 monthly_reports 汚染検出関数。汚染源 (AMD-Report GAS R313 / MMO マシンの Claude Code scheduled task / 手動投入) 調査と修正
-3. **iOS Swift 通知タップ → 該当画面へ navigation**: 当面 print のみ。l2_kind 別 (member_knowledge → メンバー詳細 / project_knowledge → cockpit / protocols → /admin/protocols / ms_progress → cockpit)
-4. **AMDプロトコル UI に candidate → confirmed 昇格ボタン**: 現状 status='candidate' で蓄積されるが UI 上で確定昇格できない
-5. **Phase 4.x = 5 生データ直結**: ⑤ メンバーナレッジを Slack 個人 DM / mention search から直接抽出 / ④ PJナレッジを Notion 経営戦略 page / Slack channel から直接抽出
-6. **xcodegen 入れて iOS の Models/Service 別ファイル化**
-7. **MTGサマリ Phase 2.5: AMD-Report GAS R313 を会議サマリ集約方式に書き換え**
-8. **本体GAS `cron_invoiceSendNudge_` 重複生成元の特定**
-9. **l2_feedbacks の archive UI**
-
-### 低優先 / 既存
-
-10. CX (p20) / CTB (p06) / SE (p10) / p11 で次期 MS 期間 (2026 Q2 〜) を設定
-11. 5月分の monthly_reports 自動生成 検討
-12. `saveProjectMembers` 全削除→挿入をやめて incremental update に
+### 低優先
+16. CX/CTB/SE/p11 で次期 MS 期間 (2026 Q2 〜) 設定
+17. 5月分 monthly_reports 自動生成 検討
+18. `saveProjectMembers` を incremental update に
 
 ---
 
 ## 次セッションの最初の一手
 
-1. リポ状態 4 ステップ (`git fetch --all --prune` → `git log --branches --not --remotes --oneline` → `git branch -a` → `git status -s`)
-2. **`pwa/HANDOFF_pwa_rebuild.md`** (このファイル) の最新更新を確認
-3. **`pwa/design/amd_score.md`** 末尾の「次セッション TODO: μ_A 用 論文 DB 構築」を読む ← 次タスクの仕様
-4. **`pwa/BUGS.md`** 最新 2 件 (律速 argmin / retrofit seed 罠) を読む
-5. **`pwa/design_log/sessions_2026-05.md`** 末尾セクション (AMD Score 改修) を読む ← 直近セッション詳細
-6. **`pwa/design/db_schema.md`** で既存 atlas_*  / project_* 列名を確認 ← migration 設計の前
-7. **`pwa/src/lib/atlas-macro-signals.ts`** を読む ← μ_A 拡張のテンプレ
-8. 論文 DB 設計案を出す → まさ承認 → migration 033 〜 投入 → fetcher 拡張 → AmdScoreView 連携 → deploy
+1. リポ状態 4 ステップ (`cd /Users/masa/projects/AMD/amd-os && git fetch --all --prune && git log --branches --not --remotes --oneline && git branch -a && git status -s`)
+2. このファイル (HANDOFF) の「🚨 次セッション最優先タスク」を読む
+3. [`BUGS.md`](BUGS.md) 冒頭の SX MTGサマリ エントリを読む
+4. [`design/db_schema.md`](design/db_schema.md) で `project_meeting_summaries` の列名を grep
+5. SX (p21) の現状確認: `nav_meeting_processOneEvent_` を `force:true` で叩いて sourceKinds / gmailThreads を取る
+6. gas/074 の `_meeting_resolveProjectName_` + プロンプト v4_alias_feedback を読んで alias 拡張案を出す → まさ承認 → 実装 → deploy → 再抽出 → 検証
 
 ---
 
-## 運用コマンド (継続)
+## 運用コマンド (常用)
 
 - **PWA Vercel deploy**: `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`
-- **DDL 適用** (worktree から、main worktree の .env.local を使う):
-  ```sh
-  cd /Users/masa/projects/AMD/amd-os/pwa
-  python3 -X utf8 scripts/apply_ddl.py /path/to/worktree/pwa/scripts/migrations/NNN_name.sql
-  ```
-- **DB schema 再生成** (DDL 変更時に同じ commit で再生成):
-  ```sh
-  cd /Users/masa/projects/AMD/amd-os/pwa
-  python3 -X utf8 /path/to/worktree/pwa/scripts/dump_schema.py
-  ```
+- **DDL 適用**: `cd /Users/masa/projects/AMD/amd-os/pwa && python3 -X utf8 scripts/apply_ddl.py /path/to/worktree/pwa/scripts/migrations/NNN_name.sql`
+- **DB schema 再生成**: `cd /Users/masa/projects/AMD/amd-os/pwa && python3 -X utf8 /path/to/worktree/pwa/scripts/dump_schema.py`
 - **GAS Web App 経由で関数実行**:
   ```sh
   URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | sed 's/^NEXT_PUBLIC_GAS_WEBAPP_URL=//' | tr -d '"')
   KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | sed 's/^NEXT_PUBLIC_GAS_API_KEY=//' | tr -d '"')
-  curl -sL "$URL?mode=pwaApi&key=$KEY&action=listProps"
-  curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_meeting_listAllProjectTriggers"
-  ARGS=$(node -e 'console.log(encodeURIComponent(JSON.stringify(["arg1","arg2"])))')
-  curl -sL --max-time 360 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=FUNCTION_NAME&args=$ARGS"
+  ARGS=$(node -e 'console.log(encodeURIComponent(JSON.stringify(["meeting_id","p21",{"force":true}])))')
+  curl -sL --max-time 360 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_meeting_processOneEvent_&args=$ARGS"
   ```
 - **GAS push + deploy update**:
   ```sh
@@ -180,11 +143,9 @@
   npx --yes @google/clasp@latest push --force
   npx --yes @google/clasp@latest deploy --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G --description "v<n>_<desc>"
   ```
-- **手動 cron ping** (GAS):
+- **手動 cron キック** (PWA、Bearer 認証):
   ```sh
-  curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_pwa_pingHourlyEstimate"          # ③ MS進捗 (PWA cron)
-  curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_member_knowledge_pollAll"        # ⑤ メンバー
-  curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_project_knowledge_pollAll"       # ④ PJ
-  curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_protocol_pollAll"                # ② プロトコル
-  curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_meeting_pollRecentlyEndedEvents" # ⑥ MTGサマリ
+  SECRET=$(grep '^CRON_SECRET=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | sed 's/^CRON_SECRET=//' | tr -d '"')
+  curl -sL --max-time 290 -H "Authorization: Bearer $SECRET" https://amd-os-pwa.vercel.app/api/cron/founding-members-extract
+  curl -sL --max-time 290 -H "Authorization: Bearer $SECRET" https://amd-os-pwa.vercel.app/api/cron/papers-quarterly-ingest
   ```
