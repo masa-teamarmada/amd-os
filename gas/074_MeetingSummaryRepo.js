@@ -263,7 +263,7 @@ function nav_meeting_extractForProjectYm_(projectId, ymKey, opts) {
         risks: Array.isArray(extracted.risks) ? extracted.risks : [],
         source_hash: newHash,
         generated_at: new Date().toISOString(),
-        generated_by_model: "gemini-2.5-flash"
+        generated_by_model: String(extracted && extracted.modelName ? extracted.modelName : "")
       };
       const upRes = supa_upsert("project_meeting_summaries", row, "meeting_id");
       if (upRes.ok) {
@@ -520,7 +520,7 @@ function nav_meeting_processOneEvent_(eventId, projectId, opts) {
     risks: Array.isArray(extracted.risks) ? extracted.risks : [],
     source_hash: newHash,
     generated_at: new Date().toISOString(),
-    generated_by_model: "gemini-2.5-flash"
+    generated_by_model: String(extracted && extracted.modelName ? extracted.modelName : "")
   };
   const upRes = supa_upsert("project_meeting_summaries", row, "meeting_id");
   if (!upRes.ok) {
@@ -1153,12 +1153,22 @@ function _meeting_extractWithLLM_(combinedText, meta) {
   }
   if (!parsed || typeof parsed !== "object") return null;
 
+  // 実際に使われた model 名を DB_LlmModelConfig から取って返す (= upsert 時の generated_by_model 用)
+  let modelName = "";
+  try {
+    if (typeof llm_getConfig === "function") {
+      const cfg = llm_getConfig("meeting_extract");
+      if (cfg) modelName = String(cfg.provider || "") + ":" + String(cfg.model || "");
+    }
+  } catch (_e) {}
+
   return {
     summary_short: String(parsed.summary_short || "").trim(),
     decided: _meeting_normStringArray_(parsed.decided),
     progress: _meeting_normStringArray_(parsed.progress),
     next_actions: _meeting_normStringArray_(parsed.next_actions),
-    risks: _meeting_normStringArray_(parsed.risks)
+    risks: _meeting_normStringArray_(parsed.risks),
+    modelName: modelName
   };
 }
 
