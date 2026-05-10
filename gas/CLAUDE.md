@@ -169,12 +169,14 @@ GAS は外部サービスから Supabase へデータを供給するハブ役。
 | `086_ValuePlanRepo.gs` | DB_ValueMilestones CRUD |
 | `097_BillingBudget_Repo.gs` | 請求額申告Repo |
 | `098_BillingBudget_Api.gs` | 請求額申告API |
-| `074_MeetingSummaryRepo.js` | **MTGサマリ Phase 4** (⑥ L2) 抽出ロジック正本。Notion AI `transcription` block 対応 + alias + feedback + meeting_meta v4 |
+| `074_MeetingSummaryRepo.js` | **MTGサマリ Phase 4** (⑥ L2) 抽出ロジック正本。Notion AI `transcription` block 対応 + alias + feedback + meeting_meta v4 + **cron 内 self-healing** (eventTitle/eventStartAt opts、AI ページの 日付/eventId/PJ 空プロパティ自動 patch、2026-05-11) + 段階的 fallback (`_meeting_findNotionPageByEventId_`) |
 | `079_NameAliasMap.js` | **名前正規化マップ** (まさ=山地正洋、ちこ=遠藤千穂 等を `members.member_name` から動的生成)。074 + 155 の LLM プロンプトに渡す |
-| `153_MeetingHourlyTrigger.js` | MTGサマリ毎時 polling cron (`nav_meeting_pollRecentlyEndedEvents`) |
+| `153_MeetingHourlyTrigger.js` | MTGサマリ毎時 polling cron (`nav_meeting_pollRecentlyEndedEvents`)。calendar event の title / startAt を `nav_meeting_processOneEvent_` に渡して self-healing trigger |
 | `154_PwaCronCaller.js` | **PWA cron caller** (Vercel Hobby cron 制約の回避策)。`nav_pwa_pingHourlyEstimate` で `/api/cron/hourly-estimate` を curl |
 | `155_L2KnowledgeExtractor.js` | **Phase 4 ⑤④② L2 抽出**: member/project/protocol を毎時 polling + alias + feedback + project_meta + 役割分担 |
-| `158_NotionDebugQuery.js` | **Notion 議事録 DB の query / blocks 直接 debug** (`debug_meeting_query` / `debug_meeting_inspectBlocks`)。汚染調査 / 特殊 block 構造解析用に常設 |
+| `158_NotionDebugQuery.js` | **Notion 議事録 DB / page 直接 debug** (`debug_meeting_query` / `debug_meeting_inspectBlocks` / `debug_meeting_inspectYm` / `debug_meeting_inspectPage` / `debug_meeting_dumpAiBody` / `debug_llm_geminiRaw`)。汚染調査 / AI ページ構造解析 / Gemini raw response 確認用に常設 |
+| `159_PJAliasDebug.js` | **CFG_PJAlias 外部スプシの dump** (`debug_pjAliases_dump(pjCodeFilter?)`)。PJ alias 管理は外部スプシ正本 (まさルール 2026-05-11)、コード内 alias 禁止 |
+| `160_MeetingAiBackfill.js` | **Notion AI 議事録ページの 3 プロパティ後付け** (`nav_meeting_backfillAiPages_`)。AI が自動生成するページは「日付」「eventId」「PJ」が空のまま生成される設計バグの過去分救済 (one-time)。今後の新規発生分は 074 cron self-healing でカバー |
 | `163_LlmRouter.gs` | LLM呼び出し共通ルーター |
 | `172_TsukuyomiContextRepo.gs` | DB_TsukuyomiContext読み書き |
 | `313_MsProgressSummary_Cron.gs` | 毎日5:30のMS進捗サマリ更新cron |
