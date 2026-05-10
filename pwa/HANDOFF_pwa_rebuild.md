@@ -15,7 +15,56 @@
 
 ---
 
-## 🎉 直近セッション 2026-05-11 (nervous-elbakyan-c1323e) の主要成果 — SX MTG バグ完全解決
+## 🎉 直近セッション 2026-05-11 (pensive-engelbart-7672ca) — ASPI 8 domains lane 移行 Phase 1
+
+AMD Score マクロトレンド (Triple Helix M カードの 7 観測量) の未抽出 3 つ (B / V / I_R) を取りに行く前段として、**lane 分類体系を AMD 都合の旧 5 lane から論文・国際統計世界の標準 (ASPI Critical Technology Tracker 8 domains) に揃えた**。
+
+### 実装 (Phase 1)
+
+1. **[`pwa/design/aspi_lanes.md`](design/aspi_lanes.md)** ─ ASPI 8 domain × 64+10 tech 正本 + 10 PJ 確定 mapping + 旧→新 lane mapping
+2. **migration 041** ─ `project_ventures.lanes JSONB` 追加 + 10 PJ seed + check constraint (domain enum + weight 合計 = 1.0)
+3. **`pwa/src/lib/aspi-lanes.ts`** ─ 型 + 定数 (client/server 両用)
+4. **`pwa/src/components/lanes/LaneBadges.tsx`** ─ 共通 `<LaneBadges>` + `<LaneEditor>` (cell popover で domain checkbox + weight 編集 + 合計 1.0 バリデーション)
+5. **PJ 台帳 `/admin/projects`** に「Lane (ASPI)」列追加 + cell click で LaneEditor 編集 (まさ要望)
+6. **AMD Score 一覧 `/venture-map/amd-score`** の lane 表示を ASPI badge に置換
+
+### 10 PJ 確定 mapping (まさ承認)
+
+| 旧 lane | 新 lanes (ASPI) | PJ |
+|---|---|---|
+| materials | `advanced_materials_manufacturing 1.0` | p03 ティエム |
+| robo | `defence_space_robotics_transport 1.0` | p04 輝翠TECH |
+| life | `biotechnology 1.0` | p06 CrestecBio |
+| gx_circular | `advanced_materials 0.5 + energy_environment 0.5` | p07 LiSTie |
+| gx_circular | `energy_environment 1.0` | p09 JOYCLE / p21 SolvioraX |
+| gx_energy | `energy_environment 1.0` | p11 BWE / p18 YD / p24 チャレナジー |
+| gx_energy | `advanced_materials 0.5 + energy_environment 0.5` | p20 CryoX |
+
+旧 5 lane → 新 ASPI: gx_energy + gx_circular → energy_environment, materials → advanced_materials_manufacturing, life → biotechnology, robo → defence_space_robotics_transport。**gx_circular は ASPI に独立 domain なし、energy_environment に統合**。
+
+### 設計判断
+
+- **weight 付き多重所属**: PJ が複数 domain にまたがるとき weight で按分 (合計 1.0、配列長 1〜3)
+- **観測量集計**: domain D の N(t) = Σ_p (papers_p × weight_{p,D}) で weighted 寄与
+- **旧 lane TEXT は cron 移行終わるまで残置** (cron 系 11 ファイル別セッションで段階移行)
+- **新規 PJ の lane は LLM 推定 → まさ承認**: 人が選択する UI は使わない原則
+
+### 残タスク (Phase 2)
+
+- **🚨 Phase 2-A**: 既存 5 lane 触ってる cron / lib (papers-quarterly-ingest / triple-helix-observations / relearn-lane-weights / macro-backfill-historical / venture-map-data.ts / VentureMapView / SuDetailView / Timeline3DView 等 11 ファイル) を ASPI 8 domain weighted に書き換え
+- **Phase 2-B**: 新規 PJ 起こす UI に LLM (Sonnet) lane 推定 + まさ承認フロー (admin/projects に「+ 新規 PJ」ボタン)
+- **Phase 2-C**: KAKEN API ingest (I_R 研究費)
+- **Phase 2-D**: NEDO/JST 採択 scrape (B 公募予算)
+- **Phase 2-E**: Crunchbase or 代替 (V VC 投資)
+
+### deploy
+
+main HEAD: `2ec2bf1`、Vercel deploy `amd-os-ih3ox5156-armada0130` (production, 5m50s, Ready)。
+本番 URL: <https://amd-os-pwa.vercel.app/admin/projects> で「Lane (ASPI)」列確認可能。
+
+---
+
+## 直近セッション 2026-05-11 (nervous-elbakyan-c1323e) の主要成果 — SX MTG バグ完全解決
 
 **真因**: Notion AI が会議終了時に自動生成する議事録ページは「日付」「eventId」「PJ relation」**3 プロパティとも空のまま**生成される設計バグ。
 

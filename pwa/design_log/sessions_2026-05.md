@@ -1996,3 +1996,65 @@ Sonnet 切替後 4/14 で再試行したら **selected page が 1/20 ページ**
 - **「カレンダー起点の cron なら対応議事録の補修もそこでやれ」**: one-time backfill 関数を恒常運用するのではなく、毎時 cron 内に self-healing を組み込む方が設計として綺麗
 - **コード内 alias 管理禁止**: PJ alias は CFG_PJAlias 外部スプシが唯一正本。`projects.project_name` / `project_ventures.display_name` 等から自動生成する案は却下されるべきだった
 - **早合点しない**: 前セッション supabase 28 行の集計を「全件」と勘違いして「16 件は救えない」と即結論したが、実は cron 自体が漏れてて 35+ 件が登録されてなかった。前提を疑え
+
+---
+
+## 2026-05-11 (pensive-engelbart-7672ca) — ASPI 8 domains lane 移行 Phase 1
+
+### 動機
+
+「AMD Score のマクロトレンド (= Triple Helix M カードの 7 観測量) のうち、抽出しきれてないパラメータ (B 公募予算 / V VC 投資 / I_R 研究費) を取りに行こう」というまさからの方針確認で、その前に **lane 分類体系を AMD 都合 (旧 5 lane: gx_energy/gx_circular/materials/life/robo) から論文・国際統計世界の標準** に揃える必要があると合意。
+
+選定: **ASPI Critical Technology Tracker 8 domains** (Australian Strategic Policy Institute、2024-08 PDF + 2025-12 update、74 critical tech)。理由: deeptech / 安全保障文脈で 2024 以降の世界標準引用、KAKEN 大区分 11 / NEDO TSC 14 / Crunchbase Industries との対応表が ASPI 自身で整備されてる、論文ランキングと直接比較可能。
+
+### Phase 1 で実装したもの (本セッション)
+
+1. **正本 md** [`pwa/design/aspi_lanes.md`](../design/aspi_lanes.md) ─ ASPI 8 domain × 64+10 tech 全リスト + 旧→新 lane mapping + 10 PJ 確定 weighted lanes
+2. **migration 041** [`041_project_lanes_aspi.sql`](../scripts/migrations/041_project_lanes_aspi.sql) ─ `project_ventures.lanes JSONB` 追加 + 10 PJ seed + check constraint (domain enum + weight 合計 = 1.0)
+3. **共通モジュール** [`pwa/src/lib/aspi-lanes.ts`](../src/lib/aspi-lanes.ts) ─ 型 + 定数 (server/client 両用)
+4. **共通コンポネント** [`pwa/src/components/lanes/LaneBadges.tsx`](../src/components/lanes/LaneBadges.tsx) ─ `<LaneBadges>` (badge 表示) + `<LaneEditor>` (popover で domain checkbox + weight 入力 + 等分ボタン + 合計 1.0 バリデーション)
+5. **PJ 台帳** ([admin/projects](../src/app/(app)/admin/projects/page.tsx)) に「Lane (ASPI)」列追加 + cell click で LaneEditor 編集 (project_ventures.lanes update)
+6. **AMD Score 一覧** ([AmdScoreList](../src/components/venture-map/AmdScoreList.tsx)) の lane 表示を旧 raw text → ASPI badge に置換
+
+### 10 PJ 確定 mapping (まさ承認)
+
+| PJ | 旧 lane | 新 lanes |
+|---|---|---|
+| p03 ティエム | materials | `[advanced_materials_manufacturing 1.0]` |
+| p04 輝翠TECH | robo | `[defence_space_robotics_transport 1.0]` |
+| p06 CrestecBio | life | `[biotechnology 1.0]` |
+| p07 LiSTie | gx_circular | `[advanced_materials 0.5, energy_environment 0.5]` |
+| p09 JOYCLE | gx_circular | `[energy_environment 1.0]` |
+| p11 BWE | gx_energy | `[energy_environment 1.0]` |
+| p18 Yellow Duck | gx_energy | `[energy_environment 1.0]` |
+| p20 CryoX | gx_energy | `[advanced_materials 0.5, energy_environment 0.5]` |
+| p21 SolvioraX | gx_circular | `[energy_environment 1.0]` |
+| p24 チャレナジー | gx_energy | `[energy_environment 1.0]` |
+
+旧 5 lane → 新 ASPI mapping: gx_energy + gx_circular → energy_environment / materials → advanced_materials_manufacturing / life → biotechnology / robo → defence_space_robotics_transport。**gx_circular は ASPI に独立 domain なし、energy_environment に統合** (まさ判断)。
+
+### 設計判断 (まさ承認)
+
+- **lanes は weight 付き多重所属** (1〜3 domain / 合計 1.0): PJ が複数 domain にまたがるケース (= p07 LiSTie, p20 CryoX) を表現
+- **観測量集計は weighted contribution で按分**: domain D の papers count = Σ_p (papers_p × weight_{p,D})
+- **旧 lane TEXT 列は cron 移行終わるまで残置**: 既存 papers-quarterly-ingest / triple-helix-observations / relearn-lane-weights を Phase 2 で書き換え
+- **新規 PJ 起こすときは LLM (Sonnet) 推定 → まさ承認**: 「人が入力する UI は使われない」原則を守る
+
+### 教訓 / 反省
+
+- **「自分の提案を疑う」**: 当初 JC (廃棄物) と YD (波力) を「ASPI に該当 tech なし」と書いたが、まさから「普通に energy/environment じゃないの? かなりそのテーマの中心」と即指摘。私の lane fitting が雑だった (廃棄物 = nuclear waste management 隣接、波力 = renewable energy のサブ)
+- **「AMD 都合で決めない」**: 当初 lane 5/8 をどっちにするか聞いたら「AMD の社内的事情で決めるべきでない、論文ではどう分けてる?」と即座に方向修正。論文 / 国際統計世界の標準 (OECD Frascati / ASPI / CRDS / OpenAlex Concepts) を提示するのが正解だった
+- **worktree 編集ミス**: 何度も `Write` / `Edit` で main repo の `/Users/masa/projects/AMD/amd-os/pwa/...` パスを使ってしまい、worktree (= 正しい branch) でなく main (= 別 branch) に書く事故が連発。**worktree で作業してるときは絶対パスは worktree 配下のフルパスを使う** (`/Users/masa/projects/AMD/amd-os/.claude/worktrees/<name>/pwa/...`)
+- **build error: client component が server-only モジュールを import**: ASPI 定数を venture-map-data.ts (createClient → next/headers) に置いたら、"use client" の LaneBadges から import で server bundle が client に紛れて build error。**型/定数は client/server 両用なら専用モジュール (aspi-lanes.ts) に分離する**
+
+### 残タスク (Phase 2 以降)
+
+- **🚨 Phase 2-A**: 既存 5 lane 触ってる cron 系の書き換え (papers-quarterly-ingest / triple-helix-observations / relearn-lane-weights / macro-backfill-historical / VentureMapView / SuDetailView 等)
+- **Phase 2-B**: 新規 PJ 起こす UI に LLM 推定 (Sonnet) + まさ承認フロー
+- **Phase 2-C**: KAKEN API ingest (I_R 研究費) — ASPI 8 domain × 64+10 tech にマッピング
+- **Phase 2-D**: NEDO/JST 採択 scrape (B 公募予算) — 同上
+- **Phase 2-E**: Crunchbase / 代替手 (V VC 投資) — 同上 / 代替案: atlas_signals (news) から「シリーズ A 〇億円」を LLM 抽出
+
+### deploy
+
+main HEAD: `2ec2bf1`、Vercel deploy `amd-os-ih3ox5156-armada0130` (production, 5m50s, Ready)。
