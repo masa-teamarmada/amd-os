@@ -156,10 +156,13 @@ function nav_meeting_pollRecentlyEndedEvents(opts) {
       continue;
     }
 
-    // 1 event 抽出
+    // 1 event 抽出 (event title / startAt を渡して self-healing + AI ページ fallback 起動)
     let r = null;
     try {
-      r = nav_meeting_processOneEvent_(eventId, projectId);
+      r = nav_meeting_processOneEvent_(eventId, projectId, {
+        eventTitle: title,
+        eventStartAt: startAt instanceof Date ? startAt.toISOString() : ""
+      });
     } catch (e) {
       r = { ok: false, message: String(e && e.message ? e.message : e) };
     }

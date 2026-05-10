@@ -304,9 +304,12 @@ function nav_meeting_extractForProjectYm_(projectId, ymKey, opts) {
  * @param {string} [projectId] (任意) PJ id がわかってれば渡す。無ければ Notion 議事録ページから resolve
  * @return {Object} {ok, action, sourceKinds, meetingId, title, projectId, message?}
  */
-function nav_meeting_processOneEvent_(eventId, projectId) {
+function nav_meeting_processOneEvent_(eventId, projectId, opts) {
   eventId = String(eventId || "").trim();
   if (!eventId) return { ok: false, message: "eventId empty" };
+  opts = opts || {};
+  const eventTitleArg = String(opts.eventTitle || "").trim();
+  const eventStartAtArg = String(opts.eventStartAt || "").trim();
 
   const props = PropertiesService.getScriptProperties();
   const notionToken = String(props.getProperty("NOTION_TOKEN") || "").trim();
@@ -314,17 +317,29 @@ function nav_meeting_processOneEvent_(eventId, projectId) {
   if (!notionToken) return { ok: false, message: "NOTION_TOKEN missing" };
   if (!notionDbRaw) return { ok: false, message: "NOTION_DATABASE_ID missing" };
 
-  // 1) Notion 議事録 DB から eventId プロパティ equals でページを 1 件取得
-  //    + 内容薄ければ「同日付・タイトル類似」の fallback ページに切替
-  let primaryPage = _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId);
+  // calendar event 由来の hint を組み立て (AI ページが eventId 空 / 「日付」空でも title contains で拾えるように)
+  let titleHintArg = "";
+  if (eventTitleArg) {
+    titleHintArg = eventTitleArg.replace(/\s*\d{4}-\d{2}-\d{2}T.*$/, "").replace(/\s*<mention-date.*$/, "").replace(/\s*@今日.*$/, "").replace(/\s+\d{1,2}:\d{2}.*$/, "").trim();
+  }
+  let meetingDateHint = "";
+  if (eventStartAtArg && /^\d{4}-\d{2}-\d{2}/.test(eventStartAtArg)) {
+    meetingDateHint = eventStartAtArg.slice(0, 10);
+  }
+
+  // 1) Notion 議事録 DB から eventId / titleHint / meetingDate の 3 段階 fallback でページ取得
+  let primaryPage = _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId, {
+    titleHint: titleHintArg || undefined,
+    meetingDate: meetingDateHint || undefined
+  });
   if (primaryPage) {
     const dateStartTmp = _meeting_extractDateStartFromPage_(primaryPage);
-    const meetingDateTmp = dateStartTmp && /^\d{4}-\d{2}-\d{2}/.test(dateStartTmp) ? dateStartTmp.slice(0, 10) : "";
+    const meetingDateTmp = dateStartTmp && /^\d{4}-\d{2}-\d{2}/.test(dateStartTmp) ? dateStartTmp.slice(0, 10) : meetingDateHint;
     const titleTmp = _meeting_extractTitleFromPage_(primaryPage) || "";
     if (meetingDateTmp) {
       const better = _meeting_findNotionPageByEventId_(notionToken, notionDbRaw, eventId, {
         meetingDate: meetingDateTmp,
-        titleHint: titleTmp.replace(/\s*<mention-date.*$/, "").replace(/\s*@今日.*$/, "").replace(/\s+\d{1,2}:\d{2}.*$/, "").trim()
+        titleHint: (titleTmp || titleHintArg).replace(/\s*\d{4}-\d{2}-\d{2}T.*$/, "").replace(/\s*<mention-date.*$/, "").replace(/\s*@今日.*$/, "").replace(/\s+\d{1,2}:\d{2}.*$/, "").trim()
       });
       if (better) primaryPage = better;
     }
@@ -342,6 +357,46 @@ function nav_meeting_processOneEvent_(eventId, projectId) {
   }
   if (!pid) {
     return { ok: false, action: "project_id_unresolved", eventId: eventId, pageId: pageId };
+  }
+
+  // 2.5) ★self-healing: AI ページの空プロパティに event 情報を書き込む
+  //      Notion AI 自動生成ページは「日付」/「eventId」/「PJ」が空のまま生成される設計バグ対応。
+  //      cron が calendar event 起点で動くたびに、対応ページを見つけたらその場で 3 プロパティを補完。
+  //      これにより一回処理されたページは次回以降 eventId equals fallback で正常に拾える。
+  try {
+    const curEventId = _meeting_extractEventIdFromPage_(page) || "";
+    const curDate = _meeting_extractDateStartFromPage_(page) || "";
+    let curPjRelIds = [];
+    const pjProp = page && page.properties ? page.properties["PJ"] : null;
+    if (pjProp && pjProp.type === "relation" && Array.isArray(pjProp.relation)) {
+      curPjRelIds = pjProp.relation.map(function (r) { return r.id; });
+    }
+
+    const patchProps = {};
+    if (!curEventId) {
+      patchProps["eventId"] = { rich_text: [{ text: { content: eventId } }] };
+    }
+    if (!curDate && meetingDateHint) {
+      patchProps["日付"] = { date: { start: meetingDateHint } };
+    }
+    if (curPjRelIds.length === 0) {
+      const pjDbRaw = String(props.getProperty("NOTION_PJ_DATABASE_ID") || "").trim();
+      if (pjDbRaw && typeof _notion_buildPjCodeToPageIdMap_ === "function") {
+        const pjMap = _notion_buildPjCodeToPageIdMap_(notionToken, pjDbRaw) || {};
+        const pjName = (typeof _meeting_resolveProjectName_ === "function") ? _meeting_resolveProjectName_(pid) : "";
+        const pjPageId = pjName ? (pjMap[pjName] || "") : "";
+        if (pjPageId) {
+          patchProps["PJ"] = { relation: [{ id: pjPageId }] };
+        }
+      }
+    }
+
+    if (Object.keys(patchProps).length > 0 && typeof _notion_fetch_ === "function") {
+      _notion_fetch_(notionToken, "https://api.notion.com/v1/pages/" + encodeURIComponent(pageId), "patch", { properties: patchProps });
+      Logger.log("[processOneEvent] self-heal patched: pageId=" + pageId + " eventId=" + eventId + " keys=" + Object.keys(patchProps).join(","));
+    }
+  } catch (e) {
+    Logger.log("[processOneEvent] self-heal error (non-fatal): " + (e && e.message ? e.message : e));
   }
 
   // 3) Notion 本文 (props 「内容」 + blocks)
