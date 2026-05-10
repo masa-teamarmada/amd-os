@@ -65,6 +65,28 @@ export interface TripleHelixComputed {
 
 const QUARTERS_HISTORY = 16; // 直近 4 年分
 
+/**
+ * lane → atlas_signals.domain プレフィックスのマッピング (Phase 2-B)。
+ * lane 個別の P (政策) / R (言及) を集計するため。
+ *
+ * - gx_energy: D.エネルギー
+ * - gx_circular: O.サーキュラーエコノミー
+ * - materials: C.素材・原料 + E.製造・プロセス技術
+ * - life: F.バイオ・医療
+ * - robo: G.モビリティ・ロボティクス + I.ICT・AI
+ *
+ * P は当該 lane domain ヒット OR source_type='policy' OR domain LIKE 'B.%' の OR で集計
+ * (政府の政策動向は lane 横断的に μ_G に効くため、lane domain と汎用政策の両方を含める)。
+ * R は lane domain ヒットのみ (純粋な lane 個別メディア言及)。
+ */
+const LANE_DOMAIN_PREFIXES: Record<string, string[]> = {
+  gx_energy: ["D."],
+  gx_circular: ["O."],
+  materials: ["C.", "E."],
+  life: ["F."],
+  robo: ["G.", "I."],
+};
+
 // =====================================================================
 // Quarter helpers
 // =====================================================================
@@ -201,17 +223,29 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
     return { quarter: q.quarter, observed_at: q.observedAt, value: count };
   });
 
+  const lanePrefixes = LANE_DOMAIN_PREFIXES[lane] ?? [];
+  const inLane = (domain: string | null): boolean => {
+    if (!domain) return false;
+    return lanePrefixes.some((p) => domain.startsWith(p));
+  };
+
   const pCountByQ = new Map<string, number>();
   const rCountByQ = new Map<string, number>();
   for (const r of (atlasData ?? []) as { submitted_at: string | null; domain: string | null; source_type: string | null }[]) {
     if (!r.submitted_at) continue;
     const { observedAt } = dateToQuarterStart(r.submitted_at);
-    // P: 政策ドキュメント本文 (source_type='policy') または規制・政策 domain (B.*)
-    if (r.source_type === "policy" || (r.domain && r.domain.startsWith("B."))) {
-      pCountByQ.set(observedAt, (pCountByQ.get(observedAt) ?? 0) + 1);
+    // P (政策密度): 政策ドキュメント (source_type='policy') OR 規制 domain (B.*) OR 当該 lane domain
+    //   政府の政策動向は lane 横断的に μ_G に効くため、汎用政策 + lane 個別 政策 の両方をカウント
+    const isPolicy = r.source_type === "policy" || (r.domain && r.domain.startsWith("B."));
+    if (isPolicy || inLane(r.domain)) {
+      // ただしニュース/レポートが lane domain にヒットしただけだと「政策」ではない
+      // → policy/B. のときだけ P にカウント。lane domain hit は R 側へ流す
+      if (isPolicy) {
+        pCountByQ.set(observedAt, (pCountByQ.get(observedAt) ?? 0) + 1);
+      }
     }
-    // R: メディア言及のみ (source_type='news') を純粋カウント
-    if (r.source_type === "news") {
+    // R (言及): 当該 lane の domain にヒットする news のみカウント (lane 個別メディア言及)
+    if (r.source_type === "news" && inLane(r.domain)) {
       rCountByQ.set(observedAt, (rCountByQ.get(observedAt) ?? 0) + 1);
     }
   }
