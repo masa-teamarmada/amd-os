@@ -7,20 +7,30 @@
 
 ### [GAS] SX (p21) 繰り返し MTG `int) SX 社内打ち合わせ` で議事録抽出が空になる
 - **発見日**: 2026-05-10 (まさ指摘)
-- **状態**: 🟡 原因特定済 (修正は次セッション)
+- **状態**: 🟡 原因切り分け途中 (= **AI 議事録ページの存在確認が未実施**、次セッション最優先)
 - **症状**: PWA `/project/p21/cockpit` で SX の MTG サマリを開くと、3/24 の `SX)int-納品物相談` 以外は summary_short が空 / 「議事録なし」 / 「対象 PJ に関連する議事録が確認できず」
-- **原因**:
-  - 繰り返しイベント `timth289ausur5avf894qtpekl_*` / `738970jsaspt5h9vcv4l1ef2hk_*` の Notion 議事録ページが **cron テンプレ「Meet（ここで /meet を打つ）」のままで本文ゼロ**。`sourceAiPageId` 空 (= AI 議事録ページが生成されてない)
-  - 3/24 だけ中身あるのは単発イベント `0tji7sracmp1lvgtkbbv15i3iq` で、別途 Notion AI ページか人手議事録があったため
-  - Gmail thread 2 件取れるが、LLM が「SX に関連しない」と判定して空返却 (gas/074 v4_alias_feedback プロンプトが SX = solvioraX を alias resolve できない可能性)
-  - cron テンプレ停止後 (`run_createMinutes_apply` trigger 削除済) Notion AI 一本化したが、SX 繰り返し MTG では Notion AI が議事録自動生成してない (= 録音 OFF or 機能未連携)
-- **次セッションの修正候補**:
-  - (a) **Notion AI 設定確認**: SX 系 MTG (繰り返し instance) で AI 議事録自動生成が有効になってるかまさが確認
-  - (b) **Gmail 関連性判定の緩和**: gas/074 のプロンプトで「SX = solvioraX」alias を強める。`_meeting_resolveProjectName_` 拡張
-  - (c) **Slack ingest**: SX 専用 Slack channel から MTG 周辺のメッセージを取り込む新ロジック (Phase 4.x で計画済)
+- **本セッションで確認したこと**:
+  - 4/29 `int) SX 社内打ち合わせ` の **cron テンプレページ** `34f97749c608812abbadcd2a4d6a8e0c` を Notion API で直接読み取り → 本文「Meet（ここで /meet を打つ）」のみ、`sourceAiPageId` 空
+  - `nav_meeting_processOneEvent_(force:true)` → `sourceKinds=notion+gmail`、`gmailThreads=2`、`summaryShort='対象PJに関連する議事録が確認できず'`
+  - 3/24 `SX)int-納品物相談` (単発イベント) だけ中身あり (decided=4 / progress=1 / risks=2 / next_actions=4)
+- **未確認 (= 次セッションで補完すべき)**:
+  - **Notion 議事録 DB に SX 関連の AI ページ (別 ID で生成された、eventId 空) が存在するか**
+  - 既存 gas/074 の `_meeting_findNotionPageByEventId_` は **3 段階 fallback** (eventId equals → 同日付+タイトル contains → last_edited_time 降順) で AI ページも拾えるはずだが、SX MTG では拾えてない
+  - Gmail thread 2 件の生内容 (= 本当に SX 関連内容が無いのか、それとも alias 不足で LLM が見落としてるのか)
+- **真の原因候補 (確認順)**:
+  1. **AI 議事録ページが eventId 紐付けなしで生成されてる**: `_meeting_findNotionPageByEventId_` の fallback でも拾えない (タイトル contains が効かないケース?)。Notion DB を `name contains 'SX'` で全件 search して eventId 空 + 本文厚ページを探す → **見つかったら eventId を後付ける one-time script** (= 既存 TODO「`nav_meeting_backfillEventIdToAiPages_` を gas/074 に追加」)
+  2. AI 議事録ページが**そもそも生成されてない** (Notion AI 録音 OFF / 機能未連携) — まさの Notion 運用確認
+  3. Gmail alias 不足 → `_meeting_resolveProjectName_` 拡張 (display_name / lane / origin_org / origin_pi も alias 候補に)
+  4. Slack ingest (Phase 4.x、中長期)
+- **修正候補 3 案**:
+  - (a) AI ページ eventId 後付け one-time script + 再抽出 ← **最優先で確認**
+  - (b) Gmail alias 拡張 (gas/074 prompt v5_alias_extended)
+  - (c) Notion AI 設定確認 (運用タスク)
+  - (d) Slack ingest (Phase 4.x)
 - **教訓**:
-  - 議事録抽出が空のとき「LLM が空返した」「Notion ページが空」「Gmail に関連 thread なし」を区別する必要
-  - `nav_meeting_processOneEvent_` を `force:true` で叩くと sourceKinds / gmailThreads / summaryShort が分かるので原因切り分けに使える
+  - 議事録抽出が空のとき「**AI ページが別 ID で存在しないか**」を最初に確認する。本セッションは cron テンプレ側だけ見て早合点した
+  - 既存仕組み確認: `_meeting_fetchAiNotesBody_` ([gas/074_MeetingSummaryRepo.js](../../gas/074_MeetingSummaryRepo.js#L763)) と `_meeting_findNotionPageByEventId_` ([gas/074_MeetingSummaryRepo.js](../../gas/074_MeetingSummaryRepo.js#L680)) で AI ページの transcription block (summary_block_id + notes_block_id) を再帰取得する仕組みは既に実装済 (前回 BWE 議事録対応で 2026-05-09 追加)
+  - `nav_meeting_processOneEvent_(force:true)` の sourceKinds は「見たもの」を示すが、AI ページ発見有無は別途 Logger で確認する必要
 
 ---
 

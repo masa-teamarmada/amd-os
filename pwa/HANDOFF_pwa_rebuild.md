@@ -16,24 +16,67 @@
 
 ## 🚨 次セッション最優先タスク
 
-**SX (p21) MTGサマリ抽出バグの対応**。詳細は [`BUGS.md`](BUGS.md) 最新エントリ「SX (p21) 繰り返し MTG `int) SX 社内打ち合わせ` で議事録抽出が空になる」参照。
+**SX (p21) MTGサマリ抽出バグの対応**。詳細は [`BUGS.md`](BUGS.md) 最新エントリ参照。
 
-### 原因 (調査済)
-- 繰り返しイベント `timth289ausur5avf894qtpekl_*` / `738970jsaspt5h9vcv4l1ef2hk_*` の Notion 議事録ページが **cron テンプレ「Meet（ここで /meet を打つ）」のままで本文ゼロ**。`sourceAiPageId` 空 (= AI 議事録ページ未生成)
-- Gmail thread 2 件取れるが LLM が「SX に関連しない」と判定 (gas/074 v4_alias_feedback プロンプトが SX = solvioraX を alias resolve できない可能性)
-- 3/24 の `SX)int-納品物相談` だけ中身あるのは **単発イベント** (別 Notion ページ存在)
+### ⚠️ 必読: 既存の AI 議事録抽出ロジック (前回セッション 2026-05-09 で実装済)
 
-### 修正候補 3 案 (優先順)
-1. **(b) Gmail 関連性判定の緩和**: gas/074 のプロンプトで「SX = solvioraX」alias を強める。`_meeting_resolveProjectName_` を拡張 (DB_Projects + project_ventures.display_name 両方から alias 候補を生成)
-2. **(a) Notion AI 設定確認**: SX 系 MTG (繰り返し instance) で AI 議事録自動生成が有効になってるかまさが Notion 側で確認 (= 運用タスク)
-3. **(c) Slack ingest**: SX 専用 Slack channel から MTG 周辺のメッセージを取り込む新ロジック (Phase 4.x で計画済)
+「Notion 議事録ページが空」と早合点しないこと。gas/074 には **AI 議事録ページ (別 ID で生成される) を拾う仕組みが既に実装済**:
+
+- `_meeting_findNotionPageByEventId_` ([gas/074_MeetingSummaryRepo.js](../../gas/074_MeetingSummaryRepo.js#L680)) の **3 段階 fallback**:
+  1. eventId プロパティ equals
+  2. 同日付 + タイトル contains
+  3. **last_edited_time 降順** で先頭採用 (= AI ページが通常最新)
+- `_meeting_fetchAiNotesBody_` ([gas/074_MeetingSummaryRepo.js](../../gas/074_MeetingSummaryRepo.js#L763)): AI 議事録ページの `transcription` block → `summary_block_id` + `notes_block_id` の子 block を再帰取得
+- Notion 議事録 DB ページの `sourceAiPageId` プロパティ (= cron テンプレページが AI ページを参照する想定だが、実際は使われてない)
+
+### 本セッションでの調査の限界 (= 次セッションで補完すべき)
+
+- 4/29 の **cron テンプレページ** `34f97749c608812abbadcd2a4d6a8e0c` (Notion API で読み取り済) → 本文ゼロ確認
+- **AI 議事録ページ (別 ID) が存在するかは未確認**: Notion 議事録 DB を直接 search してない
+- `nav_meeting_processOneEvent_(force:true)` の出力 `sourceKinds=notion+gmail` は両者を見たことを示すが、AI ページ未発見の可能性が高い
+
+### 真の原因候補 (優先順、確認方法つき)
+
+1. **【最有力】AI 議事録ページが eventId 紐付けなしで生成されてる**
+   - 確認: Notion 議事録 DB を `name contains 'SX'` で全件 search → eventId プロパティ空 + 本文厚いページがあるか
+   - 修正: 既存 BUGS の TODO「**AI page に eventId を後付けする one-time script**」を実装 (gas/074 に新関数 `nav_meeting_backfillEventIdToAiPages_` 等を追加)
+2. **AI 議事録ページがそもそも生成されてない** (Notion AI 録音 OFF)
+   - 確認: Notion 設定でまさが SX 系 MTG (繰り返し instance) の AI 議事録生成が有効か確認 (= 運用タスク)
+3. **Gmail alias 不足**: Sonnet が「SX = solvioraX」を判定できない
+   - 確認: `_meeting_resolveProjectName_` ([gas/074_MeetingSummaryRepo.js](../../gas/074_MeetingSummaryRepo.js)) を読んで alias 候補生成ロジックを拡張
+4. **Slack ingest 未実装** (Phase 4.x 計画) — 中長期
 
 ### 作業手順 (推奨)
-1. `nav_meeting_processOneEvent_` を `force:true` で SX の各 meeting_id を叩いて sourceKinds / gmailThreads / summaryShort を確認
-2. gas/074 の `_meeting_resolveProjectName_` を読む → alias 拡張箇所を特定
-3. プロンプト v5 化 (alias 強化、source_hash に prompt rev 含める) → deploy → 再抽出
-4. SX 各 meeting で summary_short が「議事録なし」以外になるか検証
-5. 同じ問題が他 PJ で起きてないかも合わせて確認 (`SELECT project_id, COUNT(*) FILTER (WHERE summary_short = '議事録なし') FROM project_meeting_summaries GROUP BY 1`)
+
+```sh
+# 1. SX 4/29 の現状を Notion API で再確認 (cron テンプレページ + AI ページ両方)
+URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | sed 's/^NEXT_PUBLIC_GAS_WEBAPP_URL=//' | tr -d '"')
+KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | sed 's/^NEXT_PUBLIC_GAS_API_KEY=//' | tr -d '"')
+
+# 2. Notion 議事録 DB から SX 関連ページを全件取得 (eventId 空 + 本文厚いページの有無確認)
+#    GAS に新規 debug 関数 nav_meeting_listNotionAiPages_(projectId, ymRange) を追加して
+#    `eventId` 未設定 + body length > N のページを返す
+ARGS=$(node -e 'console.log(encodeURIComponent(JSON.stringify(["p21","2026-04",{}])))')
+curl -sL --max-time 120 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_meeting_listNotionAiPages_&args=$ARGS"
+
+# 3. AI ページが見つかったら eventId を後付ける one-time script を実装/実行
+#    gas/074 に nav_meeting_backfillEventIdToAiPages_ を追加
+#    → 議事録 DB を巡回 → eventId 空 + 本文厚 + 同日付 calendar event あり → eventId をプロパティ書き込み
+#    → そのあと nav_meeting_processOneEvent_(force:true) で再抽出すれば AI 本文が取れる
+
+# 4. Gmail alias 拡張も並行で対応
+#    _meeting_resolveProjectName_ に project_ventures.display_name + lane + origin_org 等の alias 候補追加
+#    → MEETING_EXTRACT_PROMPT_REV を v5_alias_extended にバンプ
+
+# 5. SX 全 MTG で summary_short が「議事録なし」以外になるか検証 + 他 PJ への波及確認
+```
+
+```sql
+-- 他 PJ で同じ問題があるかの検出 (Supabase)
+SELECT project_id, COUNT(*) FILTER (WHERE summary_short IN ('議事録なし', '') OR summary_short LIKE '対象PJに関連する議事録%') AS empty_n,
+       COUNT(*) AS total_n
+FROM project_meeting_summaries GROUP BY project_id ORDER BY empty_n DESC;
+```
 
 ---
 
