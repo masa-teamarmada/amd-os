@@ -217,6 +217,80 @@ function debug_meeting_inspectYm(projectId, ymKey) {
   };
 }
 
+/** Gemini API を直接叩いて生 response (finishReason / safetyRatings / parts.text 全部) を返す。
+ *  llm_callGemini_ は内部で text のみ抽出して safety filter 等で空を返すケースを区別できないため、
+ *  error_llm の真因 (safety block / token 超え / parser 失敗) を切り分ける用。
+ *
+ *  使い方: combinedText は debug_meeting_dumpAiBody や手動構築で用意 → systemPrompt + userPrompt で投入。
+ */
+function debug_llm_geminiRaw(systemPrompt, userPrompt, opts) {
+  opts = opts || {};
+  const props = PropertiesService.getScriptProperties();
+  const apiKey = String(props.getProperty("GEMINI_API_KEY") || "").trim();
+  if (!apiKey) return { ok: false, message: "GEMINI_API_KEY missing" };
+  const model = String(opts.model || "gemini-2.5-flash").trim();
+  const maxTokens = Number(opts.maxTokens || 2048);
+  const temperature = (opts.temperature !== undefined && opts.temperature !== null) ? Number(opts.temperature) : 0.2;
+
+  const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" +
+                   encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(apiKey);
+  const payload = {
+    contents: [{ role: "user", parts: [{ text: String(userPrompt || "") }] }],
+    generationConfig: {
+      maxOutputTokens: maxTokens,
+      temperature: temperature
+    }
+  };
+  const sys = String(systemPrompt || "").trim();
+  if (sys) payload.systemInstruction = { role: "system", parts: [{ text: sys }] };
+
+  let resp;
+  try {
+    resp = UrlFetchApp.fetch(endpoint, {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+  } catch (e) {
+    Logger.log("[debug_llm_geminiRaw] fetch error: " + (e && e.stack ? e.stack : e));
+    return { ok: false, message: "fetch error: " + e };
+  }
+
+  const code = resp.getResponseCode();
+  const text = resp.getContentText();
+  let parsed = null;
+  try { parsed = JSON.parse(text); } catch (_e) {}
+
+  const candidates = (parsed && Array.isArray(parsed.candidates)) ? parsed.candidates : [];
+  const firstCand = candidates[0] || null;
+  const finishReason = firstCand ? firstCand.finishReason : null;
+  const safetyRatings = firstCand ? firstCand.safetyRatings : null;
+  const promptFeedback = parsed ? parsed.promptFeedback : null;
+
+  let responseText = "";
+  if (firstCand && firstCand.content && Array.isArray(firstCand.content.parts)) {
+    for (const p of firstCand.content.parts) {
+      if (p && p.text) responseText += String(p.text);
+    }
+  }
+
+  return {
+    ok: code >= 200 && code < 300,
+    statusCode: code,
+    model: model,
+    inputUserPromptLen: String(userPrompt || "").length,
+    inputSystemPromptLen: sys.length,
+    finishReason: finishReason,
+    safetyRatings: safetyRatings,
+    promptFeedback: promptFeedback,
+    candidatesCount: candidates.length,
+    responseTextLen: responseText.length,
+    responseText: responseText.slice(0, 4000),
+    rawSnippet: text.slice(0, 2500)
+  };
+}
+
 /** _meeting_fetchAiNotesBody_ の戻り値をそのまま返す debug。
  *  Gemini への入力 (combinedText の AI 部分) を実際に見る用。
  */
