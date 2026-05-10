@@ -48,18 +48,37 @@
 
 ### [GAS] Notion AI ページ Gemini 抽出で `error_llm` 連発 (4/14, 4/16, 4/28, 3/31 等)
 - **発見日**: 2026-05-11 (上記 SX バグ修正の検証中)
-- **状態**: 🟡 原因未確定、次セッション調査
+- **状態**: ✅ Anthropic Sonnet 4.5 切替で解消 (Gemini 真因は未究明だが運用上は完全解決)
 - **症状**: SX 35 件で `nav_meeting_processOneEvent_(force)` を回したら、4/14 / 4/16 / 4/28 / 3/31 などの AI ページで一貫して `action=error_llm` (= `_meeting_extractWithLLM_` が null 返却)。同じ event を複数回叩いても再現する (rate limit ではない)
 - **既知**: AI 本文 1553 字 (= 4/14)、内容は普通の議事録 (アクションアイテム / 会社設立スケジュール / 倉敷市連携 / 等)、特殊文字も見当たらず
-- **仮説**:
-  - (a) Gemini safety filter で response が block されてる (`finishReason: SAFETY` か?)
-  - (b) Gemini が JSON 不正 response を返してる (= コードフェンス付きで `llm_parseJsonSafe_` が null を返す)
+- **解決策 (2026-05-11)**: `DB_LlmModelConfig` の `meeting_extract` row を `gemini-2.5-flash` → `claude-sonnet-4-5-20250929` に切り替え (まさ承認)。`admin_upsertLlmModelConfig` 経由で update。
+- **検証**: 4/14 で再試行 → `action=updated`、sourceKinds=`notion+gmail`、gmailThreads=2、summary=`PSI DEMODAY 後の接点フォロー。JETRO 面談調整、博報堂からブランディング観点のアドバイス受領。` ← 正常抽出成功
+- **Gemini 真因仮説 (未究明、参考)**:
+  - (a) Gemini safety filter で response が block (`finishReason: SAFETY` か?)
+  - (b) Gemini が JSON 不正 response を返してる (= コードフェンス付きで parser 失敗)
   - (c) Gemini が token 超えで途中切断
   - `llm_callGemini_` (gas/163) は parts[0].text を抽出するだけで、finishReason / safetyRatings は無視する → null 返却で原因が握り潰される
-- **次セッションで使う debug**:
-  - `debug_llm_geminiRaw(systemPrompt, userPrompt, opts)` (gas/158、2026-05-11 追加): Gemini API を直接叩いて生 response (`finishReason` / `safetyRatings` / `promptFeedback` / 全 parts) を返す。`error_llm` の真因を切り分け可能
-  - **未済課題**: GAS Web App の URL 長すぎ (HTTP 400) で combinedText を直接渡せない問題あり。POST 対応 or `debug_meeting_attemptExtract(eventId, projectId)` (= eventId だけ渡せば内部で再現実行する debug) を新設するのが次の一手
-- **暫定回避**: モデルを Gemini → Anthropic Sonnet 4.5 に切り替えれば抽出できる可能性 (= `DB_LlmModelConfig` の `meeting_extract` row の `provider/model` を変える)
+- **追加した debug 関数 (将来 Gemini 復帰時用)**: `debug_llm_geminiRaw(systemPrompt, userPrompt, opts)` (gas/158、2026-05-11)。Gemini 生 response (finishReason / safetyRatings / promptFeedback / 全 parts) を返す。GAS Web App URL 長すぎ問題は未解決 (POST 対応 or `debug_meeting_attemptExtract` 新設で回避可能)
+- **教訓**:
+  - LLM が「null 返却」(= 抽象化された失敗) を返したら、その内側の真因を確認する手段を必ず確保しておく。`llm_callGemini_` が finishReason / safetyRatings を握り潰すのは debug 不能の元
+  - 一時しのぎでも別モデル切替で運用復旧できると判断早い
+
+---
+
+### [GAS] _meeting_findNotionPageByEventId_ の merge sort で異月ページ誤選択
+- **発見日**: 2026-05-11 (Sonnet 切替後の動作確認で発覚)
+- **状態**: ✅ 解決済み (段階的 fallback に修正)
+- **症状**: 4/14 eventId で `nav_meeting_processOneEvent_` を叩いたら、selected page が **2026-01-20 SX定例MTG ページ** に。supabase に upsert された行は meeting_date=2026-01-20、title=「SX定例MTG 2026-01-20T16:00:00.000+09:00」、notion_page_id=2ee97749... (= 1/20 ページ) で、本来 4/14 ページが入るべき場所に 1/20 が入った
+- **原因**: `_meeting_findNotionPageByEventId_` (gas/074 L680) が 3 段階 fallback (eventId equals → titleHint contains → date equals) **全部の結果を merge して** last_edited_time 降順 sort で 1 件選ぶ実装だった。titleHint='SX定例MTG' のような広いマッチで多月のページ (1/20, 2/4, 2/17, 3/3, 3/19, 3/31, 4/14, 4/28 等) が混入し、最近 patch されたページが先頭に来て誤選択
+- **解決策**: 段階的 fallback に修正:
+  - Stage 1: eventId equals (1 件以上ヒットしたら return、複数なら last_edited 降順 1 件)
+  - Stage 2: titleHint contains + meetingDate ±1日の created_time フィルタ (空なら return null じゃなく次段へ)
+  - Stage 3: 日付プロパティ equals
+  - 各段で hit すれば return、空なら次段へ降りる
+- **検証**: Sonnet 切替後、4/14 eventId で再試行 → action=updated、selected=4/14 ページ、summary=「PSI DEMODAY 後の接点フォロー...」で正常
+- **教訓**:
+  - **fallback ロジックの「結果 merge + 全体 sort」は誤判定の元**。段階的 (= 1 段ずつ降りて hit したら確定) が原則
+  - title contains のような広いマッチは、必ず追加条件 (date / PJ relation / created_time 等) で絞り込んでから採用
 
 ---
 

@@ -15,72 +15,68 @@
 
 ---
 
-## 🎉 直近セッション 2026-05-11 (nervous-elbakyan-c1323e) の主要成果
+## 🎉 直近セッション 2026-05-11 (nervous-elbakyan-c1323e) の主要成果 — SX MTG バグ完全解決
 
-### SX (p21) MTG サマリ抽出バグ — 真因特定 + 設計修正完了
+**真因**: Notion AI が会議終了時に自動生成する議事録ページは「日付」「eventId」「PJ relation」**3 プロパティとも空のまま**生成される設計バグ。
 
-**真因**: Notion AI が会議終了時に自動生成する議事録ページは「日付」「eventId」「PJ relation」**3 プロパティとも空のまま**生成される設計バグ。これにより cron が拾えず、PWA cockpit に MTG サマリが表示されなかった。
+**実装した 4 段の修正 (= 最終的に SX MTG サマリ復活率 67% へ改善)**:
 
-**実装した解決策 (2 段構え)**:
-
-1. **Phase A: 過去分救済 (one-time)** — [`gas/160_MeetingAiBackfill.js`](../gas/160_MeetingAiBackfill.js) `nav_meeting_backfillAiPages_`:
-   - title から ISO 日時 regex parse + CFG_PJAlias 経由 PJ 判定 + calendar event lookup
-   - 空プロパティのみ patch、dryRun 対応
-   - **SX 35 件 patch 成功** (errors=0、ambig=0、2025-11 〜 2026-04 全期間カバー)
+1. **Phase A: 過去分救済 (one-time backfill)** — [`gas/160_MeetingAiBackfill.js`](../gas/160_MeetingAiBackfill.js) `nav_meeting_backfillAiPages_`:
+   - title から ISO 日時 regex parse + CFG_PJAlias 経由 PJ 判定 + calendar event lookup → 空プロパティのみ patch
+   - SX 35 件 patch 成功 (errors=0、ambig=0)
 
 2. **Phase B: 恒久対応 (cron 内 self-healing)** — [`gas/074_MeetingSummaryRepo.js`](../gas/074_MeetingSummaryRepo.js) `nav_meeting_processOneEvent_` 改修:
-   - 引数に `opts.eventTitle` / `opts.eventStartAt` 追加
-   - 3 段階 fallback (eventId / titleHint / date) を primary 取得から有効化 → AI ページが eventId 空でも title contains で拾える
-   - page hit 後、空プロパティ (`日付`/`eventId`/`PJ`) を CFG_PJAlias 経由で patch (= self-healing)
-   - 次回以降は eventId equals fallback で正常動作 = **1 度処理されたページは恒久的に修復**
-   - [`gas/153_MeetingHourlyTrigger.js`](../gas/153_MeetingHourlyTrigger.js) `nav_meeting_pollRecentlyEndedEvents` から calendar event 情報を渡すよう修正
+   - opts.eventTitle / eventStartAt 追加 + page hit 後の空プロパティ patch
+   - [`gas/153_MeetingHourlyTrigger.js`](../gas/153_MeetingHourlyTrigger.js) から calendar event 情報を渡すよう修正
 
-**動作確認**:
-- SX 35 件 backfill 後 force 再抽出 → **11 件サマリ復活** (1/16 杉浦先生 / 1/18 SX 事業計画 / 2/18 / 2/26 / 3/3 / 3/24 / 11/14 等)
-- 残 24 件は (a) `skipped_unchanged` (b) `error_llm` (= 別バグ、下記) (c) gmail のみで無関係判定
+3. **Phase C: LLM 切替 (まさ承認)** — `DB_LlmModelConfig.meeting_extract` を `gemini-2.5-flash` → `claude-sonnet-4-5-20250929` に upsert。Gemini が AI 議事録ページで `error_llm` 連発した問題を解決
 
-### 追加 debug 関数 (次セッション調査用)
-- [`gas/158_NotionDebugQuery.js`](../gas/158_NotionDebugQuery.js):
-  - `debug_meeting_inspectYm(projectId, ym)`: Notion 議事録 DB ym 全ページ inspect
-  - `debug_meeting_inspectPage(pageId)`: 1 ページの properties 全件 dump
-  - `debug_meeting_dumpAiBody(pageId)`: AI 議事録本文を直接取得
-  - `debug_llm_geminiRaw(systemPrompt, userPrompt)`: Gemini 生 response 確認 (finishReason / safetyRatings / promptFeedback)
-- [`gas/159_PJAliasDebug.js`](../gas/159_PJAliasDebug.js):
-  - `debug_pjAliases_dump(pjCodeFilter?)`: CFG_PJAlias 全件 dump
+4. **Phase D: `_meeting_findNotionPageByEventId_` の段階的 fallback 化** — Sonnet テストで判明した「3 段 merge sort で異月ページ誤選択」事故を修正。各段で hit したら return、空なら次段へ降りる純粋な段階フォールバックに
+
+### 検証結果
+
+- SX 全 35 件 force 再抽出: **OK=22 / SKIP=13 / ERR=0** (Sonnet + 段階 fallback で全件成功)
+- supabase project_meeting_summaries (SX, p21):
+  - 修正前: have=11 / empty=17 / total=28 (誤った meeting_id 紐付けあり)
+  - 修正後: **have=30 / empty=16 / total=46**
+  - 4/14 / 4/16 / 4/28 / 3/31 / 3/24 / 3/19 / 1/20 / 1/16 / 12/24 / 11/14 等まさ認知の MTG 全部復活
+  - 残 16 件 empty は (a) Notion + Gmail 両方なし (b) Gmail のみで LLM が真に PJ 無関係と判定 (両方とも内容的に正しい)
+
+### 補助 debug 関数 5 個追加 (次回以降の調査用に常設)
+- [`gas/158`](../gas/158_NotionDebugQuery.js): `debug_meeting_inspectYm` / `debug_meeting_inspectPage` / `debug_meeting_dumpAiBody` / `debug_llm_geminiRaw`
+- [`gas/159`](../gas/159_PJAliasDebug.js): `debug_pjAliases_dump`
+
+### 副次修正
+- [`gas/074`](../gas/074_MeetingSummaryRepo.js) `_meeting_extractWithLLM_` の戻り値に `modelName` 追加 → upsert 時の `generated_by_model` をハードコード `gemini-2.5-flash` から `llm_getConfig` 由来 (例: `anthropic:claude-sonnet-4-5-20250929`) に動的化
+
+### GAS deploy 推移
+`@1448` → `@1449` → `@1450` (backfillAiPages) → `@1451` (dumpAiBody) → `@1452` (self-healing) → `@1453` (staged fallback) → **`@1454_dynamic_model_label`**
 
 ---
 
 ## 🚨 次セッション最優先タスク
 
-### 1. `error_llm` 真因究明 (4/14 / 4/16 / 4/28 / 3/31 等 4+ 件)
-
-`nav_meeting_processOneEvent_` で AI ページを取得 → Gemini 抽出 → null 返却 → `action=error_llm`。同じ event を複数回叩いても再現 (rate limit ではない)。
-
-仮説: (a) Gemini safety filter / (b) JSON 不正 response / (c) token 超え。`llm_callGemini_` (gas/163) が finishReason / safetyRatings を無視する実装になってて、`null` だけ返って原因が握り潰される。
-
-**次の一手**:
-- `debug_llm_geminiRaw` を使いたいが GAS Web App URL 長すぎ (HTTP 400) で combinedText を直接渡せない
-- 解決策: `debug_meeting_attemptExtract(eventId, projectId)` を gas/158 に新設 (= eventId だけ渡せば内部で combinedText 構築 + Gemini 直叩き + 生 response 返す)。これで URL 短く済む
-- **暫定回避案**: `DB_LlmModelConfig` の `meeting_extract` row を Gemini → Anthropic Sonnet 4.5 に切り替えれば抽出できる可能性。これは即解決手段 (まさ判断要)
-
-### 2. 4/17 SX-インタビュー (title ISO 無し) パターン対応
-
-AI ページ id `34597749c6088011b49bd771cc21e606` は title=`SX-インタビュー（原田様）` で **ISO 日時無し**。backfill 第 1 弾の regex から漏れる。
-
-**選択肢**:
-- (A) backfill 第 2 弾: `created_time` から「日付」を推定して set。eventId は埋めない (title に手がかり無し)
-- (B) self-healing が cron で回り始めれば、calendar event 起点で title contains "SX-インタビュー" でヒット → 自動補修される (= 動作待ち)
-
-(B) が綺麗。次の cron 実行 (毎時 0 分) を 1 サイクル待って観察するのが先。
-
-### 3. self-healing の本番運用検証
+### 1. self-healing の本番運用検証
 
 毎時 cron `nav_meeting_pollRecentlyEndedEvents` が実機で `opts.eventTitle/eventStartAt` 渡しで動くか観察:
-- 過去 60-180 分終了 event があるか確認
 - AI ページの空プロパティが自動 patch されるか
 - 次の SX MTG (例: 5/12 定例) で AI ページが自動補修されてサマリ生成されるか
 
-実機検証は 1 サイクル (= 1 時間) 待ち。Logger.log で `[processOneEvent] self-heal patched: ...` を確認できる。
+GAS Apps Script Editor の Executions で `nav_meeting_pollRecentlyEndedEvents` の Logger.log に `[processOneEvent] self-heal patched: pageId=... eventId=...` が出てれば成功。
+
+### 2. 4/17 SX-インタビュー (title ISO 無し) パターン
+
+AI ページ id `34597749c6088011b49bd771cc21e606` は title=`SX-インタビュー（原田様）` で ISO 日時無し。backfill 第 1 弾 regex から漏れた。
+
+self-healing (Phase B) が cron で回り始めれば、calendar event 起点で title contains "SX-インタビュー" でヒット → 自動補修される可能性 (= cron 1 サイクル待ち)。それでも解決しなければ backfill 第 2 弾で `created_time` から日付推定 set する拡張を追加。
+
+### 3. Gemini error_llm の真因究明 (低優先、Sonnet で運用復旧済)
+
+Sonnet 切替で運用上は解決したが、Gemini が AI 議事録で何故 null 返したか (= safety filter / JSON 不正 / token 超え) は未究明。`debug_llm_geminiRaw` は追加済だが GAS Web App URL 長すぎ (HTTP 400) で使えてない。POST 対応 or `debug_meeting_attemptExtract(eventId, projectId)` を gas/158 に新設 (= eventId だけ内部で combinedText 構築 + Gemini 直叩き + 生 response 返す) で次の調査が可能。
+
+### 4. cockpit に「議事録なし」表示の改善 (UX)
+
+empty 16 件のうち `gmail のみで LLM が無関係判定` のものは title 上は SX MTG だが内容空。cockpit 上で「議事録 source は集まったが対象 PJ 関連内容なし」が分かる UI 化を検討 (例: アイコン分け or コメント付き)
 
 ---
 
