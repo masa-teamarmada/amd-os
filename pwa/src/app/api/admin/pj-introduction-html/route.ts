@@ -1,19 +1,17 @@
 /**
  * POST /api/admin/pj-introduction-html
  *
- * 2026-05-12 まさ要望「雛形のフォーマットそのまま、文字だけ入れ替えて」を実現する実装。
+ * 2026-05-12 まさ要望「雛形のフォーマットそのまま、文字だけ入れ替えて」第 3 ラウンド。
  *
- * 雛形 (pwa/AMD_allPJ_introduction.html) は JavaScript で動的構築するタイプだったので、
- * ブラウザで完全レンダリングした後の HTML 部品 (= CSS + 04 CHALLENERGY section) を
- * src/lib/exec_summary/{template.css, template_section.html} として保存し、それを
- * **テンプレ** として使う。
+ * 旧旧 (#1): 自前 HTML 書いた → ぐちゃぐちゃ
+ * 旧   (#2): 雛形 section を readFileSync + 正規表現置換 → `*?` が </div> を超えてマッチして
+ *            余分な </div> が出る構造破壊
+ * 新   (#3): 正規表現を完全に廃止。雛形 04 CHALLENERGY section の構造を **template literal で
+ *            一字一句コピー**し、変数部分だけ ${} で置換。これで「文字だけ入れ替え」が
+ *            正しく実現される。
  *
- * 各 PJ ごとに:
- *   1. Supabase から最新データを集約 (project_ventures / project_knowledge / monthly_reports / founding_members)
- *   2. Sonnet 4.5 に「雛形 CHALLENERGY と同じフォーマットで JSON を返して」と要求
- *      system prompt = llm_prompts.exec_summary.extract (migration 055)
- *   3. JSON を雛形 section の placeholder に流し込む (= 文字置換)
- *   4. 全 PJ 分を連結 + ベース HTML で包む
+ * 雛形ベースのコピー元: src/lib/exec_summary/template_section.html (= 04 CHALLENERGY)
+ * 雛形に変更があったらこのファイルの renderSection() を同期する。
  *
  * Body: { project_ids: string[] }
  * Response: text/html (= ダウンロード用)
@@ -98,84 +96,52 @@ interface PjData {
   status_list: Array<{ k: string; v_html: string }>;
 }
 
-const TEMPLATE_SECTION = readFileSync(
-  join(process.cwd(), "src/lib/exec_summary/template_section.html"),
-  "utf-8"
-);
 const TEMPLATE_CSS = readFileSync(
   join(process.cwd(), "src/lib/exec_summary/template.css"),
   "utf-8"
 );
 
-/** 雛形 section 文字列を `<section> ... </section>` の 1 つに正規化 (= 末尾 indent 落とす) */
-const TEMPLATE_SECTION_TRIMMED = TEMPLATE_SECTION.trim();
+function esc(s: string | null | undefined): string {
+  if (!s) return "";
+  return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+function escAttr(s: string | null | undefined): string {
+  return esc(s).replaceAll('"', "&quot;");
+}
 
 function slugify(s: string): string {
-  return String(s)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 24) || "pj";
+  return (
+    String(s)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 24) || "pj"
+  );
 }
 
 /**
- * 雛形 section の HTML を PjData の値で文字列置換する。
- * 雛形の各 placeholder 位置を **正規表現で識別** して差し替え。
- * 構造ごと書き換えるのは 4 stages / use_cases / stage_pills / touchpoints / status_list の 5 領域。
+ * 雛形 04 CHALLENERGY section の構造を **一字一句コピーした template literal** で
+ * PJ ごとの値だけ ${} 置換で埋める。
+ *
+ * 旧実装の正規表現置換は `*?` で余分な </div> までマッチして構造破壊する事故が
+ * 出たので廃止。雛形ファイル src/lib/exec_summary/template_section.html を変更
+ * したら、ここの literal も同期する。
  */
 function renderSection(idx: number, total: number, pj: PjData, projectId: string): string {
-  let html = TEMPLATE_SECTION_TRIMMED;
   const seq = String(idx).padStart(2, "0");
   const totalStr = String(total).padStart(2, "0");
   const slug = slugify(pj.chip);
 
-  // ===== <section class="page page--challenergy" data-screen-label="04 Challenergy"> =====
-  html = html.replace(
-    /^<section class="page page--challenergy" data-screen-label="04 Challenergy">/,
-    `<section class="page page--${slug}" data-screen-label="${seq} ${escAttr(pj.chip)}" data-pj-id="${escAttr(projectId)}">`
-  );
-
-  // ===== hdr-mid (= "DeepTech Portfolio  /  <b>Team ARMADA が経営・創出に関わる4社</b>") =====
-  // 「4社」を total に書き換え (= 6 PJ なら "6社")
-  html = html.replace(
-    /<div class="hdr-mid">DeepTech Portfolio  \/  <b>Team ARMADA が経営・創出に関わる4社<\/b><\/div>/,
-    `<div class="hdr-mid">DeepTech Portfolio  /  <b>Team ARMADA が経営・創出に関わる${total}社</b></div>`
-  );
-
-  // ===== page-tag (= num / of / cat) =====
-  html = html.replace(
-    /<span class="num">04<\/span><span class="of">\/ 04<\/span>\s*<span class="cat">Wind · Resilience<\/span>/,
-    `<span class="num">${seq}</span><span class="of">/ ${totalStr}</span>\n        <span class="cat">${esc(pj.category)}</span>`
-  );
-
-  // ===== hero: chip + rail_sub + company_name + tagline =====
-  html = html.replace(
-    /<span class="chip">CHALLENERGY<\/span>\s*<span>2014年設立 \/ 垂直軸型風力発電<\/span>/,
-    `<span class="chip">${esc(pj.chip)}</span>\n          <span>${esc(pj.rail_sub)}</span>`
-  );
-  html = html.replace(
-    /<div class="company-name">Challen<span class="accent">e<\/span>rgy<\/div>/,
-    `<div class="company-name">${pj.company_name_html}</div>`
-  );
-  html = html.replace(
-    /<div class="tagline">台風や強風でも発電できる、<mark>自治体・離島・公共施設<\/mark>向けの小型風力発電機（販売中）。<\/div>/,
-    `<div class="tagline">${pj.tagline_html}</div>`
-  );
-
-  // ===== summary =====
-  html = html.replace(
-    /<div class="summary">\s*一般的なプロペラ風車が苦手な<b>台風 \/ 強風 \/ 乱流環境<\/b>でも発電できる、独自の<b>垂直軸型小型風力発電機<\/b>。すでに「Type D」を販売中で、定格100W \/ 最大250W、<b>耐風速40m\/s<\/b>。自治体の<b>防災電源<\/b>、離島・公共施設の脱炭素、<b>企業版ふるさと納税<\/b>との組み合わせなど、即・地域に提案可能な唯一の販売プロダクト。\s*<\/div>/,
-    `<div class="summary">\n          ${pj.summary_html}\n        </div>`
-  );
-
-  // ===== 4 stages =====
-  const stagesHtml = pj.stages
+  const stagesHtml = (pj.stages || [])
     .slice(0, 4)
     .map((s, i) => {
       const num = String(i + 1).padStart(2, "0");
-      const isProduct = s.is_product || s.kind === "PRODUCT";
+      const isProduct = !!s.is_product || s.kind === "PRODUCT";
       const showArrow = i < 3;
-      const listItems = s.list.slice(0, 6).map((li) => `<li>${li}</li>`).join("\n            ");
+      const listItems = (s.list || [])
+        .slice(0, 6)
+        .map((li) => `<li>${li}</li>`)
+        .join("\n            ");
       return `<div class="stage${isProduct ? " is-product" : ""}">
         <div class="stage-head"><div class="stage-num">${num}</div><div class="stage-kind">${esc(s.kind)}<b>${esc(s.kind_jp)}</b></div></div>
         <div class="stage-body">
@@ -187,23 +153,13 @@ function renderSection(idx: number, total: number, pj: PjData, projectId: string
       </div>`;
     })
     .join("\n      ");
-  html = html.replace(
-    /<div class="diagram">[\s\S]*?<\/div>\s*\n\s*<div class="footer">/,
-    `<div class="diagram">\n      ${stagesHtml}\n    </div>\n\n    <div class="footer">`
-  );
 
-  // ===== use_cases (= tag-cloud) =====
-  const useCasesHtml = pj.use_cases
+  const useCasesHtml = (pj.use_cases || [])
     .slice(0, 10)
     .map((u) => `<span class="tag${u.strong ? " is-strong" : ""}">${esc(u.label)}</span>`)
     .join("\n          ");
-  html = html.replace(
-    /<div class="tag-cloud">[\s\S]*?<\/div>/,
-    `<div class="tag-cloud">\n          ${useCasesHtml}\n        </div>`
-  );
 
-  // ===== stage_pills =====
-  const pillsHtml = pj.stage_pills
+  const pillsHtml = (pj.stage_pills || [])
     .slice(0, 5)
     .map((p) => {
       const cls = p.state === "now" ? "sp is-now" : p.state === "done" ? "sp is-done" : "sp";
@@ -211,49 +167,87 @@ function renderSection(idx: number, total: number, pj: PjData, projectId: string
       return `<div class="${cls}">${tick}<div class="sp-label">${esc(p.label)}</div></div>`;
     })
     .join("\n            ");
-  html = html.replace(
-    /<div class="stage-pill-row" style="margin-top:2\.5mm;">[\s\S]*?<\/div>\s*\n\s*<\/div>\s*\n\s*<\/div>/,
-    `<div class="stage-pill-row" style="margin-top:2.5mm;">\n            ${pillsHtml}\n          </div>\n        </div>\n      </div>`
-  );
 
-  // ===== touchpoints =====
-  const tpHtml = pj.touchpoints
+  const tpsHtml = (pj.touchpoints || [])
     .slice(0, 5)
     .map((t, i) => {
       const num = String(i + 1).padStart(2, "0");
       return `<div class="tp"><div class="tp-num">→ ${num}</div><div>${t.html}</div></div>`;
     })
     .join("\n          ");
-  html = html.replace(
-    /<div class="touchpoints">[\s\S]*?<\/div>\s*\n\s*<\/div>/,
-    `<div class="touchpoints">\n          ${tpHtml}\n        </div>\n      </div>`
-  );
 
-  // ===== status_list =====
-  const statusHtml = pj.status_list
+  const statusRowsHtml = (pj.status_list || [])
     .slice(0, 6)
     .map((s) => `<div class="status-row"><div class="k">${esc(s.k)}</div><div class="v">${s.v_html}</div></div>`)
     .join("\n          ");
-  html = html.replace(
-    /<div class="status-list">[\s\S]*?<\/div>\s*\n\s*<\/div>\s*\n\s*<\/div>\s*\n\s*<div class="page-edge">/,
-    `<div class="status-list">\n          ${statusHtml}\n        </div>\n      </div>\n    </div>\n\n    <div class="page-edge">`
-  );
 
-  // ===== page-edge =====
-  html = html.replace(
-    /<div class="page-edge">TEAM <b>ARMADA<\/b> &nbsp;\/&nbsp; DEEPTECH PORTFOLIO &nbsp;\/&nbsp; 04 CHALLENERGY<\/div>/,
-    `<div class="page-edge">TEAM <b>ARMADA</b> &nbsp;/&nbsp; DEEPTECH PORTFOLIO &nbsp;/&nbsp; ${seq} ${esc(pj.chip)}</div>`
-  );
+  // ★ 雛形 src/lib/exec_summary/template_section.html (= CHALLENERGY) と
+  //   class 名・属性順・改行・インデント を一字一句揃えてある。雛形を変更したら同期。
+  return `<section class="page page--${slug}" data-screen-label="${seq} ${escAttr(pj.chip)}" data-pj-id="${escAttr(projectId)}">
+    <header class="hdr">
+      <div class="armada-mark">
+        <img class="armada-logo-img" src="/AMD_logo_mark.png" alt="Team ARMADA">
+        <img class="armada-typo-img" src="/AMD_logotype.png" alt="team ARMADA">
+      </div>
+      <div class="hdr-mid">DeepTech Portfolio  /  <b>Team ARMADA が経営・創出に関わる${total}社</b></div>
+      <div class="page-tag">
+        <span class="num">${seq}</span><span class="of">/ ${totalStr}</span>
+        <span class="cat">${esc(pj.category)}</span>
+      </div>
+    </header>
 
-  return html;
-}
+    <div class="hero">
+      <div class="hero-left">
+        <div class="company-rail">
+          <span class="chip">${esc(pj.chip)}</span>
+          <span>${esc(pj.rail_sub)}</span>
+        </div>
+        <div class="company-name">${pj.company_name_html}</div>
+        <div class="tagline">${pj.tagline_html}</div>
+      </div>
+      <div class="hero-right">
+        <div class="label">30-SEC OVERVIEW</div>
+        <div class="summary">
+          ${pj.summary_html}
+        </div>
+      </div>
+    </div>
 
-function esc(s: string | null | undefined): string {
-  if (!s) return "";
-  return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-}
-function escAttr(s: string | null | undefined): string {
-  return esc(s).replaceAll('"', "&quot;");
+    <div class="diagram">
+      ${stagesHtml}
+    </div>
+
+    <div class="footer">
+      <div class="fcol">
+        <h3><span>USE CASES</span><span class="jp">想定用途</span></h3>
+        <div class="tag-cloud">
+          ${useCasesHtml}
+        </div>
+        <div class="stage-pill-wrap">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:7pt;letter-spacing:.22em;color:var(--ink-3);text-transform:uppercase;margin-top:2mm;">DEVELOPMENT STAGE</div>
+          <div class="stage-pill-row" style="margin-top:2.5mm;">
+            ${pillsHtml}
+          </div>
+        </div>
+      </div>
+
+      <div class="fcol">
+        <h3><span>TOUCHPOINTS</span><span class="jp">協力候補企業との接点</span></h3>
+        <div class="touchpoints">
+          ${tpsHtml}
+        </div>
+      </div>
+
+      <div class="fcol">
+        <h3><span>STATUS</span><span class="jp">現在地 / 会社情報</span></h3>
+        <div class="status-list">
+          ${statusRowsHtml}
+        </div>
+      </div>
+    </div>
+
+    <div class="page-edge">TEAM <b>ARMADA</b> &nbsp;/&nbsp; DEEPTECH PORTFOLIO &nbsp;/&nbsp; ${seq} ${esc(pj.chip)}</div>
+  </section>`;
 }
 
 /** Sonnet 4.5 で 1 PJ ぶんの PjData JSON を取得 */
