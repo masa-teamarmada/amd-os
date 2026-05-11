@@ -1,141 +1,172 @@
-# HANDOFF — AMD OS PWA
+# HANDOFF — AMD OS PWA / GAS (2026-05-11 eloquent-chatelet-417abc 引き継ぎ)
 
-最終更新: 2026-05-11 (eloquent-chatelet-417abc セッション完了)
+## 🚨 次セッション最優先 (= 「前セッションでもまた同じこと」防止)
 
-## 🚨 本セッション完了状況
+過去 N セッションで「次セッションで」と先送りされた件:
 
-> **「絶対に 1 回で全部完遂する」**(まさ要望、明日のイベント前夜) を引き受けた eloquent-chatelet-417abc は
-> 前セッションが整理した 6 タスクのうち、まさ操作が要るタスク 2 (clasp login) 以外を全部完遂しました。
+### 1. backfill 全 source 統合 — 進捗 50%
 
-### 完了したタスク
+**現状**:
+- Notion + Gmail (本体 GAS 074) → 既存稼働、ただし Notion 議事録が少ない PJ は空
+- Slack (本体 GAS 074b) → **本セッションで実装 + clasp push + clasp deploy 完了**
+  - `gas/074b_MeetingSummarySlack.js` (新規)
+  - `nav_meeting_extractSlackThreadsForProjectYm_(projectId, ym, opts)` (単月単 PJ)
+  - `nav_meeting_backfillSlackAllActive_(opts)` (全 active PJ × 過去 N ヶ月)
+  - bot 除外 (USLACKBOT / subtype=bot_message / bot_id / app_id) 込みの安全実装
+  - WebApp URL: 既存 deploymentId を上書き update (v1457)
+- Drive / Calendar → 未実装
 
-1. **★ Atlas Map 完全均一分散化**: 力場を radial domain force + collide(80) + charge(-4000) + link(450) +
-   初期座標を domain 角度配置に書き換え。`cooldownTicks=180` → `cooldownTime=3000`。
-   `handleEngineStop` から zoom×1.6 setTimeout を撤廃 (= 「5 秒後に縮小」現象の根本原因)。
-   → 中央密集 + 外周ドーナツ + 5 秒後縮小、3 連発症状を構造から解消するはず。
-   実装: [`pwa/src/app/(app)/atlas/map/page.tsx`](src/app/%28app%29/atlas/map/page.tsx)
-
-2. **★ atlas_signals.domain に P/Q/R 量子・センシング・通信 追加**:
-   - [`pwa/src/lib/atlas-domains.ts`](src/lib/atlas-domains.ts) に P (#8b5cf6 量子) / Q (#0ea5e9 センシング) / R (#71717a 通信) 追加
-   - [`atlas-collect`](src/app/api/cron/atlas-collect/route.ts) / [`atlas-policy-extract`](src/lib/atlas-policy-extract.ts) の LLM プロンプトに新 domain 行を追記
-   - [`triple-helix-observations.ts`](src/lib/triple-helix-observations.ts) の `LANE_DOMAIN_PREFIXES` を更新:
-     - `advanced_ict: ["I.", "R."]` / `quantum: ["P."]` / `sensing_timing_navigation: ["Q."]`
-   - 次の `atlas-collect` 起動から新 domain で signal 入る。これで Triple Helix の R 観測量が
-     量子・センシング・ICT で 0 から解放される。
-
-3. **★ Phase 3 BVAR Kalman filter で μ 隠れ状態推定**:
-   - migration 043: [`triple_helix_state_log`](scripts/migrations/043_triple_helix_state_log.sql) (lane, observed_at, mu_a/i/g, sigma_su) — 適用済 (`apply_ddl.py` 実行)
-   - 新規 [`pwa/src/lib/kalman-bvar.ts`](src/lib/kalman-bvar.ts) — 行列ヘルパー (eye/zeros/diag/matMul/matInv) + RTS smoother。
-     観測欠損は MAR (Missing at Random) でその時点の C/R 行を縮約して更新。
-   - 新規 cron [`/api/cron/triple-helix-recompute`](src/app/api/cron/triple-helix-recompute/route.ts) — 全 ASPI 8 domain × 16 quarter で Kalman 走らせ
-     `triple_helix_state_log` に upsert。
-   - [`triple-helix-observations.ts`](src/lib/triple-helix-observations.ts) は最新 state_log 行を優先表示し、無ければ Phase 1 簡易加重平均にフォールバック。
-   - Vercel Hobby 制約のため `vercel.json` には登録せず、GAS 154 setupWeeklyAspiTriggers 等から curl 想定 (= 当面 Pro 移行で vercel.json 戻し)。
-
-4. **★ KAKEN OpenSearch 実 API + LLM フォールバック**:
-   - [`cron/kaken-ingest`](src/app/api/cron/kaken-ingest/route.ts) を OpenSearch
-     `https://nrid.nii.ac.jp/opensearch/?format=json&kw=&from=&until=` ベースに置換。
-     - 各 ASPI 8 domain × 16 quarter × KAKEN_KEYWORDS_BY_DOMAIN で fetch し件数取得、
-       1 件あたり 0.05 億円の概算で配分額推定 → `source='kaken_api'` で upsert
-     - API 失敗 / ヒットゼロの quarter のみ既存 LLM (Sonnet + web_search) 推定で補完 (`source='kaken'`)
-   - レスポンス構造 (totalResults) は JSON / XML の両方を best-effort で parse。
-
-5. **★ NEDO/AMED/JST scrape + LLM domain 分類**:
-   - [`cron/grant-ingest`](src/app/api/cron/grant-ingest/route.ts) を NEDO/AMED/JST 採択ページ HTML fetch + 軽量 regex 抽出 +
-     Sonnet で domain 分類 (一括 batch、cheerio 不使用) → `source='grant_scrape'` で current quarter にだけ upsert
-   - scrape カバー外の quarter / domain は既存 LLM 推定 (`source='grant'`) で補完
-   - 各機関の構造変化に頑健なよう「採択/助成/公募/採用/決定/交付」キーワードで <a>/<li>/<td> をフィルタ。
-
-6. **★ tsc + commit + push + main merge + deploy + 本番確認**: 1 ターン内で完遂。
-
-### まさ操作が要るので飛ばしたタスク
-
-- **clasp login → GAS push → trigger setup**: invalid_rapt のためまさが clasp login するだけ。
+**次セッションで**:
+- まず Slack backfill の実行結果を `project_meeting_summaries` で目視確認
   ```sh
-  cd /Users/masa/projects/AMD/amd-os/gas
-  npx --yes @google/clasp@latest login
-  npx --yes @google/clasp@latest push --force
-  # trigger setup curl は [pwa/CLAUDE.md](CLAUDE.md) 参照
+  SVC=$(grep '^SUPABASE_SERVICE_ROLE_KEY=' pwa/.env.local | cut -d= -f2- | tr -d '"')
+  curl -sL -G "https://nbnhrhybjslbawdukvvk.supabase.co/rest/v1/project_meeting_summaries?select=project_id,source_kinds&source_kinds=eq.slack" -H "apikey: $SVC" -H "Authorization: Bearer $SVC" | jq 'group_by(.project_id) | map({pj: .[0].project_id, n: length})'
   ```
+- 必要なら手動で再起動:
+  ```sh
+  URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' pwa/.env.local | cut -d= -f2- | tr -d '"')
+  KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' pwa/.env.local | cut -d= -f2- | tr -d '"')
+  curl "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_meeting_backfillSlackAllActive_&args=$(python3 -c "import urllib.parse,json; print(urllib.parse.quote(json.dumps([{'monthsBack':12,'maxLlmCallsPerRun':50}])))")"
+  ```
+- Drive backfill (R309_MonthlyReport_DriveExtract を本体 GAS に移植):
+  - 074c_MeetingSummaryDrive.js を新規作成
+  - PJ Drive folder から「議事録」「打合せ」を含むファイル名のものを meeting として upsert
+- Calendar backfill: event description + attendees から meeting 構築
+- Notion alias resolver 強化 (= 「香川大学」→ p06 等のマップ拡張)
 
-## リポ状態 (本セッション最終)
+### 2. AdminProtocolsClient の 4 要素ステップカード UI が見えない (= 巻き戻り疑い)
 
-- main HEAD: (本セッション後の merge commit を確認、`git log --oneline -5` で見る)
-- branch: `claude/eloquent-chatelet-417abc` (worktree)
-- 未 push commit: なし (= deploy.sh 通過済み)
-- Supabase migration: ...040 / 041 / 042 / **043 (triple_helix_state_log)** 全部適用済
-- Vercel deploy: 本セッション最後の deploy URL を `pwa/scripts/deploy.sh` ログから確認
+**症状**: まさが「ビジュアライズが巻き戻ってる」と指摘
 
-## 次セッションの一手 (優先順)
+**仮説 (要検証)**:
+- 既存 13 件の protocols を本セッションで `status='archived'` に一括変更
+- `AdminProtocolsClient.tsx` のデフォルト filterStatus=`""` (= 全 status 表示) で archived も表示されるはず
+- ただし表示順 `order updated_at desc` なので最新 archived が頭に出てる可能性
+- → archived は折りたたみ + candidate 優先表示にする UI 修正必要
 
-### 1. Atlas Map 均一分散化の本番目視確認
+**次セッションで**:
+- /admin/protocols 開いて画面確認 → どこで巻き戻ってる?
+- 必要なら AdminProtocolsClient の filter デフォルトを `status=candidate` にして archived 非表示
 
-<https://amd-os-pwa.vercel.app/atlas/map> を開いて、
-- 中央密集 + 外周ドーナツが消えたか
-- 5 秒後の「縮小現象」が出ないか
-- 各 domain ごとにクラスタが分かれているか
+### 3. 既存 13 件 protocols の再抽出 (= 普遍プロトコル形式に)
 
-ダメな場合は radial 半径 (`RADIUS=600`) や angle force 強度 (`0.05 * alpha`) を再調整。
-
-### 2. clasp login + GAS push (= まさ操作 1 回)
-
-上記コマンド + `nav_pwa_setupWeeklyAspiTriggers_` curl で
-毎週月曜 04:00 / 04:15 / 04:30 / 05:00 JST の 4 cron が自動起動するようになる。
-
-### 3. P/Q/R domain の最初の signal 投入確認
-
-`atlas-collect` 実行後に `atlas_signals.domain` で P. / Q. / R. が現れるか確認。
-出てきた signal は Atlas Map の凡例にも新色で表示される (atlas-domains.ts 反映済)。
-
-### 4. triple-helix-recompute を初回手動キック
-
+旧形式 protocols (= PJ 固有事例ベース) は archived 済。再抽出は GAS cron 月 1 回。手動キック:
 ```sh
-URL="https://amd-os-pwa.vercel.app"
-SECRET=$(grep '^CRON_SECRET=' pwa/.env.local | cut -d= -f2- | tr -d '"')
-curl -sL --max-time 300 "$URL/api/cron/triple-helix-recompute" -H "Authorization: Bearer $SECRET" | jq
+URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' pwa/.env.local | cut -d= -f2- | tr -d '"')
+KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' pwa/.env.local | cut -d= -f2- | tr -d '"')
+curl "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_protocol_pollAll&args=$(python3 -c "import urllib.parse,json; print(urllib.parse.quote(json.dumps([{'force':True}])))")"
 ```
 
-→ `triple_helix_state_log` に ASPI 8 × 16 quarter = 128 行 upsert される想定。
-TripleHelixMatrix UI で μ_A/I/G が観測のスムージング結果に置き換わる。
+`llm_prompts.protocol.extract.body` は is_active=TRUE で本文入り (普遍 + examples 構造の prompt)。
+これに従って Gemini が `protocol_examples` テーブルに 1 protocol : N examples を upsert する仕組みは
+gas/155 nav_protocol_extractOneForYm_ に実装済。
 
-### 5. KAKEN OpenSearch のレスポンス検証
+### 4. ファビコンが反映されない
 
-実 API でデータが取れているか確認。`observation_log.source='kaken_api'` の行が増えるか。
-取れていなければ OpenSearch のクエリパラメータ (`kw` でなく `q` 等) を要修正。
+**現状**:
+- `pwa/src/app/icon.png` + `apple-icon.png` 配置済 (Next.js convention)
+- root layout.tsx の `metadata.icons` 削除済 (= 二重 link 衝突回避)
+- それでもまさ環境では Vercel デフォルト favicon が見える
 
-### 6. grant-ingest の scrape 結果確認
+**次セッションで確認**:
+1. 本番 HTML を curl して `<link rel="icon" href="/icon..." >` が生成されてるか
+   ```sh
+   curl -sL https://amd-os-pwa.vercel.app/ | grep -oE '<link[^>]*icon[^>]*>'
+   ```
+2. もし生成されてなければ:
+   - `pwa/src/app/icon.tsx` (= 動的) を試す
+   - もしくは `pwa/public/favicon.ico` に本物の ICO 形式を配置 (PNG→ICO 変換: `magick convert icon.png favicon.ico`)
+3. Vercel project settings の Favicon override がないか確認
 
-`observation_log.source='grant_scrape'` の行が current quarter に入るか。
-取れていなければ NEDO/AMED/JST のページ構造を `extractTitlesFromHtml` の正規表現で再調整。
+### 5. R303 monthly_report の hardcoded fallback も削除する
 
-### 7. 残り設計タスク (時間あれば)
+**現状**:
+- `llm_prompts.monthly_report.r313_extract.body` に seed 入り、ただし簡易テキストのみ
+- AMD-Report `R303_MonthlyReport_Generator.js` `mr_gen_getSystemPrompt_` に hardcoded fallback (約 470 字) が残ってる
+- AGENTS ルール「プロンプトをコードに書かない」に違反
 
-- BVAR Kalman の Q / R / A の prior を `bvar_prior.md` 数値に揃える (現状 default 値)
-- A の非対角 (lane interaction) を有効化して BVAR を本物の VAR(1) にする
-- NEDO/AMED/JST scrape を cheerio + 機関別 parser に格上げ
+**次セッションで**:
+1. R303 の `mr_gen_buildPrompt_` 全体を読んで、system prompt 構築箇所を特定
+2. DB の `monthly_report.r313_extract.body` に「人物誤認の防止 + bot 除外」を含む完全版を入れる
+3. R303 の `return 'あなたは...'` 部分を削除して DB 必須に
+4. clasp push (AMD-Report GAS、`/Users/masa/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/claude/AMD_OS/gas-report/.clasp.json`)
 
-## 運用コマンド (常用)
+### 6. project_knowledge への基本事実同期を実行
 
-- PWA Vercel deploy: `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`
-- DDL 適用: `python -X utf8 pwa/scripts/apply_ddl.py <worktree>/pwa/scripts/migrations/NNN_name.sql`
-- DB schema 再生成: `python3 -X utf8 <worktree>/pwa/scripts/dump_schema.py`
-- 新 5 cron 手動キック (確認用):
-  ```sh
-  URL="https://amd-os-pwa.vercel.app"
-  SECRET=$(grep '^CRON_SECRET=' pwa/.env.local | cut -d= -f2- | tr -d '"')
-  for path in lane-suggest kaken-ingest grant-ingest vc-investment-ingest triple-helix-recompute; do
-    curl -sL --max-time 300 "$URL/api/cron/$path" -H "Authorization: Bearer $SECRET" | jq
-  done
-  ```
+**現状**: `cron/sync-pj-facts` route 作成済、まだキックしてない
 
-## ⚠️ 必読ルール
+**次セッションで**:
+```sh
+SECRET=$(grep '^CRON_SECRET=' pwa/.env.local | cut -d= -f2- | tr -d '"')
+curl -sL "https://amd-os-pwa.vercel.app/api/cron/sync-pj-facts" -H "Authorization: Bearer $SECRET"
+```
+→ 全 active PJ の founded_at / outcome_pattern / amd_support_* が `project_knowledge.basic_fact` に同期される
 
-- **worktree 作業時、Write / Edit の `file_path` は worktree フルパス必須** (`/Users/masa/projects/AMD/amd-os/.claude/worktrees/<name>/...`)
-- **「N 時間放置される」と明示されたら N 時間動き続ける**。途中で「ここで止めて報告」と勝手に判断しない
-- **自分の提案を疑う** (memory rule): Atlas Map zoom 倍率を 3 セッション続けて変更してダメだった経緯がある。
-  1 回で効かなかったら force layout の根本構造に立ち戻る判断を早く
+加えて Vercel cron 化 (daily 04:00 JST):
+- pwa/vercel.json に追加
 
-## 過去セッションログ
+---
 
-- [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) — 2026-05 全セッション
-- [`design_log/sessions_2026-04.md`](design_log/sessions_2026-04.md) — 2026-04 全セッション
+## 過去経緯 (= 同じミスを繰り返さないため)
+
+### えいみ (Opus 4.7) の事実誤認傾向
+- 過去ターンで「p03 は 2022-03-01 に事業終了」と発言した
+- 実際は `outcome_pattern='smb'` (= 中小企業転換、継続中)、`amd_support_ended_at=null`
+- 原因: `narrative_text` の 2022-03 entry「事業継続における一時的な課題に直面」を「終了」と誤読
+- 教訓: **構造化フィールドを必ず参照、自由テキストの曖昧文言から推測しない**
+
+### えいみが「次セッション」で先送りした件
+- backfill 全 source: 4 セッション以上先送り → 本セッションで Slack 部分は実装完了
+- AMD-Report GAS が手元に無いと即断 → 実は Drive に 107 files あった (= mdfind で 3 秒)
+- 仕事を後回しにする傾向、次セッションは **本ハンドオフの 1-6 を即座に進める**
+
+### コード内 hardcoded プロンプト排除 (AGENTS ルール)
+- 完了: chat/route.ts buildSystemPrompt() / gas/155 protocol fallback
+- 未完了: R303 monthly_report fallback / chat/route.ts tool descriptions (TOOLS 配列、約 600 行)
+- 注意: 完全排除 = 全プロンプトを DB で管理、まさが /admin/prompts UI で編集可能に
+
+---
+
+## 主要ファイル / コミット
+
+| ファイル | 役割 |
+|---|---|
+| `pwa/scripts/migrations/045_members_is_admin.sql` | is_admin カラム |
+| `pwa/scripts/migrations/046_pl_review_requested.sql` | PL 確認依頼の状態分離 |
+| `pwa/scripts/migrations/047_tsukuyomi_token_usage.sql` | つくよみ usage log |
+| `pwa/scripts/migrations/048_llm_prompts.sql` | LLM prompt DB |
+| `pwa/scripts/migrations/049_protocol_examples.sql` | プロトコル普遍化 + N 事例 |
+| `pwa/scripts/migrations/050_protocol_examples_uniq.sql` | examples UNIQUE |
+| `pwa/src/app/(app)/admin/prompts/` | LLM prompt 管理 UI |
+| `pwa/src/app/api/cron/sync-pj-facts/route.ts` | PJ 基本事実同期 cron (未キック) |
+| `pwa/src/app/api/cron/freeze-period-backfill/route.ts` | 休止期間 backfill cron |
+| `pwa/src/app/api/cron/triple-helix-recompute/route.ts` | Triple Helix Kalman |
+| `gas/074b_MeetingSummarySlack.js` | Slack スレッド meeting backfill |
+| `gas/155_L2KnowledgeExtractor.js` | プロトコル抽出 (hardcoded 排除済) |
+| AMD-Report `R306_MonthlyReport_SlackExtract.js` | bot 除外 (まさ 2/18 事故対応) |
+| AMD-Report `R303_MonthlyReport_Generator.js` | 人物誤認防止 prompt (※ hardcoded 残あり) |
+
+---
+
+## clasp / GAS push 手順
+
+```sh
+# 本体 GAS
+cd /Users/masa/projects/AMD/amd-os/gas
+npx @google/clasp@latest push --force
+npx @google/clasp@latest deploy --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G --description "vNNN_xxx"
+
+# AMD-Report GAS
+cd "/Users/masa/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/claude/AMD_OS/gas-report"
+npx @google/clasp@latest push --force
+# AMD-Report の WebApp URL は別、scriptId=1r3Ak-tYASXY...
+```
+
+---
+
+## Vercel deploy
+
+```sh
+bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
+# 5-7 分で本番反映 (= amd-os-pwa.vercel.app)
+```
