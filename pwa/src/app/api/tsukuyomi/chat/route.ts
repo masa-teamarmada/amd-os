@@ -1213,7 +1213,27 @@ export async function POST(req: Request) {
     }
   }
 
-  const fullSystem = buildSystemPrompt(userName, userRole) + contextBlock;
+  // AGENTS.common.md ルール: プロンプトはコードに書かず DB から取得する。
+  // llm_prompts (prompt_key='tsukuyomi.system', is_active=TRUE) があればそれを優先、
+  // なければ buildSystemPrompt() の hardcoded fallback を使う。
+  // body 内の ${userName} / ${userRole} は実行時置換。
+  let promptBody: string | null = null;
+  try {
+    const { data: pRow } = await supabase
+      .from("llm_prompts")
+      .select("body")
+      .eq("prompt_key", "tsukuyomi.system")
+      .eq("is_active", true)
+      .maybeSingle();
+    if (pRow && (pRow as { body: string }).body && (pRow as { body: string }).body.trim().length > 0) {
+      promptBody = (pRow as { body: string }).body
+        .replace(/\$\{userName\}/g, userName)
+        .replace(/\$\{userRole\}/g, userRole);
+    }
+  } catch (e) {
+    console.warn("[tsukuyomi/chat] llm_prompts fetch failed, falling back to hardcoded:", e);
+  }
+  const fullSystem = (promptBody ?? buildSystemPrompt(userName, userRole)) + contextBlock;
 
   // 直近のユーザー発話を保存 (添付ファイル名は content 末尾に付記)
   const lastUser = [...body.messages].reverse().find((m) => m.role === "user");
