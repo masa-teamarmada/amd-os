@@ -24,6 +24,42 @@
  *  - 074_MeetingSummaryRepo.js (_meeting_loadExistingForProjectYm_)
  */
 
+/**
+ * Slack Web API を **form-encoded** で叩く専用 helper。
+ *
+ * 既存の slack_callApi (185_SlackNotify.js) は POST + application/json で送信していて、
+ * conversations.history は通るが conversations.replies が `invalid_arguments` を返す事象を確認。
+ * Slack 側で `ts="1777355520.959369"` を JSON body で受けると内部 parser が precision を
+ * 失うパターン (= 多くの公式 SDK が form-encoded を採用している理由)。
+ *
+ * 074b では history / replies 両方ともこの form-encoded helper 経由で叩く。
+ */
+function _meeting_slack_callForm_(path, params) {
+  var token = slack_getBotToken();
+  var url = "https://slack.com/api/" + String(path || "").replace(/^\/+/, "");
+  var payload = {};
+  Object.keys(params || {}).forEach(function (k) {
+    var v = params[k];
+    if (v === null || v === undefined) return;
+    payload[k] = String(v);
+  });
+  var res = UrlFetchApp.fetch(url, {
+    method: "post",
+    contentType: "application/x-www-form-urlencoded; charset=utf-8",
+    headers: { Authorization: "Bearer " + token },
+    payload: payload,
+    muteHttpExceptions: true
+  });
+  var text = res.getContentText() || "";
+  var obj = null;
+  try { obj = JSON.parse(text); } catch (e) { /* fall through */ }
+  if (!obj || obj.ok !== true) {
+    var msg = obj && obj.error ? obj.error : text.slice(0, 200);
+    throw new Error("Slack API (form) failed: " + msg);
+  }
+  return obj;
+}
+
 /** Slack message が bot かどうか判定 (R306 と同じ仕様) */
 function _meeting_slack_isBotMessage_(msg) {
   if (!msg) return true;
@@ -77,7 +113,7 @@ function _meeting_loadSlackThreadsForMonth_(channelId, startDate, endDate, opts)
     const params = { channel: channelId, oldest: oldest, latest: latest, limit: 100 };
     if (cursor) params.cursor = cursor;
     let resp = null;
-    try { resp = slack_callApi("conversations.history", params); }
+    try { resp = _meeting_slack_callForm_("conversations.history", params); }
     catch (e) { apiErr = "history_throw: " + String(e).slice(0, 200); break; }
     if (!resp || !resp.ok) {
       apiErr = "history_err: " + (resp && resp.error ? String(resp.error) : "no_response");
@@ -118,7 +154,7 @@ function _meeting_loadSlackThreadReplies_(channelId, threadTs) {
   if (!threadTs) return { ok: true, replies: [] };
   let resp = null;
   try {
-    resp = slack_callApi("conversations.replies", { channel: channelId, ts: threadTs, limit: 100 });
+    resp = _meeting_slack_callForm_("conversations.replies", { channel: channelId, ts: threadTs, limit: 100 });
   } catch (e) {
     return { ok: false, replies: [], error: "replies_throw: " + String(e).slice(0, 200) };
   }
