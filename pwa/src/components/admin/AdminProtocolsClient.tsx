@@ -14,6 +14,9 @@ interface Protocol {
   title: string;
   project_id?: string;
   project_name?: string;
+  /** Phase 4 (gas/155 nav_protocol_extractOneForYm_) で抽出された 4 要素 markdown 本文 */
+  content?: string;
+  /** Phase 3 以前の手動入力用 column (現役は content だが互換) */
   branch_point?: string;
   criteria?: string;
   action_taken?: string;
@@ -36,6 +39,7 @@ const STATUS_BADGE: Record<string, string> = {
   candidate: "bg-blue-50 text-blue-700 border-blue-200",
   confirmed: "bg-emerald-50 text-emerald-700 border-emerald-200",
   archived: "bg-zinc-50 text-zinc-500 border-zinc-200",
+  rejected: "bg-red-50 text-red-700 border-red-200",
 };
 
 const IMPORTANCE_LABEL: Record<string, string> = {
@@ -94,6 +98,29 @@ export function AdminProtocolsClient({ protocols: initial, projects }: Props) {
     if (!error) {
       setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, status: newStatus } : x));
       setHint(`${r.title} → ${newStatus}`);
+    } else {
+      setHint(`更新エラー: ${error.message}`);
+    }
+  };
+
+  // つくよみに「このプロトコルを直して」を依頼する。chat drawer を開いて
+  // 該当 protocol の context を pending-prefill としてセット。
+  const requestRevision = (r: Protocol) => {
+    const msg = `次のプロトコル候補を修正して。
+
+タイトル: ${r.title}
+PJ: ${r.project_name ?? r.project_id ?? "—"}
+本文:
+${r.content || r.criteria || "(本文なし)"}
+
+修正点 (まさの意図を入れて再生成して):
+- ここに修正したい部分を書いて`;
+    try {
+      window.localStorage.setItem("tsukuyomi:pending-prefill", msg);
+      window.dispatchEvent(new CustomEvent("tsukuyomi:open"));
+      setHint(`${r.title} の修正依頼をつくよみに送りました`);
+    } catch (e) {
+      setHint(`修正依頼エラー: ${String(e)}`);
     }
   };
 
@@ -261,40 +288,67 @@ export function AdminProtocolsClient({ protocols: initial, projects }: Props) {
                         <span key={t} className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{t}</span>
                       ))}
                     </div>
-                    {!isExpanded && r.criteria && (
-                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">{r.criteria}</p>
+                    {/* 折りたたみ時の preview: Phase 4 は content (4 要素 markdown)、旧手動は criteria */}
+                    {!isExpanded && (r.content || r.criteria) && (
+                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">
+                        {(r.content || r.criteria || "").replace(/\*\*/g, "").slice(0, 200)}
+                      </p>
                     )}
                   </div>
-                  <div className="flex gap-1 shrink-0">
-                    {r.status === "candidate" && (
+                  <div className="flex gap-1 shrink-0 flex-wrap">
+                    {r.status !== "confirmed" && (
                       <button onClick={() => updateStatus(r, "confirmed")}
-                        className="text-[11px] bg-emerald-600 text-white px-2 py-0.5 rounded">
-                        確定
+                        className="text-[11px] bg-emerald-600 text-white px-2 py-0.5 rounded"
+                        title="まさが確認 → 正式プロトコルとして昇格">
+                        ✅ 確定
+                      </button>
+                    )}
+                    {r.status === "candidate" && (
+                      <button onClick={() => requestRevision(r)}
+                        className="text-[11px] bg-amber-500 text-white px-2 py-0.5 rounded"
+                        title="つくよみに修正を依頼する (= chat 起動)">
+                        🔄 修正依頼
+                      </button>
+                    )}
+                    {r.status === "candidate" && (
+                      <button onClick={() => updateStatus(r, "rejected")}
+                        className="text-[11px] bg-red-600 text-white px-2 py-0.5 rounded"
+                        title="プロトコルとして不適格 → 却下 (再抽出はしない)">
+                        ❌ 却下
                       </button>
                     )}
                     {r.status !== "archived" && (
                       <button onClick={() => updateStatus(r, "archived")}
-                        className="text-[11px] text-muted-foreground border border-border px-2 py-0.5 rounded">
-                        archive
+                        className="text-[11px] text-muted-foreground border border-border px-2 py-0.5 rounded"
+                        title="古くなった / 重要度低 → アーカイブ">
+                        📥 archive
                       </button>
                     )}
                   </div>
                 </div>
                 {isExpanded && (
                   <div className="px-10 pb-4 pt-1 border-t border-border/50 space-y-2">
-                    {r.branch_point && (
+                    {/* Phase 4 (現役): content に 4 要素 markdown */}
+                    {r.content && (
+                      <div className="rounded-md bg-muted/30 p-3">
+                        <span className="text-[11px] font-medium text-muted-foreground">プロトコル本文 (4 要素)</span>
+                        <p className="text-[12px] mt-1 whitespace-pre-wrap leading-relaxed">{r.content}</p>
+                      </div>
+                    )}
+                    {/* 旧手動 (互換) */}
+                    {!r.content && r.branch_point && (
                       <div>
                         <span className="text-[11px] font-medium text-muted-foreground">分岐点</span>
                         <p className="text-[12px] mt-0.5 whitespace-pre-wrap">{r.branch_point}</p>
                       </div>
                     )}
-                    {r.criteria && (
+                    {!r.content && r.criteria && (
                       <div>
                         <span className="text-[11px] font-medium text-muted-foreground">判断基準</span>
                         <p className="text-[12px] mt-0.5 whitespace-pre-wrap">{r.criteria}</p>
                       </div>
                     )}
-                    {r.action_taken && (
+                    {!r.content && r.action_taken && (
                       <div>
                         <span className="text-[11px] font-medium text-muted-foreground">対応内容</span>
                         <p className="text-[12px] mt-0.5 whitespace-pre-wrap">{r.action_taken}</p>

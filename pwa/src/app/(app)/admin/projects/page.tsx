@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "Admin PJ" };
+
 import { createClient } from "@/lib/supabase/server";
 import { AdminProjectsTable, type ProjectRow } from "@/components/admin/AdminProjectsTable";
 import type { LaneWeight } from "@/lib/aspi-lanes";

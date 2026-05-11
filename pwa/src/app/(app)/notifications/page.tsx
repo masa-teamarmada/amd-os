@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "通知" };
+
 import { createClient } from "@/lib/supabase/server";
 import { NotificationsClient } from "@/components/notifications/NotificationsClient";
 import { AppNotificationsSection } from "@/components/notifications/AppNotificationsSection";
