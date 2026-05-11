@@ -1501,7 +1501,11 @@ export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
     projectId: r.project_id,
     projectName: r.project_name,
     clientName: r.client_name || "",
-    status: r.status || "active",
+    // 2026-05-11 まさ指摘 8 番: 旧コードは r.status || "active" だったため、
+    // status='frozen' でも空文字 fallback ロジックの記憶混乱で dashboard で active 表示される
+    // 事故あり (まさ「停止中にしても dashboard で active のまま」)。空文字 fallback に変更
+    // して、unknown は dashboard 側で「その他」セクションに振り分ける。
+    status: r.status || "",
     startYm: r.start_ym || "",
     endYm: r.end_ym || "",
   }));

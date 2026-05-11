@@ -31,7 +31,7 @@ import { CockpitVentureStatusEditModal } from "./CockpitVentureStatusEditModal";
 import { CockpitVentureMetaEditModal } from "./CockpitVentureMetaEditModal";
 import { CockpitNarrativeModal } from "./CockpitNarrativeModal";
 import { CockpitMembersModal } from "./CockpitMembersModal";
-import { CockpitFoundingMembersModal } from "./CockpitFoundingMembersModal";
+// 2026-05-11 まさ指摘 1 番: 旧 CockpitFoundingMembersModal を CockpitMembersModal に統合済、import 削除
 import { CockpitPartnersModal } from "./CockpitPartnersModal";
 import { CockpitPlMonthlyModal } from "./CockpitPlMonthlyModal";
 import { CockpitDescriptionDetailModal } from "./CockpitDescriptionDetailModal";
@@ -137,7 +137,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const [metaEditing, setMetaEditing] = useState<MetaFocus | null>(null);
   const [narrativeOpen, setNarrativeOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
-  const [foundingMembersOpen, setFoundingMembersOpen] = useState(false);
+  // 2026-05-11 まさ指摘 1 番: foundingMembersOpen state を削除 (= CockpitMembersModal に統合)
   const [partnersOpen, setPartnersOpen] = useState(false);
   const [plOpen, setPlOpen] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
@@ -381,13 +381,8 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         >
           👥 メンバー
         </button>
-        <button
-          onClick={() => setFoundingMembersOpen(true)}
-          className="text-[11px] px-2 py-0.5 rounded-full border border-[#e5e5e7] hover:bg-[#fafafa]"
-          title="創業メンバー全員 (AMD 内外含む、LLM 抽出、HRL 推定の主要根拠)"
-        >
-          🧑‍🤝‍🧑 創業
-        </button>
+        {/* 2026-05-11 まさ指摘 1 番: 「🧑‍🤝‍🧑 創業」ボタン削除。
+            LLM 抽出された創業メンバーは「👥 メンバー」モーダル内に統合表示 */}
         <button
           onClick={() => setPartnersOpen(true)}
           className="text-[11px] px-2 py-0.5 rounded-full border border-[#e5e5e7] hover:bg-[#fafafa]"
@@ -402,15 +397,9 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         >
           📊 試算表
         </button>
-        {latestScore != null && (
-          <button
-            onClick={() => setScoreBreakdownOpen(true)}
-            className="text-[11px] font-mono px-2 py-0.5 rounded-full border border-slate-300 text-slate-700 hover:bg-[#fafafa]"
-            title="クリックで内訳"
-          >
-            AMD: {latestScore < 1 ? latestScore.toFixed(2) : Math.round(latestScore).toLocaleString()} ▾
-          </button>
-        )}
+        {/* 2026-05-11 まさ指摘 3 番: 試算表の後に小さく書いてた「AMD: xxx ▾」タブを削除。
+            代わりに「Chart 1: AMD スコア」グラフ内の現在地点プロットの上に大きいフォントで表示する。
+            グラフ未評価の PJ には未評価リンクをそのままここに残す。 */}
         {latestScore == null && (
           <Link
             href={`/venture-map/amd-score/${projectId}`}
@@ -661,6 +650,57 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           {XRL_AXES.map((k) => (
             xrlPaths[k] && <path key={`p-${k}`} d={xrlPaths[k]} fill="none" stroke={XRL_COLORS[k]} strokeWidth={2} />
           ))}
+          {/* 2026-05-11 まさ指摘 3 番: 最新 AMD スコアをグラフ内の最新プロット上に大きく描画 + クリックでモーダル。
+              ボタンが小さくて見えづらかった (= 「試算表」の後に小さく書かれてる) のを解消。 */}
+          {(() => {
+            const last = scoreSeries[scoreSeries.length - 1];
+            if (!last) return null;
+            const lx = xOfDate(last.date);
+            const ly = yOfScore(last.score);
+            const label = last.score < 1 ? last.score.toFixed(2) : Math.round(last.score).toLocaleString();
+            const textX = Math.min(SVG_W - 80, lx + 14);
+            const textY = Math.max(MT + 22, ly - 18);
+            return (
+              <g
+                style={{ cursor: "pointer" }}
+                onClick={(e) => { e.stopPropagation(); setScoreBreakdownOpen(true); }}
+              >
+                <title>クリックで AMD スコアの内訳モーダルを開く</title>
+                {/* 引き出し線 (= プロット → ラベル) */}
+                <line x1={lx} y1={ly} x2={textX - 4} y2={textY + 4} stroke="#dc2626" strokeWidth={1} strokeDasharray="2 2" opacity={0.6} />
+                {/* 背景 pill */}
+                <rect
+                  x={textX - 8}
+                  y={textY - 18}
+                  rx={9}
+                  ry={9}
+                  width={Math.max(86, label.length * 14 + 38)}
+                  height={26}
+                  fill="rgba(254,242,242,0.92)"
+                  stroke="#dc2626"
+                  strokeWidth={1.2}
+                />
+                <text
+                  x={textX}
+                  y={textY}
+                  fontSize={18}
+                  fontWeight={700}
+                  fontFamily="ui-monospace,SFMono-Regular,monospace"
+                  fill="#dc2626"
+                >
+                  AMD {label}
+                </text>
+                <text
+                  x={textX + 6 + Math.max(58, label.length * 14)}
+                  y={textY}
+                  fontSize={11}
+                  fill="#dc2626"
+                >
+                  ▾
+                </text>
+              </g>
+            );
+          })()}
           {(bundle?.xrlLog ?? []).map((r) => {
             const isProposal = r.source === "llm_proposal";
             const opacity = isProposal ? 0.55 : 1;
@@ -740,13 +780,6 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         />
       )}
 
-      {foundingMembersOpen && (
-        <CockpitFoundingMembersModal
-          projectId={projectId}
-          ventureName={venture.display_name}
-          onClose={() => setFoundingMembersOpen(false)}
-        />
-      )}
       {membersOpen && (
         <CockpitMembersModal projectId={projectId} onClose={() => setMembersOpen(false)} />
       )}

@@ -1260,10 +1260,21 @@ function FrlAlqPanel({
   const N = FRL_RADAR_AXES.length;
   const angle = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / N;
 
+  // 2026-05-11 まさ指摘 4 番: 旧コードは null → 0 fallback で radar に「0.0」プロットしていた。
+  // 結果として grit / resilience 未入力で「0 のように見える」誤認 (まさ「他4つは値あるのにこの2つだけ0」)。
+  // null の場合はその軸の点を中心 (= 「未入力」) ではなく、value=null を残してプロットから除外する。
   const points = FRL_RADAR_AXES.map((a, i) => {
-    const v = (editable[a.key] as number | null) ?? 0;
+    const raw = editable[a.key] as number | null;
+    const hasValue = typeof raw === "number" && !Number.isNaN(raw);
+    const v = hasValue ? (raw as number) : 0;
     const r = (Math.max(0, Math.min(9, v)) / 9) * R;
-    return { ...a, value: v, x: cx + r * Math.cos(angle(i)), y: cy + r * Math.sin(angle(i)) };
+    return {
+      ...a,
+      value: hasValue ? (raw as number) : null,
+      hasValue,
+      x: cx + r * Math.cos(angle(i)),
+      y: cy + r * Math.sin(angle(i)),
+    };
   });
   const grid = [0.25, 0.5, 0.75, 1.0];
   const derived = deriveFrl(editable);
@@ -1366,16 +1377,8 @@ function FrlAlqPanel({
             value={editable.frl_resilience}
             desc="Markman et al. (2005) — VC 拒絶等の失敗からの回復力"
           />
-          <div className="border-t border-slate-200 pt-2 mt-2">
-            <FrlAxisRow
-              ventureName={ventureName}
-              label="FRL (合計)"
-              fieldName="FRL"
-              value={editable.frl}
-              desc={editable.alq_auto_derive_frl ? "6 因子の重み付き平均で自動算出 (0.6·ALQ + 0.2·Grit + 0.2·Resilience)" : "手動値"}
-              highlight
-            />
-          </div>
+          {/* 2026-05-11 まさ指摘 5 番: 「FRL (合計)」表示を削除。
+              現在の FRL は右上に大きく表示してるので冗長 + 「合計」というラベルが計算式と矛盾していた。 */}
           <FactorClickable
             label="FRL 自由備考"
             ventureName={ventureName}
@@ -1433,11 +1436,15 @@ function FrlAxisRow({
   desc: string;
   highlight?: boolean;
 }) {
-  const v = value ?? 0;
+  // 2026-05-11 まさ指摘 4 番: 旧コードは value=null を 0 に fallback して「0.0」と表示し、
+  // バー幅も 0 で「他 4 つは値あるのに 2 つだけ 0」と誤認させる事故 (grit / resilience は
+  // LLM 抽出 cron がまだ無く、手動入力前なら null が正しい状態)。null は「—」表示 + バー無し。
+  const hasValue = typeof value === "number" && !Number.isNaN(value);
+  const v = hasValue ? (value as number) : 0;
   return (
     <button
       type="button"
-      onClick={() => openTsukuyomiPrefill(ventureName, fieldName, v.toFixed(1), null)}
+      onClick={() => openTsukuyomiPrefill(ventureName, fieldName, hasValue ? v.toFixed(1) : "未入力", null)}
       className="text-left grid grid-cols-[110px_1fr_44px] gap-x-2 items-center hover:bg-slate-50 rounded px-1 py-0.5"
       title={`クリックでつくよみに「${fieldName} を見直したい」と話す`}
     >
@@ -1448,15 +1455,19 @@ function FrlAxisRow({
         {label}
       </label>
       <div className="h-1.5 bg-slate-100 rounded relative overflow-hidden">
-        <div
-          className="h-full rounded"
-          style={{
-            width: `${(v / 9) * 100}%`,
-            backgroundColor: highlight ? "#dc2626" : "#94a3b8",
-          }}
-        />
+        {hasValue && (
+          <div
+            className="h-full rounded"
+            style={{
+              width: `${(v / 9) * 100}%`,
+              backgroundColor: highlight ? "#dc2626" : "#94a3b8",
+            }}
+          />
+        )}
       </div>
-      <span className="font-mono text-[11px] text-right">{v.toFixed(1)}</span>
+      <span className="font-mono text-[11px] text-right" style={!hasValue ? { color: "#94a3b8" } : undefined}>
+        {hasValue ? v.toFixed(1) : "—"}
+      </span>
       <div className="col-span-3 text-[9px] text-muted-foreground ml-[114px] -mt-0.5">{desc}</div>
     </button>
   );
