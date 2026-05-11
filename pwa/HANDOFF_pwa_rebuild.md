@@ -70,6 +70,27 @@
 
 ## 🚨 次セッション最優先 (= 残タスク)
 
+### Z. ファビコン未反映 (= まさ要請で「一旦諦め」TODO 化、後日チャレンジ)
+
+**経緯 (= 同じ事故 3 回 + シークレット 7 回確認で未解消)**:
+- 第 1 ラウンド (前々セッション): app/icon.png + app/apple-icon.png 配置 → 未反映
+- 第 2 ラウンド (本セッション前半): public/icons/ 192/512 maskable 追加 + app/icon.png 512x512 リサイズ + manifest middleware bypass → 未反映
+- 第 3 ラウンド (本セッション後半): app/ → public/ に手動移動 + layout.tsx metadata.icons でシンプル URL 明示 → **URL は `/favicon.ico` 直になり curl では完全配信 OK、それでもブラウザ反映せず**
+- 後日再開時の試行候補:
+  1. `chrome://favicon/` キャッシュデータベース直接削除 (Chrome 全プロセス完全終了後、ユーザープロファイルフォルダの `Favicons` SQLite 削除)
+  2. **本番 deploy の直前に `.vercel/output/static` クリア** (= Vercel CDN edge cache の長寿命キャッシュ疑い)
+  3. `vercel.json` に明示的な `headers` で `/favicon.ico` の `cache-control: no-store` を強制
+  4. ブラウザのファビコン UI を本当に書き換えるには「PWA installable として一度インストール」してアンインストールするとリセットされる
+  5. 最終手段: ファビコン URL を `/favicon.ico` → `/favicon-v2.ico` のように **別パスに変更** + layout.tsx で href も変更 (= 既存キャッシュキーと完全に切り離す)
+- 現在の本番状態 (= curl で確認済):
+  - `<link rel="icon" href="/favicon.ico" sizes="any" type="image/x-icon">` シンプル URL
+  - `/favicon.ico` 200 OK (= 25931 bytes, 16/32/48/256 含む valid ICO、AMD ロゴ青いハチの巣 3 つ)
+  - `/icon.png` 200 OK (= 512x512 PNG)
+  - `/apple-icon.png` 200 OK (= 180x180 PNG)
+  - `/icons/icon-192.png` `/icons/icon-512.png` 200 OK
+  - `/manifest.json` 200 OK
+- まさが「TODO で残す」と判断、本セッションでは深追い停止
+
 ### A. まさ指摘 2: 試算表 Drive Excel 取り込み cron 新規実装
 
 **現状**: コックピットの「📊 試算表」モーダルが全 PJ 全部「ー」表示。
