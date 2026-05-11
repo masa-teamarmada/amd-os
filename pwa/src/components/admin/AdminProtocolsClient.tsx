@@ -117,6 +117,9 @@ export function AdminProtocolsClient({ protocols: initial, projects }: Props) {
   const [newVals, setNewVals] = useState({ ...BLANK });
   const [saving, setSaving] = useState(false);
   const [hint, setHint] = useState("");
+  // 旧形式 (kind='legacy_specific') は初期 collapsed。新形式 (pattern + null) が候補欄に立つ。
+  const [legacyOpen, setLegacyOpen] = useState(false);
+  const [legacyBusy, setLegacyBusy] = useState(false);
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
@@ -134,6 +137,34 @@ export function AdminProtocolsClient({ protocols: initial, projects }: Props) {
       return true;
     });
   }, [rows, filterStatus, filterProject, filterQ]);
+
+  // kind='legacy_specific' は旧手動入力。新しい Phase 4 抽出は kind='pattern' (普遍プロトコル)。
+  const legacyRows = useMemo(
+    () => filtered.filter((r) => r.kind === "legacy_specific" && r.status !== "archived"),
+    [filtered]
+  );
+  const mainRows = useMemo(
+    () => filtered.filter((r) => r.kind !== "legacy_specific" || r.status === "archived"),
+    [filtered]
+  );
+
+  const archiveAllLegacy = async () => {
+    if (legacyRows.length === 0) return;
+    if (!window.confirm(`旧形式 ${legacyRows.length} 件を一括で status='archived' にします。よろしいですか?`)) return;
+    setLegacyBusy(true);
+    const ids = legacyRows.map((r) => r.id);
+    const { error } = await supabase
+      .from("protocols")
+      .update({ status: "archived", updated_at: new Date().toISOString() })
+      .in("id", ids);
+    if (error) {
+      setHint(`一括 archive エラー: ${error.message}`);
+    } else {
+      setRows((prev) => prev.map((x) => ids.includes(x.id) ? { ...x, status: "archived" } : x));
+      setHint(`旧形式 ${ids.length} 件を archive しました`);
+    }
+    setLegacyBusy(false);
+  };
 
   const updateStatus = async (r: Protocol, newStatus: string) => {
     const { error } = await supabase
@@ -296,15 +327,24 @@ ${r.content || r.criteria || "(本文なし)"}
         </div>
       )}
 
-      <div className="text-[12px] text-muted-foreground mb-1">{filtered.length} 件</div>
+      <div className="text-[12px] text-muted-foreground mb-1">
+        新形式 (pattern) {mainRows.length} 件
+        {legacyRows.length > 0 && (
+          <span className="ml-3 text-amber-700">／ 旧形式 (legacy_specific, 要 archive) {legacyRows.length} 件</span>
+        )}
+      </div>
 
-      {filtered.length === 0 ? (
+      {mainRows.length === 0 && legacyRows.length === 0 ? (
         <div className="border border-border rounded-lg px-4 py-6 text-center text-muted-foreground text-[13px]">
           {rows.length === 0 ? "まだProtocolがありません。「＋ 追加」から登録してください。" : "該当なし"}
         </div>
+      ) : mainRows.length === 0 ? (
+        <div className="border border-border rounded-lg px-4 py-6 text-center text-muted-foreground text-[13px]">
+          新形式 (pattern) の候補なし。下の「旧形式」を再抽出する or 新規スレッド議事録を蓄えてください。
+        </div>
       ) : (
         <div className="border border-border rounded-lg divide-y divide-border">
-          {filtered.map((r) => {
+          {mainRows.map((r) => {
             const isExpanded = expandedId === r.id;
             const tags = (r.tags || "").split(",").map((t) => t.trim()).filter(Boolean);
             return (
@@ -474,6 +514,77 @@ ${r.content || r.criteria || "(本文なし)"}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* 旧形式セクション (= kind='legacy_specific' でまだ archived 化されてないもの)。
+          まさルール: legacy_specific は再抽出 or アーカイブ対象。新形式の候補欄に混ぜない */}
+      {legacyRows.length > 0 && (
+        <div className="mt-6 border border-amber-300 rounded-lg bg-amber-50/40">
+          <button
+            type="button"
+            onClick={() => setLegacyOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-2.5 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-amber-700 font-semibold">
+                ⚠️ 旧形式 ({legacyRows.length} 件、要 再抽出 or archive)
+              </span>
+              <span className="text-[10px] text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">
+                kind=legacy_specific
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                onClick={(e) => { e.stopPropagation(); if (!legacyBusy) archiveAllLegacy(); }}
+                className={`text-[11px] px-2 py-0.5 rounded border ${
+                  legacyBusy
+                    ? "text-muted-foreground border-border bg-muted/40 cursor-not-allowed"
+                    : "text-amber-800 border-amber-400 bg-amber-100 hover:bg-amber-200 cursor-pointer"
+                }`}
+                role="button"
+              >
+                {legacyBusy ? "実行中…" : "📥 全部 archive"}
+              </span>
+              <span className="text-[11px] text-amber-700">{legacyOpen ? "▼" : "▶"}</span>
+            </div>
+          </button>
+
+          {legacyOpen && (
+            <div className="border-t border-amber-200 divide-y divide-amber-200">
+              {legacyRows.map((r) => (
+                <div key={r.id} className="px-4 py-2.5 flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-[12.5px]">{r.title}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${STATUS_BADGE[r.status] ?? ""}`}>
+                        {r.status}
+                      </span>
+                      {r.project_name && (
+                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                          {r.project_name}
+                        </span>
+                      )}
+                    </div>
+                    {(r.criteria || r.branch_point) && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2 whitespace-pre-wrap">
+                        {(r.criteria || r.branch_point || "").slice(0, 200)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button
+                      onClick={() => updateStatus(r, "archived")}
+                      className="text-[11px] text-muted-foreground border border-border px-2 py-0.5 rounded"
+                      title="この 1 件だけ archive"
+                    >
+                      📥 archive
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
