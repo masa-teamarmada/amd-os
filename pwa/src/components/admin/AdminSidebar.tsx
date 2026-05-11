@@ -10,6 +10,7 @@ const ADMIN_TABS = [
   { label: "Protocols", href: "/admin/protocols" },
   { label: "LLM Context", href: "/admin/contexts" },
   { label: "つくよみ", href: "/admin/tsukuyomi" },
+  { label: "📝 LLM プロンプト", href: "/admin/prompts" },
   { label: "Billing", href: "/admin/billing" },
   { label: "Payouts", href: "/admin/payouts" },
   { label: "Settings", href: "/admin/settings" },
