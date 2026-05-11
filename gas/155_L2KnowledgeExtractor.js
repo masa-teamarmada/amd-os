@@ -684,18 +684,29 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
            (na ? "\n  next_actions: " + na : "");
   }).join("\n\n").slice(0, 16000);
 
-  const systemPrompt = [
-    "あなたは経営判断ログ (AMDプロトコル) を構造化抽出するアシスタントです。",
-    "AMDプロトコルの 4 要素: ① 分岐点 (どんな選択肢があったか) ② 判断材料 (どんな情報で判断したか) ③ アクション (何をやることに決めたか) ④ 結果・学習 (やってみてどうだったか)",
-    "出力は JSON のみ:",
-    '{ "protocols": [ { "title": "20-40字の見出し", "content": "上記 4 要素を含む 200-400字の本文 (markdown 可)", "importance": 1|2|3, "tags": ["tag1","tag2"] } ] }',
-    "ルール:",
-    "- 月次の最重要 1-3 件だけ抽出。瑣末な決定は含めない",
-    "- importance: 1=軽微, 2=中, 3=重大 (経営方針・契約・採用 等)",
-    "- tags は 2-5 個 (例: 'pricing', 'partnership', 'scope_change', 'risk')",
-    "- 入力に書かれてない推測は禁止",
-    "- 4 要素全て埋まらない場合は確証ある要素だけ書く"
-  ].join("\n");
+  // ★ AGENTS.common.md ルール: プロンプトはコードに書かない、DB (llm_prompts) で管理。
+  //   ハードコード fallback は廃止 (2026-05-11)。DB に body 無し or is_active=false なら
+  //   抽出を skip して原因を log + state に残す。
+  let systemPrompt = "";
+  try {
+    const pRes = supa_select("llm_prompts", {
+      select: "body,is_active",
+      filter: "prompt_key=eq.protocol.extract&is_active=eq.true",
+      limit: 1
+    });
+    if (pRes.ok && pRes.rows && pRes.rows.length > 0 && pRes.rows[0].body) {
+      systemPrompt = String(pRes.rows[0].body || "");
+    }
+  } catch (e) { /* fall through */ }
+  if (!systemPrompt) {
+    Logger.log("[nav_protocol_extractOneForYm_] llm_prompts.protocol.extract (is_active=TRUE) が空 → skip");
+    _l2_upsertState_({
+      l2_kind: "protocols", target_id: projectId, scope_key: ym,
+      source_hash: newHash, saved_count: 0, total_count: 0,
+      llm_model: null, message: "missing llm_prompts.protocol.extract (DB に prompt が無い)"
+    });
+    return { ok: false, action: "missing_prompt", projectId: projectId, ym: ym };
+  }
 
   const fb = _l2_loadFeedbackBlock_("protocols", projectId, ym);
   const aliasBlock = (typeof nameAlias_buildBlock === "function") ? nameAlias_buildBlock() : "";
@@ -703,10 +714,14 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
     (aliasBlock ? aliasBlock + "\n\n" : "") +
     inputText +
     (fb.block ? "\n\n" + fb.block : "");
+  // protocol 抽出は 4 要素 markdown + examples 配列まで出力するので token 枠が必要。
+  // 2048 だと "LLM parse failed" (= 出力途中で truncate された不完全 JSON) が頻発するので 4096 に拡張。
   let parsed = null;
-  try { parsed = llm_callJson("default", systemPrompt, userPrompt, { maxTokens: 2048, temperature: 0.3 }); } catch (e) { parsed = null; }
+  let llmRawErr = "";
+  try { parsed = llm_callJson("default", systemPrompt, userPrompt, { maxTokens: 4096, temperature: 0.3 }); }
+  catch (e) { llmRawErr = String(e).slice(0, 200); parsed = null; }
   if (!parsed || !Array.isArray(parsed.protocols)) {
-    return { ok: false, action: "error_llm", projectId: projectId, ym: ym, message: "LLM parse failed" };
+    return { ok: false, action: "error_llm", projectId: projectId, ym: ym, message: llmRawErr || "LLM parse failed" };
   }
 
   let saved = 0;
@@ -717,20 +732,47 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
     const imp = Math.max(1, Math.min(3, Math.round(Number(p.importance || 1))));
     const tags = Array.isArray(p.tags) ? p.tags.map(function (s) { return String(s || "").trim(); }).filter(Boolean) : [];
     if (!title || !content) continue;
-    // protocol_id は (project_id + ym + sha8(title)) で作って同タイトル再抽出時の重複を抑止
-    const protocolId = "p4-" + projectId + "-" + ym + "-" + _l2_sha256_(title).slice(0, 8);
+    // ★ 2026-05-11 まさルール: 普遍プロトコルは project_id を持たない (title だけで一意化、複数事例を抱える)
+    //    protocol_id は sha12(title) で「同タイトル = 同プロトコル」、PJ 別 examples で蓄積。
+    const protocolId = "p4u-" + _l2_sha256_(title).slice(0, 12);
     const up = supa_upsert("protocols", {
       protocol_id: protocolId,
-      project_id: projectId,
+      project_id: null,                           // ★ 普遍プロトコルは PJ 紐付け null (examples で紐付ける)
       title: title,
       content: content.slice(0, 4000),
       status: "candidate",
       importance: imp,
       source: "l2_hourly_extract",
       tags: tags.slice(0, 8).join(","),
+      kind: "pattern",
+      is_universal: true,
       updated_at: new Date().toISOString()
     }, "protocol_id");
     if (up.ok) saved++;
+
+    // ★ examples を protocol_examples に保存 (1 プロトコル : N 事例)
+    const examples = Array.isArray(p.examples) ? p.examples : [];
+    for (let ei = 0; ei < examples.length; ei++) {
+      const ex = examples[ei] || {};
+      const exPj = String(ex.project_id || projectId || "").trim();
+      const exSum = String(ex.summary || "").trim();
+      if (!exPj || !exSum) continue;
+      try {
+        supa_upsert("protocol_examples", {
+          protocol_id: protocolId,
+          project_id: exPj,
+          occurred_on: ex.occurred_on || null,
+          summary: exSum.slice(0, 1000),
+          branch_point: String(ex.branch_point || "").slice(0, 2000) || null,
+          criteria: String(ex.criteria || "").slice(0, 2000) || null,
+          action_taken: String(ex.action_taken || "").slice(0, 2000) || null,
+          result: String(ex.result || "").slice(0, 2000) || null,
+          source_meeting_id: ex.source_meeting_id || null,
+          llm_model: "gemini-2.5-flash",
+          updated_at: new Date().toISOString()
+        }, "protocol_id,project_id,occurred_on");
+      } catch (eEx) { /* skip */ }
+    }
   }
 
   _l2_upsertState_({
