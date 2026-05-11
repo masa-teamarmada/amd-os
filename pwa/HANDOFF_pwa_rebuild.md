@@ -1,18 +1,34 @@
 # HANDOFF — AMD OS PWA / GAS
 
-最終更新: 2026-05-11 (cranky-rhodes-ff4609 セッション、main にマージ済)
+最終更新: 2026-05-11 (cranky-rhodes-ff4609 セッション #2、まさ 9 指摘の 7 件即対応)
 詳細セッションログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾参照
 
 ---
 
 ## 状態
 
-- main HEAD: `60ac3a4` (= cranky-rhodes-ff4609 マージ後)
-- Vercel: `amd-os-gsbv147dp-armada0130` (= 2d712ff 反映、その後の GAS 変更 + migration は PWA 再 deploy 不要)
+- main HEAD: `4f5614e` (= cranky-rhodes-ff4609 #5 マージ後)
+- Vercel: `amd-os-ga77qm32o-armada0130` (= 850e87a 反映)
 - 本体 GAS deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` @1461 (= protocol 復旧 + 074b form-encoded + maxTokens 4096)
 - AMD-Report GAS: scriptId `1r3Ak-tYASXY...` @1455 (= 前セッションの bot 除外 + 人物誤認防止)、**R303 hardcoded fallback は未対応 (次セッション)**
 - 未 push commit: なし
-- 本セッション worktree: `claude/cranky-rhodes-ff4609` (= 5 commit、main にマージ済)
+- 本セッション worktree: `claude/cranky-rhodes-ff4609` (= 6 commit、main にマージ済)
+
+---
+
+## まさ 9 指摘への対応状況 (2026-05-11 後半)
+
+| # | 指摘 | 状態 | 対応 |
+|---|---|---|---|
+| 1 | 「創業」セクション削除 + 「メンバー」に統合 | ✅ | CockpitMembersModal に LLM 抽出創業メンバー統合、🧑‍🤝‍🧑 創業 タブ削除 |
+| 2 | 試算表が全部「ー」 | ⏳ 次セッション | Drive Excel 取り込み cron が未実装。下記「次セッション最優先」参照 |
+| 3 | AMD スコア表示位置をグラフ現在点上に大きく | ✅ | SVG 内に pill + 引き出し線 + 18px bold red、クリックでモーダル |
+| 4 | FRL grit / resilience が 0 | ✅ (= UI 誤認解消) | null → 「—」表示 + バー無し。LLM 抽出 cron は未実装 (= 下記参照) |
+| 5 | FRL「合計」削除 | ✅ | 右上「現在の FRL」が大きく表示済で冗長 + ラベル矛盾 |
+| 6 | Slack に限定した理由 / Drive/Calendar も backfill | ⏳ 次セッション | Slack 集中の理由は前 HANDOFF 最優先 1 で書いてたから。074c/074d skeleton 必要 |
+| 7 | プロトコル定義改善 (= 業務オペ除外) | ✅ + 残課題 | llm_prompts.protocol.extract body 厳格化 (migration 053) + 再抽出。ただし既存「契約書フォーマット」プロトコルは消えてないので UI archive 必要 |
+| 8 | PJ 停止中にしても dashboard で active | ✅ | fetchProjectsFromSupabase の `r.status \|\| "active"` フォールバック撤去 |
+| 9 | PJ status 保存が動かない | ✅ | AdminProjectsTable.STATUS_OPTIONS に `draft` 追加 (DB の p24 CLG 対応) |
 
 ---
 
@@ -54,7 +70,58 @@
 
 ## 🚨 次セッション最優先 (= 残タスク)
 
-### 1. R303 hardcoded fallback 削除 (= AGENTS 完遵、前ハンドオフ最優先 5)
+### A. まさ指摘 2: 試算表 Drive Excel 取り込み cron 新規実装
+
+**現状**: コックピットの「📊 試算表」モーダルが全 PJ 全部「ー」表示。
+**原因**: `project_pl_monthly` テーブルは存在するが、行が空。Drive Excel から自動取り込む cron が **未実装**。設計上は手動入力前提だが、まさは「Drive に Excel あるんだから読んでよ」と要求。
+
+**実装案** (= 次セッション):
+1. `gas/074d_PlMonthlyFromDrive.js` 新規:
+   - PJ Drive folder (= projects.drive_folder_id) 配下の `.xlsx` / `.xls` ファイルを `Drive.Files.list` で query
+   - ファイル名 / mimeType / 更新日でフィルタ (= 「試算表」「PL」「BS」「月次決算」「収支」を含む xlsx)
+   - 各 xlsx を Drive API で fetch → Apps Script `Utilities.unzip` で sheets parse (or `Drive.Files.export` で CSV 化)
+   - LLM (Sonnet) で「月次 PL 行 (ym + 売上 + 原価 + 人件費 + R&D + マーケ + その他)」を構造化抽出
+   - `project_pl_monthly` に upsert (UNIQUE: project_id+ym)
+2. `pwa/scripts/migrations/054_pl_monthly_extract_prompt.sql` で system prompt seed
+3. cron は GAS time-based trigger 月曜 03:00 JST、もしくは PWA `/api/cron/pl-extract` で `Drive API + xlsx parser (= `xlsx` npm package)`。
+4. 手動キック curl 用の `nav_pl_extractFromDriveAllActive_(opts)` ラッパーも追加
+
+**まさへの伝達**: 「Drive Excel から拾う仕組みは今まで未実装、コードが旧設計 (手動入力) のままだった。次セッションで cron を新規実装する」
+
+### B. まさ指摘 6: Drive / Calendar backfill (074c / 074d) 新規
+
+`gas/074b_MeetingSummarySlack.js` と同じパターンで:
+- `gas/074c_MeetingSummaryDrive.js`: PJ Drive folder の議事録系 (Docs / Slides) ファイル名 / 本文 → meeting summary
+- `gas/074d_MeetingSummaryCalendar.js`: Calendar event description + attendees + 紐付く Notion AI ページ
+- Notion alias resolver 強化 (`_meeting_resolveProjectIdFromPage_` の alias map 拡張)
+- system prompt は `llm_prompts.meeting_extract.drive` / `meeting_extract.calendar` として migration で seed (AGENTS ルール)
+
+A と B は別 cron (= A: Drive Excel → P&L 数値抽出、B: Drive Docs / Calendar → meeting summary 文章抽出)。
+
+### C. まさ指摘 4: FRL grit / resilience LLM 抽出 cron 新規
+
+**現状**: `amd_score_inputs.frl_grit` / `frl_resilience` 列は存在するが、抽出 cron が未実装で全 PJ null。
+**実装案**:
+- `pwa/src/app/api/cron/frl-grit-resilience-extract/route.ts` 新規 (or 既存 `cron/amd-score-l2-refresh` 拡張)
+- monthly_reports + meeting_summaries から「creator/CEO の集中力・タフさ」エビデンスを Sonnet 抽出 → 0-9 score + reasoning
+- `amd_score_inputs` に新行 upsert (evaluated_at=今日)
+- migration 054 で system prompt seed
+
+### D. まさ指摘 7: 既存 22 件 pattern protocols の dedup + UI archive 運用
+
+**現状**: 新プロンプト (= migration 053) で再抽出後、22 件 pattern + 22 件 legacy_specific (旧手動) = 44 件。
+pattern の中に **同テーマで微妙にタイトル違いの重複** が 6+ ペアある (例: 「資金逼迫時の委託業務範囲縮小」/「資金逼迫時の委託業務スコープ縮小」)。
+**新プロンプトでも「契約書ドラフトフォーマット」 (= 業務オペ) が残ってる** (= upsert は既存を上書きしないため)。
+
+**まさ手動アクション**:
+1. `/admin/protocols` で「⚠️ 旧形式 (22 件)」を「📥 全部 archive」で処理
+2. 新 pattern 22 件のうち重複ペアは個別「📥 archive」で間引き
+3. 「契約書ドラフトフォーマット」「議事録ツール選び」等の業務オペは「❌ 却下」or 「📥 archive」
+
+**次セッション実装案 (dedup 自動化)**:
+- protocols テーブルの title を Sonnet で「意味的に同一」のグループ化 → 重複を archive にする one-time backfill 関数
+
+### E. R303 hardcoded fallback 削除 (= AGENTS 完遵、前 HANDOFF 最優先 5)
 
 AMD-Report GAS `R303_MonthlyReport_Generator.js` `mr_gen_getTsukuyomiContext_` Line 262-270 に
 hardcoded fallback が残っている。
