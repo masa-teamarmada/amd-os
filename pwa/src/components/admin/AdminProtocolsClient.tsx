@@ -8,6 +8,18 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+interface ProtocolExample {
+  protocol_id: string;
+  project_id: string;
+  occurred_on: string | null;
+  summary: string;
+  branch_point: string | null;
+  criteria: string | null;
+  action_taken: string | null;
+  result: string | null;
+  source_meeting_id: string | null;
+}
+
 interface Protocol {
   id: string;
   protocol_id: string;
@@ -24,9 +36,42 @@ interface Protocol {
   importance?: string;
   source_type?: string;
   status: string;
+  kind?: string;
+  is_universal?: boolean;
+  examples?: ProtocolExample[];
   created_at: string;
   updated_at: string;
 }
+
+/** 4 要素 markdown content から ① 分岐点 / ② 判断材料 / ③ アクション / ④ 結果・学習 を分解 */
+function parseFourElements(content: string): { branch: string; criteria: string; action: string; result: string } {
+  if (!content) return { branch: "", criteria: "", action: "", result: "" };
+  const blocks: { branch: string; criteria: string; action: string; result: string } = { branch: "", criteria: "", action: "", result: "" };
+  // 「**① 分岐点**:」「**② 判断材料**:」「**③ アクション**:」「**④ 結果・学習**:」を区切りに使う
+  const re = /\*\*[①②③④①-④12345]\.?\s*(分岐点|判断材料|アクション|結果[・·]?学習|学習[・·]?結果)\*\*[:：]?\s*/g;
+  const tokens: { idx: number; label: string }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(content)) !== null) tokens.push({ idx: m.index + m[0].length, label: m[1] });
+  if (tokens.length === 0) return blocks;
+  for (let i = 0; i < tokens.length; i++) {
+    const start = tokens[i].idx;
+    const end = i + 1 < tokens.length ? content.indexOf("**", start) : content.length;
+    const body = content.slice(start, end > start ? end : content.length).trim().replace(/^[:：\s]+/, "");
+    const label = tokens[i].label;
+    if (label === "分岐点") blocks.branch = body;
+    else if (label === "判断材料") blocks.criteria = body;
+    else if (label === "アクション") blocks.action = body;
+    else if (label.includes("結果") || label.includes("学習")) blocks.result = body;
+  }
+  return blocks;
+}
+
+const STEP_META = [
+  { key: "branch" as const,   label: "① 分岐点",      icon: "🔀", color: "bg-blue-50 border-blue-200 text-blue-900" },
+  { key: "criteria" as const, label: "② 判断材料",    icon: "📊", color: "bg-amber-50 border-amber-200 text-amber-900" },
+  { key: "action" as const,   label: "③ アクション",  icon: "🎯", color: "bg-emerald-50 border-emerald-200 text-emerald-900" },
+  { key: "result" as const,   label: "④ 結果・学習",  icon: "💡", color: "bg-violet-50 border-violet-200 text-violet-900" },
+];
 
 interface Props {
   protocols: Protocol[];
@@ -327,35 +372,102 @@ ${r.content || r.criteria || "(本文なし)"}
                   </div>
                 </div>
                 {isExpanded && (
-                  <div className="px-10 pb-4 pt-1 border-t border-border/50 space-y-2">
-                    {/* Phase 4 (現役): content に 4 要素 markdown */}
-                    {r.content && (
-                      <div className="rounded-md bg-muted/30 p-3">
-                        <span className="text-[11px] font-medium text-muted-foreground">プロトコル本文 (4 要素)</span>
-                        <p className="text-[12px] mt-1 whitespace-pre-wrap leading-relaxed">{r.content}</p>
-                      </div>
-                    )}
+                  <div className="px-10 pb-4 pt-2 border-t border-border/50 space-y-3">
+                    {/* 4 要素ステップカード (普遍パターン部分) */}
+                    {r.content && (() => {
+                      const parsed = parseFourElements(r.content);
+                      const anyParsed = parsed.branch || parsed.criteria || parsed.action || parsed.result;
+                      if (!anyParsed) {
+                        return (
+                          <div className="rounded-md bg-muted/30 p-3">
+                            <p className="text-[12px] whitespace-pre-wrap leading-relaxed">{r.content}</p>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {STEP_META.map((step) => {
+                            const body = parsed[step.key];
+                            return (
+                              <div key={step.key} className={`rounded-md border p-2.5 ${step.color}`}>
+                                <div className="flex items-center gap-1.5 text-[11px] font-semibold mb-1">
+                                  <span className="text-base leading-none">{step.icon}</span>
+                                  <span>{step.label}</span>
+                                </div>
+                                <p className="text-[11.5px] leading-relaxed whitespace-pre-wrap">
+                                  {body || <span className="text-muted-foreground italic">(未記載)</span>}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                     {/* 旧手動 (互換) */}
-                    {!r.content && r.branch_point && (
-                      <div>
-                        <span className="text-[11px] font-medium text-muted-foreground">分岐点</span>
-                        <p className="text-[12px] mt-0.5 whitespace-pre-wrap">{r.branch_point}</p>
+                    {!r.content && (r.branch_point || r.criteria || r.action_taken) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {r.branch_point && (
+                          <div className="rounded-md border bg-blue-50 border-blue-200 p-2.5">
+                            <div className="text-[11px] font-semibold text-blue-900 mb-1">🔀 ① 分岐点</div>
+                            <p className="text-[11.5px] whitespace-pre-wrap">{r.branch_point}</p>
+                          </div>
+                        )}
+                        {r.criteria && (
+                          <div className="rounded-md border bg-amber-50 border-amber-200 p-2.5">
+                            <div className="text-[11px] font-semibold text-amber-900 mb-1">📊 ② 判断材料</div>
+                            <p className="text-[11.5px] whitespace-pre-wrap">{r.criteria}</p>
+                          </div>
+                        )}
+                        {r.action_taken && (
+                          <div className="rounded-md border bg-emerald-50 border-emerald-200 p-2.5">
+                            <div className="text-[11px] font-semibold text-emerald-900 mb-1">🎯 ③ アクション</div>
+                            <p className="text-[11.5px] whitespace-pre-wrap">{r.action_taken}</p>
+                          </div>
+                        )}
                       </div>
                     )}
-                    {!r.content && r.criteria && (
-                      <div>
-                        <span className="text-[11px] font-medium text-muted-foreground">判断基準</span>
-                        <p className="text-[12px] mt-0.5 whitespace-pre-wrap">{r.criteria}</p>
+
+                    {/* 関連事例リスト (1 プロトコル : N 事例) */}
+                    {r.examples && r.examples.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-border/50">
+                        <div className="text-[11px] font-semibold text-muted-foreground mb-1.5">
+                          📂 関連事例 ({r.examples.length})
+                        </div>
+                        <ol className="space-y-1.5">
+                          {r.examples.map((ex, ei) => (
+                            <li key={`${ex.project_id}-${ex.occurred_on}-${ei}`}
+                                className="text-[11px] rounded border border-border/60 bg-background p-2">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="font-mono font-bold text-[10px] text-muted-foreground">
+                                  {ex.occurred_on ? ex.occurred_on : "日付不明"}
+                                </span>
+                                <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{ex.project_id}</span>
+                                {ex.source_meeting_id && (
+                                  <span className="text-[9px] text-muted-foreground font-mono truncate">
+                                    src: {ex.source_meeting_id.slice(0, 12)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="leading-relaxed">{ex.summary}</p>
+                              {(ex.branch_point || ex.action_taken || ex.result) && (
+                                <details className="mt-1">
+                                  <summary className="text-[10px] text-muted-foreground cursor-pointer">事例の 4 要素</summary>
+                                  <div className="mt-1 pl-2 border-l-2 border-border space-y-0.5 text-[10.5px]">
+                                    {ex.branch_point && <div>🔀 <strong>分岐点:</strong> {ex.branch_point}</div>}
+                                    {ex.criteria && <div>📊 <strong>判断材料:</strong> {ex.criteria}</div>}
+                                    {ex.action_taken && <div>🎯 <strong>アクション:</strong> {ex.action_taken}</div>}
+                                    {ex.result && <div>💡 <strong>結果:</strong> {ex.result}</div>}
+                                  </div>
+                                </details>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
                       </div>
                     )}
-                    {!r.content && r.action_taken && (
-                      <div>
-                        <span className="text-[11px] font-medium text-muted-foreground">対応内容</span>
-                        <p className="text-[12px] mt-0.5 whitespace-pre-wrap">{r.action_taken}</p>
-                      </div>
-                    )}
+
                     <div className="text-[10px] text-muted-foreground">
-                      ID: {r.protocol_id} / source: {r.source_type || "—"} / updated: {r.updated_at?.slice(0, 10)}
+                      ID: {r.protocol_id} / source: {r.source_type || "—"} / kind: {r.kind || "—"} / updated: {r.updated_at?.slice(0, 10)}
                     </div>
                   </div>
                 )}

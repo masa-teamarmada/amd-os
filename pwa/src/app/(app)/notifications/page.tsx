@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-export const metadata: Metadata = { title: "通知" };
+export const metadata: Metadata = { title: { absolute: "通知 - AMD OS" } };
 
 import { createClient } from "@/lib/supabase/server";
 import { NotificationsClient } from "@/components/notifications/NotificationsClient";
