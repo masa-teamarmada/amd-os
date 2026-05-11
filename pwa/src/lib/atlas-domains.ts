@@ -20,6 +20,10 @@ const DOMAIN_COLOR: Record<string, string> = {
   M: "#f97316", // 社会構造 — orange
   N: "#06b6d4", // 海洋・水資源 — cyan
   O: "#14b8a6", // サーキュラー — teal
+  // 2026-05-11 追加: ASPI 8 domain quantum / sensing / advanced_ict 補完
+  P: "#8b5cf6", // 量子・量子計算 — violet
+  Q: "#0ea5e9", // センシング・計測・測位・タイミング — sky
+  R: "#71717a", // 先端通信 (6G / 衛星通信) — zinc
 };
 
 const DOMAIN_LABEL: Record<string, string> = {
@@ -38,6 +42,9 @@ const DOMAIN_LABEL: Record<string, string> = {
   M: "社会",
   N: "海洋",
   O: "サーキュラー",
+  P: "量子",
+  Q: "センシング",
+  R: "通信",
 };
 
 export function domainKey(domain: string | null | undefined): string | null {

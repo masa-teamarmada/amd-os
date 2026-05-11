@@ -1,21 +1,19 @@
 /**
- * kaken-ingest cron — Triple Helix 観測量 I_R (研究費) を KAKEN API から quarter 単位で取得。
+ * kaken-ingest cron — Triple Helix 観測量 I_R (研究費) を KAKEN OpenSearch API
+ * + LLM フォールバックで quarter 単位で取得し observation_log に書き込む。
  *
- * 正本: pwa/design/aspi_lanes.md (Phase 2-C)、
+ * 正本: pwa/design/aspi_lanes.md (Phase 2-C / C2)、
  *       before-zero/theory/data_specification.md §I_R (KAKEN 採択額)
  *
- * 仕様:
- * - 各 ASPI domain × 直近 16 quarter に対して、aspi-lanes.ts の KAKEN_KEYWORDS_BY_DOMAIN で
- *   KAKEN API を叩き、採択件数 + 配分額 (累計、億円) を集計。
- * - observation_log に upsert (UNIQUE lane, observed_at, observation_key, source)。
- *   key='I_R', source='kaken'。
+ * Phase 2-C2 (本実装):
+ *   1. 各 ASPI 8 domain × 16 quarter に対して、KAKEN OpenSearch
+ *      (https://nrid.nii.ac.jp/opensearch/?format=json&kw=<KW>&from=...&until=...)
+ *      を keyword ごとに叩いて採択件数 + 配分額 (億円) を集計
+ *   2. OpenSearch でデータが取れた場合は source='kaken_api' で upsert
+ *   3. 取れなかった (= API 障害 / keyword ヒットゼロ) 場合のみ
+ *      LLM (Sonnet + web_search) フォールバック (source='kaken')
  *
- * KAKEN API: https://nrid.nii.ac.jp/ja/grants/search/ の裏側 API。
- * - 正式 API endpoint: https://kaken.nii.ac.jp/grant/api/v1/search?...
- *   ただし正式公開 API は限定的。当面は LLM (Sonnet) で「直近 quarter の KAKEN 採択動向 + 推定金額」
- *   を推定する方式と併用 (LLM 駆動 ingest = `mode=llm` で動く)。
- *
- * cron: weekly (毎週月曜 04:00 JST) or 手動キック。
+ * cron: weekly (毎週月曜 04:00 JST) — GAS 154 setupWeeklyAspiTriggers から curl。
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -32,6 +30,61 @@ export const maxDuration = 300;
 export const runtime = "nodejs";
 
 const QUARTERS_BACK = 16;
+const KAKEN_OPENSEARCH_BASE = "https://nrid.nii.ac.jp/opensearch/";
+const KAKEN_USER_AGENT = "AMD-Atlas-Bot/1.0 (+https://amd-os-pwa.vercel.app)";
+
+/**
+ * KAKEN OpenSearch を keyword + 期間で叩いて (件数, 推定配分額 億円) を返す。
+ *
+ * KAKEN OpenSearch は基本 ATOM XML だが format=json で JSON も返る (公開仕様)。
+ * 個別研究課題の配分額が出るとは限らないため、件数ベース + 領域平均額で推定する。
+ * 失敗時は null を返す → 呼び出し側で LLM フォールバック。
+ */
+async function fetchKakenForKeyword(
+  keyword: string,
+  fromDate: string,
+  untilDate: string
+): Promise<{ count: number; amount_oku_estimate: number } | null> {
+  const q = new URLSearchParams({
+    format: "json",
+    kw: keyword,
+    from: fromDate,
+    until: untilDate,
+    rw: "20", // max results per request (peek only)
+  });
+  const url = `${KAKEN_OPENSEARCH_BASE}?${q.toString()}`;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": KAKEN_USER_AGENT,
+        Accept: "application/json,text/xml,*/*",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    // OpenSearch totalResults を best-effort で取得
+    let total = 0;
+    try {
+      const parsed = JSON.parse(text) as Record<string, unknown>;
+      const root = (parsed["@graph"] ?? parsed) as Record<string, unknown>;
+      const t = root["totalResults"] ?? root["opensearch:totalResults"];
+      if (typeof t === "number") total = t;
+      else if (typeof t === "string") total = parseInt(t, 10) || 0;
+    } catch {
+      // XML フォールバック: <opensearch:totalResults>N</opensearch:totalResults>
+      const m = text.match(/<opensearch:totalResults[^>]*>(\d+)<\/opensearch:totalResults>/i);
+      if (m) total = parseInt(m[1], 10) || 0;
+    }
+    if (total === 0) return { count: 0, amount_oku_estimate: 0 };
+    // 領域平均: 基盤研究 B/C 比率を想定して 1 件あたり 0.05 億円 (= 500 万円) の概算
+    const amount_oku_estimate = Math.round((total * 0.05) * 100) / 100;
+    return { count: total, amount_oku_estimate };
+  } catch (e) {
+    console.warn(`[kaken-ingest] OpenSearch fetch err ${keyword}:`, e);
+    return null;
+  }
+}
 
 function quarterStartDate(year: number, q: 1 | 2 | 3 | 4): string {
   const month = (q - 1) * 3 + 1;
@@ -82,8 +135,62 @@ export async function GET(req: NextRequest) {
 
   const quarters = recentQuarters(QUARTERS_BACK);
   const rows: { lane: string; observed_at: string; observation_key: string; value: number; unit: string; source: string; raw_meta: Record<string, unknown> }[] = [];
+  const apiSummary: Record<string, { covered_quarters: number; total_count: number }> = {};
+
+  // =========================================================================
+  // Phase 2-C2: KAKEN OpenSearch 実 API 叩き
+  // =========================================================================
+  for (const domain of ASPI_DOMAIN_IDS) {
+    const keywords = KAKEN_KEYWORDS_BY_DOMAIN[domain as AspiDomainId];
+    let coveredQ = 0;
+    let totalCount = 0;
+    for (const q of quarters) {
+      const qFrom = quarterStartDate(q.year, q.q);
+      const qNextYear = q.q === 4 ? q.year + 1 : q.year;
+      const qNextQ = q.q === 4 ? 1 : ((q.q + 1) as 1 | 2 | 3 | 4);
+      const qUntil = quarterStartDate(qNextYear, qNextQ);
+      let sumCount = 0;
+      let sumAmount = 0;
+      let anyOk = false;
+      for (const kw of keywords) {
+        const r = await fetchKakenForKeyword(kw, qFrom, qUntil);
+        if (r === null) continue;
+        anyOk = true;
+        sumCount += r.count;
+        sumAmount += r.amount_oku_estimate;
+      }
+      if (!anyOk) continue;
+      coveredQ++;
+      totalCount += sumCount;
+      rows.push({
+        lane: domain,
+        observed_at: qFrom,
+        observation_key: "I_R",
+        value: Math.round(sumAmount * 100) / 100,
+        unit: "億円",
+        source: "kaken_api",
+        raw_meta: {
+          grant_count: sumCount,
+          keywords,
+          source_url: KAKEN_OPENSEARCH_BASE,
+          quarter: `${q.year}-Q${q.q}`,
+        },
+      });
+    }
+    apiSummary[domain] = { covered_quarters: coveredQ, total_count: totalCount };
+  }
+
+  // =========================================================================
+  // LLM フォールバック: API でカバーできなかった (domain, quarter) は LLM 推定
+  // =========================================================================
+  const apiCovered = new Set(rows.map((r) => `${r.lane}|${r.observed_at}`));
 
   for (const domain of ASPI_DOMAIN_IDS) {
+    const missingQuarters = quarters.filter(
+      (q) => !apiCovered.has(`${domain}|${quarterStartDate(q.year, q.q)}`)
+    );
+    if (missingQuarters.length === 0) continue;
+
     const keywords = KAKEN_KEYWORDS_BY_DOMAIN[domain as AspiDomainId];
     const label = ASPI_DOMAIN_LABEL_JP[domain as AspiDomainId];
 
@@ -137,6 +244,7 @@ KAKEN は文科省・JSPS の代表的研究費。基盤研究 (S/A/B/C) / 挑�
 
     for (const pt of parsed) {
       const obsAt = quarterStartDate(pt.year, pt.quarter);
+      if (apiCovered.has(`${domain}|${obsAt}`)) continue; // API でカバー済みは skip
       rows.push({
         lane: domain,
         observed_at: obsAt,
@@ -148,6 +256,7 @@ KAKEN は文科省・JSPS の代表的研究費。基盤研究 (S/A/B/C) / 挑�
           grant_count: Math.max(0, Number(pt.grant_count) || 0),
           estimator: "anthropic:claude-sonnet-4-5-20250929",
           quarter: `${pt.year}-Q${pt.quarter}`,
+          fallback_reason: "kaken_api_no_data",
         },
       });
     }
@@ -170,5 +279,6 @@ KAKEN は文科省・JSPS の代表的研究費。基盤研究 (S/A/B/C) / 挑�
     inserted: rows.length,
     domains: ASPI_DOMAIN_IDS.length,
     quarters: QUARTERS_BACK,
+    api_summary: apiSummary,
   });
 }

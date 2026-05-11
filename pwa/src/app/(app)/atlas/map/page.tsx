@@ -179,41 +179,72 @@ export default function AtlasMapPage() {
     fgRef.current.zoom(2.5, 600);
   };
 
-  // 孤立ノード（リンクなし）が外周に飛ばされないよう中央向けの引力を加える
-  // また、シミュレーション収束時に zoomToFit で見やすい初期表示にする。
-  // 初回マウント後の1回だけ fit する（data 更新で何度も呼ぶと「2段階縮小」になるため）
+  // 完全均一分散化 (2026-05-11 4 ラウンド目):
+  //   旧アプローチ (中央 isolatedCenter force + zoom × 1.6 + setTimeout) は
+  //   中央密集 + 外周ドーナツ + 5 秒後に追加縮小、の典型症状を出した。
+  //   今回は radial domain force にして、各 domain key を角度で割り振り
+  //   一定半径 RADIUS の円周上に「自分の domain の方角」へ引っ張る。
+  //   初期座標もその角度配置にして、エネルギー注入時から既に散らばってる状態にする。
+  // 初回マウント後の1回だけ zoomToFit する。
   const didInitialFitRef = useRef(false);
 
   useEffect(() => {
     if (!fgRef.current || data.nodes.length === 0) return;
 
-    // リンクされているノードIDを集約
-    const linkedIds = new Set<string>();
-    data.links.forEach((l) => {
-      const s = l.source as unknown;
-      const t = l.target as unknown;
-      const sId = typeof s === "string" ? s : (s as { id: string }).id;
-      const tId = typeof t === "string" ? t : (t as { id: string }).id;
-      linkedIds.add(sId);
-      linkedIds.add(tId);
+    // domain 角度マッピング: 出現する domain key を sort して 0..2π に均等割り
+    const uniqueDomains = Array.from(
+      new Set(
+        data.nodes.map((n) => domainKey(n.story.primary_domain) ?? "_")
+      )
+    ).sort();
+    const domainAngles = new Map<string, number>();
+    uniqueDomains.forEach((d, i) => {
+      domainAngles.set(
+        d,
+        (i / Math.max(1, uniqueDomains.length)) * 2 * Math.PI
+      );
     });
+    const RADIUS = 600;
 
-    // カスタム力: 孤立ノードを中央に「ゆるく」引き寄せる（外周への飛び出しを抑える程度）
-    // 強くしすぎると全ノードが中央に団子になって見えなくなる
-    const isolatedCenterForce = (alpha: number) => {
-      data.nodes.forEach((node) => {
-        if (linkedIds.has(node.id)) return;
-        const m = node as unknown as { x: number; y: number; vx: number; vy: number };
-        m.vx -= m.x * 0.012 * alpha;
-        m.vy -= m.y * 0.012 * alpha;
-      });
+    // 初期座標: 未配置ノード (x/y undefined) に対して domain 角度上に散らす。
+    // ジッタを入れて中央に重ならないようにする。
+    for (const node of data.nodes) {
+      const m = node as unknown as {
+        x?: number;
+        y?: number;
+        story: StoryWithSignals;
+      };
+      if (typeof m.x === "number" && typeof m.y === "number") continue;
+      const dk = domainKey(m.story.primary_domain) ?? "_";
+      const ang = domainAngles.get(dk) ?? 0;
+      const r = RADIUS + (Math.random() - 0.5) * 200;
+      m.x = Math.cos(ang) * r + (Math.random() - 0.5) * 100;
+      m.y = Math.sin(ang) * r + (Math.random() - 0.5) * 100;
+    }
+
+    // Radial domain force: 各ノードを「自 domain の角度 × 半径 RADIUS」に弱く引っ張る。
+    // これで domain ごとにクラスタが分かれる + 中央密集が起きない。
+    const radialDomainForce = (alpha: number) => {
+      for (const node of data.nodes as unknown as {
+        x: number;
+        y: number;
+        vx: number;
+        vy: number;
+        story: StoryWithSignals;
+      }[]) {
+        const dk = domainKey(node.story.primary_domain) ?? "_";
+        const ang = domainAngles.get(dk) ?? 0;
+        const tx = Math.cos(ang) * RADIUS;
+        const ty = Math.sin(ang) * RADIUS;
+        node.vx += (tx - node.x) * 0.05 * alpha;
+        node.vy += (ty - node.y) * 0.05 * alpha;
+      }
     };
 
-    // 衝突回避: ノードがお互い重ならないよう最小距離を確保する
-    // 円ノード半径の最大値 ≒ √(val=24)*1.6 ≒ 8 → さらにラベル余白を見て 28 で離す
+    // Collision: ラベルが重ならない最小距離 80 まで拡大 (旧 32)。
     const collisionForce = (alpha: number) => {
       const nodes = data.nodes as unknown as { x: number; y: number; vx: number; vy: number }[];
-      const minDist = 32;
+      const minDist = 80;
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const a = nodes[i];
@@ -237,14 +268,16 @@ export default function AtlasMapPage() {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fg = fgRef.current as any;
-    fg.d3Force("isolatedCenter", isolatedCenterForce);
+    // 旧 isolatedCenter は撤去
+    fg.d3Force("isolatedCenter", null);
+    fg.d3Force("radialDomain", radialDomainForce);
     fg.d3Force("collide", collisionForce);
-    // ノード同士の反発を大幅に強めて団子状態を解消 (-450 → -1800)
-    if (fg.d3Force("charge")) fg.d3Force("charge").strength(-1800);
-    // リンク距離を広げてノード間に余白を確保 (140 → 280)
-    if (fg.d3Force("link")) fg.d3Force("link").distance(280);
-    // 中央への弱い重力を 0 にして外側へ広がりやすく
-    if (fg.d3Force("center")) fg.d3Force("center").strength(0.02);
+    // 反発を更に強める (-1800 → -4000)
+    if (fg.d3Force("charge")) fg.d3Force("charge").strength(-4000);
+    // リンク距離も拡大 (280 → 450)
+    if (fg.d3Force("link")) fg.d3Force("link").distance(450);
+    // 中央への重力は 0 (radial で位置決めしてる)
+    if (fg.d3Force("center")) fg.d3Force("center").strength(0);
     fg.d3ReheatSimulation();
   }, [data]);
 
@@ -253,19 +286,9 @@ export default function AtlasMapPage() {
     didInitialFitRef.current = true;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fg = fgRef.current as any;
-    // まさ要望 2026-05-11: 表示時に「2 枚目相当の縮尺」(ノードが個別に見える)、
-    // engineStop 後の追加縮小は一切やらない。
-    // 旧: zoomToFit padding=80 で全体収め + 0.6 ズーム = 文字だけ密集の見にくい状態
-    // 新: zoomToFit padding=200 (= 余白少なめで詳細が見える) + 倍率 1.6x で気持ちズームイン
-    fg.zoomToFit(400, 200);
-    setTimeout(() => {
-      if (!fgRef.current) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fg2 = fgRef.current as any;
-      const z = fg2.zoom();
-      fg2.zoom(z * 1.6, 600);
-      fg2.centerAt(0, 0, 600);
-    }, 450);
+    // 「5 秒後に縮小」現象の元凶だった zoom × 1.6 setTimeout は撤廃。
+    // zoomToFit (padding 120) だけにして、追加の倍率変更は一切しない。
+    fg.zoomToFit(400, 120);
   };
 
   return (
@@ -471,8 +494,8 @@ export default function AtlasMapPage() {
             }}
             linkColor={() => "rgba(120,120,120,0.22)"}
             linkWidth={(l: GLink) => 0.4 + Math.min(2.4, (l.weight || 1) * 0.4)}
-            cooldownTicks={180}
-            d3VelocityDecay={0.28}
+            cooldownTime={3000}
+            d3VelocityDecay={0.25}
             autoPauseRedraw={false}
             onEngineStop={handleEngineStop}
             onNodeClick={(node: GNode) => {
