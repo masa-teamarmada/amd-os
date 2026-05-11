@@ -110,8 +110,50 @@ export default function Mascot() {
           scale={CORNER_SCALE}
           flipX
         />
+        {/* 右下足元に「今週の累積コスト (円)」を小さく表示。まさ要望 2026-05-11。 */}
+        <TsukuyomiWeeklyCost />
       </button>
       {chatOpen && <TsukuyomiChatDrawer onClose={() => setChatOpen(false)} />}
     </>
+  );
+}
+
+// 直近 7 日のつくよみコスト (円) を 60 秒毎に取得して表示する小さい数字。
+function TsukuyomiWeeklyCost() {
+  const [jpy, setJpy] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { data } = await supabase
+          .from("tsukuyomi_usage_log")
+          .select("cost_jpy")
+          .gte("created_at", since);
+        if (cancelled) return;
+        const total = (data ?? []).reduce(
+          (s: number, r: { cost_jpy: number | null }) => s + (Number(r.cost_jpy) || 0),
+          0
+        );
+        setJpy(total);
+      } catch {
+        // ignore
+      }
+    };
+    load();
+    const t = setInterval(load, 60 * 1000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
+  if (jpy == null) return null;
+  const fmt = jpy >= 1000 ? `${(jpy / 1000).toFixed(1)}k¥` : `${Math.round(jpy)}¥`;
+  return (
+    <span
+      className="pointer-events-none absolute bottom-0 right-0 text-[10px] font-mono text-amber-700 bg-white/85 backdrop-blur-sm rounded px-1.5 leading-tight shadow-sm"
+      title={`直近 7 日のつくよみ累積コスト: ¥${jpy.toFixed(2)}`}
+    >
+      {fmt}/週
+    </span>
   );
 }

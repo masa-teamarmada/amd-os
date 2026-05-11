@@ -1248,14 +1248,20 @@ export async function POST(req: Request) {
   // tool ループ (最大 5 ラウンド)
   const applied: ApplyAction[] = [];
   let lastReply = "";
+  // 累積 token usage (1 ターンの合計、tsukuyomi_usage_log に書き込み)
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let totalCacheReadTokens = 0;
+  let totalCacheWriteTokens = 0;
+  const usedModel = "claude-opus-4-7";
+
   for (let round = 0; round < 5; round += 1) {
     let r: Anthropic.Messages.Message;
     try {
       r = await anthropic.messages.create({
-        // まさ要望 2026-05-11: 「つくよみが頭悪い」→ Sonnet 4.5 → Opus 4.7 に格上げ。
-        // トークン使用は 1 ターン 2000 max なのでコスト影響は限定的。
-        model: "claude-opus-4-7",
-        max_tokens: 2000,
+        // まさ要望 2026-05-11: Opus 4.7、max_tokens 制限を 2000 → 16000 に拡大。
+        model: usedModel,
+        max_tokens: 16000,
         system: fullSystem,
         messages: conversation,
         tools: TOOLS,
@@ -1263,6 +1269,19 @@ export async function POST(req: Request) {
     } catch (e) {
       console.error("[tsukuyomi/chat] anthropic error", e);
       return NextResponse.json({ error: "llm error", detail: String(e) }, { status: 500 });
+    }
+
+    // usage 集計 (各ラウンド毎)
+    if (r.usage) {
+      totalInputTokens += r.usage.input_tokens ?? 0;
+      totalOutputTokens += r.usage.output_tokens ?? 0;
+      // cache 系は SDK 型が optional なので安全に取り出す
+      const u = r.usage as unknown as {
+        cache_read_input_tokens?: number;
+        cache_creation_input_tokens?: number;
+      };
+      totalCacheReadTokens += u.cache_read_input_tokens ?? 0;
+      totalCacheWriteTokens += u.cache_creation_input_tokens ?? 0;
     }
 
     const toolUses = r.content.filter((c) => c.type === "tool_use") as Array<{
@@ -1323,6 +1342,35 @@ export async function POST(req: Request) {
       applied_at: new Date().toISOString(),
       applied_note: `tsukuyomi chat: ${applied.map((a) => a.kind).join(", ")}`,
     });
+  }
+
+  // 累積 token usage を tsukuyomi_usage_log に書き込み (= weekly 累積コスト計算用)。
+  // 価格 (2026-05 時点、Anthropic 公開): Opus input $15/MTok, output $75/MTok,
+  //   cache_read $1.5/MTok, cache_write $18.75/MTok。USD→JPY は 150 を default。
+  try {
+    const USD_PER_INPUT_MTOK = 15;
+    const USD_PER_OUTPUT_MTOK = 75;
+    const USD_PER_CACHE_READ_MTOK = 1.5;
+    const USD_PER_CACHE_WRITE_MTOK = 18.75;
+    const JPY_PER_USD = 150;
+    const costUsd =
+      (totalInputTokens / 1_000_000) * USD_PER_INPUT_MTOK +
+      (totalOutputTokens / 1_000_000) * USD_PER_OUTPUT_MTOK +
+      (totalCacheReadTokens / 1_000_000) * USD_PER_CACHE_READ_MTOK +
+      (totalCacheWriteTokens / 1_000_000) * USD_PER_CACHE_WRITE_MTOK;
+    const costJpy = costUsd * JPY_PER_USD;
+    await supabase.from("tsukuyomi_usage_log").insert({
+      session_id: body.session_id ?? null,
+      model: usedModel,
+      input_tokens: totalInputTokens,
+      output_tokens: totalOutputTokens,
+      cache_read_tokens: totalCacheReadTokens,
+      cache_write_tokens: totalCacheWriteTokens,
+      cost_usd: Math.round(costUsd * 10000) / 10000,
+      cost_jpy: Math.round(costJpy * 100) / 100,
+    });
+  } catch (e) {
+    console.warn("[tsukuyomi/chat] usage log insert failed:", e);
   }
 
   return NextResponse.json({
