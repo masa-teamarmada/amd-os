@@ -1243,10 +1243,10 @@ function RewardTab({
         <div className="px-4 pb-4">
           {eventsLoading ? (
             <p className="text-[12px] text-muted-foreground py-2">読み込み中...</p>
-          ) : events === null || events.length === 0 ? (
-            <p className="text-[12px] text-muted-foreground py-2">イベントデータなし</p>
           ) : (
-            <EventsSection events={events} />
+            // 2026-05-12 まさ「先手力の表示が消えてる」: events 0 件でも EventsSection に渡して、
+            // 内部で「先手力 —」+「イベントデータなし」両方表示する形に変更
+            <EventsSection events={events ?? []} />
           )}
         </div>
       </div>
@@ -1898,6 +1898,11 @@ function EventsSection({ events }: { events: ProgressEvent[] }) {
           </span>
         ))}
       </div>
+
+      {/* events 0 件時のメッセージ (= 先手力ラベルは上で必ず表示済) */}
+      {activeEvents.length === 0 && (
+        <p className="text-[11.5px] text-muted-foreground py-1">イベントデータなし</p>
+      )}
 
       {/* イベントカード */}
       {activeEvents.map((ev) => {
