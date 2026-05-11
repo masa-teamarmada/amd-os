@@ -120,7 +120,7 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
   async function reloadReport() {
     const { data } = await supabase
       .from("monthly_reports")
-      .select("report_id, draft_content, final_content, status, generated_at")
+      .select("report_id, draft_content, final_content, status, generated_at, pl_review_requested_at")
       .eq("project_id", projectId)
       .eq("ym", ym)
       .maybeSingle();
@@ -131,6 +131,7 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
         finalContent: data.final_content ?? null,
         status: data.status ?? null,
         generatedAt: data.generated_at ?? null,
+        plReviewRequestedAt: data.pl_review_requested_at ?? null,
       });
     }
   }
