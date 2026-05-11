@@ -15,6 +15,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // 静的アセット / PWA manifest / ファビコン / OAuth callback は middleware を素通りさせる。
+    // manifest.json を除外しないと auth redirect で 307 となり PWA installable が壊れる。
+    "/((?!_next/static|_next/image|favicon.ico|icon\\.png|apple-icon\\.png|manifest\\.json|manifest\\.webmanifest|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
