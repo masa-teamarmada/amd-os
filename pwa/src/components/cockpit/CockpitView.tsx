@@ -11,6 +11,7 @@ import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
 import { CockpitNudge } from "./CockpitNudge";
 import { CockpitRoutineGas } from "./CockpitRoutineGas";
 import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
+import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitNextPeriodSetup } from "./CockpitNextPeriodSetup";
 import { CockpitRoutineBudgetModal } from "./CockpitRoutineBudgetModal";
 import { CockpitRoutineMeetingModal } from "./CockpitRoutineMeetingModal";
@@ -429,6 +430,13 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
             />
           </div>
           <div className="flex-1 min-w-0">
+            {/* 休止期間 backfill: 再開予定月 >= currentYm の場合のみ表示 */}
+            <CockpitFreezeBackfill
+              projectId={project.projectId}
+              freezeFromYm={project.freezeFromYm ?? null}
+              restartExpectedYm={project.restartExpectedYm ?? null}
+              currentYm={currentYm}
+            />
             <CockpitMeetingSummary projectId={project.projectId} />
           </div>
         </div>
