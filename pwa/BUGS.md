@@ -778,3 +778,78 @@
   - GAS Web App の同期実行は 6 分制限。それ以上かかる処理は必ずバッチ分割する設計にする
   - daily cron (`nav_cronMonthlyExtractAt3`) は実行制限が緩い (6分超えても trigger 単独だと 30 分まで OK な場合あり) が、Web App 経由の手動 trigger は厳格に 6 分
   - LLM コールが遅い理由は別途調査の余地 (Notion API 直列が時間食ってる可能性、並列化検討)
+
+---
+
+### [PWA / Atlas Map] 力場分散調整の試行錯誤 (中央密集 + 外周ドーナツ + 5秒後追加縮小)
+
+- **発見日**: 2026-05-11 (まさが 3 ラウンド指摘)
+- **状態**: 🟡 次セッションで完全解決予定 (radial domain force + initialPosition 配置)
+- **症状**: `/atlas/map` で 183 stories / 146 link を描画すると:
+  1. 中央に密集、外周に**ドーナツ状の塊** (= 孤立ノード center force と link cluster の干渉)
+  2. 表示直後はそこそこ広がってるのに **5 秒後に追加縮小** されて文字密集
+  3. ノード間距離が近すぎてラベル可読性低
+- **原因**:
+  - charge -1800 / link 280 / collide 32 では 183 ノードを十分分散できない
+  - `handleEngineStop` の zoomToFit + 1.6x zoom in が `cooldownTicks=180` の遅延後に発火 → 5 秒後に動く見え方
+  - 「孤立ノードを中央へ引く center force」が link 付き cluster の周囲に孤立ノードを集める → ドーナツ化
+- **解決策 (次セッションで実装)**:
+  1. **cooldownTime (ms) で時間制御**: `cooldownTime={3000}` で 3 秒で確実に止める (cooldownTicks よりも確実)
+  2. **力場パラメータをさらに強化**: charge -1800 → **-4000**、link distance 280 → **450**、collide minDist 32 → **80**
+  3. **孤立ノード center force を撤去**、代わりに **radial domain force** を導入:
+     - 各 domain (色) に角度割り当て (0°, 30°, 60°, ...、15 domain なら 24° 間隔)
+     - 各ノードを「自 domain の角度方向 + 半径 R=500」に弱く引っ張る (alpha × 0.05)
+     - これで domain 別にクラスタが空間方向に分離 → 均一分散
+  4. **初期座標を domain 角度配置**: `node.x = Math.cos(angle) * R + jitter`、`node.y = Math.sin(angle) * R + jitter` で最初から広がってる
+  5. **engineStop は最小操作**: `zoomToFit(400, 120)` だけ、zoom 倍率変更しない、setTimeout の再 zoom in 削除 (これが 5 秒後縮小の見え方の原因)
+- **教訓**:
+  - **force layout は力場パラメータの単位調整よりも構造的アプローチ (radial domain force) で domain 別クラスタ化**するのが効く
+  - **zoomToFit + 倍率変更を engineStop に入れると「N 秒後に動く」見え方になる**。zoom 操作は最初 1 回限り、padding だけで調整
+  - 「分散させて」のフィードバックには **node 数 / link 数の削減** も同時に検討する (MIN_OVERLAP / TOP_K 調整は本ラウンドで実施済)
+
+---
+
+### [worktree] Write / Edit が main repo path に書いてしまう事故 (1 セッション内に 3 回発生)
+
+- **発見日**: 2026-05-11 (pensive-engelbart-7672ca)
+- **状態**: ✅ 運用ルール確立 (必ず worktree フルパスを使う)
+- **症状**: worktree (`.claude/worktrees/<name>/`) で作業中、Write / Edit ツールの `file_path` に main repo path `/Users/masa/projects/AMD/amd-os/pwa/...` を指定すると、main repo (branch=main) に書き込まれる。worktree の branch=`claude/...` には反映されず commit できない
+- **原因**: Bash の cwd は worktree でも、Write / Edit ツールは絶対パスをそのまま使う。私が main repo path をデフォルトに使ってしまった
+- **解決策**:
+  1. main repo の変更を `mv` で worktree path に移動
+  2. main repo を `git checkout --` で revert
+  3. 以降は worktree フルパス `/Users/masa/projects/AMD/amd-os/.claude/worktrees/<worktree-name>/...` を必ず使う
+- **教訓**:
+  - **worktree 作業時、Write / Edit の `file_path` は worktree フルパスを使う** (運用ルール)
+  - 既存ファイル編集なら Read 履歴で位置が記録されるので、worktree で Read してから Edit すると安全
+  - Bash の `cwd` は cwd reset で worktree に戻るが、Write/Edit ツールは cwd 概念を持たない
+
+---
+
+### [GAS / clasp] clasp push が invalid_rapt (Google OAuth 再認証要求)
+
+- **発見日**: 2026-05-11
+- **状態**: 🟡 まさ操作待ち (clasp login やり直し、えいみ代行不可)
+- **症状**: `clasp push --force` が `{"error":"invalid_grant","error_description":"reauth related error (invalid_rapt)","error_subtype":"invalid_rapt"}` で失敗
+- **原因**: Google OAuth refresh token が一定期間で reauth 要求 (MFA 強制 org で定期的に発生)
+- **解決策**: まさが ブラウザで `npx --yes @google/clasp@latest login` → Google アカウントで再ログイン → push 可能になる
+- **教訓**:
+  - GAS deploy 作業前に **clasp 認証状態を確認**してから始める (小さい push で先に試す)
+  - えいみは Google ログインを代行不可 (= まさに振る作業の代表例)
+  - HANDOFF / 残タスクに「clasp login の有無」を必ず書く
+
+---
+
+### [supabase] UNIQUE 制約のあるテーブルで lane rename 時の重複事故
+
+- **発見日**: 2026-05-11 (migration 042 適用時)
+- **状態**: ✅ 解決済み (migration 042 v2 で対処)
+- **症状**: `UPDATE macro_index_log SET lane = 'energy_environment' WHERE lane IN ('gx_energy', 'gx_circular')` が `duplicate key value violates unique constraint "idx_macro_index_log_unique"` で失敗
+- **原因**: UNIQUE (lane, observed_at) があるテーブルで、2 つの旧 lane が同じ `observed_at` を持つ場合、UPDATE 後に同じ key (energy_environment, 2010-01-01) が複数生成される
+- **解決策**: 3 ステップに分解:
+  1. `CREATE TEMP TABLE _merged AS SELECT 'energy_environment', observed_at, SUM(...) FROM ... WHERE lane IN ('gx_energy', 'gx_circular') GROUP BY observed_at`
+  2. `DELETE FROM ... WHERE lane IN ('gx_energy', 'gx_circular')`
+  3. `INSERT INTO ... SELECT FROM _merged ON CONFLICT DO UPDATE` (既存 energy_environment 行があれば SUM 合算)
+- **教訓**:
+  - **UNIQUE 制約あるテーブルで lane を N → 1 統合する時は「単純 UPDATE 禁止、合算 INSERT パターン」が定石**
+  - migration 書く前に必ず該当テーブルの UNIQUE / PRIMARY KEY を `db_schema.md` で確認

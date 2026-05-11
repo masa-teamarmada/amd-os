@@ -16,6 +16,7 @@
 | 3 | [routine.md](routine.md) ⭐ | 月次ルーティン (請求・報告・立替・予算) のステップ別仕様。Cockpit 右カラム + iOS RoutineFlowView の正本 |
 | 4 | [mypage.md](mypage.md) | `/mypage` 仕様 — 自分の参加 PJ・今月の活動・月次報酬 |
 | 5 | [amd_score.md](amd_score.md) | AMD Score (Before Zero Theory v3.2 — 7 軸 Cobb-Douglas)、cron / L2 抽出 |
+| 5.5 | [aspi_lanes.md](aspi_lanes.md) ⭐ | **ASPI Critical Technology Tracker 8 domain** (= 新 lane 体系、旧 5 lane 廃止)。PJ.lanes JSONB weighted / 10 PJ mapping / 新 cron (lane-suggest / kaken / grant / vc-investment) の正本 |
 
 ---
 

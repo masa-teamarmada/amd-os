@@ -51,6 +51,10 @@ L1 を経由する構成は廃止された ([progress_estimation.md](progress_es
 | **PJ 沿革リフレッシュ** | `project_ventures.narrative_text` | `cron/venture-narrative-refresh` (03:45 daily) | PWA |
 | **PJ XRL リフレッシュ** | `project_xrl_log` (llm_proposal) | `cron/venture-xrl-refresh` (03:15 daily) | PWA |
 | **メンバー活動推論** | `member_activities` | `cron/member-activities` (04:00 daily) | PWA |
+| **ASPI lane 推定** (Phase 2-B) | `lane_suggestions` | `cron/lane-suggest` (mon 04:00 JST、GAS 154 から curl) | PWA |
+| **研究費 I_R 観測** (Phase 2-C) | `observation_log` key=I_R | `cron/kaken-ingest` (mon 04:00 JST、GAS 154 から curl) | PWA |
+| **公募予算 B 観測** (Phase 2-D) | `observation_log` key=B | `cron/grant-ingest` (mon 05:00 JST、GAS 154 から curl) | PWA |
+| **VC 投資 V 観測** (Phase 2-E) | `observation_log` key=V | `cron/vc-investment-ingest` (mon 05:00 JST、GAS 154 から curl) | PWA |
 
 ---
 
