@@ -2247,3 +2247,88 @@ main HEAD: `409c32d`、Vercel `amd-os-pdg6emk4d-armada0130` (production, 5m23s, 
 - Vercel: `amd-os-bgfyv01fh-armada0130` (= main `9da5d9f`)
 - 本体 GAS deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` @1457
 - AMD-Report GAS: scriptId=`1r3Ak-tYASXY...`、push 107 files 完了 (v1455 deployment)
+
+---
+
+## 2026-05-11 (cranky-rhodes-ff4609) — 前ハンドオフ 1-6 一気通貫 + 真因特定 3 件
+
+前セッション (eloquent-chatelet-417abc) の最優先 1-7 のうち 1-6 を本セッションで完遂。R303 (5) と Drive/Calendar backfill (7) は次セッションへ。
+
+### 主要 commit (worktree → main マージ)
+
+- `081b9c2` fix(slack/favicon): backfill 可視化 + LLM プロンプト DB 化 + ファビコン根本対策
+- `2d712ff` feat(admin/cron): プロトコル新旧分離表示 + sync-pj-facts を daily cron 化
+- `b1d9001` fix(slack): 074b の Slack API 呼び出しを form-encoded に変更 (= replies の invalid_arguments 解消)
+- `11599e5` fix(gas/155): protocol 抽出の maxTokens を 4096 に拡張 + migration 052 (source_url 追加)
+- `88cd3a7` fix(gas/155): protocol 抽出を新版に復旧 (= 前セッションの未 commit diff を破棄してしまった事故からターン履歴で復元)
+- main merge: `e71c9a5` → `a5ccda5` → `60ac3a4`
+
+### Slack backfill 真因特定 + 完全動作化
+
+前セッションは「p06 で 27 threads 検出するも saved=0/llm_calls=0」の症状で原因不明のまま。
+本セッションで:
+1. 074b の **可視化改修** (= 各 continue ポイントで items.push、`_meeting_loadSlackThreadReplies_` で例外を握り潰さず error を返す) で「全 9 件が `replies_throw: invalid_arguments`」が即見えた
+2. 真因: `slack_callApi` (= JSON body) で `conversations.replies` の `ts="1777355520.959369"` が precision loss → invalid_arguments
+3. 074b 専用 `_meeting_slack_callForm_` (= form-encoded helper) を新規追加、history / replies 両方ともそちらへ
+4. 加えて `project_meeting_summaries.source_url` 列が DB に無くて upsert err → migration 052 で追加
+5. 動作確認: p06 2026-04 で saved=5 (= "P06 費用削減要望", "CTB 社内フロー", "月末定例", "補助金変更届", "T-CReDO 実地検査免除"), chitchat 1 件 skip
+6. 全 7 PJ × 過去 3 ヶ月 backfill: total_saved=13, llm_calls=17
+
+### ファビコン根本対策 (まさが 7 回シークレットモードで指摘した件)
+
+前セッションは「ブラウザキャッシュ」を仮説にしてハンドオフ。本セッションで:
+1. curl で本番 HTML / icon URL を確認 → 200 OK + valid ICO (16/32/48/256)、HTML link 3 つも入っていた = サーバー側は正しい
+2. **真因 3 つが重なっていた**:
+   - `public/icons/icon-192.png` `/icon-512.png` が **404** (= ディレクトリ自体が無い、manifest 参照 404)
+   - `app/icon.png` が **730×744** (= Chrome favicon の標準上限を大幅超過、`<link sizes="730x744">` が reject される)
+   - `apple-icon.png` も 730×744 (= Apple Touch Icon 標準 180x180 から逸脱)
+   - middleware matcher が `manifest.json` を bypass していなかった → 307 redirect
+3. 対策: `public/icons/` 新規生成 (192/512/同 maskable)、`app/icon.png` 512x512 / `apple-icon.png` 180x180 にリサイズ、middleware に bypass 追加、manifest.json を 4 icon 拡張
+4. 本番 deploy 後 curl 再確認: 全 icon 200 OK、`<link sizes="512x512">` / `sizes="180x180">` に正規化
+
+### gas/155 復旧事故 (= 未 push diff を `git checkout HEAD` で破棄してしまった)
+
+セッション開始時に main repo の working tree に `M gas/155_L2KnowledgeExtractor.js` (= 53+/-15 行 diff) があり、HANDOFF が「未 push commit: なし」と言っていたので「stray 残骸」と判断して `git checkout HEAD --` で破棄。**実態は前セッションが書いて commit/push し忘れた重要修正** (= protocol 普遍化 + examples + `llm_prompts.protocol.extract` 必須化)。
+
+幸いターン履歴に full diff が残っていたので手動 re-apply で復元。加えて opts.maxTokens 2048 → 4096 (= LLM parse failed 3 件救済) と catch エラー message 可視化を上乗せ。
+
+`nav_protocol_pollAll force=true` 再実行: processed=12 / **errors=0** / saved=11 (= p20/p21/p06 から新版 pattern protocols 抽出)。
+
+BUGS.md「未push commit巻き戻り」事故の再発として記録。次セッション以降の防止策: 「未 push commit (commit)」だけでなく「unstaged / untracked (working tree)」も HANDOFF にチェック項目化、worktree 開始時に必ず `git diff` で内容確認してから touch。
+
+### AdminProtocolsClient 新旧分離
+
+候補欄 = `kind='pattern'` のみ (= 新形式 Phase 4 抽出)、「⚠️ 旧形式 (legacy_specific 22 件)」を別セクション collapsed + 一括 archive ボタン。
+今後はまさが「📥 全部 archive」を 1 クリックすれば候補欄から旧 22 件を消せる。新規候補 (11 件) が pattern として立ち上がっており、まさが 4 アクション (✅確定 / 🔄修正依頼 / ❌却下 / 📥archive) で運用可能。
+
+### sync-pj-facts cron 化 + 手動キック
+
+vercel.json に daily 04:00 JST trigger 追加 (`0 19 * * *`)。手動キックで 58 行 synced (= 10 PJ × 約 6 fact)。
+→ まさが /admin/contexts や cockpit で project_ventures の構造化フィールド (設立日 / outcome_pattern / 起源組織 / レーン / AMD 支援開始日・終了日) を見られる。
+
+### migration
+
+| # | 内容 |
+|---|---|
+| 051 | `llm_prompts.meeting_extract.slack` body seed (= 074b の system prompt、AGENTS ルール遵守) |
+| 052 | `project_meeting_summaries.source_url TEXT NULL` (= Slack URL / Drive URL 共通格納用) |
+
+### deploy
+
+- Vercel: `amd-os-gsbv147dp-armada0130` (= 2d712ff 反映)。その後の GAS / migration は PWA 再 deploy 不要
+- 本体 GAS: v1458 → v1459 → v1460 → v1461 (slack form-encoded + protocol 復旧 + maxTokens 4096 = 最終)
+- AMD-Report GAS: 本セッション無変更 (v1455 のまま、R303 修正は次セッション)
+
+### BUGS.md 追記 (3 件)
+
+1. `slack_callApi` JSON 経由で `conversations.replies` が invalid_arguments → form-encoded helper 解決
+2. 未 push diff を `git checkout HEAD` で破棄して新版コードを失う (= 既知 BUG の再発、ターン履歴復元)
+3. ファビコン未反映の真因は manifest icons 404 + PNG サイズ上限超過 + middleware bypass 漏れ (= ブラウザキャッシュではなかった)
+
+### 次セッション最優先
+
+1. R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵)
+2. Drive / Calendar backfill (074c / 074d)
+3. Slack backfill 過去 4-6 ヶ月分 (bash ループで `monthsBack=6` x 4 回)
+4. 旧 22 件 protocols archive (= まさ 1 クリックで完了)
+5. LLM parse 残課題 (入力 16000 字制限を 12000 に下げる検討)

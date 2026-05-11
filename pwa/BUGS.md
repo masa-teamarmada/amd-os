@@ -5,6 +5,55 @@
 
 ---
 
+### [GAS/Slack] `slack_callApi` の `conversations.replies` だけが `invalid_arguments` を返す (= JSON body 経由の ts precision loss)
+- **発見日**: 2026-05-11 (cranky-rhodes-ff4609 セッション)
+- **状態**: ✅ 解決済 (074b 専用 form-encoded helper を追加)
+- **症状**: `nav_meeting_extractSlackThreadsForProjectYm_("p06","202604")` で `threads_found=9` だが、各 thread の `conversations.replies` が `Slack API failed: invalid_arguments` で全件 reject。`conversations.history` は同じ helper で動いている。
+- **真因**: `gas/185_SlackNotify.js` `slack_callApi` は `Content-Type: application/json` + `payload: JSON.stringify(...)` で送る。Slack の `conversations.replies` は `ts="1777355520.959369"` を JSON body で受けると内部 parser が precision を失うことがある (= 多くの公式 Slack SDK が form-encoded を採用している理由)。
+- **解決策**: `gas/074b_MeetingSummarySlack.js` 内に `_meeting_slack_callForm_(path, params)` helper を新規追加。`Content-Type: application/x-www-form-urlencoded` で送る (UrlFetchApp が payload object を form-encode する)。`conversations.history` / `conversations.replies` 両方ともこの helper 経由に切替。既存 `slack_callApi` (= `chat.postMessage` 等で blocks JSON を渡す用途) は影響なし。
+- **教訓**:
+  - **Slack Web API は同じ `slack_callApi` でも endpoint 別に挙動が異なる**。timestamp 系パラメータを含む call は form-encoded がより安全。
+  - 074b の **可視化改修** (= 各 continue ポイントで items.push) のおかげで「全 9 件が `replies_throw: invalid_arguments`」が即見えた。**前セッションは `saved=0/llm_calls=0` だけで原因不明のままだった**。エラーを握り潰さない設計が真因特定の鍵。
+
+---
+
+### [worktree] 未 push diff を `git checkout HEAD` で破棄して新版コードを失う (= 既知 BUG「未push commit巻き戻り」の再発)
+- **発見日**: 2026-05-11 (cranky-rhodes-ff4609 セッション)
+- **状態**: ✅ ターン履歴から復元済 (= gas/155 を手動 re-apply)
+- **症状**: セッション開始時に main repo の working tree に `M gas/155_L2KnowledgeExtractor.js` (53+/-15 行 diff) が残っていた。HANDOFF には「main HEAD: c7e39af、未 push commit: なし」と書かれていたので「stray な diff」と判断し、`git checkout HEAD -- gas/155` で破棄。**実態は前セッションが書いて commit/push し忘れた重要修正** (= protocol 抽出を `llm_prompts.protocol.extract` 必須化、`p4u-` + sha12(title) で普遍化、`kind='pattern'`、`protocol_examples` upsert)。後で main HEAD と worktree の 155 を比較して旧版だと判明、復元。
+- **真因**:
+  - **HANDOFF が嘘ついていた**: 「未 push commit: なし」と書いていたが、untracked / unstaged の **modify** はあった (= commit に含まれてない変更)。HANDOFF テンプレートが「未 push commit (= push されてない git commit)」のみ check していて、「untracked / unstaged な working tree 残骸」をカバーしていなかった。
+  - 私が `git checkout HEAD -- gas/155` を「stray 残骸の解消」として実行した時、何が消えるかを diff で見て判断したが、**ターン履歴に diff が残る** という事実に救われただけ (= 偶然のセーフティネット)。
+- **解決策**:
+  1. HANDOFF テンプレートに **「main repo の `git status -s` で `M` / `??` 出力があるか」を含める** (= unstaged 変更も合わせて出す)
+  2. worktree 開始時に main repo の `git status -s` 出力を必ず確認、`M` があれば内容を **必ず diff で見て stash / commit へ振り分け**、無闇に checkout で破棄しない
+- **教訓**: 「未 push commit を見つけたら勝手に消さない」ルールを **untracked / unstaged にも適用**。`git checkout HEAD -- <path>` は失った変更が復元不能。必ず先に `git stash push -m "rescue from main repo path"` で保全してから検証する。
+
+---
+
+### [pwa] ファビコン未反映の真因は manifest icon 404 + PNG サイズ判定上限超過 (= ブラウザキャッシュではなかった)
+- **発見日**: 2026-05-11 (まさが「シークレットモードで 7 回確認しても見えない」と指摘、cranky-rhodes-ff4609 で根本対策)
+- **状態**: ✅ 解決済
+- **症状**: `app/icon.png` + `apple-icon.png` + `app/favicon.ico` を配置済、本番 HTML にも `<link rel="icon">` が 3 つ生成されていた。curl で取得すると 200 OK + valid ICO (= 16/32/48/256)。それでも Chrome タブ / シークレットモードで favicon が表示されず灰色のまま。前セッションが「ブラウザキャッシュ」を仮説にしていたが、シークレットモード 7 回試行で否定済。
+- **真因 (3 要因が重なっていた)**:
+  1. **`public/icons/icon-192.png` `/icons/icon-512.png` が 404** (= ディレクトリ自体が存在せず)。`public/manifest.json` がこれらを `icons` として参照していたので **PWA installable icon source が全部取れない** → Chrome は「<link rel=icon> の代替候補を探す」モードに入る
+  2. **`app/icon.png` が 730×744** (= Chrome favicon の標準上限 192-512 を大幅に超える)。`<link rel="icon" sizes="730x744" type="image/png">` を Chrome が「unsuitable」判定して reject
+  3. **`apple-icon.png` も 730×744** (= Apple Touch Icon 標準 180x180 から逸脱)
+  4. **`middleware.ts` の matcher が `manifest.json` を bypass していなかった** → `/manifest.json` が auth redirect で 307 を返してた (= PWA install 不可)
+  - つまり「ブラウザに見せる favicon source が **どれも valid なサイズではない**」状態。fallback chain で最終的にデフォルト灰色アイコンが表示されていた。
+- **解決策**:
+  - `public/icons/icon-192.png` (192x192) / `icon-512.png` (512x512) / 同 maskable 版を **新規生成** (PIL で `app/icon.png` を resize)
+  - `src/app/icon.png` を 730×744 → **512×512** にリサイズ (Chrome favicon 標準範囲、PWA installable と兼用)
+  - `src/app/apple-icon.png` を 730×744 → **180×180** にリサイズ (Apple Touch Icon 標準)
+  - `public/manifest.json` を 4 icon (any + maskable) に拡張
+  - `middleware.ts` matcher に `manifest.json` / `.ico` を bypass 追加 → 307 redirect 解消
+- **教訓**:
+  - **curl で 200 が返る ≠ ブラウザが favicon として使う**。Chrome は `<link sizes>` と実体のサイズが合わない / size 上限超過なら表示 reject する。
+  - PWA の `manifest.json` icons は **PWA installable のアプリアイコン source**。これらが 404 だと Chrome 自体の favicon 判定 chain にも影響することがある。
+  - **まさが 7 回も「シークレットでも見えない」と言っているなら、それは事実**。「キャッシュだ」と仮説を立てる前に、まず manifest / 各 PNG のサイズ / middleware bypass を **全部** 確認するべきだった。**前セッションが「キャッシュ仮説」で止まったままハンドオフした** のが根本問題。
+
+---
+
 ### [GAS] SX (p21) 繰り返し MTG で議事録抽出が空になる (Notion AI ページの 3 プロパティ空問題)
 - **発見日**: 2026-05-10 (まさ指摘)、2026-05-11 真因特定 + 大半解決
 - **状態**: ✅ 設計修正完了 (cron self-healing) / 🟡 副次バグ `error_llm` 残課題
