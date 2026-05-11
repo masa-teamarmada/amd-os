@@ -267,14 +267,14 @@ domain D の papers count(t)  =  Σ_p ( papers_p(t) × weight_{p,D} )
 
 #### Phase 2-C: KAKEN ingest (I_R 研究費)
 
-- [`cron/kaken-ingest`](../src/app/api/cron/kaken-ingest/route.ts) ─ 各 ASPI 8 domain × 直近 16 quarter に対し Sonnet 4.5 を呼び出し、KAKEN (科研費) 配分額 (億円) を推定 → `observation_log` (key='I_R', source='kaken') に upsert。raw_meta に grant_count, estimator, quarter を保存。
-- 注: KAKEN 公開 API は限定的なので Phase 2-C 初版は LLM 推定で代替。将来 Phase 2-C2 で `https://kaken.nii.ac.jp/grant/api/v1/search` 直接 fetch を追加可能 (構造はスケルトンに準拠)。
+- [`cron/kaken-ingest`](../src/app/api/cron/kaken-ingest/route.ts) ─ 各 ASPI 8 domain × 直近 16 quarter に対し Sonnet 4.5 + **Anthropic `web_search_20250305` tool (max_uses=3) で KAKEN / JSPS 科研費年次配分統計を 2-3 件 web_search → 桁感を実数値に anchoring** した上で配分額 (億円) を推定 → `observation_log` (key='I_R', source='kaken') に upsert。raw_meta に grant_count, estimator, quarter を保存。
+- 注: KAKEN 公開 API は限定的なので Phase 2-C 初版は **web_search hybrid LLM 推定**で代替 (2026-05-11)。将来 Phase 2-C2 で `https://nrid.nii.ac.jp/opensearch/?format=json&kw=<keyword>` 等の OpenSearch endpoint 直接 fetch を追加可能。
 - cron 登録: weekly (推奨 月曜 04:00 JST)。
 
 #### Phase 2-D: NEDO/JST/AMED ingest (B 公募予算)
 
-- [`cron/grant-ingest`](../src/app/api/cron/grant-ingest/route.ts) ─ 各 ASPI 8 domain × 直近 16 quarter に対し Sonnet 4.5 で NEDO / JST / AMED / SIP / ムーンショット 採択額 (億円) を推定 → `observation_log` (key='B', source='grant') に upsert。raw_meta に adopted_count, agency_mix を保存。
-- HTML scrape は機関ごとに構造異なるため、Phase 2-D 初版は LLM 推定で代替。将来 Phase 2-D2 で各機関の採択リスト scrape を追加。
+- [`cron/grant-ingest`](../src/app/api/cron/grant-ingest/route.ts) ─ 各 ASPI 8 domain × 直近 16 quarter に対し Sonnet 4.5 + **Anthropic `web_search_20250305` tool (max_uses=3) で NEDO / JST / AMED 採択ページを 2-3 件 web_search → 桁感を実数値に anchoring** した上で NEDO / JST / AMED / SIP / ムーンショット 採択額 (億円) を推定 → `observation_log` (key='B', source='grant') に upsert。raw_meta に adopted_count, agency_mix を保存。
+- HTML scrape は機関ごとに構造異なるため、Phase 2-D 初版は **web_search hybrid LLM 推定**で代替 (2026-05-11)。将来 Phase 2-D2 で各機関の採択リスト scrape (cheerio 等) を追加可能。
 - cron 登録: weekly (推奨 月曜 04:15 JST)。
 
 #### Phase 2-E: VC 投資 ingest (V VC 投資)
