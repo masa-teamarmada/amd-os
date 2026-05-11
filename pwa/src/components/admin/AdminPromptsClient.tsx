@@ -15,8 +15,23 @@ export interface PromptRow {
   updatedAt: string;
 }
 
-export function AdminPromptsClient({ prompts: initial }: { prompts: PromptRow[] }) {
+export interface ContextRow {
+  contextId: string;
+  tags: string;
+  priority: number | null;
+  systemPrompt: string;
+  updatedAt: string;
+}
+
+export function AdminPromptsClient({
+  prompts: initial,
+  contexts = [],
+}: {
+  prompts: PromptRow[];
+  contexts?: ContextRow[];
+}) {
   const [rows, setRows] = useState<PromptRow[]>(initial);
+  const [expandedCtx, setExpandedCtx] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<PromptRow>>({});
   const [saving, setSaving] = useState<string | null>(null);
@@ -152,6 +167,54 @@ export function AdminPromptsClient({ prompts: initial }: { prompts: PromptRow[] 
           </div>
         );
       })}
+
+      {/* スプシ由来 (R172_TsukuyomiContextRepo が DB_TsukuyomiContext から同期) の旧プロンプト群 */}
+      {contexts.length > 0 && (
+        <div className="mt-8 pt-6 border-t border-border">
+          <h2 className="text-base font-semibold mb-1">
+            🗂️ スプシ由来つくよみ Context <span className="text-xs text-muted-foreground">({contexts.length} 件)</span>
+          </h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            本体スプシ <code>DB_TsukuyomiContext</code> を R172_TsukuyomiContextRepo が読み込んで同期したプロンプト群。
+            tags 別にグローバル / PJ 固有 system prompt を保持。<strong>正本はスプシ側</strong>のため、編集はスプシで行う。
+          </p>
+          <div className="space-y-2">
+            {contexts.map((c) => {
+              const isOpen = expandedCtx === c.contextId;
+              const preview = (c.systemPrompt || "").slice(0, 140);
+              return (
+                <div key={c.contextId} className="border border-border rounded-lg p-3 bg-background">
+                  <button
+                    onClick={() => setExpandedCtx(isOpen ? null : c.contextId)}
+                    className="w-full text-left"
+                  >
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-[10px] font-mono text-muted-foreground">{isOpen ? "▼" : "▶"}</span>
+                      <code className="text-[11px] font-bold">{c.tags || "(no tag)"}</code>
+                      {c.priority !== null && (
+                        <span className="text-[10px] text-muted-foreground">priority={c.priority}</span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground ml-auto">
+                        {c.updatedAt?.slice(0, 10)}
+                      </span>
+                    </div>
+                    {!isOpen && (
+                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">
+                        {preview}
+                      </p>
+                    )}
+                  </button>
+                  {isOpen && (
+                    <pre className="text-[11px] bg-muted/30 p-2 rounded mt-2 whitespace-pre-wrap max-h-80 overflow-y-auto font-mono">
+                      {c.systemPrompt}
+                    </pre>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
