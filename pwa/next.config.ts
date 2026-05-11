@@ -25,6 +25,15 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // 2026-05-12 まさ要望「雛形そのまま」で /api/admin/pj-introduction-html が
+  // src/lib/exec_summary/*.{html,css} を readFileSync するため、Vercel build 時に
+  // bundle に含めるよう明示する。これが無いと "ENOENT" で route が落ちる。
+  outputFileTracingIncludes: {
+    "/api/admin/pj-introduction-html/route": [
+      "./src/lib/exec_summary/template_section.html",
+      "./src/lib/exec_summary/template.css",
+    ],
+  },
   async headers() {
     return [
       {
