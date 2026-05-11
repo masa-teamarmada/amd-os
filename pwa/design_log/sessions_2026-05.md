@@ -2111,3 +2111,55 @@ main HEAD: 本 commit 後 git log で確認、Vercel deploy 本 PR 反映。
 - <https://amd-os-pwa.vercel.app/atlas/map> で密集解消確認
 - <https://amd-os-pwa.vercel.app/admin/projects> で Lane 列 (将来 lane_suggestion が来れば 💡 ボタン出現)
 - <https://amd-os-pwa.vercel.app/venture-map/amd-score> の AMD Score 詳細 → M カードで観測量 7/7 (cron 1 周回後)
+
+---
+
+## 2026-05-11 (pensive-engelbart-7672ca、続き #2) — Atlas Map 縮尺修正 + cron hybrid mode + GAS trigger
+
+まさからのフィードバック (添付 2 枚比較):
+- 1 枚目 (悪い、現在): engineStop 後の zoomToFit で全体縮小 → 文字密集
+- 2 枚目 (希望): もっとズームイン、ノードが個別に見える状態
+
+直前 Phase 2 commit で zoomToFit padding=80 + zoom 1.0× にしたのが逆効果だった。
+
+### Atlas Map 修正 (atlas/map/page.tsx)
+
+- zoomToFit padding 80→200 (余白少なめで詳細が見える)
+- engineStop 後 setTimeout 450ms → 1.6× ズームイン (2 枚目相当の縮尺)
+- cooldownTicks 320→180 (engine が早く止まる、5 秒後縮小の見え方解消)
+- d3VelocityDecay 0.22→0.28 (動き減衰早く、シミュレーション収束安定)
+
+### Phase 2-C/D: web_search hybrid mode
+
+[kaken-ingest](../src/app/api/cron/kaken-ingest/route.ts) / [grant-ingest](../src/app/api/cron/grant-ingest/route.ts) cron に Anthropic web_search_20250305 tool を追加:
+
+- kaken-ingest: Sonnet が KAKEN / JSPS の公開年次配分統計を 2-3 件 web_search → 桁感を実 web から anchoring
+- grant-ingest: Sonnet が NEDO / JST / AMED 採択ページを 2-3 件 web_search → 同上
+- max_uses=3 で 1 cron 24 search 上限 ($0.24/run、weekly 年 $12 程度)
+
+純 LLM 推定 (knowledge-only) よりも実数値の桁感に揃いやすくなる hybrid。
+
+### GAS 154 に ASPI weekly trigger 関数群
+
+[gas/154_PwaCronCaller.js](../../gas/154_PwaCronCaller.js) に:
+
+- `_nav_pwa_pingPath_(path)` 共通 fetch helper
+- `nav_pwa_pingLaneSuggest` / `pingKakenIngest` / `pingGrantIngest` / `pingVcInvestmentIngest` 4 つ
+- `nav_pwa_pingWeeklyAspiSet1` (lane + kaken)、`Set2` (grant + vc) を直列実行
+- `nav_pwa_setupWeeklyAspiTriggers_` で 毎週月曜 04:00 JST (Set1) + 05:00 JST (Set2) の time-based trigger を 2 個 setup (one-time 呼び出しで完了)
+
+### つまずき
+
+- **clasp invalid_rapt エラー**: `clasp push` で Google OAuth 再認証要求 (`{"error":"invalid_grant","error_description":"reauth related error (invalid_rapt)"}`)。clasp deploy はまさの clasp login やり直しが必要。コード自体は worktree に反映済、まさが `clasp login` → `clasp push --force` → `clasp deploy --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G --description "v1455_aspi_weekly_triggers"` → runFunc 経由で `nav_pwa_setupWeeklyAspiTriggers_` を呼ぶ手順を残し、別セッションで対応。
+
+### 残タスク (本セッション外、scope 上で除外)
+
+- atlas_signals.domain に量子・センシング・通信・AI 新カテゴリ追加 (= atlas-collect-policy / collect の LLM プロンプト改修 + UI domain 色追加 + triple-helix-observations の LANE_DOMAIN_PREFIXES 拡張)。スコープ広いので別セッション。
+- BVAR Kalman filter で μ_A/I/G 隠れ状態推定 (state_space_model.md §10、複雑、別セッション)。
+- Crunchbase 統合 (有償 API、契約後別途)。
+
+### deploy
+
+main HEAD: `409c32d`、Vercel `amd-os-pdg6emk4d-armada0130` (production, 5m23s, Ready)。
+本番 URL: <https://amd-os-pwa.vercel.app/atlas/map> で「2 枚目相当の縮尺」確認可能。
+

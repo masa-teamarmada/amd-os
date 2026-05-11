@@ -15,7 +15,62 @@
 
 ---
 
-## 🎉 直近セッション 2026-05-11 (pensive-engelbart-7672ca) — ASPI 8 domains 完全実装 + Atlas Map 分散化
+## 🎉 直近セッション 2026-05-11 (pensive-engelbart-7672ca、3 回目) — Atlas zoom 修正 + cron hybrid + GAS trigger
+
+直前 Phase 2 commit で Atlas Map の縮尺が間違ってた問題を修正 + 残タスクを並列で進めた。
+
+### Atlas Map 縮尺修正
+
+- zoomToFit padding 80→**200**、engineStop 後に **1.6× ズームイン** (setTimeout 450ms)
+- cooldownTicks 320→180、velocityDecay 0.22→0.28 (5秒後縮小の見え方解消)
+- 結果: 表示時から「ノードが個別に読める」2 枚目相当の縮尺で固定、追加縮小なし
+
+### Phase 2-C/D: web_search hybrid mode
+
+- [`kaken-ingest`](src/app/api/cron/kaken-ingest/route.ts) / [`grant-ingest`](src/app/api/cron/grant-ingest/route.ts) cron に Anthropic web_search_20250305 tool 追加 (Sonnet 4.5、max_uses=3)
+- Sonnet が KAKEN / NEDO / JST / AMED の公開統計を直接 web_search → 桁感を実数値に anchoring
+
+### GAS 154 に ASPI weekly trigger 関数
+
+- [`gas/154_PwaCronCaller.js`](../gas/154_PwaCronCaller.js) に `_nav_pwa_pingPath_` 共通 helper + 4 ping 関数 + 2 まとめ関数 + `nav_pwa_setupWeeklyAspiTriggers_`
+- 毎週月曜 04:00 JST (lane + kaken) / 05:00 JST (grant + vc) で自動キック
+
+### ⚠️ clasp deploy 未完了 (次セッション最優先)
+
+GAS 154 のコードは push 済 (worktree)、ただし `clasp push` で **`invalid_rapt`** (Google OAuth 再認証要求) でエラー。本番 GAS には未反映。
+
+**まさの作業 (次セッションで)**:
+
+```sh
+cd /Users/masa/projects/AMD/amd-os/.claude/worktrees/pensive-engelbart-7672ca/gas
+npx --yes @google/clasp@latest login        # 再認証 (ブラウザで Google ログイン)
+npx --yes @google/clasp@latest push --force
+npx --yes @google/clasp@latest deploy \
+  --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G \
+  --description "v1455_aspi_weekly_triggers"
+
+# trigger setup (one-time、runFunc 経由)
+URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | cut -d= -f2- | tr -d '"')
+KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | cut -d= -f2- | tr -d '"')
+curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_pwa_setupWeeklyAspiTriggers_"
+```
+
+これで毎週月曜 04:00 JST + 05:00 JST に 4 cron が自動キックされる状態になる。
+
+### 残タスク (本セッションでは scope 外、別セッションで)
+
+- **atlas_signals.domain 新カテゴリ追加** (P. 量子、Q. センシング、R. 通信 etc) ─ atlas-collect-policy / collect の LLM プロンプト改修 + UI domain 色追加 + triple-helix-observations の LANE_DOMAIN_PREFIXES 拡張 (R 観測量を量子・センシング系も拾えるように)
+- **BVAR Kalman filter** で μ_A/I/G 隠れ状態推定 (state_space_model.md §10、Python ベース or TS 実装)
+- **Crunchbase 統合** (有償 API、契約後)
+- **KAKEN/NEDO 公式 API/scrape 直接実装** (web_search 経由でなく構造化 fetch、Phase 2-C2/D2)
+
+### deploy
+
+main HEAD: `409c32d`、Vercel `amd-os-pdg6emk4d-armada0130` (production, 5m23s, Ready)。
+
+---
+
+## 旧 (2026-05-11 同日 2 回目) ASPI 8 domains 完全実装 + Atlas Map 分散化
 
 AMD Score マクロトレンド (Triple Helix M カードの 7 観測量) の未抽出 3 つ (B / V / I_R) を取りに行く Phase 2 を **1 セッション内で全部完遂**。Atlas Map の中央密集も同時解消。
 
