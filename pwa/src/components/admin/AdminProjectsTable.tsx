@@ -48,9 +48,13 @@ export interface ProjectRow {
   updated_at: string;
 }
 
-const STATUS_OPTIONS = ["active", "sales", "ended", "frozen", "lost"];
+// 2026-05-11 まさ指摘 9 番: DB に status='draft' の PJ (= p24 CLG) があったが STATUS_OPTIONS に
+// 含まれてなかった。select の value がオプションに無いと React 上で空表示 + 保存時の
+// editVals.status が undefined のまま patch されない事故が起きるため、draft を追加。
+const STATUS_OPTIONS = ["draft", "active", "sales", "ended", "frozen", "lost"];
 
 const STATUS_COLORS: Record<string, string> = {
+  draft: "bg-zinc-300/30 text-zinc-700 border-zinc-300",
   active: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
   sales: "bg-blue-500/10 text-blue-700 border-blue-200",
   ended: "bg-zinc-500/10 text-zinc-500 border-zinc-200",

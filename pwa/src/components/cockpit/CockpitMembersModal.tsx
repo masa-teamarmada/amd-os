@@ -9,7 +9,7 @@
  *   - support_org:  支援機関の人 (大学・研究機関等、自由テキスト)
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   fetchVentureMembers,
   fetchAssignedAmdMembers,
@@ -20,6 +20,26 @@ import {
   type MemberKind,
   type AmdMemberLite,
 } from "@/lib/venture-status-data";
+// 2026-05-11 まさ指摘 1 番: 「創業」ボタン削除 + LLM 抽出創業メンバーを「👥 メンバー」モーダルに統合
+import {
+  fetchFoundingMembers,
+  estimateHrlFromMembers,
+  ROLE_LABEL_JP,
+  CATEGORY_LABEL_JP,
+  CATEGORY_COLOR,
+  type FoundingMemberRow,
+  type FoundingMemberCategory,
+} from "@/lib/founding-members-data";
+
+const FOUNDING_CATEGORY_ORDER: FoundingMemberCategory[] = [
+  "amd",
+  "university",
+  "partner_company",
+  "vc",
+  "government",
+  "individual",
+  "unknown",
+];
 
 const KIND_OPTIONS: { value: MemberKind; label: string }[] = [
   { value: "amd_internal", label: "🌟 内部メンバー (AMD)" },
@@ -63,22 +83,37 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
   const [members, setMembers] = useState<ProjectVentureMember[]>([]);
   const [amdMembers, setAmdMembers] = useState<AmdMemberLite[]>([]);
   const [allCodeNames, setAllCodeNames] = useState<Record<string, string>>({});
+  const [founding, setFounding] = useState<FoundingMemberRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
 
   const reload = async () => {
     setLoading(true);
-    const [m, am, names] = await Promise.all([
+    const [m, am, names, fnd] = await Promise.all([
       fetchVentureMembers(projectId),
       fetchAssignedAmdMembers(projectId),
       fetchAllAmdCodeNames(),
+      fetchFoundingMembers(projectId),
     ]);
     setMembers(m);
     setAmdMembers(am);
     setAllCodeNames(names);
+    setFounding(fnd);
     setLoading(false);
   };
+
+  const foundingGrouped = useMemo(() => {
+    const out = new Map<FoundingMemberCategory, FoundingMemberRow[]>();
+    for (const r of founding) {
+      if (r.status !== "active") continue;
+      if (!out.has(r.category)) out.set(r.category, []);
+      out.get(r.category)!.push(r);
+    }
+    return out;
+  }, [founding]);
+  const foundingTotal = useMemo(() => founding.filter((r) => r.status === "active").length, [founding]);
+  const hrlEst = useMemo(() => estimateHrlFromMembers(founding), [founding]);
 
   useEffect(() => {
     reload();
@@ -339,6 +374,66 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
             >
               + 追加
             </button>
+          )}
+
+          {/* 2026-05-11 まさ指摘 1 番: 旧「🧑‍🤝‍🧑 創業」モーダルの中身を本モーダルに統合。
+              LLM が monthly_reports + meeting_summaries から抽出した創業メンバー全員 (AMD 内外含む) を
+              読み取り専用で表示。手動編集は上の「+ 追加」セクションが正本。 */}
+          {!loading && foundingTotal > 0 && (
+            <div className="mt-5 border-t border-[#e5e5e7] pt-4">
+              <div className="flex items-baseline justify-between mb-2">
+                <h4 className="text-[12px] font-semibold text-slate-700">
+                  🧑‍🤝‍🧑 LLM 抽出 創業メンバー全員 ({foundingTotal} 名)
+                </h4>
+                <span className="text-[9px] italic text-slate-500">monthly_reports + meeting_summaries から抽出 / 毎週月曜 03:30 更新</span>
+              </div>
+
+              <div className="rounded-md border border-amber-300 bg-amber-50/40 px-3 py-2 mb-3">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-amber-900">
+                    HRL 簡易推定 (Phase 1 ルールベース)
+                  </span>
+                  <span className="font-mono text-base font-bold text-amber-900">
+                    {hrlEst.hrl} <span className="text-[10px]">/ 9</span>
+                  </span>
+                </div>
+                <div className="mt-1 text-[10.5px] text-amber-900/80">{hrlEst.rationale}</div>
+              </div>
+
+              {FOUNDING_CATEGORY_ORDER.filter((c) => foundingGrouped.has(c)).map((cat) => {
+                const items = foundingGrouped.get(cat) ?? [];
+                return (
+                  <section key={cat} className="mb-3">
+                    <div className={`inline-block rounded-md px-2 py-0.5 text-[10.5px] font-semibold mb-1.5 ${CATEGORY_COLOR[cat]}`}>
+                      {CATEGORY_LABEL_JP[cat]} ({items.length})
+                    </div>
+                    <ul className="divide-y divide-slate-200 rounded-md border border-slate-200">
+                      {items.map((m) => (
+                        <li key={m.id} className="px-3 py-1.5 text-[11.5px]">
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            <span className="font-semibold">{m.person_name}</span>
+                            {m.affiliation && (
+                              <span className="text-[10px] text-slate-500">{m.affiliation}</span>
+                            )}
+                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] text-slate-700">
+                              {m.role_label_jp ?? ROLE_LABEL_JP[m.role]}
+                            </span>
+                            {m.last_observed_at && (
+                              <span className="ml-auto text-[9px] text-slate-400">{m.last_observed_at}</span>
+                            )}
+                          </div>
+                          {m.responsibility && (
+                            <div className="mt-0.5 text-[10.5px] text-slate-700">
+                              <span className="text-[9px] text-slate-500">担当:</span> {m.responsibility}
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
