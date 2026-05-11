@@ -1,18 +1,22 @@
 /**
- * Triple Helix 観測モデル — 6 観測量 × 3 隠れ状態 (μ_A/I/G) の C 行列計算層。
+ * Triple Helix 観測モデル — 7 観測量 × 3 隠れ状態 (μ_A/I/G) の C 行列計算層。
  *
  * 正本:
  *   - before-zero/theory/state_space_model.md §4.1 (隠れ状態 / 観測量 / C 行列)
  *   - before-zero/theory/data_specification.md §3 (観測量の操作的定義)
  *   - before-zero/theory/bvar_prior.md §3.2 (C 行列 loading prior の数値)
+ *   - pwa/design/aspi_lanes.md (lane = ASPI Critical Technology Tracker 8 domain、weighted 集計)
  *
- * Phase 1 (本実装):
- *   - 観測量 N (論文): papers_log (lane × quarter、OpenAlex 経由) 取得済
- *   - 観測量 P (政策): atlas_signals.domain LIKE 'B.%' で件数集計 (全社共通、lane 区別なし)
- *   - 観測量 R (言及): atlas_signals.status='accepted' の総件数集計
- *   - 観測量 B/V/I_R/C_compete: 未取得 (Phase 2 以降)
+ * Phase 2 (本実装):
+ *   - 観測量 N (論文): papers_log (lane × quarter、OpenAlex 経由) ✅
+ *   - 観測量 P (政策): atlas_signals.source_type='policy' OR domain LIKE 'B.%' で件数集計 ✅
+ *   - 観測量 R (言及): atlas_signals.source_type='news' で lane domain hit のみ ✅
+ *   - 観測量 B (公募予算): observation_log (key='B', source='grant') ✅ Phase 2-D で grant-ingest cron が書き込む
+ *   - 観測量 V (VC 投資): observation_log (key='V', source='vc_news') ✅ Phase 2-E で vc-investment-ingest cron が書き込む
+ *   - 観測量 I_R (研究費): observation_log (key='I_R', source='kaken') ✅ Phase 2-C で kaken-ingest cron が書き込む
+ *   - 観測量 C_compete (競合密度): project_ventures.lanes (weighted) で alive count を按分集計 ✅
  *
- * μ 計算 (Phase 1 簡易版):
+ * μ 計算:
  *   μ_x = Σ_p c_{xp} ỹ_p / Σ_p c_{xp}     (取れてる観測量だけで重み付き平均、結果は 0-9)
  *   ỹ_p = 9 (y_p - min) / (max - min)     (過去 16 quarter で min-max 正規化)
  *
@@ -20,6 +24,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { type AspiDomainId, type LaneWeight, weightForDomain } from "@/lib/aspi-lanes";
 
 export type TripleHelixObservationKey = "P" | "B" | "V" | "R" | "I_R" | "N" | "C_compete";
 
@@ -66,25 +71,25 @@ export interface TripleHelixComputed {
 const QUARTERS_HISTORY = 16; // 直近 4 年分
 
 /**
- * lane → atlas_signals.domain プレフィックスのマッピング (Phase 2-B)。
+ * ASPI 8 domain → atlas_signals.domain プレフィックスのマッピング。
  * lane 個別の P (政策) / R (言及) を集計するため。
  *
- * - gx_energy: D.エネルギー
- * - gx_circular: O.サーキュラーエコノミー
- * - materials: C.素材・原料 + E.製造・プロセス技術
- * - life: F.バイオ・医療
- * - robo: G.モビリティ・ロボティクス + I.ICT・AI
+ * atlas_signals.domain 既存 14 カテゴリ:
+ *   A.地政学・マクロ経済 / B.規制・政策 / C.素材・原料 / D.エネルギー / E.製造・プロセス /
+ *   F.バイオ・医療 / G.モビリティ・ロボティクス / H.建築・インフラ / I.ICT・AI /
+ *   J.宇宙・防衛 / K.食・農・水産 / N.海洋・水資源 / O.サーキュラーエコノミー
  *
- * P は当該 lane domain ヒット OR source_type='policy' OR domain LIKE 'B.%' の OR で集計
- * (政府の政策動向は lane 横断的に μ_G に効くため、lane domain と汎用政策の両方を含める)。
- * R は lane domain ヒットのみ (純粋な lane 個別メディア言及)。
+ * - quantum / sensing_timing_navigation は直接対応する atlas domain がない (将来 atlas domain 拡張で対応)
  */
-const LANE_DOMAIN_PREFIXES: Record<string, string[]> = {
-  gx_energy: ["D."],
-  gx_circular: ["O."],
-  materials: ["C.", "E."],
-  life: ["F."],
-  robo: ["G.", "I."],
+const LANE_DOMAIN_PREFIXES: Record<AspiDomainId, string[]> = {
+  advanced_ict: ["I."], // ICT・AI
+  advanced_materials_manufacturing: ["C.", "E."], // 素材・原料 + 製造・プロセス
+  ai_technologies: ["I."], // ICT・AI (advanced_ict と重複、後で衝突解消は loading で吸収)
+  biotechnology: ["F."], // バイオ・医療
+  defence_space_robotics_transport: ["G.", "J."], // モビリティ・ロボティクス + 宇宙・防衛
+  energy_environment: ["D.", "O.", "N."], // エネルギー + サーキュラー + 海洋・水資源 (波力等)
+  quantum: [], // atlas 該当なし (将来追加)
+  sensing_timing_navigation: [], // atlas 該当なし (将来追加)
 };
 
 // =====================================================================
@@ -138,7 +143,7 @@ function minMaxNormalize(value: number, history: number[]): number {
   if (history.length === 0) return 0;
   const min = Math.min(...history);
   const max = Math.max(...history);
-  if (max === min) return 4.5; // 履歴に変動がない → 中央値
+  if (max === min) return value === 0 ? 0 : 4.5;
   return Math.max(0, Math.min(9, (9 * (value - min)) / (max - min)));
 }
 
@@ -148,6 +153,7 @@ function minMaxNormalize(value: number, history: number[]): number {
 
 export async function fetchTripleHelixComputed(lane: string): Promise<TripleHelixComputed> {
   const supabase = await createClient();
+  const aspiLane = lane as AspiDomainId;
 
   // 1. C 行列 loadings
   const { data: loadingsData } = await supabase
@@ -166,7 +172,7 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
   const { data: papersData } = await supabase
     .from("papers_log")
     .select("observed_at, paper_count")
-    .eq("lane", lane)
+    .eq("lane", aspiLane)
     .gte("observed_at", earliestObservedAt)
     .order("observed_at", { ascending: true });
 
@@ -180,27 +186,22 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
     value: papersByQ.get(q.observedAt) ?? 0,
   }));
 
-  // 3. P (政策密度): atlas_signals.source_type='policy' OR domain LIKE 'B.%' で quarter 集計
-  // 4. R (言及): atlas_signals.source_type='news' で quarter 集計 (純粋なメディア言及)
-  // 注: source_type は policy(125) / news(166) / report(10) など atlas-collect-policy cron で設定
+  // 3. P (政策密度) / 4. R (言及): atlas_signals から quarter 集計
   const { data: atlasData } = await supabase
     .from("atlas_signals")
     .select("submitted_at, domain, source_type")
     .eq("status", "accepted")
     .gte("submitted_at", earliestObservedAt);
 
-  // 5. C_compete (競合密度): project_ventures から lane × quarter で生存中 PJ 数を計算
-  //    操作的定義 (data_specification.md §C):
-  //      C_lane(t) = #{ SU s : lane(s)=lane, alive(s, t) }
-  //    alive 判定: founded_at <= quarter end かつ outcome_pattern NOT IN ('burnout', 'ue_fail')
-  //                またはまだ AMD 支援中 (amd_support_ended_at IS NULL or >= quarter start)
+  // 5. C_compete: project_ventures (全件) を取得して lanes 経由で domain 別 weighted count を計算
   const { data: ventureData } = await supabase
     .from("project_ventures")
-    .select("lane, founded_at, amd_support_started_at, amd_support_ended_at, outcome_pattern")
-    .eq("lane", lane);
+    .select("project_id, lane, lanes, founded_at, amd_support_started_at, amd_support_ended_at, outcome_pattern");
 
   const ventures = (ventureData ?? []) as {
-    lane: string;
+    project_id: string;
+    lane: string | null;
+    lanes: LaneWeight[] | null;
     founded_at: string | null;
     amd_support_started_at: string | null;
     amd_support_ended_at: string | null;
@@ -210,20 +211,24 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
   const cCompeteHistory: ObservationHistoryPoint[] = quarters.map((q) => {
     const qStart = q.observedAt;
     const qEnd = quarterStartDate(q.q === 4 ? q.year + 1 : q.year, q.q === 4 ? 1 : ((q.q + 1) as 1 | 2 | 3 | 4));
-    let count = 0;
+    let weightedCount = 0;
     for (const v of ventures) {
-      // 創業前 (founded_at が null or > quarter end) は除外
       const founded = v.founded_at ?? v.amd_support_started_at;
       if (!founded || founded > qEnd) continue;
-      // 死亡パターン (burnout / ue_fail) の場合、AMD 支援終了以降は除外
       const dead = v.outcome_pattern === "burnout" || v.outcome_pattern === "ue_fail";
       if (dead && v.amd_support_ended_at && v.amd_support_ended_at < qStart) continue;
-      count++;
+      // weighted contribution: 当該 domain への lane weight 分だけカウント
+      const w = weightForDomain(v.lanes, aspiLane);
+      weightedCount += w;
     }
-    return { quarter: q.quarter, observed_at: q.observedAt, value: count };
+    return {
+      quarter: q.quarter,
+      observed_at: q.observedAt,
+      value: Math.round(weightedCount * 100) / 100,
+    };
   });
 
-  const lanePrefixes = LANE_DOMAIN_PREFIXES[lane] ?? [];
+  const lanePrefixes = LANE_DOMAIN_PREFIXES[aspiLane] ?? [];
   const inLane = (domain: string | null): boolean => {
     if (!domain) return false;
     return lanePrefixes.some((p) => domain.startsWith(p));
@@ -234,17 +239,12 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
   for (const r of (atlasData ?? []) as { submitted_at: string | null; domain: string | null; source_type: string | null }[]) {
     if (!r.submitted_at) continue;
     const { observedAt } = dateToQuarterStart(r.submitted_at);
-    // P (政策密度): 政策ドキュメント (source_type='policy') OR 規制 domain (B.*) OR 当該 lane domain
-    //   政府の政策動向は lane 横断的に μ_G に効くため、汎用政策 + lane 個別 政策 の両方をカウント
+    // P (政策密度): 政府の政策動向は lane 横断的に μ_G に効くため、汎用政策をカウント
     const isPolicy = r.source_type === "policy" || (r.domain && r.domain.startsWith("B."));
-    if (isPolicy || inLane(r.domain)) {
-      // ただしニュース/レポートが lane domain にヒットしただけだと「政策」ではない
-      // → policy/B. のときだけ P にカウント。lane domain hit は R 側へ流す
-      if (isPolicy) {
-        pCountByQ.set(observedAt, (pCountByQ.get(observedAt) ?? 0) + 1);
-      }
+    if (isPolicy) {
+      pCountByQ.set(observedAt, (pCountByQ.get(observedAt) ?? 0) + 1);
     }
-    // R (言及): 当該 lane の domain にヒットする news のみカウント (lane 個別メディア言及)
+    // R (言及): 当該 lane の domain にヒットする news のみ
     if (r.source_type === "news" && inLane(r.domain)) {
       rCountByQ.set(observedAt, (rCountByQ.get(observedAt) ?? 0) + 1);
     }
@@ -260,7 +260,36 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
     value: rCountByQ.get(q.observedAt) ?? 0,
   }));
 
-  // 5. 観測量データを組み立て (取れてないものは null)
+  // 6. B / V / I_R: observation_log (Phase 2 で追加された統合観測量テーブル)
+  const { data: obsLogData } = await supabase
+    .from("observation_log")
+    .select("lane, observed_at, observation_key, value")
+    .eq("lane", aspiLane)
+    .in("observation_key", ["B", "V", "I_R"])
+    .gte("observed_at", earliestObservedAt);
+
+  const obsLogByKey = new Map<string, Map<string, number>>(); // key → (observed_at → value)
+  for (const r of (obsLogData ?? []) as { observed_at: string; observation_key: string; value: number }[]) {
+    const m = obsLogByKey.get(r.observation_key) ?? new Map();
+    m.set(r.observed_at, Number(r.value));
+    obsLogByKey.set(r.observation_key, m);
+  }
+
+  const buildObsHistory = (key: string): ObservationHistoryPoint[] | null => {
+    const m = obsLogByKey.get(key);
+    if (!m || m.size === 0) return null;
+    return quarters.map((q) => ({
+      quarter: q.quarter,
+      observed_at: q.observedAt,
+      value: m.get(q.observedAt) ?? 0,
+    }));
+  };
+
+  const bHistory = buildObsHistory("B");
+  const vHistory = buildObsHistory("V");
+  const iRHistory = buildObsHistory("I_R");
+
+  // 7. 観測量データを組み立て (取れてないものは null)
   const buildObs = (key: string, history: ObservationHistoryPoint[] | null): ObservationData => {
     const loading = loadingByObs.get(key);
     if (!loading) {
@@ -315,15 +344,15 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
 
   const observations: ObservationData[] = [
     buildObs("P", pHistory),
-    buildObs("B", null),
-    buildObs("V", null),
+    buildObs("B", bHistory),
+    buildObs("V", vHistory),
     buildObs("R", rHistory),
-    buildObs("I_R", null),
+    buildObs("I_R", iRHistory),
     buildObs("N", nHistory),
     buildObs("C_compete", cCompeteHistory),
   ].sort((a, b) => a.loading.display_order - b.loading.display_order);
 
-  // 6. μ 計算: 取れてる観測量だけで重み付き平均
+  // 8. μ 計算: 取れてる観測量だけで重み付き平均
   let sumA = 0,
     sumI = 0,
     sumG = 0;

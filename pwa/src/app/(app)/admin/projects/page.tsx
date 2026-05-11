@@ -18,6 +18,31 @@ export default async function AdminProjectsPage() {
   const lanesByPj = new Map<string, LaneWeight[] | null>();
   for (const r of pvData ?? []) lanesByPj.set(r.project_id as string, (r.lanes as LaneWeight[] | null) ?? null);
 
+  // lane_suggestions (status='pending') を取得 → PJ ごとに最新 1 件を表示用に渡す
+  const { data: laneSugg } = await supabase
+    .from("lane_suggestions")
+    .select("id, project_id, suggested_lanes, reasoning, model, confidence, status, created_at")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+  const suggestionByPj = new Map<string, {
+    id: string;
+    suggested_lanes: LaneWeight[];
+    reasoning: string | null;
+    confidence: number | null;
+    created_at: string;
+  }>();
+  for (const s of (laneSugg ?? []) as { id: string; project_id: string; suggested_lanes: LaneWeight[]; reasoning: string | null; confidence: number | null; created_at: string }[]) {
+    if (!suggestionByPj.has(s.project_id)) {
+      suggestionByPj.set(s.project_id, {
+        id: s.id,
+        suggested_lanes: s.suggested_lanes,
+        reasoning: s.reasoning,
+        confidence: s.confidence,
+        created_at: s.created_at,
+      });
+    }
+  }
+
   // 全 PJ の メンバー × 役割 を 1 クエリで取って、各 PJ ごとに code_name の配列にまとめる
   const { data: pmData } = await supabase
     .from("project_members")
@@ -66,6 +91,7 @@ export default async function AdminProjectsPage() {
       closers: r.closers,
       pls: r.pls,
       lanes: lanesByPj.get(p.project_id) ?? null,
+      lane_suggestion: suggestionByPj.get(p.project_id) ?? null,
       created_at: p.created_at,
       updated_at: p.updated_at,
     };

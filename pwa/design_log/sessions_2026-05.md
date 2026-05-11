@@ -2058,3 +2058,56 @@ Sonnet 切替後 4/14 で再試行したら **selected page が 1/20 ページ**
 ### deploy
 
 main HEAD: `2ec2bf1`、Vercel deploy `amd-os-ih3ox5156-armada0130` (production, 5m50s, Ready)。
+
+---
+
+## 2026-05-11 (pensive-engelbart-7672ca、続き) — Phase 2 全実装 + Atlas Map 分散化
+
+まさ「Phase 2-A/B/C/D/E を一気に全部、+ Atlas Map の中央密集を分散させて」を受けて 1 セッション内で完遂。
+
+### Atlas Map 分散化 ([atlas/map/page.tsx](../src/app/(app)/atlas/map/page.tsx))
+
+- d3 force `charge` strength: -450 → **-1800** (反発 4 倍)
+- d3 force `link` distance: 140 → **280** (リンク間距離 2 倍)
+- d3 force `center` strength: 0 → 0.02 (中心への弱い引力で外周飛び抜け防止)
+- 自前 `collide` force 追加 (minDist=32px、半径ベースで衝突回避)
+- 孤立ノードの中央引力: 0.04 → 0.012 (3 倍弱める = 広がりやすく)
+- `cooldownTicks` 120 → 320 (シミュレーション収束まで長く)
+- `d3VelocityDecay` 0.3 → 0.22 (動きやすく)
+- engineStop 時の `zoomToFit` 倍率: 2.6× → 1.0× (= padding 80px で全体収め、過剰拡大しない)
+- link 数削減: `MIN_OVERLAP` 2 → 3 / `TOP_K` 3 → 2 (link 数を半分以下に、密集解消)
+
+### Phase 2-A: 既存 cron / lib を ASPI 8 domain 対応
+
+- `aspi-lanes.ts` に helper 群追加 (LEGACY_LANE_TO_ASPI / dominantDomain / weightForDomain) + OPENALEX_QUERY_BY_DOMAIN / KAKEN_KEYWORDS_BY_DOMAIN / GRANT_KEYWORDS_BY_DOMAIN
+- migration 042: papers_log + macro_index_log を旧 5 lane → ASPI 8 domain に rewrite、macro_lane_weights を 8 domain で再 seed、observation_log + lane_suggestions 新規、triple_helix_loading.available を B/V/I_R 全 TRUE
+- papers-quarterly-ingest cron を ASPI 8 domain × OpenAlex キーワードに置換
+- triple-helix-observations.ts を ASPI domain 受け取り + lanes JSONB weighted C_compete + observation_log (B/V/I_R) 読込みに改修
+- relearn-lane-weights / macro-backfill-historical の LANES と Sonnet プロンプトを 8 domain 対応
+
+### Phase 2-B/C/D/E: 新 cron 4 つ + admin UI
+
+- `cron/lane-suggest`: PJ.lanes IS NULL の PJ に Sonnet で ASPI lane を推定 → lane_suggestions に pending 保存 → l2_notifications で通知
+- `cron/kaken-ingest`: 各 ASPI domain × quarter で KAKEN 配分額を Sonnet 推定 → observation_log (key=I_R)
+- `cron/grant-ingest`: NEDO/JST/AMED/SIP 採択額を Sonnet 推定 → observation_log (key=B)
+- `cron/vc-investment-ingest`: vc_news を context に Sonnet で VC 投資総額推定 → observation_log (key=V)
+- `admin/projects` の Lane 列に LLM 提案 candidate UI (💡 + badges + reasoning + 採用/却下 ボタン)
+
+### 観測モデル M カード のカバレッジ
+
+修正前: 4/7 (N/P/R/C_compete のみ)
+修正後: **7/7** (B/V/I_R が cron 走れば順次埋まる)
+
+### つまずきと教訓
+
+- **client component が server-only モジュールを import すると build error**: 前 commit 同様、aspi-lanes.ts はそもそも client/server 両用で書いた (server deps 持たない) ので無事
+- **macro_index_log の UNIQUE 制約衝突**: gx_energy + gx_circular → energy_environment の単純 UPDATE は (lane, observed_at) 重複でこける → 先に合算 INSERT + DELETE のパターンに変えた (papers_log と同じ手順)
+- **作業範囲広いとき完全に動くスケルトンで終わらせる**: KAKEN 公開 API は限定的・NEDO/JST scrape は機関別に難しい → 当面 LLM 推定で動く形に。将来 Phase 2-C2/D2 で実 API/scrape を追加できる構造を保つ
+
+### deploy
+
+main HEAD: 本 commit 後 git log で確認、Vercel deploy 本 PR 反映。
+本番 URL:
+- <https://amd-os-pwa.vercel.app/atlas/map> で密集解消確認
+- <https://amd-os-pwa.vercel.app/admin/projects> で Lane 列 (将来 lane_suggestion が来れば 💡 ボタン出現)
+- <https://amd-os-pwa.vercel.app/venture-map/amd-score> の AMD Score 詳細 → M カードで観測量 7/7 (cron 1 周回後)

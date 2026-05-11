@@ -15,7 +15,74 @@
 
 ---
 
-## 🎉 直近セッション 2026-05-11 (pensive-engelbart-7672ca) — ASPI 8 domains lane 移行 Phase 1
+## 🎉 直近セッション 2026-05-11 (pensive-engelbart-7672ca) — ASPI 8 domains 完全実装 + Atlas Map 分散化
+
+AMD Score マクロトレンド (Triple Helix M カードの 7 観測量) の未抽出 3 つ (B / V / I_R) を取りに行く Phase 2 を **1 セッション内で全部完遂**。Atlas Map の中央密集も同時解消。
+
+### Atlas Map 分散化 ([atlas/map/page.tsx](src/app/(app)/atlas/map/page.tsx))
+
+- charge -450→-1800、link distance 140→280、cooldown 120→320、velocityDecay 0.3→0.22
+- 自前 collision force 追加 (32px minDist)、孤立ノード引力 0.04→0.012
+- MIN_OVERLAP 2→3 + TOP_K 3→2 で link 数を半減
+- 結果: 中央密集解消、全体が散らばって読めるレイアウトに
+
+### Phase 2-A: cron / lib を ASPI 8 domain 対応
+
+| ファイル | 変更 |
+|---|---|
+| migration 042 | papers_log + macro_index_log を旧 5 lane → ASPI 8 domain に rewrite、macro_lane_weights を 8 domain で再 seed、observation_log + lane_suggestions 新規、triple_helix_loading.available B/V/I_R 全 TRUE |
+| aspi-lanes.ts | helper (LEGACY_LANE_TO_ASPI / dominantDomain / weightForDomain) + キーワード集 (OPENALEX / KAKEN / GRANT) |
+| papers-quarterly-ingest | ASPI 8 domain × OpenAlex キーワードで fetch |
+| triple-helix-observations.ts | lane=AspiDomainId / lanes JSONB weighted C_compete / observation_log (B/V/I_R) 読込み |
+| relearn-lane-weights / macro-backfill-historical | LANES と Sonnet プロンプトを 8 domain × 日本政策コンテキストに更新 |
+
+### Phase 2-B/C/D/E: 新規 cron 4 つ + admin UI
+
+- **lane-suggest cron**: PJ.lanes IS NULL の PJ を Sonnet で推定 → lane_suggestions テーブル + 通知
+- **kaken-ingest cron**: KAKEN (科研費) 配分額を Sonnet 推定 (公開 API 限定的なので LLM 駆動) → observation_log (key=I_R)
+- **grant-ingest cron**: NEDO/JST/AMED 採択額を Sonnet 推定 → observation_log (key=B)
+- **vc-investment-ingest cron**: vc_news を context に Sonnet で VC 投資総額推定 → observation_log (key=V)
+- **admin/projects 承認 UI**: Lane セル内に「💡 LLM 提案 + 採用/却下 ボタン」表示、採用で project_ventures.lanes に書き戻し
+
+### 観測量カバレッジ — 7/7 完備
+
+| 観測量 | データソース | 状態 |
+|---|---|---|
+| N (論文) | OpenAlex → papers_log | ✅ |
+| P (政策) | atlas_signals | ✅ |
+| R (言及) | atlas_signals (lane atlas prefix hit) | ✅ |
+| C_compete (競合) | project_ventures.lanes weighted | ✅ |
+| **B (予算)** | observation_log (key=B, source=grant) ← Phase 2-D | ✅ **新規** |
+| **V (VC)** | observation_log (key=V, source=vc_news) ← Phase 2-E | ✅ **新規** |
+| **I_R (研究費)** | observation_log (key=I_R, source=kaken) ← Phase 2-C | ✅ **新規** |
+
+### cron 起動 (次セッション or 手動キック)
+
+新 4 cron は Vercel Hobby 制約のため当面手動キック (curl):
+
+```sh
+URL="https://amd-os-pwa.vercel.app"
+SECRET=$(grep '^CRON_SECRET=' pwa/.env.local | sed 's/^CRON_SECRET=//' | tr -d '"')
+curl -sL "$URL/api/cron/kaken-ingest" -H "Authorization: Bearer $SECRET" | jq
+curl -sL "$URL/api/cron/grant-ingest" -H "Authorization: Bearer $SECRET" | jq
+curl -sL "$URL/api/cron/vc-investment-ingest" -H "Authorization: Bearer $SECRET" | jq
+curl -sL "$URL/api/cron/lane-suggest" -H "Authorization: Bearer $SECRET" | jq
+```
+
+または本体 GAS の 154_PwaCronCaller.js に新 trigger 追加 (別セッション)。
+
+### 残タスク (Phase 3)
+
+- cron 4 つを GAS trigger に登録 (or Vercel Pro 移行 + vercel.json 更新)
+- KAKEN 公式 API (`kaken.nii.ac.jp/grant/api/v1/...`) 直接 fetch への移行 (Phase 2-C2)
+- NEDO / JST / AMED 採択リスト HTML scrape (Phase 2-D2)
+- Crunchbase API 統合 (有償、Phase 2-E2)
+- BVAR Kalman filter で μ_A/I/G 隠れ状態推定 (Phase 3、state_space_model.md §10 参照)
+- atlas_signals.domain に量子・センシング系の新 domain 追加 (advanced_ict / quantum / sensing_timing_navigation の atlas 集計復活)
+
+---
+
+## 旧 (2026-05-11 同日 1 回目) ASPI 8 domains lane 移行 Phase 1
 
 AMD Score マクロトレンド (Triple Helix M カードの 7 観測量) の未抽出 3 つ (B / V / I_R) を取りに行く前段として、**lane 分類体系を AMD 都合の旧 5 lane から論文・国際統計世界の標準 (ASPI Critical Technology Tracker 8 domains) に揃えた**。
 

@@ -204,18 +204,47 @@ export default function AtlasMapPage() {
       data.nodes.forEach((node) => {
         if (linkedIds.has(node.id)) return;
         const m = node as unknown as { x: number; y: number; vx: number; vy: number };
-        m.vx -= m.x * 0.04 * alpha;
-        m.vy -= m.y * 0.04 * alpha;
+        m.vx -= m.x * 0.012 * alpha;
+        m.vy -= m.y * 0.012 * alpha;
       });
+    };
+
+    // 衝突回避: ノードがお互い重ならないよう最小距離を確保する
+    // 円ノード半径の最大値 ≒ √(val=24)*1.6 ≒ 8 → さらにラベル余白を見て 28 で離す
+    const collisionForce = (alpha: number) => {
+      const nodes = data.nodes as unknown as { x: number; y: number; vx: number; vy: number }[];
+      const minDist = 32;
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i];
+          const b = nodes[j];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < minDist * minDist && d2 > 0.0001) {
+            const d = Math.sqrt(d2);
+            const overlap = (minDist - d) * 0.5 * alpha;
+            const ux = dx / d;
+            const uy = dy / d;
+            a.vx -= ux * overlap;
+            a.vy -= uy * overlap;
+            b.vx += ux * overlap;
+            b.vy += uy * overlap;
+          }
+        }
+      }
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fg = fgRef.current as any;
     fg.d3Force("isolatedCenter", isolatedCenterForce);
-    // ノード同士の反発を強めて団子状態を解消
-    if (fg.d3Force("charge")) fg.d3Force("charge").strength(-450);
-    // リンク距離を広げてノード間に余白を作る
-    if (fg.d3Force("link")) fg.d3Force("link").distance(140);
+    fg.d3Force("collide", collisionForce);
+    // ノード同士の反発を大幅に強めて団子状態を解消 (-450 → -1800)
+    if (fg.d3Force("charge")) fg.d3Force("charge").strength(-1800);
+    // リンク距離を広げてノード間に余白を確保 (140 → 280)
+    if (fg.d3Force("link")) fg.d3Force("link").distance(280);
+    // 中央への弱い重力を 0 にして外側へ広がりやすく
+    if (fg.d3Force("center")) fg.d3Force("center").strength(0.02);
     fg.d3ReheatSimulation();
   }, [data]);
 
@@ -224,10 +253,9 @@ export default function AtlasMapPage() {
     didInitialFitRef.current = true;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fg = fgRef.current as any;
-    // まず padding 0 で全ノードを画面いっぱいに収め、その後 2.6倍に拡大
-    fg.zoomToFit(0, 0);
-    const z0 = fg.zoom();
-    fg.zoom(z0 * 2.6, 600);
+    // まず padding 80 で全ノードを画面に収める。zoom はそのまま (= 拡大しすぎない)
+    // 旧: 2.6 倍ズームで密集を更に強調していたが、まさ要望で「分散させて見やすく」を優先
+    fg.zoomToFit(600, 80);
     fg.centerAt(0, 0, 600);
   };
 
@@ -434,8 +462,8 @@ export default function AtlasMapPage() {
             }}
             linkColor={() => "rgba(120,120,120,0.22)"}
             linkWidth={(l: GLink) => 0.4 + Math.min(2.4, (l.weight || 1) * 0.4)}
-            cooldownTicks={120}
-            d3VelocityDecay={0.3}
+            cooldownTicks={320}
+            d3VelocityDecay={0.22}
             autoPauseRedraw={false}
             onEngineStop={handleEngineStop}
             onNodeClick={(node: GNode) => {
@@ -688,11 +716,13 @@ function buildGraph(
     };
   });
 
-  // ストーリー間: 共通タグ ≥2 のペアにエッジ。各ストーリーから類似度上位3件まで
+  // ストーリー間: 共通タグ ≥3 のペアにエッジ。各ストーリーから類似度上位 2 件まで
+  // 旧: MIN_OVERLAP=2, TOP_K=3 では link 数が 300+ になって中央に密集していたため、
+  // まさ要望「分散させて見やすく」を反映して link 数を半減 (2026-05-11)
   const links: GLink[] = [];
   const seen = new Set<string>();
-  const MIN_OVERLAP = 2;
-  const TOP_K = 3;
+  const MIN_OVERLAP = 3;
+  const TOP_K = 2;
   filtered.forEach((st) => {
     const myTags = tagSets.get(st.id)!;
     const candidates: { id: string; overlap: number }[] = [];
