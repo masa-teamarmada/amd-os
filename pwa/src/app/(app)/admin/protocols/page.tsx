@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "AMD Protocol" };
+
 import { createClient } from "@/lib/supabase/server";
 import { AdminProtocolsClient } from "@/components/admin/AdminProtocolsClient";
 

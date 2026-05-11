@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "LLM プロンプト" };
+
 import { createClient } from "@/lib/supabase/server";
 import { AdminPromptsClient } from "@/components/admin/AdminPromptsClient";
 
