@@ -88,15 +88,18 @@
 
 **まさへの伝達**: 「Drive Excel から拾う仕組みは今まで未実装、コードが旧設計 (手動入力) のままだった。次セッションで cron を新規実装する」
 
-### B. まさ指摘 6: Drive / Calendar backfill (074c / 074d) 新規
+### B. まさ指摘 6: 5 生データ全種類の backfill 完成 (= Gmail / Drive / Calendar / Notion alias)
+
+★ 2026-05-11 まさ追加指摘: 「生データは **5 種類** (Gmail / Drive / Calendar / Slack / Notion)」を絶対忘れない。Slack だけ着手して Drive/Calendar/Gmail を忘れる事故をしない。詳細は [`design/L2_DATA.md`](design/L2_DATA.md) 冒頭の絶対ルール参照。
 
 `gas/074b_MeetingSummarySlack.js` と同じパターンで:
-- `gas/074c_MeetingSummaryDrive.js`: PJ Drive folder の議事録系 (Docs / Slides) ファイル名 / 本文 → meeting summary
-- `gas/074d_MeetingSummaryCalendar.js`: Calendar event description + attendees + 紐付く Notion AI ページ
-- Notion alias resolver 強化 (`_meeting_resolveProjectIdFromPage_` の alias map 拡張)
-- system prompt は `llm_prompts.meeting_extract.drive` / `meeting_extract.calendar` として migration で seed (AGENTS ルール)
+- `gas/074c_MeetingSummaryDrive.js`: PJ Drive folder の議事録系 (Docs / Slides / .gdoc) ファイル名 / 本文 → meeting summary (= ★ A の Excel 試算表 cron とは別)
+- `gas/074d_MeetingSummaryCalendar.js`: Calendar event description + attendees + 紐付く Notion AI ページの再 backfill
+- `gas/074e_MeetingSummaryGmail.js`: ★ **Gmail backfill (= まさ追加指摘で気づいた漏れ)**。日次レポート用 R307 はあるが、議事録メール (件名「議事録」「Meeting Notes」「打ち合わせ」等) を meeting summary として抽出する backfill 関数が無い → 074b と同じ pattern で実装
+- Notion alias resolver 強化 (= `_meeting_resolveProjectIdFromPage_` の alias map を `members.member_name` + 外部 alias 表から動的拡張)
+- 各 system prompt は `llm_prompts.meeting_extract.drive` / `.calendar` / `.gmail` として migration で seed (AGENTS ルール)
 
-A と B は別 cron (= A: Drive Excel → P&L 数値抽出、B: Drive Docs / Calendar → meeting summary 文章抽出)。
+A と B は別 cron (= A: Drive Excel → P&L 数値抽出、B: 5 生データから meeting summary 文章抽出)。
 
 ### C. まさ指摘 4: FRL grit / resilience LLM 抽出 cron 新規
 
