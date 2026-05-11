@@ -127,10 +127,15 @@ function slugify(s: string): string {
  * 出たので廃止。雛形ファイル src/lib/exec_summary/template_section.html を変更
  * したら、ここの literal も同期する。
  */
-function renderSection(idx: number, total: number, pj: PjData, projectId: string): string {
+function renderSection(idx: number, total: number, pj: PjData, projectId: string, origin: string): string {
   const seq = String(idx).padStart(2, "0");
   const totalStr = String(total).padStart(2, "0");
   const slug = slugify(pj.chip);
+  // 2026-05-12 まさ指摘「ロゴ + ロゴタイプが出てない」:
+  // 旧は `/AMD_logo_mark.png` 相対 URL、ダウンロード HTML を file:// で開くと 404。
+  // 本番の絶対 URL にして、どこで開いても CDN から fetch できるようにする。
+  const logoMark = `${origin}/AMD_logo_mark.png`;
+  const logoType = `${origin}/AMD_logotype.png`;
 
   const stagesHtml = (pj.stages || [])
     .slice(0, 4)
@@ -186,8 +191,8 @@ function renderSection(idx: number, total: number, pj: PjData, projectId: string
   return `<section class="page page--${slug}" data-screen-label="${seq} ${escAttr(pj.chip)}" data-pj-id="${escAttr(projectId)}">
     <header class="hdr">
       <div class="armada-mark">
-        <img class="armada-logo-img" src="/AMD_logo_mark.png" alt="Team ARMADA">
-        <img class="armada-typo-img" src="/AMD_logotype.png" alt="team ARMADA">
+        <img class="armada-logo-img" src="${logoMark}" alt="Team ARMADA">
+        <img class="armada-typo-img" src="${logoType}" alt="team ARMADA">
       </div>
       <div class="hdr-mid">DeepTech Portfolio  /  <b>Team ARMADA が経営・創出に関わる${total}社</b></div>
       <div class="page-tag">
@@ -455,8 +460,15 @@ export async function POST(req: NextRequest) {
     })
   );
 
+  // 絶対 URL の origin を req から取り出す (= ダウンロード HTML を file:// で開いても画像が読める)
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (req.headers.get("x-forwarded-proto") && req.headers.get("x-forwarded-host")
+      ? `${req.headers.get("x-forwarded-proto")}://${req.headers.get("x-forwarded-host")}`
+      : "https://amd-os-pwa.vercel.app");
+
   const pages = dataByIdx
-    .map((d, i) => renderSection(i + 1, total, d, ordered[i].project_id))
+    .map((d, i) => renderSection(i + 1, total, d, ordered[i].project_id, origin))
     .join("\n");
 
   const html = `<!DOCTYPE html>

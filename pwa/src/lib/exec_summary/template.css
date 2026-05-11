@@ -6,6 +6,12 @@
     --rule: #c9ccd1;
     --rule-soft: #e3e5e9;
     --paper: #ffffff;
+    /* 2026-05-12 まさ指摘「development stage の色が出ていない」: 雛形ブラウザレンダ時は
+       PJ ごと `.page--xxx` 内で --c-primary/--c-secondary を定義していたが、その scope
+       は抽出時に失われていた。デフォルトを AMD ロゴ青系で :root に定義して全 PJ 共通に。
+       PJ ごとに色を変えたければ後段で .page--{slug} を別途定義する。 */
+    --c-primary: #1d6eed;
+    --c-secondary: #f59e0b;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
