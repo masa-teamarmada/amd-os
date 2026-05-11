@@ -106,10 +106,20 @@ function loadPersisted(projectId: string | null): PersistedChat | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed.sessionId || !Array.isArray(parsed.messages)) return null;
+    // ★ 1 時間以上前の chat は「残骸」なので破棄 (まさ要望 2026-05-11)。
+    //   appliedSummary も同じく古ければ表示しない。
+    if (parsed.updatedAt) {
+      const ageMs = Date.now() - new Date(parsed.updatedAt).getTime();
+      if (Number.isFinite(ageMs) && ageMs > 60 * 60 * 1000) {
+        window.localStorage.removeItem(lsKey(projectId));
+        return null;
+      }
+    }
     return {
       sessionId: parsed.sessionId,
       messages: parsed.messages,
-      appliedSummary: Array.isArray(parsed.appliedSummary) ? parsed.appliedSummary : [],
+      // appliedSummary は drawer を 1 度閉じたら復元しない (= 残骸を見せない)
+      appliedSummary: [],
       updatedAt: parsed.updatedAt ?? "",
     };
   } catch {
