@@ -34,10 +34,16 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
 ├── [B2]  CockpitNextPeriodSetup      次期 MS 設定バナー
 ├── [B3]  過去の期間 (折りたたみ)
 ├── [C]   CockpitKanbanGas            TODO カンバン
+├── [G0]  CockpitFreezeBackfill   ⭐  休止期間サマリ (再開予定月以降のみ表示)
 ├── [G/E] CockpitMonthlyList + CockpitMeetingSummary  月次カード + MTG サマリ
-└── [Right] CockpitRoutineGas (active/sales のみ) + CockpitNudge
+└── [Right] CockpitRoutineGas (active/sales のみ、canEditRoutine=false なら閲覧のみ) + CockpitNudge
                                   ※ ended/lost/frozen の PJ では Routine 非表示
 ```
+
+★ 2026-05-11 追加:
+- **CockpitFreezeBackfill**: `freeze_period_backfills` テーブルから `(project_id, freeze_from_ym, restart_ym)` を fetch、再開月以降に「📦 休止期間サマリ」パネルを MTGサマリの直上に表示。データソースは `cron/freeze-period-backfill` が休止期間中の monthly_reports + project_meeting_summaries を Sonnet で 400-700 字に統合
+- **canEditRoutine prop** (= members.is_admin OR project_members.is_pm): false なら CockpitRoutineGas を `pointer-events-none opacity-60` で読取専用に。一般メンバーが月次ルーティンを誤操作しないようガード
+- **タブタイトル動的化**: `/project/[projectId]/layout.tsx` の generateMetadata が `projects.project_name` → `project_ventures.display_name` 順で fallback して `<PJ名> - AMD OS` を返す
 
 ### 今期MSの表示対象
 
