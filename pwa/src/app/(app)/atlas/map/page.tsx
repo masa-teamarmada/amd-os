@@ -179,14 +179,14 @@ export default function AtlasMapPage() {
     fgRef.current.zoom(2.5, 600);
   };
 
-  // 完全均一分散化 (2026-05-11 4 ラウンド目):
-  //   旧アプローチ (中央 isolatedCenter force + zoom × 1.6 + setTimeout) は
-  //   中央密集 + 外周ドーナツ + 5 秒後に追加縮小、の典型症状を出した。
-  //   今回は radial domain force にして、各 domain key を角度で割り振り
-  //   一定半径 RADIUS の円周上に「自分の domain の方角」へ引っ張る。
-  //   初期座標もその角度配置にして、エネルギー注入時から既に散らばってる状態にする。
-  // 初回マウント後の1回だけ zoomToFit する。
-  const didInitialFitRef = useRef(false);
+  // 完全均一分散化 (2026-05-11 5 ラウンド目 — 4 ラウンドかけても直らないため圧倒的に拡大):
+  //   ★ 5 秒後の縮小現象 = engineStop 時に zoomToFit が走るのが原因 → zoomToFit を完全に撤廃
+  //   ★ 中央密集 = ForceGraph2D が内部で勝手に x=0,y=0 周辺に初期座標を割り当ててる
+  //       → useEffect で **常に上書き** (= 既に座標があっても初期化、pin 以外)
+  //   ★ ノード間距離が変わらない = 力場の絶対値が小さすぎた
+  //       → RADIUS 600→2400, collide 80→220, charge -4000→-18000, link 450→1200
+  //       → velocityDecay 0.25→0.18 (動き止まりにくく)
+  //       → cooldownTime 3000→8000 (8 秒は force 動かす)
 
   useEffect(() => {
     if (!fgRef.current || data.nodes.length === 0) return;
@@ -204,26 +204,30 @@ export default function AtlasMapPage() {
         (i / Math.max(1, uniqueDomains.length)) * 2 * Math.PI
       );
     });
-    const RADIUS = 600;
+    const RADIUS = 2400; // 旧 600 → 4 倍
 
-    // 初期座標: 未配置ノード (x/y undefined) に対して domain 角度上に散らす。
-    // ジッタを入れて中央に重ならないようにする。
+    // 初期座標を **常に上書き** (= ForceGraph2D が割り当てた x=0 付近をリセット)。
+    // ただし、ユーザーがドラッグで pin したノード (fx/fy 持ち) は触らない。
     for (const node of data.nodes) {
       const m = node as unknown as {
         x?: number;
         y?: number;
+        fx?: number | null;
+        fy?: number | null;
         story: StoryWithSignals;
       };
-      if (typeof m.x === "number" && typeof m.y === "number") continue;
+      if (m.fx != null && m.fy != null) continue; // pin は尊重
       const dk = domainKey(m.story.primary_domain) ?? "_";
       const ang = domainAngles.get(dk) ?? 0;
-      const r = RADIUS + (Math.random() - 0.5) * 200;
-      m.x = Math.cos(ang) * r + (Math.random() - 0.5) * 100;
-      m.y = Math.sin(ang) * r + (Math.random() - 0.5) * 100;
+      // 半径方向にもジッタを入れて (RADIUS ± 600)、円周上の薄い帯にしない
+      const r = RADIUS + (Math.random() - 0.5) * 1200;
+      // 角度方向にもジッタ (±15°) で同 domain 内も完全均一にしない
+      const angJitter = ang + (Math.random() - 0.5) * (Math.PI / 12);
+      m.x = Math.cos(angJitter) * r;
+      m.y = Math.sin(angJitter) * r;
     }
 
-    // Radial domain force: 各ノードを「自 domain の角度 × 半径 RADIUS」に弱く引っ張る。
-    // これで domain ごとにクラスタが分かれる + 中央密集が起きない。
+    // Radial domain force: 各ノードを「自 domain の角度 × 半径 RADIUS」に強めに引っ張る。
     const radialDomainForce = (alpha: number) => {
       for (const node of data.nodes as unknown as {
         x: number;
@@ -236,15 +240,15 @@ export default function AtlasMapPage() {
         const ang = domainAngles.get(dk) ?? 0;
         const tx = Math.cos(ang) * RADIUS;
         const ty = Math.sin(ang) * RADIUS;
-        node.vx += (tx - node.x) * 0.05 * alpha;
-        node.vy += (ty - node.y) * 0.05 * alpha;
+        node.vx += (tx - node.x) * 0.08 * alpha; // 旧 0.05 → 0.08
+        node.vy += (ty - node.y) * 0.08 * alpha;
       }
     };
 
-    // Collision: ラベルが重ならない最小距離 80 まで拡大 (旧 32)。
+    // Collision: 最小距離 220 (旧 80 の約 3 倍) でラベル重なりを完全に防ぐ。
     const collisionForce = (alpha: number) => {
       const nodes = data.nodes as unknown as { x: number; y: number; vx: number; vy: number }[];
-      const minDist = 80;
+      const minDist = 220;
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const a = nodes[i];
@@ -268,27 +272,22 @@ export default function AtlasMapPage() {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fg = fgRef.current as any;
-    // 旧 isolatedCenter は撤去
+    // 旧 force は全部 null
     fg.d3Force("isolatedCenter", null);
+    fg.d3Force("center", null); // ForceGraph2D の default center force を完全に撤去
     fg.d3Force("radialDomain", radialDomainForce);
     fg.d3Force("collide", collisionForce);
-    // 反発を更に強める (-1800 → -4000)
-    if (fg.d3Force("charge")) fg.d3Force("charge").strength(-4000);
-    // リンク距離も拡大 (280 → 450)
-    if (fg.d3Force("link")) fg.d3Force("link").distance(450);
-    // 中央への重力は 0 (radial で位置決めしてる)
-    if (fg.d3Force("center")) fg.d3Force("center").strength(0);
+    // 反発を圧倒的に強める (-4000 → -18000)
+    if (fg.d3Force("charge")) fg.d3Force("charge").strength(-18000);
+    // リンク距離も圧倒的に拡大 (450 → 1200)
+    if (fg.d3Force("link")) fg.d3Force("link").distance(1200);
     fg.d3ReheatSimulation();
   }, [data]);
 
+  // 「5 秒後に縮小」現象を根絶するため、engineStop ハンドラを完全に空にする。
+  // (= zoomToFit を呼ばない = 自動の zoom 補正なし = ユーザーは初期 zoom のまま見る)
   const handleEngineStop = () => {
-    if (!fgRef.current || didInitialFitRef.current || data.nodes.length === 0) return;
-    didInitialFitRef.current = true;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fg = fgRef.current as any;
-    // 「5 秒後に縮小」現象の元凶だった zoom × 1.6 setTimeout は撤廃。
-    // zoomToFit (padding 120) だけにして、追加の倍率変更は一切しない。
-    fg.zoomToFit(400, 120);
+    // intentionally empty — see comment above.
   };
 
   return (
@@ -494,8 +493,9 @@ export default function AtlasMapPage() {
             }}
             linkColor={() => "rgba(120,120,120,0.22)"}
             linkWidth={(l: GLink) => 0.4 + Math.min(2.4, (l.weight || 1) * 0.4)}
-            cooldownTime={3000}
-            d3VelocityDecay={0.25}
+            cooldownTime={8000}
+            d3VelocityDecay={0.18}
+            warmupTicks={150}
             autoPauseRedraw={false}
             onEngineStop={handleEngineStop}
             onNodeClick={(node: GNode) => {
