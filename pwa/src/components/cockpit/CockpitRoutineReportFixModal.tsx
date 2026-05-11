@@ -20,6 +20,7 @@ interface ReportContent {
   finalContent: string | null;
   status: string | null;
   generatedAt: string | null;
+  plReviewRequestedAt: string | null;
 }
 
 const supabase = createClient();
@@ -84,7 +85,7 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
       try {
         const { data, error: dbError } = await supabase
           .from("monthly_reports")
-          .select("report_id, project_id, ym, draft_content, final_content, status, generated_at")
+          .select("report_id, project_id, ym, draft_content, final_content, status, generated_at, pl_review_requested_at")
           .eq("project_id", projectId)
           .eq("ym", ym)
           .maybeSingle();
@@ -101,6 +102,7 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
             finalContent: data.final_content ?? null,
             status: data.status ?? null,
             generatedAt: data.generated_at ?? null,
+            plReviewRequestedAt: data.pl_review_requested_at ?? null,
           });
         }
       } catch (e) {
@@ -177,26 +179,65 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
     }
   }
 
-  async function fixReport() {
+  // PM が「PLに確認依頼」を押した時の処理:
+  // 旧バグ: billing_cycles.report_fixed_at を即座に更新 → Slack から開くと「確定済」表示
+  // 新仕様: monthly_reports.pl_review_requested_at だけセット + Slack 通知。
+  //         billing_cycles.report_fixed_at は PL の「確定」ボタン押下まで更新しない。
+  async function requestPlReview() {
+    setFixing(true);
+    setToast(null);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const requestedBy = userData.user?.email || "unknown";
+      const { error: updateError } = await supabase
+        .from("monthly_reports")
+        .update({
+          pl_review_requested_at: new Date().toISOString(),
+          pl_review_requested_by: requestedBy,
+        })
+        .eq("project_id", projectId)
+        .eq("ym", ym);
+      if (updateError) throw updateError;
+      const plRes = await notifyPlReview({ projectId, ym, taskKind: "reportFix", taskLabel: "月次報告書 PL レビュー依頼" });
+      setToast({
+        msg: plRes.sent > 0 ? `PL ${plRes.sent} 名にレビュー依頼を送信` : "レビュー依頼を記録 (Slack 通知失敗)",
+        isError: false,
+      });
+      setTimeout(() => onClose(), 1300);
+    } catch (e) {
+      setToast({ msg: e instanceof Error ? e.message : String(e), isError: true });
+    } finally {
+      setFixing(false);
+    }
+  }
+
+  // PL が確定する処理: billing_cycles を更新して FIX 完了。
+  async function plConfirmReport() {
     setFixing(true);
     setToast(null);
     try {
       const { data: userData } = await supabase.auth.getUser();
       const fixedBy = userData.user?.email || "unknown";
-      const { error: updateError } = await supabase
+      const nowIso = new Date().toISOString();
+      const { error: bcErr } = await supabase
         .from("billing_cycles")
         .update({
-          report_fixed_at: new Date().toISOString(),
+          report_fixed_at: nowIso,
           report_fixed_by: fixedBy,
         })
         .eq("project_id", projectId)
         .eq("ym", ym);
-      if (updateError) throw updateError;
-      const plRes = await notifyPlReview({ projectId, ym, taskKind: "reportFix", taskLabel: "月次報告書FIX" });
-      setToast({
-        msg: plRes.sent > 0 ? `FIXしました (PL ${plRes.sent} 名に通知)` : "FIXしました",
-        isError: false,
-      });
+      if (bcErr) throw bcErr;
+      await supabase
+        .from("monthly_reports")
+        .update({
+          status: "fixed",
+          fixed_at: nowIso,
+          confirmed_by: fixedBy,
+        })
+        .eq("project_id", projectId)
+        .eq("ym", ym);
+      setToast({ msg: "PL として確定しました", isError: false });
       setTimeout(() => onClose(), 1300);
     } catch (e) {
       setToast({ msg: e instanceof Error ? e.message : String(e), isError: true });
@@ -343,13 +384,31 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
                 >
                   📝 手動で修正する
                 </Button>
-                <Button
-                  className="w-full"
-                  onClick={fixReport}
-                  disabled={busyAny || !content}
-                >
-                  {fixing ? "処理中..." : "📨 PLに確認依頼する"}
-                </Button>
+                {/* レビュー依頼前 (= pl_review_requested_at IS NULL) なら PM 用ボタン */}
+                {!report.plReviewRequestedAt && (
+                  <Button
+                    className="w-full"
+                    onClick={requestPlReview}
+                    disabled={busyAny || !content}
+                  >
+                    {fixing ? "処理中..." : "📨 PLに確認依頼する (= まだ確定じゃない)"}
+                  </Button>
+                )}
+                {/* レビュー依頼済 → PL が確定する用ボタン */}
+                {report.plReviewRequestedAt && (
+                  <>
+                    <div className="rounded-md bg-amber-50 border border-amber-200 text-[11px] text-amber-800 px-3 py-2">
+                      📨 PL レビュー依頼済 ({fmtJstShort(report.plReviewRequestedAt)})。PL が下のボタンで確定すると FIX が完了します。
+                    </div>
+                    <Button
+                      className="w-full"
+                      onClick={plConfirmReport}
+                      disabled={busyAny || !content}
+                    >
+                      {fixing ? "処理中..." : "✅ PL として確定する"}
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </div>

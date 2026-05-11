@@ -10,9 +10,11 @@ import { fetchSeedInboxCount } from "@/lib/seeds-data";
 
 interface GlobalNavProps {
   userCodeName?: string;
+  isAdmin?: boolean;
+  memberId?: string | null;
 }
 
-export function GlobalNav({ userCodeName }: GlobalNavProps) {
+export function GlobalNav({ userCodeName, isAdmin = false }: GlobalNavProps) {
   const pathname = usePathname();
   const [inboxCount, setInboxCount] = useState(0);
   const [vcInboxCount, setVcInboxCount] = useState(0);
@@ -165,20 +167,24 @@ export function GlobalNav({ userCodeName }: GlobalNavProps) {
           マイページ
         </Link>
 
-        {/* Right: 通知 + Admin + Settings + User */}
+        {/* Right: 通知 + Admin + Settings + User
+            通知 + Admin タブは isAdmin (= members.is_admin = TRUE) のみ表示。
+            まさ要望 2026-05-11: 一般メンバーには通知バッジを見せない。 */}
         <div className="ml-auto flex items-center gap-2 text-xs">
-          <NotificationBell />
-          <Link
-            href="/admin/projects"
-            className={cn(
-              "px-2.5 py-1 rounded-md transition-colors",
-              pathname.startsWith("/admin")
-                ? "bg-accent text-accent-foreground font-medium"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Admin
-          </Link>
+          {isAdmin && <NotificationBell />}
+          {isAdmin && (
+            <Link
+              href="/admin/projects"
+              className={cn(
+                "px-2.5 py-1 rounded-md transition-colors",
+                pathname.startsWith("/admin")
+                  ? "bg-accent text-accent-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Admin
+            </Link>
+          )}
           <Link
             href="/reimburse"
             className="text-muted-foreground hover:text-foreground px-2.5 py-1 rounded-md transition-colors"

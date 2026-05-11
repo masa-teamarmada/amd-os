@@ -149,6 +149,9 @@ interface CockpitViewProps {
   initialModalYm?: string | null;
   /** mypage や URL `?step=` から渡される、起動時に開くべきステップ */
   initialStep?: { ym: string; stepId: string } | null;
+  /** PM (= project_members.is_pm) もしくは admin (= members.is_admin) のみ true。
+      false の場合、月次ルーティンのステップボタンは disabled。まさ要望 2026-05-11。 */
+  canEditRoutine?: boolean;
 }
 
 function formatYm(ym: string) {
@@ -244,7 +247,7 @@ type StepModal =
   | { kind: "invoiceSend"; ym: string }
   | null;
 
-export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialStep }: CockpitViewProps) {
+export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialStep, canEditRoutine = false }: CockpitViewProps) {
   const router = useRouter();
   const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
   const [pastExpanded, setPastExpanded] = useState(false);
@@ -479,14 +482,23 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
                 </div>
               )}
               {showRoutine ? (
-                <CockpitRoutineGas
-                  projectId={project.projectId}
-                  billingCycles={billingCycles}
-                  currentYm={currentYm}
-                  projectType={project.projectType}
-                  onOpenModal={(ym) => setModalYm(ym)}
-                  onStepClick={handleStepClick}
-                />
+                <>
+                  {!canEditRoutine && (
+                    <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-1">
+                      🔒 月次ルーティンは PM のみ操作可能 (= 閲覧のみ)
+                    </div>
+                  )}
+                  <div className={canEditRoutine ? "" : "pointer-events-none opacity-60"}>
+                    <CockpitRoutineGas
+                      projectId={project.projectId}
+                      billingCycles={billingCycles}
+                      currentYm={currentYm}
+                      projectType={project.projectType}
+                      onOpenModal={(ym) => setModalYm(ym)}
+                      onStepClick={handleStepClick}
+                    />
+                  </div>
+                </>
               ) : null}
             </>
           );
