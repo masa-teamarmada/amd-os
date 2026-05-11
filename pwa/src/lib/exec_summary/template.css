@@ -1,0 +1,752 @@
+
+  :root {
+    --ink: #0c0e10;
+    --ink-2: #2a2f36;
+    --ink-3: #5a6068;
+    --rule: #c9ccd1;
+    --rule-soft: #e3e5e9;
+    --paper: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background: #d8dade;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "palt";
+  }
+  .screen-shell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14mm;
+    padding: 14mm 0;
+  }
+
+  /* ----- PAGE ----- */
+  .page {
+    width: 297mm;
+    height: 210mm;
+    background: var(--paper);
+    color: var(--ink);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 6px 30px rgba(0,0,0,0.18);
+    padding: 12mm 14mm 10mm;
+    display: grid;
+    grid-template-rows: 11mm 42mm 70mm 1fr;
+    gap: 4mm;
+  }
+
+  /* ----- HEADER ----- */
+  .hdr {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 6mm;
+    border-bottom: 0.6mm solid var(--c-primary);
+    padding-bottom: 3mm;
+  }
+  .armada-mark {
+    display: flex;
+    align-items: center;
+    gap: 2.5mm;
+  }
+  .armada-logo-slot {
+    width: 8mm;
+    height: 8mm;
+  }
+  .armada-typo-slot {
+    width: 28mm;
+    height: 6.5mm;
+  }
+  image-slot {
+    --is-bg: transparent;
+    --is-border: 0.3mm dashed var(--rule);
+    --is-color: var(--ink-3);
+    --is-radius: 0.5mm;
+    --is-font: 7pt "JetBrains Mono", monospace;
+  }
+  .hdr-mid {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .hdr-mid b { color: var(--ink); font-weight: 500; }
+  .page-tag {
+    display: flex;
+    align-items: baseline;
+    gap: 2mm;
+    font-family: "JetBrains Mono", monospace;
+    color: var(--c-primary);
+  }
+  .page-tag .num {
+    font-size: 18pt;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .page-tag .of {
+    font-size: 8pt;
+    color: var(--ink-3);
+    letter-spacing: 0.1em;
+  }
+  .page-tag .cat {
+    font-size: 7pt;
+    letter-spacing: 0.22em;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    margin-left: 3mm;
+    padding-left: 3mm;
+    border-left: 0.2mm solid var(--rule);
+  }
+
+  /* ----- HERO ----- */
+  .hero {
+    display: grid;
+    grid-template-columns: 1.45fr 1fr;
+    gap: 8mm;
+    align-items: stretch;
+  }
+  .hero-left { display: flex; flex-direction: column; justify-content: center; gap: 3mm; }
+  .company-rail {
+    display: flex;
+    align-items: center;
+    gap: 4mm;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8pt;
+    letter-spacing: 0.16em;
+    color: var(--ink-3);
+  }
+  .company-rail .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 1.5mm;
+    background: var(--c-primary);
+    color: #fff;
+    padding: 1mm 2mm 0.8mm;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+  }
+  .company-name {
+    font-size: 30pt;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    color: var(--ink);
+    font-family: "Noto Sans JP", sans-serif;
+  }
+  .company-name .accent { color: var(--c-primary); }
+  .tagline {
+    font-size: 18pt;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: -0.005em;
+    color: var(--ink);
+    margin-top: 1.5mm;
+    text-wrap: balance;
+  }
+  .tagline mark {
+    background: var(--c-tint);
+    color: var(--ink);
+    padding: 0 1mm;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  .hero-right {
+    background: var(--c-tint);
+    padding: 5mm 6mm;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5mm;
+    border-left: 0.6mm solid var(--c-primary);
+  }
+  .hero-right .label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.22em;
+    color: var(--c-primary);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .hero-right .summary {
+    font-size: 9.5pt;
+    line-height: 1.65;
+    color: var(--ink-2);
+  }
+  .hero-right .summary b {
+    color: var(--ink);
+    font-weight: 700;
+    background: linear-gradient(transparent 60%, var(--c-highlight) 60%);
+  }
+
+  /* ----- DIAGRAM ----- */
+  .diagram {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3mm;
+  }
+  .diagram::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    top: 7.5mm;
+    height: 0.3mm;
+    background: var(--rule-soft);
+    z-index: 0;
+  }
+  .stage {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    z-index: 1;
+  }
+  .stage-head {
+    display: flex;
+    align-items: baseline;
+    gap: 2mm;
+    margin-bottom: 2mm;
+    height: 7.5mm;
+  }
+  .stage-num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 22pt;
+    font-weight: 700;
+    line-height: 0.9;
+    color: var(--c-primary);
+    letter-spacing: -0.02em;
+  }
+  .stage-kind {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.22em;
+    color: var(--ink-3);
+    text-transform: uppercase;
+  }
+  .stage-kind b { display: block; font-weight: 500; color: var(--ink); font-size: 8pt; letter-spacing: 0.1em; margin-top: 0.5mm; }
+  .stage-body {
+    background: #fff;
+    border: 0.3mm solid var(--rule-soft);
+    border-top: 0.8mm solid var(--c-primary);
+    padding: 4mm 4mm 5mm;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2mm;
+  }
+  .stage.is-product .stage-body { background: var(--c-primary); color: #fff; border-color: var(--c-primary); }
+  .stage.is-product .stage-title { color: #fff; }
+  .stage.is-product .stage-list li { color: rgba(255,255,255,0.86); }
+  .stage.is-product .stage-list li::before { background: var(--c-secondary); }
+  .stage-title {
+    font-size: 13pt;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  .stage-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2mm;
+  }
+  .stage-list li {
+    font-size: 8.5pt;
+    line-height: 1.35;
+    color: var(--ink-2);
+    padding-left: 3.5mm;
+    position: relative;
+  }
+  .stage-list li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 1.6mm;
+    width: 2mm; height: 0.5mm;
+    background: var(--c-primary);
+  }
+  .stage-arrow {
+    position: absolute;
+    right: -2.6mm;
+    top: 3mm;
+    width: 5mm;
+    height: 5mm;
+    z-index: 2;
+    color: var(--c-primary);
+  }
+  .stage:last-child .stage-arrow { display: none; }
+
+  /* ----- FOOTER ----- */
+  .footer {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr 1fr;
+    gap: 5mm;
+    padding-top: 2mm;
+    border-top: 0.3mm solid var(--rule-soft);
+  }
+  .fcol {
+    display: flex;
+    flex-direction: column;
+    gap: 2mm;
+  }
+  .fcol h3 {
+    margin: 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--c-primary);
+    font-weight: 600;
+    padding-bottom: 1mm;
+    border-bottom: 0.3mm solid var(--c-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.6mm;
+  }
+  .fcol h3 .jp { color: var(--ink); font-family: "Noto Sans JP", sans-serif; letter-spacing: 0.08em; font-size: 8.5pt; font-weight: 700; }
+
+  .tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2mm;
+  }
+  .tag {
+    font-size: 8pt;
+    padding: 1mm 2mm;
+    background: var(--c-tint);
+    color: var(--ink-2);
+    border-radius: 0.6mm;
+    line-height: 1.2;
+  }
+  .tag.is-strong { background: var(--c-primary); color: #fff; }
+
+  .touchpoints {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5mm;
+  }
+  .tp {
+    display: grid;
+    grid-template-columns: 6mm 1fr;
+    gap: 2mm;
+    align-items: baseline;
+    font-size: 8.5pt;
+    line-height: 1.35;
+    color: var(--ink-2);
+  }
+  .tp .tp-num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 7pt;
+    color: var(--c-primary);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .tp b { color: var(--ink); font-weight: 700; }
+
+  .status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5mm;
+    font-size: 8.5pt;
+    line-height: 1.35;
+  }
+  .status-row {
+    display: grid;
+    grid-template-columns: 22mm 1fr;
+    gap: 2mm;
+    color: var(--ink-2);
+    border-bottom: 0.2mm dotted var(--rule-soft);
+    padding-bottom: 1.2mm;
+  }
+  .status-row:last-child { border-bottom: 0; padding-bottom: 0; }
+  .status-row .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 7pt;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding-top: 0.5mm;
+  }
+  .status-row .v b { color: var(--c-primary); font-weight: 700; }
+
+  .stage-pill-row {
+    display: flex;
+    align-items: center;
+    gap: 1mm;
+    margin-top: 1.5mm;
+  }
+  .sp {
+    flex: 1;
+    height: 2.5mm;
+    background: var(--rule-soft);
+    position: relative;
+    font-size: 6.5pt;
+    font-family: "JetBrains Mono", monospace;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .sp.is-done { background: var(--c-primary); }
+  .sp.is-now { background: var(--c-secondary); }
+  .sp .sp-label {
+    position: absolute;
+    top: 3mm;
+    left: 0;
+    right: -3mm;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+  }
+  .sp.is-now .sp-label { color: var(--c-primary); font-weight: 700; }
+  .sp .now-tick {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translate(-50%, 0.5mm);
+    font-family: "Noto Sans JP", sans-serif;
+    font-size: 6.5pt;
+    font-weight: 700;
+    color: var(--c-primary);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .sp .now-tick::after {
+    content: "";
+    display: block;
+    width: 0;
+    height: 0;
+    margin: 0.4mm auto 0;
+    border-left: 1.1mm solid transparent;
+    border-right: 1.1mm solid transparent;
+    border-top: 1.1mm solid var(--c-primary);
+  }
+  .stage-pill-wrap {
+    margin-top: 1mm;
+    margin-bottom: 4mm;
+  }
+
+  /* ----- PAGE-SPECIFIC THEMES ----- */
+  .page--solviorax {
+    --c-primary: #0f5e4f;
+    --c-secondary: #2ea876;
+    --c-tint: #eaf3ef;
+    --c-highlight: #c9ebd9;
+  }
+  .page--cryox {
+    --c-primary: #0b3a7a;
+    --c-secondary: #2ea2d6;
+    --c-tint: #e9eef7;
+    --c-highlight: #c6e3f3;
+  }
+  .page--listie {
+    --c-primary: #3d2d8c;
+    --c-secondary: #8a7bff;
+    --c-tint: #ece9f6;
+    --c-highlight: #d9d2ee;
+  }
+  .page--challenergy {
+    --c-primary: #1f2d44;
+    --c-secondary: #d98726;
+    --c-tint: #f1ede5;
+    --c-highlight: #f5dcb3;
+  }
+
+  /* decorative element on hero (each page slightly different) */
+  .hero-deco {
+    position: absolute;
+    right: 14mm;
+    top: 28mm;
+    width: 38mm;
+    height: 38mm;
+    pointer-events: none;
+    opacity: 0.06;
+    color: var(--c-primary);
+  }
+
+  /* watermark style for print */
+  .page-edge {
+    position: absolute;
+    left: 14mm;
+    bottom: 6mm;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 6.5pt;
+    letter-spacing: 0.2em;
+    color: var(--ink-3);
+    text-transform: uppercase;
+  }
+  .page-edge b { color: var(--c-primary); font-weight: 600; }
+
+  /* ----- PRINT ----- */
+  @page { size: A4 landscape; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    .screen-shell { gap: 0; padding: 0; }
+    .page {
+      box-shadow: none;
+      page-break-after: always;
+      break-after: page;
+    }
+    .page:last-child { page-break-after: auto; }
+  }
+
+
+/* === polish styles === */
+
+          :root {
+            --polish-paper-shadow: 0 18px 56px rgba(0, 0, 0, .28);
+          }
+
+          html {
+            -webkit-font-smoothing: antialiased;
+            text-rendering: geometricPrecision;
+          }
+
+          body {
+            overflow-x: hidden;
+          }
+
+          .deck, .portfolio, main, #root {
+            width: 100%;
+          }
+
+          .page {
+            overflow: hidden !important;
+            box-shadow: var(--polish-paper-shadow) !important;
+            grid-template-rows: 11mm 51mm 58mm 1fr !important;
+            gap: 3mm !important;
+          }
+
+          .hdr {
+            align-items: center !important;
+            min-height: 16mm !important;
+            gap: 5mm !important;
+          }
+
+          .armada-mark {
+            display: flex !important;
+            align-items: center !important;
+            gap: 2.6mm !important;
+            min-width: 48mm !important;
+            height: 10mm !important;
+          }
+
+          image-slot.armada-logo-slot,
+          image-slot.armada-typo-slot {
+            display: none !important;
+          }
+
+          .armada-logo-img {
+            display: block !important;
+            width: 8.8mm !important;
+            height: 8.8mm !important;
+            object-fit: contain !important;
+            flex: 0 0 auto !important;
+          }
+
+          .armada-typo-img {
+            display: block !important;
+            width: 34mm !important;
+            height: auto !important;
+            object-fit: contain !important;
+            flex: 0 0 auto !important;
+          }
+
+          .hdr-mid {
+            font-size: 7.8pt !important;
+            line-height: 1.35 !important;
+            letter-spacing: .02em !important;
+            white-space: normal !important;
+          }
+
+          .page-tag {
+            min-width: 30mm !important;
+          }
+
+          .company-name {
+            font-size: 30pt !important;
+            line-height: 1 !important;
+            letter-spacing: -.01em !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere !important;
+          }
+
+          .tagline {
+            font-size: 16.4pt !important;
+            line-height: 1.25 !important;
+            letter-spacing: 0 !important;
+            overflow-wrap: normal !important;
+            word-break: keep-all !important;
+          }
+
+          .summary {
+            font-size: 9.3pt !important;
+            line-height: 1.58 !important;
+            letter-spacing: 0 !important;
+            overflow-wrap: normal !important;
+            word-break: normal !important;
+          }
+
+          .diagram {
+            gap: 3mm !important;
+            align-items: stretch !important;
+          }
+
+          .diagram::before {
+            top: 12.4mm !important;
+          }
+
+          .stage {
+            min-height: 0 !important;
+          }
+
+          .stage-head {
+            height: 12.4mm !important;
+            margin-bottom: 1.4mm !important;
+            align-items: flex-start !important;
+            gap: 1.8mm !important;
+          }
+
+          .stage-num {
+            font-size: 19pt !important;
+            line-height: .95 !important;
+          }
+
+          .stage-kind {
+            padding-top: 1.1mm !important;
+            font-size: 6.4pt !important;
+            line-height: 1.08 !important;
+            letter-spacing: .18em !important;
+          }
+
+          .stage-kind b {
+            font-size: 7pt !important;
+            line-height: 1.16 !important;
+            margin-top: 1.1mm !important;
+            letter-spacing: .06em !important;
+            white-space: nowrap !important;
+          }
+
+          .stage-body {
+            padding-top: 3.2mm !important;
+            padding-bottom: 3.8mm !important;
+          }
+
+          .stage-title {
+            font-size: 9.8pt !important;
+            line-height: 1.24 !important;
+            letter-spacing: 0 !important;
+            overflow-wrap: normal !important;
+          }
+
+          .stage-list,
+          .stage-list li {
+            font-size: 7.4pt !important;
+            line-height: 1.35 !important;
+            letter-spacing: 0 !important;
+            word-break: normal !important;
+          }
+
+          .footer {
+            gap: 3.5mm !important;
+            align-items: stretch !important;
+          }
+
+          .fcol {
+            min-width: 0 !important;
+          }
+
+          .fcol h3 {
+            line-height: 1.25 !important;
+            margin-bottom: 2.2mm !important;
+          }
+
+          .fcol h3 .jp {
+            font-size: 8.4pt !important;
+            letter-spacing: 0 !important;
+          }
+
+          .tag {
+            font-size: 7.6pt !important;
+            line-height: 1.22 !important;
+            padding: 1.6mm 2.3mm !important;
+            white-space: normal !important;
+          }
+
+          .tp {
+            gap: 2.2mm !important;
+            padding-block: 1.65mm !important;
+          }
+
+          .tp, .tp b, .status-row, .status-row .v {
+            font-size: 7.8pt !important;
+            line-height: 1.38 !important;
+            letter-spacing: 0 !important;
+            overflow-wrap: normal !important;
+          }
+
+          .tp-num, .status-row .k {
+            font-size: 6.7pt !important;
+            line-height: 1.2 !important;
+            white-space: nowrap !important;
+          }
+
+          .status-list {
+            gap: 1.3mm !important;
+          }
+
+          .status-row {
+            grid-template-columns: 18mm 1fr !important;
+            gap: 2mm !important;
+          }
+
+          .stage-pill-row {
+            gap: 1.5mm !important;
+            margin-top: 6.2mm !important;
+          }
+
+          .sp-label {
+            font-size: 6.6pt !important;
+            white-space: normal !important;
+          }
+
+          .now-tick {
+            font-size: 6.3pt !important;
+            bottom: calc(100% + 1.1mm) !important;
+            transform: translateX(-50%) !important;
+            white-space: nowrap !important;
+          }
+
+          .sp .now-tick::after {
+            margin-top: .25mm !important;
+            border-left-width: .85mm !important;
+            border-right-width: .85mm !important;
+            border-top-width: .85mm !important;
+          }
+
+          .page-edge {
+            letter-spacing: .12em !important;
+          }
+
+          @media print {
+            body {
+              background: #fff !important;
+            }
+
+            .page {
+              width: 297mm !important;
+              height: 210mm !important;
+              margin: 0 !important;
+              box-shadow: none !important;
+              break-after: page !important;
+              page-break-after: always !important;
+            }
+          }
+        
