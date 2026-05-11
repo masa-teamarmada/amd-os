@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { createClient as createBrowserAuthClient } from "@/lib/supabase/client";
 import { AdminProjectRoleEditModal, type RoleKind } from "./AdminProjectRoleEditModal";
 import { LaneBadges, LaneEditor } from "@/components/lanes/LaneBadges";
 import type { LaneWeight } from "@/lib/aspi-lanes";
 
-// auth (browser) client。anon RLS で write が弾かれるため、ログイン中ユーザーで書き込む
-// (例: status の CHECK / UPDATE policy が anon を弾く回帰が 2026-05-08 に発生)
-const supabase = createBrowserAuthClient();
+// 2026-05-11: browser auth client 直接 supabase.from("projects").update は
+// RLS で UPDATE が anon / authenticated を弾く回帰が再発したため、
+// 全部 service_role 経由の /api/admin/projects/[id] PATCH に統一。
+//
+// 旧: createBrowserAuthClient() で supabase.from("projects").update().eq("id", p.id)
+// 新: fetch("/api/admin/projects/" + p.id, { method: "PATCH", body: JSON.stringify({...}) })
 
 export interface ProjectRow {
   id: string;
@@ -142,15 +144,30 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
   const isEditingRow = (p: ProjectRow) => editingCell?.startsWith(`${p.id}:`) ?? false;
   const cancelEdit = () => { setEditingId(null); setEditVals({}); };
 
-  // lanes は project_ventures テーブルへの書き込み (projects とは別) なので別 handler。
+  // service_role 経由 fetch helper
+  const patchProject = async (
+    projectsRowId: string,
+    payload: { projectsPatch?: Record<string, unknown>; venturesPatch?: Record<string, unknown> }
+  ): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const res = await fetch(`/api/admin/projects/${projectsRowId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const j = (await res.json()) as { ok: boolean; error?: string };
+      return j;
+    } catch (e) {
+      return { ok: false, error: String(e) };
+    }
+  };
+
+  // lanes は project_ventures テーブルへの書き込み
   const saveLanes = async (p: ProjectRow, lanes: LaneWeight[]) => {
     setSaving(p.id);
-    const { error } = await supabase
-      .from("project_ventures")
-      .update({ lanes, updated_at: new Date().toISOString() })
-      .eq("project_id", p.project_id);
-    if (error) {
-      setHint(`lanes 保存エラー: ${error.message}`);
+    const r = await patchProject(p.id, { venturesPatch: { lanes } });
+    if (!r.ok) {
+      setHint(`lanes 保存エラー: ${r.error}`);
     } else {
       setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, lanes } : x));
       setHint(`${p.project_name} の lanes を保存しました`);
@@ -159,46 +176,49 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
     setSaving(null);
   };
 
-  // LLM 提案を採用: lanes に書き込み + suggestion.status='approved'
+  // LLM 提案を採用 (= /api/admin/lane-suggestions/[id] PATCH approve)
   const approveSuggestion = async (p: ProjectRow) => {
     if (!p.lane_suggestion) return;
     setSaving(p.id);
     const sugg = p.lane_suggestion;
-    const { error: pvErr } = await supabase
-      .from("project_ventures")
-      .update({ lanes: sugg.suggested_lanes, updated_at: new Date().toISOString() })
-      .eq("project_id", p.project_id);
-    if (pvErr) {
-      setHint(`提案採用エラー (lanes): ${pvErr.message}`);
-      setSaving(null);
-      return;
-    }
-    const { error: sErr } = await supabase
-      .from("lane_suggestions")
-      .update({ status: "approved", reviewed_at: new Date().toISOString() })
-      .eq("id", sugg.id);
-    if (sErr) {
-      setHint(`提案採用エラー (suggestion): ${sErr.message}`);
-    } else {
-      setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, lanes: sugg.suggested_lanes, lane_suggestion: null } : x));
-      setHint(`${p.project_name} の LLM 提案を採用しました`);
+    try {
+      const res = await fetch(`/api/admin/lane-suggestions/${sugg.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve" }),
+      });
+      const j = (await res.json()) as { ok: boolean; error?: string };
+      if (!j.ok) {
+        setHint(`提案採用エラー: ${j.error}`);
+      } else {
+        setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, lanes: sugg.suggested_lanes, lane_suggestion: null } : x));
+        setHint(`${p.project_name} の LLM 提案を採用しました`);
+      }
+    } catch (e) {
+      setHint(`提案採用エラー: ${String(e)}`);
     }
     setSaving(null);
   };
 
-  // LLM 提案を却下: suggestion.status='rejected' のみ
+  // LLM 提案を却下
   const rejectSuggestion = async (p: ProjectRow) => {
     if (!p.lane_suggestion) return;
     setSaving(p.id);
-    const { error } = await supabase
-      .from("lane_suggestions")
-      .update({ status: "rejected", reviewed_at: new Date().toISOString() })
-      .eq("id", p.lane_suggestion.id);
-    if (error) {
-      setHint(`提案却下エラー: ${error.message}`);
-    } else {
-      setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, lane_suggestion: null } : x));
-      setHint(`${p.project_name} の LLM 提案を却下しました`);
+    try {
+      const res = await fetch(`/api/admin/lane-suggestions/${p.lane_suggestion.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
+      const j = (await res.json()) as { ok: boolean; error?: string };
+      if (!j.ok) {
+        setHint(`提案却下エラー: ${j.error}`);
+      } else {
+        setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, lane_suggestion: null } : x));
+        setHint(`${p.project_name} の LLM 提案を却下しました`);
+      }
+    } catch (e) {
+      setHint(`提案却下エラー: ${String(e)}`);
     }
     setSaving(null);
   };
@@ -231,9 +251,12 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
         patch.restart_expected_ym = (editVals.restart_expected_ym as string)?.trim() || null;
         break;
     }
-    const { error } = await supabase.from("projects").update(patch).eq("id", p.id);
-    if (error) {
-      setHint(`保存エラー: ${error.message}`);
+    // updated_at は API 側で付与するので patch から除外
+    const { updated_at: _drop, ...projectsPatch } = patch as Record<string, unknown> & { updated_at?: unknown };
+    void _drop;
+    const r = await patchProject(p.id, { projectsPatch });
+    if (!r.ok) {
+      setHint(`保存エラー: ${r.error}`);
     } else {
       setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, ...patch } : x));
       setHint(`${p.project_name} の ${field} を保存しました`);

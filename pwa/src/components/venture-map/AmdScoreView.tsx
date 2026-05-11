@@ -1222,13 +1222,24 @@ function ScorePopup({
 }
 
 // ============================================================
-// FRL ALQ Panel — Walumbwa et al. (2008) ALQ 4 次元 + 自由備考
+// FRL Panel — Walumbwa et al. (2008) ALQ 4 次元 + Grit + Resilience + 自由備考
 // ============================================================
 const ALQ_AXES = [
   { key: "alq_self_awareness" as const, label: "自己認識", desc: "Self-awareness — 自分の強み・弱み・価値観の理解度" },
   { key: "alq_relational_transparency" as const, label: "関係透明性", desc: "Relational transparency — 本音と建前の一致、誠実性" },
   { key: "alq_balanced_processing" as const, label: "均衡的処理", desc: "Balanced processing — 反対意見も含めた客観評価" },
   { key: "alq_internalized_moral" as const, label: "道徳観", desc: "Internalized moral perspective — 倫理基準への一貫性" },
+];
+
+// まさ要望 2026-05-11: radar も 6 軸 (ALQ 4 + Grit + Resilience) で描く。
+// 半径方向に向かう順に並べる: ALQ 4 軸を上半分に、起業特化 2 軸を下半分に。
+const FRL_RADAR_AXES = [
+  { key: "alq_self_awareness" as const,            label: "自己認識" },
+  { key: "alq_relational_transparency" as const,   label: "関係透明性" },
+  { key: "alq_balanced_processing" as const,       label: "均衡的処理" },
+  { key: "alq_internalized_moral" as const,        label: "道徳観" },
+  { key: "frl_grit" as const,                      label: "Grit 集中力" },
+  { key: "frl_resilience" as const,                label: "Resilience タフさ" },
 ];
 
 function FrlAlqPanel({
@@ -1241,13 +1252,15 @@ function FrlAlqPanel({
   ventureName: string;
 }) {
   const W = 320;
-  const H = 280;
+  const H = 300;
   const cx = W / 2;
   const cy = H / 2;
   const R = 90;
-  const angle = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / 4;
+  // 6 軸 radar (= ALQ 4 + Grit + Resilience)
+  const N = FRL_RADAR_AXES.length;
+  const angle = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / N;
 
-  const points = ALQ_AXES.map((a, i) => {
+  const points = FRL_RADAR_AXES.map((a, i) => {
     const v = (editable[a.key] as number | null) ?? 0;
     const r = (Math.max(0, Math.min(9, v)) / 9) * R;
     return { ...a, value: v, x: cx + r * Math.cos(angle(i)), y: cy + r * Math.sin(angle(i)) };
@@ -1279,7 +1292,7 @@ function FrlAlqPanel({
           {grid.map((g, gi) => (
             <polygon
               key={gi}
-              points={ALQ_AXES.map((_, i) => {
+              points={FRL_RADAR_AXES.map((_, i) => {
                 const x = cx + g * R * Math.cos(angle(i));
                 const y = cy + g * R * Math.sin(angle(i));
                 return `${x},${y}`;
@@ -1289,19 +1302,22 @@ function FrlAlqPanel({
               strokeWidth={0.5}
             />
           ))}
-          {ALQ_AXES.map((a, i) => {
+          {FRL_RADAR_AXES.map((a, i) => {
             const x = cx + R * Math.cos(angle(i));
             const y = cy + R * Math.sin(angle(i));
+            // 起業特化 2 軸 (Grit / Resilience) はラベルを少し離して描画 (= ALQ と視覚的に区別)
+            const isExt = a.key === "frl_grit" || a.key === "frl_resilience";
             return (
               <g key={a.key}>
                 <line x1={cx} y1={cy} x2={x} y2={y} stroke="#e5e5e7" strokeWidth={0.5} />
                 <text
-                  x={cx + (R + 18) * Math.cos(angle(i))}
-                  y={cy + (R + 18) * Math.sin(angle(i))}
-                  fontSize={10}
+                  x={cx + (R + 22) * Math.cos(angle(i))}
+                  y={cy + (R + 22) * Math.sin(angle(i))}
+                  fontSize={9.5}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fill="#475569"
+                  fill={isExt ? "#b45309" : "#475569"}
+                  fontWeight={isExt ? 600 : 400}
                 >
                   {a.label}
                 </text>

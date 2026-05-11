@@ -64,12 +64,18 @@ export async function fetchVcList(): Promise<VcListItem[]> {
   );
   const pjNameMap = new Map<string, string>();
   if (pjIds.length > 0) {
-    const { data: pjs } = await supabase
-      .from("project_ventures")
-      .select("project_id, display_name, short_label")
-      .in("project_id", pjIds);
-    for (const p of (pjs ?? []) as { project_id: string; display_name: string; short_label: string | null }[]) {
-      pjNameMap.set(p.project_id, p.short_label ?? p.display_name);
+    // まさ要望 2026-05-11: 「AMD PJ への出資」列は pjName (= projects.project_name) で統一。
+    // 旧: project_ventures.short_label (例 "p01") を優先 → 短縮コード混在の事故
+    // 新: projects.project_name を最優先、なければ project_ventures.display_name 補完
+    const [projectsRes, pvRes] = await Promise.all([
+      supabase.from("projects").select("project_id, project_name").in("project_id", pjIds),
+      supabase.from("project_ventures").select("project_id, display_name").in("project_id", pjIds),
+    ]);
+    for (const p of (pvRes.data ?? []) as { project_id: string; display_name: string }[]) {
+      pjNameMap.set(p.project_id, p.display_name);
+    }
+    for (const p of (projectsRes.data ?? []) as { project_id: string; project_name: string }[]) {
+      pjNameMap.set(p.project_id, p.project_name); // projects.project_name 最優先
     }
   }
 
