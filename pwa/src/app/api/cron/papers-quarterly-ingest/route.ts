@@ -1,31 +1,24 @@
 /**
  * papers-quarterly-ingest cron — Triple Helix 観測量 N (論文流出率) の lane × quarter 時系列。
  *
- * data_specification.md §N に従い、OpenAlex API で 5 lane × 直近 N quarter の論文数を取得して
- * `papers_log` に upsert する (UNIQUE (lane, observed_at))。
- *
- * - lane キーワード: scripts/fetch_papers_openalex.py の LANE_QUERIES と整合
- * - 観測頻度: 四半期 (data_spec §1)
+ * 仕様:
+ * - lane = ASPI Critical Technology Tracker 8 domain (gx_energy/materials/life/robo の旧 5 lane は廃止、
+ *   pwa/design/aspi_lanes.md 参照)
+ * - 検索クエリは aspi-lanes.ts の OPENALEX_QUERY_BY_DOMAIN
+ * - 観測頻度: 四半期 (data_specification.md §1)
  * - 認証: 不要 (polite mode、User-Agent に mailto)
  * - cron: weekly (毎週月曜 03:20 JST)
+ * - upsert: papers_log (UNIQUE lane, observed_at)
  *
  * Phase 3 で BVAR Kalman filter による隠れ状態 μ_A 推定の入力データになる。
  */
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ASPI_DOMAIN_IDS, OPENALEX_QUERY_BY_DOMAIN, type AspiDomainId } from "@/lib/aspi-lanes";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
-
-const LANE_QUERIES: Record<string, string> = {
-  gx_energy:
-    '"hydrogen energy" OR "renewable energy" OR "solar cell" OR "next generation battery" OR "fusion energy"',
-  gx_circular: '"circular economy" OR "recycling technology" OR "carbon capture" OR "waste valorization"',
-  materials: '"nanomaterial" OR "advanced materials" OR "thermal insulation" OR "superconductor"',
-  life: '"drug discovery" OR "gene therapy" OR "regenerative medicine" OR "biopharmaceutical"',
-  robo: '"robotics" OR "autonomous robot" OR "agricultural drone" OR "construction automation"',
-};
 
 const POLITE_UA = "amd-os-pwa/1.0 (mailto:masa@team-armada.jp)";
 const QUARTERS_BACK = 16; // 直近 16 quarter = 4 年分
@@ -34,7 +27,6 @@ interface OpenAlexResponse {
   meta?: { count?: number };
 }
 
-/** YYYY-MM-DD の quarter 開始日と終了日を返す */
 function quarterRange(year: number, quarter: 1 | 2 | 3 | 4): { from: string; to: string; observedAt: string } {
   const startMonth = (quarter - 1) * 3 + 1;
   const endMonth = startMonth + 2;
@@ -47,7 +39,6 @@ function quarterRange(year: number, quarter: 1 | 2 | 3 | 4): { from: string; to:
   };
 }
 
-/** 直近 N quarter の (year, quarter, range) リスト を返す */
 function recentQuarters(n: number): { year: number; quarter: 1 | 2 | 3 | 4; observedAt: string; from: string; to: string }[] {
   const now = new Date();
   const currentYear = now.getUTCFullYear();
@@ -103,7 +94,8 @@ export async function GET(req: NextRequest) {
   const summary: Record<string, { fetched: number; upserted: number }> = {};
   const rows: { lane: string; observed_at: string; paper_count: number; source: string; query_hash: string }[] = [];
 
-  for (const [lane, query] of Object.entries(LANE_QUERIES)) {
+  for (const lane of ASPI_DOMAIN_IDS) {
+    const query = OPENALEX_QUERY_BY_DOMAIN[lane as AspiDomainId];
     let fetched = 0;
     for (const q of quarters) {
       const count = await fetchOpenAlexCount(query, q.from, q.to);
@@ -112,7 +104,7 @@ export async function GET(req: NextRequest) {
         observed_at: q.observedAt,
         paper_count: count,
         source: "openalex",
-        query_hash: `lane:${lane}/quarter:${q.year}-Q${q.quarter}`,
+        query_hash: `aspi:${lane}/quarter:${q.year}-Q${q.quarter}`,
       });
       fetched++;
       // polite delay
@@ -121,7 +113,6 @@ export async function GET(req: NextRequest) {
     summary[lane] = { fetched, upserted: 0 };
   }
 
-  // upsert (lane, observed_at) UNIQUE
   const { error } = await db.from("papers_log").upsert(rows, {
     onConflict: "lane,observed_at",
     ignoreDuplicates: false,
@@ -131,7 +122,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message, summary }, { status: 500 });
   }
 
-  for (const lane of Object.keys(LANE_QUERIES)) {
+  for (const lane of ASPI_DOMAIN_IDS) {
     summary[lane].upserted = quarters.length;
   }
 

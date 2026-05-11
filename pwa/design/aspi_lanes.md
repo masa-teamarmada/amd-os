@@ -241,3 +241,105 @@ domain D の papers count(t)  =  Σ_p ( papers_p(t) × weight_{p,D} )
 | 日付 | 変更 | 担当 |
 |---|---|---|
 | 2026-05-11 | 初版。ASPI 8 domain × 64+10 tech の正本化、旧 5 lane → 新 lane mapping 確定、10 PJ 確定 lanes JSONB seed | えいみ + まさ判断 |
+
+---
+
+## Phase 2 (2026-05-11、本 commit) — 完全実装
+
+### 実装した cron 4 つ + lib / UI 更新
+
+#### Phase 2-A: 既存 cron / lib を ASPI 8 domain 対応
+
+| ファイル | 変更内容 |
+|---|---|
+| [`pwa/src/lib/aspi-lanes.ts`](../src/lib/aspi-lanes.ts) | `LEGACY_LANE_TO_ASPI` / `ASPI_TO_LEGACY_LANE` / `dominantDomain()` / `weightForDomain()` helper + `OPENALEX_QUERY_BY_DOMAIN` / `KAKEN_KEYWORDS_BY_DOMAIN` / `GRANT_KEYWORDS_BY_DOMAIN` (8 domain × tech) 追加 |
+| [`migration 042`](../scripts/migrations/042_aspi_lane_observation_logs.sql) | papers_log / macro_index_log の旧 5 lane → ASPI 8 domain rewrite (合算 + DELETE)、macro_lane_weights を 8 domain で再 seed、observation_log + lane_suggestions 新規、triple_helix_loading.available を B/V/I_R 全 TRUE に |
+| [`papers-quarterly-ingest`](../src/app/api/cron/papers-quarterly-ingest/route.ts) | LANE_QUERIES (旧 5 lane) → ASPI 8 domain × OpenAlex キーワードで fetch |
+| [`triple-helix-observations.ts`](../src/lib/triple-helix-observations.ts) | lane を AspiDomainId 受け取り、`LANE_DOMAIN_PREFIXES` を ASPI 8 domain × atlas domain に対応、C_compete を lanes JSONB weighted で集計、observation_log (B/V/I_R) を読む |
+| [`relearn-lane-weights`](../src/app/api/cron/relearn-lane-weights/route.ts) | LANES 配列を ASPI 8 domain に拡張、Sonnet プロンプトの domain priors を 8 domain × 日本政策コンテキストに更新 |
+| [`macro-backfill-historical`](../src/app/api/cron/macro-backfill-historical/route.ts) | LANE_CONTEXT を 8 domain × Japan policy milestones (advanced_ict / advanced_materials_manufacturing / ai_technologies / biotechnology / defence_space_robotics_transport / energy_environment / quantum / sensing_timing_navigation) に書き換え |
+
+#### Phase 2-B: 新規 PJ LLM lane 推定 cron + admin UI
+
+- [`cron/lane-suggest`](../src/app/api/cron/lane-suggest/route.ts) ─ project_ventures.lanes IS NULL の PJ に対し Sonnet 4.5 で ASPI 8 domain weighted lane を推定 → `lane_suggestions` テーブルに status='pending' で保存 + `l2_notifications` (kind='lane_suggestion') に通知 push。weight 合計 1.0 正規化 + 端数吸収。
+- [`admin/projects`](../src/app/(app)/admin/projects/page.tsx) ─ AdminProjectsPage で lane_suggestions (pending) を fetch、AdminProjectsTable の Lane セル内に「💡 LLM 提案 (badge + confidence% + reasoning + 採用/却下 ボタン)」を表示。採用ボタンで project_ventures.lanes 書き戻し + status='approved'、却下ボタンで status='rejected'。
+- cron 登録: weekly (推奨 月曜 04:30 JST)。Vercel Hobby 制約のため当面 GAS trigger or 手動キックで起動。
+
+#### Phase 2-C: KAKEN ingest (I_R 研究費)
+
+- [`cron/kaken-ingest`](../src/app/api/cron/kaken-ingest/route.ts) ─ 各 ASPI 8 domain × 直近 16 quarter に対し Sonnet 4.5 を呼び出し、KAKEN (科研費) 配分額 (億円) を推定 → `observation_log` (key='I_R', source='kaken') に upsert。raw_meta に grant_count, estimator, quarter を保存。
+- 注: KAKEN 公開 API は限定的なので Phase 2-C 初版は LLM 推定で代替。将来 Phase 2-C2 で `https://kaken.nii.ac.jp/grant/api/v1/search` 直接 fetch を追加可能 (構造はスケルトンに準拠)。
+- cron 登録: weekly (推奨 月曜 04:00 JST)。
+
+#### Phase 2-D: NEDO/JST/AMED ingest (B 公募予算)
+
+- [`cron/grant-ingest`](../src/app/api/cron/grant-ingest/route.ts) ─ 各 ASPI 8 domain × 直近 16 quarter に対し Sonnet 4.5 で NEDO / JST / AMED / SIP / ムーンショット 採択額 (億円) を推定 → `observation_log` (key='B', source='grant') に upsert。raw_meta に adopted_count, agency_mix を保存。
+- HTML scrape は機関ごとに構造異なるため、Phase 2-D 初版は LLM 推定で代替。将来 Phase 2-D2 で各機関の採択リスト scrape を追加。
+- cron 登録: weekly (推奨 月曜 04:15 JST)。
+
+#### Phase 2-E: VC 投資 ingest (V VC 投資)
+
+- [`cron/vc-investment-ingest`](../src/app/api/cron/vc-investment-ingest/route.ts) ─ 既存 vc_news (直近 200 件) を context として Sonnet 4.5 に渡し、各 ASPI 8 domain × 直近 16 quarter の VC 投資総額 (億円) を推定 → `observation_log` (key='V', source='vc_news') に upsert。
+- Crunchbase / INITIAL の有償 API が使えない期間の代替実装。Phase 2-E2 で Crunchbase 統合可能 (構造同じ)。
+- cron 登録: weekly (推奨 月曜 04:45 JST)。
+
+### Schema 拡張 (migration 042 で実装済)
+
+#### `observation_log` (統合観測量テーブル、新規)
+
+```
+observation_log
+- id UUID PK
+- lane TEXT (ASPI 8 domain id)
+- observed_at DATE (quarter 開始日)
+- observation_key TEXT ('I_R' / 'B' / 'V')
+- value NUMERIC (観測値)
+- unit TEXT ('億円' / '件')
+- source TEXT ('kaken' / 'grant' / 'vc_news')
+- raw_meta JSONB (件数 / 機関別按分 / estimator 等)
+- computed_at TIMESTAMPTZ
+UNIQUE (lane, observed_at, observation_key, source)
+```
+
+#### `lane_suggestions` (LLM lane 推定 candidate、新規)
+
+```
+lane_suggestions
+- id UUID PK
+- project_id TEXT (FK projects.project_id)
+- suggested_lanes JSONB ([{domain, weight}])
+- reasoning TEXT
+- model TEXT
+- confidence NUMERIC (0-1)
+- status TEXT ('pending'/'approved'/'rejected'/'superseded')
+- created_at / reviewed_at / reviewer
+```
+
+### 観測量カバレッジ (Triple Helix M カード) — 7/7 完備
+
+| 観測量 | データソース | 状態 |
+|---|---|---|
+| **N** (論文) | OpenAlex → papers_log (ASPI 8 domain × quarter, weekly) | ✅ |
+| **P** (政策) | atlas_signals.source_type='policy' OR domain LIKE 'B.%' | ✅ |
+| **R** (言及) | atlas_signals.source_type='news' (ASPI lane atlas prefix hit のみ) | ✅ |
+| **C_compete** | project_ventures.lanes (weighted alive count) | ✅ |
+| **B** (予算) | observation_log (key=B, source=grant) ← grant-ingest cron | ✅ Phase 2-D |
+| **V** (VC) | observation_log (key=V, source=vc_news) ← vc-investment-ingest cron | ✅ Phase 2-E |
+| **I_R** (研究費) | observation_log (key=I_R, source=kaken) ← kaken-ingest cron | ✅ Phase 2-C |
+
+### cron 起動について
+
+Vercel Hobby plan は daily 1 回まで cron 制限。新 cron 4 つ (`/api/cron/lane-suggest` `/kaken-ingest` `/grant-ingest` `/vc-investment-ingest`) は当面:
+
+1. 本体 GAS の 154_PwaCronCaller.js 系に新 trigger function (例: `nav_pwa_pingLaneSuggest` 等) を追加して週次トリガー
+2. または手動キック (curl) で運用検証 (推奨初手)
+
+```sh
+URL="https://amd-os-pwa.vercel.app"
+SECRET=$(grep '^CRON_SECRET=' pwa/.env.local | sed 's/^CRON_SECRET=//' | tr -d '"')
+curl -sL "$URL/api/cron/lane-suggest" -H "Authorization: Bearer $SECRET" | jq
+curl -sL "$URL/api/cron/kaken-ingest" -H "Authorization: Bearer $SECRET" | jq
+curl -sL "$URL/api/cron/grant-ingest" -H "Authorization: Bearer $SECRET" | jq
+curl -sL "$URL/api/cron/vc-investment-ingest" -H "Authorization: Bearer $SECRET" | jq
+```
+

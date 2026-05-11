@@ -1,11 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
+import { ASPI_DOMAIN_IDS, ASPI_DOMAIN_LABEL_JP, type AspiDomainId } from "@/lib/aspi-lanes";
 
 export const maxDuration = 120;
-
-const LANES = ["gx_energy", "gx_circular", "materials", "life", "robo"] as const;
-type LaneId = (typeof LANES)[number];
 
 interface WeightSet {
   alpha: number;
@@ -19,11 +17,14 @@ interface WeightSet {
 /**
  * Phase 6: マクロ指数の領域別重みベクトル (α/β/γ/δ/λ/η) を LLM で再推定する cron。
  *
+ * Phase 2 で旧 5 lane (gx_energy/gx_circular/materials/life/robo) から ASPI 8 domain
+ * (pwa/design/aspi_lanes.md) に移行。
+ *
  * 過去データ:
  *   - macro_index_log (lane × month の atlas_signals 集計)
- *   - papers_log (lane × year の OpenAlex 論文数)
- *   - project_ventures (9 PJ の outcome_pattern と founded_at)
- * を LLM (Sonnet 4.6/4.7) に投げて、各レーンの最も妥当な重みを推定 → macro_lane_weights に新行 INSERT。
+ *   - papers_log (lane × quarter の OpenAlex 論文数)
+ *   - project_ventures (10 PJ の outcome_pattern と founded_at, lanes weighted)
+ * を Sonnet に投げて、各 ASPI domain の最も妥当な重みを推定 → macro_lane_weights に新行 INSERT。
  *
  * Bearer ${CRON_SECRET} 認証 + 手動キック対応。
  */
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
       .order("observed_at", { ascending: true }),
     db
       .from("project_ventures")
-      .select("project_id, lane, founded_at, outcome_pattern")
+      .select("project_id, lane, lanes, founded_at, outcome_pattern")
       .order("founded_at", { ascending: true, nullsFirst: false }),
   ]);
 
@@ -65,42 +66,45 @@ export async function GET(req: NextRequest) {
   const papersLog = papersResp.data || [];
   const ventures = venturesResp.data || [];
 
-  // 各レーンの paper trend を集約（recent 5年）
+  // 各 ASPI domain の paper trend を集約 (recent 5年)
   const recentYearStart = 2020;
-  const paperByLaneYear: Record<string, Record<number, number>> = {};
+  const paperByDomainYear: Record<string, Record<number, number>> = {};
   for (const r of papersLog) {
     const year = Number(String(r.observed_at).slice(0, 4));
     if (year < recentYearStart) continue;
     const lane = r.lane as string;
-    if (!paperByLaneYear[lane]) paperByLaneYear[lane] = {};
-    paperByLaneYear[lane][year] = (paperByLaneYear[lane][year] || 0) + Number(r.paper_count);
+    if (!paperByDomainYear[lane]) paperByDomainYear[lane] = {};
+    paperByDomainYear[lane][year] = (paperByDomainYear[lane][year] || 0) + Number(r.paper_count);
   }
+
+  const domainList = ASPI_DOMAIN_IDS.map((d) => `${d} (${ASPI_DOMAIN_LABEL_JP[d]})`).join(", ");
 
   const prompt = `You are an econometric model designer for a Japanese deep-tech venture studio (AMD).
 
-We model the macro trend index per industry lane i at time t as:
+We model the macro trend index per ASPI Critical Tech domain i at time t as:
 
   M_i(t) = α_i ∫_{t-τ}^{t} P_i(s) · e^{-λ_i (t-s)} ds + β_i B_i(t) + γ_i V_i(t) + δ_i R_i(t)
 
-Then the founding suitability ("temperature"):
+Then the founding suitability:
   T_i(t) = M_i(t) · S_i^κ · (1 - C_i(t))^{η_i}
 
 Variables:
   P_i = policy density (count of policy signals)
-  B_i = grant/budget allocations
-  V_i = VC investment amount in the lane
-  R_i = policy mention count (non-policy news referencing the policy / lane)
-  S_i = seed maturity (constant per lane)
+  B_i = grant/budget allocations (NEDO/AMED/JST)
+  V_i = VC investment amount in the domain
+  R_i = policy mention count (news referencing the policy / domain)
+  S_i = seed maturity (constant per domain)
   C_i = competitor density
 
-Five lanes: gx_energy (renewables, hydrogen, batteries, DC cooling, fusion), gx_circular (waste, recycling, ESG, water), materials (rare earth, semiconductors, nano), life (drug discovery, regenerative medicine, AMED priorities), robo (drones, agri-robots, construction DX).
+Domains (ASPI Critical Technology Tracker 8 domains, see pwa/design/aspi_lanes.md):
+${domainList}
 
 Past data (truncated):
 - macro_index_log lane×month rows: ${macroLog.length}
-- papers_log lane×year rows: ${papersLog.length}, recent samples per lane: ${JSON.stringify(paperByLaneYear)}
-- ventures (AMD past SU outcomes): ${JSON.stringify(ventures)}
+- papers_log lane×quarter rows: ${papersLog.length}, recent samples per domain: ${JSON.stringify(paperByDomainYear)}
+- ventures (AMD past SU outcomes, weighted lanes): ${JSON.stringify(ventures)}
 
-Estimate the most plausible weights for each lane.
+Estimate the most plausible weights for each domain.
 
 Constraints:
 - α + β + γ + δ must equal 1.00 (within ±0.02)
@@ -108,27 +112,24 @@ Constraints:
 - λ in [0.05, 0.40] (smaller = policy effect lasts longer)
 - η in [0.50, 2.00] (competitor density exponent)
 
-Domain priors to incorporate:
-- gx_energy: GX政策が直撃するため α 高め、λ 中程度。投資も比較的厚い
-- gx_circular: 規制ドリブン、α 最も高く β/γ も中程度
-- materials: 投資額の効きが大きい (γ 高め)、λ やや高い (政策の風化が早い)
-- life: AMED予算が決定的なので β が突出して高い、λ 低い (政策効果が長持ち)
-- robo: バランス型、ηを最も高く（競合が増えやすい）
-- 失敗SU (burnout, ue_fail) のあったレーンは、当時のマクロ指標の不足 (TRL/HRL ボトルネック) を考慮して η を上げる
+Domain priors to incorporate (Japan context, 2010-2026):
+- advanced_ict: サイバーセキュリティ戦略 / 通信基盤政策、γ 高め (民間投資ドリブン)
+- advanced_materials_manufacturing: 経済安保 / 半導体・希少金属、γ 高、λ やや高い (政策風化早)
+- ai_technologies: AI戦略 2017 / 生成AI 関連、γ 突出 (民間/VC 主導)、η 高め (急増)
+- biotechnology: AMED 創設 2015 → β が突出して高い、λ 低い (政策効果長持ち)
+- defence_space_robotics_transport: ロボット新戦略 2015 / ドローン規制緩和、バランス型、η 最高 (競合多い)
+- energy_environment: GX 政策直撃 (α 高め)、λ 中程度、投資も比較的厚い
+- quantum: 量子戦略 2020 / 国家戦略指定、β 高め (公的予算依存)
+- sensing_timing_navigation: 準天頂衛星 / IoT、γ 中、η やや低い
+- 失敗 SU (burnout, ue_fail) のあった domain は、当時のマクロ指標不足 (TRL/HRL ボトルネック) を考慮して η を上げる
 
-Output STRICT JSON, no preamble, no code fences:
-{
-  "gx_energy":   { "alpha": ..., "beta": ..., "gamma": ..., "delta": ..., "lambda": ..., "eta": ... },
-  "gx_circular": { "alpha": ..., "beta": ..., "gamma": ..., "delta": ..., "lambda": ..., "eta": ... },
-  "materials":   { "alpha": ..., "beta": ..., "gamma": ..., "delta": ..., "lambda": ..., "eta": ... },
-  "life":        { "alpha": ..., "beta": ..., "gamma": ..., "delta": ..., "lambda": ..., "eta": ... },
-  "robo":        { "alpha": ..., "beta": ..., "gamma": ..., "delta": ..., "lambda": ..., "eta": ... },
-  "rationale":   "one or two sentence summary"
-}`;
+Output STRICT JSON, no preamble, no code fences. Top-level keys = the 8 ASPI domain ids, plus "rationale" (short summary):
+${ASPI_DOMAIN_IDS.map((d) => `  "${d}": { "alpha": ..., "beta": ..., "gamma": ..., "delta": ..., "lambda": ..., "eta": ... },`).join("\n")}
+  "rationale": "one or two sentence summary"`;
 
   const resp = await anthropic.messages.create({
     model: "claude-sonnet-4-5-20250929",
-    max_tokens: 2000,
+    max_tokens: 3000,
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -138,7 +139,6 @@ Output STRICT JSON, no preamble, no code fences:
     .join("\n")
     .trim();
 
-  // JSON を抽出
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     return NextResponse.json({ error: "no JSON in LLM response", raw: text }, { status: 500 });
@@ -153,17 +153,14 @@ Output STRICT JSON, no preamble, no code fences:
     );
   }
 
-  // 各レーンの行を INSERT
-  const inserts = LANES.map((lane) => {
+  const inserts = ASPI_DOMAIN_IDS.map((lane: AspiDomainId) => {
     const w = parsed[lane] as WeightSet | undefined;
     if (!w || typeof w !== "object") return null;
-    // クランプ
     const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Number(x)));
     const alpha = clamp(w.alpha, 0.05, 0.60);
     const beta = clamp(w.beta, 0.05, 0.60);
     const gamma = clamp(w.gamma, 0.05, 0.60);
     const delta = clamp(w.delta, 0.05, 0.60);
-    // 正規化 α+β+γ+δ = 1
     const sum = alpha + beta + gamma + delta;
     return {
       lane,
@@ -174,7 +171,7 @@ Output STRICT JSON, no preamble, no code fences:
       lambda: clamp(w.lambda, 0.05, 0.40),
       eta: clamp(w.eta, 0.50, 2.00),
       computed_by: "llm-sonnet-4-5",
-      source_data_window_days: 720,
+      source_data_window_days: 1095,
     };
   }).filter((x): x is NonNullable<typeof x> => x !== null);
 

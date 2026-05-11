@@ -34,6 +34,14 @@ export interface ProjectRow {
   pls: string[];
   /** ASPI 8 domain weighted lanes (project_ventures.lanes 由来)。SU 未化 PJ は null。 */
   lanes: LaneWeight[] | null;
+  /** LLM (Sonnet) による lane 推定 candidate (pending、未承認)。null = 提案なし。 */
+  lane_suggestion: {
+    id: string;
+    suggested_lanes: LaneWeight[];
+    reasoning: string | null;
+    confidence: number | null;
+    created_at: string;
+  } | null;
   created_at: string;
   updated_at: string;
 }
@@ -147,6 +155,50 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, lanes } : x));
       setHint(`${p.project_name} の lanes を保存しました`);
       setEditingId(null);
+    }
+    setSaving(null);
+  };
+
+  // LLM 提案を採用: lanes に書き込み + suggestion.status='approved'
+  const approveSuggestion = async (p: ProjectRow) => {
+    if (!p.lane_suggestion) return;
+    setSaving(p.id);
+    const sugg = p.lane_suggestion;
+    const { error: pvErr } = await supabase
+      .from("project_ventures")
+      .update({ lanes: sugg.suggested_lanes, updated_at: new Date().toISOString() })
+      .eq("project_id", p.project_id);
+    if (pvErr) {
+      setHint(`提案採用エラー (lanes): ${pvErr.message}`);
+      setSaving(null);
+      return;
+    }
+    const { error: sErr } = await supabase
+      .from("lane_suggestions")
+      .update({ status: "approved", reviewed_at: new Date().toISOString() })
+      .eq("id", sugg.id);
+    if (sErr) {
+      setHint(`提案採用エラー (suggestion): ${sErr.message}`);
+    } else {
+      setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, lanes: sugg.suggested_lanes, lane_suggestion: null } : x));
+      setHint(`${p.project_name} の LLM 提案を採用しました`);
+    }
+    setSaving(null);
+  };
+
+  // LLM 提案を却下: suggestion.status='rejected' のみ
+  const rejectSuggestion = async (p: ProjectRow) => {
+    if (!p.lane_suggestion) return;
+    setSaving(p.id);
+    const { error } = await supabase
+      .from("lane_suggestions")
+      .update({ status: "rejected", reviewed_at: new Date().toISOString() })
+      .eq("id", p.lane_suggestion.id);
+    if (error) {
+      setHint(`提案却下エラー: ${error.message}`);
+    } else {
+      setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, lane_suggestion: null } : x));
+      setHint(`${p.project_name} の LLM 提案を却下しました`);
     }
     setSaving(null);
   };
@@ -303,19 +355,54 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     ) : <StatusBadge status={p.status} />}
                   </td>
 
-                  {/* Lane (ASPI 8 domains weighted, project_ventures.lanes) */}
+                  {/* Lane (ASPI 8 domains weighted, project_ventures.lanes)
+                      lanes が null かつ LLM 提案 (lane_suggestion) があれば「採用 / 却下」UI も表示。 */}
                   <td className={cellCls("lanes")} onClick={enterCell("lanes")}>
                     {isEditingField(p, "lanes") ? (
                       <div onClick={(e) => e.stopPropagation()}>
                         <LaneEditor
-                          initial={p.lanes}
+                          initial={p.lanes ?? p.lane_suggestion?.suggested_lanes ?? null}
                           onCancel={cancelEdit}
                           onSave={(lanes) => saveLanes(p, lanes)}
                           saving={saving === p.id}
                         />
                       </div>
                     ) : (
-                      <LaneBadges lanes={p.lanes} fallback={p.lanes === null ? "未設定" : null} />
+                      <div className="space-y-1">
+                        <LaneBadges lanes={p.lanes} fallback={p.lanes === null ? "未設定" : null} />
+                        {p.lane_suggestion && !p.lanes && (
+                          <div className="mt-1 px-1.5 py-1 rounded bg-amber-50 border border-amber-200" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-1 text-[9px] text-amber-800 font-semibold mb-0.5">
+                              <span>💡 LLM 提案</span>
+                              {p.lane_suggestion.confidence != null && (
+                                <span className="text-amber-600">conf={Math.round(p.lane_suggestion.confidence * 100)}%</span>
+                              )}
+                            </div>
+                            <LaneBadges lanes={p.lane_suggestion.suggested_lanes} size="xs" />
+                            {p.lane_suggestion.reasoning && (
+                              <div className="text-[9px] text-amber-700 mt-0.5 leading-tight">
+                                {p.lane_suggestion.reasoning}
+                              </div>
+                            )}
+                            <div className="flex gap-1 mt-1">
+                              <button
+                                onClick={() => approveSuggestion(p)}
+                                disabled={saving === p.id}
+                                className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded disabled:opacity-50"
+                              >
+                                採用
+                              </button>
+                              <button
+                                onClick={() => rejectSuggestion(p)}
+                                disabled={saving === p.id}
+                                className="text-[9px] text-amber-700 border border-amber-300 px-1.5 py-0.5 rounded disabled:opacity-50"
+                              >
+                                却下
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </td>
 
