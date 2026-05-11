@@ -1,172 +1,126 @@
-# HANDOFF — AMD OS PWA / GAS (2026-05-11 eloquent-chatelet-417abc 引き継ぎ)
+# HANDOFF — AMD OS PWA / GAS
 
-## 🚨 次セッション最優先 (= 「前セッションでもまた同じこと」防止)
+最終更新: 2026-05-11 (eloquent-chatelet-417abc セッション)
+詳細セッションログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾参照
 
-過去 N セッションで「次セッションで」と先送りされた件:
+---
 
-### 1. backfill 全 source 統合 — 進捗 50%
+## 状態
 
-**現状**:
-- Notion + Gmail (本体 GAS 074) → 既存稼働、ただし Notion 議事録が少ない PJ は空
-- Slack (本体 GAS 074b) → **本セッションで実装 + clasp push + clasp deploy 完了**
-  - `gas/074b_MeetingSummarySlack.js` (新規)
-  - `nav_meeting_extractSlackThreadsForProjectYm_(projectId, ym, opts)` (単月単 PJ)
-  - `nav_meeting_backfillSlackAllActive_(opts)` (全 active PJ × 過去 N ヶ月)
-  - bot 除外 (USLACKBOT / subtype=bot_message / bot_id / app_id) 込みの安全実装
-  - WebApp URL: 既存 deploymentId を上書き update (v1457)
-- Drive / Calendar → 未実装
+- main HEAD: `9da5d9f` (この後さらに handoff 更新 commit が乗る)
+- Vercel: `amd-os-bgfyv01fh-armada0130` (= main `9da5d9f` 反映済)
+- 本体 GAS: deployment `AKfycbwzA_sBg4i...` @1457 (Slack backfill 関数追加版)
+- AMD-Report GAS: scriptId `1r3Ak-tYASXY...` @1455 (bot 除外 + 人物誤認防止 prompt)
+- 未 push commit: なし
+- worktree: `claude/eloquent-chatelet-417abc` (= 本セッション、main にマージ済)
 
-**次セッションで**:
-- まず Slack backfill の実行結果を `project_meeting_summaries` で目視確認
-  ```sh
-  SVC=$(grep '^SUPABASE_SERVICE_ROLE_KEY=' pwa/.env.local | cut -d= -f2- | tr -d '"')
-  curl -sL -G "https://nbnhrhybjslbawdukvvk.supabase.co/rest/v1/project_meeting_summaries?select=project_id,source_kinds&source_kinds=eq.slack" -H "apikey: $SVC" -H "Authorization: Bearer $SVC" | jq 'group_by(.project_id) | map({pj: .[0].project_id, n: length})'
-  ```
-- 必要なら手動で再起動:
-  ```sh
-  URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' pwa/.env.local | cut -d= -f2- | tr -d '"')
-  KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' pwa/.env.local | cut -d= -f2- | tr -d '"')
-  curl "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_meeting_backfillSlackAllActive_&args=$(python3 -c "import urllib.parse,json; print(urllib.parse.quote(json.dumps([{'monthsBack':12,'maxLlmCallsPerRun':50}])))")"
-  ```
-- Drive backfill (R309_MonthlyReport_DriveExtract を本体 GAS に移植):
-  - 074c_MeetingSummaryDrive.js を新規作成
-  - PJ Drive folder から「議事録」「打合せ」を含むファイル名のものを meeting として upsert
-- Calendar backfill: event description + attendees から meeting 構築
-- Notion alias resolver 強化 (= 「香川大学」→ p06 等のマップ拡張)
+---
 
-### 2. AdminProtocolsClient の 4 要素ステップカード UI が見えない (= 巻き戻り疑い)
+## 🚨 次セッション最優先 (= 「先送り」を防ぐ具体ステップ)
 
-**症状**: まさが「ビジュアライズが巻き戻ってる」と指摘
+### 1. Slack backfill の LLM 呼び出しロジック修正
 
-**仮説 (要検証)**:
-- 既存 13 件の protocols を本セッションで `status='archived'` に一括変更
-- `AdminProtocolsClient.tsx` のデフォルト filterStatus=`""` (= 全 status 表示) で archived も表示されるはず
-- ただし表示順 `order updated_at desc` なので最新 archived が頭に出てる可能性
-- → archived は折りたたみ + candidate 優先表示にする UI 修正必要
+**症状**: `nav_meeting_backfillSlackAllActive_({monthsBack:6, maxLlmCallsPerRun:20})` 実行結果:
+- p06 CTB で **27 スレッド検出** したのに `saved=0` / `llm_calls=0`
+- p10 SE = 0 threads / p00 AMD = no_channel
 
-**次セッションで**:
-- /admin/protocols 開いて画面確認 → どこで巻き戻ってる?
-- 必要なら AdminProtocolsClient の filter デフォルトを `status=candidate` にして archived 非表示
+**調査ポイント**: [`gas/074b_MeetingSummarySlack.js`](../gas/074b_MeetingSummarySlack.js)
+- `if (existing && existing[meetingId])` の `existing` 構造が `_meeting_loadExistingForProjectYm_` の戻り値と一致してない可能性 (= 全 thread が "skipped_existing" になってる)
+- もしくは `llm_callJson("meeting_extract", ...)` 呼び出し前で例外が起きてるが catch で握りつぶしてる
 
-### 3. 既存 13 件 protocols の再抽出 (= 普遍プロトコル形式に)
+**確認 curl**:
+```sh
+SVC=$(grep '^SUPABASE_SERVICE_ROLE_KEY=' pwa/.env.local | cut -d= -f2- | tr -d '"')
+curl -sL -G "https://nbnhrhybjslbawdukvvk.supabase.co/rest/v1/project_meeting_summaries?select=project_id,source_kinds&source_kinds=eq.slack" \
+  -H "apikey: $SVC" -H "Authorization: Bearer $SVC"
+```
 
-旧形式 protocols (= PJ 固有事例ベース) は archived 済。再抽出は GAS cron 月 1 回。手動キック:
+### 2. AdminProtocolsClient の legacy_specific と pattern を別セクション表示
+
+**症状**: まさが「AMDプロトコルが巻き戻ってる、事例とプロトコル分離してない」と指摘。既存 22 件 (= 旧形式) が candidate に戻された状態で混在表示
+
+**修正方針**:
+- AdminProtocolsClient.tsx でフィルターのデフォルトを `kind='pattern'` に
+- legacy_specific (= 22 件) は別セクション「⚠️ 旧形式 (要再抽出 or アーカイブ)」で折りたたみ表示 + 「一括 archive」ボタン
+- 新形式 (kind='pattern') が候補欄に表示される構造
+
+### 3. 既存 22 件 protocols の再抽出 (force=true)
+
+`nav_protocol_pollAll force=true` を本セッションで実行 → 結果: `processed=11, llmCalls=11, errors=3 (LLM parse failed), no_input=9`。LLM parse failed の 3 件はリトライ要。
+
 ```sh
 URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' pwa/.env.local | cut -d= -f2- | tr -d '"')
 KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' pwa/.env.local | cut -d= -f2- | tr -d '"')
-curl "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_protocol_pollAll&args=$(python3 -c "import urllib.parse,json; print(urllib.parse.quote(json.dumps([{'force':True}])))")"
+curl "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_protocol_pollAll&args=$(python3 -c "import urllib.parse,json; print(urllib.parse.quote(json.dumps([{'force':True,'maxItems':20}])))")"
 ```
-
-`llm_prompts.protocol.extract.body` は is_active=TRUE で本文入り (普遍 + examples 構造の prompt)。
-これに従って Gemini が `protocol_examples` テーブルに 1 protocol : N examples を upsert する仕組みは
-gas/155 nav_protocol_extractOneForYm_ に実装済。
 
 ### 4. ファビコンが反映されない
 
-**現状**:
-- `pwa/src/app/icon.png` + `apple-icon.png` 配置済 (Next.js convention)
-- root layout.tsx の `metadata.icons` 削除済 (= 二重 link 衝突回避)
-- それでもまさ環境では Vercel デフォルト favicon が見える
+**現状**: `pwa/src/app/icon.png` + `apple-icon.png` 配置済、root layout の `metadata.icons` 削除済、それでも反映されない (まさシークレットモードでも未確認)
 
-**次セッションで確認**:
-1. 本番 HTML を curl して `<link rel="icon" href="/icon..." >` が生成されてるか
-   ```sh
-   curl -sL https://amd-os-pwa.vercel.app/ | grep -oE '<link[^>]*icon[^>]*>'
-   ```
-2. もし生成されてなければ:
-   - `pwa/src/app/icon.tsx` (= 動的) を試す
-   - もしくは `pwa/public/favicon.ico` に本物の ICO 形式を配置 (PNG→ICO 変換: `magick convert icon.png favicon.ico`)
-3. Vercel project settings の Favicon override がないか確認
+**次セッション**: 
+1. `curl -sL https://amd-os-pwa.vercel.app/ | grep -oE '<link[^>]*icon[^>]*>'` で本番 HTML に `<link rel="icon" href="/icon...">` が生成されてるか確認
+2. 不足なら Vercel project settings の Favicon override 確認、もしくは `pwa/public/favicon.ico` に本物 ICO 配置
 
-### 5. R303 monthly_report の hardcoded fallback も削除する
+### 5. R303 monthly_report の hardcoded fallback を削除 (AGENTS 完遵)
 
-**現状**:
-- `llm_prompts.monthly_report.r313_extract.body` に seed 入り、ただし簡易テキストのみ
-- AMD-Report `R303_MonthlyReport_Generator.js` `mr_gen_getSystemPrompt_` に hardcoded fallback (約 470 字) が残ってる
-- AGENTS ルール「プロンプトをコードに書かない」に違反
+AGENTS ルール「プロンプトはコードに書かない」未達:
+- AMD-Report `R303_MonthlyReport_Generator.js` `mr_gen_getSystemPrompt_` に hardcoded fallback 残っている
+- `llm_prompts.monthly_report.r313_extract.body` に完全版を seed + is_active=TRUE
+- R303 の `return 'あなたは...'` 削除して DB 必須に
+- clasp push (= `/Users/masa/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/claude/AMD_OS/gas-report/`)
 
-**次セッションで**:
-1. R303 の `mr_gen_buildPrompt_` 全体を読んで、system prompt 構築箇所を特定
-2. DB の `monthly_report.r313_extract.body` に「人物誤認の防止 + bot 除外」を含む完全版を入れる
-3. R303 の `return 'あなたは...'` 部分を削除して DB 必須に
-4. clasp push (AMD-Report GAS、`/Users/masa/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/claude/AMD_OS/gas-report/.clasp.json`)
+### 6. sync-pj-facts cron を初回キック + Vercel cron 化
 
-### 6. project_knowledge への基本事実同期を実行
-
-**現状**: `cron/sync-pj-facts` route 作成済、まだキックしてない
-
-**次セッションで**:
 ```sh
 SECRET=$(grep '^CRON_SECRET=' pwa/.env.local | cut -d= -f2- | tr -d '"')
 curl -sL "https://amd-os-pwa.vercel.app/api/cron/sync-pj-facts" -H "Authorization: Bearer $SECRET"
 ```
-→ 全 active PJ の founded_at / outcome_pattern / amd_support_* が `project_knowledge.basic_fact` に同期される
+→ project_knowledge に basic_fact が同期される (まさが PJ ナレッジで設立日 / outcome_pattern / amd_support_* を見られるように)
 
-加えて Vercel cron 化 (daily 04:00 JST):
-- pwa/vercel.json に追加
+加えて `pwa/vercel.json` に daily 04:00 JST 追加 (or GAS 154 から curl 構成)。
 
----
+### 7. Drive / Calendar backfill 追加
 
-## 過去経緯 (= 同じミスを繰り返さないため)
-
-### えいみ (Opus 4.7) の事実誤認傾向
-- 過去ターンで「p03 は 2022-03-01 に事業終了」と発言した
-- 実際は `outcome_pattern='smb'` (= 中小企業転換、継続中)、`amd_support_ended_at=null`
-- 原因: `narrative_text` の 2022-03 entry「事業継続における一時的な課題に直面」を「終了」と誤読
-- 教訓: **構造化フィールドを必ず参照、自由テキストの曖昧文言から推測しない**
-
-### えいみが「次セッション」で先送りした件
-- backfill 全 source: 4 セッション以上先送り → 本セッションで Slack 部分は実装完了
-- AMD-Report GAS が手元に無いと即断 → 実は Drive に 107 files あった (= mdfind で 3 秒)
-- 仕事を後回しにする傾向、次セッションは **本ハンドオフの 1-6 を即座に進める**
-
-### コード内 hardcoded プロンプト排除 (AGENTS ルール)
-- 完了: chat/route.ts buildSystemPrompt() / gas/155 protocol fallback
-- 未完了: R303 monthly_report fallback / chat/route.ts tool descriptions (TOOLS 配列、約 600 行)
-- 注意: 完全排除 = 全プロンプトを DB で管理、まさが /admin/prompts UI で編集可能に
+`gas/074b_MeetingSummarySlack.js` と同じパターンで:
+- `gas/074c_MeetingSummaryDrive.js` (PJ Drive folder の議事録系ファイル名から meeting 構築)
+- `gas/074d_MeetingSummaryCalendar.js` (Calendar event description + attendees)
+- Notion alias resolver 強化 (`_meeting_resolveProjectIdFromPage_` の alias map 拡張)
 
 ---
 
-## 主要ファイル / コミット
+## ⚠️ 既知のえいみ傾向 (= 同じ失敗を防ぐため)
 
-| ファイル | 役割 |
-|---|---|
-| `pwa/scripts/migrations/045_members_is_admin.sql` | is_admin カラム |
-| `pwa/scripts/migrations/046_pl_review_requested.sql` | PL 確認依頼の状態分離 |
-| `pwa/scripts/migrations/047_tsukuyomi_token_usage.sql` | つくよみ usage log |
-| `pwa/scripts/migrations/048_llm_prompts.sql` | LLM prompt DB |
-| `pwa/scripts/migrations/049_protocol_examples.sql` | プロトコル普遍化 + N 事例 |
-| `pwa/scripts/migrations/050_protocol_examples_uniq.sql` | examples UNIQUE |
-| `pwa/src/app/(app)/admin/prompts/` | LLM prompt 管理 UI |
-| `pwa/src/app/api/cron/sync-pj-facts/route.ts` | PJ 基本事実同期 cron (未キック) |
-| `pwa/src/app/api/cron/freeze-period-backfill/route.ts` | 休止期間 backfill cron |
-| `pwa/src/app/api/cron/triple-helix-recompute/route.ts` | Triple Helix Kalman |
-| `gas/074b_MeetingSummarySlack.js` | Slack スレッド meeting backfill |
-| `gas/155_L2KnowledgeExtractor.js` | プロトコル抽出 (hardcoded 排除済) |
-| AMD-Report `R306_MonthlyReport_SlackExtract.js` | bot 除外 (まさ 2/18 事故対応) |
-| AMD-Report `R303_MonthlyReport_Generator.js` | 人物誤認防止 prompt (※ hardcoded 残あり) |
+1. **重い実装の先送り癖**: 「次セッションで」と書いた瞬間に進行が止まる → 本ハンドオフの 1-7 を順に**着手して止まらない**
+2. **早合点で隣の領域を触る**: まさの指摘の対象を最初に確認せず、コンポーネント / プロンプト / cron を取り違える → 修正対象がズレた commit が積み上がる
+3. **「手元にない」即断**: AMD-Report GAS が手元に無いと言ったが Drive に 107 files あった → 徹底探索 (mdfind / find / locate) を必ず先にやる
 
 ---
 
-## clasp / GAS push 手順
+## 入口
+
+- [`design/L2_DATA.md`](design/L2_DATA.md) ⭐⭐⭐ — L2 6 種 + 全 cron 一覧 (本セッションで 3 cron 追加済)
+- [`design/README.md`](design/README.md) — 設計 md インデックス
+- [`design/SPEC_pwa.md`](design/SPEC_pwa.md) — PWA 全体仕様
+- [`BUGS.md`](BUGS.md) — 直近事故 (本セッションで 4 件追加: SE 「2/18 2:47」誤抽出 / title.template バグ / archive UI / プロトコル取り違え)
+- [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾 — 本セッション全 commit + 設計変更網羅
+- `/Users/masa/projects/AGENTS.common.md` — えいみ人格 + 「LLM プロンプト運用 (絶対ルール)」セクション
+
+## 運用コマンド
 
 ```sh
-# 本体 GAS
+# Vercel deploy (= 本番反映)
+bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
+
+# DDL 適用
+python3 -X utf8 pwa/scripts/apply_ddl.py pwa/scripts/migrations/NNN_name.sql
+
+# 本体 GAS push
 cd /Users/masa/projects/AMD/amd-os/gas
 npx @google/clasp@latest push --force
 npx @google/clasp@latest deploy --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G --description "vNNN_xxx"
 
-# AMD-Report GAS
+# AMD-Report GAS push
 cd "/Users/masa/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/claude/AMD_OS/gas-report"
 npx @google/clasp@latest push --force
-# AMD-Report の WebApp URL は別、scriptId=1r3Ak-tYASXY...
-```
-
----
-
-## Vercel deploy
-
-```sh
-bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
-# 5-7 分で本番反映 (= amd-os-pwa.vercel.app)
 ```

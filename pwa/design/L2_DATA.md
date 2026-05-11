@@ -83,6 +83,9 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **09:00** | `cron/vc-news-ingest` | VC ニュース | PWA |
 | **mon 03:00** | `cron/amd-score-l2-refresh` | AMD Score L2 リフレッシュ | PWA |
 | **mon 04:30** | `cron/triple-helix-recompute` | BVAR Kalman smoother で μ_A/I/G 推定 (Phase 3) | PWA |
+| **daily 04:00 (未 cron 化、手動キック)** | `cron/sync-pj-facts` | project_ventures → project_knowledge.basic_fact 同期 (founded_at / outcome_pattern / amd_support_*) | PWA |
+| **daily 04:30 (未 cron 化、手動キック)** | `cron/freeze-period-backfill` | 休止期間 PJ の reports + meetings を Sonnet 統合 → freeze_period_backfills | PWA |
+| **手動キック (GAS curl)** | `nav_meeting_backfillSlackAllActive_` | 全 active PJ × 過去 N ヶ月の Slack スレッド → project_meeting_summaries (source_kinds=slack) | 本体GAS (074b_MeetingSummarySlack.js) |
 | **fri 17:00** | `cron/atlas-weekly` | atlas 週次 | PWA |
 | **sun 06:00** | `cron/atlas-divergence` | テーマ divergence 再生成 | PWA |
 | **sun 12:00** | `cron/macro-backfill-historical` | macro index バックフィル | PWA |

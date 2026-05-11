@@ -2163,3 +2163,87 @@ main HEAD: 本 commit 後 git log で確認、Vercel deploy 本 PR 反映。
 main HEAD: `409c32d`、Vercel `amd-os-pdg6emk4d-armada0130` (production, 5m23s, Ready)。
 本番 URL: <https://amd-os-pwa.vercel.app/atlas/map> で「2 枚目相当の縮尺」確認可能。
 
+
+## 2026-05-11 (eloquent-chatelet-417abc) — 大規模機能追加 + AGENTS ルール整備
+
+### 主要 commit (上位)
+
+- `9da5d9f` Merge: handoff update (Slack backfill 結果 + 7 項目 handoff)
+- `cc5d5fb` fix(pwa): cockpit title fallback + チャット残骸 1h 期限切れ
+- `e556a59` fix: hardcoded プロンプト排除 + cockpit title PJ 名 + sync-pj-facts cron + favicon convention 化
+- `d503827` fix(pwa): タブタイトル SSR 確定 (middleware x-pathname + generateMetadata)
+- `56159c8` feat: プロトコル普遍化 (1:N 事例) + タブタイトル absolute + protocol UI 4 要素ステップ
+- `39da194` feat(pwa/admin/prompts): スプシ由来 tsukuyomi_context 20+ 件併記 + hardcoded body DB seed
+- `05aee5d` fix: AMD-Report GAS bot 除外 + protocol UI content表示 + ファビコン/タイトル
+- `f5afced` feat(pwa): LLM プロンプトを DB 管理 + admin UI 編集可能化 (AGENTS ルール遵守)
+- `7337423` feat(pwa): favicon + ページタイトル + 権限制御 + Slack PL バグ修正 + つくよみ usage 追跡
+- `caf6b1e` feat(pwa): AMD Protocol タブ復活 + 休止期間 backfill (cron + UI + migration 044)
+- `9052afa` feat(pwa): admin status fix + FRL 6軸 + tsukuyomi Opus + VC pjName + Atlas 直径×8
+- `3f1006a` / `b43c211` Atlas Map 力場圧倒的拡大 + 直径×8 hard constraint + P/Q/R domain 追加 + Phase 3 Kalman
+
+### 主要 migration
+
+| # | 内容 |
+|---|---|
+| 043 | triple_helix_state_log (Phase 3 BVAR Kalman 結果保存) |
+| 044 | freeze_period_backfills (休止期間 LLM 統合サマリ) |
+| 045 | members.is_admin BOOLEAN (まさのみ TRUE) |
+| 046 | monthly_reports.pl_review_requested_at + confirmed_by (PL 確定の状態分離) |
+| 047 | tsukuyomi_usage_log (Opus token usage + 円換算コスト) |
+| 048 | llm_prompts (AGENTS ルール: プロンプト DB 管理) |
+| 049 | protocol_examples + protocols.kind/is_universal (1:N 事例構造) |
+| 050 | protocol_examples UNIQUE (protocol_id, project_id, occurred_on) |
+
+### 主要新規 cron
+
+| Path | 動作 |
+|---|---|
+| `/api/cron/triple-helix-recompute` | 全 ASPI 8 domain × 16 quarter で Kalman smoother → state_log upsert (本番で 128 行 upsert 確認済) |
+| `/api/cron/freeze-period-backfill` | 休止期間 PJ の reports + meetings → Sonnet 統合 → freeze_period_backfills |
+| `/api/cron/sync-pj-facts` | project_ventures の構造化フィールド → project_knowledge.basic_fact 同期 (未キック) |
+
+### 主要新規 GAS (本体 + AMD-Report)
+
+| ファイル | 役割 |
+|---|---|
+| `gas/074b_MeetingSummarySlack.js` | Slack スレッド (reply_count >= 2) を meeting として project_meeting_summaries に upsert。`nav_meeting_extractSlackThreadsForProjectYm_` + `nav_meeting_backfillSlackAllActive_`。bot 除外込み |
+| `gas/155_L2KnowledgeExtractor.js` (修正) | protocol 抽出が DB `llm_prompts.protocol.extract` 必須 + protocol_examples 構造 upsert |
+| AMD-Report `R306_MonthlyReport_SlackExtract.js` (修正) | `mr_slack_isBotMessage_()` で bot 除外 (= SE 「2/18 2:47」事故対応) |
+| AMD-Report `R303_MonthlyReport_Generator.js` (修正) | system prompt に「人物誤認の防止」セクション |
+
+### 主要新規 UI
+
+- `/admin/prompts` 新規ページ + `AdminPromptsClient.tsx` (LLM プロンプト + tsukuyomi_context 一覧表示・編集)
+- `AdminProtocolsClient.tsx` 大改修 (4 要素ステップカード + 1:N 事例リスト + 4 アクション)
+- `GlobalNav.tsx` (AMD Protocol タブ復活 + 通知/Admin を isAdmin ガード)
+- `PageTitleSetter.tsx` (client 動的 title) + (app)/layout.tsx の generateMetadata
+- `CockpitFreezeBackfill.tsx` (再開月 cockpit に休止期間サマリ表示)
+- AMD ロゴ ファビコン (app/icon.png + apple-icon.png)
+
+### 主要 AGENTS / 共通 md 変更
+
+- `/Users/masa/projects/AGENTS.common.md` に「LLM プロンプト運用 (絶対ルール)」セクション追加: プロンプトはコードに書かず DB 必須、admin UI で全文編集可能
+
+### 致命的事故 (詳細 BUGS.md)
+
+1. SE 月次レポート「2/18 2:47 山地→肥塚」誤抽出 (= bot メッセージを「肥塚の応答」と LLM 誤認) → R306 で bot 除外実装、R303 prompt 改善、clasp deploy v1457
+2. AMD-Report GAS を「手元になし」と即断したが、Google Drive 共有ドライブに 107 files あった (mdfind で 3 秒で発見できた)
+3. Next.js 16 で title.template が route group 配下で解決されない (= title.absolute + generateMetadata で回避)
+4. protocols 一括 status='archived' で UI 4 ボタンのうち 3 つが非表示 (= status='candidate' に戻して復旧)
+5. えいみが AMD プロトコル と つくよみプロンプト を取り違え → 修正対象がズレた
+
+### 次セッション最優先 (= HANDOFF.md 参照)
+
+1. Slack backfill の LLM 呼び出しロジック修正 (p06 27 threads 検出するも saved=0 / llm_calls=0)
+2. Drive / Calendar backfill 追加 (074c / 074d)
+3. 既存 22 件 candidate protocols の再抽出キック (force=true) — protocol 抽出側 LLM parse failed 3 件のリトライ要
+4. AdminProtocolsClient 4 要素ステップカード巻き戻り (= legacy_specific と pattern を別セクションに分離 UI)
+5. favicon 強制反映 (Vercel project override or 手動 ICO 配置)
+6. R303 monthly_report hardcoded fallback 削除 (AGENTS 完遵)
+7. /api/cron/sync-pj-facts キック + Vercel cron 化
+
+### deploy / GAS 状況
+
+- Vercel: `amd-os-bgfyv01fh-armada0130` (= main `9da5d9f`)
+- 本体 GAS deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` @1457
+- AMD-Report GAS: scriptId=`1r3Ak-tYASXY...`、push 107 files 完了 (v1455 deployment)
