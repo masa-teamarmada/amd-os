@@ -12,11 +12,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// title.template が Next.js 16 で route group 配下で解決されない問題があるため、
+// template は使わず各 page で absolute title を指定する。
+// PageTitleSetter (client) が pathname → title を上書きするので、初期 HTML 経由 + client 動的の二段防御。
 export const metadata: Metadata = {
-  title: {
-    default: "AMD OS",
-    template: "%s - AMD OS",
-  },
+  title: "AMD OS",
   description: "Team ARMADA Business Operating System",
   manifest: "/manifest.json",
   icons: {
