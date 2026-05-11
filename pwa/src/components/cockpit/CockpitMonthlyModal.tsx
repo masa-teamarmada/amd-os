@@ -1879,16 +1879,18 @@ function EventsSection({ events }: { events: ProgressEvent[] }) {
 
   return (
     <div className="space-y-2 pt-1">
-      {/* 先手力 + 起点サマリ */}
+      {/* 先手力 + 起点サマリ
+          2026-05-12 まさ「先手力の表示が消えてる」復活: senshoryoku === null (= 判定可能 events 0) でも
+          ラベルは必ず描画する。null の時は「先手力 ―」(= 計算不能) を表示 */}
       <div className="flex flex-wrap items-center gap-2">
-        {senshoryoku !== null && (
-          <span className={`text-[12px] font-semibold px-2 py-0.5 rounded ${
-            senshoryoku >= 90 ? "text-emerald-700 bg-emerald-50" :
-            senshoryoku >= 70 ? "text-amber-700 bg-amber-50" : "text-red-600 bg-red-50"
-          }`}>
-            先手力 {senshoryoku}%
-          </span>
-        )}
+        <span className={`text-[12px] font-semibold px-2 py-0.5 rounded ${
+          senshoryoku === null ? "text-muted-foreground bg-muted/40" :
+          senshoryoku >= 90 ? "text-emerald-700 bg-emerald-50" :
+          senshoryoku >= 70 ? "text-amber-700 bg-amber-50" : "text-red-600 bg-red-50"
+        }`}
+          title={senshoryoku === null ? "判定可能なイベントがまだ無いので計算不能 (= 外部起点以外の events が 0)" : "AMD 起案 + 共同決定 / 判定可能 events"}>
+          先手力 {senshoryoku === null ? "—" : `${senshoryoku}%`}
+        </span>
         <span className="text-[11px] font-semibold text-muted-foreground">起点:</span>
         {Object.entries(originCount).map(([key, count]) => (
           <span key={key} className={`text-[10px] px-1.5 py-0.5 rounded ${ORIGIN_COLORS[key] || "bg-gray-100 text-gray-500"}`}>
