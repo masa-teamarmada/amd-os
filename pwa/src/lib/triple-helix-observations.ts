@@ -74,22 +74,24 @@ const QUARTERS_HISTORY = 16; // 直近 4 年分
  * ASPI 8 domain → atlas_signals.domain プレフィックスのマッピング。
  * lane 個別の P (政策) / R (言及) を集計するため。
  *
- * atlas_signals.domain 既存 14 カテゴリ:
+ * atlas_signals.domain 既存 15 + 新規 3 カテゴリ:
  *   A.地政学・マクロ経済 / B.規制・政策 / C.素材・原料 / D.エネルギー / E.製造・プロセス /
  *   F.バイオ・医療 / G.モビリティ・ロボティクス / H.建築・インフラ / I.ICT・AI /
- *   J.宇宙・防衛 / K.食・農・水産 / N.海洋・水資源 / O.サーキュラーエコノミー
+ *   J.宇宙・防衛 / K.食・農・水産 / L.金融・資本市場 / M.社会構造・社会課題 /
+ *   N.海洋・水資源 / O.サーキュラーエコノミー /
+ *   P.量子・量子計算 / Q.センシング・計測 / R.先端通信
  *
- * - quantum / sensing_timing_navigation は直接対応する atlas domain がない (将来 atlas domain 拡張で対応)
+ * 2026-05-11: P/Q/R を追加し quantum / sensing_timing_navigation / advanced_ict を本格対応。
  */
 const LANE_DOMAIN_PREFIXES: Record<AspiDomainId, string[]> = {
-  advanced_ict: ["I."], // ICT・AI
+  advanced_ict: ["I.", "R."], // ICT・AI + 先端通信 (6G/衛星通信)
   advanced_materials_manufacturing: ["C.", "E."], // 素材・原料 + 製造・プロセス
   ai_technologies: ["I."], // ICT・AI (advanced_ict と重複、後で衝突解消は loading で吸収)
   biotechnology: ["F."], // バイオ・医療
   defence_space_robotics_transport: ["G.", "J."], // モビリティ・ロボティクス + 宇宙・防衛
   energy_environment: ["D.", "O.", "N."], // エネルギー + サーキュラー + 海洋・水資源 (波力等)
-  quantum: [], // atlas 該当なし (将来追加)
-  sensing_timing_navigation: [], // atlas 該当なし (将来追加)
+  quantum: ["P."], // 量子・量子計算
+  sensing_timing_navigation: ["Q."], // センシング・計測・測位・タイミング
 };
 
 // =====================================================================
@@ -352,7 +354,7 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
     buildObs("C_compete", cCompeteHistory),
   ].sort((a, b) => a.loading.display_order - b.loading.display_order);
 
-  // 8. μ 計算: 取れてる観測量だけで重み付き平均
+  // 8. μ 計算: 取れてる観測量だけで重み付き平均 (Phase 1 簡易計算 = フォールバック)
   let sumA = 0,
     sumI = 0,
     sumG = 0;
@@ -368,10 +370,27 @@ export async function fetchTripleHelixComputed(lane: string): Promise<TripleHeli
     weightI += o.loading.mu_i;
     weightG += o.loading.mu_g;
   }
-  const mu_a = weightA > 0 ? sumA / weightA : 0;
-  const mu_i = weightI > 0 ? sumI / weightI : 0;
-  const mu_g = weightG > 0 ? sumG / weightG : 0;
-  const sigma_su = Math.cbrt((mu_a + 1) * (mu_i + 1) * (mu_g + 1)) - 1;
+  let mu_a = weightA > 0 ? sumA / weightA : 0;
+  let mu_i = weightI > 0 ? sumI / weightI : 0;
+  let mu_g = weightG > 0 ? sumG / weightG : 0;
+  let sigma_su = Math.cbrt((mu_a + 1) * (mu_i + 1) * (mu_g + 1)) - 1;
+
+  // 9. Phase 3: triple_helix_state_log (BVAR Kalman smoother 結果) を優先表示。
+  //    最新 quarter 行 (lane, observed_at の最新) があれば Phase 1 を上書きする。
+  //    無ければ Phase 1 簡易計算をそのまま使う。
+  const { data: stateRow } = await supabase
+    .from("triple_helix_state_log")
+    .select("mu_a, mu_i, mu_g, sigma_su, observed_at")
+    .eq("lane", aspiLane)
+    .order("observed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (stateRow) {
+    mu_a = Number(stateRow.mu_a) || 0;
+    mu_i = Number(stateRow.mu_i) || 0;
+    mu_g = Number(stateRow.mu_g) || 0;
+    sigma_su = Number(stateRow.sigma_su) || Math.cbrt((mu_a + 1) * (mu_i + 1) * (mu_g + 1)) - 1;
+  }
 
   const covered = observations.filter((o) => o.normalized != null).length;
   const total = observations.length;

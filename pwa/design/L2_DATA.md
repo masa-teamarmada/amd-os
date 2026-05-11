@@ -55,6 +55,7 @@ L1 を経由する構成は廃止された ([progress_estimation.md](progress_es
 | **研究費 I_R 観測** (Phase 2-C) | `observation_log` key=I_R | `cron/kaken-ingest` (mon 04:00 JST、GAS 154 から curl) | PWA |
 | **公募予算 B 観測** (Phase 2-D) | `observation_log` key=B | `cron/grant-ingest` (mon 05:00 JST、GAS 154 から curl) | PWA |
 | **VC 投資 V 観測** (Phase 2-E) | `observation_log` key=V | `cron/vc-investment-ingest` (mon 05:00 JST、GAS 154 から curl) | PWA |
+| **Triple Helix 隠れ状態推定** (Phase 3) | `triple_helix_state_log` | `cron/triple-helix-recompute` (mon 04:30 JST、GAS 154 から curl 想定) | PWA |
 
 ---
 
@@ -81,6 +82,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **08:00** | `cron/atlas-collect` | マクロニュース | PWA |
 | **09:00** | `cron/vc-news-ingest` | VC ニュース | PWA |
 | **mon 03:00** | `cron/amd-score-l2-refresh` | AMD Score L2 リフレッシュ | PWA |
+| **mon 04:30** | `cron/triple-helix-recompute` | BVAR Kalman smoother で μ_A/I/G 推定 (Phase 3) | PWA |
 | **fri 17:00** | `cron/atlas-weekly` | atlas 週次 | PWA |
 | **sun 06:00** | `cron/atlas-divergence` | テーマ divergence 再生成 | PWA |
 | **sun 12:00** | `cron/macro-backfill-historical` | macro index バックフィル | PWA |

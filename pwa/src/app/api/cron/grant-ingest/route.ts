@@ -1,18 +1,16 @@
 /**
  * grant-ingest cron — Triple Helix 観測量 B (公募予算) を NEDO/JST/AMED 採択動向から quarter 単位で取得。
  *
- * 正本: pwa/design/aspi_lanes.md (Phase 2-D)、
+ * 正本: pwa/design/aspi_lanes.md (Phase 2-D / D2)、
  *       before-zero/theory/data_specification.md §B (NEDO/AMED/JST 採択額)
  *
- * 仕様:
- * - 各 ASPI domain × 直近 16 quarter に対して、Sonnet に「直近 quarter の NEDO/JST/AMED/SIP 採択動向 + 配分額」
- *   を推定させる。
- * - observation_log に upsert (key='B', source='grant')。
+ * Phase 2-D2 (本実装):
+ *   1. NEDO / AMED / JST の最新採択ページを HTML fetch (軽量 regex 抽出、cheerio 不使用)
+ *   2. Sonnet に採択タイトル一覧を渡して「ASPI 8 domain 分類 + 概算金額」を batch 判定
+ *   3. 現 quarter のデータが取れたら observation_log に source='grant_scrape' で upsert
+ *   4. それ以外の quarter / 失敗時は LLM (Sonnet + web_search) 推定で補完 (source='grant')
  *
- * 注: NEDO/JST/AMED の公開 採択リストは HTML scrape ベースで機関ごとに構造異なる。
- *      Phase 2-D 初版は LLM 推定で代替し、将来 Phase 2-D2 で HTML scrape を組み込む。
- *
- * cron: weekly (毎週月曜 04:15 JST) or 手動キック。
+ * cron: weekly (毎週月曜 04:15 JST) — GAS 154 setupWeeklyAspiTriggers から curl。
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -29,6 +27,119 @@ export const maxDuration = 300;
 export const runtime = "nodejs";
 
 const QUARTERS_BACK = 16;
+const SCRAPE_USER_AGENT = "AMD-Atlas-Bot/1.0 (+https://amd-os-pwa.vercel.app)";
+
+const GRANT_SCRAPE_SOURCES = [
+  // agency_code は raw_meta に保存。URL は採択 公示の代表ページ。
+  { agency: "NEDO", url: "https://www.nedo.go.jp/koubo/saitaku_l.html" },
+  { agency: "AMED", url: "https://www.amed.go.jp/koubo/saitaku/" },
+  { agency: "JST", url: "https://www.jst.go.jp/funding/saitaku.html" },
+] as const;
+
+/** HTML から <li> / <tr> / <a> のタイトル候補を抽出 (簡易) */
+function extractTitlesFromHtml(html: string): string[] {
+  const titles = new Set<string>();
+  // <a ...>title</a>
+  const reA = /<a [^>]*>([^<]{8,120})<\/a>/g;
+  let m: RegExpExecArray | null;
+  while ((m = reA.exec(html))) {
+    const t = m[1].replace(/\s+/g, " ").trim();
+    if (!t) continue;
+    if (/^https?:\/\//.test(t)) continue;
+    titles.add(t);
+  }
+  // <li>title</li> もしくは <td>title</td>
+  const reLi = /<(?:li|td)[^>]*>([^<]{8,200})<\/(?:li|td)>/g;
+  while ((m = reLi.exec(html))) {
+    const t = m[1].replace(/\s+/g, " ").trim();
+    if (!t) continue;
+    titles.add(t);
+  }
+  // 採択 / 助成 / 公募 を含む候補のみ採用
+  return Array.from(titles).filter((t) => /(採択|助成|公募|採用|決定|交付)/.test(t)).slice(0, 80);
+}
+
+interface ScrapedClassification {
+  title: string;
+  domain: AspiDomainId;
+  amount_oku: number;
+  agency: string;
+}
+
+async function scrapeGrantSources(anthropic: Anthropic): Promise<ScrapedClassification[]> {
+  const allTitles: { agency: string; title: string }[] = [];
+  for (const src of GRANT_SCRAPE_SOURCES) {
+    try {
+      const res = await fetch(src.url, {
+        headers: { "User-Agent": SCRAPE_USER_AGENT, Accept: "text/html" },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) continue;
+      const html = await res.text();
+      const titles = extractTitlesFromHtml(html);
+      for (const t of titles) allTitles.push({ agency: src.agency, title: t });
+    } catch (e) {
+      console.warn(`[grant-ingest] scrape err ${src.url}:`, e);
+    }
+  }
+  if (allTitles.length === 0) return [];
+
+  // Sonnet に一括分類させる
+  const prompt = `あなたは日本の公的助成 (NEDO / AMED / JST / SIP / 内閣府ムーンショット) 採択タイトル一覧を分類するアナリストです。
+以下の採択タイトル候補について、ASPI Critical Technology Tracker の 8 domain に分類し、1 件あたりの概算採択額 (億円) を推定してください。
+
+ASPI 8 domain (どれか1つ):
+- advanced_ict
+- advanced_materials_manufacturing
+- ai_technologies
+- biotechnology
+- defence_space_robotics_transport
+- energy_environment
+- quantum
+- sensing_timing_navigation
+
+採択候補 (agency: title):
+${allTitles.map((t, i) => `${i + 1}. [${t.agency}] ${t.title}`).join("\n")}
+
+ルール:
+- 各 entry に index, domain (上記 8 値のどれか / どの domain にも該当しない場合は null), amount_oku を入れて返す
+- 1 件あたりの amount_oku は採択枠の平均的な額 (大型 = 5-30 億、中型 = 0.5-3 億、小型 = 0.05-0.3 億)
+- タイトルだけで domain が分からない場合は null
+
+出力 STRICT JSON 配列、preamble なし、code fence なし:
+[{"index": 1, "domain": "energy_environment", "amount_oku": 0.5}, ...]`;
+
+  try {
+    const resp = await anthropic.messages.create({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: 4000,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const text = resp.content
+      .filter((c) => c.type === "text")
+      .map((c) => (c as { type: "text"; text: string }).text)
+      .join("\n");
+    const mJson = text.match(/\[[\s\S]*\]/);
+    if (!mJson) return [];
+    const parsed = JSON.parse(mJson[0]) as { index: number; domain: string | null; amount_oku: number }[];
+    const out: ScrapedClassification[] = [];
+    for (const p of parsed) {
+      const tIdx = p.index - 1;
+      if (tIdx < 0 || tIdx >= allTitles.length) continue;
+      if (!p.domain || !ASPI_DOMAIN_IDS.includes(p.domain as AspiDomainId)) continue;
+      out.push({
+        title: allTitles[tIdx].title,
+        agency: allTitles[tIdx].agency,
+        domain: p.domain as AspiDomainId,
+        amount_oku: Math.max(0, Number(p.amount_oku) || 0),
+      });
+    }
+    return out;
+  } catch (e) {
+    console.error("[grant-ingest] classify err", e);
+    return [];
+  }
+}
 
 function quarterStartDate(year: number, q: 1 | 2 | 3 | 4): string {
   const month = (q - 1) * 3 + 1;
@@ -81,6 +192,46 @@ export async function GET(req: NextRequest) {
   const quarters = recentQuarters(QUARTERS_BACK);
   const rows: { lane: string; observed_at: string; observation_key: string; value: number; unit: string; source: string; raw_meta: Record<string, unknown> }[] = [];
 
+  // =========================================================================
+  // Phase 2-D2: NEDO/AMED/JST HTML scrape → 現 quarter の domain 別 sum
+  // =========================================================================
+  const scraped = await scrapeGrantSources(anthropic);
+  const currentQuarter = quarters[quarters.length - 1];
+  const currentQuarterStart = quarterStartDate(currentQuarter.year, currentQuarter.q);
+
+  if (scraped.length > 0) {
+    const byDomain = new Map<AspiDomainId, { sum: number; count: number; titles: string[] }>();
+    for (const s of scraped) {
+      if (!s.domain) continue;
+      const cur = byDomain.get(s.domain) ?? { sum: 0, count: 0, titles: [] };
+      cur.sum += s.amount_oku;
+      cur.count += 1;
+      cur.titles.push(`[${s.agency}] ${s.title}`);
+      byDomain.set(s.domain, cur);
+    }
+    for (const [domain, agg] of byDomain.entries()) {
+      rows.push({
+        lane: domain,
+        observed_at: currentQuarterStart,
+        observation_key: "B",
+        value: Math.round(agg.sum * 100) / 100,
+        unit: "億円",
+        source: "grant_scrape",
+        raw_meta: {
+          adopted_count: agg.count,
+          titles: agg.titles.slice(0, 30),
+          quarter: `${currentQuarter.year}-Q${currentQuarter.q}`,
+          sources: GRANT_SCRAPE_SOURCES.map((s) => s.agency),
+        },
+      });
+    }
+  }
+
+  const scrapeCovered = new Set(rows.map((r) => `${r.lane}|${r.observed_at}`));
+
+  // =========================================================================
+  // LLM 推定 (Phase 2-D 初版): 他 quarter / scrape カバー外を補完
+  // =========================================================================
   for (const domain of ASPI_DOMAIN_IDS) {
     const keywords = GRANT_KEYWORDS_BY_DOMAIN[domain as AspiDomainId];
     const label = ASPI_DOMAIN_LABEL_JP[domain as AspiDomainId];
@@ -148,6 +299,8 @@ ASPI Critical Technology Tracker の ${domain} (${label}) 領域について、�
 
     for (const pt of parsed) {
       const obsAt = quarterStartDate(pt.year, pt.quarter);
+      // scrape でカバー済 (current quarter のみ) ならその domain は skip
+      if (scrapeCovered.has(`${domain}|${obsAt}`)) continue;
       rows.push({
         lane: domain,
         observed_at: obsAt,
@@ -182,5 +335,7 @@ ASPI Critical Technology Tracker の ${domain} (${label}) 領域について、�
     inserted: rows.length,
     domains: ASPI_DOMAIN_IDS.length,
     quarters: QUARTERS_BACK,
+    scrape_classified: scraped.length,
+    scrape_covered_domains: Array.from(new Set(scraped.map((s) => s.domain).filter(Boolean))),
   });
 }
