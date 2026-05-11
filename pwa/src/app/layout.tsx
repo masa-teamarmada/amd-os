@@ -15,16 +15,12 @@ const geistMono = Geist_Mono({
 // title.template が Next.js 16 で route group 配下で解決されない問題があるため、
 // template は使わず各 page で absolute title を指定する。
 // PageTitleSetter (client) が pathname → title を上書きするので、初期 HTML 経由 + client 動的の二段防御。
+// favicon は app/icon.png + app/apple-icon.png (Next.js convention) で自動配信されるため
+// metadata.icons は指定しない (= 二重 link を避けてキャッシュ衝突を防ぐ)。
 export const metadata: Metadata = {
   title: "AMD OS",
   description: "Team ARMADA Business Operating System",
   manifest: "/manifest.json",
-  icons: {
-    icon: [
-      { url: "/favicon.png", type: "image/png" },
-    ],
-    apple: "/favicon.png",
-  },
 };
 
 export const viewport: Viewport = {
