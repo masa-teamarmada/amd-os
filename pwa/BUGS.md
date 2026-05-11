@@ -853,3 +853,71 @@
 - **教訓**:
   - **UNIQUE 制約あるテーブルで lane を N → 1 統合する時は「単純 UPDATE 禁止、合算 INSERT パターン」が定石**
   - migration 書く前に必ず該当テーブルの UNIQUE / PRIMARY KEY を `db_schema.md` で確認
+
+---
+
+### [pwa/AMD-Report] SE 月次レポート「2/18 2:47 山地→肥塚 "なにする？"」誤抽出 (信頼事故)
+
+- **発見日**: 2026-05-11 (まさ指摘)
+- **状態**: ✅ 根本対策済 (R306 bot 除外 + R303 prompt 改善 + clasp push v1457)
+- **症状**: SE 2026-02 月次レポート (R313 生成) の本文に「資料完成の翌日である2月18日早朝2時46分、山地メンバーから肥塚メンバーへのメンションが行われ、続く2時47分に『なにする？』という応答がありました」と書かれていた。実際にはまさ (山地) と肥塚はそんな深夜にやり取りしてない
+- **原因**:
+  1. R306_MonthlyReport_SlackExtract.js が Slack message を取得する際に **bot メッセージ (= subtype='bot_message' / bot_id / app_id / USLACKBOT) を除外していなかった**
+  2. つくよみ bot の定型句「なにする？」(= 月次報告会スケジューリング起動時の発言) を LLM が「肥塚の応答」として誤解釈
+- **解決策**:
+  - R306 に `mr_slack_isBotMessage_()` helper 追加、`mr_slack_getMessages_` と `mr_slack_getThreadReplies_` で取得直後に bot 除外
+  - R303_MonthlyReport_Generator.js の system prompt fallback に「人物誤認の防止」セクション追加 (時刻 + 人物紐付け時は bot 確認、想像で意図補完しない)
+  - clasp push 107 files → deployment v1455 update
+- **教訓**:
+  - Slack スレッドを LLM に渡す前に **必ず bot メッセージを除外する**。1 人称代名詞や定型句が人間の発話と誤認される
+  - 月次レポートのような外向き成果物は **信頼事故が致命的**。「事実っぽい固有名詞 + 時刻」の組み合わせを LLM が捏造した時の damage は大きい
+  - 同じ事故が R307 (Gmail) / R309 (Drive) / 074 (Notion) でも起きうる → 全 source 抽出関数で bot / auto 系メッセージ除外を統一すべき
+
+---
+
+### [pwa] Next.js 16 で `title.template` が route group `(app)` 配下で解決されない
+
+- **発見日**: 2026-05-11
+- **状態**: ✅ 解決済 (title.absolute + middleware x-pathname → generateMetadata 動的)
+- **症状**: `app/layout.tsx` で `metadata.title = { default: "AMD OS", template: "%s - AMD OS" }` を設定し、子 page で `metadata = { title: "AMD Protocol" }` を export しても、本番 HTML が `<title>AMD OS</title>` のまま (= page metadata が結合されない)
+- **原因**: Next.js 16 で route group `(app)` を経由した metadata の title.template 結合が機能しない (詳細未確認、再現要)
+- **解決策**:
+  1. 各 page で `title: { absolute: "AMD Protocol - AMD OS" }` 直書き
+  2. middleware で `request.headers.set("x-pathname", request.nextUrl.pathname)` → (app)/layout.tsx の `generateMetadata` で `headers().get("x-pathname")` → 動的 title 生成
+  3. SSR HTML は curl では `<title>AMD OS</title>` のまま (= デフォルト)、しかし client PageTitleSetter が JS load 後に `document.title` を書き換え (二段防御)
+- **教訓**:
+  - Next.js 16 で route group + metadata template の組み合わせは罠あり。**title.absolute or generateMetadata で確定値を返すのが確実**
+  - server page の metadata と client side document.title の二段防御で UX は守れる
+
+---
+
+### [pwa/admin] protocols を一括 status='archived' にしたら UI で「確定ボタンだけ」表示
+
+- **発見日**: 2026-05-11 (まさ指摘)
+- **状態**: ✅ 解決済 (status='candidate' に戻した)
+- **症状**: 既存 13 件 protocols を `status='archived'` に一括変更したら、AdminProtocolsClient で「確定」ボタンだけ表示、「修正依頼 / 却下 / archive」が全部消えた
+- **原因**: AdminProtocolsClient で各 action ボタンを status 条件付きで表示:
+  - 修正依頼 / 却下 は `status === "candidate"` のときだけ
+  - archive は `status !== "archived"` のときだけ
+  - → 既存全件 archived = 4 ボタン中 3 つが非表示
+- **解決策**: PATCH で全件 `status='candidate'` に戻し
+- **教訓**:
+  - **DB の status を一括変更する前に、それを参照してる UI / cron / cron condition を grep で全部確認する** (= 影響範囲を機械的に洗う)
+  - 「kind='legacy_specific' で旧形式を識別」をやるなら、UI 側でも「legacy_specific は別セクションで表示 + 一括 archive ボタン」を実装すべき。status を直接いじるのは UI の前提を壊す
+
+---
+
+### [Opus 4.7 = えいみ] AMD プロトコル と つくよみプロンプト を取り違えた誤発言
+
+- **発見日**: 2026-05-11 (まさ指摘)
+- **状態**: ✅ 認識訂正済
+- **症状**: まさがつくよみとの会話で「p03 は 2022-03-01 に事業終了している」「p21 の設立日は 2027-04 である」のような事実情報を指摘した際、えいみが「これは AMD プロトコル抽出側の問題」と誤解釈し、プロトコル抽出プロンプトに「単純な事実はプロトコルにしない」を追加した
+- **原因**: まさの指摘の対象 (= つくよみプロンプトの context 構築) と、えいみが反応した対象 (= protocol 抽出) を取り違えた
+- **解決策**:
+  - プロトコル抽出プロンプト改修 (= まさ意図とは違うが結果的に有用) は残す
+  - 並行で sync-pj-facts cron で project_ventures → project_knowledge 同期を実装 (= まさが本来期待していた挙動)
+  - tsukuyomi.system body に「narrative_text の曖昧文言を確定事実と決めつけない」セクション追加 + is_active=TRUE
+- **教訓**:
+  - まさの指摘を受けたら **何の話か (どのコンポーネント / どのテーブル / どのプロンプト) を最初に確認** してから動く。早合点で隣の領域を触ると、修正対象がズレた状態で commit が積み上がる
+  - 過去のえいみの発言を疑う癖 (memory rule: 自分の提案を疑う) を、まさからの指摘の受け止め方にも適用する
+
