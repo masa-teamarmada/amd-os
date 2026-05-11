@@ -4,6 +4,37 @@
 
 ---
 
+## 🚨 社内生データは **5 種類** (絶対忘れない)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  生データ 5 種類 (= 全部から L2 を抽出する)                          │
+├─────────────────────────────────────────────────────────────┤
+│  1. Gmail       (= メール、添付ファイル)                          │
+│  2. Drive       (= Docs / Slides / Sheets / xlsx / 議事録ファイル) │
+│  3. Calendar    (= イベント本文、attendees、Notion AI ページ紐付け) │
+│  4. Slack       (= channel メッセージ / threads / files)        │
+│  5. Notion      (= 議事録 DB、PJ DB、各種 page 本文)             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**🚨 えいみへの絶対ルール (= 2026-05-11 まさ 2 度繰り返し指摘)**:
+- backfill / 抽出 cron を実装 / 改修するとき、**必ず 5 種類全部** に対して対応漏れ無いか自己確認する
+- ハンドオフに「Drive/Calendar backfill」とだけ書いて **Gmail** を忘れる、のような事故をしない
+- 「対応した生データ」のチェックリストを HANDOFF に明示する
+
+### 生データ別 backfill / 抽出 cron の現状
+
+| 生データ | 既存 cron / 関数 | 状態 | 次セッション課題 |
+|---|---|---|---|
+| **Gmail** | 074 (Notion + Gmail 結合の議事録メール抽出) / R307 (月次レポート用) | 🟡 議事録メールは取れる、ただし backfill 関数なし | 074e (Gmail 単独 backfill) を新規 = MTG サマリ向け |
+| **Drive** | 074 (Notion AI 議事録ページの fallback) | 🔴 Drive Excel / Docs から直接抽出する cron 無し | **074c** (議事録 Docs) + **試算表 Excel cron** 別途 |
+| **Calendar** | 074 (event 紐付け) / 153 (event 終了 polling) | 🟡 event 単位は取れる、ただし backfill 関数なし | **074d** (Calendar event backfill) |
+| **Slack** | 074b (threads → meeting summary) | ✅ form-encoded 解決、backfill 動作中 | monthsBack=6 で残り月分 backfill |
+| **Notion** | 074 (議事録 DB / AI ページ) | ✅ Phase 4 cron 稼働 | alias resolver 強化 (= `_meeting_resolveProjectIdFromPage_`) |
+
+---
+
 ## L1 / L2 の定義 (まさの正本)
 
 ```
