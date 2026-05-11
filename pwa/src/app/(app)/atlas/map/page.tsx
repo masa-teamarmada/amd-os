@@ -253,10 +253,19 @@ export default function AtlasMapPage() {
     didInitialFitRef.current = true;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fg = fgRef.current as any;
-    // まず padding 80 で全ノードを画面に収める。zoom はそのまま (= 拡大しすぎない)
-    // 旧: 2.6 倍ズームで密集を更に強調していたが、まさ要望で「分散させて見やすく」を優先
-    fg.zoomToFit(600, 80);
-    fg.centerAt(0, 0, 600);
+    // まさ要望 2026-05-11: 表示時に「2 枚目相当の縮尺」(ノードが個別に見える)、
+    // engineStop 後の追加縮小は一切やらない。
+    // 旧: zoomToFit padding=80 で全体収め + 0.6 ズーム = 文字だけ密集の見にくい状態
+    // 新: zoomToFit padding=200 (= 余白少なめで詳細が見える) + 倍率 1.6x で気持ちズームイン
+    fg.zoomToFit(400, 200);
+    setTimeout(() => {
+      if (!fgRef.current) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fg2 = fgRef.current as any;
+      const z = fg2.zoom();
+      fg2.zoom(z * 1.6, 600);
+      fg2.centerAt(0, 0, 600);
+    }, 450);
   };
 
   return (
@@ -462,8 +471,8 @@ export default function AtlasMapPage() {
             }}
             linkColor={() => "rgba(120,120,120,0.22)"}
             linkWidth={(l: GLink) => 0.4 + Math.min(2.4, (l.weight || 1) * 0.4)}
-            cooldownTicks={320}
-            d3VelocityDecay={0.22}
+            cooldownTicks={180}
+            d3VelocityDecay={0.28}
             autoPauseRedraw={false}
             onEngineStop={handleEngineStop}
             onNodeClick={(node: GNode) => {

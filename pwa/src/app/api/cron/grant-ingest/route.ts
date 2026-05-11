@@ -123,10 +123,15 @@ ASPI Critical Technology Tracker の ${domain} (${label}) 領域について、�
 
     let parsed: SonnetGrantRow[] | null = null;
     try {
+      // hybrid mode: web_search tool で NEDO / JST / AMED の最新採択ニュース・公募情報を直接調べさせる。
       const resp = await anthropic.messages.create({
         model: "claude-sonnet-4-5-20250929",
         max_tokens: 4000,
-        messages: [{ role: "user", content: prompt }],
+        tools: [{ type: "web_search_20250305" as "web_search_20250305", name: "web_search", max_uses: 3 } as never],
+        messages: [{
+          role: "user",
+          content: prompt + "\n\n参考: 直近の採択動向を web_search で 2-3 件確認してください。例えば NEDO 採択 (https://www.nedo.go.jp/koubo/), JST 戦略目標 (https://www.jst.go.jp/funding/), AMED 採択 (https://www.amed.go.jp/koubo/saitaku/) 等。最新 quarter の桁感に揃える。"
+        }],
       });
       const text = resp.content
         .filter((c) => c.type === "text")

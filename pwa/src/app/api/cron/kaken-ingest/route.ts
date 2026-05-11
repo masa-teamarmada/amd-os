@@ -114,10 +114,13 @@ KAKEN は文科省・JSPS の代表的研究費。基盤研究 (S/A/B/C) / 挑�
 
     let parsed: SonnetEstimateRow[] | null = null;
     try {
+      // hybrid mode: web_search tool で KAKEN/JSPS の公開採択統計を直接調べさせる。
+      // Anthropic は server-side で iterate して最終 text block を返す。
       const resp = await anthropic.messages.create({
         model: "claude-sonnet-4-5-20250929",
         max_tokens: 4000,
-        messages: [{ role: "user", content: prompt }],
+        tools: [{ type: "web_search_20250305" as "web_search_20250305", name: "web_search", max_uses: 3 } as never],
+        messages: [{ role: "user", content: prompt + "\n\n参考: KAKEN (https://kaken.nii.ac.jp/) や JSPS 科研費年次配分統計 (https://www.jsps.go.jp/j-grantsinaid/) を web_search で 2-3 件調べて、最新の年間配分額の桁感に揃えてください。" }],
       });
       const text = resp.content
         .filter((c) => c.type === "text")

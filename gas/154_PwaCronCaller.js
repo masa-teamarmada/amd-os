@@ -108,3 +108,95 @@ function nav_pwa_setProps_(props) {
   if (props.CRON_SECRET) { sp.setProperty("CRON_SECRET", String(props.CRON_SECRET).trim()); set.CRON_SECRET = "set"; }
   return { ok: true, set: set };
 }
+
+// ============================================================
+// ASPI Phase 2 cron (lane-suggest / kaken / grant / vc-investment)
+// ============================================================
+// 仕様正本: pwa/design/aspi_lanes.md (Phase 2-B/C/D/E)。
+// 4 つの cron を weekly 1 回 (毎週月曜 04:00 JST) に順次叩く。
+// 各 cron は max 5 分。順次直列なので最大 20 分 → GAS 6 分制限を超えるので、
+// 1 trigger では 1-2 cron 程度に分散して 2 つの trigger を作る:
+//   - 月曜 04:00 JST → lane-suggest + kaken
+//   - 月曜 05:00 JST → grant + vc-investment
+
+function _nav_pwa_pingPath_(path, timeoutSec) {
+  const props = PropertiesService.getScriptProperties();
+  const baseUrl = String(props.getProperty("PWA_BASE_URL") || "").trim();
+  const cronSecret = String(props.getProperty("CRON_SECRET") || "").trim();
+  if (!baseUrl) return { ok: false, message: "PWA_BASE_URL missing" };
+  if (!cronSecret) return { ok: false, message: "CRON_SECRET missing" };
+  const url = baseUrl.replace(/\/+$/, "") + path;
+  const startMs = Date.now();
+  try {
+    const res = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: { Authorization: "Bearer " + cronSecret },
+      muteHttpExceptions: true,
+      followRedirects: true,
+      validateHttpsCertificates: true
+    });
+    const status = res.getResponseCode();
+    const body = String(res.getContentText() || "");
+    let parsed = null;
+    try { parsed = JSON.parse(body); } catch (_e) { parsed = null; }
+    const ms = Date.now() - startMs;
+    Logger.log("[" + path + "] status=" + status + " ms=" + ms + " body=" + body.slice(0, 400));
+    return { ok: status >= 200 && status < 300, status: status, ms: ms, body: parsed || body.slice(0, 800), url: url };
+  } catch (e) {
+    return { ok: false, message: "fetch error: " + (e && e.message ? e.message : e), url: url };
+  }
+}
+
+function nav_pwa_pingLaneSuggest() { return _nav_pwa_pingPath_("/api/cron/lane-suggest"); }
+function nav_pwa_pingKakenIngest() { return _nav_pwa_pingPath_("/api/cron/kaken-ingest"); }
+function nav_pwa_pingGrantIngest() { return _nav_pwa_pingPath_("/api/cron/grant-ingest"); }
+function nav_pwa_pingVcInvestmentIngest() { return _nav_pwa_pingPath_("/api/cron/vc-investment-ingest"); }
+
+/**
+ * 月曜 04:00 JST → lane-suggest + kaken-ingest を順次叩く (合計 5 分以内見込み)。
+ */
+function nav_pwa_pingWeeklyAspiSet1() {
+  const lane = nav_pwa_pingLaneSuggest();
+  const kaken = nav_pwa_pingKakenIngest();
+  return { lane_suggest: lane, kaken: kaken };
+}
+
+/**
+ * 月曜 05:00 JST → grant-ingest + vc-investment-ingest を順次叩く (合計 5 分以内見込み)。
+ */
+function nav_pwa_pingWeeklyAspiSet2() {
+  const grant = nav_pwa_pingGrantIngest();
+  const vc = nav_pwa_pingVcInvestmentIngest();
+  return { grant: grant, vc_investment: vc };
+}
+
+/**
+ * 毎週月曜 04:00 / 05:00 JST の 2 つの trigger を 1 度だけセット。既存 trigger があれば消す。
+ * runFunc 経由で 1 度だけ呼ぶ:
+ *   curl ".../exec?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_pwa_setupWeeklyAspiTriggers_"
+ */
+function nav_pwa_setupWeeklyAspiTriggers_() {
+  const triggers = ScriptApp.getProjectTriggers();
+  let removed = 0;
+  for (const t of triggers) {
+    const fn = t.getHandlerFunction && t.getHandlerFunction();
+    if (fn === "nav_pwa_pingWeeklyAspiSet1" || fn === "nav_pwa_pingWeeklyAspiSet2") {
+      try { ScriptApp.deleteTrigger(t); removed++; } catch (_e) {}
+    }
+  }
+  ScriptApp.newTrigger("nav_pwa_pingWeeklyAspiSet1")
+    .timeBased()
+    .everyWeeks(1)
+    .onWeekDay(ScriptApp.WeekDay.MONDAY)
+    .atHour(4)
+    .inTimezone("Asia/Tokyo")
+    .create();
+  ScriptApp.newTrigger("nav_pwa_pingWeeklyAspiSet2")
+    .timeBased()
+    .everyWeeks(1)
+    .onWeekDay(ScriptApp.WeekDay.MONDAY)
+    .atHour(5)
+    .inTimezone("Asia/Tokyo")
+    .create();
+  return { ok: true, removed: removed, message: "weekly ASPI triggers set: Mon 04:00 JST (set1=lane/kaken), Mon 05:00 JST (set2=grant/vc)" };
+}
