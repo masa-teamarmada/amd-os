@@ -179,14 +179,18 @@ export default function AtlasMapPage() {
     fgRef.current.zoom(2.5, 600);
   };
 
-  // 完全均一分散化 (2026-05-11 5 ラウンド目 — 4 ラウンドかけても直らないため圧倒的に拡大):
-  //   ★ 5 秒後の縮小現象 = engineStop 時に zoomToFit が走るのが原因 → zoomToFit を完全に撤廃
-  //   ★ 中央密集 = ForceGraph2D が内部で勝手に x=0,y=0 周辺に初期座標を割り当ててる
-  //       → useEffect で **常に上書き** (= 既に座標があっても初期化、pin 以外)
-  //   ★ ノード間距離が変わらない = 力場の絶対値が小さすぎた
-  //       → RADIUS 600→2400, collide 80→220, charge -4000→-18000, link 450→1200
-  //       → velocityDecay 0.25→0.18 (動き止まりにくく)
-  //       → cooldownTime 3000→8000 (8 秒は force 動かす)
+  // 完全均一分散化 (2026-05-11 6 ラウンド目 — 「直径×8」hard constraint + 根本原因対処):
+  //
+  // ★ 根本原因 (まさの指摘で気づいた):
+  //   旧 collide は alpha (1→0 で減衰) に比例して反発するため、cooldown 後は反発力ゼロ。
+  //   → 重なった状態で「力場停止」してしまい固定。これが「ノード直径 1 つ分もない密集」の正体。
+  //   旧 link は default strength=1.0 と強く、共通タグで結ばれた stories を中央へ引き寄せ続ける。
+  //   → これで中央密集 + 周辺ぱらぱらが出る。
+  //
+  // ★ 対策:
+  //   (a) collide を「直径×8」hard constraint に書き換え (alpha 非依存、重なり中は常に押し戻す)
+  //   (b) link.strength を 1.0 → 0.05 に下げて引力を 1/20 に
+  //   (c) radial の引力強度を 0.08 → 0.15 + RADIUS 2400 → 3000
 
   useEffect(() => {
     if (!fgRef.current || data.nodes.length === 0) return;
@@ -204,7 +208,7 @@ export default function AtlasMapPage() {
         (i / Math.max(1, uniqueDomains.length)) * 2 * Math.PI
       );
     });
-    const RADIUS = 2400; // 旧 600 → 4 倍
+    const RADIUS = 3000; // 旧 2400 → 拡大 (6 ラウンド目)
 
     // 初期座標を **常に上書き** (= ForceGraph2D が割り当てた x=0 付近をリセット)。
     // ただし、ユーザーがドラッグで pin したノード (fx/fy 持ち) は触らない。
@@ -219,8 +223,8 @@ export default function AtlasMapPage() {
       if (m.fx != null && m.fy != null) continue; // pin は尊重
       const dk = domainKey(m.story.primary_domain) ?? "_";
       const ang = domainAngles.get(dk) ?? 0;
-      // 半径方向にもジッタを入れて (RADIUS ± 600)、円周上の薄い帯にしない
-      const r = RADIUS + (Math.random() - 0.5) * 1200;
+      // 半径方向ジッタ (RADIUS ± 800)
+      const r = RADIUS + (Math.random() - 0.5) * 1600;
       // 角度方向にもジッタ (±15°) で同 domain 内も完全均一にしない
       const angJitter = ang + (Math.random() - 0.5) * (Math.PI / 12);
       m.x = Math.cos(angJitter) * r;
@@ -240,25 +244,36 @@ export default function AtlasMapPage() {
         const ang = domainAngles.get(dk) ?? 0;
         const tx = Math.cos(ang) * RADIUS;
         const ty = Math.sin(ang) * RADIUS;
-        node.vx += (tx - node.x) * 0.08 * alpha; // 旧 0.05 → 0.08
-        node.vy += (ty - node.y) * 0.08 * alpha;
+        node.vx += (tx - node.x) * 0.15 * alpha; // 旧 0.08 → 0.15
+        node.vy += (ty - node.y) * 0.15 * alpha;
       }
     };
 
-    // Collision: 最小距離 220 (旧 80 の約 3 倍) でラベル重なりを完全に防ぐ。
-    const collisionForce = (alpha: number) => {
-      const nodes = data.nodes as unknown as { x: number; y: number; vx: number; vy: number }[];
-      const minDist = 220;
+    // 「直径×8」hard constraint collide:
+    //   各ノードの半径 r = sqrt(val||4)*1.6 (本体描画と同じ式)。
+    //   両ノードの 最低距離 = (ra + rb) * 8 (= 平均直径の約 8 倍)。
+    //   alpha 非依存で重なり量の 70% を 1 tick で押し戻す → cooldown 後も近づけない。
+    const collisionForce = () => {
+      const nodes = data.nodes as unknown as {
+        x: number;
+        y: number;
+        vx: number;
+        vy: number;
+        val: number;
+      }[];
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const a = nodes[i];
           const b = nodes[j];
+          const ra = Math.sqrt(a.val || 4) * 1.6;
+          const rb = Math.sqrt(b.val || 4) * 1.6;
+          const minDist = (ra + rb) * 8;
           const dx = b.x - a.x;
           const dy = b.y - a.y;
           const d2 = dx * dx + dy * dy;
           if (d2 < minDist * minDist && d2 > 0.0001) {
             const d = Math.sqrt(d2);
-            const overlap = (minDist - d) * 0.5 * alpha;
+            const overlap = (minDist - d) * 0.7; // alpha 関係なし
             const ux = dx / d;
             const uy = dy / d;
             a.vx -= ux * overlap;
@@ -277,10 +292,12 @@ export default function AtlasMapPage() {
     fg.d3Force("center", null); // ForceGraph2D の default center force を完全に撤去
     fg.d3Force("radialDomain", radialDomainForce);
     fg.d3Force("collide", collisionForce);
-    // 反発を圧倒的に強める (-4000 → -18000)
-    if (fg.d3Force("charge")) fg.d3Force("charge").strength(-18000);
-    // リンク距離も圧倒的に拡大 (450 → 1200)
-    if (fg.d3Force("link")) fg.d3Force("link").distance(1200);
+    if (fg.d3Force("charge")) fg.d3Force("charge").strength(-30000); // 旧 -18000 → -30000
+    if (fg.d3Force("link")) {
+      // link distance 1200 → 600 (collide で 直径×8 が効いてるので近距離化でも問題ない)
+      // strength 1.0 → 0.05 (= 共通タグ引力を 1/20、中央密集の根本原因対策)
+      fg.d3Force("link").distance(600).strength(0.05);
+    }
     fg.d3ReheatSimulation();
   }, [data]);
 

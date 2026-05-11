@@ -1252,7 +1252,9 @@ export async function POST(req: Request) {
     let r: Anthropic.Messages.Message;
     try {
       r = await anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250929",
+        // まさ要望 2026-05-11: 「つくよみが頭悪い」→ Sonnet 4.5 → Opus 4.7 に格上げ。
+        // トークン使用は 1 ターン 2000 max なのでコスト影響は限定的。
+        model: "claude-opus-4-7",
         max_tokens: 2000,
         system: fullSystem,
         messages: conversation,
