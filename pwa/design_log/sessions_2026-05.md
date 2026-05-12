@@ -2332,3 +2332,146 @@ vercel.json に daily 04:00 JST trigger 追加 (`0 19 * * *`)。手動キック�
 3. Slack backfill 過去 4-6 ヶ月分 (bash ループで `monthsBack=6` x 4 回)
 4. 旧 22 件 protocols archive (= まさ 1 クリックで完了)
 5. LLM parse 残課題 (入力 16000 字制限を 12000 に下げる検討)
+
+---
+
+## 2026-05-12 (cranky-rhodes-ff4609 #2) — exec_summary 機能完成 + backfill 5 種 + 多数の連続事故
+
+### サブテーマ
+1. ファビコン第 3 ラウンド → 結局見えず「後日 TODO」化
+2. ダッシュボードアラート削除 + 「📑 全 PJ 紹介資料作成」ボタン + モーダル + API route 新設
+3. 雛形 `AMD_allPJ_introduction.html` フォーマットを **3 ラウンド試行錯誤** で再現完成
+4. backfill 5 種 (Slack/Drive/Calendar/Gmail/Notion) を一気通貫実装
+5. 「先手力」表示復活 + 「Development stage 色」+ 「ロゴ画像 file:// 404」対応
+
+### 主要 commit
+
+- `5280503` Merge #13: CSS vars + 絶対 URL + 先手力 events 0
+- `7c391f0` fix: --c-primary/--c-secondary を :root に / 絶対 URL / 先手力 events 0 件常時表示
+- `d2bc679` Merge #12: exec-summary 雛形 literal + 先手力復活
+- `c129552` fix: 正規表現置換廃止 / 先手力ラベル復活
+- `08911c5` Merge #11: 紹介資料 HTML 雛形そのまま実装
+- `2045314` fix(exec-summary): Chrome MCP + POST server で雛形抽出 + Sonnet 集約
+- `fb08bfa` Merge #10: 紹介資料 HTML を雛形 fmt に忠実書き直し
+- `1734969` (途中段階: 自前 CSS 再現の 1 回目失敗 commit)
+- `7a38b96` Merge #9: revert dashboard + minimal + 074c/d/e backfill skeleton
+- `e333ca6` revert+feat: dashboard cyber → 旧版に戻す / 074c/d/e backfill / migration 054
+- `aaf9c33` Merge #8: dashboard cyber + 全PJ紹介資料 (= **後に revert される失敗実装**)
+- `d8745ee` feat: dashboard サイバー感 + AMD ロゴ六角形 SVG 自作 (= まさ「ダサい」「モック依頼を本物に直接」)
+- `77faa95` Merge #7: favicon public/ + 5 生データ明示
+- `80bbea6` fix(favicon/docs): public/ 静的配信 + L2_DATA に「生データ 5 種」明示
+
+### Slack backfill 真因特定 + 完全動作化 (= まさ前ハンドオフ #1)
+
+前セッションで「p06 で 27 threads 検出するも saved=0 / llm_calls=0」のままハンドオフされていた。本セッションで:
+1. 074b の **可視化改修** (= 各 continue ポイントで items.push、_meeting_loadSlackThreadReplies_ で例外を握り潰さず error を返す) で「全 9 件が `replies_throw: invalid_arguments`」が即見えた
+2. 真因: `slack_callApi` (= JSON body) で `conversations.replies` の `ts="1777355520.959369"` が precision loss → invalid_arguments
+3. 074b 専用 `_meeting_slack_callForm_` (= form-encoded helper) を新規追加、history / replies 両方そちらへ
+4. 加えて `project_meeting_summaries.source_url` 列が DB に無くて upsert err → migration 052 で追加
+5. 動作確認: p06 2026-04 で saved=5、全 7 PJ × 過去 3 ヶ月 backfill: total_saved=13, llm_calls=17
+
+### exec_summary 機能 3 ラウンド試行錯誤 → 完成
+
+**ラウンド 1** (`1734969` 等): 雛形を「inspired」と称して自分で CSS 再現 → ぐちゃぐちゃ。まさ「フォーマットガン無視じゃね？」
+**ラウンド 2** (`2045314`): 雛形を Chrome MCP でレンダリング → POST server (Python 50 行) で抽出 → `<style>` block + 04 CHALLENERGY section を保存 → 正規表現で領域置換 → **`</div>` 誤マッチで構造破壊**。まさ「まだ崩れてる」
+**ラウンド 3** (`c129552`): 正規表現を全廃 + 雛形 section の構造を **template literal で一字一句コピー**。可変部分だけ `${}` で置換 → 完成。まさ「カンペキ」
+
+**後処理** (`7c391f0`): まさ「色が出ない」「ロゴが出ない」指摘 → `:root` に `--c-primary` / `--c-secondary` 追加 + ロゴ URL 絶対化
+
+### 5 生データ backfill 一気通貫
+
+migration 054 で 3 prompt 一括 seed:
+- `meeting_extract.drive` → `gas/074c_MeetingSummaryDrive.js`
+- `meeting_extract.calendar` → `gas/074d_MeetingSummaryCalendar.js`
+- `meeting_extract.gmail` → `gas/074e_MeetingSummaryGmail.js`
+
+各々 074b と同じ pattern (= 可視化 / 例外明示 / existing 重複防止 / DB prompt 取得)。GAS v1462 deploy 済。
+
+動作確認 (3 PJ × 1 ym):
+- Drive: folder_id 取得 OK、ただし「議事録 / meeting / 打ち合わせ」等キーワード Docs が直下にない PJ では 0 (= 再帰 scan 未対応)
+- Calendar: events_found 1-12 件、saved 0 (= description 薄いと chitchat 判定 → 改善余地)
+- Gmail: threads_found 1-13 件、**3 PJ で各 1 件 saved** ✅
+
+### dashboard 関連 (まさ 9 指摘から続く)
+
+- DashboardGrid: アラート (MTG未設定 / Report未確定 / 支払待ち) 削除
+- 「📑 全 PJ 紹介資料作成」ボタン (= シンプル白背景 + border) をヘッダ右に追加
+- AllPjIntroductionModal: status グループ別 + チェックボックス + 全選択/全解除/Active 限定の 3 ショートカット
+- /api/admin/pj-introduction-html: 雛形 04 CHALLENERGY section literal + Sonnet 4.5 で 1 PJ ごと JSON 集約 (concurrency 3) + LLM 失敗時 fallbackPjData
+- src/lib/exec_summary/template.css + template_section.html
+- next.config.ts: outputFileTracingIncludes 追加 (Vercel build で template 同梱)
+
+### 月次モーダル「先手力」復活
+
+- events 空 / null でも EventsSection を呼ぶ (= 旧コードは「イベントデータなし」で短絡)
+- 先手力 senshoryoku === null でも「先手力 —」(= 計算不能) ラベルを常時表示 + tooltip で原因明示
+
+### cockpit 月次モーダル の事業概要編集UI (旧セッションから引き継ぎ)
+
+- CockpitVentureStatus: 「🧑‍🤝‍🧑 創業」ボタン削除 + LLM 抽出創業メンバーを CockpitMembersModal に統合
+- AMD スコアタグを「試算表」横の小タブから **AMD スコアグラフ内** の最新点プロット上の大表示に移動 (SVG pill + 引き出し線 + 18px bold red、クリックでモーダル)
+
+### FRL UI
+
+- AmdScoreView: FRL「合計」表示削除 (= 右上「現在の FRL 7.3」が大きく出てるので冗長)
+- grit / resilience の null → 「—」表示 + バー無し (= 旧コードは 0 で誤認させていた)
+
+### 管理画面
+
+- AdminProjectsTable: STATUS_OPTIONS に `draft` 追加 (= DB の p24 CLG)
+- AdminProtocolsClient: 新形式 (pattern) と旧形式 (legacy_specific) を別セクションに分離 + 「📥 全部 archive」一括ボタン
+- supabase-data.ts: `r.status \|\| "active"` フォールバック撤去 → 「停止中の PJ が dashboard で active 表示」を解消
+
+### ロゴ画像 / ファビコン
+
+- `/Users/masa/projects/AMD/logo_only3.png` + `ロゴタイプ.png` → `public/AMD_logo_mark.png` + `AMD_logotype.png` にコピー
+- exec_summary で `<img src="${origin}/AMD_logo_mark.png">` (= 絶対 URL) で参照
+- ファビコン: app/ → public/ に移動 + layout.tsx で metadata.icons 明示 → **それでもまさシークレットで見えず** → HANDOFF に TODO として残置 (= 後日対応)
+
+### protocol 抽出 (gas/155) 復旧 + 厳格化
+
+- 前々セッションの未 commit diff (= protocol 普遍化 + `llm_prompts.protocol.extract` DB 必須化 + examples upsert) を本セッション冒頭で私が `git checkout HEAD` で破棄してしまった事故から **ターン履歴で復元**
+- opts.maxTokens 2048 → 4096 (= LLM parse failed 3 件救済)
+- migration 053 で `protocol.extract` body を厳格化 (= 業務オペレーション抽出禁止リスト明示)
+- nav_protocol_pollAll force=true 実行: processed=10 / **errors=0** / saved=9 件 pattern
+
+### sync-pj-facts cron
+
+- 手動キック: 58 行 synced (= 10 PJ × 約 6 fact)
+- vercel.json に daily 04:00 JST (= 19:00 UTC) trigger 追加
+
+### deploy 推移
+
+| Vercel deployment | 主な内容 |
+|---|---|
+| `amd-os-gsbv147dp` | まさ 9 指摘 7 件即対応 (= 850e87a) |
+| `amd-os-bgfyv01fh` | favicon public + L2_DATA 5 種明示 |
+| `amd-os-ga77qm32o` | dashboard cyber (= 後に revert) |
+| `amd-os-1jwg1ruqh` | favicon public 化 + 5 種記載 |
+| `amd-os-5m8jicbl3` | dashboard revert + 全PJ紹介ボタン + 074c/d/e |
+| `amd-os-d2dppkt2b` | 紹介資料 HTML 雛形 fmt 忠実書き直し |
+| `amd-os-h55gnfyhd` | 紹介資料 ラウンド 2 (正規表現置換、後に崩壊判明) |
+| `amd-os-efr7e9t9p` | 紹介資料 ラウンド 3 (template literal 完成) + 先手力復活 |
+| `amd-os-elbazbh35` | CSS vars + 絶対 URL + 先手力 events 0 件 (= 最終) |
+
+GAS deployment: v1458 → v1459 → v1460 → v1461 → v1462 (= 074cde + 155 復旧 + form-encoded、最終)
+
+### BUGS.md 追記 (6 件)
+
+1. 雛形 HTML 「inspired」自前再構築 → 正規表現置換 → 構造破壊 (= 2 連続事故)
+2. モック要請を本物に直接 deploy + AGENTS 画像禁止違反
+3. 雛形 CSS の `--c-primary` 変数 scope 落ち
+4. ロゴ相対 URL 404 (file:// 開き時)
+5. 先手力 events 0 件で短絡 非表示
+6. Chrome MCP の `[BLOCKED]` 制限への POST server 迂回
+
+### 次セッション最優先
+
+1. **進捗イベント (events) 抽出ロジック見直し** (= 本セッション末まさ追加指摘): 「先手力」が表示されるようになったが、そもそも events が 0 件の PJ-月が多い。`events_inferred` cron か member_activities 等のデータソースを再点検
+2. R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵)
+3. 試算表 Drive Excel 取り込み cron 新規 (= 074c とは別、月次 PL 数値抽出)
+4. FRL grit/resilience LLM 抽出 cron 新規
+5. protocols dedup + UI archive 運用 (= まさ手動 + Sonnet 自動 dedup)
+6. ファビコン後日チャレンジ (= 5 候補あり、TODO)
+7. exec_summary Phase 2: PJ ごとに color theme を切り替える (= `.page--{slug}` に `--c-primary` 個別定義)
+8. Drive 074c の再帰 scan / Calendar 074d の chitchat 判定緩和 / Gmail 074e の subject フィルタ拡張

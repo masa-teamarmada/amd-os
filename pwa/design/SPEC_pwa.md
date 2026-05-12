@@ -65,11 +65,23 @@ pwa/
 │   │   ├── atlas-*.ts           ← Atlas 各機能
 │   │   ├── venture-map-data.ts  ← Venture Map データ
 │   │   ├── progress-estimator.ts
+│   │   ├── exec_summary/        ← ⭐ 「📑 全 PJ 紹介資料作成」用テンプレ正本
+│   │   │   ├── template_section.html         ← 雛形 04 CHALLENERGY section (= 文字置換ベース)
+│   │   │   ├── template_section_challenergy.html  ← 雛形オリジナル (絶対パス未修正、参考用)
+│   │   │   └── template.css                  ← 雛形 polish-styles + 本体 CSS (18KB)
 │   │   └── ...
-│   ├── middleware.ts            ← `/((?!_next/static|...)).*` で auth check
+│   ├── middleware.ts            ← matcher で _next / favicon.ico / manifest.json / *.{ico,png,svg,...} を bypass
 │   └── types/
+├── public/
+│   ├── AMD_logo_mark.png        ← team ARMADA ロゴマーク (= 雛形コピー、紹介資料 + favicon source)
+│   ├── AMD_logotype.png         ← team ARMADA ロゴタイプ (= 雛形コピー、紹介資料用)
+│   ├── favicon.ico / icon.png / apple-icon.png  ← public/ 直配信 (= app/ から移動、Next.js Route Handler 経由を停止)
+│   ├── icons/                   ← PWA installable 用 192/512 + maskable
+│   ├── manifest.json            ← 4 icons (any + maskable)
+│   └── ...
+├── AMD_allPJ_introduction.html  ← まさが渡した PJ 紹介資料の雛形 (= bundler tipo、template の出典元、編集禁止)
 ├── supabase/                    ← (モノレポ ios/supabase が正本)
-├── vercel.json                  ← cron 定義
+├── vercel.json                  ← cron 定義 (sync-pj-facts 含む)
 └── package.json
 ```
 
@@ -126,6 +138,8 @@ pwa/
 **進捗:** `progress/estimate` `progress/confirm` `progress/unconfirmed` `progress/batch-save` `progress/events` `progress/revisions` `progress/reimbursement`
 **Atlas:** `atlas/auto-tag` `atlas/backfill` `atlas/seed` `atlas/match-stories` `atlas/merge-stories` `atlas/move-signal` `atlas/themes/{cluster,apply,list}`
 **請求/レポート:** `invoice/{create,preview}` `report/{generate,fix}`
+**Admin:** `admin/projects/[id]` (= PATCH、AdminProjectsTable から projects + project_ventures 1 セル単位 update を service_role 経由)、`admin/pj-introduction-html` (= ダッシュボード「📑 全 PJ 紹介資料作成」ボタンから POST、選択 PJ のエグゼクティブサマリー HTML を雛形 fmt で生成。Sonnet 4.5 で 1 PJ ごと JSON 集約 + concurrency 3。雛形 = `src/lib/exec_summary/template_section.html` + `template.css`、prompt = `llm_prompts.exec_summary.extract`)、`admin/lane-suggestions/[id]` (= LLM lane 提案の approve/reject)、`admin/seed-vcs` 等
+**通知:** `notifications/feedback` (= まさからの修正依頼を `l2_feedbacks` に保存)
 **その他:** `activities/infer`
 
 ### Cron (`vercel.json`、UTC、Hobby plan で maxDuration=300 上限)
@@ -148,6 +162,7 @@ pwa/
 | `cron/vc-discover` | `5 18 * * *` | 03:05 daily | VC マスタの discover (web_search) |
 | `cron/papers-quarterly-ingest` | `20 18 * * 1` | 03:20 火 | OpenAlex で 5 lane × 直近 16 quarter の論文数を papers_log に upsert (μ_A 観測量 N の供給)。Triple Helix 観測モデルの主入力。詳細は [`amd_score.md`](amd_score.md) |
 | `cron/founding-members-extract` | `30 18 * * 1` | 03:30 火 | 全 PJ の monthly_reports + meeting_summaries + project_knowledge から **創業メンバー** (AMD 内外含む全員) を Sonnet 4.5 で抽出 → project_founding_members に upsert + l2_notifications (kind='founding_members')。HRL 推定の主要根拠 |
+| `cron/sync-pj-facts` | `0 19 * * *` | 04:00 daily | `project_ventures` の構造化フィールド (founded_at / outcome_pattern / origin_org / origin_pi / lane / amd_support_*) を `project_knowledge` に `category='basic_fact'` で同期。/admin/contexts や cockpit から見える状態に。**まさが PJ ナレッジで設立日 / outcome を見られる用途** |
 
 認証: 全 cron route が `Authorization: Bearer ${CRON_SECRET}` を確認。`CRON_SECRET` 未設定なら処理スキップ。
 
