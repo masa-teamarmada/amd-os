@@ -115,6 +115,8 @@ interface ProgressEvent {
   eventDescription?: string;
   status: string;
   initiativeOrigin?: string;
+  impact?: number;
+  depth?: number;
   rejectReason?: string;
   originLostReason?: string;
   responsibilities?: Array<{ memberName?: string; memberId: string; responsibility: number }>;
@@ -519,6 +521,15 @@ function RewardTab({
   const [reimburse, setReimburse] = useState<ReimburseItem[] | null>(null);
   const [reimburseLoading, setReimburseLoading] = useState(false);
 
+  // 月次ノート (= MS なし PJ でも進捗を残せる自由記述、project_monthly_notes)
+  const [monthlyNote, setMonthlyNote] = useState<string>("");
+  const [monthlyNoteOriginal, setMonthlyNoteOriginal] = useState<string>("");
+  const [monthlyNoteUpdatedAt, setMonthlyNoteUpdatedAt] = useState<string | null>(null);
+  const [monthlyNoteUpdatedBy, setMonthlyNoteUpdatedBy] = useState<string | null>(null);
+  const [monthlyNoteLoading, setMonthlyNoteLoading] = useState(false);
+  const [monthlyNoteSaving, setMonthlyNoteSaving] = useState(false);
+  const [monthlyNoteSavedAt, setMonthlyNoteSavedAt] = useState<number | null>(null);
+
   const isFuture = ym > currentYm;
 
   const upsertLocalProgress = (patches: ProgressInfo[]) => {
@@ -555,7 +566,48 @@ function RewardTab({
     loadEvents();
     loadReimburse();
     loadRevisions();
+    loadMonthlyNote();
   }, [projectId, ym]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 月次ノート取得
+  const loadMonthlyNote = async () => {
+    setMonthlyNoteLoading(true);
+    try {
+      const res = await fetch(`/api/project/monthly-note?projectId=${projectId}&ym=${ym}`);
+      const data = await res.json();
+      const body = data?.note?.body ?? "";
+      setMonthlyNote(body);
+      setMonthlyNoteOriginal(body);
+      setMonthlyNoteUpdatedAt(data?.note?.updated_at ?? null);
+      setMonthlyNoteUpdatedBy(data?.note?.updated_by ?? null);
+    } catch {
+      setMonthlyNote("");
+      setMonthlyNoteOriginal("");
+    } finally {
+      setMonthlyNoteLoading(false);
+    }
+  };
+
+  const saveMonthlyNote = async () => {
+    setMonthlyNoteSaving(true);
+    try {
+      const res = await fetch(`/api/project/monthly-note`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ym, body: monthlyNote }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setMonthlyNoteOriginal(monthlyNote);
+      setMonthlyNoteUpdatedAt(new Date().toISOString());
+      setMonthlyNoteSavedAt(Date.now());
+      setTimeout(() => setMonthlyNoteSavedAt(null), 2500);
+    } catch (err) {
+      console.error("[monthly-note] save error:", err);
+      alert(`保存に失敗しました: ${err}`);
+    } finally {
+      setMonthlyNoteSaving(false);
+    }
+  };
 
   const loadRevisions = async () => {
     setRevisionLoading(true);
@@ -1250,6 +1302,22 @@ function RewardTab({
           )}
         </div>
       </div>
+
+      {/* ── 月次ノート (= MS なし PJ でも進捗を残せる自由記述) ──
+          2026-05-12 まさタスク 3。MS plan_cycle 未設定の PJ では MS タブが消えるため、
+          ここが進捗記録の主要場所になる。MS あり PJ でも MS に紐付かない補足メモとして利用可。 */}
+      <MonthlyNoteSection
+        loading={monthlyNoteLoading}
+        saving={monthlyNoteSaving}
+        savedAt={monthlyNoteSavedAt}
+        body={monthlyNote}
+        original={monthlyNoteOriginal}
+        updatedAt={monthlyNoteUpdatedAt}
+        updatedBy={monthlyNoteUpdatedBy}
+        hasMs={!!planCycle && milestones.length > 0}
+        onChange={setMonthlyNote}
+        onSave={saveMonthlyNote}
+      />
 
       {/* ── 立替精算 ── */}
       <div className="border border-border rounded-lg overflow-hidden">
@@ -1951,6 +2019,88 @@ function EventsSection({ events }: { events: ProgressEvent[] }) {
           ))}
         </>
       )}
+    </div>
+  );
+}
+
+// ─── 月次ノートセクション (= MS なし PJ で進捗を残せる自由記述) ─────────────
+
+function MonthlyNoteSection({
+  loading,
+  saving,
+  savedAt,
+  body,
+  original,
+  updatedAt,
+  updatedBy,
+  hasMs,
+  onChange,
+  onSave,
+}: {
+  loading: boolean;
+  saving: boolean;
+  savedAt: number | null;
+  body: string;
+  original: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+  hasMs: boolean;
+  onChange: (v: string) => void;
+  onSave: () => void;
+}) {
+  const dirty = body !== original;
+  const headerLabel = hasMs ? "📔 月次ノート (補足)" : "📔 月次ノート";
+  const headerHint = hasMs
+    ? "MS に紐付かない補足メモ"
+    : "MS が未設定なので、ここに今月の動きを残してください";
+  return (
+    <div className="border border-border rounded-lg overflow-hidden">
+      <div className="px-4 py-2.5 text-[12px] font-medium border-b border-border bg-muted/10 flex items-center justify-between gap-2">
+        <span>{headerLabel}</span>
+        <span className="text-[10.5px] font-normal text-muted-foreground">{headerHint}</span>
+      </div>
+      <div className="p-3 space-y-2">
+        {loading ? (
+          <p className="text-[12px] text-muted-foreground py-1">読み込み中...</p>
+        ) : (
+          <>
+            <textarea
+              value={body}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={hasMs
+                ? "例: 4/14 の杉浦先生面談で、量子センサ向け試作仕様の合意。請求書送付遅延のお詫びを行った。"
+                : "例: 顧客 A から導入意向ヒアリング、CEO 候補 B と方針合意、補助金 X に申請書ドラフト提出 など、今月の動きを箇条書きで。"}
+              rows={hasMs ? 4 : 7}
+              className="w-full text-[12.5px] leading-relaxed border border-border rounded-md px-3 py-2 bg-background focus:outline-none focus:ring-1 focus:ring-blue-400 resize-y"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[10.5px] text-muted-foreground">
+                {updatedAt ? (
+                  <>
+                    最終更新: {new Date(updatedAt).toLocaleString("ja-JP")}
+                    {updatedBy && ` · by ${updatedBy}`}
+                  </>
+                ) : (
+                  "未入力"
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {savedAt !== null && (
+                  <span className="text-[10.5px] text-emerald-600">✓ 保存しました</span>
+                )}
+                <button
+                  type="button"
+                  onClick={onSave}
+                  disabled={!dirty || saving}
+                  className="text-[11.5px] px-3 py-1 rounded-md border border-blue-500 text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {saving ? "保存中..." : dirty ? "保存" : "変更なし"}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

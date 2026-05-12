@@ -1,15 +1,22 @@
 /**
  * GET /api/cron/member-activities
- * Vercel Cron: 毎日 04:00 JST (19:00 UTC) に全アクティブPJの活動推論を実行。
- * monthly_reports + milestone_responsibility を元にClaude Haikuで推論し
- * member_activities(source='inferred')に書き込む。
  *
- * vercel.json schedule: "0 19 * * *"
+ * 全アクティブPJの「進捗イベント」推論を実行し member_activities (source='inferred') に書き込む。
+ *
+ * 2026-05-12 全面改修 (= 旧 GAS gas/054_RewardScoring_EventExtract.js の精度を復元):
+ *   - LLM Haiku → Sonnet 4.6 に格上げ
+ *   - system prompt を llm_prompts.member_activities.extract から fetch (= AGENTS 絶対ルール遵守)
+ *   - 入力ソース拡張: monthly_reports に加えて project_meeting_summaries (= 5 生データ集約) を渡す
+ *   - 出力スキーマに initiative_origin / impact / depth / responsibilities を追加
+ *   - plan_cycle 必須を緩和 (= MS 期未設定の PJ でも events を抽出する)
+ *
+ * Vercel Cron: 毎日 04:00 JST (19:00 UTC) — vercel.json schedule "0 19 * * *"
  * 認証: Authorization: Bearer CRON_SECRET
+ * 手動再抽出: ?ym=YYYYMM&projectId=p21 で対象を絞れる
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 
 function getServiceClient() {
@@ -27,35 +34,111 @@ function currentYmJST(): string {
   return `${jst.getUTCFullYear()}${String(jst.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+const VALID_ORIGINS = new Set([
+  "amd_proposed",
+  "co_decided",
+  "partner_proposed",
+  "external",
+  "unknown",
+]);
+
 interface InferredActivity {
-  memberId: string;
+  memberId: string | null;
   milestoneId: string | null;
   title: string;
   contentPreview: string;
+  initiativeOrigin: string;
+  impact: number | null;
+  depth: number | null;
+  responsibilities: Array<{ memberId: string; responsibility: number }>;
 }
 
-/** 1PJの活動をLLMで推論してmember_activitiesに保存 */
+interface PromptRow {
+  body: string;
+  model: string | null;
+  max_tokens: number | null;
+  is_active: boolean;
+}
+
+async function loadExtractPrompt(supabase: SupabaseClient): Promise<PromptRow | null> {
+  const { data } = await supabase
+    .from("llm_prompts")
+    .select("body, model, max_tokens, is_active")
+    .eq("prompt_key", "member_activities.extract")
+    .limit(1)
+    .single();
+  if (!data) return null;
+  if (!data.is_active || !data.body || !String(data.body).trim()) return null;
+  return data as PromptRow;
+}
+
+/** 1 PJ × ym の events 抽出 */
 async function inferActivities(
   projectId: string,
   ym: string,
-  supabase: ReturnType<typeof getServiceClient>,
-  anthropic: Anthropic
+  supabase: SupabaseClient,
+  anthropic: Anthropic,
+  systemPrompt: PromptRow
 ): Promise<{ ok: boolean; saved: number; message?: string }> {
-  // 1. monthly_report 取得（final or draft）
+  // 1) monthly_report 本文 (final or draft)
   const { data: reports } = await supabase
     .from("monthly_reports")
     .select("final_content, draft_content")
     .eq("project_id", projectId)
     .eq("ym", ym)
     .limit(1);
-
   const report = reports?.[0];
-  const reportContent = report?.final_content || report?.draft_content || "";
-  if (!reportContent) {
-    return { ok: true, saved: 0, message: "no report content" };
+  const reportContent = (report?.final_content || report?.draft_content || "").trim();
+
+  // 2) 当月 MTG サマリ集 (= 5 生データ集約結果。events 件数の主供給源)
+  const { data: meetings } = await supabase
+    .from("project_meeting_summaries")
+    .select("meeting_date, title, summary_short, decided, progress, next_actions, risks")
+    .eq("project_id", projectId)
+    .eq("ym", ym)
+    .order("meeting_date", { ascending: true })
+    .limit(60);
+
+  // 3) PJ name
+  const { data: projectRow } = await supabase
+    .from("projects")
+    .select("project_name")
+    .eq("project_id", projectId)
+    .limit(1)
+    .single();
+  const projectName = projectRow?.project_name || projectId;
+
+  // 4) PJ メンバー一覧 (= project_members、active のみ)
+  const { data: pjMembers } = await supabase
+    .from("project_members")
+    .select("member_id, role")
+    .eq("project_id", projectId);
+  const memberIdSet = new Set((pjMembers ?? []).map((m: { member_id: string }) => m.member_id));
+
+  let memberLines = "（メンバー情報なし）";
+  const memberCodeNames: Record<string, string> = {};
+  const codeNameToMemberId: Record<string, string> = {};
+  if (memberIdSet.size > 0) {
+    const { data: members } = await supabase
+      .from("members")
+      .select("member_id, code_name, role")
+      .in("member_id", Array.from(memberIdSet));
+    (members ?? []).forEach((m: { member_id: string; code_name: string | null; role: string | null }) => {
+      memberCodeNames[m.member_id] = m.code_name || m.member_id;
+      if (m.code_name) codeNameToMemberId[m.code_name] = m.member_id;
+    });
+    const pjRoleByMid: Record<string, string> = {};
+    (pjMembers ?? []).forEach((m: { member_id: string; role: string | null }) => {
+      if (m.role) pjRoleByMid[m.member_id] = m.role;
+    });
+    memberLines = (members ?? [])
+      .map((m: { member_id: string; code_name: string | null; role: string | null }) =>
+        `- memberId=${m.member_id} / 名前=${m.code_name || m.member_id} / 役割=${pjRoleByMid[m.member_id] || m.role || "member"}`
+      )
+      .join("\n");
   }
 
-  // 2. アクティブなMS + 責任者マトリクス取得
+  // 5) MS 一覧 (= plan_cycle が無くても OK、空なら memberId 主体で抽出)
   const { data: planCycles } = await supabase
     .from("value_plan_cycles")
     .select("plan_cycle_id")
@@ -63,110 +146,160 @@ async function inferActivities(
     .lte("period_start_ym", ym)
     .gte("period_end_ym", ym)
     .limit(1);
+  const planCycleId = planCycles?.[0]?.plan_cycle_id ?? null;
 
-  const planCycleId = planCycles?.[0]?.plan_cycle_id;
-  if (!planCycleId) return { ok: true, saved: 0, message: "no active plan cycle" };
-
-  const { data: milestones } = await supabase
-    .from("value_milestones")
-    .select("milestone_id, title")
-    .eq("plan_cycle_id", planCycleId)
-    .eq("is_active", true);
-
-  if (!milestones || milestones.length === 0) {
-    return { ok: true, saved: 0, message: "no milestones" };
-  }
-
-  const msIds = milestones.map((m: { milestone_id: string }) => m.milestone_id);
-  const { data: responsibilities } = await supabase
-    .from("milestone_responsibility")
-    .select("milestone_id, member_id, role, task_description")
-    .in("milestone_id", msIds);
-
-  if (!responsibilities || responsibilities.length === 0) {
-    return { ok: true, saved: 0, message: "no responsibilities" };
-  }
-
-  // member_id → codeName マップ
-  const memberIds = [...new Set(responsibilities.map((r: { member_id: string }) => r.member_id))];
-  const { data: members } = await supabase
-    .from("members")
-    .select("member_id, code_name")
-    .in("member_id", memberIds);
-
-  const memberCodeNames: Record<string, string> = {};
-  const codeNameToMemberId: Record<string, string> = {};
-  (members || []).forEach((m: { member_id: string; code_name: string }) => {
-    memberCodeNames[m.member_id] = m.code_name || m.member_id;
-    if (m.code_name) codeNameToMemberId[m.code_name] = m.member_id;
-  });
-
-  // 責任者マトリクスのテキスト化
-  const msMap: Record<string, string> = {};
-  milestones.forEach((m: { milestone_id: string; title: string }) => { msMap[m.milestone_id] = m.title; });
-
-  const responsibilityText = responsibilities
-    .map((r: { milestone_id: string; member_id: string; role: string; task_description: string | null }) =>
-      `- memberId=${r.member_id} (code_name=${memberCodeNames[r.member_id] || ""}): [${msMap[r.milestone_id] || r.milestone_id}] 役割=${r.role}${r.task_description ? ` 業務=${r.task_description}` : ""}`
-    )
-    .join("\n");
-
-  // 3. Claude Haiku で推論
-  const prompt = `以下の月次レポートと責任者マトリクスを参照して、各メンバーが今月何をしたかを推論してください。
-
-## 責任者マトリクス（メンバー × MS × 役割）
-${responsibilityText}
-
-## 月次レポート（${ym.slice(0,4)}年${ym.slice(4)}月）
-${reportContent.substring(0, 3000)}
-
-## 出力フォーマット（JSON）
-下記のJSON形式のみで回答してください。他のテキストは不要です。
-{
-  "activities": [
-    {
-      "memberId": "メンバーID（責任者マトリクスのmemberId）",
-      "milestoneId": "該当するmilestone_id（不明な場合はnull）",
-      "title": "短いアクティビティタイトル（20字以内）",
-      "contentPreview": "レポート内容に基づく具体的な活動説明（50-100字）"
+  let milestoneLines = "（MS 期未設定 / 該当 MS なし。milestoneId は null で OK）";
+  if (planCycleId) {
+    const { data: milestones } = await supabase
+      .from("value_milestones")
+      .select("milestone_id, title")
+      .eq("plan_cycle_id", planCycleId)
+      .eq("is_active", true);
+    if (milestones && milestones.length > 0) {
+      milestoneLines = milestones
+        .map((m: { milestone_id: string; title: string }) => `- ${m.milestone_id}: ${m.title}`)
+        .join("\n");
     }
-  ]
-}`;
+  }
 
-  let inferredActivities: InferredActivity[] = [];
+  // 抽出ソースが両方空ならスキップ
+  if (!reportContent && (!meetings || meetings.length === 0)) {
+    return { ok: true, saved: 0, message: "no source content (no report / no meetings)" };
+  }
+
+  // 6) MTG サマリをテキスト化
+  const meetingBlock = (meetings ?? [])
+    .map((mt: {
+      meeting_date: string;
+      title: string;
+      summary_short: string;
+      decided: unknown;
+      progress: unknown;
+      next_actions: unknown;
+      risks: unknown;
+    }) => {
+      const dec = Array.isArray(mt.decided) ? (mt.decided as string[]).filter(Boolean) : [];
+      const prg = Array.isArray(mt.progress) ? (mt.progress as string[]).filter(Boolean) : [];
+      const nxt = Array.isArray(mt.next_actions) ? (mt.next_actions as string[]).filter(Boolean) : [];
+      const rsk = Array.isArray(mt.risks) ? (mt.risks as string[]).filter(Boolean) : [];
+      const parts = [
+        `### ${mt.meeting_date} ${mt.title}`,
+        mt.summary_short ? `要約: ${mt.summary_short}` : "",
+        dec.length ? `決定: ${dec.join(" / ")}` : "",
+        prg.length ? `進捗: ${prg.join(" / ")}` : "",
+        nxt.length ? `次アクション: ${nxt.join(" / ")}` : "",
+        rsk.length ? `リスク: ${rsk.join(" / ")}` : "",
+      ].filter(Boolean);
+      return parts.join("\n");
+    })
+    .join("\n\n")
+    .slice(0, 8000); // Sonnet input 抑制 (= 月 60 件 meeting でも安全)
+
+  const userPrompt =
+    `## PJ 情報\n` +
+    `- projectId: ${projectId}\n` +
+    `- PJ 名: ${projectName}\n` +
+    `- 対象月: ${ym}\n\n` +
+    `## メンバー一覧\n${memberLines}\n\n` +
+    `## 設定済み MS (plan_cycle が今月をカバーしているもの)\n${milestoneLines}\n\n` +
+    `## 月次レポート (${ym.slice(0, 4)}年${ym.slice(4)}月)\n${reportContent ? reportContent.slice(0, 4000) : "（月次レポート未生成）"}\n\n` +
+    `## 当月の MTG サマリ集 (= 5 生データから抽出済の議事録)\n${meetingBlock || "（当月 MTG サマリなし）"}\n\n` +
+    `上記の月次レポート + MTG サマリから「今月起きた進捗イベント」を抽出してください。\n` +
+    `system prompt の抽出ルール (initiative_origin 必須付与、判断不能は unknown、推測禁止) に従ってください。`;
+
+  // 7) Sonnet 呼び出し
+  let inferred: InferredActivity[] = [];
   try {
     const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 4096,
-      messages: [{ role: "user", content: prompt }],
+      model: systemPrompt.model || "claude-sonnet-4-6",
+      max_tokens: systemPrompt.max_tokens || 4096,
+      system: systemPrompt.body,
+      messages: [{ role: "user", content: userPrompt }],
     });
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const cleaned = text
+      .trim()
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
-      // LLM が memberId に code_name (例: "まさ") を返してきても、code_name → member_id に変換する。
-      // 不明な ID/名前は捨てる (DB の uuid 列に入れるとエラーになるため)。
-      inferredActivities = (parsed.activities || [])
-        .map((a: InferredActivity) => {
-          if (!a || !a.memberId) return null;
-          let mid: string = a.memberId;
-          if (codeNameToMemberId[mid]) mid = codeNameToMemberId[mid];
-          if (!memberCodeNames[mid]) return null; // 責任者マトリクスに無い ID は無視
-          return { ...a, memberId: mid };
+      const raw = Array.isArray(parsed.activities) ? parsed.activities : [];
+
+      type RawAct = {
+        memberId?: string | null;
+        milestoneId?: string | null;
+        title?: string;
+        contentPreview?: string;
+        initiativeOrigin?: string;
+        impact?: number;
+        depth?: number;
+        responsibilities?: Array<{ memberId?: string; responsibility?: number }>;
+      };
+
+      inferred = raw
+        .map((a: RawAct): InferredActivity | null => {
+          if (!a || !a.title) return null;
+
+          const normalizeMid = (raw: string | null | undefined): string | null => {
+            if (!raw) return null;
+            const s = String(raw).trim();
+            if (!s || s.toLowerCase() === "null") return null;
+            if (codeNameToMemberId[s]) return codeNameToMemberId[s];
+            if (memberIdSet.has(s)) return s;
+            return null;
+          };
+
+          const memberId = normalizeMid(a.memberId);
+          let milestoneId: string | null = null;
+          if (a.milestoneId && String(a.milestoneId).trim() && String(a.milestoneId).toLowerCase() !== "null") {
+            milestoneId = String(a.milestoneId).trim();
+          }
+
+          let origin = String(a.initiativeOrigin || "unknown").trim();
+          if (origin === "client_requested") origin = "partner_proposed";
+          if (!VALID_ORIGINS.has(origin)) origin = "unknown";
+
+          const impact = typeof a.impact === "number" && a.impact >= 1 && a.impact <= 5 ? Math.round(a.impact) : null;
+          const depth = typeof a.depth === "number" && (a.depth === 0 || a.depth === 1) ? a.depth : null;
+
+          const resp = Array.isArray(a.responsibilities)
+            ? a.responsibilities
+                .map((r) => ({
+                  memberId: normalizeMid(r.memberId),
+                  responsibility: typeof r.responsibility === "number" ? r.responsibility : 0,
+                }))
+                .filter((r): r is { memberId: string; responsibility: number } =>
+                  !!r.memberId && r.responsibility > 0
+                )
+            : [];
+
+          return {
+            memberId,
+            milestoneId,
+            title: String(a.title).slice(0, 120),
+            contentPreview: String(a.contentPreview || "").slice(0, 400),
+            initiativeOrigin: origin,
+            impact,
+            depth,
+            responsibilities: resp,
+          };
         })
-        .filter((a: InferredActivity | null): a is InferredActivity => !!a && !!a.title);
+        .filter((a: InferredActivity | null): a is InferredActivity => !!a);
     }
   } catch (err) {
-    console.error("[member-activities] LLM error:", err);
-    return { ok: false, saved: 0, message: `LLM error: ${err}` };
+    console.error(`[member-activities] LLM error projectId=${projectId} ym=${ym}:`, err);
+    return { ok: false, saved: 0, message: `LLM error: ${err instanceof Error ? err.message : String(err)}` };
   }
 
-  if (inferredActivities.length === 0) {
+  if (inferred.length === 0) {
     return { ok: true, saved: 0, message: "no activities inferred" };
   }
 
-  // 4. member_activities に書き込む（既存の inferred レコードを削除して再挿入）
+  // 8) 既存の inferred を delete → 再 insert (= 冪等)
   await supabase
     .from("member_activities")
     .delete()
@@ -174,20 +307,24 @@ ${reportContent.substring(0, 3000)}
     .eq("ym", ym)
     .eq("source", "inferred");
 
-  const rows = inferredActivities.map((a, i) => ({
+  const rows = inferred.map((a, i) => ({
     member_id: a.memberId,
     project_id: projectId,
     ym,
     source: "inferred",
     source_item_id: `inferred-${ym}-${i}`,
-    milestone_id: a.milestoneId || null,
+    milestone_id: a.milestoneId,
     title: a.title,
     content_preview: a.contentPreview,
+    initiative_origin: a.initiativeOrigin,
+    impact: a.impact,
+    depth: a.depth,
+    raw_metadata: a.responsibilities.length > 0 ? { responsibilities: a.responsibilities } : null,
   }));
 
   const { error: insertError } = await supabase.from("member_activities").insert(rows);
   if (insertError) {
-    console.error("[member-activities] insert error:", insertError);
+    console.error(`[member-activities] insert error projectId=${projectId} ym=${ym}:`, insertError);
     return { ok: false, saved: 0, message: insertError.message };
   }
 
@@ -195,11 +332,10 @@ ${reportContent.substring(0, 3000)}
 }
 
 export async function GET(req: NextRequest) {
-  // 認証
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${cronSecret}`) {
+    const authHeader = req.headers.get("authorization");
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }
@@ -209,35 +345,47 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });
   }
 
-  // ?ym=YYYYMM で任意月を処理可能 (手動再抽出用)。未指定なら当月。
-  const ymParam = req.nextUrl.searchParams.get("ym");
-  const ym = ymParam && /^\d{6}$/.test(ymParam) ? ymParam : currentYmJST();
   const supabase = getServiceClient();
   const anthropic = new Anthropic({ apiKey: anthropicKey });
 
-  // アクティブPJ一覧
-  const { data: projects, error } = await supabase
-    .from("projects")
-    .select("project_id")
-    .eq("status", "active");
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  const systemPrompt = await loadExtractPrompt(supabase);
+  if (!systemPrompt) {
+    return NextResponse.json(
+      {
+        error: "llm_prompts.member_activities.extract が is_active=false / body 空。/admin/prompts で本文を入力してください",
+      },
+      { status: 500 }
+    );
   }
 
-  const projectIds = (projects ?? []).map((p: { project_id: string }) => p.project_id);
+  const ymParam = req.nextUrl.searchParams.get("ym");
+  const ym = ymParam && /^\d{6}$/.test(ymParam) ? ymParam : currentYmJST();
+  const projectIdParam = req.nextUrl.searchParams.get("projectId");
+
+  let projectIds: string[] = [];
+  if (projectIdParam) {
+    projectIds = [projectIdParam];
+  } else {
+    const { data: projects, error } = await supabase
+      .from("projects")
+      .select("project_id")
+      .eq("status", "active");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    projectIds = (projects ?? []).map((p: { project_id: string }) => p.project_id);
+  }
+
   if (projectIds.length === 0) {
-    return NextResponse.json({ ok: true, ym, ran: 0, message: "no active projects" });
+    return NextResponse.json({ ok: true, ym, ran: 0, message: "no target projects" });
   }
 
   const results: Array<{ projectId: string; ok: boolean; saved: number; message?: string }> = [];
   for (const projectId of projectIds) {
     try {
-      const result = await inferActivities(projectId, ym, supabase, anthropic);
-      results.push({ projectId, ok: result.ok, saved: result.saved, message: result.message });
+      const r = await inferActivities(projectId, ym, supabase, anthropic, systemPrompt);
+      results.push({ projectId, ok: r.ok, saved: r.saved, message: r.message });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "unknown error";
-      console.error(`[cron/member-activities] projectId=${projectId} error:`, msg);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[cron/member-activities] projectId=${projectId} fatal:`, msg);
       results.push({ projectId, ok: false, saved: 0, message: msg });
     }
   }
@@ -248,6 +396,7 @@ export async function GET(req: NextRequest) {
     ran: results.length,
     succeeded: results.filter((r) => r.ok).length,
     failed: results.filter((r) => !r.ok).length,
+    totalSaved: results.reduce((sum, r) => sum + (r.saved || 0), 0),
     results,
   });
 }
