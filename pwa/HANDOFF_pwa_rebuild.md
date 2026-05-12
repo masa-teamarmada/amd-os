@@ -1,6 +1,6 @@
 # HANDOFF — AMD OS PWA / GAS
 
-最終更新: 2026-05-12 (blissful-robinson-8e462a #2 マクロ係数 P 以外列集計 + 4 lane 補完 + FRL grit/resilience cron 新規)
+最終更新: 2026-05-12 (blissful-robinson-8e462a #5 cron 上書き事故 fix + lane mismatch fix + AMD prefix 削除)
 詳細セッションログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾参照
 
 ---
@@ -22,8 +22,8 @@
 
 | # | タスク | まさ要求回数 | 実装状態 | 完了条件 |
 |---|---|---|---|---|
-| ✅ 1 | マクロ係数 P 以外のデータ取得 (= macro_index_log の budget/investment/mention/signal_count + 4 lane 欠落) | 3 回+ | **2026-05-12 完了** | 全 8 lane で 4 列が埋まり、各 lane 月次で増えていく cron が稼働 |
-| ✅ 2 | FRL grit/resilience の数値入力 | 3 回+ | **2026-05-12 完了** | 全 active PJ × 月次で Sonnet 推定が走り、5 PJ で 0-9 値 + reasoning 入る |
+| ✅ 1 | マクロ係数 P 以外のデータ取得 (= macro_index_log + AmdScoreView M カードの B/V/I_R 表示) | 4 回+ | **2026-05-12 完了** (2 ラウンド対応) | (Round 3) macro_index_log の P 以外列を集計 cron で埋める / (Round 5) AmdScoreView の lane mismatch (legacy → ASPI 変換漏れ) を fix → UI 「未取得」が解消 |
+| ✅ 2 | FRL grit/resilience の数値入力 | 3 回+ | **2026-05-12 完了** (2 ラウンド対応) | (Round 3) Sonnet 推定 cron 新規 (5 PJ で 0-9 値 + reasoning 入る) / (Round 5) cron が当日付新規 row 作って XRL/ALQ NULL 化する事故 fix → update only に変更 |
 | 🔴 3 | R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵) | 2 回 | 未着手 | `llm_prompts.monthly_report.r313_extract` body seed + AMD-Report GAS から DB fetch + fallback throw + clasp push 完了 |
 | 🔴 4 | 試算表 Drive Excel 取り込み cron 新規 (= project_pl_monthly が全 PJ 「—」表示) | 2 回 | 未着手 | Drive folder 配下の `.xlsx` を Sonnet で月次 PL 構造化抽出 → upsert する cron + Vercel deploy + 手動キック動作確認 |
 

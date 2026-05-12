@@ -5,6 +5,54 @@
 
 ---
 
+### [pwa/cron] frl-grit-resilience cron が当日付 row を新規 INSERT して XRL/ALQ 列 NULL のまま最新 row に → AmdScoreView で TRL/BRL/GRL/SRL/HRL 全部 0 表示 (= 「XRL が全部 1 に」事故)
+- **発見日**: 2026-05-12 (まさ「XRL が全部 1 になった」「順番が変わるような修正は今回しなかったはずで、でも変わってるってことは、触ってはいけないところを触ってる気がする」と明確な違和感シグナル)
+- **状態**: ✅ 解決済 (= cron row 削除で復旧 + cron route を update only に修正)
+- **症状**:
+  1. AmdScoreView (= /venture-map/amd-score/[id]) の X カードで TRL/BRL/GRL/SRL/HRL が全部 **0、根拠なし、仮置き** 表示 → X = (0+1)^α = **1.00** で計算意味なし
+  2. 画面全体の見え方が「FRL → AMD Score 経時 → FRL レーダー」と崩れたカオス状態
+  3. まさは AmdScoreView を本セッションで触ってないと認識 → 「触ってはいけないところを触ってる気がする」と直感
+- **真因**: 直前 commit で実装した frl-grit-resilience-extract cron が当日付の **新規 row を upsert で作っていた**:
+  - 新規 row は frl_grit / frl_resilience / frl_notes / evaluator 4 列だけ書いて、trl/brl/grl/srl/hrl/alq_* 等は **NULL のまま挿入**
+  - AmdScoreView の latest 取得 (`for i = inputs.length-1; i >= 0; if (inputs[i].evaluated_at <= today) return inputs[i]` BUGS.md 参照) がこの NULL row を最新と判定
+  - 結果 XRL/ALQ 全部 0 表示 → X カード崩壊 → 全体カオス感 (= まさが「順番が変わった」と感じた正体)
+- **解決策**:
+  1. **データ復旧**: SQL で `DELETE FROM amd_score_inputs WHERE evaluator='cron:frl-grit-resilience-extract' AND evaluated_at::date = CURRENT_DATE RETURNING ...` → 5 PJ × 7 row 削除 → 既存 l2_extract_sonnet row が再び最新に
+  2. **cron route 修正** (`pwa/src/app/api/cron/frl-grit-resilience-extract/route.ts`):
+     - upsert → update に変更、新規 INSERT 完全禁止
+     - 既存最新 row (= L2 cron や手動入力で作られた評価点) が無い PJ は `saved=0, message="no existing row to update"` で skip
+     - evaluator 列も上書きしない (= L2 cron / 手動入力の出所情報を保持)
+     - 月次評価点は amd-score-l2-refresh / 手動入力が作る、grit/resilience cron はその上書き役に専念
+  3. **動作確認**: 修正後再キックで p20/p21/p06 既存 row に grit=7,6,6 / resilience=6,6,6 が入る + trl/brl/grl/srl/hrl/alq_* は元の値保持
+- **教訓**:
+  - **多列テーブルへの cron upsert で「自分の関心列だけ書く」と他列が NULL になる** (新規 INSERT 時)。partial update が必要なら **既存 row 必須 + update only** に倒す
+  - **「最新 row」を取るロジックは派生 cron が増えるたびに壊れる**。row 単位ではなく column 単位で「いつ更新されたか」を持つ方が長期的に安全 (= 各列に updated_at_<col> を持つ案、ただし大規模)
+  - **まさの「触ってはいけないところを触ってる気がする」は最重要シグナル**。本セッションで該当 component を触ってない場合でも、**派生事象 (= データ NULL 化等) で UI 表現が崩れる** ケースがある。「触ってない」と直接答えず、データ層から疑う
+  - **新規 cron 追加時は既存 latest 取得ロジックとの相互作用を必ず確認**。列追加 migration で safe な update only パターンが望ましい
+
+---
+
+### [pwa/ui] マクロ係数 (M カード) の P 以外が「未取得」表示 / 真因は legacy lane (gx_energy 等) を ASPI lane として query していた
+- **発見日**: 2026-05-12 (まさスクショで「未取得 (NEDO/JST/AMED 採択 → observation_log (key=B, source=grant))」「未取得 (KAKEN API → observation_log (key=I_R, source=kaken))」「未取得 (vc_news LLM 抽出 → observation_log (key=V, source=vc_news))」を確認)
+- **状態**: ✅ 解決済
+- **症状**: AmdScoreView の M カード (= Triple Helix 観測量 7 軸表示) で P (政策密度) は 173 件/Q で取れてるが、B (公募予算) / V (VC 投資) / I_R (研究費) が「未取得」表示。「データ被覆率 4/7 (57%)」
+- **真因**:
+  - observation_log には B / V / I_R が **8 lane × 48 件 = 384 件で完全網羅** で入っていた (= cron grant-ingest / kaken-ingest / vc-investment-ingest が走った結果)
+  - lane 列は ASPI 8 domain 名 (= advanced_ict / ai_technologies / quantum / sensing_timing_navigation / energy_environment / etc.) で書かれていた
+  - しかし AmdScoreView は project_ventures.lane (= **legacy 5 lane**: gx_energy / materials / life / robo / gx_circular) を渡して `fetchTripleHelixComputed(lane)` を呼んでた
+  - `triple-helix-observations.ts` の `aspiLane = lane as AspiDomainId` が型 cast だけで実質変換無し → `eq("lane", "gx_energy")` で 0 件 → 「未取得」表示
+  - つまり **データはある、UI クエリの lane 名前空間がズレていた** だけ
+- **解決策**:
+  - `triple-helix-observations.ts` の冒頭で `LEGACY_LANE_TO_ASPI` mapping (= aspi-lanes.ts に既存) を適用
+  - `gx_energy → energy_environment` / `materials → advanced_materials_manufacturing` / `life → biotechnology` / `robo → defence_space_robotics_transport` / `gx_circular → energy_environment`
+  - ASPI lane でない不明 lane は warn ログ + 旧挙動 (= 空データ) で安全側
+- **教訓**:
+  - **「未取得」UI 表示の真因は (a) データ無し、(b) クエリ条件ミス の 2 通り**。即「データ無し」と決めつけず、まず curl で REST 直叩きしてデータ件数を確認する
+  - **legacy 名前空間 ↔ 新名前空間の変換漏れは無音で UI 0 件になる**。aspi-lanes.ts のような変換 helper を全レイヤーで使う
+  - **「マクロ係数 P 以外取れてない」と聞いたら 2 解釈ある**: (1) 列軸 (= macro_index_log の budget_amount 等)、(2) 観測量軸 (= AmdScoreView M カードの B/V/I_R 等)。前回 Round 3 で (1) は対応したが (2) を見落とした → 真因見当違いを 1 ラウンド使った。まさの UI 表示を必ずスクショで確認してから着手
+
+---
+
 ### [pwa/cron] マクロ係数の P 以外列が全 786 行 0 + 4 lane が完全 0 件 / FRL grit/resilience も全 100 行 NULL (= 過去複数回 HANDOFF に書いて実装してなかった)
 - **発見日**: 2026-05-12 (まさ「マクロ係数 P 以外 0 件、FRL grit/resilience も 0 のまま、何度も言ってる」と明確な怒りシグナル)
 - **状態**: ✅ 解決済 (= macro-backfill chunk 化 + 新 cron macro-aggregate-indicators + 新 cron frl-grit-resilience-extract で全部対応)
