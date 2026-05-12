@@ -24,7 +24,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
-import { type AspiDomainId, type LaneWeight, weightForDomain } from "@/lib/aspi-lanes";
+import { type AspiDomainId, type LaneWeight, weightForDomain, LEGACY_LANE_TO_ASPI, ASPI_DOMAIN_IDS } from "@/lib/aspi-lanes";
 
 export type TripleHelixObservationKey = "P" | "B" | "V" | "R" | "I_R" | "N" | "C_compete";
 
@@ -155,7 +155,15 @@ function minMaxNormalize(value: number, history: number[]): number {
 
 export async function fetchTripleHelixComputed(lane: string): Promise<TripleHelixComputed> {
   const supabase = await createClient();
-  const aspiLane = lane as AspiDomainId;
+  // 2026-05-12 まさ「マクロ係数 P 以外未取得」真因対応:
+  //   呼び出し側 (= AmdScoreView) が project_ventures.lane (= 旧 5 lane: gx_energy/materials/life/robo/gx_circular) を渡す
+  //   ため、ASPI 8 domain で query すると 0 件で「未取得」表示になっていた。
+  //   LEGACY_LANE_TO_ASPI mapping で正規化してから observation_log / papers_log を query する。
+  const aspiLane = (LEGACY_LANE_TO_ASPI[lane] ?? lane) as AspiDomainId;
+  if (!ASPI_DOMAIN_IDS.includes(aspiLane)) {
+    // 既知 lane でもない場合は空データを返す (= 旧挙動と同じ)
+    console.warn(`[triple-helix-observations] unknown lane: ${lane} → ASPI 変換失敗、空データを返す`);
+  }
 
   // 1. C 行列 loadings
   const { data: loadingsData } = await supabase
