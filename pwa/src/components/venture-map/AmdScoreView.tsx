@@ -305,18 +305,11 @@ export function AmdScoreView({
       </div>
 
       <div className="flex flex-col gap-4">
+        {/* 順序: スコア → 経時 → 3 要素のバランス → 数式 → 3 要素詳細 → FRL レーダー
+            (まさ 2026-05-12: 「経時グラフはスコアと 3 要素のバランスの間に置く」指示。
+             AmdScoreView 初版 09dce20 から TimeSeriesChart は Factor3Breakdown の下にあったが、
+             UX 的には大スコアの直後に経時を見せて流れを掴ませる方が自然。) */}
         <ScoreHeroCard result={result} venture={venture} />
-        <BalanceBar result={result} alpha={alpha} />
-        <AmdScoreFormulaPanel alpha={alpha} />
-        <Factor3Breakdown
-          result={result}
-          alpha={alpha}
-          editable={editable}
-          ventureName={venture.display_name}
-          latestXrlLog={latestXrlLog}
-          atlasMacroSignals={atlasMacroSignals}
-          tripleHelix={tripleHelix}
-        />
         <TimeSeriesChart
           series={series}
           latest={editable.evaluated_at}
@@ -336,6 +329,17 @@ export function AmdScoreView({
             startedAt: venture.amd_support_started_at ?? null,
             endedAt: venture.amd_support_ended_at ?? null,
           }}
+        />
+        <BalanceBar result={result} alpha={alpha} />
+        <AmdScoreFormulaPanel alpha={alpha} />
+        <Factor3Breakdown
+          result={result}
+          alpha={alpha}
+          editable={editable}
+          ventureName={venture.display_name}
+          latestXrlLog={latestXrlLog}
+          atlasMacroSignals={atlasMacroSignals}
+          tripleHelix={tripleHelix}
         />
         <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.display_name} />
       </div>
