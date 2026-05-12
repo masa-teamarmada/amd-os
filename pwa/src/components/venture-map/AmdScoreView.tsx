@@ -1024,10 +1024,17 @@ function TimeSeriesChart({
   const xRange = Math.max(1, xMaxRaw - xMin);
   const xMax = xMaxRaw + xRange * 0.05;
 
-  // y 軸: log scale (1 → 100,000)
-  const yMin = Math.log10(1);
-  const yMax = Math.log10(100_000);
-  const yOf = (v: number) => MT + PH - (Math.max(0, Math.log10(Math.max(1, v))) - yMin) / (yMax - yMin) * PH;
+  // y 軸: log scale。range は **プロットのある範囲だけ** にズーム (まさ 2026-05-12 指示)。
+  // 旧固定 1-100k だと PJ 化前後の PJ で「ほぼ変化なし」に見えてしまう問題。
+  // padding は log10 で上下 ±0.2 (= 約 ±60%) で見やすさ確保、1 を下限・100k を上限。
+  const scoreValues = allPoints.map((p) => Math.max(1, p.score));
+  const dataMin = Math.min(...scoreValues);
+  const dataMax = Math.max(...scoreValues);
+  const yMin = Math.max(0, Math.log10(dataMin) - 0.2);
+  const yMax = Math.min(Math.log10(100_000), Math.log10(dataMax) + 0.2);
+  // データが 1 点しかない or min==max のときに range=0 で divide-by-zero しないように
+  const ySpan = Math.max(0.3, yMax - yMin);
+  const yOf = (v: number) => MT + PH - (Math.max(yMin, Math.log10(Math.max(1, v))) - yMin) / ySpan * PH;
   const xOf = (t: number) => ML + ((t - xMin) / Math.max(1, xMax - xMin)) * PW;
 
   const path = allPoints
@@ -1038,7 +1045,11 @@ function TimeSeriesChart({
     })
     .join(" ");
 
-  const phaseGuides = [30, 300, 1500, 3500, 15000, 50000];
+  // phase guides は動的 y 範囲内に入るものだけ表示 (= 旧固定 1-100k 範囲ガイドが range 外で潰れる対策)
+  const phaseGuides = [30, 100, 300, 1000, 3000, 10000, 30000, 100000].filter((g) => {
+    const lg = Math.log10(g);
+    return lg >= yMin && lg <= yMax;
+  });
 
   return (
     <div className="border border-[#e5e5e7] rounded-xl p-3 bg-white relative">
