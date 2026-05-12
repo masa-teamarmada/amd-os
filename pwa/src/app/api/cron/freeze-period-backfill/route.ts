@@ -169,8 +169,8 @@ export async function GET(req: NextRequest) {
 
     // 5. Sonnet で統合サマリ
     const prompt = `あなたは AMD OS の経営アシスタント (つくよみ) です。
-PJ「${p.project_name}」(project_id=${p.project_id}) が ${freezeStart} 〜 ${prevYm(restartYm)} の期間中に休止 (= AMD 支援を一時停止) していました。
-${restartYm} から AMD 支援が再開するため、休止期間中に PJ で何が起きていたかを再開月の cockpit サマリに表示できる形でまとめてください。
+PJ「${p.project_name}」(project_id=${p.project_id}) が ${freezeStart} 〜 ${prevYm(restartYm)} の期間中に休止 (= AMD 参画を一時停止) していました。
+${restartYm} から AMD 参画が再開するため、休止期間中に PJ で何が起きていたかを再開月の cockpit サマリに表示できる形でまとめてください。
 
 # 休止期間中の monthly_reports (${reports.length} 件):
 ${reports.length === 0 ? "(なし)" : reports.map((r) => `## ${r.ym}\n${(r.final_content ?? r.draft_content ?? "").slice(0, 1500)}`).join("\n\n")}
