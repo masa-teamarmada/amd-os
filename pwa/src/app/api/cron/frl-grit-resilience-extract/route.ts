@@ -222,8 +222,11 @@ async function extractForProject(
     return { ok: false, saved: 0, message: `LLM error: ${msg}` };
   }
 
-  // 8) 既存の最新 amd_score_inputs row (= UNIQUE(project_id, evaluated_at)) を update。
-  //    無ければ当日付で INSERT。
+  // 8) **既存の最新 amd_score_inputs row を update のみ**。新規 INSERT は禁止。
+  //    理由: 新規 row を作ると trl/brl/grl/srl/hrl/alq_* 等が NULL のまま挿入され、AmdScoreView の
+  //    `latest = inputs[].evaluated_at <= today で最後` 判定がこの NULL row を選んで XRL/ALQ 全部 0
+  //    表示になる事故 (2026-05-12 まさ指摘)。月次評価点は L2 cron (= amd_score_l2_refresh) や
+  //    手動入力が作るもので、grit/resilience cron は **その既存評価点に値を上書き** する責務に絞る。
   const todayIso = new Date().toISOString();
   const todayDate = todayIso.slice(0, 10);
 
@@ -231,32 +234,38 @@ async function extractForProject(
     .from("amd_score_inputs")
     .select("id, evaluated_at, frl_notes")
     .eq("project_id", projectId)
+    .lte("evaluated_at", todayIso) // 未来 retrofit row は対象外
     .order("evaluated_at", { ascending: false })
     .limit(1);
 
-  // 同じ日 (= today date) の row があるか? あれば update、無ければ INSERT (= 当日評価点)
-  const isToday = existing?.[0] && existing[0].evaluated_at?.slice(0, 10) === todayDate;
-  const targetEvaluatedAt = isToday ? existing[0].evaluated_at : todayIso;
+  if (!existing || existing.length === 0) {
+    return {
+      ok: true,
+      saved: 0,
+      message: "no existing amd_score_inputs row to update (= まずは amd-score-l2-refresh / 手動入力で評価点を作ってからこの cron を回す)",
+      result: extracted,
+    };
+  }
+
+  const targetEvaluatedAt = existing[0].evaluated_at;
   const mergedFrlNotes = [
-    existing?.[0]?.frl_notes ?? "",
+    existing[0].frl_notes ?? "",
     `[${todayDate} grit/resilience auto] grit=${extracted.frl_grit ?? "null"} (${extracted.reasoning_grit}); resilience=${extracted.frl_resilience ?? "null"} (${extracted.reasoning_resilience})`,
   ].filter(Boolean).join("\n").slice(0, 3000);
 
-  const upsertRow = {
-    project_id: projectId,
-    evaluated_at: targetEvaluatedAt,
-    frl_grit: extracted.frl_grit,
-    frl_resilience: extracted.frl_resilience,
-    frl_notes: mergedFrlNotes,
-    evaluator: "cron:frl-grit-resilience-extract",
-  };
-
-  const { error: upsertErr } = await supabase
+  const { error: updateErr } = await supabase
     .from("amd_score_inputs")
-    .upsert(upsertRow, { onConflict: "project_id,evaluated_at" });
+    .update({
+      frl_grit: extracted.frl_grit,
+      frl_resilience: extracted.frl_resilience,
+      frl_notes: mergedFrlNotes,
+      // evaluator は既存値を尊重 (= 上書きしない、L2 cron や手動入力の出所情報を保持)
+    })
+    .eq("project_id", projectId)
+    .eq("evaluated_at", targetEvaluatedAt);
 
-  if (upsertErr) {
-    return { ok: false, saved: 0, message: `upsert error: ${upsertErr.message}` };
+  if (updateErr) {
+    return { ok: false, saved: 0, message: `update error: ${updateErr.message}` };
   }
 
   return { ok: true, saved: 1, result: extracted };

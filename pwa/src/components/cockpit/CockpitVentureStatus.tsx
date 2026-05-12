@@ -621,7 +621,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   fontFamily="ui-monospace,SFMono-Regular,monospace"
                   fill="#dc2626"
                 >
-                  AMD {label}
+                  {label}
                 </text>
                 <text
                   x={pillX + pillW - 16}
