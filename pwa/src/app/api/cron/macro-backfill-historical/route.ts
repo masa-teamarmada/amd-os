@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ASPI_DOMAIN_IDS, type AspiDomainId } from "@/lib/aspi-lanes";
 
 export const maxDuration = 300;
@@ -18,13 +18,135 @@ interface MonthlyPoint {
 /**
  * 過去マクロ指数バックフィル cron (Sonnet 駆動)
  *
- * Atlas が 2026-01 以降しかカバーできない期間 (2010-2025) を
- * Sonnet に日本の政策マイルストーン・NEDO/AMED/METI予算トレンドを与え、
- * 各レーン × 月 (180ヶ月) の macro index (0-1) を推定させて macro_index_log に INSERT。
+ * 2026-05-12 リライト (= まさ「P 以外 0 件」指摘):
+ *   - 旧実装は 1 lane × 16 年 = 1 prompt で 180 オブジェクト要求 → max_tokens 8000 だが LLM が
+ *     稀に途中切断 / JSON 失敗で silent continue (= 4 lane (advanced_ict / ai_technologies /
+ *     quantum / sensing_timing_navigation) が一切 INSERT されてなかった真因)
+ *   - 新: 1 lane × 4 年 chunk × 4 回 = 16 prompts、各 chunk = 48 オブジェクト → max_tokens 4000
+ *     で安全。retry max 2 回 + chunk 単位の成否を return JSON に含める
+ *   - "?lane=advanced_ict" / "?startYear=2010&endYear=2025" で個別キック可能
  *
- * 既存行は ON CONFLICT DO NOTHING で保護。
+ * Atlas が 2026-01 以降しかカバーできない期間 (2010-2025) を Sonnet に日本の政策マイルストーン
+ * NEDO/AMED/METI 予算トレンドを与え、各レーン × 月 (180ヶ月) の macro index (0-1) を推定 →
+ * macro_index_log に INSERT。
+ *
+ * 既存行は (lane, observed_at) でスキップ (= 重複保護)。
  * Bearer ${CRON_SECRET} 認証 + 手動キック対応。
  */
+
+const CHUNK_SIZE_YEARS = 4; // 1 chunk = 4 年 = 48 ヶ月 ≈ 1500-2000 token
+const DEFAULT_START_YEAR = 2010;
+const DEFAULT_END_YEAR = 2025;
+const MAX_RETRIES_PER_CHUNK = 2;
+
+interface ChunkResult {
+  lane: string;
+  startYear: number;
+  endYear: number;
+  attempted: number;
+  parsed: number;
+  inserted: number;
+  skipped: number;
+  errors: string[];
+}
+
+async function runChunk(
+  db: SupabaseClient,
+  anthropic: Anthropic,
+  lane: LaneId,
+  startYear: number,
+  endYear: number,
+  existingSet: Set<string>
+): Promise<ChunkResult> {
+  const result: ChunkResult = {
+    lane,
+    startYear,
+    endYear,
+    attempted: 0,
+    parsed: 0,
+    inserted: 0,
+    skipped: 0,
+    errors: [],
+  };
+
+  let parsedPoints: MonthlyPoint[] = [];
+  let lastErr = "";
+  for (let attempt = 0; attempt < MAX_RETRIES_PER_CHUNK + 1; attempt++) {
+    result.attempted = attempt + 1;
+    try {
+      const resp = await anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: buildPrompt(lane, startYear, endYear) }],
+      });
+      const text = resp.content
+        .filter((c) => c.type === "text")
+        .map((c) => (c as { type: "text"; text: string }).text)
+        .join("\n")
+        .trim();
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        lastErr = `no JSON in response (preview=${text.slice(0, 120)})`;
+        continue;
+      }
+      const arr = JSON.parse(jsonMatch[0]) as MonthlyPoint[];
+      if (!Array.isArray(arr) || arr.length === 0) {
+        lastErr = `empty array`;
+        continue;
+      }
+      parsedPoints = arr;
+      lastErr = "";
+      break;
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  if (lastErr) result.errors.push(`lane=${lane} ${startYear}-${endYear}: ${lastErr}`);
+  if (parsedPoints.length === 0) return result;
+
+  result.parsed = parsedPoints.length;
+
+  const toInsert: Array<{
+    lane: string;
+    observed_at: string;
+    index_value: number;
+    policy_density: number;
+    raw_signal_count: number;
+  }> = [];
+
+  for (const pt of parsedPoints) {
+    if (typeof pt.year !== "number" || typeof pt.month !== "number") continue;
+    if (pt.year < startYear || pt.year > endYear) continue;
+    const mm = String(pt.month).padStart(2, "0");
+    const dateStr = `${pt.year}-${mm}-01`;
+    const k = `${lane}_${dateStr}`;
+    if (existingSet.has(k)) {
+      result.skipped += 1;
+      continue;
+    }
+    toInsert.push({
+      lane,
+      observed_at: dateStr,
+      index_value: Math.max(0, Math.min(1, Number(pt.index_value) || 0)),
+      policy_density: Math.max(0, Math.min(1, Number(pt.policy_density) || 0)),
+      raw_signal_count: 0,
+    });
+    existingSet.add(k);
+  }
+
+  if (toInsert.length > 0) {
+    for (let i = 0; i < toInsert.length; i += 200) {
+      const batch = toInsert.slice(i, i + 200);
+      const { error } = await db.from("macro_index_log").insert(batch);
+      if (error) result.errors.push(`insert ${batch.length} rows: ${error.message}`);
+      else result.inserted += batch.length;
+    }
+  }
+
+  return result;
+}
+
 export async function GET(req: NextRequest) {
   if (!process.env.CRON_SECRET) {
     return NextResponse.json({ error: "CRON_SECRET not set, skipping" }, { status: 200 });
@@ -44,84 +166,83 @@ export async function GET(req: NextRequest) {
   const db = createClient(url, key);
   const anthropic = new Anthropic({ apiKey: anthroKey });
 
-  // どの月がまだ存在しないか確認（バッチを lanes × year 単位で投入）
+  // パラメータ
+  const laneParam = req.nextUrl.searchParams.get("lane");
+  const startYearParam = req.nextUrl.searchParams.get("startYear");
+  const endYearParam = req.nextUrl.searchParams.get("endYear");
+
+  const targetLanes: LaneId[] = laneParam
+    ? LANES.filter((l) => l === laneParam)
+    : ([...LANES] as LaneId[]);
+  if (targetLanes.length === 0) {
+    return NextResponse.json({ error: `invalid lane=${laneParam}` }, { status: 400 });
+  }
+
+  const startYear = startYearParam ? parseInt(startYearParam, 10) : DEFAULT_START_YEAR;
+  const endYear = endYearParam ? parseInt(endYearParam, 10) : DEFAULT_END_YEAR;
+
+  // 既存行の (lane, observed_at) を全部取得 (= 重複保護)
   const { data: existing } = await db
     .from("macro_index_log")
     .select("lane, observed_at")
-    .lt("observed_at", "2026-01-01");
-
+    .in("lane", targetLanes)
+    .gte("observed_at", `${startYear}-01-01`)
+    .lte("observed_at", `${endYear}-12-31`);
   const existingSet = new Set<string>(
-    (existing || []).map((r) => `${r.lane}_${r.observed_at}`)
+    (existing ?? []).map((r) => `${r.lane}_${String(r.observed_at).slice(0, 10)}`)
   );
 
-  // レーンごとにプロンプト発行 (5回)
-  const allInserts: {
-    lane: string;
-    observed_at: string;
-    index_value: number;
-    policy_density: number;
-    raw_signal_count: number;
-  }[] = [];
+  // chunk = 4 年単位
+  const chunks: Array<{ startYear: number; endYear: number }> = [];
+  for (let y = startYear; y <= endYear; y += CHUNK_SIZE_YEARS) {
+    chunks.push({ startYear: y, endYear: Math.min(y + CHUNK_SIZE_YEARS - 1, endYear) });
+  }
 
-  for (const lane of LANES) {
-    const prompt = buildPrompt(lane);
-    let parsed: Record<string, MonthlyPoint[]>;
-    try {
-      const resp = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 8000,
-        messages: [{ role: "user", content: prompt }],
-      });
-      const text = resp.content
-        .filter((c) => c.type === "text")
-        .map((c) => (c as { type: "text"; text: string }).text)
-        .join("\n")
-        .trim();
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        console.error(`[macro-backfill] no JSON for lane ${lane}`, text.slice(0, 200));
+  const results: ChunkResult[] = [];
+  for (const lane of targetLanes) {
+    for (const c of chunks) {
+      // 既に該当 chunk が完全 (= 48 件全部存在) なら skip して LLM 呼び出さない
+      let coverCount = 0;
+      for (let y = c.startYear; y <= c.endYear; y++) {
+        for (let m = 1; m <= 12; m++) {
+          const k = `${lane}_${y}-${String(m).padStart(2, "0")}-01`;
+          if (existingSet.has(k)) coverCount += 1;
+        }
+      }
+      const expected = (c.endYear - c.startYear + 1) * 12;
+      if (coverCount >= expected) {
+        results.push({
+          lane,
+          startYear: c.startYear,
+          endYear: c.endYear,
+          attempted: 0,
+          parsed: 0,
+          inserted: 0,
+          skipped: expected,
+          errors: [],
+        });
         continue;
       }
-      const arr = JSON.parse(jsonMatch[0]) as MonthlyPoint[];
-      parsed = { [lane]: arr };
-    } catch (e) {
-      console.error(`[macro-backfill] error for lane ${lane}`, e);
-      continue;
-    }
-
-    for (const pt of parsed[lane] || []) {
-      const mm = String(pt.month).padStart(2, "0");
-      const dateStr = `${pt.year}-${mm}-01`;
-      const key = `${lane}_${dateStr}`;
-      if (existingSet.has(key)) continue;
-
-      allInserts.push({
-        lane,
-        observed_at: dateStr,
-        index_value: Math.max(0, Math.min(1, pt.index_value)),
-        policy_density: Math.max(0, Math.min(1, pt.policy_density)),
-        raw_signal_count: 0, // 推定値のためシグナル数は0
-      });
+      const r = await runChunk(db, anthropic, lane, c.startYear, c.endYear, existingSet);
+      results.push(r);
     }
   }
 
-  if (allInserts.length === 0) {
-    return NextResponse.json({ ok: true, inserted: 0, message: "already filled or nothing new" });
-  }
+  const totalInserted = results.reduce((s, r) => s + r.inserted, 0);
+  const totalErrors = results.reduce((s, r) => s + r.errors.length, 0);
 
-  // バッチ INSERT (200件ずつ)
-  let inserted = 0;
-  for (let i = 0; i < allInserts.length; i += 200) {
-    const batch = allInserts.slice(i, i + 200);
-    const { error } = await db.from("macro_index_log").insert(batch);
-    if (!error) inserted += batch.length;
-    else console.error("[macro-backfill] insert error", error.message);
-  }
-
-  return NextResponse.json({ ok: true, inserted, total: allInserts.length });
+  return NextResponse.json({
+    ok: totalErrors === 0,
+    targetLanes,
+    chunkSizeYears: CHUNK_SIZE_YEARS,
+    totalChunks: results.length,
+    totalInserted,
+    totalErrors,
+    results,
+  });
 }
 
-function buildPrompt(lane: LaneId): string {
+function buildPrompt(lane: LaneId, startYear: number, endYear: number): string {
   // ASPI Critical Technology Tracker 8 domain × Japan 政策マイルストーン (2010-2025)
   const LANE_CONTEXT: Record<LaneId, string> = {
     advanced_ict: `
@@ -249,16 +370,17 @@ Japan policy milestones:
 注: 準天頂衛星整備 (2010-2018) が連続的政策、防衛宇宙 (2022+) で再加速。`,
   };
 
+  const monthCount = (endYear - startYear + 1) * 12;
   return `You are a quantitative policy analyst modeling Japan's macro trend index for deep-tech venture investment.
 
-For lane "${lane}", estimate the monthly macro trend index from January 2010 to December 2025 (180 months).
+For lane "${lane}", estimate the monthly macro trend index from January ${startYear} to December ${endYear} (${monthCount} months).
 
 Context:
 ${LANE_CONTEXT[lane]}
 
 Output requirements:
-- Return a JSON ARRAY of 180 objects (no other text, no code fences)
-- Each object: { "year": 2010, "month": 1, "index_value": 0.12, "policy_density": 0.08 }
+- Return a JSON ARRAY of EXACTLY ${monthCount} objects (no other text, no code fences)
+- Each object: { "year": ${startYear}, "month": 1, "index_value": 0.12, "policy_density": 0.08 }
 - index_value: 0-1, represents overall macro trend strength for venture founding suitability
 - policy_density: 0-1, represents density of policy signals in that month
 - Values should smoothly interpolate between policy milestones
@@ -266,6 +388,6 @@ Output requirements:
 - Policy events cause sudden jumps (0.05-0.15 step increase over 1-3 months)
 - Between events, values drift slightly up or down based on momentum
 
-Important: Start the array with January 2010 (month 1) and end with December 2025 (month 12).
+Important: Start the array with January ${startYear} (month 1) and end with December ${endYear} (month 12).
 Output ONLY the JSON array, nothing else.`;
 }

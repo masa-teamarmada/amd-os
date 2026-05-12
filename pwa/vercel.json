@@ -71,6 +71,14 @@
     {
       "path": "/api/cron/sync-pj-facts",
       "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/macro-aggregate-indicators",
+      "schedule": "0 19 1 * *"
+    },
+    {
+      "path": "/api/cron/frl-grit-resilience-extract",
+      "schedule": "0 18 1 * *"
     }
   ]
 }
