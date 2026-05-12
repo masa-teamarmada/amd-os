@@ -136,7 +136,8 @@ pwa/
 
 ### API routes (`/api/`)
 
-**進捗:** `progress/estimate` `progress/confirm` `progress/unconfirmed` `progress/batch-save` `progress/events` `progress/revisions` `progress/reimbursement`
+**進捗:** `progress/estimate` `progress/confirm` `progress/unconfirmed` `progress/batch-save` `progress/events` (= member_activities + 新列 initiative_origin/impact/depth/responsibilities を ProgressEvent にマップ、2026-05-12 復元) `progress/revisions` `progress/reimbursement`
+**PJ 月次ノート:** `project/monthly-note` (= GET / POST。MS なし PJ でも月次モーダルで自由記述ノートを残せる。`project_monthly_notes` テーブル、PK `(project_id, ym)`、まさ 2026-05-12 タスク 3)
 **Atlas:** `atlas/auto-tag` `atlas/backfill` `atlas/seed` `atlas/match-stories` `atlas/merge-stories` `atlas/move-signal` `atlas/themes/{cluster,apply,list}`
 **請求/レポート:** `invoice/{create,preview}` `report/{generate,fix}`
 **Admin:** `admin/projects/[id]` (= PATCH、AdminProjectsTable から projects + project_ventures 1 セル単位 update を service_role 経由)、`admin/pj-introduction-html` (= ダッシュボード「📑 全 PJ 紹介資料作成」ボタンから POST、選択 PJ のエグゼクティブサマリー HTML を雛形 fmt で生成。Sonnet 4.5 で 1 PJ ごと JSON 集約 + concurrency 3。雛形 = `src/lib/exec_summary/template_section.html` + `template.css`、prompt = `llm_prompts.exec_summary.extract`)、`admin/lane-suggestions/[id]` (= LLM lane 提案の approve/reject)、`admin/seed-vcs` 等
@@ -220,6 +221,13 @@ pwa/
 ### つくよみ / その他
 
 `tsukuyomi_nudge_queue` `tsukuyomi_learnings` `ms_progress_revisions` `ms_revision_messages` `source_cache` (legacy / 実質空)
+
+### 月次ノート / 進捗イベント拡張 (2026-05-12 追加)
+
+| テーブル | 役割 |
+|---|---|
+| `project_monthly_notes` | PJ × ym 単位の自由記述進捗ノート (UNIQUE (project_id, ym))。MS plan_cycle 未設定 PJ でも月次モーダルから記録できる。`/api/project/monthly-note` GET/POST、CockpitMonthlyModal の MonthlyNoteSection から書き込み |
+| `member_activities` (= 既存) の追加列 | `initiative_origin` (5 値 + unknown CHECK) / `impact` (1-5) / `depth` (0-1) / `reject_reason` / `origin_lost_reason`。member_id / milestone_id は NULL 許容に変更。/api/cron/member-activities が Sonnet で抽出 → /api/progress/events が ProgressEvent にマップ → CockpitMonthlyModal EventsSection で「先手力」スコア計算 |
 
 ### VC List (PWA 起源)
 

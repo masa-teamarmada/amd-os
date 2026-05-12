@@ -2475,3 +2475,111 @@ GAS deployment: v1458 → v1459 → v1460 → v1461 → v1462 (= 074cde + 155 �
 6. ファビコン後日チャレンジ (= 5 候補あり、TODO)
 7. exec_summary Phase 2: PJ ごとに color theme を切り替える (= `.page--{slug}` に `--c-primary` 個別定義)
 8. Drive 074c の再帰 scan / Calendar 074d の chitchat 判定緩和 / Gmail 074e の subject フィルタ拡張
+
+---
+
+## 2026-05-12 (blissful-robinson-8e462a) — 進捗イベント抽出復元 + MS なし PJ 月次ノート
+
+main HEAD 開始: `2b847d4` → 終了: 本セッション merge 後
+
+### まさ指摘 3 件
+
+1. 月次モーダル内の進捗イベントの抽出ロジック見直し (= events 件数が少ない、先手力判定が機能してない)
+2. 拾った events の多くが「不明」扱い (= 過去は精度よかった、なぜ劣化したかの真因特定 + 改善)
+3. **MS なしでも月次モーダルに進捗を入れていくタスクのその後** (= ハンドオフに無かったが、まさ確認で「MS plan_cycle 無くても自由記述メモを残せる」が要望と判明)
+
+### 真因 (1+2 共通)
+
+2026-05-07 の commit `6d81541` で `/api/progress/events` を旧 GAS `rewardDashboard` から
+Supabase `member_activities` 直読みに置換した際、旧 GAS `gas/054_RewardScoring_EventExtract.js`
+が持っていた **initiative_origin 必須付与 + Sonnet + system prompt + impact/depth/responsibilities**
+のコンセプトが一切移植されず、Haiku で title/contentPreview のみ生成する構成に格下げ。
+
+| | 旧 GAS (精度よかった) | 現状 PWA (劣化後) |
+|---|---|---|
+| LLM | Sonnet 4 | Haiku |
+| system prompt | `tsukuyomi_getActiveSystemPrompt({tag:"rewardscoring"})` で外部化 | 無し |
+| 入力ソース | monthly_report + member 一覧 + PJ 名 + 分類基準 | monthly_report + 責任マトリクスのみ |
+| 出力スキーマ | title / desc / impact / depth / **initiativeOrigin** / responsibilities | title / contentPreview / memberId / milestoneId |
+| plan_cycle | 必須でない | **必須で、無いと 0 件 skip** ← MS なし PJ で死亡 |
+
+「不明」率 100% の直接原因: `/api/progress/events` の mapping に `initiativeOrigin` が無く常に
+undefined → UI で `e.initiativeOrigin || "unknown"` で全件「不明」化。
+
+### 対応 (1 セッション完結)
+
+**migration 056** `056_progress_events_and_monthly_notes.sql`:
+- `member_activities` に `initiative_origin` (5 値 + unknown CHECK) / `impact` (1-5) /
+  `depth` (0-1) / `reject_reason` / `origin_lost_reason` 列追加
+- `member_id` / `milestone_id` を NULL 許容に (= MS なし PJ で誰か特定不能な events も入れる)
+- `project_monthly_notes` 新テーブル (`project_id`, `ym`, `body`, `updated_by`, `updated_at`,
+  UNIQUE (project_id, ym)) — タスク 3 用
+
+**migration 057** `057_member_activities_extract_prompt.sql`:
+- `llm_prompts.member_activities.extract` を seed (= AGENTS 絶対ルール = プロンプトをコードに書かない)
+- 旧 GAS rewardscoring 相当の system prompt を新規書き起こし: initiative_origin 5 値の
+  分類基準 + 「判断不能なら無理せず unknown」ルール + impact / depth / responsibilities 出力
+- 入力前提に「monthly_report + 当月 MTG サマリ集」を明示 (= 5 生データの集約)
+- model: claude-sonnet-4-6, max_tokens 4096, is_active=TRUE
+
+**cron `/api/cron/member-activities` 全面リライト**:
+- LLM Haiku → Sonnet 4.6
+- system prompt を `llm_prompts` から fetch (空なら fail-fast、変な抽出をしない)
+- 入力ソース拡張: `monthly_reports` に加えて `project_meeting_summaries` (今月分、最大 60 件、本文 8KB cap) を渡す
+- plan_cycle 必須を緩和: 無い場合は `milestoneLines = "（MS 期未設定 / 該当 MS なし。milestoneId は null で OK）"` 文言で LLM に伝える
+- 出力 mapping に initiative_origin / impact / depth / responsibilities (raw_metadata.responsibilities)
+- 既存 inferred を delete → 再 insert (= 冪等)
+
+**`/api/progress/events` mapping**:
+- 新列 (initiative_origin / impact / depth / reject_reason / origin_lost_reason / responsibilities) を ProgressEvent にマップ
+- responsibilities[] の memberName も解決
+- member_id NULL でも description を組み立てる (= "by xxx" 部分を skip)
+
+**新 API `/api/project/monthly-note`** (GET / POST):
+- GET: { body, updated_at, updated_by }
+- POST: { projectId, ym, body } で upsert (`updated_by` に email セット)
+- requireAdmin で gate
+
+**CockpitMonthlyModal に MonthlyNoteSection** ([cockpit/CockpitMonthlyModal.tsx](../src/components/cockpit/CockpitMonthlyModal.tsx)):
+- 「📝 進捗イベント」セクションの直後に常時表示
+- MS なし PJ (= !planCycle || milestones.length === 0): 「MS が未設定なので、ここに今月の動きを残してください」と強調
+- MS あり PJ: 「MS に紐付かない補足メモ」として淡く表示
+- textarea + 保存ボタン (dirty 検知、「保存しました」フラッシュ)
+- ProgressEvent interface に impact / depth フィールド追加
+
+### 動作確認 (本番 deploy `dpl_HxXn2u4eB2MvDEe6QcN8jSgx8BrE` 後)
+
+| PJ | ym | saved | initiative_origin 分布 | 備考 |
+|---|---|---|---|---|
+| **p21 (SX)** | 202604 | **14 件** | unknown=6, co_decided=5, amd_proposed=1, partner_proposed=1, external=1 | 旧は 11 件全部 unknown / 先手力 0% → 先手力 6/13 = 46% に復活 |
+| **p20 (CX)** | 202604 | **9 件** | (= MS 期未設定 PJ。旧は `no active plan cycle` で 0 件 skip) | plan_cycle 緩和で復活 |
+
+旧の 100% 「不明」が p21 で 43% に大幅改善。「不明」のままの 6 件は「博報堂 鈴木氏のアドバイス
+受領」「バイオ装置の納品確認」など分類困難なものが正しく unknown 判定されている (= 旧 GAS の
+「迷ったら unknown」ルール通り)。
+
+### 副次対応
+
+- **メイン repo の cyber 残骸を全破棄**: 前セッション `cranky-rhodes-ff4609` で「モック作って」を
+  本物に deploy → revert したが、`dashboard-cyber-lab/`, `mock/`, `globals.css` の cyber
+  CSS 追加, `middleware.ts` の `/mock` bypass, `playwright` 依存などは残置されていた。まさ承認
+  で `git checkout HEAD -- ...` + `rm -rf` で完全破棄
+- **db_schema.md 再生成** (= 88 → 99 tables、project_monthly_notes + 追加列を反映)
+
+### deployment 一覧
+
+| deployment | 内容 |
+|---|---|
+| `amd-os-8c333k2a8-armada0130` | events 抽出復元 + MS なし PJ monthly note (= 最終) |
+
+### 残タスク (次セッションへ送り)
+
+前セッションから継承中の R303 hardcoded fallback 削除 / 試算表 Drive Excel cron / FRL grit
+LLM 抽出 cron / protocols dedup / ファビコン後日チャレンジ / exec_summary Phase 2 / Drive
+再帰 scan / Calendar chitchat 判定緩和 / Gmail subject フィルタ拡張 (= 詳細は HANDOFF)。
+
+加えて本セッションで残った課題:
+- **全 PJ × 4-5 月の events 再抽出**: p00 / p06 / p10 / p19 / p25 / p24 を background で
+  bash ループキック (`/tmp/member_activities_backfill.log`)。次セッション冒頭でログ集計 + 必要なら追い再抽出
+- **次期 MS 期間設定**: p20 / p06 / p10 / p11 等で 2026 Q2-Q3 の plan_cycle が無い PJ に MS 設定 (= 旧 sessions L816 から繰越)
+- **EventsSection で impact 強調表示**: 現状 impact 列は DB に入ったが UI 未表示。impact >= 4 を太字 / アイコンで強調すると先手力評価がより直感的になる

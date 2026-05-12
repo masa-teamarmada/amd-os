@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-11 16:58 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-12 12:05 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -11,7 +11,7 @@
 
 ## 索引
 
-[`amd_score_alpha`](#amd-score-alpha) / [`amd_score_inputs`](#amd-score-inputs) / [`app_notifications`](#app-notifications) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`issues`](#issues) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`lane_suggestions`](#lane-suggestions) / [`llm_model_config`](#llm-model-config) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_knowledge`](#member-knowledge) / [`member_ms_activities`](#member-ms-activities) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`observation_log`](#observation-log) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`progress_estimate_state`](#progress-estimate-state) / [`project_config`](#project-config) / [`project_events`](#project-events) / [`project_founding_members`](#project-founding-members) / [`project_knowledge`](#project-knowledge) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocols`](#protocols) / [`reimbursements`](#reimbursements) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seeds`](#seeds) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`tasks`](#tasks) / [`triple_helix_loading`](#triple-helix-loading) / [`triple_helix_state_log`](#triple-helix-state-log) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`xrl_feedbacks`](#xrl-feedbacks)
+[`amd_score_alpha`](#amd-score-alpha) / [`amd_score_inputs`](#amd-score-inputs) / [`app_notifications`](#app-notifications) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`freeze_period_backfills`](#freeze-period-backfills) / [`issues`](#issues) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`lane_suggestions`](#lane-suggestions) / [`llm_model_config`](#llm-model-config) / [`llm_prompts`](#llm-prompts) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_knowledge`](#member-knowledge) / [`member_ms_activities`](#member-ms-activities) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`observation_log`](#observation-log) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`progress_estimate_state`](#progress-estimate-state) / [`project_config`](#project-config) / [`project_events`](#project-events) / [`project_founding_members`](#project-founding-members) / [`project_knowledge`](#project-knowledge) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_monthly_notes`](#project-monthly-notes) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocol_examples`](#protocol-examples) / [`protocols`](#protocols) / [`reimbursements`](#reimbursements) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seeds`](#seeds) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`tasks`](#tasks) / [`triple_helix_loading`](#triple-helix-loading) / [`triple_helix_state_log`](#triple-helix-state-log) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`tsukuyomi_usage_log`](#tsukuyomi-usage-log) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`xrl_feedbacks`](#xrl-feedbacks)
 
 ---
 
@@ -337,6 +337,24 @@ PRIMARY KEY: `id`
 | 6 | `detail` | `jsonb` | NULL | `` |
 | 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 
+## freeze_period_backfills
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,freeze_from_ym,restart_ym)` (constraint: `freeze_period_backfills_project_id_freeze_from_ym_restart_y_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `freeze_from_ym` | `text` | NOT NULL | `` |
+| 4 | `restart_ym` | `text` | NOT NULL | `` |
+| 5 | `summary` | `text` | NOT NULL | `` |
+| 6 | `source_hash` | `text` | NOT NULL | `` |
+| 7 | `source_meta` | `jsonb` | NULL | `` |
+| 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
 ## issues
 
 行数 (概算): -1
@@ -379,7 +397,7 @@ PRIMARY KEY: `base_ym`
 
 ## l2_extract_state
 
-行数 (概算): 41
+行数 (概算): 45
 PRIMARY KEY: `l2_kind, target_id, scope_key`
 
 | # | column | type | nullable | default |
@@ -416,7 +434,7 @@ PRIMARY KEY: `feedback_id`
 
 ## l2_notifications
 
-行数 (概算): 16
+行数 (概算): 34
 PRIMARY KEY: `notification_id`
 UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 
@@ -467,6 +485,26 @@ UNIQUE: `(config_id)` (constraint: `llm_model_config_config_id_key`)
 | 4 | `provider` | `text` | NOT NULL | `` |
 | 5 | `is_default` | `bool` | NULL | `false` |
 | 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## llm_prompts
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(prompt_key)` (constraint: `llm_prompts_prompt_key_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `prompt_key` | `text` | NOT NULL | `` |
+| 3 | `description` | `text` | NULL | `` |
+| 4 | `body` | `text` | NOT NULL | `` |
+| 5 | `model` | `text` | NULL | `` |
+| 6 | `max_tokens` | `int4` | NULL | `` |
+| 7 | `is_active` | `bool` | NOT NULL | `true` |
+| 8 | `notes` | `text` | NULL | `` |
+| 9 | `updated_by` | `text` | NULL | `` |
+| 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 11 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
 ## macro_index_log
 
@@ -530,7 +568,7 @@ UNIQUE: `(member_id,project_id,source,source_item_id)` (constraint: `member_acti
 | # | column | type | nullable | default |
 |---|---|---|---|---|
 | 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
-| 2 | `member_id` | `text` | NOT NULL | `` |
+| 2 | `member_id` | `text` | NULL | `` |
 | 3 | `project_id` | `text` | NOT NULL | `` |
 | 4 | `ym` | `text` | NOT NULL | `` |
 | 5 | `source` | `text` | NOT NULL | `` |
@@ -541,6 +579,11 @@ UNIQUE: `(member_id,project_id,source,source_item_id)` (constraint: `member_acti
 | 10 | `raw_metadata` | `jsonb` | NULL | `` |
 | 11 | `extracted_at` | `timestamptz` | NULL | `now()` |
 | 12 | `milestone_id` | `text` | NULL | `` |
+| 13 | `initiative_origin` | `text` | NULL | `` |
+| 14 | `impact` | `int2` | NULL | `` |
+| 15 | `depth` | `int2` | NULL | `` |
+| 16 | `reject_reason` | `text` | NULL | `` |
+| 17 | `origin_lost_reason` | `text` | NULL | `` |
 
 ## member_app_notifications
 
@@ -563,7 +606,7 @@ PRIMARY KEY: `id`
 
 ## member_knowledge
 
-行数 (概算): 20
+行数 (概算): 30
 PRIMARY KEY: `id`
 UNIQUE: `(code_name,category)` (constraint: `member_knowledge_code_name_category_key`)
 
@@ -786,6 +829,9 @@ UNIQUE: `(report_id)` (constraint: `monthly_reports_report_id_key`)
 | 13 | `last_cron_at` | `timestamptz` | NULL | `` |
 | 14 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 15 | `section_members` | `text` | NULL | `` |
+| 16 | `pl_review_requested_at` | `timestamptz` | NULL | `` |
+| 17 | `pl_review_requested_by` | `text` | NULL | `` |
+| 18 | `confirmed_by` | `text` | NULL | `` |
 
 ## monthly_reward_payout
 
@@ -943,7 +989,7 @@ UNIQUE: `(lane,observed_at,observation_key,source)` (constraint: `observation_lo
 
 ## papers_log
 
-行数 (概算): 64
+行数 (概算): 128
 PRIMARY KEY: `id`
 UNIQUE: `(lane,observed_at)` (constraint: `papers_log_lane_observed_at_uq`)
 
@@ -1036,7 +1082,7 @@ PRIMARY KEY: `id`
 
 ## project_founding_members
 
-行数 (概算): 53
+行数 (概算): 71
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,person_name)` (constraint: `project_founding_members_project_id_person_name_key`)
 
@@ -1062,7 +1108,7 @@ UNIQUE: `(project_id,person_name)` (constraint: `project_founding_members_projec
 
 ## project_knowledge
 
-行数 (概算): 2,136
+行数 (概算): 2,261
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1079,7 +1125,7 @@ PRIMARY KEY: `id`
 
 ## project_meeting_summaries
 
-行数 (概算): 33
+行数 (概算): 63
 PRIMARY KEY: `meeting_id`
 
 | # | column | type | nullable | default |
@@ -1105,6 +1151,7 @@ PRIMARY KEY: `meeting_id`
 | 19 | `notion_page_id` | `text` | NULL | `` |
 | 20 | `gmail_thread_ids` | `jsonb` | NOT NULL | `'[]'::jsonb` |
 | 21 | `source_kinds` | `text` | NULL | `` |
+| 22 | `source_url` | `text` | NULL | `` |
 
 ## project_members
 
@@ -1125,6 +1172,22 @@ UNIQUE: `(project_id,member_id)` (constraint: `project_members_project_id_member
 | 9 | `is_closer` | `bool` | NOT NULL | `false` |
 | 10 | `role_label` | `text` | NULL | `` |
 | 11 | `is_pl` | `bool` | NOT NULL | `false` |
+
+## project_monthly_notes
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,ym)` (constraint: `project_monthly_notes_project_id_ym_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `ym` | `text` | NOT NULL | `` |
+| 4 | `body` | `text` | NOT NULL | `''::text` |
+| 5 | `updated_by` | `text` | NULL | `` |
+| 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 7 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
 ## project_partners
 
@@ -1305,9 +1368,32 @@ UNIQUE: `(project_id)` (constraint: `projects_project_id_key`)
 | 24 | `freeze_from_ym` | `text` | NULL | `` |
 | 25 | `restart_expected_ym` | `text` | NULL | `` |
 
-## protocols
+## protocol_examples
 
 行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(protocol_id,project_id,occurred_on)` (constraint: `protocol_examples_uniq`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `protocol_id` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `occurred_on` | `date` | NULL | `` |
+| 5 | `summary` | `text` | NOT NULL | `` |
+| 6 | `branch_point` | `text` | NULL | `` |
+| 7 | `criteria` | `text` | NULL | `` |
+| 8 | `action_taken` | `text` | NULL | `` |
+| 9 | `result` | `text` | NULL | `` |
+| 10 | `source_meeting_id` | `text` | NULL | `` |
+| 11 | `source_url` | `text` | NULL | `` |
+| 12 | `llm_model` | `text` | NULL | `` |
+| 13 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 14 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## protocols
+
+行数 (概算): 22
 PRIMARY KEY: `id`
 UNIQUE: `(protocol_id)` (constraint: `protocols_protocol_id_key`)
 
@@ -1324,6 +1410,8 @@ UNIQUE: `(protocol_id)` (constraint: `protocols_protocol_id_key`)
 | 9 | `tags` | `text` | NULL | `` |
 | 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 11 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 12 | `is_universal` | `bool` | NOT NULL | `true` |
+| 13 | `kind` | `text` | NOT NULL | `'pattern'::text` |
 
 ## reimbursements
 
@@ -1527,7 +1615,7 @@ PRIMARY KEY: `observation`
 
 ## triple_helix_state_log
 
-行数 (概算): -1
+行数 (概算): 128
 PRIMARY KEY: `id`
 UNIQUE: `(lane,observed_at)` (constraint: `triple_helix_state_log_lane_observed_at_key`)
 
@@ -1658,6 +1746,25 @@ UNIQUE: `(session_id)` (constraint: `tsukuyomi_sessions_session_id_key`)
 | 3 | `project_id` | `text` | NULL | `` |
 | 4 | `member_id` | `text` | NULL | `` |
 | 5 | `started_at` | `timestamptz` | NOT NULL | `now()` |
+
+## tsukuyomi_usage_log
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `session_id` | `uuid` | NULL | `` |
+| 3 | `member_id` | `text` | NULL | `` |
+| 4 | `model` | `text` | NOT NULL | `` |
+| 5 | `input_tokens` | `int4` | NOT NULL | `0` |
+| 6 | `output_tokens` | `int4` | NOT NULL | `0` |
+| 7 | `cache_read_tokens` | `int4` | NOT NULL | `0` |
+| 8 | `cache_write_tokens` | `int4` | NOT NULL | `0` |
+| 9 | `cost_usd` | `numeric` | NOT NULL | `0` |
+| 10 | `cost_jpy` | `numeric` | NOT NULL | `0` |
+| 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 
 ## value_milestones
 
