@@ -5,6 +5,36 @@
 
 ---
 
+### [pwa/cron] マクロ係数の P 以外列が全 786 行 0 + 4 lane が完全 0 件 / FRL grit/resilience も全 100 行 NULL (= 過去複数回 HANDOFF に書いて実装してなかった)
+- **発見日**: 2026-05-12 (まさ「マクロ係数 P 以外 0 件、FRL grit/resilience も 0 のまま、何度も言ってる」と明確な怒りシグナル)
+- **状態**: ✅ 解決済 (= macro-backfill chunk 化 + 新 cron macro-aggregate-indicators + 新 cron frl-grit-resilience-extract で全部対応)
+- **症状**:
+  1. macro_index_log の 6 列のうち `policy_density` (P) のみ Sonnet 推定で入って `budget_amount` / `investment_amount` / `policy_mention_count` / `raw_signal_count` が **全 786 行で 0** のまま
+  2. ASPI 8 lane のうち 4 lane (advanced_ict / ai_technologies / quantum / sensing_timing_navigation) が **完全に 0 件** (= 残り 4 lane は ~197 件)
+  3. amd_score_inputs.frl_grit / frl_resilience 列は migration 031 で追加済 (2026-05-09) だが推定 cron が無く **全 100 行 NULL**
+  4. 「これらの TODO は HANDOFF に書いてあったが何度も先送りされてきた」(= まさ怒り)
+- **真因**:
+  1. **macro lane 軸**: `cron/macro-backfill-historical` が 1 lane × 16 年 = 1 prompt で 180 オブジェクト要求 + max_tokens 8000。LLM が JSON 途中切断 / parse 失敗で `continue` (silent skip) → 4 lane が一度も INSERT されてなかった
+  2. **macro 列軸**: macro_index_log の集計を行う cron 自体が存在しない。`observation_log` (= kaken-ingest / grant-ingest / vc-investment-ingest が書いた研究費 / 公募予算 / VC 投資データ) と `atlas_signals` (= 政策シグナル) は別系統テーブルに溜まっていたが、macro_index_log への流入路が無かった
+  3. **FRL grit/resilience**: 列追加 migration はあるが、推定する cron route が `pwa/src/app/api/cron/` 配下に存在しない (= grep で 0 hit)。既存 `amd_score_l2_refresh` の system prompt も ALQ 4 次元のみで grit/resilience に触れてない
+  4. **過去 HANDOFF が「次セッションでやる」とだけ書いて実装してこなかった** (= 「重い実装の先送り癖」のえいみ既知傾向、まさが「何度も言ってる」と怒る原因)
+- **解決策** (= 1 セッションで一気に対応):
+  1. **macro-backfill-historical chunk + retry 化**: 1 lane × 16 年 → 1 lane × 4 年 chunk × 4 回 = 16 prompts、max_tokens 4000、retry max 2、chunk 単位の成否を return JSON に含めて silent fail を排除。`?lane=advanced_ict` / `?startYear=2010&endYear=2025` で個別キック可。既存 chunk が完全網羅なら LLM 呼ばずスキップ → 4 lane × 192 件 = **768 件 INSERT 成功**
+  2. **新 cron `cron/macro-aggregate-indicators`** (= 月初 04:00 JST): observation_log を lane × month で SUM (= source∈{grant,kaken,vc,vc_investment} を budget/investment に振り分け) + atlas_signals を ATL domain → ASPI lane mapping → COUNT (= mention/signal_count)。既存 row を update、欠落 row は insert。`?since=YYYY-MM` で開始月指定可。動作確認: aggregated 143 行、updated 129 行、inserted 14 行、合計 budget=¥9972 億 / investment=¥1963 億 / signal=286 件 / mention=82 件
+  3. **migration 058/059 + 新 cron `cron/frl-grit-resilience-extract`** (= 月初 03:00 JST): llm_prompts に system prompt seed (= Duckworth 2007 / Markman 2005 の 0-9 判定基準 + 「外部創業者優先 / AMD は伴走」明示)、cron は過去 3 ヶ月の monthly_reports + meeting_summaries + project_founding_members 集約 → Sonnet 4.6 で 0-9 推定 + reasoning 引用付き → amd_score_inputs に当日付 upsert。動作確認: 5 PJ で grit/resilience = (神谷 7/6, 杉浦 7/6, 丸島 6/6, 神谷 5/6, 山地 4/5)
+- **副次事故 (= 1 ラウンド再修正)**:
+  - 初版 cron が `project_founding_members.organization` 列を SELECT したが該当列無し (= `affiliation` が正解、db_schema.md にあったのを想像で書いた) → PostgREST で空配列 → LLM 「creator 未抽出」で frl=null を返した
+  - 修正版で `affiliation` + `role_label_jp` + `category` 経由に修正、prompt v2 で「creator 一覧空でも本文推定可」を明示
+- **教訓**:
+  - **HANDOFF の TODO は「書いた」≠「実装した」**。次セッション最優先に並べたら、その次セッションで必ず実装する。先送り癖を絶対に許さない。「何度も言ってる」と言われたら最重要シグナル
+  - **silent fail は cron の根本悪**。LLM JSON 失敗 → continue で進めると「気づかないうちに 4 lane が 0 件のまま 1 ヶ月放置」が起きる。各 chunk の成否を return JSON に必ず含める
+  - **大量 LLM 呼び出しは chunk + retry でしか安定しない**。180 オブジェクト × 1 prompt は LLM が時々途中切断する。48 オブジェクト × 4 prompts なら確実
+  - **新 cron 追加時は db_schema.md を必ず Read してから .select の列名を書く** (= 想像で書かない、CLAUDE.md の絶対ルール)。`organization` のような「ありそうで無い列名」を grep する癖を入れる
+  - **prompt の null 判定は「最終手段」と明示**。「不明 / 該当なし」の選択肢を提示すると LLM が逃げる傾向あり。「null は推定可能人物が 1 件も無い場合のみ」と厳格化が効く
+  - **複合タスクの「真因」は 1 個じゃない場合がある**。「P 以外 0 件」の真因は (a) lane 軸 + (b) 列軸 + (c) FRL の 3 個重なり。即「lane が悪い」と決めつけず、データを 2-3 種類のクエリで切って真因を 1 個ずつ確定する
+
+---
+
 ### [pwa/cron] 進捗イベント抽出が劣化 (Haiku 化 + initiative_origin 概念消失) → 「不明」100% / events 件数も少ない
 - **発見日**: 2026-05-12 (まさが「先手力出ない」+「不明だらけ」+「過去は精度よかった」と 3 連続指摘)
 - **状態**: ✅ 解決済 (= 旧 GAS gas/054 の精度を Sonnet + DB prompt + 5 ソース集約で復元)

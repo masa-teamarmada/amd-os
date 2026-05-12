@@ -1,6 +1,6 @@
 # HANDOFF — AMD OS PWA / GAS
 
-最終更新: 2026-05-12 (blissful-robinson-8e462a 進捗イベント抽出復元 + MS なし PJ 月次ノート)
+最終更新: 2026-05-12 (blissful-robinson-8e462a #2 マクロ係数 P 以外列集計 + 4 lane 補完 + FRL grit/resilience cron 新規)
 詳細セッションログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾参照
 
 ---
@@ -16,12 +16,45 @@
 
 ---
 
+## 🔴 まさから何度も言われた TODO (= 絶対に先送りしない)
+
+このセクションは **まさが過去複数セッションで指摘 → HANDOFF に書いた → 結局実装されず再要求された** タスクの専用枠。次セッションのえいみは **何より先にここを 1 個ずつ潰す**。新規タスクは「次セッション最優先」セクションに書く。
+
+| # | タスク | まさ要求回数 | 実装状態 | 完了条件 |
+|---|---|---|---|---|
+| ✅ 1 | マクロ係数 P 以外のデータ取得 (= macro_index_log の budget/investment/mention/signal_count + 4 lane 欠落) | 3 回+ | **2026-05-12 完了** | 全 8 lane で 4 列が埋まり、各 lane 月次で増えていく cron が稼働 |
+| ✅ 2 | FRL grit/resilience の数値入力 | 3 回+ | **2026-05-12 完了** | 全 active PJ × 月次で Sonnet 推定が走り、5 PJ で 0-9 値 + reasoning 入る |
+| 🔴 3 | R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵) | 2 回 | 未着手 | `llm_prompts.monthly_report.r313_extract` body seed + AMD-Report GAS から DB fetch + fallback throw + clasp push 完了 |
+| 🔴 4 | 試算表 Drive Excel 取り込み cron 新規 (= project_pl_monthly が全 PJ 「—」表示) | 2 回 | 未着手 | Drive folder 配下の `.xlsx` を Sonnet で月次 PL 構造化抽出 → upsert する cron + Vercel deploy + 手動キック動作確認 |
+
+**ルール**:
+- 未着手のままセッション終了する場合は HANDOFF の「直近セッション要約」で **明示的に「未着手のまま持ち越し」と書く** (= silent に消えない)
+- 再要求されたら **そのセッションで実装まで完遂**、deploy + 動作確認 + design md 更新 + BUGS に「先送り癖」エントリ追加までが完了
+
+---
+
 ## 直近セッション要約
 
-まさ 3 指摘を 1 セッションで完遂:
-- **進捗イベント抽出ロジック復元** ⭐: 真因 = 2026-05-07 `6d81541` で旧 GAS rewardDashboard 路線を Supabase 直読みに置換した時に、旧 GAS の Sonnet + system prompt + initiative_origin/impact/depth 必須付与のコンセプトが完全に落ちて Haiku で title のみ生成する構成に格下げされていた。migration 056 で列追加、057 で `llm_prompts.member_activities.extract` seed、cron を Sonnet 4.6 + DB prompt + 入力に `project_meeting_summaries` 追加 + plan_cycle 必須緩和でリライト。動作確認 = p21 4月 11→14 件、先手力 0%→46%、全 active PJ 4月 16→50 件 (3 倍超)
-- **MS なし PJ でも月次モーダルに進捗ノート**: `project_monthly_notes` 新テーブル + `/api/project/monthly-note` + CockpitMonthlyModal の `MonthlyNoteSection` (= MS なし時は強調メッセージ、MS あり時は補足メモ表示)
-- **メイン repo の cyber 残骸破棄**: 前セッションが「モック作って」を本物に deploy 後 revert したが残骸 (`dashboard-cyber-lab/` / `mock/` / globals.css cyber CSS / middleware /mock bypass / playwright dep) が main repo に残っていたのを `git checkout HEAD --` + `rm -rf` で完全破棄
+本セッション 2026-05-12 (blissful-robinson-8e462a 全体) で **まさ 6 指摘を 1 セッションで完遂**:
+
+### Round 1 (3 指摘)
+1. 進捗イベント抽出ロジック復元 (= 旧 GAS gas/054 の Sonnet + system prompt + initiative_origin)
+2. 拾った events の「不明」だらけ修正
+3. MS なし PJ で月次モーダルから進捗ノート (= project_monthly_notes 新テーブル)
+
+### Round 2 (1 指摘)
+4. AMD スコア表示が XRL グラフに入って右端見切れ → AMD グラフ右上に固定 + 32px に拡大
+
+### Round 3 (2 指摘 = まさ「何度もお願いしてる、明確に TODO に入れて」と怒り)
+5. **マクロ係数 P 以外 0 件 + 4 lane 欠落**: macro-backfill chunk 化 (4 lane × 192 件 = 768 件 INSERT) + 新 cron `macro-aggregate-indicators` (= P 以外列を埋める集計、aggregated 143 行 / updated 129 行 / inserted 14 行 / 全 8 lane カバー)
+6. **FRL grit/resilience が全 100 行 NULL**: migration 058/059 で `llm_prompts.frl.grit_resilience.extract` seed (= Duckworth 2007 / Markman 2005 0-9 判定基準) + 新 cron `frl-grit-resilience-extract` で 5 PJ × grit/resilience に意味のある数値入る (= 神谷 7/6, 杉浦 7/6, 丸島 6/6, 神谷 5/6, 山地 4/5)
+
+副次:
+- メイン repo の cyber 残骸全破棄 (= 前々セッション dashboard-cyber-3d-lab + 前セッション dashboard-cyber-lab 両方)
+- db_schema.md 再生成 (= 99 tables / 1086 columns)
+- BUGS.md に 4 件追加 (= events 抽出劣化 / HANDOFF 書き漏らし / マクロ + FRL 先送り癖 / etc.)
+
+---
 
 詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) の「2026-05-12 (blissful-robinson-8e462a)」セクション参照。
 
@@ -49,26 +82,22 @@
 2. 5月分の monthly_reports 生成 (= AMD-Report GAS の R313 cron が走るのを待つか、手動)
 3. p20 (CX) / p06 (CTB) / p10 (SE) / p11 等で次期 MS 期間 (2026 Q2-Q3) を設定 → events に milestone_id 紐付けが入って画面表示が更にリッチになる
 
-### 1. R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵)
+### 1. R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵) ⭐ ↑ TODO セクション #3
 
 `R303_MonthlyReport_Generator.js` Line 262-270 の hardcoded fallback を残置中。
 - migration 053-style で `llm_prompts.monthly_report.r313_extract` body を seed (= 現在 body 空 / is_active=FALSE)
 - AMD-Report GAS に Supabase client 追加 → DB fetch → fallback throw
 - clasp push (= Drive 共有ドライブ `/Users/masa/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/claude/AMD_OS/gas-report/`)
 
-### 2. 試算表 Drive Excel 取り込み cron (= まさ前々セッション指摘 2)
+### 2. 試算表 Drive Excel 取り込み cron (= まさ前々セッション指摘 2) ⭐ ↑ TODO セクション #4
 
 `project_pl_monthly` テーブルが全 PJ 全部「—」表示。Drive folder 配下の `.xlsx` を Sonnet で月次 PL に構造化抽出 → upsert。074c (議事録 Docs backfill) とは別 cron。
 
-### 3. FRL grit / resilience LLM 抽出 cron 新規
-
-`amd_score_inputs.frl_grit` / `frl_resilience` は手動入力前提で cron 未実装。monthly_reports + meeting_summaries から CEO の集中力・タフさを Sonnet で 0-9 score 推定 → upsert。
-
-### 4. EventsSection の impact 強調表示 (= 本セッションの後続)
+### 3. EventsSection の impact 強調表示 (= 本セッションの後続)
 
 migration 056 で member_activities.impact (1-5) 列を追加して LLM も値を入れているが、UI 側はまだ表示してない。impact >= 4 を太字 / アイコンで強調すると先手力評価がより直感的に。`CockpitMonthlyModal.tsx` `EventsSection` の各 event カード内で impact の表示追加。
 
-### 5. 5 生データ backfill の精度改善
+### 4. 5 生データ backfill の精度改善
 
 | 種類 | 現状 | 改善案 |
 |---|---|---|
@@ -77,12 +106,12 @@ migration 056 で member_activities.impact (1-5) 列を追加して LLM も値�
 | Gmail (074e) | subject フィルタ 6 キーワード | 拡張 + bot 判定強化 + 添付ファイル考慮 |
 | Slack | 過去 3 ヶ月分のみ saved=13 | bash ループで `monthsBack=6` × 4 回叩いて残り月分 |
 
-### 6. protocols dedup + UI archive 運用
+### 5. protocols dedup + UI archive 運用
 
 - 旧 22 件 legacy_specific → まさが UI で「📥 全部 archive」を 1 クリック
 - 新 22 件 pattern に同テーマの重複ペアが 6+ 件 → Sonnet で「意味的に同一」グループ化 → dedup one-time
 
-### 7. ファビコン後日チャレンジ
+### 6. ファビコン後日チャレンジ
 
 3 ラウンド試行で未解消 (= curl で配信完全 OK、シークレット 7 回でも見えず)。後日候補:
 1. Chrome の Favicons SQLite 直接削除
@@ -91,7 +120,7 @@ migration 056 で member_activities.impact (1-5) 列を追加して LLM も値�
 4. PWA installable として一度インストール + アンインストール
 5. ブラウザの強制リロード手順を都度確認
 
-### 8. exec_summary Phase 2 (任意)
+### 7. exec_summary Phase 2 (任意)
 
 PJ ごとに color theme を切り替える (= `.page--{slug}` で `--c-primary` 個別定義)。
 
@@ -114,6 +143,10 @@ PJ ごとに color theme を切り替える (= `.page--{slug}` で `--c-primary`
 13. **「過去は精度よかった」とまさが言ったら git log を疑う** ⭐: BUGS で「Haiku に格下げ」「entity が削除された」のような明確な後退があれば、それが真因
 14. **まさの口頭指示を md に残す** ⭐ 本セッションで露呈: HANDOFF / sessions log に「コード変更を伴わない要望」も書く。「あれどうなった?」と聞かれて design md に痕跡無いのは不適切
 15. **「不明」が UI に出るとき、それが LLM 判断結果か API mapping 漏れかを区別する** ⭐ 本セッション真因: 後者は退化バグ
+16. **HANDOFF に書いただけで実装しない「先送り癖」を絶対許さない** ⭐⭐ Round 3 真因: 「何度もお願いしてるけど全然やってくれてない」とまさが怒る根本理由。次セッション最優先 #1〜#4 は **次回セッションの最初に必ず潰す**。「重い」「次のセッションで」「Phase 2 で」と縮めない
+17. **新 cron 追加時は `db_schema.md` を Read してから .select 列名を書く** ⭐ Round 3 副次事故: `project_founding_members.organization` (= 存在しない、`affiliation` が正解) を想像で書いて PostgREST silent failure。CLAUDE.md の絶対ルールを実際に守る
+18. **silent fail を残すと cron は永久に気づかれない** ⭐ Round 3 真因: macro-backfill が JSON parse 失敗で `continue` していた結果 4 lane が 0 件のまま放置。各 chunk の成否を return JSON に必ず含める
+19. **prompt の「null / 不明」選択肢は LLM の逃げ道になる**: FRL prompt の「pre-founding なら null」を LLM が強く読みすぎて意味のある PJ でも null。「null は最終手段」「creator 一覧空でも本文推定可」と厳格化が必要
 
 ---
 
