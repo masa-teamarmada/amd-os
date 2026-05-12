@@ -2693,3 +2693,56 @@ main HEAD: `952182d` → `7966a13`、Vercel `amd-os-7dvelph9h-armada0130` → `a
 ### 残タスク (次セッションへ送り)
 
 R303 hardcoded fallback 削除 (= AMD-Report GAS) と試算表 Drive Excel 取り込み cron は **HANDOFF TODO セクション #3, #4 に明記**。Round 3 と同じく「何度も言われた」状態にしないため、次セッション冒頭で必ず潰す。
+
+---
+
+## 2026-05-12 (blissful-robinson-8e462a #5) — cron 上書き事故修正 + lane mismatch fix + AMD prefix 削除
+
+main HEAD: `cf5f6d8` → `b948a1c`、Vercel `amd-os-2g3w1q4dv-armada0130` (= 最終)
+
+### まさ指摘 4 件
+
+1. AMD スコア表示「AMD 11,032」の "AMD " prefix が冗長 → 数値だけに
+2. FRL → AMDスコア経時 → FRLレーダーの順序がカオス → 経時グラフを元の位置に戻して。**「触ってはいけないところを触ってる気がする」と明確シグナル**
+3. XRL が全部 1 になった (= TRL/BRL/GRL/SRL/HRL 全部 0、根拠なし仮置き表示)
+4. マクロ係数 P 以外まだデータ取れてない (= スクショで B/V/I_R が「未取得」表示)
+
+### 真因 4 つ (= 全部別々)
+
+| # | 真因 | 詳細 |
+|---|---|---|
+| 1 | UI 表示文言 | CockpitVentureStatus.tsx の AMD スコア pill の text に `AMD ${label}` が hardcoded |
+| 2 | 派生事象 | AmdScoreView は本セッション未編集 (git log 24h で touch なし)。が、#3 で XRL/ALQ が NULL になった結果、X カードが「= X = 1.00」表示で全体カオス感 → まさが「順番が変わった」と感じた |
+| 3 | cron 上書き事故 | 直前 commit の frl-grit-resilience-extract cron が **当日付の新規 row を upsert で作っていた**。新規 row は frl_grit/resilience/notes/evaluator 4 列だけ書き、trl/brl/grl/srl/hrl/alq_* が NULL のまま挿入 → AmdScoreView の latest 取得がこの NULL row を選ぶ → XRL/ALQ 全部 0 |
+| 4 | lane mismatch | observation_log には B/V/I_R が 8 lane × 48 件 = 384 件で完全網羅で入っていた。しかし `triple-helix-observations.ts` が project_ventures.lane (= legacy 5 lane: gx_energy/materials/life/robo/gx_circular) を ASPI 8 domain として `.eq("lane", "gx_energy")` で query → 0 件 → 「未取得」表示 |
+
+### 対応 (= 1 セッションで 4 件全部)
+
+**(1) AMD prefix 削除** ([CockpitVentureStatus.tsx](../src/components/cockpit/CockpitVentureStatus.tsx)):
+- `AMD {label}` → `{label}` 単独表示
+
+**(2 + 3) XRL 全 0 事故修復**:
+- データ復旧: SQL で `DELETE FROM amd_score_inputs WHERE evaluator='cron:frl-grit-resilience-extract' AND evaluated_at::date = CURRENT_DATE` → 5 PJ × 7 row 削除
+- cron route 修正: upsert → update only、新規 INSERT 完全禁止、既存最新 row が無い PJ は skip、evaluator 列上書きしない
+- 動作確認: p20 2026-05-05 row が trl=4/brl=5/grl=6/srl=6/hrl=5 + frl_grit=7/frl_resilience=6 + alq_self_awareness=7 全部入った状態で復活 ✅
+
+**(4) lane mismatch fix** ([triple-helix-observations.ts](../src/lib/triple-helix-observations.ts)):
+- 関数冒頭で `LEGACY_LANE_TO_ASPI` mapping (= aspi-lanes.ts に既存) を適用
+- `gx_energy → energy_environment` 等で正規化してから observation_log / papers_log を query
+- これで AmdScoreView M カードの B/V/I_R/N/R/C_compete 全観測量が ASPI lane で正しく取れる
+
+### deployment 一覧 (本日の最終)
+
+| deployment | 内容 |
+|---|---|
+| `amd-os-2g3w1q4dv-armada0130` | XRL fix + AMD prefix 削除 + lane mismatch fix (= 最終) |
+
+### BUGS.md 追記 (= Round 5 で 2 件)
+
+1. frl-grit-resilience cron が当日付 row 新規 INSERT して XRL/ALQ NULL のまま → AmdScoreView 全 0 表示。教訓: 多列テーブルへの partial update は update only に倒す / 「触ってはいけないところを触ってる気がする」は最重要シグナル / 派生事象でも UI が崩れることがある
+2. UI lane mismatch (legacy ↔ ASPI 変換漏れ) で「未取得」表示。教訓: 「未取得」UI 表示は (a) データ無し / (b) クエリ条件ミス の 2 通り、curl で REST 直叩きで件数確認してから判断
+
+### 次セッションへ送り
+
+- p10 (SE) / p19 で amd_score_inputs row が無いため frl-grit-resilience cron が skip。先に手動入力 or amd-score-l2-refresh で評価点を作ってから再キックする運用
+- マクロ係数の **N (論文流出率) / R (言及・PR) / C_compete (競合密度)** は集計ロジックは存在するが値が全 0 or 薄い PJ がある。各データソース (= papers_log / atlas_signals / project_ventures.lanes) を充実させる方が UI 実用性高い (HANDOFF #5 候補に追加検討)
