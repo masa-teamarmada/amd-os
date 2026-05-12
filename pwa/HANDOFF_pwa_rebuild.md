@@ -1,245 +1,144 @@
 # HANDOFF — AMD OS PWA / GAS
 
-最終更新: 2026-05-11 (cranky-rhodes-ff4609 セッション #2、まさ 9 指摘の 7 件即対応)
+最終更新: 2026-05-12 (cranky-rhodes-ff4609 #2、exec_summary 機能完成 + backfill 5 種 + 多数連続事故)
 詳細セッションログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾参照
 
 ---
 
 ## 状態
 
-- main HEAD: `4f5614e` (= cranky-rhodes-ff4609 #5 マージ後)
-- Vercel: `amd-os-ga77qm32o-armada0130` (= 850e87a 反映)
-- 本体 GAS deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` @1461 (= protocol 復旧 + 074b form-encoded + maxTokens 4096)
-- AMD-Report GAS: scriptId `1r3Ak-tYASXY...` @1455 (= 前セッションの bot 除外 + 人物誤認防止)、**R303 hardcoded fallback は未対応 (次セッション)**
+- main HEAD: `5280503`
+- Vercel: `amd-os-elbazbh35-armada0130` (= 7c391f0 反映)
+- 本体 GAS deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` @1462
+- AMD-Report GAS: scriptId `1r3Ak-tYASXY...` @1455 (= R303 hardcoded fallback は未対応、次セッション)
 - 未 push commit: なし
-- 本セッション worktree: `claude/cranky-rhodes-ff4609` (= 6 commit、main にマージ済)
+- worktree: `claude/cranky-rhodes-ff4609` (= main にマージ済)
 
 ---
 
-## まさ 9 指摘への対応状況 (2026-05-11 後半)
+## 直近セッション要約 (3-10 行)
 
-| # | 指摘 | 状態 | 対応 |
-|---|---|---|---|
-| 1 | 「創業」セクション削除 + 「メンバー」に統合 | ✅ | CockpitMembersModal に LLM 抽出創業メンバー統合、🧑‍🤝‍🧑 創業 タブ削除 |
-| 2 | 試算表が全部「ー」 | ⏳ 次セッション | Drive Excel 取り込み cron が未実装。下記「次セッション最優先」参照 |
-| 3 | AMD スコア表示位置をグラフ現在点上に大きく | ✅ | SVG 内に pill + 引き出し線 + 18px bold red、クリックでモーダル |
-| 4 | FRL grit / resilience が 0 | ✅ (= UI 誤認解消) | null → 「—」表示 + バー無し。LLM 抽出 cron は未実装 (= 下記参照) |
-| 5 | FRL「合計」削除 | ✅ | 右上「現在の FRL」が大きく表示済で冗長 + ラベル矛盾 |
-| 6 | Slack に限定した理由 / Drive/Calendar も backfill | ⏳ 次セッション | Slack 集中の理由は前 HANDOFF 最優先 1 で書いてたから。074c/074d skeleton 必要 |
-| 7 | プロトコル定義改善 (= 業務オペ除外) | ✅ + 残課題 | llm_prompts.protocol.extract body 厳格化 (migration 053) + 再抽出。ただし既存「契約書フォーマット」プロトコルは消えてないので UI archive 必要 |
-| 8 | PJ 停止中にしても dashboard で active | ✅ | fetchProjectsFromSupabase の `r.status \|\| "active"` フォールバック撤去 |
-| 9 | PJ status 保存が動かない | ✅ | AdminProjectsTable.STATUS_OPTIONS に `draft` 追加 (DB の p24 CLG 対応) |
+まさからの 9 指摘 + 5 指摘 + 3 指摘 を 1 セッションで対応。主要成果:
+- **Slack backfill 真因 (= JSON body の ts precision loss) 特定 → form-encoded で完全動作化**
+- **5 生データ backfill skeleton 完成** (= 074b Slack 動作中 / 074c Drive / 074d Calendar / 074e Gmail / Notion 既存。GAS v1462 deploy 済)
+- **「📑 全 PJ 紹介資料作成」機能完成** (3 ラウンド試行錯誤の末 = ラウンド 3 の template literal で雛形フォーマット完全再現)
+- **コックピット: 創業セクション削除 / AMD スコア大表示 / 先手力ラベル復活 / FRL "—" 表示**
+- **dashboard: アラート削除 / 紹介資料ボタン追加 / PJ status fallback 撤去**
+- **管理画面: STATUS_OPTIONS に draft / プロトコル新旧分離 / プロンプト 5 件 seed (migration 051-055)**
+- **重大事故 6 件 BUGS.md 追記**: 雛形自前再構築事故 / モック要請を本物にデプロイ事故 / CSS 変数 scope 落ち / ロゴ相対 URL 404 / 先手力 events 0 件短絡 / Chrome MCP `[BLOCKED]` 制限への POST server 迂回
 
----
-
-## 本セッションで完了した主要事項
-
-1. **Slack backfill 真因特定 + 完全動作化** (前ハンドオフ最優先 1):
-   - `slack_callApi` の `conversations.replies` が `invalid_arguments` を返していた (= JSON body の ts precision 問題)
-   - 074b 専用 `_meeting_slack_callForm_` で form-encoded helper を新規、history / replies 両方ともそちらへ
-   - 各 continue ポイントで items.push して可視化、`existing_count` / `channel` / `scan_err` も return
-   - parent text >= 200 字なら reply ゼロでも候補化 (= 議事録貼り付け対応)
-   - system prompt を `llm_prompts.meeting_extract.slack` (migration 051) から取得 (AGENTS ルール)
-   - 動作確認: p06 2026-04 で saved=5、全 7 PJ × 3 ヶ月で saved=13
-
-2. **AdminProtocolsClient 旧/新分離表示** (前ハンドオフ最優先 2):
-   - 候補欄に kind='pattern' のみ立てる (= 新形式 Phase 4 抽出)
-   - 「⚠️ 旧形式」セクションに kind='legacy_specific' (22 件)、初期 collapsed
-   - 「📥 全部 archive」一括ボタン (まさが 1 クリックで 22 件を archive へ)
-
-3. **既存 22 件 protocols 再抽出 + GAS 155 復旧** (前ハンドオフ最優先 3):
-   - 前セッションの未 commit 修正 (= protocol 普遍化 + examples + `llm_prompts.protocol.extract` 必須化) を **私が `git checkout HEAD` で破棄してしまった** → ターン履歴から復元
-   - 加えて opts.maxTokens 2048 → 4096 (= LLM parse failed 3 件救済)
-   - 再キック: errors=0 / saved=11 (= 新版 pattern protocols、p20/p21/p06 から抽出)
-
-4. **ファビコン根本対策** (前ハンドオフ最優先 4、まさが 7 回シークレットモード指摘):
-   - 真因: `public/icons/icon-192.png` `/icons/icon-512.png` が **404** + `app/icon.png` が 730×744 (PNG サイズ判定上限超過) + middleware manifest bypass 漏れ。**ブラウザキャッシュではなかった**。
-   - `public/icons/` 新規生成 (192 / 512 / 同 maskable)、`app/icon.png` 512x512 化、`app/apple-icon.png` 180x180 化
-   - `public/manifest.json` 4 icon (any + maskable) に拡張、`middleware.ts` matcher に manifest.json / .ico を bypass 追加
-
-5. **sync-pj-facts cron 初回キック + cron 化** (前ハンドオフ最優先 6):
-   - 手動キック: 58 行 synced (= 10 PJ × 約 6 fact)
-   - vercel.json に `0 19 * * *` (= daily 04:00 JST) を追記
-   - → まさが /admin/contexts や cockpit で設立日 / outcome_pattern / 起源組織を見られる
-
-6. **migration 適用**:
-   - 051: `llm_prompts.meeting_extract.slack` body seed (= 074b の system prompt)
-   - 052: `project_meeting_summaries.source_url TEXT NULL` (= Slack URL / Drive URL 共通格納用)
+詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) の「2026-05-12 (cranky-rhodes-ff4609 #2)」セクション参照。
 
 ---
 
 ## 🚨 次セッション最優先 (= 残タスク)
 
-### Z. ファビコン未反映 (= まさ要請で「一旦諦め」TODO 化、後日チャレンジ)
+### 1. 進捗イベント (events) 抽出ロジック見直し ⭐ (= まさ 2026-05-12 末追加指摘)
 
-**経緯 (= 同じ事故 3 回 + シークレット 7 回確認で未解消)**:
-- 第 1 ラウンド (前々セッション): app/icon.png + app/apple-icon.png 配置 → 未反映
-- 第 2 ラウンド (本セッション前半): public/icons/ 192/512 maskable 追加 + app/icon.png 512x512 リサイズ + manifest middleware bypass → 未反映
-- 第 3 ラウンド (本セッション後半): app/ → public/ に手動移動 + layout.tsx metadata.icons でシンプル URL 明示 → **URL は `/favicon.ico` 直になり curl では完全配信 OK、それでもブラウザ反映せず**
-- 後日再開時の試行候補:
-  1. `chrome://favicon/` キャッシュデータベース直接削除 (Chrome 全プロセス完全終了後、ユーザープロファイルフォルダの `Favicons` SQLite 削除)
-  2. **本番 deploy の直前に `.vercel/output/static` クリア** (= Vercel CDN edge cache の長寿命キャッシュ疑い)
-  3. `vercel.json` に明示的な `headers` で `/favicon.ico` の `cache-control: no-store` を強制
-  4. ブラウザのファビコン UI を本当に書き換えるには「PWA installable として一度インストール」してアンインストールするとリセットされる
-  5. 最終手段: ファビコン URL を `/favicon.ico` → `/favicon-v2.ico` のように **別パスに変更** + layout.tsx で href も変更 (= 既存キャッシュキーと完全に切り離す)
-- 現在の本番状態 (= curl で確認済):
-  - `<link rel="icon" href="/favicon.ico" sizes="any" type="image/x-icon">` シンプル URL
-  - `/favicon.ico` 200 OK (= 25931 bytes, 16/32/48/256 含む valid ICO、AMD ロゴ青いハチの巣 3 つ)
-  - `/icon.png` 200 OK (= 512x512 PNG)
-  - `/apple-icon.png` 200 OK (= 180x180 PNG)
-  - `/icons/icon-192.png` `/icons/icon-512.png` 200 OK
-  - `/manifest.json` 200 OK
-- まさが「TODO で残す」と判断、本セッションでは深追い停止
+「先手力」表示は復活した。が、そもそも `progress_events` テーブルに events が 0 件の PJ-月が大半。
+- `progress-estimator.ts` / `cron/hourly-estimate` / `events_inferred` 系の cron を再点検
+- `member_activities` から events を組み立てるロジックが弱い可能性
+- まさが「先手力」を意味のある数値で見られる状態 = 直近 1-3 ヶ月で events 5+ 件 / PJ になる状態を目標に
 
-### A. まさ指摘 2: 試算表 Drive Excel 取り込み cron 新規実装
+### 2. R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵)
 
-**現状**: コックピットの「📊 試算表」モーダルが全 PJ 全部「ー」表示。
-**原因**: `project_pl_monthly` テーブルは存在するが、行が空。Drive Excel から自動取り込む cron が **未実装**。設計上は手動入力前提だが、まさは「Drive に Excel あるんだから読んでよ」と要求。
+`R303_MonthlyReport_Generator.js` Line 262-270 の hardcoded fallback を残置中。
+- migration 053-style で `llm_prompts.monthly_report.r313_extract` body を seed (= 現在 body 空 / is_active=FALSE)
+- AMD-Report GAS に Supabase client 追加 → DB fetch → fallback throw
+- clasp push (= Drive 共有ドライブ `/Users/masa/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/claude/AMD_OS/gas-report/`)
 
-**実装案** (= 次セッション):
-1. `gas/074d_PlMonthlyFromDrive.js` 新規:
-   - PJ Drive folder (= projects.drive_folder_id) 配下の `.xlsx` / `.xls` ファイルを `Drive.Files.list` で query
-   - ファイル名 / mimeType / 更新日でフィルタ (= 「試算表」「PL」「BS」「月次決算」「収支」を含む xlsx)
-   - 各 xlsx を Drive API で fetch → Apps Script `Utilities.unzip` で sheets parse (or `Drive.Files.export` で CSV 化)
-   - LLM (Sonnet) で「月次 PL 行 (ym + 売上 + 原価 + 人件費 + R&D + マーケ + その他)」を構造化抽出
-   - `project_pl_monthly` に upsert (UNIQUE: project_id+ym)
-2. `pwa/scripts/migrations/054_pl_monthly_extract_prompt.sql` で system prompt seed
-3. cron は GAS time-based trigger 月曜 03:00 JST、もしくは PWA `/api/cron/pl-extract` で `Drive API + xlsx parser (= `xlsx` npm package)`。
-4. 手動キック curl 用の `nav_pl_extractFromDriveAllActive_(opts)` ラッパーも追加
+### 3. 試算表 Drive Excel 取り込み cron (= まさ前々セッション指摘 2)
 
-**まさへの伝達**: 「Drive Excel から拾う仕組みは今まで未実装、コードが旧設計 (手動入力) のままだった。次セッションで cron を新規実装する」
+`project_pl_monthly` テーブルが全 PJ 全部「—」表示。Drive folder 配下の `.xlsx` を Sonnet で月次 PL に構造化抽出 → upsert。074c (議事録 Docs backfill) とは別 cron。
 
-### B. まさ指摘 6: 5 生データ全種類の backfill 完成 (= Gmail / Drive / Calendar / Notion alias)
+### 4. FRL grit / resilience LLM 抽出 cron (= まさ前セッション指摘 4 の根本)
 
-★ 2026-05-11 まさ追加指摘: 「生データは **5 種類** (Gmail / Drive / Calendar / Slack / Notion)」を絶対忘れない。Slack だけ着手して Drive/Calendar/Gmail を忘れる事故をしない。詳細は [`design/L2_DATA.md`](design/L2_DATA.md) 冒頭の絶対ルール参照。
+`amd_score_inputs.frl_grit` / `frl_resilience` は手動入力前提で cron 未実装。monthly_reports + meeting_summaries から CEO の集中力・タフさを Sonnet で 0-9 score 推定 → upsert。
 
-`gas/074b_MeetingSummarySlack.js` と同じパターンで:
-- `gas/074c_MeetingSummaryDrive.js`: PJ Drive folder の議事録系 (Docs / Slides / .gdoc) ファイル名 / 本文 → meeting summary (= ★ A の Excel 試算表 cron とは別)
-- `gas/074d_MeetingSummaryCalendar.js`: Calendar event description + attendees + 紐付く Notion AI ページの再 backfill
-- `gas/074e_MeetingSummaryGmail.js`: ★ **Gmail backfill (= まさ追加指摘で気づいた漏れ)**。日次レポート用 R307 はあるが、議事録メール (件名「議事録」「Meeting Notes」「打ち合わせ」等) を meeting summary として抽出する backfill 関数が無い → 074b と同じ pattern で実装
-- Notion alias resolver 強化 (= `_meeting_resolveProjectIdFromPage_` の alias map を `members.member_name` + 外部 alias 表から動的拡張)
-- 各 system prompt は `llm_prompts.meeting_extract.drive` / `.calendar` / `.gmail` として migration で seed (AGENTS ルール)
+### 5. 5 生データ backfill の精度改善
 
-A と B は別 cron (= A: Drive Excel → P&L 数値抽出、B: 5 生データから meeting summary 文章抽出)。
+| 種類 | 現状 | 改善案 |
+|---|---|---|
+| Drive (074c) | folder 直下 only scan | 再帰 scan (= サブフォルダの Docs も拾う) |
+| Calendar (074d) | description 薄い event を chitchat 判定で saved=0 | 判定緩和 + Notion AI 議事録 page との連結 (= description が薄くても議事録 page があれば extract) |
+| Gmail (074e) | subject フィルタ 6 キーワード | 拡張 + bot 判定強化 + 添付ファイル考慮 |
+| Slack | 過去 3 ヶ月分のみ saved=13 | bash ループで `monthsBack=6` × 4 回叩いて残り月分を取り込む |
 
-### C. まさ指摘 4: FRL grit / resilience LLM 抽出 cron 新規
+### 6. protocols dedup + UI archive 運用
 
-**現状**: `amd_score_inputs.frl_grit` / `frl_resilience` 列は存在するが、抽出 cron が未実装で全 PJ null。
-**実装案**:
-- `pwa/src/app/api/cron/frl-grit-resilience-extract/route.ts` 新規 (or 既存 `cron/amd-score-l2-refresh` 拡張)
-- monthly_reports + meeting_summaries から「creator/CEO の集中力・タフさ」エビデンスを Sonnet 抽出 → 0-9 score + reasoning
-- `amd_score_inputs` に新行 upsert (evaluated_at=今日)
-- migration 054 で system prompt seed
+- 旧 22 件 legacy_specific → まさが UI で「📥 全部 archive」を 1 クリック
+- 新 22 件 pattern に同テーマの重複ペアが 6+ 件 → Sonnet で「意味的に同一」グループ化 → dedup one-time
 
-### D. まさ指摘 7: 既存 22 件 pattern protocols の dedup + UI archive 運用
+### 7. ファビコン後日チャレンジ (= TODO 残置)
 
-**現状**: 新プロンプト (= migration 053) で再抽出後、22 件 pattern + 22 件 legacy_specific (旧手動) = 44 件。
-pattern の中に **同テーマで微妙にタイトル違いの重複** が 6+ ペアある (例: 「資金逼迫時の委託業務範囲縮小」/「資金逼迫時の委託業務スコープ縮小」)。
-**新プロンプトでも「契約書ドラフトフォーマット」 (= 業務オペ) が残ってる** (= upsert は既存を上書きしないため)。
+3 ラウンド試行で未解消 (= curl で配信完全 OK、シークレット 7 回でも見えず)。後日の試行候補:
+1. Chrome の Favicons SQLite 直接削除
+2. Vercel CDN edge cache の no-store 強制
+3. ファビコン URL を `/favicon-v2.ico` 別パスに変更 (= 既存キャッシュキーから完全切り離し)
+4. PWA installable として一度インストール + アンインストール
+5. ブラウザの強制リロード手順を都度確認
 
-**まさ手動アクション**:
-1. `/admin/protocols` で「⚠️ 旧形式 (22 件)」を「📥 全部 archive」で処理
-2. 新 pattern 22 件のうち重複ペアは個別「📥 archive」で間引き
-3. 「契約書ドラフトフォーマット」「議事録ツール選び」等の業務オペは「❌ 却下」or 「📥 archive」
+### 8. exec_summary Phase 2 (任意)
 
-**次セッション実装案 (dedup 自動化)**:
-- protocols テーブルの title を Sonnet で「意味的に同一」のグループ化 → 重複を archive にする one-time backfill 関数
-
-### E. R303 hardcoded fallback 削除 (= AGENTS 完遵、前 HANDOFF 最優先 5)
-
-AMD-Report GAS `R303_MonthlyReport_Generator.js` `mr_gen_getTsukuyomiContext_` Line 262-270 に
-hardcoded fallback が残っている。
-
-**設計判断**: 2 案。
-- 案 A (推奨): AMD-Report GAS 側に `supa_select` 相当 helper を追加 (= 既存 `R012_SupabaseSync.js` を流用 / 拡張) → `llm_prompts.monthly_report.r313_extract` body fetch → 失敗時 `tsukuyomi_listContextRows({tag:'monthlyreport',status:'active'})` → 両方空なら **throw** (= silent な低品質 fallback を防ぐ)。事前に migration 053 で `llm_prompts.monthly_report.r313_extract` body 充填 + `is_active=TRUE` (現在は body 空 / is_active=FALSE)。
-- 案 B (簡易): `DB_TsukuyomiContext` (本体スプシ) に `tag='monthlyreport',scope='global',status='active'` の行を runFunc 経由で seed → R303 の hardcoded fallback を Logger.log + 空文字に。
-
-**手順 (案 A)**:
-1. `pwa/scripts/migrations/053_monthly_report_r313_body.sql` で `llm_prompts.monthly_report.r313_extract` body 充填 + `is_active=TRUE`
-2. AMD-Report GAS Drive 共有ドライブ (`/Users/masa/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/claude/AMD_OS/gas-report/`) の R303 編集
-3. AMD-Report GAS ScriptProperties に `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` が無ければ `oneTime_setScriptProperty` 経由で seed (要 listProps で確認)
-4. `npx @google/clasp@latest push --force` + `deploy --deploymentId <ID> --description "v1456_r303_db_prompt"`
-
-### 2. Drive / Calendar backfill 追加 (= 前ハンドオフ最優先 7)
-
-`gas/074b_MeetingSummarySlack.js` と同じパターンで:
-- `gas/074c_MeetingSummaryDrive.js` (PJ Drive folder の議事録系ファイル名 / 本文から meeting 構築)
-- `gas/074d_MeetingSummaryCalendar.js` (Calendar event description + attendees + 紐付く Notion AI ページ)
-- Notion alias resolver 強化 (`_meeting_resolveProjectIdFromPage_` の alias map 拡張)
-
-system prompt はそれぞれ `llm_prompts.meeting_extract.drive` / `meeting_extract.calendar` として **migration で seed**。AGENTS ルール遵守。
-
-### 3. Slack backfill 過去 4-6 ヶ月分
-
-本セッションでは過去 3 ヶ月分 (= saved=13) を完走。`monthsBack=6` で複数回キックして残り 3 ヶ月分を取り込む。
-GAS 6 分制約のため、bash ループで `maxLlmCallsPerRun=18` を 4 回程度叩く構成が安全:
-
-```sh
-URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' pwa/.env.local | cut -d= -f2- | tr -d '"')
-KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' pwa/.env.local | cut -d= -f2- | tr -d '"')
-for i in 1 2 3 4; do
-  ARGS=$(python3 -c "import urllib.parse,json; print(urllib.parse.quote(json.dumps([{'monthsBack':6,'maxLlmCallsPerRun':18,'maxLlmPerCall':3}])))")
-  curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_meeting_backfillSlackAllActive_&args=$ARGS"
-  echo "---round $i done"
-done
-```
-
-### 4. 旧 22 件 protocols の archive 操作 (= まさ手動)
-
-`/admin/protocols` で「⚠️ 旧形式 (22 件、kind=legacy_specific)」セクションを開いて「📥 全部 archive」を 1 クリック。
-→ 候補欄が新形式 11 件のみになる。新規候補が出てきたらまさが確認して 4 アクション (✅ 確定 / 🔄 修正依頼 / ❌ 却下 / 📥 archive) で運用。
-
-### 5. LLM parse 残課題
-
-GAS Web App 6 分制約 + Sonnet 出力 4096 token 制約のため、入力 (= meeting_summaries 集約テキスト) が長い PJ-ym では再び truncate しうる。
-監視: `nav_protocol_pollAll force=true` の結果 `errors > 0` で `LLM parse failed` が出たら、その PJ-ym の inputText 長さを確認 → 16000 字制限 (gas/155 Line 685) を 12000 に下げるか、入力を「最新 8 サマリ」等に絞る改修。
+PJ ごとに color theme を切り替える (= `.page--{slug}` で `--c-primary` 個別定義)。
+現状は全 PJ 共通の AMD 青で表示。
 
 ---
 
-## ⚠️ 既知のえいみ傾向 (= 同じ失敗を防ぐため)
+## ⚠️ 既知のえいみ傾向 (= 同じ失敗を防ぐため、本セッションで再発した分を反映)
 
-1. **重い実装の先送り癖**: 「次セッションで」と書いた瞬間に進行が止まる → 本ハンドオフの 1-5 を順に**着手して止まらない**
+1. **重い実装の先送り癖**: 「次セッションで」と書いた瞬間に進行が止まる
 2. **早合点で隣の領域を触る**: まさの指摘の対象を最初に確認せず、コンポーネント / プロンプト / cron を取り違える
 3. **「手元にない」即断**: 必ず `mdfind` / `find` / `locate` で徹底探索してから「無い」を結論にする
-4. **未 push diff 破棄事故** (= 本セッションで再発): worktree 開始時に main repo の `git status -s` の `M` / `??` を確認、内容を `git diff` で見てから判断、無闇に `git checkout HEAD --` で破棄しない。詳細は BUGS.md 該当エントリ
-5. **「キャッシュ」を性急に仮説立てない** (= ファビコン 7 回否定された): まさが複数回シークレットモードで否定したら、キャッシュ以外の真因 (manifest / size 不整合 / middleware) を **全部** 確認
+4. **未 push diff 破棄事故** (= 本セッション再発): worktree 開始時に main repo の `git status -s` の `M` / `??` を確認、内容を `git diff` で見てから判断、無闇に `git checkout HEAD --` で破棄しない
+5. **「キャッシュ」を性急に仮説立てない** (= ファビコン 7 回否定された)
+6. **「モック」「まずは」「見せて」は本番手前の確認指示** (= 本セッション ダッシュボード cyber 事故): 本番に直接 deploy せず、別ページ / 画像で見せる
+7. **AGENTS.md 画像禁止ルール再確認** (= 本セッション 六角形 SVG 自作で違反): 「画像活用」と言われたら本物のロゴ画像 (`<img>`) を配置、SVG / CSS で自作しない
+8. **「文字だけ入れ替え」を文字通り守る** (= 本セッション 3 連続崩壊): 雛形の CSS / 構造を書き直したい衝動を抑える。template literal で一字一句コピーが正解
+9. **HTML を正規表現で構造置換しない** (= `</div>` 誤マッチ): template literal でコピーか cheerio / DOMParser で parse
+10. **CSS 変数の scope cascade 落ちに注意** (= 雛形 `.page--xxx` scope の `--c-primary` 抽出時に消える): 抽出時に `var(--xxx)` を全部 grep して `:root` 定義済か確認
+11. **ダウンロード HTML の `<img src>` は絶対 URL 必須** (= file:// で 404): `${origin}/...` で組み立て
 
 ---
 
 ## 入口
 
-- [`design/L2_DATA.md`](design/L2_DATA.md) ⭐⭐⭐ — L2 6 種 + 全 cron 一覧 (sync-pj-facts daily cron 追加 by 本セッション)
+- [`design/L2_DATA.md`](design/L2_DATA.md) ⭐⭐⭐ — 中核データ正本 (L2 6 種 + 5 生データ backfill 一覧)
+- [`design/SPEC_pwa.md`](design/SPEC_pwa.md) ⭐ — PWA 全体仕様 (画面・API route・cron・データモデル・ディレクトリ構成)
 - [`design/README.md`](design/README.md) — 設計 md インデックス
-- [`design/SPEC_pwa.md`](design/SPEC_pwa.md) — PWA 全体仕様
-- [`BUGS.md`](BUGS.md) — 直近事故 (本セッションで 3 件追加: Slack form-encoded / 未 push diff 破棄事故 / favicon 真因)
+- [`BUGS.md`](BUGS.md) — 本セッションで 6 件追加 (= 雛形自前再構築 / モック→本物 deploy / CSS 変数 scope 落ち / ロゴ相対 URL 404 / 先手力 events 0 短絡 / Chrome MCP `[BLOCKED]` POST server 迂回)
 - [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾 — 本セッション全 commit + 設計変更網羅
-- `/Users/masa/projects/AGENTS.common.md` — えいみ人格 + 「LLM プロンプト運用 (絶対ルール)」セクション
+- `/Users/masa/projects/AGENTS.common.md` — えいみ人格 + 「LLM プロンプト運用 (絶対ルール)」
+- `pwa/AGENTS.md` — **画像禁止ルール** (= 毎セッション再確認)
 
-## 運用コマンド
+## 運用コマンド (本セッションで使ったもの)
 
 ```sh
-# Vercel deploy (= 本番反映)
+# Vercel deploy
 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 
 # DDL 適用
 python3 -X utf8 pwa/scripts/apply_ddl.py pwa/scripts/migrations/NNN_name.sql
 
-# 本体 GAS push + deploy
+# 本体 GAS push + deploy (現在 v1462)
 cd /Users/masa/projects/AMD/amd-os/gas
 npx @google/clasp@latest push --force
 npx @google/clasp@latest deploy --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G --description "vNNN_xxx"
 
-# AMD-Report GAS push (= R303 修正時)
-cd "/Users/masa/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/claude/AMD_OS/gas-report"
-npx @google/clasp@latest push --force
-
-# protocols 再抽出 (本セッション同等)
+# 5 種 backfill 一気 (= 次セッションで実行する想定)
 URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' pwa/.env.local | cut -d= -f2- | tr -d '"')
 KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' pwa/.env.local | cut -d= -f2- | tr -d '"')
+for fn in nav_meeting_backfillSlackAllActive_ nav_meeting_backfillDriveAllActive_ \
+         nav_meeting_backfillCalendarAllActive_ nav_meeting_backfillGmailAllActive_; do
+  ARGS=$(python3 -c "import urllib.parse,json; print(urllib.parse.quote(json.dumps([{'monthsBack':6,'maxLlmCallsPerRun':18,'maxLlmPerCall':3}])))")
+  curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=$fn&args=$ARGS" | head -c 200
+done
+
+# protocols 再抽出 (= 新 prompt で再キックする時)
 ARGS=$(python3 -c "import urllib.parse,json; print(urllib.parse.quote(json.dumps([{'force':True,'maxItems':12}])))")
 curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_protocol_pollAll&args=$ARGS"
 
-# sync-pj-facts 手動キック
+# sync-pj-facts 手動キック (= daily cron 化済、04:00 JST trigger)
 SECRET=$(grep '^CRON_SECRET=' pwa/.env.local | cut -d= -f2- | tr -d '"')
 curl -sL "https://amd-os-pwa.vercel.app/api/cron/sync-pj-facts" -H "Authorization: Bearer $SECRET"
 ```
