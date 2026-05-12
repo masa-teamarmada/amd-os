@@ -568,6 +568,73 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
               </g>
             );
           })}
+          {/* 2026-05-12 まさ指摘: 最新 AMD スコアを AMD スコアグラフ右上の空きスペースに大きく描画 + クリックでモーダル。
+              旧実装は XRL グラフ内に小さい pill (18px) で右端見切れ + そもそも別チャートにあった事故対応。
+              位置を AMD グラフ右上に固定 (SVG viewBox 内座標)、フォント 32px、引き出し線で最新プロットと接続。 */}
+          {(() => {
+            const last = scoreSeries[scoreSeries.length - 1];
+            if (!last) return null;
+            const lx = xOfDate(last.date);
+            const ly = yOfScore(last.score);
+            const label = last.score < 1 ? last.score.toFixed(2) : Math.round(last.score).toLocaleString();
+            // pill: AMD グラフ SVG 右上の空きに固定 (= viewBox 0 0 880 220 の右上 250x52)
+            const pillW = 250;
+            const pillH = 52;
+            const pillX = SVG_W - MR - pillW; // 880 - 24 - 250 = 606
+            const pillY = MT + 4;             // 24 + 4 = 28
+            const labelX = pillX + 18;
+            const labelY = pillY + pillH - 16; // baseline 調整
+            return (
+              <g
+                style={{ cursor: "pointer" }}
+                onClick={(e) => { e.stopPropagation(); setScoreBreakdownOpen(true); }}
+              >
+                <title>クリックで AMD スコアの内訳モーダルを開く</title>
+                {/* 引き出し線: 最新プロット → pill 左辺中点 */}
+                <line
+                  x1={lx}
+                  y1={ly}
+                  x2={pillX}
+                  y2={pillY + pillH / 2}
+                  stroke="#dc2626"
+                  strokeWidth={1.2}
+                  strokeDasharray="3 2"
+                  opacity={0.55}
+                />
+                {/* 背景 pill */}
+                <rect
+                  x={pillX}
+                  y={pillY}
+                  rx={12}
+                  ry={12}
+                  width={pillW}
+                  height={pillH}
+                  fill="rgba(254,242,242,0.95)"
+                  stroke="#dc2626"
+                  strokeWidth={1.5}
+                />
+                <text
+                  x={labelX}
+                  y={labelY}
+                  fontSize={32}
+                  fontWeight={800}
+                  fontFamily="ui-monospace,SFMono-Regular,monospace"
+                  fill="#dc2626"
+                >
+                  AMD {label}
+                </text>
+                <text
+                  x={pillX + pillW - 16}
+                  y={labelY}
+                  fontSize={16}
+                  fill="#dc2626"
+                  textAnchor="end"
+                >
+                  ▾
+                </text>
+              </g>
+            );
+          })()}
         </svg>
       </div>
 
@@ -650,57 +717,6 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           {XRL_AXES.map((k) => (
             xrlPaths[k] && <path key={`p-${k}`} d={xrlPaths[k]} fill="none" stroke={XRL_COLORS[k]} strokeWidth={2} />
           ))}
-          {/* 2026-05-11 まさ指摘 3 番: 最新 AMD スコアをグラフ内の最新プロット上に大きく描画 + クリックでモーダル。
-              ボタンが小さくて見えづらかった (= 「試算表」の後に小さく書かれてる) のを解消。 */}
-          {(() => {
-            const last = scoreSeries[scoreSeries.length - 1];
-            if (!last) return null;
-            const lx = xOfDate(last.date);
-            const ly = yOfScore(last.score);
-            const label = last.score < 1 ? last.score.toFixed(2) : Math.round(last.score).toLocaleString();
-            const textX = Math.min(SVG_W - 80, lx + 14);
-            const textY = Math.max(MT + 22, ly - 18);
-            return (
-              <g
-                style={{ cursor: "pointer" }}
-                onClick={(e) => { e.stopPropagation(); setScoreBreakdownOpen(true); }}
-              >
-                <title>クリックで AMD スコアの内訳モーダルを開く</title>
-                {/* 引き出し線 (= プロット → ラベル) */}
-                <line x1={lx} y1={ly} x2={textX - 4} y2={textY + 4} stroke="#dc2626" strokeWidth={1} strokeDasharray="2 2" opacity={0.6} />
-                {/* 背景 pill */}
-                <rect
-                  x={textX - 8}
-                  y={textY - 18}
-                  rx={9}
-                  ry={9}
-                  width={Math.max(86, label.length * 14 + 38)}
-                  height={26}
-                  fill="rgba(254,242,242,0.92)"
-                  stroke="#dc2626"
-                  strokeWidth={1.2}
-                />
-                <text
-                  x={textX}
-                  y={textY}
-                  fontSize={18}
-                  fontWeight={700}
-                  fontFamily="ui-monospace,SFMono-Regular,monospace"
-                  fill="#dc2626"
-                >
-                  AMD {label}
-                </text>
-                <text
-                  x={textX + 6 + Math.max(58, label.length * 14)}
-                  y={textY}
-                  fontSize={11}
-                  fill="#dc2626"
-                >
-                  ▾
-                </text>
-              </g>
-            );
-          })()}
           {(bundle?.xrlLog ?? []).map((r) => {
             const isProposal = r.source === "llm_proposal";
             const opacity = isProposal ? 0.55 : 1;
