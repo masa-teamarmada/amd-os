@@ -132,17 +132,36 @@ async function extractForProject(
     .join("\n\n")
     .slice(0, 8000);
 
-  // 5) 創業メンバー (= CEO 候補の同定用)
+  // 5) 創業メンバー (= CEO 候補の同定用)。db_schema.md の列名に従う (organization は存在しない、affiliation が正解)。
+  //    category='amd' の AMD 伴走メンバーと category='university'/'startup'/'unknown' の外部創業者を区別して LLM に渡す。
   const { data: founders } = await supabase
     .from("project_founding_members")
-    .select("person_name, role, organization")
+    .select("person_name, role, role_label_jp, category, affiliation, responsibility")
     .eq("project_id", projectId)
-    .limit(20);
-  const founderBlock = (founders ?? [])
-    .map((f: { person_name: string; role: string | null; organization: string | null }) =>
-      `- ${f.person_name} (${f.role ?? "?"} ${f.organization ?? ""})`
-    )
-    .join("\n") || "（創業メンバー未抽出）";
+    .eq("status", "active")
+    .limit(30);
+
+  type Founder = {
+    person_name: string;
+    role: string | null;
+    role_label_jp: string | null;
+    category: string | null;
+    affiliation: string | null;
+    responsibility: string | null;
+  };
+
+  const founderRows = (founders ?? []) as Founder[];
+  const externalFounders = founderRows.filter((f) => f.category !== "amd");
+  const amdMembers = founderRows.filter((f) => f.category === "amd");
+
+  const fmtFounder = (f: Founder) =>
+    `- ${f.person_name} / ${f.role_label_jp ?? f.role ?? "?"} / ${f.affiliation ?? ""}` +
+    (f.responsibility ? ` / 担当=${f.responsibility}` : "");
+
+  const founderBlock =
+    externalFounders.length > 0
+      ? `### 外部創業者 / CEO 候補 (= 評価対象)\n${externalFounders.map(fmtFounder).join("\n")}\n\n### AMD 伴走メンバー (= 評価対象外、参考情報)\n${amdMembers.map(fmtFounder).join("\n") || "（なし）"}`
+      : "（創業メンバー未抽出。月次レポート + MTG サマリ本文から CEO/創業者っぽい人物を直接推定してください）";
 
   // 6) 入力ソースが空ならスキップ
   if (!reportBlock && !meetingBlock) {
