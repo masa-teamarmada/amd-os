@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-12 12:05 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-12 13:14 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -31,7 +31,7 @@ PRIMARY KEY: `id`
 
 ## amd_score_inputs
 
-行数 (概算): 71
+行数 (概算): 102
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,evaluated_at)` (constraint: `amd_score_inputs_project_id_evaluated_at_key`)
 
@@ -508,7 +508,7 @@ UNIQUE: `(prompt_key)` (constraint: `llm_prompts_prompt_key_key`)
 
 ## macro_index_log
 
-行数 (概算): 786
+行数 (概算): 1,554
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -561,7 +561,7 @@ PRIMARY KEY: `meeting_id`
 
 ## member_activities
 
-行数 (概算): -1
+行数 (概算): 37
 PRIMARY KEY: `id`
 UNIQUE: `(member_id,project_id,source,source_item_id)` (constraint: `member_activities_member_id_project_id_source_source_item_i_key`)
 
@@ -1082,7 +1082,7 @@ PRIMARY KEY: `id`
 
 ## project_founding_members
 
-行数 (概算): 71
+行数 (概算): 81
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,person_name)` (constraint: `project_founding_members_project_id_person_name_key`)
 

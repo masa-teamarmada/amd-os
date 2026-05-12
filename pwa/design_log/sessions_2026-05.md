@@ -2583,3 +2583,113 @@ LLM 抽出 cron / protocols dedup / ファビコン後日チャレンジ / exec_
   bash ループキック (`/tmp/member_activities_backfill.log`)。次セッション冒頭でログ集計 + 必要なら追い再抽出
 - **次期 MS 期間設定**: p20 / p06 / p10 / p11 等で 2026 Q2-Q3 の plan_cycle が無い PJ に MS 設定 (= 旧 sessions L816 から繰越)
 - **EventsSection で impact 強調表示**: 現状 impact 列は DB に入ったが UI 未表示。impact >= 4 を太字 / アイコンで強調すると先手力評価がより直感的になる
+
+---
+
+## 2026-05-12 (blissful-robinson-8e462a #3) — AMD スコア表示位置 + フォント拡大
+
+main HEAD: `3e1de96` → `952182d`、Vercel `amd-os-fkb97wty2-armada0130`
+
+### まさ指摘 1 件
+
+「コックピットでの AMD スコアの表示が右の方に切れちゃってる。しかも AMD のスコアグラフじゃなくて XRL グラフの方に入ってる。ちゃんと AMD スコアグラフの空きスペースに、もっと大きなフォントで表示して」
+
+### 真因 + 対応
+
+[CockpitVentureStatus.tsx:653-703](../src/components/cockpit/CockpitVentureStatus.tsx) で AMD スコア pill が **XRL グラフ SVG 内**に描画されていた (= 別チャート)。さらに `textX = Math.min(SVG_W - 80, lx + 14)` で右端 80px に押し込めていたため label 幅で見切れる事故。
+
+修正:
+- AMD スコアグラフ SVG の末尾に移動
+- pill 位置を viewBox 右上に固定 (= SVG_W - MR - 250 = x:606, y:28、250×52)
+- フォント 18px → **32px bold**、幅 250px 固定で見切れ排除
+- 引き出し線で最新プロット (lx, ly) → pill 左辺中点に接続
+- XRL グラフ内の旧描画ブロック完全削除
+- クリックで CockpitAmdScoreBreakdownModal 開く挙動は維持
+
+---
+
+## 2026-05-12 (blissful-robinson-8e462a #4) — マクロ係数 P 以外列集計 + 4 lane 補完 + FRL grit/resilience cron 新規
+
+main HEAD: `952182d` → `7966a13`、Vercel `amd-os-7dvelph9h-armada0130` → `amd-os-nj01cewg5-armada0130` (FRL fix 後)
+
+### まさ指摘 2 件 (= 「何度もお願いしてるけど全然やってくれてない、明確に TODO に入れて」と明確な怒りシグナル)
+
+1. マクロ係数の P 以外データが 0 件か未取得 → そもそも取得できるように、件数も増やせる設計に変更
+2. FRL の grit と resilience も 0 のまま → ちゃんと数値が入るように
+
+### 真因 (= 3 個重なってた)
+
+| # | 真因 | 詳細 |
+|---|---|---|
+| A | macro lane 軸 | macro-backfill-historical が 1 lane × 16 年 = 1 prompt で 180 オブジェクト要求 + max_tokens 8000。LLM が JSON 途中切断 / parse 失敗で `continue` (silent skip) → 4 lane (advanced_ict / ai_technologies / quantum / sensing_timing_navigation) が一度も INSERT されてなかった |
+| B | macro 列軸 | macro_index_log の 6 列のうち policy_density (P) のみ Sonnet 推定で入って、budget_amount / investment_amount / policy_mention_count / raw_signal_count が **全 786 行で 0** のまま。集計 cron が無かった (= observation_log と atlas_signals は別系統テーブルに溜まっていたが流入路無し) |
+| C | FRL | frl_grit / frl_resilience 列は migration 031 で追加済 (2026-05-09) だが推定 cron が無く全 100 行 NULL。amd_score_l2_refresh の system prompt も ALQ 4 次元のみで grit/resilience 触れず |
+| D | 先送り癖 | 過去 HANDOFF が「次セッションでやる」とだけ書いて実装してこなかった (= 「重い実装の先送り癖」のえいみ既知傾向。まさが「何度も言ってる」と怒る根本理由) |
+
+### 対応
+
+**(1) macro-backfill-historical chunk + retry 化** ([route.ts](../src/app/api/cron/macro-backfill-historical/route.ts)):
+- 1 lane × 16 年 → 1 lane × 4 年 chunk × 4 回 = 16 prompts
+- max_tokens 4000、retry max 2、chunk 単位の成否を return JSON に含めて silent fail 排除
+- `?lane=advanced_ict` / `?startYear=2010&endYear=2025` で個別キック可
+- 既存 chunk が完全網羅なら LLM 呼ばずスキップ (= idempotent)
+- **動作確認**: 4 lane × 192 件 = **768 件 INSERT 成功**
+
+**(2) 新 cron `cron/macro-aggregate-indicators`** ([route.ts](../src/app/api/cron/macro-aggregate-indicators/route.ts)):
+- observation_log を lane × month で SUM:
+  - source ∈ {grant, kaken} or observation_key ∈ {B, I_R} → budget_amount
+  - source ∈ {vc, vc_investment} or observation_key = V → investment_amount
+- atlas_signals を ATL domain → ASPI lane mapping → COUNT:
+  - source_type='policy' → policy_mention_count
+  - 全 source_type → raw_signal_count
+- 既存 row を update、欠落 row は insert (index_value=0 で初期化、macro-backfill が後で埋める)
+- `?since=YYYY-MM` 指定可、デフォルト過去 36 ヶ月
+- vercel.json schedule: `0 19 1 * *` (= 月初 04:00 JST)
+- **動作確認** (since=2010-01): aggregated 143 行、updated 129 行、inserted 14 行、全 8 lane カバー、合計 budget=¥9972 億 / investment=¥1963 億 / signal=286 件 / mention=82 件
+
+**(3) migration 058 + 新 cron `cron/frl-grit-resilience-extract`** ([route.ts](../src/app/api/cron/frl-grit-resilience-extract/route.ts)):
+- llm_prompts に system prompt seed (= Duckworth 2007 / Markman 2005 の 0-9 判定基準 + 「迷ったら null」原則 + reasoning 引用必須)
+- 全 active PJ × 過去 3 ヶ月の monthly_reports + project_meeting_summaries + project_founding_members 集約
+- Sonnet 4.6 で frl_grit / frl_resilience を 0-9 推定 + reasoning 引用付き
+- amd_score_inputs に当日付で UPSERT (UNIQUE(project_id, evaluated_at))
+- frl_notes に `[date grit/resilience auto] grit=N (reasoning); resilience=N (reasoning)` 形式で追記
+- vercel.json schedule: `0 18 1 * *` (= 月初 03:00 JST)
+- **手動キックは `?projectId=p21` 可**
+
+### 副次事故 (= 1 ラウンド再修正)
+
+初版 cron が `project_founding_members.organization` 列を SELECT したが、db_schema.md には **`affiliation`** が正解。PostgREST がエラーで founders 配列空 → LLM 「creator 未抽出」で frl=null を返した。
+
+修正版 (migration 059):
+- cron route: `affiliation` + `role_label_jp` + `category` + `responsibility` 経由
+- category='amd' (= AMD 伴走) と category∈{university,startup,unknown} (= 外部創業者) を区別して LLM に渡す
+- system prompt v2: 「creator 一覧空でも本文推定可」「外部創業者の言動を優先評価、AMD は伴走者として除外」明示
+- null 判定厳格化 (= 推定可能人物が 1 件も無い場合のみ)
+
+### 動作確認 (= 5 PJ で grit / resilience に意味のある値)
+
+| PJ | 評価対象 | grit | resilience | reasoning 例 |
+|---|---|---|---|---|
+| p20 (CX) | 神谷宏治氏 (NIMS PI) | 7 | 6 | D-Global 申請見送り後 1 ヶ月内に 2027/4 直接起業へ転換 |
+| p21 (SX) | 杉浦美羽氏 (愛媛大学) | 7 | 6 | 4/28 で知財戦略の優先順位を明確化、約 5-6 週で複数障害突破 |
+| p06 (CTB) | 丸島氏 (筑波大学 PI) | 6 | 6 | GW 直前の異物混入に翌日株主報告で対応 |
+| p10 (SE) | 神谷氏 | 5 | 6 | プランA困難判明 → 同月内にプランB転換で確度向上 |
+| p19 | 山地・岡安氏 | 4 | 5 | SI 総研離脱 → 同月内に岩谷産業との直接交渉へ |
+| p00 / p24 / p25 | (CEO 候補不明) | null | null | no source content (= 妥当) |
+
+### deployment 一覧 (本日)
+
+| deployment | 内容 |
+|---|---|
+| `amd-os-8c333k2a8-armada0130` | events 抽出復元 + MS なし PJ monthly note |
+| `amd-os-fkb97wty2-armada0130` | AMD スコア表示位置修正 + 32px 拡大 |
+| `amd-os-7dvelph9h-armada0130` | macro chunk 化 + macro-aggregate + frl-grit-resilience cron 初版 |
+| `amd-os-nj01cewg5-armada0130` | FRL fix (organization → affiliation + prompt v2) |
+
+### BUGS.md 追記 (= Round 3 で 1 件)
+
+- マクロ係数 P 以外列が全 786 行 0 + 4 lane 完全 0 件 / FRL grit/resilience 全 100 行 NULL (= 過去複数回 HANDOFF に書いて実装してなかった、先送り癖の典型)。教訓 7 つ: HANDOFF TODO は実装まで完遂 / silent fail は cron の根本悪 / 大量 LLM は chunk + retry / db_schema.md を必ず Read / prompt の null 判定は最終手段 / 真因は複数重なる場合あり / 列名想像で書かない
+
+### 残タスク (次セッションへ送り)
+
+R303 hardcoded fallback 削除 (= AMD-Report GAS) と試算表 Drive Excel 取り込み cron は **HANDOFF TODO セクション #3, #4 に明記**。Round 3 と同じく「何度も言われた」状態にしないため、次セッション冒頭で必ず潰す。
