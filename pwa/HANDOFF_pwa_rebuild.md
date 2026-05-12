@@ -33,6 +33,16 @@
 
 ## 🚨 次セッション最優先 (= 残タスク)
 
+### 0. (= 即座) db_schema.md 再生成 ⭐⭐
+
+migration 052 で `project_meeting_summaries.source_url` 列を追加したが `design/db_schema.md` を再生成してない (= 本セッションで net new な列が 1 個発生)。次セッション冒頭で:
+
+```sh
+cd /Users/masa/projects/AMD/amd-os/pwa
+python3 -X utf8 scripts/dump_schema.py
+# → design/db_schema.md が更新される
+```
+
 ### 1. 進捗イベント (events) 抽出ロジック見直し ⭐ (= まさ 2026-05-12 末追加指摘)
 
 「先手力」表示は復活した。が、そもそも `progress_events` テーブルに events が 0 件の PJ-月が大半。
