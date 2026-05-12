@@ -5,6 +5,54 @@
 
 ---
 
+### [pwa/cron] 進捗イベント抽出が劣化 (Haiku 化 + initiative_origin 概念消失) → 「不明」100% / events 件数も少ない
+- **発見日**: 2026-05-12 (まさが「先手力出ない」+「不明だらけ」+「過去は精度よかった」と 3 連続指摘)
+- **状態**: ✅ 解決済 (= 旧 GAS gas/054 の精度を Sonnet + DB prompt + 5 ソース集約で復元)
+- **症状**:
+  1. 月次モーダル「📝 進捗イベント」セクションで events 件数が極端に少ない (= 0-3 件 / PJ-月)
+  2. 拾った events のほぼ全部が「不明」バッジ (= 先手力 = 0% 計算 → 表示意味なし)
+  3. MS plan_cycle が無い PJ (CX, CTB, SE, p11) では events 0 件で完全停止
+  4. まさ「過去はかなり精度よく判定できていたのに、なぜ劣化したのか」
+- **真因**: 2026-05-07 の commit `6d81541` で `/api/progress/events` を旧 GAS `rewardDashboard` から Supabase `member_activities` 直読みに置換した際、旧 GAS `gas/054_RewardScoring_EventExtract.js` が持っていた **initiative_origin 必須付与 + Sonnet + tsukuyomi_getActiveSystemPrompt({tag:"rewardscoring"}) の system prompt + impact/depth/responsibilities 出力スキーマ** のコンセプトが一切移植されなかった。代わりに Haiku で title/contentPreview のみ生成する構成 (4 フィールド) に格下げ:
+  - `/api/cron/member-activities` の LLM プロンプトに initiative_origin / impact / depth が無い → DB 列も無い → API mapping にも無い → UI で常に undefined → `e.initiativeOrigin || "unknown"` で **全件「不明」化**
+  - 入力ソースが monthly_reports + 責任マトリクスだけ (= 5 生データ集約済の `project_meeting_summaries` を渡してない) → events 件数が少ない
+  - cron に `if (!planCycleId) return ... no active plan cycle` の早期 return → MS なし PJ で **0 件 skip 確定**
+- **解決策** (migration 056-057 + cron 全面リライト):
+  1. **migration 056**: member_activities に initiative_origin (CHECK 5 値 + unknown) / impact (1-5) / depth (0-1) / reject_reason / origin_lost_reason 列追加 + member_id NOT NULL → NULL 許容 (= MS なし PJ で誰か特定不能な events も入る)
+  2. **migration 057**: `llm_prompts.member_activities.extract` を seed (旧 GAS rewardscoring 相当の system prompt 新規書き起こし、initiative_origin 5 値分類基準 + 「迷ったら unknown」明記、Sonnet 4.6, max_tokens 4096, is_active=TRUE)
+  3. **cron リライト**: Haiku → Sonnet 4.6、system prompt を DB から fetch (空なら fail-fast)、入力ソースに `project_meeting_summaries` 当月分 (最大 60 件、本文 8KB cap) を追加、plan_cycle 必須を緩和、出力 mapping に initiative_origin / impact / depth / responsibilities (raw_metadata.responsibilities)
+  4. **`/api/progress/events` mapping**: 新列を ProgressEvent にマップ + responsibilities[] の memberName 解決 + member_id NULL 許容
+- **動作確認** (本番 deploy `dpl_HxXn2u4eB2MvDEe6QcN8jSgx8BrE`):
+  - p21 (SX) 4月: saved 11 件 → **14 件**、initiative_origin 分布 = unknown=6, co_decided=5, amd_proposed=1, partner_proposed=1, external=1。先手力 0% → **46% (= 6/13)**
+  - p20 (CX) 4月: 旧は 0 件 (no active plan cycle) → **9 件 saved** (MS なし PJ も復活)
+  - 全 active PJ × 4 月: 旧 16 件 → **50 件 (3 倍超)**。MS なし PJ である p06/p10 でも saved 6/9
+  - 「不明」率 100% → 43% に激減。残る unknown は「博報堂 鈴木氏のアドバイス受領」など分類困難な受動 events (= 旧 GAS の「迷ったら unknown」ルール通り)
+- **教訓**:
+  - **GAS → PWA 移植時に概念ごと落とすな**。旧実装の出力スキーマ + system prompt + LLM モデル選定は **設計の核** で、データソース置換だけしてもアプリの精度は再現しない。移植時に必ず「精度の核は何か」を確認する手順を入れる
+  - **AGENTS 絶対ルール = LLM プロンプトをコードに書かない** が新機能だけでなく旧 → 新移植時にも当てはまる。旧 GAS が外部化していた prompt は新 PWA でも `llm_prompts` に seed する
+  - **「過去は精度よかった」とまさが言ったら、git log で被疑コミットの diff を見る**。「Haiku に格下げ」「entity が削除された」のような明確な後退があれば、それが真因
+  - cron の入力ソースとして **`project_meeting_summaries` を活用しないと events 拾えない** (= 5 生データから抽出済の議事録集合がそこに溜まってる)
+  - 「不明」が UI に出ているとき、それが「LLM が判断不能で unknown と返した」のか「DB / API mapping に値が無いから default 'unknown' に落ちた」のかを区別する。後者は退化バグ
+
+---
+
+### [pwa/handoff] HANDOFF / 設計 md にまさの「次回やる」要望を書き漏らす → 次セッションで「タスクのその後どうなった?」と確認される
+- **発見日**: 2026-05-12 (まさ「MS なしでも月次モーダルに進捗を入れていくタスクのその後がどうなったか教えてほしい」)
+- **状態**: ✅ 該当タスクを今セッションで実装、HANDOFF テンプレに「まさが口頭で指示した未完タスク」を残すルールを再徹底
+- **症状**: まさが過去セッションで「MS なしでも月次モーダルに進捗を入れていくタスク」を提案していたが、HANDOFF / sessions log / design md のいずれにも該当タスクが書かれていなかった。次セッションでまさが「タスクのその後どうなったか」と聞いても、えいみが design md を grep しても見つからず「該当記録が無い」と答える羽目に
+- **真因**: HANDOFF と sessions log は「コード変更があった事項」中心に書かれていて、**「まさが口頭で言った未完タスク」「明示的な議論はしなかったが今後やる予定の方向性」が残らない構造** になっている。md に残らない = 次セッションのえいみは「文脈なし」で復帰する → まさが毎回説明し直し
+- **解決策**:
+  1. 今セッションで `project_monthly_notes` テーブル新設 + `MonthlyNoteSection` UI 追加で実装完了
+  2. HANDOFF テンプレに「まさからの未完タスク (= 口頭で言われたが着手してないもの)」セクションを設ける
+  3. sessions log の「次セッション最優先」リストに、コード変更を伴わない要望も含めて書く
+  4. 「あれどうなった?」と聞かれたタスクは、必ず BUGS / HANDOFF / sessions log のいずれかに痕跡を残す
+- **教訓**:
+  - **md に残らない要望は次回 0 点リセットされる**。まさの口頭指示も必ず HANDOFF に書く
+  - **「これあとでやって」系の要望は HANDOFF の「次セッション最優先」末尾に番号無しで足す**。コード変更を伴わなくても OK
+  - **「タスクのその後どうなった?」と聞かれたら、まずまさに「以前の文脈を確認したい、どのセッションで話したか覚えてる?」と聞いて文脈を再構築する**。md に無いからと「該当無し」で済ませない
+
+---
+
 ### [pwa/api] 雛形 HTML を「inspired」と称して自前再構築 → ぐちゃぐちゃ事故 + 正規表現置換 → 構造破壊 (= 2 連続事故)
 - **発見日**: 2026-05-12 (cranky-rhodes-ff4609 セッション、まさが 3 回連続「崩れてる」指摘)
 - **状態**: ✅ 解決済 (= 雛形 section を template literal で一字一句コピー)
