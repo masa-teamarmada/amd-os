@@ -85,8 +85,8 @@ export async function GET(req: NextRequest) {
     push("PI / 研究者", v.origin_pi);
     push("レーン", v.lane);
     push("法人設立日", v.founded_at);
-    push("AMD 支援開始日", v.amd_support_started_at);
-    push("AMD 支援終了日", v.amd_support_ended_at);
+    push("AMD 参画開始日", v.amd_support_started_at);
+    push("AMD 参画終了日", v.amd_support_ended_at);
     if (v.outcome_pattern) {
       push(
         "事業継続パターン (outcome_pattern)",

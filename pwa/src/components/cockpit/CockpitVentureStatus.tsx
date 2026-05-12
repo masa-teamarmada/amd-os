@@ -428,8 +428,8 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           )}
           {venture.amd_support_started_at && (
             <span>
-              <b>AMD 支援</b> {venture.amd_support_started_at.slice(0, 7)}
-              〜{venture.amd_support_ended_at?.slice(0, 7) || "支援中"}
+              <b>AMD 参画</b> {venture.amd_support_started_at.slice(0, 7)}
+              〜{venture.amd_support_ended_at?.slice(0, 7) || "参画中"}
             </span>
           )}
         </div>
@@ -471,7 +471,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           style={{ minWidth: 600 }}
           onClick={onScoreChartClick}
         >
-          {/* AMD 支援期間の背景帯 (started_at - ended_at もしくは present) */}
+          {/* AMD 参画期間の背景帯 (started_at - ended_at もしくは present) */}
           {venture.amd_support_started_at && (() => {
             const x1 = xOfDate(venture.amd_support_started_at);
             const endIso = venture.amd_support_ended_at ?? new Date().toISOString().slice(0, 10);
@@ -494,7 +494,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   <line x1={x2} y1={MT} x2={x2} y2={MT + PH} stroke="#ec4899" strokeWidth={1} strokeDasharray="3 2" opacity={0.5} />
                 )}
                 <text x={(left + right) / 2} y={MT + 10} fontSize={9} fill="#be185d" textAnchor="middle" opacity={0.85}>
-                  AMD 支援期間
+                  AMD 参画期間
                 </text>
               </g>
             );
@@ -577,12 +577,12 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
             const lx = xOfDate(last.date);
             const ly = yOfScore(last.score);
             const label = last.score < 1 ? last.score.toFixed(2) : Math.round(last.score).toLocaleString();
-            // pill: AMD グラフ SVG 右上の空きに固定 (= viewBox 0 0 880 220 の右上 250x52)
-            const pillW = 250;
+            // pill: AMD グラフ SVG 右上の空きに固定。最大 6 桁 (= 100k IPO 級) + ▾ で十分なので幅 170px に縮小。
+            const pillW = 170;
             const pillH = 52;
-            const pillX = SVG_W - MR - pillW; // 880 - 24 - 250 = 606
+            const pillX = SVG_W - MR - pillW; // 880 - 24 - 170 = 686
             const pillY = MT + 4;             // 24 + 4 = 28
-            const labelX = pillX + 18;
+            const labelCenterX = pillX + pillW / 2;
             const labelY = pillY + pillH - 16; // baseline 調整
             return (
               <g
@@ -613,20 +613,22 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   stroke="#dc2626"
                   strokeWidth={1.5}
                 />
+                {/* 数値: pill 中央寄せ */}
                 <text
-                  x={labelX}
+                  x={labelCenterX}
                   y={labelY}
                   fontSize={32}
                   fontWeight={800}
                   fontFamily="ui-monospace,SFMono-Regular,monospace"
                   fill="#dc2626"
+                  textAnchor="middle"
                 >
                   {label}
                 </text>
                 <text
-                  x={pillX + pillW - 16}
-                  y={labelY}
-                  fontSize={16}
+                  x={pillX + pillW - 10}
+                  y={labelY - 18}
+                  fontSize={11}
                   fill="#dc2626"
                   textAnchor="end"
                 >

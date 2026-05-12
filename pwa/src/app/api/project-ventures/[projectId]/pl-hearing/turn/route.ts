@@ -143,7 +143,7 @@ export async function POST(
 アウトカム: ${v.outcome_pattern}
 short: ${v.short_description ?? ""}
 long: ${v.long_description ?? ""}
-AMD 支援: ${v.amd_support_started_at ?? "?"} 〜 ${v.amd_support_ended_at ?? "現在"}
+AMD 参画: ${v.amd_support_started_at ?? "?"} 〜 ${v.amd_support_ended_at ?? "現在"}
 
 # events (時系列、調達 / 採用 / 契約 etc)
 ${JSON.stringify(events ?? [], null, 2)}
