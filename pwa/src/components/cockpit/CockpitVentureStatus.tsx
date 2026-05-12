@@ -90,6 +90,16 @@ const XRL_COLORS = {
 type XrlAxisKey = keyof typeof XRL_COLORS;
 const XRL_AXES: XrlAxisKey[] = ["trl", "brl", "grl", "srl", "hrl"];
 
+// 同一観測日で 5 軸が同じ値を取ると dot が完全に重なってクリック不能になる対策 (まさ 2026-05-12)。
+// 軸ごとに x 方向 ±12px のオフセットを与えて 5 並びに散らす。path も同じ offset で描く。
+const XRL_X_OFFSET: Record<XrlAxisKey, number> = {
+  trl: -12,
+  brl: -6,
+  grl: 0,
+  srl: 6,
+  hrl: 12,
+};
+
 // ============================================================
 // SVG geometry
 // ============================================================
@@ -260,7 +270,8 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
       .filter((r) => r[k] != null)
       .map((r) => ({ y: dateToYearDecimal(r.observed_at), v: r[k] as number }));
     if (pts.length < 2) return "";
-    return "M " + pts.map((p) => `${xOf(p.y).toFixed(1)},${yOfXrl(p.v).toFixed(1)}`).join(" L ");
+    const dx = XRL_X_OFFSET[k];
+    return "M " + pts.map((p) => `${(xOf(p.y) + dx).toFixed(1)},${yOfXrl(p.v).toFixed(1)}`).join(" L ");
   };
   const xrlPaths: Record<XrlAxisKey, string> = {
     trl: buildXrlPath("trl"),
@@ -737,22 +748,35 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   const v = r[k];
                   if (v == null) return null;
                   const upper = k.toUpperCase() as "TRL" | "BRL" | "GRL" | "SRL" | "HRL";
+                  const cx = xOfDate(r.observed_at) + XRL_X_OFFSET[k];
+                  const cy = yOfXrl(v);
+                  // 2026-05-12 まさ指示: 同位置 dot 重なり対策。
+                  //   (a) 軸別 x offset で 5 並びに散らす
+                  //   (b) 透明 hit area (r + 6) で clickable 範囲を拡大、見た目はそのまま
                   return (
-                    <circle
-                      key={`${r.id}-${k}`}
-                      cx={xOfDate(r.observed_at)}
-                      cy={yOfXrl(v)}
-                      r={baseR}
-                      fill={XRL_COLORS[k]}
-                      stroke={isProposal ? XRL_COLORS[k] : "#fff"}
-                      strokeWidth={isProposal ? 1.8 : 2}
-                      strokeDasharray={strokeDasharray}
-                      fillOpacity={opacity}
-                      style={{ cursor: "pointer" }}
-                      onClick={onClickAxis(upper)}
-                    >
+                    <g key={`${r.id}-${k}`} style={{ cursor: "pointer" }} onClick={onClickAxis(upper)}>
                       <title>{`${upper} ${v} (${r.observed_at})${isProposal ? " — LLM 提案" : " — クリックで詳細"}`}</title>
-                    </circle>
+                      {/* 透明 hit area */}
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={baseR + 6}
+                        fill="transparent"
+                        pointerEvents="all"
+                      />
+                      {/* 見た目 dot */}
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={baseR}
+                        fill={XRL_COLORS[k]}
+                        stroke={isProposal ? XRL_COLORS[k] : "#fff"}
+                        strokeWidth={isProposal ? 1.8 : 2}
+                        strokeDasharray={strokeDasharray}
+                        fillOpacity={opacity}
+                        pointerEvents="none"
+                      />
+                    </g>
                   );
                 })}
               </g>
