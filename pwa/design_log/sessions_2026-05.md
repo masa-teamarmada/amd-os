@@ -3279,11 +3279,11 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 
 - `src/components/dashboard/CyberGlassCubeDashboard.tsx`
   - 中央に浮遊ガラスキューブPJ群を配置。
-  - 各キューブ表面にPJ code / PJ名、上方にX/F/M系ラベルを表示。
-  - 床面に発光円盤、放射線、スキャンリングをthree.js geometryで実装。
-  - 背景とキューブ表面の質感はcomponent内でCanvasTexture生成。
-  - 左に `Studio Core KPI`、右に `AMD Value Proof` のHUDパネルを配置。
-  - KPIリングはSVG、パネル外形/接続/空間配置はthree.js側で実装。
+  - 初版はCSS/HTMLラベルやパネルのオブジェクト感が残っていたため、まさ指摘を受けて破棄。
+  - PJ code / PJ名 / XFM指標はCanvasTextureに焼き、キューブ表面にthree.js planeとして貼る形へ変更。
+  - 床面に発光円盤、放射線、スキャンリングをthree.js geometryで実装。全面グリッドは参考画像に合わせて削除。
+  - 背景HUD、KPI数値、選択中PJ表示はcomponent内でCanvasTexture生成。
+  - 左に `Studio Core KPI`、右に `AMD Value Proof` のHUDパネルを配置。フレーム/リング/線はthree.js geometry。
   - 初期表示の読みやすさを優先し、OrbitControlsのautoRotateはOFF。
 - route追加:
   - `/mock/dashboard-cyber-glass-cube`

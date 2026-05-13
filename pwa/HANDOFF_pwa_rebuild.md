@@ -10,6 +10,7 @@
 - Cyber Dashboard 第2案として、既存3D Labを壊さず `CyberGlassCubeDashboard.tsx` を新規作成。
 - route は `/mock/dashboard-cyber-glass-cube` と `/dashboard-cyber-glass-cube`。
 - 中央に浮遊ガラスキューブPJ群、左右にKPI HUD、床に発光円盤/スキャンリング、背景に生成CanvasTextureを配置。
+- まさ指摘を受け、CSS/HTMLでオブジェクトを作っていた初版を破棄。PJ名・KPI・背景HUDはCanvasTexture化、フレーム/リング/床円盤はthree.js geometry化。全面グリッドと自由回転カード感を削除。
 - `/mock/dashboard-cyber-glass-cube` を auth bypass に追加。
 - `npm run build` 成功。local / production で `cube-face-label=6` / `glass-kpi-row=6` / `glass-hud-gauge=6` / `canvas=1` を確認。
 
@@ -77,7 +78,7 @@ npm run build
 
 ## Unresolved / Next
 
-1. Glass Cube案をまさが見て、中央キューブ密度・左右KPI配置・背景生成テクスチャの方向性を判断する。
+1. Glass Cube案をまさが見て、参考画像への近さ・中央キューブ密度・左右KPI配置・背景生成テクスチャの方向性を判断する。
 2. 既存3D Lab (`Cyber3DLab.tsx`) と第2案 (`CyberGlassCubeDashboard.tsx`) を別routeのまま比較する。
 3. 次に進めるなら、キューブクリック時のPJ cockpit投影・メンバー/資金/介入レバーの追加HUDを実装する。
 

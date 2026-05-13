@@ -1,9 +1,7 @@
 "use client";
 
-import Image from "next/image";
-import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Html, OrbitControls } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
@@ -17,435 +15,399 @@ type ProjectCube = {
   metric: string;
   lift: string;
   position: [number, number, number];
-  rotation: [number, number, number];
+  scale: number;
 };
 
-type KpiHud = {
+type HudMetric = {
   label: string;
   value: string;
   sub: string;
   progress: number;
-  tone: "cyan" | "green" | "amber" | "violet";
+  accent: string;
 };
 
 const projects: ProjectCube[] = [
-  { id: "p20", code: "CX", name: "CryoX", subtitle: "Low-temp AI robotics", status: "ACTIVE", accent: "#43f5ff", metric: "X78 F64 M76", lift: "+18", position: [-2.05, 0.18, 2.6], rotation: [0.45, 0.58, -0.18] },
-  { id: "p25", code: "KU", name: "KUTE", subtitle: "University venture ecosystem", status: "ACTIVE", accent: "#57ffae", metric: "X68 F82 M81", lift: "+24", position: [0.08, 0.62, 3.25], rotation: [0.12, -0.74, 0.38] },
-  { id: "p06", code: "HZ", name: "Hydrogen Mobility", subtitle: "ZMP / hydrogen route", status: "SALES", accent: "#ffac57", metric: "X46 F51 M61", lift: "+09", position: [2.18, 0.08, 2.72], rotation: [-0.35, 0.34, 0.2] },
-  { id: "p21", code: "PT", name: "Plant Twin", subtitle: "Digital twin agriculture", status: "ACTIVE", accent: "#338cff", metric: "X59 F74 M69", lift: "+15", position: [-1.08, -0.92, 1.96], rotation: [-0.2, -0.28, -0.42] },
-  { id: "p14", code: "SE", name: "Science Engine", subtitle: "Research scout agent", status: "DRAFT", accent: "#ffe15c", metric: "X39 F68 M47", lift: "+07", position: [1.12, -1.06, 2.08], rotation: [0.36, 0.28, 0.5] },
-  { id: "p29", code: "SX", name: "Supply X", subtitle: "Industrial protocol", status: "FROZEN", accent: "#c781ff", metric: "X31 F86 M36", lift: "+04", position: [0.1, -1.88, 1.46], rotation: [-0.58, 0.16, -0.1] },
+  { id: "p20", code: "CX", name: "CryoX", subtitle: "Low-temp AI robotics", status: "ACTIVE", accent: "#46f7ff", metric: "X78 F64 M76", lift: "+18", position: [-1.7, -0.16, 2.7], scale: 0.9 },
+  { id: "p25", code: "KU", name: "KUTE", subtitle: "Venture ecosystem", status: "ACTIVE", accent: "#61ffb3", metric: "X68 F82 M81", lift: "+24", position: [0, 0.06, 3.18], scale: 1.1 },
+  { id: "p06", code: "HZ", name: "Hydrogen Mobility", subtitle: "ZMP hydrogen route", status: "SALES", accent: "#ffad57", metric: "X46 F51 M61", lift: "+09", position: [1.72, -0.14, 2.74], scale: 0.9 },
+  { id: "p21", code: "PT", name: "Plant Twin", subtitle: "Agri digital twin", status: "ACTIVE", accent: "#338cff", metric: "X59 F74 M69", lift: "+15", position: [-0.92, -0.72, 2.08], scale: 0.82 },
+  { id: "p14", code: "SE", name: "Science Engine", subtitle: "Research scout", status: "DRAFT", accent: "#ffe15c", metric: "X39 F68 M47", lift: "+07", position: [0.96, -0.76, 2.12], scale: 0.78 },
+  { id: "p29", code: "SX", name: "Supply X", subtitle: "Industrial protocol", status: "FROZEN", accent: "#c781ff", metric: "X31 F86 M36", lift: "+04", position: [0.02, -1.36, 1.55], scale: 0.78 },
 ];
 
-const leftKpis: KpiHud[] = [
-  { label: "ACTIVE PJ", value: "14", sub: "+3 / 90D", progress: 78, tone: "green" },
-  { label: "TOTAL PJ", value: "29", sub: "SINCE FOUNDING", progress: 64, tone: "cyan" },
-  { label: "AVG ARC", value: "11.6M", sub: "PROJECT DURATION", progress: 58, tone: "amber" },
+const leftMetrics: HudMetric[] = [
+  { label: "ACTIVE PJ", value: "14", sub: "+3 / 90D", progress: 78, accent: "#61ffb3" },
+  { label: "TOTAL PJ", value: "29", sub: "SINCE FOUNDING", progress: 64, accent: "#46f7ff" },
+  { label: "AVG ARC", value: "11.6M", sub: "PROJECT DURATION", progress: 58, accent: "#ffad57" },
 ];
 
-const rightKpis: KpiHud[] = [
-  { label: "RAISED", value: "8.4B", sub: "JPY PIPELINE", progress: 84, tone: "amber" },
-  { label: "SCORE LIFT", value: "+29", sub: "AMD DELTA", progress: 69, tone: "green" },
-  { label: "MS CLEAR", value: "68%", sub: "MILESTONE HIT", progress: 68, tone: "violet" },
+const rightMetrics: HudMetric[] = [
+  { label: "RAISED", value: "8.4B", sub: "JPY PIPELINE", progress: 84, accent: "#ffad57" },
+  { label: "SCORE LIFT", value: "+29", sub: "AMD DELTA", progress: 69, accent: "#61ffb3" },
+  { label: "MS CLEAR", value: "68%", sub: "MILESTONE HIT", progress: 68, accent: "#c781ff" },
 ];
-
-const accentByTone = {
-  cyan: "#46f7ff",
-  green: "#61ffb3",
-  amber: "#ffad57",
-  violet: "#c781ff",
-};
 
 export default function CyberGlassCubeDashboard() {
-  const [selected, setSelected] = useState<ProjectCube>(projects[1]);
+  const [selectedId, setSelectedId] = useState("p25");
+  const selected = projects.find((project) => project.id === selectedId) ?? projects[1];
 
   return (
     <main className="glassdash-page">
-      <div className="glassdash-canvas" aria-hidden="true">
-        <Canvas
-          dpr={[1, 1.35]}
-          gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-          camera={{ position: [0, -8.8, 4.8], fov: 48, near: 0.1, far: 70 }}
-          onPointerMissed={() => setSelected(projects[1])}
-        >
-          <GlassDashboardWorld selected={selected} onSelect={setSelected} />
-        </Canvas>
-      </div>
-      <section className="glassdash-overlay">
-        <header className="glassdash-brand">
-          <span className="glassdash-logo"><Image src="/amd-logo.png" alt="AMD" width={92} height={92} priority /></span>
-          <div>
-            <p>AMD // OS</p>
-            <b>HOLOGRAPHIC PORTFOLIO CHAMBER V2</b>
-          </div>
-        </header>
-        <div className="glassdash-selected">
-          <span>SELECTED CUBE</span>
-          <strong>{selected.name}</strong>
-          <small>{selected.metric} / VALUE LIFT {selected.lift}</small>
-        </div>
-      </section>
-      <GlassDashboardStyles />
+      <Canvas
+        dpr={[1, 1.35]}
+        gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+        camera={{ position: [0, -7.8, 4.15], fov: 43, near: 0.1, far: 55 }}
+        onPointerMissed={() => setSelectedId("p25")}
+      >
+        <GlassCubeWorld selected={selected} onSelect={setSelectedId} />
+      </Canvas>
+      <style jsx global>{`
+        .glassdash-page{position:fixed;inset:0;z-index:30;overflow:hidden;background:#020816}
+        .glassdash-page canvas{display:block;width:100%;height:100%}
+      `}</style>
     </main>
   );
 }
 
-function GlassDashboardWorld({ selected, onSelect }: { selected: ProjectCube; onSelect: (project: ProjectCube) => void }) {
+function GlassCubeWorld({ selected, onSelect }: { selected: ProjectCube; onSelect: (id: string) => void }) {
+  const { camera } = useThree();
   const rootRef = useRef<THREE.Group>(null);
   const scanRef = useRef<THREE.Group>(null);
-  const controlsRef = useRef<any>(null);
-  const { camera } = useThree();
-  const backdropTexture = useMemo(() => createCyberBackdropTexture(), []);
+  const backgroundTexture = useMemo(() => createReferenceLikeBackdropTexture(), []);
+  const titleTexture = useMemo(() => createTitleTexture(), []);
+  const selectedTexture = useMemo(() => createSelectedTexture(selected), [selected]);
 
   useEffect(() => {
     camera.up.set(0, 0, 1);
-    camera.position.set(0, -8.8, 4.8);
-    camera.lookAt(0, 0, 2.1);
+    camera.position.set(0, -7.8, 4.15);
+    camera.lookAt(0, -0.1, 1.95);
   }, [camera]);
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    if (rootRef.current) rootRef.current.position.z = Math.sin(t * 0.68) * 0.045;
-    if (scanRef.current) {
-      scanRef.current.rotation.z = t * 0.18;
-      scanRef.current.position.z = 0.04 + Math.sin(t * 1.6) * 0.035;
-    }
-    if (controlsRef.current) controlsRef.current.update();
+    if (rootRef.current) rootRef.current.position.z = Math.sin(t * 0.5) * 0.02;
+    if (scanRef.current) scanRef.current.rotation.z = t * 0.12;
   });
 
   return (
     <>
-      <color attach="background" args={["#020711"]} />
-      <fog attach="fog" args={["#03101b", 7, 28]} />
-      <ambientLight intensity={0.22} />
-      <pointLight color="#46f7ff" intensity={4.2} distance={13} position={[0, -1.2, 2.2]} />
-      <pointLight color="#ff5f96" intensity={2.8} distance={8} position={[-2.4, -0.2, 3.6]} />
-      <pointLight color="#57ffae" intensity={2.1} distance={8} position={[2.2, 0.4, 3.8]} />
+      <color attach="background" args={["#020816"]} />
+      <fog attach="fog" args={["#04172a", 8, 27]} />
+      <ambientLight intensity={0.3} />
+      <pointLight position={[0, -0.8, 1.3]} color="#4ff7ff" intensity={8} distance={9} decay={1.8} />
+      <pointLight position={[0, -2.4, 3.6]} color="#ffffff" intensity={2.4} distance={9} decay={1.8} />
+      <pointLight position={[-3.5, -0.2, 3.4]} color="#46f7ff" intensity={2.5} distance={9} decay={1.8} />
+      <pointLight position={[3.4, -0.15, 3.3]} color="#338cff" intensity={2.2} distance={9} decay={1.8} />
       <OrbitControls
-        ref={controlsRef}
-        target={[0, 0, 2.1]}
+        target={[0, -0.1, 1.95]}
         enableDamping
         dampingFactor={0.08}
         enablePan={false}
-        minDistance={5.4}
-        maxDistance={13.5}
-        maxPolarAngle={Math.PI / 2.05}
-        rotateSpeed={0.44}
-        zoomSpeed={0.65}
+        enableZoom
+        minDistance={6}
+        maxDistance={10}
+        maxPolarAngle={Math.PI / 2.08}
+        rotateSpeed={0.28}
+        zoomSpeed={0.42}
         autoRotate={false}
       />
-      <mesh position={[0, 5.4, 4.1]} rotation={[Math.PI / 2, 0, 0]} renderOrder={-20}>
-        <planeGeometry args={[24, 10]} />
-        <meshBasicMaterial map={backdropTexture} transparent opacity={0.74} depthWrite={false} />
+      <mesh position={[0, 5.0, 3.35]} rotation={[Math.PI / 2, 0, 0]} renderOrder={-10}>
+        <planeGeometry args={[15.8, 7.1]} />
+        <meshBasicMaterial map={backgroundTexture} transparent opacity={0.96} depthWrite={false} />
+      </mesh>
+      <mesh position={[-4.2, -1.95, 5.0]} rotation={[Math.PI / 2, 0, 0]} renderOrder={40}>
+        <planeGeometry args={[3.65, 0.78]} />
+        <meshBasicMaterial map={titleTexture} transparent opacity={0.95} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
       <group ref={rootRef}>
-        <HolographicFloor />
+        <FloorPortal />
         <group ref={scanRef}>
-          <ScanningRings />
+          <FloorScanArcs />
         </group>
-        <ProjectCubeCluster selectedId={selected.id} onSelect={onSelect} />
-        <HudWing side="left" position={[-4.3, -0.28, 2.5]} metrics={leftKpis} title="STUDIO CORE KPI" subtitle="OPERATING HEALTH" />
-        <HudWing side="right" position={[4.3, -0.28, 2.5]} metrics={rightKpis} title="AMD VALUE PROOF" subtitle="INTERVENTION DELTA" />
-        <SelectedCubeBeams project={selected} />
+        <HudPanel side="left" position={[-3.62, -0.4, 2.66]} title="STUDIO CORE KPI" subtitle="OPERATING HEALTH" metrics={leftMetrics} />
+        <HudPanel side="right" position={[3.62, -0.4, 2.66]} title="AMD VALUE PROOF" subtitle="INTERVENTION DELTA" metrics={rightMetrics} />
+        <ProjectCubes selectedId={selected.id} onSelect={onSelect} />
+        <SelectionBeams project={selected} />
+        <mesh position={[2.55, -2.0, 0.92]} rotation={[Math.PI / 2, 0, 0]} renderOrder={32}>
+          <planeGeometry args={[2.95, 0.64]} />
+          <meshBasicMaterial map={selectedTexture} transparent opacity={0.92} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
       </group>
     </>
   );
 }
 
-function ProjectCubeCluster({ selectedId, onSelect }: { selectedId: string; onSelect: (project: ProjectCube) => void }) {
-  const prismTexture = useMemo(() => createPrismTexture(), []);
+function ProjectCubes({ selectedId, onSelect }: { selectedId: string; onSelect: (id: string) => void }) {
+  const cubeRotation: [number, number, number] = [0.58, 0.68, -0.16];
+  const glassTexture = useMemo(() => createGlassTexture(), []);
+  const labelTextures = useMemo(() => new Map(projects.map((project) => [project.id, createCubeLabelTexture(project)])), []);
+
   return (
     <group>
       {projects.map((project, index) => (
-        <GlassProjectCube
+        <GlassCube
           key={project.id}
           project={project}
           index={index}
-          prismTexture={prismTexture}
           selected={selectedId === project.id}
-          onSelect={() => onSelect(project)}
+          rotation={cubeRotation}
+          glassTexture={glassTexture}
+          labelTexture={labelTextures.get(project.id) ?? glassTexture}
+          onSelect={() => onSelect(project.id)}
         />
       ))}
-      <mesh position={[0, -0.24, 0.92]} rotation={[Math.PI / 2, 0, 0]} renderOrder={3}>
-        <torusGeometry args={[2.75, 0.012, 8, 160]} />
-        <meshBasicMaterial color="#e7ffff" transparent opacity={0.46} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      <mesh position={[0, -0.24, 0.95]} rotation={[Math.PI / 2, 0, 0]} renderOrder={3}>
-        <torusGeometry args={[1.55, 0.01, 8, 128]} />
-        <meshBasicMaterial color="#46f7ff" transparent opacity={0.68} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
     </group>
   );
 }
 
-function GlassProjectCube({ project, index, prismTexture, selected, onSelect }: { project: ProjectCube; index: number; prismTexture: THREE.Texture; selected: boolean; onSelect: () => void }) {
+function GlassCube({
+  project,
+  index,
+  selected,
+  rotation,
+  glassTexture,
+  labelTexture,
+  onSelect,
+}: {
+  project: ProjectCube;
+  index: number;
+  selected: boolean;
+  rotation: [number, number, number];
+  glassTexture: THREE.Texture;
+  labelTexture: THREE.Texture;
+  onSelect: () => void;
+}) {
   const groupRef = useRef<THREE.Group>(null);
-  const innerRef = useRef<THREE.Mesh>(null);
-  const edgeGeometry = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(0.98, 0.98, 0.98), 18), []);
+  const edgeGeometry = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1), 18), []);
 
   useFrame(({ clock }) => {
-    const t = clock.elapsedTime + index * 0.47;
-    if (groupRef.current) {
-      groupRef.current.position.z = project.position[2] + Math.sin(t * 1.15) * 0.16;
-      groupRef.current.rotation.x = project.rotation[0] + Math.sin(t * 0.36) * 0.08;
-      groupRef.current.rotation.y = project.rotation[1] + t * 0.13;
-      groupRef.current.rotation.z = project.rotation[2] + Math.cos(t * 0.42) * 0.06;
-      groupRef.current.scale.setScalar(selected ? 1.18 + Math.sin(t * 7.5) * 0.025 : 1);
-    }
-    if (innerRef.current) innerRef.current.rotation.y = -t * 0.22;
+    const t = clock.elapsedTime + index * 0.5;
+    if (!groupRef.current) return;
+    groupRef.current.position.z = project.position[2] + Math.sin(t * 0.9) * 0.08;
+    groupRef.current.rotation.x = rotation[0] + Math.sin(t * 0.25) * 0.025;
+    groupRef.current.rotation.y = rotation[1] + Math.sin(t * 0.2) * 0.018;
+    groupRef.current.rotation.z = rotation[2] + Math.cos(t * 0.18) * 0.018;
+    groupRef.current.scale.setScalar(project.scale * (selected ? 1.12 : 1));
   });
 
   return (
-    <group position={project.position} ref={groupRef}>
-      <pointLight color={project.accent} intensity={selected ? 3.8 : 1.65} distance={4.8} decay={1.7} />
+    <group ref={groupRef} position={project.position} rotation={rotation}>
+      <pointLight color={project.accent} intensity={selected ? 3.5 : 1.35} distance={4.2} decay={1.7} />
       <mesh
+        renderOrder={15}
         onClick={(event) => {
           event.stopPropagation();
           onSelect();
         }}
         onPointerDown={(event) => event.stopPropagation()}
-        renderOrder={12}
       >
         <boxGeometry args={[1, 1, 1]} />
         <meshPhysicalMaterial
           color={project.accent}
-          map={prismTexture}
+          map={glassTexture}
           transparent
-          opacity={selected ? 0.58 : 0.42}
-          roughness={0.08}
-          metalness={0.08}
+          opacity={selected ? 0.56 : 0.42}
+          roughness={0.04}
+          metalness={0.05}
           transmission={0.62}
-          thickness={0.74}
+          thickness={0.8}
           ior={1.65}
-          reflectivity={0.78}
+          reflectivity={0.82}
           emissive={project.accent}
-          emissiveIntensity={selected ? 0.32 : 0.14}
+          emissiveIntensity={selected ? 0.22 : 0.1}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
         />
       </mesh>
-      <lineSegments geometry={edgeGeometry} renderOrder={14}>
-        <lineBasicMaterial color={selected ? "#ffffff" : project.accent} transparent opacity={selected ? 0.95 : 0.58} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </lineSegments>
-      <mesh ref={innerRef} scale={0.58} renderOrder={13}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial color="#020b14" transparent opacity={0.48} depthWrite={false} />
+      <mesh position={[0, -0.506, 0]} rotation={[Math.PI / 2, 0, 0]} renderOrder={18}>
+        <planeGeometry args={[0.82, 0.82]} />
+        <meshBasicMaterial map={labelTexture} transparent opacity={0.98} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
-      <Html transform center position={[0, -0.526, 0.01]} rotation={[Math.PI / 2, 0, 0]} distanceFactor={4.2} zIndexRange={[42, 0]} style={{ pointerEvents: "auto" }}>
-        <button
-          className={`cube-face-label ${selected ? "active" : ""}`}
-          type="button"
-          style={{ "--cube-accent": project.accent } as CSSProperties}
-          onClick={(event) => {
-            event.stopPropagation();
-            onSelect();
-          }}
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          <b>{project.code}</b>
-          <span>{project.name}</span>
-        </button>
-      </Html>
-      <Html transform center position={[0, 0, 0.74]} distanceFactor={5.2} zIndexRange={[32, 0]}>
-        <span className="cube-air-label" style={{ "--cube-accent": project.accent } as CSSProperties}>{project.metric}</span>
-      </Html>
+      <lineSegments geometry={edgeGeometry} renderOrder={19}>
+        <lineBasicMaterial color={selected ? "#f4ffff" : project.accent} transparent opacity={selected ? 0.96 : 0.58} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </lineSegments>
     </group>
   );
 }
 
-function SelectedCubeBeams({ project }: { project: ProjectCube }) {
-  const beamGeometry = useMemo(() => {
-    const vertices = [
-      project.position[0], project.position[1], 0.2, project.position[0], project.position[1], project.position[2] - 0.68,
-      project.position[0] - 0.42, project.position[1], project.position[2] - 0.42, -4.05, -0.32, 2.5,
-      project.position[0] + 0.42, project.position[1], project.position[2] - 0.42, 4.05, -0.32, 2.5,
-    ];
+function FloorPortal() {
+  const radialGeometry = useMemo(() => {
+    const vertices: number[] = [];
+    for (let i = 0; i < 96; i += 1) {
+      const a = (i / 96) * Math.PI * 2;
+      vertices.push(Math.cos(a) * 0.6, Math.sin(a) * 0.6, 0.034, Math.cos(a) * 4.6, Math.sin(a) * 2.55, 0.034);
+    }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
     return geometry;
+  }, []);
+  const ringTexture = useMemo(() => createPortalDiscTexture(), []);
+
+  return (
+    <group position={[0, -0.56, 0]}>
+      <mesh position={[0, 0, 0.01]} renderOrder={1}>
+        <circleGeometry args={[2.55, 160]} />
+        <meshBasicMaterial map={ringTexture} transparent opacity={0.82} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      <lineSegments geometry={radialGeometry} renderOrder={2}>
+        <lineBasicMaterial color="#86fbff" transparent opacity={0.26} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </lineSegments>
+      {[1.18, 1.48, 1.86, 2.16, 2.55, 3.05].map((radius, index) => (
+        <mesh key={radius} position={[0, 0, 0.025 + index * 0.003]} renderOrder={3}>
+          <torusGeometry args={[radius, index % 2 ? 0.012 : 0.02, 8, 180]} />
+          <meshBasicMaterial color={index % 2 ? "#2c8dff" : "#4df7ff"} transparent opacity={0.58 - index * 0.055} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0, 0.04]} renderOrder={4}>
+        <circleGeometry args={[0.72, 96]} />
+        <meshBasicMaterial color="#d8ffff" transparent opacity={0.25} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, 0, 0.08]} renderOrder={5}>
+        <circleGeometry args={[0.28, 64]} />
+        <meshBasicMaterial color="#f2ffff" transparent opacity={0.85} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function FloorScanArcs() {
+  return (
+    <group position={[0, -0.56, 0.08]}>
+      <mesh renderOrder={8}>
+        <torusGeometry args={[3.55, 0.018, 8, 160, Math.PI * 1.5]} />
+        <meshBasicMaterial color="#d8ffff" transparent opacity={0.46} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      <mesh rotation={[0, 0, Math.PI * 0.72]} renderOrder={8}>
+        <torusGeometry args={[2.78, 0.014, 8, 140, Math.PI * 1.12]} />
+        <meshBasicMaterial color="#2c8dff" transparent opacity={0.5} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      <mesh rotation={[0, 0, Math.PI * 1.3]} renderOrder={8}>
+        <torusGeometry args={[2.05, 0.012, 8, 120, Math.PI * 1.28]} />
+        <meshBasicMaterial color="#61ffb3" transparent opacity={0.38} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function HudPanel({ side, position, title, subtitle, metrics }: { side: "left" | "right"; position: [number, number, number]; title: string; subtitle: string; metrics: HudMetric[] }) {
+  const panelTexture = useMemo(() => createHudPanelTexture({ title, subtitle, metrics, side }), [title, subtitle, metrics, side]);
+  const width = 2.7;
+  const height = 2.22;
+  const frame = useMemo(() => createHudFrameGeometry(width, height, side), [side]);
+  const detail = useMemo(() => createHudDetailGeometry(width, height, side), [side]);
+
+  return (
+    <group position={position} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh renderOrder={20}>
+        <planeGeometry args={[width, height]} />
+        <meshBasicMaterial map={panelTexture} transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      <lineSegments geometry={frame} renderOrder={22}>
+        <lineBasicMaterial color={side === "left" ? "#86fbff" : "#ffad57"} transparent opacity={0.92} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </lineSegments>
+      <lineSegments geometry={detail} renderOrder={23}>
+        <lineBasicMaterial color={side === "left" ? "#61ffb3" : "#86fbff"} transparent opacity={0.58} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </lineSegments>
+      {metrics.map((metric, index) => (
+        <HudRing key={metric.label} metric={metric} position={[side === "left" ? -0.93 : 0.93, 0.018, 0.64 - index * 0.64]} />
+      ))}
+    </group>
+  );
+}
+
+function HudRing({ metric, position }: { metric: HudMetric; position: [number, number, number] }) {
+  const arc = Math.PI * 2 * (metric.progress / 100);
+  return (
+    <group position={position} rotation={[Math.PI / 2, 0, 0]} renderOrder={30}>
+      <mesh renderOrder={30}>
+        <torusGeometry args={[0.18, 0.006, 8, 72]} />
+        <meshBasicMaterial color="#bdfdff" transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      <mesh rotation={[0, 0, -Math.PI / 2]} renderOrder={31}>
+        <torusGeometry args={[0.2, 0.016, 8, 96, arc]} />
+        <meshBasicMaterial color={metric.accent} transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      <mesh renderOrder={32}>
+        <circleGeometry args={[0.06, 32]} />
+        <meshBasicMaterial color={metric.accent} transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function SelectionBeams({ project }: { project: ProjectCube }) {
+  const geometry = useMemo(() => {
+    const [x, y, z] = project.position;
+    const vertices = [
+      x, y, 0.14, x, y, z - 0.58,
+      x - 0.36, y, z - 0.34, -3.2, -0.4, 2.74,
+      x + 0.36, y, z - 0.34, 3.2, -0.4, 2.74,
+    ];
+    const line = new THREE.BufferGeometry();
+    line.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    return line;
   }, [project]);
 
   return (
-    <group>
-      <lineSegments geometry={beamGeometry} renderOrder={28}>
-        <lineBasicMaterial color={project.accent} transparent opacity={0.72} blending={THREE.AdditiveBlending} depthWrite={false} depthTest={false} />
-      </lineSegments>
-      <mesh position={[project.position[0], project.position[1], 0.18]} rotation={[Math.PI / 2, 0, 0]} renderOrder={8}>
-        <torusGeometry args={[0.62, 0.016, 8, 96]} />
-        <meshBasicMaterial color={project.accent} transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-    </group>
+    <lineSegments geometry={geometry} renderOrder={34}>
+      <lineBasicMaterial color={project.accent} transparent opacity={0.66} blending={THREE.AdditiveBlending} depthWrite={false} depthTest={false} />
+    </lineSegments>
   );
 }
 
-function HudWing({ side, position, metrics, title, subtitle }: { side: "left" | "right"; position: [number, number, number]; metrics: KpiHud[]; title: string; subtitle: string }) {
-  const width = 2.78;
-  const height = 3.48;
-  const frameGeometry = useMemo(() => createWingFrameGeometry(width, height, side), [side]);
-  const detailGeometry = useMemo(() => createWingDetailGeometry(width, height, side), [side]);
-  const rotation: [number, number, number] = [Math.PI / 2, 0, side === "left" ? -0.13 : 0.13];
-
-  return (
-    <group position={position} rotation={rotation}>
-      <mesh geometry={frameGeometry.fill} renderOrder={6}>
-        <meshBasicMaterial color="#08263a" transparent opacity={0.38} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
-      </mesh>
-      <lineSegments geometry={frameGeometry.outline} renderOrder={7}>
-        <lineBasicMaterial color="#6df9ff" transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </lineSegments>
-      <lineSegments geometry={detailGeometry} renderOrder={8}>
-        <lineBasicMaterial color={side === "left" ? "#57ffae" : "#ffad57"} transparent opacity={0.62} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </lineSegments>
-      <Html transform center distanceFactor={4.1} zIndexRange={[36, 0]} style={{ width: "340px", pointerEvents: "auto" }}>
-        <KpiPanel title={title} subtitle={subtitle} metrics={metrics} align={side} />
-      </Html>
-    </group>
-  );
-}
-
-function KpiPanel({ title, subtitle, metrics, align }: { title: string; subtitle: string; metrics: KpiHud[]; align: "left" | "right" }) {
-  return (
-    <section className={`glass-kpi-panel align-${align}`}>
-      <div className="glass-kpi-head">
-        <span>{subtitle}</span>
-        <h2>{title}</h2>
-      </div>
-      <div className="glass-kpi-list">
-        {metrics.map((metric) => (
-          <article className={`glass-kpi-row tone-${metric.tone}`} key={metric.label}>
-            <HudGauge metric={metric} />
-            <div>
-              <small>{metric.label}</small>
-              <strong>{metric.value}</strong>
-              <span>{metric.sub}</span>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function HudGauge({ metric }: { metric: KpiHud }) {
-  const accent = accentByTone[metric.tone];
-  const progress = Math.max(0, Math.min(100, metric.progress));
-  return (
-    <svg className="glass-hud-gauge" viewBox="0 0 92 92" aria-hidden="true" style={{ "--gauge-accent": accent } as CSSProperties}>
-      <path className="gauge-shell" d="M46 4 L58 9 L74 8 L84 21 L88 38 L82 55 L84 72 L70 84 L52 87 L36 82 L19 84 L8 70 L5 52 L10 36 L8 20 L22 8 Z" />
-      <circle className="gauge-track" cx="46" cy="46" r="28" pathLength="100" />
-      <circle className="gauge-progress" cx="46" cy="46" r="28" pathLength="100" strokeDasharray={`${progress} ${100 - progress}`} />
-      {Array.from({ length: 18 }, (_, index) => (
-        <line key={index} className={index * 5.56 <= progress ? "gauge-tick active" : "gauge-tick"} x1="46" y1="10" x2="46" y2="17" transform={`rotate(${index * 20} 46 46)`} />
-      ))}
-      <path className="gauge-cross" d="M28 46 H16 M64 46 H76 M46 28 V16 M46 64 V76" />
-      <circle className="gauge-core" cx="46" cy="46" r="6" />
-    </svg>
-  );
-}
-
-function HolographicFloor() {
-  const gridGeometry = useMemo(() => {
-    const vertices: number[] = [];
-    for (let i = -18; i <= 18; i += 1) {
-      vertices.push(i, -8, 0, i, 12, 0);
-      vertices.push(-18, i * 0.55, 0, 18, i * 0.55, 0);
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
-    return geometry;
-  }, []);
-
-  const radialGeometry = useMemo(() => {
-    const vertices: number[] = [];
-    for (let i = 0; i < 42; i += 1) {
-      const a = (i / 42) * Math.PI * 2;
-      vertices.push(Math.cos(a) * 0.45, Math.sin(a) * 0.45 - 0.24, 0.02, Math.cos(a) * 5.2, Math.sin(a) * 2.7 - 0.24, 0.02);
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
-    return geometry;
-  }, []);
-
-  return (
-    <group>
-      <lineSegments geometry={gridGeometry} renderOrder={1}>
-        <lineBasicMaterial color="#4ff7ff" transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </lineSegments>
-      <lineSegments geometry={radialGeometry} renderOrder={2}>
-        <lineBasicMaterial color="#9ffcff" transparent opacity={0.34} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </lineSegments>
-      <mesh position={[0, -0.24, 0.012]} rotation={[Math.PI / 2, 0, 0]} renderOrder={3}>
-        <circleGeometry args={[1.18, 96]} />
-        <meshBasicMaterial color="#46f7ff" transparent opacity={0.18} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      {[1.65, 2.08, 2.56, 3.28, 4.2].map((radius, index) => (
-        <mesh key={radius} position={[0, -0.24, 0.018 + index * 0.004]} rotation={[Math.PI / 2, 0, 0]} renderOrder={4}>
-          <torusGeometry args={[radius, index % 2 ? 0.01 : 0.018, 8, 160]} />
-          <meshBasicMaterial color={index % 2 ? "#338cff" : "#46f7ff"} transparent opacity={0.42 - index * 0.045} blending={THREE.AdditiveBlending} depthWrite={false} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function ScanningRings() {
-  return (
-    <group position={[0, -0.24, 0.09]}>
-      <mesh rotation={[Math.PI / 2, 0, 0]} renderOrder={9}>
-        <torusGeometry args={[3.72, 0.022, 8, 160, Math.PI * 1.5]} />
-        <meshBasicMaterial color="#e9ffff" transparent opacity={0.5} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      <mesh rotation={[Math.PI / 2, 0, Math.PI * 0.72]} renderOrder={9}>
-        <torusGeometry args={[2.92, 0.018, 8, 128, Math.PI * 1.18]} />
-        <meshBasicMaterial color="#ff6fa4" transparent opacity={0.42} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      <mesh rotation={[Math.PI / 2, 0, Math.PI * 1.18]} renderOrder={9}>
-        <torusGeometry args={[2.18, 0.014, 8, 128, Math.PI * 1.32]} />
-        <meshBasicMaterial color="#57ffae" transparent opacity={0.38} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-    </group>
-  );
-}
-
-function createWingFrameGeometry(width: number, height: number, side: "left" | "right") {
-  const s = side === "left" ? -1 : 1;
+function createHudFrameGeometry(width: number, height: number, side: "left" | "right") {
+  const notch = 0.26;
   const left = -width / 2;
   const right = width / 2;
-  const bottom = -height / 2;
   const top = height / 2;
-  const notch = 0.36;
-  const points = [
+  const bottom = -height / 2;
+  const points: [number, number, number][] = [
     [left, 0, top - notch],
     [left + notch, 0, top],
-    [right - notch * 1.45, 0, top],
-    [right, 0, top - notch * 1.2],
+    [right - notch * 0.75, 0, top],
+    [right, 0, top - notch],
     [right, 0, bottom + notch],
     [right - notch, 0, bottom],
-    [left + notch * 1.25, 0, bottom],
-    [left, 0, bottom + notch * 1.45],
-  ].map(([x, y, z]) => [x + s * 0.16 * Math.abs(z / height), y, z]);
-  const fill = new THREE.BufferGeometry();
-  fill.setAttribute("position", new THREE.Float32BufferAttribute(points.flat(), 3));
-  fill.setIndex([0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 7, 7, 4, 5, 7, 5, 6]);
-  const outlineVertices: number[] = [];
-  points.forEach((point, index) => outlineVertices.push(...point, ...points[(index + 1) % points.length]));
-  const outline = new THREE.BufferGeometry();
-  outline.setAttribute("position", new THREE.Float32BufferAttribute(outlineVertices, 3));
-  return { fill, outline };
-}
-
-function createWingDetailGeometry(width: number, height: number, side: "left" | "right") {
-  const s = side === "left" ? -1 : 1;
+    [left + notch * 0.8, 0, bottom],
+    [left, 0, bottom + notch],
+  ];
+  if (side === "right") points.reverse();
   const vertices: number[] = [];
-  for (let i = 0; i < 7; i += 1) {
-    const z = -height / 2 + 0.62 + i * 0.45;
-    vertices.push(-width / 2 + 0.28, 0.01, z, width / 2 - 0.48 - (i % 2) * 0.28, 0.01, z);
-  }
-  vertices.push(s * 0.4, 0.012, height / 2 - 0.35, s * 2.25, 0.012, height / 2 + 0.26);
-  vertices.push(s * 1.1, 0.012, -height / 2 + 0.36, s * 2.42, 0.012, -height / 2 - 0.1);
+  points.forEach((point, index) => vertices.push(...point, ...points[(index + 1) % points.length]));
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
   return geometry;
+}
+
+function createHudDetailGeometry(width: number, height: number, side: "left" | "right") {
+  const vertices: number[] = [];
+  const left = -width / 2 + 0.22;
+  const right = width / 2 - 0.22;
+  const sign = side === "left" ? 1 : -1;
+  for (let i = 0; i < 6; i += 1) {
+    const z = height / 2 - 0.42 - i * 0.36;
+    vertices.push(left, 0.01, z, right - (i % 2) * 0.34 * sign, 0.01, z);
+  }
+  vertices.push(left, 0.012, -height / 2 + 0.18, right, 0.012, -height / 2 + 0.18);
+  vertices.push(sign * 0.5, 0.012, height / 2 + 0.14, sign * 1.65, 0.012, height / 2 + 0.42);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+  return geometry;
+}
+
+function createTexture(width: number, height: number, draw: (ctx: CanvasRenderingContext2D) => void) {
+  if (typeof document === "undefined") return createFallbackTexture([10, 40, 70, 255]);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return createFallbackTexture([10, 40, 70, 255]);
+  draw(ctx);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 function createFallbackTexture(color: [number, number, number, number]) {
@@ -454,97 +416,229 @@ function createFallbackTexture(color: [number, number, number, number]) {
   return texture;
 }
 
-function createPrismTexture() {
-  if (typeof document === "undefined") return createFallbackTexture([70, 247, 255, 180]);
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 512;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return createFallbackTexture([70, 247, 255, 180]);
-  const gradient = ctx.createLinearGradient(0, 0, 512, 512);
-  gradient.addColorStop(0, "rgba(255,118,164,0.95)");
-  gradient.addColorStop(0.28, "rgba(62,247,255,0.72)");
-  gradient.addColorStop(0.52, "rgba(7,23,48,0.86)");
-  gradient.addColorStop(0.74, "rgba(255,97,137,0.82)");
-  gradient.addColorStop(1, "rgba(255,198,88,0.9)");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < 34; i += 1) {
-    ctx.fillStyle = `rgba(${120 + (i * 19) % 120}, ${210 + (i * 7) % 45}, 255, ${0.05 + (i % 4) * 0.025})`;
-    ctx.fillRect((i * 47) % 512, (i * 83) % 512, 28 + (i % 5) * 16, 80 + (i % 3) * 42);
-  }
-  for (let i = 0; i < 8; i += 1) {
-    ctx.strokeStyle = i % 2 ? "rgba(255,255,255,0.22)" : "rgba(62,247,255,0.22)";
+function createReferenceLikeBackdropTexture() {
+  return createTexture(1800, 900, (ctx) => {
+    const gradient = ctx.createRadialGradient(900, 610, 40, 900, 490, 820);
+    gradient.addColorStop(0, "#0ea7e7");
+    gradient.addColorStop(0.16, "#0c5f9d");
+    gradient.addColorStop(0.5, "#062346");
+    gradient.addColorStop(1, "#010713");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 1800, 900);
+
+    ctx.globalCompositeOperation = "screen";
+    ctx.strokeStyle = "rgba(77,247,255,0.26)";
+    ctx.lineWidth = 3;
+    const drawCircuit = (x: number, y: number, flip = 1) => {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + 210 * flip, y);
+      ctx.lineTo(x + 270 * flip, y + 48);
+      ctx.lineTo(x + 420 * flip, y + 48);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(105,255,255,0.65)";
+      ctx.fillRect(x - 8, y - 8, 16, 16);
+      ctx.fillRect(x + 420 * flip - 8, y + 40, 16, 16);
+    };
+    drawCircuit(140, 180, 1);
+    drawCircuit(1480, 142, -1);
+    drawCircuit(260, 600, 1);
+    drawCircuit(1550, 610, -1);
+
+    for (let i = 0; i < 4; i += 1) {
+      ctx.beginPath();
+      ctx.arc(380 + i * 74, 92, 28 + i * 2, 0, Math.PI * 1.7);
+      ctx.strokeStyle = i % 2 ? "rgba(55,150,255,0.42)" : "rgba(75,247,255,0.58)";
+      ctx.lineWidth = 5;
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = "rgba(55,150,255,0.22)";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 40; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(0, 690 + i * 10);
+      ctx.lineTo(1800, 760 + i * 5);
+      ctx.stroke();
+    }
+
+    for (let i = 0; i < 210; i += 1) {
+      const x = (i * 137) % 1800;
+      const y = (i * 73) % 820;
+      ctx.fillStyle = `rgba(120,235,255,${0.06 + (i % 5) * 0.025})`;
+      ctx.fillRect(x, y, i % 6 === 0 ? 3 : 1, i % 7 === 0 ? 3 : 1);
+    }
+  });
+}
+
+function createPortalDiscTexture() {
+  return createTexture(768, 768, (ctx) => {
+    const cx = 384;
+    const cy = 384;
+    ctx.clearRect(0, 0, 768, 768);
+    const gradient = ctx.createRadialGradient(cx, cy, 16, cx, cy, 360);
+    gradient.addColorStop(0, "rgba(245,255,255,0.92)");
+    gradient.addColorStop(0.15, "rgba(78,247,255,0.7)");
+    gradient.addColorStop(0.45, "rgba(36,140,255,0.26)");
+    gradient.addColorStop(1, "rgba(36,140,255,0)");
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 360, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(165,255,255,0.72)";
+    for (let i = 0; i < 9; i += 1) {
+      ctx.lineWidth = i % 2 ? 3 : 6;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 70 + i * 31, i * 0.22, Math.PI * 2 - i * 0.18);
+      ctx.stroke();
+    }
+  });
+}
+
+function createGlassTexture() {
+  return createTexture(512, 512, (ctx) => {
+    const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+    gradient.addColorStop(0, "rgba(255,95,145,0.88)");
+    gradient.addColorStop(0.26, "rgba(52,235,255,0.72)");
+    gradient.addColorStop(0.52, "rgba(5,24,56,0.72)");
+    gradient.addColorStop(0.76, "rgba(255,116,102,0.8)");
+    gradient.addColorStop(1, "rgba(255,217,82,0.82)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 512, 512);
+    ctx.globalCompositeOperation = "screen";
+    for (let i = 0; i < 16; i += 1) {
+      ctx.fillStyle = i % 2 ? "rgba(255,255,255,0.12)" : "rgba(66,247,255,0.12)";
+      ctx.fillRect((i * 61) % 512, (i * 97) % 512, 34 + (i % 4) * 18, 96 + (i % 3) * 32);
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.24)";
+    ctx.lineWidth = 4;
+    for (let i = 0; i < 6; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(0, 80 + i * 64);
+      ctx.lineTo(512, 12 + i * 76);
+      ctx.stroke();
+    }
+  });
+}
+
+function createCubeLabelTexture(project: ProjectCube) {
+  return createTexture(512, 512, (ctx) => {
+    ctx.clearRect(0, 0, 512, 512);
+    const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+    gradient.addColorStop(0, hexToRgba(project.accent, 0.55));
+    gradient.addColorStop(0.6, "rgba(0,12,28,0.52)");
+    gradient.addColorStop(1, "rgba(255,255,255,0.12)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(34, 44, 444, 424);
+    ctx.strokeStyle = hexToRgba(project.accent, 0.95);
+    ctx.lineWidth = 7;
+    ctx.strokeRect(34, 44, 444, 424);
+    ctx.fillStyle = "#f6ffff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "800 92px Orbitron, Arial";
+    ctx.shadowColor = project.accent;
+    ctx.shadowBlur = 22;
+    ctx.fillText(project.code, 256, 198);
+    ctx.font = "700 38px Arial";
+    ctx.fillText(project.name, 256, 282);
+    ctx.font = "500 24px Arial";
+    ctx.fillStyle = "rgba(230,255,255,0.82)";
+    ctx.fillText(project.metric, 256, 342);
+  });
+}
+
+function createHudPanelTexture({ title, subtitle, metrics, side }: { title: string; subtitle: string; metrics: HudMetric[]; side: "left" | "right" }) {
+  return createTexture(900, 720, (ctx) => {
+    ctx.clearRect(0, 0, 900, 720);
+    const alignRight = side === "right";
+    const gradient = ctx.createLinearGradient(alignRight ? 900 : 0, 0, alignRight ? 0 : 900, 0);
+    gradient.addColorStop(0, side === "left" ? "rgba(70,247,255,0.18)" : "rgba(255,173,87,0.2)");
+    gradient.addColorStop(0.55, "rgba(2,18,34,0.52)");
+    gradient.addColorStop(1, "rgba(2,18,34,0.1)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 900, 720);
+    ctx.textAlign = alignRight ? "right" : "left";
+    ctx.fillStyle = "rgba(205,255,255,0.72)";
+    ctx.font = "800 26px Arial";
+    ctx.fillText(subtitle, alignRight ? 810 : 90, 90);
+    ctx.fillStyle = "#f4ffff";
+    ctx.font = "800 58px Orbitron, Arial";
+    ctx.shadowColor = side === "left" ? "#46f7ff" : "#ffad57";
+    ctx.shadowBlur = 18;
+    ctx.fillText(title, alignRight ? 810 : 90, 148);
+    ctx.shadowBlur = 0;
+    metrics.forEach((metric, index) => {
+      const y = 252 + index * 150;
+      ctx.strokeStyle = hexToRgba(metric.accent, 0.7);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(alignRight ? 120 : 260, y - 55);
+      ctx.lineTo(alignRight ? 640 : 780, y - 55);
+      ctx.lineTo(alignRight ? 720 : 850, y - 30);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(210,255,255,0.7)";
+      ctx.font = "800 24px Arial";
+      ctx.fillText(metric.label, alignRight ? 600 : 300, y - 14);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "800 64px Orbitron, Arial";
+      ctx.shadowColor = metric.accent;
+      ctx.shadowBlur = 18;
+      ctx.fillText(metric.value, alignRight ? 600 : 300, y + 44);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(220,255,255,0.72)";
+      ctx.font = "600 20px Arial";
+      ctx.fillText(metric.sub, alignRight ? 600 : 300, y + 88);
+    });
+  });
+}
+
+function createTitleTexture() {
+  return createTexture(760, 180, (ctx) => {
+    ctx.clearRect(0, 0, 760, 180);
+    ctx.fillStyle = "#f4ffff";
+    ctx.font = "800 72px Orbitron, Arial";
+    ctx.shadowColor = "#46f7ff";
+    ctx.shadowBlur = 24;
+    ctx.fillText("AMD // OS", 22, 88);
+    ctx.fillStyle = "#9ffbff";
+    ctx.font = "800 24px Arial";
+    ctx.fillText("HOLOGRAPHIC PORTFOLIO CHAMBER V2", 26, 132);
+  });
+}
+
+function createSelectedTexture(project: ProjectCube) {
+  return createTexture(760, 180, (ctx) => {
+    ctx.clearRect(0, 0, 760, 180);
+    ctx.strokeStyle = hexToRgba(project.accent, 0.65);
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(0, 70 + i * 54);
-    ctx.lineTo(512, 18 + i * 64);
+    ctx.moveTo(0, 22);
+    ctx.lineTo(760, 22);
+    ctx.moveTo(0, 152);
+    ctx.lineTo(760, 152);
     ctx.stroke();
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  return texture;
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(190,255,255,0.72)";
+    ctx.font = "800 22px Arial";
+    ctx.fillText("SELECTED CUBE", 700, 64);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 54px Orbitron, Arial";
+    ctx.shadowColor = project.accent;
+    ctx.shadowBlur = 20;
+    ctx.fillText(project.name, 700, 118);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(220,255,255,0.75)";
+    ctx.font = "600 18px Arial";
+    ctx.fillText(`${project.metric} / VALUE LIFT ${project.lift}`, 700, 146);
+  });
 }
 
-function createCyberBackdropTexture() {
-  if (typeof document === "undefined") return createFallbackTexture([2, 7, 17, 255]);
-  const canvas = document.createElement("canvas");
-  canvas.width = 1600;
-  canvas.height = 720;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return createFallbackTexture([2, 7, 17, 255]);
-  const gradient = ctx.createRadialGradient(800, 520, 40, 800, 420, 780);
-  gradient.addColorStop(0, "#0c8dce");
-  gradient.addColorStop(0.28, "#07375f");
-  gradient.addColorStop(0.72, "#031426");
-  gradient.addColorStop(1, "#010713");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.globalCompositeOperation = "screen";
-  for (let i = 0; i < 220; i += 1) {
-    const x = (i * 139) % canvas.width;
-    const y = (i * 73) % canvas.height;
-    const alpha = 0.08 + ((i * 17) % 40) / 280;
-    ctx.fillStyle = `rgba(98,235,255,${alpha})`;
-    ctx.fillRect(x, y, i % 5 === 0 ? 3 : 1, i % 7 === 0 ? 3 : 1);
-  }
-  ctx.strokeStyle = "rgba(78,247,255,0.18)";
-  ctx.lineWidth = 2;
-  for (let i = 0; i < 16; i += 1) {
-    const y = 118 + i * 34;
-    ctx.beginPath();
-    ctx.moveTo(120 + i * 11, y);
-    ctx.lineTo(420 + i * 21, y);
-    ctx.lineTo(470 + i * 21, y + 28);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(1080 - i * 18, y + 12);
-    ctx.lineTo(1460 - i * 9, y + 12);
-    ctx.lineTo(1510 - i * 9, y + 42);
-    ctx.stroke();
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
-function GlassDashboardStyles() {
-  return (
-    <style jsx global>{`
-      @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Share+Tech+Mono&display=swap");
-      .glassdash-page{--ice:#eaffff;--cyan:#46f7ff;--green:#61ffb3;--amber:#ffad57;position:fixed;inset:0;z-index:30;overflow:hidden;color:var(--ice);background:#020711;font-family:"Share Tech Mono",ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.05em}
-      .glassdash-canvas{position:absolute;inset:0}.glassdash-page:before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 1px,transparent 1px 5px),radial-gradient(circle at 50% 67%,rgba(70,247,255,.16),transparent 28%);mix-blend-mode:screen;opacity:.62}
-      .glassdash-overlay{position:relative;z-index:2;min-height:100%;padding:clamp(20px,3vw,42px);pointer-events:none}.glassdash-brand{display:flex;align-items:center;gap:18px;width:fit-content;text-shadow:0 0 18px rgba(70,247,255,.78),0 0 44px rgba(31,128,255,.48)}.glassdash-logo{display:grid;place-items:center;width:clamp(66px,7vw,96px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(70,247,255,.22),rgba(30,112,255,.08) 56%,transparent 72%);filter:drop-shadow(0 0 18px rgba(70,247,255,.95))}.glassdash-logo img{width:72%;height:auto;filter:drop-shadow(0 0 10px rgba(70,247,255,.9))}
-      .glassdash-brand p{margin:0;font-family:"Orbitron",sans-serif;font-size:clamp(33px,4.3vw,62px);font-weight:800;line-height:.95}.glassdash-brand b{display:block;margin-top:9px;color:#9ff9ff;font-size:clamp(11px,1.2vw,17px)}.glassdash-selected{position:absolute;right:clamp(20px,4vw,58px);bottom:clamp(20px,4vw,54px);min-width:min(360px,calc(100vw - 40px));padding:14px 18px;border-top:1px solid rgba(70,247,255,.78);border-bottom:1px solid rgba(70,247,255,.35);background:linear-gradient(90deg,rgba(70,247,255,.16),rgba(4,16,28,.42),transparent);text-align:right;text-shadow:0 0 14px rgba(70,247,255,.62)}.glassdash-selected span{display:block;color:rgba(193,253,255,.72);font-size:11px;font-weight:900}.glassdash-selected strong{display:block;margin-top:4px;font-family:"Orbitron",sans-serif;font-size:clamp(22px,2.5vw,34px);line-height:1}.glassdash-selected small{display:block;margin-top:7px;color:rgba(225,253,255,.76);font-size:11px}
-      .cube-face-label{--cube-accent:#46f7ff;display:grid;gap:2px;place-items:center;width:138px;height:82px;appearance:none;border:1px solid color-mix(in srgb,var(--cube-accent),white 22%);background:linear-gradient(135deg,color-mix(in srgb,var(--cube-accent),transparent 62%),rgba(2,8,18,.46) 54%,rgba(255,255,255,.12));color:#fff;text-align:center;cursor:pointer;pointer-events:auto;clip-path:polygon(8% 0,100% 0,92% 100%,0 100%);box-shadow:inset 0 0 20px color-mix(in srgb,var(--cube-accent),transparent 66%),0 0 18px color-mix(in srgb,var(--cube-accent),transparent 24%);backdrop-filter:blur(8px) saturate(1.35)}.cube-face-label b{font-family:"Orbitron",sans-serif;font-size:20px;line-height:1;text-shadow:0 0 14px var(--cube-accent)}.cube-face-label span{font-size:11px;line-height:1.1;color:#eaffff}.cube-face-label.active{animation:cubeFacePulse 980ms ease-in-out infinite alternate;filter:brightness(1.38)}
-      .cube-air-label{--cube-accent:#46f7ff;display:inline-block;min-width:118px;padding:4px 8px;border:1px solid color-mix(in srgb,var(--cube-accent),transparent 48%);background:rgba(0,12,22,.48);color:#eaffff;font-size:10px;text-align:center;text-shadow:0 0 10px var(--cube-accent);box-shadow:inset 0 0 12px color-mix(in srgb,var(--cube-accent),transparent 78%),0 0 14px color-mix(in srgb,var(--cube-accent),transparent 42%)}
-      .glass-kpi-panel{box-sizing:border-box;width:340px;min-height:420px;padding:18px 20px;color:#eaffff;background:linear-gradient(90deg,rgba(70,247,255,.1),rgba(3,15,28,.38) 45%,rgba(7,30,44,.22));text-shadow:0 0 12px rgba(70,247,255,.52)}.glass-kpi-panel.align-right{text-align:right;background:linear-gradient(270deg,rgba(255,173,87,.13),rgba(3,15,28,.4) 46%,rgba(7,30,44,.2))}.glass-kpi-head{margin-bottom:15px;padding-bottom:11px;border-bottom:1px solid rgba(130,252,255,.42)}.glass-kpi-head span{display:block;color:rgba(194,253,255,.7);font-size:9px;font-weight:900;letter-spacing:.18em}.glass-kpi-head h2{margin:6px 0 0;font-family:"Orbitron",sans-serif;font-size:21px;line-height:1.08;text-shadow:0 0 18px rgba(70,247,255,.88)}
-      .glass-kpi-list{display:grid;gap:11px}.glass-kpi-row{--row-accent:#46f7ff;display:grid;grid-template-columns:78px 1fr;gap:12px;align-items:center;min-height:90px;padding:9px 10px;border:1px solid color-mix(in srgb,var(--row-accent),transparent 58%);background:linear-gradient(90deg,color-mix(in srgb,var(--row-accent),transparent 86%),rgba(0,10,20,.34));box-shadow:inset 0 0 20px color-mix(in srgb,var(--row-accent),transparent 88%),0 0 20px color-mix(in srgb,var(--row-accent),transparent 82%);clip-path:polygon(0 0,calc(100% - 15px) 0,100% 15px,100% 100%,15px 100%,0 calc(100% - 15px))}.align-right .glass-kpi-row{grid-template-columns:1fr 78px}.align-right .glass-kpi-row .glass-hud-gauge{grid-column:2}.align-right .glass-kpi-row div{grid-row:1;grid-column:1}.tone-cyan{--row-accent:#46f7ff}.tone-green{--row-accent:#61ffb3}.tone-amber{--row-accent:#ffad57}.tone-violet{--row-accent:#c781ff}.glass-kpi-row small{display:block;color:rgba(202,253,255,.68);font-size:9px;font-weight:900}.glass-kpi-row strong{display:block;margin-top:3px;color:#fff;font-family:"Orbitron",sans-serif;font-size:27px;line-height:1;text-shadow:0 0 18px var(--row-accent)}.glass-kpi-row span{display:block;margin-top:6px;color:rgba(222,252,255,.7);font-size:9px}
-      .glass-hud-gauge{width:74px;height:74px;overflow:visible;filter:drop-shadow(0 0 7px var(--gauge-accent)) drop-shadow(0 0 16px color-mix(in srgb,var(--gauge-accent),transparent 48%))}.gauge-shell{fill:rgba(4,19,31,.38);stroke:var(--gauge-accent);stroke-width:1.15;vector-effect:non-scaling-stroke}.gauge-track{fill:none;stroke:rgba(190,255,255,.2);stroke-width:2}.gauge-progress{fill:none;stroke:var(--gauge-accent);stroke-width:6;stroke-linecap:butt;transform:rotate(-90deg);transform-origin:46px 46px}.gauge-tick,.gauge-cross{stroke:rgba(210,255,255,.32);stroke-width:1.25;vector-effect:non-scaling-stroke}.gauge-tick.active,.gauge-cross{stroke:var(--gauge-accent);filter:drop-shadow(0 0 4px var(--gauge-accent))}.gauge-core{fill:var(--gauge-accent);filter:drop-shadow(0 0 7px var(--gauge-accent))}
-      @keyframes cubeFacePulse{from{box-shadow:inset 0 0 20px color-mix(in srgb,var(--cube-accent),transparent 66%),0 0 18px color-mix(in srgb,var(--cube-accent),transparent 24%)}to{box-shadow:inset 0 0 34px color-mix(in srgb,var(--cube-accent),transparent 44%),0 0 38px color-mix(in srgb,var(--cube-accent),transparent 6%),0 0 100px color-mix(in srgb,var(--cube-accent),transparent 34%)}}
-      @media (max-width: 820px){.glassdash-selected{left:20px;right:20px;text-align:left}.glass-kpi-panel{width:340px;padding:18px}.glass-kpi-head h2{font-size:20px}.glass-kpi-row{grid-template-columns:76px 1fr}.glass-hud-gauge{width:72px;height:72px}.cube-face-label{width:116px;height:70px}}
-    `}</style>
-  );
+function hexToRgba(hex: string, alpha: number) {
+  const raw = hex.replace("#", "");
+  const value = Number.parseInt(raw, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
 }

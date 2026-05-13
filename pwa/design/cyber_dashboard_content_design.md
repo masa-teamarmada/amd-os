@@ -145,9 +145,9 @@ HUDの形状そのものをCSSで無理に作ると品質が落ちる。
 
 - route: `/mock/dashboard-cyber-glass-cube` (公開確認用)
 - route: `/dashboard-cyber-glass-cube` (認証付き実環境)
-- PJ表示: 中央の浮遊ガラスキューブ群。各キューブ表面にPJ code / PJ名、上方ラベルにX/F/M系の簡易指標を表示。
-- 空間: 参考画像のような青系holographic chamber。床面は発光円盤・放射線・スキャンリング、背景はcomponent内で生成したCanvasTexture。
-- KPI: 左側に `Studio Core KPI`、右側に `AMD Value Proof`。HUDフレームはthree.js geometry、数値とSVGゲージはHTML/SVG。
+- PJ表示: 中央の浮遊ガラスキューブ群。PJ code / PJ名 / XFM指標はHTML/CSSラベルではなく、CanvasTextureに焼いてキューブ表面へ貼る。
+- 空間: 参考画像のような青系holographic chamber。全面グリッドは置かず、床面の円形HUD・放射線・スキャンリングをthree.js geometryでX-Y平面に配置する。
+- KPI: 左側に `Studio Core KPI`、右側に `AMD Value Proof`。HUDフレーム/リング/線はthree.js geometry、数値・背景HUDはCanvasTexture。CSSでオブジェクトを作らない。
 - 既存XFM球体案は壊さず、別component / 別routeで比較できるようにする。
 
 ## Data Implementation Notes
