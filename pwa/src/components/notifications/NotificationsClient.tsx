@@ -34,6 +34,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
   // notified_at の楽観的更新 (展開時に即既読にするため)
   // key = itemKey(item) → ISO 文字列 (= now() で UPDATE 済 の表示用)
   const [readMap, setReadMap] = useState<Record<string, string>>({});
+  // 「未読に戻す」で server notified_at=null にした項目の override
+  // (= props 由来の i.data.notified_at を上書きして未読表示するため)
+  const [unreadOverride, setUnreadOverride] = useState<Set<string>>(new Set());
   // 既読セクション全体のトグル (default 折りたたみ)
   const [readSectionOpen, setReadSectionOpen] = useState<boolean>(false);
 
@@ -52,7 +55,11 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
   // 当該セッション内では未読セクションのまま → 次回再読込で既読セクションに自然移動
   const itemKey = (i: UnifiedItem): string =>
     i.kind === "l2" ? `l2-${i.data.notification_id}` : `mtg-${i.data.meeting_id}`;
-  const isReadUi = (i: UnifiedItem): boolean => !!i.data.notified_at || !!readMap[itemKey(i)];
+  const isReadUi = (i: UnifiedItem): boolean => {
+    const key = itemKey(i);
+    if (unreadOverride.has(key)) return false;
+    return !!i.data.notified_at || !!readMap[key];
+  };
 
   // フィルタ (バッジ表示は readMap 反映、ただしグループ分けは server 値だけで判定)
   const filtered = useMemo(() => {
@@ -98,6 +105,37 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
     } catch (e) {
       // RLS / network などで失敗しても UI は楽観的に既読のまま (= 次回再読込で server と整合)
       console.warn("[notifications] markAsRead failed:", e);
+    }
+  }, []);
+
+  /** 「未読に戻す」: server notified_at=null + 当該セッション中は未読表示 (unreadOverride) */
+  const markAsUnread = useCallback(async (i: UnifiedItem) => {
+    const key = itemKey(i);
+    setReadMap((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setUnreadOverride((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+    try {
+      const supabase = createClient();
+      if (i.kind === "l2") {
+        await supabase
+          .from("l2_notifications")
+          .update({ notified_at: null })
+          .eq("notification_id", i.data.notification_id);
+      } else {
+        await supabase
+          .from("meeting_notifications")
+          .update({ notified_at: null })
+          .eq("meeting_id", i.data.meeting_id);
+      }
+    } catch (e) {
+      console.warn("[notifications] markAsUnread failed:", e);
     }
   }, []);
 
@@ -391,11 +429,14 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
               }`}
             >
               {/* ヘッダ (クリック展開) */}
-              <button
-                className="w-full flex items-start justify-between p-3 hover:bg-muted/50 text-left"
+              <div
+                role="button"
+                tabIndex={0}
+                className="w-full flex items-start justify-between p-3 hover:bg-muted/50 text-left cursor-pointer"
                 onClick={() => toggleExpand(i)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpand(i); } }}
               >
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm leading-snug">{sanitizeMeetingTitle(i.data.title)}</div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {formatJST(i.data.created_at)} ・{" "}
@@ -408,8 +449,20 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                     )}
                   </div>
                 </div>
-                <span className="text-muted-foreground text-xs ml-2">{isExpanded ? "▲" : "▼"}</span>
-              </button>
+                <div className="flex items-center gap-2 ml-2 shrink-0">
+                  {isReadUi(i) && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); void markAsUnread(i); }}
+                      className="text-[11px] px-2 py-0.5 rounded border border-border bg-background hover:bg-muted text-muted-foreground"
+                      title="この通知を未読に戻す"
+                    >
+                      ↺ 未読に戻す
+                    </button>
+                  )}
+                  <span className="text-muted-foreground text-xs">{isExpanded ? "▲" : "▼"}</span>
+                </div>
+              </div>
 
               {/* 展開部 */}
               {isExpanded && (
