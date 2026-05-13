@@ -24,6 +24,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const DEFAULT_LIMIT = 6;
+const DEFAULT_CONCURRENCY = 5;
 const SOFT_TIMEOUT_MS = 260 * 1000;
 
 interface MissingTarget {
@@ -57,7 +58,12 @@ export async function GET(req: NextRequest) {
   const anthropic = new Anthropic({ apiKey: anthroKey });
 
   const limitRaw = parseInt(req.nextUrl.searchParams.get("limit") || "", 10);
-  const limit = Math.max(1, Math.min(15, Number.isFinite(limitRaw) ? limitRaw : DEFAULT_LIMIT));
+  const limit = Math.max(1, Math.min(40, Number.isFinite(limitRaw) ? limitRaw : DEFAULT_LIMIT));
+  const concRaw = parseInt(req.nextUrl.searchParams.get("concurrency") || "", 10);
+  const concurrency = Math.max(
+    1,
+    Math.min(10, Number.isFinite(concRaw) ? concRaw : DEFAULT_CONCURRENCY)
+  );
 
   // 1. prompt fetch (AGENTS 絶対ルール: hardcoded fallback を持たない)
   // is_active は無視する。AMD-Report GAS 側の R303 が hardcoded fallback で動いている事情で
@@ -103,22 +109,39 @@ export async function GET(req: NextRequest) {
 
   const stats: GenStat[] = [];
 
-  for (const target of missing) {
+  // concurrency 件ずつ並列処理 (= 単一 Vercel call 内で wall-clock を圧縮)
+  for (let i = 0; i < missing.length; i += concurrency) {
     if (Date.now() - startedAt > SOFT_TIMEOUT_MS) {
-      stats.push({ ...target, ok: false, reason: "soft_timeout" });
+      for (const t of missing.slice(i)) stats.push({ ...t, ok: false, reason: "soft_timeout" });
       break;
     }
-    const t0 = Date.now();
-    try {
-      const result = await generateOne(db, anthropic, target, systemPrompt, model, maxTokens);
-      stats.push({ ...target, ok: true, chars: result.chars, ms: Date.now() - t0 });
-    } catch (e) {
-      stats.push({
-        ...target,
-        ok: false,
-        reason: (e as Error).message,
-        ms: Date.now() - t0,
-      });
+    const batch = missing.slice(i, i + concurrency);
+    const batchResults = await Promise.allSettled(
+      batch.map(async (target) => {
+        const t0 = Date.now();
+        try {
+          const result = await generateOne(
+            db,
+            anthropic,
+            target,
+            systemPrompt,
+            model,
+            maxTokens
+          );
+          return { ...target, ok: true, chars: result.chars, ms: Date.now() - t0 } as GenStat;
+        } catch (e) {
+          return {
+            ...target,
+            ok: false,
+            reason: (e as Error).message,
+            ms: Date.now() - t0,
+          } as GenStat;
+        }
+      })
+    );
+    for (const r of batchResults) {
+      if (r.status === "fulfilled") stats.push(r.value);
+      else stats.push({ project_id: "?", ym: "?", ok: false, reason: String(r.reason) });
     }
   }
 
