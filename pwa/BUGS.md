@@ -7,7 +7,16 @@
 
 ### [gas-report] AMD-Report GAS が Drive 同期事故 + isAdmin_ 未定義 + access 設定崩壊の三重壁 / 私の clasp deploy 上書きで全 Web App URL 「ファイル開けません」化 / monthly_report 文字化け復旧で初めて発覚
 - **発見日**: 2026-05-13 (まさ「月次報告書が文字化けしてるから直して」→ 復旧経路で全壁が露呈)
-- **状態**: 🟡 部分解決 (= R313 cron は GAS time-trigger 経由で動作可、monthly_report 復旧は完了。Web App URL access / R290 元コード / GCP project 紐付けの本格修復は次セッション TODO #5)
+- **状態**: ✅ ほぼ解決 (2026-05-13 #9 続きで 6/7 完遂、残 GCP project 紐付けは CLI 不可確定 + 当面 skip OK)
+- **2026-05-13 #9 続き 追加対応**:
+  - Drive 同期事故ファイル整理 (76 → 50 ファイル、重複 `2.js` suffix 全削除) + backup `/tmp/gas-report-clean-backup-20260513-144052/`
+  - R290 元コード 94KB 復元 (= 125 byte 空コメント版を破棄)
+  - Web App access 確認 (= まさ「全員アクセス可」承認済、GET で `doGet not found` は設計通り)
+  - aggressive backfill 一時関数 3 つ削除 (= PWA 側 cron/monthly-reports-backfill で完遂したため不要)
+  - R313 文字化け検出 alert (= `mr_detectMojibake_` helper 追加、`mr_generateDraft_` + Update 両方に挿入)
+  - R303 hardcoded fallback 削除 (= `mr_gen_getTsukuyomiContext_` 改修、Supabase `llm_prompts.monthly_report.r313_extract` 第一優先 → sheet 第二優先 → throw、`mr_gen_getPromptFromSupabase_` 新設)
+  - clasp push + 新 deploy `AKfycbzQ07aq...@22` → `AKfycbyA3ri...@23`
+  - GCP project 紐付け CLI 化 3 経路試行 (appsscript.json / clasp / Apps Script API + curl) すべて不可 = Google 制約。**ただし当面不要** と確証 (= clasp push のみで構造修復完遂できた)
 - **症状**:
   1. p20 202604 の monthly_reports.draft_content が **`?????\\n\\n` 形式の文字化け** (= 日本語が `?` 化、`\n` リテラル文字列、UTF-8 が ASCII fallback で潰れた状態 + JSON エスケープ二重)
   2. 復旧の過程で AMD-Report GAS の Web App URL (= AKfycb...) が **全 deployment 「ファイル開けません」** (= Drive エラー画面)

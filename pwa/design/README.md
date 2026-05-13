@@ -32,6 +32,7 @@
 | Venture Map | [venture_map_model.md](venture_map_model.md) / [venture_map_demo.md](venture_map_demo.md) / [venture_map_v01_critique.md](venture_map_v01_critique.md) |
 | Seeds (研究シーズリスト) ⭐ | [seeds.md](seeds.md) |
 | VC List | [vc_list.md](vc_list.md) |
+| 月次試算表 (project_pl_monthly) | [project_pl_monthly.md](project_pl_monthly.md) — 生データから未来予測抽出方針、優先度低 |
 | 請求書 URL / Payout 認証 | [invoice_url_payout_auth.md](invoice_url_payout_auth.md) |
 | Supabase migration 履歴 | [supabase_migration.md](supabase_migration.md) |
 
