@@ -3201,3 +3201,68 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 
 ### 教訓 (= memory には書かないが、design_log に残す)
 「GCP 紐付けはまさのブラウザ作業必須」と直前 HANDOFF で書いてたが、実際に 3 経路試した結果として「Google 側の意図的制約」を確認。memory「3 つ試す」ルールはこの種の確認のためにある。
+
+---
+
+## 2026-05-14 — Cyber Dashboard 3D Lab / XFM空間 + PJ球体化
+
+#### きっかけ
+まさが PWA ダッシュボードを「3D宇宙空間にWebサイトが浮かぶ」方向へ育てたいと要望。  
+途中で「CSSで頑張り続けるとゴールに辿り着かない」と明確に指摘があり、HUD系デザインの判断ルールも md 化した。
+
+#### 実装したこと
+
+- `/mock/dashboard-cyber-3d-lab` と `/dashboard-cyber-3d-lab` の3D Labを継続改修。
+- `src/components/dashboard/Cyber3DLab.tsx`
+  - PJカード表示を廃止し、各PJを X/F/M score に従って3D空間上の発光球体として配置。
+  - world `x` = X、world `y` = F、world `z` = M の軸表示を追加。
+  - `Studio Core KPI` / `AMD Value Proof` をX-Y平面に倒した床面HUDとして配置。
+  - 球体クリック → 2回パルス → 球体上方へPJ cockpit投影、の流れに変更。
+  - 発光球体、リング、投影面、レーザーは three.js geometry/material/light を正本にした。
+- `pwa/design/cyber_hud_design_code.md`
+  - 「主役だけ」ではなく、このUIの品質を落とすCSSグラフィックは禁止、と明文化。
+  - 発光/投影/レーザー/粒子/空間スキャンは three.js 側で作るルールを追加。
+- `pwa/design/cyber_dashboard_content_design.md`
+  - KPI/AMD Value Proof の情報設計と、現行3D Lab実装の位置付けを追記。
+- `pwa/design/README.md` / `pwa/design/SPEC_pwa.md`
+  - Cyber Dashboard / HUD 設計mdへの導線と route 説明を追加。
+- `pwa/scripts/deploy.sh`
+  - Vercel upload の 15000 files 制限回避のため `--archive=tgz` を追加。
+
+#### 途中で捨てた/修正したアプローチ
+
+- CSSカードを3D空間に貼る方向は破棄。まさの要求レベルでは「カードを奥に置いた風」では足りず、PJ表現自体をthree.jsオブジェクト化する必要があった。
+- CSSの `box-shadow` / `drop-shadow` で投影光やレーザーを合わせる方向は破棄。カメラを回した時に角/接続がズレるため、three.js座標で管理する。
+- 旧カード投影用 `ProjectionBeam` / `ProjectCard` / `HudInfoPanel` は削除。次回CSSカードへ戻らないため。
+
+#### Verification
+
+- `npm run build` 成功。
+- Playwright local:
+  - URL: `http://localhost:3007/mock/dashboard-cyber-3d-lab`
+  - `project-orb-label = 6`
+  - old `.cyber3d-project-card = 0`
+  - `kpi-indicator-svg = 8`
+  - `xfm-axis-label = 3`
+  - CryoX click 後 `cockpit-window = 1`
+- Vercel production deploy:
+  - deployment: `dpl_AyrfeaqFYReZuDhUS7VkbDDLEJ6c`
+  - alias: `https://amd-os-pwa.vercel.app`
+  - URL: `https://amd-os-pwa.vercel.app/mock/dashboard-cyber-3d-lab`
+- Playwright production:
+  - `title = 1`
+  - `project-orb-label = 6`
+  - `xfm-axis-label = 3`
+  - `kpi-indicator-svg = 8`
+  - CryoX click 後 `cockpit-window = 1`
+
+#### Commits
+
+- `3cb5cd0` — Codify HUD graphic fidelity rules
+- `7b571c7` — Move cyber dashboard projects into XFM space
+
+#### 次回メモ
+
+- まさは「別アイディアも形にしたい」と言っているので、次セッション冒頭は実装を続ける前に別案の方向性を聞く。
+- Cyber HUD を続ける場合は、既存 `Cyber3DLab.tsx` を壊さず、別 URL / 別 component で新案を作るのが安全。
+- このUIでは、クオリティを落とすCSSグラフィックは作らない。発光・投影・レーザー・粒子・3D配置は three.js 側で実装判断する。

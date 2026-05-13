@@ -91,13 +91,13 @@ HUDパネルは `three.js` のmesh/lineを正本にする。
 
 ## Projection Rule
 
-カードから詳細モーダルへ投影するときは、以下を守る。
+カード/球体などのPJオブジェクトから詳細モーダルへ投影するときは、以下を守る。
 
-1. カード上端の左右角を three.js 座標で定義する。
+1. 投影元オブジェクトの発光点を three.js 座標で定義する。カードなら上端左右角、球体なら球体中心 + 上方向オフセット。
 2. 詳細モーダル下端の左右角を three.js 座標で定義する。
 3. 投影ビームの面はこの4点から生成する。
 4. レーザー線は左角→左角、右角→右角を直接結ぶ。
-5. 光の色は選択中カードの `accent` を使う。
+5. 光の色は選択中PJの `accent` を使う。
 6. 床からの投影台、床円、床起点ビームは使わない。
 
 ## Anti-Patterns
@@ -116,5 +116,5 @@ HUDパネルは `three.js` のmesh/lineを正本にする。
 - PJごとのaccent: cyan / green / amber / blue / yellow / violet
 - 空間: X-Y平面に奥へ伸びるgrid、各パネルはX-Z平面に立つ
 - パネル: 半透明のガラス面 + neon edge + chamfered cyber frame
-- Motion: click -> two pulses -> card-colored beam -> cockpit projection
+- Motion: click -> two pulses -> PJ-colored beam -> cockpit projection
 - 操作: OrbitControlsでぐりぐり回しても、パネルとレーザーが同じ空間に固定される

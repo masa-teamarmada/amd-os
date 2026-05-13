@@ -5,6 +5,19 @@
 
 ---
 
+### [pwa/deploy] Vercel deploy が 15000 files 制限で失敗するため `--archive=tgz` が必要
+
+- **発見日**: 2026-05-14 (Cyber Dashboard 3D Lab 本番反映時)
+- **状態**: ✅ 解決済 (`pwa/scripts/deploy.sh` と `pwa/CLAUDE.md` に `--archive=tgz` を反映)
+- **症状**: リポ root から `npx vercel deploy --prod --yes` を実行すると `Invalid request: files should NOT have more than 15000 items, received 15727. Try using --archive=tgz` で失敗。
+- **原因**: モノレポ全体を Vercel CLI が upload 対象として数えるため、通常 upload だとファイル数制限に当たる。Root Directory は `pwa` でも、CLI upload 前段では repo root 配下のファイル数が効く。
+- **解決策**: deploy trigger は `npx vercel --prod --yes --archive=tgz --cwd /Users/masa/projects/AMD/amd-os` を使う。通知付き正本は `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`。
+- **教訓**:
+  - PWA deploy は必ず `pwa/scripts/deploy.sh` 経由。直接 `npx vercel` を叩く場合も `--cwd` は repo root、`--archive=tgz` 必須。
+  - `--cwd .../pwa` は既知の `pwa/pwa` 二重事故に戻るので禁止。
+
+---
+
 ### [gas-report] AMD-Report GAS が Drive 同期事故 + isAdmin_ 未定義 + access 設定崩壊の三重壁 / 私の clasp deploy 上書きで全 Web App URL 「ファイル開けません」化 / monthly_report 文字化け復旧で初めて発覚
 - **発見日**: 2026-05-13 (まさ「月次報告書が文字化けしてるから直して」→ 復旧経路で全壁が露呈)
 - **状態**: ✅ ほぼ解決 (2026-05-13 #9 続きで 6/7 完遂、残 GCP project 紐付けは CLI 不可確定 + 当面 skip OK)
@@ -1240,4 +1253,3 @@
 - **教訓**:
   - まさの指摘を受けたら **何の話か (どのコンポーネント / どのテーブル / どのプロンプト) を最初に確認** してから動く。早合点で隣の領域を触ると、修正対象がズレた状態で commit が積み上がる
   - 過去のえいみの発言を疑う癖 (memory rule: 自分の提案を疑う) を、まさからの指摘の受け止め方にも適用する
-

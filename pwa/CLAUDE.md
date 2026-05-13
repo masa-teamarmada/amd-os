@@ -56,7 +56,7 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 ```
 
 このスクリプトは:
-1. `npx vercel --prod --yes --cwd <repo-root>` で deploy トリガー
+1. `npx vercel --prod --yes --archive=tgz --cwd <repo-root>` で deploy トリガー
 2. Build が Ready になるまで polling (最大 10 分)
 3. 完了 → macOS 通知 (Glass 音) でまさに知らせる
 4. 失敗 → Basso 音でエラー通知
@@ -64,6 +64,8 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 **直接 `npx vercel` を叩かないこと**。Build 完了通知が出ないので、まさが「終わった?」と確認しに来る無駄が発生する (2026-05-07 のフィードバック)。
 
 **`--cwd` は リポジトリ root** (`pwa/` ではない)。Vercel project `amd-os-pwa` の Settings → Build → Root Directory に `pwa` が設定されているため、`--cwd .../pwa` だと `pwa/pwa` 二重で失敗する (BUGS.md 2026-05-06 参照)。
+
+**`--archive=tgz` 必須**。モノレポの upload 対象が 15000 files を超えることがあり、通常 deploy だと `files should NOT have more than 15000 items` で失敗する (2026-05-14 dashboard cyber handoff)。
 
 事前確認:
 - リポ root の `.vercel/project.json` が `amd-os-pwa` (`prj_raZW3HSKIszzPUwNTHfy7xDGzLHm`) を指していること。空だと `--yes` で誤って新プロジェクト `amd-os` が作られる
@@ -108,4 +110,3 @@ select / filter / insert / upsert を書くこと。
 
 `db_schema.md` は自動生成 (Supabase Management API → information_schema.columns)。
 手動編集禁止 (= 次回再生成で消える)。
-

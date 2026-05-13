@@ -23,7 +23,7 @@ cd "$REPO_ROOT"
 
 echo "▶ Vercel deploy triggering ..."
 START_TS=$(date +%s)
-DEPLOY_OUTPUT=$(npx vercel --prod --yes --cwd "$REPO_ROOT" 2>&1)
+DEPLOY_OUTPUT=$(npx vercel --prod --yes --archive=tgz --cwd "$REPO_ROOT" 2>&1)
 echo "$DEPLOY_OUTPUT"
 
 # trigger 自体が失敗した場合

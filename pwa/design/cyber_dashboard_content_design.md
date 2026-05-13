@@ -68,7 +68,7 @@ HUDの形状そのものをCSSで無理に作ると品質が落ちる。
 
 まさから明示的に要望があった項目。
 
-- 各PJカード
+- 各PJオブジェクト (現行モックでは X/F/M 空間上の3D発光球体)
 - これまでの累計PJ数
 - 累計調達額
 - メンバーリスト
@@ -120,12 +120,24 @@ HUDの形状そのものをCSSで無理に作ると品質が落ちる。
 
 3D空間では、情報を役割ごとにレイヤー配置する。
 
-- 中央: Studio Core / 全体KPI / AMD Value Proof
-- 左奥: PJポートフォリオカード群
+- X/F/M 空間: 各PJを `x` / `f` / `m` のスコアに従って3D発光球体として配置
+- X-Y床面: Studio Core / 全体KPI / AMD Value Proof
 - 右奥: Members / Expertise map
 - 手前: 今すぐ見るべき alerts / next actions
 - 上空: 累計成果、調達額、スコア改善などの成果指標
 - クリック時: PJ cockpit / member cockpit / finance cockpit を投影
+
+## Current 3D Lab Implementation
+
+現行モックは `src/components/dashboard/Cyber3DLab.tsx`。
+
+- route: `/mock/dashboard-cyber-3d-lab` (公開確認用)
+- route: `/dashboard-cyber-3d-lab` (認証付き実環境)
+- PJ表示: カードではなく `x/f/m` mock score から three.js world coordinate に変換した発光球体
+- 軸: world `x` = X、world `y` = F、world `z` = M
+- KPI: `Studio Core KPI` / `AMD Value Proof` はX-Y平面に倒した床面HUD
+- クリック: 球体を選択 → 2回パルス → 球体上方にPJ cockpitを投影
+- 重要: 発光、球体、リング、投影面、レーザーは three.js 側を正本にする。HTML/CSSはラベル・数値・読み物の補助。
 
 ## Data Implementation Notes
 

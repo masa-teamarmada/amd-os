@@ -102,6 +102,7 @@ pwa/
 | パス | 機能 |
 |---|---|
 | `/dashboard` | トップ。PJ 一覧 + Atlas/Venture Map/MyPage/Admin への入口 |
+| `/dashboard-cyber-3d-lab` | 実験中の3D Cyber Dashboard。`three.js` 空間上に X/F/M 軸、PJ球体、床面KPI、ホログラム投影コックピットを配置。仕様方針は [`cyber_hud_design_code.md`](cyber_hud_design_code.md) / [`cyber_dashboard_content_design.md`](cyber_dashboard_content_design.md) |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 月次報酬予定 (取り消し線 = 未完月次ルーティンによる除外) |
 | `/project/[projectId]/cockpit` | PJ コックピット (PJ Status (SU 系のみ) / MS / 月次カード / カンバン / ナッジ / 月次ルーティン)。詳細は [`cockpit.md`](cockpit.md) |
 | `/project/[projectId]/config` | PJ 設定 (基本情報 / メンバー / 契約・料金 / 請求書送付)。GAS `226_ProjectConfig.html` の PWA 移植 |
