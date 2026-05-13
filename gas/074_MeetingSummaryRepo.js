@@ -617,11 +617,32 @@ function _meeting_extractTitleFromPage_(p) {
       const prop = props[keys[i]];
       if (prop && prop.type === "title" && Array.isArray(prop.title)) {
         const t = prop.title.map(function (x) { return String(x && x.plain_text ? x.plain_text : ""); }).join("").trim();
-        if (t) return t;
+        if (t) return _meeting_sanitizeTitle_(t);
       }
     }
   } catch (e) {}
   return "";
+}
+
+/**
+ * Notion AI 自動生成議事録ページのタイトルに混入する ISO 8601 日時 / mention-date /
+ * @今日 を、PWA 標準形式 (= YYYY/MM/DD HH:mm JST) に正規化する。例:
+ *   "SX定例MTG 2026-05-13T17:00:00.000+09:00" → "SX定例MTG 2026/05/13 17:00"
+ *   "MTG <mention-date 2026-05-13>"          → "MTG"
+ * 既存の検索 hint 用ロジック (nav_meeting_processOneEvent_ 内 titleHintArg) と同じ正規表現を
+ * helper 化して、DB に書く title 側にも一貫適用するためのもの (2026-05-13)。
+ *
+ * ISO 8601 の `+09:00` はそのまま JST なので、文字列 slice で OK (TZ 補正不要)。
+ */
+function _meeting_sanitizeTitle_(raw) {
+  if (!raw) return "";
+  let s = String(raw);
+  // ISO 8601 (+09:00 / Z / +0900 等いずれも JST 表示) → YYYY/MM/DD HH:mm
+  s = s.replace(/\s*(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})[^\s]*/g, " $1/$2/$3 $4:$5");
+  s = s.replace(/\s*<mention-date[^>]*>[^<]*<\/mention-date>/g, "");
+  s = s.replace(/\s*<mention-date[^>]*>/g, "");
+  s = s.replace(/\s*@今日[^\s]*/g, "");
+  return s.replace(/\s+/g, " ").trim();
 }
 
 function _meeting_extractDateStartFromPage_(p) {
