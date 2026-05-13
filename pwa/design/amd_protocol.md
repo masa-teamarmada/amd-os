@@ -131,6 +131,7 @@ CREATE TABLE protocol_examples (
 |---|---|
 | [pwa/src/app/(app)/admin/protocols/page.tsx](../src/app/(app)/admin/protocols/page.tsx) | server page。protocols + projects + protocol_examples を fetch、examples を protocol_id 単位で集約して Client に渡す |
 | [pwa/src/components/admin/AdminProtocolsClient.tsx](../src/components/admin/AdminProtocolsClient.tsx) | クライアント側 UI: 4 要素ステップカード + 関連事例リスト + 4 アクション |
+| [pwa/src/components/notifications/NotificationsClient.tsx](../src/components/notifications/NotificationsClient.tsx) | l2_kind='protocols' 通知の詳細を展開。**逆引きは protocol_examples 経由** (`project_id=target_id AND occurred_on ∈ ym 範囲` で protocol_id 集合 → protocols + 関連 examples を表示)。旧 schema (`p4-{pj}-{ym}-*`) の LIKE 検索は Phase 4.5 で機能しなくなり 0 件返してたバグを修正 (2026-05-13) |
 
 **展開時 UI 仕様**:
 - 4 要素ステップカード (色分け + アイコン):

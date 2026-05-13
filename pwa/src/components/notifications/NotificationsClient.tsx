@@ -137,19 +137,60 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
             sub: r.confidence ? `confidence: ${r.confidence}` : undefined,
           }));
         } else if (n.l2_kind === "protocols") {
-          const { data, error } = await supabase
-            .from("protocols")
-            .select("title, content, status, importance, tags, updated_at")
+          // Phase 4.5 (2026-05-11): protocols は universal (project_id=null, protocol_id=p4u-...)
+          // PJ × ym の紐付けは protocol_examples 経由 (occurred_on で ym 範囲を絞る)
+          const ym = n.scope_key;
+          const y = Number(ym.slice(0, 4));
+          const m = Number(ym.slice(4, 6));
+          const ymStart = `${y}-${String(m).padStart(2, "0")}-01`;
+          const ymNextStart = m === 12
+            ? `${y + 1}-01-01`
+            : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+          const { data: examples, error: exErr } = await supabase
+            .from("protocol_examples")
+            .select("protocol_id, occurred_on, summary, branch_point, action_taken, result")
             .eq("project_id", n.target_id)
-            .like("protocol_id", `p4-${n.target_id}-${n.scope_key}-%`)
-            .order("updated_at", { ascending: false })
-            .limit(20);
-          if (error) throw error;
-          rows = (data ?? []).map((r) => ({
-            heading: `${"⭐".repeat(Math.max(1, Math.min(3, Number(r.importance ?? 1))))} ${r.title} [${r.status}]`,
-            body: String(r.content ?? ""),
-            sub: r.tags ? `tags: ${r.tags}` : undefined,
-          }));
+            .gte("occurred_on", ymStart)
+            .lt("occurred_on", ymNextStart)
+            .order("occurred_on", { ascending: false })
+            .limit(50);
+          if (exErr) throw exErr;
+          const ids = Array.from(new Set((examples ?? []).map((e) => e.protocol_id as string)));
+          if (ids.length === 0) {
+            rows = [];
+          } else {
+            const { data: protocols, error: pErr } = await supabase
+              .from("protocols")
+              .select("protocol_id, title, content, status, importance, tags, updated_at")
+              .in("protocol_id", ids)
+              .order("updated_at", { ascending: false });
+            if (pErr) throw pErr;
+            const examplesByPid = new Map<string, Array<{ occurred_on: string | null; summary: string | null; branch_point: string | null; action_taken: string | null; result: string | null }>>();
+            for (const e of (examples ?? [])) {
+              const pid = e.protocol_id as string;
+              const list = examplesByPid.get(pid) ?? [];
+              list.push({
+                occurred_on: e.occurred_on as string | null,
+                summary: e.summary as string | null,
+                branch_point: e.branch_point as string | null,
+                action_taken: e.action_taken as string | null,
+                result: e.result as string | null,
+              });
+              examplesByPid.set(pid, list);
+            }
+            rows = (protocols ?? []).map((r) => {
+              const exs = examplesByPid.get(r.protocol_id as string) ?? [];
+              const exText = exs
+                .map((e) => `・[${e.occurred_on ?? "—"}] ${e.summary ?? ""}`)
+                .join("\n");
+              const body = String(r.content ?? "") + (exText ? `\n\n📂 関連事例:\n${exText}` : "");
+              return {
+                heading: `${"⭐".repeat(Math.max(1, Math.min(3, Number(r.importance ?? 1))))} ${r.title} [${r.status}]`,
+                body,
+                sub: r.tags ? `tags: ${r.tags}` : undefined,
+              };
+            });
+          }
         } else if (n.l2_kind === "ms_progress") {
           // milestone_monthly_progress + value_milestones JOIN は client では難しいので 2 回 fetch
           const { data: progRows } = await supabase
