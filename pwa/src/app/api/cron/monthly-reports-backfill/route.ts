@@ -60,12 +60,14 @@ export async function GET(req: NextRequest) {
   const limit = Math.max(1, Math.min(15, Number.isFinite(limitRaw) ? limitRaw : DEFAULT_LIMIT));
 
   // 1. prompt fetch (AGENTS 絶対ルール: hardcoded fallback を持たない)
+  // is_active は無視する。AMD-Report GAS 側の R303 が hardcoded fallback で動いている事情で
+  // 現状 is_active=false のまま保管されているが、PWA cron 側は本テキストを正本として使う。
   const { data: promptRow, error: promptErr } = await db
     .from("llm_prompts")
-    .select("body, model, max_tokens, is_active")
+    .select("body, model, max_tokens")
     .eq("prompt_key", "monthly_report.r313_extract")
     .single();
-  if (promptErr || !promptRow || !promptRow.is_active) {
+  if (promptErr || !promptRow || !promptRow.body) {
     return NextResponse.json(
       { error: "prompt fetch failed", detail: promptErr?.message },
       { status: 500 }
