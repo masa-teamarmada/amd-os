@@ -2958,3 +2958,114 @@ web_search では業界記事になってないマイナー VC の動向は構�
 - 改修: `pwa/design/SPEC_pwa.md` / `pwa/design/L2_DATA.md` / `pwa/design/vc_list.md`
 - 改修: `pwa/HANDOFF_pwa_rebuild.md`
 - 改修 memory: `feedback_question_own_proposals.md` (= 実態確認ルール追記)
+
+---
+
+## 2026-05-13 (dazzling-wing-23c8e9 #9) — PWA backfill 移植 + EventsSection impact 強調 + 試算表/5生データ調査
+
+### きっかけ
+
+前セッション #8 末尾の HANDOFF に並んだ TODO を A から順に消化。
+
+### A. monthly-reports-backfill 移植 (= aggressive backfill 停止対応)
+
+#### 経緯
+- 前セッション #7 末に AMD-Report GAS Editor で aggressive backfill (= 22:50 setup) が動き始めたが、access 全壊状態下で **00:57 JST に停止**
+- 残 104 件を AMD-Report GAS 修復待ちにせず、PWA 側で完遂する方針
+
+#### 実装
+- [`pwa/src/app/api/cron/monthly-reports-backfill/route.ts`](src/app/api/cron/monthly-reports-backfill/route.ts) 新設
+  - billing_cycles LEFT JOIN monthly_reports IS NULL で missing 抽出
+  - llm_prompts.monthly_report.r313_extract から prompt fetch (= AGENTS 絶対ルール)
+  - is_active=false を許容 (= AMD-Report GAS R303 が hardcoded fallback で動いてる事情で false 保管されていた)
+  - /api/report/generate と同じ flow (source_cache + milestone + Sonnet 4.6)
+  - 1 run = limit 件 (デフォルト 6、?limit=N で 1-15、Vercel maxDuration 300s 制約内)
+  - soft timeout 260s で break、文字化け検出 (= ? 比率 > 50% で reject、R313 BUGS 防御)
+  - 完走後は Vercel cron schedule に常駐化して新月分の自動補完にも転用可能
+
+#### 動作確認
+- 試走 limit=2: 2 件成功、62s (= 1 件 ~30s)
+- 連続 curl ループ (limit=3、--max-time 200s) で残 102 件を順次処理
+- 完走後の cleanup は不要 (= 一時関数なし、cron route はそのまま残置)
+
+#### 学び (= memory に反映済)
+- 最初は curl `-m 290` で limit=8 を試行 → 26 分間 curl が hang、loop 進まず
+- limit を 3 に下げ、connect-timeout 15 + max-time 200 にして安定
+- 教訓: Vercel maxDuration に近い limit は curl 側で hang リスク。1 run あたり 100-150s に収まる limit を採用
+
+### B. EventsSection impact 強調表示 ✅ 完了
+
+migration 056 で `member_activities.impact` (1-5) を LLM が入れているが UI 未対応だった。
+
+[CockpitMonthlyModal.tsx](src/components/cockpit/CockpitMonthlyModal.tsx) の `EventsSection`:
+- impact >= 4: `bg-amber-50` + `border-amber-300` + `font-bold` タイトル + 🔥 アイコン
+- impact >= 3: "impact N" バッジ表示
+- impact 1-2: 通常表示 (= ノイズ抑制)
+
+### C. 試算表 Drive Excel cron — 実態調査 + 設計 plan を HANDOFF に積み
+
+#### 調査結果
+- `project_pl_monthly` テーブル: **total = 0 件** = 全 PJ「—」表示の根本原因
+- スキーマ: project_id, ym, revenue_yen, cogs_yen, personnel_yen, rd_yen, marketing_yen, other_opex_yen, notes
+- `projects.drive_folder_id` 列既存 ✅
+- `googleapis ^171.4.0` package インストール済 ✅
+- `pwa/src/lib/sources/drive.ts` 既存 = Drive API ラッパー
+- `EXPORTABLE_TEXT` に Google Sheets → text/csv mapping あり ✅、xlsx は無し (= xlsx package 必要)
+
+#### 次セッション着手前にまさへ確認
+1. 試算表ファイルの所在規則 (= `drive_folder_id` 配下 or 共通フォルダ?)
+2. ファイル命名規則 (= 「試算表」「PL」「決算」等キーワード?)
+3. 形式 (= Google Sheets / xlsx / 混在?)
+4. シート構造 (= 月ごとに 1 sheet? 行列ヘッダー位置?)
+
+実装スケルトンは HANDOFF に記載 (= `pwa/src/lib/sources/drive-pl.ts` + `cron/pl-monthly-ingest`)。
+
+### D. 5 生データ backfill 精度改善 — 実態調査 + 改善方針を HANDOFF に積み
+
+#### source_cache 実態 (= 過去全期間累計)
+| source | count |
+|---|---|
+| slack | 1681 |
+| notion | 373 |
+| gmail | 342 |
+| gmeet_minutes | 176 |
+| drive | **82** ⚠️ |
+| calendar | **7** ⚠️ |
+| msrev_feedback | 1 |
+
+→ calendar / drive がまさ指摘通り極端に薄い。
+
+#### 構造的に判明したこと
+- source_cache 投入は **GAS 074 cron** が担当
+- PWA 側 `pwa/src/lib/sources/*.ts` は AMD Score L2 抽出時の **直読み専用** (= source_cache 投入はしてない)
+- → 5 生データ精度改善の本筋は **GAS 074 系の改修** (= TODO #5 AMD-Report GAS 修復後)
+
+#### 代替案
+PWA 側に新 cron `/api/cron/source-cache-backfill` を作って `sources/*.ts` から直接投入する。GAS 修復不要だが大規模変更 (= 3-4 時間級)。優先度判断はまさへ。
+
+### E. AMD-Report GAS 構造修復 — 部分的に整理、本格修復はまさ OAuth 承認待ち
+
+#### 私がやれる範囲 (= GAS access 全壊中でも準備可能)
+- Drive 同期事故ファイル整理プラン (= local /tmp/gas-report-clean の重複解消)
+- R313 文字化け検出 alert は **PWA backfill 側で先に実装済** (= 同ロジック GAS にも porting 可能だが access 修復後)
+
+#### まさ OAuth 承認待ち
+- Web App URL access 再設定 (= AGENTS 例外: Google OAuth ブラウザ承認)
+- GCP project 紐付け (= Apps Script API 経由実行 enable)
+
+### 主な変更ファイル
+
+- 新規: `pwa/src/app/api/cron/monthly-reports-backfill/route.ts`
+- 改修: `pwa/src/components/cockpit/CockpitMonthlyModal.tsx` (= impact 強調)
+- 改修: `pwa/HANDOFF_pwa_rebuild.md` (= TODO 表更新 + 試算表/5生データ調査結果 + 設計 plan)
+
+### KPI
+
+- 月次 reports backfill 残: 104 → ~0 (= loop 完走後)
+- impact 強調 UI: deploy 済 (= まさが月次モーダルで重要イベントを視認可能に)
+- 試算表 cron: 設計 plan 完了、実装は次セッション
+- 5 生データ精度: 実態調査完了、改善は GAS 修復連動
+
+### えいみ向けメモ
+
+backfill loop の curl が `-m 290` で hang した教訓: Vercel maxDuration ギリギリの limit は curl 側 hang リスクあり。limit を半分に絞って rerun したら安定。今後の cron 投入時は **1 call 100-150s に収まる limit** を採用すること。

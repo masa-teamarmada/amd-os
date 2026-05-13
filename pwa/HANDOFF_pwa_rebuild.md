@@ -16,14 +16,13 @@
 
 ---
 
-## 🟡 進行中 (= 放置で完了予定)
+## ✅ 完了済 (本セッション #9)
 
-**aggressive backfill (= monthly_reports 残り未生成 104 件)**
-- まさが GAS Editor で `R001_Api 2.js` の `setup_aggressiveBackfill_2026_05_13` を ▶ 実行 (= 22:50 頃)
-- 15 分置き trigger で `_aggressive_backfill_self_teardown_2026_05_13` 自動実行
-- 約 6-7 時間で全完了予定 (= 翌朝 5-6 時)
-- 完了時 (= generated=0 検知) は **trigger 自動削除**、まさは何もしなくて OK
-- 確認方法: Supabase で `SELECT COUNT(*) FROM billing_cycles bc LEFT JOIN monthly_reports mr ON ... WHERE mr.id IS NULL` が 0 になれば完了
+**monthly_reports backfill 104 件 → 0 件**
+- 前セッションの AMD-Report GAS aggressive backfill (= 00:57 JST 停止) を PWA 側で完遂
+- [`cron/monthly-reports-backfill`](src/app/api/cron/monthly-reports-backfill/route.ts) 新設、concurrency=5 並列実行
+- 残 104 件を約 2 時間で全完遂 (= total_reports 60 → 164)
+- cron route はそのまま残置 = 新月分の自動補完にも転用可能 (= Vercel cron schedule に追加すれば常駐化可能、ただし AMD-Report GAS R313 と被るので現状は手動キックのみ)
 
 ---
 
@@ -33,10 +32,12 @@
 |---|---|---|
 | ✅ 1 | マクロ係数 P 以外のデータ取得 | 2026-05-12 完了 (Round 3 + 5) |
 | ✅ 2 | FRL grit/resilience の数値入力 | 2026-05-12 完了 (Round 3 + 5) |
-| 🔴 3 | R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵) | 未着手、TODO #5 と一緒にやるべき (= 同 GAS) |
-| 🔴 4 | 試算表 Drive Excel 取り込み cron 新規 (= project_pl_monthly が全 PJ「—」表示) | 未着手 |
-| 🔴 5 | **AMD-Report GAS の構造的修復** (= 前セッション露呈) | 未着手 |
-| 🔴 6 | **VC RSS / X feed cron** (= ノクターン的ロングテール VC の真の解決策、LLM 不要) ⭐ NEW | 本セッション (#8) で TODO 化 |
+| 🔴 3 | R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵) | 未着手、TODO #5 と一緒にやるべき |
+| 🔴 4 | 試算表 Drive Excel 取り込み cron 新規 (= project_pl_monthly が全 PJ「—」表示、現状 total=0) | 本セッション (#9) 実態確認済、実装は次セッション (= 試算表ファイル所在まさ確認待ち) |
+| 🔴 5 | **AMD-Report GAS の構造的修復** | 未着手 |
+| 🔴 6 | **VC RSS / X feed cron** (= ノクターン的ロングテール VC の真の解決策、LLM 不要) | #8 で TODO 化 |
+| ✅ 7 | EventsSection impact 強調表示 | 本セッション (#9) 完了 |
+| ✅ 8 | monthly_reports PWA backfill | 本セッション (#9) 完了 (= cron 新設 + ループ実行中) |
 
 ---
 
@@ -67,7 +68,32 @@
 
 ### 2. 試算表 Drive Excel 取り込み cron (= TODO #4)
 
-`project_pl_monthly` テーブルが全 PJ 全部「—」表示。Drive folder 配下の `.xlsx` を Sonnet で月次 PL に構造化抽出 → upsert。074c (議事録 Docs backfill) とは別 cron。
+`project_pl_monthly` テーブルが現状 **total=0 件** (全 PJ 全部「—」表示の原因)。Drive folder 配下の試算表 (.xlsx or Google Sheets) を Sonnet で月次 PL に構造化抽出 → upsert。074c (議事録 Docs backfill) とは別 cron。
+
+#### 本セッション (#9) 実態確認結果
+- `projects.drive_folder_id` 列既存 ✅
+- `googleapis ^171.4.0` package インストール済 ✅
+- `pwa/src/lib/sources/drive.ts` 既存 = Google Drive API ラッパー (= files.list / files.export 経由)
+- `EXPORTABLE_TEXT` に Google Sheets → text/csv mapping あり ✅
+- ただし xlsx (Excel) 形式は EXPORTABLE_TEXT に無い → 別 lib (`xlsx` package) 必要
+
+#### 次セッション着手前にまさへ確認 (= AGENTS 例外、事業ドメイン情報)
+1. **試算表ファイルの所在規則**: 各 PJ の `drive_folder_id` 配下にあるのか、別の共通フォルダか?
+2. **ファイル命名規則**: 「試算表」「PL」「決算」「Profit and Loss」等のキーワード?
+3. **形式**: Google Sheets / Excel xlsx / 混在?
+4. **シート構造**: 月ごとに 1 sheet? 1 sheet に複数月? 行列のヘッダー位置?
+
+#### 実装スケルトン (= 質問への答えが得られたら着手)
+1. (必要なら) `xlsx` package を npm install
+2. `pwa/src/lib/sources/drive-pl.ts` 新設 (= drive.ts 拡張 or 専用 lib):
+   - `findPlFilesForProject(driveFolderId, keywords)` で試算表ファイル listing
+   - Google Sheets → text/csv export、xlsx → buffer → xlsx package で JSON
+3. `pwa/src/app/api/cron/pl-monthly-ingest/route.ts` 新設:
+   - 全 PJ ループ (= projects WHERE drive_folder_id IS NOT NULL)
+   - 各 PJ の試算表ファイル取得 → 各月分を Sonnet で構造化抽出 (= revenue/cogs/personnel/rd/marketing/other_opex)
+   - `project_pl_monthly` に upsert (= onConflict project_id, ym)
+4. vercel.json に monthly schedule 追加 (= 月初 04:00 JST)
+5. prompt は `llm_prompts.project_pl_monthly.extract` に seed 投入 (= 新規 prompt_key、AGENTS 完遵)
 
 ### 2.5. VC RSS / X feed cron 新設 (= TODO #6) ⭐ NEW
 
@@ -84,18 +110,27 @@
 
 これでロングテール VC 対応 = `vc-discover (週次 LLM)` + `vc-rss-fetch (daily 無料)` の 2 段構え。
 
-### 3. EventsSection の impact 強調表示
+### 3. ~~EventsSection の impact 強調表示~~ ✅ 本セッション (#9) 完了
 
-migration 056 で member_activities.impact (1-5) 列を追加して LLM も値を入れているが、UI 側はまだ表示してない。impact >= 4 を太字 / アイコンで強調。
+### 4. 5 生データ backfill の精度改善 (= GAS 074 系修復と連動)
 
-### 4. 5 生データ backfill の精度改善
+本セッション (#9) で source_cache 実態確認:
+- slack 1681 / notion 373 / gmail 342 / gmeet_minutes 176 / drive **82** / calendar **7** / msrev_feedback 1
+- → calendar / drive が極端に薄い、まさ指摘通り
 
-| 種類 | 改善案 |
-|---|---|
-| Drive (074c) | 再帰 scan |
-| Calendar (074d) | chitchat 判定緩和 + Notion AI 連結 |
-| Gmail (074e) | subject フィルタ拡張 |
-| Slack | 過去 6 ヶ月分 backfill ループ |
+これらは **GAS 074 cron** (= 074c-Drive / 074d-Calendar / 074e-Gmail / Slack 系) が source_cache 投入してる。PWA 側 `pwa/src/lib/sources/*.ts` は AMD Score L2 抽出時の **直読み専用** であって source_cache 投入はしてない。
+
+→ **改善は GAS 074 系の改修が本筋** (= TODO #5 AMD-Report GAS 構造修復後に着手)
+
+代替案 (= AMD-Report GAS 修復を待たずに): PWA 側に新 cron `/api/cron/source-cache-backfill` を作って `sources/*.ts` から直接 `source_cache` に投入する。これだと GAS 不要、ただし大規模変更 (= 3-4 時間級)。優先度判断はまさへ。
+
+改善具体策:
+| 種類 | 改善案 | 着手場所 |
+|---|---|---|
+| Drive (074c) | 再帰 scan (= サブフォルダも掘る) | GAS 074c.gs |
+| Calendar (074d) | chitchat 判定緩和 + Notion AI 連結 (= 議事録抽出時の参考) | GAS 074d.gs |
+| Gmail (074e) | subject フィルタ拡張 (= 「ご返信」「打合せ」等のキーワード追加) | GAS 074e.gs |
+| Slack | 過去 6 ヶ月分 backfill ループ (= 1 ヶ月ずつスキャン) | GAS 074-slack.gs |
 
 ### 5. protocols dedup + UI archive 運用
 
