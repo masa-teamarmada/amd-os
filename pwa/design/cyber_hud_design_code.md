@@ -14,9 +14,9 @@ AMD OS の cyber dashboard / cockpit 系UIで、次セッションの実装者�
 
 ### Graphic fidelity rule
 
-グラフィックの品質が体験の核になる場所は、CSSで手を抜かない。
+このUIのクオリティを落とすグラフィック要素は、主役/脇役を問わずCSSで手を抜かない。
 
-このHUDで「かっこよさ」「サイバー感」「空間感」「高密度なSF感」を担う要素は、実装都合でCSSだけに逃がさず、`three.js` geometry / SVG asset / generated texture を使って作る。
+このHUDで「かっこよさ」「サイバー感」「空間感」「高密度なSF感」を落とす可能性がある要素は、実装都合でCSSだけに逃がさず、`three.js` geometry / material / light / shader / SVG asset / generated texture を使って作る。
 
 特に以下は、原則としてCSSのみで作らない。
 
@@ -27,7 +27,9 @@ AMD OS の cyber dashboard / cockpit 系UIで、次セッションの実装者�
 - 参考画像のように、線幅差、切り欠き、目盛り、複数レイヤーの発光が品質を決めるもの
 
 CSSは情報レイアウト、文字、軽いfilter/opacity/transitionに使う。  
-「CSSでそれっぽくできる」は採用理由にしない。見た目の主役ならサボらずグラフィック資産として作る。
+「CSSでそれっぽくできる」は採用理由にしない。主役かどうかではなく、見た瞬間にWeb部品っぽく安くなるなら採用しない。
+
+発光、レーザー、投影、粒子、空間スキャン、ネオンの輪郭強調などのエフェクトは、原則として `three.js` 側の geometry / material / light / shader / texture で実装する。CSSの `box-shadow` / `drop-shadow` / `filter` は、テキストやHTML情報部品の補助に留め、空間エフェクトの正本にしない。
 
 迷ったら最初に1つだけ高密度な `three.js` / SVG / texture の試作を作り、CSS版と比較する。30分でCSS版が安っぽく見えるなら即捨てる。
 
@@ -46,6 +48,7 @@ CSS/HTMLは「情報の中身」を担当する。3D空間の物理的な位置�
 - パネル本体の3D座標、フレーム、外形
 - カードとモーダルの空間配置
 - レーザー、投影光、ビーム、粒子、走査線
+- ネオン発光、bloom的な外光、ホログラム投影面
 - カメラ回転・ズーム時にも接続が維持されるもの
 - 「角から角へつながる」「このライン上に置く」などワールド座標の正確さが必要なもの
 
@@ -100,6 +103,7 @@ HUDパネルは `three.js` のmesh/lineを正本にする。
 ## Anti-Patterns
 
 - CSSのclip-pathやbox-shadowを3D接続の正本にする。
+- CSSのbox-shadow/drop-shadow/filterで、空間内の発光・投影・レーザーを代替する。
 - `Html` の幅pxから目測でレーザー終点を合わせる。
 - カメラを回すUIなのに、スクリーン座標っぽい見た目合わせで済ませる。
 - 参考画像級のHUDフレームをCSS borderだけで再現し続ける。

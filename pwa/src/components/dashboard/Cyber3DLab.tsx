@@ -5,7 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Cpu, Network, ShieldCheck, TerminalSquare } from "lucide-react";
+import { TerminalSquare } from "lucide-react";
 import * as THREE from "three";
 
 type Project = {
@@ -21,6 +21,11 @@ type Project = {
   phase: string;
   next: string;
   log: string[];
+  xfm: {
+    x: number;
+    f: number;
+    m: number;
+  };
 };
 
 type DashboardMetric = {
@@ -40,12 +45,12 @@ const COCKPIT_PANEL_WIDTH_WORLD = COCKPIT_PANEL_WIDTH_PX / HTML_PX_PER_WORLD_UNI
 const COCKPIT_PANEL_HEIGHT_WORLD = COCKPIT_PANEL_HEIGHT_PX / HTML_PX_PER_WORLD_UNIT;
 
 const projects: Project[] = [
-  { id: "p20", code: "CX", name: "CryoX", subtitle: "低温AIロボティクス", status: "ACTIVE", accent: "#46f7ff", signal: "94%", score: "78", field: "8.4M", phase: "MS-3 / Demo Integration", next: "Review / Decide", log: ["Slack sync", "Drive scan", "Calendar pulse"] },
-  { id: "p25", code: "KU", name: "KUTE", subtitle: "工学院大エコシステム", status: "ACTIVE", accent: "#56ff9c", signal: "88%", score: "81", field: "11.0M", phase: "MS-1 / Partner Mesh", next: "Spec cockpit", log: ["Lab map", "Budget lane", "MS design"] },
-  { id: "p06", code: "HZ", name: "Hydrogen Mobility", subtitle: "ZMP / 水素モビリティ", status: "SALES", accent: "#ff9b42", signal: "71%", score: "62", field: "3.2M", phase: "Pitch / URA bridge", next: "Route proposal", log: ["Messenger", "産連 contact", "Unit econ"] },
-  { id: "p21", code: "PT", name: "Plant Twin", subtitle: "香川大デジタルツイン", status: "ACTIVE", accent: "#2d9cff", signal: "83%", score: "70", field: "6.6M", phase: "Value model", next: "Data business", log: ["MEMS", "Cultivation", "Forecast"] },
-  { id: "p14", code: "SE", name: "Science Engine", subtitle: "研究探索エージェント", status: "DRAFT", accent: "#ffd84c", signal: "59%", score: "46", field: "2.1M", phase: "Seed cluster", next: "Lane scoring", log: ["Papers", "KAKEN", "Themes"] },
-  { id: "p29", code: "SX", name: "Supply X", subtitle: "産業供給網プロトコル", status: "FROZEN", accent: "#c46cff", signal: "42%", score: "38", field: "1.8M", phase: "Archive scan", next: "Hold", log: ["Risk", "Partner", "Market"] },
+  { id: "p20", code: "CX", name: "CryoX", subtitle: "低温AIロボティクス", status: "ACTIVE", accent: "#46f7ff", signal: "94%", score: "78", field: "8.4M", phase: "MS-3 / Demo Integration", next: "Review / Decide", log: ["Slack sync", "Drive scan", "Calendar pulse"], xfm: { x: 78, f: 64, m: 76 } },
+  { id: "p25", code: "KU", name: "KUTE", subtitle: "工学院大エコシステム", status: "ACTIVE", accent: "#56ff9c", signal: "88%", score: "81", field: "11.0M", phase: "MS-1 / Partner Mesh", next: "Spec cockpit", log: ["Lab map", "Budget lane", "MS design"], xfm: { x: 68, f: 82, m: 81 } },
+  { id: "p06", code: "HZ", name: "Hydrogen Mobility", subtitle: "ZMP / 水素モビリティ", status: "SALES", accent: "#ff9b42", signal: "71%", score: "62", field: "3.2M", phase: "Pitch / URA bridge", next: "Route proposal", log: ["Messenger", "産連 contact", "Unit econ"], xfm: { x: 46, f: 51, m: 61 } },
+  { id: "p21", code: "PT", name: "Plant Twin", subtitle: "香川大デジタルツイン", status: "ACTIVE", accent: "#2d9cff", signal: "83%", score: "70", field: "6.6M", phase: "Value model", next: "Data business", log: ["MEMS", "Cultivation", "Forecast"], xfm: { x: 59, f: 74, m: 69 } },
+  { id: "p14", code: "SE", name: "Science Engine", subtitle: "研究探索エージェント", status: "DRAFT", accent: "#ffd84c", signal: "59%", score: "46", field: "2.1M", phase: "Seed cluster", next: "Lane scoring", log: ["Papers", "KAKEN", "Themes"], xfm: { x: 39, f: 68, m: 47 } },
+  { id: "p29", code: "SX", name: "Supply X", subtitle: "産業供給網プロトコル", status: "FROZEN", accent: "#c46cff", signal: "42%", score: "38", field: "1.8M", phase: "Archive scan", next: "Hold", log: ["Risk", "Partner", "Market"], xfm: { x: 31, f: 86, m: 36 } },
 ];
 
 const studioCoreMetrics: DashboardMetric[] = [
@@ -62,19 +67,26 @@ const amdValueMetrics: DashboardMetric[] = [
   { label: "MS CLEAR", value: "68%", delta: "MILESTONE HIT", progress: 68, mode: "bar" },
 ];
 
-const panelSlots = [
-  { x: -8.1, y: 5, z: 1.55, w: 3.55, h: 1.16 },
-  { x: -5.35, y: 9, z: 2.45, w: 3.3, h: 1.1 },
-  { x: -7.25, y: 7, z: 1.1, w: 3.75, h: 1.22 },
-  { x: -1.45, y: 11, z: 2.05, w: 4.05, h: 1.18 },
-  { x: -3.95, y: 13, z: 1.36, w: 3.45, h: 1.12 },
-  { x: 6.45, y: 15, z: 2.28, w: 3.3, h: 1.1 },
-];
+const XFM_SPACE = {
+  xMin: -8.8,
+  xMax: 6.8,
+  yMin: 4.4,
+  yMax: 18.6,
+  zMin: 0.62,
+  zMax: 4.35,
+};
+
+function getProjectOrbPosition(project: Project): [number, number, number] {
+  const x = THREE.MathUtils.lerp(XFM_SPACE.xMin, XFM_SPACE.xMax, project.xfm.x / 100);
+  const y = THREE.MathUtils.lerp(XFM_SPACE.yMin, XFM_SPACE.yMax, project.xfm.f / 100);
+  const z = THREE.MathUtils.lerp(XFM_SPACE.zMin, XFM_SPACE.zMax, project.xfm.m / 100);
+  return [x, y, z];
+}
 
 const auxSlots = {
   visualizer: { x: 8.6, y: 12.2, z: 1.18, w: 4.45, h: 1.86 },
-  studioCore: { x: -0.1, y: 7.7, z: 3.05, w: 7.25, h: 2.34 },
-  valueProof: { x: 0.25, y: 9.7, z: 1.28, w: 7.3, h: 2.3 },
+  studioCore: { x: -1.15, y: 6.9, z: 0.06, w: 7.25, h: 2.34 },
+  valueProof: { x: 1.25, y: 9.65, z: 0.07, w: 7.3, h: 2.3 },
   alert: { x: -6.8, y: 3.7, z: 3.28, w: 4.65, h: 1.05 },
   user: { x: 7.95, y: 16, z: 0.82, w: 3.75, h: 1.08 },
 };
@@ -137,10 +149,11 @@ function CyberWorld({ selectedId, projectedId, onProjectSelect }: { selectedId: 
   const selectedIdRef = useRef<string | null>(null);
   const focusUntilRef = useRef(0);
   const { camera } = useThree();
+  const orbPositions = useMemo(() => projects.map((project) => getProjectOrbPosition(project)), []);
   const selectedIndex = selectedId ? projects.findIndex((project) => project.id === selectedId) : -1;
-  const selectedSlot = selectedIndex >= 0 ? panelSlots[selectedIndex] : null;
+  const selectedPosition = selectedIndex >= 0 ? orbPositions[selectedIndex] : null;
   const projectedIndex = projectedId ? projects.findIndex((project) => project.id === projectedId) : -1;
-  const projectedSlot = projectedIndex >= 0 ? panelSlots[projectedIndex] : null;
+  const projectedPosition = projectedIndex >= 0 ? orbPositions[projectedIndex] : null;
 
   useEffect(() => {
     camera.up.set(0, 0, 1);
@@ -159,12 +172,12 @@ function CyberWorld({ selectedId, projectedId, onProjectSelect }: { selectedId: 
 
   const laneGeometry = useMemo(() => {
     const vertices: number[] = [];
-    const lanes = [...panelSlots.map((slot) => slot.y), auxSlots.visualizer.y, auxSlots.studioCore.y, auxSlots.valueProof.y, auxSlots.alert.y, auxSlots.user.y];
+    const lanes = [...orbPositions.map((position) => position[1]), auxSlots.visualizer.y, auxSlots.studioCore.y, auxSlots.valueProof.y, auxSlots.alert.y, auxSlots.user.y];
     for (const y of lanes) vertices.push(-18, y, 0.018, 18, y, 0.018);
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
     return geometry;
-  }, []);
+  }, [orbPositions]);
 
   const cityGeometry = useMemo(() => {
     const vertices: number[] = [];
@@ -179,7 +192,7 @@ function CyberWorld({ selectedId, projectedId, onProjectSelect }: { selectedId: 
 
   const panelGeometry = useMemo(() => {
     const vertices: number[] = [];
-    for (const { x, y, z, w, h } of [...panelSlots, auxSlots.visualizer, auxSlots.studioCore, auxSlots.valueProof, auxSlots.alert, auxSlots.user]) {
+    for (const { x, y, z, w, h } of [auxSlots.visualizer, auxSlots.alert, auxSlots.user]) {
       const left = x - w / 2, right = x + w / 2, bottom = z - h / 2, top = z + h / 2;
       vertices.push(left, y, bottom, right, y, bottom, right, y, bottom, right, y, top, right, y, top, left, y, top, left, y, top, left, y, bottom);
     }
@@ -196,23 +209,6 @@ function CyberWorld({ selectedId, projectedId, onProjectSelect }: { selectedId: 
     return geometry;
   }, []);
 
-  const projectionGeometry = useMemo(() => {
-    const vertices = [
-      -0.5, 0, 0, -0.68, 0, 1,
-      0.5, 0, 0, 0.68, 0, 1,
-      -0.18, 0, 0, -0.38, 0, 1,
-      0.18, 0, 0, 0.38, 0, 1,
-      -0.5, 0, 0, 0.5, 0, 0,
-      -0.56, 0, 0.22, 0.56, 0, 0.22,
-      -0.61, 0, 0.46, 0.61, 0, 0.46,
-      -0.65, 0, 0.7, 0.65, 0, 0.7,
-      -0.68, 0, 1, 0.68, 0, 1,
-    ];
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
-    return geometry;
-  }, []);
-
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     if (selectedIdRef.current !== selectedId) {
@@ -220,8 +216,8 @@ function CyberWorld({ selectedId, projectedId, onProjectSelect }: { selectedId: 
       focusUntilRef.current = t + 1.35;
     }
     if (controlsRef.current && t < focusUntilRef.current) {
-      const focus = selectedSlot ? new THREE.Vector3(selectedSlot.x, selectedSlot.y, selectedSlot.z) : new THREE.Vector3(0, 9, 1.4);
-      const desired = selectedSlot ? new THREE.Vector3(selectedSlot.x * 0.72, selectedSlot.y - 12.8, selectedSlot.z + 3.3) : new THREE.Vector3(0, -12.5, 4.8);
+      const focus = selectedPosition ? new THREE.Vector3(selectedPosition[0], selectedPosition[1], selectedPosition[2]) : new THREE.Vector3(0, 9, 1.4);
+      const desired = selectedPosition ? new THREE.Vector3(selectedPosition[0] * 0.72, selectedPosition[1] - 10.2, selectedPosition[2] + 3.1) : new THREE.Vector3(0, -12.5, 4.8);
       camera.position.lerp(desired, 0.075);
       controlsRef.current.target.lerp(focus, 0.095);
       controlsRef.current.update();
@@ -260,39 +256,32 @@ function CyberWorld({ selectedId, projectedId, onProjectSelect }: { selectedId: 
           <mesh position={[0, 0, 0.025]}><planeGeometry args={[34, 0.035]} /><meshBasicMaterial color="#82ffff" transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
           <mesh position={[0, 0, 0.09]}><planeGeometry args={[22, 0.12]} /><meshBasicMaterial color="#ffad55" transparent opacity={0.2} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
         </group>
-        {projects.map((project, index) => {
-          const slot = panelSlots[index];
-          return (
-            <group key={project.id} position={[slot.x, slot.y - 0.015, slot.z]}>
-              <HudPanelMesh
-                width={slot.w}
-                height={slot.h}
-                accent={project.accent}
-                active={selectedId === project.id}
-                onSelect={() => onProjectSelect(project)}
-              />
-              <group rotation={[Math.PI / 2, 0, 0]}>
-                <Html transform center distanceFactor={4.4} zIndexRange={[40, 0]} style={{ width: `${slot.w * HTML_PX_PER_WORLD_UNIT}px`, pointerEvents: "auto" }}>
-                  <ProjectCard project={project} index={index} selectedId={selectedId} onSelect={onProjectSelect} />
-                </Html>
-              </group>
-            </group>
-          );
-        })}
+        <XfmAxes />
+        {projects.map((project, index) => (
+          <ProjectOrb
+            key={project.id}
+            project={project}
+            index={index}
+            position={orbPositions[index]}
+            active={selectedId === project.id}
+            projected={projectedId === project.id}
+            onSelect={() => onProjectSelect(project)}
+          />
+        ))}
         <HtmlFrame position={[auxSlots.visualizer.x, auxSlots.visualizer.y - 0.015, auxSlots.visualizer.z]} width={auxSlots.visualizer.w * 124}><VisualizerPanel /></HtmlFrame>
-        <HudInfoPanel slot={auxSlots.studioCore} accent="#47f3ff">
+        <FloorHudInfoPanel slot={auxSlots.studioCore} accent="#47f3ff">
           <KpiCluster title="STUDIO CORE KPI" eyebrow="AMD OPERATING HEALTH" metrics={studioCoreMetrics} />
-        </HudInfoPanel>
-        <HudInfoPanel slot={auxSlots.valueProof} accent="#64ffb1">
+        </FloorHudInfoPanel>
+        <FloorHudInfoPanel slot={auxSlots.valueProof} accent="#64ffb1">
           <KpiCluster title="AMD VALUE PROOF" eyebrow="INTERVENTION DELTA" metrics={amdValueMetrics} />
-        </HudInfoPanel>
+        </FloorHudInfoPanel>
         <HtmlFrame position={[auxSlots.alert.x, auxSlots.alert.y - 0.015, auxSlots.alert.z]} width={auxSlots.alert.w * 104}><MetricFrame title="NEXT_ACTIONS" rows={["Score baseline sync", "Member bios required", "Funding data source map"]} warn /></HtmlFrame>
         <HtmlFrame position={[auxSlots.user.x, auxSlots.user.y - 0.015, auxSlots.user.z]} width={auxSlots.user.w * 104}><MetricFrame title="USER_INFO" rows={["PROFILE", "ADMINISTRATOR", "AUTHENTICATED"]} /></HtmlFrame>
-        {selectedSlot && selectedIndex >= 0 && (
-          <ProjectionBeam slot={selectedSlot} geometry={projectionGeometry} active={!!projectedSlot} accent={projects[selectedIndex].accent} />
+        {selectedPosition && selectedIndex >= 0 && (
+          <OrbProjectionBeam origin={selectedPosition} active={!!projectedPosition} accent={projects[selectedIndex].accent} />
         )}
-        {projectedSlot && (
-          <group position={[projectedSlot.x, projectedSlot.y - 0.015, projectedSlot.z + COCKPIT_Z_OFFSET]}>
+        {projectedPosition && (
+          <group position={[projectedPosition[0], projectedPosition[1] - 0.015, projectedPosition[2] + COCKPIT_Z_OFFSET]}>
             <HudPanelMesh width={COCKPIT_PANEL_WIDTH_WORLD} height={COCKPIT_PANEL_HEIGHT_WORLD} accent={projects[projectedIndex].accent} active />
             <group rotation={[Math.PI / 2, 0, 0]}>
               <Html transform center distanceFactor={4.4} zIndexRange={[30, 0]} className="cockpit-html-frame" style={{ width: `${COCKPIT_PANEL_WIDTH_PX}px`, pointerEvents: "auto" }}>
@@ -366,99 +355,167 @@ function HudPanelMesh({ width, height, accent, active, onSelect }: { width: numb
   );
 }
 
-function ProjectionBeam({ slot, geometry, active, accent }: { slot: { x: number; y: number; z: number; w: number; h: number }; geometry: THREE.BufferGeometry; active: boolean; accent: string }) {
-  const { fanGeometry, coreGeometry, rayGeometry, receiverGeometry } = useMemo(() => {
-    const cardHalf = slot.w * 0.5;
-    const modalHalf = COCKPIT_PANEL_WIDTH_WORLD * 0.5;
-    const modalBottomHeight = COCKPIT_Z_OFFSET - slot.h / 2 - COCKPIT_PANEL_HEIGHT_WORLD / 2;
-    const coreCardHalf = slot.w * 0.16;
-    const coreModalHalf = modalHalf * 0.36;
-    const z0 = 0.03;
-    const z1 = modalBottomHeight;
-    const makeFan = (cardHalfWidth: number, modalHalfWidth: number) => {
-      const shape = new THREE.BufferGeometry();
-      shape.setAttribute("position", new THREE.Float32BufferAttribute([
-        -cardHalfWidth, 0, z0,
-        cardHalfWidth, 0, z0,
-        modalHalfWidth, 0, z1,
-        -modalHalfWidth, 0, z1,
-      ], 3));
-      shape.setIndex([0, 1, 2, 0, 2, 3]);
-      return shape;
-    };
-    const rays = new THREE.BufferGeometry();
-    rays.setAttribute("position", new THREE.Float32BufferAttribute([
-      -cardHalf, 0.002, z0, -modalHalf, 0.002, z1,
-      cardHalf, 0.002, z0, modalHalf, 0.002, z1,
-      -cardHalf, 0.002, z0, cardHalf, 0.002, z0,
-      -modalHalf, 0.002, z1, modalHalf, 0.002, z1,
-      -cardHalf, 0.002, z0, 0, 0.002, z1,
-      cardHalf, 0.002, z0, 0, 0.002, z1,
-    ], 3));
-    const receiver = new THREE.BufferGeometry();
-    receiver.setAttribute("position", new THREE.Float32BufferAttribute([
-      -modalHalf, 0.006, z1, modalHalf, 0.006, z1,
-      -modalHalf, 0.006, z1, -modalHalf, 0.006, z1 + 0.18,
-      modalHalf, 0.006, z1, modalHalf, 0.006, z1 + 0.18,
-    ], 3));
-    return {
-      fanGeometry: makeFan(cardHalf, modalHalf),
-      coreGeometry: makeFan(coreCardHalf, coreModalHalf),
-      rayGeometry: rays,
-      receiverGeometry: receiver,
-    };
-  }, [slot.h, slot.w]);
+function XfmAxes() {
+  const axisGeometry = useMemo(() => {
+    const vertices = [
+      XFM_SPACE.xMin - 0.6, XFM_SPACE.yMin, XFM_SPACE.zMin, XFM_SPACE.xMax + 0.8, XFM_SPACE.yMin, XFM_SPACE.zMin,
+      XFM_SPACE.xMin, XFM_SPACE.yMin - 0.5, XFM_SPACE.zMin, XFM_SPACE.xMin, XFM_SPACE.yMax + 0.9, XFM_SPACE.zMin,
+      XFM_SPACE.xMin, XFM_SPACE.yMin, 0.08, XFM_SPACE.xMin, XFM_SPACE.yMin, XFM_SPACE.zMax + 0.85,
+    ];
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    return geometry;
+  }, []);
+  const tickGeometry = useMemo(() => {
+    const vertices: number[] = [];
+    for (let i = 0; i <= 5; i += 1) {
+      const x = THREE.MathUtils.lerp(XFM_SPACE.xMin, XFM_SPACE.xMax, i / 5);
+      const y = THREE.MathUtils.lerp(XFM_SPACE.yMin, XFM_SPACE.yMax, i / 5);
+      const z = THREE.MathUtils.lerp(XFM_SPACE.zMin, XFM_SPACE.zMax, i / 5);
+      vertices.push(x, XFM_SPACE.yMin - 0.16, XFM_SPACE.zMin, x, XFM_SPACE.yMin + 0.16, XFM_SPACE.zMin);
+      vertices.push(XFM_SPACE.xMin - 0.16, y, XFM_SPACE.zMin, XFM_SPACE.xMin + 0.16, y, XFM_SPACE.zMin);
+      vertices.push(XFM_SPACE.xMin - 0.12, XFM_SPACE.yMin, z, XFM_SPACE.xMin + 0.12, XFM_SPACE.yMin, z);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    return geometry;
+  }, []);
+
   return (
-    <group position={[slot.x, slot.y - 0.02, slot.z + slot.h / 2]}>
-      <mesh geometry={fanGeometry} renderOrder={20}>
-        <meshBasicMaterial color={accent} transparent opacity={active ? 0.42 : 0.16} blending={THREE.AdditiveBlending} depthWrite={false} depthTest={false} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh geometry={fanGeometry} position={[0, -0.055, 0]} renderOrder={21}>
-        <meshBasicMaterial color={accent} transparent opacity={active ? 0.24 : 0.08} blending={THREE.AdditiveBlending} depthWrite={false} depthTest={false} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh geometry={coreGeometry} position={[0, 0.05, 0]} renderOrder={22}>
-        <meshBasicMaterial color="#f5ffff" transparent opacity={active ? 0.22 : 0.08} blending={THREE.AdditiveBlending} depthWrite={false} depthTest={false} side={THREE.DoubleSide} />
-      </mesh>
-      <lineSegments geometry={rayGeometry} renderOrder={23}>
-        <lineBasicMaterial color={accent} transparent opacity={active ? 0.95 : 0.44} blending={THREE.AdditiveBlending} depthWrite={false} depthTest={false} />
+    <group>
+      <lineSegments geometry={axisGeometry} renderOrder={12}>
+        <lineBasicMaterial color="#f7ffff" transparent opacity={0.78} blending={THREE.AdditiveBlending} depthWrite={false} />
       </lineSegments>
-      <lineSegments geometry={receiverGeometry} renderOrder={24}>
-        <lineBasicMaterial color="#f4ffff" transparent opacity={active ? 0.9 : 0.34} blending={THREE.AdditiveBlending} depthWrite={false} depthTest={false} />
+      <lineSegments geometry={tickGeometry} renderOrder={13}>
+        <lineBasicMaterial color="#64ffb1" transparent opacity={0.72} blending={THREE.AdditiveBlending} depthWrite={false} />
       </lineSegments>
-      <group scale={[slot.w * 0.82, 1, 1]} position={[0, 0.004, 0.035]}>
-        <lineSegments geometry={geometry} renderOrder={24}>
-          <lineBasicMaterial color={accent} transparent opacity={active ? 0.42 : 0.16} blending={THREE.AdditiveBlending} depthWrite={false} depthTest={false} />
-        </lineSegments>
-      </group>
+      {[
+        ["X", XFM_SPACE.xMax + 1.08, XFM_SPACE.yMin, XFM_SPACE.zMin],
+        ["F", XFM_SPACE.xMin, XFM_SPACE.yMax + 1.12, XFM_SPACE.zMin],
+        ["M", XFM_SPACE.xMin, XFM_SPACE.yMin, XFM_SPACE.zMax + 1.04],
+      ].map(([label, x, y, z]) => (
+        <Html key={label as string} transform center position={[x as number, y as number, z as number]} distanceFactor={5.2} zIndexRange={[16, 0]}>
+          <span className="xfm-axis-label">{label}</span>
+        </Html>
+      ))}
     </group>
   );
 }
 
-function ProjectCard({ project, index, selectedId, onSelect }: { project: Project; index: number; selectedId: string | null; onSelect: (project: Project | null) => void }) {
-  const icon = index % 3 === 0 ? <Cpu size={22} /> : index % 3 === 1 ? <Network size={22} /> : <ShieldCheck size={22} />;
-  const style = { "--accent": project.accent, "--z-index": index } as CSSProperties;
+function ProjectOrb({ project, index, position, active, projected, onSelect }: { project: Project; index: number; position: [number, number, number]; active: boolean; projected: boolean; onSelect: () => void }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const haloRef = useRef<THREE.Mesh>(null);
+  const pulsePhase = active ? 1 : 0;
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime + index * 0.37;
+    if (groupRef.current) {
+      const scale = active ? 1.22 + Math.sin(t * 12) * 0.05 : 1 + Math.sin(t * 2.2) * 0.045;
+      groupRef.current.scale.setScalar(scale);
+      groupRef.current.rotation.z = t * 0.22;
+    }
+    if (haloRef.current) {
+      const halo = active ? 2.25 + Math.sin(t * 12) * 0.34 : 1.7 + Math.sin(t * 2.5) * 0.12;
+      haloRef.current.scale.setScalar(halo);
+    }
+  });
 
   return (
-    <button
-      className={`cyber3d-project-card ${selectedId === project.id ? "focused-card" : ""}`}
-      style={style}
-      onClick={(event) => {
-        event.stopPropagation();
-        event.currentTarget.blur();
-        onSelect(project);
-      }}
-      onPointerDown={(event) => event.stopPropagation()}
-      type="button"
-    >
-      <div className="card-row">
-        <div className="card-code">{project.code}</div>
-        <div>
-          <div className="card-meta">{icon}<span>{project.id.toUpperCase()}</span><span>/</span><span>{project.status}</span></div>
-          <h2 className="card-name">{project.name}</h2>
-          <p className="card-subtitle">{project.subtitle}</p>
-        </div>
-      </div>
-    </button>
+    <group position={position}>
+      <group
+        ref={groupRef}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect();
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <pointLight color={project.accent} intensity={active || projected ? 3.2 : 1.25} distance={5.8} decay={1.7} />
+        <mesh renderOrder={15}>
+          <sphereGeometry args={[0.24, 42, 42]} />
+          <meshBasicMaterial color={project.accent} transparent opacity={0.94} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+        <mesh ref={haloRef} renderOrder={14}>
+          <sphereGeometry args={[0.34, 42, 42]} />
+          <meshBasicMaterial color={project.accent} transparent opacity={active ? 0.24 : 0.13} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.BackSide} />
+        </mesh>
+        <mesh rotation={[Math.PI / 2, 0, 0]} renderOrder={16}>
+          <torusGeometry args={[0.46, 0.012, 8, 72]} />
+          <meshBasicMaterial color={active ? "#f5ffff" : project.accent} transparent opacity={active ? 0.9 : 0.54} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+        <mesh rotation={[0, Math.PI / 2, 0]} renderOrder={16}>
+          <torusGeometry args={[0.37, 0.008, 8, 72]} />
+          <meshBasicMaterial color={project.accent} transparent opacity={active ? 0.82 : 0.38} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+        <mesh rotation={[Math.PI / 2 + pulsePhase * 0.04, 0.4, 0]} renderOrder={16}>
+          <torusGeometry args={[0.56, 0.006, 8, 96]} />
+          <meshBasicMaterial color={project.accent} transparent opacity={active ? 0.5 : 0.22} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+      </group>
+      <Html transform center position={[0, 0, -0.58]} distanceFactor={4.8} zIndexRange={[24, 0]} style={{ pointerEvents: "auto" }}>
+        <button
+          type="button"
+          className={`project-orb-label ${active ? "active" : ""}`}
+          style={{ "--accent": project.accent } as CSSProperties}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect();
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <b>{project.code}</b>
+          <span>{project.name}</span>
+          <small>X{project.xfm.x} F{project.xfm.f} M{project.xfm.m}</small>
+        </button>
+      </Html>
+    </group>
+  );
+}
+
+function OrbProjectionBeam({ origin, active, accent }: { origin: [number, number, number]; active: boolean; accent: string }) {
+  const { fanGeometry, coreGeometry, rayGeometry } = useMemo(() => {
+    const z0 = 0.34;
+    const z1 = COCKPIT_Z_OFFSET - COCKPIT_PANEL_HEIGHT_WORLD / 2;
+    const modalHalf = COCKPIT_PANEL_WIDTH_WORLD * 0.5;
+    const makeFan = (baseHalf: number, topHalf: number) => {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute([
+        -baseHalf, 0, z0,
+        baseHalf, 0, z0,
+        topHalf, 0, z1,
+        -topHalf, 0, z1,
+      ], 3));
+      geometry.setIndex([0, 1, 2, 0, 2, 3]);
+      return geometry;
+    };
+    const rays = new THREE.BufferGeometry();
+    rays.setAttribute("position", new THREE.Float32BufferAttribute([
+      -0.22, 0.004, z0, -modalHalf, 0.004, z1,
+      0.22, 0.004, z0, modalHalf, 0.004, z1,
+      -0.22, 0.004, z0, 0.22, 0.004, z0,
+      -modalHalf, 0.004, z1, modalHalf, 0.004, z1,
+      0, 0.004, z0, -modalHalf * 0.35, 0.004, z1,
+      0, 0.004, z0, modalHalf * 0.35, 0.004, z1,
+    ], 3));
+    return {
+      fanGeometry: makeFan(0.22, modalHalf),
+      coreGeometry: makeFan(0.08, modalHalf * 0.28),
+      rayGeometry: rays,
+    };
+  }, []);
+
+  return (
+    <group position={[origin[0], origin[1] - 0.018, origin[2]]}>
+      <mesh geometry={fanGeometry} renderOrder={20}>
+        <meshBasicMaterial color={accent} transparent opacity={active ? 0.34 : 0.12} blending={THREE.AdditiveBlending} depthWrite={false} depthTest={false} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh geometry={coreGeometry} position={[0, 0.045, 0]} renderOrder={21}>
+        <meshBasicMaterial color="#f4ffff" transparent opacity={active ? 0.24 : 0.08} blending={THREE.AdditiveBlending} depthWrite={false} depthTest={false} side={THREE.DoubleSide} />
+      </mesh>
+      <lineSegments geometry={rayGeometry} renderOrder={22}>
+        <lineBasicMaterial color={accent} transparent opacity={active ? 0.95 : 0.32} blending={THREE.AdditiveBlending} depthWrite={false} depthTest={false} />
+      </lineSegments>
+    </group>
   );
 }
 
@@ -472,15 +529,15 @@ function HtmlFrame({ position, width, children, className = "" }: { position: [n
   );
 }
 
-function HudInfoPanel({ slot, accent, children }: { slot: { x: number; y: number; z: number; w: number; h: number }; accent: string; children: ReactNode }) {
+function FloorHudInfoPanel({ slot, accent, children }: { slot: { x: number; y: number; z: number; w: number; h: number }; accent: string; children: ReactNode }) {
   return (
-    <group position={[slot.x, slot.y - 0.015, slot.z]}>
-      <HudPanelMesh width={slot.w} height={slot.h} accent={accent} active />
+    <group position={[slot.x, slot.y, slot.z]}>
       <group rotation={[Math.PI / 2, 0, 0]}>
-        <Html transform center distanceFactor={4.4} zIndexRange={[28, 0]} style={{ width: `${slot.w * HTML_PX_PER_WORLD_UNIT}px`, pointerEvents: "auto" }}>
-          {children}
-        </Html>
+        <HudPanelMesh width={slot.w} height={slot.h} accent={accent} active />
       </group>
+      <Html transform center distanceFactor={4.4} zIndexRange={[26, 0]} style={{ width: `${slot.w * HTML_PX_PER_WORLD_UNIT}px`, pointerEvents: "auto" }}>
+        {children}
+      </Html>
     </group>
   );
 }
@@ -649,6 +706,8 @@ function CyberStyles() {
       .cyber3d-shell{position:relative;z-index:2;min-height:100%;padding:clamp(20px,3vw,46px);pointer-events:none}.cyber3d-header{display:flex;align-items:center;gap:20px;width:fit-content;text-shadow:0 0 16px rgba(71,243,255,.75),0 0 38px rgba(20,135,255,.5)}.cyber3d-brand-mark{display:grid;place-items:center;width:clamp(74px,8vw,112px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(71,243,255,.22),rgba(20,135,255,.08) 58%,transparent 72%);filter:drop-shadow(0 0 18px rgba(71,243,255,.95)) drop-shadow(0 0 42px rgba(20,135,255,.7))}.cyber3d-brand-mark img{width:72%;height:auto;object-fit:contain;filter:drop-shadow(0 0 10px rgba(71,243,255,.95))}
       .cyber3d-header p{margin:0;font-family:"Orbitron",sans-serif;font-size:clamp(36px,5vw,68px);font-weight:800;line-height:.92;color:#f0feff}.cyber3d-header span{display:block;margin-top:10px;color:#9ff7ff;font-size:clamp(12px,1.3vw,18px);font-weight:800}.cyber3d-status{margin-top:clamp(22px,5vh,48px);font-size:clamp(18px,2.3vw,32px);font-weight:900;color:#dbfbff;text-shadow:0 0 15px rgba(216,251,255,.75)}.cyber3d-status strong{color:var(--cyber-green);text-shadow:0 0 16px rgba(100,255,177,.9),0 0 34px rgba(100,255,177,.5)}
       .cyber3d-docking-line{position:absolute;left:clamp(24px,5vw,84px);right:clamp(24px,5vw,84px);bottom:4.2vh;height:2px;z-index:3;background:linear-gradient(90deg,transparent,rgba(71,243,255,.96) 12%,rgba(255,172,87,.78) 50%,rgba(71,243,255,.96) 88%,transparent);box-shadow:0 0 18px rgba(71,243,255,.9),0 0 54px rgba(20,135,255,.48)}.cyber3d-docking-line span{position:absolute;right:0;bottom:9px;color:rgba(186,253,255,.72);font-size:11px;text-shadow:0 0 10px rgba(71,243,255,.9)}
+      .xfm-axis-label{display:inline-grid;place-items:center;width:34px;aspect-ratio:1;border:1px solid rgba(210,255,255,.74);border-radius:50%;background:rgba(1,12,20,.5);color:#f4ffff;font-family:"Orbitron",sans-serif;font-size:16px;font-weight:900;text-shadow:0 0 14px rgba(71,243,255,.95);box-shadow:inset 0 0 14px rgba(71,243,255,.18),0 0 22px rgba(71,243,255,.55)}
+      .project-orb-label{--accent:#47f3ff;display:grid;grid-template-columns:auto 1fr;gap:1px 8px;min-width:142px;padding:6px 9px;appearance:none;border:1px solid color-mix(in srgb,var(--accent),transparent 46%);background:rgba(0,10,18,.62);color:#eaffff;text-align:left;pointer-events:auto;cursor:pointer;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));box-shadow:inset 0 0 12px color-mix(in srgb,var(--accent),transparent 82%);backdrop-filter:blur(8px)}.project-orb-label b{grid-row:1/3;display:grid;place-items:center;width:30px;aspect-ratio:1;background:color-mix(in srgb,var(--accent),transparent 72%);clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);font-family:"Orbitron",sans-serif;font-size:10px;text-shadow:0 0 10px var(--accent)}.project-orb-label span{font-family:"Orbitron",sans-serif;font-size:13px;line-height:1.05;color:#fff;text-shadow:0 0 10px var(--accent)}.project-orb-label small{color:rgba(198,252,255,.7);font-size:9px}.project-orb-label.active{border-color:#f4ffff;filter:brightness(1.35);animation:doubleCardPulse 1040ms ease-in-out both}
       .cyber3d-project-card,.cyber3d-frame{position:relative;color:var(--cyber-ice);border:1px solid rgba(92,241,255,.72);background:linear-gradient(90deg,rgba(71,243,255,.16),rgba(4,16,28,.54) 44%,rgba(5,20,36,.32)),radial-gradient(circle at 12% 45%,color-mix(in srgb,var(--accent,#47f3ff),transparent 70%),transparent 30%);box-shadow:inset 0 0 22px rgba(71,243,255,.16),0 0 16px rgba(71,243,255,.42),0 0 42px rgba(20,135,255,.16);clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px));backdrop-filter:blur(14px) saturate(1.25)}
       .cyber3d-project-card:before,.cyber3d-frame:before{content:"";position:absolute;inset:-2px;pointer-events:none;border:2px solid color-mix(in srgb,var(--accent,#47f3ff),white 10%);clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px));opacity:.72;filter:drop-shadow(0 0 7px var(--accent,#47f3ff)) drop-shadow(0 0 18px var(--accent,#47f3ff))}
       .cyber3d-project-card,.cockpit-window{background:transparent!important;border-color:transparent!important;box-shadow:none!important;clip-path:none!important;backdrop-filter:none!important}.cyber3d-project-card:before,.cockpit-window:before{display:none!important}
