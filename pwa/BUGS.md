@@ -5,6 +5,36 @@
 
 ---
 
+### [gas-report] AMD-Report GAS が Drive 同期事故 + isAdmin_ 未定義 + access 設定崩壊の三重壁 / 私の clasp deploy 上書きで全 Web App URL 「ファイル開けません」化 / monthly_report 文字化け復旧で初めて発覚
+- **発見日**: 2026-05-13 (まさ「月次報告書が文字化けしてるから直して」→ 復旧経路で全壁が露呈)
+- **状態**: 🟡 部分解決 (= R313 cron は GAS time-trigger 経由で動作可、monthly_report 復旧は完了。Web App URL access / R290 元コード / GCP project 紐付けの本格修復は次セッション TODO #5)
+- **症状**:
+  1. p20 202604 の monthly_reports.draft_content が **`?????\\n\\n` 形式の文字化け** (= 日本語が `?` 化、`\n` リテラル文字列、UTF-8 が ASCII fallback で潰れた状態 + JSON エスケープ二重)
+  2. 復旧の過程で AMD-Report GAS の Web App URL (= AKfycb...) が **全 deployment 「ファイル開けません」** (= Drive エラー画面)
+  3. clasp run / Apps Script API も permission denied (= GCP project 紐付けが必要)
+  4. `admin_backfillMonthlyReports` 実行時に **`ReferenceError: isAdmin_ is not defined`** (= AMD-Report GAS 全体に admin check 関数の定義が無く、admin_* 系全部動いてなかった)
+  5. clasp push 時に **`R290_NotionProtocolSync` で `__ALIAS_RULES__` 重複宣言 syntax error** (= Drive 同期事故で `R290.js` と `R290 2.js` 両方が GAS に push されて衝突)
+- **真因**:
+  1. **Drive 同期事故**: AMD-Report GAS は Google Drive の「同名ファイル複数 PC 編集 → '2'/'3' suffix 付きで両方残す」バグで `R001_Api 2.js` `R290_NotionProtocolSync 2.js` 等が大量に並存。本番 GAS にも同状態が引き摺られている (= clasp pull で確認、過去のえいみが「2.js が新版なのでそっち使う」ルールで運用してきた)
+  2. **deployment access**: `appsscript.json` に `"access": "ANYONE_ANONYMOUS"` 指定済だが、clasp deploy で update する時 **access 設定の Google 側承認が deployment ごとに必要** (= clasp に `--access` flag 無し、Web Editor でのみ設定可能)。私が temp action 追加で deploy update した瞬間 access が reset され、production URL 全部 (= AKfycbwDmF...) が「ファイル開けません」化。元の @16 スナップショットは私の上書きで失われた
+  3. **isAdmin_ 未定義**: `admin_backfillMonthlyReports` / `admin_forceRegenerateAllMonthlyReports` / `R040_ProjectRepo` 等 8 箇所で `isAdmin_()` 参照あるが、AMD-Report GAS 全体に定義無し (= 元から壊れてた、cron 経路では admin check が呼ばれないので発覚してなかった)
+  4. **R290 syntax error**: 私が clasp push したら local の `R290.js` (93773 byte) と `R290 2.js` (94608 byte) 両方が GAS に push されて、両方とも `__ALIAS_RULES__` 宣言を持っていたため重複宣言エラー
+  5. **monthly_report 文字化けの真因**: AMD-Report GAS R313_MonthlyReport_Cron が 2026-04-09 17:11 に p20 のみ生成エラー (= UTF-8 → ASCII ? 化 + JSON.stringify 二重エスケープ)。他 PJ/月は同 cron run でも正常生成、p20 だけ単発の文字化け。原因未究明、おそらく LLM response parse 時の charset 不一致
+- **解決策** (= 部分):
+  1. **monthly_report 文字化け**: SQL `DELETE FROM monthly_reports WHERE project_id='p20' AND ym='202604'` で row 削除 → まさが GAS Editor で `R001_Api 2.js` の `admin_backfillMonthlyReports` を ▶ 実行 → 1 行再生成 (15:19:22) → 正常な日本語 draft_content で復活 ✅
+  2. **isAdmin_ 未定義**: 私が `R001_Api 2.js` 末尾に `function isAdmin_() { return Session.getActiveUser().getEmail() === "masa@team-armada.jp"; }` を追加 + clasp push → admin_* 関数群が動くように
+  3. **R290 syntax error**: local の `R290_NotionProtocolSync.js` (= 重複の片方) を空コメントで上書き + clasp push → GAS 側の `R290.js` も空コメントに上書き → `__ALIAS_RULES__` 宣言が `R290 2.js` だけになり syntax error 解消。**ただし R290.js 元コード (93773 byte) は失われた**、R290 2.js (94608 byte) が実コードで残存
+  4. **deployment access**: 5 + 試行 (= production update / fresh deploy / clasp run / API Executable / Apps Script API 直叩き) 全部 access 系で詰まり、本格修復は **GAS Editor で deployment access を Web 経由で再設定する必要** = AGENTS 例外。time-based cron は別経路で動くので影響限定
+  5. **aggressive backfill**: 残り 104 件の未生成 monthly_reports row を埋めるため `setup_aggressiveBackfill_2026_05_13` (= 15 分置き trigger + self-teardown) を `R001_Api 2.js` に追加 + clasp push → まさが ▶ 実行で起動。約 6-7 時間で全完了予定 (= 自動 teardown)
+- **教訓**:
+  - **Drive 同期事故 GAS への push は危険**: local の重複ファイル群が GAS 側にも全部 push される。push 前に local 側の重複を解消するか、`.claspignore` で重複ファイルを除外する運用が必要
+  - **clasp deploy --deploymentId X で update すると元 deployment スナップショットが失われる**: 既存 production deployment を update する時は **元 version 番号を控えて promote 戻せるよう準備**。バックアップなしの上書きは禁止
+  - **Apps Script の Web App access 設定は appsscript.json だけでは反映されない**: deployment ごとに **Web Editor で「access: 全員」を承認** が必要。clasp deploy 後は Web Editor で access 確認するセルフチェックを入れる
+  - **AMD-Report GAS の admin check が元から壊れてた事実**: GAS 移植 / refactor 時に admin check helper が抜け落ちた可能性。本セッションで `isAdmin_` を追加した後も、他 GAS (= 本体 GAS / KAGAMI 等) の admin 関数群が同じパターンで壊れてないか別途点検が必要
+  - **monthly_report 文字化けの真因究明**: 1 PJ × 1 ym だけが特異的に文字化け = R313 GAS の **LLM response parse の単発エラー**。次回再発時に reproduce + Sentry / log で trace するため、R313 に文字化け検出 (= `?` 比率 > 50% なら警告) を追加するのが望ましい (= 別タスク TODO)
+
+---
+
 ### [pwa/cron] frl-grit-resilience cron が当日付 row を新規 INSERT して XRL/ALQ 列 NULL のまま最新 row に → AmdScoreView で TRL/BRL/GRL/SRL/HRL 全部 0 表示 (= 「XRL が全部 1 に」事故)
 - **発見日**: 2026-05-12 (まさ「XRL が全部 1 になった」「順番が変わるような修正は今回しなかったはずで、でも変わってるってことは、触ってはいけないところを触ってる気がする」と明確な違和感シグナル)
 - **状態**: ✅ 解決済 (= cron row 削除で復旧 + cron route を update only に修正)
