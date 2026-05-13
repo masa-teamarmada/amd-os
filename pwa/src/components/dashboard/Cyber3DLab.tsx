@@ -50,13 +50,24 @@ const auxSlots = {
 
 export default function Cyber3DLab() {
   const [selected, setSelected] = useState<Project | null>(null);
+  const [projected, setProjected] = useState<Project | null>(null);
 
   function selectProject(project: Project | null) {
     setSelected((current) => {
-      if (!project) return null;
-      return current?.id === project.id ? null : project;
+      if (!project || current?.id === project.id) {
+        setProjected(null);
+        return null;
+      }
+      setProjected(null);
+      return project;
     });
   }
+
+  useEffect(() => {
+    if (!selected) return;
+    const timer = window.setTimeout(() => setProjected(selected), 1120);
+    return () => window.clearTimeout(timer);
+  }, [selected]);
 
   return (
     <main className="cyber3d-page">
@@ -67,7 +78,7 @@ export default function Cyber3DLab() {
           camera={{ position: [0, -12.5, 4.8], fov: 48, near: 0.1, far: 90 }}
           onPointerMissed={() => selectProject(null)}
         >
-          <CyberWorld selectedId={selected?.id ?? null} onProjectSelect={selectProject} />
+          <CyberWorld selectedId={selected?.id ?? null} projectedId={projected?.id ?? null} onProjectSelect={selectProject} />
         </Canvas>
       </div>
       <section className="cyber3d-shell">
@@ -88,7 +99,7 @@ export default function Cyber3DLab() {
   );
 }
 
-function CyberWorld({ selectedId, onProjectSelect }: { selectedId: string | null; onProjectSelect: (project: Project | null) => void }) {
+function CyberWorld({ selectedId, projectedId, onProjectSelect }: { selectedId: string | null; projectedId: string | null; onProjectSelect: (project: Project | null) => void }) {
   const rootRef = useRef<THREE.Group>(null);
   const laserRef = useRef<THREE.Group>(null);
   const controlsRef = useRef<any>(null);
@@ -97,6 +108,8 @@ function CyberWorld({ selectedId, onProjectSelect }: { selectedId: string | null
   const { camera } = useThree();
   const selectedIndex = selectedId ? projects.findIndex((project) => project.id === selectedId) : -1;
   const selectedSlot = selectedIndex >= 0 ? panelSlots[selectedIndex] : null;
+  const projectedIndex = projectedId ? projects.findIndex((project) => project.id === projectedId) : -1;
+  const projectedSlot = projectedIndex >= 0 ? panelSlots[projectedIndex] : null;
 
   useEffect(() => {
     camera.up.set(0, 0, 1);
@@ -147,6 +160,23 @@ function CyberWorld({ selectedId, onProjectSelect }: { selectedId: string | null
   const starGeometry = useMemo(() => {
     const vertices: number[] = [];
     for (let i = 0; i < 260; i += 1) vertices.push(((i * 37) % 420) / 10 - 21, ((i * 61) % 560) / 10 - 4, ((i * 43) % 78) / 10 + 0.5);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    return geometry;
+  }, []);
+
+  const projectionGeometry = useMemo(() => {
+    const vertices = [
+      -0.5, 0, 0, -0.68, 0, 1,
+      0.5, 0, 0, 0.68, 0, 1,
+      -0.18, 0, 0, -0.38, 0, 1,
+      0.18, 0, 0, 0.38, 0, 1,
+      -0.5, 0, 0, 0.5, 0, 0,
+      -0.56, 0, 0.22, 0.56, 0, 0.22,
+      -0.61, 0, 0.46, 0.61, 0, 0.46,
+      -0.65, 0, 0.7, 0.65, 0, 0.7,
+      -0.68, 0, 1, 0.68, 0, 1,
+    ];
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
     return geometry;
@@ -214,12 +244,37 @@ function CyberWorld({ selectedId, onProjectSelect }: { selectedId: string | null
         <HtmlFrame position={[auxSlots.alert.x, auxSlots.alert.y - 0.015, auxSlots.alert.z]} width={auxSlots.alert.w * 104}><MetricFrame title="ALERT_LOG" rows={["Unauthorized: none", "Network sync active", "PWA lab route armed"]} warn /></HtmlFrame>
         <HtmlFrame position={[auxSlots.user.x, auxSlots.user.y - 0.015, auxSlots.user.z]} width={auxSlots.user.w * 104}><MetricFrame title="USER_INFO" rows={["PROFILE", "ADMINISTRATOR", "AUTHENTICATED"]} /></HtmlFrame>
         {selectedSlot && (
-          <HtmlFrame position={[selectedSlot.x + 2.5, selectedSlot.y - 1, Math.max(selectedSlot.z + 0.28, 1.35)]} width={560} className="cockpit-html-frame">
-            <CockpitWindow project={projects[selectedIndex]} />
+          <ProjectionBeam slot={selectedSlot} geometry={projectionGeometry} active={!!projectedSlot} />
+        )}
+        {projectedSlot && (
+          <HtmlFrame position={[projectedSlot.x, projectedSlot.y - 0.015, projectedSlot.z + 2.45]} width={580} className="cockpit-html-frame">
+            <CockpitWindow project={projects[projectedIndex]} />
           </HtmlFrame>
         )}
       </group>
     </>
+  );
+}
+
+function ProjectionBeam({ slot, geometry, active }: { slot: { x: number; y: number; z: number; w: number; h: number }; geometry: THREE.BufferGeometry; active: boolean }) {
+  const height = 2.45;
+  const accent = active ? "#dffcff" : "#47f3ff";
+  return (
+    <group position={[slot.x, slot.y - 0.02, slot.z + slot.h / 2]}>
+      <mesh position={[0, 0, height / 2]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[slot.w * 0.45, slot.w * 0.18, height, 32, 1, true]} />
+        <meshBasicMaterial color="#62f8ff" transparent opacity={active ? 0.13 : 0.08} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, 0, height * 0.54]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[slot.w * 1.22, height * 0.92]} />
+        <meshBasicMaterial color="#dffcff" transparent opacity={active ? 0.08 : 0.04} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+      <group scale={[slot.w * 0.92, 1, height]}>
+      <lineSegments geometry={geometry}>
+        <lineBasicMaterial color={accent} transparent opacity={active ? 0.96 : 0.62} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </lineSegments>
+      </group>
+    </group>
   );
 }
 
@@ -324,12 +379,12 @@ function CyberStyles() {
       .cyber3d-docking-line{position:absolute;left:clamp(24px,5vw,84px);right:clamp(24px,5vw,84px);bottom:4.2vh;height:2px;z-index:3;background:linear-gradient(90deg,transparent,rgba(71,243,255,.96) 12%,rgba(255,172,87,.78) 50%,rgba(71,243,255,.96) 88%,transparent);box-shadow:0 0 18px rgba(71,243,255,.9),0 0 54px rgba(20,135,255,.48)}.cyber3d-docking-line span{position:absolute;right:0;bottom:9px;color:rgba(186,253,255,.72);font-size:11px;text-shadow:0 0 10px rgba(71,243,255,.9)}
       .cyber3d-project-card,.cyber3d-frame{position:relative;color:var(--cyber-ice);border:1px solid rgba(92,241,255,.72);background:linear-gradient(90deg,rgba(71,243,255,.16),rgba(4,16,28,.54) 44%,rgba(5,20,36,.32)),radial-gradient(circle at 12% 45%,color-mix(in srgb,var(--accent,#47f3ff),transparent 70%),transparent 30%);box-shadow:inset 0 0 22px rgba(71,243,255,.16),0 0 16px rgba(71,243,255,.42),0 0 42px rgba(20,135,255,.16);clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px));backdrop-filter:blur(14px) saturate(1.25)}
       .cyber3d-project-card:before,.cyber3d-frame:before{content:"";position:absolute;inset:-2px;pointer-events:none;border:2px solid color-mix(in srgb,var(--accent,#47f3ff),white 10%);clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px));opacity:.72;filter:drop-shadow(0 0 7px var(--accent,#47f3ff)) drop-shadow(0 0 18px var(--accent,#47f3ff))}
-      .cyber3d-project-card{width:100%;min-height:76px;padding:10px 12px;appearance:none;cursor:pointer;text-align:left;pointer-events:auto;transition:filter 240ms ease,box-shadow 240ms ease,border-color 240ms ease}.cyber3d-project-card:hover{border-color:rgba(224,253,255,.96);filter:brightness(1.28) saturate(1.25);box-shadow:inset 0 0 28px color-mix(in srgb,var(--accent),transparent 68%),0 0 22px color-mix(in srgb,var(--accent),transparent 10%),0 0 70px color-mix(in srgb,var(--accent),transparent 38%)}.cyber3d-project-card.focused-card{border-color:#f3ffff;filter:brightness(1.52) saturate(1.45);box-shadow:inset 0 0 36px color-mix(in srgb,var(--accent),transparent 54%),0 0 30px color-mix(in srgb,var(--accent),white 8%),0 0 110px color-mix(in srgb,var(--accent),transparent 28%);animation:focusLock 920ms ease-out both}
+      .cyber3d-project-card{width:100%;min-height:76px;padding:10px 12px;appearance:none;cursor:pointer;text-align:left;pointer-events:auto;transition:filter 240ms ease,box-shadow 240ms ease,border-color 240ms ease}.cyber3d-project-card:hover{border-color:rgba(224,253,255,.96);filter:brightness(1.28) saturate(1.25);box-shadow:inset 0 0 28px color-mix(in srgb,var(--accent),transparent 68%),0 0 22px color-mix(in srgb,var(--accent),transparent 10%),0 0 70px color-mix(in srgb,var(--accent),transparent 38%)}.cyber3d-project-card.focused-card{border-color:#f3ffff;filter:brightness(1.18) saturate(1.22);box-shadow:inset 0 0 30px color-mix(in srgb,var(--accent),transparent 62%),0 0 24px color-mix(in srgb,var(--accent),transparent 16%),0 0 90px color-mix(in srgb,var(--accent),transparent 42%);animation:doubleCardPulse 1040ms ease-in-out both}
       .card-row{display:flex;align-items:center;gap:10px}.card-code{display:grid;place-items:center;width:38px;aspect-ratio:1;background:color-mix(in srgb,var(--accent),transparent 72%);clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);color:#f4feff;font-family:"Orbitron",sans-serif;font-size:12px;font-weight:800;text-shadow:0 0 12px var(--accent)}.card-meta{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:4px;color:#b9faff;font-size:9px;font-weight:900}.card-name{margin:0;color:#fff;font-family:"Orbitron",sans-serif;font-size:clamp(14px,1.35vw,20px);line-height:1;text-shadow:0 0 15px var(--accent)}.card-subtitle{margin:6px 0 0;color:rgba(220,250,255,.78);font-size:11px}
       .cyber3d-visualizer{width:100%;height:300px;min-height:0;padding:clamp(16px,1.8vw,24px)}.frame-title span{display:block;font-family:"Orbitron",sans-serif;font-size:clamp(22px,2.25vw,36px);font-weight:800;color:#e3fdff;text-shadow:0 0 22px rgba(71,243,255,.82)}.frame-title small{display:block;margin-top:7px;color:rgba(155,246,255,.78);font-size:10px}.visual-core{position:relative;display:grid;place-items:center;height:178px}.core-orb{position:relative;width:min(16vw,170px);aspect-ratio:1;border-radius:50%;border:1px solid rgba(71,243,255,.68);background:radial-gradient(circle,rgba(71,243,255,.2),transparent 35%),conic-gradient(from 30deg,rgba(71,243,255,.12),rgba(255,172,87,.4),rgba(100,255,177,.22),rgba(71,243,255,.12));box-shadow:inset 0 0 44px rgba(71,243,255,.22),0 0 46px rgba(71,243,255,.46);animation:coreSpin 12s linear infinite}.core-orb span,.core-orb i{position:absolute;inset:18%;border:2px solid rgba(255,172,87,.86);transform:rotate(24deg);box-shadow:0 0 24px rgba(255,172,87,.7)}.core-orb i{inset:28%;border-color:rgba(100,255,177,.9);transform:rotate(-18deg)}.scan-label{position:absolute;color:rgba(220,255,255,.86);font-size:10px;text-shadow:0 0 12px rgba(71,243,255,.8)}.scan-label-a{left:11%;top:55%}.scan-label-b{right:14%;top:28%}.scan-label-c{right:12%;bottom:20%}
       .console-strip{display:flex;align-items:center;gap:10px;border-top:1px solid rgba(71,243,255,.42);padding-top:10px;color:#dffcff;font-size:12px}.console-strip b{color:var(--cyber-amber);font-weight:900;text-shadow:0 0 12px rgba(255,172,87,.7)}.metric-frame{padding:12px 14px;min-height:84px}.metric-frame h2{margin:0 0 8px;font-family:"Orbitron",sans-serif;font-size:clamp(15px,1.55vw,22px);color:#dffcff;text-shadow:0 0 16px rgba(71,243,255,.85)}.metric-frame p{margin:5px 0;color:rgba(222,255,255,.88);font-size:12px}.metric-frame.warn p{color:#ffbf82;text-shadow:0 0 12px rgba(255,172,87,.45)}
-      .cockpit-html-frame{animation:cockpitSummon 720ms cubic-bezier(.16,1,.24,1) both}.cockpit-window{--accent:#47f3ff;min-height:220px;padding:16px 18px;background:linear-gradient(90deg,color-mix(in srgb,var(--accent),transparent 80%),rgba(2,10,20,.66) 36%,rgba(6,18,36,.48)),radial-gradient(circle at 18% 58%,color-mix(in srgb,var(--accent),transparent 62%),transparent 34%);box-shadow:inset 0 0 36px color-mix(in srgb,var(--accent),transparent 72%),0 0 34px color-mix(in srgb,var(--accent),transparent 18%),0 0 120px color-mix(in srgb,var(--accent),transparent 48%)}.cockpit-topline{display:flex;justify-content:space-between;gap:14px;margin-bottom:12px;color:#b8fbff;font-size:10px;font-weight:900}.cockpit-topline b{color:var(--cyber-green);text-shadow:0 0 12px rgba(100,255,177,.85)}.cockpit-head{display:flex;align-items:center;gap:14px}.cockpit-head h2{margin:0;color:#fff;font-family:"Orbitron",sans-serif;font-size:31px;line-height:1;text-shadow:0 0 18px var(--accent)}.cockpit-head p{margin:7px 0 0;color:rgba(229,252,255,.78);font-size:13px}.cockpit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:18px}.cockpit-grid div,.cockpit-brief{border:1px solid color-mix(in srgb,var(--accent),transparent 58%);background:rgba(0,14,25,.62);box-shadow:inset 0 0 18px rgba(71,243,255,.12);padding:10px}.cockpit-grid small,.cockpit-brief span{display:block;color:rgba(206,253,255,.7);font-size:9px}.cockpit-grid b{display:block;margin-top:4px;color:#fff;font-family:"Orbitron",sans-serif;font-size:22px;text-shadow:0 0 12px var(--accent)}.cockpit-brief{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;margin-top:10px;align-items:center}.cockpit-brief strong{color:#fff;font-size:13px;line-height:1.25;text-shadow:0 0 10px var(--accent)}
-      @keyframes focusLock{0%{filter:brightness(1.1)}32%{filter:brightness(2.2) saturate(1.8)}58%{filter:brightness(1.18)}100%{filter:brightness(1.52) saturate(1.45)}}@keyframes coreSpin{to{transform:rotate(360deg)}}@keyframes cockpitSummon{0%{opacity:0;filter:brightness(2.2) blur(8px);transform:translateY(26px) scale(.92)}42%{opacity:1;filter:brightness(2.9) blur(1px);transform:translateY(-4px) scale(1.035)}100%{opacity:1;filter:brightness(1);transform:translateY(0) scale(1)}}
+      .cockpit-html-frame{animation:holoProject 920ms cubic-bezier(.12,.94,.18,1) both}.cockpit-window{--accent:#47f3ff;min-height:220px;padding:16px 18px;background:linear-gradient(90deg,color-mix(in srgb,var(--accent),transparent 80%),rgba(2,10,20,.56) 36%,rgba(6,18,36,.38)),radial-gradient(circle at 18% 58%,color-mix(in srgb,var(--accent),transparent 60%),transparent 34%);box-shadow:inset 0 0 36px color-mix(in srgb,var(--accent),transparent 68%),0 0 34px color-mix(in srgb,var(--accent),transparent 12%),0 0 140px color-mix(in srgb,var(--accent),transparent 42%);overflow:hidden}.cockpit-window:after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(232,255,255,.16) 0 1px,transparent 1px 7px),linear-gradient(180deg,transparent 0 22%,rgba(255,255,255,.42) 45%,transparent 68%);mix-blend-mode:screen;opacity:.42;animation:holoScan 1500ms linear infinite}.cockpit-topline{display:flex;justify-content:space-between;gap:14px;margin-bottom:12px;color:#b8fbff;font-size:10px;font-weight:900}.cockpit-topline b{color:var(--cyber-green);text-shadow:0 0 12px rgba(100,255,177,.85)}.cockpit-head{display:flex;align-items:center;gap:14px}.cockpit-head h2{margin:0;color:#fff;font-family:"Orbitron",sans-serif;font-size:31px;line-height:1;text-shadow:0 0 18px var(--accent)}.cockpit-head p{margin:7px 0 0;color:rgba(229,252,255,.78);font-size:13px}.cockpit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:18px}.cockpit-grid div,.cockpit-brief{border:1px solid color-mix(in srgb,var(--accent),transparent 58%);background:rgba(0,14,25,.62);box-shadow:inset 0 0 18px rgba(71,243,255,.12);padding:10px}.cockpit-grid small,.cockpit-brief span{display:block;color:rgba(206,253,255,.7);font-size:9px}.cockpit-grid b{display:block;margin-top:4px;color:#fff;font-family:"Orbitron",sans-serif;font-size:22px;text-shadow:0 0 12px var(--accent)}.cockpit-brief{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;margin-top:10px;align-items:center}.cockpit-brief strong{color:#fff;font-size:13px;line-height:1.25;text-shadow:0 0 10px var(--accent)}
+      @keyframes doubleCardPulse{0%,100%{filter:brightness(1.14) saturate(1.18)}16%,52%{filter:brightness(2.55) saturate(2);box-shadow:inset 0 0 52px color-mix(in srgb,var(--accent),transparent 38%),0 0 42px color-mix(in srgb,var(--accent),white 5%),0 0 150px color-mix(in srgb,var(--accent),transparent 18%)}31%,68%{filter:brightness(1.08) saturate(1.08)}}@keyframes coreSpin{to{transform:rotate(360deg)}}@keyframes holoProject{0%{opacity:0;clip-path:polygon(0 100%,100% 100%,100% 100%,0 100%);filter:brightness(3) blur(9px);transform:translateY(58px) scale(.82)}18%{opacity:.72;filter:brightness(3.4) blur(5px)}42%{opacity:1;clip-path:polygon(0 32%,100% 12%,100% 100%,0 100%);filter:brightness(2.5) blur(1px);transform:translateY(-8px) scale(1.035)}100%{opacity:1;clip-path:polygon(0 0,100% 0,100% 100%,0 100%);filter:brightness(1);transform:translateY(0) scale(1)}}@keyframes holoScan{0%{transform:translateY(-115%)}100%{transform:translateY(115%)}}
     `}</style>
   );
 }
