@@ -23,6 +23,13 @@ type Project = {
   log: string[];
 };
 
+type DashboardMetric = {
+  label: string;
+  value: string;
+  delta: string;
+  tone?: "cyan" | "green" | "amber";
+};
+
 const HTML_PX_PER_WORLD_UNIT = 128;
 const COCKPIT_PANEL_WIDTH_PX = 580;
 const COCKPIT_PANEL_HEIGHT_PX = 220;
@@ -39,6 +46,20 @@ const projects: Project[] = [
   { id: "p29", code: "SX", name: "Supply X", subtitle: "産業供給網プロトコル", status: "FROZEN", accent: "#c46cff", signal: "42%", score: "38", field: "1.8M", phase: "Archive scan", next: "Hold", log: ["Risk", "Partner", "Market"] },
 ];
 
+const studioCoreMetrics: DashboardMetric[] = [
+  { label: "ACTIVE PJ", value: "14", delta: "+3 / 90D", tone: "green" },
+  { label: "TOTAL PJ", value: "29", delta: "SINCE FOUNDING" },
+  { label: "RAISED", value: "8.4B", delta: "JPY PIPELINE", tone: "amber" },
+  { label: "AVG DURATION", value: "11.6M", delta: "PROJECT ARC" },
+];
+
+const amdValueMetrics: DashboardMetric[] = [
+  { label: "START SCORE", value: "42", delta: "AVG ENTRY" },
+  { label: "END SCORE", value: "71", delta: "AVG EXIT", tone: "green" },
+  { label: "SCORE LIFT", value: "+29", delta: "AMD DELTA", tone: "green" },
+  { label: "MS CLEAR", value: "68%", delta: "MILESTONE HIT" },
+];
+
 const panelSlots = [
   { x: -8.1, y: 5, z: 1.55, w: 3.55, h: 1.16 },
   { x: -5.35, y: 9, z: 2.45, w: 3.3, h: 1.1 },
@@ -50,8 +71,9 @@ const panelSlots = [
 
 const auxSlots = {
   visualizer: { x: 0.7, y: 10, z: 1.56, w: 6.35, h: 2.45 },
-  monitor: { x: 7.55, y: 12, z: 2.4, w: 3.75, h: 1.18 },
-  alert: { x: 7.75, y: 14, z: 1.55, w: 3.75, h: 1.14 },
+  studioCore: { x: 7.55, y: 12, z: 2.5, w: 4.5, h: 1.78 },
+  valueProof: { x: 7.8, y: 14.2, z: 1.24, w: 4.75, h: 1.86 },
+  alert: { x: -0.5, y: 5.8, z: 3.38, w: 5.25, h: 1.1 },
   user: { x: 7.95, y: 16, z: 0.82, w: 3.75, h: 1.08 },
 };
 
@@ -135,7 +157,7 @@ function CyberWorld({ selectedId, projectedId, onProjectSelect }: { selectedId: 
 
   const laneGeometry = useMemo(() => {
     const vertices: number[] = [];
-    const lanes = [...panelSlots.map((slot) => slot.y), auxSlots.visualizer.y, auxSlots.monitor.y, auxSlots.alert.y, auxSlots.user.y];
+    const lanes = [...panelSlots.map((slot) => slot.y), auxSlots.visualizer.y, auxSlots.studioCore.y, auxSlots.valueProof.y, auxSlots.alert.y, auxSlots.user.y];
     for (const y of lanes) vertices.push(-18, y, 0.018, 18, y, 0.018);
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
@@ -155,7 +177,7 @@ function CyberWorld({ selectedId, projectedId, onProjectSelect }: { selectedId: 
 
   const panelGeometry = useMemo(() => {
     const vertices: number[] = [];
-    for (const { x, y, z, w, h } of [...panelSlots, auxSlots.visualizer, auxSlots.monitor, auxSlots.alert, auxSlots.user]) {
+    for (const { x, y, z, w, h } of [...panelSlots, auxSlots.visualizer, auxSlots.studioCore, auxSlots.valueProof, auxSlots.alert, auxSlots.user]) {
       const left = x - w / 2, right = x + w / 2, bottom = z - h / 2, top = z + h / 2;
       vertices.push(left, y, bottom, right, y, bottom, right, y, bottom, right, y, top, right, y, top, left, y, top, left, y, top, left, y, bottom);
     }
@@ -256,8 +278,13 @@ function CyberWorld({ selectedId, projectedId, onProjectSelect }: { selectedId: 
           );
         })}
         <HtmlFrame position={[auxSlots.visualizer.x, auxSlots.visualizer.y - 0.015, auxSlots.visualizer.z]} width={auxSlots.visualizer.w * 124}><VisualizerPanel /></HtmlFrame>
-        <HtmlFrame position={[auxSlots.monitor.x, auxSlots.monitor.y - 0.015, auxSlots.monitor.z]} width={auxSlots.monitor.w * 104}><MetricFrame title="SYS MONITOR" rows={["CPU 67", "MEM 82", "NET 94"]} /></HtmlFrame>
-        <HtmlFrame position={[auxSlots.alert.x, auxSlots.alert.y - 0.015, auxSlots.alert.z]} width={auxSlots.alert.w * 104}><MetricFrame title="ALERT_LOG" rows={["Unauthorized: none", "Network sync active", "PWA lab route armed"]} warn /></HtmlFrame>
+        <HudInfoPanel slot={auxSlots.studioCore} accent="#47f3ff">
+          <KpiCluster title="STUDIO CORE KPI" eyebrow="AMD OPERATING HEALTH" metrics={studioCoreMetrics} />
+        </HudInfoPanel>
+        <HudInfoPanel slot={auxSlots.valueProof} accent="#64ffb1">
+          <KpiCluster title="AMD VALUE PROOF" eyebrow="INTERVENTION DELTA" metrics={amdValueMetrics} />
+        </HudInfoPanel>
+        <HtmlFrame position={[auxSlots.alert.x, auxSlots.alert.y - 0.015, auxSlots.alert.z]} width={auxSlots.alert.w * 104}><MetricFrame title="NEXT_ACTIONS" rows={["Score baseline sync", "Member bios required", "Funding data source map"]} warn /></HtmlFrame>
         <HtmlFrame position={[auxSlots.user.x, auxSlots.user.y - 0.015, auxSlots.user.z]} width={auxSlots.user.w * 104}><MetricFrame title="USER_INFO" rows={["PROFILE", "ADMINISTRATOR", "AUTHENTICATED"]} /></HtmlFrame>
         {selectedSlot && selectedIndex >= 0 && (
           <ProjectionBeam slot={selectedSlot} geometry={projectionGeometry} active={!!projectedSlot} accent={projects[selectedIndex].accent} />
@@ -443,11 +470,44 @@ function HtmlFrame({ position, width, children, className = "" }: { position: [n
   );
 }
 
+function HudInfoPanel({ slot, accent, children }: { slot: { x: number; y: number; z: number; w: number; h: number }; accent: string; children: ReactNode }) {
+  return (
+    <group position={[slot.x, slot.y - 0.015, slot.z]}>
+      <HudPanelMesh width={slot.w} height={slot.h} accent={accent} active />
+      <group rotation={[Math.PI / 2, 0, 0]}>
+        <Html transform center distanceFactor={4.4} zIndexRange={[28, 0]} style={{ width: `${slot.w * HTML_PX_PER_WORLD_UNIT}px`, pointerEvents: "auto" }}>
+          {children}
+        </Html>
+      </group>
+    </group>
+  );
+}
+
 function MetricFrame({ title, rows, warn = false }: { title: string; rows: string[]; warn?: boolean }) {
   return (
     <section className={`cyber3d-frame metric-frame ${warn ? "warn" : ""}`}>
       <h2>{title}</h2>
       {rows.map((row) => <p key={row}>{row}</p>)}
+    </section>
+  );
+}
+
+function KpiCluster({ title, eyebrow, metrics }: { title: string; eyebrow: string; metrics: DashboardMetric[] }) {
+  return (
+    <section className="kpi-cluster">
+      <div className="kpi-cluster-head">
+        <span>{eyebrow}</span>
+        <h2>{title}</h2>
+      </div>
+      <div className="kpi-grid">
+        {metrics.map((metric) => (
+          <div className={`kpi-cell ${metric.tone ? `tone-${metric.tone}` : ""}`} key={metric.label}>
+            <small>{metric.label}</small>
+            <strong>{metric.value}</strong>
+            <span>{metric.delta}</span>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -509,6 +569,7 @@ function CyberStyles() {
       .cyber3d-project-card,.cockpit-window{background:transparent!important;border-color:transparent!important;box-shadow:none!important;clip-path:none!important;backdrop-filter:none!important}.cyber3d-project-card:before,.cockpit-window:before{display:none!important}
       .cyber3d-project-card{width:100%;min-height:76px;padding:10px 12px;appearance:none;cursor:pointer;text-align:left;pointer-events:auto;transition:filter 240ms ease,box-shadow 240ms ease,border-color 240ms ease}.cyber3d-project-card:hover{border-color:rgba(224,253,255,.96);filter:brightness(1.28) saturate(1.25);box-shadow:inset 0 0 28px color-mix(in srgb,var(--accent),transparent 68%),0 0 22px color-mix(in srgb,var(--accent),transparent 10%),0 0 70px color-mix(in srgb,var(--accent),transparent 38%)}.cyber3d-project-card.focused-card{border-color:#f3ffff;filter:brightness(1.18) saturate(1.22);box-shadow:inset 0 0 30px color-mix(in srgb,var(--accent),transparent 62%),0 0 24px color-mix(in srgb,var(--accent),transparent 16%),0 0 90px color-mix(in srgb,var(--accent),transparent 42%);animation:doubleCardPulse 1040ms ease-in-out both}
       .card-row{display:flex;align-items:center;gap:10px}.card-code{display:grid;place-items:center;width:38px;aspect-ratio:1;background:color-mix(in srgb,var(--accent),transparent 72%);clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);color:#f4feff;font-family:"Orbitron",sans-serif;font-size:12px;font-weight:800;text-shadow:0 0 12px var(--accent)}.card-meta{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:4px;color:#b9faff;font-size:9px;font-weight:900}.card-name{margin:0;color:#fff;font-family:"Orbitron",sans-serif;font-size:clamp(14px,1.35vw,20px);line-height:1;text-shadow:0 0 15px var(--accent)}.card-subtitle{margin:6px 0 0;color:rgba(220,250,255,.78);font-size:11px}
+      .kpi-cluster{--accent:#47f3ff;position:relative;padding:16px 18px;color:#eaffff;text-shadow:0 0 14px rgba(71,243,255,.48)}.kpi-cluster-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:12px;border-bottom:1px solid color-mix(in srgb,var(--accent),transparent 58%);padding-bottom:9px}.kpi-cluster-head span{color:rgba(178,250,255,.76);font-size:9px;font-weight:900;letter-spacing:.18em}.kpi-cluster-head h2{margin:0;color:#f5ffff;font-family:"Orbitron",sans-serif;font-size:20px;line-height:1;text-shadow:0 0 18px var(--accent)}.kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.kpi-cell{min-height:58px;border:1px solid rgba(149,252,255,.28);background:linear-gradient(90deg,rgba(71,243,255,.12),rgba(0,10,20,.2));padding:8px 10px;box-shadow:inset 0 0 18px rgba(71,243,255,.08)}.kpi-cell small{display:block;color:rgba(206,253,255,.66);font-size:8px;font-weight:900;letter-spacing:.15em}.kpi-cell strong{display:block;margin-top:2px;color:#fff;font-family:"Orbitron",sans-serif;font-size:24px;line-height:1;text-shadow:0 0 18px rgba(71,243,255,.8)}.kpi-cell span{display:block;margin-top:5px;color:rgba(189,246,255,.68);font-size:9px}.kpi-cell.tone-green strong{color:#a6ffd0;text-shadow:0 0 18px rgba(100,255,177,.9)}.kpi-cell.tone-amber strong{color:#ffd28d;text-shadow:0 0 18px rgba(255,172,87,.9)}
       .cyber3d-visualizer{width:100%;height:300px;min-height:0;padding:clamp(16px,1.8vw,24px)}.frame-title span{display:block;font-family:"Orbitron",sans-serif;font-size:clamp(22px,2.25vw,36px);font-weight:800;color:#e3fdff;text-shadow:0 0 22px rgba(71,243,255,.82)}.frame-title small{display:block;margin-top:7px;color:rgba(155,246,255,.78);font-size:10px}.visual-core{position:relative;display:grid;place-items:center;height:178px}.core-orb{position:relative;width:min(16vw,170px);aspect-ratio:1;border-radius:50%;border:1px solid rgba(71,243,255,.68);background:radial-gradient(circle,rgba(71,243,255,.2),transparent 35%),conic-gradient(from 30deg,rgba(71,243,255,.12),rgba(255,172,87,.4),rgba(100,255,177,.22),rgba(71,243,255,.12));box-shadow:inset 0 0 44px rgba(71,243,255,.22),0 0 46px rgba(71,243,255,.46);animation:coreSpin 12s linear infinite}.core-orb span,.core-orb i{position:absolute;inset:18%;border:2px solid rgba(255,172,87,.86);transform:rotate(24deg);box-shadow:0 0 24px rgba(255,172,87,.7)}.core-orb i{inset:28%;border-color:rgba(100,255,177,.9);transform:rotate(-18deg)}.scan-label{position:absolute;color:rgba(220,255,255,.86);font-size:10px;text-shadow:0 0 12px rgba(71,243,255,.8)}.scan-label-a{left:11%;top:55%}.scan-label-b{right:14%;top:28%}.scan-label-c{right:12%;bottom:20%}
       .console-strip{display:flex;align-items:center;gap:10px;border-top:1px solid rgba(71,243,255,.42);padding-top:10px;color:#dffcff;font-size:12px}.console-strip b{color:var(--cyber-amber);font-weight:900;text-shadow:0 0 12px rgba(255,172,87,.7)}.metric-frame{padding:12px 14px;min-height:84px}.metric-frame h2{margin:0 0 8px;font-family:"Orbitron",sans-serif;font-size:clamp(15px,1.55vw,22px);color:#dffcff;text-shadow:0 0 16px rgba(71,243,255,.85)}.metric-frame p{margin:5px 0;color:rgba(222,255,255,.88);font-size:12px}.metric-frame.warn p{color:#ffbf82;text-shadow:0 0 12px rgba(255,172,87,.45)}
       .cockpit-html-frame{animation:holoProject 920ms cubic-bezier(.12,.94,.18,1) both}.cockpit-window{--accent:#47f3ff;box-sizing:border-box;height:220px;padding:16px 18px;background:radial-gradient(ellipse at 50% 112%,color-mix(in srgb,var(--accent),white 32%) 0%,color-mix(in srgb,var(--accent),transparent 78%) 24%,transparent 58%),linear-gradient(90deg,color-mix(in srgb,var(--accent),transparent 80%),rgba(2,10,20,.56) 36%,rgba(6,18,36,.38)),radial-gradient(circle at 18% 58%,color-mix(in srgb,var(--accent),transparent 60%),transparent 34%);box-shadow:inset 0 -22px 44px color-mix(in srgb,var(--accent),transparent 78%),inset 0 0 36px color-mix(in srgb,var(--accent),transparent 68%),0 12px 54px color-mix(in srgb,var(--accent),transparent 48%),0 0 34px color-mix(in srgb,var(--accent),transparent 12%),0 0 140px color-mix(in srgb,var(--accent),transparent 42%);overflow:hidden}.cockpit-window:after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(232,255,255,.16) 0 1px,transparent 1px 7px),linear-gradient(180deg,transparent 0 22%,rgba(255,255,255,.42) 45%,transparent 68%);mix-blend-mode:screen;opacity:.42;animation:holoScan 1500ms linear infinite}.cockpit-topline{display:flex;justify-content:space-between;gap:14px;margin-bottom:12px;color:#b8fbff;font-size:10px;font-weight:900}.cockpit-topline b{color:var(--cyber-green);text-shadow:0 0 12px rgba(100,255,177,.85)}.cockpit-head{display:flex;align-items:center;gap:14px}.cockpit-head h2{margin:0;color:#fff;font-family:"Orbitron",sans-serif;font-size:31px;line-height:1;text-shadow:0 0 18px var(--accent)}.cockpit-head p{margin:7px 0 0;color:rgba(229,252,255,.78);font-size:13px}.cockpit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:18px}.cockpit-grid div,.cockpit-brief{border:1px solid color-mix(in srgb,var(--accent),transparent 58%);background:rgba(0,14,25,.62);box-shadow:inset 0 0 18px rgba(71,243,255,.12);padding:10px}.cockpit-grid small,.cockpit-brief span{display:block;color:rgba(206,253,255,.7);font-size:9px}.cockpit-grid b{display:block;margin-top:4px;color:#fff;font-family:"Orbitron",sans-serif;font-size:22px;text-shadow:0 0 12px var(--accent)}.cockpit-brief{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;margin-top:10px;align-items:center}.cockpit-brief strong{color:#fff;font-size:13px;line-height:1.25;text-shadow:0 0 10px var(--accent)}
