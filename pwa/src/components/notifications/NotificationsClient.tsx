@@ -473,6 +473,19 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                       ? `${i.data.l2_kind} / ${displayTarget(i.data.target_id, i.data.scope_key, projectMap)}`
                       : `meeting / ${projectMap[i.data.project_id] ?? i.data.project_id}`}
                     {!isReadUi(i) && <span className="ml-2 text-blue-600 dark:text-blue-400">● 未読</span>}
+                    {(() => {
+                      const kindKey = i.kind === "l2" ? i.data.l2_kind : "meeting_summary";
+                      const cost = NOTIFICATION_COST_ESTIMATE_JPY[kindKey];
+                      if (cost == null) return null;
+                      return (
+                        <span
+                          className="ml-2 text-muted-foreground"
+                          title="この通知 1 件あたりの LLM 抽出コスト概算 (token 実測ではなく入出力推定ベース)"
+                        >
+                          {formatCostJpy(cost)}
+                        </span>
+                      );
+                    })()}
                     {itemFeedbacks.length > 0 && (
                       <span className="ml-2 text-amber-600 dark:text-amber-400">⚠️ 修正依頼 {itemFeedbacks.length} 件</span>
                     )}
@@ -688,6 +701,34 @@ function DeepLinkForMeeting({ n }: { n: MeetingNotification }) {
       /project/{n.project_id}/cockpit (MTGサマリ枠の {n.title})
     </a>
   );
+}
+
+/**
+ * 各 l2_kind / meeting_summary 通知の 1 件あたり LLM 抽出コスト概算 (円)。
+ * 実測 token は log されていない (将来課題) ため、コード推定値:
+ *
+ * - Gemini 2.5 Flash (input $0.10/MTok / output $0.40/MTok ≈ ¥0.015 / ¥0.06 per Ktok):
+ *   - member_knowledge (in 3K / out 1K) → ¥0.045 + ¥0.06 = ~¥0.1
+ *   - project_knowledge (in 5K / out 1.5K) → ¥0.075 + ¥0.09 = ~¥0.2
+ *   - protocols (in 8K / out 2K) → ¥0.12 + ¥0.12 = ~¥0.3
+ *   - ms_progress (in 3K / out 1K) → ~¥0.1
+ *   - meeting_summary (in 8K / out 1.5K) → ¥0.12 + ¥0.09 = ~¥0.2
+ *   - ※ 無料枠 (RPD/分の制限内) で動いている分は実質 ¥0
+ * - Anthropic Sonnet 4.5 (input $3/MTok / output $15/MTok ≈ ¥0.45 / ¥2.25 per Ktok):
+ *   - founding_members (in 10K / out 2K) → ¥4.5 + ¥4.5 = ~¥9 → 切り上げ ~¥10
+ */
+const NOTIFICATION_COST_ESTIMATE_JPY: Record<string, number> = {
+  member_knowledge: 0.1,
+  project_knowledge: 0.2,
+  protocols: 0.3,
+  ms_progress: 0.1,
+  founding_members: 10,
+  meeting_summary: 0.2,
+};
+
+function formatCostJpy(n: number): string {
+  if (n < 1) return `~¥${n.toFixed(1)}`;
+  return `~¥${Math.round(n)}`;
 }
 
 /**
