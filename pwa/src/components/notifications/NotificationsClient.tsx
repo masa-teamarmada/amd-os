@@ -355,7 +355,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                 onClick={() => toggleExpand(i)}
               >
                 <div className="flex-1">
-                  <div className="font-medium text-sm leading-snug">{i.data.title}</div>
+                  <div className="font-medium text-sm leading-snug">{sanitizeMeetingTitle(i.data.title)}</div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {formatJST(i.data.created_at)} ・{" "}
                     {i.kind === "l2"
@@ -559,6 +559,22 @@ function DeepLinkForMeeting({ n }: { n: MeetingNotification }) {
       /project/{n.project_id}/cockpit (MTGサマリ枠の {n.title})
     </a>
   );
+}
+
+/**
+ * Notion AI 自動生成議事録ページ由来の汚れ (ISO 8601 / mention-date / @今日) を、
+ * PWA 標準形式 (= YYYY/MM/DD HH:mm JST) に正規化する。
+ * GAS 側 (gas/074_MeetingSummaryRepo.js: `_meeting_sanitizeTitle_`) と同じロジックの保険。
+ * GAS 側 push 反映前 or 既存 DB 行で生 ISO が残っている場合に効く。
+ */
+function sanitizeMeetingTitle(raw: string | null | undefined): string {
+  if (!raw) return "";
+  let s = String(raw);
+  s = s.replace(/\s*(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})[^\s]*/g, " $1/$2/$3 $4:$5");
+  s = s.replace(/\s*<mention-date[^>]*>[^<]*<\/mention-date>/g, "");
+  s = s.replace(/\s*<mention-date[^>]*>/g, "");
+  s = s.replace(/\s*@今日[^\s]*/g, "");
+  return s.replace(/\s+/g, " ").trim();
 }
 
 function formatJST(iso: string): string {
