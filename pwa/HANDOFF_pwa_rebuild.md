@@ -33,7 +33,7 @@
 | ✅ 1 | マクロ係数 P 以外のデータ取得 | 2026-05-12 完了 (Round 3 + 5) |
 | ✅ 2 | FRL grit/resilience の数値入力 | 2026-05-12 完了 (Round 3 + 5) |
 | 🔴 3 | R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵) | 未着手、TODO #5 と一緒にやるべき |
-| 🔴 4 | 試算表 Drive Excel 取り込み cron 新規 (= project_pl_monthly が全 PJ「—」表示、現状 total=0) | 本セッション (#9) 実態確認済、実装は次セッション (= 試算表ファイル所在まさ確認待ち) |
+| 🟡 4 | 試算表 (project_pl_monthly) — 生データからの未来予測抽出 | 設計のみ [`design/project_pl_monthly.md`](design/project_pl_monthly.md) に記録、優先度低、後回し |
 | 🔴 5 | **AMD-Report GAS の構造的修復** | 未着手 |
 | 🔴 6 | **VC RSS / X feed cron** (= ノクターン的ロングテール VC の真の解決策、LLM 不要) | #8 で TODO 化 |
 | ✅ 7 | EventsSection impact 強調表示 | 本セッション (#9) 完了 |
@@ -79,34 +79,23 @@
 - **#4 GCP project 紐付け**: GAS Editor → 左下 ⚙️ プロジェクトの設定 → Google Cloud Platform (GCP) プロジェクト → 「変更」→ 既存 amd-os の GCP プロジェクトを紐付け or 新規作成。完了したら次セッション以降で clasp run / Apps Script API 経由実行が可能になる
 - **#7 R303 hardcoded fallback 削除**: llm_prompts.monthly_report.r313_extract を DB fetch する `mr_gen_getPrompt_()` 関数を新設 → mr_gen_callClaude_ 呼ぶ前に prompt を DB から取得 → push。is_active=true に変える判断もまさへ確認
 
-### 2. 試算表 Drive Excel 取り込み cron (= TODO #4)
+### 2. 試算表 (project_pl_monthly) — 生データからの未来予測抽出 (= TODO #4)
 
-`project_pl_monthly` テーブルが現状 **total=0 件** (全 PJ 全部「—」表示の原因)。Drive folder 配下の試算表 (.xlsx or Google Sheets) を Sonnet で月次 PL に構造化抽出 → upsert。074c (議事録 Docs backfill) とは別 cron。
+**設計の正本は [`design/project_pl_monthly.md`](design/project_pl_monthly.md)**。優先度低、後回し OK。
 
-#### 本セッション (#9) 実態確認結果
-- `projects.drive_folder_id` 列既存 ✅
-- `googleapis ^171.4.0` package インストール済 ✅
-- `pwa/src/lib/sources/drive.ts` 既存 = Google Drive API ラッパー (= files.list / files.export 経由)
-- `EXPORTABLE_TEXT` に Google Sheets → text/csv mapping あり ✅
-- ただし xlsx (Excel) 形式は EXPORTABLE_TEXT に無い → 別 lib (`xlsx` package) 必要
+#### まさから引き出した設計 (= 2026-05-13 #9 続き、md に詳細)
+- freee 連携は **できない前提** (= できる案件は稀)
+- 拾うのは **未来予測情報** (バーンレート / 資金枯渇予想月 / 調達予定 / 大型支出予定 等)
+- **試算表専用 cron は作らない** = 他 cron (= 議事録抽出 / monthly-reports-backfill 等) が source_cache に詰めたデータを **二次加工**
+- 手動入力は想定外 (= memory [feedback_tsukuyomi_builds_from_raw_data.md])
+- 手動試算表が Drive にあれば 074c が拾った範囲で fallback (= 試算表専用 Drive scan は不要)
 
-#### 次セッション着手前にまさへ確認 (= AGENTS 例外、事業ドメイン情報)
-1. **試算表ファイルの所在規則**: 各 PJ の `drive_folder_id` 配下にあるのか、別の共通フォルダか?
-2. **ファイル命名規則**: 「試算表」「PL」「決算」「Profit and Loss」等のキーワード?
-3. **形式**: Google Sheets / Excel xlsx / 混在?
-4. **シート構造**: 月ごとに 1 sheet? 1 sheet に複数月? 行列のヘッダー位置?
-
-#### 実装スケルトン (= 質問への答えが得られたら着手)
-1. (必要なら) `xlsx` package を npm install
-2. `pwa/src/lib/sources/drive-pl.ts` 新設 (= drive.ts 拡張 or 専用 lib):
-   - `findPlFilesForProject(driveFolderId, keywords)` で試算表ファイル listing
-   - Google Sheets → text/csv export、xlsx → buffer → xlsx package で JSON
-3. `pwa/src/app/api/cron/pl-monthly-ingest/route.ts` 新設:
-   - 全 PJ ループ (= projects WHERE drive_folder_id IS NOT NULL)
-   - 各 PJ の試算表ファイル取得 → 各月分を Sonnet で構造化抽出 (= revenue/cogs/personnel/rd/marketing/other_opex)
-   - `project_pl_monthly` に upsert (= onConflict project_id, ym)
-4. vercel.json に monthly schedule 追加 (= 月初 04:00 JST)
-5. prompt は `llm_prompts.project_pl_monthly.extract` に seed 投入 (= 新規 prompt_key、AGENTS 完遵)
+#### 推奨着手順 (= 詳細は md)
+1. migration: `project_pl_forecast` 新規テーブル (= 予測 / 計画 / 単発予定。`project_pl_monthly` 実績とは別系)
+2. `monthly_report.r313_extract` prompt 拡張で `pl_extract` 副産物出力
+3. PWA `cron/monthly-reports-backfill` で parse + upsert
+4. 074c 拡張で試算表ファイル別フラグ (= source_cache.source = `'pl_sheet'`)
+5. CockpitPlMonthlyModal に予測値オーバーレイ実装
 
 ### 2.5. VC RSS / X feed cron 新設 (= TODO #6) ⭐ NEW
 
