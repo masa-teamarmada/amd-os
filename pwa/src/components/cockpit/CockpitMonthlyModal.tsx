@@ -1976,13 +1976,32 @@ function EventsSection({ events }: { events: ProgressEvent[] }) {
       {activeEvents.map((ev) => {
         const origin = ev.initiativeOrigin || "unknown";
         const statusIcon = ev.status === "confirmed" ? "✅" : "📝";
+        const impact = ev.impact ?? 0;
+        const isHighImpact = impact >= 4;
         return (
-          <div key={ev.eventId} className="bg-muted/10 border border-border rounded-lg px-3 py-2">
+          <div
+            key={ev.eventId}
+            className={`border rounded-lg px-3 py-2 ${
+              isHighImpact ? "bg-amber-50 border-amber-300" : "bg-muted/10 border-border"
+            }`}
+          >
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[12px]">{statusIcon} {ev.eventTitle || "(無題)"}</span>
+              <span className={`text-[12px] ${isHighImpact ? "font-bold text-amber-900" : ""}`}>
+                {statusIcon} {isHighImpact && "🔥 "}{ev.eventTitle || "(無題)"}
+              </span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded ${ORIGIN_COLORS[origin] || "bg-gray-100 text-gray-500"}`}>
                 {ORIGIN_LABELS[origin] || origin}
               </span>
+              {typeof ev.impact === "number" && ev.impact >= 3 && (
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded ${
+                    isHighImpact ? "bg-amber-200 text-amber-900" : "bg-orange-50 text-orange-700"
+                  }`}
+                  title="LLM が推論した重要度 (1-5)"
+                >
+                  impact {ev.impact}
+                </span>
+              )}
             </div>
             {ev.eventDescription && (
               <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{ev.eventDescription}</p>
