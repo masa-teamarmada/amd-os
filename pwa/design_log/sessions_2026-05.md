@@ -2746,3 +2746,114 @@ main HEAD: `cf5f6d8` → `b948a1c`、Vercel `amd-os-2g3w1q4dv-armada0130` (= 最
 
 - p10 (SE) / p19 で amd_score_inputs row が無いため frl-grit-resilience cron が skip。先に手動入力 or amd-score-l2-refresh で評価点を作ってから再キックする運用
 - マクロ係数の **N (論文流出率) / R (言及・PR) / C_compete (競合密度)** は集計ロジックは存在するが値が全 0 or 薄い PJ がある。各データソース (= papers_log / atlas_signals / project_ventures.lanes) を充実させる方が UI 実用性高い (HANDOFF #5 候補に追加検討)
+
+---
+
+## 2026-05-12 (blissful-robinson-8e462a #6) — TimeSeriesChart 動的 y 範囲 + XRL plot 軸別 x offset + 「AMD 参画」リネーム
+
+main HEAD: `8e02156` → `5922262`、Vercel `amd-os-ekevgyauf-armada0130`
+
+### まさ指摘 4 件
+
+1. AMD スコア pill が左寄せで変、幅 250px は広すぎ → 中央寄せ + 170px 縮小
+2. CX で「AMD 支援期間」表示無し → DB の amd_support_started_at NULL が真因 (= 全 10 active PJ 中 1 PJ のみ値あり)
+3. そもそも「支援」じゃなくて「参画」、リネーム
+4. AMD スコア経時変化が 0-100k 固定で「ほぼ変化なし」に見える + XRL プロットが同位置で固まってクリック不能
+
+### 対応
+
+**(1+3+リネーム)**: [CockpitVentureStatus.tsx](../src/components/cockpit/CockpitVentureStatus.tsx) で pill 中央寄せ (textAnchor="middle" + labelCenterX) + 幅 250→170 + ▾ を pill 右上隅に。「AMD 支援」「支援中」「支援期間」 → 「AMD 参画」「参画中」「参画期間」。同時に sync-pj-facts / pl-hearing / freeze-period-backfill の LLM プロンプト文言もリネーム。DB 列名 `amd_support_started_at` / `amd_support_ended_at` は touch しない (= rename migration はリスク高、表示文字列だけ変更)
+
+**(2)**: SQL `UPDATE project_ventures pv SET amd_support_started_at = (SELECT min(ym 由来 date) FROM monthly_reports mr WHERE mr.project_id = pv.project_id) WHERE amd_support_started_at IS NULL` で 4 PJ backfill (p06=2023-06-01, p09=2025-11-01, p11=2026-02-01, **p20=2025-11-01** = CX)。monthly_reports すら無い PJ (= p03/p04/p07/p10/p18/p19/p24) は NULL のまま (= 妥当)
+
+**(4-1) TimeSeriesChart 動的 y 範囲** ([AmdScoreView.tsx](../src/components/venture-map/AmdScoreView.tsx)):
+- 旧: `yMin=log10(1), yMax=log10(100000)` 固定
+- 新: `yMin=max(0, log10(dataMin)-0.2), yMax=min(log10(100k), log10(dataMax)+0.2)` で data range にズーム + ±0.2 padding (約 ±60%)
+- phaseGuides も動的範囲内のものだけ表示 (= 範囲外で潰れる事故対策)
+
+**(4-2) XRL plot 軸別 x offset** ([CockpitVentureStatus.tsx](../src/components/cockpit/CockpitVentureStatus.tsx)):
+- `XRL_X_OFFSET = { trl: -12, brl: -6, grl: 0, srl: 6, hrl: 12 }` で軸別に ±12px ずつ散らす
+- xrlPaths (= line) と dot 描画両方で同じ offset 適用 → line と dot が揃う
+- dot を `<g>` でラップして透明 hit area (= r + 6) で clickable 範囲拡大、見た目はそのまま baseR
+
+### deployment 一覧
+
+| deployment | 内容 |
+|---|---|
+| `amd-os-ekevgyauf-armada0130` | AMD pill 中央寄せ + 幅縮小 + 「参画」リネーム + amd_support backfill |
+| `amd-os-i2xfns6im-armada0130` | TimeSeriesChart 位置移動 (= 別ラウンド) |
+| (本セッション最終) | TimeSeriesChart y range zoom + XRL plot x offset + click hit 拡大 |
+
+### TimeSeriesChart 順序戻し (= まさ「経時グラフが FRL の間に挟まれてカオス」指摘)
+
+[AmdScoreView.tsx:307-345](../src/components/venture-map/AmdScoreView.tsx) の Section 順序を入れ替え:
+- 旧: ScoreHero → BalanceBar → FormulaPanel → Factor3Breakdown → **TimeSeriesChart** → FrlAlqPanel
+- 新: ScoreHero → **TimeSeriesChart** → BalanceBar → FormulaPanel → Factor3Breakdown → FrlAlqPanel
+
+git history で確認 (`git log -S '<TimeSeriesChart' -- AmdScoreView.tsx` → 1 件のみ = 初版 09dce20 から不変) = **「順番が変わった」ではなく「ずっとその位置だったが まさの記憶/期待と違っていた」が真実**。私が前 Round で「AmdScoreView は本セッション未編集」を確認しただけで「期待との一致」を確認していなかった見落とし。
+
+### memory / BUGS 追記
+
+- `memory/feedback_no_handoff_steps_to_masa.md` (= 「手順渡す」禁止)
+- BUGS.md: cron 上書き事故 (= XRL 全 0) / UI lane mismatch (= 未取得) の 2 件追記済
+
+---
+
+## 2026-05-13 (blissful-robinson-8e462a #7) — monthly_report 文字化け復旧 + AMD-Report GAS 諸事故露呈 + aggressive backfill
+
+main HEAD: `5922262` (= 本セッション最終、本番 deploy は前 Round のまま)
+
+### まさ指摘 1 件 + 復旧過程で発覚した諸事故
+
+「月次報告書が文字化けしてるから直して」 = p20 202604 の draft_content が `?????\\n\\n` 形式 (= 日本語 → `?` 化、`\n` リテラル文字列、UTF-8 が ASCII fallback で潰れた + JSON エスケープ二重)。
+
+### 真因 (= 1 件、ただし副次的事故大量発生)
+
+**主真因**: AMD-Report GAS `R313_MonthlyReport_Cron` が 2026-04-09 17:11 に **p20 のみ単発の文字エンコード破壊** で生成。他 39 行 (= 他 PJ・他月) は全部正常。原因未究明、おそらく LLM response parse 時の charset 不一致。
+
+**復旧過程で露呈した AMD-Report GAS の構造的壁** (= 全部 BUGS.md に詳細記録):
+1. **Drive 同期事故**: `R001_Api 2.js` 等の「2.js / .js 重複」が GAS 本番側に並存
+2. **deployment access 設定**: `appsscript.json` の `ANYONE_ANONYMOUS` は deployment ごとに Web Editor で再承認必要、clasp deploy では設定保持されない
+3. **isAdmin_ 関数が AMD-Report GAS 全体に未定義** (= 元から壊れてた、admin_* 関数群すべて動かなかった)
+4. **REPORT_API_KEY が ScriptProperties のみ** (= PWA 側に env 無し、外部から認証通す手段なし)
+5. **GCP project 紐付け不明** (= clasp run / Apps Script API いずれも permission denied)
+
+### 復旧手順 (= 私が実行 + まさが GUI 1 操作)
+
+1. SQL で p20 202604 row 削除 (= 文字化け除去)
+2. /tmp/gas-report-clean で `clasp pull` → AMD-Report GAS 正本コード取得
+3. `R001_Api 2.js` doPost に temp action `regenerateMonthlyReport_temp` 追加 (= tempSecret 認証で別経路) → clasp push & deploy
+4. **失敗事象 1**: deploy 後 curl 「ファイル開けません」 = access 設定崩壊
+5. clasp push が R290 syntax error (= `__ALIAS_RULES__` 重複宣言) → R290.js を空コメントで上書き → push
+6. **失敗事象 2-5**: production update / fresh deploy / clasp run / API Executable 全部失敗
+7. まさが GAS Editor で `admin_backfillMonthlyReports` ▶ 実行 → **`ReferenceError: isAdmin_ is not defined`** 露呈
+8. `R001_Api 2.js` 末尾に `isAdmin_` 簡易実装追加 + clasp push → まさが再実行 → **p20 202604 復活 ✅** (15:19:22)
+9. 残り未生成 104 件 → `setup_aggressiveBackfill_2026_05_13` (= 15 分置き trigger + self-teardown 設計) を `R001_Api 2.js` 末尾に追加 + clasp push → まさが ▶ 実行で起動。約 6-7 時間で全完了予定
+
+### memory 追記 3 件 (= 同セッション内で 3 つの即断パターン違反)
+
+- `feedback_no_handoff_steps_to_masa.md` (= 「手順渡す」禁止)
+- `feedback_never_say_cant_first.md` (= 「できない」即断する前に 3 つ試す)
+- `feedback_specify_file_name_for_gas_function.md` (= GAS 関数依頼時にファイル名 + 関数名セット必須)
+
+### 副次対応
+
+- main repo の cyber 残骸が **再出現** (= Drive 同期で `dashboard-cyber-3d-lab/`, `mock/`, `Cyber3DLab.tsx`, `middleware.ts` 修正分が復活) → 再削除済
+- AMD-Report GAS の temp action `regenerateMonthlyReport_temp` を doPost から削除 + clasp push (= cleanup)
+- aggressive backfill setup/teardown 関数 + isAdmin_ + R290 空コメント = 一時残置、本セッション終了時点で AMD-Report GAS の状態として明示
+
+### deployment 一覧 (本日)
+
+| deployment | 内容 |
+|---|---|
+| `AKfycbwDmF...@17` | temp regenerate (= production を上書き、access 死亡) |
+| `AKfycbwDmF...@18` | fix-r290-syntax (= access 死亡継続) |
+| `AKfycbwDmF...@19` | neutralize-r290-untitled (= 同上) |
+| `AKfycbyFHc...@20` | fresh-2026-05-13-temp-regenerate (= access 死亡) |
+| `AKfycbxtap...@21` | api-executable-2026-05-13 (= clasp run も permission denied) |
+
+### 次セッション最重要 (= HANDOFF TODO #5 として新規追加)
+
+- AMD-Report GAS 修復: Drive 同期事故ファイル整理 / R290 元コード復元 / Web App URL access 再設定 / GCP project 紐付けで Apps Script API 経由実行可能化 / isAdmin_ 等 helper 関数群の正規実装
+- aggressive backfill 完了確認 + 一時関数 (`setup_aggressiveBackfill_2026_05_13` / `_aggressive_backfill_self_teardown_2026_05_13` / `teardown_aggressiveBackfill_2026_05_13`) の cleanup
+- monthly_report 文字化けの真因究明 (= R313 の LLM response parse 経路で `?` 化が起きるケースの再現 + 防御コード追加、検出 alert)

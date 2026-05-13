@@ -1,152 +1,108 @@
 # HANDOFF — AMD OS PWA / GAS
 
-最終更新: 2026-05-12 (blissful-robinson-8e462a #5 cron 上書き事故 fix + lane mismatch fix + AMD prefix 削除)
+最終更新: 2026-05-13 (blissful-robinson-8e462a #7 monthly_report 文字化け復旧 + AMD-Report GAS 諸事故露呈)
 詳細セッションログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾参照
 
 ---
 
 ## 状態
 
-- main HEAD: `3e1de96` (= 本セッション merge 反映済)
-- Vercel: `amd-os-8c333k2a8-armada0130` (= 本セッション最終)
+- main HEAD: `5922262` (= Round 6 deploy 含む、Round 7 はコード変更なし、AMD-Report GAS 側のみ操作)
+- Vercel: `amd-os-i2xfns6im-armada0130` (= TimeSeriesChart 位置移動の deploy が最新、その後 PWA 側変更なし)
 - 本体 GAS deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` @1462 (= 前セッションから変更なし)
-- AMD-Report GAS: scriptId `1r3Ak-tYASXY...` @1455 (= R303 hardcoded fallback は未対応、次セッション)
+- AMD-Report GAS: scriptId `1r3Ak-tYASXY...` 本セッションで多数 deploy update + push、production deployment access 全壊状態。time-based cron は別経路で動く想定
 - 未 push commit: なし
-- worktree: `claude/blissful-robinson-8e462a` (= main にマージ済、削除可)
+- worktree: `claude/blissful-robinson-8e462a` (= main にマージ済)
+
+---
+
+## 🟡 進行中 (= 放置で完了予定)
+
+**aggressive backfill (= monthly_reports 残り未生成 104 件)**
+- まさが GAS Editor で `R001_Api 2.js` の `setup_aggressiveBackfill_2026_05_13` を ▶ 実行 (= 22:50 頃)
+- 15 分置き trigger で `_aggressive_backfill_self_teardown_2026_05_13` 自動実行
+- 約 6-7 時間で全完了予定 (= 翌朝 5-6 時)
+- 完了時 (= generated=0 検知) は **trigger 自動削除**、まさは何もしなくて OK
+- 確認方法: Supabase で `SELECT COUNT(*) FROM billing_cycles bc LEFT JOIN monthly_reports mr ON ... WHERE mr.id IS NULL` が 0 になれば完了
 
 ---
 
 ## 🔴 まさから何度も言われた TODO (= 絶対に先送りしない)
 
-このセクションは **まさが過去複数セッションで指摘 → HANDOFF に書いた → 結局実装されず再要求された** タスクの専用枠。次セッションのえいみは **何より先にここを 1 個ずつ潰す**。新規タスクは「次セッション最優先」セクションに書く。
-
-| # | タスク | まさ要求回数 | 実装状態 | 完了条件 |
-|---|---|---|---|---|
-| ✅ 1 | マクロ係数 P 以外のデータ取得 (= macro_index_log + AmdScoreView M カードの B/V/I_R 表示) | 4 回+ | **2026-05-12 完了** (2 ラウンド対応) | (Round 3) macro_index_log の P 以外列を集計 cron で埋める / (Round 5) AmdScoreView の lane mismatch (legacy → ASPI 変換漏れ) を fix → UI 「未取得」が解消 |
-| ✅ 2 | FRL grit/resilience の数値入力 | 3 回+ | **2026-05-12 完了** (2 ラウンド対応) | (Round 3) Sonnet 推定 cron 新規 (5 PJ で 0-9 値 + reasoning 入る) / (Round 5) cron が当日付新規 row 作って XRL/ALQ NULL 化する事故 fix → update only に変更 |
-| 🔴 3 | R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵) | 2 回 | 未着手 | `llm_prompts.monthly_report.r313_extract` body seed + AMD-Report GAS から DB fetch + fallback throw + clasp push 完了 |
-| 🔴 4 | 試算表 Drive Excel 取り込み cron 新規 (= project_pl_monthly が全 PJ 「—」表示) | 2 回 | 未着手 | Drive folder 配下の `.xlsx` を Sonnet で月次 PL 構造化抽出 → upsert する cron + Vercel deploy + 手動キック動作確認 |
-
-**ルール**:
-- 未着手のままセッション終了する場合は HANDOFF の「直近セッション要約」で **明示的に「未着手のまま持ち越し」と書く** (= silent に消えない)
-- 再要求されたら **そのセッションで実装まで完遂**、deploy + 動作確認 + design md 更新 + BUGS に「先送り癖」エントリ追加までが完了
+| # | タスク | 状態 |
+|---|---|---|
+| ✅ 1 | マクロ係数 P 以外のデータ取得 | 2026-05-12 完了 (Round 3 + 5) |
+| ✅ 2 | FRL grit/resilience の数値入力 | 2026-05-12 完了 (Round 3 + 5) |
+| 🔴 3 | R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵) | 未着手、TODO #5 と一緒にやるべき (= 同 GAS) |
+| 🔴 4 | 試算表 Drive Excel 取り込み cron 新規 (= project_pl_monthly が全 PJ「—」表示) | 未着手 |
+| 🔴 5 | **AMD-Report GAS の構造的修復** (= 本セッション露呈) ⭐ NEW | 未着手 |
 
 ---
 
-## 直近セッション要約
+## 🚨 次セッション最優先
 
-本セッション 2026-05-12 (blissful-robinson-8e462a 全体) で **まさ 6 指摘を 1 セッションで完遂**:
+### 0. (= 即座) aggressive backfill 完了確認 + 一時関数 cleanup ⭐
 
-### Round 1 (3 指摘)
-1. 進捗イベント抽出ロジック復元 (= 旧 GAS gas/054 の Sonnet + system prompt + initiative_origin)
-2. 拾った events の「不明」だらけ修正
-3. MS なし PJ で月次モーダルから進捗ノート (= project_monthly_notes 新テーブル)
+- Supabase で残り未生成 row count = 0 を確認
+- `R001_Api 2.js` 末尾の **本セッション一時関数群** を削除 + clasp push:
+  - `setup_aggressiveBackfill_2026_05_13`
+  - `_aggressive_backfill_self_teardown_2026_05_13`
+  - `teardown_aggressiveBackfill_2026_05_13`
+  - `isAdmin_` (= 残置するなら正規ファイルに移動)
+- R290 空コメント問題 = R290 系 admin 関数群が無効化されたまま、要対応
 
-### Round 2 (1 指摘)
-4. AMD スコア表示が XRL グラフに入って右端見切れ → AMD グラフ右上に固定 + 32px に拡大
+### 1. AMD-Report GAS の構造的修復 (= 上の TODO #5、本セッション露呈の全事故対応) ⭐⭐
 
-### Round 3 (2 指摘 = まさ「何度もお願いしてる、明確に TODO に入れて」と怒り)
-5. **マクロ係数 P 以外 0 件 + 4 lane 欠落**: macro-backfill chunk 化 (4 lane × 192 件 = 768 件 INSERT) + 新 cron `macro-aggregate-indicators` (= P 以外列を埋める集計、aggregated 143 行 / updated 129 行 / inserted 14 行 / 全 8 lane カバー)
-6. **FRL grit/resilience が全 100 行 NULL**: migration 058/059 で `llm_prompts.frl.grit_resilience.extract` seed (= Duckworth 2007 / Markman 2005 0-9 判定基準) + 新 cron `frl-grit-resilience-extract` で 5 PJ × grit/resilience に意味のある数値入る (= 神谷 7/6, 杉浦 7/6, 丸島 6/6, 神谷 5/6, 山地 4/5)
+詳細は [BUGS.md](BUGS.md) の「AMD-Report GAS が Drive 同期事故 + isAdmin_ 未定義 + access 設定崩壊の三重壁」エントリ参照。
 
-副次:
-- メイン repo の cyber 残骸全破棄 (= 前々セッション dashboard-cyber-3d-lab + 前セッション dashboard-cyber-lab 両方)
-- db_schema.md 再生成 (= 99 tables / 1086 columns)
-- BUGS.md に 4 件追加 (= events 抽出劣化 / HANDOFF 書き漏らし / マクロ + FRL 先送り癖 / etc.)
+修復タスク:
+1. **Drive 同期事故ファイル整理**: local 側で `R001_Api.js` (0 byte) / `R290_NotionProtocolSync.js` (空コメント、私が上書き) など重複の片方を整理。.claspignore で除外も検討
+2. **R290 元コード復元**: 私が空コメントで上書きした `R290_NotionProtocolSync.js` の元 93773 byte コード復元 (= R290 2.js 94608 byte と diff 取って判断、もしくはどちらか 1 つを正本として確定)
+3. **Web App URL access 再設定**: GAS Editor で deployment access を「全員」承認 → 既存 cron 系 client が動くか確認
+4. **GCP project 紐付け**: Apps Script API 経由で外部から関数実行できるよう GCP Cloud project と紐付け → 今後の clasp run / curl 経路を確保 (= ScriptProperties 取得や任意関数実行が可能に)
+5. **`isAdmin_` 等 admin helper の正規実装**: 本セッション私が `R001_Api 2.js` 末尾に簡易追加したが、専用 helper ファイル (`R002_AdminCheck.js` 等) に移動 + 他の admin 系関数 (R040 / R313 admin_*) と整合
+6. **monthly_report 文字化け検出 alert**: R313 cron に「`?` 比率 > 50% で alert 出して保存しない」防御コード追加 → 今回 (p20 202604) のような単発文字化けを未然防止
+7. **R303 hardcoded fallback 削除** (= TODO #3): `llm_prompts.monthly_report.r313_extract` body seed + AMD-Report GAS から DB fetch で読む構造に置換 + clasp push (= 上記 4 で API 経路ができれば一気にできる)
 
----
-
-詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) の「2026-05-12 (blissful-robinson-8e462a)」セクション参照。
-
----
-
-## 🚨 次セッション最優先 (= 残タスク)
-
-### 0. (= 即座) 全 PJ × 4-5 月の events 残件 + 次期 MS 期間設定 ⭐
-
-本セッション末で以下を background ループで叩いた (= `/tmp/member_activities_backfill.log`):
-
-| PJ | 4月 saved | 5月 saved | 備考 |
-|---|---|---|---|
-| p00 | 0 | 0 | no source content (= report も meetings もなし) |
-| p06 (CTB) | 9 | 5 | MS なし PJ で動作確認 ✅ |
-| p10 (SE)  | 6 | 0 | MS なし PJ |
-| p19 | 12 | 0 | |
-| p20 (CX) | 9 | (未実行) | MS なし PJ で動作確認 ✅ |
-| p21 (SX) | 14 | (未実行) | initiative_origin 分布 OK ✅ |
-| p25 | 0 | 0 | no source content |
-| p24 | 0 | 0 | no source content |
-
-5 月分は monthly_report 未生成 + meeting_summaries 薄い PJ が多くて 0 件。次セッションで:
-1. p20/p21 の 5月分 cron キック (`?ym=202605&projectId=p20|p21`)
-2. 5月分の monthly_reports 生成 (= AMD-Report GAS の R313 cron が走るのを待つか、手動)
-3. p20 (CX) / p06 (CTB) / p10 (SE) / p11 等で次期 MS 期間 (2026 Q2-Q3) を設定 → events に milestone_id 紐付けが入って画面表示が更にリッチになる
-
-### 1. R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵) ⭐ ↑ TODO セクション #3
-
-`R303_MonthlyReport_Generator.js` Line 262-270 の hardcoded fallback を残置中。
-- migration 053-style で `llm_prompts.monthly_report.r313_extract` body を seed (= 現在 body 空 / is_active=FALSE)
-- AMD-Report GAS に Supabase client 追加 → DB fetch → fallback throw
-- clasp push (= Drive 共有ドライブ `/Users/masa/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/claude/AMD_OS/gas-report/`)
-
-### 2. 試算表 Drive Excel 取り込み cron (= まさ前々セッション指摘 2) ⭐ ↑ TODO セクション #4
+### 2. 試算表 Drive Excel 取り込み cron (= TODO #4)
 
 `project_pl_monthly` テーブルが全 PJ 全部「—」表示。Drive folder 配下の `.xlsx` を Sonnet で月次 PL に構造化抽出 → upsert。074c (議事録 Docs backfill) とは別 cron。
 
-### 3. EventsSection の impact 強調表示 (= 本セッションの後続)
+### 3. EventsSection の impact 強調表示
 
-migration 056 で member_activities.impact (1-5) 列を追加して LLM も値を入れているが、UI 側はまだ表示してない。impact >= 4 を太字 / アイコンで強調すると先手力評価がより直感的に。`CockpitMonthlyModal.tsx` `EventsSection` の各 event カード内で impact の表示追加。
+migration 056 で member_activities.impact (1-5) 列を追加して LLM も値を入れているが、UI 側はまだ表示してない。impact >= 4 を太字 / アイコンで強調。
 
 ### 4. 5 生データ backfill の精度改善
 
-| 種類 | 現状 | 改善案 |
-|---|---|---|
-| Drive (074c) | folder 直下 only scan | 再帰 scan (= サブフォルダの Docs も拾う) |
-| Calendar (074d) | description 薄い event を chitchat 判定で saved=0 | 判定緩和 + Notion AI 議事録 page との連結 |
-| Gmail (074e) | subject フィルタ 6 キーワード | 拡張 + bot 判定強化 + 添付ファイル考慮 |
-| Slack | 過去 3 ヶ月分のみ saved=13 | bash ループで `monthsBack=6` × 4 回叩いて残り月分 |
+| 種類 | 改善案 |
+|---|---|
+| Drive (074c) | 再帰 scan |
+| Calendar (074d) | chitchat 判定緩和 + Notion AI 連結 |
+| Gmail (074e) | subject フィルタ拡張 |
+| Slack | 過去 6 ヶ月分 backfill ループ |
 
 ### 5. protocols dedup + UI archive 運用
 
-- 旧 22 件 legacy_specific → まさが UI で「📥 全部 archive」を 1 クリック
-- 新 22 件 pattern に同テーマの重複ペアが 6+ 件 → Sonnet で「意味的に同一」グループ化 → dedup one-time
+旧 22 件 legacy_specific archive + 新 22 件 pattern の Sonnet dedup。
 
-### 6. ファビコン後日チャレンジ
+### 6. ファビコン後日チャレンジ / exec_summary Phase 2 (任意)
 
-3 ラウンド試行で未解消 (= curl で配信完全 OK、シークレット 7 回でも見えず)。後日候補:
-1. Chrome の Favicons SQLite 直接削除
-2. Vercel CDN edge cache の no-store 強制
-3. ファビコン URL を `/favicon-v2.ico` 別パスに変更
-4. PWA installable として一度インストール + アンインストール
-5. ブラウザの強制リロード手順を都度確認
-
-### 7. exec_summary Phase 2 (任意)
-
-PJ ごとに color theme を切り替える (= `.page--{slug}` で `--c-primary` 個別定義)。
+詳細は前 HANDOFF 参照。
 
 ---
 
 ## ⚠️ 既知のえいみ傾向 (= 本セッションで再発した分を反映)
 
-1. **重い実装の先送り癖**: 「次セッションで」と書いた瞬間に進行が止まる
-2. **早合点で隣の領域を触る**: まさの指摘の対象を最初に確認せず、コンポーネント / プロンプト / cron を取り違える
-3. **「手元にない」即断**: 必ず `mdfind` / `find` / `locate` で徹底探索してから「無い」を結論にする
-4. **未 push diff 破棄事故** (= 本セッションでも残骸対応): worktree 開始時に main repo の `git status -s` の `M` / `??` を確認、内容を `git diff` で見てから判断、無闇に `git checkout HEAD --` で破棄しない (まさ承認なら OK)
-5. **「キャッシュ」を性急に仮説立てない** (= ファビコン 7 回否定された)
-6. **「モック」「まずは」「見せて」は本番手前の確認指示**: 本番に直接 deploy せず、別ページ / 画像で見せる
-7. **AGENTS.md 画像禁止ルール再確認** (= 過去 2 回違反): 「画像活用」と言われたら本物のロゴ画像 (`<img>`) を配置、SVG / CSS で自作しない
-8. **「文字だけ入れ替え」を文字通り守る**: 雛形の CSS / 構造を書き直したい衝動を抑える
-9. **HTML を正規表現で構造置換しない**: template literal でコピーか cheerio / DOMParser
-10. **CSS 変数の scope cascade 落ちに注意**: 抽出時に `var(--xxx)` を全部 grep して `:root` 定義済か確認
-11. **ダウンロード HTML の `<img src>` は絶対 URL 必須**: `${origin}/...` で組み立て
-12. **GAS → PWA 移植時に概念ごと落とすな** ⭐ 本セッション真因: 旧実装の出力スキーマ + system prompt + LLM モデル選定は **設計の核**。データソース置換だけしてもアプリの精度は再現しない。移植時に「精度の核は何か」を確認
-13. **「過去は精度よかった」とまさが言ったら git log を疑う** ⭐: BUGS で「Haiku に格下げ」「entity が削除された」のような明確な後退があれば、それが真因
-14. **まさの口頭指示を md に残す** ⭐ 本セッションで露呈: HANDOFF / sessions log に「コード変更を伴わない要望」も書く。「あれどうなった?」と聞かれて design md に痕跡無いのは不適切
-15. **「不明」が UI に出るとき、それが LLM 判断結果か API mapping 漏れかを区別する** ⭐ 本セッション真因: 後者は退化バグ
-16. **HANDOFF に書いただけで実装しない「先送り癖」を絶対許さない** ⭐⭐ Round 3 真因: 「何度もお願いしてるけど全然やってくれてない」とまさが怒る根本理由。次セッション最優先 #1〜#4 は **次回セッションの最初に必ず潰す**。「重い」「次のセッションで」「Phase 2 で」と縮めない
-17. **新 cron 追加時は `db_schema.md` を Read してから .select 列名を書く** ⭐ Round 3 副次事故: `project_founding_members.organization` (= 存在しない、`affiliation` が正解) を想像で書いて PostgREST silent failure。CLAUDE.md の絶対ルールを実際に守る
-18. **silent fail を残すと cron は永久に気づかれない** ⭐ Round 3 真因: macro-backfill が JSON parse 失敗で `continue` していた結果 4 lane が 0 件のまま放置。各 chunk の成否を return JSON に必ず含める
-19. **prompt の「null / 不明」選択肢は LLM の逃げ道になる**: FRL prompt の「pre-founding なら null」を LLM が強く読みすぎて意味のある PJ でも null。「null は最終手段」「creator 一覧空でも本文推定可」と厳格化が必要
+memory に強化済 (= [feedback_no_handoff_steps_to_masa.md](/Users/masa/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/) / [feedback_never_say_cant_first.md] / [feedback_specify_file_name_for_gas_function.md])。次セッションのえいみは memory を真っ先に Read。
+
+主な失敗パターン:
+1. **「手順渡す」「実行をお願い」は禁止**: AGENTS 例外 (Google OAuth ブラウザ承認 / 物理端末 / 課金 / 2FA) に真に該当する場合のみ最小ステップで振る
+2. **「できない」即断する前に 3 つ試す**: CLI/API/別経路を最低 3 つ実際に試してから結論
+3. **GAS 関数依頼時はファイル名 + 関数名セット必須**: `{ファイル名} の {関数名}` を毎回明示
+4. **HANDOFF TODO は実装まで完遂**: 「次セッションでやる」と書いた TODO は次セッション冒頭で必ず潰す。同じ「何度も言ってる」を発動させない
+5. **Drive 同期事故 GAS への push は危険**: 重複ファイルが本番 GAS に push される事故。push 前に local 側を整理
+6. **clasp deploy --deploymentId X で update すると元 deployment スナップショットが失われる**: バックアップなしの上書き禁止、まず新規 deploy で test
+7. **GAS Web App access 設定は appsscript.json だけでは反映されない**: deployment ごとに Web Editor で承認必要
 
 ---
 
@@ -154,48 +110,40 @@ PJ ごとに color theme を切り替える (= `.page--{slug}` で `--c-primary`
 
 - [`design/L2_DATA.md`](design/L2_DATA.md) ⭐⭐⭐ — 中核データ正本 (L2 6 種 + 5 生データ backfill 一覧)
 - [`design/SPEC_pwa.md`](design/SPEC_pwa.md) ⭐ — PWA 全体仕様
-- [`design/db_schema.md`](design/db_schema.md) — 99 tables / 1086 columns (= 本セッションで再生成)
+- [`design/db_schema.md`](design/db_schema.md) — 99 tables / 1086 columns
 - [`design/README.md`](design/README.md) — 設計 md インデックス
-- [`BUGS.md`](BUGS.md) — 本セッションで 2 件追加 (= 進捗イベント抽出劣化 / HANDOFF 書き漏らし)
-- [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾 — 本セッション全 commit + 設計変更網羅
+- [`BUGS.md`](BUGS.md) — 本セッションで合計 5 件追加 (= AMD-Report GAS 三重壁が最重要)
+- [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾 — 本セッション #6 + #7 全網羅
 - `/Users/masa/projects/AGENTS.common.md` — えいみ人格 + 「LLM プロンプト運用 (絶対ルール)」
 - `pwa/AGENTS.md` — **画像禁止ルール** (= 毎セッション再確認)
 
-## 運用コマンド
+## 運用コマンド (本セッションで使ったもの)
 
 ```sh
-# Vercel deploy (= 本セッションで使用、通知付き)
+# Vercel deploy (= 通知付き)
 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 
 # DDL 適用
 python3 -X utf8 pwa/scripts/apply_ddl.py pwa/scripts/migrations/NNN_name.sql
 
-# 本体 GAS push + deploy (現在 v1462)
-cd /Users/masa/projects/AMD/amd-os/gas
+# AMD-Report GAS 操作 (= 本セッションで確立、要 clasp login)
+cd /tmp/gas-report-clean
+npx @google/clasp@latest login    # 1 回 OAuth
+npx @google/clasp@latest pull     # GAS 正本取得
 npx @google/clasp@latest push --force
-npx @google/clasp@latest deploy --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G --description "vNNN_xxx"
+npx @google/clasp@latest deploy --deploymentId X --description "..."
+npx @google/clasp@latest deployments
 
-# 進捗イベント cron 手動キック (= 本セッションで動作確認)
-SECRET=$(grep '^CRON_SECRET=' pwa/.env.local | cut -d= -f2- | tr -d '"')
-curl -sL "https://amd-os-pwa.vercel.app/api/cron/member-activities?ym=202605&projectId=p21" \
-  -H "Authorization: Bearer $SECRET" --max-time 180
+# Supabase Management API SQL (= 本セッションで多用)
+SBAT=$(grep '^SUPABASE_ACCESS_TOKEN=' pwa/.env.local | cut -d= -f2- | tr -d '"')
+curl -sX POST "https://api.supabase.com/v1/projects/nbnhrhybjslbawdukvvk/database/query" \
+  -H "Authorization: Bearer $SBAT" \
+  -H "Content-Type: application/json" \
+  -H "User-Agent: amd-os-pwa-cleanup/1.0" \
+  -d '{"query":"SELECT ..."}'
 
-# 全 active PJ × 1 ヶ月分一括 (= projectId 省略)
-curl -sL "https://amd-os-pwa.vercel.app/api/cron/member-activities?ym=202605" \
-  -H "Authorization: Bearer $SECRET" --max-time 240
-
-# 5 種 backfill 一気
-URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' pwa/.env.local | cut -d= -f2- | tr -d '"')
-KEY=$(grep '^NEXT_PUBLIC_GAS_API_KEY=' pwa/.env.local | cut -d= -f2- | tr -d '"')
-for fn in nav_meeting_backfillSlackAllActive_ nav_meeting_backfillDriveAllActive_ \
-         nav_meeting_backfillCalendarAllActive_ nav_meeting_backfillGmailAllActive_; do
-  ARGS=$(python3 -c "import urllib.parse,json; print(urllib.parse.quote(json.dumps([{'monthsBack':6,'maxLlmCallsPerRun':18,'maxLlmPerCall':3}])))")
-  curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=$fn&args=$ARGS" | head -c 200
-done
-
-# initiative_origin 分布の確認 (= 本セッションで使用)
+# Backfill 進捗確認
 URL=$(grep '^NEXT_PUBLIC_SUPABASE_URL=' pwa/.env.local | cut -d= -f2- | tr -d '"')
 ANON=$(grep '^NEXT_PUBLIC_SUPABASE_ANON_KEY=' pwa/.env.local | cut -d= -f2- | tr -d '"')
-curl -sL "${URL}/rest/v1/member_activities?project_id=eq.p21&ym=eq.202604&source=eq.inferred&select=initiative_origin,impact,depth,title" \
-  -H "apikey: ${ANON}" -H "Authorization: Bearer ${ANON}"
+curl -sL "${URL}/rest/v1/monthly_reports?select=count" -H "apikey: ${ANON}" -H "Authorization: Bearer ${ANON}" -H "Prefer: count=exact"
 ```
