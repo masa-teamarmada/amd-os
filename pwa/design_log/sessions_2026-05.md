@@ -3266,3 +3266,50 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 - まさは「別アイディアも形にしたい」と言っているので、次セッション冒頭は実装を続ける前に別案の方向性を聞く。
 - Cyber HUD を続ける場合は、既存 `Cyber3DLab.tsx` を壊さず、別 URL / 別 component で新案を作るのが安全。
 - このUIでは、クオリティを落とすCSSグラフィックは作らない。発光・投影・レーザー・粒子・3D配置は three.js 側で実装判断する。
+
+---
+
+## 2026-05-14 — Cyber Dashboard 第2案 / Glass Cube Chamber
+
+#### きっかけ
+まさが添付画像ベースで、参考画像のようなHUD空間の中央にガラス状キューブを複数浮かべ、左右の空きスペースにKPIインジケーターを置く第2案を要望。  
+既存XFM球体版は壊さず、別route / 別componentで比較できる形にした。
+
+#### 実装したこと
+
+- `src/components/dashboard/CyberGlassCubeDashboard.tsx`
+  - 中央に浮遊ガラスキューブPJ群を配置。
+  - 各キューブ表面にPJ code / PJ名、上方にX/F/M系ラベルを表示。
+  - 床面に発光円盤、放射線、スキャンリングをthree.js geometryで実装。
+  - 背景とキューブ表面の質感はcomponent内でCanvasTexture生成。
+  - 左に `Studio Core KPI`、右に `AMD Value Proof` のHUDパネルを配置。
+  - KPIリングはSVG、パネル外形/接続/空間配置はthree.js側で実装。
+  - 初期表示の読みやすさを優先し、OrbitControlsのautoRotateはOFF。
+- route追加:
+  - `/mock/dashboard-cyber-glass-cube`
+  - `/dashboard-cyber-glass-cube`
+- `src/lib/supabase/middleware.ts`
+  - 公開モック確認用に `/mock/dashboard-cyber-glass-cube` をauth bypassへ追加。
+- 設計docs:
+  - `design/SPEC_pwa.md` にroute説明を追加。
+  - `design/cyber_dashboard_content_design.md` にGlass Cube variantを追記。
+  - `HANDOFF_pwa_rebuild.md` を次回入口へ更新。
+
+#### Verification
+
+- `npm run build` 成功。
+- local Browser:
+  - URL: `http://localhost:3007/mock/dashboard-cyber-glass-cube`
+  - `cube-face-label = 6`
+  - `glass-kpi-row = 6`
+  - `glass-hud-gauge = 6`
+  - `canvas = 1`
+- production deploy:
+  - deployment URL: `https://amd-os-qo41584t7-armada0130.vercel.app`
+  - alias: `https://amd-os-pwa.vercel.app`
+- production Browser:
+  - URL: `https://amd-os-pwa.vercel.app/mock/dashboard-cyber-glass-cube`
+  - `cube-face-label = 6`
+  - `glass-kpi-row = 6`
+  - `glass-hud-gauge = 6`
+  - `canvas = 1`

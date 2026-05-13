@@ -37,7 +37,8 @@ export async function updateSession(request: NextRequest) {
     !pathname.startsWith("/auth") &&
     !pathname.startsWith("/api/") &&
     pathname !== "/" &&
-    pathname !== "/mock/dashboard-cyber-3d-lab"
+    pathname !== "/mock/dashboard-cyber-3d-lab" &&
+    pathname !== "/mock/dashboard-cyber-glass-cube"
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";

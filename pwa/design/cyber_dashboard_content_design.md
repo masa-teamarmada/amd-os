@@ -139,6 +139,17 @@ HUDの形状そのものをCSSで無理に作ると品質が落ちる。
 - クリック: 球体を選択 → 2回パルス → 球体上方にPJ cockpitを投影
 - 重要: 発光、球体、リング、投影面、レーザーは three.js 側を正本にする。HTML/CSSはラベル・数値・読み物の補助。
 
+## Glass Cube Dashboard Variant
+
+第2案は `src/components/dashboard/CyberGlassCubeDashboard.tsx`。
+
+- route: `/mock/dashboard-cyber-glass-cube` (公開確認用)
+- route: `/dashboard-cyber-glass-cube` (認証付き実環境)
+- PJ表示: 中央の浮遊ガラスキューブ群。各キューブ表面にPJ code / PJ名、上方ラベルにX/F/M系の簡易指標を表示。
+- 空間: 参考画像のような青系holographic chamber。床面は発光円盤・放射線・スキャンリング、背景はcomponent内で生成したCanvasTexture。
+- KPI: 左側に `Studio Core KPI`、右側に `AMD Value Proof`。HUDフレームはthree.js geometry、数値とSVGゲージはHTML/SVG。
+- 既存XFM球体案は壊さず、別component / 別routeで比較できるようにする。
+
 ## Data Implementation Notes
 
 最初はモック値で表示面を作る。  
