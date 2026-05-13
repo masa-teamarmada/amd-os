@@ -229,6 +229,35 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
               };
             });
           }
+        } else if (n.l2_kind === "founding_members") {
+          // Phase 1-E (founding-members-extract cron):
+          // - target_id = project_id
+          // - scope_key = 抽出日 (YYYY-MM-DD)
+          // 通知日以降に updated_at された project_founding_members 行が当該通知の対象。
+          const { data, error } = await supabase
+            .from("project_founding_members")
+            .select("person_name, affiliation, role, role_label_jp, category, responsibility, contribution, notes, status, first_observed_at, last_observed_at, updated_at")
+            .eq("project_id", n.target_id)
+            .gte("updated_at", n.scope_key)
+            .order("updated_at", { ascending: false })
+            .limit(50);
+          if (error) throw error;
+          rows = (data ?? []).map((r) => {
+            const tagBits = [r.category, r.role_label_jp || r.role].filter((s) => !!s && s !== "unknown").join(" / ");
+            const heading = tagBits
+              ? `${r.person_name} (${tagBits})`
+              : String(r.person_name ?? "");
+            const bodyParts: string[] = [];
+            if (r.responsibility) bodyParts.push(`担当: ${r.responsibility}`);
+            if (r.contribution) bodyParts.push(`貢献: ${r.contribution}`);
+            if (r.notes) bodyParts.push(`メモ: ${r.notes}`);
+            const subBits = [r.affiliation, r.status, r.first_observed_at ? `初観測 ${r.first_observed_at}` : null].filter(Boolean).join(" · ");
+            return {
+              heading,
+              body: bodyParts.join("\n") || "—",
+              sub: subBits || undefined,
+            };
+          });
         } else if (n.l2_kind === "ms_progress") {
           // milestone_monthly_progress + value_milestones JOIN は client では難しいので 2 回 fetch
           const { data: progRows } = await supabase
@@ -640,6 +669,12 @@ function DeepLinkForL2({ n }: { n: Notification }) {
       return (
         <a className="text-blue-600 hover:underline" href={`/project/${n.target_id}/cockpit`}>
           /project/{n.target_id}/cockpit (月次モーダル ym={n.scope_key} の進捗バー)
+        </a>
+      );
+    case "founding_members":
+      return (
+        <a className="text-blue-600 hover:underline" href={`/project/${n.target_id}/cockpit`}>
+          /project/{n.target_id}/cockpit (メンバーカードで確認)
         </a>
       );
     default:
