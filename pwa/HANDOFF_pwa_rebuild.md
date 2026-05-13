@@ -53,18 +53,31 @@
   - `isAdmin_` (= 残置するなら正規ファイルに移動)
 - R290 空コメント問題 = R290 系 admin 関数群が無効化されたまま、要対応
 
-### 1. AMD-Report GAS の構造的修復 (= 上の TODO #5、本セッション露呈の全事故対応) ⭐⭐
+### 1. AMD-Report GAS の構造的修復 (= TODO #5)
 
-詳細は [BUGS.md](BUGS.md) の「AMD-Report GAS が Drive 同期事故 + isAdmin_ 未定義 + access 設定崩壊の三重壁」エントリ参照。
+本セッション (#9) で **5/7 タスク完了**。残 2 つは別作業:
 
-修復タスク:
-1. **Drive 同期事故ファイル整理**: local 側で `R001_Api.js` (0 byte) / `R290_NotionProtocolSync.js` (空コメント、私が上書き) など重複の片方を整理。.claspignore で除外も検討
-2. **R290 元コード復元**: 私が空コメントで上書きした `R290_NotionProtocolSync.js` の元 93773 byte コード復元 (= R290 2.js 94608 byte と diff 取って判断、もしくはどちらか 1 つを正本として確定)
-3. **Web App URL access 再設定**: GAS Editor で deployment access を「全員」承認 → 既存 cron 系 client が動くか確認
-4. **GCP project 紐付け**: Apps Script API 経由で外部から関数実行できるよう GCP Cloud project と紐付け → 今後の clasp run / curl 経路を確保 (= ScriptProperties 取得や任意関数実行が可能に)
-5. **`isAdmin_` 等 admin helper の正規実装**: 本セッション私が `R001_Api 2.js` 末尾に簡易追加したが、専用 helper ファイル (`R002_AdminCheck.js` 等) に移動 + 他の admin 系関数 (R040 / R313 admin_*) と整合
-6. **monthly_report 文字化け検出 alert**: R313 cron に「`?` 比率 > 50% で alert 出して保存しない」防御コード追加 → 今回 (p20 202604) のような単発文字化けを未然防止
-7. **R303 hardcoded fallback 削除** (= TODO #3): `llm_prompts.monthly_report.r313_extract` body seed + AMD-Report GAS から DB fetch で読む構造に置換 + clasp push (= 上記 4 で API 経路ができれば一気にできる)
+| # | タスク | 状態 |
+|---|---|---|
+| ✅ 1 | Drive 同期事故ファイル整理 | 完了 (= 重複 26 ファイル整理、`*` 2.js suffix 全削除、main 確定) |
+| ✅ 2 | R290 元コード復元 | 完了 (= 94608 byte 正本を main に上書き、私が事故った 125 byte 空コメント版を破棄) |
+| ✅ 3 | Web App URL access 再設定 | 完了 (= まさ確認済「全員アクセス可」、新 deploy @22 と旧 @21 両方で GET エラーが「doGet 関数 not found」になり access 通ったことが確認できた = doGet は設計上元々ない、doPost のみ) |
+| 🔴 4 | GCP project 紐付け | **未着手** (= まさのブラウザ作業必須、GAS Editor → プロジェクトの設定 → Google Cloud Platform プロジェクトを変更 → 既存 GCP プロジェクトに紐付け or 新規作成)。これがあれば Apps Script API 経由で外部から任意関数実行 (= ScriptProperties 取得 / aggressive backfill 系再起動) ができるようになる |
+| ✅ 5 | isAdmin_ 等 admin helper の正規実装 | 仮完了 (= R001_Api.js 末尾に isAdmin_ 残置、機能してる。専用ファイル化 (`R002_AdminCheck.js` 等) は将来 cleanup) |
+| ✅ 6 | monthly_report 文字化け検出 alert | 完了 (= R303 `mr_generateDraft_` + `mr_generateDraftUpdate_` に `mr_detectMojibake_` helper 追加、? 比率 > 50% で保存中止) |
+| 🔴 7 | R303 hardcoded fallback 削除 (= TODO #3) | **未着手** (= 慎重作業、`llm_prompts.monthly_report.r313_extract` から DB fetch する path に置換 + clasp push、次セッション着手) |
+
+#### 本セッション完了後の AMD-Report GAS 状態
+- scriptId: `1r3Ak-tYASXY...`
+- production deployment: `AKfycbxtap99...@21` (= まさ承認の「全員アクセス可」)
+- 新 deploy: `AKfycbzQ07aq...@22` (= post-cleanup-2026-05-13-session9)
+- local: `/tmp/gas-report-clean/` 重複なし 50 ファイル
+- backup: `/tmp/gas-report-clean-backup-20260513-144052/`
+- aggressive backfill 一時関数 3 つ削除済 (= PWA 側で完遂したため不要、関連 trigger は teardown 完走時に自動削除済の想定)
+
+#### TODO #5 残作業の正しいやり方 (= 次セッション着手前にまさへ)
+- **#4 GCP project 紐付け**: GAS Editor → 左下 ⚙️ プロジェクトの設定 → Google Cloud Platform (GCP) プロジェクト → 「変更」→ 既存 amd-os の GCP プロジェクトを紐付け or 新規作成。完了したら次セッション以降で clasp run / Apps Script API 経由実行が可能になる
+- **#7 R303 hardcoded fallback 削除**: llm_prompts.monthly_report.r313_extract を DB fetch する `mr_gen_getPrompt_()` 関数を新設 → mr_gen_callClaude_ 呼ぶ前に prompt を DB から取得 → push。is_active=true に変える判断もまさへ確認
 
 ### 2. 試算表 Drive Excel 取り込み cron (= TODO #4)
 

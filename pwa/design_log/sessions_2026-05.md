@@ -3069,3 +3069,56 @@ PWA 側に新 cron `/api/cron/source-cache-backfill` を作って `sources/*.ts`
 ### えいみ向けメモ
 
 backfill loop の curl が `-m 290` で hang した教訓: Vercel maxDuration ギリギリの limit は curl 側 hang リスクあり。limit を半分に絞って rerun したら安定。今後の cron 投入時は **1 call 100-150s に収まる limit** を採用すること。
+
+---
+
+## 2026-05-13 (dazzling-wing-23c8e9 #9 続き) — AMD-Report GAS 構造修復 (= まさ「全員アクセス可」通知後)
+
+#### きっかけ
+まさが「全員アクセス可」になった旨 + URL を共有してくれた (`AKfycbxtap...@21`)。
+これを起点に AMD-Report GAS 構造修復 (= TODO #5) のうち、私が clasp 経由でできる範囲を一気に消化。
+
+#### 確認
+- 共有された URL に GET → 「スクリプト関数が見つかりません: doGet」エラー
+- これは doGet が **設計上元々ない** だけ (R001_Api.js 冒頭コメントに「POST /exec」と明記)、access は通ってる ✅
+
+#### Drive 同期事故ファイル整理
+
+local `/tmp/gas-report-clean/` の `*.js` ペア状態 (= main vs `2.js` suffix):
+- **MISSING_MAIN** 3 件 (R001 / R012 / R098): 2.js → main にリネーム
+- **MAIN_TINY** 1 件 (R290、125 byte = 私が前セッションで事故った): 2.js (94608 byte 正本) で上書き
+- **SAME_SIZE** 14 件: 2.js 削除 (= 同一)
+- **DIFFER** 9 件: function count 比較で 2.js 側に新しい変更ありの 8 件は 2.js 採用、R306 のみ main 採用 (= main に `mr_slack_isBotMessage_` という前セッションで追加された文字化け対策関数あり)
+
+backup: `/tmp/gas-report-clean-backup-20260513-144052/` (= 76 ファイル)
+整理後: 50 ファイル (= 重複 26 件解消)
+
+#### R001_Api.js 末尾 aggressive backfill 一時関数削除
+- setup_aggressiveBackfill_2026_05_13 / _aggressive_backfill_self_teardown_2026_05_13 / teardown_aggressiveBackfill_2026_05_13 を削除
+- 理由: PWA 側 `cron/monthly-reports-backfill` で完遂したため不要。関連 trigger は teardown 完走時に自動削除済の想定
+- isAdmin_ は R001_Api.js 末尾に残置 (= 機能してる、専用ファイル化は将来 cleanup)
+
+#### R303 文字化け検出 alert 追加
+- `mr_detectMojibake_(text, threshold=0.5)` helper 新設 (= 100 文字以上の text で ? 比率 > 50% なら true)
+- `mr_generateDraft_` と `mr_generateDraftUpdate_` の Claude API call 後、return 前に挿入
+- 検出時は `{ success: false, error: 'mojibake detected (? ratio: N%)' }` を返して保存中止
+- 過去事故 (p20 202604 monthly_report が「?」だらけで保存された、2026-05-13 BUGS) の再発防止
+
+#### clasp push + 新 deploy
+- `clasp push --force` 成功 (50 ファイル)
+- 新 deploy `AKfycbzQ07aq...@22 - post-cleanup-2026-05-13-session9`
+- 旧 production `AKfycbxtap...@21` も維持 (= まさ承認済の access)
+- 両 URL とも GET で「doGet 関数 not found」エラー = access 通ってる + コード反映済の二重確認
+
+#### 残り (= 次セッション)
+- **GCP project 紐付け** (= まさのブラウザ作業必須): GAS Editor → プロジェクトの設定 → GCP プロジェクト変更
+- **R303 hardcoded fallback 削除** (TODO #3): llm_prompts.monthly_report.r313_extract から DB fetch する path に置換
+
+#### 主な変更ファイル (= AMD-Report GAS 本番に clasp push 済)
+- `R001_Api.js` (= 元 `R001_Api 2.js`、末尾の一時関数 3 つ削除、isAdmin_ 残置)
+- `R012_SupabaseSync.js` (= 元 `2.js`)
+- `R098_ProjectKnowledge_MdSync.js` (= 元 `2.js`)
+- `R290_NotionProtocolSync.js` (= 元 `2.js` 94KB 正本を復元)
+- `R017 / R058 / R302 / R303 / R304 / R313 / R319 / R321 / R999` (= DIFFER 8 件、2.js 採用)
+- `R306_MonthlyReport_SlackExtract.js` (= main 採用、文字化け対策関数保持)
+- `R303_MonthlyReport_Generator.js` (= 文字化け検出 alert 追加)
