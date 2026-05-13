@@ -69,6 +69,27 @@ PWA では `CockpitView.resolveStepModalFromTap()` ([pwa/src/components/cockpit/
 
 PWA 実装: `CockpitRoutineGas.tsx:139` (締切日チェック必須、無視するな)。
 
+### 請求月延期時のスキップ動作 (`invoice_ym !== ym`)
+
+`billing_cycles.invoice_ym` を翌月以降に設定した cycle (= 当月分を翌月以降にまとめて請求するケース) では、
+**当月の月次ルーティンは `reportFix` (月次報告書FIX) 以外を全部スキップ表示**にする。
+
+| 状態 | 当月 cycle | 翌月以降 cycle |
+|---|---|---|
+| `reportFix` (月次報告書FIX) | active (= 当月内に必ずやる) | active |
+| `budget` / `meeting` / `reimburseConfirm` | **deferred → 非表示** | active |
+| `invoiceIssue` / `invoiceSend` | **deferred → 非表示** (ラベルは "X月にまとめて請求") | active |
+| `estimateSend` (CTB) | **deferred → 非表示** | active |
+
+実装は `CockpitRoutineGas.buildSteps()` の `deferred` フラグ。
+deferred は `activeSteps = steps.filter((s) => !s.deferred)` で UI 描画から除外され、`progressPct` も `reportFix` 1 個だけが分母になる。
+月見出し横の `→7月` バッジ (オレンジ) が「翌月にまとめる意図」を示す唯一のシグナル。
+
+理由: 翌月にまとめて請求する場合、当月の予算確定 / 報告会 / 立替確認 / 請求書発行・送付は翌月 cycle 側でまとめて回すため。
+ただし月次報告書 (`monthly_reports`) は稼働月単位で必ず固定するので、`reportFix` だけは当月に残す。
+
+---
+
 ### deadline 一覧
 
 | stepId | 締切 |

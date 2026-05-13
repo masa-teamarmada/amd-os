@@ -145,19 +145,23 @@ function buildSteps(bc: BillingCycle | undefined, ym: string, isCTB: boolean): R
   const deferredLabel = deferred ? `${Number(invoiceYm.slice(4))}月にまとめて請求` : "";
   const estimateDone = !!bc?.invoiceBaseLinesJson || !!bc?.invoiceSubject || !!bc?.invoiceIssuedAt;
 
+  // 請求月を翌月以降に設定した月は「月次報告書FIX」以外を全部 skip 表示
+  // (invoiceIssue/invoiceSend は当月の cycle では deferred、翌月の cycle で本番)
   const base: Record<string, { label: string; done: boolean; deferred?: boolean }> = {
-    estimateSend: { label: "見積書送付", done: estimateDone },
+    estimateSend: { label: "見積書送付", done: estimateDone, deferred },
     budget: {
       label: "請求額確定",
       done: !!bc?.budgetConfirmedAt || bc?.status === "budget_confirmed" || bc?.status === "allocation_confirmed",
+      deferred,
     },
-    meeting: { label: "報告会日程調整", done: !!bc?.meetingEventId || !!bc?.meetingStartAt },
+    meeting: { label: "報告会日程調整", done: !!bc?.meetingEventId || !!bc?.meetingStartAt, deferred },
     reportFix: { label: "月次報告書FIX", done: !!bc?.reportFixedAt },
     reimburseConfirm: {
       label: "立替精算確認",
       // 締切日前は必ず未完。締切日以降に submitted/pmapproved の未処理が無ければ完了
       // (design/routine.md, BUGS.md 「admin.billing の未来月『立替確認』が完了表示」参照)
       done: isPastReimburseDeadline(ym) && bc?.reimburseConfirmDone !== false,
+      deferred,
     },
     invoiceIssue: { label: deferred ? deferredLabel : "請求書発行", done: !!bc?.invoiceIssuedAt, deferred },
     invoiceSend: { label: deferred ? deferredLabel : "請求書送付", done: !!bc?.invoiceSentAt, deferred },

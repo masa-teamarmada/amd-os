@@ -405,6 +405,11 @@ cockpit 右カラムの月次ルーティンで「タスク行」をクリック
 
 **🚨 回帰防止ルール**: PWA に新機能を載せるとき、各ステップ用モーダルが「全部 CockpitMonthlyModal を開くようになる」回帰が **過去 3 回起きてる** (BUGS.md 参照)。月次モーダルへフォールバックするコードを追加するときは、上の表が崩れていないか必ず手動で確認する。
 
+#### 請求月延期時のスキップ動作 (`invoice_ym !== ym`)
+
+`billing_cycles.invoice_ym` を翌月以降に設定した cycle では、当月の月次ルーティンは `reportFix` (月次報告書FIX) 以外を**全部スキップ表示** (= UI から非表示) にする。
+詳細は [routine.md](routine.md#請求月延期時のスキップ動作-invoice_ym--ym) 参照。`progressPct` も `reportFix` 1 個基準。月見出し横の `→X月` バッジ (オレンジ) が翌月まとめ請求のシグナル。
+
 #### URL クエリでステップを直接開く
 
 `/project/[projectId]/cockpit?ym=YYYYMM&step=<stepId>` で、起動時にそのステップ用モーダルを開ける。mypage の TODO カード ([pwa/src/app/(app)/mypage/page.tsx:593](src/app/(app)/mypage/page.tsx)) からこの URL に飛ばしてる。`?ym=` だけなら従来通り月次モーダル。
