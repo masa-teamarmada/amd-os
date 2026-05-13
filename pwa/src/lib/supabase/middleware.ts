@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+  const pathname = request.nextUrl.pathname;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,9 +34,10 @@ export async function updateSession(request: NextRequest) {
   // API routes handle their own auth (CRON_SECRET etc.) — skip redirect
   if (
     !user &&
-    !request.nextUrl.pathname.startsWith("/auth") &&
-    !request.nextUrl.pathname.startsWith("/api/") &&
-    request.nextUrl.pathname !== "/"
+    !pathname.startsWith("/auth") &&
+    !pathname.startsWith("/api/") &&
+    pathname !== "/" &&
+    pathname !== "/mock/dashboard-cyber-3d-lab"
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
