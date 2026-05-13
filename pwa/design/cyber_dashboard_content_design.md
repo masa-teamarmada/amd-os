@@ -39,6 +39,20 @@ AMDが介入したことでPJがどう変わったかを見せる指標。
 - 仮説検証サイクル数
 - 成果イベント数: 調達、提携、PoC、採択、商談化など
 
+## KPI Visual Treatment
+
+Studio Core KPI と AMD Value Proof はダッシュボードの中心に置く。
+
+各数値は単なるカード内テキストではなく、HUD系インジケーターとして表示する。
+
+- ring: スコア、稼働状態、達成率
+- segmented bar: 累計数、改善幅、progression
+- horizontal load bar: 調達額、パイプライン、売上
+- scan meter: 平均期間、サイクル、速度感
+
+KPIパネルは `three.js` のHUDフレーム上に載せ、HTML/CSSは数値表示とインジケーター内部の情報表現に使う。  
+空間配置、フレーム、接続レーザーは `pwa/design/cyber_hud_design_code.md` のルールに従う。
+
 ## Requested Data
 
 まさから明示的に要望があった項目。
@@ -95,7 +109,7 @@ AMDが介入したことでPJがどう変わったかを見せる指標。
 
 3D空間では、情報を役割ごとにレイヤー配置する。
 
-- 中央: Studio Core / 全体KPI
+- 中央: Studio Core / 全体KPI / AMD Value Proof
 - 左奥: PJポートフォリオカード群
 - 右奥: Members / Expertise map
 - 手前: 今すぐ見るべき alerts / next actions
