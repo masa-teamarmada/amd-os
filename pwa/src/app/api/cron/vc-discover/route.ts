@@ -1,15 +1,18 @@
 /**
- * 新 VC / VC 業界ニュース 発見 cron。
+ * VC 業界ニュース統合収集 cron。
  *
- * 毎朝 03:00 JST (18:00 UTC) に Anthropic web_search で:
+ * 毎週土曜 09:00 JST (00:00 UTC) に Anthropic web_search で:
  *   - 国内ディープテック VC 業界の直近 7 日のニュース全般を取得
  *   - 各ニュースで言及される VC を識別
  *   - DB にあれば → vc_news (verified=false) に追加
  *   - DB になければ → vcs に新規 stub 追加 + vc_news 追加
+ *   - fundraise / fund_close は suggested_fund_patch でファンド更新候補を構造化抽出
  *   - いずれの場合も app_notifications に通知 push
  *
- * 既存 vc-news-ingest (09:00 JST、各 VC 個別ピンポイント) と相補。
- * こちらは「ニュース起点で VC を見つける」。
+ * 2026-05-13 統合: 旧 vc-news-ingest (= 既知 VC を 25/日 ローテで個別検索する cron) を廃止し、
+ * その固有機能 (suggested_fund_patch によるファンド数値抽出) をここに吸収した。
+ * 個別検索は ROI 0.26 件/call で機能してなかったため、業界横断 1 call/週 に集約。
+ * 真のロングテール VC (公式サイト/X にしか出ない動き) は別系統 (RSS/X feed cron、TODO) で対応する。
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -31,6 +34,8 @@ interface DiscoveredItem {
   news_summary?: string;
   news_occurred_on?: string;
   news_source_url: string;
+  related_fund_no?: number | null;
+  suggested_fund_patch?: Record<string, unknown> | null;
 }
 
 export async function GET(req: NextRequest) {
@@ -70,7 +75,7 @@ export async function GET(req: NextRequest) {
 
   const prompt = `あなたは AMD (株式会社チームアルマダ — ディープテック / サイエンス系スタジオ) の VC リサーチャー。
 直近 7 日 (${sinceDate} 〜 ${today} JST) の国内 VC 業界ニュースを web_search で総ざらいし、
-AMD が知っておくべき VC 関連ニュースを 8〜15 件抽出してください。
+AMD が知っておくべき VC 関連ニュースを 10〜18 件抽出してください。
 
 # AMD が知っておきたいニュース
 - 国内ディープテック VC のファンド組成 / クローズ
@@ -102,25 +107,40 @@ ${recentUrls.slice(0, 50).join("\n") || "(なし)"}
       "news_title": "Abies Ventures が 2 号ファンドを 80 億で...",
       "news_summary": "200-300 字の要約",
       "news_occurred_on": "2026-05-08",
-      "news_source_url": "https://..."
+      "news_source_url": "https://...",
+      "related_fund_no": 2,
+      "suggested_fund_patch": {
+        "fund_no": 2,
+        "status": "raising",
+        "size_jpy": 8000000000,
+        "target_close_at": "2026-12-31",
+        "final_close_at": null,
+        "source_url": "https://..."
+      }
     }
   ]
 }
 
 # ルール
-- 8-15 件 (出力長制限あり、コンパクトに)
+- 10-18 件 (出力長制限あり、コンパクトに)
 - 国内 VC のみ (海外 VC が日本進出するニュースは含む)
 - vc_name は既知 VC リストの名前と完全一致を心がける (新規ならそのまま新名で OK)
 - vc_type / vc_thesis_hint / vc_hq / vc_website は新規 VC のときだけ埋める (既知ならスキップしてもよい)
 - news_source_url は必ず一次情報 (公式リリース / Reuters / 日経 等)。X (Twitter) のみは NG
 - 推測は禁止、確実な事実のみ
 - 同じ事象の重複は 1 件にまとめる
+- **fundraise / fund_close** の場合は必ず suggested_fund_patch を埋める (= 人が承認時に vc_funds に反映する候補)
+  - status: "raising" (募集中) / "first_closed" (一次クローズ) / "final_closed" (最終クローズ)
+  - size_jpy: 円建て整数 (例: 80 億 → 8000000000)
+  - target_close_at / final_close_at: YYYY-MM-DD (= 該当ステータスのみ)
+  - related_fund_no: 既知 VC で号数明示なら埋める、なければ null
+- それ以外の news_kind では suggested_fund_patch は null
 - JSON のみ、説明文なし`;
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 12000,
-    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 10 }],
+    max_tokens: 8000,
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }],
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -193,6 +213,18 @@ ${recentUrls.slice(0, 50).join("\n") || "(なし)"}
       existingVcs.push({ id: vcId, name: it.vc_name, name_en: it.vc_name_en ?? null, slug });
     }
 
+    // 既知 VC + related_fund_no 指定なら fund_no → fund_id を解決
+    let relatedFundId: string | null = null;
+    if (!isNewVc && typeof it.related_fund_no === "number") {
+      const { data: fundMatch } = await db
+        .from("vc_funds")
+        .select("id")
+        .eq("vc_id", vcId)
+        .eq("fund_no", it.related_fund_no)
+        .maybeSingle();
+      if (fundMatch) relatedFundId = (fundMatch as { id: string }).id;
+    }
+
     // vc_news 追加 (重複 source_url は upsert で skip)
     const { data: newsRow, error: newsErr } = await db
       .from("vc_news")
@@ -204,7 +236,9 @@ ${recentUrls.slice(0, 50).join("\n") || "(なし)"}
           body: it.news_summary ?? null,
           occurred_on: it.news_occurred_on ?? null,
           source_url: it.news_source_url,
-          ingested_by: "web_search_cron",
+          related_fund_id: relatedFundId,
+          suggested_fund_patch: it.suggested_fund_patch ?? null,
+          ingested_by: "discover_cron",
           verified: false,
           dismissed: false,
         },

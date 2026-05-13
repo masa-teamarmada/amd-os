@@ -46,14 +46,19 @@ GlobalNav に「VC」を Venture Map と Admin の間に追加。inbox 未確認
 
 ## 自動収集 cron
 
-`/api/cron/vc-news-ingest` 毎朝 09:00 JST (UTC 00:00)。
+`/api/cron/vc-discover` 毎週土 09:00 JST (UTC 土 00:00)。
+
+2026-05-13 統合: 旧 `vc-news-ingest` (= 既知 VC を 25/日 ローテで個別検索) を廃止し、`vc-discover` に役割を集約 + suggested_fund_patch を吸収。理由: 個別検索は 5 日 125 call で 21/164 VC しか拾えず ROI 0.26 件/call (≒ 機能してなかった)。
 
 flow:
-1. `vcs` を `amd_rating` 降順 + `updated_at` 古い順で 25 社取得 (round-robin)
-2. 各 VC ごとに Claude Sonnet 4.6 + `web_search_20250305` で直近 7 日のニュースを 0-5 件取得
-3. `vc_news` に `verified=false` / `ingested_by='web_search_cron'` で投入
-4. `kind` ∈ {fundraise, fund_close} の場合は `suggested_fund_patch` JSONB に「このファンドをこう更新したらどうか」を埋める
-5. `/vcs/inbox` で人が verify / dismiss / 「ファンド反映」ボタン 1 クリックで `vc_funds` に反映
+1. Claude Sonnet 4.6 + `web_search_20250305` (max_uses 6) で「直近 7 日の国内 VC 業界ニュース」を業界横断で 10-18 件取得
+2. 各 item の `vc_name` を既知 `vcs` リストと突合
+3. 既知 VC → `vc_news` に追加 (`ingested_by='discover_cron'` / `verified=false`)
+4. 未知 VC → `vcs` に新規 stub 追加 + `vc_news` 追加 + app_notifications で「新 VC 発見」通知
+5. `kind` ∈ {fundraise, fund_close} の場合は `suggested_fund_patch` JSONB に「このファンドをこう更新したらどうか」を埋める。既知 VC で `related_fund_no` 指定なら `vc_funds.fund_no` で `related_fund_id` 解決
+6. `/vcs/inbox` で人が verify / dismiss / 「ファンド反映」ボタン 1 クリックで `vc_funds` に反映
+
+ロングテール VC (= 業界記事になってない公式サイト/X 個別動向) は web_search では拾えない構造的限界がある。これは別系統の RSS/X feed cron (TODO) で対応する設計。
 
 ## つくよみ統合
 
@@ -97,4 +102,4 @@ Claude + web_search に「国内ディープテック VC 25-40 社」を JSON �
 - 海外 VC への拡張 (US ディープテック / 欧州気候系) — 必要になったら `type='overseas'` で枠は既にある
 - VC × seeds ラインのマッピング (どの VC がどのレーンに張ってるか) — `stage_focus` だけでは粗い、`lane_focus` 列を追加検討
 - 受信箱の一括 verify / dismiss (Atlas inbox 風) — 件数が増えてきたら
-- vc-news-ingest を amd_rating 高い VC は毎日、低い VC は週次のハイブリッドに (現状は全て daily round-robin)
+- **VC RSS / X feed cron** (= ノクターン的ロングテール VC の真の解決策、LLM 不要): `vcs.rss_url` / `vcs.x_handle` 列追加 → 別 cron で daily fetch → vc_news 自動投入

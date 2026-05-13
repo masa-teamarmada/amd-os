@@ -49,16 +49,12 @@
       "schedule": "0 18 * * 0"
     },
     {
-      "path": "/api/cron/vc-news-ingest",
-      "schedule": "0 0 * * *"
-    },
-    {
       "path": "/api/cron/seeds-ingest",
       "schedule": "0 0 * * 1"
     },
     {
       "path": "/api/cron/vc-discover",
-      "schedule": "5 18 * * *"
+      "schedule": "0 0 * * 6"
     },
     {
       "path": "/api/cron/papers-quarterly-ingest",

@@ -159,9 +159,8 @@ pwa/
 | `cron/relearn-lane-weights` | `30 18 * * *` | 03:30 daily | macro lane weights 再学習 |
 | `cron/macro-backfill-historical` | `0 3 * * 0` | 12:00 sun | 2010-2025 macro_index_log を Sonnet 推定で埋める |
 | `cron/amd-score-l2-refresh` | `0 18 * * 0` | 03:00 mon | 6 ソース (Slack/Drive/Notion/Gmail/Calendar/WebSearch) から AMD Score timeline を Sonnet 抽出 → amd_score_inputs に upsert (全 SU 系 PJ) |
-| `cron/vc-news-ingest` | `0 0 * * *` | 09:00 daily | VC ごとに直近7日のニュースを web_search で取得 → vc_news (verified=false)。fundraise/fund_close は suggested_fund_patch で fund 更新提案 |
 | `cron/seeds-ingest` | `0 0 * * 1` | 09:00 mon | GAP/NEP/AMED/D-Global/CREST/創発 等の直近採択を web_search で発見 → seeds (discovery_status='discovered')。/seeds/inbox に並ぶ、GlobalNav に未確認バッジ。詳細は [`seeds.md`](seeds.md) |
-| `cron/vc-discover` | `5 18 * * *` | 03:05 daily | VC マスタの discover (web_search) |
+| `cron/vc-discover` | `0 0 * * 6` | 09:00 sat | 業界横断 web_search で VC ニュース 10-18 件 + 新規 VC stub 化 → vc_news (verified=false) + vcs。fundraise/fund_close は suggested_fund_patch で fund 更新提案。**旧 vc-news-ingest を 2026-05-13 に吸収**, ingested_by='discover_cron' |
 | `cron/papers-quarterly-ingest` | `20 18 * * 1` | 03:20 火 | OpenAlex で 5 lane × 直近 16 quarter の論文数を papers_log に upsert (μ_A 観測量 N の供給)。Triple Helix 観測モデルの主入力。詳細は [`amd_score.md`](amd_score.md) |
 | `cron/founding-members-extract` | `30 18 * * 1` | 03:30 火 | 全 PJ の monthly_reports + meeting_summaries + project_knowledge から **創業メンバー** (AMD 内外含む全員) を Sonnet 4.5 で抽出 → project_founding_members に upsert + l2_notifications (kind='founding_members')。HRL 推定の主要根拠 |
 | `cron/sync-pj-facts` | `0 19 * * *` | 04:00 daily | `project_ventures` の構造化フィールド (founded_at / outcome_pattern / origin_org / origin_pi / lane / amd_support_*) を `project_knowledge` に `category='basic_fact'` で同期。/admin/contexts や cockpit から見える状態に。**まさが PJ ナレッジで設立日 / outcome を見られる用途** |
@@ -253,7 +252,7 @@ pwa/
 
 旧 `seeds` (006_venture_map.sql の予兆 4 件用) は 024 で破棄。Venture Map のグラフ予兆プロットも同時に削除。詳細は [`seeds.md`](seeds.md)。
 
-データ流入: cron `vc-news-ingest` (毎朝 09:00 JST、Claude + web_search) / つくよみ chat tool 群 (`upsert_vc` `upsert_vc_fund` `update_vc_dry_powder` `add_vc_investment` `add_vc_contact` `add_vc_news` `link_project_vc`) / `/vcs/[id]/edit` 手動。詳細は [`vc_list.md`](vc_list.md)。
+データ流入: cron `vc-discover` (毎週土 09:00 JST、Claude + web_search、業界横断 + 新規 VC 発見 + suggested_fund_patch) / つくよみ chat tool 群 (`upsert_vc` `upsert_vc_fund` `update_vc_dry_powder` `add_vc_investment` `add_vc_contact` `add_vc_news` `link_project_vc`) / `/vcs/[id]/edit` 手動。詳細は [`vc_list.md`](vc_list.md)。
 
 初期投入: `POST /api/admin/seed-vcs` (Bearer CRON_SECRET) で Claude + web_search に国内ディープテック VC を一括生成させ、`vcs` / `vc_funds` / `vc_investments` を upsert。再実行可。
 

@@ -39,6 +39,7 @@ export type VcNewsKind =
 export type VcNewsIngestSource =
   | "manual"
   | "tsukuyomi"
+  | "discover_cron"
   | "web_search_cron";
 
 export type VcRound =

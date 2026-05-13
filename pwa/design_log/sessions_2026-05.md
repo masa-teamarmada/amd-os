@@ -2857,3 +2857,104 @@ main HEAD: `5922262` (= 本セッション最終、本番 deploy は前 Round �
 - AMD-Report GAS 修復: Drive 同期事故ファイル整理 / R290 元コード復元 / Web App URL access 再設定 / GCP project 紐付けで Apps Script API 経由実行可能化 / isAdmin_ 等 helper 関数群の正規実装
 - aggressive backfill 完了確認 + 一時関数 (`setup_aggressiveBackfill_2026_05_13` / `_aggressive_backfill_self_teardown_2026_05_13` / `teardown_aggressiveBackfill_2026_05_13`) の cleanup
 - monthly_report 文字化けの真因究明 (= R313 の LLM response parse 経路で `?` 化が起きるケースの再現 + 防御コード追加、検出 alert)
+
+---
+
+## 2026-05-13 (dazzling-wing-23c8e9 #8) — VC cron LLM コスト 88% 削減 + vc-news-ingest 廃止 + vc-discover 統合
+
+### きっかけ
+
+まさから「anthropic / gemini / openai のトークンが何にいくらくらい使われてるか調査して。さっき調べたら vc news が直近 7 日分を daily で cron かけてて明らかに無駄」緊急タスク。
+
+### 実態調査 (= まさの「2 つの cron が必要？」「daily で 7d lookback の意味は？」「現状で拾えてるんじゃ？」3 連投で深掘り)
+
+| 項目 | 数字 |
+|---|---|
+| `vc-news-ingest` 動作期間 | 5 日 (2026-05-08 開始〜) |
+| 累計 LLM call | 125 call (= 25 VC/day × 5 day) |
+| insert された vc_news | 32 件 |
+| distinct VC で拾えた数 | **21 / 164 = 12.8%** |
+| ROI | **0.26 件/call** (4 call で 1 件 = ほぼ機能してない) |
+| amd_rating ★5 で news 0 件の VC | UTEC / UntroD / Universal Materials Incubator |
+| ノクターンキャピタル | `vcs` 未登録 = 構造的に対象外 |
+
+→ 「ロングテール VC のロングテール news を拾う」設計だったが、web_search の能力限界でメジャー VC の業界記事しか拾えてない = vc-discover と完全重複してた。
+
+### 構造的に判明した無駄
+
+1. **daily × 7d lookback の重複検索**: lookback 期間と頻度を独立で設計すると、daily 7d は同じ news を 7 回検索 (= web_search 課金 7 倍 + prompt overhead 7 倍 + output token 7 倍)
+2. **`vc-news-ingest` の固有価値が機能してない**: 「既知 VC をピンポイント検索」する設計だったが、5 日 125 call で 21/164 VC しか拾えてない = vc-discover (= 業界横断 1 call) で代替可能
+3. **`ingested_by` が両 cron 共通 `'web_search_cron'` で KPI 観測不能**: どちらの cron が何件 insert したか追跡できない設計
+4. **マイナー VC 発見の経路欠如**: vc-discover の検索結果上位に出ないノクターン的 VC は永遠に `vcs` 未登録のまま
+
+### 対応 (= まさ Case C「鮮度より網羅性」採用)
+
+#### 廃止
+- `/api/cron/vc-news-ingest` 完全削除 (route.ts + vercel.json entry)
+- 関連 UI ラベル更新 ([AppNotificationsSection.tsx](src/components/notifications/AppNotificationsSection.tsx) / [inbox/page.tsx](src/app/\(app\)/vcs/inbox/page.tsx))
+
+#### vc-discover 強化 ([cron/vc-discover/route.ts](src/app/api/cron/vc-discover/route.ts))
+- frequency: daily 03:05 JST → **weekly 土 09:00 JST** (`schedule: "0 0 * * 6"`)
+- model: sonnet 4.6 維持 (新規 VC 文脈判定が必要)
+- `max_uses`: 10 → **6**
+- `max_tokens`: 12000 → **8000**
+- 抽出件数: 8-15 件 → **10-18 件** (weekly 化で 7d 分まとめ取り)
+- 出力スキーマに **`suggested_fund_patch` / `related_fund_no`** 追加 (= 旧 vc-news-ingest の固有機能を吸収)
+- prompt に「fundraise / fund_close は必ず suggested_fund_patch を埋める」ルール追記
+- 既知 VC + `related_fund_no` 指定なら `vc_funds.fund_no` で `related_fund_id` 解決
+- `ingested_by`: `'web_search_cron'` → **`'discover_cron'`** (KPI 観測可)
+
+#### 型定義
+- [types/vc.ts](src/types/vc.ts) `VcNewsIngestSource` に `"discover_cron"` 追加 (= 旧 `web_search_cron` は過去データ用に残す)
+
+#### docs 更新
+- [SPEC_pwa.md](design/SPEC_pwa.md) cron 表 / VC データ流入経路
+- [L2_DATA.md](design/L2_DATA.md) VC ニュース行 / daily 表
+- [vc_list.md](design/vc_list.md) 自動収集 cron セクション全面書き換え + Future の「daily/weekly ハイブリッド」を「RSS / X feed cron」に置き換え
+
+### コスト効果
+
+| | 現状 | 統合後 |
+|---|---|---|
+| vc-news-ingest | 月 750 call (Sonnet 4.6 + web_search 5×) ≒ **$128/月** | **廃止** |
+| vc-discover | 月 30 call (Sonnet 4.6 + web_search 10×) ≒ **$12/月** | 月 4 call (Sonnet 4.6 + web_search 6×) ≒ **$1-2/月** |
+| **計** | **$140/月** | **$1-2/月 (-99%)** |
+
+### ノクターン問題の真の解決策 (= TODO #6 として新規追加)
+
+web_search では業界記事になってないマイナー VC の動向は構造的に拾えない。次セッション以降の TODO:
+
+- `vcs` に `rss_url` / `x_handle` 列追加
+- `seed-vcs` の prompt に「公式 RSS feed と X handle も探す」追記
+- `/vcs/[id]/edit` に RSS URL / X handle 入力欄
+- 新 cron `/api/cron/vc-rss-fetch` (daily 09:00 JST、LLM 不要):
+  - `vcs.rss_url IS NOT NULL` を fetch
+  - 各 item を `vc_news` に upsert (`ingested_by='rss_feed'`)
+- X handle は X API 制約のため Apify / RSSHub 等を検討
+
+この構成で「業界記事レベル → vc-discover (weekly LLM)」「公式サイト個別動向 → vc-rss-fetch (daily 無料)」の 2 段構え。
+
+### まさへの教訓 (= memory に追記済)
+
+[feedback_question_own_proposals.md](/Users/masa/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/feedback_question_own_proposals.md) に「**実態確認 (DB 件数 / distinct / ROI) してから提案する**」を追記:
+
+1. 最初の提案 = 「vc-news-ingest を Haiku + weekly 化で月 -$120」
+2. まさが疑問形 3 連投:
+   - 「単体で見ても無駄じゃない？」 → 意図を git history で掘った (= 「骨格」「相補」の自覚あり)
+   - 「daily で 7d lookback の意味は？」 → 7 倍重複検索の構造欠陥を認めた
+   - 「ノクターン現状で拾えてるんじゃ？」 → **初めて DB query して機能してないことに気づいた**
+3. 3 つ目の疑問形がなかったら、機能してない cron を slim 化する無意味な提案で着地してた
+
+正しい順序: コード読む → git history → **DB 実測 (= 件数・distinct・ROI)** → 提案。3 番目を飛ばしてた。
+
+### 主な変更ファイル
+
+- 削除: `pwa/src/app/api/cron/vc-news-ingest/route.ts` (= dir 丸ごと)
+- 改修: `pwa/src/app/api/cron/vc-discover/route.ts` (= weekly + suggested_fund_patch 統合)
+- 改修: `pwa/vercel.json` (= vc-news-ingest 削除、vc-discover schedule 変更)
+- 改修: `pwa/src/types/vc.ts` (= `discover_cron` 追加)
+- 改修: `pwa/src/components/notifications/AppNotificationsSection.tsx`
+- 改修: `pwa/src/app/(app)/vcs/inbox/page.tsx`
+- 改修: `pwa/design/SPEC_pwa.md` / `pwa/design/L2_DATA.md` / `pwa/design/vc_list.md`
+- 改修: `pwa/HANDOFF_pwa_rebuild.md`
+- 改修 memory: `feedback_question_own_proposals.md` (= 実態確認ルール追記)

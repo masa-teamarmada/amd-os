@@ -143,7 +143,11 @@ function NewsRow({ item, onChange }: { item: InboxItem; onChange: () => void }) 
             </Link>
             {item.occurred_on && <span className="text-muted-foreground">{item.occurred_on}</span>}
             <span className="text-muted-foreground text-[10px]">
-              {item.ingested_by === "web_search_cron" ? "🤖 cron" : item.ingested_by === "tsukuyomi" ? "🌙 つくよみ" : "✋ 手動"}
+              {item.ingested_by === "discover_cron" || item.ingested_by === "web_search_cron"
+                ? "🤖 cron"
+                : item.ingested_by === "tsukuyomi"
+                ? "🌙 つくよみ"
+                : "✋ 手動"}
             </span>
           </div>
           <div className="font-medium text-sm">{item.title}</div>

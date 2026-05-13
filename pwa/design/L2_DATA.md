@@ -77,7 +77,7 @@ L1 を経由する構成は廃止された ([progress_estimation.md](progress_es
 | **Atlas divergence** | テーマ単位 | `cron/atlas-divergence` (sun 06:00) | PWA |
 | **macro lane weights 再学習** | macro index 関連 | `cron/relearn-lane-weights` (03:30 daily) | PWA |
 | **macro バックフィル** | `macro_index_log` (過去) | `cron/macro-backfill-historical` (sun 12:00) | PWA |
-| **VC ニュース** | `vc_news` | `cron/vc-news-ingest` (09:00 daily) | PWA |
+| **VC ニュース** | `vc_news` | `cron/vc-discover` (土 09:00 weekly、業界横断 + 新規 VC 発見 + suggested_fund_patch) | PWA |
 | **AMD Score L2 リフレッシュ** | `amd_score_inputs` | `cron/amd-score-l2-refresh` (mon 03:00) | PWA |
 | **PJ 沿革リフレッシュ** | `project_ventures.narrative_text` | `cron/venture-narrative-refresh` (03:45 daily) | PWA |
 | **PJ XRL リフレッシュ** | `project_xrl_log` (llm_proposal) | `cron/venture-xrl-refresh` (03:15 daily) | PWA |
@@ -111,7 +111,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **06:00** | `cron/atlas-daily` | atlas 日次レポート | PWA |
 | **07:00** | `cron/atlas-collect-policy` | 政府方針シグナル | PWA |
 | **08:00** | `cron/atlas-collect` | マクロニュース | PWA |
-| **09:00** | `cron/vc-news-ingest` | VC ニュース | PWA |
+| **土 09:00** | `cron/vc-discover` | VC ニュース + 新規 VC 発見 (weekly) | PWA |
 | **mon 03:00** | `cron/amd-score-l2-refresh` | AMD Score L2 リフレッシュ | PWA |
 | **月初 03:00 (1日 18:00 UTC)** | `cron/frl-grit-resilience-extract` | 全 active PJ × 過去 3 ヶ月 monthly_reports + meeting_summaries 集約 → Sonnet 4.6 で frl_grit (Duckworth 2007) / frl_resilience (Markman 2005) を 0-9 推定 → amd_score_inputs に upsert。prompt = `llm_prompts.frl.grit_resilience.extract` (v2、外部創業者優先 / null 厳格化) | PWA |
 | **月初 04:00 (1日 19:00 UTC)** | `cron/macro-aggregate-indicators` | observation_log (kaken/grant → budget_amount, vc/vc_investment → investment_amount) + atlas_signals (ATL domain → ASPI lane mapping → policy_mention_count / raw_signal_count) を lane × month で集計 → macro_index_log の P 以外列を update。?since=YYYY-MM 指定可、デフォルト過去 36 ヶ月 | PWA |

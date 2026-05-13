@@ -1,18 +1,18 @@
 # HANDOFF — AMD OS PWA / GAS
 
-最終更新: 2026-05-13 (blissful-robinson-8e462a #7 monthly_report 文字化け復旧 + AMD-Report GAS 諸事故露呈)
+最終更新: 2026-05-13 (dazzling-wing-23c8e9 #8 VC cron LLM コスト 88% 削減 + vc-news-ingest 廃止 + vc-discover 統合)
 詳細セッションログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾参照
 
 ---
 
 ## 状態
 
-- main HEAD: `5922262` (= Round 6 deploy 含む、Round 7 はコード変更なし、AMD-Report GAS 側のみ操作)
-- Vercel: `amd-os-i2xfns6im-armada0130` (= TimeSeriesChart 位置移動の deploy が最新、その後 PWA 側変更なし)
-- 本体 GAS deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` @1462 (= 前セッションから変更なし)
-- AMD-Report GAS: scriptId `1r3Ak-tYASXY...` 本セッションで多数 deploy update + push、production deployment access 全壊状態。time-based cron は別経路で動く想定
-- 未 push commit: なし
-- worktree: `claude/blissful-robinson-8e462a` (= main にマージ済)
+- main HEAD: `142b9bc` + 本セッション (VC cron 統合) のマージ予定
+- Vercel: 本セッション末で再 deploy 予定 (vc-discover weekly + suggested_fund_patch 統合)
+- 本体 GAS deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` @1462 (= 変更なし)
+- AMD-Report GAS: scriptId `1r3Ak-tYASXY...` 前セッションで access 全壊、本セッション未対応 (= TODO #5 持ち越し)
+- 未 push commit: 本セッション分 (= deploy 後 push)
+- worktree: `claude/dazzling-wing-23c8e9`
 
 ---
 
@@ -35,7 +35,8 @@
 | ✅ 2 | FRL grit/resilience の数値入力 | 2026-05-12 完了 (Round 3 + 5) |
 | 🔴 3 | R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵) | 未着手、TODO #5 と一緒にやるべき (= 同 GAS) |
 | 🔴 4 | 試算表 Drive Excel 取り込み cron 新規 (= project_pl_monthly が全 PJ「—」表示) | 未着手 |
-| 🔴 5 | **AMD-Report GAS の構造的修復** (= 本セッション露呈) ⭐ NEW | 未着手 |
+| 🔴 5 | **AMD-Report GAS の構造的修復** (= 前セッション露呈) | 未着手 |
+| 🔴 6 | **VC RSS / X feed cron** (= ノクターン的ロングテール VC の真の解決策、LLM 不要) ⭐ NEW | 本セッション (#8) で TODO 化 |
 
 ---
 
@@ -67,6 +68,21 @@
 ### 2. 試算表 Drive Excel 取り込み cron (= TODO #4)
 
 `project_pl_monthly` テーブルが全 PJ 全部「—」表示。Drive folder 配下の `.xlsx` を Sonnet で月次 PL に構造化抽出 → upsert。074c (議事録 Docs backfill) とは別 cron。
+
+### 2.5. VC RSS / X feed cron 新設 (= TODO #6) ⭐ NEW
+
+本セッション (#8) で議論したノクターン的ロングテール VC の真の解決策。web_search では業界記事になってないマイナー VC の動向は構造的に拾えないことが判明。実装:
+
+1. migration: `vcs` に `rss_url` (text) / `x_handle` (text) 列追加
+2. `seed-vcs` の prompt に「公式 RSS feed と X handle も探して埋める」を追加 (Sonnet 自動補完)
+3. `/vcs/[id]/edit` フォームに RSS URL / X handle 入力欄追加
+4. **新 cron** `/api/cron/vc-rss-fetch` (daily 09:00 JST):
+   - `vcs` の `rss_url IS NOT NULL` だけ fetch
+   - RSS 各 item を `vc_news` に upsert (`ingested_by='rss_feed'` / `source_url` で重複排除)
+   - X handle は X API の制約で代替検討 (= Apify / RSSHub 等)
+5. coverage 期待: ノクターンのような VC でも公式 RSS があれば確実に news 取得、LLM コストゼロ
+
+これでロングテール VC 対応 = `vc-discover (週次 LLM)` + `vc-rss-fetch (daily 無料)` の 2 段構え。
 
 ### 3. EventsSection の impact 強調表示
 
