@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { AdminProjectRoleEditModal, type RoleKind } from "./AdminProjectRoleEditModal";
+import { AdminProjectMembersModal } from "./AdminProjectMembersModal";
 import { LaneBadges, LaneEditor } from "@/components/lanes/LaneBadges";
 import type { LaneWeight } from "@/lib/aspi-lanes";
 
@@ -101,7 +101,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
   const [editVals, setEditVals] = useState<Partial<EditVals>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [hint, setHint] = useState("");
-  const [roleModal, setRoleModal] = useState<{ projectId: string; projectName: string; role: RoleKind } | null>(null);
+  const [membersModal, setMembersModal] = useState<{ projectId: string; projectName: string } | null>(null);
 
   const filtered = useMemo(() => {
     return projects.filter((p) => {
@@ -316,9 +316,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium sticky left-14 bg-muted/50 w-32 border-r border-border">PJ名</th>
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
               <th className="text-left px-3 py-2 font-medium w-44">Lane (ASPI)</th>
-              <th className="text-left px-3 py-2 font-medium w-32">PL</th>
-              <th className="text-left px-3 py-2 font-medium w-32">PM</th>
-              <th className="text-left px-3 py-2 font-medium w-32">クローザー</th>
+              <th className="text-left px-3 py-2 font-medium w-56">メンバー</th>
               <th className="text-left px-3 py-2 font-medium w-40">請求先</th>
               <th className="text-left px-3 py-2 font-medium w-56">関係先メールアドレス</th>
               <th className="text-left px-3 py-2 font-medium w-32">請求書送付</th>
@@ -433,43 +431,26 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     )}
                   </td>
 
-                  {/* PL (列クリックでロール別モーダル) */}
+                  {/* メンバー (PL/PM/クローザー + 役割ラベル/参画月/離脱月/Active を一括編集) */}
                   <td
                     className="px-3 py-2 align-top cursor-pointer hover:bg-muted/30"
-                    onClick={() => setRoleModal({ projectId: p.project_id, projectName: p.project_name, role: "pl" })}
-                    title="クリックで PL を編集"
+                    onClick={() => setMembersModal({ projectId: p.project_id, projectName: p.project_name })}
+                    title="クリックで PJ メンバーを編集"
                   >
-                    {p.pls.length > 0 ? (
-                      <span className="text-[11px] text-blue-700 font-semibold">{p.pls.join(", ")}</span>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground">—</span>
-                    )}
-                  </td>
-
-                  {/* PM */}
-                  <td
-                    className="px-3 py-2 align-top cursor-pointer hover:bg-muted/30"
-                    onClick={() => setRoleModal({ projectId: p.project_id, projectName: p.project_name, role: "pm" })}
-                    title="クリックで PM を編集"
-                  >
-                    {p.pms.length > 0 ? (
-                      <span className="text-[11px] text-emerald-700 font-semibold">{p.pms.join(", ")}</span>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground">—</span>
-                    )}
-                  </td>
-
-                  {/* クローザー */}
-                  <td
-                    className="px-3 py-2 align-top cursor-pointer hover:bg-muted/30"
-                    onClick={() => setRoleModal({ projectId: p.project_id, projectName: p.project_name, role: "closer" })}
-                    title="クリックでクローザーを編集"
-                  >
-                    {p.closers.length > 0 ? (
-                      <span className="text-[11px] text-orange-700 font-semibold">{p.closers.join(", ")}</span>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground">—</span>
-                    )}
+                    <div className="space-y-0.5 text-[11px]">
+                      {p.pls.length > 0 && (
+                        <div><span className="text-muted-foreground mr-1">PL:</span><span className="text-blue-700 font-semibold">{p.pls.join(", ")}</span></div>
+                      )}
+                      {p.pms.length > 0 && (
+                        <div><span className="text-muted-foreground mr-1">PM:</span><span className="text-emerald-700 font-semibold">{p.pms.join(", ")}</span></div>
+                      )}
+                      {p.closers.length > 0 && (
+                        <div><span className="text-muted-foreground mr-1">クローザー:</span><span className="text-orange-700 font-semibold">{p.closers.join(", ")}</span></div>
+                      )}
+                      {p.pls.length === 0 && p.pms.length === 0 && p.closers.length === 0 && (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
                   </td>
 
                   {/* client_name */}
@@ -669,7 +650,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={17} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={15} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>
@@ -678,15 +659,14 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
         </table>
       </div>
 
-      {roleModal && (
-        <AdminProjectRoleEditModal
-          projectId={roleModal.projectId}
-          projectName={roleModal.projectName}
-          role={roleModal.role}
+      {membersModal && (
+        <AdminProjectMembersModal
+          projectId={membersModal.projectId}
+          projectName={membersModal.projectName}
           open
-          onClose={() => setRoleModal(null)}
+          onClose={() => setMembersModal(null)}
           onSaved={() => {
-            // ロール更新後にページリロードで表示反映 (PJ × メンバー多くないので軽い)
+            // メンバー更新後にページリロードで表示反映 (PJ × メンバー多くないので軽い)
             window.location.reload();
           }}
         />

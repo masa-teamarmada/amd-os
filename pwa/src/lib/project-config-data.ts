@@ -191,22 +191,10 @@ export async function saveProjectConfig(
   return { ok: true };
 }
 
-/**
- * 旧 `MemberInput` 型は ProjectConfigForm の dead code が import 経由で参照しているため
- * 互換のために残す。新規実装からは使わないこと。
- *
- * 旧 `saveProjectMembers` は「全削除→挿入」方式で role / id / role_label / join_ym 等を
- * 副作用で破壊する事故が起きたため 2026-05-08 に削除した。
- * メンバー編集は admin/projects のロール別モーダル
- * (`/api/admin/project-members/role` への POST) 経由で incremental 更新する。
- */
-export interface MemberInput {
-  memberId: string;
-  isPM: boolean;
-  isCloser: boolean;
-  isPL: boolean;
-  roleLabel: string;
-  joinYm: string;
-  leaveYm: string;
-  isActive: boolean;
-}
+// メンバー編集は `ProjectMembersEditor` が `POST /api/admin/project-members/bulk` を
+// 直接叩く方式に統一 (2026-05-13)。lib 側の saveProjectMembers / MemberInput 型は不要。
+//
+// 経緯:
+// - 旧 saveProjectMembers は「全削除→挿入」方式で role / role_label / join_ym を破壊する事故あり (2026-05-08)
+// - 一時期は admin/projects のロール別モーダル (PL/PM/Closer フラグだけ) に集約していた (2026-05-07)
+// - 2026-05-13 にメンバー編集を 1 モーダル化、全項目を bulk API で incremental update + 論理削除に統一

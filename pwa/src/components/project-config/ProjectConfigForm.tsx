@@ -6,9 +6,8 @@ import {
   fetchProjectConfig,
   saveProjectConfig,
   type ProjectConfigData,
-  type ProjectConfigMember,
-  type MemberInput,
 } from "@/lib/project-config-data";
+import { ProjectMembersEditor } from "@/components/project-members/ProjectMembersEditor";
 
 interface Props {
   projectId: string;
@@ -51,26 +50,6 @@ interface FormState {
   invoiceBccEmails: string;
 }
 
-interface MemberRow extends MemberInput {
-  rowKey: string;
-  codeName: string;
-}
-
-function memberRowFromExisting(m: ProjectConfigMember): MemberRow {
-  return {
-    rowKey: m.id,
-    memberId: m.memberId,
-    codeName: m.codeName,
-    isPM: m.isPM,
-    isCloser: m.isCloser,
-    isPL: m.isPL,
-    roleLabel: m.roleLabel,
-    joinYm: m.joinYm,
-    leaveYm: m.leaveYm,
-    isActive: m.isActive,
-  };
-}
-
 function formStateFromData(d: ProjectConfigData): FormState {
   return {
     status: d.project.status,
@@ -91,7 +70,6 @@ function formStateFromData(d: ProjectConfigData): FormState {
 export function ProjectConfigForm({ projectId }: Props) {
   const [data, setData] = useState<ProjectConfigData | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
-  const [members, setMembers] = useState<MemberRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +88,6 @@ export function ProjectConfigForm({ projectId }: Props) {
       }
       setData(d);
       setForm(formStateFromData(d));
-      setMembers(d.members.map(memberRowFromExisting));
       setDirty(false);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "取得失敗";
@@ -131,45 +108,6 @@ export function ProjectConfigForm({ projectId }: Props) {
 
   const updateForm = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
-    setDirty(true);
-  };
-
-  const updateMember = <K extends keyof MemberRow>(rowKey: string, key: K, value: MemberRow[K]) => {
-    setMembers((prev) =>
-      prev.map((m) => {
-        if (m.rowKey !== rowKey) return m;
-        const next = { ...m, [key]: value };
-        if (key === "memberId" && typeof value === "string") {
-          const master = data?.memberMaster.find((mm) => mm.memberId === value);
-          if (master) next.codeName = master.codeName || master.memberName;
-        }
-        return next;
-      })
-    );
-    setDirty(true);
-  };
-
-  const addMember = () => {
-    setMembers((prev) => [
-      ...prev,
-      {
-        rowKey: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        memberId: "",
-        codeName: "",
-        isPM: false,
-        isCloser: false,
-        isPL: false,
-        roleLabel: "",
-        joinYm: "",
-        leaveYm: "",
-        isActive: true,
-      },
-    ]);
-    setDirty(true);
-  };
-
-  const deleteMember = (rowKey: string) => {
-    setMembers((prev) => prev.filter((m) => m.rowKey !== rowKey));
     setDirty(true);
   };
 
@@ -210,8 +148,8 @@ export function ProjectConfigForm({ projectId }: Props) {
         return;
       }
 
-      // メンバー編集は admin/projects のロール別モーダルに移動した (2026-05-07)。
-      // config 保存では project_members を更新しない。
+      // メンバー編集は ProjectMembersEditor 側で完結 (= POST /api/admin/project-members/bulk)。
+      // この handleSave は projects テーブルの基本情報・契約情報のみ更新する。
       showToast(`保存完了 ✓`);
       setDirty(false);
       await reload();
@@ -274,134 +212,17 @@ export function ProjectConfigForm({ projectId }: Props) {
       </Section>
 
       {/* Section 2: メンバー
-          → メンバー編集 (PL/PM/クローザー含む) は admin/projects のリスト列に集約 (#14, 2026-05-07)。
-          このセクションは案内のみ。
+          ProjectMembersEditor (共通) を埋め込み。保存は editor 内で完結し、
+          admin/projects の「メンバー」列モーダルと同じ POST /api/admin/project-members/bulk を叩く (2026-05-13)。
        */}
       <Section title="メンバー">
-        <p className="text-xs text-muted-foreground">
-          メンバーの追加・編集 (PL / PM / クローザー / 役割ラベル / 参画月 / 離脱月) は
-          <a href="/admin/projects" className="text-blue-600 hover:underline mx-1">PJ台帳 (admin/projects)</a>
-          の該当 PJ 行 → 「✏️ 編集」から行ってください。
-        </p>
+        <ProjectMembersEditor
+          projectId={data.project.projectId}
+          initialMembers={data.members}
+          initialMemberMaster={data.memberMaster}
+          onSaved={() => reload()}
+        />
       </Section>
-
-      {/* 旧メンバー編集 UI — PL/PM/クローザーは admin/projects に移動したため非表示 */}
-      <div className="hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse">
-            <thead>
-              <tr className="text-[11px] uppercase text-muted-foreground border-b-2 border-border">
-                <th className="text-left p-2">メンバー</th>
-                <th className="text-left p-2">役割ラベル</th>
-                <th className="text-center p-2">PM</th>
-                <th className="text-center p-2">クローザー</th>
-                <th className="text-left p-2">参画月</th>
-                <th className="text-left p-2">離脱月</th>
-                <th className="text-center p-2">Active</th>
-                <th className="p-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {members.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="text-center text-muted-foreground py-4">
-                    メンバーが登録されていない
-                  </td>
-                </tr>
-              )}
-              {members.map((m) => (
-                <tr key={m.rowKey} className="border-b border-border/50">
-                  <td className="p-2 min-w-[180px]">
-                    <select
-                      value={m.memberId}
-                      onChange={(e) => updateMember(m.rowKey, "memberId", e.target.value)}
-                      className="w-full border border-border rounded px-2 py-1 text-[13px] bg-background"
-                    >
-                      <option value="">選択...</option>
-                      {data.memberMaster.map((mm) => (
-                        <option key={mm.memberId} value={mm.memberId}>
-                          {mm.codeName ? `${mm.codeName} (${mm.memberName})` : mm.memberName}
-                        </option>
-                      ))}
-                      {m.memberId && !data.memberMaster.some((mm) => mm.memberId === m.memberId) && (
-                        <option value={m.memberId}>
-                          {m.codeName || m.memberId} (inactive)
-                        </option>
-                      )}
-                    </select>
-                  </td>
-                  <td className="p-2">
-                    <input
-                      type="text"
-                      value={m.roleLabel}
-                      onChange={(e) => updateMember(m.rowKey, "roleLabel", e.target.value)}
-                      className="w-28 border border-border rounded px-2 py-1 text-[13px] bg-background"
-                    />
-                  </td>
-                  <td className="p-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={m.isPM}
-                      onChange={(e) => updateMember(m.rowKey, "isPM", e.target.checked)}
-                      className="w-4 h-4 cursor-pointer"
-                    />
-                  </td>
-                  <td className="p-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={m.isCloser}
-                      onChange={(e) => updateMember(m.rowKey, "isCloser", e.target.checked)}
-                      className="w-4 h-4 cursor-pointer"
-                    />
-                  </td>
-                  <td className="p-2">
-                    <input
-                      type="text"
-                      value={m.joinYm}
-                      onChange={(e) => updateMember(m.rowKey, "joinYm", e.target.value)}
-                      placeholder="yyyymm"
-                      className="w-20 border border-border rounded px-2 py-1 text-[13px] bg-background"
-                    />
-                  </td>
-                  <td className="p-2">
-                    <input
-                      type="text"
-                      value={m.leaveYm}
-                      onChange={(e) => updateMember(m.rowKey, "leaveYm", e.target.value)}
-                      placeholder="yyyymm"
-                      className="w-20 border border-border rounded px-2 py-1 text-[13px] bg-background"
-                    />
-                  </td>
-                  <td className="p-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={m.isActive}
-                      onChange={(e) => updateMember(m.rowKey, "isActive", e.target.checked)}
-                      className="w-4 h-4 cursor-pointer"
-                    />
-                  </td>
-                  <td className="p-2">
-                    <button
-                      onClick={() => deleteMember(m.rowKey)}
-                      className="text-xs text-red-600 border border-red-200 rounded px-2 py-1 hover:bg-red-50"
-                    >
-                      ✕
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-3">
-          <button
-            onClick={addMember}
-            className="text-xs border border-border rounded px-3 py-1.5 hover:bg-muted"
-          >
-            ＋ メンバー追加
-          </button>
-        </div>
-      </div>
 
       {/* Section 3: 契約・料金 */}
       <Section title="契約・料金">
