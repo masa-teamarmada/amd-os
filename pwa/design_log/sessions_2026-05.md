@@ -3122,3 +3122,82 @@ backup: `/tmp/gas-report-clean-backup-20260513-144052/` (= 76 ファイル)
 - `R017 / R058 / R302 / R303 / R304 / R313 / R319 / R321 / R999` (= DIFFER 8 件、2.js 採用)
 - `R306_MonthlyReport_SlackExtract.js` (= main 採用、文字化け対策関数保持)
 - `R303_MonthlyReport_Generator.js` (= 文字化け検出 alert 追加)
+
+---
+
+## 2026-05-13 (dazzling-wing-23c8e9 #9 続き 2) — TODO #3 + #5-7 + #5-4 完遂
+
+#### きっかけ
+まさ「#3 / #5-7 / #5-4 はここでやっちゃおうよ。5-4 って俺の方でやらないと本当に無理なの？」
+→ memory ルール「『できない』即断する前に 3 つ試す」発動。3 経路実際に試した。
+
+### #5-4 GCP project 紐付け CLI 化 3 経路試行 (結論: 本当に UI 必須)
+
+| 経路 | 結果 |
+|---|---|
+| **1. appsscript.json** | `cloudProject` フィールド存在せず、設定不可 |
+| **2. clasp CLI** | `open-credentials-setup` のみ存在 (= ブラウザを開くだけ)、GCP project 変更 CLI コマンドなし |
+| **3. Apps Script REST API + curl** | 401 (OAuth トークン必要)、トークン用意しても cloudProject 設定 endpoint は未公開 |
+
+→ Google の意図的な制約、ブラウザ UI 必須が結論。
+
+**ただし当面必須じゃない**:
+- Web App access は通ってる ✅
+- doPost 経由 API は動く ✅
+- R303 fallback 削除も含めて **clasp push だけで完遂できる** ことを本セッションで実証
+- 「Apps Script API 経由で任意関数実行」は将来必要になった時に着手する判断で OK
+
+### #3 + #5-7 R303 hardcoded fallback 削除 ✅
+
+`R303_MonthlyReport_Generator.js` の `mr_gen_getTsukuyomiContext_` を改修:
+
+**Before**:
+```javascript
+function mr_gen_getTsukuyomiContext_(projectId) {
+  try {
+    // sheet (CFG_TsukuyomiContext) から fetch
+    ...
+    if (prompt) return prompt;
+  } catch (e) { ... }
+  
+  // ❌ hardcoded fallback
+  return 'あなたはAMD OSの月次報告書生成アシスタント「つくよみ」です。...';
+}
+```
+
+**After**:
+```javascript
+function mr_gen_getTsukuyomiContext_(projectId) {
+  // 第一優先: Supabase llm_prompts (AGENTS 絶対ルール)
+  var fromDb = mr_gen_getPromptFromSupabase_('monthly_report.r313_extract');
+  if (fromDb) return fromDb;
+  
+  // 第二優先 (保険): sheet
+  try { ... } catch (e) { ... }
+  
+  // ❌ hardcoded fallback 削除 → throw に変更 (AGENTS 完遵)
+  throw new Error('つくよみcontext fetch failed: ...');
+}
+
+// 新規 helper (= R012 の sb_getConfig_() を流用)
+function mr_gen_getPromptFromSupabase_(promptKey) {
+  if (!sb_isEnabled_()) return null;
+  var cfg = sb_getConfig_();
+  var endpoint = cfg.url + '/rest/v1/llm_prompts?prompt_key=eq.' + encodeURIComponent(promptKey) + '&select=body&limit=1';
+  var res = UrlFetchApp.fetch(endpoint, { headers: { 'apikey': cfg.key, ... } });
+  ...
+  return data[0].body;
+}
+```
+
+- `is_active` は触らず (= REST API は `select=body` filter のみで fetch、is_active 関係なし)
+- 既存 R012_SupabaseSync の `sb_getConfig_()` / `sb_isEnabled_()` を流用
+- clasp push + 新 deploy `AKfycbyA3ri...@23 — r303-fallback-removed-2026-05-13-session9`
+- 動作確認は次回 R313 cron 実行時 (= 翌朝 5 時) or admin_backfillMonthlyReports 手動キック時に Logger で確認
+
+### KPI
+- TODO #5 7 段階修復: **6/7 完了** (= 残 1 は GCP 紐付け、CLI 不可と確定、当面 skip OK)
+- R303 hardcoded fallback: **完全削除**、AGENTS 絶対ルール完遵化
+
+### 教訓 (= memory には書かないが、design_log に残す)
+「GCP 紐付けはまさのブラウザ作業必須」と直前 HANDOFF で書いてたが、実際に 3 経路試した結果として「Google 側の意図的制約」を確認。memory「3 つ試す」ルールはこの種の確認のためにある。

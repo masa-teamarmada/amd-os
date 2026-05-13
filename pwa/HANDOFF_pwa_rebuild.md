@@ -32,9 +32,9 @@
 |---|---|---|
 | ✅ 1 | マクロ係数 P 以外のデータ取得 | 2026-05-12 完了 (Round 3 + 5) |
 | ✅ 2 | FRL grit/resilience の数値入力 | 2026-05-12 完了 (Round 3 + 5) |
-| 🔴 3 | R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵) | 未着手、TODO #5 と一緒にやるべき |
+| ✅ 3 | R303 hardcoded fallback 削除 (= AMD-Report GAS、AGENTS 完遵) | 本セッション (#9) 完了、新 deploy `AKfycbyA3ri...@23` |
 | 🟡 4 | 試算表 (project_pl_monthly) — 生データからの未来予測抽出 | 設計のみ [`design/project_pl_monthly.md`](design/project_pl_monthly.md) に記録、優先度低、後回し |
-| 🔴 5 | **AMD-Report GAS の構造的修復** | 未着手 |
+| ✅ 5 | **AMD-Report GAS の構造的修復** | 6/7 完了 (= #5-4 GCP 紐付けのみ残、CLI 不可と判明) |
 | 🔴 6 | **VC RSS / X feed cron** (= ノクターン的ロングテール VC の真の解決策、LLM 不要) | #8 で TODO 化 |
 | ✅ 7 | EventsSection impact 強調表示 | 本セッション (#9) 完了 |
 | ✅ 8 | monthly_reports PWA backfill | 本セッション (#9) 完了 (= cron 新設 + ループ実行中) |
@@ -62,10 +62,10 @@
 | ✅ 1 | Drive 同期事故ファイル整理 | 完了 (= 重複 26 ファイル整理、`*` 2.js suffix 全削除、main 確定) |
 | ✅ 2 | R290 元コード復元 | 完了 (= 94608 byte 正本を main に上書き、私が事故った 125 byte 空コメント版を破棄) |
 | ✅ 3 | Web App URL access 再設定 | 完了 (= まさ確認済「全員アクセス可」、新 deploy @22 と旧 @21 両方で GET エラーが「doGet 関数 not found」になり access 通ったことが確認できた = doGet は設計上元々ない、doPost のみ) |
-| 🔴 4 | GCP project 紐付け | **未着手** (= まさのブラウザ作業必須、GAS Editor → プロジェクトの設定 → Google Cloud Platform プロジェクトを変更 → 既存 GCP プロジェクトに紐付け or 新規作成)。これがあれば Apps Script API 経由で外部から任意関数実行 (= ScriptProperties 取得 / aggressive backfill 系再起動) ができるようになる |
-| ✅ 5 | isAdmin_ 等 admin helper の正規実装 | 仮完了 (= R001_Api.js 末尾に isAdmin_ 残置、機能してる。専用ファイル化 (`R002_AdminCheck.js` 等) は将来 cleanup) |
-| ✅ 6 | monthly_report 文字化け検出 alert | 完了 (= R303 `mr_generateDraft_` + `mr_generateDraftUpdate_` に `mr_detectMojibake_` helper 追加、? 比率 > 50% で保存中止) |
-| 🔴 7 | R303 hardcoded fallback 削除 (= TODO #3) | **未着手** (= 慎重作業、`llm_prompts.monthly_report.r313_extract` から DB fetch する path に置換 + clasp push、次セッション着手) |
+| 🟡 4 | GCP project 紐付け | **CLI 経路全滅、本当に UI 必須と判明**。ただし **当面必須じゃない** (= R303 fallback 削除も含めて clasp push だけで完遂できることを実証)。将来 Apps Script API 経由で任意関数実行したくなった時に着手 |
+| ✅ 5 | isAdmin_ 等 admin helper の正規実装 | 仮完了 (= R001_Api.js 末尾に isAdmin_ 残置、機能してる。専用ファイル化は将来 cleanup) |
+| ✅ 6 | monthly_report 文字化け検出 alert | 完了 (= R303 `mr_generateDraft_` + `mr_generateDraftUpdate_` に `mr_detectMojibake_` helper) |
+| ✅ 7 | R303 hardcoded fallback 削除 (= TODO #3) | 本セッション (#9) 完了 — `mr_gen_getTsukuyomiContext_` を改修、第一優先 `llm_prompts.monthly_report.r313_extract` (Supabase) → 第二優先 sheet → 両方失敗で throw (hardcoded fallback 持たない、AGENTS 完遵)。新 helper `mr_gen_getPromptFromSupabase_` 追加 (= R012 の `sb_getConfig_()` 流用) |
 
 #### 本セッション完了後の AMD-Report GAS 状態
 - scriptId: `1r3Ak-tYASXY...`
