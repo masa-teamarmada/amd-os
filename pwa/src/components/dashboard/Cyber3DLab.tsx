@@ -504,11 +504,7 @@ function KpiCluster({ title, eyebrow, metrics }: { title: string; eyebrow: strin
       <div className="kpi-grid">
         {metrics.map((metric) => (
           <div className={`kpi-cell ${metric.tone ? `tone-${metric.tone}` : ""}`} key={metric.label}>
-            <div className={`kpi-indicator mode-${metric.mode}`} style={{ "--progress": metric.progress } as CSSProperties}>
-              <i />
-              <b />
-              <em />
-            </div>
+            <HudIndicator metric={metric} />
             <div className="kpi-readout">
               <small>{metric.label}</small>
               <strong>{metric.value}</strong>
@@ -518,6 +514,86 @@ function KpiCluster({ title, eyebrow, metrics }: { title: string; eyebrow: strin
         ))}
       </div>
     </section>
+  );
+}
+
+function HudIndicator({ metric }: { metric: DashboardMetric }) {
+  const progress = Math.max(0, Math.min(100, metric.progress));
+  const accent = metric.tone === "green" ? "#64ffb1" : metric.tone === "amber" ? "#ffac57" : "#47f3ff";
+  const dash = `${progress} ${100 - progress}`;
+  const segments = Array.from({ length: 12 }, (_, index) => index);
+
+  if (metric.mode === "ring") {
+    return (
+      <svg className="kpi-indicator-svg ring" viewBox="0 0 80 80" aria-hidden="true" style={{ "--metric-svg-accent": accent } as CSSProperties}>
+        <defs>
+          <filter id={`glow-${metric.label.replace(/\W/g, "")}`} x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="2.3" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        <path d="M40 5 L48 9 L60 12 L68 22 L74 36 L70 53 L60 66 L44 75 L26 72 L12 62 L5 46 L8 28 L20 12 Z" className="hud-shell" />
+        <circle cx="40" cy="40" r="25" className="hud-track" pathLength="100" />
+        <circle cx="40" cy="40" r="25" className="hud-progress" pathLength="100" strokeDasharray={dash} />
+        {segments.map((segment) => (
+          <line
+            key={segment}
+            x1="40"
+            y1="7"
+            x2="40"
+            y2="14"
+            className={segment * 8 <= progress ? "hud-tick active" : "hud-tick"}
+            transform={`rotate(${segment * 30} 40 40)`}
+          />
+        ))}
+        <circle cx="40" cy="40" r="8" className="hud-core" />
+        <path d="M28 40 H18 M52 40 H62 M40 28 V18 M40 52 V62" className="hud-cross" />
+      </svg>
+    );
+  }
+
+  if (metric.mode === "segments") {
+    return (
+      <svg className="kpi-indicator-svg segments" viewBox="0 0 92 64" aria-hidden="true" style={{ "--metric-svg-accent": accent } as CSSProperties}>
+        <path d="M3 13 L12 4 H82 L89 11 V52 L80 60 H11 L3 52 Z" className="hud-shell" />
+        <path d="M14 16 H78 M14 49 H78" className="hud-rail" />
+        {segments.map((segment) => (
+          <path
+            key={segment}
+            d={`M${16 + segment * 5.5} 22 L${19 + segment * 5.5} 22 L${16 + segment * 5.5} 44 L${13 + segment * 5.5} 44 Z`}
+            className={segment < Math.round(progress / 8.34) ? "hud-block active" : "hud-block"}
+          />
+        ))}
+        <path d="M65 27 L79 32 L65 37" className="hud-arrow" />
+      </svg>
+    );
+  }
+
+  if (metric.mode === "bar") {
+    const width = 58 * (progress / 100);
+    return (
+      <svg className="kpi-indicator-svg bar" viewBox="0 0 92 64" aria-hidden="true" style={{ "--metric-svg-accent": accent } as CSSProperties}>
+        <path d="M4 15 H76 L88 27 V50 L80 58 H4 Z" className="hud-shell" />
+        <path d="M12 24 H80 M12 42 H70" className="hud-rail" />
+        <rect x="13" y="28" width={width} height="10" className="hud-fill" />
+        {Array.from({ length: 9 }, (_, index) => (
+          <line key={index} x1={18 + index * 7} y1="46" x2={22 + index * 7} y2="46" className={index * 11 <= progress ? "hud-tick active" : "hud-tick"} />
+        ))}
+        <path d="M75 22 L84 27 L75 32" className="hud-arrow" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className="kpi-indicator-svg scan" viewBox="0 0 92 64" aria-hidden="true" style={{ "--metric-svg-accent": accent } as CSSProperties}>
+      <path d="M4 11 H88 V53 L78 61 H4 Z" className="hud-shell" />
+      <path d="M13 23 C21 13 30 44 38 30 S54 16 63 32 77 47 84 21" className="hud-wave" />
+      <path d="M12 47 H82" className="hud-rail" />
+      <line x1={12 + 70 * (progress / 100)} y1="15" x2={12 + 70 * (progress / 100)} y2="52" className="hud-scanline" />
+      {Array.from({ length: 10 }, (_, index) => (
+        <line key={index} x1={13 + index * 7} y1="55" x2={16 + index * 7} y2="55" className={index * 10 <= progress ? "hud-tick active" : "hud-tick"} />
+      ))}
+    </svg>
   );
 }
 
@@ -578,7 +654,7 @@ function CyberStyles() {
       .cyber3d-project-card,.cockpit-window{background:transparent!important;border-color:transparent!important;box-shadow:none!important;clip-path:none!important;backdrop-filter:none!important}.cyber3d-project-card:before,.cockpit-window:before{display:none!important}
       .cyber3d-project-card{width:100%;min-height:76px;padding:10px 12px;appearance:none;cursor:pointer;text-align:left;pointer-events:auto;transition:filter 240ms ease,box-shadow 240ms ease,border-color 240ms ease}.cyber3d-project-card:hover{border-color:rgba(224,253,255,.96);filter:brightness(1.28) saturate(1.25);box-shadow:inset 0 0 28px color-mix(in srgb,var(--accent),transparent 68%),0 0 22px color-mix(in srgb,var(--accent),transparent 10%),0 0 70px color-mix(in srgb,var(--accent),transparent 38%)}.cyber3d-project-card.focused-card{border-color:#f3ffff;filter:brightness(1.18) saturate(1.22);box-shadow:inset 0 0 30px color-mix(in srgb,var(--accent),transparent 62%),0 0 24px color-mix(in srgb,var(--accent),transparent 16%),0 0 90px color-mix(in srgb,var(--accent),transparent 42%);animation:doubleCardPulse 1040ms ease-in-out both}
       .card-row{display:flex;align-items:center;gap:10px}.card-code{display:grid;place-items:center;width:38px;aspect-ratio:1;background:color-mix(in srgb,var(--accent),transparent 72%);clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);color:#f4feff;font-family:"Orbitron",sans-serif;font-size:12px;font-weight:800;text-shadow:0 0 12px var(--accent)}.card-meta{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:4px;color:#b9faff;font-size:9px;font-weight:900}.card-name{margin:0;color:#fff;font-family:"Orbitron",sans-serif;font-size:clamp(14px,1.35vw,20px);line-height:1;text-shadow:0 0 15px var(--accent)}.card-subtitle{margin:6px 0 0;color:rgba(220,250,255,.78);font-size:11px}
-      .kpi-cluster{--accent:#47f3ff;position:relative;padding:18px 20px;color:#eaffff;text-shadow:0 0 14px rgba(71,243,255,.48)}.kpi-cluster-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:14px;border-bottom:1px solid color-mix(in srgb,var(--accent),transparent 58%);padding-bottom:10px}.kpi-cluster-head span{color:rgba(178,250,255,.76);font-size:10px;font-weight:900;letter-spacing:.18em}.kpi-cluster-head h2{margin:0;color:#f5ffff;font-family:"Orbitron",sans-serif;font-size:25px;line-height:1;text-shadow:0 0 18px var(--accent)}.kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi-cell{--metric-accent:var(--accent);display:grid;grid-template-columns:70px 1fr;align-items:center;gap:12px;min-height:86px;border:1px solid color-mix(in srgb,var(--metric-accent),transparent 62%);background:linear-gradient(90deg,color-mix(in srgb,var(--metric-accent),transparent 88%),rgba(0,10,20,.28));padding:10px 12px;box-shadow:inset 0 0 18px color-mix(in srgb,var(--metric-accent),transparent 88%),0 0 16px color-mix(in srgb,var(--metric-accent),transparent 78%);clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px))}.kpi-cell.tone-green{--metric-accent:#64ffb1}.kpi-cell.tone-amber{--metric-accent:#ffac57}.kpi-readout small{display:block;color:rgba(206,253,255,.66);font-size:9px;font-weight:900;letter-spacing:.15em}.kpi-readout strong{display:block;margin-top:2px;color:#fff;font-family:"Orbitron",sans-serif;font-size:31px;line-height:1;text-shadow:0 0 18px var(--metric-accent)}.kpi-readout span{display:block;margin-top:6px;color:rgba(189,246,255,.68);font-size:10px}.kpi-indicator{--p:calc(var(--progress) * 1%);position:relative;width:66px;height:66px;filter:drop-shadow(0 0 10px var(--metric-accent))}.kpi-indicator i,.kpi-indicator b,.kpi-indicator em{position:absolute;inset:0;display:block}.kpi-indicator.mode-ring{border-radius:50%;background:conic-gradient(var(--metric-accent) var(--p),rgba(67,251,255,.12) 0);mask:radial-gradient(circle,transparent 42%,#000 44%)}.kpi-indicator.mode-ring i{inset:10px;border:1px solid color-mix(in srgb,var(--metric-accent),transparent 18%);border-radius:50%;box-shadow:inset 0 0 12px color-mix(in srgb,var(--metric-accent),transparent 65%)}.kpi-indicator.mode-ring b{inset:27px;background:var(--metric-accent);border-radius:50%;box-shadow:0 0 14px var(--metric-accent)}.kpi-indicator.mode-bar{height:52px;margin-top:7px;border:1px solid color-mix(in srgb,var(--metric-accent),transparent 38%);clip-path:polygon(0 0,100% 0,100% 70%,88% 100%,0 100%);background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--metric-accent),transparent 12%) 0 7px,transparent 7px 11px),linear-gradient(90deg,var(--metric-accent) var(--p),rgba(75,255,255,.12) 0)}.kpi-indicator.mode-bar i{inset:auto 5px 6px 5px;height:6px;background:linear-gradient(90deg,var(--metric-accent) var(--p),transparent 0);box-shadow:0 0 10px var(--metric-accent)}.kpi-indicator.mode-segments{height:52px;margin-top:7px;background:repeating-linear-gradient(90deg,var(--metric-accent) 0 6px,transparent 6px 10px);clip-path:polygon(0 0,var(--p) 0,var(--p) 100%,0 100%)}.kpi-indicator.mode-segments:after{content:"";position:absolute;inset:0;border:1px solid color-mix(in srgb,var(--metric-accent),transparent 42%);box-shadow:inset 0 0 14px color-mix(in srgb,var(--metric-accent),transparent 72%)}.kpi-indicator.mode-scan{height:52px;margin-top:7px;border:1px solid color-mix(in srgb,var(--metric-accent),transparent 38%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent),repeating-linear-gradient(90deg,rgba(71,243,255,.26) 0 2px,transparent 2px 7px);overflow:hidden}.kpi-indicator.mode-scan i{inset:8px 8px auto 8px;height:11px;background:linear-gradient(90deg,var(--metric-accent) var(--p),rgba(71,243,255,.1) 0);box-shadow:0 0 12px var(--metric-accent)}.kpi-indicator.mode-scan b{inset:auto 8px 10px 8px;height:1px;background:var(--metric-accent);transform:translateX(calc(var(--p) - 50%))}
+      .kpi-cluster{--accent:#47f3ff;position:relative;padding:18px 20px;color:#eaffff;text-shadow:0 0 14px rgba(71,243,255,.48)}.kpi-cluster-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:14px;border-bottom:1px solid color-mix(in srgb,var(--accent),transparent 58%);padding-bottom:10px}.kpi-cluster-head span{color:rgba(178,250,255,.76);font-size:10px;font-weight:900;letter-spacing:.18em}.kpi-cluster-head h2{margin:0;color:#f5ffff;font-family:"Orbitron",sans-serif;font-size:25px;line-height:1;text-shadow:0 0 18px var(--accent)}.kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi-cell{--metric-accent:var(--accent);display:grid;grid-template-columns:78px 1fr;align-items:center;gap:12px;min-height:88px;border:1px solid color-mix(in srgb,var(--metric-accent),transparent 68%);background:linear-gradient(90deg,color-mix(in srgb,var(--metric-accent),transparent 90%),rgba(0,10,20,.3));padding:9px 12px;box-shadow:inset 0 0 20px color-mix(in srgb,var(--metric-accent),transparent 90%),0 0 18px color-mix(in srgb,var(--metric-accent),transparent 82%);clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px))}.kpi-cell.tone-green{--metric-accent:#64ffb1}.kpi-cell.tone-amber{--metric-accent:#ffac57}.kpi-readout small{display:block;color:rgba(206,253,255,.66);font-size:9px;font-weight:900;letter-spacing:.15em}.kpi-readout strong{display:block;margin-top:2px;color:#fff;font-family:"Orbitron",sans-serif;font-size:31px;line-height:1;text-shadow:0 0 18px var(--metric-accent)}.kpi-readout span{display:block;margin-top:6px;color:rgba(189,246,255,.68);font-size:10px}.kpi-indicator-svg{width:76px;height:64px;overflow:visible;filter:drop-shadow(0 0 6px var(--metric-svg-accent)) drop-shadow(0 0 15px color-mix(in srgb,var(--metric-svg-accent),transparent 50%))}.kpi-indicator-svg .hud-shell{fill:rgba(3,18,25,.34);stroke:var(--metric-svg-accent);stroke-width:1.2;vector-effect:non-scaling-stroke}.kpi-indicator-svg .hud-track,.kpi-indicator-svg .hud-rail{fill:none;stroke:rgba(164,255,255,.22);stroke-width:2;vector-effect:non-scaling-stroke}.kpi-indicator-svg .hud-progress{fill:none;stroke:var(--metric-svg-accent);stroke-width:6;stroke-linecap:butt;transform:rotate(-90deg);transform-origin:40px 40px}.kpi-indicator-svg .hud-tick,.kpi-indicator-svg .hud-cross,.kpi-indicator-svg .hud-arrow{fill:none;stroke:rgba(190,255,255,.32);stroke-width:1.4;vector-effect:non-scaling-stroke}.kpi-indicator-svg .hud-tick.active,.kpi-indicator-svg .hud-arrow,.kpi-indicator-svg .hud-scanline{stroke:var(--metric-svg-accent);filter:drop-shadow(0 0 4px var(--metric-svg-accent))}.kpi-indicator-svg .hud-core,.kpi-indicator-svg .hud-fill,.kpi-indicator-svg .hud-block.active{fill:var(--metric-svg-accent);filter:drop-shadow(0 0 5px var(--metric-svg-accent))}.kpi-indicator-svg .hud-block{fill:rgba(120,245,255,.12);stroke:rgba(160,255,255,.2);stroke-width:.6}.kpi-indicator-svg .hud-wave{fill:none;stroke:var(--metric-svg-accent);stroke-width:2;vector-effect:non-scaling-stroke;filter:drop-shadow(0 0 5px var(--metric-svg-accent))}.kpi-indicator-svg.bar .hud-fill{opacity:.86}.kpi-indicator-svg.scan .hud-shell,.kpi-indicator-svg.segments .hud-shell,.kpi-indicator-svg.bar .hud-shell{fill:rgba(5,25,31,.28)}
       .cyber3d-visualizer{width:100%;height:300px;min-height:0;padding:clamp(16px,1.8vw,24px)}.frame-title span{display:block;font-family:"Orbitron",sans-serif;font-size:clamp(22px,2.25vw,36px);font-weight:800;color:#e3fdff;text-shadow:0 0 22px rgba(71,243,255,.82)}.frame-title small{display:block;margin-top:7px;color:rgba(155,246,255,.78);font-size:10px}.visual-core{position:relative;display:grid;place-items:center;height:178px}.core-orb{position:relative;width:min(16vw,170px);aspect-ratio:1;border-radius:50%;border:1px solid rgba(71,243,255,.68);background:radial-gradient(circle,rgba(71,243,255,.2),transparent 35%),conic-gradient(from 30deg,rgba(71,243,255,.12),rgba(255,172,87,.4),rgba(100,255,177,.22),rgba(71,243,255,.12));box-shadow:inset 0 0 44px rgba(71,243,255,.22),0 0 46px rgba(71,243,255,.46);animation:coreSpin 12s linear infinite}.core-orb span,.core-orb i{position:absolute;inset:18%;border:2px solid rgba(255,172,87,.86);transform:rotate(24deg);box-shadow:0 0 24px rgba(255,172,87,.7)}.core-orb i{inset:28%;border-color:rgba(100,255,177,.9);transform:rotate(-18deg)}.scan-label{position:absolute;color:rgba(220,255,255,.86);font-size:10px;text-shadow:0 0 12px rgba(71,243,255,.8)}.scan-label-a{left:11%;top:55%}.scan-label-b{right:14%;top:28%}.scan-label-c{right:12%;bottom:20%}
       .console-strip{display:flex;align-items:center;gap:10px;border-top:1px solid rgba(71,243,255,.42);padding-top:10px;color:#dffcff;font-size:12px}.console-strip b{color:var(--cyber-amber);font-weight:900;text-shadow:0 0 12px rgba(255,172,87,.7)}.metric-frame{padding:12px 14px;min-height:84px}.metric-frame h2{margin:0 0 8px;font-family:"Orbitron",sans-serif;font-size:clamp(15px,1.55vw,22px);color:#dffcff;text-shadow:0 0 16px rgba(71,243,255,.85)}.metric-frame p{margin:5px 0;color:rgba(222,255,255,.88);font-size:12px}.metric-frame.warn p{color:#ffbf82;text-shadow:0 0 12px rgba(255,172,87,.45)}
       .cockpit-html-frame{animation:holoProject 920ms cubic-bezier(.12,.94,.18,1) both}.cockpit-window{--accent:#47f3ff;box-sizing:border-box;height:220px;padding:16px 18px;background:radial-gradient(ellipse at 50% 112%,color-mix(in srgb,var(--accent),white 32%) 0%,color-mix(in srgb,var(--accent),transparent 78%) 24%,transparent 58%),linear-gradient(90deg,color-mix(in srgb,var(--accent),transparent 80%),rgba(2,10,20,.56) 36%,rgba(6,18,36,.38)),radial-gradient(circle at 18% 58%,color-mix(in srgb,var(--accent),transparent 60%),transparent 34%);box-shadow:inset 0 -22px 44px color-mix(in srgb,var(--accent),transparent 78%),inset 0 0 36px color-mix(in srgb,var(--accent),transparent 68%),0 12px 54px color-mix(in srgb,var(--accent),transparent 48%),0 0 34px color-mix(in srgb,var(--accent),transparent 12%),0 0 140px color-mix(in srgb,var(--accent),transparent 42%);overflow:hidden}.cockpit-window:after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(232,255,255,.16) 0 1px,transparent 1px 7px),linear-gradient(180deg,transparent 0 22%,rgba(255,255,255,.42) 45%,transparent 68%);mix-blend-mode:screen;opacity:.42;animation:holoScan 1500ms linear infinite}.cockpit-topline{display:flex;justify-content:space-between;gap:14px;margin-bottom:12px;color:#b8fbff;font-size:10px;font-weight:900}.cockpit-topline b{color:var(--cyber-green);text-shadow:0 0 12px rgba(100,255,177,.85)}.cockpit-head{display:flex;align-items:center;gap:14px}.cockpit-head h2{margin:0;color:#fff;font-family:"Orbitron",sans-serif;font-size:31px;line-height:1;text-shadow:0 0 18px var(--accent)}.cockpit-head p{margin:7px 0 0;color:rgba(229,252,255,.78);font-size:13px}.cockpit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:18px}.cockpit-grid div,.cockpit-brief{border:1px solid color-mix(in srgb,var(--accent),transparent 58%);background:rgba(0,14,25,.62);box-shadow:inset 0 0 18px rgba(71,243,255,.12);padding:10px}.cockpit-grid small,.cockpit-brief span{display:block;color:rgba(206,253,255,.7);font-size:9px}.cockpit-grid b{display:block;margin-top:4px;color:#fff;font-family:"Orbitron",sans-serif;font-size:22px;text-shadow:0 0 12px var(--accent)}.cockpit-brief{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;margin-top:10px;align-items:center}.cockpit-brief strong{color:#fff;font-size:13px;line-height:1.25;text-shadow:0 0 10px var(--accent)}

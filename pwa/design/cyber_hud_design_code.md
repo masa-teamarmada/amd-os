@@ -12,6 +12,25 @@ AMD OS の cyber dashboard / cockpit 系UIで、次セッションの実装者�
 
 新しい要素を実装する前に、必ず以下で判断する。
 
+### Graphic fidelity rule
+
+グラフィックの品質が体験の核になる場所は、CSSで手を抜かない。
+
+このHUDで「かっこよさ」「サイバー感」「空間感」「高密度なSF感」を担う要素は、実装都合でCSSだけに逃がさず、`three.js` geometry / SVG asset / generated texture を使って作る。
+
+特に以下は、原則としてCSSのみで作らない。
+
+- HUDフレームの主形状
+- KPIインジケーター、リング、メーター、分割バー
+- レーザー、投影光、ビーム、粒子、走査線
+- 3D空間内で角度・奥行き・接続関係を持つもの
+- 参考画像のように、線幅差、切り欠き、目盛り、複数レイヤーの発光が品質を決めるもの
+
+CSSは情報レイアウト、文字、軽いfilter/opacity/transitionに使う。  
+「CSSでそれっぽくできる」は採用理由にしない。見た目の主役ならサボらずグラフィック資産として作る。
+
+迷ったら最初に1つだけ高密度な `three.js` / SVG / texture の試作を作り、CSS版と比較する。30分でCSS版が安っぽく見えるなら即捨てる。
+
 ### CSS / HTMLでよいもの
 
 - テキスト、数値、ラベル、表、ボタンなどの情報レイアウト
@@ -36,10 +55,25 @@ CSS/HTMLは「情報の中身」を担当する。3D空間の物理的な位置�
 
 - 参考画像級に密度の高いSFフレーム
 - 量産する複雑なHUD装飾パーツ
+- KPIリング、分割バー、メーターなど、細かい切り欠きや目盛りが必要なHUDインジケーター
 - 背景都市、サイバー空間、発光素材
 - CSS/three.jsのプリミティブで再現すると時間が溶ける装飾
 
 「なんとかHTML/CSSで頑張る」前に、画像生成・テクスチャ・SVGアセット化のほうが速く品質が出るか判断する。
+
+### HUD indicator rule
+
+KPI系のリング、バー、メーター、セグメント表示はCSS gradientで作らない。
+
+CSSの `conic-gradient` / `repeating-linear-gradient` / `clip-path` だけで作ると、参考画像のようなHUD密度には届かず、安っぽいWeb部品になる。
+
+KPIインジケーターは以下の順で実装を検討する。
+
+1. `three.js` geometry / lineSegments: 3D空間で角度・奥行き・接続が必要なもの
+2. SVG asset/component: 2D HUDとして細かい線、目盛り、切り欠きを作るもの
+3. generated texture / image asset: 参考画像級の装飾密度が必要なもの
+
+HTML/CSSは数値、ラベル、配置補助に留める。HUDの主形状をCSS gradientで粘らない。
 
 ## Current Architecture Direction
 
@@ -69,6 +103,7 @@ HUDパネルは `three.js` のmesh/lineを正本にする。
 - `Html` の幅pxから目測でレーザー終点を合わせる。
 - カメラを回すUIなのに、スクリーン座標っぽい見た目合わせで済ませる。
 - 参考画像級のHUDフレームをCSS borderだけで再現し続ける。
+- KPIリングやバーをCSS gradientだけで作り続ける。
 - 「いけそう」で数時間粘る。30分で品質が出なければ、three.js geometry / texture / generated asset へ切り替える。
 
 ## Design Signature

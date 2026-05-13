@@ -43,6 +43,9 @@ AMDが介入したことでPJがどう変わったかを見せる指標。
 
 Studio Core KPI と AMD Value Proof はダッシュボードの中心に置く。
 
+このセクションはダッシュボードの主役なので、グラフィックの手を抜かない。  
+「CSSでそれっぽいインジケーターを作る」のではなく、`three.js` / SVG / texture を使ってHUD素材として作る。
+
 各数値は単なるカード内テキストではなく、HUD系インジケーターとして表示する。
 
 - ring: スコア、稼働状態、達成率
@@ -52,6 +55,12 @@ Studio Core KPI と AMD Value Proof はダッシュボードの中心に置く�
 
 KPIパネルは `three.js` のHUDフレーム上に載せ、HTML/CSSは数値表示とインジケーター内部の情報表現に使う。  
 空間配置、フレーム、接続レーザーは `pwa/design/cyber_hud_design_code.md` のルールに従う。
+
+ただし、KPIインジケーター本体をCSS gradientだけで作らない。  
+リング、バー、目盛り、切り欠き、発光レイヤーは SVG component / generated texture / three.js geometry のいずれかを使う。
+
+CSSで許容するのは、配置、文字、軽いfilter、opacity、transitionまで。  
+HUDの形状そのものをCSSで無理に作ると品質が落ちる。
 
 ## Requested Data
 
