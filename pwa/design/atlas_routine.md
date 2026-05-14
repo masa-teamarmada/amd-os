@@ -13,18 +13,29 @@
 ```
 [Claude Routine] (daily 08:00 JST, claude.ai subscription)
    │
-   │ 1. web_search で過去 24-72h のディープテックニュース 8-14 件抽出
+   │ 1. web_search で過去 24h (= 厳密に前回 run 以降) のニュース 8-14 件抽出
    │ 2. JSON で signals 配列を組み立て
    │ 3. HTTP POST → 受け口 API
    ▼
 [/api/atlas/signals-ingest] (Vercel, Anthropic API)
    │
-   │ 4. 各 signal を Haiku で auto-tag (= 既存ロジック流用)
+   │ 4. 各 signal を Haiku で auto-tag
    │ 5. attachStory (= LLM でストーリー連結 / 新規)
    │ 6. atlas_signals に bulk insert
+   │    (= 48h 重複 skip は「境界 23:50 / 00:10 で被った」場合の保険)
 ```
 
+### 2026-05-13 まさ指摘 (= 構造修正)
+
+初回 Routine 実行で 8-14 件中 inserted=1 となった。原因は **prompt が
+「24-72h」を許していた** こと → daily 実行なのに過去 3 日前のニュース
+まで候補に入る = 構造的に重複を作りに行く。`/api/atlas/recent-titles`
+で事前除外する案は対症療法。daily run は「**直前 24h だけ**」を厳守
+させるのが本道。重複 skip は境界事故のための最終保険として残す。
+
 ## 受け口 API
+
+### POST `/api/atlas/signals-ingest`
 
 [pwa/src/app/api/atlas/signals-ingest/route.ts](../src/app/api/atlas/signals-ingest/route.ts) — POST
 
@@ -47,16 +58,21 @@
 - 直近 48h の重複 (title / source_url 一致) は skip
 - 各 signal に対し Haiku auto-tag + attachStory + insert
 
-## Routine 用 prompt (= claude.ai / Claude Code Routine に貼る)
+## Routine 用 prompt (= claude.ai / Claude Code Routine に貼る、v2 = 2026-05-13)
 
 ```
 あなたは AMD Atlas のマクロトレンド収集エディタ。
 
-毎日 08:00 JST に web_search で過去 24-72 時間のニュースから、
-AMD (armada — 新規事業開発・インキュベーション・パートナー伴走) の
-事業判断 (新規シーズ開拓 / 既存PJの前提揺らぎ) に関わる
-重要マクロシグナルを 8〜14 件選び、JSON で組み立てて
-HTTP POST してください。
+毎日 08:00 JST 起動。**直前 24 時間 (= 前日 08:00 〜 今日 08:00 JST)** に
+新たに報じられたニュースだけを対象に、AMD (armada — 新規事業開発・
+インキュベーション・パートナー伴走) の事業判断 (新規シーズ開拓 /
+既存PJの前提揺らぎ) に関わる重要マクロシグナルを 8〜14 件選び、JSON で
+組み立てて HTTP POST してください。
+
+★ 重要: 24 時間より前のニュースは **絶対に拾わない**。前回の run で
+既に拾われている可能性が高く、無駄な作業になる。「ここ数日のトレンド」
+「今週の動き」のような継続的話題ではなく、**昨日初めて出た一次イベント
+だけ** を選ぶこと。
 
 # ドメイン (各 signal で必ず1つ)
 A.地政学・マクロ経済 / B.規制・政策 / C.素材・原料 / D.エネルギー /
@@ -65,6 +81,18 @@ H.建築・インフラ / I.ICT・AI / J.宇宙・防衛 / K.食・農・水産 
 L.金融・資本市場 / M.社会構造・社会課題 / N.海洋・水資源 /
 O.サーキュラーエコノミー / P.量子・量子計算 / Q.センシング・計測 /
 R.先端通信
+
+# 拾うべきイベント (= 個別の日付を持つ一次イベント)
+- 個別企業の発表 / 資金調達 / 提携
+- 政策・規制の施行日 / 改正案公表
+- 臨床試験の結果発表
+- 大学・国研の新発表 (論文 / プレス)
+- 災害・事故・地政学的事件
+
+# 拾わないネタ
+- 継続トレンド (米中関税 / AI 規制 / SMR / ロボット等の包括的話題)
+- 数日前以前に既に出ているニュースの蒸し返し
+- まとめ記事 / 週次レポート / 解説記事
 
 # ルール
 - web_search で最新情報を必ず確認 (ソースURL必須)
