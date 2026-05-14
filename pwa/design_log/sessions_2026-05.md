@@ -3285,6 +3285,11 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - 背景HUD、KPI数値、選択中PJ表示はcomponent内でCanvasTexture生成。
   - 左に `Studio Core KPI`、右に `AMD Value Proof` のHUDパネルを配置。フレーム/リング/線はthree.js geometry。
   - 初期表示の読みやすさを優先し、OrbitControlsのautoRotateはOFF。
+  - まさ指摘 #2 を受け、床面HUDを再分解:
+    - 中心核を白い強グロー + pointLight に変更。
+    - リング中心を単一原点に統一。
+    - 太い分割アーク + 中心寄り細リングへ整理。
+    - 96本放射線を廃止し、少数の接続回路ライン + 発光ノードへ変更。
 - route追加:
   - `/mock/dashboard-cyber-glass-cube`
   - `/dashboard-cyber-glass-cube`

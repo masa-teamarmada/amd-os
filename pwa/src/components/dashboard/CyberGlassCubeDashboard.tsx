@@ -231,41 +231,75 @@ function GlassCube({
 }
 
 function FloorPortal() {
-  const radialGeometry = useMemo(() => {
+  const circuitGeometry = useMemo(() => {
     const vertices: number[] = [];
-    for (let i = 0; i < 96; i += 1) {
-      const a = (i / 96) * Math.PI * 2;
-      vertices.push(Math.cos(a) * 0.6, Math.sin(a) * 0.6, 0.034, Math.cos(a) * 4.6, Math.sin(a) * 2.55, 0.034);
-    }
+    const makeCircuit = (angle: number, inner: number, mid: number, outer: number, bend: number) => {
+      const p1 = new THREE.Vector3(Math.cos(angle) * inner, Math.sin(angle) * inner * 0.58, 0.046);
+      const p2 = new THREE.Vector3(Math.cos(angle) * mid, Math.sin(angle) * mid * 0.58, 0.046);
+      const p3 = new THREE.Vector3(p2.x + Math.cos(angle + Math.PI / 2) * bend, p2.y + Math.sin(angle + Math.PI / 2) * bend * 0.58, 0.046);
+      const p4 = new THREE.Vector3(Math.cos(angle) * outer + Math.cos(angle + Math.PI / 2) * bend, Math.sin(angle) * outer * 0.58 + Math.sin(angle + Math.PI / 2) * bend * 0.58, 0.046);
+      vertices.push(...p1.toArray(), ...p2.toArray(), ...p2.toArray(), ...p3.toArray(), ...p3.toArray(), ...p4.toArray());
+    };
+    [
+      [-2.72, 1.56, 2.32, 4.2, -0.36],
+      [-2.18, 1.48, 2.08, 3.6, 0.28],
+      [-1.48, 1.34, 1.96, 3.75, -0.18],
+      [-0.72, 1.24, 1.86, 3.35, 0.24],
+      [0.74, 1.24, 1.86, 3.35, -0.24],
+      [1.46, 1.34, 1.96, 3.75, 0.18],
+      [2.16, 1.48, 2.08, 3.6, -0.28],
+      [2.7, 1.56, 2.32, 4.2, 0.36],
+    ].forEach(([angle, inner, mid, outer, bend]) => makeCircuit(angle, inner, mid, outer, bend));
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
     return geometry;
+  }, []);
+  const nodePositions = useMemo(() => {
+    return [-2.72, -2.18, -1.48, -0.72, 0.74, 1.46, 2.16, 2.7].map((angle) => [Math.cos(angle) * 3.55, Math.sin(angle) * 3.55 * 0.58, 0.07] as [number, number, number]);
   }, []);
   const ringTexture = useMemo(() => createPortalDiscTexture(), []);
 
   return (
     <group position={[0, -0.56, 0]}>
-      <mesh position={[0, 0, 0.01]} renderOrder={1}>
-        <circleGeometry args={[2.55, 160]} />
+      <mesh position={[0, 0, 0.012]} renderOrder={1}>
+        <circleGeometry args={[2.42, 160]} />
         <meshBasicMaterial map={ringTexture} transparent opacity={0.82} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
-      <lineSegments geometry={radialGeometry} renderOrder={2}>
-        <lineBasicMaterial color="#86fbff" transparent opacity={0.26} blending={THREE.AdditiveBlending} depthWrite={false} />
+      <lineSegments geometry={circuitGeometry} renderOrder={2}>
+        <lineBasicMaterial color="#86fbff" transparent opacity={0.5} blending={THREE.AdditiveBlending} depthWrite={false} />
       </lineSegments>
-      {[1.18, 1.48, 1.86, 2.16, 2.55, 3.05].map((radius, index) => (
+      {[0.74, 1.0, 1.28, 1.76].map((radius, index) => (
         <mesh key={radius} position={[0, 0, 0.025 + index * 0.003]} renderOrder={3}>
-          <torusGeometry args={[radius, index % 2 ? 0.012 : 0.02, 8, 180]} />
-          <meshBasicMaterial color={index % 2 ? "#2c8dff" : "#4df7ff"} transparent opacity={0.58 - index * 0.055} blending={THREE.AdditiveBlending} depthWrite={false} />
+          <torusGeometry args={[radius, index === 0 ? 0.026 : 0.016, 8, 180]} />
+          <meshBasicMaterial color={index % 2 ? "#2c8dff" : "#4df7ff"} transparent opacity={0.64 - index * 0.08} blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
       ))}
-      <mesh position={[0, 0, 0.04]} renderOrder={4}>
-        <circleGeometry args={[0.72, 96]} />
-        <meshBasicMaterial color="#d8ffff" transparent opacity={0.25} blending={THREE.AdditiveBlending} depthWrite={false} />
+      <mesh position={[0, 0, 0.03]} renderOrder={4}>
+        <torusGeometry args={[2.36, 0.045, 10, 180, Math.PI * 1.82]} />
+        <meshBasicMaterial color="#46f7ff" transparent opacity={0.62} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
-      <mesh position={[0, 0, 0.08]} renderOrder={5}>
-        <circleGeometry args={[0.28, 64]} />
-        <meshBasicMaterial color="#f2ffff" transparent opacity={0.85} blending={THREE.AdditiveBlending} depthWrite={false} />
+      <mesh position={[0, 0, 0.037]} rotation={[0, 0, Math.PI * 0.65]} renderOrder={4}>
+        <torusGeometry args={[2.02, 0.035, 10, 150, Math.PI * 1.22]} />
+        <meshBasicMaterial color="#2c8dff" transparent opacity={0.58} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
+      <mesh position={[0, 0, 0.06]} renderOrder={5}>
+        <circleGeometry args={[0.86, 96]} />
+        <meshBasicMaterial color="#86fbff" transparent opacity={0.28} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, 0, 0.09]} renderOrder={6}>
+        <circleGeometry args={[0.48, 96]} />
+        <meshBasicMaterial color="#f6ffff" transparent opacity={0.62} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      <pointLight color="#f6ffff" intensity={7.5} distance={4.6} decay={1.6} position={[0, 0, 0.55]} />
+      {nodePositions.map((position, index) => (
+        <group key={index} position={position}>
+          <mesh renderOrder={7}>
+            <circleGeometry args={[0.075, 24]} />
+            <meshBasicMaterial color={index % 2 ? "#46f7ff" : "#f6ffff"} transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} />
+          </mesh>
+          <pointLight color={index % 2 ? "#46f7ff" : "#f6ffff"} intensity={1.1} distance={1.2} decay={1.4} />
+        </group>
+      ))}
     </group>
   );
 }
@@ -274,15 +308,15 @@ function FloorScanArcs() {
   return (
     <group position={[0, -0.56, 0.08]}>
       <mesh renderOrder={8}>
-        <torusGeometry args={[3.55, 0.018, 8, 160, Math.PI * 1.5]} />
-        <meshBasicMaterial color="#d8ffff" transparent opacity={0.46} blending={THREE.AdditiveBlending} depthWrite={false} />
+        <torusGeometry args={[3.15, 0.026, 8, 160, Math.PI * 0.72]} />
+        <meshBasicMaterial color="#d8ffff" transparent opacity={0.48} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
-      <mesh rotation={[0, 0, Math.PI * 0.72]} renderOrder={8}>
-        <torusGeometry args={[2.78, 0.014, 8, 140, Math.PI * 1.12]} />
+      <mesh rotation={[0, 0, Math.PI * 0.46]} renderOrder={8}>
+        <torusGeometry args={[2.72, 0.022, 8, 140, Math.PI * 0.54]} />
         <meshBasicMaterial color="#2c8dff" transparent opacity={0.5} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
-      <mesh rotation={[0, 0, Math.PI * 1.3]} renderOrder={8}>
-        <torusGeometry args={[2.05, 0.012, 8, 120, Math.PI * 1.28]} />
+      <mesh rotation={[0, 0, Math.PI * 1.18]} renderOrder={8}>
+        <torusGeometry args={[2.38, 0.018, 8, 120, Math.PI * 0.64]} />
         <meshBasicMaterial color="#61ffb3" transparent opacity={0.38} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
     </group>
