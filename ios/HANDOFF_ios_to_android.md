@@ -21,8 +21,10 @@ masaiPhone (Mac 直接接続実機): 2026-05-20 Debug build で install + launch
   - 通知アクション時は `SupabaseService.submitNotificationResponse(...)` へ直接送る
 - `MainTabView.swift`
   - `NotificationService.activeInboxLink` を監視し、`NotificationInboxView` を sheet 表示
+- `MyPageView.swift`
+  - マイページ最上部に「通知ボックス」を追加
 - `SettingsView.swift`
-  - 設定タブに「通知・つくよみ回答」を追加
+  - 設定タブから通知入口を削除
   - `NotificationInboxView` を追加。`l2_notifications` / `meeting_notifications` を統合表示し、`すべて` / `未読` / `回答あり` でフィルタ
   - カード展開で通知本文、関連データ、過去コメント、回答フォームを表示
 - `SupabaseService.swift`
@@ -33,7 +35,7 @@ masaiPhone (Mac 直接接続実機): 2026-05-20 Debug build で install + launch
   - `xrl_evidence`: `はい` = confirmed、`いいえ` = rejected
 
 ### Android 移植メモ
-- 入口は Settings 内に「通知・つくよみ回答」を置けば iOS と揃う
+- 入口は MyPage top に「通知ボックス」を置けば iOS と揃う
 - Android 通知 action は iOS と同じ意味で `yes` / `no` / `comment` を送る
 - 一覧の統合キーは iOS と同じ:
   - L2: `l2-\(notification_id)`

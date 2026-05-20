@@ -51,6 +51,7 @@
 **目的**: 自分のPJ報酬・提案・通知をまとめて確認するホーム画面。
 
 主要コンポーネント:
+- `NotificationInboxView` への導線 — L2/議事録通知の確認・回答ボックス（マイページ最上部）
 - `ProjectRewardCard` — 自分が参加してる各PJの当月報酬カード
 - 最近の通知（`app_notifications`）リスト
 - 提案箱 への導線 → `ProposalComposeSheet` / `ProposalThreadView`
@@ -67,6 +68,32 @@
 データソース: `members` / `project_members` / `milestone_responsibility` /
 `billing_cycles.member_allocations_json` / `billing_cycles.reward_summary_json` /
 `milestone_monthly_progress` / `app_notifications` / `proposals`
+
+#### 2.1.1 通知ボックス（NotificationInboxView）
+
+**目的**: Swift に届いた L2 通知・議事録通知を、PWA を開かずに iOS 内で確認し、`はい` / `いいえ` / コメントで返せるようにする。
+
+入口:
+- マイページ最上部 → 「通知ボックス」
+- ローカル通知タップ → `NotificationInboxView` を sheet 表示し、該当通知を展開
+- ローカル通知アクション → `はい` / `いいえ` / `コメント` を直接送信
+
+表示:
+- `l2_notifications` と `meeting_notifications` を作成日時降順で統合表示
+- フィルタ: `すべて` / `未読` / `回答あり`
+- カード展開で通知本文、関連データ、過去の回答・コメント、回答フォームを表示
+- 関連データは通知種別ごとに取得:
+  - `meeting_summary`: `project_meeting_summaries`
+  - `ms_progress`: `ms_progress_revisions` + `value_milestones`
+  - `project_registry_diff`: `project_registry_diffs`
+  - `xrl_evidence`: `project_xrl_evidence`
+
+回答:
+- `はい` / `いいえ` / `コメントだけ送る` は共通で `l2_feedbacks` に保存
+- `tsukuyomi_learnings` にも best-effort で回答履歴を残す
+- `ms_progress` の `はい` は pending revision を confirm、`いいえ` は discard
+- `project_registry_diff` の `はい` / `いいえ` は candidate diff を accepted / rejected に更新。ただし実DB反映は既存ルール通り helper/PWA 経由で行う
+- `xrl_evidence` の `はい` / `いいえ` は candidate evidence を confirmed / rejected に更新
 
 ---
 
@@ -292,33 +319,6 @@ admin がアクション必要なものを集約する。
 |---|---|
 | `SettingsView` | バージョン情報、ログアウト、デバッグメニュー |
 | `PayoutInfoEditView` | 自分の住所・振込先を編集（支払通知書PDFに記載される） |
-| `NotificationInboxView` | L2/議事録通知の内容確認、関連データ確認、はい/いいえ/コメント回答 |
-
-#### 2.6.1 通知・つくよみ回答（NotificationInboxView）
-
-**目的**: Swift に届いた L2 通知・議事録通知を、PWA を開かずに iOS 内で確認し、`はい` / `いいえ` / コメントで返せるようにする。
-
-入口:
-- 設定タブ → 「通知・つくよみ回答」
-- ローカル通知タップ → `NotificationInboxView` を sheet 表示し、該当通知を展開
-- ローカル通知アクション → `はい` / `いいえ` / `コメント` を直接送信
-
-表示:
-- `l2_notifications` と `meeting_notifications` を作成日時降順で統合表示
-- フィルタ: `すべて` / `未読` / `回答あり`
-- カード展開で通知本文、関連データ、過去の回答・コメント、回答フォームを表示
-- 関連データは通知種別ごとに取得:
-  - `meeting_summary`: `project_meeting_summaries`
-  - `ms_progress`: `ms_progress_revisions` + `value_milestones`
-  - `project_registry_diff`: `project_registry_diffs`
-  - `xrl_evidence`: `project_xrl_evidence`
-
-回答:
-- `はい` / `いいえ` / `コメントだけ送る` は共通で `l2_feedbacks` に保存
-- `tsukuyomi_learnings` にも best-effort で回答履歴を残す
-- `ms_progress` の `はい` は pending revision を confirm、`いいえ` は discard
-- `project_registry_diff` の `はい` / `いいえ` は candidate diff を accepted / rejected に更新。ただし実DB反映は既存ルール通り helper/PWA 経由で行う
-- `xrl_evidence` の `はい` / `いいえ` は candidate evidence を confirmed / rejected に更新
 
 ---
 

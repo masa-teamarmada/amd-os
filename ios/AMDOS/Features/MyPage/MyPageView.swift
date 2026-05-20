@@ -33,6 +33,7 @@ struct MyPageView: View {
     private func contentView(_ data: MyPageData) -> some View {
         ScrollView {
             VStack(spacing: 20) {
+                notificationInboxCard
                 notificationCard
 
                 // Header: codeName + 当月合計
@@ -53,6 +54,45 @@ struct MyPageView: View {
     }
 
     // MARK: - Header Card
+
+    private var notificationInboxCard: some View {
+        NavigationLink {
+            NotificationInboxView()
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.orange.opacity(0.14))
+                        .frame(width: 42, height: 42)
+                    Image(systemName: "bell.badge.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.orange)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("通知ボックス")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text("L2・議事録通知を確認して、はい/いいえ/コメントで返す")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.systemBackground))
+            .cornerRadius(14)
+            .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
 
     private var notificationCard: some View {
         VStack(alignment: .leading, spacing: 10) {

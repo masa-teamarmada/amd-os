@@ -26,14 +26,6 @@ struct SettingsView: View {
                         PayoutInfoEditView(email: email)
                     }
                 }
-
-                Section("通知") {
-                    NavigationLink {
-                        NotificationInboxView()
-                    } label: {
-                        Label("通知・つくよみ回答", systemImage: "bell.badge")
-                    }
-                }
             }
             .navigationTitle("設定")
         }

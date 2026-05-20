@@ -231,4 +231,4 @@ let granted = try await center.requestAuthorization(options: [.alert, .sound, .b
 |---|---|---|
 | 2026-05-09 | 上流 (PWA/GAS) Phase 3 完了 + 本ハンドオフ作成 | brave-cohen-15d352 セッション |
 | 2026-05-09 | **iOS Swift 受信実装 完了 (l2_notifications と統合実装)**: AMDOSApp.swift 内 `NotificationService.pollMeetingNotifications()` で fetch + ローカル通知 + notified_at マーク。詳細は姉妹文書 [HANDOFF_l2_notifications.md](HANDOFF_l2_notifications.md) 反映状況セクション参照 | quirky-moore-b60501 セッション継続 |
-| 2026-05-20 | **iOS Swift 議事録通知の詳細・回答導線を追加**: 通知タップで `NotificationInboxView` を開き、該当議事録通知を展開。設定タブからも一覧確認可能。`meeting_summary` として `l2_feedbacks` に `はい` / `いいえ` / コメントを保存し、`project_meeting_summaries` の要約本文・source URL / Notion URL を関連データとして表示。masaiPhone へ Debug build install + launch 済み。 | 2026-05-20 セッション |
+| 2026-05-20 | **iOS Swift 議事録通知の詳細・回答導線を追加**: 通知タップで `NotificationInboxView` を開き、該当議事録通知を展開。マイページ最上部の「通知ボックス」からも一覧確認可能。`meeting_summary` として `l2_feedbacks` に `はい` / `いいえ` / コメントを保存し、`project_meeting_summaries` の要約本文・source URL / Notion URL を関連データとして表示。masaiPhone へ Debug build install + launch 済み。 | 2026-05-20 セッション |
