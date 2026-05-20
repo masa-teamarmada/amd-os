@@ -3813,18 +3813,30 @@ extension SupabaseService {
     }
 
     func markNotificationRead(_ item: NotificationInboxItem) async throws {
+        try await markNotificationRead(target: item.responseTarget)
+    }
+
+    private func markNotificationRead(target: NotificationResponseTarget) async throws {
         let iso = ISO8601DateFormatter().string(from: Date())
-        if item.kind == "meeting", let meetingId = item.meetingId {
+        if target.kind == "meeting", let meetingId = target.meetingId {
             try await client.database
                 .from("meeting_notifications")
                 .update(NotificationReadUpdate(notified_at: iso))
                 .eq("meeting_id", value: meetingId)
                 .execute()
-        } else if let notificationId = item.notificationId {
+        } else if let notificationId = target.notificationId {
             try await client.database
                 .from("l2_notifications")
                 .update(NotificationReadUpdate(notified_at: iso))
                 .eq("notification_id", value: notificationId)
+                .execute()
+        } else if let l2Kind = target.l2Kind {
+            try await client.database
+                .from("l2_notifications")
+                .update(NotificationReadUpdate(notified_at: iso))
+                .eq("l2_kind", value: l2Kind)
+                .eq("target_id", value: target.feedbackTargetId)
+                .eq("scope_key", value: target.feedbackScopeKey)
                 .execute()
         }
     }
@@ -3879,6 +3891,7 @@ extension SupabaseService {
             feedbackId: feedbackId,
             createdBy: createdBy
         )
+        try? await markNotificationRead(target: target)
         return NotificationResponseResult(
             feedbackId: feedbackId,
             message: applyMessage.isEmpty ? "\(action.label)を保存したよ" : applyMessage

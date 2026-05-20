@@ -156,7 +156,7 @@ struct NotificationInboxView: View {
         Picker("表示", selection: $filter) {
             Text("すべて").tag(InboxFilter.all)
             Text("未読").tag(InboxFilter.unread)
-            Text("回答あり").tag(InboxFilter.feedback)
+            Text("回答済み").tag(InboxFilter.feedback)
         }
         .pickerStyle(.segmented)
     }
@@ -164,12 +164,16 @@ struct NotificationInboxView: View {
     private var filteredItems: [NotificationInboxItem] {
         switch filter {
         case .all:
-            return inbox.items
+            return unansweredItems
         case .unread:
-            return inbox.items.filter(\.isUnread)
+            return unansweredItems.filter(\.isUnread)
         case .feedback:
-            return inbox.items.filter { !feedbacks(for: $0).isEmpty }
+            return inbox.items.filter(hasFeedback)
         }
+    }
+
+    private var unansweredItems: [NotificationInboxItem] {
+        inbox.items.filter { !hasFeedback($0) }
     }
 
     private func load() async {
@@ -179,6 +183,9 @@ struct NotificationInboxView: View {
             inbox = try await SupabaseService.shared.fetchNotificationInbox()
             if let focusId = initialFocus?.id,
                let item = inbox.items.first(where: { $0.id == focusId }) {
+                if hasFeedback(item) {
+                    filter = .feedback
+                }
                 expandedIds.insert(item.id)
                 await loadDetailsIfNeeded(for: item)
             }
@@ -252,6 +259,10 @@ struct NotificationInboxView: View {
             $0.targetId == target.feedbackTargetId &&
             $0.scopeKey == target.feedbackScopeKey
         }
+    }
+
+    private func hasFeedback(_ item: NotificationInboxItem) -> Bool {
+        !feedbacks(for: item).isEmpty
     }
 }
 

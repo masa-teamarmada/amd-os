@@ -97,18 +97,33 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         switch response.actionIdentifier {
         case "AMD_NOTIFICATION_YES":
             Task {
-                await NotificationService.shared.respondFromNotification(userInfo: info, action: .yes, comment: "")
+                await NotificationService.shared.respondFromNotification(
+                    userInfo: info,
+                    action: .yes,
+                    comment: "",
+                    requestIdentifier: response.notification.request.identifier
+                )
                 completionHandler()
             }
         case "AMD_NOTIFICATION_NO":
             Task {
-                await NotificationService.shared.respondFromNotification(userInfo: info, action: .no, comment: "")
+                await NotificationService.shared.respondFromNotification(
+                    userInfo: info,
+                    action: .no,
+                    comment: "",
+                    requestIdentifier: response.notification.request.identifier
+                )
                 completionHandler()
             }
         case "AMD_NOTIFICATION_COMMENT":
             let text = (response as? UNTextInputNotificationResponse)?.userText ?? ""
             Task {
-                await NotificationService.shared.respondFromNotification(userInfo: info, action: .comment, comment: text)
+                await NotificationService.shared.respondFromNotification(
+                    userInfo: info,
+                    action: .comment,
+                    comment: text,
+                    requestIdentifier: response.notification.request.identifier
+                )
                 completionHandler()
             }
         default:
@@ -370,7 +385,8 @@ final class NotificationService: ObservableObject {
     func respondFromNotification(
         userInfo: [AnyHashable: Any],
         action: NotificationInboxAction,
-        comment: String
+        comment: String,
+        requestIdentifier: String? = nil
     ) async {
         guard let target = NotificationResponseTarget(userInfo: userInfo) else {
             lastError = "通知の回答対象を読めなかった"
@@ -386,6 +402,10 @@ final class NotificationService: ObservableObject {
                 email: email
             )
             lastResponseMessage = result.message
+            if let requestIdentifier {
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [requestIdentifier])
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [requestIdentifier])
+            }
         } catch {
             lastError = "通知回答に失敗: \(error.localizedDescription)"
         }

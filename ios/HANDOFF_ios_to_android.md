@@ -25,11 +25,13 @@ masaiPhone (Mac 直接接続実機): 2026-05-20 Debug build で install + launch
   - マイページ最上部に「通知ボックス」を追加
 - `SettingsView.swift`
   - 設定タブから通知入口を削除
-  - `NotificationInboxView` を追加。`l2_notifications` / `meeting_notifications` を統合表示し、`すべて` / `未読` / `回答あり` でフィルタ
+  - `NotificationInboxView` を追加。`l2_notifications` / `meeting_notifications` を統合表示し、`すべて` / `未読` / `回答済み` でフィルタ
+  - `すべて` / `未読` から回答済み通知を除外し、回答後は `回答済み` 側に移動
   - カード展開で通知本文、関連データ、過去コメント、回答フォームを表示
 - `SupabaseService.swift`
   - `fetchNotificationInbox` / `fetchNotificationDetails` / `markNotificationRead` / `submitNotificationResponse` を追加
   - 共通で `l2_feedbacks` に回答保存、best-effort で `tsukuyomi_learnings` にも履歴保存
+  - 回答後に該当通知を既読化。ネイティブ通知アクション経由では delivered notification も削除
   - `ms_progress`: `はい` = pending revision confirm、`いいえ` = pending revision discard
   - `project_registry_diff`: `はい` = accepted、`いいえ` = rejected。実DB適用は既存ルール通り helper/PWA 経由
   - `xrl_evidence`: `はい` = confirmed、`いいえ` = rejected

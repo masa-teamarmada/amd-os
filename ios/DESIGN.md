@@ -80,7 +80,8 @@
 
 表示:
 - `l2_notifications` と `meeting_notifications` を作成日時降順で統合表示
-- フィルタ: `すべて` / `未読` / `回答あり`
+- フィルタ: `すべて` / `未読` / `回答済み`
+- `すべて` と `未読` には未回答の通知だけを表示し、回答済みの通知は `回答済み` に移動
 - カード展開で通知本文、関連データ、過去の回答・コメント、回答フォームを表示
 - 関連データは通知種別ごとに取得:
   - `meeting_summary`: `project_meeting_summaries`
@@ -90,6 +91,7 @@
 
 回答:
 - `はい` / `いいえ` / `コメントだけ送る` は共通で `l2_feedbacks` に保存
+- 回答した通知は既読化し、OS の delivered notification も削除対象にする
 - `tsukuyomi_learnings` にも best-effort で回答履歴を残す
 - `ms_progress` の `はい` は pending revision を confirm、`いいえ` は discard
 - `project_registry_diff` の `はい` / `いいえ` は candidate diff を accepted / rejected に更新。ただし実DB反映は既存ルール通り helper/PWA 経由で行う
