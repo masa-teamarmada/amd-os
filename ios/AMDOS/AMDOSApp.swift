@@ -37,8 +37,44 @@ struct AMDOSApp: App {
 
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
-        UNUserNotificationCenter.current().delegate = self
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        registerNotificationActions(center: center)
         return true
+    }
+
+    private func registerNotificationActions(center: UNUserNotificationCenter) {
+        let yes = UNNotificationAction(
+            identifier: "AMD_NOTIFICATION_YES",
+            title: "はい",
+            options: [.authenticationRequired]
+        )
+        let no = UNNotificationAction(
+            identifier: "AMD_NOTIFICATION_NO",
+            title: "いいえ",
+            options: [.authenticationRequired]
+        )
+        let comment = UNTextInputNotificationAction(
+            identifier: "AMD_NOTIFICATION_COMMENT",
+            title: "コメント",
+            options: [.authenticationRequired],
+            textInputButtonTitle: "送信",
+            textInputPlaceholder: "コメント"
+        )
+
+        let l2 = UNNotificationCategory(
+            identifier: "AMD_L2_NOTIFICATION",
+            actions: [yes, no, comment],
+            intentIdentifiers: [],
+            options: []
+        )
+        let meeting = UNNotificationCategory(
+            identifier: "AMD_MEETING_NOTIFICATION",
+            actions: [yes, no, comment],
+            intentIdentifiers: [],
+            options: []
+        )
+        center.setNotificationCategories([l2, meeting])
     }
 
     /// foreground 中でもバナー + サウンドを出す
@@ -50,17 +86,37 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         completionHandler([.banner, .sound, .badge, .list])
     }
 
-    /// 通知タップ: 当面 print のみ。l2_kind 別 navigation は後続セッションで深化
+    /// 通知タップ / アクション: ネイティブ通知詳細 or 直接レスに流す
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let info = response.notification.request.content.userInfo
-        if let kind = info["kind"] as? String {
-            print("[notification tap] kind=\(kind) info=\(info)")
+
+        switch response.actionIdentifier {
+        case "AMD_NOTIFICATION_YES":
+            Task {
+                await NotificationService.shared.respondFromNotification(userInfo: info, action: .yes, comment: "")
+                completionHandler()
+            }
+        case "AMD_NOTIFICATION_NO":
+            Task {
+                await NotificationService.shared.respondFromNotification(userInfo: info, action: .no, comment: "")
+                completionHandler()
+            }
+        case "AMD_NOTIFICATION_COMMENT":
+            let text = (response as? UNTextInputNotificationResponse)?.userText ?? ""
+            Task {
+                await NotificationService.shared.respondFromNotification(userInfo: info, action: .comment, comment: text)
+                completionHandler()
+            }
+        default:
+            Task { @MainActor in
+                NotificationService.shared.handleNotificationTap(userInfo: info)
+                completionHandler()
+            }
         }
-        completionHandler()
     }
 }
 
@@ -132,6 +188,109 @@ struct MeetingNotification: Codable, Identifiable, Sendable {
     }
 }
 
+enum NotificationInboxAction: String, Sendable {
+    case yes
+    case no
+    case comment
+
+    var label: String {
+        switch self {
+        case .yes: return "はい"
+        case .no: return "いいえ"
+        case .comment: return "コメント"
+        }
+    }
+}
+
+struct NotificationResponseTarget: Hashable, Sendable {
+    let kind: String
+    let l2Kind: String?
+    let targetId: String
+    let scopeKey: String
+    let notificationId: String?
+    let meetingId: String?
+    let projectId: String?
+
+    var feedbackKind: String {
+        kind == "meeting" ? "meeting_summary" : (l2Kind ?? "")
+    }
+
+    var feedbackTargetId: String {
+        kind == "meeting" ? (projectId ?? targetId) : targetId
+    }
+
+    var feedbackScopeKey: String {
+        kind == "meeting" ? (meetingId ?? scopeKey) : scopeKey
+    }
+
+    var itemId: String {
+        if kind == "meeting", let meetingId {
+            return "meeting-\(meetingId)"
+        }
+        if let notificationId {
+            return "l2-\(notificationId)"
+        }
+        return "\(kind)-\(feedbackKind)-\(feedbackTargetId)-\(feedbackScopeKey)"
+    }
+
+    init?(
+        kind: String?,
+        l2Kind: String?,
+        targetId: String?,
+        scopeKey: String?,
+        notificationId: String?,
+        meetingId: String?,
+        projectId: String?
+    ) {
+        guard let kind, !kind.isEmpty else { return nil }
+        if kind == "meeting" {
+            guard let meetingId, !meetingId.isEmpty,
+                  let projectId, !projectId.isEmpty else { return nil }
+            self.kind = kind
+            self.l2Kind = nil
+            self.targetId = projectId
+            self.scopeKey = meetingId
+            self.notificationId = nil
+            self.meetingId = meetingId
+            self.projectId = projectId
+            return
+        }
+
+        guard let l2Kind, !l2Kind.isEmpty,
+              let targetId, !targetId.isEmpty,
+              let scopeKey, !scopeKey.isEmpty else { return nil }
+        self.kind = kind
+        self.l2Kind = l2Kind
+        self.targetId = targetId
+        self.scopeKey = scopeKey
+        self.notificationId = notificationId
+        self.meetingId = meetingId
+        self.projectId = projectId
+    }
+
+    init?(userInfo: [AnyHashable: Any]) {
+        self.init(
+            kind: userInfo["kind"] as? String,
+            l2Kind: userInfo["l2Kind"] as? String,
+            targetId: userInfo["targetId"] as? String,
+            scopeKey: userInfo["scopeKey"] as? String,
+            notificationId: userInfo["notificationId"] as? String,
+            meetingId: userInfo["meetingId"] as? String,
+            projectId: userInfo["projectId"] as? String
+        )
+    }
+}
+
+struct NotificationDeepLink: Identifiable, Equatable, Sendable {
+    let target: NotificationResponseTarget
+    var id: String { target.itemId }
+
+    init?(userInfo: [AnyHashable: Any]) {
+        guard let target = NotificationResponseTarget(userInfo: userInfo) else { return nil }
+        self.target = target
+    }
+}
+
 // ============================================================
 // NotificationService
 //
@@ -152,6 +311,8 @@ final class NotificationService: ObservableObject {
     @Published var lastError: String?
     @Published var lastFetchedAt: Date?
     @Published var lastShownCount: Int = 0
+    @Published var lastResponseMessage: String?
+    @Published var activeInboxLink: NotificationDeepLink?
 
     private init() {
         self.client = SupabaseClient(
@@ -198,6 +359,38 @@ final class NotificationService: ObservableObject {
         lastShownCount = l2 + mtg
     }
 
+    func handleNotificationTap(userInfo: [AnyHashable: Any]) {
+        guard let link = NotificationDeepLink(userInfo: userInfo) else {
+            lastError = "通知の遷移情報を読めなかった"
+            return
+        }
+        activeInboxLink = link
+    }
+
+    func respondFromNotification(
+        userInfo: [AnyHashable: Any],
+        action: NotificationInboxAction,
+        comment: String
+    ) async {
+        guard let target = NotificationResponseTarget(userInfo: userInfo) else {
+            lastError = "通知の回答対象を読めなかった"
+            return
+        }
+
+        do {
+            let email = await SupabaseService.shared.currentUserEmail()
+            let result = try await SupabaseService.shared.submitNotificationResponse(
+                target: target,
+                action: action,
+                comment: comment,
+                email: email
+            )
+            lastResponseMessage = result.message
+        } catch {
+            lastError = "通知回答に失敗: \(error.localizedDescription)"
+        }
+    }
+
     // MARK: - L2 Notifications (Phase 4 全 4 L2)
 
     @discardableResult
@@ -229,6 +422,7 @@ final class NotificationService: ObservableObject {
         content.body = (n.summary ?? "").isEmpty ? "saved=\(n.savedCount) / total=\(n.totalCount)" : (n.summary ?? "")
         content.sound = n.importance >= 3 ? .defaultCritical : .default
         content.threadIdentifier = "l2-\(n.l2Kind)"
+        content.categoryIdentifier = "AMD_L2_NOTIFICATION"
         content.userInfo = [
             "kind": "l2",
             "l2Kind": n.l2Kind,
@@ -284,6 +478,7 @@ final class NotificationService: ObservableObject {
         content.body = n.summaryShort.isEmpty ? "[\(n.sourceKinds)]" : n.summaryShort
         content.sound = .default
         content.threadIdentifier = "meeting"
+        content.categoryIdentifier = "AMD_MEETING_NOTIFICATION"
         content.userInfo = [
             "kind": "meeting",
             "meetingId": n.meetingId,

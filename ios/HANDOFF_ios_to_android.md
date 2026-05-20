@@ -2,10 +2,46 @@
 
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [DESIGN.md](DESIGN.md) — **全画面の正本仕様（必読）** / [HANDOFF.md](HANDOFF.md) — 配布状況 / [BUGS.md](BUGS.md) — 既知バグ
 
-最終更新: 2026-04-28 18:30 (JST)
-対応 iOS commit: `2e83881` "Show monthly estimated reward yen on MyPage PJ cards"
+最終更新: 2026-05-20 11:45 (JST)
+対応 iOS commit: "Add native notification inbox and responses"
 TestFlight build: 21（このコミット群を乗せたら上げる、未 upload）
-masaiPhone (Mac 直接接続実機): `2e83881` を Debug build で install + launch 済み
+masaiPhone (Mac 直接接続実機): 2026-05-20 Debug build で install + launch 済み
+
+---
+
+## 2026-05-20 追記: 通知詳細・はい/いいえ/コメント回答
+
+### 14. Native notification inbox and responses
+**動機**: Swift 版にも L2/議事録通知は届くが、通知内容をアプリ内で見たり、`はい` / `いいえ` / コメントで返したりできなかった。PWA `/notifications` 相当の最低限の確認・回答導線を iOS に移植した。
+
+- `AMDOSApp.swift`
+  - `UNNotificationCategory` を追加: `AMD_L2_NOTIFICATION` / `AMD_MEETING_NOTIFICATION`
+  - 通知アクションを追加: `AMD_NOTIFICATION_YES` / `AMD_NOTIFICATION_NO` / `AMD_NOTIFICATION_COMMENT`
+  - 通知タップ時は `NotificationService.activeInboxLink` に deep link をセットし、該当通知カードを開く
+  - 通知アクション時は `SupabaseService.submitNotificationResponse(...)` へ直接送る
+- `MainTabView.swift`
+  - `NotificationService.activeInboxLink` を監視し、`NotificationInboxView` を sheet 表示
+- `SettingsView.swift`
+  - 設定タブに「通知・つくよみ回答」を追加
+  - `NotificationInboxView` を追加。`l2_notifications` / `meeting_notifications` を統合表示し、`すべて` / `未読` / `回答あり` でフィルタ
+  - カード展開で通知本文、関連データ、過去コメント、回答フォームを表示
+- `SupabaseService.swift`
+  - `fetchNotificationInbox` / `fetchNotificationDetails` / `markNotificationRead` / `submitNotificationResponse` を追加
+  - 共通で `l2_feedbacks` に回答保存、best-effort で `tsukuyomi_learnings` にも履歴保存
+  - `ms_progress`: `はい` = pending revision confirm、`いいえ` = pending revision discard
+  - `project_registry_diff`: `はい` = accepted、`いいえ` = rejected。実DB適用は既存ルール通り helper/PWA 経由
+  - `xrl_evidence`: `はい` = confirmed、`いいえ` = rejected
+
+### Android 移植メモ
+- 入口は Settings 内に「通知・つくよみ回答」を置けば iOS と揃う
+- Android 通知 action は iOS と同じ意味で `yes` / `no` / `comment` を送る
+- 一覧の統合キーは iOS と同じ:
+  - L2: `l2-\(notification_id)`
+  - meeting: `meeting-\(meeting_id)`
+- feedback target は meeting だけ特殊:
+  - meeting: `l2_kind = meeting_summary`, `target_id = project_id`, `scope_key = meeting_id`
+  - L2: `l2_kind = l2_kind`, `target_id = target_id`, `scope_key = scope_key`
+- project registry diff の accepted 後も Android が直接 apply しない。DB反映は helper/PWA 経由のルールを維持する
 
 ---
 

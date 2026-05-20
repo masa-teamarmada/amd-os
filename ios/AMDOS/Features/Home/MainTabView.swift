@@ -38,6 +38,7 @@ struct MainTabView: View {
     @State private var isAdmin = false
     @State private var showAdmin = false
     @EnvironmentObject private var authService: AuthService
+    @EnvironmentObject private var notificationService: NotificationService
 
     var body: some View {
         TabView(selection: Binding(
@@ -78,6 +79,11 @@ struct MainTabView: View {
         }
         .fullScreenCover(isPresented: $showAdmin) {
             AdminTabView()
+        }
+        .sheet(item: $notificationService.activeInboxLink) { link in
+            NavigationStack {
+                NotificationInboxView(initialFocus: link)
+            }
         }
         .environmentObject(navigation)
         .task {

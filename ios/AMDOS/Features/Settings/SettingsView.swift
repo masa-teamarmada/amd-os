@@ -26,9 +26,495 @@ struct SettingsView: View {
                         PayoutInfoEditView(email: email)
                     }
                 }
+
+                Section("通知") {
+                    NavigationLink {
+                        NotificationInboxView()
+                    } label: {
+                        Label("通知・つくよみ回答", systemImage: "bell.badge")
+                    }
+                }
             }
             .navigationTitle("設定")
         }
+    }
+}
+
+// MARK: - NotificationInboxView
+
+struct NotificationInboxView: View {
+    let initialFocus: NotificationDeepLink?
+
+    @EnvironmentObject private var authService: AuthService
+    @State private var inbox = NotificationInboxData(items: [], feedbacks: [], projectMap: [:])
+    @State private var filter: InboxFilter = .all
+    @State private var expandedIds: Set<String> = []
+    @State private var detailsById: [String: [NotificationDetailLine]] = [:]
+    @State private var feedbackTexts: [String: String] = [:]
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+    @State private var toastMessage: String?
+    @State private var submittingIds: Set<String> = []
+
+    init(initialFocus: NotificationDeepLink? = nil) {
+        self.initialFocus = initialFocus
+    }
+
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView("通知を読み込み中...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let errorMessage {
+                VStack(spacing: 14) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 36, weight: .semibold))
+                        .foregroundStyle(.orange)
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button("再読み込み") {
+                        Task { await load() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            filterPicker
+
+                            if let toastMessage {
+                                Text(toastMessage)
+                                    .font(.footnote)
+                                    .foregroundStyle(.green)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(10)
+                                    .background(Color.green.opacity(0.08))
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+
+                            if filteredItems.isEmpty {
+                                ContentUnavailableView(
+                                    "通知なし",
+                                    systemImage: "bell.slash",
+                                    description: Text("この条件に合う通知はないよ")
+                                )
+                                .padding(.top, 48)
+                            } else {
+                                ForEach(filteredItems) { item in
+                                    NotificationInboxCard(
+                                        item: item,
+                                        projectMap: inbox.projectMap,
+                                        feedbacks: feedbacks(for: item),
+                                        details: detailsById[item.id],
+                                        isExpanded: expandedIds.contains(item.id),
+                                        feedbackText: Binding(
+                                            get: { feedbackTexts[item.id] ?? "" },
+                                            set: { feedbackTexts[item.id] = $0 }
+                                        ),
+                                        isSubmitting: submittingIds.contains(item.id),
+                                        onToggle: { toggle(item) },
+                                        onSubmit: { action in
+                                            Task { await submit(item: item, action: action) }
+                                        }
+                                    )
+                                    .id(item.id)
+                                }
+                            }
+                        }
+                        .padding()
+                    }
+                    .onChange(of: inbox.items) { _, _ in
+                        guard let focusId = initialFocus?.id,
+                              inbox.items.contains(where: { $0.id == focusId }) else { return }
+                        expandedIds.insert(focusId)
+                        Task {
+                            if let item = inbox.items.first(where: { $0.id == focusId }) {
+                                await loadDetailsIfNeeded(for: item)
+                            }
+                            await MainActor.run {
+                                withAnimation { proxy.scrollTo(focusId, anchor: .center) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("通知")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await load() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .disabled(isLoading)
+            }
+        }
+        .task { await load() }
+        .refreshable { await load() }
+    }
+
+    private var filterPicker: some View {
+        Picker("表示", selection: $filter) {
+            Text("すべて").tag(InboxFilter.all)
+            Text("未読").tag(InboxFilter.unread)
+            Text("回答あり").tag(InboxFilter.feedback)
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private var filteredItems: [NotificationInboxItem] {
+        switch filter {
+        case .all:
+            return inbox.items
+        case .unread:
+            return inbox.items.filter(\.isUnread)
+        case .feedback:
+            return inbox.items.filter { !feedbacks(for: $0).isEmpty }
+        }
+    }
+
+    private func load() async {
+        isLoading = true
+        errorMessage = nil
+        do {
+            inbox = try await SupabaseService.shared.fetchNotificationInbox()
+            if let focusId = initialFocus?.id,
+               let item = inbox.items.first(where: { $0.id == focusId }) {
+                expandedIds.insert(item.id)
+                await loadDetailsIfNeeded(for: item)
+            }
+        } catch {
+            errorMessage = "通知を読めなかった: \(error.localizedDescription)"
+        }
+        isLoading = false
+    }
+
+    private func toggle(_ item: NotificationInboxItem) {
+        if expandedIds.contains(item.id) {
+            expandedIds.remove(item.id)
+            return
+        }
+        expandedIds.insert(item.id)
+        Task {
+            await loadDetailsIfNeeded(for: item)
+            if item.isUnread {
+                try? await SupabaseService.shared.markNotificationRead(item)
+            }
+        }
+    }
+
+    private func loadDetailsIfNeeded(for item: NotificationInboxItem) async {
+        guard detailsById[item.id] == nil else { return }
+        do {
+            let details = try await SupabaseService.shared.fetchNotificationDetails(for: item)
+            detailsById[item.id] = details
+        } catch {
+            detailsById[item.id] = [
+                NotificationDetailLine(
+                    title: "詳細取得エラー",
+                    body: error.localizedDescription,
+                    footnote: nil
+                )
+            ]
+        }
+    }
+
+    private func submit(item: NotificationInboxItem, action: NotificationInboxAction) async {
+        guard let email = authService.userEmail else {
+            toastMessage = "ログイン状態を確認してね"
+            return
+        }
+        submittingIds.insert(item.id)
+        defer { submittingIds.remove(item.id) }
+        do {
+            let result = try await SupabaseService.shared.submitNotificationResponse(
+                item: item,
+                action: action,
+                comment: feedbackTexts[item.id] ?? "",
+                email: email
+            )
+            feedbackTexts[item.id] = ""
+            toastMessage = result.message
+            inbox = try await SupabaseService.shared.fetchNotificationInbox()
+            detailsById[item.id] = nil
+            await loadDetailsIfNeeded(for: item)
+        } catch {
+            toastMessage = "送信失敗: \(error.localizedDescription)"
+        }
+    }
+
+    private func feedbacks(for item: NotificationInboxItem) -> [NotificationFeedback] {
+        let target = item.responseTarget
+        if target.feedbackKind == "meeting_summary" {
+            return inbox.feedbacks.filter { $0.l2Kind == "meeting_summary" && $0.meetingId == target.meetingId }
+        }
+        return inbox.feedbacks.filter {
+            $0.l2Kind == target.feedbackKind &&
+            $0.targetId == target.feedbackTargetId &&
+            $0.scopeKey == target.feedbackScopeKey
+        }
+    }
+}
+
+private enum InboxFilter {
+    case all
+    case unread
+    case feedback
+}
+
+private struct NotificationInboxCard: View {
+    let item: NotificationInboxItem
+    let projectMap: [String: String]
+    let feedbacks: [NotificationFeedback]
+    let details: [NotificationDetailLine]?
+    let isExpanded: Bool
+    @Binding var feedbackText: String
+    let isSubmitting: Bool
+    let onToggle: () -> Void
+    let onSubmit: (NotificationInboxAction) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button(action: onToggle) {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: iconName)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(iconColor)
+                        .frame(width: 28, height: 28)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 6) {
+                            if item.isUnread {
+                                Text("未読")
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(AMD.blue)
+                                    .clipShape(Capsule())
+                            }
+                            Text(kindLabel)
+                                .font(.caption2.bold())
+                                .foregroundStyle(.secondary)
+                            if feedbacks.isEmpty == false {
+                                Text("回答 \(feedbacks.count)")
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+
+                        Text(item.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AMD.text)
+                            .multilineTextAlignment(.leading)
+
+                        Text("\(formatJST(item.createdAt)) / \(item.displayTarget(projectMap: projectMap))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer(minLength: 6)
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 6)
+                }
+                .padding(12)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 12) {
+                    if item.body.isEmpty == false {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("通知内容")
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
+                            Text(item.body)
+                                .font(.footnote)
+                                .foregroundStyle(AMD.text)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
+                    detailSection
+                    feedbackSection
+                    responseSection
+                }
+                .padding(12)
+                .background(Color(.secondarySystemGroupedBackground))
+            }
+        }
+        .background(item.isUnread ? AMD.blueTint.opacity(0.55) : AMD.card)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(item.isUnread ? AMD.blue.opacity(0.35) : AMD.divider, lineWidth: 1)
+        )
+    }
+
+    private var detailSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("関連データ")
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+            if let details {
+                if details.isEmpty {
+                    Text("この通知種別は、上の通知内容が確認用の本文だよ。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(details) { line in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(line.title)
+                                .font(.footnote.bold())
+                            Text(line.body)
+                                .font(.footnote)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let footnote = line.footnote, !footnote.isEmpty {
+                                Text(footnote)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(AMD.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private var feedbackSection: some View {
+        Group {
+            if feedbacks.isEmpty == false {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("過去の回答・コメント")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                    ForEach(feedbacks) { feedback in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(feedback.feedbackText)
+                                .font(.footnote)
+                            Text([
+                                formatJST(feedback.createdAt),
+                                feedback.createdBy,
+                                feedback.appliedCount > 0 ? "反映 \(feedback.appliedCount)回" : "未反映",
+                            ].compactMap { $0 }.joined(separator: " / "))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        }
+                        .padding(8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.orange.opacity(0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            }
+        }
+    }
+
+    private var responseSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("回答・コメント")
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+            TextEditor(text: $feedbackText)
+                .frame(minHeight: 74)
+                .padding(6)
+                .background(AMD.card)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(AMD.divider, lineWidth: 1)
+                )
+            HStack(spacing: 8) {
+                Button {
+                    onSubmit(.yes)
+                } label: {
+                    Label("はい", systemImage: "checkmark.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+
+                Button(role: .destructive) {
+                    onSubmit(.no)
+                } label: {
+                    Label("いいえ", systemImage: "xmark.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+            Button {
+                onSubmit(.comment)
+            } label: {
+                Label("コメントだけ送る", systemImage: "text.bubble")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
+
+            if isSubmitting {
+                ProgressView("送信中...")
+                    .font(.caption)
+            }
+        }
+        .disabled(isSubmitting)
+    }
+
+    private var iconName: String {
+        switch item.responseTarget.feedbackKind {
+        case "meeting_summary": return "doc.text"
+        case "ms_progress": return "chart.line.uptrend.xyaxis"
+        case "project_registry_diff": return "tray.and.arrow.down"
+        case "xrl_evidence": return "checklist.checked"
+        case "protocols": return "scale.3d"
+        default: return "bell"
+        }
+    }
+
+    private var iconColor: Color {
+        item.importance >= 3 ? .orange : AMD.blue
+    }
+
+    private var kindLabel: String {
+        switch item.responseTarget.feedbackKind {
+        case "meeting_summary": return "議事録"
+        case "ms_progress": return "MS進捗"
+        case "project_registry_diff": return "OS台帳差分"
+        case "xrl_evidence": return "XRL根拠"
+        case "member_knowledge": return "メンバー知"
+        case "project_knowledge": return "PJ知"
+        case "protocols": return "プロトコル"
+        default: return item.responseTarget.feedbackKind
+        }
+    }
+
+    private func formatJST(_ iso: String) -> String {
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = parser.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+        guard let date else { return iso }
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "ja_JP")
+        fmt.timeZone = TimeZone(identifier: "Asia/Tokyo")
+        fmt.dateFormat = "M/d HH:mm"
+        return fmt.string(from: date)
     }
 }
 

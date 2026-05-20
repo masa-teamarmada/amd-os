@@ -3678,10 +3678,732 @@ extension SupabaseService {
     }
 }
 
+// MARK: - Notification Inbox / Feedback
+
+extension SupabaseService {
+
+    func fetchNotificationInbox(limit: Int = 100) async throws -> NotificationInboxData {
+        struct L2Row: Decodable {
+            let notificationId: String
+            let l2Kind: String
+            let targetId: String
+            let scopeKey: String
+            let title: String
+            let summary: String?
+            let savedCount: Int
+            let totalCount: Int
+            let importance: Int
+            let notifiedAt: String?
+            let createdAt: String
+
+            enum CodingKeys: String, CodingKey {
+                case notificationId = "notification_id"
+                case l2Kind = "l2_kind"
+                case targetId = "target_id"
+                case scopeKey = "scope_key"
+                case title, summary, importance
+                case savedCount = "saved_count"
+                case totalCount = "total_count"
+                case notifiedAt = "notified_at"
+                case createdAt = "created_at"
+            }
+        }
+        struct MeetingRow: Decodable {
+            let meetingId: String
+            let projectId: String
+            let title: String
+            let sourceKinds: String
+            let summaryShort: String
+            let notifiedAt: String?
+            let createdAt: String
+
+            enum CodingKeys: String, CodingKey {
+                case meetingId = "meeting_id"
+                case projectId = "project_id"
+                case title
+                case sourceKinds = "source_kinds"
+                case summaryShort = "summary_short"
+                case notifiedAt = "notified_at"
+                case createdAt = "created_at"
+            }
+        }
+        struct ProjectLite: Decodable {
+            let projectId: String
+            let projectName: String
+            enum CodingKeys: String, CodingKey {
+                case projectId = "project_id"
+                case projectName = "project_name"
+            }
+        }
+
+        async let l2Task: [L2Row] = client.database
+            .from("l2_notifications")
+            .select("notification_id, l2_kind, target_id, scope_key, title, summary, saved_count, total_count, importance, notified_at, created_at")
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+        async let meetingTask: [MeetingRow] = client.database
+            .from("meeting_notifications")
+            .select("meeting_id, project_id, title, source_kinds, summary_short, notified_at, created_at")
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+        async let feedbackTask: [NotificationFeedback] = client.database
+            .from("l2_feedbacks")
+            .select("feedback_id, l2_kind, target_id, scope_key, notification_id, meeting_id, feedback_text, status, created_by, created_at, applied_count, last_applied_at")
+            .order("created_at", ascending: false)
+            .limit(300)
+            .execute()
+            .value
+        async let projectTask: [ProjectLite] = client.database
+            .from("projects")
+            .select("project_id, project_name")
+            .execute()
+            .value
+
+        let (l2Rows, meetingRows, feedbacks, projects) = try await (l2Task, meetingTask, feedbackTask, projectTask)
+        var items: [NotificationInboxItem] = []
+        items += l2Rows.map {
+            NotificationInboxItem(
+                id: "l2-\($0.notificationId)",
+                kind: "l2",
+                notificationId: $0.notificationId,
+                meetingId: nil,
+                l2Kind: $0.l2Kind,
+                targetId: $0.targetId,
+                projectId: nil,
+                scopeKey: $0.scopeKey,
+                title: $0.title,
+                body: $0.summary ?? "",
+                countText: "\($0.savedCount)/\($0.totalCount)",
+                importance: $0.importance,
+                sourceKinds: nil,
+                notifiedAt: $0.notifiedAt,
+                createdAt: $0.createdAt
+            )
+        }
+        items += meetingRows.map {
+            NotificationInboxItem(
+                id: "meeting-\($0.meetingId)",
+                kind: "meeting",
+                notificationId: nil,
+                meetingId: $0.meetingId,
+                l2Kind: "meeting_summary",
+                targetId: $0.projectId,
+                projectId: $0.projectId,
+                scopeKey: $0.meetingId,
+                title: "議事録: \($0.title)",
+                body: $0.summaryShort,
+                countText: nil,
+                importance: 1,
+                sourceKinds: $0.sourceKinds,
+                notifiedAt: $0.notifiedAt,
+                createdAt: $0.createdAt
+            )
+        }
+        items.sort { $0.createdAt > $1.createdAt }
+
+        return NotificationInboxData(
+            items: items,
+            feedbacks: feedbacks,
+            projectMap: Dictionary(uniqueKeysWithValues: projects.map { ($0.projectId, $0.projectName) })
+        )
+    }
+
+    func markNotificationRead(_ item: NotificationInboxItem) async throws {
+        let iso = ISO8601DateFormatter().string(from: Date())
+        if item.kind == "meeting", let meetingId = item.meetingId {
+            try await client.database
+                .from("meeting_notifications")
+                .update(NotificationReadUpdate(notified_at: iso))
+                .eq("meeting_id", value: meetingId)
+                .execute()
+        } else if let notificationId = item.notificationId {
+            try await client.database
+                .from("l2_notifications")
+                .update(NotificationReadUpdate(notified_at: iso))
+                .eq("notification_id", value: notificationId)
+                .execute()
+        }
+    }
+
+    func fetchNotificationDetails(for item: NotificationInboxItem) async throws -> [NotificationDetailLine] {
+        switch item.responseTarget.feedbackKind {
+        case "meeting_summary":
+            return try await fetchMeetingNotificationDetails(meetingId: item.responseTarget.feedbackScopeKey)
+        case "ms_progress":
+            return try await fetchMsProgressNotificationDetails(projectId: item.responseTarget.feedbackTargetId, ym: item.responseTarget.feedbackScopeKey)
+        case "project_registry_diff":
+            return try await fetchRegistryDiffNotificationDetails(projectId: item.responseTarget.feedbackTargetId, scopeKey: item.responseTarget.feedbackScopeKey)
+        case "xrl_evidence":
+            return try await fetchXrlEvidenceNotificationDetails(projectId: item.responseTarget.feedbackTargetId, scopeKey: item.responseTarget.feedbackScopeKey)
+        default:
+            return []
+        }
+    }
+
+    func submitNotificationResponse(
+        target: NotificationResponseTarget,
+        action: NotificationInboxAction,
+        comment: String,
+        email: String?
+    ) async throws -> NotificationResponseResult {
+        let trimmed = comment.trimmingCharacters(in: .whitespacesAndNewlines)
+        if action == .comment && trimmed.isEmpty {
+            throw NSError(domain: "NotificationFeedback", code: 400, userInfo: [NSLocalizedDescriptionKey: "コメントが空だよ"])
+        }
+        guard !target.feedbackKind.isEmpty, !target.feedbackTargetId.isEmpty else {
+            throw NSError(domain: "NotificationFeedback", code: 400, userInfo: [NSLocalizedDescriptionKey: "通知の回答対象が足りない"])
+        }
+
+        let createdBy = try await resolveNotificationActor(email: email)
+        let feedbackId = try await insertNotificationFeedback(
+            target: target,
+            action: action,
+            comment: trimmed,
+            createdBy: createdBy
+        )
+        let applyMessage = try await applyNotificationAction(
+            target: target,
+            action: action,
+            comment: trimmed,
+            createdBy: createdBy
+        )
+        try? await insertNotificationLearning(
+            target: target,
+            action: action,
+            comment: trimmed,
+            applyMessage: applyMessage,
+            feedbackId: feedbackId,
+            createdBy: createdBy
+        )
+        return NotificationResponseResult(
+            feedbackId: feedbackId,
+            message: applyMessage.isEmpty ? "\(action.label)を保存したよ" : applyMessage
+        )
+    }
+
+    func submitNotificationResponse(
+        item: NotificationInboxItem,
+        action: NotificationInboxAction,
+        comment: String,
+        email: String?
+    ) async throws -> NotificationResponseResult {
+        try await submitNotificationResponse(target: item.responseTarget, action: action, comment: comment, email: email)
+    }
+
+    private func fetchMeetingNotificationDetails(meetingId: String) async throws -> [NotificationDetailLine] {
+        struct Row: Decodable {
+            let title: String
+            let meetingDate: String
+            let summaryShort: String
+            let sourceKinds: String?
+            let sourceUrl: String?
+            let notionUrl: String?
+            let generatedAt: String?
+            enum CodingKeys: String, CodingKey {
+                case title
+                case meetingDate = "meeting_date"
+                case summaryShort = "summary_short"
+                case sourceKinds = "source_kinds"
+                case sourceUrl = "source_url"
+                case notionUrl = "notion_url"
+                case generatedAt = "generated_at"
+            }
+        }
+        let rows: [Row] = (try? await client.database
+            .from("project_meeting_summaries")
+            .select("title, meeting_date, summary_short, source_kinds, source_url, notion_url, generated_at")
+            .eq("meeting_id", value: meetingId)
+            .limit(1)
+            .execute()
+            .value) ?? []
+        guard let row = rows.first else { return [] }
+        return [
+            NotificationDetailLine(
+                title: "\(row.meetingDate) / \(row.title)",
+                body: row.summaryShort.isEmpty ? "サマリ本文は空" : row.summaryShort,
+                footnote: [row.sourceKinds, row.sourceUrl, row.notionUrl, row.generatedAt].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " / ")
+            )
+        ]
+    }
+
+    private func fetchMsProgressNotificationDetails(projectId: String, ym: String) async throws -> [NotificationDetailLine] {
+        struct RevisionRow: Decodable {
+            let id: String
+            let milestoneId: String
+            let currentPct: Double?
+            let currentNote: String?
+            let revisedPct: Double?
+            let revisedNote: String?
+            let status: String
+            let createdAt: String?
+            enum CodingKeys: String, CodingKey {
+                case id
+                case milestoneId = "milestone_id"
+                case currentPct = "current_pct"
+                case currentNote = "current_note"
+                case revisedPct = "revised_pct"
+                case revisedNote = "revised_note"
+                case status
+                case createdAt = "created_at"
+            }
+        }
+        struct MsRow: Decodable {
+            let milestoneId: String
+            let title: String
+            enum CodingKeys: String, CodingKey {
+                case milestoneId = "milestone_id"
+                case title
+            }
+        }
+        let revisions: [RevisionRow] = (try? await client.database
+            .from("ms_progress_revisions")
+            .select("id, milestone_id, current_pct, current_note, revised_pct, revised_note, status, created_at")
+            .eq("project_id", value: projectId)
+            .eq("ym", value: ym)
+            .order("created_at", ascending: false)
+            .execute()
+            .value) ?? []
+
+        let milestoneIds = Array(Set(revisions.map(\.milestoneId)))
+        let msRows: [MsRow] = (try? await client.database
+            .from("value_milestones")
+            .select("milestone_id, title")
+            .in("milestone_id", values: milestoneIds.isEmpty ? ["__none__"] : milestoneIds)
+            .execute()
+            .value) ?? []
+        let titleMap = Dictionary(uniqueKeysWithValues: msRows.map { ($0.milestoneId, $0.title) })
+
+        return revisions.map { row in
+            let title = titleMap[row.milestoneId] ?? row.milestoneId
+            let pctText = "現在 \(formatPct(row.currentPct)) -> 提案 \(formatPct(row.revisedPct))"
+            let notes = [row.revisedNote, row.currentNote.map { "現在メモ: \($0)" }].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n")
+            return NotificationDetailLine(
+                title: "\(title) [\(statusLabel(row.status))]",
+                body: [pctText, notes].filter { !$0.isEmpty }.joined(separator: "\n"),
+                footnote: row.createdAt
+            )
+        }
+    }
+
+    private func fetchRegistryDiffNotificationDetails(projectId: String, scopeKey: String) async throws -> [NotificationDetailLine] {
+        struct Row: Decodable {
+            let diffId: String
+            let diffKind: String
+            let targetTable: String
+            let targetKey: String?
+            let confidence: Double
+            let status: String
+            let reviewComment: String?
+            let createdAt: String?
+            let appliedAt: String?
+            enum CodingKeys: String, CodingKey {
+                case diffId = "diff_id"
+                case diffKind = "diff_kind"
+                case targetTable = "target_table"
+                case targetKey = "target_key"
+                case confidence
+                case status
+                case reviewComment = "review_comment"
+                case createdAt = "created_at"
+                case appliedAt = "applied_at"
+            }
+        }
+        var query = client.database
+            .from("project_registry_diffs")
+            .select("diff_id, diff_kind, target_table, target_key, confidence, status, review_comment, created_at, applied_at")
+            .eq("project_id", value: projectId)
+        if scopeKey == "global" {
+            query = query.is("ym", value: nil)
+        } else {
+            query = query.eq("ym", value: scopeKey)
+        }
+        let rows: [Row] = (try? await query.order("created_at", ascending: false).limit(30).execute().value) ?? []
+        return rows.map { row in
+            NotificationDetailLine(
+                title: "\(row.diffKind) -> \(row.targetTable) [\(statusLabel(row.status))]",
+                body: [
+                    row.targetKey.map { "target: \($0)" },
+                    "confidence: \(String(format: "%.2f", row.confidence))",
+                    row.reviewComment.map { "comment: \($0)" },
+                ].compactMap { $0 }.joined(separator: "\n"),
+                footnote: [row.diffId, row.createdAt, row.appliedAt.map { "applied: \($0)" }].compactMap { $0 }.joined(separator: " / ")
+            )
+        }
+    }
+
+    private func fetchXrlEvidenceNotificationDetails(projectId: String, scopeKey: String) async throws -> [NotificationDetailLine] {
+        struct Row: Decodable {
+            let evidenceId: String
+            let axis: String
+            let evidenceKind: String
+            let summary: String
+            let confidence: Double
+            let status: String
+            let createdAt: String?
+            let confirmedAt: String?
+            enum CodingKeys: String, CodingKey {
+                case evidenceId = "evidence_id"
+                case axis
+                case evidenceKind = "evidence_kind"
+                case summary
+                case confidence
+                case status
+                case createdAt = "created_at"
+                case confirmedAt = "confirmed_at"
+            }
+        }
+        var query = client.database
+            .from("project_xrl_evidence")
+            .select("evidence_id, axis, evidence_kind, summary, confidence, status, created_at, confirmed_at")
+            .eq("project_id", value: projectId)
+        if scopeKey == "global" {
+            query = query.is("ym", value: nil)
+        } else {
+            query = query.eq("ym", value: scopeKey)
+        }
+        let rows: [Row] = (try? await query.order("created_at", ascending: false).limit(30).execute().value) ?? []
+        return rows.map { row in
+            NotificationDetailLine(
+                title: "\(row.axis.uppercased()) / \(row.evidenceKind) [\(statusLabel(row.status))]",
+                body: row.summary,
+                footnote: [
+                    row.evidenceId,
+                    "confidence: \(String(format: "%.2f", row.confidence))",
+                    row.createdAt,
+                    row.confirmedAt.map { "confirmed: \($0)" },
+                ].compactMap { $0 }.joined(separator: " / ")
+            )
+        }
+    }
+
+    private func insertNotificationFeedback(
+        target: NotificationResponseTarget,
+        action: NotificationInboxAction,
+        comment: String,
+        createdBy: String?
+    ) async throws -> String {
+        struct Row: Encodable {
+            let l2_kind: String
+            let target_id: String
+            let scope_key: String
+            let notification_id: String?
+            let meeting_id: String?
+            let feedback_text: String
+            let status: String
+            let created_by: String?
+        }
+        struct Returned: Decodable {
+            let feedbackId: String
+            enum CodingKeys: String, CodingKey { case feedbackId = "feedback_id" }
+        }
+
+        let feedbackText = action == .comment
+            ? comment
+            : "[\(action.label)]\(comment.isEmpty ? "" : " \(comment)")"
+        let rows: [Returned] = try await client.database
+            .from("l2_feedbacks")
+            .insert(Row(
+                l2_kind: target.feedbackKind,
+                target_id: target.feedbackTargetId,
+                scope_key: target.feedbackScopeKey,
+                notification_id: target.notificationId,
+                meeting_id: target.meetingId,
+                feedback_text: String(feedbackText.prefix(4000)),
+                status: "active",
+                created_by: createdBy
+            ))
+            .select("feedback_id")
+            .execute()
+            .value
+        return rows.first?.feedbackId ?? ""
+    }
+
+    private func applyNotificationAction(
+        target: NotificationResponseTarget,
+        action: NotificationInboxAction,
+        comment: String,
+        createdBy: String?
+    ) async throws -> String {
+        guard action != .comment else { return "コメントを保存したよ。つくよみの再抽出材料になる。" }
+
+        switch target.feedbackKind {
+        case "ms_progress":
+            return try await applyMsProgressNotificationAction(target: target, action: action, createdBy: createdBy)
+        case "project_registry_diff":
+            return try await applyRegistryDiffNotificationAction(target: target, action: action, comment: comment, createdBy: createdBy)
+        case "xrl_evidence":
+            return try await applyXrlEvidenceNotificationAction(target: target, action: action, createdBy: createdBy)
+        default:
+            return "\(action.label)を保存したよ。自動DB反映がない種類だから、つくよみ学習に回した。"
+        }
+    }
+
+    private func applyMsProgressNotificationAction(
+        target: NotificationResponseTarget,
+        action: NotificationInboxAction,
+        createdBy: String?
+    ) async throws -> String {
+        struct Row: Decodable { let id: String }
+        let rows: [Row] = (try? await client.database
+            .from("ms_progress_revisions")
+            .select("id")
+            .eq("project_id", value: target.feedbackTargetId)
+            .eq("ym", value: target.feedbackScopeKey)
+            .eq("status", value: "pending")
+            .execute()
+            .value) ?? []
+        if rows.isEmpty { return "MS進捗の pending revision はなかったよ" }
+
+        if action == .yes {
+            for row in rows {
+                try await confirmMsRevision(revisionId: row.id, confirmedBy: createdBy ?? "ios")
+            }
+            return "MS進捗 revision \(rows.count)件を確定したよ"
+        } else {
+            for row in rows {
+                try await discardMsRevision(revisionId: row.id)
+            }
+            return "MS進捗 revision \(rows.count)件を破棄したよ"
+        }
+    }
+
+    private func applyRegistryDiffNotificationAction(
+        target: NotificationResponseTarget,
+        action: NotificationInboxAction,
+        comment: String,
+        createdBy: String?
+    ) async throws -> String {
+        struct UpdateRow: Encodable {
+            let status: String
+            let reviewed_by: String?
+            let review_comment: String?
+            let reviewed_at: String
+        }
+        struct IdRow: Decodable {
+            let diffId: String
+            enum CodingKeys: String, CodingKey { case diffId = "diff_id" }
+        }
+        let newStatus = action == .yes ? "accepted" : "rejected"
+        var query = try client.database
+            .from("project_registry_diffs")
+            .update(UpdateRow(
+                status: newStatus,
+                reviewed_by: createdBy,
+                review_comment: comment.isEmpty ? nil : comment,
+                reviewed_at: ISO8601DateFormatter().string(from: Date())
+            ))
+            .eq("project_id", value: target.feedbackTargetId)
+            .in("status", values: ["pending", "accepted"])
+        if target.feedbackScopeKey == "global" {
+            query = query.is("ym", value: nil)
+        } else {
+            query = query.eq("ym", value: target.feedbackScopeKey)
+        }
+        let rows: [IdRow] = try await query.select("diff_id").execute().value
+        return action == .yes
+            ? "OS台帳差分 \(rows.count)件を accepted にしたよ。安全な実反映はPWA/helper側の apply で続く。"
+            : "OS台帳差分 \(rows.count)件を rejected にしたよ"
+    }
+
+    private func applyXrlEvidenceNotificationAction(
+        target: NotificationResponseTarget,
+        action: NotificationInboxAction,
+        createdBy: String?
+    ) async throws -> String {
+        struct UpdateRow: Encodable {
+            let status: String
+            let confirmed_by: String?
+            let confirmed_at: String
+        }
+        struct IdRow: Decodable {
+            let evidenceId: String
+            enum CodingKeys: String, CodingKey { case evidenceId = "evidence_id" }
+        }
+        let newStatus = action == .yes ? "confirmed" : "rejected"
+        var query = try client.database
+            .from("project_xrl_evidence")
+            .update(UpdateRow(
+                status: newStatus,
+                confirmed_by: createdBy,
+                confirmed_at: ISO8601DateFormatter().string(from: Date())
+            ))
+            .eq("project_id", value: target.feedbackTargetId)
+            .eq("status", value: "candidate")
+        if target.feedbackScopeKey == "global" {
+            query = query.is("ym", value: nil)
+        } else {
+            query = query.eq("ym", value: target.feedbackScopeKey)
+        }
+        let rows: [IdRow] = try await query.select("evidence_id").execute().value
+        return action == .yes
+            ? "XRL根拠 \(rows.count)件を confirmed にしたよ"
+            : "XRL根拠 \(rows.count)件を rejected にしたよ"
+    }
+
+    private func insertNotificationLearning(
+        target: NotificationResponseTarget,
+        action: NotificationInboxAction,
+        comment: String,
+        applyMessage: String,
+        feedbackId: String,
+        createdBy: String?
+    ) async throws {
+        struct Row: Encodable {
+            let scope: String
+            let scope_key: String
+            let content: String
+            let source: String
+            let source_ref: String?
+            let created_by: String?
+        }
+        let content = [
+            "通知回答: \(action.label)",
+            "kind=\(target.feedbackKind)",
+            "target=\(target.feedbackTargetId)",
+            "scope=\(target.feedbackScopeKey)",
+            comment.isEmpty ? nil : "comment=\(comment)",
+            applyMessage.isEmpty ? nil : "result=\(applyMessage)",
+        ].compactMap { $0 }.joined(separator: "\n")
+        try await client.database
+            .from("tsukuyomi_learnings")
+            .insert(Row(
+                scope: "notification_response",
+                scope_key: "\(target.feedbackKind):\(target.feedbackTargetId)",
+                content: content,
+                source: "ios_notification_feedback",
+                source_ref: feedbackId.isEmpty ? nil : feedbackId,
+                created_by: createdBy
+            ))
+            .execute()
+    }
+
+    private func resolveNotificationActor(email: String?) async throws -> String? {
+        guard let email, !email.isEmpty else { return nil }
+        return try await fetchMyProfile(email: email)?.codeName ?? email
+    }
+
+    private func formatPct(_ value: Double?) -> String {
+        guard let value else { return "?" }
+        return value.truncatingRemainder(dividingBy: 1) == 0
+            ? "\(Int(value))%"
+            : String(format: "%.1f%%", value)
+    }
+
+    private func statusLabel(_ status: String) -> String {
+        switch status {
+        case "pending": return "確認待ち"
+        case "accepted": return "承認済"
+        case "applied": return "反映済"
+        case "confirmed": return "確定済"
+        case "discarded": return "破棄"
+        case "rejected": return "却下"
+        default: return status
+        }
+    }
+}
+
 private enum SupabaseError: Error {
     case authRequired
     case invalidURL
     case httpError(Int)
+}
+
+private struct NotificationReadUpdate: Encodable {
+    let notified_at: String
+}
+
+struct NotificationInboxData {
+    let items: [NotificationInboxItem]
+    let feedbacks: [NotificationFeedback]
+    let projectMap: [String: String]
+}
+
+struct NotificationInboxItem: Identifiable, Hashable {
+    let id: String
+    let kind: String
+    let notificationId: String?
+    let meetingId: String?
+    let l2Kind: String?
+    let targetId: String
+    let projectId: String?
+    let scopeKey: String
+    let title: String
+    let body: String
+    let countText: String?
+    let importance: Int
+    let sourceKinds: String?
+    let notifiedAt: String?
+    let createdAt: String
+
+    var isUnread: Bool { notifiedAt == nil }
+
+    var responseTarget: NotificationResponseTarget {
+        NotificationResponseTarget(
+            kind: kind,
+            l2Kind: l2Kind,
+            targetId: targetId,
+            scopeKey: scopeKey,
+            notificationId: notificationId,
+            meetingId: meetingId,
+            projectId: projectId
+        )!
+    }
+
+    func displayTarget(projectMap: [String: String]) -> String {
+        let pid = projectId ?? targetId
+        if let name = projectMap[pid] {
+            return scopeKey == "global" ? name : "\(name) / \(scopeKey)"
+        }
+        return scopeKey == "global" ? pid : "\(pid) / \(scopeKey)"
+    }
+}
+
+struct NotificationFeedback: Decodable, Identifiable, Hashable {
+    let feedbackId: String
+    let l2Kind: String
+    let targetId: String
+    let scopeKey: String
+    let notificationId: String?
+    let meetingId: String?
+    let feedbackText: String
+    let status: String
+    let createdBy: String?
+    let createdAt: String
+    let appliedCount: Int
+    let lastAppliedAt: String?
+
+    var id: String { feedbackId }
+
+    enum CodingKeys: String, CodingKey {
+        case feedbackId = "feedback_id"
+        case l2Kind = "l2_kind"
+        case targetId = "target_id"
+        case scopeKey = "scope_key"
+        case notificationId = "notification_id"
+        case meetingId = "meeting_id"
+        case feedbackText = "feedback_text"
+        case status
+        case createdBy = "created_by"
+        case createdAt = "created_at"
+        case appliedCount = "applied_count"
+        case lastAppliedAt = "last_applied_at"
+    }
+}
+
+struct NotificationDetailLine: Identifiable, Hashable {
+    let id = UUID().uuidString
+    let title: String
+    let body: String
+    let footnote: String?
+}
+
+struct NotificationResponseResult {
+    let feedbackId: String
+    let message: String
 }
 
 // MARK: - Models

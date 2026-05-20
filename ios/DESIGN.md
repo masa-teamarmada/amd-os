@@ -11,7 +11,7 @@
 > - えいみ（Win側 Android担当）が「これ知らない画面なんだけど…」となったら必ずここを参照する
 > - えいみがここを見て知らない画面があるならアラート → 即同期する
 >
-> 最終更新: 2026-04-28 (build 21 への更新)
+> 最終更新: 2026-05-20 (Swift 通知受信箱・回答導線を追加)
 
 ---
 
@@ -25,7 +25,7 @@
 | 認証 | Google Sign-In + Supabase Auth | `AMDOS/Features/Auth/` |
 | 業務ロジック (重い処理) | GAS WebApp + 各種 Edge Function | `supabase/functions/*` |
 
-主要 Supabase テーブル: `projects` / `project_members` / `members` / `billing_cycles` / `payout_notices` / `reimbursements` / `knowledge_sessions` / `ms_*` (マイルストーン) / `tsukuyomi_*` / `proposals` / `app_notifications` ほか。
+主要 Supabase テーブル: `projects` / `project_members` / `members` / `billing_cycles` / `payout_notices` / `reimbursements` / `knowledge_sessions` / `ms_*` (マイルストーン) / `tsukuyomi_*` / `proposals` / `app_notifications` / `l2_notifications` / `meeting_notifications` / `l2_feedbacks` ほか。
 
 ---
 
@@ -292,6 +292,33 @@ admin がアクション必要なものを集約する。
 |---|---|
 | `SettingsView` | バージョン情報、ログアウト、デバッグメニュー |
 | `PayoutInfoEditView` | 自分の住所・振込先を編集（支払通知書PDFに記載される） |
+| `NotificationInboxView` | L2/議事録通知の内容確認、関連データ確認、はい/いいえ/コメント回答 |
+
+#### 2.6.1 通知・つくよみ回答（NotificationInboxView）
+
+**目的**: Swift に届いた L2 通知・議事録通知を、PWA を開かずに iOS 内で確認し、`はい` / `いいえ` / コメントで返せるようにする。
+
+入口:
+- 設定タブ → 「通知・つくよみ回答」
+- ローカル通知タップ → `NotificationInboxView` を sheet 表示し、該当通知を展開
+- ローカル通知アクション → `はい` / `いいえ` / `コメント` を直接送信
+
+表示:
+- `l2_notifications` と `meeting_notifications` を作成日時降順で統合表示
+- フィルタ: `すべて` / `未読` / `回答あり`
+- カード展開で通知本文、関連データ、過去の回答・コメント、回答フォームを表示
+- 関連データは通知種別ごとに取得:
+  - `meeting_summary`: `project_meeting_summaries`
+  - `ms_progress`: `ms_progress_revisions` + `value_milestones`
+  - `project_registry_diff`: `project_registry_diffs`
+  - `xrl_evidence`: `project_xrl_evidence`
+
+回答:
+- `はい` / `いいえ` / `コメントだけ送る` は共通で `l2_feedbacks` に保存
+- `tsukuyomi_learnings` にも best-effort で回答履歴を残す
+- `ms_progress` の `はい` は pending revision を confirm、`いいえ` は discard
+- `project_registry_diff` の `はい` / `いいえ` は candidate diff を accepted / rejected に更新。ただし実DB反映は既存ルール通り helper/PWA 経由で行う
+- `xrl_evidence` の `はい` / `いいえ` は candidate evidence を confirmed / rejected に更新
 
 ---
 
