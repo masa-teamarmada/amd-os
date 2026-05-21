@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   fetchSeedList,
   fetchSeedInboxCount,
@@ -50,6 +51,9 @@ const COLUMNS: Column[] = [
 ];
 
 export default function SeedsListPage() {
+  const pathname = usePathname();
+  const seedsBase = pathname.startsWith("/hud/") ? "/hud/seeds" : "/seeds";
+  const atlasBase = pathname.startsWith("/hud/") ? "/hud/atlas" : "/atlas";
   const [items, setItems] = useState<SeedListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
@@ -138,7 +142,13 @@ export default function SeedsListPage() {
         </div>
         <div className="flex gap-2 shrink-0">
           <Link
-            href="/seeds/inbox"
+            href={`${atlasBase}/macrotrends`}
+            className="text-xs px-3 py-1.5 rounded border border-cyan-500/40 text-cyan-700 hover:bg-cyan-500/10 transition-colors font-mono"
+          >
+            Macrotrend別 →
+          </Link>
+          <Link
+            href={`${seedsBase}/inbox`}
             className="relative text-xs px-3 py-1.5 rounded border border-sky-500/40 text-sky-700 hover:bg-sky-500/10 transition-colors font-mono"
           >
             受信箱 →

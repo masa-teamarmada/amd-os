@@ -57,6 +57,7 @@ export default function DashboardPage() {
 
 // 通知センターへの導線バナー (= ダッシュボード先頭に常設)
 function NotificationsBanner() {
+  const [canView, setCanView] = useState<boolean | null>(null);
   const [unread, setUnread] = useState<number | null>(null);
   const [recentTitles, setRecentTitles] = useState<string[]>([]);
 
@@ -64,15 +65,31 @@ function NotificationsBanner() {
     const load = async () => {
       try {
         const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const email = user?.email?.toLowerCase() || "";
+        if (!email) {
+          setCanView(false);
+          return;
+        }
+        const { data: member } = await supabase
+          .from("members")
+          .select("is_admin")
+          .eq("email", email)
+          .maybeSingle();
+        if (!member?.is_admin) {
+          setCanView(false);
+          return;
+        }
+        setCanView(true);
         const [l2Res, mtgRes, recentL2Res] = await Promise.all([
           supabase
             .from("l2_notifications")
             .select("notification_id", { count: "exact", head: true })
-            .is("notified_at", null),
+            .is("read_at", null),
           supabase
             .from("meeting_notifications")
             .select("meeting_id", { count: "exact", head: true })
-            .is("notified_at", null),
+            .is("read_at", null),
           supabase
             .from("l2_notifications")
             .select("title")
@@ -82,11 +99,14 @@ function NotificationsBanner() {
         setUnread((l2Res.count ?? 0) + (mtgRes.count ?? 0));
         setRecentTitles(((recentL2Res.data ?? []) as { title: string }[]).map((r) => r.title));
       } catch {
+        setCanView(false);
         setUnread(0);
       }
     };
     load();
   }, []);
+
+  if (!canView) return null;
 
   return (
     <Link

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   fetchVcList,
   formatJpy,
@@ -58,6 +59,8 @@ const COLUMNS: Column[] = [
 ];
 
 export default function VcListPage() {
+  const pathname = usePathname();
+  const vcsBase = pathname.startsWith("/hud/") ? "/hud/vcs" : "/vcs";
   const [items, setItems] = useState<VcListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("amd_pj_total");
@@ -118,8 +121,8 @@ export default function VcListPage() {
           </p>
         </div>
         <Link
-          href="/vcs/inbox"
-          className="text-xs px-3 py-1.5 rounded border border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10 transition-colors font-mono"
+          href={`${vcsBase}/inbox`}
+          className="text-xs px-3 py-1.5 rounded border border-emerald-300/45 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/18 transition-colors font-mono"
         >
           ニュース受信箱 →
         </Link>
@@ -236,10 +239,10 @@ function Row({ v, onSelect }: { v: VcListItem; onSelect: () => void }) {
             <span
               className={`text-[9px] px-1 py-0.5 rounded ${
                 af.status === "raising"
-                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                  ? "border border-emerald-300/40 bg-emerald-300/12 text-emerald-100"
                   : af.status === "investing" || af.status === "first_closed" || af.status === "final_closed"
-                  ? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                  : "bg-muted text-muted-foreground"
+                  ? "border border-sky-300/40 bg-sky-300/12 text-sky-100"
+                  : "border border-slate-500/45 bg-slate-700/25 text-slate-300"
               }`}
             >
               {FUND_STATUS_LABEL[af.status] ?? af.status}
@@ -277,11 +280,11 @@ function Row({ v, onSelect }: { v: VcListItem; onSelect: () => void }) {
             {v.amd_pj_investments.map((p) => (
               <span
                 key={p.project_id}
-                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30"
+                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-cyan-300/45 bg-cyan-300/12 text-cyan-50 shadow-[0_0_12px_rgba(34,211,238,0.12)]"
               >
                 <span className="font-medium">{p.project_name}</span>
                 {p.amount_jpy != null && (
-                  <span className="text-primary/70">{formatJpy(p.amount_jpy)}</span>
+                  <span className="text-cyan-100/70">{formatJpy(p.amount_jpy)}</span>
                 )}
               </span>
             ))}
@@ -303,12 +306,12 @@ function Row({ v, onSelect }: { v: VcListItem; onSelect: () => void }) {
             {v.amd_pj_contacts.map((c) => {
               const statusColor =
                 c.status === "term_sheet" || c.status === "dd"
-                  ? "bg-blue-500/15 text-blue-700 border-blue-500/30 dark:text-blue-300"
+                  ? "bg-sky-300/12 text-sky-100 border-sky-300/40"
                   : c.status === "evaluating" || c.status === "pitching"
-                  ? "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300"
+                  ? "bg-amber-300/12 text-amber-100 border-amber-300/40"
                   : c.status === "passed" || c.status === "declined"
-                  ? "bg-muted text-muted-foreground border-border"
-                  : "bg-muted text-muted-foreground border-border";
+                  ? "bg-slate-700/25 text-slate-300 border-slate-500/35"
+                  : "bg-cyan-300/10 text-cyan-100 border-cyan-300/35";
               return (
                 <span
                   key={c.project_id}

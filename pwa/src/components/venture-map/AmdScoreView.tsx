@@ -17,18 +17,23 @@
  */
 
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Tex } from "@/components/venture-map/Tex";
 import {
   AXIS_COLOR,
   AXIS_LABEL_JP,
   // PHASE_COLOR / PHASE_LABEL_JP は使用しない (検証データ蓄積後に復活検討、2026-05-09)
-  calculateAmdScore,
-  logScaleNormalize,
   type AlphaWeights,
   type AmdScoreAxis,
+  type AmdScoreResult,
 } from "@/lib/amd-score";
-import type { AmdScoreInputRow } from "@/lib/amd-score-data";
+import { fetchActiveAlpha, fetchAmdScoreInputs, type AmdScoreInputRow } from "@/lib/amd-score-data";
+import {
+  breakdownFromResult,
+  buildAaaScoreInputsFromSx,
+  computeAmdScoreSeries,
+  latestVisibleScorableScoreInput,
+} from "@/lib/amd-score-derived";
 import type { VentureRow, XrlLogRow } from "@/lib/venture-map-data";
 import type { AtlasMacroSignals } from "@/lib/atlas-macro-signals";
 import type { TripleHelixComputed } from "@/lib/triple-helix-observations";
@@ -209,98 +214,76 @@ export function AmdScoreView({
   atlasMacroSignals = null,
   tripleHelix = null,
 }: Props) {
-  // α は表示のみ (編集は retrofit ページへ移設)
-  const alpha = initialAlpha;
-  // 「最新」は今日以前の評価で最新を選ぶ (未来 retrofit 予想値を表示しないため)
-  const today = new Date().toISOString().slice(0, 10);
-  const latest = (() => {
-    for (let i = inputs.length - 1; i >= 0; i--) {
-      if (inputs[i].evaluated_at.slice(0, 10) <= today) return inputs[i];
-    }
-    return null;
-  })();
+  const [alpha, setAlpha] = useState(initialAlpha);
+  const [scoreInputs, setScoreInputs] = useState(inputs);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { alpha: activeAlpha } = await fetchActiveAlpha();
+      if (cancelled) return;
+      setAlpha(activeAlpha);
+      if (venture.project_id === "p99") {
+        const sxInputs = await fetchAmdScoreInputs("p21");
+        if (!cancelled) setScoreInputs(buildAaaScoreInputsFromSx(sxInputs, activeAlpha));
+      } else {
+        const latestInputs = await fetchAmdScoreInputs(venture.project_id);
+        if (!cancelled) setScoreInputs(latestInputs);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialAlpha, inputs, venture.project_id]);
+
+  // 「最新」は今日以前かつスコア算定可能な評価で最新を選ぶ。
+  // スコアと M/X/F 表示が別行を参照すると、未解析に見えるため同じ行へ固定する。
+  const latest = latestVisibleScorableScoreInput(scoreInputs);
   // editable は表示用に latest から固定 (setEditable しない、Tsukuyomi が DB を更新したら window reload で反映)
   const editable: EditableInput = latest ? rowToEditable(latest) : emptyEditable();
-  const effectiveFrl = editable.alq_auto_derive_frl
-    ? deriveFrl(editable) ?? editable.frl
-    : editable.frl;
-
-  const result = useMemo(() => {
-    return calculateAmdScore(
-      {
-        mu_A: editable.mu_A,
-        mu_I: editable.mu_I,
-        mu_G: editable.mu_G,
-        TRL: editable.shallow_tech_mode ? null : editable.trl ?? 0,
-        BRL: editable.brl,
-        GRL: editable.grl,
-        SRL: editable.srl,
-        HRL: editable.hrl,
-        FRL: effectiveFrl,
-      },
-      alpha
-    );
-  }, [editable, alpha, effectiveFrl]);
+  const effectiveFrl = editable.frl;
 
   // ---- 経時データ ----
   const series = useMemo(() => {
-    return inputs
-      .filter((r) => r.mu_A != null && r.mu_I != null && r.mu_G != null)
-      .map((r) => {
-        const calc = calculateAmdScore(
-          {
-            mu_A: r.mu_A ?? 0,
-            mu_I: r.mu_I ?? 0,
-            mu_G: r.mu_G ?? 0,
-            TRL: r.shallow_tech_mode ? null : r.trl ?? 0,
-            BRL: r.brl ?? 0,
-            GRL: r.grl ?? 0,
-            SRL: r.srl ?? 0,
-            HRL: r.hrl ?? 0,
-            FRL: r.frl ?? 0,
-          },
-          alpha
-        );
-        // 各プロットの M / X / F 内訳 (popup 用)
-        const xrlAxes: AmdScoreAxis[] = ["TRL", "BRL", "GRL", "SRL", "HRL"];
-        const M = calc.contributions.sigma_SU ?? 1;
-        let X = 1;
-        for (const a of xrlAxes) {
-          if (a === "TRL" && calc.shallowTechMode) continue;
-          X *= calc.contributions[a] ?? 1;
-        }
-        const F = calc.contributions.FRL ?? 1;
-        return {
-          id: r.id,
-          evaluated_at: r.evaluated_at.slice(0, 10),
-          score: calc.score,
-          breakdown: { M, X, F, sigma_su: calc.sigma_SU, K: calc.K, bottleneck: calc.bottleneck },
-        };
-      });
-  }, [inputs, alpha]);
+    return computeAmdScoreSeries(scoreInputs, alpha);
+  }, [scoreInputs, alpha]);
+  const latestPoint = series.find((point) => point.id === latest?.id) ?? series[series.length - 1] ?? null;
+  const result = latestPoint?.result;
+  const latestBreakdown = result ? breakdownFromResult(result) : null;
+
+  if (!result || !latestBreakdown) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-slate-950 px-5 text-center text-cyan-50">
+        <div className="border border-cyan-300/30 bg-cyan-300/8 p-5 font-mono text-sm font-black uppercase tracking-[0.12em]">
+          NO AMD SCORE DATA
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] px-4 py-6">
-      <div className="flex items-baseline gap-3 mb-4 flex-wrap">
-        <Link href="/venture-map/amd-score" className="text-xs text-cyan-700 hover:underline">← AMD Score 一覧</Link>
+    <div className="amd-score-hud min-h-screen px-4 py-6 text-cyan-50">
+      <div className="mx-auto w-full max-w-[1240px]">
+      <div className="mb-4 flex flex-wrap items-center gap-3 border border-cyan-300/30 bg-slate-950/78 px-4 py-3 shadow-[0_0_36px_rgba(34,211,238,0.12)]">
+        <Link href="/venture-map/amd-score" className="text-xs font-black tracking-[0.12em] text-cyan-100 hover:text-white">← SCORE INDEX</Link>
         <Link
-          href={`/project/${venture.project_id}/cockpit`}
-          className="text-xs text-cyan-700 hover:underline"
+          href={venture.project_id === "p99" ? `/hud/project/${venture.project_id}/cockpit` : `/project/${venture.project_id}/cockpit`}
+          className="text-xs font-black tracking-[0.08em] text-cyan-100/70 hover:text-white"
         >
-          ↩ {venture.display_name} のコックピットに戻る
+          ↩ COCKPIT
         </Link>
-        <h1 className="text-xl font-semibold ml-2">{venture.display_name}</h1>
-        <span className="text-xs text-muted-foreground">AMD Score</span>
+        <h1 className="ml-2 text-3xl font-black uppercase tracking-[0.08em] text-white drop-shadow-[0_0_18px_rgba(103,232,249,0.45)]">{venture.display_name}</h1>
+        <span className="text-xs font-black tracking-[0.18em] text-cyan-100/56">AMD SCORE SIGNAL CORE</span>
         <Link
           href="/venture-map/amd-score/retrofit"
-          className="ml-auto text-[11px] px-3 py-1 rounded bg-slate-900 text-white hover:bg-slate-800"
+          className="ml-auto border border-pink-300/36 bg-pink-400/10 px-3 py-1 text-[11px] font-black tracking-[0.08em] text-pink-100 hover:bg-pink-400/16"
         >
-          α 重みを retrofit で調整 →
+          α RETROFIT →
         </Link>
       </div>
 
-      <div className="text-[10.5px] text-slate-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4 leading-relaxed">
-        💬 値の修正は <strong>Tsukuyomi 経由</strong>。各軸の値や根拠をクリックすると、その軸についてつくよみに話しかけられる
+      <div className="mb-4 border border-amber-300/32 bg-amber-300/10 px-3 py-2 text-[11px] font-semibold leading-relaxed text-amber-100">
+        値の修正は <strong>Tsukuyomi 経由</strong>。各軸の値や根拠をクリックすると、その軸についてつくよみに話しかけられる
         (例: 「論文 N 件しかないから μ_A は 5 にして」など)。スライダーぽちぽち入力 UI は廃止 (まさ判断 2026-05-09)。
       </div>
 
@@ -310,27 +293,19 @@ export function AmdScoreView({
              AmdScoreView 初版 09dce20 から TimeSeriesChart は Factor3Breakdown の下にあったが、
              UX 的には大スコアの直後に経時を見せて流れを掴ませる方が自然。) */}
         <ScoreHeroCard result={result} venture={venture} />
-        <TimeSeriesChart
-          series={series}
-          latest={editable.evaluated_at}
-          latestScore={result.score}
-          latestBreakdown={(() => {
-            const xrlAxes: AmdScoreAxis[] = ["TRL", "BRL", "GRL", "SRL", "HRL"];
-            const Mc = result.contributions.sigma_SU ?? 1;
-            let Xc = 1;
-            for (const a of xrlAxes) {
-              if (a === "TRL" && result.shallowTechMode) continue;
-              Xc *= result.contributions[a] ?? 1;
-            }
-            const Fc = result.contributions.FRL ?? 1;
-            return { M: Mc, X: Xc, F: Fc, sigma_su: result.sigma_SU, K: result.K, bottleneck: result.bottleneck };
-          })()}
-          amdSupport={{
-            startedAt: venture.amd_support_started_at ?? null,
-            endedAt: venture.amd_support_ended_at ?? null,
-          }}
-        />
-        <BalanceBar result={result} alpha={alpha} />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <TimeSeriesChart
+            series={series}
+            latest={editable.evaluated_at}
+            latestScore={result.score}
+            latestBreakdown={latestBreakdown}
+            amdSupport={{
+              startedAt: venture.amd_support_started_at ?? null,
+              endedAt: venture.amd_support_ended_at ?? null,
+            }}
+          />
+          <BalanceBar result={result} alpha={alpha} />
+        </div>
         <AmdScoreFormulaPanel alpha={alpha} />
         <Factor3Breakdown
           result={result}
@@ -343,6 +318,65 @@ export function AmdScoreView({
         />
         <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.display_name} />
       </div>
+      </div>
+      <style jsx global>{`
+        .amd-score-hud {
+          background:
+            radial-gradient(circle at 18% 0%, rgba(34, 211, 238, 0.18), transparent 32%),
+            radial-gradient(circle at 88% 8%, rgba(244, 114, 182, 0.12), transparent 30%),
+            linear-gradient(180deg, rgba(103, 232, 249, 0.055) 0, transparent 1px, transparent 13px),
+            linear-gradient(90deg, rgba(103, 232, 249, 0.035) 0, transparent 1px, transparent 127px),
+            #020817;
+          background-size: 100% 100%, 100% 100%, 100% 14px, 128px 100%, auto;
+          font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .amd-score-hud .bg-white,
+        .amd-score-hud [class*="bg-white"],
+        .amd-score-hud [class*="bg-slate-50"],
+        .amd-score-hud [class*="bg-violet-50"],
+        .amd-score-hud [class*="bg-cyan-50"] {
+          background-color: rgba(2, 8, 23, 0.78) !important;
+        }
+        .amd-score-hud [class*="bg-amber-50"] {
+          background-color: rgba(120, 53, 15, 0.20) !important;
+        }
+        .amd-score-hud [class*="rounded-xl"],
+        .amd-score-hud [class*="rounded-lg"],
+        .amd-score-hud [class*="rounded-md"],
+        .amd-score-hud [class*="rounded "] {
+          border-radius: 0 !important;
+        }
+        .amd-score-hud [class*="border"] {
+          border-color: rgba(103, 232, 249, 0.26) !important;
+        }
+        .amd-score-hud .text-muted-foreground,
+        .amd-score-hud [class*="text-muted"],
+        .amd-score-hud [class*="text-slate"],
+        .amd-score-hud [class*="text-[#86868b]"] {
+          color: rgba(186, 230, 253, 0.68) !important;
+        }
+        .amd-score-hud h1,
+        .amd-score-hud h2,
+        .amd-score-hud h3,
+        .amd-score-hud [class*="font-semibold"],
+        .amd-score-hud [class*="font-bold"] {
+          color: rgba(236, 254, 255, 0.98) !important;
+        }
+        .amd-score-hud svg text {
+          font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .amd-score-hud input,
+        .amd-score-hud textarea,
+        .amd-score-hud select {
+          background: rgba(2, 8, 23, 0.84) !important;
+          color: rgba(236, 254, 255, 0.94) !important;
+          border-color: rgba(103, 232, 249, 0.34) !important;
+        }
+        .amd-score-hud button,
+        .amd-score-hud a {
+          border-radius: 0 !important;
+        }
+      `}</style>
     </div>
   );
 }
@@ -354,7 +388,7 @@ function ScoreHeroCard({
   result,
   venture,
 }: {
-  result: ReturnType<typeof calculateAmdScore>;
+  result: AmdScoreResult;
   venture: VentureRow;
 }) {
   // bar 範囲 = log10(1000) 〜 log10(50,000) (まさ判断 2026-05-10):
@@ -366,15 +400,14 @@ function ScoreHeroCard({
     const v = Math.log10(Math.max(1, result.score));
     return Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
   })();
-  // フェーズタブは検証データ蓄積後に復活検討のため非表示 (2026-05-09)。
-  // スコア数値・bar は中立色 (slate-900) で固定表示。
-  const scoreColor = "#0f172a";
+  const scoreColor = "#67e8f9";
   return (
-    <div className="border border-[#e5e5e7] rounded-xl p-5 bg-white">
+    <div className="relative overflow-hidden border border-cyan-300/36 bg-slate-950/82 p-5 shadow-[0_0_42px_rgba(34,211,238,0.16),inset_0_0_34px_rgba(34,211,238,0.08)]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-cyan-200/70 shadow-[0_0_18px_rgba(103,232,249,0.9)]" />
       <div className="flex items-baseline justify-between gap-4 mb-3">
         <div>
-          <div className="text-[11px] text-muted-foreground">AMD Score</div>
-          <div className="text-4xl font-mono font-bold" style={{ color: scoreColor }}>
+          <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100/62">AMD Score</div>
+          <div className="font-mono text-5xl font-black leading-none drop-shadow-[0_0_20px_rgba(103,232,249,0.58)]" style={{ color: scoreColor }}>
             {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
           </div>
         </div>
@@ -389,9 +422,9 @@ function ScoreHeroCard({
       </div>
 
       {/* log scale バー (1k-50k focus、< 1k と > 50k は飽和) */}
-      <div className="relative h-2 bg-slate-200 rounded-full overflow-hidden">
+      <div className="relative h-2 overflow-hidden border border-cyan-300/24 bg-slate-950">
         <div
-          className="h-full"
+          className="h-full shadow-[0_0_14px_rgba(103,232,249,0.8)]"
           style={{ width: `${norm * 100}%`, backgroundColor: scoreColor, transition: "width 200ms" }}
         />
         {/* 設立 GO 閾値 (3,500) のマーカー */}
@@ -401,7 +434,7 @@ function ScoreHeroCard({
           const goPct = ((Math.log10(3500) - lo) / (hi - lo)) * 100;
           return (
             <div
-              className="absolute top-[-2px] h-3 w-px bg-amber-500"
+              className="absolute top-[-2px] h-3 w-px bg-pink-300 shadow-[0_0_10px_rgba(244,114,182,0.8)]"
               style={{ left: `${goPct}%` }}
               title="設立 GO 閾値 = 3,500"
             />
@@ -436,15 +469,15 @@ function ScoreHeroCard({
 //   M_max = 10^α_σ          (≈ 19.95 default)
 //   X_max = 10^Σα_X         (≈ 1585 default、5 軸の積)
 //   F_max = 10^α_F          (≈ 31.62 default)
-// 軸値は 0-9 にクリップされてるので 100% を超えることは無い。
-// 寄与度シェアと違って各要素を独立に「埋まり具合」で見るため、
-// α が大きい軸が常に大きく見える歪みは出ない。
+// M は外部環境の合成寄与なので、理論上の「最大値」を置かない。
+// UI 上のバー幅は raw contribution を読むための表示スケールであり、
+// M/X/F の数値自体は AmdScore 詳細ページと同じ実データをそのまま出す。
 //
 function BalanceBar({
   result,
   alpha,
 }: {
-  result: ReturnType<typeof calculateAmdScore>;
+  result: AmdScoreResult;
   alpha: AlphaWeights;
 }) {
   const M = result.contributions.sigma_SU ?? 1;
@@ -454,41 +487,59 @@ function BalanceBar({
     X *= result.contributions[a] ?? 1;
   }
   const F = result.contributions.FRL ?? 1;
-  const Mmax = Math.pow(10, alpha.sigma_SU);
   const xrlAxes: AmdScoreAxis[] = ["TRL", "BRL", "GRL", "SRL", "HRL"];
   const Xalpha = xrlAxes
     .filter((a) => !(a === "TRL" && result.shallowTechMode))
     .reduce((s, a) => s + alpha[a], 0);
   const Xmax = Math.pow(10, Xalpha);
   const Fmax = Math.pow(10, alpha.FRL);
+  const Mscale = Math.max(20, Math.ceil((M * 1.25) / 5) * 5);
 
   return (
-    <div className="border border-[#e5e5e7] rounded-xl p-4 bg-white">
-      <div className="flex items-baseline justify-between mb-2">
-        <div className="text-[12px] font-semibold">3 要素のバランス</div>
-        <div className="text-[10px] text-muted-foreground">
-          各要素を「全軸 9 (= IPO 級) max」に対する達成率で表示
+    <div className="relative h-full min-h-[278px] overflow-hidden border border-cyan-300/34 bg-slate-950/88 p-3 shadow-[0_0_34px_rgba(34,211,238,0.16),inset_0_0_38px_rgba(34,211,238,0.09)]">
+      <div className="pointer-events-none absolute inset-0 opacity-75">
+        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(103,232,249,.16)_1px,transparent_1.7px)] bg-[size:13px_13px]" />
+        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 340 278" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M5 7H308L336 35V270H24L5 247Z" fill="none" stroke="rgba(103,232,249,.42)" strokeWidth="1" />
+          <path d="M18 24h80M205 22h34M253 22h42M22 254h86M214 254h72" stroke="rgba(103,232,249,.58)" strokeWidth="2" />
+          <path d="M143 22h8M160 22h28M198 22h7M126 254h8M143 254h28M181 254h8" stroke="rgba(244,114,182,.64)" strokeWidth="1.8" />
+          <path d="M316 35h18M24 270v-18" stroke="rgba(103,232,249,.34)" strokeWidth="1" />
+        </svg>
+      </div>
+      <div className="relative mb-3 flex items-start justify-between gap-2 border-b border-cyan-300/20 pb-2">
+        <div>
+          <div className="text-[13px] font-black uppercase tracking-[0.18em] text-cyan-100 drop-shadow-[0_0_12px_rgba(103,232,249,.7)]">M/X/F Signal Stack</div>
+          <div className="mt-1 text-[9px] font-black uppercase tracking-[0.1em] text-cyan-100/50">raw contribution telemetry</div>
+        </div>
+        <div className="border border-pink-300/34 bg-pink-400/8 px-2 py-1 text-right font-mono text-[10px] font-black text-pink-200 shadow-[0_0_16px_rgba(244,114,182,.16)]">
+          LIVE
         </div>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="relative flex flex-col gap-2">
         <BalanceBarRow
-          label="M (マクロ)"
+          label="M (Macrotrend)"
+          axis="M"
           value={M}
-          max={Mmax}
+          scale={Mscale}
+          scaleLabel="RAW"
           color={AXIS_COLOR.sigma_SU}
           bottleneck={result.bottleneck === "sigma_SU"}
         />
         <BalanceBarRow
-          label="X (会社の XRL)"
+          label="X (XRL)"
+          axis="X"
           value={X}
-          max={Xmax}
+          scale={Xmax}
+          scaleLabel="MAX"
           color={AXIS_COLOR.TRL}
           bottleneck={(["TRL", "BRL", "GRL", "SRL", "HRL"] as AmdScoreAxis[]).includes(result.bottleneck)}
         />
         <BalanceBarRow
-          label="F (CEO の FRL)"
+          label="F (FRL)"
+          axis="F"
           value={F}
-          max={Fmax}
+          scale={Fmax}
+          scaleLabel="MAX"
           color={AXIS_COLOR.FRL}
           bottleneck={result.bottleneck === "FRL"}
         />
@@ -499,34 +550,100 @@ function BalanceBar({
 
 function BalanceBarRow({
   label,
+  axis,
   value,
-  max,
+  scale,
+  scaleLabel,
   color,
   bottleneck,
 }: {
   label: string;
+  axis: "M" | "X" | "F";
   value: number;
-  max: number;
+  scale: number;
+  scaleLabel: "RAW" | "MAX";
   color: string;
   bottleneck: boolean;
 }) {
-  const pct = Math.min(1, value / max);
+  const pct = Math.min(1, value / Math.max(scale, 1));
+  const percent = Math.round(pct * 100);
+  const displayValue = value < 100 ? value.toFixed(2) : Math.round(value).toLocaleString();
+  const displayScale = scale < 100 ? scale.toFixed(2) : Math.round(scale).toLocaleString();
+  const lit = Math.max(1, Math.round(pct * 18));
   return (
-    <div className="grid grid-cols-[140px_1fr_180px] gap-3 items-center">
-      <div className="text-[11px]" style={{ color }}>
-        {label}
-        {bottleneck && <span className="ml-1 text-[9px] text-red-600 font-semibold">律速</span>}
-      </div>
-      <div className="relative h-4 bg-slate-100 rounded overflow-hidden">
+    <div className="relative min-h-[67px] overflow-hidden px-3 py-2">
+      <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 320 67" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <filter id={`bar-glow-${axis}`}>
+            <feGaussianBlur stdDeviation="2.1" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <path d="M8 8H286L314 23V60H19L8 49Z" fill="rgba(2,8,23,.56)" stroke={bottleneck ? "rgba(244,114,182,.88)" : "rgba(103,232,249,.48)"} strokeWidth="1" />
+        <path d="M20 14h54M99 14h82M224 14h40M282 14h16M20 56h72M206 56h56" stroke={color} strokeWidth="1.7" opacity=".74" filter={`url(#bar-glow-${axis})`} />
+        <path d="M86 16V52M215 16V52" stroke="rgba(103,232,249,.22)" strokeWidth=".8" />
+        <g fill={bottleneck ? "#ff5f7e" : color} opacity=".92">
+          {Array.from({ length: 10 }, (_, i) => (
+            <polygon key={`balance-hatch-${axis}-${i}`} points={`${106 + i * 9},50 ${112 + i * 9},50 ${108 + i * 9},56 ${102 + i * 9},56`} />
+          ))}
+        </g>
+        {Array.from({ length: 18 }, (_, i) => (
+          <path
+            key={`balance-top-tick-${axis}-${i}`}
+            d={`M${102 + i * 9} 21v${i % 3 === 0 ? 14 : 8}`}
+            stroke={i % 5 === 0 ? color : "rgba(103,232,249,.28)"}
+            strokeWidth={i % 3 === 0 ? "1" : ".55"}
+          />
+        ))}
+      </svg>
+      <div className="relative grid grid-cols-[50px_1fr_62px] items-center gap-3">
         <div
-          className="h-full rounded"
-          style={{ width: `${pct * 100}%`, backgroundColor: color, transition: "width 200ms" }}
-        />
-      </div>
-      <div className="text-right text-[10px] font-mono text-muted-foreground">
-        {value < 100 ? value.toFixed(2) : Math.round(value).toLocaleString()} /{" "}
-        {max < 100 ? max.toFixed(2) : Math.round(max).toLocaleString()} (
-        {(pct * 100).toFixed(0)}%)
+          className="grid h-[44px] place-items-center border bg-slate-950/92 font-mono text-[27px] font-black leading-none shadow-[inset_0_0_16px_rgba(103,232,249,.12)] [clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%)]"
+          style={{ borderColor: color, color, textShadow: `0 0 14px ${color}` }}
+        >
+          <span>{axis}</span>
+        </div>
+        <div className="min-w-0">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <div className="truncate text-[11px] font-black uppercase tracking-[0.1em]" style={{ color, textShadow: `0 0 9px ${color}` }}>
+              {label}
+            </div>
+            {bottleneck && <div className="text-[8px] font-black uppercase tracking-[0.14em] text-pink-200 drop-shadow-[0_0_9px_rgba(244,114,182,.8)]">limit</div>}
+          </div>
+          <div className="relative grid grid-cols-[repeat(18,minmax(0,1fr))] gap-[3px]">
+            {Array.from({ length: 18 }, (_, i) => (
+              <span
+                key={`signal-cell-${axis}-${i}`}
+                className="h-[18px] border border-cyan-300/18 bg-slate-950/72 [clip-path:polygon(18%_0,100%_0,82%_100%,0_100%)]"
+                style={{
+                  backgroundColor: i < lit ? color : "rgba(2,8,23,.72)",
+                  boxShadow: i < lit ? `0 0 10px ${color}` : "none",
+                  opacity: i < lit ? 0.82 : 0.42,
+                }}
+              />
+            ))}
+            <span
+              className="pointer-events-none absolute top-[-3px] h-[24px] w-px"
+              style={{ left: `${pct * 100}%`, background: color, boxShadow: `0 0 10px ${color}` }}
+            />
+          </div>
+          <div className="mt-1 grid grid-cols-3 text-[8px] font-black uppercase tracking-[0.08em] text-cyan-100/42">
+            <span>00</span>
+            <span className="text-center">50</span>
+            <span className="text-right">{scaleLabel}</span>
+          </div>
+        </div>
+        <div className="text-right font-mono">
+        <div className="text-[23px] font-black leading-none" style={{ color, textShadow: `0 0 16px ${color}` }}>
+          {percent}%
+        </div>
+        <div className="mt-1 text-[8px] font-black uppercase leading-tight tracking-[0.05em] text-cyan-100/56">
+          {displayValue}<br />{axis === "M" ? "raw value" : `/ ${displayScale}`}
+        </div>
+        </div>
       </div>
     </div>
   );
@@ -545,8 +662,8 @@ function _DeletedFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
   return (
     <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 leading-relaxed flex flex-col gap-3">
       <div>
-        Before Zero Theory v3.2 — <strong>マクロ M</strong> × <strong>会社の XRL X</strong> ×{" "}
-        <strong>CEO の FRL F</strong> の 3 大要素を Cobb-Douglas で統合。
+        Before Zero Theory v3.2 — <strong>Macrotrend M</strong> × <strong>XRL X</strong> ×{" "}
+        <strong>FRL F</strong> の 3 大要素を Cobb-Douglas で統合。
         <br />
         マクロトレンドの流れがあって、会社の XRL が整っていて、それを FRL 高い CEO が牽引する。
       </div>
@@ -562,7 +679,7 @@ function _DeletedFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       </div>
       <div className="bg-white rounded px-3 py-2 overflow-x-auto">
         <div className="text-[10px] text-muted-foreground mb-1">
-          ① マクロ M (外部環境 / Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
+          ① M = Macrotrend (外部環境 / Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
         </div>
         <Tex
           display
@@ -575,7 +692,7 @@ function _DeletedFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       </div>
       <div className="bg-white rounded px-3 py-2 overflow-x-auto">
         <div className="text-[10px] text-muted-foreground mb-1">
-          ② 会社の XRL X (会社に帰属する 5 軸 readiness、内閣府 SIP 互換)
+          ② X = XRL (会社に帰属する 5 軸 readiness、内閣府 SIP 互換)
         </div>
         <Tex
           display
@@ -596,7 +713,7 @@ function _DeletedFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       </div>
       <div className="bg-white rounded px-3 py-2 overflow-x-auto">
         <div className="text-[10px] text-muted-foreground mb-1">
-          ③ CEO の FRL F (個人に帰属する CEO リーダーシップ / 6 因子 = ALQ 4 + Grit + Resilience)
+          ③ F = FRL (CEO / founder readiness、6 因子 = ALQ 4 + Grit + Resilience)
         </div>
         <Tex display tex={String.raw`F \;=\; (\mathrm{FRL}+1)^{\alpha_F}, \quad \mathrm{FRL} \;=\; 0.6 \cdot \overline{\mathrm{ALQ}_4} + 0.2 \cdot \mathrm{Grit} + 0.2 \cdot \mathrm{Resilience}`} />
         <div className="text-[9px] text-muted-foreground mt-1 space-y-0.5">
@@ -677,7 +794,7 @@ function Factor3Breakdown({
   atlasMacroSignals: _atlasMacroSignals,
   tripleHelix,
 }: {
-  result: ReturnType<typeof calculateAmdScore>;
+  result: AmdScoreResult;
   alpha: AlphaWeights;
   editable: EditableInput;
   ventureName: string;
@@ -711,7 +828,7 @@ function Factor3Breakdown({
     <div className="flex flex-col gap-3">
       <DetailFactorCard
         label="M"
-        ja="マクロ"
+        ja="Macrotrend"
         sub="外部環境 / Triple Helix 観測モデル"
         value={M}
         color={AXIS_COLOR.sigma_SU}
@@ -758,7 +875,7 @@ function Factor3Breakdown({
 
       <DetailFactorCard
         label="X"
-        ja="会社の XRL"
+        ja="XRL"
         sub="会社に帰属する 5 軸 readiness"
         value={X}
         color={AXIS_COLOR.TRL}
@@ -828,7 +945,7 @@ function Factor3Breakdown({
 
       <DetailFactorCard
         label="F"
-        ja="CEO の FRL"
+        ja="FRL"
         sub="個人に帰属 / ALQ + Grit + Resilience"
         value={F}
         color={AXIS_COLOR.FRL}
@@ -874,10 +991,10 @@ function DetailFactorCard({
 }) {
   return (
     <div
-      className="border rounded-xl p-4 bg-white"
+      className="border p-4 shadow-[0_0_28px_rgba(34,211,238,0.12),inset_0_0_28px_rgba(34,211,238,0.06)]"
       style={{
-        borderColor: bottleneck ? "#fca5a5" : "#e5e5e7",
-        backgroundColor: bottleneck ? "#fef2f2" : "#ffffff",
+        borderColor: bottleneck ? "rgba(244,114,182,0.62)" : "rgba(103,232,249,0.32)",
+        backgroundColor: bottleneck ? "rgba(80, 7, 36, 0.34)" : "rgba(2, 8, 23, 0.80)",
       }}
     >
       <div className="flex items-baseline justify-between mb-1">
@@ -886,9 +1003,7 @@ function DetailFactorCard({
             {label}
           </span>
           <span className="text-[13px] font-semibold">{ja}</span>
-          {bottleneck && (
-            <span className="text-[10px] text-red-600 font-semibold">律速</span>
-          )}
+          {bottleneck && <span className="text-[10px] font-black text-pink-200">BOTTLENECK</span>}
         </div>
         <span className="text-2xl font-mono font-bold" style={{ color }}>
           {value < 1 ? value.toFixed(2) : value < 100 ? value.toFixed(2) : Math.round(value).toLocaleString()}
@@ -929,12 +1044,18 @@ function DetailFactorRow({
   /** クリック可能にして Tsukuyomi 起動などの handler を実行。指定すると行が hover で背景色変化。 */
   onClick?: () => void;
 }) {
-  const bg = bottleneck ? "#fee2e2" : highlight ? "#f5f3ff" : total ? "#ecfdf5" : undefined;
+  const bg = bottleneck
+    ? "rgba(244, 114, 182, 0.12)"
+    : highlight
+      ? "rgba(103, 232, 249, 0.08)"
+      : total
+        ? "rgba(52, 211, 153, 0.10)"
+        : undefined;
   const fontWeight = total ? 600 : 400;
   const isClickable = !!onClick;
   return (
     <tr
-      className={`border-b border-[#f1f5f9]${isClickable ? " hover:bg-slate-50 cursor-pointer" : ""}`}
+      className={`border-b border-cyan-300/14${isClickable ? " hover:bg-cyan-300/8 cursor-pointer" : ""}`}
       style={{ backgroundColor: bg, fontWeight }}
       onClick={onClick}
       title={isClickable ? "クリックでつくよみに修正を依頼" : undefined}
@@ -995,12 +1116,12 @@ function TimeSeriesChart({
     px: number;
     py: number;
   } | null>(null);
-  const W = 800;
-  const H = 220;
-  const ML = 56;
-  const MR = 16;
-  const MT = 16;
-  const MB = 36;
+  const W = 640;
+  const H = 178;
+  const ML = 46;
+  const MR = 14;
+  const MT = 14;
+  const MB = 30;
   const PW = W - ML - MR;
   const PH = H - MT - MB;
 
@@ -1012,7 +1133,7 @@ function TimeSeriesChart({
 
   if (allPoints.length === 0) {
     return (
-      <div className="border border-[#e5e5e7] rounded-xl p-4 bg-white text-[11px] text-muted-foreground">
+      <div className="border border-cyan-300/24 bg-slate-950/80 p-3 text-[11px] text-cyan-100/62">
         経時データなし
       </div>
     );
@@ -1052,21 +1173,38 @@ function TimeSeriesChart({
   });
 
   return (
-    <div className="border border-[#e5e5e7] rounded-xl p-3 bg-white relative">
-      <div className="text-[11px] text-muted-foreground mb-1 flex items-center gap-2">
-        <span>AMD Score 経時 (log scale)</span>
-        <span className="text-[9px] text-slate-400">プロットをクリックで内訳ポップアップ</span>
+    <div className="relative h-full min-h-[278px] overflow-hidden border border-cyan-300/30 bg-slate-950/78 p-3 shadow-[0_0_34px_rgba(34,211,238,0.12),inset_0_0_34px_rgba(34,211,238,0.07)]">
+      <div className="pointer-events-none absolute inset-0 opacity-55">
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(103,232,249,.08)_1px,transparent_1px),linear-gradient(180deg,rgba(103,232,249,.06)_1px,transparent_1px)] bg-[size:64px_100%,100%_24px]" />
+      </div>
+      <div className="relative mb-2 flex items-center gap-2 border-b border-cyan-300/18 pb-2 text-[11px] text-cyan-100/66">
+        <span className="font-black uppercase tracking-[0.16em] text-cyan-100">Score Scope</span>
+        <span className="text-[9px] text-cyan-100/45">time vector / click node</span>
         {active && (
           <button
             type="button"
             onClick={() => setActive(null)}
-            className="ml-auto text-[9px] text-cyan-700 hover:underline"
+            className="ml-auto border border-cyan-300/30 px-2 py-0.5 text-[9px] text-cyan-100 hover:bg-cyan-300/10"
           >
             ポップアップを閉じる
           </button>
         )}
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="relative w-full h-auto">
+        <defs>
+          <filter id="amd-score-detail-glow" x="-20%" y="-50%" width="140%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <linearGradient id="amd-score-detail-fill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#67e8f9" stopOpacity="0.26" />
+            <stop offset="72%" stopColor="#22d3ee" stopOpacity="0.035" />
+            <stop offset="100%" stopColor="#020817" stopOpacity="0" />
+          </linearGradient>
+        </defs>
         {/* AMD 支援期間の背景帯 */}
         {amdSupport.startedAt && (() => {
           const x1 = xOf(new Date(amdSupport.startedAt).getTime());
@@ -1077,12 +1215,12 @@ function TimeSeriesChart({
           if (right <= left) return null;
           return (
             <g>
-              <rect x={left} y={MT} width={right - left} height={PH} fill="#ec4899" fillOpacity={0.07} />
+              <rect x={left} y={MT} width={right - left} height={PH} fill="#ec4899" fillOpacity={0.085} />
               <line x1={x1} y1={MT} x2={x1} y2={MT + PH} stroke="#ec4899" strokeWidth={1} strokeDasharray="3 2" opacity={0.5} />
               {amdSupport.endedAt && (
                 <line x1={x2} y1={MT} x2={x2} y2={MT + PH} stroke="#ec4899" strokeWidth={1} strokeDasharray="3 2" opacity={0.5} />
               )}
-              <text x={(left + right) / 2} y={MT + 10} fontSize={9} fill="#be185d" textAnchor="middle" opacity={0.85}>
+              <text x={(left + right) / 2} y={MT + 9} fontSize={7.5} fill="#f9a8d4" textAnchor="middle" opacity={0.85}>
                 AMD 支援期間
               </text>
             </g>
@@ -1091,16 +1229,18 @@ function TimeSeriesChart({
         {/* phase guide lines */}
         {phaseGuides.map((g) => (
           <g key={g}>
-            <line x1={ML} x2={W - MR} y1={yOf(g)} y2={yOf(g)} stroke="#e5e5e7" strokeDasharray="2 2" strokeWidth={0.5} />
-            <text x={ML - 6} y={yOf(g)} fontSize={9} textAnchor="end" dominantBaseline="middle" fill="#94a3b8">
+            <line x1={ML} x2={W - MR} y1={yOf(g)} y2={yOf(g)} stroke="rgba(103,232,249,0.22)" strokeDasharray="2 2" strokeWidth={0.5} />
+            <text x={ML - 6} y={yOf(g)} fontSize={7.5} textAnchor="end" dominantBaseline="middle" fill="rgba(186,230,253,0.64)">
               {g >= 1000 ? `${g / 1000}k` : g}
             </text>
           </g>
         ))}
-        <line x1={ML} y1={MT + PH} x2={W - MR} y2={MT + PH} stroke="#475569" strokeWidth={0.5} />
-        <line x1={ML} y1={MT} x2={ML} y2={MT + PH} stroke="#475569" strokeWidth={0.5} />
+        <line x1={ML} y1={MT + PH} x2={W - MR} y2={MT + PH} stroke="rgba(103,232,249,0.36)" strokeWidth={0.6} />
+        <line x1={ML} y1={MT} x2={ML} y2={MT + PH} stroke="rgba(103,232,249,0.36)" strokeWidth={0.6} />
 
-        <path d={path} fill="none" stroke="#7c3aed" strokeWidth={1.5} />
+        <path d={`${path} L ${xOf(new Date(allPoints[allPoints.length - 1].evaluated_at).getTime()).toFixed(1)},${MT + PH} L ${xOf(new Date(allPoints[0].evaluated_at).getTime()).toFixed(1)},${MT + PH} Z`} fill="url(#amd-score-detail-fill)" />
+        <path d={path} fill="none" stroke="#67e8f9" strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round" filter="url(#amd-score-detail-glow)" />
+        <path d={path} fill="none" stroke="#f0f9ff" strokeWidth={0.55} strokeLinecap="round" strokeLinejoin="round" opacity={0.68} />
         {allPoints.map((p) => {
           const cx = xOf(new Date(p.evaluated_at).getTime());
           const cy = yOf(p.score);
@@ -1111,7 +1251,7 @@ function TimeSeriesChart({
               <circle
                 cx={cx}
                 cy={cy}
-                r={12}
+                r={10}
                 fill="transparent"
                 style={{ cursor: "pointer" }}
                 onClick={() => setActive({ id: p.id, evaluated_at: p.evaluated_at, score: p.score, breakdown: p.breakdown, px: cx, py: cy })}
@@ -1119,9 +1259,9 @@ function TimeSeriesChart({
               <circle
                 cx={cx}
                 cy={cy}
-                r={isActive ? 7 : (p.kind === "current" ? 6 : 4)}
-                fill={p.kind === "current" ? "#dc2626" : "#7c3aed"}
-                stroke={isActive ? "#0f172a" : "white"}
+                r={isActive ? 6 : (p.kind === "current" ? 5 : 3.5)}
+                fill={p.kind === "current" ? "#f472b6" : "#67e8f9"}
+                stroke={isActive ? "#ecfeff" : "#020817"}
                 strokeWidth={isActive ? 2 : 1}
                 style={{ cursor: "pointer", transition: "r 100ms" }}
                 onClick={() => setActive({ id: p.id, evaluated_at: p.evaluated_at, score: p.score, breakdown: p.breakdown, px: cx, py: cy })}
@@ -1135,9 +1275,9 @@ function TimeSeriesChart({
             key={p.id + ":x"}
             x={xOf(new Date(p.evaluated_at).getTime())}
             y={H - 10}
-            fontSize={9}
+            fontSize={7.2}
             textAnchor="middle"
-            fill="#475569"
+            fill="rgba(186,230,253,0.62)"
             transform={
               allPoints.length > 5
                 ? `rotate(-30 ${xOf(new Date(p.evaluated_at).getTime())},${H - 10})`
@@ -1188,7 +1328,7 @@ function ScorePopup({
     n < 1 ? n.toFixed(3) : n < 100 ? n.toFixed(2) : Math.round(n).toLocaleString();
   return (
     <div
-      className="absolute z-10 rounded-lg border border-slate-300 bg-white shadow-lg p-3 text-[11px] min-w-[220px]"
+      className="absolute z-10 min-w-[220px] border border-cyan-300/42 bg-slate-950/95 p-3 text-[11px] text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,0.24)]"
       style={{
         left: flipRight ? "auto" : `calc(${leftPct}% + 12px)`,
         right: flipRight ? `calc(${100 - leftPct}% + 12px)` : "auto",
@@ -1197,38 +1337,38 @@ function ScorePopup({
       }}
     >
       <div className="flex items-center justify-between mb-1.5">
-        <span className="font-mono text-[10px] text-slate-500">{point.evaluated_at}</span>
+        <span className="font-mono text-[10px] text-cyan-100/62">{point.evaluated_at}</span>
         <button
           type="button"
           onClick={onClose}
-          className="text-[10px] text-slate-400 hover:text-slate-700"
+          className="text-[10px] text-cyan-100/56 hover:text-white"
           aria-label="閉じる"
         >
           ×
         </button>
       </div>
-      <div className="text-[10px] text-slate-500">AMD Score S</div>
-      <div className="font-mono text-2xl font-bold text-slate-900 leading-none">
+      <div className="text-[10px] text-cyan-100/62">AMD Score S</div>
+      <div className="font-mono text-2xl font-bold text-white leading-none drop-shadow-[0_0_12px_rgba(103,232,249,0.42)]">
         {fmt(point.score)}
       </div>
-      <div className="text-[9px] text-slate-400 mt-0.5">
+      <div className="text-[9px] text-cyan-100/52 mt-0.5">
         律速: {AXIS_LABEL_JP[point.breakdown.bottleneck]}
       </div>
-      <div className="border-t border-slate-200 mt-2 pt-2 grid grid-cols-3 gap-2">
+      <div className="border-t border-cyan-300/22 mt-2 pt-2 grid grid-cols-3 gap-2">
         <div className="text-center">
-          <div className="text-[9px] text-emerald-700">M (マクロ)</div>
-          <div className="font-mono font-semibold text-slate-900">{fmt(point.breakdown.M)}</div>
+          <div className="text-[9px] text-emerald-200">M (Macrotrend)</div>
+          <div className="font-mono font-semibold text-white">{fmt(point.breakdown.M)}</div>
         </div>
         <div className="text-center">
-          <div className="text-[9px] text-amber-700">X (XRL)</div>
-          <div className="font-mono font-semibold text-slate-900">{fmt(point.breakdown.X)}</div>
+          <div className="text-[9px] text-amber-200">X (XRL)</div>
+          <div className="font-mono font-semibold text-white">{fmt(point.breakdown.X)}</div>
         </div>
         <div className="text-center">
-          <div className="text-[9px] text-indigo-700">F (FRL)</div>
-          <div className="font-mono font-semibold text-slate-900">{fmt(point.breakdown.F)}</div>
+          <div className="text-[9px] text-pink-200">F (FRL)</div>
+          <div className="font-mono font-semibold text-white">{fmt(point.breakdown.F)}</div>
         </div>
       </div>
-      <div className="text-[9px] text-slate-500 mt-2 leading-tight">
+      <div className="text-[9px] text-cyan-100/52 mt-2 leading-tight">
         S = k · M · X · F<br />
         k = {fmt(point.breakdown.K)}, σ_SU = {fmt(point.breakdown.sigma_su)}
       </div>
@@ -1308,7 +1448,7 @@ function FrlAlqPanel({
           <div className="text-[10px] text-muted-foreground">現在の FRL</div>
           <div className="text-2xl font-mono font-bold text-red-600">{effectiveFrl.toFixed(1)}</div>
           {editable.alq_auto_derive_frl && derived != null && (
-            <div className="text-[9px] text-muted-foreground">6 因子から自動</div>
+            <div className="text-[9px] text-muted-foreground">6 因子推定: {derived.toFixed(1)}</div>
           )}
         </div>
       </div>

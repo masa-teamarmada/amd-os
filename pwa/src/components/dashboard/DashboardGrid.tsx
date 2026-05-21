@@ -19,12 +19,14 @@ const STATUS_COLORS: Record<string, string> = {
 interface DashboardGridProps {
   projects: GasProject[];
   billingStatus: Record<string, GasBillingStatus>;
+  projectHrefPrefix?: string;
+  variant?: "default" | "hud";
 }
 
 // 2026-05-12 まさ指摘 3: アラート (MTG未設定 / Report未確定 / 支払待ち) 表示は削除済。
 // getAlerts は廃止。billing 有無は ProjectCard が直接判定する。
 
-export function DashboardGrid({ projects, billingStatus }: DashboardGridProps) {
+export function DashboardGrid({ projects, billingStatus, projectHrefPrefix = "/project", variant = "default" }: DashboardGridProps) {
   const [introOpen, setIntroOpen] = useState(false);
 
   // Group by status
@@ -40,7 +42,11 @@ export function DashboardGrid({ projects, billingStatus }: DashboardGridProps) {
       <div className="flex items-center justify-end">
         <button
           onClick={() => setIntroOpen(true)}
-          className="text-sm px-3 py-1.5 rounded-md border border-border bg-white hover:bg-muted/40 transition-colors"
+          className={`text-sm px-3 py-1.5 rounded-md border transition-colors ${
+            variant === "hud"
+              ? "border-cyan-300/35 bg-cyan-300/10 text-cyan-50 hover:bg-cyan-300/15"
+              : "border-border bg-white hover:bg-muted/40"
+          }`}
           title="チェックを入れた PJ のエグゼクティブサマリーを 1 つの HTML として出力"
         >
           📑 全 PJ 紹介資料作成
@@ -63,6 +69,8 @@ export function DashboardGrid({ projects, billingStatus }: DashboardGridProps) {
                 key={pj.projectId}
                 project={pj}
                 billing={billingStatus[pj.projectId]}
+                hrefPrefix={projectHrefPrefix}
+                variant={variant}
               />
             ))}
           </div>
@@ -81,6 +89,8 @@ export function DashboardGrid({ projects, billingStatus }: DashboardGridProps) {
                 key={pj.projectId}
                 project={pj}
                 billing={billingStatus[pj.projectId]}
+                hrefPrefix={projectHrefPrefix}
+                variant={variant}
               />
             ))}
           </div>
@@ -99,6 +109,8 @@ export function DashboardGrid({ projects, billingStatus }: DashboardGridProps) {
                 key={pj.projectId}
                 project={pj}
                 billing={billingStatus[pj.projectId]}
+                hrefPrefix={projectHrefPrefix}
+                variant={variant}
               />
             ))}
           </div>
@@ -110,16 +122,26 @@ export function DashboardGrid({ projects, billingStatus }: DashboardGridProps) {
 
 function ProjectCard({
   project,
+  hrefPrefix,
+  variant,
 }: {
   project: GasProject;
   billing?: GasBillingStatus;
+  hrefPrefix: string;
+  variant: "default" | "hud";
 }) {
   // 2026-05-12 まさ指摘 3: アラート表示 (MTG未設定 / Report未確定 / 支払待ち / 正常) を削除。
   // クリックで cockpit に遷移する以外、本カードは PJ 名 + status バッジだけのシンプル UI に。
 
   return (
-    <Link href={`/project/${project.projectId}/cockpit`}>
-      <Card className="hover:border-primary/30 transition-colors cursor-pointer h-full">
+    <Link href={`${hrefPrefix}/${project.projectId}/cockpit`}>
+      <Card
+        className={`transition-colors cursor-pointer h-full ${
+          variant === "hud"
+            ? "border-cyan-300/20 bg-slate-950/72 text-cyan-50 shadow-[inset_0_0_24px_rgba(34,211,238,0.08)] hover:border-cyan-200/60 hover:bg-cyan-950/45"
+            : "hover:border-primary/30"
+        }`}
+      >
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-medium truncate">

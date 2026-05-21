@@ -1,0 +1,1184 @@
+#!/usr/bin/env node
+/**
+ * MS progress review helper for Codex automations.
+ *
+ * The Codex cron sandbox can lose DNS resolution even when the local app
+ * session has network access. This helper talks to Supabase/PostgREST and the
+ * production PWA API with a small static-DNS fallback for the known AMD OS
+ * hosts, so automations can fetch live evidence before creating review rows.
+ */
+import fs from "node:fs";
+import https from "node:https";
+import dns from "node:dns";
+import path from "node:path";
+import crypto from "node:crypto";
+import os from "node:os";
+
+const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const AUTOMATION_DIR = path.join(process.env.CODEX_HOME || path.join(os.homedir(), ".codex"), "automations", "amd-os-ms");
+const DEFAULT_OS_SNAPSHOT = path.join(AUTOMATION_DIR, "snapshots", "os-latest.json");
+const DEFAULT_OUTBOX_DIR = path.join(AUTOMATION_DIR, "outbox");
+const DEFAULT_APPLIED_DIR = path.join(AUTOMATION_DIR, "applied");
+const DEFAULT_FAILED_DIR = path.join(AUTOMATION_DIR, "failed");
+loadEnv(path.join(ROOT, ".env.local"));
+loadEnv(path.join(ROOT, ".env.production.local"));
+
+const SUPABASE_URL = env("NEXT_PUBLIC_SUPABASE_URL");
+const SERVICE_KEY = env("SUPABASE_SERVICE_ROLE_KEY");
+const PWA_BASE_URL = process.env.PWA_BASE_URL || "https://amd-os-pwa.vercel.app";
+const GAS_BASE_URL = process.env.NEXT_PUBLIC_GAS_WEBAPP_URL || "";
+const GAS_API_KEY = process.env.NEXT_PUBLIC_GAS_API_KEY || "";
+const CRON_SECRET = process.env.CRON_SECRET || "";
+
+const STATIC_HOSTS = {
+  "nbnhrhybjslbawdukvvk.supabase.co": ["104.18.38.10", "172.64.149.246"],
+  "amd-os-pwa.vercel.app": ["64.29.17.3"],
+};
+
+const supabaseHost = new URL(SUPABASE_URL).host;
+if (!STATIC_HOSTS[supabaseHost]) {
+  STATIC_HOSTS[supabaseHost] = ["104.18.38.10", "172.64.149.246"];
+}
+
+function loadEnv(file) {
+  if (!fs.existsSync(file)) return;
+  const text = fs.readFileSync(file, "utf8");
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+    const idx = trimmed.indexOf("=");
+    const key = trimmed.slice(0, idx).trim();
+    let value = trimmed.slice(idx + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (!(key in process.env)) process.env[key] = value;
+  }
+}
+
+function env(key) {
+  const value = process.env[key];
+  if (!value) throw new Error(`${key} is required`);
+  return value.trim();
+}
+
+function lookup(host, opts, cb) {
+  const staticIps = STATIC_HOSTS[host];
+  if (staticIps?.length) {
+    // Keep the custom resolver async. Synchronous lookup callbacks can race
+    // TLS socket initialization in newer Node runtimes.
+    return queueMicrotask(() => {
+      if (opts?.all) return cb(null, staticIps.map((address) => ({ address, family: 4 })));
+      return cb(null, staticIps[0], 4);
+    });
+  }
+  return dns.lookup(host, opts, cb);
+}
+
+function requestJson(url, { method = "GET", headers = {}, body = undefined, redirects = 3 } = {}) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const payload = body == null ? null : JSON.stringify(body);
+    const req = https.request({
+      protocol: u.protocol,
+      hostname: u.hostname,
+      path: `${u.pathname}${u.search}`,
+      method,
+      lookup,
+      headers: {
+        ...(payload ? { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } : {}),
+        ...headers,
+      },
+    }, (res) => {
+      let raw = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk) => { raw += chunk; });
+      res.on("end", () => {
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
+          const nextUrl = new URL(res.headers.location, url).toString();
+          requestJson(nextUrl, { method, headers, body, redirects: redirects - 1 }).then(resolve, reject);
+          return;
+        }
+        if (res.statusCode && res.statusCode >= 400) {
+          reject(new Error(`${method} ${url} -> ${res.statusCode}: ${raw.slice(0, 1000)}`));
+          return;
+        }
+        if (!raw) {
+          resolve(null);
+          return;
+        }
+        try {
+          resolve(JSON.parse(raw));
+        } catch {
+          resolve(raw);
+        }
+      });
+    });
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
+function rest(table, query = "") {
+  const sep = query ? `?${query}` : "";
+  return `${SUPABASE_URL}/rest/v1/${table}${sep}`;
+}
+
+function restHeaders(extra = {}) {
+  return {
+    apikey: SERVICE_KEY,
+    authorization: `Bearer ${SERVICE_KEY}`,
+    ...extra,
+  };
+}
+
+function enc(value) {
+  return encodeURIComponent(String(value));
+}
+
+function inList(values) {
+  return `(${values.map((v) => `"${String(v).replaceAll('"', '\\"')}"`).join(",")})`;
+}
+
+function yyyymm(date = new Date()) {
+  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return `${jst.getUTCFullYear()}${String(jst.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function prevYm(ym) {
+  const y = Number(ym.slice(0, 4));
+  const m = Number(ym.slice(4, 6));
+  return m === 1 ? `${y - 1}12` : `${y}${String(m - 1).padStart(2, "0")}`;
+}
+
+function readJson(file) {
+  return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+function writeJson(file, value) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function moveFileSafe(src, destDir, suffix = "") {
+  fs.mkdirSync(destDir, { recursive: true });
+  const parsed = path.parse(src);
+  const dest = path.join(destDir, `${parsed.name}${suffix}${parsed.ext}`);
+  fs.renameSync(src, dest);
+  return dest;
+}
+
+function stableHash(value) {
+  return crypto.createHash("sha256").update(JSON.stringify(value ?? {})).digest("hex").slice(0, 24);
+}
+
+function importanceValue(value, fallback = 2) {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.max(1, Math.min(3, Math.round(value)));
+  const s = String(value ?? "").trim().toLowerCase();
+  if (["urgent", "high", "重要", "高"].includes(s)) return 3;
+  if (["normal", "medium", "mid", "中"].includes(s)) return 2;
+  if (["info", "low", "低"].includes(s)) return 1;
+  return fallback;
+}
+
+function confidenceValue(value, fallback = 0.5) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(1, n));
+}
+
+function tableRows(snapshotDoc, table) {
+  return snapshotDoc?.tables?.[table] || [];
+}
+
+async function get(table, query) {
+  return requestJson(rest(table, query), { headers: restHeaders() });
+}
+
+function splitEmails(value) {
+  return String(value || "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function mergeEmailList(current, additions) {
+  const seen = new Set();
+  const out = [];
+  for (const raw of [...splitEmails(current), ...additions]) {
+    const value = String(raw || "").trim();
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+  }
+  return out.join(", ");
+}
+
+function extractAddresses(text) {
+  const matches = String(text || "").match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+  return Array.from(new Set(matches.map((m) => m.trim().toLowerCase())));
+}
+
+function toYmDate(ym, fallback) {
+  if (fallback) {
+    const d = new Date(fallback);
+    if (!Number.isNaN(d.getTime())) return d.toISOString();
+  }
+  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01T00:00:00.000Z`;
+}
+
+async function health() {
+  const checks = await Promise.allSettled([
+    get("projects", "select=project_id,project_name&limit=1"),
+    requestJson(`${PWA_BASE_URL}/api/progress/ms-schedule?projectId=p21&startYm=202601`),
+    GAS_BASE_URL
+      ? requestJson(`${GAS_BASE_URL}?mode=pwaApi&key=${encodeURIComponent(GAS_API_KEY)}&action=listProps`)
+      : Promise.resolve({ skipped: true, message: "NEXT_PUBLIC_GAS_WEBAPP_URL not set" }),
+  ]);
+
+  const supabase = settledValue(checks[0]);
+  const pwa = settledValue(checks[1]);
+  const gas = settledValue(checks[2]);
+  const supabaseOk = checks[0].status === "fulfilled";
+  const pwaScheduleOk = checks[1].status === "fulfilled" && !!pwa?.ok;
+  const gasOk = checks[2].status === "fulfilled" && (gas?.ok === true || gas?.skipped === true);
+
+  return {
+    ok: supabaseOk,
+    degraded: !pwaScheduleOk || !gasOk,
+    canProceed: supabaseOk,
+    supabaseOk,
+    pwaScheduleOk,
+    gasOk,
+    supabase,
+    pwaSample: pwa?.schedules?.slice?.(0, 2) || [],
+    errors: {
+      supabase: settledError(checks[0]),
+      pwaSchedule: settledError(checks[1]),
+      gas: settledError(checks[2]),
+    },
+  };
+}
+
+function settledValue(result) {
+  return result.status === "fulfilled" ? result.value : null;
+}
+
+function settledError(result) {
+  return result.status === "rejected" ? String(result.reason?.message || result.reason) : null;
+}
+
+async function targets({ ym = yyyymm(), includePast = true } = {}) {
+  const activeProjects = await get("projects", "select=project_id,project_name,status&status=eq.active&order=project_id.asc");
+  const yms = [ym, prevYm(ym)];
+  const targetMap = new Map();
+  for (const p of activeProjects || []) {
+    for (const targetYm of yms) {
+      targetMap.set(`${p.project_id}:${targetYm}`, { projectId: p.project_id, projectName: p.project_name, ym: targetYm, reason: "active-current-prev" });
+    }
+  }
+  if (includePast) {
+    const rows = await get(
+      "milestone_monthly_progress",
+      "select=milestone_key,ym,progress_pct,source,confirmed_at&source=eq.tsukuyomi_estimate&confirmed_at=is.null&order=ym.desc&limit=80"
+    );
+    const msIds = Array.from(new Set((rows || []).map((r) => r.milestone_key)));
+    if (msIds.length) {
+      const milestones = await get("value_milestones", `select=milestone_id,plan_cycle_id&milestone_id=in.${inList(msIds)}`);
+      const planIds = Array.from(new Set((milestones || []).map((m) => m.plan_cycle_id)));
+      const cycles = planIds.length
+        ? await get("value_plan_cycles", `select=plan_cycle_id,project_id&plan_cycle_id=in.${inList(planIds)}`)
+        : [];
+      const cycleById = new Map((cycles || []).map((c) => [c.plan_cycle_id, c]));
+      const projectById = new Map((activeProjects || []).map((p) => [p.project_id, p.project_name]));
+      for (const m of milestones || []) {
+        const cycle = cycleById.get(m.plan_cycle_id);
+        if (!cycle) continue;
+        const row = rows.find((r) => r.milestone_key === m.milestone_id);
+        if (!row) continue;
+        const key = `${cycle.project_id}:${row.ym}`;
+        if (!targetMap.has(key)) {
+          targetMap.set(key, {
+            projectId: cycle.project_id,
+            projectName: projectById.get(cycle.project_id) || cycle.project_id,
+            ym: row.ym,
+            reason: "older-unconfirmed-tsukuyomi-estimate",
+          });
+        }
+      }
+    }
+  }
+  return { ok: true, generatedAt: new Date().toISOString(), targets: Array.from(targetMap.values()) };
+}
+
+async function snapshot({ projectId, ym }) {
+  if (!projectId || !ym) throw new Error("snapshot requires --project <projectId> --ym <YYYYMM>");
+  const [
+    projectRows,
+    cycles,
+    monthlyReports,
+    sourceCache,
+    meetings,
+    memberActivities,
+    progressRows,
+    pendingRevisions,
+    projectMembers,
+    members,
+    projectPartners,
+    projectFreezePeriods,
+    registryDiffs,
+    xrlEvidence,
+    foundingMembers,
+    projectXrlLog,
+    amdScoreInputs,
+    projectKnowledge,
+  ] = await Promise.all([
+    get("projects", `select=project_id,project_name,status,report_emails,slack_channel_id,drive_folder_id,start_ym,end_ym,fee_type,fee_amount&project_id=eq.${enc(projectId)}`),
+    get("value_plan_cycles", `select=*&project_id=eq.${enc(projectId)}&order=period_start_ym.asc`),
+    get("monthly_reports", `select=project_id,ym,status,final_content,draft_content,collection_summary_json,generated_at,fixed_at&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}`),
+    get("source_cache", `select=source,item_id,title,item_date,content_text,metadata_json&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&order=item_date.desc&limit=80`),
+    get("project_meeting_summaries", `select=meeting_id,ym,meeting_date,title,summary_short,decided,progress,next_actions,risks,source_kinds,source_url,notion_url,gmail_thread_ids&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&order=meeting_date.desc&limit=80`),
+    get("member_activities", `select=member_id,project_id,ym,source,source_item_id,title,content_preview,item_date,raw_metadata,milestone_id,initiative_origin,impact,depth&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&order=item_date.desc&limit=120`),
+    get("milestone_monthly_progress", `select=milestone_key,ym,progress_pct,consumed_pt,source,confirmed_at,note&ym=eq.${enc(ym)}`),
+    get("ms_progress_revisions", `select=*&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&status=eq.pending&order=created_at.desc`),
+    get("project_members", `select=project_id,member_id,role,role_label,is_active,join_ym,leave_ym,is_pm,is_pl,is_closer&project_id=eq.${enc(projectId)}&order=member_id.asc`),
+    get("members", "select=member_id,code_name,member_name,email,status,slack_id,role&order=member_id.asc"),
+    get("project_partners", `select=*&project_id=eq.${enc(projectId)}&order=created_at.desc&limit=80`),
+    get("project_registry_diffs", `select=*&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&order=created_at.desc&limit=80`),
+    get("project_xrl_evidence", `select=*&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&order=created_at.desc&limit=80`),
+    get("project_founding_members", `select=*&project_id=eq.${enc(projectId)}&order=updated_at.desc&limit=120`),
+    get("project_xrl_log", `select=*&project_id=eq.${enc(projectId)}&order=observed_at.desc&limit=80`),
+    get("amd_score_inputs", `select=*&project_id=eq.${enc(projectId)}&order=evaluated_at.desc&limit=20`),
+    get("project_knowledge", `select=*&project_id=eq.${enc(projectId)}&order=updated_at.desc&limit=200`),
+  ]);
+  const planIds = (cycles || []).map((c) => c.plan_cycle_id);
+  const milestones = planIds.length
+    ? await get("value_milestones", `select=*&plan_cycle_id=in.${inList(planIds)}&is_active=eq.true&order=sort_order.asc`)
+    : [];
+  const milestoneIds = (milestones || []).map((m) => m.milestone_id);
+  const [subItems, responsibilities, memberMsActivities] = milestoneIds.length
+    ? await Promise.all([
+        get("milestone_sub_items", `select=*&milestone_id=in.${inList(milestoneIds)}&order=created_at.asc`),
+        get("milestone_responsibility", `select=*&milestone_id=in.${inList(milestoneIds)}`),
+        get("member_ms_activities", `select=*&milestone_id=in.${inList(milestoneIds)}&ym=eq.${enc(ym)}`),
+      ])
+    : [[], [], []];
+
+  const schedules = [];
+  for (const cycle of cycles || []) {
+    if (ym < cycle.period_start_ym || ym > cycle.period_end_ym) continue;
+    try {
+      const schedule = await requestJson(`${PWA_BASE_URL}/api/progress/ms-schedule?projectId=${enc(projectId)}&startYm=${enc(cycle.period_start_ym)}`);
+      schedules.push({ planCycleId: cycle.plan_cycle_id, ...schedule });
+    } catch (e) {
+      schedules.push({ planCycleId: cycle.plan_cycle_id, ok: false, error: e.message });
+    }
+  }
+
+  const relevantProgress = (progressRows || []).filter((p) => milestoneIds.includes(p.milestone_key));
+  return {
+    ok: true,
+    project: projectRows?.[0] || { project_id: projectId },
+    ym,
+    cycles,
+    schedules,
+    milestones,
+    subItems,
+    responsibilities,
+    projectMembers,
+    projectPartners,
+    members,
+    progress: relevantProgress,
+    pendingRevisions,
+    registryDiffs,
+    xrlEvidence,
+    foundingMembers,
+    projectXrlLog,
+    amdScoreInputs,
+    projectKnowledge,
+    evidence: {
+      sourceCache,
+      meetings,
+      memberActivities,
+      memberMsActivities,
+      monthlyReports,
+    },
+    sourceChecklist: summarizeSources(sourceCache, meetings),
+  };
+}
+
+async function exportOsSnapshot({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {}) {
+  const currentYm = ym;
+  const priorYm = prevYm(ym);
+  const [
+    projects,
+    members,
+    projectMembers,
+    cycles,
+    milestones,
+    subItems,
+    responsibilities,
+    progress,
+    pendingRevisions,
+    sourceCache,
+    meetings,
+    memberActivities,
+    memberMsActivities,
+    monthlyReports,
+    notifications,
+    projectPartners,
+    projectFreezePeriods,
+    registryDiffs,
+    xrlEvidence,
+    foundingMembers,
+    projectXrlLog,
+    amdScoreInputs,
+    projectKnowledge,
+    memberKnowledge,
+  ] = await Promise.all([
+    get("projects", "select=*&order=project_id.asc"),
+    get("members", "select=*&order=member_id.asc"),
+    get("project_members", "select=*&order=project_id.asc,member_id.asc"),
+    get("value_plan_cycles", "select=*&order=project_id.asc,period_start_ym.asc"),
+    get("value_milestones", "select=*&order=plan_cycle_id.asc,sort_order.asc"),
+    get("milestone_sub_items", "select=*&order=milestone_id.asc,created_at.asc"),
+    get("milestone_responsibility", "select=*&order=milestone_id.asc,member_id.asc"),
+    get("milestone_monthly_progress", `select=*&ym=in.${inList([currentYm, priorYm])}&order=ym.desc,milestone_key.asc`),
+    get("ms_progress_revisions", `select=*&ym=in.${inList([currentYm, priorYm])}&status=eq.pending&order=created_at.desc`),
+    get("source_cache", `select=*&ym=in.${inList([currentYm, priorYm])}&order=item_date.desc&limit=2000`),
+    get("project_meeting_summaries", `select=*&ym=in.${inList([currentYm, priorYm])}&order=meeting_date.desc&limit=1000`),
+    get("member_activities", `select=*&ym=in.${inList([currentYm, priorYm])}&order=item_date.desc&limit=3000`),
+    get("member_ms_activities", `select=*&ym=in.${inList([currentYm, priorYm])}&limit=3000`),
+    get("monthly_reports", `select=*&ym=in.${inList([currentYm, priorYm])}&order=generated_at.desc&limit=500`),
+    get("l2_notifications", "select=*&order=created_at.desc&limit=500"),
+    get("project_partners", "select=*&order=project_id.asc,created_at.desc&limit=1000"),
+    get("project_freeze_periods", "select=*&order=project_id.asc,freeze_from_ym.desc&limit=1000"),
+    get("project_registry_diffs", `select=*&ym=in.${inList([currentYm, priorYm])}&order=created_at.desc&limit=1000`),
+    get("project_xrl_evidence", `select=*&ym=in.${inList([currentYm, priorYm])}&order=created_at.desc&limit=1000`),
+    get("project_founding_members", "select=*&order=project_id.asc,updated_at.desc&limit=2000"),
+    get("project_xrl_log", "select=*&order=observed_at.desc&limit=1000"),
+    get("amd_score_inputs", "select=*&order=evaluated_at.desc&limit=1000"),
+    get("project_knowledge", "select=*&order=updated_at.desc&limit=3000"),
+    get("member_knowledge", "select=*&order=updated_at.desc&limit=2000"),
+  ]);
+  const snapshotDoc = {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    ym: currentYm,
+    source: "supabase-export",
+    note: "Local OS snapshot for token-light Codex automation. Automation reads this file instead of calling Supabase/PWA/GAS.",
+    tables: {
+      projects,
+      members,
+      project_members: projectMembers,
+      value_plan_cycles: cycles,
+      value_milestones: milestones,
+      milestone_sub_items: subItems,
+      milestone_responsibility: responsibilities,
+      milestone_monthly_progress: progress,
+      ms_progress_revisions: pendingRevisions,
+      source_cache: sourceCache,
+      project_meeting_summaries: meetings,
+      member_activities: memberActivities,
+      member_ms_activities: memberMsActivities,
+      monthly_reports: monthlyReports,
+      l2_notifications: notifications,
+      project_partners: projectPartners,
+      project_freeze_periods: projectFreezePeriods,
+      project_registry_diffs: registryDiffs,
+      project_xrl_evidence: xrlEvidence,
+      project_founding_members: foundingMembers,
+      project_xrl_log: projectXrlLog,
+      amd_score_inputs: amdScoreInputs,
+      project_knowledge: projectKnowledge,
+      member_knowledge: memberKnowledge,
+    },
+  };
+  writeJson(out, snapshotDoc);
+  return {
+    ok: true,
+    out,
+    generatedAt: snapshotDoc.generatedAt,
+    counts: Object.fromEntries(Object.entries(snapshotDoc.tables).map(([key, rows]) => [key, rows.length])),
+  };
+}
+
+function localTargets({ file = DEFAULT_OS_SNAPSHOT, ym = yyyymm(), includePast = true } = {}) {
+  const doc = readJson(file);
+  const activeProjects = tableRows(doc, "projects").filter((p) => String(p.status || "").toLowerCase() === "active");
+  const yms = [ym, prevYm(ym)];
+  const targetMap = new Map();
+  for (const p of activeProjects) {
+    for (const targetYm of yms) {
+      targetMap.set(`${p.project_id}:${targetYm}`, {
+        projectId: p.project_id,
+        projectName: p.project_name,
+        ym: targetYm,
+        reason: "local-snapshot-active-current-prev",
+      });
+    }
+  }
+  if (includePast) {
+    const milestones = tableRows(doc, "value_milestones");
+    const cycles = tableRows(doc, "value_plan_cycles");
+    const milestoneById = new Map(milestones.map((m) => [m.milestone_id, m]));
+    const cycleById = new Map(cycles.map((c) => [c.plan_cycle_id, c]));
+    const projectById = new Map(activeProjects.map((p) => [p.project_id, p.project_name]));
+    for (const row of tableRows(doc, "milestone_monthly_progress")) {
+      if (row.source !== "tsukuyomi_estimate" || row.confirmed_at) continue;
+      const ms = milestoneById.get(row.milestone_key);
+      const cycle = ms ? cycleById.get(ms.plan_cycle_id) : null;
+      if (!cycle) continue;
+      const key = `${cycle.project_id}:${row.ym}`;
+      if (!targetMap.has(key)) {
+        targetMap.set(key, {
+          projectId: cycle.project_id,
+          projectName: projectById.get(cycle.project_id) || cycle.project_id,
+          ym: row.ym,
+          reason: "local-snapshot-older-unconfirmed-tsukuyomi-estimate",
+        });
+      }
+    }
+  }
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    snapshotGeneratedAt: doc.generatedAt,
+    file,
+    targets: Array.from(targetMap.values()),
+  };
+}
+
+function localSnapshot({ file = DEFAULT_OS_SNAPSHOT, projectId, ym }) {
+  if (!projectId || !ym) throw new Error("local-snapshot requires --project <projectId> --ym <YYYYMM>");
+  const doc = readJson(file);
+  const projects = tableRows(doc, "projects");
+  const cycles = tableRows(doc, "value_plan_cycles").filter((c) => c.project_id === projectId);
+  const planIds = new Set(cycles.map((c) => c.plan_cycle_id));
+  const milestones = tableRows(doc, "value_milestones").filter((m) => planIds.has(m.plan_cycle_id) && m.is_active !== false);
+  const milestoneIds = new Set(milestones.map((m) => m.milestone_id));
+  const progress = tableRows(doc, "milestone_monthly_progress").filter((p) => p.ym === ym && milestoneIds.has(p.milestone_key));
+  return {
+    ok: true,
+    offline: true,
+    snapshotGeneratedAt: doc.generatedAt,
+    project: projects.find((p) => p.project_id === projectId) || { project_id: projectId },
+    ym,
+    cycles,
+    schedules: [],
+    milestones,
+    subItems: tableRows(doc, "milestone_sub_items").filter((s) => milestoneIds.has(s.milestone_id)),
+    responsibilities: tableRows(doc, "milestone_responsibility").filter((r) => milestoneIds.has(r.milestone_id)),
+    projectMembers: tableRows(doc, "project_members").filter((m) => m.project_id === projectId),
+    members: tableRows(doc, "members"),
+    progress,
+    pendingRevisions: tableRows(doc, "ms_progress_revisions").filter((r) => r.project_id === projectId && r.ym === ym && r.status === "pending"),
+    registryDiffs: tableRows(doc, "project_registry_diffs").filter((r) => r.project_id === projectId && r.ym === ym),
+    xrlEvidence: tableRows(doc, "project_xrl_evidence").filter((r) => r.project_id === projectId && r.ym === ym),
+    foundingMembers: tableRows(doc, "project_founding_members").filter((r) => r.project_id === projectId),
+    projectXrlLog: tableRows(doc, "project_xrl_log").filter((r) => r.project_id === projectId),
+    amdScoreInputs: tableRows(doc, "amd_score_inputs").filter((r) => r.project_id === projectId),
+    projectKnowledge: tableRows(doc, "project_knowledge").filter((r) => r.project_id === projectId),
+    projectPartners: tableRows(doc, "project_partners").filter((r) => r.project_id === projectId),
+    projectFreezePeriods: tableRows(doc, "project_freeze_periods").filter((r) => r.project_id === projectId),
+    evidence: {
+      sourceCache: tableRows(doc, "source_cache").filter((r) => r.project_id === projectId && r.ym === ym),
+      meetings: tableRows(doc, "project_meeting_summaries").filter((r) => r.project_id === projectId && r.ym === ym),
+      memberActivities: tableRows(doc, "member_activities").filter((r) => r.project_id === projectId && r.ym === ym),
+      memberMsActivities: tableRows(doc, "member_ms_activities").filter((r) => r.ym === ym && milestoneIds.has(r.milestone_id)),
+      monthlyReports: tableRows(doc, "monthly_reports").filter((r) => r.project_id === projectId && r.ym === ym),
+    },
+    sourceChecklist: summarizeSources(
+      tableRows(doc, "source_cache").filter((r) => r.project_id === projectId && r.ym === ym),
+      tableRows(doc, "project_meeting_summaries").filter((r) => r.project_id === projectId && r.ym === ym),
+    ),
+  };
+}
+
+async function callGasRunFunc(fn, args) {
+  if (!GAS_BASE_URL) throw new Error("NEXT_PUBLIC_GAS_WEBAPP_URL is required");
+  const url = new URL(GAS_BASE_URL);
+  url.searchParams.set("mode", "pwaApi");
+  url.searchParams.set("key", GAS_API_KEY);
+  url.searchParams.set("action", "runFunc");
+  url.searchParams.set("fn", fn);
+  url.searchParams.set("args", JSON.stringify(args || []));
+  return requestJson(url.toString());
+}
+
+async function syncReportEmailsToGas(projectId, reportEmails) {
+  if (!GAS_BASE_URL) return { ok: false, skipped: true, message: "NEXT_PUBLIC_GAS_WEBAPP_URL not set" };
+  return callGasRunFunc("projectConfig_api_saveProject", [
+    {
+      projectId,
+      fields: { reportEmails },
+    },
+  ]);
+}
+
+async function registerEmails({ projectId, emails = [], syncGas = true }) {
+  if (!projectId) throw new Error("register-emails requires --project <projectId>");
+  const cleanEmails = emails.map((e) => String(e || "").trim()).filter(Boolean);
+  if (!cleanEmails.length) throw new Error("register-emails requires --emails <comma separated emails>");
+
+  const rows = await get("projects", `select=project_id,project_name,report_emails&project_id=eq.${enc(projectId)}&limit=1`);
+  const project = rows?.[0];
+  if (!project) throw new Error(`project not found: ${projectId}`);
+  const merged = mergeEmailList(project.report_emails, cleanEmails);
+
+  const updated = await requestJson(rest("projects", `project_id=eq.${enc(projectId)}&select=project_id,project_name,report_emails`), {
+    method: "PATCH",
+    headers: restHeaders({ prefer: "return=representation" }),
+    body: { report_emails: merged },
+  });
+
+  const gas = syncGas ? await syncReportEmailsToGas(projectId, merged) : { ok: true, skipped: true };
+  return {
+    ok: true,
+    projectId,
+    projectName: project.project_name,
+    before: project.report_emails || "",
+    after: merged,
+    added: cleanEmails.filter((e) => !splitEmails(project.report_emails).some((cur) => cur.toLowerCase() === e.toLowerCase())),
+    supabase: updated?.[0] || null,
+    gas,
+  };
+}
+
+async function collectGmail({ projectId, ym }) {
+  if (!projectId || !ym) throw new Error("collect-gmail requires --project <projectId> --ym <YYYYMM>");
+  const pwaDirect = await collectGmailViaPwa({ projectId, ym }).catch((error) => ({ ok: false, error: error.message }));
+  if (pwaDirect?.ok) return pwaDirect;
+  return {
+    ok: false,
+    via: "pwa-gmail-api",
+    projectId,
+    ym,
+    error: pwaDirect?.error || "PWA Gmail collect failed",
+    note: "GAS Gmail collection is intentionally not used here because it reads backup Sheets instead of the Supabase source of truth.",
+  };
+}
+
+async function collectGmailViaPwa({ projectId, ym }) {
+  if (!CRON_SECRET) throw new Error("CRON_SECRET is required for PWA Gmail collect");
+  const url = new URL(`${PWA_BASE_URL}/api/sources/gmail/collect`);
+  url.searchParams.set("projectId", projectId);
+  url.searchParams.set("ym", ym);
+  url.searchParams.set("save", "1");
+  const json = await requestJson(url.toString(), {
+    headers: { authorization: `Bearer ${CRON_SECRET}` },
+  });
+  if (!json?.ok) throw new Error(json?.error || "PWA Gmail collect failed");
+  return {
+    ok: true,
+    via: "pwa-gmail-api",
+    projectId,
+    ym,
+    gasOk: null,
+    gmailSuccess: true,
+    note: json.note || "",
+    threadCount: json.threadCount || 0,
+    messageCount: json.messageCount || 0,
+    savedThreadCount: json.savedThreadCount || 0,
+    savedMessageCount: json.savedMessageCount || 0,
+    savedCount: json.savedCount || 0,
+    saved: [],
+    emailRegistration: null,
+    query: json.query,
+  };
+}
+
+function summarizeSources(sourceCache = [], meetings = []) {
+  const kinds = { gmail: 0, drive: 0, calendar: 0, slack: 0, notion: 0 };
+  for (const row of sourceCache || []) {
+    const source = String(row.source || "").toLowerCase();
+    for (const key of Object.keys(kinds)) if (source.includes(key)) kinds[key] += 1;
+  }
+  for (const row of meetings || []) {
+    const sourceKinds = String(row.source_kinds || "").toLowerCase();
+    for (const key of Object.keys(kinds)) if (sourceKinds.includes(key)) kinds[key] += 1;
+    if (row.notion_url) kinds.notion += 1;
+    if (Array.isArray(row.gmail_thread_ids) && row.gmail_thread_ids.length) kinds.gmail += row.gmail_thread_ids.length;
+  }
+  return kinds;
+}
+
+async function upsertReview(file) {
+  if (!file) throw new Error("upsert-review requires --file <payload.json>");
+  const payload = JSON.parse(fs.readFileSync(file, "utf8"));
+  const revisions = Array.isArray(payload.revisions) ? payload.revisions : [];
+  const written = [];
+  for (const r of revisions) {
+    for (const key of ["project_id", "milestone_id", "ym"]) {
+      if (!r[key]) throw new Error(`revision missing ${key}`);
+    }
+    const existing = await get(
+      "ms_progress_revisions",
+      `select=id&project_id=eq.${enc(r.project_id)}&milestone_id=eq.${enc(r.milestone_id)}&ym=eq.${enc(r.ym)}&status=eq.pending&limit=1`
+    );
+    const body = {
+      project_id: r.project_id,
+      milestone_id: r.milestone_id,
+      ym: r.ym,
+      current_pct: r.current_pct ?? null,
+      current_note: r.current_note ?? null,
+      revised_pct: r.revised_pct ?? null,
+      revised_note: r.revised_note ?? null,
+      status: "pending",
+      requested_by: r.requested_by || "codex-automation",
+      updated_at: new Date().toISOString(),
+    };
+    if (existing?.[0]?.id) {
+      const updated = await requestJson(rest("ms_progress_revisions", `id=eq.${enc(existing[0].id)}&select=*`), {
+        method: "PATCH",
+        headers: restHeaders({ prefer: "return=representation" }),
+        body,
+      });
+      written.push({ action: "updated", row: updated?.[0] || null });
+    } else {
+      const inserted = await requestJson(rest("ms_progress_revisions", "select=*"), {
+        method: "POST",
+        headers: restHeaders({ prefer: "return=representation" }),
+        body,
+      });
+      written.push({ action: "inserted", row: inserted?.[0] || null });
+    }
+  }
+  if (payload.notification && revisions.length > 0) {
+    await requestJson(rest("l2_notifications", "on_conflict=l2_kind,target_id,scope_key&select=*"), {
+      method: "POST",
+      headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
+      body: {
+        l2_kind: "ms_progress",
+        target_id: payload.notification.target_id,
+        scope_key: payload.notification.scope_key,
+        title: payload.notification.title,
+        summary: String(payload.notification.summary || "").slice(0, 500),
+        saved_count: payload.notification.saved_count ?? revisions.length,
+        total_count: payload.notification.total_count ?? revisions.length,
+        importance: payload.notification.importance ?? 2,
+      },
+    });
+  }
+  return { ok: true, writtenCount: written.length, written };
+}
+
+async function notify(file) {
+  if (!file) throw new Error("notify requires --file <payload.json>");
+  const payload = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (!payload.target_id || !payload.scope_key || !payload.title) {
+    throw new Error("notification missing target_id, scope_key or title");
+  }
+  const written = await requestJson(rest("l2_notifications", "on_conflict=l2_kind,target_id,scope_key&select=*"), {
+    method: "POST",
+    headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
+    body: {
+      l2_kind: payload.l2_kind || "ms_progress",
+      target_id: payload.target_id,
+      scope_key: payload.scope_key,
+      title: payload.title,
+      summary: String(payload.summary || "").slice(0, 500),
+      saved_count: payload.saved_count ?? 1,
+      total_count: payload.total_count ?? 1,
+      importance: importanceValue(payload.importance, 2),
+      metadata_json: payload.metadata_json || payload.metadata || {},
+    },
+  });
+  return { ok: true, written: written?.[0] || null };
+}
+
+async function applyOutbox(file) {
+  if (!file) throw new Error("apply-outbox requires --file <payload.json>");
+  const payload = readJson(file);
+  const results = {
+    notifications: [],
+    revisions: null,
+    emailRegistrations: [],
+    registryDiffs: null,
+    xrlEvidence: null,
+    sourceCache: null,
+    monthlyReports: null,
+    projectPatches: null,
+  };
+  for (const notification of payload.notifications || []) {
+    const tmp = path.join(os.tmpdir(), `amd-os-notification-${crypto.randomUUID()}.json`);
+    writeJson(tmp, notification);
+    try {
+      results.notifications.push(await notify(tmp));
+    } finally {
+      fs.rmSync(tmp, { force: true });
+    }
+  }
+  if (Array.isArray(payload.revisions) && payload.revisions.length) {
+    const tmp = path.join(os.tmpdir(), `amd-os-revisions-${crypto.randomUUID()}.json`);
+    writeJson(tmp, { revisions: payload.revisions, notification: payload.revisionNotification });
+    try {
+      results.revisions = await upsertReview(tmp);
+    } finally {
+      fs.rmSync(tmp, { force: true });
+    }
+  }
+  if (Array.isArray(payload.registryDiffs) && payload.registryDiffs.length) {
+    results.registryDiffs = await upsertRegistryDiffs(payload.registryDiffs);
+  }
+  if (Array.isArray(payload.xrlEvidence) && payload.xrlEvidence.length) {
+    results.xrlEvidence = await upsertXrlEvidence(payload.xrlEvidence);
+  }
+  if (Array.isArray(payload.sourceCache) && payload.sourceCache.length) {
+    results.sourceCache = await upsertSourceCache(payload.sourceCache);
+  }
+  if (Array.isArray(payload.monthlyReports) && payload.monthlyReports.length) {
+    results.monthlyReports = await upsertMonthlyReports(payload.monthlyReports);
+  }
+  if (Array.isArray(payload.projectPatches) && payload.projectPatches.length) {
+    results.projectPatches = await updateProjectPatches(payload.projectPatches);
+  }
+  for (const item of payload.emailRegistrations || []) {
+    results.emailRegistrations.push(await registerEmails({
+      projectId: item.project_id || item.projectId,
+      emails: item.emails || [],
+      syncGas: item.syncGas !== false,
+    }));
+  }
+  return {
+    ok: true,
+    appliedAt: new Date().toISOString(),
+    sourceFile: file,
+    results,
+  };
+}
+
+async function refreshSnapshot({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {}) {
+  const healthResult = await health();
+  if (!healthResult.supabaseOk) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: "supabase unavailable",
+      health: healthResult,
+    };
+  }
+  const snapshotResult = await exportOsSnapshot({ ym, out });
+  return {
+    ok: true,
+    refreshed: true,
+    health: healthResult,
+    snapshot: snapshotResult,
+  };
+}
+
+async function applyOutboxDir({ dir = DEFAULT_OUTBOX_DIR, appliedDir = DEFAULT_APPLIED_DIR, failedDir = DEFAULT_FAILED_DIR } = {}) {
+  fs.mkdirSync(dir, { recursive: true });
+  const files = fs.readdirSync(dir)
+    .filter((name) => name.endsWith(".json"))
+    .map((name) => path.join(dir, name))
+    .sort();
+  const results = [];
+  for (const file of files) {
+    try {
+      const applied = await applyOutbox(file);
+      const movedTo = moveFileSafe(file, appliedDir, ".applied");
+      results.push({ ok: true, file, movedTo, applied });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const movedTo = moveFileSafe(file, failedDir, ".failed");
+      results.push({ ok: false, file, movedTo, error: message });
+    }
+  }
+  return {
+    ok: results.every((r) => r.ok),
+    scanned: files.length,
+    appliedCount: results.filter((r) => r.ok).length,
+    failedCount: results.filter((r) => !r.ok).length,
+    results,
+  };
+}
+
+async function automationPrepare({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {}) {
+  const snapshotResult = await refreshSnapshot({ ym, out });
+  const shouldApplyOutbox = process.env.AMD_OS_AUTOMATION_APPLY_OUTBOX === "1";
+  const applyResult = shouldApplyOutbox
+    ? await applyOutboxDir({})
+    : {
+        ok: true,
+        skipped: true,
+        reason: "outbox apply is handled by the local non-LLM applier",
+      };
+  return {
+    ok: snapshotResult.ok && applyResult.ok,
+    snapshot: snapshotResult,
+    outbox: applyResult,
+  };
+}
+
+async function upsertRegistryDiffs(items) {
+  const now = new Date().toISOString();
+  const rows = items.map((item) => {
+    const patch = item.proposed_patch_json || item.proposedPatch || {};
+    return {
+      project_id: item.project_id || item.projectId,
+      ym: item.ym || null,
+      diff_kind: item.diff_kind || item.diffKind || "other",
+      target_table: item.target_table || item.targetTable,
+      target_key: item.target_key || item.targetKey || null,
+      current_snapshot_json: item.current_snapshot_json || item.currentSnapshot || {},
+      proposed_patch_json: patch,
+      proposed_patch_hash: item.proposed_patch_hash || item.proposedPatchHash || stableHash(patch),
+      evidence_refs_json: item.evidence_refs_json || item.evidenceRefs || [],
+      confidence: confidenceValue(item.confidence, 0.5),
+      status: item.status || "pending",
+      review_comment: item.review_comment || null,
+      created_by: item.created_by || "codex_automation",
+      created_at: item.created_at || now,
+      updated_at: now,
+    };
+  });
+  const missing = rows.find((r) => !r.project_id || !r.target_table);
+  if (missing) throw new Error(`registryDiffs missing project_id/target_table: ${JSON.stringify(missing)}`);
+  const written = await requestJson(rest("project_registry_diffs", "on_conflict=project_id,scope_key,diff_kind,target_table,target_key_norm,proposed_patch_hash&select=*"), {
+    method: "POST",
+    headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
+    body: rows,
+  });
+  return { ok: true, writtenCount: written?.length || 0, written };
+}
+
+async function upsertXrlEvidence(items) {
+  const now = new Date().toISOString();
+  const rows = items.map((item) => {
+    const refs = item.source_refs_json || item.sourceRefs || [];
+    const rawStatus = String(item.status || "candidate").trim().toLowerCase();
+    return {
+      project_id: item.project_id || item.projectId,
+      ym: item.ym || null,
+      axis: String(item.axis || "").toLowerCase(),
+      evidence_kind: item.evidence_kind || item.evidenceKind || "other",
+      summary: item.summary || "",
+      structured_value_json: item.structured_value_json || item.structuredValue || {},
+      source_refs_json: refs,
+      source_hash: item.source_hash || item.sourceHash || stableHash({ refs, summary: item.summary }),
+      confidence: confidenceValue(item.confidence, 0.5),
+      status: rawStatus === "pending" ? "candidate" : rawStatus,
+      created_by: item.created_by || "codex_automation",
+      created_at: item.created_at || now,
+      updated_at: now,
+    };
+  });
+  const missing = rows.find((r) => !r.project_id || !r.axis || !r.summary);
+  if (missing) throw new Error(`xrlEvidence missing project_id/axis/summary: ${JSON.stringify(missing)}`);
+  const written = await requestJson(rest("project_xrl_evidence", "on_conflict=project_id,scope_key,axis,evidence_kind,source_hash&select=*"), {
+    method: "POST",
+    headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
+    body: rows,
+  });
+  return { ok: true, writtenCount: written?.length || 0, written };
+}
+
+async function upsertSourceCache(items) {
+  const now = new Date().toISOString();
+  const rows = items.map((item) => {
+    const projectId = item.project_id || item.projectId;
+    const source = String(item.source || "").trim().toLowerCase();
+    const itemId = String(item.item_id || item.itemId || item.id || "").trim();
+    const contentText = String(item.content_text || item.contentText || item.snippet || "").slice(0, 4000);
+    return {
+      cache_id: item.cache_id || item.cacheId || stableHash({ projectId, source, itemId }),
+      project_id: projectId,
+      ym: item.ym || yyyymm(),
+      source,
+      item_id: itemId,
+      title: item.title || null,
+      item_date: item.item_date || item.itemDate || null,
+      content_text: contentText,
+      char_count: item.char_count ?? item.charCount ?? contentText.length,
+      metadata_json: item.metadata_json || item.metadata || {},
+      collected_at: item.collected_at || item.collectedAt || now,
+    };
+  });
+  const missing = rows.find((r) => !r.project_id || !r.ym || !r.source || !r.item_id);
+  if (missing) throw new Error(`sourceCache missing project_id/ym/source/item_id: ${JSON.stringify(missing)}`);
+  const written = await requestJson(rest("source_cache", "on_conflict=project_id,source,item_id&select=*"), {
+    method: "POST",
+    headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
+    body: rows,
+  });
+  return { ok: true, writtenCount: written?.length || 0, written };
+}
+
+async function upsertMonthlyReports(items) {
+  const now = new Date().toISOString();
+  const written = [];
+  for (const item of items) {
+    const projectId = item.project_id || item.projectId;
+    const ym = item.ym;
+    if (!projectId || !ym) throw new Error(`monthlyReports missing project_id/ym: ${JSON.stringify(item)}`);
+    const existing = await get("monthly_reports", `select=*&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&limit=1`);
+    const current = existing?.[0] || null;
+    if (current?.final_content && item.force !== true) {
+      written.push({ action: "skipped_final_exists", row: current });
+      continue;
+    }
+    const draft = item.draft_content ?? item.draftContent ?? item.content ?? current?.draft_content ?? "";
+    const body = {
+      report_id: item.report_id || item.reportId || current?.report_id || `${projectId}_${ym}`,
+      project_id: projectId,
+      ym,
+      draft_content: draft,
+      status: item.status || current?.status || "draft",
+      collection_summary_json: item.collection_summary_json || item.collectionSummary || current?.collection_summary_json || {},
+      generated_at: item.generated_at || item.generatedAt || now,
+      last_cron_at: item.last_cron_at || item.lastCronAt || now,
+      section_members: item.section_members ?? item.sectionMembers ?? current?.section_members ?? null,
+    };
+    if (item.final_content || item.finalContent) body.final_content = item.final_content || item.finalContent;
+    const response = current
+      ? await requestJson(rest("monthly_reports", `project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&select=*`), {
+          method: "PATCH",
+          headers: restHeaders({ prefer: "return=representation" }),
+          body,
+        })
+      : await requestJson(rest("monthly_reports", "select=*"), {
+          method: "POST",
+          headers: restHeaders({ prefer: "return=representation" }),
+          body,
+        });
+    written.push({ action: current ? "updated" : "inserted", row: response?.[0] || null });
+  }
+  return { ok: true, writtenCount: written.length, written };
+}
+
+const PROJECT_PATCH_ALLOWLIST = new Set([
+  "report_emails",
+  "slack_channel_id",
+  "drive_folder_id",
+  "start_ym",
+  "end_ym",
+  "fee_type",
+  "fee_amount",
+  "status",
+]);
+
+async function updateProjectPatches(items) {
+  const written = [];
+  for (const item of items) {
+    const projectId = item.project_id || item.projectId;
+    const patch = item.patch || item.proposed_patch_json || item.proposedPatch || {};
+    if (!projectId) throw new Error(`projectPatches missing project_id: ${JSON.stringify(item)}`);
+    const body = {};
+    for (const [key, value] of Object.entries(patch)) {
+      if (!PROJECT_PATCH_ALLOWLIST.has(key)) {
+        throw new Error(`projectPatches field not allowlisted: ${key}`);
+      }
+      body[key] = value;
+    }
+    if (!Object.keys(body).length) throw new Error(`projectPatches empty patch: ${JSON.stringify(item)}`);
+    const updated = await requestJson(rest("projects", `project_id=eq.${enc(projectId)}&select=project_id,project_name,report_emails,slack_channel_id,drive_folder_id,start_ym,end_ym,fee_type,fee_amount,status`), {
+      method: "PATCH",
+      headers: restHeaders({ prefer: "return=representation" }),
+      body,
+    });
+    written.push({ action: "updated", project_id: projectId, row: updated?.[0] || null });
+  }
+  return { ok: true, writtenCount: written.length, written };
+}
+
+function parseArgs(argv) {
+  const out = { _: [] };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (!arg.startsWith("--")) {
+      out._.push(arg);
+      continue;
+    }
+    const key = arg.slice(2);
+    const next = argv[i + 1];
+    if (!next || next.startsWith("--")) {
+      out[key] = true;
+    } else {
+      out[key] = next;
+      i++;
+    }
+  }
+  return out;
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const cmd = args._[0] || "help";
+  let result;
+  if (cmd === "health") {
+    result = await health();
+  } else if (cmd === "targets") {
+    result = await targets({ ym: args.ym || yyyymm(), includePast: args["no-past"] !== true });
+  } else if (cmd === "snapshot") {
+    result = await snapshot({ projectId: args.project, ym: args.ym });
+  } else if (cmd === "export-os-snapshot") {
+    result = await exportOsSnapshot({ ym: args.ym || yyyymm(), out: args.out || DEFAULT_OS_SNAPSHOT });
+  } else if (cmd === "refresh-snapshot") {
+    result = await refreshSnapshot({ ym: args.ym || yyyymm(), out: args.out || DEFAULT_OS_SNAPSHOT });
+  } else if (cmd === "local-targets") {
+    result = localTargets({ file: args.file || DEFAULT_OS_SNAPSHOT, ym: args.ym || yyyymm(), includePast: args["no-past"] !== true });
+  } else if (cmd === "local-snapshot") {
+    result = localSnapshot({ file: args.file || DEFAULT_OS_SNAPSHOT, projectId: args.project, ym: args.ym });
+  } else if (cmd === "upsert-review") {
+    result = await upsertReview(args.file);
+  } else if (cmd === "register-emails") {
+    result = await registerEmails({
+      projectId: args.project,
+      emails: splitEmails(args.emails),
+      syncGas: args["no-gas"] !== true,
+    });
+  } else if (cmd === "collect-gmail") {
+    result = await collectGmail({
+      projectId: args.project,
+      ym: args.ym,
+      registerFoundEmails: args["register-found-emails"] === true,
+    });
+  } else if (cmd === "notify") {
+    result = await notify(args.file);
+  } else if (cmd === "upsert-source-cache") {
+    result = await upsertSourceCache(readJson(args.file).sourceCache || readJson(args.file).items || []);
+  } else if (cmd === "upsert-monthly-reports") {
+    result = await upsertMonthlyReports(readJson(args.file).monthlyReports || readJson(args.file).items || []);
+  } else if (cmd === "update-projects") {
+    result = await updateProjectPatches(readJson(args.file).projectPatches || readJson(args.file).items || []);
+  } else if (cmd === "apply-outbox") {
+    result = await applyOutbox(args.file);
+  } else if (cmd === "apply-outbox-dir") {
+    result = await applyOutboxDir({ dir: args.dir || DEFAULT_OUTBOX_DIR });
+  } else if (cmd === "automation-prepare") {
+    result = await automationPrepare({ ym: args.ym || yyyymm(), out: args.out || DEFAULT_OS_SNAPSHOT });
+  } else {
+    result = {
+      ok: true,
+      usage: [
+        "node pwa/scripts/ms_progress_review_tool.mjs health",
+        "node pwa/scripts/ms_progress_review_tool.mjs export-os-snapshot --ym 202605",
+        "node pwa/scripts/ms_progress_review_tool.mjs local-targets --ym 202605",
+        "node pwa/scripts/ms_progress_review_tool.mjs local-snapshot --project p25 --ym 202605",
+        "node pwa/scripts/ms_progress_review_tool.mjs targets --ym 202605",
+        "node pwa/scripts/ms_progress_review_tool.mjs snapshot --project p21 --ym 202601",
+        "node pwa/scripts/ms_progress_review_tool.mjs register-emails --project p25 --emails kenkyu2_suishin@sc.kogakuin.ac.jp,sangaku@sc.kogakuin.ac.jp",
+        "node pwa/scripts/ms_progress_review_tool.mjs collect-gmail --project p25 --ym 202605 --register-found-emails",
+        "node pwa/scripts/ms_progress_review_tool.mjs refresh-snapshot --ym 202605",
+        "node pwa/scripts/ms_progress_review_tool.mjs upsert-review --file /tmp/review.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs notify --file /tmp/notification.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs upsert-source-cache --file /tmp/source-cache.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports --file /tmp/monthly-reports.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs update-projects --file /tmp/project-patches.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs apply-outbox --file /tmp/amd-os-outbox.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir",
+        "node pwa/scripts/ms_progress_review_tool.mjs automation-prepare --ym 202605",
+      ],
+    };
+  }
+  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+}
+
+main().catch((e) => {
+  console.error(JSON.stringify({ ok: false, error: e.message, stack: e.stack }, null, 2));
+  process.exit(1);
+});

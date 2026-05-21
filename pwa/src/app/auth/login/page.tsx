@@ -5,10 +5,12 @@ import { createClient } from "@/lib/supabase/client";
 export default function LoginPage() {
   const handleLogin = async () => {
     const supabase = createClient();
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next") || "/dashboard";
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         queryParams: {
           hd: "team-armada.jp", // Restrict to Google Workspace domain
         },

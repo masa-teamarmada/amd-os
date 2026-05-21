@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { fetchVcDetail } from "@/lib/vc-data";
 import type { VcDetail } from "@/types/vc";
 import { VcDetailBody } from "@/components/vc/VcDetailBody";
@@ -12,6 +13,8 @@ import { VcDetailBody } from "@/components/vc/VcDetailBody";
  */
 export default function VcDetailPage(props: { params: Promise<{ id: string }> }) {
   const { id } = use(props.params);
+  const pathname = usePathname();
+  const vcsBase = pathname.startsWith("/hud/") ? "/hud/vcs" : "/vcs";
   const [data, setData] = useState<VcDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -29,7 +32,7 @@ export default function VcDetailPage(props: { params: Promise<{ id: string }> })
   if (notFound || !data) {
     return (
       <div className="p-6 text-sm">
-        VC が見つかりません。<Link href="/vcs" className="underline">VC リストに戻る</Link>
+        VC が見つかりません。<Link href={vcsBase} className="underline">VC リストに戻る</Link>
       </div>
     );
   }
@@ -37,7 +40,7 @@ export default function VcDetailPage(props: { params: Promise<{ id: string }> })
   return (
     <div className="mx-auto w-full max-w-[1600px] px-4 py-6">
       <div className="mb-3 text-xs text-muted-foreground">
-        <Link href="/vcs" className="hover:text-foreground">← VC リスト</Link>
+        <Link href={vcsBase} className="hover:text-foreground">← VC リスト</Link>
       </div>
       <VcDetailBody data={data} />
     </div>

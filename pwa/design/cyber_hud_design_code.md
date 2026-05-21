@@ -26,7 +26,7 @@ AMD OS の cyber dashboard / cockpit 系UIで、次セッションの実装者�
 - 3D空間内で角度・奥行き・接続関係を持つもの
 - 参考画像のように、線幅差、切り欠き、目盛り、複数レイヤーの発光が品質を決めるもの
 
-CSSは情報レイアウト、文字、軽いfilter/opacity/transitionに使う。  
+CSSは情報レイアウト、文字、軽いfilter/opacity/transitionに使う。
 「CSSでそれっぽくできる」は採用理由にしない。主役かどうかではなく、見た瞬間にWeb部品っぽく安くなるなら採用しない。
 
 発光、レーザー、投影、粒子、空間スキャン、ネオンの輪郭強調などのエフェクトは、原則として `three.js` 側の geometry / material / light / shader / texture で実装する。CSSの `box-shadow` / `drop-shadow` / `filter` は、テキストやHTML情報部品の補助に留め、空間エフェクトの正本にしない。
@@ -118,3 +118,18 @@ HUDパネルは `three.js` のmesh/lineを正本にする。
 - パネル: 半透明のガラス面 + neon edge + chamfered cyber frame
 - Motion: click -> two pulses -> PJ-colored beam -> cockpit projection
 - 操作: OrbitControlsでぐりぐり回しても、パネルとレーザーが同じ空間に固定される
+
+## HUD Client Visual Language
+
+実用HUD Client (`/hud/*`) の全体テイストは [hud_visual_language.md](hud_visual_language.md) を正本にする。
+
+このファイルは主に `three.js` / 3D HUD / CSS禁止ラインの設計コード。
+`hud_visual_language.md` は、ダッシュボード・Atlas・Seeds・VC・Notifications・Cockpitなど `/hud` 全体を同じ見た目へ揃えるための視覚言語。
+
+特に以下は `hud_visual_language.md` を優先する。
+
+- cyan control center の通常mode
+- red threat console のalert mode
+- dotted circuit grid / stepped frame / segmented KPI の反復
+- 画像生成すべき部位と、動的UIとして実装すべき部位の切り分け
+- HUD quality gate

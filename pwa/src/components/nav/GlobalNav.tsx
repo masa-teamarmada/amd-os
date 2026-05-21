@@ -118,6 +118,18 @@ export function GlobalNav({ userCodeName, isAdmin = false }: GlobalNavProps) {
           Venture Map
         </Link>
 
+        <Link
+          href="/management-score"
+          className={cn(
+            "text-xs px-2.5 py-1 rounded-md transition-colors",
+            pathname.startsWith("/management-score")
+              ? "bg-accent text-accent-foreground font-medium"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Management
+        </Link>
+
         {/* Seeds + 受信箱バッジ */}
         <Link
           href="/seeds"
@@ -223,11 +235,11 @@ function NotificationBell() {
           supabase
             .from("l2_notifications")
             .select("notification_id", { count: "exact", head: true })
-            .is("notified_at", null),
+            .is("read_at", null),
           supabase
             .from("meeting_notifications")
             .select("meeting_id", { count: "exact", head: true })
-            .is("notified_at", null),
+            .is("read_at", null),
           supabase
             .from("app_notifications")
             .select("id", { count: "exact", head: true })

@@ -15,6 +15,8 @@ type UnifiedItem =
   | { kind: "l2"; data: Notification }
   | { kind: "meeting"; data: MeetingNotification };
 
+type FeedbackAction = "yes" | "no" | "comment";
+
 // 展開時に lazy fetch する実データの型
 type DetailRow = {
   loading: boolean;
@@ -23,19 +25,29 @@ type DetailRow = {
   rows?: Array<{ heading: string; body: string; sub?: string }>;
 };
 
+function parseProtocolNotificationScope(scopeKey: string): { ym: string; protocolId: string | null } {
+  const scoped = scopeKey.match(/^(20\d{4}):protocol:([^:]+)$/);
+  if (scoped) {
+    return { ym: scoped[1], protocolId: scoped[2] };
+  }
+  const ym = scopeKey.match(/20\d{4}/)?.[0] ?? scopeKey.slice(0, 6);
+  return { ym, protocolId: null };
+}
+
 export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [feedbackTexts, setFeedbackTexts] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState<Set<string>>(new Set());
   const [localFeedbacks, setLocalFeedbacks] = useState<Feedback[]>(feedbacks);
-  const [filter, setFilter] = useState<"all" | "unread" | "feedback">("all");
+  const [answeredMap, setAnsweredMap] = useState<Record<string, FeedbackAction>>({});
+  const [filter, setFilter] = useState<"open" | "unread" | "answered" | "feedback">("open");
   // 展開時に取得した実データ (key = itemKey(item))
   const [details, setDetails] = useState<Record<string, DetailRow>>({});
-  // notified_at の楽観的更新 (展開時に即既読にするため)
+  // read_at の楽観的更新 (展開時に即既読にするため)
   // key = itemKey(item) → ISO 文字列 (= now() で UPDATE 済 の表示用)
   const [readMap, setReadMap] = useState<Record<string, string>>({});
-  // 「未読に戻す」で server notified_at=null にした項目の override
-  // (= props 由来の i.data.notified_at を上書きして未読表示するため)
+  // 「未読に戻す」で server read_at=null にした項目の override
+  // (= props 由来の i.data.read_at を上書きして未読表示するため)
   const [unreadOverride, setUnreadOverride] = useState<Set<string>>(new Set());
   // 既読セクション全体のトグル (default 折りたたみ)
   const [readSectionOpen, setReadSectionOpen] = useState<boolean>(false);
@@ -50,43 +62,62 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
     return merged;
   }, [l2, mtg]);
 
-  // 表示判定: server の notified_at (= 永続) または readMap (= 当該セッションで開いた)
-  // これでバッジ/背景は即座に既読化される一方、グループ分け (= server 値だけで判定) は
-  // 当該セッション内では未読セクションのまま → 次回再読込で既読セクションに自然移動
+  // 表示判定: server の read_at (= 永続)、回答済み feedback、または readMap (= 当該セッションで開いた)
   const itemKey = (i: UnifiedItem): string =>
     i.kind === "l2" ? `l2-${i.data.notification_id}` : `mtg-${i.data.meeting_id}`;
+  const serverReadAt = (i: UnifiedItem): string | null => i.data.read_at ?? null;
+  const findFeedbacksFor = (i: UnifiedItem): Feedback[] => {
+    if (i.kind === "l2") {
+      return localFeedbacks.filter(
+        (f) => f.l2_kind === i.data.l2_kind && f.target_id === i.data.target_id && f.scope_key === i.data.scope_key
+      );
+    }
+    return localFeedbacks.filter((f) => f.l2_kind === "meeting_summary" && f.meeting_id === i.data.meeting_id);
+  };
+  const responseActionFor = (key: string, feedbacksForItem: Feedback[]): FeedbackAction | null => {
+    if (answeredMap[key]) return answeredMap[key];
+    const latest = feedbacksForItem[0]?.feedback_text?.trim() ?? "";
+    if (!latest) return null;
+    if (latest.startsWith("[はい]")) return "yes";
+    if (latest.startsWith("[いいえ]")) return "no";
+    return "comment";
+  };
+  const isAnswered = (i: UnifiedItem): boolean => !!responseActionFor(itemKey(i), findFeedbacksFor(i));
+  const hasFeedbackForItem = (i: UnifiedItem): boolean => findFeedbacksFor(i).length > 0;
   const isReadUi = (i: UnifiedItem): boolean => {
     const key = itemKey(i);
     if (unreadOverride.has(key)) return false;
-    return !!i.data.notified_at || !!readMap[key];
+    return !!serverReadAt(i) || !!readMap[key] || !!answeredMap[key] || hasFeedbackForItem(i);
   };
 
-  // フィルタ (バッジ表示は readMap 反映、ただしグループ分けは server 値だけで判定)
+  // フィルタ: 回答済み通知はその場で未読から外す。
   const filtered = useMemo(() => {
+    if (filter === "open") {
+      return items.filter((i) => !isAnswered(i));
+    }
     if (filter === "unread") {
-      return items.filter((i) => !i.data.notified_at);
+      return items.filter((i) => !isReadUi(i) && !isAnswered(i));
+    }
+    if (filter === "answered") {
+      return items.filter((i) => isAnswered(i));
     }
     if (filter === "feedback") {
-      // feedback が紐づく通知だけ
-      return items.filter((i) => {
-        if (i.kind === "l2") {
-          return localFeedbacks.some(
-            (f) => f.l2_kind === i.data.l2_kind && f.target_id === i.data.target_id && f.scope_key === i.data.scope_key
-          );
-        }
-        return localFeedbacks.some(
-          (f) => f.l2_kind === "meeting_summary" && f.meeting_id === i.data.meeting_id
-        );
-      });
+      return items.filter((i) => hasFeedbackForItem(i));
     }
-    return items;
-  }, [items, filter, localFeedbacks]);
+    return items.filter((i) => !isAnswered(i));
+  }, [answeredMap, items, filter, localFeedbacks]);
 
-  // 展開した瞬間に未読なら notified_at = now() で UPDATE → 楽観的に readMap に反映
+  // 展開した瞬間に未読なら read_at = now() で UPDATE → 楽観的に readMap に反映
   // (= 既読セクションには次回再描画時に移る、ただし当該カードは展開状態で残す)
   const markAsRead = useCallback(async (i: UnifiedItem) => {
-    if (i.data.notified_at) return; // 既読は何もしない
     const key = itemKey(i);
+    setUnreadOverride((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    if (serverReadAt(i)) return; // 既読は何もしない
     const nowIso = new Date().toISOString();
     setReadMap((prev) => ({ ...prev, [key]: nowIso }));
     try {
@@ -94,12 +125,12 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
       if (i.kind === "l2") {
         await supabase
           .from("l2_notifications")
-          .update({ notified_at: nowIso })
+          .update({ read_at: nowIso })
           .eq("notification_id", i.data.notification_id);
       } else {
         await supabase
           .from("meeting_notifications")
-          .update({ notified_at: nowIso })
+          .update({ read_at: nowIso })
           .eq("meeting_id", i.data.meeting_id);
       }
     } catch (e) {
@@ -108,7 +139,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
     }
   }, []);
 
-  /** 「未読に戻す」: server notified_at=null + 当該セッション中は未読表示 (unreadOverride) */
+  /** 「未読に戻す」: server read_at=null + 当該セッション中は未読表示 (unreadOverride) */
   const markAsUnread = useCallback(async (i: UnifiedItem) => {
     const key = itemKey(i);
     setReadMap((prev) => {
@@ -126,12 +157,12 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
       if (i.kind === "l2") {
         await supabase
           .from("l2_notifications")
-          .update({ notified_at: null })
+          .update({ read_at: null })
           .eq("notification_id", i.data.notification_id);
       } else {
         await supabase
           .from("meeting_notifications")
-          .update({ notified_at: null })
+          .update({ read_at: null })
           .eq("meeting_id", i.data.meeting_id);
       }
     } catch (e) {
@@ -177,23 +208,30 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
         } else if (n.l2_kind === "protocols") {
           // Phase 4.5 (2026-05-11): protocols は universal (project_id=null, protocol_id=p4u-...)
           // PJ × ym の紐付けは protocol_examples 経由 (occurred_on で ym 範囲を絞る)
-          const ym = n.scope_key;
+          // 2026-05-20 以降、通知は YYYYMM:protocol:<protocol_id> で 1 protocol = 1 通知。
+          const { ym, protocolId } = parseProtocolNotificationScope(n.scope_key);
           const y = Number(ym.slice(0, 4));
           const m = Number(ym.slice(4, 6));
           const ymStart = `${y}-${String(m).padStart(2, "0")}-01`;
           const ymNextStart = m === 12
             ? `${y + 1}-01-01`
             : `${y}-${String(m + 1).padStart(2, "0")}-01`;
-          const { data: examples, error: exErr } = await supabase
+          let examplesQuery = supabase
             .from("protocol_examples")
             .select("protocol_id, occurred_on, summary, branch_point, action_taken, result")
             .eq("project_id", n.target_id)
             .gte("occurred_on", ymStart)
-            .lt("occurred_on", ymNextStart)
+            .lt("occurred_on", ymNextStart);
+          if (protocolId) {
+            examplesQuery = examplesQuery.eq("protocol_id", protocolId);
+          }
+          const { data: examples, error: exErr } = await examplesQuery
             .order("occurred_on", { ascending: false })
             .limit(50);
           if (exErr) throw exErr;
-          const ids = Array.from(new Set((examples ?? []).map((e) => e.protocol_id as string)));
+          const ids = protocolId
+            ? [protocolId]
+            : Array.from(new Set((examples ?? []).map((e) => e.protocol_id as string)));
           if (ids.length === 0) {
             rows = [];
           } else {
@@ -259,22 +297,33 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
             };
           });
         } else if (n.l2_kind === "ms_progress") {
-          // milestone_monthly_progress + value_milestones JOIN は client では難しいので 2 回 fetch
-          const { data: progRows } = await supabase
+          // 通常の進捗更新通知に加えて、Codex automation が作る pending revision も同じ通知から見せる。
+          const [{ data: progRows }, { data: revisionRows }] = await Promise.all([
+            supabase
             .from("milestone_monthly_progress")
             .select("milestone_key, progress_pct, consumed_pt, source, note")
-            .eq("ym", n.scope_key);
-          const keys = (progRows ?? []).map((r) => r.milestone_key);
-          // 当該 PJ の milestones だけにフィルタ
-          const { data: msRows } = await supabase
+              .eq("ym", n.scope_key),
+            supabase
+              .from("ms_progress_revisions")
+              .select("milestone_id, current_pct, current_note, revised_pct, revised_note, status, created_at")
+              .eq("project_id", n.target_id)
+              .eq("ym", n.scope_key)
+              .order("created_at", { ascending: false }),
+          ]);
+          const keys = Array.from(new Set([
+            ...(progRows ?? []).map((r) => String(r.milestone_key)),
+            ...(revisionRows ?? []).map((r) => String(r.milestone_id)),
+          ]));
+          const [{ data: msRows }, { data: pcRows }] = await Promise.all([
+            supabase
             .from("value_milestones")
-            .select("milestone_id, title, points, plan_cycle_id, value_plan_cycles!inner(project_id)")
-            .in("milestone_id", keys.length > 0 ? keys : ["__none__"]);
-          // value_plan_cycles ⇄ project_id でフィルタするため別 fetch
-          const { data: pcRows } = await supabase
+              .select("milestone_id, title, points, plan_cycle_id")
+              .in("milestone_id", keys.length > 0 ? keys : ["__none__"]),
+            supabase
             .from("value_plan_cycles")
             .select("plan_cycle_id, project_id")
-            .eq("project_id", n.target_id);
+              .eq("project_id", n.target_id),
+          ]);
           const validPlanIds = new Set((pcRows ?? []).map((p) => p.plan_cycle_id));
           const msMap: Record<string, { title: string; points: number }> = {};
           for (const m of msRows ?? []) {
@@ -285,7 +334,22 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
               };
             }
           }
-          rows = (progRows ?? [])
+          const revisionDetails = (revisionRows ?? [])
+            .filter((r) => msMap[String(r.milestone_id)])
+            .map((r) => {
+              const m = msMap[String(r.milestone_id)];
+              const status =
+                r.status === "pending" ? "確認待ち" :
+                r.status === "confirmed" ? "確定済" :
+                r.status === "discarded" ? "破棄" :
+                String(r.status ?? "");
+              return {
+                heading: `修正案: ${m.title} (${m.points}pt)`,
+                body: `現在 ${r.current_pct ?? "?"}% → 提案 ${r.revised_pct ?? "?"}% [${status}]\n${r.revised_note ?? ""}`,
+                sub: r.current_note ? `現在メモ: ${r.current_note}` : undefined,
+              };
+            });
+          const progressDetails = (progRows ?? [])
             .filter((p) => msMap[p.milestone_key])
             .map((p) => {
               const m = msMap[p.milestone_key];
@@ -295,6 +359,144 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                 sub: p.note ? `📝 ${p.note}` : undefined,
               };
             });
+          rows = [...revisionDetails, ...progressDetails];
+        } else if (n.l2_kind === "raw_data_ingested") {
+          const ym = n.scope_key.slice(0, 6);
+          const { data, error } = await supabase
+            .from("source_cache")
+            .select("source, title, item_date, content_text, metadata_json")
+            .eq("project_id", n.target_id)
+            .eq("ym", ym)
+            .in("source", ["gmail_message", "gmail"])
+            .order("item_date", { ascending: false })
+            .limit(50);
+          if (error) throw error;
+          rows = (data ?? []).map((r) => {
+            const meta = (r.metadata_json ?? {}) as Record<string, unknown>;
+            const from = typeof meta.from === "string" ? meta.from : "";
+            const snippet = typeof meta.snippet === "string" ? meta.snippet : "";
+            const messageCount = typeof meta.message_count === "number" ? `thread messages: ${meta.message_count}` : "";
+            const matchedCount = typeof meta.matched_message_count === "number" ? `saved messages: ${meta.matched_message_count}` : "";
+            return {
+              heading: `${r.source === "gmail_message" ? "メール" : "スレッド"}: ${r.title ?? "(no title)"}`,
+              body: r.source === "gmail_message"
+                ? [
+                    snippet ? `Snippet: ${snippet}` : "",
+                    "本文全文は通知には表示しない。必要な情報はL2抽出結果として別通知・別テーブルに保存する。",
+                  ].filter(Boolean).join("\n")
+                : "Gmailスレッドを取り込み済み。通知詳細ではメール単位の参照のみ表示する。",
+              sub: [r.item_date, from, messageCount, matchedCount].filter(Boolean).join(" · ") || undefined,
+            };
+          });
+        } else if (n.l2_kind === "raw_data_gap") {
+          const ym = n.scope_key.slice(0, 6);
+          const { data, error } = await supabase
+            .from("source_cache")
+            .select("source, item_id, title, item_date, content_text, metadata_json, collected_at")
+            .eq("project_id", n.target_id)
+            .eq("ym", ym)
+            .order("item_date", { ascending: false })
+            .limit(80);
+          if (error) throw error;
+          rows = (data ?? []).map((r) => {
+            const meta = (r.metadata_json ?? {}) as Record<string, unknown>;
+            const metaBits = [
+              typeof meta.sender === "string" ? `sender=${meta.sender}` : "",
+              typeof meta.channel === "string" ? `channel=${meta.channel}` : "",
+              typeof meta.file_id === "string" ? `file=${meta.file_id}` : "",
+              typeof meta.kind === "string" ? `kind=${meta.kind}` : "",
+              r.item_id ? `item=${r.item_id}` : "",
+            ].filter(Boolean);
+            return {
+              heading: `${String(r.source).toUpperCase()}: ${r.title ?? "(no title)"}`,
+              body: [
+                String(r.content_text ?? ""),
+                Object.keys(meta).length > 0 ? `metadata: ${formatJsonCompact(meta)}` : "",
+              ].filter(Boolean).join("\n"),
+              sub: [
+                r.item_date ? formatJST(String(r.item_date)) : "",
+                r.collected_at ? `collected=${formatJST(String(r.collected_at))}` : "",
+                ...metaBits,
+              ].filter(Boolean).join(" · ") || undefined,
+            };
+          });
+        } else if (n.l2_kind === "project_registry_diff") {
+          const query = supabase
+            .from("project_registry_diffs")
+            .select("diff_kind, target_table, target_key, current_snapshot_json, proposed_patch_json, evidence_refs_json, confidence, status, review_comment, created_at, applied_at")
+            .eq("project_id", n.target_id);
+          const scopedQuery = n.scope_key === "global"
+            ? query.is("ym", null)
+            : query.eq("ym", n.scope_key);
+          const { data, error } = await scopedQuery.order("created_at", { ascending: false }).limit(50);
+          if (error) throw error;
+          rows = (data ?? []).map((r) => {
+            const evidence = Array.isArray(r.evidence_refs_json) ? r.evidence_refs_json : [];
+            const evidenceText = evidence
+              .slice(0, 3)
+              .map((e) => {
+                const ref = e && typeof e === "object" ? e as Record<string, unknown> : {};
+                return [
+                  ref.source || ref.type || "source",
+                  ref.date || ref.item_date || "",
+                  ref.snippet || ref.summary || "",
+                ].filter(Boolean).join(" / ");
+              })
+              .filter(Boolean)
+              .join("\n");
+            return {
+              heading: `${r.diff_kind} → ${r.target_table}${r.status ? ` [${r.status}]` : ""}`,
+              body: [
+                `提案: ${formatJsonCompact(r.proposed_patch_json)}`,
+                evidenceText ? `根拠:\n${evidenceText}` : "",
+                r.review_comment ? `コメント: ${r.review_comment}` : "",
+              ].filter(Boolean).join("\n"),
+              sub: [
+                r.target_key ? `target=${r.target_key}` : "",
+                r.confidence != null ? `confidence=${Number(r.confidence).toFixed(2)}` : "",
+                r.applied_at ? `applied=${formatJST(String(r.applied_at))}` : "",
+              ].filter(Boolean).join(" · ") || undefined,
+            };
+          });
+        } else if (n.l2_kind === "xrl_evidence") {
+          const query = supabase
+            .from("project_xrl_evidence")
+            .select("axis, evidence_kind, summary, structured_value_json, source_refs_json, confidence, status, created_at, confirmed_at")
+            .eq("project_id", n.target_id);
+          const scopedQuery = n.scope_key === "global"
+            ? query.is("ym", null)
+            : query.eq("ym", n.scope_key);
+          const { data, error } = await scopedQuery.order("created_at", { ascending: false }).limit(50);
+          if (error) throw error;
+          rows = (data ?? []).map((r) => {
+            const refs = Array.isArray(r.source_refs_json) ? r.source_refs_json : [];
+            const refText = refs
+              .slice(0, 3)
+              .map((e) => {
+                const ref = e && typeof e === "object" ? e as Record<string, unknown> : {};
+                return [
+                  ref.source || ref.type || "source",
+                  ref.date || ref.item_date || "",
+                  ref.snippet || ref.summary || "",
+                ].filter(Boolean).join(" / ");
+              })
+              .filter(Boolean)
+              .join("\n");
+            return {
+              heading: `${String(r.axis).toUpperCase()} / ${r.evidence_kind} [${r.status}]`,
+              body: [
+                String(r.summary ?? ""),
+                Object.keys((r.structured_value_json ?? {}) as Record<string, unknown>).length > 0
+                  ? `構造化値: ${formatJsonCompact(r.structured_value_json)}`
+                  : "",
+                refText ? `根拠:\n${refText}` : "",
+              ].filter(Boolean).join("\n"),
+              sub: [
+                r.confidence != null ? `confidence=${Number(r.confidence).toFixed(2)}` : "",
+                r.confirmed_at ? `confirmed=${formatJST(String(r.confirmed_at))}` : "",
+              ].filter(Boolean).join(" · ") || undefined,
+            };
+          });
         }
       } else {
         // meeting_summary: project_meeting_summaries から実内容取得
@@ -355,7 +557,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
         if (!details[key]) {
           void loadDetails(i);
         }
-        if (!i.data.notified_at) {
+        if (!serverReadAt(i)) {
           void markAsRead(i);
         }
       }
@@ -363,10 +565,10 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
     });
   };
 
-  const submitFeedback = async (i: UnifiedItem) => {
+  const submitFeedback = async (i: UnifiedItem, action: FeedbackAction = "comment") => {
     const key = itemKey(i);
     const text = (feedbackTexts[key] ?? "").trim();
-    if (!text) return;
+    if (action === "comment" && !text) return;
     setSubmitting((s) => new Set(s).add(key));
     try {
       const body = i.kind === "l2"
@@ -375,6 +577,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
             target_id: i.data.target_id,
             scope_key: i.data.scope_key,
             notification_id: i.data.notification_id,
+            action,
             feedback_text: text,
           }
         : {
@@ -382,6 +585,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
             target_id: i.data.project_id,
             scope_key: i.data.meeting_id,
             meeting_id: i.data.meeting_id,
+            action,
             feedback_text: text,
           };
       const res = await fetch("/api/notifications/feedback", {
@@ -397,8 +601,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
       const created = await res.json();
       // 楽観的反映
       setLocalFeedbacks((prev) => [created.feedback as Feedback, ...prev]);
+      setAnsweredMap((prev) => ({ ...prev, [key]: action }));
       setFeedbackTexts((prev) => ({ ...prev, [key]: "" }));
-      alert("つくよみに修正依頼を送りました。次回の cron 抽出時に反映されます。");
+      void markAsRead(i);
     } catch (e) {
       alert(`送信エラー: ${e instanceof Error ? e.message : "unknown"}`);
     } finally {
@@ -410,24 +615,24 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
     }
   };
 
-  const findFeedbacksFor = (i: UnifiedItem): Feedback[] => {
-    if (i.kind === "l2") {
-      return localFeedbacks.filter(
-        (f) => f.l2_kind === i.data.l2_kind && f.target_id === i.data.target_id && f.scope_key === i.data.scope_key
-      );
-    }
-    return localFeedbacks.filter((f) => f.l2_kind === "meeting_summary" && f.meeting_id === i.data.meeting_id);
+  const responseLabel = (action: FeedbackAction) => {
+    if (action === "yes") return "はい・反映";
+    if (action === "no") return "いいえ・不採用";
+    return "コメント送信済み";
   };
 
   return (
     <div>
       {/* フィルタタブ */}
       <div className="flex gap-2 mb-4">
-        <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
-          すべて ({items.length})
+        <FilterButton active={filter === "open"} onClick={() => setFilter("open")}>
+          未対応 ({items.filter((i) => !isAnswered(i)).length})
         </FilterButton>
         <FilterButton active={filter === "unread"} onClick={() => setFilter("unread")}>
-          未読 ({items.filter((i) => !isReadUi(i)).length})
+          未読 ({items.filter((i) => !isReadUi(i) && !isAnswered(i)).length})
+        </FilterButton>
+        <FilterButton active={filter === "answered"} onClick={() => setFilter("answered")}>
+          回答済み ({items.filter((i) => isAnswered(i)).length})
         </FilterButton>
         <FilterButton active={filter === "feedback"} onClick={() => setFilter("feedback")}>
           修正依頼あり ({localFeedbacks.length > 0 ? items.filter((i) => findFeedbacksFor(i).length > 0).length : 0})
@@ -439,17 +644,23 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
       )}
 
       {(() => {
-        // 未読/既読に分ける (= readMap で楽観的に既読化されたものは、開いたままでも既読扱い)
-        // グループ分けは server 値だけで判定 (= 開いてもセッション中は未読セクションに残す)
-        // バッジ/背景の既読化は isReadUi で即時、リロードで初めて既読セクションへ移動 (まさの仕様)
-        const unreadItems = filtered.filter((i) => !i.data.notified_at);
-        const readItems = filtered.filter((i) => !!i.data.notified_at);
+        // 未読/既読に分ける。単に開いた通知はセッション中は未読側に残し、
+        // はい/いいえ/コメントで回答した通知だけ即座に既読側へ移動する。
+        const isReadBucket = (i: UnifiedItem) => {
+          const key = itemKey(i);
+          return !!serverReadAt(i) || !!answeredMap[key] || findFeedbacksFor(i).length > 0;
+        };
+        const unansweredItems = filtered.filter((i) => !isAnswered(i));
+        const unreadItems = unansweredItems.filter((i) => !isReadBucket(i));
+        const readItems = unansweredItems.filter((i) => isReadBucket(i));
+        const answeredItems = filtered.filter((i) => isAnswered(i));
 
         const renderCard = (i: UnifiedItem) => {
           const key = itemKey(i);
           const isExpanded = expanded.has(key);
           const isSubmitting = submitting.has(key);
           const itemFeedbacks = findFeedbacksFor(i);
+          const responseAction = responseActionFor(key, itemFeedbacks);
           return (
             <div
               key={key}
@@ -492,7 +703,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 ml-2 shrink-0">
-                  {isReadUi(i) && (
+                  {isReadUi(i) && !responseAction && (
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); void markAsUnread(i); }}
@@ -551,28 +762,56 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                     </div>
                   )}
 
-                  {/* 修正依頼フォーム */}
+                  {/* 回答フォーム */}
                   <div className="border-t pt-3">
-                    <label className="text-xs font-medium block mb-1">⚠️ つくよみに修正依頼</label>
-                    <textarea
-                      className="w-full text-sm border rounded p-2 min-h-[60px] bg-background"
-                      placeholder="例: BWE 総会の議事録に CX 神谷さんが入ってる。これは BWE PJ なので CX 関連の人物・議題を含めないでほしい。"
-                      value={feedbackTexts[key] ?? ""}
-                      onChange={(e) => setFeedbackTexts((prev) => ({ ...prev, [key]: e.target.value }))}
-                      disabled={isSubmitting}
-                    />
-                    <div className="flex justify-end mt-2">
-                      <button
-                        className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50"
-                        onClick={() => submitFeedback(i)}
-                        disabled={isSubmitting || !(feedbackTexts[key] ?? "").trim()}
-                      >
-                        {isSubmitting ? "送信中..." : "送信"}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      送信後、次回の cron 抽出時に LLM プロンプトに含まれる。永続的に「過去の指摘」として参照される。
-                    </p>
+                    {responseAction ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-emerald-500/25 bg-emerald-500/8 px-3 py-2">
+                        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                          回答済み: {responseLabel(responseAction)}
+                        </span>
+                        {isSubmitting && <span className="text-[11px] text-muted-foreground">送信中...</span>}
+                      </div>
+                    ) : (
+                      <>
+                        <label className="text-xs font-medium block mb-1">回答・コメント</label>
+                        <p className="mb-2 text-[11px] text-muted-foreground">
+                          反映してよければ「はい・反映」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。
+                        </p>
+                        <textarea
+                          className="w-full text-sm border rounded p-2 min-h-[60px] bg-background"
+                          placeholder="任意コメント。例: 今回は契約レビューだけなのでPJメンバーには入れない / 品質確認として継続参加なので登録してOK"
+                          value={feedbackTexts[key] ?? ""}
+                          onChange={(e) => setFeedbackTexts((prev) => ({ ...prev, [key]: e.target.value }))}
+                          disabled={isSubmitting}
+                        />
+                        <div className="flex flex-wrap justify-end gap-2 mt-2">
+                          <button
+                            className="text-xs px-3 py-1.5 border border-emerald-500 text-emerald-700 rounded hover:bg-emerald-50 disabled:opacity-50"
+                            onClick={() => submitFeedback(i, "yes")}
+                            disabled={isSubmitting}
+                          >
+                            {isSubmitting ? "送信中..." : "はい・反映"}
+                          </button>
+                          <button
+                            className="text-xs px-3 py-1.5 border border-red-400 text-red-700 rounded hover:bg-red-50 disabled:opacity-50"
+                            onClick={() => submitFeedback(i, "no")}
+                            disabled={isSubmitting}
+                          >
+                            {isSubmitting ? "送信中..." : "いいえ・不採用"}
+                          </button>
+                          <button
+                            className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50"
+                            onClick={() => submitFeedback(i, "comment")}
+                            disabled={isSubmitting || !(feedbackTexts[key] ?? "").trim()}
+                          >
+                            {isSubmitting ? "送信中..." : "コメントだけ送信"}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。安全に反映できる候補は「はい」でSupabaseへ反映する。
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -582,15 +821,21 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
 
         return (
           <>
+            {filter === "answered" && answeredItems.length > 0 && (
+              <div className="space-y-3">
+                {answeredItems.map((i) => renderCard(i))}
+              </div>
+            )}
+
             {/* 未読 */}
-            {unreadItems.length > 0 && (
+            {filter !== "answered" && unreadItems.length > 0 && (
               <div className="space-y-3">
                 {unreadItems.map((i) => renderCard(i))}
               </div>
             )}
 
             {/* 既読 (デフォルト折りたたみ) */}
-            {readItems.length > 0 && (
+            {filter !== "answered" && readItems.length > 0 && (
               <div className={unreadItems.length > 0 ? "mt-6" : ""}>
                 <button
                   onClick={() => setReadSectionOpen((v) => !v)}
@@ -672,22 +917,61 @@ function DeepLinkForL2({ n }: { n: Notification }) {
           <code className="text-xs bg-muted px-1 rounded">{n.scope_key}</code>
         </span>
       );
-    case "protocols":
+    case "protocols": {
+      const { ym, protocolId } = parseProtocolNotificationScope(n.scope_key);
       return (
         <a className="text-blue-600 hover:underline" href="/admin/protocols">
-          /admin/protocols (project={n.target_id}, ym={n.scope_key} の candidate 行)
+          /admin/protocols (project={n.target_id}, ym={ym}{protocolId ? `, protocol=${protocolId}` : ""} の candidate 行)
         </a>
       );
+    }
     case "ms_progress":
       return (
-        <a className="text-blue-600 hover:underline" href={`/project/${n.target_id}/cockpit`}>
-          /project/{n.target_id}/cockpit (月次モーダル ym={n.scope_key} の進捗バー)
+        <a className="text-blue-600 hover:underline" href={`/project/${n.target_id}/cockpit?ym=${n.scope_key}`}>
+          /project/{n.target_id}/cockpit?ym={n.scope_key} (対象月の月次モーダル)
         </a>
       );
     case "founding_members":
       return (
         <a className="text-blue-600 hover:underline" href={`/project/${n.target_id}/cockpit`}>
           /project/{n.target_id}/cockpit (メンバーカードで確認)
+        </a>
+      );
+    case "project_member_candidate":
+      return (
+        <a className="text-blue-600 hover:underline" href={`/admin/projects`}>
+          /admin/projects (PJメンバー候補を確認)
+        </a>
+      );
+    case "project_contact_candidate":
+    case "project_config_gap":
+      return (
+        <a className="text-blue-600 hover:underline" href={`/admin/projects`}>
+          /admin/projects (PJ台帳を確認)
+        </a>
+      );
+    case "raw_data_gap":
+      return (
+        <a className="text-blue-600 hover:underline" href={`/project/${n.target_id}/cockpit?ym=${n.scope_key.slice(0, 6)}`}>
+          /project/{n.target_id}/cockpit?ym={n.scope_key.slice(0, 6)} (通知詳細の source_cache とあわせて確認)
+        </a>
+      );
+    case "raw_data_ingested":
+      return (
+        <a className="text-blue-600 hover:underline" href={`/project/${n.target_id}/cockpit`}>
+          /project/{n.target_id}/cockpit (取り込み済み生データを通知詳細で確認)
+        </a>
+      );
+    case "project_registry_diff":
+      return (
+        <a className="text-blue-600 hover:underline" href={`/admin/projects`}>
+          /admin/projects (OS台帳差分を確認)
+        </a>
+      );
+    case "xrl_evidence":
+      return (
+        <a className="text-blue-600 hover:underline" href={`/project/${n.target_id}/cockpit`}>
+          /project/{n.target_id}/cockpit (XRL / AMD Score 根拠を確認)
         </a>
       );
     default:
@@ -722,9 +1006,25 @@ const NOTIFICATION_COST_ESTIMATE_JPY: Record<string, number> = {
   project_knowledge: 0.2,
   protocols: 0.3,
   ms_progress: 0.1,
+  project_member_candidate: 0.1,
+  project_contact_candidate: 0.1,
+  raw_data_gap: 0.1,
+  raw_data_ingested: 0.1,
+  project_config_gap: 0.1,
+  project_registry_diff: 0.2,
+  xrl_evidence: 2,
   founding_members: 10,
   meeting_summary: 0.2,
 };
+
+function formatJsonCompact(value: unknown): string {
+  try {
+    const s = JSON.stringify(value ?? {}, null, 0);
+    return s.length > 260 ? `${s.slice(0, 260)}...` : s;
+  } catch {
+    return String(value ?? "");
+  }
+}
 
 function formatCostJpy(n: number): string {
   if (n < 1) return `~¥${n.toFixed(1)}`;

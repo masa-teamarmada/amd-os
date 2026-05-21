@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toggleSubItemStatus } from "@/lib/supabase-data";
 
 function formatYm(ym: string) {
@@ -39,21 +39,55 @@ interface PlanCycle {
   status: string;
 }
 
+interface MsScheduleInfo {
+  milestoneId: string;
+  periodStartYm: string;
+  targetYm: string;
+  msMonths: number;
+}
+
 interface Props {
   milestones: Milestone[];
-  progressMap: Map<string, number>;
   planCycle: PlanCycle;
+  projectId: string;
   subItems: SubItem[];
   responsibilities: Responsibility[];
   memberMap: Record<string, string>; // memberId → codeName
   onEdit?: () => void;
 }
 
-export function CockpitGoalsCompact({ milestones, progressMap, planCycle, subItems, responsibilities, memberMap, onEdit }: Props) {
+export function CockpitGoalsCompact({ milestones, planCycle, projectId, subItems, responsibilities, memberMap, onEdit }: Props) {
   const totalPts = milestones.reduce((s, m) => s + m.points, 0);
   const annualMs = milestones.filter((m) => m.tag === "normal");
   const routineMs = milestones.filter((m) => m.tag === "routine");
   const bufferMs = milestones.filter((m) => m.tag === "buffer");
+  const [schedules, setSchedules] = useState<Record<string, MsScheduleInfo>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSchedules() {
+      if (!projectId || !planCycle.periodStartYm) {
+        setSchedules({});
+        return;
+      }
+      try {
+        const res = await fetch(`/api/progress/ms-schedule?projectId=${projectId}&startYm=${planCycle.periodStartYm}`);
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "schedule load failed");
+        const map: Record<string, MsScheduleInfo> = {};
+        for (const item of data.schedules || []) {
+          map[item.milestoneId] = item;
+        }
+        if (!cancelled) setSchedules(map);
+      } catch {
+        if (!cancelled) setSchedules({});
+      }
+    }
+    loadSchedules();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, planCycle.periodStartYm]);
 
   // サブアイテムをMS別にグループ化
   const subItemMap = new Map<string, SubItem[]>();
@@ -102,10 +136,10 @@ export function CockpitGoalsCompact({ milestones, progressMap, planCycle, subIte
               key={ms.milestoneId}
               ms={ms}
               order={idx + 1}
-              pct={progressMap.get(ms.milestoneId) ?? 0}
               subItems={subItemMap.get(ms.milestoneId) || []}
               resps={respMap.get(ms.milestoneId) || []}
               memberMap={memberMap}
+              schedule={schedules[ms.milestoneId]}
             />
           ))}
         </div>
@@ -120,10 +154,10 @@ export function CockpitGoalsCompact({ milestones, progressMap, planCycle, subIte
               key={ms.milestoneId}
               ms={ms}
               order={annualMs.length + idx + 1}
-              pct={progressMap.get(ms.milestoneId) ?? 0}
               subItems={subItemMap.get(ms.milestoneId) || []}
               resps={respMap.get(ms.milestoneId) || []}
               memberMap={memberMap}
+              schedule={schedules[ms.milestoneId]}
             />
           ))}
         </div>
@@ -138,10 +172,10 @@ export function CockpitGoalsCompact({ milestones, progressMap, planCycle, subIte
               key={ms.milestoneId}
               ms={ms}
               order={annualMs.length + routineMs.length + idx + 1}
-              pct={progressMap.get(ms.milestoneId) ?? 0}
               subItems={subItemMap.get(ms.milestoneId) || []}
               resps={respMap.get(ms.milestoneId) || []}
               memberMap={memberMap}
+              schedule={schedules[ms.milestoneId]}
             />
           ))}
         </div>
@@ -151,14 +185,14 @@ export function CockpitGoalsCompact({ milestones, progressMap, planCycle, subIte
 }
 
 function MsRow({
-  ms, order, pct, subItems, resps, memberMap,
+  ms, order, subItems, resps, memberMap, schedule,
 }: {
   ms: Milestone;
   order: number;
-  pct: number;
   subItems: SubItem[];
   resps: Responsibility[];
   memberMap: Record<string, string>;
+  schedule?: MsScheduleInfo;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasDetail = subItems.length > 0 || resps.length > 0;
@@ -177,6 +211,18 @@ function MsRow({
           {subItems.length > 0 && (
             <span className="text-[11px] text-[#86868b] ml-1.5">
               ({doneCount}/{subItems.length})
+            </span>
+          )}
+          {schedule && (
+            <span
+              className="ml-2 text-[10px] text-[#86868b] bg-[#f5f5f7] px-1.5 py-0.5 rounded align-middle whitespace-nowrap"
+              title={schedule.periodStartYm === schedule.targetYm
+                ? `MS期間: ${formatYm(schedule.targetYm)}`
+                : `MS期間: ${formatYm(schedule.periodStartYm)} 〜 ${formatYm(schedule.targetYm)}`}
+            >
+              {schedule.periodStartYm === schedule.targetYm
+                ? `${formatYm(schedule.targetYm)}まで`
+                : `${formatYm(schedule.periodStartYm)}〜${formatYm(schedule.targetYm)}`}
             </span>
           )}
         </span>

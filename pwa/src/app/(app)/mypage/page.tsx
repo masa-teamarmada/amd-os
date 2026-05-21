@@ -303,7 +303,7 @@ async function loadMyPageData(): Promise<MyPageData> {
     .eq("member_id", member.memberId)
     .eq("is_active", true);
   if (pmError) throw pmError;
-  const projectIds = Array.from(new Set((pmRows || []).map((r) => r.project_id).filter(Boolean)));
+  const projectIds = Array.from(new Set((pmRows || []).map((r: { project_id: string | null }) => r.project_id).filter(Boolean)));
 
   if (projectIds.length === 0) {
     return { member, months: yms.map((ym) => ({ ym, isCurrent: ym === yms[0], projects: [] })), notifications: [] };

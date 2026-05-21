@@ -37,11 +37,14 @@ export async function updateSession(request: NextRequest) {
     !pathname.startsWith("/auth") &&
     !pathname.startsWith("/api/") &&
     pathname !== "/" &&
+    pathname !== "/hud/dashboard/embed" &&
     pathname !== "/mock/dashboard-cyber-3d-lab" &&
-    pathname !== "/mock/dashboard-cyber-glass-cube"
+    pathname !== "/mock/dashboard-cyber-glass-cube" &&
+    pathname !== "/mock/dashboard-cyber-hud-wall"
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
+    url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(url);
   }
 

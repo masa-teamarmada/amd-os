@@ -96,6 +96,7 @@ pwa/
 | `/` | top → 認証済みなら `/dashboard`、未認証なら `/auth/login` |
 | `/auth/login` | Google OAuth ログイン (Supabase Auth) |
 | `/auth/callback` | OAuth callback |
+| `/hud/dashboard/embed` | STAPA投影資料など外部プレゼン用の公開HUD埋め込みroute。通常の `/hud/dashboard` は認証必須のまま、embed routeのみ `frame-ancestors 'self' http://127.0.0.1:8766 http://localhost:8766` を許可する。 |
 
 ### `(app)/` 配下 (auth 必須、middleware が gate)
 
@@ -103,12 +104,13 @@ pwa/
 |---|---|
 | `/dashboard` | トップ。PJ 一覧 + Atlas/Venture Map/MyPage/Admin への入口 |
 | `/dashboard-cyber-3d-lab` | 実験中の3D Cyber Dashboard。`three.js` 空間上に X/F/M 軸、PJ球体、床面KPI、ホログラム投影コックピットを配置。仕様方針は [`cyber_hud_design_code.md`](cyber_hud_design_code.md) / [`cyber_dashboard_content_design.md`](cyber_dashboard_content_design.md) |
-| `/dashboard-cyber-glass-cube` | 実験中の Cyber Dashboard 第2案。`three.js` 空間に中央の浮遊ガラスキューブPJ群、左右のKPI HUD、発光床円盤、生成テクスチャ背景を配置。公開モックは `/mock/dashboard-cyber-glass-cube` |
+| `/dashboard-cyber-glass-cube` | 廃案比較用の旧 Cyber Dashboard 第2案。ガラスキューブPJ群は情報構造がカオス化したため、今後の正本候補にはしない。公開モックは `/mock/dashboard-cyber-glass-cube` |
+| `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 月次報酬予定 (取り消し線 = 未完月次ルーティンによる除外) |
 | `/project/[projectId]/cockpit` | PJ コックピット (PJ Status (SU 系のみ) / MS / 月次カード / カンバン / ナッジ / 月次ルーティン)。詳細は [`cockpit.md`](cockpit.md) |
 | `/project/[projectId]/config` | PJ 設定 (基本情報 / メンバー / 契約・料金 / 請求書送付)。GAS `226_ProjectConfig.html` の PWA 移植 |
 | `/reimburse` | 立替精算 |
-| `/settings` | 設定 |
+| `/settings` | Operations Settings。admin限定で Raw Data / L2 Data / Cron Control を一覧化し、cronごとの条件JSONを変えて `Run Now` 可能 |
 | `/atlas` | シグナル & ストーリー一覧 |
 | `/atlas/inbox` | 未確認シグナル (政策/ニュース フィルタ + 一括 Accept) |
 | `/atlas/inbox/submit` | 手動投入 (auto-tag 付) |
@@ -121,11 +123,14 @@ pwa/
 | `/venture-map/amd-score` | AMD Score 一覧 (Before Zero Theory v3.2、7 軸 Cobb-Douglas)。詳細は [`amd_score.md`](amd_score.md) |
 | `/venture-map/amd-score/[projectId]` | AMD Score 個別 (Triple Helix M カード / X / F / 経時 / 軸クリックで Tsukuyomi) |
 | `/venture-map/amd-score/retrofit` | α 重み調整 + 全 PJ シミュレーション (タブバー非表示、詳細ページからリンク) |
+| `/management-score` | AMD Management Score (会社全体の経営状況スコア: 先手力 / 財務耐久 / 既存PJ継続 / 新規案件獲得 / 戦略接近度)。詳細は [`management_score.md`](management_score.md) |
 | `/venture-map/oscillator` | (実験) coupled oscillator 可視化 |
 | `/venture-map/state-space` | (実験) Triple Helix 状態空間 |
 | `/scholar` | 学術トレンド (μ_A 観測量 N) — lane × quarter の論文数 line chart + 前年同期比。OpenAlex 由来。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
+| `/reimburse` | 立替精算。PWAから申請/編集/削除、領収書添付、PM承認、admin承認まで実行。申請/編集は `/api/reimbursements` 経由で server-side 保存。status flow: `submitted` → `pmApproved` → `approved` |
 | `/admin/billing` | admin 立替/請求マトリクス (チップ操作で billing_cycles 直更新) |
 | `/admin/payouts` | 報酬支払 |
+| `/admin/finance` | 経理オペ台帳。サブスク / 固定継続費 / 自動振替 / 引落口座 / budget forward-fill / Gmail領収書イベント |
 | `/admin/projects` `/members` `/contexts` `/protocols` `/tsukuyomi` `/settings` | 各 admin |
 | `/admin/prompts` | LLM プロンプト管理 (= AGENTS ルール「プロンプトをコードに書かない」執行 UI)。`llm_prompts` 3 件 (tsukuyomi.system / protocol.extract / monthly_report.r313_extract) + スプシ由来 `tsukuyomi_context` 20+ 件を併記。body 全文閲覧 + 編集 + is_active トグル可能。詳細は [`amd_protocol.md`](amd_protocol.md) と [`L2_DATA.md`](L2_DATA.md) |
 | `/vcs` | VC リスト (国内ディープテック VC マスタ。ソート/ファセット/検索) |
@@ -143,7 +148,7 @@ pwa/
 **Atlas:** `atlas/auto-tag` `atlas/backfill` `atlas/seed` `atlas/match-stories` `atlas/merge-stories` `atlas/move-signal` `atlas/themes/{cluster,apply,list}`
 **請求/レポート:** `invoice/{create,preview}` `report/{generate,fix}`
 **Admin:** `admin/projects/[id]` (= PATCH、AdminProjectsTable から projects + project_ventures 1 セル単位 update を service_role 経由)、`admin/project-members/bulk` (= POST、PJ メンバー一括 incremental update + 論理削除 (is_active=false)、`ProjectMembersEditor` から呼ばれる、admin/projects のメンバー列モーダルと project/[id]/config の両方で共有)、`admin/pj-introduction-html` (= ダッシュボード「📑 全 PJ 紹介資料作成」ボタンから POST、選択 PJ のエグゼクティブサマリー HTML を雛形 fmt で生成。Sonnet 4.5 で 1 PJ ごと JSON 集約 + concurrency 3。雛形 = `src/lib/exec_summary/template_section.html` + `template.css`、prompt = `llm_prompts.exec_summary.extract`)、`admin/lane-suggestions/[id]` (= LLM lane 提案の approve/reject)、`admin/seed-vcs` 等
-**通知:** `notifications/feedback` (= まさからの修正依頼を `l2_feedbacks` に保存)
+**通知:** `notifications/feedback` (= admin限定。まさ/きよからの修正依頼を `l2_feedbacks` に保存)
 **その他:** `activities/infer`
 
 ### Cron (`vercel.json`、UTC、Hobby plan で maxDuration=300 上限)
@@ -151,7 +156,7 @@ pwa/
 | path | schedule (UTC) | JST | 内容 |
 |---|---|---|---|
 | `cron/daily-estimate` | `0 18 * * *` | 03:00 daily | 全 active PJ の進捗推定 |
-| `cron/atlas-collect` | `0 23 * * *` | 08:00 daily | マクロニュース 8-14 件 + auto-tag + insert |
+| `cron/atlas-collect` | disabled | 08:00 daily | 課金回避のため停止済み。旧定義は `vercel.disabled-crons.json` に保管。現在は Codex automation `AMD Atlas外部シグナルレビュー` が担当 |
 | `cron/atlas-collect-policy` | `0 22 * * *` | 07:00 daily | 政府方針シグナル収集 (5 省庁) |
 | `cron/atlas-daily` | `0 21 * * *` | 06:00 daily | atlas 日次レポート |
 | `cron/atlas-weekly` | `0 8 * * 5` | 17:00 fri | atlas 週次 |
@@ -160,14 +165,16 @@ pwa/
 | `cron/member-activities` | `0 19 * * *` | 04:00 daily | 月次レポート + responsibility → Haiku 推論 → member_activities |
 | `cron/relearn-lane-weights` | `30 18 * * *` | 03:30 daily | macro lane weights 再学習 |
 | `cron/macro-backfill-historical` | `0 3 * * 0` | 12:00 sun | 2010-2025 macro_index_log を Sonnet 推定で埋める |
-| `cron/amd-score-l2-refresh` | `0 18 * * 0` | 03:00 mon | 6 ソース (Slack/Drive/Notion/Gmail/Calendar/WebSearch) から AMD Score timeline を Sonnet 抽出 → amd_score_inputs に upsert (全 SU 系 PJ) |
+| `cron/amd-score-l2-refresh` | `0 18 * * 0` | 03:00 mon | 6 ソース (Slack/Drive/Notion/Gmail/Calendar/WebSearch) から AMD Score / XRL根拠 (L2 ⑧) を Sonnet 抽出 → amd_score_inputs に upsert (全 SU 系 PJ) |
 | `cron/seeds-ingest` | `0 0 * * 1` | 09:00 mon | GAP/NEP/AMED/D-Global/CREST/創発 等の直近採択を web_search で発見 → seeds (discovery_status='discovered')。/seeds/inbox に並ぶ、GlobalNav に未確認バッジ。詳細は [`seeds.md`](seeds.md) |
 | `cron/vc-discover` | `0 0 * * 6` | 09:00 sat | 業界横断 web_search で VC ニュース 10-18 件 + 新規 VC stub 化 → vc_news (verified=false) + vcs。fundraise/fund_close は suggested_fund_patch で fund 更新提案。**旧 vc-news-ingest を 2026-05-13 に吸収**, ingested_by='discover_cron' |
 | `cron/papers-quarterly-ingest` | `20 18 * * 1` | 03:20 火 | OpenAlex で 5 lane × 直近 16 quarter の論文数を papers_log に upsert (μ_A 観測量 N の供給)。Triple Helix 観測モデルの主入力。詳細は [`amd_score.md`](amd_score.md) |
-| `cron/founding-members-extract` | `30 18 * * 1` | 03:30 火 | 全 PJ の monthly_reports + meeting_summaries + project_knowledge から **創業メンバー** (AMD 内外含む全員) を Sonnet 4.5 で抽出 → project_founding_members に upsert + l2_notifications (kind='founding_members')。HRL 推定の主要根拠 |
+| `cron/founding-members-extract` | `30 18 * * 1` | 03:30 火 | 全 PJ の monthly_reports + meeting_summaries + project_knowledge から **創業メンバー** (AMD 内外含む全員) を Sonnet 4.5 で抽出 → project_founding_members に upsert + l2_notifications (kind='founding_members')。L2 ⑧ XRL根拠のうち HRL 推定の主要根拠 |
 | `cron/sync-pj-facts` | `0 19 * * *` | 04:00 daily | `project_ventures` の構造化フィールド (founded_at / outcome_pattern / origin_org / origin_pi / lane / amd_support_*) を `project_knowledge` に `category='basic_fact'` で同期。/admin/contexts や cockpit から見える状態に。**まさが PJ ナレッジで設立日 / outcome を見られる用途** |
 | `cron/frl-grit-resilience-extract` | `0 18 1 * *` | 月初 03:00 JST | 全 active PJ × 過去 3 ヶ月 monthly_reports + project_meeting_summaries + project_founding_members を Sonnet 4.6 で集約 → `frl_grit` (Duckworth 2007) / `frl_resilience` (Markman 2005) を 0-9 推定 → `amd_score_inputs` に当日付で upsert。`llm_prompts.frl.grit_resilience.extract` v2 を fetch (= 外部創業者優先 / null 厳格化)。手動キックは `?projectId=p21` 可 |
 | `cron/macro-aggregate-indicators` | `0 19 1 * *` | 月初 04:00 JST | observation_log + atlas_signals を ASPI lane × month で集計 → `macro_index_log` の `budget_amount` (= kaken/grant 集計) / `investment_amount` (= vc 集計) / `policy_mention_count` (= atlas_signals.source_type='policy' 件数) / `raw_signal_count` (= atlas_signals 全件) を update + 欠落 row を insert。`?since=YYYY-MM` 指定可 (= デフォルト過去 36 ヶ月)。atlas_signals.domain (= "I.ICT・AI" 等の ATL 独自) → ASPI domain mapping は cron 内 ATL_DOMAIN_TO_ASPI に定義 |
+| `cron/management-score-raw-data` | (vercel cron 未登録) | on-demand / monthly | AMD Management Score 用 raw signal intake。OS内部データを `amd_management_score_raw_signals` に集約。`?includeFreee=1` で freee trial_pl → `company_actual_monthly` も同期。local: `npm run collect:management-score-raw -- --ym=YYYYMM [--include-freee]` |
+| `cron/management-score-calculate` | (vercel cron 未登録) | on-demand / after raw | `amd_management_score_raw_signals` から `amd_management_score_snapshots` / evidence を算出。`?ym=YYYYMM` 指定可 |
 | `cron/monthly-reports-backfill` | (vercel cron 未登録) | on-demand 手動 curl | billing_cycles LEFT JOIN monthly_reports IS NULL の row を Sonnet 4.6 で順次生成 → monthly_reports upsert。prompt = `llm_prompts.monthly_report.r313_extract` (Supabase fetch、is_active 無視、AGENTS 完遵)。`?limit=N&concurrency=M` で並列処理 (デフォルト 6 件 / 5 並列、Vercel maxDuration 300s soft timeout 260s)。文字化け検出 (= ? 比率 > 50% で reject)。AMD-Report GAS R313 と機能重複、R313 が動かない時の保険 + backfill 用 |
 
 認証: 全 cron route が `Authorization: Bearer ${CRON_SECRET}` を確認。`CRON_SECRET` 未設定なら処理スキップ。
@@ -194,7 +201,7 @@ pwa/
 | `monthly_reports` | 月次レポート (final_content / draft_content) |
 | `tasks` | カンバン |
 | `member_activities` | メンバー × 今月活動 (`source='inferred'` / `'slack'` 等) |
-| `reimbursements` | 立替 (status: `submitted` `pmapproved` `approved` ...) |
+| `reimbursements` | 立替 (status: `submitted` `pmApproved` `approved` `paid` ...)。`receipt_storage_paths` / `receipt_file_names` で private Storage `reimbursement-receipts` の領収書添付を保持 |
 
 ### Atlas (PWA 起源)
 
@@ -220,7 +227,7 @@ pwa/
 | `macro_index_log` | マクロ指数 (lane × month、Atlas 集計 + Sonnet 2010-2025 推定) |
 | `macro_lane_weights` | レーン重み (Sonnet が毎日再学習) |
 | `triple_helix_loading` | C 行列 (6 観測量 × 3 隠れ状態 μ_A/I/G の loading prior、bvar_prior §3.2)。AmdScoreView の M カードで参照 |
-| `project_founding_members` | PJ 創業メンバー (AMD 内外含む)。HRL 推定の主要根拠。LLM 抽出 (`cron/founding-members-extract`)。`(project_id, person_name)` UNIQUE。詳細は [`amd_score.md`](amd_score.md) |
+| `project_founding_members` | PJ 創業メンバー (AMD 内外含む)。L2 ⑧ XRL根拠のうち HRL 推定の主要根拠。LLM 抽出 (`cron/founding-members-extract`)。`(project_id, person_name)` UNIQUE。詳細は [`xrl_evidence.md`](xrl_evidence.md) / [`amd_score.md`](amd_score.md) |
 
 ### つくよみ / その他
 
@@ -232,6 +239,26 @@ pwa/
 |---|---|
 | `project_monthly_notes` | PJ × ym 単位の自由記述進捗ノート (UNIQUE (project_id, ym))。MS plan_cycle 未設定 PJ でも月次モーダルから記録できる。`/api/project/monthly-note` GET/POST、CockpitMonthlyModal の MonthlyNoteSection から書き込み |
 | `member_activities` (= 既存) の追加列 | `initiative_origin` (5 値 + unknown CHECK) / `impact` (1-5) / `depth` (0-1) / `reject_reason` / `origin_lost_reason`。member_id / milestone_id は NULL 許容に変更。/api/cron/member-activities が Sonnet で抽出 → /api/progress/events が ProgressEvent にマップ → CockpitMonthlyModal EventsSection で「先手力」スコア計算 |
+
+### AMD Management Score (設計中)
+
+| テーブル | 役割 |
+|---|---|
+| `amd_management_score_snapshots` | AMD会社全体の経営状況スコア snapshot。`total_score` + 5軸 (`initiative_score` / `finance_score` / `retention_score` / `pipeline_score` / `direction_score`) + weights / inputs / next_actions |
+| `amd_management_score_evidence` | 各軸の短い根拠。full raw data は保存せず、source ref / snippet / confidence / impact を保存 |
+| `amd_management_score_source_runs` | Management Score raw data intake の実行ログ。source別 counts / partial error を保存 |
+| `amd_management_score_raw_signals` | Management Score 算出前の月次 raw signal。5軸ごとに既存OSデータ / freee / Atlas 等を source_hash + payload 付きで保持 |
+| `company_budget_inputs` | GAS `CFG_*` 相当の予算 / 計画入力。PJ売上、固定費、変動費、借入、スポット収支、シナリオを保持 |
+| `company_budget_simulation_runs` | GAS `runSimulation()` 相当の実行 snapshot。scenario / params / engine_version / ran_at を保持 |
+| `company_budget_monthly` | GAS 月次試算表から移植する予算 / 計画の正本 |
+| `company_actual_monthly` | freee API から正規化した月次実績 |
+| `company_budget_actual_monthly` | 予算と実績を突合する view。finance_score / 予実管理 UI の主入力 |
+| `company_budget_variance_notes` | 予実差分理由・未反映予定・L2根拠の短いメモ |
+| `company_finance_recurring_items` | admin finance台帳。サブスク / 固定継続費 / 自動振替 / 引落口座 / budget forward-fill |
+| `company_finance_receipt_events` | Gmail/freee/manual 由来の領収書イベント。実績同期・継続費候補の根拠 |
+| `freee_oauth_tokens` | freee refresh_token rotation store。service_role 限定で、production cron が refresh 後の最新 token を次回も読めるようにする |
+
+詳細は [`management_score.md`](management_score.md) / [`project_pl_monthly.md`](project_pl_monthly.md)。GAS 月次試算表を予算、freee を実績、AMD OS を予実管理と経営スコアの統合場所として扱う。
 
 ### VC List (PWA 起源)
 
@@ -381,6 +408,11 @@ npx tsc --noEmit     # 型チェック
 - 締切日以降、`reimbursements.status` が `submitted` / `pmapproved` の未処理がなければ完了
 - 例: `202606` → 2026-07-04 が土曜 → 2026-07-03 に判定
 - 手動変更は不可 (Swift 版と同じ)
+
+### 通知 admin-only
+- `/notifications` / `/hud/notifications` は server-side で `members.is_admin` を確認し、admin以外は404扱い。
+- `l2_notifications` / `meeting_notifications` / `app_notifications` / `l2_feedbacks` は migration 066 で admin authenticated のみ SELECT/UPDATE/INSERT 可能。
+- iOS/APNs 配信済みは `notified_at`、PWA上の人間の既読は `read_at`。既読は削除ではなく状態更新。現状はDBに蓄積し続け、UI側で最新100件 + 既読折りたたみとして扱う。
 
 ### 月次ルーティン
 - 標準: `請求額確定 / 報告会日程調整 / 月次報告書FIX / 立替精算確認 / 請求書発行 / 請求書送付`

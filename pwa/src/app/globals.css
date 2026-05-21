@@ -136,3 +136,343 @@
 .i:focus {
   @apply outline-none ring-1 ring-primary/40;
 }
+
+/* HUD client skin for data-heavy AMD OS pages. */
+.amd-hud-page-skin {
+  min-height: calc(100vh - 2.75rem);
+  color: rgba(236, 254, 255, 0.94);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(34, 211, 238, 0.16), transparent 34%),
+    radial-gradient(circle at 88% 8%, rgba(244, 114, 182, 0.11), transparent 30%),
+    linear-gradient(180deg, rgba(103, 232, 249, 0.055) 0, transparent 1px, transparent 13px),
+    linear-gradient(90deg, rgba(103, 232, 249, 0.035) 0, transparent 1px, transparent 127px),
+    #020817;
+  background-size: 100% 100%, 100% 100%, 100% 14px, 128px 100%, auto;
+  font-family: var(--font-hud-display), var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+body:has(.amd-hud-page-skin) {
+  background: #020817;
+}
+
+.hud-control-center,
+.hud-control-center .font-mono,
+.amd-hud-page-skin .font-mono {
+  font-family: var(--font-hud-display), var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-control-center {
+  letter-spacing: 0.035em;
+}
+
+.hud-control-center .hud-signal-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(50, 231, 255, 0.55) rgba(2, 8, 18, 0.55);
+}
+
+.hud-control-center .hud-signal-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.hud-control-center .hud-signal-scroll::-webkit-scrollbar-track {
+  background: rgba(2, 8, 18, 0.55);
+  border-left: 1px solid rgba(50, 231, 255, 0.12);
+}
+
+.hud-control-center .hud-signal-scroll::-webkit-scrollbar-thumb {
+  background: rgba(50, 231, 255, 0.55);
+  box-shadow: 0 0 8px rgba(50, 231, 255, 0.45);
+}
+
+.hud-control-center svg text,
+.amd-hud-page-skin svg text {
+  font-family: var(--font-hud-display), var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.amd-hud-page-skin main,
+.amd-hud-page-skin section,
+.amd-hud-page-skin article,
+.amd-hud-page-skin aside,
+.amd-hud-page-skin [class*="bg-white"],
+.amd-hud-page-skin [class*="bg-background"],
+.amd-hud-page-skin [class*="bg-card"],
+.amd-hud-page-skin [class*="bg-popover"],
+.amd-hud-page-skin [class*="bg-muted"],
+.amd-hud-page-skin [class*="bg-slate-50"],
+.amd-hud-page-skin [class*="bg-zinc-50"],
+.amd-hud-page-skin [class*="bg-neutral-50"],
+.amd-hud-page-skin [class*="bg-cyan-50"],
+.amd-hud-page-skin [class*="bg-sky-50"],
+.amd-hud-page-skin [class*="bg-blue-50"],
+.amd-hud-page-skin [class*="bg-emerald-50"],
+.amd-hud-page-skin [class*="bg-green-50"],
+.amd-hud-page-skin [class*="bg-violet-50"],
+.amd-hud-page-skin [class*="bg-purple-50"],
+.amd-hud-page-skin [class*="bg-amber-50"],
+.amd-hud-page-skin [class*="bg-orange-50"],
+.amd-hud-page-skin [class*="bg-red-50"],
+.amd-hud-page-skin [class*="bg-rose-50"] {
+  background-color: rgba(2, 8, 23, 0.76) !important;
+}
+
+.amd-hud-page-skin code,
+.amd-hud-page-skin kbd,
+.amd-hud-page-skin pre,
+.amd-hud-page-skin [style*="background-color: rgb(255, 255, 255)"],
+.amd-hud-page-skin [style*="background-color: #ffffff"],
+.amd-hud-page-skin [style*="background-color: #fff"],
+.amd-hud-page-skin [style*="background-color: #fef2f2"],
+.amd-hud-page-skin [style*="background-color:#ffffff"],
+.amd-hud-page-skin [style*="background-color:#fff"],
+.amd-hud-page-skin [style*="background-color:#fef2f2"] {
+  background-color: rgba(2, 8, 23, 0.84) !important;
+  color: rgba(186, 230, 253, 0.90) !important;
+}
+
+.amd-hud-page-skin [class*="rounded-full"] {
+  border-radius: 999px !important;
+}
+
+.amd-hud-page-skin [class*="rounded-xl"],
+.amd-hud-page-skin [class*="rounded-lg"],
+.amd-hud-page-skin [class*="rounded-md"],
+.amd-hud-page-skin [class*="rounded "] {
+  border-radius: 0 !important;
+}
+
+.amd-hud-page-skin [class*="border"] {
+  border-color: rgba(103, 232, 249, 0.28) !important;
+}
+
+.amd-hud-page-skin table {
+  background: rgba(2, 8, 23, 0.72);
+  border-color: rgba(103, 232, 249, 0.24);
+}
+
+.amd-hud-page-skin thead,
+.amd-hud-page-skin [class*="sticky top-0"] {
+  background: rgba(3, 16, 31, 0.96) !important;
+  color: rgba(186, 230, 253, 0.76) !important;
+}
+
+.amd-hud-page-skin tr:hover,
+.amd-hud-page-skin [class*="hover:bg-accent"]:hover,
+.amd-hud-page-skin [class*="hover:bg-muted"]:hover,
+.amd-hud-page-skin [class*="hover:bg-slate"]:hover {
+  background-color: rgba(34, 211, 238, 0.08) !important;
+}
+
+.amd-hud-page-skin input,
+.amd-hud-page-skin textarea,
+.amd-hud-page-skin select {
+  background: rgba(2, 8, 23, 0.86) !important;
+  color: rgba(236, 254, 255, 0.94) !important;
+  border-color: rgba(103, 232, 249, 0.34) !important;
+}
+
+.amd-hud-page-skin input::placeholder,
+.amd-hud-page-skin textarea::placeholder {
+  color: rgba(186, 230, 253, 0.42) !important;
+}
+
+.amd-hud-page-skin .text-muted-foreground,
+.amd-hud-page-skin [class*="text-muted"],
+.amd-hud-page-skin [class*="text-slate"],
+.amd-hud-page-skin [class*="text-zinc"],
+.amd-hud-page-skin [class*="text-neutral"],
+.amd-hud-page-skin [class*="text-[#86868b]"] {
+  color: rgba(186, 230, 253, 0.68) !important;
+}
+
+.amd-hud-page-skin .text-primary {
+  color: rgba(103, 232, 249, 0.92) !important;
+}
+
+.amd-hud-page-skin .text-primary\/70 {
+  color: rgba(165, 243, 252, 0.72) !important;
+}
+
+.amd-hud-page-skin .text-primary-foreground {
+  color: rgba(3, 7, 18, 0.96) !important;
+}
+
+.amd-hud-page-skin .bg-primary {
+  background-color: rgba(103, 232, 249, 0.90) !important;
+}
+
+.amd-hud-page-skin [class*="text-blue-700"],
+.amd-hud-page-skin [class*="text-blue-800"],
+.amd-hud-page-skin [class*="text-indigo-700"],
+.amd-hud-page-skin [class*="text-indigo-800"] {
+  color: rgba(147, 197, 253, 0.96) !important;
+}
+
+.amd-hud-page-skin [class*="text-emerald-700"],
+.amd-hud-page-skin [class*="text-emerald-800"],
+.amd-hud-page-skin [class*="text-teal-700"],
+.amd-hud-page-skin [class*="text-teal-800"] {
+  color: rgba(110, 231, 183, 0.96) !important;
+}
+
+.amd-hud-page-skin [class*="text-amber-700"],
+.amd-hud-page-skin [class*="text-amber-800"],
+.amd-hud-page-skin [class*="text-orange-700"],
+.amd-hud-page-skin [class*="text-orange-800"],
+.amd-hud-page-skin [class*="text-yellow-700"],
+.amd-hud-page-skin [class*="text-yellow-800"] {
+  color: rgba(253, 224, 71, 0.96) !important;
+}
+
+.amd-hud-page-skin [class*="text-red-700"],
+.amd-hud-page-skin [class*="text-red-800"],
+.amd-hud-page-skin [class*="text-rose-700"],
+.amd-hud-page-skin [class*="text-rose-800"],
+.amd-hud-page-skin [class*="text-pink-700"],
+.amd-hud-page-skin [class*="text-pink-800"] {
+  color: rgba(251, 113, 133, 0.96) !important;
+}
+
+.amd-hud-page-skin [class*="text-violet-700"],
+.amd-hud-page-skin [class*="text-violet-800"],
+.amd-hud-page-skin [class*="text-purple-700"],
+.amd-hud-page-skin [class*="text-purple-800"],
+.amd-hud-page-skin [class*="text-fuchsia-700"],
+.amd-hud-page-skin [class*="text-fuchsia-800"] {
+  color: rgba(196, 181, 253, 0.96) !important;
+}
+
+.amd-hud-page-skin [class*="text-cyan-700"],
+.amd-hud-page-skin [class*="text-cyan-800"],
+.amd-hud-page-skin [class*="text-sky-700"],
+.amd-hud-page-skin [class*="text-sky-800"] {
+  color: rgba(125, 211, 252, 0.96) !important;
+}
+
+.amd-hud-page-skin h1,
+.amd-hud-page-skin h2,
+.amd-hud-page-skin h3,
+.amd-hud-page-skin [class*="font-semibold"],
+.amd-hud-page-skin [class*="font-bold"] {
+  color: rgba(236, 254, 255, 0.98) !important;
+}
+
+.amd-hud-page-skin .atlas-hud-chip {
+  --chip-rgb: 103, 232, 249;
+  --chip-color: rgb(var(--chip-rgb));
+  border: 1px solid rgba(var(--chip-rgb), 0.64) !important;
+  background:
+    linear-gradient(90deg, rgba(var(--chip-rgb), 0.28), rgba(2, 8, 23, 0.80) 72%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)) !important;
+  color: var(--chip-color) !important;
+  box-shadow:
+    0 0 14px rgba(var(--chip-rgb), 0.10),
+    inset 0 0 16px rgba(var(--chip-rgb), 0.10);
+}
+
+.amd-hud-page-skin .atlas-hud-chip[data-active="true"] {
+  border-color: rgba(var(--chip-rgb), 0.98) !important;
+  background:
+    linear-gradient(90deg, rgba(var(--chip-rgb), 0.70), rgba(var(--chip-rgb), 0.22) 70%),
+    rgba(2, 8, 23, 0.60) !important;
+  color: white !important;
+  box-shadow:
+    0 0 20px rgba(var(--chip-rgb), 0.32),
+    inset 0 0 20px rgba(255, 255, 255, 0.10);
+}
+
+.amd-hud-page-skin a,
+.amd-hud-page-skin button {
+  border-radius: 0 !important;
+}
+
+.amd-hud-body [data-slot="dialog-overlay"],
+.amd-hud-body .fixed.inset-0.bg-black\/40 {
+  background-color: rgba(0, 5, 14, 0.72) !important;
+  backdrop-filter: blur(8px);
+}
+
+.amd-hud-body [data-slot="dialog-content"],
+.amd-hud-body .fixed.inset-0.z-50 .bg-background {
+  border: 1px solid rgba(103, 232, 249, 0.36) !important;
+  background:
+    linear-gradient(180deg, rgba(8, 25, 47, 0.98), rgba(2, 8, 23, 0.98)),
+    repeating-linear-gradient(0deg, rgba(103, 232, 249, 0.06) 0 1px, transparent 1px 8px) !important;
+  color: rgba(236, 254, 255, 0.95) !important;
+  box-shadow:
+    0 0 0 1px rgba(103, 232, 249, 0.10),
+    0 0 42px rgba(34, 211, 238, 0.18),
+    inset 0 0 28px rgba(34, 211, 238, 0.07) !important;
+  border-radius: 0 !important;
+}
+
+.amd-hud-body [data-slot="dialog-title"],
+.amd-hud-body [data-slot="dialog-content"] h1,
+.amd-hud-body [data-slot="dialog-content"] h2,
+.amd-hud-body [data-slot="dialog-content"] h3,
+.amd-hud-body .fixed.inset-0.z-50 h3 {
+  color: rgba(236, 254, 255, 0.98) !important;
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.amd-hud-body [data-slot="dialog-content"] .text-muted-foreground,
+.amd-hud-body [data-slot="dialog-content"] [class*="text-muted"],
+.amd-hud-body .fixed.inset-0.z-50 .text-muted-foreground {
+  color: rgba(186, 230, 253, 0.66) !important;
+}
+
+.amd-hud-body [data-slot="dialog-content"] input,
+.amd-hud-body [data-slot="dialog-content"] textarea,
+.amd-hud-body [data-slot="dialog-content"] select {
+  border-color: rgba(103, 232, 249, 0.34) !important;
+  background-color: rgba(2, 8, 23, 0.84) !important;
+  color: rgba(236, 254, 255, 0.94) !important;
+  border-radius: 0 !important;
+}
+
+.amd-hud-body [data-slot="dialog-content"] button,
+.amd-hud-body .fixed.inset-0.z-50 button {
+  border-radius: 0 !important;
+}
+
+.amd-hud-body [data-slot="dialog-content"] [class*="bg-white"],
+.amd-hud-body [data-slot="dialog-content"] [class*="bg-background"],
+.amd-hud-body [data-slot="dialog-content"] [class*="bg-muted"],
+.amd-hud-body [data-slot="dialog-content"] [class*="bg-slate-50"],
+.amd-hud-body [data-slot="dialog-content"] [class*="bg-zinc-50"],
+.amd-hud-body [data-slot="dialog-content"] [class*="bg-neutral-50"] {
+  background-color: rgba(2, 8, 23, 0.78) !important;
+  color: rgba(236, 254, 255, 0.92) !important;
+}
+
+.amd-hud-body [data-slot="dialog-content"] [class*="bg-red-50"],
+.amd-hud-body [data-slot="dialog-content"] [class*="bg-rose-50"] {
+  border-color: rgba(251, 113, 133, 0.36) !important;
+  background-color: rgba(127, 29, 29, 0.30) !important;
+  color: rgba(254, 205, 211, 0.94) !important;
+}
+
+.amd-hud-body [data-slot="dialog-content"] [class*="bg-orange-50"],
+.amd-hud-body [data-slot="dialog-content"] [class*="bg-amber-50"] {
+  border-color: rgba(251, 191, 36, 0.36) !important;
+  background-color: rgba(120, 53, 15, 0.30) !important;
+  color: rgba(254, 240, 138, 0.94) !important;
+}
+
+.amd-hud-body [data-slot="dialog-content"] [class*="bg-emerald-50"],
+.amd-hud-body [data-slot="dialog-content"] [class*="bg-green-50"] {
+  border-color: rgba(110, 231, 183, 0.36) !important;
+  background-color: rgba(6, 78, 59, 0.30) !important;
+  color: rgba(209, 250, 229, 0.94) !important;
+}
+
+.amd-hud-body [data-slot="dialog-content"] [class*="text-red-700"],
+.amd-hud-body [data-slot="dialog-content"] [class*="text-orange-700"],
+.amd-hud-body [data-slot="dialog-content"] [class*="text-amber-700"],
+.amd-hud-body [data-slot="dialog-content"] [class*="text-emerald-700"],
+.amd-hud-body [data-slot="dialog-content"] [class*="text-blue-700"] {
+  color: inherit !important;
+}

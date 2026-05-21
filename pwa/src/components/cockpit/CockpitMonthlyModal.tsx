@@ -69,6 +69,15 @@ interface MilestoneInfo {
   sortOrder?: number;
 }
 
+interface MsScheduleInfo {
+  milestoneId: string;
+  periodStartYm: string;
+  targetYm: string;
+  msMonths: number;
+  expectedCumPct: number;
+  monthlyPt: number;
+}
+
 interface ProgressInfo {
   milestoneKey: string;
   ym: string;
@@ -373,7 +382,9 @@ export function CockpitMonthlyModal({
   onProgressSaved,
   onClose,
 }: Props) {
-  const [tab, setTab] = useState<"reward" | "report" | "invoice">("reward");
+  const [tab, setTab] = useState<"reward" | "report" | "invoice">(() =>
+    !billing && report ? "report" : "reward"
+  );
 
   // 総合進捗（シグナル計算用）
   const ymProgressMap = buildEffectiveProgressMap(progress, milestones, ym);
@@ -411,7 +422,7 @@ export function CockpitMonthlyModal({
 
         {/* タブ切り替え */}
         <div className="flex gap-1 border-b border-border pb-0 mb-4">
-          {(["reward", "report", "invoice"] as const).map((t) => (
+          {((!billing && report ? ["report"] : ["reward", "report", "invoice"]) as Array<"reward" | "report" | "invoice">).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -507,6 +518,7 @@ function RewardTab({
   const [revisionText, setRevisionText] = useState("");
   const [revisionMsg, setRevisionMsg] = useState<string | null>(null);
   const [localMemberActivities, setLocalMemberActivities] = useState<MemberActivityInfo[]>(memberActivities);
+  const [msSchedules, setMsSchedules] = useState<Record<string, MsScheduleInfo>>({});
 
   // 全体Editモード
   const [editMode, setEditMode] = useState(false);
@@ -563,11 +575,31 @@ function RewardTab({
 
   useEffect(() => {
     fetchUnconfirmed();
+    loadMsSchedules();
     loadEvents();
     loadReimburse();
     loadRevisions();
     loadMonthlyNote();
   }, [projectId, ym]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadMsSchedules = async () => {
+    if (!planCycle) {
+      setMsSchedules({});
+      return;
+    }
+    try {
+      const res = await fetch(`/api/progress/ms-schedule?projectId=${projectId}&startYm=${planCycle.periodStartYm}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "schedule load failed");
+      const map: Record<string, MsScheduleInfo> = {};
+      for (const item of data.schedules || []) {
+        map[item.milestoneId] = item;
+      }
+      setMsSchedules(map);
+    } catch {
+      setMsSchedules({});
+    }
+  };
 
   // 月次ノート取得
   const loadMonthlyNote = async () => {
@@ -1150,7 +1182,8 @@ function RewardTab({
               memberActivities={memberActivityMap.get(ms.milestoneId) || []}
               reportSnippets={extractReportSnippets(report, ms.title, Math.max(0, (ymProgress.get(ms.milestoneId) || 0) - (prevProgress.get(ms.milestoneId) || 0)) > 0)}
               prevPct={prevProgress.get(ms.milestoneId) || 0}
-              expectedPct={expectedPct}
+              schedule={msSchedules[ms.milestoneId]}
+              expectedPct={msSchedules[ms.milestoneId]?.expectedCumPct ?? expectedPct}
               monthlyDeltaPct={Math.max(0, (ymProgress.get(ms.milestoneId) || 0) - (prevProgress.get(ms.milestoneId) || 0))}
               revisions={revisionsByMs.get(ms.milestoneId) || []}
               revisionLoading={revisionLoading}
@@ -1214,7 +1247,8 @@ function RewardTab({
                   memberActivities={memberActivityMap.get(ms.milestoneId) || []}
                   reportSnippets={extractReportSnippets(report, ms.title, Math.max(0, (ymProgress.get(ms.milestoneId) || 0) - (prevProgress.get(ms.milestoneId) || 0)) > 0)}
                   prevPct={prevProgress.get(ms.milestoneId) || 0}
-                  expectedPct={expectedPct}
+                  schedule={msSchedules[ms.milestoneId]}
+                  expectedPct={msSchedules[ms.milestoneId]?.expectedCumPct ?? expectedPct}
                   monthlyDeltaPct={Math.max(0, (ymProgress.get(ms.milestoneId) || 0) - (prevProgress.get(ms.milestoneId) || 0))}
                   revisions={revisionsByMs.get(ms.milestoneId) || []}
                   revisionLoading={revisionLoading}
@@ -1343,7 +1377,7 @@ function RewardTab({
 
 function MsBarRow({
   ms, pct, resps, est, memberMap, subItems,
-  progressNote, activities, memberActivities, reportSnippets, prevPct, expectedPct, monthlyDeltaPct,
+  progressNote, activities, memberActivities, reportSnippets, prevPct, schedule, expectedPct, monthlyDeltaPct,
   revisions, revisionLoading, revisionTarget, revisionText, revisionMsg,
   isManualEditing, manualEditPct, isModifying, modifyPct, modifyReason, actionLoading,
   onManualEdit, onManualEditCancel, onManualEditPctChange, onManualSave,
@@ -1361,6 +1395,7 @@ function MsBarRow({
   memberActivities: MemberActivityInfo[];
   reportSnippets: string[];
   prevPct: number;
+  schedule?: MsScheduleInfo;
   expectedPct: number | null;
   monthlyDeltaPct: number;
   revisions: MsRevision[];
@@ -1410,6 +1445,11 @@ function MsBarRow({
     || reportSnippets.length > 0;
   const pendingRevision = revisions.find((r) => r.status === "pending");
   const isRevisionEditing = revisionTarget === ms.milestoneId;
+  const scheduleLabel = schedule
+    ? schedule.periodStartYm === schedule.targetYm
+      ? `期間 ${formatYm(schedule.targetYm)}`
+      : `期間 ${formatYm(schedule.periodStartYm)}〜${formatYm(schedule.targetYm)}`
+    : null;
 
   return (
     <div className="mb-2">
@@ -1419,6 +1459,14 @@ function MsBarRow({
           <div className="flex items-center gap-2 mb-1.5">
             <span className="text-[12px] flex-1 min-w-0 truncate">{ms.title}</span>
             {tagBadge}
+            {scheduleLabel && (
+              <span
+                className="text-[9px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded shrink-0"
+                title={`このMSの実施期間。期待進捗: ${schedule?.expectedCumPct ?? 0}%`}
+              >
+                {scheduleLabel}
+              </span>
+            )}
             {resps.length > 0 && (
               <span className="flex gap-0.5 shrink-0">
                 {resps.map((r) => (

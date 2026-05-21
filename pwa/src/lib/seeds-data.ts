@@ -384,12 +384,12 @@ export const SEED_STATUS_ORDER: string[] = [
 ];
 
 export const SEED_STATUS_COLOR: Record<string, string> = {
-  candidate: "bg-slate-500/15 text-slate-700 dark:text-slate-300",
-  investigating: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  contacted: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  discussing: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  spun_off: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
-  declined: "bg-muted text-muted-foreground",
+  candidate: "border border-slate-300/35 bg-slate-300/12 text-slate-100",
+  investigating: "border border-sky-300/45 bg-sky-400/16 text-sky-100",
+  contacted: "border border-amber-300/45 bg-amber-400/16 text-amber-100",
+  discussing: "border border-emerald-300/45 bg-emerald-400/16 text-emerald-100",
+  spun_off: "border border-violet-300/45 bg-violet-400/16 text-violet-100",
+  declined: "border border-slate-500/35 bg-slate-700/24 text-slate-300",
 };
 
 export const SEED_ORG_TYPE_LABEL: Record<string, string> = {

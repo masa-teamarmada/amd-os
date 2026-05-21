@@ -14,6 +14,7 @@ interface BillingCycle {
   reportExcerpt?: string;
   reportNeedsReview?: boolean;
   msProgressSummaryJson?: unknown;
+  isReportOnly?: boolean;
 }
 
 interface MsItem {
@@ -74,12 +75,18 @@ function getTextColor(pct: number): string {
 
 interface Props {
   billingCycles: BillingCycle[];
+  reports?: Array<{
+    ym: string;
+    hasDraft: boolean;
+    hasFinal: boolean;
+    status: string;
+  }>;
   currentYm: string;
   progressByYm?: Record<string, MsItem[]>;
   onOpenModal: (ym: string) => void;
 }
 
-export function CockpitMonthlyList({ billingCycles, currentYm, progressByYm = {}, onOpenModal }: Props) {
+export function CockpitMonthlyList({ billingCycles, reports = [], currentYm, progressByYm = {}, onOpenModal }: Props) {
   const [expandedYm, setExpandedYm] = useState<string | null>(null);
 
   // 翌月の計算
@@ -89,8 +96,23 @@ export function CockpitMonthlyList({ billingCycles, currentYm, progressByYm = {}
   const nextY = curM === 12 ? curY + 1 : curY;
   const nextYm = String(nextY) + String(nextM).padStart(2, "0");
 
-  // 翌月まで + 202512以降を表示
-  const sorted = [...billingCycles]
+  const billingByYm = new Map(billingCycles.map((bc) => [bc.ym, bc]));
+  const reportOnlyCycles: BillingCycle[] = reports
+    .filter((report) => (report.hasDraft || report.hasFinal) && !billingByYm.has(report.ym))
+    .map((report) => ({
+      ym: report.ym,
+      status: report.status || "draft",
+      budgetYen: 0,
+      meetingStartAt: null,
+      reportFixedAt: report.hasFinal ? "done" : null,
+      invoiceSentAt: null,
+      paymentConfirmedAt: null,
+      budgetReportedAmount: 0,
+      isReportOnly: true,
+    }));
+
+  // 翌月まで + 202512以降を表示。請求月がなくても monthly_reports がある月は表示する。
+  const sorted = [...billingCycles, ...reportOnlyCycles]
     .filter((bc) => bc.ym <= nextYm && bc.ym >= "202512")
     .sort((a, b) => b.ym.localeCompare(a.ym));
 
@@ -121,6 +143,12 @@ export function CockpitMonthlyList({ billingCycles, currentYm, progressByYm = {}
                 {/* Header row */}
                 <div className="flex items-center gap-2 px-4 py-2.5">
                   <span className="text-[13px] font-semibold w-[60px] shrink-0">{formatYm(bc.ym)}</span>
+
+                  {bc.isReportOnly && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">
+                      月次のみ
+                    </span>
+                  )}
 
                   {bc.reportNeedsReview && (
                     <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />

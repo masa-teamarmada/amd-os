@@ -1,21 +1,23 @@
-# Atlas-collect Routine 化 — Anthropic API 課金を subscription 枠に移す
+# Atlas-collect Routine / Codex automation 化 — Anthropic API 課金を subscription 枠に移す
 
-最終更新: 2026-05-13
+最終更新: 2026-05-16
 
 ## 背景
 
 - 既存 `/api/cron/atlas-collect` は Anthropic API 直叩き (Sonnet 4.6 + web_search + Haiku auto-tag) で月 ~¥3,000-5,000
 - 同じ処理を Claude subscription (Pro/Max) の Routine で動かせば、web_search 部分の API 課金が消える (auto-tag / attachStory の Anthropic 課金は受け口 API で継続)
 - 削減率: 推定 **70%**
+- 2026-05-16 時点では、まさの方針で **Codex automation** に寄せる。内製 5 生データの L2 差分レビューとは別 automation とし、Atlas は外部マクロシグナル専用にする。
+- 2026-05-17 時点で、課金回避のため Vercel cron `/api/cron/atlas-collect` は停止済み。`atlas-collect-policy` は継続。
 
 ## アーキテクチャ
 
 ```
-[Claude Routine] (daily 08:00 JST, claude.ai subscription)
+[Claude Routine or Codex automation] (daily 08:10 JST, subscription / Codex 枠)
    │
    │ 1. web_search で過去 24h (= 厳密に前回 run 以降) のニュース 8-14 件抽出
    │ 2. JSON で signals 配列を組み立て
-   │ 3. HTTP POST → 受け口 API
+   │ 3. outbox JSON を作成、または HTTP POST → 受け口 API
    ▼
 [/api/atlas/signals-ingest] (Vercel, Anthropic API)
    │
@@ -117,30 +119,66 @@ JSON を組み立てて、以下に POST:
 レスポンスの `inserted` 件数を結果報告してください。
 ```
 
-## Routine 登録手順
+## Codex automation 運用 (2026-05-16 正本)
+
+### automation
+
+- name: `AMD Atlas外部シグナルレビュー`
+- scope: Atlas / macro signal only。L2 5生データ差分レビューとは混ぜない。
+- schedule: daily 08:10 JST 目安。既存 `/api/cron/atlas-collect` (08:00 JST) は課金回避のため停止し、この automation を主系にする。
+- output:
+  - outbox: `/Users/masa/.codex/automations/amd-atlas/outbox/*.json`
+  - applied: `/Users/masa/.codex/automations/amd-atlas/applied/*.json`
+  - failed: `/Users/masa/.codex/automations/amd-atlas/failed/*.json`
+  - recent snapshot: `/Users/masa/.codex/automations/amd-atlas/snapshots/recent-titles.json`
+
+### helper
+
+```sh
+# 認証・本番API到達・受け口 env の確認。DB書き込みなし。
+node pwa/scripts/atlas_signal_review_tool.mjs health
+
+# 直近投入済み title を取得して snapshot 保存。
+node pwa/scripts/atlas_signal_review_tool.mjs recent --hours 48 --limit 80
+
+# outbox を 1 ファイル投入。
+node pwa/scripts/atlas_signal_review_tool.mjs apply-outbox --file /path/to/outbox.json
+
+# outbox dir をまとめて投入し、成功なら applied、失敗なら failed へ移動。
+node pwa/scripts/atlas_signal_review_tool.mjs apply-outbox-dir
+```
+
+automation は原則:
+
+1. `health` を実行。失敗したら DB 書き込みせず停止し、原因を run 結果に書く。
+2. `recent --hours 48 --limit 80` で既存 title を確認。
+3. 直前 24h の一次イベントだけを web / source search で 8-14 件抽出。
+4. outbox JSON を作る。
+5. 投入はローカルの非LLM LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` が行う。automation 側は outbox 作成までで止め、ネットワーク制限で failed に退避しない。
+
+## Claude Routine 登録手順 (旧案)
 
 [claude.ai](https://claude.ai) > Settings > Routines or Schedule で新規作成。
 schedule: daily 08:00 JST (= UTC 23:00、cron `0 23 * * *`)。
 
-## 並走計画 (2026-05-13 ~)
+## 並走計画 (2026-05-16 ~)
 
 1. **受け口 API デプロイ** ✓
-2. **Routine 登録** (まさ subscription)
-3. **1 週間並走**:
-   - 既存 `/api/cron/atlas-collect` (daily 08:00 JST) は **そのまま稼働** (= 重複 dedup で害なし)
-   - Routine が動けば signals が同タイミングで届く → atlas_signals に 1 日 16-28 件入る想定 (= 重複は受け口側で skip)
+2. **Codex automation 登録** (まさ Codex / subscription 枠)
+3. **Codex automation 主系化**:
+   - 既存 `/api/cron/atlas-collect` (daily 08:00 JST) は停止
+   - Codex automation が signals を outbox 化し、ローカル非LLM applier が `/api/atlas/signals-ingest` に投入
 4. **品質確認 (まさ)**:
-   - Routine 経由の signals が API 直叩きと同等以上か
+   - Codex automation 経由の signals が API 直叩きと同等以上か
    - title 重複・spam・irrelevant がないか
 5. **OK 判定後**:
-   - `pwa/vercel.json` から `atlas-collect` エントリ削除
-   - `pwa/vercel.disabled-crons.json` に保管 (= 復活可能)
+   - `pwa/vercel.json` から `atlas-collect` エントリ削除済み
+   - `pwa/vercel.disabled-crons.json` に保管済み (= 復活可能)
    - Anthropic API 課金が ~70% 削減される想定
 
-## 並走中 OFF にしたいとき
+## 復活したいとき
 
-- `vercel.json` の `atlas-collect` を `vercel.disabled-crons.json` に移して再 deploy
-- すぐ復活させたいときは逆方向に戻して再 deploy
+- `pwa/vercel.disabled-crons.json` の `atlas-collect` を `pwa/vercel.json` に戻して再 deploy
 
 ## atlas-collect-policy は別マター
 

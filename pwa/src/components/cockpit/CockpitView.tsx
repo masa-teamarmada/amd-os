@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CockpitHeader } from "./CockpitHeader";
 import { CockpitVentureStatus } from "./CockpitVentureStatus";
@@ -239,6 +239,13 @@ function monthlyProgressItems(
   }));
 }
 
+function isLiveOperationalProject(project: { status: string; freezeFromYm?: string | null; restartExpectedYm?: string | null }, currentYm: string) {
+  const baseActive = project.status === "active" || project.status === "sales";
+  const frozenNow = !!project.freezeFromYm && currentYm >= project.freezeFromYm;
+  const waitingRestart = !!project.restartExpectedYm && currentYm < project.restartExpectedYm;
+  return baseActive && !frozenNow && !waitingRestart;
+}
+
 type StepModal =
   | { kind: "budget"; ym: string }
   | { kind: "meeting"; ym: string; isDone: boolean; doneAction: string | null }
@@ -286,8 +293,6 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
   const monthlyProgressByYm = Object.fromEntries(
     billingCycles.map((bc) => [bc.ym, monthlyProgressItems(bc.ym, allBundles)])
   );
-  const progressMap = new Map(milestones.map((m) => [m.milestoneId, latestProgressPct(currentProgress, m.milestoneId, currentYm)]));
-
   const modalReport = modalYm ? reports.find((r) => r.ym === modalYm) ?? null : null;
   const modalBilling = modalYm ? billingCycles.find((bc) => bc.ym === modalYm) ?? null : null;
   const modalBundle = modalYm
@@ -296,13 +301,19 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
         ...patchedPastPlanCycles,
       ].find((bundle) => modalYm >= bundle.planCycle.periodStartYm && modalYm <= bundle.planCycle.periodEndYm)
     : null;
-  const modalPlanCycle = modalBundle?.planCycle || planCycle;
-  const modalMilestones = modalBundle?.milestones || milestones;
-  const modalProgress = modalBundle?.progress || progress;
-  const modalSubItems = modalBundle?.subItems || subItems || [];
-  const modalResponsibilities = modalBundle?.responsibilities || responsibilities || [];
-  const modalMsActivities = modalBundle?.msActivities || msActivities || [];
-  const modalMemberActivities = modalBundle?.memberActivities || memberActivities || [];
+  const isReportOnlyMonth = !!modalYm && !!modalReport && !modalBilling;
+  const modalPlanCycle = isReportOnlyMonth ? null : (modalBundle?.planCycle || planCycle);
+  const modalMilestones = isReportOnlyMonth ? [] : (modalBundle?.milestones || milestones);
+  const modalProgress = isReportOnlyMonth ? [] : (modalBundle?.progress || progress);
+  const modalSubItems = isReportOnlyMonth ? [] : (modalBundle?.subItems || subItems || []);
+  const modalResponsibilities = isReportOnlyMonth ? [] : (modalBundle?.responsibilities || responsibilities || []);
+  const modalMsActivities = isReportOnlyMonth ? [] : (modalBundle?.msActivities || msActivities || []);
+  const modalMemberActivities = isReportOnlyMonth ? [] : (modalBundle?.memberActivities || memberActivities || []);
+  const showLiveOperations = isLiveOperationalProject(project, currentYm);
+
+  useEffect(() => {
+    if (!showLiveOperations && stepModal) setStepModal(null);
+  }, [showLiveOperations, stepModal]);
 
   return (
     <div className="flex gap-4 max-w-[1060px] mx-auto px-3 py-3 items-start">
@@ -318,8 +329,8 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
         {planCycle && milestones.length > 0 && (
           <CockpitGoalsCompact
             milestones={milestones}
-            progressMap={progressMap}
             planCycle={planCycle}
+            projectId={project.projectId}
             subItems={subItems || []}
             responsibilities={responsibilities || []}
             memberMap={memberMap || {}}
@@ -331,7 +342,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
             - draft or 外部トリガー: directCycleIdで直接編集
             - active確定済: 次の期間設定バナー（終了3か月前から）
         */}
-        {(() => {
+        {showLiveOperations ? (() => {
           // 期間外で planCycle が null の場合は、最も最新の過去 plan_cycle を fallback に使う。
           // これで「3月で期間終了 → 4月以降は期未設定」状態でもバナーが表示される (#4)。
           const effectivePlanCycle = planCycle
@@ -375,7 +386,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
               />
             </>
           );
-        })()}
+        })() : null}
 
         {/* [B3] 過去の期間（折りたたみ） */}
         {pastPlanCycles && pastPlanCycles.length > 0 && (
@@ -392,26 +403,18 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
             </button>
             {pastExpanded && (
               <div className="px-4 pb-3 flex flex-col gap-3">
-                {patchedPastPlanCycles.map((bundle) => {
-                  const pastProgressMap = new Map(
-                    bundle.milestones.map((m) => [
-                      m.milestoneId,
-                      latestProgressPct(bundle.progress, m.milestoneId, bundle.planCycle.periodEndYm),
-                    ])
-                  );
-                  return (
+                {patchedPastPlanCycles.map((bundle) => (
                     <div key={bundle.planCycle.planCycleId} className="border border-[#e5e5e7] rounded-lg bg-[#fafafa] overflow-hidden">
                       <CockpitGoalsCompact
                         milestones={bundle.milestones}
-                        progressMap={pastProgressMap}
                         planCycle={bundle.planCycle}
+                        projectId={project.projectId}
                         subItems={bundle.subItems}
                         responsibilities={bundle.responsibilities}
                         memberMap={memberMap || {}}
                       />
                     </div>
-                  );
-                })}
+                ))}
               </div>
             )}
           </section>
@@ -427,6 +430,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
           <div className="flex-1 min-w-0">
             <CockpitMonthlyList
               billingCycles={billingCycles}
+              reports={reports}
               currentYm={currentYm}
               progressByYm={monthlyProgressByYm}
               onOpenModal={(ym) => setModalYm(ym)}
@@ -450,11 +454,6 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
           freeze_from_ym 設定済 + 当該 ym 到達後も非表示。restart_expected_ym 設定済 + 未到達でも非表示 (#18) */}
       <div className="w-[220px] shrink-0 sticky top-12 max-h-[calc(100vh-60px)] overflow-y-auto pl-4 flex flex-col gap-3">
         {(() => {
-          const baseActive = project.status === "active" || project.status === "sales";
-          const frozenNow = !!project.freezeFromYm && currentYm >= project.freezeFromYm;
-          const waitingRestart = !!project.restartExpectedYm && currentYm < project.restartExpectedYm;
-          const showRoutine = baseActive && !frozenNow && !waitingRestart;
-
           // ステータス予定のバッジ
           const badges: Array<{ key: string; cls: string; text: string }> = [];
           if (project.freezeFromYm) {
@@ -481,7 +480,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
                   ))}
                 </div>
               )}
-              {showRoutine ? (
+              {showLiveOperations ? (
                 <>
                   {!canEditRoutine && (
                     <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-1">

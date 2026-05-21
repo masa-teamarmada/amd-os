@@ -526,6 +526,19 @@ function nav_meeting_processOneEvent_(eventId, projectId, opts) {
   if (!upRes.ok) {
     return { ok: false, action: "error_upsert", status: upRes.status, body: String(upRes.body || "").slice(0, 300), meetingId: eventId };
   }
+  try {
+    if (sourceKinds !== "none" && typeof _meeting_insertNotification_ === "function") {
+      _meeting_insertNotification_({
+        meetingId: eventId,
+        projectId: pid,
+        title: title,
+        sourceKinds: sourceKinds,
+        summaryShort: row.summary_short
+      });
+    }
+  } catch (eN) {
+    Logger.log("[processOneEvent] notification upsert error (non-fatal): " + (eN && eN.message ? eN.message : eN));
+  }
   return {
     ok: true,
     action: existing ? "updated" : "inserted",

@@ -26,6 +26,7 @@ function pathToTitle(pathname: string): string | null {
   if (pathname.startsWith("/venture-map/state-space")) return "Venture State Space";
   if (pathname.startsWith("/venture-map/su/")) return "SU Detail";
   if (pathname === "/venture-map") return "Venture Map";
+  if (pathname.startsWith("/management-score")) return "Management Score";
   if (pathname === "/seeds") return "Seeds";
   if (pathname === "/vcs") return "VC";
   if (pathname === "/mypage") return "マイページ";
@@ -38,6 +39,7 @@ function pathToTitle(pathname: string): string | null {
   if (pathname === "/admin/members") return "Admin メンバー";
   if (pathname === "/admin/billing") return "Admin 請求";
   if (pathname === "/admin/payouts") return "Admin 報酬";
+  if (pathname === "/admin/finance") return "Admin Finance";
   if (pathname === "/admin/tsukuyomi") return "Admin つくよみ";
   if (pathname === "/admin/contexts") return "Admin Contexts";
   if (pathname === "/admin/settings") return "Admin 設定";
@@ -62,11 +64,13 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const h = await headers();
+  const pathname = h.get("x-pathname") ?? "";
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (error || !user) {
-    redirect("/auth/login");
+    redirect(`/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
   }
 
   let userCodeName = "Guest";
@@ -82,12 +86,19 @@ export default async function AppLayout({
     if (member?.is_admin) isAdmin = true;
     if (member?.member_id) memberId = member.member_id;
   }
+  const hudSkinned =
+    pathname.startsWith("/hud") ||
+    pathname.startsWith("/atlas") ||
+    pathname.startsWith("/seeds") ||
+    pathname.startsWith("/vcs") ||
+    pathname.startsWith("/venture-map/amd-score");
+  const useHudShellOnly = pathname.startsWith("/hud");
 
   return (
     <>
       <PageTitleSetter />
-      <GlobalNav userCodeName={userCodeName} isAdmin={isAdmin} memberId={memberId} />
-      <main className="flex-1">{children}</main>
+      {!useHudShellOnly && <GlobalNav userCodeName={userCodeName} isAdmin={isAdmin} memberId={memberId} />}
+      <main className={hudSkinned ? "amd-hud-page-skin flex-1" : "flex-1"}>{children}</main>
       <TsukuyomiMascot />
     </>
   );

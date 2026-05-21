@@ -68,38 +68,45 @@ function mr_extractFromGmail_(projectId, startDate, endDate) {
  */
 function mr_gmail_getProjectInfo_(projectId) {
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName('DB_Projects');
-    if (!sheet) return null;
-    
-    var data = sheet.getDataRange().getValues();
-    if (data.length === 0) return null;
-    
-    var headers = data[0];
-    var projectIdIdx = headers.indexOf('projectId');
-    var projectNameIdx = headers.indexOf('projectName');
-    var reportEmailsIdx = headers.indexOf('reportEmails');
-    
-    if (projectIdIdx === -1) return null;
-    
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][projectIdIdx] === projectId) {
-        var rawEmails = reportEmailsIdx !== -1 ? String(data[i][reportEmailsIdx] || '') : '';
-        var emails = rawEmails.split(',')
-          .map(function(e) { return e.trim(); })
-          .filter(function(e) { return e.length > 0; });
-        
-        return {
-          projectId: data[i][projectIdIdx],
-          projectName: projectNameIdx !== -1 ? String(data[i][projectNameIdx] || '') : '',
-          reportEmails: emails
-        };
-      }
-    }
-    
-    return null;
+    projectId = String(projectId || '').trim();
+    return mr_gmail_getProjectInfoFromSupabase_(projectId);
   } catch (error) {
     Logger.log('プロジェクト情報取得エラー: ' + error);
+    return null;
+  }
+}
+
+/**
+ * Supabase 正本からプロジェクト情報を取得する。
+ * GAS側 DB_Projects が未同期の新規PJ (例: KUTE p25) でも Gmail 収集を止めないための fallback。
+ * @param {string} projectId
+ * @return {Object|null}
+ */
+function mr_gmail_getProjectInfoFromSupabase_(projectId) {
+  try {
+    projectId = String(projectId || '').trim();
+    if (!projectId || typeof supa_select !== 'function') return null;
+    var res = supa_select('projects', {
+      select: 'project_id,project_name,report_emails',
+      filter: 'project_id=eq.' + encodeURIComponent(projectId),
+      limit: 1
+    });
+    if (!res || !res.ok || !res.rows || !res.rows.length) return null;
+
+    var row = res.rows[0] || {};
+    var rawEmails = String(row.report_emails || '');
+    var emails = rawEmails.split(',')
+      .map(function(e) { return e.trim(); })
+      .filter(function(e) { return e.length > 0; });
+
+    return {
+      projectId: String(row.project_id || projectId),
+      projectName: String(row.project_name || ''),
+      reportEmails: emails,
+      source: 'supabase'
+    };
+  } catch (error) {
+    Logger.log('Supabaseプロジェクト情報取得エラー: ' + error);
     return null;
   }
 }
@@ -124,7 +131,7 @@ function mr_gmail_buildSearchQuery_(projectInfo, startDate, endDate) {
   // reportEmails: from/toのいずれかにマッチ
   if (projectInfo.reportEmails && projectInfo.reportEmails.length > 0) {
     var emailClauses = projectInfo.reportEmails.map(function(email) {
-      return '(from:' + email + ' OR to:' + email + ')';
+      return '(from:' + email + ' OR to:' + email + ' OR cc:' + email + ')';
     });
     parts.push('(' + emailClauses.join(' OR ') + ')');
   }

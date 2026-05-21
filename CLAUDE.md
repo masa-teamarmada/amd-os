@@ -8,7 +8,7 @@
 ## 🚨 ここはモノレポ — 大原則
 
 - **正本リポ**: `github.com/masa-teamarmada/amd-os` （これ唯一）
-- **推奨パス**: 全PCで `~/projects/amd-os/` に clone する
+- **推奨パス**: 現行 workspace では `~/projects/AMD/amd-os/` に clone する
 - 旧スタンドアロンリポ（`amd-os-ios` / `amd-os-pwa` / `amd-os-android` / `amd-os` GAS版）は **archive 済 / 廃止予定**。**参照しない・clone しない**
 - 旧クローンが残ってる PC では `~/.Trash/` に退避
 
@@ -47,7 +47,7 @@ amd-os/
 毎セッション開始時に必ず実行:
 
 ```sh
-cd ~/projects/amd-os
+cd ~/projects/AMD/amd-os
 
 # 1. リモート状態を取り込む
 git fetch --all --prune
@@ -141,6 +141,7 @@ DESIGN.md は **全プラットフォーム共通の正本**。Android / PWA も
 ## 🛠️ Claude / えいみ向けの行動指針
 
 - **モノレポ意識**: 何かを変える前に「これは全プラットフォームに影響する？」を考える
+- **メタ判断セルフチェック**: まさの指摘や直近タスクにそのまま反応する前に、「既存の正本体系・DB設計・算定ロジックと整合するか」「UI都合で新しい分類や概念を増やしていないか」「まさより一段メタに見てこの方向で本当に良いか」を自問してから答える。違和感があれば、実装前にその違和感を明示して方向修正する
 - **DESIGN.md ファースト**: 画面追加 / 削除 / 改名 → 同じ commit で DESIGN.md を更新
 - **HANDOFF doc を書く**: main 更新時、他プラットフォームに影響するなら必ず追記
 - **共通インフラは慎重に**: Supabase 変更は影響範囲が大きい、適用順序を間違えない

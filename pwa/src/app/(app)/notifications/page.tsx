@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 export const metadata: Metadata = { title: { absolute: "通知 - AMD OS" } };
 
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { NotificationsClient } from "@/components/notifications/NotificationsClient";
 import { AppNotificationsSection } from "@/components/notifications/AppNotificationsSection";
@@ -21,6 +22,16 @@ export const dynamic = "force-dynamic";
  */
 export default async function NotificationsPage() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const email = user?.email?.toLowerCase() ?? "";
+  if (!email) notFound();
+
+  const { data: member } = await supabase
+    .from("members")
+    .select("is_admin")
+    .eq("email", email)
+    .maybeSingle();
+  if (!member?.is_admin) notFound();
 
   const [l2Res, mtgRes, feedbacksRes, projectsRes] = await Promise.all([
     supabase
@@ -87,6 +98,7 @@ export type Notification = {
   total_count: number;
   importance: number;
   notified_at: string | null;
+  read_at: string | null;
   created_at: string;
 };
 
@@ -97,6 +109,7 @@ export type MeetingNotification = {
   source_kinds: string;
   summary_short: string;
   notified_at: string | null;
+  read_at: string | null;
   created_at: string;
 };
 

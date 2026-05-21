@@ -5,6 +5,90 @@
 
 ---
 
+### [pwa/hud-review] レビュー番号を追い続けて、OK済み項目まで再報告・再修正対象にしてしまう
+
+- **発見日**: 2026-05-18 (HUD fidelity pass)
+- **状態**: ✅ 運用ルール化
+- **症状**:
+  - まさが番号付きで修正指示を出し、後続で「おけ」とした項目についても、えいみが final/report で「そのまま維持」と再報告していた。
+  - OK済みの項目を再び追うことで、未解決の番号に集中できず、余計な変更や誤解を誘発した。
+- **原因**:
+  - 番号付きレビューを issue checklist として管理せず、全番号を毎回まとめて報告対象にしていた。
+  - 「おけ」は解決・凍結シグナルであり、以後の作業対象から外すべきなのに、継続監視項目として扱っていた。
+- **解決策 / 再発防止策**:
+  - 修正ポイントは必ず番号単位で管理する。
+  - まさが特定番号に「おけ」と返したら、その番号は **解決済み** として以後の報告・修正対象から外す。
+  - 以後の final/report では、未解決番号と今回触った番号だけを報告する。「そのまま維持」は書かない。
+  - OK済み番号に関係するコードを別理由で触る必要が出た場合だけ、その番号を「再オープン」と明示してから扱う。
+
+---
+
+### [pwa/hud-dashboard] HUD frame の「かすれ」を全画面scratch overlayで作ろうとして無数の縦線/横線を増やした
+
+- **発見日**: 2026-05-17 (HUD Dashboard fidelity pass)
+- **状態**: ⚠️ 次回修正対象。かすれ(grunge)は一旦諦める方針
+- **症状**:
+  - まさから「全くかすれてない」「それとは別問題として、画面中に無数の縦線横線が追加されちゃったから全部消して」と指摘。
+  - 目的はフレーム線そのものの自然なかすれだったが、実装結果はframe以外にも線が大量に重なるノイズになった。
+- **原因**:
+  - `HudFrameWearLayer` を画面全体のSVG overlayとして置き、frameのstrokeだけでなく背景/文字/パネル上にもscratch線を重ねた。
+  - 「grunge mask」ではなく「線を追加する」実装になっていたため、かすれではなく不要な縦横線に見えた。
+  - 目視確認時に「強く見える」ことだけを確認し、まさの意図である「frameが自然に摩耗している」かを確認できていなかった。
+- **対応内容**:
+  - `pwa/design/hud_visual_language.md` に、全画面scratch overlay禁止と、かすれは当面採用しない方針を追記。
+  - 次セッションの最初の修正対象として、`HudFrameWearLayer` 削除をHANDOFFに明記。
+- **再発防止策**:
+  - かすれは「線を足す」のではなく「strokeの一部をtexture/maskで弱める」処理でしか表現しない。
+  - 全画面overlayをHUD frame処理として採用しない。
+  - 視覚効果は、ユーザーに見せる前に「対象オブジェクトだけに効いているか」をスクショで確認する。
+
+---
+
+### [pwa/handoff] 画像生成を求められていたのにSVGモックだけを作り、画像生成済みのように扱った
+
+- **発見日**: 2026-05-17 (PJ Cockpit HUD mock)
+- **状態**: ✅ 初回画像生成は実施済み。次回はコンテンツ完全版を再生成する
+- **症状**:
+  - まさから「モック画像生成して」と言われていたのに、実際には `pwa/design/assets/hud_cockpit_mock_20260517.svg` を作っただけだった。
+  - まさから「画像生成してっていったのにしてない意味がわからない」と指摘。
+- **原因**:
+  - 「SVGでローカル画像相当のmockを作る」と「画像生成ツールでbitmap mockを生成する」を混同した。
+  - final responseでSVG/PNG previewを提示したことで、ユーザーの依頼した「画像生成」を満たしたかのように見えてしまった。
+- **対応内容**:
+  - image generation toolでPJ Cockpit HUD mockを生成。
+  - 生成画像を `pwa/design/assets/hud_cockpit_generated_mock_20260517.png` にコピー。元画像は `/Users/masa/.codex/generated_images/019e3060-3757-7153-84cd-417ffa0d1042/ig_01285d624d981508016a097383c2208191a779fc5c7efa08ba.png` に残存。
+  - まさ評価: 「雰囲気はこれでOK。ただしMSリスト、月次モーダルなどのコンテンツが欠けてる」。
+- **再発防止策**:
+  - 「画像生成」と言われたら必ず image generation tool を使う。SVG/HTML/CSSで代替しない。
+  - 生成していないものを「生成画像」「モック画像」と呼ばない。
+  - UI mock生成前に、現行UIに含まれるコンテンツを棚卸ししてpromptへ入れる。
+
+---
+
+### [pwa/hud-dashboard] Project Signal Board の密度改善指示を「5件固定」と誤読してPJ数可変設計を壊した
+
+- **発見日**: 2026-05-16 (HUD Dashboard mock fidelity pass)
+- **状態**: ✅ 修正済み。ただしモック完全一致は継続課題
+- **症状**:
+  - まさの指摘は「Project Signal Board がモックに比べてスカスカ。間が空きすぎ。情報密度が違う」だった。
+  - それを「表示件数を5件に固定して詰める」と誤読し、`buildSignals()` で `slice(0, 5)` を入れてしまった。
+  - まさから「件数は減らさないで。PJ数はいくらでも増やせる設計じゃないとダメ」と指摘された。
+- **原因**:
+  - モックの見た目を表面的に「5行」に合わせようとして、ダッシュボードとして必要な **PJ数可変性** を落とした。
+  - 問題の本質が「件数」ではなく「同じ面積内の密度・行高・余白・frame精度」だと分解できていなかった。
+  - ユーザーが前回細かく列挙した差分を、達成/未達で管理せず、部分修正で済ませてしまった。
+- **対応内容**:
+  - `slice(0, 5)` を撤廃し、全PJを表示対象に戻した。
+  - Project Signal Board 内を高密度scroll listに変更し、PJ数が増えても同じcontrol center面で扱える構造へ戻した。
+  - Project Signal Board outer frame / row frame / left abbreviation bay / FILE tab / inner separators / parallelogram hatch を再調整。
+  - Alert moduleもred-only方向へ再調整し、cyan混入を減らした。
+- **再発防止策**:
+  - 「スカスカ」「密度が低い」と言われたら、件数削減ではなく **row height / gap / font size / frame thickness / information hierarchy / scroll or pagination** に分解する。
+  - モック一致系の作業では、ユーザーが挙げた差分をチェックリスト化し、各項目を `達成 / 一部 / 未達` で管理する。
+  - 実用ダッシュボードの可変データ数を固定件数に落とす変更は、ユーザーの明示指示なしに入れない。
+
+---
+
 ### [pwa/deploy] Vercel deploy が 15000 files 制限で失敗するため `--archive=tgz` が必要
 
 - **発見日**: 2026-05-14 (Cyber Dashboard 3D Lab 本番反映時)
@@ -1253,3 +1337,124 @@
 - **教訓**:
   - まさの指摘を受けたら **何の話か (どのコンポーネント / どのテーブル / どのプロンプト) を最初に確認** してから動く。早合点で隣の領域を触ると、修正対象がズレた状態で commit が積み上がる
   - 過去のえいみの発言を疑う癖 (memory rule: 自分の提案を疑う) を、まさからの指摘の受け止め方にも適用する
+
+---
+
+### [automation/outbox] Codex cron sandbox が outbox apply に失敗し、failed 退避で止まる
+
+- **発見日**: 2026-05-17
+- **状態**: ✅ 運用修正済 (cronはoutbox生成まで、applyはlocal LaunchAgent)
+- **症状**: `automation-prepare` 後に前回 outbox の apply をcron sandbox内で試すと、Supabase / PWA / GAS の外向き通信が `EPERM` / `ENOTFOUND` / `AggregateError` で失敗し、outboxが `failed` へ退避される。LLMレビュー自体はできてもDB反映・通知投入まで進まない
+- **原因**: Codex automation sandboxの外向き443/DNS制限。抽出ロジックではなく実行環境のネットワーク制限が主因
+- **対応内容**:
+  - `ms_progress_review_tool.mjs automation-prepare` は、`AMD_OS_AUTOMATION_APPLY_OUTBOX=1` がない限りoutbox applyを行わないように変更
+  - `/Users/masa/.codex/automations/amd-os-ms/outbox` と `/Users/masa/.codex/automations/amd-atlas/outbox` を5分ごとにapplyする local LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` を導入
+  - LLMはoutbox JSON作成まで、DB書き込みは deterministic helper が担当する分離を明文化
+- **再発防止策**:
+  - automation内でDB書き込みが必要になってもLLMから直接insertしない。必ずoutbox + helper applyを使う
+  - sandbox health failureは「レビュー不能」と即断せず、local snapshotがある場合は stale明記でobservation reviewを続ける
+  - outbox path / applied path / failed path とparse countを必ずログに残す
+
+---
+
+### [atlas] Atlas helper health を hard gate にすると外部シグナルレビューが止まる
+
+- **発見日**: 2026-05-17
+- **状態**: ✅ 修正済 (helper fallback追加、automation promptもhealth diagnostic扱いへ変更)
+- **症状**: `pwa/scripts/atlas_signal_review_tool.mjs health` が `fetch failed` になり、recent title確認やoutbox作成に進まず停止した
+- **原因**: helperの本番PWA API fetchが一部環境で失敗する。Atlasレビューはweb/source searchでも進められるのに、healthをhard gateにしたため処理全体が止まった
+- **対応内容**:
+  - `atlas_signal_review_tool.mjs` に static DNS / `https.request` fallback を追加
+  - `health` と `recent --hours 48 --limit 5` が通ることを確認
+  - automation `AMD Atlas外部シグナルレビュー` のpromptを更新し、health/recentはdiagnostic、web/source searchが可能ならoutbox生成へ進むルールに変更
+  - Atlas collect cronは `vercel.json` から削除し、`vercel.disabled-crons.json` へ退避
+- **再発防止策**:
+  - Atlasでは「本番PWA APIに届かない」と「外部ソース検索ができない」を分けて扱う
+  - LLMが直接投入しない原則は維持し、Atlasもoutbox + local applierで反映する
+
+---
+
+### [data-model] `projects.freeze_from_ym` 単独では複数回の凍結/再開を表現できない
+
+- **発見日**: 2026-05-17 (CTB 202412終了→再開→202605再凍結)
+- **状態**: ✅ DB修正済 (project_freeze_periods追加)
+- **症状**: CTBのように一度202412で終了/凍結し、その後再開し、さらに202605で再凍結したPJを、`projects.freeze_from_ym` だけで表現すると「202412終了」と「202605再凍結」が衝突して誤解される
+- **原因**: `projects.freeze_from_ym` が現在状態キャッシュなのか履歴なのか曖昧だった。履歴行がないため、過去の凍結と現在の凍結を同じカラムに押し込んでいた
+- **対応内容**:
+  - migration `061_project_freeze_periods.sql` で `project_freeze_periods` を追加
+  - `project_id + freeze_from_ym` unique、projectごとにactive freezeは1件のみのpartial unique index、anon read / service_role bypass RLSを追加
+  - CTBに `202501 -> 202604 closed` と `202605 -> null active` を登録
+  - `projects.freeze_from_ym` は現在状態キャッシュとして `202605` に更新
+  - snapshot / local-snapshot に `projectFreezePeriods` を含めるよう helper を更新
+- **再発防止策**:
+  - PJ lifecycleに複数回イベントがあり得るものは、current cacheカラムではなく履歴テーブルを正本にする
+  - L2レビューでcycle endを読む時は、`project_freeze_periods` と `value_plan_cycles` を両方見て「終了」「一時凍結」「再開後の再凍結」を区別する
+
+---
+
+### [HUD/PJ Signal Board] 生成frame内のlive overlayを固定px/gridで調整して破綻
+
+- **発見日**: 2026-05-19
+- **状態**: ✅ 修正済み
+- **症状**:
+  - `/hud/dashboard` のProject Signal Boardで、ブラウザ幅によりM/X/F bar、折れ線graph、AMD SCORE、先手力ring、PL/PM/Closerの間隔が崩れた。
+  - 折れ線graphの横幅を広げたつもりでも、実際の線が横に伸びなかった。
+  - DOMで縦区切り線を追加した結果、生成画像内の既存線と重なって区切り線が2本から4本に見えた。
+  - NO SCORE objectが、折れ線graph左の空白とAMD SCORE右の空白込みで広がりすぎた。
+- **原因**:
+  - 生成PNG frameを背景にしたrowで、live contentを固定px grid感覚で配置していたため、frameの座標系とcontentの座標系がズレた。
+  - 折れ線SVGは `viewBox="0 0 100 56"` のまま `preserveAspectRatio` 未指定だった。SVGのdefaultは縦横比維持なので、親幅を広げても高さ制約に合わせて描画が中央寄りに縮んだ。
+  - frame画像に既にある区切り線を把握せず、DOM線を追加した。
+  - score / graph / no-scoreを「見た目のzone」ではなく「余白込みの大きなobject」として扱っていた。
+- **対応内容**:
+  - rowは生成frame + percentage based overlayへ寄せ、M/X/F、trend+score、right metaを明示zoneで配置。
+  - `Sparkline` SVGに `preserveAspectRatio="none"` を追加。
+  - 追加DOM区切り線を削除。
+  - AMD SCOREは折れ線zone内の右カラムへ統合し、NO SCORE objectは棒グラフ+折れ線/score zoneへ収めるよう縮小。
+  - 右端zoneの先手力ringとPL/PM/Closerを左へ寄せ、右端張り付きと重なりを抑制。
+- **再発防止策**:
+  - 生成frameを使うHUD rowでは、先にframe画像内の既存線・bay・余白を観察し、DOM線を安易に追加しない。
+  - 可変幅SVG chartでは、横伸縮させる意図がある場合は `preserveAspectRatio="none"` を明示する。
+  - 「親要素が広い」だけでなく、ブラウザ実測でSVG描画領域・object boundsを確認する。
+  - NO SCOREなどfallback objectは、通常score rowの実zoneと同じ境界で設計し、余白込みの巨大rectにしない。
+
+---
+
+### [AMD Score] スコアとM/X/F表示が別の入力行を参照して矛盾する
+
+- **発見日**: 2026-05-20
+- **状態**: ✅ 修正済み
+- **症状**:
+  - ended PJのLSTで、AMD Score自体は表示されるのに M/X/F 数値が入っていないように見えた。
+- **原因**:
+  - スコア時系列は `computeAmdScoreSeries` で `mu_A/mu_I/mu_G` がある有効行だけを使う一方、HUDのM/X/F metricsやScore detailのeditable表示は「今日以前の最新行」を直接見ていた。
+  - partial updateやfuture rowが混ざると、スコアは直近の有効行、M/X/Fは別の未完成行を参照しうる。
+- **対応内容**:
+  - `latestVisibleScorableScoreInput` を追加。
+  - HUD Project Signal Board と AMD Score detail は、`evaluated_at <= today` かつ `mu_A/mu_I/mu_G` がある最新行を、スコアとM/X/F表示の両方に使う。
+- **再発防止策**:
+  - 多列評価テーブルの表示では、score算定可能行と詳細表示行を分けない。
+  - partial update系cronは新規INSERTではなく既存最新行のupdate-onlyを守る。
+
+---
+
+### [HUD Cockpit] ended PJでもlive operation UIと仮M/X/F snapshotが表示される
+
+- **発見日**: 2026-05-20
+- **状態**: ✅ 修正済み
+- **症状**:
+  - LST (`p07`, ended) のHUD cockpitで、DBにはAMD Score入力があるのに、上部のM/X/F signal stripが空に見えた。
+  - ended PJなのに先手力リング、Step Modal Stack、次期MS設定/月次ルーティン操作UIが表示された。
+- **原因**:
+  - HUD cockpit signal strip が `p21/p06/p20` だけのhardcoded `COCKPIT_SIGNAL_SNAPSHOTS` を参照しており、`p07` はDBの `amd_score_inputs` を読んでいなかった。
+  - headerの先手力は `project.status !== active` でもfallback `38` を表示していた。
+  - `HudStepModalStack` が `showRoutine` 判定の外に置かれており、endedでも常時表示されていた。
+  - 次期MS設定バナーもproject statusを見ず、期間切れならendedにも出ていた。
+- **対応内容**:
+  - `HudCockpitSignalStrip` を `amd_score_inputs + amd_score_alpha` から算定する実データ表示へ変更。hardcoded snapshotはfallbackのみ。
+  - ended/frozen/lost等の非live PJでは、先手力リングを lifecycle seal に置き換え、先手力数値を出さない。
+  - `isLiveOperationalProject()` で `active/sales` かつ凍結/再開待ちでないPJだけ、Step Modal Stack / 月次ルーティン / 次期MS設定を表示。
+  - 通常版Cockpitも同じlive operation判定で次期MS設定と月次ルーティンを抑止。
+- **再発防止策**:
+  - cockpitのlive operation UIは `project.status` と freeze/restart状態を通す。
+  - signal表示はhardcoded PJ辞書を正本にせず、DB算定を優先する。

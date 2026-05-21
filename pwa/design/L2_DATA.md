@@ -50,7 +50,99 @@ L1 を経由する構成は廃止された ([progress_estimation.md](progress_es
 
 ---
 
-## L2 データ 6 種 (正本リスト)
+## 現在のデータフロー (2026-05-16 正本)
+
+```text
+5生データ
+  Gmail / Drive / Calendar / Slack / Notion
+        ↓
+抽出・取り込み層
+  GAS cron / PWA API / Codex automation
+        ↓
+L2データ
+  ① monthly_reports
+  ② protocols
+  ③ milestone_monthly_progress / ms_progress_revisions
+  ④ project_knowledge
+  ⑤ member_knowledge
+  ⑥ project_meeting_summaries
+  ⑦ project_registry_diffs
+  ⑧ project_xrl_evidence + project_founding_members
+        ↓
+通知
+  l2_notifications / meeting_notifications
+        ↓
+/notifications
+  はい / いいえ / コメント
+        ↓
+反映・学習
+  Supabase更新 / l2_feedbacks / tsukuyomi_learnings
+```
+
+### Finance L2 拡張候補 (2026-05-21)
+
+まさ方針: サブスク領収書や自動振替は、月次試算表の中だけでなく admin の経理オペ台帳として慎重に管理する。
+
+| データ | テーブル | 生データ | 使い道 |
+|---|---|---|---|
+| 継続支払い / サブスク / 自動振替 | `company_finance_recurring_items` | Gmail / freee / 手入力 / GAS月次PL seed | 月額、発生頻度、引落口座、自動振替、budget forward-fill の管理 |
+| 領収書イベント | `company_finance_receipt_events` | Gmail 領収書、添付PDF、freee明細 | confirm後に `company_actual_monthly` へ実績同期し、毎月発生しそうなら予算へ forward-fill |
+
+これは既存 L2 8種を置き換えるものではなく、Management Score の `finance` 軸に入る財務系 L2。実装時はメール全文や領収書全文を保存せず、source ref / hash / short subject / attachment refs と正規化金額だけを保存する。
+
+### 重要な原則
+
+- GAS シートはバックアップ・人間確認用。正本ではない
+- 正本は Supabase
+- 5生データから直接 L2 に抽出する。汎用 L1 経由に戻さない
+- 5生データで有効な現物を拾ったら、通知だけで止めず、短い source refs / snippet として Supabase に戻す。月次報告書が no-data テンプレ、または未作成の場合は、完璧な完成版を待たず、確認できた範囲だけで `monthly_reports.draft_content` を暫定更新する
+- `projects.start_ym` より前の月でも、キックオフ・提案・契約前調整などPJ形成に意味がある生データがあるなら、月次サマリを作ってよい。MS進捗には直接反映しないが、開始前コンテキストとして `monthly_reports` に残す。
+- メール全文・議事録全文・Slack全文を L2 や通知に保存しない
+- L2 に保存するのは「AMD OS が使う構造化情報」と「短い根拠 snippet / source refs / hash」
+- 差分が出たら必ず `l2_notifications` / `meeting_notifications` へ出して、まさが `/notifications` で確認できるようにする
+
+### 月次報告書は少しずつ作る
+
+`monthly_reports` は「全生データが揃ったあとに一括で完成させる」だけのテーブルではない。Gmail / Drive / Calendar / Slack / Notion のどれかで当月の確かな活動が見つかった時点で、抽出器や Codex automation は以下を行う。
+
+1. 全文ではなく、source id / date / title / sender / short snippet / hash を `source_cache` または該当 L2 の `source_refs_json` に保存する
+2. `monthly_reports` が未作成、または no-data テンプレのままなら、確認済み事実だけで `draft_content` を暫定更新する。PJ期間外でも、開始前コンテキストとして意味がある月は作成対象にする。
+3. 既に `final_content` がある場合は自動上書きせず、追加候補を通知または revision として出す
+4. sourceChecklist が 0 のままなのに connector で現物が取れた場合は、`raw_data_gap` だけで終えず、可能な範囲で source refs を Supabase に backfill する
+
+この運用の目的は、MS進捗・PJナレッジ・XRL根拠・月次FIXが no-data テンプレに引きずられないよう、OS内に小さくても使える月次断面を積み上げること。
+
+### 通知からの反映
+
+| 通知 | はい | いいえ | コメント |
+|---|---|---|---|
+| ③ MS進捗 | 月次モーダル側の revision confirm を使う | revision discard | `l2_feedbacks` / `tsukuyomi_learnings` |
+| ⑦ OS台帳差分 | allowlist 済みの安全な DB 更新を実行 (`project_members`, `projects.report_emails`, `project_partners`) | `project_registry_diffs.status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
+| ⑧ XRL根拠 | `project_xrl_evidence.status='confirmed'` | `project_xrl_evidence.status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
+| その他 L2 | 原則、学習/再抽出指示として扱う | 学習/再抽出指示として扱う | `l2_feedbacks` / `tsukuyomi_learnings` |
+
+### Codex automation outbox 反映
+
+Codex cron sandbox は外向きネットワークが落ちることがあるため、LLM automation は DB/API へ直接書き込まない。
+
+- `AMD OS L2差分レビュー` は `/Users/masa/.codex/automations/amd-os-ms/outbox/*.json` を作る
+- `AMD Atlas外部シグナルレビュー` は `/Users/masa/.codex/automations/amd-atlas/outbox/*.json` を作る
+- ローカルの非LLM LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` が 5 分ごとに outbox を見て、helper 経由で Supabase/PWA API へ反映する
+- 成功した file は `applied/`、失敗した file は `failed/` へ移動する
+- この反映ジョブは Node helper だけを動かすので、LLM token は使わない
+
+### PJ凍結/再開履歴
+
+`projects.freeze_from_ym` / `restart_expected_ym` は現在状態の表示用キャッシュ。複数回の凍結/再開履歴は `project_freeze_periods` を正本にする。
+
+- `freeze_from_ym`: この ym から凍結
+- `restart_ym`: この ym から再開。NULL の active row は現在凍結中
+- `status`: `active` / `closed` / `planned`
+- 例: CTB は `202501 → 202604` の閉じた凍結期間と、`202605 → NULL` の現在凍結期間を持つ
+
+---
+
+## L2 データ 8 種 (正本リスト)
 
 | L2 | 意味 | テーブル | cron / 書き込み元 | 場所 | 状態 |
 |---|---|---|---|---|---|
@@ -59,7 +151,9 @@ L1 を経由する構成は廃止された ([progress_estimation.md](progress_es
 | ③ **MS進捗** | マイルストーン進捗% | `milestone_monthly_progress` | **Phase 4** = 本体GAS 毎時 trigger (`nav_pwa_pingHourlyEstimate` / 154) → PWA `cron/hourly-estimate` を curl → `progress_estimate_state.source_hash` 差分検知 | PWA `app/api/cron/hourly-estimate` + `lib/progress-estimator.ts` + 本体GAS `154_PwaCronCaller.js` | ✅ **Phase 4 稼働 (毎時 polling、Hobby 制約により GAS 経由)**。詳細 [ms_progress.md](ms_progress.md) |
 | ④ **PJナレッジ** | PJ にまつわる事実・人物・組織・進行中事項 | `project_knowledge` | **Phase 4** = 本体GAS 毎時 trigger (`nav_project_knowledge_pollAll` / 155) → `monthly_reports` + `project_meeting_summaries` 二次集約 → Gemini → SELECT/INSERT/PATCH (既存 2024 行を破壊しない) | 本体GAS `155_L2KnowledgeExtractor.js` | ✅ **Phase 4 稼働 (毎時 polling、二次集約)**。詳細 [project_knowledge.md](project_knowledge.md) |
 | ⑤ **メンバーナレッジ** | メンバーごとの強み・スキル・関心 | `member_knowledge` | **Phase 4** = 本体GAS 毎時 trigger (`nav_member_knowledge_pollAll` / 155) → `member_activities` + `project_meeting_summaries` 二次集約 → Gemini → 7 category upsert | 本体GAS `155_L2KnowledgeExtractor.js` | ✅ **Phase 4 稼働 (毎時 polling、二次集約)**。詳細 [member_knowledge.md](member_knowledge.md) |
-| ⑥ **MTGサマリ** | calendar event 1 回ごとの decided/progress/nextActions/risks (PK = calendar event id) | **Phase 3** = 毎時 0 分 polling cron (本体GAS `153_MeetingHourlyTrigger.js` `nav_meeting_pollRecentlyEndedEvents`、過去 60-180 分に終わった events をスキャン) + **Phase 2 fallback** = `nav_cronMonthlyExtractAt3` (本体GAS, 03:00 daily) | 本体GAS `152_NavigatorCron.js` + `153_MeetingHourlyTrigger.js` + `074_MeetingSummaryRepo.js` | ✅ **Phase 3 稼働** (Notion + Gmail 結合)。拾えれば iOS APNs 通知用 `meeting_notifications` テーブル (PK=meeting_id) に upsert (Swift 側受信は別セッション、[ios/HANDOFF_meeting_notifications.md](../../ios/HANDOFF_meeting_notifications.md))。議事録なしマーカー / 抽出空 区別表示。詳細 [meeting_summaries.md](meeting_summaries.md) |
+| ⑥ **MTGサマリ** | calendar event 1 回ごとの decided/progress/nextActions/risks (PK = calendar event id) | `project_meeting_summaries` | **Phase 3** = 毎時 0 分 polling cron (本体GAS `153_MeetingHourlyTrigger.js` `nav_meeting_pollRecentlyEndedEvents`、過去 60-180 分に終わった events をスキャン) + **Phase 2 fallback** = `nav_cronMonthlyExtractAt3` (本体GAS, 03:00 daily) | 本体GAS `152_NavigatorCron.js` + `153_MeetingHourlyTrigger.js` + `074_MeetingSummaryRepo.js` | ✅ **Phase 3 稼働** (Notion + Gmail 結合)。拾えれば iOS APNs 通知用 `meeting_notifications` テーブル (PK=meeting_id) に upsert (Swift 側受信は別セッション、[ios/HANDOFF_meeting_notifications.md](../../ios/HANDOFF_meeting_notifications.md))。議事録なしマーカー / 抽出空 区別表示。詳細 [meeting_summaries.md](meeting_summaries.md) |
+| ⑦ **OS台帳差分** | 5生データとOS構造データの差分。PJメンバー候補、関係先メール、担当者、契約/期間/スコープ、請求/ステータスなど「OSに反映する?」が必要な候補 | `project_registry_diffs` + `l2_notifications(l2_kind='project_registry_diff')` | Codex automation / future cron: 5生データ → OS snapshot 突合 → pending diff upsert → 通知で採否 | PWA / Codex automation | 🟡 DB・通知・採否UIは本番反映済。抽出器は Codex automation 側で段階実装中。詳細 [project_registry_diffs.md](project_registry_diffs.md) |
+| ⑧ **XRL根拠** | AMD Score / XRL 算定に使う構造化根拠。`project_founding_members` は HRL 根拠、TRL / BRL / GRL / SRL / HRL の観測根拠もここに含める | `project_founding_members`, `project_xrl_evidence`, `project_xrl_log`, `amd_score_inputs.xrl_notes` | `cron/founding-members-extract`, `cron/venture-xrl-refresh`, `cron/amd-score-l2-refresh`, future evidence extractor | PWA | 🟡 `project_founding_members` は稼働済。`project_xrl_evidence` のDB・通知・採否UIは本番反映済、抽出器は未完。詳細 [xrl_evidence.md](xrl_evidence.md) |
 
 **重要**: 5 生データから抽出した結果 = L2 だけ。Atlas / VC ニュース / マクロ index は外部ソース由来なので **L2 ではなく「レポート関連」**カテゴリ。
 
@@ -72,15 +166,13 @@ L1 を経由する構成は廃止された ([progress_estimation.md](progress_es
 | **Atlas 日次** | `atlas_stories` 等 | `cron/atlas-daily` (06:00 daily) | PWA |
 | **Atlas 週次** | 同上 | `cron/atlas-weekly` (fri 17:00) | PWA |
 | **Atlas 月次** | 同上 | `cron/atlas-monthly` (毎月 1 日 07:00) | PWA |
-| **Atlas マクロ収集** | `atlas_signals`, `macro_index_log` | `cron/atlas-collect` (08:00 daily) | PWA |
+| **Atlas マクロ収集** | `atlas_signals`, `macro_index_log` | Codex automation `AMD Atlas外部シグナルレビュー` (08:10 daily)。旧 `cron/atlas-collect` は課金回避のため停止済み | Codex automation + PWA ingest |
 | **Atlas 政策シグナル** | `atlas_policy_signals` | `cron/atlas-collect-policy` (07:00 daily) | PWA |
 | **Atlas divergence** | テーマ単位 | `cron/atlas-divergence` (sun 06:00) | PWA |
 | **macro lane weights 再学習** | macro index 関連 | `cron/relearn-lane-weights` (03:30 daily) | PWA |
 | **macro バックフィル** | `macro_index_log` (過去) | `cron/macro-backfill-historical` (sun 12:00) | PWA |
 | **VC ニュース** | `vc_news` | `cron/vc-discover` (土 09:00 weekly、業界横断 + 新規 VC 発見 + suggested_fund_patch) | PWA |
-| **AMD Score L2 リフレッシュ** | `amd_score_inputs` | `cron/amd-score-l2-refresh` (mon 03:00) | PWA |
 | **PJ 沿革リフレッシュ** | `project_ventures.narrative_text` | `cron/venture-narrative-refresh` (03:45 daily) | PWA |
-| **PJ XRL リフレッシュ** | `project_xrl_log` (llm_proposal) | `cron/venture-xrl-refresh` (03:15 daily) | PWA |
 | **メンバー活動推論** | `member_activities` | `cron/member-activities` (04:00 daily) | PWA |
 | **ASPI lane 推定** (Phase 2-B) | `lane_suggestions` | `cron/lane-suggest` (mon 04:00 JST、GAS 154 から curl) | PWA |
 | **研究費 I_R 観測** (Phase 2-C) | `observation_log` key=I_R | `cron/kaken-ingest` (mon 04:00 JST、GAS 154 から curl) | PWA |
@@ -102,7 +194,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **毎時** | `nav_member_knowledge_pollAll` | メンバーナレッジ抽出 (L2 ⑤, **Phase 4**) | 本体GAS (155) |
 | **毎時** | `nav_project_knowledge_pollAll` | PJナレッジ抽出 (L2 ④, **Phase 4**) | 本体GAS (155) |
 | **毎時** | `nav_protocol_pollAll` | AMDプロトコル抽出 (L2 ②, **Phase 4**) | 本体GAS (155) |
-| **03:15** | `cron/venture-xrl-refresh` | PJ XRL llm_proposal | PWA |
+| **03:15** | `cron/venture-xrl-refresh` | XRL根拠 / PJ XRL llm_proposal (L2 ⑧) | PWA |
 | **03:30** | `cron/relearn-lane-weights` | macro lane weights 再学習 | PWA |
 | **03:45** | `cron/venture-narrative-refresh` | PJ 沿革再生成 | PWA |
 | **04:00** | `cron/member-activities` | member_activities 推論 | PWA |
@@ -110,9 +202,10 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **05:30** | `313_MsProgressSummary_Cron` | DB_BillingCycle.msProgressSummaryJson 更新 | 本体GAS |
 | **06:00** | `cron/atlas-daily` | atlas 日次レポート | PWA |
 | **07:00** | `cron/atlas-collect-policy` | 政府方針シグナル | PWA |
-| **08:00** | `cron/atlas-collect` | マクロニュース | PWA |
+| **08:00** | `cron/atlas-collect` | **停止済み**。旧マクロニュース収集 | PWA |
+| **08:10** | Codex automation `AMD Atlas外部シグナルレビュー` | subscription 枠で外部マクロシグナル収集 → outbox → ローカル非LLM applier → `/api/atlas/signals-ingest` に投入 | Codex automation + PWA |
 | **土 09:00** | `cron/vc-discover` | VC ニュース + 新規 VC 発見 (weekly) | PWA |
-| **mon 03:00** | `cron/amd-score-l2-refresh` | AMD Score L2 リフレッシュ | PWA |
+| **mon 03:00** | `cron/amd-score-l2-refresh` | AMD Score / XRL根拠リフレッシュ (L2 ⑧) | PWA |
 | **月初 03:00 (1日 18:00 UTC)** | `cron/frl-grit-resilience-extract` | 全 active PJ × 過去 3 ヶ月 monthly_reports + meeting_summaries 集約 → Sonnet 4.6 で frl_grit (Duckworth 2007) / frl_resilience (Markman 2005) を 0-9 推定 → amd_score_inputs に upsert。prompt = `llm_prompts.frl.grit_resilience.extract` (v2、外部創業者優先 / null 厳格化) | PWA |
 | **月初 04:00 (1日 19:00 UTC)** | `cron/macro-aggregate-indicators` | observation_log (kaken/grant → budget_amount, vc/vc_investment → investment_amount) + atlas_signals (ATL domain → ASPI lane mapping → policy_mention_count / raw_signal_count) を lane × month で集計 → macro_index_log の P 以外列を update。?since=YYYY-MM 指定可、デフォルト過去 36 ヶ月 | PWA |
 | **mon 04:30** | `cron/triple-helix-recompute` | BVAR Kalman smoother で μ_A/I/G 推定 (Phase 3) | PWA |
@@ -133,7 +226,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 
 ⭐ **2026-05-09 まさ方針確定**: 「全部の L2 データ取得を 60 分ごとに」
 
-Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検知」パターンを **L2 6 種すべて** に横展開する。
+Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検知」パターンを **L2 8 種すべて** に横展開する。
 
 **メリット (まさの想定)**:
 - リアルタイム性: 「いますっごい貴重なやり取りしてるけど、L2 として抽出されるかな」→ 1 時間以内に確認できる (= 「明日確認しよう→忘れた」問題解消)
@@ -150,6 +243,8 @@ Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検�
 | ④ PJナレッジ | ✅ **Phase 4 完了 2026-05-09** | GAS 155 で毎時 polling + 差分検知 + 二次集約 (monthly_reports + meeting_summaries → Gemini → SELECT/INSERT/PATCH、既存 2024 行を破壊しない)。詳細 [project_knowledge.md](project_knowledge.md) | (済) |
 | ② AMDプロトコル | ✅ **Phase 4 完了 2026-05-09** | GAS 155 で毎時 polling + 差分検知 + 二次集約 (project_meeting_summaries → Gemini → status='candidate' で upsert、UI で confirmed 昇格運用)。詳細 [amd_protocol.md](amd_protocol.md) | (済) |
 | ⑥ MTGサマリ | ✅ Phase 3 で毎時化済 | (済) | - |
+| ⑦ OS台帳差分 | 🟡 DB・通知・採否UIは本番反映済。抽出器は段階実装中 | 5生データ → OS snapshot 差分 → pending diff → 通知採否 → DB反映。詳細 [project_registry_diffs.md](project_registry_diffs.md) | ⭐ 次 |
+| ⑧ XRL根拠 | 🟡 `project_founding_members` 稼働、`project_xrl_evidence` 受け皿は本番反映済。抽出器は未完 | founding members + TRL/BRL/GRL/SRL/HRL 根拠を統合し、`project_xrl_log` / `amd_score_inputs` の説明可能性へ接続。詳細 [xrl_evidence.md](xrl_evidence.md) | ⭐ 次 |
 | ① monthly_report | R313 05:00 daily (AMD-Report GAS) | 集計性が強いので毎時化の意味は薄い。代わりに Phase 2.5 (会議サマリ集約方式に書き換え) で実質リアルタイム化 | ⭐ 後 |
 
 **設計パターン (Phase 3 から流用)**:
@@ -168,19 +263,18 @@ Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検�
 
 ---
 
-## L2 で「動いてない」もの (TODO)
+## L2 で「実装中」のもの
 
-| L2 | 問題 | 対応予定 |
+| L2 | 現状 | 対応予定 |
 |---|---|---|
-| ② AMDプロトコル | テーブル空、UI も削除されてる (元はトップメニューの atlas 左) | 別タスク: スプシから掘り起こし + UI 復活 |
-| ④ PJナレッジ | 書き込み元不明 (2024 行はあるが) | 別タスク: AMD-Report GAS の新 cron として実装 |
-| ⑤ メンバーナレッジ | 完全未稼働 | 別タスク: AMD-Report GAS の新 cron として実装 |
+| ⑦ OS台帳差分 | DB・通知・採否UIは本番反映済。KUTE Gmail で差分通知の手動実証中 | オートメーション抽出器を汎用化し、5生データすべてから `project_registry_diffs` を作る |
+| ⑧ XRL根拠 | `project_founding_members` は稼働済。`project_xrl_evidence` 受け皿は本番反映済。TRL/BRL/GRL/SRL/HRL 根拠の統合抽出器は未完 | `project_xrl_evidence` の抽出器を作り、XRL/AMD Score 再計算と通知確認フローへ接続 |
 
-## L2 候補 (Phase 2 で追加検討中、まさ確認待ち)
+## L2 候補
 
-| 候補 L2 | 状態 | データ流入 |
-|---|---|---|
-| ⑦ **創業メンバー** | 🟡 雛形実装済 (2026-05-10、affectionate-easley-9b52b8) | PWA `cron/founding-members-extract` 毎週月曜 03:30 JST。L2 の 5 種 (monthly_reports + project_meeting_summaries + project_knowledge) を入力に LLM (Sonnet 4.5) で **PJ 創業メンバー (AMD 内外含む全員)** を抽出 → `project_founding_members` テーブル + `l2_notifications` (kind='founding_members')。HRL 推定の主要根拠。L2 ⑦ として正式採用するかはまさの判断待ち。詳細仕様は [`amd_score.md`](amd_score.md) 「Triple Helix 観測モデル」+ migration 040 |
+現時点で候補扱いの L2 はなし。
+
+`project_founding_members` は候補から正式昇格し、⑧ **XRL根拠** の HRL 根拠として扱う。創業メンバー単体を L2 とするのではなく、TRL / BRL / GRL / SRL / HRL の算定根拠を束ねる L2 として運用する。
 
 ---
 
@@ -189,14 +283,18 @@ Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検�
 - ① monthly report の生成詳細 → AMD-Report GAS の R313 系 (このリポにはソース無し、別 clasp)
 - ② AMDプロトコルの設計思想 → [`knowledge/amd_os_vision.md`](../../../knowledge/amd_os_vision.md) の「AMDプロトコルの 4 要素」
 - ③ MS進捗推定 → [`ms_progress.md`](ms_progress.md) ⭐ (Phase 4 正本) / 旧経緯は [`progress_estimation.md`](progress_estimation.md)
+- ④ PJナレッジ → [`project_knowledge.md`](project_knowledge.md)
+- ⑤ メンバーナレッジ → [`member_knowledge.md`](member_knowledge.md)
 - ⑥ MTGサマリ → [`meeting_summaries.md`](meeting_summaries.md)
+- ⑦ OS台帳差分 → [`project_registry_diffs.md`](project_registry_diffs.md)
+- ⑧ XRL根拠 → [`xrl_evidence.md`](xrl_evidence.md) / [`amd_score.md`](amd_score.md)
 - 全体的な PWA 仕様 → [`SPEC_pwa.md`](SPEC_pwa.md)
 
 ---
 
 ## このドキュメントを編集するときのルール
 
-- L2 6 種の定義は**まさの正本**。勝手に増やしたり統合したりしない
+- L2 8 種の定義は**まさの正本**。勝手に増やしたり統合したりしない
 - 新規 L2 を追加するときは必ずまさに確認
 - cron を追加 / 削除 / 移動したら必ずこの md を更新する
 - データ流入が止まった / 復活した変更があれば「状態」列を更新する
@@ -208,6 +306,7 @@ Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検�
 
 | 日付 | 変更 |
 |---|---|
+| 2026-05-15 | まさ確認により L2 を 8 種へ更新。⑦ OS台帳差分を新設し、`project_founding_members` は候補から正式昇格して ⑧ XRL根拠 (HRL含む TRL/BRL/GRL/SRL/HRL 根拠) に統合 |
 | 2026-05-09 | 初版。MTGサマリ追加で L2 が 5 → 6 になったタイミングで正本化。AMDプロトコル / メンバーナレッジ未稼働を可視化、PJナレッジ流入元不明を可視化 |
 | 2026-05-09 | MTGサマリ Phase 2 移行 (Notion 本文 + Gmail 議事録メール 結合、calendar event id を PK に)。状態列を Phase 2 稼働に更新 |
 | 2026-05-09 | MTGサマリ Phase 3 移行 (会議終了 +60 分 ad-hoc trigger + iOS APNs 通知用 meeting_notifications)。03:00 daily は scheduling + 拾い漏れ救済 fallback の二役に |

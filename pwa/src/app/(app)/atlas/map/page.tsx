@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchAtlasSignals,
@@ -73,7 +74,19 @@ const sourceTypeLabel: Record<string, string> = {
   manual: "MEMO",
 };
 
+function hexToRgba(hex: string, alpha: number): string {
+  const normalized = hex.replace("#", "");
+  if (normalized.length !== 6) return `rgba(103, 232, 249, ${alpha})`;
+  const n = Number.parseInt(normalized, 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export default function AtlasMapPage() {
+  const pathname = usePathname();
+  const atlasBase = pathname.startsWith("/hud/") ? "/hud/atlas" : "/atlas";
   const [stories, setStories] = useState<StoryWithSignals[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<StoryNode | null>(null);
@@ -311,7 +324,7 @@ export default function AtlasMapPage() {
     <div className="h-[calc(100vh-2.75rem)] flex flex-col">
       {/* Header bar */}
       <div className="px-4 py-2.5 border-b border-border flex items-center gap-3 shrink-0 flex-wrap">
-        <Link href="/atlas" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+        <Link href={atlasBase} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
           ← Atlas
         </Link>
         <h1 className="text-sm font-bold">Atlas Map</h1>
@@ -432,7 +445,10 @@ export default function AtlasMapPage() {
             ) => {
               const x = (node as unknown as { x: number }).x;
               const y = (node as unknown as { y: number }).y;
+              const scale = Number.isFinite(globalScale) && globalScale > 0 ? globalScale : 1;
+              if (!Number.isFinite(x) || !Number.isFinite(y)) return;
               const r = Math.sqrt(node.val || 4) * 1.6;
+              const nodeGlow = hexToRgba(node.color, 0.55);
 
               // パルス: HIGH かつ signal_count ≥ 3 のガチ重要ストーリー
               // 円ノード本体の前に下層として描画
@@ -446,20 +462,42 @@ export default function AtlasMapPage() {
                 ctx.arc(x, y, pulseR, 0, 2 * Math.PI, false);
                 ctx.fillStyle = `rgba(251, 191, 36, ${alpha * 0.4})`;
                 ctx.fill();
-                ctx.lineWidth = 1.6 / globalScale;
+                ctx.lineWidth = 1.6 / scale;
                 ctx.strokeStyle = `rgba(251, 191, 36, ${alpha})`;
                 ctx.stroke();
               }
 
+              const glow = ctx.createRadialGradient(x, y, r * 0.35, x, y, r * 3.4);
+              glow.addColorStop(0, nodeGlow);
+              glow.addColorStop(0.42, hexToRgba(node.color, 0.20));
+              glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+              ctx.beginPath();
+              ctx.arc(x, y, r * 3.4, 0, 2 * Math.PI, false);
+              ctx.fillStyle = glow;
+              ctx.fill();
+
               // 本体: 円
+              ctx.save();
+              ctx.shadowColor = node.color;
+              ctx.shadowBlur = 18 / scale;
               ctx.beginPath();
               ctx.arc(x, y, r, 0, 2 * Math.PI, false);
               ctx.fillStyle = node.color;
               ctx.fill();
+              ctx.lineWidth = 1.2 / scale;
+              ctx.strokeStyle = "rgba(236, 254, 255, 0.52)";
+              ctx.stroke();
+              ctx.restore();
+
+              ctx.beginPath();
+              ctx.arc(x, y, r * 0.45, 0, 2 * Math.PI, false);
+              ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+              ctx.fill();
+
               // ピン留めされてるノードは細い縁を追加
               if ((node as unknown as { fx: number | null }).fx != null) {
-                ctx.lineWidth = 0.8 / globalScale;
-                ctx.strokeStyle = "rgba(255,255,255,0.7)";
+                ctx.lineWidth = 0.8 / scale;
+                ctx.strokeStyle = "rgba(255,255,255,0.95)";
                 ctx.stroke();
               }
 
@@ -493,23 +531,29 @@ export default function AtlasMapPage() {
               }
 
               // ラベル
+              const significantLabel = node.story.importance === "high" && node.story.signals.length >= 4;
               const showLabel =
-                globalScale > 1.0 ||
-                node.story.importance === "high" ||
-                node.story.signals.length >= 3;
+                scale > 1.35 ||
+                significantLabel ||
+                node.story.signals.length >= 6;
               if (showLabel) {
-                const fontSize = 10 / globalScale;
-                ctx.font = `${fontSize}px sans-serif`;
+                const fontSize = Math.max(6.5, 9 / scale);
+                ctx.font = `700 ${fontSize}px ui-monospace, SFMono-Regular, Menlo, monospace`;
                 ctx.textAlign = "center";
                 ctx.textBaseline = "top";
-                ctx.fillStyle = "rgba(60,60,60,0.92)";
                 const label = node.name;
-                const trimmed = label.length > 26 ? label.slice(0, 26) + "…" : label;
+                const trimmed = label.length > 22 ? label.slice(0, 22) + "…" : label;
+                ctx.lineWidth = Math.max(2.2, 3 / scale);
+                ctx.strokeStyle = "rgba(2, 8, 23, 0.96)";
+                ctx.strokeText(trimmed, x, y + r + 2);
+                ctx.fillStyle = significantLabel
+                  ? "rgba(254, 240, 138, 0.96)"
+                  : "rgba(207, 250, 254, 0.90)";
                 ctx.fillText(trimmed, x, y + r + 1);
               }
             }}
-            linkColor={() => "rgba(120,120,120,0.22)"}
-            linkWidth={(l: GLink) => 0.4 + Math.min(2.4, (l.weight || 1) * 0.4)}
+            linkColor={() => "rgba(103, 232, 249, 0.18)"}
+            linkWidth={(l: GLink) => 0.6 + Math.min(2.8, (l.weight || 1) * 0.45)}
             cooldownTime={8000}
             d3VelocityDecay={0.18}
             warmupTicks={150}
@@ -583,6 +627,7 @@ export default function AtlasMapPage() {
             onClose={() => setSelected(null)}
             onTagClick={(t) => setTagFilters((s) => toggleSetItem(s, t))}
             activeTags={tagFilters}
+            atlasBase={atlasBase}
           />
         )}
       </div>
@@ -595,11 +640,13 @@ function StoryDetailPanel({
   onClose,
   onTagClick,
   activeTags,
+  atlasBase,
 }: {
   story: StoryWithSignals;
   onClose: () => void;
   onTagClick: (t: string) => void;
   activeTags: Set<string>;
+  atlasBase: string;
 }) {
   const dKey = domainKey(story.primary_domain);
   const dColor = dKey ? domainColor(dKey) : "#94a3b8";
@@ -698,7 +745,7 @@ function StoryDetailPanel({
       )}
 
       <Link
-        href="/atlas"
+        href={atlasBase}
         className="block w-full text-center text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
       >
         Atlas で詳細を見る →

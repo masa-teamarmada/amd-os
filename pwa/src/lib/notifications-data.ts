@@ -1,15 +1,6 @@
 // app_notifications テーブルのデータアクセス層
 
-import { createClient } from "@supabase/supabase-js";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-
-const supabase = createClient(
-  supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder"
-);
 
 function getAuthClient() {
   return createBrowserSupabase();
@@ -49,7 +40,8 @@ export async function fetchNotifications(opts?: {
   includeRead?: boolean;
   includeDismissed?: boolean;
 }): Promise<AppNotification[]> {
-  let q = supabase
+  const c = getAuthClient();
+  let q = c
     .from("app_notifications")
     .select("*")
     .order("created_at", { ascending: false })
@@ -61,7 +53,8 @@ export async function fetchNotifications(opts?: {
 
 /** 未読件数 (バッジ用) */
 export async function fetchUnreadNotificationCount(): Promise<number> {
-  const { count } = await supabase
+  const c = getAuthClient();
+  const { count } = await c
     .from("app_notifications")
     .select("*", { count: "exact", head: true })
     .is("read_at", null)

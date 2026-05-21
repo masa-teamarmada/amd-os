@@ -130,7 +130,7 @@ function ValueLadder({
         <span>↓</span>
         <Tex tex={String.raw`\sigma_{\mathrm{SU}} = \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`} />
       </div>
-      <div className="rounded-md border border-slate-300 bg-white p-2 text-center text-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="border border-cyan-300/28 bg-slate-950/76 p-2 text-center text-sm shadow-[inset_0_0_18px_rgba(34,211,238,0.06)]">
         <Tex tex={String.raw`\sigma_{\mathrm{SU}} = `} />
         <span className="ml-1 font-mono text-base font-semibold tabular-nums">
           {FORMAT_NUM(sigmaSu, 2)}
@@ -142,9 +142,9 @@ function ValueLadder({
         <Tex tex={String.raw`M = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}`} />
         <span className="text-[10px]">(α_σ = {alphaSigma.toFixed(2)})</span>
       </div>
-      <div className="rounded-md border border-slate-900 bg-slate-900 p-2 text-center text-sm dark:border-slate-100 dark:bg-slate-100">
-        <span className="text-slate-300 dark:text-slate-600">M = </span>
-        <span className="font-mono text-lg font-bold tabular-nums text-white dark:text-slate-900">
+      <div className="border border-cyan-200/56 bg-cyan-300/10 p-2 text-center text-sm shadow-[0_0_20px_rgba(103,232,249,0.22)]">
+        <span className="text-cyan-100/70">M = </span>
+        <span className="font-mono text-lg font-bold tabular-nums text-white drop-shadow-[0_0_12px_rgba(103,232,249,0.65)]">
           {FORMAT_NUM(M, 2)}
         </span>
       </div>
@@ -154,19 +154,19 @@ function ValueLadder({
 
 const MU_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   emerald: {
-    bg: "bg-emerald-50 dark:bg-emerald-900/20",
-    text: "text-emerald-900 dark:text-emerald-300",
-    border: "border-emerald-300 dark:border-emerald-700",
+    bg: "bg-emerald-300/10",
+    text: "text-emerald-100",
+    border: "border-emerald-300/42",
   },
   amber: {
-    bg: "bg-amber-50 dark:bg-amber-900/20",
-    text: "text-amber-900 dark:text-amber-300",
-    border: "border-amber-300 dark:border-amber-700",
+    bg: "bg-amber-300/10",
+    text: "text-amber-100",
+    border: "border-amber-300/42",
   },
   indigo: {
-    bg: "bg-indigo-50 dark:bg-indigo-900/20",
-    text: "text-indigo-900 dark:text-indigo-300",
-    border: "border-indigo-300 dark:border-indigo-700",
+    bg: "bg-indigo-300/10",
+    text: "text-indigo-100",
+    border: "border-indigo-300/42",
   },
 };
 
@@ -183,7 +183,7 @@ function MuChip({
 }) {
   const c = MU_COLORS[color];
   return (
-    <div className={`rounded-md border ${c.border} ${c.bg} p-2 text-center`}>
+    <div className={`border ${c.border} ${c.bg} p-2 text-center shadow-[inset_0_0_16px_rgba(34,211,238,0.05)]`}>
       <div className={`font-semibold ${c.text}`}>{label}</div>
       <div className="text-[10px] text-slate-500 dark:text-slate-400">{subtitle}</div>
       <div className={`mt-0.5 font-mono text-lg font-semibold tabular-nums ${c.text}`}>
@@ -200,9 +200,9 @@ function MuChip({
 
 function CMatrixTable({ observations }: { observations: ObservationData[] }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
+    <div className="overflow-x-auto border border-cyan-300/24 bg-slate-950/72">
       <table className="w-full text-xs">
-        <thead className="bg-slate-50 text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
+        <thead className="bg-slate-950/96 text-cyan-100/70">
           <tr>
             <th className="px-2 py-1.5 text-left font-medium">観測量</th>
             <th className="px-2 py-1.5 text-center font-medium">
@@ -241,15 +241,15 @@ function ObservationRow({ data }: { data: ObservationData }) {
   const unavailable = normalized == null || !loading.available;
   return (
     <tr
-      className={`border-t border-slate-200 dark:border-slate-800 ${
-        unavailable ? "bg-slate-50/50 dark:bg-slate-900/30" : ""
+      className={`border-t border-cyan-300/14 ${
+        unavailable ? "bg-slate-950/54" : ""
       }`}
     >
       <td className="px-2 py-1.5">
-        <div className="font-mono font-semibold text-slate-900 dark:text-slate-100">
+        <div className="font-mono font-semibold text-cyan-50">
           {data.observation}
         </div>
-        <div className="text-[10px] leading-tight text-slate-500 dark:text-slate-400">
+        <div className="text-[10px] leading-tight text-cyan-100/56">
           {loading.description.split(":")[0]}
         </div>
       </td>
@@ -263,7 +263,7 @@ function ObservationRow({ data }: { data: ObservationData }) {
           </span>
         ) : (
           <div>
-            <span className="font-mono tabular-nums text-slate-900 dark:text-slate-100">
+            <span className="font-mono tabular-nums text-cyan-50">
               {current_value!.toLocaleString()}
             </span>
             <span className="ml-1 text-[10px] text-slate-500 dark:text-slate-400">{loading.unit}</span>
@@ -307,7 +307,7 @@ function LoadingCell({
       : `c = ${loading.toFixed(2)}, ỹ = ${normalized.toFixed(2)}, c·ỹ = ${contribution.toFixed(2)}`;
   return (
     <td
-      className="px-2 py-1.5 text-center font-mono text-xs tabular-nums"
+      className="px-2 py-1.5 text-center font-mono text-xs tabular-nums text-cyan-50"
       style={{ backgroundColor: bgRgba[hue](intensity) }}
       title={tooltip}
     >
@@ -342,7 +342,7 @@ function NormalizedBar({ value }: { value: number }) {
 function CoverageNote({ coverage, lane }: { coverage: { covered: number; total: number }; lane: string }) {
   const pct = Math.round((coverage.covered / coverage.total) * 100);
   return (
-    <div className="rounded-md border border-amber-300 bg-amber-50/40 px-2.5 py-1.5 text-[11px] text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+    <div className="border border-amber-300/38 bg-amber-300/10 px-2.5 py-1.5 text-[11px] text-amber-100">
       データ被覆率: <strong>{coverage.covered} / {coverage.total}</strong> ({pct}%)
       &nbsp;&nbsp;|&nbsp;&nbsp; lane = <code className="font-mono">{lane}</code>
       &nbsp;&nbsp;|&nbsp;&nbsp;

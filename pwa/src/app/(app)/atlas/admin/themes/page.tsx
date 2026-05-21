@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { domainColor, domainKey, domainLabel } from "@/lib/atlas-domains";
 
@@ -24,6 +25,8 @@ interface ExistingTheme {
 }
 
 export default function AtlasThemesAdminPage() {
+  const pathname = usePathname();
+  const atlasBase = pathname.startsWith("/hud/") ? "/hud/atlas" : "/atlas";
   const [existingThemes, setExistingThemes] = useState<ExistingTheme[]>([]);
   const [loadingExisting, setLoadingExisting] = useState(true);
   const [clustering, setClustering] = useState(false);
@@ -124,7 +127,7 @@ export default function AtlasThemesAdminPage() {
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <Link
-          href="/atlas"
+          href={atlasBase}
           className="text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           ← Atlas

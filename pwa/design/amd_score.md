@@ -148,7 +148,7 @@ amd_score_alpha (alpha jsonb, effective_from / effective_to)
 ヘッダ (← 一覧 / コックピットリンク / α retrofit へのリンク)
 案内バー (値の修正は Tsukuyomi 経由)
 ScoreHeroCard          (S 値、log バー、律速軸ラベル、K/Σα/σ_SU、lane)
-BalanceBar             (3 要素 M/X/F の max 達成率を水平バーで)
+BalanceBar             (3 要素 M/X/F の raw contribution signal。M は理論最大値を置かない)
 FormulaPanel           (全体式 + 3 要素式 + 律速の経済学的根拠 + 各式の引用文献)
 Factor3Breakdown       (3 要素カード — 各軸クリックで Tsukuyomi 起動)
 TimeSeriesChart        (経時 line chart)
@@ -166,6 +166,14 @@ FrlAlqPanel            (FRL 6 因子表示 + ALQ radar — 各因子クリック
 - M (Triple Helix): Etzkowitz &amp; Leydesdorff (2000), Research Policy
 - X (5 XRL): Mankins (1995) NASA TRL + 内閣府 SIP 公募要領 (令和 5) + EU H2020 SRL
 - F (FRL 6 因子): Bernstein 2017 JF / Walumbwa 2008 JoM / Duckworth 2007 JPSP / Markman 2005 JOB / Hsu 2007 RP
+
+#### M/X/F Dashboard Copy Rule (2026-05-17)
+
+- `/hud/dashboard` の Project Signal Board に出す M/X/F 数値は、AMD Score 詳細ページの `BalanceBar` と同じ「今日以前の最新評価行」からコピーする。
+- ダッシュボード側で future / retrofit row を拾わない。詳細ページと同じく `evaluated_at <= today` の最新行を使う。
+- M は Macrotrend raw contribution であり、理論最大値を置かない。`10^α_sigma` で割った達成率にしない。
+- X/F も表示値は raw contribution。バー幅だけ、画面内で比較しやすい表示スケールにしてよい。
+- 例: SX の詳細ページで `M=12.44, X=206, F=18.12` なら、HUD dashboard のPJ rowも同じ数値を表示する。`M=79` や `M=15.71` のような再計算値は出さない。
 
 ### Tsukuyomi 連携 (各軸クリックで修正依頼) — 2026-05-09 追加
 

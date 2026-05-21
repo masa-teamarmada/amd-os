@@ -15,7 +15,15 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 // ビルド時（SSG）にはURL空でcreateClientが失敗するのでダミー値で初期化
 const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder"
+  supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder",
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey: "amd-os-pwa-readonly-supabase-data",
+    },
+  }
 );
 
 /** 認証付きブラウザクライアント（RLS書き込み用） */
@@ -30,6 +38,9 @@ function getAuthClient() {
 export interface DashProject {
   projectId: string;
   projectName: string;
+  displayName?: string;
+  shortLabel?: string;
+  roleLine?: string;
   clientName: string;
   status: string;
   startYm?: string;
@@ -1486,6 +1497,11 @@ function nextYmString(ym: string): string {
   return m === 12 ? `${y + 1}01` : `${y}${String(m + 1).padStart(2, "0")}`;
 }
 
+function normalizeDashboardProjectName(projectId: string, displayName: string) {
+  if (projectId === "p24" || displayName.includes("チャレナジー")) return "Challenergy";
+  return displayName;
+}
+
 /**
  * Dashboard: プロジェクト一覧
  */
@@ -1497,9 +1513,55 @@ export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
 
   if (error) throw new Error(`projects: ${error.message}`);
 
+  const projectIds = (data || []).map((r) => r.project_id);
+  const { data: ventureRows } = projectIds.length
+    ? await supabase
+      .from("project_ventures")
+      .select("project_id, display_name, short_label")
+      .in("project_id", projectIds)
+    : { data: [] };
+  const ventureMap = new Map(
+    (ventureRows || []).map((r) => [
+      r.project_id,
+      { displayName: r.display_name || "", shortLabel: r.short_label || "" },
+    ])
+  );
+  const { data: projectMemberRows } = projectIds.length
+    ? await supabase
+      .from("project_members")
+      .select("project_id, member_id, is_pl, is_pm, is_closer")
+      .in("project_id", projectIds)
+      .eq("is_active", true)
+    : { data: [] };
+  const memberIds = Array.from(new Set((projectMemberRows || []).map((r) => r.member_id).filter(Boolean)));
+  const { data: memberRows } = memberIds.length
+    ? await supabase
+      .from("members")
+      .select("member_id, code_name")
+      .in("member_id", memberIds)
+    : { data: [] };
+  const memberMap = new Map((memberRows || []).map((r) => [r.member_id, r.code_name || r.member_id]));
+  const roleLineMap = new Map<string, string>();
+  for (const projectId of projectIds) {
+    const rows = (projectMemberRows || []).filter((r) => r.project_id === projectId);
+    const names = (predicate: (row: typeof rows[number]) => boolean) =>
+      rows
+        .filter(predicate)
+        .map((r) => memberMap.get(r.member_id) || r.member_id)
+        .filter(Boolean)
+        .join("/");
+    roleLineMap.set(
+      projectId,
+      `PL ${names((r) => Boolean(r.is_pl)) || "--"} / PM ${names((r) => Boolean(r.is_pm)) || "--"} / Closer ${names((r) => Boolean(r.is_closer)) || "--"}`
+    );
+  }
+
   return (data || []).map((r) => ({
     projectId: r.project_id,
     projectName: r.project_name,
+    displayName: normalizeDashboardProjectName(r.project_id, ventureMap.get(r.project_id)?.displayName || r.project_name),
+    shortLabel: ventureMap.get(r.project_id)?.shortLabel || r.project_name,
+    roleLine: roleLineMap.get(r.project_id) || "PL -- / PM -- / Closer --",
     clientName: r.client_name || "",
     // 2026-05-11 まさ指摘 8 番: 旧コードは r.status || "active" だったため、
     // status='frozen' でも空文字 fallback ロジックの記憶混乱で dashboard で active 表示される

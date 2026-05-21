@@ -20,7 +20,8 @@ function pwaApi_err_(message) {
 function pwaApi_checkKey_(key) {
   var expected = "";
   try {
-    expected = String(PropertiesService.getScriptProperties().getProperty("PWA_API_KEY") || "").trim();
+    var props = PropertiesService.getScriptProperties();
+    expected = String(props.getProperty("PWA_API_KEY") || props.getProperty("CRON_SECRET") || "").trim();
   } catch (_e) {}
   if (!expected) return true;
   return String(key || "").trim() === expected;

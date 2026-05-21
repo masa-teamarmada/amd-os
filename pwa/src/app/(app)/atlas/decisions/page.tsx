@@ -8,6 +8,7 @@ import {
   type AtlasDecision,
 } from "@/lib/supabase-data";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const ACTIONS: AtlasDecision["action"][] = ["起業", "スタジオ", "支援", "スルー", "保留"];
@@ -39,6 +40,8 @@ function dateInputToIso(s: string): string | null {
 }
 
 export default function AtlasDecisionsPage() {
+  const pathname = usePathname();
+  const atlasBase = pathname.startsWith("/hud/") ? "/hud/atlas" : "/atlas";
   const [decisions, setDecisions] = useState<AtlasDecision[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -69,7 +72,7 @@ export default function AtlasDecisionsPage() {
       <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <Link href="/atlas" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <Link href={atlasBase} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
               ← Atlas
             </Link>
             <h1 className="text-lg font-bold mt-1">判断ログ</h1>

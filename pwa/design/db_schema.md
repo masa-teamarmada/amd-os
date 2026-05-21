@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-12 13:14 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-18 12:20 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -11,9 +11,98 @@
 
 ## 索引
 
-[`amd_score_alpha`](#amd-score-alpha) / [`amd_score_inputs`](#amd-score-inputs) / [`app_notifications`](#app-notifications) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`freeze_period_backfills`](#freeze-period-backfills) / [`issues`](#issues) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`lane_suggestions`](#lane-suggestions) / [`llm_model_config`](#llm-model-config) / [`llm_prompts`](#llm-prompts) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_knowledge`](#member-knowledge) / [`member_ms_activities`](#member-ms-activities) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`observation_log`](#observation-log) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`progress_estimate_state`](#progress-estimate-state) / [`project_config`](#project-config) / [`project_events`](#project-events) / [`project_founding_members`](#project-founding-members) / [`project_knowledge`](#project-knowledge) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_monthly_notes`](#project-monthly-notes) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocol_examples`](#protocol-examples) / [`protocols`](#protocols) / [`reimbursements`](#reimbursements) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seeds`](#seeds) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`tasks`](#tasks) / [`triple_helix_loading`](#triple-helix-loading) / [`triple_helix_state_log`](#triple-helix-state-log) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`tsukuyomi_usage_log`](#tsukuyomi-usage-log) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`xrl_feedbacks`](#xrl-feedbacks)
+[`amd_management_score_evidence`](#amd-management-score-evidence) / [`amd_management_score_raw_signals`](#amd-management-score-raw-signals) / [`amd_management_score_snapshots`](#amd-management-score-snapshots) / [`amd_management_score_source_runs`](#amd-management-score-source-runs) / [`amd_score_alpha`](#amd-score-alpha) / [`amd_score_inputs`](#amd-score-inputs) / [`app_notifications`](#app-notifications) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`company_actual_monthly`](#company-actual-monthly) / [`company_budget_actual_monthly`](#company-budget-actual-monthly) / [`company_budget_inputs`](#company-budget-inputs) / [`company_budget_monthly`](#company-budget-monthly) / [`company_budget_simulation_runs`](#company-budget-simulation-runs) / [`company_budget_variance_notes`](#company-budget-variance-notes) / [`freee_oauth_tokens`](#freee-oauth-tokens) / [`freeze_period_backfills`](#freeze-period-backfills) / [`issues`](#issues) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`lane_suggestions`](#lane-suggestions) / [`llm_model_config`](#llm-model-config) / [`llm_prompts`](#llm-prompts) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_knowledge`](#member-knowledge) / [`member_ms_activities`](#member-ms-activities) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`observation_log`](#observation-log) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`progress_estimate_state`](#progress-estimate-state) / [`project_config`](#project-config) / [`project_events`](#project-events) / [`project_founding_members`](#project-founding-members) / [`project_freeze_periods`](#project-freeze-periods) / [`project_knowledge`](#project-knowledge) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_monthly_notes`](#project-monthly-notes) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_registry_diffs`](#project-registry-diffs) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_xrl_evidence`](#project-xrl-evidence) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocol_examples`](#protocol-examples) / [`protocols`](#protocols) / [`reimbursements`](#reimbursements) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seeds`](#seeds) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`tasks`](#tasks) / [`triple_helix_loading`](#triple-helix-loading) / [`triple_helix_state_log`](#triple-helix-state-log) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`tsukuyomi_usage_log`](#tsukuyomi-usage-log) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`xrl_feedbacks`](#xrl-feedbacks)
 
 ---
+
+## amd_management_score_evidence
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `snapshot_id` | `uuid` | NULL | `` |
+| 3 | `ym` | `text` | NOT NULL | `` |
+| 4 | `axis` | `text` | NOT NULL | `` |
+| 5 | `evidence_kind` | `text` | NOT NULL | `` |
+| 6 | `summary` | `text` | NOT NULL | `` |
+| 7 | `source_type` | `text` | NULL | `` |
+| 8 | `source_ref` | `text` | NULL | `` |
+| 9 | `source_hash` | `text` | NULL | `` |
+| 10 | `impact` | `numeric` | NOT NULL | `0` |
+| 11 | `confidence` | `numeric` | NOT NULL | `0.5` |
+| 12 | `payload` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 13 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## amd_management_score_raw_signals
+
+行数 (概算): 1,194
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `run_id` | `uuid` | NULL | `` |
+| 3 | `ym` | `text` | NOT NULL | `` |
+| 4 | `axis` | `text` | NOT NULL | `` |
+| 5 | `source_kind` | `text` | NOT NULL | `` |
+| 6 | `source_table` | `text` | NOT NULL | `` |
+| 7 | `source_id` | `text` | NOT NULL | `` |
+| 8 | `signal_key` | `text` | NOT NULL | `` |
+| 9 | `signal_value_numeric` | `numeric` | NULL | `` |
+| 10 | `signal_value_text` | `text` | NULL | `` |
+| 11 | `project_id` | `text` | NULL | `` |
+| 12 | `observed_at` | `timestamptz` | NULL | `` |
+| 13 | `confidence` | `numeric` | NOT NULL | `0.5` |
+| 14 | `weight_hint` | `numeric` | NOT NULL | `1` |
+| 15 | `payload` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 16 | `source_hash` | `text` | NOT NULL | `` |
+| 17 | `imported_at` | `timestamptz` | NOT NULL | `now()` |
+| 18 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## amd_management_score_snapshots
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(ym)` (constraint: `amd_management_score_snapshots_ym_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `ym` | `text` | NOT NULL | `` |
+| 3 | `total_score` | `numeric` | NULL | `` |
+| 4 | `initiative_score` | `numeric` | NULL | `` |
+| 5 | `finance_score` | `numeric` | NULL | `` |
+| 6 | `retention_score` | `numeric` | NULL | `` |
+| 7 | `pipeline_score` | `numeric` | NULL | `` |
+| 8 | `direction_score` | `numeric` | NULL | `` |
+| 9 | `weights_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 10 | `inputs_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 11 | `next_actions_json` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 12 | `confidence` | `numeric` | NOT NULL | `0.5` |
+| 13 | `created_by` | `text` | NOT NULL | `'automation'::text` |
+| 14 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 15 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## amd_management_score_source_runs
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `ym` | `text` | NOT NULL | `` |
+| 3 | `source_kind` | `text` | NOT NULL | `` |
+| 4 | `source` | `text` | NOT NULL | `` |
+| 5 | `status` | `text` | NOT NULL | `'running'::text` |
+| 6 | `params` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 7 | `stats` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 8 | `error` | `text` | NULL | `` |
+| 9 | `started_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `finished_at` | `timestamptz` | NULL | `` |
 
 ## amd_score_alpha
 
@@ -66,7 +155,7 @@ UNIQUE: `(project_id,evaluated_at)` (constraint: `amd_score_inputs_project_id_ev
 
 ## app_notifications
 
-行数 (概算): -1
+行数 (概算): 35
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -191,7 +280,7 @@ PRIMARY KEY: `id`
 
 ## atlas_signals
 
-行数 (概算): 455
+行数 (概算): 553
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -214,7 +303,7 @@ PRIMARY KEY: `id`
 
 ## atlas_stories
 
-行数 (概算): 183
+行数 (概算): 214
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -337,6 +426,153 @@ PRIMARY KEY: `id`
 | 6 | `detail` | `jsonb` | NULL | `` |
 | 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 
+## company_actual_monthly
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `ym` | `text` | NOT NULL | `` |
+| 3 | `scope` | `text` | NOT NULL | `'company'::text` |
+| 4 | `project_id` | `text` | NULL | `` |
+| 5 | `project_key` | `text` | NULL | `` |
+| 6 | `category` | `text` | NOT NULL | `` |
+| 7 | `account_name` | `text` | NULL | `` |
+| 8 | `account_key` | `text` | NULL | `` |
+| 9 | `actual_amount_yen` | `int8` | NOT NULL | `0` |
+| 10 | `freee_account_item_id` | `text` | NULL | `` |
+| 11 | `freee_partner_id` | `text` | NULL | `` |
+| 12 | `source_ref` | `text` | NULL | `` |
+| 13 | `raw_hash` | `text` | NULL | `` |
+| 14 | `payload` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 15 | `imported_at` | `timestamptz` | NOT NULL | `now()` |
+
+## company_budget_actual_monthly
+
+行数 (概算): 0
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `ym` | `text` | NULL | `` |
+| 2 | `scope` | `text` | NULL | `` |
+| 3 | `project_id` | `text` | NULL | `` |
+| 4 | `category` | `text` | NULL | `` |
+| 5 | `account_name` | `text` | NULL | `` |
+| 6 | `budget_amount_yen` | `int8` | NULL | `` |
+| 7 | `actual_amount_yen` | `int8` | NULL | `` |
+| 8 | `variance_yen` | `int8` | NULL | `` |
+| 9 | `cash_amount_yen` | `int8` | NULL | `` |
+| 10 | `runway_months` | `numeric` | NULL | `` |
+| 11 | `budget_version` | `text` | NULL | `` |
+| 12 | `simulation_run_id` | `uuid` | NULL | `` |
+| 13 | `freee_account_item_id` | `text` | NULL | `` |
+| 14 | `freee_partner_id` | `text` | NULL | `` |
+| 15 | `budget_payload` | `jsonb` | NULL | `` |
+| 16 | `actual_payload` | `jsonb` | NULL | `` |
+
+## company_budget_inputs
+
+行数 (概算): 36
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `input_kind` | `text` | NOT NULL | `` |
+| 3 | `source_id` | `text` | NULL | `` |
+| 4 | `source_id_key` | `text` | NULL | `` |
+| 5 | `ym` | `text` | NULL | `` |
+| 6 | `ym_key` | `text` | NULL | `` |
+| 7 | `project_id` | `text` | NULL | `` |
+| 8 | `project_key` | `text` | NULL | `` |
+| 9 | `label` | `text` | NULL | `` |
+| 10 | `amount_yen` | `int8` | NULL | `` |
+| 11 | `payload` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 12 | `source` | `text` | NOT NULL | `'gas_monthly_pl'::text` |
+| 13 | `version` | `text` | NOT NULL | `'baseline'::text` |
+| 14 | `imported_at` | `timestamptz` | NOT NULL | `now()` |
+| 15 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## company_budget_monthly
+
+行数 (概算): 216
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `simulation_run_id` | `uuid` | NULL | `` |
+| 3 | `ym` | `text` | NOT NULL | `` |
+| 4 | `scope` | `text` | NOT NULL | `'company'::text` |
+| 5 | `project_id` | `text` | NULL | `` |
+| 6 | `project_key` | `text` | NULL | `` |
+| 7 | `category` | `text` | NOT NULL | `` |
+| 8 | `account_name` | `text` | NULL | `` |
+| 9 | `account_key` | `text` | NULL | `` |
+| 10 | `budget_amount_yen` | `int8` | NOT NULL | `0` |
+| 11 | `cash_amount_yen` | `int8` | NULL | `` |
+| 12 | `runway_months` | `numeric` | NULL | `` |
+| 13 | `payload` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 14 | `note` | `text` | NULL | `` |
+| 15 | `source` | `text` | NOT NULL | `'gas_monthly_pl'::text` |
+| 16 | `source_ref` | `text` | NULL | `` |
+| 17 | `version` | `text` | NOT NULL | `'baseline'::text` |
+| 18 | `imported_at` | `timestamptz` | NOT NULL | `now()` |
+| 19 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## company_budget_simulation_runs
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `scenario_id` | `text` | NULL | `` |
+| 3 | `version` | `text` | NOT NULL | `'baseline'::text` |
+| 4 | `source` | `text` | NOT NULL | `'gas_monthly_pl'::text` |
+| 5 | `source_ref` | `text` | NULL | `` |
+| 6 | `engine_version` | `text` | NULL | `` |
+| 7 | `params` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 8 | `ran_at` | `timestamptz` | NOT NULL | `now()` |
+
+## company_budget_variance_notes
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `ym` | `text` | NOT NULL | `` |
+| 3 | `project_id` | `text` | NULL | `` |
+| 4 | `category` | `text` | NULL | `` |
+| 5 | `variance_kind` | `text` | NOT NULL | `` |
+| 6 | `note` | `text` | NOT NULL | `` |
+| 7 | `source_type` | `text` | NULL | `` |
+| 8 | `source_ref` | `text` | NULL | `` |
+| 9 | `confidence` | `numeric` | NOT NULL | `0.5` |
+| 10 | `status` | `text` | NOT NULL | `'candidate'::text` |
+| 11 | `payload` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 12 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 13 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## freee_oauth_tokens
+
+行数 (概算): -1
+PRIMARY KEY: `token_key`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `token_key` | `text` | NOT NULL | `'default'::text` |
+| 2 | `refresh_token` | `text` | NOT NULL | `` |
+| 3 | `company_id` | `text` | NULL | `` |
+| 4 | `scope` | `text` | NULL | `` |
+| 5 | `external_cid` | `text` | NULL | `` |
+| 6 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
 ## freeze_period_backfills
 
 行数 (概算): -1
@@ -434,7 +670,7 @@ PRIMARY KEY: `feedback_id`
 
 ## l2_notifications
 
-行数 (概算): 34
+行数 (概算): 56
 PRIMARY KEY: `notification_id`
 UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 
@@ -452,6 +688,8 @@ UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 | 10 | `notified_at` | `timestamptz` | NULL | `` |
 | 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 13 | `metadata_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 14 | `read_at` | `timestamptz` | NULL | `` |
 
 ## lane_suggestions
 
@@ -558,10 +796,11 @@ PRIMARY KEY: `meeting_id`
 | 6 | `notified_at` | `timestamptz` | NULL | `` |
 | 7 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 8 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 9 | `read_at` | `timestamptz` | NULL | `` |
 
 ## member_activities
 
-行数 (概算): 37
+行数 (概算): 91
 PRIMARY KEY: `id`
 UNIQUE: `(member_id,project_id,source,source_item_id)` (constraint: `member_activities_member_id_project_id_source_source_item_i_key`)
 
@@ -606,7 +845,7 @@ PRIMARY KEY: `id`
 
 ## member_knowledge
 
-行数 (概算): 30
+行数 (概算): 35
 PRIMARY KEY: `id`
 UNIQUE: `(code_name,category)` (constraint: `member_knowledge_code_name_category_key`)
 
@@ -807,7 +1046,7 @@ PRIMARY KEY: `id`
 
 ## monthly_reports
 
-行数 (概算): 58
+行数 (概算): 164
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,ym)` (constraint: `monthly_reports_project_id_ym_key`)
 UNIQUE: `(report_id)` (constraint: `monthly_reports_report_id_key`)
@@ -1033,7 +1272,7 @@ PRIMARY KEY: `member_id, ym`
 
 ## progress_estimate_state
 
-行数 (概算): 2
+行数 (概算): 8
 PRIMARY KEY: `project_id, ym`
 
 | # | column | type | nullable | default |
@@ -1106,9 +1345,28 @@ UNIQUE: `(project_id,person_name)` (constraint: `project_founding_members_projec
 | 16 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 17 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
+## project_freeze_periods
+
+行数 (概算): -1
+PRIMARY KEY: `period_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `period_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `freeze_from_ym` | `text` | NOT NULL | `` |
+| 4 | `restart_ym` | `text` | NULL | `` |
+| 5 | `status` | `text` | NOT NULL | `'active'::text` |
+| 6 | `reason` | `text` | NULL | `` |
+| 7 | `source` | `text` | NOT NULL | `'manual'::text` |
+| 8 | `source_ref` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 9 | `created_by` | `text` | NOT NULL | `'codex'::text` |
+| 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 11 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
 ## project_knowledge
 
-行数 (概算): 2,261
+行数 (概算): 2,397
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1125,7 +1383,7 @@ PRIMARY KEY: `id`
 
 ## project_meeting_summaries
 
-行数 (概算): 63
+行数 (概算): 116
 PRIMARY KEY: `meeting_id`
 
 | # | column | type | nullable | default |
@@ -1245,6 +1503,35 @@ UNIQUE: `(project_id,ym)` (constraint: `project_pl_monthly_project_id_ym_key`)
 | 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
+## project_registry_diffs
+
+行数 (概算): -1
+PRIMARY KEY: `diff_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `diff_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `ym` | `text` | NULL | `` |
+| 4 | `scope_key` | `text` | NULL | `` |
+| 5 | `diff_kind` | `text` | NOT NULL | `` |
+| 6 | `target_table` | `text` | NOT NULL | `` |
+| 7 | `target_key` | `text` | NULL | `` |
+| 8 | `target_key_norm` | `text` | NULL | `` |
+| 9 | `current_snapshot_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 10 | `proposed_patch_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 11 | `proposed_patch_hash` | `text` | NOT NULL | `` |
+| 12 | `evidence_refs_json` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 13 | `confidence` | `numeric` | NOT NULL | `0.5` |
+| 14 | `status` | `text` | NOT NULL | `'pending'::text` |
+| 15 | `review_comment` | `text` | NULL | `` |
+| 16 | `created_by` | `text` | NOT NULL | `'automation'::text` |
+| 17 | `reviewed_by` | `text` | NULL | `` |
+| 18 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 19 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 20 | `reviewed_at` | `timestamptz` | NULL | `` |
+| 21 | `applied_at` | `timestamptz` | NULL | `` |
+
 ## project_vc_relations
 
 行数 (概算): 113
@@ -1313,6 +1600,31 @@ PRIMARY KEY: `project_id`
 | 19 | `long_description` | `text` | NULL | `` |
 | 20 | `lanes` | `jsonb` | NULL | `` |
 
+## project_xrl_evidence
+
+行数 (概算): -1
+PRIMARY KEY: `evidence_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `evidence_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `ym` | `text` | NULL | `` |
+| 4 | `scope_key` | `text` | NULL | `` |
+| 5 | `axis` | `text` | NOT NULL | `` |
+| 6 | `evidence_kind` | `text` | NOT NULL | `` |
+| 7 | `summary` | `text` | NOT NULL | `` |
+| 8 | `structured_value_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 9 | `source_refs_json` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 10 | `source_hash` | `text` | NOT NULL | `` |
+| 11 | `confidence` | `numeric` | NOT NULL | `0.5` |
+| 12 | `status` | `text` | NOT NULL | `'candidate'::text` |
+| 13 | `created_by` | `text` | NOT NULL | `'automation'::text` |
+| 14 | `confirmed_by` | `text` | NULL | `` |
+| 15 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 16 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 17 | `confirmed_at` | `timestamptz` | NULL | `` |
+
 ## project_xrl_log
 
 行数 (概算): 49
@@ -1370,7 +1682,7 @@ UNIQUE: `(project_id)` (constraint: `projects_project_id_key`)
 
 ## protocol_examples
 
-行数 (概算): -1
+行数 (概算): 53
 PRIMARY KEY: `id`
 UNIQUE: `(protocol_id,project_id,occurred_on)` (constraint: `protocol_examples_uniq`)
 
@@ -1441,6 +1753,8 @@ PRIMARY KEY: `reimbursement_id`
 | 19 | `created_at` | `timestamptz` | NULL | `now()` |
 | 20 | `updated_at` | `timestamptz` | NULL | `now()` |
 | 21 | `billed_ym` | `text` | NULL | `` |
+| 22 | `receipt_storage_paths` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 23 | `receipt_file_names` | `jsonb` | NOT NULL | `'[]'::jsonb` |
 
 ## seed_contact_log
 
@@ -1878,7 +2192,7 @@ PRIMARY KEY: `id`
 
 ## vc_news
 
-行数 (概算): -1
+行数 (概算): 41
 PRIMARY KEY: `id`
 UNIQUE: `(vc_id,source_url)` (constraint: `vc_news_vc_id_source_url_key`)
 

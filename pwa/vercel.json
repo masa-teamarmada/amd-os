@@ -13,10 +13,6 @@
       "schedule": "0 22 1 * *"
     },
     {
-      "path": "/api/cron/atlas-collect",
-      "schedule": "0 23 * * *"
-    },
-    {
       "path": "/api/cron/atlas-collect-policy",
       "schedule": "0 22 * * *"
     },

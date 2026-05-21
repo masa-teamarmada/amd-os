@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   fetchAtlasDivergences,
   type AtlasDivergenceWithTheme,
@@ -32,6 +33,8 @@ const HEATMAP_AXIS_LABEL: Record<HeatmapAxis, string> = {
 };
 
 export default function AtlasDivergencePage() {
+  const pathname = usePathname();
+  const atlasBase = pathname.startsWith("/hud/") ? "/hud/atlas" : "/atlas";
   const [divergences, setDivergences] = useState<AtlasDivergenceWithTheme[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>("cards");
@@ -98,7 +101,7 @@ export default function AtlasDivergencePage() {
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap shrink-0">
         <Link
-          href="/atlas"
+          href={atlasBase}
           className="text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           ← Atlas

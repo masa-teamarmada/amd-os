@@ -8,8 +8,9 @@
 ## リポジトリ
 
 - **正本**: `github.com/masa-teamarmada/amd-os` （**唯一のリモート**）
-- **推奨パス**: 全PCで `~/projects/amd-os/` に clone
+- **推奨パス**: 現行 workspace では `~/projects/AMD/amd-os/` に clone
 - 旧スタンドアロンリポ（`amd-os-ios` / `amd-os-pwa` / `amd-os-android`）は廃止 — 参照禁止
+- **別 Mac / 新 Mac セットアップ**: [`SETUP_NEW_MAC.md`](SETUP_NEW_MAC.md) と `scripts/dev-doctor.sh` を使う
 
 ## コードベース
 

@@ -2,17 +2,19 @@
  * POST /api/notifications/feedback
  *
  * Phase 4 通知に対するまさからの修正依頼を l2_feedbacks に INSERT する。
- * 上流 (GAS 155 / PWA progress-estimator) は次回抽出時に
+ * 上流 (GAS 155 / gas/074 / PWA progress-estimator) は
  * 「過去のフィードバック」を LLM プロンプトに含めて再抽出する。
+ * meeting_summary の「はい」は、反映完了まで同期的に確認する。
  *
  * Body:
  *   {
- *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'meeting_summary',
+ *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'meeting_summary'|'project_registry_diff'|'xrl_evidence',
  *     target_id: string,            // code_name (member系) / project_id (PJ系)
  *     scope_key?: string,            // ym (PJ系) / 'global' (member系) — default 'global'
  *     notification_id?: string,      // 関連 l2_notifications (optional)
  *     meeting_id?: string,           // 関連 meeting_notifications (optional)
- *     feedback_text: string          // 必須
+ *     feedback_text: string          // comment action では必須。yes/no では任意コメント
+ *     action?: 'yes'|'no'|'comment'  // 通知への回答。yes は安全なものだけDB反映も行う
  *   }
  *
  * 認証: Supabase Auth セッションが必要 (RLS で authenticated INSERT)
@@ -29,17 +31,31 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
+    const email = user.email?.toLowerCase() ?? "";
+    if (!email) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+    const { data: member } = await supabase
+      .from("members")
+      .select("code_name, is_admin")
+      .eq("email", email)
+      .maybeSingle();
+    if (!member?.is_admin) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
 
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const l2Kind = String(body.l2_kind ?? "").trim();
     const targetId = String(body.target_id ?? "").trim();
     const scopeKey = String(body.scope_key ?? "global").trim();
     const feedbackText = String(body.feedback_text ?? "").trim();
+    const actionRaw = String(body.action ?? "comment").trim().toLowerCase();
+    const action = ["yes", "no", "comment"].includes(actionRaw) ? actionRaw : "comment";
     const notificationId = body.notification_id ? String(body.notification_id) : null;
     const meetingId = body.meeting_id ? String(body.meeting_id) : null;
 
-    if (!l2Kind || !targetId || !feedbackText) {
-      return NextResponse.json({ error: "l2_kind, target_id, feedback_text are required" }, { status: 400 });
+    if (!l2Kind || !targetId || (action === "comment" && !feedbackText)) {
+      return NextResponse.json({ error: "l2_kind, target_id and feedback_text/action are required" }, { status: 400 });
     }
 
     const allowedKinds = new Set([
@@ -47,6 +63,12 @@ export async function POST(req: NextRequest) {
       "project_knowledge",
       "protocols",
       "ms_progress",
+      "project_member_candidate",
+      "project_contact_candidate",
+      "raw_data_gap",
+      "project_config_gap",
+      "project_registry_diff",
+      "xrl_evidence",
       "meeting_summary",
     ]);
     if (!allowedKinds.has(l2Kind)) {
@@ -54,15 +76,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 作成者: members.email = auth user.email から code_name を resolve
-    let createdBy: string | null = null;
-    if (user.email) {
-      const { data: m } = await supabase
-        .from("members")
-        .select("code_name")
-        .eq("email", user.email)
-        .maybeSingle();
-      createdBy = m?.code_name ?? user.email;
-    }
+    const createdBy = member.code_name ?? email;
+
+    const actionLabel = action === "yes" ? "はい" : action === "no" ? "いいえ" : "コメント";
+    const storedFeedbackText = action === "comment"
+      ? feedbackText
+      : `[${actionLabel}]${feedbackText ? ` ${feedbackText}` : ""}`;
 
     const insertRow = {
       l2_kind: l2Kind,
@@ -70,7 +89,7 @@ export async function POST(req: NextRequest) {
       scope_key: scopeKey,
       notification_id: notificationId,
       meeting_id: meetingId,
-      feedback_text: feedbackText.slice(0, 4000),
+      feedback_text: storedFeedbackText.slice(0, 4000),
       status: "active",
       created_by: createdBy,
     };
@@ -85,41 +104,406 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const applyResult = action === "yes"
+      ? await applyApprovedNotification({ supabase, l2Kind, targetId, scopeKey, meetingId, feedbackText, feedbackId: data.feedback_id, createdBy })
+      : action === "no"
+        ? await rejectNotificationCandidates({ supabase, l2Kind, targetId, scopeKey, feedbackText, createdBy })
+        : { applied: false, message: "comment only" };
+
+    await supabase.from("tsukuyomi_learnings").insert({
+      scope: "notification_response",
+      scope_key: `${l2Kind}:${targetId}`,
+      content: [
+        `通知回答: ${actionLabel}`,
+        `kind=${l2Kind}`,
+        `target=${targetId}`,
+        `scope=${scopeKey}`,
+        feedbackText ? `comment=${feedbackText}` : "",
+        applyResult.applied ? `applied=${applyResult.message}` : `not_applied=${applyResult.message}`,
+      ].filter(Boolean).join("\n"),
+      source: "notification_feedback",
+      source_ref: data.feedback_id,
+      created_by: createdBy,
+    });
+
+    if (action === "yes" && l2Kind === "meeting_summary" && !applyResult.applied) {
+      return NextResponse.json(
+        { error: applyResult.message || "meeting summary re-extraction failed", feedback: data, action, applyResult },
+        { status: 502 }
+      );
+    }
+
     // ⚡ 即時再抽出を発火 (= 修正依頼を出した瞬間に LLM プロンプトに含めて再抽出)
     // GAS Web App の runFunc を fire-and-forget で叩く。失敗しても feedback INSERT 自体は成功扱い。
     // - meeting_summary: nav_meeting_processOneEvent_(meetingId, projectId) で 1 event 強制再抽出
     // - member_knowledge: nav_member_knowledge_extractOne_(codeName, memberId, {force:true})
     // - project_knowledge / protocols / ms_progress: 当面は次回 cron まで待つ (= 仕組みは動く、即時化は後追い)
-    void triggerImmediateReExtraction({ l2Kind, targetId, scopeKey, meetingId }).catch((e) => {
-      console.warn("[feedback] immediate re-extract failed:", e);
-    });
+    if (!(action === "yes" && l2Kind === "meeting_summary")) {
+      void triggerImmediateReExtraction({ l2Kind, targetId, scopeKey, meetingId }).catch((e) => {
+        console.warn("[feedback] immediate re-extract failed:", e);
+      });
+    }
 
-    return NextResponse.json({ ok: true, feedback: data });
+    return NextResponse.json({ ok: true, feedback: data, action, applyResult });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
+async function applyApprovedNotification(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  l2Kind: string;
+  targetId: string;
+  scopeKey: string;
+  meetingId?: string | null;
+  feedbackText: string;
+  feedbackId: string;
+  createdBy: string | null;
+}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  if (args.l2Kind === "meeting_summary") {
+    return applyMeetingSummaryFeedback(args);
+  }
+
+  if (args.l2Kind === "project_member_candidate") {
+    const memberId = extractScopePart(args.scopeKey, "member-candidate");
+    if (!memberId) return { applied: false, message: "member_id not found in scope_key" };
+
+    const { data: member, error: memberError } = await args.supabase
+      .from("members")
+      .select("member_id, code_name, status")
+      .eq("member_id", memberId)
+      .maybeSingle();
+    if (memberError) return { applied: false, message: memberError.message };
+    if (!member) return { applied: false, message: `member not found: ${memberId}` };
+
+    const joinYm = args.scopeKey.match(/\b(20\d{4})\b/)?.[1] ?? null;
+    const { data: row, error } = await args.supabase
+      .from("project_members")
+      .upsert(
+        {
+          project_id: args.targetId,
+          member_id: memberId,
+          role: "通知候補から承認",
+          role_label: "メンバー",
+          is_active: true,
+          join_ym: joinYm,
+          is_pm: false,
+          is_pl: false,
+          is_closer: false,
+        },
+        { onConflict: "project_id,member_id" }
+      )
+      .select()
+      .single();
+    if (error) return { applied: false, message: error.message };
+    return { applied: true, message: `project_members upserted: ${args.targetId}/${memberId}`, row };
+  }
+
+  if (args.l2Kind === "project_contact_candidate") {
+    const emails = extractEmails(`${args.scopeKey}\n${args.feedbackText}`);
+    if (emails.length === 0) return { applied: false, message: "email not found in scope_key/comment" };
+
+    const { data: project, error: projectError } = await args.supabase
+      .from("projects")
+      .select("project_id, report_emails")
+      .eq("project_id", args.targetId)
+      .maybeSingle();
+    if (projectError) return { applied: false, message: projectError.message };
+    if (!project) return { applied: false, message: `project not found: ${args.targetId}` };
+
+    const current = String(project.report_emails || "");
+    const merged = mergeCommaValues(current, emails.filter((email) => !email.endsWith("@team-armada.jp")));
+    const { data: row, error } = await args.supabase
+      .from("projects")
+      .update({ report_emails: merged })
+      .eq("project_id", args.targetId)
+      .select("project_id, report_emails")
+      .single();
+    if (error) return { applied: false, message: error.message };
+    return { applied: true, message: `projects.report_emails updated: ${emails.join(", ")}`, row };
+  }
+
+  if (args.l2Kind === "ms_progress") {
+    return { applied: false, message: "ms_progress approval still uses monthly modal revision confirmation" };
+  }
+
+  if (args.l2Kind === "project_registry_diff") {
+    const query = args.supabase
+      .from("project_registry_diffs")
+      .select("*")
+      .eq("project_id", args.targetId)
+      .in("status", ["pending", "accepted"]);
+    const scopedQuery = args.scopeKey === "global"
+      ? query.is("ym", null)
+      : query.eq("ym", args.scopeKey);
+    const { data: diffs, error } = await scopedQuery.order("created_at", { ascending: true }).limit(20);
+    if (error) return { applied: false, message: error.message };
+    if (!diffs || diffs.length === 0) return { applied: false, message: "no pending project_registry_diffs" };
+
+    const results: string[] = [];
+    for (const diff of diffs) {
+      const applied = await applyRegistryDiff({
+        supabase: args.supabase,
+        projectId: args.targetId,
+        diff,
+        createdBy: args.createdBy,
+      });
+      results.push(applied.message);
+      if (applied.applied) {
+        await args.supabase
+          .from("project_registry_diffs")
+          .update({
+            status: "applied",
+            reviewed_by: args.createdBy,
+            review_comment: args.feedbackText || null,
+            reviewed_at: new Date().toISOString(),
+            applied_at: new Date().toISOString(),
+          })
+          .eq("diff_id", diff.diff_id);
+      }
+    }
+    return { applied: results.some((m) => m.startsWith("applied:")), message: results.join(" / ") };
+  }
+
+  if (args.l2Kind === "xrl_evidence") {
+    const query = args.supabase
+      .from("project_xrl_evidence")
+      .update({
+        status: "confirmed",
+        confirmed_by: args.createdBy,
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq("project_id", args.targetId)
+      .eq("status", "candidate");
+    const scopedQuery = args.scopeKey === "global"
+      ? query.is("ym", null)
+      : query.eq("ym", args.scopeKey);
+    const { data, error } = await scopedQuery.select("evidence_id, axis, evidence_kind, summary");
+    if (error) return { applied: false, message: error.message };
+    return {
+      applied: (data ?? []).length > 0,
+      message: `confirmed xrl evidence: ${(data ?? []).length}`,
+      row: data,
+    };
+  }
+
+  return { applied: false, message: `no automatic apply handler for ${args.l2Kind}` };
+}
+
+async function applyMeetingSummaryFeedback(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  targetId: string;
+  scopeKey: string;
+  meetingId?: string | null;
+}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  const meetingId = String(args.meetingId || args.scopeKey || "").trim();
+  if (!meetingId) return { applied: false, message: "meeting_id missing" };
+
+  const gasResult = await triggerImmediateReExtraction({
+    l2Kind: "meeting_summary",
+    targetId: args.targetId,
+    scopeKey: args.scopeKey,
+    meetingId,
+  });
+  const result = gasResult?.data?.result;
+  if (!gasResult?.ok || !result?.ok) {
+    const message = gasResult?.error || result?.message || result?.action || "GAS re-extraction failed";
+    return { applied: false, message };
+  }
+
+  const summaryShort = typeof result.summaryShort === "string" ? result.summaryShort.trim() : "";
+  if (summaryShort) {
+    const { data, error } = await args.supabase
+      .from("meeting_notifications")
+      .update({ summary_short: summaryShort, updated_at: new Date().toISOString() })
+      .eq("meeting_id", meetingId)
+      .select("meeting_id, summary_short")
+      .maybeSingle();
+    if (error) {
+      return { applied: false, message: `summary regenerated but notification update failed: ${error.message}` };
+    }
+    return { applied: true, message: `meeting summary regenerated: ${result.action || "updated"}`, row: data };
+  }
+
+  return { applied: true, message: `meeting summary regenerated: ${result.action || "updated"}` };
+}
+
+async function rejectNotificationCandidates(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  l2Kind: string;
+  targetId: string;
+  scopeKey: string;
+  feedbackText: string;
+  createdBy: string | null;
+}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  if (args.l2Kind === "project_registry_diff") {
+    const query = args.supabase
+      .from("project_registry_diffs")
+      .update({
+        status: "rejected",
+        reviewed_by: args.createdBy,
+        review_comment: args.feedbackText || null,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("project_id", args.targetId)
+      .in("status", ["pending", "accepted"]);
+    const scopedQuery = args.scopeKey === "global"
+      ? query.is("ym", null)
+      : query.eq("ym", args.scopeKey);
+    const { data, error } = await scopedQuery.select("diff_id");
+    if (error) return { applied: false, message: error.message };
+    return { applied: false, message: `rejected registry diffs: ${(data ?? []).length}`, row: data };
+  }
+
+  if (args.l2Kind === "xrl_evidence") {
+    const query = args.supabase
+      .from("project_xrl_evidence")
+      .update({
+        status: "rejected",
+        confirmed_by: args.createdBy,
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq("project_id", args.targetId)
+      .eq("status", "candidate");
+    const scopedQuery = args.scopeKey === "global"
+      ? query.is("ym", null)
+      : query.eq("ym", args.scopeKey);
+    const { data, error } = await scopedQuery.select("evidence_id");
+    if (error) return { applied: false, message: error.message };
+    return { applied: false, message: `rejected xrl evidence: ${(data ?? []).length}`, row: data };
+  }
+
+  return { applied: false, message: "rejected" };
+}
+
+async function applyRegistryDiff(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  projectId: string;
+  diff: Record<string, unknown>;
+  createdBy: string | null;
+}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  const targetTable = String(args.diff.target_table ?? "");
+  const patch = (args.diff.proposed_patch_json ?? {}) as Record<string, unknown>;
+
+  if (targetTable === "project_members") {
+    const memberId = typeof patch.member_id === "string" ? patch.member_id : null;
+    if (!memberId) return { applied: false, message: "skipped project_members: member_id missing" };
+    const payload: Record<string, unknown> = {
+      project_id: args.projectId,
+      member_id: memberId,
+      is_active: typeof patch.is_active === "boolean" ? patch.is_active : true,
+      role: typeof patch.role === "string" ? patch.role : "通知候補から承認",
+      role_label: typeof patch.role_label === "string" ? patch.role_label : "メンバー",
+      is_pm: typeof patch.is_pm === "boolean" ? patch.is_pm : false,
+      is_pl: typeof patch.is_pl === "boolean" ? patch.is_pl : false,
+      is_closer: typeof patch.is_closer === "boolean" ? patch.is_closer : false,
+    };
+    if (typeof patch.join_ym === "string") payload.join_ym = patch.join_ym;
+    if (typeof patch.leave_ym === "string") payload.leave_ym = patch.leave_ym;
+    const { data, error } = await args.supabase
+      .from("project_members")
+      .upsert(payload, { onConflict: "project_id,member_id" })
+      .select()
+      .single();
+    if (error) return { applied: false, message: error.message };
+    return { applied: true, message: `applied: project_members ${args.projectId}/${memberId}`, row: data };
+  }
+
+  if (targetTable === "projects") {
+    const emails = [
+      ...(typeof patch.report_emails === "string" ? extractEmails(patch.report_emails) : []),
+      ...(typeof patch.email === "string" ? extractEmails(patch.email) : []),
+      ...(Array.isArray(patch.emails) ? patch.emails.flatMap((v) => typeof v === "string" ? extractEmails(v) : []) : []),
+    ];
+    if (emails.length === 0) return { applied: false, message: "skipped projects: no report_emails/email patch" };
+    const { data: project, error: projectError } = await args.supabase
+      .from("projects")
+      .select("project_id, report_emails")
+      .eq("project_id", args.projectId)
+      .maybeSingle();
+    if (projectError) return { applied: false, message: projectError.message };
+    if (!project) return { applied: false, message: `project not found: ${args.projectId}` };
+    const merged = mergeCommaValues(String(project.report_emails || ""), emails.filter((email) => !email.endsWith("@team-armada.jp")));
+    const { data, error } = await args.supabase
+      .from("projects")
+      .update({ report_emails: merged })
+      .eq("project_id", args.projectId)
+      .select("project_id, report_emails")
+      .single();
+    if (error) return { applied: false, message: error.message };
+    return { applied: true, message: `applied: projects.report_emails ${emails.join(", ")}`, row: data };
+  }
+
+  if (targetTable === "project_partners") {
+    const partnerName = typeof patch.partner_name === "string" ? patch.partner_name : null;
+    const partnerType = typeof patch.partner_type === "string" ? patch.partner_type : "collab";
+    if (!partnerName || !["collab", "customer"].includes(partnerType)) {
+      return { applied: false, message: "skipped project_partners: partner_name/partner_type missing" };
+    }
+    const payload = {
+      project_id: args.projectId,
+      partner_name: partnerName,
+      partner_type: partnerType,
+      partner_role: typeof patch.partner_role === "string" ? patch.partner_role : null,
+      notes: typeof patch.notes === "string" ? patch.notes : `通知候補から承認${args.createdBy ? ` by ${args.createdBy}` : ""}`,
+    };
+    const { data, error } = await args.supabase
+      .from("project_partners")
+      .insert(payload)
+      .select()
+      .single();
+    if (error) return { applied: false, message: error.message };
+    return { applied: true, message: `applied: project_partners ${partnerName}`, row: data };
+  }
+
+  return { applied: false, message: `skipped unsupported target_table: ${targetTable}` };
+}
+
+function extractScopePart(scopeKey: string, marker: string): string | null {
+  const parts = scopeKey.split(":").map((p) => p.trim()).filter(Boolean);
+  const idx = parts.indexOf(marker);
+  return idx >= 0 ? parts[idx + 1] || null : null;
+}
+
+function extractEmails(text: string): string[] {
+  const matches = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
+  return Array.from(new Set(matches.map((m) => m.trim().toLowerCase())));
+}
+
+function mergeCommaValues(current: string, additions: string[]): string {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of [...current.split(","), ...additions]) {
+    const value = raw.trim();
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+  }
+  return out.join(", ");
+}
+
 /** 修正依頼が入った瞬間に対応する 1 件を force 再抽出する。
- *  GAS Web App の pwaApi/runFunc にリクエストを fire-and-forget で送る。
+ *  GAS Web App の pwaApi/runFunc にリクエストを送る。
  */
 async function triggerImmediateReExtraction(args: {
   l2Kind: string;
   targetId: string;
   scopeKey: string;
   meetingId: string | null;
-}): Promise<void> {
+}): Promise<GasRunResponse | null> {
   const baseUrl = process.env.NEXT_PUBLIC_GAS_WEBAPP_URL || "";
-  const apiKey = process.env.NEXT_PUBLIC_GAS_API_KEY || "";
-  if (!baseUrl || !apiKey) return;
+  const apiKey = process.env.NEXT_PUBLIC_GAS_API_KEY || process.env.CRON_SECRET || "";
+  if (!baseUrl) return { ok: false, error: "NEXT_PUBLIC_GAS_WEBAPP_URL missing" };
 
   let fn = "";
   let fnArgs: unknown[] = [];
 
   if (args.l2Kind === "meeting_summary" && args.meetingId) {
     fn = "nav_meeting_processOneEvent_";
-    fnArgs = [args.meetingId, args.targetId];
+    fnArgs = [args.meetingId, args.targetId, { force: true }];
   } else if (args.l2Kind === "member_knowledge") {
     // member_id は GAS 側で resolve できないので targetId(code_name) と "" を渡す → GAS 側で resolve
     fn = "nav_member_knowledge_extractOne_";
@@ -129,9 +513,10 @@ async function triggerImmediateReExtraction(args: {
     fnArgs = [args.targetId, args.scopeKey, { force: true }];
   } else if (args.l2Kind === "protocols") {
     fn = "nav_protocol_extractOneForYm_";
-    fnArgs = [args.targetId, args.scopeKey, { force: true }];
+    const ym = args.scopeKey.match(/^(20\d{4}):protocol:/)?.[1] ?? args.scopeKey;
+    fnArgs = [args.targetId, ym, { force: true }];
   } else {
-    return; // 不明 kind は再抽出しない (= 次回 cron 待ち)
+    return null; // 不明 kind は再抽出しない (= 次回 cron 待ち)
   }
 
   const argsEnc = encodeURIComponent(JSON.stringify(fnArgs));
@@ -146,13 +531,43 @@ async function triggerImmediateReExtraction(args: {
       const memberId = m?.member_id ?? "";
       const argsEnc2 = encodeURIComponent(JSON.stringify([args.targetId, memberId, { force: true }]));
       const url2 = `${baseUrl}?mode=pwaApi&key=${encodeURIComponent(apiKey)}&action=runFunc&fn=${encodeURIComponent(fn)}&args=${argsEnc2}`;
-      await fetch(url2, { method: "GET", signal: AbortSignal.timeout(60000) });
-      return;
+      return fetchGasRunFunc(url2);
     } catch (e) {
       console.warn("[feedback] member resolve failed:", e);
     }
   }
 
   // GAS Web App は GET / 60 秒タイムアウト想定
-  await fetch(url, { method: "GET", signal: AbortSignal.timeout(60000) });
+  return fetchGasRunFunc(url);
+}
+
+type GasRunResponse = {
+  ok?: boolean;
+  error?: string;
+  data?: {
+    fn?: string;
+    ms?: number;
+    result?: {
+      ok?: boolean;
+      action?: string;
+      message?: string;
+      summaryShort?: string;
+      [key: string]: unknown;
+    };
+  };
+};
+
+async function fetchGasRunFunc(url: string): Promise<GasRunResponse> {
+  const res = await fetch(url, { method: "GET", signal: AbortSignal.timeout(120000) });
+  const text = await res.text();
+  let json: GasRunResponse;
+  try {
+    json = JSON.parse(text) as GasRunResponse;
+  } catch {
+    return { ok: false, error: `GAS returned non-JSON (${res.status}): ${text.slice(0, 200)}` };
+  }
+  if (!res.ok) {
+    return { ok: false, error: json.error || `GAS HTTP ${res.status}` };
+  }
+  return json;
 }

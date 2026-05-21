@@ -15,9 +15,11 @@
 
 set -e
 
-REPO_ROOT="/Users/masa/projects/AMD/amd-os"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SCOPE="armada0130"
 PROJECT="amd-os-pwa"
+APP_URL="https://amd-os-pwa.vercel.app"
 
 cd "$REPO_ROOT"
 
@@ -71,8 +73,10 @@ while [ $TRY -lt $MAX_TRIES ]; do
       DURATION=$(( $(date +%s) - START_TS ))
       MIN=$((DURATION / 60))
       SEC=$((DURATION % 60))
-      MSG="${MIN}分${SEC}秒で完了 → ${DEPLOY_URL:-amd-os-pwa.vercel.app}"
+      MSG="${MIN}分${SEC}秒で完了 → ${APP_URL}"
       echo "✅ $MSG"
+      echo "   User-facing URL: ${APP_URL}"
+      echo "   Inspect-only deployment URL: ${DEPLOY_URL:-unknown}"
       osascript -e "display notification \"$MSG\" with title \"AMD OS PWA — Deploy 完了\" sound name \"Glass\"" 2>/dev/null || true
       exit 0
       ;;

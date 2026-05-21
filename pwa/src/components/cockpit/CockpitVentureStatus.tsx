@@ -26,6 +26,7 @@ import {
 import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
 import { createClient } from "@/lib/supabase/client";
 import { ALPHA_DEFAULT, calculateAmdScore, type AlphaWeights } from "@/lib/amd-score";
+import { latestVisibleScorableScoreInput } from "@/lib/amd-score-derived";
 // PHASE_COLOR / PHASE_LABEL_JP / AmdScorePhase / classifyPhase は使用しない (検証データ蓄積後に復活検討、2026-05-09)
 import { CockpitVentureStatusEditModal } from "./CockpitVentureStatusEditModal";
 import { CockpitVentureMetaEditModal } from "./CockpitVentureMetaEditModal";
@@ -116,12 +117,6 @@ function dateToYearDecimal(iso: string): number {
   const m = iso.match(/^(\d{4})-(\d{2})/);
   if (!m) return 2020;
   return Number(m[1]) + (Number(m[2]) - 1) / 12;
-}
-
-function yearDecimalToYm(yd: number): string {
-  const y = Math.floor(yd);
-  const m = Math.max(1, Math.min(12, Math.round((yd - y) * 12) + 1));
-  return `${y}-${String(m).padStart(2, "0")}-01`;
 }
 
 // ============================================================
@@ -240,28 +235,45 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
 
   const xOf = (yd: number) => ML + ((yd - range.xMin) / (range.xMax - range.xMin)) * PW;
   const xOfDate = (iso: string) => xOf(dateToYearDecimal(iso));
-  const xToYearDecimal = (svgX: number) => range.xMin + ((svgX - ML) / PW) * (range.xMax - range.xMin);
 
   // AMD スコア時系列 (Before Zero Theory v3.2 — 7 軸 Cobb-Douglas)
   const scoreSeries = useMemo(
     () => computeCockpitAmdScoreSeries(amdInputs, alpha),
     [amdInputs, alpha]
   );
-  // Y 軸 log scale: 1 → 100,000 (IPO 級)
-  const Y_LOG_MIN = 0;        // log10(1) = 0
-  const Y_LOG_MAX = 5;        // log10(100,000) = 5
+  // Score 詳細ページと同じ軸思想: X は score series の評価日、Y は実データ範囲にフィット。
+  const scoreRange = useMemo(() => {
+    const now = Date.now();
+    if (!scoreSeries.length) return { xMin: now - 30 * 86400000, xMax: now + 30 * 86400000 };
+    const xs = scoreSeries.map((p) => new Date(p.date).getTime());
+    const xMin = Math.min(...xs);
+    const xMaxRaw = Math.max(...xs);
+    const xSpan = Math.max(1, xMaxRaw - xMin);
+    return { xMin, xMax: xMaxRaw + xSpan * 0.05 };
+  }, [scoreSeries]);
+  const scoreValues = scoreSeries.map((p) => Math.max(1, p.score));
+  const scoreLogMin = scoreValues.length ? Math.max(0, Math.log10(Math.min(...scoreValues)) - 0.2) : 0;
+  const scoreLogMax = scoreValues.length ? Math.min(5, Math.log10(Math.max(...scoreValues)) + 0.2) : 5;
+  const scoreLogSpan = Math.max(0.3, scoreLogMax - scoreLogMin);
   const yOfScore = (s: number) => {
     const logV = Math.log10(Math.max(1, s));
-    const ratio = Math.max(0, Math.min(1, (logV - Y_LOG_MIN) / (Y_LOG_MAX - Y_LOG_MIN)));
+    const ratio = Math.max(0, Math.min(1, (logV - scoreLogMin) / scoreLogSpan));
     return MT + PH - ratio * PH;
   };
+  const xOfScore = (t: number) => ML + ((t - scoreRange.xMin) / Math.max(1, scoreRange.xMax - scoreRange.xMin)) * PW;
+  const xOfScoreDate = (iso: string) => xOfScore(new Date(iso).getTime());
   const scorePath = scoreSeries.length < 2
     ? ""
-    : "M " + scoreSeries.map((p) => `${xOfDate(p.date).toFixed(1)},${yOfScore(p.score).toFixed(1)}`).join(" L ");
+    : "M " + scoreSeries.map((p) => `${xOfScoreDate(p.date).toFixed(1)},${yOfScore(p.score).toFixed(1)}`).join(" L ");
+  const scoreGuides = [30, 100, 300, 1000, 3000, 10000, 30000, 100000].filter((g) => {
+    const lg = Math.log10(g);
+    return lg >= scoreLogMin && lg <= scoreLogMin + scoreLogSpan;
+  });
+  const scoreDateTicks = scoreSeries.map((p) => p.date);
 
   // 現在のスコア (最新点)
   const latestScore = scoreSeries[scoreSeries.length - 1]?.score;
-  const latestInput = amdInputs[amdInputs.length - 1] ?? null;
+  const latestInput = latestVisibleScorableScoreInput(amdInputs);
 
   // XRL 軸 (5 軸: TRL/BRL/GRL/SRL/HRL)
   const yOfXrl = (v: number) => MT + PH - (v / 9) * PH;
@@ -298,8 +310,8 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
     if (editingEvent || creatingAt) return; // モーダル開いてる間は無効
     const { x } = svgCoord(e);
     if (x < ML || x > ML + PW) return;
-    const yd = xToYearDecimal(x);
-    setCreatingAt(yearDecimalToYm(yd));
+    const t = scoreRange.xMin + ((x - ML) / PW) * (scoreRange.xMax - scoreRange.xMin);
+    setCreatingAt(new Date(t).toISOString().slice(0, 10));
   };
 
   if (loading) {
@@ -462,7 +474,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         <div className="px-2 flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-[12px] font-semibold">
             AMD スコア
-            <span className="ml-2 text-[9px] text-muted-foreground font-normal">log scale (1 - 100k IPO 級)</span>
+            <span className="ml-2 text-[9px] text-muted-foreground font-normal">log scale / dynamic range</span>
           </h3>
           <div className="flex items-center gap-2 text-[10px]">
             <Link
@@ -484,9 +496,9 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         >
           {/* AMD 参画期間の背景帯 (started_at - ended_at もしくは present) */}
           {venture.amd_support_started_at && (() => {
-            const x1 = xOfDate(venture.amd_support_started_at);
+            const x1 = xOfScoreDate(venture.amd_support_started_at);
             const endIso = venture.amd_support_ended_at ?? new Date().toISOString().slice(0, 10);
-            const x2 = xOfDate(endIso);
+            const x2 = xOfScoreDate(endIso);
             const left = Math.max(ML, Math.min(x1, x2));
             const right = Math.min(ML + PW, Math.max(x1, x2));
             if (right <= left) return null;
@@ -510,16 +522,16 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
               </g>
             );
           })()}
-          {/* Y axis: log scale 1 / 30 / 300 / 1.5k / 3.5k / 15k / 50k / 100k */}
-          {[1, 30, 300, 1500, 3500, 15000, 50000, 100000].map((v) => (
+          {/* Y axis: score detail と同じく実データ範囲内の guide のみ表示 */}
+          {scoreGuides.map((v) => (
             <g key={v}>
               <line
                 x1={ML}
                 y1={yOfScore(v)}
                 x2={ML + PW}
                 y2={yOfScore(v)}
-                stroke={v === 1500 || v === 3500 ? "#cbd5e1" : "#f1f5f9"}
-                strokeDasharray={v === 1500 || v === 3500 ? "3 2" : undefined}
+                stroke="#f1f5f9"
+                strokeDasharray="3 2"
               />
               <text x={ML - 6} y={yOfScore(v) + 3} fontSize={9} fill="#94a3b8" textAnchor="end">
                 {v >= 1000 ? `${v / 1000}k` : v}
@@ -527,11 +539,11 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
             </g>
           ))}
           {/* X axis */}
-          {yearTicks.map((yr) => (
-            <g key={yr}>
-              <line x1={xOf(yr)} y1={MT} x2={xOf(yr)} y2={MT + PH} stroke="#f8fafc" />
-              <text x={xOf(yr)} y={MT + PH + 12} fontSize={9} fill="#94a3b8" textAnchor="middle">
-                {yr}
+          {scoreDateTicks.map((date) => (
+            <g key={date}>
+              <line x1={xOfScoreDate(date)} y1={MT} x2={xOfScoreDate(date)} y2={MT + PH} stroke="#f8fafc" />
+              <text x={xOfScoreDate(date)} y={MT + PH + 12} fontSize={9} fill="#94a3b8" textAnchor="middle">
+                {date.slice(0, 7)}
               </text>
             </g>
           ))}
@@ -539,16 +551,16 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           {venture.founded_at && (
             <g>
               <line
-                x1={xOfDate(venture.founded_at)}
+                x1={xOfScoreDate(venture.founded_at)}
                 y1={MT}
-                x2={xOfDate(venture.founded_at)}
+                x2={xOfScoreDate(venture.founded_at)}
                 y2={MT + PH}
                 stroke="#f59e0b"
                 strokeWidth={1.5}
                 strokeDasharray="4 2"
                 opacity={0.7}
               />
-              <text x={xOfDate(venture.founded_at) + 4} y={MT + 12} fontSize={9} fill="#b45309">
+              <text x={xOfScoreDate(venture.founded_at) + 4} y={MT + 12} fontSize={9} fill="#b45309">
                 設立 {venture.founded_at.slice(0, 7)}
               </text>
             </g>
@@ -559,7 +571,6 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           )}
           {/* events ドット (annotation) — score 曲線上の最近点に置く */}
           {(bundle?.events ?? []).map((ev) => {
-            const yd = dateToYearDecimal(ev.occurred_on);
             // event 時点以前の score 系列の最終点
             const before = scoreSeries.filter((p) => p.date <= ev.occurred_on);
             const after = scoreSeries.filter((p) => p.date > ev.occurred_on);
@@ -574,7 +585,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   setEditingEvent(ev);
                 }}
               >
-                <circle cx={xOf(yd)} cy={yOfScore(refScore)} r={14} fill={color} stroke="#fff" strokeWidth={2} />
+                <circle cx={xOfScore(new Date(ev.occurred_on).getTime())} cy={yOfScore(refScore)} r={14} fill={color} stroke="#fff" strokeWidth={2} />
                 <title>{`${KIND_LABELS[ev.kind]?.label ?? ev.kind} / ${ev.occurred_on} / ${ev.label}`}</title>
               </g>
             );
@@ -585,7 +596,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           {(() => {
             const last = scoreSeries[scoreSeries.length - 1];
             if (!last) return null;
-            const lx = xOfDate(last.date);
+            const lx = xOfScoreDate(last.date);
             const ly = yOfScore(last.score);
             const label = last.score < 1 ? last.score.toFixed(2) : Math.round(last.score).toLocaleString();
             // pill: AMD グラフ SVG 右上の空きに固定。最大 6 桁 (= 100k IPO 級) + ▾ で十分なので幅 170px に縮小。

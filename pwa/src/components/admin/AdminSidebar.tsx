@@ -13,6 +13,7 @@ const ADMIN_TABS = [
   { label: "📝 LLM プロンプト", href: "/admin/prompts" },
   { label: "Billing", href: "/admin/billing" },
   { label: "Payouts", href: "/admin/payouts" },
+  { label: "Finance", href: "/admin/finance" },
   { label: "Settings", href: "/admin/settings" },
 ];
 

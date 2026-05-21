@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   fetchAtlasSignals,
   fetchAtlasStories,
@@ -39,11 +40,48 @@ function formatYmd(ts: string) {
   });
 }
 
+function hexToRgbString(hex: string): string {
+  const normalized = hex.replace("#", "");
+  if (normalized.length !== 6) return "103, 232, 249";
+  const n = Number.parseInt(normalized, 16);
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+}
+
+function tagHudColor(tag: string): string {
+  const palette = [
+    "#f472b6",
+    "#fb7185",
+    "#fb923c",
+    "#facc15",
+    "#a3e635",
+    "#34d399",
+    "#2dd4bf",
+    "#22d3ee",
+    "#38bdf8",
+    "#60a5fa",
+    "#818cf8",
+    "#a78bfa",
+    "#c084fc",
+  ];
+  let h = 0;
+  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0;
+  return palette[h % palette.length];
+}
+
+function chipStyle(color: string): CSSProperties & Record<string, string> {
+  return {
+    "--chip-rgb": hexToRgbString(color),
+    "--chip-color": color,
+  };
+}
+
 interface StoryWithSignals extends AtlasStory {
   signals: AtlasSignal[];
 }
 
 export default function AtlasPage() {
+  const pathname = usePathname();
+  const atlasBase = pathname.startsWith("/hud/") ? "/hud/atlas" : "/atlas";
   const [stories, setStories] = useState<StoryWithSignals[]>([]);
   const [orphanSignals, setOrphanSignals] = useState<AtlasSignal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,31 +235,37 @@ export default function AtlasPage() {
         </div>
         <div className="flex gap-2 text-xs flex-wrap">
           <Link
-            href="/atlas/map"
+            href={`${atlasBase}/macrotrends`}
+            className="px-3 py-1.5 rounded-md bg-cyan-500 hover:bg-cyan-600 text-white transition-colors font-medium"
+          >
+            Macrotrend
+          </Link>
+          <Link
+            href={`${atlasBase}/map`}
             className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
           >
             🗺 Map
           </Link>
           <Link
-            href="/atlas/divergence"
+            href={`${atlasBase}/divergence`}
             className="px-3 py-1.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white transition-colors font-medium"
           >
-            📊 トレンド
+            📊 差分
           </Link>
           <Link
-            href="/atlas/decisions"
+            href={`${atlasBase}/decisions`}
             className="px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors"
           >
             判断ログ
           </Link>
           <Link
-            href="/atlas/inbox"
+            href={`${atlasBase}/inbox`}
             className="px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors"
           >
             Inbox
           </Link>
           <Link
-            href="/atlas/admin/themes"
+            href={`${atlasBase}/admin/themes`}
             className="px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors"
           >
             テーマ管理
@@ -273,12 +317,10 @@ export default function AtlasPage() {
                   key={k}
                   onClick={() => setDomainFilterKey(domainFilterKey === k ? null : k)}
                   className={cn(
-                    "text-sm font-medium px-2.5 py-0.5 rounded-full transition-colors",
-                    domainFilterKey === k
-                      ? "ring-2 ring-offset-1 ring-offset-background"
-                      : ""
+                    "atlas-hud-chip text-sm font-medium px-2.5 py-0.5 transition-colors"
                   )}
-                  style={{ background: domainColor(k), color: "white" }}
+                  data-active={domainFilterKey === k}
+                  style={chipStyle(domainColor(k))}
                 >
                   {domainLabel(k)} <span className="text-xs opacity-80 ml-0.5">{c}</span>
                 </button>
@@ -298,9 +340,10 @@ export default function AtlasPage() {
                   key={t}
                   onClick={() => setTagFilter(tagFilter === t ? null : t)}
                   className={cn(
-                    "text-sm px-2.5 py-1 rounded-full font-medium transition-colors",
-                    tagColorClass(t, tagFilter === t)
+                    "atlas-hud-chip text-sm px-2.5 py-1 font-medium transition-colors"
                   )}
+                  data-active={tagFilter === t}
+                  style={chipStyle(tagHudColor(t))}
                 >
                   #{t} <span className="ml-0.5 opacity-60 text-xs">{c}</span>
                 </button>

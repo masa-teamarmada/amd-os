@@ -1,153 +1,477 @@
-# 月次試算表 (project_pl_monthly) — 抽出設計
+# 月次試算表 / 予実管理 — OS 移植設計
 
-最終更新: 2026-05-13 (dazzling-wing-23c8e9 #9 続き、まさ確認)
-優先度: 🟡 低 (= 後回し OK、設計のみ記録)
-
----
-
-## まさの意図 (= 2026-05-13 確認)
-
-### 1. freee 連携は **できない前提**
-- できる案件もあるが稀
-- freee API で月次仕訳を取って自動 PL 構築する path は **採用しない**
-
-### 2. 生データから抽出する情報は **未来予測中心**
-試算表 = 実績ベースの厳密な PL ではなく、**経営判断に使う未来時点のキャッシュ予測**。生データから拾うのは以下のような会話的情報:
-
-- 「**毎月のバーンレート 300 万**」 (= 月次支出ペース)
-- 「**何月に資金が底を尽きる**」 (= 資金枯渇予想月)
-- 「**何月にいくら資金調達予定**」 (= 増資 / 借入 / 補助金等)
-- 「**500 万円の装置を何月に買いたい**」 (= 大型支出予定)
-- 売上見込み (= 「来月から月 X 円入る」等)
-- 外部投資見込み
-
-これらを拾って「試算表として成り立つレベル」に組み立てる。
-
-### 3. Drive 手動試算表 fallback
-- たまに誰かが **手動で作った試算表** が Drive にアップされることがある
-- それがあったらそれを使う (= 機械抽出より人手のが正本)
-- 試算表専用の Drive 探索 cron は不要、074c (= Drive backfill) が拾ってくる範囲で OK
-
-### 4. **試算表専用 cron は作らない**
-- 試算表のためだけに生データ scan する cron は **作らない**
-- **他 cron (= 議事録抽出 / Slack 抽出 / amd-score-l2-extract / member-activities) が source_cache に詰めたデータ** を二次加工する
-- 余計な LLM コストを払わない設計
-
-### 5. 手動入力は想定しない
-[feedback_tsukuyomi_builds_from_raw_data.md] の通り、AMD OS は原則「つくよみが生データから自動構築」。CockpitPlMonthlyModal の編集モードは補正用 (= LLM 抽出失敗時のみ)、主役じゃない。
+最終更新: 2026-05-21
+正本ステータス: GAS月次試算表のOS移植を正本にしつつ、admin finance台帳とPJ別入金タイミングを追加。
 
 ---
 
-## 既存資産 (= 触らないもの)
+## まさの最新方針 (= 2026-05-18)
 
-| 資産 | 用途 |
-|---|---|
-| `project_pl_monthly` table | (project_id, ym, revenue_yen, cogs_yen, personnel_yen, rd_yen, marketing_yen, other_opex_yen, notes) |
-| `CockpitPlMonthlyModal.tsx` | 月別の P&L 表示 + 補正入力 (= 縦横ピボット) |
-| `CockpitPlHearingModal.tsx` | つくよみとのヒアリング UI (= 数値を会話で固める) |
-| `pl-hearing/turn` route | ヒアリング 1 turn = Sonnet 応答 + tool call |
-| つくよみ tool `add_pl_monthly` | chat route から DB upsert |
-| `venture-status-data.ts` | upsertPlMonthly / fetchPlMonthly |
+GAS で既に作ってある月次試算表を AMD OS に移植して使う。
 
-これらは既存。**新規実装は「抽出 path」だけ**。
+- GAS Web App:
+  - `https://script.google.com/a/macros/team-armada.jp/s/AKfycbw1XEhum3hEna5HizixyBAVw5iiLZUeoYb2CeLiL2qJkq7FcnWoS1MPZ1a1D4pa5gkNtA/exec`
+- これは **予算 / 計画の数字** として扱う
+- **実績は freee API から取得**する
+- OS 上では、予算と実績を突き合わせて **予実管理** まで行う
 
----
-
-## 抽出 path 設計 (= 後日実装)
-
-### A. source_cache → PL 関連数値抽出
-
-`source_cache` には既に 5 生データ (Slack 1681 / Notion 373 / Gmail 342 / gmeet_minutes 176 / Drive 82 / Calendar 7) が入っている。この中の **会話的情報から PL 数値を拾う**。
-
-#### 実装案 (A-1): 既存 cron に hook
-- `cron/member-activities` (= 月次レポート + 議事録から進捗イベント抽出) を拡張
-- 同じ Sonnet call の **出力スキーマに `pl_extract` フィールドを追加**:
-
-```json
-{
-  "events": [...],
-  "pl_extract": [
-    {
-      "ym": "202609",
-      "kind": "burn_rate" | "fundraise_plan" | "large_expense" | "revenue_forecast" | "runway_alert",
-      "amount_yen": 3000000,
-      "note": "毎月のバーンレート",
-      "source_quote": "毎月 300 万くらい焼いてる"
-    }
-  ]
-}
+```text
+GAS 月次試算表     = 予算 / 計画の正本
+freee API          = 実績の正本
+AMD OS             = 予算・実績・差分・経営スコアを統合して見る場所
 ```
 
-- 抽出された `pl_extract` を `project_pl_forecast` (= 新テーブル、下記) に upsert
-- 既存 cron 内でやるので **追加 LLM コストゼロ** (= prompt が少し長くなるだけ)
+これにより、従来の「会話・議事録から PL 予測を抽出して試算表化する」設計は主導線ではなくなる。会話抽出は、予算表に未反映の予定・大型支出・売上見込みを補助的に検出するための L2 として残す。
 
-#### 実装案 (A-2): cron/monthly-reports-backfill に hook
-- 月次レポート生成時 (= 既に source_cache 全部 prompt に渡してる) に副産物として PL 数値抽出
-- 同じく既存 LLM call の出力に `pl_extract` フィールド追加
+---
 
-→ **A-2 推奨**: 月次レポート cron が PJ × 月 × 全 source_cache を見るので最も網羅的。
+## 何を解くか
 
-### B. 手動試算表 Drive fallback
+AMD OS の財務ビューで、以下を見られるようにする。
 
-- 074c (= Drive backfill cron) が `vc-discover` 同様に「直近 N 日に新規追加された xlsx / Google Sheets」を listing する
-- ファイル名 / シート名に「試算表」「PL」「決算」「キャッシュ」等のキーワード含むものを **別フラグ** (= source_cache.source = `'pl_sheet'`) で source_cache に入れる
-- B 自体は新 cron 不要、074c 拡張で対応
+- 月次予算
+- 月次実績
+- 予実差分
+- 差分理由
+- cash / runway
+- PJ 別または費目別の収支
+- AMD Management Score の `finance_score` への入力
 
-### C. 新テーブル `project_pl_forecast` (= 検討)
+目的は「PL表をきれいに再現すること」ではなく、経営判断に使える予実管理を OS の中で回すこと。
 
-現状 `project_pl_monthly` は実績想定の列 (revenue_yen / cogs_yen / 各 opex)。一方まさが拾いたい情報は **予測 / 計画 / 単発予定**。これは別テーブルにする方が筋いい。
+---
+
+## 既存資産と役割
+
+| 資産 | 役割 |
+|---|---|
+| GAS 月次試算表 Web App | 予算 / 計画の既存正本。まず現物 UI / source schema を確認して移植する |
+| `project_pl_monthly` table | 既存の PJ 別 PL テーブル。今後は PJ 別予算/実績の一部として扱うか、後方互換テーブルとして残す |
+| `CockpitPlMonthlyModal.tsx` | PJ cockpit 内の試算表表示。会社全体予実とは別に、PJ 単位 drilldown として使う |
+| `CockpitPlHearingModal.tsx` | つくよみヒアリング。予算表にない予定の補助入力 / 修正導線として残す |
+| `billing_cycles` | PJ 月次請求・入金・ルーティン状態。売上予算 / 請求予定 / 入金確認に使う |
+| `pwa/src/lib/freee-client.ts` | freee API client。実績取得の基盤 |
+
+### 掘り起こしメモ (2026-05-18)
+
+まさ確認: 対象は Drive 検索で見つかる既存 Spreadsheet ではなく、上記 GAS Web App URL にしかない。
+
+Apps Script project:
+
+- title: `収支計算シート_AMD_OS`
+- project id: `1uznZAZYjnKXfzUG9q1XosS8Gaxa3GLGkV5dvMLA65aNhnkfs2FeK4bTV`
+- editor URL: `https://script.google.com/home/projects/1uznZAZYjnKXfzUG9q1XosS8Gaxa3GLGkV5dvMLA65aNhnkfs2FeK4bTV/edit`
+- local source snapshot: [`../../_external_gas/monthly-pl-script`](../../_external_gas/monthly-pl-script)
+
+`clasp` / Apps Script API は Workspace OAuth の `invalid_rapt` / access denied で直接取得できなかった。今回は、まさの Chrome ログイン済み Script Editor 画面から Apps Script initial data を inspect して source snapshot を保存した。
+
+保存済み source:
+
+| file | role |
+|---|---|
+| `010_SimConfig.gs` | `CFG_*` シート読み込み、シナリオ上書き、PJ売上・変動費・借入・スポット収支の解決 |
+| `011_SimEngine.gs` | 月次 P/L・cash・runway シミュレーション本体 |
+| `012_SimOutput.gs` | `OUT_Monthly` への書き出し |
+| `013_SimApi.gs` | Web App / HTML UI からの API |
+| `220_SimDashboard.html` | 既存ダッシュボード UI |
+| `999_TempSetup.gs` | 初期シート作成・マイグレーション |
+| `appsscript.json` | runtime / webapp 設定 |
+
+Drive 検索で見つかった以下は **別物** として扱う:
+
+| ファイル | URL | 見えたこと |
+|---|---|---|
+| `PJ収支表` | `https://docs.google.com/spreadsheets/d/1WDTDm5m2gAW_Tu4V1xeRnnqS1YinYfgDrPaVtjOG604` | 請求・配分・支払に加工された PJ 収支運用表。ナマの月次試算表ではない |
+| `収支` | `https://docs.google.com/spreadsheets/d/1Q8cEnutfJzgdEXKIRDb4wUGAe6ON1MMiiz3irCrj1YA` | 個人/会社の収支 Spreadsheet だが、今回の GAS Web App 正本ではない |
+| `きよ提案版_PJ収支表` | `https://docs.google.com/spreadsheets/d/1OqsvCQXSWhCTFLL-DL3_QainNU8I_SNyvgdDBHJ6w_o` | 別案 / 旧案の可能性。今回の対象ではない |
+
+注意:
+
+- `PJ収支表` の `PJ収支表_2604` は実読済みだが、まさ確認により対象外。
+- Apps Script deployment id (`AKfy...`) だけでは `.gs` source は復元できない。今回の source snapshot は Script Editor URL から取得した。
+
+### GAS 正本の構造
+
+既存 GAS は「予算表」というより、会社全体の月次収支シミュレーター。入力シートを編集し、`runSimulation()` が月次の P/L・cash flow・runway を計算する。
+
+| sheet | 役割 | 主な columns |
+|---|---|---|
+| `CFG_Params` | 全体パラメータ | `startYm`, `months`, `rateAmd`, `rateCloser`, `rateMember`, `initialCash`, `socialInsRate`, `corpTaxEffectiveRate`, `minCorpTax`, `carryforwardLoss`, `prevCorpTax`, `prevConsumptionTax`, `unpaidConsumptionTax`, `unpaidCorpTax`, `fiscalYearStartMonth` |
+| `CFG_Projects` | PJ 別売上計画 | `projectId`, `projectName`, `monthlyRevenue`, `startYm`, `endYm`, `type`, `memo`, `internalMemberCost`, `closerInternal`, `status`, `billingType` |
+| `CFG_ProjectRevenue` | PJ 別月次上書き | `projectId`, `ym`, `monthlyRevenue`, `internalMemberCost`, `memo` |
+| `CFG_FixedCosts` | 固定費 | `costId`, `costName`, `monthlyCost`, `startYm`, `endYm`, `costType`, `memo` |
+| `CFG_VarCosts` | 変動費 / 月次で変わる固定的費用 | `varCostId`, `costName`, `ym`, `amount`, `costType`, `memo` |
+| `CFG_Loans` | 借入 / 返済 | `loanId`, `loanName`, `principal`, `annualRate`, `totalPayments`, `startYm`, `method`, `disbursementYm`, `memo` |
+| `CFG_Spot` | 単発入出金 | `spotId`, `spotName`, `ym`, `amount`, `direction`, `costType`, `memo` |
+| `CFG_Scenarios` | シナリオ上書き | `scenarioId`, `scenarioName`, `paramKey`, `paramValue` |
+| `OUT_Monthly` | 計算結果 | `ym`, `revenue`, `costMember`, `costCloser`, `grossProfit`, `fixedCost`, `socialIns`, `operatingProfit`, `loanPayment`, `loanInterest`, `ctaxPayment`, `corpTaxPayment`, `netCashFlow`, `cashBalance`, `runway` |
+| `ACT_Monthly` | 実績入力用の初期案 | `ym`, `actRevenue`, `actExpense`, `actCashBalance` |
+
+計算結果の `rows` には、`OUT_Monthly` に出す列に加えて `loanDisbursement`, `spotIncome`, `spotExpense`, `cashInflow`, `cashOutflow`, `pjDetails`, `fixedCostDetails` も含まれる。OS 移植では、この detailed payload を捨てず、予実差分の説明に使う。
+
+移植時の注意:
+
+- `011_SimEngine.gs` では `profitAfterInterest` の計算が `spotIncome` / `spotExpense` 宣言より前にあり、JS の `undefined` により `fyProfitAccum` が `NaN` 化する可能性がある。OS 移植時はスポット収支集計を先に行う。
+- `rateAmd` は `CFG_Params` にあるが、現行 simulation では主要計算に使われていない。AMD取り分の表現を OS で明示するなら、`revenue` / `costMember` / `costCloser` / `grossProfit` のどこに効かせるか再定義する。
+- `CFG_ProjectRevenue` は `999_TempSetup.gs` の古い migration では `internalMemberCost` 列なしだが、現行 `010_SimConfig.gs` / `013_SimApi.gs` は同列を読む。OS 側では現行 source を優先する。
+
+### 2026-05-21 追加: SX FY2026 と入金タイミング
+
+SX は `/Users/masa/projects/AMD/SX/仕様書_FY2026_draft.md` 上、対象期間が `2026-06-01` から `2027-03-31`。AMD OS の月次PL baseline には既に `pj13` として `2,570,000円/月` 相当の新規SX枠が入っていたため、OS側では以下で扱う。
+
+| 項目 | 値 |
+|---|---|
+| project key | `pj13` |
+| 表示名 | `SX_FY26` |
+| 売上発生 | `202606` から `202703` まで毎月 |
+| 月額 | `2,570,000円` |
+| 内部メンバー原価 | `900,000円/月` |
+| 入金 | 2か月遅れ。6月発生分の初回入金を `202608` とする |
+
+このため `MonthlyPlProject` は、売上発生月と cash inflow 月を分ける。
+
+```ts
+cashDelayMonths?: number | null;
+cashStartYm?: number | null;
+```
+
+PL上の `revenue` / member cost / closer cost は発生月で計上し、`cashInflow` / `netCashFlow` / `cashBalance` は `cashDelayMonths` を反映した月で計算する。これで「請求は6月から、最初の振込は8月末」のような案件別入金条件を月次試算表に入れられる。
+
+---
+
+## データの責務分担
+
+### 1. 予算 / 計画
+
+GAS 月次試算表を移植し、OS 側に予算シミュレーターとして保存する。
+
+予算は 2 層に分ける:
+
+1. 入力計画
+   - PJ 売上計画
+   - PJ 月次上書き
+   - 固定費 / 変動費
+   - 借入 / 返済
+   - 単発入出金
+   - 税金 / 社保 / 初期 cash 等のパラメータ
+2. 月次計算結果
+   - 売上
+   - メンバー原価
+   - クローザー原価
+   - 粗利
+   - 固定費
+   - 営業利益
+   - cash inflow / outflow
+   - net cash flow
+   - cash balance
+   - runway
+
+`company_budget_monthly` は月次計算結果の正規化テーブルとして使う。入力計画は、後から編集・シナリオ比較できるように別テーブルへ保存する。
+
+### 2. 実績
+
+freee API から取得する。
+
+取得候補:
+
+- 損益計算書 / 月次推移
+- 勘定科目別の発生額
+- 取引 / 明細
+- 入出金 / cash balance
+- 未収 / 未払
+
+freee 側の勘定科目 mapping は実装前に確認する。OS では freee の raw payload をそのまま UI 正本にせず、正規化 snapshot を保存する。
+
+### 3. 予実差分
+
+OS が計算する。
+
+```text
+variance_yen = actual_amount_yen - budget_amount_yen
+variance_pct = variance_yen / budget_amount_yen
+```
+
+差分の表示は、金額差だけでなく「経営上見るべき差分」を優先する:
+
+- 売上未達
+- 支出超過
+- 入金遅延
+- 請求漏れ
+- 予算にない大型支出
+- 予算にない売上
+- runway 悪化
+
+### 4. 会話 / L2 抽出
+
+旧設計の「生データから PL 関連数字を拾う」導線は、主予算表ではなく **差分理由 / 未反映予定の検出** に回す。
+
+例:
+
+- 「来月から月 X 円入る」
+- 「500 万円の装置を買いたい」
+- 「資金が何月に底を尽きる」
+- 「請求が翌月にずれそう」
+
+これらは予算表への直接上書きではなく、`budget_variance_notes` / evidence / notification 候補として扱う。
+
+### 5. Admin finance台帳
+
+月次試算表そのものに入れる前段として、経理オペレーション用の台帳を `/admin/finance` に置く。
+
+| table | 役割 |
+|---|---|
+| `company_finance_recurring_items` | サブスク / 固定継続費 / 自動振替 / 引落口座 / budget forward-fill の管理 |
+| `company_finance_receipt_events` | Gmail/freee/manual 由来の領収書イベント。実績同期と継続費候補の根拠 |
+
+運用:
+
+- GAS baseline に既に入っている固定費は `company_finance_recurring_items` に seed するが、二重計上防止のため `budget_forward_fill=false` で始める
+- 新しいサブスクや自動振替を見つけたら `/admin/finance` に登録する
+- 毎月発生しそうなものだけ `budget_forward_fill=true` にし、`source='finance_recurring_item'` の `company_budget_monthly` rows として24か月先まで同期する
+- Gmail領収書は `company_finance_receipt_events` に保存し、confirm後に `company_actual_monthly` へ同期する導線を追加する
+
+---
+
+## データモデル案
+
+### `company_budget_inputs`
+
+GAS の `CFG_*` 入力を OS 側で保持する。最初は JSONB 併用で移植し、UI と freee 突合が固まったら必要なものから正規化する。
 
 ```sql
-CREATE TABLE project_pl_forecast (
+CREATE TABLE company_budget_inputs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id TEXT REFERENCES projects(project_id),
-  ym TEXT,  -- 関連月 (= burn_rate なら起算月、large_expense なら購入月)
-  kind TEXT,  -- burn_rate / fundraise_plan / large_expense / revenue_forecast / runway_alert
+  input_kind TEXT NOT NULL, -- params / project / project_revenue / fixed_cost / var_cost / loan / spot / scenario
+  source_id TEXT,
+  ym TEXT,
+  project_id TEXT NULL REFERENCES projects(project_id),
+  label TEXT,
   amount_yen BIGINT,
-  note TEXT,
-  source_quote TEXT,  -- 抽出元の発言抜粋
-  source_type TEXT,   -- slack / notion / gmeet / pl_sheet / manual
-  confidence SMALLINT,  -- 1-5
-  extracted_at TIMESTAMPTZ DEFAULT NOW(),
-  extracted_by TEXT,  -- cron name
-  superseded_by UUID REFERENCES project_pl_forecast(id),  -- 新版で上書きされた古い予測
-  UNIQUE (project_id, ym, kind)
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  source TEXT NOT NULL DEFAULT 'gas_monthly_pl',
+  version TEXT NOT NULL DEFAULT 'baseline',
+  imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 
-`project_pl_monthly` (= 実績相当) と分離することで:
-- 実績と予測の区別が明確
-- 予測の上書き履歴を保てる
-- CockpitPlMonthlyModal の縦横ピボット表示で「予測値オーバーレイ」が後から実装可能
+### `company_budget_simulation_runs`
 
-### D. 試算表モーダルへの反映
+GAS の `runSimulation()` 相当を OS 側で実行した結果を保存する。
 
-CockpitPlMonthlyModal を拡張:
-- 月行ごとに `project_pl_monthly` (実績) + `project_pl_forecast` (予測) を merge 表示
-- 予測値は **薄字 + 「予測」バッジ**
-- 補正クリック編集で `project_pl_monthly` を上書きすれば確定値として表示
+```sql
+CREATE TABLE company_budget_simulation_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  scenario_id TEXT,
+  version TEXT NOT NULL DEFAULT 'baseline',
+  source TEXT NOT NULL DEFAULT 'gas_monthly_pl',
+  source_ref TEXT,
+  engine_version TEXT,
+  params JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ran_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### `company_budget_monthly`
+
+会社全体または PJ 単位の予算 / 計画を保存する。
+
+```sql
+CREATE TABLE company_budget_monthly (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  simulation_run_id UUID NULL REFERENCES company_budget_simulation_runs(id),
+  ym TEXT NOT NULL,
+  scope TEXT NOT NULL DEFAULT 'company', -- company / project
+  project_id TEXT NULL REFERENCES projects(project_id),
+  category TEXT NOT NULL,                -- revenue / cogs / personnel / rd / marketing / other_opex / cash_in / cash_out / etc
+  account_name TEXT,
+  budget_amount_yen BIGINT NOT NULL DEFAULT 0,
+  cash_amount_yen BIGINT,
+  runway_months NUMERIC,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  note TEXT,
+  source TEXT NOT NULL DEFAULT 'gas_monthly_pl',
+  source_ref TEXT,
+  version TEXT,
+  imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (ym, scope, project_id, category, account_name, version)
+);
+```
+
+### `company_actual_monthly`
+
+freee から正規化した月次実績を保存する。
+
+```sql
+CREATE TABLE company_actual_monthly (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ym TEXT NOT NULL,
+  scope TEXT NOT NULL DEFAULT 'company', -- company / project if mapping possible
+  project_id TEXT NULL REFERENCES projects(project_id),
+  category TEXT NOT NULL,
+  account_name TEXT,
+  actual_amount_yen BIGINT NOT NULL DEFAULT 0,
+  freee_account_item_id TEXT,
+  freee_partner_id TEXT,
+  source_ref TEXT,
+  raw_hash TEXT,
+  imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (ym, scope, project_id, category, account_name, freee_account_item_id)
+);
+```
+
+### `company_budget_actual_monthly` view
+
+予算と実績を突合する view。
+
+```sql
+CREATE VIEW company_budget_actual_monthly AS
+SELECT
+  COALESCE(b.ym, a.ym) AS ym,
+  COALESCE(b.scope, a.scope) AS scope,
+  COALESCE(b.project_id, a.project_id) AS project_id,
+  COALESCE(b.category, a.category) AS category,
+  COALESCE(b.account_name, a.account_name) AS account_name,
+  COALESCE(b.budget_amount_yen, 0) AS budget_amount_yen,
+  COALESCE(a.actual_amount_yen, 0) AS actual_amount_yen,
+  COALESCE(a.actual_amount_yen, 0) - COALESCE(b.budget_amount_yen, 0) AS variance_yen
+FROM company_budget_monthly b
+FULL OUTER JOIN company_actual_monthly a
+  ON b.ym = a.ym
+ AND b.scope = a.scope
+ AND COALESCE(b.project_id, '') = COALESCE(a.project_id, '')
+ AND b.category = a.category
+ AND COALESCE(b.account_name, '') = COALESCE(a.account_name, '');
+```
+
+### `company_budget_variance_notes`
+
+差分理由や L2 抽出根拠を保存する。全文保存は禁止。
+
+```sql
+CREATE TABLE company_budget_variance_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ym TEXT NOT NULL,
+  project_id TEXT NULL REFERENCES projects(project_id),
+  category TEXT,
+  variance_kind TEXT NOT NULL, -- revenue_shortfall / cost_overrun / payment_delay / unbudgeted_revenue / unbudgeted_expense / timing_shift / other
+  note TEXT NOT NULL,
+  source_type TEXT,
+  source_ref TEXT,
+  confidence SMALLINT,
+  status TEXT NOT NULL DEFAULT 'candidate', -- candidate / confirmed / rejected
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### legacy: `project_pl_monthly`
+
+既存の `project_pl_monthly` はすぐ消さない。
+
+扱い:
+
+- 既存 Cockpit UI の互換レイヤー
+- PJ 単位の手入力/ヒアリング結果
+- 新テーブル移行後は `company_budget_monthly(scope='project')` へ寄せる
 
 ---
 
-## 着手順 (= 後日)
+## UI
 
-1. migration: `project_pl_forecast` 新規テーブル + index
-2. llm_prompts: `monthly_report.r313_extract` を改修 (= 出力に `pl_extract` フィールド追加)
-3. PWA `cron/monthly-reports-backfill` 内で `pl_extract` を parse → `project_pl_forecast` upsert
-4. 074c (Drive backfill) に「試算表っぽいファイル」検出 + 別 source 値で source_cache 投入
-5. CockpitPlMonthlyModal に予測値オーバーレイ実装
+### 会社全体の予実管理
+
+想定 route:
+
+```text
+/management-score/finance
+```
+
+または:
+
+```text
+/finance/budget-actual
+```
+
+表示:
+
+- 月次サマリ: 売上 / 支出 / 利益 / cash delta / runway
+- 予算 vs 実績: category 別 table
+- 差分 top 10
+- 入金遅延 / 請求漏れ alert
+- 予算にない実績 / 実績がない予算
+- freee 最終同期時刻
+- GAS 予算表の最終 import 時刻
+
+### PJ cockpit
+
+PJ cockpit の `📊 試算表` は、会社全体予実から PJ 単位へ drilldown する位置づけにする。
+
+表示:
+
+- その PJ の budget / actual / variance
+- `billing_cycles` の請求・入金状態
+- freee partner が取れる場合は freee 実績
+- 取れない場合は `billing_cycles` + 手入力 / ヒアリング補助
 
 ---
 
-## 着手前にまさへ確認
+## 移植手順
 
-- `project_pl_forecast` という別テーブル化で OK? それとも `project_pl_monthly` に予測列追加で十分?
-- 着手のタイミング (= AMD-Report GAS 修復 / 5 生データ精度改善 / VC RSS のどれの後?)
+1. GAS source snapshot の固定
+   - `_external_gas/monthly-pl-script` を現時点の正本 snapshot とする
+   - 以後の変更は OS 側に移植してから行う
+   - backing Spreadsheet の現行データは別途 export/import する
+
+2. Simulation engine を TypeScript へ移植
+   - `010_SimConfig.gs` の input resolver
+   - `011_SimEngine.gs` の `runSimulation()`
+   - `spotIncome` / `spotExpense` 宣言順バグを修正
+   - `pjDetails` / `fixedCostDetails` / `cashInflow` / `cashOutflow` を保持する
+
+3. Supabase migration
+   - `company_budget_inputs`
+   - `company_budget_simulation_runs`
+   - `company_budget_monthly`
+   - `company_actual_monthly`
+   - `company_budget_variance_notes`
+   - view `company_budget_actual_monthly`
+
+4. Import job
+   - GAS 予算入力 → `company_budget_inputs`
+   - OS simulation → `company_budget_simulation_runs` / `company_budget_monthly`
+   - freee → `company_actual_monthly`
+
+5. 予実管理 UI
+   - 会社全体 view
+   - PJ drilldown
+   - variance notes
+
+6. AMD Management Score 連携
+   - `finance_score` の入力を `company_budget_actual_monthly` へ切り替える
+   - 財務 cap / runway / variance alert を反映
+
+---
+
+## 実装前に確認すること
+
+- backing Spreadsheet の現行データをどう取得するか
+  - GAS API を再認証して読む
+  - まさ Chrome ログイン済み UI から export する
+  - 一時的に GAS Web App へ JSON export を追加する
+- freee のどの API endpoint を実績正本にするか
+- freee 勘定科目を OS category にどう mapping するか
+- cash / runway の cash 正本を freee のどの値にするか
+- PJ 別実績を freee partner / tag / memo でどこまで分解できるか
+- `project_pl_monthly` を段階移行するか、当面互換テーブルとして残すか
+- `rateAmd` を経営スコア上の AMD 取り分指標として使うか、simulation 上の計算式に戻すか
 
 ---
 
 ## 関連
 
-- [`L2_DATA.md`](L2_DATA.md) — 5 生データ集約の正本
-- [`cockpit.md`](cockpit.md) — Cockpit UI 全体仕様
-- [feedback_tsukuyomi_builds_from_raw_data.md](/Users/masa/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/feedback_tsukuyomi_builds_from_raw_data.md) — 手動入力前提を禁ずる設計哲学
+- [`management_score.md`](management_score.md) — AMD Management Score。`finance_score` は本予実管理を入力にする
+- [`cockpit.md`](cockpit.md) — PJ cockpit / 試算表モーダル
+- [`L2_DATA.md`](L2_DATA.md) — 5 生データと L2 抽出
+- [`db_schema.md`](db_schema.md) — Supabase schema reference

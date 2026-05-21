@@ -18,7 +18,15 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
 const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder"
+  supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder",
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey: "amd-os-pwa-readonly-venture-status",
+    },
+  }
 );
 
 function getAuthClient() {
@@ -671,31 +679,17 @@ export interface AmdScorePoint {
   score: number;    // log scale (1 - 100,000)
 }
 
-import { calculateAmdScore, type AlphaWeights } from "@/lib/amd-score";
+import type { AlphaWeights } from "@/lib/amd-score";
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
+import { computeAmdScoreSeries } from "@/lib/amd-score-derived";
 
 /** amd_score_inputs (古い順) と alpha から、cockpit チャート用の時系列を作る */
 export function computeCockpitAmdScoreSeries(
   inputs: AmdScoreInputRow[],
   alpha: AlphaWeights
 ): AmdScorePoint[] {
-  return inputs
-    .filter((r) => r.mu_A != null && r.mu_I != null && r.mu_G != null)
-    .map((r) => {
-      const result = calculateAmdScore(
-        {
-          mu_A: r.mu_A ?? 0,
-          mu_I: r.mu_I ?? 0,
-          mu_G: r.mu_G ?? 0,
-          TRL: r.shallow_tech_mode ? null : r.trl ?? 0,
-          BRL: r.brl ?? 0,
-          GRL: r.grl ?? 0,
-          SRL: r.srl ?? 0,
-          HRL: r.hrl ?? 0,
-          FRL: r.frl ?? 0,
-        },
-        alpha
-      );
-      return { date: r.evaluated_at.slice(0, 10), score: result.score };
-    });
+  return computeAmdScoreSeries(inputs, alpha).map((point) => ({
+    date: point.evaluated_at,
+    score: point.score,
+  }));
 }

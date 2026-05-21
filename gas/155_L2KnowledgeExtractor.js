@@ -725,6 +725,7 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
   }
 
   let saved = 0;
+  const savedProtocols = [];
   for (let i = 0; i < parsed.protocols.length; i++) {
     const p = parsed.protocols[i] || {};
     const title = String(p.title || "").trim().slice(0, 200);
@@ -748,7 +749,14 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
       is_universal: true,
       updated_at: new Date().toISOString()
     }, "protocol_id");
-    if (up.ok) saved++;
+    if (up.ok) {
+      saved++;
+      savedProtocols.push({
+        protocol_id: protocolId,
+        title: title,
+        importance: imp
+      });
+    }
 
     // ★ examples を protocol_examples に保存 (1 プロトコル : N 事例)
     const examples = Array.isArray(p.examples) ? p.examples : [];
@@ -783,21 +791,22 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
 
   if (saved > 0 && fb.ids && fb.ids.length) _l2_recordFeedbackApplied_(fb.ids);
 
-  if (saved > 0) {
+  if (savedProtocols.length > 0) {
     try {
       const pjName = _l2_resolvePjName_(projectId);
-      const titles = parsed.protocols.slice(0, 3).map(function (p) { return String(p.title || "").trim(); }).filter(Boolean).join(" / ");
-      const maxImp = parsed.protocols.reduce(function (m, p) { return Math.max(m, Number(p.importance || 1)); }, 1);
-      _l2_insertNotification_({
-        l2_kind: "protocols",
-        target_id: projectId,
-        scope_key: ym,
-        title: "⚖️ " + pjName + " (" + ym + ") AMDプロトコル candidate (" + saved + "件)",
-        summary: titles + (parsed.protocols.length > 3 ? " 他" : ""),
-        saved_count: saved,
-        total_count: parsed.protocols.length,
-        importance: maxImp
-      });
+      for (let ni = 0; ni < savedProtocols.length; ni++) {
+        const sp = savedProtocols[ni];
+        _l2_insertNotification_({
+          l2_kind: "protocols",
+          target_id: projectId,
+          scope_key: ym + ":protocol:" + sp.protocol_id,
+          title: "⚖️ " + pjName + " (" + ym + ") AMDプロトコル candidate",
+          summary: sp.title,
+          saved_count: 1,
+          total_count: 1,
+          importance: sp.importance
+        });
+      }
     } catch (e) { Logger.log("[protocols] notify error: " + e); }
   }
 
@@ -999,7 +1008,9 @@ function _l2_loadFeedbackBlock_(l2Kind, targetId, scopeKey) {
   if (!res.ok) return { block: "", ids: [] };
   const rows = (res.rows || []).filter(function (r) {
     // scope_key 完全一致 or 'global' (= 全 scope に適用するフィードバック)
-    return r.scope_key === scopeKey || r.scope_key === "global";
+    // protocols は通知を YYYYMM:protocol:<protocol_id> 粒度に分けるため、月次抽出時は同じ ym 配下の個別 feedback も拾う。
+    const protocolScoped = l2Kind === "protocols" && String(r.scope_key || "").indexOf(scopeKey + ":protocol:") === 0;
+    return r.scope_key === scopeKey || r.scope_key === "global" || protocolScoped;
   });
   if (!rows.length) return { block: "", ids: [] };
   const lines = rows.slice(0, 10).map(function (r, idx) {

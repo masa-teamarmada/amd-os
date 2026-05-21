@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   fetchVcInbox,
   verifyVcNews,
@@ -14,6 +15,8 @@ import type { VcNews, VcFund } from "@/types/vc";
 type InboxItem = VcNews & { vc_name: string };
 
 export default function VcInboxPage() {
+  const pathname = usePathname();
+  const vcsBase = pathname.startsWith("/hud/") ? "/hud/vcs" : "/vcs";
   const [items, setItems] = useState<InboxItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "fundraise" | "fund_close" | "investment">("all");
@@ -42,7 +45,7 @@ export default function VcInboxPage() {
             VC のファンド情報に 1 クリックで反映できる。
           </p>
         </div>
-        <Link href="/vcs" className="text-xs px-3 py-1.5 rounded border border-border hover:bg-accent">
+        <Link href={vcsBase} className="text-xs px-3 py-1.5 rounded border border-border hover:bg-accent">
           ← VC リスト
         </Link>
       </div>

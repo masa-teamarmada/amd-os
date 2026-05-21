@@ -1,0 +1,12 @@
+{
+  "disabled_at": "2026-05-17",
+  "reason": "atlas-collect web_search is now handled by Codex automation to avoid direct Anthropic API spend.",
+  "crons": [
+    {
+      "path": "/api/cron/atlas-collect",
+      "schedule": "0 23 * * *",
+      "jst": "08:00 daily",
+      "restore_note": "Move this entry back to pwa/vercel.json and redeploy if Codex automation quality is insufficient."
+    }
+  ]
+}
