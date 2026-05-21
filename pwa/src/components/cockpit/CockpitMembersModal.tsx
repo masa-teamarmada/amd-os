@@ -69,6 +69,23 @@ interface Draft {
   note: string | null;
 }
 
+interface FoundingRevisionProposal {
+  summary: string;
+  upserts: Array<{
+    personName: string;
+    affiliation?: string | null;
+    role: string;
+    roleLabelJp?: string | null;
+    category: string;
+    responsibility?: string | null;
+    contribution?: string | null;
+    status?: "active" | "left" | "tentative";
+    reason?: string | null;
+  }>;
+  invalidates: Array<{ personName: string; reason?: string | null }>;
+  skipped?: Array<{ personName?: string | null; reason: string }>;
+}
+
 const emptyDraft = (): Draft => ({
   member_kind: "su_internal",
   full_name: "",
@@ -87,6 +104,9 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
+  const [foundingInstruction, setFoundingInstruction] = useState("");
+  const [foundingProposal, setFoundingProposal] = useState<FoundingRevisionProposal | null>(null);
+  const [foundingRevising, setFoundingRevising] = useState(false);
 
   const reload = async () => {
     setLoading(true);
@@ -168,6 +188,48 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
     await deleteVentureMember(projectId, id);
     setSaving(false);
     await reload();
+  };
+
+  const requestFoundingRevision = async () => {
+    const instruction = foundingInstruction.trim();
+    if (!instruction) return;
+    setFoundingRevising(true);
+    setFoundingProposal(null);
+    try {
+      const res = await fetch("/api/founding-members/revise", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, instruction, mode: "preview" }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.message || json.error || "つくよみ修正案の生成に失敗");
+      setFoundingProposal(json.proposal);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : String(error));
+    } finally {
+      setFoundingRevising(false);
+    }
+  };
+
+  const applyFoundingRevision = async () => {
+    if (!foundingProposal) return;
+    setFoundingRevising(true);
+    try {
+      const res = await fetch("/api/founding-members/revise", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, instruction: foundingInstruction, mode: "apply", proposal: foundingProposal }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.message || json.error || "創業メンバー修正の反映に失敗");
+      setFoundingProposal(null);
+      setFoundingInstruction("");
+      await reload();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : String(error));
+    } finally {
+      setFoundingRevising(false);
+    }
   };
 
   const displayNameFor = (m: ProjectVentureMember): string => {
@@ -377,30 +439,99 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
           )}
 
           {/* 2026-05-11 まさ指摘 1 番: 旧「🧑‍🤝‍🧑 創業」モーダルの中身を本モーダルに統合。
-              LLM が monthly_reports + meeting_summaries から抽出した創業メンバー全員 (AMD 内外含む) を
-              読み取り専用で表示。手動編集は上の「+ 追加」セクションが正本。 */}
-          {!loading && foundingTotal > 0 && (
+              LLM が monthly_reports + meeting_summaries から抽出した創業コア候補を表示する。
+              VC/協業先/顧客/行政/AMDサポートのみの人物は創業メンバーに含めない。 */}
+          {!loading && (
             <div className="mt-5 border-t border-[#e5e5e7] pt-4">
               <div className="flex items-baseline justify-between mb-2">
                 <h4 className="text-[12px] font-semibold text-slate-700">
-                  🧑‍🤝‍🧑 LLM 抽出 創業メンバー全員 ({foundingTotal} 名)
+                  🧑‍🤝‍🧑 LLM 抽出 創業コア候補 ({foundingTotal} 名)
                 </h4>
                 <span className="text-[9px] italic text-slate-500">monthly_reports + meeting_summaries から抽出 / 毎週月曜 03:30 更新</span>
               </div>
 
-              <div className="rounded-md border border-amber-300 bg-amber-50/40 px-3 py-2 mb-3">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-[10px] font-medium uppercase tracking-wide text-amber-900">
-                    HRL 簡易推定 (Phase 1 ルールベース)
-                  </span>
-                  <span className="font-mono text-base font-bold text-amber-900">
-                    {hrlEst.hrl} <span className="text-[10px]">/ 9</span>
-                  </span>
+              <div className="rounded-md border border-indigo-200 bg-indigo-50/40 px-3 py-2 mb-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[10px] font-semibold text-indigo-800">つくよみに創業メンバー修正依頼</div>
+                    <div className="text-[9px] text-indigo-700/75">例: VCと協業先は除外して、杉浦先生をCEO候補、神谷さんを技術創業者として残す</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={requestFoundingRevision}
+                    disabled={foundingRevising || !foundingInstruction.trim()}
+                    className="shrink-0 rounded-md border border-indigo-300 bg-white px-2 py-1 text-[10px] text-indigo-700 hover:bg-indigo-50 disabled:opacity-45"
+                  >
+                    {foundingRevising ? "依頼中…" : "修正案"}
+                  </button>
                 </div>
-                <div className="mt-1 text-[10.5px] text-amber-900/80">{hrlEst.rationale}</div>
+                <textarea
+                  value={foundingInstruction}
+                  onChange={(e) => setFoundingInstruction(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-md border border-indigo-100 bg-white px-2 py-1 text-[11px] leading-snug outline-none focus:border-indigo-300"
+                  placeholder="創業メンバーの追加・除外・役割修正をそのまま書く"
+                />
+                {foundingProposal && (
+                  <div className="rounded-md border border-indigo-100 bg-white px-2 py-2 text-[11px] text-slate-700">
+                    <div className="font-semibold text-indigo-800">{foundingProposal.summary}</div>
+                    {foundingProposal.upserts.length > 0 && (
+                      <div className="mt-1">
+                        <span className="text-[10px] text-slate-500">追加/更新:</span>{" "}
+                        {foundingProposal.upserts.map((u) => `${u.personName} (${u.roleLabelJp || u.role})`).join(" / ")}
+                      </div>
+                    )}
+                    {foundingProposal.invalidates.length > 0 && (
+                      <div className="mt-1">
+                        <span className="text-[10px] text-slate-500">除外:</span>{" "}
+                        {foundingProposal.invalidates.map((u) => u.personName).join(" / ")}
+                      </div>
+                    )}
+                    {foundingProposal.skipped && foundingProposal.skipped.length > 0 && (
+                      <div className="mt-1 text-[10px] text-amber-700">
+                        反映しない候補: {foundingProposal.skipped.map((s) => s.personName ? `${s.personName}: ${s.reason}` : s.reason).join(" / ")}
+                      </div>
+                    )}
+                    <div className="mt-2 flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setFoundingProposal(null)}
+                        className="rounded-md border border-slate-200 px-2 py-0.5 text-[10px] text-slate-600 hover:bg-slate-50"
+                      >
+                        破棄
+                      </button>
+                      <button
+                        type="button"
+                        onClick={applyFoundingRevision}
+                        disabled={foundingRevising}
+                        className="rounded-md border border-emerald-500 px-2 py-0.5 text-[10px] text-emerald-700 hover:bg-emerald-50 disabled:opacity-45"
+                      >
+                        OK確定
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {FOUNDING_CATEGORY_ORDER.filter((c) => foundingGrouped.has(c)).map((cat) => {
+              {foundingTotal === 0 ? (
+                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-center text-[11px] text-slate-500">
+                  創業コア候補はまだ登録されてない。上の修正依頼から追加できる。
+                </div>
+              ) : (
+                <div className="rounded-md border border-amber-300 bg-amber-50/40 px-3 py-2 mb-3">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-amber-900">
+                      HRL 簡易推定 (Phase 1 ルールベース)
+                    </span>
+                    <span className="font-mono text-base font-bold text-amber-900">
+                      {hrlEst.hrl} <span className="text-[10px]">/ 9</span>
+                    </span>
+                  </div>
+                  <div className="mt-1 text-[10.5px] text-amber-900/80">{hrlEst.rationale}</div>
+                </div>
+              )}
+
+              {foundingTotal > 0 && FOUNDING_CATEGORY_ORDER.filter((c) => foundingGrouped.has(c)).map((cat) => {
                 const items = foundingGrouped.get(cat) ?? [];
                 return (
                   <section key={cat} className="mb-3">

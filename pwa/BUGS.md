@@ -5,6 +5,164 @@
 
 ---
 
+### [pwa/cockpit] 年間MS設定からMS別の期間設定UIが消える
+
+- **発見日**: 2026-05-21 (まさ 年間MS設定ウィンドウ確認)
+- **状態**: ✅ 修正済
+- **症状**:
+  - 年間MS設定モーダルで、各MSの開始月/終了月を入れるUIが表示されなくなっていた。
+  - 同種の回帰が複数回起きており、仕様が暗黙に削除される危険があった。
+- **原因**:
+  - PWA側の `CockpitNextPeriodSetup` にMS別期間UIが残っていなかった。
+  - Supabase `value_milestones` にMS別期間を保存する列もなく、UIを戻しても保存先がない状態だった。
+- **対応内容**:
+  - `value_milestones.period_start_ym` / `target_ym` を追加。
+  - 年間MS設定モーダルに `MS開始` / `MS終了` 入力を復元し、保存時に各MSへ保持するようにした。
+  - `/api/progress/ms-schedule` と Cockpit/HUD のMS表示が、GAS由来の推定期間よりDBのMS別期間を優先するようにした。
+  - `npm run test:next-period-ui` を追加し、期間UI・保存列・schedule override が消えたら検知する。
+- **再発防止策**:
+  - 年間MS設定を触ったら `npm run test:next-period-ui` を必ず通す。
+  - MS別期間はUIだけでなく `value_milestones` の正本データとして扱う。保存列なしの一時UIに戻さない。
+
+### [pwa/protocols] 自動抽出が「結果・学習」を作ってしまう
+
+- **発見日**: 2026-05-21 (まさ プロトコル通知確認)
+- **状態**: ✅ 修正済
+- **症状**:
+  - AMDプロトコル候補の本文に `結果・学習` が自動生成されていた。
+  - 本来の「結果」は、そのアクション後に実際に何が起きたかを後から記録する欄であり、抽出時点では空欄であるべき。
+  - 関連事例も1つの文章として見え、分岐点/判断材料/アクション/結果の構造が見えにくかった。
+- **原因**:
+  - DBの `llm_prompts.protocol.extract` が `結果・学習` までLLM出力対象にしていた。
+  - GAS抽出側も `protocol_examples.result` をLLM出力から保存しうる実装だった。
+  - 通知UIは `protocol_examples.criteria` を読まず、関連事例を要約行だけで表示していた。
+- **対応内容**:
+  - `protocol.extract` プロンプトを修正し、自動抽出は `分岐点 / 判断材料 / アクション` の3要素だけ、`result=null` とした。
+  - 既存88件のprotocol本文から結果sectionを除去し、23件の `protocol_examples.result` をnullへ戻した。
+  - GAS `155_L2KnowledgeExtractor.js` に結果section除去と `result:null` 固定を入れた。
+  - 通知/Admin UIで関連事例の `分岐点 / 判断材料 / アクション` を明示表示するようにした。
+- **再発防止策**:
+  - `結果` は人間または後続データで実績が確認できた後だけ入れる。LLM抽出時点では生成しない。
+  - プロトコル事例は最低3要素を構造化して保存・表示する。
+
+### [pwa/cockpit-sx] 1つのMSに独立タスクをまとめて報酬配分が歪む
+
+- **発見日**: 2026-05-21 (まさ SX.MS#1 指摘)
+- **状態**: ✅ 修正済
+- **症状**:
+  - SX.MS#1 が「事業計画・資本政策・知財戦略策定」という1つのMSになっていた。
+  - 4月は知財戦略だけ進んだのに、MS全体の担当割合が `まさ30% / かる50% / ちこ20%` だったため、知財戦略の進捗で事業計画・資本政策担当にも報酬が乗りうる構造になっていた。
+- **原因**:
+  - `milestone_responsibility.share` は「そのMSで進んだptを誰に配るか」の比率なので、独立して進捗する成果物を1つのMSにまとめると、未着手パートの担当者にも報酬が分配される。
+- **対応内容**:
+  - SX active plan cycle `PC-p21-202604` の旧MS#1を3分割した。
+  - `事業計画策定`: 13pt、かる70% / まさ30%。
+  - `資本政策策定`: 7pt、まさ100%。
+  - `知財戦略策定`: 5pt、ちこ80% / まさ20%。
+  - 旧MS#1の4月PM確認「事業計画と資本政策は進捗なし。知財戦略だけ進んでる」を、事業計画0%・資本政策0%・知財戦略100%へ移管した。
+  - SX `202604` / `202605` の `billing_cycles.ms_progress_summary_json` をクリアし、次回表示・再計算で新MS構成を使うようにした。
+- **再発防止策**:
+  - 誰か1人または一部メンバーだけで独立して進む成果物は、1つのMSに混ぜず別MSにする。
+  - 担当割合は「MS内の全成果物が同じ進捗単位で進む」場合だけ使う。進捗単位が分かれるならMSを分ける。
+
+### [pwa/routine] monthly_reportsは確定済みなのに月次報告書FIXタスクが未完了になる
+
+- **発見日**: 2026-05-21 (まさ SX `202601` 月次報告書確認)
+- **状態**: ✅ 修正済
+- **症状**:
+  - SX `202601` の月次報告書は `monthly_reports.status='fixed'` / `fixed_at` ありなのに、月次ルーティンの「月次報告書FIX」が未完了表示になっていた。
+- **原因**:
+  - 月次ルーティンの完了判定は `billing_cycles.report_fixed_at` だけを見ていた。
+  - SX `202601` は過去データ復元由来で `monthly_reports.fixed_at` は入っていたが、対応する `billing_cycles.report_fixed_at` が `null` のままだった。
+- **対応内容**:
+  - SX `202601` の `billing_cycles.report_fixed_at` を `monthly_reports.fixed_at` に同期した。
+  - `fetchCockpitFromSupabase()` と dashboard用 `fetchBillingStatusFromSupabase()` に、`monthly_reports.fixed_at` / `status='fixed'` / `final_content` を完了判定へ使うフォールバックを追加した。
+- **再発防止策**:
+  - 報告書確定の正本は `monthly_reports`。`billing_cycles.report_fixed_at` はルーティン表示用キャッシュとして扱い、過去復元や手動修復時は同期漏れを許容するフォールバックを入れる。
+
+---
+
+### [pwa/admin-payouts] 後から確定した委託料をPJ予算へ入れる導線がない
+
+- **発見日**: 2026-05-21 (まさ `/admin/payouts` SX 202601-202603 確認)
+- **状態**: ✅ 修正済
+- **症状**:
+  - SX `202601-202603` は1-3月に業務開始し、3月に1-3月分の業務委託料が後から確定した。
+  - `/admin/payouts` では報酬支払予定は見えるが、確定した委託料を入力して各稼働月の `billing_cycles.budget_yen` (= PJ予算) を確定する入口がなかった。
+- **原因**:
+  - 月次ルーティンの予算確定は稼働月ごとの請求額入力を前提にしており、`invoice_ym` で複数稼働月をまとめて支払うケースをadmin支払画面で扱っていなかった。
+- **対応内容**:
+  - `/api/admin/payouts` に `PATCH` を追加。支払月・PJ・請求月・対象稼働月・確定委託料・バッファを受け、`確定委託料 × 65% - バッファ` をPJ予算総額として対象月へ配分する。
+  - 配分は対象月の報酬支払予定額比率をデフォルトにし、月別に `budget_yen`, `budget_reported_amount`, `budget_buffer_amount`, `budget_confirmed_at/by` を更新する。
+  - `/admin/payouts` のPJ予算チェックに「確定待ちのPJ予算」導線を追加し、SXのような複数月一括確定をUIから実行できるようにした。
+- **再発防止策**:
+  - `invoice_ym` で集約される支払では、月別UIではなく支払月admin画面で確定委託料を入力し、稼働月別PJ予算へ配分する。
+
+### [pwa/cockpit-zmp] ZMP 202601の進捗イベントが0件に見える
+
+- **発見日**: 2026-05-21 (まさ ZMP `202601` 月次モーダル確認)
+- **状態**: ✅ 修正済
+- **症状**:
+  - ZMP `202601` の月次モーダルで進捗イベントが0件。
+- **原因**:
+  - UIの進捗イベントは `/api/progress/events` が `member_activities` だけを読む。
+  - ZMP `202601` は `source_cache=14`, `monthly_reports=1`, `project_meeting_summaries=2` が存在したが、`member_activities` が0件だった。
+  - `cron/member-activities` はデフォルトで当月実行のため、過去月 `202601-202603` が source refs 拡張後にbackfillされていなかった。
+- **対応内容**:
+  - productionの `cron/member-activities?projectId=p19` を手動実行し、ZMP `202601=11`, `202602=12`, `202603=9` 件の `member_activities` をbackfillした。
+  - `/admin/payouts` / 月次モーダル側とは別に、進捗イベント欄はこれで表示される。
+- **再発防止策**:
+  - source refs導線を追加した月は、当月cronだけでなく対象過去月の `member_activities` backfillもセットで実行する。
+
+### [pwa/notifications] source_cache取り込み完了ログを `raw_data_ingested` として通知してしまった
+
+- **発見日**: 2026-05-21 (まさ `/notifications` スクショ: 「CX: Slack生データ取り込み (68件)」)
+- **状態**: ✅ 修正済
+- **症状**:
+  - Slack source refs backfill後、`CX: Slack生データ取り込み (68件)` のような通知が `/notifications` に出た。
+  - まさ指摘どおり、source_cacheへ生データ参照を保存しただけではOS上の表示データに差分が出ていないため、通知対象ではない。
+- **原因**:
+  - `/api/sources/slack/collect` が `source_cache` 保存後に `l2_notifications(l2_kind='raw_data_ingested')` を無条件upsertしていた。
+  - `pwa/scripts/backfill_slack_source_cache.cjs` も同じ通知upsertを持っていた。
+  - `/api/sources/gmail/collect` も同じ思想でGmail source refs取り込み完了通知を作っていた。
+  - これは「差分検出ルールにマッチ」ではなく、API実装が通知テーブルへ直接書いていたもの。
+- **対応内容**:
+  - Slack/Gmail source collect APIから `raw_data_ingested` 通知生成を削除。
+  - Slack backfill scriptから通知生成を削除。
+  - `NotificationsClient` から `raw_data_ingested` 専用の詳細表示・deep link・cost estimateを削除。
+  - 既存の誤通知 `14` 件を `l2_notifications` から削除。`source_cache` は削除せず、件数 `3575` のまま保持確認済み。
+- **再発防止策**:
+  - `source_cache` は短いsource refs / hash / permalinkの証跡キャッシュであり、取り込み完了ログを通知しない。
+  - 通知は `project_knowledge` / `member_knowledge` / `protocols` / `ms_progress` / `project_registry_diff` / `xrl_evidence` / `raw_data_gap` など、OSに表示される正本や要対応差分が発生した場合だけ作る。
+
+---
+
+### [pwa/cockpit-zmp] ZMPの月額固定30万円が未登録で、予算確定UIが配賦入力化し報酬表も消えた
+
+- **発見日**: 2026-05-21 (ZMP 月次モーダル / 月次ルーティン確認)
+- **状態**: ✅ 修正済
+- **症状**:
+  - ZMPは毎月30万円固定のPJなのに、予算確定タスクが「今月も30万円でおけ？」ではなく、請求額と各メンバーへの配賦額を入力するUIになっていた。
+  - メンバー別支払額はMS進捗ptと `milestone_responsibility.share` から決まるため、予算確定UIで金額入力する設計自体が誤り。
+  - ZMPの月次モーダルで「メンバー報酬」表が表示されなかった。
+- **原因**:
+  - Supabase `projects` のZMP (`p19`) に `fee_type` / `fee_amount` が入っておらず、月額固定PJとして扱えなかった。
+  - `value_plan_cycles.budget_yen` も `0` のままだったため、`reward_summary_json` 未生成月でフロント側の報酬プレビューを作れなかった。
+  - `CockpitRoutineBudgetModal` が旧仕様の `member_allocations_json` 入力UIを残していた。
+  - `CockpitMonthlyModal` は `reward_summary_json.members` が無い月ではメンバー報酬セクション自体を非表示にしていた。
+- **対応内容**:
+  - DB: `projects.p19` を `fee_type='monthly_fixed'`, `fee_amount=300000` に更新。`PC-p19-202601-202612.budget_yen` を `2,340,000` (= 300,000 × 65% × 12か月) に更新。
+  - `CockpitRoutineBudgetModal` からメンバー配賦入力/表示を削除。月額固定PJでは「今月も¥300,000でおけ？」として請求額のみ確認する。
+  - submit時は `member_allocations_json=null` を明示し、今後の保存で旧配賦JSONを増やさない。
+  - `fetchCockpitFromSupabase()` が `projects.fee_type` / `fee_amount` を返すようにし、月次モーダルへ渡す。
+  - `CockpitMonthlyModal` は `reward_summary_json` が未生成でも、plan cycle予算または月額固定額から1pt単価を算出し、MS進捗と担当割合からメンバー報酬をプレビュー表示する。
+- **再発防止策**:
+  - 予算確定タスクは「クライアント請求額 / PJ予算」の確認だけに限定する。メンバー別支払額入力を戻さない。
+  - 月額固定PJの初期登録では `projects.fee_type='monthly_fixed'` / `fee_amount` と、plan cycle全体の `budget_yen` を同時に入れる。
+  - `reward_summary_json` 未生成でも、進捗・担当割合・PJ予算があれば月次モーダルで報酬プレビューを出す。
+
+---
+
 ### [pwa/hud-review] レビュー番号を追い続けて、OK済み項目まで再報告・再修正対象にしてしまう
 
 - **発見日**: 2026-05-18 (HUD fidelity pass)
@@ -1392,6 +1550,55 @@
 
 ---
 
+### [L2 Source Refs] Slack元メッセージがsource_cacheに残らずL2根拠から漏れる
+
+- **発見日**: 2026-05-21
+- **状態**: ✅ 修正済み
+- **症状**:
+  - SXの愛媛大学入札関連はSlack `#p21_sx` に一次メッセージがあるのに、Gmail/Driveと同じ粒度で `source_cache` に残っていなかった。
+  - `project_knowledge` / `monthly_reports` / `member_activities` には入札トピックが一部入っていたが、Slack元発言の permalink / snippet / hash を辿る導線が弱かった。
+  - `/api/progress/revisions` の根拠取得も `source_cache.source='gmail'` 固定で、Slackを保存してもMS修正提案の根拠に使えない状態だった。
+- **原因**:
+  - SlackはGAS 074bで `project_meeting_summaries` へ抽出されていたが、PWA側の raw source refs 取り込みAPIはGmailだけだった。
+  - 旧 broad L1 cron廃止後の `source_cache` の役割が「空/legacy」と「短いsource refsキャッシュ」の間で曖昧だった。
+- **対応内容**:
+  - PWA `/api/sources/slack/collect` を追加し、Slack channel history + thread replies を `source_cache(source='slack')` に upsert。
+  - `metadata_json.source_url` / `permalink` / `text_sha256` / `text_preview` / file refs を保存。
+  - `ms_progress_review_tool collect-slack` を追加。
+  - `/api/progress/revisions` の evidence query をGmail固定から全sourceへ拡張。
+  - `/api/cron/member-activities` の入力に `source_cache` refs を追加。
+  - active 5 PJ (CTB/SE/ZMP/CX/SX) × `202603-202605` を本番API経由でbackfill。
+- **再発防止策**:
+  - 新しい生データsourceをL2に使う時は、抽出テーブルだけでなく `source refs / snippet / hash / source_url` の証跡保存と、revision evidence側の参照範囲まで確認する。
+  - `source_cache` は旧L1正本ではなく、短い根拠キャッシュとして扱う。
+
+---
+
+### [RewardV2] `invoice_ym` 繰延月でも稼働月ごとの月次キャップが適用される
+
+- **発見日**: 2026-05-21 (SX `202601-202603` の5月一括請求確認)
+- **状態**: ✅ 修正済み
+- **症状**:
+  - SX `202601-202603` は `billing_cycles.invoice_ym=202605` で5月にまとめて請求・支払通知する想定。
+  - しかし `reward_summary_json` は各稼働月ごとに `monthlyBudget65` を持ち、`202602` では月次キャップが適用されている。
+  - 月次モーダル上では、実支払単位ではなく稼働月単位のcapが見えるため、5月一括支払時の実際の支払通知額とズレる可能性がある。
+- **原因**:
+  - GAS `rv2_calcRewardSummary` が `invoice_ym` を参照せず、`netBudget / cycleMonths` を `monthlyBudget65` として各 `ym` の報酬を圧縮している。
+  - PWA側は `billing_cycles.reward_summary_json` をそのまま表示しており、請求書発行・支払通知書作成タスク側で繰延対象月を集約する処理がまだない。
+- **対応内容**:
+  - `gas/059_RewardV2_Ops.js` から月次キャップ圧縮を削除。
+  - PWA月次モーダルからcap表示・本来額/今月支払の分岐を削除。
+  - Supabase `billing_cycles.reward_summary_json` の既存29行から `monthlyBudget65` / `capped` / `carryOverYen` / `cappedFrom` を削除し、`cappedFrom` があった行は元の本来額へ戻した。
+  - 初回の `npx @google/clasp push` は `invalid_grant / invalid_rapt` で失敗したが、再実行で `Script is already up to date.` まで確認。
+  - `/admin/payouts` を `invoice_ym` 集約型に作り直し、支払月に紐づく `reward_summary_json.members` から `monthly_reward_payout` と `payout_notices.total_yen` を保存できるようにした。
+  - SX `202601-202603` は `202605` 支払月で `1,706,255円` として集約できることをDBで確認。
+- **再発防止策**:
+  - 将来キャップを復活させる場合は「稼働月」ではなく「実際に支払通知書を発行する支払単位」で評価する。
+  - `invoice_ym` に紐づく対象月は `/admin/payouts` で集約し、その単位で報酬確定・通知額生成を行う。
+  - 月次モーダルでは暫定計算UIを増やさず、正本の支払通知額だけを表示する。
+
+---
+
 ### [HUD/PJ Signal Board] 生成frame内のlive overlayを固定px/gridで調整して破綻
 
 - **発見日**: 2026-05-19
@@ -1458,3 +1665,85 @@
 - **再発防止策**:
   - cockpitのlive operation UIは `project.status` と freeze/restart状態を通す。
   - signal表示はhardcoded PJ辞書を正本にせず、DB算定を優先する。
+
+---
+
+### [Cockpit regression] 月次ルーティン周辺の既存UIが個別に消える
+
+- **発見日**: 2026-05-21
+- **状態**: ✅ 修正済み
+- **症状**:
+  - 年間MS設定のMS別期間UIが複数回消えた。
+  - 進捗イベントの内容編集UIも消えていた。
+  - 報酬キャップ削除後、ZMPのように報酬支払予定がPJ予算を超えるケースをUIで止められなかった。
+- **原因**:
+  - 個別機能ごとの「表示されているはず」を人力確認に依存していた。
+  - 年間MS表示、月次モーダル、admin.payouts、API PATCHのような重要導線を横断して見る regression guard がなかった。
+- **対応内容**:
+  - `MilestoneGanttChart` に年間MS表示を集約し、開始〜終了月、担当share、割当ptを同じチャートで表示。
+  - 進捗イベント編集を `/api/progress/events` PATCH + 月次モーダル編集フォームで復活。
+  - 月次報酬キャップを再導入し、超過分を member別 `stockYen` として翌月へ繰越。
+  - `npm run test:critical-ui` を追加し、MS期間UI / Gantt / 報酬cap / 進捗イベント編集 / admin.payouts / PJ分類 / AMD Score対象分岐をまとめて検査。
+- **再発防止策**:
+  - cockpit/adminの中核UIを触ったら、`npm run test:next-period-ui` と `npm run test:critical-ui` を必ず実行する。
+  - 「消えたUIを復活」ではなく、表示責務を1コンポーネントに寄せ、ガードでanchorを固定する。
+
+---
+
+### [Notifications] raw_data_gap通知に後続backfillの生データが混ざって見える
+
+- **発見日**: 2026-05-21
+- **状態**: ✅ 修正済み
+- **症状**:
+  - `CTB: 5月進捗スライドがOS未取り込み` はDrive月次スライドのgap通知なのに、展開するとSlack rowの本文とmetadataが表示された。
+- **原因**:
+  - `raw_data_gap` の通知自体は `metadata_json.evidence_refs` にDrive/Notion/Calendar根拠を持っていた。
+  - PWA通知詳細UIが `project_id + ym` の `source_cache` 全件を表示していたため、通知作成後にbackfillされたSlack rowが通知詳細へ混入した。
+- **対応内容**:
+  - `raw_data_gap` は `metadata_json.evidence_refs` を優先表示するよう変更。
+  - fallbackで `source_cache` を読む場合も、短いsnippet/source_url/hash/item_idだけを表示し、本文全文やmetadata全量は出さない。
+  - Slack collectorの `content_text` も短いsnippet/thread excerptへ縮小。
+- **再発防止策**:
+  - 通知詳細は通知scope/metadataに紐づく根拠だけを表示する。
+  - source refsの取り込み自体を通知扱いしない。通知はOS表示データ・台帳・L2正本に差分が出た時だけ作る。
+
+---
+
+### [L2 Routing] SEにCX/NIMS/CryoX系のsource refsと候補が混入する
+
+- **発見日**: 2026-05-21
+- **状態**: ✅ 修正済み
+- **症状**:
+  - SE (`p10`) の通知で、CryoX/Kiutra/NIMS/CX系の情報がSE側に混入した。
+  - P20/CX側が誤っているかのような `project_config_gap` 通知も出た。
+- **原因**:
+  - `member-activities` / activity infer が `monthly_reports.status='invalid'` の過去行も入力に使っていた。
+  - `source_cache` / meeting / report の `project_id` を強く信用し、本文が別PJのaliasだけに一致する場合の最終ガードがなかった。
+- **対応内容**:
+  - invalid monthly reportを入力から除外。
+  - PJ alias profileを作り、本文が他PJの強いaliasだけに一致し、現PJaliasに一致しない場合は抽出入力から除外。
+  - SE (`p10`) の誤 `source_cache` / `member_activities` / XRL候補 / founding候補を削除またはrejected化。
+- **再発防止策**:
+  - L2抽出は `project_id` だけでなく、本文のPJ affinityも最後に確認する。
+  - 短いPJ名は単語境界で扱い、別PJaliasが強く出るsource refsは候補化しない。
+
+---
+
+### [Notifications] L2候補が通知の「はい」前に正本へ反映される
+
+- **発見日**: 2026-05-21
+- **状態**: ✅ 修正済み
+- **症状**:
+  - 通知に出ている情報が、ユーザーが「はい」を押す前からL2正本やコックピット表示に反映されうる構造だった。
+  - 特に創業メンバー候補やmember/project knowledgeで、通知が事後確認のようになっていた。
+- **原因**:
+  - 抽出cron/GASが `active` 相当でupsertし、その後で通知を作っていた。
+  - 通知feedback APIが `founding_members` や一部L2候補の承認/却下状態遷移を十分に持っていなかった。
+- **対応内容**:
+  - GAS `155_L2KnowledgeExtractor.js` の `member_knowledge` / `project_knowledge` は `status='candidate'` 保存に変更。
+  - `protocols` は candidateから、「はい」でactive、「いいえ」でrejectedへ遷移。
+  - `founding_members` は `tentative` で保存し、「はい」でactive、「いいえ」でinvalidへ遷移。
+  - PWA feedback APIに `founding_members` を含む承認/却下処理を追加。
+- **再発防止策**:
+  - 通知に出すL2候補は、必ず candidate/tentative/review 状態で保存し、通知の「はい」だけがactive化する。
+  - 新しい通知kindを追加するときは、feedback APIの yes/no/comment 挙動も同じcommitで追加する。

@@ -97,6 +97,7 @@ export type Notification = {
   saved_count: number;
   total_count: number;
   importance: number;
+  metadata_json?: unknown;
   notified_at: string | null;
   read_at: string | null;
   created_at: string;

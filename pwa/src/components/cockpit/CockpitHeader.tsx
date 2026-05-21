@@ -11,8 +11,20 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 interface Props {
-  project: { projectId: string; projectName: string; clientName: string; status: string };
+  project: { projectId: string; projectName: string; clientName: string; status: string; projectCategory?: string };
 }
+
+const CATEGORY_LABELS: Record<string, string> = {
+  dtsu: "DTSU",
+  ecosystem: "研究機関エコシステム",
+  advisor: "社外役員/顧問",
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  dtsu: "bg-cyan-500/10 text-cyan-700",
+  ecosystem: "bg-violet-500/10 text-violet-700",
+  advisor: "bg-amber-500/10 text-amber-700",
+};
 
 export function CockpitHeader({ project }: Props) {
   return (
@@ -23,6 +35,9 @@ export function CockpitHeader({ project }: Props) {
       )}
       <span className={`text-[11px] px-2 py-0.5 rounded-full ${STATUS_COLORS[project.status] ?? "bg-muted text-muted-foreground"}`}>
         {project.status === "active" ? "Active" : project.status}
+      </span>
+      <span className={`text-[11px] px-2 py-0.5 rounded-full ${CATEGORY_COLORS[project.projectCategory || "dtsu"] ?? CATEGORY_COLORS.dtsu}`}>
+        {CATEGORY_LABELS[project.projectCategory || "dtsu"] ?? "DTSU"}
       </span>
       <div className="flex-1" />
       <Link

@@ -711,12 +711,15 @@ function cockpit_api_getRewardDashboard(params) {
       cumulativeConsumedPt: rv2.cumulativeConsumedPt,
       progressPct: rv2.progressRate,
       expectedPct: rv2.expectedRate,
-      members: rv2.members || [],
-      monthlyBudget65: rv2.monthlyBudget65 || 0,
-      totalPaySum: rv2.totalPaySum || 0,
-      capped: !!rv2.capped,
-      carryOverYen: rv2.carryOverYen || 0
-    },
+	      members: rv2.members || [],
+	      monthlyBudget65: rv2.monthlyBudget65 || 0,
+	      capBudgetYen: rv2.capBudgetYen || rv2.monthlyBudget65 || 0,
+	      totalGrossDueYen: rv2.totalGrossDueYen || 0,
+	      totalPaySum: rv2.totalPaySum || 0,
+	      capped: !!rv2.capped,
+	      carryInYen: rv2.carryInYen || 0,
+	      carryOverYen: rv2.carryOverYen || 0
+	    },
     events: events
   }));
 }

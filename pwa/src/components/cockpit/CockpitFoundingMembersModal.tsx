@@ -1,10 +1,11 @@
 "use client";
 
 /**
- * Cockpit 創業メンバー モーダル — PJ 創業に関わるメンバー全員 (AMD 内外含む)。
+ * Cockpit 創業メンバー モーダル — PJ の創業コア候補。
  *
  * 既存「👥 メンバー」モーダル (CockpitMembersModal) は AMD 内部メンバー (project_members の share)
- * を表示。本モーダルは LLM 抽出した **創業メンバー全員** (university PI / VC / partner 含む) を表示。
+ * を表示。本モーダルは LLM 抽出した **創業メンバー** (創業者 / CEO候補 / 技術創業者 / PI) を表示。
+ * VC / 協業先 / 顧客 / 行政 / advisor-only / AMDサポートのみの人物は含めない。
  * HRL 推定の主要根拠。
  *
  * 仕様: pwa/scripts/migrations/040_project_founding_members.sql + pwa/src/lib/founding-members-data.ts
@@ -78,7 +79,7 @@ export function CockpitFoundingMembersModal({
           <div>
             <h3 className="text-sm font-semibold">🧑‍🤝‍🧑 {ventureName} 創業メンバー</h3>
             <div className="text-[10px] text-muted-foreground mt-0.5">
-              AMD 内外含む {totalActive} 名 (LLM 抽出)。HRL 推定の主要根拠。
+              創業コア候補 {totalActive} 名 (LLM 抽出)。HRL 推定の主要根拠。
             </div>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm" aria-label="閉じる">

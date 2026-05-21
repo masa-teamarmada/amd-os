@@ -30,7 +30,7 @@
 | **Gmail** | 074 (Notion + Gmail 結合の議事録メール抽出) / R307 (月次レポート用) / **074e (新規)** | ✅ skeleton 動作確認済 (= 3 PJ × 1 ym で 3 件 saved) | subject フィルタ拡張 + bot 判定強化 |
 | **Drive** | 074 (Notion AI 議事録ページの fallback) / **074c (新規)** | 🟡 skeleton 稼働、folder 直下 only scan (= サブフォルダ未対応) | 再帰 scan + 試算表 Excel 抽出 cron 別途 |
 | **Calendar** | 074 (event 紐付け) / 153 (event 終了 polling) / **074d (新規)** | 🟡 skeleton 稼働、ただし description 薄い event は chitchat 判定で saved=0 | chitchat 判定緩和 + Notion AI 議事録 page との連結 |
-| **Slack** | 074b (threads → meeting summary) | ✅ form-encoded 解決、backfill 動作中 (= 3 ヶ月 13 件 saved) | monthsBack=6 で残り月分 backfill |
+| **Slack** | 074b (threads → meeting summary) / PWA `/api/sources/slack/collect` / `ms_progress_review_tool collect-slack` | ✅ source refs 回収まで復旧。active 5 PJ × 202603-202605 を `source_cache(source='slack')` へ backfill 済み | monthsBack=6 自動化 + Slack source refs から各L2抽出への接続強化 |
 | **Notion** | 074 (議事録 DB / AI ページ) | ✅ Phase 4 cron 稼働 | alias resolver 強化 (= `_meeting_resolveProjectIdFromPage_`) |
 
 ---
@@ -42,15 +42,16 @@
 Gmail / Drive / Calendar / Slack / Notion  →  汎用ピックアップ  →  欲しい情報の形に抽出した正本
 ```
 
-- **L1** = 5 生データから「あとで使えそうな素材」をピックアップしただけのもの (例: 過去の `source_cache`、現在は廃止)
+- **L1** = 5 生データから「あとで使えそうな素材」をピックアップしただけのもの (例: 過去の broad `source_cache` 運用、現在は廃止)
 - **L2** = 5 生データから直接「**欲しい情報の形**」で抽出した、AMD OS が中核に持つべきデータ
 
 L1 を経由する構成は廃止された ([progress_estimation.md](progress_estimation.md) の「データフローの現状」参照)。
 **現在は 5 生データ → L2 直接抽出**が正本フロー。
+ただし `source_cache` は、L1正本ではなく **L2抽出に必要な source refs / short snippet / hash の証跡キャッシュ**として使う。Gmail と Slack は PWA API から同じ形で upsert できる。
 
 ---
 
-## 現在のデータフロー (2026-05-16 正本)
+## 現在のデータフロー (2026-05-21 正本)
 
 ```text
 5生データ
@@ -119,7 +120,9 @@ L2データ
 | ③ MS進捗 | 月次モーダル側の revision confirm を使う | revision discard | `l2_feedbacks` / `tsukuyomi_learnings` |
 | ⑦ OS台帳差分 | allowlist 済みの安全な DB 更新を実行 (`project_members`, `projects.report_emails`, `project_partners`) | `project_registry_diffs.status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 | ⑧ XRL根拠 | `project_xrl_evidence.status='confirmed'` | `project_xrl_evidence.status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
-| その他 L2 | 原則、学習/再抽出指示として扱う | 学習/再抽出指示として扱う | `l2_feedbacks` / `tsukuyomi_learnings` |
+| ④ PJナレッジ / ⑤ メンバーナレッジ | `status='active'` | `status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
+| ② AMDプロトコル | `status='active'` | `status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
+| founding members | `status='active'` | `status='invalid'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 
 ### Codex automation outbox 反映
 
@@ -147,15 +150,19 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 | L2 | 意味 | テーブル | cron / 書き込み元 | 場所 | 状態 |
 |---|---|---|---|---|---|
 | ① **monthly report** | PJ 月次レポート本文 | `monthly_reports` | `R313_MonthlyReport_Cron` (05:00 daily) | AMD-Report GAS (別 clasp) | ✅ 稼働 (58 行) |
-| ② **AMDプロトコル** ⭐ | 経営判断の構造化記録 (分岐点 / 判断材料 / アクション / 結果・学習)。**AMD の最重要知財** ([amd_os_vision.md](../../../knowledge/amd_os_vision.md)) | `protocols` | **Phase 4** = 本体GAS 毎時 trigger (`nav_protocol_pollAll` / 155) → `project_meeting_summaries` 二次集約 → Gemini → `protocols` (status='candidate') upsert | 本体GAS `155_L2KnowledgeExtractor.js` + PWA `AdminProtocolsClient.tsx` (UI 既存) | ✅ **Phase 4 稼働 (毎時 polling、二次集約)**。詳細 [amd_protocol.md](amd_protocol.md) |
+| ② **AMDプロトコル** ⭐ | 経営判断の構造化記録 (分岐点 / 判断材料 / アクション / 結果)。結果はアクション後に実際に起きたことを後追いで入れる欄で、自動抽出では空欄。**AMD の最重要知財** ([amd_os_vision.md](../../../knowledge/amd_os_vision.md)) | `protocols` | **Phase 4** = 本体GAS 毎時 trigger (`nav_protocol_pollAll` / 155) → `project_meeting_summaries` 二次集約 → Gemini → `protocols` (status='candidate') upsert | 本体GAS `155_L2KnowledgeExtractor.js` + PWA `AdminProtocolsClient.tsx` (UI 既存) | ✅ **Phase 4 稼働 (毎時 polling、二次集約)**。詳細 [amd_protocol.md](amd_protocol.md) |
 | ③ **MS進捗** | マイルストーン進捗% | `milestone_monthly_progress` | **Phase 4** = 本体GAS 毎時 trigger (`nav_pwa_pingHourlyEstimate` / 154) → PWA `cron/hourly-estimate` を curl → `progress_estimate_state.source_hash` 差分検知 | PWA `app/api/cron/hourly-estimate` + `lib/progress-estimator.ts` + 本体GAS `154_PwaCronCaller.js` | ✅ **Phase 4 稼働 (毎時 polling、Hobby 制約により GAS 経由)**。詳細 [ms_progress.md](ms_progress.md) |
 | ④ **PJナレッジ** | PJ にまつわる事実・人物・組織・進行中事項 | `project_knowledge` | **Phase 4** = 本体GAS 毎時 trigger (`nav_project_knowledge_pollAll` / 155) → `monthly_reports` + `project_meeting_summaries` 二次集約 → Gemini → SELECT/INSERT/PATCH (既存 2024 行を破壊しない) | 本体GAS `155_L2KnowledgeExtractor.js` | ✅ **Phase 4 稼働 (毎時 polling、二次集約)**。詳細 [project_knowledge.md](project_knowledge.md) |
 | ⑤ **メンバーナレッジ** | メンバーごとの強み・スキル・関心 | `member_knowledge` | **Phase 4** = 本体GAS 毎時 trigger (`nav_member_knowledge_pollAll` / 155) → `member_activities` + `project_meeting_summaries` 二次集約 → Gemini → 7 category upsert | 本体GAS `155_L2KnowledgeExtractor.js` | ✅ **Phase 4 稼働 (毎時 polling、二次集約)**。詳細 [member_knowledge.md](member_knowledge.md) |
 | ⑥ **MTGサマリ** | calendar event 1 回ごとの decided/progress/nextActions/risks (PK = calendar event id) | `project_meeting_summaries` | **Phase 3** = 毎時 0 分 polling cron (本体GAS `153_MeetingHourlyTrigger.js` `nav_meeting_pollRecentlyEndedEvents`、過去 60-180 分に終わった events をスキャン) + **Phase 2 fallback** = `nav_cronMonthlyExtractAt3` (本体GAS, 03:00 daily) | 本体GAS `152_NavigatorCron.js` + `153_MeetingHourlyTrigger.js` + `074_MeetingSummaryRepo.js` | ✅ **Phase 3 稼働** (Notion + Gmail 結合)。拾えれば iOS APNs 通知用 `meeting_notifications` テーブル (PK=meeting_id) に upsert (Swift 側受信は別セッション、[ios/HANDOFF_meeting_notifications.md](../../ios/HANDOFF_meeting_notifications.md))。議事録なしマーカー / 抽出空 区別表示。詳細 [meeting_summaries.md](meeting_summaries.md) |
 | ⑦ **OS台帳差分** | 5生データとOS構造データの差分。PJメンバー候補、関係先メール、担当者、契約/期間/スコープ、請求/ステータスなど「OSに反映する?」が必要な候補 | `project_registry_diffs` + `l2_notifications(l2_kind='project_registry_diff')` | Codex automation / future cron: 5生データ → OS snapshot 突合 → pending diff upsert → 通知で採否 | PWA / Codex automation | 🟡 DB・通知・採否UIは本番反映済。抽出器は Codex automation 側で段階実装中。詳細 [project_registry_diffs.md](project_registry_diffs.md) |
-| ⑧ **XRL根拠** | AMD Score / XRL 算定に使う構造化根拠。`project_founding_members` は HRL 根拠、TRL / BRL / GRL / SRL / HRL の観測根拠もここに含める | `project_founding_members`, `project_xrl_evidence`, `project_xrl_log`, `amd_score_inputs.xrl_notes` | `cron/founding-members-extract`, `cron/venture-xrl-refresh`, `cron/amd-score-l2-refresh`, future evidence extractor | PWA | 🟡 `project_founding_members` は稼働済。`project_xrl_evidence` のDB・通知・採否UIは本番反映済、抽出器は未完。詳細 [xrl_evidence.md](xrl_evidence.md) |
+| ⑧ **XRL根拠** | AMD Score / XRL 算定に使う構造化根拠。`project_founding_members` は HRL 根拠で、創業者 / CEO候補 / 技術創業者 / PI など創業コアだけを入れる。VC/協業先/顧客/行政/AMDサポートのみは除外。`projects.project_category='ecosystem'` は対象外 | `project_founding_members`, `project_xrl_evidence`, `project_xrl_log`, `amd_score_inputs.xrl_notes` | `cron/founding-members-extract`, `cron/venture-xrl-refresh`, `cron/amd-score-l2-refresh`, future evidence extractor | PWA | 🟡 `project_founding_members` は稼働済。`project_xrl_evidence` のDB・通知・採否UIは本番反映済、抽出器は未完。詳細 [xrl_evidence.md](xrl_evidence.md) |
 
 **重要**: 5 生データから抽出した結果 = L2 だけ。Atlas / VC ニュース / マクロ index は外部ソース由来なので **L2 ではなく「レポート関連」**カテゴリ。
+
+**通知反映ルール (2026-05-22)**: 通知に出る情報は、通知画面で「はい」を押したものだけが正本反映される。
+GAS 155 の `member_knowledge` / `project_knowledge` は `status='candidate'`、PWA の `founding_members` は `status='tentative'` として保存し、
+「はい」で `active`、 「いいえ」で `rejected` / `invalid` にする。`project_registry_diff` と `project_xrl_evidence` も同じく候補状態から「はい」で apply / confirmed する。
 
 ---
 
@@ -194,7 +201,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **毎時** | `nav_member_knowledge_pollAll` | メンバーナレッジ抽出 (L2 ⑤, **Phase 4**) | 本体GAS (155) |
 | **毎時** | `nav_project_knowledge_pollAll` | PJナレッジ抽出 (L2 ④, **Phase 4**) | 本体GAS (155) |
 | **毎時** | `nav_protocol_pollAll` | AMDプロトコル抽出 (L2 ②, **Phase 4**) | 本体GAS (155) |
-| **03:15** | `cron/venture-xrl-refresh` | XRL根拠 / PJ XRL llm_proposal (L2 ⑧) | PWA |
+| **03:15** | `cron/venture-xrl-refresh` | XRL根拠 / PJ XRL llm_proposal (L2 ⑧)。ecosystem PJは対象外 | PWA |
 | **03:30** | `cron/relearn-lane-weights` | macro lane weights 再学習 | PWA |
 | **03:45** | `cron/venture-narrative-refresh` | PJ 沿革再生成 | PWA |
 | **04:00** | `cron/member-activities` | member_activities 推論 | PWA |
@@ -204,9 +211,10 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **07:00** | `cron/atlas-collect-policy` | 政府方針シグナル | PWA |
 | **08:00** | `cron/atlas-collect` | **停止済み**。旧マクロニュース収集 | PWA |
 | **08:10** | Codex automation `AMD Atlas外部シグナルレビュー` | subscription 枠で外部マクロシグナル収集 → outbox → ローカル非LLM applier → `/api/atlas/signals-ingest` に投入 | Codex automation + PWA |
+| **18:00 daily** | `cron/member-weekly-activities` | Gmail / 共有メンバーカレンダー / source_cache → member_activities(source='member_weekly')。前日18:00〜当日18:00の24hを抽出 | PWA |
 | **土 09:00** | `cron/vc-discover` | VC ニュース + 新規 VC 発見 (weekly) | PWA |
 | **mon 03:00** | `cron/amd-score-l2-refresh` | AMD Score / XRL根拠リフレッシュ (L2 ⑧) | PWA |
-| **月初 03:00 (1日 18:00 UTC)** | `cron/frl-grit-resilience-extract` | 全 active PJ × 過去 3 ヶ月 monthly_reports + meeting_summaries 集約 → Sonnet 4.6 で frl_grit (Duckworth 2007) / frl_resilience (Markman 2005) を 0-9 推定 → amd_score_inputs に upsert。prompt = `llm_prompts.frl.grit_resilience.extract` (v2、外部創業者優先 / null 厳格化) | PWA |
+| **月初 03:00 (1日 18:00 UTC)** | `cron/frl-grit-resilience-extract` | ecosystemを除くactive PJ × 過去 3 ヶ月 monthly_reports + meeting_summaries 集約 → Sonnet 4.6 で frl_grit (Duckworth 2007) / frl_resilience (Markman 2005) を 0-9 推定 → 既存amd_score_inputsをupdate。prompt = `llm_prompts.frl.grit_resilience.extract` (v2、外部創業者優先 / null 厳格化) | PWA |
 | **月初 04:00 (1日 19:00 UTC)** | `cron/macro-aggregate-indicators` | observation_log (kaken/grant → budget_amount, vc/vc_investment → investment_amount) + atlas_signals (ATL domain → ASPI lane mapping → policy_mention_count / raw_signal_count) を lane × month で集計 → macro_index_log の P 以外列を update。?since=YYYY-MM 指定可、デフォルト過去 36 ヶ月 | PWA |
 | **mon 04:30** | `cron/triple-helix-recompute` | BVAR Kalman smoother で μ_A/I/G 推定 (Phase 3) | PWA |
 | **daily 04:00 (未 cron 化、手動キック)** | `cron/sync-pj-facts` | project_ventures → project_knowledge.basic_fact 同期 (founded_at / outcome_pattern / amd_support_*) | PWA |
@@ -325,6 +333,9 @@ Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検�
 | 2026-05-09 | **通知 UI 改善**: `/notifications` の既読は折りたたみトグル (default closed)、開いた瞬間 `notified_at = now()` PATCH (即既読化)、グループ分けは server 値固定で開いてもセッション内は未読セクションに残る (= 中身読める)。GlobalNav に 📬 ベル + 未読バッジ、Dashboard に通知バナー |
 | 2026-05-11 | **Slack backfill 074b form-encoded 化** (gas/074b): `slack_callApi` の JSON body で `conversations.replies` が `invalid_arguments` を返す問題が真因。074b 専用 `_meeting_slack_callForm_` で form-encoded helper を新規、history / replies 両方をこれ経由に。3 PJ × 過去 3 ヶ月で saved=13 達成。`project_meeting_summaries.source_url` 列追加 (migration 052) |
 | 2026-05-12 | **5 生データ backfill skeleton 完成** (074c/074d/074e): `meeting_extract.{drive,calendar,gmail}` を migration 054 で seed + 各 GAS ファイルに backfill 関数。GAS v1462 deploy 済。動作確認: Drive folder_id 取得 OK / Calendar events 1-12 件取得 (saved 0 = chitchat 判定) / Gmail 3 件 saved ✅ |
+| 2026-05-21 | **Slack source refs 回収導線をPWAに追加**: `/api/sources/slack/collect` と `ms_progress_review_tool collect-slack` を追加。Slack channel history + thread replies を `source_cache(source='slack')` に upsertし、`metadata_json.source_url` に permalink、`text_sha256` に本文hashを保持。MS revision evidence は Gmail 固定をやめ、Slack/Drive/Calendar/Notion を含む `source_cache` 全sourceを見るよう修正。`cron/member-activities` も source_cache refs を入力に追加。active 5 PJ (CTB/SE/ZMP/CX/SX) × 202603-202605 を backfill 済み。p21/SX は source refs込みで `member_activities` も再抽出済み。source refs 取り込み自体は通知しない。通知はOS表示データ・台帳・L2正本に差分が出た時だけ作る。 |
+| 2026-05-21 | **ZMP過去月の進捗イベントbackfill**: ZMP (`p19`) `202601` は `source_cache=14`, `monthly_reports=1`, `project_meeting_summaries=2` があるのに `member_activities=0` で、月次モーダルの進捗イベントが0件だった。原因は source refs 拡張後に過去月 `202601-202603` の `cron/member-activities` backfillが未実行だったこと。production cronを `projectId=p19` 指定で手動実行し、`202601=11`, `202602=12`, `202603=9` 件を保存済み。 |
+| 2026-05-21 | **メンバー週次活動抽出**: `/api/cron/member-weekly-activities` を追加。Gmail / OSから読める共有メンバーカレンダー / source_cache から活動を抽出し、member emailはメンバー特定だけに使い、PJ判定はPJ専用/関係先email・PJ名・client名で行う。Google Calendar共有はログイン時に `calendar.readonly` 必須scopeとして確認し、`/admin/members` に `members.google_calendar_status` と `last_login_at` を表示。毎日18:00 JSTに前日18:00〜当日18:00の24hを抽出する。`member_activities(source='member_weekly')` に保存し、`/mypage` は今週やったこととして表示、既存member_activities入力のL2にも利用できる。 |
 | 2026-05-12 | **「📑 全 PJ 紹介資料作成」機能完成** (3 ラウンド試行錯誤後): 雛形 `AMD_allPJ_introduction.html` の 04 CHALLENERGY section を Chrome MCP + POST server で抽出 → template literal で一字一句コピー + Sonnet 4.5 で 1 PJ ごと JSON 集約 (= migration 055 で `exec_summary.extract` seed)。`/api/admin/pj-introduction-html` + `src/lib/exec_summary/template.{html,css}` + `next.config.ts outputFileTracingIncludes` |
 | 2026-05-12 | **進捗イベント抽出ロジック見直し** が次セッションの最重要課題に: 「先手力」表示は復活したが、そもそも events が 0 件の PJ-月が多い (= EventsSection で「イベントデータなし」)。`progress_events` 系の cron / 抽出ロジック側の再点検が必要 |
 | 2026-05-12 | **マクロ係数 P 以外列の集計 + 4 lane 欠落修復 + FRL grit/resilience LLM 推定 cron 新規** (blissful-robinson-8e462a #2): まさ「マクロ係数 P 以外 0 件、件数増やせる設計に」「FRL grit/resilience も 0 のまま」(過去複数回指摘済の TODO がやっと解決)。**真因 1 (lane 軸)** = macro-backfill-historical が 1 lane × 16 年 = 1 prompt で 180 オブジェクト要求 → LLM が JSON 途中切断で silent continue → 4 lane (advanced_ict/ai_technologies/quantum/sensing_timing_navigation) が 0 件。**真因 2 (列軸)** = macro_index_log の 6 列のうち policy_density のみ Sonnet 推定で入って budget/investment/mention/raw_signal_count が全 786 行 0、集計 cron 自体が無かった。**真因 3 (FRL)** = 列は migration 031 で追加済だが推定 cron 無く全 100 行 NULL。**対応**: (a) macro-backfill chunk 化 (1 lane × 4 年 × 4 回 = 16 prompts、retry 2 回、chunk 単位の成否を return JSON に含めて silent fail 排除) で 4 lane × 192 件 = 768 件補完、(b) 新 cron `cron/macro-aggregate-indicators` (= 月初 04:00 JST、observation_log + atlas_signals を lane × month で集計 → budget/investment/mention/signal_count を update 129 行 + insert 14 行)、(c) migration 058/059 で `llm_prompts.frl.grit_resilience.extract` seed (= Duckworth 2007 / Markman 2005 の 0-9 判定基準 + 「外部創業者を優先評価、AMD は伴走」明示) + 新 cron `cron/frl-grit-resilience-extract` (= 月初 03:00 JST、過去 3 ヶ月 monthly_reports + meeting_summaries 集約 → Sonnet で 0-9 推定 + reasoning 引用付き)。**動作確認**: macro 列 budget=¥9972 億 / investment=¥1963 億 / signal=286 件 / mention=82 件、FRL 5 PJ で grit/resilience = (神谷 7/6, 杉浦 7/6, 丸島 6/6, 神谷 5/6, 山地 4/5)。**事故**: 初版で cron が project_founding_members.organization 列を SELECT していたが該当列無し (= affiliation が正解) → PostgREST で空配列 → LLM「creator 未抽出」で null。修正版で affiliation + role_label_jp + category 経由に修正、prompt v2 で「creator 一覧空でも本文推定可」を明示 |

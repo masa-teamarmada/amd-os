@@ -24,16 +24,9 @@ interface BudgetData {
   budgetReportedBy: string | null;
   budgetConfirmedAt: string | null;
   budgetYen: number | null;
-  memberAllocationsJson: Record<string, number> | null;
   projectName: string | null;
   feeType: string | null;
   feeAmount: number | null;
-}
-
-interface Member {
-  memberId: string;
-  codeName: string | null;
-  email: string | null;
 }
 
 const supabase = createClient();
@@ -75,7 +68,7 @@ async function fetchBudget(projectId: string, ym: string): Promise<BudgetData> {
     supabase
       .from("billing_cycles")
       .select(
-        "status, budget_reported_amount, budget_buffer_amount, budget_reported_at, budget_reported_by, budget_confirmed_at, budget_yen, member_allocations_json"
+        "status, budget_reported_amount, budget_buffer_amount, budget_reported_at, budget_reported_by, budget_confirmed_at, budget_yen"
       )
       .eq("project_id", projectId)
       .eq("ym", ym)
@@ -93,31 +86,10 @@ async function fetchBudget(projectId: string, ym: string): Promise<BudgetData> {
     budgetReportedBy: c?.budget_reported_by ?? null,
     budgetConfirmedAt: c?.budget_confirmed_at ?? null,
     budgetYen: c?.budget_yen ?? null,
-    memberAllocationsJson: (c?.member_allocations_json as Record<string, number> | null) ?? null,
     projectName: p?.project_name ?? null,
     feeType: p?.fee_type ?? null,
     feeAmount: p?.fee_amount ?? null,
   };
-}
-
-async function fetchMembers(projectId: string): Promise<Member[]> {
-  const { data: pmRows } = await supabase
-    .from("project_members")
-    .select("member_id")
-    .eq("project_id", projectId)
-    .eq("is_active", true);
-  const memberIds = (pmRows || []).map((r: { member_id: string }) => r.member_id);
-  if (memberIds.length === 0) return [];
-  const { data: members } = await supabase
-    .from("members")
-    .select("member_id, code_name, email")
-    .in("member_id", memberIds)
-    .order("member_id");
-  return (members || []).map((m: { member_id: string; code_name: string | null; email: string | null }) => ({
-    memberId: m.member_id,
-    codeName: m.code_name,
-    email: m.email,
-  }));
 }
 
 async function fetchPreviousInvoiceAmount(projectId: string, currentYm: string): Promise<number | null> {
@@ -138,12 +110,10 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<BudgetData | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
   const [prevInvoice, setPrevInvoice] = useState<number | null>(null);
 
   const [invoiceText, setInvoiceText] = useState("");
   const [bufferText, setBufferText] = useState("");
-  const [allocationTexts, setAllocationTexts] = useState<Record<string, string>>({});
   const [showEditArea, setShowEditArea] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
@@ -160,10 +130,9 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
 
     (async () => {
       try {
-        const [b, m] = await Promise.all([fetchBudget(projectId, ym), fetchMembers(projectId)]);
+        const b = await fetchBudget(projectId, ym);
         if (cancelled) return;
         setData(b);
-        setMembers(m);
 
         const isMonthlyFixed = (b.feeType || "").toLowerCase() === "monthly_fixed";
         const prev = isMonthlyFixed ? null : await fetchPreviousInvoiceAmount(projectId, ym);
@@ -185,16 +154,6 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
           setInvoiceText("");
           setBufferText("");
         }
-
-        if (b.memberAllocationsJson) {
-          const map: Record<string, string> = {};
-          Object.entries(b.memberAllocationsJson).forEach(([k, v]) => {
-            map[k] = String(v);
-          });
-          setAllocationTexts(map);
-        } else {
-          setAllocationTexts(Object.fromEntries(m.map((mm) => [mm.memberId, ""])));
-        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -210,17 +169,11 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
   const invoiceAmount = Number(invoiceText) || 0;
   const bufferAmount = Number(bufferText) || 0;
   const pjBudget = calcPjBudget(invoiceAmount, bufferAmount);
-  const allocationTotal = Object.values(allocationTexts).reduce((s, v) => s + (Number(v) || 0), 0);
-  const allocationDiff = allocationTotal - pjBudget;
-  const allocationDiffLabel =
-    allocationDiff === 0
-      ? "ぴったり ✓"
-      : (allocationDiff > 0 ? "+" : "−") + fmtYen(Math.abs(allocationDiff));
-
-  const memberDisplayName = (memberId: string) =>
-    members.find((m) => m.memberId === memberId)?.codeName || memberId;
 
   const isMonthlyFixed = (data?.feeType || "").toLowerCase() === "monthly_fixed";
+  const fixedInvoiceAmount = isMonthlyFixed && data?.feeAmount && data.feeAmount > 0
+    ? Math.round(data.feeAmount)
+    : null;
   const invoicePlaceholder = isMonthlyFixed && data?.feeAmount
     ? `${Math.round(data.feeAmount)}`
     : prevInvoice && prevInvoice > 0
@@ -237,19 +190,14 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
     try {
       const { data: userData } = await supabase.auth.getUser();
       const byEmail = userData.user?.email || "";
-      const allocations: Record<string, number> = {};
-      Object.entries(allocationTexts).forEach(([k, v]) => {
-        const n = Number(v) || 0;
-        if (n > 0) allocations[k] = n;
-      });
       const body: Record<string, unknown> = {
         status: "reported",
         budget_reported_amount: invoiceAmount,
         budget_buffer_amount: bufferAmount,
         budget_reported_at: new Date().toISOString(),
         budget_reported_by: byEmail,
+        member_allocations_json: null,
       };
-      if (Object.keys(allocations).length > 0) body.member_allocations_json = allocations;
       const { error: updateError } = await supabase
         .from("billing_cycles")
         .update(body)
@@ -343,16 +291,6 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                 )}
                 <InfoRow label="PJ予算（承認額）" value={fmtYen(data.budgetYen)} />
                 <InfoRow label="承認日時" value={fmtDate(data.budgetConfirmedAt)} />
-                {data.memberAllocationsJson && Object.keys(data.memberAllocationsJson).length > 0 && (
-                  <div className="pt-1 border-t border-emerald-200 mt-1">
-                    <div className="text-xs text-emerald-700 mb-1">メンバー配賦額</div>
-                    {Object.entries(data.memberAllocationsJson)
-                      .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([memberId, amount]) => (
-                        <InfoRow key={memberId} label={memberDisplayName(memberId)} value={fmtYen(amount)} />
-                      ))}
-                  </div>
-                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -379,16 +317,6 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                   />
                   <InfoRow label="申告日時" value={fmtDate(data.budgetReportedAt)} />
                   <InfoRow label="申告者" value={data.budgetReportedBy || "—"} />
-                  {data.memberAllocationsJson && Object.keys(data.memberAllocationsJson).length > 0 && (
-                    <div className="pt-1 border-t border-orange-200 mt-1">
-                      <div className="text-xs text-orange-700 mb-1">メンバー配賦額</div>
-                      {Object.entries(data.memberAllocationsJson)
-                        .sort(([a], [b]) => a.localeCompare(b))
-                        .map(([memberId, amount]) => (
-                          <InfoRow key={memberId} label={memberDisplayName(memberId)} value={fmtYen(amount)} />
-                        ))}
-                    </div>
-                  )}
                 </section>
 
                 <div className="flex gap-2 text-xs">
@@ -397,9 +325,18 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                     onClick={() => {
                       setShowEditArea((v) => !v);
                       if (!showEditArea) {
-                        setInvoiceText("");
-                        setBufferText("");
-                        setAllocationTexts(Object.fromEntries(members.map((m) => [m.memberId, ""])));
+                        setInvoiceText(
+                          data.budgetReportedAmount && data.budgetReportedAmount > 0
+                            ? String(Math.round(data.budgetReportedAmount))
+                            : fixedInvoiceAmount
+                              ? String(fixedInvoiceAmount)
+                              : ""
+                        );
+                        setBufferText(
+                          data.budgetBufferAmount && data.budgetBufferAmount > 0
+                            ? String(Math.round(data.budgetBufferAmount))
+                            : ""
+                        );
                       }
                     }}
                     className="text-muted-foreground hover:text-foreground"
@@ -422,7 +359,15 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
             {(!isConfirmed && !isReported) || (isReported && showEditArea) ? (
               <div className="space-y-4">
                 <section className="space-y-3">
-                  <h3 className="text-sm font-semibold">今月の請求額と配賦額を申告</h3>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-semibold">
+                      {fixedInvoiceAmount ? `今月も${fmtYen(fixedInvoiceAmount)}でおけ？` : "今月の請求額を申告"}
+                    </h3>
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      メンバー別の支払額は、月次モーダルのMS進捗と担当ptから自動計算するよ。
+                      ここではクライアントへの請求額だけ確認する。
+                    </p>
+                  </div>
                   <div className="space-y-1">
                     <Label htmlFor="invoice-amount" className="text-xs text-muted-foreground">
                       請求額（税抜）
@@ -475,59 +420,13 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                   )}
                 </section>
 
-                {members.length > 0 && (
-                  <section className="rounded-lg bg-muted/30 p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold">メンバー配賦額</h3>
-                      <span className="text-[10px] text-muted-foreground/70">メンバー間で合意した金額を入力</span>
-                    </div>
-                    {members.map((member) => (
-                      <div key={member.memberId} className="flex items-center gap-2">
-                        <span className="text-sm w-16 truncate">{member.codeName || member.memberId}</span>
-                        <Input
-                          type="text"
-                          inputMode="numeric"
-                          value={allocationTexts[member.memberId] || ""}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) =>
-                            setAllocationTexts((prev) => ({
-                              ...prev,
-                              [member.memberId]: e.target.value.replace(/\D/g, ""),
-                            }))
-                          }
-                          className="flex-1"
-                        />
-                        <span className="text-sm text-muted-foreground">円</span>
-                      </div>
-                    ))}
-                    {allocationTotal > 0 && invoiceAmount > 0 && (
-                      <div
-                        className={`rounded-md p-2 space-y-1 ${
-                          allocationDiff === 0 ? "bg-emerald-50 border border-emerald-200" : "bg-orange-50 border border-orange-200"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">配賦合計</span>
-                          <span className="font-medium">{fmtYen(allocationTotal)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">PJ予算との差</span>
-                          <span
-                            className={`font-medium ${
-                              allocationDiff === 0 ? "text-emerald-700" : "text-orange-700"
-                            }`}
-                          >
-                            {allocationDiffLabel}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </section>
-                )}
-
                 <div className="flex flex-col gap-2">
                   <Button onClick={submit} disabled={submitting || !invoiceText}>
-                    {submitting ? "申告中..." : "📨 PLに確認依頼する"}
+                    {submitting
+                      ? "申告中..."
+                      : fixedInvoiceAmount && invoiceAmount === fixedInvoiceAmount
+                        ? `${fmtYen(fixedInvoiceAmount)}でPLに確認依頼する`
+                        : "PLに確認依頼する"}
                   </Button>
                 </div>
               </div>
@@ -550,7 +449,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
             <div className="bg-background rounded-xl p-4 w-full max-w-sm space-y-3 shadow-xl">
               <h3 className="font-semibold">予算を取り下げますか？</h3>
               <p className="text-xs text-muted-foreground">
-                申告・承認・配賦額がすべてクリアされ、未申告状態に戻ります。
+                申告・承認額がクリアされ、未申告状態に戻ります。
               </p>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" size="sm" onClick={() => setShowWithdrawConfirm(false)} disabled={withdrawing}>

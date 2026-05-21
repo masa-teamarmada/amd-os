@@ -36,6 +36,7 @@ async function inferForProject(
     .select("final_content, draft_content")
     .eq("project_id", projectId)
     .eq("ym", ym)
+    .neq("status", "invalid")
     .limit(1);
 
   const report = reports?.[0];
@@ -157,8 +158,8 @@ export async function POST(req: NextRequest) {
   if (body.projectId) {
     projectIds = [body.projectId];
   } else {
-    const { data: projects } = await supabase
-      .from("projects").select("project_id").eq("status", "active");
+	    const { data: projects } = await supabase
+	      .from("projects").select("project_id").or("status.eq.active,project_category.eq.advisor");
     projectIds = (projects ?? []).map((p: { project_id: string }) => p.project_id);
   }
 

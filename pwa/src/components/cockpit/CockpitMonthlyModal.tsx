@@ -36,14 +36,21 @@ interface RewardMember {
   bonusPt: number;
   totalPay: number;
   cappedFrom?: number;
+  carryInYen?: number;
+  deferredYen?: number;
+  grossDueYen?: number;
+  stockYen?: number;
   breakdown: RewardBreakdown[];
 }
 
 interface RewardSummary {
-  capped?: boolean;
   ptUnit?: number;
-  carryOverYen?: number;
   totalPaySum?: number;
+  totalGrossDueYen?: number;
+  capBudgetYen?: number;
+  capped?: boolean;
+  carryInYen?: number;
+  carryOverYen?: number;
   monthlyBudget65?: number;
   members: RewardMember[];
 }
@@ -120,6 +127,11 @@ interface UnconfirmedEstimate {
 
 interface ProgressEvent {
   eventId: string;
+  memberId?: string | null;
+  milestoneId?: string | null;
+  title?: string | null;
+  contentPreview?: string | null;
+  itemDate?: string | null;
   eventTitle: string;
   eventDescription?: string;
   status: string;
@@ -183,6 +195,8 @@ interface MsRevision {
   messages: MsRevisionMessage[];
 }
 
+type MonthlyModalTab = "reward" | "report" | "invoice";
+
 interface Props {
   ym: string;
   projectId: string;
@@ -197,6 +211,9 @@ interface Props {
   msActivities?: MemberMsActivityInfo[];
   memberActivities?: MemberActivityInfo[];
   currentYm: string;
+  initialTab?: MonthlyModalTab;
+  projectFeeType?: string | null;
+  projectFeeAmount?: number | null;
   onProgressSaved?: (patches: ProgressInfo[]) => void;
   onClose: () => void;
 }
@@ -206,6 +223,20 @@ interface Props {
 function formatYm(ym: string) {
   if (!ym || ym.length < 6) return ym;
   return `${ym.slice(0, 4)}/${ym.slice(4)}`;
+}
+
+function formatYenValue(value: number | null | undefined) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  return `¥${Math.round(n).toLocaleString("ja-JP")}`;
+}
+
+function formatSignedYenValue(value: number | null | undefined) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return "—";
+  const rounded = Math.round(n);
+  if (rounded < 0) return `-¥${Math.abs(rounded).toLocaleString("ja-JP")}`;
+  return `¥${rounded.toLocaleString("ja-JP")}`;
 }
 
 function formatDate(iso: string | null): string {
@@ -230,6 +261,50 @@ function prevYmStr(ym: string): string {
   const pm = m === 1 ? 12 : m - 1;
   const py = m === 1 ? y - 1 : y;
   return `${py}${String(pm).padStart(2, "0")}`;
+}
+
+function cycleMonthCount(planCycle: PlanCycleShape | null): number {
+  if (!planCycle) return 1;
+  return Math.max(1, ymToMonths(planCycle.periodEndYm) - ymToMonths(planCycle.periodStartYm) + 1);
+}
+
+function deriveRewardBudgetForPt({
+  billing,
+  planCycle,
+  projectFeeType,
+  projectFeeAmount,
+}: {
+  billing?: Billing | null;
+  planCycle: PlanCycleShape | null;
+  projectFeeType?: string | null;
+  projectFeeAmount?: number | null;
+}): number {
+  if (planCycle?.budgetYen && planCycle.budgetYen > 0) return planCycle.budgetYen;
+  if ((projectFeeType || "").toLowerCase() === "monthly_fixed" && projectFeeAmount && projectFeeAmount > 0) {
+    return Math.round(projectFeeAmount * 0.65 * cycleMonthCount(planCycle));
+  }
+  return billing?.budgetYen && billing.budgetYen > 0 ? billing.budgetYen : 0;
+}
+
+function deriveMonthlyRewardBudget({
+  billing,
+  planCycle,
+  projectFeeType,
+  projectFeeAmount,
+}: {
+  billing?: Billing | null;
+  planCycle: PlanCycleShape | null;
+  projectFeeType?: string | null;
+  projectFeeAmount?: number | null;
+}): number {
+  if (billing?.budgetYen && billing.budgetYen > 0) return Math.round(billing.budgetYen);
+  if ((projectFeeType || "").toLowerCase() === "monthly_fixed" && projectFeeAmount && projectFeeAmount > 0) {
+    return Math.round(projectFeeAmount * 0.65);
+  }
+  if (planCycle?.budgetYen && planCycle.budgetYen > 0) {
+    return Math.round(planCycle.budgetYen / cycleMonthCount(planCycle));
+  }
+  return 0;
 }
 
 function computeExpectedPct(planCycle: PlanCycleShape, ym: string): number {
@@ -269,6 +344,244 @@ function buildEffectiveConsumedMap(progress: ProgressInfo[], milestones: Milesto
     map.set(ms.milestoneId, latestProgressBefore(progress, ms.milestoneId, ym)?.consumedPt || 0);
   }
   return map;
+}
+
+function monthRangeUntil(planCycle: PlanCycleShape | null, targetYm: string): string[] {
+  if (!planCycle?.periodStartYm || planCycle.periodStartYm > targetYm) return [targetYm];
+  const start = ymToMonths(planCycle.periodStartYm);
+  const end = ymToMonths(targetYm);
+  const months: string[] = [];
+  for (let i = start; i <= end; i += 1) {
+    const y = Math.floor(i / 12);
+    const m = (i % 12) + 1;
+    months.push(`${y}${String(m).padStart(2, "0")}`);
+  }
+  return months.length > 0 ? months : [targetYm];
+}
+
+function buildCarryOnlyReward(memberMap: Record<string, string>, carryStock: Map<string, number>, ptUnit: number): RewardSummary | null {
+  const members = Array.from(carryStock.entries())
+    .filter(([, amount]) => amount > 0)
+    .map(([memberId, amount]) => ({
+      memberId,
+      memberName: memberMap[memberId] || memberId,
+      earnedPt: 0,
+      basePay: 0,
+      bonusPt: 0,
+      totalPay: 0,
+      carryInYen: Math.round(amount),
+      grossDueYen: Math.round(amount),
+      breakdown: [],
+    }));
+  if (members.length === 0) return null;
+  return { ptUnit, totalPaySum: 0, members };
+}
+
+function applyRewardCapForMonth(
+  reward: RewardSummary,
+  capBudgetYen: number,
+  carryStock: Map<string, number>
+): RewardSummary {
+  const cap = Math.round(Number(capBudgetYen || 0));
+  const membersWithGross = reward.members.map((member) => {
+    const currentEarned = Math.round(member.totalPay || member.basePay || 0);
+    const carryIn = Math.round(carryStock.get(member.memberId) || member.carryInYen || 0);
+    const grossDue = Math.max(0, currentEarned + carryIn);
+    return {
+      ...member,
+      basePay: Math.round(member.basePay || currentEarned),
+      carryInYen: carryIn,
+      grossDueYen: grossDue,
+      totalPay: currentEarned,
+    };
+  });
+
+  const totalGrossDue = membersWithGross.reduce((sum, member) => sum + (member.grossDueYen || 0), 0);
+  const carryInTotal = membersWithGross.reduce((sum, member) => sum + (member.carryInYen || 0), 0);
+  if (cap <= 0 || totalGrossDue <= cap) {
+    const paidMembers = membersWithGross.map((member) => ({
+      ...member,
+      totalPay: member.grossDueYen || 0,
+      deferredYen: 0,
+      stockYen: 0,
+    }));
+    return {
+      ...reward,
+      members: paidMembers,
+      totalPaySum: paidMembers.reduce((sum, member) => sum + member.totalPay, 0),
+      totalGrossDueYen: totalGrossDue,
+      capBudgetYen: cap,
+      capped: false,
+      carryInYen: carryInTotal,
+      carryOverYen: 0,
+      monthlyBudget65: cap,
+    };
+  }
+
+  let remainingCap = cap;
+  let remainingGross = totalGrossDue;
+  const paidMembers = membersWithGross.map((member, index) => {
+    const grossDue = member.grossDueYen || 0;
+    const isLast = index === membersWithGross.length - 1;
+    const proportional = remainingGross > 0 ? Math.round((remainingCap * grossDue) / remainingGross) : 0;
+    const paid = Math.min(grossDue, Math.max(0, isLast ? remainingCap : proportional));
+    remainingCap -= paid;
+    remainingGross -= grossDue;
+    const deferred = Math.max(0, grossDue - paid);
+    return {
+      ...member,
+      cappedFrom: grossDue,
+      totalPay: paid,
+      deferredYen: deferred,
+      stockYen: deferred,
+    };
+  });
+
+  return {
+    ...reward,
+    members: paidMembers,
+    totalPaySum: paidMembers.reduce((sum, member) => sum + member.totalPay, 0),
+    totalGrossDueYen: totalGrossDue,
+    capBudgetYen: cap,
+    capped: true,
+    carryInYen: carryInTotal,
+    carryOverYen: paidMembers.reduce((sum, member) => sum + (member.stockYen || 0), 0),
+    monthlyBudget65: cap,
+  };
+}
+
+function buildRewardPreviewUncapped({
+  ym,
+  milestones,
+  progress,
+  responsibilities,
+  memberMap,
+  billing,
+  planCycle,
+  projectFeeType,
+  projectFeeAmount,
+}: {
+  ym: string;
+  milestones: MilestoneInfo[];
+  progress: ProgressInfo[];
+  responsibilities: Responsibility[];
+  memberMap: Record<string, string>;
+  billing: Billing;
+  planCycle: PlanCycleShape | null;
+  projectFeeType?: string | null;
+  projectFeeAmount?: number | null;
+}): RewardSummary | null {
+  if (milestones.length === 0 || responsibilities.length === 0) return null;
+
+  const prevYm = prevYmStr(ym);
+  const prevConsumedMap = buildEffectiveConsumedMap(progress, milestones, prevYm);
+  const currConsumedMap = buildEffectiveConsumedMap(progress, milestones, ym);
+  const msById = new Map(milestones.map((ms) => [ms.milestoneId, ms]));
+  const totalPt = planCycle?.totalPoints || milestones.reduce((sum, ms) => sum + ms.points, 0);
+  const payoutBudget = deriveRewardBudgetForPt({ billing, planCycle, projectFeeType, projectFeeAmount });
+  const ptUnit = totalPt > 0 ? Math.round(payoutBudget / totalPt) : 0;
+  const memberPt = new Map<string, number>();
+  const memberBreakdown = new Map<string, RewardBreakdown[]>();
+
+  for (const ms of milestones) {
+    const curr = currConsumedMap.get(ms.milestoneId) || 0;
+    const prev = prevConsumedMap.get(ms.milestoneId) || 0;
+    const msConsumedPt = Math.round(Math.max(0, curr - prev) * 100) / 100;
+    if (msConsumedPt <= 0) continue;
+
+    const resps = responsibilities.filter((resp) => resp.milestoneId === ms.milestoneId && resp.share > 0);
+    for (const resp of resps) {
+      const earnedPt = Math.round(msConsumedPt * resp.share * 100) / 100;
+      memberPt.set(resp.memberId, (memberPt.get(resp.memberId) || 0) + earnedPt);
+      const list = memberBreakdown.get(resp.memberId) || [];
+      list.push({
+        msKey: ms.milestoneId,
+        title: msById.get(ms.milestoneId)?.title || ms.title,
+        msConsumedPt,
+        share: resp.share,
+        earnedPt,
+      });
+      memberBreakdown.set(resp.memberId, list);
+    }
+  }
+
+  const members = Array.from(memberPt.entries())
+    .map(([memberId, earned]) => {
+      const earnedPt = Math.round(earned * 100) / 100;
+      const basePay = Math.round(earnedPt * ptUnit);
+      return {
+        memberId,
+        memberName: memberMap[memberId] || memberId,
+        earnedPt,
+        basePay,
+        bonusPt: 0,
+        totalPay: basePay,
+        breakdown: memberBreakdown.get(memberId) || [],
+      };
+    })
+    .filter((member) => member.earnedPt > 0)
+    .sort((a, b) => b.earnedPt - a.earnedPt);
+
+  if (members.length === 0) return null;
+
+  return {
+    ptUnit,
+    totalPaySum: members.reduce((sum, member) => sum + member.totalPay, 0),
+    members,
+  };
+}
+
+function buildRewardPreview({
+  ym,
+  milestones,
+  progress,
+  responsibilities,
+  memberMap,
+  billing,
+  planCycle,
+  projectFeeType,
+  projectFeeAmount,
+}: {
+  ym: string;
+  milestones: MilestoneInfo[];
+  progress: ProgressInfo[];
+  responsibilities: Responsibility[];
+  memberMap: Record<string, string>;
+  billing: Billing;
+  planCycle: PlanCycleShape | null;
+  projectFeeType?: string | null;
+  projectFeeAmount?: number | null;
+}): RewardSummary | null {
+  const monthlyCap = deriveMonthlyRewardBudget({ billing, planCycle, projectFeeType, projectFeeAmount });
+  const totalPt = planCycle?.totalPoints || milestones.reduce((sum, ms) => sum + ms.points, 0);
+  const payoutBudget = deriveRewardBudgetForPt({ billing, planCycle, projectFeeType, projectFeeAmount });
+  const ptUnit = totalPt > 0 ? Math.round(payoutBudget / totalPt) : 0;
+  const carryStock = new Map<string, number>();
+  let result: RewardSummary | null = null;
+
+  for (const month of monthRangeUntil(planCycle, ym)) {
+    const uncapped = buildRewardPreviewUncapped({
+      ym: month,
+      milestones,
+      progress,
+      responsibilities,
+      memberMap,
+      billing,
+      planCycle,
+      projectFeeType,
+      projectFeeAmount,
+    }) || buildCarryOnlyReward(memberMap, carryStock, ptUnit);
+
+    if (!uncapped) continue;
+    const capped = applyRewardCapForMonth(uncapped, monthlyCap, carryStock);
+    carryStock.clear();
+    for (const member of capped.members) {
+      if ((member.stockYen || 0) > 0) carryStock.set(member.memberId, member.stockYen || 0);
+    }
+    if (month === ym) result = capped;
+  }
+
+  return result;
 }
 
 function normalizeTextForMatch(text: string) {
@@ -379,11 +692,14 @@ export function CockpitMonthlyModal({
   msActivities = [],
   memberActivities = [],
   currentYm,
+  initialTab,
+  projectFeeType,
+  projectFeeAmount,
   onProgressSaved,
   onClose,
 }: Props) {
-  const [tab, setTab] = useState<"reward" | "report" | "invoice">(() =>
-    !billing && report ? "report" : "reward"
+  const [tab, setTab] = useState<MonthlyModalTab>(() =>
+    initialTab || (!billing && report ? "report" : "reward")
   );
 
   // 総合進捗（シグナル計算用）
@@ -453,6 +769,8 @@ export function CockpitMonthlyModal({
             memberActivities={memberActivities}
             currentYm={currentYm}
             expectedPct={expectedPct}
+            projectFeeType={projectFeeType}
+            projectFeeAmount={projectFeeAmount}
             onProgressSaved={onProgressSaved}
           />
         )}
@@ -484,6 +802,8 @@ function RewardTab({
   memberActivities,
   currentYm,
   expectedPct,
+  projectFeeType,
+  projectFeeAmount,
   onProgressSaved,
 }: {
   billing: Billing | null;
@@ -500,6 +820,8 @@ function RewardTab({
   memberActivities: MemberActivityInfo[];
   currentYm: string;
   expectedPct: number | null;
+  projectFeeType?: string | null;
+  projectFeeAmount?: number | null;
   onProgressSaved?: (patches: ProgressInfo[]) => void;
 }) {
   const [localProgress, setLocalProgress] = useState<ProgressInfo[]>(progress);
@@ -655,8 +977,8 @@ function RewardTab({
   };
 
   // 進捗イベント取得（展開時）
-  const loadEvents = async () => {
-    if (events !== null) return;
+  const loadEvents = async (force = false) => {
+    if (!force && events !== null) return;
     setEventsLoading(true);
     try {
       const res = await fetch(`/api/progress/events?projectId=${projectId}&ym=${ym}`);
@@ -981,9 +1303,28 @@ function RewardTab({
   const overallPct = Math.round(weightedPct);
 
   // ptUnit 計算
-  const planPtUnit = planCycle && planCycle.totalPoints > 0
-    ? Math.round(planCycle.budgetYen / planCycle.totalPoints)
+  const rewardBudgetForPt = deriveRewardBudgetForPt({ billing, planCycle, projectFeeType, projectFeeAmount });
+  const monthlyRewardBudget = deriveMonthlyRewardBudget({ billing, planCycle, projectFeeType, projectFeeAmount });
+  const planPtUnit = planCycle && planCycle.totalPoints > 0 && rewardBudgetForPt > 0
+    ? Math.round(rewardBudgetForPt / planCycle.totalPoints)
     : billing.rewardSummaryJson?.ptUnit || 0;
+  const storedReward = billing.rewardSummaryJson?.members?.length ? billing.rewardSummaryJson : null;
+  const cappedStoredReward = storedReward
+    ? applyRewardCapForMonth(storedReward, monthlyRewardBudget, new Map())
+    : null;
+  const previewReward = storedReward ? null : buildRewardPreview({
+    ym,
+    milestones,
+    progress: localProgress,
+    responsibilities,
+    memberMap,
+    billing,
+    planCycle,
+    projectFeeType,
+    projectFeeAmount,
+  });
+  const displayReward = cappedStoredReward || previewReward;
+  const isRewardPreview = !storedReward && !!previewReward;
 
   // MS分類
   const msNormal = milestones.filter((m) => {
@@ -1298,26 +1639,15 @@ function RewardTab({
         </div>
       )}
 
-      {/* ── 今月の報酬予定額 ── */}
-      {planCycle && milestones.length > 0 && (
-        <div className="border border-border rounded-lg overflow-hidden">
-          <div className="px-4 py-2.5 text-[12px] text-muted-foreground font-medium border-b border-border bg-muted/10">
-            💰 今月の報酬予定額
-          </div>
-          <BudgetEstimateSection
-            planCycle={planCycle}
-            milestones={milestones}
-            responsibilities={responsibilities}
-            memberMap={memberMap}
-            ym={ym}
-            progress={localProgress}
-          />
-        </div>
-      )}
-
       {/* ── 💰 メンバー報酬 ── */}
-      {billing.rewardSummaryJson?.members && billing.rewardSummaryJson.members.length > 0 && (
-        <MemberPayoutSection reward={billing.rewardSummaryJson} memberMap={memberMap} />
+      {displayReward?.members && displayReward.members.length > 0 && (
+        <MemberPayoutSection
+          reward={displayReward}
+          memberMap={memberMap}
+          isPreview={isRewardPreview}
+          pjBudgetYen={monthlyRewardBudget}
+          missingBudget={monthlyRewardBudget <= 0}
+        />
       )}
 
       {/* ── 進捗イベント ── */}
@@ -1332,7 +1662,13 @@ function RewardTab({
           ) : (
             // 2026-05-12 まさ「先手力の表示が消えてる」: events 0 件でも EventsSection に渡して、
             // 内部で「先手力 —」+「イベントデータなし」両方表示する形に変更
-            <EventsSection events={events ?? []} />
+            <EventsSection
+              events={events ?? []}
+              milestones={milestones}
+              projectId={projectId}
+              ym={ym}
+              onUpdated={() => loadEvents(true)}
+            />
           )}
         </div>
       </div>
@@ -1455,43 +1791,45 @@ function MsBarRow({
     <div className="mb-2">
       <div className="flex gap-3 items-stretch">
         {/* 左: 進捗バー */}
-        <div className="w-[480px] shrink-0 bg-muted/20 rounded-lg px-3 py-2">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[12px] flex-1 min-w-0 truncate">{ms.title}</span>
-            {tagBadge}
-            {scheduleLabel && (
-              <span
-                className="text-[9px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded shrink-0"
-                title={`このMSの実施期間。期待進捗: ${schedule?.expectedCumPct ?? 0}%`}
-              >
-                {scheduleLabel}
+        <div className="w-[520px] shrink-0 bg-muted/20 rounded-lg px-3 py-2">
+          <div className="mb-1.5">
+            <div className="flex items-start gap-2">
+              <span className="min-w-0 flex-1 text-[12px] font-medium leading-snug break-words">
+                {ms.title}
               </span>
-            )}
-            {resps.length > 0 && (
-              <span className="flex gap-0.5 shrink-0">
-                {resps.map((r) => (
-                  <span key={r.memberId} className="text-[10px] text-[#007aff] bg-[#007aff]/8 px-1 rounded">
-                    {memberMap[r.memberId] || "PM"}
-                    {resps.length > 1 && r.share > 0 && (
-                      <span className="text-[9px] opacity-70"> {Math.round(r.share * 100)}%</span>
-                    )}
-                  </span>
-                ))}
+              {!isUnconfirmed && (
+                <button
+                  onClick={onManualEdit}
+                  className="text-[10px] text-muted-foreground hover:text-foreground shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+                  title="手動で編集"
+                >
+                  ✏️
+                </button>
+              )}
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {tagBadge}
+              {scheduleLabel && (
+                <span
+                  className="text-[9px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded"
+                  title={`このMSの実施期間。期待進捗: ${schedule?.expectedCumPct ?? 0}%`}
+                >
+                  {scheduleLabel}
+                </span>
+              )}
+              {resps.map((r) => (
+                <span key={r.memberId} className="text-[10px] text-[#007aff] bg-[#007aff]/8 px-1 rounded">
+                  {memberMap[r.memberId] || "PM"}
+                  {resps.length > 1 && r.share > 0 && (
+                    <span className="text-[9px] opacity-70"> {Math.round(r.share * 100)}%</span>
+                  )}
+                </span>
+              ))}
+              <span className="text-[11px] text-muted-foreground">{ms.points}pt</span>
+              <span className={`text-[12px] font-semibold ${pctColor}`}>
+                {displayedPct}%
               </span>
-            )}
-            <span className="text-[11px] text-muted-foreground shrink-0">{ms.points}pt</span>
-            <span className={`text-[12px] font-semibold w-10 text-right shrink-0 ${pctColor}`}>
-              {displayedPct}%
-            </span>
-            {!isUnconfirmed && (
-              <button
-                onClick={onManualEdit}
-                className="text-[10px] text-muted-foreground hover:text-foreground shrink-0 opacity-50 hover:opacity-100 transition-opacity"
-                title="手動で編集"
-              >
-                ✏️
-              </button>
-            )}
+            </div>
           </div>
 
           {/* 進捗バー */}
@@ -1724,7 +2062,13 @@ function MsBarRow({
                       {revision.status === "pending" ? "確認待ち" : revision.status === "confirmed" ? "確定済" : "破棄"}
                     </span>
                     {revision.revisedPct != null && (
-                      <span className="text-[10px] text-indigo-700">提案 {Math.round(revision.revisedPct)}%</span>
+                      <span
+                        className="text-[10px] text-indigo-700"
+                        title="OK確定すると、このMSの当月時点の累積進捗率として保存される値"
+                      >
+                        {revision.currentPct != null ? `現 ${Math.round(revision.currentPct)}% → ` : ""}
+                        累計提案 {Math.round(revision.revisedPct)}%
+                      </span>
                     )}
                   </div>
                   {revision.messages.map((msg) => (
@@ -1801,158 +2145,6 @@ function MsBarRow({
   );
 }
 
-// ─── 今月の報酬予定額セクション ──────────────────────────────────────────────
-
-function BudgetEstimateSection({
-  planCycle,
-  milestones,
-  responsibilities,
-  memberMap,
-  ym,
-  progress,
-}: {
-  planCycle: PlanCycleShape;
-  milestones: MilestoneInfo[];
-  responsibilities: Responsibility[];
-  memberMap: Record<string, string>;
-  ym: string;
-  progress: ProgressInfo[];
-}) {
-  const ptUnit = planCycle.totalPoints > 0 ? Math.round(planCycle.budgetYen / planCycle.totalPoints) : 0;
-
-  const activeMilestones = milestones.filter((m) => (m.tag || "").toLowerCase() !== "buffer");
-
-  // 前月の消化ptマップ（今月増分計算用）
-  const prevYm = prevYmStr(ym);
-  const prevConsumedMap = buildEffectiveConsumedMap(progress, milestones, prevYm);
-  const currConsumedMap = buildEffectiveConsumedMap(progress, milestones, ym);
-
-  // メンバー別実績報酬計算（今月の消化pt増分 × 担当割合 × pt単価）
-  const memberTotals: Record<string, { pt: number; yen: number; breakdown: { title: string; pt: number; yen: number }[] }> = {};
-  for (const ms of activeMilestones) {
-    const currPt = currConsumedMap.get(ms.milestoneId) ?? 0;
-    const prevPt = prevConsumedMap.get(ms.milestoneId) ?? 0;
-    const thisMonthPt = Math.max(0, currPt - prevPt);
-    if (thisMonthPt === 0) continue;
-    const resps = responsibilities.filter((r) => r.milestoneId === ms.milestoneId);
-    for (const r of resps) {
-      if (!memberTotals[r.memberId]) memberTotals[r.memberId] = { pt: 0, yen: 0, breakdown: [] };
-      const memberPt = thisMonthPt * r.share;
-      const memberYen = Math.round(memberPt * ptUnit);
-      memberTotals[r.memberId].pt += memberPt;
-      memberTotals[r.memberId].yen += memberYen;
-      memberTotals[r.memberId].breakdown.push({ title: ms.title, pt: memberPt, yen: memberYen });
-    }
-  }
-
-  const members = Object.entries(memberTotals).map(([memberId, data]) => ({
-    memberId,
-    codeName: memberMap[memberId] || "PM",
-    pt: Math.round(data.pt * 10) / 10,
-    yen: data.yen,
-    breakdown: data.breakdown,
-  }));
-
-  const totalYen = members.reduce((s, m) => s + m.yen, 0);
-
-  const [expandedMember, setExpandedMember] = useState<string | null>(null);
-
-  const hasData = members.length > 0;
-
-  return (
-    <div className="px-4 pb-4 space-y-3">
-      <div className="text-[11px] text-muted-foreground bg-muted/20 rounded px-3 py-1.5">
-        {hasData
-          ? `当月進捗増分 × 担当割合 × pt単価（¥${ptUnit.toLocaleString()}/pt）｜合計 ¥${totalYen.toLocaleString()}`
-          : `当月の進捗増分がまだ記録されていません（pt単価 ¥${ptUnit.toLocaleString()}/pt）`}
-      </div>
-
-      {/* MS別内訳 */}
-      {activeMilestones.length > 0 && (
-        <div>
-          <p className="text-[11px] font-semibold text-muted-foreground mb-1">MS別今月増分</p>
-          <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-[11px]">
-              <thead className="bg-muted/20 text-muted-foreground">
-                <tr>
-                  <th className="text-left px-3 py-1 font-medium">MS</th>
-                  <th className="text-right px-3 py-1 font-medium w-20">今月増分</th>
-                  <th className="text-right px-3 py-1 font-medium w-24">金額換算</th>
-                  <th className="text-right px-3 py-1 font-medium w-36">消化pt（前月→今月）</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeMilestones.map((ms, i) => {
-                  const currPt = currConsumedMap.get(ms.milestoneId) ?? 0;
-                  const prevPt = prevConsumedMap.get(ms.milestoneId) ?? 0;
-                  const delta = Math.max(0, currPt - prevPt);
-                  const deltaYen = Math.round(delta * ptUnit);
-                  return (
-                    <tr key={ms.milestoneId} className={`border-t border-border ${i % 2 === 0 ? "" : "bg-muted/10"}`}>
-                      <td className="px-3 py-1 truncate max-w-[180px]">{ms.title}</td>
-                      <td className="px-3 py-1 text-right">{Math.round(delta * 10) / 10}pt</td>
-                      <td className="px-3 py-1 text-right">¥{deltaYen.toLocaleString()}</td>
-                      <td className="px-3 py-1 text-right text-muted-foreground/70">{Math.round(prevPt * 10) / 10}→{Math.round(currPt * 10) / 10}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* メンバー別配賦 */}
-      {members.length > 0 && (
-        <div>
-          <p className="text-[11px] font-semibold text-muted-foreground mb-1">メンバー別配賦</p>
-          <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-[11px]">
-              <thead className="bg-muted/20 text-muted-foreground">
-                <tr>
-                  <th className="text-left px-3 py-1 font-medium">メンバー</th>
-                  <th className="text-right px-3 py-1 font-medium w-16">配賦pt</th>
-                  <th className="text-right px-3 py-1 font-medium w-24">配賦額</th>
-                  <th className="px-3 py-1 w-12"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((mb) => (
-                  <Fragment key={mb.memberId}>
-                    <tr
-                      className="border-t border-border cursor-pointer hover:bg-muted/20"
-                      onClick={() => setExpandedMember(expandedMember === mb.memberId ? null : mb.memberId)}
-                    >
-                      <td className="px-3 py-1">{mb.codeName}</td>
-                      <td className="px-3 py-1 text-right">{mb.pt}pt</td>
-                      <td className="px-3 py-1 text-right">¥{mb.yen.toLocaleString()}</td>
-                      <td className="px-3 py-1 text-right text-muted-foreground">
-                        {expandedMember === mb.memberId ? "▼" : "▶"}
-                      </td>
-                    </tr>
-                    {expandedMember === mb.memberId && (
-                      <tr className="bg-muted/10">
-                        <td colSpan={4} className="px-6 py-1 pb-2">
-                          {mb.breakdown.map((bd, bi) => (
-                            <div key={bi} className="flex justify-between text-[10px] text-muted-foreground py-0.5">
-                              <span className="truncate">{bd.title}</span>
-                              <span className="shrink-0 ml-2">{Math.round(bd.pt * 10) / 10}pt / ¥{bd.yen.toLocaleString()}</span>
-                            </div>
-                          ))}
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── 進捗イベントセクション ──────────────────────────────────────────────────
 
 const ORIGIN_LABELS: Record<string, string> = {
@@ -1973,9 +2165,69 @@ const ORIGIN_COLORS: Record<string, string> = {
   unknown: "bg-gray-100 text-gray-500",
 };
 
-function EventsSection({ events }: { events: ProgressEvent[] }) {
+function EventsSection({
+  events,
+  milestones,
+  projectId,
+  ym,
+  onUpdated,
+}: {
+  events: ProgressEvent[];
+  milestones: MilestoneInfo[];
+  projectId: string;
+  ym: string;
+  onUpdated: () => void;
+}) {
   const activeEvents = events.filter((e) => e.status !== "rejected");
   const rejectedEvents = events.filter((e) => e.status === "rejected");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftContent, setDraftContent] = useState("");
+  const [draftMilestoneId, setDraftMilestoneId] = useState("");
+  const [draftOrigin, setDraftOrigin] = useState("unknown");
+  const [draftImpact, setDraftImpact] = useState("0");
+  const [draftDepth, setDraftDepth] = useState("0");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const startEdit = (event: ProgressEvent) => {
+    setEditingId(event.eventId);
+    setDraftTitle(event.title || event.eventTitle || "");
+    setDraftContent(event.contentPreview || "");
+    setDraftMilestoneId(event.milestoneId || "");
+    setDraftOrigin(event.initiativeOrigin || "unknown");
+    setDraftImpact(String(event.impact ?? 0));
+    setDraftDepth(String(event.depth ?? 0));
+  };
+
+  const saveEventEdit = async () => {
+    if (!editingId) return;
+    setSavingEdit(true);
+    try {
+      const res = await fetch("/api/progress/events", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: editingId,
+          projectId,
+          ym,
+          title: draftTitle,
+          contentPreview: draftContent,
+          milestoneId: draftMilestoneId || null,
+          initiativeOrigin: draftOrigin,
+          impact: Number(draftImpact || 0),
+          depth: Number(draftDepth || 0),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) throw new Error(data.error || `HTTP ${res.status}`);
+      setEditingId(null);
+      onUpdated();
+    } catch (err) {
+      alert(`進捗イベントの保存に失敗した: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   // 先手力計算
   const orTotal = activeEvents.length;
@@ -2021,22 +2273,23 @@ function EventsSection({ events }: { events: ProgressEvent[] }) {
       )}
 
       {/* イベントカード */}
-      {activeEvents.map((ev) => {
-        const origin = ev.initiativeOrigin || "unknown";
-        const statusIcon = ev.status === "confirmed" ? "✅" : "📝";
-        const impact = ev.impact ?? 0;
-        const isHighImpact = impact >= 4;
-        return (
-          <div
-            key={ev.eventId}
-            className={`border rounded-lg px-3 py-2 ${
-              isHighImpact ? "bg-amber-50 border-amber-300" : "bg-muted/10 border-border"
-            }`}
-          >
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className={`text-[12px] ${isHighImpact ? "font-bold text-amber-900" : ""}`}>
-                {statusIcon} {isHighImpact && "🔥 "}{ev.eventTitle || "(無題)"}
-              </span>
+	      {activeEvents.map((ev) => {
+	        const origin = ev.initiativeOrigin || "unknown";
+	        const statusIcon = ev.status === "confirmed" ? "✅" : "📝";
+	        const impact = ev.impact ?? 0;
+	        const isHighImpact = impact >= 4;
+	        const isEditing = editingId === ev.eventId;
+	        return (
+	          <div
+	            key={ev.eventId}
+	            className={`border rounded-lg px-3 py-2 ${
+	              isHighImpact ? "bg-amber-50 border-amber-300" : "bg-muted/10 border-border"
+	            }`}
+	          >
+	            <div className="flex items-center gap-1.5 flex-wrap">
+	              <span className={`text-[12px] ${isHighImpact ? "font-bold text-amber-900" : ""}`}>
+	                {statusIcon} {isHighImpact && "🔥 "}{ev.eventTitle || "(無題)"}
+	              </span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded ${ORIGIN_COLORS[origin] || "bg-gray-100 text-gray-500"}`}>
                 {ORIGIN_LABELS[origin] || origin}
               </span>
@@ -2046,14 +2299,95 @@ function EventsSection({ events }: { events: ProgressEvent[] }) {
                     isHighImpact ? "bg-amber-200 text-amber-900" : "bg-orange-50 text-orange-700"
                   }`}
                   title="LLM が推論した重要度 (1-5)"
-                >
-                  impact {ev.impact}
-                </span>
-              )}
-            </div>
-            {ev.eventDescription && (
-              <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{ev.eventDescription}</p>
-            )}
+	                >
+	                  impact {ev.impact}
+	                </span>
+	              )}
+	              <button
+	                type="button"
+	                onClick={() => isEditing ? setEditingId(null) : startEdit(ev)}
+	                className="ml-auto rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted/40"
+	              >
+	                {isEditing ? "閉じる" : "編集"}
+	              </button>
+	            </div>
+	            {isEditing && (
+	              <div className="mt-2 grid gap-2 rounded-md border border-border bg-background/80 p-2">
+	                <input
+	                  value={draftTitle}
+	                  onChange={(event) => setDraftTitle(event.target.value)}
+	                  className="w-full rounded border border-border px-2 py-1 text-[12px]"
+	                  placeholder="イベントタイトル"
+	                />
+	                <textarea
+	                  value={draftContent}
+	                  onChange={(event) => setDraftContent(event.target.value)}
+	                  className="min-h-[64px] w-full rounded border border-border px-2 py-1 text-[12px]"
+	                  placeholder="進捗イベントの内容"
+	                />
+	                <div className="grid grid-cols-1 gap-2 md:grid-cols-[1.5fr_1fr_80px_80px]">
+	                  <select
+	                    value={draftMilestoneId}
+	                    onChange={(event) => setDraftMilestoneId(event.target.value)}
+	                    className="rounded border border-border bg-background px-2 py-1 text-[12px]"
+	                  >
+	                    <option value="">MS未紐付け</option>
+	                    {milestones.map((ms) => (
+	                      <option key={ms.milestoneId} value={ms.milestoneId}>{ms.title}</option>
+	                    ))}
+	                  </select>
+	                  <select
+	                    value={draftOrigin}
+	                    onChange={(event) => setDraftOrigin(event.target.value)}
+	                    className="rounded border border-border bg-background px-2 py-1 text-[12px]"
+	                  >
+	                    {Object.keys(ORIGIN_LABELS).map((key) => (
+	                      <option key={key} value={key}>{ORIGIN_LABELS[key]}</option>
+	                    ))}
+	                  </select>
+	                  <input
+	                    type="number"
+	                    min="0"
+	                    max="5"
+	                    step="1"
+	                    value={draftImpact}
+	                    onChange={(event) => setDraftImpact(event.target.value)}
+	                    className="rounded border border-border px-2 py-1 text-[12px]"
+	                    aria-label="impact"
+	                  />
+	                  <input
+	                    type="number"
+	                    min="0"
+	                    max="1"
+	                    step="0.1"
+	                    value={draftDepth}
+	                    onChange={(event) => setDraftDepth(event.target.value)}
+	                    className="rounded border border-border px-2 py-1 text-[12px]"
+	                    aria-label="depth"
+	                  />
+	                </div>
+	                <div className="flex justify-end gap-2">
+	                  <button
+	                    type="button"
+	                    onClick={() => setEditingId(null)}
+	                    className="rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/30"
+	                  >
+	                    キャンセル
+	                  </button>
+	                  <button
+	                    type="button"
+	                    onClick={saveEventEdit}
+	                    disabled={savingEdit}
+	                    className="rounded bg-[#0066cc] px-2 py-1 text-[11px] font-medium text-white disabled:opacity-50"
+	                  >
+	                    {savingEdit ? "保存中..." : "保存"}
+	                  </button>
+	                </div>
+	              </div>
+	            )}
+	            {ev.eventDescription && (
+	              <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{ev.eventDescription}</p>
+	            )}
             {ev.responsibilities && ev.responsibilities.length > 0 && (
               <p className="text-[10px] text-muted-foreground mt-1">
                 担当: {ev.responsibilities.map((r) => `${r.memberName || r.memberId}(${r.responsibility})`).join(", ")}
@@ -2213,13 +2547,28 @@ function ReimburseSection({ items }: { items: ReimburseItem[] }) {
 function MemberPayoutSection({
   reward,
   memberMap,
+  isPreview = false,
+  pjBudgetYen = 0,
+  missingBudget = false,
 }: {
   reward: RewardSummary;
   memberMap: Record<string, string>;
+  isPreview?: boolean;
+  pjBudgetYen?: number;
+  missingBudget?: boolean;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const ptUnit = reward.ptUnit || 0;
-  const capped = !!reward.capped;
+  const totalPay = Math.round(
+    reward.totalPaySum ?? reward.members.reduce((sum, member) => sum + (member.totalPay || member.basePay || 0), 0)
+  );
+  const capBudget = Math.round(reward.capBudgetYen ?? pjBudgetYen);
+  const totalGrossDue = Math.round(
+    reward.totalGrossDueYen ?? reward.members.reduce((sum, member) => sum + (member.grossDueYen || member.totalPay || member.basePay || 0), 0)
+  );
+  const carryInYen = Math.round(reward.carryInYen ?? reward.members.reduce((sum, member) => sum + (member.carryInYen || 0), 0));
+  const stockYen = Math.round(reward.carryOverYen ?? reward.members.reduce((sum, member) => sum + (member.stockYen || member.deferredYen || 0), 0));
+  const remainingYen = capBudget > 0 ? capBudget - totalPay : null;
 
   const toggle = (id: string) => {
     setExpanded((prev) => {
@@ -2233,18 +2582,54 @@ function MemberPayoutSection({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] font-medium">💰 メンバー報酬{capped ? "（実績ベース）" : ""}</p>
-        {ptUnit > 0 && (
-          <span className="text-[10px] text-muted-foreground">1pt = ¥{ptUnit.toLocaleString()}</span>
-        )}
-      </div>
-
-      {capped && reward.totalPaySum !== undefined && reward.monthlyBudget65 !== undefined && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-800">
-          ⚠️ 月次キャップ適用中：本来の合計 ¥{(reward.totalPaySum + (reward.carryOverYen || 0)).toLocaleString()} → 上限 ¥{reward.monthlyBudget65.toLocaleString()} に圧縮
-          {reward.carryOverYen ? `（繰越 ¥${reward.carryOverYen.toLocaleString()}）` : ""}
+        <div>
+          <p className="text-[13px] font-medium">💰 メンバー報酬</p>
+          {isPreview && (
+            <p className="mt-0.5 text-[10.5px] text-amber-700">
+              報酬キャッシュ未生成のため、月次進捗と担当割合からプレビュー表示中
+              {missingBudget ? "（PJ予算未設定）" : ""}
+            </p>
+          )}
         </div>
-      )}
+        <div className="flex flex-wrap justify-end gap-1.5 text-[10px]">
+          <span className="rounded bg-muted/50 px-1.5 py-0.5 text-muted-foreground">
+            {ptUnit > 0 ? `1pt = ¥${ptUnit.toLocaleString()}` : "1pt単価未設定"}
+          </span>
+          <span className="rounded bg-muted/50 px-1.5 py-0.5 text-muted-foreground">
+            PJ予算 {formatYenValue(capBudget)}
+          </span>
+          {carryInYen > 0 && (
+            <span className="rounded bg-sky-100 px-1.5 py-0.5 font-semibold text-sky-800">
+              繰越入 {formatYenValue(carryInYen)}
+            </span>
+          )}
+          {reward.capped && (
+            <span className="rounded bg-red-100 px-1.5 py-0.5 font-semibold text-red-800">
+              キャップ発動 {formatYenValue(totalGrossDue)} → {formatYenValue(totalPay)}
+            </span>
+          )}
+          {stockYen > 0 && (
+            <span className="rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-900">
+              現ストック {formatYenValue(stockYen)}
+            </span>
+          )}
+          <span className="rounded bg-muted/50 px-1.5 py-0.5 text-muted-foreground">
+            要支払 {formatYenValue(totalGrossDue)}
+          </span>
+          <span className="rounded bg-muted/50 px-1.5 py-0.5 text-muted-foreground">
+            支払 {formatYenValue(totalPay)}
+          </span>
+          <span className={`rounded px-1.5 py-0.5 font-semibold ${
+            remainingYen == null
+              ? "bg-zinc-100 text-zinc-500"
+              : remainingYen < 0
+                ? "bg-red-100 text-red-800"
+                : "bg-emerald-100 text-emerald-800"
+          }`}>
+            残り {remainingYen == null ? "—" : formatSignedYenValue(remainingYen)}
+          </span>
+        </div>
+      </div>
 
       <div className="overflow-hidden rounded-lg border border-border">
         <table className="w-full text-[12px]">
@@ -2252,18 +2637,9 @@ function MemberPayoutSection({
             <tr>
               <th className="text-left px-3 py-1.5 font-medium">メンバー</th>
               <th className="text-right px-3 py-1.5 font-medium w-20">獲得pt</th>
-              {capped ? (
-                <>
-                  <th className="text-right px-3 py-1.5 font-medium w-28">本来額</th>
-                  <th className="text-right px-3 py-1.5 font-medium w-28">今月支払</th>
-                </>
-              ) : (
-                <>
-                  <th className="text-right px-3 py-1.5 font-medium w-24">基本報酬</th>
-                  <th className="text-right px-3 py-1.5 font-medium w-24">ボーナス</th>
-                  <th className="text-right px-3 py-1.5 font-medium w-28">合計</th>
-                </>
-              )}
+              <th className="text-right px-3 py-1.5 font-medium w-24">基本報酬</th>
+              <th className="text-right px-3 py-1.5 font-medium w-24">ボーナス</th>
+              <th className="text-right px-3 py-1.5 font-medium w-28">合計</th>
               <th className="text-right px-3 py-1.5 font-medium w-16"></th>
             </tr>
           </thead>
@@ -2272,39 +2648,42 @@ function MemberPayoutSection({
               const rowId = `${mb.memberId}-${idx}`;
               const isOpen = expanded.has(rowId);
               const codeName = memberMap[mb.memberId] || "PM";
+              const stock = Math.round(mb.stockYen || mb.deferredYen || 0);
+              const carryIn = Math.round(mb.carryInYen || 0);
+              const grossDue = Math.round(mb.grossDueYen || mb.cappedFrom || mb.totalPay || mb.basePay || 0);
               return (
                 <Fragment key={rowId}>
                   <tr
                     className="border-t border-border cursor-pointer hover:bg-muted/20"
                     onClick={() => toggle(rowId)}
                   >
-                    <td className="px-3 py-2">{codeName}</td>
+                    <td className="px-3 py-2">
+                      <div className="font-medium">{codeName}</div>
+                      {(carryIn > 0 || stock > 0) && (
+                        <div className="mt-0.5 flex flex-wrap gap-1 text-[10px]">
+                          {carryIn > 0 && <span className="rounded bg-sky-100 px-1 text-sky-800">繰越入 {formatYenValue(carryIn)}</span>}
+                          {stock > 0 && <span className="rounded bg-amber-100 px-1 text-amber-900">ストック {formatYenValue(stock)}</span>}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-right">{mb.earnedPt}pt</td>
-                    {capped ? (
-                      <>
-                        <td className="px-3 py-2 text-right text-muted-foreground line-through">
-                          ¥{(mb.cappedFrom || mb.totalPay).toLocaleString()}
-                        </td>
-                        <td className="px-3 py-2 text-right font-semibold">
-                          ¥{(mb.totalPay || mb.basePay).toLocaleString()}
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="px-3 py-2 text-right">¥{mb.basePay.toLocaleString()}</td>
-                        <td className="px-3 py-2 text-right">¥{(mb.bonusPt || 0).toLocaleString()}</td>
-                        <td className="px-3 py-2 text-right font-semibold">
-                          ¥{(mb.totalPay || mb.basePay).toLocaleString()}
-                        </td>
-                      </>
-                    )}
+                    <td className="px-3 py-2 text-right">¥{mb.basePay.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right">¥{(mb.bonusPt || 0).toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-semibold">
+                      <div>¥{(mb.totalPay || mb.basePay).toLocaleString()}</div>
+                      {grossDue > (mb.totalPay || mb.basePay || 0) && (
+                        <div className="text-[10px] font-normal text-muted-foreground">
+                          要支払 ¥{grossDue.toLocaleString()}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-right text-[10px] text-muted-foreground">
                       {isOpen ? "▼" : "▶"} 内訳
                     </td>
                   </tr>
                   {isOpen && (
                     <tr className="bg-muted/10">
-                      <td colSpan={capped ? 5 : 6} className="px-3 py-2">
+                      <td colSpan={6} className="px-3 py-2">
                         {!mb.breakdown || mb.breakdown.length === 0 ? (
                           <p className="text-[11px] text-muted-foreground">内訳データなし</p>
                         ) : (

@@ -43,6 +43,7 @@ export interface DashProject {
   roleLine?: string;
   clientName: string;
   status: string;
+  projectCategory?: string;
   startYm?: string;
   endYm?: string;
 }
@@ -74,10 +75,13 @@ export interface PlanCycleBundle {
 export interface CockpitData {
   project: {
     projectId: string;
-    projectName: string;
-    clientName: string;
-    status: string;
-    projectType?: string;
+	    projectName: string;
+	    clientName: string;
+	    status: string;
+	    projectCategory?: string;
+	    projectType?: string;
+    feeType?: string | null;
+    feeAmount?: number | null;
     freezeFromYm?: string | null;
     restartExpectedYm?: string | null;
   };
@@ -114,6 +118,10 @@ export interface RewardSummaryMember {
   bonusPt: number;
   totalPay: number;
   cappedFrom?: number; // capped時のみ：本来の合計
+  carryInYen?: number;
+  deferredYen?: number;
+  grossDueYen?: number;
+  stockYen?: number;
   breakdown: RewardSummaryBreakdown[];
 }
 
@@ -122,6 +130,9 @@ export interface RewardSummary {
   ptUnit?: number; // 1pt単価（円）
   members: RewardSummaryMember[];
   carryOverYen?: number;
+  carryInYen?: number;
+  capBudgetYen?: number;
+  totalGrossDueYen?: number;
   totalPaySum?: number;
   monthlyBudget65?: number;
 }
@@ -169,6 +180,8 @@ export interface Milestone {
   isActive: boolean;
   successCriteria: string;
   sortOrder: number;
+  periodStartYm?: string | null;
+  targetYm?: string | null;
 }
 
 export interface MilestoneProgress {
@@ -366,6 +379,8 @@ export interface NextMilestoneInput {
   goalLevel: string;
   successCriteria: string;
   sortOrder: number;
+  periodStartYm?: string | null;
+  targetYm?: string | null;
 }
 
 /**
@@ -426,6 +441,8 @@ export async function upsertNextMilestones(
     is_active: true,
     success_criteria: ms.successCriteria || null,
     sort_order: ms.sortOrder,
+    period_start_ym: ms.periodStartYm || null,
+    target_ym: ms.targetYm || null,
   }));
   const nextIds = rows.map((r) => r.milestone_id);
 
@@ -476,6 +493,8 @@ export async function fetchMilestonesForPlanCycle(
     isActive: ms.is_active,
     successCriteria: ms.success_criteria || "",
     sortOrder: ms.sort_order,
+    periodStartYm: ms.period_start_ym || null,
+    targetYm: ms.target_ym || null,
   }));
 }
 
@@ -1508,7 +1527,7 @@ function normalizeDashboardProjectName(projectId: string, displayName: string) {
 export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
   const { data, error } = await supabase
     .from("projects")
-    .select("project_id, project_name, client_name, status, start_ym, end_ym")
+	    .select("project_id, project_name, client_name, status, project_category, start_ym, end_ym")
     .order("project_name");
 
   if (error) throw new Error(`projects: ${error.message}`);
@@ -1567,8 +1586,9 @@ export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
     // status='frozen' でも空文字 fallback ロジックの記憶混乱で dashboard で active 表示される
     // 事故あり (まさ「停止中にしても dashboard で active のまま」)。空文字 fallback に変更
     // して、unknown は dashboard 側で「その他」セクションに振り分ける。
-    status: r.status || "",
-    startYm: r.start_ym || "",
+	    status: r.status || "",
+	    projectCategory: r.project_category || "dtsu",
+	    startYm: r.start_ym || "",
     endYm: r.end_ym || "",
   }));
 }
@@ -1586,6 +1606,19 @@ export async function fetchBillingStatusFromSupabase(
 
   if (error) throw new Error(`billing_cycles: ${error.message}`);
 
+  const reportRes = await supabase
+    .from("monthly_reports")
+    .select("project_id, status, fixed_at, final_content")
+    .eq("ym", ym);
+
+  if (reportRes.error) throw new Error(`monthly_reports: ${reportRes.error.message}`);
+
+  const reportDoneProjects = new Set(
+    (reportRes.data || [])
+      .filter((r) => Boolean(r.fixed_at) || (r.status || "").toLowerCase() === "fixed" || Boolean(r.final_content))
+      .map((r) => r.project_id)
+  );
+
   const out: Record<string, DashBillingStatus> = {};
   for (const bc of data || []) {
     out[bc.project_id] = {
@@ -1593,7 +1626,7 @@ export async function fetchBillingStatusFromSupabase(
       status: bc.status || "",
       budgetYen: bc.budget_yen || 0,
       meetingDone: !!bc.meeting_start_at,
-      reportDone: !!bc.report_fixed_at,
+      reportDone: !!bc.report_fixed_at || reportDoneProjects.has(bc.project_id),
       budgetDone: false, // billing_cyclesに直接のフラグはない
       allocationDone: false,
       invoiceDone: !!bc.invoice_sent_at,
@@ -1669,7 +1702,7 @@ export async function fetchCockpitFromSupabase(
     invoiceYm: bc.invoice_ym || null,
     invoiceBaseLinesJson: bc.invoice_base_lines_json || null,
     invoiceSubject: bc.invoice_subject || null,
-    budgetReportedAmount: bc.budget_yen || 0,
+    budgetReportedAmount: bc.budget_reported_amount || 0,
     msProgressSummaryJson: bc.ms_progress_summary_json,
     msProgressSummary: bc.ms_progress_summary_json,
     rewardSummaryJson: (bc.reward_summary_json as RewardSummary | null) || null,
@@ -1715,6 +1748,8 @@ export async function fetchCockpitFromSupabase(
       title: m.title, points: m.points, tag: m.tag || "normal",
       goalLevel: m.goal_level || "", isActive: m.is_active,
       successCriteria: m.success_criteria || "", sortOrder: m.sort_order,
+      periodStartYm: m.period_start_ym || null,
+      targetYm: m.target_ym || null,
     }));
 
     const msIds = new Set(ms.map((m) => m.milestoneId));
@@ -1825,6 +1860,21 @@ export async function fetchCockpitFromSupabase(
     fixedAt: r.fixed_at,
   }));
 
+  const reportFixedAtByYm = new Map(
+    reports
+      .map((r) => {
+        if (r.fixedAt) return [r.ym, r.fixedAt] as const;
+        if (r.status.toLowerCase() === "fixed" || r.hasFinal) return [r.ym, r.generatedAt || "fixed"] as const;
+        return null;
+      })
+      .filter((entry): entry is readonly [string, string] => Boolean(entry))
+  );
+  for (const bc of billingCycles) {
+    if (!bc.reportFixedAt) {
+      bc.reportFixedAt = reportFixedAtByYm.get(bc.ym) || null;
+    }
+  }
+
   // Members (codeNames)
   const memberMap: Record<string, string> = {};
   for (const m of membersRes.data || []) {
@@ -1869,8 +1919,11 @@ export async function fetchCockpitFromSupabase(
       projectId: pj.project_id,
       projectName: pj.project_name,
       clientName: pj.client_name || "",
-      status: pj.status || "",
-      projectType: pj.project_type || "",
+	      status: pj.status || "",
+	      projectCategory: pj.project_category || "dtsu",
+	      projectType: pj.project_type || "",
+      feeType: pj.fee_type || null,
+      feeAmount: pj.fee_amount != null ? Number(pj.fee_amount) : null,
       freezeFromYm: pj.freeze_from_ym || null,
       restartExpectedYm: pj.restart_expected_ym || null,
     },

@@ -1,0 +1,189 @@
+#!/usr/bin/env node
+const fs = require("fs");
+const path = require("path");
+
+const root = path.resolve(__dirname, "..");
+
+function read(rel) {
+  return fs.readFileSync(path.join(root, rel), "utf8");
+}
+
+function expectIncludes(rel, needles) {
+  const text = read(rel);
+  const missing = needles.filter((needle) => !text.includes(needle));
+  if (missing.length > 0) {
+    throw new Error(`${rel} missing critical UI anchors: ${missing.join(", ")}`);
+  }
+}
+
+function expectPattern(rel, patterns) {
+  const text = read(rel);
+  const missing = patterns.filter((pattern) => !pattern.test(text));
+  if (missing.length > 0) {
+    throw new Error(`${rel} missing critical UI patterns: ${missing.map(String).join(", ")}`);
+  }
+}
+
+expectIncludes("src/components/cockpit/CockpitNextPeriodSetup.tsx", [
+  "MS開始",
+  "MS終了",
+  "periodStartYm",
+  "targetYm",
+]);
+
+expectIncludes("src/components/cockpit/MilestoneGanttChart.tsx", [
+  "MilestoneGanttChart",
+  "monthRange",
+  "periodStartYm",
+  "targetYm",
+]);
+expectPattern("src/components/cockpit/MilestoneGanttChart.tsx", [
+  /ms\.points \* resp\.share/,
+  /gridColumn/,
+]);
+
+expectIncludes("src/components/cockpit/CockpitMonthlyModal.tsx", [
+  "applyRewardCapForMonth",
+  "carryStock",
+  "現ストック",
+  "saveEventEdit",
+  "進捗イベント",
+  "PATCH",
+  "break-words",
+  "scheduleLabel",
+]);
+
+expectIncludes("src/app/api/progress/events/route.ts", [
+  "export async function PATCH",
+  "content_preview",
+  "milestone_id",
+  "initiative_origin",
+]);
+
+expectIncludes("src/app/api/progress/ms-schedule/route.ts", [
+  "period_start_ym",
+  "target_ym",
+  "dbFallback",
+]);
+
+expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
+  "現ストック",
+  "stockYen",
+  "openMonthlyModal",
+]);
+
+expectIncludes("src/components/admin/AdminProjectsTable.tsx", [
+  "project_category",
+  "PROJECT_CATEGORY_OPTIONS",
+  "ecosystem は AMD Score 対象外",
+]);
+
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  "showAmdScore",
+  "ecosystem",
+]);
+
+expectIncludes("src/lib/amd-score-l2-extract.ts", [
+  "loadProjectCategory",
+  "skipped: ecosystem project",
+]);
+
+expectIncludes("src/components/notifications/NotificationsClient.tsx", [
+  "rawDataGapEvidenceRows",
+  "metadata_json",
+  "truncateOneLine",
+]);
+
+expectIncludes("src/app/(app)/mypage/page.tsx", [
+  "WeeklyActivitiesCard",
+  "今週やったこと",
+  "weeklyActivities",
+]);
+
+expectIncludes("src/app/api/cron/member-weekly-activities/route.ts", [
+  "member_weekly",
+  "activityWindowBoundsJST",
+  "windowKey",
+  "windowEnd",
+  "fetchGmailEvidence",
+  "fetchCalendarEvidence",
+  "resolveReadableMemberCalendars",
+  "eligibleMembers",
+  "pendingCalendarLogin",
+  "requiresCalendarLogin",
+  "excludedEmails.has(email)",
+]);
+
+expectIncludes("src/app/api/cron/member-activities/route.ts", [
+  "loadAliasProfiles",
+  "textFitsProject",
+  "project_category.eq.advisor",
+  "neq(\"status\", \"invalid\")",
+]);
+
+expectIncludes("src/app/auth/login/page.tsx", [
+  "calendar.readonly",
+  "gmail.readonly",
+  "prompt: \"consent\"",
+]);
+
+expectIncludes("src/app/auth/callback/route.ts", [
+  "verifyCalendarAccess",
+  "google_calendar_status",
+  "last_login_at",
+  "member_google_oauth_tokens",
+]);
+
+expectIncludes("src/components/admin/AdminMembersTable.tsx", [
+  "CalendarBadge",
+  "requiresCalendarAccess",
+  "google_calendar_status",
+  "last_login_at",
+  "最終ログイン",
+  "Google Calendar access is required at login",
+]);
+
+expectIncludes("src/app/api/cron/venture-xrl-refresh/route.ts", [
+  "project_category",
+  "ecosystem project",
+  "skippedEcosystem",
+]);
+
+expectIncludes("src/app/api/cron/founding-members-extract/route.ts", [
+  "project_category",
+  "skipped: ecosystem project",
+  "skipped_ecosystem",
+  "founder_core_only",
+  "EXCLUDED_FOUNDER_CATEGORIES",
+  "EXCLUDED_FOUNDER_ROLES",
+  "isFounderCoreMember",
+  "迷ったら **除外**",
+]);
+
+expectIncludes("src/app/api/cron/frl-grit-resilience-extract/route.ts", [
+  "project_category",
+  "ecosystem",
+]);
+
+expectIncludes("scripts/ms_progress_review_tool.mjs", [
+  "SCORE_L2_NOTIFICATION_KINDS",
+  "isEcosystemProject",
+  "skippedEcosystem",
+]);
+
+expectIncludes("src/app/api/notifications/feedback/route.ts", [
+  "filterProjectReportEmails",
+  "only internal/member emails found",
+  "founding_members",
+  "activated member_knowledge",
+  "activated project_knowledge",
+  "activated protocols",
+  "activated founding_members",
+]);
+
+expectIncludes("../gas/155_L2KnowledgeExtractor.js", [
+  "status: \"candidate\"",
+  "承認されるまで正本反映しない",
+]);
+
+console.log("critical PWA UI anchors ok");

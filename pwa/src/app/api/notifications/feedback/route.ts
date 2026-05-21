@@ -4,6 +4,8 @@
  * Phase 4 通知に対するまさからの修正依頼を l2_feedbacks に INSERT する。
  * 上流 (GAS 155 / gas/074 / PWA progress-estimator) は
  * 「過去のフィードバック」を LLM プロンプトに含めて再抽出する。
+ * 通知に出た候補は「はい」だけで正本反映する。
+ * candidate/tentative 系の L2 は yes=active/confirmed、no=rejected/invalid。
  * meeting_summary の「はい」は、反映完了まで同期的に確認する。
  *
  * Body:
@@ -69,6 +71,7 @@ export async function POST(req: NextRequest) {
       "project_config_gap",
       "project_registry_diff",
       "xrl_evidence",
+      "founding_members",
       "meeting_summary",
     ]);
     if (!allowedKinds.has(l2Kind)) {
@@ -165,6 +168,56 @@ async function applyApprovedNotification(args: {
     return applyMeetingSummaryFeedback(args);
   }
 
+  if (args.l2Kind === "member_knowledge") {
+    const { data, error } = await args.supabase
+      .from("member_knowledge")
+      .update({ status: "active", updated_at: new Date().toISOString() })
+      .eq("code_name", args.targetId)
+      .eq("status", "candidate")
+      .select("id, category, summary");
+    if (error) return { applied: false, message: error.message };
+    return { applied: (data ?? []).length > 0, message: `activated member_knowledge: ${(data ?? []).length}`, row: data };
+  }
+
+  if (args.l2Kind === "project_knowledge") {
+    const query = args.supabase
+      .from("project_knowledge")
+      .update({ status: "active", updated_at: new Date().toISOString() })
+      .eq("project_id", args.targetId)
+      .eq("source", "l2_hourly_extract")
+      .eq("status", "candidate");
+    const scopedQuery = /^\d{6}$/.test(args.scopeKey)
+      ? query.gte("updated_at", `${args.scopeKey.slice(0, 4)}-${args.scopeKey.slice(4, 6)}-01T00:00:00.000Z`)
+      : query;
+    const { data, error } = await scopedQuery.select("id, category, entity_name");
+    if (error) return { applied: false, message: error.message };
+    return { applied: (data ?? []).length > 0, message: `activated project_knowledge: ${(data ?? []).length}`, row: data };
+  }
+
+  if (args.l2Kind === "protocols") {
+    const protocolId = args.scopeKey.match(/:protocol:([^:]+)$/)?.[1] ?? null;
+    let query = args.supabase
+      .from("protocols")
+      .update({ status: "active", updated_at: new Date().toISOString() })
+      .eq("status", "candidate");
+    query = protocolId ? query.eq("protocol_id", protocolId) : query;
+    const { data, error } = await query.select("protocol_id, title, status");
+    if (error) return { applied: false, message: error.message };
+    return { applied: (data ?? []).length > 0, message: `activated protocols: ${(data ?? []).length}`, row: data };
+  }
+
+  if (args.l2Kind === "founding_members") {
+    const { data, error } = await args.supabase
+      .from("project_founding_members")
+      .update({ status: "active", updated_at: new Date().toISOString() })
+      .eq("project_id", args.targetId)
+      .eq("status", "tentative")
+      .gte("updated_at", args.scopeKey)
+      .select("id, person_name, role, category");
+    if (error) return { applied: false, message: error.message };
+    return { applied: (data ?? []).length > 0, message: `activated founding_members: ${(data ?? []).length}`, row: data };
+  }
+
   if (args.l2Kind === "project_member_candidate") {
     const memberId = extractScopePart(args.scopeKey, "member-candidate");
     if (!memberId) return { applied: false, message: "member_id not found in scope_key" };
@@ -203,6 +256,10 @@ async function applyApprovedNotification(args: {
   if (args.l2Kind === "project_contact_candidate") {
     const emails = extractEmails(`${args.scopeKey}\n${args.feedbackText}`);
     if (emails.length === 0) return { applied: false, message: "email not found in scope_key/comment" };
+    const reportEmails = await filterProjectReportEmails(args.supabase, emails);
+    if (reportEmails.length === 0) {
+      return { applied: false, message: "skipped projects.report_emails: only internal/member emails found" };
+    }
 
     const { data: project, error: projectError } = await args.supabase
       .from("projects")
@@ -213,7 +270,7 @@ async function applyApprovedNotification(args: {
     if (!project) return { applied: false, message: `project not found: ${args.targetId}` };
 
     const current = String(project.report_emails || "");
-    const merged = mergeCommaValues(current, emails.filter((email) => !email.endsWith("@team-armada.jp")));
+    const merged = mergeCommaValues(current, reportEmails);
     const { data: row, error } = await args.supabase
       .from("projects")
       .update({ report_emails: merged })
@@ -221,7 +278,7 @@ async function applyApprovedNotification(args: {
       .select("project_id, report_emails")
       .single();
     if (error) return { applied: false, message: error.message };
-    return { applied: true, message: `projects.report_emails updated: ${emails.join(", ")}`, row };
+    return { applied: true, message: `projects.report_emails updated: ${reportEmails.join(", ")}`, row };
   }
 
   if (args.l2Kind === "ms_progress") {
@@ -374,6 +431,60 @@ async function rejectNotificationCandidates(args: {
     return { applied: false, message: `rejected xrl evidence: ${(data ?? []).length}`, row: data };
   }
 
+  if (args.l2Kind === "founding_members") {
+    const { data, error } = await args.supabase
+      .from("project_founding_members")
+      .update({
+        status: "invalid",
+        notes: args.feedbackText ? `通知で不採用: ${args.feedbackText}` : "通知で不採用",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("project_id", args.targetId)
+      .eq("status", "tentative")
+      .gte("updated_at", args.scopeKey)
+      .select("id, person_name");
+    if (error) return { applied: false, message: error.message };
+    return { applied: false, message: `rejected founding_members: ${(data ?? []).length}`, row: data };
+  }
+
+  if (args.l2Kind === "member_knowledge") {
+    const { data, error } = await args.supabase
+      .from("member_knowledge")
+      .update({ status: "rejected", updated_at: new Date().toISOString() })
+      .eq("code_name", args.targetId)
+      .eq("status", "candidate")
+      .select("id");
+    if (error) return { applied: false, message: error.message };
+    return { applied: false, message: `rejected member_knowledge: ${(data ?? []).length}`, row: data };
+  }
+
+  if (args.l2Kind === "project_knowledge") {
+    const query = args.supabase
+      .from("project_knowledge")
+      .update({ status: "rejected", updated_at: new Date().toISOString() })
+      .eq("project_id", args.targetId)
+      .eq("source", "l2_hourly_extract")
+      .eq("status", "candidate");
+    const scopedQuery = /^\d{6}$/.test(args.scopeKey)
+      ? query.gte("updated_at", `${args.scopeKey.slice(0, 4)}-${args.scopeKey.slice(4, 6)}-01T00:00:00.000Z`)
+      : query;
+    const { data, error } = await scopedQuery.select("id");
+    if (error) return { applied: false, message: error.message };
+    return { applied: false, message: `rejected project_knowledge: ${(data ?? []).length}`, row: data };
+  }
+
+  if (args.l2Kind === "protocols") {
+    const protocolId = args.scopeKey.match(/:protocol:([^:]+)$/)?.[1] ?? null;
+    let query = args.supabase
+      .from("protocols")
+      .update({ status: "rejected", updated_at: new Date().toISOString() })
+      .eq("status", "candidate");
+    query = protocolId ? query.eq("protocol_id", protocolId) : query;
+    const { data, error } = await query.select("protocol_id");
+    if (error) return { applied: false, message: error.message };
+    return { applied: false, message: `rejected protocols: ${(data ?? []).length}`, row: data };
+  }
+
   return { applied: false, message: "rejected" };
 }
 
@@ -417,6 +528,10 @@ async function applyRegistryDiff(args: {
       ...(Array.isArray(patch.emails) ? patch.emails.flatMap((v) => typeof v === "string" ? extractEmails(v) : []) : []),
     ];
     if (emails.length === 0) return { applied: false, message: "skipped projects: no report_emails/email patch" };
+    const reportEmails = await filterProjectReportEmails(args.supabase, emails);
+    if (reportEmails.length === 0) {
+      return { applied: false, message: "skipped projects.report_emails: only internal/member emails found" };
+    }
     const { data: project, error: projectError } = await args.supabase
       .from("projects")
       .select("project_id, report_emails")
@@ -424,7 +539,7 @@ async function applyRegistryDiff(args: {
       .maybeSingle();
     if (projectError) return { applied: false, message: projectError.message };
     if (!project) return { applied: false, message: `project not found: ${args.projectId}` };
-    const merged = mergeCommaValues(String(project.report_emails || ""), emails.filter((email) => !email.endsWith("@team-armada.jp")));
+    const merged = mergeCommaValues(String(project.report_emails || ""), reportEmails);
     const { data, error } = await args.supabase
       .from("projects")
       .update({ report_emails: merged })
@@ -432,7 +547,7 @@ async function applyRegistryDiff(args: {
       .select("project_id, report_emails")
       .single();
     if (error) return { applied: false, message: error.message };
-    return { applied: true, message: `applied: projects.report_emails ${emails.join(", ")}`, row: data };
+    return { applied: true, message: `applied: projects.report_emails ${reportEmails.join(", ")}`, row: data };
   }
 
   if (targetTable === "project_partners") {
@@ -483,6 +598,25 @@ function mergeCommaValues(current: string, additions: string[]): string {
     out.push(value);
   }
   return out.join(", ");
+}
+
+async function filterProjectReportEmails(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  emails: string[]
+): Promise<string[]> {
+  const normalized = Array.from(new Set(emails.map((email) => email.trim().toLowerCase()).filter(Boolean)));
+  if (normalized.length === 0) return [];
+  const { data, error } = await supabase
+    .from("members")
+    .select("email")
+    .not("email", "is", null);
+  if (error) throw new Error(error.message);
+  const memberEmails = new Set(
+    (data ?? [])
+      .map((row) => String(row.email || "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+  return normalized.filter((email) => !email.endsWith("@team-armada.jp") && !memberEmails.has(email));
 }
 
 /** 修正依頼が入った瞬間に対応する 1 件を force 再抽出する。

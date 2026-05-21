@@ -79,12 +79,15 @@ export default async function AppLayout({
   if (user.email) {
     const { data: member } = await supabase
       .from("members")
-      .select("code_name, is_admin, member_id")
+      .select("code_name, is_admin, member_id, google_calendar_status")
       .eq("email", user.email)
       .single();
     if (member?.code_name) userCodeName = member.code_name;
     if (member?.is_admin) isAdmin = true;
     if (member?.member_id) memberId = member.member_id;
+    if (member && member.google_calendar_status !== "connected") {
+      redirect(`/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}&error=calendar_required`);
+    }
   }
   const hudSkinned =
     pathname.startsWith("/hud") ||

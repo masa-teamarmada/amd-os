@@ -18,6 +18,10 @@
  *   - GET /api/cron/founding-members-extract: 全 PJ をループ (weekly cron)
  *   - GET /api/cron/founding-members-extract?project_id=p21: 単一 PJ
  *   - GET /api/cron/founding-members-extract?force=true: source_hash 無視で再抽出
+ *
+ * projects.project_category='ecosystem' は AMD Score / XRL 根拠の対象外なので除外する。
+ * 2026-05-22: 「創業メンバー」は実際の創業コアだけに限定。
+ * VC / 協業先 / 顧客 / 補助金担当 / advisor-only は保存前にも除外する。
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -68,7 +72,7 @@ interface ExtractedDoc {
   text: string;
 }
 
-const PROMPT_REV = "v1_2026-05-10";
+const PROMPT_REV = "v2_2026-05-22_founder_core_only";
 
 function normalizeRole(s: string): string {
   const lower = (s ?? "").toLowerCase().trim();
@@ -77,6 +81,76 @@ function normalizeRole(s: string): string {
 function normalizeCategory(s: string): string {
   const lower = (s ?? "").toLowerCase().trim();
   return (CATEGORY_VALUES as readonly string[]).includes(lower) ? lower : "unknown";
+}
+
+const EXCLUDED_FOUNDER_CATEGORIES = new Set(["vc", "partner_company", "government"]);
+const EXCLUDED_FOUNDER_ROLES = new Set(["investor", "partner", "business_advisor", "amd_support"]);
+const CORE_FOUNDER_ROLES = new Set(["ceo_candidate", "co_founder", "tech_lead"]);
+const RESEARCH_FOUNDER_KEYWORDS = [
+  "pi",
+  "principal investigator",
+  "研究代表",
+  "代表研究者",
+  "発明者",
+  "技術シーズ",
+  "シーズ保有",
+  "創業",
+  "共同創業",
+  "cto",
+  "技術責任者",
+];
+const STAKEHOLDER_ONLY_KEYWORDS = [
+  "vc",
+  "venture capital",
+  "ファンド",
+  "投資家",
+  "出資",
+  "投資検討",
+  "協業先",
+  "協業",
+  "パートナー",
+  "顧客",
+  "候補顧客",
+  "担当者",
+  "窓口",
+  "補助金",
+  "行政",
+  "政府",
+  "伴走支援",
+  "アドバイザ",
+  "advisor",
+];
+
+function normalizedPersonBlob(m: LlmPerson, role: string, category: string) {
+  return [
+    m.person_name,
+    m.affiliation,
+    role,
+    m.role_label_jp,
+    category,
+    m.responsibility,
+    m.contribution,
+    m.evidence,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function isFounderCoreMember(m: LlmPerson, role: string, category: string): boolean {
+  if (EXCLUDED_FOUNDER_CATEGORIES.has(category)) return false;
+  if (EXCLUDED_FOUNDER_ROLES.has(role)) return false;
+
+  const blob = normalizedPersonBlob(m, role, category);
+  if (CORE_FOUNDER_ROLES.has(role)) {
+    return !STAKEHOLDER_ONLY_KEYWORDS.some((keyword) => blob.includes(keyword)) || /共同創業|創業者|ceo|cto|技術責任者/.test(blob);
+  }
+
+  if (role === "researcher" && (category === "university" || category === "individual")) {
+    return RESEARCH_FOUNDER_KEYWORDS.some((keyword) => blob.includes(keyword));
+  }
+
+  return false;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,10 +166,10 @@ async function extractForProject(
   // 1. 既存メンバー fetch
   const { data: existing } = await db
     .from("project_founding_members")
-    .select("id, person_name, role, category, source_documents")
+    .select("id, person_name, role, category, status, source_documents")
     .eq("project_id", projectId);
-  const existingByName = new Map<string, { id: string; person_name: string; role: string | null; category: string }>();
-  for (const e of (existing ?? []) as { id: string; person_name: string; role: string; category: string; source_documents: unknown }[]) {
+  const existingByName = new Map<string, { id: string; person_name: string; role: string | null; category: string; status: string | null }>();
+  for (const e of (existing ?? []) as { id: string; person_name: string; role: string; category: string; status: string | null; source_documents: unknown }[]) {
     existingByName.set(e.person_name, e);
   }
 
@@ -159,17 +233,26 @@ async function extractForProject(
   const existingNames = Array.from(existingByName.keys()).join(", ") || "(なし)";
 
   const prompt = `あなたは Deep-Tech ベンチャースタジオ AMD のアナリストです。
-PJ「${project.display_name}」(project_id=${projectId}) の **創業メンバー** (社内外問わず、創業に関わる全員) を抽出してください。
+PJ「${project.display_name}」(project_id=${projectId}) の **創業メンバー** だけを抽出してください。
 
-# 創業メンバーの定義 (まさ判断 2026-05-10)
-- AMD 内のメンバー (CEO 候補、co-founder、サポート担当 等)
-- 大学・研究機関の PI / 共同研究者 (例: SX なら愛媛大学の杉浦先生・中島先生・石原先生)
-- VC / ファンドのパートナー (例: PSI 推進機関のダイキアクシスベンチャーパートナーズ堀淵氏、パートナーズファンド種市氏・黒田氏)
-- 産業パートナー / 出資検討先の担当者
-- 政府・行政の担当者 (採択担当、伴走者)
-- その他、PJ の意思決定や実務に深く関わる人物
+# 創業メンバーの定義 (まさ判断 2026-05-22)
+ここでいう創業メンバーは「このSU/事業体の創業コアとして入る人物」だけです。
 
-= 「PJ を成立させるチーム全体」。AMD の社員に限定しない。
+含める:
+- 創業者 / 共同創業者
+- CEO / 代表 / 事業責任者候補
+- CTO / 技術責任者 / 技術創業者
+- 大学・研究機関の PI / 研究代表 / 発明者 / 技術シーズ保有者で、創業チームの中核として入る人物
+- AMD メンバーでも、明示的に CEO候補 / co-founder / 技術責任者 / 創業経営メンバーとして入る場合だけ
+
+除外する:
+- VC / ファンド / 投資家 / 出資検討者
+- 協業先・顧客候補・産業パートナー・サプライヤー・委託先の担当者
+- 補助金・行政・支援機関・採択担当・メンター・advisor-only
+- ちょっと相談した人、同席者、紹介者、窓口、単なる関係者
+- AMD の PM / closer / サポート担当で、創業メンバーとして入る記述がない人物
+
+迷ったら **除外** してください。創業コアである明示根拠がない人物は出力しません。
 
 # 既知の文脈
 - origin_org: ${project.origin_org ?? "(不明)"}
@@ -180,12 +263,13 @@ PJ「${project.display_name}」(project_id=${projectId}) の **創業メンバ�
 ${docsBlock.slice(0, 60000)}
 
 # 抽出ルール
-1. 文中で **明示的に名前が挙がっている人物のみ** を抽出 (推測で勝手に追加しない)
+1. 文中で **明示的に名前が挙がっており、創業コアである根拠がある人物のみ** を抽出 (推測で勝手に追加しない)
 2. 同一人物の別表記 (山田氏 / Yamada / やまだ) は **代表的な 1 つ** に統一して person_name に
 3. 既知メンバーと同一人物なら同じ person_name で返す (= 既存と突合できる形に)
 4. 役割・所属が文中に書かれていなければ role='unknown' / category='unknown'
 5. 「あの人」「彼」のような曖昧な代名詞だけの言及は **除外**
-6. AMD 内の周辺スタッフ (経理、総務など PJ に直接関与しない) は除外
+6. VC/協業先/顧客/行政/補助金担当/単なるadvisorは、名前が明示されていても **除外**
+7. AMD 内のPM/closer/supportは、創業コアとしての根拠がない限り **除外**
 
 # 役割 (role) の値
 - ceo_candidate: CEO/代表 候補
@@ -245,7 +329,9 @@ ${docsBlock.slice(0, 60000)}
   } catch (e) {
     return { projectId, saved: 0, skipped: 0, total: 0, error: `JSON parse: ${String(e)}` };
   }
-  const members = (parsed.members ?? []).filter((m) => m.person_name && m.person_name.length >= 1 && m.person_name.length <= 80);
+  const members = (parsed.members ?? [])
+    .filter((m) => m.person_name && m.person_name.length >= 1 && m.person_name.length <= 80)
+    .filter((m) => isFounderCoreMember(m, normalizeRole(m.role), normalizeCategory(m.category)));
 
   // 4. upsert + diff 検出
   const today = new Date().toISOString().slice(0, 10);
@@ -270,7 +356,10 @@ ${docsBlock.slice(0, 60000)}
       responsibility: m.responsibility ?? null,
       contribution: m.contribution ?? null,
       notes: m.evidence ?? null,
-      status: m.status ?? "active",
+      // LLM抽出で通知する情報は、通知の「はい」で承認されるまでOS正本に反映しない。
+      status: existingRow?.status === "active" && existingRow.role === role && existingRow.category === category
+        ? "active"
+        : "tentative",
       extracted_by: "llm",
       source_documents: sourceDocs,
       last_observed_at: today,
@@ -349,18 +438,38 @@ export async function GET(req: NextRequest) {
   }
   const { data: ventures } = await ventureQuery.order("project_id", { ascending: true });
 
-  const projects = (ventures ?? []) as {
+  const projectsRaw = (ventures ?? []) as {
     project_id: string;
     display_name: string;
     origin_org: string | null;
     origin_pi: string | null;
   }[];
 
-  if (projects.length === 0) {
+  if (projectsRaw.length === 0) {
     return NextResponse.json({ error: "no target projects" }, { status: 404 });
   }
 
+  const projectIds = [...new Set(projectsRaw.map((project) => project.project_id))];
+  const { data: projectRows, error: projectError } = await db
+    .from("projects")
+    .select("project_id, project_category")
+    .in("project_id", projectIds);
+  if (projectError) {
+    return NextResponse.json({ error: "fetch project categories failed", detail: projectError.message }, { status: 500 });
+  }
+  const categoryByProject = new Map(
+    ((projectRows ?? []) as Array<{ project_id: string; project_category: string | null }>).map((row) => [
+      row.project_id,
+      row.project_category || "dtsu",
+    ])
+  );
+  const skippedEcosystem = projectsRaw.filter((project) => categoryByProject.get(project.project_id) === "ecosystem");
+  const projects = projectsRaw.filter((project) => categoryByProject.get(project.project_id) !== "ecosystem");
+
   const results: Awaited<ReturnType<typeof extractForProject>>[] = [];
+  for (const p of skippedEcosystem) {
+    results.push({ projectId: p.project_id, saved: 0, skipped: 0, total: 0, error: "skipped: ecosystem project" });
+  }
   for (const p of projects) {
     try {
       const r = await extractForProject(db, anthropic, p);
@@ -373,5 +482,12 @@ export async function GET(req: NextRequest) {
   const totalSaved = results.reduce((s, r) => s + r.saved, 0);
   const totalProjects = results.length;
 
-  return NextResponse.json({ ok: true, total_projects: totalProjects, total_saved: totalSaved, prompt_rev: PROMPT_REV, results });
+  return NextResponse.json({
+    ok: true,
+    total_projects: totalProjects,
+    total_saved: totalSaved,
+    skipped_ecosystem: skippedEcosystem.length,
+    prompt_rev: PROMPT_REV,
+    results,
+  });
 }

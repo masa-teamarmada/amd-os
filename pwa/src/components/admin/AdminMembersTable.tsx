@@ -21,6 +21,11 @@ export interface MemberRow {
   leave_ym: string | null;
   bank_info: string | null;
   member_address: string | null;
+  google_calendar_status: string;
+  google_calendar_checked_at: string | null;
+  google_calendar_connected_at: string | null;
+  google_calendar_error: string | null;
+  last_login_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -40,6 +45,71 @@ function StatusBadge({ status }: { status: string }) {
       {status}
     </span>
   );
+}
+
+function CalendarBadge({ member }: { member: MemberRow }) {
+  if (!requiresCalendarAccess(member)) {
+    return (
+      <span
+        className="inline-flex items-center rounded border border-zinc-200 bg-zinc-500/10 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500"
+        title="System account or non-login account"
+      >
+        対象外
+      </span>
+    );
+  }
+  const status = member.google_calendar_status || "missing";
+  const checkedAt = member.google_calendar_checked_at
+    ? new Date(member.google_calendar_checked_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+    : null;
+  if (status === "connected") {
+    return (
+      <span
+        className="inline-flex items-center rounded border border-emerald-200 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700"
+        title={checkedAt ? `checked: ${checkedAt}` : "Calendar connected"}
+      >
+        ON
+      </span>
+    );
+  }
+  if (status === "error") {
+    return (
+      <span
+        className="inline-flex items-center rounded border border-red-200 bg-red-500/10 px-1.5 py-0.5 text-[11px] font-medium text-red-700"
+        title={member.google_calendar_error || "Calendar access error"}
+      >
+        Error
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center rounded border border-amber-200 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700"
+      title="Google Calendar access is required at login"
+    >
+      必須
+    </span>
+  );
+}
+
+function requiresCalendarAccess(member: MemberRow) {
+  const email = member.email?.trim().toLowerCase() || "";
+  if (!email.endsWith("@team-armada.jp")) return false;
+  if (["info", "つくよみ"].includes(member.code_name)) return false;
+  return true;
+}
+
+function formatLastLogin(value: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 type EditVals = {
@@ -77,6 +147,11 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
         ) return false;
       }
       return true;
+    }).sort((a, b) => {
+      const at = a.last_login_at ? new Date(a.last_login_at).getTime() : 0;
+      const bt = b.last_login_at ? new Date(b.last_login_at).getTime() : 0;
+      if (bt !== at) return bt - at;
+      return a.code_name.localeCompare(b.code_name, "ja");
     });
   }, [members, filterStatus, filterQ]);
 
@@ -164,7 +239,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
 
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "1300px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: "1500px" }}>
           <thead>
             <tr className="bg-muted/50 text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 bg-muted/50 w-24 border-r border-border">codeName</th>
@@ -175,6 +250,8 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
               <th className="text-left px-3 py-2 font-medium w-24">joinYm</th>
               <th className="text-left px-3 py-2 font-medium w-24">leaveYm</th>
+              <th className="text-left px-3 py-2 font-medium w-24">Calendar</th>
+              <th className="text-left px-3 py-2 font-medium w-28">最終ログイン</th>
               <th className="text-left px-3 py-2 font-medium w-16">admin</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack ID</th>
             </tr>
@@ -307,6 +384,16 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
                     ) : <span className="text-muted-foreground">{m.leave_ym || "—"}</span>}
                   </td>
 
+                  {/* Calendar access - read-only, required at login */}
+                  <td className="px-3 py-2">
+                    <CalendarBadge member={m} />
+                  </td>
+
+                  {/* Last OS login - read-only */}
+                  <td className="px-3 py-2 text-muted-foreground" title={m.last_login_at || "未ログイン"}>
+                    {formatLastLogin(m.last_login_at)}
+                  </td>
+
                   {/* is_admin (boolean toggle) */}
                   <td className={`${cellCls("is_admin")} text-center`} onClick={enterCell("is_admin")}>
                     {isEditingField(m, "is_admin") ? (
@@ -340,7 +427,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={12} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>

@@ -14,14 +14,53 @@ function slack_getBotToken(){
 }
 
 function slack_callApi(path, payload){
+  const apiPath = String(path || "").replace(/^\/+/, "");
+  if (apiPath === "conversations.replies"){
+    return slack_callApiForm(apiPath, payload);
+  }
+
   const token = slack_getBotToken();
-  const url = "https://slack.com/api/" + String(path || "").replace(/^\/+/, "");
+  const url = "https://slack.com/api/" + apiPath;
 
   const res = UrlFetchApp.fetch(url, {
     method: "post",
     contentType: "application/json; charset=utf-8",
     headers: { Authorization: "Bearer " + token },
     payload: JSON.stringify(payload || {}),
+    muteHttpExceptions: true
+  });
+
+  const text = res.getContentText() || "";
+  let obj = null;
+  try { obj = JSON.parse(text); } catch(e) {}
+
+  if (!obj || obj.ok !== true){
+    const msg = obj && obj.error ? obj.error : text;
+    throw new Error("Slack API failed: " + msg);
+  }
+  return obj;
+}
+
+function slack_callApiForm(path, payload){
+  const token = slack_getBotToken();
+  const url = "https://slack.com/api/" + String(path || "").replace(/^\/+/, "");
+  const formPayload = {};
+
+  Object.keys(payload || {}).forEach(function(k){
+    const v = payload[k];
+    if (v === null || v === undefined) return;
+    if (Array.isArray(v) || (typeof v === "object")){
+      formPayload[k] = JSON.stringify(v);
+    } else {
+      formPayload[k] = String(v);
+    }
+  });
+
+  const res = UrlFetchApp.fetch(url, {
+    method: "post",
+    contentType: "application/x-www-form-urlencoded; charset=utf-8",
+    headers: { Authorization: "Bearer " + token },
+    payload: formPayload,
     muteHttpExceptions: true
   });
 

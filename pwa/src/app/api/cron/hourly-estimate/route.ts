@@ -70,10 +70,10 @@ export async function GET(req: NextRequest) {
   const ymList = ymOverride && /^\d{6}$/.test(ymOverride) ? [ymOverride] : [baseYm, prevYm(baseYm)];
 
   const supabase = getServiceClient();
-  const { data: projects, error } = await supabase
-    .from("projects")
-    .select("project_id")
-    .eq("status", "active");
+	  const { data: projects, error } = await supabase
+	    .from("projects")
+	    .select("project_id")
+	    .or("status.eq.active,project_category.eq.advisor");
 
   if (error) {
     console.error("[cron/hourly-estimate] failed to fetch projects:", error);

@@ -103,6 +103,15 @@ async function loadPjInfo(supabase: ReturnType<typeof createAdminClient>, projec
   return v as unknown as PjInfo;
 }
 
+async function loadProjectCategory(supabase: ReturnType<typeof createAdminClient>, projectId: string): Promise<string> {
+  const { data } = await supabase
+    .from("projects")
+    .select("project_category")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  return ((data as { project_category?: string } | null)?.project_category) || "dtsu";
+}
+
 async function loadExistingInputs(supabase: ReturnType<typeof createAdminClient>, projectId: string) {
   const { data } = await supabase
     .from("amd_score_inputs")
@@ -325,6 +334,11 @@ export async function extractAmdScoreForPj(projectId: string): Promise<ExtractRe
   const supabase = createAdminClient();
   const errors: string[] = [];
 
+  const category = await loadProjectCategory(supabase, projectId);
+  if (category === "ecosystem") {
+    return { project_id: projectId, upserted: 0, summary: "skipped: ecosystem project", uncertainty: "", errors: [] };
+  }
+
   const pj = await loadPjInfo(supabase, projectId);
   if (!pj) {
     return { project_id: projectId, upserted: 0, summary: "", uncertainty: "", errors: ["PJ not found in project_ventures"] };
@@ -373,9 +387,23 @@ export async function extractAmdScoreForAllPjs(): Promise<ExtractResult[]> {
     console.error("[l2-extract] failed to list PJs:", error);
     return [];
   }
+  const projectIds = (data as Array<{ project_id: string }>).map((row) => row.project_id);
+  const { data: projectRows } = projectIds.length
+    ? await supabase.from("projects").select("project_id, project_category").in("project_id", projectIds)
+    : { data: [] };
+  const categoryByProject = new Map(
+    ((projectRows ?? []) as Array<{ project_id: string; project_category: string | null }>).map((row) => [
+      row.project_id,
+      row.project_category || "dtsu",
+    ])
+  );
   const results: ExtractResult[] = [];
   for (const row of data) {
     const r = row as { project_id: string };
+    if (categoryByProject.get(r.project_id) === "ecosystem") {
+      results.push({ project_id: r.project_id, upserted: 0, summary: "skipped: ecosystem project", uncertainty: "", errors: [] });
+      continue;
+    }
     try {
       const res = await extractAmdScoreForPj(r.project_id);
       results.push(res);

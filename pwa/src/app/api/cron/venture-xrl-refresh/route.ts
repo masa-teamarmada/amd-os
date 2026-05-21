@@ -1,7 +1,8 @@
 /**
  * 毎朝 03:00 JST の XRL 自動判定 cron。
  *
- * 対象: is_public=true な project_ventures
+ * 対象: is_public=true な project_ventures。ただし projects.project_category='ecosystem' は
+ * AMD Score / XRL 算定対象外なので除外する。
  * 条件: 直近の確定 xrl_log (source != 'llm_proposal') の observed_at より新しい
  *      project_events か project_venture_members 変動があるなら判定実行。
  *      何も無いなら飛ばす (LLM コール節約)。
@@ -120,10 +121,34 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "fetch ventures failed", detail: error }, { status: 500 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const results: { project_id: string; status: "skipped" | "proposed" | "error" }[] = [];
+  const projectIds = [...new Set((ventures as VentureRow[]).map((v) => v.project_id))];
+  if (projectIds.length === 0) {
+    return NextResponse.json({ total: 0, skippedEcosystem: 0, results: [] });
+  }
+  const { data: projectRows, error: projectError } = await supabase
+    .from("projects")
+    .select("project_id, project_category")
+    .in("project_id", projectIds);
+  if (projectError) {
+    return NextResponse.json({ error: "fetch project categories failed", detail: projectError }, { status: 500 });
+  }
+  const categoryByProject = new Map(
+    ((projectRows ?? []) as Array<{ project_id: string; project_category: string | null }>).map((row) => [
+      row.project_id,
+      row.project_category || "dtsu",
+    ])
+  );
+  const targetVentures = (ventures as VentureRow[]).filter((v) => categoryByProject.get(v.project_id) !== "ecosystem");
+  const skippedEcosystem = (ventures as VentureRow[]).filter((v) => categoryByProject.get(v.project_id) === "ecosystem");
 
-  for (const v of ventures as VentureRow[]) {
+  const today = new Date().toISOString().slice(0, 10);
+  const results: { project_id: string; status: "skipped" | "proposed" | "error"; reason?: string }[] = skippedEcosystem.map((v) => ({
+    project_id: v.project_id,
+    status: "skipped",
+    reason: "ecosystem project",
+  }));
+
+  for (const v of targetVentures) {
     // 既に今日 proposal を作っていればスキップ
     const { data: todayProposal } = await supabase
       .from("project_xrl_log")
@@ -133,7 +158,7 @@ export async function GET(req: Request) {
       .eq("observed_at", today)
       .maybeSingle();
     if (todayProposal) {
-      results.push({ project_id: v.project_id, status: "skipped" });
+      results.push({ project_id: v.project_id, status: "skipped", reason: "today proposal already exists" });
       continue;
     }
 
@@ -163,7 +188,7 @@ export async function GET(req: Request) {
         .limit(1);
       const hasDelta = (newerEvents && newerEvents.length > 0) || (newerMembers && newerMembers.length > 0);
       if (!hasDelta) {
-        results.push({ project_id: v.project_id, status: "skipped" });
+        results.push({ project_id: v.project_id, status: "skipped", reason: "no delta since last confirmed XRL" });
         continue;
       }
     }
@@ -196,5 +221,5 @@ export async function GET(req: Request) {
     results.push({ project_id: v.project_id, status: "proposed" });
   }
 
-  return NextResponse.json({ total: ventures.length, results });
+  return NextResponse.json({ total: targetVentures.length, skippedEcosystem: skippedEcosystem.length, results });
 }

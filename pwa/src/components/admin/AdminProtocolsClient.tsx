@@ -26,7 +26,7 @@ interface Protocol {
   title: string;
   project_id?: string;
   project_name?: string;
-  /** Phase 4 (gas/155 nav_protocol_extractOneForYm_) で抽出された 4 要素 markdown 本文 */
+  /** Phase 4 (gas/155 nav_protocol_extractOneForYm_) で抽出された protocol markdown 本文 */
   content?: string;
   /** Phase 3 以前の手動入力用 column (現役は content だが互換) */
   branch_point?: string;
@@ -43,19 +43,19 @@ interface Protocol {
   updated_at: string;
 }
 
-/** 4 要素 markdown content から ① 分岐点 / ② 判断材料 / ③ アクション / ④ 結果・学習 を分解 */
+/** markdown content から ① 分岐点 / ② 判断材料 / ③ アクション / ④ 結果 を分解 */
 function parseFourElements(content: string): { branch: string; criteria: string; action: string; result: string } {
   if (!content) return { branch: "", criteria: "", action: "", result: "" };
   const blocks: { branch: string; criteria: string; action: string; result: string } = { branch: "", criteria: "", action: "", result: "" };
-  // 「**① 分岐点**:」「**② 判断材料**:」「**③ アクション**:」「**④ 結果・学習**:」を区切りに使う
-  const re = /\*\*[①②③④①-④12345]\.?\s*(分岐点|判断材料|アクション|結果[・·]?学習|学習[・·]?結果)\*\*[:：]?\s*/g;
-  const tokens: { idx: number; label: string }[] = [];
+  // 「**① 分岐点**:」「## 判断材料」「## 結果」などを区切りに使う。旧「結果・学習」も読み取りだけは互換対応。
+  const re = /(?:^|\n)\s*(?:#{1,6}\s*)?(?:\*\*)?[①②③④①-④12345]?\.?\s*(分岐点|判断材料|アクション|結果[・·]?学習|学習[・·]?結果|結果)(?:\*\*)?[:：]?\s*/g;
+  const tokens: { matchStart: number; bodyStart: number; label: string }[] = [];
   let m: RegExpExecArray | null;
-  while ((m = re.exec(content)) !== null) tokens.push({ idx: m.index + m[0].length, label: m[1] });
+  while ((m = re.exec(content)) !== null) tokens.push({ matchStart: m.index, bodyStart: m.index + m[0].length, label: m[1] });
   if (tokens.length === 0) return blocks;
   for (let i = 0; i < tokens.length; i++) {
-    const start = tokens[i].idx;
-    const end = i + 1 < tokens.length ? content.indexOf("**", start) : content.length;
+    const start = tokens[i].bodyStart;
+    const end = i + 1 < tokens.length ? tokens[i + 1].matchStart : content.length;
     const body = content.slice(start, end > start ? end : content.length).trim().replace(/^[:：\s]+/, "");
     const label = tokens[i].label;
     if (label === "分岐点") blocks.branch = body;
@@ -66,12 +66,12 @@ function parseFourElements(content: string): { branch: string; criteria: string;
   return blocks;
 }
 
-const STEP_META = [
+const CORE_STEP_META = [
   { key: "branch" as const,   label: "① 分岐点",      icon: "🔀", color: "bg-blue-50 border-blue-200 text-blue-900" },
   { key: "criteria" as const, label: "② 判断材料",    icon: "📊", color: "bg-amber-50 border-amber-200 text-amber-900" },
   { key: "action" as const,   label: "③ アクション",  icon: "🎯", color: "bg-emerald-50 border-emerald-200 text-emerald-900" },
-  { key: "result" as const,   label: "④ 結果・学習",  icon: "💡", color: "bg-violet-50 border-violet-200 text-violet-900" },
 ];
+const RESULT_STEP_META = { key: "result" as const, label: "④ 結果", icon: "💡", color: "bg-violet-50 border-violet-200 text-violet-900" };
 
 interface Props {
   protocols: Protocol[];
@@ -373,7 +373,7 @@ ${r.content || r.criteria || "(本文なし)"}
                         <span key={t} className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{t}</span>
                       ))}
                     </div>
-                    {/* 折りたたみ時の preview: Phase 4 は content (4 要素 markdown)、旧手動は criteria */}
+                    {/* 折りたたみ時の preview: Phase 4 は content、旧手動は criteria */}
                     {!isExpanded && (r.content || r.criteria) && (
                       <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">
                         {(r.content || r.criteria || "").replace(/\*\*/g, "").slice(0, 200)}
@@ -413,7 +413,7 @@ ${r.content || r.criteria || "(本文なし)"}
                 </div>
                 {isExpanded && (
                   <div className="px-10 pb-4 pt-2 border-t border-border/50 space-y-3">
-                    {/* 4 要素ステップカード (普遍パターン部分) */}
+                    {/* ステップカード (普遍パターン部分) */}
                     {r.content && (() => {
                       const parsed = parseFourElements(r.content);
                       const anyParsed = parsed.branch || parsed.criteria || parsed.action || parsed.result;
@@ -424,9 +424,10 @@ ${r.content || r.criteria || "(本文なし)"}
                           </div>
                         );
                       }
+                      const steps = parsed.result ? [...CORE_STEP_META, RESULT_STEP_META] : CORE_STEP_META;
                       return (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {STEP_META.map((step) => {
+                          {steps.map((step) => {
                             const body = parsed[step.key];
                             return (
                               <div key={step.key} className={`rounded-md border p-2.5 ${step.color}`}>
@@ -489,9 +490,11 @@ ${r.content || r.criteria || "(本文なし)"}
                                 )}
                               </div>
                               <p className="leading-relaxed">{ex.summary}</p>
-                              {(ex.branch_point || ex.action_taken || ex.result) && (
+                              {(ex.branch_point || ex.criteria || ex.action_taken || ex.result) && (
                                 <details className="mt-1">
-                                  <summary className="text-[10px] text-muted-foreground cursor-pointer">事例の 4 要素</summary>
+                                  <summary className="text-[10px] text-muted-foreground cursor-pointer">
+                                    {ex.result ? "事例の 4 要素" : "事例の 3 要素"}
+                                  </summary>
                                   <div className="mt-1 pl-2 border-l-2 border-border space-y-0.5 text-[10.5px]">
                                     {ex.branch_point && <div>🔀 <strong>分岐点:</strong> {ex.branch_point}</div>}
                                     {ex.criteria && <div>📊 <strong>判断材料:</strong> {ex.criteria}</div>}

@@ -18,6 +18,163 @@ function rv2_nowJst_() {
   return Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd'T'HH:mm:ss") + "+09:00";
 }
 
+function rv2_prevYm_(ym) {
+  var s = String(ym || "").trim();
+  var y = parseInt(s.substring(0, 4), 10);
+  var m = parseInt(s.substring(4, 6), 10);
+  if (!y || !m) return "";
+  var pm = m === 1 ? 12 : m - 1;
+  var py = m === 1 ? y - 1 : y;
+  return String(py) + ("0" + pm).slice(-2);
+}
+
+function rv2_monthDiffInclusive_(startYm, endYm) {
+  var s = String(startYm || "").trim();
+  var e = String(endYm || "").trim();
+  if (!s || !e) return 1;
+  var sy = parseInt(s.substring(0, 4), 10);
+  var sm = parseInt(s.substring(4, 6), 10);
+  var ey = parseInt(e.substring(0, 4), 10);
+  var em = parseInt(e.substring(4, 6), 10);
+  if (!sy || !sm || !ey || !em) return 1;
+  return Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
+}
+
+function rv2_getBillingCycleRow_(projectId, ym) {
+  try {
+    var rows = b_readTable_("DB_BillingCycle");
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i].projectId || "").trim() === String(projectId || "").trim() &&
+          String(rows[i].ym || "").trim() === String(ym || "").trim()) {
+        return rows[i];
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+function rv2_calcMonthlyCapBudget_(projectId, ym, planCycle, feeAmount, cycleMonths) {
+  var cycle = rv2_getBillingCycleRow_(projectId, ym);
+  if (cycle) {
+    var cycleBudget = Number(cycle.budgetYen || cycle.budgetTotal || 0);
+    if (cycleBudget > 0) return Math.round(cycleBudget);
+  }
+  var monthlyGross = Number(feeAmount || 0) * 0.65;
+  if (monthlyGross > 0) return Math.round(monthlyGross);
+  var cycleBudgetYen = Number(planCycle && planCycle.budgetYen || 0);
+  if (cycleBudgetYen > 0) return Math.round(cycleBudgetYen / Math.max(1, cycleMonths || 1));
+  return 0;
+}
+
+function rv2_readCarryStock_(projectId, ym) {
+  var stock = {};
+  var prevYm = rv2_prevYm_(ym);
+  if (!prevYm) return stock;
+  var prev = rv2_getBillingCycleRow_(projectId, prevYm);
+  if (!prev || !prev.rewardSummaryJson) return stock;
+  try {
+    var summary = typeof prev.rewardSummaryJson === "string"
+      ? JSON.parse(prev.rewardSummaryJson)
+      : prev.rewardSummaryJson;
+    var members = summary && summary.members || [];
+    for (var i = 0; i < members.length; i++) {
+      var mid = String(members[i].memberId || "").trim();
+      var amount = Number(members[i].stockYen || members[i].deferredYen || 0);
+      if (mid && amount > 0) stock[mid] = Math.round(amount);
+    }
+  } catch (e) {}
+  return stock;
+}
+
+function rv2_applyMonthlyCap_(members, capBudgetYen, carryStock, memberNameMap) {
+  var cap = Math.round(Number(capBudgetYen || 0));
+  var memberById = {};
+  for (var i = 0; i < members.length; i++) {
+    memberById[String(members[i].memberId || "").trim()] = members[i];
+  }
+  var carryIds = Object.keys(carryStock || {});
+  for (var ci = 0; ci < carryIds.length; ci++) {
+    var carryMid = carryIds[ci];
+    if (!memberById[carryMid]) {
+      var carryOnly = {
+        memberId: carryMid,
+        memberName: memberNameMap[carryMid] || carryMid,
+        earnedPt: 0,
+        basePay: 0,
+        bonusPt: 0,
+        totalPay: 0,
+        breakdown: []
+      };
+      members.push(carryOnly);
+      memberById[carryMid] = carryOnly;
+    }
+  }
+
+  var totalGrossDue = 0;
+  var carryInTotal = 0;
+  for (var mi = 0; mi < members.length; mi++) {
+    var member = members[mi];
+    var mid = String(member.memberId || "").trim();
+    var currentEarned = Math.round(Number(member.totalPay || member.basePay || 0));
+    var carryIn = Math.round(Number(carryStock && carryStock[mid] || 0));
+    var grossDue = Math.max(0, currentEarned + carryIn);
+    member.carryInYen = carryIn;
+    member.grossDueYen = grossDue;
+    totalGrossDue += grossDue;
+    carryInTotal += carryIn;
+  }
+
+  if (cap <= 0 || totalGrossDue <= cap) {
+    var noCapTotal = 0;
+    for (var ni = 0; ni < members.length; ni++) {
+      members[ni].totalPay = Math.round(Number(members[ni].grossDueYen || 0));
+      members[ni].deferredYen = 0;
+      members[ni].stockYen = 0;
+      noCapTotal += members[ni].totalPay;
+    }
+    return {
+      members: members,
+      totalPaySum: noCapTotal,
+      totalGrossDueYen: Math.round(totalGrossDue),
+      capBudgetYen: cap,
+      capped: false,
+      carryInYen: carryInTotal,
+      carryOverYen: 0,
+      monthlyBudget65: cap
+    };
+  }
+
+  var remainingCap = cap;
+  var remainingGross = totalGrossDue;
+  var payTotal = 0;
+  var carryOver = 0;
+  for (var pi = 0; pi < members.length; pi++) {
+    var gross = Math.round(Number(members[pi].grossDueYen || 0));
+    var isLast = pi === members.length - 1;
+    var paid = isLast ? remainingCap : Math.round(remainingCap * gross / Math.max(1, remainingGross));
+    paid = Math.max(0, Math.min(gross, paid));
+    remainingCap -= paid;
+    remainingGross -= gross;
+    var deferred = Math.max(0, gross - paid);
+    members[pi].cappedFrom = gross;
+    members[pi].totalPay = paid;
+    members[pi].deferredYen = deferred;
+    members[pi].stockYen = deferred;
+    payTotal += paid;
+    carryOver += deferred;
+  }
+  return {
+    members: members,
+    totalPaySum: payTotal,
+    totalGrossDueYen: Math.round(totalGrossDue),
+    capBudgetYen: cap,
+    capped: true,
+    carryInYen: carryInTotal,
+    carryOverYen: carryOver,
+    monthlyBudget65: cap
+  };
+}
+
 /**
  * 指定PJ×ymの報酬サマリを計算して返す
  *
@@ -273,14 +430,7 @@ function rv2_calcRewardSummary(projectId, ym) {
       }
     }
   } catch (e) {}
-  var cycleMonths = 1;
-  if (startYm && endYm) {
-    var csY = parseInt(startYm.substring(0, 4), 10);
-    var csM = parseInt(startYm.substring(4, 6), 10);
-    var ceY = parseInt(endYm.substring(0, 4), 10);
-    var ceM = parseInt(endYm.substring(4, 6), 10);
-    cycleMonths = Math.max(1, (ceY - csY) * 12 + (ceM - csM) + 1);
-  }
+  var cycleMonths = rv2_monthDiffInclusive_(startYm, endYm);
   var monthlyGross = feeAmount * 0.65;
   var grossBudget = monthlyGross * cycleMonths;
 
@@ -377,34 +527,22 @@ function rv2_calcRewardSummary(projectId, ym) {
   // earnedPt降順
   members.sort(function(a, b) { return b.earnedPt - a.earnedPt; });
 
-  // --- 9. 月次budget65キャップ（按分圧縮） ---
-  // netBudget（年間65% - 控除枠）を月数で割った額が月次上限
-  var monthlyBudget65 = cycleMonths > 0 ? Math.round(netBudget / cycleMonths) : 0;
-  var totalPaySum = 0;
-  for (var ti = 0; ti < members.length; ti++) {
-    totalPaySum += members[ti].totalPay;
-  }
-
-  var capped = false;
-  var carryOverYen = 0;
-  if (monthlyBudget65 > 0 && totalPaySum > monthlyBudget65) {
-    capped = true;
-    carryOverYen = totalPaySum - monthlyBudget65;
-    var ratio = monthlyBudget65 / totalPaySum;
-    for (var ci = 0; ci < members.length; ci++) {
-      var originalPay = members[ci].totalPay;
-      members[ci].totalPay = Math.round(originalPay * ratio);
-      members[ci].basePay = Math.round(members[ci].basePay * ratio);
-      members[ci].cappedFrom = originalPay;  // 圧縮前の額を保持
-    }
-    totalPaySum = monthlyBudget65;
-  }
+  // --- 9. 月次支払キャップ ---
+  // 今月払ってよい額（PJ予算）を超えた分は member.stockYen として翌月へ繰り越す。
+  var capBudgetYen = rv2_calcMonthlyCapBudget_(pid, sym, planCycle, feeAmount, cycleMonths);
+  var carryStock = rv2_readCarryStock_(pid, sym);
+  var capResult = rv2_applyMonthlyCap_(members, capBudgetYen, carryStock, memberNameMap);
+  members = capResult.members;
+  var totalPaySum = capResult.totalPaySum;
 
   return {
-    monthlyBudget65: monthlyBudget65,
     totalPaySum: totalPaySum,
-    capped: capped,
-    carryOverYen: carryOverYen,
+    totalGrossDueYen: capResult.totalGrossDueYen,
+    capBudgetYen: capResult.capBudgetYen,
+    capped: capResult.capped,
+    carryInYen: capResult.carryInYen,
+    carryOverYen: capResult.carryOverYen,
+    monthlyBudget65: capResult.monthlyBudget65,
     planCycleId: planCycleId,
     annualBudget: annualBudget,
     grossBudget: grossBudget,

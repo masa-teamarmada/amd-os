@@ -26,6 +26,7 @@ function tsukuyomiHandleThreadReplyEvent(payload){
     // ★Slackは順序/発言者がズレやすいので「後ろから見て、bot以外の最新テキスト」を採用する
     const arr = Array.isArray(history) ? history : [];
     let lastUserText = "";
+    let lastUserTs = "";
     for (let i = arr.length - 1; i >= 0; i--){
       const m = arr[i] || {};
       const t = String(m.text || "").trim();
@@ -40,6 +41,7 @@ function tsukuyomiHandleThreadReplyEvent(payload){
       if (looksBot) continue;
 
       lastUserText = t;
+      lastUserTs = String(m.ts || "").trim();
       break;
     }
 
@@ -192,6 +194,20 @@ function tsukuyomiHandleThreadReplyEvent(payload){
 
       tsukuyomiPostThreadReply(channelId, threadTs, msg);
       return { ok:true, debug:true, len: sys.length, hash16: hash16, hasTsukubo: hasNg };
+    }
+
+    // 3.3) 軽いお礼・了解は本文返信せず、リアクションだけ返す
+    const reactionPlan = tsukuyomiChooseReactionOnly_(lastUserText);
+    if (reactionPlan && reactionPlan.length && lastUserTs){
+      const reactionResults = tsukuyomiAddReactionPlan_(channelId, lastUserTs, reactionPlan);
+      const hasOk = reactionResults.some(function(r){ return !!(r && r.ok); });
+      if (hasOk){
+        return {
+          ok:true,
+          reactionOnly:true,
+          reactions: reactionResults.map(function(r){ return r.name || ""; }).filter(String)
+        };
+      }
     }
 
     // 4) userPrompt
@@ -678,6 +694,167 @@ function tsukuyomiPostThreadReply(channelId, threadTs, text){
     text: t,
     thread_ts: ts
   });
+}
+
+function tsukuyomiChooseReactionOnly_(text){
+  const candidate = tsukuyomiReactionCandidateText_(text);
+  const normalized = tsukuyomiNormalizeReactionText_(candidate);
+  if (!normalized) return [];
+
+  if (normalized.indexOf("つくめも") !== -1) return [];
+  if (normalized.length > 48) return [];
+
+  const requestLike = [
+    "?", "？", "教えて", "確認して", "お願い", "頼む", "やって",
+    "してほしい", "して欲しい", "できる", "どう", "なに", "何",
+    "どれ", "いつ", "誰", "どこ", "なぜ", "なんで", "したい",
+    "追加して", "修正して", "直して", "作って", "実装して", "入れて",
+    "送って", "読んで", "調べて", "見て"
+  ];
+  if (requestLike.some(function(k){ return normalized.indexOf(k) !== -1; })) return [];
+
+  const thanksLike = [
+    "さんきゅ", "サンキュ", "ありがとう", "ありがと", "助かった",
+    "たすかった", "感謝", "thanks", "thankyou", "thank you", "thx"
+  ];
+  if (thanksLike.some(function(k){ return normalized.indexOf(k) !== -1; })){
+    return [
+      { name:"heart" },
+      { name:tsukuyomiMoonReactionName_(), fallbackName:"crescent_moon" }
+    ];
+  }
+
+  const positiveLike = ["いい感じ", "いいかんじ", "よさそう", "すき", "好き"];
+  if (positiveLike.some(function(k){ return normalized.indexOf(k) !== -1; })){
+    return [
+      { name:"heart" },
+      { name:tsukuyomiMoonReactionName_(), fallbackName:"crescent_moon" }
+    ];
+  }
+
+  const ackExact = ["ok", "okay"];
+  const ackLike = ["了解", "りょ", "おけ", "確認した", "見た", "みた", "把握"];
+  if (ackExact.indexOf(normalized) !== -1 || ackLike.some(function(k){ return normalized.indexOf(k) !== -1; })){
+    return [
+      { name:"white_check_mark" },
+      { name:tsukuyomiMoonReactionName_(), fallbackName:"crescent_moon" }
+    ];
+  }
+
+  return [];
+}
+
+function tsukuyomiReactionCandidateText_(text){
+  const raw = String(text || "").trim();
+  if (!raw) return "";
+
+  const tsukuUserId = tsukuyomiBotMentionUserId_();
+  if (tsukuUserId){
+    const re = new RegExp("<@" + tsukuyomiEscapeRegExp_(tsukuUserId) + "(?:\\|[^>]+)?>", "g");
+    let last = null;
+    let m = null;
+    while ((m = re.exec(raw)) !== null){
+      last = m;
+    }
+    if (last) return raw.slice(last.index + last[0].length).trim();
+  }
+
+  const anyMention = tsukuyomiLastSlackMention_(raw);
+  if (anyMention) return raw.slice(anyMention.index + anyMention.text.length).trim();
+
+  // Slack API上では通常 <@USERID> になるが、UI由来の文面や手動テスト用に文字名も拾う。
+  const literal = raw.match(/(?:^|[\s　])@?つくよみ[\s　]*([\s\S]*)$/);
+  if (literal && String(literal[1] || "").trim()) return String(literal[1] || "").trim();
+
+  return raw;
+}
+
+function tsukuyomiBotMentionUserId_(){
+  try{
+    const props = PropertiesService.getScriptProperties();
+    const userId = String(props.getProperty("SLACK_TSUKUYOMI_BOT_USER_ID") || "").trim();
+    if (userId) return userId;
+  }catch(_e){}
+  return "";
+}
+
+function tsukuyomiLastSlackMention_(text){
+  const raw = String(text || "");
+  const re = /<@[A-Z0-9]+(?:\|[^>]+)?>/g;
+  let last = null;
+  let m = null;
+  while ((m = re.exec(raw)) !== null){
+    last = { index:m.index, text:m[0] };
+  }
+  return last;
+}
+
+function tsukuyomiEscapeRegExp_(value){
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function tsukuyomiNormalizeReactionText_(text){
+  return String(text || "")
+    .replace(/<@[A-Z0-9]+(?:\|[^>]+)?>/g, "")
+    .replace(/<https?:\/\/[^>]+>/g, "")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/[ \t\r\n　]+/g, "")
+    .replace(/[!！。.,、〜~ー\-]+$/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function tsukuyomiMoonReactionName_(){
+  try{
+    const props = PropertiesService.getScriptProperties();
+    const configured = String(props.getProperty("SLACK_TSUKUYOMI_MOON_REACTION") || "").trim();
+    if (configured) return configured.replace(/^:+|:+$/g, "").trim();
+  }catch(_e){}
+  return "tsukuyomi_moon";
+}
+
+function tsukuyomiAddReactionPlan_(channelId, messageTs, plan){
+  const items = Array.isArray(plan) ? plan : [];
+  const out = [];
+  const used = {};
+
+  items.forEach(function(item){
+    const primary = String((item && item.name) || "").trim();
+    const fallback = String((item && item.fallbackName) || "").trim();
+    if (!primary || used[primary]) return;
+
+    let res = tsukuyomiTryAddReaction_(channelId, messageTs, primary);
+    if (!res.ok && fallback && !used[fallback] && res.error === "invalid_name"){
+      res = tsukuyomiTryAddReaction_(channelId, messageTs, fallback);
+    }
+
+    if (res.ok) used[res.name] = true;
+    out.push(res);
+  });
+
+  return out;
+}
+
+function tsukuyomiTryAddReaction_(channelId, messageTs, emojiName){
+  const ch = String(channelId || "").trim();
+  const ts = String(messageTs || "").trim();
+  const name = String(emojiName || "").replace(/^:+|:+$/g, "").trim();
+  if (!ch || !ts || !name) return { ok:false, name:name, error:"missing_arg" };
+
+  try{
+    const res = slack_callApi("reactions.add", {
+      channel: ch,
+      timestamp: ts,
+      name: name
+    });
+    return { ok:true, name:name, result:res };
+  }catch(e){
+    const msg = String(e && e.message ? e.message : e || "");
+    if (msg.indexOf("already_reacted") !== -1) return { ok:true, name:name, already:true };
+    if (msg.indexOf("invalid_name") !== -1) return { ok:false, name:name, error:"invalid_name" };
+    if (msg.indexOf("missing_scope") !== -1) return { ok:false, name:name, error:"missing_scope" };
+    return { ok:false, name:name, error:msg.slice(0, 160) };
+  }
 }
 
 function tsukuyomiBuildSystemPromptBaseFallback(persona){

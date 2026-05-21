@@ -25,6 +25,10 @@
       "schedule": "0 19 * * *"
     },
     {
+      "path": "/api/cron/member-weekly-activities",
+      "schedule": "0 9 * * *"
+    },
+    {
       "path": "/api/cron/relearn-lane-weights",
       "schedule": "30 18 * * *"
     },

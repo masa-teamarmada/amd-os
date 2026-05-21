@@ -1,7 +1,8 @@
 /**
  * project_founding_members データアクセス層。
  *
- * PJ 創業メンバー (AMD 内外含む全員) を LLM 抽出した結果。HRL 推定の主要根拠。
+ * PJ 創業メンバー (= 創業者 / CEO候補 / 技術創業者 / PI など創業コア) を
+ * LLM 抽出した結果。HRL 推定の主要根拠。
  * 仕様: pwa/scripts/migrations/040_project_founding_members.sql
  */
 

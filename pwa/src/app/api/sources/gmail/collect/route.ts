@@ -289,31 +289,6 @@ export async function GET(req: NextRequest) {
       .upsert(rows, { onConflict: "project_id,source,item_id" });
     if (error) return NextResponse.json({ ok: false, error: error.message, query, threadCount: threads.length }, { status: 500 });
     savedCount = rows.length;
-
-    const latestThread = threads
-      .slice()
-      .sort((a, b) => String(b.last_message_jst || "").localeCompare(String(a.last_message_jst || "")))[0];
-    const notificationSummary = [
-      `${project.project_name || projectId} ${ym} のGmailをOSへ取り込み済み。`,
-      `スレッド ${threadRows.length}件 / 対象月メール ${messageRows.length}件を source_cache に保存した。`,
-      latestThread?.last_message_jst ? `最新メール: ${latestThread.last_message_jst}` : "",
-      messageRows.length ? "通知を開くとメール単位の根拠を確認できる。" : "",
-    ].filter(Boolean).join(" ");
-    await supabase
-      .from("l2_notifications")
-      .upsert(
-        {
-          l2_kind: "raw_data_ingested",
-          target_id: projectId,
-          scope_key: `${ym}:gmail:source-cache`,
-          title: `📥 ${project.project_name || projectId}: Gmail生データ取り込み (${messageRows.length}件)`,
-          summary: notificationSummary.slice(0, 500),
-          saved_count: rows.length,
-          total_count: rows.length,
-          importance: messageRows.length ? 2 : 1,
-        },
-        { onConflict: "l2_kind,target_id,scope_key" }
-      );
   }
 
     return NextResponse.json({

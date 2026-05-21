@@ -207,9 +207,8 @@ async function buildRevisionEvidence(
       .select("source, item_id, title, item_date, content_text")
       .eq("project_id", projectId)
       .eq("ym", ym)
-      .eq("source", "gmail")
       .order("item_date", { ascending: false })
-      .limit(20),
+      .limit(40),
     supabase
       .from("monthly_reports")
       .select("final_content, draft_content")
@@ -234,7 +233,7 @@ async function buildRevisionEvidence(
     if (a.learned_addendum) lines.push(`学習(${a.member_id}): ${a.learned_addendum}`);
   }
   for (const s of sourceCacheRes.data || []) {
-    lines.push(`Gmail原文候補: ${s.title || ""} ${String(s.content_text || "").slice(0, 800)}`.trim());
+    lines.push(`Source(${s.source || "unknown"}): ${s.title || ""} ${String(s.content_text || "").slice(0, 800)}`.trim());
   }
   for (const p of progressRes.data || []) {
     lines.push(`既存進捗: ${Number(p.progress_pct || 0)}% source=${p.source || ""} note=${p.note || ""}`);

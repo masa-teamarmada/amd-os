@@ -7,6 +7,7 @@
  * 全 active PJ について、過去 3 ヶ月分の monthly_reports + project_meeting_summaries を集約し、
  * Sonnet 4.6 で frl_grit (Duckworth 2007) / frl_resilience (Markman 2005) を 0-9 推定 →
  * amd_score_inputs に upsert (UNIQUE (project_id, evaluated_at))。
+ * projects.project_category='ecosystem' は AMD Score 対象外なので除外する。
  *
  * Vercel Cron: 月初 03:00 JST (前月 18:00 UTC) — vercel.json schedule "0 18 1 * *"
  * 認証: Authorization: Bearer CRON_SECRET
@@ -305,10 +306,26 @@ export async function GET(req: NextRequest) {
   } else {
     const { data: projects, error } = await supabase
       .from("projects")
-      .select("project_id")
-      .eq("status", "active");
+      .select("project_id, project_category")
+      .eq("status", "active")
+      .neq("project_category", "ecosystem");
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     projectIds = (projects ?? []).map((p: { project_id: string }) => p.project_id);
+  }
+
+  if (projectIds.length > 0) {
+    const { data: categoryRows, error: categoryError } = await supabase
+      .from("projects")
+      .select("project_id, project_category")
+      .in("project_id", projectIds);
+    if (categoryError) return NextResponse.json({ error: categoryError.message }, { status: 500 });
+    const categoryByProject = new Map(
+      ((categoryRows ?? []) as Array<{ project_id: string; project_category: string | null }>).map((row) => [
+        row.project_id,
+        row.project_category || "dtsu",
+      ])
+    );
+    projectIds = projectIds.filter((projectId) => categoryByProject.get(projectId) !== "ecosystem");
   }
 
   if (projectIds.length === 0) {

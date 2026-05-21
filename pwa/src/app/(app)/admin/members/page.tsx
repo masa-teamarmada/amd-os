@@ -9,6 +9,7 @@ export default async function AdminMembersPage() {
   const { data, error } = await supabase
     .from("members")
     .select("*")
+    .order("last_login_at", { ascending: false, nullsFirst: false })
     .order("status")
     .order("code_name");
 
@@ -26,6 +27,11 @@ export default async function AdminMembersPage() {
     leave_ym: m.leave_ym ?? null,
     bank_info: m.bank_info ?? null,
     member_address: m.member_address ?? null,
+    google_calendar_status: m.google_calendar_status ?? "missing",
+    google_calendar_checked_at: m.google_calendar_checked_at ?? null,
+    google_calendar_connected_at: m.google_calendar_connected_at ?? null,
+    google_calendar_error: m.google_calendar_error ?? null,
+    last_login_at: m.last_login_at ?? null,
     created_at: m.created_at,
     updated_at: m.updated_at,
   }));

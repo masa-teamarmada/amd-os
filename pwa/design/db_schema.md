@@ -904,6 +904,28 @@ UNIQUE: `(member_id)` (constraint: `members_member_id_key`)
 | 18 | `left_at` | `date` | NULL | `` |
 | 19 | `slack_plan` | `text` | NULL | `` |
 | 20 | `google_plan` | `text` | NULL | `` |
+| 21 | `google_calendar_status` | `text` | NOT NULL | `'missing'::text` |
+| 22 | `google_calendar_checked_at` | `timestamptz` | NULL | `` |
+| 23 | `google_calendar_connected_at` | `timestamptz` | NULL | `` |
+| 24 | `google_calendar_error` | `text` | NULL | `` |
+| 25 | `last_login_at` | `timestamptz` | NULL | `` |
+
+## member_google_oauth_tokens
+
+PRIMARY KEY: `member_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `member_id` | `text` | NOT NULL | `` |
+| 2 | `email` | `text` | NOT NULL | `` |
+| 3 | `provider` | `text` | NOT NULL | `'google'::text` |
+| 4 | `access_token` | `text` | NULL | `` |
+| 5 | `refresh_token` | `text` | NULL | `` |
+| 6 | `token_expires_at` | `timestamptz` | NULL | `` |
+| 7 | `scopes` | `_text` | NOT NULL | `'{}'::text[]` |
+| 8 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+service_role only。Google OAuth loginで得たGmail/Calendar tokenをserver-side ingestion用に保持する。
 
 ## michinori_app_config
 
@@ -1679,6 +1701,7 @@ UNIQUE: `(project_id)` (constraint: `projects_project_id_key`)
 | 23 | `payment_due_day` | `int4` | NULL | `` |
 | 24 | `freeze_from_ym` | `text` | NULL | `` |
 | 25 | `restart_expected_ym` | `text` | NULL | `` |
+| 26 | `project_category` | `text` | NOT NULL | `'dtsu'::text` |
 
 ## protocol_examples
 
@@ -1724,6 +1747,29 @@ UNIQUE: `(protocol_id)` (constraint: `protocols_protocol_id_key`)
 | 11 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 | 12 | `is_universal` | `bool` | NOT NULL | `true` |
 | 13 | `kind` | `text` | NOT NULL | `'pattern'::text` |
+
+## protocol_result_observations
+
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `protocol_id` | `text` | NOT NULL | `` |
+| 3 | `protocol_example_id` | `uuid` | NULL | `` |
+| 4 | `project_id` | `text` | NULL | `` |
+| 5 | `observed_on` | `date` | NOT NULL | `` |
+| 6 | `horizon` | `text` | NOT NULL | `'immediate'::text` |
+| 7 | `valence` | `text` | NOT NULL | `'mixed'::text` |
+| 8 | `confidence` | `text` | NOT NULL | `'medium'::text` |
+| 9 | `summary` | `text` | NOT NULL | `` |
+| 10 | `evidence_source_type` | `text` | NULL | `` |
+| 11 | `evidence_source_id` | `text` | NULL | `` |
+| 12 | `evidence_url` | `text` | NULL | `` |
+| 13 | `created_by` | `text` | NULL | `` |
+| 14 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+AMDプロトコルの「結果」は自動抽出で作らず、時間経過後の観測としてこのledgerへappend-only保存する。
 
 ## reimbursements
 
@@ -2098,7 +2144,9 @@ UNIQUE: `(milestone_id)` (constraint: `value_milestones_milestone_id_key`)
 | 8 | `is_active` | `bool` | NOT NULL | `true` |
 | 9 | `success_criteria` | `text` | NULL | `` |
 | 10 | `sort_order` | `int4` | NOT NULL | `0` |
-| 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 11 | `period_start_ym` | `text` | NULL | `` |
+| 12 | `target_ym` | `text` | NULL | `` |
+| 13 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 
 ## value_plan_cycles
 

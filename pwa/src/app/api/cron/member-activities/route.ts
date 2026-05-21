@@ -6,7 +6,7 @@
  * 2026-05-12 全面改修 (= 旧 GAS gas/054_RewardScoring_EventExtract.js の精度を復元):
  *   - LLM Haiku → Sonnet 4.6 に格上げ
  *   - system prompt を llm_prompts.member_activities.extract から fetch (= AGENTS 絶対ルール遵守)
- *   - 入力ソース拡張: monthly_reports に加えて project_meeting_summaries (= 5 生データ集約) を渡す
+ *   - 入力ソース拡張: monthly_reports + project_meeting_summaries + source_cache refs (= 5 生データ集約) を渡す
  *   - 出力スキーマに initiative_origin / impact / depth / responsibilities を追加
  *   - plan_cycle 必須を緩和 (= MS 期未設定の PJ でも events を抽出する)
  *
@@ -60,6 +60,69 @@ interface PromptRow {
   is_active: boolean;
 }
 
+interface AliasProfile {
+  projectId: string;
+  aliases: string[];
+}
+
+function normalizeAlias(value: unknown) {
+  return String(value || "")
+    .replace(/[（）()[\]【】「」『』"'`]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function addAlias(set: Set<string>, value: unknown) {
+  const normalized = normalizeAlias(value);
+  if (!normalized) return;
+  if (/^[a-z0-9_-]{1,3}$/i.test(normalized)) return;
+  if (normalized.length < 3 && !/[ぁ-んァ-ヶ一-龠]/.test(normalized)) return;
+  set.add(normalized);
+}
+
+async function loadAliasProfiles(supabase: SupabaseClient): Promise<AliasProfile[]> {
+  const [{ data: projects }, { data: ventures }] = await Promise.all([
+    supabase.from("projects").select("project_id, project_name, client_name"),
+    supabase.from("project_ventures").select("project_id, display_name, short_label, origin_org, origin_pi"),
+  ]);
+  const ventureByProject = new Map<string, Array<Record<string, unknown>>>();
+  for (const venture of (ventures ?? []) as Array<Record<string, unknown>>) {
+    const projectId = String(venture.project_id || "");
+    const list = ventureByProject.get(projectId) || [];
+    list.push(venture);
+    ventureByProject.set(projectId, list);
+  }
+  return ((projects ?? []) as Array<Record<string, unknown>>).map((project) => {
+    const projectId = String(project.project_id || "");
+    const aliases = new Set<string>();
+    addAlias(aliases, project.project_name);
+    addAlias(aliases, project.client_name);
+    for (const venture of ventureByProject.get(projectId) || []) {
+      addAlias(aliases, venture.display_name);
+      addAlias(aliases, venture.short_label);
+      addAlias(aliases, venture.origin_org);
+      addAlias(aliases, venture.origin_pi);
+    }
+    return { projectId, aliases: [...aliases] };
+  });
+}
+
+function textFitsProject(text: string, projectId: string, profiles: AliasProfile[]) {
+  const normalized = normalizeAlias(text);
+  if (!normalized) return true;
+  const current = profiles.find((profile) => profile.projectId === projectId);
+  const currentHits = (current?.aliases || []).filter((alias) => normalized.includes(alias));
+  const otherHits = profiles
+    .filter((profile) => profile.projectId !== projectId)
+    .flatMap((profile) => profile.aliases
+      .filter((alias) => normalized.includes(alias))
+      .map((alias) => ({ projectId: profile.projectId, alias })));
+  if (otherHits.length > 0 && currentHits.length === 0) return false;
+  if (otherHits.length >= 2 && otherHits.length > currentHits.length) return false;
+  return true;
+}
+
 async function loadExtractPrompt(supabase: SupabaseClient): Promise<PromptRow | null> {
   const { data } = await supabase
     .from("llm_prompts")
@@ -78,17 +141,20 @@ async function inferActivities(
   ym: string,
   supabase: SupabaseClient,
   anthropic: Anthropic,
-  systemPrompt: PromptRow
+  systemPrompt: PromptRow,
+  aliasProfiles: AliasProfile[]
 ): Promise<{ ok: boolean; saved: number; message?: string }> {
   // 1) monthly_report 本文 (final or draft)
   const { data: reports } = await supabase
     .from("monthly_reports")
-    .select("final_content, draft_content")
+    .select("final_content, draft_content, status")
     .eq("project_id", projectId)
     .eq("ym", ym)
+    .neq("status", "invalid")
     .limit(1);
   const report = reports?.[0];
-  const reportContent = (report?.final_content || report?.draft_content || "").trim();
+  const rawReportContent = (report?.final_content || report?.draft_content || "").trim();
+  const reportContent = textFitsProject(rawReportContent, projectId, aliasProfiles) ? rawReportContent : "";
 
   // 2) 当月 MTG サマリ集 (= 5 生データ集約結果。events 件数の主供給源)
   const { data: meetings } = await supabase
@@ -162,13 +228,16 @@ async function inferActivities(
     }
   }
 
-  // 抽出ソースが両方空ならスキップ
-  if (!reportContent && (!meetings || meetings.length === 0)) {
-    return { ok: true, saved: 0, message: "no source content (no report / no meetings)" };
-  }
-
   // 6) MTG サマリをテキスト化
-  const meetingBlock = (meetings ?? [])
+  const safeMeetings = (meetings ?? []).filter((mt: {
+    title: string;
+    summary_short: string;
+    decided: unknown;
+    progress: unknown;
+    next_actions: unknown;
+    risks: unknown;
+  }) => textFitsProject(JSON.stringify(mt), projectId, aliasProfiles));
+  const meetingBlock = safeMeetings
     .map((mt: {
       meeting_date: string;
       title: string;
@@ -195,6 +264,46 @@ async function inferActivities(
     .join("\n\n")
     .slice(0, 8000); // Sonnet input 抑制 (= 月 60 件 meeting でも安全)
 
+  // 7) source_cache refs (= Gmail/Slack/Drive等の短い根拠キャッシュ)
+  const { data: sourceRefs } = await supabase
+    .from("source_cache")
+    .select("source, title, item_date, content_text, metadata_json")
+    .eq("project_id", projectId)
+    .eq("ym", ym)
+    .order("item_date", { ascending: true })
+    .limit(80);
+
+  const safeSourceRefs = (sourceRefs ?? []).filter((src: {
+    source: string;
+    title: string | null;
+    item_date: string | null;
+    content_text: string | null;
+    metadata_json: { source_url?: string; permalink?: string } | null;
+  }) => textFitsProject(`${src.title || ""}\n${src.content_text || ""}\n${JSON.stringify(src.metadata_json || {})}`, projectId, aliasProfiles));
+
+  const sourceRefBlock = safeSourceRefs
+    .map((src: {
+      source: string;
+      title: string | null;
+      item_date: string | null;
+      content_text: string | null;
+      metadata_json: { source_url?: string; permalink?: string } | null;
+    }) => {
+      const sourceUrl = src.metadata_json?.source_url || src.metadata_json?.permalink || "";
+      return [
+        `### ${src.source || "source"} ${src.item_date || ""} ${src.title || ""}`.trim(),
+        sourceUrl ? `source_url: ${sourceUrl}` : "",
+        String(src.content_text || "").replace(/\s+/g, " ").trim().slice(0, 700),
+      ].filter(Boolean).join("\n");
+    })
+    .join("\n\n")
+    .slice(0, 8000);
+
+  // 抽出ソースが全部空ならスキップ
+  if (!reportContent && (!meetings || meetings.length === 0) && !sourceRefBlock) {
+    return { ok: true, saved: 0, message: "no source content (no report / no meetings / no source refs)" };
+  }
+
   const userPrompt =
     `## PJ 情報\n` +
     `- projectId: ${projectId}\n` +
@@ -204,10 +313,11 @@ async function inferActivities(
     `## 設定済み MS (plan_cycle が今月をカバーしているもの)\n${milestoneLines}\n\n` +
     `## 月次レポート (${ym.slice(0, 4)}年${ym.slice(4)}月)\n${reportContent ? reportContent.slice(0, 4000) : "（月次レポート未生成）"}\n\n` +
     `## 当月の MTG サマリ集 (= 5 生データから抽出済の議事録)\n${meetingBlock || "（当月 MTG サマリなし）"}\n\n` +
-    `上記の月次レポート + MTG サマリから「今月起きた進捗イベント」を抽出してください。\n` +
+    `## 当月の source refs (= Gmail/Slack/Drive等の短い根拠キャッシュ)\n${sourceRefBlock || "（当月 source refs なし）"}\n\n` +
+    `上記の月次レポート + MTG サマリ + source refs から「今月起きた進捗イベント」を抽出してください。\n` +
     `system prompt の抽出ルール (initiative_origin 必須付与、判断不能は unknown、推測禁止) に従ってください。`;
 
-  // 7) Sonnet 呼び出し
+  // 8) Sonnet 呼び出し
   let inferred: InferredActivity[] = [];
   try {
     const response = await anthropic.messages.create({
@@ -366,10 +476,10 @@ export async function GET(req: NextRequest) {
   if (projectIdParam) {
     projectIds = [projectIdParam];
   } else {
-    const { data: projects, error } = await supabase
-      .from("projects")
-      .select("project_id")
-      .eq("status", "active");
+	    const { data: projects, error } = await supabase
+	      .from("projects")
+	      .select("project_id")
+	      .or("status.eq.active,project_category.eq.advisor");
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     projectIds = (projects ?? []).map((p: { project_id: string }) => p.project_id);
   }
@@ -378,10 +488,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, ym, ran: 0, message: "no target projects" });
   }
 
+  const aliasProfiles = await loadAliasProfiles(supabase);
   const results: Array<{ projectId: string; ok: boolean; saved: number; message?: string }> = [];
   for (const projectId of projectIds) {
     try {
-      const r = await inferActivities(projectId, ym, supabase, anthropic, systemPrompt);
+      const r = await inferActivities(projectId, ym, supabase, anthropic, systemPrompt, aliasProfiles);
       results.push({ projectId, ok: r.ok, saved: r.saved, message: r.message });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

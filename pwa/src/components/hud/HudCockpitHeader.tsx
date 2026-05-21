@@ -11,10 +11,11 @@ const STATUS_TONE: Record<string, { label: string; bar: string; text: string }> 
 interface Props {
   project: {
     projectId: string;
-    projectName: string;
-    clientName: string;
-    status: string;
-  };
+	    projectName: string;
+	    clientName: string;
+	    status: string;
+	    projectCategory?: string;
+	  };
   currentYm: string;
   memberCount: number;
   initiativeScore?: number | null;
@@ -40,6 +41,12 @@ function projectDisplayName(projectName: string, projectId: string) {
     p99: "Autonomous Adaptive Assembly",
   };
   return map[projectId] || projectName;
+}
+
+function categoryLabel(category: string | null | undefined) {
+  if (category === "ecosystem") return "ECOSYSTEM";
+  if (category === "advisor") return "ADVISOR";
+  return "DTSU";
 }
 
 export function HudCockpitHeader({ project, currentYm, memberCount, initiativeScore = 0 }: Props) {
@@ -81,7 +88,7 @@ export function HudCockpitHeader({ project, currentYm, memberCount, initiativeSc
         </div>
         <div className="absolute left-[55.4%] top-[44px] grid w-[24.4%] grid-cols-2 gap-x-7 gap-y-4">
           <HeaderDatum label="STATUS" value={tone.label} accent={tone.bar} className={tone.text} />
-          <HeaderDatum label="CONFIG" value={project.status === "active" ? "DEEPTECH" : project.status.toUpperCase()} />
+	          <HeaderDatum label="CATEGORY" value={categoryLabel(project.projectCategory)} />
           <HeaderDatum label="TEAM" value={`${memberCount || 0}名`} />
           <HeaderDatum label="CURRENT YM" value={formatYm(currentYm)} />
         </div>

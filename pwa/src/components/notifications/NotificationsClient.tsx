@@ -218,7 +218,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
             : `${y}-${String(m + 1).padStart(2, "0")}-01`;
           let examplesQuery = supabase
             .from("protocol_examples")
-            .select("protocol_id, occurred_on, summary, branch_point, action_taken, result")
+            .select("protocol_id, occurred_on, summary, branch_point, criteria, action_taken, result")
             .eq("project_id", n.target_id)
             .gte("occurred_on", ymStart)
             .lt("occurred_on", ymNextStart);
@@ -241,7 +241,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
               .in("protocol_id", ids)
               .order("updated_at", { ascending: false });
             if (pErr) throw pErr;
-            const examplesByPid = new Map<string, Array<{ occurred_on: string | null; summary: string | null; branch_point: string | null; action_taken: string | null; result: string | null }>>();
+            const examplesByPid = new Map<string, Array<{ occurred_on: string | null; summary: string | null; branch_point: string | null; criteria: string | null; action_taken: string | null; result: string | null }>>();
             for (const e of (examples ?? [])) {
               const pid = e.protocol_id as string;
               const list = examplesByPid.get(pid) ?? [];
@@ -249,6 +249,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                 occurred_on: e.occurred_on as string | null,
                 summary: e.summary as string | null,
                 branch_point: e.branch_point as string | null,
+                criteria: e.criteria as string | null,
                 action_taken: e.action_taken as string | null,
                 result: e.result as string | null,
               });
@@ -257,8 +258,15 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
             rows = (protocols ?? []).map((r) => {
               const exs = examplesByPid.get(r.protocol_id as string) ?? [];
               const exText = exs
-                .map((e) => `・[${e.occurred_on ?? "—"}] ${e.summary ?? ""}`)
-                .join("\n");
+                .map((e) => {
+                  const lines = [`・[${e.occurred_on ?? "—"}] ${e.summary ?? ""}`];
+                  if (e.branch_point) lines.push(`  分岐点: ${e.branch_point}`);
+                  if (e.criteria) lines.push(`  判断材料: ${e.criteria}`);
+                  if (e.action_taken) lines.push(`  アクション: ${e.action_taken}`);
+                  if (e.result) lines.push(`  結果: ${e.result}`);
+                  return lines.join("\n");
+                })
+                .join("\n\n");
               const body = String(r.content ?? "") + (exText ? `\n\n📂 関連事例:\n${exText}` : "");
               return {
                 heading: `${"⭐".repeat(Math.max(1, Math.min(3, Number(r.importance ?? 1))))} ${r.title} [${r.status}]`,
@@ -360,66 +368,37 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
               };
             });
           rows = [...revisionDetails, ...progressDetails];
-        } else if (n.l2_kind === "raw_data_ingested") {
-          const ym = n.scope_key.slice(0, 6);
-          const { data, error } = await supabase
-            .from("source_cache")
-            .select("source, title, item_date, content_text, metadata_json")
-            .eq("project_id", n.target_id)
-            .eq("ym", ym)
-            .in("source", ["gmail_message", "gmail"])
-            .order("item_date", { ascending: false })
-            .limit(50);
-          if (error) throw error;
-          rows = (data ?? []).map((r) => {
-            const meta = (r.metadata_json ?? {}) as Record<string, unknown>;
-            const from = typeof meta.from === "string" ? meta.from : "";
-            const snippet = typeof meta.snippet === "string" ? meta.snippet : "";
-            const messageCount = typeof meta.message_count === "number" ? `thread messages: ${meta.message_count}` : "";
-            const matchedCount = typeof meta.matched_message_count === "number" ? `saved messages: ${meta.matched_message_count}` : "";
-            return {
-              heading: `${r.source === "gmail_message" ? "メール" : "スレッド"}: ${r.title ?? "(no title)"}`,
-              body: r.source === "gmail_message"
-                ? [
-                    snippet ? `Snippet: ${snippet}` : "",
-                    "本文全文は通知には表示しない。必要な情報はL2抽出結果として別通知・別テーブルに保存する。",
-                  ].filter(Boolean).join("\n")
-                : "Gmailスレッドを取り込み済み。通知詳細ではメール単位の参照のみ表示する。",
-              sub: [r.item_date, from, messageCount, matchedCount].filter(Boolean).join(" · ") || undefined,
-            };
-          });
         } else if (n.l2_kind === "raw_data_gap") {
-          const ym = n.scope_key.slice(0, 6);
-          const { data, error } = await supabase
-            .from("source_cache")
-            .select("source, item_id, title, item_date, content_text, metadata_json, collected_at")
-            .eq("project_id", n.target_id)
-            .eq("ym", ym)
-            .order("item_date", { ascending: false })
-            .limit(80);
-          if (error) throw error;
-          rows = (data ?? []).map((r) => {
-            const meta = (r.metadata_json ?? {}) as Record<string, unknown>;
-            const metaBits = [
-              typeof meta.sender === "string" ? `sender=${meta.sender}` : "",
-              typeof meta.channel === "string" ? `channel=${meta.channel}` : "",
-              typeof meta.file_id === "string" ? `file=${meta.file_id}` : "",
-              typeof meta.kind === "string" ? `kind=${meta.kind}` : "",
-              r.item_id ? `item=${r.item_id}` : "",
-            ].filter(Boolean);
-            return {
-              heading: `${String(r.source).toUpperCase()}: ${r.title ?? "(no title)"}`,
-              body: [
-                String(r.content_text ?? ""),
-                Object.keys(meta).length > 0 ? `metadata: ${formatJsonCompact(meta)}` : "",
-              ].filter(Boolean).join("\n"),
-              sub: [
-                r.item_date ? formatJST(String(r.item_date)) : "",
-                r.collected_at ? `collected=${formatJST(String(r.collected_at))}` : "",
-                ...metaBits,
-              ].filter(Boolean).join(" · ") || undefined,
-            };
-          });
+          const evidenceRows = rawDataGapEvidenceRows(n);
+          if (evidenceRows.length > 0) {
+            rows = evidenceRows;
+          } else {
+            const ym = n.scope_key.slice(0, 6);
+            const { data, error } = await supabase
+              .from("source_cache")
+              .select("source, item_id, title, item_date, content_text, metadata_json, collected_at")
+              .eq("project_id", n.target_id)
+              .eq("ym", ym)
+              .order("item_date", { ascending: false })
+              .limit(20);
+            if (error) throw error;
+            rows = (data ?? []).map((r) => {
+              const meta = objectValue(r.metadata_json);
+              const sourceUrl = textFromUnknown(meta.source_url) || textFromUnknown(meta.permalink);
+              const hash = textFromUnknown(meta.text_sha256);
+              return {
+                heading: `${String(r.source).toUpperCase()}: ${r.title ?? "(no title)"}`,
+                body: truncateOneLine(String(r.content_text ?? "")),
+                sub: [
+                  r.item_date ? formatJST(String(r.item_date)) : "",
+                  r.collected_at ? `collected=${formatJST(String(r.collected_at))}` : "",
+                  sourceUrl ? `url=${sourceUrl}` : "",
+                  hash ? `hash=${hash.slice(0, 12)}` : "",
+                  r.item_id ? `item=${r.item_id}` : "",
+                ].filter(Boolean).join(" · ") || undefined,
+              };
+            });
+          }
         } else if (n.l2_kind === "project_registry_diff") {
           const query = supabase
             .from("project_registry_diffs")
@@ -956,12 +935,6 @@ function DeepLinkForL2({ n }: { n: Notification }) {
           /project/{n.target_id}/cockpit?ym={n.scope_key.slice(0, 6)} (通知詳細の source_cache とあわせて確認)
         </a>
       );
-    case "raw_data_ingested":
-      return (
-        <a className="text-blue-600 hover:underline" href={`/project/${n.target_id}/cockpit`}>
-          /project/{n.target_id}/cockpit (取り込み済み生データを通知詳細で確認)
-        </a>
-      );
     case "project_registry_diff":
       return (
         <a className="text-blue-600 hover:underline" href={`/admin/projects`}>
@@ -1009,7 +982,6 @@ const NOTIFICATION_COST_ESTIMATE_JPY: Record<string, number> = {
   project_member_candidate: 0.1,
   project_contact_candidate: 0.1,
   raw_data_gap: 0.1,
-  raw_data_ingested: 0.1,
   project_config_gap: 0.1,
   project_registry_diff: 0.2,
   xrl_evidence: 2,
@@ -1024,6 +996,41 @@ function formatJsonCompact(value: unknown): string {
   } catch {
     return String(value ?? "");
   }
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function textFromUnknown(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function truncateOneLine(value: string, limit = 360): string {
+  const s = value.replace(/\s+/g, " ").trim();
+  if (!s) return "(snippetなし)";
+  return s.length > limit ? `${s.slice(0, limit)}...` : s;
+}
+
+function rawDataGapEvidenceRows(n: Notification): NonNullable<DetailRow["rows"]> {
+  const meta = objectValue(n.metadata_json);
+  const refs = Array.isArray(meta.evidence_refs) ? meta.evidence_refs : [];
+  return refs.map((raw) => {
+    const ref = objectValue(raw);
+    const source = textFromUnknown(ref.source) || "source";
+    const title = textFromUnknown(ref.title) || textFromUnknown(ref.url) || textFromUnknown(ref.id) || "(no title)";
+    const snippet = textFromUnknown(ref.snippet) || textFromUnknown(ref.summary);
+    const url = textFromUnknown(ref.url) || textFromUnknown(ref.source_url);
+    const date = textFromUnknown(ref.date) || textFromUnknown(ref.item_date);
+    const id = textFromUnknown(ref.id) || textFromUnknown(ref.item_id);
+    return {
+      heading: `${source.toUpperCase()}: ${title}`,
+      body: truncateOneLine(snippet),
+      sub: [date, url ? `url=${url}` : "", id ? `id=${id}` : ""].filter(Boolean).join(" · ") || undefined,
+    };
+  });
 }
 
 function formatCostJpy(n: number): string {

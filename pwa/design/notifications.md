@@ -1,6 +1,6 @@
 # 通知 + つくよみ修正依頼 — 設計の正本
 
-最終更新: 2026-05-20 (admin-only visibility repair)
+最終更新: 2026-05-22 (notification apply gate)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -135,6 +135,21 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 - summary には差分要約と短い根拠 snippet だけを載せる。メール全文・議事録全文・Slack全文は載せない
 - 「はい」なら DB 反映 / confirmed 昇格、「いいえ」なら rejected、コメントは `l2_feedbacks` / つくよみ学習リストへ入れる
 
+### 通知候補の正本反映ゲート
+
+通知に出るL2候補は、通知画面で「はい」を押すまで正本反映しない。通知は事後報告ではなく、反映前の承認UI。
+
+| l2_kind | 保存時 status | はい | いいえ |
+|---|---|---|---|
+| `member_knowledge` | `candidate` | `active` | `rejected` |
+| `project_knowledge` | `candidate` | `active` | `rejected` |
+| `protocols` | `candidate` | `active` | `rejected` |
+| `founding_members` | `tentative` | `active` | `invalid` |
+| `project_registry_diff` | `pending` | allowlist済みDB反映 + `applied` | `rejected` |
+| `xrl_evidence` | `candidate` | `confirmed` | `rejected` |
+
+コメントだけ送る場合は正本反映せず、`l2_feedbacks` / つくよみ学習リストへ残す。
+
 ### POST API
 [pwa/src/app/api/notifications/feedback/route.ts](../src/app/api/notifications/feedback/route.ts)
 - Body: `{ l2_kind, target_id, scope_key?, notification_id?, meeting_id?, feedback_text }`
@@ -175,6 +190,7 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 ## 既知の制約・運用上の注意
 
 - **RLS**: 2026-05-20以降、通知系はadmin-only。`l2_notifications` / `meeting_notifications` / `app_notifications` / `l2_feedbacks` は anon 不可、一般 authenticated も不可。
+- **raw_data_gapの詳細表示**: 通知が持つ `metadata_json.evidence_refs` を正本として表示する。`project_id + ym` の `source_cache` 全件を通知詳細として見せると、後続backfillのSlack/Gmail等が混ざって「生データ取り込み通知」に見えるため禁止。fallbackで `source_cache` を見る場合も、短いsnippet / source_url / hash / item_id だけを出し、本文全文やmetadata全量は表示しない。
 - **既読の蓄積**: iOS/APNs 配信済みは `notified_at`、PWAの人間既読は `read_at`。どちらが入っても行は削除されない。UIは最新100件 + 既読折りたたみで見せるだけなので、現状はDBには蓄積し続ける。必要なら retention / archive job を別途設計する。
 - **status='archived'**: 古い feedback が常時 LLM プロンプトに混じるとノイズになる → まさが UI から手動 archive できる仕組みが将来必要 (現状は SQL 直叩きで archive)
 - **applied_count**: 現状は記録だけ。閾値超え (= 何度も適用されたが直らない) のフィードバックを通知する仕組みは将来
@@ -194,8 +210,10 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 | 2026-05-20 | **admin-only repair**: RLSが `anon SELECT` / `authenticated UPDATE` で、一般メンバーや直URLから通知が見える状態だったため、`amd_os_current_user_is_admin()` + migration 066 で4テーブルをadmin-only化。Dashboard banner / `/notifications` server page / feedback API もadmin gate追加。既読状態は `l2_notifications=87`, `meeting_notifications=10`, `app_notifications=35` を未読へ戻した。 |
 | 2026-05-20 | **read_at split**: Swift/iOSの配信済み marker として `notified_at` が再セットされるため、PWA既読 marker を `read_at` に分離。migration 067で `l2_notifications.read_at` / `meeting_notifications.read_at` を追加し、PWA未読カウント・未読フィルタ・未読に戻す操作は `read_at` だけを見る。 |
 | 2026-05-20 | **回答済みUI**: 「はい/いいえ/コメント」送信後は回答ボタンを消し、`回答済み` 表示へ切り替える。送信成功時に `read_at` を更新し、未対応/未読から `回答済み` タブへ即移動する。 |
-| 2026-05-20 | **AMDプロトコル通知の個別化**: protocol candidate は `project_id + ym` でまとめず、`scope_key=YYYYMM:protocol:<protocol_id>` の1候補1通知に変更。PWA詳細表示と feedback 再抽出はこの個別 scope を解釈する。PWAは本番反映済み。GAS source は修正済みだが、`clasp push` は `invalid_rapt` 再認証で未反映。 |
+| 2026-05-20 | **AMDプロトコル通知の個別化**: protocol candidate は `project_id + ym` でまとめず、`scope_key=YYYYMM:protocol:<protocol_id>` の1候補1通知に変更。PWA詳細表示と feedback 再抽出はこの個別 scope を解釈する。 |
 | 2026-05-21 | **MTGサマリ反映の同期化**: `NEXT_PUBLIC_GAS_API_KEY` 未設定で再抽出がサイレント skip され、LST の固有名詞修正 feedback が `l2_feedbacks` に残ったまま `project_meeting_summaries` へ反映されない事故を修正。PWA は `CRON_SECRET` fallback でGAS runFuncを同期実行し、失敗時は 502。GAS pwaApi は `PWA_API_KEY` 未設定時 `CRON_SECRET` を認証キーに使う。 |
+| 2026-05-21 | **raw_data_gap詳細表示の修正**: `CTB: 5月進捗スライドがOS未取り込み` の通知詳細で、通知metadataのDrive/Notion/Calendar根拠ではなく、後続backfillのSlack `source_cache` が表示されていた。raw_data_gapは `metadata_json.evidence_refs` を優先し、fallbackも短いsnippet/source refのみ表示するよう修正。 |
+| 2026-05-22 | **通知反映ゲート**: `member_knowledge` / `project_knowledge` / `protocols` / `founding_members` は候補状態で保存し、通知の「はい」だけでactive化する。GAS 155 は `clasp push` 済み。 |
 
 ---
 

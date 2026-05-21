@@ -18,6 +18,12 @@ function formatYm(ym: string) {
   return `${ym.slice(0, 4)}/${ym.slice(4)}`;
 }
 
+const YM_RE = /^\d{6}$/;
+
+function isValidYm(ym: string) {
+  return YM_RE.test(ym);
+}
+
 /** YM文字列にNか月加算 (例: "202603" + 3 → "202606") */
 function addMonths(ym: string, n: number): string {
   const y = parseInt(ym.slice(0, 4), 10);
@@ -78,6 +84,33 @@ const DEFAULT_MS: NextMilestoneInput = {
   sortOrder: 1,
 };
 
+function createDefaultMs(sortOrder: number, startYm: string, endYm: string): NextMilestoneInput {
+  return {
+    ...DEFAULT_MS,
+    sortOrder,
+    periodStartYm: startYm,
+    targetYm: endYm,
+  };
+}
+
+function validateMsPeriod(ms: NextMilestoneInput, idx: number, planStartYm: string, planEndYm: string): string | null {
+  const startYm = ms.periodStartYm || planStartYm;
+  const endYm = ms.targetYm || planEndYm;
+  if (!isValidYm(startYm) || !isValidYm(endYm)) {
+    return `MS ${idx + 1} の期間は YYYYMM で入れて`;
+  }
+  if (startYm > endYm) {
+    return `MS ${idx + 1} の開始月が終了月より後になってる`;
+  }
+  if (isValidYm(planStartYm) && startYm < planStartYm) {
+    return `MS ${idx + 1} の開始月が年間期間より前になってる`;
+  }
+  if (isValidYm(planEndYm) && endYm > planEndYm) {
+    return `MS ${idx + 1} の終了月が年間期間より後になってる`;
+  }
+  return null;
+}
+
 export function CockpitNextPeriodSetup({ projectId, currentYm, currentPlanCycle, directCycleId, autoOpen, onModalClose }: Props) {
   // directCycleId（直接編集）モードは常に表示。通常は3か月前から。
   const show = directCycleId ? true : shouldShowSetup(currentYm, currentPlanCycle.periodEndYm);
@@ -98,7 +131,7 @@ export function CockpitNextPeriodSetup({ projectId, currentYm, currentPlanCycle,
   const [budgetYen, setBudgetYen] = useState(currentPlanCycle.budgetYen);
   const [totalPoints, setTotalPoints] = useState(currentPlanCycle.totalPoints);
   const [milestones, setMilestones] = useState<NextMilestoneInput[]>([
-    { ...DEFAULT_MS, sortOrder: 1 },
+    createDefaultMs(1, nextStartYm, nextEndYm),
   ]);
   // コミット割合: msのindex(string) → memberId → percent(0-100)
   const [commitMap, setCommitMap] = useState<CommitMap>({});
@@ -139,6 +172,8 @@ export function CockpitNextPeriodSetup({ projectId, currentYm, currentPlanCycle,
             goalLevel: ms.goalLevel,
             successCriteria: ms.successCriteria,
             sortOrder: ms.sortOrder,
+            periodStartYm: ms.periodStartYm || next.periodStartYm,
+            targetYm: ms.targetYm || next.periodEndYm,
           }))
         );
 
@@ -179,7 +214,7 @@ export function CockpitNextPeriodSetup({ projectId, currentYm, currentPlanCycle,
   const addMs = () => {
     setMilestones((prev) => [
       ...prev,
-      { ...DEFAULT_MS, sortOrder: prev.length + 1 },
+      createDefaultMs(prev.length + 1, periodStartYm, periodEndYm),
     ]);
   };
 
@@ -203,6 +238,12 @@ export function CockpitNextPeriodSetup({ projectId, currentYm, currentPlanCycle,
   const updateMs = (idx: number, field: keyof NextMilestoneInput, value: string | number) => {
     setMilestones((prev) =>
       prev.map((ms, i) => (i === idx ? { ...ms, [field]: value } : ms))
+    );
+  };
+
+  const applyPlanPeriodToAllMs = () => {
+    setMilestones((prev) =>
+      prev.map((ms) => ({ ...ms, periodStartYm, targetYm: periodEndYm }))
     );
   };
 
@@ -232,6 +273,24 @@ export function CockpitNextPeriodSetup({ projectId, currentYm, currentPlanCycle,
   const closeModal = () => { setOpen(false); onModalClose?.(); };
 
   const handleSave = async (saveStatus: "draft" | "active" = "draft") => {
+    if (!isValidYm(periodStartYm) || !isValidYm(periodEndYm) || periodStartYm > periodEndYm) {
+      alert("年間期間は YYYYMM で、開始月 <= 終了月になるように入れて");
+      return;
+    }
+    const validMs = milestones
+      .filter((ms) => ms.title.trim())
+      .map((ms) => ({
+        ...ms,
+        periodStartYm: ms.periodStartYm || periodStartYm,
+        targetYm: ms.targetYm || periodEndYm,
+      }));
+    const invalidMs = validMs
+      .map((ms, idx) => validateMsPeriod(ms, idx, periodStartYm, periodEndYm))
+      .find(Boolean);
+    if (invalidMs) {
+      alert(invalidMs);
+      return;
+    }
     setSaving(true);
     const planCycleId = await upsertNextPlanCycle(
       { projectId, periodStartYm, periodEndYm, budgetYen, totalPoints },
@@ -243,7 +302,6 @@ export function CockpitNextPeriodSetup({ projectId, currentYm, currentPlanCycle,
       alert("PlanCycleの保存に失敗しました");
       return;
     }
-    const validMs = milestones.filter((ms) => ms.title.trim());
     const ok = await upsertNextMilestones(planCycleId, validMs);
     if (!ok) {
       setSaving(false);
@@ -395,6 +453,13 @@ export function CockpitNextPeriodSetup({ projectId, currentYm, currentPlanCycle,
                     <span className="text-[12px] text-[#86868b]">
                       合計: {milestones.reduce((s, m) => s + (m.points || 0), 0)}pt / {totalPoints}pt
                     </span>
+                    <button
+                      type="button"
+                      onClick={applyPlanPeriodToAllMs}
+                      className="text-[11px] text-[#007aff] hover:bg-[#007aff]/8 rounded px-2 py-1 transition-colors"
+                    >
+                      全MSを全期間へ
+                    </button>
                   </div>
 
                   <div className="flex flex-col gap-2">
@@ -451,6 +516,28 @@ export function CockpitNextPeriodSetup({ projectId, currentYm, currentPlanCycle,
                               <option value="Want">Want</option>
                               <option value="">—</option>
                             </select>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 ml-7">
+                            <label className="flex items-center gap-1 min-w-0">
+                              <span className="text-[11px] text-[#86868b] shrink-0">MS開始</span>
+                              <input
+                                type="text"
+                                placeholder={periodStartYm || "202704"}
+                                value={ms.periodStartYm || ""}
+                                onChange={(e) => updateMs(idx, "periodStartYm", e.target.value)}
+                                className="min-w-0 flex-1 border border-[#d1d5db] rounded-md px-2 py-1 text-[12px] focus:outline-none focus:border-[#007aff] bg-white font-mono"
+                              />
+                            </label>
+                            <label className="flex items-center gap-1 min-w-0">
+                              <span className="text-[11px] text-[#86868b] shrink-0">MS終了</span>
+                              <input
+                                type="text"
+                                placeholder={periodEndYm || "202803"}
+                                value={ms.targetYm || ""}
+                                onChange={(e) => updateMs(idx, "targetYm", e.target.value)}
+                                className="min-w-0 flex-1 border border-[#d1d5db] rounded-md px-2 py-1 text-[12px] focus:outline-none focus:border-[#007aff] bg-white font-mono"
+                              />
+                            </label>
                           </div>
                           <div className="ml-7">
                             <input

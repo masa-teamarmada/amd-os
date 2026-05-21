@@ -23,6 +23,18 @@ interface MyPageNotification {
   deadline?: string | null;
 }
 
+interface MyPageWeeklyActivity {
+  id: string;
+  projectId: string;
+  projectName: string;
+  source: string;
+  title: string;
+  contentPreview: string;
+  itemDate: string | null;
+  sourceKind?: string | null;
+  sourceUrl?: string | null;
+}
+
 interface MyPageMilestone {
   milestoneKey: string;
   title: string;
@@ -59,6 +71,9 @@ interface MyPageData {
   member: Member;
   months: MyPageMonth[];
   notifications: MyPageNotification[];
+  weeklyActivities: MyPageWeeklyActivity[];
+  weekStart: string;
+  weekEnd: string;
 }
 
 interface RoutineStep {
@@ -165,6 +180,53 @@ function deltaSummary(ms: MyPageMilestone) {
 
 function ymd(ym: string, day: number) {
   return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-${String(day).padStart(2, "0")}`;
+}
+
+function dateFromJstKey(key: string) {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 9 * 60 * 60 * 1000);
+}
+
+function dateKeyJST(date: Date) {
+  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return `${jst.getUTCFullYear()}-${String(jst.getUTCMonth() + 1).padStart(2, "0")}-${String(jst.getUTCDate()).padStart(2, "0")}`;
+}
+
+function currentWeekBoundsJST() {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const daysFromMonday = (jst.getUTCDay() + 6) % 7;
+  const startJst = new Date(Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate()));
+  startJst.setUTCDate(startJst.getUTCDate() - daysFromMonday);
+  const start = new Date(startJst.getTime() - 9 * 60 * 60 * 1000);
+  const end = new Date(start.getTime() + 7 * 86400000);
+  return {
+    start,
+    end,
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+    startKey: dateKeyJST(start),
+    endKey: dateKeyJST(new Date(end.getTime() - 86400000)),
+  };
+}
+
+function formatDateJa(keyOrIso: string | null | undefined) {
+  if (!keyOrIso) return "";
+  const key = /^\d{4}-\d{2}-\d{2}$/.test(keyOrIso)
+    ? keyOrIso
+    : dateKeyJST(new Date(keyOrIso));
+  const date = dateFromJstKey(key);
+  const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return `${Number(key.slice(5, 7))}/${Number(key.slice(8, 10))} (${weekdays[jst.getUTCDay()]})`;
+}
+
+function sourceKindLabel(source: string | null | undefined) {
+  if (source === "gmail") return "Gmail";
+  if (source === "calendar") return "Calendar";
+  if (source === "gmail_message") return "Gmail";
+  if (source === "gmeet") return "Calendar";
+  return source || "source";
 }
 
 function adjustBusinessDay(iso: string) {
@@ -296,17 +358,40 @@ async function loadMyPageData(): Promise<MyPageData> {
   const member = await resolveLoggedInMember();
   const yms = targetYms(6);
   const progressYms = Array.from(new Set([...yms, ...yms.map(prevYm)]));
+  const week = currentWeekBoundsJST();
 
-  const { data: pmRows, error: pmError } = await supabase
-    .from("project_members")
-    .select("project_id")
-    .eq("member_id", member.memberId)
-    .eq("is_active", true);
+  const [pmRes, weeklyRes] = await Promise.all([
+    supabase
+      .from("project_members")
+      .select("project_id")
+      .eq("member_id", member.memberId)
+      .eq("is_active", true),
+    supabase
+      .from("member_activities")
+      .select("id, project_id, source, title, content_preview, item_date, raw_metadata")
+      .eq("member_id", member.memberId)
+      .gte("item_date", week.startIso)
+      .lt("item_date", week.endIso)
+      .order("item_date", { ascending: false, nullsFirst: false })
+      .limit(60),
+  ]);
+  const pmRows = pmRes.data;
+  const pmError = pmRes.error;
   if (pmError) throw pmError;
-  const projectIds = Array.from(new Set((pmRows || []).map((r: { project_id: string | null }) => r.project_id).filter(Boolean)));
+  if (weeklyRes.error) throw weeklyRes.error;
+  const memberProjectIds = Array.from(new Set((pmRows || []).map((r: { project_id: string | null }) => r.project_id).filter(Boolean)));
+  const weeklyProjectIds = Array.from(new Set((weeklyRes.data || []).map((r: { project_id: string | null }) => r.project_id).filter(Boolean)));
+  const projectIds = Array.from(new Set([...memberProjectIds, ...weeklyProjectIds]));
 
   if (projectIds.length === 0) {
-    return { member, months: yms.map((ym) => ({ ym, isCurrent: ym === yms[0], projects: [] })), notifications: [] };
+    return {
+      member,
+      months: yms.map((ym) => ({ ym, isCurrent: ym === yms[0], projects: [] })),
+      notifications: [],
+      weeklyActivities: [],
+      weekStart: week.startKey,
+      weekEnd: week.endKey,
+    };
   }
 
   const [
@@ -329,7 +414,9 @@ async function loadMyPageData(): Promise<MyPageData> {
   if (reimburseRes.error) throw reimburseRes.error;
 
   const projects = (projectsRes.data || []).filter((p) => (p.status || "").toLowerCase() !== "lost");
-  const activeProjectIds = projects.map((p) => p.project_id);
+  const activeProjectIds = projects
+    .map((p) => p.project_id)
+    .filter((pid) => memberProjectIds.includes(pid));
   const planIds = (plansRes.data || []).map((p) => p.plan_cycle_id).filter(Boolean);
 
   const milestonesRes = planIds.length
@@ -349,6 +436,30 @@ async function loadMyPageData(): Promise<MyPageData> {
   if (progressRes.error) throw progressRes.error;
 
   const projectMap = new Map(projects.map((p) => [p.project_id, p]));
+  const weeklyActivities: MyPageWeeklyActivity[] = (weeklyRes.data || []).map((row: {
+    id: string;
+    project_id: string;
+    source: string;
+    title: string | null;
+    content_preview: string | null;
+    item_date: string | null;
+    raw_metadata: Record<string, unknown> | null;
+  }) => {
+    const meta = row.raw_metadata || {};
+    const sourceKind = typeof meta.source_kind === "string" ? meta.source_kind : row.source;
+    const sourceUrl = typeof meta.source_url === "string" ? meta.source_url : null;
+    return {
+      id: row.id,
+      projectId: row.project_id,
+      projectName: projectMap.get(row.project_id)?.project_name || row.project_id,
+      source: row.source,
+      sourceKind,
+      sourceUrl,
+      title: row.title || "今週の活動",
+      contentPreview: row.content_preview || "",
+      itemDate: row.item_date,
+    };
+  });
   const cyclesByKey = new Map((cyclesRes.data || []).map((c) => [`${c.project_id}_${c.ym}`, c]));
   const reportsByKey = new Map((reportsRes.data || []).map((r) => [`${r.project_id}_${r.ym}`, r]));
   const reimburseHasPending = new Map<string, boolean>();
@@ -482,7 +593,14 @@ async function loadMyPageData(): Promise<MyPageData> {
   }
   notifications.sort((a, b) => statusRank(a.status) - statusRank(b.status) || a.bizYm.localeCompare(b.bizYm));
 
-  return { member, months, notifications: notifications.slice(0, 6) };
+  return {
+    member,
+    months,
+    notifications: notifications.slice(0, 6),
+    weeklyActivities,
+    weekStart: week.startKey,
+    weekEnd: week.endKey,
+  };
 }
 
 function statusRank(status: string) {
@@ -593,6 +711,12 @@ export default function MyPage() {
           router.push(`/project/${note.projectId}/cockpit?ym=${note.bizYm}&step=${note.stepId}`);
         }} />
 
+        <WeeklyActivitiesCard
+          activities={data.weeklyActivities}
+          weekStart={data.weekStart}
+          weekEnd={data.weekEnd}
+        />
+
         {data.months.map((month) => {
           const isExpanded = month.isCurrent || expandedMonths.has(month.ym);
           const total = month.projects.reduce((sum, p) => sum + payableRewardAmount(p), 0);
@@ -662,6 +786,65 @@ function NotificationCard({ notifications, onOpen }: { notifications: MyPageNoti
               <span className="text-[#aeaeb2] text-[13px] pt-1">›</span>
             </button>
           ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function WeeklyActivitiesCard({
+  activities,
+  weekStart,
+  weekEnd,
+}: {
+  activities: MyPageWeeklyActivity[];
+  weekStart: string;
+  weekEnd: string;
+}) {
+  return (
+    <section className="bg-white rounded-2xl border border-[#e5e5e7] p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#86868b]">This Week</p>
+          <h2 className="text-[14px] font-semibold text-[#1d1d1f] mt-0.5">今週やったこと</h2>
+        </div>
+        <span className="text-[11px] text-[#86868b] whitespace-nowrap">
+          {formatDateJa(weekStart)} - {formatDateJa(weekEnd)}
+        </span>
+      </div>
+
+      {activities.length === 0 ? (
+        <div className="rounded-xl bg-[#f5f5f7] px-3 py-3">
+          <p className="text-[13px] text-[#86868b]">
+            今週分のGmail/Calendar由来の活動はまだありません。週次抽出が走るとここに表示されます。
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {activities.slice(0, 8).map((activity) => (
+            <div key={activity.id} className="rounded-xl border border-[#e5e5e7] bg-[#fbfbfd] px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-semibold text-[#007aff] bg-[#007aff]/10 rounded-full px-2 py-0.5">
+                  {sourceKindLabel(activity.sourceKind || activity.source)}
+                </span>
+                <span className="min-w-0 truncate text-[12px] text-[#86868b]">{activity.projectName}</span>
+                {activity.itemDate && (
+                  <span className="ml-auto text-[11px] text-[#86868b] whitespace-nowrap">
+                    {formatDateJa(activity.itemDate)}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1.5 text-[13px] font-semibold leading-snug text-[#1d1d1f]">{activity.title}</p>
+              {activity.contentPreview && (
+                <p className="mt-1 text-[12px] leading-relaxed text-[#3c3c43] line-clamp-2">
+                  {activity.contentPreview}
+                </p>
+              )}
+            </div>
+          ))}
+          {activities.length > 8 && (
+            <p className="text-[11px] text-[#86868b] px-1">ほか {activities.length - 8} 件</p>
+          )}
         </div>
       )}
     </section>

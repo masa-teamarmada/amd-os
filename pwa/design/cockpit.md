@@ -53,6 +53,16 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
 例外として、現在月を含む cycle が存在せず、次に始まる future cycle が登録済みの場合は、その future cycle をトップ表示に使う。  
 これにより、5月時点で6-9月の次期MSを先行入力したCXのようなケースでも、コックピット上で設定済みMSを確認できる。
 
+### MS設計と報酬配分
+
+MSは報酬配分の最小単位でもある。`milestone_responsibility.share` は「そのMSで進んだptを誰に配るか」なので、独立して進む成果物を1つのMSに混ぜると、未着手パートの担当者にも報酬が乗る。
+
+- 1つの成果物が複数人共同で進む場合: 1MS + shareで表現する。
+- 事業計画 / 資本政策 / 知財戦略のように、進捗が別々に確定する場合: 成果物ごとに別MSへ分ける。
+- SX旧MS#1はこのルールにより、`事業計画策定` (かる70% / まさ30%)、`資本政策策定` (まさ100%)、`知財戦略策定` (ちこ80% / まさ20%) に分割済み。
+- 年間MS設定では、各MSに `period_start_ym` / `target_ym` を持たせる。UI上は `MS開始` / `MS終了` として表示し、月次モーダル・HUDの期間表示もこのDB値を優先する。
+- このUIは過去に消えた回帰が複数回あるため、PWAで年間MS設定を触るときは `npm run test:next-period-ui` を必ず通す。
+
 ---
 
 ## CockpitVentureStatus の中身
@@ -93,7 +103,7 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
 | CockpitVentureMetaEditModal      | Header 各要素タップ                      | display_name / lane / founded_at / outcome / AMD 支援期間 / origin / 概要 |
 | CockpitVentureStatusEditModal    | AMD スコアチャート空白 / ドットタップ    | イベント追加・編集 (自由文 + Gemini 構造化)                          |
 | CockpitMembersModal              | 👥 メンバー                              | project_venture_members 編集 (member_kind: amd_internal / su_internal / support_org) |
-| CockpitFoundingMembersModal      | 🧑‍🤝‍🧑 創業                                | project_founding_members 表示 (AMD 内外含む創業に関わる全員、LLM 抽出)。HRL 簡易推定 (ルールベース 0-9) を末尾表示。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
+| CockpitFoundingMembersModal      | 🧑‍🤝‍🧑 創業                                | project_founding_members 表示。対象は創業者 / CEO候補 / 技術創業者 / PI など **創業コア** のみ。VC / 協業先 / 顧客 / 行政 / advisor-only / AMDサポートだけの人物は入れない。つくよみ修正依頼UIから追加・修正・invalid化を依頼できる。HRL 簡易推定 (ルールベース 0-9) を末尾表示。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
 | CockpitPartnersModal             | 🤝 事業会社                              | project_partners (collab / customer)                                 |
 | CockpitPlMonthlyModal            | 📊 試算表                                | project_pl_monthly 縦横ピボット表示 + 直接入力                       |
 | CockpitPlHearingModal            | 試算表内「✨ つくよみとヒアリング」      | Sonnet が質問→回答→月次 PL 36ヶ月生成 → upsert                       |
@@ -217,3 +227,47 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → cron `/ven
 ```
 
 詳細は [`SPEC_pwa.md`](SPEC_pwa.md) の「8. 運用コマンド」参照。
+
+---
+
+## Project Category
+
+`projects.project_category` は status と別軸のPJ分類。契約状態ではなく、AMD OS上でどう扱うかを決める。
+
+| value | 意味 | AMD Score |
+|---|---|---|
+| `dtsu` | 通常のDTSU伴走PJ | 対象 |
+| `ecosystem` | 研究機関のSUエコシステム構築業務 | 対象外 |
+| `advisor` | まさが社外取締役/経営顧問として入るPJ | 対象 |
+
+- KUTE (`p25`) は `ecosystem`。工学院大学のSUエコシステム構築であり、特定SUのAMD Scoreは付けない。
+- LST (`p07`) は `advisor`。AMDとしての契約が終了していても、まさ個人として関与が続くため、source/backfill系では対象に含める。
+- cockpit header と `/admin/projects` に分類を表示する。
+- `amd-score-l2-refresh` は `ecosystem` をskipする。
+
+## Founding Members
+
+`project_founding_members` はL2 ⑧ XRL根拠のうち、HRL推定に使う創業コア情報。
+
+- 表示対象: 創業者、共同創業者、CEO候補、技術創業者、PI/研究代表者、事業責任者候補など、実際にSUの立ち上げを担う人物。
+- 除外対象: VC、協業先、顧客、行政、単なる紹介者、advisor-only、AMDの伴走メンバーだけの人物。
+- LLM抽出はまず `status='tentative'` で保存し、通知で「はい」が押されたものだけ `active` にする。「いいえ」は `invalid`。
+- コックピットの創業モーダルでは、直接セル編集ではなく、つくよみに修正指示を出し、提案をプレビューしてからOK確定する。
+
+## Annual MS Gantt
+
+年間MSの表示は `MilestoneGanttChart` を正本にする。旧リスト型表示を復活させない。
+
+- month columns: plan cycleの `periodStartYm` 〜 `periodEndYm`
+- each bar: MS別 `periodStartYm` 〜 `targetYm`
+- bar chips: member codeName, share %, allocated pt (`ms.points * share`)
+- expanded row: responsibility detail + sub items
+
+## Reward Cap / Stock
+
+月次モーダルのメンバー報酬は、PJ予算を絶対に超えない。
+
+- 今月払ってよい額 = 月次PJ予算 (`billing_cycles.budget_yen` or monthly fixed fee 65%)
+- gross due = 今月発生報酬 + 前月までのmember別stock
+- gross dueがcapを超える場合、支払額をcap内に比例配分し、未払い分を `stockYen` として翌月へ繰越
+- UIは `要支払 / 支払 / 繰越入 / 現ストック / キャップ発動` を表示する

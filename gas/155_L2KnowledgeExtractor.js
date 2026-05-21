@@ -10,7 +10,7 @@
  * ─────────────────────────────────────────────
  * ⑤ member_knowledge   — 各メンバーの強み/性格/コミュニケーション/関心 等を Supabase に upsert
  * ④ project_knowledge  — 各 PJ の人物/技術/IP/組織/資金/市場/競合/戦略/用語 を upsert
- * ② protocols          — 各 PJ の経営判断 (分岐点/判断材料/アクション/結果・学習) を upsert
+ * ② protocols          — 各 PJ の経営判断 (分岐点/判断材料/アクション/結果) を upsert
  *
  * ─────────────────────────────────────────────
  * 入力ソース (本 Phase = "二次集約" 版、5 生データ直結は将来の Phase 4.x 改善案)
@@ -331,6 +331,8 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
       category: cat,
       summary: sum.slice(0, 500),
       source: "l2_hourly_extract",
+      // 通知に出す L2 は「はい」で承認されるまで正本反映しない。
+      status: "candidate",
       updated_at: new Date().toISOString()
     }, "code_name,category");
     if (up.ok) saved++;
@@ -541,6 +543,8 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
         fact_text: fact.slice(0, 1500),
         confidence: String(it.confidence || "medium"),
         source: "l2_hourly_extract",
+        // 通知に出す L2 は「はい」で承認されるまで正本反映しない。
+        status: "candidate",
         updated_at: new Date().toISOString()
       });
     } else {
@@ -551,7 +555,8 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
         fact_text: fact.slice(0, 1500),
         confidence: String(it.confidence || "medium"),
         source: "l2_hourly_extract",
-        status: "active",
+        // 通知に出す L2 は「はい」で承認されるまで正本反映しない。
+        status: "candidate",
         updated_at: new Date().toISOString()
       });
     }
@@ -659,7 +664,7 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
 
   const inputJson = JSON.stringify({
     p: projectId, ym: ym,
-    pv: "v3_with_aliases", // alias block 追加で全 hash 不一致 → 再抽出
+    pv: "v4_protocol_result_blank", // result欄は後追い記録に限定、既存抽出を再評価
     sums: summaries.map(function (s) { return { mid: s.meeting_id, d: s.meeting_date, t: s.title, ss: s.summary_short, dec: s.decided || [], rk: s.risks || [], na: s.next_actions || [] }; })
   });
   const newHash = _l2_sha256_(inputJson);
@@ -714,7 +719,7 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
     (aliasBlock ? aliasBlock + "\n\n" : "") +
     inputText +
     (fb.block ? "\n\n" + fb.block : "");
-  // protocol 抽出は 4 要素 markdown + examples 配列まで出力するので token 枠が必要。
+  // protocol 抽出は markdown + examples 配列まで出力するので token 枠が必要。
   // 2048 だと "LLM parse failed" (= 出力途中で truncate された不完全 JSON) が頻発するので 4096 に拡張。
   let parsed = null;
   let llmRawErr = "";
@@ -729,7 +734,7 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
   for (let i = 0; i < parsed.protocols.length; i++) {
     const p = parsed.protocols[i] || {};
     const title = String(p.title || "").trim().slice(0, 200);
-    const content = String(p.content || "").trim();
+    const content = _l2_protocolNormalizeContent_(String(p.content || "").trim());
     const imp = Math.max(1, Math.min(3, Math.round(Number(p.importance || 1))));
     const tags = Array.isArray(p.tags) ? p.tags.map(function (s) { return String(s || "").trim(); }).filter(Boolean) : [];
     if (!title || !content) continue;
@@ -774,7 +779,9 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
           branch_point: String(ex.branch_point || "").slice(0, 2000) || null,
           criteria: String(ex.criteria || "").slice(0, 2000) || null,
           action_taken: String(ex.action_taken || "").slice(0, 2000) || null,
-          result: String(ex.result || "").slice(0, 2000) || null,
+          // result は「アクション後に実際に起きたこと」を後追いで記録する欄。
+          // 自動抽出時点では推測・学習要約を入れない。
+          result: null,
           source_meeting_id: ex.source_meeting_id || null,
           llm_model: "gemini-2.5-flash",
           updated_at: new Date().toISOString()
@@ -977,6 +984,27 @@ function _l2_patchProjectKnowledge_(id, patch) {
     const status = res.getResponseCode();
     return { ok: status >= 200 && status < 300, status: status };
   } catch (e) { return { ok: false, message: String(e) }; }
+}
+
+function _l2_protocolNormalizeContent_(content) {
+  let s = String(content || "").trim();
+  if (!s) return "";
+  s = s
+    .replace(/結果[・·]学習/g, "結果")
+    .replace(/学習[・·]結果/g, "結果");
+
+  const patterns = [
+    /\n{0,2}#{1,6}\s*(?:④\s*)?結果\s*\n[\s\S]*$/m,
+    /\n{0,2}\*\*(?:④\s*)?結果\*\*[:：]?\s*[\s\S]*$/m,
+    /\n{0,2}(?:④|4[.)．]?)\s*結果[:：]?\s*[\s\S]*$/m
+  ];
+  for (let i = 0; i < patterns.length; i++) {
+    if (patterns[i].test(s)) {
+      s = s.replace(patterns[i], "");
+      break;
+    }
+  }
+  return s.trim();
 }
 
 function _l2_supaUrl_() {

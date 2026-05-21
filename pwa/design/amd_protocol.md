@@ -9,7 +9,7 @@
 
 L2 ② AMDプロトコル (`protocols`) の自動抽出 cron。
 
-- アクティブ PJ × 当月/前月 の `project_meeting_summaries` から「経営判断 (= AMDプロトコルの 4 要素)」を抽出して `protocols` テーブルに upsert
+- アクティブ PJ × 当月/前月 の `project_meeting_summaries` から「経営判断 (= 分岐点 / 判断材料 / アクション / 結果)」を抽出して `protocols` テーブルに upsert
 - 毎時 polling + `l2_extract_state.source_hash` 差分検知
 
 ---
@@ -25,18 +25,40 @@ L2 ② AMDプロトコル (`protocols`) の自動抽出 cron。
   - title / content に **固有 PJ 名・人名・固有商品名を出さない**
   - 同じパターンが複数 PJ で起きたら同 protocol に集約 (= 知財として価値が高まる)
 - **protocol_examples テーブル = 具体事例 (1 プロトコル : N 事例)**
-  - 各 example に `project_id` / `occurred_on` / `summary` / 4 要素 / `source_meeting_id`
+  - 各 example に `project_id` / `occurred_on` / `summary` / 事例での `branch_point` / `criteria` / `action_taken` / `result` / `source_meeting_id`
   - プロトコル本文 (普遍) + examples (具体) で監査可能
 - **「単純な事実」(設立日 / 終了日 / 氏名 / 資金調達額) はプロトコルにしない** → `project_knowledge.basic_fact` に分類
   - `project_ventures` の構造化フィールドは `sync-pj-facts` cron で project_knowledge に同期される
 
-4 要素 (普遍版、protocols.content に書く):
+要素 (普遍版、protocols.content に書く):
 1. **① 分岐点 🔀** — どの選択肢があるか、抽象的に
 2. **② 判断材料 📊** — どの情報で判断するか、抽象的に
 3. **③ アクション 🎯** — どの方針を採るか、抽象的に
-4. **④ 結果・学習 💡** — このパターンが過去どう機能したか、抽象的に
+4. **④ 結果 💡** — そのアクション後に実際に起きたこと。自動抽出時点では原則空欄。推測・一般論・学習要約で埋めない
 
-LLM (Gemini Flash) は 4 要素を 1 本の `content` (markdown 200-400 字) + `examples` 配列 (各事例の固有 4 要素) で出力する。
+LLM (Gemini Flash) は、まず `content` に分岐点 / 判断材料 / アクションの 3 要素を markdown で出力し、`examples` 配列にも事例固有の 3 要素を保存する。`result` は後追い記録用の欄なので、自動抽出では `null` にする。
+
+### 結果の追跡設計
+
+`結果` は1つの欄を上書きするのではなく、時系列の観測ログとして積む。
+
+- 1年後には「正しかった」ように見えた判断が、2年後には別の副作用を生むことがある。
+- 短期では悪く見えた判断が、長期では知財・関係性・交渉力として効くこともある。
+- protocol自体に最終判定を1つだけ持たせると、後から解釈を塗りつぶしてしまう。
+
+正本:
+
+- `protocol_examples.result` は互換用の短い最新サマリ。自動抽出では `null`。
+- 詳細な結果は `protocol_result_observations` に append-only で保存する。
+- 各観測は `observed_on` / `horizon` / `valence` / `confidence` / `summary` / evidence refs を持つ。
+- UIでは「短期結果」「中期結果」「長期結果」を時系列で並べ、最終結論ではなく判断の変化を見せる。
+
+運用:
+
+- 1m / 3m / 6m / 12m / 24m を目安に、monthly report / meeting summary / project events から結果候補を出す。
+- LLMは結果候補を作るだけ。重要な結果観測は admin/protocols で人間が確認して保存する。
+- `valence` は `positive / negative / mixed / neutral / unknown`。同じ判断に positive と negative が混在してよい。
+- 1つのprotocol exampleに複数の結果観測が並ぶのが正常。後続の観測で過去の観測を消さない。
 
 ---
 
@@ -89,7 +111,7 @@ CREATE TABLE protocols (
   protocol_id   TEXT UNIQUE NOT NULL,           -- Phase 4.5: "p4u-{sha12(title)}"
   project_id    TEXT,                           -- 普遍プロトコルは null (= 紐付けは examples 側)
   title         TEXT NOT NULL,                  -- 20-40 字、普遍的な見出し
-  content       TEXT,                           -- 4 要素 markdown 200-400 字、固有 PJ 名禁止
+  content       TEXT,                           -- 分岐点 / 判断材料 / アクション markdown、固有 PJ 名禁止
   status        TEXT DEFAULT 'candidate',       -- 'candidate' | 'confirmed' | 'archived' | 'rejected'
   importance    INTEGER DEFAULT 1,              -- 1=軽微, 2=中, 3=重大
   source        TEXT DEFAULT 'manual',          -- Phase 4 cron は 'l2_hourly_extract'
@@ -110,13 +132,34 @@ CREATE TABLE protocol_examples (
   branch_point      TEXT,                         -- 事例での ① 分岐点
   criteria          TEXT,                         -- 事例での ② 判断材料
   action_taken      TEXT,                         -- 事例での ③ アクション
-  result            TEXT,                         -- 事例での ④ 結果・学習
+  result            TEXT,                         -- 事例での ④ 結果。アクション後に実際に起きたこと。自動抽出時は null
   source_meeting_id TEXT,                         -- 出典 project_meeting_summaries.meeting_id
   source_url        TEXT,
   llm_model         TEXT,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (protocol_id, project_id, occurred_on)
+);
+```
+
+### `protocol_result_observations` (新規: 070)
+
+```sql
+CREATE TABLE protocol_result_observations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  protocol_id TEXT NOT NULL REFERENCES protocols(protocol_id) ON DELETE CASCADE,
+  protocol_example_id UUID REFERENCES protocol_examples(id) ON DELETE CASCADE,
+  project_id TEXT REFERENCES projects(project_id),
+  observed_on DATE NOT NULL,
+  horizon TEXT NOT NULL CHECK (horizon IN ('immediate','1m','3m','6m','12m','24m','long_term')),
+  valence TEXT NOT NULL CHECK (valence IN ('positive','negative','mixed','neutral','unknown')),
+  confidence TEXT NOT NULL CHECK (confidence IN ('low','medium','high')),
+  summary TEXT NOT NULL,
+  evidence_source_type TEXT,
+  evidence_source_id TEXT,
+  evidence_url TEXT,
+  created_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
 
@@ -130,7 +173,7 @@ CREATE TABLE protocol_examples (
 | ファイル | 役割 |
 |---|---|
 | [pwa/src/app/(app)/admin/protocols/page.tsx](../src/app/(app)/admin/protocols/page.tsx) | server page。protocols + projects + protocol_examples を fetch、examples を protocol_id 単位で集約して Client に渡す |
-| [pwa/src/components/admin/AdminProtocolsClient.tsx](../src/components/admin/AdminProtocolsClient.tsx) | クライアント側 UI: 4 要素ステップカード + 関連事例リスト + 4 アクション |
+| [pwa/src/components/admin/AdminProtocolsClient.tsx](../src/components/admin/AdminProtocolsClient.tsx) | クライアント側 UI: ステップカード + 関連事例リスト + 4 アクション |
 | [pwa/src/components/notifications/NotificationsClient.tsx](../src/components/notifications/NotificationsClient.tsx) | l2_kind='protocols' 通知の詳細を展開。**逆引きは protocol_examples 経由** (`project_id=target_id AND occurred_on ∈ ym 範囲` で protocol_id 集合 → protocols + 関連 examples を表示)。2026-05-20 以降の通知は `scope_key=YYYYMM:protocol:<protocol_id>` なので、個別 protocol_id まで絞り込む。旧 schema (`p4-{pj}-{ym}-*`) の LIKE 検索は Phase 4.5 で機能しなくなり 0 件返してたバグを修正 (2026-05-13) |
 
 **通知粒度 (2026-05-20)**:
@@ -140,14 +183,15 @@ CREATE TABLE protocol_examples (
 - feedback 取り込み: 月次抽出時は `scope_key=YYYYMM` に加えて `YYYYMM:protocol:*` の個別 feedback も LLM プロンプトへ入れる
 
 **展開時 UI 仕様**:
-- 4 要素ステップカード (色分け + アイコン):
+- ステップカード (色分け + アイコン):
   - 🔀 ① 分岐点 (青 `bg-blue-50`)
   - 📊 ② 判断材料 (橙 `bg-amber-50`)
   - 🎯 ③ アクション (緑 `bg-emerald-50`)
-  - 💡 ④ 結果・学習 (紫 `bg-violet-50`)
+  - 💡 ④ 結果 (紫 `bg-violet-50`) — 実際の結果が記録された時だけ表示
   - `parseFourElements(content)` で `**① 分岐点**:` 等の見出しから自動分解
 - 📂 関連事例リスト (= protocol_examples):
-  - 各事例: `日付` + `project_id` + `summary` + 折りたたみで「事例の 4 要素」詳細
+  - 各事例: `日付` + `project_id` + `summary` + 折りたたみで「事例の 3 要素」詳細
+  - 結果が後追い記録された事例だけ「事例の 4 要素」として結果も表示
 - 4 アクション:
   - ✅ **確定** (status='confirmed') — まさが正式プロトコルに昇格
   - 🔄 **修正依頼** — つくよみ chat drawer を起動して該当 protocol を prefill (= window.dispatchEvent)
@@ -201,6 +245,8 @@ curl -sL --max-time 300 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_protoco
 |---|---|
 | 2026-05-09 | Phase 4 初版稼働。GAS 155 で毎時 polling + source_hash 差分検知 + 二次集約 (project_meeting_summaries → Gemini → upsert)。UI は既存活用 |
 | 2026-05-11 | **Phase 4.5: 普遍プロトコル + 1:N 事例構造に移行**。protocol_id を `p4u-{sha12(title)}` に変更、project_id=null、examples を protocol_examples に分離。LLM プロンプトをコード排除 + DB 必須化 (AGENTS ルール完遵)。UI 大改修: 4 要素ステップカード + 関連事例リスト + 4 アクション (✅確定 / 🔄修正依頼 / ❌却下 / 📥archive)。migration 049 (protocol_examples) + 050 (UNIQUE 制約)。**事故**: 既存 13 件を一括 archive にしたら UI 「確定ボタンだけ」表示になった → candidate に戻して復旧 ([BUGS.md](../BUGS.md) 参照) |
+| 2026-05-21 | **結果欄の意味を修正**。旧設計は「結果・学習」として自動抽出時に一般論を埋めていたが、まさ指摘により誤りと確定。結果は「アクション後に実際に起きたこと」を後追いで記録する欄。自動抽出では分岐点 / 判断材料 / アクションの3要素だけ保存し、`protocol_examples.result` は `null`。既存候補は content の結果セクション削除 + example result null へ補正。 |
+| 2026-05-21 | **結果追跡を時系列ledger化**。1年後/2年後で評価が変わる判断を扱うため、結果を単一欄に上書きせず `protocol_result_observations` に append-only 保存する設計へ変更。 |
 
 ---
 

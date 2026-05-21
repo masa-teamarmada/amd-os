@@ -15,7 +15,6 @@ import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitNextPeriodSetup } from "./CockpitNextPeriodSetup";
 import { CockpitRoutineBudgetModal } from "./CockpitRoutineBudgetModal";
 import { CockpitRoutineMeetingModal } from "./CockpitRoutineMeetingModal";
-import { CockpitRoutineReportFixModal } from "./CockpitRoutineReportFixModal";
 import { CockpitRoutineInvoiceModal } from "./CockpitRoutineInvoiceModal";
 import { CockpitRoutineInvoiceSendConfirm } from "./CockpitRoutineInvoiceSendConfirm";
 
@@ -63,9 +62,12 @@ interface CockpitViewProps {
     project: {
       projectId: string;
       projectName: string;
-      clientName: string;
-      status: string;
-      projectType?: string;
+	      clientName: string;
+	      status: string;
+	      projectCategory?: string;
+	      projectType?: string;
+      feeType?: string | null;
+      feeAmount?: number | null;
       freezeFromYm?: string | null;
       restartExpectedYm?: string | null;
     };
@@ -167,6 +169,8 @@ type BillingCycleShape = {
   reportFixedAt: string | null;
 };
 
+type MonthlyModalTab = "reward" | "report" | "invoice";
+
 function resolveStepModalFromTap(
   ym: string,
   stepId: string,
@@ -186,7 +190,7 @@ function resolveStepModalFromTap(
       return { kind: "meeting", ym, isDone, doneAction };
     }
     case "reportFix":
-      return { kind: "reportFix", ym, isDone: !!cycle?.reportFixedAt };
+      return null;
     case "reimburseConfirm":
       onReimburseConfirm();
       return null;
@@ -249,26 +253,46 @@ function isLiveOperationalProject(project: { status: string; freezeFromYm?: stri
 type StepModal =
   | { kind: "budget"; ym: string }
   | { kind: "meeting"; ym: string; isDone: boolean; doneAction: string | null }
-  | { kind: "reportFix"; ym: string; isDone: boolean }
   | { kind: "invoice"; ym: string; documentType: "invoice" | "quotation" }
   | { kind: "invoiceSend"; ym: string }
   | null;
 
 export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialStep, canEditRoutine = false }: CockpitViewProps) {
   const router = useRouter();
-  const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
+  const [modalYm, setModalYm] = useState<string | null>(
+    initialStep?.stepId === "reportFix" ? initialStep.ym : initialModalYm || null
+  );
+  const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(
+    initialStep?.stepId === "reportFix" ? "report" : undefined
+  );
   const [pastExpanded, setPastExpanded] = useState(false);
   const [editingCurrentCycle, setEditingCurrentCycle] = useState(false);
   const [progressPatches, setProgressPatches] = useState<ProgressShape[]>([]);
   const [stepModal, setStepModal] = useState<StepModal>(() => {
     if (!initialStep) return null;
+    if (initialStep.stepId === "reportFix") return null;
     const cycle = cockpit.billingCycles.find((bc) => bc.ym === initialStep.ym);
     return resolveStepModalFromTap(initialStep.ym, initialStep.stepId, cycle, () => {});
   });
 
+  function openMonthlyModal(ym: string, initialTab?: MonthlyModalTab) {
+    setModalInitialTab(initialTab);
+    setModalYm(ym);
+  }
+
+  function closeMonthlyModal() {
+    setModalYm(null);
+    setModalInitialTab(undefined);
+  }
+
   function handleStepClick(ym: string, stepId: string) {
     if (stepId === "reimburseConfirm") {
       router.push("/reimburse");
+      return;
+    }
+    if (stepId === "reportFix") {
+      setStepModal(null);
+      openMonthlyModal(ym, "report");
       return;
     }
     const cycle = cockpit.billingCycles.find((bc) => bc.ym === ym);
@@ -310,6 +334,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
   const modalMsActivities = isReportOnlyMonth ? [] : (modalBundle?.msActivities || msActivities || []);
   const modalMemberActivities = isReportOnlyMonth ? [] : (modalBundle?.memberActivities || memberActivities || []);
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
+  const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
 
   useEffect(() => {
     if (!showLiveOperations && stepModal) setStepModal(null);
@@ -322,8 +347,8 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
         {/* [A] Project Header */}
         <CockpitHeader project={project} />
 
-        {/* [A2] PJ Status (SU 系 PJ のみ。`project_ventures` 未登録なら自動で非表示) */}
-        <CockpitVentureStatus projectId={project.projectId} />
+        {/* [A2] PJ Status: ecosystem PJ は AMD Score 対象外 */}
+        {showAmdScore && <CockpitVentureStatus projectId={project.projectId} />}
 
         {/* [B] Milestones — 現在の期間（トップ表示） */}
         {planCycle && milestones.length > 0 && (
@@ -433,7 +458,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
               reports={reports}
               currentYm={currentYm}
               progressByYm={monthlyProgressByYm}
-              onOpenModal={(ym) => setModalYm(ym)}
+              onOpenModal={(ym) => openMonthlyModal(ym)}
             />
           </div>
           <div className="flex-1 min-w-0">
@@ -493,7 +518,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
                       billingCycles={billingCycles}
                       currentYm={currentYm}
                       projectType={project.projectType}
-                      onOpenModal={(ym) => setModalYm(ym)}
+                      onOpenModal={(ym) => openMonthlyModal(ym)}
                       onStepClick={handleStepClick}
                     />
                   </div>
@@ -521,8 +546,11 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
           msActivities={modalMsActivities}
           memberActivities={modalMemberActivities}
           currentYm={currentYm}
+          initialTab={modalInitialTab}
+          projectFeeType={project.feeType}
+          projectFeeAmount={project.feeAmount}
           onProgressSaved={(patches) => setProgressPatches((prev) => mergeProgress(prev, patches))}
-          onClose={() => setModalYm(null)}
+          onClose={closeMonthlyModal}
         />
       )}
 
@@ -541,15 +569,6 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
           ym={stepModal.ym}
           isDone={stepModal.isDone}
           doneAction={stepModal.doneAction}
-          open
-          onClose={() => setStepModal(null)}
-        />
-      )}
-      {stepModal?.kind === "reportFix" && (
-        <CockpitRoutineReportFixModal
-          projectId={project.projectId}
-          ym={stepModal.ym}
-          isDone={stepModal.isDone}
           open
           onClose={() => setStepModal(null)}
         />

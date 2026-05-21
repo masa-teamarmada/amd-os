@@ -12,6 +12,11 @@ import { requireAdmin } from "@/lib/supabase/api-auth";
 
 interface ProgressEvent {
   eventId: string;
+  memberId?: string | null;
+  milestoneId?: string | null;
+  title?: string | null;
+  contentPreview?: string | null;
+  itemDate?: string | null;
   eventTitle: string;
   eventDescription?: string;
   status: string;
@@ -89,6 +94,11 @@ export async function GET(req: NextRequest) {
 
     return {
       eventId: a.id,
+      memberId: (a.member_id as string | null) ?? null,
+      milestoneId: (a.milestone_id as string | null) ?? null,
+      title: (a.title as string | null) ?? null,
+      contentPreview: (a.content_preview as string | null) ?? null,
+      itemDate: a.item_date ? String(a.item_date).slice(0, 10) : null,
       eventTitle: a.title || (a.content_preview ? String(a.content_preview).slice(0, 80) : "(無題)"),
       eventDescription: descriptionParts.join(" · ") || undefined,
       status: "active",
@@ -102,4 +112,50 @@ export async function GET(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true, events });
+}
+
+export async function PATCH(req: NextRequest) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
+  const body = await req.json().catch(() => null) as {
+    eventId?: string;
+    projectId?: string;
+    ym?: string;
+    title?: string | null;
+    contentPreview?: string | null;
+    milestoneId?: string | null;
+    initiativeOrigin?: string | null;
+    impact?: number | null;
+    depth?: number | null;
+  } | null;
+
+  const eventId = (body?.eventId ?? "").trim();
+  if (!eventId) return NextResponse.json({ error: "eventId required" }, { status: 400 });
+
+  const updates: Record<string, unknown> = {};
+  if (body?.title !== undefined) updates.title = (body.title ?? "").trim() || null;
+  if (body?.contentPreview !== undefined) updates.content_preview = (body.contentPreview ?? "").trim() || null;
+  if (body?.milestoneId !== undefined) updates.milestone_id = (body.milestoneId ?? "").trim() || null;
+  if (body?.initiativeOrigin !== undefined) updates.initiative_origin = (body.initiativeOrigin ?? "").trim() || "unknown";
+  if (body?.impact !== undefined) {
+    const n = Number(body.impact ?? 0);
+    updates.impact = Number.isFinite(n) ? Math.max(0, Math.min(5, n)) : null;
+  }
+  if (body?.depth !== undefined) {
+    const n = Number(body.depth ?? 0);
+    updates.depth = Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : null;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "no editable fields" }, { status: 400 });
+  }
+
+  let query = auth.supabase.from("member_activities").update(updates).eq("id", eventId);
+  if (body?.projectId) query = query.eq("project_id", body.projectId);
+  if (body?.ym) query = query.eq("ym", body.ym);
+  const { error } = await query;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
 }

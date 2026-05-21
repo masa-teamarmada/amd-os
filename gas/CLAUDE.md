@@ -279,7 +279,7 @@ GAS は外部サービスから Supabase へデータを供給するハブ役。
 | `PWA_BASE_URL` | **PWA 本番 URL** (= `https://amd-os-pwa.vercel.app`)。`gas/154_PwaCronCaller.js` `nav_pwa_pingHourlyEstimate` が PWA cron を curl で叩くときの base URL (2026-05-09 追加) |
 | `CRON_SECRET` | **Vercel `/api/cron/hourly-estimate` 認証 secret** (= Vercel Production env の `CRON_SECRET` と同じ値)。GAS 154 が `Bearer $CRON_SECRET` で送る (2026-05-09 追加) |
 | `FREEE_*` (CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN, REFRESH_TOKEN, ACCESS_TOKEN_EXPIRES_AT, COMPANY_ID, INVOICE_FOLDER_ID) | freee API |
-| `SLACK_BOT_TOKEN` / `SLACK_TSUKUYOMI_BOT_TOKEN` / `SLACK_TSUKUYOMI_BOT_USER_ID` / `SLACK_ADMIN_CHANNEL_ID` / `SLACK_ACTIVITY_CHANNELS` / `SLACK_INTERACTIVE_QUEUE_JSON` | Slack API |
+| `SLACK_BOT_TOKEN` / `SLACK_TSUKUYOMI_BOT_TOKEN` / `SLACK_TSUKUYOMI_BOT_USER_ID` / `SLACK_ADMIN_CHANNEL_ID` / `SLACK_ACTIVITY_CHANNELS` / `SLACK_INTERACTIVE_QUEUE_JSON` / `SLACK_TSUKUYOMI_MOON_REACTION` | Slack API。`SLACK_TSUKUYOMI_MOON_REACTION` は任意で、未設定時は `tsukuyomi_moon`、Slack側に絵文字が無い場合は `crescent_moon` にフォールバック |
 | `MONTHLY_REPORT_SLIDE_TEMPLATE_ID` | 月次レポート slide テンプレ |
 | `PAYOUT_*` (LOGOTYPE_FILE_ID, LOGO_FILE_ID, NOTICE_TEMPLATE_SLIDES_ID, PREVIEW_FOLDER_ID) | 支払通知書 |
 | `REIMBURSE_NOTIFY_QUEUE_JSON` | 立替精算通知キュー |

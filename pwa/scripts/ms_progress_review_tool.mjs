@@ -141,6 +141,28 @@ function inList(values) {
   return `(${values.map((v) => `"${String(v).replaceAll('"', '\\"')}"`).join(",")})`;
 }
 
+const projectCategoryCache = new Map();
+const SCORE_L2_NOTIFICATION_KINDS = new Set(["xrl_evidence", "founding_members"]);
+
+async function loadProjectCategories(projectIds) {
+  const missing = [...new Set(projectIds.filter(Boolean))].filter((projectId) => !projectCategoryCache.has(projectId));
+  if (missing.length > 0) {
+    const rows = await get("projects", `select=project_id,project_category&project_id=in.${inList(missing)}`);
+    for (const row of rows || []) {
+      projectCategoryCache.set(row.project_id, row.project_category || "dtsu");
+    }
+    for (const projectId of missing) {
+      if (!projectCategoryCache.has(projectId)) projectCategoryCache.set(projectId, "dtsu");
+    }
+  }
+  return new Map(projectIds.map((projectId) => [projectId, projectCategoryCache.get(projectId) || "dtsu"]));
+}
+
+async function isEcosystemProject(projectId) {
+  const categories = await loadProjectCategories([projectId]);
+  return categories.get(projectId) === "ecosystem";
+}
+
 function yyyymm(date = new Date()) {
   const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
   return `${jst.getUTCFullYear()}${String(jst.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -662,6 +684,20 @@ async function collectGmail({ projectId, ym }) {
   };
 }
 
+async function collectSlack({ projectId, ym, maxMessages = 120, includeBots = false }) {
+  if (!projectId || !ym) throw new Error("collect-slack requires --project <projectId> --ym <YYYYMM>");
+  const pwaDirect = await collectSlackViaPwa({ projectId, ym, maxMessages, includeBots })
+    .catch((error) => ({ ok: false, error: error.message }));
+  if (pwaDirect?.ok) return pwaDirect;
+  return {
+    ok: false,
+    via: "pwa-slack-api",
+    projectId,
+    ym,
+    error: pwaDirect?.error || "PWA Slack collect failed",
+  };
+}
+
 async function collectGmailViaPwa({ projectId, ym }) {
   if (!CRON_SECRET) throw new Error("CRON_SECRET is required for PWA Gmail collect");
   const url = new URL(`${PWA_BASE_URL}/api/sources/gmail/collect`);
@@ -688,6 +724,32 @@ async function collectGmailViaPwa({ projectId, ym }) {
     saved: [],
     emailRegistration: null,
     query: json.query,
+  };
+}
+
+async function collectSlackViaPwa({ projectId, ym, maxMessages, includeBots }) {
+  if (!CRON_SECRET) throw new Error("CRON_SECRET is required for PWA Slack collect");
+  const url = new URL(`${PWA_BASE_URL}/api/sources/slack/collect`);
+  url.searchParams.set("projectId", projectId);
+  url.searchParams.set("ym", ym);
+  url.searchParams.set("save", "1");
+  url.searchParams.set("maxMessages", String(maxMessages || 120));
+  if (includeBots) url.searchParams.set("includeBots", "1");
+  const json = await requestJson(url.toString(), {
+    headers: { authorization: `Bearer ${CRON_SECRET}` },
+  });
+  if (!json?.ok) throw new Error(json?.error || "PWA Slack collect failed");
+  return {
+    ok: true,
+    via: "pwa-slack-api",
+    projectId,
+    ym,
+    channelId: json.channelId || null,
+    channelName: json.channelName || null,
+    messageCount: json.messageCount || 0,
+    threadReplyCount: json.threadReplyCount || 0,
+    savedCount: json.savedCount || 0,
+    includeBots: json.includeBots === true,
   };
 }
 
@@ -772,11 +834,15 @@ async function notify(file) {
   if (!payload.target_id || !payload.scope_key || !payload.title) {
     throw new Error("notification missing target_id, scope_key or title");
   }
+  const l2Kind = payload.l2_kind || "ms_progress";
+  if (SCORE_L2_NOTIFICATION_KINDS.has(l2Kind) && await isEcosystemProject(payload.target_id)) {
+    return { ok: true, skipped: true, reason: "ecosystem project is excluded from AMD Score / XRL notifications" };
+  }
   const written = await requestJson(rest("l2_notifications", "on_conflict=l2_kind,target_id,scope_key&select=*"), {
     method: "POST",
     headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
     body: {
-      l2_kind: payload.l2_kind || "ms_progress",
+      l2_kind: l2Kind,
       target_id: payload.target_id,
       scope_key: payload.scope_key,
       title: payload.title,
@@ -948,7 +1014,7 @@ async function upsertRegistryDiffs(items) {
 
 async function upsertXrlEvidence(items) {
   const now = new Date().toISOString();
-  const rows = items.map((item) => {
+  let rows = items.map((item) => {
     const refs = item.source_refs_json || item.sourceRefs || [];
     const rawStatus = String(item.status || "candidate").trim().toLowerCase();
     return {
@@ -967,6 +1033,13 @@ async function upsertXrlEvidence(items) {
       updated_at: now,
     };
   });
+  const categories = await loadProjectCategories(rows.map((row) => row.project_id));
+  const beforeFilterCount = rows.length;
+  rows = rows.filter((row) => categories.get(row.project_id) !== "ecosystem");
+  const skippedEcosystem = beforeFilterCount - rows.length;
+  if (rows.length === 0) {
+    return { ok: true, writtenCount: 0, skippedEcosystem, written: [] };
+  }
   const missing = rows.find((r) => !r.project_id || !r.axis || !r.summary);
   if (missing) throw new Error(`xrlEvidence missing project_id/axis/summary: ${JSON.stringify(missing)}`);
   const written = await requestJson(rest("project_xrl_evidence", "on_conflict=project_id,scope_key,axis,evidence_kind,source_hash&select=*"), {
@@ -974,7 +1047,7 @@ async function upsertXrlEvidence(items) {
     headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
     body: rows,
   });
-  return { ok: true, writtenCount: written?.length || 0, written };
+  return { ok: true, writtenCount: written?.length || 0, skippedEcosystem, written };
 }
 
 async function upsertSourceCache(items) {
@@ -1137,6 +1210,13 @@ async function main() {
       ym: args.ym,
       registerFoundEmails: args["register-found-emails"] === true,
     });
+  } else if (cmd === "collect-slack") {
+    result = await collectSlack({
+      projectId: args.project,
+      ym: args.ym,
+      maxMessages: Number(args["max-messages"] || 120),
+      includeBots: args["include-bots"] === true,
+    });
   } else if (cmd === "notify") {
     result = await notify(args.file);
   } else if (cmd === "upsert-source-cache") {
@@ -1163,6 +1243,7 @@ async function main() {
         "node pwa/scripts/ms_progress_review_tool.mjs snapshot --project p21 --ym 202601",
         "node pwa/scripts/ms_progress_review_tool.mjs register-emails --project p25 --emails kenkyu2_suishin@sc.kogakuin.ac.jp,sangaku@sc.kogakuin.ac.jp",
         "node pwa/scripts/ms_progress_review_tool.mjs collect-gmail --project p25 --ym 202605 --register-found-emails",
+        "node pwa/scripts/ms_progress_review_tool.mjs collect-slack --project p21 --ym 202605",
         "node pwa/scripts/ms_progress_review_tool.mjs refresh-snapshot --ym 202605",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-review --file /tmp/review.json",
         "node pwa/scripts/ms_progress_review_tool.mjs notify --file /tmp/notification.json",

@@ -15,7 +15,6 @@ import { HudCockpitFreezeBackfill } from "./HudCockpitFreezeBackfill";
 import { CockpitNextPeriodSetup } from "../cockpit/CockpitNextPeriodSetup";
 import { CockpitRoutineBudgetModal } from "../cockpit/CockpitRoutineBudgetModal";
 import { CockpitRoutineMeetingModal } from "../cockpit/CockpitRoutineMeetingModal";
-import { CockpitRoutineReportFixModal } from "../cockpit/CockpitRoutineReportFixModal";
 import { CockpitRoutineInvoiceModal } from "../cockpit/CockpitRoutineInvoiceModal";
 import { CockpitRoutineInvoiceSendConfirm } from "../cockpit/CockpitRoutineInvoiceSendConfirm";
 import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
@@ -67,9 +66,12 @@ interface HudCockpitViewProps {
     project: {
       projectId: string;
       projectName: string;
-      clientName: string;
-      status: string;
-      projectType?: string;
+	      clientName: string;
+	      status: string;
+	      projectCategory?: string;
+	      projectType?: string;
+      feeType?: string | null;
+      feeAmount?: number | null;
       freezeFromYm?: string | null;
       restartExpectedYm?: string | null;
     };
@@ -178,6 +180,8 @@ type BillingCycleShape = {
   reportFixedAt: string | null;
 };
 
+type MonthlyModalTab = "reward" | "report" | "invoice";
+
 function resolveStepModalFromTap(
   ym: string,
   stepId: string,
@@ -197,7 +201,7 @@ function resolveStepModalFromTap(
       return { kind: "meeting", ym, isDone, doneAction };
     }
     case "reportFix":
-      return { kind: "reportFix", ym, isDone: !!cycle?.reportFixedAt };
+      return null;
     case "reimburseConfirm":
       onReimburseConfirm();
       return null;
@@ -296,7 +300,6 @@ function isLiveOperationalProject(project: { status: string; freezeFromYm?: stri
 type StepModal =
   | { kind: "budget"; ym: string }
   | { kind: "meeting"; ym: string; isDone: boolean; doneAction: string | null }
-  | { kind: "reportFix"; ym: string; isDone: boolean }
   | { kind: "invoice"; ym: string; documentType: "invoice" | "quotation" }
   | { kind: "invoiceSend"; ym: string }
   | null;
@@ -305,19 +308,40 @@ export function HudCockpitView({ cockpit, nudges, tasks, initialModalYm, initial
   const router = useRouter();
   const cockpitNudges = nudges || cockpit.nudges || [];
   const cockpitTasks = tasks || cockpit.tasks || [];
-  const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
+  const [modalYm, setModalYm] = useState<string | null>(
+    initialStep?.stepId === "reportFix" ? initialStep.ym : initialModalYm || null
+  );
+  const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(
+    initialStep?.stepId === "reportFix" ? "report" : undefined
+  );
   const [pastExpanded, setPastExpanded] = useState(false);
   const [editingCurrentCycle, setEditingCurrentCycle] = useState(false);
   const [progressPatches, setProgressPatches] = useState<ProgressShape[]>([]);
   const [stepModal, setStepModal] = useState<StepModal>(() => {
     if (!initialStep) return null;
+    if (initialStep.stepId === "reportFix") return null;
     const cycle = cockpit.billingCycles.find((bc) => bc.ym === initialStep.ym);
     return resolveStepModalFromTap(initialStep.ym, initialStep.stepId, cycle, () => {});
   });
 
+  function openMonthlyModal(ym: string, initialTab?: MonthlyModalTab) {
+    setModalInitialTab(initialTab);
+    setModalYm(ym);
+  }
+
+  function closeMonthlyModal() {
+    setModalYm(null);
+    setModalInitialTab(undefined);
+  }
+
   function handleStepClick(ym: string, stepId: string) {
     if (stepId === "reimburseConfirm") {
       router.push("/reimburse");
+      return;
+    }
+    if (stepId === "reportFix") {
+      setStepModal(null);
+      openMonthlyModal(ym, "report");
       return;
     }
     const cycle = cockpit.billingCycles.find((bc) => bc.ym === ym);
@@ -358,6 +382,7 @@ export function HudCockpitView({ cockpit, nudges, tasks, initialModalYm, initial
   const modalMsActivities = modalBundle?.msActivities || msActivities || [];
   const modalMemberActivities = modalBundle?.memberActivities || memberActivities || [];
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
+  const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
 
   useEffect(() => {
     if (!showLiveOperations && stepModal) setStepModal(null);
@@ -376,16 +401,20 @@ export function HudCockpitView({ cockpit, nudges, tasks, initialModalYm, initial
         {/* [A] Project Header */}
         <HudCockpitHeader
           project={project}
-          currentYm={currentYm}
-          memberCount={cockpit.members.length}
-          initiativeScore={showLiveOperations ? (COCKPIT_INITIATIVE_SCORES[project.projectId] ?? 64) : null}
-        />
+	          currentYm={currentYm}
+	          memberCount={cockpit.members.length}
+	          initiativeScore={showLiveOperations && showAmdScore ? (COCKPIT_INITIATIVE_SCORES[project.projectId] ?? 64) : null}
+	        />
 
-        {/* [A2] PJ Status (SU 系 PJ のみ。`project_ventures` 未登録なら自動で非表示) */}
-        <HudCockpitSignalStrip projectId={project.projectId} status={project.status} />
-        <div className="hud-cockpit-panel hud-cockpit-panel--status">
-          <HudCockpitVentureStatus projectId={project.projectId} />
-        </div>
+        {/* [A2] PJ Status: ecosystem PJ は AMD Score 対象外 */}
+        {showAmdScore && (
+          <>
+            <HudCockpitSignalStrip projectId={project.projectId} status={project.status} />
+            <div className="hud-cockpit-panel hud-cockpit-panel--status">
+              <HudCockpitVentureStatus projectId={project.projectId} />
+            </div>
+          </>
+        )}
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.18fr)_minmax(360px,0.82fr)]">
           <div className="min-w-0 space-y-3">
@@ -508,7 +537,7 @@ export function HudCockpitView({ cockpit, nudges, tasks, initialModalYm, initial
               billingCycles={billingCycles}
               currentYm={currentYm}
               progressByYm={monthlyProgressByYm}
-              onOpenModal={(ym) => setModalYm(ym)}
+              onOpenModal={(ym) => openMonthlyModal(ym)}
             />
           </div>
           <div className="min-w-0 hud-cockpit-panel hud-cockpit-panel--meeting">
@@ -527,7 +556,7 @@ export function HudCockpitView({ cockpit, nudges, tasks, initialModalYm, initial
           billing={billingCycles.find((bc) => bc.ym === currentYm) || billingCycles[0] || null}
           report={reports.find((r) => r.ym === currentYm) || reports[0] || null}
           progressItems={monthlyProgressByYm[currentYm] || []}
-          onOpenModal={(ym) => setModalYm(ym)}
+          onOpenModal={(ym) => openMonthlyModal(ym)}
         />
       </div>
 
@@ -582,7 +611,7 @@ export function HudCockpitView({ cockpit, nudges, tasks, initialModalYm, initial
                       billingCycles={billingCycles}
                       currentYm={currentYm}
                       projectType={project.projectType}
-                      onOpenModal={(ym) => setModalYm(ym)}
+                      onOpenModal={(ym) => openMonthlyModal(ym)}
                       onStepClick={handleStepClick}
                     />
                   </div>
@@ -612,8 +641,11 @@ export function HudCockpitView({ cockpit, nudges, tasks, initialModalYm, initial
           msActivities={modalMsActivities}
           memberActivities={modalMemberActivities}
           currentYm={currentYm}
+          initialTab={modalInitialTab}
+          projectFeeType={project.feeType}
+          projectFeeAmount={project.feeAmount}
           onProgressSaved={(patches) => setProgressPatches((prev) => mergeProgress(prev, patches))}
-          onClose={() => setModalYm(null)}
+          onClose={closeMonthlyModal}
         />
       )}
 
@@ -632,15 +664,6 @@ export function HudCockpitView({ cockpit, nudges, tasks, initialModalYm, initial
           ym={stepModal.ym}
           isDone={stepModal.isDone}
           doneAction={stepModal.doneAction}
-          open
-          onClose={() => setStepModal(null)}
-        />
-      )}
-      {stepModal?.kind === "reportFix" && (
-        <CockpitRoutineReportFixModal
-          projectId={project.projectId}
-          ym={stepModal.ym}
-          isDone={stepModal.isDone}
           open
           onClose={() => setStepModal(null)}
         />

@@ -27,6 +27,7 @@
 | `value_plan_cycles` (status='fixed') | アクティブプラン取得 |
 | `value_milestones` (is_active=true) | MS一覧（title, points, tag） |
 | `milestone_monthly_progress` | 月次進捗率 |
+| `member_activities(source='member_weekly')` | Gmail / 共有メンバーカレンダー / source_cache から抽出した「今週やったこと」 |
 
 ### AllocationStatus 判定ロジック
 - `allocation_confirmed` / `budget_confirmed` → `.confirmed` ✅
@@ -56,6 +57,9 @@
 - **per-MS myShare 表示**: `sub_item_responsibilities` / `milestone_responsibilities` をSupabaseに移行 → 「このMSで私は60%背負ってる」表示
 - **earnedPt × ptUnit の内訳表示**: 「このPJでの私の獲得ポイント → 報酬額」の透明性
 - **支払通知書との突合せ**: "全PJ合計 = ¥XXX,XXX（支払通知書額と一致）" バッジ
+- **週次活動表示**: ✅ PWA先行で実装。`/api/cron/member-weekly-activities` がGmail / OSから読める共有メンバーカレンダー / source_cacheから活動を抽出し、member emailはメンバー特定だけに使い、PJ判定はPJ専用/関係先email・PJ名・client名で行う。毎日18:00 JSTに、前日18:00〜当日18:00の24hを抽出する。結果は`member_activities(source='member_weekly')` に保存し、`/mypage` は今週(月-日 JST)の行を表示する。
+- **カレンダー共有はログイン時に必須**: Google Workspaceログイン時に `calendar.readonly` を必須scopeとして要求し、callbackでCalendar APIが読めることを確認する。未許可ならOSへ入れず、`members.google_calendar_status` を `missing/error` にする。ログイン成功時は `members.last_login_at` を更新し、`/admin/members` で共有状態と最終ログインを確認できる。`info` / `つくよみ` などの非ログイン系アカウントは対象外。
+- 週次抽出cronは、`google_calendar_status = connected` のメンバーだけを抽出対象にする。未ONのメンバーは保存対象から外すが、ON済みメンバーの抽出は止めない。
 
 ### Phase 3（アイデアレベル）
 - 年間累積報酬グラフ
@@ -86,7 +90,7 @@
 | Phase | 状態 |
 |---|---|
 | Phase 1 (基本実装) | ✅ 完了（2026-04-15、実機インストール済み） |
-| Phase 2 (myShare・内訳) | ❌ 未着手 |
+| Phase 2 (myShare・内訳) | 🟡 一部完了（週次活動表示はPWA先行完了） |
 | Phase 3 (グラフ・予測) | ❌ 未着手 |
 
 ## 知見
