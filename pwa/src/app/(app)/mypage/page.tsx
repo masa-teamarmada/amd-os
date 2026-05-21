@@ -715,6 +715,9 @@ export default function MyPage() {
           activities={data.weeklyActivities}
           weekStart={data.weekStart}
           weekEnd={data.weekEnd}
+          onRefreshed={() => {
+            void load();
+          }}
         />
 
         {data.months.map((month) => {
@@ -796,11 +799,47 @@ function WeeklyActivitiesCard({
   activities,
   weekStart,
   weekEnd,
+  onRefreshed,
 }: {
   activities: MyPageWeeklyActivity[];
   weekStart: string;
   weekEnd: string;
+  onRefreshed?: () => void;
 }) {
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    setRefreshMessage(null);
+    try {
+      const res = await fetch("/api/mypage/weekly-activities/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok || payload.ok === false) {
+        const message = typeof payload.error === "string" ? payload.error : `抽出に失敗 (${res.status})`;
+        setRefreshMessage({ tone: "error", text: message });
+        return;
+      }
+      const saved =
+        (typeof payload.sourceCacheEvidence === "number" ? payload.sourceCacheEvidence : 0) +
+        (typeof payload.gmailEvidence === "number" ? payload.gmailEvidence : 0) +
+        (typeof payload.calendarEvidence === "number" ? payload.calendarEvidence : 0);
+      setRefreshMessage({
+        tone: "success",
+        text: `抽出完了 (Gmail/Calendar/source合計 ${saved} 件)`,
+      });
+      onRefreshed?.();
+    } catch (err) {
+      setRefreshMessage({ tone: "error", text: err instanceof Error ? err.message : "抽出エラー" });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <section className="bg-white rounded-2xl border border-[#e5e5e7] p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -808,10 +847,33 @@ function WeeklyActivitiesCard({
           <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#86868b]">This Week</p>
           <h2 className="text-[14px] font-semibold text-[#1d1d1f] mt-0.5">今週やったこと</h2>
         </div>
-        <span className="text-[11px] text-[#86868b] whitespace-nowrap">
-          {formatDateJa(weekStart)} - {formatDateJa(weekEnd)}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="inline-flex items-center gap-1 rounded-full border border-[#007aff]/40 bg-[#007aff]/10 px-3 py-1 text-[11px] font-semibold text-[#007aff] hover:bg-[#007aff]/20 disabled:opacity-60"
+            title="Gmail / Calendar / source_cache から今週分を即時再抽出"
+          >
+            {refreshing ? "抽出中..." : "⚡ いますぐ抽出"}
+          </button>
+          <span className="text-[11px] text-[#86868b] whitespace-nowrap">
+            {formatDateJa(weekStart)} - {formatDateJa(weekEnd)}
+          </span>
+        </div>
       </div>
+
+      {refreshMessage && (
+        <div
+          className={`mb-3 rounded-xl px-3 py-2 text-[12px] ${
+            refreshMessage.tone === "success"
+              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+              : "bg-red-50 text-red-800 border border-red-200"
+          }`}
+        >
+          {refreshMessage.text}
+        </div>
+      )}
 
       {activities.length === 0 ? (
         <div className="rounded-xl bg-[#f5f5f7] px-3 py-3">
