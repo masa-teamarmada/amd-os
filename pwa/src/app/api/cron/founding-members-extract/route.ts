@@ -81,7 +81,7 @@ interface AmdMemberRow {
   member_name: string | null;
 }
 
-const PROMPT_REV = "v4_2026-05-22_related_members_keep_su_keypersons";
+const PROMPT_REV = "v5_2026-05-22_with_su_master_md";
 
 // HRL 根拠から外すカテゴリ (= まさ判断 2026-05-22 #2):
 // 大学・研究機関でも「SU のキーパーソン (PI / 共同創業者 / 技術リード)」は残すため、
@@ -180,7 +180,7 @@ type DBClient = any;
 async function extractForProject(
   db: DBClient,
   anthropic: Anthropic,
-  project: { project_id: string; display_name: string; origin_org: string | null; origin_pi: string | null },
+  project: { project_id: string; display_name: string; origin_org: string | null; origin_pi: string | null; master_md_text: string | null },
   amdMembers: AmdMemberRow[]
 ): Promise<{ projectId: string; saved: number; skipped: number; total: number; error?: string }> {
   const projectId = project.project_id;
@@ -259,9 +259,13 @@ async function extractForProject(
     .map((m) => `  - ${m.code_name}${m.member_name ? ` (本名: ${m.member_name})` : ""}`)
     .join("\n");
 
+  const masterBlock = project.master_md_text
+    ? `\n# SU 基本情報 (= knowledge/<slug>.md の本文。最優先で参照する正本)\n${project.master_md_text.slice(0, 8000)}\n`
+    : "\n# SU 基本情報\n(まだ knowledge/<slug>.md が同期されていない。affiliation の表面情報だけで安易に分類しないこと。)\n";
+
   const prompt = `あなたは Deep-Tech ベンチャースタジオ AMD のアナリストです。
 PJ「${project.display_name}」(project_id=${projectId}) の **関連メンバー** を抽出してください。
-
+${masterBlock}
 # 関連メンバーの定義 (まさ判断 2026-05-22 v4)
 このリストは HRL (Human Resources Readiness Level) の評価ベース。
 HRL に算入されるのは「**該当SU の創業・経営・技術に直接コミットする人**」だけ。
@@ -284,13 +288,14 @@ HRL に算入されるのは「**該当SU の創業・経営・技術に直接�
 迷ったら **除外** してください。
 
 # 抽出精度ルール (= 絶対厳守)
-1. 文中で **明示的にフルネーム or 一貫した呼び方** で書かれた人物だけを抽出する。
-2. **苗字 1 文字単体 (例: 「赤」「小」)** や、文脈なく登場した苗字だけの表記、想像で補った氏名は出力禁止。
-3. **typo っぽい名前** (= 文中に確証がない名前) は出さない。「赤津」のような誤抽出をしないこと。
-4. 同一人物の別表記は **最も明確な表記 1 つに集約** する (例: 「野田先生」と「野田」が同一人物なら「野田先生」に統一)。
-5. 既知メンバーリストにある person_name は **そのままその名前で返す** (= 同じキーで上書き)。
-6. 「あの人」「彼」「先生」だけの曖昧な代名詞は除外。
-7. 出力する人物には必ず「文中の根拠 (evidence)」を 80 字以内で添える。
+1. **SU 基本情報** に書かれている人物 (CEO / CTO / 設立者 / 共同創業者) は、たとえ大学や別組織に所属していても、必ず category="startup" で出す。大学発 SU の CEO は元 PI であることが多い (例: JC の小柳裕太郎は群馬大の PI だが JC の CEO)。affiliation の文字列だけで category を決めない。
+2. 文中で **明示的にフルネーム or 一貫した呼び方** で書かれた人物だけを抽出する。
+3. **苗字 1 文字単体 (例: 「赤」「小」)** や、文脈なく登場した苗字だけの表記、想像で補った氏名は出力禁止。
+4. **typo っぽい名前** (= 文中に確証がない名前) は出さない。「赤津」のような誤抽出をしないこと。
+5. 同一人物の別表記は **最も明確な表記 1 つに集約** する (例: 「野田先生」と「野田」が同一人物なら「野田先生」に統一)。
+6. 既知メンバーリストにある person_name は **そのままその名前で返す** (= 同じキーで上書き)。
+7. 「あの人」「彼」「先生」だけの曖昧な代名詞は除外。
+8. 出力する人物には必ず「文中の根拠 (evidence)」を 80 字以内で添える。SU 基本情報由来の人物は「SU基本情報より」と明示してよい。
 
 # AMD メンバー alias 解決 (= 必ず code_name で出力)
 ${amdAliasLines}
@@ -477,7 +482,7 @@ export async function GET(req: NextRequest) {
   const targetPid = req.nextUrl.searchParams.get("project_id");
   const ventureQuery = db
     .from("project_ventures")
-    .select("project_id, display_name, origin_org, origin_pi")
+    .select("project_id, display_name, origin_org, origin_pi, master_md_text")
     .eq("is_public", true);
   if (targetPid) {
     ventureQuery.eq("project_id", targetPid);
@@ -489,6 +494,7 @@ export async function GET(req: NextRequest) {
     display_name: string;
     origin_org: string | null;
     origin_pi: string | null;
+    master_md_text: string | null;
   }[];
 
   if (projectsRaw.length === 0) {
