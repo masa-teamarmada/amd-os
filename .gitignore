@@ -10,4 +10,9 @@ android/build/
 .env
 .env.local
 .claude/
+.jez/
+pwa/.jez/
+_external_gas/
+cockpit.png
+dashboard_hud.png
 .vercel
