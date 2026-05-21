@@ -114,6 +114,7 @@ type BudgetAuditItem = {
   ym: string;
   invoiceYm: string;
   projectName: string;
+  projectStatus: string | null;
   budgetYen: number;
   payoutYen: number;
   paymentConfirmed: boolean;
@@ -124,6 +125,7 @@ type BudgetConfirmGroup = {
   projectId: string;
   invoiceYm: string;
   projectName: string;
+  projectStatus: string | null;
   items: BudgetAuditItem[];
   totalPayoutYen: number;
   currentBudgetYen: number;
@@ -188,6 +190,55 @@ function fmtSignedYen(value: number | string | null | undefined) {
   const rounded = Math.round(n);
   if (rounded < 0) return `-¥${Math.abs(rounded).toLocaleString("ja-JP")}`;
   return `¥${rounded.toLocaleString("ja-JP")}`;
+}
+
+function budgetAuditBadge(item: BudgetAuditItem) {
+  const missingBudget = item.budgetYen <= 0 && item.payoutYen > 0;
+  const deferredBudget = missingBudget && item.invoiceYm !== item.ym;
+  const lostProject = item.projectStatus === "lost";
+  const over = item.budgetYen > 0 && item.payoutYen > item.budgetYen;
+  const unpaid = item.payoutYen > 0 && !item.paymentConfirmed;
+
+  if (lostProject && missingBudget) {
+    return {
+      label: "失注/破談: 予算なし",
+      className: "bg-red-100 text-red-800",
+      note: "契約が取れなかった場合は、支払可否を個別確認する",
+    };
+  }
+  if (deferredBudget) {
+    return {
+      label: "後追い予算未確定",
+      className: "bg-amber-100 text-amber-800",
+      note: "確定委託料が入るまで正式な超過判定は保留",
+    };
+  }
+  if (missingBudget) {
+    return {
+      label: "PJ予算未設定",
+      className: "bg-red-100 text-red-800",
+      note: "予算確定なしに支払保存しない",
+    };
+  }
+  if (over) {
+    return {
+      label: `予算不足 ${fmtYen(item.payoutYen - item.budgetYen)}`,
+      className: "bg-red-100 text-red-800",
+      note: "想定より確定額が低い可能性あり",
+    };
+  }
+  if (unpaid) {
+    return {
+      label: "入金未確認",
+      className: "bg-amber-100 text-amber-800",
+      note: "予算内だが入金確認前",
+    };
+  }
+  return {
+    label: `OK ${fmtYen(item.budgetYen - item.payoutYen)}`,
+    className: "bg-emerald-100 text-emerald-800",
+    note: "予算内",
+  };
 }
 
 function fmtPt(value: number | string | null | undefined) {
@@ -419,6 +470,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         ym: cycle.ym,
         invoiceYm: cycle.invoice_ym || cycle.ym,
         projectName: project?.project_name ?? cycle.project_id,
+        projectStatus: project?.status ?? null,
         budgetYen: Math.round(numberValue(cycle.budget_yen)),
         payoutYen: Math.round(stats?.totalPay ?? 0),
         paymentConfirmed: Boolean(cycle.payment_confirmed_at),
@@ -451,6 +503,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           projectId: item.projectId,
           invoiceYm: item.invoiceYm,
           projectName: item.projectName,
+          projectStatus: item.projectStatus,
           items: [],
           totalPayoutYen: 0,
           currentBudgetYen: 0,
@@ -928,6 +981,7 @@ function BudgetAuditPanel({
           <h2 className="text-[13px] font-semibold">PJ予算チェック</h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             今月の報酬支払が、クライアント入金のうち報酬として支払っていい額を超えてないかを見る。
+            後追い予算は、確定委託料が入るまで正式判定を保留する。
           </p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2 text-[11px]">
@@ -944,7 +998,7 @@ function BudgetAuditPanel({
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-semibold text-amber-800">確定待ちのPJ予算</span>
             <span className="text-[11px] text-muted-foreground">
-              後から確定した業務委託料を入れると、稼働月ごとのPJ予算に配分する。
+              契約未確定中は予算超過を断定しない。確定委託料を入れると、稼働月ごとの支払予定比率でPJ予算を配分する。
             </span>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -994,18 +1048,7 @@ function BudgetAuditPanel({
                 const missingBudget = item.budgetYen <= 0 && item.payoutYen > 0;
                 const over = item.budgetYen > 0 && item.payoutYen > item.budgetYen;
                 const unpaid = item.payoutYen > 0 && !item.paymentConfirmed;
-                const badge = missingBudget
-                  ? "PJ予算未設定"
-                  : over
-                    ? `超過 ${fmtYen(item.payoutYen - item.budgetYen)}`
-                    : unpaid
-                      ? "入金未確認"
-                      : `OK ${fmtYen(item.budgetYen - item.payoutYen)}`;
-                const badgeClass = missingBudget || over
-                  ? "bg-red-100 text-red-800"
-                  : unpaid
-                    ? "bg-amber-100 text-amber-800"
-                    : "bg-emerald-100 text-emerald-800";
+                const badge = budgetAuditBadge(item);
 
                 return (
                   <tr
@@ -1019,7 +1062,12 @@ function BudgetAuditPanel({
                     <td className="px-3 py-2 text-right">{fmtYen(item.budgetYen)}</td>
                     <td className="px-3 py-2 text-right font-semibold">{fmtYen(item.payoutYen)}</td>
                     <td className="px-3 py-2">
-                      <span className={`rounded px-1.5 py-0.5 text-[10px] ${badgeClass}`}>{badge}</span>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] ${badge.className}`}>{badge.label}</span>
+                        {missingBudget || over || unpaid ? (
+                          <span className="text-[10px] text-muted-foreground">{badge.note}</span>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -1071,6 +1119,16 @@ function BudgetConfirmModal({
   const firstYm = group.items[0]?.ym ?? "";
   const lastYm = group.items[group.items.length - 1]?.ym ?? firstYm;
   const rangeLabel = firstYm === lastYm ? fmtYm(firstYm) : `${fmtYm(firstYm)}-${fmtYm(lastYm)}`;
+  const riskMessage = !hasClientAmount
+    ? "契約未確定の間は正式な予算超過判定を保留する。想定額ではなく、確定した税抜委託料だけを入れる。"
+    : remainingAfterPayout != null && remainingAfterPayout < 0
+      ? "この確定額だとPJ予算が支払予定を下回る。支払可否、減額、バッファ、追加請求の合意を先に確認する。"
+      : "この確定額なら支払予定はPJ予算内。保存すると稼働月ごとの予算として固定される。";
+  const riskTone = !hasClientAmount
+    ? "border-amber-200 bg-amber-50 text-amber-900"
+    : remainingAfterPayout != null && remainingAfterPayout < 0
+      ? "border-red-200 bg-red-50 text-red-900"
+      : "border-emerald-200 bg-emerald-50 text-emerald-900";
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
@@ -1134,6 +1192,11 @@ function BudgetConfirmModal({
               value={remainingAfterPayout == null ? "—" : fmtSignedYen(remainingAfterPayout)}
               sub={remainingAfterPayout == null ? "入力後に計算" : remainingAfterPayout < 0 ? "支払予定が超過" : "支払後の余力"}
             />
+          </div>
+
+          <div className={`rounded-md border px-3 py-2 text-[11px] ${riskTone}`}>
+            {group.projectStatus === "lost" ? "このPJは失注ステータス。契約が取れなかった場合の支払は個別合意が必要。 " : ""}
+            {riskMessage}
           </div>
 
           <div className="overflow-hidden rounded-md border border-border">

@@ -129,7 +129,7 @@ pwa/
 | `/scholar` | 学術トレンド (μ_A 観測量 N) — lane × quarter の論文数 line chart + 前年同期比。OpenAlex 由来。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
 | `/reimburse` | 立替精算。PWAから申請/編集/削除、領収書添付、PM承認、admin承認まで実行。申請/編集は `/api/reimbursements` 経由で server-side 保存。status flow: `submitted` → `pmApproved` → `approved` |
 | `/admin/billing` | admin 立替/請求マトリクス (チップ操作で billing_cycles 直更新) |
-| `/admin/payouts` | 報酬支払。支払月を選び、`billing_cycles.invoice_ym` に紐づく報酬確定済みcycleを集約して `monthly_reward_payout` / `payout_notices` を保存。後から確定した委託料を入力し、`65% - buffer` を対象稼働月のPJ予算へ配分する。PJ予算超過チェックと、明細クリックから該当PJ/月の月次モーダルを開く導線を持つ |
+| `/admin/payouts` | 報酬支払。支払月を選び、`billing_cycles.invoice_ym` に紐づく報酬確定済みcycleを集約して `monthly_reward_payout` / `payout_notices` を保存。後から確定した委託料を入力し、`65% - buffer` を対象稼働月のPJ予算へ配分する。PJ予算超過チェック、後追い予算未確定 / 予算不足 / 失注ステータスの警告、明細クリックから該当PJ/月の月次モーダルを開く導線を持つ |
 | `/admin/finance` | 経理オペ台帳。サブスク / 固定継続費 / 自動振替 / 引落口座 / budget forward-fill / Gmail領収書イベント |
 | `/admin/projects` `/members` `/contexts` `/protocols` `/tsukuyomi` `/settings` | 各 admin。`/admin/members` はGoogle Calendar共有状態 (`members.google_calendar_status`) とOS最終ログイン (`members.last_login_at`) を表示し、最終ログインが新しい順に並べる |
 | `/admin/prompts` | LLM プロンプト管理 (= AGENTS ルール「プロンプトをコードに書かない」執行 UI)。`llm_prompts` 3 件 (tsukuyomi.system / protocol.extract / monthly_report.r313_extract) + スプシ由来 `tsukuyomi_context` 20+ 件を併記。body 全文閲覧 + 編集 + is_active トグル可能。詳細は [`amd_protocol.md`](amd_protocol.md) と [`L2_DATA.md`](L2_DATA.md) |

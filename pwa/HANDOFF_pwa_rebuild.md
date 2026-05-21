@@ -23,6 +23,7 @@
 ## Latest Summary
 
 - `/admin/payouts` を、支払月単位でPJ予算チェック・後追い委託料確定・支払通知額保存まで扱える画面/APIへ整理。
+- `/admin/payouts` の後追い予算に、契約未確定中の保留表示・予算不足・失注/破談リスクを明示。
 - 月次モーダルはMS別Gantt表示、MS期間2行表示、進捗イベント編集、PJ予算/残額、報酬cap/stock表示を復活・追加。
 - SX MS#1を「事業計画」「資本政策」「知財戦略」に分割し、SX `202601` 報告書FIX判定を `monthly_reports` からも同期。
 - ZMP固定月額300,000円の報酬previewを復活し、過去月 `member_activities` backfillで `202601-202603` の進捗イベントを表示可能にした。

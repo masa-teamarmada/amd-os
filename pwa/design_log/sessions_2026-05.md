@@ -5415,3 +5415,16 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - 設計md (`pwa/design/xrl_evidence.md` / `cockpit.md` / `L2_DATA.md`) の HRL 根拠定義を SU+AMD 限定に書き換え。
 - DB cleanup 後 JOYCLE p09 active: `まさ (amd)` + `Bat-Erdene / 上原 / 小屋 / 小林 / 斎藤 / 本橋 / 赤土 / 赤津 (startup, JC)` の 9 名。
 - 次セッション課題: production deploy 後に `cron/founding-members-extract?project_id=p09` を再走して LLM v3 prompt の品質を確認。他 active SU (CTB/SE/ZMP/CX/SX) も再走対象。
+
+#### Admin Payouts後追い予算リスク表示
+
+- まさ指摘: SXのように稼働後に委託料が確定するケースでは、事前ルールが曖昧だと「想定ほど予算が出なかった」「途中で破談になった」時に揉める。
+- 方針:
+  - `invoice_ym !== ym` かつ `budget_yen` 未設定の対象は `後追い予算未確定` と表示し、正式な予算超過判定は保留する。
+  - 確定税抜委託料を入力した時点で `税抜委託料 × 65% - バッファ` をPJ予算総額にし、対象稼働月の報酬支払予定額比率で配分する。
+  - 確定PJ予算が報酬支払予定を下回る場合は `予算不足` として赤表示し、支払可否 / 減額 / 追加請求 / バッファを人間合意してから保存する。
+  - PJが `projects.status='lost'` の場合は `失注/破談: 予算なし` と表示し、支払原資なしの個別確認対象にする。
+- 実装:
+  - `/admin/payouts` のPJ予算チェックに `後追い予算未確定` / `予算不足` / `失注/破談: 予算なし` の状態表示と補足文を追加。
+  - PJ予算確定モーダルに、未入力時・予算不足時・予算内時の合意メッセージを追加。
+  - 正本md (`design/routine.md`, `design/SPEC_pwa.md`) に後追い予算未確定の運用ルールを追記。
