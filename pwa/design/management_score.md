@@ -221,7 +221,7 @@ finance_score =
 
 2026-05-21 追加:
 
-- PJ売上は発生月と入金月を分けられるようにする。例: `SX_FY26` は `202606-202703` に `2,570,000円/月` を売上計上し、cash inflow は2か月遅れで `202608` から始める。
+- PJ売上は発生月と入金月を分けられるようにする。例: `SX_FY25_11-03` はFY25 11-3月分 `2,570,000円` を `202606` スポットとして扱い、`SX_FY26` は見積書Q-0000000065の税抜小計 `10,480,000円` を10か月で割って `202606-202703` に `1,048,000円/月` を売上計上する。FY26 cash inflow は2か月遅れで `202608` から始める。
 - サブスク / 自動振替 / 引落口座は月次試算表の行に直接混ぜず、`/admin/finance` と `company_finance_recurring_items` で管理する。
 - Gmail等で届く領収書は `company_finance_receipt_events` に保存し、confirm後に `company_actual_monthly` の実績へ同期する。毎月発生する支払いは `budget_forward_fill=true` のものだけ `company_budget_monthly` に forward-fill する。
 
