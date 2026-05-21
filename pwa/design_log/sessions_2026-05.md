@@ -5048,9 +5048,13 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 - `/Users/masa/projects/AMD/SX/仕様書_FY2026_draft.md`:
   - 対象期間は `2026-06-01` から `2027-03-31`。
   - 月額金額は明示なし。
-- AMD OS既存月次PL input:
-  - `pj13` に `SX_FY25`, `2,570,000円`, `startYm=202605`, `type=spot` が存在。
-  - この金額をFY2026 SXの月額として使い、6月開始・2か月入金遅れに更新。
+- Drive見積書 `Q-0000000065`:
+  - 税抜小計 `10,480,000円`、消費税 `1,048,000円`、税込合計 `11,528,000円`。
+  - 業務期間は `2026-06-01` から `2027-03-31`。
+  - 請求方法は月次請求。
+- まさ訂正:
+  - 既存 `2,570,000円` はFY25の `11-3月分` で、FY26月額ではない。
+  - FY26は見積書の税抜小計 `10,480,000円` を10か月で割って、PL売上 `1,048,000円/月` とする。
 
 #### 実装
 
@@ -5059,12 +5063,27 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - 売上発生月の `revenue` と、資金繰り上の `cashInflow` を分離。
   - `pjDetails.payload.cashRevenue` を保存し、project行でも当月cash入金額を追えるようにした。
 - `pwa/scripts/import_monthly_pl_budget.cjs`
-  - `pj13` を `SX_FY26` に変更。
-  - `startYm=202606`, `endYm=202703`, `type=fixed`, `monthlyRevenue=2570000`, `internalMemberCost=900000`, `cashDelayMonths=2`, `cashStartYm=202608`。
+  - `pj13` を `SX_FY25_11-03` に変更。
+  - `startYm=202606`, `type=spot`, `monthlyRevenue=2570000`。FY25 11-3月分を6月スポット売上/入金として扱う。
+  - `pj14` を `SX_FY26` として追加。
+  - `startYm=202606`, `endYm=202703`, `type=fixed`, `monthlyRevenue=1048000`, `internalMemberCost=367000`, `cashDelayMonths=2`, `cashStartYm=202608`。
 - DB:
   - `npm run import:monthly-pl-budget` 実行済み。
-  - `202606` SX_FY26 project_revenue = `2,570,000`, cashRevenue = `0`。
-  - `202608` SX_FY26 project_revenue = `2,570,000`, cashRevenue = `2,570,000`。
+  - `202606` SX_FY25_11-03 project_revenue = `2,570,000`。
+  - `202606` SX_FY26 project_revenue = `1,048,000`, cashRevenue = `0`。
+  - `202608` SX_FY26 project_revenue = `1,048,000`, cashRevenue = `1,048,000`。
+
+#### Slack / OS取り込み確認
+
+- Slack現物:
+  - `#p21_sx` 2026-05-08: 入札書類受領、愛媛大学から人件費積算のための追加情報依頼。
+  - `#p21_sx` 2026-05-15: つくよみ週次レポートで「愛媛大学との入札案件では、人件費積算に関する情報提供を完了」と記載。
+- OS側:
+  - `project_meeting_summaries`: 2026-04-16社内MTGに「愛大入札説明書受領、参考見積書提出、5/7締切」あり。
+  - `project_knowledge`: 2026-05-21時点で「愛媛大学 入札が2026-05-25 14:00開札予定」等が存在。
+  - `member_activities`: 202604に「愛大入札説明書受領・参考見積書提出（締切5/7）」あり。
+  - `source_cache`: Gmail/Driveの入札関連は多数あるが、Slack元メッセージ自体は未保存。
+- 結論: OSは入札トピックを拾えている。ただしSlack一次証跡がL2 source refsへ十分に残っていないため、Slack→L2/source_cacheの回収導線が次課題。
 
 #### Admin Finance Ops
 
