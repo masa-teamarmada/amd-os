@@ -56,9 +56,11 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 
 ### Management Score / Finance Ops
 
-- SX FY2026 の月次PL baselineを更新。`pj13` を `SX_FY26` とし、`202606-202703` に `2,570,000円/月` を売上計上、入金は2か月遅れ (`202608` 初回cash inflow) とした。
+- SX FY2026 の月次PL baselineを修正。まさ確認により `2,570,000円` はFY25 `11-3月分` なので、`pj13=SX_FY25_11-03` として `202606` のスポット売上/入金へ戻した。
+- FY26 はDrive見積書 `Q-0000000065` 正本。税抜小計 `10,480,000円` / 税込合計 `11,528,000円`、業務期間 `202606-202703`、月次請求。PLは税抜売上なので `pj14=SX_FY26` を `1,048,000円/月` とした。cashは税込 `1,152,800円/月` 相当で、2か月遅れ (`202608` 初回cash inflow)。
 - `MonthlyPlProject` に `cashDelayMonths` / `cashStartYm` を追加し、売上発生月とcash inflow月を分離。
-- `npm run import:monthly-pl-budget` を実行し、`company_budget_monthly` / `company_budget_inputs` / `company_budget_simulation_runs` を再import。`202606` SX_FY26 project_revenue = `2,570,000`, cashRevenue = `0`; `202608` cashRevenue = `2,570,000` をDB確認済み。
+- `npm run import:monthly-pl-budget` を実行し、`company_budget_monthly` / `company_budget_inputs` / `company_budget_simulation_runs` を再import。`202606` SX_FY25_11-03 = `2,570,000`; SX_FY26 = `1,048,000`, cashRevenue = `0`; `202608` SX_FY26 cashRevenue = `1,048,000` をDB確認済み。
+- Slack確認: #p21_sx に愛媛大学入札関連の一次メッセージあり。OS側はGmail/Drive/meeting/project_knowledge/monthly_reportsには入札情報が入っているが、Slack元メッセージそのものは `source_cache` には入っていない。Slack一次証跡をL2 source refsへ入れる導線が次課題。
 - admin経理台帳 `/admin/finance` を追加。`company_finance_recurring_items` でサブスク/固定継続費/自動振替/引落口座/budget forward-fillを管理し、`company_finance_receipt_events` でGmail/freee/manual領収書イベントを受ける。
 - migration `068_finance_operations.sql` を適用済み。既存GAS baselineの固定費16件を `company_finance_recurring_items` にseed。二重計上防止のため `budget_forward_fill=false` で開始。
 - 領収書イベントを `company_actual_monthly` に同期する `/api/admin/finance/receipts` と、継続費を `company_budget_monthly` にforward-fillする `/api/admin/finance/recurring` を追加。
