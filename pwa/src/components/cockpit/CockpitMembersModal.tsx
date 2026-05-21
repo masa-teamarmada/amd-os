@@ -33,12 +33,14 @@ import {
 
 const FOUNDING_CATEGORY_ORDER: FoundingMemberCategory[] = [
   "amd",
+  "startup",
+  "unknown",
+  // 以下は active 状態に来ない想定 (HRL 根拠外、migration 075 で invalid 化済み)。
   "university",
   "partner_company",
   "vc",
   "government",
   "individual",
-  "unknown",
 ];
 
 const KIND_OPTIONS: { value: MemberKind; label: string }[] = [
@@ -438,14 +440,14 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
             </button>
           )}
 
-          {/* 2026-05-11 まさ指摘 1 番: 旧「🧑‍🤝‍🧑 創業」モーダルの中身を本モーダルに統合。
-              LLM が monthly_reports + meeting_summaries から抽出した創業コア候補を表示する。
-              VC/協業先/顧客/行政/AMDサポートのみの人物は創業メンバーに含めない。 */}
+          {/* 2026-05-22 まさ指摘: 旧「🧑‍🤝‍🧑 創業コア候補」セクションを「関連メンバー候補」に再定義。
+              HRL根拠は「該当SU社員 + AMD伴走メンバー」だけ。大学・研究機関 / VC / 顧客 / 行政 /
+              partner_company は HRL根拠外として除外。AMDメンバーは code_name で記録。 */}
           {!loading && (
             <div className="mt-5 border-t border-[#e5e5e7] pt-4">
               <div className="flex items-baseline justify-between mb-2">
                 <h4 className="text-[12px] font-semibold text-slate-700">
-                  🧑‍🤝‍🧑 LLM 抽出 創業コア候補 ({foundingTotal} 名)
+                  🧑‍🤝‍🧑 LLM 抽出 関連メンバー候補 ({foundingTotal} 名)
                 </h4>
                 <span className="text-[9px] italic text-slate-500">monthly_reports + meeting_summaries から抽出 / 毎週月曜 03:30 更新</span>
               </div>
@@ -453,8 +455,8 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
               <div className="rounded-md border border-indigo-200 bg-indigo-50/40 px-3 py-2 mb-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <div className="text-[10px] font-semibold text-indigo-800">つくよみに創業メンバー修正依頼</div>
-                    <div className="text-[9px] text-indigo-700/75">例: VCと協業先は除外して、杉浦先生をCEO候補、神谷さんを技術創業者として残す</div>
+                    <div className="text-[10px] font-semibold text-indigo-800">つくよみに関連メンバー修正依頼</div>
+                    <div className="text-[9px] text-indigo-700/75">例: 大学・研究機関は除外して、まさをCEO候補、Bat-ErdeneをCTO候補として残す</div>
                   </div>
                   <button
                     type="button"
@@ -470,7 +472,7 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
                   onChange={(e) => setFoundingInstruction(e.target.value)}
                   rows={2}
                   className="w-full rounded-md border border-indigo-100 bg-white px-2 py-1 text-[11px] leading-snug outline-none focus:border-indigo-300"
-                  placeholder="創業メンバーの追加・除外・役割修正をそのまま書く"
+                  placeholder="関連メンバーの追加・除外・役割修正をそのまま書く (AMD は code_name で)"
                 />
                 {foundingProposal && (
                   <div className="rounded-md border border-indigo-100 bg-white px-2 py-2 text-[11px] text-slate-700">
@@ -515,7 +517,7 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
 
               {foundingTotal === 0 ? (
                 <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-center text-[11px] text-slate-500">
-                  創業コア候補はまだ登録されてない。上の修正依頼から追加できる。
+                  関連メンバー候補はまだ登録されてない。上の修正依頼から追加できる。
                 </div>
               ) : (
                 <div className="rounded-md border border-amber-300 bg-amber-50/40 px-3 py-2 mb-3">

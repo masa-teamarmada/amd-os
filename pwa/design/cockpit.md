@@ -103,7 +103,7 @@ MSは報酬配分の最小単位でもある。`milestone_responsibility.share` 
 | CockpitVentureMetaEditModal      | Header 各要素タップ                      | display_name / lane / founded_at / outcome / AMD 支援期間 / origin / 概要 |
 | CockpitVentureStatusEditModal    | AMD スコアチャート空白 / ドットタップ    | イベント追加・編集 (自由文 + Gemini 構造化)                          |
 | CockpitMembersModal              | 👥 メンバー                              | project_venture_members 編集 (member_kind: amd_internal / su_internal / support_org) |
-| CockpitFoundingMembersModal      | 🧑‍🤝‍🧑 創業                                | project_founding_members 表示。対象は創業者 / CEO候補 / 技術創業者 / PI など **創業コア** のみ。VC / 協業先 / 顧客 / 行政 / advisor-only / AMDサポートだけの人物は入れない。つくよみ修正依頼UIから追加・修正・invalid化を依頼できる。HRL 簡易推定 (ルールベース 0-9) を末尾表示。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
+| CockpitFoundingMembersModal      | 🧑‍🤝‍🧑 創業                                | project_founding_members 表示。**関連メンバー (HRL評価のベース)** として運用。対象は `category='amd'` (= AMD code_name 一致) と `category='startup'` (= 該当SU 社員 / 創業候補) だけ。大学・研究機関 / VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として `status='invalid'` 化する。AMDメンバーは `members.code_name` で記録 (フルネーム / 姓のみ表記は重複として invalid)。つくよみ修正依頼UIから追加・修正・invalid化を依頼できる。HRL 簡易推定 (ルールベース 0-9、`amd`+`startup` のみで算出) を末尾表示。詳細は [`xrl_evidence.md`](xrl_evidence.md) |
 | CockpitPartnersModal             | 🤝 事業会社                              | project_partners (collab / customer)                                 |
 | CockpitPlMonthlyModal            | 📊 試算表                                | project_pl_monthly 縦横ピボット表示 + 直接入力                       |
 | CockpitPlHearingModal            | 試算表内「✨ つくよみとヒアリング」      | Sonnet が質問→回答→月次 PL 36ヶ月生成 → upsert                       |
@@ -245,14 +245,38 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → cron `/ven
 - cockpit header と `/admin/projects` に分類を表示する。
 - `amd-score-l2-refresh` は `ecosystem` をskipする。
 
-## Founding Members
+## 関連メンバー (旧 Founding Members)
 
-`project_founding_members` はL2 ⑧ XRL根拠のうち、HRL推定に使う創業コア情報。
+`project_founding_members` はL2 ⑧ XRL根拠のうち、HRL評価のベースとなる **関連メンバー** 台帳。
 
-- 表示対象: 創業者、共同創業者、CEO候補、技術創業者、PI/研究代表者、事業責任者候補など、実際にSUの立ち上げを担う人物。
-- 除外対象: VC、協業先、顧客、行政、単なる紹介者、advisor-only、AMDの伴走メンバーだけの人物。
-- LLM抽出はまず `status='tentative'` で保存し、通知で「はい」が押されたものだけ `active` にする。「いいえ」は `invalid`。
-- コックピットの創業モーダルでは、直接セル編集ではなく、つくよみに修正指示を出し、提案をプレビューしてからOK確定する。
+### 表示対象 (まさ判断 2026-05-22)
+
+- `category='amd'`: AMD の伴走メンバー (`members.code_name` に一致した人物)
+- `category='startup'`: 該当SU の社員 / 社員候補 / 創業候補
+
+### 除外対象 (HRL根拠から外す = status='invalid')
+
+- `university`: 大学・研究機関のPI / 共同研究者 / 特許保有者
+- `vc`: VC / ファンド / 投資家
+- `partner_company`: 産業パートナー / 顧客 / サプライヤー / 委託先
+- `government`: 補助金 / 行政 / 支援機関
+- `individual`: 個人 (フリーランス等で SU+AMD 外)
+
+「協業」「窓口」「相談」「アドバイザのみ」は曖昧関与として除外。
+
+### 表記ルール
+
+- AMDメンバーは必ず `members.code_name` で記録 (`まさ` / `きよ` 等)。本名 / 姓のみ表記は重複扱いで invalid。
+- SU社員は `affiliation=<SU名>` + `category='startup'`。AMD と SU の二重表記 (`JOYCLE / AMD`) は使わない。
+- 同一人物の別表記は LLM 抽出時に集約。
+
+### ステータス遷移
+
+- LLM抽出は `status='tentative'` で保存。
+- 通知で「はい」→ `active`、「いいえ」→ `invalid`。
+- コックピットの関連メンバーモーダルでは、直接セル編集ではなく、つくよみに修正指示を出し提案プレビュー → OK確定で upsert/invalid。
+
+詳細は [`xrl_evidence.md`](xrl_evidence.md) の「関連メンバーの扱い」セクション参照。
 
 ## Annual MS Gantt
 

@@ -3,12 +3,36 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 
-const ALLOWED_ROLES = new Set(["ceo_candidate", "co_founder", "tech_lead", "researcher"]);
-const ALLOWED_CATEGORIES = new Set(["amd", "university", "individual", "unknown"]);
-const EXCLUDED_ROLES = new Set(["investor", "partner", "business_advisor", "amd_support", "unknown"]);
-const EXCLUDED_CATEGORIES = new Set(["vc", "partner_company", "government"]);
-const CORE_ROLE_VALUES = ["ceo_candidate", "co_founder", "tech_lead", "researcher"] as const;
-const CORE_CATEGORY_VALUES = ["amd", "university", "individual", "unknown"] as const;
+// まさ判断 (2026-05-22): 関連メンバー (HRL 評価のベース) は「該当SU社員 + AMD伴走メンバー」だけ。
+// 大学・研究機関 / VC / 顧客 / 行政 / partner_company は HRL 根拠から除外する。
+const ALLOWED_ROLES = new Set([
+  "ceo_candidate",
+  "co_founder",
+  "tech_lead",
+  "business_advisor",
+  "amd_support",
+  "researcher",
+  "unknown",
+]);
+const ALLOWED_CATEGORIES = new Set(["amd", "startup", "unknown"]);
+const EXCLUDED_ROLES = new Set(["investor", "partner"]);
+const EXCLUDED_CATEGORIES = new Set([
+  "university",
+  "vc",
+  "partner_company",
+  "government",
+  "individual",
+]);
+const ROLE_VALUES = [
+  "ceo_candidate",
+  "co_founder",
+  "tech_lead",
+  "business_advisor",
+  "amd_support",
+  "researcher",
+  "unknown",
+] as const;
+const CATEGORY_VALUES = ["amd", "startup", "unknown"] as const;
 
 interface FoundingMemberSnapshot {
   id: string;
@@ -47,39 +71,58 @@ interface FoundingProposal {
   skipped?: Array<{ personName?: string | null; reason: string }>;
 }
 
+interface AmdMemberRow {
+  code_name: string;
+  member_name: string | null;
+}
+
 function normalizeRole(value: unknown) {
   const role = String(value || "").trim();
-  return ALLOWED_ROLES.has(role) ? role : "researcher";
+  return ALLOWED_ROLES.has(role) ? role : "unknown";
 }
 
 function normalizeCategory(value: unknown) {
   const category = String(value || "").trim();
-  return ALLOWED_CATEGORIES.has(category) ? category : "unknown";
+  return ALLOWED_CATEGORIES.has(category) ? category : "startup";
 }
 
 function normalizeName(value: unknown) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function isFounderCore(upsert: FoundingUpsert) {
-  if (!upsert.personName.trim()) return false;
-  if (EXCLUDED_ROLES.has(upsert.role) || EXCLUDED_CATEGORIES.has(upsert.category)) return false;
-  if (["ceo_candidate", "co_founder", "tech_lead"].includes(upsert.role)) return true;
-  const blob = [
-    upsert.personName,
-    upsert.affiliation,
-    upsert.roleLabelJp,
-    upsert.responsibility,
-    upsert.contribution,
-    upsert.reason,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return /pi|principal investigator|研究代表|代表研究者|発明者|技術シーズ|シーズ保有|創業|共同創業|特許|知財|cto|技術責任者/.test(blob);
+function buildAmdNameAliasMap(rows: AmdMemberRow[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const m of rows) {
+    if (!m.code_name) continue;
+    map.set(m.code_name, m.code_name);
+    if (m.member_name) {
+      const full = m.member_name.trim();
+      if (full) {
+        map.set(full, m.code_name);
+        map.set(full.replace(/\s+/g, ""), m.code_name);
+        const surname = full.split(/\s+/)[0];
+        if (surname && surname !== m.code_name) {
+          map.set(surname, m.code_name);
+        }
+      }
+    }
+  }
+  return map;
 }
 
-function proposalFromUnknown(value: unknown): FoundingProposal {
+function applyAlias(name: string, aliasMap: Map<string, string>): string {
+  const trimmed = name.trim();
+  return aliasMap.get(trimmed) ?? aliasMap.get(trimmed.replace(/\s+/g, "")) ?? trimmed;
+}
+
+function isRelatedMember(upsert: FoundingUpsert) {
+  if (!upsert.personName.trim()) return false;
+  if (EXCLUDED_ROLES.has(upsert.role)) return false;
+  if (EXCLUDED_CATEGORIES.has(upsert.category)) return false;
+  return true;
+}
+
+function proposalFromUnknown(value: unknown, aliasMap: Map<string, string>): FoundingProposal {
   const obj = value && typeof value === "object" ? value as Record<string, unknown> : {};
   const rawUpserts = Array.isArray(obj.upserts) ? obj.upserts : [];
   const rawInvalidates = Array.isArray(obj.invalidates) ? obj.invalidates : [];
@@ -87,19 +130,24 @@ function proposalFromUnknown(value: unknown): FoundingProposal {
 
   const upserts = rawUpserts.map((item) => {
     const row = item && typeof item === "object" ? item as Record<string, unknown> : {};
+    const personName = applyAlias(normalizeName(row.personName ?? row.person_name), aliasMap);
+    const isAmd = aliasMap.has(normalizeName(row.personName ?? row.person_name)) ||
+      aliasMap.has(normalizeName(row.personName ?? row.person_name).replace(/\s+/g, ""));
+    const rawCategory = normalizeCategory(row.category);
+    const category = isAmd ? "amd" : rawCategory === "amd" ? "startup" : rawCategory;
     const candidate: FoundingUpsert = {
-      personName: normalizeName(row.personName ?? row.person_name),
+      personName,
       affiliation: row.affiliation == null ? null : String(row.affiliation),
       role: normalizeRole(row.role),
       roleLabelJp: row.roleLabelJp == null && row.role_label_jp == null ? null : String(row.roleLabelJp ?? row.role_label_jp),
-      category: normalizeCategory(row.category),
+      category,
       responsibility: row.responsibility == null ? null : String(row.responsibility),
       contribution: row.contribution == null ? null : String(row.contribution),
       status: row.status === "left" || row.status === "tentative" ? row.status : "active",
       reason: row.reason == null ? null : String(row.reason),
     };
-    if (!isFounderCore(candidate)) {
-      skipped.push({ personName: candidate.personName || null, reason: "創業コアではないため除外" });
+    if (!isRelatedMember(candidate)) {
+      skipped.push({ personName: candidate.personName || null, reason: "HRL根拠外 (該当SU+AMD以外) のため除外" });
       return null;
     }
     return candidate;
@@ -108,13 +156,13 @@ function proposalFromUnknown(value: unknown): FoundingProposal {
   const invalidates = rawInvalidates.map((item) => {
     const row = item && typeof item === "object" ? item as Record<string, unknown> : {};
     return {
-      personName: normalizeName(row.personName ?? row.person_name),
+      personName: applyAlias(normalizeName(row.personName ?? row.person_name), aliasMap),
       reason: row.reason == null ? null : String(row.reason),
     };
   }).filter((row) => row.personName);
 
   return {
-    summary: String(obj.summary || "創業メンバー修正案"),
+    summary: String(obj.summary || "関連メンバー修正案"),
     upserts,
     invalidates,
     skipped: [...(Array.isArray(obj.skipped) ? obj.skipped.map((s) => ({ reason: String((s as Record<string, unknown>)?.reason || s) })) : []), ...skipped],
@@ -132,6 +180,7 @@ async function buildProposal(input: {
   projectName: string;
   instruction: string;
   currentRows: FoundingMemberSnapshot[];
+  amdMembers: AmdMemberRow[];
 }) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return {
@@ -152,15 +201,21 @@ async function buildProposal(input: {
     contribution: r.contribution,
     status: r.status,
   })), null, 2);
+  const amdCodeNames = input.amdMembers.map((m) => m.code_name).filter(Boolean).join(" / ");
+  const amdAliasLines = input.amdMembers
+    .map((m) => `  - ${m.code_name}${m.member_name ? ` (本名: ${m.member_name})` : ""}`)
+    .join("\n");
 
   const msg = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 1800,
     temperature: 0.1,
     system: [
-      "あなたはAMD OSのアシスタントAI「つくよみ」。PJの創業メンバー台帳を、PMの指示に従って安全に修正する。",
-      "創業メンバーは創業者 / CEO候補 / 共同創業者 / CTO候補 / 技術創業者 / PI / 研究代表 / 発明者 / 技術シーズ保有者だけ。",
-      "VC、投資家、協業先、顧客候補、行政、補助金担当、単なるadvisor、紹介者、同席者、AMDサポートだけの人物は創業メンバーに入れない。",
+      "あなたはAMD OSのアシスタントAI「つくよみ」。PJの関連メンバー台帳を、PMの指示に従って安全に修正する。",
+      "このリストはHRL評価のベース。「該当SU社員 + AMD伴走メンバー」だけが対象。",
+      "大学・研究機関のPI / 共同研究者 / 特許保有者、VC、顧客、行政、産業パートナーは除外する (= category=university/vc/partner_company/government/individual)。",
+      "AMDメンバーは必ず code_name (まさ / きよ / かる 等) で記録。フルネーム表記や姓のみ表記は code_name に集約する。",
+      "AMD code_name に一致する人物は category='amd'、それ以外で該当SU側は category='startup'、判断保留は 'unknown'。",
       "迷う人物は invalidates ではなく skipped に理由を書き、upserts には入れない。",
       "返答はJSONだけ。",
     ].join("\n"),
@@ -169,7 +224,11 @@ async function buildProposal(input: {
       content: [
         `PJ: ${input.projectName} (${input.projectId})`,
         "",
-        "現在の創業メンバー:",
+        "AMD code_name alias (= 必ずこの code_name で出力):",
+        amdAliasLines,
+        `AMD code_name 一覧: ${amdCodeNames}`,
+        "",
+        "現在の関連メンバー:",
         currentJson,
         "",
         "PMからの修正指示:",
@@ -179,15 +238,15 @@ async function buildProposal(input: {
         JSON.stringify({
           summary: "何を直す案か1文",
           upserts: [{
-            personName: "氏名",
-            affiliation: "所属 or null",
-            role: CORE_ROLE_VALUES.join("|"),
+            personName: "氏名 (AMDはcode_name必須)",
+            affiliation: "所属 (SU名 or 'AMD' or null)",
+            role: ROLE_VALUES.join("|"),
             roleLabelJp: "日本語役割",
-            category: CORE_CATEGORY_VALUES.join("|"),
+            category: CATEGORY_VALUES.join("|"),
             responsibility: "担当",
             contribution: "根拠",
             status: "active|left|tentative",
-            reason: "なぜ創業コアか",
+            reason: "なぜ関連メンバーに含めるか",
           }],
           invalidates: [{ personName: "除外する既存氏名", reason: "除外理由" }],
           skipped: [{ personName: "判断対象氏名", reason: "反映しない理由" }],
@@ -197,7 +256,7 @@ async function buildProposal(input: {
   });
 
   const text = msg.content.map((part) => part.type === "text" ? part.text : "").join("").trim();
-  return proposalFromUnknown(parseJsonObject(text));
+  return proposalFromUnknown(parseJsonObject(text), buildAmdNameAliasMap(input.amdMembers));
 }
 
 export async function POST(req: NextRequest) {
@@ -218,7 +277,7 @@ export async function POST(req: NextRequest) {
   if (!instruction && mode === "preview") return NextResponse.json({ ok: false, message: "instruction required" }, { status: 400 });
 
   const db = createAdminClient();
-  const [{ data: project }, { data: currentRows, error: currentError }] = await Promise.all([
+  const [{ data: project }, { data: currentRows, error: currentError }, { data: amdRows }] = await Promise.all([
     db.from("projects").select("project_id, project_name").eq("project_id", projectId).maybeSingle(),
     db
       .from("project_founding_members")
@@ -226,8 +285,12 @@ export async function POST(req: NextRequest) {
       .eq("project_id", projectId)
       .neq("status", "invalid")
       .order("updated_at", { ascending: false }),
+    db.from("members").select("code_name, member_name").eq("status", "active"),
   ]);
   if (currentError) return NextResponse.json({ ok: false, message: currentError.message }, { status: 500 });
+
+  const amdMembers = ((amdRows ?? []) as AmdMemberRow[]).filter((m) => m.code_name);
+  const aliasMap = buildAmdNameAliasMap(amdMembers);
 
   if (mode === "preview") {
     const proposal = await buildProposal({
@@ -235,11 +298,12 @@ export async function POST(req: NextRequest) {
       projectName: project?.project_name || projectId,
       instruction,
       currentRows: (currentRows || []) as FoundingMemberSnapshot[],
+      amdMembers,
     });
     return NextResponse.json({ ok: true, proposal });
   }
 
-  const proposal = proposalFromUnknown(body.proposal);
+  const proposal = proposalFromUnknown(body.proposal, aliasMap);
   const now = new Date().toISOString();
   const nameToRow = new Map(((currentRows || []) as FoundingMemberSnapshot[]).map((r) => [r.person_name, r]));
   let upserted = 0;

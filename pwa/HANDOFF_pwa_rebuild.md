@@ -1,7 +1,7 @@
 # HANDOFF — AMD OS PWA
 
 最終更新: 2026-05-22
-トピック: 月次ルーティン / payouts / L2通知承認ゲート / member weekly activity / 創業コア編集 / admin members hardening
+トピック: 月次ルーティン / payouts / L2通知承認ゲート / member weekly activity / 関連メンバー (HRL根拠) SU+AMD限定 / admin members hardening
 
 詳細ログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md)
 関連仕様: [`design/README.md`](design/README.md), [`design/SPEC_pwa.md`](design/SPEC_pwa.md), [`design/L2_DATA.md`](design/L2_DATA.md), [`design/cockpit.md`](design/cockpit.md), [`design/notifications.md`](design/notifications.md), [`design/xrl_evidence.md`](design/xrl_evidence.md)
@@ -31,17 +31,17 @@
 - member weekly activity cronを毎日18:00 JSTにし、前日18:00〜当日18:00の24hをGmail/Calendar/source_cacheから `member_activities` に保存。
 - admin membersにCalendar共有状態と最終ログインを表示し、最終ログインが新しい順にsort。
 - ecosystem PJはAMD Score/XRL対象外、advisor PJはendedでもsource/backfill対象にできるようPJ分類を追加。
-- 創業メンバー抽出は創業コアだけに限定し、つくよみ修正依頼UIと通知承認ゲートを追加。
+- 関連メンバー (`project_founding_members`) を HRL 評価のベースとして再定義。「該当SU社員 + AMD伴走メンバー」だけを HRL に算入し、大学・研究機関 / VC / 顧客 / 行政 / 産業パートナーは invalid 化。AMDメンバーは `members.code_name` で記録 (フルネーム / 姓のみは重複扱いで invalid)。category に `'startup'` を追加。UI ラベルは「関連メンバー」に統一。
 
 ---
 
 ## Repo State
 
 - branch: `main`
-- handoff作成時HEAD: `a1ebc41 chore: ignore local workspace artifacts`
+- handoff作成時HEAD: `cb837d2 feat(pwa): harden monthly ops and notification gating` 以降に 075 cleanup 系 commit が追加される予定。
 - このhandoff後に全変更をまとめてcommit/pushする予定。最終commit hashは今回のチャット末尾を参照。
 - GASは `npx --yes @google/clasp push` 済み。
-- migration `074_members_last_login_at.sql` はproduction Supabaseへ適用済み。
+- migration `074_members_last_login_at.sql` / `075_related_members_cleanup.sql` はproduction Supabaseへ適用済み。
 - DB cleanup済み:
   - SE (`p10`) のCryoX/Kiutra/NIMS混入 source_cache / member_activities / XRL候補は0件確認。
   - ecosystem (`p12`, `p25`, `p23`) の未reject XRL候補と未読score通知は0件確認。
@@ -70,9 +70,9 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 
 ## Open Tasks
 
-1. ログイン済みで `https://amd-os-pwa.vercel.app/admin/payouts` を開き、支払月 `202605` のSX `202601-202603` を確認。確定委託料入力 -> PJ予算確定 -> 支払データ保存まで実画面で通す。
+1. ~~ログイン済みで `/admin/payouts?ym=202605` のSX `202601-202603` PJ予算確定 -> 支払データ保存~~ 実施済 (2026-05-22)。SX 委託料 ¥2,720,000 (Q-0000000062 税抜) で PJ予算 ¥1,768,000 を 3 月へ配分、支払 12 明細 / 通知額 4 件を保存。
 2. ログイン済みで `/admin/members` を確認。Calendar状態、最終ログイン、新しい順sortが期待通りか見る。
-3. ログイン済みで `/project/<id>/cockpit` の創業コア候補編集を確認。つくよみ修正依頼 -> OK確定/破棄まで試す。
+3. ログイン済みで `/project/p09/cockpit` (JOYCLE) の関連メンバーモーダルを確認し、cron `founding-members-extract?project_id=p09` の v3 prompt 出力を見る。他 active SU (CTB/SE/ZMP/CX/SX) も再走対象。
 4. `/notifications` で candidate/tentative候補が「はい」までactive化されないこと、「いいえ」でrejected/invalidになることを実画面で確認。
 5. `/mypage` の「今週やったこと」を、ログインユーザーのmember mappingと `member_activities` で確認。
 6. `/settings` のRaw/L2/Cron Control、`/reimburse` の領収書添付つき申請、通知admin-onlyはまだ実画面再確認が残っている。

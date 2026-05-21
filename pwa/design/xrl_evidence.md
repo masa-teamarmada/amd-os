@@ -1,6 +1,6 @@
 # XRL根拠 (L2 ⑧) — 設計の正本
 
-最終更新: 2026-05-15
+最終更新: 2026-05-22
 正本ステータス: 定義確定、実装中。
 
 ---
@@ -99,19 +99,48 @@ XRL根拠が新規作成・大幅更新されたら `/notifications` に出す�
 
 ---
 
-## founding_members の扱い
+## 関連メンバー (旧 founding_members) の扱い
 
-`project_founding_members` は候補 L2 ではなく、L2 ⑧ XRL根拠の正式な一部。
+`project_founding_members` は L2 ⑧ XRL根拠の正式な一部で、**HRL 評価のベース**となる関連メンバー台帳。
 
-ただし対象は **創業コア** に限定する。創業者、共同創業者、CEO候補、技術創業者、PI/研究代表者、事業責任者候補など、SU立ち上げの意思決定と実行を担う人物だけを入れる。VC、協業先、顧客、行政、単なる紹介者、advisor-only、AMDの伴走者だけの人物は入れない。
+### 対象範囲 (まさ判断 2026-05-22)
 
-抽出時は `status='tentative'` で保存し、通知画面で「はい」を押したものだけ `active` に昇格する。「いいえ」は `invalid` にする。コックピット上の編集も、直接手入力ではなくつくよみ修正依頼で提案を作り、OK確定でupsert/invalid化する。
+HRL 根拠に算入するのは **「該当SUの社員 (社員候補 / 創業候補を含む) + AMD の伴走メンバー」だけ**。
+このスコープに合致するものだけが HRL を動かす。
 
-ただし、HRL は創業メンバーだけで決めない。次も同じ L2 内で扱う:
-- PI / 研究代表者のコミットメント
-- 外部創業者候補の実在性・関与度
-- 事業責任者候補
-- 採用候補・業務委託候補
+含める (category 値):
+- `amd`: AMD の伴走メンバー (= `members.code_name` に一致する人物)
+- `startup`: 該当SU の社員 / 社員候補 / 創業候補 (= AMD 外で SU 側に入る人物)
+
+含めない (category 値、status='invalid' 化 / HRL 算定から除外):
+- `university`: 大学 / 研究機関の PI / 共同研究者 / 特許保有者
+- `vc`: VC / ファンド / 投資家 / 出資検討者
+- `partner_company`: 産業パートナー / 顧客候補 / サプライヤー / 委託先
+- `government`: 補助金 / 行政 / 支援機関 / 採択担当
+- `individual`: 個人 (フリーランス等で SU+AMD 外)
+
+「協業」「窓口」「相談」「アドバイザ」など曖昧な関与はすべて除外する。
+
+### 表記ルール
+
+- AMD メンバーは必ず `members.code_name` で記録する (例: `まさ` / `きよ` / `かる`)。
+  本名 (`山地正洋`) / 姓のみ (`山地`) / スペース付き表記は invalid 化して `code_name` 1 行に集約する。
+- AMD code_name に該当しない person で SU 側人物は `category='startup'` + `affiliation=<SU名>`。
+  「JOYCLE / AMD」のような AMD 二重表記は使わない (= 誤分類の温床になる)。
+- 同一人物の別表記 (例: `野田` / `野田先生`) は LLM 抽出時に集約する。
+
+### ステータス遷移
+
+LLM 抽出は `status='tentative'` で保存。`/notifications` から「はい」で `active`、「いいえ」で `invalid`。
+コックピットの関連メンバーモーダル (`CockpitMembersModal`) からつくよみ修正依頼を出すと、
+`/api/founding-members/revise` が提案 → OK確定で upsert / invalid 化。
+
+### HRL は関連メンバーだけで決めない
+
+`project_founding_members` は HRL の主要根拠だが、HRL 自体は次の要素も合わせて決める:
+- 関連メンバーの役割充足度 (CEO / 技術 / 事業 が揃っているか)
+- 該当SU + AMD 両カテゴリの多様性
+- 創業候補の実在性 / コミットメント / 採用候補 / 業務委託候補
 - チームの意思決定速度や実行継続性
 
-つまり、founding members は HRL の中心根拠のひとつだが、L2 ⑧ は HRL だけでなく TRL / BRL / GRL / SRL も含む。
+L2 ⑧ XRL根拠は HRL だけでなく TRL / BRL / GRL / SRL の根拠 (`project_xrl_evidence`) も含む。

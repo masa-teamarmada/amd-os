@@ -1,14 +1,15 @@
 "use client";
 
 /**
- * Cockpit 創業メンバー モーダル — PJ の創業コア候補。
+ * Cockpit 関連メンバー モーダル — PJ の関連メンバー (HRL 評価のベース)。
  *
  * 既存「👥 メンバー」モーダル (CockpitMembersModal) は AMD 内部メンバー (project_members の share)
- * を表示。本モーダルは LLM 抽出した **創業メンバー** (創業者 / CEO候補 / 技術創業者 / PI) を表示。
- * VC / 協業先 / 顧客 / 行政 / advisor-only / AMDサポートのみの人物は含めない。
- * HRL 推定の主要根拠。
+ * を表示。本モーダルは LLM 抽出した **関連メンバー** を表示。
+ * まさ判断 (2026-05-22): HRL 根拠 = 「該当SU社員 + AMD伴走メンバー」だけ。
+ *   大学・研究機関 / VC / 顧客 / 行政 / partner_company は HRL 根拠から除外。
  *
- * 仕様: pwa/scripts/migrations/040_project_founding_members.sql + pwa/src/lib/founding-members-data.ts
+ * 仕様: pwa/scripts/migrations/040_project_founding_members.sql +
+ *       075_related_members_cleanup.sql + pwa/src/lib/founding-members-data.ts
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -24,12 +25,14 @@ import {
 
 const CATEGORY_ORDER: FoundingMemberCategory[] = [
   "amd",
+  "startup",
+  "unknown",
+  // 以下は active 状態に来ない想定 (HRL 根拠外)。万一残っていれば後ろに表示。
   "university",
   "partner_company",
   "vc",
   "government",
   "individual",
-  "unknown",
 ];
 
 export function CockpitFoundingMembersModal({
@@ -77,9 +80,10 @@ export function CockpitFoundingMembersModal({
       >
         <div className="px-4 py-3 border-b border-[#e5e5e7] flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold">🧑‍🤝‍🧑 {ventureName} 創業メンバー</h3>
+            <h3 className="text-sm font-semibold">🧑‍🤝‍🧑 {ventureName} 関連メンバー</h3>
             <div className="text-[10px] text-muted-foreground mt-0.5">
-              創業コア候補 {totalActive} 名 (LLM 抽出)。HRL 推定の主要根拠。
+              関連メンバー候補 {totalActive} 名 (LLM 抽出)。HRL 評価のベース。
+              <span className="block">対象は該当SU社員 + AMD伴走メンバーのみ (大学・研究機関 / VC / 顧客 / 行政 / 産業パートナーは HRL根拠外)。</span>
             </div>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm" aria-label="閉じる">
@@ -92,7 +96,7 @@ export function CockpitFoundingMembersModal({
             <div className="text-[12px] text-muted-foreground py-6 text-center">読み込み中…</div>
           ) : totalActive === 0 ? (
             <div className="text-[12px] text-muted-foreground py-6 text-center">
-              創業メンバーはまだ抽出されていません。
+              関連メンバーはまだ抽出されていません。
               <div className="mt-2 text-[10px]">
                 毎週月曜 03:30 JST に LLM が monthly_reports / meeting_summaries / project_knowledge から
                 自動抽出します。手動キックは{" "}

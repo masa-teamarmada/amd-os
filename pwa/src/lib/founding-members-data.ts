@@ -1,9 +1,11 @@
 /**
- * project_founding_members データアクセス層。
+ * project_founding_members データアクセス層 (= 関連メンバー L2、HRL根拠)。
  *
- * PJ 創業メンバー (= 創業者 / CEO候補 / 技術創業者 / PI など創業コア) を
- * LLM 抽出した結果。HRL 推定の主要根拠。
- * 仕様: pwa/scripts/migrations/040_project_founding_members.sql
+ * まさ判断 (2026-05-22): HRL の評価ベースは「該当SU社員 + AMD伴走メンバー」だけ。
+ * 大学・研究機関 / VC / 顧客 / 行政 / partner_company は HRL 根拠から除外。
+ * AMD メンバーは `members.code_name` で記録 (フルネーム表記との重複は invalid)。
+ *
+ * 仕様: pwa/scripts/migrations/040_project_founding_members.sql + 075_related_members_cleanup.sql
  */
 
 import { createClient } from "@/lib/supabase/client";
@@ -21,6 +23,7 @@ export type FoundingMemberRole =
 
 export type FoundingMemberCategory =
   | "amd"
+  | "startup"
   | "university"
   | "vc"
   | "partner_company"
@@ -61,16 +64,18 @@ export const ROLE_LABEL_JP: Record<FoundingMemberRole, string> = {
 
 export const CATEGORY_LABEL_JP: Record<FoundingMemberCategory, string> = {
   amd: "AMD",
-  university: "大学・研究機関",
-  vc: "VC / ファンド",
-  partner_company: "産業パートナー",
-  government: "政府・行政",
-  individual: "個人",
-  unknown: "(所属不明)",
+  startup: "該当SU 社員 / 創業候補",
+  university: "大学・研究機関 (HRL根拠外)",
+  vc: "VC / ファンド (HRL根拠外)",
+  partner_company: "産業パートナー (HRL根拠外)",
+  government: "政府・行政 (HRL根拠外)",
+  individual: "個人 (HRL根拠外)",
+  unknown: "(分類保留)",
 };
 
 export const CATEGORY_COLOR: Record<FoundingMemberCategory, string> = {
   amd: "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300",
+  startup: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300",
   university: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
   vc: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
   partner_company: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
@@ -78,6 +83,9 @@ export const CATEGORY_COLOR: Record<FoundingMemberCategory, string> = {
   individual: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300",
   unknown: "bg-slate-50 text-slate-500 dark:bg-slate-900 dark:text-slate-500",
 };
+
+// HRL 根拠として算入するカテゴリ (= 該当SU + AMD のみ)
+export const HRL_INCLUDED_CATEGORIES = new Set<FoundingMemberCategory>(["amd", "startup"]);
 
 export async function fetchFoundingMembers(projectId: string): Promise<FoundingMemberRow[]> {
   const supabase = createClient();
@@ -98,12 +106,16 @@ export async function fetchFoundingMembers(projectId: string): Promise<FoundingM
 }
 
 /**
- * HRL (Human Resources Readiness Level) を創業メンバー構成から簡易推定する。
+ * HRL (Human Resources Readiness Level) を関連メンバー構成から簡易推定する。
+ *
+ * まさ判断 (2026-05-22): HRL 根拠 = 「該当SU社員 + AMD伴走メンバー」だけ。
+ *   category in ('amd','startup') のみが算入対象。大学・研究機関 / VC / 顧客 /
+ *   行政 / partner_company は算入しない。
  *
  * 内閣府 SIP HRL 9 段階定義に従う:
  *   0-3: 創業期 1-3 名 (CEO 候補識別段階、役割欠損あり)
- *   4-6: コア機能 (CEO/CTO/事業/投資家) 揃いつつあり、5-10 名規模
- *   7-9: 複数階層・カテゴリ多様性、10+ 名規模
+ *   4-6: コア機能 (CEO/技術/事業) 揃いつつあり、5-10 名規模
+ *   7-9: 該当SU 単独でも回る役割充足、10+ 名規模
  *
  * Phase 1 簡易版: ルールベース。Phase 3 で LLM 推定または BVAR Bayesian update に置き換え可。
  */
@@ -114,26 +126,28 @@ export function estimateHrlFromMembers(rows: FoundingMemberRow[]): {
   categories: number;
   rationale: string;
 } {
-  const active = rows.filter((r) => r.status === "active");
+  const active = rows.filter(
+    (r) => r.status === "active" && HRL_INCLUDED_CATEGORIES.has(r.category)
+  );
   const total = active.length;
   const hasCeo = active.some((r) => r.role === "ceo_candidate" || r.role === "co_founder");
   const hasTech = active.some((r) => r.role === "tech_lead" || r.role === "researcher");
   const hasBiz = active.some((r) => r.role === "business_advisor" || r.role === "amd_support");
-  const hasInvestor = active.some((r) => r.role === "investor");
-  const coreCount = [hasCeo, hasTech, hasBiz, hasInvestor].filter(Boolean).length;
-  const categories = new Set(active.map((r) => r.category).filter((c) => c !== "unknown")).size;
+  const coreCount = [hasCeo, hasTech, hasBiz].filter(Boolean).length;
+  // 多様性 = AMD と該当SU の両方が居るか (= 2 段階)
+  const categories = new Set(active.map((r) => r.category)).size;
 
   let hrl: number;
   if (total === 0) hrl = 0;
   else if (total <= 3) hrl = Math.min(3, 1 + coreCount);
   else if (total <= 9) hrl = 3 + Math.min(3, coreCount);
-  else hrl = 5 + Math.min(4, coreCount + Math.max(0, categories - 3));
+  else hrl = 5 + Math.min(4, coreCount + Math.max(0, categories - 1));
   hrl = Math.max(0, Math.min(9, hrl));
 
-  const labels = [hasCeo ? "CEO" : null, hasTech ? "技術" : null, hasBiz ? "事業" : null, hasInvestor ? "投資家" : null].filter(
+  const labels = [hasCeo ? "CEO" : null, hasTech ? "技術" : null, hasBiz ? "事業" : null].filter(
     (x): x is string => Boolean(x)
   );
-  const rationale = `${total} 名 / コア役割 ${coreCount}/4 (${labels.join(" + ") || "なし"}) / カテゴリ多様性 ${categories}`;
+  const rationale = `${total} 名 / コア役割 ${coreCount}/3 (${labels.join(" + ") || "なし"}) / カテゴリ多様性 ${categories} (= 該当SU+AMD のみ算入)`;
 
   return { hrl, total, coreCount, categories, rationale };
 }
@@ -158,7 +172,7 @@ export async function fetchFoundingMembersSummary(projectId: string): Promise<{
     byRole[r.role] = (byRole[r.role] ?? 0) + 1;
   }
   return {
-    total: rows.filter((r) => r.status === "active").length,
+    total: rows.filter((r) => r.status === "active" && HRL_INCLUDED_CATEGORIES.has(r.category)).length,
     byCategory,
     byRole,
     hasAmd: (byCategory["amd"] ?? 0) > 0,

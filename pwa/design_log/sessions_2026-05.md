@@ -5373,3 +5373,45 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - GAS 155の `member_knowledge` / `project_knowledge` は `status='candidate'` で保存し、PWA feedback APIの「はい」で `active`、「いいえ」で `rejected` にする。
   - `protocols` は candidate → 「はい」で active、「いいえ」で rejected。
   - `founding_members` は LLM抽出時 `tentative` → 「はい」で active、「いいえ」で invalid。
+
+#### 関連メンバー (HRL根拠) を SU+AMD 限定に整理
+
+- まさ指摘: コックピットの「関連メンバー (HRL 評価のベース)」モーダルで `project_founding_members` の品質が低い。
+  - JOYCLE (p09) で `山地正洋` と `まさ` が両方 active (= 同一人物の重複)。
+  - 大学・研究機関 (小柳裕太郎 / 野田 / 野田先生) が混入。「HRL根拠には会社のメンバー + AMDメンバー以外は入れてはいけない」。
+  - 5/22 cleanup で「上原 / 小屋 / 小林 / 斎藤 / 本橋 / 赤土 / 赤津」が invalid 化されていたが、これらは AMDサポートではなく JC社員。
+  - サブセクション「LLM 抽出 創業コア候補」というラベル自体が違和感。関連メンバー誰でも書く欄であり、創業コア限定じゃない。
+- 方針確定 (まさ判断):
+  - HRL に算入するのは「該当SU 社員 + AMD 伴走メンバー」だけ。大学・研究機関 / VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として `status='invalid'` にする。
+  - AMDメンバーは必ず `members.code_name` で記録。フルネーム (`山地正洋`) / 姓のみ (`山地`) は重複扱いで invalid。
+  - SU側 (= AMD code_name に該当しない人物) は `category='startup'` + `affiliation=<SU名>` で表記。AMD と SU の二重表記 (`JOYCLE / AMD`) は使わない。
+  - UI ラベルは「関連メンバー候補」に統一 (= 創業コア限定ではない)。
+- 実装:
+  - migration `075_related_members_cleanup.sql`:
+    - `category` COMMENT に `'startup'` を追加 (CHECK 制約はないので application 層で強制)。
+    - HRL根拠外 (`university` / `vc` / `partner_company` / `government` / `individual`) で active な行を invalid 化。
+    - AMD member 重複表記 (フルネーム + 姓のみ + スペース付き) を invalid 化。
+    - `category='amd'` で AMD code_name に一致しない person を `category='startup'` へスライド + `affiliation` から ` / AMD` 表記を除去。
+    - JOYCLE p09 の JC社員候補 (上原 / 小屋 / 小林 / 斎藤 / 本橋 / 赤土 / 赤津) を `category='startup'` + `status='active'` に復活。
+  - cron `founding-members-extract` を `PROMPT_REV='v3_2026-05-22_related_members_su_plus_amd'` にバンプ:
+    - AMD code_name alias map を `members` から取得して prompt に注入。
+    - LLM 出力時に AMD は `code_name` で表記、SU社員は `category='startup'` を強制。
+    - 保存前 filter `classifyMember` で `category in ('university','vc','partner_company','government','individual')` を reject。
+    - 同一人物の重複は alias 解決後に dedup。
+    - 通知タイトルを「創業メンバー更新」→「関連メンバー更新」に。
+  - `/api/founding-members/revise` も同じ alias / category 規約に揃え、`ALLOWED_CATEGORIES = {amd, startup, unknown}` に絞る。
+  - `pwa/src/lib/founding-members-data.ts`:
+    - `FoundingMemberCategory` に `'startup'` 追加。
+    - `CATEGORY_LABEL_JP['startup']='該当SU 社員 / 創業候補'`、`CATEGORY_COLOR['startup']='bg-sky-...'`。
+    - `HRL_INCLUDED_CATEGORIES = {'amd','startup'}` を export。
+    - `estimateHrlFromMembers` を `HRL_INCLUDED_CATEGORIES` に限定 (= 大学・研究機関 / VC は HRL から除外)、`coreCount` は CEO / 技術 / 事業 の 3 段階に。
+    - `fetchFoundingMembersSummary.total` も HRL 算入対象だけに。
+  - `CockpitMembersModal.tsx` / `CockpitFoundingMembersModal.tsx`:
+    - サブセクション見出し「LLM 抽出 創業コア候補」→「LLM 抽出 関連メンバー候補」。
+    - バナー「つくよみに創業メンバー修正依頼」→「つくよみに関連メンバー修正依頼」、例文も SU + AMD 想定に。
+    - textarea placeholder「創業メンバーの追加・除外…」→「関連メンバーの追加・除外… (AMD は code_name で)」。
+    - `CATEGORY_ORDER` を `['amd','startup','unknown', ...HRL根拠外]` に並び替え。
+    - モーダルタイトル「{ventureName} 創業メンバー」→「{ventureName} 関連メンバー」、説明文に「対象は該当SU+AMDのみ、大学・研究機関 / VC / 顧客 / 行政 / 産業パートナーは HRL根拠外」と明示。
+  - 設計md (`pwa/design/xrl_evidence.md` / `cockpit.md` / `L2_DATA.md`) の HRL 根拠定義を SU+AMD 限定に書き換え。
+- DB cleanup 後 JOYCLE p09 active: `まさ (amd)` + `Bat-Erdene / 上原 / 小屋 / 小林 / 斎藤 / 本橋 / 赤土 / 赤津 (startup, JC)` の 9 名。
+- 次セッション課題: production deploy 後に `cron/founding-members-extract?project_id=p09` を再走して LLM v3 prompt の品質を確認。他 active SU (CTB/SE/ZMP/CX/SX) も再走対象。
