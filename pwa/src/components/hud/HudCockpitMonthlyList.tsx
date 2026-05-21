@@ -47,9 +47,11 @@ function parseMsProgress(bc: BillingCycle): { pct: number; tone: string; items: 
   }
   if (items.length === 0) return null;
 
-  const totalPt = items.reduce((s, m) => s + (m.points || 0), 0);
+  // まさ判断 (2026-05-22 #4): buffer タグ MS は加重平均の対象から除外する。
+  const counted = items.filter((m) => (m.tag || "").toLowerCase() !== "buffer");
+  const totalPt = counted.reduce((s, m) => s + (m.points || 0), 0);
   if (totalPt === 0) return null;
-  const weightedPct = items.reduce((s, m) => s + (m.progressPct || 0) * (m.points || 0), 0) / totalPt;
+  const weightedPct = counted.reduce((s, m) => s + (m.progressPct || 0) * (m.points || 0), 0) / totalPt;
   const pct = Math.round(weightedPct);
   if (pct >= 80) return { pct, tone: "emerald", items };
   if (pct >= 40) return { pct, tone: "amber", items };

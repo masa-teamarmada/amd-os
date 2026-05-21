@@ -34,9 +34,9 @@ import {
 const FOUNDING_CATEGORY_ORDER: FoundingMemberCategory[] = [
   "amd",
   "startup",
-  "unknown",
-  // 以下は active 状態に来ない想定 (HRL 根拠外、migration 075 で invalid 化済み)。
   "university",
+  "unknown",
+  // 以下は HRL 根拠外 (= VC / 顧客 / 行政 / 個人)。active 状態には来ない想定。
   "partner_company",
   "vc",
   "government",

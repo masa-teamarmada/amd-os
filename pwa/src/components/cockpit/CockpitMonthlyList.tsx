@@ -48,9 +48,12 @@ function parseMsProgress(bc: BillingCycle): { pct: number; emoji: string; color:
   } catch { /* ignore */ }
   if (items.length === 0) return null;
 
-  const totalPt = items.reduce((s, m) => s + (m.points || 0), 0);
+  // まさ判断 (2026-05-22 #4): buffer タグ MS は「後からタスクが増えたとき用の予備pt」なので
+  // 月次進捗の加重平均からは除外する。表示は items のまま (= buffer 内訳は見える)。
+  const counted = items.filter((m) => (m.tag || "").toLowerCase() !== "buffer");
+  const totalPt = counted.reduce((s, m) => s + (m.points || 0), 0);
   if (totalPt === 0) return null;
-  const weightedPct = items.reduce((s, m) => s + ((m.progressPct || 0) * (m.points || 0)), 0) / totalPt;
+  const weightedPct = counted.reduce((s, m) => s + ((m.progressPct || 0) * (m.points || 0)), 0) / totalPt;
   const pct = Math.round(weightedPct);
 
   if (pct >= 80) return { pct, emoji: "🟢", color: "text-emerald-600", barColor: "bg-emerald-500", items };

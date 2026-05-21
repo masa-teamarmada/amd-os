@@ -287,9 +287,13 @@ async function fetchGmailEvidence(
   const gmail = google.gmail({ version: "v1", auth });
   const after = dateKeyJST(bounds.start).replace(/-/g, "/");
   const before = dateKeyJST(new Date(bounds.end.getTime() + 86400000)).replace(/-/g, "/");
+  // まさ判断 (2026-05-22 #3): 「ただ受信したメール」を活動として扱わない。
+  // - in:sent (自分が送ったメール = 自分のアクションの証跡)
+  // - in:drafts (返信ドラフトを書いた = 着手しているアクション) も含める
+  // 受信のみ (label:inbox かつ自分が送信者でない) は活動として拾わない。
   const listed = await gmail.users.messages.list({
     userId: "me",
-    q: `after:${after} before:${before}`,
+    q: `(in:sent OR in:drafts) after:${after} before:${before}`,
     maxResults: Math.min(200, Math.max(1, maxMessages)),
   });
 
@@ -302,6 +306,9 @@ async function fetchGmailEvidence(
       format: "metadata",
       metadataHeaders: ["From", "To", "Cc", "Date", "Subject"],
     });
+    const labelIds = new Set(msg.data.labelIds ?? []);
+    // 念のため: SENT / DRAFT ラベルを持つメールのみ通す
+    if (!labelIds.has("SENT") && !labelIds.has("DRAFT")) continue;
     const headers = msg.data.payload?.headers ?? [];
     const subject = headerValue(headers, "Subject") || "(no subject)";
     const from = headerValue(headers, "From");
@@ -318,6 +325,7 @@ async function fetchGmailEvidence(
     rows.push({
       evidenceId: `gmail:${msg.data.threadId || ref.id}:${ref.id}`,
       sourceKind: "gmail",
+      sourceSubkind: labelIds.has("SENT") ? "sent" : "draft",
       title: subject,
       snippet,
       itemDate: itemDate.toISOString(),
@@ -357,6 +365,20 @@ async function fetchCalendarEvidence(
     }
 
     for (const event of listed.data.items ?? []) {
+      // まさ判断 (2026-05-22 #3): 「招待されたが行ってない」予定を活動扱いにしない。
+      // - organizer.self=true (= 自分が主催) なら必ず通す
+      // - そうでなければ attendees の self が responseStatus='accepted' か 'tentative' に限る
+      // - declined / needsAction だけの招待は除外
+      const ownerEmail = (calendar.ownerEmail || "").toLowerCase();
+      const isOrganizer = event.organizer?.self === true ||
+        (!!event.organizer?.email && event.organizer.email.toLowerCase() === ownerEmail);
+      const selfAttendee = (event.attendees ?? []).find(
+        (a) => a.self === true || (a.email || "").toLowerCase() === ownerEmail
+      );
+      const attended = !!selfAttendee && (selfAttendee.responseStatus === "accepted" || selfAttendee.responseStatus === "tentative");
+      // 招待されてもいない event は organizer 判定で fallback (= 1on1 で attendees 空のケースを救う)
+      if (!isOrganizer && !attended && (event.attendees?.length ?? 0) > 0) continue;
+
       const title = cleanText(event.summary || "(無題)", 160);
       const snippet = cleanText(event.description || event.location || "", 700);
       const emails = extractEmails(
@@ -372,6 +394,7 @@ async function fetchCalendarEvidence(
       rows.push({
         evidenceId: `calendar:${calendar.calendarId}:${event.id}`,
         sourceKind: "calendar",
+        sourceSubkind: isOrganizer ? "organizer" : "attended",
         title,
         snippet,
         itemDate: new Date(itemDate).toISOString(),
@@ -379,7 +402,7 @@ async function fetchCalendarEvidence(
         participantEmails: emails,
         projectIds,
         memberIds,
-        raw: { event_id: event.id, calendar_id: calendar.calendarId, html_link: event.htmlLink || null },
+        raw: { event_id: event.id, calendar_id: calendar.calendarId, html_link: event.htmlLink || null, response_status: selfAttendee?.responseStatus || null },
       });
     }
   }

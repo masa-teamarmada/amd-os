@@ -26,9 +26,9 @@ import {
 const CATEGORY_ORDER: FoundingMemberCategory[] = [
   "amd",
   "startup",
-  "unknown",
-  // 以下は active 状態に来ない想定 (HRL 根拠外)。万一残っていれば後ろに表示。
   "university",
+  "unknown",
+  // 以下は HRL 根拠外。active 状態に来ない想定。
   "partner_company",
   "vc",
   "government",

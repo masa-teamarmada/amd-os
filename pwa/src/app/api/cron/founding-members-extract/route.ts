@@ -81,18 +81,22 @@ interface AmdMemberRow {
   member_name: string | null;
 }
 
-const PROMPT_REV = "v3_2026-05-22_related_members_su_plus_amd";
+const PROMPT_REV = "v4_2026-05-22_related_members_keep_su_keypersons";
 
-// HRL 根拠から外すカテゴリ (= 該当SU + AMD 以外)
+// HRL 根拠から外すカテゴリ (= まさ判断 2026-05-22 #2):
+// 大学・研究機関でも「SU のキーパーソン (PI / 共同創業者 / 技術リード)」は残すため、
+// `university` は除外しない。VC / 顧客 / 行政 / partner_company は HRL 根拠外。
 const HRL_EXCLUDED_CATEGORIES = new Set([
-  "university",
   "vc",
   "partner_company",
   "government",
   "individual",
 ]);
-// HRL 根拠から外す役割
+// HRL 根拠から外す役割 (= 投資家・単なる協業先)
 const HRL_EXCLUDED_ROLES = new Set(["investor", "partner"]);
+// AMD alias map に入れない system account の code_name (= GAS bot 等)。
+// メンバー判定はするが、関連メンバーとしては抽出しない。
+const AMD_BOT_CODE_NAMES = new Set(["つくよみ", "info"]);
 
 function normalizeRole(s: string): string {
   const lower = (s ?? "").toLowerCase().trim();
@@ -104,10 +108,11 @@ function normalizeCategory(s: string): string {
 }
 
 function buildAmdNameAliasMap(rows: AmdMemberRow[]): Map<string, string> {
-  // alias (= 表記揺れ) → code_name
+  // alias (= 表記揺れ) → code_name。GAS bot は除外する。
   const map = new Map<string, string>();
   for (const m of rows) {
     if (!m.code_name) continue;
+    if (AMD_BOT_CODE_NAMES.has(m.code_name)) continue;
     map.set(m.code_name, m.code_name);
     if (m.member_name) {
       const full = m.member_name.trim();
@@ -131,26 +136,41 @@ function normalizePersonName(name: string, aliasMap: Map<string, string>): strin
 }
 
 /**
- * 関連メンバー判定: HRL 根拠 = 該当SU + AMD のみ。
- * AMD code_name に一致したものは category='amd' に強制、それ以外は category='startup' (該当SU社員) に強制。
+ * 関連メンバー判定 (v4):
+ *  - HRL に算入するのは「該当SU 社員 / 創業候補 + AMD 伴走メンバー + 該当SU の大学キーパーソン」だけ。
+ *  - VC / 顧客 / 行政 / 単なる協業先 / advisor-only は除外。
+ *  - 大学・研究機関 (`category='university'`) は **そのまま残す**。LLM が「SU のCEO候補 / 共同創業者 /
+ *    技術リード / PI として SU に関与している」と判断したものだけが届く前提。
+ *  - AMD bot (つくよみ等) は alias map から除外済みなので、AMD として誤検出されない。
  */
 function classifyMember(
   m: LlmPerson,
   aliasMap: Map<string, string>
 ): { ok: boolean; person_name: string; role: string; category: string; reason?: string } {
   const normalizedName = normalizePersonName(m.person_name, aliasMap);
+  // AMD bot 名 (つくよみ等) が万一 LLM 出力に混入したら除外する。
+  if (AMD_BOT_CODE_NAMES.has(normalizedName)) {
+    return { ok: false, person_name: normalizedName, role: "unknown", category: "amd", reason: "AMD bot は関連メンバーから除外" };
+  }
   const role = normalizeRole(m.role);
   const rawCategory = normalizeCategory(m.category);
-  const isAmd = aliasMap.has(m.person_name.trim()) || aliasMap.has(m.person_name.trim().replace(/\s+/g, ""));
+  const isAmd =
+    aliasMap.has(m.person_name.trim()) ||
+    aliasMap.has(m.person_name.trim().replace(/\s+/g, ""));
 
   if (HRL_EXCLUDED_ROLES.has(role)) {
     return { ok: false, person_name: normalizedName, role, category: rawCategory, reason: "role=investor/partner はHRL根拠外" };
   }
   if (HRL_EXCLUDED_CATEGORIES.has(rawCategory) && !isAmd) {
-    return { ok: false, person_name: normalizedName, role, category: rawCategory, reason: `category=${rawCategory} はHRL根拠外 (該当SU+AMD以外)` };
+    return { ok: false, person_name: normalizedName, role, category: rawCategory, reason: `category=${rawCategory} はHRL根拠外 (VC/顧客/行政/協業先)` };
   }
   // category を強制
-  const category = isAmd ? "amd" : rawCategory === "amd" ? "startup" : rawCategory === "unknown" ? "startup" : "startup";
+  let category: string;
+  if (isAmd) category = "amd";
+  else if (rawCategory === "university") category = "university"; // 大学PI などはそのまま university を維持
+  else if (rawCategory === "amd") category = "startup"; // AMD code_name 不一致なのに 'amd' と LLM が言った場合は startup へ
+  else if (rawCategory === "unknown") category = "startup";
+  else category = "startup";
   return { ok: true, person_name: normalizedName, role, category };
 }
 
@@ -242,34 +262,43 @@ async function extractForProject(
   const prompt = `あなたは Deep-Tech ベンチャースタジオ AMD のアナリストです。
 PJ「${project.display_name}」(project_id=${projectId}) の **関連メンバー** を抽出してください。
 
-# 関連メンバーの定義 (まさ判断 2026-05-22)
-このリストは HRL (Human Resources Readiness Level) の評価ベースです。
-含めるのは「**該当SUの社員 + AMDの伴走メンバー**」だけ。それ以外は除外する。
+# 関連メンバーの定義 (まさ判断 2026-05-22 v4)
+このリストは HRL (Human Resources Readiness Level) の評価ベース。
+HRL に算入されるのは「**該当SU の創業・経営・技術に直接コミットする人**」だけ。
+役割 (どんなコミットをしているか) で判断する。所属だけで除外しない。
 
-## 含める
-- 該当SUの代表 / CEO / CTO / 経営メンバー / 社員 / 社員候補 / 創業候補 (category=startup)
-- AMD 側でこのPJを伴走しているメンバー (category=amd)
-  - CEO 候補 / 共同創業者 / 技術リードとして入っていても、AMD 所属のままなら category=amd
+## 含める (必ず残す)
+- 該当SU の代表 / CEO / CTO / 経営メンバー / 社員 / 社員候補 / 創業候補
+- AMD 側でこの PJ を伴走しているメンバー (PM / closer / 技術サポート等)
+- 大学 / 研究機関の人でも、**該当 SU の CEO候補 / 共同創業者 / 技術リード / 起源 PI / 共同研究の中核** として SU 立ち上げにコミットしている人 (例: 群馬大の小柳 PI が JC のキーパーソン)
+  → category="university" のままで OK。SU と切り離せない大学キーパーソンは消さない。
 
 ## 除外する (一切入れない)
-- 大学 / 研究機関の PI / 研究代表 / 共同研究者 / 発明者 / 特許保有者 (= category=university)
-- VC / ファンド / 投資家 / 出資検討者 (= category=vc)
-- 産業パートナー / 顧客 / サプライヤー / 委託先 (= category=partner_company)
-- 補助金 / 行政 / 支援機関 / 採択担当 (= category=government)
-- ちょっと相談した人 / 同席者 / 紹介者 / 窓口
+- VC / ファンド / 投資家 / 出資検討者 / 資金調達担当窓口
+- 産業パートナー会社 / 顧客 / サプライヤー / 委託先の担当者 (協業の相手側)
+- 補助金 / 行政 / 支援機関 / 採択担当 / コーディネータ
+- 単なる紹介者 / 同席者 / 窓口 / 一度だけ相談した人
+- "advisor-only" (= 名前だけのアドバイザで実務関与なし)
+- AMD bot / システムアカウント (= "つくよみ" / "info" などは絶対に出さない)
 
 迷ったら **除外** してください。
 
-# AMD メンバー (alias 解決リスト — 必ずこの code_name で出力)
+# 抽出精度ルール (= 絶対厳守)
+1. 文中で **明示的にフルネーム or 一貫した呼び方** で書かれた人物だけを抽出する。
+2. **苗字 1 文字単体 (例: 「赤」「小」)** や、文脈なく登場した苗字だけの表記、想像で補った氏名は出力禁止。
+3. **typo っぽい名前** (= 文中に確証がない名前) は出さない。「赤津」のような誤抽出をしないこと。
+4. 同一人物の別表記は **最も明確な表記 1 つに集約** する (例: 「野田先生」と「野田」が同一人物なら「野田先生」に統一)。
+5. 既知メンバーリストにある person_name は **そのままその名前で返す** (= 同じキーで上書き)。
+6. 「あの人」「彼」「先生」だけの曖昧な代名詞は除外。
+7. 出力する人物には必ず「文中の根拠 (evidence)」を 80 字以内で添える。
+
+# AMD メンバー alias 解決 (= 必ず code_name で出力)
 ${amdAliasLines}
 
-抽出時は本名 / 姓のみ / フルネーム連結 で見つけた場合も必ず **code_name 1 つに集約** する。
+抽出時は本名 / 姓のみ / フルネーム連結 で見つけた場合も必ず **code_name 1 つに集約**:
 例: 「山地正洋」「山地 正洋」「山地」→ "まさ" / 「梅本隆司」「梅本」→ "うめ" / 「肥塚」「肥塚 恭子」→ "きよ"
 AMD code_name (${amdCodeNames}) と一致した person は **category="amd"** にする。
-
-# SU 社員 / 創業候補
-AMD code_name に該当しない人物で、該当SUの社員 / 社員候補 / 創業候補は **category="startup"** にする。
-affiliation には SU 名 (例: "JOYCLE", "CryoX") を入れる。AMD と SU の二重表記 ("JOYCLE / AMD") は避ける。
+※ AMD bot (つくよみ / info) は alias map に含めていない。これらを抽出しない。
 
 # 既知の文脈
 - display_name (SU 名): ${project.display_name}
@@ -279,14 +308,6 @@ affiliation には SU 名 (例: "JOYCLE", "CryoX") を入れる。AMD と SU の
 
 # ソースドキュメント (${docs.length} 件)
 ${docsBlock.slice(0, 60000)}
-
-# 抽出ルール
-1. 文中で **明示的に名前が挙がっている人物のみ** を抽出 (推測で勝手に追加しない)
-2. 同一人物の別表記は AMD は code_name に、SU 社員は最も具体的な name に **代表 1 つ** に統一
-3. 既知メンバーと同一人物なら同じ person_name で返す
-4. 役割・所属が文中に書かれていなければ role='unknown' / category='startup' (= 該当SU社員と仮定)
-5. 「あの人」「彼」のような曖昧な代名詞だけの言及は **除外**
-6. 大学・研究機関 / VC / 協業先 / 顧客 / 行政 / 補助金担当は、名前が明示されていても **除外**
 
 # 役割 (role) の値
 - ceo_candidate: CEO/代表 候補
@@ -299,18 +320,19 @@ ${docsBlock.slice(0, 60000)}
 
 # カテゴリ (category) の値
 - amd: AMD の伴走メンバー (= AMD code_name に該当する人物)
-- startup: 該当SUの社員 / 創業候補
-- unknown: 役割不明だが該当SUか伴走か判別不能 (= 暫定保存、後で再分類)
+- startup: 該当SUの社員 / 創業候補 / 該当SU専任で関与する人 (大学PI でも SU 内部の意思決定担当ならこちら)
+- university: 該当SUの起源大学・研究機関の中核 (= PI / 共同研究者 / 発明者で SU と一体運営する人)
+- unknown: 関与の濃さが文中から判別不能 (= 暫定保存)
 
 # 出力フォーマット (JSON、preamble・コードフェンス禁止)
 {
   "members": [
     {
-      "person_name": "string (AMD は code_name 必須)",
-      "affiliation": "string or null (SU 名 / 'AMD' / '不明')",
+      "person_name": "string (AMD は code_name 必須、SU/大学は文中の明確な表記)",
+      "affiliation": "string or null (SU 名 / 大学名 / 'AMD' / '不明')",
       "role": "上記 role enum のいずれか",
       "role_label_jp": "string or null",
-      "category": "amd | startup | unknown",
+      "category": "amd | startup | university | unknown",
       "responsibility": "string or null",
       "contribution": "string or null",
       "evidence": "string (どのドキュメントのどこに書いてあったかの抜粋、80 字以内)",

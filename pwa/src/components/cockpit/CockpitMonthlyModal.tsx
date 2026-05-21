@@ -703,10 +703,12 @@ export function CockpitMonthlyModal({
   );
 
   // 総合進捗（シグナル計算用）
+  // まさ判断 (2026-05-22 #4): buffer タグ MS は加重平均から除外する。
   const ymProgressMap = buildEffectiveProgressMap(progress, milestones, ym);
-  const totalPts = milestones.reduce((s, m) => s + m.points, 0);
+  const overallCounted = milestones.filter((m) => (m.tag || "").toLowerCase() !== "buffer");
+  const totalPts = overallCounted.reduce((s, m) => s + m.points, 0);
   const weightedPct = totalPts > 0
-    ? milestones.reduce((s, m) => s + (ymProgressMap.get(m.milestoneId) || 0) * m.points, 0) / totalPts
+    ? overallCounted.reduce((s, m) => s + (ymProgressMap.get(m.milestoneId) || 0) * m.points, 0) / totalPts
     : 0;
   const overallPct = Math.round(weightedPct);
   const expectedPct = planCycle ? computeExpectedPct(planCycle, ym) : null;
@@ -1296,9 +1298,11 @@ function RewardTab({
     revisionsByMs.set(revision.milestoneId, arr);
   }
 
-  const totalPts = milestones.reduce((s, m) => s + m.points, 0);
+  // まさ判断 (2026-05-22 #4): buffer タグ MS は加重平均から除外する。
+  const overallCounted = milestones.filter((m) => (m.tag || "").toLowerCase() !== "buffer");
+  const totalPts = overallCounted.reduce((s, m) => s + m.points, 0);
   const weightedPct = totalPts > 0
-    ? milestones.reduce((s, m) => s + (ymProgress.get(m.milestoneId) || 0) * m.points, 0) / totalPts
+    ? overallCounted.reduce((s, m) => s + (ymProgress.get(m.milestoneId) || 0) * m.points, 0) / totalPts
     : 0;
   const overallPct = Math.round(weightedPct);
 

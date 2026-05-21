@@ -251,13 +251,16 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
     const xSpan = Math.max(1, xMaxRaw - xMin);
     return { xMin, xMax: xMaxRaw + xSpan * 0.05 };
   }, [scoreSeries]);
-  const scoreValues = scoreSeries.map((p) => Math.max(1, p.score));
-  const scoreLogMin = scoreValues.length ? Math.max(0, Math.log10(Math.min(...scoreValues)) - 0.2) : 0;
-  const scoreLogMax = scoreValues.length ? Math.min(5, Math.log10(Math.max(...scoreValues)) + 0.2) : 5;
-  const scoreLogSpan = Math.max(0.3, scoreLogMax - scoreLogMin);
+  // まさ判断 (2026-05-22 #5): AMD スコア折れ線はリニア軸に統一する。
+  const scoreValues = scoreSeries.map((p) => Math.max(0, p.score));
+  const scoreRawMin = scoreValues.length ? Math.min(...scoreValues) : 0;
+  const scoreRawMax = scoreValues.length ? Math.max(...scoreValues) : 100;
+  const scorePad = Math.max(1, (scoreRawMax - scoreRawMin) * 0.08);
+  const scoreYMin = Math.max(0, scoreRawMin - scorePad);
+  const scoreYMax = scoreRawMax + scorePad;
+  const scoreYSpan = Math.max(1, scoreYMax - scoreYMin);
   const yOfScore = (s: number) => {
-    const logV = Math.log10(Math.max(1, s));
-    const ratio = Math.max(0, Math.min(1, (logV - scoreLogMin) / scoreLogSpan));
+    const ratio = Math.max(0, Math.min(1, (s - scoreYMin) / scoreYSpan));
     return MT + PH - ratio * PH;
   };
   const xOfScore = (t: number) => ML + ((t - scoreRange.xMin) / Math.max(1, scoreRange.xMax - scoreRange.xMin)) * PW;
@@ -265,10 +268,19 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const scorePath = scoreSeries.length < 2
     ? ""
     : "M " + scoreSeries.map((p) => `${xOfScoreDate(p.date).toFixed(1)},${yOfScore(p.score).toFixed(1)}`).join(" L ");
-  const scoreGuides = [30, 100, 300, 1000, 3000, 10000, 30000, 100000].filter((g) => {
-    const lg = Math.log10(g);
-    return lg >= scoreLogMin && lg <= scoreLogMin + scoreLogSpan;
-  });
+  // リニア軸用のガイドライン: 範囲を 5 等分する位の素直な値で。
+  const scoreGuides = (() => {
+    const niceSteps = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
+    const target = scoreYSpan / 4;
+    const step = niceSteps.find((s) => s >= target) ?? niceSteps[niceSteps.length - 1];
+    const guides: number[] = [];
+    const start = Math.ceil(scoreYMin / step) * step;
+    for (let g = start; g <= scoreYMax; g += step) {
+      if (guides.length >= 8) break;
+      guides.push(g);
+    }
+    return guides;
+  })();
   const scoreDateTicks = scoreSeries.map((p) => p.date);
 
   // 現在のスコア (最新点)
@@ -474,7 +486,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         <div className="px-2 flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-[12px] font-semibold">
             AMD スコア
-            <span className="ml-2 text-[9px] text-muted-foreground font-normal">log scale / dynamic range</span>
+            <span className="ml-2 text-[9px] text-muted-foreground font-normal">linear scale / dynamic range</span>
           </h3>
           <div className="flex items-center gap-2 text-[10px]">
             <Link

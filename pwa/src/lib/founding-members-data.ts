@@ -65,7 +65,7 @@ export const ROLE_LABEL_JP: Record<FoundingMemberRole, string> = {
 export const CATEGORY_LABEL_JP: Record<FoundingMemberCategory, string> = {
   amd: "AMD",
   startup: "該当SU 社員 / 創業候補",
-  university: "大学・研究機関 (HRL根拠外)",
+  university: "大学・研究機関 (キーパーソン)",
   vc: "VC / ファンド (HRL根拠外)",
   partner_company: "産業パートナー (HRL根拠外)",
   government: "政府・行政 (HRL根拠外)",
@@ -84,8 +84,10 @@ export const CATEGORY_COLOR: Record<FoundingMemberCategory, string> = {
   unknown: "bg-slate-50 text-slate-500 dark:bg-slate-900 dark:text-slate-500",
 };
 
-// HRL 根拠として算入するカテゴリ (= 該当SU + AMD のみ)
-export const HRL_INCLUDED_CATEGORIES = new Set<FoundingMemberCategory>(["amd", "startup"]);
+// HRL 根拠として算入するカテゴリ (= 該当SU + AMD + 大学キーパーソン)
+// まさ判断 (2026-05-22 v4): 大学・研究機関でも SU の CEO候補 / 共同創業者 / 技術リード / 起源PI
+// は HRL 根拠に算入する。VC / 産業パートナー / 行政 / 個人は HRL 根拠外で除外。
+export const HRL_INCLUDED_CATEGORIES = new Set<FoundingMemberCategory>(["amd", "startup", "university"]);
 
 export async function fetchFoundingMembers(projectId: string): Promise<FoundingMemberRow[]> {
   const supabase = createClient();
