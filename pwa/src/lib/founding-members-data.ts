@@ -128,16 +128,18 @@ export function estimateHrlFromMembers(rows: FoundingMemberRow[]): {
   categories: number;
   rationale: string;
 } {
-  const active = rows.filter(
+  // HRL 算入対象: status='active' で HRL_INCLUDED_CATEGORIES (amd / startup / university) のもの。
+  // tentative は通知の「はい」承認待ちなので算入しない。
+  const counted = rows.filter(
     (r) => r.status === "active" && HRL_INCLUDED_CATEGORIES.has(r.category)
   );
-  const total = active.length;
-  const hasCeo = active.some((r) => r.role === "ceo_candidate" || r.role === "co_founder");
-  const hasTech = active.some((r) => r.role === "tech_lead" || r.role === "researcher");
-  const hasBiz = active.some((r) => r.role === "business_advisor" || r.role === "amd_support");
+  const total = counted.length;
+  const hasCeo = counted.some((r) => r.role === "ceo_candidate" || r.role === "co_founder");
+  const hasTech = counted.some((r) => r.role === "tech_lead" || r.role === "researcher");
+  const hasBiz = counted.some((r) => r.role === "business_advisor" || r.role === "amd_support");
   const coreCount = [hasCeo, hasTech, hasBiz].filter(Boolean).length;
-  // 多様性 = AMD と該当SU の両方が居るか (= 2 段階)
-  const categories = new Set(active.map((r) => r.category)).size;
+  // 多様性 = AMD / startup / university のうち、いくつあるか (= 最大 3)
+  const categories = new Set(counted.map((r) => r.category)).size;
 
   let hrl: number;
   if (total === 0) hrl = 0;
@@ -149,7 +151,7 @@ export function estimateHrlFromMembers(rows: FoundingMemberRow[]): {
   const labels = [hasCeo ? "CEO" : null, hasTech ? "技術" : null, hasBiz ? "事業" : null].filter(
     (x): x is string => Boolean(x)
   );
-  const rationale = `${total} 名 / コア役割 ${coreCount}/3 (${labels.join(" + ") || "なし"}) / カテゴリ多様性 ${categories} (= 該当SU+AMD のみ算入)`;
+  const rationale = `${total} 名 / コア役割 ${coreCount}/3 (${labels.join(" + ") || "なし"}) / カテゴリ多様性 ${categories} (= 該当SU + AMD + 大学キーパーソン)`;
 
   return { hrl, total, coreCount, categories, rationale };
 }

@@ -125,16 +125,27 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
     setLoading(false);
   };
 
+  // active + tentative を表示。invalid / left は隠す。
+  // tentative は「通知の『はい』承認待ちの候補」としてバッジ付きで見える化。
   const foundingGrouped = useMemo(() => {
     const out = new Map<FoundingMemberCategory, FoundingMemberRow[]>();
     for (const r of founding) {
-      if (r.status !== "active") continue;
+      if (r.status !== "active" && r.status !== "tentative") continue;
       if (!out.has(r.category)) out.set(r.category, []);
       out.get(r.category)!.push(r);
     }
+    // active を先に、tentative を後に並べる
+    for (const arr of out.values()) {
+      arr.sort((a, b) => {
+        if (a.status === b.status) return a.person_name.localeCompare(b.person_name);
+        return a.status === "active" ? -1 : 1;
+      });
+    }
     return out;
   }, [founding]);
-  const foundingTotal = useMemo(() => founding.filter((r) => r.status === "active").length, [founding]);
+  const foundingActiveCount = useMemo(() => founding.filter((r) => r.status === "active").length, [founding]);
+  const foundingTentativeCount = useMemo(() => founding.filter((r) => r.status === "tentative").length, [founding]);
+  const foundingTotal = foundingActiveCount + foundingTentativeCount;
   const hrlEst = useMemo(() => estimateHrlFromMembers(founding), [founding]);
 
   useEffect(() => {
@@ -447,7 +458,7 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
             <div className="mt-5 border-t border-[#e5e5e7] pt-4">
               <div className="flex items-baseline justify-between mb-2">
                 <h4 className="text-[12px] font-semibold text-slate-700">
-                  🧑‍🤝‍🧑 LLM 抽出 関連メンバー候補 ({foundingTotal} 名)
+                  🧑‍🤝‍🧑 LLM 抽出 関連メンバー候補 ({foundingTotal} 名 = active {foundingActiveCount} / 候補 {foundingTentativeCount})
                 </h4>
                 <span className="text-[9px] italic text-slate-500">monthly_reports + meeting_summaries から抽出 / 毎週月曜 03:30 更新</span>
               </div>
@@ -456,7 +467,7 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <div className="text-[10px] font-semibold text-indigo-800">つくよみに関連メンバー修正依頼</div>
-                    <div className="text-[9px] text-indigo-700/75">例: 大学・研究機関は除外して、まさをCEO候補、Bat-ErdeneをCTO候補として残す</div>
+                    <div className="text-[9px] text-indigo-700/75">例: 野田先生は群馬大の特許保有でJC共同研究の中核なので残す。「赤津」は誤抽出なので除外。</div>
                   </div>
                   <button
                     type="button"
@@ -542,7 +553,7 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
                     </div>
                     <ul className="divide-y divide-slate-200 rounded-md border border-slate-200">
                       {items.map((m) => (
-                        <li key={m.id} className="px-3 py-1.5 text-[11.5px]">
+                        <li key={m.id} className={`px-3 py-1.5 text-[11.5px] ${m.status === "tentative" ? "bg-amber-50/40" : ""}`}>
                           <div className="flex items-baseline gap-2 flex-wrap">
                             <span className="font-semibold">{m.person_name}</span>
                             {m.affiliation && (
@@ -551,6 +562,11 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
                             <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] text-slate-700">
                               {m.role_label_jp ?? ROLE_LABEL_JP[m.role]}
                             </span>
+                            {m.status === "tentative" && (
+                              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] text-amber-800" title="通知の「はい」承認で active 化される候補">
+                                候補 (通知で承認待ち)
+                              </span>
+                            )}
                             {m.last_observed_at && (
                               <span className="ml-auto text-[9px] text-slate-400">{m.last_observed_at}</span>
                             )}
