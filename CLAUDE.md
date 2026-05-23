@@ -151,6 +151,24 @@ DESIGN.md は **全プラットフォーム共通の正本**。Android / PWA も
 
 ---
 
+## 🧭 まさ × えいみ daily 経営会議 (L2 ⑨ dialogue) のトリガ
+
+まさが**新セッションでも既存セッションでも**以下のいずれかを言ったら、即経営会議モードに入る:
+
+- 「経営会議やろう」「経営会議始めよう」
+- 「経営シグナル見よう」「signals レビュー」
+- 「strategy signals やろう」
+
+**手順は `pwa/CLAUDE.md` 末尾「🧭 まさ × えいみ 経営会議 (L2 ⑨ dialogue) の始め方」を Read してから動く** (= ここでは概要のみ):
+
+1. `project_strategy_signals` の `status='candidate'` を impact 順で全 PJ 横断 read
+2. 1 議題ずつ提示 → まさの判断後に `POST /api/strategy-signals` (confirm/reject/update/create)
+3. セッション終了時に `POST /api/dialogue-meeting` で議論ログを PJ ごとに保存 (会社全体は `project_id='p00'`)
+
+daily 議題プリペアは scheduled task `amd-os-management-dialogue-prep` が毎朝 07:00 JST に自動で走り、`project_strategy_signals` に `candidate/proposed` を積む。まさが claude/codex を開いた瞬間には議題が既に揃っている前提。
+
+---
+
 ## 🚪 完了条件
 
 各セッションを「完了」と扱える状態:
