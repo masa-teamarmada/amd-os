@@ -90,6 +90,8 @@ XRL根拠が新規作成・大幅更新されたら `/notifications` に出す�
 - `l2_kind = 'xrl_evidence'`
 - `target_id = project_id`
 - `scope_key = ym` または `global`
+  - 1通知1候補にしたい場合は `202605:sx-miura-finechem-brl` のような `YYYYMM:<slug>` を許可する。
+  - ただし正本 `project_xrl_evidence.scope_key` は generated column で `ym` 由来 (`202605`) になるため、UI/APIは `YYYYMM` 部分 + `metadata_json.axis/evidence_kind/evidence_source_hash` で候補行を特定する。
 - summary は「どの軸の根拠が増えたか」「XRL/AMD Score にどう効くか」を短く書く
 - 全文は載せず、根拠 snippet と source refs を載せる
 
@@ -125,6 +127,9 @@ HRL 根拠に算入するのは **「該当SUの社員 (社員候補 / 創業候
 
 - AMD メンバーは必ず `members.code_name` で記録する (例: `まさ` / `きよ` / `かる`)。
   本名 (`山地正洋`) / 姓のみ (`山地`) / スペース付き表記は invalid 化して `code_name` 1 行に集約する。
+- 関連メンバー抽出cronが読む md は、`/Users/masa/projects/knowledge/<slug>.md` を
+  `project_ventures.master_md_text` に同期した SU 別正本。AMD メンバー一覧 md は抽出promptへ直接渡さず、
+  `members.code_name` + `members.member_name` をDBから読んで alias map を作る。
 - AMD code_name に該当しない person で SU 側人物は `category='startup'` + `affiliation=<SU名>`。
   「JOYCLE / AMD」のような AMD 二重表記は使わない (= 誤分類の温床になる)。
 - 同一人物の別表記 (例: `野田` / `野田先生`) は LLM 抽出時に集約する。

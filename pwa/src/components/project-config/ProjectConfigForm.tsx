@@ -8,6 +8,7 @@ import {
   type ProjectConfigData,
 } from "@/lib/project-config-data";
 import { ProjectMembersEditor } from "@/components/project-members/ProjectMembersEditor";
+import { PAYMENT_DUE_RULE_OPTIONS } from "@/lib/payment-rules";
 
 interface Props {
   projectId: string;
@@ -22,9 +23,7 @@ const FEE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 const PAYMENT_DUE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "", label: "—" },
-  { value: "issue_month_eom", label: "発行月末" },
-  { value: "next_month_eom", label: "翌月末" },
-  { value: "next_month_15", label: "翌月25日" },
+  ...PAYMENT_DUE_RULE_OPTIONS,
 ];
 
 const STATUS_BADGE: Record<string, string> = {

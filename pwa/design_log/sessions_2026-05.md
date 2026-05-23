@@ -5428,3 +5428,458 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - `/admin/payouts` のPJ予算チェックに `後追い予算未確定` / `予算不足` / `失注/破談: 予算なし` の状態表示と補足文を追加。
   - PJ予算確定モーダルに、未入力時・予算不足時・予算内時の合意メッセージを追加。
   - 正本md (`design/routine.md`, `design/SPEC_pwa.md`) に後追い予算未確定の運用ルールを追記。
+
+#### 支払条件のadmin正本化 + 入金確認nudge/freee同期
+
+- まさ指摘:
+  - `payment_due_rule` のような変数名で説明されても、どの画面のどの値か分からない。
+  - PJごとの設定はコックピットconfigではなくadminでやるべき。
+  - SXは入金済みなのにOSは入金未確認。adminが入力していないだけで、OSからadminへのnudgeも入力UIも弱い。
+  - freee会計の入金履歴を拾えば、admin回答忘れでも入金確認済みにできるはず。
+- 方針:
+  - 画面上の言葉は「支払条件」「支払月」「入金確認」に統一。
+  - `/admin/projects` をPJごとの契約・請求・支払条件の正本にし、コックピットheaderから `/project/[projectId]/config` 導線を消す。
+  - 支払条件 (`発行月末` / `翌月末` / `翌月25日`) は `projects.payment_due_rule` に保存。旧 `payment_due_day` は互換fallbackだけにする。
+  - 請求書支払期日、`/admin/payouts` の支払月自動判定、Slack入金確認nudgeを同じ helper (`payment-rules.ts`) で計算する。
+  - `billing_cycles.invoice_ym` が明示されている場合は個別上書きとして優先。空の場合は支払条件から支払月を計算する。
+- 実装:
+  - `src/lib/payment-rules.ts` を追加し、支払条件ラベル・支払期日・支払月計算を共通化。
+  - `AdminProjectsTable` の「支払期日」列を「支払条件」に変更し、`projects.payment_due_rule` をselect編集できるようにした。
+  - `CockpitRoutineInvoiceModal` は `projects.payment_due_rule` を読んで支払期日を計算するよう変更。
+  - `CockpitHeader` から `⚙️ config` リンクを削除。
+  - `/api/admin/payouts` は `invoice_ym` 空のcycleを「当月締め当月支払」扱いにせず、PJ支払条件から支払月を計算して対象化する。
+  - `src/lib/payment-confirmation.ts` / `src/lib/payment-groups.ts` を追加。
+  - `/api/cron/payment-confirm-nudges` を追加。active admin (`members.is_admin=true`) へSlack DMし、ボタンは:
+    - `予定通り入金済み`: signed token 付き `/api/admin/payment-confirm?mode=expected` で即時反映。
+    - `金額を入力`: signed token 付き `/payment-confirm` で実額入力。
+  - `/api/admin/payment-confirm` を追加。signed tokenを検証して `billing_cycles.payment_confirmed_at` / `payment_confirmed_by` / `status='payment_confirmed'` を更新し、実額・source・freee照合情報を `billing_log.detail` に保存。
+  - `/payment-confirm` を追加。Slackから開く実額入力フォーム。
+  - `/api/cron/freee-payment-sync` を追加。freee会計の収入取引 (`/api/1/deals`, `type=income`) を支払月で取得し、取引先ID・請求番号・金額で照合。支払済みなら同じ入金確認処理へ流す。
+  - `vercel.json` に `freee-payment-sync` (09:10 JST) と `payment-confirm-nudges` (09:30 JST) を追加。
+- 設計md:
+  - `design/SPEC_pwa.md` に admin/projects 正本化、payment-confirm API、2つのcronを追加。
+  - `design/routine.md` に支払条件・入金確認の正本ルールを追加。
+  - `design/notifications.md` に入金確認nudgeの扱いを追加。
+  - `design/cockpit.md` にコックピットconfig導線を置かないルールを追記。
+
+#### 支払条件の稼働月基準化 + MS管理対象PJの整理
+
+- まさ指摘:
+  - `admin.projects.支払条件` は請求書発行月基準ではなく、稼働月基準で表す。
+  - 5月稼働分を6月に請求して6月末支払の場合は `翌月末`。`発行月末` という表現は使わない。
+  - DTSU PJとエコシステム構築PJでMS計画が無い場合はMS設定を促す。advisorなど非MS管理PJではMS進捗を抽出せず、毎月の進捗だけを月次モーダルに記録する。
+- 実装:
+  - `payment-rules.ts` の支払条件を稼働月基準へ変更。UI選択肢は `当月末 / 当月25日 / 翌月末 / 翌月25日 / 翌々月末 / 翌々月25日`。
+  - 旧 `issue_month_*` は互換入力として `next_month_*` に読み替え、DB migration `081_payment_due_rule_work_month_basis.sql` で正本値から消す。
+  - `/admin/payouts` の説明・PJ予算確定モーダルは「支払月」表現に統一。
+  - `cron/hourly-estimate` と `activities/infer` の全PJ対象を active DTSU / ecosystem に限定。
+  - `progress-estimator` は非MS管理PJを `monthly note only` としてLLM抽出せず、MS管理対象PJでMS計画/項目が無い場合は `project_config_gap` 通知を upsert。
+  - Cockpit / HUD Cockpit は非MS管理PJではMSカード・過去MS・MS設定バナーを出さず、月次モーダルの月次ノートに毎月の動きを残す導線にする。
+
+#### admin.members 最終ログインが全員空の修正
+
+- まさ指摘: `/admin/members` のOS最終ログインが全員「データなし」。まさ自身はログイン済みなのに反映されていない。
+- 原因:
+  - 実装は `/auth/callback` でCalendar確認に成功したタイミングだけ `members.last_login_at` を更新していた。
+  - `last_login_at` 列追加前からログイン済みの既存セッションは `/auth/callback` を再通過しないため、実際にOSを使っていても `last_login_at` が null のまま残った。
+- 実装:
+  - middlewareで authenticated user の通常ページアクセスを見たら、1時間に1回だけ `members.last_login_at` を service_role でtouchする。
+  - Supabase Auth `last_sign_in_at` から既存ログイン履歴を一回backfillし、まさ / きよ / かる / りり / ちこ / あび / info の `last_login_at` を復元した。
+
+#### 通知詳細のXRL scope不整合 / raw_data_gap stale表示修正
+
+- まさ指摘:
+  - `SX: BRL根拠候補を追加する？` で、通知本文はあるのに「抽出された行が見つかりませんでした」と表示される。
+  - `SX: 5/21社内MTGがOS未取り込み` と出るが、OSが認識しているなら取り込めるはず。
+  - `CX: 5月進捗スライドが0/0pt` / `OS未取り込み` が何を意味するか分かりにくい。
+- 調査結果:
+  - `xrl_evidence` は通知 `scope_key=202605:sx-miura-finechem-brl`、正本 `project_xrl_evidence.ym=202605` で、PWA詳細とfeedback APIが完全一致検索して候補行を見失っていた。
+  - SX 5/21社内MTGは `project_meeting_summaries` に取り込み済み。raw_data_gap通知は古いsnapshot差分由来で、live DBの取り込み済み状態を反映していなかった。
+- 実装:
+  - 通知詳細の `xrl_evidence` は `scope_key` から `YYYYMM` を抽出し、`metadata_json.axis/evidence_kind/evidence_source_hash` で候補行を絞り込む。
+  - `/api/notifications/feedback` のXRL承認/却下も同じ正規化で `project_xrl_evidence` を `confirmed` / `rejected` に遷移する。
+  - `meeting-not-ingested` 系raw_data_gapは展開時に `project_meeting_summaries` をlive確認し、取り込み済みなら「OS取り込み済み」を先頭表示する。
+  - `BUGS.md` / `design/notifications.md` / `design/xrl_evidence.md` に再発防止ルールを追記。
+
+#### 関連メンバーのAMD本名alias重複修正
+
+- まさ指摘:
+  - 関連メンバーで `まさ` と `山地正洋` が別人として表示される。
+  - L2抽出が本当にmd正本を見ているか、どのmdを見ていて、AMDメンバー情報がそこにあるか確認したい。
+- 調査結果:
+  - `cron/founding-members-extract` は SU 別 md を直接読むのではなく、`/Users/masa/projects/knowledge/<slug>.md` を `project_ventures.master_md_text` に同期した本文をpromptに注入している。
+  - AMDメンバー一覧mdはpromptには直接入れていない。AMDメンバー正規化は Supabase `members` の `code_name` + `member_name` から alias map を作る設計。
+  - `members` には `ID001 / code_name=まさ / member_name=山地 正洋` が入っており、alias map自体は `山地正洋` → `まさ` を作れる。
+  - ただし過去cleanupが `status='active'` だけを対象にしており、後続migrationで `category='university'` の `山地正洋` が `tentative` として復帰したため、表示対象に残っていた。
+- 実装:
+  - `cron/founding-members-extract` の既存メンバー参照から `invalid` 行を除外。
+  - migration `082_related_members_amd_alias_canonical.sql` を追加し、`members.member_name` 由来の本名 / 空白除去 / 姓 alias を code_name 行へ集約してから alias 側を invalid 化。
+  - 本番DBへ適用済み。`status != invalid` の `山地正洋` 行は0件になり、BWEの旧 `山地正洋` は `まさ / AMD / amd_support / tentative` に集約済み。
+
+#### admin.payments status文言統一 / ZMP reward_summary未保存原因 / MS未設定月の月次ノート化
+
+- まさ指摘:
+  - `admin.payments` の `配賦確定` という言葉はもう使っていないので、`予算確定` に統一する。
+  - ZMP 4月稼働分の報酬額が payouts に出ない理由は、単に `reward_summary_json` が無いだけでなく、なぜ保存されていないのかまで説明が必要。
+  - MSが設定されていない月も情報を拾うこと自体は正しい。MSがある月はMS進捗へ、MSがない月は月次モーダルの月次ノートへ入れるべき。
+- 調査結果:
+  - ZMP (`p19`) `202604` は `projects.fee_type='monthly_fixed'` / `fee_amount=300000`、対象PlanCycle・MS・責任配分・`milestone_monthly_progress` は存在する。
+  - ただし `billing_cycles(202604).reward_summary_json` / `monthly_reward_payout` が空。コード上も `reward_summary_json` は cockpit 月次モーダルがクライアント側でpreview表示するだけで、DBへ保存するwriterが存在しなかった。
+  - `/admin/payouts` は `reward_summary_json.members` だけを正本として `monthly_reward_payout` を生成するため、previewに報酬額が見えてもDB未保存月はpayoutsに出ない。
+- 実装:
+  - `AdminBillingMatrix` の予算確定完了時 status を `allocation_confirmed` ではなく `budget_confirmed` で保存するよう変更。
+  - `AdminPayoutsClient` は旧DB値 `allocation_confirmed` も表示上は `予算確定` として扱う。
+  - migration `083_budget_confirmed_status_unification.sql` を追加し、既存 `allocation_confirmed` を `budget_confirmed` へ寄せる。
+  - `progress-estimator` は、非MS管理PJまたは対象月にMS計画/有効MS項目が無い場合、`project_config_gap` 通知を作らず、`monthly_reports` + `project_meeting_summaries` を `project_monthly_notes` に保存する。
+  - `cron/hourly-estimate` はactive PJ全体を見に行き、MS管理対象外は月次ノートonlyで処理する。
+  - migration `084_clear_stale_ms_config_gap_notifications.sql` を追加し、旧ロジックの `missing_ms_plan` / `missing_ms_items` 通知を削除する。
+- 予防策:
+  - `reward_summary_json` は cockpit preview の副産物にせず、サーバー側の報酬サマリ生成を正本化する。MS進捗更新・予算確定・admin payouts保存前のいずれかで、`billing_cycles.reward_summary_json` を必ず生成/更新する仕組みにする。
+
+#### admin.projects PJ名編集 / 関連メンバー通知文言統一
+
+- まさ指摘:
+  - p20 のPJ名に `CryoX（仮称）` と出るので `（仮称）` を削除したい。
+  - PJ名がUI上で編集できないのはよくない。`admin.projects` で編集できるようにする。
+  - `創業メンバー更新` 通知は、実際には `関連メンバー` の更新なので文言を直す。
+- 実装:
+  - `AdminProjectsTable` のPJ名セルをクリック編集対応にし、`/api/admin/projects/[id]` 経由で `projects.project_name` を保存できるようにした。
+  - migration `085_project_name_and_related_member_notification_labels.sql` を追加。本番DBへ適用済み。
+  - p20 `project_ventures.display_name` は `CryoX`、`master_md_text` 内の `仮称` 表記は削除済み。
+  - 既存 `l2_notifications(l2_kind='founding_members')` の `創業メンバー更新` / `CryoX（仮称）` タイトルを `関連メンバー更新` / `CryoX` へ置換済み。新規cronは既に `関連メンバー更新` で作る。
+
+#### admin.payouts PJ別収支表に役員相殺を統合
+
+- まさ指摘:
+  - 役員除外分を別枠で示すのではなく、PJごとの収支全体の中で見たい。
+  - クライアントからAMDへの支払額、バッファ、PJ予算、各メンバーへの支払額を並べる。
+  - 役員分は支払額と同額を足して相殺し、最終収支がいくらかをPJごとに示す。
+- 実装:
+  - `AdminPayoutsClient` の別枠「役員除外分」カードを削除。
+  - PJ別収支 / 予算チェック表を追加し、PJごとに `クライアント支払 / バッファ / PJ予算 / 非役員支払 / 役員分 / 役員相殺 / 最終収支` を表示。
+  - メンバー別行では、非役員は通常支払、役員ONメンバーは `役員 / 支払対象外` とし、`支払額` と `相殺 +同額` を出して収支影響0にする。
+  - 保存対象の `monthly_reward_payout` は従来通り役員を除外し、表示上の収支説明だけに役員相殺を入れる。
+
+#### #10 reward_summary_json のSupabase正本化 / ZMP 202604 backfill
+
+- まさ指摘:
+  - OSはSupabaseを表示するツールのはずなので、Supabaseに入っておらずUI上だけで表示される業務データは無くしたい。
+  - ZMPの報酬がpayoutに出るようにしたい。
+  - 他PJ/他月も、月次モーダルで報酬額が表示されるならpayoutでも表示され、そのデータがSupabaseに入っている設計にする。
+- 原因:
+  - Cockpit月次モーダルは `billing_cycles.reward_summary_json` が空のとき、ブラウザ側で `buildRewardPreview()` を作って表示していた。
+  - そのpreviewをDBへ保存するwriterが無く、`admin.payouts` は `reward_summary_json.members` だけを見るため、ZMP `202604` がpayoutsに出なかった。
+- 実装:
+  - `src/lib/reward-summary.ts` を追加。MS進捗・責任配分・PlanCycle・PJ委託料から報酬サマリーを生成し、`billing_cycles.reward_summary_json` に保存するサーバー側正本にした。
+  - `/api/rewards/sync` を追加。月次モーダルは未保存previewを出さず、まずSupabaseへ保存してから保存済み報酬サマリーを表示する。
+  - `progress-estimator` / `progress/confirm` / `progress/revisions` / `progress/batch-save` は進捗保存後に報酬サマリーもsyncする。
+  - `admin/payouts` は表示前に対象cycleの `reward_summary_json` をsyncするため、月次モーダルで表示できる報酬はpayoutsでも同じ正本から表示される。
+  - `scripts/backfill_reward_summaries.ts` を追加し、production Supabase 135 cycleをscan、20 cycleをsync済み。ZMP `p19:202604` は `totalPaySum=110,740`、メンバー別明細も `reward_summary_json` に保存済み。
+- 仕様変更:
+  - OS UI上だけに存在する報酬previewは禁止。
+  - 報酬額を表示する場合は、必ず `billing_cycles.reward_summary_json` に保存済みの値を表示する。
+
+#### #15 PWA/GAS background cron の停止
+
+- まさ指摘:
+  - 生データ抽出はCodex automationへ寄せたはずなのに、GAS/Vercel cronがまだ走ってAnthropic課金が続いている。
+  - `/api/cron/hourly-estimate`、Atlas系、member activities、venture narrative、relearn、founding members、grant/vc/seeds/kaken等を止めたい。
+- 原因:
+  - 以前止めたのは一部のAtlas/Claude scheduled taskで、Vercel `pwa/vercel.json` のcron群と、GAS `154_PwaCronCaller.js` からPWA cronを叩くアダプタが別経路で残っていた。
+  - Vercel cronを外しても、GAS time-triggerが `/api/cron/hourly-estimate` やASPI系を直接叩く構造だった。
+- 実装:
+  - `pwa/vercel.json` の `crons` を空配列に変更。本番deploy後はVercel scheduled cronは作られない。
+  - `pwa/vercel.disabled-crons.json` に停止した全cronと復旧条件を記録。
+  - `gas/154_PwaCronCaller.js` に kill switch を追加し、`nav_pwa_pingHourlyEstimate` / ASPI ping 系は即disabled responseを返す。
+  - `nav_pwa_disableAllPwaCronTriggers_()` を追加し、GAS側の既存PWA cron triggerを削除できる入口を用意。
+  - 旧GAS抽出cronも停止: `060_RewardV2_Estimator.js`、`056_RewardScoring_Trigger.js`、`153_MeetingHourlyTrigger.js`、`152_NavigatorCron.js`、`155_L2KnowledgeExtractor.js` にkill switchを追加。
+  - `clasp push` は `invalid_rapt` で未反映。ただし既存本番GASの `nav_l2_pruneDuplicateTriggers` をWebApp経由で呼び、live triggerは削除済み。削除: `nav_pwa_pingHourlyEstimate` 1件、`nav_pwa_pingWeeklyAspiSet1/2` 各1件、`nav_member_knowledge_pollAll` 1件、`nav_project_knowledge_pollAll` 1件、`nav_protocol_pollAll` 1件、`nav_meeting_pollRecentlyEndedEvents` 1件、`reward_trigger_dailyExtract` 1件。
+  - Operations Settingsは `/settings` ではなく `/admin/settings` に統合。`/settings` routeとGlobalNavの一般設定リンクは削除。cron台帳は停止済みcronを全件表示し、停止中は `Run Now` できないUIにした。
+- 仕様変更:
+  - LLM課金が発生する定期抽出cronは停止。Codex automationを一次実行系にする。
+  - PWA cron route自体は手動検証用に残すが、自動scheduleからは外す。復旧はownerが費用とtrigger sourceを明示してから行う。
+  - Raw/L2/Cron台帳はadmin専用画面で見る。一般ユーザー向け `/settings` は持たない。
+
+#### #2 SX入金確認 / freee同期 / Slack nudge
+
+- まさがお願いしていたこと:
+  - SXがまだ入金未確認になっている理由を知りたい。
+  - freeeから入金情報が取れていないのか確認したい。
+  - admin向けSlack nudgeが本当に実装・送信される状態か確認したい。
+- どう解決したか:
+  - production `/api/cron/freee-payment-sync?ym=202605&dryRun=1` を確認し、`Freee token refresh failed: 401 invalid_client` を特定。freee入金履歴は取得できていないため、freee OAuth credentials / refresh token の再認証が必要。
+  - production `/api/cron/payment-confirm-nudges?ym=202605&dryRun=1` を確認し、SXとadmin宛先 (まさ/きよ) の対象抽出自体はできていると確認。
+  - ただしVercel cron停止中で自動送信されず、admin手動送信UIも無かったため、`/api/cron/payment-confirm-nudges` にadmin認証POSTを追加し、`/admin/payouts` に「入金確認nudge」ボタンを追加。
+  - まさ確認によりSX `p21:202601-202603` は入金済みとして、本番Supabaseの `payment_confirmed_at` / `payment_confirmed_by` / `status='payment_confirmed'` を更新し、`billing_log.detail` に `manual_admin_correction` として記録。
+- できるようになったこと:
+  - SX `202601-202603` は入金確認済みとしてOSに反映済み。
+  - 入金確認nudgeは、cron復旧なしでも `/admin/payouts` からadminが手動送信できる。
+  - freee同期の未動作原因はコードロジックではなく認証 (`invalid_client`) として切り分け済み。
+
+#### #16 ZMP.202604 PJ予算データなし
+
+- まさがお願いしていたこと:
+  - ZMP `202604` のPJ予算が `/admin/payouts` で「データなし」になっている理由を知りたい。
+- どう解決したか:
+  - production DBを確認し、`budget_reported_amount=300000` と `reward_summary_json.capBudgetYen=195000` は存在していたが、`billing_cycles.budget_yen` がnullだったことを特定。
+  - `/admin/payouts` のPJ予算列は `billing_cycles.budget_yen` を正本として見るため、「データなし」になっていた。
+  - `syncRewardSummaryForCycle()` が、月額固定PJまたは `budget_reported_amount` があるcycleでは `billing_cycles.budget_yen = 請求額×65% - バッファ` も保存するように修正。
+  - production `p19:202604` を再syncし、`budget_yen=195000`, `reward_summary_json.totalPaySum=110740` を確認済み。
+- できるようになったこと:
+  - 月額固定PJのPJ予算はUIだけの計算値ではなく、Supabase `billing_cycles.budget_yen` に保存される。
+  - 月次モーダルで報酬が見える月は、payoutsでも同じSupabase正本からPJ予算・報酬を見られる。
+
+#### #17 admin.payouts 収支表の縦型化
+
+- まさがお願いしていたこと:
+  - `/admin/payouts` の全体収支や各PJ収支が横並びカードだと計算しにくい。
+  - 普通のPL表のように、項目を縦、PJを列にしてほしい。
+  - 一番左の列を全体収支、次列から各PJの収支にし、PJが多い場合は横スクロールを許容したい。
+- どう解決したか:
+  - `/admin/payouts` のPJ別収支を、横並びカードから「項目縦 / データ列: 全体収支, 各PJ」の表に変更。
+  - 稼働月、クライアント支払、バッファ、PJ予算、支払予定、役員分、役員相殺、最終収支、メンバー別支払を同じ表に収めた。
+  - PJが増えた場合は横スクロールするレイアウトにした。
+- できるようになったこと:
+  - 全体収支とPJ別収支を同じ勘定項目で横比較できる。
+  - 役員分の相殺も各PJ列の中で見えるため、計算の流れを追いやすくなった。
+
+#### #18 月次ルーティン 請求額確定のPL Slack nudge
+
+- まさがお願いしていたこと:
+  - 月次ルーティンの「請求額確定」でPLに申請しても、PL側にnudgeが来ない。
+  - ボタン付きのSlack nudgeが来るようにしたい。
+- どう解決したか:
+  - `/api/notify/pl-review` は存在していたが、`chat.postMessage(channel=userId)` のプレーンDMで、`conversations.open` を使っておらず、ボタンも無かった。
+  - `/api/notify/pl-review` を `conversations.open` でDMを開いて送る方式へ変更。
+  - Slack messageに「コックピットで確認」ボタンを追加。
+  - `CockpitRoutineBudgetModal` のPL確認依頼ラベルを `予算確定` から、画面ステップ名と同じ `請求額確定` に変更。
+- できるようになったこと:
+  - `project_members.is_pl=true` のPLへ、請求額確定の確認依頼がボタン付きSlack DMで届く。
+  - PLはボタンから対象PJのコックピットへ戻って確認できる。
+
+#### #2 入金確認の根本対策
+
+- まさがお願いしていたこと:
+  - SXの入金済みをデータだけ直しても、次月また同じになるので根本解決したい。
+- どう解決したか:
+  - LLM課金を生むcronは停止したまま、LLM非使用の支払運用cronだけをVercelに戻した。
+  - `freee-payment-sync` は毎日09:10 JST、`payment-confirm-nudges` は毎日09:30 JSTに実行される。
+  - freee同期が `invalid_client` などで失敗した場合は、active adminにSlackで失敗理由を通知し、その後の入金確認nudgeで手動確認できるようにした。
+- できるようになったこと:
+  - freeeで照合できればadmin回答なしで入金確認済みになる。
+  - freeeが死んでいても失敗がSlackで見え、同日中にadmin確認nudgeが飛ぶ。
+
+#### #16 / #18 請求額確定からPJ予算確定までの根本対策
+
+- まさがお願いしていたこと:
+  - ZMPのように月次モーダルでは金額が見えるのに、payoutsではPJ予算がデータなしになる状態をなくしたい。
+  - PL Slack nudgeには請求額・バッファ・PJ予算を出し、`承認する` / `差し戻す` ボタンを付けたい。
+  - OSモーダルにも承認ボタンが必要。請求額の下の `0` 表示も消したい。
+- どう解決したか:
+  - `/api/admin/budget-approval` を追加し、Slackボタン・OSボタンの承認/差し戻しを同じAPIに集約。
+  - 承認時は `billing_cycles.status='budget_confirmed'`、`budget_yen=請求額×65%−バッファ`、`budget_confirmed_at/by` を同時に保存。
+  - PL Slack nudgeは請求額・バッファ・PJ予算を明記し、`承認する` / `差し戻す` / `OSで確認` の3ボタンにした。
+  - `CockpitRoutineBudgetModal` に承認/差し戻しボタンを追加し、`0 && <InfoRow>` が画面に `0` として出るReact事故を修正。
+- できるようになったこと:
+  - 申告だけで止まらず、承認アクションでSupabase正本の `budget_yen` が確定する。
+  - 次回以降も、月額固定・変動にかかわらず「請求額申告 → PL/admin承認 → PJ予算確定 → payouts反映」の流れになる。
+
+#### #19 社外役員PJの月次ルーティン除外
+
+- まさがお願いしていたこと:
+  - 社外役員PJは月次ルーティン不要なので発生させない。
+- どう解決したか:
+  - `projects.project_category='advisor'` のPJは `CockpitRoutineGas` で月次タスクを出さない。
+  - `/mypage` の通知生成・期限超過による報酬除外判定からもadvisor PJを除外。
+- できるようになったこと:
+  - LST / SE / CLG などの社外役員/顧問PJに、請求額確定や報告書FIXなどの月次ルーティンが発生しない。
+
+#### #20 マイページ「今週やったこと」の受信メール混入防止
+
+- まさがお願いしていたこと:
+  - 受信しただけのメールやメール本文が、そのまま「今週やったこと」に出ないようにしたい。
+- どう解決したか:
+  - Gmail直取得は `SENT` / `DRAFT` のみを活動扱いにし、活動メンバーもメール参加者全員ではなく送信者だけにした。
+  - `source_cache` 経由のGmailも、社内メンバーが送信者のものだけ活動扱いにした。
+  - `/mypage` 表示側でも、古い `source_subkind` 不明のGmail週次行を表示しないガードを追加。
+  - 表示文はメール本文ではなく「メールを送信」「返信ドラフトを作成」「予定に参加/主催」の行動要約に変換。
+- できるようになったこと:
+  - 招集通知や受信メール本文が、まさの「やったこと」として表示されない。
+  - 今週の活動は、本人の送信・下書き・参加/主催予定など、行動として説明できるものだけになる。
+
+#### #2 LLMなしcronの復旧 / freee同期の現状
+
+- まさがお願いしていたこと:
+  - LLMを使わないcronまで止めていたなら想定外なので、止めたものを確認し、あれば復活させたい。
+  - freeeからの入金履歴収集が本当にできる状態か確認したい。
+- 原因:
+  - LLM課金停止のため `vercel.json` を空にしたとき、LLMを使わない `member-weekly-activities` / `papers-quarterly-ingest` / `sync-pj-facts` / `macro-aggregate-indicators` まで一緒にscheduleから外れていた。
+  - `freee-payment-sync` のコード経路はあるが、本番dryRunで `Freee token refresh failed: 401 invalid_client`。freee OAuth credentials / refresh token が無効で、入金履歴取得の手前で落ちている。
+- どう解決したか:
+  - LLMを使わない4本を `pwa/vercel.json` に戻し、`pwa/vercel.disabled-crons.json` からも外した。
+  - `/admin/settings` のOperations台帳でも4本をactive扱いに戻し、LLM系cronだけをdisabledとして残した。
+  - `freee-payment-sync` のdryRun失敗時はSlack失敗通知を飛ばさないようにし、本番確認でadmin DMが増えないようにした。
+- できるようになったこと:
+  - 非LLMのデータ同期/集計cronは本番deploy後に自動実行へ戻る。
+  - freee入金同期は実装済みだが、現時点では認証再設定が終わるまで実データ取得できない、と切り分け済み。
+
+#### #20 OkuDoor共同開発が「今週やったこと」に出ない理由
+
+- まさがお願いしていたこと:
+  - うめ/あびと3人でOkuDoorシステム開発をオンラインで進めた活動が、なぜ検出できていないか知りたい。
+- 原因:
+  - production Supabaseの `projects` に OkuDoor/Oku/Door に一致するPJが存在しない。
+  - `member-weekly-activities` はPJ名・client名・PJ専用メール等でPJに紐づかない予定を捨てていたため、projects未登録の社内開発MTGは保存対象外になっていた。
+  - うめ/あびの `members.google_calendar_status` は `missing` で、OSから直接読めるカレンダーはまさ側に限られる。まさの読めるカレンダー/source_cacheに予定が無い場合は抽出できない。
+- どう解決したか:
+  - 登録PJに一致しない場合でも、社内メンバー2名以上が参加し、開発/実装/MTG/オンライン等の共同作業語がある予定・source_cacheは AMD共通活動 (`p00`) として保存するfallbackを追加した。
+  - このfallbackはGmail/source_cache/Calendarの各抽出経路に入れた。
+- できるようになったこと:
+  - OkuDoorがprojects未登録でも、まさの読めるカレンダーまたはsource_cacheに予定があれば、社内共同開発として「今週やったこと」に出せる。
+  - うめ/あび側のカレンダーだけにある予定は、引き続きGoogle Calendar共有が必要。
+  - deploy後、`2026-05-21 18:00 - 2026-05-22 18:00 JST` のまさ分を再抽出し、`ZeMAシステム設計MTG` (まさ/うめ/あび) を含む3件を `member_activities(source='member_weekly')` に保存済み。
+
+#### #21 マイページ「いまやること」の担当外TODO混入
+
+- まさがお願いしていたこと:
+  - `/mypage` の「いまやること」に、そのユーザーが担当していないTODOまで入っていないか確認したい。
+- 原因:
+  - 旧実装は `project_members.is_active=true` の参加PJすべてに対して月次ルーティンTODOを生成していた。
+  - `is_pm` / `is_pl` を見ておらず、ただ参加しているだけのPJでも請求書発行・報告書FIXなどが出る設計だった。
+- どう解決したか:
+  - `/mypage` のTODO生成を `project_members.is_pm` / `is_pl` で絞るようにした。
+  - PMはそのPJの月次ルーティン全体、PLは請求額確定だけ、PM/PLでない参加メンバーには月次ルーティンTODOを出さない。
+- できるようになったこと:
+  - 「いまやること」は参加PJ一覧ではなく、そのユーザーの担当roleに基づく個人TODOになる。
+
+#### #20 OkuDoor / ZeMA を ZMP に紐づけ
+
+- まさがお願いしていたこと:
+  - OkuDoor と ZMP、ZeMA と ZMP が紐づいていないなら、まずそこを解決したい。
+  - OkuDoorの共同開発が「今週やったこと」に出ない根本原因も、projects未登録ではなくZMP alias未設定なのではないか確認したい。
+- 原因:
+  - production Supabaseの `projects` は ZMP (`p19`) だけが存在し、OkuDoor / ZeMA / 奥ドアは `projects` / `project_ventures` / `project_partners` に紐づいていなかった。
+  - そのため、週次活動抽出は `ZeMAシステム設計MTG` や `OkuDoor` をZMP活動として判定できなかった。
+- どう解決したか:
+  - `project_knowledge` に `category='alias'`, `status='active'`, `project_id='p19'` として `OkuDoor` / `Okudoor` / `奥ドア` / `ZeMA` を登録。
+  - `/api/cron/member-weekly-activities` と `/api/cron/member-activities` が `project_knowledge(category='alias')` をPJ名判定に使うように変更。
+  - 社内共同開発fallbackでも OkuDoor / ZeMA / 奥ドアは AMD共通 (`p00`) ではなく ZMP (`p19`) に寄せるようにした。
+- できるようになったこと:
+  - OkuDoor / ZeMA / 奥ドアが Calendar / Gmail / source_cache / 議事録に出た場合、ZMP (`p19`) の活動として保存される。
+  - 一般の社内共同作業だけは、引き続きAMD共通 (`p00`) に逃がせる。
+
+#### #21 「今週やったこと」を議事録ベースの成果文へ
+
+- まさがお願いしていたこと:
+  - 「予定を主催: SX MTG ファインケム@八重洲」のような予定名ではなく、Notion議事録から実際の進捗を読んでほしい。
+  - SXは「SXのPoCの先候補を新たに獲得できる可能性を上げた」、OkuDoorは「うめあびと3人で開発を行い、LINEとの連携が完了した」のように出したい。
+- 原因:
+  - `project_meeting_summaries` にはSXファインケムMTGのNotion/Gmail要約があったが、`member-weekly-activities` は Calendar / Gmail / source_cache だけを見ていた。
+  - そのため、議事録の `progress` / `decided` ではなくカレンダー題名から「予定を主催/参加」を作っていた。
+- どう解決したか:
+  - `/api/cron/member-weekly-activities` が同期間の `project_meeting_summaries` を読み、calendar event idまたは同日同題名で予定と突合するようにした。
+  - 議事録がある予定は、calendar行を抑制し、`source_kind='meeting_summary'` として成果文を保存する。
+  - SXファインケム / 北陸工場 / PoC / 実証実験の文脈は「SXのPoC先候補を新たに獲得できる可能性を上げた」に変換する。
+  - OkuDoor / ZeMA / LINE / LIFF / 公式アカウントの文脈は「うめ・あびと3人でOkuDoorシステム開発を行い、LINEとの連携が完了した」に変換する。
+  - `/mypage` 側は `meeting_summary` を「議事録」由来として表示し、既存の「予定を主催: 予定を主催: ...」二重prefixも除去する。
+- できるようになったこと:
+  - Notion議事録に進捗があるMTGは、単なる予定参加ではなく、成果ベースで「今週やったこと」に出る。
+  - カレンダー題名だけでは説明できない重要進捗を、Supabaseの `project_meeting_summaries` を経由してMyPageに反映できる。
+
+#### #2 freee入金同期をできる状態まで復旧する作業
+
+- まさがお願いしていたこと:
+  - freeeは「実装経路はあるが認証が401で落ちている」で止めず、入金履歴を取得できる状態まで進めたい。
+- ここまで分かったこと:
+  - local `.env.local` / Supabase `freee_oauth_tokens` のrefresh tokenは同じだが、freee token refreshは `401 invalid_grant`。client credentialsは通っているが、refresh tokenが期限切れ/失効している状態。
+  - Vercel production envは local と異なる `FREEE_CLIENT_ID` / `FREEE_CLIENT_SECRET` / `FREEE_COMPANY_ID` が入り、`FREEE_REFRESH_TOKEN` も未設定だったため、本番は `invalid_client` で落ちていた。
+  - Googleログインはfreee側で「外部連携されていない」と弾かれたため、freee IDログインで新しいOAuth refresh tokenを取得する必要がある。
+  - PWA `freee-client` のrefresh token保存処理が `freee_oauth_tokens.service` でupsertしていたが、DB正本は `token_key` 主キー。存在しない列で保存が失敗し、refresh tokenローテーションが次回に引き継がれない再発バグがあった。
+- どう解決したか:
+  - `freee-client` は `freee_oauth_tokens(token_key='default')` を正として読み書きするように修正。
+  - `FREEE_REFRESH_TOKEN` envが未設定でも、Supabaseに最新refresh tokenがあればそれを使えるようにした。
+  - `company_id` もSupabaseのtoken行を優先し、Vercel envのcompany idが古い場合でもDB正本に寄るようにした。
+  - OAuth取得スクリプトは新tokenを `.env.local` / `.env.production.local` だけでなくSupabaseにも保存し、ログにはrefresh token本体ではなくsha8だけを出すようにした。
+  - Vercel production の `FREEE_CLIENT_ID` / `FREEE_CLIENT_SECRET` / `FREEE_COMPANY_ID` をlocal正本に揃えてredeploy。production dryRunのエラーは `invalid_client` から `invalid_grant` に変わり、client認証のズレは解消済み。
+- 次の作業:
+  - freee保存パスワードの利用確認を得てfreee IDログインし、OAuth authorize callbackから新refresh tokenを取得する。
+  - `.env.local` / `.env.production.local` / Supabase `freee_oauth_tokens` / Vercel production env を同じcredentialセットに揃える。
+  - 本番 `/api/cron/freee-payment-sync?ym=202605&dryRun=1` が token error ではなく freee deal照合結果を返すことを確認する。
+
+#### #20 OkuDoor alias正本と表記修正
+
+- まさがお願いしていたこと:
+  - 「奥ドア」は不要で、代わりに「OkuDoor」を使う。
+  - 各PJのaliasがどこを正本として参照しているか、`project_knowledge(category='alias')` と `CFG_Alias` / `CFG_PJAlias` の関係を知りたい。
+- 原因:
+  - 既存設計ではPJ alias正本は外部スプシ `CFG_PJAlias`。GASの `CalendarToNotionMinutes.js` / `159_PJAliasDebug.js` と設計ログにも「コード内alias禁止、CFG_PJAliasが唯一正本」と書かれている。
+  - ただしPWAの週次活動抽出では、Supabaseだけでruntime判定するために、臨時で `project_knowledge(category='alias')` を読ませていた。
+  - その臨時aliasに `奥ドア` をactive登録してしまっており、正本ルールとも表記方針ともズレていた。
+- どう解決したか:
+  - production Supabaseのp19 aliasで `奥ドア` を `status='rejected'` に変更し、active aliasは `OkuDoor` / `Okudoor` / `ZeMA` に限定。
+  - コード内の `奥ドア` hardcodeを削除。
+  - `pwa/design/mypage.md` / `HANDOFF_pwa_rebuild.md` に、alias正本は `CFG_PJAlias`、`project_knowledge(category='alias')` はPWA runtime用の暫定ミラーで正本ではない、と明記。
+- できるようになったこと:
+  - UI/抽出では `OkuDoor` 表記に寄る。
+  - `project_knowledge(category='alias')` を正本と誤解せず、今後は `CFG_PJAlias` からSupabase runtime mirrorへ同期する設計に寄せられる。
+
+#### #21 「今週やったこと」を生データ統合抽出へ修正
+
+- まさがお願いしていたこと:
+  - 議事録を優先する、カレンダーより議事録を優先する、という低い設計ではなく、すべての生データと複数生データのつながりから「実務として何をこなしたか」のシグナルを取ってほしい。
+  - 以前出した `SXのPoC先候補...` / `OkuDoorシステム開発...` の2文が本当にLLM抽出なのか、手作業なのか知りたい。
+- 原因:
+  - 以前の修正は `project_meeting_summaries` がある予定でcalendar行を抑制し、議事録由来の成果文に置き換える設計だった。
+  - しかも2文はLLMの一発抽出ではなく、SXは議事録要約からのルール変換、OkuDoorはNotion確認後に不足していた `project_meeting_summaries` 行を手で補ったものだった。
+- どう解決したか:
+  - `/api/cron/member-weekly-activities` で Calendar / Gmail / source_cache / `project_meeting_summaries` を `projectId + memberId + event/thread/title` 単位に束ねる `source_fusion` に変更。
+  - Calendarのdescription/TODOも根拠として扱い、議事録だけを優先しないpromptに変更。
+  - Anthropicが使える環境ではgroupごとに実務成果文を生成し、使えない/失敗した場合だけfallback要約を保存する。
+  - 保存時の `raw_metadata` に `source_kind='source_fusion'`, `source_kinds`, `evidence_refs`, `synthesis_method`, `synthesis_confidence` を残し、後からどの生データをつないだか追えるようにした。
+- できるようになったこと:
+  - 「予定を主催」ではなく、カレンダーTODO・議事録・メール・source_cacheを束ねた活動単位で「実務として何を進めたか」を表示できる。
+  - 手補正で作った2文に依存せず、次回以降も同じ構造で抽出できる。
+
+#### #2 freee入金同期を口座明細まで拡張
+
+- まさがお願いしていたこと:
+  - freeeのパスワード入力後に「存在しないアプリケーション」エラーが出たので、入金履歴取得をできる状態まで進めたい。
+  - SXは実際には入金済みなので、freeeから自動確認できるようにしたい。
+- 原因:
+  - freeeアプリ `AMD_OS連携` 自体は存在していた。エラー原因は、freee側のコールバックURLが `urn:ietf:wg:oauth:2.0:oob` なのに、取得スクリプトがローカルHTTP callbackをデフォルトで使っていたこと。
+  - さらに既存同期はfreee会計の収入取引 (`/api/1/deals`) だけを見ていた。SXの5月入金はfreeeの「取引」ではなく、取引登録前の銀行口座明細 (`/api/1/wallet_txns`) に `2026-05-11 / 2,992,000円 / 振込 ダイ）エヒメダイガク` として存在していた。
+- どう解決したか:
+  - OAuth取得スクリプトのデフォルトredirectをfreeeアプリ設定に合わせて `urn:ietf:wg:oauth:2.0:oob` に変更。ローカルcallbackを使う場合だけ `--local-callback` を指定する。
+  - まさの認可コードから新refresh tokenを取得し、`.env.local` / `.env.production.local` / Supabase `freee_oauth_tokens(token_key='default')` に保存。
+  - refresh tokenは使用時にローテーションされるため、疎通確認でも返却された新tokenを必ずSupabaseへ保存する運用に修正。
+  - `/api/cron/freee-payment-sync` が `wallet_txns(entry_side=income)` も読み、金額またはPJ別 `project_knowledge(category='payment_alias')` で照合するように変更。
+  - SX (`p21`) には `payment_alias='エヒメダイガク'` を登録し、愛媛大学の銀行明細摘要をSX入金として照合できるようにした。
+- できるようになったこと:
+  - freee API認証は `invalid_client` / `invalid_grant` ではなく正常に通る。
+  - freee取引登録前でも、銀行明細に入金があればOSの入金確認に使える。
+  - adminがSlack nudgeに回答し忘れても、freee口座明細から明確に一致する入金は自動で `billing_cycles.payment_confirmed_at` へ反映できる。
+
+#### #21 OkuDoor週次活動を参加者全員のマイページへ反映
+
+- まさがお願いしていたこと:
+  - OkuDoorシステム開発の件が、うめ・あびの2名のマイページにも掲載される仕組みになっているか確認したい。
+- 原因:
+  - 週次活動cronが、Calendar接続済みメンバーだけを `buildMemberMatcher` に渡していた。
+  - そのため、まさの共有カレンダーや議事録にうめ・あびの参加者emailが入っていても、うめ・あび本人の `member_activities(source='member_weekly')` 行は作られていなかった。
+- どう解決したか:
+  - `/api/cron/member-weekly-activities` で「読むカレンダー」と「保存対象メンバー」を分離。
+  - 読むカレンダーは `google_calendar_status='connected'` のメンバーだけにしつつ、保存対象はactiveな人間メンバー全員に変更。
+  - `/api/mypage/weekly-activities/refresh` も本人カレンダー未接続を即エラーにせず、他メンバー共有カレンダー/議事録/source_cacheに参加者として出る活動は抽出できるようにした。
+- できるようになったこと:
+  - OkuDoorのように共有カレンダー・議事録に複数AMDメンバーが参加者として出ている活動は、参加者全員のマイページに保存・表示できる。
+
+#### #22 コードネームをメンバーマイページリンク化
+
+- まさがお願いしていたこと:
+  - OS全体で、文章中に各メンバーのコードネームが出るとき、そのメンバーのマイページへ飛ぶリンクを付けたい。
+- どう解決したか:
+  - `LinkedMemberText` 共通UIを追加し、activeメンバーの `code_name` を文章中で検出して `/mypage?memberId=<member_id>` にリンクするようにした。
+  - `/mypage` はadmin閲覧時のみ `memberId` queryで他メンバーのページを表示できるようにした。
+  - まずマイページの週次活動/今月の活動/進捗文、通知画面の見出し/詳細/フィードバック、ナビ右上のコードネームに適用した。
+- できるようになったこと:
+  - 文章中の「まさ」「うめ」「あび」などが青字リンクになり、クリックで対象メンバーのマイページへ移動できる。

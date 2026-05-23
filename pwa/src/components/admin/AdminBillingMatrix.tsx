@@ -263,7 +263,7 @@ function makeBillingUpdate(
       break;
     }
     case "budget":
-      body.status = newStatus === "done" ? "allocation_confirmed" : "not_started";
+      body.status = newStatus === "done" ? "budget_confirmed" : "not_started";
       body.budget_confirmed_at = newStatus === "done" ? now : null;
       body.budget_confirmed_by = newStatus === "done" ? byEmail : null;
       localPatch.status = body.status as string;
@@ -557,7 +557,7 @@ function BillingCycleDetailDialog({
           break;
         }
         case "budget":
-          body.status = newStatus === "done" ? "allocation_confirmed" : "not_started";
+          body.status = newStatus === "done" ? "budget_confirmed" : "not_started";
           body.budget_confirmed_at = newStatus === "done" ? now : null;
           body.budget_confirmed_by = newStatus === "done" ? byEmail : null;
           localPatch.status = body.status as string;

@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
 import { getGoogleAuthAsync } from "@/lib/sources/google";
+import Anthropic from "@anthropic-ai/sdk";
 
 export const runtime = "nodejs";
 
@@ -30,11 +31,12 @@ type ProjectRow = {
   report_emails: string | null;
   status: string | null;
   project_category?: string | null;
+  aliases?: string[];
 };
 
 type Evidence = {
   evidenceId: string;
-  sourceKind: "gmail" | "calendar" | "source_cache";
+  sourceKind: "gmail" | "calendar" | "source_cache" | "meeting_summary";
   sourceSubkind?: string;
   title: string;
   snippet: string;
@@ -44,6 +46,22 @@ type Evidence = {
   projectIds: string[];
   memberIds: string[];
   raw?: Record<string, unknown>;
+};
+
+type ActivityGroup = {
+  groupId: string;
+  memberId: string;
+  projectId: string;
+  itemDate: string;
+  evidence: Evidence[];
+};
+
+type SynthesizedActivity = {
+  groupId: string;
+  title: string;
+  contentPreview: string;
+  confidence: number | null;
+  method: "llm" | "fallback";
 };
 
 type ReadableCalendar = {
@@ -56,6 +74,23 @@ type CalendarAccess = {
   calendars: ReadableCalendar[];
   readableMemberEmails: string[];
   missingMemberEmails: string[];
+};
+
+type MeetingSummaryRow = {
+  meeting_id: string | null;
+  project_id: string | null;
+  ym: string | null;
+  meeting_date: string | null;
+  meeting_start_at: string | null;
+  title: string | null;
+  summary_short: string | null;
+  decided: unknown;
+  progress: unknown;
+  next_actions: unknown;
+  notion_url: string | null;
+  notion_page_id: string | null;
+  source_url: string | null;
+  calendar_event_id: string | null;
 };
 
 const SOURCE = "member_weekly";
@@ -77,6 +112,48 @@ function pad2(n: number) {
 function dateKeyJST(date: Date) {
   const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
   return `${jst.getUTCFullYear()}-${pad2(jst.getUTCMonth() + 1)}-${pad2(jst.getUTCDate())}`;
+}
+
+function dateTimeFromMeetingSummary(row: Pick<MeetingSummaryRow, "meeting_start_at" | "meeting_date" | "title">) {
+  if (row.meeting_start_at) {
+    const date = new Date(row.meeting_start_at);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  const dateKey = row.meeting_date && /^\d{4}-\d{2}-\d{2}$/.test(row.meeting_date) ? row.meeting_date : null;
+  if (!dateKey) return null;
+  const titleTime = String(row.title || "").match(/(?:^|\s)([01]?\d|2[0-3]):([0-5]\d)(?:\s|$)/);
+  const hour = titleTime ? Number(titleTime[1]) : 12;
+  const minute = titleTime ? Number(titleTime[2]) : 0;
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, hour, minute, 0) - 9 * 60 * 60 * 1000);
+}
+
+function normalizedKey(value: string) {
+  return cleanText(value, 240)
+    .toLowerCase()
+    .replace(/[（）()[\]【】「」『』"'`]/g, " ")
+    .replace(/\d{4}[/-]\d{1,2}[/-]\d{1,2}/g, " ")
+    .replace(/(?:^|\s)([01]?\d|2[0-3]):([0-5]\d)(?:\s|$)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map((item) => cleanText(item, 240)).filter(Boolean)
+    : [];
+}
+
+function meetingEvidenceText(row: MeetingSummaryRow) {
+  const progress = stringList(row.progress);
+  const decided = stringList(row.decided);
+  const next = stringList(row.next_actions);
+  return [
+    row.summary_short ? `要約: ${row.summary_short}` : "",
+    progress.length ? `進捗: ${progress.join(" / ")}` : "",
+    decided.length ? `決定: ${decided.join(" / ")}` : "",
+    next.length ? `次アクション: ${next.join(" / ")}` : "",
+  ].filter(Boolean).join("\n");
 }
 
 function dateTimeKeyJST(date: Date) {
@@ -149,6 +226,7 @@ function canonicalTokens(project: ProjectRow) {
     project.project_name,
     project.client_name || "",
     project.project_name.replace(/[株式会社合同会社大学]/g, ""),
+    ...(project.aliases || []),
   ]
     .map((s) => cleanText(s, 80).toLowerCase())
     .filter((s) => s.length >= 2);
@@ -215,6 +293,212 @@ function shouldSkipEmailLike(input: { from?: string; subject?: string; snippet?:
     /security vulnerabilit|invoice|請求書|パスワード通知|password notification|system generated|unattended email/.test(text);
 }
 
+function labelsFromMeta(meta: Record<string, unknown>): string[] {
+  const raw = Array.isArray(meta.labels) ? meta.labels : Array.isArray(meta.labelIds) ? meta.labelIds : [];
+  return raw.map((label) => String(label || "").toLowerCase());
+}
+
+function isActionableEmailMeta(meta: Record<string, unknown>, internalEmails: Set<string>) {
+  const labels = labelsFromMeta(meta);
+  if (labels.some((label) => label === "sent" || label === "draft")) return true;
+  const fromEmails = extractEmails(meta.from, meta.sender);
+  return fromEmails.some((email) => internalEmails.has(email));
+}
+
+function isInternalEmail(email: string) {
+  return email.toLowerCase().endsWith("@team-armada.jp");
+}
+
+function internalCollaborationFallbackProjectId(input: { text: string; emails: string[] }) {
+  const internalCount = new Set(input.emails.filter(isInternalEmail)).size;
+  if (internalCount < 2) return null;
+  const text = input.text.toLowerCase();
+  if (/okudoor|oku\s*door|zema/.test(text)) return "p19";
+  if (/okudoor|oku\s*door|システム|開発|実装|作業|レビュー|打ち合わせ|mtg|meeting|相談|オンライン/.test(text)) {
+    return "p00";
+  }
+  return null;
+}
+
+function stripSubject(value: string) {
+  return cleanText(
+    value
+      .replace(/^(メール|予定|gmail|calendar):\s*/i, "")
+      .replace(/^(予定を主催|予定に参加|メールを送信|返信ドラフトを作成):\s*/i, "")
+      .replace(/^Re:\s*/i, ""),
+    140
+  );
+}
+
+function actionPreview(item: Evidence) {
+  const title = stripSubject(item.title || "活動");
+  if (item.sourceKind === "gmail") {
+    return item.sourceSubkind === "draft"
+      ? `返信ドラフトを作成: ${title}`
+      : `メールを送信: ${title}`;
+  }
+  if (item.sourceKind === "calendar") {
+    return item.sourceSubkind === "organizer"
+      ? `予定を主催: ${title}`
+      : `予定に参加: ${title}`;
+  }
+  if (item.sourceKind === "meeting_summary") return title;
+  if ((item.sourceSubkind || "").startsWith("gmail")) return `メール対応: ${title}`;
+  return `${item.sourceSubkind || item.sourceKind}: ${title}`;
+}
+
+function clampConfidence(value: unknown) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(1, n));
+}
+
+function sourceAnchor(item: Evidence) {
+  const raw = item.raw || {};
+  const eventId =
+    typeof raw.calendar_event_id === "string" ? raw.calendar_event_id :
+    typeof raw.event_id === "string" ? raw.event_id :
+    typeof raw.meeting_id === "string" ? raw.meeting_id :
+    "";
+  if (eventId) return `event:${eventId}`;
+  const threadId = typeof raw.thread_id === "string" ? raw.thread_id : "";
+  if (threadId) return `thread:${threadId}`;
+  return `title:${dateKeyJST(new Date(item.itemDate))}:${normalizedKey(item.title)}`;
+}
+
+function groupEvidence(evidence: Evidence[], memberIdFilter?: string | null, projectIdFilter?: string | null) {
+  const map = new Map<string, ActivityGroup>();
+  for (const item of evidence) {
+    for (const projectId of item.projectIds) {
+      if (projectIdFilter && projectId !== projectIdFilter) continue;
+      for (const memberId of item.memberIds) {
+        if (memberIdFilter && memberId !== memberIdFilter) continue;
+        const groupId = `${projectId}:${memberId}:${sourceAnchor(item)}`;
+        const existing = map.get(groupId);
+        if (existing) {
+          existing.evidence.push(item);
+          if (new Date(item.itemDate) < new Date(existing.itemDate)) existing.itemDate = item.itemDate;
+        } else {
+          map.set(groupId, { groupId, memberId, projectId, itemDate: item.itemDate, evidence: [item] });
+        }
+      }
+    }
+  }
+  return [...map.values()].sort((a, b) => a.itemDate.localeCompare(b.itemDate));
+}
+
+function evidenceForPrompt(item: Evidence) {
+  return {
+    sourceKind: item.sourceKind,
+    sourceSubkind: item.sourceSubkind || null,
+    title: stripSubject(item.title),
+    snippet: cleanText(item.snippet, 900),
+    itemDate: item.itemDate,
+    participantEmails: item.participantEmails.slice(0, 12),
+    sourceUrl: item.sourceUrl || null,
+    raw: {
+      event_id: item.raw?.event_id || null,
+      calendar_event_id: item.raw?.calendar_event_id || null,
+      meeting_id: item.raw?.meeting_id || null,
+      thread_id: item.raw?.thread_id || null,
+    },
+  };
+}
+
+function fallbackSynthesis(group: ActivityGroup): SynthesizedActivity {
+  const best = group.evidence.find((item) => item.sourceKind === "meeting_summary") || group.evidence[0];
+  const sourceText = cleanText(best.snippet, 220);
+  const preview = sourceText || actionPreview(best);
+  const title = sourceText
+    ? sourceText.replace(/^(要約|進捗|決定|次アクション):\s*/, "").slice(0, 120)
+    : actionPreview(best).slice(0, 120);
+  return {
+    groupId: group.groupId,
+    title: title || actionPreview(best).slice(0, 120),
+    contentPreview: preview,
+    confidence: null,
+    method: "fallback",
+  };
+}
+
+function cleanActivityTitle(value: string, fallback: string) {
+  const cleaned = cleanText(value || fallback, 160)
+    .replace(/^(予定を主催|予定に参加):\s*/i, "")
+    .replace(/^主催した[:：]?\s*/i, "")
+    .trim();
+  return (cleaned || fallback).slice(0, 120);
+}
+
+async function synthesizeActivityGroups(groups: ActivityGroup[]): Promise<Map<string, SynthesizedActivity>> {
+  const result = new Map<string, SynthesizedActivity>();
+  groups.forEach((group) => result.set(group.groupId, fallbackSynthesis(group)));
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || groups.length === 0) return result;
+
+  const anthropic = new Anthropic({ apiKey });
+  const model = process.env.MEMBER_WEEKLY_ACTIVITY_MODEL || "claude-sonnet-4-6";
+  const groupsForPrompt = groups.slice(0, Number(process.env.MEMBER_WEEKLY_ACTIVITY_MAX_GROUPS || 40));
+  const payload = groupsForPrompt.map((group) => ({
+    groupId: group.groupId,
+    projectId: group.projectId,
+    memberId: group.memberId,
+    itemDate: group.itemDate,
+    evidence: group.evidence.map(evidenceForPrompt),
+  }));
+
+  const system =
+    "あなたはAMD OSの週次活動抽出器。Calendar/Gmail/source_cache/議事録を上下関係なく根拠として読み、" +
+    "そのメンバーが実務として何を進めたかを短い日本語で書く。カレンダーのタイトルだけ、議事録だけ、メールだけに飛びつかず、" +
+    "複数ソースが同じ活動を指すなら統合して成果・前進・作業内容を優先する。単に「予定を主催」「予定に参加」とは書かない。";
+  const user =
+    "次の evidence group ごとに、member_activities に保存する活動文をJSONで返して。\n" +
+    "制約:\n" +
+    "- title は40字前後、最大80字。実務の内容を書く。\n" +
+    "- contentPreview は根拠を含む1文、最大180字。\n" +
+    "- 根拠にないことは断定しない。推測が必要なら弱い表現にする。\n" +
+    "- Calendarのdescription/TODOも有効な根拠。Notion議事録だけを優先しない。\n" +
+    "- 出力は {\"activities\":[{\"groupId\":\"...\",\"title\":\"...\",\"contentPreview\":\"...\",\"confidence\":0.0-1.0}]} のみ。\n\n" +
+    JSON.stringify({ groups: payload }, null, 2);
+
+  try {
+    const response = await anthropic.messages.create({
+      model,
+      max_tokens: 4096,
+      system,
+      messages: [{ role: "user", content: user }],
+    });
+    const text = response.content
+      .map((part) => part.type === "text" ? part.text : "")
+      .join("\n")
+      .trim()
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+    const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || text);
+    const activities = Array.isArray(parsed.activities) ? parsed.activities : [];
+    for (const activity of activities as Array<Record<string, unknown>>) {
+      const groupId = String(activity.groupId || "");
+      const fallback = result.get(groupId);
+      if (!groupId || !fallback) continue;
+      const title = cleanActivityTitle(String(activity.title || ""), fallback.title);
+      const contentPreview = cleanText(activity.contentPreview || title, 220);
+      result.set(groupId, {
+        groupId,
+        title,
+        contentPreview,
+        confidence: clampConfidence(activity.confidence),
+        method: "llm",
+      });
+    }
+  } catch (error) {
+    console.warn("[member-weekly-activities] activity fusion LLM skipped:", error);
+  }
+
+  return result;
+}
+
 function requiresCalendarLogin(member: MemberRow) {
   const email = member.email?.trim().toLowerCase() || "";
   const codeName = member.code_name || "";
@@ -223,11 +507,16 @@ function requiresCalendarLogin(member: MemberRow) {
   return true;
 }
 
+function isWeeklyActivityTarget(member: MemberRow) {
+  return requiresCalendarLogin(member);
+}
+
 async function fetchSourceCacheEvidence(
   supabase: SupabaseClient,
   bounds: ReturnType<typeof activityWindowBoundsJST>,
   matchProject: ReturnType<typeof buildProjectMatcher>,
-  matchMembers: ReturnType<typeof buildMemberMatcher>
+  matchMembers: ReturnType<typeof buildMemberMatcher>,
+  internalEmails: Set<string>
 ): Promise<Evidence[]> {
   const { data, error } = await supabase
     .from("source_cache")
@@ -247,17 +536,26 @@ async function fetchSourceCacheEvidence(
       const title = cleanText(row.title || "(no title)", 160);
       const snippet = cleanText(row.content_text || meta.snippet || meta.text_preview || "", 700);
       const emails = extractEmails(meta, row.content_text);
+      const source = String(row.source || "");
+      if ((source === "gmail" || source === "gmail_message") && !isActionableEmailMeta(meta, internalEmails)) return null;
+      const actorEmails = source === "gmail" || source === "gmail_message"
+        ? extractEmails(meta.from, meta.sender)
+        : emails;
       if (shouldSkipEmailLike({
         from: typeof meta.from === "string" ? meta.from : "",
         subject: title,
         snippet,
       })) return null;
-      const projectIds = matchProject({
+      let projectIds = matchProject({
         text: `${title}\n${snippet}\n${JSON.stringify(meta)}`,
         emails,
         fallbackProjectId: typeof row.project_id === "string" ? row.project_id : null,
       });
-      const memberIds = matchMembers(emails);
+      if (projectIds.length === 0) {
+        const fallbackProjectId = internalCollaborationFallbackProjectId({ text: `${title}\n${snippet}`, emails });
+        if (fallbackProjectId) projectIds = [fallbackProjectId];
+      }
+      const memberIds = matchMembers(actorEmails);
       if (!row.item_date || projectIds.length === 0 || memberIds.length === 0) return null;
       return {
         evidenceId: `${row.source}:${row.item_id}`,
@@ -317,8 +615,12 @@ async function fetchGmailEvidence(
     const emails = extractEmails(from, to, cc);
     const snippet = cleanText(msg.data.snippet || "", 700);
     if (shouldSkipEmailLike({ from, subject, snippet })) continue;
-    const projectIds = matchProject({ text: `${subject}\n${snippet}`, emails });
-    const memberIds = matchMembers(emails);
+    let projectIds = matchProject({ text: `${subject}\n${snippet}`, emails });
+    if (projectIds.length === 0) {
+      const fallbackProjectId = internalCollaborationFallbackProjectId({ text: `${subject}\n${snippet}`, emails });
+      if (fallbackProjectId) projectIds = [fallbackProjectId];
+    }
+    const memberIds = matchMembers(extractEmails(from));
     if (projectIds.length === 0 || memberIds.length === 0) continue;
     const itemDate = messageDate(msg.data, bounds.start);
     if (itemDate < bounds.start || itemDate >= bounds.end) continue;
@@ -387,7 +689,11 @@ async function fetchCalendarEvidence(
         event.attendees?.map((a) => a.email).join(" "),
         calendar.ownerEmail || ""
       );
-      const projectIds = matchProject({ text: `${title}\n${snippet}`, emails });
+      let projectIds = matchProject({ text: `${title}\n${snippet}`, emails });
+      if (projectIds.length === 0) {
+        const fallbackProjectId = internalCollaborationFallbackProjectId({ text: `${title}\n${snippet}`, emails });
+        if (fallbackProjectId) projectIds = [fallbackProjectId];
+      }
       const memberIds = matchMembers(emails);
       const itemDate = event.start?.dateTime || event.start?.date || null;
       if (!event.id || !itemDate || projectIds.length === 0 || memberIds.length === 0) continue;
@@ -405,6 +711,76 @@ async function fetchCalendarEvidence(
         raw: { event_id: event.id, calendar_id: calendar.calendarId, html_link: event.htmlLink || null, response_status: selfAttendee?.responseStatus || null },
       });
     }
+  }
+  return rows;
+}
+
+async function fetchMeetingSummaryEvidence(
+  supabase: SupabaseClient,
+  bounds: ReturnType<typeof activityWindowBoundsJST>,
+  matchProject: ReturnType<typeof buildProjectMatcher>,
+  calendarEvidence: Evidence[]
+): Promise<Evidence[]> {
+  const startDate = dateKeyJST(bounds.start);
+  const endDate = dateKeyJST(bounds.end);
+  const { data, error } = await supabase
+    .from("project_meeting_summaries")
+    .select("meeting_id, project_id, ym, meeting_date, meeting_start_at, title, summary_short, decided, progress, next_actions, notion_url, notion_page_id, source_url, calendar_event_id")
+    .gte("meeting_date", startDate)
+    .lte("meeting_date", endDate)
+    .order("meeting_date", { ascending: true })
+    .limit(120);
+  if (error) throw error;
+
+  const calendarByEventId = new Map<string, Evidence>();
+  const calendarByTitleDate = new Map<string, Evidence>();
+  for (const item of calendarEvidence) {
+    const eventId = typeof item.raw?.event_id === "string" ? item.raw.event_id : "";
+    if (eventId) calendarByEventId.set(eventId, item);
+    calendarByTitleDate.set(`${dateKeyJST(new Date(item.itemDate))}:${normalizedKey(item.title)}`, item);
+  }
+
+  const rows: Evidence[] = [];
+  for (const row of (data ?? []) as MeetingSummaryRow[]) {
+    const itemDate = dateTimeFromMeetingSummary(row);
+    if (!itemDate || itemDate < bounds.start || itemDate >= bounds.end) continue;
+    const title = cleanText(row.title || "議事録", 160);
+    const calendarHit =
+      (row.calendar_event_id ? calendarByEventId.get(row.calendar_event_id) : null) ||
+      calendarByTitleDate.get(`${dateKeyJST(itemDate)}:${normalizedKey(title)}`);
+    if (!calendarHit || calendarHit.memberIds.length === 0) continue;
+
+    let projectIds = row.project_id ? [row.project_id] : [];
+    if (projectIds.length === 0) {
+      projectIds = matchProject({
+        text: `${title}\n${row.summary_short || ""}\n${stringList(row.progress).join("\n")}\n${stringList(row.decided).join("\n")}`,
+        emails: calendarHit.participantEmails,
+      });
+    }
+    if (projectIds.length === 0) continue;
+    const primaryProjectId = projectIds[0];
+    const meetingText = meetingEvidenceText(row);
+    rows.push({
+      evidenceId: `meeting_summary:${row.meeting_id || row.notion_page_id || `${primaryProjectId}:${itemDate.toISOString()}`}`,
+      sourceKind: "meeting_summary",
+      sourceSubkind: "notion",
+      title,
+      snippet: cleanText(meetingText || row.summary_short || "", 1200),
+      itemDate: itemDate.toISOString(),
+      sourceUrl: row.notion_url || row.source_url || calendarHit.sourceUrl || null,
+      participantEmails: calendarHit.participantEmails,
+      projectIds,
+      memberIds: calendarHit.memberIds,
+      raw: {
+        meeting_id: row.meeting_id,
+        notion_page_id: row.notion_page_id,
+        calendar_event_id: row.calendar_event_id || null,
+        summary_short: row.summary_short || "",
+        progress: stringList(row.progress),
+        decided: stringList(row.decided),
+        next_actions: stringList(row.next_actions),
+      },
+    });
   }
   return rows;
 }
@@ -469,48 +845,62 @@ function dedupeEvidence(items: Evidence[]) {
   return [...map.values()];
 }
 
-function buildActivityRows(evidence: Evidence[], windowKey: string, memberIdFilter?: string | null, projectIdFilter?: string | null) {
+function removeCalendarRowsCoveredByMeetings(calendar: Evidence[], meetings: Evidence[]) {
+  const coveredEventIds = new Set(
+    meetings
+      .map((item) => typeof item.raw?.calendar_event_id === "string" ? item.raw.calendar_event_id : "")
+      .filter(Boolean)
+  );
+  return calendar.filter((item) => {
+    const eventId = typeof item.raw?.event_id === "string" ? item.raw.event_id : "";
+    return !eventId || !coveredEventIds.has(eventId);
+  });
+}
+
+async function buildActivityRows(evidence: Evidence[], windowKey: string, memberIdFilter?: string | null, projectIdFilter?: string | null) {
+  const groups = groupEvidence(evidence, memberIdFilter, projectIdFilter);
+  const synthesized = await synthesizeActivityGroups(groups);
   const rows = [];
-  for (const item of evidence) {
-    for (const projectId of item.projectIds) {
-      if (projectIdFilter && projectId !== projectIdFilter) continue;
-      for (const memberId of item.memberIds) {
-        if (memberIdFilter && memberId !== memberIdFilter) continue;
-        const sourceItemId = `${windowKey}:${createHash("sha1")
-          .update(`${item.evidenceId}:${projectId}:${memberId}`)
-          .digest("hex")
-          .slice(0, 20)}`;
-        const kindLabel = item.sourceKind === "calendar"
-          ? "予定"
-          : item.sourceKind === "gmail"
-            ? "メール"
-            : item.sourceSubkind || "source";
-        rows.push({
-          member_id: memberId,
-          project_id: projectId,
-          ym: ymFromIsoJST(item.itemDate),
-          source: SOURCE,
-          source_item_id: sourceItemId,
-          title: `${kindLabel}: ${item.title}`.slice(0, 120),
-          content_preview: item.snippet || `${kindLabel}から検出した今週の活動`,
-          item_date: item.itemDate,
-          initiative_origin: "unknown",
-          impact: null,
-          depth: null,
-          raw_metadata: {
-            weekly_activity: true,
-            window_key: windowKey,
-            evidence_id: item.evidenceId,
-            source_kind: item.sourceKind,
-            source_subkind: item.sourceSubkind || null,
-            source_url: item.sourceUrl || null,
-            participant_emails: item.participantEmails,
-          },
-        });
-      }
-    }
+  for (const group of groups) {
+    const activity = synthesized.get(group.groupId) || fallbackSynthesis(group);
+    const sourceItemId = `${windowKey}:${createHash("sha1")
+      .update(group.groupId)
+      .digest("hex")
+      .slice(0, 20)}`;
+    const sourceKinds = [...new Set(group.evidence.map((item) => item.sourceKind))];
+    const sourceUrls = group.evidence.map((item) => item.sourceUrl).filter(Boolean);
+    rows.push({
+      member_id: group.memberId,
+      project_id: group.projectId,
+      ym: ymFromIsoJST(group.itemDate),
+      source: SOURCE,
+      source_item_id: sourceItemId,
+      title: activity.title.slice(0, 120),
+      content_preview: activity.contentPreview || activity.title,
+      item_date: group.itemDate,
+      initiative_origin: "unknown",
+      impact: null,
+      depth: null,
+      raw_metadata: {
+        weekly_activity: true,
+        window_key: windowKey,
+        source_kind: "source_fusion",
+        source_kinds: sourceKinds,
+        synthesis_method: activity.method,
+        synthesis_confidence: activity.confidence,
+        source_url: sourceUrls[0] || null,
+        evidence_refs: group.evidence.map((item) => ({
+          evidence_id: item.evidenceId,
+          source_kind: item.sourceKind,
+          source_subkind: item.sourceSubkind || null,
+          title: item.title,
+          source_url: item.sourceUrl || null,
+        })),
+        participant_emails: [...new Set(group.evidence.flatMap((item) => item.participantEmails))],
+      },
+    });
   }
-  return rows;
+  return { rows, groups };
 }
 
 async function deleteExistingWeeklyRows(
@@ -548,7 +938,7 @@ export async function GET(req: NextRequest) {
     const projectId = req.nextUrl.searchParams.get("projectId");
     const maxMessages = Number(req.nextUrl.searchParams.get("maxMessages") || 120);
 
-    const [membersRes, memberEmailsRes, projectsRes] = await Promise.all([
+    const [membersRes, memberEmailsRes, projectsRes, aliasesRes] = await Promise.all([
       supabase
         .from("members")
         .select("member_id, code_name, email, status, google_calendar_status")
@@ -561,13 +951,29 @@ export async function GET(req: NextRequest) {
         .from("projects")
         .select("project_id, project_name, client_name, report_emails, status, project_category")
         .or("status.eq.active,project_category.eq.advisor"),
+      supabase
+        .from("project_knowledge")
+        .select("project_id, entity_name, fact_text")
+        .eq("category", "alias")
+        .eq("status", "active"),
     ]);
     if (membersRes.error) throw membersRes.error;
     if (memberEmailsRes.error) throw memberEmailsRes.error;
     if (projectsRes.error) throw projectsRes.error;
+    if (aliasesRes.error) throw aliasesRes.error;
 
     const members = (membersRes.data ?? []) as MemberRow[];
-    const projects = (projectsRes.data ?? []) as ProjectRow[];
+    const aliasesByProject = new Map<string, string[]>();
+    for (const alias of aliasesRes.data ?? []) {
+      const projectId = String(alias.project_id || "");
+      const values = [alias.entity_name, alias.fact_text].map((v) => cleanText(v, 80)).filter(Boolean);
+      if (!projectId || values.length === 0) continue;
+      aliasesByProject.set(projectId, [...(aliasesByProject.get(projectId) || []), ...values]);
+    }
+    const projects = ((projectsRes.data ?? []) as ProjectRow[]).map((project) => ({
+      ...project,
+      aliases: aliasesByProject.get(project.project_id) || [],
+    }));
     const pendingCalendarLogin = members
       .filter((member) => requiresCalendarLogin(member) && member.google_calendar_status !== "connected")
       .map((member) => ({
@@ -576,26 +982,28 @@ export async function GET(req: NextRequest) {
         email: member.email,
         calendarStatus: member.google_calendar_status || "missing",
       }));
-    const eligibleMembers = members
-      .filter((member) => requiresCalendarLogin(member))
-      .filter((member) => member.google_calendar_status === "connected")
+    const targetMembers = members
+      .filter((member) => isWeeklyActivityTarget(member))
       .filter((member) => !memberId || member.member_id === memberId);
+    const calendarSourceMembers = members
+      .filter((member) => requiresCalendarLogin(member))
+      .filter((member) => member.google_calendar_status === "connected");
     const internalEmails = new Set(
       (memberEmailsRes.data ?? [])
         .map((row) => String(row.email || "").trim().toLowerCase())
         .filter((email): email is string => !!email)
     );
     const matchProject = buildProjectMatcher(projects, internalEmails);
-    const matchMembers = buildMemberMatcher(eligibleMembers);
+    const matchMembers = buildMemberMatcher(targetMembers);
     const requiredCalendarEmails = new Set(
-      eligibleMembers
+      calendarSourceMembers
         .map((member) => member.email?.trim().toLowerCase())
         .filter((email): email is string => !!email)
     );
     const calendarAccess = await resolveReadableMemberCalendars(requiredCalendarEmails);
 
     const [sourceCache, gmail, calendar] = await Promise.all([
-      fetchSourceCacheEvidence(supabase, bounds, matchProject, matchMembers),
+      fetchSourceCacheEvidence(supabase, bounds, matchProject, matchMembers, internalEmails),
       fetchGmailEvidence(bounds, matchProject, matchMembers, maxMessages).catch((error) => {
         console.warn("[member-weekly-activities] gmail skipped:", error);
         return [] as Evidence[];
@@ -606,8 +1014,14 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    const evidence = dedupeEvidence([...sourceCache, ...gmail, ...calendar]);
-    const rows = buildActivityRows(evidence, bounds.windowKey, memberId, projectId);
+    const meetingSummaries = await fetchMeetingSummaryEvidence(supabase, bounds, matchProject, calendar);
+    const evidence = dedupeEvidence([
+      ...sourceCache,
+      ...gmail,
+      ...meetingSummaries,
+      ...removeCalendarRowsCoveredByMeetings(calendar, meetingSummaries),
+    ]);
+    const { rows, groups: fusionGroups } = await buildActivityRows(evidence, bounds.windowKey, memberId, projectId);
 
     if (save) {
       await deleteExistingWeeklyRows(supabase, bounds, memberId, projectId);
@@ -628,12 +1042,15 @@ export async function GET(req: NextRequest) {
       sourceCacheEvidence: sourceCache.length,
       gmailEvidence: gmail.length,
       calendarEvidence: calendar.length,
+      meetingSummaryEvidence: meetingSummaries.length,
       calendarReadableMembers: calendarAccess.readableMemberEmails.length,
       calendarMissingMembers: calendarAccess.missingMemberEmails.length,
-      eligibleMembers: eligibleMembers.length,
+      targetMembers: targetMembers.length,
+      calendarSourceMembers: calendarSourceMembers.length,
       pendingCalendarLogin,
       note: pendingCalendarLogin.length > 0 ? "calendar login consent required for pending members" : null,
       evidenceCount: evidence.length,
+      fusionGroups: fusionGroups.length,
       saved: save ? rows.length : 0,
       preview: rows.slice(0, 20),
     });

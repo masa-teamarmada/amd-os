@@ -36,16 +36,9 @@ export async function POST(req: NextRequest) {
   if (!member || member.status !== "active") {
     return NextResponse.json({ ok: false, error: "Active member not found for this account" }, { status: 404 });
   }
-  if (member.google_calendar_status !== "connected") {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "Google Calendar の共有がOSに届いていない。/auth/login から再度サインインして Calendar 権限を許可してね。",
-        calendarStatus: member.google_calendar_status,
-      },
-      { status: 409 }
-    );
-  }
+  const calendarWarning = member.google_calendar_status !== "connected"
+    ? "本人カレンダーはまだOSから読めないが、他の共有済みメンバーのカレンダー/議事録/source_cacheに参加者として出ている活動は抽出する。"
+    : null;
 
   const cronUrl = new URL("/api/cron/member-weekly-activities", req.nextUrl.origin);
   cronUrl.searchParams.set("memberId", member.member_id);
@@ -73,6 +66,8 @@ export async function POST(req: NextRequest) {
     ok: true,
     memberId: member.member_id,
     codeName: member.code_name,
+    calendarStatus: member.google_calendar_status,
+    calendarWarning,
     ...result,
   });
 }

@@ -1,6 +1,6 @@
 # Atlas-collect Routine / Codex automation 化 — Anthropic API 課金を subscription 枠に移す
 
-最終更新: 2026-05-16
+最終更新: 2026-05-22
 
 ## 背景
 
@@ -150,11 +150,19 @@ node pwa/scripts/atlas_signal_review_tool.mjs apply-outbox-dir
 
 automation は原則:
 
-1. `health` を実行。失敗したら DB 書き込みせず停止し、原因を run 結果に書く。
-2. `recent --hours 48 --limit 80` で既存 title を確認。
+1. `health` を実行。これは診断であり hard gate ではない。Wi-Fi断・DNS失敗・timeout・一時的5xxなどの `retryable` な失敗なら、原因を run 結果に書いたうえで、web/source search が使える限り outbox 作成へ進む。
+2. `recent --hours 48 --limit 80` で既存 title を確認。失敗した場合も停止せず、重複リスクありとして run 結果に明記する。
 3. 直前 24h の一次イベントだけを web / source search で 8-14 件抽出。
 4. outbox JSON を作る。
 5. 投入はローカルの非LLM LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` が行う。automation 側は outbox 作成までで止め、ネットワーク制限で failed に退避しない。
+
+### ネットワーク断 / Wi-Fi断の扱い (2026-05-22)
+
+- `health` / `recent` の `EPERM`, `EAI_AGAIN`, `ENOTFOUND`, `ENETUNREACH`, `ECONNRESET`, `ETIMEDOUT`, `timeout`, `fetch failed` は **一時ネットワーク断** とみなす。
+- helper はこれらを `retryable: true`, `errorKind: "transient_network"` として JSON 出力し、exit code `75` を返す。
+- `apply-outbox` / `apply-outbox-dir` は一時ネットワーク断、または HTTP `408/425/429/500/502/503/504` の場合、対象 outbox を `failed/` に動かさず `outbox/` に残す。次回 LaunchAgent が再試行する。
+- `401/403`, schema 不正, `signals` 空などの恒久エラーだけ `failed/` へ退避する。
+- Codex automation 側で公式 outbox に書けない sandbox の場合は、`/Users/masa/.codex/automations/amd-atlas-2/outbox/` に valid JSON を staging し、公式 outbox へ移せなかったことを結果に明記する。full access に戻ったら staging artifact を公式 outbox へコピーして復旧する。
 
 ## Claude Routine 登録手順 (旧案)
 

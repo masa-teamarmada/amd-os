@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 import { createClient } from "@/lib/supabase/client";
 import type { Notification, MeetingNotification, Feedback } from "@/app/(app)/notifications/page";
 
@@ -32,6 +33,10 @@ function parseProtocolNotificationScope(scopeKey: string): { ym: string; protoco
   }
   const ym = scopeKey.match(/20\d{4}/)?.[0] ?? scopeKey.slice(0, 6);
   return { ym, protocolId: null };
+}
+
+function notificationYm(scopeKey: string): string {
+  return scopeKey.match(/20\d{4}/)?.[0] ?? scopeKey.slice(0, 6);
 }
 
 export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
@@ -370,10 +375,20 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
           rows = [...revisionDetails, ...progressDetails];
         } else if (n.l2_kind === "raw_data_gap") {
           const evidenceRows = rawDataGapEvidenceRows(n);
-          if (evidenceRows.length > 0) {
-            rows = evidenceRows;
+          const ingestedMeetingRows = await rawDataGapIngestedMeetingRows(supabase, n);
+          if (ingestedMeetingRows.length > 0) {
+            rows = [...ingestedMeetingRows, ...evidenceRows];
+          } else if (evidenceRows.length > 0) {
+            rows = [
+              {
+                heading: "未取り込み判定の根拠",
+                body: "この通知は古いOS snapshotと外部ソースの差分から出てる。下の根拠がすでにDBへ取り込まれている場合は、取り込み済み表示が先頭に出る。",
+              },
+              ...evidenceRows,
+            ];
+            // metadata_json.evidence_refs を正本として表示する。fallback の source_cache 全件表示は最後の保険。
           } else {
-            const ym = n.scope_key.slice(0, 6);
+            const ym = notificationYm(n.scope_key);
             const { data, error } = await supabase
               .from("source_cache")
               .select("source, item_id, title, item_date, content_text, metadata_json, collected_at")
@@ -438,16 +453,24 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
             };
           });
         } else if (n.l2_kind === "xrl_evidence") {
-          const query = supabase
+          const meta = objectValue(n.metadata_json);
+          const ym = notificationYm(n.scope_key);
+          let query = supabase
             .from("project_xrl_evidence")
-            .select("axis, evidence_kind, summary, structured_value_json, source_refs_json, confidence, status, created_at, confirmed_at")
+            .select("axis, evidence_kind, summary, structured_value_json, source_refs_json, source_hash, confidence, status, created_at, confirmed_at")
             .eq("project_id", n.target_id);
+          query = textFromUnknown(meta.axis) ? query.eq("axis", textFromUnknown(meta.axis).toLowerCase()) : query;
+          query = textFromUnknown(meta.evidence_kind) ? query.eq("evidence_kind", textFromUnknown(meta.evidence_kind)) : query;
           const scopedQuery = n.scope_key === "global"
             ? query.is("ym", null)
-            : query.eq("ym", n.scope_key);
+            : query.eq("ym", ym);
           const { data, error } = await scopedQuery.order("created_at", { ascending: false }).limit(50);
           if (error) throw error;
-          rows = (data ?? []).map((r) => {
+          const metadataHash = textFromUnknown(meta.evidence_source_hash);
+          const narrowed = metadataHash
+            ? (data ?? []).filter((r) => xrlRowMatchesHash(r, metadataHash))
+            : (data ?? []);
+          rows = (narrowed.length > 0 ? narrowed : (data ?? [])).map((r) => {
             const refs = Array.isArray(r.source_refs_json) ? r.source_refs_json : [];
             const refText = refs
               .slice(0, 3)
@@ -476,6 +499,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
               ].filter(Boolean).join(" · ") || undefined,
             };
           });
+          if (rows.length === 0) {
+            rows = xrlNotificationFallbackRows(n);
+          }
         }
       } else {
         // meeting_summary: project_meeting_summaries から実内容取得
@@ -656,7 +682,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpand(i); } }}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm leading-snug">{sanitizeMeetingTitle(i.data.title)}</div>
+                  <div className="font-medium text-sm leading-snug">
+                    <LinkedMemberText text={sanitizeMeetingTitle(i.data.title)} />
+                  </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {formatJST(i.data.created_at)} ・{" "}
                     {i.kind === "l2"
@@ -702,11 +730,11 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                   {/* 通知 summary (上流が付けた一覧用見出し) */}
                   {i.kind === "l2" ? (
                     <div className="text-xs text-muted-foreground italic">
-                      通知ヘッドライン: {i.data.summary || "(なし)"}
+                      通知ヘッドライン: <LinkedMemberText text={i.data.summary || "(なし)"} />
                     </div>
                   ) : (
                     <div className="text-xs text-muted-foreground italic">
-                      通知ヘッドライン: {i.data.summary_short || `[${i.data.source_kinds}]`}
+                      通知ヘッドライン: <LinkedMemberText text={i.data.summary_short || `[${i.data.source_kinds}]`} />
                     </div>
                   )}
 
@@ -735,7 +763,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                             {formatJST(f.created_at)}
                             {f.applied_count > 0 ? ` (反映 ${f.applied_count} 回)` : " (未反映)"}:
                           </span>{" "}
-                          {f.feedback_text}
+                          <LinkedMemberText text={f.feedback_text} />
                         </div>
                       ))}
                     </div>
@@ -869,9 +897,17 @@ function DetailSection({ detail }: { detail: DetailRow | undefined }) {
       <div className="text-xs font-medium text-muted-foreground">📦 抽出された内容 ({rows.length} 件)</div>
       {rows.map((r, idx) => (
         <div key={idx} className="border-l-2 border-primary/30 pl-2 py-0.5">
-          <div className="text-sm font-medium">{r.heading}</div>
-          <div className="text-sm whitespace-pre-wrap text-foreground/80">{r.body}</div>
-          {r.sub && <div className="text-[10px] text-muted-foreground mt-0.5">{r.sub}</div>}
+          <div className="text-sm font-medium">
+            <LinkedMemberText text={r.heading} />
+          </div>
+          <div className="text-sm whitespace-pre-wrap text-foreground/80">
+            <LinkedMemberText text={r.body} />
+          </div>
+          {r.sub && (
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              <LinkedMemberText text={r.sub} />
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -1031,6 +1067,97 @@ function rawDataGapEvidenceRows(n: Notification): NonNullable<DetailRow["rows"]>
       sub: [date, url ? `url=${url}` : "", id ? `id=${id}` : ""].filter(Boolean).join(" · ") || undefined,
     };
   });
+}
+
+async function rawDataGapIngestedMeetingRows(
+  supabase: ReturnType<typeof createClient>,
+  n: Notification
+): Promise<NonNullable<DetailRow["rows"]>> {
+  if (!n.scope_key.includes("meeting-not-ingested")) return [];
+  const meta = objectValue(n.metadata_json);
+  const refs = Array.isArray(meta.evidence_refs) ? meta.evidence_refs : [];
+  const meetingIds = Array.from(new Set(
+    refs
+      .map((raw) => {
+        const ref = objectValue(raw);
+        return textFromUnknown(ref.source_id) || textFromUnknown(ref.id);
+      })
+      .filter(Boolean)
+  ));
+  const dates = Array.from(new Set(
+    refs
+      .map((raw) => textFromUnknown(objectValue(raw).date).slice(0, 10))
+      .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+  ));
+
+  let rows: Array<{
+    meeting_id: string;
+    meeting_date: string;
+    title: string | null;
+    summary_short: string | null;
+    source_kinds: string | null;
+    updated_at: string | null;
+  }> = [];
+
+  if (meetingIds.length > 0) {
+    const { data, error } = await supabase
+      .from("project_meeting_summaries")
+      .select("meeting_id, meeting_date, title, summary_short, source_kinds, updated_at")
+      .eq("project_id", n.target_id)
+      .in("meeting_id", meetingIds)
+      .limit(5);
+    if (error) throw error;
+    rows = data ?? [];
+  }
+
+  if (rows.length === 0 && dates.length > 0) {
+    const { data, error } = await supabase
+      .from("project_meeting_summaries")
+      .select("meeting_id, meeting_date, title, summary_short, source_kinds, updated_at")
+      .eq("project_id", n.target_id)
+      .in("meeting_date", dates)
+      .limit(5);
+    if (error) throw error;
+    rows = data ?? [];
+  }
+
+  return rows.map((row) => ({
+    heading: `OS取り込み済み: ${sanitizeMeetingTitle(row.title) || row.meeting_id}`,
+    body: row.summary_short || "(summaryなし)",
+    sub: [
+      row.meeting_date,
+      row.source_kinds ? `source=${row.source_kinds}` : "",
+      row.updated_at ? `updated=${formatJST(row.updated_at)}` : "",
+      `meeting_id=${row.meeting_id}`,
+    ].filter(Boolean).join(" · "),
+  }));
+}
+
+function xrlRowMatchesHash(row: unknown, hash: string): boolean {
+  const r = objectValue(row);
+  if (textFromUnknown(r.source_hash) === hash) return true;
+  const refs = Array.isArray(r.source_refs_json) ? r.source_refs_json : [];
+  return refs.some((raw) => {
+    const ref = objectValue(raw);
+    return textFromUnknown(ref.hash) === hash || textFromUnknown(ref.source_hash) === hash;
+  });
+}
+
+function xrlNotificationFallbackRows(n: Notification): NonNullable<DetailRow["rows"]> {
+  const meta = objectValue(n.metadata_json);
+  const axis = textFromUnknown(meta.axis).toUpperCase() || "XRL";
+  const evidenceKind = textFromUnknown(meta.evidence_kind) || "evidence";
+  const sourceHash = textFromUnknown(meta.evidence_source_hash);
+  return [
+    {
+      heading: `${axis} / ${evidenceKind} [通知のみ]`,
+      body: [
+        n.summary || "(summaryなし)",
+        "候補本文は通知にあるけど、対応する project_xrl_evidence 行が見つかってない。生成側が通知だけ作った可能性がある。",
+      ].join("\n"),
+      sub: [sourceHash ? `source_hash=${sourceHash.slice(0, 12)}` : "", `scope=${n.scope_key}`].filter(Boolean).join(" · "),
+    },
+  ];
 }
 
 function formatCostJpy(n: number): string {

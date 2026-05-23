@@ -44,7 +44,7 @@ PWA では `CockpitView.resolveStepModalFromTap()` ([pwa/src/components/cockpit/
 
 | stepId | 表示ラベル | クリックで開くもの | 実装 |
 |---|---|---|---|
-| `budget` | 請求額確定 | `CockpitRoutineBudgetModal` | billing_cycles 直叩き / Edge Fn `send-budget-approval-nudge` |
+| `budget` | 請求額確定 | `CockpitRoutineBudgetModal` | `billing_cycles` へ申告保存 / `/api/notify/pl-review` (PLへ請求額・バッファ・PJ予算 + 承認/差し戻しボタン付きSlack DM) / `/api/admin/budget-approval` で確定 |
 | `estimateSend` (CTBのみ) | 見積書送付 | `CockpitRoutineInvoiceModal` (documentType=`quotation`) | billing_cycles 直叩き / Edge Fn `issue-invoice` / `cancel-invoice` |
 | `meeting` | 報告会日程調整 | `CockpitRoutineMeetingModal` | Edge Fn `meeting-slots` (GET) / `schedule-meeting` (GET) |
 | `reportFix` | 月次報告書FIX | `CockpitRoutineReportFixModal` | monthly_reports 直読み + billing_cycles UPDATE / Edge Fn `send-slack-dm` |
@@ -58,6 +58,10 @@ PWA では `CockpitView.resolveStepModalFromTap()` ([pwa/src/components/cockpit/
 ---
 
 ## 期日・自動判定ロジック
+
+### 社外役員/顧問PJ (`projects.project_category='advisor'`)
+
+社外役員/顧問PJは月次ルーティン対象外。コックピット右カラムではタスクを発生させず、`/mypage` の期限超過通知や報酬除外判定にも使わない。
 
 ### `立替確認` (reimburseConfirm)
 
@@ -100,6 +104,28 @@ SX `202601-202603` のように、稼働開始後に複数月分の委託料が�
 - 報酬予定がまだ作れない場合だけ、対象稼働月で均等割りする。
 - 確定PJ予算が報酬支払予定を下回る場合は `予算不足` として赤表示し、支払可否 / 減額 / 追加請求 / バッファを人間が合意してから保存する。
 - PJが `projects.status='lost'` になった場合は `失注/破談: 予算なし` と表示し、支払原資なしの個別確認対象として扱う。
+- 月額固定PJで `budget_reported_amount` または `projects.fee_amount` がある場合、報酬サマリー同期時に `billing_cycles.budget_yen` へ `請求額×65% - バッファ` を保存する。月次モーダルだけの暫定予算表示は使わない。
+
+### 請求額確定の承認フロー
+
+- PM/PLが月次ルーティンの `budget` で請求額とバッファを申告すると、`billing_cycles.status='reported'`、`budget_reported_amount`、`budget_buffer_amount` を保存する。
+- PL Slack nudgeには請求額・バッファ・PJ予算 (`請求額×65%−バッファ`) を明記し、`承認する` / `差し戻す` / `OSで確認` を出す。
+- Slackの `承認する`、またはOSモーダル内の `承認する` は `/api/admin/budget-approval` に集約され、`billing_cycles.status='budget_confirmed'`、`budget_yen`、`budget_confirmed_at/by` を更新する。
+- `差し戻す` は `status='budget_rejected'` にし、`budget_yen` は確定させない。再申告時に同じモーダルから修正できる。
+
+### 支払条件・入金確認の正本
+
+PJごとの支払条件はコックピットではなく `/admin/projects` で管理する。正本列は `projects.payment_due_rule`。
+
+- 表示ラベルは稼働月基準の `当月末` / `当月25日` / `翌月末` / `翌月25日` / `翌々月末` / `翌々月25日`。
+- 例: 5月稼働分を6月に請求して6月末支払なら `翌月末`。請求書発行月基準の表現は使わない。
+- 請求書の支払期日、`/admin/payouts` の支払月自動判定、入金確認nudgeは同じ支払条件ヘルパーを使う。
+- `billing_cycles.invoice_ym` が入っている場合は個別上書きとして優先する。空の場合は支払条件から支払月を計算する。
+- 入金確認は `/admin/billing` の手動チップ、Slack nudgeのボタン、freee会計同期の3経路がある。どれも最終的には `billing_cycles.payment_confirmed_at` / `payment_confirmed_by` / `status='payment_confirmed'` を更新し、実額やfreee照合の証跡は `billing_log.detail` に保存する。
+- Slack nudgeは active admin (`members.is_admin=true`) にDMする。「予定通り入金済み」は1クリックで予定額反映、「金額を入力」は `/payment-confirm` で実際の入金額を入力する。
+- freee同期は収入取引 (`type=income`) の `payments` / `due_amount` に加え、取引登録前の口座明細 (`wallet_txns`, `entry_side=income`) も見る。取引先ID・請求番号・金額が合う収入取引、または金額/入金摘要がPJの `payment_alias` と合う口座明細だけ自動で入金確認済みにする。admin回答忘れを補うための補助線で、曖昧なものは手動確認へ残す。
+- 入金確認まわりはLLMを使わない運用cronとして、Vercelで `freee-payment-sync` (09:10 JST) と `payment-confirm-nudges` (09:30 JST) だけを毎日動かす。LLM系cronは停止したまま。
+- freee同期が失敗した場合はactive adminへSlack DMで失敗理由を通知し、その後の入金確認nudgeで手動確認できるようにする。
 
 ---
 

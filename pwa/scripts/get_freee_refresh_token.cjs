@@ -49,6 +49,32 @@ function writeEnv(tokens) {
   return written;
 }
 
+function sha8(value) {
+  return crypto.createHash("sha256").update(String(value || "")).digest("hex").slice(0, 8);
+}
+
+async function writeSupabase(tokens) {
+  if (!tokens.refresh_token) return { skipped: "no refresh_token" };
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) return { skipped: "Supabase env missing" };
+
+  const { createClient } = require("@supabase/supabase-js");
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const { error } = await supabase
+    .from("freee_oauth_tokens")
+    .upsert({
+      token_key: "default",
+      refresh_token: tokens.refresh_token,
+      company_id: tokens.company_id ? String(tokens.company_id) : process.env.FREEE_COMPANY_ID ?? null,
+      scope: tokens.scope ?? null,
+      external_cid: tokens.external_cid ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "token_key" });
+  if (error) throw error;
+  return { ok: true };
+}
+
 function buildAuthorizeUrl({ clientId, redirectUri, state }) {
   const url = new URL(AUTH_URL);
   url.searchParams.set("response_type", "code");
@@ -124,7 +150,10 @@ async function main() {
   if (!clientId || !clientSecret) throw new Error("FREEE_CLIENT_ID / FREEE_CLIENT_SECRET not set");
 
   const port = Number(argValue("port") || process.env.FREEE_OAUTH_PORT || 33333);
-  const redirectUri = argValue("redirect-uri") || process.env.FREEE_REDIRECT_URI || `http://127.0.0.1:${port}/callback`;
+  const useLocalCallback = process.argv.includes("--local-callback");
+  const redirectUri = argValue("redirect-uri") ||
+    process.env.FREEE_REDIRECT_URI ||
+    (useLocalCallback ? `http://127.0.0.1:${port}/callback` : "urn:ietf:wg:oauth:2.0:oob");
   const state = crypto.randomBytes(24).toString("hex");
   const authUrl = buildAuthorizeUrl({ clientId, redirectUri, state });
   const providedCode = argValue("code");
@@ -156,15 +185,22 @@ async function main() {
     external_cid: token.external_cid,
     access_token_present: Boolean(token.access_token),
     refresh_token_present: Boolean(token.refresh_token),
+    refresh_token_sha8: token.refresh_token ? sha8(token.refresh_token) : null,
   }, null, 2));
   console.log("");
-  if (token.refresh_token) console.log(`FREEE_REFRESH_TOKEN=${token.refresh_token}`);
-  if (token.company_id) console.log(`FREEE_COMPANY_ID=${token.company_id}`);
+  if (process.argv.includes("--print-secrets")) {
+    if (token.refresh_token) console.log(`FREEE_REFRESH_TOKEN=${token.refresh_token}`);
+    if (token.company_id) console.log(`FREEE_COMPANY_ID=${token.company_id}`);
+  }
 
   if (process.argv.includes("--write-env")) {
     const written = writeEnv(token);
     console.log("");
     console.log(`updated env files: ${written.length ? written.join(", ") : "(none)"}`);
+  }
+  if (process.argv.includes("--write-supabase") || process.argv.includes("--write-env")) {
+    const result = await writeSupabase(token);
+    console.log(`updated supabase: ${JSON.stringify(result)}`);
   }
 }
 

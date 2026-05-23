@@ -50,6 +50,8 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
 
 `CockpitGoalsCompact` のトップ表示は、原則として `currentYm` が `periodStartYm`〜`periodEndYm` に含まれる plan cycle を使う。
 
+ただしMS進捗を扱うのは `projects.project_category in ('dtsu','ecosystem')` のPJだけ。advisorなど非MS管理PJではMSカード・過去MS・MS設定バナーを表示せず、月次モーダルの月次ノートに毎月の進捗を記録する。
+
 例外として、現在月を含む cycle が存在せず、次に始まる future cycle が登録済みの場合は、その future cycle をトップ表示に使う。  
 これにより、5月時点で6-9月の次期MSを先行入力したCXのようなケースでも、コックピット上で設定済みMSを確認できる。
 
@@ -213,7 +215,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → cron `/ven
 
 ## 既存 UI を消したケース (反省)
 
-- 2026-05-06 セッション後半で `CockpitHeader` に独断で `⚙️ config` リンク (→ /admin/projects) を追加。「PJ 台帳に飛ぶ」ためまさに却下された。CockpitHeader は **PJ 名 + clientName + status chip だけのシンプル構成**に戻した。
+- 2026-05-06 セッション後半で `CockpitHeader` に独断で `⚙️ config` リンク (→ /admin/projects) を追加。「PJ 台帳に飛ぶ」ためまさに却下された。2026-05-22時点でもコックピットから `/project/[projectId]/config` へ飛ぶ導線は置かない。CockpitHeader は **PJ 名 + clientName + status chip だけのシンプル構成**、PJごとの契約・請求・支払条件は `/admin/projects` が正本。
 - **教訓**: 「過去にあったリンクの復活」を頼まれたとき、`git log -S` で履歴を確認せず推測で実装すると、まったく別のものを「復活」してしまう。今後は git history から確実に復元するか、まさに飛び先を確認してから追加する。
 
 ---

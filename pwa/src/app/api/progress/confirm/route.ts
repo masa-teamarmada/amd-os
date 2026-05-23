@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/supabase/api-auth";
+import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
 
 function getServiceClient() {
   return createClient(
@@ -15,6 +16,24 @@ function prevYm(ym: string): string {
   const pm = m - 1 < 1 ? 12 : m - 1;
   const py = m - 1 < 1 ? y - 1 : y;
   return `${py}${String(pm).padStart(2, "0")}`;
+}
+
+async function jsonWithRewardSync(
+  supabase: ReturnType<typeof getServiceClient>,
+  projectId: string,
+  ym: string,
+  payload: Record<string, unknown>
+) {
+  try {
+    const result = await syncRewardSummaryForCycle(supabase, projectId, ym);
+    return NextResponse.json({ ...payload, rewardSummary: result.rewardSummary });
+  } catch (err) {
+    return NextResponse.json({
+      ...payload,
+      rewardSummary: null,
+      rewardSyncError: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 /**
@@ -68,7 +87,7 @@ export async function POST(req: NextRequest) {
       );
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, action: "adopt", milestoneKey, newPct: Number(target!.progress_pct) });
+    return jsonWithRewardSync(supabase, projectId, ym, { ok: true, action: "adopt", milestoneKey, newPct: Number(target!.progress_pct) });
 
   } else if (action === "reject") {
     // 不採用: 前月値に戻して source → pm_rejected
@@ -108,7 +127,7 @@ export async function POST(req: NextRequest) {
       );
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, action: "reject", milestoneKey, revertedPct: revertPct });
+    return jsonWithRewardSync(supabase, projectId, ym, { ok: true, action: "reject", milestoneKey, revertedPct: revertPct });
 
   } else if (action === "modify") {
     // 修正: 指定値で pm_confirmed
@@ -138,7 +157,7 @@ export async function POST(req: NextRequest) {
       );
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, action: "modify", milestoneKey, newPct: adjustedPct });
+    return jsonWithRewardSync(supabase, projectId, ym, { ok: true, action: "modify", milestoneKey, newPct: adjustedPct });
 
   } else if (action === "manual") {
     // 手動編集: source → pm_manual（tsukuyomi_estimateの有無に関わらず使える）
@@ -168,7 +187,7 @@ export async function POST(req: NextRequest) {
       );
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, action: "manual", milestoneKey, newPct: adjustedPct });
+    return jsonWithRewardSync(supabase, projectId, ym, { ok: true, action: "manual", milestoneKey, newPct: adjustedPct });
 
   } else {
     return NextResponse.json({ error: `unknown action: ${action}` }, { status: 400 });

@@ -14,7 +14,7 @@ interface GlobalNavProps {
   memberId?: string | null;
 }
 
-export function GlobalNav({ userCodeName, isAdmin = false }: GlobalNavProps) {
+export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: GlobalNavProps) {
   const pathname = usePathname();
   const [inboxCount, setInboxCount] = useState(0);
   const [vcInboxCount, setVcInboxCount] = useState(0);
@@ -179,7 +179,7 @@ export function GlobalNav({ userCodeName, isAdmin = false }: GlobalNavProps) {
           マイページ
         </Link>
 
-        {/* Right: 通知 + Admin + Settings + User
+        {/* Right: 通知 + Admin + User
             通知 + Admin タブは isAdmin (= members.is_admin = TRUE) のみ表示。
             まさ要望 2026-05-11: 一般メンバーには通知バッジを見せない。 */}
         <div className="ml-auto flex items-center gap-2 text-xs">
@@ -203,16 +203,13 @@ export function GlobalNav({ userCodeName, isAdmin = false }: GlobalNavProps) {
           >
             立替
           </Link>
-          <Link
-            href="/settings"
-            className="text-muted-foreground hover:text-foreground px-2.5 py-1 rounded-md transition-colors"
-          >
-            設定
-          </Link>
           {userCodeName && (
-            <span className="text-muted-foreground border border-border rounded-full px-2.5 py-0.5">
+            <Link
+              href={memberId ? `/mypage?memberId=${encodeURIComponent(memberId)}` : "/mypage"}
+              className="text-muted-foreground border border-border rounded-full px-2.5 py-0.5 hover:text-foreground hover:border-foreground/40 transition-colors"
+            >
               {userCodeName}
-            </span>
+            </Link>
           )}
         </div>
       </div>

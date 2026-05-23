@@ -4,12 +4,17 @@
  * 同PJ×ymの既存draftイベント＋責任分担は削除して再抽出（confirmed/rejectedは保持）。
  */
 
+var REWARD_SCORING_DAILY_CRON_DISABLED_20260522 = true;
+
 // ===== トリガー本体 =====
 
 /**
  * 日次バッチ：過去24hで更新があった月次報告書から進捗イベントを差分抽出
  */
 function reward_trigger_dailyExtract() {
+  if (REWARD_SCORING_DAILY_CRON_DISABLED_20260522) {
+    return { ok: true, disabled: true, message: "Reward scoring daily extraction cron disabled. Use Codex automation/review batches." };
+  }
   var startTime = new Date();
   var log = [];
 
@@ -85,6 +90,7 @@ function reward_trigger_dailyExtract() {
 // ===== トリガー設置・解除 =====
 
 function reward_trigger_install() {
+  if (REWARD_SCORING_DAILY_CRON_DISABLED_20260522) return reward_trigger_uninstall();
   reward_trigger_uninstall();
   ScriptApp.newTrigger("reward_trigger_dailyExtract")
     .timeBased()

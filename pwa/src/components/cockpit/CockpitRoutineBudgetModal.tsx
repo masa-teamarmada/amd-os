@@ -37,7 +37,8 @@ function ymLabel(ym: string) {
 }
 
 function fmtYen(amount: number | null | undefined): string {
-  if (!amount || amount <= 0) return "—";
+  if (amount == null || !Number.isFinite(Number(amount))) return "—";
+  if (amount < 0) return "—";
   return `¥${Math.round(amount).toLocaleString()}`;
 }
 
@@ -116,6 +117,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
   const [bufferText, setBufferText] = useState("");
   const [showEditArea, setShowEditArea] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [approvalBusy, setApprovalBusy] = useState<"approve" | "reject" | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
   const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
   const [toast, setToast] = useState<{ msg: string; isError: boolean } | null>(null);
@@ -191,18 +193,19 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
       const { data: userData } = await supabase.auth.getUser();
       const byEmail = userData.user?.email || "";
       const body: Record<string, unknown> = {
+        project_id: projectId,
+        ym,
         status: "reported",
         budget_reported_amount: invoiceAmount,
         budget_buffer_amount: bufferAmount,
         budget_reported_at: new Date().toISOString(),
         budget_reported_by: byEmail,
         member_allocations_json: null,
+        updated_at: new Date().toISOString(),
       };
       const { error: updateError } = await supabase
         .from("billing_cycles")
-        .update(body)
-        .eq("project_id", projectId)
-        .eq("ym", ym);
+        .upsert(body, { onConflict: "project_id,ym" });
       if (updateError) throw updateError;
 
       // admin に Slack DM (失敗してもノーエラー)
@@ -213,7 +216,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
       }).catch(() => { /* ignore */ });
 
       // PL にも確認依頼を Slack DM (#13)
-      const plRes = await notifyPlReview({ projectId, ym, taskKind: "budget", taskLabel: "予算確定" });
+      const plRes = await notifyPlReview({ projectId, ym, taskKind: "budget", taskLabel: "請求額確定" });
 
       setToast({
         msg: plRes.sent > 0 ? `申告しました (PL ${plRes.sent} 名に通知)` : "申告しました",
@@ -257,9 +260,47 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
     }
   }
 
+  async function decide(decision: "approve" | "reject") {
+    setApprovalBusy(decision);
+    setToast(null);
+    try {
+      const res = await fetch("/api/admin/budget-approval", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ym, decision }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        invoiceYen?: number;
+        bufferYen?: number;
+        budgetYen?: number;
+        status?: string;
+      };
+      if (!res.ok || !json.ok) throw new Error(json.error || `HTTP ${res.status}`);
+      setData((prev) => prev
+        ? {
+            ...prev,
+            status: json.status || (decision === "approve" ? "budget_confirmed" : "budget_rejected"),
+            budgetReportedAmount: json.invoiceYen ?? prev.budgetReportedAmount,
+            budgetBufferAmount: json.bufferYen ?? prev.budgetBufferAmount,
+            budgetYen: decision === "approve" ? (json.budgetYen ?? prev.budgetYen) : null,
+            budgetConfirmedAt: decision === "approve" ? new Date().toISOString() : null,
+          }
+        : prev
+      );
+      setToast({ msg: decision === "approve" ? "予算を確定しました" : "差し戻しました", isError: false });
+    } catch (e) {
+      setToast({ msg: e instanceof Error ? e.message : String(e), isError: true });
+    } finally {
+      setApprovalBusy(null);
+    }
+  }
+
   const status = data?.status || "not_started";
   const isConfirmed = status === "allocation_confirmed" || status === "budget_confirmed";
   const isReported = status === "reported";
+  const isRejected = status === "budget_rejected";
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -286,9 +327,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
               <section className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 space-y-2 text-sm">
                 <div className="font-semibold text-emerald-700">✓ 承認済み</div>
                 <InfoRow label="請求額" value={fmtYen(data.budgetReportedAmount)} />
-                {data.budgetBufferAmount && data.budgetBufferAmount > 0 && (
-                  <InfoRow label="バッファ" value={fmtYen(data.budgetBufferAmount)} />
-                )}
+                <InfoRow label="バッファ" value={fmtYen(data.budgetBufferAmount ?? 0)} />
                 <InfoRow label="PJ予算（承認額）" value={fmtYen(data.budgetYen)} />
                 <InfoRow label="承認日時" value={fmtDate(data.budgetConfirmedAt)} />
                 <Button
@@ -308,9 +347,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                 <section className="rounded-lg border border-orange-300 bg-orange-50 p-3 space-y-2 text-sm">
                   <div className="font-semibold text-orange-700">⏳ 申告済み（admin承認待ち）</div>
                   <InfoRow label="請求額" value={fmtYen(data.budgetReportedAmount)} />
-                  {data.budgetBufferAmount && data.budgetBufferAmount > 0 && (
-                    <InfoRow label="バッファ" value={fmtYen(data.budgetBufferAmount)} />
-                  )}
+                  <InfoRow label="バッファ" value={fmtYen(data.budgetBufferAmount ?? 0)} />
                   <InfoRow
                     label="PJ予算（65%−バッファ）"
                     value={fmtYen(calcPjBudget(data.budgetReportedAmount || 0, data.budgetBufferAmount || 0))}
@@ -319,7 +356,27 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                   <InfoRow label="申告者" value={data.budgetReportedBy || "—"} />
                 </section>
 
-                <div className="flex gap-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => decide("approve")}
+                    disabled={!!approvalBusy}
+                    className="h-8"
+                  >
+                    {approvalBusy === "approve" ? "承認中..." : "承認する"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => decide("reject")}
+                    disabled={!!approvalBusy}
+                    className="h-8 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  >
+                    {approvalBusy === "reject" ? "差し戻し中..." : "差し戻す"}
+                  </Button>
+                  <span className="flex-1 basis-4" />
                   <button
                     type="button"
                     onClick={() => {
@@ -343,7 +400,6 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                   >
                     {showEditArea ? "修正をやめる" : "修正する"}
                   </button>
-                  <span className="flex-1" />
                   <button
                     type="button"
                     onClick={() => setShowWithdrawConfirm(true)}
@@ -356,7 +412,37 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
               </>
             )}
 
-            {(!isConfirmed && !isReported) || (isReported && showEditArea) ? (
+            {isRejected && !showEditArea && (
+              <section className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2 text-sm">
+                <div className="font-semibold text-red-700">差し戻し済み</div>
+                <InfoRow label="前回請求額" value={fmtYen(data.budgetReportedAmount)} />
+                <InfoRow label="前回バッファ" value={fmtYen(data.budgetBufferAmount ?? 0)} />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setInvoiceText(
+                      data.budgetReportedAmount && data.budgetReportedAmount > 0
+                        ? String(Math.round(data.budgetReportedAmount))
+                        : fixedInvoiceAmount
+                          ? String(fixedInvoiceAmount)
+                          : ""
+                    );
+                    setBufferText(
+                      data.budgetBufferAmount && data.budgetBufferAmount > 0
+                        ? String(Math.round(data.budgetBufferAmount))
+                        : ""
+                    );
+                    setShowEditArea(true);
+                  }}
+                >
+                  再申告する
+                </Button>
+              </section>
+            )}
+
+            {(!isConfirmed && !isReported && !isRejected) || ((isReported || isRejected) && showEditArea) ? (
               <div className="space-y-4">
                 <section className="space-y-3">
                   <div className="space-y-1">

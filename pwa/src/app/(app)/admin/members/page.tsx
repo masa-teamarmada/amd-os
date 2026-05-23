@@ -22,6 +22,7 @@ export default async function AdminMembersPage() {
     role: m.role ?? null,
     status: m.status,
     is_admin: m.is_admin,
+    is_officer: !!m.is_officer,
     slack_id: m.slack_id ?? null,
     join_ym: m.join_ym ?? null,
     leave_ym: m.leave_ym ?? null,

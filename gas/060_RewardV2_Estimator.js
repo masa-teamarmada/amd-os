@@ -20,6 +20,8 @@
  *   - 302_MonthlyReport_Collector.gs（差分収集）
  */
 
+var REWARD_V2_ESTIMATE_CRON_DISABLED_20260522 = true;
+
 // ===== メインAPI =====
 
 /**
@@ -474,6 +476,9 @@ function rv2_est_parseProgressOnly_(raw, planInfo) {
  * 報告書がなければ先に生成してから推定
  */
 function cron_progressEstimateDaily_() {
+  if (REWARD_V2_ESTIMATE_CRON_DISABLED_20260522) {
+    return { ok: true, disabled: true, message: "RewardV2 daily estimate cron disabled. Use Codex/PWA manual sync." };
+  }
   var ym = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyyMM");
   var projects = b_readTable_("DB_Projects");
   var log = [];
@@ -546,6 +551,9 @@ function test_estimateSingleProject() {
  * トリガー登録（報告書cronの15分後に実行）
  */
 function setupProgressEstimateTrigger() {
+  if (REWARD_V2_ESTIMATE_CRON_DISABLED_20260522) {
+    return rewardV2_disableEstimateTriggers_();
+  }
   var triggers = ScriptApp.getProjectTriggers();
   for (var i = 0; i < triggers.length; i++) {
     if (triggers[i].getHandlerFunction() === "cron_progressEstimateDaily_" ||
@@ -561,6 +569,18 @@ function setupProgressEstimateTrigger() {
     .inTimezone("Asia/Tokyo")
     .create();
   Logger.log("Progress Estimate trigger set: daily 3:30 JST");
+}
+
+function rewardV2_disableEstimateTriggers_() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var removed = 0;
+  for (var i = 0; i < triggers.length; i++) {
+    var fn = triggers[i].getHandlerFunction && triggers[i].getHandlerFunction();
+    if (fn === "cron_progressEstimateDaily_" || fn === "cron_rewardV2EstimateDaily_") {
+      try { ScriptApp.deleteTrigger(triggers[i]); removed++; } catch (e) {}
+    }
+  }
+  return { ok: true, disabled: true, removed: removed };
 }
 
 /** 月全体の活動データをテキスト化 */

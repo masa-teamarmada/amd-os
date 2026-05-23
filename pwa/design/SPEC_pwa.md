@@ -108,9 +108,9 @@ pwa/
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定 (取り消し線 = 未完月次ルーティンによる除外) |
 | `/project/[projectId]/cockpit` | PJ コックピット (PJ Status (SU 系のみ) / MS / 月次カード / カンバン / ナッジ / 月次ルーティン)。詳細は [`cockpit.md`](cockpit.md) |
-| `/project/[projectId]/config` | PJ 設定 (基本情報 / メンバー / 契約・料金 / 請求書送付)。GAS `226_ProjectConfig.html` の PWA 移植 |
+| `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/reimburse` | 立替精算 |
-| `/settings` | Operations Settings。admin限定で Raw Data / L2 Data / Cron Control を一覧化し、cronごとの条件JSONを変えて `Run Now` 可能 |
+| `/admin/settings` | Operations Settings。admin限定で Raw Data / L2 Data / Cron Control を一覧化する。停止中cronはここに旧頻度・入力・出力・停止理由を表示する。`/settings` は一般ユーザー誤操作防止のため削除 |
 | `/atlas` | シグナル & ストーリー一覧 |
 | `/atlas/inbox` | 未確認シグナル (政策/ニュース フィルタ + 一括 Accept) |
 | `/atlas/inbox/submit` | 手動投入 (auto-tag 付) |
@@ -129,9 +129,9 @@ pwa/
 | `/scholar` | 学術トレンド (μ_A 観測量 N) — lane × quarter の論文数 line chart + 前年同期比。OpenAlex 由来。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
 | `/reimburse` | 立替精算。PWAから申請/編集/削除、領収書添付、PM承認、admin承認まで実行。申請/編集は `/api/reimbursements` 経由で server-side 保存。status flow: `submitted` → `pmApproved` → `approved` |
 | `/admin/billing` | admin 立替/請求マトリクス (チップ操作で billing_cycles 直更新) |
-| `/admin/payouts` | 報酬支払。支払月を選び、`billing_cycles.invoice_ym` に紐づく報酬確定済みcycleを集約して `monthly_reward_payout` / `payout_notices` を保存。後から確定した委託料を入力し、`65% - buffer` を対象稼働月のPJ予算へ配分する。PJ予算超過チェック、後追い予算未確定 / 予算不足 / 失注ステータスの警告、明細クリックから該当PJ/月の月次モーダルを開く導線を持つ |
+| `/admin/payouts` | 報酬支払。支払月を選び、`billing_cycles.invoice_ym` があればそれを優先、空なら `/admin/projects` の支払条件 (`projects.payment_due_rule`) から支払月を自動判定して報酬確定済みcycleを集約する。`monthly_reward_payout` / `payout_notices` 保存、後追い委託料入力、`65% - buffer` のPJ予算配分、PJ予算超過チェック、後追い予算未確定 / 予算不足 / 失注ステータス警告、明細クリックから月次モーダルを開く導線を持つ |
 | `/admin/finance` | 経理オペ台帳。サブスク / 固定継続費 / 自動振替 / 引落口座 / budget forward-fill / Gmail領収書イベント |
-| `/admin/projects` `/members` `/contexts` `/protocols` `/tsukuyomi` `/settings` | 各 admin。`/admin/members` はGoogle Calendar共有状態 (`members.google_calendar_status`) とOS最終ログイン (`members.last_login_at`) を表示し、最終ログインが新しい順に並べる |
+| `/admin/projects` `/admin/members` `/admin/contexts` `/admin/protocols` `/admin/tsukuyomi` `/admin/settings` | 各 admin。`/admin/projects` はPJごとの契約・請求・支払条件の正本で、支払条件は稼働月基準の `当月末 / 当月25日 / 翌月末 / 翌月25日 / 翌々月末 / 翌々月25日` を `projects.payment_due_rule` に保存する。例: 5月稼働分を6月に請求して6月末支払なら `翌月末`。`/admin/members` はGoogle Calendar共有状態 (`members.google_calendar_status`) とOS最終ログイン (`members.last_login_at`) を表示し、最終ログインが新しい順に並べる |
 | `/admin/prompts` | LLM プロンプト管理 (= AGENTS ルール「プロンプトをコードに書かない」執行 UI)。`llm_prompts` 3 件 (tsukuyomi.system / protocol.extract / monthly_report.r313_extract) + スプシ由来 `tsukuyomi_context` 20+ 件を併記。body 全文閲覧 + 編集 + is_active トグル可能。詳細は [`amd_protocol.md`](amd_protocol.md) と [`L2_DATA.md`](L2_DATA.md) |
 | `/vcs` | VC リスト (国内ディープテック VC マスタ。ソート/ファセット/検索) |
 | `/vcs/[id]` | VC 詳細 (4 ペイン: 特性 / ファンド + DPE残 / PJ 接点 / 出資先 + ニュース) |
@@ -147,7 +147,7 @@ pwa/
 **PJ 月次ノート:** `project/monthly-note` (= GET / POST。MS なし PJ でも月次モーダルで自由記述ノートを残せる。`project_monthly_notes` テーブル、PK `(project_id, ym)`、まさ 2026-05-12 タスク 3)
 **Atlas:** `atlas/auto-tag` `atlas/backfill` `atlas/seed` `atlas/match-stories` `atlas/merge-stories` `atlas/move-signal` `atlas/themes/{cluster,apply,list}`
 **請求/レポート:** `invoice/{create,preview}` `report/{generate,fix}`
-**Admin:** `admin/projects/[id]` (= PATCH、AdminProjectsTable から projects + project_ventures 1 セル単位 update を service_role 経由)、`admin/project-members/bulk` (= POST、PJ メンバー一括 incremental update + 論理削除 (is_active=false)、`ProjectMembersEditor` から呼ばれる、admin/projects のメンバー列モーダルと project/[id]/config の両方で共有)、`admin/pj-introduction-html` (= ダッシュボード「📑 全 PJ 紹介資料作成」ボタンから POST、選択 PJ のエグゼクティブサマリー HTML を雛形 fmt で生成。Sonnet 4.5 で 1 PJ ごと JSON 集約 + concurrency 3。雛形 = `src/lib/exec_summary/template_section.html` + `template.css`、prompt = `llm_prompts.exec_summary.extract`)、`admin/lane-suggestions/[id]` (= LLM lane 提案の approve/reject)、`admin/seed-vcs` 等
+**Admin:** `admin/projects/[id]` (= PATCH、AdminProjectsTable から projects + project_ventures 1 セル単位 update を service_role 経由)、`admin/payment-confirm` (= Slack入金確認ボタン / 金額入力フォームから signed token で `billing_cycles.payment_confirmed_at` を更新し、実額・freee照合の証跡は `billing_log.detail` に保存)、`admin/project-members/bulk` (= POST、PJ メンバー一括 incremental update + 論理削除 (is_active=false)、`ProjectMembersEditor` から呼ばれる、admin/projects のメンバー列モーダルと project/[id]/config の両方で共有)、`admin/pj-introduction-html` (= ダッシュボード「📑 全 PJ 紹介資料作成」ボタンから POST、選択 PJ のエグゼクティブサマリー HTML を雛形 fmt で生成。Sonnet 4.5 で 1 PJ ごと JSON 集約 + concurrency 3。雛形 = `src/lib/exec_summary/template_section.html` + `template.css`、prompt = `llm_prompts.exec_summary.extract`)、`admin/lane-suggestions/[id]` (= LLM lane 提案の approve/reject)、`admin/seed-vcs` 等
 **通知:** `notifications/feedback` (= admin限定。まさ/きよからの修正依頼を `l2_feedbacks` に保存し、候補L2の「はい/いいえ」状態遷移も処理)
 **ソース refs:** `sources/slack/collect` / `sources/gmail/collect` (= source_cacheへ短いsnippet/hash/source_urlだけ保存。取り込み完了通知は作らない)
 **創業コア:** `founding-members/revise` (= コックピットのつくよみ修正依頼。提案プレビュー後、OK確定で `project_founding_members` をupsert/invalid化)
@@ -155,31 +155,35 @@ pwa/
 
 **通知反映ルール:** 通知に表示される候補は、通知画面で「はい」を押したものだけ正本反映する。`member_knowledge` / `project_knowledge` / `protocols` / `founding_members` / `project_registry_diff` / `xrl_evidence` は candidate/tentative を経由し、「はい」で active/confirmed/applied、「いいえ」で rejected/invalid にする。
 
-**Auth:** Google Workspace login requires `calendar.readonly` and `gmail.readonly`. `/auth/callback` verifies Calendar API access before entering the app, stores non-secret status on `members.google_calendar_status`, updates `members.last_login_at` on successful login, and stores provider tokens in `member_google_oauth_tokens` for server-side ingestion.
+**Auth:** Google Workspace login requires `calendar.readonly` and `gmail.readonly`. `/auth/callback` verifies Calendar API access before entering the app, stores non-secret status on `members.google_calendar_status`, updates `members.last_login_at` on successful login, and stores provider tokens in `member_google_oauth_tokens` for server-side ingestion. Existing sessions may not pass through `/auth/callback`, so middleware also touches `members.last_login_at` for authenticated page access at most once per hour.
 
 ### Cron (`vercel.json`、UTC、Hobby plan で maxDuration=300 上限)
 
+2026-05-23時点で自動scheduleに残すのは、LLMを使わない `member-weekly-activities` / `papers-quarterly-ingest` / `sync-pj-facts` / `macro-aggregate-indicators` と、支払運用に必要な `freee-payment-sync` / `payment-confirm-nudges` だけ。LLM利用cronは `vercel.disabled-crons.json` に退避し、復活にはownerの明示承認を要する。
+
 | path | schedule (UTC) | JST | 内容 |
 |---|---|---|---|
-| `cron/daily-estimate` | `0 18 * * *` | 03:00 daily | 全 active PJ の進捗推定 |
+| `cron/daily-estimate` | disabled | 03:00 daily | 旧進捗推定cron。LLM課金回避のためVercel scheduleから外す |
 | `cron/atlas-collect` | disabled | 08:00 daily | 課金回避のため停止済み。旧定義は `vercel.disabled-crons.json` に保管。現在は Codex automation `AMD Atlas外部シグナルレビュー` が担当 |
-| `cron/atlas-collect-policy` | `0 22 * * *` | 07:00 daily | 政府方針シグナル収集 (5 省庁) |
-| `cron/atlas-daily` | `0 21 * * *` | 06:00 daily | atlas 日次レポート |
-| `cron/atlas-weekly` | `0 8 * * 5` | 17:00 fri | atlas 週次 |
-| `cron/atlas-monthly` | `0 22 1 * *` | 07:00 month-1 | atlas 月次 |
-| `cron/atlas-divergence` | `0 21 * * 0` | 06:00 sun | テーマ単位 divergence 再生成 (54 テーマ ≈ 100s) |
-| `cron/member-activities` | `0 19 * * *` | 04:00 daily | 月次レポート + MTGサマリ + source_cache refs → Sonnet 推論 → member_activities |
+| `cron/atlas-collect-policy` | disabled | 07:00 daily | 政府方針シグナル収集。Sonnet利用のため停止済み |
+| `cron/atlas-daily` | disabled | 06:00 daily | atlas 日次レポート。内部で `atlas-report.ts` がAnthropicを使うため停止済み |
+| `cron/atlas-weekly` | disabled | 17:00 fri | atlas 週次。内部で `atlas-report.ts` がAnthropicを使うため停止済み |
+| `cron/atlas-monthly` | disabled | 07:00 month-1 | atlas 月次。内部で `atlas-report.ts` がAnthropicを使うため停止済み |
+| `cron/atlas-divergence` | disabled | 06:00 sun | テーマ単位 divergence 再生成。Sonnet利用のため停止済み |
+| `cron/member-activities` | disabled | 04:00 daily | 月次レポート + MTGサマリ + source_cache refs → Sonnet 推論 → member_activities。LLM課金回避で停止済み |
 | `cron/member-weekly-activities` | `0 9 * * *` | 18:00 daily | Gmail / 共有メンバーカレンダー / source_cache → member_activities(source='member_weekly')。毎日18:00 JSTに、前日18:00〜当日18:00の24hを抽出 |
-| `cron/relearn-lane-weights` | `30 18 * * *` | 03:30 daily | macro lane weights 再学習 |
-| `cron/macro-backfill-historical` | `0 3 * * 0` | 12:00 sun | 2010-2025 macro_index_log を Sonnet 推定で埋める |
-| `cron/amd-score-l2-refresh` | `0 18 * * 0` | 03:00 mon | 6 ソース (Slack/Drive/Notion/Gmail/Calendar/WebSearch) から AMD Score / XRL根拠 (L2 ⑧) を Sonnet 抽出 → amd_score_inputs に upsert (ecosystem PJ は対象外) |
-| `cron/seeds-ingest` | `0 0 * * 1` | 09:00 mon | GAP/NEP/AMED/D-Global/CREST/創発 等の直近採択を web_search で発見 → seeds (discovery_status='discovered')。/seeds/inbox に並ぶ、GlobalNav に未確認バッジ。詳細は [`seeds.md`](seeds.md) |
-| `cron/vc-discover` | `0 0 * * 6` | 09:00 sat | 業界横断 web_search で VC ニュース 10-18 件 + 新規 VC stub 化 → vc_news (verified=false) + vcs。fundraise/fund_close は suggested_fund_patch で fund 更新提案。**旧 vc-news-ingest を 2026-05-13 に吸収**, ingested_by='discover_cron' |
+| `cron/relearn-lane-weights` | disabled | 03:30 daily | macro lane weights 再学習。Sonnet利用のため停止済み |
+| `cron/macro-backfill-historical` | disabled | 12:00 sun | 2010-2025 macro_index_log を Sonnet 推定で埋めるため停止済み |
+| `cron/amd-score-l2-refresh` | disabled | 03:00 mon | 6 ソース (Slack/Drive/Notion/Gmail/Calendar/WebSearch) から AMD Score / XRL根拠 (L2 ⑧) を Sonnet 抽出するため停止済み |
+| `cron/seeds-ingest` | disabled | 09:00 mon | 研究シーズ探索。LLM/web search課金回避のため停止済み |
+| `cron/vc-discover` | disabled | 09:00 sat | VCニュース/VC stub探索。LLM/web search課金回避のため停止済み |
 | `cron/papers-quarterly-ingest` | `20 18 * * 1` | 03:20 火 | OpenAlex で 5 lane × 直近 16 quarter の論文数を papers_log に upsert (μ_A 観測量 N の供給)。Triple Helix 観測モデルの主入力。詳細は [`amd_score.md`](amd_score.md) |
-| `cron/founding-members-extract` | `30 18 * * 1` | 03:30 火 | ecosystem を除くPJの monthly_reports + meeting_summaries + project_knowledge から **創業メンバー** (= 創業者 / CEO候補 / 技術創業者 / PI など創業コア。VC/協業先/顧客/行政/AMDサポートのみは除外) を Sonnet 4.5 で抽出 → project_founding_members に upsert + l2_notifications (kind='founding_members')。L2 ⑧ XRL根拠のうち HRL 推定の主要根拠 |
+| `cron/founding-members-extract` | disabled | 03:30 火 | 関連メンバー抽出。Sonnet利用のため停止済み |
 | `cron/sync-pj-facts` | `0 19 * * *` | 04:00 daily | `project_ventures` の構造化フィールド (founded_at / outcome_pattern / origin_org / origin_pi / lane / amd_support_*) を `project_knowledge` に `category='basic_fact'` で同期。/admin/contexts や cockpit から見える状態に。**まさが PJ ナレッジで設立日 / outcome を見られる用途** |
-| `cron/frl-grit-resilience-extract` | `0 18 1 * *` | 月初 03:00 JST | active かつ ecosystem 以外のPJ × 過去 3 ヶ月 monthly_reports + project_meeting_summaries + project_founding_members を Sonnet 4.6 で集約 → `frl_grit` (Duckworth 2007) / `frl_resilience` (Markman 2005) を 0-9 推定 → 既存 `amd_score_inputs` に update。`llm_prompts.frl.grit_resilience.extract` v2 を fetch (= 外部創業者優先 / null 厳格化)。手動キックは `?projectId=p21` 可だが ecosystem はskip |
+| `cron/frl-grit-resilience-extract` | disabled | 月初 03:00 JST | FRL grit/resilience抽出。Sonnet利用のため停止済み |
 | `cron/macro-aggregate-indicators` | `0 19 1 * *` | 月初 04:00 JST | observation_log + atlas_signals を ASPI lane × month で集計 → `macro_index_log` の `budget_amount` (= kaken/grant 集計) / `investment_amount` (= vc 集計) / `policy_mention_count` (= atlas_signals.source_type='policy' 件数) / `raw_signal_count` (= atlas_signals 全件) を update + 欠落 row を insert。`?since=YYYY-MM` 指定可 (= デフォルト過去 36 ヶ月)。atlas_signals.domain (= "I.ICT・AI" 等の ATL 独自) → ASPI domain mapping は cron 内 ATL_DOMAIN_TO_ASPI に定義 |
+| `cron/freee-payment-sync` | `10 0 * * *` | 09:10 daily | freee会計の収入取引 (`/api/1/deals`, `type=income`) と口座明細 (`/api/1/wallet_txns`, `entry_side=income`) を支払月で取得し、取引先ID・請求番号・入金額・PJ別 `payment_alias` からOSの入金予定と照合。支払済みなら `billing_cycles.payment_confirmed_at` を自動更新し、照合証跡を `billing_log.detail` に保存 |
+| `cron/payment-confirm-nudges` | `30 0 * * *` | 09:30 daily | 支払月単位で未入金のPJを抽出し、active admin (`members.is_admin=true`) のSlack DMへ入金確認nudgeを送る。ボタンは「予定通り入金済み」(1クリック反映) と「金額を入力」(`/payment-confirm`)。LLM非使用なのでLLM系cron停止とは別枠で稼働 |
 | `cron/management-score-raw-data` | (vercel cron 未登録) | on-demand / monthly | AMD Management Score 用 raw signal intake。OS内部データを `amd_management_score_raw_signals` に集約。`?includeFreee=1` で freee trial_pl → `company_actual_monthly` も同期。local: `npm run collect:management-score-raw -- --ym=YYYYMM [--include-freee]` |
 | `cron/management-score-calculate` | (vercel cron 未登録) | on-demand / after raw | `amd_management_score_raw_signals` から `amd_management_score_snapshots` / evidence を算出。`?ym=YYYYMM` 指定可 |
 | `cron/monthly-reports-backfill` | (vercel cron 未登録) | on-demand 手動 curl | billing_cycles LEFT JOIN monthly_reports IS NULL の row を Sonnet 4.6 で順次生成 → monthly_reports upsert。prompt = `llm_prompts.monthly_report.r313_extract` (Supabase fetch、is_active 無視、AGENTS 完遵)。`?limit=N&concurrency=M` で並列処理 (デフォルト 6 件 / 5 並列、Vercel maxDuration 300s soft timeout 260s)。文字化け検出 (= ? 比率 > 50% で reject)。AMD-Report GAS R313 と機能重複、R313 が動かない時の保険 + backfill 用 |
@@ -319,6 +323,12 @@ pwa/
 - 素材生成元: `/Users/masa/projects/masa/output/tsukuyomi_animations_amd/` (Codex 生成、annotation なし)
 - 統合シート生成: `/tmp/combine_v2_frames.py` (FRAMES_PER_ROW=18, ROWS=4)
 
+### メンバーコードネームリンク
+
+- OS内の文章中にAMDメンバーのコードネーム（例: まさ / うめ / あび）が出る場合は、共通UI `LinkedMemberText` を通して `/mypage?memberId=<member_id>` へのリンクにする。
+- 目的は可読性と追跡性。青字リンクで目立たせ、誰の話かをその場で辿れるようにする。
+- `/mypage?memberId=...` はadmin閲覧用。他メンバーのマイページを一般ユーザーが閲覧する導線にはしない。
+
 ---
 
 ## 6. 認証
@@ -439,6 +449,7 @@ npx tsc --noEmit     # 型チェック
 - 並びは古い月が上
 - 期限超過かつ未完なら mypage の月次報酬から **取り消し線** で除外
 - ただし `billing_cycles.status` が `payment_confirmed` / `reward_paid` / `completed`、または `payment_confirmed_at` / `reward_paid_at` あれば admin 救済済みとして除外しない
+- `projects.project_category='advisor'` (社外役員/顧問PJ) は月次ルーティン対象外。コックピット・mypage通知・報酬除外判定に発生させない。
 
 #### 各ステップクリック時の挙動 ⭐
 
@@ -448,7 +459,7 @@ cockpit 右カラムの月次ルーティンで「タスク行」をクリック
 
 | stepId | 開く UI | 実装 |
 |---|---|---|
-| `budget` (請求額確定) | `CockpitRoutineBudgetModal` | billing_cycles 直叩き / Edge Fn `send-budget-approval-nudge`。`projects.fee_type='monthly_fixed'` かつ `fee_amount` ありなら「今月も¥Xでおけ？」として請求額確認だけ行う。メンバー別支払額はpt計算の正本なので入力しない |
+| `budget` (請求額確定) | `CockpitRoutineBudgetModal` | `billing_cycles` へ申告保存 / `/api/notify/pl-review`。`projects.fee_type='monthly_fixed'` かつ `fee_amount` ありなら「今月も¥Xでおけ？」として請求額確認だけ行う。メンバー別支払額はpt計算の正本なので入力しない。PL確認依頼は `project_members.is_pl=true` のSlack DMへ、請求額・バッファ・PJ予算と `承認する` / `差し戻す` / `OSで確認` ボタンを送る。承認は `/api/admin/budget-approval` に集約し、`status='budget_confirmed'` と `budget_yen` を同時に確定する |
 | `estimateSend` (見積書送付・CTBのみ) | `CockpitRoutineInvoiceModal` (documentType=`quotation`) | billing_cycles 直叩き / Edge Fn `issue-invoice` `cancel-invoice` |
 | `meeting` (報告会日程調整) | `CockpitRoutineMeetingModal` | Edge Fn `meeting-slots` (GET) / `schedule-meeting` (GET) |
 | `reportFix` (月次報告書FIX) | `CockpitMonthlyModal` の `report` タブ | 月次モーダル内の Markdown 表示/編集UIを正本にする |

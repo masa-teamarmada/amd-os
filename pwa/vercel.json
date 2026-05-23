@@ -1,80 +1,10 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/atlas-daily",
-      "schedule": "0 21 * * *"
-    },
-    {
-      "path": "/api/cron/atlas-weekly",
-      "schedule": "0 8 * * 5"
-    },
-    {
-      "path": "/api/cron/atlas-monthly",
-      "schedule": "0 22 1 * *"
-    },
-    {
-      "path": "/api/cron/atlas-collect-policy",
-      "schedule": "0 22 * * *"
-    },
-    {
-      "path": "/api/cron/atlas-divergence",
-      "schedule": "0 21 * * 0"
-    },
-    {
-      "path": "/api/cron/member-activities",
-      "schedule": "0 19 * * *"
-    },
-    {
-      "path": "/api/cron/member-weekly-activities",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/relearn-lane-weights",
-      "schedule": "30 18 * * *"
-    },
-    {
-      "path": "/api/cron/macro-backfill-historical",
-      "schedule": "0 3 * * 0"
-    },
-    {
-      "path": "/api/cron/venture-xrl-refresh",
-      "schedule": "15 18 * * *"
-    },
-    {
-      "path": "/api/cron/venture-narrative-refresh",
-      "schedule": "45 18 * * *"
-    },
-    {
-      "path": "/api/cron/amd-score-l2-refresh",
-      "schedule": "0 18 * * 0"
-    },
-    {
-      "path": "/api/cron/seeds-ingest",
-      "schedule": "0 0 * * 1"
-    },
-    {
-      "path": "/api/cron/vc-discover",
-      "schedule": "0 0 * * 6"
-    },
-    {
-      "path": "/api/cron/papers-quarterly-ingest",
-      "schedule": "20 18 * * 1"
-    },
-    {
-      "path": "/api/cron/founding-members-extract",
-      "schedule": "30 18 * * 1"
-    },
-    {
-      "path": "/api/cron/sync-pj-facts",
-      "schedule": "0 19 * * *"
-    },
-    {
-      "path": "/api/cron/macro-aggregate-indicators",
-      "schedule": "0 19 1 * *"
-    },
-    {
-      "path": "/api/cron/frl-grit-resilience-extract",
-      "schedule": "0 18 1 * *"
-    }
+    { "path": "/api/cron/freee-payment-sync", "schedule": "10 0 * * *" },
+    { "path": "/api/cron/payment-confirm-nudges", "schedule": "30 0 * * *" },
+    { "path": "/api/cron/member-weekly-activities", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/papers-quarterly-ingest", "schedule": "20 18 * * 1" },
+    { "path": "/api/cron/sync-pj-facts", "schedule": "0 19 * * *" },
+    { "path": "/api/cron/macro-aggregate-indicators", "schedule": "0 19 1 * *" }
   ]
 }

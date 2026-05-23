@@ -24,12 +24,25 @@ function currentYmJST(): string {
   return `${jst.getUTCFullYear()}${String(jst.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function usesMsProgressCategory(category: string | null | undefined): boolean {
+  return ["dtsu", "ecosystem"].includes(String(category || "dtsu").toLowerCase());
+}
+
 async function inferForProject(
   projectId: string,
   ym: string,
   supabase: ReturnType<typeof getServiceClient>,
   anthropic: Anthropic
 ): Promise<{ ok: boolean; saved: number; message?: string }> {
+  const { data: project } = await supabase
+    .from("projects")
+    .select("project_category")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (!usesMsProgressCategory(project?.project_category)) {
+    return { ok: true, saved: 0, message: "non-MS-managed project: MS activity inference skipped" };
+  }
+
   // 月次レポート取得
   const { data: reports } = await supabase
     .from("monthly_reports")
@@ -158,8 +171,11 @@ export async function POST(req: NextRequest) {
   if (body.projectId) {
     projectIds = [body.projectId];
   } else {
-	    const { data: projects } = await supabase
-	      .from("projects").select("project_id").or("status.eq.active,project_category.eq.advisor");
+    const { data: projects } = await supabase
+      .from("projects")
+      .select("project_id")
+      .eq("status", "active")
+      .in("project_category", ["dtsu", "ecosystem"]);
     projectIds = (projects ?? []).map((p: { project_id: string }) => p.project_id);
   }
 

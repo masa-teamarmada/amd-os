@@ -108,9 +108,9 @@ export async function POST(req: NextRequest) {
     }
 
     const applyResult = action === "yes"
-      ? await applyApprovedNotification({ supabase, l2Kind, targetId, scopeKey, meetingId, feedbackText, feedbackId: data.feedback_id, createdBy })
+      ? await applyApprovedNotification({ supabase, l2Kind, targetId, scopeKey, notificationId, meetingId, feedbackText, feedbackId: data.feedback_id, createdBy })
       : action === "no"
-        ? await rejectNotificationCandidates({ supabase, l2Kind, targetId, scopeKey, feedbackText, createdBy })
+        ? await rejectNotificationCandidates({ supabase, l2Kind, targetId, scopeKey, notificationId, feedbackText, createdBy })
         : { applied: false, message: "comment only" };
 
     await supabase.from("tsukuyomi_learnings").insert({
@@ -159,6 +159,7 @@ async function applyApprovedNotification(args: {
   l2Kind: string;
   targetId: string;
   scopeKey: string;
+  notificationId?: string | null;
   meetingId?: string | null;
   feedbackText: string;
   feedbackId: string;
@@ -324,25 +325,14 @@ async function applyApprovedNotification(args: {
   }
 
   if (args.l2Kind === "xrl_evidence") {
-    const query = args.supabase
-      .from("project_xrl_evidence")
-      .update({
-        status: "confirmed",
-        confirmed_by: args.createdBy,
-        confirmed_at: new Date().toISOString(),
-      })
-      .eq("project_id", args.targetId)
-      .eq("status", "candidate");
-    const scopedQuery = args.scopeKey === "global"
-      ? query.is("ym", null)
-      : query.eq("ym", args.scopeKey);
-    const { data, error } = await scopedQuery.select("evidence_id, axis, evidence_kind, summary");
-    if (error) return { applied: false, message: error.message };
-    return {
-      applied: (data ?? []).length > 0,
-      message: `confirmed xrl evidence: ${(data ?? []).length}`,
-      row: data,
-    };
+    return updateXrlEvidenceCandidates({
+      supabase: args.supabase,
+      targetId: args.targetId,
+      scopeKey: args.scopeKey,
+      notificationId: args.notificationId,
+      status: "confirmed",
+      createdBy: args.createdBy,
+    });
   }
 
   return { applied: false, message: `no automatic apply handler for ${args.l2Kind}` };
@@ -391,6 +381,7 @@ async function rejectNotificationCandidates(args: {
   l2Kind: string;
   targetId: string;
   scopeKey: string;
+  notificationId?: string | null;
   feedbackText: string;
   createdBy: string | null;
 }): Promise<{ applied: boolean; message: string; row?: unknown }> {
@@ -414,21 +405,14 @@ async function rejectNotificationCandidates(args: {
   }
 
   if (args.l2Kind === "xrl_evidence") {
-    const query = args.supabase
-      .from("project_xrl_evidence")
-      .update({
-        status: "rejected",
-        confirmed_by: args.createdBy,
-        confirmed_at: new Date().toISOString(),
-      })
-      .eq("project_id", args.targetId)
-      .eq("status", "candidate");
-    const scopedQuery = args.scopeKey === "global"
-      ? query.is("ym", null)
-      : query.eq("ym", args.scopeKey);
-    const { data, error } = await scopedQuery.select("evidence_id");
-    if (error) return { applied: false, message: error.message };
-    return { applied: false, message: `rejected xrl evidence: ${(data ?? []).length}`, row: data };
+    return updateXrlEvidenceCandidates({
+      supabase: args.supabase,
+      targetId: args.targetId,
+      scopeKey: args.scopeKey,
+      notificationId: args.notificationId,
+      status: "rejected",
+      createdBy: args.createdBy,
+    });
   }
 
   if (args.l2Kind === "founding_members") {
@@ -598,6 +582,87 @@ function mergeCommaValues(current: string, additions: string[]): string {
     out.push(value);
   }
   return out.join(", ");
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function textValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function xrlNotificationYm(scopeKey: string): string {
+  if (scopeKey === "global") return "global";
+  return scopeKey.match(/20\d{4}/)?.[0] ?? scopeKey;
+}
+
+async function loadNotificationMetadata(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  notificationId?: string | null
+): Promise<Record<string, unknown>> {
+  if (!notificationId) return {};
+  const { data, error } = await supabase
+    .from("l2_notifications")
+    .select("metadata_json")
+    .eq("notification_id", notificationId)
+    .maybeSingle();
+  if (error) return {};
+  return objectValue(data?.metadata_json);
+}
+
+async function updateXrlEvidenceCandidates(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  targetId: string;
+  scopeKey: string;
+  notificationId?: string | null;
+  status: "confirmed" | "rejected";
+  createdBy: string | null;
+}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  const meta = await loadNotificationMetadata(args.supabase, args.notificationId);
+  const ym = xrlNotificationYm(args.scopeKey);
+  const axis = textValue(meta.axis).toLowerCase();
+  const evidenceKind = textValue(meta.evidence_kind);
+  const sourceHash = textValue(meta.evidence_source_hash);
+  const now = new Date().toISOString();
+
+  const run = async (includeSourceHash: boolean) => {
+    let query = args.supabase
+      .from("project_xrl_evidence")
+      .update({
+        status: args.status,
+        confirmed_by: args.createdBy,
+        confirmed_at: now,
+        updated_at: now,
+      })
+      .eq("project_id", args.targetId)
+      .eq("status", "candidate");
+    query = ym === "global" ? query.is("ym", null) : query.eq("ym", ym);
+    query = axis ? query.eq("axis", axis) : query;
+    query = evidenceKind ? query.eq("evidence_kind", evidenceKind) : query;
+    query = includeSourceHash && sourceHash ? query.eq("source_hash", sourceHash) : query;
+    return query.select("evidence_id, axis, evidence_kind, summary, source_hash");
+  };
+
+  const exact = await run(true);
+  if (exact.error) return { applied: false, message: exact.error.message };
+  if ((exact.data ?? []).length > 0 || !sourceHash) {
+    return {
+      applied: (exact.data ?? []).length > 0,
+      message: `${args.status} xrl evidence: ${(exact.data ?? []).length}`,
+      row: exact.data,
+    };
+  }
+
+  const fallback = await run(false);
+  if (fallback.error) return { applied: false, message: fallback.error.message };
+  return {
+    applied: (fallback.data ?? []).length > 0,
+    message: `${args.status} xrl evidence: ${(fallback.data ?? []).length}`,
+    row: fallback.data,
+  };
 }
 
 async function filterProjectReportEmails(

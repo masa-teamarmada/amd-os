@@ -23,7 +23,7 @@ export default async function AdminPayoutsPage() {
         <span className="text-sm text-muted-foreground">支払管理 — {currentYm}</span>
       </div>
       <p className="text-xs text-muted-foreground mb-4">
-        請求月ベースで報酬確定済みcycleを集約し、支払明細とメンバー別通知額を保存する。
+        支払月ベースで報酬確定済みcycleを集約し、支払明細とメンバー別通知額を保存する。
       </p>
       <AdminPayoutsClient initialYm={currentYm} ymOptions={ymOptions} />
     </div>

@@ -10,6 +10,7 @@ type Member = {
   member_name: string | null;
   email: string | null;
   status: string;
+  is_officer?: boolean | null;
   exclude_from_payout_notice?: boolean | null;
 };
 
@@ -55,6 +56,8 @@ type BillingCycle = {
   ym: string;
   status: string | null;
   budget_yen: number | null;
+  budget_reported_amount?: number | null;
+  budget_buffer_amount?: number | null;
   invoice_ym: string | null;
   reward_summary_json: RewardSummary | string | null;
   payout_notice_uploaded_at?: string | null;
@@ -120,6 +123,46 @@ type BudgetAuditItem = {
   paymentConfirmed: boolean;
 };
 
+type ProjectFinanceCycleLine = {
+  key: string;
+  ym: string;
+  invoiceYm: string;
+  clientAmountYen: number;
+  bufferYen: number;
+  budgetYen: number;
+  payoutYen: number;
+  officerPayoutYen: number;
+  officerOffsetYen: number;
+  finalBalanceYen: number;
+};
+
+type ProjectFinanceMemberLine = {
+  key: string;
+  ym: string;
+  invoiceYm: string;
+  memberId: string;
+  memberName: string;
+  amountYen: number;
+  isOfficer: boolean;
+  offsetYen: number;
+  netEffectYen: number;
+};
+
+type ProjectFinanceGroup = {
+  projectId: string;
+  projectName: string;
+  projectStatus: string | null;
+  clientAmountYen: number;
+  bufferYen: number;
+  budgetYen: number;
+  payoutYen: number;
+  officerPayoutYen: number;
+  officerOffsetYen: number;
+  finalBalanceYen: number;
+  cycles: ProjectFinanceCycleLine[];
+  memberLines: ProjectFinanceMemberLine[];
+};
+
 type BudgetConfirmGroup = {
   key: string;
   projectId: string;
@@ -159,7 +202,7 @@ const BC_STATUS_LABEL: Record<string, string> = {
   not_started: "未着手",
   reported: "報告済",
   budget_confirmed: "予算確定",
-  allocation_confirmed: "配賦確定",
+  allocation_confirmed: "予算確定",
   invoice_sent: "請求書送付",
   payment_confirmed: "着金確認",
   reward_paid: "報酬支払済",
@@ -169,7 +212,7 @@ const BC_STATUS_COLOR: Record<string, string> = {
   not_started: "border-zinc-200 bg-zinc-50 text-zinc-500",
   reported: "border-blue-200 bg-blue-50 text-blue-700",
   budget_confirmed: "border-amber-200 bg-amber-50 text-amber-700",
-  allocation_confirmed: "border-orange-200 bg-orange-50 text-orange-700",
+  allocation_confirmed: "border-amber-200 bg-amber-50 text-amber-700",
   invoice_sent: "border-violet-200 bg-violet-50 text-violet-700",
   payment_confirmed: "border-emerald-200 bg-emerald-50 text-emerald-700",
   reward_paid: "border-emerald-300 bg-emerald-100 text-emerald-800",
@@ -190,6 +233,15 @@ function fmtSignedYen(value: number | string | null | undefined) {
   const rounded = Math.round(n);
   if (rounded < 0) return `-¥${Math.abs(rounded).toLocaleString("ja-JP")}`;
   return `¥${rounded.toLocaleString("ja-JP")}`;
+}
+
+function fmtDeltaYen(value: number | string | null | undefined) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return "—";
+  const rounded = Math.round(n);
+  if (rounded > 0) return `+¥${rounded.toLocaleString("ja-JP")}`;
+  if (rounded < 0) return `-¥${Math.abs(rounded).toLocaleString("ja-JP")}`;
+  return "¥0";
 }
 
 function budgetAuditBadge(item: BudgetAuditItem) {
@@ -318,7 +370,7 @@ function cockpitModalContext(cockpit: CockpitData, ym: string) {
   };
 }
 
-function buildEntries(cycles: BillingCycle[], memberMap: Map<string, string>): PayoutEntry[] {
+function buildEntries(cycles: BillingCycle[], memberMap: Map<string, string>, excludedMemberIds: Set<string> = new Set()): PayoutEntry[] {
   const entries: PayoutEntry[] = [];
 
   for (const cycle of cycles) {
@@ -327,6 +379,7 @@ function buildEntries(cycles: BillingCycle[], memberMap: Map<string, string>): P
     for (const member of summary?.members ?? []) {
       const memberId = memberIdOf(member);
       if (!memberId) continue;
+      if (excludedMemberIds.has(memberId)) continue;
 
       const totalPay = Math.round(numberValue(member.totalPay ?? member.total_pay));
       const carryInYen = Math.round(numberValue(member.carryInYen ?? member.carry_in_yen));
@@ -394,6 +447,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
   const [budgetTarget, setBudgetTarget] = useState<BudgetConfirmGroup | null>(null);
   const [budgetSaving, setBudgetSaving] = useState(false);
+  const [paymentNudgeSending, setPaymentNudgeSending] = useState(false);
   const [cockpitCache, setCockpitCache] = useState<Record<string, CockpitData>>({});
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -433,14 +487,27 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const noticeExcludedSet = useMemo(() => {
     const set = new Set<string>();
     for (const member of data?.members ?? []) {
-      if (member.exclude_from_payout_notice) set.add(member.member_id);
+      if (member.exclude_from_payout_notice || member.is_officer) set.add(member.member_id);
+    }
+    return set;
+  }, [data?.members]);
+
+  const officerMemberIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const member of data?.members ?? []) {
+      if (member.is_officer) set.add(member.member_id);
     }
     return set;
   }, [data?.members]);
 
   const expectedEntries = useMemo(
-    () => buildEntries(data?.cycles ?? [], memberMap),
-    [data?.cycles, memberMap]
+    () => buildEntries(data?.cycles ?? [], memberMap, officerMemberIds),
+    [data?.cycles, memberMap, officerMemberIds]
+  );
+
+  const officerReserveEntries = useMemo(
+    () => buildEntries(data?.cycles ?? [], memberMap, new Set((data?.members ?? []).filter((member) => !member.is_officer).map((member) => member.member_id))),
+    [data?.cycles, data?.members, memberMap]
   );
 
   const cycleStats = useMemo(() => {
@@ -490,6 +557,117 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     return { budgetYen, payoutYen, overYen, missingBudgetCount, unpaidCount };
   }, [budgetAuditItems]);
   const hasBudgetBlocker = budgetAuditTotals.missingBudgetCount > 0 || budgetAuditTotals.overYen > 0;
+
+  const projectFinanceGroups = useMemo<ProjectFinanceGroup[]>(() => {
+    const nonOfficerByCycle = new Map<string, PayoutEntry[]>();
+    const officerByCycle = new Map<string, PayoutEntry[]>();
+    for (const entry of expectedEntries) {
+      const key = `${entry.projectId}:${entry.ym}`;
+      const list = nonOfficerByCycle.get(key) ?? [];
+      list.push(entry);
+      nonOfficerByCycle.set(key, list);
+    }
+    for (const entry of officerReserveEntries) {
+      const key = `${entry.projectId}:${entry.ym}`;
+      const list = officerByCycle.get(key) ?? [];
+      list.push(entry);
+      officerByCycle.set(key, list);
+    }
+
+    const map = new Map<string, ProjectFinanceGroup>();
+    for (const cycle of data?.cycles ?? []) {
+      const project = projectMap.get(cycle.project_id);
+      const group =
+        map.get(cycle.project_id) ??
+        {
+          projectId: cycle.project_id,
+          projectName: project?.project_name ?? cycle.project_id,
+          projectStatus: project?.status ?? null,
+          clientAmountYen: 0,
+          bufferYen: 0,
+          budgetYen: 0,
+          payoutYen: 0,
+          officerPayoutYen: 0,
+          officerOffsetYen: 0,
+          finalBalanceYen: 0,
+          cycles: [],
+          memberLines: [],
+        };
+
+      const cycleKeyValue = `${cycle.project_id}:${cycle.ym}`;
+      const nonOfficerEntries = nonOfficerByCycle.get(cycleKeyValue) ?? [];
+      const officerEntries = officerByCycle.get(cycleKeyValue) ?? [];
+      const payoutYen = nonOfficerEntries.reduce((sum, entry) => sum + entry.totalPay, 0);
+      const officerPayoutYen = officerEntries.reduce((sum, entry) => sum + entry.totalPay, 0);
+      const officerOffsetYen = officerPayoutYen;
+      const budgetYen = Math.round(numberValue(cycle.budget_yen));
+      const clientAmountYen = Math.round(numberValue(cycle.budget_reported_amount));
+      const bufferYen = Math.round(numberValue(cycle.budget_buffer_amount));
+      const finalBalanceYen = budgetYen - payoutYen - officerPayoutYen + officerOffsetYen;
+
+      group.clientAmountYen += clientAmountYen;
+      group.bufferYen += bufferYen;
+      group.budgetYen += budgetYen;
+      group.payoutYen += payoutYen;
+      group.officerPayoutYen += officerPayoutYen;
+      group.officerOffsetYen += officerOffsetYen;
+      group.finalBalanceYen += finalBalanceYen;
+      group.cycles.push({
+        key: cycleKeyValue,
+        ym: cycle.ym,
+        invoiceYm: cycle.invoice_ym || cycle.ym,
+        clientAmountYen,
+        bufferYen,
+        budgetYen,
+        payoutYen,
+        officerPayoutYen,
+        officerOffsetYen,
+        finalBalanceYen,
+      });
+
+      for (const entry of nonOfficerEntries) {
+        group.memberLines.push({
+          key: entryKey(entry),
+          ym: entry.ym,
+          invoiceYm: entry.invoiceYm,
+          memberId: entry.memberId,
+          memberName: entry.memberName,
+          amountYen: entry.totalPay,
+          isOfficer: false,
+          offsetYen: 0,
+          netEffectYen: -entry.totalPay,
+        });
+      }
+      for (const entry of officerEntries) {
+        group.memberLines.push({
+          key: `officer:${entryKey(entry)}`,
+          ym: entry.ym,
+          invoiceYm: entry.invoiceYm,
+          memberId: entry.memberId,
+          memberName: entry.memberName,
+          amountYen: entry.totalPay,
+          isOfficer: true,
+          offsetYen: entry.totalPay,
+          netEffectYen: 0,
+        });
+      }
+
+      map.set(cycle.project_id, group);
+    }
+
+    return [...map.values()]
+      .map((group) => ({
+        ...group,
+        cycles: group.cycles.sort((a, b) => a.ym.localeCompare(b.ym)),
+        memberLines: group.memberLines.sort((a, b) => {
+          if (a.ym !== b.ym) return a.ym.localeCompare(b.ym);
+          if (a.isOfficer !== b.isOfficer) return a.isOfficer ? 1 : -1;
+          return a.memberName.localeCompare(b.memberName, "ja");
+        }),
+      }))
+      .filter((group) => group.budgetYen > 0 || group.payoutYen > 0 || group.officerPayoutYen > 0 || group.clientAmountYen > 0)
+      .sort((a, b) => a.projectName.localeCompare(b.projectName, "ja"));
+  }, [data?.cycles, expectedEntries, officerReserveEntries, projectMap]);
 
   const budgetConfirmGroups = useMemo<BudgetConfirmGroup[]>(() => {
     const map = new Map<string, BudgetConfirmGroup>();
@@ -610,6 +788,31 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     }
   }
 
+  async function sendPaymentNudges() {
+    setPaymentNudgeSending(true);
+    setHint("入金確認nudgeを送信中...");
+    try {
+      const res = await fetch("/api/cron/payment-confirm-nudges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ym }),
+      });
+      const payload = (await res.json()) as { ok?: boolean; sent?: number; groupCount?: number; targetCount?: number; error?: string; skipped?: string };
+      if (!res.ok || payload.ok === false) {
+        throw new Error(payload.error || `nudge failed (${res.status})`);
+      }
+      if (payload.skipped) {
+        setHint(`入金確認nudgeは未送信: ${payload.skipped}`);
+      } else {
+        setHint(`入金確認nudge送信: ${payload.sent ?? 0}件 / 対象PJ ${payload.groupCount ?? 0} / admin ${payload.targetCount ?? 0}`);
+      }
+    } catch (err) {
+      setHint(err instanceof Error ? err.message : "入金確認nudge送信エラー");
+    } finally {
+      setPaymentNudgeSending(false);
+    }
+  }
+
   async function saveBudgetGroup(group: BudgetConfirmGroup, clientAmountYen: number, bufferYen: number) {
     if (clientAmountYen <= 0) {
       setHint("確定した業務委託料を入力してね");
@@ -714,11 +917,20 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         <button
           type="button"
           onClick={saveAll}
-          disabled={loading || saving || expectedEntries.length === 0 || hasBudgetBlocker}
+          disabled={loading || saving || paymentNudgeSending || expectedEntries.length === 0 || hasBudgetBlocker}
           title={hasBudgetBlocker ? "PJ予算未設定または超過があるため保存できない" : undefined}
           className="h-9 rounded-md bg-foreground px-4 text-[12px] font-medium text-background disabled:opacity-50"
         >
           {saving ? "保存中..." : savedAll ? "再保存" : "支払データ保存"}
+        </button>
+
+        <button
+          type="button"
+          onClick={sendPaymentNudges}
+          disabled={loading || saving || paymentNudgeSending}
+          className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
+        >
+          {paymentNudgeSending ? "nudge送信中..." : "入金確認nudge"}
         </button>
 
         <div className="ml-auto flex flex-wrap items-center gap-3 text-[12px]">
@@ -738,6 +950,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         items={budgetAuditItems}
         totals={budgetAuditTotals}
         budgetGroups={budgetConfirmGroups}
+        financeGroups={projectFinanceGroups}
         onOpenMonthly={(item) => openMonthlyModal(item.projectId, item.ym, `${item.projectName} ${fmtYm(item.ym)}`)}
         onOpenBudgetConfirm={setBudgetTarget}
       />
@@ -746,7 +959,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         <div className="flex items-center justify-between">
           <h2 className="text-[13px] font-semibold">対象の請求・報酬cycle</h2>
           <span className="text-[11px] text-muted-foreground">
-            `invoice_ym = {ym}` または `invoice_ym` 空で `ym = {ym}`
+            支払月はPJ台帳の支払条件から自動判定。個別上書きがあるcycleだけ invoice_ym を優先
           </span>
         </div>
         <div className="overflow-hidden rounded-lg border border-border">
@@ -755,7 +968,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
               <tr>
                 <th className="px-3 py-2 text-left font-medium">PJ</th>
                 <th className="px-3 py-2 text-left font-medium">稼働月</th>
-                <th className="px-3 py-2 text-left font-medium">請求月</th>
+                <th className="px-3 py-2 text-left font-medium">支払月</th>
                 <th className="px-3 py-2 text-left font-medium">status</th>
                 <th className="px-3 py-2 text-right font-medium">報酬額</th>
                 <th className="px-3 py-2 text-right font-medium">保存</th>
@@ -957,36 +1170,117 @@ function BudgetAuditPanel({
   items,
   totals,
   budgetGroups,
+  financeGroups,
   onOpenMonthly,
   onOpenBudgetConfirm,
 }: {
   items: BudgetAuditItem[];
   totals: { budgetYen: number; payoutYen: number; overYen: number; missingBudgetCount: number; unpaidCount: number };
   budgetGroups: BudgetConfirmGroup[];
+  financeGroups: ProjectFinanceGroup[];
   onOpenMonthly: (item: BudgetAuditItem) => void;
   onOpenBudgetConfirm: (group: BudgetConfirmGroup) => void;
 }) {
-  const overallOver = totals.payoutYen > totals.budgetYen || totals.overYen > 0;
+  const financeTotals = useMemo(() => {
+    return financeGroups.reduce(
+      (acc, group) => ({
+        clientAmountYen: acc.clientAmountYen + group.clientAmountYen,
+        bufferYen: acc.bufferYen + group.bufferYen,
+        budgetYen: acc.budgetYen + group.budgetYen,
+        payoutYen: acc.payoutYen + group.payoutYen,
+        officerPayoutYen: acc.officerPayoutYen + group.officerPayoutYen,
+        officerOffsetYen: acc.officerOffsetYen + group.officerOffsetYen,
+        finalBalanceYen: acc.finalBalanceYen + group.finalBalanceYen,
+      }),
+      { clientAmountYen: 0, bufferYen: 0, budgetYen: 0, payoutYen: 0, officerPayoutYen: 0, officerOffsetYen: 0, finalBalanceYen: 0 }
+    );
+  }, [financeGroups]);
+  const itemByKey = useMemo(() => new Map(items.map((item) => [item.key, item])), [items]);
+  const overallOver = financeTotals.finalBalanceYen < 0 || totals.overYen > 0;
   const overallTone = overallOver || totals.missingBudgetCount > 0 || totals.unpaidCount > 0
     ? "border-amber-300 bg-amber-50"
     : "border-emerald-300 bg-emerald-50";
-  const overallText = overallOver
-    ? `超過 ${fmtYen(Math.max(totals.payoutYen - totals.budgetYen, totals.overYen))}`
-    : `余力 ${fmtYen(totals.budgetYen - totals.payoutYen)}`;
+  const overallText =
+    financeTotals.finalBalanceYen < 0
+      ? `不足 ${fmtYen(Math.abs(financeTotals.finalBalanceYen))}`
+      : `最終収支 ${fmtYen(financeTotals.finalBalanceYen)}`;
+  const financeColumns = useMemo(
+    () => [
+      { key: "overall", label: "全体収支", subLabel: `${financeGroups.length} PJ`, group: null as ProjectFinanceGroup | null },
+      ...financeGroups.map((group) => ({
+        key: group.projectId,
+        label: group.projectName,
+        subLabel: group.projectId,
+        group,
+      })),
+    ],
+    [financeGroups]
+  );
+  const allCycleYms = useMemo(
+    () => [...new Set(financeGroups.flatMap((group) => group.cycles.map((cycle) => cycle.ym)))].sort(),
+    [financeGroups]
+  );
+  const memberRows = useMemo(() => {
+    const map = new Map<string, { key: string; memberId: string; memberName: string; isOfficer: boolean }>();
+    for (const group of financeGroups) {
+      for (const line of group.memberLines) {
+        const key = `${line.memberId}:${line.isOfficer ? "officer" : "pay"}`;
+        if (!map.has(key)) {
+          map.set(key, {
+            key,
+            memberId: line.memberId,
+            memberName: line.memberName,
+            isOfficer: line.isOfficer,
+          });
+        }
+      }
+    }
+    return [...map.values()].sort((a, b) => {
+      if (a.isOfficer !== b.isOfficer) return a.isOfficer ? 1 : -1;
+      return a.memberName.localeCompare(b.memberName, "ja");
+    });
+  }, [financeGroups]);
+
+  const columnMoney = (
+    group: ProjectFinanceGroup | null,
+    key: "clientAmountYen" | "bufferYen" | "budgetYen" | "payoutYen" | "officerPayoutYen" | "officerOffsetYen" | "finalBalanceYen"
+  ) => (group ? group[key] : financeTotals[key]);
+  const memberColumnAmount = (group: ProjectFinanceGroup | null, row: { memberId: string; isOfficer: boolean }) => {
+    const lines = group ? group.memberLines : financeGroups.flatMap((item) => item.memberLines);
+    return lines
+      .filter((line) => line.memberId === row.memberId && line.isOfficer === row.isOfficer)
+      .reduce((sum, line) => sum + line.amountYen, 0);
+  };
+  const columnCycles = (group: ProjectFinanceGroup | null) => group?.cycles ?? financeGroups.flatMap((item) => item.cycles);
+  const columnHasMissingBudget = (group: ProjectFinanceGroup | null) =>
+    columnCycles(group).some((cycle) => cycle.budgetYen <= 0 && (cycle.payoutYen > 0 || cycle.officerPayoutYen > 0));
+  const columnIsOver = (group: ProjectFinanceGroup | null) => columnMoney(group, "finalBalanceYen") < 0;
+  const columnBadge = (group: ProjectFinanceGroup | null) => {
+    const missing = columnHasMissingBudget(group);
+    const over = columnIsOver(group);
+    if (missing) return { label: "PJ予算未設定", className: "bg-red-100 text-red-800" };
+    if (over) return { label: `不足 ${fmtYen(Math.abs(columnMoney(group, "finalBalanceYen")))}`, className: "bg-red-100 text-red-800" };
+    return { label: `OK ${fmtYen(columnMoney(group, "finalBalanceYen"))}`, className: "bg-emerald-100 text-emerald-800" };
+  };
 
   return (
     <section className={`rounded-lg border ${overallTone} p-3`}>
       <div className="flex flex-wrap items-center gap-3">
         <div>
-          <h2 className="text-[13px] font-semibold">PJ予算チェック</h2>
+          <h2 className="text-[13px] font-semibold">PJ別収支 / 予算チェック</h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            今月の報酬支払が、クライアント入金のうち報酬として支払っていい額を超えてないかを見る。
-            後追い予算は、確定委託料が入るまで正式判定を保留する。
+            クライアント支払額、バッファ、PJ予算、メンバー別支払、役員分の相殺をPJごとに見る。
+            役員ONの支払額は同額を加算して相殺し、最終収支には支払対象外として残す。
           </p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2 text-[11px]">
-          <span className="rounded bg-background/80 px-2 py-1">PJ予算 {fmtYen(totals.budgetYen)}</span>
-          <span className="rounded bg-background/80 px-2 py-1">支払予定 {fmtYen(totals.payoutYen)}</span>
+          <span className="rounded bg-background/80 px-2 py-1">クライアント支払 {fmtYen(financeTotals.clientAmountYen)}</span>
+          <span className="rounded bg-background/80 px-2 py-1">バッファ {fmtYen(financeTotals.bufferYen)}</span>
+          <span className="rounded bg-background/80 px-2 py-1">PJ予算 {fmtYen(financeTotals.budgetYen)}</span>
+          <span className="rounded bg-background/80 px-2 py-1">支払予定 {fmtYen(financeTotals.payoutYen)}</span>
+          {financeTotals.officerPayoutYen > 0 && (
+            <span className="rounded bg-background/80 px-2 py-1">役員相殺 {fmtYen(financeTotals.officerOffsetYen)}</span>
+          )}
           <span className={`rounded px-2 py-1 font-semibold ${overallOver ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>
             {overallText}
           </span>
@@ -1015,7 +1309,7 @@ function BudgetAuditPanel({
                 >
                   <span className="font-semibold">{group.projectName}</span>
                   <span className="ml-2 font-mono text-muted-foreground">{rangeLabel}</span>
-                  <span className="ml-2">請求月 {fmtYm(group.invoiceYm)}</span>
+              <span className="ml-2">支払月 {fmtYm(group.invoiceYm)}</span>
                   <span className="ml-2 font-semibold">支払予定 {fmtYen(group.totalPayoutYen)}</span>
                 </button>
               );
@@ -1024,57 +1318,133 @@ function BudgetAuditPanel({
         </div>
       )}
 
-      <div className="mt-3 overflow-hidden rounded-md border border-border/70 bg-background">
-        <table className="w-full text-[12px]">
-          <thead className="border-b border-border bg-muted/40">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium">PJ</th>
-              <th className="px-3 py-2 text-left font-medium">稼働月</th>
-              <th className="px-3 py-2 text-left font-medium">請求月</th>
-              <th className="px-3 py-2 text-right font-medium">PJ予算</th>
-              <th className="px-3 py-2 text-right font-medium">報酬支払</th>
-              <th className="px-3 py-2 text-left font-medium">判定</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-3 py-5 text-center text-muted-foreground">
-                  チェック対象がない
-                </td>
-              </tr>
-            ) : (
-              items.map((item) => {
-                const missingBudget = item.budgetYen <= 0 && item.payoutYen > 0;
-                const over = item.budgetYen > 0 && item.payoutYen > item.budgetYen;
-                const unpaid = item.payoutYen > 0 && !item.paymentConfirmed;
-                const badge = budgetAuditBadge(item);
-
-                return (
-                  <tr
-                    key={item.key}
-                    onClick={() => onOpenMonthly(item)}
-                    className="cursor-pointer hover:bg-muted/30"
-                  >
-                    <td className="px-3 py-2 font-medium">{item.projectName}</td>
-                    <td className="px-3 py-2 font-mono text-muted-foreground">{fmtYm(item.ym)}</td>
-                    <td className="px-3 py-2 font-mono">{fmtYm(item.invoiceYm)}</td>
-                    <td className="px-3 py-2 text-right">{fmtYen(item.budgetYen)}</td>
-                    <td className="px-3 py-2 text-right font-semibold">{fmtYen(item.payoutYen)}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col items-start gap-1">
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] ${badge.className}`}>{badge.label}</span>
-                        {missingBudget || over || unpaid ? (
-                          <span className="text-[10px] text-muted-foreground">{badge.note}</span>
-                        ) : null}
+      <div className="mt-3">
+        {financeGroups.length === 0 ? (
+          <div className="rounded-md border border-border/70 bg-background px-3 py-5 text-center text-[12px] text-muted-foreground">
+            チェック対象がない
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-border/70 bg-background">
+            <table className="min-w-[980px] border-separate border-spacing-0 text-[12px]">
+              <thead>
+                <tr className="bg-muted/40">
+                  <th className="sticky left-0 z-20 w-40 border-b border-r border-border bg-muted px-3 py-2 text-left font-medium">
+                    項目
+                  </th>
+                  {financeColumns.map((column, index) => {
+                    const badge = columnBadge(column.group);
+                    return (
+                      <th
+                        key={column.key}
+                        className={`min-w-[180px] border-b border-r border-border px-3 py-2 text-left align-top font-medium ${index === 0 ? "bg-background" : ""}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate">{column.label}</div>
+                            <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">{column.subLabel}</div>
+                          </div>
+                          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${badge.className}`}>{badge.label}</span>
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th className="sticky left-0 z-10 border-b border-r border-border bg-background px-3 py-2 text-left font-medium">稼働月</th>
+                  {financeColumns.map((column) => (
+                    <td key={`${column.key}:ym`} className="border-b border-r border-border px-3 py-2 align-top">
+                      <div className="flex flex-wrap gap-1">
+                        {(column.group ? column.group.cycles : allCycleYms.map((ym) => ({ key: `all:${ym}`, ym, invoiceYm: "", clientAmountYen: 0, bufferYen: 0, budgetYen: 0, payoutYen: 0, officerPayoutYen: 0, officerOffsetYen: 0, finalBalanceYen: 0 }))).map((cycle) => {
+                          const item = itemByKey.get(cycle.key);
+                          return item ? (
+                            <button
+                              key={cycle.key}
+                              type="button"
+                              onClick={() => onOpenMonthly(item)}
+                              className="rounded border border-border bg-muted/25 px-1.5 py-0.5 font-mono text-[10px] hover:bg-muted"
+                            >
+                              {fmtYm(cycle.ym)}
+                            </button>
+                          ) : (
+                            <span key={cycle.key} className="rounded border border-border bg-muted/25 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                              {fmtYm(cycle.ym)}
+                            </span>
+                          );
+                        })}
                       </div>
                     </td>
+                  ))}
+                </tr>
+                {[
+                  ["クライアント支払", "clientAmountYen"],
+                  ["バッファ", "bufferYen"],
+                  ["PJ予算", "budgetYen"],
+                  ["支払予定", "payoutYen"],
+                  ["役員分", "officerPayoutYen"],
+                  ["役員相殺", "officerOffsetYen"],
+                  ["最終収支", "finalBalanceYen"],
+                ].map(([label, key]) => (
+                  <tr key={key}>
+                    <th className="sticky left-0 z-10 border-b border-r border-border bg-background px-3 py-2 text-left font-medium">{label}</th>
+                    {financeColumns.map((column) => {
+                      const value = columnMoney(column.group, key as "clientAmountYen" | "bufferYen" | "budgetYen" | "payoutYen" | "officerPayoutYen" | "officerOffsetYen" | "finalBalanceYen");
+                      const signed = key === "officerOffsetYen" || key === "finalBalanceYen";
+                      const tone =
+                        key === "finalBalanceYen"
+                          ? value < 0 ? "text-red-700" : "text-emerald-700"
+                          : key === "officerOffsetYen"
+                            ? "text-emerald-700"
+                            : key === "officerPayoutYen"
+                              ? "text-amber-800"
+                              : "";
+                      return (
+                        <td key={`${column.key}:${key}`} className={`border-b border-r border-border px-3 py-2 text-right font-semibold tabular-nums ${tone}`}>
+                          {signed ? fmtSignedYen(value) : fmtYen(value)}
+                        </td>
+                      );
+                    })}
                   </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                ))}
+                {memberRows.length > 0 && (
+                  <tr>
+                    <th className="sticky left-0 z-10 border-b border-r border-border bg-muted px-3 py-2 text-left text-[11px] font-semibold text-muted-foreground">
+                      メンバー別支払
+                    </th>
+                    {financeColumns.map((column) => (
+                      <td key={`${column.key}:member-head`} className="border-b border-r border-border bg-muted/35 px-3 py-2 text-[11px] text-muted-foreground">
+                        {column.group ? column.group.memberLines.length : financeGroups.flatMap((group) => group.memberLines).length} 明細
+                      </td>
+                    ))}
+                  </tr>
+                )}
+                {memberRows.map((row) => (
+                  <tr key={row.key}>
+                    <th className="sticky left-0 z-10 border-b border-r border-border bg-background px-3 py-2 text-left font-medium">
+                      <span>{row.memberName}</span>
+                      <span className="ml-1 font-mono text-[10px] text-muted-foreground">{row.memberId}</span>
+                      {row.isOfficer ? (
+                        <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-normal text-amber-900">役員</span>
+                      ) : null}
+                    </th>
+                    {financeColumns.map((column) => {
+                      const value = memberColumnAmount(column.group, row);
+                      return (
+                        <td
+                          key={`${column.key}:${row.key}`}
+                          className={`border-b border-r border-border px-3 py-2 text-right tabular-nums ${row.isOfficer ? "text-amber-800" : ""}`}
+                        >
+                          {value > 0 ? fmtYen(value) : "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1138,7 +1508,7 @@ function BudgetConfirmModal({
             <div>
               <h3 className="text-[14px] font-semibold">PJ予算を確定</h3>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                {group.projectName} / 稼働月 {rangeLabel} / 請求月 {fmtYm(group.invoiceYm)}
+                {group.projectName} / 稼働月 {rangeLabel} / 支払月 {fmtYm(group.invoiceYm)}
               </p>
             </div>
             <button

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
-import { computePaymentDueDate } from "@/lib/japanese-holidays";
+import { computePaymentDueDateByRule } from "@/lib/payment-rules";
 import { notifyPlReview } from "@/lib/notify-pl";
 
 const CTB_ESTIMATE_MARKER = "[[CTB_ESTIMATE_SENT]]";
@@ -47,6 +47,7 @@ interface PreviewData {
   issuedAt: string;
   freeeInvoiceNumber: string;
   invoicePdfUrl: string;
+  paymentDueRule: string | null;
   paymentDueDay: number | null;
   previousInvoiceNumber: string | null;
   previousInvoicePdfUrl: string | null;
@@ -103,9 +104,8 @@ function ymStartDate(ym: string) {
   return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`;
 }
 
-// 支払期日は computePaymentDueDate (japanese-holidays.ts) を使う。
-// PJ ごとの payment_due_day が設定されていればそれを翌月の N 日に、
-// 無ければ翌月末をデフォルトに、土日祝なら前営業日に補正する。
+// 支払期日は projects.payment_due_rule を正本にする。
+// payment_due_day は旧列の互換だけで使う。
 
 function todayJst(): string {
   const d = new Date();
@@ -128,7 +128,7 @@ async function fetchPreview(projectId: string, ym: string): Promise<PreviewData>
       .eq("project_id", projectId)
       .eq("ym", ym)
       .maybeSingle(),
-    supabase.from("projects").select("project_name, payment_due_day").eq("project_id", projectId).maybeSingle(),
+    supabase.from("projects").select("project_name, payment_due_rule, payment_due_day").eq("project_id", projectId).maybeSingle(),
     supabase
       .from("reimbursements")
       .select("description, amount, date, category")
@@ -204,6 +204,7 @@ async function fetchPreview(projectId: string, ym: string): Promise<PreviewData>
     issuedAt: cycle?.invoice_issued_at ?? "",
     freeeInvoiceNumber: cycle?.freee_invoice_number ?? "",
     invoicePdfUrl: cycle?.invoice_pdf_url ?? "",
+    paymentDueRule: project?.payment_due_rule ?? null,
     paymentDueDay: project?.payment_due_day ?? null,
     previousInvoiceNumber: prevCycle?.freee_invoice_number ?? null,
     previousInvoicePdfUrl: prevCycle?.invoice_pdf_url ?? null,
@@ -278,7 +279,7 @@ export function CockpitRoutineInvoiceModal({ projectId, ym, documentType, open, 
           }));
         setLines(editable.length > 0 ? editable : [newLine("item")]);
         setIssueDate(todayJst());
-        setDueDate(computePaymentDueDate(ym, data.paymentDueDay));
+        setDueDate(computePaymentDueDateByRule(ym, data.paymentDueRule, data.paymentDueDay));
         setActuallyDone(documentType === "invoice" && !!data.issuedAt);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));

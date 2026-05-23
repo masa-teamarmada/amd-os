@@ -51,6 +51,8 @@
  * - MAIN_CALENDAR_ID  (任意) curl/手動テスト用 calendar id override。本番 cron では Session.getEffectiveUser で取れる
  */
 
+var MEETING_HOURLY_CRON_DISABLED_20260522 = true;
+
 // ============================================================
 // 公開関数
 // ============================================================
@@ -63,6 +65,9 @@
  *   テストで窓を変えたい時用。本番では default 60〜180 分前。
  */
 function nav_meeting_pollRecentlyEndedEvents(opts) {
+  if (MEETING_HOURLY_CRON_DISABLED_20260522) {
+    return { ok: true, disabled: true, message: "Meeting summary hourly cron disabled. Use Codex automation/review batches." };
+  }
   opts = opts || {};
   const winStartMinAgo = Number(opts.windowStartMinutesAgo || 180);
   const winEndMinAgo = Number(opts.windowEndMinutesAgo || 60);
@@ -219,6 +224,7 @@ function nav_meeting_pollRecentlyEndedEvents(opts) {
  * 既存の同名 trigger があれば消してから作成。
  */
 function nav_meeting_setupHourlyPollTrigger_() {
+  if (MEETING_HOURLY_CRON_DISABLED_20260522) return nav_meeting_disableHourlyPollTrigger_();
   const triggers = ScriptApp.getProjectTriggers();
   let removed = 0;
   for (const t of triggers) {
@@ -231,6 +237,17 @@ function nav_meeting_setupHourlyPollTrigger_() {
     .everyHours(1)
     .create();
   return { ok: true, removed: removed, message: "hourly poll trigger set (every 1 hour)" };
+}
+
+function nav_meeting_disableHourlyPollTrigger_() {
+  const triggers = ScriptApp.getProjectTriggers();
+  let removed = 0;
+  for (const t of triggers) {
+    if (t.getHandlerFunction && t.getHandlerFunction() === "nav_meeting_pollRecentlyEndedEvents") {
+      try { ScriptApp.deleteTrigger(t); removed++; } catch (e) {}
+    }
+  }
+  return { ok: true, disabled: true, removed: removed };
 }
 
 /** デバッグ: 現在のすべてのプロジェクト trigger 一覧 */

@@ -7,12 +7,13 @@
  * 仕様正本: pwa/design/ms_progress.md (Phase 4 セクション)
  *
  * 動き:
- *   1. アクティブ PJ × {当月, 前月} の組み合わせを target list 化
+ *   1. アクティブPJ × {当月, 前月} の組み合わせを target list 化
  *      (前月を含めるのは月跨ぎ直後にレポートが確定するケースを拾うため)
  *   2. progress_estimate_state.last_processed_at 古い順 (NULL = 未処理優先) に sort
  *   3. 各 target で estimateProgress(force=false) を呼ぶ
  *      - source_hash 一致なら LLM 呼ばずスキップ (= unchanged: true)
- *      - 違えば LLM 抽出 + milestone_monthly_progress upsert + state upsert
+ *      - MS管理対象(DTSU/ecosystem)かつ対象月のMSがあれば LLM 抽出 + milestone_monthly_progress upsert + state upsert
+ *      - MS管理対象外、または対象月を覆うMSがなければ project_monthly_notes に当月ソースを保存
  *   4. LLM call 数が maxItems (default 14) に達したら hasMore=true で打ち切り
  *      → 翌時の cron で残りを処理 (last_processed_at 古い順なので公平に回る)
  *
@@ -70,10 +71,10 @@ export async function GET(req: NextRequest) {
   const ymList = ymOverride && /^\d{6}$/.test(ymOverride) ? [ymOverride] : [baseYm, prevYm(baseYm)];
 
   const supabase = getServiceClient();
-	  const { data: projects, error } = await supabase
-	    .from("projects")
-	    .select("project_id")
-	    .or("status.eq.active,project_category.eq.advisor");
+  const { data: projects, error } = await supabase
+    .from("projects")
+    .select("project_id")
+    .eq("status", "active");
 
   if (error) {
     console.error("[cron/hourly-estimate] failed to fetch projects:", error);

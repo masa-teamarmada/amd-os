@@ -16,6 +16,19 @@ const DEFAULT_INGEST_URL = "https://amd-os-pwa.vercel.app/api/atlas/signals-inge
 const DEFAULT_RECENT_URL = "https://amd-os-pwa.vercel.app/api/atlas/recent-titles";
 const DEFAULT_GET_TIMEOUT_MS = 30000;
 const DEFAULT_POST_TIMEOUT_MS = 300000;
+const TEMPFAIL_EXIT_CODE = 75;
+const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const RETRYABLE_ERROR_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ENETDOWN",
+  "ENETUNREACH",
+  "EHOSTDOWN",
+  "EHOSTUNREACH",
+  "ETIMEDOUT",
+  "EPERM",
+]);
 const STATIC_HOSTS = {
   "amd-os-pwa.vercel.app": ["64.29.17.3"],
 };
@@ -204,6 +217,24 @@ function requestJson(
   });
 }
 
+function classifyError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+  const retryable =
+    RETRYABLE_ERROR_CODES.has(code) ||
+    /timeout|timed out|fetch failed|network|socket hang up|ENOTFOUND/i.test(message);
+  return {
+    kind: retryable ? "transient_network" : "error",
+    retryable,
+    code: code || undefined,
+    message,
+  };
+}
+
+function isRetryableResponse(result) {
+  return RETRYABLE_STATUS_CODES.has(Number(result?.status || 0));
+}
+
 async function postJson(url, token, body) {
   return requestJson(url, {
     method: "POST",
@@ -248,9 +279,24 @@ async function health(args) {
     process.exitCode = 1;
     return;
   }
-  result.recent = await getJson(`${recentUrl}?hours=1&limit=1`, token);
-  // Empty signals validates auth/env without inserting rows.
-  result.ingest = await postJson(ingestUrl, token, { signals: [] });
+  try {
+    result.recent = await getJson(`${recentUrl}?hours=1&limit=1`, token);
+    // Empty signals validates auth/env without inserting rows.
+    result.ingest = await postJson(ingestUrl, token, { signals: [] });
+  } catch (error) {
+    const classified = classifyError(error);
+    console.log(JSON.stringify({
+      ...result,
+      ok: false,
+      retryable: classified.retryable,
+      errorKind: classified.kind,
+      error: classified.message,
+      code: classified.code,
+      action: classified.retryable ? "continue automation if source search is available" : "inspect helper/API configuration",
+    }, null, 2));
+    process.exitCode = classified.retryable ? TEMPFAIL_EXIT_CODE : 1;
+    return;
+  }
   result.ok =
     result.recent.ok &&
     result.recent.json?.ok === true &&
@@ -268,7 +314,22 @@ async function recent(args) {
   const hours = Number(args.hours || 48);
   const limit = Number(args.limit || 80);
   const recentUrl = args["recent-url"] || DEFAULT_RECENT_URL;
-  const result = await getJson(`${recentUrl}?hours=${hours}&limit=${limit}`, token);
+  let result;
+  try {
+    result = await getJson(`${recentUrl}?hours=${hours}&limit=${limit}`, token);
+  } catch (error) {
+    const classified = classifyError(error);
+    console.log(JSON.stringify({
+      ok: false,
+      retryable: classified.retryable,
+      errorKind: classified.kind,
+      error: classified.message,
+      code: classified.code,
+      action: classified.retryable ? "continue with duplicate-risk note" : "inspect helper/API configuration",
+    }, null, 2));
+    process.exitCode = classified.retryable ? TEMPFAIL_EXIT_CODE : 1;
+    return;
+  }
   const out = path.join(DEFAULT_SNAPSHOT_DIR, "recent-titles.json");
   await fs.writeFile(out, JSON.stringify({ fetchedAt: new Date().toISOString(), ...result.json }, null, 2));
   console.log(JSON.stringify({ ...result, snapshot: out }, null, 2));
@@ -288,8 +349,36 @@ async function applyOutbox(args) {
   if (payload.signals.length === 0) {
     throw new Error("outbox has no valid signals");
   }
-  const result = await postJson(ingestUrl, token, payload);
+  let result;
+  try {
+    result = await postJson(ingestUrl, token, payload);
+  } catch (error) {
+    const classified = classifyError(error);
+    console.log(JSON.stringify({
+      ok: false,
+      retryable: classified.retryable,
+      errorKind: classified.kind,
+      error: classified.message,
+      code: classified.code,
+      file,
+      action: classified.retryable ? "left in outbox for next LaunchAgent retry" : "inspect helper/API configuration",
+    }, null, 2));
+    process.exitCode = classified.retryable ? TEMPFAIL_EXIT_CODE : 1;
+    return;
+  }
   if (!result.ok || result.json?.ok === false) {
+    if (isRetryableResponse(result)) {
+      console.log(JSON.stringify({
+        ok: false,
+        retryable: true,
+        errorKind: "transient_http",
+        file,
+        result,
+        action: "left in outbox for next LaunchAgent retry",
+      }, null, 2));
+      process.exitCode = TEMPFAIL_EXIT_CODE;
+      return;
+    }
     const dest = await moveFile(file, DEFAULT_FAILED_DIR, "failed");
     console.log(JSON.stringify({ ok: false, file, movedTo: dest, result }, null, 2));
     process.exitCode = 1;
@@ -311,12 +400,24 @@ async function applyOutboxDir(args) {
     const beforeExitCode = process.exitCode;
     process.exitCode = 0;
     await applyOutbox({ ...args, file });
-    results.push({ file, ok: process.exitCode === 0 });
+    const exitCode = process.exitCode || 0;
+    results.push({ file, ok: exitCode === 0, retryable: exitCode === TEMPFAIL_EXIT_CODE });
     process.exitCode = beforeExitCode;
   }
   const failed = results.filter((r) => !r.ok).length;
-  console.log(JSON.stringify({ ok: failed === 0, processed: results.length, failed, results }, null, 2));
-  if (failed > 0) process.exitCode = 1;
+  const retryable = results.filter((r) => r.retryable).length;
+  const permanentFailed = results.filter((r) => !r.ok && !r.retryable).length;
+  console.log(JSON.stringify({
+    ok: failed === 0,
+    processed: results.length,
+    failed,
+    retryable,
+    permanentFailed,
+    action: retryable > 0 && permanentFailed === 0 ? "left retryable files in outbox" : undefined,
+    results,
+  }, null, 2));
+  if (permanentFailed > 0) process.exitCode = 1;
+  else if (retryable > 0) process.exitCode = TEMPFAIL_EXIT_CODE;
 }
 
 const { command, args } = parseArgs(process.argv.slice(2));

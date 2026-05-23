@@ -141,11 +141,11 @@ GAS は外部サービスから Supabase へデータを供給するハブ役。
 |---|---|---|
 | **AMD OS 中核データ正本 (L2 + cron)** ⭐⭐⭐ | [`pwa/design/L2_DATA.md`](../pwa/design/L2_DATA.md) | **データに触る GAS 作業の前に必ず読む**。L2 6 種 / 全 cron / 動作状況の正本 |
 | **DB スキーマ正本** ⭐ | [`pwa/design/db_schema.md`](../pwa/design/db_schema.md) | 88 テーブル / 948 列の自動生成 reference。**列名を書く前に必ず grep**。`pwa/scripts/dump_schema.py` で再生成 |
-| **MTG サマリ** (⑥ L2、各回 decided/progress/nextActions/risks) | [`pwa/design/meeting_summaries.md`](../pwa/design/meeting_summaries.md) | 毎時 polling (gas/153) で過去 60-180 分終了 events をスキャン → Notion AI 議事録 (transcription block) + Gmail 結合 → Gemini 抽出 → Supabase `project_meeting_summaries` upsert |
-| **MS進捗** (③ L2) | [`pwa/design/ms_progress.md`](../pwa/design/ms_progress.md) | GAS 154 から PWA `/api/cron/hourly-estimate` を毎時 curl (Vercel Hobby 制約回避)。PWA 側は Sonnet 4.5 で `monthly_reports` から各 MS の delta を推定 → `milestone_monthly_progress` upsert |
-| **メンバーナレッジ** (⑤ L2) | [`pwa/design/member_knowledge.md`](../pwa/design/member_knowledge.md) | gas/155 が毎時 polling、`member_activities` + `project_meeting_summaries` + `milestone_responsibility` 役割分担 を Gemini 抽出 → `member_knowledge` upsert |
-| **PJナレッジ** (④ L2) | [`pwa/design/project_knowledge.md`](../pwa/design/project_knowledge.md) | gas/155 が毎時 polling、`monthly_reports` (status!=invalid) + `project_meeting_summaries` を Gemini 抽出 → `project_knowledge` upsert |
-| **AMDプロトコル** (② L2) | [`pwa/design/amd_protocol.md`](../pwa/design/amd_protocol.md) | gas/155 が毎時 polling、`project_meeting_summaries.decided` 等を Gemini 抽出 → `protocols` upsert (status='candidate') |
+| **MTG サマリ** (⑥ L2、各回 decided/progress/nextActions/risks) | [`pwa/design/meeting_summaries.md`](../pwa/design/meeting_summaries.md) | 2026-05-22以降、gas/153毎時pollingは停止中 (`MEETING_HOURLY_CRON_DISABLED_20260522=true`)。Codex automation / review batchへ寄せる |
+| **MS進捗** (③ L2) | [`pwa/design/ms_progress.md`](../pwa/design/ms_progress.md) | 2026-05-22以降、GAS 154 → PWA `/api/cron/hourly-estimate` は停止中 (`NAV_PWA_CRON_DISABLED_20260522=true`) |
+| **メンバーナレッジ** (⑤ L2) | [`pwa/design/member_knowledge.md`](../pwa/design/member_knowledge.md) | 2026-05-22以降、gas/155毎時pollingは停止中 (`L2_KNOWLEDGE_CRON_DISABLED_20260522=true`) |
+| **PJナレッジ** (④ L2) | [`pwa/design/project_knowledge.md`](../pwa/design/project_knowledge.md) | 2026-05-22以降、gas/155毎時pollingは停止中 (`L2_KNOWLEDGE_CRON_DISABLED_20260522=true`) |
+| **AMDプロトコル** (② L2) | [`pwa/design/amd_protocol.md`](../pwa/design/amd_protocol.md) | 2026-05-22以降、gas/155毎時pollingは停止中 (`L2_KNOWLEDGE_CRON_DISABLED_20260522=true`) |
 | **通知 + 修正依頼ループ** | [`pwa/design/notifications.md`](../pwa/design/notifications.md) | `l2_notifications` (Swift APNs 用) + `l2_feedbacks` (まさからの修正依頼)。POST `/api/notifications/feedback` で **即 force 再抽出を fire-and-forget** |
 
 新規にクロスプラットフォーム機能を追加するときも `pwa/design/` に正本を作り、ここに行を追加する。
@@ -172,7 +172,7 @@ GAS は外部サービスから Supabase へデータを供給するハブ役。
 | `074_MeetingSummaryRepo.js` | **MTGサマリ Phase 4** (⑥ L2) 抽出ロジック正本。Notion AI `transcription` block 対応 + alias + feedback + meeting_meta v4 + **cron 内 self-healing** (eventTitle/eventStartAt opts、AI ページの 日付/eventId/PJ 空プロパティ自動 patch、2026-05-11) + 段階的 fallback (`_meeting_findNotionPageByEventId_`) |
 | `079_NameAliasMap.js` | **名前正規化マップ** (まさ=山地正洋、ちこ=遠藤千穂 等を `members.member_name` から動的生成)。074 + 155 の LLM プロンプトに渡す |
 | `153_MeetingHourlyTrigger.js` | MTGサマリ毎時 polling cron (`nav_meeting_pollRecentlyEndedEvents`)。calendar event の title / startAt を `nav_meeting_processOneEvent_` に渡して self-healing trigger |
-| `154_PwaCronCaller.js` | **PWA cron caller** (Vercel Hobby cron 制約の回避策)。`nav_pwa_pingHourlyEstimate` で `/api/cron/hourly-estimate` を毎時 curl。2026-05-11 追加: `nav_pwa_pingLaneSuggest` / `pingKakenIngest` / `pingGrantIngest` / `pingVcInvestmentIngest` 4 つ + `nav_pwa_pingWeeklyAspiSet1/Set2` 直列実行 + `nav_pwa_setupWeeklyAspiTriggers_` (月曜 04:00 / 05:00 JST weekly trigger setup)。詳細 [pwa/design/aspi_lanes.md](../pwa/design/aspi_lanes.md) |
+| `154_PwaCronCaller.js` | **PWA cron caller** (Vercel Hobby cron 制約の回避策)。2026-05-22 時点では `NAV_PWA_CRON_DISABLED_20260522=true` で停止中。`nav_pwa_pingHourlyEstimate` / ASPI ping 系は即disabled responseを返す。既存trigger削除は `nav_pwa_disableAllPwaCronTriggers_()`。復旧は `pwa/vercel.disabled-crons.json` と費用/trigger ownerを確認してから行う。 |
 | `155_L2KnowledgeExtractor.js` | **Phase 4 ⑤④② L2 抽出**: member/project/protocol を毎時 polling + alias + feedback + project_meta + 役割分担 |
 | `158_NotionDebugQuery.js` | **Notion 議事録 DB / page 直接 debug** (`debug_meeting_query` / `debug_meeting_inspectBlocks` / `debug_meeting_inspectYm` / `debug_meeting_inspectPage` / `debug_meeting_dumpAiBody` / `debug_llm_geminiRaw`)。汚染調査 / AI ページ構造解析 / Gemini raw response 確認用に常設 |
 | `159_PJAliasDebug.js` | **CFG_PJAlias 外部スプシの dump** (`debug_pjAliases_dump(pjCodeFilter?)`)。PJ alias 管理は外部スプシ正本 (まさルール 2026-05-11)、コード内 alias 禁止 |

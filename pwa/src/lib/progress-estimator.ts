@@ -18,6 +18,7 @@
 import { createHash } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
+import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || "",
@@ -42,6 +43,419 @@ function prevYm(ym: string): string {
 
 function sha256(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+type ServiceClient = ReturnType<typeof getServiceClient>;
+
+type ProgressProjectRow = {
+  project_name: string | null;
+  project_category: string | null;
+};
+
+type MonthlyReportSourceRow = {
+  final_content: string | null;
+  draft_content: string | null;
+  status: string | null;
+};
+
+type MeetingSummarySourceRow = {
+  meeting_id: string;
+  meeting_date: string | null;
+  title: string | null;
+  summary_short: string | null;
+  decided: unknown;
+  progress: unknown;
+  next_actions: unknown;
+  risks: unknown;
+  source_hash: string | null;
+  source_url?: string | null;
+  notion_url?: string | null;
+};
+
+type MonthlyProgressSources = {
+  reportBody: string;
+  reportStatus: string;
+  meetings: MeetingSummarySourceRow[];
+  sourceLines: string[];
+  sourceBreakdown: Record<string, number>;
+  sourceItemCountRaw: number;
+  sourceTextLength: number;
+  sourceHash: string;
+};
+
+const MS_PROGRESS_PROJECT_CATEGORIES = new Set(["dtsu", "ecosystem"]);
+
+function normalizedProjectCategory(project: ProgressProjectRow | null): string {
+  return String(project?.project_category || "dtsu").trim().toLowerCase() || "dtsu";
+}
+
+function usesMsProgressCategory(project: ProgressProjectRow | null): boolean {
+  return MS_PROGRESS_PROJECT_CATEGORIES.has(normalizedProjectCategory(project));
+}
+
+async function touchEstimateState(
+  db: ServiceClient,
+  projectId: string,
+  ym: string,
+  sourceHash: string,
+  message: string
+) {
+  await db
+    .from("progress_estimate_state")
+    .upsert(
+      {
+        project_id: projectId,
+        ym,
+        source_hash: sourceHash,
+        saved_count: 0,
+        skipped_count: 0,
+        total_count: 0,
+        llm_model: null,
+        message,
+        last_processed_at: new Date().toISOString(),
+      },
+      { onConflict: "project_id,ym" }
+    );
+}
+
+function formatDisplayYm(ym: string): string {
+  return `${ym.slice(0, 4)}/${ym.slice(4)}`;
+}
+
+function truncateText(text: string, maxLength: number): string {
+  const cleaned = text.trim();
+  if (cleaned.length <= maxLength) return cleaned;
+  return `${cleaned.slice(0, maxLength)}...`;
+}
+
+function jsonTextList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        const record = item as Record<string, unknown>;
+        const preferred =
+          record.text ??
+          record.content ??
+          record.summary ??
+          record.title ??
+          record.action ??
+          record.risk ??
+          record.decision;
+        if (typeof preferred === "string") return preferred.trim();
+        try {
+          return JSON.stringify(item);
+        } catch {
+          return "";
+        }
+      }
+      return String(item ?? "").trim();
+    })
+    .filter(Boolean);
+}
+
+function meetingSourceText(meeting: MeetingSummarySourceRow): string {
+  const parts = [
+    meeting.summary_short?.trim() || "",
+    ...jsonTextList(meeting.decided),
+    ...jsonTextList(meeting.progress),
+    ...jsonTextList(meeting.next_actions),
+    ...jsonTextList(meeting.risks),
+  ].filter(Boolean);
+  return parts.join("\n");
+}
+
+function formatMeetingSource(meeting: MeetingSummarySourceRow): string {
+  const title = meeting.title || meeting.meeting_id;
+  const date = meeting.meeting_date || "date unknown";
+  const sections = [
+    meeting.summary_short?.trim() ? `summary: ${meeting.summary_short.trim()}` : "",
+    jsonTextList(meeting.decided).length ? `decided:\n- ${jsonTextList(meeting.decided).join("\n- ")}` : "",
+    jsonTextList(meeting.progress).length ? `progress:\n- ${jsonTextList(meeting.progress).join("\n- ")}` : "",
+    jsonTextList(meeting.next_actions).length ? `next_actions:\n- ${jsonTextList(meeting.next_actions).join("\n- ")}` : "",
+    jsonTextList(meeting.risks).length ? `risks:\n- ${jsonTextList(meeting.risks).join("\n- ")}` : "",
+  ].filter(Boolean);
+  return `## MTGサマリ: ${date} ${title}\n${sections.join("\n")}`;
+}
+
+async function loadMonthlyProgressSources(
+  db: ServiceClient,
+  projectId: string,
+  ym: string
+): Promise<MonthlyProgressSources> {
+  const [reportRes, meetingRes] = await Promise.all([
+    db
+      .from("monthly_reports")
+      .select("final_content, draft_content, status")
+      .eq("project_id", projectId)
+      .eq("ym", ym)
+      .maybeSingle(),
+    db
+      .from("project_meeting_summaries")
+      .select("meeting_id, meeting_date, title, summary_short, decided, progress, next_actions, risks, source_hash, source_url, notion_url")
+      .eq("project_id", projectId)
+      .eq("ym", ym)
+      .order("meeting_date", { ascending: true }),
+  ]);
+
+  if (reportRes.error) throw new Error(`monthly_reports取得エラー: ${reportRes.error.message}`);
+  if (meetingRes.error) throw new Error(`project_meeting_summaries取得エラー: ${meetingRes.error.message}`);
+
+  const reportRow = (reportRes.data ?? null) as MonthlyReportSourceRow | null;
+  const meetings = ((meetingRes.data ?? []) as MeetingSummarySourceRow[])
+    .filter((meeting) => meetingSourceText(meeting).trim().length > 0);
+  const reportBody = reportRow?.final_content || reportRow?.draft_content || "";
+  const reportStatus = reportRow?.status || "unknown";
+  const sourceLines: string[] = [];
+  const sourceBreakdown: Record<string, number> = {};
+
+  if (reportBody.trim()) {
+    sourceLines.push(`## 当月の月次レポート本文（status=${reportStatus}）\n${reportBody.slice(0, 20000)}`);
+    sourceBreakdown.monthly_report = 1;
+  }
+  if (meetings.length > 0) {
+    sourceLines.push(...meetings.map(formatMeetingSource));
+    sourceBreakdown.meeting_summary = meetings.length;
+  }
+
+  const hashMaterial = {
+    reportBody,
+    reportStatus,
+    meetings: meetings.map((meeting) => ({
+      meeting_id: meeting.meeting_id,
+      meeting_date: meeting.meeting_date,
+      title: meeting.title,
+      source_hash: meeting.source_hash,
+      text: meetingSourceText(meeting),
+    })),
+  };
+
+  return {
+    reportBody,
+    reportStatus,
+    meetings,
+    sourceLines,
+    sourceBreakdown,
+    sourceItemCountRaw: (reportBody.trim() ? 1 : 0) + meetings.length,
+    sourceTextLength: [reportBody, ...meetings.map(meetingSourceText)].join("\n").trim().length,
+    sourceHash: sha256(JSON.stringify(hashMaterial)),
+  };
+}
+
+function buildMonthlyNoteBody(projectName: string, ym: string, sources: MonthlyProgressSources): string {
+  const displayYm = formatDisplayYm(ym);
+  const lines = [
+    `## OS自動取り込み (${displayYm})`,
+    "",
+    `${projectName} の ${displayYm} は対象月を覆うMS計画/有効なMS項目がないため、MS進捗ではなく月次ノートとして保存。`,
+  ];
+
+  if (sources.reportBody.trim()) {
+    lines.push("", "### 月次レポート", truncateText(sources.reportBody, 4000));
+  }
+
+  if (sources.meetings.length > 0) {
+    lines.push("", "### MTGサマリ");
+    for (const meeting of sources.meetings.slice(0, 12)) {
+      const title = meeting.title || meeting.meeting_id;
+      const date = meeting.meeting_date || "日付不明";
+      const text = truncateText(meetingSourceText(meeting), 1200);
+      lines.push(`- ${date} ${title}`);
+      if (text) lines.push(`  ${text.replace(/\n/g, "\n  ")}`);
+    }
+  }
+
+  return lines.join("\n").trim().slice(0, 12000);
+}
+
+function mergeAutoMonthlyNote(existingBody: string, existingUpdatedBy: string | null | undefined, autoBody: string): string {
+  const trimmed = existingBody.trim();
+  if (!trimmed || existingUpdatedBy === "system:progress-estimator") return autoBody;
+  const headerIndex = trimmed.indexOf("## OS自動取り込み");
+  if (headerIndex >= 0) {
+    return `${trimmed.slice(0, headerIndex).trimEnd()}\n\n${autoBody}`.trim();
+  }
+  return `${trimmed}\n\n---\n\n${autoBody}`;
+}
+
+async function clearMsConfigGapNotifications(db: ServiceClient, projectId: string, ym: string) {
+  await db
+    .from("l2_notifications")
+    .delete()
+    .eq("l2_kind", "project_config_gap")
+    .eq("target_id", projectId)
+    .in("scope_key", [`${ym}:config:missing_ms_plan`, `${ym}:config:missing_ms_items`]);
+}
+
+async function saveMonthlyNoteOnly(
+  db: ServiceClient,
+  args: {
+    projectId: string;
+    projectName: string;
+    ym: string;
+    force: boolean;
+    usingServiceRole: boolean;
+    planCycleFound: boolean;
+    milestoneCount: number;
+    messagePrefix: string;
+  }
+): Promise<EstimateResult> {
+  let sources: MonthlyProgressSources;
+  try {
+    sources = await loadMonthlyProgressSources(db, args.projectId, args.ym);
+  } catch (err) {
+    return {
+      ok: false,
+      saved: 0,
+      total: 0,
+      skipped: 0,
+      message: err instanceof Error ? err.message : "月次ソース取得エラー",
+      diagnostics: {
+        planCycleFound: args.planCycleFound,
+        milestoneCount: args.milestoneCount,
+        sourceItemCount: 0,
+        sourceItemCountRaw: 0,
+        usingServiceRole: args.usingServiceRole,
+      },
+    };
+  }
+
+  await clearMsConfigGapNotifications(db, args.projectId, args.ym);
+
+  if (sources.sourceItemCountRaw === 0 || sources.sourceTextLength < 20) {
+    const emptyHash = sha256(`monthly-note-empty:${args.projectId}:${args.ym}:${args.messagePrefix}`);
+    await touchEstimateState(db, args.projectId, args.ym, emptyHash, `${args.messagePrefix}: 月次ノートに入れるソースなし`);
+    return {
+      ok: true,
+      saved: 0,
+      total: 0,
+      skipped: 0,
+      unchanged: true,
+      message: `${args.messagePrefix}: 月次ノートに入れるソースなし`,
+      diagnostics: {
+        planCycleFound: args.planCycleFound,
+        milestoneCount: args.milestoneCount,
+        sourceItemCount: 0,
+        sourceItemCountRaw: sources.sourceItemCountRaw,
+        sourceBreakdown: sources.sourceBreakdown,
+        usingServiceRole: args.usingServiceRole,
+        sourceHash: emptyHash,
+      },
+    };
+  }
+
+  const { data: stateRow } = await db
+    .from("progress_estimate_state")
+    .select("source_hash, last_processed_at")
+    .eq("project_id", args.projectId)
+    .eq("ym", args.ym)
+    .maybeSingle();
+
+  if (!args.force && stateRow && String(stateRow.source_hash || "") === sources.sourceHash) {
+    await db
+      .from("progress_estimate_state")
+      .update({ last_processed_at: new Date().toISOString() })
+      .eq("project_id", args.projectId)
+      .eq("ym", args.ym);
+    return {
+      ok: true,
+      saved: 0,
+      total: 0,
+      skipped: 0,
+      unchanged: true,
+      message: `${args.messagePrefix}: source unchanged (月次ノート更新なし)`,
+      diagnostics: {
+        planCycleFound: args.planCycleFound,
+        milestoneCount: args.milestoneCount,
+        sourceItemCount: sources.sourceLines.length,
+        sourceItemCountRaw: sources.sourceItemCountRaw,
+        sourceBreakdown: sources.sourceBreakdown,
+        usingServiceRole: args.usingServiceRole,
+        sourceHash: sources.sourceHash,
+      },
+    };
+  }
+
+  const autoBody = buildMonthlyNoteBody(args.projectName, args.ym, sources);
+  const { data: noteRow, error: noteLoadError } = await db
+    .from("project_monthly_notes")
+    .select("body, updated_by")
+    .eq("project_id", args.projectId)
+    .eq("ym", args.ym)
+    .maybeSingle();
+
+  if (noteLoadError) {
+    return {
+      ok: false,
+      saved: 0,
+      total: 0,
+      skipped: 0,
+      message: `project_monthly_notes取得エラー: ${noteLoadError.message}`,
+      diagnostics: {
+        planCycleFound: args.planCycleFound,
+        milestoneCount: args.milestoneCount,
+        sourceItemCount: sources.sourceLines.length,
+        sourceItemCountRaw: sources.sourceItemCountRaw,
+        sourceBreakdown: sources.sourceBreakdown,
+        usingServiceRole: args.usingServiceRole,
+        sourceHash: sources.sourceHash,
+      },
+    };
+  }
+
+  const existing = (noteRow ?? {}) as { body?: string | null; updated_by?: string | null };
+  const noteBody = mergeAutoMonthlyNote(existing.body || "", existing.updated_by, autoBody);
+  const { error: noteSaveError } = await db
+    .from("project_monthly_notes")
+    .upsert(
+      {
+        project_id: args.projectId,
+        ym: args.ym,
+        body: noteBody,
+        updated_by: "system:progress-estimator",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "project_id,ym" }
+    );
+
+  if (noteSaveError) {
+    return {
+      ok: false,
+      saved: 0,
+      total: 0,
+      skipped: 0,
+      message: `project_monthly_notes保存エラー: ${noteSaveError.message}`,
+      diagnostics: {
+        planCycleFound: args.planCycleFound,
+        milestoneCount: args.milestoneCount,
+        sourceItemCount: sources.sourceLines.length,
+        sourceItemCountRaw: sources.sourceItemCountRaw,
+        sourceBreakdown: sources.sourceBreakdown,
+        usingServiceRole: args.usingServiceRole,
+        sourceHash: sources.sourceHash,
+      },
+    };
+  }
+
+  await touchEstimateState(db, args.projectId, args.ym, sources.sourceHash, `${args.messagePrefix}: 月次ノート保存済み`);
+  return {
+    ok: true,
+    saved: 0,
+    total: 0,
+    skipped: 0,
+    unchanged: true,
+    message: `${args.messagePrefix}: 月次ノート保存済み`,
+    diagnostics: {
+      planCycleFound: args.planCycleFound,
+      milestoneCount: args.milestoneCount,
+      sourceItemCount: sources.sourceLines.length,
+      sourceItemCountRaw: sources.sourceItemCountRaw,
+      sourceBreakdown: sources.sourceBreakdown,
+      usingServiceRole: args.usingServiceRole,
+      sourceHash: sources.sourceHash,
+    },
+  };
 }
 
 export interface EstimateResult {
@@ -88,6 +502,42 @@ export async function estimateProgress(
   const pym = prevYm(ym);
   const usingServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+  const { data: projectRow, error: projectErr } = await supabase
+    .from("projects")
+    .select("project_name, project_category")
+    .eq("project_id", projectId)
+    .maybeSingle();
+
+  if (projectErr) {
+    return {
+      ok: false,
+      saved: 0,
+      total: 0,
+      skipped: 0,
+      message: `projects取得エラー: ${projectErr.message}`,
+      diagnostics: { planCycleFound: false, milestoneCount: 0, sourceItemCount: 0, sourceItemCountRaw: 0, usingServiceRole },
+    };
+  }
+
+  const project = (projectRow ?? null) as ProgressProjectRow | null;
+  const projectName = project?.project_name || projectId;
+  const projectCategory = normalizedProjectCategory(project);
+  if (!usesMsProgressCategory(project)) {
+    return saveMonthlyNoteOnly(
+      supabase,
+      {
+        projectId,
+        projectName,
+        ym,
+        force,
+        usingServiceRole,
+        planCycleFound: false,
+        milestoneCount: 0,
+        messagePrefix: `non-MS-managed project (${projectCategory})`,
+      }
+    );
+  }
+
   // 1. アクティブなPlanCycleとマイルストーンを取得
   const { data: pcRows, error: pcErr } = await supabase
     .from("value_plan_cycles")
@@ -107,10 +557,19 @@ export async function estimateProgress(
     };
   }
   if (!pcRows || pcRows.length === 0) {
-    return {
-      ok: false, saved: 0, total: 0, skipped: 0, message: "PlanCycleなし",
-      diagnostics: { planCycleFound: false, milestoneCount: 0, sourceItemCount: 0, sourceItemCountRaw: 0, usingServiceRole },
-    };
+    return saveMonthlyNoteOnly(
+      supabase,
+      {
+        projectId,
+        projectName,
+        ym,
+        force,
+        usingServiceRole,
+        planCycleFound: false,
+        milestoneCount: 0,
+        messagePrefix: "MS計画なし",
+      }
+    );
   }
   const pc = pcRows[0];
 
@@ -123,10 +582,19 @@ export async function estimateProgress(
 
   const milestones = (msRows || []).filter((m) => m.goal_level !== "monthly");
   if (milestones.length === 0) {
-    return {
-      ok: false, saved: 0, total: 0, skipped: 0, message: "MSなし",
-      diagnostics: { planCycleFound: true, milestoneCount: 0, sourceItemCount: 0, sourceItemCountRaw: 0, usingServiceRole },
-    };
+    return saveMonthlyNoteOnly(
+      supabase,
+      {
+        projectId,
+        projectName,
+        ym,
+        force,
+        usingServiceRole,
+        planCycleFound: true,
+        milestoneCount: 0,
+        messagePrefix: "MS項目なし",
+      }
+    );
   }
 
   // 2. メンバー取得
@@ -170,32 +638,26 @@ export async function estimateProgress(
     currMap[p.milestone_key] = { pct: Number(p.progress_pct || 0), source: p.source || "" };
   }
 
-  // 4. monthly_reports からレポート本文を取得
-  const { data: reportRow, error: rpErr } = await supabase
-    .from("monthly_reports")
-    .select("final_content, draft_content, status")
-    .eq("project_id", projectId)
-    .eq("ym", ym)
-    .maybeSingle();
-
-  if (rpErr) {
+  // 4. monthly_reports + project_meeting_summaries から当月ソースを取得
+  let monthlySources: MonthlyProgressSources;
+  try {
+    monthlySources = await loadMonthlyProgressSources(supabase, projectId, ym);
+  } catch (err) {
     return {
       ok: false, saved: 0, total: 0, skipped: 0,
-      message: `monthly_reports取得エラー: ${rpErr.message}`,
+      message: err instanceof Error ? err.message : "月次ソース取得エラー",
       diagnostics: { planCycleFound: true, milestoneCount: milestones.length, sourceItemCount: 0, sourceItemCountRaw: 0, usingServiceRole },
     };
   }
 
-  const reportBody = reportRow?.final_content || reportRow?.draft_content || "";
-  const sourceItemCountRaw = reportBody ? 1 : 0;
-  const sourceBreakdown: Record<string, number> = reportBody
-    ? { monthly_report: 1 }
-    : {};
+  const sourceLines = monthlySources.sourceLines;
+  const sourceItemCountRaw = monthlySources.sourceItemCountRaw;
+  const sourceBreakdown = monthlySources.sourceBreakdown;
 
-  if (!reportBody || reportBody.length < 50) {
+  if (sourceLines.length === 0 || monthlySources.sourceTextLength < 50) {
     return {
       ok: false, saved: 0, total: 0, skipped: 0,
-      message: `推定ソースなし（monthly_reports に本文なし: project_id=${projectId}, ym=${ym}）`,
+      message: `推定ソースなし（monthly_reports / project_meeting_summaries に本文なし: project_id=${projectId}, ym=${ym}）`,
       diagnostics: {
         planCycleFound: true,
         milestoneCount: milestones.length,
@@ -206,10 +668,6 @@ export async function estimateProgress(
       },
     };
   }
-
-  const sourceLines = [
-    `## 当月の月次レポート本文（status=${reportRow?.status || "unknown"}）\n${reportBody.slice(0, 20000)}`,
-  ];
 
   // 5. つくよみコンテキスト取得（reward_estimate タグ）
   const { data: ctxRows } = await supabase
@@ -227,11 +685,10 @@ export async function estimateProgress(
 
   // 5.5 source_hash 差分検知 (毎時 polling 用)。
   //   force=false (cron 経由) かつ前回と source_hash 一致なら LLM 呼ばずスキップ。
-  //   hash 入力 = レポート本文 + status + milestones メタ + 前月累計 + system prompt + 現在登録値。
-  //   reportBody 不在は上の early return で既に弾かれているのでここでは reportBody は必ずある。
+  //   hash 入力 = 月次ソース + milestones メタ + 前月累計 + system prompt + 現在登録値。
   const hashInput = JSON.stringify({
-    rb: reportBody,
-    rs: reportRow?.status || "",
+    sourceHash: monthlySources.sourceHash,
+    rs: monthlySources.reportStatus,
     ms: milestones.map((m) => ({
       id: m.milestone_id, ti: m.title, pt: m.points, tg: m.tag, gl: m.goal_level,
     })),
@@ -266,7 +723,7 @@ export async function estimateProgress(
       diagnostics: {
         planCycleFound: true,
         milestoneCount: milestones.length,
-        sourceItemCount: 1,
+        sourceItemCount: sourceLines.length,
         sourceItemCountRaw,
         sourceBreakdown,
         usingServiceRole,
@@ -276,7 +733,7 @@ export async function estimateProgress(
   }
 
   // 6. プロンプト組み立て
-  const displayYm = `${ym.slice(0, 4)}/${ym.slice(4)}`;
+  const displayYm = formatDisplayYm(ym);
   const msListText = milestones
     .map((ms, i) => {
       const prev = prevMap[ms.milestone_id] || 0;
@@ -468,6 +925,12 @@ export async function estimateProgress(
         );
     } catch (e) {
       console.warn("[progress-estimator] l2_notifications upsert failed:", e);
+    }
+
+    try {
+      await syncRewardSummaryForCycle(supabase, projectId, ym);
+    } catch (e) {
+      console.warn("[progress-estimator] reward_summary_json sync failed:", e);
     }
   }
 

@@ -250,6 +250,10 @@ function isLiveOperationalProject(project: { status: string; freezeFromYm?: stri
   return baseActive && !frozenNow && !waitingRestart;
 }
 
+function usesMsProgressCategory(category: string | null | undefined) {
+  return ["dtsu", "ecosystem"].includes(String(category || "dtsu").toLowerCase());
+}
+
 type StepModal =
   | { kind: "budget"; ym: string }
   | { kind: "meeting"; ym: string; isDone: boolean; doneAction: string | null }
@@ -300,38 +304,41 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
     if (next) setStepModal(next);
   }
   const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities } = cockpit;
+  const usesMsProgress = usesMsProgressCategory(project.projectCategory);
 
   const currentProgress = mergeProgress(progress, progressPatches);
   const patchedPastPlanCycles = (pastPlanCycles || []).map((bundle) => ({
     ...bundle,
     progress: mergeProgress(bundle.progress, progressPatches),
   }));
-  const allBundles = [
-    ...(planCycle ? [{ planCycle, milestones, progress: currentProgress }] : []),
-    ...patchedPastPlanCycles.map((bundle) => ({
-      planCycle: bundle.planCycle,
-      milestones: bundle.milestones,
-      progress: bundle.progress,
-    })),
-  ];
+  const allBundles = usesMsProgress
+    ? [
+        ...(planCycle ? [{ planCycle, milestones, progress: currentProgress }] : []),
+        ...patchedPastPlanCycles.map((bundle) => ({
+          planCycle: bundle.planCycle,
+          milestones: bundle.milestones,
+          progress: bundle.progress,
+        })),
+      ]
+    : [];
   const monthlyProgressByYm = Object.fromEntries(
     billingCycles.map((bc) => [bc.ym, monthlyProgressItems(bc.ym, allBundles)])
   );
   const modalReport = modalYm ? reports.find((r) => r.ym === modalYm) ?? null : null;
   const modalBilling = modalYm ? billingCycles.find((bc) => bc.ym === modalYm) ?? null : null;
-  const modalBundle = modalYm
+  const modalBundle = usesMsProgress && modalYm
     ? [
         ...(planCycle ? [{ planCycle, milestones, progress: currentProgress, subItems: subItems || [], responsibilities: responsibilities || [], msActivities: msActivities || [], memberActivities: memberActivities || [] }] : []),
         ...patchedPastPlanCycles,
       ].find((bundle) => modalYm >= bundle.planCycle.periodStartYm && modalYm <= bundle.planCycle.periodEndYm)
     : null;
   const isReportOnlyMonth = !!modalYm && !!modalReport && !modalBilling;
-  const modalPlanCycle = isReportOnlyMonth ? null : (modalBundle?.planCycle || planCycle);
-  const modalMilestones = isReportOnlyMonth ? [] : (modalBundle?.milestones || milestones);
-  const modalProgress = isReportOnlyMonth ? [] : (modalBundle?.progress || progress);
-  const modalSubItems = isReportOnlyMonth ? [] : (modalBundle?.subItems || subItems || []);
-  const modalResponsibilities = isReportOnlyMonth ? [] : (modalBundle?.responsibilities || responsibilities || []);
-  const modalMsActivities = isReportOnlyMonth ? [] : (modalBundle?.msActivities || msActivities || []);
+  const modalPlanCycle = !usesMsProgress || isReportOnlyMonth ? null : (modalBundle?.planCycle || planCycle);
+  const modalMilestones = !usesMsProgress || isReportOnlyMonth ? [] : (modalBundle?.milestones || milestones);
+  const modalProgress = !usesMsProgress || isReportOnlyMonth ? [] : (modalBundle?.progress || progress);
+  const modalSubItems = !usesMsProgress || isReportOnlyMonth ? [] : (modalBundle?.subItems || subItems || []);
+  const modalResponsibilities = !usesMsProgress || isReportOnlyMonth ? [] : (modalBundle?.responsibilities || responsibilities || []);
+  const modalMsActivities = !usesMsProgress || isReportOnlyMonth ? [] : (modalBundle?.msActivities || msActivities || []);
   const modalMemberActivities = isReportOnlyMonth ? [] : (modalBundle?.memberActivities || memberActivities || []);
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
   const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
@@ -351,7 +358,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
         {showAmdScore && <CockpitVentureStatus projectId={project.projectId} />}
 
         {/* [B] Milestones — 現在の期間（トップ表示） */}
-        {planCycle && milestones.length > 0 && (
+        {usesMsProgress && planCycle && milestones.length > 0 && (
           <CockpitGoalsCompact
             milestones={milestones}
             planCycle={planCycle}
@@ -367,7 +374,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
             - draft or 外部トリガー: directCycleIdで直接編集
             - active確定済: 次の期間設定バナー（終了3か月前から）
         */}
-        {showLiveOperations ? (() => {
+        {showLiveOperations && usesMsProgress ? (() => {
           // 期間外で planCycle が null の場合は、最も最新の過去 plan_cycle を fallback に使う。
           // これで「3月で期間終了 → 4月以降は期未設定」状態でもバナーが表示される (#4)。
           const effectivePlanCycle = planCycle
@@ -414,7 +421,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
         })() : null}
 
         {/* [B3] 過去の期間（折りたたみ） */}
-        {pastPlanCycles && pastPlanCycles.length > 0 && (
+        {usesMsProgress && pastPlanCycles && pastPlanCycles.length > 0 && (
           <section className="bg-white rounded-xl border border-[#e5e5e7]">
             <button
               onClick={() => setPastExpanded(!pastExpanded)}
@@ -447,7 +454,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
 
         {/* [C] TODO Kanban */}
         {tasks.length > 0 && (
-          <CockpitKanbanGas tasks={tasks} milestones={milestones} memberMap={memberMap || {}} />
+          <CockpitKanbanGas tasks={tasks} milestones={usesMsProgress ? milestones : []} memberMap={memberMap || {}} />
         )}
 
         {/* [G][E] Bottom Row: Monthly Cards + MTG Summary */}
@@ -518,6 +525,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
                       billingCycles={billingCycles}
                       currentYm={currentYm}
                       projectType={project.projectType}
+                      projectCategory={project.projectCategory}
                       onOpenModal={(ym) => openMonthlyModal(ym)}
                       onStepClick={handleStepClick}
                     />
@@ -549,6 +557,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
           initialTab={modalInitialTab}
           projectFeeType={project.feeType}
           projectFeeAmount={project.feeAmount}
+          usesMsProgress={usesMsProgress}
           onProgressSaved={(patches) => setProgressPatches((prev) => mergeProgress(prev, patches))}
           onClose={closeMonthlyModal}
         />

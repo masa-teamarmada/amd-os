@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/supabase/api-auth";
+import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
 
 function getServiceClient() {
   return createClient(
@@ -61,5 +62,16 @@ export async function POST(req: NextRequest) {
     if (!error) saved++;
   }
 
-  return NextResponse.json({ ok: true, saved });
+  let rewardSummary: unknown = null;
+  let rewardSyncError: string | null = null;
+  if (_projectId && saved > 0) {
+    try {
+      const result = await syncRewardSummaryForCycle(supabase, _projectId, ym);
+      rewardSummary = result.rewardSummary;
+    } catch (err) {
+      rewardSyncError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  return NextResponse.json({ ok: true, saved, rewardSummary, rewardSyncError });
 }

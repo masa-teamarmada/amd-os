@@ -42,6 +42,7 @@ export function OperationsSettingsClient({ rawDataSources, l2Datasets, cronOpera
   );
   const paramsText = selected ? paramsById[selected.id] ?? selected.defaultParams : "";
   const selectedResult = selected ? results[selected.id] : null;
+  const selectedManualReason = selected?.run.type === "manual" ? selected.run.reason : "";
 
   const updateParams = (value: string) => {
     if (!selected) return;
@@ -64,7 +65,7 @@ export function OperationsSettingsClient({ rawDataSources, l2Datasets, cronOpera
   };
 
   const runSelected = async () => {
-    if (!selected || runningId) return;
+    if (!selected || runningId || selected.run.type === "manual") return;
     setError("");
     try {
       JSON.parse(paramsText || "{}");
@@ -106,7 +107,7 @@ export function OperationsSettingsClient({ rawDataSources, l2Datasets, cronOpera
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-5 px-4 py-5 md:px-6">
+    <div className="flex w-full flex-col gap-5">
       <header className="flex flex-col gap-4 border-b border-border pb-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -230,6 +231,11 @@ export function OperationsSettingsClient({ rawDataSources, l2Datasets, cronOpera
                   className="mt-1 h-36 w-full resize-y border border-border bg-muted/20 p-3 font-mono text-[12px] leading-relaxed outline-none focus:border-foreground"
                 />
                 {error ? <div className="mt-2 text-[12px] font-medium text-red-600">{error}</div> : null}
+                {selectedManualReason ? (
+                  <div className="mt-2 border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-800">
+                    {selectedManualReason}
+                  </div>
+                ) : null}
 
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
                   <button
@@ -251,11 +257,11 @@ export function OperationsSettingsClient({ rawDataSources, l2Datasets, cronOpera
                   <button
                     type="button"
                     onClick={runSelected}
-                    disabled={Boolean(runningId)}
+                    disabled={Boolean(runningId) || selected.run.type === "manual"}
                     className="inline-flex items-center gap-1.5 bg-foreground px-4 py-2 text-[12px] font-semibold text-background disabled:opacity-50"
                   >
                     {runningId === selected.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                    Run Now
+                    {selected.run.type === "manual" ? "Stopped" : "Run Now"}
                   </button>
                 </div>
 

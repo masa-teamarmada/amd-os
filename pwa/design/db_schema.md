@@ -909,6 +909,7 @@ UNIQUE: `(member_id)` (constraint: `members_member_id_key`)
 | 23 | `google_calendar_connected_at` | `timestamptz` | NULL | `` |
 | 24 | `google_calendar_error` | `text` | NULL | `` |
 | 25 | `last_login_at` | `timestamptz` | NULL | `` |
+| 26 | `is_officer` | `bool` | NOT NULL | `false` |
 
 ## member_google_oauth_tokens
 

@@ -22,6 +22,17 @@
  * - CRON_SECRET   = Vercel Production env の CRON_SECRET と同じ値
  */
 
+var NAV_PWA_CRON_DISABLED_20260522 = true;
+
+function nav_pwa_disabledCronResponse_(name) {
+  return {
+    ok: true,
+    disabled: true,
+    handler: name,
+    message: "PWA/GAS background cron is disabled. Raw-data extraction is handled by Codex automation."
+  };
+}
+
 // ============================================================
 // 公開関数
 // ============================================================
@@ -35,6 +46,7 @@
  *   maxItems: 1 cron 内の LLM call 上限 (PWA default 14)
  */
 function nav_pwa_pingHourlyEstimate(opts) {
+  if (NAV_PWA_CRON_DISABLED_20260522) return nav_pwa_disabledCronResponse_("nav_pwa_pingHourlyEstimate");
   opts = opts || {};
   const props = PropertiesService.getScriptProperties();
   const baseUrl = String(props.getProperty("PWA_BASE_URL") || "").trim();
@@ -82,6 +94,7 @@ function nav_pwa_pingHourlyEstimate(opts) {
  * 既存の同名 trigger があれば消してから作成。
  */
 function nav_pwa_setupHourlyPwaTrigger_() {
+  if (NAV_PWA_CRON_DISABLED_20260522) return nav_pwa_disableAllPwaCronTriggers_();
   const triggers = ScriptApp.getProjectTriggers();
   let removed = 0;
   for (const t of triggers) {
@@ -120,6 +133,7 @@ function nav_pwa_setProps_(props) {
 //   - 月曜 05:00 JST → grant + vc-investment
 
 function _nav_pwa_pingPath_(path, timeoutSec) {
+  if (NAV_PWA_CRON_DISABLED_20260522) return nav_pwa_disabledCronResponse_("_nav_pwa_pingPath_:" + path);
   const props = PropertiesService.getScriptProperties();
   const baseUrl = String(props.getProperty("PWA_BASE_URL") || "").trim();
   const cronSecret = String(props.getProperty("CRON_SECRET") || "").trim();
@@ -176,6 +190,7 @@ function nav_pwa_pingWeeklyAspiSet2() {
  *   curl ".../exec?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_pwa_setupWeeklyAspiTriggers_"
  */
 function nav_pwa_setupWeeklyAspiTriggers_() {
+  if (NAV_PWA_CRON_DISABLED_20260522) return nav_pwa_disableAllPwaCronTriggers_();
   const triggers = ScriptApp.getProjectTriggers();
   let removed = 0;
   for (const t of triggers) {
@@ -199,4 +214,34 @@ function nav_pwa_setupWeeklyAspiTriggers_() {
     .inTimezone("Asia/Tokyo")
     .create();
   return { ok: true, removed: removed, message: "weekly ASPI triggers set: Mon 04:00 JST (set1=lane/kaken), Mon 05:00 JST (set2=grant/vc)" };
+}
+
+function nav_pwa_disableAllPwaCronTriggers_() {
+  const targetFns = {
+    nav_pwa_pingHourlyEstimate: true,
+    nav_pwa_pingWeeklyAspiSet1: true,
+    nav_pwa_pingWeeklyAspiSet2: true,
+    nav_pwa_pingLaneSuggest: true,
+    nav_pwa_pingKakenIngest: true,
+    nav_pwa_pingGrantIngest: true,
+    nav_pwa_pingVcInvestmentIngest: true
+  };
+  const triggers = ScriptApp.getProjectTriggers();
+  let removed = 0;
+  const kept = [];
+  for (const t of triggers) {
+    const fn = t.getHandlerFunction && t.getHandlerFunction();
+    if (targetFns[fn]) {
+      try { ScriptApp.deleteTrigger(t); removed++; } catch (_e) {}
+    } else if (fn) {
+      kept.push(fn);
+    }
+  }
+  return {
+    ok: true,
+    disabled: true,
+    removed: removed,
+    kept: kept,
+    message: "PWA cron triggers removed/disabled in code."
+  };
 }

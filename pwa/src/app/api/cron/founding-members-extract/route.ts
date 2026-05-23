@@ -190,7 +190,8 @@ async function extractForProject(
   const { data: existing } = await db
     .from("project_founding_members")
     .select("id, person_name, role, category, status, source_documents")
-    .eq("project_id", projectId);
+    .eq("project_id", projectId)
+    .in("status", ["active", "tentative"]);
   const existingByName = new Map<string, { id: string; person_name: string; role: string | null; category: string; status: string | null }>();
   for (const e of (existing ?? []) as { id: string; person_name: string; role: string; category: string; status: string | null; source_documents: unknown }[]) {
     existingByName.set(e.person_name, e);

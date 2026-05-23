@@ -25,14 +25,12 @@ cd "$REPO_ROOT"
 
 echo "▶ Vercel deploy triggering ..."
 START_TS=$(date +%s)
-DEPLOY_OUTPUT=$(npx vercel --prod --yes --archive=tgz --cwd "$REPO_ROOT" 2>&1)
-echo "$DEPLOY_OUTPUT"
-
-# trigger 自体が失敗した場合
-if [ $? -ne 0 ]; then
+if ! DEPLOY_OUTPUT=$(npx vercel --prod --yes --archive=tgz --cwd "$REPO_ROOT" 2>&1); then
+  echo "$DEPLOY_OUTPUT"
   osascript -e 'display notification "Deploy trigger failed" with title "AMD OS PWA — Deploy" sound name "Basso"' 2>/dev/null || true
   exit 1
 fi
+echo "$DEPLOY_OUTPUT"
 
 # deployment URL を抽出 (preview/production 区別なく直近の URL)
 DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://amd-os-[a-z0-9]+-armada0130\.vercel\.app' | head -1)

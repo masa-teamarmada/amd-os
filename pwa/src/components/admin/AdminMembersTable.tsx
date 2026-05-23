@@ -16,6 +16,7 @@ export interface MemberRow {
   role: string | null;
   status: string;
   is_admin: boolean;
+  is_officer: boolean;
   slack_id: string | null;
   join_ym: string | null;
   leave_ym: string | null;
@@ -121,6 +122,7 @@ type EditVals = {
   join_ym: string;
   leave_ym: string;
   is_admin: boolean;
+  is_officer: boolean;
   slack_id: string;
 };
 
@@ -166,6 +168,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
       join_ym: m.join_ym ?? "",
       leave_ym: m.leave_ym ?? "",
       is_admin: !!m.is_admin,
+      is_officer: !!m.is_officer,
       slack_id: m.slack_id ?? "",
     });
   };
@@ -186,6 +189,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
       case "join_ym": patch.join_ym = (editVals.join_ym as string) || null; break;
       case "leave_ym": patch.leave_ym = (editVals.leave_ym as string) || null; break;
       case "is_admin": patch.is_admin = !!editVals.is_admin; break;
+      case "is_officer": patch.is_officer = !!editVals.is_officer; break;
       case "slack_id": patch.slack_id = (editVals.slack_id as string).trim() || null; break;
     }
     const { error } = await supabase.from("members").update(patch).eq("id", m.id);
@@ -239,7 +243,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
 
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "1500px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: "1580px" }}>
           <thead>
             <tr className="bg-muted/50 text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 bg-muted/50 w-24 border-r border-border">codeName</th>
@@ -253,6 +257,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
               <th className="text-left px-3 py-2 font-medium w-24">Calendar</th>
               <th className="text-left px-3 py-2 font-medium w-28">最終ログイン</th>
               <th className="text-left px-3 py-2 font-medium w-16">admin</th>
+              <th className="text-left px-3 py-2 font-medium w-16">役員</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack ID</th>
             </tr>
           </thead>
@@ -409,6 +414,21 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
                     )}
                   </td>
 
+                  {/* is_officer (boolean toggle) */}
+                  <td className={`${cellCls("is_officer")} text-center`} onClick={enterCell("is_officer")}>
+                    {isEditingField(m, "is_officer") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={!!editVals.is_officer}
+                          onChange={(e) => setEditVals((v) => ({ ...v, is_officer: e.target.checked }))} />
+                        {cellActions("is_officer")}
+                      </div>
+                    ) : (
+                      m.is_officer
+                        ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">ON</span>
+                        : <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+
                   {/* slack_id */}
                   <td className={cellCls("slack_id")} onClick={enterCell("slack_id")}>
                     {isEditingField(m, "slack_id") ? (
@@ -427,7 +447,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={13} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>

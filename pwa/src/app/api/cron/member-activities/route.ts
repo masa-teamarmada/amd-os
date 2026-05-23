@@ -86,6 +86,11 @@ async function loadAliasProfiles(supabase: SupabaseClient): Promise<AliasProfile
     supabase.from("projects").select("project_id, project_name, client_name"),
     supabase.from("project_ventures").select("project_id, display_name, short_label, origin_org, origin_pi"),
   ]);
+  const { data: knowledgeAliases } = await supabase
+    .from("project_knowledge")
+    .select("project_id, entity_name, fact_text")
+    .eq("category", "alias")
+    .eq("status", "active");
   const ventureByProject = new Map<string, Array<Record<string, unknown>>>();
   for (const venture of (ventures ?? []) as Array<Record<string, unknown>>) {
     const projectId = String(venture.project_id || "");
@@ -103,6 +108,11 @@ async function loadAliasProfiles(supabase: SupabaseClient): Promise<AliasProfile
       addAlias(aliases, venture.short_label);
       addAlias(aliases, venture.origin_org);
       addAlias(aliases, venture.origin_pi);
+    }
+    for (const alias of (knowledgeAliases ?? []) as Array<Record<string, unknown>>) {
+      if (String(alias.project_id || "") !== projectId) continue;
+      addAlias(aliases, alias.entity_name);
+      addAlias(aliases, alias.fact_text);
     }
     return { projectId, aliases: [...aliases] };
   });

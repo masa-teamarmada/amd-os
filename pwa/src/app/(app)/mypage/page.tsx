@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 import { createClient } from "@/lib/supabase/client";
 
 type AllocationStatus = "confirmed" | "reported" | "not_set";
@@ -10,6 +11,7 @@ interface Member {
   memberId: string;
   codeName: string;
   email: string;
+  isAdmin: boolean;
 }
 
 interface MyPageNotification {
@@ -226,7 +228,80 @@ function sourceKindLabel(source: string | null | undefined) {
   if (source === "calendar") return "Calendar";
   if (source === "gmail_message") return "Gmail";
   if (source === "gmeet") return "Calendar";
+  if (source === "meeting_summary") return "議事録";
   return source || "source";
+}
+
+function plainPreview(value: string | null | undefined, max = 110) {
+  return String(value ?? "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+function displayableWeeklyActivity(row: {
+  source: string;
+  title: string | null;
+  content_preview: string | null;
+  raw_metadata: Record<string, unknown> | null;
+}) {
+  const meta = row.raw_metadata || {};
+  const rawSourceKind = typeof meta.source_kind === "string" ? meta.source_kind : row.source;
+  const sourceKind = rawSourceKind === "source_cache" && typeof meta.source_subkind === "string"
+    ? meta.source_subkind
+    : rawSourceKind;
+  const sourceSubkind = typeof meta.source_subkind === "string" ? meta.source_subkind : "";
+  if (rawSourceKind === "gmail" && sourceSubkind !== "sent" && sourceSubkind !== "draft") return false;
+  return true;
+}
+
+function weeklyActivityText(row: {
+  source: string;
+  title: string | null;
+  content_preview: string | null;
+  raw_metadata: Record<string, unknown> | null;
+}) {
+  const meta = row.raw_metadata || {};
+  const rawSourceKind = typeof meta.source_kind === "string" ? meta.source_kind : row.source;
+  const sourceKind = rawSourceKind === "source_cache" && typeof meta.source_subkind === "string"
+    ? meta.source_subkind
+    : rawSourceKind;
+  const sourceSubkind = typeof meta.source_subkind === "string" ? meta.source_subkind : "";
+  const rawTitle = row.title || "今週の活動";
+  const title = rawTitle.replace(/^(メール|予定|gmail|calendar):\s*/i, "").replace(/^Re:\s*/i, "");
+  if (rawSourceKind === "source_cache" && sourceKind.startsWith("gmail")) {
+    return {
+      title: rawTitle,
+      contentPreview: plainPreview(row.content_preview),
+    };
+  }
+  if (sourceKind === "gmail") {
+    const action = sourceSubkind === "draft" ? "返信ドラフトを作成" : "メールを送信";
+    return {
+      title: `${action}: ${title}`,
+      contentPreview: plainPreview(row.content_preview) || "メール本文ではなく、送信/下書きという行動だけを活動として表示しています。",
+    };
+  }
+  if (sourceKind === "calendar") {
+    const action = sourceSubkind === "organizer" ? "予定を主催" : "予定に参加";
+    const cleanedTitle = title.replace(/^(予定を主催|予定に参加):\s*/i, "");
+    return {
+      title: `${action}: ${cleanedTitle}`,
+      contentPreview: plainPreview(row.content_preview),
+    };
+  }
+  if (sourceKind === "meeting_summary") {
+    return {
+      title,
+      contentPreview: plainPreview(row.content_preview),
+    };
+  }
+  return {
+    title: rawTitle,
+    contentPreview: plainPreview(row.content_preview),
+  };
 }
 
 function adjustBusinessDay(iso: string) {
@@ -332,30 +407,51 @@ async function resolveLoggedInMember(): Promise<Member> {
 
   let query = supabase
     .from("members")
-    .select("member_id, code_name, email")
+    .select("member_id, code_name, email, is_admin")
     .eq("email", email)
     .limit(1);
 
   let { data, error } = await query;
   if (!error && data && data.length > 0) {
     const row = data[0];
-    return { memberId: row.member_id, codeName: row.code_name || row.member_id, email: row.email || email };
+    return { memberId: row.member_id, codeName: row.code_name || row.member_id, email: row.email || email, isAdmin: !!row.is_admin };
   }
 
   ({ data, error } = await supabase
     .from("members")
-    .select("member_id, code_name, email")
+    .select("member_id, code_name, email, is_admin")
     .ilike("email", email)
     .limit(1));
 
   if (error) throw error;
   const row = data?.[0];
   if (!row) throw new Error(`${email} に紐づくメンバーが見つかりません`);
-  return { memberId: row.member_id, codeName: row.code_name || row.member_id, email: row.email || email };
+  return { memberId: row.member_id, codeName: row.code_name || row.member_id, email: row.email || email, isAdmin: !!row.is_admin };
 }
 
-async function loadMyPageData(): Promise<MyPageData> {
-  const member = await resolveLoggedInMember();
+async function resolvePageMember(viewer: Member, requestedMemberId?: string | null): Promise<Member> {
+  const memberId = requestedMemberId?.trim();
+  if (!memberId || memberId === viewer.memberId) return viewer;
+  if (!viewer.isAdmin) throw new Error("他メンバーのマイページ表示はadminだけに限定しています");
+
+  const { data, error } = await supabase
+    .from("members")
+    .select("member_id, code_name, email, is_admin")
+    .eq("member_id", memberId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error(`${memberId} に紐づくメンバーが見つかりません`);
+  return {
+    memberId: data.member_id,
+    codeName: data.code_name || data.member_id,
+    email: data.email || "",
+    isAdmin: !!data.is_admin,
+  };
+}
+
+async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPageData> {
+  const viewer = await resolveLoggedInMember();
+  const member = await resolvePageMember(viewer, requestedMemberId);
   const yms = targetYms(6);
   const progressYms = Array.from(new Set([...yms, ...yms.map(prevYm)]));
   const week = currentWeekBoundsJST();
@@ -363,7 +459,7 @@ async function loadMyPageData(): Promise<MyPageData> {
   const [pmRes, weeklyRes] = await Promise.all([
     supabase
       .from("project_members")
-      .select("project_id")
+      .select("project_id, is_pm, is_pl")
       .eq("member_id", member.memberId)
       .eq("is_active", true),
     supabase
@@ -380,6 +476,14 @@ async function loadMyPageData(): Promise<MyPageData> {
   if (pmError) throw pmError;
   if (weeklyRes.error) throw weeklyRes.error;
   const memberProjectIds = Array.from(new Set((pmRows || []).map((r: { project_id: string | null }) => r.project_id).filter(Boolean)));
+  const memberRolesByProject = new Map(
+    (pmRows || [])
+      .filter((r: { project_id: string | null }) => !!r.project_id)
+      .map((r: { project_id: string | null; is_pm?: boolean | null; is_pl?: boolean | null }) => [
+        r.project_id as string,
+        { isPm: r.is_pm === true, isPl: r.is_pl === true },
+      ])
+  );
   const weeklyProjectIds = Array.from(new Set((weeklyRes.data || []).map((r: { project_id: string | null }) => r.project_id).filter(Boolean)));
   const projectIds = Array.from(new Set([...memberProjectIds, ...weeklyProjectIds]));
 
@@ -401,7 +505,7 @@ async function loadMyPageData(): Promise<MyPageData> {
     reportsRes,
     reimburseRes,
   ] = await Promise.all([
-    supabase.from("projects").select("project_id, project_name, status, start_ym, end_ym, project_type").in("project_id", projectIds),
+    supabase.from("projects").select("project_id, project_name, status, start_ym, end_ym, project_type, project_category").in("project_id", projectIds),
     supabase.from("billing_cycles").select("*").in("project_id", projectIds).in("ym", yms),
     supabase.from("value_plan_cycles").select("plan_cycle_id, project_id, status, total_points, period_start_ym, period_end_ym").in("project_id", projectIds).in("status", ["active", "confirmed", "fixed", "draft"]),
     supabase.from("monthly_reports").select("project_id, ym, section_members").in("project_id", projectIds).in("ym", yms),
@@ -417,6 +521,10 @@ async function loadMyPageData(): Promise<MyPageData> {
   const activeProjectIds = projects
     .map((p) => p.project_id)
     .filter((pid) => memberProjectIds.includes(pid));
+  const routineProjectIds = activeProjectIds.filter((pid) => {
+    const role = memberRolesByProject.get(pid);
+    return !!role?.isPm || !!role?.isPl;
+  });
   const planIds = (plansRes.data || []).map((p) => p.plan_cycle_id).filter(Boolean);
 
   const milestonesRes = planIds.length
@@ -436,7 +544,14 @@ async function loadMyPageData(): Promise<MyPageData> {
   if (progressRes.error) throw progressRes.error;
 
   const projectMap = new Map(projects.map((p) => [p.project_id, p]));
-  const weeklyActivities: MyPageWeeklyActivity[] = (weeklyRes.data || []).map((row: {
+  const weeklyActivities: MyPageWeeklyActivity[] = (weeklyRes.data || [])
+    .filter((row: {
+      source: string;
+      title: string | null;
+      content_preview: string | null;
+      raw_metadata: Record<string, unknown> | null;
+    }) => displayableWeeklyActivity(row))
+    .map((row: {
     id: string;
     project_id: string;
     source: string;
@@ -446,8 +561,12 @@ async function loadMyPageData(): Promise<MyPageData> {
     raw_metadata: Record<string, unknown> | null;
   }) => {
     const meta = row.raw_metadata || {};
-    const sourceKind = typeof meta.source_kind === "string" ? meta.source_kind : row.source;
+    const rawSourceKind = typeof meta.source_kind === "string" ? meta.source_kind : row.source;
+    const sourceKind = rawSourceKind === "source_cache" && typeof meta.source_subkind === "string"
+      ? meta.source_subkind
+      : rawSourceKind;
     const sourceUrl = typeof meta.source_url === "string" ? meta.source_url : null;
+    const display = weeklyActivityText(row);
     return {
       id: row.id,
       projectId: row.project_id,
@@ -455,8 +574,8 @@ async function loadMyPageData(): Promise<MyPageData> {
       source: row.source,
       sourceKind,
       sourceUrl,
-      title: row.title || "今週の活動",
-      contentPreview: row.content_preview || "",
+      title: display.title,
+      contentPreview: display.contentPreview,
       itemDate: row.item_date,
     };
   });
@@ -546,7 +665,8 @@ async function loadMyPageData(): Promise<MyPageData> {
         const report = reportsByKey.get(`${pid}_${ym}`) as { section_members?: string | null } | undefined;
         const project = projectMap.get(pid);
         const isCTB = (project?.project_type || "").toLowerCase() === "ctb";
-        const rewardExcludedReasons = overdueRoutineReasons(cycle, ym, isCTB);
+        const isAdvisor = (project?.project_category || "").toLowerCase() === "advisor";
+        const rewardExcludedReasons = isAdvisor ? [] : overdueRoutineReasons(cycle, ym, isCTB);
         return {
           projectId: pid,
           projectName: project?.project_name || pid,
@@ -568,14 +688,17 @@ async function loadMyPageData(): Promise<MyPageData> {
 
   const notificationYms = [yms[0], nextYm(yms[0])];
   const notifications: MyPageNotification[] = [];
-  for (const pid of activeProjectIds) {
+  for (const pid of routineProjectIds) {
     const project = projectMap.get(pid);
+    const role = memberRolesByProject.get(pid);
     if (!project || (project.status || "").toLowerCase() !== "active") continue;
+    if ((project.project_category || "").toLowerCase() === "advisor") continue;
     const isCTB = (project.project_type || "").toLowerCase() === "ctb";
     for (const ym of notificationYms) {
       const rawCycle = cyclesByKey.get(`${pid}_${ym}`) as Record<string, unknown> | undefined;
       const cycle = cycleWithReimburseStatus(rawCycle, pid, ym, reimburseHasPending);
       const steps = buildRoutineSteps(cycle, ym, isCTB)
+        .filter((s) => role?.isPm || (role?.isPl && s.stepId === "budget"))
         .filter((s) => !s.done && ["current", "warn", "overdue"].includes(s.status));
       for (const step of steps) {
         notifications.push({
@@ -610,8 +733,22 @@ function statusRank(status: string) {
   return 9;
 }
 
+function MyPageLoading() {
+  return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">読み込み中...</div>;
+}
+
 export default function MyPage() {
+  return (
+    <Suspense fallback={<MyPageLoading />}>
+      <MyPageContent />
+    </Suspense>
+  );
+}
+
+function MyPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedMemberId = searchParams.get("memberId");
   const [data, setData] = useState<MyPageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -621,14 +758,14 @@ export default function MyPage() {
     setLoading(true);
     setError(null);
     try {
-      const pageData = await loadMyPageData();
+      const pageData = await loadMyPageData(requestedMemberId);
       setData(pageData);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [requestedMemberId]);
 
   useEffect(() => {
     load();
@@ -645,7 +782,7 @@ export default function MyPage() {
   );
 
   if (loading) {
-    return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">読み込み中...</div>;
+    return <MyPageLoading />;
   }
 
   if (error || !data) {
@@ -896,10 +1033,12 @@ function WeeklyActivitiesCard({
                   </span>
                 )}
               </div>
-              <p className="mt-1.5 text-[13px] font-semibold leading-snug text-[#1d1d1f]">{activity.title}</p>
+              <p className="mt-1.5 text-[13px] font-semibold leading-snug text-[#1d1d1f]">
+                <LinkedMemberText text={activity.title} />
+              </p>
               {activity.contentPreview && (
                 <p className="mt-1 text-[12px] leading-relaxed text-[#3c3c43] line-clamp-2">
-                  {activity.contentPreview}
+                  <LinkedMemberText text={activity.contentPreview} />
                 </p>
               )}
             </div>
@@ -960,12 +1099,17 @@ function ProjectCard({ project, codeName }: { project: MyPageProject; codeName: 
       {(activityText || project.milestones.some((m) => m.narrative)) && (
         <div className="border-t border-[#e5e5e7] pt-3">
           <p className="text-[12px] font-semibold text-[#86868b] mb-2">今月の活動</p>
-          {activityText && <p className="text-[13px] text-[#3c3c43] whitespace-pre-wrap leading-relaxed">{activityText}</p>}
+          {activityText && (
+            <p className="text-[13px] text-[#3c3c43] whitespace-pre-wrap leading-relaxed">
+              <LinkedMemberText text={activityText} />
+            </p>
+          )}
           {!activityText && (
             <div className="space-y-2">
               {project.milestones.filter((m) => m.narrative).map((m) => (
                 <p key={m.milestoneKey} className="text-[13px] text-[#3c3c43] leading-relaxed">
-                  <span className="font-semibold">{m.title}: </span>{m.narrative}
+                  <span className="font-semibold">{m.title}: </span>
+                  <LinkedMemberText text={m.narrative} />
                 </p>
               ))}
             </div>
@@ -996,7 +1140,9 @@ function MilestoneRow({ ms }: { ms: MyPageMilestone }) {
           </span>
         )}
       </div>
-      <p className="text-[11px] text-[#86868b] leading-relaxed">{deltaSummary(ms)}</p>
+      <p className="text-[11px] text-[#86868b] leading-relaxed">
+        <LinkedMemberText text={deltaSummary(ms)} />
+      </p>
     </div>
   );
 }

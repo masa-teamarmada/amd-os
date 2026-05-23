@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
+import {
+  candidateSourceYmsForPaymentYm,
+  effectivePaymentYmForCycle,
+  type PaymentProjectRow,
+} from "@/lib/payment-groups";
+import { syncRewardSummariesForBillingCycles } from "@/lib/reward-summary";
 
 export const runtime = "nodejs";
 
@@ -51,6 +57,7 @@ type PayoutEntry = {
 
 type MemberRow = {
   member_id: string;
+  is_officer?: boolean | null;
   exclude_from_payout_notice?: boolean | null;
 };
 
@@ -112,7 +119,7 @@ function normalizeStatusAfterBudgetConfirm(status: string | null) {
   return current;
 }
 
-function buildPayoutEntries(cycles: BillingCycleRow[]): PayoutEntry[] {
+function buildPayoutEntries(cycles: BillingCycleRow[], excludedMemberIds: Set<string> = new Set()): PayoutEntry[] {
   const entries: PayoutEntry[] = [];
 
   for (const cycle of cycles) {
@@ -121,6 +128,7 @@ function buildPayoutEntries(cycles: BillingCycleRow[]): PayoutEntry[] {
     for (const member of summary?.members ?? []) {
       const memberId = textValue(member.memberId) || textValue(member.member_id);
       if (!memberId) continue;
+      if (excludedMemberIds.has(memberId)) continue;
       const totalPay = yenValue(member.totalPay ?? member.total_pay);
       if (totalPay <= 0) continue;
 
@@ -169,7 +177,9 @@ function findMissingBudgetCycles(cycles: BillingCycleRow[], entries: PayoutEntry
 
 function aggregateNotices(ym: string, entries: PayoutEntry[], members: MemberRow[]) {
   const excludedMembers = new Set(
-    members.filter((member) => member.exclude_from_payout_notice).map((member) => member.member_id)
+    members
+      .filter((member) => member.exclude_from_payout_notice || member.is_officer)
+      .map((member) => member.member_id)
   );
   const byMember = new Map<string, number>();
   for (const entry of entries) {
@@ -188,15 +198,16 @@ async function loadTargetData(ym: string) {
   const cycleSelect =
     "project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, invoice_ym, reward_summary_json, payout_notice_uploaded_at, payment_confirmed_at, reward_paid_at";
 
-  const [membersRes, projectsRes, invoiceCyclesRes, sameMonthCyclesRes] = await Promise.all([
+  const candidateYms = candidateSourceYmsForPaymentYm(ym);
+  const [membersRes, projectsRes, invoiceCyclesRes, unsetInvoiceCyclesRes] = await Promise.all([
     db
       .from("members")
-      .select("member_id, code_name, member_name, email, status, exclude_from_payout_notice")
+          .select("member_id, code_name, member_name, email, status, is_officer, exclude_from_payout_notice")
       .eq("status", "active")
       .order("code_name"),
     db
       .from("projects")
-      .select("project_id, project_name, status")
+      .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day")
       .order("project_name"),
     db
       .from("billing_cycles")
@@ -205,23 +216,46 @@ async function loadTargetData(ym: string) {
     db
       .from("billing_cycles")
       .select(cycleSelect)
-      .eq("ym", ym)
+      .in("ym", candidateYms)
       .is("invoice_ym", null),
   ]);
 
   if (membersRes.error) throw membersRes.error;
   if (projectsRes.error) throw projectsRes.error;
   if (invoiceCyclesRes.error) throw invoiceCyclesRes.error;
-  if (sameMonthCyclesRes.error) throw sameMonthCyclesRes.error;
+  if (unsetInvoiceCyclesRes.error) throw unsetInvoiceCyclesRes.error;
 
+  const projectMap = new Map<string, PaymentProjectRow>();
+  for (const project of (projectsRes.data ?? []) as PaymentProjectRow[]) {
+    projectMap.set(project.project_id, project);
+  }
   const cycleMap = new Map<string, BillingCycleRow>();
-  for (const row of [
-    ...((invoiceCyclesRes.data ?? []) as BillingCycleRow[]),
-    ...((sameMonthCyclesRes.data ?? []) as BillingCycleRow[]),
-  ]) {
+  for (const row of (invoiceCyclesRes.data ?? []) as BillingCycleRow[]) {
     cycleMap.set(cycleKey(row), row);
   }
+  for (const row of (unsetInvoiceCyclesRes.data ?? []) as BillingCycleRow[]) {
+    const project = projectMap.get(row.project_id);
+    const effectiveYm = effectivePaymentYmForCycle(row, project);
+    if (effectiveYm === ym) {
+      cycleMap.set(cycleKey(row), { ...row, invoice_ym: effectiveYm });
+    }
+  }
   const cycles = [...cycleMap.values()].sort(cycleSort);
+  const syncedRewards = await syncRewardSummariesForBillingCycles(db, cycles);
+  for (const cycle of cycles) {
+    const synced = syncedRewards.get(cycleKey(cycle));
+    if (synced) {
+      cycle.reward_summary_json = synced;
+      if (Number(cycle.budget_yen ?? 0) <= 0 && Number(synced.monthlyBudget65 ?? 0) > 0) {
+        cycle.budget_yen = Math.round(Number(synced.monthlyBudget65));
+      }
+    }
+  }
+  const officerMemberIds = new Set(
+    ((membersRes.data ?? []) as MemberRow[])
+      .filter((member) => member.is_officer)
+      .map((member) => member.member_id)
+  );
 
   const sourceYms = [...new Set(cycles.map((cycle) => cycle.ym))];
   const projectIds = [...new Set(cycles.map((cycle) => cycle.project_id))];
@@ -247,7 +281,7 @@ async function loadTargetData(ym: string) {
     cycles,
     payouts: payoutsRes.data ?? [],
     notices: noticesRes.data ?? [],
-    expectedEntries: buildPayoutEntries(cycles),
+    expectedEntries: buildPayoutEntries(cycles, officerMemberIds),
   };
 }
 
@@ -304,14 +338,28 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const db = createAdminClient();
-    const { data, error } = await db
-      .from("billing_cycles")
-      .select("project_id, ym, status, budget_yen, invoice_ym, reward_summary_json")
-      .eq("project_id", projectId)
-      .in("ym", sourceYms);
-    if (error) throw error;
+    const [cyclesRes, projectRes, membersRes] = await Promise.all([
+      db
+        .from("billing_cycles")
+        .select("project_id, ym, status, budget_yen, invoice_ym, reward_summary_json")
+        .eq("project_id", projectId)
+        .in("ym", sourceYms),
+      db
+        .from("projects")
+        .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day")
+        .eq("project_id", projectId)
+        .maybeSingle(),
+      db
+        .from("members")
+        .select("member_id, is_officer")
+        .eq("is_officer", true),
+    ]);
+    if (cyclesRes.error) throw cyclesRes.error;
+    if (projectRes.error) throw projectRes.error;
+    if (membersRes.error) throw membersRes.error;
 
-    const cycles = ((data ?? []) as BillingCycleRow[]).sort(cycleSort);
+    const project = projectRes.data as PaymentProjectRow | null;
+    const cycles = ((cyclesRes.data ?? []) as BillingCycleRow[]).sort(cycleSort);
     if (cycles.length !== sourceYms.length) {
       return NextResponse.json(
         { ok: false, error: `target cycles not found (${cycles.length}/${sourceYms.length})` },
@@ -320,7 +368,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     for (const cycle of cycles) {
-      const actualInvoiceYm = cycle.invoice_ym || cycle.ym;
+      const actualInvoiceYm = effectivePaymentYmForCycle(cycle, project ?? undefined);
       if (actualInvoiceYm !== invoiceYm) {
         return NextResponse.json(
           { ok: false, error: `${cycle.project_id}:${cycle.ym} is linked to invoice_ym=${actualInvoiceYm}` },
@@ -330,7 +378,8 @@ export async function PATCH(req: NextRequest) {
     }
 
     const payoutByYm = new Map<string, number>();
-    for (const entry of buildPayoutEntries(cycles)) {
+    const officerMemberIds = new Set(((membersRes.data ?? []) as MemberRow[]).map((member) => member.member_id));
+    for (const entry of buildPayoutEntries(cycles, officerMemberIds)) {
       payoutByYm.set(entry.ym, (payoutByYm.get(entry.ym) ?? 0) + entry.total_pay);
     }
 
@@ -418,6 +467,9 @@ export async function POST(req: NextRequest) {
     const before = await loadTargetData(ym);
     const db = createAdminClient();
     const entries = before.expectedEntries;
+    const officerMemberIds = ((before.members ?? []) as MemberRow[])
+      .filter((member) => member.is_officer)
+      .map((member) => member.member_id);
     const missingBudgetCycles = findMissingBudgetCycles(before.cycles as BillingCycleRow[], entries);
     if (missingBudgetCycles.length > 0) {
       return NextResponse.json(
@@ -431,6 +483,26 @@ export async function POST(req: NextRequest) {
       );
     }
     const notices = aggregateNotices(ym, entries, before.members as MemberRow[]);
+    const targetProjectIds = [...new Set((before.cycles as BillingCycleRow[]).map((cycle) => cycle.project_id))];
+    const targetSourceYms = [...new Set((before.cycles as BillingCycleRow[]).map((cycle) => cycle.ym))];
+
+    if (officerMemberIds.length > 0 && targetProjectIds.length > 0 && targetSourceYms.length > 0) {
+      const { error } = await db
+        .from("monthly_reward_payout")
+        .delete()
+        .in("project_id", targetProjectIds)
+        .in("ym", targetSourceYms)
+        .in("member_id", officerMemberIds);
+      if (error) throw error;
+
+      const { error: noticeDeleteError } = await db
+        .from("payout_notices")
+        .delete()
+        .eq("ym", ym)
+        .in("member_id", officerMemberIds)
+        .is("sent_at", null);
+      if (noticeDeleteError) throw noticeDeleteError;
+    }
 
     if (entries.length > 0) {
       const { error } = await db

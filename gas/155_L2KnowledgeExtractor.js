@@ -42,6 +42,17 @@
  * ScriptProperties: SUPABASE_URL / SUPABASE_SERVICE_KEY / GEMINI_API_KEY (既設定)
  */
 
+var L2_KNOWLEDGE_CRON_DISABLED_20260522 = true;
+
+function nav_l2_disabledCronResponse_(handlerName) {
+  return {
+    ok: true,
+    disabled: true,
+    handler: handlerName,
+    message: "L2 knowledge background cron is disabled. Use Codex automation/review batches."
+  };
+}
+
 // ============================================================
 // 公開関数 ─ ⑤ member_knowledge
 // ============================================================
@@ -50,6 +61,7 @@
  *  @param {Object} [opts] {maxItems?: number, force?: boolean}
  */
 function nav_member_knowledge_pollAll(opts) {
+  if (L2_KNOWLEDGE_CRON_DISABLED_20260522) return nav_l2_disabledCronResponse_("nav_member_knowledge_pollAll");
   opts = opts || {};
   const maxItems = Number(opts.maxItems || 5);
   const force = !!opts.force;
@@ -372,6 +384,7 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
 // ============================================================
 
 function nav_project_knowledge_pollAll(opts) {
+  if (L2_KNOWLEDGE_CRON_DISABLED_20260522) return nav_l2_disabledCronResponse_("nav_project_knowledge_pollAll");
   opts = opts || {};
   const maxItems = Number(opts.maxItems || 4);
   const force = !!opts.force;
@@ -596,6 +609,7 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
 // ============================================================
 
 function nav_protocol_pollAll(opts) {
+  if (L2_KNOWLEDGE_CRON_DISABLED_20260522) return nav_l2_disabledCronResponse_("nav_protocol_pollAll");
   opts = opts || {};
   const maxItems = Number(opts.maxItems || 4);
   const force = !!opts.force;
@@ -825,11 +839,29 @@ function nav_protocol_extractOneForYm_(projectId, ym, opts) {
 // ============================================================
 
 function nav_l2_setupAllL2HourlyTriggers_() {
+  if (L2_KNOWLEDGE_CRON_DISABLED_20260522) return nav_l2_disableAllL2HourlyTriggers_();
   const out = { ok: true, set: {} };
   out.set.member = _l2_setupHourlyTriggerByName_("nav_member_knowledge_pollAll", 0);
   out.set.project = _l2_setupHourlyTriggerByName_("nav_project_knowledge_pollAll", 15);
   out.set.protocol = _l2_setupHourlyTriggerByName_("nav_protocol_pollAll", 30);
   return out;
+}
+
+function nav_l2_disableAllL2HourlyTriggers_() {
+  const targetFns = {
+    nav_member_knowledge_pollAll: true,
+    nav_project_knowledge_pollAll: true,
+    nav_protocol_pollAll: true
+  };
+  const triggers = ScriptApp.getProjectTriggers();
+  let removed = 0;
+  for (const t of triggers) {
+    const fn = t.getHandlerFunction && t.getHandlerFunction();
+    if (targetFns[fn]) {
+      try { ScriptApp.deleteTrigger(t); removed++; } catch (e) {}
+    }
+  }
+  return { ok: true, disabled: true, removed: removed };
 }
 
 /** 汎用: 指定の handler 名の trigger を全て (or N-1 個) 削除する。

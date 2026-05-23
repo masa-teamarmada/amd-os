@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { AdminProjectMembersModal } from "./AdminProjectMembersModal";
 import { LaneBadges, LaneEditor } from "@/components/lanes/LaneBadges";
 import type { LaneWeight } from "@/lib/aspi-lanes";
+import { DEFAULT_PAYMENT_DUE_RULE, PAYMENT_DUE_RULE_OPTIONS, paymentDueRuleLabel } from "@/lib/payment-rules";
 
 // 2026-05-11: browser auth client 直接 supabase.from("projects").update は
 // RLS で UPDATE が anon / authenticated を弾く回帰が再発したため、
@@ -25,10 +26,13 @@ export interface ProjectRow {
   report_emails: string | null;
   start_ym: string | null;
   end_ym: string | null;
+  fee_type: string | null;
+  fee_amount: number | null;
   invoice_send_manual: boolean;
   invoice_to_emails: string | null;
   invoice_cc_emails: string | null;
   invoice_bcc_emails: string | null;
+  payment_due_rule: string | null;
   payment_due_day: number | null;
   freeze_from_ym: string | null;
   restart_expected_ym: string | null;
@@ -53,6 +57,12 @@ export interface ProjectRow {
 // 含まれてなかった。select の value がオプションに無いと React 上で空表示 + 保存時の
 // editVals.status が undefined のまま patch されない事故が起きるため、draft を追加。
 const STATUS_OPTIONS = ["draft", "active", "sales", "ended", "frozen", "lost"];
+const FEE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "", label: "未設定" },
+  { value: "monthly_fixed", label: "固定" },
+  { value: "variable", label: "変動" },
+  { value: "milestone", label: "マイルストーン" },
+];
 
 type ProjectCategory = "dtsu" | "ecosystem" | "advisor";
 
@@ -86,6 +96,30 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function fmtYen(value: number | string | null | undefined) {
+  const n = Number(value ?? 0);
+  return n > 0 && Number.isFinite(n) ? `¥${Math.round(n).toLocaleString("ja-JP")}` : "—";
+}
+
+function parseYenInput(value: string | null | undefined) {
+  const n = Number(String(value ?? "").replace(/[,\s¥円]/g, ""));
+  return Number.isFinite(n) ? Math.round(n) : 0;
+}
+
+function feeTypeLabel(value: string | null | undefined) {
+  if (value === "monthly_fixed") return "固定";
+  if (value === "variable") return "変動";
+  if (value === "milestone") return "MS";
+  return "未設定";
+}
+
+function feeTypeClass(value: string | null | undefined) {
+  if (value === "monthly_fixed") return "bg-emerald-100 text-emerald-800";
+  if (value === "variable") return "bg-blue-100 text-blue-800";
+  if (value === "milestone") return "bg-violet-100 text-violet-800";
+  return "bg-zinc-100 text-zinc-500";
+}
+
 function ProjectCategoryBadge({ value }: { value: string | null | undefined }) {
   const category = (value || "dtsu") as ProjectCategory;
   const meta = PROJECT_CATEGORY_OPTIONS.find((item) => item.value === category) ?? PROJECT_CATEGORY_OPTIONS[0];
@@ -102,6 +136,7 @@ interface Props {
 }
 
 type EditVals = {
+  project_name: string;
   client_name: string;
   freee_partner_id: string;
   slack_channel_id: string;
@@ -112,9 +147,12 @@ type EditVals = {
   status: string;
   project_category: ProjectCategory;
   invoice_send_manual: boolean;
+  fee_type: string;
+  fee_amount: string;
   invoice_to_emails: string;
   invoice_cc_emails: string;
   invoice_bcc_emails: string;
+  payment_due_rule: string;
   payment_due_day: string;
   freeze_from_ym: string;
   restart_expected_ym: string;
@@ -153,6 +191,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
   const startEditCell = (p: ProjectRow, field: string) => {
     setEditingId(`${p.id}:${field}`);
     setEditVals({
+      project_name: p.project_name ?? "",
       client_name: p.client_name ?? "",
       freee_partner_id: p.freee_partner_id ?? "",
       slack_channel_id: p.slack_channel_id ?? "",
@@ -160,12 +199,15 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       report_emails: p.report_emails ?? "",
       start_ym: p.start_ym ?? "",
       end_ym: p.end_ym ?? "",
+      fee_type: p.fee_type ?? "",
+      fee_amount: p.fee_amount != null ? String(Math.round(Number(p.fee_amount))) : "",
       status: p.status,
       project_category: p.project_category || "dtsu",
       invoice_send_manual: !!p.invoice_send_manual,
       invoice_to_emails: p.invoice_to_emails ?? "",
       invoice_cc_emails: p.invoice_cc_emails ?? "",
       invoice_bcc_emails: p.invoice_bcc_emails ?? "",
+      payment_due_rule: p.payment_due_rule ?? DEFAULT_PAYMENT_DUE_RULE,
       payment_due_day: p.payment_due_day != null ? String(p.payment_due_day) : "",
       freeze_from_ym: p.freeze_from_ym ?? "",
       restart_expected_ym: p.restart_expected_ym ?? "",
@@ -260,6 +302,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
     // field ごとに patch を組む。null/empty 扱いを丁寧に。
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     switch (field) {
+      case "project_name": patch.project_name = (editVals.project_name as string)?.trim() || p.project_name; break;
       case "client_name": patch.client_name = (editVals.client_name as string) || null; break;
       case "freee_partner_id": patch.freee_partner_id = (editVals.freee_partner_id as string) || null; break;
       case "slack_channel_id": patch.slack_channel_id = (editVals.slack_channel_id as string) || null; break;
@@ -267,11 +310,15 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       case "report_emails": patch.report_emails = (editVals.report_emails as string) || null; break;
       case "start_ym": patch.start_ym = (editVals.start_ym as string) || null; break;
       case "end_ym": patch.end_ym = (editVals.end_ym as string) || null; break;
+      case "fee":
+        patch.fee_type = (editVals.fee_type as string) || null;
+        patch.fee_amount = parseYenInput(editVals.fee_amount as string) || null;
+        break;
       case "status": patch.status = editVals.status as string; break;
       case "project_category": patch.project_category = editVals.project_category || "dtsu"; break;
-      case "payment_due_day":
-        patch.payment_due_day = editVals.payment_due_day && editVals.payment_due_day.trim() !== ""
-          ? Number(editVals.payment_due_day) : null;
+      case "payment_due_rule":
+        patch.payment_due_rule = editVals.payment_due_rule || DEFAULT_PAYMENT_DUE_RULE;
+        patch.payment_due_day = null;
         break;
       case "invoice_send":
         patch.invoice_send_manual = !!editVals.invoice_send_manual;
@@ -292,7 +339,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       setHint(`保存エラー: ${r.error}`);
     } else {
       setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, ...patch } : x));
-      setHint(`${p.project_name} の ${field} を保存しました`);
+      setHint(`${String(patch.project_name || p.project_name)} の ${field} を保存しました`);
       setEditingId(null);
     }
     setSaving(null);
@@ -338,7 +385,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "1600px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: "1740px" }}>
           <thead>
             <tr className="bg-muted/50 text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 bg-muted/50 w-14">PJID</th>
@@ -350,7 +397,8 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-40">請求先</th>
               <th className="text-left px-3 py-2 font-medium w-56">関係先メールアドレス</th>
               <th className="text-left px-3 py-2 font-medium w-32">請求書送付</th>
-              <th className="text-left px-3 py-2 font-medium w-20">支払期日</th>
+              <th className="text-left px-3 py-2 font-medium w-36">業務委託料</th>
+              <th className="text-left px-3 py-2 font-medium w-24">支払条件</th>
               <th className="text-left px-3 py-2 font-medium w-20">開始ym</th>
               <th className="text-left px-3 py-2 font-medium w-20">終了ym</th>
               <th className="text-left px-3 py-2 font-medium w-32">停止 / 再開予定</th>
@@ -391,9 +439,30 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                 >
                   <td className="px-3 py-2 font-mono font-bold sticky left-0 bg-background">{p.project_id}</td>
 
-                  {/* PJ名 — 表示のみ (PJ名そのものは varying でなく safe) */}
-                  <td className="px-3 py-2 sticky left-14 bg-background border-r border-border font-medium max-w-[120px] truncate" title={p.project_name}>
-                    {p.project_name}
+                  {/* PJ名 */}
+                  <td
+                    className={`${cellCls("project_name")} sticky left-14 bg-background border-r border-border font-medium max-w-[120px]`}
+                    onClick={enterCell("project_name")}
+                    title={p.project_name}
+                  >
+                    {isEditingField(p, "project_name") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          value={editVals.project_name as string}
+                          autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, project_name: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveCell(p, "project_name");
+                            if (e.key === "Escape") cancelEdit();
+                          }}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background"
+                        />
+                        {cellActions("project_name")}
+                      </div>
+                    ) : (
+                      <span className="truncate block">{p.project_name}</span>
+                    )}
                   </td>
 
                   {/* status */}
@@ -578,24 +647,64 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     )}
                   </td>
 
-                  {/* payment_due_day */}
-                  <td className={cellCls("payment_due_day")} onClick={enterCell("payment_due_day")}>
-                    {isEditingField(p, "payment_due_day") ? (
+                  {/* fee_type / fee_amount */}
+                  <td className={cellCls("fee")} onClick={enterCell("fee")}>
+                    {isEditingField(p, "fee") ? (
+                      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={editVals.fee_type || ""}
+                          autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, fee_type: e.target.value }))}
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[12px]"
+                        >
+                          {FEE_TYPE_OPTIONS.map((item) => (
+                            <option key={item.value} value={item.value}>{item.label}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editVals.fee_amount as string}
+                          onChange={(e) => setEditVals((v) => ({ ...v, fee_amount: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "fee"); if (e.key === "Escape") cancelEdit(); }}
+                          placeholder="固定額"
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[12px] font-mono"
+                        />
+                        {cellActions("fee")}
+                      </div>
+                    ) : (
+                      <div className="space-y-0.5 text-[11px]">
+                        <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] ${feeTypeClass(p.fee_type)}`}>
+                          {feeTypeLabel(p.fee_type)}
+                        </span>
+                        {p.fee_amount != null && Number(p.fee_amount) > 0 ? (
+                          <div className="font-mono text-foreground">{fmtYen(p.fee_amount)}</div>
+                        ) : (
+                          <div className="text-muted-foreground">—</div>
+                        )}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* payment_due_rule */}
+                  <td className={cellCls("payment_due_rule")} onClick={enterCell("payment_due_rule")}>
+                    {isEditingField(p, "payment_due_rule") ? (
                       <div onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground">翌月</span>
-                          <input type="number" value={editVals.payment_due_day as string} autoFocus
-                            onChange={(e) => setEditVals((v) => ({ ...v, payment_due_day: e.target.value }))}
-                            onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "payment_due_day"); if (e.key === "Escape") cancelEdit(); }}
-                            className="border border-border rounded px-1 py-0.5 text-[12px] w-12 bg-background"
-                            min="1" max="31" placeholder="末" />
-                          <span className="text-[10px] text-muted-foreground">日</span>
-                        </div>
-                        {cellActions("payment_due_day")}
+                        <select
+                          value={editVals.payment_due_rule || DEFAULT_PAYMENT_DUE_RULE}
+                          autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, payment_due_rule: e.target.value }))}
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[12px]"
+                        >
+                          {PAYMENT_DUE_RULE_OPTIONS.map((item) => (
+                            <option key={item.value} value={item.value}>{item.label}</option>
+                          ))}
+                        </select>
+                        {cellActions("payment_due_rule")}
                       </div>
                     ) : (
                       <span className="text-muted-foreground text-[11px]">
-                        {p.payment_due_day ? `翌月${p.payment_due_day}日` : "—"}
+                        {paymentDueRuleLabel(p.payment_due_rule, p.payment_due_day)}
                       </span>
                     )}
                   </td>
@@ -706,7 +815,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={15} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={17} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>

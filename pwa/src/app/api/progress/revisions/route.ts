@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin, requireAuth } from "@/lib/supabase/api-auth";
+import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
 
 const GAS_BASE_URL = process.env.NEXT_PUBLIC_GAS_WEBAPP_URL || "";
 const GAS_API_KEY = process.env.NEXT_PUBLIC_GAS_API_KEY || "";
@@ -608,6 +609,15 @@ export async function PATCH(req: NextRequest) {
       );
   }
 
+  let rewardSummary: unknown = null;
+  let rewardSyncError: string | null = null;
+  try {
+    const result = await syncRewardSummaryForCycle(supabase, revision.project_id, revision.ym);
+    rewardSummary = result.rewardSummary;
+  } catch (err) {
+    rewardSyncError = err instanceof Error ? err.message : String(err);
+  }
+
   return NextResponse.json({
     ok: true,
     progress: {
@@ -618,5 +628,7 @@ export async function PATCH(req: NextRequest) {
       source: "tsukuyomi_revision",
       note: revisedNote,
     },
+    rewardSummary,
+    rewardSyncError,
   });
 }

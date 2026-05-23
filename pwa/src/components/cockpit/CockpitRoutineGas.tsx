@@ -35,6 +35,7 @@ interface Props {
   billingCycles: BillingCycle[];
   currentYm: string;
   projectType?: string;
+  projectCategory?: string;
   /** 月見出し（YYYY.MM稼働分）クリック → 月次モーダル */
   onOpenModal?: (ym: string) => void;
   /** 各ステップクリック → stepId 別の専用モーダル（CockpitView で振り分け） */
@@ -189,8 +190,9 @@ function visibleMonths(billingCycles: BillingCycle[], currentYm: string) {
     });
 }
 
-export function CockpitRoutineGas({ projectId, billingCycles, currentYm, projectType, onOpenModal, onStepClick }: Props) {
+export function CockpitRoutineGas({ projectId, billingCycles, currentYm, projectType, projectCategory, onOpenModal, onStepClick }: Props) {
   const isCTB = (projectType || "").toLowerCase() === "ctb";
+  const isAdvisor = (projectCategory || "").toLowerCase() === "advisor";
   const months = visibleMonths(billingCycles, currentYm);
   const [pickerYm, setPickerYm] = useState<string | null>(null);
   const [savingPicker, setSavingPicker] = useState(false);
@@ -215,14 +217,22 @@ export function CockpitRoutineGas({ projectId, billingCycles, currentYm, project
       <CardHeader className="pb-2 pt-3 px-3 shrink-0">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-[13px] font-semibold">月次ルーティン</h3>
-          <span className="text-[10px] text-[#86868b]">{isCTB ? "CTB" : "標準"}</span>
+          <span className="text-[10px] text-[#86868b]">{isAdvisor ? "対象外" : isCTB ? "CTB" : "標準"}</span>
         </div>
       </CardHeader>
       <CardContent className="px-3 pb-3 space-y-4 overflow-y-auto flex-1 min-h-0">
-        {months.length === 0 && (
+        {isAdvisor && (
+          <p className="text-[12px] text-[#86868b]">
+            社外役員/顧問PJは月次ルーティン対象外
+          </p>
+        )}
+
+        {!isAdvisor && months.length === 0 && (
           <p className="text-[12px] text-[#86868b]">ルーティンデータなし</p>
         )}
 
+        {!isAdvisor && (
+          <>
         {months.map(({ ym, cycle }) => {
           const steps = buildSteps(cycle, ym, isCTB);
           const activeSteps = steps.filter((s) => !s.deferred);
@@ -307,6 +317,8 @@ export function CockpitRoutineGas({ projectId, billingCycles, currentYm, project
             </section>
           );
         })}
+          </>
+        )}
       </CardContent>
     </Card>
   );

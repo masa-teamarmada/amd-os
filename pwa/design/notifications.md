@@ -13,6 +13,20 @@ PWA 画面 + iOS で確認し、誤抽出に対して **「つくよみ (LLM 抽
 修正依頼は `l2_feedbacks` テーブル (migration 032) に蓄積され、上流 cron が次回抽出時に
 LLM プロンプトに含めて再抽出する → 「過去の指摘が反映された L2 データ」が育つ。
 
+補助的な運用通知として、入金確認nudgeもPWA側に置く。これはL2通知ではなく admin オペレーション通知で、`/api/cron/payment-confirm-nudges` が active admin のSlack DMへ送る。LLM非使用の支払運用cronなので、Vercelでは `freee-payment-sync` (09:10 JST) と `payment-confirm-nudges` (09:30 JST) だけ稼働させ、LLM系cron停止とは別枠で扱う。手動再送は `/admin/payouts` の「入金確認nudge」ボタンから行う。
+
+- 対象: 支払月単位で `billing_cycles.payment_confirmed_at` が空のPJ。
+- 支払月: `billing_cycles.invoice_ym` があれば優先、空なら `/admin/projects` の支払条件 (`projects.payment_due_rule`) から計算。
+- Slackボタン:
+  - `予定通り入金済み`: signed token 付き `/api/admin/payment-confirm?mode=expected` で即時反映。
+  - `金額を入力`: signed token 付き `/payment-confirm` で実際の入金額を入力。
+- 反映先: `billing_cycles.payment_confirmed_at` / `payment_confirmed_by` / `status='payment_confirmed'`。実額・source・freee照合結果は `billing_log.detail` に残す。
+- freee会計同期 (`/api/cron/freee-payment-sync`) が先に同じ入金を見つけた場合は、adminがSlackに回答しなくても入金確認済みになる。照合対象はfreee会計の収入取引 (`deals`) と、取引登録前の銀行口座明細 (`wallet_txns`) の両方。銀行明細の摘要で照合する必要があるPJは `project_knowledge(category='payment_alias')` に `エヒメダイガク` のような振込摘要キーワードを持たせる。
+- freee同期が `Freee token refresh failed: invalid_client` などで落ちた場合は、入金情報は取れていない。active adminへSlack DMで失敗理由を出し、`FREEE_CLIENT_ID` / `FREEE_CLIENT_SECRET` / `FREEE_REFRESH_TOKEN` または `freee_oauth_tokens` の再認証が必要な状態を見える化する。
+- 月次ルーティンの請求額確定でPL確認依頼を送る場合は、`/api/notify/pl-review` が `project_members.is_pl=true` のSlack DMを `conversations.open` で開き、請求額・バッファ・PJ予算を明記した上で `承認する` / `差し戻す` / `OSで確認` ボタンを送る。承認/差し戻しは `/api/admin/budget-approval` が `billing_cycles` を更新する。
+
+`project_config_gap` は、OSが処理を続けるために本当に設定不足で止まる場合だけ使う通知。2026-05-22以降、DTSU PJ / エコシステム構築PJで対象月を覆うMS計画または有効なMS項目がない場合は通知しない。`progress-estimator` が `monthly_reports` + `project_meeting_summaries` を `project_monthly_notes` に保存し、月次モーダルにその月の動きを残す。advisorなど非MS管理PJもMS進捗は抽出せず、同じ月次ノート側に寄せる。
+
 ---
 
 ## なぜ作ったか (まさの問題提起 2026-05-09)
@@ -191,6 +205,8 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 
 - **RLS**: 2026-05-20以降、通知系はadmin-only。`l2_notifications` / `meeting_notifications` / `app_notifications` / `l2_feedbacks` は anon 不可、一般 authenticated も不可。
 - **raw_data_gapの詳細表示**: 通知が持つ `metadata_json.evidence_refs` を正本として表示する。`project_id + ym` の `source_cache` 全件を通知詳細として見せると、後続backfillのSlack/Gmail等が混ざって「生データ取り込み通知」に見えるため禁止。fallbackで `source_cache` を見る場合も、短いsnippet / source_url / hash / item_id だけを出し、本文全文やmetadata全量は表示しない。
+- **raw_data_gapのstale判定**: `meeting-not-ingested` 系は通知作成時のsnapshotが古い場合がある。PWA詳細表示は展開時に `project_meeting_summaries` をlive確認し、該当行があれば「OS取り込み済み」と表示する。生成側も通知前にlive DBを再確認し、認識できている外部ソースは通知だけでなくbackfillへ進める。
+- **xrl_evidenceのscope**: 通知は `YYYYMM:<slug>` の個別scopeを持ってよいが、正本 `project_xrl_evidence.ym` は `YYYYMM`。PWA詳細とfeedback APIは `scope_key` の `YYYYMM` 部分 + `metadata_json.axis/evidence_kind/evidence_source_hash` で候補行を特定する。
 - **既読の蓄積**: iOS/APNs 配信済みは `notified_at`、PWAの人間既読は `read_at`。どちらが入っても行は削除されない。UIは最新100件 + 既読折りたたみで見せるだけなので、現状はDBには蓄積し続ける。必要なら retention / archive job を別途設計する。
 - **status='archived'**: 古い feedback が常時 LLM プロンプトに混じるとノイズになる → まさが UI から手動 archive できる仕組みが将来必要 (現状は SQL 直叩きで archive)
 - **applied_count**: 現状は記録だけ。閾値超え (= 何度も適用されたが直らない) のフィードバックを通知する仕組みは将来
@@ -214,6 +230,7 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 | 2026-05-21 | **MTGサマリ反映の同期化**: `NEXT_PUBLIC_GAS_API_KEY` 未設定で再抽出がサイレント skip され、LST の固有名詞修正 feedback が `l2_feedbacks` に残ったまま `project_meeting_summaries` へ反映されない事故を修正。PWA は `CRON_SECRET` fallback でGAS runFuncを同期実行し、失敗時は 502。GAS pwaApi は `PWA_API_KEY` 未設定時 `CRON_SECRET` を認証キーに使う。 |
 | 2026-05-21 | **raw_data_gap詳細表示の修正**: `CTB: 5月進捗スライドがOS未取り込み` の通知詳細で、通知metadataのDrive/Notion/Calendar根拠ではなく、後続backfillのSlack `source_cache` が表示されていた。raw_data_gapは `metadata_json.evidence_refs` を優先し、fallbackも短いsnippet/source refのみ表示するよう修正。 |
 | 2026-05-22 | **通知反映ゲート**: `member_knowledge` / `project_knowledge` / `protocols` / `founding_members` は候補状態で保存し、通知の「はい」だけでactive化する。GAS 155 は `clasp push` 済み。 |
+| 2026-05-22 | **XRL個別scope修正 / raw_data_gap stale表示**: `xrl_evidence` は `YYYYMM:<slug>` 通知scopeから `YYYYMM` を抽出して `project_xrl_evidence` を探す。`meeting-not-ingested` のraw_data_gapは展開時にlive DBを確認し、すでに取り込み済みなら詳細先頭に表示する。 |
 
 ---
 

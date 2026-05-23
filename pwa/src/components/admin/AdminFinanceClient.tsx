@@ -44,9 +44,23 @@ export interface FinanceReceiptEvent {
   created_at: string;
 }
 
+export interface FinanceOfficerReserve {
+  ym: string;
+  totalYen: number;
+  entries: Array<{
+    projectId: string;
+    projectName: string;
+    sourceYm: string;
+    memberId: string;
+    memberName: string;
+    amountYen: number;
+  }>;
+}
+
 interface Props {
   recurringItems: FinanceRecurringItem[];
   receiptEvents: FinanceReceiptEvent[];
+  officerReserve: FinanceOfficerReserve;
 }
 
 type DraftItem = {
@@ -109,7 +123,7 @@ function statusTone(status: string) {
   return "border-zinc-200 bg-zinc-50 text-zinc-500";
 }
 
-export function AdminFinanceClient({ recurringItems, receiptEvents }: Props) {
+export function AdminFinanceClient({ recurringItems, receiptEvents, officerReserve }: Props) {
   const [rows, setRows] = useState<FinanceRecurringItem[]>(recurringItems);
   const [draft, setDraft] = useState<DraftItem>(BLANK_DRAFT);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -232,6 +246,45 @@ export function AdminFinanceClient({ recurringItems, receiptEvents }: Props) {
           <div className="text-[11px] text-muted-foreground">Budget forward-fill</div>
           <div className="mt-1 text-xl font-semibold tabular-nums">{totals.forwardFill}</div>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <div className="flex flex-wrap items-start gap-3">
+          <div>
+            <h2 className="text-[13px] font-semibold text-amber-900">AMD運営費へ残る役員除外分</h2>
+            <p className="mt-0.5 text-[11px] text-amber-900/75">
+              支払月 {ymLabel(officerReserve.ym)} のadmin.payoutsで、役員ONのメンバーを支払対象から外した金額。
+            </p>
+          </div>
+          <div className="ml-auto text-right">
+            <div className="text-xl font-semibold tabular-nums text-amber-900">{yen(officerReserve.totalYen)}</div>
+            <div className="text-[11px] text-amber-900/70">{officerReserve.entries.length} 明細</div>
+          </div>
+        </div>
+        {officerReserve.entries.length > 0 && (
+          <div className="mt-3 overflow-hidden rounded-md border border-amber-200 bg-background/80">
+            <table className="w-full text-[12px]">
+              <thead className="border-b border-border bg-muted/40">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">PJ</th>
+                  <th className="px-3 py-2 text-left font-medium">稼働月</th>
+                  <th className="px-3 py-2 text-left font-medium">役員</th>
+                  <th className="px-3 py-2 text-right font-medium">運営費へ残る額</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {officerReserve.entries.map((entry) => (
+                  <tr key={`${entry.projectId}:${entry.sourceYm}:${entry.memberId}`}>
+                    <td className="px-3 py-2 font-medium">{entry.projectName}</td>
+                    <td className="px-3 py-2 font-mono text-muted-foreground">{ymLabel(entry.sourceYm)}</td>
+                    <td className="px-3 py-2">{entry.memberName}</td>
+                    <td className="px-3 py-2 text-right font-semibold">{yen(entry.amountYen)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="rounded-lg border border-border p-3">

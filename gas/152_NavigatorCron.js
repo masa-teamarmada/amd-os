@@ -8,8 +8,11 @@
  * - “JST表示” はプロジェクトのタイムゾーン設定に依存するので、Asia/Tokyoになってる前提
  */
 
+var NAV_MONTHLY_EXTRACT_CRON_DISABLED_20260522 = true;
+
 // ===== 手動で一回だけ実行：トリガーを作る =====
 function nav_setupMonthlyExtractCronAt3(){
+  if (NAV_MONTHLY_EXTRACT_CRON_DISABLED_20260522) return nav_disableMonthlyExtractCronAt3_();
   // 既存の同名トリガーを掃除（重複事故防止）
   const triggers = ScriptApp.getProjectTriggers();
   triggers.forEach(t => {
@@ -31,6 +34,9 @@ function nav_setupMonthlyExtractCronAt3(){
 
 // ===== Cron本体：毎日3時に呼ばれる =====
 function nav_cronMonthlyExtractAt3(){
+  if (NAV_MONTHLY_EXTRACT_CRON_DISABLED_20260522) {
+    return { ok: true, disabled: true, message: "Monthly extract fallback cron disabled. Use Codex automation/review batches." };
+  }
   const ym = nav_cron_getCurrentYm_();
   const pids = nav_cron_listTargetProjectIds_();
 
@@ -94,6 +100,17 @@ function nav_cronMonthlyExtractAt3(){
 
   Logger.log("[nav_cronMonthlyExtractAt3]\n" + JSON.stringify(out, null, 2));
   return out;
+}
+
+function nav_disableMonthlyExtractCronAt3_(){
+  const triggers = ScriptApp.getProjectTriggers();
+  let removed = 0;
+  triggers.forEach(t => {
+    if (t.getHandlerFunction && t.getHandlerFunction() === "nav_cronMonthlyExtractAt3"){
+      try { ScriptApp.deleteTrigger(t); removed++; } catch(e) {}
+    }
+  });
+  return { ok:true, disabled:true, removed };
 }
 
 function nav_cron_getCurrentYm_(){

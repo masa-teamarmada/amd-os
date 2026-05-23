@@ -53,6 +53,7 @@ interface RewardSummary {
   carryOverYen?: number;
   monthlyBudget65?: number;
   members: RewardMember[];
+  meta?: Record<string, unknown>;
 }
 
 interface Billing {
@@ -214,6 +215,7 @@ interface Props {
   initialTab?: MonthlyModalTab;
   projectFeeType?: string | null;
   projectFeeAmount?: number | null;
+  usesMsProgress?: boolean;
   onProgressSaved?: (patches: ProgressInfo[]) => void;
   onClose: () => void;
 }
@@ -352,8 +354,9 @@ function monthRangeUntil(planCycle: PlanCycleShape | null, targetYm: string): st
   const end = ymToMonths(targetYm);
   const months: string[] = [];
   for (let i = start; i <= end; i += 1) {
-    const y = Math.floor(i / 12);
-    const m = (i % 12) + 1;
+    const zeroBased = i - 1;
+    const y = Math.floor(zeroBased / 12);
+    const m = (zeroBased % 12) + 1;
     months.push(`${y}${String(m).padStart(2, "0")}`);
   }
   return months.length > 0 ? months : [targetYm];
@@ -695,6 +698,7 @@ export function CockpitMonthlyModal({
   initialTab,
   projectFeeType,
   projectFeeAmount,
+  usesMsProgress = true,
   onProgressSaved,
   onClose,
 }: Props) {
@@ -773,6 +777,7 @@ export function CockpitMonthlyModal({
             expectedPct={expectedPct}
             projectFeeType={projectFeeType}
             projectFeeAmount={projectFeeAmount}
+            usesMsProgress={usesMsProgress}
             onProgressSaved={onProgressSaved}
           />
         )}
@@ -806,6 +811,7 @@ function RewardTab({
   expectedPct,
   projectFeeType,
   projectFeeAmount,
+  usesMsProgress,
   onProgressSaved,
 }: {
   billing: Billing | null;
@@ -824,6 +830,7 @@ function RewardTab({
   expectedPct: number | null;
   projectFeeType?: string | null;
   projectFeeAmount?: number | null;
+  usesMsProgress: boolean;
   onProgressSaved?: (patches: ProgressInfo[]) => void;
 }) {
   const [localProgress, setLocalProgress] = useState<ProgressInfo[]>(progress);
@@ -843,6 +850,9 @@ function RewardTab({
   const [revisionMsg, setRevisionMsg] = useState<string | null>(null);
   const [localMemberActivities, setLocalMemberActivities] = useState<MemberActivityInfo[]>(memberActivities);
   const [msSchedules, setMsSchedules] = useState<Record<string, MsScheduleInfo>>({});
+  const [syncedReward, setSyncedReward] = useState<RewardSummary | null>(null);
+  const [rewardSyncing, setRewardSyncing] = useState(false);
+  const [rewardSyncMsg, setRewardSyncMsg] = useState<string | null>(null);
 
   // 全体Editモード
   const [editMode, setEditMode] = useState(false);
@@ -868,6 +878,33 @@ function RewardTab({
 
   const isFuture = ym > currentYm;
 
+  async function syncRewardSummary() {
+    if (!billing || milestones.length === 0 || responsibilities.length === 0) {
+      setSyncedReward(null);
+      return null;
+    }
+    setRewardSyncing(true);
+    try {
+      const res = await fetch("/api/rewards/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ym }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "reward sync failed");
+      const reward = data.rewardSummary?.members?.length ? (data.rewardSummary as RewardSummary) : null;
+      setSyncedReward(reward);
+      setRewardSyncMsg(null);
+      return reward;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setRewardSyncMsg(`報酬サマリーのSupabase保存に失敗: ${message}`);
+      return null;
+    } finally {
+      setRewardSyncing(false);
+    }
+  }
+
   const upsertLocalProgress = (patches: ProgressInfo[]) => {
     setLocalProgress((prev) => {
       const map = new Map(prev.map((p) => [`${p.milestoneKey}_${p.ym}`, p]));
@@ -878,6 +915,7 @@ function RewardTab({
       return Array.from(map.values());
     });
     onProgressSaved?.(patches);
+    void syncRewardSummary();
   };
 
   useEffect(() => {
@@ -887,6 +925,14 @@ function RewardTab({
   useEffect(() => {
     setLocalMemberActivities(memberActivities);
   }, [memberActivities, ym]);
+
+  useEffect(() => {
+    setSyncedReward(null);
+    setRewardSyncMsg(null);
+    if (!billing?.rewardSummaryJson?.members?.length) {
+      void syncRewardSummary();
+    }
+  }, [projectId, ym, billing?.budgetYen, billing?.rewardSummaryJson, milestones.length, responsibilities.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 未確認推定
   const fetchUnconfirmed = async () => {
@@ -1092,6 +1138,7 @@ function RewardTab({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      if (data.rewardSummary?.members?.length) setSyncedReward(data.rewardSummary as RewardSummary);
 
       setUnconfirmed((prev) => prev.filter((u) => u.milestoneKey !== milestoneKey));
       setModifyingKey(null);
@@ -1177,6 +1224,7 @@ function RewardTab({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "更新に失敗しました");
+      if (data.rewardSummary?.members?.length) setSyncedReward(data.rewardSummary as RewardSummary);
       if (action === "confirm" && data.progress) {
         upsertLocalProgress([data.progress]);
       }
@@ -1212,6 +1260,7 @@ function RewardTab({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      if (data.rewardSummary?.members?.length) setSyncedReward(data.rewardSummary as RewardSummary);
 
       // ローカル進捗を更新（consumedPt も再計算して報酬予定額に即時反映）
       const msPtsMap = new Map(milestones.map((m) => [m.milestoneId, m.points]));
@@ -1313,22 +1362,8 @@ function RewardTab({
     ? Math.round(rewardBudgetForPt / planCycle.totalPoints)
     : billing.rewardSummaryJson?.ptUnit || 0;
   const storedReward = billing.rewardSummaryJson?.members?.length ? billing.rewardSummaryJson : null;
-  const cappedStoredReward = storedReward
-    ? applyRewardCapForMonth(storedReward, monthlyRewardBudget, new Map())
-    : null;
-  const previewReward = storedReward ? null : buildRewardPreview({
-    ym,
-    milestones,
-    progress: localProgress,
-    responsibilities,
-    memberMap,
-    billing,
-    planCycle,
-    projectFeeType,
-    projectFeeAmount,
-  });
-  const displayReward = cappedStoredReward || previewReward;
-  const isRewardPreview = !storedReward && !!previewReward;
+  const displayReward = syncedReward?.members?.length ? syncedReward : storedReward;
+  const isRewardPreview = false;
 
   // MS分類
   const msNormal = milestones.filter((m) => {
@@ -1644,6 +1679,12 @@ function RewardTab({
       )}
 
       {/* ── 💰 メンバー報酬 ── */}
+      {rewardSyncing && (
+        <p className="text-[11px] text-muted-foreground">報酬サマリーをSupabaseへ保存中...</p>
+      )}
+      {rewardSyncMsg && !rewardSyncing && (
+        <p className="text-[11px] text-red-600">{rewardSyncMsg}</p>
+      )}
       {displayReward?.members && displayReward.members.length > 0 && (
         <MemberPayoutSection
           reward={displayReward}
@@ -1688,7 +1729,8 @@ function RewardTab({
         original={monthlyNoteOriginal}
         updatedAt={monthlyNoteUpdatedAt}
         updatedBy={monthlyNoteUpdatedBy}
-        hasMs={!!planCycle && milestones.length > 0}
+        hasMs={usesMsProgress && !!planCycle && milestones.length > 0}
+        usesMsProgress={usesMsProgress}
         onChange={setMonthlyNote}
         onSave={saveMonthlyNote}
       />
@@ -2439,6 +2481,7 @@ function MonthlyNoteSection({
   updatedAt,
   updatedBy,
   hasMs,
+  usesMsProgress,
   onChange,
   onSave,
 }: {
@@ -2450,6 +2493,7 @@ function MonthlyNoteSection({
   updatedAt: string | null;
   updatedBy: string | null;
   hasMs: boolean;
+  usesMsProgress: boolean;
   onChange: (v: string) => void;
   onSave: () => void;
 }) {
@@ -2457,6 +2501,8 @@ function MonthlyNoteSection({
   const headerLabel = hasMs ? "📔 月次ノート (補足)" : "📔 月次ノート";
   const headerHint = hasMs
     ? "MS に紐付かない補足メモ"
+    : !usesMsProgress
+      ? "MS進捗の対象外なので、ここに今月の動きを残してください"
     : "MS が未設定なので、ここに今月の動きを残してください";
   return (
     <div className="border border-border rounded-lg overflow-hidden">
@@ -2474,7 +2520,9 @@ function MonthlyNoteSection({
               onChange={(e) => onChange(e.target.value)}
               placeholder={hasMs
                 ? "例: 4/14 の杉浦先生面談で、量子センサ向け試作仕様の合意。請求書送付遅延のお詫びを行った。"
-                : "例: 顧客 A から導入意向ヒアリング、CEO 候補 B と方針合意、補助金 X に申請書ドラフト提出 など、今月の動きを箇条書きで。"}
+                : !usesMsProgress
+                  ? "例: 今月の定例対応、顧客との合意事項、次月に持ち越す確認事項などを箇条書きで。"
+                  : "例: 顧客 A から導入意向ヒアリング、CEO 候補 B と方針合意、補助金 X に申請書ドラフト提出 など、今月の動きを箇条書きで。"}
               rows={hasMs ? 4 : 7}
               className="w-full text-[12.5px] leading-relaxed border border-border rounded-md px-3 py-2 bg-background focus:outline-none focus:ring-1 focus:ring-blue-400 resize-y"
             />

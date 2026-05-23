@@ -5,6 +5,41 @@
 
 ---
 
+### [Notifications] XRL通知で「抽出された行が見つかりませんでした」と出る
+
+- **発見日**: 2026-05-22
+- **状態**: ✅ 修正済
+- **症状**:
+  - `SX: BRL根拠候補を追加する？` のような `xrl_evidence` 通知を展開すると、通知本文には候補が書かれているのに「抽出された行が見つかりませんでした」と表示された。
+  - 「はい・反映」も、対応する `project_xrl_evidence` 行を見つけられない可能性があった。
+- **原因**:
+  - 通知の `scope_key` は `202605:sx-miura-finechem-brl` のような個別通知scopeだった。
+  - `project_xrl_evidence.scope_key` は generated column で `ym` 由来の `202605` だけになる。
+  - PWA通知詳細とfeedback APIが `scope_key` 完全一致で `project_xrl_evidence.ym` を検索していたため、候補行が存在しても見失っていた。
+- **対応内容**:
+  - XRL通知詳細は `scope_key` から `YYYYMM` を抽出し、`metadata_json.axis` / `evidence_kind` / `evidence_source_hash` で候補行を絞り込む。
+  - `feedback` APIの「はい」「いいえ」も同じルールで `project_xrl_evidence` を `confirmed` / `rejected` に遷移する。
+  - 候補行が本当に存在しない場合は、通知本文をfallback表示し、生成側が通知だけ作った可能性を明示する。
+- **再発防止策**:
+  - 個別通知scopeを使うkindは、正本テーブルのscopeと完全一致させるか、UI/APIにscope正規化関数を必ず置く。
+  - 通知に出す候補は、通知行だけでなく candidate 行の存在まで確認してから本番通知する。
+
+### [Notifications] raw_data_gapが「未取り込み」のまま残るが実DBは取り込み済み
+
+- **発見日**: 2026-05-22
+- **状態**: ✅ 修正済
+- **症状**:
+  - `SX: 5/21社内MTGがOS未取り込み` と表示されるが、実際には `project_meeting_summaries` に該当MTGが取り込み済みだった。
+- **原因**:
+  - raw_data_gap通知は古いOS snapshotと外部ソースの差分から作られる。
+  - 通知作成後、または通知作成時点のlive DB確認不足により、すでに取り込み済みのMTGを「未取り込み」として残していた。
+- **対応内容**:
+  - `meeting-not-ingested` 系のraw_data_gapは、展開時に `project_meeting_summaries` を確認し、該当行があれば先頭に「OS取り込み済み」と表示する。
+  - 未取り込み判定の根拠は `metadata_json.evidence_refs` として残し、古いsnapshot由来の警告だと分かるようにした。
+- **再発防止策**:
+  - raw_data_gap生成側は通知を作る前にlive DBを再確認する。
+  - 「認識できている外部ソース」は、通知だけで終わらせず、可能なら source_cache / meeting summary へbackfillする。
+
 ### [pwa/cockpit] 年間MS設定からMS別の期間設定UIが消える
 
 - **発見日**: 2026-05-21 (まさ 年間MS設定ウィンドウ確認)
@@ -160,6 +195,24 @@
   - 予算確定タスクは「クライアント請求額 / PJ予算」の確認だけに限定する。メンバー別支払額入力を戻さない。
   - 月額固定PJの初期登録では `projects.fee_type='monthly_fixed'` / `fee_amount` と、plan cycle全体の `budget_yen` を同時に入れる。
   - `reward_summary_json` 未生成でも、進捗・担当割合・PJ予算があれば月次モーダルで報酬プレビューを出す。
+
+---
+
+### [pwa/admin-payouts] cockpitの報酬previewがDBに保存されずpayoutsに出ない
+
+- **発見日**: 2026-05-22 (まさ #10: ZMP 202604 報酬額が payouts に来ない)
+- **状態**: 🟡 原因特定済 / 正本writer実装待ち
+- **症状**:
+  - ZMP (`p19`) 202604 は月額固定30万円、対象MS・責任配分・`milestone_monthly_progress` が存在するのに、`admin.payouts` に報酬額が出ない。
+- **原因**:
+  - `CockpitMonthlyModal` のメンバー報酬は、`reward_summary_json` が無い場合にクライアント側で preview 計算しているだけ。
+  - そのpreviewを `billing_cycles.reward_summary_json` に保存するサーバー側writerが存在しない。
+  - `admin.payouts` は `billing_cycles.reward_summary_json.members` を正本として `monthly_reward_payout` を作るため、previewだけ存在する月はpayoutsに出ない。
+  - ZMP 202604は `billing_cycles.status='not_started'`, `budget_yen=null`, `reward_summary_json=null`, `monthly_reward_payout=0件` だった。
+- **再発防止策**:
+  - 報酬サマリ生成をフロントpreviewから切り離し、サーバー側 helper/API で `billing_cycles.reward_summary_json` を生成・保存する。
+  - 呼び出しタイミングは、MS進捗保存後、予算確定後、または `admin.payouts` 保存前の backfill/ensure のいずれかに置く。
+  - `admin.payouts` は `reward_summary_json` が空の対象cycleを警告表示し、silentに0円扱いしない。
 
 ---
 
@@ -1726,6 +1779,29 @@
 - **再発防止策**:
   - L2抽出は `project_id` だけでなく、本文のPJ affinityも最後に確認する。
   - 短いPJ名は単語境界で扱い、別PJaliasが強く出るsource refsは候補化しない。
+
+---
+
+### [Admin payouts] 月次モーダルの報酬previewがDB未保存のままpayoutsに出ない
+
+- **発見日**: 2026-05-22
+- **状態**: ✅ 修正済み
+- **症状**:
+  - ZMP (`p19`) 202604 は月次モーダル上では報酬額を計算できる状態だったのに、`admin.payouts` 側に報酬明細が出なかった。
+  - `billing_cycles.reward_summary_json` が空で、`admin.payouts` が参照する正本が存在しなかった。
+- **原因**:
+  - Cockpit月次モーダルが、`reward_summary_json` 未生成時だけブラウザ内で報酬previewを作って表示していた。
+  - そのpreviewを Supabase に保存するwriterが無く、OS UI上だけに存在する計算値になっていた。
+- **対応内容**:
+  - サーバー側共通関数 `syncRewardSummaryForCycle()` を追加し、MS進捗・責任配分・PlanCycle・PJ委託料から `billing_cycles.reward_summary_json` を生成/保存するようにした。
+  - Cockpit月次モーダルは未保存previewを出さず、`/api/rewards/sync` でSupabase保存済みの報酬サマリーを表示する。
+  - `progress/estimate`、`progress/confirm`、`progress/revisions`、`progress/batch-save`、`admin/payouts` が同じ報酬サマリー生成を通るようにした。
+  - production Supabaseの全 `billing_cycles` をbackfillし、ZMP `p19:202604` を含む20 cycleに `reward_summary_json` を保存済み。
+  - 2026-05-23追記: ZMP `p19:202604` は `reward_summary_json` は保存済みだったが、`budget_yen` がnullのまま残り、admin.payoutsのPJ予算が「データなし」になった。`syncRewardSummaryForCycle()` は月額固定PJまたは `budget_reported_amount` があるcycleで `billing_cycles.budget_yen = 請求額×65% - バッファ` も保存する。production `p19:202604` は `budget_yen=195000` にbackfill済み。
+- **再発防止策**:
+  - OS UIに表示する永続業務データは、必ずSupabaseに保存された値を表示する。
+  - 「保存済みが無いときだけクライアントでpreview」は禁止。計算値を見せるなら、先にサーバーでSupabaseへ保存する。
+  - `admin.payouts` は `billing_cycles.reward_summary_json` を正本として使い、表示前にも不足分をsyncする。
 
 ---
 
