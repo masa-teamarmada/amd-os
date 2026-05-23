@@ -6037,3 +6037,42 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 - できるようになったこと:
   - 次セッションはDriveや過去PDFを掘り起こさず、`FEATURE_REGISTRY.md` と `gas/064_PayoutFreeeNotice.js` から改善版フォーマットを特定できる。
   - 旧フォーマットや古いテキストロゴへ戻す変更は `npm run test:critical-ui` で落ちる。
+
+#### #27 follow-up 2 経営・事業シグナルbackfill候補をログイン済みChromeで本番表示確認
+
+- まさがお願いしていたこと:
+  - p19 / p20 / p21 など backfill 済み候補ありの PJ で、cockpit の MSリスト直下に「経営・事業シグナル」セクションが本番で正しく出ているか実画面で確認したい。
+- どう解決したか:
+  - ログイン済みChromeで `/project/p19/cockpit` / `/project/p20/cockpit` / `/project/p21/cockpit` を順に開き、年間マイルストーンの直下に `経営・事業シグナル 8件` のセクションが出ており、日付 / signal_type chip / impact chip / decision_state chip / candidate chip / title / summary / 根拠件数つきで候補がレンダリングされているのを目視した。
+- できるようになったこと:
+  - cockpit 上で MS の上位レイヤとして「重要方針・事業進捗・リスク」を見られる導線が本番で機能している。
+  - 表示は直近8件にcapされており、9件以上ある backfill 済み PJ も画面が荒れない。
+
+#### #27 follow-up 3 通知の「はい/いいえ」が project_strategy_signals.status を実 DB で書き換える流れを本番で実操作
+
+- まさがお願いしていたこと:
+  - `/notifications` で `l2_kind='project_strategy_signal'` の通知から「はい」「いいえ」が、`project_strategy_signals.status` を `confirmed` / `rejected` に書き換える流れが本番で動くか実操作で確認したい。
+- どう解決したか:
+  - 既存の backfill 候補を勝手に確定/却下しないよう、`p00 (AMD)` スコープで `[AMDOS_NOTIFY_TEST-YES]` と `[AMDOS_NOTIFY_TEST-NO]` のテスト用 strategy signal と対応する `l2_notifications` を 2 件ずつ作った。
+  - ログイン済みChromeから `/notifications` を開き、YES 通知カードを展開して「はい・反映」をクリック。未対応カウントが 92 → 91 に減り、回答済みが 21 → 22 に増えた。
+  - NO 通知カードを展開して「いいえ・不採用」をクリック。未対応カウントが 91 → 90 に減り、回答済みが 22 → 23 に増えた。
+  - Supabase REST で `project_strategy_signals` を直接 SELECT し、YES 行が `status='confirmed' / confirmed_by='まさ'`、NO 行が `status='rejected' / confirmed_by='まさ'` になり、`confirmed_at` も入っていることを確認した。
+  - テスト用 signal と通知は最後に DELETE で cleanup 済み。
+- できるようになったこと:
+  - `/api/notifications/feedback` の `updateStrategySignalCandidates` が、`scope_key` 由来の `ym` と通知 `metadata_json.signal_source_hash` でターゲット候補を一意に特定し、`status` を `confirmed` / `rejected` に更新するフローが、本番Supabaseで実動作することの実証が取れた。
+  - 「はい/いいえ」を押した通知が未対応リストから即時に回答済みタブへ移動するUI挙動も実際に確認できた。
+
+#### #28 支払通知書PDF golden 画像差分テスト追加
+
+- まさがお願いしていたこと:
+  - 改善版PDFのフォーマットをさらに強く守るために、golden PNGを固定して画像差分テストを追加したい。
+- どう解決したか:
+  - `tmp/pdfs/generated/` にあった `支払通知書_PREVIEW-202605-ID003_ID003_202605.pdf.png` (= 改善版PDFを 1 ページ目だけ PNG にレンダリングしたもの) を `pwa/scripts/__fixtures__/payout_notice_golden.png` として fixture に固定した。
+  - 同じ PNG の SHA256 (`c6a0384d877dddf5ee7daee535d0cf192fc0acfcc81db475db77fd48ea91209a`) を `payout_notice_golden.png.sha256` に保存。
+  - `pwa/scripts/check_payout_notice_pdf_golden.cjs` を追加し、デフォルトでは fixture PNG の存在と SHA256 一致を検査する。`--diff <input.png>` で外部 PNG を golden と SHA256 で突合するモードも持たせた。バイト完全一致を要求するため、新規 PNG が許容範囲ならまさが目視確認したうえで fixture を更新する運用にした。
+  - `package.json` に `test:payout-notice-pdf` script を追加し、`pwa/scripts/check_pwa_critical_ui.cjs` の最後で `require()` して `npm run test:critical-ui` でも検査するようにした。
+  - `FEATURE_REGISTRY.md` / `SPEC_pwa.md` / `BUGS.md` に golden 運用と更新手順を明文化した。
+- できるようになったこと:
+  - 支払通知書PDF改善版の見た目契約が、文字列 anchor (GAS 側のコード) + golden PNG (rendered 結果) の二段ガードで守られるようになった。
+  - GAS の `payoutBuildNoticePdfBlob_` を意図的に更新した場合は、まさが新PDFを目視確認 → PNG化 → fixture と SHA256 を上書きして commit する運用が正本化された。
+  - 同じスクリプトを `--diff` モードで使うことで、新規生成PDFをPNG化したファイルと goldenを差分検査できるので、CI / 本番運用での回帰検知も同じ仕組みに乗せられる。

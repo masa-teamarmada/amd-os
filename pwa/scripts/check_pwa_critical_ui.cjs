@@ -288,4 +288,6 @@ expectIncludes("../gas/155_L2KnowledgeExtractor.js", [
   "承認されるまで正本反映しない",
 ]);
 
+require("./check_payout_notice_pdf_golden.cjs");
+
 console.log("critical PWA UI anchors ok");

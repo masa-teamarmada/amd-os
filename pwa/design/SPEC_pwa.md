@@ -527,7 +527,7 @@ npm run test:next-period-ui
 npm run test:critical-ui
 ```
 
-`test:critical-ui` は、MS期間設定、年間MS Gantt、報酬cap/stock、進捗イベント編集、admin.payouts の報酬キャッシュ/支払通知書発行/縦型PJ収支表、project_category、AMD Score対象分岐、通知詳細のraw_data_gap/source refs表示anchor、cockpit の経営・事業シグナルanchorを検査する。重要UIの契約は [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) にも登録する。
+`test:critical-ui` は、MS期間設定、年間MS Gantt、報酬cap/stock、進捗イベント編集、admin.payouts の報酬キャッシュ/支払通知書発行/縦型PJ収支表、project_category、AMD Score対象分岐、通知詳細のraw_data_gap/source refs表示anchor、cockpit の経営・事業シグナルanchorを検査する。あわせて支払通知書PDFの golden PNG (`scripts/__fixtures__/payout_notice_golden.png` + `.sha256`) の存在と SHA256 一致を検査し、改善版フォーマットの 1 ページ目画像が壊れた場合に落ちる。改善版PDFを変更したらまさが目視確認したうえで fixture と SHA256 を更新する運用にし、外部 PNG との突合は `npm run test:payout-notice-pdf -- --diff <input.png>` で実行する。重要UIの契約は [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) にも登録する。
 
 ---
 

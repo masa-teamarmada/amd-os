@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test:next-period-ui": "node scripts/check_next_period_ms_period_ui.cjs",
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs",
+    "test:payout-notice-pdf": "node scripts/check_payout_notice_pdf_golden.cjs",
     "import:monthly-pl-budget": "node scripts/import_monthly_pl_budget.cjs",
     "collect:management-score-raw": "node scripts/collect_management_score_raw_data.cjs",
     "calculate:management-score": "node scripts/calculate_management_score.cjs",

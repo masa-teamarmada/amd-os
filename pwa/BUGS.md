@@ -1933,4 +1933,4 @@
 - **再発防止策**:
   - 支払通知書PDFの見た目を触る変更は、`FEATURE_REGISTRY.md` のフォーマット契約と `test:critical-ui` のanchorを同じcommitで更新する。
   - `setValue("team ARMADA")` / `brandCell` / `支払通知書番号` を復活させない。復活すると `npm run test:critical-ui` が落ちる。
-  - さらに厳密に守るなら、次の段階で改善版PDFのgolden PNGを固定し、レンダー画像差分テストを追加する。
+  - 改善版PDFのgolden PNGを `pwa/scripts/__fixtures__/payout_notice_golden.png` に固定し、SHA256を `payout_notice_golden.png.sha256` に保存。`npm run test:critical-ui` でgolden の存在と hash 一致を検査する。新規生成PDFを PNG 化した結果との突合は `npm run test:payout-notice-pdf -- --diff <input.png>` で同じスクリプトを再利用できる。改善版PDFを意図的に更新したら、まさが新PNGを目視確認したうえでfixtureとSHA256を再生成してcommitする。

@@ -1,7 +1,7 @@
 # HANDOFF — AMD OS PWA
 
 最終更新: 2026-05-23
-トピック: `/admin/payouts` 高速化・支払通知書PDF改善版復旧・PDFフォーマット退行防止 / L2 ⑨ 経営・事業シグナル実装+backfill
+トピック: `/admin/payouts` 高速化・支払通知書PDF改善版復旧・PDFフォーマット退行防止 (golden PNG + image-diff) / L2 ⑨ 経営・事業シグナル実装+backfill+本番採否検証
 
 詳細ログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾
 関連仕様: [`design/README.md`](design/README.md), [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md), [`design/SPEC_GOVERNANCE.md`](design/SPEC_GOVERNANCE.md), [`design/SPEC_pwa.md`](design/SPEC_pwa.md), [`design/L2_DATA.md`](design/L2_DATA.md), [`design/project_strategy_signals.md`](design/project_strategy_signals.md), [`design/cockpit.md`](design/cockpit.md), [`design/notifications.md`](design/notifications.md)
@@ -33,6 +33,9 @@
 - #26 `pwa/design/SPEC_GOVERNANCE.md` を追加し、Capability Catalog / Functional Spec / Data Contract / ADR / Executable Spec / Traceability の運用を定義。新セッション読書順は `pwa/CLAUDE.md` と `pwa/design/README.md` に反映済み。
 - #27 コックピットMSリスト直下に `経営・事業シグナル` セクションを追加。`project_strategy_signals` テーブル、通知承認、`/api/strategy-signals`、Codex automation outbox/applier、`/api/dialogue-meeting` を実装済み。
 - #27 既存 `member_activities` から `202601-202605` の経営・事業シグナル40件をbackfill済み (`p06:8`, `p07:4`, `p19:10`, `p20:8`, `p21:10`)。one-shot scriptは `pwa/scripts/backfill_strategy_signals_from_activities.mjs`。
+- #27 follow-up: p19 / p20 / p21 cockpit本番で `経営・事業シグナル` セクション表示と `5/22 戦略転換 high 提案 候補` などのbackfill候補表示をログイン済みChromeで実機確認済み。
+- #27 follow-up: `/notifications` で `l2_kind='project_strategy_signal'` の「はい・反映」「いいえ・不採用」を本番上のテスト用通知 (p00) に対して実操作し、`project_strategy_signals.status` が `confirmed` / `rejected` に遷移、`confirmed_by='まさ'` で記録されることを確認。テスト signal / 通知は cleanup 済み。
+- #28 改善版支払通知書PDFの 1 ページ目を `pwa/scripts/__fixtures__/payout_notice_golden.png` に固定し、SHA256 を `.sha256` で記録。`npm run test:critical-ui` が golden 存在 + hash 一致を検査する。`npm run test:payout-notice-pdf -- --diff <input.png>` で外部 PNG との突合も可能。改善版PDFを更新するときは、まさが目視確認したうえで fixture と SHA256 を再生成する。
 
 ---
 
@@ -42,17 +45,16 @@
 - HEAD at handoff write: this handoff commit itself. Run `git log -1 --oneline` for the exact hash.
 - unpushed commits after handoff push: none expected. If `git log --branches --not --remotes --oneline` is non-empty, inspect before continuing.
 - tracked changes expected in final commit:
-  - `gas/064_PayoutFreeeNotice.js`
-  - `gas/CLAUDE.md`
   - `pwa/BUGS.md`
   - `pwa/HANDOFF_pwa_rebuild.md`
   - `pwa/design/FEATURE_REGISTRY.md`
   - `pwa/design/SPEC_pwa.md`
   - `pwa/design_log/sessions_2026-05.md`
+  - `pwa/scripts/__fixtures__/payout_notice_golden.png`
+  - `pwa/scripts/__fixtures__/payout_notice_golden.png.sha256`
+  - `pwa/scripts/check_payout_notice_pdf_golden.cjs`
   - `pwa/scripts/check_pwa_critical_ui.cjs`
-  - `pwa/scripts/backfill_strategy_signals_from_activities.mjs`
-  - `pwa/src/app/api/admin/payouts/route.ts`
-  - `pwa/src/components/admin/AdminPayoutsClient.tsx`
+  - `pwa/package.json`
 - untracked local artifacts: `tmp/` (PDF/PNG等の確認用生成物。未確認なので勝手に削除しない)
 
 ---
@@ -82,17 +84,16 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 
 ## Open Tasks
 
-1. `/project/[projectId]/cockpit` 本番で `経営・事業シグナル` の表示内容を、backfill済み候補ありのPJ (`p19` / `p20` / `p21` など) でログイン済みChrome確認する。
-2. `/notifications` で `l2_kind='project_strategy_signal'` の「はい/いいえ」が `project_strategy_signals.status` を confirmed/rejected に変える流れを本番で実操作確認する。
-3. 支払通知書PDFの守りをさらに強くするなら、改善版PDFのgolden PNGを固定し、画像差分テストを追加する。
-4. `/admin/members` のログイン済み実画面確認は、このセッションでは未確認。
-5. 関連メンバー: `/project/p09/cockpit` (JOYCLE) の関連メンバーモーダルと `founding-members-extract?project_id=p09` の v3/v5 prompt 出力確認。他 active SU (CTB/SE/ZMP/CX/SX) も再走対象。
+1. `/admin/members` のログイン済み実画面確認は、このセッションでは未確認。
+2. 関連メンバー: `/project/p09/cockpit` (JOYCLE) の関連メンバーモーダルと `founding-members-extract?project_id=p09` の v3/v5 prompt 出力確認。他 active SU (CTB/SE/ZMP/CX/SX) も再走対象。
+3. 経営・事業シグナル backfill 候補の実 PJ への採否運用は、まさが `/notifications` または `/project/<pid>/cockpit` の `経営・事業シグナル` セクションを順に開いて confirmed/rejected していく (= [pwa/CLAUDE.md](CLAUDE.md) 末尾の「まさ × えいみ 経営会議」運用)。Codex automation 側の daily routine が candidate を補充する。
+4. 支払通知書PDFの golden 更新方法: GAS preview API で新規 PDF を生成 → Drive からダウンロード → PNG 化 → `npm run test:payout-notice-pdf -- --diff <input.png>` で違いを確認 → まさが目視 OK なら fixture と SHA256 を上書きして commit。GAS preview を直接叩く CI ステップは未整備で、再生成は手動。
 
 ---
 
 ## First Next Action
 
-まず `git fetch --all --prune`、`git status -s`、`git log --branches --not --remotes --oneline` を確認する。未commit/pushがあれば内容を見て、今回の `/admin/payouts` / 支払通知書PDF / L2 ⑨ 差分を消さない。次はログイン済みChromeで `/project/p19/cockpit` などの `経営・事業シグナル` と `/notifications` の採否フローを確認する。
+まず `git fetch --all --prune`、`git status -s`、`git log --branches --not --remotes --oneline` を確認する。未commit/pushがあれば内容を見て、今回の `/admin/payouts` / 支払通知書PDF (golden PNG含む) / L2 ⑨ 差分を消さない。`pwa/scripts/__fixtures__/payout_notice_golden.png` と `.sha256` は支払通知書PDFの正本fixtureなので絶対に消さない。次セッションは Open Tasks 1〜2 (`/admin/members` の実画面確認 / JOYCLE 関連メンバー再走) を進めるか、まさが経営会議モードを呼ぶならcandidate signal の採否を進める。
 
 ---
 
