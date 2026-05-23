@@ -112,3 +112,62 @@ select / filter / insert / upsert を書くこと。
 
 `db_schema.md` は自動生成 (Supabase Management API → information_schema.columns)。
 手動編集禁止 (= 次回再生成で消える)。
+
+---
+
+## 🧭 まさ × えいみ 経営会議 (L2 ⑨ dialogue) の始め方
+
+**まさが claude/codex セッションで「経営会議やろう」「経営シグナル見よう」「signals レビュー」のいずれかを言ったら、即この手順に入る** (= 再起動不要、新セッション初回でもOK)。
+
+詳細仕様: [`design/project_strategy_signals.md`](design/project_strategy_signals.md) の「議論セッション運用」セクション。
+
+### えいみがやる手順
+
+1. **candidate を全 PJ 横断 read** (= service_role REST または直 SQL):
+   ```
+   GET /rest/v1/project_strategy_signals
+       ?select=signal_id,project_id,ym,signal_type,impact_level,decision_state,title,summary,signal_date,confidence
+       &status=eq.candidate
+       &order=impact_level.desc,signal_date.desc,created_at.desc
+   ```
+   - impact: `critical` > `high` > `medium` > `low` の順
+   - 同 impact 内は signal_date / created_at で新しい順
+
+2. **最初の 1 件を提示** (= 全部一気に出さない、1議題ずつ):
+   - PJ コードネーム + signal_type chip + impact chip + title 1行 + summary 2-3行
+   - 「これどう?」と短く問う
+
+3. **まさの反応に応じて API を叩く** (= その場で、後でやらない):
+   - `進める` / `これで確定` / `decided` → `POST /api/strategy-signals { action:'confirm', signal_id, decision_state:'decided' or 'executing', confirmed_by:'まさ' }`
+   - `違う` / `不採用` / `保留` → `action:'reject'`
+   - `こう修正` → `action:'update'` で title/summary/impact 等を差し替え
+   - `これ別 signal で残したい` → `action:'create', status:'confirmed', decision_state:'decided'`
+
+4. **次の議題へ。1セッションで 5-10 件目安**、まさが「これで終わり」と言うまで続ける
+
+5. **セッションの最後に議論ログを保存** (= PJ単位、会社全体は p00):
+   ```
+   POST /api/dialogue-meeting
+   { project_id, summary_short, decided[], progress[], next_actions[], risks[],
+     related_signal_ids: [confirm/create した signal_id 全部] }
+   ```
+   - cockpit の MTGサマリ欄に自動で並ぶ (`source_kinds='dialogue'`)
+   - PJ 横断で議論した場合は、関連 PJ ごとに 1 行ずつ insert (= まとめ1行でなく)
+
+### 認証
+
+- まさ session でログイン済みなら admin auth で通る
+- セッション外から叩くなら `Authorization: Bearer ${CRON_SECRET}` (= `.env.local` の `CRON_SECRET`)
+
+### candidate が空 / 古いとき
+
+`status='candidate'` 行が無い、または `signal_date` が 1 週間以上前なら、えいみが OS を横断 read して新規 candidate を `proposed` で積んでから議論を始める (= daily routine と同じ動作を手動でやる)。
+
+横断 read 対象: `monthly_reports` / `project_meeting_summaries` / `tsukuyomi_nudge_queue` / `billing_cycles` / `project_xrl_log` / `atlas_signals` / `amd_management_score_snapshots` / `amd_management_score_evidence` (= p00 用)。
+
+### よくある間違い
+
+- ❌ 議題を 10 件一気に箇条書きで出す → 1 件ずつ会話形式で
+- ❌ まさが返事する前に勝手に confirm する → まさの明示判断後
+- ❌ 議論ログ保存を後回しにする → セッション終了時に必ず叩く
+- ❌ p00 を忘れる → AMD 全体の議題 (Management Score / freee / 月次運用) は p00
