@@ -1,7 +1,7 @@
 # HANDOFF — AMD OS PWA
 
 最終更新: 2026-05-23
-トピック: `/admin/payouts` 高速化・支払通知書PDF改善版復旧・PDFフォーマット退行防止 (golden PNG + image-diff) / L2 ⑨ 経営・事業シグナル実装+backfill+本番採否検証
+トピック: `/admin/payouts` 高速化・支払通知書PDF改善版復旧・PDFフォーマット退行防止 (golden PNG + image-diff) / L2 ⑨ 経営・事業シグナル実装+backfill+本番採否検証 / cockpit 案C レイアウト (3 カラム + Hero) 実装
 
 詳細ログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾
 関連仕様: [`design/README.md`](design/README.md), [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md), [`design/SPEC_GOVERNANCE.md`](design/SPEC_GOVERNANCE.md), [`design/SPEC_pwa.md`](design/SPEC_pwa.md), [`design/L2_DATA.md`](design/L2_DATA.md), [`design/project_strategy_signals.md`](design/project_strategy_signals.md), [`design/cockpit.md`](design/cockpit.md), [`design/notifications.md`](design/notifications.md)
@@ -36,6 +36,7 @@
 - #27 follow-up: p19 / p20 / p21 cockpit本番で `経営・事業シグナル` セクション表示と `5/22 戦略転換 high 提案 候補` などのbackfill候補表示をログイン済みChromeで実機確認済み。
 - #27 follow-up: `/notifications` で `l2_kind='project_strategy_signal'` の「はい・反映」「いいえ・不採用」を本番上のテスト用通知 (p00) に対して実操作し、`project_strategy_signals.status` が `confirmed` / `rejected` に遷移、`confirmed_by='まさ'` で記録されることを確認。テスト signal / 通知は cleanup 済み。
 - #28 改善版支払通知書PDFの 1 ページ目を `pwa/scripts/__fixtures__/payout_notice_golden.png` に固定し、SHA256 を `.sha256` で記録。`npm run test:critical-ui` が golden 存在 + hash 一致を検査する。`npm run test:payout-notice-pdf -- --diff <input.png>` で外部 PNG との突合も可能。改善版PDFを更新するときは、まさが目視確認したうえで fixture と SHA256 を再生成する。
+- #29 cockpit を案C レイアウトに組み替え。`max-w-[1600px]` の幅広 container で、上 Header → Hero (AMD Score + XRL を `xl:flex-row` で横並び) → 3 カラム grid (今期MS / 経営・事業シグナル / 月次ルーティン sticky) → 下段 2 カラム (月次カード / 休止期間+MTGサマリ) → 最下カンバン全幅、の構成。旧 `max-w-[1060px]` 2 カラム (左 720 / 右 220) には戻さない。`check_pwa_critical_ui.cjs` で `max-w-[1600px]` / `lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]` / `lg:sticky lg:top-12` / `xl:flex-row` を anchor 検査。
 
 ---
 
@@ -49,12 +50,15 @@
   - `pwa/HANDOFF_pwa_rebuild.md`
   - `pwa/design/FEATURE_REGISTRY.md`
   - `pwa/design/SPEC_pwa.md`
+  - `pwa/design/cockpit.md`
   - `pwa/design_log/sessions_2026-05.md`
   - `pwa/scripts/__fixtures__/payout_notice_golden.png`
   - `pwa/scripts/__fixtures__/payout_notice_golden.png.sha256`
   - `pwa/scripts/check_payout_notice_pdf_golden.cjs`
   - `pwa/scripts/check_pwa_critical_ui.cjs`
   - `pwa/package.json`
+  - `pwa/src/components/cockpit/CockpitView.tsx`
+  - `pwa/src/components/cockpit/CockpitVentureStatus.tsx`
 - untracked local artifacts: `tmp/` (PDF/PNG等の確認用生成物。未確認なので勝手に削除しない)
 
 ---

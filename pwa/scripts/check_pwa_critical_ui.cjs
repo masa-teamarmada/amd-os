@@ -152,6 +152,21 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "ecosystem",
   "CockpitStrategySignals",
   "strategySignals",
+  // 案C レイアウト (2026-05-23 まさ確定) — 旧 max-w-[1060px] 2カラムには戻さない
+  "max-w-[1600px]",
+  "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]",
+  "lg:sticky lg:top-12",
+  "renderMsSetupBanner",
+]);
+
+expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
+  "max-w-[1060px]",
+  "max-w-[720px] min-w-0 flex flex-col gap-3",
+]);
+
+expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
+  "xl:flex-row",
+  "Chart 1 + Chart 2",
 ]);
 
 expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [

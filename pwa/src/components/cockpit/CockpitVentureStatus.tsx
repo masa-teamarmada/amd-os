@@ -481,8 +481,12 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         )}
       </button>
 
+      {/* Chart 1 + Chart 2 — xl breakpoint (>=1280px) 以上で横並び。
+          案C レイアウト (上 hero に AMD Score + XRL を並べる) のため。
+          それ未満は従来通り縦並び。 */}
+      <div className="flex flex-col xl:flex-row gap-2">
       {/* Chart 1: AMD スコア */}
-      <div className="px-2 pt-3">
+      <div className="flex-1 min-w-0 px-2 pt-3">
         <div className="px-2 flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-[12px] font-semibold">
             AMD スコア
@@ -675,7 +679,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
       </div>
 
       {/* Chart 2: XRL */}
-      <div className="px-2 pt-2 pb-3">
+      <div className="flex-1 min-w-0 px-2 pt-2 pb-3 xl:pt-3">
         <div className="px-2 flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-[12px] font-semibold">XRL 進捗 (TRL / BRL / GRL / SRL / HRL)</h3>
           <div className="flex items-center gap-3 text-[10px]">
@@ -806,6 +810,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
             );
           })}
         </svg>
+      </div>
       </div>
 
       {(editingEvent || creatingAt) && (

@@ -365,97 +365,116 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
     if (!showLiveOperations && stepModal) setStepModal(null);
   }, [showLiveOperations, stepModal]);
 
-  return (
-    <div className="flex gap-4 max-w-[1060px] mx-auto px-3 py-3 items-start">
-      {/* ===== LEFT COLUMN ===== */}
-      <div className="flex-1 max-w-[720px] min-w-0 flex flex-col gap-3">
-        {/* [A] Project Header */}
-        <CockpitHeader project={project} />
-
-        {/* [A2] PJ Status: ecosystem PJ は AMD Score 対象外 */}
-        {showAmdScore && <CockpitVentureStatus projectId={project.projectId} />}
-
-        {/* [B] Milestones — 現在の期間（トップ表示） */}
-        {usesMsProgress && planCycle && milestones.length > 0 && (
-          <CockpitGoalsCompact
-            milestones={milestones}
-            planCycle={planCycle}
-            projectId={project.projectId}
-            subItems={subItems || []}
-            responsibilities={responsibilities || []}
-            memberMap={memberMap || {}}
-            onEdit={planCycle ? () => setEditingCurrentCycle(true) : undefined}
-          />
+  // [B2] MS設定バナー / 直接編集 ロジックを案Cの col1 内で使うため関数化。
+  const renderMsSetupBanner = () => {
+    if (!(showLiveOperations && usesMsProgress)) return null;
+    // 期間外で planCycle が null の場合は、最も最新の過去 plan_cycle を fallback に使う。
+    const effectivePlanCycle = planCycle
+      ?? [...(pastPlanCycles ?? [])]
+          .map((b) => b.planCycle)
+          .sort((a, b) => b.periodEndYm.localeCompare(a.periodEndYm))[0]
+      ?? null;
+    if (!effectivePlanCycle) {
+      return (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          ⚠️ この PJ には MS 期間 (plan_cycle) が一度も設定されていません。
+          admin から初期 MS を設定してください。
+        </div>
+      );
+    }
+    const isPeriodExpired = currentYm > effectivePlanCycle.periodEndYm;
+    if (effectivePlanCycle.status === "draft" || editingCurrentCycle) {
+      return (
+        <CockpitNextPeriodSetup
+          projectId={project.projectId}
+          currentYm={currentYm}
+          currentPlanCycle={effectivePlanCycle}
+          directCycleId={effectivePlanCycle.planCycleId}
+          autoOpen={editingCurrentCycle}
+          onModalClose={() => setEditingCurrentCycle(false)}
+        />
+      );
+    }
+    return (
+      <>
+        {isPeriodExpired && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            ⚠️ 今期の MS 期間 ({formatYm(effectivePlanCycle.periodEndYm)}) は終了しています。
+            下のバナーから次期 MS を設定してください。
+          </div>
         )}
+        <CockpitNextPeriodSetup
+          projectId={project.projectId}
+          currentYm={currentYm}
+          currentPlanCycle={effectivePlanCycle}
+        />
+      </>
+    );
+  };
 
-        <CockpitStrategySignals signals={strategySignals || []} />
+  // 案C ステータスバッジ (凍結 / 再開予定)
+  const statusBadges: Array<{ key: string; cls: string; text: string }> = [];
+  if (project.freezeFromYm) {
+    if (currentYm >= project.freezeFromYm) {
+      statusBadges.push({ key: "frozen-now", cls: "bg-slate-100 text-slate-700 border-slate-300", text: `❄️ ${formatYm(project.freezeFromYm)} 〜 凍結中` });
+    } else {
+      statusBadges.push({ key: "frozen-future", cls: "bg-amber-50 text-amber-800 border-amber-300", text: `⚠️ ${formatYm(project.freezeFromYm)} から凍結予定` });
+    }
+  }
+  if (project.restartExpectedYm && currentYm < project.restartExpectedYm) {
+    statusBadges.push({ key: "restart", cls: "bg-blue-50 text-blue-800 border-blue-300", text: `📅 ${formatYm(project.restartExpectedYm)} から再開予定` });
+  }
 
-        {/* [B2] MS設定バナー／直接編集
-            - draft or 外部トリガー: directCycleIdで直接編集
-            - active確定済: 次の期間設定バナー（終了3か月前から）
-        */}
-        {showLiveOperations && usesMsProgress ? (() => {
-          // 期間外で planCycle が null の場合は、最も最新の過去 plan_cycle を fallback に使う。
-          // これで「3月で期間終了 → 4月以降は期未設定」状態でもバナーが表示される (#4)。
-          const effectivePlanCycle = planCycle
-            ?? [...(pastPlanCycles ?? [])]
-                 .map((b) => b.planCycle)
-                 .sort((a, b) => b.periodEndYm.localeCompare(a.periodEndYm))[0]
-            ?? null;
-          if (!effectivePlanCycle) {
-            return (
-              <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                ⚠️ この PJ には MS 期間 (plan_cycle) が一度も設定されていません。
-                admin から初期 MS を設定してください。
-              </div>
-            );
-          }
-          const isPeriodExpired = currentYm > effectivePlanCycle.periodEndYm;
-          if (effectivePlanCycle.status === "draft" || editingCurrentCycle) {
-            return (
-              <CockpitNextPeriodSetup
-                projectId={project.projectId}
-                currentYm={currentYm}
-                currentPlanCycle={effectivePlanCycle}
-                directCycleId={effectivePlanCycle.planCycleId}
-                autoOpen={editingCurrentCycle}
-                onModalClose={() => setEditingCurrentCycle(false)}
-              />
-            );
-          }
-          return (
-            <>
-              {isPeriodExpired && (
-                <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  ⚠️ 今期の MS 期間 ({formatYm(effectivePlanCycle.periodEndYm)}) は終了しています。
-                  下のバナーから次期 MS を設定してください。
-                </div>
-              )}
-              <CockpitNextPeriodSetup
-                projectId={project.projectId}
-                currentYm={currentYm}
-                currentPlanCycle={effectivePlanCycle}
-              />
-            </>
-          );
-        })() : null}
+  return (
+    // 案C レイアウト (2026-05-23 まさ確定):
+    //  上: Header + Hero (AMD Score chart + XRL chart 横並び)
+    //  メインボード 3 カラム:
+    //    col1 = 今期MS + 次期MS設定 + 過去の期間
+    //    col2 = 経営・事業シグナル (L2 ⑨)
+    //    col3 = ステータスバッジ + 月次ルーティン + nudge (sticky)
+    //  下段: 月次カード + (休止期間 backfill + MTG サマリ) の 2 カラム
+    //  最下: TODO カンバン全幅
+    <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
+      {/* [A] Project Header (full width) */}
+      <CockpitHeader project={project} />
 
-        {/* [B3] 過去の期間（折りたたみ） */}
-        {usesMsProgress && pastPlanCycles && pastPlanCycles.length > 0 && (
-          <section className="bg-white rounded-xl border border-[#e5e5e7]">
-            <button
-              onClick={() => setPastExpanded(!pastExpanded)}
-              className="w-full flex items-center gap-2 px-4 py-3 text-[13px] text-left hover:bg-[#fafafa] transition-colors rounded-xl"
-            >
-              <span className={`text-[10px] text-[#86868b] shrink-0 transition-transform ${pastExpanded ? "rotate-90" : ""}`}>▶</span>
-              <span className="text-[#86868b] font-medium">過去の期間</span>
-              <span className="text-[11px] text-[#86868b]">
-                ({pastPlanCycles.length}件)
-              </span>
-            </button>
-            {pastExpanded && (
-              <div className="px-4 pb-3 flex flex-col gap-3">
-                {patchedPastPlanCycles.map((bundle) => (
+      {/* [A2] PJ Status (Hero) — AMD Score chart と XRL chart は CockpitVentureStatus 内で xl: 横並び */}
+      {showAmdScore && <CockpitVentureStatus projectId={project.projectId} />}
+
+      {/* メインボード: 3 カラム grid (lg breakpoint 以上)
+          1.2fr 1.2fr 300px = MS / 経営シグナル / 月次ルーティン
+          col3 は sticky (mobile / md は通常配置) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px] gap-3 items-start">
+
+        {/* col1: 今期MS + 次期MS設定 + 過去の期間 */}
+        <div className="flex flex-col gap-3 min-w-0">
+          {usesMsProgress && planCycle && milestones.length > 0 && (
+            <CockpitGoalsCompact
+              milestones={milestones}
+              planCycle={planCycle}
+              projectId={project.projectId}
+              subItems={subItems || []}
+              responsibilities={responsibilities || []}
+              memberMap={memberMap || {}}
+              onEdit={planCycle ? () => setEditingCurrentCycle(true) : undefined}
+            />
+          )}
+          {renderMsSetupBanner()}
+          {usesMsProgress && pastPlanCycles && pastPlanCycles.length > 0 && (
+            <section className="bg-white rounded-xl border border-[#e5e5e7]">
+              <button
+                onClick={() => setPastExpanded(!pastExpanded)}
+                className="w-full flex items-center gap-2 px-4 py-3 text-[13px] text-left hover:bg-[#fafafa] transition-colors rounded-xl"
+              >
+                <span className={`text-[10px] text-[#86868b] shrink-0 transition-transform ${pastExpanded ? "rotate-90" : ""}`}>▶</span>
+                <span className="text-[#86868b] font-medium">過去の期間</span>
+                <span className="text-[11px] text-[#86868b]">
+                  ({pastPlanCycles.length}件)
+                </span>
+              </button>
+              {pastExpanded && (
+                <div className="px-4 pb-3 flex flex-col gap-3">
+                  {patchedPastPlanCycles.map((bundle) => (
                     <div key={bundle.planCycle.planCycleId} className="border border-[#e5e5e7] rounded-lg bg-[#fafafa] overflow-hidden">
                       <CockpitGoalsCompact
                         milestones={bundle.milestones}
@@ -466,97 +485,79 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
                         memberMap={memberMap || {}}
                       />
                     </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* [C] TODO Kanban */}
-        {tasks.length > 0 && (
-          <CockpitKanbanGas tasks={tasks} milestones={usesMsProgress ? milestones : []} memberMap={memberMap || {}} />
-        )}
-
-        {/* [G][E] Bottom Row: Monthly Cards + MTG Summary */}
-        <div className="flex gap-3">
-          <div className="flex-1 min-w-0">
-            <CockpitMonthlyList
-              billingCycles={billingCycles}
-              reports={reports}
-              currentYm={currentYm}
-              progressByYm={monthlyProgressByYm}
-              onOpenModal={(ym) => openMonthlyModal(ym)}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            {/* 休止期間 backfill: 再開予定月 >= currentYm の場合のみ表示 */}
-            <CockpitFreezeBackfill
-              projectId={project.projectId}
-              freezeFromYm={project.freezeFromYm ?? null}
-              restartExpectedYm={project.restartExpectedYm ?? null}
-              currentYm={currentYm}
-            />
-            <CockpitMeetingSummary projectId={project.projectId} />
-          </div>
-        </div>
-      </div>
-
-      {/* ===== RIGHT COLUMN — 220px sticky ===== */}
-      {/* 終了 PJ (status='ended'/'lost'/'frozen') では月次ルーティンは表示しない。
-          freeze_from_ym 設定済 + 当該 ym 到達後も非表示。restart_expected_ym 設定済 + 未到達でも非表示 (#18) */}
-      <div className="w-[220px] shrink-0 sticky top-12 max-h-[calc(100vh-60px)] overflow-y-auto pl-4 flex flex-col gap-3">
-        {(() => {
-          // ステータス予定のバッジ
-          const badges: Array<{ key: string; cls: string; text: string }> = [];
-          if (project.freezeFromYm) {
-            if (currentYm >= project.freezeFromYm) {
-              badges.push({ key: "frozen-now", cls: "bg-slate-100 text-slate-700 border-slate-300", text: `❄️ ${formatYm(project.freezeFromYm)} 〜 凍結中` });
-            } else {
-              badges.push({ key: "frozen-future", cls: "bg-amber-50 text-amber-800 border-amber-300", text: `⚠️ ${formatYm(project.freezeFromYm)} から凍結予定` });
-            }
-          }
-          if (project.restartExpectedYm) {
-            if (currentYm < project.restartExpectedYm) {
-              badges.push({ key: "restart", cls: "bg-blue-50 text-blue-800 border-blue-300", text: `📅 ${formatYm(project.restartExpectedYm)} から再開予定` });
-            }
-          }
-
-          return (
-            <>
-              {badges.length > 0 && (
-                <div className="flex flex-col gap-1">
-                  {badges.map((b) => (
-                    <span key={b.key} className={`text-[11px] px-2 py-1 rounded-md border ${b.cls}`}>
-                      {b.text}
-                    </span>
                   ))}
                 </div>
               )}
-              {showLiveOperations ? (
-                <>
-                  {!canEditRoutine && (
-                    <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-1">
-                      🔒 月次ルーティンは PM のみ操作可能 (= 閲覧のみ)
-                    </div>
-                  )}
-                  <div className={canEditRoutine ? "" : "pointer-events-none opacity-60"}>
-                    <CockpitRoutineGas
-                      projectId={project.projectId}
-                      billingCycles={billingCycles}
-                      currentYm={currentYm}
-                      projectType={project.projectType}
-                      projectCategory={project.projectCategory}
-                      onOpenModal={(ym) => openMonthlyModal(ym)}
-                      onStepClick={handleStepClick}
-                    />
-                  </div>
-                </>
-              ) : null}
+            </section>
+          )}
+        </div>
+
+        {/* col2: 経営・事業シグナル (L2 ⑨) */}
+        <div className="flex flex-col gap-3 min-w-0">
+          <CockpitStrategySignals signals={strategySignals || []} />
+        </div>
+
+        {/* col3: ステータスバッジ + 月次ルーティン + nudge (lg 以上で sticky) */}
+        <div className="flex flex-col gap-3 min-w-0 lg:sticky lg:top-12 lg:max-h-[calc(100vh-60px)] lg:overflow-y-auto">
+          {statusBadges.length > 0 && (
+            <div className="flex flex-col gap-1">
+              {statusBadges.map((b) => (
+                <span key={b.key} className={`text-[11px] px-2 py-1 rounded-md border ${b.cls}`}>
+                  {b.text}
+                </span>
+              ))}
+            </div>
+          )}
+          {showLiveOperations && (
+            <>
+              {!canEditRoutine && (
+                <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-1">
+                  🔒 月次ルーティンは PM のみ操作可能 (= 閲覧のみ)
+                </div>
+              )}
+              <div className={canEditRoutine ? "" : "pointer-events-none opacity-60"}>
+                <CockpitRoutineGas
+                  projectId={project.projectId}
+                  billingCycles={billingCycles}
+                  currentYm={currentYm}
+                  projectType={project.projectType}
+                  projectCategory={project.projectCategory}
+                  onOpenModal={(ym) => openMonthlyModal(ym)}
+                  onStepClick={handleStepClick}
+                />
+              </div>
             </>
-          );
-        })()}
-        <CockpitNudge nudges={nudges} />
+          )}
+          <CockpitNudge nudges={nudges} />
+        </div>
       </div>
+
+      {/* [G][E] 下段: 月次カード + (休止期間 backfill + MTGサマリ) を 2 カラム */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="min-w-0">
+          <CockpitMonthlyList
+            billingCycles={billingCycles}
+            reports={reports}
+            currentYm={currentYm}
+            progressByYm={monthlyProgressByYm}
+            onOpenModal={(ym) => openMonthlyModal(ym)}
+          />
+        </div>
+        <div className="min-w-0 flex flex-col gap-3">
+          <CockpitFreezeBackfill
+            projectId={project.projectId}
+            freezeFromYm={project.freezeFromYm ?? null}
+            restartExpectedYm={project.restartExpectedYm ?? null}
+            currentYm={currentYm}
+          />
+          <CockpitMeetingSummary projectId={project.projectId} />
+        </div>
+      </div>
+
+      {/* [C] TODO Kanban — 全幅 (案C 最下段) */}
+      {tasks.length > 0 && (
+        <CockpitKanbanGas tasks={tasks} milestones={usesMsProgress ? milestones : []} memberMap={memberMap || {}} />
+      )}
 
       {/* ===== Monthly Modal ===== */}
       {modalYm && (

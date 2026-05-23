@@ -24,21 +24,40 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
 
 ---
 
-## ページ構成 (全体像)
+## ページ構成 (全体像) — 案C レイアウト (2026-05-23 まさ確定)
+
+旧構成は `max-w-[1060px]` で左メイン 720px + 右 sticky 220px の 2 カラムだった。コンテンツが増えてきたので、画面幅をフルに使う **案C レイアウト** に組み替えた。
 
 ```
 /project/[projectId]/cockpit (CockpitView)
-├── [A]   CockpitHeader               PJ 名 / clientName / status chip
-├── [A2]  CockpitVentureStatus    ⭐  PJ Status セクション (このドキュメントの主役)
-├── [B]   CockpitGoalsCompact         今期 MS リスト
-├── [B1]  CockpitStrategySignals      経営・事業シグナル (L2 ⑨)
-├── [B2]  CockpitNextPeriodSetup      次期 MS 設定バナー
-├── [B3]  過去の期間 (折りたたみ)
-├── [C]   CockpitKanbanGas            TODO カンバン
-├── [G0]  CockpitFreezeBackfill   ⭐  休止期間サマリ (再開予定月以降のみ表示)
-├── [G/E] CockpitMonthlyList + CockpitMeetingSummary  月次カード + MTG サマリ
-└── [Right] CockpitRoutineGas (active/sales のみ、canEditRoutine=false なら閲覧のみ) + CockpitNudge
-                                  ※ ended/lost/frozen の PJ では Routine 非表示
+container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
+
+[A]   CockpitHeader (full width)                PJ 名 / clientName / status chip
+[A2]  CockpitVentureStatus (full width hero)    PJ Status — 内部で AMD Score chart と XRL chart を xl: 横並び
+                                                ecosystem PJ は AMD Score 対象外で非表示
+
+メインボード: grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px] gap-3
+├── col1: 今期MS + 設定 + 過去
+│   ├── [B]   CockpitGoalsCompact     今期 MS Gantt + 担当・割合
+│   ├── [B2]  CockpitNextPeriodSetup  次期 MS 設定バナー / 直接編集
+│   └── [B3]  過去の期間 (折りたたみ)
+│
+├── col2: 経営・事業シグナル (L2 ⑨)
+│   └── [B1]  CockpitStrategySignals  candidate / confirmed をMS直下の上位ボードとして見せる
+│
+└── col3: 月次オペ (lg 以上で sticky top-12)
+    ├── ステータスバッジ (凍結中 / 再開予定 など)
+    ├── [R]   CockpitRoutineGas + canEditRoutine ガード
+    │         ※ ended/lost/frozen の PJ では非表示
+    └── [N]   CockpitNudge            つくよみ nudge キュー
+
+下段: grid lg:grid-cols-2 gap-3
+├── [G]  CockpitMonthlyList                       月次カード一覧
+└── 縦 stack
+    ├── [G0]  CockpitFreezeBackfill ⭐          休止期間サマリ (再開予定月以降のみ表示)
+    └── [E]   CockpitMeetingSummary             MTG サマリ
+
+最下: [C] CockpitKanbanGas (tasks.length > 0 のときだけ全幅で表示)
 ```
 
 ★ 2026-05-11 追加:

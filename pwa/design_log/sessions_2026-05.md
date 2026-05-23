@@ -6076,3 +6076,25 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - 支払通知書PDF改善版の見た目契約が、文字列 anchor (GAS 側のコード) + golden PNG (rendered 結果) の二段ガードで守られるようになった。
   - GAS の `payoutBuildNoticePdfBlob_` を意図的に更新した場合は、まさが新PDFを目視確認 → PNG化 → fixture と SHA256 を上書きして commit する運用が正本化された。
   - 同じスクリプトを `--diff` モードで使うことで、新規生成PDFをPNG化したファイルと goldenを差分検査できるので、CI / 本番運用での回帰検知も同じ仕組みに乗せられる。
+
+#### #29 cockpit を案C レイアウト (3 カラム + Hero) に組み替え
+
+- まさがお願いしていたこと:
+  - cockpit の左右に大きく余白がある「真ん中だけ使う」UIをやめて、画面幅をフルに使う構成にしたい。
+  - 経営・事業シグナルやMSなどコンテンツが増えてきた今、画面内の情報量を優先したUIに変えたい。
+- えいみが出した3案:
+  - 案A: 2カラム拡張 + sticky 右レール (= 既存構造の余白だけ潰す)
+  - 案B: HUDタイル グリッド 2x3 (= cyber dashboard 寄り)
+  - 案C: 上 hero フル幅 + 下 3カラム + 最下全幅カンバン
+- どう解決したか:
+  - まさが案Cを選んだので、cockpit container を `max-w-[1060px]` から `max-w-[1600px]` に拡張し、左 720px / 右 sticky 220px の旧 2 カラム構造を解体した。
+  - 上 Hero として `CockpitVentureStatus` 内の AMD Score 折れ線と XRL 折れ線を `xl:flex-row` で横並びにし、xl 未満 (= 1280px未満) では従来の縦並びに自動 fallback するようにした。
+  - メインボードは `grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]` の3カラム。col1 = 今期MS + 次期MS設定 + 過去の期間、col2 = 経営・事業シグナル、col3 = ステータスバッジ + 月次ルーティン + nudge (lg 以上で sticky top-12)。
+  - 下段は `grid lg:grid-cols-2` で月次カード一覧 / (休止期間 + MTGサマリ) を並べる。最下段に TODO カンバンを `tasks.length > 0` のときだけ全幅で表示。
+  - 旧 IIFE 内に絡んでいた MS 設定バナーロジックは `renderMsSetupBanner()` 関数として CockpitView 内部に分離し、col1 から呼ぶ形にした。
+  - `pwa/scripts/check_pwa_critical_ui.cjs` に `max-w-[1600px]` / `lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]` / `lg:sticky lg:top-12` / `xl:flex-row` / `renderMsSetupBanner` の anchor を追加し、`expectNotIncludes` で `max-w-[1060px]` と 旧 left/right 2カラムへの巻き戻りを禁止した。
+  - `cockpit.md` / `FEATURE_REGISTRY.md` / `SPEC_pwa.md` を同時に更新して案Cレイアウトを正本化した。
+- できるようになったこと:
+  - 1920px ディスプレイで Above the fold に Header + AMD Score chart + XRL chart + 3 カラムの主要モジュールが一望できる。
+  - 「過去 (XRL / AMD Score 推移)」「現在進捗 (今期MS)」「経営判断 (シグナル候補)」「今月オペ (ルーティン)」が視覚的に整理され、画面内の情報量が一気に増えた。
+  - レスポンシブも `lg` (1024px) / `xl` (1280px) breakpoint で順次グレースフルに縦並びへ崩れるので、ノートPCやモバイル幅でも壊れない。
