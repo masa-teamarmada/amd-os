@@ -1886,7 +1886,7 @@
 - **対応内容**:
   - `payout_notices.notice_no` / `pdf_url` / `sent_at` を更新する `PATCH action=update_notice` を追加。
   - `/admin/payouts` に「支払通知書発行」セクションを復活。番号発行、PDF URL保存、送付済み化、未送付戻しを画面から実行できる。
-  - 2026-05-23追記: セクションとして分離せず、「メンバー別支払」各行に `支払通知書発行` / `PDF確認` / `送付` の3操作を統合した。`PDF確認` は既存 `pdf_url` があれば開き、未発行なら発行を促すhintを出す。PDF URL手入力欄は置かない。
+  - 2026-05-23追記: セクションとして分離せず、「メンバー別支払」各行に `支払通知書発行` / `PDF確認` / `送付` の3操作を統合した。`PDF確認` は既存 `pdf_url` があれば開き、未発行なら支払データ確定前でも確認用PDFを生成して開く。確認用PDFは `payout_notices` に保存しない。PDF URL手入力欄は置かない。
 - **再発防止策**:
   - `pwa/design/FEATURE_REGISTRY.md` に `/admin/payouts` の必須機能を登録。
   - `npm run test:critical-ui` で支払通知書発行UIとAPI anchorを検査する。
@@ -1912,3 +1912,25 @@
   - 機能追加・削除・置換は、実装と同じcommitで `pwa/design/` の正本を更新する。
   - 重要UIは `npm run test:critical-ui` にanchorを追加し、mdだけでなく機械的に検知する。
   - `design_log/` は時系列ログであり正本化しない。
+
+---
+
+### [pwa/admin-payouts] 支払通知書PDFフォーマットが旧版へ戻りかける
+
+- **発見日**: 2026-05-23
+- **状態**: ✅ 修正済み
+- **症状**:
+  - 2026-04にPWA/GAS連携で改善した支払通知書PDFフォーマットではなく、古いGAS風の低品質フォーマットや古いロゴを参考にして復旧しようとしていた。
+  - まさが「前に半日かけて作った改善版だけを復活してほしい」と明示するまで、正本フォーマットの所在がコードとmdから即断できなかった。
+- **原因**:
+  - 支払通知書PDFの見た目契約が `FEATURE_REGISTRY.md` に固定されておらず、`test:critical-ui` もPWA UI anchorだけを見ていてGAS側PDF rendererを検査していなかった。
+  - 旧版の `team ARMADA` テキストロゴや `支払通知書番号` 表記が退役済みであることを機械的に検出できなかった。
+- **対応内容**:
+  - `gas/064_PayoutFreeeNotice.js` の `payoutBuildNoticePdfBlob_` を2026-04改善版フォーマットへ復旧。白地、青アクセント、公式ロゴ画像、`お支払金額` box、青ヘッダ明細表、税内訳、支払予定/方法/振込先/備考を出す。
+  - `/admin/payouts` の `PDF確認` は、支払データ保存前でも確認用PDFを生成して開けるようにした。確認用PDFは `payout_notices` に保存しない。
+  - `FEATURE_REGISTRY.md` に支払通知書PDFフォーマットの必須要素を登録し、`test:critical-ui` でGAS側の改善版anchorと退役済みanchorを検査するようにした。
+  - `gas/CLAUDE.md` の ScriptProperties 正本リストに `PAYOUT_LOGO_FILE_ID` / `PAYOUT_LOGOTYPE_FILE_ID` を明記した。
+- **再発防止策**:
+  - 支払通知書PDFの見た目を触る変更は、`FEATURE_REGISTRY.md` のフォーマット契約と `test:critical-ui` のanchorを同じcommitで更新する。
+  - `setValue("team ARMADA")` / `brandCell` / `支払通知書番号` を復活させない。復活すると `npm run test:critical-ui` が落ちる。
+  - さらに厳密に守るなら、次の段階で改善版PDFのgolden PNGを固定し、レンダー画像差分テストを追加する。

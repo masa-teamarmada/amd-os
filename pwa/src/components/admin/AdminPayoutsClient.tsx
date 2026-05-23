@@ -776,8 +776,34 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     window.open(pdfUrl, "_blank", "noopener,noreferrer");
   }
 
-  function showPdfUrlMissing(row: MemberPayoutRow) {
-    setHint(`${row.memberName} はまだPDF未発行。先に支払通知書発行を押してね`);
+  function openPdfPlaceholderWindow() {
+    const popup = window.open("about:blank", "_blank");
+    if (!popup) return null;
+    try {
+      popup.opener = null;
+      popup.document.title = "支払通知書PDFを作成中";
+      popup.document.body.innerHTML =
+        '<div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; color: #111827;">支払通知書PDFを作成中...</div>';
+    } catch {
+      // If document access is blocked, keep the tab and navigate it after generation.
+    }
+    return popup;
+  }
+
+  function showGeneratedPdf(pdfWindow: Window | null, pdfUrl: string) {
+    if (pdfWindow && !pdfWindow.closed) {
+      pdfWindow.location.href = pdfUrl;
+      return;
+    }
+    openPdfUrl(pdfUrl);
+  }
+
+  function closePdfPlaceholder(pdfWindow: Window | null) {
+    try {
+      if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
+    } catch {
+      // Ignore browser-specific popup close failures.
+    }
   }
 
   async function issueNoticePdf(row: MemberPayoutRow, options: { forceReissue?: boolean } = {}) {
@@ -790,6 +816,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       return;
     }
 
+    const pdfWindow = openPdfPlaceholderWindow();
     setNoticeSavingMemberId(row.memberId);
     setHint("支払通知書PDFを発行中...");
     try {
@@ -809,10 +836,52 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         throw new Error(payload.error || `notice pdf failed (${res.status})`);
       }
       setData(payload);
-      openPdfUrl(payload.issuedNotice?.pdfUrl);
+      if (!payload.issuedNotice?.pdfUrl) {
+        throw new Error("支払通知書PDFのURLが返ってこなかった");
+      }
+      showGeneratedPdf(pdfWindow, payload.issuedNotice.pdfUrl);
       setHint(`${row.memberName} の支払通知書PDFを発行した`);
     } catch (err) {
+      closePdfPlaceholder(pdfWindow);
       setHint(err instanceof Error ? err.message : "支払通知書PDFの発行エラー");
+    } finally {
+      setNoticeSavingMemberId(null);
+    }
+  }
+
+  async function previewNoticePdf(row: MemberPayoutRow) {
+    if (row.notice?.pdf_url) {
+      openPdfUrl(row.notice.pdf_url);
+      return;
+    }
+
+    const pdfWindow = openPdfPlaceholderWindow();
+    setNoticeSavingMemberId(row.memberId);
+    setHint("確認用の支払通知書PDFを作成中...");
+    try {
+      const res = await fetch("/api/admin/payouts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "preview_notice_pdf",
+          ym,
+          memberId: row.memberId,
+        }),
+      });
+      const payload = (await res.json()) as (
+        PayoutData & { ok?: boolean; error?: string; issuedNotice?: { pdfUrl?: string } }
+      );
+      if (!res.ok || payload.ok === false) {
+        throw new Error(payload.error || `notice pdf preview failed (${res.status})`);
+      }
+      if (!payload.issuedNotice?.pdfUrl) {
+        throw new Error("確認用PDFのURLが返ってこなかった");
+      }
+      showGeneratedPdf(pdfWindow, payload.issuedNotice.pdfUrl);
+      setHint(`${row.memberName} の確認用PDFを開いた（支払データ・通知書URLは未保存）`);
+    } catch (err) {
+      closePdfPlaceholder(pdfWindow);
+      setHint(err instanceof Error ? err.message : "確認用PDFの作成エラー");
     } finally {
       setNoticeSavingMemberId(null);
     }
@@ -1217,7 +1286,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
                         saving={noticeSavingMemberId === row.memberId}
                         onIssueNoticePdf={issueNoticePdf}
                         onOpenPdf={openPdfUrl}
-                        onMissingPdf={showPdfUrlMissing}
+                        onPreviewNoticePdf={previewNoticePdf}
                         onUpdateNoticeSent={updateNoticeSent}
                       />
                     </td>
@@ -1721,7 +1790,7 @@ function PayoutNoticeActions({
   saving,
   onIssueNoticePdf,
   onOpenPdf,
-  onMissingPdf,
+  onPreviewNoticePdf,
   onUpdateNoticeSent,
 }: {
   row: MemberPayoutRow;
@@ -1729,7 +1798,7 @@ function PayoutNoticeActions({
   saving: boolean;
   onIssueNoticePdf: (row: MemberPayoutRow, options?: { forceReissue?: boolean }) => void;
   onOpenPdf: (pdfUrl: string | null | undefined) => void;
-  onMissingPdf: (row: MemberPayoutRow) => void;
+  onPreviewNoticePdf: (row: MemberPayoutRow) => void;
   onUpdateNoticeSent: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
 }) {
   if (row.noticeExcluded) {
@@ -1739,7 +1808,7 @@ function PayoutNoticeActions({
   const blocked = disabled || saving;
   const canIssuePdf = !blocked && row.isSaved;
   const hasPdf = Boolean(row.notice?.pdf_url);
-  const canOpenPdf = !blocked && hasPdf;
+  const canPreviewPdf = !blocked && row.totalPay > 0;
   const canToggleSent = !blocked && hasPdf;
   const savedNoticeTotal = Math.round(numberValue(row.notice?.total_yen));
   const totalMismatch = savedNoticeTotal > 0 && savedNoticeTotal !== Math.round(row.totalPay);
@@ -1748,7 +1817,9 @@ function PayoutNoticeActions({
       ? "改善版フォーマットの支払通知書PDFを再発行する"
       : "改善版フォーマットの支払通知書PDFを発行する"
     : "先に支払データ保存を押すと発行できる";
-  const pdfTitle = hasPdf ? "保存済みPDFを別タブで確認する" : "PDF未発行。先に支払通知書発行を押す";
+  const pdfTitle = hasPdf
+    ? "保存済みPDFを別タブで確認する"
+    : "支払データ保存前でも確認用PDFを作成してフォーマットを見る";
   const sentTitle = hasPdf
     ? row.notice?.sent_at
       ? "送付済みを取り消して未送付に戻す"
@@ -1769,8 +1840,8 @@ function PayoutNoticeActions({
         </button>
         <button
           type="button"
-          onClick={() => (hasPdf ? onOpenPdf(row.notice?.pdf_url) : onMissingPdf(row))}
-          disabled={!hasPdf ? blocked : !canOpenPdf}
+          onClick={() => (hasPdf ? onOpenPdf(row.notice?.pdf_url) : onPreviewNoticePdf(row))}
+          disabled={!canPreviewPdf}
           title={pdfTitle}
           className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
         >
@@ -1800,7 +1871,7 @@ function PayoutNoticeActions({
         )}
       </div>
       {!row.isSaved && (
-        <div className="text-right text-[10px] text-amber-700">支払データ保存後に発行可能</div>
+        <div className="text-right text-[10px] text-amber-700">確認用PDFは保存前でも作成可 / 発行・送付は保存後</div>
       )}
     </div>
   );

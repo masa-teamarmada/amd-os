@@ -24,6 +24,14 @@ function expectPattern(rel, patterns) {
   }
 }
 
+function expectNotIncludes(rel, needles) {
+  const text = read(rel);
+  const present = needles.filter((needle) => text.includes(needle));
+  if (present.length > 0) {
+    throw new Error(`${rel} contains retired critical UI anchors: ${present.join(", ")}`);
+  }
+}
+
 expectIncludes("src/components/cockpit/CockpitNextPeriodSetup.tsx", [
   "MS開始",
   "MS終了",
@@ -80,12 +88,38 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
 expectIncludes("src/app/api/admin/payouts/route.ts", [
   "refreshRewards",
   "issue_notice_pdf",
+  "preview_notice_pdf",
   "payoutCreatePwaNoticePdf",
   "update_notice",
   "payout_notices",
   "notice_no",
   "pdf_url",
   "sent_at",
+]);
+
+expectIncludes("../gas/064_PayoutFreeeNotice.js", [
+  "2026-04 改善版フォーマット",
+  "PAYOUT_LOGO_FILE_ID",
+  "PAYOUT_LOGOTYPE_FILE_ID",
+  "payoutGetPayoutLogotypeBlob_",
+  "insertImage",
+  "お支払金額",
+  "摘要",
+  "数量",
+  "単価",
+  "小計（税抜）",
+  "消費税（10%）",
+  "合計（税込）",
+  "支払予定日",
+  "支払方法",
+  "振込先",
+  "備考",
+]);
+
+expectNotIncludes("../gas/064_PayoutFreeeNotice.js", [
+  'setValue("team ARMADA")',
+  "brandCell",
+  "支払通知書番号",
 ]);
 
 expectIncludes("src/app/api/cron/payout-reward-cache-refresh/route.ts", [

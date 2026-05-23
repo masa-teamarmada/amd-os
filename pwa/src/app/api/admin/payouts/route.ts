@@ -479,7 +479,8 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  if (body.action === "issue_notice_pdf") {
+  if (body.action === "issue_notice_pdf" || body.action === "preview_notice_pdf") {
+    const previewOnly = body.action === "preview_notice_pdf";
     const memberId = textValue(body.memberId);
     if (!ym || !memberId) {
       return NextResponse.json({ ok: false, error: "ym and memberId are required" }, { status: 400 });
@@ -514,7 +515,9 @@ export async function PATCH(req: NextRequest) {
         .not("notice_no", "is", null);
       if (countError) throw countError;
 
-      const noticeNo = textValue(existing?.notice_no) || generatedNoticeNo(ym, (count ?? 0) + 1);
+      const noticeNo = previewOnly
+        ? `PREVIEW-${ym}-${memberId}`
+        : textValue(existing?.notice_no) || generatedNoticeNo(ym, (count ?? 0) + 1);
       const payeeName = textValue(member.member_name) || textValue(member.code_name) || memberId;
       const issuedAt = new Date().toISOString();
 
@@ -542,24 +545,27 @@ export async function PATCH(req: NextRequest) {
       if (!pdfUrl) throw new Error("GAS did not return pdfUrl");
       const actualNoticeNo = textValue(gasResult.noticeNo) || textValue(gasResult.freeeNoticeNo) || noticeNo;
 
-      const { error: upsertError } = await db
-        .from("payout_notices")
-        .upsert(
-          {
-            member_id: memberId,
-            ym,
-            sent_at: existing?.sent_at ?? null,
-            notice_no: actualNoticeNo,
-            pdf_url: pdfUrl,
-            total_yen: Math.round(totalYen),
-          },
-          { onConflict: "member_id,ym" }
-        );
-      if (upsertError) throw upsertError;
+      if (!previewOnly) {
+        const { error: upsertError } = await db
+          .from("payout_notices")
+          .upsert(
+            {
+              member_id: memberId,
+              ym,
+              sent_at: existing?.sent_at ?? null,
+              notice_no: actualNoticeNo,
+              pdf_url: pdfUrl,
+              total_yen: Math.round(totalYen),
+            },
+            { onConflict: "member_id,ym" }
+          );
+        if (upsertError) throw upsertError;
+      }
 
       const after = await loadTargetData(ym);
       return NextResponse.json({
         ok: true,
+        previewOnly,
         issuedNotice: {
           memberId,
           noticeNo: actualNoticeNo,

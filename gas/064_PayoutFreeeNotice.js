@@ -84,7 +84,7 @@ function payoutCreatePwaNoticePdf(payload){
   const ym = String(payload.ym || "").trim();
   const noticeNo = String(payload.noticeNo || "").trim();
   const totalYen = Number(payload.totalYen || 0);
-  const issuedAtJst = String(payload.issuedAtJst || payoutNowJstIso()).trim();
+  const issuedAtJst = String(payload.issuedAtJst || payload.issuedAt || payoutNowJstIso()).trim();
   const breakdownText = payoutPwaNoticeBreakdownText_(payload.breakdown, payload.breakdownText);
 
   if (!memberId) throw new Error("memberId empty");
@@ -188,12 +188,20 @@ function payoutBuildNoticePdfBlob_(p){
   if (!isFinite(totalYen) || totalYen <= 0) throw new Error("totalYen invalid");
 
   const fmtYen = (n) => Math.round(Number(n||0)).toLocaleString("ja-JP") + "円";
+  const fmtNum = (n) => Math.round(Number(n||0)).toLocaleString("ja-JP");
 
   const taxBreakdown = (grossYen) => {
     const gross = Math.round(Number(grossYen || 0));
     const net = Math.round(gross / 1.1);
     const tax = gross - net;
     return { net, tax, gross };
+  };
+
+  const formatDateJa = (raw) => {
+    const s = String(raw || "").trim();
+    const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (!m) return s;
+    return `${Number(m[1])}年${Number(m[2])}月${Number(m[3])}日`;
   };
 
   const calcPayDateFromYm = (yyyymm) => {
@@ -224,14 +232,21 @@ function payoutBuildNoticePdfBlob_(p){
     });
   };
 
-  const issueDate = issuedAtJst ? issuedAtJst.slice(0,10) : payoutNowJstIso().slice(0,10);
+  const issueDate = formatDateJa(issuedAtJst ? issuedAtJst.slice(0,10) : payoutNowJstIso().slice(0,10));
   const payDate = calcPayDateFromYm(ym);
   const subject = `${Number(ym.slice(4,6))}月末お支払予定のご連絡`;
   const tax = taxBreakdown(totalYen);
+  const details = splitBreakdown(breakdownText);
+  if (details.length === 0) details.push({ desc: "業務委託料", yen: tax.gross });
 
   const COMPANY_NAME = "株式会社チームアルマダ";
-  const COMPANY_ADDR = "〒305-0031\n茨城県つくば市吾妻1-10-1";
+  const COMPANY_ADDR = "〒305-0031 茨城県つくば市吾妻1-10-1";
   const PAYMENT_METHOD = "指定の口座へ振込";
+  const BLUE = "#2563eb";
+  const TEXT = "#1f2937";
+  const MUTED = "#667085";
+  const LINE = "#d9e2ec";
+  const PALE = "#f8fafc";
 
   // ====== 一時スプレッドシート ======
   const ss = SpreadsheetApp.create("tmp_payout_notice_" + noticeNo);
@@ -239,159 +254,154 @@ function payoutBuildNoticePdfBlob_(p){
   const sh = ss.getSheets()[0];
   sh.setName("notice");
   sh.setHiddenGridlines(true);
-  sh.insertColumnsAfter(1, 11);
+  if (sh.getMaxColumns() < 12){
+    sh.insertColumnsAfter(sh.getMaxColumns(), 12 - sh.getMaxColumns());
+  }
+  if (sh.getMaxColumns() > 12){
+    sh.deleteColumns(13, sh.getMaxColumns() - 12);
+  }
 
-  // 列幅（L列は金額の正本なので広め）
-  const colWidths = [24, 250, 70, 80, 110, 18, 40, 60, 70, 70, 80, 140];
+  // 2026-04 改善版フォーマット: 白地、青アクセント、正本ロゴ画像。
+  const colWidths = [28, 246, 70, 82, 108, 18, 46, 70, 76, 78, 82, 128];
   for (let i = 0; i < colWidths.length; i++){
     sh.setColumnWidth(i + 1, colWidths[i]);
   }
 
-  // 行高：2枚目の“上スッキリ”を作るため、ヘッダ付近を薄くする
   for (let r = 1; r <= 80; r++){
-    sh.setRowHeight(r, 18);
+    sh.setRowHeight(r, 20);
   }
-  sh.setRowHeight(1, 28); // title
-  sh.setRowHeight(2, 6);  // spacer
-  sh.setRowHeight(3, 18);
-  sh.setRowHeight(4, 18);
-  sh.setRowHeight(5, 18);
-  sh.setRowHeight(6, 18);
-  sh.setRowHeight(7, 18);
-  sh.setRowHeight(8, 18);
+  sh.setRowHeight(1, 32);
+  sh.setRowHeight(2, 34);
+  sh.setRowHeight(3, 5);
+  sh.setRowHeight(4, 26);
+  sh.setRowHeight(7, 34);
+  sh.setRowHeight(11, 18);
+  sh.setRowHeight(12, 26);
+  sh.setRowHeight(13, 26);
+  sh.setRowHeight(14, 12);
+  sh.setRowHeight(15, 24);
+  sh.setRowHeight(16, 24);
+  sh.setRowHeight(17, 22);
+
+  sh.getRange("A1:L80")
+    .setFontFamily("Noto Sans JP")
+    .setFontColor(TEXT)
+    .setFontSize(11)
+    .setVerticalAlignment("middle");
 
   // ====== タイトル ======
-  sh.getRange("A1:L1").merge();
-  sh.getRange("A1")
+  sh.getRange("A2:L2").merge();
+  sh.getRange("A2")
     .setValue("支払通知書")
-    .setFontSize(20).setFontWeight("bold")
+    .setFontSize(24).setFontWeight("bold").setFontColor(BLUE)
     .setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sh.getRange("A3:L3").merge().setBackground(BLUE);
 
-  // ====== 左：宛先（ヘッダを圧縮して上の余白を戻す）=====
-  // 2枚目の雰囲気：名前を上、住所はその下に小さく
-  sh.getRange("A3:F6").merge();
-  sh.getRange("A3")
-    .setValue(`${payeeName}　様\n${payeeAddress || "（住所未登録）"}`)
-    .setFontSize(12).setFontWeight("bold")
-    .setVerticalAlignment("top")
+  // ====== 左：宛先 ======
+  sh.getRange("A5:F5").merge();
+  sh.getRange("A5")
+    .setValue(`${payeeName}　様`)
+    .setFontSize(14).setFontWeight("bold")
+    .setBorder(false, false, true, false, false, false, "#6b7280", SpreadsheetApp.BorderStyle.SOLID);
+  sh.getRange("A6:F6").merge()
+    .setValue(payeeAddress || "（住所未登録）")
+    .setFontSize(9).setFontColor(MUTED)
     .setWrap(true);
 
-  // ====== 右：通知日/番号（右上に寄せるが主張は弱め）=====
-  sh.getRange("G3:H3").merge().setValue("支払通知日").setFontSize(10);
-  sh.getRange("I3:L3").merge().setValue(issueDate).setFontSize(10).setHorizontalAlignment("right");
-  sh.getRange("G4:H4").merge().setValue("支払通知書番号").setFontSize(10);
-  sh.getRange("I4:L4").merge().setValue(noticeNo).setFontSize(10).setHorizontalAlignment("right");
+  // ====== 右：通知日/番号 + 正本ロゴ ======
+  sh.getRange("G5:H5").merge().setValue("支払通知日").setFontSize(9).setFontColor(MUTED);
+  sh.getRange("I5:L5").merge().setValue(issueDate).setFontSize(10).setHorizontalAlignment("right");
+  sh.getRange("G6:H6").merge().setValue("通知書番号").setFontSize(9).setFontColor(MUTED);
+  sh.getRange("I6:L6").merge().setValue(noticeNo).setFontSize(9).setFontColor(MUTED).setHorizontalAlignment("right");
 
-  // ====== 右：team ARMADA（ロゴ相当・1行完結で安定させる）=====
-  sh.getRange("G5:L5").merge();
-
-  const brandCell = sh.getRange("G5");
-  brandCell
-    .setValue("team ARMADA")
-    .setFontWeight("bold")
-    .setFontSize(15)              // ★少しだけ下げて他テキストと調和
-    .setVerticalAlignment("middle")
-    .setHorizontalAlignment("left");
-
-  // RichTextで色だけ分ける（サイズはセル側で統一）
-  try{
-    const rt = SpreadsheetApp.newRichTextValue()
-      .setText("team ARMADA")
-      .setTextStyle(
-        0, 4,
-        SpreadsheetApp.newTextStyle()
-          .setBold(true)
-          .setForegroundColor("#6b7280") // team（グレー）
-          .build()
-      )
-      .setTextStyle(
-        5, 11,
-        SpreadsheetApp.newTextStyle()
-          .setBold(true)
-          .setForegroundColor("#2563eb") // ARMADA（やや落ち着いたブルー）
-          .build()
-      )
-      .build();
-    brandCell.setRichTextValue(rt);
-  } catch(e){
-    // フォールバック（色なしでも崩れない）
+  const logoMarkBlob = payoutGetPayoutLogoBlob_();
+  const logotypeBlob = payoutGetPayoutLogotypeBlob_();
+  if (!logoMarkBlob || !logotypeBlob){
+    throw new Error("PAYOUT_LOGO_FILE_ID / PAYOUT_LOGOTYPE_FILE_ID is required for payout notice logo assets");
   }
+  sh.getRange("G7:L7").merge().clearContent();
+  sh.insertImage(logoMarkBlob, 10, 7, 18, 3).setWidth(27).setHeight(27);
+  sh.insertImage(logotypeBlob, 10, 7, 52, 7).setWidth(178).setHeight(22);
 
-  sh.getRange("G6:L6").merge().setValue(COMPANY_NAME).setFontSize(11).setFontWeight("bold");
-  sh.getRange("G7:L8").merge().setValue(COMPANY_ADDR).setFontSize(10).setWrap(true);
-
-  // ====== 件名（2枚目の感じで上に余白を残す）=====
-  sh.getRange("A10:L10").merge();
-  sh.getRange("A10").setValue("件名　　　" + subject).setFontSize(11).setFontWeight("bold");
+  sh.getRange("G8:L8").merge().setValue(COMPANY_NAME).setFontSize(10).setFontWeight("bold").setHorizontalAlignment("right");
+  sh.getRange("G9:L9").merge().setValue(COMPANY_ADDR).setFontSize(8).setFontColor(MUTED).setHorizontalAlignment("right");
 
   // ====== サマリ ======
-  sh.getRange("A12:L14").setBorder(true,true,true,true,true,true);
-  sh.getRange("A12:D12").merge().setValue("小計").setBackground("#f3f4f6").setFontWeight("bold");
-  sh.getRange("E12:H12").merge().setValue("消費税").setBackground("#f3f4f6").setFontWeight("bold");
-  sh.getRange("I12:L12").merge().setValue("支払金額").setBackground("#f3f4f6").setFontWeight("bold");
+  sh.getRange("A12:L13").merge()
+    .setValue(`お支払金額　　　${fmtYen(tax.gross)}（税込）`)
+    .setFontSize(20)
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center")
+    .setBackground(PALE)
+    .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID);
 
-  sh.getRange("A13:D14").merge().setValue(fmtYen(tax.net)).setFontWeight("bold").setFontSize(12);
-  sh.getRange("E13:H14").merge().setValue(fmtYen(tax.tax)).setFontWeight("bold").setFontSize(12);
-  sh.getRange("I13:L14").merge().setValue(fmtYen(tax.gross)).setFontWeight("bold").setFontSize(16);
+  // ====== 件名 ======
+  sh.getRange("A16:L16").merge();
+  sh.getRange("A16").setValue("件名： " + subject).setFontSize(10).setFontColor(MUTED);
 
   // ====== 明細表 ======
-  const details = splitBreakdown(breakdownText);
-  const startRow = 16;
-  const maxLines = 10;
+  const startRow = 17;
+  const maxLines = Math.max(2, details.length);
   const endRow = startRow + maxLines;
 
-  sh.getRange(`A${startRow}:F${startRow}`).merge().setValue("摘要").setBackground("#f3f4f6").setFontWeight("bold");
-  sh.getRange(`G${startRow}:H${startRow}`).merge().setValue("数量").setBackground("#f3f4f6").setFontWeight("bold").setHorizontalAlignment("right");
-  sh.getRange(`I${startRow}:J${startRow}`).merge().setValue("単価").setBackground("#f3f4f6").setFontWeight("bold").setHorizontalAlignment("right");
-  sh.getRange(`K${startRow}:L${startRow}`).merge().setValue("明細金額").setBackground("#f3f4f6").setFontWeight("bold").setHorizontalAlignment("right");
-
-  sh.getRange(`A${startRow}:L${endRow}`).setBorder(true,true,true,true,true,true);
+  sh.getRange(`A${startRow}:F${startRow}`).merge().setValue("摘要").setBackground(BLUE).setFontColor("#ffffff").setFontWeight("bold");
+  sh.getRange(`G${startRow}:H${startRow}`).merge().setValue("数量").setBackground(BLUE).setFontColor("#ffffff").setFontWeight("bold").setHorizontalAlignment("right");
+  sh.getRange(`I${startRow}:J${startRow}`).merge().setValue("単価").setBackground(BLUE).setFontColor("#ffffff").setFontWeight("bold").setHorizontalAlignment("right");
+  sh.getRange(`K${startRow}:L${startRow}`).merge().setValue("金額").setBackground(BLUE).setFontColor("#ffffff").setFontWeight("bold").setHorizontalAlignment("right");
+  sh.getRange(`A${startRow}:L${endRow}`).setBorder(true, true, true, true, true, true, LINE, SpreadsheetApp.BorderStyle.SOLID);
 
   for (let i = 0; i < maxLines; i++){
     const r = startRow + 1 + i;
     const d = details[i] || { desc:"", yen:0 };
 
-    sh.getRange(`A${r}:F${r}`).merge().setValue(d.desc || "");
+    sh.setRowHeight(r, 24);
+    sh.getRange(`A${r}:L${r}`).setBackground(i === 0 ? "#ffffff" : PALE);
+    sh.getRange(`A${r}:F${r}`).merge().setValue(d.desc || "").setHorizontalAlignment("left");
     sh.getRange(`G${r}:H${r}`).merge().setValue(d.desc ? 1 : "").setHorizontalAlignment("right");
-    sh.getRange(`I${r}:J${r}`).merge().setValue(d.yen ? Math.round(d.yen).toLocaleString("ja-JP") : "").setHorizontalAlignment("right");
-    sh.getRange(`K${r}:L${r}`).merge().setValue(d.yen ? fmtYen(d.yen) : "").setHorizontalAlignment("right");
+    sh.getRange(`I${r}:J${r}`).merge().setValue(d.yen ? fmtNum(d.yen) : "").setHorizontalAlignment("right");
+    sh.getRange(`K${r}:L${r}`).merge().setValue(d.yen ? fmtYen(d.yen) : "").setFontWeight(d.yen ? "bold" : "normal").setHorizontalAlignment("right");
   }
 
-  // ====== 右下：内訳（L列を広く確保して見切れ防止）=====
+  // ====== 右下：税内訳 ======
   const taxBoxTop = endRow + 2;
-  sh.getRange(`I${taxBoxTop}:L${taxBoxTop+2}`).setBorder(true,true,true,true,true,true);
+  const totalRows = [
+    ["小計（税抜）", fmtYen(tax.net), false],
+    ["消費税（10%）", fmtYen(tax.tax), false],
+    ["合計（税込）", fmtYen(tax.gross), true],
+  ];
+  totalRows.forEach((row, idx) => {
+    const r = taxBoxTop + idx;
+    sh.getRange(`H${r}:J${r}`).merge().setValue(row[0]).setFontColor(row[2] ? TEXT : MUTED).setFontWeight(row[2] ? "bold" : "normal").setHorizontalAlignment("right");
+    sh.getRange(`K${r}:L${r}`).merge().setValue(row[1]).setFontSize(row[2] ? 13 : 10).setFontWeight(row[2] ? "bold" : "normal").setHorizontalAlignment("right");
+  });
+  sh.getRange(`G${taxBoxTop+2}:L${taxBoxTop+2}`).setBorder(false, false, true, false, false, false, BLUE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
-  sh.getRange(`I${taxBoxTop}:K${taxBoxTop}`).merge().setValue("内訳").setBackground("#f3f4f6").setFontWeight("bold");
-  sh.getRange(`L${taxBoxTop}:L${taxBoxTop}`).setValue("金額").setBackground("#f3f4f6").setFontWeight("bold").setHorizontalAlignment("right");
-
-  sh.getRange(`I${taxBoxTop+1}:K${taxBoxTop+1}`).merge().setValue("10%対象（税抜）");
-  sh.getRange(`L${taxBoxTop+1}:L${taxBoxTop+1}`).setValue(fmtYen(tax.net)).setHorizontalAlignment("right");
-  sh.getRange(`I${taxBoxTop+2}:K${taxBoxTop+2}`).merge().setValue("10%消費税");
-  sh.getRange(`L${taxBoxTop+2}:L${taxBoxTop+2}`).setValue(fmtYen(tax.tax)).setHorizontalAlignment("right");
-
-  // ====== 左下：支払予定/方法 + 振込先（必要情報は出す、でも主張しすぎない）=====
-  const payTop = taxBoxTop + 4;
-  sh.getRange(`A${payTop}:H${payTop}`).merge().setValue("支払予定日　" + payDate).setFontWeight("bold");
-  sh.getRange(`A${payTop+1}:H${payTop+1}`).merge().setValue("支払方法　　" + PAYMENT_METHOD);
-
-  // bankInfo枠：2枚目のバランスを壊さないよう、必要十分な高さにする
-  // 長い人はここで折り返す（1ページ死守）
-  sh.getRange(`A${payTop+3}:H${payTop+8}`).merge()
-    .setValue("振込先\n" + (bankInfo || "（未登録）"))
-    .setFontSize(10).setVerticalAlignment("top").setWrap(true);
+  // ====== 左下：支払予定/方法 + 振込先 ======
+  const payTop = taxBoxTop + 5;
+  sh.getRange(`A${payTop}:B${payTop}`).merge().setValue("支払予定日").setFontColor(MUTED).setFontWeight("bold");
+  sh.getRange(`C${payTop}:H${payTop}`).merge().setValue(formatDateJa(payDate)).setFontSize(11).setFontWeight("bold").setHorizontalAlignment("center");
+  sh.getRange(`A${payTop+2}:B${payTop+2}`).merge().setValue("支払方法").setFontColor(MUTED).setFontWeight("bold");
+  sh.getRange(`C${payTop+2}:H${payTop+2}`).merge().setValue(PAYMENT_METHOD).setHorizontalAlignment("left");
+  sh.getRange(`A${payTop+4}:B${payTop+4}`).merge().setValue("振込先").setFontColor(MUTED).setFontWeight("bold");
+  sh.getRange(`A${payTop+5}:H${payTop+6}`).merge()
+    .setValue(bankInfo || "（未登録）")
+    .setFontSize(10).setVerticalAlignment("top").setWrap(true)
+    .setBackground(PALE)
+    .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID);
 
   // ====== 備考 ======
-  const noteTop = payTop + 10;
-  sh.getRange(`A${noteTop}:L${noteTop+2}`).setBorder(true,true,true,true,true,true);
-  sh.getRange(`A${noteTop}:L${noteTop}`).merge().setValue("備考").setBackground("#f3f4f6").setFontWeight("bold");
-  sh.getRange(`A${noteTop+1}:L${noteTop+2}`).merge();
+  const noteTop = payTop + 9;
+  sh.getRange(`A${noteTop}:B${noteTop}`).merge().setValue("備考").setFontColor(MUTED).setFontWeight("bold");
+  sh.getRange(`A${noteTop+1}:L${noteTop+3}`).merge()
+    .setBackground(PALE)
+    .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID);
 
   // ====== flush & export ======
   SpreadsheetApp.flush();
   Utilities.sleep(800);
 
   const gid = sh.getSheetId();
-  const printLastRow = noteTop + 2;
+  const printLastRow = noteTop + 3;
 
   const url = [
     `https://docs.google.com/spreadsheets/d/${ssId}/export?format=pdf`,
@@ -403,10 +413,10 @@ function payoutBuildNoticePdfBlob_(p){
     `size=A4`,
     `portrait=true`,
     `fitw=true`,
-    `top_margin=0.5`,
+    `top_margin=0.35`,
     `bottom_margin=0.5`,
-    `left_margin=0.5`,
-    `right_margin=0.5`,
+    `left_margin=0.6`,
+    `right_margin=0.6`,
     `sheetnames=false`,
     `printtitle=false`,
     `pagenumbers=false`,
@@ -452,10 +462,25 @@ function payoutTestDocumentsAuth(){
 }
 
 function payoutGetPayoutLogoBlob_(){
+  return payoutGetPayoutAssetBlob_(["PAYOUT_LOGO_FILE_ID", "LOGO_FILE_ID"], ["logo_only3.png", "AMD_logo_mark.png"]);
+}
+
+function payoutGetPayoutLogotypeBlob_(){
+  return payoutGetPayoutAssetBlob_(["PAYOUT_LOGOTYPE_FILE_ID", "LOGOTYPE_FILE_ID"], ["ロゴタイプ.png", "ロゴタイプ.png", "AMD_logotype.png"]);
+}
+
+function payoutGetPayoutAssetBlob_(propKeys, fileNames){
   try{
-    const fileId = String(PropertiesService.getScriptProperties().getProperty("LOGO_FILE_ID") || "").trim();
-    if (fileId){
-      return DriveApp.getFileById(fileId).getBlob();
+    const props = PropertiesService.getScriptProperties();
+    for (let i = 0; i < propKeys.length; i++){
+      const fileId = String(props.getProperty(propKeys[i]) || "").trim();
+      if (fileId) return DriveApp.getFileById(fileId).getBlob();
+    }
+  } catch(e){}
+  try{
+    for (let i = 0; i < fileNames.length; i++){
+      const files = DriveApp.getFilesByName(fileNames[i]);
+      if (files.hasNext()) return files.next().getBlob();
     }
   } catch(e){}
   return null;

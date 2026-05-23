@@ -5970,7 +5970,7 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 - どう解決したか:
   - `/admin/payouts` の別セクションをやめ、`PayoutNoticeActions` を「メンバー別支払」テーブル行へ統合した。
   - `支払通知書発行` は `monthly_reward_payout` 保存済み (`row.isSaved`) の行だけ活性化する。
-  - `PDF確認` は既存 `payout_notices.pdf_url` があればPDFを開く。PDF未発行時は無反応のグレーアウトではなく、「先に支払通知書発行」を促すhintを出す。
+  - `PDF確認` は既存 `payout_notices.pdf_url` があればPDFを開く。PDF未発行時も、支払データ確定前に確認用PDFを生成して開けるようにする。確認用PDFは `payout_notices` に保存せず、正式な `支払通知書発行` / `送付` は支払データ保存後に行う。
   - `送付` はPDF発行後だけ活性化し、送付済みなら同じボタンで `送付取消` に変わる。
 - できるようになったこと:
   - 支払通知書の発行・確認・送付状態が、各メンバーの支払行と1対1で見える。
@@ -6001,3 +6001,39 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - `project_strategy_signals.md` / `L2_DATA.md` / `cockpit.md` / `SPEC_pwa.md` / `FEATURE_REGISTRY.md` / `SPEC_GOVERNANCE.md` を更新した。
 - できるようになったこと:
   - MS進捗より上位の重要判断・重要進捗・リスクを、根拠付きL2としてコックピットに出せる。
+
+#### #27 follow-up 過去データから経営・事業シグナルをbackfill
+
+- まさがお願いしていたこと:
+  - コックピットにセクションはできたが中身がないと修正できないので、過去データをbackfillしてほしい。
+- どう解決したか:
+  - `backfill_strategy_signals_from_activities.mjs` を追加。既存 `member_activities` を `ym` 範囲で読み、impact・キーワード・除外語の決定的ルールで経営・事業シグナル候補を作る。LLM/GASは使わない。
+  - 生成した outbox を `ms_progress_review_tool.mjs apply-outbox` で反映し、`project_strategy_signals` と `l2_notifications(l2_kind='project_strategy_signal')` を同時に作成する。
+- できるようになったこと:
+  - 202601-202605の既存 `member_activities` から40件をbackfill済み。内訳は `p06:8`, `p07:4`, `p19:10`, `p20:8`, `p21:10`。
+  - cockpitの `経営・事業シグナル` に候補が表示され、`/notifications` から「はい/いいえ」で confirmed/rejected にできる状態になった。
+
+#### #25 follow-up 3 支払通知書PDFフォーマットを改善版へ完全復旧
+
+- まさがお願いしていたこと:
+  - 先月一緒に作った改善版の支払通知書PDFフォーマットだけを復活してほしい。古いGAS版や古いロゴは認めない。
+  - 支払データ確定前でも、まずPDFフォーマットを確認できるようにしてほしい。
+- どう解決したか:
+  - `gas/064_PayoutFreeeNotice.js` の `payoutBuildNoticePdfBlob_` を2026-04改善版に戻した。白地、青アクセント、公式ロゴ画像、`お支払金額` box、青ヘッダ明細表、税内訳、支払予定/方法/振込先/備考の構成。
+  - `/api/admin/payouts` に `preview_notice_pdf` を追加。`PDF確認` は既存PDFがなければ確認用PDFを生成して開くが、`payout_notices` には保存しない。
+  - ログイン済みChromeで `/admin/payouts?ym=202605` から `かる ID003` の確認用PDFを発行し、Google Drive PDFで改善版フォーマットを目視確認した。
+- できるようになったこと:
+  - メンバー別支払行から `支払通知書発行` / `PDF確認` / `送付` を操作できる。
+  - 支払通知書PDFのフォーマット確認は、支払データ保存前でも可能になった。
+
+#### #26 follow-up 3 PDFフォーマット退行防止をmd正本とcritical-uiに接続
+
+- まさがお願いしていたこと:
+  - 復活した支払通知書PDFフォーマットが、もう二度と勝手に消えない状態か確認したい。
+- どう解決したか:
+  - `pwa/design/FEATURE_REGISTRY.md` に支払通知書PDFフォーマットの見た目契約を追加した。
+  - `pwa/scripts/check_pwa_critical_ui.cjs` が `gas/064_PayoutFreeeNotice.js` を読み、改善版anchor (`PAYOUT_LOGO_FILE_ID`, `PAYOUT_LOGOTYPE_FILE_ID`, `お支払金額`, `摘要`, `小計（税抜）`, `備考` など) と退役済みanchor (`setValue("team ARMADA")`, `brandCell`, `支払通知書番号`) を検査するようにした。
+  - `pwa/design/SPEC_pwa.md` と `gas/CLAUDE.md` にも、支払通知書PDFフォーマットとロゴ用ScriptPropertiesの正本情報を反映した。
+- できるようになったこと:
+  - 次セッションはDriveや過去PDFを掘り起こさず、`FEATURE_REGISTRY.md` と `gas/064_PayoutFreeeNotice.js` から改善版フォーマットを特定できる。
+  - 旧フォーマットや古いテキストロゴへ戻す変更は `npm run test:critical-ui` で落ちる。
