@@ -75,6 +75,79 @@ function payoutCreateFreeeNotice(payload){
 }
 
 /**
+ * PWA /admin/payouts から、改善版フォーマットの支払通知書PDFを作成する。
+ * Supabase側で集約した支払月・メンバー別明細を正本にし、GASはPDFレンダリングとDrive保存だけ担当する。
+ */
+function payoutCreatePwaNoticePdf(payload){
+  payload = payload || {};
+  const memberId = String(payload.memberId || "").trim();
+  const ym = String(payload.ym || "").trim();
+  const noticeNo = String(payload.noticeNo || "").trim();
+  const totalYen = Number(payload.totalYen || 0);
+  const issuedAtJst = String(payload.issuedAtJst || payoutNowJstIso()).trim();
+  const breakdownText = payoutPwaNoticeBreakdownText_(payload.breakdown, payload.breakdownText);
+
+  if (!memberId) throw new Error("memberId empty");
+  if (!/^\d{6}$/.test(ym)) throw new Error("ym invalid（yyyymm）");
+  if (!noticeNo) throw new Error("noticeNo empty");
+  if (!isFinite(totalYen) || totalYen <= 0) throw new Error("totalYen invalid");
+
+  let payeeName = String(payload.payeeName || "").trim();
+  let payeeAddress = String(payload.payeeAddress || "").trim();
+  let bankInfo = String(payload.bankInfo || "").trim();
+
+  try{
+    const members = payoutGetMembersBasic();
+    const m = (Array.isArray(members) ? members : []).find(x => String(x.memberId||"").trim() === memberId);
+    if (m){
+      payeeName = payeeName || String(m.memberName || m.codeName || m.memberId || memberId).trim() || memberId;
+      payeeAddress = payeeAddress || String(m.memberAddress || "").trim();
+      bankInfo = bankInfo || String(m.bankInfo || "").trim();
+    }
+  } catch(e){}
+
+  payeeName = payeeName || memberId;
+
+  const pdf = payoutBuildNoticePdfBlob_({
+    ym,
+    memberId,
+    payeeName,
+    payeeAddress,
+    bankInfo,
+    totalYen,
+    breakdownText,
+    issuedAtJst,
+    noticeNo
+  });
+
+  const folderId = payoutGetNoticeFolderId_();
+  const fileName = `支払通知書_${noticeNo}_${memberId}_${ym}.pdf`;
+  const folder = DriveApp.getFolderById(folderId);
+  const file = folder.createFile(pdf.setName(fileName));
+
+  return {
+    ok: true,
+    noticeNo,
+    pdfUrl: file.getUrl(),
+    fileId: file.getId(),
+    issuedAtJst,
+    totalYen: Math.round(totalYen)
+  };
+}
+
+function payoutPwaNoticeBreakdownText_(breakdown, fallbackText){
+  if (Array.isArray(breakdown) && breakdown.length){
+    return breakdown.map(function(item){
+      item = item || {};
+      const desc = String(item.description || item.projectName || item.projectId || "業務委託料").trim();
+      const yen = Math.round(Number(item.totalYen || item.yen || item.amountYen || 0));
+      return desc + "\t" + (isFinite(yen) ? yen.toLocaleString("ja-JP") + "円" : "0円");
+    }).join("\n");
+  }
+  return String(fallbackText || "").trim();
+}
+
+/**
  * freee支払通知書のPDF URLを取得
  */
 function payoutGetFreeeNoticePdf(freeeNoticeId){

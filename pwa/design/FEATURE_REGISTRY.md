@@ -20,14 +20,15 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 支払月選択: `ym=YYYYMM` で対象月を選び、`billing_cycles.invoice_ym` を優先する。未設定cycleは `/admin/projects` の `projects.payment_due_rule` から支払月を判定する。
 - 高速初期表示: 通常GETは `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにする。毎回 `syncRewardSummariesForBillingCycles()` を再計算しない。
 - 報酬キャッシュ再計算: 明示的な「報酬キャッシュ再計算」操作または保存系処理だけが `refreshRewards=1` / `refreshRewards: true` で再計算する。
+- 報酬キャッシュ日次更新: `payout-reward-cache-refresh` cron が毎日03:05 JSTに、前月・当月・翌月の支払月について `billing_cycles.reward_summary_json` を再生成する。
 - 縦型PJ収支表: 「全体収支」列とPJ列を並べ、クライアント支払、バッファ、PJ予算、支払予定、役員分、役員相殺、最終収支、メンバー別支払を確認できる。
 - 後追いPJ予算確定: 契約や支払額が後から確定したPJは、支払月画面から確定委託料とバッファを入れ、対象稼働月の `billing_cycles.budget_yen` / `budget_reported_amount` / `budget_buffer_amount` へ配分する。
 - 支払データ保存: `monthly_reward_payout` に明細、`payout_notices.total_yen` にメンバー別通知額を保存する。役員または `exclude_from_payout_notice` のメンバーは通知対象外にする。
-- 支払通知書発行: 支払対象メンバーごとに `payout_notices.notice_no` / `pdf_url` / `sent_at` を編集できる UI を持つ。番号発行、PDF URL保存、送付済み化、未送付戻しを画面からできる。
+- 支払通知書発行: 支払対象メンバーごとに、PWA集約済みのメンバー別支払明細から改善版フォーマットのPDFを発行し、`payout_notices.notice_no` / `pdf_url` / `sent_at` を保存する。UIには「PDFで確認」「再発行」「送付済みにする」「未送付に戻す」を置く。PDF URLの手入力欄は置かない。
 - 入金確認nudge: `payment-confirm-nudges` を手動実行でき、Slack DMの `/payment-confirm` とつながる。
 - 月次モーダル導線: cycle明細やPJ収支表の稼働月から `CockpitMonthlyModal` を開き、報酬根拠に戻れる。
 
 回帰防止:
 
-- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/payouts` の支払通知書発行、報酬キャッシュ、縦型PJ収支表の anchor を検査する。
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/payouts` の支払通知書PDF確認、報酬キャッシュ、報酬キャッシュ日次cron、縦型PJ収支表の anchor を検査する。
 - この画面で UI を削る変更は、`FEATURE_REGISTRY.md` と `SPEC_pwa.md` を同時に更新する。

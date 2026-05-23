@@ -201,6 +201,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **毎時** | `nav_member_knowledge_pollAll` | メンバーナレッジ抽出 (L2 ⑤, **Phase 4**) | 本体GAS (155) |
 | **毎時** | `nav_project_knowledge_pollAll` | PJナレッジ抽出 (L2 ④, **Phase 4**) | 本体GAS (155) |
 | **毎時** | `nav_protocol_pollAll` | AMDプロトコル抽出 (L2 ②, **Phase 4**) | 本体GAS (155) |
+| **03:05** | `cron/payout-reward-cache-refresh` | `/admin/payouts` 高速表示用の `billing_cycles.reward_summary_json` を前月・当月・翌月の支払月で再生成。LLM/GAS非使用 | PWA |
 | **03:15** | `cron/venture-xrl-refresh` | XRL根拠 / PJ XRL llm_proposal (L2 ⑧)。ecosystem PJは対象外 | PWA |
 | **03:30** | `cron/relearn-lane-weights` | macro lane weights 再学習 | PWA |
 | **03:45** | `cron/venture-narrative-refresh` | PJ 沿革再生成 | PWA |
@@ -314,6 +315,7 @@ Phase 3 (MTGサマリ) で確立した「毎時 polling + source_hash 差分検�
 
 | 日付 | 変更 |
 |---|---|
+| 2026-05-23 | `/admin/payouts` の通常表示を重い再計算から切り離したため、毎日03:05 JSTの `cron/payout-reward-cache-refresh` を追加。前月・当月・翌月の支払月を対象に `syncRewardSummariesForBillingCycles()` を実行し、`billing_cycles.reward_summary_json` を日次更新する。 |
 | 2026-05-22 | **PWA/GAS background cron停止**: 生データ抽出・L2/Atlas系の定期実行はCodex automationへ寄せるため、`pwa/vercel.json` の `crons` を空にした。停止対象は `pwa/vercel.disabled-crons.json` に記録。GAS `154_PwaCronCaller.js` も kill switch で `/api/cron/hourly-estimate` / ASPI系 ping を即returnし、既存trigger削除用 `nav_pwa_disableAllPwaCronTriggers_()` を追加。旧GAS抽出cron (`060`, `056`, `153`, `152`, `155`) もkill switchで停止。PWA cron route自体は手動検証用に残すが、自動scheduleから外す。 |
 | 2026-05-22 | L2 ⑧ XRL根拠の HRL ベース (= `project_founding_members`) を「関連メンバー」リストとして再定義。HRL に算入するのは `category in ('amd','startup')` だけ (= 該当SU社員 + AMD伴走メンバー)。大学・研究機関 / VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として invalid 化。AMDメンバーは `members.code_name` で記録 (本名 / 姓のみ表記は重複扱いで invalid)。関連メンバー抽出cronが読むmdは `project_ventures.master_md_text` に同期した `/Users/masa/projects/knowledge/<slug>.md` で、AMDメンバー正規化は `members.code_name` + `members.member_name` のDB alias mapで行う。migration 075 / 082、cron prompt v5 |
 | 2026-05-15 | まさ確認により L2 を 8 種へ更新。⑦ OS台帳差分を新設し、`project_founding_members` は候補から正式昇格して ⑧ XRL根拠 (HRL含む TRL/BRL/GRL/SRL/HRL 根拠) に統合 |

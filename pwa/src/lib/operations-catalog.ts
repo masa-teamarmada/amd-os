@@ -509,6 +509,17 @@ export const cronOperations: CronOperation[] = [
     run: { type: "pwa", path: "/api/cron/payment-confirm-nudges", defaultQuery: { dryRun: 0 } },
   },
   {
+    id: "pwa-payout-reward-cache-refresh",
+    label: "報酬キャッシュ再計算",
+    layer: "PWA",
+    cadence: "日次 03:05 JST",
+    trigger: "/api/cron/payout-reward-cache-refresh",
+    defaultParams: "{\"query\":{\"ym\":\"YYYYMM\"}}",
+    input: "billing_cycles + value_milestones + milestone_monthly_progress + milestone_responsibility",
+    output: "billing_cycles.reward_summary_json / budget_yen fallback",
+    run: { type: "pwa", path: "/api/cron/payout-reward-cache-refresh", defaultQuery: {} },
+  },
+  {
     id: "manual-management-score-raw",
     label: "Management Score raw data",
     layer: "PWA",

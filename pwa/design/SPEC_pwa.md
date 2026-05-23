@@ -129,7 +129,7 @@ pwa/
 | `/scholar` | 学術トレンド (μ_A 観測量 N) — lane × quarter の論文数 line chart + 前年同期比。OpenAlex 由来。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
 | `/reimburse` | 立替精算。PWAから申請/編集/削除、領収書添付、PM承認、admin承認まで実行。申請/編集は `/api/reimbursements` 経由で server-side 保存。status flow: `submitted` → `pmApproved` → `approved` |
 | `/admin/billing` | admin 立替/請求マトリクス (チップ操作で billing_cycles 直更新) |
-| `/admin/payouts` | 報酬支払。支払月を選び、`billing_cycles.invoice_ym` があればそれを優先、空なら `/admin/projects` の支払条件 (`projects.payment_due_rule`) から支払月を自動判定して報酬確定済みcycleを集約する。通常表示は `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにし、明示的な「報酬キャッシュ再計算」または保存系処理だけが再計算する。`monthly_reward_payout` / `payout_notices` 保存、支払通知書発行 (`notice_no` / `pdf_url` / `sent_at`)、後追い委託料入力、`65% - buffer` のPJ予算配分、縦型PJ収支表、PJ予算超過チェック、後追い予算未確定 / 予算不足 / 失注ステータス警告、入金確認nudge、明細クリックから月次モーダルを開く導線を持つ |
+| `/admin/payouts` | 報酬支払。支払月を選び、`billing_cycles.invoice_ym` があればそれを優先、空なら `/admin/projects` の支払条件 (`projects.payment_due_rule`) から支払月を自動判定して報酬確定済みcycleを集約する。通常表示は `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにし、明示的な「報酬キャッシュ再計算」・保存系処理・日次 `payout-reward-cache-refresh` cron だけが再計算する。`monthly_reward_payout` / `payout_notices` 保存、PWA集約済み明細からの改善版支払通知書PDF発行 (`notice_no` / `pdf_url` / `sent_at`)、後追い委託料入力、`65% - buffer` のPJ予算配分、縦型PJ収支表、PJ予算超過チェック、後追い予算未確定 / 予算不足 / 失注ステータス警告、入金確認nudge、明細クリックから月次モーダルを開く導線を持つ。PDF URL手入力欄は置かず、「PDFで確認」ボタンで発行/確認する |
 | `/admin/finance` | 経理オペ台帳。サブスク / 固定継続費 / 自動振替 / 引落口座 / budget forward-fill / Gmail領収書イベント |
 | `/admin/projects` `/admin/members` `/admin/contexts` `/admin/protocols` `/admin/tsukuyomi` `/admin/settings` | 各 admin。`/admin/projects` はPJごとの契約・請求・支払条件の正本で、支払条件は稼働月基準の `当月末 / 当月25日 / 翌月末 / 翌月25日 / 翌々月末 / 翌々月25日` を `projects.payment_due_rule` に保存する。例: 5月稼働分を6月に請求して6月末支払なら `翌月末`。`/admin/members` はGoogle Calendar共有状態 (`members.google_calendar_status`) とOS最終ログイン (`members.last_login_at`) を表示し、最終ログインが新しい順に並べる |
 | `/admin/prompts` | LLM プロンプト管理 (= AGENTS ルール「プロンプトをコードに書かない」執行 UI)。`llm_prompts` 3 件 (tsukuyomi.system / protocol.extract / monthly_report.r313_extract) + スプシ由来 `tsukuyomi_context` 20+ 件を併記。body 全文閲覧 + 編集 + is_active トグル可能。詳細は [`amd_protocol.md`](amd_protocol.md) と [`L2_DATA.md`](L2_DATA.md) |
@@ -172,6 +172,7 @@ pwa/
 | `cron/atlas-divergence` | disabled | 06:00 sun | テーマ単位 divergence 再生成。Sonnet利用のため停止済み |
 | `cron/member-activities` | disabled | 04:00 daily | 月次レポート + MTGサマリ + source_cache refs → Sonnet 推論 → member_activities。LLM課金回避で停止済み |
 | `cron/member-weekly-activities` | `0 9 * * *` | 18:00 daily | Gmail / 共有メンバーカレンダー / source_cache → member_activities(source='member_weekly')。毎日18:00 JSTに、前日18:00〜当日18:00の24hを抽出 |
+| `cron/payout-reward-cache-refresh` | `5 18 * * *` | 03:05 daily | `/admin/payouts` の高速表示用に、前月・当月・翌月の支払月で対象cycleを集約し、`syncRewardSummariesForBillingCycles()` で `billing_cycles.reward_summary_json` を再生成する。LLM/GAS非使用。手動実行は `?ym=YYYYMM` 指定可 |
 | `cron/relearn-lane-weights` | disabled | 03:30 daily | macro lane weights 再学習。Sonnet利用のため停止済み |
 | `cron/macro-backfill-historical` | disabled | 12:00 sun | 2010-2025 macro_index_log を Sonnet 推定で埋めるため停止済み |
 | `cron/amd-score-l2-refresh` | disabled | 03:00 mon | 6 ソース (Slack/Drive/Notion/Gmail/Calendar/WebSearch) から AMD Score / XRL根拠 (L2 ⑧) を Sonnet 抽出するため停止済み |

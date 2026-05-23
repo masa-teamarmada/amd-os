@@ -195,9 +195,6 @@ type ModalTarget = {
 };
 
 type NoticeSavePatch = {
-  noticeNo?: string;
-  pdfUrl?: string;
-  issueNumber?: boolean;
   markSent?: boolean;
   clearSent?: boolean;
 };
@@ -774,9 +771,52 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     }
   }
 
-  async function saveNotice(row: MemberPayoutRow, patch: NoticeSavePatch) {
+  function openPdfUrl(pdfUrl: string | null | undefined) {
+    if (!pdfUrl) return;
+    window.open(pdfUrl, "_blank", "noopener,noreferrer");
+  }
+
+  async function issueNoticePdf(row: MemberPayoutRow, options: { forceReissue?: boolean } = {}) {
+    if (row.notice?.pdf_url && !options.forceReissue) {
+      openPdfUrl(row.notice.pdf_url);
+      return;
+    }
+    if (!row.isSaved) {
+      setHint("先に支払データを保存してからPDFを発行してね");
+      return;
+    }
+
     setNoticeSavingMemberId(row.memberId);
-    setHint("支払通知書を更新中...");
+    setHint("支払通知書PDFを発行中...");
+    try {
+      const res = await fetch("/api/admin/payouts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "issue_notice_pdf",
+          ym,
+          memberId: row.memberId,
+        }),
+      });
+      const payload = (await res.json()) as (
+        PayoutData & { ok?: boolean; error?: string; issuedNotice?: { pdfUrl?: string } }
+      );
+      if (!res.ok || payload.ok === false) {
+        throw new Error(payload.error || `notice pdf failed (${res.status})`);
+      }
+      setData(payload);
+      openPdfUrl(payload.issuedNotice?.pdfUrl);
+      setHint(`${row.memberName} の支払通知書PDFを発行した`);
+    } catch (err) {
+      setHint(err instanceof Error ? err.message : "支払通知書PDFの発行エラー");
+    } finally {
+      setNoticeSavingMemberId(null);
+    }
+  }
+
+  async function updateNoticeSent(row: MemberPayoutRow, patch: NoticeSavePatch) {
+    setNoticeSavingMemberId(row.memberId);
+    setHint("支払通知書の送付状態を更新中...");
     try {
       const res = await fetch("/api/admin/payouts", {
         method: "PATCH",
@@ -796,9 +836,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         throw new Error(payload.error || `notice save failed (${res.status})`);
       }
       setData(payload);
-      setHint(`${row.memberName} の支払通知書を更新した`);
+      setHint(`${row.memberName} の支払通知書ステータスを更新した`);
     } catch (err) {
-      setHint(err instanceof Error ? err.message : "支払通知書の保存エラー");
+      setHint(err instanceof Error ? err.message : "支払通知書ステータスの保存エラー");
     } finally {
       setNoticeSavingMemberId(null);
     }
@@ -1178,7 +1218,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         rows={memberRows}
         disabled={loading || saving || noticeSavingMemberId != null}
         savingMemberId={noticeSavingMemberId}
-        onSaveNotice={saveNotice}
+        onIssueNoticePdf={issueNoticePdf}
+        onUpdateNoticeSent={updateNoticeSent}
       />
 
       {modalTarget && modalLoading && (
@@ -1667,22 +1708,20 @@ function BudgetConfirmModal({
   );
 }
 
-function defaultNoticeNo(ym: string, memberId: string) {
-  return `AMD-PAY-${ym}-${memberId}`;
-}
-
 function PayoutNoticeIssuePanel({
   ym,
   rows,
   disabled,
   savingMemberId,
-  onSaveNotice,
+  onIssueNoticePdf,
+  onUpdateNoticeSent,
 }: {
   ym: string;
   rows: MemberPayoutRow[];
   disabled: boolean;
   savingMemberId: string | null;
-  onSaveNotice: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
+  onIssueNoticePdf: (row: MemberPayoutRow, options?: { forceReissue?: boolean }) => void;
+  onUpdateNoticeSent: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
 }) {
   const issueRows = rows.filter((row) => !row.noticeExcluded);
 
@@ -1696,7 +1735,7 @@ function PayoutNoticeIssuePanel({
         <div>
           <h2 className="text-[13px] font-semibold">支払通知書発行</h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            支払データ保存後に、通知書番号・PDF URL・送付状態を `payout_notices` に残す
+            支払データ保存後に、改善版フォーマットのPDFを発行して `payout_notices` に残す
           </p>
         </div>
         <span className="text-[11px] text-muted-foreground">
@@ -1711,7 +1750,7 @@ function PayoutNoticeIssuePanel({
               <th className="px-3 py-2 text-left font-medium">メンバー</th>
               <th className="px-3 py-2 text-right font-medium">通知額</th>
               <th className="px-3 py-2 text-left font-medium">通知書番号</th>
-              <th className="px-3 py-2 text-left font-medium">PDF URL</th>
+              <th className="px-3 py-2 text-left font-medium">PDF確認</th>
               <th className="px-3 py-2 text-left font-medium">状態</th>
               <th className="px-3 py-2 text-right font-medium">操作</th>
             </tr>
@@ -1720,11 +1759,11 @@ function PayoutNoticeIssuePanel({
             {issueRows.map((row) => (
               <PayoutNoticeIssueRow
                 key={row.memberId}
-                ym={ym}
                 row={row}
                 disabled={disabled}
                 saving={savingMemberId === row.memberId}
-                onSaveNotice={onSaveNotice}
+                onIssueNoticePdf={onIssueNoticePdf}
+                onUpdateNoticeSent={onUpdateNoticeSent}
               />
             ))}
           </tbody>
@@ -1735,27 +1774,21 @@ function PayoutNoticeIssuePanel({
 }
 
 function PayoutNoticeIssueRow({
-  ym,
   row,
   disabled,
   saving,
-  onSaveNotice,
+  onIssueNoticePdf,
+  onUpdateNoticeSent,
 }: {
-  ym: string;
   row: MemberPayoutRow;
   disabled: boolean;
   saving: boolean;
-  onSaveNotice: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
+  onIssueNoticePdf: (row: MemberPayoutRow, options?: { forceReissue?: boolean }) => void;
+  onUpdateNoticeSent: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
 }) {
-  const [noticeNo, setNoticeNo] = useState(row.notice?.notice_no ?? defaultNoticeNo(ym, row.memberId));
-  const [pdfUrl, setPdfUrl] = useState(row.notice?.pdf_url ?? "");
-
-  useEffect(() => {
-    setNoticeNo(row.notice?.notice_no ?? defaultNoticeNo(ym, row.memberId));
-    setPdfUrl(row.notice?.pdf_url ?? "");
-  }, [row.memberId, row.notice?.notice_no, row.notice?.pdf_url, ym]);
-
   const blocked = disabled || saving;
+  const canIssuePdf = !blocked && row.isSaved;
+  const canMarkSent = !blocked && Boolean(row.notice?.pdf_url);
   const savedNoticeTotal = Math.round(numberValue(row.notice?.total_yen));
   const totalMismatch = savedNoticeTotal > 0 && savedNoticeTotal !== Math.round(row.totalPay);
 
@@ -1775,32 +1808,33 @@ function PayoutNoticeIssueRow({
         )}
       </td>
       <td className="px-3 py-2">
-        <input
-          value={noticeNo}
-          onChange={(event) => setNoticeNo(event.target.value)}
-          disabled={blocked}
-          className="h-9 w-full min-w-[180px] rounded-md border border-border bg-background px-2 font-mono text-[11px] disabled:opacity-50"
-          placeholder={defaultNoticeNo(ym, row.memberId)}
-        />
+        {row.notice?.notice_no ? (
+          <div className="font-mono text-[11px]">{row.notice.notice_no}</div>
+        ) : (
+          <span className="text-[11px] text-muted-foreground">PDF発行時に採番</span>
+        )}
       </td>
       <td className="px-3 py-2">
-        <input
-          value={pdfUrl}
-          onChange={(event) => setPdfUrl(event.target.value)}
-          disabled={blocked}
-          className="h-9 w-full min-w-[220px] rounded-md border border-border bg-background px-2 font-mono text-[11px] disabled:opacity-50"
-          placeholder="https://..."
-        />
-        {row.notice?.pdf_url && (
-          <a
-            href={row.notice.pdf_url}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-1 inline-block text-[10px] text-blue-700 underline underline-offset-2"
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => onIssueNoticePdf(row)}
+            disabled={!canIssuePdf}
+            className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
           >
-            PDFを開く
-          </a>
-        )}
+            {saving ? "発行中..." : "PDFで確認"}
+          </button>
+          {row.notice?.pdf_url && (
+            <button
+              type="button"
+              onClick={() => onIssueNoticePdf(row, { forceReissue: true })}
+              disabled={!canIssuePdf}
+              className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
+            >
+              再発行
+            </button>
+          )}
+        </div>
       </td>
       <td className="px-3 py-2">
         <NoticeBadge notice={row.notice} expectedTotal={row.totalPay} excluded={false} />
@@ -1814,35 +1848,10 @@ function PayoutNoticeIssueRow({
         <div className="flex flex-wrap justify-end gap-1.5">
           <button
             type="button"
-            onClick={() => onSaveNotice(row, {
-              noticeNo: noticeNo.trim(),
-              pdfUrl: pdfUrl.trim(),
-              issueNumber: true,
-            })}
-            disabled={blocked}
-            className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
-          >
-            {saving ? "保存中..." : "番号発行"}
-          </button>
-          <button
-            type="button"
-            onClick={() => onSaveNotice(row, {
-              noticeNo: noticeNo.trim(),
-              pdfUrl: pdfUrl.trim(),
-            })}
-            disabled={blocked}
-            className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
-          >
-            URL保存
-          </button>
-          <button
-            type="button"
-            onClick={() => onSaveNotice(row, {
-              noticeNo: noticeNo.trim(),
-              pdfUrl: pdfUrl.trim(),
+            onClick={() => onUpdateNoticeSent(row, {
               markSent: true,
             })}
-            disabled={blocked}
+            disabled={!canMarkSent}
             className="rounded-md bg-foreground px-2 py-1 text-[11px] font-medium text-background disabled:opacity-50"
           >
             送付済みにする
@@ -1850,9 +1859,7 @@ function PayoutNoticeIssueRow({
           {row.notice?.sent_at && (
             <button
               type="button"
-              onClick={() => onSaveNotice(row, {
-                noticeNo: noticeNo.trim(),
-                pdfUrl: pdfUrl.trim(),
+              onClick={() => onUpdateNoticeSent(row, {
                 clearSent: true,
               })}
               disabled={blocked}

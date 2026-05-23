@@ -3,6 +3,7 @@
     { "path": "/api/cron/freee-payment-sync", "schedule": "10 0 * * *" },
     { "path": "/api/cron/payment-confirm-nudges", "schedule": "30 0 * * *" },
     { "path": "/api/cron/member-weekly-activities", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/payout-reward-cache-refresh", "schedule": "5 18 * * *" },
     { "path": "/api/cron/papers-quarterly-ingest", "schedule": "20 18 * * 1" },
     { "path": "/api/cron/sync-pj-facts", "schedule": "0 19 * * *" },
     { "path": "/api/cron/macro-aggregate-indicators", "schedule": "0 19 1 * *" }

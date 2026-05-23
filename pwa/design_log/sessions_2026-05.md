@@ -5927,3 +5927,37 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - `npm run test:critical-ui` に `FEATURE_REGISTRY.md` と `/admin/payouts` の支払通知書/キャッシュ/API anchor 検査を追加した。
 - できるようになったこと:
   - 重要UIを消す変更は、正本mdと回帰テストの両方を更新しないと通りづらくなった。
+
+#### #23 follow-up 報酬キャッシュを毎日再計算するcron化
+
+- まさがお願いしていたこと:
+  - `/admin/payouts` をキャッシュ表示にするだけでは、キャッシュを更新するトリガーがない。毎日午前3時などで再計算してほしい。
+- どう解決したか:
+  - `/api/cron/payout-reward-cache-refresh` を追加し、対象支払月の `billing_cycles.reward_summary_json` を事前更新するようにした。
+  - `vercel.json` に毎日 03:05 JST 相当の cron を追加した。
+  - operation catalog / Feature Registry / SPEC / L2_DATA / BUGS に、表示時再計算ではなく定期再計算でキャッシュを温める運用を記録した。
+- できるようになったこと:
+  - `/admin/payouts` の通常表示は即時キャッシュ参照、重い再計算は毎日cron・手動ボタン・保存系操作に分離される。
+
+#### #25 follow-up 改善版PDFフォーマットで支払通知書発行を復活
+
+- まさがお願いしていたこと:
+  - GAS時代のPDFフォーマットは低品質だったので戻さず、PWAで改善した支払通知書フォーマットを復活してほしい。
+  - PDF URL入力欄ではなく、前のように「PDFで確認」できる導線に戻してほしい。
+- どう解決したか:
+  - `/api/admin/payouts` に `PATCH action=issue_notice_pdf` を追加し、PWA側の報酬内訳・通知額を正としてPDF発行payloadを作るようにした。
+  - GAS側に `payoutCreatePwaNoticePdf` を追加し、PWAから受け取った改善版内訳を既存PDFビルダーへ渡してDriveへ保存するようにした。
+  - `/admin/payouts` の支払通知書発行UIからPDF URL入力欄を消し、「PDFで確認」「再発行」「送付済みにする」「未送付に戻す」の操作に戻した。
+- できるようになったこと:
+  - 支払データ保存後、画面から改善版フォーマットのPDFを発行・確認でき、発行結果だけが `payout_notices` に保存される。
+
+#### #26 follow-up 仕様ドリフト防止を一般的な開発手法に寄せる
+
+- まさがお願いしていたこと:
+  - 重要UIだけでなく、すべての機能を余さず設計へ書き起こし、バイブコーディングで勝手に仕様が変わらないよう一般的な方法を取り入れてほしい。
+- どう解決したか:
+  - GitHub Spec Kit / ADR / BDD の考え方を確認し、AMD OS向けに `pwa/design/SPEC_GOVERNANCE.md` を追加した。
+  - 設計の正本を Capability Catalog / Functional Spec / Data Contract / ADR / Executable Spec / Traceability に分ける運用へ整理した。
+  - `pwa/design/README.md` から仕様統制ルールへ到達できるようにした。
+- できるようになったこと:
+  - 今後は機能追加・削除・置換時に、実装だけでなく設計正本と回帰テストの更新を同じ単位で扱う。

@@ -5,6 +5,37 @@
 
 ---
 
+### [pwa/admin-payouts] 報酬キャッシュを手動更新だけにして日次再計算トリガーがなかった
+
+- **発見日**: 2026-05-23
+- **状態**: ✅ 修正済
+- **症状**:
+  - `/admin/payouts` の通常表示を高速化するため `billing_cycles.reward_summary_json` 読み取りに寄せたが、毎日勝手に最新化する入口がなかった。
+- **原因**:
+  - 表示時の毎回再計算を止めたあと、手動「報酬キャッシュ再計算」以外の再計算タイミングを追加していなかった。
+- **対応内容**:
+  - `/api/cron/payout-reward-cache-refresh` を追加。
+  - `pwa/vercel.json` に `5 18 * * *` (= 03:05 JST) で登録し、前月・当月・翌月の支払月を対象に `syncRewardSummariesForBillingCycles()` を実行する。
+- **再発防止策**:
+  - 重い計算を表示時から外すときは、明示操作だけでなく定期更新または保存時更新のトリガーを同じ変更で用意する。
+
+### [pwa/admin-payouts] 支払通知書発行UIをPDF URL手入力にしてしまった
+
+- **発見日**: 2026-05-23
+- **状態**: ✅ 修正済
+- **症状**:
+  - `/admin/payouts` の支払通知書発行UIに「PDF URL」手入力欄があり、以前の「PDFで確認する」導線が戻っていなかった。
+  - PDFフォーマットも、GAS時代の低品質な旧導線に戻すのではなく、PWA側で改善したフォーマットを使う必要があった。
+- **原因**:
+  - `payout_notices.pdf_url` を保存するDB状態管理だけを復活させ、PDF生成そのものを復元していなかった。
+- **対応内容**:
+  - `/api/admin/payouts` に `PATCH action=issue_notice_pdf` を追加し、PWAで集約した支払月・メンバー別明細をGAS `payoutCreatePwaNoticePdf` へ渡して改善版フォーマットPDFをDriveへ保存する。
+  - UIからPDF URL手入力欄を削除し、「PDFで確認」「再発行」「送付済みにする」「未送付に戻す」の導線に戻した。
+  - `payout_notices.notice_no` / `pdf_url` / `total_yen` はPDF発行時に保存する。
+- **再発防止策**:
+  - 「発行UI」はDBメタデータ編集ではなく、実際の発行・確認アクションまでを機能契約に含める。
+  - `test:critical-ui` は「PDFで確認」「issue_notice_pdf」「payoutCreatePwaNoticePdf」をanchorとして検査する。
+
 ### [Notifications] XRL通知で「抽出された行が見つかりませんでした」と出る
 
 - **発見日**: 2026-05-22

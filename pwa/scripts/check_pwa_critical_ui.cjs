@@ -73,18 +73,33 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "報酬キャッシュ再計算",
   "支払通知書発行",
   "通知書番号",
-  "PDF URL",
+  "PDFで確認",
+  "再発行",
   "送付済みにする",
   "未送付に戻す",
 ]);
 
 expectIncludes("src/app/api/admin/payouts/route.ts", [
   "refreshRewards",
+  "issue_notice_pdf",
+  "payoutCreatePwaNoticePdf",
   "update_notice",
   "payout_notices",
   "notice_no",
   "pdf_url",
   "sent_at",
+]);
+
+expectIncludes("src/app/api/cron/payout-reward-cache-refresh/route.ts", [
+  "payout-reward-cache-refresh",
+  "syncRewardSummariesForBillingCycles",
+  "targetPaymentYms",
+  "03:05",
+]);
+
+expectIncludes("vercel.json", [
+  "/api/cron/payout-reward-cache-refresh",
+  "5 18 * * *",
 ]);
 
 expectIncludes("design/FEATURE_REGISTRY.md", [

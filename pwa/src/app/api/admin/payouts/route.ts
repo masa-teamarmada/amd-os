@@ -58,6 +58,9 @@ type PayoutEntry = {
 
 type MemberRow = {
   member_id: string;
+  code_name?: string | null;
+  member_name?: string | null;
+  email?: string | null;
   is_officer?: boolean | null;
   exclude_from_payout_notice?: boolean | null;
 };
@@ -127,6 +130,10 @@ function normalizePdfUrl(value: unknown): string | null {
 
 function defaultNoticeNo(ym: string, memberId: string): string {
   return `AMD-PAY-${ym}-${memberId}`;
+}
+
+function generatedNoticeNo(ym: string, sequence: number): string {
+  return `PN${ym}-${String(Math.max(1, sequence)).padStart(3, "0")}`;
 }
 
 function cycleKey(row: BillingCycleRow) {
@@ -218,6 +225,64 @@ function aggregateNotices(ym: string, entries: PayoutEntry[], members: MemberRow
     ym,
     total_yen: Math.round(total_yen),
   }));
+}
+
+function ymShortLabel(ym: string): string {
+  return YM_RE.test(ym) ? `${Number(ym.slice(4, 6))}月稼働分` : ym;
+}
+
+function projectLabel(project: PaymentProjectRow | undefined, projectId: string): string {
+  const name = textValue(project?.project_name) || textValue(project?.client_name);
+  return name || projectId;
+}
+
+function expectedNoticeEntriesForMember(
+  memberId: string,
+  data: Awaited<ReturnType<typeof loadTargetData>>
+): Array<PayoutEntry & { project_name: string; description: string }> {
+  const projectMap = new Map<string, PaymentProjectRow>();
+  for (const project of data.projects as PaymentProjectRow[]) {
+    projectMap.set(project.project_id, project);
+  }
+  return data.expectedEntries
+    .filter((entry) => entry.member_id === memberId && entry.total_pay > 0)
+    .map((entry) => {
+      const name = projectLabel(projectMap.get(entry.project_id), entry.project_id);
+      return {
+        ...entry,
+        project_name: name,
+        description: `${name} ${ymShortLabel(entry.ym)}`,
+      };
+    });
+}
+
+function findMember(memberId: string, members: unknown[]): MemberRow | null {
+  return ((members ?? []) as MemberRow[]).find((member) => member.member_id === memberId) ?? null;
+}
+
+async function callGasPayoutNoticePdf(payload: Record<string, unknown>) {
+  const baseUrl = process.env.NEXT_PUBLIC_GAS_WEBAPP_URL || "";
+  const apiKey = process.env.NEXT_PUBLIC_GAS_API_KEY || process.env.CRON_SECRET || "";
+  if (!baseUrl) throw new Error("NEXT_PUBLIC_GAS_WEBAPP_URL missing");
+  if (!apiKey) throw new Error("NEXT_PUBLIC_GAS_API_KEY or CRON_SECRET missing");
+
+  const url = new URL(baseUrl);
+  url.searchParams.set("mode", "pwaApi");
+  url.searchParams.set("key", apiKey);
+  url.searchParams.set("action", "runFunc");
+  url.searchParams.set("fn", "payoutCreatePwaNoticePdf");
+  url.searchParams.set("args", JSON.stringify([payload]));
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) throw new Error(`GAS payout notice PDF failed: ${res.status}`);
+
+  const json = (await res.json()) as Record<string, unknown>;
+  if (json.ok === false) throw new Error(textValue(json.error) || "GAS payout notice PDF failed");
+
+  const data = asRecord(json.data) ?? {};
+  const result = asRecord(data.result) ?? {};
+  if (result.ok === false) throw new Error(textValue(result.message) || textValue(result.error) || "GAS payout notice PDF failed");
+  return result;
 }
 
 async function loadTargetData(ym: string, options: LoadTargetDataOptions = {}) {
@@ -407,6 +472,105 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: true, updatedNoticeMemberId: memberId, ...after });
     } catch (err) {
       console.error("[admin payouts PATCH notice]", err);
+      return NextResponse.json(
+        { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 }
+      );
+    }
+  }
+
+  if (body.action === "issue_notice_pdf") {
+    const memberId = textValue(body.memberId);
+    if (!ym || !memberId) {
+      return NextResponse.json({ ok: false, error: "ym and memberId are required" }, { status: 400 });
+    }
+
+    try {
+      const db = createAdminClient();
+      const data = await loadTargetData(ym);
+      const member = findMember(memberId, data.members);
+      if (!member) {
+        return NextResponse.json({ ok: false, error: `member not found: ${memberId}` }, { status: 404 });
+      }
+
+      const entries = expectedNoticeEntriesForMember(memberId, data);
+      const totalYen = entries.reduce((sum, entry) => sum + entry.total_pay, 0);
+      if (entries.length === 0 || totalYen <= 0) {
+        return NextResponse.json({ ok: false, error: "no payout entries for notice" }, { status: 409 });
+      }
+
+      const { data: existing, error: existingError } = await db
+        .from("payout_notices")
+        .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen")
+        .eq("member_id", memberId)
+        .eq("ym", ym)
+        .maybeSingle();
+      if (existingError) throw existingError;
+
+      const { count, error: countError } = await db
+        .from("payout_notices")
+        .select("member_id", { count: "exact", head: true })
+        .eq("ym", ym)
+        .not("notice_no", "is", null);
+      if (countError) throw countError;
+
+      const noticeNo = textValue(existing?.notice_no) || generatedNoticeNo(ym, (count ?? 0) + 1);
+      const payeeName = textValue(member.member_name) || textValue(member.code_name) || memberId;
+      const issuedAt = new Date().toISOString();
+
+      const gasResult = await callGasPayoutNoticePdf({
+        ym,
+        memberId,
+        noticeNo,
+        payeeName,
+        payeeEmail: textValue(member.email),
+        totalYen,
+        issuedAt,
+        breakdown: entries.map((entry) => ({
+          projectId: entry.project_id,
+          projectName: entry.project_name,
+          sourceYm: entry.ym,
+          description: entry.description,
+          earnedPt: entry.earned_pt,
+          basePay: entry.base_pay,
+          bonusPt: entry.bonus_pt,
+          totalYen: entry.total_pay,
+        })),
+      });
+
+      const pdfUrl = textValue(gasResult.pdfUrl) || textValue(gasResult.pdf_url);
+      if (!pdfUrl) throw new Error("GAS did not return pdfUrl");
+      const actualNoticeNo = textValue(gasResult.noticeNo) || textValue(gasResult.freeeNoticeNo) || noticeNo;
+
+      const { error: upsertError } = await db
+        .from("payout_notices")
+        .upsert(
+          {
+            member_id: memberId,
+            ym,
+            sent_at: existing?.sent_at ?? null,
+            notice_no: actualNoticeNo,
+            pdf_url: pdfUrl,
+            total_yen: Math.round(totalYen),
+          },
+          { onConflict: "member_id,ym" }
+        );
+      if (upsertError) throw upsertError;
+
+      const after = await loadTargetData(ym);
+      return NextResponse.json({
+        ok: true,
+        issuedNotice: {
+          memberId,
+          noticeNo: actualNoticeNo,
+          pdfUrl,
+          totalYen: Math.round(totalYen),
+          issuedAtJst: textValue(gasResult.issuedAtJst),
+        },
+        ...after,
+      });
+    } catch (err) {
+      console.error("[admin payouts PATCH issue_notice_pdf]", err);
       return NextResponse.json(
         { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
         { status: 500 }

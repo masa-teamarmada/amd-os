@@ -1,7 +1,7 @@
 # HANDOFF — AMD OS PWA
 
 最終更新: 2026-05-23
-トピック: 月次ルーティン / payouts高速化+支払通知書発行UI / 機能レジストリ / GAS clasp push復旧 / 入金確認nudge+freee同期 / LLMなしcron復旧 / member weekly activity / メンバーコードネームリンク / マイページTODO担当role化 / L2通知承認ゲート / 関連メンバー (HRL根拠) SU+AMD限定 / admin members hardening
+トピック: 月次ルーティン / payouts高速化+報酬キャッシュ日次更新+支払通知書PDF確認 / 機能レジストリ / GAS clasp push復旧 / 入金確認nudge+freee同期 / LLMなしcron復旧 / member weekly activity / メンバーコードネームリンク / マイページTODO担当role化 / L2通知承認ゲート / 関連メンバー (HRL根拠) SU+AMD限定 / admin members hardening
 
 詳細ログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md)
 関連仕様: [`design/README.md`](design/README.md), [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md), [`design/SPEC_pwa.md`](design/SPEC_pwa.md), [`design/L2_DATA.md`](design/L2_DATA.md), [`design/cockpit.md`](design/cockpit.md), [`design/notifications.md`](design/notifications.md), [`design/xrl_evidence.md`](design/xrl_evidence.md)
@@ -27,8 +27,8 @@
 
 ## Latest Summary
 
-- `/admin/payouts` の通常表示を `billing_cycles.reward_summary_json` キャッシュ読み取りへ変更。毎回 `syncRewardSummariesForBillingCycles()` を走らせず、手動の「報酬キャッシュ再計算」または保存系処理だけが再計算する。
-- `/admin/payouts` に支払通知書発行UIを復活。メンバー別に `payout_notices.notice_no` / `pdf_url` / `sent_at` を編集し、番号発行、PDF URL保存、送付済み化、未送付戻しができる。
+- `/admin/payouts` の通常表示を `billing_cycles.reward_summary_json` キャッシュ読み取りへ変更。毎回 `syncRewardSummariesForBillingCycles()` を走らせず、手動の「報酬キャッシュ再計算」・保存系処理・日次 `payout-reward-cache-refresh` cron (03:05 JST) だけが再計算する。
+- `/admin/payouts` に支払通知書PDF発行UIを復活。PWAで集約した支払月・メンバー別明細をGAS `payoutCreatePwaNoticePdf` に渡し、改善版フォーマットのPDFをDrive保存して `payout_notices.notice_no` / `pdf_url` / `sent_at` に残す。UIは「PDFで確認」「再発行」「送付済みにする」「未送付に戻す」で、PDF URL手入力欄は置かない。
 - `pwa/design/FEATURE_REGISTRY.md` を追加し、重要業務UIの「消してはいけない導線」を登録する運用に変更。`npm run test:critical-ui` は `/admin/payouts` の報酬キャッシュ・支払通知書発行・縦型PJ収支表 anchor とこの登録簿を検査する。
 - GAS `clasp login` をブラウザ認可まで進め、`cd gas && npx --yes @google/clasp push` は成功。`invalid_grant / invalid_rapt` による未反映状態は解消。
 - `/admin/payouts` を、支払月単位でPJ予算チェック・後追い委託料確定・支払通知額保存まで扱える画面/APIへ整理。
