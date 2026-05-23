@@ -107,7 +107,7 @@ pwa/
 | `/dashboard-cyber-glass-cube` | 廃案比較用の旧 Cyber Dashboard 第2案。ガラスキューブPJ群は情報構造がカオス化したため、今後の正本候補にはしない。公開モックは `/mock/dashboard-cyber-glass-cube` |
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定 (取り消し線 = 未完月次ルーティンによる除外) |
-| `/project/[projectId]/cockpit` | PJ コックピット (PJ Status (SU 系のみ) / MS / 月次カード / カンバン / ナッジ / 月次ルーティン)。詳細は [`cockpit.md`](cockpit.md) |
+| `/project/[projectId]/cockpit` | PJ コックピット (PJ Status (SU 系のみ) / MS / 経営・事業シグナル / 月次カード / カンバン / ナッジ / 月次ルーティン)。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/reimburse` | 立替精算 |
 | `/admin/settings` | Operations Settings。admin限定で Raw Data / L2 Data / Cron Control を一覧化する。停止中cronはここに旧頻度・入力・出力・停止理由を表示する。`/settings` は一般ユーザー誤操作防止のため削除 |
@@ -129,7 +129,7 @@ pwa/
 | `/scholar` | 学術トレンド (μ_A 観測量 N) — lane × quarter の論文数 line chart + 前年同期比。OpenAlex 由来。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
 | `/reimburse` | 立替精算。PWAから申請/編集/削除、領収書添付、PM承認、admin承認まで実行。申請/編集は `/api/reimbursements` 経由で server-side 保存。status flow: `submitted` → `pmApproved` → `approved` |
 | `/admin/billing` | admin 立替/請求マトリクス (チップ操作で billing_cycles 直更新) |
-| `/admin/payouts` | 報酬支払。支払月を選び、`billing_cycles.invoice_ym` があればそれを優先、空なら `/admin/projects` の支払条件 (`projects.payment_due_rule`) から支払月を自動判定して報酬確定済みcycleを集約する。通常表示は `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにし、明示的な「報酬キャッシュ再計算」・保存系処理・日次 `payout-reward-cache-refresh` cron だけが再計算する。`monthly_reward_payout` / `payout_notices` 保存、PWA集約済み明細からの改善版支払通知書PDF発行 (`notice_no` / `pdf_url` / `sent_at`)、後追い委託料入力、`65% - buffer` のPJ予算配分、縦型PJ収支表、PJ予算超過チェック、後追い予算未確定 / 予算不足 / 失注ステータス警告、入金確認nudge、明細クリックから月次モーダルを開く導線を持つ。PDF URL手入力欄は置かず、「PDFで確認」ボタンで発行/確認する |
+| `/admin/payouts` | 報酬支払。支払月を選び、`billing_cycles.invoice_ym` があればそれを優先、空なら `/admin/projects` の支払条件 (`projects.payment_due_rule`) から支払月を自動判定して報酬確定済みcycleを集約する。通常表示は `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにし、明示的な「報酬キャッシュ再計算」・保存系処理・日次 `payout-reward-cache-refresh` cron だけが再計算する。`monthly_reward_payout` / `payout_notices` 保存、PWA集約済み明細からの改善版支払通知書PDF発行 (`notice_no` / `pdf_url` / `sent_at`)、後追い委託料入力、`65% - buffer` のPJ予算配分、縦型PJ収支表、PJ予算超過チェック、後追い予算未確定 / 予算不足 / 失注ステータス警告、入金確認nudge、明細クリックから月次モーダルを開く導線を持つ。PDF URL手入力欄は置かず、「メンバー別支払」各行に `支払通知書発行` / `PDF確認` / `送付` を置く |
 | `/admin/finance` | 経理オペ台帳。サブスク / 固定継続費 / 自動振替 / 引落口座 / budget forward-fill / Gmail領収書イベント |
 | `/admin/projects` `/admin/members` `/admin/contexts` `/admin/protocols` `/admin/tsukuyomi` `/admin/settings` | 各 admin。`/admin/projects` はPJごとの契約・請求・支払条件の正本で、支払条件は稼働月基準の `当月末 / 当月25日 / 翌月末 / 翌月25日 / 翌々月末 / 翌々月25日` を `projects.payment_due_rule` に保存する。例: 5月稼働分を6月に請求して6月末支払なら `翌月末`。`/admin/members` はGoogle Calendar共有状態 (`members.google_calendar_status`) とOS最終ログイン (`members.last_login_at`) を表示し、最終ログインが新しい順に並べる |
 | `/admin/prompts` | LLM プロンプト管理 (= AGENTS ルール「プロンプトをコードに書かない」執行 UI)。`llm_prompts` 3 件 (tsukuyomi.system / protocol.extract / monthly_report.r313_extract) + スプシ由来 `tsukuyomi_context` 20+ 件を併記。body 全文閲覧 + 編集 + is_active トグル可能。詳細は [`amd_protocol.md`](amd_protocol.md) と [`L2_DATA.md`](L2_DATA.md) |
@@ -185,6 +185,7 @@ pwa/
 | `cron/macro-aggregate-indicators` | `0 19 1 * *` | 月初 04:00 JST | observation_log + atlas_signals を ASPI lane × month で集計 → `macro_index_log` の `budget_amount` (= kaken/grant 集計) / `investment_amount` (= vc 集計) / `policy_mention_count` (= atlas_signals.source_type='policy' 件数) / `raw_signal_count` (= atlas_signals 全件) を update + 欠落 row を insert。`?since=YYYY-MM` 指定可 (= デフォルト過去 36 ヶ月)。atlas_signals.domain (= "I.ICT・AI" 等の ATL 独自) → ASPI domain mapping は cron 内 ATL_DOMAIN_TO_ASPI に定義 |
 | `cron/freee-payment-sync` | `10 0 * * *` | 09:10 daily | freee会計の収入取引 (`/api/1/deals`, `type=income`) と口座明細 (`/api/1/wallet_txns`, `entry_side=income`) を支払月で取得し、取引先ID・請求番号・入金額・PJ別 `payment_alias` からOSの入金予定と照合。支払済みなら `billing_cycles.payment_confirmed_at` を自動更新し、照合証跡を `billing_log.detail` に保存 |
 | `cron/payment-confirm-nudges` | `30 0 * * *` | 09:30 daily | 支払月単位で未入金のPJを抽出し、active admin (`members.is_admin=true`) のSlack DMへ入金確認nudgeを送る。ボタンは「予定通り入金済み」(1クリック反映) と「金額を入力」(`/payment-confirm`)。LLM非使用なのでLLM系cron停止とは別枠で稼働 |
+| Codex `amd-os-strategy-signals` | Codex automation | 03:20 daily | 5生データ + OS snapshot から経営・事業シグナル候補を抽出し、`/Users/masa/.codex/automations/amd-os-strategy-signals/outbox/*.json` を作る。非LLM applier が `project_strategy_signals` / `l2_notifications` へ反映 |
 | `cron/management-score-raw-data` | (vercel cron 未登録) | on-demand / monthly | AMD Management Score 用 raw signal intake。OS内部データを `amd_management_score_raw_signals` に集約。`?includeFreee=1` で freee trial_pl → `company_actual_monthly` も同期。local: `npm run collect:management-score-raw -- --ym=YYYYMM [--include-freee]` |
 | `cron/management-score-calculate` | (vercel cron 未登録) | on-demand / after raw | `amd_management_score_raw_signals` から `amd_management_score_snapshots` / evidence を算出。`?ym=YYYYMM` 指定可 |
 | `cron/monthly-reports-backfill` | (vercel cron 未登録) | on-demand 手動 curl | billing_cycles LEFT JOIN monthly_reports IS NULL の row を Sonnet 4.6 で順次生成 → monthly_reports upsert。prompt = `llm_prompts.monthly_report.r313_extract` (Supabase fetch、is_active 無視、AGENTS 完遵)。`?limit=N&concurrency=M` で並列処理 (デフォルト 6 件 / 5 並列、Vercel maxDuration 300s soft timeout 260s)。文字化け検出 (= ? 比率 > 50% で reject)。AMD-Report GAS R313 と機能重複、R313 が動かない時の保険 + backfill 用 |
@@ -240,6 +241,7 @@ pwa/
 | `macro_lane_weights` | レーン重み (Sonnet が毎日再学習) |
 | `triple_helix_loading` | C 行列 (6 観測量 × 3 隠れ状態 μ_A/I/G の loading prior、bvar_prior §3.2)。AmdScoreView の M カードで参照 |
 | `project_founding_members` | PJ 創業メンバー (= 創業者 / CEO候補 / 技術創業者 / PI など創業コア)。L2 ⑧ XRL根拠のうち HRL 推定の主要根拠。LLM 抽出 (`cron/founding-members-extract`)。`(project_id, person_name)` UNIQUE。詳細は [`xrl_evidence.md`](xrl_evidence.md) / [`amd_score.md`](amd_score.md) |
+| `project_strategy_signals` | L2 ⑨ 経営・事業シグナル。重要方針・事業進捗・戦略転換・提携・資金・知財/規制・リスク・次の一手をPJ単位で保持し、cockpitのMS直下に表示する。詳細は [`project_strategy_signals.md`](project_strategy_signals.md) |
 
 ### つくよみ / その他
 
@@ -524,7 +526,7 @@ npm run test:next-period-ui
 npm run test:critical-ui
 ```
 
-`test:critical-ui` は、MS期間設定、年間MS Gantt、報酬cap/stock、進捗イベント編集、admin.payouts の報酬キャッシュ/支払通知書発行/縦型PJ収支表、project_category、AMD Score対象分岐、通知詳細のraw_data_gap/source refs表示anchorを検査する。重要UIの契約は [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) にも登録する。
+`test:critical-ui` は、MS期間設定、年間MS Gantt、報酬cap/stock、進捗イベント編集、admin.payouts の報酬キャッシュ/支払通知書発行/縦型PJ収支表、project_category、AMD Score対象分岐、通知詳細のraw_data_gap/source refs表示anchor、cockpit の経営・事業シグナルanchorを検査する。重要UIの契約は [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) にも登録する。
 
 ---
 

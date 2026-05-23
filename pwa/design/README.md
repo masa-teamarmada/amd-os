@@ -10,7 +10,7 @@
 
 | 順 | ファイル | 内容 |
 |---|---|---|
-| **0** | [**L2_DATA.md**](L2_DATA.md) ⭐⭐⭐ | **AMD OS 中核データ正本** — L2 8 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ / OS台帳差分 / XRL根拠) + レポート + 全 cron。データに触る前に必ず読む |
+| **0** | [**L2_DATA.md**](L2_DATA.md) ⭐⭐⭐ | **AMD OS 中核データ正本** — L2 9 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ / OS台帳差分 / XRL根拠 / 経営・事業シグナル) + レポート + 全 cron。データに触る前に必ず読む |
 | 1 | [SPEC_pwa.md](SPEC_pwa.md) ⭐ | **PWA 全体の正本仕様** — 画面・ルート・データモデル・cron・運用コマンド・実装規約 |
 | 2 | [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) ⭐ | **重要UIの回帰防止登録簿** — 画面ごとの「消してはいけない業務導線」と `test:critical-ui` anchor |
 | 2.5 | [SPEC_GOVERNANCE.md](SPEC_GOVERNANCE.md) ⭐ | **仕様ドリフト防止運用** — Capability Catalog / functional spec / ADR / traceability / executable spec の使い分け |
@@ -33,6 +33,7 @@
 | Atlas 政策シグナル | [policy_signals.md](policy_signals.md) |
 | 進捗推定 (Tsukuyomi MS 推定) | [progress_estimation.md](progress_estimation.md) |
 | MTG サマリ (各回 decided/progress/nextActions/risks) ⭐ | [meeting_summaries.md](meeting_summaries.md) |
+| 経営・事業シグナル (重要方針/事業進捗/リスク) ⭐ | [project_strategy_signals.md](project_strategy_signals.md) |
 | OS台帳差分 (PJメンバー/関係先/契約/期間/担当の差分候補) ⭐ | [project_registry_diffs.md](project_registry_diffs.md) |
 | XRL根拠 (TRL/BRL/GRL/SRL/HRL 算定根拠) ⭐ | [xrl_evidence.md](xrl_evidence.md) |
 | Venture Map | [venture_map_model.md](venture_map_model.md) / [venture_map_demo.md](venture_map_demo.md) / [venture_map_v01_critique.md](venture_map_v01_critique.md) |

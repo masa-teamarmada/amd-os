@@ -16,12 +16,14 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 
 **設計の正本は [`pwa/design/`](design/) に集約されている。新セッションは必ず以下をこの順で読む:**
 
-0. [`pwa/design/L2_DATA.md`](design/L2_DATA.md) ⭐⭐⭐ — **AMD OS の中核データ正本** (L2 6 種 + レポート + 全 cron)。データに触る作業の前に必ず読む
+0. [`pwa/design/L2_DATA.md`](design/L2_DATA.md) ⭐⭐⭐ — **AMD OS の中核データ正本** (L2 9 種 + レポート + 全 cron)。データに触る作業の前に必ず読む
 1. [`pwa/design/README.md`](design/README.md) — 設計フォルダ全体のインデックス
 2. [`pwa/design/SPEC_pwa.md`](design/SPEC_pwa.md) ⭐ — PWA 全体仕様 (画面・データモデル・cron・運用コマンド・実装規約)
-3. [`pwa/design/cockpit.md`](design/cockpit.md) ⭐ — コックピット詳細 (PJ Status / 月次ルーティン)
-4. [`pwa/design/routine.md`](design/routine.md) ⭐ — 月次ルーティン stepId × クリック挙動 (回帰多発エリア)
-5. その他テーマ別 md は `pwa/design/README.md` の表を参照
+3. [`pwa/design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md) ⭐ — 消してはいけない業務導線と critical UI anchor
+4. [`pwa/design/SPEC_GOVERNANCE.md`](design/SPEC_GOVERNANCE.md) ⭐ — 仕様がmdへ書き込まれる仕組み、spec/ADR/traceability運用
+5. [`pwa/design/cockpit.md`](design/cockpit.md) ⭐ — コックピット詳細 (PJ Status / MS / 経営・事業シグナル / 月次ルーティン)
+6. [`pwa/design/routine.md`](design/routine.md) ⭐ — 月次ルーティン stepId × クリック挙動 (回帰多発エリア)
+7. その他テーマ別 md は `pwa/design/README.md` の表を参照
 
 そのあとで:
 - [`pwa/HANDOFF_pwa_rebuild.md`](HANDOFF_pwa_rebuild.md) — 直近セッションの状態・次の一手
@@ -36,7 +38,7 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 
 **開発中の動作確認は常に本番環境で行う。** `npm run dev` のローカル確認は基本やらない (まさが手元で見るのは本番デプロイ後の URL)。
 
-標準ワークフロー: 実装 → `tsc --noEmit` 通過 → commit → push → main に merge → `npx vercel --prod --yes --cwd /Users/masa/projects/AMD/amd-os` (リポ root、pwa ではない) → 本番 URL で目視確認。
+標準ワークフロー: 実装 → `tsc --noEmit` 通過 → `npm run build` 通過 → `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` → 本番 URL で目視確認 → commit/push。
 
 **えいみへの含意**: まさからの確認待ちで止まらず、tsc が通ったら commit/push/deploy まで一気に通す。確認質問が連続して時間を溶かすほうが損失が大きい。本番反映後の見た目で「ここ違う」と言われたら直す、のループの方が速い。
 

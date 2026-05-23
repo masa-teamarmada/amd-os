@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  * 表示する通知:
  *  1. app_notifications: VC discover / VC news ingest / つくよみ等 (Web 系、AppNotificationsSection)
  *  2. l2_notifications (Phase 4: ③⑤④②) と meeting_notifications (Phase 3: ⑥) の一覧
- *  3. 各通知から元データ (member_knowledge / project_knowledge / protocols / milestone_monthly_progress / project_meeting_summaries) を展開表示
+ *  3. 各通知から元データ (member_knowledge / project_knowledge / protocols / milestone_monthly_progress / project_meeting_summaries / project_strategy_signals) を展開表示
  *  4. 「⚠️ つくよみに修正依頼」フォームから l2_feedbacks INSERT
  *     → 次回の cron 抽出時に LLM プロンプトに含められる
  */

@@ -353,6 +353,7 @@ async function snapshot({ projectId, ym }) {
     projectFreezePeriods,
     registryDiffs,
     xrlEvidence,
+    strategySignals,
     foundingMembers,
     projectXrlLog,
     amdScoreInputs,
@@ -369,8 +370,10 @@ async function snapshot({ projectId, ym }) {
     get("project_members", `select=project_id,member_id,role,role_label,is_active,join_ym,leave_ym,is_pm,is_pl,is_closer&project_id=eq.${enc(projectId)}&order=member_id.asc`),
     get("members", "select=member_id,code_name,member_name,email,status,slack_id,role&order=member_id.asc"),
     get("project_partners", `select=*&project_id=eq.${enc(projectId)}&order=created_at.desc&limit=80`),
+    get("project_freeze_periods", `select=*&project_id=eq.${enc(projectId)}&order=freeze_from_ym.desc&limit=80`),
     get("project_registry_diffs", `select=*&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&order=created_at.desc&limit=80`),
     get("project_xrl_evidence", `select=*&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&order=created_at.desc&limit=80`),
+    get("project_strategy_signals", `select=*&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&order=created_at.desc&limit=80`),
     get("project_founding_members", `select=*&project_id=eq.${enc(projectId)}&order=updated_at.desc&limit=120`),
     get("project_xrl_log", `select=*&project_id=eq.${enc(projectId)}&order=observed_at.desc&limit=80`),
     get("amd_score_inputs", `select=*&project_id=eq.${enc(projectId)}&order=evaluated_at.desc&limit=20`),
@@ -417,6 +420,7 @@ async function snapshot({ projectId, ym }) {
     pendingRevisions,
     registryDiffs,
     xrlEvidence,
+    strategySignals,
     foundingMembers,
     projectXrlLog,
     amdScoreInputs,
@@ -455,6 +459,7 @@ async function exportOsSnapshot({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {
     projectFreezePeriods,
     registryDiffs,
     xrlEvidence,
+    strategySignals,
     foundingMembers,
     projectXrlLog,
     amdScoreInputs,
@@ -480,6 +485,7 @@ async function exportOsSnapshot({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {
     get("project_freeze_periods", "select=*&order=project_id.asc,freeze_from_ym.desc&limit=1000"),
     get("project_registry_diffs", `select=*&ym=in.${inList([currentYm, priorYm])}&order=created_at.desc&limit=1000`),
     get("project_xrl_evidence", `select=*&ym=in.${inList([currentYm, priorYm])}&order=created_at.desc&limit=1000`),
+    get("project_strategy_signals", `select=*&ym=in.${inList([currentYm, priorYm])}&order=created_at.desc&limit=1000`),
     get("project_founding_members", "select=*&order=project_id.asc,updated_at.desc&limit=2000"),
     get("project_xrl_log", "select=*&order=observed_at.desc&limit=1000"),
     get("amd_score_inputs", "select=*&order=evaluated_at.desc&limit=1000"),
@@ -512,6 +518,7 @@ async function exportOsSnapshot({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {
       project_freeze_periods: projectFreezePeriods,
       project_registry_diffs: registryDiffs,
       project_xrl_evidence: xrlEvidence,
+      project_strategy_signals: strategySignals,
       project_founding_members: foundingMembers,
       project_xrl_log: projectXrlLog,
       amd_score_inputs: amdScoreInputs,
@@ -600,6 +607,7 @@ function localSnapshot({ file = DEFAULT_OS_SNAPSHOT, projectId, ym }) {
     pendingRevisions: tableRows(doc, "ms_progress_revisions").filter((r) => r.project_id === projectId && r.ym === ym && r.status === "pending"),
     registryDiffs: tableRows(doc, "project_registry_diffs").filter((r) => r.project_id === projectId && r.ym === ym),
     xrlEvidence: tableRows(doc, "project_xrl_evidence").filter((r) => r.project_id === projectId && r.ym === ym),
+    strategySignals: tableRows(doc, "project_strategy_signals").filter((r) => r.project_id === projectId && r.ym === ym),
     foundingMembers: tableRows(doc, "project_founding_members").filter((r) => r.project_id === projectId),
     projectXrlLog: tableRows(doc, "project_xrl_log").filter((r) => r.project_id === projectId),
     amdScoreInputs: tableRows(doc, "amd_score_inputs").filter((r) => r.project_id === projectId),
@@ -865,6 +873,7 @@ async function applyOutbox(file) {
     emailRegistrations: [],
     registryDiffs: null,
     xrlEvidence: null,
+    strategySignals: null,
     sourceCache: null,
     monthlyReports: null,
     projectPatches: null,
@@ -892,6 +901,9 @@ async function applyOutbox(file) {
   }
   if (Array.isArray(payload.xrlEvidence) && payload.xrlEvidence.length) {
     results.xrlEvidence = await upsertXrlEvidence(payload.xrlEvidence);
+  }
+  if (Array.isArray(payload.strategySignals) && payload.strategySignals.length) {
+    results.strategySignals = await upsertStrategySignals(payload.strategySignals);
   }
   if (Array.isArray(payload.sourceCache) && payload.sourceCache.length) {
     results.sourceCache = await upsertSourceCache(payload.sourceCache);
@@ -936,7 +948,9 @@ async function refreshSnapshot({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {}
   };
 }
 
-async function applyOutboxDir({ dir = DEFAULT_OUTBOX_DIR, appliedDir = DEFAULT_APPLIED_DIR, failedDir = DEFAULT_FAILED_DIR } = {}) {
+async function applyOutboxDir({ dir = DEFAULT_OUTBOX_DIR, appliedDir, failedDir } = {}) {
+  appliedDir = appliedDir || (dir === DEFAULT_OUTBOX_DIR ? DEFAULT_APPLIED_DIR : path.join(path.dirname(dir), "applied"));
+  failedDir = failedDir || (dir === DEFAULT_OUTBOX_DIR ? DEFAULT_FAILED_DIR : path.join(path.dirname(dir), "failed"));
   fs.mkdirSync(dir, { recursive: true });
   const files = fs.readdirSync(dir)
     .filter((name) => name.endsWith(".json"))
@@ -1048,6 +1062,56 @@ async function upsertXrlEvidence(items) {
     body: rows,
   });
   return { ok: true, writtenCount: written?.length || 0, skippedEcosystem, written };
+}
+
+async function upsertStrategySignals(items) {
+  const now = new Date().toISOString();
+  const validTypes = new Set([
+    "management_decision",
+    "business_progress",
+    "strategic_pivot",
+    "commercial_progress",
+    "partnership",
+    "funding",
+    "ip_regulatory",
+    "risk",
+    "next_move",
+  ]);
+  const validImpacts = new Set(["low", "medium", "high", "critical"]);
+  const validStates = new Set(["observed", "proposed", "decided", "executing", "revised"]);
+  const rows = items.map((item) => {
+    const refs = item.source_refs_json || item.sourceRefs || [];
+    const signalType = String(item.signal_type || item.signalType || "business_progress").trim();
+    const impact = String(item.impact_level || item.impactLevel || "medium").trim();
+    const state = String(item.decision_state || item.decisionState || "observed").trim();
+    const rawStatus = String(item.status || "candidate").trim().toLowerCase();
+    return {
+      project_id: item.project_id || item.projectId,
+      ym: item.ym || null,
+      signal_date: item.signal_date || item.signalDate || null,
+      signal_type: validTypes.has(signalType) ? signalType : "business_progress",
+      title: String(item.title || "").slice(0, 180),
+      summary: String(item.summary || "").slice(0, 900),
+      impact_level: validImpacts.has(impact) ? impact : "medium",
+      decision_state: validStates.has(state) ? state : "observed",
+      status: ["candidate", "confirmed", "rejected", "archived"].includes(rawStatus) ? rawStatus : "candidate",
+      source_refs_json: refs,
+      source_hash: item.source_hash || item.sourceHash || stableHash({ refs, title: item.title, summary: item.summary }),
+      confidence: confidenceValue(item.confidence, 0.5),
+      extraction_run_id: item.extraction_run_id || item.extractionRunId || null,
+      created_by: item.created_by || "codex_automation",
+      created_at: item.created_at || now,
+      updated_at: now,
+    };
+  });
+  const missing = rows.find((r) => !r.project_id || !r.title || !r.summary || !r.source_hash);
+  if (missing) throw new Error(`strategySignals missing project_id/title/summary/source_hash: ${JSON.stringify(missing)}`);
+  const written = await requestJson(rest("project_strategy_signals", "on_conflict=project_id,scope_key,signal_type,source_hash&select=*"), {
+    method: "POST",
+    headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
+    body: rows,
+  });
+  return { ok: true, writtenCount: written?.length || 0, written };
 }
 
 async function upsertSourceCache(items) {

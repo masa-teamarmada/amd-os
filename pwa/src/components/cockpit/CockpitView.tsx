@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CockpitHeader } from "./CockpitHeader";
 import { CockpitVentureStatus } from "./CockpitVentureStatus";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
+import { CockpitStrategySignals } from "./CockpitStrategySignals";
 import { CockpitKanbanGas } from "./CockpitKanbanGas";
 import { CockpitMonthlyList } from "./CockpitMonthlyList";
 import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
@@ -139,6 +140,23 @@ interface CockpitViewProps {
       id: string; memberId: string; projectId: string; ym: string; source: string; sourceItemId: string;
       milestoneId?: string | null; title?: string | null; contentPreview?: string | null;
       itemDate?: string | null; extractedAt: string;
+    }>;
+    strategySignals?: Array<{
+      signalId: string;
+      projectId: string;
+      ym: string | null;
+      signalDate: string | null;
+      signalType: string;
+      title: string;
+      summary: string;
+      impactLevel: string;
+      decisionState: string;
+      status: string;
+      sourceRefs: unknown[];
+      sourceHash: string;
+      confidence: number;
+      createdAt: string;
+      confirmedAt: string | null;
     }>;
   };
   nudges: Array<{
@@ -303,7 +321,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
     const next = resolveStepModalFromTap(ym, stepId, cycle, () => router.push("/reimburse"));
     if (next) setStepModal(next);
   }
-  const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities } = cockpit;
+  const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, strategySignals } = cockpit;
   const usesMsProgress = usesMsProgressCategory(project.projectCategory);
 
   const currentProgress = mergeProgress(progress, progressPatches);
@@ -369,6 +387,8 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
             onEdit={planCycle ? () => setEditingCurrentCycle(true) : undefined}
           />
         )}
+
+        <CockpitStrategySignals signals={strategySignals || []} />
 
         {/* [B2] MS設定バナー／直接編集
             - draft or 外部トリガー: directCycleIdで直接編集

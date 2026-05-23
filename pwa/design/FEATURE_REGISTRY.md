@@ -24,7 +24,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 縦型PJ収支表: 「全体収支」列とPJ列を並べ、クライアント支払、バッファ、PJ予算、支払予定、役員分、役員相殺、最終収支、メンバー別支払を確認できる。
 - 後追いPJ予算確定: 契約や支払額が後から確定したPJは、支払月画面から確定委託料とバッファを入れ、対象稼働月の `billing_cycles.budget_yen` / `budget_reported_amount` / `budget_buffer_amount` へ配分する。
 - 支払データ保存: `monthly_reward_payout` に明細、`payout_notices.total_yen` にメンバー別通知額を保存する。役員または `exclude_from_payout_notice` のメンバーは通知対象外にする。
-- 支払通知書発行: 支払対象メンバーごとに、PWA集約済みのメンバー別支払明細から改善版フォーマットのPDFを発行し、`payout_notices.notice_no` / `pdf_url` / `sent_at` を保存する。UIには「PDFで確認」「再発行」「送付済みにする」「未送付に戻す」を置く。PDF URLの手入力欄は置かない。
+- 支払通知書発行: 「メンバー別支払」行に `支払通知書発行` / `PDF確認` / `送付` の3操作を置き、PWA集約済みのメンバー別支払明細から改善版フォーマットのPDFを発行し、`payout_notices.notice_no` / `pdf_url` / `sent_at` を保存する。PDF URLの手入力欄は置かない。PDF発行は `monthly_reward_payout` 保存後に活性化する。
 - 入金確認nudge: `payment-confirm-nudges` を手動実行でき、Slack DMの `/payment-confirm` とつながる。
 - 月次モーダル導線: cycle明細やPJ収支表の稼働月から `CockpitMonthlyModal` を開き、報酬根拠に戻れる。
 
@@ -32,3 +32,18 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/payouts` の支払通知書PDF確認、報酬キャッシュ、報酬キャッシュ日次cron、縦型PJ収支表の anchor を検査する。
 - この画面で UI を削る変更は、`FEATURE_REGISTRY.md` と `SPEC_pwa.md` を同時に更新する。
+
+## /project/[projectId]/cockpit
+
+目的: PJの現在地、MS進捗、経営・事業シグナル、月次ルーティン、TODO/nudgeを一画面で見る。
+
+必須機能:
+
+- 今期MSリスト: `CockpitGoalsCompact` / `MilestoneGanttChart` でMS期間、pt、担当、sub itemを表示する。
+- 経営・事業シグナル: MSリスト直下に `CockpitStrategySignals` を表示し、`project_strategy_signals` の candidate/confirmed を日付・type・impact・summary・source refs付きで表示する。
+- 月次モーダル: 月次カードやroutine stepから `CockpitMonthlyModal` を開き、report / reward / invoice を確認できる。
+- 月次ルーティン: active/sales PJのみ表示し、PM/admin以外は読み取り専用にする。
+
+回帰防止:
+
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `経営・事業シグナル`、`CockpitStrategySignals`、`project_strategy_signals`、`project_strategy_signal` の anchor を検査する。

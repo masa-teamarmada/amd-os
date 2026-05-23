@@ -100,6 +100,7 @@ export interface CockpitData {
   pastPlanCycles: PlanCycleBundle[];
   msActivities: MemberMsActivity[];
   memberActivities: MemberActivity[];
+  strategySignals: ProjectStrategySignal[];
 }
 
 export interface RewardSummaryBreakdown {
@@ -265,6 +266,24 @@ export interface MemberActivity {
   itemDate?: string | null;
   rawMetadata?: Record<string, unknown> | null;
   extractedAt: string;
+}
+
+export interface ProjectStrategySignal {
+  signalId: string;
+  projectId: string;
+  ym: string | null;
+  signalDate: string | null;
+  signalType: string;
+  title: string;
+  summary: string;
+  impactLevel: string;
+  decisionState: string;
+  status: string;
+  sourceRefs: unknown[];
+  sourceHash: string;
+  confidence: number;
+  createdAt: string;
+  confirmedAt: string | null;
 }
 
 // ============================================================
@@ -1653,12 +1672,21 @@ export async function fetchCockpitFromSupabase(
     pcRes,
     pmRes,
     membersRes,
+    strategySignalsRes,
   ] = await Promise.all([
     supabase.from("projects").select("*").eq("project_id", projectId).single(),
     supabase.from("billing_cycles").select("*").eq("project_id", projectId).order("ym", { ascending: false }),
     supabase.from("value_plan_cycles").select("*").eq("project_id", projectId).in("status", ["active", "confirmed", "fixed", "draft"]).order("period_start_ym", { ascending: false }),
     supabase.from("project_members").select("member_id").eq("project_id", projectId).eq("is_active", true),
     supabase.from("members").select("member_id, code_name"),
+    supabase
+      .from("project_strategy_signals")
+      .select("*")
+      .eq("project_id", projectId)
+      .in("status", ["candidate", "confirmed"])
+      .order("signal_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(8),
   ]);
 
   if (projRes.error) throw new Error(`project: ${projRes.error.message}`);
@@ -1884,6 +1912,24 @@ export async function fetchCockpitFromSupabase(
     (pm) => memberMap[pm.member_id] || "PM"
   );
 
+  const strategySignals: ProjectStrategySignal[] = (strategySignalsRes.data || []).map((row) => ({
+    signalId: row.signal_id,
+    projectId: row.project_id,
+    ym: row.ym || null,
+    signalDate: row.signal_date || null,
+    signalType: row.signal_type || "business_progress",
+    title: row.title || "",
+    summary: row.summary || "",
+    impactLevel: row.impact_level || "medium",
+    decisionState: row.decision_state || "observed",
+    status: row.status || "candidate",
+    sourceRefs: Array.isArray(row.source_refs_json) ? row.source_refs_json : [],
+    sourceHash: row.source_hash || "",
+    confidence: Number(row.confidence) || 0,
+    createdAt: row.created_at,
+    confirmedAt: row.confirmed_at || null,
+  }));
+
   // Nudges
   const nudgeRes = await supabase
     .from("tsukuyomi_nudge_queue")
@@ -1942,5 +1988,6 @@ export async function fetchCockpitFromSupabase(
     pastPlanCycles,
     msActivities,
     memberActivities,
+    strategySignals,
   };
 }

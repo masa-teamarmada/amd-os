@@ -27,16 +27,18 @@ Next.js 16 + React 19 + Tailwind CSS v4
 - `git remote -v`: `https://github.com/masa-teamarmada/amd-os.git`
 - `git branch --show-current`: `main`
 - `.vercel/project.json`: projectName `amd-os-pwa` / projectId `prj_raZW3HSKIszzPUwNTHfy7xDGzLHm`
-- Claude/Codexがdeployする場合は、必ずこのローカルcheckoutから `--cwd /Users/masa/projects/AMD/amd-os/pwa` を指定してVercel CLI deployする。
+- Claude/Codexがdeployする場合は、必ずこのローカルcheckoutから `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` を実行する。`--cwd .../pwa` は禁止。
 
 ## ドキュメント構成（**この順で読む**）
 
 | 何を知りたいか | ファイル | 内容 |
 |---|---|---|
-| **AMD OS 中核データ正本** ⭐⭐⭐ | `pwa/design/L2_DATA.md` | **L2 6 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ) + レポート + 全 cron**。データに触る作業の前に必ず読む |
+| **AMD OS 中核データ正本** ⭐⭐⭐ | `pwa/design/L2_DATA.md` | **L2 9 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ / OS台帳差分 / XRL根拠 / 経営・事業シグナル) + レポート + 全 cron**。データに触る作業の前に必ず読む |
 | **設計 md フォルダ全体の入口** ⭐ | `pwa/design/README.md` | 設計の正本フォルダのインデックス。**まずここを読んで「次に何を読むか」を決める** |
 | **PWA 全体の正本仕様** ⭐ | `pwa/design/SPEC_pwa.md` | 画面・ルート・データモデル・cron・共通インフラ・運用コマンド・実装規約 |
-| **コックピット詳細 / 月次ルーティン** ⭐ | `pwa/design/cockpit.md` | PJ Status / 月次ルーティン stepId × クリック挙動 (回帰多発) |
+| **重要UI登録簿** ⭐ | `pwa/design/FEATURE_REGISTRY.md` | 画面ごとの「消してはいけない業務導線」と `test:critical-ui` anchor |
+| **仕様統制** ⭐ | `pwa/design/SPEC_GOVERNANCE.md` | 仕様がmdへ書き込まれる仕組み、spec/ADR/traceability運用、新セッションの読み順 |
+| **コックピット詳細 / 月次ルーティン** ⭐ | `pwa/design/cockpit.md` | PJ Status / MS / 経営・事業シグナル / 月次ルーティン stepId × クリック挙動 (回帰多発) |
 | テーマ別設計 (Atlas / Venture Map / AMD Score / VC List 等) | `pwa/design/<topic>.md` | `pwa/design/README.md` の表参照 |
 | 直近セッション + 次の一手 | `pwa/HANDOFF_pwa_rebuild.md` | スリム保持 (~200 行以下) |
 | バグ・教訓 | `pwa/BUGS.md` | 症状/原因/解決策/教訓 形式 |

@@ -31,6 +31,7 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
 ├── [A]   CockpitHeader               PJ 名 / clientName / status chip
 ├── [A2]  CockpitVentureStatus    ⭐  PJ Status セクション (このドキュメントの主役)
 ├── [B]   CockpitGoalsCompact         今期 MS リスト
+├── [B1]  CockpitStrategySignals      経営・事業シグナル (L2 ⑨)
 ├── [B2]  CockpitNextPeriodSetup      次期 MS 設定バナー
 ├── [B3]  過去の期間 (折りたたみ)
 ├── [C]   CockpitKanbanGas            TODO カンバン
@@ -54,6 +55,17 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
 
 例外として、現在月を含む cycle が存在せず、次に始まる future cycle が登録済みの場合は、その future cycle をトップ表示に使う。  
 これにより、5月時点で6-9月の次期MSを先行入力したCXのようなケースでも、コックピット上で設定済みMSを確認できる。
+
+### 経営・事業シグナル
+
+今期MSリスト直下に `CockpitStrategySignals` を表示する。
+
+- 正本L2: `project_strategy_signals`
+- 詳細仕様: [`project_strategy_signals.md`](project_strategy_signals.md)
+- 目的: MS進捗だけでは拾えない、経営上の重要方針・事業進捗・戦略転換・提携・リスク・次の一手を短く残す
+- 表示対象: `status in ('candidate','confirmed')` の直近8件
+- candidate は候補chipを付け、`/notifications` の「はい/いいえ」で confirmed/rejected にする
+- source refs は短い snippet / source id / hash のみ。全文は保存しない
 
 ### MS設計と報酬配分
 

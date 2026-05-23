@@ -776,6 +776,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     window.open(pdfUrl, "_blank", "noopener,noreferrer");
   }
 
+  function showPdfUrlMissing(row: MemberPayoutRow) {
+    setHint(`${row.memberName} はまだPDF未発行。先に支払通知書発行を押してね`);
+  }
+
   async function issueNoticePdf(row: MemberPayoutRow, options: { forceReissue?: boolean } = {}) {
     if (row.notice?.pdf_url && !options.forceReissue) {
       openPdfUrl(row.notice.pdf_url);
@@ -1137,12 +1141,13 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
                 <th className="px-3 py-2 text-right font-medium">保存済</th>
                 <th className="px-3 py-2 text-right font-medium">支払額</th>
                 <th className="px-3 py-2 text-left font-medium">通知</th>
+                <th className="px-3 py-2 text-right font-medium">支払通知書</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {memberRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
                     報酬確定済みのメンバーがいない
                   </td>
                 </tr>
@@ -1205,6 +1210,17 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
                         excluded={row.noticeExcluded}
                       />
                     </td>
+                    <td className="px-3 py-2">
+                      <PayoutNoticeActions
+                        row={row}
+                        disabled={loading || saving || noticeSavingMemberId != null}
+                        saving={noticeSavingMemberId === row.memberId}
+                        onIssueNoticePdf={issueNoticePdf}
+                        onOpenPdf={openPdfUrl}
+                        onMissingPdf={showPdfUrlMissing}
+                        onUpdateNoticeSent={updateNoticeSent}
+                      />
+                    </td>
                   </tr>
                 ))
               )}
@@ -1212,15 +1228,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           </table>
         </div>
       </section>
-
-      <PayoutNoticeIssuePanel
-        ym={ym}
-        rows={memberRows}
-        disabled={loading || saving || noticeSavingMemberId != null}
-        savingMemberId={noticeSavingMemberId}
-        onIssueNoticePdf={issueNoticePdf}
-        onUpdateNoticeSent={updateNoticeSent}
-      />
 
       {modalTarget && modalLoading && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 backdrop-blur-sm">
@@ -1708,169 +1715,94 @@ function BudgetConfirmModal({
   );
 }
 
-function PayoutNoticeIssuePanel({
-  ym,
-  rows,
-  disabled,
-  savingMemberId,
-  onIssueNoticePdf,
-  onUpdateNoticeSent,
-}: {
-  ym: string;
-  rows: MemberPayoutRow[];
-  disabled: boolean;
-  savingMemberId: string | null;
-  onIssueNoticePdf: (row: MemberPayoutRow, options?: { forceReissue?: boolean }) => void;
-  onUpdateNoticeSent: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
-}) {
-  const issueRows = rows.filter((row) => !row.noticeExcluded);
-
-  if (issueRows.length === 0) {
-    return null;
-  }
-
-  return (
-    <section className="space-y-2">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 className="text-[13px] font-semibold">支払通知書発行</h2>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            支払データ保存後に、改善版フォーマットのPDFを発行して `payout_notices` に残す
-          </p>
-        </div>
-        <span className="text-[11px] text-muted-foreground">
-          支払月 {fmtYm(ym)} / 対象 {issueRows.length}人
-        </span>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full text-[12px]">
-          <thead className="border-b border-border bg-muted/40">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium">メンバー</th>
-              <th className="px-3 py-2 text-right font-medium">通知額</th>
-              <th className="px-3 py-2 text-left font-medium">通知書番号</th>
-              <th className="px-3 py-2 text-left font-medium">PDF確認</th>
-              <th className="px-3 py-2 text-left font-medium">状態</th>
-              <th className="px-3 py-2 text-right font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {issueRows.map((row) => (
-              <PayoutNoticeIssueRow
-                key={row.memberId}
-                row={row}
-                disabled={disabled}
-                saving={savingMemberId === row.memberId}
-                onIssueNoticePdf={onIssueNoticePdf}
-                onUpdateNoticeSent={onUpdateNoticeSent}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
-function PayoutNoticeIssueRow({
+function PayoutNoticeActions({
   row,
   disabled,
   saving,
   onIssueNoticePdf,
+  onOpenPdf,
+  onMissingPdf,
   onUpdateNoticeSent,
 }: {
   row: MemberPayoutRow;
   disabled: boolean;
   saving: boolean;
   onIssueNoticePdf: (row: MemberPayoutRow, options?: { forceReissue?: boolean }) => void;
+  onOpenPdf: (pdfUrl: string | null | undefined) => void;
+  onMissingPdf: (row: MemberPayoutRow) => void;
   onUpdateNoticeSent: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
 }) {
+  if (row.noticeExcluded) {
+    return <span className="block text-right text-[11px] text-muted-foreground">通知対象外</span>;
+  }
+
   const blocked = disabled || saving;
   const canIssuePdf = !blocked && row.isSaved;
-  const canMarkSent = !blocked && Boolean(row.notice?.pdf_url);
+  const hasPdf = Boolean(row.notice?.pdf_url);
+  const canOpenPdf = !blocked && hasPdf;
+  const canToggleSent = !blocked && hasPdf;
   const savedNoticeTotal = Math.round(numberValue(row.notice?.total_yen));
   const totalMismatch = savedNoticeTotal > 0 && savedNoticeTotal !== Math.round(row.totalPay);
+  const issueTitle = row.isSaved
+    ? hasPdf
+      ? "改善版フォーマットの支払通知書PDFを再発行する"
+      : "改善版フォーマットの支払通知書PDFを発行する"
+    : "先に支払データ保存を押すと発行できる";
+  const pdfTitle = hasPdf ? "保存済みPDFを別タブで確認する" : "PDF未発行。先に支払通知書発行を押す";
+  const sentTitle = hasPdf
+    ? row.notice?.sent_at
+      ? "送付済みを取り消して未送付に戻す"
+      : "送付済みにする"
+    : "PDF発行後に送付済みにできる";
 
   return (
-    <tr className="align-top hover:bg-muted/20">
-      <td className="px-3 py-2">
-        <div className="font-semibold">{row.memberName}</div>
-        <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
-        {!row.isSaved && (
-          <div className="mt-1 text-[10px] text-amber-700">支払データ未保存</div>
-        )}
-      </td>
-      <td className="px-3 py-2 text-right font-semibold tabular-nums">
-        {fmtYen(row.totalPay)}
-        {totalMismatch && (
-          <div className="text-[10px] font-normal text-amber-700">保存額 {fmtYen(savedNoticeTotal)}</div>
-        )}
-      </td>
-      <td className="px-3 py-2">
+    <div className="flex flex-col items-end gap-1.5">
+      <div className="flex flex-wrap justify-end gap-1.5">
+        <button
+          type="button"
+          onClick={() => onIssueNoticePdf(row, { forceReissue: hasPdf })}
+          disabled={!canIssuePdf}
+          title={issueTitle}
+          className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
+        >
+          {saving ? "発行中..." : "支払通知書発行"}
+        </button>
+        <button
+          type="button"
+          onClick={() => (hasPdf ? onOpenPdf(row.notice?.pdf_url) : onMissingPdf(row))}
+          disabled={!hasPdf ? blocked : !canOpenPdf}
+          title={pdfTitle}
+          className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
+        >
+          PDF確認
+        </button>
+        <button
+          type="button"
+          onClick={() => onUpdateNoticeSent(row, row.notice?.sent_at ? { clearSent: true } : { markSent: true })}
+          disabled={!canToggleSent}
+          title={sentTitle}
+          className="rounded-md bg-foreground px-2 py-1 text-[11px] font-medium text-background disabled:opacity-50"
+        >
+          {row.notice?.sent_at ? "送付取消" : "送付"}
+        </button>
+      </div>
+      <div className="text-right text-[10px] text-muted-foreground">
         {row.notice?.notice_no ? (
-          <div className="font-mono text-[11px]">{row.notice.notice_no}</div>
+          <span className="font-mono">{row.notice.notice_no}</span>
         ) : (
-          <span className="text-[11px] text-muted-foreground">PDF発行時に採番</span>
+          <span>PDF発行時に採番</span>
         )}
-      </td>
-      <td className="px-3 py-2">
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={() => onIssueNoticePdf(row)}
-            disabled={!canIssuePdf}
-            className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
-          >
-            {saving ? "発行中..." : "PDFで確認"}
-          </button>
-          {row.notice?.pdf_url && (
-            <button
-              type="button"
-              onClick={() => onIssueNoticePdf(row, { forceReissue: true })}
-              disabled={!canIssuePdf}
-              className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
-            >
-              再発行
-            </button>
-          )}
-        </div>
-      </td>
-      <td className="px-3 py-2">
-        <NoticeBadge notice={row.notice} expectedTotal={row.totalPay} excluded={false} />
+        {totalMismatch && (
+          <span className="ml-1 text-amber-700">保存額 {fmtYen(savedNoticeTotal)}</span>
+        )}
         {row.notice?.sent_at && (
-          <div className="mt-1 text-[10px] text-muted-foreground">
-            {new Date(row.notice.sent_at).toLocaleString("ja-JP")}
-          </div>
+          <span className="ml-1">送付 {new Date(row.notice.sent_at).toLocaleString("ja-JP")}</span>
         )}
-      </td>
-      <td className="px-3 py-2">
-        <div className="flex flex-wrap justify-end gap-1.5">
-          <button
-            type="button"
-            onClick={() => onUpdateNoticeSent(row, {
-              markSent: true,
-            })}
-            disabled={!canMarkSent}
-            className="rounded-md bg-foreground px-2 py-1 text-[11px] font-medium text-background disabled:opacity-50"
-          >
-            送付済みにする
-          </button>
-          {row.notice?.sent_at && (
-            <button
-              type="button"
-              onClick={() => onUpdateNoticeSent(row, {
-                clearSent: true,
-              })}
-              disabled={blocked}
-              className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
-            >
-              未送付に戻す
-            </button>
-          )}
-        </div>
-      </td>
-    </tr>
+      </div>
+      {!row.isSaved && (
+        <div className="text-right text-[10px] text-amber-700">支払データ保存後に発行可能</div>
+      )}
+    </div>
   );
 }
 

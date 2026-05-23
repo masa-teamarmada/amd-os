@@ -502,6 +502,54 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
           if (rows.length === 0) {
             rows = xrlNotificationFallbackRows(n);
           }
+        } else if (n.l2_kind === "project_strategy_signal") {
+          const meta = objectValue(n.metadata_json);
+          const ym = notificationYm(n.scope_key);
+          let query = supabase
+            .from("project_strategy_signals")
+            .select("signal_type, title, summary, impact_level, decision_state, status, source_refs_json, source_hash, confidence, signal_date, confirmed_at")
+            .eq("project_id", n.target_id);
+          query = textFromUnknown(meta.signal_type) ? query.eq("signal_type", textFromUnknown(meta.signal_type)) : query;
+          const scopedQuery = n.scope_key === "global"
+            ? query.is("ym", null)
+            : query.eq("ym", ym);
+          const { data, error } = await scopedQuery.order("created_at", { ascending: false }).limit(50);
+          if (error) throw error;
+          const metadataHash = textFromUnknown(meta.signal_source_hash);
+          const narrowed = metadataHash
+            ? (data ?? []).filter((r) => strategySignalRowMatchesHash(r, metadataHash))
+            : (data ?? []);
+          rows = (narrowed.length > 0 ? narrowed : (data ?? [])).map((r) => {
+            const refs = Array.isArray(r.source_refs_json) ? r.source_refs_json : [];
+            const refText = refs
+              .slice(0, 3)
+              .map((e) => {
+                const ref = e && typeof e === "object" ? e as Record<string, unknown> : {};
+                return [
+                  ref.source || ref.type || "source",
+                  ref.date || ref.item_date || "",
+                  ref.title || ref.snippet || ref.summary || "",
+                ].filter(Boolean).join(" / ");
+              })
+              .filter(Boolean)
+              .join("\n");
+            return {
+              heading: `${r.signal_type} / ${r.impact_level} [${r.status}]`,
+              body: [
+                `${r.title}\n${r.summary}`,
+                refText ? `根拠:\n${refText}` : "",
+              ].filter(Boolean).join("\n"),
+              sub: [
+                r.signal_date ? `date=${r.signal_date}` : "",
+                r.decision_state ? `state=${r.decision_state}` : "",
+                r.confidence != null ? `confidence=${Number(r.confidence).toFixed(2)}` : "",
+                r.confirmed_at ? `confirmed=${formatJST(String(r.confirmed_at))}` : "",
+              ].filter(Boolean).join(" · ") || undefined,
+            };
+          });
+          if (rows.length === 0) {
+            rows = strategySignalNotificationFallbackRows(n);
+          }
         }
       } else {
         // meeting_summary: project_meeting_summaries から実内容取得
@@ -983,6 +1031,12 @@ function DeepLinkForL2({ n }: { n: Notification }) {
           /project/{n.target_id}/cockpit (XRL / AMD Score 根拠を確認)
         </a>
       );
+    case "project_strategy_signal":
+      return (
+        <a className="text-blue-600 hover:underline" href={`/project/${n.target_id}/cockpit?ym=${notificationYm(n.scope_key)}`}>
+          /project/{n.target_id}/cockpit (経営・事業シグナルを確認)
+        </a>
+      );
     default:
       return <span>{n.l2_kind}</span>;
   }
@@ -1021,6 +1075,7 @@ const NOTIFICATION_COST_ESTIMATE_JPY: Record<string, number> = {
   project_config_gap: 0.1,
   project_registry_diff: 0.2,
   xrl_evidence: 2,
+  project_strategy_signal: 1,
   founding_members: 10,
   meeting_summary: 0.2,
 };
@@ -1154,6 +1209,32 @@ function xrlNotificationFallbackRows(n: Notification): NonNullable<DetailRow["ro
       body: [
         n.summary || "(summaryなし)",
         "候補本文は通知にあるけど、対応する project_xrl_evidence 行が見つかってない。生成側が通知だけ作った可能性がある。",
+      ].join("\n"),
+      sub: [sourceHash ? `source_hash=${sourceHash.slice(0, 12)}` : "", `scope=${n.scope_key}`].filter(Boolean).join(" · "),
+    },
+  ];
+}
+
+function strategySignalRowMatchesHash(row: unknown, hash: string): boolean {
+  const r = objectValue(row);
+  if (textFromUnknown(r.source_hash) === hash) return true;
+  const refs = Array.isArray(r.source_refs_json) ? r.source_refs_json : [];
+  return refs.some((raw) => {
+    const ref = objectValue(raw);
+    return textFromUnknown(ref.hash) === hash || textFromUnknown(ref.source_hash) === hash;
+  });
+}
+
+function strategySignalNotificationFallbackRows(n: Notification): NonNullable<DetailRow["rows"]> {
+  const meta = objectValue(n.metadata_json);
+  const signalType = textFromUnknown(meta.signal_type) || "project_strategy_signal";
+  const sourceHash = textFromUnknown(meta.signal_source_hash);
+  return [
+    {
+      heading: `${signalType} [通知のみ]`,
+      body: [
+        n.summary || "(summaryなし)",
+        "候補本文は通知にあるけど、対応する project_strategy_signals 行が見つかってない。生成側が通知だけ作った可能性がある。",
       ].join("\n"),
       sub: [sourceHash ? `source_hash=${sourceHash.slice(0, 12)}` : "", `scope=${n.scope_key}`].filter(Boolean).join(" · "),
     },

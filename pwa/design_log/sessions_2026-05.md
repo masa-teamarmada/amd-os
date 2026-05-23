@@ -5961,3 +5961,43 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - `pwa/design/README.md` から仕様統制ルールへ到達できるようにした。
 - できるようになったこと:
   - 今後は機能追加・削除・置換時に、実装だけでなく設計正本と回帰テストの更新を同じ単位で扱う。
+
+#### #25 follow-up 2 支払通知書3操作をメンバー別支払へ統合
+
+- まさがお願いしていたこと:
+  - 「メンバー別支払」の各行に `支払通知書発行` / `PDF確認` / `送付` の3ボタンを置けば、別の支払通知書発行セクションは不要ではないか。
+  - PDF確認ボタンがなぜグレーアウトしているのか、どうなるとアクティブになるのか知りたい。
+- どう解決したか:
+  - `/admin/payouts` の別セクションをやめ、`PayoutNoticeActions` を「メンバー別支払」テーブル行へ統合した。
+  - `支払通知書発行` は `monthly_reward_payout` 保存済み (`row.isSaved`) の行だけ活性化する。
+  - `PDF確認` は既存 `payout_notices.pdf_url` があればPDFを開く。PDF未発行時は無反応のグレーアウトではなく、「先に支払通知書発行」を促すhintを出す。
+  - `送付` はPDF発行後だけ活性化し、送付済みなら同じボタンで `送付取消` に変わる。
+- できるようになったこと:
+  - 支払通知書の発行・確認・送付状態が、各メンバーの支払行と1対1で見える。
+
+#### #26 follow-up 2 md正本へ書き込まれる仕組みと新セッション読書順
+
+- まさがお願いしていたこと:
+  - 新しく追加したmdファイルに、現状仕様と今後追加仕様がどう書き込まれていくのか設計を知りたい。
+  - 新しいセッションでそこを読んでから開発に着手する設計になっているか確認したい。
+- どう解決したか:
+  - `SPEC_GOVERNANCE.md` に「現状は実装者が同じcommitでmd正本を更新する」「DB schemaは `dump_schema.py` で生成する」「design_logは正本にしない」を明記した。
+  - 今後の機能追加は Capability Catalog / Functional Spec / Data Contract / ADR / Executable Spec / Traceability のどこへ書くかを定義した。
+  - `pwa/AGENTS.md` と `pwa/CLAUDE.md` の読書順に `L2_DATA.md`、`FEATURE_REGISTRY.md`、`SPEC_GOVERNANCE.md`、テーマ別mdを入れた。
+- できるようになったこと:
+  - 新セッションは入口mdから仕様正本へ辿ってから実装に入る。
+
+#### #27 経営・事業シグナル L2 ⑨を実装
+
+- まさがお願いしていたこと:
+  - コックピットのMSリストの下に、経営上の重要方針・事業上の進捗などをまとめたセクションを追加したい。
+  - そこへ入るデータを、生データからCodex automationで抽出するL2データとして構築したい。
+- どう解決したか:
+  - `project_strategy_signals` テーブルを追加し、production Supabaseへmigration適用済み。
+  - `CockpitStrategySignals` を追加し、cockpitのMSリスト直下に `経営・事業シグナル` を表示するようにした。
+  - `ms_progress_review_tool.mjs` の outbox applier が `strategySignals` を `project_strategy_signals` へupsertできるようにした。
+  - `l2_notifications(l2_kind='project_strategy_signal')` の通知詳細表示と「はい/いいえ」による confirmed/rejected 遷移を追加した。
+  - Codex automation `AMD OS 経営・事業シグナルレビュー` を作成し、outbox `/Users/masa/.codex/automations/amd-os-strategy-signals/outbox/*.json` を非LLM applierが拾う構成にした。
+  - `project_strategy_signals.md` / `L2_DATA.md` / `cockpit.md` / `SPEC_pwa.md` / `FEATURE_REGISTRY.md` / `SPEC_GOVERNANCE.md` を更新した。
+- できるようになったこと:
+  - MS進捗より上位の重要判断・重要進捗・リスクを、根拠付きL2としてコックピットに出せる。

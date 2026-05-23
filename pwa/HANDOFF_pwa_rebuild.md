@@ -56,7 +56,7 @@
 
 - branch: `main`
 - previous handoff commit: `84a937a feat(pwa): harden monthly ops and member activity flows` (origin/mainへpush済み)
-- current local changes: `/admin/payouts` キャッシュ表示、支払通知書発行UI、`FEATURE_REGISTRY.md`、critical-ui guard、docs/log更新。commit/push前なら `git status -s` を確認。
+- current local changes: `/admin/payouts` の支払通知書3操作をメンバー別支払行へ統合、L2 ⑨ `project_strategy_signals` (DB/API/cockpit/notifications/outbox/Codex automation)、仕様統制docs、critical-ui guard更新。commit/push前なら `git status -s` を確認。
 - GAS code-level kill switch差分は `clasp login` 後の `npx --yes @google/clasp push` 成功で反映済み。
 - migration `074_members_last_login_at.sql` / `075_related_members_cleanup.sql` はproduction Supabaseへ適用済み。
 - DB cleanup済み:
@@ -77,6 +77,7 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 ```
 
 - `npm run test:critical-ui`: 成功
+- `npm run test:next-period-ui`: 成功
 - `npx tsc --noEmit`: 成功
 - `npm run build`: 成功
 - production deploy: 成功、aliasは `https://amd-os-pwa.vercel.app`
@@ -92,20 +93,26 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
   - `/payment-confirm`: tokenなしアクセスで「リンクが足りない」を確認。
   - `/admin/payouts?ym=202605`: キャッシュ表示、対象10件、報酬9明細、支払メンバー6人、合計 `¥1,188,293`、縦型PJ収支表、支払通知書発行UIを確認。
 
+2026-05-23 follow-up:
+- `project_strategy_signals` migrationをproduction Supabaseへ適用し、`pwa/design/db_schema.md` を再生成。
+- Codex automation `AMD OS 経営・事業シグナルレビュー` を作成。outboxは `/Users/masa/.codex/automations/amd-os-strategy-signals/outbox/*.json`、非LLM applierは `scripts/run-ms-outbox-applier.sh` で5分ごとに拾う。
+- 機械チェック: `node --check pwa/scripts/ms_progress_review_tool.mjs`、`npm run test:critical-ui`、`npm run test:next-period-ui`、`npx tsc --noEmit`、`npm run build` 成功。
+
 ---
 
 ## Open Tasks
 
-1. `/admin/members` のログイン済み実画面確認は、このセッションでは未確認。
-2. 関連メンバー: `/project/p09/cockpit` (JOYCLE) の関連メンバーモーダルと `founding-members-extract?project_id=p09` の v3/v5 prompt 出力確認。他 active SU (CTB/SE/ZMP/CX/SX) も再走対象。
-3. 既にactive化済みだった古いL2候補の全体巻き戻しは未実施。今回以降の新規抽出は承認ゲートに寄せた。
-4. 機能レジストリはまず `/admin/payouts` から開始。次に `/project/[projectId]/cockpit`, `/mypage`, `/notifications`, `/admin/projects`, `/admin/settings` へ広げると、UI消失防止がさらに強くなる。
+1. 本番deploy後に `/admin/payouts?ym=202605` でメンバー別支払行の `支払通知書発行` / `PDF確認` / `送付` をログイン済みChromeで確認する。
+2. 本番deploy後に `/project/[projectId]/cockpit` でMS直下の `経営・事業シグナル` セクションを確認する。
+3. `/admin/members` のログイン済み実画面確認は、このセッションでは未確認。
+4. 関連メンバー: `/project/p09/cockpit` (JOYCLE) の関連メンバーモーダルと `founding-members-extract?project_id=p09` の v3/v5 prompt 出力確認。他 active SU (CTB/SE/ZMP/CX/SX) も再走対象。
+5. 既にactive化済みだった古いL2候補の全体巻き戻しは未実施。今回以降の新規抽出は承認ゲートに寄せた。
 
 ---
 
 ## First Next Action
 
-まず `git status -s` と `git log -1 --oneline` を確認する。未commitなら `/admin/payouts` キャッシュ表示・支払通知書発行UI・`FEATURE_REGISTRY.md`・critical-ui guard をcommit/pushする。その後、`/admin/members` のログイン済み実画面確認と、機能レジストリの対象画面拡張に進む。
+まず `git status -s` と `git log -1 --oneline` を確認する。未deployなら PWA正本手順 (`npx tsc --noEmit` → `npm run build` → `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`) を完了し、ログイン済みChromeで `/admin/payouts?ym=202605` と `/project/[projectId]/cockpit` を確認する。未commitなら今回差分をcommit/pushする。
 
 ---
 
@@ -113,11 +120,13 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 
 1. `pwa/HANDOFF_pwa_rebuild.md`
 2. `pwa/design/README.md`
-3. `pwa/design/FEATURE_REGISTRY.md`
-4. `pwa/design/SPEC_pwa.md`
-5. `pwa/design/L2_DATA.md`
-6. `pwa/design/cockpit.md`
-7. `pwa/design/notifications.md`
-8. `pwa/design/xrl_evidence.md`
-9. `pwa/BUGS.md`
-10. `pwa/design_log/sessions_2026-05.md` の末尾
+3. `pwa/design/L2_DATA.md`
+4. `pwa/design/FEATURE_REGISTRY.md`
+5. `pwa/design/SPEC_GOVERNANCE.md`
+6. `pwa/design/SPEC_pwa.md`
+7. `pwa/design/cockpit.md`
+8. `pwa/design/project_strategy_signals.md`
+9. `pwa/design/notifications.md`
+10. `pwa/design/xrl_evidence.md`
+11. `pwa/BUGS.md`
+12. `pwa/design_log/sessions_2026-05.md` の末尾

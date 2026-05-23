@@ -162,4 +162,23 @@ export const aaaCockpitData: CockpitData = {
       extractedAt: "2026-05-16T10:00:00+09:00",
     },
   ],
+  strategySignals: [
+    {
+      signalId: "aaa-signal-1",
+      projectId: AAA_PROJECT_ID,
+      ym: "202605",
+      signalDate: "2026-05-14",
+      signalType: "commercial_progress",
+      title: "有償導入の意思決定者を経営企画へ引き上げ",
+      summary: "現場PoCから、保険料低減と作業停止時間削減を含むROI説明へ切り替え、初回有償導入の稟議ルートを経営企画へ移した。",
+      impactLevel: "high",
+      decisionState: "executing",
+      status: "confirmed",
+      sourceRefs: [{ source: "demo", date: "2026-05-14", snippet: "Paid deployment negotiation" }],
+      sourceHash: "demo-aaa-signal-1",
+      confidence: 0.86,
+      createdAt: "2026-05-16T10:00:00+09:00",
+      confirmedAt: "2026-05-16T10:00:00+09:00",
+    },
+  ],
 };

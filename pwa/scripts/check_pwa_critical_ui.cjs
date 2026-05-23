@@ -72,11 +72,9 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "openMonthlyModal",
   "報酬キャッシュ再計算",
   "支払通知書発行",
-  "通知書番号",
-  "PDFで確認",
-  "再発行",
-  "送付済みにする",
-  "未送付に戻す",
+  "PDF確認",
+  "送付",
+  "PayoutNoticeActions",
 ]);
 
 expectIncludes("src/app/api/admin/payouts/route.ts", [
@@ -118,6 +116,38 @@ expectIncludes("src/components/admin/AdminProjectsTable.tsx", [
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "showAmdScore",
   "ecosystem",
+  "CockpitStrategySignals",
+  "strategySignals",
+]);
+
+expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [
+  "経営・事業シグナル",
+  "重要方針・事業進捗・リスク",
+  "sourceRefs",
+]);
+
+expectIncludes("src/lib/supabase-data.ts", [
+  "project_strategy_signals",
+  "strategySignals",
+  "ProjectStrategySignal",
+]);
+
+expectIncludes("src/app/api/notifications/feedback/route.ts", [
+  "project_strategy_signal",
+  "project_strategy_signals",
+  "updateStrategySignalCandidates",
+]);
+
+expectIncludes("scripts/ms_progress_review_tool.mjs", [
+  "strategySignals",
+  "upsertStrategySignals",
+  "project_strategy_signals",
+]);
+
+expectIncludes("design/FEATURE_REGISTRY.md", [
+  "/project/[projectId]/cockpit",
+  "経営・事業シグナル",
+  "project_strategy_signals",
 ]);
 
 expectIncludes("src/lib/amd-score-l2-extract.ts", [

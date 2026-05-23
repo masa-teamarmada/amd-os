@@ -1886,6 +1886,29 @@
 - **対応内容**:
   - `payout_notices.notice_no` / `pdf_url` / `sent_at` を更新する `PATCH action=update_notice` を追加。
   - `/admin/payouts` に「支払通知書発行」セクションを復活。番号発行、PDF URL保存、送付済み化、未送付戻しを画面から実行できる。
+  - 2026-05-23追記: セクションとして分離せず、「メンバー別支払」各行に `支払通知書発行` / `PDF確認` / `送付` の3操作を統合した。`PDF確認` は既存 `pdf_url` があれば開き、未発行なら発行を促すhintを出す。PDF URL手入力欄は置かない。
 - **再発防止策**:
   - `pwa/design/FEATURE_REGISTRY.md` に `/admin/payouts` の必須機能を登録。
   - `npm run test:critical-ui` で支払通知書発行UIとAPI anchorを検査する。
+  - 支払通知書UIは `PayoutNoticeActions` に集約し、`FEATURE_REGISTRY.md` と `test:critical-ui` のanchorに入れる。
+
+---
+
+### [pwa/spec-governance] 実装済み機能がmd正本とguardに接続されず仕様ドリフトする
+
+- **発見日**: 2026-05-23
+- **状態**: ✅ 修正済み
+- **症状**:
+  - セッションをまたぐと、過去に実装した業務UIや導線が別実装で上書きされ、消えることがあった。
+  - chat内の合意だけが残り、次セッションの最初に読むmd正本から辿れない機能があった。
+- **原因**:
+  - 設計正本が画面別の機能登録簿、データ契約、承認/却下フロー、回帰テストanchorに分解されていなかった。
+  - 新機能追加時に「実装 + md正本 + executable guard」を同じ単位で更新するルールが弱かった。
+- **対応内容**:
+  - `pwa/design/FEATURE_REGISTRY.md` を重要UI登録簿として追加。
+  - `pwa/design/SPEC_GOVERNANCE.md` に Capability Catalog / Functional Spec / Data Contract / ADR / Executable Spec / Traceability の運用を追加。
+  - `pwa/AGENTS.md` / `pwa/CLAUDE.md` の新セッション読書順に `FEATURE_REGISTRY.md` と `SPEC_GOVERNANCE.md` を追加。
+- **再発防止策**:
+  - 機能追加・削除・置換は、実装と同じcommitで `pwa/design/` の正本を更新する。
+  - 重要UIは `npm run test:critical-ui` にanchorを追加し、mdだけでなく機械的に検知する。
+  - `design_log/` は時系列ログであり正本化しない。

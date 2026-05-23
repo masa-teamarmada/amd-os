@@ -10,7 +10,7 @@
  *
  * Body:
  *   {
- *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'meeting_summary'|'project_registry_diff'|'xrl_evidence',
+ *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal',
  *     target_id: string,            // code_name (member系) / project_id (PJ系)
  *     scope_key?: string,            // ym (PJ系) / 'global' (member系) — default 'global'
  *     notification_id?: string,      // 関連 l2_notifications (optional)
@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
       "project_config_gap",
       "project_registry_diff",
       "xrl_evidence",
+      "project_strategy_signal",
       "founding_members",
       "meeting_summary",
     ]);
@@ -335,6 +336,17 @@ async function applyApprovedNotification(args: {
     });
   }
 
+  if (args.l2Kind === "project_strategy_signal") {
+    return updateStrategySignalCandidates({
+      supabase: args.supabase,
+      targetId: args.targetId,
+      scopeKey: args.scopeKey,
+      notificationId: args.notificationId,
+      status: "confirmed",
+      createdBy: args.createdBy,
+    });
+  }
+
   return { applied: false, message: `no automatic apply handler for ${args.l2Kind}` };
 }
 
@@ -406,6 +418,17 @@ async function rejectNotificationCandidates(args: {
 
   if (args.l2Kind === "xrl_evidence") {
     return updateXrlEvidenceCandidates({
+      supabase: args.supabase,
+      targetId: args.targetId,
+      scopeKey: args.scopeKey,
+      notificationId: args.notificationId,
+      status: "rejected",
+      createdBy: args.createdBy,
+    });
+  }
+
+  if (args.l2Kind === "project_strategy_signal") {
+    return updateStrategySignalCandidates({
       supabase: args.supabase,
       targetId: args.targetId,
       scopeKey: args.scopeKey,
@@ -661,6 +684,56 @@ async function updateXrlEvidenceCandidates(args: {
   return {
     applied: (fallback.data ?? []).length > 0,
     message: `${args.status} xrl evidence: ${(fallback.data ?? []).length}`,
+    row: fallback.data,
+  };
+}
+
+async function updateStrategySignalCandidates(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  targetId: string;
+  scopeKey: string;
+  notificationId?: string | null;
+  status: "confirmed" | "rejected";
+  createdBy: string | null;
+}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  const meta = await loadNotificationMetadata(args.supabase, args.notificationId);
+  const ym = xrlNotificationYm(args.scopeKey);
+  const signalType = textValue(meta.signal_type);
+  const sourceHash = textValue(meta.signal_source_hash);
+  const now = new Date().toISOString();
+
+  const run = async (includeSourceHash: boolean) => {
+    let query = args.supabase
+      .from("project_strategy_signals")
+      .update({
+        status: args.status,
+        confirmed_by: args.createdBy,
+        confirmed_at: now,
+        updated_at: now,
+      })
+      .eq("project_id", args.targetId)
+      .eq("status", "candidate");
+    query = ym === "global" ? query.is("ym", null) : query.eq("ym", ym);
+    query = signalType ? query.eq("signal_type", signalType) : query;
+    query = includeSourceHash && sourceHash ? query.eq("source_hash", sourceHash) : query;
+    return query.select("signal_id, signal_type, title, source_hash, status");
+  };
+
+  const exact = await run(true);
+  if (exact.error) return { applied: false, message: exact.error.message };
+  if ((exact.data ?? []).length > 0 || !sourceHash) {
+    return {
+      applied: (exact.data ?? []).length > 0,
+      message: `${args.status} strategy signals: ${(exact.data ?? []).length}`,
+      row: exact.data,
+    };
+  }
+
+  const fallback = await run(false);
+  if (fallback.error) return { applied: false, message: fallback.error.message };
+  return {
+    applied: (fallback.data ?? []).length > 0,
+    message: `${args.status} strategy signals: ${(fallback.data ?? []).length}`,
     row: fallback.data,
   };
 }
