@@ -49,6 +49,7 @@
 - admin membersにCalendar共有状態と最終ログインを表示し、最終ログインが新しい順にsort。
 - ecosystem PJはAMD Score/XRL対象外、advisor PJはendedでもsource/backfill対象にできるようPJ分類を追加。
 - 関連メンバー (`project_founding_members`) を HRL 評価のベースとして再定義。「該当SU社員 + AMD伴走メンバー」だけを HRL に算入し、大学・研究機関 / VC / 顧客 / 行政 / 産業パートナーは invalid 化。AMDメンバーは `members.code_name` で記録 (フルネーム / 姓のみは重複扱いで invalid)。category に `'startup'` を追加。UI ラベルは「関連メンバー」に統一。
+- **まさ × えいみ daily 経営会議** 経路を追加。daily 抽出は Codex automation `amd-os-strategy-signals` (outbox → applier) で `project_strategy_signals` に `candidate/proposed` を積み、まさが claude/codex セッションを開いたタイミングでえいみが優先度順に提示 → 議論 → 確定経営判断を `POST /api/strategy-signals` (action=confirm/create-confirmed)、議論ログを `POST /api/dialogue-meeting` で `project_meeting_summaries(source_kinds='dialogue')` に保存。会社全体スコープは `project_id='p00'`。cockpit MTGサマリ欄に議論ログがそのまま並ぶため UI 改修なし。詳細 [`design/project_strategy_signals.md`](design/project_strategy_signals.md)。
 
 ---
 

@@ -146,7 +146,28 @@ top-level:
 ```
 
 `notifications[]` は `l2_notifications` payload と同じ。  
-`l2_kind='project_strategy_signal'`、`metadata_json.signal_type`、`metadata_json.signal_source_hash` を入れる。
+`l2_kind='project_strategy_signal'`、`metadata_json.signal_type`、`metadata_json.signal_source_hash` を入れる。個別候補の通知は `scope_key='YYYYMM:strategy:<hash12>'` を推奨し、通知UIは `scope_key` 先頭の `YYYYMM` を表示月として扱う。
+
+---
+
+## Backfill / initial data
+
+初期表示用の過去データは、既存 `member_activities` から決定的ルールで候補を作る。LLM/GASは使わない。
+
+```bash
+node pwa/scripts/backfill_strategy_signals_from_activities.mjs \
+  --from-ym 202601 \
+  --to-ym 202605 \
+  --max-per-project 10 \
+  --max-per-project-month 4 \
+  --max-total 80 \
+  --out /tmp/amd-os-strategy-signals-backfill.json
+
+node pwa/scripts/ms_progress_review_tool.mjs apply-outbox \
+  --file /tmp/amd-os-strategy-signals-backfill.json
+```
+
+2026-05-23に、`member_activities` 202601-202605 から40件を `status='candidate'` としてbackfill済み。通知も同時に作成済みなので、`/notifications` の「はい/いいえ」で confirmed/rejected にできる。
 
 ---
 
@@ -179,3 +200,82 @@ top-level:
 - コメント: `l2_feedbacks` に保存し、次回 automation のプロンプトに含める
 
 コックピットでは candidate も表示するが、候補 chip を付けて未承認であることを明示する。
+
+---
+
+## 議論セッション運用 (= まさ × えいみ daily 経営会議)
+
+Codex automation の candidate 抽出と並列で、**まさ × えいみが claude/codex セッション内で対話して確定経営判断を書き込む** 経路を持つ。
+
+### フロー
+
+```
+[Phase 1] daily routine (= Codex automation amd-os-strategy-signals)
+  outbox → applier → project_strategy_signals (status='candidate', decision_state='proposed')
+   ↓ + l2_notifications(l2_kind='project_strategy_signal')
+
+[Phase 2] まさが claude/codex を開く (= 時間あるときだけ)
+  えいみが candidate/proposed signals を read → 優先度順に提示
+   ↓
+  まさが pick up → 議論
+   ↓
+  確定経営判断:
+    POST /api/strategy-signals
+      action='confirm' (= 既存 signal を confirmed/decided に昇格)
+      action='create' status='confirmed' (= 議論で新規に出た判断、直接書く)
+    POST /api/dialogue-meeting (= 議論本体ログを project_meeting_summaries に保存)
+
+[Phase 3] cockpit 表示
+  - 経営・事業シグナル section: project_strategy_signals を表示
+  - MTGサマリ section: source_kinds='dialogue' の議論ログを自動表示 (= UI 改修不要)
+```
+
+会社全体スコープの議論は `project_id='p00'` を指定。
+
+### API
+
+#### `POST /api/strategy-signals`
+
+dialogue 経路用の CRUD ハブ。`action='create' | 'update' | 'confirm' | 'reject'`。
+
+- daily routine からは **使わない** (= outbox + applier が正本経路)
+- dialogue セッション中、まさが「これ確定」と言ったときに 1 件ずつ叩く想定
+- `action='create'` は `(project_id, scope_key, signal_type, source_hash)` で upsert (= idempotent)、`source_hash` 未指定時は `project_id + ym + signal_type + title + summary` の SHA-256
+- 認証: admin (members.is_admin=true) または `Authorization: Bearer ${CRON_SECRET}`
+
+実装: [src/app/api/strategy-signals/route.ts](../src/app/api/strategy-signals/route.ts)
+
+#### `POST /api/dialogue-meeting`
+
+議論ログ 1 回分を `project_meeting_summaries` に upsert。
+
+- `meeting_id='dialogue:{project_id}:{YYYYMMDD-HHMMSS}'`
+- `source_kinds='dialogue'`
+- `decided / progress / next_actions / risks` にバケツ分け
+- 認証: admin または `Authorization: Bearer ${CRON_SECRET}`
+
+cockpit の `CockpitMeetingSummary` が `source_kinds` 無関係に meeting_date DESC で表示するため、UI 改修なしで議論ログがコックピット MTGサマリ欄に出る。
+
+実装: [src/app/api/dialogue-meeting/route.ts](../src/app/api/dialogue-meeting/route.ts)
+
+### 議論プレイブック (= えいみ向け実務メモ)
+
+PJ 1件あたり、以下を 30 秒〜2 分で横断 read してから議題を組む:
+
+| 観点 | 主に見る場所 | 拾うシグナル |
+|---|---|---|
+| 月次レポート | `monthly_reports` 直近2-3本 | 滞り、繰り返し出る課題 |
+| 会議 risks / decided | `project_meeting_summaries` 過去30日 | 未対応 risks、決定の含意 |
+| 月次ルーティン滞留 | `billing_cycles` 当月+前月 | report_fixed_at / payment_confirmed_at null |
+| XRL / AMD Score 急変 | `project_xrl_log`, `amd_score_inputs` | 前月比の急上昇/急減 |
+| nudge | `tsukuyomi_nudge_queue` (status='ready') | 未処理 nudge |
+| 外部環境 | `atlas_signals` 直近7日 × lane | 政策・競合・規制変化 |
+| 入金 / 予算 | `billing_cycles.payment_confirmed_at` / freee sync | 入金遅延、PJ予算超過 |
+| 既存 candidate | `project_strategy_signals` (status='candidate') | daily routine が積んだ議題 |
+
+議論結果を残すルール:
+
+- confirm はその場で叩く (= 後でやらない)
+- まさが「これ違う、こっち」と修正した場合: 元 signal は `action='reject'`、新 signal を `action='create' status='confirmed'`
+- 議論ログ (`/api/dialogue-meeting`) は **1 PJ 1 セッション 1 件** にまとめる (= シグナル毎に作らない)
+- `decided[]` には「まさが今日確定した経営判断」、`next_actions[]` には「次回会議までの動作」
