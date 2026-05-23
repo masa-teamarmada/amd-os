@@ -28,6 +28,18 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
 
 旧構成は `max-w-[1060px]` で左メイン 720px + 右 sticky 220px の 2 カラムだった。コンテンツが増えてきたので、画面幅をフルに使う **案C レイアウト** に組み替えた。
 
+### Hero の出し分け (PJ 別)
+
+- **p00 (= AMD 会社全体)**: `CockpitManagementScoreHero` を Hero として表示。横軸 ym, 縦軸 0-100 の折れ線で AMD Management Score の `total_score` と 5 軸 (`initiative_score` / `finance_score` / `retention_score` / `pipeline_score` / `direction_score`) の時系列を見せる。右側に最新値カード。
+- **SU 系 PJ (project_ventures あり)**: `CockpitVentureStatus` を Hero として表示。AMD Score 折れ線と XRL 折れ線が `xl:flex-row` で横並び。
+- **ecosystem PJ**: `showAmdScore` が false なので Hero なし。
+- **その他 dtsu PJ で project_ventures が無い場合**: CockpitVentureStatus が「PJ Status 未設定」表示でフォールバックする。
+
+### p00 (= AMD 会社全体) の月次データ
+
+p00 にも他 PJ と同じく月次カード + 月次モーダルが出る。`billing_cycles` は backfill 済 (= 202601-202612 で 12 行、`status='not_started'`)。月次モーダルでは進捗タブだけ意味があり、請求書 / 報酬は他 PJ の動作と同じ UI が出るが内容は空。`monthly_reports` は将来 cron / 手動で生成する。
+
+
 ```
 /project/[projectId]/cockpit (CockpitView)
 container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
@@ -328,3 +340,134 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → cron `/ven
 - gross due = 今月発生報酬 + 前月までのmember別stock
 - gross dueがcapを超える場合、支払額をcap内に比例配分し、未払い分を `stockYen` として翌月へ繰越
 - UIは `要支払 / 支払 / 繰越入 / 現ストック / キャップ発動` を表示する
+
+---
+
+## p00 専用 MVV 表示セクション ⭐ NEW (2026-05-23、戦略再構築セッション)
+
+`/project/p00/cockpit`（AMD 全社）**だけ**に表示される、AMD 全社の Mission / Impact Principles / 長期目標 / 戦略構造 / FY26 OKR を上から並べる縦構成セクション。
+
+### 背景
+
+2026-05-23 まさ × えいみ戦略再構築セッションで、AMD の長期目標を「SU 創出数中心」→「研究機関提携 + AMD OS 普及 + 学術体系化」中心へ転換。それに伴い、AMD 全社のミッション・戦略構造を**コックピット上で常時可視化**しておく必要が出てきた。
+
+まさの言葉:
+> てかさ、そういう長期的目標、MVV とかをちゃんとコックピットにも書いておかないとだよね。
+
+### 表示する情報（縦並び、上から）
+
+1. **Mission**
+   - 「眠る知財をビジネスに変え、日本をディープテックの渦にする」
+   - 英文: "Spin IP into ventures, supercharge economy, reward scientists, amplify science"
+
+2. **Impact Principles（4 要素の循環構造）**
+   - 図で表現: `[1] 知財事業化 → [2] 外貨獲得 → [3] 研究者還元 → [4] 研究者数増加 →（新しい知財）→ [1]`
+   - 各要素のラベルとループの矢印を SVG / Flexbox で
+
+3. **コア能力（3 つ）× 差別化資産（2 つ）**
+   - コア能力: ビジョン注入力 / 俯瞰的技術戦略 / 大学連携ネットワーク
+   - 差別化資産: AMDプロトコル / AMDスコア
+
+4. **3 レイヤー戦略構造**
+   - 🏗 仕組み（AMD OS 普及 / Y→X 遷移装置）
+   - 🎓 学術（Before Zero Model 体系化）
+   - 💰 案件（研究機関セグメント / 事業会社セグメント）
+   - 各レイヤーは折りたたみ可、クリックで詳細展開
+
+5. **AMD OS ロードマップ**
+   - タイムライン形式
+   - 2026 内部運用 + 教科書 STEP 1 着手 → 2027 NIMS 試験導入 → 2027-28 連携機関展開（並走）→ 2030+ 全国共通基盤
+
+6. **2035 長期目標（主要メトリック）**
+   - AMD OS 導入機関数: 60+
+   - 連携研究機関 業務提携数: 60+
+   - 論文累積（査読付）: 30（うちジャーナル掲載 10）
+   - 学会発表累積: 40
+   - ファンド運用額: 30 億円+
+   - DTSU 創出数: 60+/年（副次指標）
+   - 各メトリックは現在値（自動集計）と目標値を並べて進捗バー表示
+
+7. **AMD ファンド（ゼブラ思想）**
+   - 3 レイヤー外の収益源として独立カード
+   - 思想（LP 厳選 / 余剰資金運用 / ブランディング保護）
+   - FY28 組成 10 億円規模
+
+8. **FY26 OKR（KR1 〜 KR6）**
+   - KR1 事業規模 / KR2 収益性 / KR3 組織基盤 / KR4 将来基盤 / KR5 プレゼンス / KR6 学術化
+   - 各 KR の現在達成率（手動入力 or 自動推定）と目標を並べて表示
+   - クリックで該当 MS にジャンプ
+
+9. **今期 MS リスト**
+   - 既存の `CockpitGoalsCompact` がそのまま使える
+   - `value_plan_cycles.plan_cycle_id='PC-p00-202606-202612'` の 14 MS を表示
+
+### データソース
+
+| 項目 | ソース |
+|---|---|
+| Mission / Impact Principles / コア能力 / 差別化資産 / 3 レイヤー | 静的（component 内 or `knowledge/company_profile.md` を build 時に取り込み） |
+| AMD OS ロードマップ | 静的（`knowledge/amd_os_vision.md`）|
+| 2035 長期目標（目標値）| 静的（`knowledge/company_profile.md` + `knowledge/midterm_plan.md`）|
+| 2035 長期目標（現在値）| 動的: `partner_institutions.md` 集計 / `value_milestones` 集計 / `protocols` 集計 / 論文 DB（要設計）|
+| AMD ファンド | 静的（`knowledge/midterm_plan.md` §3）|
+| FY26 OKR（目標）| 静的（`knowledge/company_profile.md`）|
+| FY26 OKR（達成率）| 手動入力 or 自動推定（要設計、H2 開始時点では手動入力で OK） |
+| 今期 MS | `value_milestones` テーブル `plan_cycle_id='PC-p00-202606-202612'` |
+
+### UI 構成（既存ページ構成への差分）
+
+```
+/project/p00/cockpit (CockpitView)
+├── [A]   CockpitHeader               PJ 名 = "AMD" / status chip
+├── [V]   CockpitP00MVVSection    ⭐ NEW (p00 のみ表示)
+│   ├── 1. Mission ブロック
+│   ├── 2. Impact Principles 循環構造図
+│   ├── 3. コア能力 × 差別化資産
+│   ├── 4. 3 レイヤー戦略構造（折りたたみ可）
+│   ├── 5. AMD OS ロードマップ タイムライン
+│   ├── 6. 2035 長期目標 進捗バー
+│   ├── 7. AMD ファンド（ゼブラ思想）カード
+│   └── 8. FY26 OKR KR1-KR6 進捗バー
+├── [B]   CockpitGoalsCompact         今期 MS リスト（14 個）
+├── [B1]  CockpitStrategySignals      経営・事業シグナル
+├── [B2]  CockpitNextPeriodSetup
+├── [B3]  過去の期間
+├── [C]   CockpitKanbanGas
+├── [G/E] CockpitMonthlyList + CockpitMeetingSummary
+└── [Right] CockpitRoutineGas + CockpitNudge
+```
+
+> ⚠️ `[A2] CockpitVentureStatus`（PJ Status セクション）は **p00 では非表示**。AMD 全社は `project_ventures` 行を持たないため。代わりに CockpitP00MVVSection が同じ位置に表示される。
+
+### 表示条件
+
+- `project_id === 'p00'` のときのみ `CockpitP00MVVSection` を表示
+- 他の PJ（p06 / p20 / p21 等）には**出さない**
+- 既存の `CockpitVentureStatus` は p00 では出さない
+
+### 実装ファイル（新規）
+
+- `pwa/src/components/cockpit/CockpitP00MVVSection.tsx`（NEW）
+- `pwa/src/components/cockpit/CockpitView.tsx` で `projectId === 'p00'` 分岐
+
+### 静的データの md 同期ルール
+
+`knowledge/` 配下の v2 md と CockpitP00MVVSection の静的データは**必ず同期**させる。
+
+- md 変更時はコードも更新する（v2 化のタイミングで作ったルール）
+- 将来的には build 時に `knowledge/company_profile.md` 等を解析して動的化することも検討（FY27 以降の課題、現状は静的でも OK）
+- 静的データを変更したら、`knowledge/company_profile.md` の Changelog にも追記
+
+### 関連 md
+
+- [`/Users/masa/projects/knowledge/company_profile.md`](../../../knowledge/company_profile.md) — Mission / Impact Principles / 3 レイヤー / FY26 OKR / 組織体制
+- [`/Users/masa/projects/knowledge/amd_value_model.md`](../../../knowledge/amd_value_model.md) — 3 軸構造 / コア能力 + 差別化資産
+- [`/Users/masa/projects/knowledge/midterm_plan.md`](../../../knowledge/midterm_plan.md) — FY26-FY35 数値計画 / ファンド設計（ゼブラ思想）
+- [`/Users/masa/projects/knowledge/amd_os_vision.md`](../../../knowledge/amd_os_vision.md) — AMD OS 中核戦略 / ロードマップ
+- [`/Users/masa/projects/knowledge/partner_institutions.md`](../../../knowledge/partner_institutions.md) — 連携機関台帳
+
+### Changelog
+
+| 日付 | 変更 |
+|---|---|
+| 2026-05-23 | 初版。戦略再構築セッションで「コックピットにも MVV を書いておかないと」とまさ確定。CockpitP00MVVSection 仕様を新設 |

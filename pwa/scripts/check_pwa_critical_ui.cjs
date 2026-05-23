@@ -169,6 +169,47 @@ expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "Chart 1 + Chart 2",
 ]);
 
+// p00 (= AMD 会社全体) は Management Score Hero に切り替わる
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  "CockpitManagementScoreHero",
+  "project.projectId === \"p00\"",
+]);
+expectIncludes("src/components/cockpit/CockpitManagementScoreHero.tsx", [
+  "amd_management_score_snapshots",
+  "initiative_score",
+  "finance_score",
+  "retention_score",
+  "pipeline_score",
+  "direction_score",
+]);
+
+// MTGサマリ UI: フレーム廃止 + dialogue ラベル + source link
+expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
+  "isDialogueMeeting",
+  "2人で出した提案 (チームへの相談)",
+  "DialogueMeetingBody",
+  "narrativeMd",
+  "TopicList",
+  "NarrativeSection",
+]);
+expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
+  // 旧フレーム枠の anchor (border-l + bg-white の rounded-lg 個別ボックス) は廃止
+  "border-l-[3px] border-emerald-400/70",
+]);
+expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
+  "isDialogue",
+  "sourceUrl",
+  "まさ×えいみ",
+]);
+
+// dialogue narrative API
+expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
+  "narrative_md",
+  "project_meeting_summaries",
+  "claude-sonnet-4-6",
+  "2 人で出した提案",
+]);
+
 expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [
   "経営・事業シグナル",
   "重要方針・事業進捗・リスク",

@@ -153,6 +153,18 @@ select / filter / insert / upsert を書くこと。
    ```
    - cockpit の MTGサマリ欄に自動で並ぶ (`source_kinds='dialogue'`)
    - PJ 横断で議論した場合は、関連 PJ ごとに 1 行ずつ insert (= まとめ1行でなく)
+   - `summary_short` には「議論の背景 + 何を話したか」を 2-4 文で書く。1 行で済ませない
+   - `decided[]` の項目は「**提案**」のニュアンスで書く (= まさ × えいみで議論して出した提案、チームに相談する前提)。「決定」「決まったこと」と書かない
+
+6. **議事録の narrative 化** (= 5 の直後):
+   ```
+   POST /api/dialogue-meeting/narrate
+   { meeting_id: "dialogue:{project_id}:..." }
+   ```
+   - Sonnet 4.6 が raw 配列を「背景 → 議論の流れ → 2 人で出した提案 → 残課題」の Markdown narrative に書き直し
+   - `project_meeting_summaries.narrative_md` に保存される
+   - cockpit の MTGサマリ詳細では narrative が主表示、raw は折りたたみ「元データ」へ
+   - 全件まとめて narrate するなら `{ all: true, limit: 20 }` を叩く
 
 ### 認証
 

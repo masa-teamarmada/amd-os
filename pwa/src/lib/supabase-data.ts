@@ -1458,15 +1458,17 @@ export interface ProjectMeetingSummary {
   meetingStartAt: string | null;
   title: string;
   notionUrl: string | null;
+  sourceUrl: string | null;       // Slack permalink / Drive Doc / Calendar event URL 等 (migration 052)
   calendarEventId: string | null;
   summaryShort: string;
   decided: string[];
   progress: string[];
   nextActions: string[];
   risks: string[];
+  narrativeMd: string | null;     // dialogue meeting 用の Markdown narrative (背景→議論→提案→残課題)
   generatedAt: string;
   generatedByModel: string | null;
-  sourceKinds: string | null;     // 'notion' | 'gmail' | 'notion+gmail' | 'none' (Phase 2 027)
+  sourceKinds: string | null;     // 'notion' | 'gmail' | 'slack' | 'drive' | 'calendar' | 'dialogue' | 'none'
 }
 
 function asStringArray(v: unknown): string[] {
@@ -1505,12 +1507,14 @@ export async function fetchProjectMeetingSummaries(
     meetingStartAt: r.meeting_start_at,
     title: r.title || "",
     notionUrl: r.notion_url,
+    sourceUrl: r.source_url ?? null,
     calendarEventId: r.calendar_event_id,
     summaryShort: r.summary_short || "",
     decided: asStringArray(r.decided),
     progress: asStringArray(r.progress),
     nextActions: asStringArray(r.next_actions),
     risks: asStringArray(r.risks),
+    narrativeMd: r.narrative_md ?? null,
     generatedAt: r.generated_at,
     generatedByModel: r.generated_by_model,
     sourceKinds: r.source_kinds ?? null,

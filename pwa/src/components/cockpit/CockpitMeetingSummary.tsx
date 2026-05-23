@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fetchProjectMeetingSummaries, type ProjectMeetingSummary } from "@/lib/supabase-data";
+import { CockpitMeetingDetailModal } from "./CockpitMeetingDetailModal";
 
 interface Props {
   projectId: string;
@@ -67,7 +68,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
   const [showOlder, setShowOlder] = useState(false);
   const [olderLoading, setOlderLoading] = useState(false);
   const [olderLoaded, setOlderLoaded] = useState(false);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [selectedMeeting, setSelectedMeeting] = useState<ProjectMeetingSummary | null>(null);
 
   const sinceDate = useMemo(() => todayMinus365IsoDate(), []);
 
@@ -90,15 +91,6 @@ export function CockpitMeetingSummary({ projectId }: Props) {
     setOlderItems(older);
     setOlderLoaded(true);
     setOlderLoading(false);
-  }
-
-  function toggleExpanded(meetingId: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(meetingId)) next.delete(meetingId);
-      else next.add(meetingId);
-      return next;
-    });
   }
 
   const recentGroups = useMemo(() => groupByYm(recentItems), [recentItems]);
@@ -126,8 +118,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
             <MeetingGroupBlock
               key={g.ym}
               group={g}
-              expanded={expanded}
-              onToggle={toggleExpanded}
+              onSelect={setSelectedMeeting}
             />
           ))}
 
@@ -151,8 +142,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
                 <MeetingGroupBlock
                   key={g.ym}
                   group={g}
-                  expanded={expanded}
-                  onToggle={toggleExpanded}
+                  onSelect={setSelectedMeeting}
                 />
               ))}
             </div>
@@ -163,17 +153,22 @@ export function CockpitMeetingSummary({ projectId }: Props) {
           )}
         </div>
       )}
+
+      <CockpitMeetingDetailModal
+        meeting={selectedMeeting}
+        open={selectedMeeting !== null}
+        onOpenChange={(open) => { if (!open) setSelectedMeeting(null); }}
+      />
     </section>
   );
 }
 
 interface GroupProps {
   group: MeetingGroup;
-  expanded: Set<string>;
-  onToggle: (meetingId: string) => void;
+  onSelect: (m: ProjectMeetingSummary) => void;
 }
 
-function MeetingGroupBlock({ group, expanded, onToggle }: GroupProps) {
+function MeetingGroupBlock({ group, onSelect }: GroupProps) {
   return (
     <div>
       <div className="text-[12px] font-medium text-[#86868b] mb-1.5">
@@ -184,8 +179,7 @@ function MeetingGroupBlock({ group, expanded, onToggle }: GroupProps) {
           <MeetingRow
             key={item.meetingId}
             item={item}
-            isOpen={expanded.has(item.meetingId)}
-            onClick={() => onToggle(item.meetingId)}
+            onClick={() => onSelect(item)}
           />
         ))}
       </div>
@@ -195,106 +189,66 @@ function MeetingGroupBlock({ group, expanded, onToggle }: GroupProps) {
 
 interface RowProps {
   item: ProjectMeetingSummary;
-  isOpen: boolean;
   onClick: () => void;
 }
 
-function MeetingRow({ item, isOpen, onClick }: RowProps) {
+function MeetingRow({ item, onClick }: RowProps) {
   const dateLabel = formatDateLabel(item.meetingDate);
   const timeLabel = formatTimeLabel(item.meetingStartAt);
-  const hasTopics =
-    item.decided.length > 0 ||
-    item.progress.length > 0 ||
-    item.nextActions.length > 0 ||
-    item.risks.length > 0;
+  const isDialogue = item.meetingId.startsWith("dialogue:") || item.sourceKinds === "dialogue";
+  const sourceLink = item.sourceUrl || item.notionUrl;
+  const sourceLabel = isDialogue
+    ? null  // dialogue は外部ソースを持たないので原則 null
+    : item.sourceUrl
+      ? (item.sourceKinds || "source")
+      : item.notionUrl
+        ? "Notion"
+        : null;
 
   return (
-    <div className="border border-[#f0f0f2] rounded-lg px-3 py-2 hover:bg-[#fafafa] transition-colors">
+    <div className="group w-full border border-[#f0f0f2] rounded-lg hover:bg-[#fafafa] hover:border-[#d2d2d7] transition-colors flex items-start gap-2 px-3 py-2">
       <button
         onClick={onClick}
-        className="w-full text-left flex items-start gap-2"
+        className="text-left flex items-start gap-2 flex-1 min-w-0"
       >
-        <span className="text-[11px] text-[#86868b] shrink-0 tabular-nums w-[64px]">
+        <span className="text-[11px] text-[#86868b] shrink-0 tabular-nums w-[64px] mt-0.5">
           {dateLabel}
         </span>
         {timeLabel && (
-          <span className="text-[11px] text-[#86868b] shrink-0 tabular-nums w-[36px]">
+          <span className="text-[11px] text-[#86868b] shrink-0 tabular-nums w-[36px] mt-0.5">
             {timeLabel}
           </span>
         )}
         <div className="flex-1 min-w-0">
-          <div className="text-[12px] font-medium truncate">{item.title}</div>
-          {item.summaryShort && !isOpen && (
+          <div className="text-[12px] font-medium truncate flex items-center gap-1.5">
+            {isDialogue && (
+              <span className="text-[9px] px-1 py-px rounded bg-violet-50 border border-violet-200 text-violet-800 shrink-0">
+                まさ×えいみ
+              </span>
+            )}
+            <span className="truncate">{item.title}</span>
+          </div>
+          {item.summaryShort && (
             <p className="mt-0.5 text-[11px] text-[#3c3c43] line-clamp-2 leading-snug">
               {item.summaryShort}
             </p>
           )}
         </div>
-        <span className={`text-[10px] text-[#86868b] shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}>
-          ▶
-        </span>
       </button>
-
-      {isOpen && (
-        <div className="mt-2 border-t border-[#f0f0f2] pt-2 space-y-2">
-          {item.summaryShort && (
-            <p className="text-[12px] text-[#1d1d1f] leading-relaxed">
-              📝 {item.summaryShort}
-            </p>
-          )}
-
-          <TopicSection emoji="✅" label="決まったこと" items={item.decided} />
-          <TopicSection emoji="📈" label="進んだこと" items={item.progress} />
-          <TopicSection emoji="🎯" label="次やること" items={item.nextActions} />
-          <TopicSection emoji="⚠️" label="リスク" items={item.risks} />
-
-          {!hasTopics && !item.summaryShort && (
-            item.sourceKinds === "none" ? (
-              <p className="text-[11px] text-[#86868b]">議事録なし</p>
-            ) : (
-              <p className="text-[11px] text-[#86868b]">議事録あり・抽出空 (本文薄い or LLM 失敗)</p>
-            )
-          )}
-
-          {item.notionUrl && (
-            <div className="pt-1">
-              <a
-                href={item.notionUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[11px] text-[#007aff] hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Notion で開く ↗
-              </a>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface TopicProps {
-  emoji: string;
-  label: string;
-  items: string[];
-}
-
-function TopicSection({ emoji, label, items }: TopicProps) {
-  if (!items || items.length === 0) return null;
-  return (
-    <div>
-      <div className="text-[11px] font-medium text-[#3c3c43] mb-1">
-        {emoji} {label}
+      <div className="flex flex-col items-end gap-1 shrink-0">
+        {sourceLink && sourceLabel && (
+          <a
+            href={sourceLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-[10px] text-[#007aff] hover:underline whitespace-nowrap"
+            title={`元ソースを別タブで開く: ${sourceLink}`}
+          >
+            {sourceLabel} ↗
+          </a>
+        )}
       </div>
-      <ul className="space-y-0.5 pl-4">
-        {items.map((it, idx) => (
-          <li key={idx} className="text-[11px] text-[#1d1d1f] leading-snug list-disc">
-            {it}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

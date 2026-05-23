@@ -1,0 +1,251 @@
+/**
+ * POST /api/dialogue-meeting/narrate
+ *
+ * まさ × えいみ 経営会議 (= source_kinds='dialogue') の dialogue meeting を、
+ * 初めて読む人でも 背景 → 議論の流れ → 提案 → 残課題 が分かる Markdown narrative に
+ * 書き直して `project_meeting_summaries.narrative_md` に保存する。
+ *
+ * 入力モード:
+ *   { meeting_id: "dialogue:p21:..." }  → 1 件だけ narrate
+ *   { all: true, limit?: number }         → narrative_md が NULL の dialogue meeting を順次 narrate
+ *
+ * 認証: admin (members.is_admin=true) または Authorization: Bearer ${CRON_SECRET}
+ *
+ * LLM: Claude Sonnet 4.6 (= claude-sonnet-4-6)
+ *
+ * 関連 strategy signal: meeting.source_url が "internal://strategy-signals/<id1>,<id2>" の形なら
+ * その signal_id 配列で project_strategy_signals を fetch し prompt に含める。
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+
+interface DialogueMeetingRow {
+  meeting_id: string;
+  project_id: string;
+  ym: string;
+  meeting_date: string;
+  title: string;
+  summary_short: string;
+  decided: unknown;
+  progress: unknown;
+  next_actions: unknown;
+  risks: unknown;
+  source_url: string | null;
+  source_kinds: string | null;
+}
+
+interface StrategySignalRow {
+  signal_id: string;
+  signal_type: string | null;
+  impact_level: string | null;
+  decision_state: string | null;
+  title: string | null;
+  summary: string | null;
+}
+
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => (typeof x === "string" ? x : String(x ?? ""))).filter((s) => s.length > 0);
+}
+
+function parseRelatedSignalIds(sourceUrl: string | null): string[] {
+  if (!sourceUrl) return [];
+  const m = sourceUrl.match(/^internal:\/\/strategy-signals\/(.+)$/);
+  if (!m) return [];
+  return m[1].split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+async function authorize(req: NextRequest): Promise<{ ok: true; createdBy: string } | { ok: false; res: NextResponse }> {
+  const auth = req.headers.get("authorization") || "";
+  const cronSecret = process.env.CRON_SECRET || "";
+  if (cronSecret && auth === `Bearer ${cronSecret}`) {
+    return { ok: true, createdBy: "cron" };
+  }
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user?.email) {
+    return { ok: false, res: NextResponse.json({ error: "unauthorized" }, { status: 401 }) };
+  }
+  const { data: member } = await supabase
+    .from("members")
+    .select("code_name, is_admin")
+    .eq("email", user.email.toLowerCase())
+    .maybeSingle();
+  if (!member?.is_admin) {
+    return { ok: false, res: NextResponse.json({ error: "forbidden" }, { status: 403 }) };
+  }
+  return { ok: true, createdBy: member.code_name || user.email };
+}
+
+function buildPrompt(meeting: DialogueMeetingRow, signals: StrategySignalRow[]): string {
+  const decided = asStringArray(meeting.decided);
+  const progress = asStringArray(meeting.progress);
+  const nextActions = asStringArray(meeting.next_actions);
+  const risks = asStringArray(meeting.risks);
+  const signalsBlock = signals.length > 0
+    ? signals
+        .map((s, i) =>
+          `${i + 1}. [${s.signal_type ?? "?"} / ${s.impact_level ?? "?"} / ${s.decision_state ?? "?"}] ${s.title ?? ""}\n   ${s.summary ?? ""}`
+        )
+        .join("\n")
+    : "(なし)";
+
+  return [
+    `# 入力`,
+    `- PJ: ${meeting.project_id}`,
+    `- 月: ${meeting.ym}`,
+    `- 日付: ${meeting.meeting_date}`,
+    `- タイトル: ${meeting.title}`,
+    ``,
+    `## まさ × えいみが議論したサマリ`,
+    meeting.summary_short || "(空)",
+    ``,
+    `## 議論で前進した点 (raw)`,
+    progress.length > 0 ? progress.map((p) => `- ${p}`).join("\n") : "- (空)",
+    ``,
+    `## 2 人で出した提案 (raw)`,
+    decided.length > 0 ? decided.map((d) => `- ${d}`).join("\n") : "- (空)",
+    ``,
+    `## 次の一手 (raw)`,
+    nextActions.length > 0 ? nextActions.map((n) => `- ${n}`).join("\n") : "- (空)",
+    ``,
+    `## 気になっていること (raw)`,
+    risks.length > 0 ? risks.map((r) => `- ${r}`).join("\n") : "- (空)",
+    ``,
+    `## 関連経営シグナル (議論の対象になった候補)`,
+    signalsBlock,
+  ].join("\n");
+}
+
+const SYSTEM_PROMPT = `あなたは AMD OS の経営記録担当 (えいみ)。
+まさ × えいみで議論した経営会議の生データを、初めて読んだチームメンバーでも
+「なぜこの議論をしたか」「議論の中で何が動いたか」「2 人でどう提案するか」
+「残課題は何か」が一気に追える Markdown narrative に書き直す。
+
+# 出力フォーマット (厳守、Markdown)
+## 背景
+(2-4 文。なぜこの会議が必要だったか、議題の前提となる現状認識・課題感)
+
+## 議論の流れ
+(3-6 文の文章。何から議論が始まり、どの視点で深まり、論点がどう動いたか。
+ 箇条書きではなく文章で繋ぐ。事実だけ淡々と書くのではなく、議論の含意を残す)
+
+## 2 人で出した提案 (チームへの相談)
+- まさ × えいみで議論した結果として、チームに「こうしてはどうか」と出す提案
+- まさ 1 人で勝手に決めたわけではなく、チームで採否を判断する前提
+- (1〜数項目、各 1-2 文。**太字** で要点を強調してよい)
+
+## 次の一手
+- 担当 + 期限 + 内容 (1〜数項目)
+
+## 残課題 / 気になっていること
+- (1〜数項目、各 1-2 文)
+
+# 絶対ルール
+- まさ × えいみで議論した提案は必ず「2 人で出した提案」セクションに置く。
+  「決まったこと」「決定」と書かない (チームに無断で決めた印象を避ける)。
+  「提案」「相談」「議論したうえでの方向性」のニュアンスで書く。
+- 議論の流れは時系列でなくてもよいが、文章でつなぐこと。Markdown 箇条書きを乱用しない。
+- 強調したい箇所は **太字** を使ってよい。重要な数字や日付は **太字** で残す。
+- 全体で 600-1000 字程度に収める (= 長すぎず短すぎず)。
+- 入力 raw に書かれていない情報を勝手に追加しない (推測 / 創作禁止)。
+- 入力 raw が空のセクションは output でも「(まだ記録なし)」と明記する。`;
+
+async function narrateOne(meeting: DialogueMeetingRow): Promise<{ ok: true; narrative_md: string } | { ok: false; error: string }> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return { ok: false, error: "ANTHROPIC_API_KEY missing" };
+  const admin = createAdminClient();
+
+  // related strategy signals
+  const ids = parseRelatedSignalIds(meeting.source_url);
+  let signals: StrategySignalRow[] = [];
+  if (ids.length > 0) {
+    const { data, error } = await admin
+      .from("project_strategy_signals")
+      .select("signal_id,signal_type,impact_level,decision_state,title,summary")
+      .in("signal_id", ids);
+    if (!error && data) signals = data as StrategySignalRow[];
+  }
+
+  const userPrompt = buildPrompt(meeting, signals);
+
+  const anthropic = new Anthropic({ apiKey });
+  try {
+    const resp = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1800,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+    const textBlock = resp.content.find((b) => b.type === "text");
+    const narrative = textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
+    if (!narrative) return { ok: false, error: "empty narrative" };
+
+    const { error: upError } = await admin
+      .from("project_meeting_summaries")
+      .update({ narrative_md: narrative, updated_at: new Date().toISOString() })
+      .eq("meeting_id", meeting.meeting_id);
+    if (upError) return { ok: false, error: upError.message };
+    return { ok: true, narrative_md: narrative };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "unknown anthropic error" };
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const authz = await authorize(req);
+  if (!authz.ok) return authz.res;
+
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const meetingId = typeof body.meeting_id === "string" ? body.meeting_id : null;
+  const all = body.all === true;
+  const limit = typeof body.limit === "number" ? Math.min(50, Math.max(1, body.limit)) : 10;
+
+  const admin = createAdminClient();
+
+  // 1 件モード
+  if (meetingId) {
+    const { data, error } = await admin
+      .from("project_meeting_summaries")
+      .select("meeting_id,project_id,ym,meeting_date,title,summary_short,decided,progress,next_actions,risks,source_url,source_kinds")
+      .eq("meeting_id", meetingId)
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data) return NextResponse.json({ error: `meeting not found: ${meetingId}` }, { status: 404 });
+    if (data.source_kinds !== "dialogue" && !data.meeting_id.startsWith("dialogue:")) {
+      return NextResponse.json({ error: "not a dialogue meeting" }, { status: 400 });
+    }
+    const res = await narrateOne(data as DialogueMeetingRow);
+    if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
+    return NextResponse.json({ ok: true, meeting_id: meetingId, narrative_md: res.narrative_md });
+  }
+
+  // バッチ (= all=true) モード: narrative_md が NULL の dialogue meeting を limit 件 narrate
+  if (!all) {
+    return NextResponse.json({ error: "either meeting_id or all=true is required" }, { status: 400 });
+  }
+  const { data, error } = await admin
+    .from("project_meeting_summaries")
+    .select("meeting_id,project_id,ym,meeting_date,title,summary_short,decided,progress,next_actions,risks,source_url,source_kinds,narrative_md")
+    .eq("source_kinds", "dialogue")
+    .is("narrative_md", null)
+    .order("meeting_date", { ascending: false })
+    .limit(limit);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const targets = (data || []) as (DialogueMeetingRow & { narrative_md: string | null })[];
+  const results: Array<{ meeting_id: string; ok: boolean; error?: string }> = [];
+  for (const t of targets) {
+    const r = await narrateOne(t);
+    results.push({ meeting_id: t.meeting_id, ok: r.ok, error: r.ok ? undefined : r.error });
+  }
+  return NextResponse.json({
+    ok: true,
+    total: targets.length,
+    succeeded: results.filter((r) => r.ok).length,
+    failed: results.filter((r) => !r.ok).length,
+    results,
+  });
+}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CockpitHeader } from "./CockpitHeader";
 import { CockpitVentureStatus } from "./CockpitVentureStatus";
+import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
 import { CockpitStrategySignals } from "./CockpitStrategySignals";
 import { CockpitKanbanGas } from "./CockpitKanbanGas";
@@ -438,8 +439,15 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} />
 
-      {/* [A2] PJ Status (Hero) — AMD Score chart と XRL chart は CockpitVentureStatus 内で xl: 横並び */}
-      {showAmdScore && <CockpitVentureStatus projectId={project.projectId} />}
+      {/* [A2] Hero (案C: Header 直下の全幅セクション)
+            - p00 (= AMD 会社全体) は AMD Management Score の時系列折れ線 + 最新値カード
+            - SU 系 PJ は CockpitVentureStatus (AMD Score + XRL chart 横並び)
+            - ecosystem PJ は AMD Score 対象外なので Hero を出さない */}
+      {project.projectId === "p00" ? (
+        <CockpitManagementScoreHero />
+      ) : showAmdScore ? (
+        <CockpitVentureStatus projectId={project.projectId} />
+      ) : null}
 
       {/* メインボード: 3 カラム grid (lg breakpoint 以上)
           1.2fr 1.2fr 300px = MS / 経営シグナル / 月次ルーティン

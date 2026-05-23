@@ -6098,3 +6098,171 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - 1920px ディスプレイで Above the fold に Header + AMD Score chart + XRL chart + 3 カラムの主要モジュールが一望できる。
   - 「過去 (XRL / AMD Score 推移)」「現在進捗 (今期MS)」「経営判断 (シグナル候補)」「今月オペ (ルーティン)」が視覚的に整理され、画面内の情報量が一気に増えた。
   - レスポンシブも `lg` (1024px) / `xl` (1280px) breakpoint で順次グレースフルに縦並びへ崩れるので、ノートPCやモバイル幅でも壊れない。
+
+#### #30 SX/FC MTG 結果の整理 + pwaApi POST対応 + 「会話→正本md昇格」設計md (2026-05-23 えいみセッション)
+
+- まさがお願いしていたこと:
+  - 2026-05-22 FCとのMTG (八重洲) で出た拡張機会を整理して、本来のミッション (FC北陸PoC) と副次的に出てきた4方面の戦略機会を切り分けてほしい
+  - その結果を `knowledge/sx.md` (SU 経営判断の正本) と PJ コックピットの MTG サマリ枠と SX Slack チャンネルにつくよみ名義で共有してほしい
+  - mdは個人ディレクトリ (`/Users/masa/projects/knowledge/`) でチームに見えないので、共有導線はコックピットのMTGサマリ
+  - 「これだけ濃い経営判断材料が会話だけで消えるのもったいない」と感じている → 「会話→正本md昇格」の仕組みを設計してほしい (KAGAMI ではなく amd-os 側で)
+- 主な変更:
+  - **`knowledge/sx.md` 更新** (個人 git 外 md):
+    - 「2026-05-22 拡張機会の発見」セクション追加。4方面の機会 (キャッシュ層=FC北陸メッキ排水 / 国策層①=閉鎖鉱山レアアース廃水 / 国策層②=南鳥島レアアース採掘＋下水道19元素 / アップサイド=ペロブスカイト鉛リサイクル) + 新規論点 (塩水耐性シアノ品種改良＋国費獲得仮説 / GMO規制 / シアノ酸素耐性の値 / 流動層リアクター×ビーズ固定化) + アクションアイテム
+    - 発生源の流れ: 5/13 JAFCO面談で出た閉鎖鉱山レアアース廃水を 5/22 FC 見正氏に共有 → 見正氏が南鳥島レアアース・下水道19元素・ペロブスカイト等に波及。ほとんどの拡張機会発信は見正氏
+    - 外部関係者テーブルに JAFCO新谷氏 / FC宮崎 (営業部長) / FC見正 (東京工科大客員教授・リグノマテリアCTO) を追加
+    - 意思決定ログ 2 行追加 (5/13 JAFCO発・5/22 FC波及)
+    - 「masa」表記を「まさ」に統一 (チームメンバー codeName と揃える)
+  - **PJコックピット MTGサマリ更新** (Supabase `project_meeting_summaries.meeting_id = 1gl7lhgfp25aqvpq8gvjan747s`):
+    - 既存自動抽出内容を keep しつつ、JAFCO 経緯・見正氏波及・塩水耐性品種改良仮説・CEO 問題・GMO規制議論未済 を summary_short / decided / progress / next_actions / risks に追記
+    - `source_hash` は元のまま保持 (次回 cron が誤って上書きしないように)
+    - `source_kinds = "notion+gmail+manual_eimi"`, `generated_by_model = "manual:eimi-claude-2026-05-23"` で manual edit と識別可能に
+    - PWA env の `SUPABASE_SERVICE_ROLE_KEY` で直接 Supabase REST API を叩いて upsert (GAS 8KB制限を回避するためのルートとして 2026-05-23 確立)
+  - **Slack 投稿** (#p21_sx, ts: 1779539254.928589):
+    - つくよみ名義で 1 投稿に統合。出席者 (AMD側: <@U04PJK178JV> / FC側: 宮崎・見正)、ミッション達成 (FC北陸PoC前向き合意)、JAFCO発の話の波及経緯、4 方面機会、新規論点、次の山場 (5/27 三菱総研・5/27 SX定例・5/29 大阪ペロブスカイト講演)、コックピット MTGサマリへの誘導 URL
+    - 投稿入口: `pwaApi runFunc fn=slackNotifyPostToChannel_` (= `SLACK_BOT_TOKEN` 使用、bot user `U0A663YPJNQ`)。`slackNotifyPostToChannelTsukuyomi_` は別 bot で #p21_sx に居らず `not_in_channel` を返す (gas/DEBUG.md 2026-05-23 参照)
+  - **GAS pwaApi POST 経由対応** (URL 8KB 制限回避):
+    - `80_SlackWebhook.js` の `doPost` 冒頭に `if (mode === "pwaApi") return doGet(e);` 追加。`001_Router.js` への doPost 追加は 80_ との衝突で無効化されてた (GAS 後勝ち罠、gas/DEBUG.md 2026-05-23 参照)
+    - clasp v3 と古い `~/.clasprc.json` の互換問題を退避→fresh login で解決
+    - `clasp deploy --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G --description "v1472_pwaApi_doPost_via_slack_webhook"` 完了
+    - `gas/CLAUDE.md` の「GAS関数を CLI/curl から実行する手順」セクションに POST 経由の node fetch 例追記、「Slack 投稿」「Supabase REST 直叩き」セクションを新規追加
+  - **「会話→正本md昇格」設計md 新規作成** (`pwa/design/su_knowledge_promotion_loop.md`):
+    - Personal OS Loop (`kagami/PERSONAL_OS_LOOP.md`) の C-2 を SU 知識領域に拡張した姉妹設計
+    - 5パーツ (A 自動同期 / B えいみ能動追記 / C-1 admin UI で承認 / C-2 えいみが md 追記 / D 各機能が SU knowledge を参照)
+    - 新規データモデル (`su_knowledge` / `su_knowledge_extracts` / `su_knowledge_promotions` / `su_knowledge_changelog`)
+    - 抽出 cron 設計 + 安全装置 + Phase 1〜6 の段階的実装パス
+    - KAGAMI ではなく amd-os 配下 (個人 OS vs チーム OS の境界線、まさ判断 2026-05-23)
+- できるようになったこと:
+  - 任意チャンネル + 任意テキストの長文を `pwaApi runFunc` 経由 POST で投稿可能 (GAS 8KB制限を回避)。今回 args 4907 字を 1 投稿で送信
+  - Supabase 直叩きルートを `gas/CLAUDE.md` に正本化し、長文 row (10KB+) の upsert も GAS 経由せず実行可能
+  - SX p21 のコックピット MTGサマリ枠を見れば、5/22 FC MTG の経営判断・拡張機会・新規論点・CEO 問題・GMO 議論等の全体像がチームに見える
+  - SU 知識領域の Personal OS Loop 相当 (会話→正本md昇格ループ) の設計 md が次セッション用に整理された
+
+---
+
+## 2026-05-23 (夜) AMD 全社戦略再構築セッション
+
+- きっかけ: AMD 全社 (p00) のマイルストーン (MS) 設定を進めようとして、長期目標自体の見直しが必要と判明。MVV / 中長期計画から MS をブレイクダウンする構造を整える流れに発展
+- 主な動き:
+  - **戦略 md の triage を浅くしていた問題に途中で気づく**: 当初えいみが既存 md の Mission / Impact Principles / FY26 OKR / 中長期計画を読まずに MS 候補 9 個を提示してしまい、「直感→言語化」を好むまさのスタイルに合わなかった。`AGENTS.common.md` / `SOUL.md` / `HABIT.md` / `MEMORY.md` / `DREAMS.md` を読み直し、AMD knowledge md を triage しなおすことで方向転換
+  - **AMD 長期目標の主軸を「SU 創出数中心」→「研究機関提携 + AMD OS 普及 + 学術体系化」中心へ転換** (まさ判断)
+  - **戦略 md 5 冊を v2 化** (`company_profile.md` / `midterm_plan.md` / `amd_os_vision.md` / `overview.md` / `amd_value_model.md`):
+    - 旧版は `knowledge/archive/v1_2026-05/` に退避 + README で転換理由要約
+    - **3 レイヤー戦略構造** (🏗 仕組み / 🎓 学術 / 💰 案件) を中核に
+    - **3 軸ビジネスモデル** (A アプローチ × B アウトプット × C 契約) を新設
+    - **C6 VC 依頼型** を契約軸に追加 (CCC / KT / YD)
+    - **AMD ファンド (ゼブラ思想)** を 3 レイヤー外の独立収益源として位置付け (LP 厳選 / 余剰資金運用 / ブランディング保護)
+    - **AMD OS** を「将来構想」→「中核戦略」に格上げ、**Y→X 遷移装置**として明文化
+    - **AMD の本質** を「研究者を研究者のまま残し、横で経営機能を引き受ける」に再定義
+    - **Mission の英訳維持** (`supercharge economy`、対外 universal トーン)、日本語版で「外貨を獲得する」明示
+    - **Impact Principles 4 要素の循環構造**を明示、2 つ目を「日本の経済を活性化する」→「外貨を獲得する」に訂正
+    - **コア能力 (3) と差別化資産 (AMDプロトコル / AMDスコア) を 2 層に分離**
+    - **PL / PM / Closer 組織体制を明文化** (Closer は獲得額の月 5% + クライアント関係維持責任)
+    - **NIMS 試験導入 2026 Q2 → 2027 に訂正**、連携機関展開 (2027-28) と並走前提
+    - **学術化レイヤー 2035 目標を控えめ案** (論文 30 / 学会発表 40 / ジャーナル 10)、H2 は理論武装に集中、学会発表は FY27 へ延期
+    - **DX 化受託 (C4)** を時限的機会として明示 (バイブコーディング普及まで、FY26-FY28 集中) — ZMP OkuDoor 200 万 / 1 ヶ月 / 70% 完成 / 高利益率の事例ベース
+    - **NIMS と KUTE は別機関**を明確化 (KUTE = 工学院大、NIMS = 物質・材料研究機構)、混同を訂正
+    - **スコープクリープは契約モデルじゃない** (= 一般的な契約管理リスク) と明示、契約モデル分類から削除
+  - **`partner_institutions.md` 新規作成**: 連携機関台帳 (NIMS / 愛媛大 / 工学院大 / 香川大 [見込み] / 東京科学大 / 関西大 / 山口大) + 4 軸での増やし方フレーム (地理 / 分野 / 既存パイプライン / 紹介ネットワーク)
+  - **SU md 新規作成** (4 件): `CCC.md` (NIMS 一ノ瀬・PDMS で CO2 吸着・VC UMI 依頼・SU 設立) / `KT.md` (東北大・農業 AI ロボ・VC CyberAgent CVC 依頼・COO 派遣) / `ZMP.md` (葛飾ロード・都内中小企業・OkuDoor 200 万事例) / `SE.md` (翔エンジニアリング・都内中小企業・SU 化失敗→経営顧問)
+  - **SU md 既存追記**: `BWE.md` (内閣府 SIP 経緯 = NIMS 一ノ瀬 + 山口大 比嘉の二機関を AMD がまとめて、まさ CEO で設立) / `yd.md` (VC 依頼型 C6 として明示、CCC/KT との比較) / `jc.md` (3 軸位置づけ + スコープクリープ訂正 + ZMP との対比)
+  - **`su.md` 目次更新**: CCC / KT / ZMP / SE を追加、3 軸 (A×B×C) 列を新設、凡例追記
+  - **`pwa/design/cockpit.md` 末尾に「p00 専用 MVV 表示セクション」仕様追加**: `/project/p00/cockpit` だけに表示する縦構成セクションの仕様。実装 (`CockpitP00MVVSection.tsx`) は別タスク
+  - **Supabase 投入**:
+    - `value_plan_cycles` に `PC-p00-202606-202612` 新規 (period 202606-202612 / points=0 経営目標)
+    - `value_milestones` に 14 個の MS 投入 (M15 OS フル稼働化 / M16 PM 再定義 を sort_order=1, 2 で最優先)
+    - `project_meeting_summaries` に `dialogue:p00:20260524-011754` upsert (決定 21 / 進捗 12 / 次アクション 15 / リスク 8)
+  - **memory 更新**: `feedback_eimi_character_tone.md` を 30 代お姉様 → 元気おてんば女子・太陽夏海好きに全面書き直し (2026-05-24 まさ直々の指定)
+- できるようになったこと:
+  - AMD 全社 (p00) の MS が初めて `value_plan_cycles + value_milestones` に乗った。`/project/p00/cockpit` の今期 MS リストに 14 個並ぶ
+  - 戦略 md の正本構造が 3 レイヤー × 3 軸で記述可能になり、既存 PJ (CX / SX / BWE / KUTE / ZMP / JC / SE / LST / CCC / KT / YD / CTB 他) を統一フレームでマッピングできる
+  - 連携機関を独立台帳 `partner_institutions.md` で管理できるようになり、「ここから先どう増やすか」議論の基盤ができた
+  - DX 化受託の時限性 (バイブコーディング普及まで) を戦略上明示し、FY26-FY28 で集中的に取りに行く方針が文書化された
+  - 戦略 md のバージョン管理運用 (`archive/v<N>_<YYYY-MM>/` + 各 v2 md 冒頭の version タグ + Changelog) を確立
+- 次セッション向け handoff:
+  - 正本 handoff: `knowledge/HANDOFF_strategy_rebuild_2026-05.md`
+  - 残タスクは **M15 OS フル稼働化 (6 月中) と M16 PM 再定義** を最優先で動かす
+
+---
+
+## 2026-05-24 (まさえみ MTG #1 + cockpit MTGサマリ モーダル化 + えいみ Slack bot 別人格化)
+
+- まさからの依頼:
+  - 朝 07:00 の daily routine (`amd-os-management-dialogue-prep`) が走ったあとの状態で「経営会議やろう」 → L2 ⑨ candidate を impact 順に提示
+  - 最初の議題 (p21 SX 「大阪ガスケミカルとの関係深化リスク」critical) について「これは AI 誤抽出。実際はダイキアクシスへの懸念だった」と訂正
+  - 議論を「水処理メーカーが SX 事業の中でどの位置づけか」「シアノ実装に必要な周辺技術スタックは何か」に展開 → 整理マップを作る
+  - 議事録を SX チャンネルにシェア + コックピット MTG サマリに反映
+  - えいみと つくよみの人格を完全分離 (= 別 Slack bot として運用) + キャラ・口調を正本化
+  - Cockpit MTG サマリのカード詳細をモーダル + markdown rendering 表示に改修
+- えいみがやったこと (主にコード + Supabase + Slack + memory):
+  - **daily routine 走行**: `project_strategy_signals` に 15 candidate insert (p00=2 / p07=3 / p19=2 / p20=3 / p21=3 / p24=1 / p25=1)。impact=critical=1 / high=10 / medium=4。p06 は既存 8 件で十分のためスキップ、p10 は signals 候補なしのためスキップ
+  - **L2 ⑨ candidate signal 訂正 (p21)**: signal_id `59706c0c-7d25-4912-a610-cc3f1149abe9` の title/summary/source_refs を「大阪ガスケミカル」→「ダイキアクシス (DAVP) との距離感・出資・共同開発の経営判断未了」に update、impact=critical 維持、source_refs に 5/13 SX定例 (NDA完了) / 5/21 SX内部MTG / sx.md の 3 件を紐付け
+  - **`/Users/masa/projects/knowledge/sx.md` 正本更新**:
+    - 外部関係者表で堀 (@a_hori) の所属を「大機アクシス」→「ダイキアクシス (DAVP)」に修正、PSI Step2 事業化推進機関参画と経営判断未了を明記
+    - 新規セクション「**実装周辺技術マップ v0.1**」を追加: L表 (12 レイヤ: 培養槽/固定化担体/CO2濃縮/排水前処理/バイオマス回収/金属精錬/O&M/計装/GMO閉鎖系/塩水耐性育種/海洋オペ/鉱山プロセス置換) + U表 (5 ユースケース: メッキ化学/染色/閉鎖鉱山RE/深海RE/鉱山プロセス置換) + L×Uマトリクス (◎○△✗) + ダイキ守備範囲整理 + BWE 評価データポイント + 他候補水処理メーカープロファイル
+    - 意思決定ログに 2026-05-23 行追加 (= 上記マップ正本化)
+  - **MTGサマリ詳細版 PATCH (p21)**: `dialogue:p21:20260523-213654` を md 参照なし自己完結版に PATCH。decided=5 / progress=7 (L表・U表・L×Uマトリクス本体を markdown 表で埋め込み) / next_actions=6 / risks=5。total payload 約 9KB
+  - **Cockpit MTG サマリ モーダル化 + markdown rendering 実装**:
+    - 新規: `pwa/src/components/cockpit/MarkdownView.tsx` (`react-markdown` + `remark-gfm` 利用、`tone='light'|'hud'` で配色切替、GFM table / 見出し / リスト / コード / 引用 / リンク サポート)
+    - 新規: `pwa/src/components/cockpit/CockpitMeetingDetailModal.tsx` (`@base-ui/react` Dialog ベース、`!max-w-[1100px] w-[92vw] max-h-[88vh] overflow-y-auto`)
+    - 新規: `pwa/src/components/hud/HudCockpitMeetingDetailModal.tsx` (HUD 配色版)
+    - 既存改修: `pwa/src/components/cockpit/CockpitMeetingSummary.tsx` (アコーディオン → クリックでモーダル open に置換、`selectedMeeting` state)
+    - 既存改修: `pwa/src/components/hud/HudCockpitMeetingSummary.tsx` (同上、HUD 配色保持)
+    - 依存追加: `react-markdown ^10.1.0` / `remark-gfm ^4.0.1` (`pwa/package.json` + `pwa/package-lock.json`)
+    - 仕様更新: `pwa/design/meeting_summaries.md` 「PWA 側仕様」セクション = 主要ファイル表に新規 3 ファイル追加、UI 仕様を「行クリックで詳細モーダル展開」「decided/progress/next_actions/risks の各要素に GFM table を含む長文 markdown を保存する運用」に書き換え
+    - 検証: `npx tsc --noEmit` 通過、`npm run build` 通過、`bash pwa/scripts/deploy.sh` で Vercel production deploy 完了 (2分23秒、https://amd-os-pwa.vercel.app)
+  - **えいみ × つくよみ 別人格化 (Slack bot)**:
+    - Slack workspace に既存の「えいみ」App (A0AC419BPGE) を発見、当初 Display Name が「くろにくる」(= default `tsukuyomi_chronicle`)、Bot Token を取得
+    - App Home で Display Name を「えいみ」(default `eimi`) に更新
+    - 初回 Reinstall to team ARMADA したが反映せず、原因は scope `chat:write.customize` 不足
+    - OAuth & Permissions で `chat:write.customize` scope を追加 → Reinstall → 表示名が「えいみ」に切り替わったことを確認
+    - App icon: まさが手動で `amie03.png` (赤髪お姉様版) → `amie05.png` (茶髪元気おてんば+太陽光輪版) に差し替え。最終的に `~/Desktop/eimi-avatar-v5.png` (顔ど真ん中 1024x1024) を v5 として手渡し、まさ手動アップロード待ち
+    - 「えいみ」bot として #p21_sx に「まさ × えいみ MTG」議事録を投稿 → Slack の markdown 表示制約 (= GFM table が綺麗に出ない) を踏まえ、概要 + cockpit MTG サマリ詳細モーダルへの誘導リンクを貼った短縮版に差し替え
+  - **えいみ・つくよみキャラ memory 確立** (`~/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/`):
+    - `feedback_eimi_character_tone.md` を全面書き直し: 30 代お姉様 → 元気おてんば女子・太陽夏海好き・天照大御神モチーフ。覚醒モード = 皆既日蝕の日 (= 天岩戸モチーフ)、口調たたきまで。「ばっちこい！」は文脈なしで唐突すぎる NG 例として注記
+    - 新規 `feedback_tsukuyomi_character_tone.md`: AMD OS 内おっとり女子・月モチーフ・月讀命モチーフ。普段「そうかなあ…」「(しらんけど)」、満月の夜は神モード「人の子よ」「そちも気づいておろう」。えいみとの完全別人格分離表
+    - `MEMORY.md` の対応行を 2 件差し替え
+- できるようになったこと:
+  - L2 ⑨ daily routine で全 active PJ (p00/p06/p07/p10/p19/p20/p21/p24/p25) の candidate が朝 7:00 自動補充される運用が稼働開始
+  - SX (p21) の実装周辺技術スタックが MECE で正本化、ダイキアクシスの守備範囲が L×U マトリクスで客観化された (= キャッシュ層 U1〜U3 ✕ L4/L5/L7 限定)
+  - cockpit MTG サマリの各カードをクリック → 大きめモーダル展開で、決定・進捗・次アクション・リスクの各要素を **markdown 描画 (= GFM table 含む)** で読める。長文議事録 + 表埋め込みが視認可能な UI に
+  - SX チャンネル (#p21_sx) に「えいみ」名義 (= 茶髪元気おてんば bot) で議事録投稿できる経路が確立。詳細は cockpit MTG サマリへ誘導するパターン
+  - えいみ (天照大御神 = まさ専属戦略相棒) と つくよみ (月讀命 = AMD OS 住民・cron 担当) のキャラ・口調・人格の境界が memory に明文化、次セッションも継続される
+- 未完了 / 次セッション課題:
+  - **えいみ App icon を v5 (顔ど真ん中版) に差し替え** (まさ手動、`~/Desktop/eimi-avatar-v5.png`、https://api.slack.com/apps/A0AC419BPGE/general)
+  - 今回 L2 ⑨ で積んだ 15 candidate のうち、まさが confirm した signal は 0 件 (= まさえみ MTG では「議題 (e)」だけ深掘り、他の議題は未着手)。次回 経営会議モードで残り議題から impact 順に提示
+  - えいみ覚醒モード (皆既日蝕モード) の口調が memory に「たたき」止まり。実発動時にまさと一緒に詰める
+  - SX 実装周辺技術マップ v0.1 → v0.2 への更新は SX メンバー意見回収後 (= 次回 SX 定例の杉浦先生確認 3 項目: 塩水耐性育種パス / シアノ酸素耐性値 / 担持前提への所見)
+- 次セッション向け handoff:
+  - 正本 handoff: `pwa/HANDOFF_pwa_rebuild.md`
+  - SX 実装周辺技術マップの正本: `/Users/masa/projects/knowledge/sx.md`「実装周辺技術マップ v0.1」セクション
+  - えいみ × つくよみ人格設定の正本: `~/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/feedback_eimi_character_tone.md` / `feedback_tsukuyomi_character_tone.md`
+
+#### #31 寝てる間お任せ — MTGサマリ UI 案D / p00 Hero / dialogue narrative
+
+- まさがお願いしていたこと (= 6 件まとめて、これから寝るので全部やって):
+  1. MTGサマリ各カードに直リンクを付ける (= 元 Notion / Slack / Drive / Gmail / Calendar event へ飛べる)
+  2. まさえみ MTG では「決まったこと」と書くと誤解を招く → 「2 人で話したうえでのみんなへの提案」のニュアンスに
+  3. AMD cockpit (= p00) の hero に AMD Management Score の時系列折れ線
+  4. AMD cockpit にも MS 設定済なので、ちゃんと月次サマリ + 月次モーダルが出るように
+  5. MTGサマリの「決まったこと」「進んだこと」が項目ごとにフレームに分かれてて見にくい → フレーム廃止、太字 / マーカー / フォントサイズで強弱
+  6. AMD cockpit のまさえみ経営会議議事録が箇条書きベースで全く理解できない → 初めて読んだ人でも背景・議論プロセス・残課題が分かる構成に
+- えいみが何をしたか:
+  - **#1 + #2 + #5** `CockpitMeetingDetailModal.tsx` を全面書き換え。各 TopicSection の border-l フレームを廃止し、`<ul>` + `<strong>` + `<mark>` の強弱だけで読ませる構成へ。`meeting_id.startsWith("dialogue:")` で dialogue 判定し、「決まったこと」→「**2 人で出した提案 (チームへの相談)**」へラベル置換。`CockpitMeetingSummary` 各行に `source_url` (なければ `notion_url`) への「元 ↗」リンクを追加し、dialogue meeting には「まさ×えいみ」chip を付ける
+  - **#3** `CockpitManagementScoreHero.tsx` 新規作成。`amd_management_score_snapshots` の `total_score` + 5 軸 (`initiative / finance / retention / pipeline / direction`) を横軸 ym × 縦軸 0-100 の折れ線で描画、右側に最新値カード、`/management-score` への詳細リンク。`CockpitView` で `projectId === "p00"` のとき `CockpitVentureStatus` の代わりにこの Hero を出す
+  - **#4** p00 の `billing_cycles` を 202601-202612 で 12 行 backfill (`status='not_started'`) → `CockpitMonthlyList` に月次カードが並ぶ → クリックで `CockpitMonthlyModal` (進捗 / レポート / 請求書 タブ) が他 PJ と同じ UI で開く
+  - **#6** migration 087 で `project_meeting_summaries.narrative_md TEXT` カラムを追加 (本番適用済)。新規 `POST /api/dialogue-meeting/narrate` (Claude Sonnet 4.6) で dialogue meeting の raw 配列 + summary_short + 関連 strategy_signals を「## 背景 → ## 議論の流れ → ## 2 人で出した提案 → ## 次の一手 → ## 残課題」の 600-1000 字 Markdown narrative に書き直し → `narrative_md` に保存。`CockpitMeetingDetailModal` は `narrative_md` があれば narrative 主表示、raw は折りたたみ「元データ」へ落とす。既存 3 件 (`dialogue:p00:20260524-011754` / `dialogue:p00:20260523-172532` / `dialogue:p21:20260523-213654`) を CRON_SECRET 経由で全 narrate (succeeded 3 / failed 0)
+  - `ProjectMeetingSummary` 型に `sourceUrl` + `narrativeMd` 追加、`fetchProjectMeetingSummaries` も両列を引く
+  - `check_pwa_critical_ui.cjs` に Hero 切替 / dialogue / narrative 系 anchor を追加し、旧 border-l フレーム (`border-l-[3px] border-emerald-400/70`) は `expectNotIncludes` で巻き戻り禁止
+  - md 反映: `FEATURE_REGISTRY.md` / `cockpit.md` / `SPEC_pwa.md` (前段で更新済) / `project_strategy_signals.md` / `CLAUDE.md` (経営会議手順 step 6 narrate 追加) / `HANDOFF_pwa_rebuild.md` (Latest Summary 追記 + Open Tasks 追加) / `design_log/sessions_2026-05.md` (= ここ)
+- できるようになったこと:
+  - MTGサマリ詳細が「フレームに刻まれた箇条書き」ではなく、強弱のある文章 / 太字 / マーカーで読み流せる
+  - まさえみ経営会議の議事録が、初めて読む人でも「背景 → 議論の流れ → 2 人で出した提案 → 次の一手 → 残課題」を 1 本の Markdown narrative として追える (= raw データは折りたたみへ)
+  - 「決まったこと」のラベルが消え、「2 人で出した提案 (チームへの相談)」に置き換わったので、チーム外メンバーが読んでも「まさが 1 人で勝手に決めた」印象を受けない
+  - p00 (= AMD 会社全体) cockpit に Above the fold で AMD Management Score の総合スコア + 5 軸の時系列推移が見える
+  - p00 にも月次カード + 月次モーダルが出るようになり、AMD 全体の月次進捗を他 PJ と同じ UI で操作できる
+  - MTGサマリ各カードから元ソース (Notion / Drive / Slack / Gmail) へ 1 クリックで飛べる
+- できていないこと (= 次セッション):
+  - HUD 版モーダル (`HudCockpitMeetingDetailModal.tsx`) には今回の案D 思想を写していない (= PWA 版だけ反映)。次セッションで HUD 版にも (a) フレーム廃止 (b) dialogue ラベル切替 (c) `narrative_md` 優先表示 を写す
+  - `/api/dialogue-meeting` POST の直後に narrate を自動 chain する仕組みは未実装。今は 2 step 運用 (`pwa/CLAUDE.md` 経営会議手順 step 5 → step 6 に明文化済)
+  - 寝てる間セッションなので本番実機での Chrome 目視確認は次セッションで

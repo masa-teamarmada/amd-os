@@ -302,16 +302,20 @@ if existing.source_hash === newHash: skip (LLM 呼ばない)
 | [pwa/scripts/migrations/025_pms_anon_read.sql](../scripts/migrations/025_pms_anon_read.sql) | RLS anon, authenticated |
 | [pwa/scripts/migrations/027_pms_phase2_calendar_event.sql](../scripts/migrations/027_pms_phase2_calendar_event.sql) | Phase 2 移行 (DELETE 全行 + カラム追加) |
 | [pwa/src/lib/supabase-data.ts](../src/lib/supabase-data.ts) | `fetchProjectMeetingSummaries` (Phase 1 と同じ) |
-| [pwa/src/components/cockpit/CockpitMeetingSummary.tsx](../src/components/cockpit/CockpitMeetingSummary.tsx) | UI (Phase 1 と同じ、`item.notionUrl` チェックで NULL 行も対応済) |
+| [pwa/src/components/cockpit/CockpitMeetingSummary.tsx](../src/components/cockpit/CockpitMeetingSummary.tsx) | 一覧 UI (行クリックで `CockpitMeetingDetailModal` を開く) |
+| [pwa/src/components/cockpit/CockpitMeetingDetailModal.tsx](../src/components/cockpit/CockpitMeetingDetailModal.tsx) | **詳細モーダル (2026-05-23 新設)**。`@base-ui/react` Dialog を `!max-w-[1100px] w-[92vw] max-h-[88vh]` で開く。summary_short / decided / progress / next_actions / risks を `MarkdownView` で描画 |
+| [pwa/src/components/cockpit/MarkdownView.tsx](../src/components/cockpit/MarkdownView.tsx) | **共通 Markdown renderer (2026-05-23 新設)**。`react-markdown` + `remark-gfm` ベース。`tone: 'light' \| 'hud'` で配色切替。GFM table / 見出し / リスト / コード / 引用 / リンク をサポート |
+| [pwa/src/components/hud/HudCockpitMeetingSummary.tsx](../src/components/hud/HudCockpitMeetingSummary.tsx) | HUD 版一覧 UI (= 同じパターンで `HudCockpitMeetingDetailModal` を開く) |
+| [pwa/src/components/hud/HudCockpitMeetingDetailModal.tsx](../src/components/hud/HudCockpitMeetingDetailModal.tsx) | **HUD 詳細モーダル (2026-05-23 新設)**。cyber 配色版 (cyan/slate/grid)。中身は `MarkdownView tone='hud'` |
 
-PWA 側は Phase 2 移行で **コード変更不要**。Schema 追加カラム (`notion_page_id` / `gmail_thread_ids` / `source_kinds`) は UI には出さない (将来必要になったら supabase-data.ts に足す)。
-
-### UI 仕様 (変更なし)
+### UI 仕様 (2026-05-23 更新)
 
 - 月でグルーピング、`meeting_date DESC` 降順
 - 直近 1 年デフォルト + 「▼ それより前を表示」トグル
-- 行クリックで折り畳み展開
+- **行クリックで詳細モーダル展開** (= 旧アコーディオン折り畳みは廃止)
+- モーダル内: ヘッダ (日時 + title + notion link + source_kinds chip) → サマリ → 決まったこと → 進んだこと → 次やること → リスク を縦並び。各 item は `MarkdownView` で markdown 描画 (= 表/見出し/リスト/コード/引用 OK)
 - 議事録なしマーカー行は `summary_short` だけ "議事録なし" が出る (decided/progress/... は空なので非表示、`Notion で開く` リンクは notion_url があれば出る)
+- jsonb 配列 (decided / progress / next_actions / risks) の各要素には **GFM table を含む長文 markdown を保存する運用** に変更 (= まさ × えいみ経営会議の議事録のように、L表/U表/L×U マトリクスを各要素に埋め込んで詳細解説する用途)。表は `<div className="overflow-x-auto">` で横スクロール対応
 
 ---
 

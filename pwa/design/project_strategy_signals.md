@@ -258,6 +258,33 @@ cockpit の `CockpitMeetingSummary` が `source_kinds` 無関係に meeting_date
 
 実装: [src/app/api/dialogue-meeting/route.ts](../src/app/api/dialogue-meeting/route.ts)
 
+#### `POST /api/dialogue-meeting/narrate`
+
+dialogue meeting の `decided / progress / next_actions / risks` 配列を、初めて読む人でも
+「背景 → 議論の流れ → 2 人で出した提案 → 残課題」が一気に追える Markdown narrative に
+書き直して `project_meeting_summaries.narrative_md` に保存する。
+
+- `Body: { meeting_id }` で 1 件 narrate
+- `Body: { all: true, limit?: number }` で `narrative_md is null` の dialogue meeting を順次 narrate (default 10 件)
+- LLM: Claude Sonnet 4.6 (`claude-sonnet-4-6`)
+- 認証: admin または `Authorization: Bearer ${CRON_SECRET}`
+- 関連 strategy signal は `source_url = internal://strategy-signals/<id1>,<id2>` の形式で
+  抽出され、prompt に併記される。
+
+cockpit の `CockpitMeetingDetailModal` は `narrative_md` があれば narrative を 1 本の
+ストーリーとして表示し、raw decided/progress/... は折りたたみ「元データ」へ落とす。
+narrative がなければ従来の section view (= raw を見せる) に fallback する。
+
+#### 運用ルール (= まさ × えいみ 経営会議の議事録)
+
+- 「決まったこと」とは書かない。チームに無断で決めた印象を避けるため、必ず
+  **「2 人で出した提案 (チームへの相談)」** のニュアンスで残す。
+- `summary_short` には「議論の背景 + 何を議論したか」を 2-4 文で書く。1 行サマリだけにしない。
+- 議論ログを保存したあと、`POST /api/dialogue-meeting/narrate { meeting_id }` を叩いて
+  narrative_md を生成する。生成後はコックピットに narrative 主体の議事録として出る。
+- まさが narrative の表現を直したい場合は、Supabase 直 update で `narrative_md` を上書きしてよい。
+  LLM 再生成すると上書きされるので、編集後は再 narrate を呼ばない運用。
+
 ### 議論プレイブック (= えいみ向け実務メモ)
 
 PJ 1件あたり、以下を 30 秒〜2 分で横断 read してから議題を組む:

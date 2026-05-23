@@ -1934,3 +1934,41 @@
   - 支払通知書PDFの見た目を触る変更は、`FEATURE_REGISTRY.md` のフォーマット契約と `test:critical-ui` のanchorを同じcommitで更新する。
   - `setValue("team ARMADA")` / `brandCell` / `支払通知書番号` を復活させない。復活すると `npm run test:critical-ui` が落ちる。
   - 改善版PDFのgolden PNGを `pwa/scripts/__fixtures__/payout_notice_golden.png` に固定し、SHA256を `payout_notice_golden.png.sha256` に保存。`npm run test:critical-ui` でgolden の存在と hash 一致を検査する。新規生成PDFを PNG 化した結果との突合は `npm run test:payout-notice-pdf -- --diff <input.png>` で同じスクリプトを再利用できる。改善版PDFを意図的に更新したら、まさが新PNGを目視確認したうえでfixtureとSHA256を再生成してcommitする。
+
+### [slack/eimi-bot] App Home の Display Name を変えても反映されず Bot 投稿が古い名前 + 古いアイコンで出てしまう
+
+- **発見日**: 2026-05-24
+- **状態**: ✅ 修正済
+- **症状**:
+  - Slack App「えいみ」(A0AC419BPGE) の App Home で Display Name を「くろにくる」→「えいみ」に変更して Save、Reinstall to team ARMADA も実行したのに、test 投稿の表示名が「くろにくる」のまま (= 古いアイコンも残った)。
+  - `chat.postMessage` で `username="えいみ"` を override しても効かない。
+- **原因**:
+  - Slack の `chat.postMessage` における `username` / `icon_url` override には **`chat:write.customize` scope が必要**。`chat:write` だけだと override は無視される。
+  - さらに、App Home の Display Name 設定 + App icon は **bot 自身が token 経由でセットできず、Slack workspace 内 bot user の profile を再認識させる必要がある** (= scope 変更 + Reinstall to Workspace の組み合わせで再認識される)。
+- **対応内容**:
+  - OAuth & Permissions ページで bot scope に `chat:write.customize` を追加。
+  - Reinstall to team ARMADA を実行 (= OAuth 認証画面で「許可する」)。
+  - これで Display Name 設定が反映され、test 投稿の表示名が「えいみ」に切り替わった。App icon もまさ手動アップロード後の `amie05.png` (茶髪元気おてんば) に切り替わった。
+- **再発防止策**:
+  - Slack App の bot username / icon を切り替える時は **(1) App Home で Display Name 設定 + (2) `chat:write.customize` scope 追加 + (3) Reinstall to Workspace** の 3 点セットを必ず実行する。
+  - 「Display Name 変更 → Save」だけで反映を期待しない。Slack 側のキャッシュ + bot user profile 再認識タイミングがあるため、明示的に scope 変更 + Reinstall を打つこと。
+  - **教訓**: `chat:write.customize` は「username/icon を毎回投稿時に override」のための scope。これがあると bot 1 個で複数キャラの使い分けもできる (= 議事録は「えいみ」、通常通知は default 等)。
+
+### [data/meeting-summary] LLM が抽出した meeting_summary の risks / decided 欄に固有名詞の誤抽出が発生 (= 「大阪ガスケミカル」→ 実は「ダイキアクシス」)
+
+- **発見日**: 2026-05-24
+- **状態**: ✅ 修正済 (= 該当 L2 ⑨ signal を update)、再発防止は運用ルール化
+- **症状**:
+  - `project_meeting_summaries` の `meeting_id=ouf25bgoukki7ljafou1t0e13e_20260521T060000Z` (= 5/21 SX 内部MTG) の `risks` 欄に「**大阪ガスケミカル**とズブズブになりすぎるとバリュエーションが大幅に下がる可能性 (500億円規模の影響)」と記録されていた。
+  - これを元に L2 ⑨ daily routine が `project_strategy_signals` に impact=critical の candidate を生成し、まさが経営会議で確認したところ「実は議論対象は **ダイキアクシス (DAVP)** だった」と判明。
+- **原因**:
+  - meeting summary 抽出 LLM (= Gemini) が、議事録本文の固有名詞を取り違えた。元 Notion 議事録 (notion_url) では正しく「ダイキアクシス」と書かれていた可能性が高い (= LLM 側のハルシネーション)。
+  - L2 ⑨ daily routine は `project_meeting_summaries` を入力ソースに含むため、誤抽出が下流の strategy signal にそのまま伝播した。
+- **対応内容**:
+  - L2 ⑨ candidate signal `59706c0c-7d25-4912-a610-cc3f1149abe9` を update (`POST /api/strategy-signals action='update'`) で正しい内容に書き換え、impact=critical 維持。
+  - source_refs に 5/13 SX定例 (NDA 完了) / 5/21 SX 内部MTG / sx.md の 3 件を紐付け、再現性を確保。
+  - `/Users/masa/projects/knowledge/sx.md` 外部関係者表の堀 (@a_hori) 所属を「大機アクシス」→「ダイキアクシス (DAVP)」に修正。
+- **再発防止策**:
+  - **L2 ⑨ candidate を経営会議で confirm する前に、固有名詞 (会社名・人名) は元 Notion 議事録 (`notion_url`) か Slack 原文 (`source_url`) で原文確認を推奨**。特に impact=critical は確認必須。
+  - まさが「あれ、これ違うかも」と違和感を出した瞬間に、AI 抽出への絶対信頼を一旦解除して原文確認する習慣 (= まさの違和感シグナルを見逃さない、`feedback_question_own_proposals.md` の運用と同じ)。
+  - 将来的には meeting_summary 抽出 cron 側で「**risks/decided 欄の固有名詞は議事録本文での出現回数 ≥ 2 を必須**」のような sanity check を追加するのもあり (= 1 度しか出ない固有名詞は確信度低くマーク)。
