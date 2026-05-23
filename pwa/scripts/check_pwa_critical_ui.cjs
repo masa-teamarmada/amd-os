@@ -70,6 +70,28 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "現ストック",
   "stockYen",
   "openMonthlyModal",
+  "報酬キャッシュ再計算",
+  "支払通知書発行",
+  "通知書番号",
+  "PDF URL",
+  "送付済みにする",
+  "未送付に戻す",
+]);
+
+expectIncludes("src/app/api/admin/payouts/route.ts", [
+  "refreshRewards",
+  "update_notice",
+  "payout_notices",
+  "notice_no",
+  "pdf_url",
+  "sent_at",
+]);
+
+expectIncludes("design/FEATURE_REGISTRY.md", [
+  "/admin/payouts",
+  "支払通知書発行",
+  "報酬キャッシュ",
+  "縦型PJ収支表",
 ]);
 
 expectIncludes("src/components/admin/AdminProjectsTable.tsx", [
@@ -108,7 +130,8 @@ expectIncludes("src/app/api/cron/member-weekly-activities/route.ts", [
   "fetchGmailEvidence",
   "fetchCalendarEvidence",
   "resolveReadableMemberCalendars",
-  "eligibleMembers",
+  "targetMembers",
+  "calendarSourceMembers",
   "pendingCalendarLogin",
   "requiresCalendarLogin",
   "excludedEmails.has(email)",
@@ -153,10 +176,10 @@ expectIncludes("src/app/api/cron/founding-members-extract/route.ts", [
   "project_category",
   "skipped: ecosystem project",
   "skipped_ecosystem",
-  "founder_core_only",
-  "EXCLUDED_FOUNDER_CATEGORIES",
-  "EXCLUDED_FOUNDER_ROLES",
-  "isFounderCoreMember",
+  "HRL_EXCLUDED_CATEGORIES",
+  "HRL_EXCLUDED_ROLES",
+  "classifyMember",
+  "該当SU 社員",
   "迷ったら **除外**",
 ]);
 

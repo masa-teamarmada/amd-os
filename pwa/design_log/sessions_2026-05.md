@@ -5883,3 +5883,47 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - まずマイページの週次活動/今月の活動/進捗文、通知画面の見出し/詳細/フィードバック、ナビ右上のコードネームに適用した。
 - できるようになったこと:
   - 文章中の「まさ」「うめ」「あび」などが青字リンクになり、クリックで対象メンバーのマイページへ移動できる。
+
+#### #23 /admin/payouts のロード遅延をキャッシュ表示へ修正
+
+- まさがお願いしていたこと:
+  - `/admin/payouts` がやたら遅い。もし毎回計算しているなら、キャッシュを置いてすぐ表示してほしい。
+- 原因:
+  - GAS呼び出しではなく、`GET /api/admin/payouts` が表示のたびに `syncRewardSummariesForBillingCycles()` を実行し、対象cycleの `billing_cycles.reward_summary_json` を再生成していた。
+- どう解決したか:
+  - 通常GETは `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけに変更。
+  - 明示的な「報酬キャッシュ再計算」ボタン、支払データ保存、PJ予算確定だけが `refreshRewards` で再計算する。
+- できるようになったこと:
+  - `/admin/payouts` の通常表示は既存キャッシュを使い、重い再計算は手動操作へ分離された。
+
+#### #24 clasp login をブラウザ認可待ちまで進めて GAS push 完了
+
+- まさがお願いしていたこと:
+  - `invalid_grant / invalid_rapt` のまま終わらせず、いつも通りブラウザでログイン要求が来るところまで進めてほしい。
+- どう解決したか:
+  - `cd /Users/masa/projects/AMD/amd-os/gas && npx --yes @google/clasp@latest login` を実行し、Googleログイン画面まで開いた。
+  - まさの認可後、`npx --yes @google/clasp push` を再実行した。
+- できるようになったこと:
+  - GAS 221ファイルの `clasp push` が成功し、`invalid_rapt` による未反映状態は解消した。
+
+#### #25 支払通知書発行UIを復活
+
+- まさがお願いしていたこと:
+  - `/admin/payouts` から実際に支払通知書を発行するためのUIが消えているので復活してほしい。
+- どう解決したか:
+  - `/api/admin/payouts` に `PATCH action=update_notice` を追加し、`payout_notices.notice_no` / `pdf_url` / `sent_at` を更新できるようにした。
+  - `/admin/payouts` に「支払通知書発行」セクションを追加。番号発行、PDF URL保存、送付済みにする、未送付に戻すを画面から操作できるようにした。
+- できるようになったこと:
+  - 支払データ保存後、メンバー別の支払通知書発行状態を同じ画面で管理できる。
+
+#### #26 実装済み機能が勝手に消えることへの根本対策
+
+- まさがお願いしていたこと:
+  - 実装済み要素が別セッションで勝手に消えていくのを防ぐ施策を講じてほしい。
+  - OSの全機能がmdに書き出されているべきではないか。
+- どう解決したか:
+  - `pwa/design/FEATURE_REGISTRY.md` を追加し、重要UIの「消してはいけない業務導線」を画面単位で登録する運用にした。
+  - `/admin/payouts` の報酬キャッシュ、縦型PJ収支表、支払通知書発行、入金確認nudge、月次モーダル導線を必須機能として登録した。
+  - `npm run test:critical-ui` に `FEATURE_REGISTRY.md` と `/admin/payouts` の支払通知書/キャッシュ/API anchor 検査を追加した。
+- できるようになったこと:
+  - 重要UIを消す変更は、正本mdと回帰テストの両方を更新しないと通りづらくなった。

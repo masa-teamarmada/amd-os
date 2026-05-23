@@ -43,6 +43,7 @@ type RewardMemberRow = {
 
 type RewardSummary = {
   members?: RewardMemberRow[];
+  monthlyBudget65?: unknown;
 };
 
 type PayoutEntry = {
@@ -59,6 +60,10 @@ type MemberRow = {
   member_id: string;
   is_officer?: boolean | null;
   exclude_from_payout_notice?: boolean | null;
+};
+
+type LoadTargetDataOptions = {
+  refreshRewards?: boolean;
 };
 
 function cleanYm(value: string | null): string | null {
@@ -86,7 +91,7 @@ function asRewardSummary(value: unknown): RewardSummary | null {
   const members = Array.isArray(record.members)
     ? (record.members as RewardMemberRow[])
     : [];
-  return { members };
+  return { members, monthlyBudget65: record.monthlyBudget65 };
 }
 
 function textValue(value: unknown): string {
@@ -100,6 +105,28 @@ function numberValue(value: unknown): number {
 
 function yenValue(value: unknown): number {
   return Math.round(numberValue(value));
+}
+
+function boolValue(value: unknown): boolean {
+  return value === true || value === "true" || value === 1 || value === "1";
+}
+
+function nullTextValue(value: unknown): string | null {
+  const text = textValue(value);
+  return text ? text : null;
+}
+
+function normalizePdfUrl(value: unknown): string | null {
+  const url = nullTextValue(value);
+  if (!url) return null;
+  if (!/^https?:\/\//i.test(url)) {
+    throw new Error("pdfUrl must start with http:// or https://");
+  }
+  return url;
+}
+
+function defaultNoticeNo(ym: string, memberId: string): string {
+  return `AMD-PAY-${ym}-${memberId}`;
 }
 
 function cycleKey(row: BillingCycleRow) {
@@ -193,7 +220,7 @@ function aggregateNotices(ym: string, entries: PayoutEntry[], members: MemberRow
   }));
 }
 
-async function loadTargetData(ym: string) {
+async function loadTargetData(ym: string, options: LoadTargetDataOptions = {}) {
   const db = createAdminClient();
   const cycleSelect =
     "project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, invoice_ym, reward_summary_json, payout_notice_uploaded_at, payment_confirmed_at, reward_paid_at";
@@ -241,13 +268,23 @@ async function loadTargetData(ym: string) {
     }
   }
   const cycles = [...cycleMap.values()].sort(cycleSort);
-  const syncedRewards = await syncRewardSummariesForBillingCycles(db, cycles);
-  for (const cycle of cycles) {
-    const synced = syncedRewards.get(cycleKey(cycle));
-    if (synced) {
-      cycle.reward_summary_json = synced;
-      if (Number(cycle.budget_yen ?? 0) <= 0 && Number(synced.monthlyBudget65 ?? 0) > 0) {
-        cycle.budget_yen = Math.round(Number(synced.monthlyBudget65));
+  if (options.refreshRewards) {
+    const syncedRewards = await syncRewardSummariesForBillingCycles(db, cycles);
+    for (const cycle of cycles) {
+      const synced = syncedRewards.get(cycleKey(cycle));
+      if (synced) {
+        cycle.reward_summary_json = synced;
+        if (Number(cycle.budget_yen ?? 0) <= 0 && Number(synced.monthlyBudget65 ?? 0) > 0) {
+          cycle.budget_yen = Math.round(Number(synced.monthlyBudget65));
+        }
+      }
+    }
+  } else {
+    for (const cycle of cycles) {
+      const cached = asRewardSummary(cycle.reward_summary_json);
+      const cachedBudget = numberValue(cached?.monthlyBudget65);
+      if (Number(cycle.budget_yen ?? 0) <= 0 && cachedBudget > 0) {
+        cycle.budget_yen = Math.round(cachedBudget);
       }
     }
   }
@@ -282,6 +319,7 @@ async function loadTargetData(ym: string) {
     payouts: payoutsRes.data ?? [],
     notices: noticesRes.data ?? [],
     expectedEntries: buildPayoutEntries(cycles, officerMemberIds),
+    refreshedRewards: Boolean(options.refreshRewards),
   };
 }
 
@@ -295,7 +333,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const data = await loadTargetData(ym);
+    const refreshRewards = req.nextUrl.searchParams.get("refreshRewards") === "1";
+    const data = await loadTargetData(ym, { refreshRewards });
     return NextResponse.json({ ok: true, ...data });
   } catch (err) {
     console.error("[admin payouts GET]", err);
@@ -318,6 +357,63 @@ export async function PATCH(req: NextRequest) {
   }
 
   const ym = cleanYm(typeof body.ym === "string" ? body.ym : null);
+
+  if (body.action === "update_notice") {
+    const memberId = textValue(body.memberId);
+    if (!ym || !memberId) {
+      return NextResponse.json({ ok: false, error: "ym and memberId are required" }, { status: 400 });
+    }
+
+    try {
+      const db = createAdminClient();
+      const { data: existing, error: existingError } = await db
+        .from("payout_notices")
+        .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen")
+        .eq("member_id", memberId)
+        .eq("ym", ym)
+        .maybeSingle();
+      if (existingError) throw existingError;
+
+      const issueNumber = boolValue(body.issueNumber);
+      const markSent = boolValue(body.markSent);
+      const clearSent = boolValue(body.clearSent);
+      const noticeNoInput = nullTextValue(body.noticeNo);
+      const pdfUrl =
+        Object.prototype.hasOwnProperty.call(body, "pdfUrl")
+          ? normalizePdfUrl(body.pdfUrl)
+          : (existing?.pdf_url ?? null);
+      const totalYen = yenValue(body.totalYen) || yenValue(existing?.total_yen);
+      const sentAt = markSent ? new Date().toISOString() : clearSent ? null : (existing?.sent_at ?? null);
+      const noticeNo = issueNumber
+        ? existing?.notice_no ?? noticeNoInput ?? defaultNoticeNo(ym, memberId)
+        : noticeNoInput ?? existing?.notice_no ?? null;
+
+      const { error: upsertError } = await db
+        .from("payout_notices")
+        .upsert(
+          {
+            member_id: memberId,
+            ym,
+            sent_at: sentAt,
+            notice_no: noticeNo,
+            pdf_url: pdfUrl,
+            total_yen: totalYen,
+          },
+          { onConflict: "member_id,ym" }
+        );
+      if (upsertError) throw upsertError;
+
+      const after = await loadTargetData(ym);
+      return NextResponse.json({ ok: true, updatedNoticeMemberId: memberId, ...after });
+    } catch (err) {
+      console.error("[admin payouts PATCH notice]", err);
+      return NextResponse.json(
+        { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 }
+      );
+    }
+  }
+
   const invoiceYm = cleanYm(typeof body.invoiceYm === "string" ? body.invoiceYm : null) ?? ym;
   const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
   const sourceYms = Array.isArray(body.sourceYms)
@@ -429,7 +525,7 @@ export async function PATCH(req: NextRequest) {
       });
     }
 
-    const after = await loadTargetData(ym);
+    const after = await loadTargetData(ym, { refreshRewards: true });
     return NextResponse.json({
       ok: true,
       clientAmountYen,
@@ -464,7 +560,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const before = await loadTargetData(ym);
+    const before = await loadTargetData(ym, { refreshRewards: true });
     const db = createAdminClient();
     const entries = before.expectedEntries;
     const officerMemberIds = ((before.members ?? []) as MemberRow[])

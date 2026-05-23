@@ -1801,7 +1801,7 @@
 - **再発防止策**:
   - OS UIに表示する永続業務データは、必ずSupabaseに保存された値を表示する。
   - 「保存済みが無いときだけクライアントでpreview」は禁止。計算値を見せるなら、先にサーバーでSupabaseへ保存する。
-  - `admin.payouts` は `billing_cycles.reward_summary_json` を正本として使い、表示前にも不足分をsyncする。
+  - `admin.payouts` は `billing_cycles.reward_summary_json` を正本として使う。重い再計算は通常表示ではなく、手動の「報酬キャッシュ再計算」または保存系処理だけで実行する。
 
 ---
 
@@ -1823,3 +1823,38 @@
 - **再発防止策**:
   - 通知に出すL2候補は、必ず candidate/tentative/review 状態で保存し、通知の「はい」だけがactive化する。
   - 新しい通知kindを追加するときは、feedback APIの yes/no/comment 挙動も同じcommitで追加する。
+
+---
+
+### [pwa/admin-payouts] 通常表示で毎回報酬サマリーを再計算してロードが遅い
+
+- **発見日**: 2026-05-23
+- **状態**: ✅ 修正済み
+- **症状**:
+  - `/admin/payouts?ym=202605` が初期表示に約1分かかることがあった。
+  - GASを読みに行っているように見えたが、実際にはPWA API内でSupabaseの報酬サマリー再計算が走っていた。
+- **原因**:
+  - `GET /api/admin/payouts` が毎回 `syncRewardSummariesForBillingCycles()` を呼び、対象cycleの `billing_cycles.reward_summary_json` と `budget_yen` を再生成していた。
+- **対応内容**:
+  - 通常GETは `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけに変更。
+  - 手動の「報酬キャッシュ再計算」または保存系処理だけが `refreshRewards=1` / `refreshRewards: true` で再計算する。
+- **再発防止策**:
+  - 表示APIで重い再計算・外部同期を暗黙実行しない。必要なら明示操作に分ける。
+  - `/admin/payouts` のキャッシュ表示・再計算ボタンは `FEATURE_REGISTRY.md` と `test:critical-ui` で監視する。
+
+---
+
+### [pwa/admin-payouts] 支払通知書発行UIが消えた
+
+- **発見日**: 2026-05-23
+- **状態**: ✅ 修正済み
+- **症状**:
+  - `/admin/payouts` から、支払通知書番号・PDF URL・送付済み状態を管理するUIが消えていた。
+- **原因**:
+  - 重要業務UIを画面単位で登録する正本がなく、支払データ保存と通知書発行が別機能として保護されていなかった。
+- **対応内容**:
+  - `payout_notices.notice_no` / `pdf_url` / `sent_at` を更新する `PATCH action=update_notice` を追加。
+  - `/admin/payouts` に「支払通知書発行」セクションを復活。番号発行、PDF URL保存、送付済み化、未送付戻しを画面から実行できる。
+- **再発防止策**:
+  - `pwa/design/FEATURE_REGISTRY.md` に `/admin/payouts` の必須機能を登録。
+  - `npm run test:critical-ui` で支払通知書発行UIとAPI anchorを検査する。

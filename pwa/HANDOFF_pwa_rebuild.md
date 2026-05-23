@@ -1,10 +1,10 @@
 # HANDOFF — AMD OS PWA
 
 最終更新: 2026-05-23
-トピック: 月次ルーティン / payouts / 入金確認nudge+freee同期 / LLMなしcron復旧 / member weekly activity / メンバーコードネームリンク / マイページTODO担当role化 / L2通知承認ゲート / 関連メンバー (HRL根拠) SU+AMD限定 / admin members hardening
+トピック: 月次ルーティン / payouts高速化+支払通知書発行UI / 機能レジストリ / GAS clasp push復旧 / 入金確認nudge+freee同期 / LLMなしcron復旧 / member weekly activity / メンバーコードネームリンク / マイページTODO担当role化 / L2通知承認ゲート / 関連メンバー (HRL根拠) SU+AMD限定 / admin members hardening
 
 詳細ログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md)
-関連仕様: [`design/README.md`](design/README.md), [`design/SPEC_pwa.md`](design/SPEC_pwa.md), [`design/L2_DATA.md`](design/L2_DATA.md), [`design/cockpit.md`](design/cockpit.md), [`design/notifications.md`](design/notifications.md), [`design/xrl_evidence.md`](design/xrl_evidence.md)
+関連仕様: [`design/README.md`](design/README.md), [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md), [`design/SPEC_pwa.md`](design/SPEC_pwa.md), [`design/L2_DATA.md`](design/L2_DATA.md), [`design/cockpit.md`](design/cockpit.md), [`design/notifications.md`](design/notifications.md), [`design/xrl_evidence.md`](design/xrl_evidence.md)
 関連BUG/教訓: [`BUGS.md`](BUGS.md)
 
 ---
@@ -27,6 +27,10 @@
 
 ## Latest Summary
 
+- `/admin/payouts` の通常表示を `billing_cycles.reward_summary_json` キャッシュ読み取りへ変更。毎回 `syncRewardSummariesForBillingCycles()` を走らせず、手動の「報酬キャッシュ再計算」または保存系処理だけが再計算する。
+- `/admin/payouts` に支払通知書発行UIを復活。メンバー別に `payout_notices.notice_no` / `pdf_url` / `sent_at` を編集し、番号発行、PDF URL保存、送付済み化、未送付戻しができる。
+- `pwa/design/FEATURE_REGISTRY.md` を追加し、重要業務UIの「消してはいけない導線」を登録する運用に変更。`npm run test:critical-ui` は `/admin/payouts` の報酬キャッシュ・支払通知書発行・縦型PJ収支表 anchor とこの登録簿を検査する。
+- GAS `clasp login` をブラウザ認可まで進め、`cd gas && npx --yes @google/clasp push` は成功。`invalid_grant / invalid_rapt` による未反映状態は解消。
 - `/admin/payouts` を、支払月単位でPJ予算チェック・後追い委託料確定・支払通知額保存まで扱える画面/APIへ整理。
 - `/admin/payouts` の後追い予算に、契約未確定中の保留表示・予算不足・失注/破談リスクを明示。
 - PJごとの支払条件はコックピットconfigではなく `/admin/projects` を正本にした。`projects.payment_due_rule` は稼働月基準 (`翌月末` = 5月稼働分を6月末支払) で、請求書支払期日・payouts支払月・入金確認nudgeを同じルールで計算する。
@@ -51,9 +55,9 @@
 ## Repo State
 
 - branch: `main`
-- handoff commit: `feat(pwa): harden monthly ops and member activity flows` (exact hashは最終回答と `git log -1 --oneline` を参照)
-- このcommitはこのhandoff後に `origin/main` へpush済みか、最終回答のgit状態を確認する。
-- GAS code-level kill switch差分はlocalにあるが、handoff時点の `cd gas && npx --yes @google/clasp push` は `invalid_grant / invalid_rapt` で失敗。まさ側Google再認証後に再pushが必要。
+- previous handoff commit: `84a937a feat(pwa): harden monthly ops and member activity flows` (origin/mainへpush済み)
+- current local changes: `/admin/payouts` キャッシュ表示、支払通知書発行UI、`FEATURE_REGISTRY.md`、critical-ui guard、docs/log更新。commit/push前なら `git status -s` を確認。
+- GAS code-level kill switch差分は `clasp login` 後の `npx --yes @google/clasp push` 成功で反映済み。
 - migration `074_members_last_login_at.sql` / `075_related_members_cleanup.sql` はproduction Supabaseへ適用済み。
 - DB cleanup済み:
   - SE (`p10`) のCryoX/Kiutra/NIMS混入 source_cache / member_activities / XRL候補は0件確認。
@@ -76,25 +80,32 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 - `npx tsc --noEmit`: 成功
 - `npm run build`: 成功
 - production deploy: 成功、aliasは `https://amd-os-pwa.vercel.app`
+- `cd /Users/masa/projects/AMD/amd-os/gas && npx --yes @google/clasp push`: 成功 (`Pushed 221 files`)
 - production HEAD check: `/hud/dashboard` は未ログイン時 `307 -> /auth/login?next=%2Fhud%2Fdashboard`
 - production `/api/cron/member-weekly-activities?windowEnd=2026-05-22&projectId=p19&save=1&maxMessages=30`: 成功。p19/OkuDoor活動を `ID001` まさ / `ID008` うめ / `ID009` あび の3行に保存確認。
-- GAS: `cd gas && npx --yes @google/clasp push` は `invalid_grant / invalid_rapt` で失敗。BUGS.md既知事象。
+- ログイン済みChrome:
+  - `/mypage?memberId=ID008`: OkuDoor週次活動表示を確認。
+  - `/mypage?memberId=ID009`: OkuDoor週次活動表示を確認。
+  - `/admin/projects`: 23 PJ台帳を確認。
+  - `/admin/settings`: Operations Settings / Raw / L2 / Cron を確認。
+  - `/notifications`: L2抽出 / MTGサマリ一覧を確認。
+  - `/payment-confirm`: tokenなしアクセスで「リンクが足りない」を確認。
+  - `/admin/payouts?ym=202605`: キャッシュ表示、対象10件、報酬9明細、支払メンバー6人、合計 `¥1,188,293`、縦型PJ収支表、支払通知書発行UIを確認。
 
 ---
 
 ## Open Tasks
 
-1. GAS反映: localにはLLM系GAS cron kill switch (`056`/`060`/`152`/`153`/`154`/`155`) が入っているが、`clasp push` は `invalid_rapt` で未反映。まさが `clasp login` し直した後に `cd gas && npx --yes @google/clasp push` を再実行する。
-2. 実画面確認残り: `/admin/projects`, `/admin/payouts?ym=202605`, `/admin/settings`, `/admin/members`, `/notifications`, `/mypage?memberId=ID008`, `/mypage?memberId=ID009`, `/payment-confirm`。PWA build/deployは通っているが、ログイン済みブラウザでの見た目確認は未完。
-3. 関連メンバー: `/project/p09/cockpit` (JOYCLE) の関連メンバーモーダルと `founding-members-extract?project_id=p09` の v3 prompt 出力確認。他 active SU (CTB/SE/ZMP/CX/SX) も再走対象。
-4. 既にactive化済みだった古いL2候補の全体巻き戻しは未実施。今回以降の新規抽出は承認ゲートに寄せた。
-5. #6「OS全体の仕様が勝手に消えない防御策」は設計方針だけで未実装。入れるなら spec registry / approved removal ledger / critical flow E2E / DB+cron contract tests から。
+1. `/admin/members` のログイン済み実画面確認は、このセッションでは未確認。
+2. 関連メンバー: `/project/p09/cockpit` (JOYCLE) の関連メンバーモーダルと `founding-members-extract?project_id=p09` の v3/v5 prompt 出力確認。他 active SU (CTB/SE/ZMP/CX/SX) も再走対象。
+3. 既にactive化済みだった古いL2候補の全体巻き戻しは未実施。今回以降の新規抽出は承認ゲートに寄せた。
+4. 機能レジストリはまず `/admin/payouts` から開始。次に `/project/[projectId]/cockpit`, `/mypage`, `/notifications`, `/admin/projects`, `/admin/settings` へ広げると、UI消失防止がさらに強くなる。
 
 ---
 
 ## First Next Action
 
-まず `git pull` 後に `pwa/HANDOFF_pwa_rebuild.md` と `pwa/design_log/sessions_2026-05.md` の末尾を読む。その後、GAS `invalid_rapt` を解消して `clasp push` を再実行し、ログイン済みブラウザで `/mypage?memberId=ID008` / `/mypage?memberId=ID009` のOkuDoor週次活動と、`/admin/payouts?ym=202605` の縦型PJ収支表を確認する。
+まず `git status -s` と `git log -1 --oneline` を確認する。未commitなら `/admin/payouts` キャッシュ表示・支払通知書発行UI・`FEATURE_REGISTRY.md`・critical-ui guard をcommit/pushする。その後、`/admin/members` のログイン済み実画面確認と、機能レジストリの対象画面拡張に進む。
 
 ---
 
@@ -102,10 +113,11 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 
 1. `pwa/HANDOFF_pwa_rebuild.md`
 2. `pwa/design/README.md`
-3. `pwa/design/SPEC_pwa.md`
-4. `pwa/design/L2_DATA.md`
-5. `pwa/design/cockpit.md`
-6. `pwa/design/notifications.md`
-7. `pwa/design/xrl_evidence.md`
-8. `pwa/BUGS.md`
-9. `pwa/design_log/sessions_2026-05.md` の末尾
+3. `pwa/design/FEATURE_REGISTRY.md`
+4. `pwa/design/SPEC_pwa.md`
+5. `pwa/design/L2_DATA.md`
+6. `pwa/design/cockpit.md`
+7. `pwa/design/notifications.md`
+8. `pwa/design/xrl_evidence.md`
+9. `pwa/BUGS.md`
+10. `pwa/design_log/sessions_2026-05.md` の末尾

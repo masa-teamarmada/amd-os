@@ -93,6 +93,7 @@ type PayoutData = {
   payouts: MonthlyRewardPayout[];
   notices: PayoutNotice[];
   expectedEntries?: PayoutEntry[];
+  refreshedRewards?: boolean;
 };
 
 type PayoutEntry = {
@@ -191,6 +192,14 @@ type ModalTarget = {
   projectId: string;
   ym: string;
   label: string;
+};
+
+type NoticeSavePatch = {
+  noticeNo?: string;
+  pdfUrl?: string;
+  issueNumber?: boolean;
+  markSent?: boolean;
+  clearSent?: boolean;
 };
 
 interface Props {
@@ -447,6 +456,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
   const [budgetTarget, setBudgetTarget] = useState<BudgetConfirmGroup | null>(null);
   const [budgetSaving, setBudgetSaving] = useState(false);
+  const [noticeSavingMemberId, setNoticeSavingMemberId] = useState<string | null>(null);
   const [paymentNudgeSending, setPaymentNudgeSending] = useState(false);
   const [cockpitCache, setCockpitCache] = useState<Record<string, CockpitData>>({});
   const [modalLoading, setModalLoading] = useState(false);
@@ -739,11 +749,13 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const savedAll = expectedEntries.length > 0 && memberRows.every((row) => row.isSaved);
   const rewardCycleCount = new Set(expectedEntries.map((entry) => `${entry.projectId}:${entry.ym}`)).size;
 
-  async function loadForYm(nextYm: string) {
+  async function loadForYm(nextYm: string, options: { refreshRewards?: boolean } = {}) {
     setLoading(true);
-    setHint("");
+    setHint(options.refreshRewards ? "報酬キャッシュを再計算中..." : "");
     try {
-      const res = await fetch(`/api/admin/payouts?ym=${encodeURIComponent(nextYm)}`, {
+      const params = new URLSearchParams({ ym: nextYm });
+      if (options.refreshRewards) params.set("refreshRewards", "1");
+      const res = await fetch(`/api/admin/payouts?${params.toString()}`, {
         cache: "no-store",
       });
       const payload = (await res.json()) as (PayoutData & { ok?: boolean; error?: string });
@@ -751,12 +763,44 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         throw new Error(payload.error || `load failed (${res.status})`);
       }
       setData(payload);
-      setHint(`${fmtYm(nextYm)} / 対象${payload.cycles.length}件 / 報酬${payload.expectedEntries?.length ?? 0}明細`);
+      setHint(
+        `${fmtYm(nextYm)} / ${options.refreshRewards ? "再計算済" : "キャッシュ表示"} / 対象${payload.cycles.length}件 / 報酬${payload.expectedEntries?.length ?? 0}明細`
+      );
     } catch (err) {
       setData(null);
       setHint(err instanceof Error ? err.message : "読込エラー");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function saveNotice(row: MemberPayoutRow, patch: NoticeSavePatch) {
+    setNoticeSavingMemberId(row.memberId);
+    setHint("支払通知書を更新中...");
+    try {
+      const res = await fetch("/api/admin/payouts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_notice",
+          ym,
+          memberId: row.memberId,
+          totalYen: row.totalPay,
+          ...patch,
+        }),
+      });
+      const payload = (await res.json()) as (
+        PayoutData & { ok?: boolean; error?: string; updatedNoticeMemberId?: string }
+      );
+      if (!res.ok || payload.ok === false) {
+        throw new Error(payload.error || `notice save failed (${res.status})`);
+      }
+      setData(payload);
+      setHint(`${row.memberName} の支払通知書を更新した`);
+    } catch (err) {
+      setHint(err instanceof Error ? err.message : "支払通知書の保存エラー");
+    } finally {
+      setNoticeSavingMemberId(null);
     }
   }
 
@@ -894,7 +938,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           <select
             value={ym}
             onChange={(event) => setYm(event.target.value)}
-            disabled={loading || saving}
+            disabled={loading || saving || noticeSavingMemberId != null}
             className="h-9 rounded-md border border-border bg-background px-2 text-[12px] font-mono"
           >
             {ymOptions.map((option) => (
@@ -908,7 +952,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         <button
           type="button"
           onClick={() => loadForYm(ym)}
-          disabled={loading || saving}
+          disabled={loading || saving || noticeSavingMemberId != null}
           className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
         >
           {loading ? "読込中..." : "再読込"}
@@ -916,8 +960,18 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
 
         <button
           type="button"
+          onClick={() => loadForYm(ym, { refreshRewards: true })}
+          disabled={loading || saving || noticeSavingMemberId != null}
+          title="billing_cycles.reward_summary_json を再計算してキャッシュを更新する"
+          className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
+        >
+          報酬キャッシュ再計算
+        </button>
+
+        <button
+          type="button"
           onClick={saveAll}
-          disabled={loading || saving || paymentNudgeSending || expectedEntries.length === 0 || hasBudgetBlocker}
+          disabled={loading || saving || noticeSavingMemberId != null || paymentNudgeSending || expectedEntries.length === 0 || hasBudgetBlocker}
           title={hasBudgetBlocker ? "PJ予算未設定または超過があるため保存できない" : undefined}
           className="h-9 rounded-md bg-foreground px-4 text-[12px] font-medium text-background disabled:opacity-50"
         >
@@ -927,7 +981,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         <button
           type="button"
           onClick={sendPaymentNudges}
-          disabled={loading || saving || paymentNudgeSending}
+          disabled={loading || saving || noticeSavingMemberId != null || paymentNudgeSending}
           className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
         >
           {paymentNudgeSending ? "nudge送信中..." : "入金確認nudge"}
@@ -1118,6 +1172,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           </table>
         </div>
       </section>
+
+      <PayoutNoticeIssuePanel
+        ym={ym}
+        rows={memberRows}
+        disabled={loading || saving || noticeSavingMemberId != null}
+        savingMemberId={noticeSavingMemberId}
+        onSaveNotice={saveNotice}
+      />
 
       {modalTarget && modalLoading && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 backdrop-blur-sm">
@@ -1605,6 +1667,206 @@ function BudgetConfirmModal({
   );
 }
 
+function defaultNoticeNo(ym: string, memberId: string) {
+  return `AMD-PAY-${ym}-${memberId}`;
+}
+
+function PayoutNoticeIssuePanel({
+  ym,
+  rows,
+  disabled,
+  savingMemberId,
+  onSaveNotice,
+}: {
+  ym: string;
+  rows: MemberPayoutRow[];
+  disabled: boolean;
+  savingMemberId: string | null;
+  onSaveNotice: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
+}) {
+  const issueRows = rows.filter((row) => !row.noticeExcluded);
+
+  if (issueRows.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="space-y-2">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-[13px] font-semibold">支払通知書発行</h2>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            支払データ保存後に、通知書番号・PDF URL・送付状態を `payout_notices` に残す
+          </p>
+        </div>
+        <span className="text-[11px] text-muted-foreground">
+          支払月 {fmtYm(ym)} / 対象 {issueRows.length}人
+        </span>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-border">
+        <table className="w-full text-[12px]">
+          <thead className="border-b border-border bg-muted/40">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium">メンバー</th>
+              <th className="px-3 py-2 text-right font-medium">通知額</th>
+              <th className="px-3 py-2 text-left font-medium">通知書番号</th>
+              <th className="px-3 py-2 text-left font-medium">PDF URL</th>
+              <th className="px-3 py-2 text-left font-medium">状態</th>
+              <th className="px-3 py-2 text-right font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {issueRows.map((row) => (
+              <PayoutNoticeIssueRow
+                key={row.memberId}
+                ym={ym}
+                row={row}
+                disabled={disabled}
+                saving={savingMemberId === row.memberId}
+                onSaveNotice={onSaveNotice}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function PayoutNoticeIssueRow({
+  ym,
+  row,
+  disabled,
+  saving,
+  onSaveNotice,
+}: {
+  ym: string;
+  row: MemberPayoutRow;
+  disabled: boolean;
+  saving: boolean;
+  onSaveNotice: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
+}) {
+  const [noticeNo, setNoticeNo] = useState(row.notice?.notice_no ?? defaultNoticeNo(ym, row.memberId));
+  const [pdfUrl, setPdfUrl] = useState(row.notice?.pdf_url ?? "");
+
+  useEffect(() => {
+    setNoticeNo(row.notice?.notice_no ?? defaultNoticeNo(ym, row.memberId));
+    setPdfUrl(row.notice?.pdf_url ?? "");
+  }, [row.memberId, row.notice?.notice_no, row.notice?.pdf_url, ym]);
+
+  const blocked = disabled || saving;
+  const savedNoticeTotal = Math.round(numberValue(row.notice?.total_yen));
+  const totalMismatch = savedNoticeTotal > 0 && savedNoticeTotal !== Math.round(row.totalPay);
+
+  return (
+    <tr className="align-top hover:bg-muted/20">
+      <td className="px-3 py-2">
+        <div className="font-semibold">{row.memberName}</div>
+        <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
+        {!row.isSaved && (
+          <div className="mt-1 text-[10px] text-amber-700">支払データ未保存</div>
+        )}
+      </td>
+      <td className="px-3 py-2 text-right font-semibold tabular-nums">
+        {fmtYen(row.totalPay)}
+        {totalMismatch && (
+          <div className="text-[10px] font-normal text-amber-700">保存額 {fmtYen(savedNoticeTotal)}</div>
+        )}
+      </td>
+      <td className="px-3 py-2">
+        <input
+          value={noticeNo}
+          onChange={(event) => setNoticeNo(event.target.value)}
+          disabled={blocked}
+          className="h-9 w-full min-w-[180px] rounded-md border border-border bg-background px-2 font-mono text-[11px] disabled:opacity-50"
+          placeholder={defaultNoticeNo(ym, row.memberId)}
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          value={pdfUrl}
+          onChange={(event) => setPdfUrl(event.target.value)}
+          disabled={blocked}
+          className="h-9 w-full min-w-[220px] rounded-md border border-border bg-background px-2 font-mono text-[11px] disabled:opacity-50"
+          placeholder="https://..."
+        />
+        {row.notice?.pdf_url && (
+          <a
+            href={row.notice.pdf_url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-block text-[10px] text-blue-700 underline underline-offset-2"
+          >
+            PDFを開く
+          </a>
+        )}
+      </td>
+      <td className="px-3 py-2">
+        <NoticeBadge notice={row.notice} expectedTotal={row.totalPay} excluded={false} />
+        {row.notice?.sent_at && (
+          <div className="mt-1 text-[10px] text-muted-foreground">
+            {new Date(row.notice.sent_at).toLocaleString("ja-JP")}
+          </div>
+        )}
+      </td>
+      <td className="px-3 py-2">
+        <div className="flex flex-wrap justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={() => onSaveNotice(row, {
+              noticeNo: noticeNo.trim(),
+              pdfUrl: pdfUrl.trim(),
+              issueNumber: true,
+            })}
+            disabled={blocked}
+            className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
+          >
+            {saving ? "保存中..." : "番号発行"}
+          </button>
+          <button
+            type="button"
+            onClick={() => onSaveNotice(row, {
+              noticeNo: noticeNo.trim(),
+              pdfUrl: pdfUrl.trim(),
+            })}
+            disabled={blocked}
+            className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
+          >
+            URL保存
+          </button>
+          <button
+            type="button"
+            onClick={() => onSaveNotice(row, {
+              noticeNo: noticeNo.trim(),
+              pdfUrl: pdfUrl.trim(),
+              markSent: true,
+            })}
+            disabled={blocked}
+            className="rounded-md bg-foreground px-2 py-1 text-[11px] font-medium text-background disabled:opacity-50"
+          >
+            送付済みにする
+          </button>
+          {row.notice?.sent_at && (
+            <button
+              type="button"
+              onClick={() => onSaveNotice(row, {
+                noticeNo: noticeNo.trim(),
+                pdfUrl: pdfUrl.trim(),
+                clearSent: true,
+              })}
+              disabled={blocked}
+              className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
+            >
+              未送付に戻す
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 function PayoutMonthlyModal({ cockpit, ym, onClose }: { cockpit: CockpitData; ym: string; onClose: () => void }) {
   const context = cockpitModalContext(cockpit, ym);
 
@@ -1663,7 +1925,13 @@ function NoticeBadge({
     return (
       <div className="space-y-0.5">
         <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-800">送付済</span>
+        {notice.notice_no && <div className="font-mono text-[10px] text-muted-foreground">{notice.notice_no}</div>}
         <div className="text-[10px] text-muted-foreground">{fmtYen(savedTotal)}</div>
+        {notice.pdf_url && (
+          <a href={notice.pdf_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-700 underline underline-offset-2">
+            PDF
+          </a>
+        )}
       </div>
     );
   }
@@ -1671,9 +1939,15 @@ function NoticeBadge({
   return (
     <div className="space-y-0.5">
       <span className={`rounded px-1.5 py-0.5 text-[10px] ${differs ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"}`}>
-        金額保存
+        {notice.notice_no || notice.pdf_url ? "発行準備中" : "金額保存"}
       </span>
+      {notice.notice_no && <div className="font-mono text-[10px] text-muted-foreground">{notice.notice_no}</div>}
       <div className="text-[10px] text-muted-foreground">{fmtYen(savedTotal)}</div>
+      {notice.pdf_url && (
+        <a href={notice.pdf_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-700 underline underline-offset-2">
+          PDF
+        </a>
+      )}
     </div>
   );
 }
