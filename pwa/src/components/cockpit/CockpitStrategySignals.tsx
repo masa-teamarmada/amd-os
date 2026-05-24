@@ -31,7 +31,8 @@ const TYPE_LABEL: Record<string, string> = {
   commercial_progress: "商談/売上",
   partnership: "提携",
   funding: "資金",
-  ip_regulatory: "知財/規制",
+  ip_regulatory: "外部規制",     // = 他国規制動向 / 競合の知財動向 (= 外部環境)
+  tech_progress: "自社知財/技術", // = 自社特許出願 / 技術スタック進捗 (= 技術開発)
   risk: "リスク",
   next_move: "次の一手",
 };
@@ -63,9 +64,11 @@ const CATEGORY_OF_TYPE: Record<string, CategoryKey> = {
   business_progress: "business",
   commercial_progress: "business",
   partnership: "business",
-  // 🔬 技術開発
-  ip_regulatory: "tech",
+  // 🔬 技術開発 (= 自社特許 / 技術スタック進捗)
+  tech_progress: "tech",
   // 🌐 外部環境 (Atlas へ誘導、cockpit には表示しない)
+  // ip_regulatory = 他国規制動向 / 競合の知財動向。risk も外部要因。
+  ip_regulatory: "external",
   risk: "external",
 };
 

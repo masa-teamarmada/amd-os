@@ -237,25 +237,41 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const xOfDate = (iso: string) => xOf(dateToYearDecimal(iso));
 
   // AMD スコア時系列 (Before Zero Theory v3.2 — 7 軸 Cobb-Douglas)
-  // まさ #20 (2026-05-24): 将来予測 (= evaluated_at が今日より未来) は折れ線・最新スコア表示から除く。
-  // 「現在のスコア」表示にするため、HUD と同じく `evaluated_at <= today` で filter する。
+  // まさ #20-2nd (2026-05-24):
+  //  - chart 表示期間は元通り (過去 + 未来 計算可能な全範囲)
+  //  - 折れ線は 「today <= 過去 = 実線」「today > 未来 = 破線」 に分割
+  //  - 大きい数値 pill と M/X/F カードは「現在 = 過去の最新」値を表示
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const visibleInputs = useMemo(
-    () => amdInputs.filter((row) => row.evaluated_at.slice(0, 10) <= todayIso),
-    [amdInputs, todayIso]
+  // 全期間 (過去 + 未来) — chart axis range / 未来予測の破線用
+  const fullComputedSeries = useMemo(
+    () => computeAmdScoreSeries(amdInputs, alpha),
+    [amdInputs, alpha]
   );
-  // breakdown 込みの series (= M/X/F 値表示用)
-  const computedSeries = useMemo(
-    () => computeAmdScoreSeries(visibleInputs, alpha),
-    [visibleInputs, alpha]
+  // 過去のみ (= today 以下) — 実線 + 現在値 (pill) + M/X/F カード用
+  const pastComputedSeries = useMemo(
+    () => fullComputedSeries.filter((p) => p.evaluated_at.slice(0, 10) <= todayIso),
+    [fullComputedSeries, todayIso]
   );
+  // 全期間 series (= chart axis 用、リニア range も全期間で取る)
   const scoreSeries = useMemo(
-    () => computedSeries.map((p) => ({ date: p.evaluated_at, score: p.score })),
-    [computedSeries]
+    () => fullComputedSeries.map((p) => ({ date: p.evaluated_at, score: p.score })),
+    [fullComputedSeries]
   );
-  // 現在の M/X/F (= 今日時点の最新行)
-  const latestBreakdown = computedSeries.length > 0
-    ? computedSeries[computedSeries.length - 1].breakdown
+  const pastSeries = useMemo(
+    () => pastComputedSeries.map((p) => ({ date: p.evaluated_at, score: p.score })),
+    [pastComputedSeries]
+  );
+  // 未来予測 series (= 破線用)。過去最終点を含めて連続させるため先頭に挿入。
+  const futureSeries = useMemo(() => {
+    const future = fullComputedSeries
+      .filter((p) => p.evaluated_at.slice(0, 10) > todayIso)
+      .map((p) => ({ date: p.evaluated_at, score: p.score }));
+    const lastPast = pastSeries[pastSeries.length - 1];
+    return lastPast ? [lastPast, ...future] : future;
+  }, [fullComputedSeries, pastSeries, todayIso]);
+  // 現在の M/X/F (= 過去最終行 = 今日時点)
+  const latestBreakdown = pastComputedSeries.length > 0
+    ? pastComputedSeries[pastComputedSeries.length - 1].breakdown
     : null;
   // Score 詳細ページと同じ軸思想: X は score series の評価日、Y は実データ範囲にフィット。
   const scoreRange = useMemo(() => {
@@ -281,9 +297,11 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   };
   const xOfScore = (t: number) => ML + ((t - scoreRange.xMin) / Math.max(1, scoreRange.xMax - scoreRange.xMin)) * PW;
   const xOfScoreDate = (iso: string) => xOfScore(new Date(iso).getTime());
-  const scorePath = scoreSeries.length < 2
-    ? ""
-    : "M " + scoreSeries.map((p) => `${xOfScoreDate(p.date).toFixed(1)},${yOfScore(p.score).toFixed(1)}`).join(" L ");
+  // まさ #20-2nd: 過去 = 実線, 未来 = 破線 で 2 path に分割
+  const buildPath = (pts: Array<{ date: string; score: number }>) =>
+    pts.length < 2 ? "" : "M " + pts.map((p) => `${xOfScoreDate(p.date).toFixed(1)},${yOfScore(p.score).toFixed(1)}`).join(" L ");
+  const pastScorePath = buildPath(pastSeries);
+  const futureScorePath = buildPath(futureSeries);
   // リニア軸用のガイドライン: 範囲を 5 等分する位の素直な値で。
   const scoreGuides = (() => {
     const niceSteps = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
@@ -299,8 +317,8 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   })();
   const scoreDateTicks = scoreSeries.map((p) => p.date);
 
-  // 現在のスコア (最新点)
-  const latestScore = scoreSeries[scoreSeries.length - 1]?.score;
+  // 現在のスコア (= 過去最新点 = today までで一番新しい input)
+  const latestScore = pastSeries[pastSeries.length - 1]?.score;
   const latestInput = latestVisibleScorableScoreInput(amdInputs);
 
   // XRL 軸 (5 軸: TRL/BRL/GRL/SRL/HRL)
@@ -598,8 +616,12 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
             </g>
           )}
           {/* スコア折れ線 */}
-          {scorePath && (
-            <path d={scorePath} fill="none" stroke="#0f172a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          {/* 過去 (今日まで) = 実線、未来 (今日以降) = 破線 (まさ #20-2nd 2026-05-24) */}
+          {pastScorePath && (
+            <path d={pastScorePath} fill="none" stroke="#0f172a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          )}
+          {futureScorePath && (
+            <path d={futureScorePath} fill="none" stroke="#0f172a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 4" opacity={0.75} />
           )}
           {/* events ドット (annotation) — score 曲線上の最近点に置く */}
           {(bundle?.events ?? []).map((ev) => {
@@ -626,7 +648,9 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
               旧実装は XRL グラフ内に小さい pill (18px) で右端見切れ + そもそも別チャートにあった事故対応。
               位置を AMD グラフ右上に固定 (SVG viewBox 内座標)、フォント 32px、引き出し線で最新プロットと接続。 */}
           {(() => {
-            const last = scoreSeries[scoreSeries.length - 1];
+            // まさ #20-2nd: pill 表示は「現在のスコア」(= 過去最新点) にする。
+            // 引き出し線も past 折れ線の最終点 (= today) に伸ばす。未来予測 (= 破線) ではない。
+            const last = pastSeries[pastSeries.length - 1];
             if (!last) return null;
             const lx = xOfScoreDate(last.date);
             const ly = yOfScore(last.score);
