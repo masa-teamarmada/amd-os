@@ -644,25 +644,48 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
               </g>
             );
           })}
-          {/* 2026-05-12 まさ指摘: 最新 AMD スコアを AMD スコアグラフ右上の空きスペースに大きく描画 + クリックでモーダル。
-              旧実装は XRL グラフ内に小さい pill (18px) で右端見切れ + そもそも別チャートにあった事故対応。
-              位置を AMD グラフ右上に固定 (SVG viewBox 内座標)、フォント 32px、引き出し線で最新プロットと接続。 */}
+          {/* 未来予測 (= 破線) の各点に予測値を小さく添える (まさ #30 2026-05-24)。
+              futureSeries[0] は pastSeries の最終点が重複しているのでスキップ。 */}
+          {futureSeries.slice(1).map((p, i) => {
+            const x = xOfScoreDate(p.date);
+            const y = yOfScore(p.score);
+            const text = p.score < 1 ? p.score.toFixed(2) : Math.round(p.score).toLocaleString();
+            return (
+              <g key={`future-label-${p.date}-${i}`}>
+                <text
+                  x={x}
+                  y={y - 8}
+                  fontSize={10}
+                  fontFamily="ui-monospace,SFMono-Regular,monospace"
+                  fill="#475569"
+                  textAnchor="middle"
+                  opacity={0.85}
+                >
+                  {text}
+                </text>
+              </g>
+            );
+          })}
+          {/* 現在スコア pill (まさ #30 2026-05-24): 現在プロット (= 過去最終点) の近くに移動。
+              旧実装は SVG 右上固定 + 赤破線の引き出し線で、引き出し線が未来予測破線と並走して
+              「破線 2 本問題」が出ていた (= 引き出し線は #20-3rd で削除済)。今回 pill そのものを
+              プロット隣接位置に移動し、引き出し線が要らない構造に。 */}
           {(() => {
-            // まさ #20-2nd: pill 表示は「現在のスコア」(= 過去最新点) にする。
-            // まさ #20-3rd (2026-05-24): 旧実装で pill から過去最終点に向けて赤破線の引き出し線
-            // を伸ばしていたが、それが「未来予測 (= 黒破線) と並走する 2 本目の破線」に見える
-            // 問題が発覚 → 引き出し線を撤去。pill 自体が AMD スコアグラフ内右上にあり「現在の
-            // スコア」と認識可能なので引き出し線がなくても意味は伝わる。
             const last = pastSeries[pastSeries.length - 1];
             if (!last) return null;
             const label = last.score < 1 ? last.score.toFixed(2) : Math.round(last.score).toLocaleString();
-            // pill: AMD グラフ SVG 右上の空きに固定。最大 6 桁 (= 100k IPO 級) + ▾ で十分なので幅 170px に縮小。
-            const pillW = 170;
-            const pillH = 52;
-            const pillX = SVG_W - MR - pillW; // 880 - 24 - 170 = 686
-            const pillY = MT + 4;             // 24 + 4 = 28
+            // pill サイズ縮小 (現状 170x52 → 110x36)。プロット隣接なので大きすぎると未来予測線を隠す。
+            const pillW = 110;
+            const pillH = 36;
+            const lx = xOfScoreDate(last.date);
+            const ly = yOfScore(last.score);
+            // 配置: プロット上方向 (= 未来予測線と被らないように上に置く)。右端越えしないよう clamp。
+            const desiredX = lx - pillW / 2;
+            const pillX = Math.max(ML, Math.min(SVG_W - MR - pillW, desiredX));
+            const desiredY = ly - pillH - 10;
+            const pillY = Math.max(MT + 2, Math.min(SVG_H - MB - pillH, desiredY));
             const labelCenterX = pillX + pillW / 2;
-            const labelY = pillY + pillH - 16; // baseline 調整
+            const labelY = pillY + pillH - 11; // baseline 調整
             return (
               <g
                 style={{ cursor: "pointer" }}
@@ -673,8 +696,8 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                 <rect
                   x={pillX}
                   y={pillY}
-                  rx={12}
-                  ry={12}
+                  rx={10}
+                  ry={10}
                   width={pillW}
                   height={pillH}
                   fill="rgba(254,242,242,0.95)"
@@ -685,7 +708,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                 <text
                   x={labelCenterX}
                   y={labelY}
-                  fontSize={32}
+                  fontSize={22}
                   fontWeight={800}
                   fontFamily="ui-monospace,SFMono-Regular,monospace"
                   fill="#dc2626"
@@ -694,9 +717,9 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   {label}
                 </text>
                 <text
-                  x={pillX + pillW - 10}
-                  y={labelY - 18}
-                  fontSize={11}
+                  x={pillX + pillW - 6}
+                  y={labelY - 14}
+                  fontSize={9}
                   fill="#dc2626"
                   textAnchor="end"
                 >

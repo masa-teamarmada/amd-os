@@ -427,13 +427,12 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
   }
 
   return (
-    // 案C レイアウト (2026-05-23 まさ確定):
+    // 案D レイアウト (2026-05-24 #28 まさ確定):
     //  上: Header + Hero (AMD Score chart + XRL chart 横並び)
     //  メインボード 3 カラム:
-    //    col1 = 今期MS + 次期MS設定 + 過去の期間
-    //    col2 = 経営・事業シグナル (L2 ⑨)
+    //    col1 = 今期MS + 次期MS設定 + 過去の期間 + 月次カード + 休止期間 backfill
+    //    col2 = 経営・事業シグナル (L2 ⑨) + MTGサマリ
     //    col3 = ステータスバッジ + 月次ルーティン + nudge (sticky)
-    //  下段: 月次カード + (休止期間 backfill + MTG サマリ) の 2 カラム
     //  最下: TODO カンバン全幅
     <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
       {/* [A] Project Header (full width) */}
@@ -498,11 +497,30 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
               )}
             </section>
           )}
+          {/* 月次カード (まさ #28 2026-05-24): MS リストの下に移動。
+              旧実装は下段 2 カラム grid に独立して置いていたが、左カラムを「MS + 月次サマリ」
+              に統合する構造へ変更。 */}
+          <CockpitMonthlyList
+            billingCycles={billingCycles}
+            reports={reports}
+            currentYm={currentYm}
+            progressByYm={monthlyProgressByYm}
+            onOpenModal={(ym) => openMonthlyModal(ym)}
+          />
+          {/* 休止期間 backfill UI も col1 (= 月次サマリの近く) に置く。 */}
+          <CockpitFreezeBackfill
+            projectId={project.projectId}
+            freezeFromYm={project.freezeFromYm ?? null}
+            restartExpectedYm={project.restartExpectedYm ?? null}
+            currentYm={currentYm}
+          />
         </div>
 
-        {/* col2: 経営・事業シグナル (L2 ⑨) */}
+        {/* col2: 経営・事業シグナル (L2 ⑨) + MTGサマリ (まさ #28 2026-05-24)。
+            右カラムを「経営シグナル + MTGサマリ」に統合。 */}
         <div className="flex flex-col gap-3 min-w-0">
           <CockpitStrategySignals signals={strategySignals || []} projectId={project.projectId} />
+          <CockpitMeetingSummary projectId={project.projectId} />
         </div>
 
         {/* col3: ステータスバッジ + 月次ルーティン + nudge (lg 以上で sticky) */}
@@ -540,29 +558,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
         </div>
       </div>
 
-      {/* [G][E] 下段: 月次カード + (休止期間 backfill + MTGサマリ) を 2 カラム */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <div className="min-w-0">
-          <CockpitMonthlyList
-            billingCycles={billingCycles}
-            reports={reports}
-            currentYm={currentYm}
-            progressByYm={monthlyProgressByYm}
-            onOpenModal={(ym) => openMonthlyModal(ym)}
-          />
-        </div>
-        <div className="min-w-0 flex flex-col gap-3">
-          <CockpitFreezeBackfill
-            projectId={project.projectId}
-            freezeFromYm={project.freezeFromYm ?? null}
-            restartExpectedYm={project.restartExpectedYm ?? null}
-            currentYm={currentYm}
-          />
-          <CockpitMeetingSummary projectId={project.projectId} />
-        </div>
-      </div>
-
-      {/* [C] TODO Kanban — 全幅 (案C 最下段) */}
+      {/* [C] TODO Kanban — 全幅 (案D 最下段) */}
       {tasks.length > 0 && (
         <CockpitKanbanGas tasks={tasks} milestones={usesMsProgress ? milestones : []} memberMap={memberMap || {}} />
       )}
