@@ -6300,3 +6300,76 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - HUD 版モーダル (`HudCockpitMeetingDetailModal.tsx`) には案E 思想 (= フレーム廃止 / dialogue ラベル / narrative_md 優先 / メリハリ MarkdownView) を写していない
   - 図 / 写真の挿入 UI (= dialogue narrative に画像を埋め込む UX) は未実装。MarkdownView 側の `<img>` レンダリングだけ ready
   - narrative_md の手動編集 UI も未実装 (= まさが narrative を直したい場合は Supabase 直 update)
+
+#### #33 まさ × えいみ 対話セッション (2026-05-24 PM) — 案 D/E/F の繰り返し改修
+
+このセッションでまさが順次投げた合計 **23 件** の修正依頼を 8 ラウンドに分けて消化。
+
+##### Round 4 (= 案D = #1-#6 1st)
+- #1 MTGサマリ各カードに source link (`元 ↗`) 追加 (CockpitMeetingSummary)
+- #2 dialogue meeting のラベル「決まったこと」→「2人で出した提案 (チームへの相談)」
+- #3 AMD cockpit (p00) hero に Management Score 時系列 (`CockpitManagementScoreHero` 新規)
+- #4 p00 billing_cycles 12 行 backfill → 月次カード + 月次モーダル復活
+- #5 MTGサマリ TopicSection の border-l フレーム廃止 → ul + strong + mark の強弱付け
+- #6 dialogue 議事録に narrative_md 追加 (= migration 087 + `/api/dialogue-meeting/narrate` 新規 Sonnet 4.6)
+- commit: 77aa1b4
+
+##### Round 5 (= 案E = #1-#6 2nd)
+- #1-2nd モーダル直リンク `?meeting=<id>` で auto-open
+- #2-2nd 「2人」のスペース除去 (= 「② 人」と読まれる問題)
+- #4-2nd p00 milestone_monthly_progress 98 行 backfill (= 14 MS × 7 ヶ月、進捗バー描画用)
+- #5-2nd MarkdownView 全面強化 (色付き callout / `<em>` を黄色マーカーに転用 / TODO checkbox / table gradient header / `<img>` ready)
+- #6-2nd narrate API `max_tokens` 1800 → 16000、SYSTEM_PROMPT 強化 (= 表本文取り込み / 略称文脈補完 / 6 セクション絵文字見出し)、raw データ折りたたみ廃止
+- commit: 2ced55a
+
+##### Round 6 (= #7-#13)
+- #7 「まさ × えいみ経営会議」→ **「まさえいMTG」** に統一 (= かる/ちこ等への疎外感回避)。chip / title / SYSTEM_PROMPT / DB 既存 3 件 update / Slack 再投稿 (= 旧 ts=1779556087 削除 + 新 ts=1779608045 投稿)
+- #8 narrative から「5月下旬の開発部長MTG」過度フォーカス削除 → 「事業戦略上そろそろ方針を決めておきたい」表現へ
+- #9 表の `✘` → `✕` (= 罰点的に見える問題)
+- #10 deep link auto-open モーダルが背景クリックで閉じない問題 → `autoOpenedRef` + `router.replace(pathname)` で URL から `?meeting=` を消す
+- #11 経営事業シグナル各行 + 議事録モーダルに「⚠️ つくよみに修正依頼」textarea 追加 → `/api/notifications/feedback` 経由で `l2_feedbacks` + `tsukuyomi_learnings` へ
+- #12 経営事業シグナル 9 種を「🌐 外部環境 / 🧭 経営判断 / 📈 事業進捗」の **3 分類** にグルーピング
+- #13 signal_date を「観測日」→「事象発生日」へ運用変更。既存 16 件補正 (= title/summary 内の `N/N付` 等を regex で抽出)
+- commit: 3f4aae1
+
+##### Round 7 (= #14-#16 + #19)
+- #14 3 分類 → **4 分類** に再設計: 🏛 経営全般 / 🚀 事業開発 / 🔬 技術開発 / 🌐 外部環境。時間軸 (signal_date desc) で混ぜて表示 + 各カードの左ボーダー色で分類示す。外部環境は cockpit に表示せず Atlas リンクへ
+- #14 既存 risk タイプ 8 件を本来の分類に re-label (= Score 系 / 財務 variance / ダイキ距離感 / 原薬異物 / 減額要望)
+- #15 admin/projects と admin/members の `<thead>` を `sticky top-0 z-30` に
+- #16 admin/projects の `report_emails` 列を chip 表示 (= 「N件 first@... +n」) → クリックで EmailsEditModal を開く (個別削除 + 追加 + 一括保存)
+- #19 MS Gantt bar 表示改善 (期間「4-5」短縮 + メンバー/pt chip 改行 + overflow visible)
+- commit: 11ca23f
+
+##### Round 8 (= #20)
+- #20 AMDスコアグラフ: today filter (= 現在スコア = 過去最新点) + Chart 1/2 の間に M (12.44) / X (206) / F (14.70) カード追加
+- commit: e40195a
+
+##### Round 9 (= #14-3rd + #20-2nd)
+- #14-3rd `ip_regulatory` 内に「外部規制動向」と「自社知財」が混在していた問題発見 (= 「中国レアアース」と「リアクター特許出願完了」が同じ type) → migration 088 で `tech_progress` 新規許可。既存 6 件 ip_regulatory を仕分け re-label。`ip_regulatory` → external (= Atlas へ) / `tech_progress` → tech (= sky)。LLM prompt も判定ガイドライン明記
+- #20-2nd AMDスコアグラフ: 全期間 (= 過去 + 未来) を chart range に戻す + 折れ線を **過去 = 実線 / 未来 = 破線** に分割 (= `pastScorePath` + `futureScorePath`)。pill と M/X/F は現在値 (= 過去最新) のまま
+- commit: 28c2653
+
+##### 残り (= まさが投げたが未着手 / 次セッション)
+- **#14 中国レアアース消えた問題** (= 4 分類で external = 表示外にしたら本来 cockpit に出したいシグナルも消えた) → 外部環境カテゴリも cockpit に表示する仕様に修正必要
+- **#17 案A 実装** (= MS リスト + 月次モーダルに「🎯 ゴール / 📝 やること / 📍 現状」を `value_milestones.success_criteria` + `milestone_sub_items` + `milestone_monthly_progress.note` で表示)
+- **#18 upcoming MTG カード + 自動議事録化 + 強制議事録化ボタン** (= `project_meeting_summaries` に `source_kinds='upcoming'` 行を INSERT、cron で議事録化、手動ボタン併設、`l2_notifications` で upcoming_meeting 通知)
+- **#20 残課題**: 「破線が 2 つある」(= 私の実装で `pastScorePath` + `futureScorePath` 以外に何か余分な破線が描画されているか目視確認必要) + 「破線をクリックできる範囲が狭すぎる」 (= clickable hit-area 拡大が必要、ドット r を増やすか透明 hit area circle を追加)
+- **#21 未来予測ドット修正 → 議論 → alpha フィードバック構造** (= migration 089 で `amd_score_revisions` + `amd_score_alpha_proposals` 2 テーブル + Modal UI + 週次 cron + LLM パターン分析 + 手動 approve)。さらに**まさが破線を押さなくても、つくよみが自動で「破線修正提案」を l2_notifications に送るロジック**も追加要件
+- **#22 マウスオーバー hint (ツールチップ)** OS 全体設計 (= まさ「ユーザーが忘れる / えいみが認識できない / 他ユーザーも使えない」問題を解消)。まず設計議論
+- **#23 OS 全体マニュアル** (= トップナビ「立替」の右に追加するエントリ + コンテンツ構造)。まず設計議論
+
+##### 設計議論 md (= 次セッションで議論再開する叩き台、新規作成)
+- `pwa/design/score_revision_feedback_loop.md` (= #21 alpha フィードバック設計)
+- `pwa/design/ui_hint_tooltip.md` (= #22 ツールチップ設計)
+- `pwa/design/os_manual.md` (= #23 OS マニュアル設計)
+
+##### 教訓 (BUGS.md に追記済)
+- 4 分類 mapping で `external` = 表示外にしたら必要な PJ シグナルが消えた (= まさ未承認の仕様変更を勝手にやった)
+- `ip_regulatory` に「外部規制動向」と「自社知財」が混在していた (= signal_type 定義時の軸ズレ)
+- deep link auto-open モーダルが背景クリックで閉じない (= useEffect の re-open ループ)
+
+##### Git 状態 (= このセッション末)
+- branch: `main`
+- HEAD: `28c2653 feat(pwa): tech_progress signal type + future score dashed line`
+- 別 codex セッションが切った branch: `handoff/2026-05-24-pwa-api-and-gas-docs` (= `03e6288 feat(gas): pwaApi runFunc を POST body 経由で叩けるようにする` を含む、main には rebase 経由で取り込み済 = `3ecf569`)
+- 私の commit 6 本: 77aa1b4 → 2ced55a → 3f4aae1 → 11ca23f → e40195a → 28c2653

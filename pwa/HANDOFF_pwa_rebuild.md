@@ -1,190 +1,106 @@
 # HANDOFF — AMD OS PWA
 
-最終更新: 2026-05-24 (2 回目)
-トピック: 案D 後にまさが投げた **再指示 6 件** に対応した「案E」ラウンド — **#1-2nd モーダル直リンク (?meeting=...)** / **#2-2nd 「2人で...」スペース除去** / **#4-2nd p00 月次進捗バー復活 (milestone_monthly_progress 98 行 backfill)** / **#5-2nd MarkdownView メリハリ強化 (色フレーム / 黄色マーカー / TODO checkbox / 表強化)** / **#6-2nd narrative API max_tokens 16000 + 表本文取り込み + 略称文脈補完 + 6 セクション絵文字見出し + raw 折りたたみ廃止**。前ラウンドの案D 内容 (= MTGサマリ UI + Management Score Hero + dialogue narrative 初版) は下記 Latest Summary に併記
+最終更新: 2026-05-24 (3 回目 = session 末)
+トピック: まさ × えいみ 対話セッションで 23 件 (案D/E/F + 中規模追加) を 6 commit + migration 088 で消化。**残: #14 中国レアアース消えた問題復活 / #17 案A MS 拡張 / #18 upcoming MTG / #20 破線 2 本問題 + クリック範囲 / #21 alpha フィードバック + 自動修正提案 / #22 UI ヒント / #23 マニュアル**
 
-詳細ログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾
-戦略再構築の正本 handoff: [`/Users/masa/projects/knowledge/HANDOFF_strategy_rebuild_2026-05.md`](../../../knowledge/HANDOFF_strategy_rebuild_2026-05.md) ⭐
-関連仕様: [`design/README.md`](design/README.md), [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md), [`design/SPEC_GOVERNANCE.md`](design/SPEC_GOVERNANCE.md), [`design/SPEC_pwa.md`](design/SPEC_pwa.md), [`design/L2_DATA.md`](design/L2_DATA.md), [`design/project_strategy_signals.md`](design/project_strategy_signals.md), [`design/cockpit.md`](design/cockpit.md), [`design/notifications.md`](design/notifications.md)
-関連BUG/教訓: [`BUGS.md`](BUGS.md), [`/Users/masa/projects/knowledge/BUGS.md`](../../../knowledge/BUGS.md) (えいみ運用)
+詳細ログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾 (#33 セクション、8 ラウンド全部分解)
+関連仕様: [`design/README.md`](design/README.md) ⭐ / [`design/L2_DATA.md`](design/L2_DATA.md) / [`design/SPEC_pwa.md`](design/SPEC_pwa.md) / [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md) / [`design/project_strategy_signals.md`](design/project_strategy_signals.md) / [`design/cockpit.md`](design/cockpit.md) / [`design/meeting_summaries.md`](design/meeting_summaries.md)
+**新規 設計議論 md (= 次セッションで議論再開)**: [`design/score_revision_feedback_loop.md`](design/score_revision_feedback_loop.md) (#21) / [`design/ui_hint_tooltip.md`](design/ui_hint_tooltip.md) (#22) / [`design/os_manual.md`](design/os_manual.md) (#23)
+バグ/教訓: [`BUGS.md`](BUGS.md) 末尾 3 件 (= 4分類で外部環境消えた / ip_regulatory 混在 / モーダル背景クリック loop)
 
 ---
 
 ## Current Rules
 
-- canonical root: `/Users/masa/projects/AMD/amd-os`
-- PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
-- ユーザー向け確認URL: `https://amd-os-pwa.vercel.app/hud/dashboard`
-- hash付きVercel URL (`amd-os-<hash>-armada0130.vercel.app`) はinspect-only。確認URLとして案内しない。
-- PWA変更後deployは必ず `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`。`--cwd .../pwa` は禁止。
-- 未確認dirty filesはrevertしない。
-- 完了報告は番号だけでなく、「まさが何を依頼したか / えいみが何をしたか / 何ができるようになったか」で書く。
-- deploy待ちの間も、実装・検証済みのタスクはタスク単位で先に報告する。
-- `pwa/design/` がPWA設計の正本。`design_log/` は時系列ログで、設計正本にしない。
+- canonical root: `/Users/masa/projects/AMD/amd-os`、PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
+- 確認URL: `https://amd-os-pwa.vercel.app/...`、deploy は必ず `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` (`--cwd .../pwa` 禁止)
+- 設計正本は `pwa/design/` 配下。`design_log/` は時系列ログで正本にしない。新規設計 md は `design/` 配下に
+- 未確認 dirty files は revert しない (`tmp/` 触らない)
+- 完了報告は「まさが何を依頼したか / えいみが何をしたか / 何ができるようになったか」で書く
+- 別 codex セッションが同時稼働するので push 前に `git pull --rebase origin main` を必ず確認
 
 ---
 
 ## Latest Summary
 
-(過去セッション #23 〜 #30 の詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) に分離済み。`/admin/payouts` 改善 / 支払通知書PDF golden / L2 ⑨ 経営・事業シグナル実装 / cockpit 案C レイアウト / p00 戦略再構築 + MS 14個投入)
+(過去セッション 全 #1-#32 詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) に記録済。`/admin/payouts` 改善 / 支払通知書PDF golden / L2 ⑨ 経営事業シグナル / cockpit 案C レイアウト / p00 Management Score Hero / dialogue narrative / まさえいMTG 命名 / Slack bot 別人格化)
 
-**今回 (2026-05-24)** — まさえみ MTG #1 + Cockpit MTGサマリ モーダル化 + えいみ Slack bot 別人格化:
+**今セッション 2026-05-24 PM (#33 全 8 ラウンド)** — まさ × えいみ 23 件改修:
 
-- **L2 ⑨ daily routine 走行**: `project_strategy_signals` に 15 candidate insert (p00=2 / p07=3 / p19=2 / p20=3 / p21=3 / p24=1 / p25=1)。critical=1 / high=10 / medium=4。p06 は既存 8 件で十分のためスキップ、p10 は候補なし
-- **まさえみ MTG #1 (= L2 ⑨ dialogue)** で SX (p21) 議題深掘り → **実装周辺技術マップ v0.1** 策定 (L表 12 レイヤ + U表 5 ユースケース + L×U マトリクス + ダイキ守備範囲整理)、`/Users/masa/projects/knowledge/sx.md` に正本化。**「大阪ガスケミカル」誤抽出 → 正しくは「ダイキアクシス (DAVP)」** 訂正 (signal_id `59706c0c..` update)。議事録は `dialogue:p21:20260523-213654` に PATCH (= md 参照なし自己完結版、表本体埋め込み)
-- **Cockpit MTGサマリ モーダル + markdown rendering 改修**: 新規 `MarkdownView.tsx` (= `react-markdown + remark-gfm`) + `CockpitMeetingDetailModal.tsx` + `HudCockpitMeetingDetailModal.tsx`、既存 `CockpitMeetingSummary.tsx` / `HudCockpitMeetingSummary.tsx` を「行クリックでモーダル展開」に書き換え。tsc / build / deploy 通過 (https://amd-os-pwa.vercel.app)。仕様は `pwa/design/meeting_summaries.md` に反映
-- **えいみ × つくよみ 別人格化 (Slack bot)**: 既存「えいみ」App (A0AC419BPGE, team ARMADA) を発見、Display Name「くろにくる」→「えいみ」、`chat:write.customize` scope 追加 + 2 回 Reinstall で反映。App icon は `amie03.png` → `amie05.png` (= 茶髪元気おてんば+太陽光輪)、v5 (顔ど真ん中版 = `~/Desktop/eimi-avatar-v5.png`) はまさ手動アップロード待ち。#p21_sx に「えいみ」名義で議事録投稿 (= 概要+cockpit MTG サマリへの誘導リンク版)
-- **えいみ・つくよみキャラ memory 確立**: えいみ = 元気おてんば女子・太陽夏海好き・**天照大御神モチーフ** / 覚醒モード = 皆既日蝕の日 (= 天岩戸モチーフ)。つくよみ = AMD OS 内おっとり女子・月モチーフ・**月讀命モチーフ** / 覚醒モード = 満月の夜。「ばっちこい！」は文脈なしで唐突すぎる NG 例として注記
+- **Round 4-5** (= 案D/E、まさ #1-#6 1st + 2nd): MTGサマリ source link + dialogue ラベル + Hero + 月次サマリ復活 + フレーム廃止 + narrative_md。`MarkdownView` 強化 (色 / 黄色マーカー / TODO checkbox / 表 / 図 ready)。`narrate` API max_tokens 16000 + 表本文取り込み prompt
+- **Round 6** (= #7-#13): 「まさえいMTG」リネーム + Slack 再投稿 / 「5月下旬MTG」過度フォーカス削除 / ✘→✕ / モーダル背景クリック loop 修正 / つくよみ修正依頼 UI (経営シグナル + 議事録) / 3 分類グルーピング / signal_date 事象発生日へ補正 (16 件)
+- **Round 7** (= #14-#16, #19): 3→4 分類再設計 (🏛 経営全般 / 🚀 事業開発 / 🔬 技術開発 / 🌐 外部環境) + 時間軸混合表示 / sticky thead / emails edit modal / Gantt bar 短縮表示
+- **Round 8** (= #20): AMDスコア today filter + Chart 1/2 間に M/X/F カード
+- **Round 9** (= #14-3rd + #20-2nd): ip_regulatory 分割 (= migration 088 で `tech_progress` 新規 + 既存 6 件 re-label) / AMDスコア 過去=実線 / 未来=破線
 
-**寝てる間お任せセッション #7 (= まさの再指示 6 件 2nd ラウンド 2026-05-24)** — MTGサマリ UI 案E + narrative メリハリ強化 + 表本文取り込み + モーダル直リンク:
-
-- **#1-2nd モーダル直リンク**: `/project/[id]/cockpit?meeting=<meeting_id>` で MTGサマリ詳細モーダルを auto-open できるようにした。`CockpitMeetingSummary` が `useSearchParams` で `meeting` を読み、recent items または older items に一致する meeting があれば `setSelectedMeeting` する。報告 URL に使える
-- **#2-2nd 「2人で出した提案」のスペース除去**: 半角SP + 「人」が「② 人」のように環境依存で見えていたのを修正。`(チームへの相談)` も全角括弧へ。`CockpitMeetingDetailModal` ラベル + `narrate` SYSTEM_PROMPT + critical-ui anchor 全部統一
-- **#4-2nd p00 月次サマリの進捗バー**: 原因は `milestone_monthly_progress` が p00 に 0 件だったこと (= 他PJ は GAS 経由で progress が入っている)。p00 の 14 MS × 7 ヶ月 (202606-202612) = 98 行を `progress_pct=0 / source='initial_zero'` で backfill。他 PJ と同じ UI で進捗バー (= 0% は赤) が描画されるようになった
-- **#5-2nd MarkdownView メリハリ強化**: 太字だけでなく色 / アンダーライン代用 / フレーム / TODO checkbox / 表 / 図 ready の構造に全面書き直し。`<strong>` は太字 + 黒、`<em>` は **黄色マーカー** に転用、`<blockquote>` は左ボーダー + 微妙な青背景の callout、`<table>` は header に gradient + first column 太字 + ring border、`<input type="checkbox">` は GFM task list 用に □/☑ 風カスタムスタイル、`<h2>` は太い border-b、`<h3>` は左 border-l で色アクセント、`<img>` は max-w-full で将来の図・写真挿入 ready
-- **#6-2nd dialogue narrative 全面改修**:
-  - `max_tokens` 1800 → **16000** に拡張 (= 途中切れ解消)
-  - SYSTEM_PROMPT を「初めて読む人がスムーズに追える、ビジュアル導線が設計された Markdown narrative」要件に書き換え
-  - **入力 raw progress[] / decided[] の Markdown 表は必ず本文に再現**するルールを prompt に明記 (= L表 / U表 / L×U マトリクス が「元データ」に閉じこもらず本文に上がる)
-  - **略称・社内固有名詞は文脈補足を付ける**ルールを追加 (= 「5/下旬の開発部長MTG」→「**ダイキアクシス開発部長との MTG（5/下旬予定）**」のように展開)
-  - 出力構成を「🎯 背景 / 💭 議論の流れ / 📊 議論で確定した重要マップ・表 / 💬 2人で出した提案 / ✅ 次の一手 (TODO) / ⚠️ 残課題」の 6 セクション + 絵文字見出しに
-  - TODO は `- [ ]` チェックボックス形式で書かせる (= GFM task list)
-  - `CockpitMeetingDetailModal` の `DialogueNarrativeBody` から **raw データ折りたたみセクションを廃止** (= 表は本文に入った前提で、raw は冗長)
-  - 既存 3 件の `narrative_md` を `NULL` に reset → 再 narrate で新 prompt 反映
-
-**さらに今回 (= 寝てる間お任せセッション #6 まとめ)** — MTGサマリ UI 案D + p00 Hero + dialogue narrative:
-
-- **MTGサマリ UI 案D (= まさ #1 #2 #5 #6 同時着手)**:
-  - **#1** `CockpitMeetingSummary` 各行に「元 ↗」ソースリンクを追加 (`source_url` 優先、無ければ `notion_url`)。dialogue meeting は元データを持たないので chip「まさ×えいみ」だけ
-  - **#2** `meeting_id` が `dialogue:` で始まる場合、ラベルを「決まったこと」→「**2 人で出した提案 (チームへの相談)**」に置換。チームの士気を下げないニュアンスへ
-  - **#5** 旧 TopicSection の各箇条書きが個別 `border-l + bg-white` フレームで囲まれていたのを廃止。`<ul>` 箇条書き + `<strong>` 太字 + `<mark>` マーカー + 見出し border-b の強弱だけで読ませる
-  - **#6** dialogue meeting に `narrative_md` がある場合、1 本の Markdown narrative としてメインに表示し、raw decided/progress/next_actions/risks は折りたたみ「元データ」へ落とす
-- **AMD cockpit (= p00) #3 + #4**:
-  - **#3** `CockpitManagementScoreHero` 新規。`amd_management_score_snapshots` の `total_score` + 5 軸 (`initiative` / `finance` / `retention` / `pipeline` / `direction`) を横軸 ym, 縦軸 0-100 の折れ線で表示。右に最新値カード。`CockpitView` で `projectId === "p00"` のとき出し分け
-  - **#4** p00 の `billing_cycles` を 202601-202612 で 12 行 backfill (`status='not_started'`)。これで p00 cockpit にも月次カード + 月次モーダルが出る (進捗タブだけ意味あり、請求/報酬は空)
-- **#6 dialogue narrative API**: `POST /api/dialogue-meeting/narrate` 新規。Claude Sonnet 4.6 が dialogue meeting の raw 配列 + summary_short + 関連 strategy_signals を「## 背景 → ## 議論の流れ → ## 2 人で出した提案 → ## 次の一手 → ## 残課題」の 600-1000 字 Markdown narrative に書き直し → `project_meeting_summaries.narrative_md` に保存。`{ all: true, limit: 20 }` でバッチ narrate。**既存 dialogue meeting 3 件 (`dialogue:p00:20260524-011754` / `dialogue:p00:20260523-172532` / `dialogue:p21:20260523-213654`) 全部 narrative 化済 (Sonnet 課金 = 3 件)**
-- migration 087 (`project_meeting_summaries.narrative_md TEXT`) を本番適用済。`ProjectMeetingSummary` 型 + fetch に `sourceUrl` / `narrativeMd` 追加
-- critical-ui anchor を追加: `CockpitManagementScoreHero` / `project.projectId === "p00"` / `isDialogueMeeting` / `narrativeMd` / `claude-sonnet-4-6` 等。旧 border-l フレーム anchor (`border-l-[3px] border-emerald-400/70`) は `expectNotIncludes` で巻き戻り禁止
+**Verified This Session**:
+- `npx tsc --noEmit` / `npm run build` / `npm run test:critical-ui` 全 pass (= 各 round の deploy 前)
+- production deploy 6 回 ((案D + 案E) / Round 6 / Round 7 / Round 8 / Round 9) すべて `https://amd-os-pwa.vercel.app` aliased 成功
+- migration 088 (`tech_progress` signal_type) を `apply_ddl.py` で本番適用
+- Supabase REST PATCH 多数: `project_strategy_signals` 24 件 re-label (= 8 risk → 内部分類 + 6 ip_regulatory → tech_progress/management_decision/commercial_progress + 16 signal_date 補正) / `milestone_monthly_progress` 98 行 backfill (p00) / `project_meeting_summaries` 3 件 narrative_md 再生成 + 3 件 title rename
+- Chrome MCP で実機目視: cockpit 案C + 案D/E/F / dialogue narrative 表 + チェックボックス / 経営シグナル 4 分類 chip / Gantt bar 短縮 / AMDスコア 過去実線+未来破線 / M/X/F カード
+- Slack #p21_sx に「えいみ」名義で議事録直リンク版を再投稿 (= 旧 ts=1779556087 削除 + 新 ts=1779608045)
 
 ---
 
 ## Repo State
 
-- branch: `main`
-- HEAD at handoff write: `155054f feat(pwa): rewrite cockpit to case-C layout (wide hero + 3 columns)` (= 前セッション #29)。今回 2026-05-24 の commit は未着手 (= 私がこれから commit する想定)
-- unpushed commits: `git log origin/main..HEAD --oneline` 空 (= origin と一致)
-- tracked changes expected in next commit (= 今回セッション分):
-  - `pwa/HANDOFF_pwa_rebuild.md` (= 今回スリム化 + Latest Summary 差し替え)
-  - `pwa/BUGS.md` (= 2 件追記)
-  - `pwa/design/meeting_summaries.md` (= cockpit MTGサマリモーダル化 UI 仕様更新)
-  - `pwa/design_log/sessions_2026-05.md` (= 2026-05-24 セッションログ append)
-  - `pwa/package.json` + `pwa/package-lock.json` (= `react-markdown ^10.1.0` + `remark-gfm ^4.0.1` 追加)
-  - `pwa/src/components/cockpit/MarkdownView.tsx` (= 新規)
-  - `pwa/src/components/cockpit/CockpitMeetingDetailModal.tsx` (= 新規)
-  - `pwa/src/components/cockpit/CockpitMeetingSummary.tsx` (= アコーディオン → モーダル化)
-  - `pwa/src/components/hud/HudCockpitMeetingDetailModal.tsx` (= 新規)
-  - `pwa/src/components/hud/HudCockpitMeetingSummary.tsx` (= アコーディオン → モーダル化)
-- リポ外で更新したファイル (= AMD OS リポではないので別管理):
-  - `/Users/masa/projects/knowledge/sx.md` (= 実装周辺技術マップ v0.1 追記 + 外部関係者表のダイキアクシス訂正 + 意思決定ログ追加)
-  - `~/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/feedback_eimi_character_tone.md` (= 全面書き直し)
-  - `~/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/feedback_tsukuyomi_character_tone.md` (= 新規)
-  - `~/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/MEMORY.md` (= 2 行差し替え)
-- リポ内 既存変更で **私のセッションでは触ってない (= 前セッションの残り)**:
-  - `gas/80_SlackWebhook.js`, `gas/CLAUDE.md`, `gas/DEBUG.md` (= 別経路)
-  - 未追跡: `HANDOFF_20260523_sx_fc_dopost.md`, `pwa/design/su_knowledge_promotion_loop.md`, `tmp/`
-- **寝てる間お任せセッション #6 追加 tracked changes**:
-  - `pwa/CLAUDE.md` (= 経営会議手順 step 6 narrate 追加)
-  - `pwa/design/cockpit.md` (= Hero 出し分け + p00 月次データ仕様)
-  - `pwa/design/FEATURE_REGISTRY.md` (= Hero 切替 + MTGサマリ UI 案D 追記)
-  - `pwa/design/project_strategy_signals.md` (= `/api/dialogue-meeting/narrate` + 運用ルール追記)
-  - `pwa/design_log/sessions_2026-05.md` (= 案D セッションログ追加)
-  - `pwa/scripts/check_pwa_critical_ui.cjs` (= 案D / Hero 出し分け / narrate API anchor)
-  - `pwa/scripts/migrations/087_dialogue_narrative_md.sql` (= 新規 migration、本番適用済)
-  - `pwa/src/lib/supabase-data.ts` (= `ProjectMeetingSummary.sourceUrl` / `.narrativeMd` 追加)
-  - `pwa/src/app/api/dialogue-meeting/narrate/route.ts` (= 新規 LLM narrate API)
-  - `pwa/src/components/cockpit/CockpitView.tsx` (= p00 で `CockpitManagementScoreHero` 出し分け)
-  - `pwa/src/components/cockpit/CockpitManagementScoreHero.tsx` (= 新規 Hero)
-  - `pwa/src/components/cockpit/CockpitMeetingDetailModal.tsx` (= フレーム廃止 + dialogue 切替 + narrative 表示)
-  - `pwa/src/components/cockpit/CockpitMeetingSummary.tsx` (= source link + dialogue chip)
-- untracked local artifacts: `tmp/` (PDF/PNG等の確認用生成物。未確認なので勝手に削除しない)
+- branch: `main`、HEAD: `28c2653 feat(pwa): tech_progress signal type + future score dashed line`
+- このセッション私の commit 6 本: 77aa1b4 → 2ced55a → 3f4aae1 → 11ca23f → e40195a → 28c2653 (= 全て origin/main に push 済)
+- 別 codex セッション commit `3ecf569 feat(gas): pwaApi runFunc を POST body 経由で叩けるようにする` も main に取り込み済 (= rebase 経由)
+- HANDOFF/BUGS/設計議論 md 更新でこの commit 後 untracked: `tmp/` (PDF/PNG 確認用、触らない)
+- handoff 用に新規追加するファイル (= 次の commit で push 予定):
+  - `pwa/HANDOFF_pwa_rebuild.md` (= 本書、全面 slim 化)
+  - `pwa/BUGS.md` (= 末尾 3 件追加)
+  - `pwa/design_log/sessions_2026-05.md` (= #33 セッション追記)
+  - `pwa/design/project_strategy_signals.md` (= 4 分類 / tech_progress / 外部環境表示問題反映)
+  - `pwa/design/score_revision_feedback_loop.md` (= 新規、#21 議論)
+  - `pwa/design/ui_hint_tooltip.md` (= 新規、#22 議論)
+  - `pwa/design/os_manual.md` (= 新規、#23 議論)
 
 ---
 
-## Verified This Session
+## Open Tasks (= 次セッション着手)
 
-```sh
-cd /Users/masa/projects/AMD/amd-os/pwa
-npm install react-markdown remark-gfm
-npx tsc --noEmit
-npm run build
-bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
-```
+優先度順:
 
-- `npx tsc --noEmit`: 成功
-- `npm run build`: 成功 (= cockpit + hud 全 route ビルド OK)
-- production deploy: 成功 (2分23秒、`https://amd-os-pwa.vercel.app`、`amd-os-b7d000gm9-armada0130.vercel.app` inspect-only)
-- Supabase REST PATCH:
-  - `project_strategy_signals` 15 件 insert (= daily routine via `/api/strategy-signals action='create'`) + 1 件 update (= signal_id `59706c0c..` の title/summary/source_refs 訂正)
-  - `project_meeting_summaries` 1 件 insert (= `dialogue:p21:20260523-213654` via `/api/dialogue-meeting`) + 1 件 PATCH (= 同 meeting_id を md 参照なし自己完結版 = L表/U表/L×Uマトリクス埋め込みに書き換え)
-- Slack API:
-  - 「えいみ」bot (A0AC419BPGE) で `chat.postMessage` 動作確認 (= 表示名「えいみ」/ bot_user=U0ACK22BBDF / bot_id=B0AC42V38ES)
-  - #p21_sx (C093DQ4D04W) に議事録本投稿 = `ts=1779556087.454409` (= 概要 + cockpit 誘導リンク版)
-  - test 投稿 (C04QB6F7YPN 3件 + #p21_sx の初回長文版) は全て `chat.delete` 済
-- **未実機確認** (= 次セッション要):
-  - https://amd-os-pwa.vercel.app/project/p21/cockpit でモーダル展開した時の markdown 表 (= L×U マトリクス) の見た目、テーブル横スクロール、HUD 版 (`/hud/...`) の cyber 配色版モーダル
-  - えいみ App icon v5 差し替え反映後の Slack 投稿 (= まさ手動アップロード後)
-
-**寝てる間お任せセッション #6 追加 verified**:
-
-- 全 3 件の dialogue meeting に対し `POST /api/dialogue-meeting/narrate { all: true, limit: 20 }` を CRON_SECRET で実行 → `succeeded: 3 / failed: 0`。`dialogue:p00:20260524-011754` / `dialogue:p00:20260523-172532` / `dialogue:p21:20260523-213654` の `narrative_md` が Sonnet 4.6 で生成済
-- p00 用 `billing_cycles` 12 行 (202601-202612, status='not_started') を REST POST で upsert 成功
-- migration 087 (`project_meeting_summaries.narrative_md TEXT`) を `apply_ddl.py` で本番適用 (= 201 OK)
-- `npx tsc --noEmit` / `npm run build` / `npm run test:critical-ui` 全て通過 (案D anchor + Hero 切替 anchor + narrate API anchor 追加後も含む)
-- production deploy 2 回 (phase A+B = MTG UI + Hero, phase C = narrative API + UI 切替) いずれも `https://amd-os-pwa.vercel.app` にエイリアス成功
-
----
-
-## Open Tasks
-
-1. **えいみ App icon v5 差し替え** (まさ手動): `~/Desktop/eimi-avatar-v5.png` を https://api.slack.com/apps/A0AC419BPGE/general の「App icon & Preview」で差し替え + Save Changes。**App icon 設定は Slack API 不可、admin 画面手動のみ**
-2. **`SLACK_EIMI_BOT_TOKEN` を ScriptProperties に保存** (= 永続化): 今回のセッションでは chrome 経由で Slack App OAuth ページから token を取得して curl で投稿したが、永続化していない。次セッションが投稿経路を再利用するために、本体 GAS の ScriptProperties に `SLACK_EIMI_BOT_TOKEN=xoxb-...` を保存し、`gas/115_SlackNotify.js` に `slackNotifyPostToChannelTsukuyomi_` と同形の `slackNotifyPostToChannelEimi_(channelId, arg)` を追加する。`SLACK_TSUKUYOMI_BOT_TOKEN` と同じ運用に揃える。token 値は https://api.slack.com/apps/A0AC419BPGE/install-on-team の Bot User OAuth Token (Copy ボタン) から取得
-3. **本番 cockpit モーダル UI の実機確認**: https://amd-os-pwa.vercel.app/project/p21/cockpit を開いて「MTGサマリ」セクションの「まさ × えいみ経営会議 (2026-05-23)」カードをクリック → 詳細モーダル展開で **L表 / U表 / L×U マトリクスが GFM table として描画されているか**、テーブルが overflow-x-auto で横スクロールするか、HUD 版 (`/hud/...`) でも cyber 配色で同じく動くかを目視確認
-4. **まさえみ MTG 残議題の処理**: 今回 daily routine で積んだ 15 candidate のうち、まさが confirm したのは 0 件 (= SX ダイキアクシス論点だけ深掘り、他の 14 件は candidate のまま)。次回経営会議モードで impact 順に提示
-5. **SX 実装周辺技術マップ v0.2 への更新**: 次回 SX 定例で杉浦先生に確認したい 3 項目 (= 塩水耐性育種パス [L10] / シアノ酸素耐性値 [L1] / 担持前提への所見 [L2])。SX メンバーからの他候補水処理メーカー接点情報も回収して v0.2 に反映
-6. **過去セッション (#23-#30) の残課題**:
-   - `/admin/members` のログイン済み実画面確認 (未着手)
-   - 関連メンバー: `/project/p09/cockpit` (JOYCLE) の関連メンバーモーダル + `founding-members-extract?project_id=p09` の v3/v5 prompt 出力確認、他 active SU (CTB/SE/ZMP/CX/SX) も再走対象
-   - 経営・事業シグナル backfill 候補の実 PJ への採否運用は、まさが `/notifications` または `/project/<pid>/cockpit` 経営・事業シグナルから順に confirmed/rejected
-   - 支払通知書 PDF golden 更新は GAS preview API で生成 → PNG → `npm run test:payout-notice-pdf -- --diff` (= CI 未整備)
-   - p00 MVV 表示セクション (`CockpitP00MVVSection.tsx`) の実装はまだ未着手 (= 仕様だけ `pwa/design/cockpit.md` 末尾にある)
-7. **HUD 版モーダルにも案D 思想を写す** (= 今回 PWA 版だけ反映): `HudCockpitMeetingDetailModal.tsx` にも (a) フレーム廃止 + 強弱付け、(b) dialogue ラベルを「2 人で出した提案」へ、(c) `narrative_md` 優先表示の 3 点を写す。今回時間切れで未対応 (寝てる間お任せセッション)。実機 HUD 確認まで含めて次セッションで
-8. **AMD cockpit (p00) で MS 表示 + 月次サマリ実機確認**: https://amd-os-pwa.vercel.app/project/p00/cockpit を開いて、Management Score Hero + MS Gantt + 月次カード + 月次モーダルが期待通りに表示されているか目視確認 (= billing_cycles 12 行 backfill 済だが UI 側のフォールバックが効くか未検証)
-9. **dialogue narrative の運用化**: `POST /api/dialogue-meeting` の直後に `POST /api/dialogue-meeting/narrate` を自動 chain する仕組みは未実装。今は dialogue 保存 → 別途 narrate API を叩く 2 step 運用。`pwa/CLAUDE.md` の経営会議 step 5 → step 6 に手順を追加済 (= まさ × えいみが意識して narrate を叩く運用)
+1. **#14 中国レアアース消えた問題復活** ⚠️: 「外部環境」カテゴリも cockpit カードに表示する。Atlas リンクは header に残す。`CockpitStrategySignals.tsx` で `visibleSignals` フィルタの `cat !== "external"` 条件を外し、external にも amber 左ボーダーで描画する。詳細は [`BUGS.md`](BUGS.md) の該当エントリ
+2. **#20 破線 2 本問題**: 添付スクショで「破線が 2 つある」とまさ指摘 → `pastScorePath` + `futureScorePath` 以外に何か余分な path を描いてる可能性、`CockpitVentureStatus.tsx` を本番 Chrome で目視 + コード読み直し
+3. **#20 破線クリック範囲が狭すぎる**: 未来予測ドットの clickable hit area 拡大 (= 透明 r=20 circle を上に重ねる)。`#21 AmdScoreFutureEditModal` 着手と一緒
+4. **#17 案A 実装**: MS リスト + 月次モーダルに「🎯 ゴール (`success_criteria`) / 📝 やること (`milestone_sub_items` + `responsibility.task_description`) / 📍 現状 (`milestone_monthly_progress.note` + `progress_pct`)」3 列。新規スキーマなし。MilestoneGanttChart 展開行 + 月次モーダル
+5. **#18 upcoming MTG カード + 自動議事録化 + 強制議事録化ボタン**: `project_meeting_summaries` に `source_kinds='upcoming'` 行 INSERT。前回議事録の `next_actions[]` から初期項目自動投入。`nav_meeting_pollRecentlyEndedEvents` cron が実施日後 60-180 分以内に同じ row update。`l2_notifications` で `upcoming_meeting` 通知。手動「強制議事録化」ボタン併設
+6. **#21 alpha フィードバック構造実装**: [`design/score_revision_feedback_loop.md`](design/score_revision_feedback_loop.md) 通り。migration 089 で `amd_score_revisions` + `amd_score_alpha_proposals` 2 テーブル + AmdScoreFutureEditModal + 週次 cron + つくよみ自動修正提案 cron
+7. **#22 UI ヒント設計確定 → 実装**: [`design/ui_hint_tooltip.md`](design/ui_hint_tooltip.md) 案 D (= Radix Tooltip + Hint コンポーネント TS 定数管理) を承認得て、初期 30-50 個の hint 投入
+8. **#23 OS マニュアル設計確定 → 実装**: [`design/os_manual.md`](design/os_manual.md) 章立て案 1/2/3 + データ管理 A/B/C 確定。トップナビ「立替」の右に「📖 マニュアル」追加。初期 5 章 draft
+9. **HUD 版モーダルに案D/E/F 思想を写す**: `HudCockpitMeetingDetailModal.tsx` に narrative_md 優先 + フレーム廃止 + dialogue ラベル + メリハリ MarkdownView を写す (= PWA 版だけ反映済、HUD 未対応)
+10. **AMD cockpit (p00) 月次モーダル実機確認**: https://amd-os-pwa.vercel.app/project/p00/cockpit で MS Gantt + 月次カード + 月次モーダル目視
+11. **過去セッション残課題**: `/admin/members` 実画面確認 / JOYCLE 関連メンバー再走 / 支払通知書 PDF golden 更新 CI / p00 MVV section / `SLACK_EIMI_BOT_TOKEN` を ScriptProperties に永続化 / えいみ App icon v5 差し替え (まさ手動)
 
 ---
 
 ## First Next Action
 
-まず `git fetch --all --prune`、`git status -s`、`git log --branches --not --remotes --oneline` を確認する。今回 2026-05-24 セッションの未 push commit (= 私が出す予定のもの)、および前セッション 2026-05-23 の未 push (HANDOFF や p00 MS Supabase 投入関連) を消さない。
+まず `git fetch --all --prune && git status -s && git log --branches --not --remotes --oneline` を確認。別 codex セッションが `handoff/2026-05-24-pwa-api-and-gas-docs` branch を切る運用に変わってるので、main 直 push する前に `git pull --rebase origin main` で他セッション commit を取り込む。
 
-そのあと: **(1) えいみ App icon v5 差し替え** がまさ手動なので、まさに「アイコン差し替えた?」を確認。差し替え済みなら **(2) https://amd-os-pwa.vercel.app/project/p21/cockpit で MTGサマリモーダルの markdown 表描画確認** を本番実機で。両方 OK なら、まさが「経営会議やろう」と言ったら残り 14 candidate を impact 順に提示する経営会議モードへ。
+そのあと **#14 中国レアアース問題** をまず修正 (= `CockpitStrategySignals.tsx` で external も表示する) → deploy → Chrome 確認 → commit。続けて **#20 破線 2 本問題 + クリック範囲** に着手。両方終わったら #21 設計が確定しているので migration 089 に進む。
 
-それ以外のまさ依頼 (新規実装 / 他の cockpit 改善等) は通常通り着手前に Plan / TaskCreate で進める。
+それ以降の優先順位は Open Tasks の順序通り。#22 #23 は設計議論 md の叩き台があるので、まさと議論再開してから実装。
 
 ---
 
 ## First Read Order
 
-1. `pwa/HANDOFF_pwa_rebuild.md` ← 今回の summary + open tasks + first action
-2. `pwa/BUGS.md` ← 末尾 2 件 (Slack bot Display Name 反映ハマり / meeting summary 固有名詞誤抽出) を必ず確認
-3. `pwa/design_log/sessions_2026-05.md` の末尾 (= 2026-05-24 セッション全詳細)
+1. `pwa/HANDOFF_pwa_rebuild.md` ← この文書 (= 残タスク + first action + pointers)
+2. `pwa/BUGS.md` 末尾 3 件 (= 4分類で外部環境消えた / ip_regulatory 混在 / モーダル背景クリック loop)
+3. `pwa/design_log/sessions_2026-05.md` 末尾 #33 (= 今セッション全 8 ラウンド詳細)
 4. `pwa/design/README.md`
-5. `pwa/design/L2_DATA.md`
-6. `pwa/design/meeting_summaries.md` ← cockpit MTGサマリモーダル化の正本仕様 (今回更新)
-7. `pwa/design/project_strategy_signals.md`
-8. `pwa/design/cockpit.md`
-9. `pwa/design/FEATURE_REGISTRY.md`
-10. `pwa/design/SPEC_GOVERNANCE.md`
-11. `pwa/design/SPEC_pwa.md`
-12. `/Users/masa/projects/knowledge/sx.md` 「実装周辺技術マップ v0.1」セクション (= SX 関連作業時のみ)
-13. `~/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/feedback_eimi_character_tone.md` + `feedback_tsukuyomi_character_tone.md` (= キャラ・口調の正本)
+5. `pwa/design/L2_DATA.md` ⭐⭐⭐ (= L2 9 種 + 全 cron 中核データ正本)
+6. `pwa/design/project_strategy_signals.md` (= 4 分類 / tech_progress / 外部環境表示問題 反映済)
+7. `pwa/design/cockpit.md` (= 4 分類仕様 + p00 月次データ仕様)
+8. `pwa/design/meeting_summaries.md` (= MTGサマリモーダル + narrative_md)
+9. `pwa/design/score_revision_feedback_loop.md` ⭐ (= #21 議論、新規)
+10. `pwa/design/ui_hint_tooltip.md` ⭐ (= #22 議論、新規)
+11. `pwa/design/os_manual.md` ⭐ (= #23 議論、新規)
+12. `pwa/design/FEATURE_REGISTRY.md`
+13. `pwa/design/SPEC_pwa.md`
+14. `pwa/CLAUDE.md` (= 「まさえいMTG」運用手順含む)

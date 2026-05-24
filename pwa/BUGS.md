@@ -1972,3 +1972,61 @@
   - **L2 ⑨ candidate を経営会議で confirm する前に、固有名詞 (会社名・人名) は元 Notion 議事録 (`notion_url`) か Slack 原文 (`source_url`) で原文確認を推奨**。特に impact=critical は確認必須。
   - まさが「あれ、これ違うかも」と違和感を出した瞬間に、AI 抽出への絶対信頼を一旦解除して原文確認する習慣 (= まさの違和感シグナルを見逃さない、`feedback_question_own_proposals.md` の運用と同じ)。
   - 将来的には meeting_summary 抽出 cron 側で「**risks/decided 欄の固有名詞は議事録本文での出現回数 ≥ 2 を必須**」のような sanity check を追加するのもあり (= 1 度しか出ない固有名詞は確信度低くマーク)。
+
+---
+
+### [strategy-signals] 4 分類で「外部環境 = 表示外」にしたら本来 cockpit に出てほしい外部シグナルも消えた
+
+- **発見日**: 2026-05-24
+- **状態**: 🔴 未修正 (= 次セッション対応)
+- **症状**:
+  - まさが 4 分類 (🏛 経営全般 / 🚀 事業開発 / 🔬 技術開発 / 🌐 外部環境) を承認した時点では「外部環境シグナルは Atlas へ誘導、cockpit には表示しない」設計だった
+  - その後 `ip_regulatory` を「外部規制 = external」「自社知財 = tech_progress」に分割した瞬間に、`5/21 中国レアアース/ガリウム/ゲルマニウム輸出許可制強化 → SX重金属回収事業の追い風` のような **PJ にとって本当に重要な外部環境シグナル**が cockpit から消えた
+  - まさ「どうして消えたのか原因を特定したうえで復活させてほしい」 (= 外部環境カテゴリも cockpit に表示する仕様に修正必要)
+- **原因**:
+  - 4 分類 mapping `external` → cockpit カードに表示せず Atlas リンクのみ案内、というルール自体が不適切だった
+  - 「Atlas は外部マクロシグナル正本」 ≠ 「PJ にとって重要な外部シグナルは cockpit でも見たい」。両方必要。
+  - 実装は `CockpitStrategySignals.tsx` の `visibleSignals` フィルタで `cat !== "external"` を除外してた
+- **次セッション対応案**:
+  - 外部環境 (= amber) も他 3 分類と同じく cockpit カードに表示する
+  - Atlas リンクは header に残す (= 「外部マクロシグナル一覧は Atlas →」誘導は引き続き有効)
+  - external カードの左ボーダーを amber に
+- **再発防止策**:
+  - 分類変更時は「その分類を非表示にして良いか」を必ずまさに確認する
+  - 「カテゴリ別の表示有無」と「カテゴリ別の色・配置」は別の判断軸として扱う
+  - signal_type / カテゴリの mapping 変更は CockpitStrategySignals だけでなく FEATURE_REGISTRY.md にもルール明記
+
+---
+
+### [strategy-signals] `ip_regulatory` に 2 つの全く違うシグナルが混在していた
+
+- **発見日**: 2026-05-24
+- **状態**: ✅ 修正済み (migration 088 + 既存 6 件 re-label + LLM prompt 更新)
+- **症状**:
+  - `signal_type='ip_regulatory'` の中に「中国レアアース輸出規制 (= 外部規制動向)」と「リアクター特許出願完了 (= 自社知財進捗)」が共存していて、4 分類で「技術開発」or「外部環境」どちらに振っても誤分類になる
+- **原因**:
+  - signal_type 定義時に「自社知財」と「外部規制動向」を 1 type に混ぜていた
+  - LLM 抽出 prompt も区別なしで全部 `ip_regulatory` にしていた
+- **対応内容**:
+  - migration 088 で `tech_progress` signal_type を新規許可
+  - 既存 6 件 ip_regulatory を内容判定で仕分け re-label (= 自社系 → `tech_progress` or `management_decision`、外部規制系 → `ip_regulatory` のまま)
+  - LLM prompt も「自社内 = tech_progress / 外部規制動向 = ip_regulatory」のルール明記 (= `pwa/design/project_strategy_signals.md` に反映)
+- **再発防止策**:
+  - signal_type は **自社活動か外部要因か** を最初の軸として分ける
+  - LLM prompt に判定ルールを書くだけでなく、抽出後に「自社/外部」判定の sanity check を入れる (将来)
+
+---
+
+### [cockpit/MeetingDetailModal] deep link で auto-open したモーダルが背景クリックで閉じない
+
+- **発見日**: 2026-05-24
+- **状態**: ✅ 修正済み (= `autoOpenedRef` + `router.replace(pathname)` で URL から ?meeting= を消す)
+- **症状**:
+  - `/project/[id]/cockpit?meeting=<id>` で開いたモーダルが、背景クリックで一瞬閉じてもすぐ再 open
+- **原因**:
+  - `useSearchParams("meeting")` が常時 meeting_id を返すため、`onOpenChange(false)` で setSelectedMeeting(null) しても useEffect が即時 hit して setSelectedMeeting(hit) する無限ループ
+- **対応内容**:
+  - `autoOpenedRef = useRef<string|null>(null)` で「一度 auto-open した meeting_id」を記録、同じ id への再 open を抑止
+  - 閉じる時に `router.replace(pathname, { scroll: false })` で URL から `?meeting=` を消す
+- **再発防止策**:
+  - searchParam 由来の auto-open は必ず「閉じる時の URL クリーンアップ」とセットで設計する
