@@ -3,7 +3,9 @@
 - Last updated: 2026-05-23
 - Topic: 2026-05-22 FCとのMTG結果を knowledge/sx.md とコックピットMTGサマリと SX Slack に整理して反映。pwaApi POST 対応で長文1投稿可能に。「会話→正本md昇格」設計md を新規作成
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
-- HEAD at handoff: `155054f` (未コミット: `gas/80_SlackWebhook.js` 修正のみが私の今日の変更)
+- HEAD at handoff: `21e4df5` (origin/main 同期済み、working tree clean)
+- 私の作業の主 commit: `3ecf569 feat(gas): pwaApi runFunc を POST body 経由で叩けるようにする + 関連ドキュメント整備` (HANDOFF_20260523_sx_fc_dopost.md / gas/80_SlackWebhook.js / gas/CLAUDE.md / gas/DEBUG.md の 4 ファイル)
+- `pwa/design/su_knowledge_promotion_loop.md` と `pwa/design_log/sessions_2026-05.md #30` は別人セッションの commit (77aa1b4 / fd56582 / 9ff32b8) に混ざる形で push 済み (working tree から消えてるので OK)
 - ※ 既存 `HANDOFF.md` (2026-05-17 OS生データ差分レビュー Codex主導化セッション) は別件として残してある。私の今日のセッション分はこの新ファイル参照
 
 ## Summary (3-10 行)
