@@ -203,6 +203,18 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
           >
             立替
           </Link>
+          <Link
+            href="/manual"
+            className={cn(
+              "px-2.5 py-1 rounded-md transition-colors",
+              pathname.startsWith("/manual")
+                ? "bg-accent text-accent-foreground font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title="AMD OS マニュアル — 使い方・データ裏側・過去判断・開発手順"
+          >
+            📖 マニュアル
+          </Link>
           {userCodeName && (
             <Link
               href={memberId ? `/mypage?memberId=${encodeURIComponent(memberId)}` : "/mypage"}
