@@ -2073,3 +2073,76 @@
   - 閉じる時に `router.replace(pathname, { scroll: false })` で URL から `?meeting=` を消す
 - **再発防止策**:
   - searchParam 由来の auto-open は必ず「閉じる時の URL クリーンアップ」とセットで設計する
+
+---
+
+### [meta/handoff-reading] cron 廃止経緯を読まずに「cron 復活」を提案して方針違反した
+
+- **発見日**: 2026-05-24 夜 (= まさが指摘)
+- **状態**: ✅ マニュアル化済 (= `pwa/manual/05-decisions-and-history.md` の 5.1 cron 廃止経緯 + 5.6 過去事故ログ)
+- **症状**:
+  - えいみ (Claude) が「鉱山調査が OS に取り込まれてない」を「Slack ingest cron 停止」と誤判定して `/api/cron/slack-ingest` を vercel.json に追加する案を 2 度提案
+  - まさが「**cron はトークン課金で慌てて止めた経緯あるのに、また cron 復活って意味わからない**」と指摘
+- **原因**:
+  - 新セッション開始時に `pwa/design_log/sessions_2026-05.md` L5582 (= 2026-05-22 PWA/GAS background cron 全廃止の本丸) を読まなかった
+  - `pwa/vercel.disabled-crons.json` のヘッダ `"reason": "Codex automation is the primary raw-data extraction path. LLM-backed Vercel/GAS background cron jobs are disabled..."` も読まなかった
+  - `progress-estimator.ts:6` の「source_cache は L1 cron 廃止で空なので使わない」コメントも見落とした
+  - 結果として、「データ取り込みが止まってる→cron 復活すればいい」というナイーブな提案
+- **対応内容**:
+  - まさに完全謝罪 + 認識訂正
+  - `pwa/manual/05-decisions-and-history.md` 5.1 に cron 廃止経緯を全文転記 (= 2026-05-13 / 2026-05-17 / 2026-05-22 の 3 段階)
+  - `pwa/manual/05-decisions-and-history.md` 5.6 に「2026-05-24 cron 復活誤判定」を過去事故ログに追加
+  - `pwa/AGENTS.md` / `pwa/CLAUDE.md` の必読リスト先頭に `manual/` を追加 (= 新セッションが必ずマニュアルから読むよう誘導)
+- **再発防止策**:
+  - **新セッション開始時、コードを触る前にマニュアル正本 (`pwa/manual/00-intro.md` 〜 `05-decisions-and-history.md`) を必ず読む**
+  - 「cron 復活」「Vercel cron 追加」「GAS trigger 復活」は **禁忌**。データ取り込みに穴があるなら **Codex automation / Claude routine / LaunchAgent applier 経由で実装**を検討
+  - データ取り込み問題の原因仮説を立てる前に、`source_cache` だけでなく Codex automation outbox の状態も確認 (= 別経路で動いてる)
+
+---
+
+### [infra/outbox-applier] Codex automation の経営ハイライト outbox が flush されない (= applier 監視先と出力先の不整合)
+
+- **発見日**: 2026-05-24 夜
+- **状態**: ✅ 短期復旧済 (= 手動 apply で 9 件 INSERT) / 🔴 構造修復未対応 (= 別 task)
+- **症状**:
+  - `amd-os` automation (= daily 03:20 JST) が 5/24 03:30 に経営ハイライト抽出を完了、outbox JSON (30KB / 9 シグナル) を出力
+  - しかし Supabase の `project_strategy_signals` に 5/23 以降の signal が 0 件 (= まさが「鉱山調査が OS に取り込まれてない」と感じた根本)
+  - 9 件分が outbox に滞留したまま、Supabase に届かない
+- **原因**:
+  - LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` の `run-ms-outbox-applier.sh` は監視先として:
+    - `~/.codex/automations/amd-os-ms/outbox/` ✅
+    - `~/.codex/automations/amd-os-strategy-signals/outbox/` ← **空 dir**
+    - `~/.codex/automations/amd-atlas/outbox/` ✅
+  - しかし `amd-os` automation は実際には `~/.codex/automations/amd-os/strategy-signals-outbox/` に出力 (= **dir 名不整合**)
+  - 過去に「amd-os automation を amd-os-strategy-signals に分割」みたいな migration があり、applier 側だけ新名前に変えて automation 側の出力先は古い名前のまま残った
+- **対応内容 (= 短期)**:
+  - `node pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir --dir ~/.codex/automations/amd-os/strategy-signals-outbox` で手動 apply
+  - 9 件全部が `project_strategy_signals` に `candidate` で INSERT 成功
+- **構造修復案 (= 中期、別 task)**:
+  - 案 1: `run-ms-outbox-applier.sh` の `STRATEGY_AUTOMATION_DIR` を `amd-os/strategy-signals-outbox` に変更
+  - 案 2: `amd-os` automation 側の出力先を `~/.codex/automations/amd-os-strategy-signals/outbox/` に変更
+  - どちらでも、変更後は次回 03:30 JST 以降の自動 flush を確認
+- **再発防止策**:
+  - automation 名と applier 監視 dir の **整合性** を、追加・rename 時に必ず両方確認
+  - `pwa/manual/05-decisions-and-history.md` 5.4 責務分担マトリクスに「⚠️ 現状の片肺」として明記済
+
+---
+
+### [meta/data-path] source_cache 経由と Codex automation 経由を混同し「5 ソース全肺停止」と誤判定
+
+- **発見日**: 2026-05-24 夜
+- **状態**: ✅ マニュアル化済 (= `pwa/manual/03-data-and-extraction.md` 3.1 + `pwa/manual/05-decisions-and-history.md` 5.4)
+- **症状**:
+  - えいみが Slack / Notion / Calendar / Drive / Gmail の `source_cache` 最終取り込みを見て「5/21 以降全停止」と判定
+  - 「AMD OS は 5/21 以降凍結された生データで動いている」と誤った緊急性で報告
+  - まさ「**5 ソース全部が cron 化されてないの? え? それはありえなくない?**」
+- **原因**:
+  - **`source_cache` テーブルは旧 L1 cron 用の生データキャッシュ**で、2026-05-22 の cron 廃止後はほぼ放置
+  - 現状の 5 ソース取り込みは **Codex automation `amd-os-ms`** が 6h ごとに直接 fetch して outbox → applier → L2 テーブルに書く別経路
+  - `source_cache` の更新が止まっていても、L2 抽出 (= 経営ハイライト / member_knowledge / monthly_reports) は別経路で動いている
+- **対応内容**:
+  - まさへの認識訂正 + 経路図を `pwa/manual/03-data-and-extraction.md` 3.1 に転記
+  - 5/24 22:48 に手動 backfill した `source_cache` は **副次的な記録**であり、L2 抽出の正規入力ではないことを明記
+- **再発防止策**:
+  - データ取り込み問題を疑う時は、**「どの path が今動いているか」**を `pwa/manual/05-decisions-and-history.md` 5.4 責務分担マトリクスで確認してから原因仮説を立てる
+  - `source_cache` だけ見て「全停止」と即断しない

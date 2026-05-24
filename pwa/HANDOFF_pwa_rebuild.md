@@ -1,111 +1,134 @@
 # HANDOFF — AMD OS PWA
 
-最終更新: 2026-05-24 (4 回目 = 夜次セッション末)
-トピック: 前セッション (5/24 PM) で 23 件消化した HANDOFF を引き継ぎ。**今セッションは #14 (外部環境 cockpit 復活) + #20 破線 2 本問題 (= pill 引き出し線が並走) を修正、1 commit + 1 deploy で完了**。残: #17 案A MS 拡張 / #18 upcoming MTG / #20 クリック範囲 (#21 と同時) / #21 alpha フィードバック / #22 UI ヒント / #23 マニュアル
+最終更新: 2026-05-25 (= 5/24 夜セッション末)
+トピック: **OS マニュアル 7 章 + /manual route 着手完了** (= 忘却対策 #23 着手)。前段で #14 #20 #28 #30 修正・経営ハイライト改訂方針 #26 #27 #29 #31 確定。Codex automation outbox 9 件手動 apply で経営ハイライトに 5/22 までの最新 candidate を反映。
 
-詳細ログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾 (#33 セクション、8 ラウンド全部分解)
-関連仕様: [`design/README.md`](design/README.md) ⭐ / [`design/L2_DATA.md`](design/L2_DATA.md) / [`design/SPEC_pwa.md`](design/SPEC_pwa.md) / [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md) / [`design/project_strategy_signals.md`](design/project_strategy_signals.md) / [`design/cockpit.md`](design/cockpit.md) / [`design/meeting_summaries.md`](design/meeting_summaries.md)
-**新規 設計議論 md (= 次セッションで議論再開)**: [`design/score_revision_feedback_loop.md`](design/score_revision_feedback_loop.md) (#21) / [`design/ui_hint_tooltip.md`](design/ui_hint_tooltip.md) (#22) / [`design/os_manual.md`](design/os_manual.md) (#23)
-バグ/教訓: [`BUGS.md`](BUGS.md) 末尾 3 件 (= 4分類で外部環境消えた / ip_regulatory 混在 / モーダル背景クリック loop)
+詳細ログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾 (#35 セッション)
+**📖 マニュアル正本** (= 新セッション必読): [`manual/00-intro.md`](manual/00-intro.md) → [`manual/05-decisions-and-history.md`](manual/05-decisions-and-history.md) ⭐⭐⭐
+バグ/教訓: [`BUGS.md`](BUGS.md) 末尾 6 件 (= 4分類 / ip_regulatory / モーダル loop / cron 復活誤判定 / outbox 不整合 / source_cache 混同)
 
 ---
 
 ## Current Rules
-
 - canonical root: `/Users/masa/projects/AMD/amd-os`、PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
-- 確認URL: `https://amd-os-pwa.vercel.app/...`、deploy は必ず `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` (`--cwd .../pwa` 禁止)
-- 設計正本は `pwa/design/` 配下。`design_log/` は時系列ログで正本にしない。新規設計 md は `design/` 配下に
-- 未確認 dirty files は revert しない (`tmp/` 触らない)
-- 完了報告は「まさが何を依頼したか / えいみが何をしたか / 何ができるようになったか」で書く
-- 別 codex セッションが同時稼働するので push 前に `git pull --rebase origin main` を必ず確認
+- 確認URL: `https://amd-os-pwa.vercel.app/...`、deploy は `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` (`--cwd .../pwa` 禁止)
+- **新規セッションは必ず `pwa/manual/` から読む** (= 2026-05-25 確定、設計判断の正本)
+- 設計変更は必要に応じて `pwa/manual/` (= 正本) + `pwa/design/` 配下を同じ commit で更新
+- TODO は **まさが「おけ」と言うまで `completed` にしない** (= 2026-05-25 確定、AGENTS.common.md 反映済)
+- 報告は **ビルド前** にする (= 同上)
+- TODO description には `[依頼=#N] / [実施] / [deploy] / [まさ承認]` テンプレで書く
+- 別 codex セッションが branch を切る運用、push 前に `git pull --rebase origin main` 必須
 
 ---
 
-## Latest Summary
+## Latest Summary (= 2026-05-25 セッション末)
 
-**今セッション 2026-05-24 夜 (#33 残課題 #14 + #20)** — 前セッション (5/24 PM) で先送りした 2 件を完遂:
+**完了 (= まさ承認済)**:
+- #14 外部環境シグナル復活 (= fd56582)
+- #20-1 破線 2 本問題 (= fd56582)
+- #25 リニア化漏れ調査 (= 取り下げ)
+- #27 名称「経営ハイライト」確定
+- #28 cockpit レイアウト 2x2 (= 2f6b337)
+- #30 pill 位置 + future ドット数字 (= 2f6b337)
 
-- **#14 中国レアアース消えた問題復活**: `CockpitStrategySignals.tsx` の `visibleSignals` フィルタから `cat !== "external"` を削除、`externalCount` 装飾も廃止。4 色凡例に external を追加し、Atlas リンクを「Atlas で全マクロ ↗」というシンプルな誘導に変更。external カードは既存 `CATEGORY_META.external.cardBorderClass = border-l-amber-400` で自動 amber 表示。本番で `5/21 中国レアアース → SX 重金属回収追い風` のシグナルが復活したことを Chrome MCP で目視確認
-- **#20 破線 2 本問題**: 本番グラフを zoom 確認したところ、`futureScorePath` (黒 dasharray=5 4) と並行に **score pill の引き出し線 (赤 #dc2626 dasharray=3 2 opacity=0.55)** が斜めに長く伸びていて 2 本目の破線に見える原因と特定。`CockpitVentureStatus.tsx` 内の `<line>` (= pill 引き出し線) を完全削除。pill 自体がチャート右上に固定なので意味は伝わる
-- **#20 クリック範囲問題**: 未来予測 path には dot 未描画なので「クリック範囲ゼロ」が実態と判明。`AmdScoreFutureEditModal` 実装 (= #21) と同時に透明 r=20 hit-area circle を追加する方針で次セッションへ送り
-- `check_pwa_critical_ui.cjs` の anchor を新仕様に更新 (= 「外部環境変化は Atlas」「外部環境 / 経営判断 / 事業進捗」を削除、「Atlas で全マクロ」「外部環境」に置換)
-- BUGS.md に #14 / #20 破線 2 本 / #20 hit area 不足 の 3 件を追記済 (= 状態は前 2 件 ✅ 修正済 / 後 1 件 🔴 未修正 = #21 と同時対応)
+**完了 (= まさ「おけ」未確認、in_progress 保留)**:
+- #23 **OS マニュアル 7 章 + /manual route + ナビ追加** (= b58135e、本番反映済 `https://amd-os-pwa.vercel.app/manual`)
+- Phase A 緊急復旧: `amd-os` automation outbox 9 件を手動 apply、Supabase の `project_strategy_signals` に candidate INSERT (= 5/22 Finechem・三浦工業・閉鎖鉱山 / 5/13 JAFCO DD 開始 / 5/13 リアクター特許出願 / 他 6 件)
+- `~/.codex/automations/amd-os/strategy-signals-outbox/` の 5/24 03:30 滞留分を flush
+- Slack `source_cache` を 5/21 以降キャッチアップ (= p06 1 件 / p19 46 件 / p20 74 件 / p21 34 件)。p07 / p24 / p25 は saved=0 (= channel 紐付け要確認)
+- AGENTS.common.md に「TODO リスト運用ルール」追加 (= git 外、ローカル直編集)
 
-(過去セッション 全 #1-#33 詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) に記録済。`/admin/payouts` 改善 / 支払通知書PDF golden / L2 ⑨ 経営事業シグナル / cockpit 案C レイアウト / p00 Management Score Hero / dialogue narrative / まさえいMTG 命名 / Slack bot 別人格化)
+**設計議論まとめ済 (= 実装着手 GO 待ち)**:
+- #21 alpha フィードバック構造: cron on + 全 PJ 共通 OK (まさ確定)
+- #22 UI ヒント: 案 D (Radix Tooltip + Hint コンポーネント TS 定数管理) でやってみよう (まさ確定)
+- #26 真意: 未了は経営ハイライト対象外、`done` のみ書く。未了は **TODO かんばん** (= 別 UI、別 task) へ
+- #29: 4 アイコン軸 (🎉/✨/🔄/⚠️) 確定、🌐 中立は廃止 (= 外部環境シグナルも PJ にとってプラスかマイナスのいずれか)
+- #31: 案 A 確定 (= score_impact_summary + score_impact_delta_json 列追加、migration 089 で同 commit 予定)
+- #32: XRL prompt DB 化 + 入力データ再設計 (= 経営ハイライト + XRL 根拠 + 関連メンバーをメイン、沿革 + チーム名簿は副次)
+- #9: HUD 維持 + 正本化 (= PWA 版で入れた変更を HUD 版に写す)
 
-**今セッション 2026-05-24 PM (#33 全 8 ラウンド)** — まさ × えいみ 23 件改修:
-
-- **Round 4-5** (= 案D/E、まさ #1-#6 1st + 2nd): MTGサマリ source link + dialogue ラベル + Hero + 月次サマリ復活 + フレーム廃止 + narrative_md。`MarkdownView` 強化 (色 / 黄色マーカー / TODO checkbox / 表 / 図 ready)。`narrate` API max_tokens 16000 + 表本文取り込み prompt
-- **Round 6** (= #7-#13): 「まさえいMTG」リネーム + Slack 再投稿 / 「5月下旬MTG」過度フォーカス削除 / ✘→✕ / モーダル背景クリック loop 修正 / つくよみ修正依頼 UI (経営シグナル + 議事録) / 3 分類グルーピング / signal_date 事象発生日へ補正 (16 件)
-- **Round 7** (= #14-#16, #19): 3→4 分類再設計 (🏛 経営全般 / 🚀 事業開発 / 🔬 技術開発 / 🌐 外部環境) + 時間軸混合表示 / sticky thead / emails edit modal / Gantt bar 短縮表示
-- **Round 8** (= #20): AMDスコア today filter + Chart 1/2 間に M/X/F カード
-- **Round 9** (= #14-3rd + #20-2nd): ip_regulatory 分割 (= migration 088 で `tech_progress` 新規 + 既存 6 件 re-label) / AMDスコア 過去=実線 / 未来=破線
-
-**Verified Previous Session (5/24 PM #33)**:
-- `npx tsc --noEmit` / `npm run build` / `npm run test:critical-ui` 全 pass (= 各 round の deploy 前)
-- production deploy 6 回 ((案D + 案E) / Round 6 / Round 7 / Round 8 / Round 9) すべて `https://amd-os-pwa.vercel.app` aliased 成功
-- migration 088 (`tech_progress` signal_type) を `apply_ddl.py` で本番適用
-- Supabase REST PATCH 多数: `project_strategy_signals` 24 件 re-label (= 8 risk → 内部分類 + 6 ip_regulatory → tech_progress/management_decision/commercial_progress + 16 signal_date 補正) / `milestone_monthly_progress` 98 行 backfill (p00) / `project_meeting_summaries` 3 件 narrative_md 再生成 + 3 件 title rename
-- Chrome MCP で実機目視: cockpit 案C + 案D/E/F / dialogue narrative 表 + チェックボックス / 経営シグナル 4 分類 chip / Gantt bar 短縮 / AMDスコア 過去実線+未来破線 / M/X/F カード
-- Slack #p21_sx に「えいみ」名義で議事録直リンク版を再投稿 (= 旧 ts=1779556087 削除 + 新 ts=1779608045)
+**Verified**:
+- `npx tsc --noEmit` / `npm run build` / `npm run test:critical-ui` 全 pass
+- production deploy 3 回 (= マニュアル含む) `https://amd-os-pwa.vercel.app` aliased 成功
+- Chrome MCP で `/manual` index + `/manual/05-decisions-and-history` 目視、callout / マーカー / コード強調が綺麗にレンダリング
+- p21 cockpit で 5/22 Finechem PoC 候補拡張など 9 件 candidate 並び確認
 
 ---
 
 ## Repo State
-
-- branch: `main`、HEAD: `28c2653 feat(pwa): tech_progress signal type + future score dashed line`
-- このセッション私の commit 6 本: 77aa1b4 → 2ced55a → 3f4aae1 → 11ca23f → e40195a → 28c2653 (= 全て origin/main に push 済)
-- 別 codex セッション commit `3ecf569 feat(gas): pwaApi runFunc を POST body 経由で叩けるようにする` も main に取り込み済 (= rebase 経由)
-- HANDOFF/BUGS/設計議論 md 更新でこの commit 後 untracked: `tmp/` (PDF/PNG 確認用、触らない)
-- handoff 用に新規追加するファイル (= 次の commit で push 予定):
-  - `pwa/HANDOFF_pwa_rebuild.md` (= 本書、全面 slim 化)
-  - `pwa/BUGS.md` (= 末尾 3 件追加)
-  - `pwa/design_log/sessions_2026-05.md` (= #33 セッション追記)
-  - `pwa/design/project_strategy_signals.md` (= 4 分類 / tech_progress / 外部環境表示問題反映)
-  - `pwa/design/score_revision_feedback_loop.md` (= 新規、#21 議論)
-  - `pwa/design/ui_hint_tooltip.md` (= 新規、#22 議論)
-  - `pwa/design/os_manual.md` (= 新規、#23 議論)
+- branch: `main`、HEAD: `b58135e feat(pwa/manual): OS マニュアル 7 章 + /manual ルート + ナビ追加 (#23)`
+- 今セッション私の commit 4 本 (全 push 済): fd56582 → 2f6b337 → 21e4df5 → b58135e
+- handoff 用に次 commit で push 予定:
+  - `pwa/HANDOFF_pwa_rebuild.md` (= 本書、全面リフレッシュ)
+  - `pwa/BUGS.md` (= 末尾 3 件追加 = cron 復活誤判定 / outbox 不整合 / source_cache 混同)
+  - `pwa/AGENTS.md` (= 必読リスト先頭に `manual/` 追加)
+  - `pwa/CLAUDE.md` (= ドキュメント構成表に manual を最上行追加)
+  - `pwa/design_log/sessions_2026-05.md` (= #35 セッション追記)
+- untracked: `tmp/` (PDF/PNG 確認用、触らない)
 
 ---
 
 ## Open Tasks (= 次セッション着手)
 
-優先度順:
+### 🔥 緊急 / 構造修復
+1. **#33 outbox applier 監視先修正** (= `run-ms-outbox-applier.sh` の `STRATEGY_AUTOMATION_DIR` を `amd-os/strategy-signals-outbox` に変更)。これ直さないと毎日 03:30 後に手動 apply 必要
+2. **#34 短期 + 中期**:
+   - 短期: `CockpitStrategySignals.tsx` に「過去の修正依頼」表示セクション (= l2_feedbacks 読み込み) → 「形跡が残らない」問題解消
+   - 中期: Codex automation `amd-os` を PWA cron / Claude routine に移管 + `l2_feedbacks` 読み込み実装 → 修正依頼が反映される
 
-1. **#17 案A 実装**: MS リスト + 月次モーダルに「🎯 ゴール (`success_criteria`) / 📝 やること (`milestone_sub_items` + `responsibility.task_description`) / 📍 現状 (`milestone_monthly_progress.note` + `progress_pct`)」3 列。新規スキーマなし。MilestoneGanttChart 展開行 + 月次モーダル
-2. **#18 upcoming MTG カード + 自動議事録化 + 強制議事録化ボタン**: `project_meeting_summaries` に `source_kinds='upcoming'` 行 INSERT。前回議事録の `next_actions[]` から初期項目自動投入。`nav_meeting_pollRecentlyEndedEvents` cron が実施日後 60-180 分以内に同じ row update。`l2_notifications` で `upcoming_meeting` 通知。手動「強制議事録化」ボタン併設
-3. **#21 alpha フィードバック構造 + #20 クリック範囲拡大 同時実装**: [`design/score_revision_feedback_loop.md`](design/score_revision_feedback_loop.md) 通り。migration 089 で `amd_score_revisions` + `amd_score_alpha_proposals` 2 テーブル + `AmdScoreFutureEditModal` + 週次 cron + つくよみ自動修正提案 cron。**`AmdScoreFutureEditModal` を作るタイミングで futureSeries 各点に透明 r=20 hit-area circle を追加する** (= #20 クリック範囲問題は modal 実装と一緒に解決)
-4. **#22 UI ヒント設計確定 → 実装**: [`design/ui_hint_tooltip.md`](design/ui_hint_tooltip.md) 案 D (= Radix Tooltip + Hint コンポーネント TS 定数管理) を承認得て、初期 30-50 個の hint 投入
-5. **#23 OS マニュアル設計確定 → 実装**: [`design/os_manual.md`](design/os_manual.md) 章立て案 1/2/3 + データ管理 A/B/C 確定。トップナビ「立替」の右に「📖 マニュアル」追加。初期 5 章 draft
-6. **HUD 版モーダルに案D/E/F 思想を写す**: `HudCockpitMeetingDetailModal.tsx` に narrative_md 優先 + フレーム廃止 + dialogue ラベル + メリハリ MarkdownView を写す (= PWA 版だけ反映済、HUD 未対応)
-7. **AMD cockpit (p00) 月次モーダル実機確認**: https://amd-os-pwa.vercel.app/project/p00/cockpit で MS Gantt + 月次カード + 月次モーダル目視
-8. **過去セッション残課題**: `/admin/members` 実画面確認 / JOYCLE 関連メンバー再走 / 支払通知書 PDF golden 更新 CI / p00 MVV section / `SLACK_EIMI_BOT_TOKEN` を ScriptProperties に永続化 / えいみ App icon v5 差し替え (まさ手動)
+### 大型実装 (= まさ GO 待ち)
+3. **#21 + #20-2 + #29 + #31 統合実装** (migration 089): polarity 列 / score_impact 列 / amd_score_revisions 2 テーブル + CockpitStrategySignals 全面改修 (経営ハイライト rename + アイコン軸 + decision_state 撤廃 + 影響 1 行表示) + AmdScoreFutureEditModal + 透明 r=20 hit-area + 日次自動提案 cron + 週次 alpha レビュー cron + /admin/amd-score-alpha-review
+4. **#22 UI ヒント**: 案 D 実装 (= Radix Tooltip wrapper + Hint コンポーネント TS 定数管理 + 初期 30-50 個 hint リスト)
+5. **#9 HUD 版同期** (= HudCockpitMeetingDetailModal.tsx に narrative_md 優先 + フレーム廃止 + dialogue ラベル + メリハリ MarkdownView を写す。HUD を正本化方針)
+6. **#32 XRL prompt DB 化 + 入力データ再設計** (migration 091?): `xrl_judgment_prompts` テーブル新規 + prompt 内容を「経営ハイライト + XRL 根拠 + 関連メンバー」メインに改訂 + /admin/xrl-prompt 編集画面
+7. **#26 TODO かんばん設計議論 → 実装**: 未了議題用、ユーザーが Done に移動したら抽出元同期 + 経営ハイライト級なら自動転記。設計議論 md 作成から
+8. **#35 月次報告書ビジュアル改善**: 議事録同様の構造化 + 客観評価 (= AMD 役立度 / 事業進捗 / 先手力低下) + PDCA 回せるレベル
+
+### 中型
+9. **#17 案A**: MS リスト + 月次モーダルに「🎯 ゴール / 📝 やること / 📍 現状」3 列
+10. **#18 upcoming MTG カード + 強制議事録化ボタン**
+
+### マニュアル追記 (= 新規依頼)
+11. **#23 派生 PJ status 追記**: `admin/projects` の status (= active / その他) 種類と意味 + **新規追加された「新規事業創出」status** をマニュアル 04 章 4.2 に網羅追記。まずは Supabase で現状全 status 値を確認
+
+### 軽め
+12. **#10 p00 月次モーダル下段確認** (= 上段は確認済、月次サマリ + MTGサマリ部のスクロール確認だけ残ってる)
+13. **過去残課題**: `/admin/members` 実画面 / JOYCLE 関連メンバー再走 / 支払通知書 PDF golden CI / p00 MVV section / `SLACK_EIMI_BOT_TOKEN` ScriptProperties 永続化 / えいみ App icon v5 (まさ手動)
+
+### Slack channel 紐付け確認 (= 簡単)
+14. p07 LST / p24 CLG / p25 KUTE は backfill で saved=0 だった。`projects.slack_channel_id` 設定漏れ疑い、確認 + 修正
 
 ---
 
 ## First Next Action
 
-まず `git fetch --all --prune && git status -s && git log --branches --not --remotes --oneline` を確認。別 codex セッションが branch を切る運用に変わってるので、main 直 push する前に `git pull --rebase origin main` で他セッション commit を取り込む。
+まず:
+```sh
+cd /Users/masa/projects/AMD/amd-os
+git fetch --all --prune
+git status -s
+git log --branches --not --remotes --oneline
+git pull --rebase origin main   # ← 別 codex セッション commit 取り込み
+```
 
-そのあと **#17 案A** (= MS リスト + 月次モーダルに `success_criteria` / `milestone_sub_items` / `milestone_monthly_progress.note` の 3 列) から着手するか、まさが議論したい議題 (= #22 ヒント設計 or #23 マニュアル設計) があればそちらから。
-
-#21 着手するなら migration 089 を書く前に [`design/score_revision_feedback_loop.md`](design/score_revision_feedback_loop.md) を再読 + AmdScoreFutureEditModal の UI 詳細 (axis ごと input / 影響シミュレーション) を確定してから DDL に進む。
+そのあと:
+1. **マニュアル正本を必ず読む** ([`pwa/manual/00-intro.md`](manual/00-intro.md) → [`05-decisions-and-history.md`](manual/05-decisions-and-history.md))。特に **5.1 cron 廃止経緯 + 5.4 責務分担マトリクス + 5.6 過去事故ログ** を読まずに動かない
+2. まさが議論したい議題があれば優先。なければ Open Tasks #1 (= outbox applier 修正) or #3 (= 大型統合実装) から着手判断
+3. #21 着手するなら migration 089 を書く前に [`design/score_revision_feedback_loop.md`](design/score_revision_feedback_loop.md) + [`design/strategy_signals_redesign.md`](design/strategy_signals_redesign.md) を再読
 
 ---
 
-## First Read Order
+## First Read Order (= 必読)
 
-1. `pwa/HANDOFF_pwa_rebuild.md` ← この文書 (= 残タスク + first action + pointers)
-2. `pwa/BUGS.md` 末尾 3 件 (= 4分類で外部環境消えた / ip_regulatory 混在 / モーダル背景クリック loop)
-3. `pwa/design_log/sessions_2026-05.md` 末尾 #33 (= 今セッション全 8 ラウンド詳細)
-4. `pwa/design/README.md`
-5. `pwa/design/L2_DATA.md` ⭐⭐⭐ (= L2 9 種 + 全 cron 中核データ正本)
-6. `pwa/design/project_strategy_signals.md` (= 4 分類 / tech_progress / 外部環境表示問題 反映済)
-7. `pwa/design/cockpit.md` (= 4 分類仕様 + p00 月次データ仕様)
-8. `pwa/design/meeting_summaries.md` (= MTGサマリモーダル + narrative_md)
-9. `pwa/design/score_revision_feedback_loop.md` ⭐ (= #21 議論、新規)
-10. `pwa/design/ui_hint_tooltip.md` ⭐ (= #22 議論、新規)
-11. `pwa/design/os_manual.md` ⭐ (= #23 議論、新規)
-12. `pwa/design/FEATURE_REGISTRY.md`
-13. `pwa/design/SPEC_pwa.md`
-14. `pwa/CLAUDE.md` (= 「まさえいMTG」運用手順含む)
+1. **`pwa/manual/00-intro.md`** ⭐⭐⭐ (= マニュアル正本入口)
+2. **`pwa/manual/05-decisions-and-history.md`** ⭐⭐⭐ (= 過去判断、cron 廃止経緯、責務分担、過去事故ログ)
+3. `pwa/manual/03-data-and-extraction.md` (= データ抽出 path、用語と実装の対応)
+4. `pwa/HANDOFF_pwa_rebuild.md` ← この文書 (= 残タスク + first action)
+5. `pwa/BUGS.md` 末尾 6 件 (= 直近セッションの教訓)
+6. `pwa/design_log/sessions_2026-05.md` 末尾 #35 (= 今セッション全詳細)
+7. `pwa/design/L2_DATA.md` (= 中核データ正本)
+8. `pwa/design/strategy_signals_redesign.md` (= #26 #27 #29 #31 統合改訂方針)
+9. `pwa/design/score_revision_feedback_loop.md` (= #21 議論)
+10. `pwa/design/ui_hint_tooltip.md` (= #22 議論)
+11. `pwa/design/os_manual.md` (= #23 初期議論、実装は manual/ に着手済なので参考)
+12. `pwa/CLAUDE.md` (= 「まさえいMTG」運用手順含む)

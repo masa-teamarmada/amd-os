@@ -6409,3 +6409,77 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 - #14 「4 分類で external = 表示外にしたら必要シグナルも消えた」→ ✅ 修正済
 - #20 「pill 引き出し線が並走で破線 2 本に見える」→ ✅ 修正済 (= 引き出し線完全削除)
 - #20 「未来予測のクリック範囲が狭すぎる」→ 🔴 未修正 (= #21 と同時対応予定)
+
+#### #35 OS マニュアル 7 章 + /manual route 着手 + 大型設計議論 (2026-05-24 深夜 - 2026-05-25 朝)
+
+##### 着手契機
+まさ #23 「OS マニュアル早く着手したい。忘却を防ぐため」+ #22 UI ヒント案 D / #21 cron on + 全 PJ 共通 / #29 アイコン 4 種類 / #31 案 A など複数確定。途中で「foundingProposal の実態 = 関連メンバー全部」「cron 復活は禁忌」など、私のドキュメント未読による誤判定をまさが指摘。マニュアルが「忘却防止」の中心になることが浮上。
+
+##### Phase A 緊急復旧 (= 経営ハイライトに 5/22 までの最新 candidate 反映)
+- まさ「5/23 かるの鉱山調査が OS に取り込まれてない」を調査
+- 5 生データ取り込み path を Agent で全件調査:
+  - `source_cache` テーブルは旧 L1 cron 用、2026-05-22 cron 廃止後はほぼ放置
+  - 現状の 5 ソース取り込みは Codex automation `amd-os-ms` が 6h ごと、`amd-os` が daily 03:20 で別経路
+  - 5/24 03:30 cron で `amd-os` が経営ハイライト 9 件抽出 + outbox JSON 出力済
+- 滞留原因特定: `~/.codex/automations/amd-os/strategy-signals-outbox/` に書かれるが、`run-ms-outbox-applier.sh` の監視先は `amd-os-strategy-signals/outbox/` (= 空 dir)。**dir 名不整合**
+- `node pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir --dir ~/.codex/automations/amd-os/strategy-signals-outbox` で 9 件全部手動 apply
+- 結果: p06 CTB 2 / p19 ZMP 2 / p20 CX 2 / p21 SX 3 件が `candidate` で INSERT (= 5/22 Finechem・三浦工業・閉鎖鉱山 / 5/13 JAFCO DD 開始 / 5/13 リアクター特許出願 / 他)
+
+##### Slack source_cache backfill (= 5/21 以降キャッチアップ)
+- 全 9 active PJ (p00 / p06 / p07 / p10 / p19 / p20 / p21 / p24 / p25) で `/api/sources/slack/collect` を curl loop
+- 取り込み件数: p21 SX 34 (= 鉱山調査含む) / p19 ZMP 46 / p20 CX 74 / p06 CTB 1 / 他 = 0
+- p07 / p24 / p25 / p10 は saved=0 (= channel 紐付け要確認、別 task)
+- **ただしこれは副次的記録。L2 抽出の正規入力は Codex automation 直接 fetch path** (= 別経路)
+
+##### OS マニュアル 7 章作成 (= #23)
+- `pwa/manual/` ディレクトリ新規
+- 章立て: 00 はじめに / 01 PJ コックピット / 02 AMD 会社全体 (p00) / 03 データと抽出 / 04 admin オペ / 05 過去判断と経緯 / 06 開発者向け
+- 重要トピック:
+  - **03 章 3.5 用語と実装の対応**: foundingProposal = 関連メンバー全部 (= 創業メンバーだけじゃない) を明記、リネーム候補
+  - **05 章 5.1 cron 廃止経緯**: 2026-05-13 / 5/17 / 5/22 の 3 段階廃止判断を sessions_2026-05.md L5582 から転記
+  - **05 章 5.4 責務分担マトリクス**: Codex automation / Claude routine / Vercel cron / LaunchAgent / GAS の全自動処理一覧 + LLM 課金有無 + ⚠️ 現状の片肺 (= outbox applier 監視先不整合 / clasp push 未反映 / venture-xrl-refresh は Vercel cron + LLM 課金で例外 / prompt の hardcode)
+  - **05 章 5.6 過去事故ログ**: 「2026-05-24 cron 復活誤判定」「foundingProposal 誤認」も含む
+- `pwa/src/app/(app)/manual/page.tsx` (= 章一覧 index) + `[slug]/page.tsx` (= fs で md 読み込み MarkdownView レンダリング、prev/next ナビ)
+- `pwa/src/components/nav/GlobalNav.tsx` のトップナビ「立替」の右に「📖 マニュアル」追加
+- commit: b58135e
+
+##### 設計議論まとめ (= 実装着手 GO 待ち)
+- #21 alpha フィードバック: フロー 6 step 図解 → まさ「OK + cron on 必須 + 全 PJ 共通 OK」
+- #22 UI ヒント: 案 A/B/C/D 各案コード例 → まさ「案 D でやってみよう」
+- #26 真意: 未了は経営ハイライト対象外、`done` のみ書く。未了は **TODO かんばん** (TODO/Doing/Done) で別 UI 化、ユーザーが Done 移動時に抽出元同期 + 経営ハイライト級なら自動転記
+- #27: 「経営ハイライト」確定
+- #29: 4 アイコン軸 (🎉 大進捗 / ✨ 順調 / 🔄 戦略転換 / ⚠️ リスク) 確定、🌐 中立は廃止 (= 外部環境も PJ にとってプラス/マイナス)
+- #31 案 A: score_impact_summary + score_impact_delta_json 列追加、migration 089 で同 commit
+- #32: XRL prompt DB 化 + 入力データ再設計 (= 経営ハイライト + XRL 根拠 + 関連メンバー メイン、沿革 + チーム名簿 副次)
+- #9: HUD 維持 + できればそっちを正本化したい (= PWA 版で入れた変更を HUD 版に写す)
+
+##### 私の誤判定で訂正したこと
+1. 「**cron 復活で復旧**」と方針違反提案 → まさ「**それ意味わからない、トークン課金で慌てて止めた経緯あるのに**」→ 全面謝罪 + マニュアル 5.1 + 5.6 に記録
+2. 「**Slack ingest 5/21 以降全肺停止**」と緊急性報告 → 実は `source_cache` だけが古い path、Codex automation は別経路で動いている → マニュアル 3.1 + 5.4 に正しい path 図示
+3. **foundingProposal = 創業メンバー候補** と誤認 → 実は関連メンバー全部 (= 事業会社担当 / VC 担当 / その他関係者全部入り) → マニュアル 03 章 3.5 用語と実装の対応に明記
+4. 「**5 ソース全部 cron なし = 全肺停止**」と緊急性報告 → 実は cron は意図的に止めてあり、Codex automation で動いてる仕様
+- **教訓**: 新セッション開始時に過去判断ログを必ず読む。読まずに「直し方」を提案するのは最も価値を毀損する行為。本マニュアルが「忘却防止」の中心になる構造変更を完了
+
+##### 新運用ルール (= AGENTS.common.md に追加)
+- **TODO は「おけ」と言われるまで `completed` にしない** (= まさが後で「ちょっと違う」と修正できる、TODO リストから消さない)
+- **報告はビルド前** (= 後で「方針修正したい」となった時の手戻り最小化)
+- **description テンプレ**: `[依頼=#N] / [実施] / [deploy] / [まさ承認]`
+- **タスク全件常時可視化** (= 漏れ防止、まさが #7 #8 抜けを指摘)
+
+##### Verified
+- `npx tsc --noEmit` / `npm run build` / `npm run test:critical-ui` 全 pass
+- production deploy 3 回 (= #14+#20 / レイアウト+#30 / マニュアル) すべて aliased 成功
+- Chrome MCP で `/manual` index + `/manual/05-decisions-and-history` レンダリング目視、callout / マーカー / コード強調 OK
+- p21 cockpit に 5/22 Finechem PoC 候補拡張 等 candidate 並び確認
+- Codex automation outbox 9 件 INSERT 確認 (Supabase REST)
+
+##### BUGS.md 追記 (= 3 件)
+- cron 復活誤判定: マニュアル必読化 + 過去事故ログ追加で再発防止
+- outbox applier 監視先不整合: 短期手動 apply 復旧、構造修復は別 task
+- source_cache と Codex automation path 混同: マニュアル 3.1 + 5.4 に正しい path 図示
+
+##### Git 状態 (= このセッション末)
+- branch: `main`
+- HEAD: `b58135e feat(pwa/manual): OS マニュアル 7 章 + /manual ルート + ナビ追加 (#23)`
+- 今セッション私の commit 4 本: fd56582 → 2f6b337 → 21e4df5 → b58135e
+- handoff 用に次 commit で push 予定: HANDOFF_pwa_rebuild.md / BUGS.md / pwa/AGENTS.md / pwa/CLAUDE.md / design_log
