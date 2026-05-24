@@ -206,7 +206,45 @@ expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
 expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
   "isDialogue",
   "sourceUrl",
-  "まさ×えいみ",
+  "まさえい",
+  // モーダル close 時に URL から ?meeting= を消す (#10 まさ 2026-05-24)
+  "closeSelectedMeeting",
+  "autoOpenedRef",
+]);
+
+// 経営事業シグナルの 3 分類グルーピング + つくよみ修正依頼 (#11/#12 まさ 2026-05-24)
+expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [
+  "CATEGORY_OF_TYPE",
+  "外部環境の変化",
+  "経営判断",
+  "事業進捗",
+  "つくよみに修正依頼",
+  "/api/notifications/feedback",
+  "project_strategy_signal",
+]);
+
+// 議事録モーダルにもつくよみ修正依頼ボタン (#11)
+expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
+  "MeetingFeedbackBlock",
+  "meeting_summary",
+  "/api/notifications/feedback",
+]);
+// 「経営会議」表記は使わない (= かる/ちこ が疎外感を持つので「まさえいMTG」に統一、#7-3rd 2026-05-24)
+expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
+  "まさ × えいみ 経営会議",
+  "まさ × えいみ経営会議",
+]);
+expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
+  "まさえいMTG",
+]);
+expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
+  "まさえいMTG",
+  "経営会議という表現は",
+  "U+2715 MULTIPLICATION X",
+  "事業戦略上そろそろ方針を決めておきたい",
+]);
+expectIncludes("src/app/api/dialogue-meeting/route.ts", [
+  "まさえいMTG",
 ]);
 
 // dialogue narrative API
@@ -219,7 +257,7 @@ expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
 
 expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [
   "経営・事業シグナル",
-  "重要方針・事業進捗・リスク",
+  "外部環境 / 経営判断 / 事業進捗",
   "sourceRefs",
 ]);
 

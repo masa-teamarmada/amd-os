@@ -42,7 +42,7 @@ MSは「計画した成果物の進捗」を扱う。
 - `signal_id`: UUID PK
 - `project_id`: `projects.project_id`
 - `ym`: 対象月。月が明確でないものは NULL
-- `signal_date`: 実際に観測された日
+- `signal_date`: **事象が起きた日** (= occurred_at)。例えば「リアクター特許出願完了（4/27付）」のような signal は、source ref が 5/13 定例で確認されたものでも signal_date は `2026-04-27` にする。観測日 (= 議事録に出てきた日) ではなく事象発生日を使う (まさ #13 2026-05-24 確定)。raw 内に明確な日付パターン (`N/N付` / `N/N に` / `N月N日`) があれば優先採用
 - `signal_type`: `management_decision` / `business_progress` / `strategic_pivot` / `commercial_progress` / `partnership` / `funding` / `ip_regulatory` / `risk` / `next_move`
 - `title`: 短い見出し
 - `summary`: 何が起きたか、なぜ重要か
@@ -203,9 +203,13 @@ node pwa/scripts/ms_progress_review_tool.mjs apply-outbox \
 
 ---
 
-## 議論セッション運用 (= まさ × えいみ daily 経営会議)
+## 議論セッション運用 (= まさえいMTG)
 
-Codex automation の candidate 抽出と並列で、**まさ × えいみが claude/codex セッション内で対話して確定経営判断を書き込む** 経路を持つ。
+> **呼称ルール**: 「まさ × えいみ経営会議」とは書かない。「**まさえいMTG**」と呼ぶ。
+> 「経営会議」表現は、入っていないメンバー (= かる/ちこ など) に疎外感を与えるため避ける
+> (まさ #7 2026-05-24 確定)。
+
+Codex automation の candidate 抽出と並列で、**まさえいMTGで対話して、チームに出す提案を整理する** 経路を持つ。
 
 ### フロー
 
@@ -275,7 +279,7 @@ cockpit の `CockpitMeetingDetailModal` は `narrative_md` があれば narrativ
 ストーリーとして表示し、raw decided/progress/... は折りたたみ「元データ」へ落とす。
 narrative がなければ従来の section view (= raw を見せる) に fallback する。
 
-#### 運用ルール (= まさ × えいみ 経営会議の議事録)
+#### 運用ルール (= まさえいMTG の議事録)
 
 - 「決まったこと」とは書かない。チームに無断で決めた印象を避けるため、必ず
   **「2 人で出した提案 (チームへの相談)」** のニュアンスで残す。

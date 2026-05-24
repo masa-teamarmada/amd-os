@@ -502,7 +502,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
 
         {/* col2: 経営・事業シグナル (L2 ⑨) */}
         <div className="flex flex-col gap-3 min-w-0">
-          <CockpitStrategySignals signals={strategySignals || []} />
+          <CockpitStrategySignals signals={strategySignals || []} projectId={project.projectId} />
         </div>
 
         {/* col3: ステータスバッジ + 月次ルーティン + nudge (lg 以上で sticky) */}

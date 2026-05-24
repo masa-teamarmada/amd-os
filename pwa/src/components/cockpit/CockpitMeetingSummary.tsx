@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { fetchProjectMeetingSummaries, type ProjectMeetingSummary } from "@/lib/supabase-data";
 import { CockpitMeetingDetailModal } from "./CockpitMeetingDetailModal";
 
@@ -74,7 +74,11 @@ export function CockpitMeetingSummary({ projectId }: Props) {
   const sinceDate = useMemo(() => todayMinus365IsoDate(), []);
   // /project/[id]/cockpit?meeting=<meeting_id> で開いた場合、対象 meeting の詳細モーダルを auto-open
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const deepLinkMeetingId = searchParams.get("meeting");
+  // 一度 auto-open した meeting_id を記憶しておき、閉じた後の再 auto-open を防ぐ (#10 まさ 2026-05-24)
+  const autoOpenedRef = useRef<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -83,11 +87,14 @@ export function CockpitMeetingSummary({ projectId }: Props) {
       .finally(() => setLoading(false));
   }, [projectId, sinceDate]);
 
-  // recent items 取得後に deep link meeting を auto-open
+  // recent items 取得後に deep link meeting を auto-open (= 同じ meeting_id に対しては 1 回だけ)
   useEffect(() => {
     if (!deepLinkMeetingId || loading || selectedMeeting) return;
+    // 一度 auto-open 済みなら、閉じた後の再 open はしない (#10)
+    if (autoOpenedRef.current === deepLinkMeetingId) return;
     const hit = recentItems.find((m) => m.meetingId === deepLinkMeetingId);
     if (hit) {
+      autoOpenedRef.current = deepLinkMeetingId;
       setSelectedMeeting(hit);
       return;
     }
@@ -99,13 +106,31 @@ export function CockpitMeetingSummary({ projectId }: Props) {
         setOlderLoaded(true);
         setOlderLoading(false);
         const olderHit = all.find((m) => m.meetingId === deepLinkMeetingId);
-        if (olderHit) setSelectedMeeting(olderHit);
+        if (olderHit) {
+          autoOpenedRef.current = deepLinkMeetingId;
+          setSelectedMeeting(olderHit);
+        }
       });
     } else if (olderLoaded) {
       const olderHit = olderItems.find((m) => m.meetingId === deepLinkMeetingId);
-      if (olderHit) setSelectedMeeting(olderHit);
+      if (olderHit) {
+        autoOpenedRef.current = deepLinkMeetingId;
+        setSelectedMeeting(olderHit);
+      }
     }
   }, [deepLinkMeetingId, loading, recentItems, olderItems, olderLoaded, olderLoading, projectId, sinceDate, selectedMeeting]);
+
+  // モーダルを閉じる時の handler — URL の ?meeting= を消して、再 auto-open を防ぐ
+  const closeSelectedMeeting = () => {
+    setSelectedMeeting(null);
+    if (deepLinkMeetingId) {
+      // ?meeting= 以外のクエリは保持しつつ meeting だけ remove
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("meeting");
+      const next = params.toString();
+      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    }
+  };
 
   async function loadOlder() {
     if (olderLoaded) {
@@ -185,7 +210,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
       <CockpitMeetingDetailModal
         meeting={selectedMeeting}
         open={selectedMeeting !== null}
-        onOpenChange={(open) => { if (!open) setSelectedMeeting(null); }}
+        onOpenChange={(open) => { if (!open) closeSelectedMeeting(); }}
       />
     </section>
   );
@@ -251,7 +276,7 @@ function MeetingRow({ item, onClick }: RowProps) {
           <div className="text-[12px] font-medium truncate flex items-center gap-1.5">
             {isDialogue && (
               <span className="text-[9px] px-1 py-px rounded bg-violet-50 border border-violet-200 text-violet-800 shrink-0">
-                まさ×えいみ
+                まさえい
               </span>
             )}
             <span className="truncate">{item.title}</span>

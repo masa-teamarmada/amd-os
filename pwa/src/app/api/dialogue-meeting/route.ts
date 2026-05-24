@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     : meetingDate.slice(0, 4) + meetingDate.slice(5, 7);
   const title = typeof body.title === "string" && body.title.trim()
     ? body.title.trim()
-    : `まさ × えいみ経営会議 (${meetingDate})`;
+    : `まさえいMTG (${meetingDate})`;
   const decided = ensureStringArray(body.decided);
   const progress = ensureStringArray(body.progress);
   const nextActions = ensureStringArray(body.next_actions);

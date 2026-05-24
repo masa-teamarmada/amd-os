@@ -94,8 +94,14 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 - 正本L2: `project_strategy_signals`
 - 詳細仕様: [`project_strategy_signals.md`](project_strategy_signals.md)
 - 目的: MS進捗だけでは拾えない、経営上の重要方針・事業進捗・戦略転換・提携・リスク・次の一手を短く残す
-- 表示対象: `status in ('candidate','confirmed')` の直近8件
+- 表示対象: `status in ('candidate','confirmed')` を **3 カテゴリにグルーピング** して表示 (まさ #12 2026-05-24):
+  - **🌐 外部環境の変化** = `ip_regulatory` / `risk` (= 規制・知財・競合・リスク。外から飛び込んできた変化)
+  - **🧭 経営判断** = `management_decision` / `strategic_pivot` / `next_move` (= PJ の進路を決める方針。まさえいMTGで議論する候補)
+  - **📈 事業進捗** = `business_progress` / `commercial_progress` / `partnership` / `funding` (= 提携・商談・資金・実装の実進捗)
+  - 各カテゴリには色アクセント (sky/violet/emerald) と左ボーダーで視覚的に区別
 - candidate は候補chipを付け、`/notifications` の「はい/いいえ」で confirmed/rejected にする
+- 各シグナルカード右に「⚠️ つくよみに修正依頼」ボタン (まさ #11 2026-05-24)。`/api/notifications/feedback` (`l2_kind='project_strategy_signal'`) 経由で feedback を保存 + `tsukuyomi_learnings` に学習させる
+- `signal_date` は **事象が起きた日** を使う (まさ #13 2026-05-24)。観測日 (= 議事録に出てきた日) ではなく、「4/27 にリアクター特許出願完了」のような事象発生日が正
 - source refs は短い snippet / source id / hash のみ。全文は保存しない
 
 ### MS設計と報酬配分
