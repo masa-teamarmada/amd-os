@@ -1978,7 +1978,7 @@
 ### [strategy-signals] 4 分類で「外部環境 = 表示外」にしたら本来 cockpit に出てほしい外部シグナルも消えた
 
 - **発見日**: 2026-05-24
-- **状態**: 🔴 未修正 (= 次セッション対応)
+- **状態**: ✅ 修正済 (2026-05-24 夜次セッション、commit TBD)
 - **症状**:
   - まさが 4 分類 (🏛 経営全般 / 🚀 事業開発 / 🔬 技術開発 / 🌐 外部環境) を承認した時点では「外部環境シグナルは Atlas へ誘導、cockpit には表示しない」設計だった
   - その後 `ip_regulatory` を「外部規制 = external」「自社知財 = tech_progress」に分割した瞬間に、`5/21 中国レアアース/ガリウム/ゲルマニウム輸出許可制強化 → SX重金属回収事業の追い風` のような **PJ にとって本当に重要な外部環境シグナル**が cockpit から消えた
@@ -1991,7 +1991,12 @@
   - 外部環境 (= amber) も他 3 分類と同じく cockpit カードに表示する
   - Atlas リンクは header に残す (= 「外部マクロシグナル一覧は Atlas →」誘導は引き続き有効)
   - external カードの左ボーダーを amber に
-- **再発防止策**:
+- **対応内容 (= 2026-05-24 夜次セッションで実施)**:
+  - `CockpitStrategySignals.tsx` の `visibleSignals` フィルタから `cat !== "external"` を削除、`externalCount` 変数も削除
+  - 4 色凡例に `external` chip を追加 (= `["management","business","tech","external"]`)
+  - header の Atlas リンクは「Atlas で全マクロ ↗」というシンプルな誘導に変更 (= 「外部環境変化は Atlas → (Nx件 archived)」を撤去、もう external も表示するので件数表示不要)
+  - external カードの左ボーダーは既存の `CATEGORY_META.external.cardBorderClass = border-l-amber-400` で自動適用される
+  - `check_pwa_critical_ui.cjs` の anchor を「外部環境変化は Atlas」「外部環境 / 経営判断 / 事業進捗」から「Atlas で全マクロ」「外部環境」に更新
   - 分類変更時は「その分類を非表示にして良いか」を必ずまさに確認する
   - 「カテゴリ別の表示有無」と「カテゴリ別の色・配置」は別の判断軸として扱う
   - signal_type / カテゴリの mapping 変更は CockpitStrategySignals だけでなく FEATURE_REGISTRY.md にもルール明記
@@ -2014,6 +2019,44 @@
 - **再発防止策**:
   - signal_type は **自社活動か外部要因か** を最初の軸として分ける
   - LLM prompt に判定ルールを書くだけでなく、抽出後に「自社/外部」判定の sanity check を入れる (将来)
+
+---
+
+### [cockpit/VentureStatus] AMD スコアグラフで「破線が 2 本ある」 (= pill 引き出し線が未来予測破線と並走)
+
+- **発見日**: 2026-05-24
+- **状態**: ✅ 修正済 (2026-05-24 夜次セッション、commit TBD)
+- **症状**:
+  - まさが「AMD スコアグラフで破線が 2 つある」と指摘
+  - 実装意図は「過去 = 実線 / 未来 = 破線」の 1 本ずつ計 2 本だったが、実際は **黒い未来予測破線と赤い細破線が並走** していて余計に見えた
+- **原因**:
+  - score pill (= 右上の `3,765` 表示) から過去最終点に向けて引っ張っていた **赤い破線 (#dc2626 dasharray=3 2 opacity=0.55) の引き出し線** が、グラフ全体を斜めに長く横切る
+  - 偶然 future score 折れ線とほぼ並行に走るので「2 本目の破線」に見える
+- **対応内容**:
+  - `CockpitVentureStatus.tsx` line 670 周辺の引き出し線 `<line>` を完全削除
+  - pill 自体は AMD スコアグラフ内右上に固定されているので、引き出し線がなくても「これは今のスコア」と意味は伝わる
+- **再発防止策**:
+  - 1 つのチャート内で「主目的の破線 (= 未来予測)」と「装飾用の破線 (= 引き出し線)」を同時に出さない
+  - 引き出し線が必要な場合は実線で控えめに、または完全に省略する
+
+---
+
+### [cockpit/VentureStatus] 未来予測 (破線) のクリック範囲が狭すぎる
+
+- **発見日**: 2026-05-24
+- **状態**: 🔴 未修正 (= #21 alpha フィードバック構造実装と同時対応予定)
+- **症状**:
+  - まさが「破線をクリックできる範囲が狭すぎる」と指摘
+  - 実態は **破線 path に対する dot が描かれていない** ので、クリック範囲がゼロ
+- **原因**:
+  - `futureScorePath` は `<path>` のみで `<circle>` 未描画
+  - そもそも「クリックして未来予測を修正するモーダル」(= AmdScoreFutureEditModal) が未実装
+- **次セッション対応方針**:
+  - #21 alpha フィードバック構造実装 (migration 089 + AmdScoreFutureEditModal) と一緒に
+  - futureSeries の各点に透明 `<circle r=20>` を上に重ねて pointerEvents="all"
+  - click で AmdScoreFutureEditModal を開く → axis 選択 + new value + reason_md 入力 → `amd_score_revisions` insert
+- **再発防止策**:
+  - 「クリックで編集できる線・点」は実装と同時に hit-area 設計を入れる (= 透明 circle + cursor: pointer)
 
 ---
 

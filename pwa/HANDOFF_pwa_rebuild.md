@@ -1,7 +1,7 @@
 # HANDOFF — AMD OS PWA
 
-最終更新: 2026-05-24 (3 回目 = session 末)
-トピック: まさ × えいみ 対話セッションで 23 件 (案D/E/F + 中規模追加) を 6 commit + migration 088 で消化。**残: #14 中国レアアース消えた問題復活 / #17 案A MS 拡張 / #18 upcoming MTG / #20 破線 2 本問題 + クリック範囲 / #21 alpha フィードバック + 自動修正提案 / #22 UI ヒント / #23 マニュアル**
+最終更新: 2026-05-24 (4 回目 = 夜次セッション末)
+トピック: 前セッション (5/24 PM) で 23 件消化した HANDOFF を引き継ぎ。**今セッションは #14 (外部環境 cockpit 復活) + #20 破線 2 本問題 (= pill 引き出し線が並走) を修正、1 commit + 1 deploy で完了**。残: #17 案A MS 拡張 / #18 upcoming MTG / #20 クリック範囲 (#21 と同時) / #21 alpha フィードバック / #22 UI ヒント / #23 マニュアル
 
 詳細ログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾 (#33 セクション、8 ラウンド全部分解)
 関連仕様: [`design/README.md`](design/README.md) ⭐ / [`design/L2_DATA.md`](design/L2_DATA.md) / [`design/SPEC_pwa.md`](design/SPEC_pwa.md) / [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md) / [`design/project_strategy_signals.md`](design/project_strategy_signals.md) / [`design/cockpit.md`](design/cockpit.md) / [`design/meeting_summaries.md`](design/meeting_summaries.md)
@@ -23,7 +23,15 @@
 
 ## Latest Summary
 
-(過去セッション 全 #1-#32 詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) に記録済。`/admin/payouts` 改善 / 支払通知書PDF golden / L2 ⑨ 経営事業シグナル / cockpit 案C レイアウト / p00 Management Score Hero / dialogue narrative / まさえいMTG 命名 / Slack bot 別人格化)
+**今セッション 2026-05-24 夜 (#33 残課題 #14 + #20)** — 前セッション (5/24 PM) で先送りした 2 件を完遂:
+
+- **#14 中国レアアース消えた問題復活**: `CockpitStrategySignals.tsx` の `visibleSignals` フィルタから `cat !== "external"` を削除、`externalCount` 装飾も廃止。4 色凡例に external を追加し、Atlas リンクを「Atlas で全マクロ ↗」というシンプルな誘導に変更。external カードは既存 `CATEGORY_META.external.cardBorderClass = border-l-amber-400` で自動 amber 表示。本番で `5/21 中国レアアース → SX 重金属回収追い風` のシグナルが復活したことを Chrome MCP で目視確認
+- **#20 破線 2 本問題**: 本番グラフを zoom 確認したところ、`futureScorePath` (黒 dasharray=5 4) と並行に **score pill の引き出し線 (赤 #dc2626 dasharray=3 2 opacity=0.55)** が斜めに長く伸びていて 2 本目の破線に見える原因と特定。`CockpitVentureStatus.tsx` 内の `<line>` (= pill 引き出し線) を完全削除。pill 自体がチャート右上に固定なので意味は伝わる
+- **#20 クリック範囲問題**: 未来予測 path には dot 未描画なので「クリック範囲ゼロ」が実態と判明。`AmdScoreFutureEditModal` 実装 (= #21) と同時に透明 r=20 hit-area circle を追加する方針で次セッションへ送り
+- `check_pwa_critical_ui.cjs` の anchor を新仕様に更新 (= 「外部環境変化は Atlas」「外部環境 / 経営判断 / 事業進捗」を削除、「Atlas で全マクロ」「外部環境」に置換)
+- BUGS.md に #14 / #20 破線 2 本 / #20 hit area 不足 の 3 件を追記済 (= 状態は前 2 件 ✅ 修正済 / 後 1 件 🔴 未修正 = #21 と同時対応)
+
+(過去セッション 全 #1-#33 詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) に記録済。`/admin/payouts` 改善 / 支払通知書PDF golden / L2 ⑨ 経営事業シグナル / cockpit 案C レイアウト / p00 Management Score Hero / dialogue narrative / まさえいMTG 命名 / Slack bot 別人格化)
 
 **今セッション 2026-05-24 PM (#33 全 8 ラウンド)** — まさ × えいみ 23 件改修:
 
@@ -33,7 +41,7 @@
 - **Round 8** (= #20): AMDスコア today filter + Chart 1/2 間に M/X/F カード
 - **Round 9** (= #14-3rd + #20-2nd): ip_regulatory 分割 (= migration 088 で `tech_progress` 新規 + 既存 6 件 re-label) / AMDスコア 過去=実線 / 未来=破線
 
-**Verified This Session**:
+**Verified Previous Session (5/24 PM #33)**:
 - `npx tsc --noEmit` / `npm run build` / `npm run test:critical-ui` 全 pass (= 各 round の deploy 前)
 - production deploy 6 回 ((案D + 案E) / Round 6 / Round 7 / Round 8 / Round 9) すべて `https://amd-os-pwa.vercel.app` aliased 成功
 - migration 088 (`tech_progress` signal_type) を `apply_ddl.py` で本番適用
@@ -64,27 +72,24 @@
 
 優先度順:
 
-1. **#14 中国レアアース消えた問題復活** ⚠️: 「外部環境」カテゴリも cockpit カードに表示する。Atlas リンクは header に残す。`CockpitStrategySignals.tsx` で `visibleSignals` フィルタの `cat !== "external"` 条件を外し、external にも amber 左ボーダーで描画する。詳細は [`BUGS.md`](BUGS.md) の該当エントリ
-2. **#20 破線 2 本問題**: 添付スクショで「破線が 2 つある」とまさ指摘 → `pastScorePath` + `futureScorePath` 以外に何か余分な path を描いてる可能性、`CockpitVentureStatus.tsx` を本番 Chrome で目視 + コード読み直し
-3. **#20 破線クリック範囲が狭すぎる**: 未来予測ドットの clickable hit area 拡大 (= 透明 r=20 circle を上に重ねる)。`#21 AmdScoreFutureEditModal` 着手と一緒
-4. **#17 案A 実装**: MS リスト + 月次モーダルに「🎯 ゴール (`success_criteria`) / 📝 やること (`milestone_sub_items` + `responsibility.task_description`) / 📍 現状 (`milestone_monthly_progress.note` + `progress_pct`)」3 列。新規スキーマなし。MilestoneGanttChart 展開行 + 月次モーダル
-5. **#18 upcoming MTG カード + 自動議事録化 + 強制議事録化ボタン**: `project_meeting_summaries` に `source_kinds='upcoming'` 行 INSERT。前回議事録の `next_actions[]` から初期項目自動投入。`nav_meeting_pollRecentlyEndedEvents` cron が実施日後 60-180 分以内に同じ row update。`l2_notifications` で `upcoming_meeting` 通知。手動「強制議事録化」ボタン併設
-6. **#21 alpha フィードバック構造実装**: [`design/score_revision_feedback_loop.md`](design/score_revision_feedback_loop.md) 通り。migration 089 で `amd_score_revisions` + `amd_score_alpha_proposals` 2 テーブル + AmdScoreFutureEditModal + 週次 cron + つくよみ自動修正提案 cron
-7. **#22 UI ヒント設計確定 → 実装**: [`design/ui_hint_tooltip.md`](design/ui_hint_tooltip.md) 案 D (= Radix Tooltip + Hint コンポーネント TS 定数管理) を承認得て、初期 30-50 個の hint 投入
-8. **#23 OS マニュアル設計確定 → 実装**: [`design/os_manual.md`](design/os_manual.md) 章立て案 1/2/3 + データ管理 A/B/C 確定。トップナビ「立替」の右に「📖 マニュアル」追加。初期 5 章 draft
-9. **HUD 版モーダルに案D/E/F 思想を写す**: `HudCockpitMeetingDetailModal.tsx` に narrative_md 優先 + フレーム廃止 + dialogue ラベル + メリハリ MarkdownView を写す (= PWA 版だけ反映済、HUD 未対応)
-10. **AMD cockpit (p00) 月次モーダル実機確認**: https://amd-os-pwa.vercel.app/project/p00/cockpit で MS Gantt + 月次カード + 月次モーダル目視
-11. **過去セッション残課題**: `/admin/members` 実画面確認 / JOYCLE 関連メンバー再走 / 支払通知書 PDF golden 更新 CI / p00 MVV section / `SLACK_EIMI_BOT_TOKEN` を ScriptProperties に永続化 / えいみ App icon v5 差し替え (まさ手動)
+1. **#17 案A 実装**: MS リスト + 月次モーダルに「🎯 ゴール (`success_criteria`) / 📝 やること (`milestone_sub_items` + `responsibility.task_description`) / 📍 現状 (`milestone_monthly_progress.note` + `progress_pct`)」3 列。新規スキーマなし。MilestoneGanttChart 展開行 + 月次モーダル
+2. **#18 upcoming MTG カード + 自動議事録化 + 強制議事録化ボタン**: `project_meeting_summaries` に `source_kinds='upcoming'` 行 INSERT。前回議事録の `next_actions[]` から初期項目自動投入。`nav_meeting_pollRecentlyEndedEvents` cron が実施日後 60-180 分以内に同じ row update。`l2_notifications` で `upcoming_meeting` 通知。手動「強制議事録化」ボタン併設
+3. **#21 alpha フィードバック構造 + #20 クリック範囲拡大 同時実装**: [`design/score_revision_feedback_loop.md`](design/score_revision_feedback_loop.md) 通り。migration 089 で `amd_score_revisions` + `amd_score_alpha_proposals` 2 テーブル + `AmdScoreFutureEditModal` + 週次 cron + つくよみ自動修正提案 cron。**`AmdScoreFutureEditModal` を作るタイミングで futureSeries 各点に透明 r=20 hit-area circle を追加する** (= #20 クリック範囲問題は modal 実装と一緒に解決)
+4. **#22 UI ヒント設計確定 → 実装**: [`design/ui_hint_tooltip.md`](design/ui_hint_tooltip.md) 案 D (= Radix Tooltip + Hint コンポーネント TS 定数管理) を承認得て、初期 30-50 個の hint 投入
+5. **#23 OS マニュアル設計確定 → 実装**: [`design/os_manual.md`](design/os_manual.md) 章立て案 1/2/3 + データ管理 A/B/C 確定。トップナビ「立替」の右に「📖 マニュアル」追加。初期 5 章 draft
+6. **HUD 版モーダルに案D/E/F 思想を写す**: `HudCockpitMeetingDetailModal.tsx` に narrative_md 優先 + フレーム廃止 + dialogue ラベル + メリハリ MarkdownView を写す (= PWA 版だけ反映済、HUD 未対応)
+7. **AMD cockpit (p00) 月次モーダル実機確認**: https://amd-os-pwa.vercel.app/project/p00/cockpit で MS Gantt + 月次カード + 月次モーダル目視
+8. **過去セッション残課題**: `/admin/members` 実画面確認 / JOYCLE 関連メンバー再走 / 支払通知書 PDF golden 更新 CI / p00 MVV section / `SLACK_EIMI_BOT_TOKEN` を ScriptProperties に永続化 / えいみ App icon v5 差し替え (まさ手動)
 
 ---
 
 ## First Next Action
 
-まず `git fetch --all --prune && git status -s && git log --branches --not --remotes --oneline` を確認。別 codex セッションが `handoff/2026-05-24-pwa-api-and-gas-docs` branch を切る運用に変わってるので、main 直 push する前に `git pull --rebase origin main` で他セッション commit を取り込む。
+まず `git fetch --all --prune && git status -s && git log --branches --not --remotes --oneline` を確認。別 codex セッションが branch を切る運用に変わってるので、main 直 push する前に `git pull --rebase origin main` で他セッション commit を取り込む。
 
-そのあと **#14 中国レアアース問題** をまず修正 (= `CockpitStrategySignals.tsx` で external も表示する) → deploy → Chrome 確認 → commit。続けて **#20 破線 2 本問題 + クリック範囲** に着手。両方終わったら #21 設計が確定しているので migration 089 に進む。
+そのあと **#17 案A** (= MS リスト + 月次モーダルに `success_criteria` / `milestone_sub_items` / `milestone_monthly_progress.note` の 3 列) から着手するか、まさが議論したい議題 (= #22 ヒント設計 or #23 マニュアル設計) があればそちらから。
 
-それ以降の優先順位は Open Tasks の順序通り。#22 #23 は設計議論 md の叩き台があるので、まさと議論再開してから実装。
+#21 着手するなら migration 089 を書く前に [`design/score_revision_feedback_loop.md`](design/score_revision_feedback_loop.md) を再読 + AmdScoreFutureEditModal の UI 詳細 (axis ごと input / 影響シミュレーション) を確定してから DDL に進む。
 
 ---
 

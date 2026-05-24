@@ -9,12 +9,16 @@
  *  - 新 4 分類:
  *      🏛 経営全般   = management_decision / strategic_pivot / funding / next_move (violet)
  *      🚀 事業開発   = business_progress / commercial_progress / partnership (emerald)
- *      🔬 技術開発   = ip_regulatory (自社特許・規制対応 = 技術側) (sky)
- *      🌐 外部環境   = risk その他 (Atlas へ誘導、cockpit には表示しない)
+ *      🔬 技術開発   = tech_progress (自社特許・技術スタック進捗) (sky)
+ *      🌐 外部環境   = ip_regulatory (他国規制動向) / risk (amber)
  *  - セクション分けは廃止。時間軸 (signal_date desc) で混ぜて表示し、
  *    各カードの左ボーダー色で分類を一目で判別できるようにする。
- *  - 「外部環境の変化」シグナルは Atlas (= 外部マクロシグナル正本) を見るべきなので、
- *    header に「🌐 外部環境変化は Atlas → 」リンクで誘導する。
+ *
+ * まさ #14-4th (2026-05-24 復活): 外部環境カテゴリも cockpit に表示する。
+ *  - 当初「Atlas に誘導、cockpit には出さない」設計で external を除外したが、
+ *    `中国レアアース → SX 追い風` のような PJ にとって重要な外部シグナルが消えた。
+ *  - 4 分類すべて cockpit カードに表示。Atlas リンクは header に残す
+ *    (= 「外部マクロシグナル一覧の正本は Atlas」誘導は引き続き有効)。
  *
  * まさ #11 (2026-05-24) 継続:
  *  - 各カードに「⚠️ つくよみに修正依頼」ボタン → /api/notifications/feedback。
@@ -66,8 +70,7 @@ const CATEGORY_OF_TYPE: Record<string, CategoryKey> = {
   partnership: "business",
   // 🔬 技術開発 (= 自社特許 / 技術スタック進捗)
   tech_progress: "tech",
-  // 🌐 外部環境 (Atlas へ誘導、cockpit には表示しない)
-  // ip_regulatory = 他国規制動向 / 競合の知財動向。risk も外部要因。
+  // 🌐 外部環境 (= 他国規制動向 / 競合動向 / マクロ要因。Atlas が一覧正本、cockpit にも表示)
   ip_regulatory: "external",
   risk: "external",
 };
@@ -128,16 +131,11 @@ function sourceSummary(refs: unknown[]) {
 }
 
 export function CockpitStrategySignals({ signals, projectId }: { signals: ProjectStrategySignal[]; projectId: string }) {
-  // 外部環境 (risk = Atlas へ誘導) は cockpit カードでは表示しない
+  // 4 分類すべて表示 (まさ #14-4th 2026-05-24)。rejected / archived のみ除外。
   const visibleSignals = signals.filter((signal) => {
     if (signal.status === "rejected" || signal.status === "archived") return false;
-    const cat = CATEGORY_OF_TYPE[signal.signalType] ?? "business";
-    return cat !== "external";
+    return true;
   });
-  const externalCount = signals.filter((s) =>
-    (CATEGORY_OF_TYPE[s.signalType] ?? "business") === "external" &&
-    s.status !== "rejected" && s.status !== "archived"
-  ).length;
   // 時間軸 (signal_date desc) で並べる — 分類セクションには分けない
   const sorted = [...visibleSignals].sort((a, b) =>
     (b.signalDate || "").localeCompare(a.signalDate || "")
@@ -152,9 +150,9 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
         </span>
       </div>
 
-      {/* 4 色凡例 + Atlas リンク */}
+      {/* 4 色凡例 + Atlas リンク (= 外部マクロシグナル一覧の正本誘導) */}
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-1.5 bg-muted/30">
-        {(["management", "business", "tech"] as CategoryKey[]).map((k) => {
+        {(["management", "business", "tech", "external"] as CategoryKey[]).map((k) => {
           const meta = CATEGORY_META[k];
           return (
             <span key={k} className={`text-[10px] rounded px-1.5 py-0.5 ${meta.legendClass}`}>
@@ -164,16 +162,16 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
         })}
         <Link
           href={`/atlas?projectId=${encodeURIComponent(projectId)}`}
-          className={`text-[10px] rounded px-1.5 py-0.5 hover:underline ${CATEGORY_META.external.legendClass}`}
-          title="外部環境の変化 (規制・競合・マクロ等) は Atlas が正本"
+          className="ml-auto text-[10px] rounded px-1.5 py-0.5 border border-border bg-background text-muted-foreground hover:bg-muted hover:underline"
+          title="外部マクロシグナル一覧の正本は Atlas"
         >
-          🌐 外部環境変化は Atlas → {externalCount > 0 ? `(${externalCount}件 archived)` : ""}
+          Atlas で全マクロ ↗
         </Link>
       </div>
 
       {sorted.length === 0 ? (
         <div className="px-3 py-4 text-[12px] text-muted-foreground">
-          まだシグナルなし。外部環境変化は Atlas へ。
+          まだシグナルなし。
         </div>
       ) : (
         <div className="divide-y divide-border">

@@ -214,12 +214,16 @@ expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
 
 // 経営事業シグナルの 4 分類 (#14 まさ 2026-05-24) + つくよみ修正依頼 (#11)
 // 旧 3 分類 (外部環境/経営判断/事業進捗) は廃止 → 新 4 分類 (経営全般/事業開発/技術開発/外部環境)
+// #14-4th (2026-05-24): 外部環境 (= ip_regulatory / risk) も cockpit カードに表示する
+//   (= 当初「Atlas へ誘導、cockpit には出さない」設計で SX 重金属 ↔ 中国レアアース等が
+//    消えた事故対応)。Atlas リンクは header の「Atlas で全マクロ ↗」に残す。
 expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [
   "CATEGORY_OF_TYPE",
   "経営全般",
   "事業開発",
   "技術開発",
-  "外部環境変化は Atlas",
+  "外部環境",
+  "Atlas で全マクロ",
   "つくよみに修正依頼",
   "/api/notifications/feedback",
   "project_strategy_signal",
@@ -259,7 +263,6 @@ expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
 
 expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [
   "経営・事業シグナル",
-  "外部環境 / 経営判断 / 事業進捗",
   "sourceRefs",
 ]);
 

@@ -6373,3 +6373,39 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 - HEAD: `28c2653 feat(pwa): tech_progress signal type + future score dashed line`
 - 別 codex セッションが切った branch: `handoff/2026-05-24-pwa-api-and-gas-docs` (= `03e6288 feat(gas): pwaApi runFunc を POST body 経由で叩けるようにする` を含む、main には rebase 経由で取り込み済 = `3ecf569`)
 - 私の commit 6 本: 77aa1b4 → 2ced55a → 3f4aae1 → 11ca23f → e40195a → 28c2653
+
+#### #34 #33 残課題消化 (2026-05-24 夜) — #14 外部環境 cockpit 復活 + #20 破線 2 本問題
+
+前セッション #33 が「次セッション着手」と先送りした 2 件を完遂。
+
+##### #14 外部環境シグナルを cockpit に復活
+- 前 #33 で 4 分類のうち「external」だけ cockpit 非表示 → Atlas へ誘導という設計だったが、`5/21 中国レアアース → SX 重金属回収追い風` のような **PJ 連動の外部環境シグナル** が消える事故 (= まさ「どうして消えたのか原因を特定したうえで復活させて」)
+- `CockpitStrategySignals.tsx`:
+  - `visibleSignals` フィルタから `cat !== "external"` を削除、`externalCount` 変数も削除
+  - 4 色凡例を `["management","business","tech","external"]` に拡張
+  - header の Atlas 誘導文言を「外部環境変化は Atlas → (Nx件 archived)」から「Atlas で全マクロ ↗」に簡素化 (= もう external も cockpit に出すので件数表示は不要)
+  - external カードの左ボーダーは既存 `CATEGORY_META.external.cardBorderClass = border-l-amber-400` で自動 amber 表示
+- `check_pwa_critical_ui.cjs` の anchor 更新: `外部環境変化は Atlas` / `外部環境 / 経営判断 / 事業進捗` → `Atlas で全マクロ` / `外部環境`
+- Chrome MCP で本番目視: `p21 (SolvioraX)` cockpit に `5/21 中国レアアース` カード復活、4 chip 凡例、Atlas リンク右端
+
+##### #20 破線 2 本問題 = pill 引き出し線の並走
+- まさ「AMD スコアグラフで破線が 2 つある」指摘について本番 zoom 確認、原因特定:
+  - 主目的の **future score path** (= 黒 #0f172a dasharray=5 4) は意図通り 1 本
+  - もう 1 本の破線は **score pill (= 右上 `3,765`) からの引き出し線** (= 赤 #dc2626 dasharray=3 2 opacity=0.55)
+  - 引き出し線が過去最終点から pill (= 右上) までグラフを斜めに長く横切るため、future path とほぼ並走して「2 本目の破線」に見える
+- `CockpitVentureStatus.tsx`: 引き出し線の `<line>` を完全削除 (pill 自体がチャート右上に固定、引き出し線なしでも「これは今のスコア」と意味は伝わる)
+
+##### #20 クリック範囲問題 → #21 と同時実装に統合
+- 実態は「破線 path に dot 未描画 → クリック範囲ゼロ」と判明
+- 次セッションで #21 AmdScoreFutureEditModal 実装と同時に、futureSeries 各点に透明 r=20 hit-area circle を追加する設計に統合
+- HANDOFF Open Tasks #3 として 1 件に統合済
+
+##### Verified
+- `npx tsc --noEmit` / `npm run build` / `npm run test:critical-ui` 全 pass
+- production deploy 2 回 (1 回目 = #14 修正、2 回目 = #20 引き出し線削除) すべて `https://amd-os-pwa.vercel.app` aliased 成功
+- Chrome MCP `mcp__Claude_in_Chrome__navigate` + `screenshot` + `zoom` で本番目視確認
+
+##### BUGS.md 追記 (= 3 件)
+- #14 「4 分類で external = 表示外にしたら必要シグナルも消えた」→ ✅ 修正済
+- #20 「pill 引き出し線が並走で破線 2 本に見える」→ ✅ 修正済 (= 引き出し線完全削除)
+- #20 「未来予測のクリック範囲が狭すぎる」→ 🔴 未修正 (= #21 と同時対応予定)

@@ -649,11 +649,12 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
               位置を AMD グラフ右上に固定 (SVG viewBox 内座標)、フォント 32px、引き出し線で最新プロットと接続。 */}
           {(() => {
             // まさ #20-2nd: pill 表示は「現在のスコア」(= 過去最新点) にする。
-            // 引き出し線も past 折れ線の最終点 (= today) に伸ばす。未来予測 (= 破線) ではない。
+            // まさ #20-3rd (2026-05-24): 旧実装で pill から過去最終点に向けて赤破線の引き出し線
+            // を伸ばしていたが、それが「未来予測 (= 黒破線) と並走する 2 本目の破線」に見える
+            // 問題が発覚 → 引き出し線を撤去。pill 自体が AMD スコアグラフ内右上にあり「現在の
+            // スコア」と認識可能なので引き出し線がなくても意味は伝わる。
             const last = pastSeries[pastSeries.length - 1];
             if (!last) return null;
-            const lx = xOfScoreDate(last.date);
-            const ly = yOfScore(last.score);
             const label = last.score < 1 ? last.score.toFixed(2) : Math.round(last.score).toLocaleString();
             // pill: AMD グラフ SVG 右上の空きに固定。最大 6 桁 (= 100k IPO 級) + ▾ で十分なので幅 170px に縮小。
             const pillW = 170;
@@ -668,17 +669,6 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                 onClick={(e) => { e.stopPropagation(); setScoreBreakdownOpen(true); }}
               >
                 <title>クリックで AMD スコアの内訳モーダルを開く</title>
-                {/* 引き出し線: 最新プロット → pill 左辺中点 */}
-                <line
-                  x1={lx}
-                  y1={ly}
-                  x2={pillX}
-                  y2={pillY + pillH / 2}
-                  stroke="#dc2626"
-                  strokeWidth={1.2}
-                  strokeDasharray="3 2"
-                  opacity={0.55}
-                />
                 {/* 背景 pill */}
                 <rect
                   x={pillX}
