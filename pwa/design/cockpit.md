@@ -82,7 +82,7 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 
 `CockpitGoalsCompact` のトップ表示は、原則として `currentYm` が `periodStartYm`〜`periodEndYm` に含まれる plan cycle を使う。
 
-ただしMS進捗を扱うのは `projects.project_category in ('dtsu','ecosystem')` のPJだけ。advisorなど非MS管理PJではMSカード・過去MS・MS設定バナーを表示せず、月次モーダルの月次ノートに毎月の進捗を記録する。
+ただしMS進捗を扱うのは `projects.project_category in ('dtsu','ecosystem','new_business')` のPJだけ。advisorなど非MS管理PJではMSカード・過去MS・MS設定バナーを表示せず、月次モーダルの月次ノートに毎月の進捗を記録する。
 
 例外として、現在月を含む cycle が存在せず、次に始まる future cycle が登録済みの場合は、その future cycle をトップ表示に使う。  
 これにより、5月時点で6-9月の次期MSを先行入力したCXのようなケースでも、コックピット上で設定済みMSを確認できる。
@@ -286,16 +286,19 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → cron `/ven
 
 `projects.project_category` は status と別軸のPJ分類。契約状態ではなく、AMD OS上でどう扱うかを決める。
 
-| value | 意味 | AMD Score |
-|---|---|---|
-| `dtsu` | 通常のDTSU伴走PJ | 対象 |
-| `ecosystem` | 研究機関のSUエコシステム構築業務 | 対象外 |
-| `advisor` | まさが社外取締役/経営顧問として入るPJ | 対象 |
+| value | 意味 | AMD Score | MS 進捗抽出 |
+|---|---|---|---|
+| `dtsu` | 学術発SU伴走PJ (通常) | 対象 | 対象 |
+| `new_business` | レガシー企業DX + 研究シーズ取込で新規事業創出するPJ | 対象 | 対象 |
+| `ecosystem` | 研究機関のSUエコシステム構築業務 | 対象外 | 対象 |
+| `advisor` | まさが社外取締役/経営顧問として入るPJ | 対象 | 対象外 (月次ノート運用) |
 
 - KUTE (`p25`) は `ecosystem`。工学院大学のSUエコシステム構築であり、特定SUのAMD Scoreは付けない。
 - LST (`p07`) は `advisor`。AMDとしての契約が終了していても、まさ個人として関与が続くため、source/backfill系では対象に含める。
+- ZMP (`p19`) は `new_business`。葛飾ロード (道路保守点検) の新規事業創出 (ドローン/水素/CBRE) 伴走。DTSU と同じく AMD Score / MS 進捗対象 (まさ判断 2026-05-25、後で見直す前提)。
 - cockpit header と `/admin/projects` に分類を表示する。
 - `amd-score-l2-refresh` は `ecosystem` をskipする。
+- MS 進捗対象判定 (`progress-estimator.ts` `MS_PROGRESS_PROJECT_CATEGORIES` / `activities/infer` / `CockpitView` / `HudCockpitView`) は `('dtsu','ecosystem','new_business')`。
 
 ## 関連メンバー (旧 Founding Members)
 

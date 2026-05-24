@@ -140,7 +140,37 @@
 
 ---
 
-## 5.6 過去の重要なバグ・事故ログ (= 抜粋)
+## 5.6 project_category に `new_business` 追加 (= 2026-05-25)
+
+### 何が起きたか
+2026-05-25 まさ「ZMP は新規事業創出モデルなので、これも PJ タイプに追加してほしい」と指示。
+
+### 確定方針
+- `projects.project_category` の選択肢に `new_business` を追加 (DB CHECK 制約 + UI + 分岐ロジック)
+- 意味: **レガシー企業 (DX 化されていない既存事業会社) を AMD が伴走し、研究シーズ取込 + DX で新規事業を立ち上げるモデル**
+- 既存 4 値: `dtsu` (学術発 SU 伴走) / `ecosystem` (研究機関 SU エコシステム) / `advisor` (社外役員/顧問) / **`new_business` (新規事業創出)**
+- 初期該当 PJ: ZMP (`p19`、葛飾ロード) のみ
+- ロジック扱い: **当面 DTSU と同じ** (AMD Score 対象 / MS 進捗対象 / 関連メンバー扱い)、実運用で違和感が出たら個別分岐 (まさ判断)
+
+### なぜ DTSU と分けるか
+- DTSU = 大学/研究所発のサイエンス SU 創出
+- 新規事業創出 = 既存企業の中で新規事業を立てる (= レガシー DX + 研究シーズ取込)
+- 関連メンバー / 投資家構造 / 出口戦略 / KPI が本質的に違う (= スピンアウト vs 既存子会社の事業創造)
+- いまは `category` 区別だけ (= 一旦タグ化) で、ロジック差分は後段で見直す
+
+### 触ったファイル (commit 単位で完結)
+- DB: `pwa/scripts/migrations/089_project_category_new_business.sql`
+- PWA: `AdminProjectsTable.tsx` / `progress-estimator.ts` / `activities/infer/route.ts` / `CockpitView.tsx` / `HudCockpitView.tsx` / `HudCockpitHeader.tsx`
+- design: [`cockpit.md`](../design/cockpit.md) Project Category 表 + 今期 MS 対象、[`ms_progress.md`](../design/ms_progress.md) 対象 PJ 条件
+
+### 新セッションのえいみへ
+- `project_category in ('dtsu','ecosystem')` のリテラルを見つけたら `new_business` を含めるべきか必ず判断する
+- AMD Score 対象は `!== 'ecosystem'` で判定されてるので `new_business` は自然に含まれる (変更不要)
+- ロジック差分が必要になったら、まずまさに相談 (= 「DTSU と同じ扱いで進めて後で見直す」前提のため)
+
+---
+
+## 5.7 過去の重要なバグ・事故ログ (= 抜粋)
 
 新セッションで同じ事故を繰り返さないために、特に学んだ教訓:
 

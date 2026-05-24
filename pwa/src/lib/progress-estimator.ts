@@ -83,7 +83,7 @@ type MonthlyProgressSources = {
   sourceHash: string;
 };
 
-const MS_PROGRESS_PROJECT_CATEGORIES = new Set(["dtsu", "ecosystem"]);
+const MS_PROGRESS_PROJECT_CATEGORIES = new Set(["dtsu", "ecosystem", "new_business"]);
 
 function normalizedProjectCategory(project: ProgressProjectRow | null): string {
   return String(project?.project_category || "dtsu").trim().toLowerCase() || "dtsu";

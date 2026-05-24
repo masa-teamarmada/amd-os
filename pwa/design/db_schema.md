@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-23 16:14 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-25 00:13 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -280,7 +280,7 @@ PRIMARY KEY: `id`
 
 ## atlas_signals
 
-行数 (概算): 668
+行数 (概算): 793
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -710,7 +710,7 @@ PRIMARY KEY: `l2_kind, target_id, scope_key`
 
 ## l2_feedbacks
 
-行数 (概算): -1
+行数 (概算): 32
 PRIMARY KEY: `feedback_id`
 
 | # | column | type | nullable | default |
@@ -730,7 +730,7 @@ PRIMARY KEY: `feedback_id`
 
 ## l2_notifications
 
-行数 (概算): 114
+行数 (概算): 169
 PRIMARY KEY: `notification_id`
 UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 
@@ -1048,7 +1048,7 @@ UNIQUE: `(username)` (constraint: `michinori_profiles_username_key`)
 
 ## milestone_monthly_progress
 
-行数 (概算): 158
+行数 (概算): 270
 PRIMARY KEY: `id`
 UNIQUE: `(milestone_key,ym)` (constraint: `milestone_monthly_progress_milestone_key_ym_key`)
 
@@ -1492,6 +1492,7 @@ PRIMARY KEY: `meeting_id`
 | 20 | `gmail_thread_ids` | `jsonb` | NOT NULL | `'[]'::jsonb` |
 | 21 | `source_kinds` | `text` | NULL | `` |
 | 22 | `source_url` | `text` | NULL | `` |
+| 23 | `narrative_md` | `text` | NULL | `` |
 
 ## project_members
 
@@ -1616,7 +1617,7 @@ PRIMARY KEY: `diff_id`
 
 ## project_strategy_signals
 
-行数 (概算): -1
+行数 (概算): 61
 PRIMARY KEY: `signal_id`
 
 | # | column | type | nullable | default |
@@ -2240,7 +2241,7 @@ UNIQUE: `(milestone_id)` (constraint: `value_milestones_milestone_id_key`)
 
 ## value_plan_cycles
 
-行数 (概算): 9
+行数 (概算): 10
 PRIMARY KEY: `id`
 UNIQUE: `(plan_cycle_id)` (constraint: `value_plan_cycles_plan_cycle_id_key`)
 

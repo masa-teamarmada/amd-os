@@ -244,7 +244,7 @@ GAS ScriptProperties:
 
 ## 既知の制約・運用上の注意
 
-- **対象PJ**: cronはactive PJを見に行く。ただしMS進捗抽出はDTSU PJとエコシステム構築PJだけ。`projects.project_category in ('dtsu','ecosystem')` 以外のPJはMS進捗を抽出せず、月次モーダルの月次ノートに毎月の進捗を残す。
+- **対象PJ**: cronはactive PJを見に行く。ただしMS進捗抽出はDTSU PJ・エコシステム構築PJ・新規事業創出PJだけ。`projects.project_category in ('dtsu','ecosystem','new_business')` 以外のPJはMS進捗を抽出せず、月次モーダルの月次ノートに毎月の進捗を残す。
 - **MS管理対象PJで対象月のMS計画/項目がない場合**: `value_plan_cycles` が無い、または有効な `value_milestones` が無い場合でも `project_config_gap` 通知は出さない。`monthly_reports` + `project_meeting_summaries` を `project_monthly_notes` に保存し、月次モーダルにその月の動きを残す。LLMは呼ばない。
 - **monthly_report / meeting summary 本文が無い PJ の場合**: `月次ノートに入れるソースなし` として `progress_estimate_state` だけtouchし、次回 cron で再チェック。
 - **pm_manual / criteria_toggle で手動確定済みの MS**: LLM が delta を返しても上書きされない。LLM 呼び出し自体はされる (source_hash が変わってれば) が、save 段階でスキップされる

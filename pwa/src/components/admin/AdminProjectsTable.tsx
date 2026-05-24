@@ -65,16 +65,18 @@ const FEE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "milestone", label: "マイルストーン" },
 ];
 
-type ProjectCategory = "dtsu" | "ecosystem" | "advisor";
+type ProjectCategory = "dtsu" | "ecosystem" | "advisor" | "new_business";
 
 const PROJECT_CATEGORY_OPTIONS: Array<{ value: ProjectCategory; label: string; note: string }> = [
-  { value: "dtsu", label: "DTSU", note: "通常DTSU" },
+  { value: "dtsu", label: "DTSU", note: "学術発SU伴走" },
+  { value: "new_business", label: "新規事業創出", note: "レガシー企業DX + 研究シーズ取込" },
   { value: "ecosystem", label: "Ecosystem", note: "研究機関SUエコシステム" },
   { value: "advisor", label: "Advisor", note: "社外役員/顧問" },
 ];
 
 const PROJECT_CATEGORY_COLORS: Record<ProjectCategory, string> = {
   dtsu: "border-cyan-200 bg-cyan-50 text-cyan-800",
+  new_business: "border-emerald-200 bg-emerald-50 text-emerald-800",
   ecosystem: "border-violet-200 bg-violet-50 text-violet-800",
   advisor: "border-amber-200 bg-amber-50 text-amber-800",
 };

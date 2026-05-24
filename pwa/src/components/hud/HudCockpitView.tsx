@@ -298,7 +298,7 @@ function isLiveOperationalProject(project: { status: string; freezeFromYm?: stri
 }
 
 function usesMsProgressCategory(category: string | null | undefined) {
-  return ["dtsu", "ecosystem"].includes(String(category || "dtsu").toLowerCase());
+  return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
 type StepModal =

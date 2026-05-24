@@ -25,7 +25,7 @@ function currentYmJST(): string {
 }
 
 function usesMsProgressCategory(category: string | null | undefined): boolean {
-  return ["dtsu", "ecosystem"].includes(String(category || "dtsu").toLowerCase());
+  return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
 async function inferForProject(
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
       .from("projects")
       .select("project_id")
       .eq("status", "active")
-      .in("project_category", ["dtsu", "ecosystem"]);
+      .in("project_category", ["dtsu", "ecosystem", "new_business"]);
     projectIds = (projects ?? []).map((p: { project_id: string }) => p.project_id);
   }
 

@@ -46,6 +46,7 @@ function projectDisplayName(projectName: string, projectId: string) {
 function categoryLabel(category: string | null | undefined) {
   if (category === "ecosystem") return "ECOSYSTEM";
   if (category === "advisor") return "ADVISOR";
+  if (category === "new_business") return "NEW BUSINESS";
   return "DTSU";
 }
 
