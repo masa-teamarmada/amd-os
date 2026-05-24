@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 interface Props {
   source: string;
   tone?: "light" | "hud";
+  linkMode?: "default" | "manual";
 }
 
 /**
@@ -21,7 +22,7 @@ interface Props {
  *  - `<hr>` は太め + 色付き
  *  - 将来 `<img>` (図・写真) も挿入予定。img はそのまま max-w-full で出す
  */
-export function MarkdownView({ source, tone = "light" }: Props) {
+export function MarkdownView({ source, tone = "light", linkMode = "default" }: Props) {
   const isHud = tone === "hud";
   const baseText = isHud ? "text-[12px] text-cyan-50/90" : "text-[13px] text-[#1d1d1f]";
   const codeClass = isHud
@@ -124,11 +125,20 @@ export function MarkdownView({ source, tone = "light" }: Props) {
           del: ({ children }) => <del className="text-[#86868b] line-through">{children}</del>,
 
           // ===== Links =====
-          a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noopener noreferrer" className={linkClass}>
-              {children}
-            </a>
-          ),
+          a: ({ href, children }) => {
+            const normalizedHref = normalizeHref(href, linkMode);
+            const isExternal = normalizedHref ? /^https?:\/\//.test(normalizedHref) : false;
+            return (
+              <a
+                href={normalizedHref}
+                target={isExternal ? "_blank" : undefined}
+                rel={isExternal ? "noopener noreferrer" : undefined}
+                className={linkClass}
+              >
+                {children}
+              </a>
+            );
+          },
 
           // ===== Code =====
           code: ({ children }) => <code className={codeClass}>{children}</code>,
@@ -175,4 +185,31 @@ export function MarkdownView({ source, tone = "light" }: Props) {
       </ReactMarkdown>
     </div>
   );
+}
+
+function normalizeHref(href: string | undefined, linkMode: Props["linkMode"]) {
+  if (!href || linkMode !== "manual") return href;
+  if (/^(https?:|mailto:|tel:|#|\/)/.test(href)) return href;
+
+  const [pathPart, hashPart] = href.split("#");
+  const hash = hashPart ? `#${hashPart}` : "";
+  const cleanPath = pathPart.replace(/^\.\//, "").replace(/^\.\.\//, "");
+  const fileName = cleanPath.split("/").pop() ?? cleanPath;
+
+  if (cleanPath.startsWith("manual/") || (!cleanPath.includes("/") && fileName.endsWith(".md"))) {
+    return `/manual/${fileName.replace(/\.md$/, "")}${hash}`;
+  }
+
+  if (
+    cleanPath.startsWith("design/") ||
+    cleanPath.startsWith("design_log/") ||
+    cleanPath.startsWith("scripts/") ||
+    cleanPath === "CLAUDE.md" ||
+    cleanPath === "BUGS.md" ||
+    cleanPath === "HANDOFF_pwa_rebuild.md"
+  ) {
+    return `https://github.com/masa-teamarmada/amd-os/blob/main/pwa/${cleanPath}${hash}`;
+  }
+
+  return href;
 }

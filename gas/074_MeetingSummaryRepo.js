@@ -491,6 +491,49 @@ function nav_meeting_processOneEvent_(eventId, projectId, opts) {
     return { ok: true, action: "skipped_unchanged", meetingId: eventId, title: title, projectId: pid, sourceKinds: sourceKinds };
   }
 
+  // 9.5) dryRun (= Claude routine 等の外部 LLM caller 用) — ここで context だけ返して GAS 内 LLM call をスキップ
+  // 既存挙動は dryRun=false (= 未指定時 falsy) で完全保存、backward compatible。
+  // Claude routine `amd-os-meeting-extract` (= 毎時 0 分発火) が dryRun=true で呼ぶ。
+  if (opts.dryRun === true) {
+    // alias / feedback / project_name は Claude routine 側で再構築する手間を避けるため、ここで一緒に返す
+    const projectName = (typeof _meeting_resolveProjectName_ === "function")
+      ? _meeting_resolveProjectName_(pid) : String(pid || "");
+    const aliasBlock = (typeof nameAlias_buildBlock === "function") ? nameAlias_buildBlock() : "";
+    let feedbackBlock = "";
+    let feedbackIds = [];
+    if (typeof _l2_loadFeedbackBlock_ === "function") {
+      try {
+        const fbEv = _l2_loadFeedbackBlock_("meeting_summary", String(pid), eventId || "global");
+        if (fbEv && fbEv.block) {
+          feedbackBlock = fbEv.block;
+          feedbackIds = fbEv.ids || [];
+        }
+      } catch (_e) {}
+    }
+    return {
+      ok: true,
+      action: "dryRun",
+      meetingId: eventId,
+      projectId: pid,
+      projectName: projectName,
+      ym: ymKey,
+      meetingDate: meetingDate,
+      meetingStartAt: meetingStartAt,
+      title: title,
+      notionUrl: notionUrl || null,
+      notionPageId: pageId,
+      gmailThreadIds: gmailThreadIds,
+      sourceKinds: sourceKinds,
+      combinedText: combinedText,
+      aliasBlock: aliasBlock,
+      feedbackBlock: feedbackBlock,
+      feedbackIds: feedbackIds,
+      newHash: newHash,
+      promptRev: MEETING_EXTRACT_PROMPT_REV,
+      existed: !!existing
+    };
+  }
+
   // 10) Gemini 抽出
   const extracted = _meeting_extractWithLLM_(combinedText, {
     projectId: pid, ymKey: ymKey, sourceKinds: sourceKinds,

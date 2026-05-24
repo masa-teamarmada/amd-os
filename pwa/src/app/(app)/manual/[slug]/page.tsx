@@ -3,6 +3,7 @@ import path from "node:path";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MarkdownView } from "@/components/cockpit/MarkdownView";
+import { sortManualSlugs } from "../manual-chapters";
 
 /**
  * /manual/[slug] — AMD OS マニュアル各章
@@ -31,11 +32,11 @@ export default async function ManualChapterPage({ params }: { params: Promise<{ 
   const allFiles = fs
     .readdirSync(path.join(process.cwd(), "manual"))
     .filter((f) => f.endsWith(".md"))
-    .map((f) => f.replace(/\.md$/, ""))
-    .sort();
-  const idx = allFiles.indexOf(decoded);
-  const prev = idx > 0 ? allFiles[idx - 1] : null;
-  const next = idx >= 0 && idx < allFiles.length - 1 ? allFiles[idx + 1] : null;
+    .map((f) => f.replace(/\.md$/, ""));
+  const sortedFiles = sortManualSlugs(allFiles);
+  const idx = sortedFiles.indexOf(decoded);
+  const prev = idx > 0 ? sortedFiles[idx - 1] : null;
+  const next = idx >= 0 && idx < sortedFiles.length - 1 ? sortedFiles[idx + 1] : null;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
@@ -45,7 +46,7 @@ export default async function ManualChapterPage({ params }: { params: Promise<{ 
         </Link>
       </div>
       <article className="prose prose-sm max-w-none">
-        <MarkdownView source={source} tone="light" />
+        <MarkdownView source={source} tone="light" linkMode="manual" />
       </article>
       <nav className="mt-10 flex justify-between border-t border-border pt-4 text-xs">
         {prev ? (

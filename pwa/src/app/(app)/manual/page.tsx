@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Link from "next/link";
+import { MANUAL_SECTIONS, sortManualSlugs } from "./manual-chapters";
 
 /**
  * /manual — AMD OS マニュアル index
@@ -17,10 +18,10 @@ interface ChapterMeta {
 
 function getChapters(): ChapterMeta[] {
   const dir = path.join(process.cwd(), "manual");
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
+  const files = sortManualSlugs(fs.readdirSync(dir).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, "")));
   return files.map((f) => {
-    const slug = f.replace(/\.md$/, "");
-    const text = fs.readFileSync(path.join(dir, f), "utf8");
+    const slug = f;
+    const text = fs.readFileSync(path.join(dir, `${f}.md`), "utf8");
     const lines = text.split("\n");
     const h1 = lines.find((l) => l.startsWith("# "))?.replace(/^# /, "").trim() || slug;
     // 最初の h1 直後の non-empty 段落を description として拾う
@@ -42,24 +43,59 @@ function getChapters(): ChapterMeta[] {
 
 export default function ManualIndexPage() {
   const chapters = getChapters();
+  const bySlug = new Map(chapters.map((chapter) => [chapter.slug, chapter]));
+  const groupedSlugs = new Set(MANUAL_SECTIONS.flatMap((section) => section.slugs));
+  const uncategorized = chapters.filter((chapter) => !groupedSlugs.has(chapter.slug));
+
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
+    <div className="mx-auto max-w-4xl px-6 py-8">
       <h1 className="text-2xl font-bold mb-1">📖 AMD OS マニュアル</h1>
       <p className="text-sm text-muted-foreground mb-6">
-        AMD OS の使い方・データの裏側・過去判断・開発手順の正本。新セッションのえいみも必ずここから読む。
+        AMD OS の使い方・データの裏側・過去判断・開発手順の正本。まず「使う人向け」、必要に応じて「全体設計・細かい仕様」を読む。
       </p>
-      <ul className="divide-y divide-border border border-border rounded-lg overflow-hidden">
-        {chapters.map((c) => (
-          <li key={c.slug} className="px-4 py-3 hover:bg-muted/30 transition-colors">
-            <Link href={`/manual/${encodeURIComponent(c.slug)}`} className="block">
-              <div className="text-sm font-semibold text-foreground">{c.title}</div>
-              {c.description && (
-                <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{c.description}</div>
-              )}
-            </Link>
-          </li>
-        ))}
-      </ul>
+
+      <div className="space-y-6">
+        {MANUAL_SECTIONS.map((section) => {
+          const sectionChapters = section.slugs.map((slug) => bySlug.get(slug)).filter(Boolean) as ChapterMeta[];
+          if (sectionChapters.length === 0) return null;
+          return (
+            <section key={section.key}>
+              <h2 className="text-base font-semibold text-foreground">{section.title}</h2>
+              <p className="mt-1 text-xs text-muted-foreground">{section.description}</p>
+              <ul className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
+                {sectionChapters.map((c) => (
+                  <li key={c.slug} className="px-4 py-3 transition-colors hover:bg-muted/30">
+                    <Link href={`/manual/${encodeURIComponent(c.slug)}`} className="block">
+                      <div className="text-sm font-semibold text-foreground">{c.title}</div>
+                      {c.description && (
+                        <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{c.description}</div>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+
+        {uncategorized.length > 0 && (
+          <section>
+            <h2 className="text-base font-semibold text-foreground">未分類</h2>
+            <ul className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
+              {uncategorized.map((c) => (
+                <li key={c.slug} className="px-4 py-3 transition-colors hover:bg-muted/30">
+                  <Link href={`/manual/${encodeURIComponent(c.slug)}`} className="block">
+                    <div className="text-sm font-semibold text-foreground">{c.title}</div>
+                    {c.description && (
+                      <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{c.description}</div>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
       <p className="text-xs text-muted-foreground mt-6">
         正本: <code className="rounded bg-muted px-1">pwa/manual/*.md</code> (= git 管理)。
         新規セッション開始時 / 「なぜそうなってるか」を知りたい時に開く。

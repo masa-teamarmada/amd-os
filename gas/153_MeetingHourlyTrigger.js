@@ -65,10 +65,12 @@ var MEETING_HOURLY_CRON_DISABLED_20260522 = true;
  *   テストで窓を変えたい時用。本番では default 60〜180 分前。
  */
 function nav_meeting_pollRecentlyEndedEvents(opts) {
-  if (MEETING_HOURLY_CRON_DISABLED_20260522) {
+  opts = opts || {};
+  // dryRun=true (= Claude routine `amd-os-meeting-extract` から呼ばれる) のときは kill switch を通す
+  // (= GAS 内 LLM call はせず、各 event の context だけを返す形なので、廃止判断 (= LLM 課金抑制) と整合)
+  if (MEETING_HOURLY_CRON_DISABLED_20260522 && opts.dryRun !== true) {
     return { ok: true, disabled: true, message: "Meeting summary hourly cron disabled. Use Codex automation/review batches." };
   }
-  opts = opts || {};
   const winStartMinAgo = Number(opts.windowStartMinutesAgo || 180);
   const winEndMinAgo = Number(opts.windowEndMinutesAgo || 60);
 
@@ -166,7 +168,8 @@ function nav_meeting_pollRecentlyEndedEvents(opts) {
     try {
       r = nav_meeting_processOneEvent_(eventId, projectId, {
         eventTitle: title,
-        eventStartAt: startAt instanceof Date ? startAt.toISOString() : ""
+        eventStartAt: startAt instanceof Date ? startAt.toISOString() : "",
+        dryRun: opts.dryRun === true
       });
     } catch (e) {
       r = { ok: false, message: String(e && e.message ? e.message : e) };
@@ -174,27 +177,33 @@ function nav_meeting_pollRecentlyEndedEvents(opts) {
 
     if (r && r.ok) {
       processed++;
-      items.push({
-        eventId: eventId,
-        title: title,
-        action: r.action,
-        sourceKinds: r.sourceKinds || null,
-        gmailThreads: r.gmailThreads || 0
-      });
-      // 通知 insert (拾えた + 内容ありのときだけ)
-      try {
-        if ((r.action === "inserted" || r.action === "updated") &&
-            r.sourceKinds && r.sourceKinds !== "none") {
-          _meeting_insertNotification_({
-            meetingId: r.meetingId,
-            projectId: r.projectId,
-            title: r.title || title,
-            sourceKinds: r.sourceKinds,
-            summaryShort: r.summaryShort || ""
-          });
+      if (opts.dryRun === true) {
+        // dryRun: 各 event の context (= notion + gmail combined text、alias、feedback 等) をそのまま items に積む
+        // Claude routine `amd-os-meeting-extract` が LLM 抽出 + Supabase upsert + 通知 upsert を担当
+        items.push(r);
+      } else {
+        items.push({
+          eventId: eventId,
+          title: title,
+          action: r.action,
+          sourceKinds: r.sourceKinds || null,
+          gmailThreads: r.gmailThreads || 0
+        });
+        // 通知 insert (拾えた + 内容ありのときだけ)
+        try {
+          if ((r.action === "inserted" || r.action === "updated") &&
+              r.sourceKinds && r.sourceKinds !== "none") {
+            _meeting_insertNotification_({
+              meetingId: r.meetingId,
+              projectId: r.projectId,
+              title: r.title || title,
+              sourceKinds: r.sourceKinds,
+              summaryShort: r.summaryShort || ""
+            });
+          }
+        } catch (eN) {
+          Logger.log("[nav_meeting_pollRecentlyEndedEvents] notification insert error: " + eN);
         }
-      } catch (eN) {
-        Logger.log("[nav_meeting_pollRecentlyEndedEvents] notification insert error: " + eN);
       }
     } else {
       errors++;

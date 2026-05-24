@@ -25,6 +25,60 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+/**
+ * GET /api/notifications/feedback?l2_kind=...&target_id=...&scope_key_prefix=...&limit=...
+ *
+ * まさが過去に投げた修正依頼の履歴を取得する。
+ * cockpit (= CockpitStrategySignals 等) の各カードに「過去のつくよみ修正依頼」セクションを
+ * 表示するために使う (= まさ #34 短期 2026-05-25)。
+ *
+ * Query:
+ *   l2_kind: 'project_strategy_signal' / 'meeting_summary' / etc (必須)
+ *   target_id: project_id or code_name (必須)
+ *   scope_key_prefix: scope_key の前方一致フィルタ (任意、未指定なら全部)
+ *   limit: default 100
+ *
+ * 認証: Supabase Auth セッション必要 (POST と同じく admin のみ)
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    const email = user.email?.toLowerCase() ?? "";
+    if (!email) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    const { data: member } = await supabase
+      .from("members")
+      .select("code_name, is_admin")
+      .eq("email", email)
+      .maybeSingle();
+    if (!member?.is_admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
+    const { searchParams } = new URL(req.url);
+    const l2Kind = String(searchParams.get("l2_kind") ?? "").trim();
+    const targetId = String(searchParams.get("target_id") ?? "").trim();
+    const scopeKeyPrefix = String(searchParams.get("scope_key_prefix") ?? "").trim();
+    const limit = Math.min(500, Math.max(1, Number(searchParams.get("limit") ?? "100")));
+    if (!l2Kind || !targetId) {
+      return NextResponse.json({ error: "l2_kind and target_id are required" }, { status: 400 });
+    }
+    let query = supabase
+      .from("l2_feedbacks")
+      .select("feedback_id, l2_kind, target_id, scope_key, feedback_text, status, created_by, created_at, applied_count, last_applied_at")
+      .eq("l2_kind", l2Kind)
+      .eq("target_id", targetId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (scopeKeyPrefix) query = query.like("scope_key", `${scopeKeyPrefix}%`);
+    const { data, error } = await query;
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, feedbacks: data ?? [] });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "unknown error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();

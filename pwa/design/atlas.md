@@ -159,7 +159,7 @@ atlas_decisions (
          ↓
   採択 → topic昇格 or 既存topicに追記
          ↓
-[まさ × えいみ: 議論]
+[まさえいMTG: 議論]
    議論ログも topic の子ノードとして記録
          ↓
 [まさ: 判断]

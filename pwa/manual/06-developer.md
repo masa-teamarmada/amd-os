@@ -112,25 +112,59 @@ fi
 
 場所: `~/.claude/scheduled-tasks/{name}/SKILL.md`
 
+### 登録 (= 正本フロー)
+1. SKILL.md の prompt を起草 (= `pwa/design/{name}.md` に inline で書いてまさレビュー、`pwa/design/l2_extract_claude_routine.md` 参照)
+2. レビュー OK 後、`mcp__scheduled-tasks__create_scheduled_task` tool で登録 (= cron 式はローカル時刻)
+3. routine は Claude Code app 起動中に発火 (= app 閉じてた時は次回起動時に追いつき)
+4. `notifyOnCompletion=true` で running session に通知 (= 標準)
+
 ### 構成
 ```markdown
 ---
 name: amd-os-{name}
 description: ...
-schedule: "0 7 * * *"   # cron 式
 ---
 
 # Skill 本文
 
-Phase A:
-...
-Phase B:
-...
+【絶対】 動く前に必ず Read:
+1. {関連マニュアル / 設計 md パス}
+2. ...
+
+═══════════════════════════════════════════════════
+Phase A: {データ収集 or 候補抽出}
+═══════════════════════════════════════════════════
+
+1. cwd を /Users/masa/projects/AMD/amd-os
+2. pwa/.env.local から CRON_SECRET / NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY をロード
+3. ...
+
+═══════════════════════════════════════════════════
+Phase B: {処理 + upsert}
+═══════════════════════════════════════════════════
+
+1. ...
+2. **修正依頼の織り込み** (= 必須): `l2_feedbacks` を読み込んで prompt に渡す
+3. 直接 Supabase REST に upsert (= service_role)
+
+═══════════════════════════════════════════════════
+Phase C: run summary
+═══════════════════════════════════════════════════
+- 処理件数 / saved / skipped / エラー
+- まさへの 1 行サマリ
 ```
 
 ### Skill の特徴
-- Claude Code Skill としても動作 (= まさが /skill name で手動キック可)
-- scheduled で勝手に動く + 結果を Slack 通知
+- Claude Code Skill としても動作 (= まさが `/{name}` で手動キック可)
+- scheduled で勝手に動く + 結果を running session に通知 (`notifyOnCompletion=true`)
+- LaunchAgent と違い、Claude Code app が動いてる時に発火 (= app 閉じてた時は次回起動時に追いつき)
+
+### 既存 routine (= 2026-05-25 時点)
+- ✅ `amd-os-management-dialogue-prep` (daily 07:00 JST) — まさえいMTG 議題プリペア
+- 🚧 `amd-os-meeting-extract` (毎時 0 分 予定) — L2 ⑥ MTG サマリ抽出 (= GAS 153 後継)
+- 🚧 `amd-os-protocol-extract` (daily 08:00 JST 予定) — L2 ② AMD プロトコル抽出
+- 🚧 `amd-os-project-knowledge-extract` (daily 08:15 JST 予定) — L2 ④ PJ ナレッジ抽出
+- 🚧 `amd-os-member-knowledge-extract` (daily 08:30 JST 予定) — L2 ⑤ メンバーナレッジ抽出
 
 ## 6.6 LaunchAgent (= outbox applier) の追加 / 拡張
 
@@ -182,6 +216,11 @@ node /Users/masa/projects/AMD/amd-os/pwa/scripts/ms_progress_review_tool.mjs app
 ### Supabase 接続失敗時
 - `.env.local` の `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` 確認
 - migration repair (= ローカルとリモートの migration version 不整合): `pwa/scripts/migration_repair.py`
+
+### `/admin/settings` と cron 台帳を触る時
+- `pwa/src/lib/operations-catalog.ts` が Raw / L2 / Cron 表示の正本
+- Run Now 可能にする前に、LLM 課金・DB 大量更新・dryRun の有無を確認する
+- 停止中の LLM cron を復活させる前に [05 章 5.1](05-decisions-and-history.md#51-cron-廃止経緯--2026-05-22-仕様変更の本丸) と [24 章](24-operations-settings-spec.md) を読む
 
 ### LLM 抽出結果がおかしい時
 - まず prompt が DB 管理されてるか確認 (= AGENTS.common.md ルール)

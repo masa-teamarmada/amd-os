@@ -25,8 +25,23 @@
  */
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { ProjectStrategySignal } from "@/lib/supabase-data";
+
+// まさ #34 短期 2026-05-25: 経営ハイライト各カード下に「過去のつくよみ修正依頼」を表示する。
+// 親 component で 1 回 fetch して signal_id ごとに scope_key 前方一致で filter する設計。
+type FeedbackItem = {
+  feedback_id: string;
+  l2_kind: string;
+  target_id: string;
+  scope_key: string;
+  feedback_text: string;
+  status: string;
+  created_by: string | null;
+  created_at: string;
+  applied_count: number;
+  last_applied_at: string | null;
+};
 
 const TYPE_LABEL: Record<string, string> = {
   management_decision: "方針決定",
@@ -141,6 +156,39 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
     (b.signalDate || "").localeCompare(a.signalDate || "")
   );
 
+  // まさ #34 短期 2026-05-25: 過去のつくよみ修正依頼を 1 回 fetch
+  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/notifications/feedback?l2_kind=project_strategy_signal&target_id=${encodeURIComponent(projectId)}&limit=300`)
+      .then(async (r) => {
+        const j = await r.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!r.ok || !j.ok) {
+          setFeedbackError(j.error || `HTTP ${r.status}`);
+          return;
+        }
+        setFeedbacks(j.feedbacks || []);
+      })
+      .catch((e) => { if (!cancelled) setFeedbackError(e instanceof Error ? e.message : "fetch error"); });
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  // signal 1 件あたりの scope_key 前方一致パターン:
+  //   signal の scope_key は POST 側で `${signal.ym}:strategy:${(signal.sourceHash || "").slice(0, 12) || signal.signalId.slice(0, 12)}` と書かれる
+  //   → 各 signal の対応する hash prefix で filter する
+  // ym がない signal (= global) は scope_key='global' か空文字想定
+  const feedbacksBySignalId = useMemo(() => {
+    const map: Record<string, FeedbackItem[]> = {};
+    for (const signal of sorted) {
+      const hashKey = (signal.sourceHash || "").slice(0, 12) || signal.signalId.slice(0, 12);
+      const prefix = signal.ym ? `${signal.ym}:strategy:${hashKey}` : "global";
+      map[signal.signalId] = feedbacks.filter((f) => f.scope_key === prefix || f.scope_key.startsWith(prefix));
+    }
+    return map;
+  }, [sorted, feedbacks]);
+
   return (
     <section className="rounded-lg border border-border bg-background">
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
@@ -169,6 +217,11 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
         </Link>
       </div>
 
+      {feedbackError && (
+        <div className="px-3 py-1.5 text-[10px] text-amber-700 border-b border-border bg-amber-50/40">
+          ⚠️ 修正依頼履歴の取得に失敗: {feedbackError}
+        </div>
+      )}
       {sorted.length === 0 ? (
         <div className="px-3 py-4 text-[12px] text-muted-foreground">
           まだシグナルなし。
@@ -185,6 +238,7 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
                 projectId={projectId}
                 categoryBorder={meta.cardBorderClass}
                 categoryEmoji={meta.emoji}
+                pastFeedbacks={feedbacksBySignalId[signal.signalId] || []}
               />
             );
           })}
@@ -194,7 +248,7 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
   );
 }
 
-function StrategySignalRow({ signal, projectId, categoryBorder, categoryEmoji }: { signal: ProjectStrategySignal; projectId: string; categoryBorder: string; categoryEmoji: string }) {
+function StrategySignalRow({ signal, projectId, categoryBorder, categoryEmoji, pastFeedbacks }: { signal: ProjectStrategySignal; projectId: string; categoryBorder: string; categoryEmoji: string; pastFeedbacks: FeedbackItem[] }) {
   const refs = sourceSummary(signal.sourceRefs);
   const impactClass = IMPACT_CLASS[signal.impactLevel] ?? IMPACT_CLASS.medium;
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -275,6 +329,34 @@ function StrategySignalRow({ signal, projectId, categoryBorder, categoryEmoji }:
             {refs.map((ref, index) => (
               <div key={`${signal.signalId}:ref:${index}`} className="rounded bg-muted/40 px-2 py-1">
                 {ref}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+      {pastFeedbacks.length > 0 && (
+        <details className="mt-1.5 text-[10px]">
+          <summary className="cursor-pointer select-none text-amber-700 hover:text-amber-900">
+            🌙 つくよみへの過去の修正依頼 {pastFeedbacks.length}件
+            {pastFeedbacks.some((f) => f.applied_count > 0) && (
+              <span className="ml-1 text-[9px] text-emerald-700">(✓ {pastFeedbacks.reduce((sum, f) => sum + f.applied_count, 0)}回反映済)</span>
+            )}
+          </summary>
+          <div className="mt-1 space-y-1">
+            {pastFeedbacks.map((fb) => (
+              <div key={fb.feedback_id} className="rounded border border-amber-200 bg-amber-50/60 px-2 py-1.5">
+                <div className="flex items-center gap-2 text-[9px] text-amber-800">
+                  <span className="font-mono">{new Date(fb.created_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                  {fb.created_by && <span>by {fb.created_by}</span>}
+                  {fb.applied_count > 0 ? (
+                    <span className="ml-auto text-emerald-700">✓ {fb.applied_count}回反映</span>
+                  ) : (
+                    <span className="ml-auto text-zinc-500">⏳ 次回抽出待ち</span>
+                  )}
+                </div>
+                <div className="mt-1 text-[10px] text-amber-900 whitespace-pre-wrap leading-snug">
+                  {fb.feedback_text}
+                </div>
               </div>
             ))}
           </div>

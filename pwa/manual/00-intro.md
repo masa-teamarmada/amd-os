@@ -2,7 +2,7 @@
 
 ## 0.1 AMD OS が何か
 
-AMD OS は、**株式会社チームアルマダ (= AMD)** が手がけるディープテック PJ (= スタートアップ準備中の研究シーズ含む) を経営する **専属の経営 OS**。まさ (= 代表) と AMD メンバー (= かる / ちこ 等) と SU 側メンバー (= PI / 創業候補) が日々使う。
+AMD OS は、**株式会社チームアルマダ (= AMD)** が手がけるディープテック PJ (= スタートアップ準備中の研究シーズ含む) を経営する **専属の経営 OS**。まさ (= 代表)、AMD メンバー、SU 側メンバー (= PI / 創業候補) が日々使う。
 
 **やってること**:
 - 5 生データソース (Slack / Notion / Calendar / Drive / Gmail) を継続的に取り込み
@@ -19,8 +19,7 @@ AMD OS は、**株式会社チームアルマダ (= AMD)** が手がけるディ
 | ロール | 主な使い方 | よく見る画面 |
 |---|---|---|
 | **まさ** (= CEO) | 全 PJ 経営判断、まさえいMTG、Management Score | `p00 cockpit` / `各 PJ cockpit` / `/notifications` |
-| **かる** (= AMD 中核メンバー) | SX 等 PJ 推進、議事録共有 | `各 PJ cockpit` / Slack |
-| **ちこ** (= AMD 中核メンバー) | 各 PJ 営業・連携窓口 | `各 PJ cockpit` |
+| **AMD メンバー** | PJ 推進、議事録共有、営業・連携、月次運用 | `各 PJ cockpit` / Slack / `マイページ` |
 | **SU 側メンバー** (= PI / 創業候補) | 自分の PJ 状況確認、進捗報告 | `自分の PJ cockpit` / `マイページ` |
 | **admin** | 月次オペ (= 支払 / 請求 / 立替) | `/admin/payouts` 等 |
 | **投資家** (= 将来) | 各 SU の進捗・ピッチ素材 | (= 公開予定なし、まさが説明会で使う想定) |
@@ -46,10 +45,10 @@ AMD OS は、**株式会社チームアルマダ (= AMD)** が手がけるディ
 | L2 種 | 名前 | 内容 | 例 |
 |---|---|---|---|
 | **L2 ①** | `monthly_reports` | PJ 月次レポート | 「2026年4月の SX 進捗」 |
-| **L2 ②** | `member_activities` | メンバー活動ログ | 「かるが 5/15 に Finechem MTG 参加」 |
-| **L2 ③** | `project_milestones` + 進捗 | MS 達成度 | 「事業計画策定 = 30% (まさ) + 70% (かる)」 |
+| **L2 ②** | `member_activities` | メンバー活動ログ | 「AMD メンバーが 5/15 に Finechem MTG 参加」 |
+| **L2 ③** | `project_milestones` + 進捗 | MS 達成度 | 「事業計画策定 = 30% (まさ) + 70% (AMD メンバー)」 |
 | **L2 ④** | `project_knowledge` | PJ 知識ナレッジ | 「シアノバクテリア排水処理の競合は X 社」 |
-| **L2 ⑤** | `member_knowledge` | メンバー個人のナレッジ | 「ちこは VC アプローチに強い」 |
+| **L2 ⑤** | `member_knowledge` | メンバー個人のナレッジ | 「特定メンバーは VC アプローチに強い」 |
 | **L2 ⑥** | `project_meeting_summaries` | MTG サマリ | 「5/22 ファインケム八重洲MTG narrative_md」 |
 | **L2 ⑦** | `os_ledger_diffs` | OS 台帳差分 | 「新規メンバー追加候補」 |
 | **L2 ⑧** | `project_xrl_evidence` | XRL 根拠 | 「BRL 5 の根拠: ファインケム MoU 締結」 |
@@ -59,14 +58,27 @@ AMD OS は、**株式会社チームアルマダ (= AMD)** が手がけるディ
 
 ## 0.5 章の読み方ガイド
 
+このマニュアルは大きく 2 つに分ける。
+
+- **まず使う人向け**: AMD メンバーがざっくり使い方を知るための章
+- **全体設計・細かい仕様**: OS の構造、データ、スコア、通知、自動処理まで追う章
+
 | あなたが何をしたいか | まずどの章 |
 |---|---|
+| OS を初めて触る / ざっくり使い方を知りたい | **[08 章 はじめて使う人向け](08-member-quick-start.md)** |
 | PJ の状況を見たい・経営判断したい | **[01 章 PJ コックピット](01-pj-cockpit.md)** |
 | 会社全体の経営状況を見たい・まさえいMTG したい | **[02 章 AMD 会社全体](02-amd-cockpit.md)** |
+| OS 全体の画面・データ・自動処理の地図を見たい | **[20 章 全体設計](20-system-architecture.md)** |
+| AMD Score の数式や軸の意味まで知りたい | **[21 章 AMD Score 詳細仕様](21-amd-score-spec.md)** |
+| 通知・つくよみ修正依頼・正本反映ゲートを知りたい | **[22 章 通知・つくよみ](22-notifications-and-tsukuyomi.md)** |
+| Atlas / Seeds / VC / Scholar をどう使うか知りたい | **[09 章 探索系アセット](09-research-assets-quick-start.md)** |
+| HUD / Venture Map の設計や実験ビューを知りたい | **[23 章 HUD / Venture Map](23-hud-and-venture-map-spec.md)** |
+| `/admin/settings` の Raw / L2 / Cron 台帳を知りたい | **[24 章 Operations Settings](24-operations-settings-spec.md)** |
 | 「なぜこのデータがあるんだっけ?」「どう抽出されてるんだっけ?」 | **[03 章 データと抽出](03-data-and-extraction.md)** |
 | 月次支払・請求・立替申請 | **[04 章 admin オペ](04-admin-ops.md)** |
 | 「なぜ cron 止まってるんだっけ?」「過去の重要判断ログ」 | **[05 章 過去判断と経緯](05-decisions-and-history.md)** |
 | 開発者として機能追加したい | **[06 章 開発者向け](06-developer.md)** |
+| Atlas / Macrotrend / AMD Score / AMD Protocol の関係を知りたい | **[07 章 判断エンジン](07-atlas-protocol-score-macrotrend.md)** |
 
 ---
 

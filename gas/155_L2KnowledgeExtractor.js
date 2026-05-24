@@ -61,7 +61,8 @@ function nav_l2_disabledCronResponse_(handlerName) {
  *  @param {Object} [opts] {maxItems?: number, force?: boolean}
  */
 function nav_member_knowledge_pollAll(opts) {
-  if (L2_KNOWLEDGE_CRON_DISABLED_20260522) return nav_l2_disabledCronResponse_("nav_member_knowledge_pollAll");
+  opts = opts || {};
+  if (L2_KNOWLEDGE_CRON_DISABLED_20260522 && opts.dryRun !== true) return nav_l2_disabledCronResponse_("nav_member_knowledge_pollAll");
   opts = opts || {};
   const maxItems = Number(opts.maxItems || 5);
   const force = !!opts.force;

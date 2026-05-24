@@ -22,6 +22,8 @@ const DEFAULT_APPLIED_DIR = path.join(AUTOMATION_DIR, "applied");
 const DEFAULT_FAILED_DIR = path.join(AUTOMATION_DIR, "failed");
 loadEnv(path.join(ROOT, ".env.local"));
 loadEnv(path.join(ROOT, ".env.production.local"));
+const DEFAULT_MAX_SNAPSHOT_AGE_HOURS = positiveNumber(process.env.AMD_OS_MAX_SNAPSHOT_AGE_HOURS, 48);
+const DEFAULT_REQUEST_TIMEOUT_MS = positiveNumber(process.env.AMD_OS_HELPER_TIMEOUT_MS, 15000);
 
 const SUPABASE_URL = env("NEXT_PUBLIC_SUPABASE_URL");
 const SERVICE_KEY = env("SUPABASE_SERVICE_ROLE_KEY");
@@ -62,6 +64,11 @@ function env(key) {
   return value.trim();
 }
 
+function positiveNumber(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 function lookup(host, opts, cb) {
   const staticIps = STATIC_HOSTS[host];
   if (staticIps?.length) {
@@ -75,7 +82,7 @@ function lookup(host, opts, cb) {
   return dns.lookup(host, opts, cb);
 }
 
-function requestJson(url, { method = "GET", headers = {}, body = undefined, redirects = 3 } = {}) {
+function requestJson(url, { method = "GET", headers = {}, body = undefined, redirects = 3, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS } = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     const payload = body == null ? null : JSON.stringify(body);
@@ -113,6 +120,9 @@ function requestJson(url, { method = "GET", headers = {}, body = undefined, redi
           resolve(raw);
         }
       });
+    });
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error(`${method} ${url} timed out after ${timeoutMs}ms`));
     });
     req.on("error", reject);
     if (payload) req.write(payload);
@@ -178,6 +188,51 @@ function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
+function inspectSnapshotDoc(doc, file = DEFAULT_OS_SNAPSHOT, { maxAgeHours = DEFAULT_MAX_SNAPSHOT_AGE_HOURS } = {}) {
+  const generatedAt = doc?.generatedAt || null;
+  const generatedTime = generatedAt ? new Date(generatedAt).getTime() : NaN;
+  const ageHours = Number.isFinite(generatedTime) ? (Date.now() - generatedTime) / 36e5 : null;
+  const stale = !Number.isFinite(generatedTime) || ageHours > maxAgeHours;
+  return {
+    ok: !stale,
+    file,
+    generatedAt,
+    ageHours: ageHours == null ? null : Number(ageHours.toFixed(2)),
+    maxAgeHours,
+    stale,
+    reason: stale
+      ? (!generatedAt ? "snapshot generatedAt missing" : `snapshot older than ${maxAgeHours}h`)
+      : "snapshot fresh",
+  };
+}
+
+function inspectSnapshotFile(file = DEFAULT_OS_SNAPSHOT, { maxAgeHours = DEFAULT_MAX_SNAPSHOT_AGE_HOURS } = {}) {
+  if (!fs.existsSync(file)) {
+    return {
+      ok: false,
+      file,
+      generatedAt: null,
+      ageHours: null,
+      maxAgeHours,
+      stale: true,
+      reason: "snapshot file missing",
+    };
+  }
+  try {
+    return inspectSnapshotDoc(readJson(file), file, { maxAgeHours });
+  } catch (error) {
+    return {
+      ok: false,
+      file,
+      generatedAt: null,
+      ageHours: null,
+      maxAgeHours,
+      stale: true,
+      reason: `snapshot unreadable: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
 function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
@@ -208,6 +263,41 @@ function confidenceValue(value, fallback = 0.5) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.min(1, n));
+}
+
+function summarizePayload(value, depth = 0) {
+  if (value == null) return value;
+  if (typeof value === "string") return value.length > 500 ? `${value.slice(0, 500)}...` : value;
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (Array.isArray(value)) return value.slice(0, 3).map((item) => summarizePayload(item, depth + 1));
+  if (typeof value === "object") {
+    if (depth >= 2) return "[object]";
+    const out = {};
+    for (const [key, item] of Object.entries(value).slice(0, 20)) {
+      if (/key|token|secret|password|authorization/i.test(key)) {
+        out[key] = "[redacted]";
+      } else {
+        out[key] = summarizePayload(item, depth + 1);
+      }
+    }
+    return out;
+  }
+  return String(value);
+}
+
+function serviceDiagnostic(name, result, payload, ok, expected = "request fulfilled") {
+  const transportOk = result.status === "fulfilled";
+  const error = settledError(result);
+  let reason = null;
+  if (!transportOk) reason = error || `${name} request failed`;
+  else if (!ok) reason = `${name} response did not satisfy health predicate: ${expected}`;
+  return {
+    ok,
+    transportOk,
+    reason,
+    error,
+    payload: summarizePayload(payload),
+  };
 }
 
 function tableRows(snapshotDoc, table) {
@@ -267,6 +357,11 @@ async function health() {
   const supabaseOk = checks[0].status === "fulfilled";
   const pwaScheduleOk = checks[1].status === "fulfilled" && !!pwa?.ok;
   const gasOk = checks[2].status === "fulfilled" && (gas?.ok === true || gas?.skipped === true);
+  const diagnostics = {
+    supabase: serviceDiagnostic("supabase", checks[0], supabase, supabaseOk),
+    pwaSchedule: serviceDiagnostic("pwaSchedule", checks[1], pwa, pwaScheduleOk, "payload.ok === true"),
+    gas: serviceDiagnostic("gas", checks[2], gas, gasOk, "payload.ok === true or payload.skipped === true"),
+  };
 
   return {
     ok: supabaseOk,
@@ -276,7 +371,10 @@ async function health() {
     pwaScheduleOk,
     gasOk,
     supabase,
+    pwa: summarizePayload(pwa),
+    gas: summarizePayload(gas),
     pwaSample: pwa?.schedules?.slice?.(0, 2) || [],
+    diagnostics,
     errors: {
       supabase: settledError(checks[0]),
       pwaSchedule: settledError(checks[1]),
@@ -537,6 +635,7 @@ async function exportOsSnapshot({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {
 
 function localTargets({ file = DEFAULT_OS_SNAPSHOT, ym = yyyymm(), includePast = true } = {}) {
   const doc = readJson(file);
+  const snapshotHealth = inspectSnapshotDoc(doc, file);
   const activeProjects = tableRows(doc, "projects").filter((p) => String(p.status || "").toLowerCase() === "active");
   const yms = [ym, prevYm(ym)];
   const targetMap = new Map();
@@ -576,6 +675,8 @@ function localTargets({ file = DEFAULT_OS_SNAPSHOT, ym = yyyymm(), includePast =
     ok: true,
     generatedAt: new Date().toISOString(),
     snapshotGeneratedAt: doc.generatedAt,
+    snapshotHealth,
+    warning: snapshotHealth.stale ? snapshotHealth.reason : null,
     file,
     targets: Array.from(targetMap.values()),
   };
@@ -584,6 +685,7 @@ function localTargets({ file = DEFAULT_OS_SNAPSHOT, ym = yyyymm(), includePast =
 function localSnapshot({ file = DEFAULT_OS_SNAPSHOT, projectId, ym }) {
   if (!projectId || !ym) throw new Error("local-snapshot requires --project <projectId> --ym <YYYYMM>");
   const doc = readJson(file);
+  const snapshotHealth = inspectSnapshotDoc(doc, file);
   const projects = tableRows(doc, "projects");
   const cycles = tableRows(doc, "value_plan_cycles").filter((c) => c.project_id === projectId);
   const planIds = new Set(cycles.map((c) => c.plan_cycle_id));
@@ -594,6 +696,8 @@ function localSnapshot({ file = DEFAULT_OS_SNAPSHOT, projectId, ym }) {
     ok: true,
     offline: true,
     snapshotGeneratedAt: doc.generatedAt,
+    snapshotHealth,
+    warning: snapshotHealth.stale ? snapshotHealth.reason : null,
     project: projects.find((p) => p.project_id === projectId) || { project_id: projectId },
     ym,
     cycles,
@@ -979,6 +1083,7 @@ async function applyOutboxDir({ dir = DEFAULT_OUTBOX_DIR, appliedDir, failedDir 
 
 async function automationPrepare({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {}) {
   const snapshotResult = await refreshSnapshot({ ym, out });
+  const localSnapshotHealth = inspectSnapshotFile(out);
   const shouldApplyOutbox = process.env.AMD_OS_AUTOMATION_APPLY_OUTBOX === "1";
   const applyResult = shouldApplyOutbox
     ? await applyOutboxDir({})
@@ -987,10 +1092,22 @@ async function automationPrepare({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = 
         skipped: true,
         reason: "outbox apply is handled by the local non-LLM applier",
       };
+  const actionRequired = [];
+  if (!snapshotResult.ok) {
+    actionRequired.push("Enable network for the automation runner or run a local non-LLM snapshot refresh worker.");
+  }
+  if (localSnapshotHealth.stale) {
+    actionRequired.push(`Do not rely on local review without explicitly noting stale snapshot: ${localSnapshotHealth.reason}.`);
+  }
+  if (snapshotResult.health?.degraded) {
+    actionRequired.push("Review degraded health diagnostics before trusting scheduled extraction coverage.");
+  }
   return {
     ok: snapshotResult.ok && applyResult.ok,
     snapshot: snapshotResult,
+    localSnapshotHealth,
     outbox: applyResult,
+    actionRequired,
   };
 }
 
@@ -1248,6 +1365,10 @@ async function main() {
   let result;
   if (cmd === "health") {
     result = await health();
+  } else if (cmd === "snapshot-health") {
+    result = inspectSnapshotFile(args.file || DEFAULT_OS_SNAPSHOT, {
+      maxAgeHours: positiveNumber(args["max-age-hours"], DEFAULT_MAX_SNAPSHOT_AGE_HOURS),
+    });
   } else if (cmd === "targets") {
     result = await targets({ ym: args.ym || yyyymm(), includePast: args["no-past"] !== true });
   } else if (cmd === "snapshot") {
@@ -1300,6 +1421,7 @@ async function main() {
       ok: true,
       usage: [
         "node pwa/scripts/ms_progress_review_tool.mjs health",
+        "node pwa/scripts/ms_progress_review_tool.mjs snapshot-health --file /tmp/os-snapshot.json --max-age-hours 48",
         "node pwa/scripts/ms_progress_review_tool.mjs export-os-snapshot --ym 202605",
         "node pwa/scripts/ms_progress_review_tool.mjs local-targets --ym 202605",
         "node pwa/scripts/ms_progress_review_tool.mjs local-snapshot --project p25 --ym 202605",

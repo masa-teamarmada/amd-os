@@ -6323,7 +6323,7 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 - commit: 2ced55a
 
 ##### Round 6 (= #7-#13)
-- #7 「まさ × えいみ経営会議」→ **「まさえいMTG」** に統一 (= かる/ちこ等への疎外感回避)。chip / title / SYSTEM_PROMPT / DB 既存 3 件 update / Slack 再投稿 (= 旧 ts=1779556087 削除 + 新 ts=1779608045 投稿)
+- #7 対話セッション呼称 → **「まさえいMTG」** に統一。chip / title / SYSTEM_PROMPT / DB 既存 3 件 update / Slack 再投稿 (= 旧 ts=1779556087 削除 + 新 ts=1779608045 投稿)
 - #8 narrative から「5月下旬の開発部長MTG」過度フォーカス削除 → 「事業戦略上そろそろ方針を決めておきたい」表現へ
 - #9 表の `✘` → `✕` (= 罰点的に見える問題)
 - #10 deep link auto-open モーダルが背景クリックで閉じない問題 → `autoOpenedRef` + `router.replace(pathname)` で URL から `?meeting=` を消す
@@ -6507,7 +6507,7 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - `HudCockpitHeader.tsx`: categoryLabel に `NEW BUSINESS` 分岐追加
 - AMD Score 系 (`!== 'ecosystem'` で判定) は new_business を自然に包含するので変更不要
 - 設計 md: [cockpit.md](../design/cockpit.md) Project Category 表 + 今期 MS 対象、[ms_progress.md](../design/ms_progress.md) 対象 PJ 条件
-- マニュアル正本: [manual/05-decisions-and-history.md §5.6](../manual/05-decisions-and-history.md#56-project_category-に-new_business-追加--2026-05-25) として「追加判断 + DTSU と分ける理由 + 触ったファイル + 新セッションのえいみへの注意」を記録、[manual/04-admin-ops.md §4.2](../manual/04-admin-ops.md#42-adminprojects) に category 表を追記 (= HANDOFF #11 の category 部分は完了、status 軸の追記は別途残る)
+- マニュアル正本: [manual/05-decisions-and-history.md §5.6](../manual/05-decisions-and-history.md#56-project_category-に-new_business-追加--2026-05-25) として「追加判断 + DTSU と分ける理由 + 触ったファイル + 新セッションのえいみへの注意」を記録、[manual/04-admin-ops.md §4.2](../manual/04-admin-ops.md#42-adminprojects) に category 表を追記 (= status 軸は 2026-05-25 #37 で追記済み)
 
 ### Verified
 - `npx tsc --noEmit` pass
@@ -6524,3 +6524,110 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 ### 教訓 (= BUGS には載せない、設計判断系)
 - 「PJ タイプ」と一言で言われた時、`project_type` (請求運用軸) と `project_category` (AMD OS 扱い軸) の 2 つがあるので必ず特定する (= AskUserQuestion で 4 択提示が効いた)
 - 新カテゴリ追加時は `in ('dtsu','ecosystem')` リテラルを grep 全箇所拾う (= 今回 5 箇所)。リテラルではなく `MS_PROGRESS_PROJECT_CATEGORIES` のような名前付き定数で集約してれば 1 箇所で済んだ → 将来同様の追加が見えてるなら集約をリファクタ候補に
+
+---
+
+## 2026-05-25 (#37) — OS マニュアル 04 章 status 軸追記 + writer/outbox 表現の補正
+
+### 着手契機
+まさ「まずは関連mdを読んで。そのうえで、OSのマニュアルの拡充を進めてほしい。」。`pwa/HANDOFF_pwa_rebuild.md` の Open Tasks #11 に、#23 派生の `admin/projects` status 説明が未完として残っていた。
+
+### 実装
+- [manual/04-admin-ops.md](../manual/04-admin-ops.md): `projects.status` 6 値 (`draft` / `active` / `sales` / `ended` / `frozen` / `lost`) の意味と主な扱いを追記。`project_category` とは別軸であること、`freeze_from_ym` / `restart_expected_ym` / `project_freeze_periods` は期間つき休止オーバーレイとして使うことを明記。
+- [manual/03-data-and-extraction.md](../manual/03-data-and-extraction.md): `amd-os-ms` が生成する L2 を ③⑦⑧ に補正し、②④⑤⑥ は生成しないことを 5.7 にリンク。LaunchAgent の strategy signals 監視先も `amd-os/strategy-signals-outbox` に補正。
+- [manual/05-decisions-and-history.md](../manual/05-decisions-and-history.md): 責務分担マトリクスの `amd-os-ms` 行と `amd-os-meeting-extract` 頻度を補正。
+- [design/L2_DATA.md](../design/L2_DATA.md): 経営ハイライト outbox path と writer 名を `amd-os` / `strategy-signals-outbox` に補正。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): Open Tasks #11 を完了扱いに更新。
+
+### Verified
+- docs-only 変更。コード実行 / build / deploy は対象外。
+- `AdminProjectsTable.tsx` の `STATUS_OPTIONS` と `db_schema.md` の `projects` 列を確認してから記述。
+
+---
+
+## 2026-05-25 (#38) — OS マニュアル 判断エンジン章 + 月次ルーティン図解 + メンバー表現修正
+
+### 着手契機
+まさ「atlas, AMD protocol, AMD score, macrotrendあたりの説明が入ってないな。あと月次ルーティンも、締切日とか、それぞれのタスクの内容とかを示したフロー図がほしい。」続けて「かる」「ちこ」だけが AMD メンバー代表のように見える書き方と、まさえいMTG 呼称の裏事情を AMD メンバー向けに露出する記述はダメ、と指摘。
+
+### 実装
+- [manual/07-atlas-protocol-score-macrotrend.md](../manual/07-atlas-protocol-score-macrotrend.md) 新規追加。
+  - Macrotrend / Atlas / AMD Score / AMD Protocol / AMD Management Score の役割を読み手向けに整理。
+  - `/atlas` 実装 routes (`/atlas`, `/atlas/inbox`, `/atlas/map`, `/atlas/macrotrends`, `/atlas/divergence`, `/atlas/decisions`) に合わせて記述。
+  - AMD Protocol は GAS 155 停止後の ghost 状態と Claude routine 復旧予定を明記。
+- [manual/00-intro.md](../manual/00-intro.md): 想定ユーザーを `AMD メンバー` 行に統合し、個別メンバー代表行を廃止。L2 例も個人名代表から一般表現へ変更。章ガイドに 07 章を追加。
+- [manual/01-pj-cockpit.md](../manual/01-pj-cockpit.md): AMD Score の M/X/F 説明を補強。月次ルーティンに標準PJ / CTB の締切フロー図、step ごとのタスク内容、クリック先、`invoice_ym` 延期時の扱いを追加。
+- [manual/04-admin-ops.md](../manual/04-admin-ops.md): §4.6 として cockpit 月次ルーティンと admin データ (`billing_cycles`, `/admin/projects`, `/admin/billing`, `/admin/payouts`, `/reimburse`) の接続図を追記。
+- [manual/02-amd-cockpit.md](../manual/02-amd-cockpit.md) / [manual/05-decisions-and-history.md](../manual/05-decisions-and-history.md): まさえいMTG を「チームへ提案する前の論点・提案・残課題を整理する対話セッション」として説明し、裏事情の記述を削除。
+- [manual/03-data-and-extraction.md](../manual/03-data-and-extraction.md): `まさえみ` 誤記を `まさえい` に補正し、`project_members` の例を一般化。
+- 関連 design md (`atlas.md`, `project_strategy_signals.md`, `strategy_signals_redesign.md`, `os_manual.md`, `meeting_summaries.md`, `ui_hint_tooltip.md`) の目立つ旧呼称・内部事情説明を削除 / 置換。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #38 反映、manual 07 章を first read order に追加、Open Tasks のマニュアル追記を完了扱いに更新。
+
+### Verified
+- docs-only 変更。コード build / deploy は対象外。
+- `rg -n "<旧呼称・内部事情説明の検出パターン>" pwa/manual pwa/design pwa/HANDOFF_pwa_rebuild.md` → hit なし。
+- `rg -n "かる|ちこ" pwa/manual` → 人名代表としての hit なし (`ばっちこい` / `なっているか` など部分一致のみ)。
+
+---
+
+## 2026-05-25 (#39) — OS マニュアル 2 セクション化 + 全体クロール追記パス
+
+### 着手契機
+まさ「他にも、OSの仕様でまだマニュアルに書かれてないものをどんどん見つけて、それをどんどん追記していってほしい。全体の構成を最適化したい。まずはよく分かってないメンバーがざっくり使い方を知るためのセクションと、細かい仕様まで含めた全体設計をまとめたセクションの２つに分けた方がいいと思う。」。
+
+### クロール
+- `pwa/src/app` の page route 一覧を取得し、manual 内の route 言及と照合。
+- `pwa/design/SPEC_pwa.md`, `mypage.md`, `notifications.md`, `seeds.md`, `vc_list.md`, `management_score.md`, `amd_score.md` などを読み、manual に薄い領域を抽出。
+- 初回漏れとして `/mypage`, `/notifications`, Seeds/VC/Scholar, Venture Map 実験ビュー, HUD, `/atlas/admin/themes`, `/atlas/inbox/submit`, `/project/{project_id}/config`, AMD Score 詳細式、通知反映ゲートが見つかった。
+
+### 実装
+- manual index:
+  - [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts) 新規追加。
+  - `/manual` index を「まず使う人向け」「全体設計・細かい仕様」の 2 セクション表示へ変更。
+  - `/manual/[slug]` の prev/next も同じ順序へ変更。
+- manual 新規章:
+  - [08-member-quick-start.md](../manual/08-member-quick-start.md): 初心者向け。`/dashboard` -> `/mypage` -> cockpit -> notifications -> reimburse の最短導線、役割別の見る場所、探索系画面。
+  - [20-system-architecture.md](../manual/20-system-architecture.md): platform map、画面マップ、データレイヤー、書き込み経路、auth/role、manual coverage 表。
+  - [21-amd-score-spec.md](../manual/21-amd-score-spec.md): AMD Score の式、M/X/F、軸、α、律速、データソース、根拠 notes、更新フロー。
+  - [22-notifications-and-tsukuyomi.md](../manual/22-notifications-and-tsukuyomi.md): 通知種別、正本反映ゲート、つくよみ修正依頼、現状ギャップ、入金確認/PL承認 nudge。
+- [00-intro.md](../manual/00-intro.md): 章の読み方ガイドを「まず使う人向け」と「全体設計・細かい仕様」の 2 系統に整理。
+- [07-atlas-protocol-score-macrotrend.md](../manual/07-atlas-protocol-score-macrotrend.md): 20/21/22 章への参照を追加。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #39 の summary / first read order / manual追記完了を反映。
+
+### Verified
+- route coverage script で主要 app page route の manual 言及漏れ 0 件を確認。
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 149)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+- `curl -I -L` で `/manual`, `/manual/08-member-quick-start`, `/manual/21-amd-score-spec` が auth redirect 後 200 を返すことを確認。
+
+---
+
+## 2026-05-25 (#40) — OS マニュアル 継続クロール追記: 探索系 / HUD / Operations Settings
+
+### 着手契機
+まさ「このまま可能な限りずっと続けてほしい。追記して、design_logとかOSそのものをブラウザで見て確認して、足りない要素があれば追記して…を繰り返して。」。
+
+### クロール
+- `pwa/design/HUD_CLIENT_MIGRATION.md`, `hud_visual_language.md` を読み、HUD client は現行 PWA を壊さない並行 client で、DB/API 共有・UI 分離・parity checklist 必須であることを確認。
+- `pwa/src/lib/operations-catalog.ts`, `OperationsSettingsClient.tsx`, `/api/settings/cron-run` を読み、`/admin/settings` の Raw Data / L2 Data / Cron Control と Run Now の実行フローを確認。
+- `pwa/design/venture_map_model.md`, `macrotrend_atlas_seeds_architecture.md`, `/venture-map` page, `/seeds`, `/vcs`, `/scholar` page を読み、探索系アセットと Venture Map の manual がまだ薄いことを確認。
+
+### 実装
+- [09-research-assets-quick-start.md](../manual/09-research-assets-quick-start.md) 新規追加。
+  - Atlas / Seeds / VC / Scholar の役割、各画面の読み方、Seeds status 遷移、VC DPE 出所、Scholar の OpenAlex / paper_count 位置付けを整理。
+- [23-hud-and-venture-map-spec.md](../manual/23-hud-and-venture-map-spec.md) 新規追加。
+  - HUD client の分離方針、HUD routes、HUD dashboard の入力データ、parity checklist、Venture Map の macro 指数・論文政策乖離・主テーブル・実験ビューを整理。
+- [24-operations-settings-spec.md](../manual/24-operations-settings-spec.md) 新規追加。
+  - `/admin/settings` の Raw Data / L2 Data / Cron Control、`Run Now` 内部フロー、実行可能 operation、停止中 operation、更新ルール、トラブルシュートを整理。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts): 09 / 23 / 24 章を 2 セクション構成に追加。
+- [00-intro.md](../manual/00-intro.md), [08-member-quick-start.md](../manual/08-member-quick-start.md), [04-admin-ops.md](../manual/04-admin-ops.md), [06-developer.md](../manual/06-developer.md), [07-atlas-protocol-score-macrotrend.md](../manual/07-atlas-protocol-score-macrotrend.md), [20-system-architecture.md](../manual/20-system-architecture.md) に新章リンクと coverage 表を反映。
+- [design/os_manual.md](../design/os_manual.md): 状態を「実装済み」に更新し、現行の 2 セクション章立てを追記。
+- ブラウザ確認中に `../design/*.md` などの相対 md リンクが `/design/...` へ飛ぶ可能性を見つけたため、[MarkdownView.tsx](../src/components/cockpit/MarkdownView.tsx) に `linkMode="manual"` を追加。manual 画面だけ、manual 章リンクは `/manual/{slug}`、design/scripts 等は GitHub blob へ補正する。cockpit の Markdown 表示は default のまま。
+
+### Verified
+- route coverage script で主要 app page route の manual 言及漏れ 0 件を確認。
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 152)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+- Chrome で `/manual`, `/manual/23-hud-and-venture-map-spec`, `/admin/settings`, `/hud/dashboard` を目視確認。

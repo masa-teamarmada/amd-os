@@ -2103,7 +2103,7 @@
 ### [infra/outbox-applier] Codex automation の経営ハイライト outbox が flush されない (= applier 監視先と出力先の不整合)
 
 - **発見日**: 2026-05-24 夜
-- **状態**: ✅ 短期復旧済 (= 手動 apply で 9 件 INSERT) / 🔴 構造修復未対応 (= 別 task)
+- **状態**: ✅ 構造修復済 (= 2026-05-25 `scripts/run-ms-outbox-applier.sh` の `STRATEGY_AUTOMATION_DIR` を新変数 `STRATEGY_OUTBOX_DIR="/Users/masa/.codex/automations/amd-os/strategy-signals-outbox"` に変更、実出力先と一致。LaunchAgent plist は変更不要、次回 5 分 polling で新 shell が自動で読まれる。マニュアル 5.4 の「⚠️ 現状の片肺」項目 1 も修復済に更新)
 - **症状**:
   - `amd-os` automation (= daily 03:20 JST) が 5/24 03:30 に経営ハイライト抽出を完了、outbox JSON (30KB / 9 シグナル) を出力
   - しかし Supabase の `project_strategy_signals` に 5/23 以降の signal が 0 件 (= まさが「鉱山調査が OS に取り込まれてない」と感じた根本)
@@ -2118,13 +2118,47 @@
 - **対応内容 (= 短期)**:
   - `node pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir --dir ~/.codex/automations/amd-os/strategy-signals-outbox` で手動 apply
   - 9 件全部が `project_strategy_signals` に `candidate` で INSERT 成功
-- **構造修復案 (= 中期、別 task)**:
-  - 案 1: `run-ms-outbox-applier.sh` の `STRATEGY_AUTOMATION_DIR` を `amd-os/strategy-signals-outbox` に変更
-  - 案 2: `amd-os` automation 側の出力先を `~/.codex/automations/amd-os-strategy-signals/outbox/` に変更
-  - どちらでも、変更後は次回 03:30 JST 以降の自動 flush を確認
+- **構造修復実施 (= 2026-05-25)**:
+  - 案 1 を採用: `run-ms-outbox-applier.sh` の applier 側を実出力先に合わせて変更 (= 新変数 `STRATEGY_OUTBOX_DIR`、`mkdir -p` + `find` + `apply-outbox-dir --dir` の 3 箇所参照を新変数で揃え)
+  - LaunchAgent plist (= `jp.teamarmada.amd-os-ms-outbox-applier.plist`) は触らず、次回 5 分以内の polling で新 shell を自動的に使う設計
+  - bash -n で syntax 確認済
 - **再発防止策**:
   - automation 名と applier 監視 dir の **整合性** を、追加・rename 時に必ず両方確認
   - `pwa/manual/05-decisions-and-history.md` 5.4 責務分担マトリクスに「⚠️ 現状の片肺」として明記済
+
+---
+
+### [infra/l2-extraction] 2026-05-22 cron 全廃止時に「Codex automation `amd-os-ms` が L2 ②④⑤⑥ も拾ってる」前提が間違っており、3 日間 ghost 化が発覚
+
+- **発見日**: 2026-05-25 (= 5/22 cron 廃止から 3 日後、まさが「議事録を取り込む automation/routines がないって別セッションで気づいてた」と指摘して再調査で確定)
+- **状態**: 🚧 復旧計画策定済 (= まさ案 C: Claude routine 4 個新設)、設計議論 [`pwa/design/l2_extract_claude_routine.md`](design/l2_extract_claude_routine.md)、実装は次セッション
+- **症状**:
+  - L2 ② AMD プロトコル (`protocols`): 2026-05-22 が最後の created_at
+  - L2 ④ PJ ナレッジ (`project_knowledge`): 2026-05-23 が最後の updated_at (= 残留分)
+  - L2 ⑤ メンバーナレッジ (`member_knowledge`): 2026-05-22 が最後の updated_at
+  - L2 ⑥ MTG サマリ (`project_meeting_summaries`): 2026-05-22 以降の自動取り込みは事実上ゼロ (= dialogue まさえみ手動投入のみ active)
+  - 結果として、まさえいMTG で経営ハイライト confirm しても下流の議事録・PJ ナレッジ・メンバーナレッジが更新されず、OS が「凍ったデータ」で動く状態に
+- **原因**:
+  - 2026-05-22 「LLM 課金が発生する定期抽出 cron を全廃止」した時に「Codex automation が全部カバーしてる前提」だったが、**`amd-os-ms` automation の prompt 精読すると ②④⑤⑥ は「通知だけ」「生成しない」設計**:
+    - A (= L2 ⑦) → `outbox.registryDiffs` ✅ 生成
+    - B (= L2 ⑧) → `outbox.xrlEvidence` ✅ 生成
+    - C (= L2 ③) → `outbox.revisions` ✅ 生成
+    - D (= 生データ未取り込み) → `outbox.notifications` で**通知のみ** (= 取り込みは別レーン前提)
+    - F (= 会議候補) → **通知のみ**、`project_meeting_summaries` 書き込みなし
+  - GAS 153 (= 議事録毎時 polling) + GAS 155 (= L2 ②④⑤ 抽出) + GAS 152 (= 月次 fallback) は kill switch (`MEETING_HOURLY_CRON_DISABLED_20260522` / `L2_KNOWLEDGE_CRON_DISABLED_20260522` / `NAV_MONTHLY_EXTRACT_CRON_DISABLED_20260522`) で停止、live trigger も削除済
+  - GAS 153 のコメント「Use Codex automation/review batches」が**実態として実装されてない**ことを誰も検証してなかった
+  - マニュアル `pwa/design/L2_DATA.md` 表の writer 列が「`amd-os-ms` (= 旧 GAS 155 から移管)」と書いてたが**この記述が虚偽**だった
+- **対応方針 (= 次セッション)**:
+  - 案 C 採用: Claude routine 4 個新設 (= `amd-os-meeting-extract` / `amd-os-protocol-extract` / `amd-os-project-knowledge-extract` / `amd-os-member-knowledge-extract`)
+  - `amd-os-management-dialogue-prep` と同パターン、`~/.claude/scheduled-tasks/<id>/SKILL.md`、サブスク内 LLM
+  - 各 routine の prompt に `l2_feedbacks` 読み込み手順を入れて、修正依頼ループも復活
+  - 5/22-5/25 の取り込み穴期間は backfill モード or 手動キックで埋める
+  - 詳細は [`pwa/design/l2_extract_claude_routine.md`](design/l2_extract_claude_routine.md)
+- **再発防止策**:
+  - **大規模な path 切替 (= cron 停止 / writer 移管) を行う時は「停止対象 → 後継担当」を 1 対 1 の対応表にして fact 検証してから止める**
+  - 今回は「GAS 4 個停止 + Codex automation 2 個追加」で「数」だけ揃ってたが「カバー範囲」が偏ってた
+  - マニュアル 5.4 責務分担マトリクスは GAS source の kill switch flag を grep + Codex automation の prompt 精読で**書き起こす**ことを義務化
+  - 各 L2 テーブルの最新 created_at / updated_at を毎週 1 回 admin dashboard で可視化、ghost 検知の早期発見
 
 ---
 

@@ -13,69 +13,81 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 | **Drive** | チームアルマダ Drive | 議事録 docs / 試算表 / 提案資料 PDF |
 | **Gmail** | まさ + AMD メンバー受信箱 | 外部関係者連絡 |
 
-### 取り込み経路 (2026-05-22 以降)
+### 🚨 現状 (= 2026-05-25 fact)
 
-**重要**: Vercel cron は **廃止**。GAS cron も **kill switch + 停止済**。詳細経緯は **[05 章 5.1 cron 廃止経緯](05-decisions-and-history.md#51-cron-廃止経緯)**。
+2026-05-22 に「LLM 課金が発生する定期抽出 cron を全廃止」した時に、**「Codex automation が全部カバーしてる前提」が間違ってた**ことが 5/25 判明。実態:
 
-現在の経路:
+| L2 | 何を生成 | 元 writer | 現状 | 復旧方針 |
+|---|---|---|---|---|
+| ① monthly_reports | PJ 月次レポート | AMD-Report GAS R313 | ✅ 稼働 (= R313 は LLM 不使用、別 GAS で生きてる) | — |
+| ② AMD プロトコル | `protocols` | GAS 155 | ⛔ **5/22 停止 (`L2_KNOWLEDGE_CRON_DISABLED_20260522`)**、Codex automation 受け皿無し | 🚧 Claude routine 新設予定 |
+| ③ MS 進捗 | `milestone_monthly_progress` 等 | GAS 154 → Codex automation `amd-os-ms` | ✅ 稼働 (= `amd-os-ms` が 6h ごとに `outbox.revisions` 生成 → applier upsert) | — |
+| ④ PJ ナレッジ | `project_knowledge` | GAS 155 | ⛔ **5/22 停止**、Codex automation は通知のみ (生成なし) | 🚧 Claude routine 新設予定 |
+| ⑤ メンバーナレッジ | `member_knowledge` | GAS 155 | ⛔ **5/22 停止**、Codex automation は通知のみ | 🚧 Claude routine 新設予定 |
+| ⑥ MTG サマリ (議事録) | `project_meeting_summaries` | GAS 153 (毎時 polling) | ⛔ **5/22 停止 (`MEETING_HOURLY_CRON_DISABLED_20260522`)**、Codex automation 受け皿無し | 🚧 Claude routine 新設予定 |
+| ⑦ OS 台帳差分 | `project_registry_diffs` | Codex automation `amd-os-ms` | ✅ 稼働 (= `outbox.registryDiffs` 生成 → applier upsert) | — |
+| ⑧ XRL 根拠 | `project_xrl_evidence` | Codex automation `amd-os-ms` | ✅ 稼働 (= `outbox.xrlEvidence` 生成 → applier upsert) | — |
+| ⑨ 経営ハイライト | `project_strategy_signals` | Codex automation `amd-os` (daily 03:20) | ✅ 稼働 (= applier dir 修復済 2026-05-25)、ただし**修正依頼ループ未実装** | 別 task で `amd-os` prompt 拡張 |
+
+つまり **②④⑤⑥ = 議事録 / プロトコル / PJ ナレッジ / メンバーナレッジ の 4 種が 5/22 以降 ghost 状態** (= 5/22 以前の row が cockpit に表示されるが、新規取り込みゼロ)。実 fact:
+- `protocols`: 2026-05-22 が最後の created_at
+- `project_knowledge`: 2026-05-23 が最後の updated_at (残留分)
+- `member_knowledge`: 2026-05-22 が最後の updated_at
+- `project_meeting_summaries`: 5/22 以降 created の自動取り込みは事実上ゼロ (= dialogue (まさえい手動) と manual_eimi のみ)
+
+### 取り込み path 一覧 (= 稼働中 path だけ)
 
 ```
-[5 生データソース] (= Slack / Notion / Calendar / Drive / Gmail)
-   │
-   │ (= 6h ごとに Codex automation `amd-os-ms` が直接 fetch)
-   │
-   ▼
-[Codex automation `amd-os-ms`]
-   ├ 5 生データの差分検出
-   ├ OS snapshot (= 既存 L2) との突合
-   ├ outbox JSON 生成 (= L2 ① ② ③ ⑦ ⑧)
-   └ ~/.codex/automations/amd-os-ms/outbox/{timestamp}.json
-   │
-   ▼
-[LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier`] (= 5 分ごと)
-   ├ ~/.codex/automations/amd-os-ms/outbox/ を polling
-   ├ ms_progress_review_tool.mjs apply-outbox-dir で Supabase POST
-   └ 適用済 outbox を /applied/ に移動
-   │
-   ▼
-[Supabase] (= L2 ① ② ③ ⑦ ⑧)
-   │
-   ▼
-[PWA cockpit] (= まさ / かる / ちこが見る)
+✅ ① monthly_reports
+   AMD-Report GAS R313_MonthlyReport_Cron (05:00 daily) → Supabase
+
+✅ ③ MS 進捗 / ⑦ OS 台帳差分 / ⑧ XRL 根拠
+   [Codex automation `amd-os-ms`] (= 6h ごと、subscription 内 LLM)
+     ↓ outbox JSON
+   [~/.codex/automations/amd-os-ms/outbox/]
+     ↓ 5 分ごと polling
+   [LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier`]
+     ↓ pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir
+   [Supabase] (= L2 ③⑦⑧)
+
+✅ ⑨ 経営ハイライト (= L2 ⑨)
+   [Codex automation `amd-os`] (= daily 03:20 JST)
+     ↓ outbox JSON
+   [~/.codex/automations/amd-os/strategy-signals-outbox/]   ← 監視先修復済 2026-05-25
+     ↓ 5 分ごと polling
+   [LaunchAgent applier (同上)]
+     ↓ apply-outbox-dir --dir <そこ>
+   [Supabase] (= L2 ⑨)
 ```
 
-経営ハイライト (= L2 ⑨) は別経路:
-```
-[Codex automation `amd-os`] (= daily 03:20 JST)
-   ├ 5 生データ + OS snapshot から経営ハイライト candidate 抽出
-   └ ~/.codex/automations/amd-os/strategy-signals-outbox/{timestamp}.json
-   │
-   ▼
-[(本来は LaunchAgent applier が拾うべきだが、現在 dir 不整合あり)]
-   ⚠️ 監視先 = ~/.codex/automations/amd-os-strategy-signals/outbox/ (= 空)
-   ⚠️ 出力先 = ~/.codex/automations/amd-os/strategy-signals-outbox/  (= 実際の場所)
-   ⚠️ → 手動 apply 必要 (別 task で修復予定)
-```
+⛔ **②④⑤⑥ には現状 path 無し**。
 
-→ 全責務分担は **[05 章 5.4 責務分担マトリクス](05-decisions-and-history.md#54-codex--claude--vercel--launchagent-責務分担マトリクス)**
+→ 全責務分担は **[05 章 5.4 責務分担マトリクス](05-decisions-and-history.md#54-codex--claude--vercel--launchagent-責務分担マトリクス)** に正本表あり (= 上記マトリクスとの整合チェックは 5.4 を真とする)
+
+→ 復旧計画は **[`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)** (= Claude routine 4 個新設、まさ案 C 採用 2026-05-25)
+
+→ なぜ 5/22 cron 廃止したかの背景は **[05 章 5.1 cron 廃止経緯](05-decisions-and-history.md#51-cron-廃止経緯)**
 
 ---
 
 ## 3.2 L2 9 種の正本
 
-| L2 # | テーブル | 用途 | 主な入力ソース | 主な writer |
-|---|---|---|---|---|
-| ① | `monthly_reports` | PJ 月次レポート | 5 ソース全部 | `amd-os-ms` |
-| ② | `member_activities` | メンバー活動ログ | Gmail / Calendar 直接 fetch | `cron/member-weekly-activities` (= 残存運用系) |
-| ③ | `project_milestones` + 進捗系 | MS 達成度 | 5 ソース | `amd-os-ms` |
-| ④ | `project_knowledge` | PJ 知識ナレッジ | 議事録 / Slack 長文 | `amd-os-ms` (= 旧 GAS 155 から移管) |
-| ⑤ | `member_knowledge` | メンバー個人のナレッジ | Gmail / Slack | `amd-os-ms` |
-| ⑥ | `project_meeting_summaries` | MTG サマリ | Calendar + Drive 議事録 + Notion + dialogue API | GAS 153 (= 毎時 polling) + `amd-os-ms` |
-| ⑦ | `os_ledger_diffs` (= 通知 nudge) | OS 台帳差分 | OS snapshot vs 5 ソース | `amd-os-ms` |
-| ⑧ | `project_xrl_evidence` | XRL 根拠 | 5 ソース + OS snapshot | `amd-os-ms` (= 旧 `ms_progress_review_tool.mjs upsertXrlEvidence`) |
-| ⑨ | `project_strategy_signals` | **経営ハイライト** | 5 ソース + OS snapshot | `amd-os` (= daily 03:20) + dialogue API (= まさえいMTG) |
+| L2 # | テーブル | 用途 | 主な入力ソース | 主な writer | 状態 |
+|---|---|---|---|---|---|
+| ① | `monthly_reports` | PJ 月次レポート | 5 ソース全部 | AMD-Report GAS `R313_MonthlyReport_Cron` (= 別 clasp、05:00 daily) | ✅ 稼働 |
+| ② | `protocols` | AMD プロトコル (= 経営判断の構造化記録) | 議事録の二次集約 | ~~GAS 155~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-protocol-extract` 新設予定 | ⛔ ghost |
+| ③ | `milestone_monthly_progress` + 進捗系 | MS 達成度 | 5 ソース + OS snapshot | Codex automation `amd-os-ms` (= 6h ごと、`outbox.revisions`) | ✅ 稼働 |
+| ④ | `project_knowledge` | PJ 知識ナレッジ | `monthly_reports` + 議事録 二次集約 | ~~GAS 155~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-project-knowledge-extract` 新設予定 | ⛔ ghost |
+| ⑤ | `member_knowledge` | メンバー個人のナレッジ | `member_activities` + 議事録 二次集約 | ~~GAS 155~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-member-knowledge-extract` 新設予定 | ⛔ ghost |
+| ⑥ | `project_meeting_summaries` | MTG サマリ (議事録) | Calendar + Notion 議事録 + Slack + Drive Docs + Gmail | ~~GAS 153 (= 毎時 polling)~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-meeting-extract` 新設予定。dialogue (= まさえい手動) は POST `/api/dialogue-meeting` で稼働 | ⛔ ghost (手動 dialogue 投入分を除く) |
+| ⑦ | `project_registry_diffs` (= 通知 nudge) | OS 台帳差分 | OS snapshot vs 5 ソース | Codex automation `amd-os-ms` (= `outbox.registryDiffs`) | ✅ 稼働 |
+| ⑧ | `project_xrl_evidence` | XRL 根拠 | 5 ソース + OS snapshot | Codex automation `amd-os-ms` (= `outbox.xrlEvidence`) | ✅ 稼働 |
+| ⑨ | `project_strategy_signals` | **経営ハイライト** | 5 ソース + OS snapshot | Codex automation `amd-os` (= daily 03:20) + dialogue API (= まさえいMTG)、applier 監視先修復済 2026-05-25 | ✅ 稼働 (修正依頼ループ未実装) |
 
-→ 仕様詳細は [`pwa/design/L2_DATA.md`](../design/L2_DATA.md)。
+**📊 別 L2** (= `member_activities`、メンバー活動ログ): `cron/member-weekly-activities` (= LLM 不使用の残存運用 Vercel cron、daily 18:00 JST) で Gmail / Calendar から直接 fetch。これは厳密には L2 ②じゃないが、L2 ⑤ メンバーナレッジの入力ソースとして重要
+
+→ 仕様詳細は [`pwa/design/L2_DATA.md`](../design/L2_DATA.md) (= 古い writer 記述あり、随時訂正中)。
+→ ghost 4 種の復旧計画は [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)
 
 ---
 
@@ -84,7 +96,7 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 ### Codex automation
 - 場所: `~/.codex/automations/{name}/automation.toml`
 - 主要 automation:
-  - **`amd-os-ms`** (= 6h ごと) — L2 ② ③ ④ ⑤ ⑦ ⑧ 抽出 + outbox 書き出し
+  - **`amd-os-ms`** (= 6h ごと) — L2 ③ MS 進捗 / L2 ⑦ OS 台帳差分 / L2 ⑧ XRL 根拠を outbox 書き出し。L2 ②④⑤⑥ は生成しない (= 2026-05-25 ghost 化の原因、[05 章 5.7](05-decisions-and-history.md#57-l2-②④⑤⑥-ghost-化と-claude-routine-4-個新設計画--2026-05-25) 参照)
   - **`amd-os`** (= daily 03:20 JST) — L2 ⑨ 経営ハイライト抽出 + outbox 書き出し
   - **`amd-atlas-2`** (= daily 08:10 JST) — 外部マクロ Atlas 抽出
   - **`amd-macrotrend-evidence-review`** (= weekly Mon 07:30) — UN SDGs / WEF Global Risks 整理
@@ -97,7 +109,7 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 - 5 分ごとに起動
 - 監視 dir:
   - `~/.codex/automations/amd-os-ms/outbox/` ✅
-  - `~/.codex/automations/amd-os-strategy-signals/outbox/` ⚠️ (空、実際の出力は `amd-os/strategy-signals-outbox/`)
+  - `~/.codex/automations/amd-os/strategy-signals-outbox/` ✅ (= 2026-05-25 監視先修復済)
   - `~/.codex/automations/amd-atlas/outbox/` ✅
 - apply ツール:
   - `pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir [--dir <path>]`
@@ -105,8 +117,16 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 
 ### Claude routine (= scheduled task)
 - 場所: `~/.claude/scheduled-tasks/{name}/SKILL.md`
-- 主要 routine:
-  - **`amd-os-management-dialogue-prep`** (= daily 07:00 JST) — まさえいMTG 議題プリペア (= 全 active PJ + p00 を横断 read → `project_strategy_signals` candidate 積み)
+- 登録: `mcp__scheduled-tasks__create_scheduled_task` (= ローカル時刻で cron 式)
+- LaunchAgent と違い、Claude Code app が動いてる時に発火 (= app 閉じてた時は次回起動時に追いつき)
+- 主要 routine (= 2026-05-25 時点):
+  - ✅ **`amd-os-management-dialogue-prep`** (= daily 07:00 JST) — まさえいMTG 議題プリペア
+  - 🚧 **`amd-os-meeting-extract`** (= **毎時 0 分発火 予定**) — L2 ⑥ MTG サマリ抽出、GAS 153 後継
+  - 🚧 **`amd-os-protocol-extract`** (= daily 08:00 JST 予定) — L2 ② AMD プロトコル抽出、GAS 155 後継
+  - 🚧 **`amd-os-project-knowledge-extract`** (= daily 08:15 JST 予定) — L2 ④ PJ ナレッジ抽出、GAS 155 後継
+  - 🚧 **`amd-os-member-knowledge-extract`** (= daily 08:30 JST 予定) — L2 ⑤ メンバーナレッジ抽出、GAS 155 後継
+- 各 routine の prompt は [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md) で議論中
+- **🚨 重要**: routine 内では Codex automation outbox path を経由せず **直接 Supabase REST に upsert** する設計 (= subscription 帯域節約 + 冪等性は source_hash + 通知連携は `l2_notifications` / `meeting_notifications`)
 
 ### PWA cron (= Vercel)
 - 場所: `pwa/vercel.json` の `crons` 配列
@@ -148,12 +168,24 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
    └ `applied_count` を increment
 ```
 
-### ⚠️ 現状ギャップ (= 2026-05-24 確認)
-- `l2_kind='project_strategy_signal'` (= 経営ハイライト) の修正依頼は **保存はされるが、Codex automation 側で読み込み未実装**
-- 結果: まさが投げた修正依頼が反映されない、形跡も UI 上で見えない
-- 対応: 
-  1. 短期 (= UI 改修): `CockpitStrategySignals.tsx` の各シグナル下に「過去の修正依頼」セクションを追加して `l2_feedbacks` を表示
-  2. 中期 (= automation 改修): `amd-os` automation の prompt に過去 feedback を含める実装追加 + `applied_count` 更新
+### ⚠️ 現状ギャップ (= 2026-05-25 fact 訂正)
+
+**当初の認識** (= 2026-05-24 時点): 「経営ハイライト (= L2 ⑨) だけ修正依頼ループ未実装、他 L2 は GAS 155 / 074 で動いてる」
+**実態 (= 2026-05-25 判明)**: **他 L2 (= ②④⑤⑥) も GAS 155 / 153 kill switch で停止しており、修正依頼ループも実は止まってる**。L2 全種で再構築が必要。
+
+| L2 | 修正依頼読込実装 | 現状 |
+|---|---|---|
+| ② AMD プロトコル | (旧) GAS 155 line 730 で `_l2_loadFeedbackBlock_("protocols", ...)` 実装あり | ⛔ GAS 155 kill switch で動作停止 |
+| ④ PJ ナレッジ | (旧) GAS 155 line 523 で同上 | ⛔ 同上 |
+| ⑤ メンバーナレッジ | (旧) GAS 155 line 321 で同上 | ⛔ 同上 |
+| ⑥ MTG サマリ | (旧) GAS 074 line 1155 で同上 | ⛔ GAS 153 kill switch で動作停止 → GAS 074 helper が呼ばれない |
+| ⑨ 経営ハイライト | Codex automation `amd-os` の prompt に未実装 | 抽出は動いてるが修正依頼が反映されない |
+
+### 復旧計画
+
+- **L2 ②④⑤⑥**: 新設 Claude routine 4 個 (= [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)) の prompt に `l2_feedbacks` 読み込み手順を最初から組み込む
+- **L2 ⑨ 経営ハイライト**: `amd-os` automation の prompt に `l2_feedbacks` 読み込み手順を追加 (= 別 task)
+- **UI 側**: CockpitStrategySignals 等の各 L2 表示部に「過去の修正依頼」セクション追加 (= まさが「形跡が残らない」と気づく問題への対処、別 task)
 
 ---
 
@@ -172,7 +204,7 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 ### 「メンバー」「創業メンバー」「事業会社」「VC」の使い分け
 | UI / コード上の表記 | 実態 | 例 |
 |---|---|---|
-| 「メンバー」(= cockpit 上のボタン) / `project_members` | **AMD 内部メンバー**で、この PJ に伴走 | まさ / かる / ちこ |
+| 「メンバー」(= cockpit 上のボタン) / `project_members` | **AMD 内部メンバー**で、この PJ に伴走 | PJ を担当する AMD メンバー |
 | 「関連メンバー」 (= 上記 foundingProposal の実態) / `project_founding_members` (misleading) | **PJ に関係する人物全員** | SU 創業候補 + 事業会社担当 + VC 担当 + 大学 PI |
 | 「事業会社」 (= 🤝 ボタン) / `project_partners` | 興味事業会社 (= 法人レベル) | ファインケム / ダイキアクシス / 三浦工業 |
 | 「VC」 / `vcs` テーブル | ベンチャーキャピタル (= 法人レベル) | JAFCO / DG ダイワ |
