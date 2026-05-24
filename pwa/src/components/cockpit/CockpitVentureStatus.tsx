@@ -26,7 +26,7 @@ import {
 import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
 import { createClient } from "@/lib/supabase/client";
 import { ALPHA_DEFAULT, calculateAmdScore, type AlphaWeights } from "@/lib/amd-score";
-import { latestVisibleScorableScoreInput } from "@/lib/amd-score-derived";
+import { latestVisibleScorableScoreInput, computeAmdScoreSeries } from "@/lib/amd-score-derived";
 // PHASE_COLOR / PHASE_LABEL_JP / AmdScorePhase / classifyPhase は使用しない (検証データ蓄積後に復活検討、2026-05-09)
 import { CockpitVentureStatusEditModal } from "./CockpitVentureStatusEditModal";
 import { CockpitVentureMetaEditModal } from "./CockpitVentureMetaEditModal";
@@ -237,10 +237,26 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const xOfDate = (iso: string) => xOf(dateToYearDecimal(iso));
 
   // AMD スコア時系列 (Before Zero Theory v3.2 — 7 軸 Cobb-Douglas)
-  const scoreSeries = useMemo(
-    () => computeCockpitAmdScoreSeries(amdInputs, alpha),
-    [amdInputs, alpha]
+  // まさ #20 (2026-05-24): 将来予測 (= evaluated_at が今日より未来) は折れ線・最新スコア表示から除く。
+  // 「現在のスコア」表示にするため、HUD と同じく `evaluated_at <= today` で filter する。
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const visibleInputs = useMemo(
+    () => amdInputs.filter((row) => row.evaluated_at.slice(0, 10) <= todayIso),
+    [amdInputs, todayIso]
   );
+  // breakdown 込みの series (= M/X/F 値表示用)
+  const computedSeries = useMemo(
+    () => computeAmdScoreSeries(visibleInputs, alpha),
+    [visibleInputs, alpha]
+  );
+  const scoreSeries = useMemo(
+    () => computedSeries.map((p) => ({ date: p.evaluated_at, score: p.score })),
+    [computedSeries]
+  );
+  // 現在の M/X/F (= 今日時点の最新行)
+  const latestBreakdown = computedSeries.length > 0
+    ? computedSeries[computedSeries.length - 1].breakdown
+    : null;
   // Score 詳細ページと同じ軸思想: X は score series の評価日、Y は実データ範囲にフィット。
   const scoreRange = useMemo(() => {
     const now = Date.now();
@@ -678,6 +694,24 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         </svg>
       </div>
 
+      {/* M/X/F 値カード (まさ #20 2026-05-24) — Chart 1 (AMD スコア) と Chart 2 (XRL) の間に挟む。
+            現在 (今日以前) の AMD Score の 3 component:
+              M = MACROTREND (= Triple Helix μ_A/μ_I/μ_G 合成、max 30)
+              X = XRL (= TRL/BRL/GRL/SRL/HRL 合成、max 600)
+              F = FRL (= grit/resilience 合成、max 100)
+            xl breakpoint 以上は縦 stack、xl 未満は横並びで Chart 間 row として配置。 */}
+      <aside className="xl:w-[140px] xl:py-3 xl:px-2 flex xl:flex-col flex-row flex-wrap gap-2 justify-around xl:justify-start border-t xl:border-t-0 xl:border-l xl:border-r border-[#e5e5e7] px-2 py-2">
+        {latestBreakdown ? (
+          <>
+            <MxfCard axis="M" label="MACRO" value={latestBreakdown.M} max={30} color="#0284c7" />
+            <MxfCard axis="X" label="XRL"   value={latestBreakdown.X} max={600} color="#059669" />
+            <MxfCard axis="F" label="FRL"   value={latestBreakdown.F} max={100} color="#dc2626" />
+          </>
+        ) : (
+          <span className="text-[10px] text-[#86868b]">M/X/F データなし</span>
+        )}
+      </aside>
+
       {/* Chart 2: XRL */}
       <div className="flex-1 min-w-0 px-2 pt-2 pb-3 xl:pt-3">
         <div className="px-2 flex items-center justify-between flex-wrap gap-2">
@@ -896,5 +930,26 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         />
       )}
     </section>
+  );
+}
+
+/**
+ * MxfCard — AMD Score の M (MACROTREND) / X (XRL) / F (FRL) 値カード。
+ * Chart 1 (AMD スコア) と Chart 2 (XRL 折れ線) の間に縦 stack (xl 以上) で並ぶ。
+ */
+function MxfCard({ axis, label, value, max, color }: { axis: string; label: string; value: number; max: number; color: string }) {
+  const pct = Math.max(2, Math.min(100, (value / max) * 100));
+  const display = !Number.isFinite(value) ? "—" : value < 100 ? value.toFixed(2) : Math.round(value).toLocaleString();
+  return (
+    <div className="flex flex-col gap-1 px-2.5 py-1.5 rounded-md bg-[#fafafa] border border-[#e5e5e7] min-w-[88px]">
+      <div className="flex items-baseline gap-1">
+        <span className="text-[16px] font-bold leading-none" style={{ color }}>{axis}</span>
+        <span className="text-[8px] text-[#86868b] font-semibold uppercase tracking-wider">{label}</span>
+      </div>
+      <div className="text-[18px] font-bold tabular-nums leading-none" style={{ color }}>{display}</div>
+      <div className="h-1 rounded-full bg-[#e5e5e7] overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+      </div>
+    </div>
   );
 }
