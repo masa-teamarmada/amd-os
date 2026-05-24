@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { AdminProjectMembersModal } from "./AdminProjectMembersModal";
+import { EmailsEditModal } from "./EmailsEditModal";
 import { LaneBadges, LaneEditor } from "@/components/lanes/LaneBadges";
 import type { LaneWeight } from "@/lib/aspi-lanes";
 import { DEFAULT_PAYMENT_DUE_RULE, PAYMENT_DUE_RULE_OPTIONS, paymentDueRuleLabel } from "@/lib/payment-rules";
@@ -167,6 +168,9 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
   const [saving, setSaving] = useState<string | null>(null);
   const [hint, setHint] = useState("");
   const [membersModal, setMembersModal] = useState<{ projectId: string; projectName: string } | null>(null);
+  // #16 まさ 2026-05-24: report_emails 編集モーダル state
+  const [emailsModal, setEmailsModal] = useState<{ rowId: string; projectId: string; projectName: string; emails: string[] } | null>(null);
+  const [emailsSaving, setEmailsSaving] = useState(false);
 
   const filtered = useMemo(() => {
     return projects.filter((p) => {
@@ -386,10 +390,10 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
         <table className="text-[12px] border-collapse" style={{ minWidth: "1740px" }}>
-          <thead>
-            <tr className="bg-muted/50 text-muted-foreground">
-              <th className="text-left px-3 py-2 font-medium sticky left-0 bg-muted/50 w-14">PJID</th>
-              <th className="text-left px-3 py-2 font-medium sticky left-14 bg-muted/50 w-32 border-r border-border">PJ名</th>
+          <thead className="sticky top-0 z-30">
+            <tr className="bg-muted text-muted-foreground">
+              <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-14">PJID</th>
+              <th className="text-left px-3 py-2 font-medium sticky left-14 z-40 bg-muted w-32 border-r border-border">PJ名</th>
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
               <th className="text-left px-3 py-2 font-medium w-32">分類</th>
               <th className="text-left px-3 py-2 font-medium w-44">Lane (ASPI)</th>
@@ -591,21 +595,25 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     ) : <span className="text-muted-foreground">{p.client_name || "—"}</span>}
                   </td>
 
-                  {/* report_emails */}
-                  <td className={cellCls("report_emails")} onClick={enterCell("report_emails")}>
-                    {isEditingField(p, "report_emails") ? (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <input type="text" value={editVals.report_emails as string} autoFocus
-                          onChange={(e) => setEditVals((v) => ({ ...v, report_emails: e.target.value }))}
-                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "report_emails"); if (e.key === "Escape") cancelEdit(); }}
-                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background" placeholder="a@b.com, c@d.com" />
-                        {cellActions("report_emails")}
-                      </div>
-                    ) : (
-                      <div className="text-muted-foreground text-[11px] break-all max-w-[260px]">
-                        {p.report_emails ? p.report_emails.split(",").map((e) => e.trim()).filter(Boolean).join(", ") : "—"}
-                      </div>
-                    )}
+                  {/* report_emails — 省略表示 + クリックで EmailsEditModal (#16 まさ 2026-05-24) */}
+                  <td className="px-3 py-2 align-top max-w-[180px]">
+                    {(() => {
+                      const list = (p.report_emails || "").split(",").map((e) => e.trim()).filter(Boolean);
+                      const count = list.length;
+                      const preview = count === 0 ? "—" : count === 1 ? list[0] : `${list[0]} +${count - 1}`;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => setEmailsModal({ rowId: p.id, projectId: p.project_id, projectName: p.project_name, emails: list })}
+                          className="text-left text-[11px] font-mono text-muted-foreground hover:text-foreground hover:underline truncate w-full"
+                          title={count === 0 ? "クリックして関係先メアドを追加" : `${count}件 — クリックして編集`}
+                        >
+                          {count > 0 && <span className="mr-1 text-foreground font-sans font-medium">{count}件</span>}
+                          <span className="truncate">{preview}</span>
+                          {count > 0 && <span className="ml-1 text-[10px]">▸</span>}
+                        </button>
+                      );
+                    })()}
                   </td>
 
                   {/* 請求書送付 (compound) */}
@@ -836,6 +844,41 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
           }}
         />
       )}
+
+      {/* #16 まさ 2026-05-24: 関係先メアド編集モーダル */}
+      <EmailsEditModal
+        open={emailsModal !== null}
+        title={emailsModal ? `${emailsModal.projectName} (${emailsModal.projectId})` : undefined}
+        emails={emailsModal?.emails ?? []}
+        saving={emailsSaving}
+        onOpenChange={(open) => { if (!open && !emailsSaving) setEmailsModal(null); }}
+        onSave={async (newEmails) => {
+          if (!emailsModal) return;
+          setEmailsSaving(true);
+          try {
+            const joined = newEmails.join(", ");
+            const res = await fetch(`/api/admin/projects/${emailsModal.rowId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ report_emails: joined || null }),
+            });
+            if (!res.ok) {
+              const j = await res.json().catch(() => ({}));
+              setHint(`✕ 保存失敗: ${j.error || res.status}`);
+              return;
+            }
+            // local state も更新 (= reload なし)
+            setProjects((prev) => prev.map((p) => p.id === emailsModal.rowId ? { ...p, report_emails: joined || null } : p));
+            setHint(`✓ ${emailsModal.projectName} の関係先メアド (${newEmails.length}件) を保存`);
+            setEmailsModal(null);
+            setTimeout(() => setHint(""), 2500);
+          } catch (e) {
+            setHint(`✕ 保存失敗: ${e instanceof Error ? e.message : "unknown"}`);
+          } finally {
+            setEmailsSaving(false);
+          }
+        }}
+      />
     </div>
   );
 }

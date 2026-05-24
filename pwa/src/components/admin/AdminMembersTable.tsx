@@ -244,9 +244,9 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
         <table className="text-[12px] border-collapse" style={{ minWidth: "1580px" }}>
-          <thead>
-            <tr className="bg-muted/50 text-muted-foreground">
-              <th className="text-left px-3 py-2 font-medium sticky left-0 bg-muted/50 w-24 border-r border-border">codeName</th>
+          <thead className="sticky top-0 z-30">
+            <tr className="bg-muted text-muted-foreground">
+              <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-24 border-r border-border">codeName</th>
               <th className="text-left px-3 py-2 font-medium w-24">memberId</th>
               <th className="text-left px-3 py-2 font-medium w-40">表示名</th>
               <th className="text-left px-3 py-2 font-medium w-56">email</th>

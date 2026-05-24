@@ -212,12 +212,14 @@ expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
   "autoOpenedRef",
 ]);
 
-// 経営事業シグナルの 3 分類グルーピング + つくよみ修正依頼 (#11/#12 まさ 2026-05-24)
+// 経営事業シグナルの 4 分類 (#14 まさ 2026-05-24) + つくよみ修正依頼 (#11)
+// 旧 3 分類 (外部環境/経営判断/事業進捗) は廃止 → 新 4 分類 (経営全般/事業開発/技術開発/外部環境)
 expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [
   "CATEGORY_OF_TYPE",
-  "外部環境の変化",
-  "経営判断",
-  "事業進捗",
+  "経営全般",
+  "事業開発",
+  "技術開発",
+  "外部環境変化は Atlas",
   "つくよみに修正依頼",
   "/api/notifications/feedback",
   "project_strategy_signal",

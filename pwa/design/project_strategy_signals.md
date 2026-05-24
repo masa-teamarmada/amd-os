@@ -44,6 +44,15 @@ MSは「計画した成果物の進捗」を扱う。
 - `ym`: 対象月。月が明確でないものは NULL
 - `signal_date`: **事象が起きた日** (= occurred_at)。例えば「リアクター特許出願完了（4/27付）」のような signal は、source ref が 5/13 定例で確認されたものでも signal_date は `2026-04-27` にする。観測日 (= 議事録に出てきた日) ではなく事象発生日を使う (まさ #13 2026-05-24 確定)。raw 内に明確な日付パターン (`N/N付` / `N/N に` / `N月N日`) があれば優先採用
 - `signal_type`: `management_decision` / `business_progress` / `strategic_pivot` / `commercial_progress` / `partnership` / `funding` / `ip_regulatory` / `risk` / `next_move`
+  - **cockpit 表示は 4 分類でグルーピング** (= 左ボーダー色 + 時間軸混合、まさ #14 2026-05-24 確定):
+    - **🏛 経営全般** = `management_decision` / `strategic_pivot` / `funding` / `next_move`
+    - **🚀 事業開発** = `business_progress` / `commercial_progress` / `partnership`
+    - **🔬 技術開発** = `ip_regulatory` (= 自社特許・規制対応。外部規制の動きは外部環境側へ)
+    - **🌐 外部環境** = `risk` (= 純粋な外部要因のみ)。cockpit には表示せず Atlas へ誘導
+  - **LLM 抽出時の判定ガイドライン** (Codex automation prompt 必須記載):
+    - `risk` は **純粋な外部要因** (政府方針変化・競合の動き・市場ショック・規制強化) のみに使う
+    - 自社内部のリスク (= 経営判断未了 / 財務 variance / Score 急減 / 品質問題 / 商談減額) は `risk` ではなく **本来の分類** (`management_decision` / `business_progress` / `commercial_progress`) を使う
+    - 「リスク」という言葉に引きずられて何でも `risk` にしない
 - `title`: 短い見出し
 - `summary`: 何が起きたか、なぜ重要か
 - `impact_level`: `low` / `medium` / `high` / `critical`

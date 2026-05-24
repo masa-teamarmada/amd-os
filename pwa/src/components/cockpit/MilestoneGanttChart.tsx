@@ -3,6 +3,26 @@
 import { useCallback, useMemo, useState } from "react";
 import { toggleSubItemStatus } from "@/lib/supabase-data";
 
+/**
+ * 「4-5」のような短い期間ラベル (まさ #19 2026-05-24)。
+ * - 同じ月 → "4"
+ * - 異なる月 → "4-5"
+ * - 異なる年 → "2026/4-2027/3" (= 年またぎは年を出す)
+ */
+function compactPeriodLabel(startYm: string, endYm: string) {
+  if (!startYm || startYm.length < 6 || !endYm || endYm.length < 6) {
+    return `${formatYm(startYm)}-${formatYm(endYm)}`;
+  }
+  const sy = startYm.slice(0, 4);
+  const sm = String(Number(startYm.slice(4, 6)));
+  const ey = endYm.slice(0, 4);
+  const em = String(Number(endYm.slice(4, 6)));
+  if (sy === ey) {
+    return sm === em ? sm : `${sm}-${em}`;
+  }
+  return `${sy}/${sm}-${ey}/${em}`;
+}
+
 function formatYm(ym: string) {
   if (!ym || ym.length < 6) return ym;
   return `${ym.slice(0, 4)}/${ym.slice(4)}`;
@@ -331,17 +351,21 @@ function GanttRow({
         {months.map((month) => (
           <div key={month} className={c.month} />
         ))}
+        {/* MS Gantt bar — まさ #19 (2026-05-24):
+              - 期間表示は「4-5」のみ (年・0 padding なし)、同じ月なら「4」だけ
+              - メンバー/pt chip は期間表示の右ではなく改行下に置いて、短い MS でも見えるように
+              - バーからはみ出ても表示可能 (overflow visible)、min-w-0 で flex 子の縮みも許可 */}
         <button
           type="button"
           onClick={() => setExpanded((value) => !value)}
-          className={`z-[1] my-2 flex min-w-0 items-center gap-2 overflow-hidden px-2 py-1 text-left ${c.bar}`}
-          style={{ gridColumn, gridRow: 1 }}
+          className={`z-[1] my-2 flex min-w-0 flex-col items-start gap-0.5 px-2 py-1 text-left ${c.bar}`}
+          style={{ gridColumn, gridRow: 1, overflow: "visible" }}
           title={`${ms.title}: ${formatYm(startYm)} - ${formatYm(endYm)}`}
         >
-          <span className="min-w-0 shrink-0 text-[10px] font-semibold">
-            {formatYm(startYm)}-{formatYm(endYm)}
+          <span className="shrink-0 text-[10px] font-semibold whitespace-nowrap">
+            {compactPeriodLabel(startYm, endYm)}
           </span>
-          <span className="flex min-w-0 flex-wrap items-center gap-1 overflow-hidden">
+          <span className="flex flex-wrap items-center gap-1 whitespace-nowrap">
             {resps.length === 0 ? (
               <span className={`rounded px-1.5 py-0.5 text-[10px] ${c.chip}`}>未割当</span>
             ) : (
