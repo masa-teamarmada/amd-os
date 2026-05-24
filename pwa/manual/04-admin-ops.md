@@ -46,6 +46,21 @@ URL: `/admin/projects`
 ### sticky thead
 - ヘッダーは `sticky top-0 z-30` で固定 (= 大量 PJ で下スクロールしてもヘッダー見える、まさ #15 確定 2026-05-24)
 
+### project_category (= status の右隣の分類チップ)
+
+`projects.project_category` = AMD OS 上で PJ をどう扱うかの軸 (= status と別軸、契約状態とは無関係)。
+
+| value | 表示 | 意味 | AMD Score | MS 進捗抽出 |
+|---|---|---|---|---|
+| `dtsu` | DTSU (cyan) | 学術発 SU 伴走 PJ (通常) | 対象 | 対象 |
+| `new_business` | 新規事業創出 (emerald) | レガシー企業 DX + 研究シーズ取込で新規事業創出 | 対象 | 対象 |
+| `ecosystem` | Ecosystem (violet) | 研究機関の SU エコシステム構築業務 | 対象外 | 対象 |
+| `advisor` | Advisor (amber) | まさが社外取締役 / 経営顧問として入る PJ | 対象 | 対象外 (月次ノート運用) |
+
+- ZMP (`p19`) は `new_business` (= まさ判断 2026-05-25、葛飾ロード新規事業創出)
+- KUTE (`p25`) は `ecosystem`、LST (`p07`) は `advisor`
+- 詳細・追加経緯は [§5.6 project_category に `new_business` 追加](05-decisions-and-history.md#56-project_category-に-new_business-追加--2026-05-25) 参照
+
 ---
 
 ## 4.3 admin/members

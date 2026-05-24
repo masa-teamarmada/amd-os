@@ -6483,3 +6483,44 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 - HEAD: `b58135e feat(pwa/manual): OS マニュアル 7 章 + /manual ルート + ナビ追加 (#23)`
 - 今セッション私の commit 4 本: fd56582 → 2f6b337 → 21e4df5 → b58135e
 - handoff 用に次 commit で push 予定: HANDOFF_pwa_rebuild.md / BUGS.md / pwa/AGENTS.md / pwa/CLAUDE.md / design_log
+
+---
+
+## 2026-05-25 (#36) — project_category に `new_business` 追加 (= ZMP モデル分離)
+
+### 着手契機
+まさ「ZMP は新規事業創出モデルなので、これも PJ タイプに追加してほしい。新規事業創出できないレガシー企業を DX 化したり研究シーズを取り入れたりするパターン」。
+
+### メタ確認 (= 設計判断)
+- 「PJ タイプ」がどの軸か = AskUserQuestion で 4 択提示 → まさ「admin/projects の status のところ」 = `AdminProjectsTable.tsx` で status セルの右隣に並ぶ `project_category` セレクトと特定
+- 新カテゴリ名 = まさ「『新規事業創出』で」 → DB enum 値は `new_business` (snake_case 慣習)
+- AMD Score / MS 進捗扱い = まさ「DTSU と同じ扱いで進めて、後で見直す」
+- 既存対象 PJ = まさ「いまのところ ZMP のみ」 → atlas.md でも ZMP のみ
+
+### 実装
+- DB: [089_project_category_new_business.sql](../scripts/migrations/089_project_category_new_business.sql) で CHECK 制約を `('dtsu','ecosystem','advisor','new_business')` に拡張、ZMP (`p19`) を `new_business` に UPDATE、COMMENT 更新。apply_ddl.py で本番適用、dump_schema.py で db_schema.md 再生成
+- PWA (5 ファイル):
+  - `AdminProjectsTable.tsx`: type + PROJECT_CATEGORY_OPTIONS + COLORS に追加 (emerald 色、ラベル「新規事業創出」)
+  - `progress-estimator.ts`: MS_PROGRESS_PROJECT_CATEGORIES Set に追加
+  - `activities/infer/route.ts`: 2 箇所のリテラル `['dtsu','ecosystem']` を `['dtsu','ecosystem','new_business']` に
+  - `CockpitView.tsx` / `HudCockpitView.tsx`: usesMsProgressCategory 同様
+  - `HudCockpitHeader.tsx`: categoryLabel に `NEW BUSINESS` 分岐追加
+- AMD Score 系 (`!== 'ecosystem'` で判定) は new_business を自然に包含するので変更不要
+- 設計 md: [cockpit.md](../design/cockpit.md) Project Category 表 + 今期 MS 対象、[ms_progress.md](../design/ms_progress.md) 対象 PJ 条件
+- マニュアル正本: [manual/05-decisions-and-history.md §5.6](../manual/05-decisions-and-history.md#56-project_category-に-new_business-追加--2026-05-25) として「追加判断 + DTSU と分ける理由 + 触ったファイル + 新セッションのえいみへの注意」を記録、[manual/04-admin-ops.md §4.2](../manual/04-admin-ops.md#42-adminprojects) に category 表を追記 (= HANDOFF #11 の category 部分は完了、status 軸の追記は別途残る)
+
+### Verified
+- `npx tsc --noEmit` pass
+- `npm run build` pass
+- Supabase 本番に migration 089 適用済、`SELECT project_id, project_category FROM projects WHERE project_id='p19'` で `new_business` 確認
+- production deploy 完了 (`bash pwa/scripts/deploy.sh` 2 分 22 秒、`https://amd-os-pwa.vercel.app` aliased)
+
+### Git 状態 (= このセッション末)
+- branch: `main`
+- HEAD: `9127b57 feat(pwa): project_category に new_business を追加 + ZMP (p19) 移行`
+- 今セッション私の commit 1 本: 9127b57
+- handoff 用に次 commit で push 予定: HANDOFF_pwa_rebuild.md / design_log/sessions_2026-05.md / manual/04-admin-ops.md
+
+### 教訓 (= BUGS には載せない、設計判断系)
+- 「PJ タイプ」と一言で言われた時、`project_type` (請求運用軸) と `project_category` (AMD OS 扱い軸) の 2 つがあるので必ず特定する (= AskUserQuestion で 4 択提示が効いた)
+- 新カテゴリ追加時は `in ('dtsu','ecosystem')` リテラルを grep 全箇所拾う (= 今回 5 箇所)。リテラルではなく `MS_PROGRESS_PROJECT_CATEGORIES` のような名前付き定数で集約してれば 1 箇所で済んだ → 将来同様の追加が見えてるなら集約をリファクタ候補に
