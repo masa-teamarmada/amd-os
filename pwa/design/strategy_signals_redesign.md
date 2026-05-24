@@ -1,339 +1,308 @@
-# 経営・事業シグナルの定義・名称・タグ再設計 (#26 #27 #29)
+# 経営ハイライト 再設計 (#26 #27 #29 #31)
 
-> **状態**: まさ #26 / #27 / #29 (2026-05-24 夜) で提起された 3 件をまとめた設計議論
-> 叩き台。**次セッションで議論再開 → 確定 → 実装**。
+> **状態**: まさ #26 + #27 + #29 + #31 (2026-05-24 夜) 整理。
+> **#27 名称確定**: 「経営ハイライト」。**残: 抽出ルール / アイコン軸 / AMD Score 影響併記 / chip 表示**
+> を実装着手前にまさと最終確認 → 確定 → 実装。
 >
-> 関連: [`project_strategy_signals.md`](project_strategy_signals.md) (= 現状の正本仕様)
+> 関連: [`project_strategy_signals.md`](project_strategy_signals.md) (= 現状の正本仕様、本設計確定後に統合書き換え)
 
 ---
 
-## 背景 (まさ提起の整理)
+## 大原則 (= まさ #26 真意)
 
-### #26 ダイキアクシスシグナルが「経営全般」に入ってる違和感
+> **経営ハイライトは「進んだこと・起きたこと」だけを書く場所。**
+>
+> 「未了」「TODO」「アイディア」「議論中」は経営ハイライトに **入れてはいけない**。
 
-`5/21 方針決定 ダイキアクシス (DAVP) との関係深化・出資・共同開発の距離感を経営判断未了
-(PSI Step2 事業化推進機関として既に参画)`
+→ `decision_state` 軸は **`done` のみ** が経営ハイライトに表示される。  
+未了の判断や検討中の議題は **MTG サマリ** (= 議事録) や **議題リスト** (= 別軸) で扱う。
 
-- 現状: `signal_type='management_decision'` → 4 分類で **🏛 経営全般 (violet)**
-- まさ違和感: これは事業 partner (= ダイキアクシス) との関係性議論なので **🚀 事業開発 (emerald)**
-  に入るべき (= `partnership` or `commercial_progress`)
-- 抽出ロジックが「経営判断未了」という文言を拾って `management_decision` と判定したと思われる
-
-### #27 セクション名「経営・事業シグナル」がわかりにくい
-
-まさが求める実態:
-
-- **大きな進捗 / 方針転換 / 外部環境変化** を書く
-- 経営状況がどう変化したかを追える
-- 株主向け説明会 / 事業報告書のベースになる「事象ログ」
-
-→ 名称候補 + 定義の明確化が必要 (= 「ここに書くべきもの」が曖昧だと #26 の抽出も
-ズレ続ける)。
-
-### #29 カード上のタグが意味不明
-
-現状 1 カードに同時表示:
-
-```
-5/21 [🏛] [方針決定] [high] [候補] [決定]  ← どういう意味??
-```
-
-- 「方針決定」(= `signal_type='management_decision'`)
-- 「決定」(= `decision_state='decided'`)
-- 「候補」(= `status='candidate'`)
-
-→ 「方針決定」と「決定」が **言葉として紛らわしい**、「候補なのに決定?」が **矛盾に見える**。
+→ ダイキアクシス「経営判断未了」signal は経営ハイライトに出るべきではなかった。  
+本当の違和感は「経営全般カテゴリに入ってる」ことではなく「**未了なのに進捗を書く場に書いてる**」ことだった。
 
 ---
 
-## 現状の軸 (= 設計レベルでの整理)
+## 名称 (= #27 確定)
 
-| 軸 | DB 列 | 取りうる値 | 意味 |
-|---|---|---|---|
-| シグナルの種類 | `signal_type` | 10 種類 (management_decision / business_progress / strategic_pivot / commercial_progress / partnership / funding / ip_regulatory / tech_progress / risk / next_move) | **何が起きたか** |
-| 4 分類カテゴリ | (signal_type から派生) | management / business / tech / external | UI 上の **色分けグルーピング** |
-| 影響度 | `impact_level` | low / medium / high / critical | **どれくらい重要か** |
-| 議論・意思決定の状態 | `decision_state` | observed / proposed / decided / executing / revised | **意思決定がどこまで進んだか** |
-| OS 登録ステータス | `status` | candidate / confirmed / rejected / archived | **まさが OS で confirm したか** |
+セクション名: **経営ハイライト**
+
+(旧名「経営・事業シグナル」を全廃)
 
 ---
 
-## 問題の分解
+## 定義
 
-### 問題 A: signal_type の定義が「事象の種類」と「意思決定の状態」を混在させている
-
-例:
-- `management_decision` = 「経営判断」というアクション系
-- `business_progress` = 「事業進捗」という事象系
-- `next_move` = 「次にやる」という時間軸系
-- `risk` = 「悪い方向に動く」というネガティブ系
-
-→ 軸がブレてる。だから「ダイキアクシスとの距離感未了」みたいに `partnership` 系の事象 + `decision_state='observed'`
-(= まだ決まってない) という意味のものを、LLM が `management_decision` に押し込んでしまう。
-
-### 問題 B: decision_state と signal_type が UI 上で同じ chip 列に並ぶ
-
-- `signal_type='management_decision'` → 表示「方針決定」
-- `decision_state='decided'` → 表示「決定」
-- 並ぶと「決定が決定された?」みたいに見える
-
-### 問題 C: status (candidate) の意味がユーザーに伝わらない
-
-- candidate = つくよみが自動抽出したが、まだまさが confirm してない状態
-- ユーザー側 (= まさ自身) には「これは仮なのか、本物なのか」だけ分かればいい
-
-### 問題 D: 4 分類カテゴリと signal_type が二重表示で冗長
-
-- 左ボーダー色 (= 4 分類)
-- 絵文字 chip (= 4 分類)
-- type 名 chip (= signal_type)
-
-→ 「事業開発 (= emerald) の partnership」のように、カテゴリと type が **意味的に重複**
-することがある (= type が見えてればカテゴリの絵文字は要らない)。
-
----
-
-## 改善案
-
-### A. セクション名候補 (= #27)
-
-| 候補 | ニュアンス | 株主説明会向け? |
-|---|---|---|
-| **経営トピックス** | 「トピックス = 話題・出来事」、経営的に重要な動き | ◯ |
-| **事業ハイライト** | 「ハイライト = 目立つ動き」、ポジティブ寄り | ◯ |
-| **重要トピックス** | 中立的、最も汎用 | ◯ |
-| **大事な動き** | カジュアル、社内向け | △ |
-| **節目** | 「節目 = milestone と被る」 → 避けたい | × |
-| **主要シグナル** | 「シグナル」を残す、現状名の縮約 | △ |
-| **経営の節目・転機** | 説明的、長い | △ |
-| **重要ニュース** | 外部発の出来事に聞こえる | × |
-| **重要事象** | 中立、客観的 | ◯ |
-| **動向ログ** | フォーマル、報告書向け | ◯ |
-| **アジェンダ** | 「議題」ニュアンス、議論前提 | △ |
-
-**推し案**: 「**経営トピックス**」もしくは「**重要トピックス**」
-- 「トピックス」が「大きな進捗 / 方針転換 / 外部環境変化」を包含する汎用語
-- 株主説明会 / 事業報告書のベースに使うときに自然 (= 「今期の経営トピックス」と書ける)
-
-### B. 定義の明確化 (= #27)
-
-> **経営トピックス** (案) = PJ 経営状況の変化を時系列で残す **事象ログ**。
+> **経営ハイライト** = PJ にとって **進んだこと・起きたことの事象ログ**。
 >
 > 入れる:
-> - **大きな進捗** (= MS 進捗より上位の事業前進。商談、提携、資金、特許出願、技術ブレークスルー)
-> - **方針転換** (= 経営方針の決定・変更・撤回)
-> - **外部環境変化** (= 規制、競合、マクロ要因の変化で PJ 進路に影響するもの)
-> - **重要リスクの顕在化** (= 純粋な外部リスクのみ、内部の判断未了は方針転換側)
+> - **進捗があった** (= 大きな前進、契約締結、特許出願完了、量産開始、提携合意、ブレークスルー等)
+> - **方針が変わった** (= 戦略転換が決まった、撤回が決まった、新ピボットが決まった)
+> - **外部環境が変化した** (= 規制強化、競合の動き、市場ショック等で PJ 進路に影響あったもの)
+> - **リスクが顕在化した** (= 損害発生、課題顕在化等の **起きた事象**)
 >
 > 入れない:
-> - 単なる日程調整 / TODO
+> - 未了の判断 (= 議論中・検討中の話)
+> - TODO・次の一手・アイディア
 > - 進捗率だけで表せる MS 作業 (= MS リストへ)
-> - 既存トピックスの言い換え
-> - source refs が弱い推測
->
-> **狙い**: 将来の株主説明会・事業報告書 (= 半期レポート / 年次レポート) を、ここに
-> 並んだトピックスをまとめるだけで自動生成できる状態にする。
+> - 単なる日程調整
+> - 既存ハイライトの言い換え
 
-### C. signal_type の見直し (= #26 #29 共通)
-
-**案 C-1: signal_type の軸を「事象の種類」に統一**
-
-「意思決定の状態」(= decided / observed / proposed) は **decision_state に分離**:
-
-| 新 signal_type | 旧との対応 | 意味 | 4 分類 |
-|---|---|---|---|
-| `strategy_pivot` | `strategic_pivot` + `management_decision` (= 方針系) | 戦略転換・方針決定 | 🏛 経営 |
-| `funding` | `funding` | 資金調達 | 🏛 経営 |
-| `next_move` | `next_move` | 次の一手 (=計画) | 🏛 経営 (廃止検討) |
-| `partnership` | `partnership` | 提携先との関係性変化 | 🚀 事業 |
-| `commercial_progress` | `commercial_progress` + `business_progress` (= 売上系) | 商談・売上・LOI/NDA | 🚀 事業 |
-| `business_milestone` | `business_progress` (= 事業化系) | 設立・正式参画・量産化 | 🚀 事業 |
-| `tech_progress` | `tech_progress` | 自社特許出願 / 技術スタック前進 | 🔬 技術 |
-| `external_regulation` | `ip_regulatory` (= 外部) | 他国規制動向 / 競合の知財動向 | 🌐 外部 |
-| `external_market` | (新規) | マクロ市場ショック / 競合ニュース | 🌐 外部 |
-| `risk_realized` | `risk` | 純粋な外部リスクの顕在化 | 🌐 外部 |
-
-ポイント:
-- `management_decision` を廃止 (= `strategy_pivot` に統合)
-- `business_progress` (= 曖昧で雑多に入る箱) を `commercial_progress` / `business_milestone` に分割
-- `ip_regulatory` の名前を `external_regulation` に変えて「外部要因」と明確化
-- `risk` を `risk_realized` にして「顕在化したリスクのみ」と明確化
-
-**案 C-2: signal_type を撤廃して 4 分類カテゴリだけ**
-
-| カテゴリ | 説明 |
-|---|---|
-| 🏛 経営 | 方針決定・戦略転換・資金調達 |
-| 🚀 事業 | 提携・商談・売上・事業マイルストーン |
-| 🔬 技術 | 自社特許・技術進捗 |
-| 🌐 外部 | 規制・競合・マクロ要因 |
-
-= シンプル。LLM 抽出も「どのカテゴリ?」で判定するだけ。  
-= ただし「これは資金調達」「これは商談」など細かい分類ができなくなる → 後で集計・レポート時に困る可能性
-
-**推し**: 案 C-1 (= 軸を「事象の種類」に統一、name は分かりやすく改名)
-
-### D. decision_state の整理 (= #29)
-
-**現状**: observed / proposed / decided / executing / revised の 5 段階
-
-**案 D-1: 3 段階に圧縮**
-- `pending` (= 未決定・議論中。observed + proposed + revised を統合)
-- `decided` (= 方針確定・実行中。decided + executing を統合)
-- `done` (= 完了・成果が出た、新規)
-
-→ ユーザーが見るのは「これは確定した話か、まだ議論中か」だけで十分
-
-**案 D-2: 撤廃**
-- 「方針が決まったか否か」は summary 本文で表現できるので、軸として持たない
-
-**推し**: **案 D-1 の 3 段階化** (= 「これが決まったかどうか」は重要だから残す、ただし軸名を見直す)
-
-### E. status (= candidate / confirmed) の見直し (= #29)
-
-**現状**: candidate / confirmed / rejected / archived
-
-**案 E-1: 内部状態として隠す**
-- ユーザー側は candidate も confirmed も区別したい時だけ chip 出す
-- 通常は表示せず、candidate のみ「⚠️ 未確認」chip を控えめに
-
-**案 E-2: 軸名を「OS 確認状態」と明示**
-- 「OS: 候補 (未確認)」「OS: 確認済」と prefix 付き
-
-**推し**: **案 E-1** (= 確認済の chip は表示しない、candidate だけ「⚠️ 未確認」と控えめに)
-
-### F. UI 上の chip 表示 (= #29)
-
-**案 F-1 (= 推し)**: chip を 3 つに減らす
-
-```
-[5/21] [🚀 提携] [high] ← この 3 つだけ
-
-(下に title, summary, ⚠️ 未確認 (= candidate のみ), 根拠リンク)
-```
-
-- 日付
-- カテゴリ絵文字 + signal_type (= まとめて 1 chip、色は 4 分類カラー)
-- impact_level
-- candidate なら別行で「⚠️ 未確認」(= chip ではなく注釈)
-- decision_state は撤廃 or summary 本文で表現
-
-**案 F-2**: 軸ラベル付き chip
-
-```
-[5/21] [タイプ: 🚀 提携] [影響: high] [状態: 議論中] [OS: 候補]
-```
-
-- ラベル付きで各軸の意味を明示
-- 長い、ノイジー
-
-**推し**: **案 F-1** (= 必要最小限、状態は本文で)
+**狙い**: 将来の株主説明会・事業報告書 (= 半期 / 年次レポート) を、ここに並んだハイライトをまとめるだけで自動生成できる状態にする。
 
 ---
 
-## 改善案 まとめ (= 次セッションでまさ確定)
+## ぱっと見アイコン (= まさ #29 + #26 アイコン要望)
 
-| 項目 | 推し案 | 影響範囲 |
+カード左端にアイコンで「これは何の事象か」を一発で示す。
+
+| アイコン | 意味 | 該当例 |
 |---|---|---|
-| セクション名 | 「経営トピックス」 | CockpitStrategySignals.tsx の `<h2>` + cockpit.md + project_strategy_signals.md + FEATURE_REGISTRY.md |
-| 定義 | 上記 B (= 株主説明会ベース) | project_strategy_signals.md の「抽出基準」を書き換え + LLM prompt 更新 |
-| signal_type | 案 C-1 (= 軸を「事象の種類」に統一して改名) | DB 内容を re-label (= migration + データ書き換え) + LLM prompt 更新 + CATEGORY_OF_TYPE 更新 + TYPE_LABEL 更新 |
-| decision_state | 案 D-1 (= 3 段階に圧縮) | DB 値を re-label + UI で chip 表示やめる (本文で表現) |
-| status | 案 E-1 (= candidate のみ「⚠️ 未確認」注釈) | UI 修正のみ |
-| chip 表示 | 案 F-1 (= 3 chip に減らす) | UI 修正のみ |
+| **🎉** | 大進捗・ブレークスルー | 特許出願完了、量産開始、大型受注、IPO 内諾 |
+| **✨** | 順調な前進 | LOI 締結、PoC 完了、技術検証成功、調達合意 |
+| **🔄** | 方針転換・戦略変更 | 事業ピボット、戦略撤回、優先順位変更 |
+| **⚠️** | リスク顕在化・悪化 | 訴訟、品質問題、契約破棄、競合の脅威台頭 |
+| **🌐** | 外部環境変化 (中立) | 規制強化、マクロ動向、政策変化 |
+
+→ 「ポジティブ・ネガティブ・中立」の polarity が一目でわかる。  
+→ 細かい signal_type は **2 軸目** として小さく出す (= 「資金」「提携」「特許」等)。
 
 ---
 
-## ダイキアクシス例での再分類 (= #26 確認)
+## 軸の整理
 
-現状: `signal_type='management_decision'` (= 方針決定 = 経営全般)
+### 軸 1: `polarity` (新規) — ぱっと見アイコン
 
-新案 C-1 + 案 D-1 で再分類:
-- `signal_type='partnership'` (= 提携、🚀 事業開発)
-- `decision_state='pending'` (= 未決定・議論中、本文で「経営判断未了」と表現)
-- `impact_level='critical'` (= 維持)
+| 値 | アイコン | 意味 |
+|---|---|---|
+| `breakthrough` | 🎉 | 大進捗 |
+| `forward` | ✨ | 順調な前進 |
+| `pivot` | 🔄 | 方針転換 |
+| `risk` | ⚠️ | リスク・悪化 |
+| `external` | 🌐 | 外部環境 |
 
-UI 表示 (案 F-1):
+### 軸 2: `signal_type` (現状から見直し) — 細分類
+
+| 新 signal_type | 旧との対応 | 説明 | 想定 polarity |
+|---|---|---|---|
+| `partnership` | partnership | 提携 (LOI / 出資 / 共同開発合意) | ✨ or 🎉 |
+| `commercial` | commercial_progress + business_progress (= 売上系) | 商談・受注・契約締結 | ✨ or 🎉 |
+| `business_milestone` | business_progress (= 設立系) | 設立・参画・量産・事業承認 | 🎉 |
+| `funding` | funding | 資金調達 (= 完了 or 入金) | ✨ or 🎉 |
+| `tech_progress` | tech_progress | 自社特許出願完了 / 技術ブレークスルー | ✨ or 🎉 |
+| `strategy_change` | strategic_pivot + management_decision (= 確定方針のみ) | 戦略変更・方針撤回・新ピボットの確定 | 🔄 |
+| `external_regulation` | ip_regulatory | 他国規制変化 | 🌐 |
+| `external_market` | (新規 or risk から) | マクロ市場変化 / 競合動向 | 🌐 |
+| `risk_realized` | risk | 純粋な外部リスクの顕在化 (= 起きた、損害発生済み) | ⚠️ |
+
+廃止:
+- `management_decision` → `strategy_change` に統合 (= 確定方針のみ採用)
+- `next_move` → **完全廃止** (= 「次の一手」= TODO は経営ハイライト対象外)
+- `risk` → `risk_realized` に改名 (= 顕在化したもののみ)
+
+### 軸 3: `impact_level` — 影響度
+
+`low` / `medium` / `high` / `critical` — 現状維持。
+
+### 軸 4: `decision_state` — **撤廃**
+
+経営ハイライトは done のみ書く運用なので、軸として持つ意味がない。
+
+(未了の判断は MTG サマリの risks/decided 配列で扱う = 既存)
+
+### 軸 5: `status` — UI 表示のみ簡素化
+
+`candidate` / `confirmed` / `rejected` / `archived` (DB は維持)。  
+UI では candidate のみ「⚠️ 未確認」注釈、confirmed は chip 出さない。
+
+---
+
+## AMD Score 影響併記 (= #31)
+
+> **経営ハイライトは AMD Score S に与える影響が少なからずあるはず。**
+> **そのハイライトによってどのような影響が出たかをあわせて書く。**
+
+### 案 A: signal レコードに impact_summary 列を追加
+
+```sql
+ALTER TABLE project_strategy_signals
+  ADD COLUMN score_impact_summary TEXT,           -- 「TRL 4→5、X 206→240」のような短文
+  ADD COLUMN score_impact_delta_json JSONB;       -- { "TRL": { "before": 4, "after": 5 }, "S": { "before": 3500, "after": 3900 } }
 ```
-[5/21] [🚀 提携] [critical] [⚠️ 未確認]
+
+- LLM 抽出時に「この signal の AMD Score 影響を予測」→ summary 生成 + delta JSON
+- 既存の `amd_score_inputs` の前後比較で actual delta も後追い計算可
+
+### 案 B: 既存 summary 内に書く運用 (列追加なし)
+
+```
+summary: "5/13 NDA 完了。来週月曜にダイキアクシス開発部長と打ち合わせ予定。
+影響: 提携が一歩前進、X 軸 BRL の +0.5 寄与見込み (実測待ち)"
+```
+
+= シンプル、運用負担小。  
+= ただし機械的に取り出しにくい (= 後追い集計時に困る)。
+
+### 案 C: 別テーブル `strategy_signal_score_impacts`
+
+```sql
+CREATE TABLE strategy_signal_score_impacts (
+  signal_id UUID REFERENCES project_strategy_signals(signal_id),
+  axis TEXT,            -- "TRL" / "BRL" / "M" / "X" / "F" / "S"
+  before_value NUMERIC,
+  after_value NUMERIC,
+  measured_at TIMESTAMPTZ,
+  source TEXT           -- "predicted" / "measured"
+);
+```
+
+= 履歴と原因追跡が一番きれい。  
+= ただしテーブル設計と LLM 抽出が重い。
+
+**推し**: **案 A** (= 列追加で start、UI で「📊 影響: ...」line を 1 行追加)
+
+UI イメージ:
+```
+[5/13] 🎉 [tech_progress 自社特許/技術] [high]
+リアクター特許出願完了 (4/27付)
+4/27 にリアクター特許の出願が完了したことが 5/13 定例MTGで共有・確認された。...
+📊 影響: TRL 4→5、技術スタック前進。AMD Score X 軸寄与 +約 40 ポイント。
+▶ 根拠 1 件
+```
+
+---
+
+## カード表示 (= #29 確定案)
+
+**案 F-2 (改訂): polarity アイコン + 4 分類カラー型 + impact chip + 影響 1 行**
+
+```
+[5/13] 🎉 [🔬 自社特許/技術] [high]                    [⚠️ 未確認 (= candidate のみ)]
+リアクター特許出願完了 (4/27付)
+4/27 にリアクター特許の出願が完了したことが 5/13 定例MTGで共有・確認された。...
+📊 影響: TRL 4→5、技術スタック前進。AMD Score X 軸寄与 +約 40 ポイント。
+▶ 根拠 1 件          [⚠️ つくよみに修正依頼]
+```
+
+chip 構成:
+1. **日付** (M/D)
+2. **polarity アイコン** (🎉/✨/🔄/⚠️/🌐) — 主視覚
+3. **signal_type chip** (= 4 分類カラー + 細分類名) — 副情報、左ボーダー色とセット
+4. **impact chip** (low/medium/high/critical)
+5. **「⚠️ 未確認」** (candidate のみ、右端注釈)
+
+撤廃:
+- decision_state chip (= 「決定」)
+- 旧 status chip (= 「候補」)
+
+---
+
+## ダイキアクシスシグナル (= #26) の最終判定
+
+```
 ダイキアクシス (DAVP) との関係深化・出資・共同開発の距離感を経営判断未了
 (PSI Step2 事業化推進機関として既に参画)
 ```
 
-→ まさが見て「事業開発の提携シグナル、まだ決まってない、影響度クリティカル」と一発で分かる。
+→ **経営ハイライトに含めない (= status='rejected' or 別場所に移管)**
 
----
+理由:
+- 「経営判断未了」= done でない = 経営ハイライト対象外
+- これは **「次回まさえいMTG・経営会議で議論すべき議題」** として MTG サマリ or 議題リストに記録すべき
 
-## 抽出ロジック修正 (= #26 根本対応)
-
-LLM 抽出 prompt (= Codex automation `amd-os-strategy-signals`) の判定基準を以下のように厳密化:
-
+代わりに、もし以下のような **done** な事象が発生したら経営ハイライトに入れる:
 ```
-signal_type 判定:
-- 「partnership」: 特定の社外 partner (= 会社名・PI 名) との関係性に関する話 (LOI / NDA /
-  共同開発 / 出資 / 距離感)。partner との議論なら、まだ決まってなくても partnership
-- 「commercial_progress」: 売上・受注・商談・案件進捗 (= 金額や数字を伴う取引)
-- 「business_milestone」: 設立・参画・量産化・事業承認 (= 法人としての節目)
-- 「strategy_pivot」: 事業方針そのものの変更・撤回・新規ピボット (= 内部の判断)
-- 「funding」: VC / 公的資金 / 助成金の調達
-- 「tech_progress」: 自社内の特許出願 / 技術スタック前進
-- 「external_regulation」: 他国規制動向 / 競合の知財動向
-- 「external_market」: マクロ市場ショック / 競合ニュース
-- 「risk_realized」: 純粋な外部リスクの顕在化
-
-NG パターン:
-- 「partner との議論」を「strategy_pivot」や「management_decision」に入れない (= 必ず partnership)
-- 「経営判断未了」というキーワードを拾って即「management_decision」にしない (= 内容で判断)
-- 「リスク」という言葉だけで「risk_realized」にしない (= 純粋な外部要因か?)
-
-decision_state 判定:
-- 「pending」: まだ決まってない / 議論中 / 検討中
-- 「decided」: 方針確定・実行中
-- 「done」: 完了・成果が出た
+[5/21] ✨ [🚀 提携] [critical]
+ダイキアクシス (DAVP) と PSI Step2 事業化推進機関として正式参画決定
+5/21 SX 内部MTG で、ダイキアクシス (DAVP) を事業化推進機関として
+正式参画させることが決定された。出資・共同開発の具体的距離感は次フェーズで
+協議予定だが、参画自体は確定。
+📊 影響: 事業前進、X 軸 BRL +0.5 想定。
 ```
 
 ---
 
-## 実例: 現状の SX (p21) cockpit シグナル 6 件を再分類してみる
+## 抽出ロジック (= LLM prompt 更新方針)
 
-| # | signal | 現状 type | 案 C-1 type | 案 D-1 state | impact | 4 分類 |
-|---|---|---|---|---|---|---|
-| 1 | 資金調達戦略を「大規模VC調達+企業開発費で初期生産」へ転換、ファインケム北陸工場でPoC候補地確認 | strategic_pivot | strategy_pivot | decided | high | 🏛 経営 |
-| 2 | 中国レアアース/ガリウム/ゲルマニウム輸出許可制強化→SX重金属回収事業の追い風 | ip_regulatory | external_regulation | (state なし) | high | 🌐 外部 |
-| 3 | ダイキアクシス (DAVP) との関係深化・出資・共同開発の距離感を経営判断未了 | management_decision | **partnership** | **pending** | critical | **🚀 事業** ← #26 修正 |
-| 4 | JAFCOとのDD継続合意・投資委員会上程準備へ | funding | funding | pending (= 上程準備中) | critical | 🏛 経営 |
-| 5 | CEO候補の検討開始・株式先決方針を合意 | management_decision | strategy_pivot | pending | high | 🏛 経営 |
+Codex automation `amd-os-strategy-signals` の prompt に以下を追加:
 
-→ #3 ダイキアクシス が唯一「現状 type が違う」ケース。残り 5 件は 現状 type のままで OK。
-→ 修正 prompt の効果: 「partner との議論は必ず partnership」ルールで #3 を正しく振れる。
-
-## カード表示 (案 F-1) before/after
-
-**before**:
 ```
-[5/21] [🏛] [方針決定] [critical] [候補] [決定]
-ダイキアクシス (DAVP) との関係深化・出資・共同開発の距離感を経営判断未了
-(PSI Step2 事業化推進機関として既に参画)
-```
+経営ハイライト 抽出ルール (まさ #26 #27 #29 #31 2026-05-24):
 
-→ chip 6 個、意味不明、紛らわしい
+1. 「進んだこと・起きたこと」のみ抽出する:
+   - decision_state='done' に相当するもの (= 確定済、実行済、起きた)
+   - 「未了」「議論中」「検討中」「TODO」「アイディア」は除外
+   - 「経営判断未了」「方針未決」のような表現が含まれるものは除外し、
+     代わりに「議題リスト」(= MTG サマリの decided/risks 配列) に回す
 
-**after**:
-```
-[5/21] [🚀 提携] [critical] ⚠️ 未確認
-ダイキアクシス (DAVP) との関係深化・出資・共同開発の距離感を経営判断未了
-(PSI Step2 事業化推進機関として既に参画)
-```
+2. signal_type 判定 (= polarity 自動推定の元):
+   - 特定 partner との関係性 (LOI / NDA / 出資 / 共同開発合意) → partnership (= ✨ or 🎉)
+   - 商談・受注・契約締結 → commercial (= ✨ or 🎉)
+   - 設立・正式参画・量産化 → business_milestone (= 🎉)
+   - 資金調達確定 / 入金 → funding (= ✨ or 🎉)
+   - 自社特許出願 / 技術ブレークスルー → tech_progress (= ✨ or 🎉)
+   - 戦略変更・方針撤回の確定 → strategy_change (= 🔄)
+   - 他国規制動向 / 政策変化 → external_regulation (= 🌐)
+   - マクロ市場変化 / 競合動向 → external_market (= 🌐)
+   - 顕在化したリスク (損害発生済み) → risk_realized (= ⚠️)
 
-→ chip 3 個、4 分類カラーと type 名は 1 chip にまとめ、状態は本文で表現、candidate は控えめに「⚠️ 未確認」注釈
+3. polarity アイコン判定:
+   - 大進捗 (= IPO 内諾、量産開始、大型受注、特許出願完了) → breakthrough (🎉)
+   - 順調な前進 (= LOI、PoC 完了、調達合意) → forward (✨)
+   - 戦略転換 → pivot (🔄)
+   - リスク・悪化 → risk (⚠️)
+   - 外部環境 (中立観測) → external (🌐)
+
+4. AMD Score 影響予測:
+   - 各 signal に対し「7 軸のどれが、いくつ動くか」を予測して
+     `score_impact_summary` に 1 行 (例: "TRL 4→5、X 軸 +40pt")
+   - `score_impact_delta_json` に JSON で構造化
+   - 予測値なので「想定」「見込み」と書いて、実測値は別タイミングで update
+
+5. 既存除外ルール (継続):
+   - 「partner との議論」を「strategy_change」や「management_decision」に入れない (= 必ず partnership)
+   - 「リスク」という言葉だけで「risk_realized」にしない (= 純粋な外部要因かつ顕在化済みか?)
+   - 自社特許出願 / 知財戦略 / 技術スタック進捗 は tech_progress、
+     他国規制動向 / 競合知財動向 は external_regulation (= 内部活動 vs 外部要因で分ける)
+```
 
 ---
 
-## 残設計事項 (= 次セッション)
+## 実装ステップ (= 確定後)
 
-1. **セクション名最終確定** (= 経営トピックス / 重要トピックス / 事業ハイライト ほか、まさ意思決定)
-2. **signal_type 改名 + 統合の最終確定** (案 C-1 ベース / 案 C-2 にする / 別案)
-3. **decision_state の 3 段階化 or 撤廃** (案 D-1 ベース / 別案)
-4. **DB 再 label の実施計画** (= 既存 signal を新 type に手動で振り分け、+ migration)
-5. **Codex automation の LLM prompt 更新依頼** (= まさのローカル `.codex/` 配下を触る or scheduled task で更新)
-6. **MTGサマリ・MS リストとの関係整理** (= 「経営トピックス」と「MTG サマリ」と「MS 進捗」の使い分けを明文化、cockpit 全体の情報設計)
+### Step 1: DDL (migration 089)
+- `project_strategy_signals` に `polarity` TEXT、`score_impact_summary` TEXT、`score_impact_delta_json` JSONB 追加
+- `signal_type` の CHECK 制約を新値に拡張 (= `business_milestone`, `commercial`, `strategy_change`, `external_market`, `risk_realized` を追加、旧 `management_decision` / `next_move` / `business_progress` / `commercial_progress` / `ip_regulatory` / `risk` は廃止候補)
+- 旧 type を全件 re-label (= manual + 後追い LLM)
+
+### Step 2: UI 改修 (CockpitStrategySignals.tsx)
+- セクション名「経営・事業シグナル」→「経営ハイライト」
+- TYPE_LABEL / CATEGORY_OF_TYPE を新 type に更新
+- POLARITY_ICON 定数追加 (= 5 種類)
+- STATE_LABEL 撤廃
+- candidate chip → 注釈に変更
+- score_impact_summary を summary の下に 1 行で表示
+- 「⚠️ つくよみに修正依頼」は維持
+
+### Step 3: LLM prompt 更新
+- Codex automation `amd-os-strategy-signals` の prompt にルール反映
+- まさのローカル `.codex/` 配下を触る or scheduled task で更新
+
+### Step 4: 既存 candidate / confirmed の整理
+- 「未了」「TODO」「アイディア」系の signal を rejected or archive
+- 残った signal に polarity / score_impact_summary を後追い付与 (= まさえいMTG で 1 件ずつ)
+
+### Step 5: ドキュメント更新
+- `project_strategy_signals.md` → 全面書き換え (= 本書の内容を統合、名称も「経営ハイライト」へ)
+- `cockpit.md` 内の経営シグナル記述を更新
+- `FEATURE_REGISTRY.md` の anchor を更新
+- `check_pwa_critical_ui.cjs` の anchor を更新
+
+---
+
+## 残設計事項 (= 次セッションでまさ確定)
+
+1. **🚨 確認**: 「経営ハイライト」だけで本当に十分か? 「未了議題リスト」は別 UI で出さなくていいのか? (= MTG サマリ内の risks/decided 配列で見れるが、cockpit 上に専用枠を作るかどうか)
+2. **🚨 確認**: アイコン 5 種類 (🎉/✨/🔄/⚠️/🌐) で過不足ないか?
+3. **🚨 確認**: AMD Score 影響は **案 A (= 列追加)** で OK か? 別案あるか?
+4. **DDL apply タイミング**: Step 1 を migration 089 で実施するか、まずは UI だけ変えて DDL は別 commit にするか
+5. **既存 candidate の処理ポリシー**: 「未了」を全部 rejected にするか、「議題リスト」に移管するか
