@@ -142,34 +142,12 @@ function DialogueMeetingBody({ meeting }: { meeting: ProjectMeetingSummary }) {
 }
 
 function DialogueNarrativeBody({ meeting }: { meeting: ProjectMeetingSummary }) {
-  const hasRaw =
-    meeting.decided.length > 0 ||
-    meeting.progress.length > 0 ||
-    meeting.nextActions.length > 0 ||
-    meeting.risks.length > 0 ||
-    meeting.summaryShort.length > 0;
+  // まさ #6-2nd (2026-05-24): raw データ折りたたみは廃止。表を含めて narrative_md 本文にすべて入る前提。
   return (
-    <div className="px-5 py-4 space-y-5">
-      <article className="text-[13.5px] leading-relaxed text-[#1d1d1f] [&_h1]:text-[18px] [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-[15px] [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-1.5 [&_h2]:border-b [&_h2]:border-[#e5e5e7] [&_h2]:pb-1 [&_h3]:text-[13.5px] [&_h3]:font-bold [&_h3]:mt-3 [&_h3]:mb-1 [&_p]:my-1.5 [&_ul]:my-1.5 [&_ul]:pl-5 [&_ul]:list-disc [&_ol]:my-1.5 [&_ol]:pl-5 [&_ol]:list-decimal [&_li]:my-0.5 [&_strong]:font-bold [&_strong]:text-black [&_mark]:bg-amber-100 [&_em]:italic">
+    <div className="px-5 py-4">
+      <article className="text-[14px] leading-relaxed text-[#1d1d1f]">
         <MarkdownView source={meeting.narrativeMd!} />
       </article>
-
-      {hasRaw && (
-        <details className="text-[12px] text-[#86868b]">
-          <summary className="cursor-pointer hover:text-[#3c3c43] py-1">▶ 元データ (raw decided / progress / next_actions / risks)</summary>
-          <div className="pt-3 space-y-4">
-            {meeting.summaryShort && (
-              <SummarySection emoji="📝" label="raw summary_short">
-                <MarkdownView source={meeting.summaryShort} />
-              </SummarySection>
-            )}
-            <TopicList emoji="💬" label="提案 (raw)" items={meeting.decided} accent="emerald" />
-            <TopicList emoji="📈" label="進んだこと (raw)" items={meeting.progress} accent="blue" />
-            <TopicList emoji="🎯" label="次の一手 (raw)" items={meeting.nextActions} accent="amber" />
-            <TopicList emoji="⚠️" label="気になっていること (raw)" items={meeting.risks} accent="rose" />
-          </div>
-        </details>
-      )}
     </div>
   );
 }
@@ -209,10 +187,10 @@ function DialogueRawBody({ meeting }: { meeting: ProjectMeetingSummary }) {
 
       <NarrativeSection
         emoji="💬"
-        label="2人で出した提案 (チームへの相談)"
+        label="2人で出した提案（チームへの相談）"
         intro={
           "まさ × えいみで議論した結果として「こうしてはどうか」とチームに出す提案。" +
-          "まさ 1 人で勝手に決めたわけではなく、チームで議論したうえで採否を判断する前提。"
+          "まさ1人で勝手に決めたわけではなく、チームで議論したうえで採否を判断する前提。"
         }
         items={meeting.decided}
         accent="emerald"

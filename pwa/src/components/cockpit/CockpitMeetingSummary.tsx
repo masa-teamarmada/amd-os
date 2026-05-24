@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { fetchProjectMeetingSummaries, type ProjectMeetingSummary } from "@/lib/supabase-data";
 import { CockpitMeetingDetailModal } from "./CockpitMeetingDetailModal";
 
@@ -71,6 +72,9 @@ export function CockpitMeetingSummary({ projectId }: Props) {
   const [selectedMeeting, setSelectedMeeting] = useState<ProjectMeetingSummary | null>(null);
 
   const sinceDate = useMemo(() => todayMinus365IsoDate(), []);
+  // /project/[id]/cockpit?meeting=<meeting_id> で開いた場合、対象 meeting の詳細モーダルを auto-open
+  const searchParams = useSearchParams();
+  const deepLinkMeetingId = searchParams.get("meeting");
 
   useEffect(() => {
     setLoading(true);
@@ -78,6 +82,30 @@ export function CockpitMeetingSummary({ projectId }: Props) {
       .then(setRecentItems)
       .finally(() => setLoading(false));
   }, [projectId, sinceDate]);
+
+  // recent items 取得後に deep link meeting を auto-open
+  useEffect(() => {
+    if (!deepLinkMeetingId || loading || selectedMeeting) return;
+    const hit = recentItems.find((m) => m.meetingId === deepLinkMeetingId);
+    if (hit) {
+      setSelectedMeeting(hit);
+      return;
+    }
+    // recent に無ければ older を読み込む
+    if (!olderLoaded && !olderLoading) {
+      setOlderLoading(true);
+      fetchProjectMeetingSummaries(projectId, {}).then((all) => {
+        setOlderItems(all.filter((i) => i.meetingDate < sinceDate));
+        setOlderLoaded(true);
+        setOlderLoading(false);
+        const olderHit = all.find((m) => m.meetingId === deepLinkMeetingId);
+        if (olderHit) setSelectedMeeting(olderHit);
+      });
+    } else if (olderLoaded) {
+      const olderHit = olderItems.find((m) => m.meetingId === deepLinkMeetingId);
+      if (olderHit) setSelectedMeeting(olderHit);
+    }
+  }, [deepLinkMeetingId, loading, recentItems, olderItems, olderLoaded, olderLoading, projectId, sinceDate, selectedMeeting]);
 
   async function loadOlder() {
     if (olderLoaded) {

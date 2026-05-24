@@ -186,11 +186,18 @@ expectIncludes("src/components/cockpit/CockpitManagementScoreHero.tsx", [
 // MTGサマリ UI: フレーム廃止 + dialogue ラベル + source link
 expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   "isDialogueMeeting",
-  "2人で出した提案 (チームへの相談)",
+  "2人で出した提案（チームへの相談）",
   "DialogueMeetingBody",
   "narrativeMd",
   "TopicList",
   "NarrativeSection",
+]);
+// dialogue narrative の本文ラベルは半角SPなし「2人」で書く (#2-2nd まさ 2026-05-24)
+expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
+  "2 人で出した",
+]);
+expectNotIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
+  "2 人で出した提案 (チームへの相談)",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   // 旧フレーム枠の anchor (border-l + bg-white の rounded-lg 個別ボックス) は廃止
@@ -207,7 +214,7 @@ expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
   "narrative_md",
   "project_meeting_summaries",
   "claude-sonnet-4-6",
-  "2 人で出した提案",
+  "2人で出した提案（チームへの相談）",
 ]);
 
 expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [

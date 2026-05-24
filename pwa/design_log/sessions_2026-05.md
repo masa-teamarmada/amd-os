@@ -6266,3 +6266,37 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
   - HUD 版モーダル (`HudCockpitMeetingDetailModal.tsx`) には今回の案D 思想を写していない (= PWA 版だけ反映)。次セッションで HUD 版にも (a) フレーム廃止 (b) dialogue ラベル切替 (c) `narrative_md` 優先表示 を写す
   - `/api/dialogue-meeting` POST の直後に narrate を自動 chain する仕組みは未実装。今は 2 step 運用 (`pwa/CLAUDE.md` 経営会議手順 step 5 → step 6 に明文化済)
   - 寝てる間セッションなので本番実機での Chrome 目視確認は次セッションで
+
+#### #32 寝てる間お任せ 2nd ラウンド — まさの再指示 6 件 (案E)
+
+- まさがお願いしていたこと (= 案D デプロイ後に投げた再指示):
+  1. 「`/project/p21/cockpit` → MTGサマリ → クリック」のリンクだとモーダル開かないよね？ → 直リンクの仕組み
+  2. 「2 人で出した提案」が「２ 人」「② 人」みたいに見える → スペース除去
+  4. 他PJ と違って p00 月次サマリに進捗バーが出ない → 出すように
+  5. 太字がたまにあるくらいで全体にメリハリがない → 色 / アンダーライン / フレーム / TODO チェックボックス / 表 / 図写真ready のビジュアル導線
+  6. narrative が途中で切れる、重要な 3 表が「元データ」に入ってる → 表は本文へ取り込み、それ以外の元データは廃止、「5/下旬の開発部長MTG」が何か文脈補完
+- えいみが何をしたか:
+  - **#1-2nd** `CockpitMeetingSummary` に `useSearchParams("meeting")` を読み込ませ、recent items / older items に一致する meeting があれば auto-open。`/project/[id]/cockpit?meeting=dialogue:p21:20260523-213654` のような URL で詳細モーダルを直接開ける。報告 URL に使える
+  - **#2-2nd** `2人で出した提案（チームへの相談）` (= 半角SP除去 + 全角括弧) に統一。`CockpitMeetingDetailModal` ラベル + `narrate` SYSTEM_PROMPT + critical-ui anchor の 3 箇所。critical-ui には `expectNotIncludes("2 人で出した", ...)` で巻き戻り禁止も追加
+  - **#4-2nd** p00 の `value_milestones` を `plan_cycle_id` 経由で 14 件取得し、202606-202612 の 7 ヶ月 × 14 MS = 98 行を `milestone_monthly_progress` に `progress_pct=0 / source='initial_zero'` で backfill。他PJ と同じく `monthlyProgressItems()` 経路で進捗バーが出る
+  - **#5-2nd** `MarkdownView` を全面書き直し。`<strong>` 太字 + 黒、`<em>` 黄色マーカー (= まさが「マーカー引いて」と要件)、`<blockquote>` 左ボーダー + 青背景の callout、`<table>` header gradient + first column 太字 + ring border + horizontal scroll、`<h2>` 太い下線、`<h3>` 左 border-l 色アクセント、`<input type="checkbox">` を GFM task list 用に □/☑ カスタム描画、`<img>` を max-w-full で将来の図・写真挿入 ready に
+  - **#6-2nd** `narrate` API を全面改修:
+    - `max_tokens` 1800 → 16000 (= 途中切れ完全解消)
+    - SYSTEM_PROMPT を「初めて読む人がスムーズに追える、ビジュアル導線が設計された Markdown narrative」要件に書き直し
+    - **入力 raw progress[] / decided[] の Markdown 表は本文に必ず再現**するルールを明記 (= 「元データに表があるので参照」のような言い訳を禁止)
+    - **略称・社内固有名詞は文脈補足を付ける**ルールを追加 (= 「5/下旬の開発部長MTG」→「**ダイキアクシス開発部長との MTG（5/下旬予定）**」のように展開)
+    - 出力構成を「🎯 背景 / 💭 議論の流れ / 📊 議論で確定した重要マップ・表 / 💬 2人で出した提案 / ✅ 次の一手 (TODO) / ⚠️ 残課題」の 6 セクション + 絵文字見出しに
+    - TODO は `- [ ]` チェックボックス形式で書かせる
+    - 「決まったこと」表現を絶対禁止、必ず「提案」「相談」「方向性」ニュアンスへ
+  - `CockpitMeetingDetailModal` の `DialogueNarrativeBody` から **raw データ折りたたみセクションを廃止** (= 表は本文に入った前提)
+  - 既存 3 件の `narrative_md` を `NULL` に reset → `POST /api/dialogue-meeting/narrate { all: true, limit: 20 }` で再 narrate (新 prompt + 16K max_tokens)
+- できるようになったこと:
+  - dialogue narrative に L表 / U表 / L×U マトリクス / 他候補水処理メーカープロファイル の 4 表が本文として並び、目線が表に直接落ちる
+  - 「5/下旬の開発部長MTG」「ダイキアクシス (DAVP)」「PSI Step2」のような略称が初出で文脈補足される
+  - 色 / 黄色マーカー / TODO チェックボックス / blockquote callout / table の組み合わせで、ウェブサイト的なメリハリのある読み物に
+  - p00 cockpit の月次サマリにも他PJ と同じ進捗バー (= 初期 0% は赤) が描画される
+  - モーダル直リンクで報告 URL がそのまま使える (= まさが「このリンクだと開かないよね？」を解消)
+- できていないこと (= 次セッション):
+  - HUD 版モーダル (`HudCockpitMeetingDetailModal.tsx`) には案E 思想 (= フレーム廃止 / dialogue ラベル / narrative_md 優先 / メリハリ MarkdownView) を写していない
+  - 図 / 写真の挿入 UI (= dialogue narrative に画像を埋め込む UX) は未実装。MarkdownView 側の `<img>` レンダリングだけ ready
+  - narrative_md の手動編集 UI も未実装 (= まさが narrative を直したい場合は Supabase 直 update)

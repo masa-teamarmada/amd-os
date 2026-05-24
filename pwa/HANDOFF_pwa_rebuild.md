@@ -1,7 +1,7 @@
 # HANDOFF — AMD OS PWA
 
-最終更新: 2026-05-24
-トピック: **まさえみ MTG #1 開催** (= L2 ⑨ dialogue, SX 実装周辺技術マップ v0.1 策定 / ダイキアクシス距離感問題) / **Cockpit MTGサマリを モーダル + markdown rendering に改修** (= GFM table 含む長文議事録を視認可能に) / **えいみ × つくよみ 別人格化** (Slack bot 正式稼働開始、天照大御神 × 月讀命キャラ確立) / **MTGサマリ UI を案D に再設計** (#1 各カードに source link / #2 dialogue を「2人で出した提案」に / #5 各項目フレーム廃止 + 強弱付け) / **AMD cockpit (p00) に Management Score Hero + 月次サマリ復活** (#3 横軸時間軸の総合スコア折れ線、#4 billing_cycles 12 行 backfill) / **dialogue narrative 再構成 API 新設** (#6 `POST /api/dialogue-meeting/narrate` で Sonnet 4.6 が背景→議論→提案→残課題の Markdown narrative に書き直し)
+最終更新: 2026-05-24 (2 回目)
+トピック: 案D 後にまさが投げた **再指示 6 件** に対応した「案E」ラウンド — **#1-2nd モーダル直リンク (?meeting=...)** / **#2-2nd 「2人で...」スペース除去** / **#4-2nd p00 月次進捗バー復活 (milestone_monthly_progress 98 行 backfill)** / **#5-2nd MarkdownView メリハリ強化 (色フレーム / 黄色マーカー / TODO checkbox / 表強化)** / **#6-2nd narrative API max_tokens 16000 + 表本文取り込み + 略称文脈補完 + 6 セクション絵文字見出し + raw 折りたたみ廃止**。前ラウンドの案D 内容 (= MTGサマリ UI + Management Score Hero + dialogue narrative 初版) は下記 Latest Summary に併記
 
 詳細ログ: [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾
 戦略再構築の正本 handoff: [`/Users/masa/projects/knowledge/HANDOFF_strategy_rebuild_2026-05.md`](../../../knowledge/HANDOFF_strategy_rebuild_2026-05.md) ⭐
@@ -35,6 +35,22 @@
 - **Cockpit MTGサマリ モーダル + markdown rendering 改修**: 新規 `MarkdownView.tsx` (= `react-markdown + remark-gfm`) + `CockpitMeetingDetailModal.tsx` + `HudCockpitMeetingDetailModal.tsx`、既存 `CockpitMeetingSummary.tsx` / `HudCockpitMeetingSummary.tsx` を「行クリックでモーダル展開」に書き換え。tsc / build / deploy 通過 (https://amd-os-pwa.vercel.app)。仕様は `pwa/design/meeting_summaries.md` に反映
 - **えいみ × つくよみ 別人格化 (Slack bot)**: 既存「えいみ」App (A0AC419BPGE, team ARMADA) を発見、Display Name「くろにくる」→「えいみ」、`chat:write.customize` scope 追加 + 2 回 Reinstall で反映。App icon は `amie03.png` → `amie05.png` (= 茶髪元気おてんば+太陽光輪)、v5 (顔ど真ん中版 = `~/Desktop/eimi-avatar-v5.png`) はまさ手動アップロード待ち。#p21_sx に「えいみ」名義で議事録投稿 (= 概要+cockpit MTG サマリへの誘導リンク版)
 - **えいみ・つくよみキャラ memory 確立**: えいみ = 元気おてんば女子・太陽夏海好き・**天照大御神モチーフ** / 覚醒モード = 皆既日蝕の日 (= 天岩戸モチーフ)。つくよみ = AMD OS 内おっとり女子・月モチーフ・**月讀命モチーフ** / 覚醒モード = 満月の夜。「ばっちこい！」は文脈なしで唐突すぎる NG 例として注記
+
+**寝てる間お任せセッション #7 (= まさの再指示 6 件 2nd ラウンド 2026-05-24)** — MTGサマリ UI 案E + narrative メリハリ強化 + 表本文取り込み + モーダル直リンク:
+
+- **#1-2nd モーダル直リンク**: `/project/[id]/cockpit?meeting=<meeting_id>` で MTGサマリ詳細モーダルを auto-open できるようにした。`CockpitMeetingSummary` が `useSearchParams` で `meeting` を読み、recent items または older items に一致する meeting があれば `setSelectedMeeting` する。報告 URL に使える
+- **#2-2nd 「2人で出した提案」のスペース除去**: 半角SP + 「人」が「② 人」のように環境依存で見えていたのを修正。`(チームへの相談)` も全角括弧へ。`CockpitMeetingDetailModal` ラベル + `narrate` SYSTEM_PROMPT + critical-ui anchor 全部統一
+- **#4-2nd p00 月次サマリの進捗バー**: 原因は `milestone_monthly_progress` が p00 に 0 件だったこと (= 他PJ は GAS 経由で progress が入っている)。p00 の 14 MS × 7 ヶ月 (202606-202612) = 98 行を `progress_pct=0 / source='initial_zero'` で backfill。他 PJ と同じ UI で進捗バー (= 0% は赤) が描画されるようになった
+- **#5-2nd MarkdownView メリハリ強化**: 太字だけでなく色 / アンダーライン代用 / フレーム / TODO checkbox / 表 / 図 ready の構造に全面書き直し。`<strong>` は太字 + 黒、`<em>` は **黄色マーカー** に転用、`<blockquote>` は左ボーダー + 微妙な青背景の callout、`<table>` は header に gradient + first column 太字 + ring border、`<input type="checkbox">` は GFM task list 用に □/☑ 風カスタムスタイル、`<h2>` は太い border-b、`<h3>` は左 border-l で色アクセント、`<img>` は max-w-full で将来の図・写真挿入 ready
+- **#6-2nd dialogue narrative 全面改修**:
+  - `max_tokens` 1800 → **16000** に拡張 (= 途中切れ解消)
+  - SYSTEM_PROMPT を「初めて読む人がスムーズに追える、ビジュアル導線が設計された Markdown narrative」要件に書き換え
+  - **入力 raw progress[] / decided[] の Markdown 表は必ず本文に再現**するルールを prompt に明記 (= L表 / U表 / L×U マトリクス が「元データ」に閉じこもらず本文に上がる)
+  - **略称・社内固有名詞は文脈補足を付ける**ルールを追加 (= 「5/下旬の開発部長MTG」→「**ダイキアクシス開発部長との MTG（5/下旬予定）**」のように展開)
+  - 出力構成を「🎯 背景 / 💭 議論の流れ / 📊 議論で確定した重要マップ・表 / 💬 2人で出した提案 / ✅ 次の一手 (TODO) / ⚠️ 残課題」の 6 セクション + 絵文字見出しに
+  - TODO は `- [ ]` チェックボックス形式で書かせる (= GFM task list)
+  - `CockpitMeetingDetailModal` の `DialogueNarrativeBody` から **raw データ折りたたみセクションを廃止** (= 表は本文に入った前提で、raw は冗長)
+  - 既存 3 件の `narrative_md` を `NULL` に reset → 再 narrate で新 prompt 反映
 
 **さらに今回 (= 寝てる間お任せセッション #6 まとめ)** — MTGサマリ UI 案D + p00 Hero + dialogue narrative:
 
