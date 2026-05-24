@@ -8,6 +8,12 @@ function doPost(e){
   const payloadStr = (e && e.parameter && e.parameter.payload) ? String(e.parameter.payload) : "";
   const hasInteractivePayload = !!payloadStr.trim();
 
+  // ===== 0-pre) pwaApi: POST body 経由の runFunc 等を doGet ルータに委譲 =====
+  // (2026-05-23 えいみ追加: GET URL 8KB制限を回避し POST body で長文 args を受けるため)
+  if (mode === "pwaApi") {
+    return doGet(e);
+  }
+
   // ===== 0a) internal_setup (1 回限り、SUPABASE_SERVICE_ROLE_KEY 未設定時のみ受け付け) =====
   // 自動セットアップ用。017_InvoiceSendNudge.js / invoiceSend_runInternalSetup_ に転送。
   if (mode === "internal_setup"){

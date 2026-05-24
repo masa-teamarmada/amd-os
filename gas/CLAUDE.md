@@ -306,7 +306,7 @@ npx --yes @google/clasp@latest deploy \
 
 `--deploymentId` は **PWA が叩いてる本番 deployment** (`amd-os-pwa` の `NEXT_PUBLIC_GAS_WEBAPP_URL` で使用中)。これを update することで `/exec` が新コードを serve するようになる。
 
-### 2. 関数を呼ぶ (curl / GET only)
+### 2. 関数を呼ぶ (GET / POST)
 
 ```bash
 URL=$(grep '^NEXT_PUBLIC_GAS_WEBAPP_URL=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | cut -d= -f2- | tr -d '"')
@@ -322,6 +322,17 @@ curl -sL --max-time 360 \
 ```
 
 レスポンスは `{ok, data: {fn, ms, result}}` の JSON。
+
+**長文 args の場合は POST body 経由** (2026-05-23 えいみ追加、`80_SlackWebhook.js` の doPost に `mode=pwaApi` 分岐を入れて `099_PwaApi.js` の `pwaApi_handle_` に委譲。GAS Web App URL の 8KB 制限を回避するため)。curl は Apps Script の 302 redirect で body を維持できないため **必ず node fetch を使う**:
+
+```bash
+node -e '
+const url = process.argv[1] + "?mode=pwaApi&key=" + process.argv[2] + "&action=runFunc";
+const body = JSON.stringify({fn:"slackNotifyPostToChannel_", args:["C093DQ4D04W", {text:"長文テキスト..."}]});
+fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body})
+  .then(r=>r.text()).then(t=>console.log(t));
+' "$URL" "$KEY"
+```
 
 ### 3. ScriptProperties キー一覧を取る
 
@@ -345,10 +356,50 @@ curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=oneTime_setScriptProperty&
 
 - **GAS Web App 実行制限 6 分**。1 関数呼び出しでこれを超えないこと。
 - 長い処理は `maxItems` などのバッチ制限を入れて、bash ループ等で外側から繰り返し叩く。
-- POST は doPost が未実装で 404 → GET のみ。値が長い場合は base64 等で encode。
+- GET URL は約 8KB 制限。超える場合は POST body 経由 (上記 2 の node fetch 例) を使う。
 - 認証は `NEXT_PUBLIC_GAS_API_KEY` (= `PWA_API_KEY`) のみ。漏れると任意関数を実行されるため、キー漏洩には特に注意。
 
 詳細は `099_PwaApi.js` の `pwaApi_handle_` 内 `listProps` / `runFunc` 分岐参照。
+
+---
+
+## Slack 投稿 (任意チャンネル + 任意テキスト)
+
+つくよみ名義で `#pXX_xx` 等の任意チャンネルに投稿するときの **正しい入口**:
+
+```bash
+node -e '
+const url = process.argv[1] + "?mode=pwaApi&key=" + process.argv[2] + "&action=runFunc";
+const body = JSON.stringify({fn:"slackNotifyPostToChannel_", args:["<CHANNEL_ID>", {text:"投稿本文"}]});
+fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body})
+  .then(r=>r.text()).then(t=>console.log(t));
+' "$URL" "$KEY"
+```
+
+- `slackNotifyPostToChannel_(channelId, arg)` (`115_SlackNotify.js` line 223) は `SLACK_BOT_TOKEN` を使う。これが **つくよみ (user id `U0A663YPJNQ`) 本体** のトークン
+- **罠**: 同じファイル line 466 に `slackNotifyPostToChannelTsukuyomi_` という別関数があるが、これは `SLACK_TSUKUYOMI_BOT_TOKEN` (別bot、おそらく旧「つくよみchronicle」) を使う。これは `#p21_sx` 等の主要PJチャンネルに居らず `not_in_channel` エラーが出る。**任意チャンネル投稿には使わない**
+- channelId は `slackNotifyGetProjectChannelId_(projectId)` で `p21` → `C093DQ4D04W` 等を解決可能
+- 削除は `slack_callApi("chat.delete", {channel, ts})` (`185_SlackNotify.js`)
+
+---
+
+## Supabase REST 直叩き (GAS を経由しない高速路)
+
+GAS Web App 8KB 制限すら避けたいとき (長文 row の upsert 等) は、PWA env の Service Role Key を使って Supabase REST API を直接叩ける:
+
+```bash
+SUPABASE_URL=$(grep '^NEXT_PUBLIC_SUPABASE_URL=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | cut -d= -f2- | tr -d '"')
+SRK=$(grep '^SUPABASE_SERVICE_ROLE_KEY=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | cut -d= -f2- | tr -d '"')
+
+# upsert (要 on_conflict 指定)
+curl -sL -X POST "$SUPABASE_URL/rest/v1/<table>?on_conflict=<pk_col>" \
+  -H "apikey: $SRK" -H "Authorization: Bearer $SRK" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: resolution=merge-duplicates,return=representation" \
+  --data-binary @<json-file>
+```
+
+長文 row (10KB+) を upsert する用途で 2026-05-23 に検証済み。
 
 ---
 
