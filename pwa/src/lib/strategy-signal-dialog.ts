@@ -67,9 +67,11 @@ export async function fetchSignalContext(args: {
   const ym = m[1];
   const hashPrefix = m[2];
 
+  // select("*") にしておく (= migration 090 で polarity / score_impact_summary 列が追加される前後で
+  //  helper を壊さないため。supabase-data.ts も同じ理由で select("*"))
   const { data: signals, error: sigErr } = await supabase
     .from("project_strategy_signals")
-    .select("signal_id, project_id, ym, signal_type, impact_level, title, summary, source_hash, polarity, score_impact_summary")
+    .select("*")
     .eq("project_id", args.targetId)
     .eq("ym", ym)
     .order("signal_date", { ascending: false })
@@ -77,7 +79,7 @@ export async function fetchSignalContext(args: {
   if (sigErr) return { ok: false, message: `signal fetch error: ${sigErr.message}` };
   const target = (signals ?? []).find(
     (s) => (s.source_hash || "").startsWith(hashPrefix) || (s.signal_id || "").startsWith(hashPrefix)
-  );
+  ) as Record<string, unknown> | undefined;
   if (!target) return { ok: false, message: `signal not found for scope_key ${args.scopeKey}` };
 
   const { data: pastFeedbacks } = await supabase
@@ -92,15 +94,16 @@ export async function fetchSignalContext(args: {
   return {
     ok: true,
     context: {
-      signal_id: target.signal_id,
-      project_id: target.project_id,
-      ym: target.ym,
+      signal_id: String(target.signal_id),
+      project_id: String(target.project_id),
+      ym: String(target.ym),
       scope_key: args.scopeKey,
       current: {
         title: String(target.title || ""),
         summary: String(target.summary || ""),
         impact_level: String(target.impact_level || "medium"),
         signal_type: String(target.signal_type || ""),
+        // migration 090 適用前は列が無く undefined → null として扱う
         polarity: (target.polarity ?? null) as string | null,
         score_impact_summary: (target.score_impact_summary ?? null) as string | null,
       },
@@ -261,12 +264,25 @@ export async function applyProposal(args: {
     signal_type: args.proposed.signal_type,
     updated_at: nowIso,
   };
+  // polarity / score_impact_summary は migration 090 適用後に DB に存在。
+  // 適用前は payload に含めると PostgreSQL が「no such column」で reject するので、
+  // 1 度試して失敗したら fallback で core fields だけで再 update する。
   if (args.proposed.polarity !== undefined) updatePayload.polarity = args.proposed.polarity;
   if (args.proposed.score_impact_summary !== undefined) updatePayload.score_impact_summary = args.proposed.score_impact_summary;
-  const { error: updErr } = await supabase
+  let { error: updErr } = await supabase
     .from("project_strategy_signals")
     .update(updatePayload)
     .eq("signal_id", args.context.signal_id);
+  if (updErr && /polarity|score_impact_summary/.test(updErr.message)) {
+    // migration 090 未適用環境: 拡張列を payload から外して再試行
+    delete updatePayload.polarity;
+    delete updatePayload.score_impact_summary;
+    const retry = await supabase
+      .from("project_strategy_signals")
+      .update(updatePayload)
+      .eq("signal_id", args.context.signal_id);
+    updErr = retry.error;
+  }
   if (updErr) return { ok: false, message: `signal update error: ${updErr.message}` };
 
   // conversation を markdown で 1 文字列化 (= feedback_text に永続化)
