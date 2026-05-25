@@ -1,43 +1,53 @@
 import fs from "node:fs";
 import path from "node:path";
 import Link from "next/link";
-import { MANUAL_SECTIONS, sortManualSlugs } from "./manual-chapters";
+import { ManualMapClient } from "./ManualMapClient";
+import {
+  MANUAL_CHAPTERS,
+  MANUAL_SECTIONS,
+  MANUAL_TOPIC_NODES,
+  getManualChapter,
+  sortManualSlugs,
+  type ManualChapterConfig,
+} from "./manual-chapters";
 
 /**
  * /manual — AMD OS マニュアル index
  *
- * pwa/manual/ 配下の章 md ファイル一覧 + 各章 1 行 description を表示。
- * (まさ #23 確定 2026-05-24)
+ * テーマ別クリックマップを主役にし、目次を全章リンクの保険として残す。
  */
 
-interface ChapterMeta {
-  slug: string;
-  title: string;
-  description: string;
-}
-
-function getChapters(): ChapterMeta[] {
+function getChapters(): ManualChapterConfig[] {
   const dir = path.join(process.cwd(), "manual");
   const files = sortManualSlugs(fs.readdirSync(dir).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, "")));
-  return files.map((f) => {
-    const slug = f;
-    const text = fs.readFileSync(path.join(dir, `${f}.md`), "utf8");
+
+  return files.map((file) => {
+    const slug = file;
+    const text = fs.readFileSync(path.join(dir, `${file}.md`), "utf8");
     const lines = text.split("\n");
-    const h1 = lines.find((l) => l.startsWith("# "))?.replace(/^# /, "").trim() || slug;
-    // 最初の h1 直後の non-empty 段落を description として拾う
-    let description = "";
-    const h1Idx = lines.findIndex((l) => l.startsWith("# "));
+    const h1 = lines.find((line) => line.startsWith("# "))?.replace(/^# /, "").trim() || slug;
+    let summary = "";
+    const h1Idx = lines.findIndex((line) => line.startsWith("# "));
+
     if (h1Idx >= 0) {
       for (let i = h1Idx + 1; i < lines.length && i < h1Idx + 20; i++) {
-        const l = lines[i].trim();
-        if (!l) continue;
-        if (l.startsWith("#")) break;
-        if (l.startsWith("> ")) continue;
-        description = l.replace(/[*_`]/g, "").slice(0, 120);
+        const line = lines[i].trim();
+        if (!line) continue;
+        if (line.startsWith("#")) break;
+        if (line.startsWith("> ")) continue;
+        summary = line.replace(/[*_`]/g, "").slice(0, 120);
         break;
       }
     }
-    return { slug, title: h1, description };
+
+    return getManualChapter(slug) ?? {
+      slug,
+      number: "--",
+      title: h1,
+      summary,
+      audience: "both",
+      topics: [],
+    };
   });
 }
 
@@ -45,31 +55,51 @@ export default function ManualIndexPage() {
   const chapters = getChapters();
   const bySlug = new Map(chapters.map((chapter) => [chapter.slug, chapter]));
   const groupedSlugs = new Set(MANUAL_SECTIONS.flatMap((section) => section.slugs));
+  const configuredSlugs = new Set(MANUAL_CHAPTERS.map((chapter) => chapter.slug));
   const uncategorized = chapters.filter((chapter) => !groupedSlugs.has(chapter.slug));
+  const missingMetadata = chapters.filter((chapter) => !configuredSlugs.has(chapter.slug));
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8">
-      <h1 className="text-2xl font-bold mb-1">📖 AMD OS マニュアル</h1>
-      <p className="text-sm text-muted-foreground mb-6">
-        AMD OS の使い方・データの裏側・過去判断・開発手順の正本。まず「使う人向け」、必要に応じて「全体設計・細かい仕様」を読む。
+    <div className="mx-auto max-w-6xl px-6 py-8">
+      <h1 className="mb-1 text-2xl font-bold">AMD OS マニュアル</h1>
+      <p className="mb-6 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        AMD OS の使い方・データの裏側・過去判断・開発手順の正本。テーマから入り、気になる章へ横移動できる地図として使う。
       </p>
 
-      <div className="space-y-6">
+      <ManualMapClient chapters={chapters} topics={MANUAL_TOPIC_NODES} />
+
+      <div className="mt-8 space-y-6">
+        <section>
+          <h2 className="text-base font-semibold text-foreground">目次</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            全章へのリンク一覧。クリックマップに出ていない章があっても、ここから必ず辿れる。
+          </p>
+        </section>
+
         {MANUAL_SECTIONS.map((section) => {
-          const sectionChapters = section.slugs.map((slug) => bySlug.get(slug)).filter(Boolean) as ChapterMeta[];
+          const sectionChapters = section.slugs.map((slug) => bySlug.get(slug)).filter(Boolean) as ManualChapterConfig[];
           if (sectionChapters.length === 0) return null;
+
           return (
             <section key={section.key}>
-              <h2 className="text-base font-semibold text-foreground">{section.title}</h2>
+              <h3 className="text-sm font-semibold text-foreground">{section.label}</h3>
               <p className="mt-1 text-xs text-muted-foreground">{section.description}</p>
-              <ul className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
-                {sectionChapters.map((c) => (
-                  <li key={c.slug} className="px-4 py-3 transition-colors hover:bg-muted/30">
-                    <Link href={`/manual/${encodeURIComponent(c.slug)}`} className="block">
-                      <div className="text-sm font-semibold text-foreground">{c.title}</div>
-                      {c.description && (
-                        <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{c.description}</div>
-                      )}
+              <ul className="mt-3 grid gap-2 md:grid-cols-2">
+                {sectionChapters.map((chapter) => (
+                  <li key={chapter.slug}>
+                    <Link
+                      href={`/manual/${encodeURIComponent(chapter.slug)}`}
+                      className="block rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/30"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-7 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-bold text-foreground">
+                          {chapter.number}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-foreground">{chapter.title}</span>
+                          <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{chapter.summary}</span>
+                        </span>
+                      </div>
                     </Link>
                   </li>
                 ))}
@@ -78,16 +108,19 @@ export default function ManualIndexPage() {
           );
         })}
 
-        {uncategorized.length > 0 && (
+        {missingMetadata.length > 0 && (
           <section>
-            <h2 className="text-base font-semibold text-foreground">未分類</h2>
-            <ul className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
-              {uncategorized.map((c) => (
-                <li key={c.slug} className="px-4 py-3 transition-colors hover:bg-muted/30">
-                  <Link href={`/manual/${encodeURIComponent(c.slug)}`} className="block">
-                    <div className="text-sm font-semibold text-foreground">{c.title}</div>
-                    {c.description && (
-                      <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{c.description}</div>
+            <h3 className="text-sm font-semibold text-foreground">メタデータ未設定</h3>
+            <ul className="mt-3 grid gap-2 md:grid-cols-2">
+              {missingMetadata.map((chapter) => (
+                <li key={chapter.slug}>
+                  <Link
+                    href={`/manual/${encodeURIComponent(chapter.slug)}`}
+                    className="block rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/30"
+                  >
+                    <div className="text-sm font-semibold text-foreground">{chapter.title}</div>
+                    {chapter.summary && (
+                      <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{chapter.summary}</div>
                     )}
                   </Link>
                 </li>
@@ -95,8 +128,45 @@ export default function ManualIndexPage() {
             </ul>
           </section>
         )}
+
+        {uncategorized.length > 0 && (
+          <section>
+            <h3 className="text-sm font-semibold text-foreground">未分類</h3>
+            <ul className="mt-3 grid gap-2 md:grid-cols-2">
+              {uncategorized.map((chapter) => (
+                <li key={chapter.slug}>
+                  <Link
+                    href={`/manual/${encodeURIComponent(chapter.slug)}`}
+                    className="block rounded-lg border border-border px-3 py-3 transition-colors hover:bg-muted/30"
+                  >
+                    <div className="text-sm font-semibold text-foreground">{chapter.title}</div>
+                    {chapter.summary && (
+                      <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{chapter.summary}</div>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <section>
+          <h3 className="text-sm font-semibold text-foreground">全章一覧</h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {chapters.map((chapter) => (
+              <Link
+                key={chapter.slug}
+                href={`/manual/${encodeURIComponent(chapter.slug)}`}
+                className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                {chapter.number}. {chapter.title}
+              </Link>
+            ))}
+          </div>
+        </section>
       </div>
-      <p className="text-xs text-muted-foreground mt-6">
+
+      <p className="mt-6 text-xs text-muted-foreground">
         正本: <code className="rounded bg-muted px-1">pwa/manual/*.md</code> (= git 管理)。
         新規セッション開始時 / 「なぜそうなってるか」を知りたい時に開く。
       </p>
