@@ -1,9 +1,9 @@
 # HANDOFF — AMD OS PWA
 
-最終更新: 2026-05-25 (#71、お昼 → 夕方) — **L2 ②〜⑨ Claude routine 8 個統一方針確定 + Routine 1 完全 inline 移植 + #34 対話型修正依頼実装**
+最終更新: 2026-05-25 (#71、お昼 → 夜) — **L2 ②〜⑨ Claude routine 8 個全登録完了 + 対話型修正依頼フル動作確認 + Routine 1 完全 inline 移植 + #34 対話型 UI**
 
 > ⚠️ **本 HANDOFF は slim 版** (= 200 行以下目標)。
-> 過去セッション (= #36 〜 #70 別 codex 含む) の詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) を参照。
+> 過去セッション (= #36 〜 #70) の詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) を参照。
 
 ---
 
@@ -14,67 +14,78 @@
 - 設計変更は `pwa/manual/` (正本) + 必要なら `pwa/design/` を同じ commit で更新
 - TODO は **まさが「おけ」と言うまで `completed` にしない**、報告は **ビルド前**
 - 別 codex 並行運用、push 前に `git pull --rebase --autostash origin main` 必須
-- HANDOFF Latest Summary を膨張させない (= 古い summary は design_log に追記してから上書き)
 
 ---
 
-## Latest Summary (= 2026-05-25 #71、お昼 → 夕方)
+## Latest Summary (= 2026-05-25 #71)
 
-**🔥 方針確定** (= まさ #71):
-- **L2 ②〜⑨ Claude routine 8 個統一**: ghost 4 種 (②④⑤⑥) だけでなく稼働中の ③⑦⑧⑨ も Claude routine に移管。既存 Codex automation `amd-os-ms` / `amd-os` + LaunchAgent applier は Routine 5-8 動作確認後に段階的停止
-- **#34 中期廃止**: 対話型ループが完成したら冗長、`amd-os` automation の prompt から `l2_feedbacks` 読み込み手順を revert
+**🔥 方針確定**:
+- L2 ②〜⑨ 全 8 種を Claude routine に統一 (= ghost ②④⑤⑥ + 稼働中 ③⑦⑧⑨ 全部移管)
+- 経営ハイライト修正依頼は対話型 (= start/refine/confirm 3 API + DiffRow + 適用/やり直し/追加コメント UI)
 
-完了 (まさ「おけ」確認済):
-- **L2 9 種現状確認** (= 直叩き fact: ghost ②④⑤⑥ + 稼働 ③⑦⑧⑨、①は別 GAS R313 で月次)
-- **Routine 化スコープ拡大方針** (= まさ #71 確定、L2 ②〜⑨ 全 8 routine)
-- **前セッション残置の 3 件** (= #34 短期 UI セクション + #34 中期 → 廃止 + #22 Hint 配置 3 箇所)
+**完了 (まさ「おけ」確認済)**:
+- 方針確定 + 既存稼働 fact 報告 + Routine 化スコープ拡大
 
-完了 (まさ「おけ」未確認、in_progress 扱い):
-- **#40 Routine 1 完全 inline 移植**: `~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md` を **GAS dryRun 経由 → MCP 直叩き完全 inline 移植版** に書き直し (= Calendar / Notion / Gmail / Drive / Slack MCP + サブスク内 Claude LLM + Supabase REST 直叩き、5 ソース全部見る、GAS 完全 bypass)
-- **#34 対話型修正依頼**: helper `pwa/src/lib/strategy-signal-dialog.ts` + API 3 個 (`/api/notifications/feedback/dialog/start|refine|confirm`) + CockpitStrategySignals modal を対話型 UI (= input → loading → preview (= DiffRow + 適用/やり直し/追加コメント 3 ボタン) → addComment) に拡張 + 旧 `reextractStrategySignalImmediate` 削除
+**完了 (まさ「おけ」未確認、in_progress 扱い)**:
+- **Routine 1-8 SKILL.md 完全 inline 移植版 + scheduled task 全登録** (= 命名規約: `amd-os-l<N>-<data-name>-extract`):
+  - `amd-os-l2-protocol-extract` (daily 08:00) = AMD プロトコル
+  - `amd-os-l3-ms-progress-extract` (毎時 0 分) = MS 進捗
+  - `amd-os-l4-project-knowledge-extract` (daily 08:15) = PJ ナレッジ
+  - `amd-os-l5-member-knowledge-extract` (daily 08:30) = メンバーナレッジ
+  - `amd-os-l6-meeting-extract` (毎時 0 分) = MTG サマリ (旧 amd-os-meeting-extract をリネーム、443 行 inline)
+  - `amd-os-l7-registry-diff-extract` (6h ごと) = OS 台帳差分
+  - `amd-os-l8-xrl-evidence-extract` (6h ごと、L7 と 15 分ずらし) = XRL 根拠
+  - `amd-os-l9-strategy-signal-extract` (daily 03:20) = 経営ハイライト
+- **#34 対話型修正依頼**: helper `pwa/src/lib/strategy-signal-dialog.ts` + API 3 個 (start/refine/confirm) + CockpitStrategySignals modal 対話型 UI + `router.refresh()` + 旧 `reextractStrategySignalImmediate` 削除 + L2 ⑨ 即時再抽出分岐削除
+- **migration 090 apply** (= polarity / score_impact_summary / amd_score_revisions / amd_score_alpha_proposals + RLS)
 - **#34 中期 revert** (= `~/.codex/automations/amd-os/automation.toml` 手順 4 削除)
-- **design md / マニュアル / L2_DATA 同期** (= `design/l2_extract_claude_routine.md` 改訂 + `manual/05` §5.7 + `design/L2_DATA.md` を 8 routine 統一方針に更新)
-- **design_log #71 セッション追記** ([sessions_2026-05.md](design_log/sessions_2026-05.md) 末尾)
+- **対話型 UI 全フロー実機テスト** (= Chrome MCP、p21 cockpit):
+  - Test 1: 1 つ目 signal「Finechem...PoC候補拡張」(impact=high) → 修正依頼 → 提案 → 適用 → DB 更新「Finechem...PoC実施候補リスト入り」(impact=medium) ✓
+  - Test 2: 3 つ目 signal「中国レアアース...」 → 修正依頼 → 提案 → **やり直し別案** → polarity forward set ✓ → **追加コメント** → score_impact_summary「📊 影響: Atlas 追い風 BRL +2 見込み」追記 ✓ → 適用 → DB 更新 + 対話履歴 6 件 + applied_count=1 ✓
+- **design / manual / L2_DATA / design_log #71 同期**
 
-Verified (= 今セッション実行):
-- `npx tsc --noEmit` pass / `npm run build` pass / `npm run test:critical-ui` pass
-- `/api/notifications/feedback/dialog/{start,refine,confirm}` 3 routes がビルド出力に登録
+Verified:
+- `npx tsc --noEmit` + `npm run build` + `npm run test:critical-ui` 全 pass
+- Vercel deploy 3 回 (= e2fdf34 + 8fd463b page.tsx fix + f2cbf8c migration 090 fallback + 720c8a1 router.refresh)
+- 全 8 scheduled task enabled、cron 確認
 
 ---
 
 ## Repo State
-- branch: `main`、HEAD: 次セッション開始時に確認 (= 今セッションで #71 commit + push 予定)
-- 別 codex 並行作業: `gas/154` / `gas/244` / `gas/503` / `gas/940` / `gas/CLAUDE.md` / `ios/supabase/...` / `pwa/manual/10-38*` 等多数 (= 触らない)
-- untracked: `tmp/` (= まさの確認用)
+- branch: `main`、HEAD: `720c8a1` (= #71 commits) + これから commit する HANDOFF / design_log 更新
+- 別 codex 並行作業: pwa/manual/* / gas/* / ios/* 多数 (= 触らない)
 
 ---
 
 ## Open Tasks (= 次セッション着手、優先順)
 
-### 🔥 最優先 (= #71 後続)
+### 🔥 動作観察 + 段階的停止 (= 8 routine 稼働後)
 
-1. **Routine 1 scheduled task 登録 + 動作確認** — `mcp__scheduled-tasks__create_scheduled_task` で `amd-os-meeting-extract` を cron `0 * * * *` + `notifyOnCompletion=true` で登録、翌時 0 分の発火を観察、上手く動かなければ SKILL.md 修正
-2. **対話型 UI 動作確認** — Chrome MCP で `/project/<id>/cockpit` の経営ハイライト各カード → 「⚠️ つくよみに修正依頼」 → textarea → 送信 → 提案表示 → 適用 / やり直し / 追加コメント の挙動を実機確認
-3. **Routine 2-4 (= ②④⑤ ghost) SKILL.md** — Routine 1 と同パターンで GAS 155 `nav_protocol_pollAll` / `nav_project_knowledge_pollAll` / `nav_member_knowledge_pollAll` を完全 inline 移植。**member_knowledge schema gap** (= status / source_hash 列なし) は migration 判断必要
+1. **8 routine 動作観察**: 翌時 0 分 L3/L6 発火 → 翌朝 8:00/8:15/8:30 L2/L4/L5 → 翌 6h 単位 L7/L8 → 翌 03:20 L9。各 routine の出力を fact 確認 (= Supabase 直叩きで saved 件数 / source_hash / l2_extract_state 確認)、必要なら SKILL.md 修正
+2. **既存 PWA `/api/cron/hourly-estimate` 停止** (= L3 routine 動作確認後): `vercel.json` から外し → `vercel.disabled-crons.json` に退避 + GAS 154 `nav_pwa_pingHourlyEstimate` を kill switch ON
+3. **既存 Codex automation 段階的停止** (= L7/L8/L9 動作確認後): `amd-os-ms` (= L7/L8) → `amd-os` (= L9) → LaunchAgent applier の outbox 監視も unload (= 残るは Atlas のみ)
 
-### 🚀 大型実装 (= 残)
+### 🚧 後追い改善
 
-4. **Routine 5-8 (= ③⑦⑧⑨) SKILL.md** — 既存稼働中なので慎重、Routine 5-8 が動作確認できてから既存 Codex automation / PWA hourly を停止
-5. **5/22-5/25 取り込み穴期間 backfill** — 各 routine に `--backfill-from 2026-05-22` モード追加 or 手動キック routine 別建て
-6. **既存 Codex automation / LaunchAgent applier の段階的停止** — Routine 5-8 動作確認後
-7. **#21+#20-2+#29+#31 統合 UI/cron** — migration 090 SQL apply + 経営ハイライト改修 + AmdScoreFutureEditModal + 透明 hit-area + 日次/週次 cron + `/admin/amd-score-alpha-review`
+4. **対話型 UI 表示反映**: confirm 後の `router.refresh()` だけだと一部 cache が残る (= title 即時更新されない、ハードリロードで確認可能)。`revalidatePath` を helper に追加検討
+5. **member_knowledge schema gap**: status / source_hash 列なし。L5 routine が candidate 採否を持たせるなら migration 必要
+6. **5/22-5/25 取り込み穴期間 backfill**: 各 routine に `--backfill-from 2026-05-22` モード追加 or 手動キック routine 別建て
+
+### 🚀 大型実装 (= 既存)
+
+7. **#21+#20-2+#29+#31 統合 UI/cron** (= migration 090 apply 済、UI/cron 実装が残): 経営ハイライト改修 + AmdScoreFutureEditModal + 透明 hit-area + 日次/週次 cron + `/admin/amd-score-alpha-review`
 8. **#41** PWA ダッシュボードに HUD 並みの情報量を移植 (= HudCockpitSignalStrip 相当を PWA 版に追加)
-9. **#33 派生 手動実行ボタン** — L2 全種 (議事録 / プロトコル / PJ ナレッジ / メンバーナレッジ / 経営ハイライト) に「いま手動で叩く」ボタン (= `/admin/settings` operations-catalog 拡張)
-10. **#22 残箇所配置** — Hint を CockpitRoutineGas / CockpitVentureStatus / CockpitMeetingSummary / CockpitMonthlyList / CockpitHeader 等に配置
+9. **#33 派生 手動実行ボタン** (= `/admin/settings` operations-catalog に L2 全種「いま手動で叩く」ボタン追加)
+10. **#22 残箇所配置** (= Hint を CockpitRoutineGas / CockpitVentureStatus / CockpitMeetingSummary / CockpitMonthlyList / CockpitHeader 等に)
 
 ### 🟡 中型 / 軽め
 
 11. **#32** XRL prompt DB 化 + 入力データ再設計
 12. **#26** TODO かんばん設計議論 → 実装
 13. **#35** 月次報告書ビジュアル改善
-14. **#17** MS リスト + 月次モーダルに 3 列レイアウト (🎯 ゴール / 📝 やること / 📍 現状)
+14. **#17** MS リスト + 月次モーダルに 3 列レイアウト
 15. **#18** upcoming MTG カード + 強制議事録化ボタン
-16. **#10** p00 月次モーダル下段スクロール確認 (= Chrome MCP)
+16. **#10** p00 月次モーダル下段スクロール確認
 17. 過去残課題プール (`/admin/members` 実画面 / JOYCLE 再走 / PDF golden CI / p00 MVV / `SLACK_EIMI_BOT_TOKEN` / えいみ Slack app icon v5)
 
 ---
@@ -91,30 +102,28 @@ git pull --rebase --autostash origin main
 
 その後:
 
-1. **マニュアル正本必読** ([`manual/00-intro.md`](manual/00-intro.md) → [`05-decisions-and-history.md`](manual/05-decisions-and-history.md))。特に §5.1 cron 廃止経緯 + §5.4 責務分担マトリクス + §5.7 L2 ②〜⑨ Claude routine 8 個統一 + §5.8 過去事故ログ
+1. **マニュアル正本必読** ([`manual/00-intro.md`](manual/00-intro.md) → [`05-decisions-and-history.md`](manual/05-decisions-and-history.md)、特に §5.7 L2 ②〜⑨ Claude routine 8 個統一)
 2. **本 HANDOFF + design_log/sessions_2026-05.md 末尾 (#71)** で前セッション末尾を確認
-3. **Routine 1 動作観察** (= Open Tasks #1): scheduled task が登録済か `mcp__scheduled-tasks__list_scheduled_tasks` で確認、過去 24h の実行ログを確認、upsert 結果を Supabase で fact 確認
-4. **対話型 UI 動作確認** (= Open Tasks #2)
-5. その後 **Routine 2-4** (= Open Tasks #3) 着手
+3. **`mcp__scheduled-tasks__list_scheduled_tasks`** で 8 routine の lastRunAt / 状況確認
+4. **動作観察** (= Open Tasks #1): Supabase 直叩きで各 L2 テーブルの最新更新時刻 + saved 件数を確認、SKILL.md 修正必要なら patch
 
 ---
 
 ## Pointers
 
-- **マニュアル正本**: [`pwa/manual/`](manual/) (= 00-09 + 20-24 章 + 25-38 章は別 codex 構築中)
+- **マニュアル正本**: [`pwa/manual/`](manual/)
 - **中核データ正本**: [`pwa/design/L2_DATA.md`](design/L2_DATA.md)
 - **設計議論 md**: [`pwa/design/`](design/) (= 特に `l2_extract_claude_routine.md` + `feedback_dialog.md`)
-- **バグ事故ログ**: [`pwa/BUGS.md`](BUGS.md) (= 末尾の `[meta/ai-interpretation]` + `[infra/l2-extraction]` + `[infra/outbox-applier]` が #71 関連)
+- **バグ事故ログ**: [`pwa/BUGS.md`](BUGS.md)
 - **過去セッションログ**: [`pwa/design_log/sessions_2026-05.md`](design_log/) (= #36-#71)
 - **PWA 固有運用**: [`pwa/CLAUDE.md`](CLAUDE.md)
-- **まさえいMTG 運用手順**: [`pwa/CLAUDE.md`](CLAUDE.md) 末尾セクション
+- **scheduled-tasks**: `~/.claude/scheduled-tasks/amd-os-l<N>-<data-name>-extract/SKILL.md` (= git 管轄外、まさ手元 mac 限定)
 
 ---
 
 ## ⚠️ 次セッションのえいみへ重要メモ
 
-- **#71 で L2 ②〜⑨ 全 8 routine 統一方針が確定**。Routine 1 (= ⑥ MTG サマリ) は SKILL.md 完成 + scheduled task 登録待ち。Routine 2-8 は同パターンで実装する
-- **対話型修正依頼 = L2 ⑨ 経営ハイライト専用** (= 当面)。他 L2 (= ②④⑤⑥) は次回 cron 待ち + 各 routine の prompt に `l2_feedbacks` 読み込み手順を組み込む形で対応
-- **既存稼働中の writer は慎重に停止** (= 既存と Claude routine の出力 fact 比較してから既存 unload)
-- **GAS 074 + 074b-e + 153 + 155 のロジックは Claude routine SKILL.md に inline 移植**。GAS は完全 bypass、kill switch のまま。「GAS を呼ぶことは求めてない、GAS の設計を移植して」の真意を字義通り受け取る
-- HANDOFF 肥大化対策: Latest Summary を追加するときは古い summary を design_log に移してから上書き
+- **scheduled task の create は SKILL.md を上書きする**: `create_scheduled_task` 呼ぶときに prompt 引数が SKILL.md に書き込まれる。長文 SKILL.md を保持したい場合は **create 後に Write で再書き込み** する (= 本セッションで一度上書き事故起こした、復元済)
+- **対話型修正依頼は L2 ⑨ 専用** (= 当面)。他 L2 は次回 cron 待ち + 各 routine の prompt に `l2_feedbacks` 読み込み手順を組み込んで対応
+- **動作観察の優先順**: ghost ②④⑤⑥ (= 5/22-5/25 取り込みゼロ) を最優先、稼働中 ③⑦⑧⑨ は既存と並行稼働で fact 比較してから既存停止
+- **HANDOFF 肥大化対策**: Latest Summary を追加するときは古い summary を design_log に移してから上書き

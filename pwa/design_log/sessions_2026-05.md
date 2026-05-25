@@ -7906,3 +7906,249 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 ### TODO (次セッション)
 - HANDOFF Open Tasks: Routine 2-8 SKILL.md 新設 (= ②④⑤、③⑦⑧⑨)、`mcp__scheduled-tasks__create_scheduled_task` で登録、5/22-5/25 取り込み穴期間 backfill モード、ブラウザで対話型 UI 動作確認
 - 既存 Codex automation `amd-os-ms` + `amd-os` + LaunchAgent applier は Routine 5-8 動作確認後に段階的 unload
+
+## 2026-05-25 (#72) — OS マニュアルのユーザー/開発者分離 + カラフルクリックマップ化
+
+### コンテキスト
+- OS マニュアルのクリックマップ UX は好評。ただし次の追加指摘あり:
+  - もっと色を使い分け、ビジュアル的にも楽しいコンテンツにしたい。SVG グラフィックも使いたい。
+  - 代表個人を特出しして扱う文言をやめ、OS が個人依存せず AMD のビジネスを支える構造にしたい。
+  - ユーザー向けと開発者向けの内容を完全に分けたい。例: 5/22 cron 廃止や ghost 化の詳細は開発者向け。
+
+### 実装
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts):
+  - `ManualAudience` / `ManualChapterAudience` / `ManualTopicColor` を追加。
+  - chapter / topic に `audience` と `color` を持たせ、`/manual` default は user、`?audience=developer` は developer に分離。
+  - API / cron / 抽出 pipeline / 復旧履歴を含む詳細仕様章は developer 側へ寄せた。
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx):
+  - topic ごとに blue / cyan / emerald / amber / rose / violet / teal / slate / indigo の色を割り当て。
+  - 選択中 topic と related topic を SVG の関連テーママップとして表示。
+  - audience badge を追加。
+- [manual/page.tsx](../src/app/(app)/manual/page.tsx):
+  - ユーザー向け / 開発者向けの segmented control を追加。
+  - 目次、未分類、全章一覧も audience で filter。
+- [manual/[slug]/page.tsx](../src/app/(app)/manual/%5Bslug%5D/page.tsx):
+  - 開発者向け章に badge を表示。
+  - 関連章 / topic chip / prev-next を同じ audience に寄せた。
+- [pwa/manual/*.md](../manual/00-intro.md):
+  - ユーザー向け章から代表個人名・特別扱い文言・裏事情を除去し、`AMD 経営チーム` / `レビュー担当` / `admin` など役割ベースに置換。
+  - `03 データと抽出` のような復旧・事故・cron 詳細は developer 側に移動。
+- [design/os_manual.md](../design/os_manual.md):
+  - user/developer 分離、topic color、SVG 関連テーママップを現行 UX として追記。
+
+### Verified
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 171)。
+- `npm --prefix pwa run test:critical-ui` pass。
+- Local browser verification (`http://127.0.0.1:3032` auth session):
+  - `/manual` default に `クリックマップ` と SVG map が表示。
+  - `/manual` default の main content に代表個人名なし。
+  - `/manual` default に `データと抽出` と「Codex automation が全部カバーしてる」事故文なし。
+  - `/manual?audience=developer&topic=system-dev` に `データと抽出` / `全体設計` / `過去判断と経緯` が表示。
+
+## 2026-05-25 (#73) — OS マニュアル クリックマップを意味のあるマインドマップへ変更
+
+### コンテキスト
+- #72 の SVG 関連テーママップに、意味を持たないサインカーブ状の装飾線が入っていた。
+- まさ指摘: 意味があるなら良いが、意味がないのに意味ありげなオブジェクトは置かない。全体をマインドマップにすると理解しやすそう。
+- 追加指摘: 各ノードをクリックできるようにする。
+
+### 実装
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx):
+  - 意味のない装飾カーブを削除。
+  - SVG を `中心 topic -> 章ノード` と `中心 topic -> 関連 topic ノード` のマインドマップへ変更。
+  - 実線は章、破線は関連 topic を表す意味付き connection に統一。
+  - 章ノードは `/manual/{slug}` へ遷移する SVG link。
+  - 関連 topic ノードは通常クリックで client state を切り替え、URL も `/manual?topic={key}` または `/manual?audience=developer&topic={key}` へ同期。cmd-click 等は通常 link として開ける。
+  - 中心 topic ノードは同テーマの章リストへ移動する link。
+- [design/os_manual.md](../design/os_manual.md):
+  - クリックマップを SVG 関連テーママップから SVG マインドマップへ更新し、装飾禁止・クリック対象・線の意味を正本化。
+
+### Verified
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 171)。
+- `npm --prefix pwa run test:critical-ui` pass。
+- Local browser verification (`http://127.0.0.1:3032` auth session):
+  - `/manual` に SVG マインドマップが 1 つ表示。
+  - SVG 内の意味なし `path` は 0 件。
+  - 章ノード link 5 件、関連 topic link 3 件、中心 topic link 1 件を確認。
+  - 章ノード click で `/manual/01-pj-cockpit` へ遷移。
+  - 関連 topic node click で `/manual?topic=cockpit` に切り替わり、選択中テーマ `PJを見る` が表示。
+- Production deploy 完了: `https://amd-os-pwa.vercel.app` (`https://amd-os-6vofsz2qe-armada0130.vercel.app`)。
+- Production browser verification:
+  - `/manual` に SVG マインドマップが 1 つ表示。
+  - SVG 内の意味なし `path` は 0 件。
+  - 章ノード / 関連 topic node / 中心 topic node の link 数と click 遷移が local と同じ。
+
+## 2026-05-25 (#74) — OS マニュアル クリックマップを大きい操作型マップへ変更
+
+### コンテキスト
+- #73 の小さいSVG mindmapは意味ある図にはなったが、まさから「Atlasくらい大きくして、各ノードをクリックすると子ノードが開いて、Atlasと同じ操作感でノードも動かせるとよさそう」と相談あり。
+- 方針: やりすぎな全DB/APIノード化は避け、v1 は「大きい map + topic展開 + pan / node drag + 章遷移」までにする。
+
+### 実装
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx):
+  - 小さい SVG 図を廃止し、`ManualExplorerMap` を追加。
+  - `AMD OS` root、topic node、chapter node の大きい操作型 graph へ変更。
+  - topic node click で selected topic をURL同期しつつ、該当 topic の章ノードを展開。
+  - chapter node click で `/manual/{slug}` へ遷移。
+  - 空白 drag で map pan。
+  - node drag で隣接 node も `0.28` 比率で連動移動。
+  - drag 移動後は click を抑制し、位置調整と遷移が衝突しないようにした。
+  - 右下 panel に selected topic の概要、chapter数、related topic shortcut を表示。
+  - 下部の章カードと目次は保険として残す。
+- [design/os_manual.md](../design/os_manual.md):
+  - 現行UXを「色と操作型マインドマップ」へ更新。
+  - pan / node drag / click展開 / 線の意味 / 装飾禁止を正本化。
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 171.
+- `npm --prefix pwa run test:critical-ui` pass.
+- Local browser verification (`http://127.0.0.1:3032/manual`):
+  - 初期表示で操作型 map、reset control 1、章 node 5、graph line 32 を確認。
+  - `PJを見る` topic click で `/manual?topic=cockpit` に同期し、selected heading 1、章 node 6 に展開。
+  - `12. PJ コックピット` chapter node click で `/manual/01-pj-cockpit` に遷移。
+  - `月次オペ` node drag 後、URL は `/manual` のまま。drag が click 遷移を発火しないことを確認。
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-cffgjydc5-armada0130.vercel.app`
+- Production browser verification (`https://amd-os-pwa.vercel.app/manual`):
+  - 初期表示で reset control 1、章 node 5、graph line 32 を確認。
+  - `PJを見る` topic click で `/manual?topic=cockpit` に同期し、selected heading 1、章 node 6 に展開。
+  - `12. PJ コックピット` chapter node click で `/manual/01-pj-cockpit` に遷移。
+  - `月次オペ` node drag 後、URL は `/manual` のまま。drag が click 遷移を発火しないことを確認。
+  - Screenshot: `/tmp/amd-os-manual-explorer-production.png`
+
+## 2026-05-25 (#75) — OS マニュアル map のクリック時全体移動を停止
+
+### コンテキスト
+- #74 の大きい操作型 map は動くようになったが、topic click 時に selected topic を上に寄せる再配置が走り、全 node が一気に動いて相関が見えなくなる問題があった。
+- まさから「どれかノードをクリックすると全ノードが一気に動く」「相関が急に見えなくなる」「動きが早すぎて目で追えない」と指摘あり。
+- 方針: map は地図としての信頼感を優先し、click は視点変更ではなく展開操作に限定する。視点移動は user の drag / reset 操作だけにする。
+
+### 実装
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx):
+  - topic の角度計算から selected topic の index offset を撤去し、topic node の座標を固定。
+  - topic click で既存 topic / link が全体回転しないようにした。
+  - map motion duration を `420ms` から `760ms` に変更し、easing をより緩い `cubic-bezier(0.16, 1, 0.3, 1)` に変更。
+  - 新規 chapter node / link は `680ms` で fade-in するようにし、展開対象だけが追加されたと分かる動きに変更。
+- [design/os_manual.md](../design/os_manual.md):
+  - 操作型マインドマップの原則に「topic座標固定」「全体再配置禁止」「新規 node / link だけをゆっくり表示」を追記。
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 171.
+- `npm --prefix pwa run test:critical-ui` pass.
+- Local browser verification (`http://127.0.0.1:3032/manual`):
+  - `PJを見る` click 前後で既存 topic node の最大座標差分 `0px` を確認。
+  - `PJを見る` click 後に `/manual?topic=cockpit` へ同期し、chapter node 6 に展開。
+  - Screenshot: `/tmp/amd-os-manual-explorer-stable-local.png`
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-h30fq43t1-armada0130.vercel.app`
+- Production browser verification (`https://amd-os-pwa.vercel.app/manual`):
+  - `PJを見る` click 前後で既存 topic node の最大座標差分 `0px` を確認。
+  - `PJを見る` click 後に `/manual?topic=cockpit` へ同期し、chapter node 6 に展開。
+  - `12. PJ コックピット` chapter node click で `/manual/01-pj-cockpit` に遷移。
+  - `月次オペ` node drag 後、URL は `/manual` のまま。drag が click 遷移を発火しないことを確認。
+  - Screenshot: `/tmp/amd-os-manual-explorer-stable-production.png`
+
+## 2026-05-25 (#76) — PJコックピット MTGサマリに予定MTG準備ブリーフを追加
+
+### コンテキスト
+- 5/25 夕方に AMD 営業案件として九大OIP MTG、5/26 に KUTE MTG と ZMP 東京理科大 MTG がある。
+- まさ要望: それぞれの PJ コックピットの MTG サマリ欄に、予定されている MTG として表示し、「このMTGで何を決めるか」「それまでに用意すべきもの」を見えるようにしたい。
+- 方針: 新テーブルを増やさず、既存 `project_meeting_summaries` に `source_kinds='upcoming'` row として保存する。開催前の準備と開催後の議事録を、同じ MTG サマリ欄で一本化する。
+
+### 実装
+- [meeting-prep/route.ts](../src/app/api/meeting-prep/route.ts):
+  - `POST /api/meeting-prep` を追加。
+  - admin session または `Authorization: Bearer ${CRON_SECRET}` で、`project_meeting_summaries` に `source_kinds='upcoming'` row を upsert。
+  - `summary_short` = MTGの狙い、`decided` = 決めること、`progress` = 持ち込む現状、`next_actions` = 用意するもの、`risks` = 未整理論点、`narrative_md` = 準備メモとして扱う。
+- [CockpitMeetingSummary.tsx](../src/components/cockpit/CockpitMeetingSummary.tsx):
+  - upcoming row を通常の月別議事録から分け、先頭の「予定MTG / 準備中」block に表示。
+  - row に `予定MTG` chip と Calendar link を表示。
+- [CockpitMeetingDetailModal.tsx](../src/components/cockpit/CockpitMeetingDetailModal.tsx):
+  - upcoming row 用の準備ブリーフ表示を追加。
+  - 「Codex相談メモをコピー」で現在の準備内容を Markdown prompt 化。
+  - 「準備内容を編集」から `POST /api/meeting-prep` に保存し、モーダル内 state へ反映。
+- [meeting_summaries.md](../design/meeting_summaries.md) / [01-pj-cockpit.md](../manual/01-pj-cockpit.md) / [FEATURE_REGISTRY.md](../design/FEATURE_REGISTRY.md):
+  - `source_kinds='upcoming'` の field mapping、UI、API、回帰防止 anchor を正本化。
+
+### 初期投入した予定MTG
+- `p25` KUTE: `KUTE MTG` (2026-05-26 15:00 JST)
+- `p19` ZMP: `MTG 東京理科大学様<>ARMADA(ZMP)` (2026-05-26 10:00 JST)
+- `p00` AMD会社全体: `AMD MTG 九大OIP末廣様` (2026-05-25 16:00 JST)
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run test:critical-ui` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 172.
+- Supabase upsert:
+  - `upcoming:69l0dk1d4nu5eu53a98jrj0un2` (`p25` KUTE) saved as `source_kinds='upcoming'`.
+  - `upcoming:0q5lelucq7hf5fdteo7p1b5d1i` (`p19` ZMP) saved as `source_kinds='upcoming'`.
+  - `upcoming:378fc8teo0472jnth2sf6j1nu2` (`p00` AMD/九大OIP) saved as `source_kinds='upcoming'`.
+- `POST /api/meeting-prep` local smoke test pass (`mode='upserted'`, `sourceKinds='upcoming'`).
+- Local Playwright verification (`http://localhost:3032`):
+  - `/project/p25/cockpit`, `/project/p19/cockpit`, `/project/p00/cockpit` で「予定MTG / 準備中」と「決めること・準備物」が表示。
+  - KUTE 詳細モーダルで「このMTGで決めること」「Codex相談メモをコピー」「準備内容を編集」が表示。
+  - Screenshots:
+    - `/tmp/amd-os-mtg-prep-p25-list.png`
+    - `/tmp/amd-os-mtg-prep-p25-modal.png`
+    - `/tmp/amd-os-mtg-prep-p19-list.png`
+    - `/tmp/amd-os-mtg-prep-p00-list.png`
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-rd9m978ug-armada0130.vercel.app`
+  - Deployment ID: `dpl_7iCNRu25y5bspTQP4oGvQv2baJct`
+- Production Playwright verification (`https://amd-os-pwa.vercel.app`):
+  - `/project/p25/cockpit`, `/project/p19/cockpit`, `/project/p00/cockpit` で「予定MTG / 準備中」と「決めること・準備物」が表示。
+  - KUTE 詳細モーダルで「このMTGで決めること」「Codex相談メモをコピー」「準備内容を編集」が表示。
+  - `POST /api/meeting-prep` production smoke test pass (`mode='upserted'`, `sourceKinds='upcoming'`)。
+  - Screenshots:
+    - `/tmp/amd-os-mtg-prep-p25-production.png`
+    - `/tmp/amd-os-mtg-prep-p25-modal-production.png`
+    - `/tmp/amd-os-mtg-prep-p19-production.png`
+    - `/tmp/amd-os-mtg-prep-p00-production.png`
+
+## 2026-05-25 (#71 追記) — L2 ②〜⑨ Claude routine 8 個全登録完了 + 対話型 UI 全フロー実機確認
+
+### 追加実装 (= 同セッション内、まさ「次とかいわずに、ここで全 L2 データの routines を作って」指示)
+
+8 個の Claude routine SKILL.md 完全 inline 移植版を作成 + scheduled task 全登録。命名規約: `amd-os-l<N>-<data-name>-extract` (= まさ「番号だけでなくデータ名も添えて」)。
+
+| L2 | routine ID | cron | 入力 | 出力 |
+|---|---|---|---|---|
+| ② | `amd-os-l2-protocol-extract` | daily 08:00 JST | project_meeting_summaries (decided) + monthly_reports | protocols (candidate) |
+| ③ | `amd-os-l3-ms-progress-extract` | 毎時 0 分 | monthly_reports + project_meeting_summaries | milestone_monthly_progress + project_monthly_notes |
+| ④ | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | monthly_reports + project_meeting_summaries | project_knowledge (candidate) |
+| ⑤ | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | milestone_responsibility + member_activities + project_meeting_summaries | member_knowledge |
+| ⑥ | `amd-os-l6-meeting-extract` | 毎時 0 分 | Calendar + Notion + Gmail + Drive + Slack (5 ソース全部) | project_meeting_summaries + meeting_notifications |
+| ⑦ | `amd-os-l7-registry-diff-extract` | 6h ごと (:00) | 5 生データ vs OS 台帳 | project_registry_diffs (pending) |
+| ⑧ | `amd-os-l8-xrl-evidence-extract` | 6h ごと (:15) | 5 生データ + 既存 L2 | project_xrl_evidence (candidate) |
+| ⑨ | `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | 5 生データ + OS snapshot | project_strategy_signals (candidate) |
+
+### 重要な事故と復旧
+- 既存 `amd-os-meeting-extract` を `amd-os-l6-meeting-extract` に cp + sed でリネーム後、`create_scheduled_task` が SKILL.md を **prompt 引数で上書き** することが判明。L2 / L4 / L5 / L6 の長文 SKILL.md が短文に書き換わった
+- 対応: 既存 amd-os-meeting-extract/SKILL.md は無事だったので L6 に再 cp、L2 / L4 / L5 / L7 / L8 / L9 は conversation history から Write で全文再書き込み復元
+- 教訓: `create_scheduled_task` は prompt = SKILL.md として書き込むので、長文 SKILL.md を保持したい場合は **create 後に Write で再書き込み** する
+
+### 対話型修正依頼 UI 全フロー実機テスト
+- Chrome MCP で `/project/p21/cockpit` の経営ハイライト 2 シグナルで全フロー確認
+- **Test 1 (= start → confirm)**: 1 つ目 signal「Finechem・三浦工業・閉鎖鉱山をPoC候補として拡張」(impact=high) → まさ修正依頼「タイトル『PoC 実施候補リスト入り』に修正、impact medium で十分」 → つくよみ提案 + DiffRow 6 行 + reasoning 表示 → 適用 → DB 更新「Finechem・三浦工業・閉鎖鉱山がPoC実施候補リスト入り」(impact=medium) ✓
+- **Test 2 (= start → refine 別案 → refine 追加コメント → confirm、フル対話)**: 3 つ目 signal「中国レアアース/ガリウム/ゲルマニウム輸出許可制強化 → ...」 → まさ修正依頼「タイトル長すぎ、『中国レアアース輸出規制強化 = SX 追い風』ぐらいに短く」 → つくよみ提案 1 (= 指示そのまま反映) → まさ「やり直し」 → つくよみ提案 2 (= 別案「中国レアアース規制強化、SX重金属回収事業に複数の追い風」+ polarity forward 明示) → まさ「追加コメント: score_impact_summary も『Atlas 追い風 BRL +2 見込み』みたいに記して」 → つくよみ提案 3 (= 追加内容反映) → 適用 → DB 完全更新 + l2_feedbacks に conversation 6 件 markdown 履歴保存 + applied_count=1 + last_applied_at ✓
+- 「✓ 1 回反映済」表示が経営ハイライトカード下に確認
+- 残課題: confirm 後の `router.refresh()` だけだと一部の Next.js cache が残り title 即時更新されないことがある (= ハードリロードで確認可能、`revalidatePath` 検討は後追い)
+
+### Vercel deploy 3 commit
+- `e2fdf34` feat(pwa): #71 L2 ②〜⑨ Claude routine 8 個統一方針 + Routine 1 完全 inline 移植 + #34 対話型修正依頼
+- `8fd463b` fix(pwa): manual/page.tsx fallback chapter に audience 追加 (= Vercel build 修復)
+- `f2cbf8c` fix(pwa): #34 対話型修正依頼の helper を migration 090 未適用環境でも動くように
+- `720c8a1` fix(pwa): #34 対話型修正依頼の confirm 後に router.refresh() で signals 表示を即反映
+
+### TODO (次セッション)
+- 8 routine 動作観察 → 既存 PWA hourly-estimate + Codex amd-os-ms / amd-os + LaunchAgent applier の段階的停止
+- 対話型 UI 表示反映 (= revalidatePath 検討)
+- member_knowledge schema gap (status / source_hash 列追加 migration)
+- 5/22-5/25 取り込み穴期間 backfill
