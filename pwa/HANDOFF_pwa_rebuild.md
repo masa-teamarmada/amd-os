@@ -1,6 +1,6 @@
 # HANDOFF — AMD OS PWA
 
-最終更新: 2026-05-25 (#71、お昼 → 夜) — **L2 ②〜⑨ Claude routine 8 個全登録完了 + 対話型修正依頼フル動作確認 + Routine 1 完全 inline 移植 + #34 対話型 UI**
+最終更新: 2026-05-25 (#71、お昼 → 深夜) — **L2 8 routine + 対話型 UI + migration 091 + #41 dashboard HUD 並み情報量 + operations-catalog 8 routine + revalidatePath**
 
 > ⚠️ **本 HANDOFF は slim 版** (= 200 行以下目標)。
 > 過去セッション (= #36 〜 #70) の詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) を参照。
@@ -44,10 +44,18 @@
   - Test 2: 3 つ目 signal「中国レアアース...」 → 修正依頼 → 提案 → **やり直し別案** → polarity forward set ✓ → **追加コメント** → score_impact_summary「📊 影響: Atlas 追い風 BRL +2 見込み」追記 ✓ → 適用 → DB 更新 + 対話履歴 6 件 + applied_count=1 ✓
 - **design / manual / L2_DATA / design_log #71 同期**
 
+追加実装 (= まさ「いけるとこまでそのまま残タスク進めて」+ 「ダッシュボード HUD 並み情報量」指示後):
+- **#4 revalidatePath**: `strategy-signal-dialog.ts` applyProposal に `revalidatePath('/project/<pid>/cockpit', 'page')` + `/hud/...` 追加 (= 対話型 confirm 後の Next.js cache 強制 invalidate)
+- **migration 091 apply**: `member_knowledge` に `status` / `source_hash` / `last_processed_at` 列追加 (= L5 routine schema gap 解消)、既存 row backfill='active'、`db_schema.md` 再生成 (= 120 tables, 1423 columns)
+- **L5 SKILL.md 更新**: schema gap 注記削除 + upsert payload に `status='candidate'` + `source_hash` 追加
+- **operations-catalog**: `CronOperation.layer` に `"Claude"` 追加 + 8 Claude routine (= `claude-l<N>-<data>-extract`) を末尾に追記
+- **#41 dashboard 拡張**: `DashboardScoreOverview` 新規 component (= 通常テイスト、cyber 排除) + `dashboard/page.tsx` に HUD と同じ fetch (= AMD Score + Management Score + actionItems) 追加。`/dashboard` に Management Score / 月次残タスク 5 件 / 各 PJ AMD Score sparkline + M/X/F が表示されることを Chrome MCP で動作確認
+
 Verified:
 - `npx tsc --noEmit` + `npm run build` + `npm run test:critical-ui` 全 pass
-- Vercel deploy 3 回 (= e2fdf34 + 8fd463b page.tsx fix + f2cbf8c migration 090 fallback + 720c8a1 router.refresh)
+- Vercel deploy 4 回 (= e2fdf34 + 8fd463b page.tsx fix + f2cbf8c migration 090 fallback + 720c8a1 router.refresh + 71d3b4d #41+91+revalidatePath+operations)
 - 全 8 scheduled task enabled、cron 確認
+- `/dashboard` 表示確認 (= AMD Management Score 44 + 月次残 5 件 + 9 PJ シグナル)
 
 ---
 
@@ -67,15 +75,15 @@ Verified:
 
 ### 🚧 後追い改善
 
-4. **対話型 UI 表示反映**: confirm 後の `router.refresh()` だけだと一部 cache が残る (= title 即時更新されない、ハードリロードで確認可能)。`revalidatePath` を helper に追加検討
-5. **member_knowledge schema gap**: status / source_hash 列なし。L5 routine が candidate 採否を持たせるなら migration 必要
-6. **5/22-5/25 取り込み穴期間 backfill**: 各 routine に `--backfill-from 2026-05-22` モード追加 or 手動キック routine 別建て
+4. ~~**対話型 UI 表示反映**~~ → ✅ 完了 (= revalidatePath 追加、71d3b4d)
+5. ~~**member_knowledge schema gap**~~ → ✅ 完了 (= migration 091 apply、71d3b4d)
+6. **5/22-5/25 取り込み穴期間 backfill**: 各 routine に `--backfill-from 2026-05-22` モード追加 or 手動キック routine 別建て (= 動作観察後)
 
 ### 🚀 大型実装 (= 既存)
 
 7. **#21+#20-2+#29+#31 統合 UI/cron** (= migration 090 apply 済、UI/cron 実装が残): 経営ハイライト改修 + AmdScoreFutureEditModal + 透明 hit-area + 日次/週次 cron + `/admin/amd-score-alpha-review`
-8. **#41** PWA ダッシュボードに HUD 並みの情報量を移植 (= HudCockpitSignalStrip 相当を PWA 版に追加)
-9. **#33 派生 手動実行ボタン** (= `/admin/settings` operations-catalog に L2 全種「いま手動で叩く」ボタン追加)
+8. ~~**#41** PWA ダッシュボードに HUD 並みの情報量を移植~~ → ✅ 完了 (= DashboardScoreOverview、71d3b4d)
+9. ~~**#33 派生 手動実行ボタン**~~ → 🟡 半完了 (= operations-catalog に 8 routine 追加 71d3b4d、手動キック ボタン UI 自体は scheduled-tasks MCP 経由制約で manual reason 明記のみ。PWA から直接 routine を kick したいなら別途 API 経由設計が必要)
 10. **#22 残箇所配置** (= Hint を CockpitRoutineGas / CockpitVentureStatus / CockpitMeetingSummary / CockpitMonthlyList / CockpitHeader 等に)
 
 ### 🟡 中型 / 軽め

@@ -8112,6 +8112,54 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
     - `/tmp/amd-os-mtg-prep-p19-production.png`
     - `/tmp/amd-os-mtg-prep-p00-production.png`
 
+## 2026-05-25 (#77) — OS マニュアル map を非表示にして左固定目次へ変更
+
+### コンテキスト
+- #74-#75 で大きい操作型 map を実装したが、まさから「感覚的に理解しにくい」「いったんマップ形式は非表示」「目次をメニューみたいに常に左側に表示」「マップ以外がほぼモノクロに戻っている」と指摘あり。
+- 方針: グラフ理解を要求しない。左固定メニューで現在地と入口を常に見せ、topic / section の色を本文カードへ戻す。
+
+### 実装
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx):
+  - 操作型 map UI を非表示化し、左固定の `マニュアルメニュー` と右側の `テーマから読む` / `セクション別目次` に置き換え。
+  - 左メニューは topic list と section anchor list の 2 段構成。`lg` 以上で `sticky top-20`。
+  - topic click は右上の章カード群を切り替え、URL を `?topic={key}` に同期。
+  - 章カードは section / topic 色の number badge、left rail、topic chip、screen chip を持つ。
+  - メタデータ未設定 / 未分類 / 全章一覧も同じ画面内に統合。
+- [manual/page.tsx](../src/app/(app)/manual/page.tsx):
+  - 旧下部目次の重複 rendering を削除し、目次 UI を `ManualMapClient` 側に一本化。
+- [manual/[slug]/page.tsx](../src/app/(app)/manual/[slug]/page.tsx):
+  - 章本文上部の関連 topic / screen / table / 関連章 panel を primary topic 色で表示。
+- [design/os_manual.md](../design/os_manual.md):
+  - 現行 UX を「左固定メニューと色つき目次」へ更新し、map は現行 UI では非表示と明記。
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 172.
+- `npm --prefix pwa run test:critical-ui` pass.
+- Local Playwright verification (`http://127.0.0.1:3032/manual`):
+  - `マニュアルメニュー` 1、`セクション別目次` 1 を確認。
+  - map 系要素は `Manual Map` 0、`svg line` 0 を確認。
+  - 左メニューの `月次オペ` click で `/manual?topic=monthly` へ同期し、`月次ルーティン早見表` card を表示。
+  - 左メニュー sticky は scroll 前 `top=160px`、scroll 後 `top=80px` で固定。
+  - `/manual/21-amd-score-spec` で `この章の領域` panel、`経営判断` chip、`関連章` を確認。
+  - Screenshots:
+    - `/tmp/amd-os-manual-sidebar-initial-local.png`
+    - `/tmp/amd-os-manual-sidebar-local.png`
+    - `/tmp/amd-os-manual-chapter-color-local.png`
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-r47g1zuvz-armada0130.vercel.app`
+  - Deployment ID: `dpl_3hYwLCvsaPVK4LuChd5xcjqpNGNg`
+- Production Playwright verification (`https://amd-os-pwa.vercel.app/manual`):
+  - `マニュアルメニュー` 1、`セクション別目次` 1 を確認。
+  - map 系要素は `Manual Map` 0、`svg line` 0 を確認。
+  - 左メニューの `月次オペ` click で `/manual?topic=monthly` へ同期し、`月次ルーティン早見表` card を表示。
+  - 左メニュー sticky は scroll 前 `top=160px`、scroll 後 `top=80px` で固定。
+  - `/manual/21-amd-score-spec` で `この章の領域` panel、`経営判断` chip、`関連章` を確認。
+  - Screenshots:
+    - `/tmp/amd-os-manual-sidebar-production.png`
+    - `/tmp/amd-os-manual-chapter-color-production.png`
+
 ## 2026-05-25 (#71 追記) — L2 ②〜⑨ Claude routine 8 個全登録完了 + 対話型 UI 全フロー実機確認
 
 ### 追加実装 (= 同セッション内、まさ「次とかいわずに、ここで全 L2 データの routines を作って」指示)
@@ -8152,3 +8200,56 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 - 対話型 UI 表示反映 (= revalidatePath 検討)
 - member_knowledge schema gap (status / source_hash 列追加 migration)
 - 5/22-5/25 取り込み穴期間 backfill
+
+## 2026-05-25 (#71 後段追記) — 残タスク連続進行: revalidatePath / migration 091 / operations-catalog 8 routine / #41 dashboard
+
+### コンテキスト
+- まさ「いけるとこまでそのまま残タスク進めて」+ 「ダッシュボードを HUD 版と同じ情報量に」指示
+- HANDOFF Open Tasks #4 (revalidatePath) / #5 (migration 091) / #16 (operations-catalog) / #41 (dashboard 拡張) を順次着手
+
+### 実装
+
+#### #4 revalidatePath
+- [`pwa/src/lib/strategy-signal-dialog.ts`](../src/lib/strategy-signal-dialog.ts) applyProposal に `revalidatePath('/project/<projectId>/cockpit', 'page')` + `/hud/project/<pid>/cockpit` を追加
+- 対話型 confirm 後の Next.js server component cache が確実に invalidate されるよう、`router.refresh()` クライアント側だけでなくサーバ側でも path 再 fetch を強制
+- `try/catch` で revalidatePath が失敗しても silent fallback (= 確定処理自体は成功扱い)
+
+#### migration 091 apply
+- [`pwa/scripts/migrations/091_member_knowledge_status_source_hash.sql`](../scripts/migrations/091_member_knowledge_status_source_hash.sql) 新規
+- ALTER TABLE で `status` (= candidate/active/rejected/archived、DEFAULT 'active') + `source_hash` (TEXT) + `last_processed_at` (TIMESTAMPTZ) 追加
+- 既存 row backfill: `UPDATE member_knowledge SET status='active' WHERE status IS NULL` (= DEFAULT 適用済のはずだが明示)
+- インデックス 2 個: `idx_member_knowledge_status(status, updated_at DESC)` + `idx_member_knowledge_source_hash(code_name, source_hash)`
+- `python3 scripts/apply_ddl.py` で apply (= OK 201)、`dump_schema.py` で db_schema.md 再生成 (= 120 tables, 1423 columns)
+- L5 SKILL.md (= ~/.claude/scheduled-tasks/amd-os-l5-member-knowledge-extract/SKILL.md) の schema gap 注記を削除 + upsert payload に `status='candidate'` + `source_hash` + `last_processed_at` を追加
+
+#### #16 operations-catalog (= /admin/settings の cron 一覧に Claude routine 追加)
+- [`pwa/src/lib/operations-catalog.ts`](../src/lib/operations-catalog.ts) `CronOperation.layer` に `"Claude"` 追加
+- 末尾に 8 Claude routine 追記 (= `claude-l2-protocol-extract` ~ `claude-l9-strategy-signal-extract`)、各 routine の cadence / trigger / input / output / `manual reason` (= scheduled-task は PWA から直接叩けない、Claude Code セッション経由) を明記
+- 共通 reason 定数 `CLAUDE_ROUTINE_MANUAL_REASON` を helper 化
+
+#### #41 PWA dashboard HUD 並み情報量
+- [`pwa/src/components/dashboard/DashboardScoreOverview.tsx`](../src/components/dashboard/DashboardScoreOverview.tsx) 新規 (= 通常テイスト、cyber 排除):
+  - `ManagementScoreCard` = AMD Management Score total + 5 軸 (主体 / 財務 / 継続 / 案件 / 方向) + 24 ヶ月 sparkline
+  - `MonthlyActionsCard` = 月次ルーティン残タスク 5 件、各 tone (amber/cyan/red) で表示、PJ initials chip + 月ラベル + cockpit リンク
+  - `ProjectSignalsCard` = 各 active PJ の AMD Score (= 最新 total + 12 ヶ月 sparkline) + M/X/F メトリクス
+  - 小さな SVG `Sparkline` component で素朴に描画
+- [`pwa/src/app/(app)/dashboard/page.tsx`](../src/app/(app)/dashboard/page.tsx) 拡張:
+  - useEffect に追加 fetch (= `fetchAllAmdScoreInputs` + `fetchActiveAlpha` で AMD Score history / signal metrics、`amd_management_score_snapshots` で Management Score history、`buildMonthlyRoutineActions` で残タスク)
+  - `NotificationsBanner` → `DashboardScoreOverview` → `DashboardGrid` (= 既存 PJ カード一覧) の縦並び
+
+### Verified
+- `npx tsc --noEmit` + `npm run build` + `npm run test:critical-ui` 全 pass
+- Vercel deploy `71d3b4d` 完了 (3分9秒)
+- Chrome MCP で `/dashboard` 動作確認:
+  - 通知センター: 99+ 未読 / 直近 2 件 ✓
+  - AMD Management Score: 44 (202606) / conf=0.63 / sparkline / 5 軸 (主体=45 / 財務=61 / 継続=14 / 案件=35 / 方向=64) ✓
+  - 月次ルーティン残タスク: 5 件 (CX 請求額確定 / CX 報告会日程調整 / CX 月次報告書FIX / CX 請求書送付 / BWE 請求額確定) ✓
+  - 各 PJ AMD Score: 9 PJ (= p06 CTB 13,239 + M=16/X=458/F=19、p07 LST 31,625 + M=16/X=746/F=27、p20 CX 9,334 + M=15/X=278/F=23、p21 SX 3,765 + M=12/X=206/F=15、他 5 PJ も sparkline 表示) ✓
+  - 既存 Active (9) PJ カード一覧はそのまま下に表示 ✓
+
+### TODO (= 次セッション残)
+- 8 routine 動作観察 → 既存 PWA hourly-estimate + Codex amd-os-ms / amd-os + LaunchAgent applier 段階的停止
+- 5/22-5/25 取り込み穴期間 backfill
+- #21+#20-2+#29+#31 統合 UI/cron (= 経営ハイライト改修 + AmdScoreFutureEditModal 等)
+- #22 残箇所配置 (= Hint 残カード)
+- L3 routine の estimateProgress ロジック詳細 inline 化 (= 現 SKILL.md は概要のみ、PWA progress-estimator.ts のロジックをさらに詳細化)
