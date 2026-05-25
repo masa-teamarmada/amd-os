@@ -8160,6 +8160,155 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
     - `/tmp/amd-os-manual-sidebar-production.png`
     - `/tmp/amd-os-manual-chapter-color-production.png`
 
+## 2026-05-25 (#78) — OS マニュアル章ページでも左メニューを維持
+
+### コンテキスト
+- #77 で `/manual` index は左固定メニューにしたが、`/manual/{slug}` の章ページに遷移すると左メニューが消えていた。
+- まさから「各ページに飛ぶと左側のメニューが消えちゃう」「メニューはずっと表示したまま」「カテゴリ click で右側にカテゴリカード、その下に各セクションが表示される感じ」と指摘あり。
+- 方針: `/manual` と `/manual/{slug}` を同じ shell で表示し、左メニューをページ遷移後も維持する。
+
+### 実装
+- [manual-data.ts](../src/app/(app)/manual/manual-data.ts):
+  - `pwa/manual/*.md` を読む server helper を追加し、index / chapter page で章一覧生成を共通化。
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx):
+  - `children`, `activeChapterSlug`, `showDirectory` props を追加。
+  - selected topic の説明 card と、その下の章 card grid を分離。
+  - 章ページでは active chapter の primary topic を初期選択し、active chapter card を ring で強調。
+  - `showDirectory=false` の場合、左メニューの section anchor は `/manual#manual-section-*` に戻す。
+- [manual/[slug]/page.tsx](../src/app/(app)/manual/[slug]/page.tsx):
+  - 章本文を `ManualMapClient` の `children` として描画し、左メニュー + topic card + 同カテゴリ章 card + 本文を同じ画面に維持。
+- [design/os_manual.md](../design/os_manual.md):
+  - 章ページでも同じ左メニューと選択 topic card を維持する方針を追記。
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 172.
+- `npm --prefix pwa run test:critical-ui` pass.
+- Local Playwright verification (`http://127.0.0.1:3032/manual/21-amd-score-spec`):
+  - 左メニュー `マニュアルメニュー` が章ページでも 1 件表示されることを確認。
+  - 初期表示で active chapter の primary topic `経営判断` が選択され、topic card + 同カテゴリ章 card grid + `AMD Score` active card + 章本文が同一画面に残ることを確認。
+  - 左メニュー `月次オペ` click で URL が `/manual/21-amd-score-spec?topic=monthly` に同期し、右側の topic card / 章 card grid が `月次オペ` に切り替わることを確認。
+  - topic 切替後も章本文 (`AMD Score 仕様`) が下部に残ることを確認。
+  - 左メニュー sticky は scroll 前後とも `top=80px` で維持。
+  - Screenshot: `/tmp/amd-os-manual-chapter-shell-local.png`
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-ck06yjbwq-armada0130.vercel.app`
+  - Deployment ID: `dpl_En4E6VL1hD4XxGMSC2tqSYSR2Hbi`
+- Production Playwright verification (`https://amd-os-pwa.vercel.app/manual/21-amd-score-spec`):
+  - 章ページでも左メニューが表示されることを確認。
+  - 初期表示で `経営判断` topic card、同カテゴリ章 card grid、`AMD Score` active card、章本文が表示されることを確認。
+  - active card の強調 ring が黒ではなく topic 色で表示されることを確認。
+  - 左メニュー `月次オペ` click で URL が `/manual/21-amd-score-spec?topic=monthly` に同期し、右側の topic card / 章 card grid が `月次オペ` に切り替わることを確認。
+  - topic 切替後も章本文が下部に残ることを確認。
+  - Screenshot: `/tmp/amd-os-manual-chapter-shell-top-production-v2.png`
+
+## 2026-05-25 (#79) — OS マニュアル topic click をカテゴリホーム遷移に変更
+
+### コンテキスト
+- #78 で章ページにも左メニューを維持したが、章ページで別カテゴリを押しても元の章本文が下部に残り、「カテゴリを見ているのか、章本文を見ているのか」が曖昧になっていた。
+- まさから「カテゴリのホームっぽい表示を作っておいて、カテゴリをクリックしたらそれになるように」と指摘あり。
+- 方針: 章 card click は本文へ、左メニュー topic click はカテゴリホームへ、という操作の意味を分ける。
+
+### 実装
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx):
+  - 章ページ (`showDirectory=false`) で左メニュー topic / 関連 topic を押した場合、同じ slug 上で `?topic=` だけ変えず、`/manual?topic={key}` へ遷移するよう変更。
+  - developer audience の場合は `/manual?audience=developer&topic={key}` を維持。
+  - `/manual?topic={key}` 直アクセス / route transition 後も URL の topic を初期選択に使うため、`initialTopicKey` を server component から受け取るよう変更。
+  - topic card の見出しを `カテゴリホーム` に変更し、章数、先頭章 link、関連画面、関連データを表示。
+- [manual/page.tsx](../src/app/(app)/manual/page.tsx):
+  - `searchParams.topic` を `ManualMapClient.initialTopicKey` として渡すよう変更。
+- [design/os_manual.md](../design/os_manual.md):
+  - category home と章ページ topic click の挙動を追記。
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 172.
+- `npm --prefix pwa run test:critical-ui` pass.
+- Local Playwright verification (`http://localhost:3032/manual/21-amd-score-spec`):
+  - 章ページ初期表示で左メニュー 1 件、本文 article 1 件、カテゴリホーム 1 件を確認。
+  - 左メニュー `月次オペ` click 後、URL が `/manual?topic=monthly` に移動することを確認。
+  - 移動後は左メニュー 1 件、本文 article 0 件、カテゴリホーム 1 件、`月次オペ の章` 1 件、`先頭の章` link 1 件を確認。
+  - Screenshot: `/tmp/amd-os-manual-category-home-local.png`
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-ewnmk8aqh-armada0130.vercel.app`
+  - Deployment ID: `dpl_9HBxZvFzyKwFZTFRiE54hmtLNjek`
+- Production Playwright verification (`https://amd-os-pwa.vercel.app/manual/21-amd-score-spec`):
+  - 章ページ初期表示で左メニュー 1 件、本文 article 1 件、カテゴリホーム 1 件を確認。
+  - 左メニュー `月次オペ` click 後、URL が `/manual?topic=monthly` に移動することを確認。
+  - 移動後は左メニュー 1 件、本文 article 0 件、カテゴリホーム 1 件、`月次オペ の章` 1 件、`先頭の章` link 1 件を確認。
+  - Screenshot: `/tmp/amd-os-manual-category-home-production.png`
+
+## 2026-05-25 (#80) — OS マニュアル category home card を削除し compact 章 list 化
+
+### コンテキスト
+- #79 で topic click をカテゴリホーム遷移にしたが、右側に大きなカテゴリホーム card、その下に章 card が並ぶため、章 card click 後に本文が表示されたかどうかが視覚的に分かりにくかった。
+- まさから「カテゴリホームの大きなカードは削除」「小さなカードも、こんな幅取らないような形」と指摘あり。
+- 方針: カテゴリは薄い heading + compact 章 list にし、本文の存在感を戻す。
+
+### 実装
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx):
+  - 大きなカテゴリホーム card を削除。
+  - 選択 topic は heading + description + chapters count + 関連 topic pills に縮小。
+  - 章 card を compact list item 化し、`sm:grid-cols-2` / `xl:grid-cols-3` で横幅を取りすぎない配置に変更。
+  - active chapter には `表示中` chip を付け、章ページで本文が下に続くことを示す文言を追加。
+  - section 別目次、metadata 未設定、未分類も同じ compact list を再利用。
+- [design/os_manual.md](../design/os_manual.md):
+  - category home card を置かず compact list を使う方針へ更新。
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 172.
+- `npm --prefix pwa run test:critical-ui` pass.
+- Local Playwright verification:
+  - `/manual?topic=monthly` で `カテゴリホーム` text 0、`月次オペ の章` 1、article 0 を確認。
+  - `月次ルーティン早見表` click 後 `/manual/04-admin-ops` に遷移し、左メニュー 1、`カテゴリホーム` text 0、`表示中` chip、article 1 を確認。
+  - Screenshot:
+    - `/tmp/amd-os-manual-compact-category-local.png`
+    - `/tmp/amd-os-manual-compact-chapter-local.png`
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-mwritpr2i-armada0130.vercel.app`
+  - Deployment ID: `dpl_DooTMV5gPveodt5TmZf5j68MKbQJ`
+- Production Playwright verification:
+  - `/manual?topic=monthly` で `カテゴリホーム` text 0、`月次オペ の章` 1、article 0 を確認。
+  - `月次ルーティン早見表` click 後 `/manual/04-admin-ops` に遷移し、左メニュー 1、`カテゴリホーム` text 0、`表示中` chip、article 1 を確認。
+  - Screenshot:
+    - `/tmp/amd-os-manual-compact-category-production.png`
+    - `/tmp/amd-os-manual-compact-chapter-production.png`
+
+## 2026-05-25 (#81) — OS マニュアル章本文前の metadata panel を削除
+
+### コンテキスト
+- #80 でカテゴリホームの大きな card は削除したが、章ページ本文の直前に `この章の領域` panel が残っていた。
+- まさから screenshot 付きで「この部分もいらない」と指摘あり。
+- 方針: 章 list から本文へ入る流れを最短にし、本文前の重複 panel は置かない。
+
+### 実装
+- [manual/[slug]/page.tsx](../src/app/(app)/manual/[slug]/page.tsx):
+  - `この章の領域` / screen chip / table chip / 関連章 panel を削除。
+  - 関連 panel 用の色 style、related chapter 算出、topic 算出 import を削除。
+- [design/os_manual.md](../design/os_manual.md):
+  - 章ページの横移動は左メニュー、compact 章 list、prev-next link に集約する方針へ更新。
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 172.
+- `npm --prefix pwa run test:critical-ui` pass.
+- Local Playwright verification (`http://localhost:3032/manual/04-admin-ops`):
+  - 左メニュー 1、`この章の領域` 0、`関連章` 0、article 1 を確認。
+  - article top は `371px` で、metadata panel 削除により本文が first viewport に近づいたことを確認。
+  - Screenshot: `/tmp/amd-os-manual-no-metadata-panel-local.png`
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-ogba1xgn3-armada0130.vercel.app`
+  - Deployment ID: `dpl_4TMtkPcpdJQafRNxGBRfNNxkL2he`
+- Production Playwright verification (`https://amd-os-pwa.vercel.app/manual/04-admin-ops`):
+  - 左メニュー 1、`この章の領域` 0、`関連章` 0、article 1 を確認。
+  - article top は `371px` で、metadata panel 削除により本文が first viewport に近づいたことを確認。
+  - Screenshot: `/tmp/amd-os-manual-no-metadata-panel-production.png`
+
 ## 2026-05-25 (#71 追記) — L2 ②〜⑨ Claude routine 8 個全登録完了 + 対話型 UI 全フロー実機確認
 
 ### 追加実装 (= 同セッション内、まさ「次とかいわずに、ここで全 L2 データの routines を作って」指示)
@@ -8253,3 +8402,278 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 - #21+#20-2+#29+#31 統合 UI/cron (= 経営ハイライト改修 + AmdScoreFutureEditModal 等)
 - #22 残箇所配置 (= Hint 残カード)
 - L3 routine の estimateProgress ロジック詳細 inline 化 (= 現 SKILL.md は概要のみ、PWA progress-estimator.ts のロジックをさらに詳細化)
+
+## 2026-05-25 (#81) — 予定MTGカードを箇条書き前提から初見ブリーフ形式へ変更
+
+### コンテキスト
+- まさから「各MTGカードの中身が箇条書きベースで理解しにくい」「初めて読んだ人も状況が掴めるフォーマットにしてほしい」と指摘あり。
+- 方針: 予定MTGカードは短い断片の羅列ではなく、`narrative_md` を主役にした初見ブリーフとして読ませる。
+- 注意: 2026-05-26 の KUTE MTG カード本文は Claude 側で作成中。Codex は以後、KUTE のカード本文を上書きしない。
+
+### 実装
+- [CockpitMeetingDetailModal.tsx](../src/components/cockpit/CockpitMeetingDetailModal.tsx):
+  - 予定MTG詳細で `narrative_md` を「初見ブリーフ」として先頭表示。
+  - `decided / progress / next_actions / risks` は `ul` ではなく、「会議後に残したい状態」「いまの状況」「当日までに揃えるもの」「気をつけたい読み違い」の文章カードとして表示。
+  - 編集欄を `1行1項目` から `1段落1ブロック` に変更し、保存時も空行区切りの文章ブロックとして扱う。
+  - モーダルを `!bg-white` + shadow で明示的に不透明化。
+- [meeting_summaries.md](../design/meeting_summaries.md) / [01-pj-cockpit.md](../manual/01-pj-cockpit.md):
+  - 予定MTGの UI 仕様を、箇条書きではなく初見ブリーフ + 文章ブロックとして更新。
+- [check_pwa_critical_ui.cjs](../scripts/check_pwa_critical_ui.cjs):
+  - `初見ブリーフ`、`1段落1ブロック`、`blockTextToArray` を回帰防止 anchor に追加。
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run test:critical-ui` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 172.
+- Local Playwright verification (`http://localhost:3032/project/p19/cockpit?meeting=upcoming:...`):
+  - ZMP 予定MTG詳細で `初見ブリーフ` / `会議後に残したい状態` / `いまの状況` を確認。
+  - dialog computed style: `backgroundColor=rgb(255, 255, 255)`, `opacity=1`。
+  - dialog 内 `ul` 0 件、`1行1項目` 0 件。
+  - Screenshot: `/tmp/amd-os-mtg-prep-p19-prose-local.png`
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-ax1d1b80g-armada0130.vercel.app`
+  - Deployment ID: `dpl_Bs8WVW1foN59DbHZGphv81NXQKV9`
+- Production Playwright verification (`https://amd-os-pwa.vercel.app/project/p19/cockpit?meeting=upcoming:...`):
+  - ZMP 予定MTG詳細で `初見ブリーフ` / `会議後に残したい状態` / `いまの状況` を確認。
+  - dialog computed style: `backgroundColor=rgb(255, 255, 255)`, `opacity=1`。
+  - dialog 内 `ul` 0 件、`1行1項目` 0 件。
+  - Screenshot: `/tmp/amd-os-mtg-prep-p19-prose-production.png`
+
+## 2026-05-25 (#82) — OS manual 章ページを本文目次主導へ変更
+
+### コンテキスト
+- まさから「章ページ上部の小さい関連カード群もいらない」「左のカテゴリメニューとは別に普通のセクション目次を復活」「目次を上、カテゴリメニューを下、サブセクションまでトグル」と指摘あり。
+- 方針: 章ページは本文が開いたことを最優先で分かるようにし、左固定サイドバーに本文内 TOC とカテゴリ移動を分離して置く。
+
+### 実装
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx):
+  - 左サイドバーを「本文目次」→「カテゴリメニュー」の順に変更。
+  - 章ページ (`showDirectory=false`) では、右側の topic home / 関連章カード群を非表示。
+  - 本文目次は H2/H3/H4 の階層を持ち、子見出しを `Chevron` トグルで開閉可能にした。
+- [manual-toc.ts](../src/app/(app)/manual/manual-toc.ts) / [markdown-headings.ts](../src/lib/markdown-headings.ts):
+  - Markdown 本文から見出しツリーと安定 anchor id を抽出する helper を追加。
+- [MarkdownView.tsx](../src/components/cockpit/MarkdownView.tsx):
+  - h1-h4 に `id` と `scroll-mt-24` を付与し、左目次から本文内 anchor へ移動できるようにした。
+- [check_pwa_critical_ui.cjs](../scripts/check_pwa_critical_ui.cjs):
+  - 左目次、本文 anchor、章ページの `showDirectory=false` を回帰防止 anchor に追加。
+- [os_manual.md](../design/os_manual.md):
+  - 章ページの関連カードを置かないこと、本文目次とカテゴリメニューを分けることを設計に追記。
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run test:critical-ui` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 172.
+- Local Playwright は `/manual/04-admin-ops` が auth redirect になったため、Chrome のログイン済み production セッションで視覚確認。
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-laqel8jx7-armada0130.vercel.app`
+  - Deployment ID: `dpl_ERYFZjUfU9SfK3Duhxm4g94so9J4`
+- Production Chrome verification (`https://amd-os-pwa.vercel.app/manual/04-admin-ops`):
+  - 左に「目次」→「カテゴリメニュー」の順で表示。
+  - 章ページ上部の related chapter card 群は非表示。
+  - `4.2 admin/projects` toggle を展開し、H3/H4 子見出しが表示されることを確認。
+
+## 2026-05-25 (#83) — OS manual 左上目次を全ページ共通の全体目次へ修正
+
+### コンテキスト
+- #82 では「目次」を章本文内の H2/H3/H4 目次として扱っていたが、まさから「マニュアルを開いたときに目次が出ない」「特定ページではそのページを含むセクションだけの目次が出る」「ページをどう遷移しても、左上は常に同じ目次が表示されていないとダメ」と指摘あり。
+- 方針: 左上の `目次` は本文内 TOC ではなく、`MANUAL_SECTIONS -> chapters` から作るマニュアル全体の固定 TOC にする。active 章を含む section は初期展開してよいが、表示ツリー自体は `/manual` と `/manual/{slug}` で変えない。
+
+### 実装
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx):
+  - `ManualGlobalToc` を追加し、左サイドバー上部へ常時表示。
+  - 全体目次は section 単位で `Chevron` toggle し、章 link は `/manual/{slug}` へ遷移。
+  - `visibleSections` を `useMemo` 化し、toggle 状態が不要に初期化されないよう固定。
+  - 章ページでは active chapter の section を初期展開し、`/manual` では先頭 section を初期展開。
+- [manual/[slug]/page.tsx](../src/app/(app)/manual/[slug]/page.tsx):
+  - 章本文から抽出した page-local TOC を `ManualMapClient` へ渡す導線を削除。
+- [check_pwa_critical_ui.cjs](../scripts/check_pwa_critical_ui.cjs):
+  - `ManualGlobalToc` / `aria-expanded` / `groups={visibleSections}` を回帰防止 anchor に変更。
+- [os_manual.md](../design/os_manual.md):
+  - 左上は常に同じ全体目次、左下はカテゴリメニュー、本文内 H2/H3/H4 目次は主要ナビにしない、と明記。
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run test:critical-ui` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 172.
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-baf4wbpvb-armada0130.vercel.app`
+  - Deployment ID: `dpl_3L2RM49oqoCa3e1eFPeUCNJcikyf`
+- Production Chrome verification:
+  - `/manual`: 左上に `目次` が表示され、`入口` / `まず使う人向け` / `OS の基本構造` / `経営判断エンジン` の同じ全体 TOC が出る。
+  - `/manual/04-admin-ops`: 左上に同じ全体 TOC が出て、active 章を含む `まず使う人向け` が初期展開される。
+  - `/manual/21-amd-score-spec`: 左上に同じ全体 TOC が出て、active 章を含む `経営判断エンジン` が初期展開される。
+
+## 2026-05-25 (#84) — Cowork セッション (cowork-eimi) / KUTE 経営ハイライト 11件投入 + LinkedMemberText 導入
+
+> Cowork (Claude Desktop) 上で動いた cowork-eimi セッションのログ。Codex えいみが翌朝この log を読めば、当日の Cowork 側作業を把握できるよう残す。Cowork → Codex の handoff は本ファイルに合流する運用 (まさ #handoff-policy 2026-05-25 確定)。
+
+### コンテキスト
+- まさから「KUTE のこれまでの動きを、Cockpit の経営ハイライトに追加してほしい」と依頼。
+- 初手で `project_events` テーブルに 7 件投入したが Cockpit に出ず、まさから「違うとこに入れたっぽい」と指摘。`amd-os` フォルダをマウントして `grep 経営ハイライト` した結果、正しい正本テーブルは `project_strategy_signals` (CockpitStrategySignals.tsx) と判明。
+- 修正後、まさから「各カードは進捗の中身だけ書け／作業手順や形式は余計／時系列で読めば、いまから参画するりりに口頭説明しなくて済むレベルにしてほしい」と粒度・トーンの指示。さらに「肥塚さん→きよ」「メンバー code_name はマイページリンクに」と表現指示。
+
+### 実装 (DB + コード両方)
+- **DB**: `project_strategy_signals` に KUTE (`p25`) のハイライト 11 件を `status='confirmed'` で投入 (source='cowork-eimi-manual'、source_hash で識別可)。時系列:
+  - 2025-10-23 初回ドアノック → 2025-11-06 平本さん初回面談 → 2026-01-26 GTIE 申請中・協力打診 → 2026-04-27 GTIE 採択 (breakthrough/high) → 2026-04-30 打合せ・3軸合意 (breakthrough/high) → 2026-05-02 業務提案書送付 → 2026-05-08 MS 設計完了 → 2026-05-11 定例会・修正方針合意 → 2026-05-12 山地レビュー v4 → 2026-05-18 学部長・部長会・指摘 4 項目 → 2026-05-24 契約書 FIX (breakthrough/high)。
+  - 各カードは「何が動いて／次に何が見えるか」だけに集約。ファイル形式・作業手順は排除。
+- **DB 修正**: 上記カードのうち 2 件で「肥塚さん」→「きよ」一括 REPLACE。
+- **コード**: [CockpitStrategySignals.tsx](../src/components/cockpit/CockpitStrategySignals.tsx) の `title` / `summary` / `scoreImpactSummary` を [LinkedMemberText](../src/components/members/LinkedMemberText.tsx) でラップ。手動投入された signal 本文中の `members.code_name` (= `まさ` / `きよ` / `りり` / `りさ` 等) が自動で `/mypage?memberId=...` リンクへ置換される。
+
+### Verified
+- DB: `SELECT signal_date, title, status FROM project_strategy_signals WHERE project_id='p25' ORDER BY signal_date` で 11 件 + 既存 candidate 1 件を確認。
+- コード: 改修は `a03f373` に巻き取られて origin/main に push 済 (codex-eimi が他作業と一緒に commit、Cowork からの直 push は `.git` permission denied で詰まった)。
+
+### Cowork ↔ Codex 衝突メモ (= 次の handoff へ)
+- 今回 Cowork が `pwa/src/components/cockpit/CockpitStrategySignals.tsx` を編集中、codex-eimi が同じファイルを含む dashboard 改修を進めていた。最終的に codex-eimi が私の改修ごと `a03f373` で commit してくれたため事なきを得た。
+- `pwa/design/project_strategy_signals.md` も Cowork から追記しかけたが、codex-eimi の大量の他差分と混在していたため Cowork 編集分は revert し、design への反映は本 log と `LinkedMemberText` 自体のコメントで担保した。
+- **教訓**: 並列で動くときは Cowork 側から `.git` 直叩きで commit せず、ファイル編集 + 本 log への追記までに留め、commit は次に動いた側 (Codex or 後続 Cowork) にまとめてもらう運用がスムーズ。
+
+### 関連メモ更新 (Cowork memory)
+- `memory/amd-os-strategy-signals.md` (新規): 経営ハイライト = project_strategy_signals の仕様・落とし穴・手動投入テンプレ。
+- `memory/amd-os-other-components.md`: 「戦略シグナル」を「経営ハイライト」表記に修正。
+- `memory/MEMORY.md`: 上記新規メモへの index 追加。
+
+## 2026-05-25 (#85) — OS manual 目次を本の目次型 + 親子番号へ変更
+
+### コンテキスト
+- まさから「全体像が掴めない」「本の目次みたいに、セクション番号とタイトルがずらっと並ぶ想定」「セクション 11 の中に 10.0 があるような番号カオスを直したい」と指摘あり。
+- 方針: source md の旧番号に依存せず、表示対象 audience ごとに `sectionIndex-chapterIndex` で採番する。左上の全体目次も `/manual` 右側のセクション別目次も、カードではなく book directory として読める形に寄せる。
+
+### 実装
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts):
+  - `applyManualBookNumbering()` を追加。表示中 audience の chapter だけを `MANUAL_SECTIONS` 順に再採番し、ユーザー向けなら `1-1 AMD OS とは` / `2-2 メンバーの日常ワークフロー` / `4-2 AMD Score 詳細仕様` のように並ぶ。
+- [manual-data.ts](../src/app/(app)/manual/manual-data.ts):
+  - `getManualBookChapters()` と `normalizeManualMarkdownSource()` を追加。
+  - H1 を `chapterNumber. title` に、H2 を `chapterNumber-h2Index title` に表示時正規化。旧 md の `10.1` / `21.1` は画面に出さない。
+  - 単独数字で意味を持つ見出し語まで消さないよう、古い番号 prefix は `10.1` / `10-1` 系だけ strip する。
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx):
+  - 左上 `目次` を book directory UI に変更し、全 section を初期展開。
+  - `/manual` 右側の `セクション別目次` も、カード一覧ではなく `1. 入口` -> `1-1 AMD OS とは` の縦リストへ変更。
+  - 左下カテゴリメニュー内の重複した `章カテゴリ` block を削除。
+- [page.tsx](../src/app/(app)/manual/page.tsx) / [manual/[slug]/page.tsx](../src/app/(app)/manual/[slug]/page.tsx):
+  - index と章ページの両方で book numbering 済み chapters を使うよう変更。
+- [os_manual.md](../design/os_manual.md):
+  - 本の目次型、親子番号、本文 H2 正規化、右側 section 別目次の方針を追記。
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run test:critical-ui` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 172.
+- Node-level manual rendering check:
+  - user chapters: `1-1 AMD OS とは` / `2-1 はじめて使う人向け` / `2-2 メンバーの日常ワークフロー` / `4-2 AMD Score 詳細仕様`。
+  - developer chapters: `1-1 全体設計` / `1-2 データと抽出` / `2-1 Atlas / Macrotrend 詳細仕様`。
+  - `10-member-workflows-quick-start` rendered headings: `# 2-2. メンバーの日常ワークフロー`, `## 2-2-1 まず /mypage を見る`。
+  - `21-amd-score-spec` rendered headings: `# 4-2. AMD Score 詳細仕様`, `## 4-2-1 AMD Score と Management Score の違い`。
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-3uygkoaqw-armada0130.vercel.app`
+  - Deployment ID: `dpl_HoRyyvqHxrMGWPH5GkbEuCu2ZKVn`
+- Chrome logged-in visual verification was attempted, but the active Chrome tab switched during the check. Code/build/deploy verification is complete; next UI pass should refresh `/manual` and `/manual/10-member-workflows-quick-start` in the logged-in production tab.
+
+## 2026-05-25 (#86) — raw_data_gap を「OS未取り込み」通知として出さない運用へ修正
+
+### コンテキスト
+- まさから、`〜がOS未取り込み` という通知は意味が分からない、automation はOSへ取り込む候補を作る役割なのに未取り込み報告で終わるのはおかしい、と指摘あり。
+- 確認結果: `project_registry_diff` / `xrl_evidence` などは「はい」でDB反映・confirmed化に進むが、`raw_data_gap` は現行 feedback API 上、現物を `source_cache` へ自動投入する保証がない。
+- 方針: `raw_data_gap` は「見つけたがOS未取り込み」ではなく、L2化先・backfill経路・helper/UI対応が未確定なときだけ使う例外通知に限定する。
+
+### 実装 / ドキュメント
+- `/Users/masa/.codex/automations/amd-os-ms/automation.toml`:
+  - `raw_data_gap` の厳格ルールを追加。
+  - 反映可能な候補は `registryDiffs` / `xrlEvidence` / `revisions` / `meeting_summary` へ寄せることを明記。
+  - 通知例から `GmailはあるがOS未取り込み` を外し、`契約メールをBRL根拠候補にする？` / `Gmail根拠のL2化先を確認` に変更。
+- [notifications.md](../design/notifications.md) / [L2_DATA.md](../design/L2_DATA.md) / [22-notifications-and-tsukuyomi.md](../manual/22-notifications-and-tsukuyomi.md):
+  - `raw_data_gap` は「はいで現物DB取り込み」ではなく、feedback記録 + 再抽出/抽出経路確認であることを追記。
+- [BUGS.md](../BUGS.md):
+  - `raw_data_gap` を汎用未取り込み報告にしてしまう運用ミスを、症状/原因/対応/再発防止で記録。
+
+### Verified
+- `automation.toml` に `raw_data_gap の厳格ルール` が入っていることを Node で確認。
+- 古い通知例 `- \`🧩 KUTE: GmailはあるがOS未取り込み\`` が残っていないことを Node で確認。
+- DB反映・deploy・build は未実行。今回の変更は automation prompt + md 更新のみ。
+
+## 2026-05-25 (#87) — OS manual のカテゴリ章カード一覧を削除
+
+### コンテキスト
+- まさから `/manual` 右側に出ていた `まず触る の章` と chapter card 群は不要、と指摘あり。
+- 方針: `/manual` の右側は本の目次型の `セクション別目次` から始める。左下のカテゴリメニューは残すが、カテゴリ home / card list は表示しない。
+
+### 実装
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx):
+  - `showDirectory` 時に出していた選択 topic heading、関連 topic pill、compact chapter card list を削除。
+  - `TopicPills` と selected topic chapter list state を削除。
+  - カテゴリメニューの topic click は URL `?topic={key}` 同期 + 右側 book directory 内の先頭関連章へ smooth scroll する動きに変更。
+  - section list の各章 link に `manual-chapter-{slug}` anchor を付与。
+- [os_manual.md](../design/os_manual.md):
+  - `/manual` 右側は section 別目次と全章一覧だけにすること、カテゴリ home / chapter card list を置かないことを追記。
+- [check_pwa_critical_ui.cjs](../scripts/check_pwa_critical_ui.cjs):
+  - `manual-chapter-` / `scrollIntoView` を回帰防止 anchor に追加。
+  - `{selected.label} の章` / `表示中の章は下に続く。` が戻らないよう retired anchor に追加。
+
+### Verified
+- `git diff --check` pass.
+- `npm --prefix pwa run test:critical-ui` pass.
+- `npm --prefix pwa run build` pass. Next.js 16.2.3 / static pages 172.
+- Production deploy pass:
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-4pl6v5l6d-armada0130.vercel.app`
+  - Deployment ID: `dpl_C5jkkV7CXKZrN2boKFsZvYxnkZ1E`
+
+## 2026-05-25 (#88) — OS manual handoff / doc index sync
+
+### コンテキスト
+- まさが manual をいったんチーム共有するため、次セッション用の handoff を作成。
+- 棚卸し中に、`os_manual.md` が manual UX の正本なのに `design/README.md` のテーマ表に導線がなく、`pwa/CLAUDE.md` の manual 行が旧 `00-intro.md` 〜 `06-developer.md` 表記のままだったことを確認。
+
+### 実装
+- [HANDOFF.md](../../HANDOFF.md) / [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md):
+  - 最新状態を OS manual UX に更新。root と PWA handoff の読み順・deploy ID・未解決タスクを同期。
+- [design/README.md](../design/README.md):
+  - `OS Manual / Help` 行を追加し、[os_manual.md](../design/os_manual.md) への導線を追加。
+- [pwa/CLAUDE.md](../CLAUDE.md):
+  - manual 正本の説明を `pwa/manual/*.md` + `pwa/design/os_manual.md` へ更新。
+
+### Verified
+- `git diff --check` pass.
+
+## 2026-05-25 (#71 後段 v2-v5 + ネーミング) — dashboard 大幅改修ループ
+
+### コンテキスト
+- まさ「ダッシュボードを HUD 版と同じ情報量にして」 + 全体設計やり直し + 5 軸 trend / sparkline 線太さ / 横長 stripe / マイページ embed まで連続改修
+- ネーミング判断: AMD Management Score → 「バイタルサイン (VS)」(= 医療由来 Vital Signs、AMD Score との区別明確、まさ #71 確定)
+
+### 実装ループ (v1 → v5)
+- **v1 (= 71d3b4d)**: DashboardScoreOverview 新規 + ProjectSignalsCard で各 PJ Score sparkline + M/X/F + Management Score / 月次残タスク 3 列パネル + dashboard page 拡張
+- **v2 (= 369f089)**: 重複 + PL/PM/Closer 欠落指摘 → ProjectSignalsCard 廃止、ProjectCard 拡張 merge (= code/name/status/client + PL/PM/Closer + Score + sparkline + M/X/F + billing 5 dot)、左 border カラー、上部 3 列パネル
+- **v3 (= fed25b8)**: 線太さバラバラ / PL/PM/Closer 幅広すぎ / 通知不要 / マイページ違う指摘 → vector-effect=non-scaling-stroke で線統一、NotificationsCard 削除 (= 上部 2 列)、PL/PM/Closer を inline 1 行、`/mypage` の MyPageContent を export 化して dashboard 右側に そっくり embed (= 軽量自作版 MyPageSummaryPanel は削除)、layout grid-cols-[1fr_minmax(520,640)]
+- **v4 (= a03f373)**: コンテンツ次第で列幅が変動 / 数字横長 / trend アイコン要望 → grid template `auto/minmax` mix → grid-cols-12 固定 12 列に戻し、`tabular-nums` 削除で proportional、5 軸 + total に prev 比 trend アイコン ↗ (emerald) / ↘ (rose) / → (zinc)
+- **v5 (= ad2e621)**: billing 5 dot / M/X/F が縦書き化 → col-span 再配分 (3/2/3/2/2) + BillingStep (dot 上に 1 文字短縮ラベル「確/報/月/請/入」、title 属性に full 名)
+
+### ネーミング決定
+- 旧 / 新 / 対象範囲:
+  - `AMD Management Score` → 「**バイタルサイン (VS)**」(= `/dashboard` 等の UI 上)
+  - `AMD Score` (= 各 PJ 総合スコア) はそのまま (= 略称 / 別名なし)
+- DB テーブル名 (`amd_management_score_snapshots` 等) と manual/29 spec タイトルは「AMD Management Score」維持 (= 内部 ID 安定)
+- `/management-score` ページ内タイトルも引き続き「AMD Management Score」
+- 命名根拠: 医療由来の Vital Signs メタファー (= 経営の脈拍・体力)、ヘルスのデリヘル連想を回避、AMD Score との区別明確
+
+### マイページ embed の実装
+- `pwa/src/app/(app)/mypage/page.tsx` の `function MyPageContent()` を `export function MyPageContent()` に変更
+- dashboard page で `import { MyPageContent } from "@/app/(app)/mypage/page"` + `<Suspense><MyPageContent /></Suspense>` で右側に render
+- 結果: dashboard 右側に `/mypage` の本物の中身 (= 当月報酬合計 ¥613,601 + KUTE/SX/SE/ZMP 内訳 + いまやること + this week) が完全に同期表示
+
+### 検証
+- 全 v1-v5 で `npx tsc --noEmit` + `npm run build` + `npm run test:critical-ui` pass
+- Chrome MCP で本番 (= https://amd-os-pwa.vercel.app/dashboard) を都度確認、各 fb をスクリーンショット検証
+- Vercel deploy 完了 (= 各 v 約 3-5 分)
+
+### 反映 md
+- manual/29 §29.1 にバイタルサイン (VS) 別名注記追加
+- manual/24 §operations-catalog に Claude routine 8 個 layer="Claude" 追加
+- HANDOFF_pwa_rebuild.md を統合 slim 化 (= 別 codex の manual UX + 本セッション dashboard / L2 / 対話型 UI)
+
+### 教訓 (BUGS [meta/ai-interpretation] に追加)
+- まさ「重複 + しょぼ + 全体設計しないと」「PL/PM/Closer 抜けてる」など UI 設計の根本問題を指摘されてから手を動かす運用に。「とりあえず作る」じゃなく「全体構造 → 情報項目リスト → UI 階層」を先に提示
