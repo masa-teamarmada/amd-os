@@ -25,6 +25,7 @@
  */
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import type { ProjectStrategySignal } from "@/lib/supabase-data";
 import { Hint } from "@/components/ui/Hint";
@@ -297,6 +298,7 @@ function StrategySignalRow({
   pastFeedbacks: FeedbackItem[];
   onConfirmed?: () => void;
 }) {
+  const router = useRouter();
   const refs = sourceSummary(signal.sourceRefs);
   const impactClass = IMPACT_CLASS[signal.impactLevel] ?? IMPACT_CLASS.medium;
   const polarity = signal.polarity ? POLARITY_META[signal.polarity] : null;
@@ -420,6 +422,7 @@ function StrategySignalRow({
         return;
       }
       onConfirmed?.();
+      router.refresh(); // server-side render の signals も新値で再 fetch (= タイトル / impact 等の表示が即反映)
       resetDialog();
     } catch (e) {
       setErrorNote(`✕ 確定失敗: ${e instanceof Error ? e.message : "unknown"}`);
