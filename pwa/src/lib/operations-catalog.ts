@@ -19,7 +19,7 @@ export type L2Dataset = {
 export type CronOperation = {
   id: string;
   label: string;
-  layer: "GAS" | "PWA" | "Codex";
+  layer: "GAS" | "PWA" | "Codex" | "Claude";
   cadence: string;
   trigger: string;
   defaultParams: string;
@@ -30,6 +30,9 @@ export type CronOperation = {
     | { type: "pwa"; path: string; defaultQuery?: Record<string, string | number | boolean> }
     | { type: "manual"; reason: string };
 };
+
+const CLAUDE_ROUTINE_MANUAL_REASON =
+  "Claude routine (= ~/.claude/scheduled-tasks/) は scheduled-tasks MCP で登録された local cron。PWA からは直接叩けない (= まさ手元 mac の Claude Code セッション内でのみ自動発火)。手動キックは scheduled-tasks MCP 経由か Claude Code セッションで SKILL.md を直接実行";
 
 export const rawDataSources: RawDataSource[] = [
   {
@@ -87,8 +90,8 @@ export const l2Datasets: L2Dataset[] = [
     id: "monthly_reports",
     label: "① monthly report",
     table: "monthly_reports",
-    source: "Codex automation / legacy AMD-Report GAS R313",
-    cadence: "停止中",
+    source: "AMD-Report GAS R313 / PWA report routes / backfill route",
+    cadence: "05:00 daily + on-demand",
     purpose: "PJ月次レポート本文。後続L2の二次集約ソース。",
   },
   {
@@ -103,9 +106,9 @@ export const l2Datasets: L2Dataset[] = [
     id: "ms_progress",
     label: "③ MS進捗",
     table: "milestone_monthly_progress",
-    source: "Codex automation / manual sync (GAS 154 stopped)",
-    cadence: "停止中",
-    purpose: "5生データとMS設計から月次進捗%を推定する。",
+    source: "GAS 154 -> PWA hourly-estimate / Codex automation review",
+    cadence: "毎時 polling (GAS trigger経由)",
+    purpose: "月次報告書・MTGサマリ・MS設計から月次進捗%を推定し、Codex automationで修正候補レビューを回す。",
   },
   {
     id: "project_knowledge",
@@ -149,9 +152,9 @@ export const l2Datasets: L2Dataset[] = [
   },
   {
     id: "project_strategy_signals",
-    label: "⑨ 経営・事業シグナル",
+    label: "⑨ 経営ハイライト",
     table: "project_strategy_signals",
-    source: "Codex automation",
+    source: "Codex automation amd-os",
     cadence: "daily review",
     purpose: "経営上の重要方針、事業進捗、戦略転換、提携、リスク、次の一手をPJ cockpitへ表示する。",
   },
@@ -261,15 +264,17 @@ export const cronOperations: CronOperation[] = [
     input: "project_meeting_summaries.decided / risks / next_actions",
     output: "protocols / protocol_examples / l2_notifications",
   }),
-  disabledCron({
+  {
     id: "pwa-hourly-estimate",
     label: "MS進捗 hourly estimate",
     layer: "PWA",
-    cadence: "毎時 (GAS 154から)",
+    cadence: "毎時0分 JST (GAS 154から)",
     trigger: "/api/cron/hourly-estimate",
+    defaultParams: "{\"query\":{\"maxItems\":3}}",
     input: "monthly_reports + meeting_summaries + MS設計",
     output: "milestone_monthly_progress / progress_estimate_state / reward_summary_json",
-  }),
+    run: { type: "pwa", path: "/api/cron/hourly-estimate", defaultQuery: { maxItems: 3 } },
+  },
   disabledCron({
     id: "pwa-lane-suggest",
     label: "ASPI lane suggest",
@@ -370,6 +375,17 @@ export const cronOperations: CronOperation[] = [
     output: "member_activities",
   }),
   {
+    id: "manual-monthly-reports-backfill",
+    label: "Monthly reports backfill",
+    layer: "PWA",
+    cadence: "on-demand",
+    trigger: "/api/cron/monthly-reports-backfill",
+    defaultParams: "{\"query\":{\"limit\":6,\"concurrency\":5}}",
+    input: "billing_cycles - monthly_reports missing rows + source_cache + milestones",
+    output: "monthly_reports",
+    run: { type: "manual", reason: "Sonnetで月次報告書を生成する重いbackfill。対象月・件数を確認してcurl/Codex側で実行する" },
+  },
+  {
     id: "pwa-member-weekly-activities",
     label: "メンバー週次活動抽出",
     layer: "PWA",
@@ -418,11 +434,11 @@ export const cronOperations: CronOperation[] = [
   }),
   {
     id: "codex-project-strategy-signals",
-    label: "経営・事業シグナル L2レビュー",
+    label: "経営ハイライト L2レビュー",
     layer: "Codex",
     cadence: "日次 03:20 JST",
-    trigger: "Codex automation amd-os-strategy-signals",
-    defaultParams: "{\"outbox\":\"/Users/masa/.codex/automations/amd-os-strategy-signals/outbox\"}",
+    trigger: "Codex automation amd-os",
+    defaultParams: "{\"outbox\":\"/Users/masa/.codex/automations/amd-os/strategy-signals-outbox\"}",
     input: "Gmail + Drive + Calendar + Slack + Notion + OS snapshot",
     output: "project_strategy_signals / l2_notifications(l2_kind=project_strategy_signal)",
     run: { type: "manual", reason: "Codex automationがoutboxを作り、LaunchAgentの非LLM applierが反映する" },
@@ -487,6 +503,17 @@ export const cronOperations: CronOperation[] = [
     input: "historical policy/investment milestones + LLM",
     output: "macro_index_log",
   }),
+  {
+    id: "manual-triple-helix-recompute",
+    label: "Triple Helix recompute",
+    layer: "PWA",
+    cadence: "on-demand / weekly candidate",
+    trigger: "/api/cron/triple-helix-recompute",
+    defaultParams: "{}",
+    input: "papers_log + atlas_signals + observation_log + project_ventures.lanes",
+    output: "triple_helix_state_log",
+    run: { type: "manual", reason: "ASPI 8 domain × 16 quarter のBVAR/Kalman再計算。実行範囲と時間を見て手動で起動する" },
+  },
   disabledCron({
     id: "pwa-frl-grit-resilience",
     label: "FRL grit/resilience",
@@ -496,6 +523,17 @@ export const cronOperations: CronOperation[] = [
     input: "直近3ヶ月 monthly_reports + meeting_summaries",
     output: "amd_score_inputs.frl_grit / frl_resilience",
   }),
+  {
+    id: "manual-freeze-period-backfill",
+    label: "Freeze period backfill",
+    layer: "PWA",
+    cadence: "on-demand / daily candidate",
+    trigger: "/api/cron/freeze-period-backfill",
+    defaultParams: "{}",
+    input: "休止PJの monthly_reports + project_meeting_summaries",
+    output: "freeze_period_backfills",
+    run: { type: "manual", reason: "Sonnetで休止期間サマリを生成する。対象PJと再開月の確認後に手動で起動する" },
+  },
   disabledCron({
     id: "pwa-amd-score-l2",
     label: "AMD Score L2 refresh",
@@ -559,6 +597,98 @@ export const cronOperations: CronOperation[] = [
     input: "amd_management_score_raw_signals",
     output: "amd_management_score_snapshots / evidence",
     run: { type: "manual", reason: "手動実行はCodex automation側でraw収集後に行う" },
+  },
+  // === Claude routine (= 2026-05-25 #71 まさ確定、L2 ②〜⑨ 全 8 routine 統一) ===
+  // すべて ~/.claude/scheduled-tasks/<taskId>/SKILL.md に保存、scheduled-tasks MCP で登録。
+  // PWA からは直接叩けない (= まさ手元 mac の Claude Code セッション内 local cron)。
+  // run は manual で、reason に外部キック不可と Claude Code セッション経由の代替を明記。
+  {
+    id: "claude-l2-protocol-extract",
+    label: "L2 ② AMDプロトコル抽出 (Claude routine)",
+    layer: "Claude",
+    cadence: "daily 08:00 JST",
+    trigger: "amd-os-l2-protocol-extract (scheduled-task)",
+    defaultParams: "(SKILL.md に従う)",
+    input: "project_meeting_summaries (decided) + monthly_reports / l2_feedbacks",
+    output: "protocols (candidate) / l2_notifications",
+    run: { type: "manual", reason: CLAUDE_ROUTINE_MANUAL_REASON },
+  },
+  {
+    id: "claude-l3-ms-progress-extract",
+    label: "L2 ③ MS進捗推定 (Claude routine)",
+    layer: "Claude",
+    cadence: "毎時0分 JST",
+    trigger: "amd-os-l3-ms-progress-extract (scheduled-task)",
+    defaultParams: "(SKILL.md に従う、既存 PWA hourly-estimate と並行稼働中)",
+    input: "monthly_reports + project_meeting_summaries / value_milestones / progress_estimate_state",
+    output: "milestone_monthly_progress / project_monthly_notes / progress_estimate_state",
+    run: { type: "manual", reason: CLAUDE_ROUTINE_MANUAL_REASON },
+  },
+  {
+    id: "claude-l4-project-knowledge-extract",
+    label: "L2 ④ PJナレッジ抽出 (Claude routine)",
+    layer: "Claude",
+    cadence: "daily 08:15 JST",
+    trigger: "amd-os-l4-project-knowledge-extract (scheduled-task)",
+    defaultParams: "(SKILL.md に従う、汚染防御 v4_meta_strict 継承)",
+    input: "monthly_reports (status≠invalid) + project_meeting_summaries / l2_feedbacks",
+    output: "project_knowledge (candidate, 9 category) / l2_notifications",
+    run: { type: "manual", reason: CLAUDE_ROUTINE_MANUAL_REASON },
+  },
+  {
+    id: "claude-l5-member-knowledge-extract",
+    label: "L2 ⑤ メンバーナレッジ抽出 (Claude routine)",
+    layer: "Claude",
+    cadence: "daily 08:30 JST",
+    trigger: "amd-os-l5-member-knowledge-extract (scheduled-task)",
+    defaultParams: "(SKILL.md に従う、3 セクション C/A/B = milestone_responsibility/member_activities/meeting_summaries)",
+    input: "milestone_responsibility + member_activities (90日) + project_meeting_summaries (60日) / l2_feedbacks",
+    output: "member_knowledge (candidate, 7 category) / l2_notifications",
+    run: { type: "manual", reason: CLAUDE_ROUTINE_MANUAL_REASON },
+  },
+  {
+    id: "claude-l6-meeting-extract",
+    label: "L2 ⑥ MTGサマリ (議事録) 抽出 (Claude routine)",
+    layer: "Claude",
+    cadence: "毎時0分 JST (= +60-180 分終了 events 拾い上げ)",
+    trigger: "amd-os-l6-meeting-extract (scheduled-task)",
+    defaultParams: "(SKILL.md に従う、5 ソース全部見る = Calendar + Notion + Gmail + Drive + Slack)",
+    input: "Calendar events + Notion 議事録 (Stage 1-3 fallback + AI transcription) + Gmail thread + Drive Doc + Slack thread / l2_feedbacks",
+    output: "project_meeting_summaries / meeting_notifications",
+    run: { type: "manual", reason: CLAUDE_ROUTINE_MANUAL_REASON },
+  },
+  {
+    id: "claude-l7-registry-diff-extract",
+    label: "L2 ⑦ OS台帳差分抽出 (Claude routine)",
+    layer: "Claude",
+    cadence: "6h ごと (:00)",
+    trigger: "amd-os-l7-registry-diff-extract (scheduled-task)",
+    defaultParams: "(SKILL.md に従う、既存 Codex amd-os-ms と並行稼働中)",
+    input: "5 生データ (Gmail/Notion/Calendar/Slack/Drive) vs OS 台帳 (project_members/projects.report_emails/project_partners)",
+    output: "project_registry_diffs (pending) / l2_notifications",
+    run: { type: "manual", reason: CLAUDE_ROUTINE_MANUAL_REASON },
+  },
+  {
+    id: "claude-l8-xrl-evidence-extract",
+    label: "L2 ⑧ XRL根拠抽出 (Claude routine)",
+    layer: "Claude",
+    cadence: "6h ごと (:15、L7 と 15 分ずらし)",
+    trigger: "amd-os-l8-xrl-evidence-extract (scheduled-task)",
+    defaultParams: "(SKILL.md に従う、ecosystem PJ は対象外)",
+    input: "5 生データ + monthly_reports + project_meeting_summaries + project_knowledge + project_founding_members",
+    output: "project_xrl_evidence (candidate, axis: trl/brl/grl/srl/hrl) / l2_notifications",
+    run: { type: "manual", reason: CLAUDE_ROUTINE_MANUAL_REASON },
+  },
+  {
+    id: "claude-l9-strategy-signal-extract",
+    label: "L2 ⑨ 経営ハイライト抽出 (Claude routine)",
+    layer: "Claude",
+    cadence: "daily 03:20 JST",
+    trigger: "amd-os-l9-strategy-signal-extract (scheduled-task)",
+    defaultParams: "(SKILL.md に従う、done のみ / polarity 必須 / 修正依頼は対話型 UI 経由)",
+    input: "5 生データ + OS snapshot (monthly_reports / project_meeting_summaries / project_xrl_log / amd_score_inputs)",
+    output: "project_strategy_signals (candidate, 10 signal_type) / l2_notifications",
+    run: { type: "manual", reason: CLAUDE_ROUTINE_MANUAL_REASON },
   },
 ];
 

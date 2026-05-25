@@ -14,6 +14,7 @@
  * dialog ID は client 側で UUID 発行。server は state 持たない (= telemetry / log のみ)。
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type DialogMessage =
@@ -284,6 +285,16 @@ export async function applyProposal(args: {
     updErr = retry.error;
   }
   if (updErr) return { ok: false, message: `signal update error: ${updErr.message}` };
+
+  // Next.js server component の signals cache を invalidate (= confirm 後の表示即時反映)
+  // CockpitView は SSR で `getProjectCockpitData` 経由 signals fetch、router.refresh() だけだと
+  // 一部 cache が残るため revalidatePath で確実に再 fetch させる (= 2026-05-25 #71 対話型 UI fix)
+  try {
+    revalidatePath(`/project/${args.context.project_id}/cockpit`, "page");
+    revalidatePath(`/hud/project/${args.context.project_id}/cockpit`, "page");
+  } catch (_e) {
+    // revalidatePath は server context 必須、API route 内では基本通る。失敗時は silent
+  }
 
   // conversation を markdown で 1 文字列化 (= feedback_text に永続化)
   const convoMd = args.conversation
