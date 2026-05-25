@@ -80,7 +80,8 @@ function ManagementScoreCard({ score, history }: { score: DashboardManagementSco
       ) : (
         <>
           <div className="flex items-baseline gap-2">
-            <div className="text-3xl font-bold tabular-nums">{formatScore(score.total_score)}</div>
+            <div className="text-3xl font-bold">{formatScore(score.total_score)}</div>
+            <ScoreTrendIcon current={score.total_score} previous={prevScore(history, "total_score")} size="lg" />
             <div className="text-[10px] text-muted-foreground">{score.ym}</div>
             {typeof score.confidence === "number" && (
               <div className="text-[10px] text-muted-foreground ml-auto">conf={score.confidence.toFixed(2)}</div>
@@ -88,11 +89,11 @@ function ManagementScoreCard({ score, history }: { score: DashboardManagementSco
           </div>
           <SparklineWithAxes values={history.map((h) => h.total_score ?? 0)} labels={history.map((h) => h.ym ?? "")} className="h-20 w-full" />
           <div className="grid grid-cols-5 gap-1 text-[10px] mt-auto">
-            <ScoreAxis label="🎯 主体" value={score.initiative_score} />
-            <ScoreAxis label="💰 財務" value={score.finance_score} />
-            <ScoreAxis label="🔁 継続" value={score.retention_score} />
-            <ScoreAxis label="🚀 案件" value={score.pipeline_score} />
-            <ScoreAxis label="🧭 方向" value={score.direction_score} />
+            <ScoreAxis label="🎯 主体" value={score.initiative_score} previous={prevScore(history, "initiative_score")} />
+            <ScoreAxis label="💰 財務" value={score.finance_score} previous={prevScore(history, "finance_score")} />
+            <ScoreAxis label="🔁 継続" value={score.retention_score} previous={prevScore(history, "retention_score")} />
+            <ScoreAxis label="🚀 案件" value={score.pipeline_score} previous={prevScore(history, "pipeline_score")} />
+            <ScoreAxis label="🧭 方向" value={score.direction_score} previous={prevScore(history, "direction_score")} />
           </div>
         </>
       )}
@@ -203,13 +204,40 @@ function MonthlyActionsCard({ items }: { items: DashboardActionItem[] }) {
   );
 }
 
-function ScoreAxis({ label, value }: { label: string; value: number | null }) {
+function ScoreAxis({ label, value, previous }: { label: string; value: number | null; previous: number | null }) {
   return (
     <div className="rounded border border-border/60 bg-background/60 px-1 py-1 text-center">
       <div className="text-[8px] text-muted-foreground leading-tight">{label}</div>
-      <div className="text-[11px] font-semibold tabular-nums leading-tight">{value == null ? "—" : value.toFixed(1)}</div>
+      <div className="flex items-baseline justify-center gap-0.5 leading-tight">
+        <span className="text-[11px] font-semibold">{value == null ? "—" : value.toFixed(1)}</span>
+        <ScoreTrendIcon current={value} previous={previous} size="sm" />
+      </div>
     </div>
   );
+}
+
+/** 増減アイコン (= まさ #71 v3 fb 確定): ↗ 上昇 / ↘ 下降 / → 横ばい / null は出さない */
+function ScoreTrendIcon({ current, previous, size = "sm" }: { current: number | null; previous: number | null; size?: "sm" | "lg" }) {
+  if (current == null || previous == null) return null;
+  const delta = current - previous;
+  // 横ばい判定の閾値 = 値の 1% 未満なら → (ノイズ除外)
+  const threshold = Math.max(Math.abs(current) * 0.01, 0.1);
+  const sizeClass = size === "lg" ? "text-base" : "text-[10px]";
+  if (delta > threshold) {
+    return <span className={`${sizeClass} font-bold text-emerald-600`} title={`+${delta.toFixed(1)}`}>↗</span>;
+  }
+  if (delta < -threshold) {
+    return <span className={`${sizeClass} font-bold text-rose-600`} title={delta.toFixed(1)}>↘</span>;
+  }
+  return <span className={`${sizeClass} text-zinc-400`} title="横ばい">→</span>;
+}
+
+/** managementHistory の前月値を取得 (= 末尾 -2 番目) */
+function prevScore(history: DashboardManagementScoreSnapshot[], key: keyof DashboardManagementScoreSnapshot): number | null {
+  if (history.length < 2) return null;
+  const prev = history[history.length - 2];
+  const v = prev[key];
+  return typeof v === "number" ? v : null;
 }
 
 function Sparkline({ values, className }: { values: number[]; className?: string }) {

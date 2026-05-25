@@ -29,6 +29,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import type { ProjectStrategySignal } from "@/lib/supabase-data";
 import { Hint } from "@/components/ui/Hint";
+import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 
 // まさ #34 短期 2026-05-25: 経営ハイライト各カード下に「過去のつくよみ修正依頼」を表示する。
 // 親 component で 1 回 fetch して signal_id ごとに scope_key 前方一致で filter する設計。
@@ -468,13 +469,17 @@ function StrategySignalRow({
           <Hint id="cockpit.strategy-signals.tsukuyomi-feedback" />
         </span>
       </div>
-      <div className="mt-1 text-[12px] font-semibold leading-snug">{signal.title}</div>
+      {/* まさ #36 2026-05-25: 経営ハイライト カード内の code_name を自動でマイページリンク化 (LinkedMemberText)。
+          手動投入された summary に「まさ／きよ／りり」等が含まれる場合、members.code_name と前方一致で <Link> に置き換わる。 */}
+      <div className="mt-1 text-[12px] font-semibold leading-snug">
+        <LinkedMemberText text={signal.title} />
+      </div>
       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-        {signal.summary}
+        <LinkedMemberText text={signal.summary} />
       </p>
       {signal.scoreImpactSummary && (
         <p className="mt-1 rounded border border-sky-100 bg-sky-50/70 px-2 py-1 text-[10px] leading-relaxed text-sky-800">
-          📊 影響: {signal.scoreImpactSummary}
+          📊 影響: <LinkedMemberText text={signal.scoreImpactSummary} />
         </p>
       )}
       {refs.length > 0 && (

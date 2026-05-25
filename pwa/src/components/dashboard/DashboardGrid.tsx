@@ -189,9 +189,10 @@ function ProjectStripe({
       href={`${hrefPrefix}/${project.projectId}/cockpit`}
       className={`relative block rounded-lg border border-border border-l-4 ${leftBorder} ${isMine ? "bg-sky-50/30 ring-1 ring-sky-200/60" : "bg-card"} overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5`}
     >
-      <div className="grid grid-cols-[minmax(180px,1.6fr)_minmax(160px,1.4fr)_minmax(180px,1.8fr)_auto_auto] gap-3 items-center px-3 py-2">
-        {/* === 識別: code + name + status + client === */}
-        <div className="min-w-0">
+      {/* 固定 12 列 grid (= まさ「コンテンツによって表示位置が変わる」確定): 各列幅は project 間で揃う */}
+      <div className="grid grid-cols-12 gap-3 items-center px-3 py-2">
+        {/* === 識別: col-span-3 === */}
+        <div className="col-span-3 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="font-mono text-[10px] text-muted-foreground">{project.projectId}</span>
             <h3 className="text-sm font-semibold truncate">{project.projectName}</h3>
@@ -201,26 +202,26 @@ function ProjectStripe({
           {project.clientName && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{project.clientName}</p>}
         </div>
 
-        {/* === 担当: PL/PM/Closer を inline 1 行で (スペース節約) === */}
-        <div className="border-l border-border/50 pl-3 text-[10px] min-w-0">
+        {/* === 担当: col-span-3 (= PL/PM/Closer を inline 1 行) === */}
+        <div className="col-span-3 border-l border-border/50 pl-3 text-[10px] min-w-0">
           <div className="text-[9px] text-muted-foreground font-mono uppercase">担当</div>
           <div className="truncate text-foreground" title={rolesInline}>{rolesInline}</div>
         </div>
 
-        {/* === AMD Score + sparkline === */}
-        <div className="flex items-center gap-2 border-l border-border/50 pl-3 min-w-0">
+        {/* === AMD Score + sparkline: col-span-3 === */}
+        <div className="col-span-3 flex items-center gap-2 border-l border-border/50 pl-3 min-w-0">
           <div className="flex flex-col shrink-0">
             <div className="text-[9px] text-muted-foreground font-mono uppercase">AMD Score</div>
             <div className="flex items-baseline gap-1">
-              <span className="text-lg font-bold tabular-nums leading-none">{lastScoreV != null ? formatScore(lastScoreV) : "—"}</span>
+              <span className="text-lg font-bold leading-none">{lastScoreV != null ? formatScore(lastScoreV) : "—"}</span>
               {trend && <span className={`text-xs font-bold ${trendColor}`}>{trend}</span>}
             </div>
           </div>
           <Sparkline values={scoreHistory} className="h-7 flex-1 min-w-[60px] text-sky-500" />
         </div>
 
-        {/* === M/X/F メトリクス === */}
-        <div className="border-l border-border/50 pl-3">
+        {/* === M/X/F: col-span-1 === */}
+        <div className="col-span-1 border-l border-border/50 pl-3">
           {metrics ? (
             <div className="grid grid-cols-3 gap-1 text-[9px]">
               <MetricCell label="M" value={metrics.m} />
@@ -232,8 +233,8 @@ function ProjectStripe({
           )}
         </div>
 
-        {/* === billing 5 dot === */}
-        <div className="border-l border-border/50 pl-3">
+        {/* === billing 5 dot: col-span-2 === */}
+        <div className="col-span-2 border-l border-border/50 pl-3">
           {billing ? (
             <>
               <div className="text-[9px] text-muted-foreground font-mono mb-0.5">{billing.ym?.slice(0, 4)}.{billing.ym?.slice(4, 6)}</div>
@@ -268,7 +269,7 @@ function MetricCell({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded bg-muted/40 px-1 py-0.5 text-center leading-tight">
       <div className="font-mono text-[8px] text-muted-foreground">{label}</div>
-      <div className="text-[10px] font-semibold tabular-nums">{formatMetric(value)}</div>
+      <div className="text-[10px] font-semibold">{formatMetric(value)}</div>
     </div>
   );
 }
