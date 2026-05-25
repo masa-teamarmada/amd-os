@@ -108,7 +108,9 @@ function ManagementScoreCard({ score, history }: { score: DashboardManagementSco
   return (
     <section className="rounded-lg border border-border bg-card p-3 flex flex-col gap-1.5 min-h-[120px]">
       <div className="flex items-baseline gap-2">
-        <h2 className="text-sm font-semibold">AMD Management Score</h2>
+        <h2 className="text-sm font-semibold">
+          バイタルサイン <span className="text-[10px] font-mono text-muted-foreground ml-0.5">(VS)</span>
+        </h2>
         <Link href="/management-score" className="text-[10px] text-muted-foreground hover:text-foreground hover:underline ml-auto">
           詳細 →
         </Link>
@@ -124,7 +126,7 @@ function ManagementScoreCard({ score, history }: { score: DashboardManagementSco
               <div className="text-[10px] text-muted-foreground ml-auto">conf={score.confidence.toFixed(2)}</div>
             )}
           </div>
-          <Sparkline values={history.map((h) => h.total_score ?? 0)} className="h-7 w-full text-sky-600" />
+          <SparklineWithAxes values={history.map((h) => h.total_score ?? 0)} labels={history.map((h) => h.ym ?? "")} className="h-20 w-full" />
           <div className="grid grid-cols-5 gap-1 text-[10px] mt-auto">
             <ScoreAxis label="🎯 主体" value={score.initiative_score} />
             <ScoreAxis label="💰 財務" value={score.finance_score} />
@@ -136,6 +138,71 @@ function ManagementScoreCard({ score, history }: { score: DashboardManagementSco
       )}
     </section>
   );
+}
+
+/**
+ * 縦軸最適化 + 縦軸/横軸表示 + 線太め均一 (= まさ #71 後段 #1)
+ * - values の min/max でレンジを最適化 (= 0 固定じゃない、変化が見える)
+ * - 縦軸に min/max 数値、横軸に start/end の ym ラベル
+ * - stroke-width 3 で太め、絵的に「可愛い」
+ */
+function SparklineWithAxes({ values, labels, className }: { values: number[]; labels: string[]; className?: string }) {
+  if (!values || values.length < 2) {
+    return <div className={`${className ?? ""} bg-muted/20 rounded`} />;
+  }
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const padding = (max - min) * 0.1 || max * 0.1 || 1;
+  const yMax = max + padding;
+  const yMin = Math.max(0, min - padding);
+  const range = yMax - yMin || 1;
+
+  const W = 200;
+  const H = 80;
+  const padLeft = 28;
+  const padRight = 4;
+  const padTop = 4;
+  const padBottom = 14;
+  const innerW = W - padLeft - padRight;
+  const innerH = H - padTop - padBottom;
+
+  const pts = values.map((v, i) => {
+    const x = padLeft + (i / (values.length - 1)) * innerW;
+    const y = padTop + innerH - ((v - yMin) / range) * innerH;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+
+  const startLabel = formatYmLabel(labels[0]);
+  const endLabel = formatYmLabel(labels[labels.length - 1]);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className={className}>
+      {/* 軸線 */}
+      <line x1={padLeft} y1={padTop} x2={padLeft} y2={padTop + innerH} stroke="currentColor" strokeWidth="0.5" className="text-zinc-300" />
+      <line x1={padLeft} y1={padTop + innerH} x2={padLeft + innerW} y2={padTop + innerH} stroke="currentColor" strokeWidth="0.5" className="text-zinc-300" />
+      {/* 縦軸ラベル (= min/max) */}
+      <text x={padLeft - 3} y={padTop + 4} textAnchor="end" className="fill-zinc-500" style={{ fontSize: "8px" }}>
+        {Math.round(yMax)}
+      </text>
+      <text x={padLeft - 3} y={padTop + innerH + 1} textAnchor="end" className="fill-zinc-500" style={{ fontSize: "8px" }}>
+        {Math.round(yMin)}
+      </text>
+      {/* 横軸ラベル (= 始端/終端 ym) */}
+      <text x={padLeft} y={H - 3} textAnchor="start" className="fill-zinc-500" style={{ fontSize: "8px" }}>
+        {startLabel}
+      </text>
+      <text x={padLeft + innerW} y={H - 3} textAnchor="end" className="fill-zinc-500" style={{ fontSize: "8px" }}>
+        {endLabel}
+      </text>
+      {/* polyline */}
+      <polyline points={pts.join(" ")} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" className="text-sky-600" />
+    </svg>
+  );
+}
+
+function formatYmLabel(ym: string): string {
+  if (!ym || ym.length < 6) return "";
+  return `${ym.slice(0, 4)}.${ym.slice(4, 6)}`;
 }
 
 function MonthlyActionsCard({ items }: { items: DashboardActionItem[] }) {

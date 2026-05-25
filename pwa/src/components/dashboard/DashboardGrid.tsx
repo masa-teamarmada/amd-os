@@ -3,10 +3,11 @@
 /**
  * DashboardGrid — /dashboard の PJ 一覧 (= Active / Sales-Draft / Ended-Frozen)
  *
- * 2026-05-25 #71 後段再設計 (= まさ「重複 + しょぼ」指摘):
- *   各 PJ カードに従来情報 (= name + status + client) + 新規 (= PL/PM/Closer + AMD Score + sparkline + M/X/F + billing 5 dot) を merge。
- *   重複表示 (= 旧 ProjectSignalsCard) は廃止、本 ProjectCard に集約。
- *   border 左 4px で status カラー、Score sparkline は背景帯、icon 表示で情報量と読みやすさを両立。
+ * 2026-05-25 #71 後段再々設計 (= まさ「横長 stripe + ソート」確定):
+ *  - 縦長 grid 3 列 → 横長 stripe 1 行 1 PJ (= HUD 版風の比較検討しやすさ)
+ *  - ソート: ユーザー参画 PJ を上、その中で AMD Score 降順
+ *  - 1 行に集約: code + name + status + client | PL/PM/Closer | AMD Score + sparkline | M/X/F | billing 5 dot
+ *  - 左 4px border カラーで status 判別、hover で背景強調
  */
 import Link from "next/link";
 import { useState } from "react";
@@ -35,35 +36,33 @@ interface DashboardGridProps {
   projects: GasProject[];
   billingStatus: Record<string, GasBillingStatus>;
   projectHrefPrefix?: string;
-  variant?: "default" | "hud";
   scoreHistory?: Record<string, number[]>;
   signalMetrics?: Record<string, { m: number; x: number; f: number }>;
+  /** ログインユーザーが参画してる project_id の Set (= 上位表示) */
+  myProjectIds?: Set<string>;
 }
 
 export function DashboardGrid({
   projects,
   billingStatus,
   projectHrefPrefix = "/project",
-  variant = "default",
   scoreHistory = {},
   signalMetrics = {},
+  myProjectIds = new Set(),
 }: DashboardGridProps) {
   const [introOpen, setIntroOpen] = useState(false);
 
-  const active = projects.filter((p) => p.status === "active");
-  const sales = projects.filter((p) => p.status === "sales" || p.status === "draft");
-  const other = projects.filter((p) => !["active", "sales", "draft"].includes(p.status));
+  const sorter = makePjSorter(myProjectIds, scoreHistory);
+  const active = projects.filter((p) => p.status === "active").sort(sorter);
+  const sales = projects.filter((p) => p.status === "sales" || p.status === "draft").sort(sorter);
+  const other = projects.filter((p) => !["active", "sales", "draft"].includes(p.status)).sort(sorter);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-end">
         <button
           onClick={() => setIntroOpen(true)}
-          className={`text-sm px-3 py-1.5 rounded-md border transition-colors ${
-            variant === "hud"
-              ? "border-cyan-300/35 bg-cyan-300/10 text-cyan-50 hover:bg-cyan-300/15"
-              : "border-border bg-white hover:bg-muted/40"
-          }`}
+          className="text-sm px-3 py-1.5 rounded-md border border-border bg-white hover:bg-muted/40 transition-colors"
           title="チェックを入れた PJ のエグゼクティブサマリーを 1 つの HTML として出力"
         >
           📑 全 PJ 紹介資料作成
@@ -74,16 +73,17 @@ export function DashboardGrid({
 
       {active.length > 0 && (
         <section>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">Active ({active.length})</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          <h2 className="text-sm font-medium text-muted-foreground mb-2">Active ({active.length})</h2>
+          <div className="space-y-2">
             {active.map((pj) => (
-              <ProjectCard
+              <ProjectStripe
                 key={pj.projectId}
                 project={pj}
                 billing={billingStatus[pj.projectId]}
                 hrefPrefix={projectHrefPrefix}
                 scoreHistory={scoreHistory[pj.projectId] || []}
                 metrics={signalMetrics[pj.projectId]}
+                isMine={myProjectIds.has(pj.projectId)}
               />
             ))}
           </div>
@@ -92,16 +92,17 @@ export function DashboardGrid({
 
       {sales.length > 0 && (
         <section>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">Sales / Draft ({sales.length})</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          <h2 className="text-sm font-medium text-muted-foreground mb-2">Sales / Draft ({sales.length})</h2>
+          <div className="space-y-2">
             {sales.map((pj) => (
-              <ProjectCard
+              <ProjectStripe
                 key={pj.projectId}
                 project={pj}
                 billing={billingStatus[pj.projectId]}
                 hrefPrefix={projectHrefPrefix}
                 scoreHistory={scoreHistory[pj.projectId] || []}
                 metrics={signalMetrics[pj.projectId]}
+                isMine={myProjectIds.has(pj.projectId)}
               />
             ))}
           </div>
@@ -110,18 +111,19 @@ export function DashboardGrid({
 
       {other.length > 0 && (
         <details className="group">
-          <summary className="text-sm font-medium text-muted-foreground mb-3 cursor-pointer">
+          <summary className="text-sm font-medium text-muted-foreground mb-2 cursor-pointer">
             Ended / Frozen ({other.length})
           </summary>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 mt-3">
+          <div className="space-y-2 mt-2">
             {other.map((pj) => (
-              <ProjectCard
+              <ProjectStripe
                 key={pj.projectId}
                 project={pj}
                 billing={billingStatus[pj.projectId]}
                 hrefPrefix={projectHrefPrefix}
                 scoreHistory={scoreHistory[pj.projectId] || []}
                 metrics={signalMetrics[pj.projectId]}
+                isMine={myProjectIds.has(pj.projectId)}
               />
             ))}
           </div>
@@ -131,90 +133,116 @@ export function DashboardGrid({
   );
 }
 
-function ProjectCard({
+function makePjSorter(myProjectIds: Set<string>, scoreHistory: Record<string, number[]>) {
+  return (a: GasProject, b: GasProject) => {
+    // 1. 自分が参画してる PJ を上 (= true=0, false=1 → 小さい方が前)
+    const aMine = myProjectIds.has(a.projectId) ? 0 : 1;
+    const bMine = myProjectIds.has(b.projectId) ? 0 : 1;
+    if (aMine !== bMine) return aMine - bMine;
+    // 2. AMD Score 降順 (= 大きい方が前、null は最後)
+    const aScore = lastScore(scoreHistory[a.projectId]);
+    const bScore = lastScore(scoreHistory[b.projectId]);
+    if (aScore == null && bScore == null) return a.projectId.localeCompare(b.projectId);
+    if (aScore == null) return 1;
+    if (bScore == null) return -1;
+    return bScore - aScore;
+  };
+}
+
+function lastScore(history?: number[]): number | null {
+  if (!history || history.length === 0) return null;
+  return history[history.length - 1];
+}
+
+function ProjectStripe({
   project,
   billing,
   hrefPrefix,
   scoreHistory,
   metrics,
+  isMine,
 }: {
   project: GasProject;
   billing?: GasBillingStatus;
   hrefPrefix: string;
   scoreHistory: number[];
   metrics?: { m: number; x: number; f: number };
+  isMine: boolean;
 }) {
   const roles = parseRoleLine(project.roleLine);
   const leftBorder = STATUS_LEFT_BORDER[project.status] ?? "border-l-zinc-300";
   const badgeClass = STATUS_BADGE[project.status] ?? "bg-zinc-50 text-zinc-700 border-zinc-300";
-  const lastScore = scoreHistory.length > 0 ? scoreHistory[scoreHistory.length - 1] : null;
+  const lastScoreV = scoreHistory.length > 0 ? scoreHistory[scoreHistory.length - 1] : null;
   const prevScore = scoreHistory.length > 1 ? scoreHistory[scoreHistory.length - 2] : null;
-  const trend = lastScore != null && prevScore != null ? (lastScore > prevScore ? "↗" : lastScore < prevScore ? "↘" : "→") : "";
-  const trendColor = lastScore != null && prevScore != null ? (lastScore > prevScore ? "text-emerald-600" : lastScore < prevScore ? "text-rose-600" : "text-zinc-500") : "text-zinc-400";
+  const trend = lastScoreV != null && prevScore != null ? (lastScoreV > prevScore ? "↗" : lastScoreV < prevScore ? "↘" : "→") : "";
+  const trendColor = lastScoreV != null && prevScore != null ? (lastScoreV > prevScore ? "text-emerald-600" : lastScoreV < prevScore ? "text-rose-600" : "text-zinc-500") : "text-zinc-400";
 
   return (
     <Link
       href={`${hrefPrefix}/${project.projectId}/cockpit`}
-      className={`relative block rounded-lg border border-border border-l-4 ${leftBorder} bg-card overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5`}
+      className={`relative block rounded-lg border border-border border-l-4 ${leftBorder} ${isMine ? "bg-sky-50/30 ring-1 ring-sky-200/60" : "bg-card"} overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5`}
     >
-      {/* sparkline 背景帯 */}
-      {scoreHistory.length >= 2 && (
-        <div className="absolute inset-x-0 bottom-0 h-16 pointer-events-none opacity-[0.08]">
-          <Sparkline values={scoreHistory} className="w-full h-full" />
-        </div>
-      )}
-
-      <div className="relative p-3 space-y-2">
-        {/* 上段: code + name + status + client */}
-        <div className="flex items-start gap-2">
-          <span className="font-mono text-[10px] text-muted-foreground mt-0.5">{project.projectId}</span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-semibold truncate">{project.projectName}</h3>
-              <span className={`text-[10px] rounded border px-1.5 py-0.5 ${badgeClass}`}>{project.status}</span>
-            </div>
-            {project.clientName && (
-              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{project.clientName}</p>
-            )}
+      <div className="grid grid-cols-12 gap-3 items-center px-3 py-2">
+        {/* === 識別: code + name + status + client (= col-span-3) === */}
+        <div className="col-span-3 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-mono text-[10px] text-muted-foreground">{project.projectId}</span>
+            <h3 className="text-sm font-semibold truncate">{project.projectName}</h3>
+            <span className={`text-[9px] rounded border px-1.5 py-0.5 ${badgeClass}`}>{project.status}</span>
+            {isMine && <span className="text-[9px] rounded border border-sky-300 bg-sky-100 text-sky-800 px-1.5 py-0.5">参画</span>}
           </div>
+          {project.clientName && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{project.clientName}</p>}
         </div>
 
-        {/* 中段: PL/PM/Closer */}
-        <div className="flex items-center gap-3 text-[10px] text-muted-foreground border-y border-border/50 py-1">
+        {/* === 担当: PL / PM / Closer (= col-span-3) === */}
+        <div className="col-span-3 grid grid-cols-3 gap-1 text-[10px] text-muted-foreground border-l border-border/50 pl-3">
           <RoleBadge label="PL" value={roles.pl} />
           <RoleBadge label="PM" value={roles.pm} />
           <RoleBadge label="Closer" value={roles.closer} />
         </div>
 
-        {/* 下段: AMD Score + メトリクス */}
-        <div className="grid grid-cols-[auto_1fr] gap-3 items-end">
-          <div>
+        {/* === AMD Score + sparkline (= col-span-3) === */}
+        <div className="col-span-3 flex items-center gap-2 border-l border-border/50 pl-3">
+          <div className="flex flex-col">
             <div className="text-[9px] text-muted-foreground font-mono uppercase">AMD Score</div>
             <div className="flex items-baseline gap-1">
-              <span className="text-xl font-bold tracking-tight">{lastScore != null ? formatScore(lastScore) : "—"}</span>
+              <span className="text-lg font-bold tabular-nums leading-none">{lastScoreV != null ? formatScore(lastScoreV) : "—"}</span>
               {trend && <span className={`text-xs font-bold ${trendColor}`}>{trend}</span>}
             </div>
           </div>
-          {metrics && (
-            <div className="grid grid-cols-3 gap-1 text-[10px]">
+          <Sparkline values={scoreHistory} className="h-7 flex-1 text-sky-500" />
+        </div>
+
+        {/* === M/X/F メトリクス (= col-span-1.5) === */}
+        <div className="col-span-1 border-l border-border/50 pl-3">
+          {metrics ? (
+            <div className="grid grid-cols-3 gap-0.5 text-[9px]">
               <MetricCell label="M" value={metrics.m} />
               <MetricCell label="X" value={metrics.x} />
               <MetricCell label="F" value={metrics.f} />
             </div>
+          ) : (
+            <div className="text-[10px] text-muted-foreground text-center">—</div>
           )}
         </div>
 
-        {/* billing 5 dot */}
-        {billing && (
-          <div className="flex items-center gap-1 text-[9px] pt-1">
-            <span className="text-muted-foreground font-mono">{billing.ym?.slice(0, 4)}.{billing.ym?.slice(4, 6)}</span>
-            <BillingDot done={billing.budgetDone} label="確定" />
-            <BillingDot done={billing.meetingDone} label="報告" />
-            <BillingDot done={billing.reportDone} label="月次" />
-            <BillingDot done={billing.invoiceDone} label="請求" />
-            <BillingDot done={billing.paymentDone} label="入金" />
-          </div>
-        )}
+        {/* === billing 5 dot (= col-span-2) === */}
+        <div className="col-span-2 border-l border-border/50 pl-3">
+          {billing ? (
+            <>
+              <div className="text-[9px] text-muted-foreground font-mono mb-0.5">{billing.ym?.slice(0, 4)}.{billing.ym?.slice(4, 6)}</div>
+              <div className="flex items-center gap-1">
+                <BillingDot done={billing.budgetDone} label="確定" />
+                <BillingDot done={billing.meetingDone} label="報告" />
+                <BillingDot done={billing.reportDone} label="月次" />
+                <BillingDot done={billing.invoiceDone} label="請求" />
+                <BillingDot done={billing.paymentDone} label="入金" />
+              </div>
+            </>
+          ) : (
+            <div className="text-[10px] text-muted-foreground text-center">—</div>
+          )}
+        </div>
       </div>
     </Link>
   );
@@ -223,18 +251,18 @@ function ProjectCard({
 function RoleBadge({ label, value }: { label: string; value: string }) {
   const isUnset = !value || value === "--";
   return (
-    <span className="flex items-center gap-1 min-w-0">
-      <span className="font-mono text-[9px] uppercase opacity-60">{label}</span>
-      <span className={`truncate ${isUnset ? "text-muted-foreground/50" : "text-foreground font-medium"}`}>{isUnset ? "—" : value}</span>
-    </span>
+    <div className="flex flex-col min-w-0">
+      <span className="font-mono text-[8px] uppercase opacity-60">{label}</span>
+      <span className={`truncate text-[10px] ${isUnset ? "text-muted-foreground/50" : "text-foreground font-medium"}`}>{isUnset ? "—" : value}</span>
+    </div>
   );
 }
 
 function MetricCell({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded bg-muted/40 px-1.5 py-1 text-center">
-      <div className="font-mono text-[9px] text-muted-foreground">{label}</div>
-      <div className="text-[11px] font-semibold tabular-nums">{formatMetric(value)}</div>
+    <div className="rounded bg-muted/40 px-1 py-0.5 text-center leading-tight">
+      <div className="font-mono text-[8px] text-muted-foreground">{label}</div>
+      <div className="text-[10px] font-semibold tabular-nums">{formatMetric(value)}</div>
     </div>
   );
 }
@@ -242,27 +270,25 @@ function MetricCell({ label, value }: { label: string; value: number }) {
 function BillingDot({ done, label }: { done: boolean; label: string }) {
   return (
     <span className="flex items-center gap-0.5" title={label}>
-      <span className={`inline-block w-2 h-2 rounded-full ${done ? "bg-emerald-500" : "bg-zinc-300"}`} />
-      <span className="text-[9px] text-muted-foreground">{label}</span>
+      <span className={`inline-block w-1.5 h-1.5 rounded-full ${done ? "bg-emerald-500" : "bg-zinc-300"}`} />
+      <span className="text-[8px] text-muted-foreground">{label}</span>
     </span>
   );
 }
 
 function Sparkline({ values, className }: { values: number[]; className?: string }) {
-  if (!values || values.length < 2) {
-    return <div className={className} />;
-  }
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
+  if (!values || values.length < 2) return <div className={className} />;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
   const range = max - min || 1;
   const pts = values.map((v, i) => {
     const x = (i / (values.length - 1)) * 100;
-    const y = 100 - ((v - min) / range) * 100;
+    const y = 100 - ((v - min) / range) * 90 - 5;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
   return (
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" className={className}>
-      <polyline points={pts.join(" ")} fill="none" stroke="currentColor" strokeWidth="3" vectorEffect="non-scaling-stroke" className="text-sky-600" />
+      <polyline points={pts.join(" ")} fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
