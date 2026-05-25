@@ -10,10 +10,30 @@
 
 2026-05-22 「LLM 課金が発生する定期抽出 cron を全廃止」した時に、**Codex automation が L2 全種をカバーしてる前提が間違ってた** ことが 5/25 判明。実態:
 
-- **稼働中**: ① monthly_reports (= 別 GAS R313) / ③ MS 進捗 + ⑦ OS 台帳差分 + ⑧ XRL 根拠 (= Codex automation `amd-os-ms`) / ⑨ 経営ハイライト (= Codex automation `amd-os`)
+- **稼働中**: ① monthly_reports (= 別 GAS R313) / ③ MS 進捗 (= GAS 154 → PWA `/api/cron/hourly-estimate` が primary writer、Codex automation `amd-os-ms` は修正候補レビュー) / ⑦ OS 台帳差分 + ⑧ XRL 根拠 (= Codex automation `amd-os-ms`) / ⑨ 経営ハイライト (= Codex automation `amd-os`)
 - **ghost (= 2026-05-22 以降取り込みゼロ)**: ② AMD プロトコル / ④ PJ ナレッジ / ⑤ メンバーナレッジ / ⑥ MTG サマリ
 
 (詳細 fact は 03 章 3.1 マトリクス参照)
+
+---
+
+## ⚠️ 2026-05-25 お昼 方針転換: dryRun アプローチ撤回 → 完全移植アプローチへ
+
+**経緯**:
+- 当初えいみは「GAS の関数を Claude routine から curl で呼ぶ (= dryRun option 追加で GAS 内 LLM call を skip)」と解釈、実装
+- まさ「GAS を呼ぶことは求めてない。GAS でせっかく作った設計を無視して新しい設計を考え始まったから、いやいやせっかく GAS で設計したんだから、それをそのまま移植してとお願いしただけ。**GAS を使うのではなく、GAS を移植して**」
+- → **dryRun アプローチは GAS 依存のまま** = まさの「移植」と違う
+
+**正しい移植のあるべき姿** (= 次セッション着手):
+- Claude routine SKILL.md 内に **GAS 153 + 074 のロジック全部 (= スプシ読み / Notion / Gmail / source_kinds 判定 / 抽出プロンプト) を inline 書き写し**
+- Calendar / Notion / Gmail へのアクセスは **MCP 経由直接** (= GAS 経由しない)
+- 外部スプシ (= 色→PJ 履歴 / PJ 別名) は **Sheets MCP (要確認) or Drive MCP で xlsx export**
+- LLM 呼びは Claude routine 内 Sonnet (= サブスク内)
+- **GAS は完全 bypass** (= kill switch のまま死んでて OK、参照すらしない)
+
+**現状の dryRun 実装の扱い**:
+- GAS 074/153/155 への dryRun option 追加 commit は **revert 不要** (= backward compatible、ただし routine 改訂後は使われなくなる)
+- Routine 1 (`amd-os-meeting-extract`) の SKILL.md は **次セッションで全面書き直し**
 
 ---
 
@@ -53,7 +73,7 @@
 - **本文**: 必ず最初に Read するファイルリスト → Phase A 抽出 → Phase B 後段処理 / 通知
 - **登録**: `mcp__scheduled-tasks__create_scheduled_task` で `cronExpression` 指定 (= ローカル時間)
 - **DB upsert**: 直接 Supabase REST (= service_role) または PWA API (= `CRON_SECRET` ヘッダ)
-- **冪等性**: source_hash 差分検知 + status='candidate' 保存で通知採否ループ
+- **冪等性**: source_hash 差分検知 + L2 ごとの status 語彙に合わせた通知採否ループ。`protocols` は yes で `confirmed`、`project_knowledge` は yes で `active`。`member_knowledge` は現 schema に `status` 列が無いので migration 判断が必要。
 
 ---
 
@@ -78,7 +98,7 @@
 | 頻度 | **daily 08:00 JST** (= 議事録抽出後) |
 | 入力 | 直近 24 時間に upsert された `project_meeting_summaries` (= 二次集約パターン、GAS 155 と同) |
 | 処理 | 議事録の decided 等から「経営判断の構造化記録 (分岐点 / 判断材料 / アクション / 結果)」を抽出 |
-| 出力先 | `protocols` (= `status='candidate'`、通知採否で active 昇格) |
+| 出力先 | `protocols` (= `status='candidate'`、通知採否で `confirmed` 昇格) |
 | LLM | Claude Sonnet 4.6 |
 | 既存 GAS 155 との関係 | GAS 155 `nav_protocol_pollAll` の prompt 移植 |
 
@@ -100,7 +120,7 @@
 | 頻度 | **daily 08:30 JST** |
 | 入力 | 直近 30 日の `member_activities` + `project_meeting_summaries` (= 二次集約) |
 | 処理 | メンバー個人の強み / スキル / 関心を 7 category で抽出 |
-| 出力先 | `member_knowledge` (= status='candidate') |
+| 出力先 | `member_knowledge` (= 現 schema は `status` 列なし。候補採否を row に持たせるなら migration が必要) |
 | LLM | Claude Sonnet 4.6 |
 | 既存 GAS 155 との関係 | `nav_member_knowledge_pollAll` の prompt 移植 |
 
@@ -110,7 +130,7 @@
 
 ### 修正依頼ループ (= まさ #34 中期)
 
-各 routine の prompt に「`l2_feedbacks` の `l2_kind` 該当行を読み込んで反映」手順を入れる。これで GAS 155 の `_l2_loadFeedbackBlock_` 相当が実現する。**経営ハイライト routine 化も検討** (= 5 routine 目として `amd-os-strategy-signals-extract` を作って `amd-os` automation を移管 → l2_feedbacks 読み込み実装)。
+各 routine の prompt に「`l2_feedbacks` の `l2_kind` 該当行を読み込んで反映」手順を入れる。これで GAS 155 の `_l2_loadFeedbackBlock_` 相当が実現する。**経営ハイライト routine 化も検討** (= `amd-os` 内の経営ハイライト抽出を独立 routine 化するか、現行 `amd-os` prompt に `l2_feedbacks` 読み込みを直接追加する)。
 
 ### upsert path
 

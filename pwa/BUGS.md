@@ -5,6 +5,275 @@
 
 ---
 
+### [pwa/monthly-routine] CTB の月次ルーティン順序が章・画面ごとにズレていた
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済
+- **症状**:
+  - 10 章の CTB flow が「請求書発行/送付 → 報告会」の順に見えていた。
+  - cockpit / HUD の CTB 右カラムは `見積 -> 予算 -> 報告会 -> 報告書 -> 立替 -> 請求発行 -> 請求送付` で、実際の締切順 (= 当月28日の請求が翌月3日の報告書より前) とズレていた。
+  - `/admin/billing` の CTB chip も `予算 -> 見積 -> 請求発行 -> 報告会...` で読み手が順序を誤解しやすかった。
+- **原因**:
+  - CTB を「標準ルーティンに見積を足す」実装として始めたため、CTB 固有の当月28日請求タイミングを並び順に反映していなかった。
+- **対応内容**:
+  - CTB の正本順序を `見積送付 -> 請求額確定 -> 報告会日程調整 -> 請求書発行 -> 請求書送付 -> 月次報告書FIX -> 立替精算確認` に統一。
+  - cockpit / HUD / `/admin/billing` の並び順と、01 / 04 / 10 / 26 / 32 章、`design/routine.md`, `design/SPEC_pwa.md` を更新。
+- **再発防止策**:
+  - CTB は標準の単純拡張ではなく、締切順が異なる別フローとして扱う。
+  - 月次ルーティンを変えたら、01 章・10 章・26 章・32 章・`design/routine.md`・cockpit / HUD / admin billing を同じ差分で確認する。
+
+### [pwa/mypage-routine] `/mypage` の TODO / 報酬除外判定が `invoice_ym` 延期を考慮していなかった
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済
+- **症状**:
+  - cockpit 右カラムでは `billing_cycles.invoice_ym !== ym` の月は月次報告書FIX以外を deferred 表示にしていた。
+  - しかし `/mypage` の TODO / 報酬除外判定は同じ延期を見ず、まとめ請求対象月でも請求額確定・報告会・立替・請求発行/送付を未完扱いにする可能性があった。
+  - `/mypage` は翌月TODOを見るのに、`billing_cycles` は当月 + 過去6ヶ月しか取得しておらず、翌月 cycle の既存完了状態を読めなかった。
+- **原因**:
+  - cockpit の `CockpitRoutineGas.buildSteps()` にだけ deferred ロジックを入れ、`/mypage` 側の `buildRoutineSteps()` と data fetch 範囲を同期していなかった。
+- **対応内容**:
+  - `/mypage` の `buildRoutineSteps()` でも `invoice_ym !== ym` の月は `reportFix` だけを対象にするよう修正。
+  - `/mypage` の `billing_cycles` 取得範囲に翌月を追加し、翌月TODOの既存完了状態を読めるようにした。
+- **再発防止策**:
+  - 月次ルーティンの完了判定は cockpit 表示だけでなく `/mypage` の報酬除外判定にも同じ変更を入れる。
+
+### [pwa/ctb-estimate] cockpit / mypage の CTB 見積送付完了判定が marker 以外も完了扱いにしていた
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済
+- **症状**:
+  - `/admin/billing` は CTB 見積送付を `invoice_base_lines_json` の `[[CTB_ESTIMATE_SENT]]` marker で判定していた。
+  - cockpit / HUD / `/mypage` は `invoice_base_lines_json` や `invoice_subject` があるだけでも完了扱いにしており、見積書送付ではない下書き・請求明細を見積完了と誤認する可能性があった。
+- **原因**:
+  - legacy データ救済用の広い判定を、現行の正本 marker へ戻していなかった。
+- **対応内容**:
+  - cockpit / HUD / `/mypage` の CTB 見積送付完了判定を `[[CTB_ESTIMATE_SENT]]` marker に統一。
+  - 01 / 10 / 26 / 32 章に marker が完了判定の正本であることを明記。
+- **再発防止策**:
+  - CTB 見積送付は freee 帳票番号や件名ではなく、OS 内部 marker を正本にする。
+
+### [pwa/xrl-ui] XRL 進捗 UI と manual が停止済み `venture-xrl-refresh` を毎朝稼働中に見せていた
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済
+- **症状**:
+  - PJ cockpit / HUD cockpit の XRL 進捗欄に「毎朝 03:15 (JST) に差分があれば LLM が自動判定」と表示されていた。
+  - しかし `pwa/vercel.json` には `venture-xrl-refresh` は無く、`pwa/vercel.disabled-crons.json` に退避済み。
+  - 01 / 05 / 23 章と `design/L2_DATA.md` / `design/cockpit.md` も一部で例外稼働中として書いていた。
+- **原因**:
+  - 2026-05-22 の LLM cron 停止後、XRL UI と過去設計 md の current truth 更新が漏れた。
+- **対応内容**:
+  - cockpit / HUD の XRL 文言を「自動判定 schedule は停止中。既存 / 手動提案ドットは採用・却下できる」に修正。
+  - manual / design md の `venture-xrl-refresh`, `venture-narrative-refresh`, `relearn-lane-weights`, `member-activities` の schedule 状態を停止中へ訂正。
+- **再発防止策**:
+  - 画面上に cron cadence を出す時は `pwa/vercel.json` と `pwa/vercel.disabled-crons.json` の両方を確認する。
+  - LLM 系 route は、route が存在するだけでは schedule 稼働中と書かない。
+
+### [pwa/related-members] 関連メンバー修正APIが大学キーパーソンを HRL 根拠から落としていた
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済
+- **症状**:
+  - `project_founding_members` の current data access は `category in ('amd','startup','university')` を HRL 算入対象にしている。
+  - しかし `/api/founding-members/revise` は `university` を allowed category に入れておらず、つくよみ修正依頼から大学PI / 共同研究中核を残せない可能性があった。
+  - 一部 design md / 画面文言も「大学・研究機関は HRL 根拠外」という古い定義を残していた。
+- **原因**:
+  - 2026-05-22 の related members 再定義後、`founding-members-data.ts` と抽出 prompt は更新されたが、修正 API / 旧モーダル / 設計 md まで同期されていなかった。
+- **対応内容**:
+  - `/api/founding-members/revise` の allowed category と prompt に `university` を追加。
+  - `cron/founding-members-extract` / `founding-members-data.ts` / cockpit modal のコメントと表示を「該当SU社員 + AMD伴走メンバー + 大学キーパーソン」に統一。
+  - 35 章を追加し、HRL 算入 category、role、簡易推定式、通知 status、つくよみ修正 flow を正本化。
+- **再発防止策**:
+  - `project_founding_members` は manual では「関連メンバー」と呼び、HRL category の正本は 35 章と `HRL_INCLUDED_CATEGORIES` に置く。
+  - related members の API / UI / design md を変える時は `rg "project_founding_members|関連メンバー|university"` で同期漏れを確認する。
+
+### [pwa/related-members-ui] 関連メンバー UI が旧「創業」表現と停止済み cron 文言を残していた
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済
+- **症状**:
+  - `CockpitFoundingMembersModal` の説明が「対象は該当SU社員 + AMD伴走メンバーのみ」となっており、大学キーパーソンを HRL 根拠外に見せていた。
+  - 空状態で「毎週月曜 03:30 JST に自動抽出」と表示していたが、`founding-members-extract` は Sonnet 利用のため `vercel.disabled-crons.json` に退避済み。
+  - cockpit / HUD のコメントと一部 error 文言が旧「創業メンバー」表現を残していた。
+- **原因**:
+  - 自動 schedule 停止後も、route が残っている画面の説明文を current truth に合わせて更新していなかった。
+- **対応内容**:
+  - 関連メンバー UI を「該当SU社員 + AMD伴走メンバー + 大学キーパーソン」に更新。
+  - 空状態を「自動 schedule は停止中、手動 route で更新」に変更。
+  - cockpit / HUD の旧コメント、error 文言、設計 md の旧表現を整理。
+- **再発防止策**:
+  - `vercel.disabled-crons.json` に退避済みの route を UI で説明する時は、「schedule 稼働中」と書かない。
+  - 「創業メンバー」は DB名の歴史説明に閉じ、ユーザー向けは「関連メンバー」に統一する。
+
+### [pwa/scholar] Scholar UI が旧 5 lane 前提のままで ASPI 8 domain の papers_log を表示し切れない
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済
+- **症状**:
+  - `/api/cron/papers-quarterly-ingest` は ASPI 8 domain x 直近 16 quarter を `papers_log` に upsert する。
+  - `/scholar` の `ScholarTrendView` は `gx_energy / gx_circular / materials / life / robo` の旧 5 lane だけを表示していた。
+  - ASPI 移行後の `advanced_ict`, `ai_technologies`, `quantum`, `sensing_timing_navigation` などが画面に出ない。
+- **原因**:
+  - cron / data model は ASPI 8 domain に移行済みだったが、可視化 component と説明文が旧 5 lane のまま残っていた。
+- **対応内容**:
+  - `ScholarTrendView` を `ASPI_DOMAIN_IDS` / `ASPI_DOMAIN_LABEL_JP` 参照へ変更し、ASPI 8 domain の YoY card / line chart / quarterly table を表示するようにした。
+  - `/scholar` の説明文と design docs を ASPI 8 domain x quarter に更新。
+- **再発防止策**:
+  - `papers_log` を読む UI は `aspi-lanes.ts` の定数を使い、独自に lane 配列を再定義しない。
+
+### [pwa/research-assets] Seeds / VC の自動収集文言が scheduled cron 稼働中のように見えていた
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済
+- **症状**:
+  - `/vcs` は「自動収集 (毎朝 09:00 JST)」と表示していたが、`vc-discover` は旧 schedule でも週次土曜 09:00 JST、現状は `vercel.disabled-crons.json` に退避済み。
+  - `/seeds/inbox` も「毎週 月曜 09:00 JST cron」と表示していたが、`seeds-ingest` も現状は LLM/web_search 課金回避で schedule 停止中。
+- **原因**:
+  - route 実装・旧 schedule・現行 schedule 停止の3状態を UI 文言で分けていなかった。
+- **対応内容**:
+  - `/vcs` と `/seeds/inbox` の説明文を「route はあるが現在 schedule 停止中」に修正。
+  - 33 章に current truth として、`seeds-ingest` / `vc-discover` は停止中、`papers-quarterly-ingest` は稼働中と明記。
+- **再発防止策**:
+  - `vercel.disabled-crons.json` にある route を画面説明に書く時は、旧 cadence ではなく「停止中 / 手動 review batch 用」と表現する。
+
+### [pwa/admin-projects] `/api/admin/projects/[id]` が service_role update なのに admin check を持っていなかった
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済
+- **症状**:
+  - `/api/admin/projects/[id]` は `createAdminClient()` で `projects` / `project_ventures` を更新する。
+  - middleware は `/api/*` を auth redirect 対象外にしており、API route 側で認証する設計。
+  - route 内に `requireAdmin()` が無かったため、service_role update route としては admin gate が不足していた。
+- **原因**:
+  - `/admin/projects` 画面から呼ばれる前提で route を作ったが、API route 単体の認証責務を入れていなかった。
+- **対応内容**:
+  - `PATCH /api/admin/projects/[id]` の先頭で `requireAdmin()` を呼ぶように修正。
+  - `projectsPatch` / `venturesPatch` が空の request は 400 を返すようにした。
+- **再発防止策**:
+  - service_role を使う `/api/admin/*` は必ず `requireAdmin()` を冒頭に置く。
+  - admin UI からしか呼ばない route でも、middleware ではなく API route 自身で gate する。
+
+### [pwa/admin-projects] 関係先メアド編集モーダルが API body を間違えて保存されない可能性
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済
+- **症状**:
+  - `/admin/projects` の関係先メールアドレス modal は `PATCH /api/admin/projects/[id]` に `{ report_emails: ... }` を送っていた。
+  - API route は `{ projectsPatch: {...} }` または `{ venturesPatch: {...} }` を期待するため、`report_emails` を更新対象として解釈できない。
+- **原因**:
+  - セル編集の `patchProject()` helper は正しい body を送るが、`EmailsEditModal` の保存処理だけ helper を通らず直接 fetch していた。
+- **対応内容**:
+  - modal 保存 body を `{ projectsPatch: { report_emails: joined || null } }` に修正。
+- **再発防止策**:
+  - 同じ API route を叩く保存処理は helper を共通化するか、API 側で空 patch を 400 にして検知する。
+
+### [pwa/admin-projects] project_ventures 行が無い PJ の lanes 保存が永続化しない可能性
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= 2026-05-25 #61 で UI disabled + API 409)
+- **症状**:
+  - `/admin/projects` の Lane セルは `project_ventures.lanes` を編集する。
+  - page 側コメントでは「SU 化されてない PJ (project_ventures に行がない) は lanes=null」とされている。
+  - `PATCH /api/admin/projects/[id]` の `venturesPatch` は `.update(...).eq("project_id", projectId)` のみで、行が無い場合に insert / upsert しない。
+  - Supabase update は対象 0 件でも error にならないため、UI は保存済み表示でも DB に残らない可能性がある。
+- **原因**:
+  - `project_ventures` が必ず存在する PJ と、存在しない PJ の扱いを UI / API で分けていない。
+- **対応内容**:
+  - `/admin/projects` page で `has_venture_row` を渡し、`project_ventures` 行が無い PJ の Lane セルは `SU未化` 表示にして編集 UI を出さない。
+  - `PATCH /api/admin/projects/[id]` の `venturesPatch` は `.select("project_id")` で更新件数を確認し、0 件なら 409 を返す。
+  - `/api/admin/lane-suggestions/[id]` の approve も `project_ventures` 更新 0 件なら 409 を返し、`lane_suggestions.status='approved'` へ進めない。
+- **再発防止策**:
+  - update-only の API は更新件数 0 を成功扱いにしない。存在しない関連 row を作る必要があるかを仕様で明示する。
+
+### [pwa/management-score] Finance simulation の scenario select / 実行ボタンが API 未接続
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= 2026-05-25 #62 で `persist=false` preview API 接続)
+- **症状**:
+  - `/management-score` の GAS 月次試算表ビューに scenario select と「シミュレーション実行」ボタンが表示される。
+  - `GasMonthlySimulationPanel.tsx` 側では select / button の onChange / onClick が実装されておらず、押しても `POST /api/management-score/finance/simulate` は呼ばれない。
+  - 一方で API route は存在し、`persist=false / simulation_only / company_monthly` で simulation result / budget rows を返せる。
+- **原因**:
+  - 旧 GAS 月次試算表を表示ビューとして先に移植したあと、画面操作から simulation API へつなぐ実装が未完了。
+- **対応内容**:
+  - `/management-score` page で `company_budget_inputs(source='gas_monthly_pl')` から `MonthlyPlInputs` を復元し、`GasMonthlySimulationPanel` へ渡すようにした。
+  - scenario select は `inputs.scenarios` から option を作り、「シミュレーション実行」は `POST /api/management-score/finance/simulate` を `persist=false` で呼ぶ。
+  - 実行結果は画面上の chart / KPI / table に反映し、DB には保存しない preview として境界を明示。
+  - inputs が無い場合は select / button を disabled にし、壊れた fetch を出さない。
+- **再発防止策**:
+  - 管理 / finance 画面のボタンは、対応 API route への呼び出し smoke test か、意図的な disabled 表示を feature contract に含める。
+
+### [pwa/admin-tsukuyomi] 強制投稿UIが未実装API `/api/tsukuyomi/post` を呼んでいる
+
+- **発見日**: 2026-05-25
+- **状態**: 🟡 UIガード済 / API本実装待ち (= 2026-05-25 #57 で投稿ボタン disabled、#58 で 501 placeholder route 追加)
+- **症状**:
+  - `/admin/tsukuyomi` の「AIで生成して投稿」「手書きで投稿」ボタンが `POST /api/tsukuyomi/post` を呼ぶ。
+  - `pwa/src/app/api/tsukuyomi/post/route.ts` が存在しなかったため、PWA 上の強制投稿は失敗する可能性が高かった。
+- **原因**:
+  - 旧 GAS Admin には `admin_tsukuyomi_generateAndPost` / `admin_tsukuyomi_postToProjectChannel` の導線があるが、PWA 移植時に API route が未実装のまま UI だけ残った。
+- **対応内容**:
+  - #57 で `/admin/tsukuyomi` の投稿ボタンを disabled にし、未実装 route へ fetch しないようにした。
+  - #58 で `/api/tsukuyomi/post` を admin-gated 501 placeholder として追加し、静的 route coverage 上も 404 ではなく「本実装待ち」と分かる状態にした。
+- **残対応**:
+  - PWA に `/api/tsukuyomi/post` を実装し、Slack 投稿・AI生成・`@here` / `@channel` 暴発防止・admin gate を入れる。
+- **再発防止策**:
+  - 管理画面のボタンは、対応 route の存在を route coverage / smoke test に含める。
+
+### [pwa/protocols] Protocol status が UI と feedback API でズレている
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= 2026-05-25 #59 で feedback API の protocols yes を `confirmed` に統一)
+- **症状**:
+  - `/admin/protocols` の確定ボタンは `protocols.status='confirmed'` に更新する。
+  - `/api/notifications/feedback` の `l2_kind='protocols'` で「はい」を押すと `protocols.status='active'` に更新する。
+  - UI の status filter / badge は `candidate / confirmed / archived / rejected` 前提なので、通知経由で `active` になった行が正規 status として扱われない。
+- **原因**:
+  - 通知反映ゲートで `member_knowledge` / `project_knowledge` と同じ `active` 語彙を `protocols` にも使ってしまった。
+  - AMD Protocol の正本設計では `confirmed` が正式化 status。
+- **対応内容**:
+  - `/api/notifications/feedback` の `l2_kind='protocols'` yes handler を `status='confirmed'` に変更。
+  - 27 章の反映ルールも `candidate -> confirmed` に更新。
+- **残対応**:
+  - 既存 `status='active'` の protocol が本番DBにあれば `confirmed` へ正規化する。
+- **再発防止策**:
+  - L2 ごとの status 語彙を manual / design / API / UI で 1 テーブルに固定し、共通の定数に寄せる。
+
+### [pwa/protocols] 手動追加UIが `source_type` を送っているが schema は `source`
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= 2026-05-25 #59 で手動追加 payload を current schema に統一)
+- **症状**:
+  - `/admin/protocols` の「＋ 追加」は `source_type='manual'` と旧 `branch_point` / `criteria` / `action_taken` を含む row を `protocols` に insert していた。
+  - `pwa/design/db_schema.md` の `protocols` は `source` / `content` 列で、`source_type` / `branch_point` / `criteria` / `action_taken` 列は見当たらない。
+  - 本番 DB も schema 通りなら、手動 protocol 作成が unknown column で失敗する。
+- **原因**:
+  - 旧 UI 実装の field 名が、Phase 4.5 後の `protocols.source` schema と同期されていない。
+- **対応内容**:
+  - `AdminProtocolsClient` の手動追加 payload を `protocol_id`, `title`, `project_id`, `content`, `tags`, `importance`, `source`, `status`, `kind`, `is_universal`, timestamps に限定。
+  - 4 要素は `content` の markdown (`① 分岐点` / `② 判断材料` / `③ アクション` / `④ 結果`) として保存する。
+- **再発防止策**:
+  - Admin CRUD の insert payload は `db_schema.md` と migration の列名に合わせ、manual の既知ギャップにも残す。
+
+### [pwa/admin-tsukuyomi] `tsukuyomi_context.context_type` 前提の layer editor と DB schema が一致していない可能性
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= 2026-05-25 #60 で layer を tags 表現へ統一)
+- **症状**:
+  - `/admin/tsukuyomi` の人格 DB layer editor は `context_type` を前提に `judge / role / memory / tone / safety` へ group する。
+  - `pwa/design/db_schema.md` と migrations には `tsukuyomi_context.context_type` が見当たらない。
+  - 本番 DB に列が無い場合、新規作成・編集時に Supabase insert / update が失敗する。
+  - さらに新規作成フォームには `tsukuyomi_context.context_id` 入力欄が無く、NOT NULL 制約に引っかかる可能性があった。
+- **原因**:
+  - GAS 側 `DB_TsukuyomiContext` には `contextType` があるが、PWA Supabase 側 schema への移植・migration が同期されていない可能性がある。
+- **対応内容**:
+  - `context_type` 列を増やすのではなく、既存 schema に合わせて layer は `tags` (`judge` / `role` / `memory` / `tone` / `safety`) で表す仕様に統一。
+  - 新規作成フォームに `context_id` 入力を追加。
+  - 保存 payload は `context_id`, `tags`, `priority`, `system_prompt`, `status` のみに限定し、`context_type` を DB に送らない。
+- **再発防止策**:
+  - Admin UI が新しい列を前提にする時は、migration / db_schema / manual を同時に更新する。
+
 ### [pwa/admin-payouts] 報酬キャッシュを手動更新だけにして日次再計算トリガーがなかった
 
 - **発見日**: 2026-05-23
@@ -232,7 +501,7 @@
 ### [pwa/admin-payouts] cockpitの報酬previewがDBに保存されずpayoutsに出ない
 
 - **発見日**: 2026-05-22 (まさ #10: ZMP 202604 報酬額が payouts に来ない)
-- **状態**: 🟡 原因特定済 / 正本writer実装待ち
+- **状態**: ✅ 修正済 / duplicate整理済 (= 2026-05-25 #66 で current truth 再確認)
 - **症状**:
   - ZMP (`p19`) 202604 は月額固定30万円、対象MS・責任配分・`milestone_monthly_progress` が存在するのに、`admin.payouts` に報酬額が出ない。
 - **原因**:
@@ -240,6 +509,12 @@
   - そのpreviewを `billing_cycles.reward_summary_json` に保存するサーバー側writerが存在しない。
   - `admin.payouts` は `billing_cycles.reward_summary_json.members` を正本として `monthly_reward_payout` を作るため、previewだけ存在する月はpayoutsに出ない。
   - ZMP 202604は `billing_cycles.status='not_started'`, `budget_yen=null`, `reward_summary_json=null`, `monthly_reward_payout=0件` だった。
+- **対応内容**:
+  - 後続セッションで `syncRewardSummaryForCycle()` と `/api/rewards/sync` を実装済み。
+  - `CockpitMonthlyModal` は未保存 preview を出し続けず、`POST /api/rewards/sync` で Supabase の `billing_cycles.reward_summary_json` に保存した報酬サマリーを表示する。
+  - MS 進捗の `progress/estimate`, `progress/confirm`, `progress/revisions`, `progress/batch-save` も保存後に `syncRewardSummaryForCycle()` を呼ぶ。
+  - `/admin/payouts` の保存 / 明示 refresh / 日次 `payout-reward-cache-refresh` は `syncRewardSummariesForBillingCycles()` を通って同じ正本を更新する。
+  - 同じ内容は後段の `[Admin payouts] 月次モーダルの報酬previewがDB未保存のままpayoutsに出ない` fixed entry にも記録済み。#66 ではこの古い重複 entry を current truth に合わせた。
 - **再発防止策**:
   - 報酬サマリ生成をフロントpreviewから切り離し、サーバー側 helper/API で `billing_cycles.reward_summary_json` を生成・保存する。
   - 呼び出しタイミングは、MS進捗保存後、予算確定後、または `admin.payouts` 保存前の backfill/ensure のいずれかに置く。
@@ -1443,7 +1718,7 @@
 ### [PWA / Atlas Map] 力場分散調整の試行錯誤 (中央密集 + 外周ドーナツ + 5秒後追加縮小)
 
 - **発見日**: 2026-05-11 (まさが 3 ラウンド指摘)
-- **状態**: 🟡 次セッションで完全解決予定 (radial domain force + initialPosition 配置)
+- **状態**: ✅ 修正済 / docs 同期済 (= 2026-05-25 #65 で本番再確認)
 - **症状**: `/atlas/map` で 183 stories / 146 link を描画すると:
   1. 中央に密集、外周に**ドーナツ状の塊** (= 孤立ノード center force と link cluster の干渉)
   2. 表示直後はそこそこ広がってるのに **5 秒後に追加縮小** されて文字密集
@@ -1452,15 +1727,18 @@
   - charge -1800 / link 280 / collide 32 では 183 ノードを十分分散できない
   - `handleEngineStop` の zoomToFit + 1.6x zoom in が `cooldownTicks=180` の遅延後に発火 → 5 秒後に動く見え方
   - 「孤立ノードを中央へ引く center force」が link 付き cluster の周囲に孤立ノードを集める → ドーナツ化
-- **解決策 (次セッションで実装)**:
-  1. **cooldownTime (ms) で時間制御**: `cooldownTime={3000}` で 3 秒で確実に止める (cooldownTicks よりも確実)
-  2. **力場パラメータをさらに強化**: charge -1800 → **-4000**、link distance 280 → **450**、collide minDist 32 → **80**
-  3. **孤立ノード center force を撤去**、代わりに **radial domain force** を導入:
-     - 各 domain (色) に角度割り当て (0°, 30°, 60°, ...、15 domain なら 24° 間隔)
-     - 各ノードを「自 domain の角度方向 + 半径 R=500」に弱く引っ張る (alpha × 0.05)
-     - これで domain 別にクラスタが空間方向に分離 → 均一分散
-  4. **初期座標を domain 角度配置**: `node.x = Math.cos(angle) * R + jitter`、`node.y = Math.sin(angle) * R + jitter` で最初から広がってる
-  5. **engineStop は最小操作**: `zoomToFit(400, 120)` だけ、zoom 倍率変更しない、setTimeout の再 zoom in 削除 (これが 5 秒後縮小の見え方の原因)
+- **解決策 (現行実装)**:
+  1. **初期座標を domain radial 配置**: domain key を sort して角度へ均等割りし、`RADIUS=3000` + 半径/角度 jitter で初期配置。
+  2. **center force 撤去**: `isolatedCenter` と ForceGraph2D default `center` を `null` にして、中央密集とドーナツ化を止める。
+  3. **radial domain force**: 各 node を自 domain の角度方向へ `(target - current) * 0.15 * alpha` で引っ張る。
+  4. **hard collide**: `minDist=(ra+rb)*8`、overlap の 70% を alpha 非依存で押し戻す。cooldown 後に反発が 0 になって重なったまま止まる退化を防ぐ。
+  5. **link 引力を弱める**: `distance=600`, `strength=0.05`。共通タグ link による中央吸着を抑える。
+  6. **charge 強化**: `-30000`。
+  7. **engineStop を空にする**: `zoomToFit` / setTimeout zoom を呼ばず、数秒後の再縮小を起こさない。
+- **検証**:
+  - 2026-05-25 #65 に production `https://amd-os-pwa.vercel.app/atlas/map` をブラウザで確認。
+  - `183 stories · 144 共通テーマ接続`、canvas 1 枚、凡例、domain/tag filters が表示。
+  - スクリーンショット上で story node / link / label が描画されていることを確認。
 - **教訓**:
   - **force layout は力場パラメータの単位調整よりも構造的アプローチ (radial domain force) で domain 別クラスタ化**するのが効く
   - **zoomToFit + 倍率変更を engineStop に入れると「N 秒後に動く」見え方になる**。zoom 操作は最初 1 回限り、padding だけで調整
@@ -1847,12 +2125,13 @@
   - 抽出cron/GASが `active` 相当でupsertし、その後で通知を作っていた。
   - 通知feedback APIが `founding_members` や一部L2候補の承認/却下状態遷移を十分に持っていなかった。
 - **対応内容**:
-  - GAS `155_L2KnowledgeExtractor.js` の `member_knowledge` / `project_knowledge` は `status='candidate'` 保存に変更。
-  - `protocols` は candidateから、「はい」でactive、「いいえ」でrejectedへ遷移。
+  - GAS `155_L2KnowledgeExtractor.js` の `project_knowledge` は `status='candidate'` 保存に変更。
+  - 2026-05-25 #68 追記: `member_knowledge` の現 schema には `status` 列が無い。候補採否を row 自体に持たせるには migration が必要で、現時点では `l2_notifications` 側で候補通知を扱う。
+  - `protocols` は candidateから、「はい」でconfirmed、「いいえ」でrejectedへ遷移。
   - `founding_members` は `tentative` で保存し、「はい」でactive、「いいえ」でinvalidへ遷移。
   - PWA feedback APIに `founding_members` を含む承認/却下処理を追加。
 - **再発防止策**:
-  - 通知に出すL2候補は、必ず candidate/tentative/review 状態で保存し、通知の「はい」だけがactive化する。
+  - 通知に出すL2候補は、各 L2 の schema/status 語彙を確認してから candidate/tentative/review 等の候補状態で保存し、通知の「はい」だけが正本昇格する。`protocols` は `confirmed`、`project_knowledge` は `active`、`member_knowledge` は status 列追加要否を先に判断する。
   - 新しい通知kindを追加するときは、feedback APIの yes/no/comment 挙動も同じcommitで追加する。
 
 ---
@@ -1960,7 +2239,7 @@
 - **状態**: ✅ 修正済 (= 該当 L2 ⑨ signal を update)、再発防止は運用ルール化
 - **症状**:
   - `project_meeting_summaries` の `meeting_id=ouf25bgoukki7ljafou1t0e13e_20260521T060000Z` (= 5/21 SX 内部MTG) の `risks` 欄に「**大阪ガスケミカル**とズブズブになりすぎるとバリュエーションが大幅に下がる可能性 (500億円規模の影響)」と記録されていた。
-  - これを元に L2 ⑨ daily routine が `project_strategy_signals` に impact=critical の candidate を生成し、まさが経営会議で確認したところ「実は議論対象は **ダイキアクシス (DAVP)** だった」と判明。
+  - これを元に L2 ⑨ daily routine が `project_strategy_signals` に impact=critical の candidate を生成し、確認フローで見直したところ「実は議論対象は **ダイキアクシス (DAVP)** だった」と判明。
 - **原因**:
   - meeting summary 抽出 LLM (= Gemini) が、議事録本文の固有名詞を取り違えた。元 Notion 議事録 (notion_url) では正しく「ダイキアクシス」と書かれていた可能性が高い (= LLM 側のハルシネーション)。
   - L2 ⑨ daily routine は `project_meeting_summaries` を入力ソースに含むため、誤抽出が下流の strategy signal にそのまま伝播した。
@@ -1969,7 +2248,7 @@
   - source_refs に 5/13 SX定例 (NDA 完了) / 5/21 SX 内部MTG / sx.md の 3 件を紐付け、再現性を確保。
   - `/Users/masa/projects/knowledge/sx.md` 外部関係者表の堀 (@a_hori) 所属を「大機アクシス」→「ダイキアクシス (DAVP)」に修正。
 - **再発防止策**:
-  - **L2 ⑨ candidate を経営会議で confirm する前に、固有名詞 (会社名・人名) は元 Notion 議事録 (`notion_url`) か Slack 原文 (`source_url`) で原文確認を推奨**。特に impact=critical は確認必須。
+  - **L2 ⑨ candidate を confirm する前に、固有名詞 (会社名・人名) は元 Notion 議事録 (`notion_url`) か Slack 原文 (`source_url`) で原文確認を推奨**。特に impact=critical は確認必須。
   - まさが「あれ、これ違うかも」と違和感を出した瞬間に、AI 抽出への絶対信頼を一旦解除して原文確認する習慣 (= まさの違和感シグナルを見逃さない、`feedback_question_own_proposals.md` の運用と同じ)。
   - 将来的には meeting_summary 抽出 cron 側で「**risks/decided 欄の固有名詞は議事録本文での出現回数 ≥ 2 を必須**」のような sanity check を追加するのもあり (= 1 度しか出ない固有名詞は確信度低くマーク)。
 
@@ -2044,17 +2323,19 @@
 ### [cockpit/VentureStatus] 未来予測 (破線) のクリック範囲が狭すぎる
 
 - **発見日**: 2026-05-24
-- **状態**: 🔴 未修正 (= #21 alpha フィードバック構造実装と同時対応予定)
+- **状態**: 🟡 hit area 修正済 / future score revision modal は未実装 (= 2026-05-25 #63)
 - **症状**:
   - まさが「破線をクリックできる範囲が狭すぎる」と指摘
   - 実態は **破線 path に対する dot が描かれていない** ので、クリック範囲がゼロ
 - **原因**:
   - `futureScorePath` は `<path>` のみで `<circle>` 未描画
   - そもそも「クリックして未来予測を修正するモーダル」(= AmdScoreFutureEditModal) が未実装
-- **次セッション対応方針**:
-  - #21 alpha フィードバック構造実装 (migration 089 + AmdScoreFutureEditModal) と一緒に
-  - futureSeries の各点に透明 `<circle r=20>` を上に重ねて pointerEvents="all"
-  - click で AmdScoreFutureEditModal を開く → axis 選択 + new value + reason_md 入力 → `amd_score_revisions` insert
+- **対応内容**:
+  - #63 で `futureSeries.slice(1)` の各点に透明 `<circle r=20 pointerEvents="all">` を重ね、クリック hit area を追加。
+  - 現時点では click で既存の `project_events` 新規作成モーダルを `p.date` そのものの日付で開く。
+  - 未来スコア前提そのものを修正する `AmdScoreFutureEditModal` / `amd_score_revisions` は未実装のまま残す。
+- **残対応**:
+  - #21 alpha フィードバック構造実装 (migration 089 + AmdScoreFutureEditModal) と一緒に、future score 点から axis 選択 + new value + reason_md 入力 -> `amd_score_revisions` insert へ進める。
 - **再発防止策**:
   - 「クリックで編集できる線・点」は実装と同時に hit-area 設計を入れる (= 透明 circle + cursor: pointer)
 
@@ -2128,16 +2409,37 @@
 
 ---
 
+### [meta/ai-interpretation] 「GAS そのまま移植」「直ちに修正」を 2 度 斜め解釈してまさを再指摘させた (2026-05-25)
+
+- **発見日**: 2026-05-25 お昼 (まさが仮眠から起きて指摘)
+- **状態**: ✅ 認識訂正済、次セッションで根本実装やり直し
+- **症状**:
+  - #40 まさ「GAS の仕組みを勝手に変えずに、そのまま移植して」 → えいみが「Claude routine が GAS を curl で呼ぶ (= dryRun option 追加)」と解釈、実装。実態は **GAS 依存のまま**で、まさの真意 (= GAS のロジック・設計を Claude routine 内に inline 書き写し = GAS 非依存化) と完全に違った
+  - #34 まさ「修正依頼かけたら直ちに修正してほしい、cron 待ちはおかしい」 → えいみが「Anthropic Sonnet 直叩きで即時 update」と解釈、実装。実態はまさが「**つくよみが提案 → まさ判断 → 確定**の対話型ループ」を想定してた。一方通行 update では「内容変わらない」とまさが指摘
+- **原因**:
+  - えいみが「最短実装で動くもの」を優先して、まさの言葉を斜め解釈
+  - 「GAS そのまま」と「Claude routine 内に移植」の本質的違いを軽視 (= GAS 依存 vs 非依存)
+  - 「即時反映」と「対話型確定」の本質的違いを軽視 (= AI に任せる vs まさが確認)
+- **対応内容 (= 次セッション)**:
+  - #40 完全移植: Claude routine SKILL.md に GAS 153 + 074 のロジックを inline 書き写し、GAS 完全 bypass
+  - #34 対話型: 一方通行 update 廃止、つくよみ提案 → まさ判断 → 確定の対話 UI + API 実装
+- **再発防止策**:
+  - まさが「そのまま移植」「直ちに修正」「変えるな」と言ったら、**斜め解釈する前に「これは○○の意味で合ってる?」と確認**する
+  - 特に「最短実装で動くもの」を優先する誘惑が出たときほど、まさの真意確認を厚くする
+  - 設計判断の途中で「これって本当にまさの意図?」と自問するセルフルール強化
+
+---
+
 ### [infra/l2-extraction] 2026-05-22 cron 全廃止時に「Codex automation `amd-os-ms` が L2 ②④⑤⑥ も拾ってる」前提が間違っており、3 日間 ghost 化が発覚
 
 - **発見日**: 2026-05-25 (= 5/22 cron 廃止から 3 日後、まさが「議事録を取り込む automation/routines がないって別セッションで気づいてた」と指摘して再調査で確定)
-- **状態**: 🚧 復旧計画策定済 (= まさ案 C: Claude routine 4 個新設)、設計議論 [`pwa/design/l2_extract_claude_routine.md`](design/l2_extract_claude_routine.md)、実装は次セッション
+- **状態**: 🚧 復旧中 (= まさ案 C: Claude routine 4 個新設)。2026-05-25 #68 で [manual/38-l2-extraction-routines-spec.md](manual/38-l2-extraction-routines-spec.md) を追加し、`amd-os-meeting-extract` は SKILL + GAS dryRun live 200 OK まで確認済。scheduled task 登録と ②④⑤ routine は未完。
 - **症状**:
   - L2 ② AMD プロトコル (`protocols`): 2026-05-22 が最後の created_at
   - L2 ④ PJ ナレッジ (`project_knowledge`): 2026-05-23 が最後の updated_at (= 残留分)
   - L2 ⑤ メンバーナレッジ (`member_knowledge`): 2026-05-22 が最後の updated_at
-  - L2 ⑥ MTG サマリ (`project_meeting_summaries`): 2026-05-22 以降の自動取り込みは事実上ゼロ (= dialogue まさえみ手動投入のみ active)
-  - 結果として、まさえいMTG で経営ハイライト confirm しても下流の議事録・PJ ナレッジ・メンバーナレッジが更新されず、OS が「凍ったデータ」で動く状態に
+  - L2 ⑥ MTG サマリ (`project_meeting_summaries`): 2026-05-22 以降の自動取り込みは事実上ゼロ (= dialogue 手動投入のみ active)
+  - 結果として、提案前の論点整理セッションで経営ハイライト confirm しても下流の議事録・PJ ナレッジ・メンバーナレッジが更新されず、OS が「凍ったデータ」で動く状態に
 - **原因**:
   - 2026-05-22 「LLM 課金が発生する定期抽出 cron を全廃止」した時に「Codex automation が全部カバーしてる前提」だったが、**`amd-os-ms` automation の prompt 精読すると ②④⑤⑥ は「通知だけ」「生成しない」設計**:
     - A (= L2 ⑦) → `outbox.registryDiffs` ✅ 生成
@@ -2148,12 +2450,14 @@
   - GAS 153 (= 議事録毎時 polling) + GAS 155 (= L2 ②④⑤ 抽出) + GAS 152 (= 月次 fallback) は kill switch (`MEETING_HOURLY_CRON_DISABLED_20260522` / `L2_KNOWLEDGE_CRON_DISABLED_20260522` / `NAV_MONTHLY_EXTRACT_CRON_DISABLED_20260522`) で停止、live trigger も削除済
   - GAS 153 のコメント「Use Codex automation/review batches」が**実態として実装されてない**ことを誰も検証してなかった
   - マニュアル `pwa/design/L2_DATA.md` 表の writer 列が「`amd-os-ms` (= 旧 GAS 155 から移管)」と書いてたが**この記述が虚偽**だった
-- **対応方針 (= 次セッション)**:
+- **対応方針 / 進捗**:
   - 案 C 採用: Claude routine 4 個新設 (= `amd-os-meeting-extract` / `amd-os-protocol-extract` / `amd-os-project-knowledge-extract` / `amd-os-member-knowledge-extract`)
   - `amd-os-management-dialogue-prep` と同パターン、`~/.claude/scheduled-tasks/<id>/SKILL.md`、サブスク内 LLM
   - 各 routine の prompt に `l2_feedbacks` 読み込み手順を入れて、修正依頼ループも復活
   - 5/22-5/25 の取り込み穴期間は backfill モード or 手動キックで埋める
-  - 詳細は [`pwa/design/l2_extract_claude_routine.md`](design/l2_extract_claude_routine.md)
+  - 2026-05-25 #68: `amd-os-meeting-extract` の SKILL が存在することを確認し、GAS 153/074 の `dryRun=true` path と live GAS 200 OK を検証。`~/.claude/scheduled-tasks/` には `amd-os-management-dialogue-prep` と `amd-os-meeting-extract` の 2 件のみ存在。
+  - 2026-05-25 #68: `member_knowledge` schema に `status` / `source_hash` が無いことを確認し、候補採否設計 gap として [38章](manual/38-l2-extraction-routines-spec.md) に明記。
+  - 詳細は [`pwa/design/l2_extract_claude_routine.md`](design/l2_extract_claude_routine.md) と [manual/38-l2-extraction-routines-spec.md](manual/38-l2-extraction-routines-spec.md)
 - **再発防止策**:
   - **大規模な path 切替 (= cron 停止 / writer 移管) を行う時は「停止対象 → 後継担当」を 1 対 1 の対応表にして fact 検証してから止める**
   - 今回は「GAS 4 個停止 + Codex automation 2 個追加」で「数」だけ揃ってたが「カバー範囲」が偏ってた
@@ -2180,3 +2484,188 @@
 - **再発防止策**:
   - データ取り込み問題を疑う時は、**「どの path が今動いているか」**を `pwa/manual/05-decisions-and-history.md` 5.4 責務分担マトリクスで確認してから原因仮説を立てる
   - `source_cache` だけ見て「全停止」と即断しない
+
+---
+
+### [security/venture-status-api] service_role / LLM route に auth gate がない
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= `description-merge`, `narrative-regen`, `pl-hearing/turn`, `xrl-revise` は admin 必須、`project-events/parse` はログイン必須に変更)
+- **症状**:
+  - SU 系 PJ hero の補助 API が service role で `project_ventures`, `project_pl_monthly`, `project_xrl_log` などを更新するのに、route 冒頭で admin session を確認していなかった
+  - `project-events/parse` は DB 書き込みはしないが Gemini API を使うため、anonymous から LLM cost を発生させられる状態だった
+- **再発防止策**:
+  - service role を使う API は冒頭で admin / secret gate を置く
+  - LLM cost route は最低でも `requireAuth()` を通す
+  - SU 系 PJ hero の route 一覧と認証境界は [`manual/37-venture-status-narrative-pl-xrl-spec.md`](manual/37-venture-status-narrative-pl-xrl-spec.md) を正本にする
+
+---
+
+### [pwa/invoice] legacy `/api/invoice/create` が現行 invoice routine と保存列の意味を揃えていない
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= 2026-05-25 #64 で legacy route も発行列へ寄せた)
+- **症状**:
+  - 現行の月次ルーティンは `CockpitRoutineInvoiceModal` -> Edge Function `issue-invoice` で `invoice_issued_at` / `freee_invoice_number` / `invoice_base_lines_json` を保存し、送付は別 step の `invoice_sent_at`
+  - 一方、legacy `POST /api/invoice/create` は freee `/api/1/invoices` で作成したあと `billing_cycles.invoice_sent_at` だけを更新する
+  - 発行と送付が混ざり、入金確認 nudge や `/admin/billing` の step 表示が現行 routine とズレる可能性がある
+- **原因**:
+  - 古い `CockpitMonthlyModal` invoice tab 用の route が、現行 `CockpitRoutineInvoiceModal` + Edge Function 移行後も残っている
+- **対応内容**:
+  - `POST /api/invoice/create` は freee 請求書作成後、`invoice_sent_at` ではなく `invoice_issued_at`, `invoice_issued_by`, `freee_invoice_number`, `invoice_subject`, `invoice_base_lines_json` を更新するように変更。
+  - `GET /api/invoice/preview` の `alreadyIssued` 判定も `invoice_issued_at` へ変更し、`invoiceIssuedAt` / `freeeInvoiceNumber` を返すようにした。
+  - `invoice_sent_at` は legacy route でも触らず、請求書送付 step に残す。
+- **再発防止策**:
+  - 新規導線は legacy `/api/invoice/*` に寄せず、`CockpitRoutineInvoiceModal` + `issue-invoice` を正本にする
+  - 発行 route は `invoice_issued_at`、送付 route は `invoice_sent_at` だけを触る
+
+---
+
+### [security/edge-functions] `issue-invoice` / `cancel-invoice` の caller 認証境界を再点検する必要がある
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= 2026-05-25 #67 で PWA session token + Edge admin gate)
+- **症状**:
+  - PWA の `callEdgeFunctionPOST` は Supabase anon key を Bearer として Edge Function を呼ぶ
+  - `issue-invoice` / `cancel-invoice` は service role で DB 更新と freee 発行を行うが、関数内で `members.is_admin` 等の明示チェックをしていない
+  - `invoice_issued_by` は `extractEmailFromJWT()` が未実装のため `system` になりやすい
+- **原因**:
+  - `supabase.functions.invoke` 不安定回避として生 fetch 化した時、caller の session token / admin check まで戻していない
+- **対応内容**:
+  - PWA `callEdgeFunctionPOST` / `GET` は、ログイン中 Supabase session の `access_token` を `Authorization: Bearer ...` に優先設定し、`apikey` には anon key を送る。
+  - `issue-invoice` / `cancel-invoice` は入力バリデーションより前に `auth.getUser()` + `members.email = user.email` + `members.is_admin=true` を確認する。
+  - anonymous / anon key のみは 401、非 admin は 403 で止める。
+  - `issue-invoice` の `invoice_issued_by` は caller email を保存する。
+  - Supabase project `nbnhrhybjslbawdukvvk` へ `issue-invoice` / `cancel-invoice` を deploy 済み。
+- **検証**:
+  - PWA build pass。
+  - direct Edge Function anonymous + anon key:
+    - `issue-invoice` -> 401 `Unauthorized`
+    - `cancel-invoice` -> 401 `Unauthorized`
+  - freee 実発行 / cancel は副作用が大きいため未実行。
+- **再発防止策**:
+  - `callEdgeFunctionPOST` はログイン中 session の access token を優先して送る
+  - Edge Function 側で `supabase.auth.getUser()` と `members.is_admin` / PJ role を確認してから service role update / freee 発行へ進む
+
+---
+
+### [security/atlas-api] Atlas の service_role / Anthropic route に admin/auth gate がない
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= `/api/atlas/themes/list|cluster|apply`, `/api/atlas/merge-stories`, `/api/atlas/move-signal` は admin 必須、`/api/atlas/auto-tag` はログイン必須に変更)
+- **症状**:
+  - Atlas theme apply / story merge / signal move が service role で DB を更新するのに、route 冒頭で admin session を確認していなかった
+  - `auto-tag` / `themes/cluster` は Anthropic API を使うが、公開 anonymous から叩ける状態だった
+- **再発防止策**:
+  - service role を使う API は冒頭で admin / secret gate を置く
+  - Anthropic API を使う route は anonymous から叩けないようにする
+  - Atlas の詳細仕様は [`manual/34-atlas-macrotrend-signal-spec.md`](manual/34-atlas-macrotrend-signal-spec.md) を正本にする
+
+---
+
+### [atlas/domain] Atlas の手動投入 / backfill / theme clustering が A-R domain に揃っていない
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= `/atlas/inbox/submit`, `/api/atlas/backfill`, `/api/atlas/themes/cluster`, `atlas-domains.ts`, `macro-aggregate-indicators` を A-R 前提に更新)
+- **症状**:
+  - `atlas-domains.ts` は P/Q/R を持っている一方、手動投入 UI と backfill route は A-O までしか選べなかった
+  - `macro-aggregate-indicators` が P/Q/R を ASPI 8 domain に mapping せず、量子 / センシング / 先端通信の raw signal count が落ちる可能性があった
+- **再発防止策**:
+  - Atlas domain を触る時は ATL A-R と ASPI 8 domain の両方を見る
+  - Macrotrend / AMD Score へ渡す前に `metadata.lane` 優先、なければ ATL domain mapping という順序を保つ
+
+---
+
+### [infra/atlas-outbox] `amd-atlas-2/outbox` の staging artifact を applier が拾わない
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= `scripts/run-ms-outbox-applier.sh` が公式 `amd-atlas/outbox` と staging `amd-atlas-2/outbox` の両方を監視)
+- **症状**:
+  - Codex automation 本体は `amd-atlas-2` だが、applier は公式 `amd-atlas/outbox` だけを見ていた
+  - sandbox 等で `amd-atlas-2/outbox` に残った valid JSON が自動反映されず、Atlas inbox に届かない可能性があった
+- **対応内容**:
+  - applier に `ATLAS_STAGING_OUTBOX_DIR="/Users/masa/.codex/automations/amd-atlas-2/outbox"` を追加
+  - staging から反映した成功ファイルは helper の仕様どおり公式 `amd-atlas/applied/` へ移動
+  - `/api/atlas/signals-ingest` は title / source_url の全期間 exact match で dedupe するようにし、遅延反映や二重反映でも同じ signal を増やさない
+- **再発防止策**:
+  - automation id と公式 outbox id が違う場合、LaunchAgent 監視先を必ず両方確認する
+  - outbox の遅延反映に備えて ingest API 側に冪等性を持たせる
+
+---
+
+### [cron/ms-progress] GAS 154 の一括 kill switch が MS hourly primary writer まで止めていた
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= MS hourly と ASPI 系 PWA ping の kill switch を分離)
+- **症状**:
+  - manual / design 側では L2 ③ MS進捗の primary writer を GAS 154 `nav_pwa_pingHourlyEstimate` -> PWA `/api/cron/hourly-estimate` としていた
+  - しかし `gas/154_PwaCronCaller.js` では `NAV_PWA_CRON_DISABLED_20260522=true` により、`nav_pwa_pingHourlyEstimate` が即 disabled response を返す状態だった
+  - 結果として、OS上の MS進捗 hourly estimate が仕様どおり動かない可能性があった
+- **対応内容**:
+  - `NAV_PWA_HOURLY_ESTIMATE_DISABLED_20260522=false` と `NAV_PWA_ASPI_CRON_DISABLED_20260522=true` に分離
+  - `nav_pwa_setupHourlyPwaTrigger_()` は hourly trigger だけを扱い、ASPI 側の停止関数と混ざらないようにした
+  - `operations-catalog.ts` では `pwa-hourly-estimate` を active operation に戻し、ASPI / backfill / recompute 系は stopped/manual-only として棚卸し
+- **再発防止策**:
+  - L2 ③ MS進捗を止める時は、manual 03 / 24 / 36 と `gas/CLAUDE.md` と `vercel.disabled-crons.json` を同時に更新する
+  - `pwa/vercel.disabled-crons.json` の `gas_adapters_disabled_in_code` に `nav_pwa_pingHourlyEstimate` を入れたままにしない
+
+---
+
+### [security/admin-activity-lane-api] member activity inference / lane suggestion service_role route に admin gate がなかった
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= `/api/activities/infer` と `/api/admin/lane-suggestions/[id]` に `requireAdmin()` を追加)
+- **症状**:
+  - `POST /api/activities/infer` は comment 上「認証不要（DEV_MODE）」のまま、service role で `member_activities(source='inferred')` を delete / insert し、Anthropic API も呼ぶ状態だった
+  - `PATCH /api/admin/lane-suggestions/[id]` は service role で `lane_suggestions` と `project_ventures.lanes` を更新するのに、route 冒頭に admin gate が無かった
+- **対応内容**:
+  - 両 route の冒頭で `requireAdmin()` を呼ぶように修正
+  - 36 章に `/api/activities/infer` は旧 fallback / admin-only と追記
+  - 30 章に exact route (`/api/admin/projects/[id]`, `/api/admin/lane-suggestions/[id]`) と admin boundary を追記
+- **再発防止策**:
+  - `createAdminClient()` と Anthropic/Gemini を同時に使う route は、原則 admin または `Bearer CRON_SECRET` を必須にする
+  - comment に DEV_MODE / 認証不要が残っている route は、route coverage 時に必ず認証境界を再点検する
+
+---
+
+### [security/admin-pj-introduction-html] 全 PJ 紹介資料生成 route に admin gate がなかった
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= `/api/admin/pj-introduction-html` に `requireAdmin()` を追加)
+- **症状**:
+  - `POST /api/admin/pj-introduction-html` は service role で PJ 横断データを取得し、`llm_prompts.exec_summary.extract` と Anthropic API で portfolio HTML を生成するが、route 冒頭で admin session を確認していなかった
+  - ダッシュボード上の UI は admin 前提でも、API 単体では anonymous request を止められない状態だった
+- **対応内容**:
+  - route 冒頭で `requireAdmin()` を呼び、未ログインは 401、非 admin は 403 を返すようにした
+  - 30 章に `/api/admin/pj-introduction-html` の入力 / 出力 / LLM / 雛形 / admin boundary を追記
+- **再発防止策**:
+  - `admin/` 配下で service role または LLM を使う route は、UI 入口が admin 画面でも API 側で `requireAdmin()` を必ず確認する
+
+---
+
+### [docs/manual-os-sync] 月次 routine / AMD Score future / 経営ハイライトの仕様が manual と OS 表示でずれていた
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ 修正済 (= #69 で manual / design / UI / critical guard / production 確認まで同期)
+- **症状**:
+  - 月次 routine の締切日・標準 PJ / CTB PJ の順序・各 task の保存列・請求後の入金確認から支払通知書への接続が、複数 manual に散っていて一目で追えなかった。
+  - AMD Score の未来予測修正 loop は design にあるが、manual 21 章の詳細仕様として未整理だった。
+  - 経営ハイライトは manual/design では新名称へ寄せていたが、UI / regression guard / operations catalog に古い表示や曖昧な source が残っていた。
+  - dialogue 周辺の旧呼称・内部理由・特定メンバー名だけが目立つ例が repo 内に残り、チーム向け document として読まれた時のノイズになっていた。
+- **対応内容**:
+  - `manual/04-admin-ops.md` に月次運用カレンダーと Mermaid flow を追加。
+  - `manual/01`, `10`, `32` に締切・担当・タスク内容・保存列・完了判定を同期。
+  - `manual/21` に `amd_score_revisions` / `amd_score_alpha_proposals` / `reason_md` / `AmdScoreFutureEditModal` 未実装境界を追記。
+  - `manual/28` / `design/project_strategy_signals.md` / `CockpitStrategySignals` を polarity chip / `score_impact_summary` / `未確認` chip へ同期。
+  - `/admin/settings` の L2 ⑨ source を `Codex automation amd-os` に更新。
+  - critical UI guard を新呼称に更新し、旧 dialogue 呼称・内部理由・特定メンバー名だけが目立つ設計例を除去。
+- **検証**:
+  - `git diff --check` pass。
+  - `npm --prefix pwa run test:critical-ui` pass。
+  - `npm --prefix pwa run test:next-period-ui` pass。
+  - `npm --prefix pwa run build` pass。
+  - `bash pwa/scripts/deploy.sh` pass。
+  - Browser production で `/manual/04-admin-ops`, `/manual/21-amd-score-spec`, `/manual/28-notification-review-and-strategy-signals-spec`, `/manual/32-invoice-and-billing-routine-spec`, `/project/p21/cockpit`, `/admin/settings` を確認済み。
+- **再発防止策**:
+  - OS 表示名を変えた時は、manual / design / critical guard / operations catalog / browser production を同じ周回で確認する。
+  - チーム向け manual / design には、内部配慮の理由や特定メンバーだけが例として目立つ書き方を残さない。
