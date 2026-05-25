@@ -70,13 +70,13 @@
 
 ---
 
-## 5.3 まさえいMTG 運用ルール (= 2026-05-24)
+## 5.3 提案前の論点整理セッション運用ルール (= 2026-05-24)
 
-まさえいMTGは、まさとえいみが OS 上の candidate を読み、チームへ提案する前の論点・提案・残課題を整理する対話セッション。
+提案前の論点整理セッションは、まさが LLM と OS 上の candidate を読み、チームへ提案する前の論点・提案・残課題を整理する対話セッション。
 
 ### 確定方針
-- 呼称は **「まさえいMTG」** に統一する
-- 会社の正式会議体として扱わず、対話セッション / 提案整理として記録する
+- UI / manual では **「提案前の論点整理セッション」** または **`dialogue`** と呼ぶ
+- 会社の正式会議体として扱わず、チームへ提案する前の対話セッション / 提案整理として記録する
 - cockpit の `project_meeting_summaries.source_kinds='dialogue'` に保存し、通常の PJ MTG サマリと同じ一覧で読めるようにする
 
 ### LLM への含意
@@ -91,16 +91,17 @@
 
 | 自動処理 | 動く場所 | 頻度 | 役割 | LLM 課金 | 関連 file |
 |---|---|---|---|---|---|
-| **amd-os-ms** | Codex automation | 6h ごと | L2 ③ MS 進捗 / L2 ⑦ OS 台帳差分 / L2 ⑧ XRL 根拠の抽出 + outbox 出力。L2 ②④⑤⑥ は生成しない | あり | `~/.codex/automations/amd-os-ms/automation.toml` |
+| **PWA hourly-estimate** | GAS 154 -> PWA route | 毎時 0 分 | L2 ③ MS 進捗の primary writer。`monthly_reports` + `project_meeting_summaries` から `milestone_monthly_progress` を推定し、`progress_estimate_state` で差分検知する | あり (Sonnet 4.5、差分時のみ) | `gas/154_PwaCronCaller.js`, `pwa/src/app/api/cron/hourly-estimate/route.ts`, [36 章](36-ms-progress-monthly-report-revision-spec.md) |
+| **amd-os-ms** | Codex automation | 6h ごと | MS 進捗の修正候補 / L2 ⑦ OS 台帳差分 / L2 ⑧ XRL 根拠のレビュー + outbox 出力。L2 ③の直接 writer ではなく、`ms_progress_revisions` 候補を作る。L2 ②④⑤⑥ は生成しない | あり | `~/.codex/automations/amd-os-ms/automation.toml` |
 | **amd-os** | Codex automation | daily 03:20 JST | L2 ⑨ 経営ハイライト抽出 + outbox 出力 | あり | `~/.codex/automations/amd-os/automation.toml` |
 | **amd-atlas-2** | Codex automation | daily 08:10 JST | Atlas 外部マクロ抽出 + outbox 出力 | あり | `~/.codex/automations/amd-atlas-2/automation.toml` |
 | **amd-macrotrend-evidence-review** | Codex automation | weekly Mon 07:30 | UN SDGs / WEF Global Risks 整理 | あり | `~/.codex/automations/amd-macrotrend-evidence-review/` |
 | **outbox applier** | LaunchAgent | 5 分ごと | Codex outbox → Supabase POST | なし (= 純粋 DB 反映) | `~/Library/LaunchAgents/jp.teamarmada.amd-os-ms-outbox-applier.plist` |
-| **amd-os-management-dialogue-prep** | Claude routine | daily 07:00 JST | まさえいMTG 議題プリペア | あり | `~/.claude/scheduled-tasks/amd-os-management-dialogue-prep/SKILL.md` |
+| **amd-os-management-dialogue-prep** | Claude routine | daily 07:00 JST | 提案前 dialogue の議題プリペア | あり | `~/.claude/scheduled-tasks/amd-os-management-dialogue-prep/SKILL.md` |
 | ~~**GAS 153 MeetingHourlyTrigger**~~ | ⛔ **2026-05-22 停止** | — | (旧) MTG サマリ取り込み (Calendar + Notion 議事録 → `project_meeting_summaries` 直書き) → **kill switch (`MEETING_HOURLY_CRON_DISABLED_20260522`) + live trigger 削除済**、コメントに「Use Codex automation/review batches」と書いたが**実態として Codex 側に受け皿無し**、5/22-5/25 議事録 ghost 化の原因 | あり (Gemini) — 停止中 | `gas/153_MeetingHourlyTrigger.js` |
 | ~~**GAS 155 L2KnowledgeExtractor**~~ | ⛔ **2026-05-22 停止** | — | (旧) L2 ② AMD プロトコル / ④ PJ ナレッジ / ⑤ メンバーナレッジ を毎時 polling で抽出 → **kill switch (`L2_KNOWLEDGE_CRON_DISABLED_20260522`) で全 4 関数 (= member_knowledge / project_knowledge / protocol / 設定) が即 disabled return**、5/22-5/25 ②④⑤ ghost 化の原因 | あり (Gemini) — 停止中 | `gas/155_L2KnowledgeExtractor.js` |
 | ~~**GAS 152 NavigatorCron 月次 extract**~~ | ⛔ **2026-05-22 停止** | — | (旧) 月単位 fallback 抽出 → kill switch (`NAV_MONTHLY_EXTRACT_CRON_DISABLED_20260522`) | あり | `gas/152_NavigatorCron.js` |
-| 🚧 **`amd-os-meeting-extract`** (新設予定) | Claude routine | 毎時 0 分予定 | L2 ⑥ MTG サマリ 復旧 (= GAS 153 後継、終了 +60-180 分の窓で拾う) | あり (Sonnet 4.6 サブスク内) | `~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md` (= 設計中、[`l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)) |
+| 🚧 **`amd-os-meeting-extract`** (登録待ち) | Claude routine | 毎時 0 分予定 | L2 ⑥ MTG サマリ 復旧 (= GAS 153 後継、終了 +60-180 分の窓で拾う)。2026-05-25 #68 時点で SKILL + GAS dryRun live 200 OK まで確認済、scheduled task 登録待ち | あり (Sonnet 4.6 サブスク内) | `~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md`, [38 章](38-l2-extraction-routines-spec.md) |
 | 🚧 **`amd-os-protocol-extract`** (新設予定) | Claude routine | daily 08:00 JST 予定 | L2 ② AMD プロトコル 復旧 (= GAS 155 後継) | あり (Sonnet 4.6 サブスク内) | 同上 |
 | 🚧 **`amd-os-project-knowledge-extract`** (新設予定) | Claude routine | daily 08:15 JST 予定 | L2 ④ PJ ナレッジ 復旧 | あり (Sonnet 4.6 サブスク内) | 同上 |
 | 🚧 **`amd-os-member-knowledge-extract`** (新設予定) | Claude routine | daily 08:30 JST 予定 | L2 ⑤ メンバーナレッジ 復旧 | あり (Sonnet 4.6 サブスク内) | 同上 |
@@ -111,12 +112,13 @@
 | **papers-quarterly-ingest** | Vercel cron | quarterly | 論文 ingest | なし | `pwa/src/app/api/cron/papers-quarterly-ingest/route.ts` |
 | **sync-pj-facts** | Vercel cron | daily | PJ メタ同期 | なし | `pwa/src/app/api/cron/sync-pj-facts/route.ts` |
 | **macro-aggregate-indicators** | Vercel cron | daily | マクロ指標集計 | なし | `pwa/src/app/api/cron/macro-aggregate-indicators/route.ts` |
-| **venture-xrl-refresh** | Vercel cron | daily 03:15 JST | XRL 自動判定 (Gemini 2.5 Flash) | あり ⚠️ | `pwa/src/app/api/cron/venture-xrl-refresh/route.ts` |
+| ~~venture-xrl-refresh~~ | PWA route (schedule 停止中) | disabled | XRL 自動判定 (Gemini 2.5 Flash)。route は手動検証用に残す | あり ⚠️ | `pwa/src/app/api/cron/venture-xrl-refresh/route.ts`, `pwa/vercel.disabled-crons.json` |
 
 ### ⚠️ 現状の片肺
 1. ~~**`amd-os/strategy-signals-outbox/` を拾う applier が無い**~~ → **✅ 2026-05-25 修復済** (= `scripts/run-ms-outbox-applier.sh` の監視 dir 変数を `STRATEGY_OUTBOX_DIR="/Users/masa/.codex/automations/amd-os/strategy-signals-outbox"` に書き換え、実出力先と一致。LaunchAgent plist は変更不要、次回 5 分 polling で新 shell が自動で読まれる)。明日 03:30 以降の経営ハイライト outbox は手動 apply 不要で自動 flush される
+1. ~~**`amd-atlas-2/outbox/` の staging artifact を applier が拾わない**~~ → **✅ 2026-05-25 修復済** (= 公式 `amd-atlas/outbox` と staging `amd-atlas-2/outbox` の両方を監視。`/api/atlas/signals-ingest` は title / source_url の全期間 exact match で dedupe するため、遅延反映でも重複を増やさない)
 2. **GAS clasp push 未反映**: kill switch ソースは local commit 済だが GAS live には push されてない。live trigger は削除済みなので動作上は止まってる
-3. **venture-xrl-refresh は Vercel cron + LLM 課金**: cron 廃止方針からは例外。XRL 自動判定だけ毎日走るためここに残ってる
+3. ~~**XRL 自動判定だけは Vercel cron 例外として残る**~~ → **✅ 2026-05-25 訂正**: `pwa/vercel.json` には存在せず、`pwa/vercel.disabled-crons.json` に退避済み。route と過去 proposal UI は残すが、自動 schedule は止まっている
 4. **LLM プロンプトのコード hardcode**: `venture-xrl-refresh/route.ts` などに prompt が hardcode されている。AGENTS.common.md ルール「LLM プロンプトは DB 管理」に違反。DB 化が別 task で必要
 5. **経営ハイライト (= L2 ⑨ `project_strategy_signal`) だけ修正依頼ループ未実装**: 経営ハイライトを抽出する Codex automation `amd-os` の prompt には `l2_feedbacks` 読み込み手順が入ってない。→ まさの修正依頼が次回抽出に反映されない問題。別 task で対応 (= prompt に手順追加 or Claude routine 5 個目として移管)。⚠️ **当初「他 L2 は GAS 155 / 074 で動いてる」と書いたが、5/25 調査で GAS 155 自体が 5/22 kill switch で停止、つまり他 L2 の修正依頼ループも実際は止まってる**ことが判明、項目 6 参照
 6. 🚨 **L2 ②④⑤⑥ の 4 種 自動取り込みが 5/22-5/25 完全 ghost 化**: 5/22 「LLM 課金が発生する定期抽出 cron 全廃止」の判断時に**「Codex automation `amd-os-ms` が全部カバーしてる」前提が間違ってた**ことが 5/25 判明。実態は `amd-os-ms` prompt は ②④⑤⑥ を「通知だけ」「生成しない」、GAS 153 / 155 / 152 は kill switch 停止 → **空中分解**。**復旧方針**: Claude routine 4 個新設 (= まさ案 C 採用 2026-05-25)、設計は [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)
@@ -196,21 +198,29 @@
 
 GAS 153 のソース冒頭コメントに「Use Codex automation/review batches」とあったが**実態として Codex 側に該当処理は実装されてなかった**。これを書いた人 (= 前任セッションのえいみ) が「未来の自分が拾ってくれるはず」と棚上げした形。
 
-### 確定方針 (= まさ案 C 採用、2026-05-25)
+### 確定方針 (= まさ案 C 採用、2026-05-25 → 2026-05-25 #71 拡張)
 
-**Claude routine 4 個新設** で復旧:
+**初期案 (= 2026-05-25 朝)**: Claude routine 4 個新設 (= ②④⑤⑥ ghost 4 種だけ)
 
-| Routine | 頻度 | 役割 | 既存 GAS 後継 |
-|---|---|---|---|
-| `amd-os-meeting-extract` | **毎時 0 分発火** | L2 ⑥ MTG サマリ (= 終了 +60-180 分の窓で拾う) | GAS 153 |
-| `amd-os-protocol-extract` | daily 08:00 JST | L2 ② AMD プロトコル | GAS 155 (= protocol_pollAll) |
-| `amd-os-project-knowledge-extract` | daily 08:15 JST | L2 ④ PJ ナレッジ | GAS 155 (= project_knowledge_pollAll) |
-| `amd-os-member-knowledge-extract` | daily 08:30 JST | L2 ⑤ メンバーナレッジ | GAS 155 (= member_knowledge_pollAll) |
+**拡張版 (= 2026-05-25 お昼 #71、まさ「すべて Claude routines で抽出する形に変更」)**: **Claude routine 8 個新設** で L2 ②〜⑨ 統一 (= 稼働中の ③⑦⑧⑨ も移管):
 
-各 routine の prompt は **`l2_feedbacks` 読み込み手順を最初から組み込む** (= 修正依頼ループ復活、§3.4 ⚠️ 現状ギャップ も解消)。
+| Routine | 頻度 | 役割 | 既存 writer (停止/移管対象) | 状態 |
+|---|---|---|---|---|
+| `amd-os-meeting-extract` | **毎時 0 分** (= 終了 +60-180 分 window) | L2 ⑥ MTG サマリ | GAS 153 (= kill switch、完全 bypass) | ✅ SKILL.md inline 移植版 Write 済 #71、scheduled task 登録待ち |
+| `amd-os-protocol-extract` | daily 08:00 JST | L2 ② AMD プロトコル | GAS 155 (= protocol_pollAll、kill switch) | 🚧 未作成 |
+| `amd-os-project-knowledge-extract` | daily 08:15 JST | L2 ④ PJ ナレッジ | GAS 155 (= project_knowledge_pollAll、kill switch) | 🚧 未作成 |
+| `amd-os-member-knowledge-extract` | daily 08:30 JST | L2 ⑤ メンバーナレッジ | GAS 155 (= member_knowledge_pollAll、kill switch) | 🚧 未作成 + member_knowledge schema gap (= status / source_hash 列なし) |
+| `amd-os-ms-progress-extract` | 毎時 0 分 | L2 ③ MS 進捗 | GAS 154 → PWA `/api/cron/hourly-estimate` (稼働中) + Codex `amd-os-ms` (修正候補) | 🚧 未作成、**移管慎重** (= 既存 primary writer 動作中) |
+| `amd-os-registry-diff-extract` | 6h ごと | L2 ⑦ OS 台帳差分 | Codex `amd-os-ms` の `outbox.registryDiffs` (稼働中) | 🚧 未作成、移管慎重 |
+| `amd-os-xrl-evidence-extract` | 6h ごと | L2 ⑧ XRL 根拠 | Codex `amd-os-ms` の `outbox.xrlEvidence` (稼働中) | 🚧 未作成、移管慎重 |
+| `amd-os-strategy-signal-extract` | daily 03:20 JST | L2 ⑨ 経営ハイライト | Codex `amd-os` (稼働中、5/25 applier 修復済) | 🚧 未作成、対話型修正依頼 (#34) と接続必要 |
+
+各 routine の prompt は **`l2_feedbacks` 読み込み手順を最初から組み込む** (= 修正依頼ループ復活、§3.4 ⚠️ 現状ギャップ も解消)。MCP 経由で Calendar / Notion / Gmail / Drive / Slack に直接 access、LLM はサブスク内 Claude (= scheduled task 内で私自身が prompt 受けて JSON 生成)、Supabase は REST 直叩き。
+
+**段階的停止**: Routine 5-8 が動作確認できてから既存 Codex automation `amd-os-ms` / `amd-os` + LaunchAgent applier を unload。
 
 ### 設計議論の正本
-[`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md) — Routine 1 SKILL.md prompt 完全版を inline で書いた、まさレビュー後に `mcp__scheduled-tasks__create_scheduled_task` で登録する。
+[`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md) — 設計議論 (= 2026-05-25 #71 で 8 routine 統一方針に改訂)。実装/登録/DB upsert の current truth は [38 章 L2 Extraction Routines](38-l2-extraction-routines-spec.md) を正本にする。Routine 1 は SKILL.md 完全 inline 移植版が ready、`mcp__scheduled-tasks__create_scheduled_task` で登録待ち。
 
 ### 教訓
 - 大規模な path 切替 (= cron 停止 / writer 移管) を行う時は **「停止対象 → 後継担当」を 1 対 1 の対応表化** して fact 検証してから止める

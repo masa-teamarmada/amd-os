@@ -1,14 +1,14 @@
-# L2 ②④⑤⑥ 取り込み復旧 — Claude routine 新設 (設計議論 draft)
+# L2 ②〜⑨ 取り込み統一 — Claude routine 8 個新設 (設計議論)
 
-> **状態**: まさ #案 C 確定 2026-05-25。**次セッションで頻度 / prompt / upsert path を確定 → 実装**。
+> **状態**: 2026-05-25 #71 まさ最終確定 = **L2 ②〜⑨ 全 8 routine を Claude routines に統一**。Routine 1 (= ⑥ MTG サマリ) は SKILL.md 完全 inline 移植版を 2026-05-25 #71 実装、scheduled task 登録待ち。Routine 2-8 は次セッション以降に順次実装。
 >
-> 関連: [`pwa/manual/03-data-and-extraction.md`](../manual/03-data-and-extraction.md) §3.1, [`pwa/manual/05-decisions-and-history.md`](../manual/05-decisions-and-history.md) §5.1 / §5.4
+> 関連: [`pwa/manual/03-data-and-extraction.md`](../manual/03-data-and-extraction.md) §3.1, [`pwa/manual/05-decisions-and-history.md`](../manual/05-decisions-and-history.md) §5.1 / §5.4 / §5.7, [`pwa/manual/38-l2-extraction-routines-spec.md`](../manual/38-l2-extraction-routines-spec.md)
 
 ---
 
 ## 背景
 
-2026-05-22 「LLM 課金が発生する定期抽出 cron を全廃止」した時に、**Codex automation が L2 全種をカバーしてる前提が間違ってた** ことが 5/25 判明。実態:
+2026-05-22 「LLM 課金が発生する定期抽出 cron を全廃止」した時に、**Codex automation が L2 全種をカバーしてる前提が間違ってた** ことが 5/25 判明。実態 (= 2026-05-25 朝):
 
 - **稼働中**: ① monthly_reports (= 別 GAS R313) / ③ MS 進捗 (= GAS 154 → PWA `/api/cron/hourly-estimate` が primary writer、Codex automation `amd-os-ms` は修正候補レビュー) / ⑦ OS 台帳差分 + ⑧ XRL 根拠 (= Codex automation `amd-os-ms`) / ⑨ 経営ハイライト (= Codex automation `amd-os`)
 - **ghost (= 2026-05-22 以降取り込みゼロ)**: ② AMD プロトコル / ④ PJ ナレッジ / ⑤ メンバーナレッジ / ⑥ MTG サマリ
@@ -17,39 +17,80 @@
 
 ---
 
-## ⚠️ 2026-05-25 お昼 方針転換: dryRun アプローチ撤回 → 完全移植アプローチへ
+## ⚠️ 2026-05-25 お昼 方針転換 (一次): dryRun アプローチ撤回 → 完全移植アプローチへ
 
 **経緯**:
 - 当初えいみは「GAS の関数を Claude routine から curl で呼ぶ (= dryRun option 追加で GAS 内 LLM call を skip)」と解釈、実装
 - まさ「GAS を呼ぶことは求めてない。GAS でせっかく作った設計を無視して新しい設計を考え始まったから、いやいやせっかく GAS で設計したんだから、それをそのまま移植してとお願いしただけ。**GAS を使うのではなく、GAS を移植して**」
 - → **dryRun アプローチは GAS 依存のまま** = まさの「移植」と違う
 
-**正しい移植のあるべき姿** (= 次セッション着手):
-- Claude routine SKILL.md 内に **GAS 153 + 074 のロジック全部 (= スプシ読み / Notion / Gmail / source_kinds 判定 / 抽出プロンプト) を inline 書き写し**
-- Calendar / Notion / Gmail へのアクセスは **MCP 経由直接** (= GAS 経由しない)
-- 外部スプシ (= 色→PJ 履歴 / PJ 別名) は **Sheets MCP (要確認) or Drive MCP で xlsx export**
-- LLM 呼びは Claude routine 内 Sonnet (= サブスク内)
+**確定方針**:
+- Claude routine SKILL.md 内に **GAS の業務ロジック (= source 取得 / 判定 / source_kinds / 抽出プロンプト / upsert) を inline 移植**
+- Calendar / Notion / Gmail / Drive / Slack へのアクセスは **MCP 経由直接** (= GAS 経由しない)
+- LLM 呼びは Claude routine 内 Sonnet (= サブスク内、Claude Code が直接実行、SDK 不要)
 - **GAS は完全 bypass** (= kill switch のまま死んでて OK、参照すらしない)
 
-**現状の dryRun 実装の扱い**:
-- GAS 074/153/155 への dryRun option 追加 commit は **revert 不要** (= backward compatible、ただし routine 改訂後は使われなくなる)
-- Routine 1 (`amd-os-meeting-extract`) の SKILL.md は **次セッションで全面書き直し**
+**dryRun 実装の扱い**:
+- GAS 074/153/155 への dryRun option 追加 commit (= `@1473`) は **revert 不要** (= backward compatible、ただし routine 改訂後は使われない)
 
 ---
 
-## 確定事項 (= まさ 2026-05-25 判断)
+## 🔥 2026-05-25 お昼 方針転換 (二次): L2 ②〜⑨ 全 Claude routines 統一
+
+**まさ #71 確定**: 「すべて Claude routines で抽出する形に変更」 = **L2 ②〜⑨ 全 8 種を Claude routine に統一**。
+
+**新方針**:
+- ghost 4 種 (= ②④⑤⑥) だけでなく、稼働中の **③ MS 進捗 / ⑦ OS 台帳差分 / ⑧ XRL 根拠 / ⑨ 経営ハイライト** も Claude routine に移管
+- 既存 Codex automation `amd-os-ms` + `amd-os` は段階的に停止
+- LaunchAgent applier `jp.teamarmada.amd-os-ms-outbox-applier` も outbox 経路が不要になり次第 unload
+
+**保留**:
+- ① monthly_reports は別 GAS R313 (= LLM 不使用、月次 cron) のまま (= 課金問題なし、移管対象外)
+- 修正依頼ループ (= `l2_feedbacks` 読み込み) は各 routine の SKILL.md prompt に必ず組み込み
+
+---
+
+## 8 routine 一覧 (= 2026-05-25 #71 確定)
+
+| L2 | Routine 名 | 頻度 | 旧 writer (停止/移管対象) | 状態 |
+|---|---|---|---|---|
+| **② AMD プロトコル** | `amd-os-protocol-extract` | daily 08:00 JST | GAS 155 (= kill switch、completed bypass) | 🚧 SKILL.md 未作成 |
+| **③ MS 進捗** | `amd-os-ms-progress-extract` | 毎時 0 分 | GAS 154 → PWA `/api/cron/hourly-estimate` + Codex `amd-os-ms` の `outbox.revisions` | 🚧 SKILL.md 未作成。**移管慎重**: 既存 primary writer が稼働中なので、Claude routine が動作確認できてから既存停止 |
+| **④ PJ ナレッジ** | `amd-os-project-knowledge-extract` | daily 08:15 JST | GAS 155 (= kill switch) | 🚧 SKILL.md 未作成 |
+| **⑤ メンバーナレッジ** | `amd-os-member-knowledge-extract` | daily 08:30 JST | GAS 155 (= kill switch) | 🚧 SKILL.md 未作成。**schema gap**: 現 `member_knowledge` に `status` / `source_hash` 列なし、候補採否設計には migration 必要 |
+| **⑥ MTG サマリ** | `amd-os-meeting-extract` | **毎時 0 分** (= GAS 153 と同パターン、終了 +60-180 分の窓で拾う) | GAS 153 (= kill switch) | ✅ **SKILL.md 完全 inline 移植版 Write 済 2026-05-25 #71**、scheduled task 登録待ち |
+| **⑦ OS 台帳差分** | `amd-os-registry-diff-extract` | 6h ごと | Codex `amd-os-ms` の `outbox.registryDiffs` (稼働中) | 🚧 SKILL.md 未作成。移管慎重 |
+| **⑧ XRL 根拠** | `amd-os-xrl-evidence-extract` | 6h ごと | Codex `amd-os-ms` の `outbox.xrlEvidence` (稼働中) | 🚧 SKILL.md 未作成。移管慎重 |
+| **⑨ 経営ハイライト** | `amd-os-strategy-signal-extract` | daily 03:20 JST | Codex `amd-os` (稼働中、5/25 applier 修復済) | 🚧 SKILL.md 未作成。移管慎重 + 対話型修正依頼ループ (#34) と接続必要 |
+
+**実装順序** (= まさ確定後):
+1. **Routine 1** (= ⑥ MTG サマリ) を 2026-05-25 #71 で SKILL.md 完成 + scheduled task 登録 + 翌朝観察
+2. Routine 2-4 (= ②④⑤、ghost) を次セッションで同パターンで実装 (= 入力テーブル / プロンプト違いだけ)
+3. Routine 5-8 (= ⑦⑧⑨ + ③) を段階的に実装、各 routine が動作確認できてから既存 Codex automation / PWA hourly を停止
+4. 5/22-5/25 取り込み穴期間の backfill 機能を各 routine に追加 (= `--backfill-from 2026-05-22` モード or 別建て手動 routine)
+
+---
+
+## 確定事項 (= まさ 2026-05-25 #71 判断)
 
 | 項目 | 確定内容 |
 |---|---|
-| 採用案 | **C (= Claude routine 4 個新設)** |
-| 議事録 (= Routine 1) の頻度 | **毎時 0 分発火 + 過去 60-180 分終了 events スキャン** (= GAS 153 `nav_meeting_pollRecentlyEndedEvents` と同パターン)。「MTG 終了 +60 分で抽出」要件を踏襲 |
-| 他 3 routine の頻度 | **daily 08:00 / 08:15 / 08:30 JST** (= 30 分間隔ずらしで重なり回避) |
-| subscription 帯域 | OK と判断 (= まさ確認済) |
+| 採用案 | **C 拡張版 (= Claude routine 8 個新設、L2 ②〜⑨ 全統一)** |
+| 議事録 (= Routine 1 ⑥) の頻度 | **毎時 0 分発火 + 過去 60-180 分終了 events スキャン** (= GAS 153 と同パターン) |
+| ナレッジ系 (= Routine 2-4 ②④⑤) の頻度 | **daily 08:00 / 08:15 / 08:30 JST** (= 30 分間隔ずらしで重なり回避) |
+| MS 進捗 (= Routine 5 ③) の頻度 | **毎時 0 分** (= 既存 PWA hourly と同パターン) |
+| OS 台帳差分 + XRL 根拠 (= Routine 6/7 ⑦⑧) の頻度 | **6h ごと** (= 既存 Codex `amd-os-ms` と同パターン) |
+| 経営ハイライト (= Routine 8 ⑨) の頻度 | **daily 03:20 JST** (= 既存 Codex `amd-os` と同パターン) |
+| subscription 帯域 | OK と判断 (= まさ確認済 #71) |
 | failure handling | `notifyOnCompletion=true` 標準採用 (= running session に通知) |
 | 既存 GAS 153 / 155 / 152 source | kill switch のまま残置 (= 廃止判断は後で) |
-| 経営ハイライト routine 化 | 今回スコープ外 (= 別 task #3 で `amd-os` automation prompt に `l2_feedbacks` 読み込みを追加するだけ) |
+| 既存 Codex `amd-os-ms` / `amd-os` | Routine 5-8 動作確認後に段階的に停止 |
+| LaunchAgent applier | Codex outbox 経路が不要になり次第 unload |
+| 経営ハイライト修正依頼ループ (= #34) | 対話型ループに置換 (= `pwa/design/feedback_dialog.md`)、Routine 8 SKILL.md に対話 API 接続を組み込み |
 | 各 routine の prompt | `l2_feedbacks` 読み込み手順を必ず含める (= 修正依頼ループ復活) |
 | upsert path | routine 内で直接 Supabase REST (= service_role)、PWA API は使わない |
+| LLM 呼び | サブスク内 Claude (= Claude Code が直接実行、SDK 不要) |
+| データソース access | MCP 直接 (= Calendar / Notion / Gmail / Drive / Slack)、GAS 完全 bypass |
 
 ---
 
@@ -149,16 +190,25 @@ routine 末尾で `l2_notifications` に upsert (= 既存 migration 031)。saved
 
 ---
 
-## Routine 1 SKILL.md (= 起草済、実 routine 登録待ち)
+## Routine 1 SKILL.md (= 完全 inline 移植版 Write 済、scheduled task 登録待ち)
 
-**実 SKILL.md ファイル**: [`~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md`](~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md) (= 2026-05-25 Write 済、case-by-case で同期メンテ)
+**実 SKILL.md ファイル**: `~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md` (= 2026-05-25 #71 完全 inline 移植版に書き換え、git 管轄外)
 
-**設計の要点** (= ファイル本体は上記参照、ここでは設計判断だけ):
+**設計の要点** (= 2026-05-25 #71 完全 inline 移植版):
 
-- **GAS dryRun アプローチ採用** (= 2026-05-25 確定): GAS 074 `nav_meeting_processOneEvent_` + GAS 153 `nav_meeting_pollRecentlyEndedEvents` に `opts.dryRun` を追加。dryRun=true のとき GAS は context (= notion + gmail combined text、alias、feedback、source_hash、source_kinds、meeting_meta) を返すだけで LLM call はしない。Claude routine が GAS を毎時 curl で叩いて context を取得 → サブスク内 Claude で抽出 → Supabase upsert。
-- GAS の kill switch `MEETING_HOURLY_CRON_DISABLED_20260522` は dryRun=true 経路では bypass される (= GAS time trigger は復活させない、Claude routine 側だけが叩く形)
-- LLM 課金は Anthropic サブスク内 (= Claude Code 内で実行されるため SDK API key 不要、5/22 cron 廃止判断と整合)
-- データソース・ロジック・冪等性 (`source_hash`) は GAS 元コード完全保存 (= まさ「仕組み変えるな」指示と整合)
+- **GAS 完全 bypass**: 旧 dryRun 経由 (= GAS を curl で呼ぶ) は廃止。Claude routine が **MCP 経由で Calendar / Notion / Gmail / Drive / Slack に直接 access**
+- **LLM 呼び**: scheduled task 内の私 (= Claude) が prompt 受けて JSON 生成 (= Anthropic SDK 不要、サブスク内)
+- **業務ロジック (= GAS 元コード完全保存)**:
+  - Phase A: Calendar events 過去 3 時間取得 → 終了 60-180 分前 filter → PJ 判定 (= project_name / project_id / client_name substring match)
+  - Phase B: Notion 3 段 fallback (= eventId equals → titleHint + 同日付 → 日付 equals) → ページ本文 + AI transcription block → Gmail thread + Drive Docs + Slack thread → source_kinds 判定 (= 30 chars 閾値) → source_hash 計算
+  - Phase C: alias map + feedback block 生成 → 抽出 prompt 組み立て → 私が JSON 出力 (= summary_short / decided / progress / next_actions / risks / narrative_md)
+  - Phase D: project_meeting_summaries + meeting_notifications upsert + feedback applied_count++
+- **5 ソース全部見る** (= まさ絶対ルール 2026-05-11): Notion + Gmail + Drive + Slack + Calendar event 本文。GAS 074 + 074b-e の集約をこの 1 routine で実現
+
+**注意点**:
+- `members` テーブルに `member_name` 列が無い (= 2026-05-25 #71 確認時点)。alias map は code_name + email local part だけで動かす
+- 議事録 DB ID + PJ DB ID は GAS の ScriptProperties (= `NOTION_DATABASE_ID` / `NOTION_PJ_DATABASE_ID`) から取ってたが、Claude routine からは Notion search の query で動く (= 固定したければ別 task で `.env.local` に追加)
+- GAS の kill switch `MEETING_HOURLY_CRON_DISABLED_20260522` は維持 (= GAS time trigger は復活させない、Claude routine だけが稼働)
 
 ### 元 prompt (= 古い inline 草稿、参考用)
 
@@ -235,23 +285,30 @@ Phase C: run summary
 
 ---
 
-## 残設計事項 (= 実装着手前にまさ最終確認)
+## 残設計事項 (= 次セッション以降の判断)
 
-1. **MAIN_CALENDAR_ID の永続化**: GAS は ScriptProperties に持ってたが、Claude routine からどうアクセスする? → 案: Supabase `app_config` テーブルに移管、または `.env.local` 経由
-2. **color_pj_history / pj_aliases**: GAS では in-memory CFG だったが Claude routine からは Supabase テーブル化が必要? → 案: 既存テーブルあるか確認、無ければ migration 090 で新設
-3. **Routine 1 動作確認後**: Routine 2 / 3 / 4 を順次投入 (= 同パターン、入力テーブル違いだけ)
-4. **5/22-5/25 取り込み穴期間 backfill**: Routine 1-4 すべて稼働開始後に、`--backfill-from 2026-05-22` モードを追加実装 or 手動キック routine 別建て
+1. **MAIN_CALENDAR_ID の永続化**: Claude routine では `list_calendars` MCP で primary を都度確認、もしくは `.env.local` に `MAIN_CALENDAR_ID` 追加。Routine 1 では暫定 primary を使う
+2. **Notion DB ID 固定化**: 議事録 DB / PJ DB の collection URL を `.env.local` に固定すると notion-search が速くなる。Routine 1 は `query` だけで動く設計、最適化は後回し
+3. **members.member_name 列追加**: GAS 079 で想定してた `member_name` 列が現 schema に無い。migration で追加してまさが入れれば alias map が充実
+4. **Routine 5 (= ③ MS 進捗) の primary writer 移管**: 既存 PWA `/api/cron/hourly-estimate` が稼働中なので、Routine 5 が動作確認 (= 数日観察) できてから既存停止
+5. **Routine 6/7/8 (= ⑦⑧⑨) の Codex automation 停止**: 既存 `amd-os-ms` / `amd-os` を unload + LaunchAgent applier も outbox 経路が空になり次第 unload
+6. **5/22-5/25 取り込み穴期間の backfill**: Routine 1-8 すべて稼働開始後に、各 routine に `--backfill-from 2026-05-22` モード追加 or 手動キック routine 別建て
 
 ---
 
-## 実装ステップ (= まさ確定後)
+## 実装ステップ
 
-1. **Routine 1 (= 議事録)** から実装 (= 最緊急)
-   - SKILL.md 起草 → `mcp__scheduled-tasks__create_scheduled_task` で登録 → 翌朝 07:30 まで観察 → upsert 件数確認
-2. 動作確認後、**Routine 2 / 3 / 4 を順次** 同パターンで投入
-3. 5/22-5/25 の **取り込み穴期間の backfill**: 各 routine に `--backfill-from 2026-05-22` モード追加 or 手動キック routine 別建て
-4. **マニュアル 5.4 責務分担マトリクスを更新** (= GAS 153 / 155 を「停止 + 後継 Claude routine 稼働中」に書き換え)
-5. **L2_DATA.md 表更新** (= writer 列を Claude routine 名に)
+1. **✅ Routine 1 (= ⑥ MTG サマリ)** 完全 inline 移植 SKILL.md 完成 (= 2026-05-25 #71)
+   - 次: `mcp__scheduled-tasks__create_scheduled_task` で登録 → 翌時の発火を観察 → upsert 件数確認
+2. **🚧 Routine 2-4 (= ②④⑤ ghost 復旧)** を次セッションで同パターンで実装:
+   - GAS 155 `nav_protocol_pollAll` / `nav_project_knowledge_pollAll` / `nav_member_knowledge_pollAll` の prompt を Notion / Supabase REST から拾って markdown 化
+   - SKILL.md の Phase A-D 構造は Routine 1 と共通テンプレートにする
+3. **🚧 Routine 5 (= ③ MS 進捗)** を実装、既存 PWA hourly と並行稼働で fact 比較 → OK なら既存停止
+4. **🚧 Routine 6/7 (= ⑦⑧)** を実装、既存 Codex `amd-os-ms` と並行稼働で fact 比較 → OK なら既存停止
+5. **🚧 Routine 8 (= ⑨ 経営ハイライト)** を実装 + 対話型修正依頼ループ (= `feedback_dialog.md`) と接続
+6. **5/22-5/25 の取り込み穴期間 backfill**: 各 routine に `--backfill-from 2026-05-22` モード追加 or 手動キック routine 別建て
+7. **マニュアル 5.4 / L2_DATA.md / 03 章 3.1 表更新**: writer 列を Claude routine 名に書き換え
+8. **既存 Codex automation / LaunchAgent applier の停止**: Routine 5-8 動作確認後
 
 ---
 

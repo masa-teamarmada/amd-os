@@ -6631,3 +6631,1278 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 - `npm --prefix pwa run build` pass (static pages 152)。
 - `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
 - Chrome で `/manual`, `/manual/23-hud-and-venture-map-spec`, `/admin/settings`, `/hud/dashboard` を目視確認。
+
+---
+
+## 2026-05-25 (#41) — OS マニュアル 継続クロール追記: Finance / Payment Confirm / Cyber Dashboard
+
+### 着手契機
+まさ「このまま可能な限りずっと続けてほしい。追記して、design_logとかOSそのものをブラウザで見て確認して、足りない要素があれば追記して…を繰り返して。」の継続。#40 の後、manual に薄い route / 仕様を再クロール。
+
+### クロール
+- `/admin/finance` page, `AdminFinanceClient.tsx`, `/api/admin/finance/{recurring,receipts}` を読み、recurring item / receipt event / budget forward-fill / actual sync の仕様を確認。
+- `/payment-confirm`, `/api/admin/payment-confirm`, `/api/cron/payment-confirm-nudges`, `payment-confirmation.ts`, `payment-groups.ts` を読み、Slack signed token / expected amount / billing cycle 更新 / `billing_log.detail` の保存内容を確認。
+- `pwa/design/project_pl_monthly.md`, `notifications.md`, `SPEC_pwa.md`, `cyber_dashboard_content_design.md` を読み、manual 側の finance / payment confirm / dashboard cyber 実験 route が薄いことを確認。
+- route coverage script を厳しめに回し、HUD mirror route、`/manual/{slug}`、`/project/{projectId}/...`、`/seeds/{id}` などの表記漏れを発見。
+
+### 実装
+- [manual/25-finance-payment-confirm-spec.md](../manual/25-finance-payment-confirm-spec.md) 新規追加。
+  - `/admin/finance` の recurring item / receipt event / budget forward-fill / 役員除外分を整理。
+  - `/payment-confirm` の signed token、Slack nudge 2ボタン、expected amount 優先順位、`billing_cycles` / `billing_log.detail` への保存内容を整理。
+  - Budget forward-fill / Receipt event sync / Payment confirm group の Mermaid flowchart を追加。
+- [manual/04-admin-ops.md](../manual/04-admin-ops.md) に §4.8 admin/finance を追加し、25章へリンク。
+- [manual/20-system-architecture.md](../manual/20-system-architecture.md) に `/payment-confirm`, `/admin/finance`, `/dashboard-cyber-*`, HUD mirror route、dynamic route 表記を追加。
+- [manual/22-notifications-and-tsukuyomi.md](../manual/22-notifications-and-tsukuyomi.md) に入金確認 nudge の 2 ボタンと signed token 概要を追加。
+- [manual/23-hud-and-venture-map-spec.md](../manual/23-hud-and-venture-map-spec.md) に Cyber Dashboard 実験 route (`/dashboard-cyber-3d-lab`, `/dashboard-cyber-glass-cube`, `/dashboard-cyber-hud-wall`, `/mock/*`) の位置付けを追加。
+- [manual/24-operations-settings-spec.md](../manual/24-operations-settings-spec.md) に `pwa-payment-confirm-nudges` の dryRun 注意とトラブルシュートを追加。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts), [00-intro.md](../manual/00-intro.md), [design/os_manual.md](../design/os_manual.md) に 25章を追加。
+- [MarkdownView.tsx](../src/components/cockpit/MarkdownView.tsx) に Mermaid code block renderer を追加し、`mermaid` package を導入。manual の flowchart がコード表示ではなく図として描画されるようにした。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md) を #41 に更新。
+
+### Verified
+- route coverage script: 74 page routes checked / manual mention missing 0。
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 153)。
+- Chrome local:
+  - `/manual` に 25章が表示されることを確認。
+  - `/manual/25-finance-payment-confirm-spec` で Mermaid flowchart が図として表示されることを確認。
+  - `/payment-confirm` token なしで「リンクが足りない」表示を確認。
+  - `/admin/finance` で Finance Ops / recurring items / receipt events を確認。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-9qan29506-armada0130.vercel.app`
+- Chrome production:
+  - `/manual/25-finance-payment-confirm-spec` を確認し、Mermaid flowchart が図として表示されることを確認。
+
+---
+
+## 2026-05-25 (#42) — OS マニュアル 継続クロール追記: mypage / reimburse / billing / prompts
+
+### 着手契機
+まさ「このまま可能な限りずっと続けてほしい。追記して、design_logとかOSそのものをブラウザで見て確認して、足りない要素があれば追記して…を繰り返して。」の継続。#41 の Finance / Payment Confirm 追記後、メンバー日常導線と admin billing / prompt 管理が manual 上まだ薄いことを確認。
+
+### クロール
+- `/mypage` page と `pwa/design/mypage.md` を読み、当月報酬合計、期限超過時の取り消し線、PM / PL role 別 TODO、週次活動抽出、admin の `?memberId=` 表示制御を確認。
+- `/reimburse` page と `/api/reimbursements` を読み、`reimbursements` の申請 / 編集 / 削除 / PM承認 / admin承認、領収書 private bucket、交通費往復 2 倍保存、status flow を確認。
+- `/admin/billing` page と `AdminBillingMatrix.tsx` を読み、13 ヶ月 matrix、標準 / CTB step、立替確認の自動判定、入金前 step 未完了時の支払い延期 nudge を確認。
+- `/admin/prompts` page / client / PATCH API と prompt 消費 route を読み、`llm_prompts` / `tsukuyomi_context` の役割、`is_active` の扱い、hardcoded fallback より DB prompt 優先の運用を確認。
+- 表現チェックとして `経営会議` / `まさ × えいみ` / `疎外感` / `かる` / `ちこ` 等を grep し、manual 内に裏事情や特定メンバー特別扱いの記述が残っていないことを確認。
+
+### 実装
+- [manual/10-member-workflows-quick-start.md](../manual/10-member-workflows-quick-start.md) 新規追加。
+  - `/mypage` の見方、報酬取り消し線、月次TODOの標準 / CTB フロー図、`/reimburse` 申請、立替承認フロー、週次活動の即時抽出を読み手向けに整理。
+- [manual/26-member-billing-prompts-spec.md](../manual/26-member-billing-prompts-spec.md) 新規追加。
+  - `/mypage` のデータ組み立て、報酬対象外判定、role 別 TODO、締切日、`reimbursements` 保存仕様、`/admin/billing` step 更新、`/admin/prompts` prompt 管理を仕様として整理。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts): 10 章を「まず使う人向け」、26 章を「全体設計・細かい仕様」に追加。
+- [manual/00-intro.md](../manual/00-intro.md), [manual/08-member-quick-start.md](../manual/08-member-quick-start.md), [manual/04-admin-ops.md](../manual/04-admin-ops.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md) に新章リンクと coverage 表を反映。
+- [design/os_manual.md](../design/os_manual.md): 現行章立てに 10 / 26 章を追加。
+- [MarkdownView.tsx](../src/components/cockpit/MarkdownView.tsx): Mermaid block が `<pre>` に包まれないように `pre` 側で `language-mermaid` を直接 unwrap。図のテキスト抽出と見た目を改善。
+
+### Verified
+- route coverage script: 73 page routes checked / manual mention missing 0。
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 155)。
+- Chrome local:
+  - `/manual` に 10 / 26 章が表示されることを確認。
+  - `/manual/10-member-workflows-quick-start` と `/manual/26-member-billing-prompts-spec` で Mermaid SVG が描画され、`pre` 内包が 0 であることを確認。
+  - `/mypage`, `/reimburse`, `/admin/billing`, `/admin/prompts` の実画面を確認。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-evi5xi4ay-armada0130.vercel.app`
+- Chrome production:
+  - `/manual`, `/manual/10-member-workflows-quick-start`, `/manual/26-member-billing-prompts-spec` を確認し、10 / 26 章と Mermaid 図が表示されることを確認。
+  - `/mypage`, `/reimburse`, `/admin/billing`, `/admin/prompts` を確認。
+
+---
+
+## 2026-05-25 (#43) — OS マニュアル 継続クロール追記: Knowledge Admin / Tsukuyomi
+
+### 着手契機
+まさ「このまま可能な限りずっと続けてほしい。追記して、design_logとかOSそのものをブラウザで見て確認して、足りない要素があれば追記して…を繰り返して。」の継続。#42 のメンバー日常導線 / billing / prompt 管理追記後、`/admin/protocols` / `/admin/contexts` / `/admin/tsukuyomi` と通知 feedback API の仕様が manual 上まだ薄いことを確認。
+
+### クロール
+- `/admin/protocols` page と `AdminProtocolsClient.tsx` を読み、`protocols` / `protocol_examples` / `protocol_result_observations` の役割、4 要素カード、旧 `legacy_specific` archive、修正依頼 prefill を確認。
+- `/admin/contexts` page と `AdminContextsTable.tsx` を読み、`tsukuyomi_context` の `context_id` / `tags` / `priority` / `system_prompt` / `status` 編集仕様を確認。
+- `/admin/tsukuyomi` page と `AdminTsukuyomiClient.tsx` を読み、強制投稿 UI、`tsukuyomi_learnings` + `tsukuyomi_learnings_status` の学習メモ、`judge / role / memory / tone / safety` layer editor を確認。
+- `POST /api/notifications/feedback` を読み、`yes / no / comment`、`l2_feedbacks` / `tsukuyomi_learnings` 保存、kind 別反映ルール、GAS `pwaApi/runFunc` の即時再抽出を確認。
+- GAS `170_TsukuyomiOps.js` / `172_TsukuyomiContextRepo.js` / `260_TsukuyomiTab.html` を読み、systemPrompt 合成、観測ブロック、旧 GAS Admin UI の残存を確認。
+
+### 実装
+- [manual/27-knowledge-admin-tsukuyomi-spec.md](../manual/27-knowledge-admin-tsukuyomi-spec.md) 新規追加。
+  - `/admin/protocols`、`/admin/contexts`、`/admin/tsukuyomi`、`/api/notifications/feedback` の仕様を整理。
+  - AMD Protocol の `protocols` / `protocol_examples` / `protocol_result_observations` 分担、4 要素、UI 操作を整理。
+  - feedback API の kind 別反映ルール、`l2_feedbacks` / `tsukuyomi_learnings`、GAS 即時再抽出を整理。
+  - 既知ギャップとして `/api/tsukuyomi/post` 未実装、protocol status mismatch、`source_type` / `source` mismatch、`context_type` schema gap、L2 ②④⑤⑥ ghost を明記。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts): 27 章を「全体設計・細かい仕様」に追加。
+- [manual/00-intro.md](../manual/00-intro.md), [manual/04-admin-ops.md](../manual/04-admin-ops.md), [manual/07-atlas-protocol-score-macrotrend.md](../manual/07-atlas-protocol-score-macrotrend.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/22-notifications-and-tsukuyomi.md](../manual/22-notifications-and-tsukuyomi.md), [manual/08-member-quick-start.md](../manual/08-member-quick-start.md) に 27 章リンクと表現調整を反映。
+- [design/os_manual.md](../design/os_manual.md): 現行章立てに 27 章を追加し、初心者向け設計履歴の旧表現を整理。
+- [BUGS.md](../BUGS.md): 発見した未修正 gap を 4 件追加。
+  - `/admin/tsukuyomi` 強制投稿 UI が未実装 `/api/tsukuyomi/post` を呼ぶ。
+  - `protocols.status` が UI (`confirmed`) と feedback API (`active`) でズレる。
+  - `/admin/protocols` 手動追加 UI が `source_type` を送るが schema は `source`。
+  - `/admin/tsukuyomi` layer editor が `context_type` を前提にするが migration / schema に列が見当たらない。
+
+### Verified
+- `git diff --check` pass。
+- manual index check pass (19 configured chapters)。
+- banned phrasing check pass: manual 内に `経営会議` / `まさ × えいみ` / `疎外感` なし。
+- `npm --prefix pwa run build` pass (static pages 156)。
+- Chrome local:
+  - `/manual` に 27 章が表示されることを確認。
+  - `/manual/27-knowledge-admin-tsukuyomi-spec` で Mermaid SVG が 2 件描画され、`pre` 内包が 0 であることを確認。
+  - `/admin/protocols`, `/admin/contexts`, `/admin/tsukuyomi` の実画面を確認。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-a4fjnxte7-armada0130.vercel.app`
+- Chrome production:
+  - `/manual` に 27 章が表示されることを確認。
+  - `/manual/27-knowledge-admin-tsukuyomi-spec` で Mermaid SVG が 2 件描画され、`pre` 内包が 0 であることを確認。
+  - `/admin/protocols`, `/admin/contexts`, `/admin/tsukuyomi` の実画面を確認。
+
+---
+
+## 2026-05-25 (#44) — OS マニュアル 継続クロール追記: Notifications UI / Strategy Signal Feedback
+
+### 着手契機
+まさ「このまま可能な限りずっと続けてほしい。追記して、design_logとかOSそのものをブラウザで見て確認して、足りない要素があれば追記して…を繰り返して。」の継続。#43 の Knowledge Admin / Tsukuyomi 追記後、`/notifications` の実 UI と cockpit 経営ハイライトの修正依頼履歴が manual 上まだ薄いことを確認。
+
+### クロール
+- `/notifications` page と `NotificationsClient.tsx` を読み、L2 / MTG 通知の merge、未対応 / 未読 / 回答済み / 修正依頼あり filter、`read_at` と `notified_at` の分離、回答後の `answeredMap` / `readMap` を確認。
+- `AppNotificationsSection.tsx` を読み、`app_notifications` の VC / Web 通知、未読 / 全部、全部既読、既読、削除の扱いを確認。
+- `CockpitStrategySignals.tsx` を読み、経営ハイライト 4 分類、candidate / confirmed 表示、source refs、過去 feedback 表示、`/api/notifications/feedback` への comment-only 修正依頼を確認。
+- `pwa/design/notifications.md`, `project_strategy_signals.md`, `xrl_evidence.md`, `project_registry_diffs.md` を読み、通知詳細 lazy fetch、OS台帳差分、XRL根拠、経営ハイライト feedback の manual 化漏れを確認。
+- manual / 関連 design の表現を grep し、旧呼称や内部背景説明が残っている箇所を確認。
+
+### 実装
+- [manual/28-notification-review-and-strategy-signals-spec.md](../manual/28-notification-review-and-strategy-signals-spec.md) 新規追加。
+  - `/notifications` の admin-only、`AppNotificationsSection` と `NotificationsClient`、filter、`read_at` / `notified_at`、回答済み判定を整理。
+  - L2 / MTG 通知の kind 別 lazy fetch、deep link、raw_data_gap の全文非表示ルール、回答ボタン、概算コスト表示を整理。
+  - `CockpitStrategySignals` の 4 分類、candidate / confirmed、score impact、過去 feedback、`applied_count` / `last_applied_at`、L2 ⑨ prompt 反映未実装 gap を整理。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts): 28 章を「全体設計・細かい仕様」に追加。
+- [manual/00-intro.md](../manual/00-intro.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/22-notifications-and-tsukuyomi.md](../manual/22-notifications-and-tsukuyomi.md) に 28 章リンクと coverage 表を追加。
+- [manual/01-pj-cockpit.md](../manual/01-pj-cockpit.md), [manual/02-amd-cockpit.md](../manual/02-amd-cockpit.md), [manual/03-data-and-extraction.md](../manual/03-data-and-extraction.md), [manual/05-decisions-and-history.md](../manual/05-decisions-and-history.md), [manual/06-developer.md](../manual/06-developer.md), [manual/07-atlas-protocol-score-macrotrend.md](../manual/07-atlas-protocol-score-macrotrend.md) の dialogue 呼称を「提案前の論点整理セッション」/ `dialogue` へ整理。
+- [design/os_manual.md](../design/os_manual.md): 現行章立てに 28 章を追加し、旧セクション名を「経営ハイライト」へ更新。
+- [design/project_strategy_signals.md](../design/project_strategy_signals.md): タイトル / 表示名を「経営ハイライト」へ更新し、外部環境カテゴリの「次セッション要対応」古い TODO を現状実装へ合わせて整理。
+- [design/xrl_evidence.md](../design/xrl_evidence.md): AMD member code_name の例示を一般化。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #44 の summary / first read order / verified / open task 完了を反映。
+
+### Verified
+- `git diff --check` pass。
+- manual index check pass (20 configured chapters)。
+- banned phrasing check pass: manual / 関連 design に旧呼称・内部背景説明なし。
+- `npm --prefix pwa run build` pass (static pages 157)。
+- Chrome local:
+  - `/manual/28-notification-review-and-strategy-signals-spec` は auth redirect まで確認。
+  - Google OAuth の広い scope 再許可は踏まず、local の認証付き目視は本番確認へ回した。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-be4mvodjd-armada0130.vercel.app`
+- Chrome production:
+  - `/manual/28-notification-review-and-strategy-signals-spec` を確認し、28 章本文・表・Mermaid 図が表示されることを確認。
+  - `/manual` に 28 章が表示されることを確認。
+
+---
+
+## 2026-05-25 (#45) — OS マニュアル 継続クロール追記: Management Score / Finance Simulation
+
+### 着手契機
+まさ「このまま可能な限りずっと続けてほしい。追記して、design_logとかOSそのものをブラウザで見て確認して、足りない要素があれば追記して…を繰り返して。」の継続。#44 の Notifications UI / 経営ハイライト確認仕様追記後、`/project/p00/cockpit` と `/management-score`、AMD Management Score raw/calc、finance simulation が manual 上まだ薄いことを確認。
+
+### クロール
+- `pwa/design/management_score.md` を読み、AMD Score とは別に AMD 全社の経営健康度を見る 5 軸スコアであること、GAS 月次試算表 / freee / OS L2 を分ける方針を確認。
+- `/management-score` page を読み、`amd_management_score_snapshots`、`company_budget_actual_monthly`、`company_budget_inputs`、`company_budget_simulation_runs`、`company_budget_variance_notes` を使う画面構成を確認。
+- `CockpitManagementScoreHero.tsx` を読み、p00 cockpit hero が `amd_management_score_snapshots` の total + 5 軸時系列を表示することを確認。
+- `management-score/raw-data.ts` と `calculate.ts` を読み、raw signal 収集、source_runs、5 軸の現行計算式、finance runway cap、snapshot/evidence upsert を確認。
+- `GasMonthlySimulationPanel.tsx` と `/api/management-score/finance/simulate` を読み、旧 GAS 月次試算表移植ビューと simulation API、未接続 UI gap を確認。
+
+### 実装
+- [manual/29-management-score-and-finance-simulation-spec.md](../manual/29-management-score-and-finance-simulation-spec.md) 新規追加。
+  - AMD Score と AMD Management Score の違い、`/project/p00/cockpit` hero、`/management-score` detailed view、`/admin/settings` operation の位置付けを整理。
+  - raw data 収集 -> `amd_management_score_raw_signals` / `source_runs` -> score calculate -> `amd_management_score_snapshots` / `evidence` のフローを Mermaid 図付きで整理。
+  - 5 軸 (`initiative` / `finance` / `retention` / `pipeline` / `direction`) の重み、現行計算式、finance runway cap、evidence の保存仕様を整理。
+  - 旧 GAS 月次試算表移植ビュー、`/api/management-score/finance/simulate`、persist mode、未接続 UI gap を整理。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts): 29 章を「全体設計・細かい仕様」に追加。
+- [manual/00-intro.md](../manual/00-intro.md), [manual/02-amd-cockpit.md](../manual/02-amd-cockpit.md), [manual/07-atlas-protocol-score-macrotrend.md](../manual/07-atlas-protocol-score-macrotrend.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/21-amd-score-spec.md](../manual/21-amd-score-spec.md), [manual/24-operations-settings-spec.md](../manual/24-operations-settings-spec.md), [design/os_manual.md](../design/os_manual.md) に 29 章リンクを反映。
+- [BUGS.md](../BUGS.md): `/management-score` の scenario select / 「シミュレーション実行」ボタンが simulation API に未接続の gap を追加。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #45 の summary / first read order / verified を反映。
+
+### Verified
+- `git diff --check` pass。
+- manual index check pass (21 configured chapters)。
+- banned phrasing check pass: manual / 関連 design に旧呼称・内部背景説明なし。
+- `npm --prefix pwa run build` pass (static pages 158)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-dgcoxbqhj-armada0130.vercel.app`
+- Chrome production:
+  - `/manual` に 29 章が表示されることを確認。
+  - `/manual/29-management-score-and-finance-simulation-spec` を確認し、29 章本文・表・Mermaid 図が表示されることを確認。
+
+---
+
+## 2026-05-25 (#46) — OS マニュアル 継続クロール追記: Admin Projects / Members Ledger
+
+### 着手契機
+まさ「このまま可能な限りずっと続けてほしい。追記して、design_logとかOSそのものをブラウザで見て確認して、足りない要素があれば追記して…を繰り返して。」の継続。#45 の Management Score / Finance Simulation 仕様追記後、`/admin/projects` / `/admin/members` / `/project/{projectId}/config` の台帳仕様が manual 上まだ薄いことを確認。
+
+### クロール
+- `manual/04-admin-ops.md` と `manual/20-system-architecture.md` を読み、admin projects / members は概要のみで、契約・請求・支払条件、PJ メンバー、Calendar 状態、ASPI lane の細部が別章化されていないことを確認。
+- `/admin/projects` page と `AdminProjectsTable.tsx` を読み、`projects`、`project_ventures`、latest pending `lane_suggestions`、active `project_members` + `members` を merge して一覧表示していることを確認。
+- `PATCH /api/admin/projects/[id]` を読み、`projectsPatch` / `venturesPatch` の編集単位、service role 更新、admin gate 欠落、空 patch の成功扱いを確認。
+- `EmailsEditModal` を読み、`report_emails` 保存時に API 期待形式と違う body を送っていることを確認。
+- `ProjectMembersEditor.tsx` と `POST /api/admin/project-members/bulk` を読み、既存 row update / 新規 insert / 省略 row deactivate、`join_ym` / `leave_ym` validation、物理削除禁止を確認。
+- `/admin/members` page と `AdminMembersTable.tsx` を読み、editable 列、read-only 列、Google Calendar badge、`last_login_at`、direct Supabase update を確認。
+
+### 実装
+- [manual/30-admin-projects-members-ledger-spec.md](../manual/30-admin-projects-members-ledger-spec.md) 新規追加。
+  - `/admin/projects`、`/admin/members`、`/project/{projectId}/config` の役割、正本データ、downstream を整理。
+  - `/admin/projects` の読み込み、cell edit API、主な列、status、`project_category`、支払条件、関係先メール、ASPI lane / lane suggestion を整理。
+  - PJ メンバー編集の upsert / deactivate flow を Mermaid 図付きで整理。
+  - `/admin/members` の editable / read-only 列、Google Calendar badge、`last_login_at`、direct Supabase update の扱いを整理。
+  - 既知 gap として `project_ventures` row 不在時の lane 保存問題を明記。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts): 30 章を「全体設計・細かい仕様」に追加。
+- [manual/00-intro.md](../manual/00-intro.md), [manual/04-admin-ops.md](../manual/04-admin-ops.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [design/os_manual.md](../design/os_manual.md) に 30 章リンクと coverage を追加。
+- [src/app/api/admin/projects/[id]/route.ts](../src/app/api/admin/projects/[id]/route.ts):
+  - `requireAdmin()` を追加し、unauth / non-admin から service role update へ到達しないよう修正。
+  - 空 `projectsPatch` / `venturesPatch` を 400 にする guard を追加。
+- [src/components/admin/AdminProjectsTable.tsx](../src/components/admin/AdminProjectsTable.tsx):
+  - `report_emails` modal の保存 body を `{ projectsPatch: { report_emails } }` に修正。
+- [BUGS.md](../BUGS.md):
+  - `/api/admin/projects/[id]` admin gate 欠落を fixed として記録。
+  - `report_emails` modal body mismatch を fixed として記録。
+  - `project_ventures` row 不在時の lane 保存 gap を unresolved として記録。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #46 の summary / first read order / verified を反映。
+
+### Verified
+- `git diff --check` pass。
+- manual index check pass (22 configured chapters)。
+- banned phrasing check pass: manual / 関連 design に旧呼称・内部背景説明なし。
+- `npm --prefix pwa run build` pass (static pages 159)。
+- local unauth `PATCH /api/admin/projects/[id]` が 401 を返すことを確認。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-kdi3vvrnn-armada0130.vercel.app`
+- Chrome production:
+  - `/manual` に 30 章が表示されることを確認。
+  - `/manual/30-admin-projects-members-ledger-spec` を確認し、30 章本文・表・Mermaid 図が表示されることを確認。
+  - `/admin/projects` と `/admin/members` の実画面が table 付きで開くことを確認。
+
+---
+
+## 2026-05-25 (#47) — OS マニュアル 継続クロール追記: Admin Payouts / 支払通知書
+
+### 着手契機
+まさ「このまま可能な限りずっと続けてほしい。追記して、design_logとかOSそのものをブラウザで見て確認して、足りない要素があれば追記して…を繰り返して。」の継続。#46 の PJ 台帳 / メンバー台帳追記後、`/admin/payouts` の報酬キャッシュ、支払通知書 PDF、PJ別収支の仕様が 04 章の概要に留まっていたため、独立章に切り出した。
+
+### クロール
+- `manual/04-admin-ops.md`, `manual/25-finance-payment-confirm-spec.md`, `design/SPEC_pwa.md` を読み、`/admin/payouts` の実装が報酬キャッシュ、支払データ保存、PDF 発行、送付済み、役員除外、PJ別収支まで含むことを確認。
+- `/admin/payouts` page と `AdminPayoutsClient.tsx` を読み、支払月 selector、報酬キャッシュ再計算、支払データ保存、入金確認 nudge、PJ別収支 / 予算チェック、対象 cycle、メンバー別支払、PDF確認 / 支払通知書発行 / 送付を確認。
+- `GET/POST/PATCH /api/admin/payouts` を読み、`invoice_ym` 明示分 + `payment_due_rule` fallback の対象 cycle 判定、`monthly_reward_payout` / `payout_notices` upsert、予算未設定 409、PDF preview / issue、GAS `payoutCreatePwaNoticePdf` を確認。
+- `reward-summary.ts` を読み、`value_plan_cycles`、routine 以外の `value_milestones`、`milestone_monthly_progress.consumed_pt` 差分、`milestone_responsibility.share`、monthly cap、carry / stock の報酬計算を確認。
+- `/api/cron/payout-reward-cache-refresh` を読み、03:05 JST 日次 cron、GET `CRON_SECRET` / POST admin、前月・当月・翌月の支払月更新を確認。
+- Chrome production で `/admin/payouts` を開き、PJ別収支 / 報酬キャッシュ / 支払保存 / PDF ボタンが実画面に存在することを確認。
+- current design docs を grep し、manual 以外に残っていた旧 dialogue 呼称を確認。
+
+### 実装
+- [manual/31-admin-payouts-reward-notice-spec.md](../manual/31-admin-payouts-reward-notice-spec.md) 新規追加。
+  - `/admin/payouts` と関連 API の位置付け、支払月 / 稼働月、対象 cycle 判定を整理。
+  - 報酬キャッシュ、`syncRewardSummariesForBillingCycles()`、pt unit、monthly cap、carry / stock の計算を Mermaid 図付きで整理。
+  - `POST /api/admin/payouts` の支払データ保存、役員除外、`monthly_reward_payout` / `payout_notices` 保存を整理。
+  - PJ別収支 / 予算チェック、後追い PJ予算確定、`clientAmountYen * 0.65 - bufferYen` の配分を整理。
+  - `preview_notice_pdf` と `issue_notice_pdf`、GAS `payoutCreatePwaNoticePdf`、`sent_at`、日次 cron、トラブルシュートを整理。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts): 31 章を「全体設計・細かい仕様」に追加。
+- [manual/00-intro.md](../manual/00-intro.md), [manual/04-admin-ops.md](../manual/04-admin-ops.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/25-finance-payment-confirm-spec.md](../manual/25-finance-payment-confirm-spec.md), [design/os_manual.md](../design/os_manual.md) に 31 章リンクを反映。
+- current design docs の旧 dialogue 呼称 cleanup:
+  - [design/L2_DATA.md](../design/L2_DATA.md)
+  - [design/atlas.md](../design/atlas.md)
+  - [design/strategy_signals_redesign.md](../design/strategy_signals_redesign.md)
+  - [design/score_revision_feedback_loop.md](../design/score_revision_feedback_loop.md)
+  - [design/ui_hint_tooltip.md](../design/ui_hint_tooltip.md)
+  - [design/cockpit.md](../design/cockpit.md)
+  - [design/meeting_summaries.md](../design/meeting_summaries.md)
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #47 の summary / first read order / verified を反映。
+
+### Verified
+- `git diff --check` pass。
+- manual index check pass (23 configured chapters)。
+- banned phrasing check pass: manual / current design docs に旧呼称・内部背景説明なし。
+- `npm --prefix pwa run build` pass (static pages 160)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-ov3zcdfnw-armada0130.vercel.app`
+- Chrome production:
+  - `/manual` に 31 章が表示されることを確認。
+  - `/manual/31-admin-payouts-reward-notice-spec` を確認し、31 章本文・表・Mermaid 図が表示されることを確認。
+  - `/admin/payouts` で PJ別収支 / 予算チェック、報酬キャッシュ再計算、支払データ保存、PDF確認 / 支払通知書発行ボタンが表示されることを確認。
+
+---
+
+## 2026-05-25 (#48) — OS マニュアル 継続クロール追記: Invoice / Billing Routine
+
+### 着手契機
+まさ「このまま可能な限りずっと続けてほしい。追記して、design_logとかOSそのものをブラウザで見て確認して、足りない要素があれば追記して…を繰り返して。」の継続。#47 の admin/payouts 追記後、請求側の freee 発行導線に `CockpitRoutineInvoiceModal` + Edge Function と legacy `/api/invoice/*` が混在していることを確認し、現行正本ルートと gap を manual 化した。
+
+### クロール
+- `manual/01-pj-cockpit.md`, `manual/04-admin-ops.md`, `manual/26-member-billing-prompts-spec.md`, `design/SPEC_pwa.md`, `design/routine.md` を読み、請求書発行 / 請求書送付の概要はあるが、freee 発行 path と DB 保存列の正本が薄いことを確認。
+- `CockpitRoutineGas.tsx` を読み、標準 / CTB の routine order、`invoice_ym` deferred 表示、請求月 picker、`reportFix` 以外 skip の扱いを確認。
+- `CockpitRoutineInvoiceModal.tsx` を読み、`invoice_base_lines_json`、前月請求明細引き継ぎ、approved reimbursements、`payment_due_rule`、CTB `[[CTB_ESTIMATE_SENT]]` marker、Edge Function `issue-invoice` / `cancel-invoice` を確認。
+- `ios/supabase/functions/issue-invoice/index.ts` / `cancel-invoice/index.ts` を読み、freee IV API、refresh token、DB 更新列、freee 側キャンセルは手動であることを確認。
+- legacy `/api/invoice/preview` / `/api/invoice/create` を読み、admin gate はあるが旧 freee `/api/1/invoices` と `invoice_sent_at` 更新で、現行 routine と保存列がズレることを確認。
+- Chrome production で `/admin/billing` を開き、請求発行 / 請求送付 / 見積送付 / 支払通知の表示を確認。
+
+### 実装
+- [manual/32-invoice-and-billing-routine-spec.md](../manual/32-invoice-and-billing-routine-spec.md) 新規追加。
+  - 現行正本ルートを `CockpitRoutineInvoiceModal` + Edge Function `issue-invoice` / `cancel-invoice` として整理。
+  - `billing_cycles.invoice_ym` の deferred 表示、標準 / CTB の請求順序、invoice modal の preview / 下書き保存 / freee 発行 / 送付 / 取り消しを整理。
+  - `invoice_subject`, `invoice_base_lines_json`, `invoice_issued_at`, `freee_invoice_number`, `invoice_sent_at`, CTB marker の意味を整理。
+  - legacy `/api/invoice/preview` / `/api/invoice/create` と `/admin/billing` 補正の位置付け、既知 gap、トラブルシュートを整理。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts): 32 章を「全体設計・細かい仕様」に追加。
+- [manual/00-intro.md](../manual/00-intro.md), [manual/01-pj-cockpit.md](../manual/01-pj-cockpit.md), [manual/04-admin-ops.md](../manual/04-admin-ops.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/26-member-billing-prompts-spec.md](../manual/26-member-billing-prompts-spec.md), [design/os_manual.md](../design/os_manual.md) に 32 章リンクを反映。
+- [BUGS.md](../BUGS.md):
+  - legacy `/api/invoice/create` が `invoice_sent_at` を更新し、現行 invoice routine の発行 / 送付分離とズレる gap を追加。
+  - `issue-invoice` / `cancel-invoice` の caller 認証境界、session token、`invoice_issued_by` を再点検すべき gap を追加。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #48 の summary / first read order / verified を反映。
+
+### Verified
+- `git diff --check` pass。
+- manual index check pass (24 configured chapters)。
+- banned phrasing check pass: manual / current design docs に旧呼称・内部背景説明なし。
+- `npm --prefix pwa run build` pass (static pages 161)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-700nde5g3-armada0130.vercel.app`
+- Chrome production:
+  - `/manual` に 32 章が表示されることを確認。
+  - `/manual/32-invoice-and-billing-routine-spec` を確認し、32 章本文・表・Mermaid 図が表示されることを確認。
+  - `/admin/billing` で請求発行 / 請求送付 / 見積送付 / 支払通知表示を確認。
+
+---
+
+## 2026-05-25 (#49) — OS マニュアル 継続クロール追記: Seeds / VC / Scholar 詳細仕様
+
+### 着手契機
+まさ「このまま可能な限りずっと続けてほしい。追記して、design_logとかOSそのものをブラウザで見て確認して、足りない要素があれば追記して…を繰り返して。」の継続。#48 の請求仕様追記後、09 章は探索系アセットの使い方入口に留まり、Seeds / VC / Scholar の DB・inbox・cron route・停止状態・admin import API が manual 化されていないことを確認。
+
+### クロール
+- `manual/09-research-assets-quick-start.md`, `manual/07-atlas-protocol-score-macrotrend.md`, `manual/20-system-architecture.md` を読み、探索系の詳細仕様が別章化されていないことを確認。
+- `design/vc_list.md`, `src/lib/vc-data.ts`, `types/vc.ts`, `/vcs`, `/vcs/inbox`, `/vcs/{id}/edit` 周辺を読み、VC 本体・ファンド・DPE・PJ接点・VCニュース・`suggested_fund_patch` の仕様を確認。
+- `design/seeds.md`, `src/lib/seeds-data.ts`, `types/seeds.ts`, `/seeds`, `/seeds/inbox` 周辺を読み、Seeds status / discovery_status / funding / news / contact log の仕様を確認。
+- `/scholar`, `ScholarTrendView.tsx`, `api/cron/papers-quarterly-ingest`, `aspi-lanes.ts` を読み、OpenAlex -> `papers_log` が ASPI 8 domain x 16 quarter である一方、UI が旧 5 lane 表示のまま残っていることを確認。
+- `vercel.json`, `vercel.disabled-crons.json`, `operations-catalog.ts` を読み、`seeds-ingest` / `vc-discover` は LLM/web_search 課金回避で schedule 停止中、`papers-quarterly-ingest` は Vercel cron 稼働中であることを確認。
+- `admin/seed-vcs`, `admin/enrich-vcs`, `admin/extract-amd-pj-investments`, `admin/import-contacts-from-sheet`, `admin/inspect-sheet`, `admin/restore-from-sheet` を読み、初期投入・補正・復元 API の用途と認証を確認。
+
+### 実装
+- [manual/33-research-assets-vc-seeds-scholar-spec.md](../manual/33-research-assets-vc-seeds-scholar-spec.md) 新規追加。
+  - Atlas / Seeds / VC / Scholar の分離、正本テーブル、確認前 inbox を整理。
+  - Seeds の `status` と `discovery_status`、verify / dismiss flow、`spun_off_project_id`、旧探索分類と ASPI 8 domain の違いを整理。
+  - VC List の `project_vc_relations.status`、DPE、`dry_powder_source`、`vc_news` inbox、`suggested_fund_patch` を整理。
+  - Scholar の ASPI 8 domain x quarter、OpenAlex、`papers_log`, `CRON_SECRET`, schedule を整理。
+  - `seeds-ingest` / `vc-discover` 停止中、`papers-quarterly-ingest` 稼働中という current truth を明記。
+  - admin/import API の役割・認証を整理。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts): 33 章を「全体設計・細かい仕様」に追加。
+- [manual/00-intro.md](../manual/00-intro.md), [manual/09-research-assets-quick-start.md](../manual/09-research-assets-quick-start.md), [manual/07-atlas-protocol-score-macrotrend.md](../manual/07-atlas-protocol-score-macrotrend.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/23-hud-and-venture-map-spec.md](../manual/23-hud-and-venture-map-spec.md), [design/os_manual.md](../design/os_manual.md) に 33 章リンクを反映。
+- [src/components/scholar/ScholarTrendView.tsx](../src/components/scholar/ScholarTrendView.tsx): `ASPI_DOMAIN_IDS` / `ASPI_DOMAIN_LABEL_JP` を参照し、ASPI 8 domain の YoY card / line chart / quarterly table に修正。Hook の条件分岐も解消。
+- [src/app/(app)/scholar/page.tsx](../src/app/(app)/scholar/page.tsx): 説明文を ASPI 8 domain x 16 quarter に更新。
+- [src/app/(app)/vcs/page.tsx](../src/app/(app)/vcs/page.tsx), [src/app/(app)/vcs/inbox/page.tsx](../src/app/(app)/vcs/inbox/page.tsx), [src/components/vc/VcEditBody.tsx](../src/components/vc/VcEditBody.tsx), [src/app/(app)/seeds/inbox/page.tsx](../src/app/(app)/seeds/inbox/page.tsx): 古い「毎朝 09:00 JST cron」「毎週 月曜 09:00 JST cron」文言を current schedule 停止表現に更新。
+- [design/SPEC_pwa.md](../design/SPEC_pwa.md), [design/amd_score.md](../design/amd_score.md), [design/L2_DATA.md](../design/L2_DATA.md), [design/seeds.md](../design/seeds.md), [design/vc_list.md](../design/vc_list.md): 旧 5 lane / 旧 schedule 表現を current truth に更新。
+- [BUGS.md](../BUGS.md):
+  - Scholar UI が旧 5 lane 表示のままだった問題を fixed として記録。
+  - Seeds / VC の自動収集文言が scheduled cron 稼働中のように見えていた問題を fixed として記録。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #49 の summary / first read order を反映。
+
+### Verified
+- `git diff --check` pass。
+- manual index check pass (25 configured chapters)。
+- banned phrasing check pass: manual / current design docs に旧呼称・内部背景説明なし。
+- stale cron / old Scholar lane wording check pass: `毎朝 09:00`, `OpenAlex から 5 lane`, `5 lane ×` の対象文言なし。
+- `npm --prefix pwa run build` pass (static pages 162)。
+- `vercel --prod --yes` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-20j8mfpr5-armada0130.vercel.app`
+- Chrome production:
+  - `/manual` に 33 章が表示されることを確認。
+  - `/manual/33-research-assets-vc-seeds-scholar-spec` を確認し、33 章本文・表・図・ASPI 8 domain / DPE / schedule 停止記述が表示されることを確認。
+  - `/scholar` で ASPI 8 domain の 8 カード、line chart、quarterly table が表示されることを確認。
+  - `/vcs/inbox` と `/seeds/inbox` で古い毎朝 / 毎週 cron 文言が消え、自動 schedule 停止文言が表示されることを確認。
+
+---
+
+## 2026-05-25 (#50) — OS マニュアル 継続クロール追記: Atlas / Macrotrend 詳細仕様
+
+### 着手契機
+まさ「このまま可能な限りずっと続けてほしい。追記して、design_logとかOSそのものをブラウザで見て確認して、足りない要素があれば追記して…を繰り返して。」の継続。#49 の Seeds / VC / Scholar 追記後、Atlas / Macrotrend の現行実装が `signals -> stories -> themes -> divergences` へ進化しているのに、manual 側は 07/09 章の入口説明に留まっていたため、詳細仕様章に切り出した。
+
+### クロール
+- `manual/07-atlas-protocol-score-macrotrend.md`, `manual/09-research-assets-quick-start.md`, `manual/20-system-architecture.md` を読み、Atlas / Macrotrend の詳細仕様が未分離であることを確認。
+- `design/atlas.md`, `design/atlas_routine.md`, `design/macrotrend_atlas_seeds_architecture.md`, `design/policy_signals.md`, `vercel.json`, `vercel.disabled-crons.json` を読み、Codex automation 主系・LLM-backed cron 停止・policy collector 停止状態を確認。
+- `/atlas`, `/atlas/inbox`, `/atlas/inbox/submit`, `/atlas/map`, `/atlas/admin/themes`, `/atlas/divergence`, `/atlas/macrotrends`, `/atlas/decisions` の source を読み、signal / story / theme / divergence / decision の UI 操作を確認。
+- `/api/atlas/*` と `/api/cron/atlas-*` を読み、`signals-ingest`, `recent-titles`, `seed`, `backfill`, `match-stories`, `move-signal`, `merge-stories`, `themes/list|cluster|apply`, `atlas-divergence`, `atlas-collect-policy` の責務と認証を確認。
+- `~/.codex/automations/amd-atlas-2/automation.toml`, `scripts/run-ms-outbox-applier.sh`, `pwa/scripts/atlas_signal_review_tool.mjs` を読み、automation id と公式 outbox / staging outbox / applier 監視先のズレを確認。
+
+### 実装
+- [manual/34-atlas-macrotrend-signal-spec.md](../manual/34-atlas-macrotrend-signal-spec.md) 新規追加。
+  - Atlas / Macrotrend の分担、`atlas_signals -> atlas_stories -> atlas_themes -> atlas_divergences -> atlas_decisions` の流れを整理。
+  - ATL A-R domain と ASPI 8 domain の違い、P/Q/R、`macro-aggregate-indicators` の ASPI mapping を整理。
+  - Codex automation `amd-atlas-2`、公式 outbox / staging outbox、LaunchAgent、`/api/atlas/signals-ingest`、review flow、story move / merge、theme cluster / apply、stopped cron を整理。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts): 34 章を「全体設計・細かい仕様」に追加。
+- [manual/00-intro.md](../manual/00-intro.md), [manual/07-atlas-protocol-score-macrotrend.md](../manual/07-atlas-protocol-score-macrotrend.md), [manual/09-research-assets-quick-start.md](../manual/09-research-assets-quick-start.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/33-research-assets-vc-seeds-scholar-spec.md](../manual/33-research-assets-vc-seeds-scholar-spec.md), [design/os_manual.md](../design/os_manual.md) に 34 章リンクを反映。
+- Atlas API 認証境界:
+  - [api/atlas/auto-tag](../src/app/api/atlas/auto-tag/route.ts): logged-in user 必須に変更。
+  - [api/atlas/themes/list](../src/app/api/atlas/themes/list/route.ts), [cluster](../src/app/api/atlas/themes/cluster/route.ts), [apply](../src/app/api/atlas/themes/apply/route.ts), [merge-stories](../src/app/api/atlas/merge-stories/route.ts), [move-signal](../src/app/api/atlas/move-signal/route.ts): admin 必須に変更。
+- Atlas domain / macro 集計:
+  - [atlas/inbox/submit](../src/app/(app)/atlas/inbox/submit/page.tsx), [api/atlas/backfill](../src/app/api/atlas/backfill/route.ts), [api/atlas/themes/cluster](../src/app/api/atlas/themes/cluster/route.ts), [atlas-domains.ts](../src/lib/atlas-domains.ts) を A-R 前提に更新。
+  - [macro-aggregate-indicators](../src/app/api/cron/macro-aggregate-indicators/route.ts) に `P.量子・量子計算 -> quantum`, `Q.センシング・計測 -> sensing_timing_navigation`, `R.先端通信 -> advanced_ict` を追加。
+- Outbox / dedupe:
+  - [api/atlas/signals-ingest](../src/app/api/atlas/signals-ingest/route.ts): 直近 48h + 入力 title / source_url 全期間 exact match の dedupe に拡張。
+  - [scripts/run-ms-outbox-applier.sh](../../scripts/run-ms-outbox-applier.sh): 公式 `amd-atlas/outbox` と staging `amd-atlas-2/outbox` の両方を監視。
+  - [design/atlas_routine.md](../design/atlas_routine.md), [manual/05-decisions-and-history.md](../manual/05-decisions-and-history.md) に current truth を反映。
+- 旧 dialogue 呼称 cleanup:
+  - [dialogue-meeting](../src/app/api/dialogue-meeting/route.ts), [dialogue-meeting/narrate](../src/app/api/dialogue-meeting/narrate/route.ts), [CockpitMeetingSummary](../src/components/cockpit/CockpitMeetingSummary.tsx), [CockpitMeetingDetailModal](../src/components/cockpit/CockpitMeetingDetailModal.tsx), [ui-hints](../src/lib/ui-hints/index.ts), `manual/01`, `manual/02`, [design/project_strategy_signals.md](../design/project_strategy_signals.md), [BUGS.md](../BUGS.md) から旧呼称・内部背景説明・「2 人」表現を除去。
+- [BUGS.md](../BUGS.md):
+  - Atlas API gate 欠落を fixed として記録。
+  - A-R domain / PQR mapping の欠落を fixed として記録。
+  - `amd-atlas-2/outbox` staging artifact を applier が拾わない問題を fixed として記録。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #50 の summary / first read order / verified を反映。
+
+### Verified
+- `git diff --check` pass。
+- manual index check pass (26 configured chapters)。
+- banned phrasing check pass: manual / design / src / BUGS に旧呼称・内部背景説明なし。
+- stale domain / auth wording check pass: `A-O`, `invalid domain (A-O)`, `DEV_MODE 前提`, `Phase 1 では緩め` の対象文言なし。
+- `npm --prefix pwa run build` pass (static pages 163)。
+- `bash -n scripts/run-ms-outbox-applier.sh` / `zsh -n scripts/run-ms-outbox-applier.sh` pass。
+- `vercel --prod --yes` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-6qhalxph7-armada0130.vercel.app`
+- Chrome production:
+  - `/manual` に 34 章が表示されることを確認。
+  - `/manual/34-atlas-macrotrend-signal-spec` で 34 章本文、A-R domain、P/Q/R、auth、staging outbox 記述が表示されることを確認。
+  - `/atlas/inbox/submit` で P/Q/R domain option が表示されることを確認。
+  - `/atlas/admin/themes` で 54 themes が読み込まれることを確認。
+  - unauth `curl` で `/api/atlas/themes/list`, `/api/atlas/auto-tag`, `/api/atlas/merge-stories` が 401 を返すことを確認。
+
+---
+
+## 2026-05-25 (#51) — OS マニュアル 継続クロール追記: FRL / 関連メンバー / HRL 詳細仕様
+
+### 着手契機
+#50 の Atlas / Macrotrend 詳細仕様追加後、AMD Score 周辺をクロール。`project_founding_members` (= manual 上は関連メンバー) と FRL 6因子の実装が manual 21章だけでは薄く、さらに `university` の扱いが code / design / UI でズレていたため、35章に切り出して正本化した。
+
+### クロール
+- [founding-members-data.ts](../src/lib/founding-members-data.ts), [founding-members-extract](../src/app/api/cron/founding-members-extract/route.ts), [founding-members/revise](../src/app/api/founding-members/revise/route.ts), [CockpitMembersModal](../src/components/cockpit/CockpitMembersModal.tsx), [CockpitFoundingMembersModal](../src/components/cockpit/CockpitFoundingMembersModal.tsx) を読み、HRL 算入対象と修正APIの category allowlist のズレを確認。
+- [AmdScoreView.tsx](../src/components/venture-map/AmdScoreView.tsx), [frl-grit-resilience-extract](../src/app/api/cron/frl-grit-resilience-extract/route.ts), [amd-score-data.ts](../src/lib/amd-score-data.ts) を読み、FRL 6因子と update-only の保存方針を確認。
+- [design/L2_DATA.md](../design/L2_DATA.md), [design/SPEC_pwa.md](../design/SPEC_pwa.md), [design/xrl_evidence.md](../design/xrl_evidence.md), [design/cockpit.md](../design/cockpit.md), manual 01/03/21/22/28 を読み、旧「大学・研究機関はHRL根拠外」「毎週月曜03:30」「創業メンバー」表現を確認。
+- Chrome production `/project/p21/cockpit` を実見し、dialogue 由来DBデータに旧「まさえいMTG」「経営会議」「2人」表現が残っていること、XRL 進捗欄が停止済み `venture-xrl-refresh` を毎朝稼働中に見せていることを確認。
+
+### 実装
+- [manual/35-frl-related-members-score-spec.md](../manual/35-frl-related-members-score-spec.md) 新規追加。
+  - HRL 算入 category (`amd` / `startup` / `university`) と除外 category、role、HRL 簡易推定式を整理。
+  - `founding-members-extract` / `founding-members/revise` / `/notifications` の関連メンバー flow を mermaid で整理。
+  - FRL 6因子 (`ALQ_avg`, Grit, Resilience) と `frl-grit-resilience-extract` の update-only 方針を整理。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts), [manual/00-intro.md](../manual/00-intro.md), [manual/01-pj-cockpit.md](../manual/01-pj-cockpit.md), [manual/03-data-and-extraction.md](../manual/03-data-and-extraction.md), [manual/07-atlas-protocol-score-macrotrend.md](../manual/07-atlas-protocol-score-macrotrend.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/21-amd-score-spec.md](../manual/21-amd-score-spec.md), [manual/22-notifications-and-tsukuyomi.md](../manual/22-notifications-and-tsukuyomi.md), [manual/28-notification-review-and-strategy-signals-spec.md](../manual/28-notification-review-and-strategy-signals-spec.md), [design/os_manual.md](../design/os_manual.md) に 35章リンク / current truth を反映。
+- `/api/founding-members/revise`:
+  - `university` を allowed category に追加。
+  - prompt を「該当SU社員 + AMD伴走メンバー + 大学キーパーソン」に更新。
+- `founding-members-extract`, `founding-members-data.ts`, `CockpitMembersModal`, `CockpitFoundingMembersModal`, `design/L2_DATA.md`, `design/SPEC_pwa.md`, `design/xrl_evidence.md`, `design/cockpit.md`:
+  - HRL 根拠を `category in ('amd','startup','university')` に統一。
+  - VC / 顧客 / 行政 / 産業パートナーは HRL 根拠外。
+  - 関連メンバー UI の空状態を「自動 schedule は停止中、手動 route で更新」に修正。
+- XRL schedule copy:
+  - `CockpitVentureStatus`, `HudCockpitVentureStatus` の XRL 文言を「XRL 自動判定 schedule は停止中。既存 / 手動提案ドットは採用・却下できる」に修正。
+  - manual 01/05/23, design L2_DATA/cockpit の `venture-xrl-refresh`, `venture-narrative-refresh`, `relearn-lane-weights`, `member-activities` の schedule 状態を停止中へ訂正。
+- Supabase DB cleanup:
+  - `project_meeting_summaries` dialogue 3 行 (`dialogue:p00:20260523-172532`, `dialogue:p00:20260524-011754`, `dialogue:p21:20260523-213654`) の旧呼称を「提案前の論点整理セッション」へ置換。
+  - `project_strategy_signals` 3 行、`l2_notifications` 1 行の title / summary / source refs も同期更新。
+- [BUGS.md](../BUGS.md):
+  - related members API が university を落としていた問題を fixed として記録。
+  - related members UI の旧 copy / 停止済み schedule 表示を fixed として記録。
+  - XRL UI/manual の停止済み `venture-xrl-refresh` 稼働中表示を fixed として記録。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #51 の summary / first read order / verified を反映。
+
+### Verified
+- `git diff --check` pass。
+- manual index check pass (27 configured chapters)。
+- banned phrasing check pass: manual / design / src / BUGS に旧 dialogue 呼称・内部背景説明なし。
+- stale schedule grep pass: `毎朝 03:15`, `差分があれば LLM が自動判定`, `毎週月曜 03:30`, `毎朝 03:00 cron` の対象文言なし。
+- `npm --prefix pwa run build` pass (static pages 164)。
+- `vercel --prod --yes` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-atxnlt8wu-armada0130.vercel.app`
+- Chrome production:
+  - `/manual` に 35 章が表示されることを確認。
+  - `/manual/35-frl-related-members-score-spec` で 35章本文、FRL式、`category in ('amd','startup','university')`、旧 dialogue 呼称なしを確認。
+  - `/project/p21/cockpit` で dialogue row が「提案前の論点整理セッション」に置換され、旧呼称が出ないことを確認。
+  - `/project/p21/cockpit` で XRL 欄に schedule 停止文言が出ることを確認。
+  - `/project/p21/cockpit` のメンバーモーダルで関連メンバー候補、大学キーパーソン、自動 schedule 停止文言が出ることを確認。
+
+---
+
+## 2026-05-25 (#52) — OS マニュアル 継続クロール追記: 月次ルーティン締切 / CTB flow / mypage 判定同期
+
+### 着手契機
+#51 の FRL / 関連メンバー整理後、まさが最初に指摘していた「月次ルーティンも、締切日とか、それぞれのタスクの内容とかを示したフロー図がほしい」を再点検。`manual/01`, `manual/10`, `manual/26`, `manual/32`, `design/routine.md`, cockpit / HUD / `/admin/billing` / `/mypage` を突き合わせ、CTB の順序・見積判定・`invoice_ym` deferred の同期漏れを見つけた。
+
+### クロール
+- [manual/01-pj-cockpit.md](../manual/01-pj-cockpit.md), [manual/10-member-workflows-quick-start.md](../manual/10-member-workflows-quick-start.md), [manual/26-member-billing-prompts-spec.md](../manual/26-member-billing-prompts-spec.md), [manual/32-invoice-and-billing-routine-spec.md](../manual/32-invoice-and-billing-routine-spec.md) を読み、月次ルーティンの締切・flow 図・完了判定の記載状況を確認。
+- [CockpitRoutineGas.tsx](../src/components/cockpit/CockpitRoutineGas.tsx), [HudCockpitRoutineGas.tsx](../src/components/hud/HudCockpitRoutineGas.tsx), [AdminBillingMatrix.tsx](../src/components/admin/AdminBillingMatrix.tsx), [`/mypage`](../src/app/(app)/mypage/page.tsx) を読み、CTB order / estimate done / deferred 判定の実装差分を確認。
+- [design/routine.md](../design/routine.md), [design/SPEC_pwa.md](../design/SPEC_pwa.md), [design/cockpit.md](../design/cockpit.md) を読み、古い「見積を標準に足す」前提や旧ボタン表記が残っている箇所を確認。
+
+### 実装
+- 月次ルーティン manual:
+  - [manual/01-pj-cockpit.md](../manual/01-pj-cockpit.md): step 表に `主担当` / `完了判定` を追加。`invoice_ym !== ym` の時は月次報告書FIXだけ残すことを明確化。
+  - [manual/10-member-workflows-quick-start.md](../manual/10-member-workflows-quick-start.md): CTB flow を `見積送付 -> 請求額確定 -> 報告会 -> 請求書発行 -> 請求書送付 -> 月次報告書FIX -> 立替精算確認` に修正。step 別の保存列 / 完了判定を追加。
+  - [manual/26-member-billing-prompts-spec.md](../manual/26-member-billing-prompts-spec.md): `/mypage` の TODO / 報酬除外判定も `invoice_ym` deferred を見ることを追記。
+  - [manual/32-invoice-and-billing-routine-spec.md](../manual/32-invoice-and-billing-routine-spec.md), [manual/04-admin-ops.md](../manual/04-admin-ops.md): CTB 順序と admin billing の並びを更新。
+- 実装:
+  - [CockpitRoutineGas.tsx](../src/components/cockpit/CockpitRoutineGas.tsx), [HudCockpitRoutineGas.tsx](../src/components/hud/HudCockpitRoutineGas.tsx): CTB order を締切順に変更。CTB 見積送付の完了判定を `[[CTB_ESTIMATE_SENT]]` marker に統一。
+  - [AdminBillingMatrix.tsx](../src/components/admin/AdminBillingMatrix.tsx): CTB chip order を `見積送付 / 予算確定 / 報告会 / 請求発行 / 請求送付 / 報告書 / 立替確認 / ...` に変更。
+  - [`/mypage`](../src/app/(app)/mypage/page.tsx): `billing_cycles.invoice_ym !== ym` の月は `reportFix` だけを TODO / 報酬除外判定に使う。翌月 TODO の既存完了状態を読めるよう `billing_cycles` fetch に翌月を追加。CTB 見積送付も marker 判定へ統一。
+- design / BUGS:
+  - [design/routine.md](../design/routine.md), [design/SPEC_pwa.md](../design/SPEC_pwa.md), [design/cockpit.md](../design/cockpit.md) を current truth に更新。
+  - [BUGS.md](../BUGS.md) に CTB 月次順序ズレ、`/mypage` の `invoice_ym` deferred 漏れ、CTB 見積 marker 判定漏れを fixed として記録。
+  - [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md) に #52 summary / verified を反映。
+
+### Verified
+- `git diff --check` pass。
+- stale CTB order / marker 判定 grep pass。
+- `npm --prefix pwa run build` pass (static pages 164)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-5ckyc1n1n-armada0130.vercel.app`
+- Chrome production:
+  - `/manual/01-pj-cockpit` に `主担当` / `完了判定` / `[[CTB_ESTIMATE_SENT]]` / `invoice_ym` deferred 説明が出ることを確認。
+  - `/manual/10-member-workflows-quick-start` に CTB flow、marker、月次報告書FIXだけ残す説明が出ることを確認。
+  - `/admin/billing` の CTB row が `見積送付 -> 予算確定 -> 報告会 -> 請求発行 -> 請求送付 -> 報告書 -> 立替確認` の順で表示されることを確認。
+  - `/mypage` がエラーなく表示され、翌月TODOが出ることを確認。
+
+---
+
+## 2026-05-25 (#53) — OS マニュアル 継続クロール追記: MS進捗 / 月次報告書 / 修正依頼ループ詳細仕様
+
+### 着手契機
+#52 の月次ルーティン整理後、OS 全体クロールを続行。route coverage と design md を突き合わせ、`pwa/design/ms_progress.md` には詳細がある一方で manual 側に MS進捗・月次報告書・月次ノート・進捗イベント・つくよみ修正依頼ループをまとめた章が無いことを確認した。
+
+### クロール
+- [design/ms_progress.md](../design/ms_progress.md), [lib/progress-estimator.ts](../src/lib/progress-estimator.ts), [`/api/cron/hourly-estimate`](../src/app/api/cron/hourly-estimate/route.ts), [`/api/progress/*`](../src/app/api/progress), [`/api/report/*`](../src/app/api/report), [`/api/monthly-report/*`](../src/app/api/monthly-report), [`/api/project/monthly-note`](../src/app/api/project/monthly-note/route.ts), [CockpitMonthlyModal.tsx](../src/components/cockpit/CockpitMonthlyModal.tsx) を読み、月次モーダルの current truth を整理。
+- `amd-os-ms` automation prompt と [ms_progress_review_tool.mjs](../scripts/ms_progress_review_tool.mjs) を確認し、MS進捗の primary writer は PWA hourly estimate、`amd-os-ms` は修正候補レビュー / L2 ⑦/⑧ outbox であることを確認。
+- [manual/03-data-and-extraction.md](../manual/03-data-and-extraction.md), [manual/05-decisions-and-history.md](../manual/05-decisions-and-history.md), [manual/06-developer.md](../manual/06-developer.md), [design/L2_DATA.md](../design/L2_DATA.md), [design/l2_extract_claude_routine.md](../design/l2_extract_claude_routine.md) に古い writer 表現が残っていることを確認。
+
+### 実装
+- [manual/36-ms-progress-monthly-report-revision-spec.md](../manual/36-ms-progress-monthly-report-revision-spec.md) 新規追加。
+  - 月次モーダルの flow、MS進捗の累積保存、AI 推定の `source_hash` 差分検知、`pm_manual` / `criteria_toggle` 上書き禁止、月次ノート、進捗イベント、つくよみ修正依頼ループ、月次報告書 generate / fix / edit route を整理。
+  - `milestone_monthly_progress`, `progress_estimate_state`, `project_monthly_notes`, `ms_progress_revisions`, `ms_revision_messages`, `member_activities`, `monthly_reports`, `billing_cycles.report_fixed_at` の役割を表で整理。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts), [manual/00-intro.md](../manual/00-intro.md), [manual/01-pj-cockpit.md](../manual/01-pj-cockpit.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/26-member-billing-prompts-spec.md](../manual/26-member-billing-prompts-spec.md), [design/os_manual.md](../design/os_manual.md), [design/ms_progress.md](../design/ms_progress.md) に 36 章リンクを追加。
+- [manual/03-data-and-extraction.md](../manual/03-data-and-extraction.md), [manual/05-decisions-and-history.md](../manual/05-decisions-and-history.md), [manual/06-developer.md](../manual/06-developer.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [design/L2_DATA.md](../design/L2_DATA.md), [design/l2_extract_claude_routine.md](../design/l2_extract_claude_routine.md) を、GAS 154 -> PWA `/api/cron/hourly-estimate` が primary writer、`amd-os-ms` は修正候補レビューという current truth に更新。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #53 summary / verified を反映。
+
+### Verified
+- `git diff --check` pass。
+- manual index check pass (28 configured chapters)。
+- stale MS writer grep pass。
+- `npm --prefix pwa run build` pass (static pages 165)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-5qo4s9cnc-armada0130.vercel.app`
+- Chrome production:
+  - `/manual` に 36章が表示されることを確認。
+  - `/manual/36-ms-progress-monthly-report-revision-spec` で route / DB / 修正依頼ループ / report FIX 仕様が読めることを確認。
+  - `/manual/03-data-and-extraction` で MS進捗 primary writer が PWA hourly estimate と表示されることを確認。
+
+---
+
+## 2026-05-25 (#54) — OS マニュアル 継続クロール追記: Venture Status / Narrative / PL / XRL Feedback + API auth gate
+
+### 着手契機
+#53 の route coverage 再クロールで、`project-ventures/*` 系の narrative / PL hearing / XRL revise / description merge と `project-events/parse` が manual に薄いことを確認。実装を読んだところ、service role で DB 更新する API と LLM cost route に auth gate が無いことも発見した。
+
+### クロール
+- [`project-ventures/[projectId]/description-merge`](../src/app/api/project-ventures/[projectId]/description-merge/route.ts), [`narrative-regen`](../src/app/api/project-ventures/[projectId]/narrative-regen/route.ts), [`pl-hearing/turn`](../src/app/api/project-ventures/[projectId]/pl-hearing/turn/route.ts), [`xrl-revise`](../src/app/api/project-ventures/[projectId]/xrl-revise/route.ts), [`project-events/parse`](../src/app/api/project-events/parse/route.ts), [narrative-refresh.ts](../src/lib/narrative-refresh.ts) を読んだ。
+- [CockpitVentureStatus.tsx](../src/components/cockpit/CockpitVentureStatus.tsx), [CockpitDescriptionDetailModal.tsx](../src/components/cockpit/CockpitDescriptionDetailModal.tsx), [CockpitNarrativeFeedbackModal.tsx](../src/components/cockpit/CockpitNarrativeFeedbackModal.tsx), [CockpitPlMonthlyModal.tsx](../src/components/cockpit/CockpitPlMonthlyModal.tsx), [venture-status-data.ts](../src/lib/venture-status-data.ts) を読み、UI flow と保存先を整理。
+- [design/cockpit.md](../design/cockpit.md), [design/project_pl_monthly.md](../design/project_pl_monthly.md), [design/venture_map_model.md](../design/venture_map_model.md) の既存記述と manual の不足分を突き合わせた。
+
+### 実装
+- [manual/37-venture-status-narrative-pl-xrl-spec.md](../manual/37-venture-status-narrative-pl-xrl-spec.md) 新規追加。
+  - SU 系 PJ hero の表示条件、事業概要マージ、沿革生成/修正依頼、XRL feedback、project events、月次試算表/ヒアリング、Tsukuyomi Chat との関係、認証境界を整理。
+  - `project_ventures`, `project_events`, `project_venture_members`, `project_partners`, `project_xrl_log`, `xrl_feedbacks`, `narrative_feedbacks`, `tsukuyomi_learnings_status`, `project_pl_monthly`, `project_pl_hearings` の役割を整理。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts), [manual/00-intro.md](../manual/00-intro.md), [manual/01-pj-cockpit.md](../manual/01-pj-cockpit.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/21-amd-score-spec.md](../manual/21-amd-score-spec.md), [manual/23-hud-and-venture-map-spec.md](../manual/23-hud-and-venture-map-spec.md), [design/os_manual.md](../design/os_manual.md) に 37 章リンクを追加。
+- Security fix:
+  - `description-merge`, `narrative-regen`, `pl-hearing/turn`, `xrl-revise` に `requireAdmin()` を追加。
+  - `project-events/parse` に `requireAuth()` を追加。
+  - [BUGS.md](../BUGS.md) に `[security/venture-status-api]` fixed entry を追加。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #54 summary / verified を反映。
+
+### Verified
+- `git diff --check` pass。
+- manual index check pass (29 configured chapters)。
+- auth gate grep pass。
+- `npm --prefix pwa run build` pass (static pages 166)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-b5yl72vy8-armada0130.vercel.app`
+- curl anonymous POST:
+  - `/api/project-ventures/p21/description-merge` -> 401
+  - `/api/project-ventures/p21/narrative-regen` -> 401
+  - `/api/project-ventures/p21/pl-hearing/turn` -> 401
+  - `/api/project-ventures/p21/xrl-revise` -> 401
+  - `/api/project-events/parse` -> 401
+- Chrome production:
+  - `/manual` に 37章が表示されることを確認。
+  - `/manual/37-venture-status-narrative-pl-xrl-spec` で route / DB / 認証境界が読めることを確認。
+  - `/manual/23-hud-and-venture-map-spec` から 37章へのリンクが表示されることを確認。
+
+---
+
+## 2026-05-25 (#55) — OS マニュアル 継続クロール追記: Operations Settings / GAS 154 MS hourly 復旧
+
+### 着手契機
+#54 の route coverage 継続で `/admin/settings` / `operations-catalog.ts` を確認。`pwa/src/lib/operations-catalog.ts` では MS進捗が `GAS 154 stopped` / `停止中` 扱いのままで、manual 03 / 36 / design L2_DATA の current truth (= GAS 154 -> PWA hourly-estimate が primary writer) とズレていた。
+
+### クロール
+- [manual/24-operations-settings-spec.md](../manual/24-operations-settings-spec.md), [src/lib/operations-catalog.ts](../src/lib/operations-catalog.ts), [`/api/settings/cron-run`](../src/app/api/settings/cron-run/route.ts) を読み、`Run Now` / `Stopped` / `manual` operation の境界を確認。
+- [`/api/cron/freeze-period-backfill`](../src/app/api/cron/freeze-period-backfill/route.ts), [`/api/cron/monthly-reports-backfill`](../src/app/api/cron/monthly-reports-backfill/route.ts), [`/api/cron/triple-helix-recompute`](../src/app/api/cron/triple-helix-recompute/route.ts), [`/api/cron/amd-score-l2-refresh`](../src/app/api/cron/amd-score-l2-refresh/route.ts), [`/api/cron/lane-suggest`](../src/app/api/cron/lane-suggest/route.ts), [`/api/cron/member-activities`](../src/app/api/cron/member-activities/route.ts) を読み、operation catalog の漏れと stopped/manual の理由を整理。
+- [gas/154_PwaCronCaller.js](../../gas/154_PwaCronCaller.js), [pwa/vercel.disabled-crons.json](../vercel.disabled-crons.json), [gas/CLAUDE.md](../../gas/CLAUDE.md) を読み、MS hourly の実装側 kill switch が残っていることを確認。
+
+### 実装
+- [src/lib/operations-catalog.ts](../src/lib/operations-catalog.ts):
+  - `monthly_reports` を `AMD-Report GAS R313 / PWA report routes / backfill route`、`05:00 daily + on-demand` に更新。
+  - `ms_progress` を `GAS 154 -> PWA hourly-estimate / Codex automation review`、`毎時 polling (GAS trigger経由)` に更新。
+  - `pwa-hourly-estimate` を active PWA operation に戻し、default `{"query":{"maxItems":3}}` で `Run Now` 可能にした。
+  - `manual-monthly-reports-backfill`, `manual-freeze-period-backfill`, `manual-triple-helix-recompute` を manual-only operation として追加。
+- [manual/24-operations-settings-spec.md](../manual/24-operations-settings-spec.md):
+  - L2 ①/③ の current truth、`pwa-hourly-estimate` の Run Now 注意、manual route と source route 棚卸し、MS進捗トラブル時の見る場所を追記。
+- [gas/154_PwaCronCaller.js](../../gas/154_PwaCronCaller.js):
+  - `NAV_PWA_CRON_DISABLED_20260522` の一括 kill switch を廃止。
+  - `NAV_PWA_HOURLY_ESTIMATE_DISABLED_20260522=false` と `NAV_PWA_ASPI_CRON_DISABLED_20260522=true` に分離。
+  - hourly trigger 削除関数と ASPI trigger 削除関数を分け、ASPI 停止が MS hourly を巻き込まないようにした。
+- [pwa/vercel.disabled-crons.json](../vercel.disabled-crons.json), [gas/CLAUDE.md](../../gas/CLAUDE.md), [design/SPEC_pwa.md](../design/SPEC_pwa.md), [design/L2_DATA.md](../design/L2_DATA.md), [BUGS.md](../BUGS.md) を同期更新。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #55 summary / verified を反映。
+
+### Verified
+- `node --check gas/154_PwaCronCaller.js` pass。
+- `pwa/vercel.disabled-crons.json` JSON parse pass。
+- `git diff --check` pass。
+- manual index check pass (29 configured chapters)。
+- `npm --prefix pwa run build` pass (static pages 166)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-g19chh0gc-armada0130.vercel.app`
+- Chrome production:
+  - `/manual/24-operations-settings-spec` に `pwa-hourly-estimate`, `manual-monthly-reports-backfill`, `Cron / source route 棚卸し`, `NAV_PWA_HOURLY_ESTIMATE_DISABLED_20260522` が表示されることを確認。
+  - `/admin/settings` に `MS進捗 hourly estimate`, `Monthly reports backfill`, `Triple Helix recompute`, `Freeze period backfill` が表示されることを確認。
+- GAS:
+  - `npx @google/clasp push` pass。
+  - `npx @google/clasp version "v1474_ms_hourly_restore"` -> version `1474` 作成。
+  - `npx @google/clasp deploy --deploymentId <現行WebApp> --versionNumber 1474 --description "v1474_ms_hourly_restore"` pass。
+  - WebApp `runFunc(nav_pwa_setupHourlyPwaTrigger_)` -> `hourly PWA ping trigger set (every 1 hour)`。
+  - WebApp `runFunc(nav_pwa_pingHourlyEstimate, [{maxItems:"0"}])` -> PWA 200 / `llmCalls=0` / `failed=0`。
+
+---
+
+## 2026-05-25 (#56) — OS マニュアル 継続クロール追記: API route coverage / admin auth / ASPI cron exact routes
+
+### 着手契機
+#55 後の route coverage で、manual 側に exact route として拾えない API が 8 件残っていることを確認。さらに admin service_role route を再点検したところ、`/api/admin/pj-introduction-html` が UI は admin 前提でも API route 自体に admin gate を持っていないことを発見した。
+
+### クロール
+- [`/api/activities/infer`](../src/app/api/activities/infer/route.ts), [`/api/admin/lane-suggestions/[id]`](../src/app/api/admin/lane-suggestions/[id]/route.ts), [`/api/admin/projects/[id]`](../src/app/api/admin/projects/[id]/route.ts), [`/api/admin/pj-introduction-html`](../src/app/api/admin/pj-introduction-html/route.ts), [`/api/admin/budget-approval`](../src/app/api/admin/budget-approval/route.ts) を読み、service role / LLM / signed-token / PL許可の境界を整理。
+- ASPI / Macrotrend cron route: [`lane-suggest`](../src/app/api/cron/lane-suggest/route.ts), [`kaken-ingest`](../src/app/api/cron/kaken-ingest/route.ts), [`grant-ingest`](../src/app/api/cron/grant-ingest/route.ts), [`vc-investment-ingest`](../src/app/api/cron/vc-investment-ingest/route.ts), [`relearn-lane-weights`](../src/app/api/cron/relearn-lane-weights/route.ts), [`macro-backfill-historical`](../src/app/api/cron/macro-backfill-historical/route.ts) を読み、`CRON_SECRET` ガード済み・schedule 停止中・MS hourly とは別扱いであることを確認。
+- [operations-catalog.ts](../src/lib/operations-catalog.ts), [manual/24](../manual/24-operations-settings-spec.md), [manual/30](../manual/30-admin-projects-members-ledger-spec.md), [manual/32](../manual/32-invoice-and-billing-routine-spec.md), [manual/34](../manual/34-atlas-macrotrend-signal-spec.md), [manual/36](../manual/36-ms-progress-monthly-report-revision-spec.md), [manual/37](../manual/37-venture-status-narrative-pl-xrl-spec.md) を突き合わせた。
+
+### 実装
+- [src/app/api/admin/pj-introduction-html/route.ts](../src/app/api/admin/pj-introduction-html/route.ts): `requireAdmin()` を追加。
+- [manual/30-admin-projects-members-ledger-spec.md](../manual/30-admin-projects-members-ledger-spec.md):
+  - `/api/admin/pj-introduction-html` の入力 / 出力 / LLM / 雛形 / admin boundary を追加。
+  - `/api/admin/lane-suggestions/[id]` の admin boundary は #56 security fix として整理済み。
+- [manual/32-invoice-and-billing-routine-spec.md](../manual/32-invoice-and-billing-routine-spec.md):
+  - `/api/admin/budget-approval` の GET signed-token / POST login+admin-or-PL 境界、`decideBudgetApproval()` の保存内容を追加。
+- [manual/24-operations-settings-spec.md](../manual/24-operations-settings-spec.md):
+  - ASPI / Macrotrend 系 stopped cron (`/api/cron/lane-suggest`, `/api/cron/kaken-ingest`, `/api/cron/grant-ingest`, `/api/cron/vc-investment-ingest`, `/api/cron/relearn-lane-weights`, `/api/cron/macro-backfill-historical`) を exact route で棚卸し。
+- [manual/34-atlas-macrotrend-signal-spec.md](../manual/34-atlas-macrotrend-signal-spec.md):
+  - ASPI / Triple Helix 観測 route 表を追加し、GAS 側 ASPI cron trigger は停止中で MS hourly とは分けると明記。
+- [manual/36-ms-progress-monthly-report-revision-spec.md](../manual/36-ms-progress-monthly-report-revision-spec.md):
+  - `/api/activities/infer` を旧 fallback / admin-only route として整理。
+- [manual/37-venture-status-narrative-pl-xrl-spec.md](../manual/37-venture-status-narrative-pl-xrl-spec.md):
+  - route 表記を `{projectId}` ではなく `[projectId]` exact route に統一。
+- [BUGS.md](../BUGS.md):
+  - `[security/admin-activity-lane-api]` と `[security/admin-pj-introduction-html]` を fixed として記録。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #56 summary / verified を反映。
+
+### Verified
+- route coverage check: API 95本 / manual missing 0 / manual+design missing 0。
+- `git diff --check` pass。
+- stale section link grep pass。
+- `npm --prefix pwa run build` pass (static pages 166)。
+- `bash pwa/scripts/deploy.sh` は最終 status fetch が `read ETIMEDOUT` で exit 1。ただし Vercel build は完了し、`npx vercel inspect https://amd-os-4qotty7vp-armada0130.vercel.app` で `status Ready` と production alias 付与を確認。
+  - deployment: `https://amd-os-4qotty7vp-armada0130.vercel.app`
+  - production alias: `https://amd-os-pwa.vercel.app`
+- curl anonymous:
+  - `POST /api/activities/infer` -> 401
+  - `PATCH /api/admin/lane-suggestions/test-id` -> 401
+  - `POST /api/admin/pj-introduction-html` -> 401
+  - `GET /api/cron/lane-suggest` secretなし -> 401
+- Chrome production:
+  - `/manual/30-admin-projects-members-ledger-spec` に `/api/admin/pj-introduction-html` / admin boundary が表示。
+  - `/manual/32-invoice-and-billing-routine-spec` に `/api/admin/budget-approval` / signed token / PL承認 flow が表示。
+  - `/manual/24-operations-settings-spec` と `/manual/34-atlas-macrotrend-signal-spec` に ASPI cron exact route と stopped/current truth が表示。
+  - `/manual/36-ms-progress-monthly-report-revision-spec` に `/api/activities/infer` admin 必須が表示。
+  - `/manual/37-venture-status-narrative-pl-xrl-spec` に `[projectId]` exact route が表示。
+  - `/admin/settings` に `MS進捗 hourly estimate`, `ASPI lane suggest`, `KAKEN ingest`, `Macro historical backfill`, `Run Now` が表示。
+
+---
+
+## 2026-05-25 (#57) — OS マニュアル 継続クロール追記: Tsukuyomi admin post UI guard
+
+### 着手契機
+#56 で API route coverage が 0 件になったため、次の巡回として `BUGS.md` の未修正項目と PWA UI の fetch 導線を確認。`/admin/tsukuyomi` の「AIで生成して投稿」「手書きで投稿」ボタンが、存在しない `POST /api/tsukuyomi/post` を呼んでいることを再確認した。
+
+### クロール
+- [BUGS.md](../BUGS.md) の未修正項目を確認。
+- [AdminTsukuyomiClient.tsx](../src/components/admin/AdminTsukuyomiClient.tsx) を読み、`sendAI()` / `sendManual()` が `/api/tsukuyomi/post` へ fetch していることを確認。
+- [manual/27-knowledge-admin-tsukuyomi-spec.md](../manual/27-knowledge-admin-tsukuyomi-spec.md) には「route 未実装」の仕様記録がある一方で、production UI はまだ押せる状態だった。
+
+### 実装
+- [AdminTsukuyomiClient.tsx](../src/components/admin/AdminTsukuyomiClient.tsx):
+  - `TSUKUYOMI_POST_ROUTE_ENABLED=false` を追加。
+  - PWA 投稿API実装までは AI生成 / 手書き投稿ボタンを disabled にし、未実装 route へ fetch しないようにした。
+  - UI文言を「PWA投稿APIの接続待ち」に更新。
+- [manual/27-knowledge-admin-tsukuyomi-spec.md](../manual/27-knowledge-admin-tsukuyomi-spec.md):
+  - `/api/tsukuyomi/post` は未実装だが、#57 以降 UI は壊れた fetch を出さないよう disabled と明記。
+- [BUGS.md](../BUGS.md):
+  - `[pwa/admin-tsukuyomi] 強制投稿UIが未実装API /api/tsukuyomi/post を呼んでいる` を `UIガード済 / API実装待ち` に更新。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #57 summary / verified を反映。
+
+### Verified
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 166)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-kqohpusg6-armada0130.vercel.app`
+- Chrome production:
+  - `/admin/tsukuyomi` に「PWA投稿APIの接続待ち」が表示。
+  - AI生成投稿ボタン disabled。
+  - モードを手書きに切り替えた時の手書き投稿ボタン disabled。
+  - `/manual/27-knowledge-admin-tsukuyomi-spec` に #57 の UI disabled / API実装待ちが表示。
+
+---
+
+## 2026-05-25 (#58) — OS マニュアル 継続クロール追記: Tsukuyomi post 501 placeholder route
+
+### 着手契機
+#57 で `/admin/tsukuyomi` の投稿ボタンは disabled にしたが、`AdminTsukuyomiClient.tsx` 内に `/api/tsukuyomi/post` への fetch 文字列は残る。次回以降の静的 route coverage で「UIが呼ぶのに route が無い」扱いになり続けるため、404 ではなく明示的な 501 placeholder route にする方が読み手にも安全と判断した。
+
+### 実装
+- [src/app/api/tsukuyomi/post/route.ts](../src/app/api/tsukuyomi/post/route.ts) を追加。
+  - `requireAdmin()` を通し、未ログインは 401、非 admin は 403。
+  - admin request には 501 JSON を返す。Slack 投稿・AI生成・GAS bridge はまだ実行しない。
+- [manual/27-knowledge-admin-tsukuyomi-spec.md](../manual/27-knowledge-admin-tsukuyomi-spec.md):
+  - `/api/tsukuyomi/post` は route として存在するが、実投稿を行わない 501 placeholder と明記。
+  - UI は disabled、API本実装までは旧 GAS Admin / Slack 手動と整理。
+- [BUGS.md](../BUGS.md):
+  - `[pwa/admin-tsukuyomi]` を「UIガード済 / API本実装待ち」に更新。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #58 summary / verified を反映。
+
+### Verified
+- route coverage check: API 96本 / manual missing 0 / manual+design missing 0。
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 167)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-jpqgihffd-armada0130.vercel.app`
+- curl anonymous:
+  - `POST /api/tsukuyomi/post` -> 401
+- Chrome production:
+  - `/admin/tsukuyomi` は #57 の disabled 状態を維持。
+
+---
+
+## 2026-05-25 (#59) — OS マニュアル 継続クロール追記: Protocol status / manual create schema fix
+
+### 着手契機
+#58 後も `BUGS.md` に残る未修正項目を巡回。`/admin/protocols` の status 語彙と手動追加 payload が `design/db_schema.md` の current schema とズレていることを確認した。
+
+### クロール
+- [AdminProtocolsClient.tsx](../src/components/admin/AdminProtocolsClient.tsx) を読み、手動追加が `source_type`, `branch_point`, `criteria`, `action_taken` を insert していることを確認。
+- [design/db_schema.md](../design/db_schema.md) の `protocols` は `content`, `source`, `kind`, `is_universal` が正本で、旧列は存在しないことを確認。
+- [`/api/notifications/feedback`](../src/app/api/notifications/feedback/route.ts) を読み、`l2_kind='protocols'` の yes handler が `status='active'` にしていることを確認。UI 側は `candidate / confirmed / archived / rejected` 前提。
+
+### 実装
+- [AdminProtocolsClient.tsx](../src/components/admin/AdminProtocolsClient.tsx):
+  - 手動追加 payload を `protocol_id`, `title`, `project_id`, `content`, `tags`, `importance`, `source`, `status`, `kind`, `is_universal`, timestamps に限定。
+  - 4 要素は `content` markdown (`① 分岐点` / `② 判断材料` / `③ アクション` / `④ 結果`) として保存。
+  - 表示の source は `source || source_type` とし、既存旧データの読み取り互換だけ残した。
+- [api/notifications/feedback/route.ts](../src/app/api/notifications/feedback/route.ts):
+  - `protocols` yes handler を `status='confirmed'` へ変更。
+- [manual/27-knowledge-admin-tsukuyomi-spec.md](../manual/27-knowledge-admin-tsukuyomi-spec.md):
+  - `/admin/protocols` の手動追加仕様を `source='manual'`, `kind='pattern'`, `content` 保存に更新。
+  - `protocols` 通知 yes を `candidate -> confirmed` に更新し、旧 `active` は使わないと明記。
+- [BUGS.md](../BUGS.md):
+  - protocol status mismatch と manual add schema mismatch を fixed として更新。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #59 summary / verified を反映。
+
+### Verified
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 167)。
+- `bash pwa/scripts/deploy.sh` はログ取得で `Not authorized` になったが、deployment は最終的に `Ready`。
+  - deployment: `https://amd-os-binc8mf0n-armada0130.vercel.app`
+  - production alias: `https://amd-os-pwa.vercel.app`
+- Chrome production:
+  - `/admin/protocols` に candidate / confirmed / archived の status UI が表示。
+  - `/manual/27-knowledge-admin-tsukuyomi-spec` に `source='manual'`, `candidate -> confirmed`, `旧 active は使わない` が表示。
+
+---
+
+## 2026-05-25 (#60) — OS マニュアル 継続クロール追記: Tsukuyomi context layer editor schema fix
+
+### 着手契機
+#59 後も `BUGS.md` の未修正項目を継続巡回。`/admin/tsukuyomi` の人格 DB layer editor が、`tsukuyomi_context` schema に存在しない `context_type` 列を前提に insert / update していることを確認した。さらに新規作成フォームには必須列 `context_id` の入力がなく、NOT NULL 制約に引っかかる可能性があった。
+
+### クロール
+- [AdminTsukuyomiClient.tsx](../src/components/admin/AdminTsukuyomiClient.tsx) を読み、layer group と保存 payload が `context_type` を DB 列として扱っていることを確認。
+- [design/db_schema.md](../design/db_schema.md) の `tsukuyomi_context` は `context_id`, `tags`, `priority`, `system_prompt`, `status`, timestamps が正本で、`context_type` は存在しないことを確認。
+- [manual/27-knowledge-admin-tsukuyomi-spec.md](../manual/27-knowledge-admin-tsukuyomi-spec.md) と [BUGS.md](../BUGS.md) の既知 gap を同期対象として確認。
+
+### 実装
+- [AdminTsukuyomiClient.tsx](../src/components/admin/AdminTsukuyomiClient.tsx):
+  - layer (`judge` / `role` / `memory` / `tone` / `safety`) は `context_type` 列ではなく `tags` に保持する仕様へ統一。
+  - `tagTokens()`, `inferContextLayer()`, `tagsWithLayer()` を追加し、既存 tags から layer を推定、保存時は選択 layer tag を差し替えるようにした。
+  - 新規作成フォームに `context_id` 入力を追加。
+  - 保存 payload を `context_id`, `tags`, `priority`, `system_prompt`, `status` のみに限定し、`context_type` を DB に送らないようにした。
+- [manual/27-knowledge-admin-tsukuyomi-spec.md](../manual/27-knowledge-admin-tsukuyomi-spec.md):
+  - `/admin/tsukuyomi` の人格 DB layer は tags 表現、保存 payload は schema 正本列のみ、と明記。
+- [BUGS.md](../BUGS.md):
+  - `tsukuyomi_context.context_type` schema mismatch と `context_id` 入力欠落を fixed として記録。
+- [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): #60 summary / verified を反映。
+
+### Verified
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 167)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-4keid9ttf-armada0130.vercel.app`
+- Chrome production:
+  - `/manual/27-knowledge-admin-tsukuyomi-spec` に #60 の layer/tags 仕様と payload 境界が表示。
+- 注記:
+  - Chrome MCP の DOM click が発火せず、`/admin/tsukuyomi` 新規フォーム開閉の目視検証は未完。コード + build では確認済み。
+
+---
+
+## 2026-05-25 (#61) — OS マニュアル 継続クロール追記: Admin Projects lane row guard
+
+### 着手契機
+#60 後の `BUGS.md` 巡回で、`/admin/projects` の Lane 保存が `project_ventures` 行なし PJ に対して update-only になっている問題を再確認。Supabase update は 0 件でも error にならないため、UI が保存済み表示でも DB に残らない可能性があった。
+
+### クロール
+- [admin/projects/page.tsx](../src/app/(app)/admin/projects/page.tsx) を読み、`project_ventures` を別 query で取得し、行が無い PJ も `lanes=null` として UI に渡していることを確認。
+- [AdminProjectsTable.tsx](../src/components/admin/AdminProjectsTable.tsx) を読み、`lanes=null` の PJ でも Lane セル編集が開き、`venturesPatch.lanes` を送れることを確認。
+- [api/admin/projects/[id]](../src/app/api/admin/projects/[id]/route.ts) と [api/admin/lane-suggestions/[id]](../src/app/api/admin/lane-suggestions/[id]/route.ts) を読み、`project_ventures` update 0 件を成功扱いにしていることを確認。
+- [design/db_schema.md](../design/db_schema.md) / [008_project_ventures.sql](../scripts/migrations/008_project_ventures.sql) を読み、`project_ventures` は `display_name`, `lane`, `outcome_pattern` など必須列を持つため、Lane 保存 API で安易に upsert しない方が安全と判断。
+
+### 実装
+- [admin/projects/page.tsx](../src/app/(app)/admin/projects/page.tsx):
+  - `has_venture_row` を `ProjectRow` に渡し、`lanes=null` と「project_ventures 行なし」を区別。
+- [AdminProjectsTable.tsx](../src/components/admin/AdminProjectsTable.tsx):
+  - `has_venture_row=false` の PJ は Lane セルを `SU未化` 表示にして、LaneEditor を開かない。
+  - `saveLanes()` にも guard を追加。
+- [api/admin/projects/[id]/route.ts](../src/app/api/admin/projects/[id]/route.ts):
+  - `venturesPatch` update に `.select("project_id")` を付け、0 件なら 409 `project_ventures row not found for this project` を返す。
+- [api/admin/lane-suggestions/[id]/route.ts](../src/app/api/admin/lane-suggestions/[id]/route.ts):
+  - approve 時の `project_ventures.lanes` update も 0 件なら 409 を返し、`lane_suggestions.status='approved'` へ進めない。
+- [manual/30-admin-projects-members-ledger-spec.md](../manual/30-admin-projects-members-ledger-spec.md) と [BUGS.md](../BUGS.md) を同期更新。
+
+### Verified
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 167)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-674y203as-armada0130.vercel.app`
+- Chrome production:
+  - `/manual/30-admin-projects-members-ledger-spec` に `2026-05-25 #61`, `SU未化`, `409`, `lane_suggestions.status='approved'` guard が表示。
+  - `/admin/projects` に `PJ台帳` が表示され、`p00 AMD` の Lane セルが `SU未化 / project_ventures 作成後に編集` になっていることを確認。
+
+---
+
+## 2026-05-25 (#62) — OS マニュアル 継続クロール追記: Management Score finance simulation button
+
+### 着手契機
+#61 後の `BUGS.md` 巡回で、`/management-score` の Finance Simulation に scenario select と「シミュレーション実行」ボタンがあるのに、`GasMonthlySimulationPanel.tsx` 側で API に接続されていない問題を再確認した。
+
+### クロール
+- [GasMonthlySimulationPanel.tsx](../src/components/management-score/GasMonthlySimulationPanel.tsx) を読み、select / button が uncontrolled / no-op であることを確認。
+- [management-score/page.tsx](../src/app/(app)/management-score/page.tsx) を読み、画面は `company_budget_actual_monthly` と `company_budget_inputs` から集計済み `GasSimulationResult` を作っているが、API が必要とする `MonthlyPlInputs` は client に渡していないことを確認。
+- [api/management-score/finance/simulate](../src/app/api/management-score/finance/simulate/route.ts) を読み、`requireAdmin()` 必須、`persist=false` なら DB 保存なしで result / budgetRows を返す境界を確認。
+
+### 実装
+- [management-score/page.tsx](../src/app/(app)/management-score/page.tsx):
+  - `company_budget_inputs(source='gas_monthly_pl')` の payload から `MonthlyPlInputs` を復元する `buildMonthlyPlInputs()` を追加。
+  - 復元した inputs を `GasMonthlySimulationPanel` に渡す。
+- [GasMonthlySimulationPanel.tsx](../src/components/management-score/GasMonthlySimulationPanel.tsx):
+  - `scenarioId`, `simRunning`, `simStatus`, `displayResult` state を追加。
+  - scenario select は `inputs.scenarios` から option を作る。
+  - 「シミュレーション実行」は `POST /api/management-score/finance/simulate` を `persist=false`, `sourceRef='/management-score'` で呼び、返ってきた result を KPI / chart / table に反映。
+  - inputs が無い場合は select / button を disabled にし、壊れた fetch を出さない。
+- [manual/29-management-score-and-finance-simulation-spec.md](../manual/29-management-score-and-finance-simulation-spec.md):
+  - `/management-score` のボタンは `persist=false` preview 接続済み、保存は `simulation_only` / `company_monthly` を別運用で明示、と更新。
+- [BUGS.md](../BUGS.md): finance simulation 操作を fixed として更新。
+
+### Verified
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 167)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-186nhu1ah-armada0130.vercel.app`
+- Chrome production:
+  - `/management-score` に scenario select / button が表示され、button は enabled。
+  - button focus + Enter で `実行中…` -> `ベースラインを再計算` になり、`POST /api/management-score/finance/simulate` の `persist=false` preview 接続が成功。
+  - `/manual/29-management-score-and-finance-simulation-spec` に #62 の `persist=false` preview / 保存境界が表示され、旧「API に未接続」記載が消えていることを確認。
+
+---
+
+## 2026-05-25 (#63) — OS マニュアル 継続クロール追記: Venture Status future score hit area
+
+### 着手契機
+#62 後の `BUGS.md` 巡回で、`CockpitVentureStatus` の AMD Score 未来予測破線がクリックしづらい問題を確認。`futureScorePath` は path のみで、未来点に hit area がなかった。
+
+### クロール
+- [CockpitVentureStatus.tsx](../src/components/cockpit/CockpitVentureStatus.tsx) を読み、過去 = 実線 / 未来 = 破線の分割、`futureSeries`, `futureScorePath`, 既存 `onScoreChartClick()` を確認。
+- [manual/37-venture-status-narrative-pl-xrl-spec.md](../manual/37-venture-status-narrative-pl-xrl-spec.md) に AMD Score graph の hit area 仕様が未記載であることを確認。
+- `BUGS.md` の future click gap を確認し、本格的な `AmdScoreFutureEditModal` / `amd_score_revisions` は大きい別実装として残し、まず click range zero を解消する方針にした。
+
+### 実装
+- [CockpitVentureStatus.tsx](../src/components/cockpit/CockpitVentureStatus.tsx):
+  - `futureSeries.slice(1)` の各点に hit area 用 circle を追加。
+  - `data-future-score-hit="true"`, `data-future-score-date`, `r=20`, `fillOpacity=0.001`, `pointerEvents="all"` を付与。
+  - click は既存 `project_events` 新規作成モーダルを `p.date` の日付で開く。未来スコア前提そのものの revision modal は未実装のまま。
+- [manual/37-venture-status-narrative-pl-xrl-spec.md](../manual/37-venture-status-narrative-pl-xrl-spec.md):
+  - `AMD Score graph の編集 hit area` セクションを追加。
+  - 過去 / 現在 event dot、グラフ空白、未来予測点、現在スコア pill の click 挙動を整理。
+- [BUGS.md](../BUGS.md):
+  - future click range を `hit area 修正済 / future score revision modal は未実装` に更新。
+
+### Verified
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 167)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - final deployment: `https://amd-os-bawhxm43n-armada0130.vercel.app`
+  - intermediate deployment: `https://amd-os-8etjgw5rr-armada0130.vercel.app`
+- Chrome production:
+  - `/project/p07/cockpit` に `data-future-score-hit="true"`, `r="20"`, `fill-opacity="0.001"`, title `未来予測 2026-05-31 / クリックでイベント追加` の hit circle が表示。
+  - `/manual/37-venture-status-narrative-pl-xrl-spec` に #63 の hit area 仕様と `AmdScoreFutureEditModal` 未実装境界が表示。
+
+---
+
+## 2026-05-25 (#64) — OS マニュアル 継続クロール追記: legacy invoice route issued/sent split
+
+### 着手契機
+#63 後の `BUGS.md` 巡回で、legacy `POST /api/invoice/create` が freee 請求書を作成したあと `billing_cycles.invoice_sent_at` だけを更新している問題を確認。現行 routine は請求書発行 (`invoice_issued_at`) と請求書送付 (`invoice_sent_at`) を別 step として扱うため、legacy route が意味を混ぜていた。
+
+### クロール
+- [api/invoice/create](../src/app/api/invoice/create/route.ts) を読み、admin gate はあるが、DB 更新が `invoice_sent_at` のみであることを確認。
+- [api/invoice/preview](../src/app/api/invoice/preview/route.ts) を読み、`alreadyIssued` 判定も `invoice_sent_at` になっていることを確認。
+- [CockpitRoutineInvoiceModal.tsx](../src/components/cockpit/CockpitRoutineInvoiceModal.tsx) と [issue-invoice Edge Function](../../ios/supabase/functions/issue-invoice/index.ts) を読み、現行正本は `invoice_issued_at`, `invoice_issued_by`, `freee_invoice_number`, `invoice_subject`, `invoice_base_lines_json` を更新し、送付は別 step であることを確認。
+
+### 実装
+- [api/invoice/create/route.ts](../src/app/api/invoice/create/route.ts):
+  - `lines` 空配列 guard を追加。
+  - freee 作成後の DB 更新を `invoice_issued_at`, `invoice_issued_by`, `freee_invoice_number`, `invoice_subject`, `invoice_base_lines_json` に変更。
+  - `invoice_sent_at` は触らない。
+  - update 0 件を成功扱いにせず、`billing_cycle not found` 404 を返すようにした。
+- [api/invoice/preview/route.ts](../src/app/api/invoice/preview/route.ts):
+  - `alreadyIssued` を `invoice_issued_at` 判定に変更。
+  - `invoiceIssuedAt`, `freeeInvoiceNumber` を返すようにした。
+- [manual/32-invoice-and-billing-routine-spec.md](../manual/32-invoice-and-billing-routine-spec.md) と [BUGS.md](../BUGS.md) を同期更新。
+
+### Verified
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 167)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-h8oktqkyg-armada0130.vercel.app`
+- curl anonymous:
+  - `POST /api/invoice/create` -> 401。
+  - `GET /api/invoice/preview` -> 401。
+- Chrome production:
+  - `/manual/32-invoice-and-billing-routine-spec` に #64 の `invoice_issued_at` / `freee_invoice_number` / `invoice_sent_at は請求書送付 step` が表示。
+- 注記:
+  - freee 請求書の実発行は副作用が大きいため、本番では実行していない。
+
+---
+
+## 2026-05-25 (#65) — OS マニュアル 継続クロール追記: Atlas Map current truth / force layout docs
+
+### 着手契機
+#64 後の `BUGS.md` 巡回で、`/atlas/map` の中央密集 / 外周ドーナツ / 5秒後縮小問題が「次セッションで完全解決予定」のまま残っていることを確認。実コードはすでに radial domain / hard collide / empty engineStop へ更新済みだったため、実装と docs の current truth がズレていた。
+
+### クロール
+- [atlas/map/page.tsx](../src/app/(app)/atlas/map/page.tsx) を読み、現行 `/atlas/map` が `atlas_stories` + accepted `atlas_signals` から作る story node graph であることを確認。
+- force layout の現行値を確認:
+  - initial position: domain 角度 + `RADIUS=3000` + jitter。
+  - `center` / `isolatedCenter`: `null`。
+  - `radialDomain`: `(target - current) * 0.15 * alpha`。
+  - hard collide: `minDist=(ra+rb)*8`, alpha 非依存。
+  - charge: `-30000`。
+  - link: `distance=600`, `strength=0.05`。
+  - `cooldownTime=8000`, `warmupTicks=150`, `d3VelocityDecay=0.18`。
+  - `onEngineStop` は intentionally empty。
+- production `/atlas/map` をブラウザ確認し、`183 stories · 144 共通テーマ接続`、canvas 1 枚、凡例、domain/tag filters が表示されることを確認。
+
+### 実装
+- [manual/34-atlas-macrotrend-signal-spec.md](../manual/34-atlas-macrotrend-signal-spec.md):
+  - `34.8 Atlas Map` を追加。
+  - story node graph の入力、filter、node/link 条件、click/drag、force layout、browser verified 状態を正本化。
+  - 後続章を `34.9` 以降へ renumber。
+  - troubleshooting に「Atlas Map が中央密集する / 数秒後に縮む」を追加。
+- [BUGS.md](../BUGS.md):
+  - Atlas Map entry を `修正済 / docs 同期済` に変更。
+  - 旧「次セッションで実装」案を、現行実装値と verified 内容に置換。
+- [design/atlas.md](../design/atlas.md):
+  - graph library 候補を `react-force-graph-2d` 現行へ更新。
+  - `/atlas` が map main という旧 route 説明を、現行 `/atlas` / `/atlas/map` / themes / macrotrends / divergence に整理。
+
+### Verified
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 167)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-e0b7qg3bm-armada0130.vercel.app`
+- Browser production:
+  - `/manual/34-atlas-macrotrend-signal-spec` に `34.8 Atlas Map`, `RADIUS=3000`, `-30000`, `strength=0.05`, `2026-05-25 #65`, troubleshooting row が表示。
+  - `/atlas/map` に canvas 1 枚、凡例、`183 stories · 144 共通テーマ接続`、domain/tag filters が表示。
+
+---
+
+## 2026-05-25 (#66) — OS マニュアル 継続クロール追記: Admin Payouts reward preview writer docs
+
+### 着手契機
+#65 後の `BUGS.md` 巡回で、`[pwa/admin-payouts] cockpitの報酬previewがDBに保存されずpayoutsに出ない` が「正本writer実装待ち」のまま残っていることを確認。一方で後段には同じ内容の fixed entry があり、現コードにも `syncRewardSummaryForCycle()` / `/api/rewards/sync` / `payout-reward-cache-refresh` が存在していた。
+
+### クロール
+- [CockpitMonthlyModal.tsx](../src/components/cockpit/CockpitMonthlyModal.tsx) を読み、月次モーダルが `POST /api/rewards/sync` を呼び、報酬サマリー保存中 / 保存失敗を表示することを確認。
+- [api/rewards/sync/route.ts](../src/app/api/rewards/sync/route.ts) を読み、`requireAdmin()` + `syncRewardSummaryForCycle(createAdminClient(), projectId, ym)` を確認。
+- [reward-summary.ts](../src/lib/reward-summary.ts) を読み、`billing_cycles.reward_summary_json` と、月額固定 / `budget_reported_amount` fallback による `budget_yen` 保存を確認。
+- [progress-estimator.ts](../src/lib/progress-estimator.ts) と `progress/confirm`, `progress/revisions`, `progress/batch-save` の route coverage から、MS進捗保存後にも `syncRewardSummaryForCycle()` が走ることを確認。
+- [api/admin/payouts/route.ts](../src/app/api/admin/payouts/route.ts) と [cron/payout-reward-cache-refresh/route.ts](../src/app/api/cron/payout-reward-cache-refresh/route.ts) を読み、payout 保存 / 明示 refresh / 日次 cron が `syncRewardSummariesForBillingCycles()` を通ることを確認。
+
+### 実装
+- [BUGS.md](../BUGS.md):
+  - 古い重複 entry を `修正済 / duplicate整理済` に更新。
+  - 後続実装済みの `syncRewardSummaryForCycle()`, `/api/rewards/sync`, progress routes, admin payouts, daily cron を current truth として追記。
+- [manual/31-admin-payouts-reward-notice-spec.md](../manual/31-admin-payouts-reward-notice-spec.md):
+  - 画面/API表に `POST /api/rewards/sync` を追加。
+  - 報酬キャッシュ再計算の契機に月次モーダル / MS進捗保存を追加。
+  - 未保存 client preview を正本として扱わず、保存済み `billing_cycles.reward_summary_json` を `/admin/payouts` の正本にすることを明記。
+  - troubleshooting に「cockpit では報酬が見えるのに payouts に出ない」を追加。
+
+### Verified
+- `git diff --check` pass。
+- curl anonymous `POST /api/rewards/sync` -> 401。
+- `npm --prefix pwa run build` pass (static pages 167)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-90o33xqfy-armada0130.vercel.app`
+- Browser production:
+  - `/manual/31-admin-payouts-reward-notice-spec` に `POST /api/rewards/sync`, `syncRewardSummaryForCycle()`, 未保存 client preview 禁止、troubleshoot row が表示。
+- deploy 後 curl anonymous `POST /api/rewards/sync` -> 401。
+
+---
+
+## 2026-05-25 (#67) — OS マニュアル 継続クロール追記: invoice Edge Function caller auth
+
+### 着手契機
+#66 後の `BUGS.md` 巡回で、`issue-invoice` / `cancel-invoice` が service role で DB 更新 / freee 発行を行うのに caller 認証境界が未修正として残っていることを確認。manual 32 でも caller が `system` になりやすい既知 gap として書かれていた。
+
+### クロール
+- [pwa/src/lib/supabase/edge-functions.ts](../src/lib/supabase/edge-functions.ts) を読み、`Authorization: Bearer ${NEXT_PUBLIC_SUPABASE_ANON_KEY}` だけを送っていることを確認。
+- [issue-invoice/index.ts](../../ios/supabase/functions/issue-invoice/index.ts) を読み、`auth.getUser()` / `members.is_admin` check がなく、`extractEmailFromJWT()` が常に null を返すため `invoice_issued_by='system'` になりやすいことを確認。
+- [cancel-invoice/index.ts](../../ios/supabase/functions/cancel-invoice/index.ts) を読み、同じく service role update 前の caller check が無いことを確認。
+
+### 実装
+- [edge-functions.ts](../src/lib/supabase/edge-functions.ts):
+  - browser Supabase client からログイン中 session を取り、`session.access_token` があれば `Authorization: Bearer ...` に使う。
+  - `apikey` には anon key を送る。
+  - session が無い場合だけ anon key fallback。
+- [issue-invoice/index.ts](../../ios/supabase/functions/issue-invoice/index.ts):
+  - `requireAdmin()` を追加。
+  - `SUPABASE_ANON_KEY` + caller `Authorization` で `auth.getUser()`。
+  - service role client で `members.email = user.email` / `is_admin=true` を確認。
+  - 入力バリデーションより前に auth gate を通す。
+  - `invoice_issued_by` は caller email を保存。
+- [cancel-invoice/index.ts](../../ios/supabase/functions/cancel-invoice/index.ts):
+  - `issue-invoice` と同じ admin auth gate を追加。
+  - 入力バリデーションより前に auth gate を通す。
+- [manual/32-invoice-and-billing-routine-spec.md](../manual/32-invoice-and-billing-routine-spec.md) と [BUGS.md](../BUGS.md) を fixed/current truth へ更新。
+
+### Verified
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 167)。
+- `npx supabase functions deploy issue-invoice --project-ref nbnhrhybjslbawdukvvk` pass。
+- `npx supabase functions deploy cancel-invoice --project-ref nbnhrhybjslbawdukvvk` pass。
+- direct Edge Function anonymous + anon key:
+  - `issue-invoice` -> 401 `Unauthorized`。
+  - `cancel-invoice` -> 401 `Unauthorized`。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-2fxngpt9i-armada0130.vercel.app`
+- Browser production:
+  - `/manual/32-invoice-and-billing-routine-spec` に #67 の session token / admin gate / caller email / 401-403 troubleshoot が表示。
+- 注記:
+  - freee 実発行 / cancel は副作用が大きいため未実行。
+
+---
+
+## 2026-05-25 (#68) — OS マニュアル 継続クロール追記: L2 extraction routines current truth
+
+### 着手契機
+#67 後の継続クロールで、L2 ②④⑤⑥ ghost 復旧計画が `design/l2_extract_claude_routine.md` にはあるが、マニュアル正本では「予定」扱いのまま細かい仕様が不足していることを確認。特に `amd-os-meeting-extract` は SKILL と GAS dryRun が既にあるため、実装済み部分と未完部分を分けて正本化する必要があった。
+
+### クロール
+- `~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md` を読み、Routine 1 の prompt が存在することを確認。
+- [gas/153_MeetingHourlyTrigger.js](../../gas/153_MeetingHourlyTrigger.js) を読み、`opts.dryRun === true` の場合は kill switch を bypass し、GAS 内 LLM call なしで `nav_meeting_processOneEvent_` に context 取得を渡すことを確認。
+- [gas/074_MeetingSummaryRepo.js](../../gas/074_MeetingSummaryRepo.js) を読み、`opts.dryRun === true` の場合に `combinedText`, `aliasBlock`, `feedbackBlock`, `feedbackIds`, `newHash`, `promptRev` を返すことを確認。
+- live GAS WebApp で `nav_meeting_pollRecentlyEndedEvents({dryRun:true})` を本文非表示メタだけで検証:
+  - http 200 / `ok=true`
+  - `scanned=1`, `in_window=0`, `processed=0`, `skipped_excluded=1`, `errors=0`
+- `~/.claude/scheduled-tasks/` には `amd-os-management-dialogue-prep` と `amd-os-meeting-extract` の 2 件のみ存在することを確認。
+- [db_schema.md](../design/db_schema.md) を確認し、`member_knowledge` に `status` / `source_hash` 列が無いことを確認。
+
+### 実装
+- [manual/38-l2-extraction-routines-spec.md](../manual/38-l2-extraction-routines-spec.md) を新規追加。
+  - L2 ②④⑤⑥の対象範囲、GASを戻さない理由、Claude routine 一覧、MTG dryRun flow、②④⑤ flow、冪等性、通知、禁止事項、残タスクを正本化。
+  - `protocols` yes は `confirmed`、`project_knowledge` yes は `active`、`member_knowledge` は status migration 判断が必要と明記。
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts), [manual/00](../manual/00-intro.md), [manual/03](../manual/03-data-and-extraction.md), [manual/05](../manual/05-decisions-and-history.md), [manual/07](../manual/07-atlas-protocol-score-macrotrend.md), [manual/20](../manual/20-system-architecture.md), [manual/22](../manual/22-notifications-and-tsukuyomi.md) を 38 章へ接続。
+- [design/L2_DATA.md](../design/L2_DATA.md), [design/member_knowledge.md](../design/member_knowledge.md), [design/project_knowledge.md](../design/project_knowledge.md), [design/amd_protocol.md](../design/amd_protocol.md), [design/notifications.md](../design/notifications.md), [design/l2_extract_claude_routine.md](../design/l2_extract_claude_routine.md), [design/SPEC_pwa.md](../design/SPEC_pwa.md) を current truth へ更新。
+- [BUGS.md](../BUGS.md) の L2 extraction ghost entry を「復旧中」に更新し、#68 の dryRun 検証と `member_knowledge` schema gap を追記。
+
+### Verified
+- live GAS dryRun 200 OK を確認済み。
+- manual slug check pass (configured 30 / markdown 30 / missing 0 / unlisted 0)。
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 168)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-px9rlv9di-armada0130.vercel.app`
+- Browser production:
+  - `/manual` に「まず使う人向け」「全体設計・細かい仕様」と `L2 Extraction Routines` が表示。
+  - `/manual/38-l2-extraction-routines-spec` に `amd-os-meeting-extract`, `GAS dryRun`, `member_knowledge` schema gap, `scheduled task 登録待ち` が表示。
+  - `/manual/22-notifications-and-tsukuyomi` に `protocols -> confirmed`, `member_knowledge status 列なし`, 38章 link が表示。
+
+---
+
+## 2026-05-25 (#69) — OS マニュアル 継続クロール追記: 月次カレンダー / AMD Score future loop / 経営ハイライト naming sync
+
+### 着手契機
+まさから「このまま可能な限りずっと続けてほしい。追記して、design_logとかOSそのものをブラウザで見て確認して、足りない要素があれば追記して…を繰り返して」と依頼。#68 後の継続クロールで、月次 routine の締切フロー、AMD Score 未来予測修正、経営ハイライト UI 表示、請求後の入金確認接続、旧 dialogue 呼称 / 内部理由 / 特定メンバー名の残骸にズレを確認。
+
+### クロール
+- [manual/04-admin-ops.md](../manual/04-admin-ops.md), [manual/01-pj-cockpit.md](../manual/01-pj-cockpit.md), [manual/10-member-workflows-quick-start.md](../manual/10-member-workflows-quick-start.md), [manual/32-invoice-and-billing-routine-spec.md](../manual/32-invoice-and-billing-routine-spec.md), [design/routine.md](../design/routine.md) を読み、標準 PJ / CTB PJ / `invoice_ym` deferred / 入金確認 -> 支払通知書の記述差分を確認。
+- [manual/21-amd-score-spec.md](../manual/21-amd-score-spec.md), [design/score_revision_feedback_loop.md](../design/score_revision_feedback_loop.md), [design/amd_score.md](../design/amd_score.md), [manual/37-venture-status-narrative-pl-xrl-spec.md](../manual/37-venture-status-narrative-pl-xrl-spec.md) を読み、`AmdScoreFutureEditModal` と `amd_score_revisions` の実装境界を整理。
+- [CockpitStrategySignals.tsx](../src/components/cockpit/CockpitStrategySignals.tsx), [supabase-data.ts](../src/lib/supabase-data.ts), [operations-catalog.ts](../src/lib/operations-catalog.ts), [project_strategy_signals.md](../design/project_strategy_signals.md), [manual/28-notification-review-and-strategy-signals-spec.md](../manual/28-notification-review-and-strategy-signals-spec.md) を読み、UI 名称 / polarity / score impact / source 表示のズレを確認。
+- route coverage / browser production で `/manual`, `/admin/settings`, `/notifications`, `/project/p21/cockpit` を確認し、旧名や旧 dialogue 呼称が画面に出ないことを検査。
+
+### 実装
+- [manual/04-admin-ops.md](../manual/04-admin-ops.md):
+  - 4.0 月次運用カレンダーを追加。
+  - 標準 PJ / CTB PJ / 請求後の入金確認 -> 支払通知書 -> 報酬支払 flow を Mermaid で追記。
+  - task table に締切日、担当、画面、やること、保存列を追加。
+- [manual/01-pj-cockpit.md](../manual/01-pj-cockpit.md), [manual/10-member-workflows-quick-start.md](../manual/10-member-workflows-quick-start.md), [manual/32-invoice-and-billing-routine-spec.md](../manual/32-invoice-and-billing-routine-spec.md):
+  - 月次 routine の締切・タスク内容・完了判定を同期。
+  - 32 章に「請求・月次ルーティン仕様」表記と `billing_cycles.payment_confirmed_at` / `billing_log.detail` / `/admin/payouts?ym=YYYYMM` 接続を追加。
+- [manual/21-amd-score-spec.md](../manual/21-amd-score-spec.md):
+  - `21.11 未来予測修正と alpha feedback loop` を追加。
+  - `amd_score_revisions`, `amd_score_alpha_proposals`, `reason_md`, `source='tsukuyomi_proposal'`, `AmdScoreFutureEditModal` 未実装境界を正本化。
+- [manual/28-notification-review-and-strategy-signals-spec.md](../manual/28-notification-review-and-strategy-signals-spec.md), [design/project_strategy_signals.md](../design/project_strategy_signals.md), [design/strategy_signals_redesign.md](../design/strategy_signals_redesign.md):
+  - `経営ハイライト` の表示軸を polarity chip / category border / score impact の 3 層に整理。
+  - candidate 表示を「未確認」に統一し、旧 `decision_state` は DB legacy 軸で UI 主表示にしないと明記。
+- [CockpitStrategySignals.tsx](../src/components/cockpit/CockpitStrategySignals.tsx), [supabase-data.ts](../src/lib/supabase-data.ts), [CockpitView.tsx](../src/components/cockpit/CockpitView.tsx):
+  - section header を `経営ハイライト` に変更。
+  - `polarity`, `scoreImpactSummary`, `scoreImpactDelta` を mapper / type に追加。
+  - polarity chip と `📊 影響: ...` 表示を追加。
+- [operations-catalog.ts](../src/lib/operations-catalog.ts):
+  - L2 ⑨ source を `Codex automation amd-os` に更新。
+- [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/00-intro.md](../manual/00-intro.md), [design/README.md](../design/README.md):
+  - design md の manual 参照漏れを再クロールし、20.8 `設計 md の索引` を追加。
+  - manual は読み手向け正本、`pwa/design/` は実装設計の正本という役割分担を明記。
+  - 00 章の読み方ガイドから 20.8 へ接続。
+- [check_pwa_critical_ui.cjs](../scripts/check_pwa_critical_ui.cjs), [dialogue-meeting系 route / modal](../src/app/api/dialogue-meeting/narrate/route.ts), [design/cockpit.md](../design/cockpit.md), [design/L2_DATA.md](../design/L2_DATA.md), [design/meeting_summaries.md](../design/meeting_summaries.md), GAS placeholder など:
+  - 旧 dialogue 呼称、内部理由、特定メンバー名だけが目立つ設計例を除去。
+  - critical UI guard は新呼称 (`提案前の論点整理セッション`, `チームへの提案案`, `経営ハイライト`) を見るよう更新。
+
+### Verified
+- route coverage check: app routes は manual/design に全件接続、API routes は manual/design missing 0。
+- banned phrasing check pass: 旧 dialogue 呼称 / 内部理由 / 特定メンバー名だけが目立つ設計例は `pwa/manual`, `pwa/design`, `pwa/src`, `pwa/scripts`, `gas`, `scripts` から除去。
+- `git diff --check` pass。
+- `npm --prefix pwa run test:critical-ui` pass。
+- `npm --prefix pwa run test:next-period-ui` pass。
+- `npm --prefix pwa run build` pass (static pages 168)。
+- `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+  - deployment: `https://amd-os-nk46lcw3q-armada0130.vercel.app`
+- Browser production:
+  - `/manual/00-intro` に `実装者向けの設計 md` と `20.8 設計 md の索引` への導線が表示。
+  - `/manual/04-admin-ops` に `4.0 月次運用カレンダー`, `前月25日`, `支払期日`, `/admin/payouts?ym=YYYYMM` が表示。
+  - `/manual/21-amd-score-spec` に `未来予測修正と alpha feedback loop`, `amd_score_revisions`, `AmdScoreFutureEditModal`, `reason_md` が表示。
+  - `/manual/20-system-architecture` に exact route `/manual/[slug]` と `20.8 設計 md の索引` が表示。
+  - `/manual/23-hud-and-venture-map-spec` に exact HUD routes `/hud/seeds/[id]`, `/hud/vcs/[id]`, `/hud/vcs/[id]/edit` が表示。
+  - `/manual/28-notification-review-and-strategy-signals-spec` に `経営ハイライト cockpit 確認`, `polarity chip`, `未確認`, `score_impact_summary` が表示。
+  - `/manual/32-invoice-and-billing-routine-spec` に `請求・月次ルーティン仕様`, `billing_cycles.payment_confirmed_at` が表示。
+  - `/project/p21/cockpit` に `経営ハイライト` が表示され、旧名 / 旧 dialogue 呼称 / 内部理由は出ない。
+  - `/admin/settings` に `経営ハイライト`, `project_strategy_signals`, `Codex automation amd-os` が表示。
+
+---
+
+## 2026-05-25 (#70) — OS マニュアル UX: クリックマップ主役化 + 目次保険
+
+### 着手契機
+まさから「目次は目次で残しつつ、興味あるところをクリックしながら読み進める設計にしたい」と指摘。読書ルートは順路を押し付ける別アプローチなので撤回し、テーマノードから関連章へ横移動する設計に切り替えた。
+
+### 実装
+- [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts):
+  - `MANUAL_CHAPTERS` に表示番号、短い title、summary、topics、related screens / tables を追加。
+  - `MANUAL_TOPIC_NODES` を追加し、`まず触る` / `PJを見る` / `月次オペ` / `経営判断` / `外部探索` / `知識・通知` / `Admin設定` / `設計・開発` / `OSの構造` の 9 テーマを定義。
+  - 目次セクションを `入口` / `まず使う人向け` / `OS の基本構造` / `経営判断エンジン` / `外部探索・事業アセット` / `Admin / Finance / 月次オペ` / `Knowledge / Automation` / `開発者・履歴` に再編。
+- [ManualMapClient.tsx](../src/app/(app)/manual/ManualMapClient.tsx) を新規追加。
+  - `/manual` の主役としてクリックマップを表示。
+  - テーマをクリックすると URL が `?topic=...` に変わり、関連章カードとつながるテーマを表示。
+- [manual/page.tsx](../src/app/(app)/manual/page.tsx):
+  - クリックマップを上部に配置。
+  - 目次 / メタデータ未設定 / 未分類 / 全章一覧を下部に残し、リンク漏れで章が埋もれないようにした。
+- [manual/[slug]/page.tsx](../src/app/(app)/manual/%5Bslug%5D/page.tsx):
+  - markdown の旧章番号 H1 を画面表示上の新番号 / title に置換。
+  - 本文上部に topic chip、screen / table chip、関連章 chip を表示。
+- [design/os_manual.md](../design/os_manual.md):
+  - 現行 UX をクリックマップ主役 + 目次保険として正本化。
+
+### Verified
+- `git diff --check` pass。
+- `npm --prefix pwa run build` pass (static pages 168)。
+- Local browser verification (`http://localhost:3032` auth session):
+  - `/manual` に `クリックマップ`, `経営判断`, `目次`, `全章一覧` が表示。
+  - `経営判断` click 後、URL が `/manual?topic=decision` になり、`AMD Score 詳細仕様` と `Atlas / Macrotrend 詳細仕様` が表示。
+  - `/manual/21-amd-score-spec` に `32. AMD Score 詳細仕様`, topic chip, `関連章` が表示。
+
+## 2026-05-25 (#71) — L2 ②〜⑨ Claude routine 8 個統一方針確定 + #40 Routine 1 完全 inline 移植 + #34 対話型修正依頼実装
+
+### コンテキスト
+- 前セッション (= 2026-05-25 お昼) で #40 (Routine 1) を「GAS dryRun 経由 + Claude routine が curl で叩く」アプローチで実装、#34 (経営ハイライト修正依頼) を「Anthropic Sonnet 直叩きで即時 update」一方通行版で実装。
+- まさ仮眠から起きて 2 件とも認識誤りと指摘:
+  - #40 「GAS を呼ぶことは求めてない、GAS の設計を Claude routine 内に **inline 移植** して (= GAS 非依存)」
+  - #34 「内容変わらない、**対話型** (= つくよみ提案 → まさ判断 → 確定) でやろう」
+- BUGS.md [meta/ai-interpretation] に教訓記録済。
+
+### セッション中の方針追加
+- まさ #71 「**すべて Claude routines で抽出する形に変更**」 = L2 ②〜⑨ 全 8 種を Claude routine に統一。ghost 4 種 (②④⑤⑥) だけでなく稼働中の ③⑦⑧⑨ も移管。既存 Codex automation `amd-os-ms` / `amd-os` + LaunchAgent applier は Routine 5-8 動作確認後に段階的停止。
+- まさ #71 「**#34 中期 (automation prompt 修正) は捨てる**、対話型ループが出来たら冗長」 = `~/.codex/automations/amd-os/automation.toml` に追加した `l2_feedbacks` 読み込み手順 4 を revert。
+
+### 実装
+
+#### #40 完全移植 (= Routine 1 ⑥ MTG サマリ)
+- [`~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md`](~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md) を **GAS dryRun 経由 → MCP 直叩き完全 inline 移植版** に書き直し:
+  - Phase 0: env (= SUPABASE_URL / SRK) + Calendar list_calendars MCP で primary 確認
+  - Phase A: Calendar list_events MCP で過去 3 時間取得 → 終了 60-180 分前 filter → PJ 判定 (= projects.project_name / project_id / client_name substring match、外部スプシ CFG は使わない)
+  - Phase B: Notion 3 段 fallback (= eventId / titleHint+date / date) → ページ本文 + AI transcription block → Gmail thread (= report_emails 経由) + Drive Docs + Slack thread → source_kinds 判定 (= 30 chars 閾値、+ で結合) → source_hash 計算 (sha256 rev + feedback hash + combined) → 既存 row と差分検知
+  - Phase C: alias map (= members.code_name + email local part) + feedback block (= l2_feedbacks active rows、scope_key event.id or 'global') 生成 → 私 (= scheduled task 内 Claude) が JSON 出力 (summary_short / decided / progress / next_actions / risks / narrative_md)
+  - Phase D: project_meeting_summaries + meeting_notifications upsert (= curl Supabase REST、service_role) + 該当 feedbacks の applied_count++ + last_applied_at
+  - Phase E: run summary + まさへの 1 行サマリ (= notifyOnCompletion 表示用)
+- GAS は完全 bypass (= kill switch のまま死んでて OK)、5 ソース全部見る (= GAS 074 + 074b-e 集約を 1 routine で実現)
+
+#### #34 対話型修正依頼 (= L2 ⑨ 経営ハイライト)
+- [`pwa/src/lib/strategy-signal-dialog.ts`](../src/lib/strategy-signal-dialog.ts) 新規 (= helper):
+  - `fetchSignalContext(targetId, scopeKey)`: scope_key から ym + hashPrefix を抽出 → project_strategy_signals 逆引き + 過去 l2_feedbacks fetch
+  - `generateProposal(context, conversation)`: Anthropic Sonnet 4.6 で改訂案生成 (= conversation を context、最後の user 発言が今回の修正依頼 or 追加 hint or 「やり直し」)
+  - `applyProposal(context, conversation, proposed, ...)`: signal update + l2_feedbacks INSERT (= conversation 全体を markdown で feedback_text に永続化) + 過去 feedbacks の applied_count++
+  - `requireAdmin()`: 共通 admin 認証 (= members.is_admin チェック)
+- [`pwa/src/app/api/notifications/feedback/dialog/start/route.ts`](../src/app/api/notifications/feedback/dialog/start/route.ts) 新規: 初回 textarea 送信 → proposed 生成 + conversation [user, assistant] 返却
+- [`pwa/src/app/api/notifications/feedback/dialog/refine/route.ts`](../src/app/api/notifications/feedback/dialog/refine/route.ts) 新規: 「やり直し」または「追加コメント」 → conversation に user 発言追加 + 再生成
+- [`pwa/src/app/api/notifications/feedback/dialog/confirm/route.ts`](../src/app/api/notifications/feedback/dialog/confirm/route.ts) 新規: まさ承認 → applyProposal で signal 更新 + l2_feedbacks INSERT
+- [`pwa/src/app/api/notifications/feedback/route.ts`](../src/app/api/notifications/feedback/route.ts) 修正: `reextractStrategySignalImmediate` 関数削除 + `triggerImmediateReExtraction` の L2 ⑨ 分岐削除 + POST /api/notifications/feedback の L2 ⑨ 即時再抽出 fire-and-forget を停止
+- [`pwa/src/components/cockpit/CockpitStrategySignals.tsx`](../src/components/cockpit/CockpitStrategySignals.tsx) 修正: 修正依頼 modal を **対話型 UI** に拡張 (= 4 step state: input → loading → preview (= DiffRow 6 行 + reasoning + 適用/やり直し/追加コメント 3 ボタン + 対話履歴 details) → addComment)。親 component に `feedbackTick` state 追加で confirm 後 refetch。
+
+#### #34 中期廃止
+- [`~/.codex/automations/amd-os/automation.toml`](~/.codex/automations/amd-os/automation.toml) の手順 4 (= l2_feedbacks 読み込み) を revert (= 対話型ループで冗長、まさ #71 確定)
+
+#### 設計議論 md / マニュアル / 中核データ正本
+- [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md) 改訂: 「dryRun 撤回 + L2 ②〜⑨ 全 8 routine 統一」方針反映、8 routine 一覧表 + 段階的停止計画 + Routine 1 SKILL.md 完了記載
+- [`pwa/manual/05-decisions-and-history.md`](../manual/05-decisions-and-history.md) §5.7 更新: ghost 4 → 8 routine 拡張、各 routine の状態列追加
+- [`pwa/design/L2_DATA.md`](../design/L2_DATA.md) 「L2 ②〜⑨ ghost 化」section を「Claude routine 8 個統一」section に書き換え、改訂履歴に 2026-05-25 (#71) エントリ追加
+
+### Verified
+- `npx tsc --noEmit` pass
+- `npm run build` pass、3 routes (= `/api/notifications/feedback/dialog/{start,refine,confirm}`) がビルド出力に登録
+- `npm run test:critical-ui` pass
+
+### TODO (次セッション)
+- HANDOFF Open Tasks: Routine 2-8 SKILL.md 新設 (= ②④⑤、③⑦⑧⑨)、`mcp__scheduled-tasks__create_scheduled_task` で登録、5/22-5/25 取り込み穴期間 backfill モード、ブラウザで対話型 UI 動作確認
+- 既存 Codex automation `amd-os-ms` + `amd-os` + LaunchAgent applier は Routine 5-8 動作確認後に段階的 unload

@@ -173,8 +173,10 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
   );
 
   // まさ #34 短期 2026-05-25: 過去のつくよみ修正依頼を 1 回 fetch
+  // #34 対話型 2026-05-25 #71: confirm 後にも refetch するため tick state を増やす
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackTick, setFeedbackTick] = useState(0);
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/notifications/feedback?l2_kind=project_strategy_signal&target_id=${encodeURIComponent(projectId)}&limit=300`)
@@ -189,7 +191,7 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
       })
       .catch((e) => { if (!cancelled) setFeedbackError(e instanceof Error ? e.message : "fetch error"); });
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [projectId, feedbackTick]);
 
   // signal 1 件あたりの scope_key 前方一致パターン:
   //   signal の scope_key は POST 側で `${signal.ym}:strategy:${(signal.sourceHash || "").slice(0, 12) || signal.signalId.slice(0, 12)}` と書かれる
@@ -255,6 +257,7 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
                 categoryBorder={meta.cardBorderClass}
                 categoryEmoji={meta.emoji}
                 pastFeedbacks={feedbacksBySignalId[signal.signalId] || []}
+                onConfirmed={() => setFeedbackTick((t) => t + 1)}
               />
             );
           })}
@@ -264,44 +267,163 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
   );
 }
 
-function StrategySignalRow({ signal, projectId, categoryBorder, categoryEmoji, pastFeedbacks }: { signal: ProjectStrategySignal; projectId: string; categoryBorder: string; categoryEmoji: string; pastFeedbacks: FeedbackItem[] }) {
+type ProposedSignal = {
+  title: string;
+  summary: string;
+  impact_level: string;
+  signal_type: string;
+  polarity: string | null;
+  score_impact_summary: string | null;
+};
+
+type DialogMessage =
+  | { role: "user"; content: string }
+  | { role: "assistant"; proposed: ProposedSignal; reasoning: string; applied_feedback_summary: string };
+
+type DialogStep = "input" | "loading" | "preview" | "addComment";
+
+function StrategySignalRow({
+  signal,
+  projectId,
+  categoryBorder,
+  categoryEmoji,
+  pastFeedbacks,
+  onConfirmed,
+}: {
+  signal: ProjectStrategySignal;
+  projectId: string;
+  categoryBorder: string;
+  categoryEmoji: string;
+  pastFeedbacks: FeedbackItem[];
+  onConfirmed?: () => void;
+}) {
   const refs = sourceSummary(signal.sourceRefs);
   const impactClass = IMPACT_CLASS[signal.impactLevel] ?? IMPACT_CLASS.medium;
   const polarity = signal.polarity ? POLARITY_META[signal.polarity] : null;
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sentNote, setSentNote] = useState<string | null>(null);
+  const [dialogStep, setDialogStep] = useState<DialogStep>("input");
+  const [conversation, setConversation] = useState<DialogMessage[]>([]);
+  const [proposed, setProposed] = useState<ProposedSignal | null>(null);
+  const [current, setCurrent] = useState<ProposedSignal | null>(null);
+  const [reasoning, setReasoning] = useState("");
+  const [appliedSummary, setAppliedSummary] = useState("");
+  const [additionalText, setAdditionalText] = useState("");
+  const [errorNote, setErrorNote] = useState<string | null>(null);
 
-  async function submitFeedback() {
+  const scopeKey = signal.ym
+    ? `${signal.ym}:strategy:${(signal.sourceHash || "").slice(0, 12) || signal.signalId.slice(0, 12)}`
+    : "global";
+
+  function resetDialog() {
+    setFeedbackOpen(false);
+    setFeedbackText("");
+    setDialogStep("input");
+    setConversation([]);
+    setProposed(null);
+    setCurrent(null);
+    setReasoning("");
+    setAppliedSummary("");
+    setAdditionalText("");
+    setErrorNote(null);
+  }
+
+  async function startDialog() {
     const text = feedbackText.trim();
     if (!text) return;
-    setSending(true);
-    setSentNote(null);
+    setDialogStep("loading");
+    setErrorNote(null);
     try {
-      const res = await fetch("/api/notifications/feedback", {
+      const res = await fetch("/api/notifications/feedback/dialog/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           l2_kind: "project_strategy_signal",
           target_id: projectId,
-          scope_key: signal.ym ? `${signal.ym}:strategy:${(signal.sourceHash || "").slice(0, 12) || signal.signalId.slice(0, 12)}` : "global",
-          feedback_text: text,
-          action: "comment",
+          scope_key: scopeKey,
+          initial_feedback: text,
         }),
       });
-      if (res.ok) {
-        setSentNote("✓ 修正依頼を保存しました (tsukuyomi 学習リストへ追加)");
-        setFeedbackText("");
-        setTimeout(() => { setFeedbackOpen(false); setSentNote(null); }, 1800);
-      } else {
-        const j = await res.json().catch(() => ({}));
-        setSentNote(`✕ 送信失敗: ${j.error || res.status}`);
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) {
+        setErrorNote(`✕ 提案生成失敗: ${j.error || res.status}`);
+        setDialogStep("input");
+        return;
       }
+      setProposed(j.proposed as ProposedSignal);
+      setCurrent(j.current as ProposedSignal);
+      setReasoning(String(j.reasoning || ""));
+      setAppliedSummary(String(j.applied_feedback_summary || ""));
+      setConversation(j.conversation as DialogMessage[]);
+      setDialogStep("preview");
     } catch (e) {
-      setSentNote(`✕ 送信失敗: ${e instanceof Error ? e.message : "unknown"}`);
-    } finally {
-      setSending(false);
+      setErrorNote(`✕ 提案生成失敗: ${e instanceof Error ? e.message : "unknown"}`);
+      setDialogStep("input");
+    }
+  }
+
+  async function refineDialog(opts: { additionalHint?: string; additionalFeedback?: string }) {
+    setDialogStep("loading");
+    setErrorNote(null);
+    try {
+      const res = await fetch("/api/notifications/feedback/dialog/refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          l2_kind: "project_strategy_signal",
+          target_id: projectId,
+          scope_key: scopeKey,
+          conversation,
+          additional_hint: opts.additionalHint ?? "",
+          additional_feedback: opts.additionalFeedback ?? "",
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) {
+        setErrorNote(`✕ やり直し失敗: ${j.error || res.status}`);
+        setDialogStep("preview");
+        return;
+      }
+      setProposed(j.proposed as ProposedSignal);
+      setReasoning(String(j.reasoning || ""));
+      setAppliedSummary(String(j.applied_feedback_summary || ""));
+      setConversation(j.conversation as DialogMessage[]);
+      setAdditionalText("");
+      setDialogStep("preview");
+    } catch (e) {
+      setErrorNote(`✕ やり直し失敗: ${e instanceof Error ? e.message : "unknown"}`);
+      setDialogStep("preview");
+    }
+  }
+
+  async function confirmDialog() {
+    if (!proposed) return;
+    setDialogStep("loading");
+    setErrorNote(null);
+    try {
+      const res = await fetch("/api/notifications/feedback/dialog/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          l2_kind: "project_strategy_signal",
+          target_id: projectId,
+          scope_key: scopeKey,
+          conversation,
+          proposed,
+          applied_feedback_summary: appliedSummary,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) {
+        setErrorNote(`✕ 確定失敗: ${j.error || res.status}`);
+        setDialogStep("preview");
+        return;
+      }
+      onConfirmed?.();
+      resetDialog();
+    } catch (e) {
+      setErrorNote(`✕ 確定失敗: ${e instanceof Error ? e.message : "unknown"}`);
+      setDialogStep("preview");
     }
   }
 
@@ -394,37 +516,170 @@ function StrategySignalRow({ signal, projectId, categoryBorder, categoryEmoji, p
       )}
       {feedbackOpen && (
         <div className="mt-2 rounded border border-amber-200 bg-amber-50/60 p-2">
-          <div className="text-[10px] text-amber-900 mb-1">
-            つくよみ (LLM 抽出) への修正依頼。次回以降の抽出に反映され、`tsukuyomi_learnings` に蓄積されます。
-          </div>
-          <textarea
-            value={feedbackText}
-            onChange={(e) => setFeedbackText(e.target.value)}
-            placeholder="例: このシグナルは「外部環境変化」じゃなくて「技術開発」 (= 自社特許出願) に分類すべき"
-            className="w-full rounded border border-amber-300 bg-white p-1.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-amber-400"
-            rows={3}
-            disabled={sending}
-          />
-          <div className="mt-1 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={submitFeedback}
-              disabled={sending || !feedbackText.trim()}
-              className="rounded bg-amber-600 px-2 py-0.5 text-[10px] text-white disabled:opacity-40"
-            >
-              {sending ? "送信中..." : "送信"}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setFeedbackOpen(false); setFeedbackText(""); setSentNote(null); }}
-              className="rounded border border-amber-300 px-2 py-0.5 text-[10px] text-amber-800 hover:bg-amber-100"
-            >
-              キャンセル
-            </button>
-            {sentNote && <span className="text-[10px] text-amber-900">{sentNote}</span>}
-          </div>
+          {dialogStep === "input" && (
+            <>
+              <div className="text-[10px] text-amber-900 mb-1">
+                つくよみ (LLM 抽出) への修正依頼。送信するとつくよみが改訂案を提示するので、まさが「適用 / やり直し / 追加コメント」で対話的に固める。
+              </div>
+              <textarea
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+                placeholder="例: このシグナルは「外部環境変化」じゃなくて「技術開発」 (= 自社特許出願) に分類すべき"
+                className="w-full rounded border border-amber-300 bg-white p-1.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-amber-400"
+                rows={3}
+              />
+              <div className="mt-1 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={startDialog}
+                  disabled={!feedbackText.trim()}
+                  className="rounded bg-amber-600 px-2 py-0.5 text-[10px] text-white disabled:opacity-40"
+                >
+                  送信 (= つくよみに提案を依頼)
+                </button>
+                <button
+                  type="button"
+                  onClick={resetDialog}
+                  className="rounded border border-amber-300 px-2 py-0.5 text-[10px] text-amber-800 hover:bg-amber-100"
+                >
+                  キャンセル
+                </button>
+                {errorNote && <span className="text-[10px] text-rose-700">{errorNote}</span>}
+              </div>
+            </>
+          )}
+
+          {dialogStep === "loading" && (
+            <div className="py-3 text-center text-[11px] text-amber-900">
+              🌙 つくよみが提案を考えてる…
+            </div>
+          )}
+
+          {dialogStep === "preview" && proposed && current && (
+            <>
+              <div className="text-[10px] text-amber-900 mb-1.5 font-semibold">
+                🌙 つくよみ提案: {reasoning || "改訂案を作りました。これでいい?"}
+              </div>
+              {appliedSummary && (
+                <div className="mb-1.5 text-[10px] text-amber-700">
+                  反映内容: {appliedSummary}
+                </div>
+              )}
+              <div className="space-y-1.5 rounded border border-amber-300 bg-white/80 p-2">
+                <DiffRow label="title" before={current.title} after={proposed.title} />
+                <DiffRow label="summary" before={current.summary} after={proposed.summary} />
+                <DiffRow label="signal_type" before={current.signal_type} after={proposed.signal_type} compact />
+                <DiffRow label="impact" before={current.impact_level} after={proposed.impact_level} compact />
+                <DiffRow label="polarity" before={current.polarity ?? "(未設定)"} after={proposed.polarity ?? "(未設定)"} compact />
+                <DiffRow label="score" before={current.score_impact_summary ?? "(未設定)"} after={proposed.score_impact_summary ?? "(未設定)"} compact />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={confirmDialog}
+                  className="rounded bg-emerald-600 px-2 py-0.5 text-[10px] text-white hover:bg-emerald-700"
+                >
+                  ✓ 適用 (= signal を更新)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => refineDialog({ additionalHint: "別案を見せて" })}
+                  className="rounded border border-amber-400 px-2 py-0.5 text-[10px] text-amber-800 hover:bg-amber-100"
+                >
+                  🔁 やり直し (= 別案)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDialogStep("addComment")}
+                  className="rounded border border-amber-400 px-2 py-0.5 text-[10px] text-amber-800 hover:bg-amber-100"
+                >
+                  💬 追加コメント
+                </button>
+                <button
+                  type="button"
+                  onClick={resetDialog}
+                  className="ml-auto rounded border border-zinc-300 px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-100"
+                >
+                  キャンセル
+                </button>
+                {errorNote && <span className="text-[10px] text-rose-700">{errorNote}</span>}
+              </div>
+              <details className="mt-1.5 text-[10px] text-amber-800">
+                <summary className="cursor-pointer select-none">対話履歴 ({conversation.length}件)</summary>
+                <div className="mt-1 space-y-1">
+                  {conversation.map((m, i) =>
+                    m.role === "user" ? (
+                      <div key={i} className="rounded bg-white/60 px-2 py-1">
+                        <span className="font-mono text-[9px] text-amber-700">[まさ]</span> {m.content}
+                      </div>
+                    ) : (
+                      <div key={i} className="rounded bg-amber-100/60 px-2 py-1">
+                        <span className="font-mono text-[9px] text-amber-700">[つくよみ]</span> {m.reasoning}
+                      </div>
+                    )
+                  )}
+                </div>
+              </details>
+            </>
+          )}
+
+          {dialogStep === "addComment" && (
+            <>
+              <div className="text-[10px] text-amber-900 mb-1">
+                追加コメントを書いてつくよみに再提案を依頼する。
+              </div>
+              <textarea
+                value={additionalText}
+                onChange={(e) => setAdditionalText(e.target.value)}
+                placeholder="例: ここの「DD」は実は「面談」止まりなので、もっと弱めの impact_level にして"
+                className="w-full rounded border border-amber-300 bg-white p-1.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-amber-400"
+                rows={3}
+              />
+              <div className="mt-1 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => refineDialog({ additionalFeedback: additionalText.trim() })}
+                  disabled={!additionalText.trim()}
+                  className="rounded bg-amber-600 px-2 py-0.5 text-[10px] text-white disabled:opacity-40"
+                >
+                  送信 (= 追加コメント反映で再提案)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAdditionalText(""); setDialogStep("preview"); }}
+                  className="rounded border border-amber-300 px-2 py-0.5 text-[10px] text-amber-800 hover:bg-amber-100"
+                >
+                  戻る
+                </button>
+                {errorNote && <span className="text-[10px] text-rose-700">{errorNote}</span>}
+              </div>
+            </>
+          )}
         </div>
       )}
     </article>
+  );
+}
+
+function DiffRow({ label, before, after, compact }: { label: string; before: string; after: string; compact?: boolean }) {
+  const same = before === after;
+  return (
+    <div className={`grid grid-cols-[60px_1fr] gap-1.5 text-[10px] ${compact ? "items-center" : "items-start"}`}>
+      <span className="font-mono text-zinc-600">{label}</span>
+      <div className="space-y-0.5">
+        {same ? (
+          <div className="text-zinc-700">{after || "(空)"}</div>
+        ) : (
+          <>
+            <div className="rounded bg-rose-50 px-1.5 py-0.5 text-rose-800 line-through decoration-rose-400 decoration-2">
+              {before || "(空)"}
+            </div>
+            <div className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-800 font-semibold">
+              {after || "(空)"}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

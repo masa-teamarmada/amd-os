@@ -121,7 +121,7 @@ L2データ
 | ③ MS進捗 | 月次モーダル側の revision confirm を使う | revision discard | `l2_feedbacks` / `tsukuyomi_learnings` |
 | ⑦ OS台帳差分 | allowlist 済みの安全な DB 更新を実行 (`project_members`, `projects.report_emails`, `project_partners`) | `project_registry_diffs.status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 | ⑧ XRL根拠 | `project_xrl_evidence.status='confirmed'` | `project_xrl_evidence.status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
-| ⑨ 経営・事業シグナル | `project_strategy_signals.status='confirmed'` | `project_strategy_signals.status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
+| ⑨ 経営ハイライト | `project_strategy_signals.status='confirmed'` | `project_strategy_signals.status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 | ④ PJナレッジ / ⑤ メンバーナレッジ | `status='active'` | `status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 | ② AMDプロトコル | `status='active'` | `status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 | founding members | `status='active'` | `status='invalid'` | `l2_feedbacks` / `tsukuyomi_learnings` |
@@ -131,7 +131,7 @@ L2データ
 Codex cron sandbox は外向きネットワークが落ちることがあるため、LLM automation は DB/API へ直接書き込まない。
 
 - `AMD OS L2差分レビュー` は `/Users/masa/.codex/automations/amd-os-ms/outbox/*.json` を作る
-- `AMD OS 経営・事業シグナルレビュー` は `/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/*.json` を作る (= 2026-05-25 applier 監視先も修復済)
+- `AMD OS 経営ハイライトレビュー` は `/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/*.json` を作る (= 2026-05-25 applier 監視先も修復済)
 - `AMD Atlas外部シグナルレビュー` は `/Users/masa/.codex/automations/amd-atlas/outbox/*.json` を作る
 - ローカルの非LLM LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` が 5 分ごとに outbox を見て、helper 経由で Supabase/PWA API へ反映する
 - 成功した file は `applied/`、失敗した file は `failed/` へ移動する
@@ -153,20 +153,19 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 | L2 | 意味 | テーブル | cron / 書き込み元 | 場所 | 状態 |
 |---|---|---|---|---|---|
 | ① **monthly report** | PJ 月次レポート本文 | `monthly_reports` | `R313_MonthlyReport_Cron` (05:00 daily) | AMD-Report GAS (別 clasp) | ✅ 稼働 (58 行) |
-| ② **AMDプロトコル** ⭐ | 経営判断の構造化記録 (分岐点 / 判断材料 / アクション / 結果)。結果はアクション後に実際に起きたことを後追いで入れる欄で、自動抽出では空欄。**AMD の最重要知財** ([amd_os_vision.md](../../../knowledge/amd_os_vision.md)) | `protocols` | ~~Phase 4 = GAS 155~~ ⛔ **2026-05-22 停止** → 🚧 **Claude routine `amd-os-protocol-extract` (= daily 08:00 JST 予定) 新設**、設計 [l2_extract_claude_routine.md](l2_extract_claude_routine.md) | (旧) 本体GAS `155_L2KnowledgeExtractor.js` + PWA `AdminProtocolsClient.tsx` (UI 既存) | ⛔ **ghost (= 5/22 以降取り込みゼロ)**、復旧計画中 |
+| ② **AMDプロトコル** ⭐ | 経営判断の構造化記録 (分岐点 / 判断材料 / アクション / 結果)。結果はアクション後に実際に起きたことを後追いで入れる欄で、自動抽出では空欄。**AMD の最重要知財** ([amd_os_vision.md](../../../knowledge/amd_os_vision.md)) | `protocols` | ~~Phase 4 = GAS 155~~ ⛔ **2026-05-22 停止** → 🚧 **Claude routine `amd-os-protocol-extract` (= daily 08:00 JST 予定) 新設**、設計 [l2_extract_claude_routine.md](l2_extract_claude_routine.md)、マニュアル [38章](../manual/38-l2-extraction-routines-spec.md) | (旧) 本体GAS `155_L2KnowledgeExtractor.js` + PWA `AdminProtocolsClient.tsx` (UI 既存) | ⛔ **ghost (= 5/22 以降取り込みゼロ)**、復旧計画中 |
 | ③ **MS進捗** | DTSU PJ / エコシステム構築PJのマイルストーン進捗%。advisorなど非MS管理PJはMS進捗を抽出せず、月次モーダルの月次ノートに毎月の進捗を残す | `milestone_monthly_progress` / `project_monthly_notes` | **Phase 4** = 本体GAS 毎時 trigger (`nav_pwa_pingHourlyEstimate` / 154) → PWA `cron/hourly-estimate` を curl → `progress_estimate_state.source_hash` 差分検知。MS管理対象PJで対象月のMSがあれば `milestone_monthly_progress` に保存。対象月を覆うMS計画/有効MS項目が無い場合や非MS管理PJは、`monthly_reports` + `project_meeting_summaries` を月次ノートへ保存し、MS設定nudgeは出さない | PWA `app/api/cron/hourly-estimate` + `lib/progress-estimator.ts` + 本体GAS `154_PwaCronCaller.js` | ✅ **Phase 4 稼働 (毎時 polling、Hobby 制約により GAS 経由)**。詳細 [ms_progress.md](ms_progress.md) |
-| ④ **PJナレッジ** | PJ にまつわる事実・人物・組織・進行中事項 | `project_knowledge` | ~~Phase 4 = GAS 155~~ ⛔ **2026-05-22 停止** → 🚧 **Claude routine `amd-os-project-knowledge-extract` (= daily 08:15 JST 予定) 新設**、設計 [l2_extract_claude_routine.md](l2_extract_claude_routine.md) | (旧) 本体GAS `155_L2KnowledgeExtractor.js` | ⛔ **ghost**、復旧計画中 |
-| ⑤ **メンバーナレッジ** | メンバーごとの強み・スキル・関心 | `member_knowledge` | ~~Phase 4 = GAS 155~~ ⛔ **2026-05-22 停止** → 🚧 **Claude routine `amd-os-member-knowledge-extract` (= daily 08:30 JST 予定) 新設**、設計 [l2_extract_claude_routine.md](l2_extract_claude_routine.md) | (旧) 本体GAS `155_L2KnowledgeExtractor.js` | ⛔ **ghost**、復旧計画中 |
-| ⑥ **MTGサマリ** | calendar event 1 回ごとの decided/progress/nextActions/risks (PK = calendar event id) | `project_meeting_summaries` | ~~Phase 3 = GAS 153 毎時 polling~~ ⛔ **2026-05-22 停止** → 🚧 **Claude routine `amd-os-meeting-extract` (= 毎時 0 分発火 予定、GAS 153 と同じ「過去 60-180 分終了 events scan」パターン) 新設**、設計 [l2_extract_claude_routine.md](l2_extract_claude_routine.md) | (旧) 本体GAS `152_NavigatorCron.js` + `153_MeetingHourlyTrigger.js` + `074_MeetingSummaryRepo.js`。iOS APNs 通知用 `meeting_notifications` テーブル (PK=meeting_id) は新 routine も維持予定 | ⛔ **ghost (= 5/22 以降 dialogue 手動投入のみ)**、復旧計画中 |
+| ④ **PJナレッジ** | PJ にまつわる事実・人物・組織・進行中事項 | `project_knowledge` | ~~Phase 4 = GAS 155~~ ⛔ **2026-05-22 停止** → 🚧 **Claude routine `amd-os-project-knowledge-extract` (= daily 08:15 JST 予定) 新設**、設計 [l2_extract_claude_routine.md](l2_extract_claude_routine.md)、マニュアル [38章](../manual/38-l2-extraction-routines-spec.md) | (旧) 本体GAS `155_L2KnowledgeExtractor.js` | ⛔ **ghost**、復旧計画中 |
+| ⑤ **メンバーナレッジ** | メンバーごとの強み・スキル・関心 | `member_knowledge` | ~~Phase 4 = GAS 155~~ ⛔ **2026-05-22 停止** → 🚧 **Claude routine `amd-os-member-knowledge-extract` (= daily 08:30 JST 予定) 新設**、設計 [l2_extract_claude_routine.md](l2_extract_claude_routine.md)、マニュアル [38章](../manual/38-l2-extraction-routines-spec.md) | (旧) 本体GAS `155_L2KnowledgeExtractor.js` | ⛔ **ghost**、復旧計画中。現 `member_knowledge` schema には `status` / `source_hash` が無いので候補採否設計は要 migration 判断 |
+| ⑥ **MTGサマリ** | calendar event 1 回ごとの decided/progress/nextActions/risks (PK = calendar event id) | `project_meeting_summaries` | ~~Phase 3 = GAS 153 毎時 polling~~ ⛔ **2026-05-22 停止** → 🚧 **Claude routine `amd-os-meeting-extract` (= 毎時 0 分発火 予定、GAS 153 と同じ「過去 60-180 分終了 events scan」パターン) 新設**、SKILL + GAS dryRun は 2026-05-25 #68 時点で ready、scheduled task 登録待ち。設計 [l2_extract_claude_routine.md](l2_extract_claude_routine.md)、マニュアル [38章](../manual/38-l2-extraction-routines-spec.md) | (旧) 本体GAS `152_NavigatorCron.js` + `153_MeetingHourlyTrigger.js` + `074_MeetingSummaryRepo.js`。iOS APNs 通知用 `meeting_notifications` テーブル (PK=meeting_id) は新 routine も維持予定 | ⛔ **ghost (= 5/22 以降 dialogue 手動投入のみ)**、復旧計画中 |
 | ⑦ **OS台帳差分** | 5生データとOS構造データの差分。PJメンバー候補、関係先メール、担当者、契約/期間/スコープ、請求/ステータスなど「OSに反映する?」が必要な候補 | `project_registry_diffs` + `l2_notifications(l2_kind='project_registry_diff')` | Codex automation / future cron: 5生データ → OS snapshot 突合 → pending diff upsert → 通知で採否 | PWA / Codex automation | 🟡 DB・通知・採否UIは本番反映済。抽出器は Codex automation 側で段階実装中。詳細 [project_registry_diffs.md](project_registry_diffs.md) |
-| ⑧ **XRL根拠** | AMD Score / XRL 算定に使う構造化根拠。`project_founding_members` は HRL 評価のベース = **関連メンバー** リストで、`category='amd'` (= AMD code_name 一致) と `category='startup'` (= 該当SU 社員 / 創業候補) だけを HRL 算入対象にする。大学・研究機関 / VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として `status='invalid'` 化。AMDメンバーは `members.code_name` で記録 (フルネーム / 姓のみ表記は重複として invalid)。`projects.project_category='ecosystem'` は AMD Score 対象外 | `project_founding_members`, `project_xrl_evidence`, `project_xrl_log`, `amd_score_inputs.xrl_notes` | `cron/founding-members-extract` (v3 prompt: SU+AMD限定), `cron/venture-xrl-refresh`, `cron/amd-score-l2-refresh`, future evidence extractor | PWA | 🟡 `project_founding_members` は v3 prompt で稼働。`project_xrl_evidence` のDB・通知・採否UIは本番反映済、抽出器は未完。詳細 [xrl_evidence.md](xrl_evidence.md) |
-| ⑨ **経営・事業シグナル** | MS進捗より上位の、経営上の重要方針・事業上の進捗・戦略転換・提携・資金・知財/規制・重要リスク・次の一手。PJ cockpit のMSリスト直下に表示する | `project_strategy_signals` + `l2_notifications(l2_kind='project_strategy_signal')` | Codex automation `amd-os` (= daily 03:20 JST) → `/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/` → non-LLM applier `ms_progress_review_tool.mjs apply-outbox-dir`。初期backfillは `scripts/backfill_strategy_signals_from_activities.mjs` → `ms_progress_review_tool.mjs apply-outbox` | Codex automation / PWA | ✅ DB・cockpit表示・通知採否UIを追加。抽出はCodex automationで日次運用。2026-05-23に既存 `member_activities` から40件backfill済み。詳細 [project_strategy_signals.md](project_strategy_signals.md) |
+| ⑧ **XRL根拠** | AMD Score / XRL 算定に使う構造化根拠。`project_founding_members` は HRL 評価のベース = **関連メンバー** リストで、`category in ('amd','startup','university')` (= AMD 伴走 / 該当SU 社員・創業候補 / 大学キーパーソン) を HRL 算入対象にする。VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として `status='invalid'` 化。AMDメンバーは `members.code_name` で記録 (フルネーム / 姓のみ表記は重複として invalid)。`projects.project_category='ecosystem'` は AMD Score 対象外 | `project_founding_members`, `project_xrl_evidence`, `project_xrl_log`, `amd_score_inputs.xrl_notes` | `cron/founding-members-extract` (route あり、Sonnet 利用のため schedule 停止中), `cron/venture-xrl-refresh`, `cron/amd-score-l2-refresh`, future evidence extractor | PWA | 🟡 `project_founding_members` は route / 通知 UI あり、自動 schedule は停止中。`project_xrl_evidence` のDB・通知・採否UIは本番反映済、抽出器は未完。詳細 [xrl_evidence.md](xrl_evidence.md) |
+| ⑨ **経営ハイライト** | MS進捗より上位の、経営上の重要方針・事業上の進捗・戦略転換・提携・資金・知財/規制・重要リスク・次の一手。PJ cockpit のMSリスト直下に表示する | `project_strategy_signals` + `l2_notifications(l2_kind='project_strategy_signal')` | Codex automation `amd-os` (= daily 03:20 JST) → `/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/` → non-LLM applier `ms_progress_review_tool.mjs apply-outbox-dir`。初期backfillは `scripts/backfill_strategy_signals_from_activities.mjs` → `ms_progress_review_tool.mjs apply-outbox` | Codex automation / PWA | ✅ DB・cockpit表示・通知採否UIを追加。抽出はCodex automationで日次運用。2026-05-23に既存 `member_activities` から40件backfill済み。詳細 [project_strategy_signals.md](project_strategy_signals.md) |
 
 **重要**: 5 生データから抽出した結果 = L2 だけ。Atlas / VC ニュース / マクロ index は外部ソース由来なので **L2 ではなく「レポート関連」**カテゴリ。
 
-**通知反映ルール (2026-05-22)**: 通知に出る情報は、通知画面で「はい」を押したものだけが正本反映される。
-GAS 155 の `member_knowledge` / `project_knowledge` は `status='candidate'`、PWA の `founding_members` は `status='tentative'` として保存し、
-「はい」で `active`、 「いいえ」で `rejected` / `invalid` にする。`project_registry_diff` と `project_xrl_evidence` も同じく候補状態から「はい」で apply / confirmed する。
+**通知反映ルール (2026-05-25 #68 current truth)**: 通知に出る情報は、通知画面で「はい」を押したものだけが正本反映される。
+`project_knowledge` は `status='candidate'` → yes で `active`、no で `rejected`。`protocols` は `candidate` → yes で `confirmed`、no で `rejected`、archive は `archived`。`member_knowledge` は現スキーマに `status` 列が無いため、候補採否を row 自体に持つには migration が必要。`project_registry_diff` と `project_xrl_evidence` も候補状態から「はい」で apply / confirmed する。
 
 ---
 
@@ -182,7 +181,7 @@ GAS 155 の `member_knowledge` / `project_knowledge` は `status='candidate'`、
 | **Atlas divergence** | テーマ単位 | `cron/atlas-divergence` (sun 06:00) | PWA |
 | **macro lane weights 再学習** | macro index 関連 | `cron/relearn-lane-weights` (03:30 daily) | PWA |
 | **macro バックフィル** | `macro_index_log` (過去) | `cron/macro-backfill-historical` (sun 12:00) | PWA |
-| **VC ニュース** | `vc_news` | `cron/vc-discover` (土 09:00 weekly、業界横断 + 新規 VC 発見 + suggested_fund_patch) | PWA |
+| **VC ニュース** | `vc_news` | `cron/vc-discover` route (旧: 土 09:00 weekly、業界横断 + 新規 VC 発見 + suggested_fund_patch。2026-05-22 以降は LLM/web_search 課金回避で自動 schedule 停止) | PWA |
 | **PJ 沿革リフレッシュ** | `project_ventures.narrative_text` | `cron/venture-narrative-refresh` (03:45 daily) | PWA |
 | **メンバー活動推論** | `member_activities` | `cron/member-activities` (04:00 daily) | PWA |
 | **ASPI lane 推定** (Phase 2-B) | `lane_suggestions` | `cron/lane-suggest` (mon 04:00 JST、GAS 154 から curl) | PWA |
@@ -205,16 +204,16 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | ~~毎時~~ ⛔ | ~~`nav_member_knowledge_pollAll`~~ | ~~メンバーナレッジ抽出 (L2 ⑤)~~ → ⛔ **2026-05-22 停止** | 本体GAS 155 (kill switch) |
 | ~~毎時~~ ⛔ | ~~`nav_project_knowledge_pollAll`~~ | ~~PJナレッジ抽出 (L2 ④)~~ → ⛔ **2026-05-22 停止** | 本体GAS 155 (kill switch) |
 | ~~毎時~~ ⛔ | ~~`nav_protocol_pollAll`~~ | ~~AMDプロトコル抽出 (L2 ②)~~ → ⛔ **2026-05-22 停止** | 本体GAS 155 (kill switch) |
-| 🚧 **毎時 0 分** 予定 | `amd-os-meeting-extract` (= Claude routine) | **L2 ⑥ MTG サマリ抽出復旧** (= GAS 153 後継、過去 60-180 分終了 events scan) | `~/.claude/scheduled-tasks/amd-os-meeting-extract/` (= 設計中、[l2_extract_claude_routine.md](l2_extract_claude_routine.md)) |
+| 🚧 **毎時 0 分** 登録待ち | `amd-os-meeting-extract` (= Claude routine) | **L2 ⑥ MTG サマリ抽出復旧** (= GAS 153 後継、過去 60-180 分終了 events scan)。SKILL + GAS dryRun は ready | `~/.claude/scheduled-tasks/amd-os-meeting-extract/` ([l2_extract_claude_routine.md](l2_extract_claude_routine.md), [38章](../manual/38-l2-extraction-routines-spec.md)) |
 | 🚧 **08:00 daily** 予定 | `amd-os-protocol-extract` (= Claude routine) | **L2 ② AMD プロトコル抽出復旧** (= GAS 155 後継) | `~/.claude/scheduled-tasks/amd-os-protocol-extract/` |
 | 🚧 **08:15 daily** 予定 | `amd-os-project-knowledge-extract` (= Claude routine) | **L2 ④ PJ ナレッジ抽出復旧** (= GAS 155 後継) | `~/.claude/scheduled-tasks/amd-os-project-knowledge-extract/` |
 | 🚧 **08:30 daily** 予定 | `amd-os-member-knowledge-extract` (= Claude routine) | **L2 ⑤ メンバーナレッジ抽出復旧** (= GAS 155 後継) | `~/.claude/scheduled-tasks/amd-os-member-knowledge-extract/` |
-| 07:00 daily | `amd-os-management-dialogue-prep` (= Claude routine) | まさえいMTG 議題プリペア | `~/.claude/scheduled-tasks/amd-os-management-dialogue-prep/` |
+| 07:00 daily | `amd-os-management-dialogue-prep` (= Claude routine) | 提案前の論点整理セッション 議題プリペア | `~/.claude/scheduled-tasks/amd-os-management-dialogue-prep/` |
 | **03:05** | `cron/payout-reward-cache-refresh` | `/admin/payouts` 高速表示用の `billing_cycles.reward_summary_json` を前月・当月・翌月の支払月で再生成。LLM/GAS非使用 | PWA |
-| **03:15** | `cron/venture-xrl-refresh` | XRL根拠 / PJ XRL llm_proposal (L2 ⑧)。ecosystem PJは対象外 | PWA |
-| **03:30** | `cron/relearn-lane-weights` | macro lane weights 再学習 | PWA |
-| **03:45** | `cron/venture-narrative-refresh` | PJ 沿革再生成 | PWA |
-| **04:00** | `cron/member-activities` | member_activities 推論 | PWA |
+| ~~03:15~~ ⛔ | `cron/venture-xrl-refresh` | XRL根拠 / PJ XRL llm_proposal (L2 ⑧)。Gemini 利用のため schedule 停止中、route は手動検証用に残す | PWA |
+| ~~03:30~~ ⛔ | `cron/relearn-lane-weights` | macro lane weights 再学習。Sonnet 利用のため schedule 停止中 | PWA |
+| ~~03:45~~ ⛔ | `cron/venture-narrative-refresh` | PJ 沿革再生成。LLM 利用のため schedule 停止中 | PWA |
+| ~~04:00~~ ⛔ | `cron/member-activities` | member_activities 推論。LLM 利用のため schedule 停止中 | PWA |
 | **05:00** | `R313_MonthlyReport_Cron` | monthly_reports 生成 (L2 ①) | AMD-Report GAS |
 | **05:30** | `313_MsProgressSummary_Cron` | DB_BillingCycle.msProgressSummaryJson 更新 | 本体GAS |
 | **06:00** | `cron/atlas-daily` | atlas 日次レポート | PWA |
@@ -222,11 +221,11 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **08:00** | `cron/atlas-collect` | **停止済み**。旧マクロニュース収集 | PWA |
 | **08:10** | Codex automation `AMD Atlas外部シグナルレビュー` | subscription 枠で外部マクロシグナル収集 → outbox → ローカル非LLM applier → `/api/atlas/signals-ingest` に投入 | Codex automation + PWA |
 | **18:00 daily** | `cron/member-weekly-activities` | Gmail / 共有メンバーカレンダー / source_cache → member_activities(source='member_weekly')。前日18:00〜当日18:00の24hを抽出 | PWA |
-| **土 09:00** | `cron/vc-discover` | VC ニュース + 新規 VC 発見 (weekly) | PWA |
-| **mon 03:00** | `cron/amd-score-l2-refresh` | AMD Score / XRL根拠リフレッシュ (L2 ⑧) | PWA |
-| **月初 03:00 (1日 18:00 UTC)** | `cron/frl-grit-resilience-extract` | ecosystemを除くactive PJ × 過去 3 ヶ月 monthly_reports + meeting_summaries 集約 → Sonnet 4.6 で frl_grit (Duckworth 2007) / frl_resilience (Markman 2005) を 0-9 推定 → 既存amd_score_inputsをupdate。prompt = `llm_prompts.frl.grit_resilience.extract` (v2、外部創業者優先 / null 厳格化) | PWA |
+| **土 09:00** | `cron/vc-discover` | **停止中**。VC ニュース + 新規 VC 発見 (旧 weekly) | PWA |
+| ~~mon 03:00~~ ⛔ | `cron/amd-score-l2-refresh` | AMD Score / XRL根拠リフレッシュ (L2 ⑧)。Sonnet 利用のため schedule 停止中、route は手動検証用に残す | PWA |
+| ~~月初 03:00 (1日 18:00 UTC)~~ ⛔ | `cron/frl-grit-resilience-extract` | ecosystemを除くactive PJ × 過去 3 ヶ月 monthly_reports + meeting_summaries 集約 → Sonnet 4.6 で frl_grit (Duckworth 2007) / frl_resilience (Markman 2005) を 0-9 推定 → 既存amd_score_inputsをupdate。prompt = `llm_prompts.frl.grit_resilience.extract` (v2、外部創業者優先 / null 厳格化)。Sonnet 利用のため schedule 停止中、手動 route は残す | PWA |
 | **月初 04:00 (1日 19:00 UTC)** | `cron/macro-aggregate-indicators` | observation_log (kaken/grant → budget_amount, vc/vc_investment → investment_amount) + atlas_signals (ATL domain → ASPI lane mapping → policy_mention_count / raw_signal_count) を lane × month で集計 → macro_index_log の P 以外列を update。?since=YYYY-MM 指定可、デフォルト過去 36 ヶ月 | PWA |
-| **mon 04:30** | `cron/triple-helix-recompute` | BVAR Kalman smoother で μ_A/I/G 推定 (Phase 3) | PWA |
+| **on-demand / weekly candidate** | `cron/triple-helix-recompute` | BVAR Kalman smoother で μ_A/I/G 推定 (Phase 3)。Vercel cron 未登録、手動棚卸し job | PWA |
 | **daily 04:00 (未 cron 化、手動キック)** | `cron/sync-pj-facts` | project_ventures → project_knowledge.basic_fact 同期 (founded_at / outcome_pattern / amd_support_*) | PWA |
 | **daily 04:30 (未 cron 化、手動キック)** | `cron/freeze-period-backfill` | 休止期間 PJ の reports + meetings を Sonnet 統合 → freeze_period_backfills | PWA |
 | **手動キック (GAS curl)** | `nav_meeting_backfillSlackAllActive_` | 全 active PJ × 過去 N ヶ月の Slack スレッド → project_meeting_summaries (source_kinds=slack) | 本体GAS (074b_MeetingSummarySlack.js) |
@@ -240,33 +239,40 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 
 ---
 
-## 🚨 L2 ②④⑤⑥ ghost 化 + Claude routine 4 個新設で復旧 (2026-05-25 発覚 / 復旧計画中)
+## 🚨 L2 ②〜⑨ Claude routine 8 個統一 (= 2026-05-25 #71 まさ確定)
 
 ⚠️ **「Phase 4 = GAS 155 + GAS 153 で L2 ②④⑤⑥ を毎時 polling 化」は 2026-05-09-21 に動いてたが、2026-05-22 cron 全廃止判断で kill switch + live trigger 削除 → 5/22-5/25 完全 ghost** (= 取り込みゼロ)。
 
 cron 廃止時の前提「Codex automation `amd-os-ms` が全 L2 をカバーしてる」は虚偽だった (= prompt は ②④⑤⑥ を「通知のみ」「生成しない」設計)。
 
-**復旧方針** (= まさ案 C 採用 2026-05-25): **Claude routine 4 個新設**。
+**復旧方針** (= まさ #71 拡張版、2026-05-25 お昼): **Claude routine 8 個新設で L2 ②〜⑨ を統一**。ghost 4 種だけでなく、稼働中の ③⑦⑧⑨ も Claude routine に移管 (= まさ「すべて claude routines で抽出する形に変更」)。
 
-| L2 | 旧 writer (停止中) | 新 writer (新設予定) | 頻度 |
-|---|---|---|---|
-| ② AMD プロトコル | ~~GAS 155 `nav_protocol_pollAll`~~ ⛔ | 🚧 `amd-os-protocol-extract` (= Claude routine) | daily 08:00 JST |
-| ④ PJ ナレッジ | ~~GAS 155 `nav_project_knowledge_pollAll`~~ ⛔ | 🚧 `amd-os-project-knowledge-extract` | daily 08:15 JST |
-| ⑤ メンバーナレッジ | ~~GAS 155 `nav_member_knowledge_pollAll`~~ ⛔ | 🚧 `amd-os-member-knowledge-extract` | daily 08:30 JST |
-| ⑥ MTG サマリ | ~~GAS 153 `nav_meeting_pollRecentlyEndedEvents`~~ ⛔ | 🚧 `amd-os-meeting-extract` (= 旧 GAS 153 と同パターン) | **毎時 0 分発火** (= MTG 終了 +60-180 分 window) |
+| L2 | 旧 writer (停止/移管対象) | 新 writer (= Claude routine) | 頻度 | 状態 |
+|---|---|---|---|---|
+| ② AMD プロトコル | ~~GAS 155 `nav_protocol_pollAll`~~ ⛔ | 🚧 `amd-os-protocol-extract` | daily 08:00 JST | 未作成 |
+| ④ PJ ナレッジ | ~~GAS 155 `nav_project_knowledge_pollAll`~~ ⛔ | 🚧 `amd-os-project-knowledge-extract` | daily 08:15 JST | 未作成 |
+| ⑤ メンバーナレッジ | ~~GAS 155 `nav_member_knowledge_pollAll`~~ ⛔ | 🚧 `amd-os-member-knowledge-extract` | daily 08:30 JST | 未作成 + schema gap |
+| ⑥ MTG サマリ | ~~GAS 153 `nav_meeting_pollRecentlyEndedEvents`~~ ⛔ | ✅ `amd-os-meeting-extract` (= GAS 153 + 074 完全 inline 移植、5 ソース全部見る) | **毎時 0 分** (= +60-180 分 window) | **SKILL.md Write 済 #71**、scheduled task 登録待ち |
+| ③ MS 進捗 | (稼働中) PWA `/api/cron/hourly-estimate` + Codex `amd-os-ms` | 🚧 `amd-os-ms-progress-extract` | 毎時 0 分 | 未作成、移管慎重 |
+| ⑦ OS 台帳差分 | (稼働中) Codex `amd-os-ms` `outbox.registryDiffs` | 🚧 `amd-os-registry-diff-extract` | 6h ごと | 未作成、移管慎重 |
+| ⑧ XRL 根拠 | (稼働中) Codex `amd-os-ms` `outbox.xrlEvidence` | 🚧 `amd-os-xrl-evidence-extract` | 6h ごと | 未作成、移管慎重 |
+| ⑨ 経営ハイライト | (稼働中) Codex `amd-os` (= daily 03:20、5/25 applier 修復済) | 🚧 `amd-os-strategy-signal-extract` | daily 03:20 JST | 未作成、対話型修正依頼 (#34) と接続必要 |
 
-**設計議論の正本**: [`l2_extract_claude_routine.md`](l2_extract_claude_routine.md) (= Routine 1 SKILL.md prompt 完全版 inline、まさレビュー対象)
+**設計議論の正本**: [`l2_extract_claude_routine.md`](l2_extract_claude_routine.md) (= 2026-05-25 #71 で 8 routine 統一方針に改訂)
+**マニュアル正本**: [38 章 L2 Extraction Routines](../manual/38-l2-extraction-routines-spec.md)
 
 **設計パターン**:
-- 各 routine 内で直接 Supabase REST に upsert (= Codex automation outbox 経由しない、subscription 帯域節約)
+- MCP 経由で Calendar / Notion / Gmail / Drive / Slack に直接 access (= GAS 完全 bypass)
+- LLM はサブスク内 Claude (= scheduled task 内で私自身が prompt 受けて JSON 生成、Anthropic SDK 不要)
+- Supabase REST 直叩き (= service_role)
 - `source_hash` 差分検知で冪等性確保
-- prompt に `l2_feedbacks` 読み込み手順を入れて修正依頼ループ復活 (= まさ #34 中期対応)
+- prompt に `l2_feedbacks` 読み込み手順を入れて修正依頼ループ復活 (= 経営ハイライトは別途対話型 = `feedback_dialog.md`)
 - 通知連携: `l2_notifications` / `meeting_notifications` 既存テーブル使用
+- 5 ソース全部見る (= まさ絶対ルール 2026-05-11): GAS 074 + 074b/c/d/e 集約版を 1 routine で実現
 
-**経営ハイライト (L2 ⑨)** は別:
-- 現状 `amd-os` Codex automation (= daily 03:20 JST) で稼働中、5/25 applier dir 修復済
-- ただし修正依頼ループ (= `l2_feedbacks` 読み込み) が未実装
-- 対応: 別 task #3 で `amd-os` automation の prompt に手順追加 (= Claude routine 移管はスコープ外)
+**段階的停止**: Routine 5-8 が動作確認できてから既存 Codex automation `amd-os-ms` / `amd-os` + LaunchAgent applier を unload。
+
+**経営ハイライト修正依頼 (= L2 ⑨ + #34)**: 一方通行 update を廃止、**対話型ループ** (= `/api/notifications/feedback/dialog/start|refine|confirm` + CockpitStrategySignals UI 拡張) に置換 2026-05-25 #71。設計議論は [`feedback_dialog.md`](feedback_dialog.md)。
 
 ---
 
@@ -281,7 +287,7 @@ cron 廃止時の前提「Codex automation `amd-os-ms` が全 L2 をカバーし
 
 現時点で候補扱いの L2 はなし。
 
-`project_founding_members` は候補から正式昇格し、⑧ **XRL根拠** の HRL 根拠として扱う。創業メンバー単体を L2 とするのではなく、TRL / BRL / GRL / SRL / HRL の算定根拠を束ねる L2 として運用する。
+`project_founding_members` は候補から正式昇格し、⑧ **XRL根拠** の HRL 根拠として扱う。関連メンバー単体を独立 L2 とするのではなく、TRL / BRL / GRL / SRL / HRL の算定根拠を束ねる L2 として運用する。
 
 ---
 
@@ -313,9 +319,13 @@ cron 廃止時の前提「Codex automation `amd-os-ms` が全 L2 をカバーし
 
 | 日付 | 変更 |
 |---|---|
+| 2026-05-25 (#71) | **L2 ②〜⑨ Claude routine 8 個統一方針確定** (= まさお昼判断「すべて claude routines で抽出する形に変更」)。ghost 4 種 (②④⑤⑥) だけでなく稼働中の ③⑦⑧⑨ も Claude routine に移管予定。Routine 1 (= ⑥ MTG サマリ、`amd-os-meeting-extract`) は **GAS 153 + 074 + 074b-e 完全 inline 移植版** SKILL.md を `~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md` に Write 済 (= MCP 経由 Calendar/Notion/Gmail/Drive/Slack 直叩き、LLM はサブスク内 Claude、Supabase REST 直叩き)。scheduled task 登録待ち。Routine 2-8 は次セッション以降。経営ハイライト #34 修正依頼は対話型ループ (= `/api/notifications/feedback/dialog/*` + CockpitStrategySignals UI 拡張) に置換、一方通行 `reextractStrategySignalImmediate` は廃止。 |
+| 2026-05-25 | 実装再クロールで `gas/154_PwaCronCaller.js` の一括 kill switch が MS hourly まで止めていることを発見。MS進捗は primary writer なので `NAV_PWA_HOURLY_ESTIMATE_DISABLED_20260522=false` に復旧し、ASPI 系 PWA ping は `NAV_PWA_ASPI_CRON_DISABLED_20260522=true` で停止継続に分離。`operations-catalog.ts` / [../manual/24-operations-settings-spec.md](../manual/24-operations-settings-spec.md) / `pwa/vercel.disabled-crons.json` も同時更新。 |
+| 2026-05-25 | #68 クロールで L2 ②④⑤⑥復旧の current truth を [../manual/38-l2-extraction-routines-spec.md](../manual/38-l2-extraction-routines-spec.md) に正本化。`amd-os-meeting-extract` は SKILL + GAS dryRun live 200 OK まで確認済、scheduled task 登録待ち。`member_knowledge` に `status` / `source_hash` が無い schema gap も明記。 |
+| 2026-05-25 | マニュアル拡充時の再クロールで、L2 ③ MS進捗の current truth を明確化。primary writer は GAS 154 `nav_pwa_pingHourlyEstimate` -> PWA `/api/cron/hourly-estimate` -> `estimateProgress`、Codex automation `amd-os-ms` は MS進捗の修正候補レビュー + L2 ⑦/⑧ outbox を担う。詳細は [ms_progress.md](ms_progress.md) と [../manual/36-ms-progress-monthly-report-revision-spec.md](../manual/36-ms-progress-monthly-report-revision-spec.md)。 |
 | 2026-05-23 | `/admin/payouts` の通常表示を重い再計算から切り離したため、毎日03:05 JSTの `cron/payout-reward-cache-refresh` を追加。前月・当月・翌月の支払月を対象に `syncRewardSummariesForBillingCycles()` を実行し、`billing_cycles.reward_summary_json` を日次更新する。 |
-| 2026-05-22 | **PWA/GAS background cron停止**: 生データ抽出・L2/Atlas系の定期実行はCodex automationへ寄せるため、`pwa/vercel.json` の `crons` を空にした。停止対象は `pwa/vercel.disabled-crons.json` に記録。GAS `154_PwaCronCaller.js` も kill switch で `/api/cron/hourly-estimate` / ASPI系 ping を即returnし、既存trigger削除用 `nav_pwa_disableAllPwaCronTriggers_()` を追加。旧GAS抽出cron (`060`, `056`, `153`, `152`, `155`) もkill switchで停止。PWA cron route自体は手動検証用に残すが、自動scheduleから外す。 |
-| 2026-05-22 | L2 ⑧ XRL根拠の HRL ベース (= `project_founding_members`) を「関連メンバー」リストとして再定義。HRL に算入するのは `category in ('amd','startup')` だけ (= 該当SU社員 + AMD伴走メンバー)。大学・研究機関 / VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として invalid 化。AMDメンバーは `members.code_name` で記録 (本名 / 姓のみ表記は重複扱いで invalid)。関連メンバー抽出cronが読むmdは `project_ventures.master_md_text` に同期した `/Users/masa/projects/knowledge/<slug>.md` で、AMDメンバー正規化は `members.code_name` + `members.member_name` のDB alias mapで行う。migration 075 / 082、cron prompt v5 |
+| 2026-05-22 | **PWA/GAS background cron停止**: 生データ抽出・L2/Atlas系の定期実行はCodex automationへ寄せるため、`pwa/vercel.json` の LLM crons を `pwa/vercel.disabled-crons.json` に退避。GAS `154_PwaCronCaller.js` も当時は `/api/cron/hourly-estimate` / ASPI系 ping を一括停止したが、2026-05-25 に MS hourly だけ復旧。旧GAS抽出cron (`060`, `056`, `153`, `152`, `155`) は kill switch で停止継続。 |
+| 2026-05-22 | L2 ⑧ XRL根拠の HRL ベース (= `project_founding_members`) を「関連メンバー」リストとして再定義。HRL に算入するのは `category in ('amd','startup','university')` (= 該当SU社員 + AMD伴走メンバー + 大学キーパーソン)。VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として invalid 化。AMDメンバーは `members.code_name` で記録 (本名 / 姓のみ表記は重複扱いで invalid)。関連メンバー抽出cronが読むmdは `project_ventures.master_md_text` に同期した `/Users/masa/projects/knowledge/<slug>.md` で、AMDメンバー正規化は `members.code_name` + `members.member_name` のDB alias mapで行う。migration 075 / 082、cron prompt v5 |
 | 2026-05-15 | まさ確認により L2 を 8 種へ更新。⑦ OS台帳差分を新設し、`project_founding_members` は候補から正式昇格して ⑧ XRL根拠 (HRL含む TRL/BRL/GRL/SRL/HRL 根拠) に統合 |
 | 2026-05-09 | 初版。MTGサマリ追加で L2 が 5 → 6 になったタイミングで正本化。AMDプロトコル / メンバーナレッジ未稼働を可視化、PJナレッジ流入元不明を可視化 |
 | 2026-05-09 | MTGサマリ Phase 2 移行 (Notion 本文 + Gmail 議事録メール 結合、calendar event id を PK に)。状態列を Phase 2 稼働に更新 |
@@ -328,7 +338,7 @@ cron 廃止時の前提「Codex automation `amd-os-ms` が全 L2 をカバーし
 | 2026-05-09 | iOS Swift 受信実装 完了 (masaiPhone install + launch 確認、起動時 + foreground 復帰時 polling) |
 | 2026-05-09 | **修正依頼ループ (l2_feedbacks)**: 通知の誤抽出に対してまさが「つくよみに修正依頼」を出せる仕組み。PWA `/notifications` ページ + POST `/api/notifications/feedback` + migration 032 (`l2_feedbacks` テーブル) + GAS 155 の 3 extractor で過去 feedback を LLM プロンプトに含めて再抽出。仕様正本: [notifications.md](notifications.md) |
 | 2026-05-09 | **MTGサマリ Notion AI 議事録ページ対応** (gas/074): `_meeting_fetchAiNotesBody_` 新設で `transcription` block → `summary_block_id` + `notes_block_id` 配下の標準 block を再帰取得。BWE 株主総会で採決 4 件まで完全抽出成功。`gas/CalendarToNotionMinutes.js` (`run_createMinutes_apply`) は cron テンプレ生成停止 (DEPRECATED)、Notion AI 一本化。仕様正本: [meeting_summaries.md](meeting_summaries.md) |
-| 2026-05-09 | **名前正規化マップ** (gas/079 `nameAlias_buildBlock`): `members.member_name` + email から動的生成。「山田氏=りょー」「山地=まさ」「chiko=ちこ」等を 074 / 155 の LLM プロンプトに渡して code_name に正規化 |
+| 2026-05-09 | **名前正規化マップ** (gas/079 `nameAlias_buildBlock`): `members.member_name` + email から動的生成。姓・フルネーム・ローマ字表記を `members.code_name` に正規化する block を 074 / 155 の LLM プロンプトに渡す |
 | 2026-05-09 | **MTGサマリ feedback 連携** (gas/074): `_l2_loadFeedbackBlock_("meeting_summary", ...)` + applied 記録 + source_hash に active feedback hash 混ぜる + POST `/api/notifications/feedback` 末尾で **即 force 再抽出 fire-and-forget** |
 | 2026-05-09 | **PJナレッジ抽出の汚染防御 v4_meta_strict** (gas/155): `=== project_meta ===` セクション + 「他 PJ 内容で汚染されているケースは items: [] を返せ」 + `monthly_reports.status=neq.invalid` フィルタ。p10/202604 (CX 内容で SE PJ に保存) の事故対応 |
 | 2026-05-09 | **DB schema reference 自動生成** (`pwa/design/db_schema.md` + `pwa/scripts/dump_schema.py`): 88 テーブル / 948 列。「列名は想像で書かない」運用ルールを `pwa/CLAUDE.md` に追加。member_activities 列名 4 つ間違い事故への根本対策 |

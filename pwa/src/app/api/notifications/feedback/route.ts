@@ -197,7 +197,8 @@ export async function POST(req: NextRequest) {
     // - meeting_summary: nav_meeting_processOneEvent_(meetingId, projectId) で 1 event 強制再抽出
     // - member_knowledge: nav_member_knowledge_extractOne_(codeName, memberId, {force:true})
     // - project_knowledge / protocols / ms_progress: 当面は次回 cron まで待つ (= 仕組みは動く、即時化は後追い)
-    if (!(action === "yes" && l2Kind === "meeting_summary")) {
+    // - project_strategy_signal: 対話型 /api/notifications/feedback/dialog/* を別経路で使う (= 旧 reextractStrategySignalImmediate は廃止、2026-05-25 #71 まさ確定)
+    if (!(action === "yes" && l2Kind === "meeting_summary") && l2Kind !== "project_strategy_signal") {
       void triggerImmediateReExtraction({ l2Kind, targetId, scopeKey, meetingId, feedbackText: storedFeedbackText, feedbackId: data.feedback_id }).catch((e) => {
         console.warn("[feedback] immediate re-extract failed:", e);
       });
@@ -814,6 +815,10 @@ async function filterProjectReportEmails(
 
 /** 修正依頼が入った瞬間に対応する 1 件を force 再抽出する。
  *  GAS Web App の pwaApi/runFunc にリクエストを送る。
+ *
+ *  L2 ⑨ project_strategy_signal は対話型 (= /api/notifications/feedback/dialog/*) に置換済み
+ *  なので、ここでは扱わない (= 呼び出し側で l2Kind === 'project_strategy_signal' を弾く)。
+ *  旧 reextractStrategySignalImmediate (= 一方通行 update) は 2026-05-25 #71 まさ確定で廃止。
  */
 async function triggerImmediateReExtraction(args: {
   l2Kind: string;
@@ -823,18 +828,6 @@ async function triggerImmediateReExtraction(args: {
   feedbackText?: string;
   feedbackId?: string;
 }): Promise<GasRunResponse | null> {
-  // まさ #34 即時反映 2026-05-25: 経営ハイライトは GAS じゃなく PWA 内で Claude 直叩きで再抽出
-  // (= cron 待ちを廃止、修正依頼を投げた瞬間に該当 signal の title/summary が更新される)
-  if (args.l2Kind === "project_strategy_signal") {
-    const result = await reextractStrategySignalImmediate({
-      targetId: args.targetId,
-      scopeKey: args.scopeKey,
-      feedbackText: args.feedbackText || "",
-      feedbackId: args.feedbackId || "",
-    });
-    return { ok: result.applied, data: { fn: "reextractStrategySignalImmediate", result: { ok: result.applied, action: result.applied ? "reextracted" : "skip", message: result.message } } };
-  }
-
   const baseUrl = process.env.NEXT_PUBLIC_GAS_WEBAPP_URL || "";
   const apiKey = process.env.NEXT_PUBLIC_GAS_API_KEY || process.env.CRON_SECRET || "";
   if (!baseUrl) return { ok: false, error: "NEXT_PUBLIC_GAS_WEBAPP_URL missing" };
@@ -880,138 +873,6 @@ async function triggerImmediateReExtraction(args: {
 
   // GAS Web App は GET / 60 秒タイムアウト想定
   return fetchGasRunFunc(url);
-}
-
-/**
- * まさ #34 即時反映 2026-05-25: 経営ハイライト (L2 ⑨) の修正依頼を投げた瞬間に
- * 該当 signal を Anthropic Sonnet 4.6 で再抽出して title/summary を更新する。
- * cron 待ちを廃止 = 即時反映ループ完成。
- *
- * scope_key format: `${ym}:strategy:${sourceHashOrSignalIdPrefix}` (= 12 文字 hash)
- * → project_strategy_signals を project_id + ym + source_hash LIKE で逆引き
- */
-async function reextractStrategySignalImmediate(args: {
-  targetId: string;  // project_id
-  scopeKey: string;
-  feedbackText: string;
-  feedbackId: string;
-}): Promise<{ applied: boolean; message: string }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return { applied: false, message: "ANTHROPIC_API_KEY missing in env" };
-  if (!args.feedbackText.trim()) return { applied: false, message: "empty feedback text" };
-  try {
-    const { createAdminClient } = await import("@/lib/supabase/admin");
-    const supabase = createAdminClient();
-    // 1. scope_key から ym + hashPrefix を抽出
-    const m = args.scopeKey.match(/^(20\d{4}):strategy:([0-9a-fA-F]+)/);
-    if (!m) return { applied: false, message: `scope_key format unexpected: ${args.scopeKey}` };
-    const ym = m[1];
-    const hashPrefix = m[2];
-    // 2. 該当 signal を逆引き (= source_hash LIKE or signal_id 前方一致)
-    const { data: signals, error: sigErr } = await supabase
-      .from("project_strategy_signals")
-      .select("signal_id, signal_type, impact_level, decision_state, title, summary, signal_date, source_refs_json, source_hash, polarity, score_impact_summary")
-      .eq("project_id", args.targetId)
-      .eq("ym", ym)
-      .order("signal_date", { ascending: false })
-      .limit(50);
-    if (sigErr) return { applied: false, message: `signal fetch error: ${sigErr.message}` };
-    const target = (signals ?? []).find((s) => (s.source_hash || "").startsWith(hashPrefix) || (s.signal_id || "").startsWith(hashPrefix));
-    if (!target) return { applied: false, message: `signal not found for scope_key ${args.scopeKey}` };
-    // 3. 同 signal の過去 feedback を全件 fetch (= 履歴文脈)
-    const { data: pastFeedbacks } = await supabase
-      .from("l2_feedbacks")
-      .select("feedback_text, created_at, applied_count")
-      .eq("l2_kind", "project_strategy_signal")
-      .eq("target_id", args.targetId)
-      .eq("scope_key", args.scopeKey)
-      .eq("status", "active")
-      .order("created_at", { ascending: true });
-    const fbLines = (pastFeedbacks ?? []).map((f, i) => `${i + 1}. (${f.created_at}, applied=${f.applied_count}) ${f.feedback_text}`).join("\n");
-    // 4. Anthropic Sonnet で再抽出
-    const Anthropic = (await import("@anthropic-ai/sdk")).default;
-    const client = new Anthropic({ apiKey });
-    const systemPrompt = `あなたは AMD OS の経営ハイライト (= L2 ⑨ project_strategy_signal) を、まさからの修正依頼に基づいて即時再構築するエージェント。
-
-入力された signal と過去の修正依頼を読んで、修正依頼を反映した新しい title / summary / impact_level / signal_type / polarity / score_impact_summary を構造化 JSON で返す。
-
-ルール:
-- 修正依頼の意図 (= 内容の誤り / 分類の誤り / 重要度の誤り / 用語の誤り) を必ず反映する
-- 推測で書かない、修正依頼に書かれた事実だけを反映
-- title は 1 行 (= 30-50 文字目安)、summary は 80-200 文字
-- signal_type の選択肢: management_decision / business_progress / strategic_pivot / commercial_progress / partnership / funding / ip_regulatory / tech_progress / risk / next_move
-- impact_level: low / medium / high / critical
-- polarity (= 新規列、null OK): breakthrough / forward / pivot / risk
-- score_impact_summary は「📊 影響: TRL 4→5、X 軸 +40pt」のような 1 行 (null OK)
-- JSON 以外の文字は一切出力しない (= markdown コードブロック含め禁止)
-
-出力 JSON:
-{
-  "title": "...",
-  "summary": "...",
-  "impact_level": "...",
-  "signal_type": "...",
-  "polarity": "..." or null,
-  "score_impact_summary": "..." or null,
-  "applied_feedback_summary": "<反映した修正依頼の要約 1 文>"
-}`;
-    const userPrompt = `=== 既存 signal ===
-title: ${target.title}
-summary: ${target.summary}
-signal_type: ${target.signal_type}
-impact_level: ${target.impact_level}
-polarity: ${target.polarity || "(未設定)"}
-score_impact_summary: ${target.score_impact_summary || "(未設定)"}
-
-=== 過去の修正依頼 (= 時系列) ===
-${fbLines || "(なし)"}
-
-=== 今回の新規修正依頼 (= 最優先反映) ===
-${args.feedbackText}
-
-上記を踏まえて、修正依頼を反映した新しい signal を構造化 JSON で返してください。`;
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    });
-    const text = response.content.map((b) => (b.type === "text" ? b.text : "")).join("").trim();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return { applied: false, message: `LLM output not JSON: ${text.slice(0, 200)}` };
-    const parsed = JSON.parse(jsonMatch[0]) as {
-      title?: string; summary?: string; impact_level?: string; signal_type?: string;
-      polarity?: string | null; score_impact_summary?: string | null;
-      applied_feedback_summary?: string;
-    };
-    if (!parsed.title || !parsed.summary) return { applied: false, message: "LLM output missing title/summary" };
-    // 5. signal を update
-    const updatePayload: Record<string, unknown> = {
-      title: parsed.title,
-      summary: parsed.summary,
-      updated_at: new Date().toISOString(),
-    };
-    if (parsed.impact_level) updatePayload.impact_level = parsed.impact_level;
-    if (parsed.signal_type) updatePayload.signal_type = parsed.signal_type;
-    if (parsed.polarity !== undefined) updatePayload.polarity = parsed.polarity;
-    if (parsed.score_impact_summary !== undefined) updatePayload.score_impact_summary = parsed.score_impact_summary;
-    const { error: updErr } = await supabase
-      .from("project_strategy_signals")
-      .update(updatePayload)
-      .eq("signal_id", target.signal_id);
-    if (updErr) return { applied: false, message: `signal update error: ${updErr.message}` };
-    // 6. 該当 feedback の applied_count++ + last_applied_at
-    if (args.feedbackId) {
-      await supabase
-        .from("l2_feedbacks")
-        .update({ applied_count: (pastFeedbacks?.find((f) => f.created_at === args.feedbackId)?.applied_count ?? 0) + 1, last_applied_at: new Date().toISOString() })
-        .eq("feedback_id", args.feedbackId);
-    }
-    return { applied: true, message: `signal ${target.signal_id.slice(0, 8)} reextracted: ${parsed.applied_feedback_summary || parsed.title}` };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "unknown";
-    return { applied: false, message: `reextract error: ${msg}` };
-  }
 }
 
 type GasRunResponse = {
