@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
 import {
   DashboardScoreOverview,
   type DashboardActionItem,
   type DashboardManagementScoreSnapshot,
-  type DashboardNotificationsSummary,
 } from "@/components/dashboard/DashboardScoreOverview";
-import { MyPageSummaryPanel, type MyPageSummary } from "@/components/dashboard/MyPageSummaryPanel";
+import { MyPageContent } from "@/app/(app)/mypage/page";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchProjectsFromSupabase,
@@ -41,8 +40,6 @@ export default function DashboardPage() {
   const [signalMetrics, setSignalMetrics] = useState<Record<string, { m: number; x: number; f: number }>>({});
   const [managementScore, setManagementScore] = useState<DashboardManagementScoreSnapshot | null>(null);
   const [managementHistory, setManagementHistory] = useState<DashboardManagementScoreSnapshot[]>([]);
-  const [notifications, setNotifications] = useState<DashboardNotificationsSummary | null>(null);
-  const [mypage, setMypage] = useState<MyPageSummary | null>(null);
   const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
@@ -72,9 +69,8 @@ export default function DashboardPage() {
         return { history, metrics };
       }),
       fetchManagementScoreHistory(supabase),
-      fetchNotificationsSummary(supabase),
-      fetchMyPageSummary(supabase),
-    ]).then(([projRes, billRes, scoreRes, mgmtRes, notiRes, mypageRes]) => {
+      fetchMyProjectIds(supabase),
+    ]).then(([projRes, billRes, scoreRes, mgmtRes, myProjRes]) => {
       const projectsValue = projRes.status === "fulfilled" ? projRes.value : [];
       const billingValue = billRes.status === "fulfilled" ? billRes.value : {};
       setProjects(projectsValue);
@@ -94,13 +90,8 @@ export default function DashboardPage() {
         setManagementScore(mgmtRes.value[mgmtRes.value.length - 1] ?? null);
       }
 
-      if (notiRes.status === "fulfilled") {
-        setNotifications(notiRes.value);
-      }
-
-      if (mypageRes.status === "fulfilled" && mypageRes.value) {
-        setMypage(mypageRes.value);
-        setMyProjectIds(new Set(mypageRes.value.myProjects.map((p) => p.projectId)));
+      if (myProjRes.status === "fulfilled") {
+        setMyProjectIds(myProjRes.value);
       }
 
       setLoading(false);
@@ -119,11 +110,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-4 max-w-[1600px] mx-auto">
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
+    <div className="p-4 max-w-[1700px] mx-auto">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(520px,640px)] gap-4">
         <main className="space-y-4 min-w-0">
           <DashboardScoreOverview
-            notifications={notifications}
             managementScore={managementScore}
             managementHistory={managementHistory}
             actionItems={actionItems}
@@ -136,9 +126,12 @@ export default function DashboardPage() {
             myProjectIds={myProjectIds}
           />
         </main>
-        <div className="hidden xl:block">
-          <MyPageSummaryPanel summary={mypage} />
-        </div>
+        {/* /mypage の中身そっくり embed (= まさ #71 v3 確定、MyPageContent を再利用) */}
+        <aside className="hidden xl:block min-w-0 border-l border-border/50 pl-4">
+          <Suspense fallback={<div className="text-sm text-muted-foreground py-8 text-center">マイページ読み込み中…</div>}>
+            <MyPageContent />
+          </Suspense>
+        </aside>
       </div>
     </div>
   );
@@ -167,98 +160,22 @@ async function fetchManagementScoreHistory(supabase: ReturnType<typeof createCli
   return Array.from(latestByYm.values()).filter((row) => row.ym);
 }
 
-async function fetchNotificationsSummary(supabase: ReturnType<typeof createClient>): Promise<DashboardNotificationsSummary> {
+/** 自分が参画してる active PJ id Set (= ProjectStripe ソート優先用、軽量 fetch) */
+async function fetchMyProjectIds(supabase: ReturnType<typeof createClient>): Promise<Set<string>> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     const email = user?.email?.toLowerCase() || "";
-    if (!email) return { canView: false, unread: 0, recentTitles: [] };
-    const { data: member } = await supabase.from("members").select("is_admin").eq("email", email).maybeSingle();
-    if (!member?.is_admin) return { canView: false, unread: 0, recentTitles: [] };
-    const [l2Res, mtgRes, recentL2Res] = await Promise.all([
-      supabase.from("l2_notifications").select("notification_id", { count: "exact", head: true }).is("read_at", null),
-      supabase.from("meeting_notifications").select("meeting_id", { count: "exact", head: true }).is("read_at", null),
-      supabase.from("l2_notifications").select("title").order("created_at", { ascending: false }).limit(3),
-    ]);
-    return {
-      canView: true,
-      unread: (l2Res.count ?? 0) + (mtgRes.count ?? 0),
-      recentTitles: ((recentL2Res.data ?? []) as { title: string }[]).map((r) => r.title),
-    };
-  } catch {
-    return { canView: false, unread: 0, recentTitles: [] };
-  }
-}
-
-async function fetchMyPageSummary(supabase: ReturnType<typeof createClient>): Promise<MyPageSummary | null> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    const email = user?.email?.toLowerCase() || "";
-    if (!email) return null;
-    const { data: member } = await supabase
-      .from("members")
-      .select("member_id, code_name")
-      .eq("email", email)
-      .maybeSingle();
-    if (!member?.member_id) return null;
-
-    // 自分が参画してる active な PJ
+    if (!email) return new Set();
+    const { data: member } = await supabase.from("members").select("member_id").eq("email", email).maybeSingle();
+    if (!member?.member_id) return new Set();
     const { data: pmRows } = await supabase
       .from("project_members")
       .select("project_id")
       .eq("member_id", member.member_id)
       .eq("is_active", true);
-    const myProjectIds = (pmRows ?? []).map((r) => String(r.project_id));
-    let myProjects: Array<{ projectId: string; projectName: string; status: string }> = [];
-    if (myProjectIds.length > 0) {
-      const { data: projRows } = await supabase
-        .from("projects")
-        .select("project_id, project_name, status")
-        .in("project_id", myProjectIds);
-      myProjects = (projRows ?? []).map((p) => ({
-        projectId: String(p.project_id),
-        projectName: String(p.project_name),
-        status: String(p.status),
-      }));
-    }
-
-    // 公式役割分担数
-    const { count: respCount } = await supabase
-      .from("milestone_responsibility")
-      .select("id", { count: "exact", head: true })
-      .eq("member_id", member.member_id)
-      .gt("share", 0);
-
-    // 直近 7 日活動
-    const since7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: actRows } = await supabase
-      .from("member_activities")
-      .select("project_id, title, item_date, extracted_at")
-      .eq("member_id", member.member_id)
-      .gte("extracted_at", since7)
-      .order("extracted_at", { ascending: false })
-      .limit(8);
-    const recentActivities = (actRows ?? []).map((r) => ({
-      projectId: String(r.project_id ?? ""),
-      title: String(r.title ?? ""),
-      itemDate: (r.item_date as string | null) ?? null,
-    }));
-
-    // 自分宛通知 (= 当面 admin 通知 unread 数を流用、後で個別通知化したいなら別途設計)
-    const { count: unreadCount } = await supabase
-      .from("l2_notifications")
-      .select("notification_id", { count: "exact", head: true })
-      .is("read_at", null);
-
-    return {
-      codeName: String(member.code_name || "?"),
-      memberId: String(member.member_id),
-      myProjects,
-      responsibilityCount: respCount ?? 0,
-      recentActivities,
-      unreadNotifications: unreadCount ?? 0,
-    };
+    return new Set((pmRows ?? []).map((r) => String(r.project_id)));
   } catch {
-    return null;
+    return new Set();
   }
 }
 

@@ -177,14 +177,21 @@ function ProjectStripe({
   const trend = lastScoreV != null && prevScore != null ? (lastScoreV > prevScore ? "↗" : lastScoreV < prevScore ? "↘" : "→") : "";
   const trendColor = lastScoreV != null && prevScore != null ? (lastScoreV > prevScore ? "text-emerald-600" : lastScoreV < prevScore ? "text-rose-600" : "text-zinc-500") : "text-zinc-400";
 
+  // 2026-05-25 #71 v3 まさ確定: PL/PM/Closer を 1 行 inline (= 「PL まさ / PM かる / Closer ちこ」)、スペース節約
+  const rolesInline = [
+    roles.pl !== "--" && `PL ${roles.pl}`,
+    roles.pm !== "--" && `PM ${roles.pm}`,
+    roles.closer !== "--" && `Closer ${roles.closer}`,
+  ].filter(Boolean).join(" / ") || "—";
+
   return (
     <Link
       href={`${hrefPrefix}/${project.projectId}/cockpit`}
       className={`relative block rounded-lg border border-border border-l-4 ${leftBorder} ${isMine ? "bg-sky-50/30 ring-1 ring-sky-200/60" : "bg-card"} overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5`}
     >
-      <div className="grid grid-cols-12 gap-3 items-center px-3 py-2">
-        {/* === 識別: code + name + status + client (= col-span-3) === */}
-        <div className="col-span-3 min-w-0">
+      <div className="grid grid-cols-[minmax(180px,1.6fr)_minmax(160px,1.4fr)_minmax(180px,1.8fr)_auto_auto] gap-3 items-center px-3 py-2">
+        {/* === 識別: code + name + status + client === */}
+        <div className="min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="font-mono text-[10px] text-muted-foreground">{project.projectId}</span>
             <h3 className="text-sm font-semibold truncate">{project.projectName}</h3>
@@ -194,29 +201,28 @@ function ProjectStripe({
           {project.clientName && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{project.clientName}</p>}
         </div>
 
-        {/* === 担当: PL / PM / Closer (= col-span-3) === */}
-        <div className="col-span-3 grid grid-cols-3 gap-1 text-[10px] text-muted-foreground border-l border-border/50 pl-3">
-          <RoleBadge label="PL" value={roles.pl} />
-          <RoleBadge label="PM" value={roles.pm} />
-          <RoleBadge label="Closer" value={roles.closer} />
+        {/* === 担当: PL/PM/Closer を inline 1 行で (スペース節約) === */}
+        <div className="border-l border-border/50 pl-3 text-[10px] min-w-0">
+          <div className="text-[9px] text-muted-foreground font-mono uppercase">担当</div>
+          <div className="truncate text-foreground" title={rolesInline}>{rolesInline}</div>
         </div>
 
-        {/* === AMD Score + sparkline (= col-span-3) === */}
-        <div className="col-span-3 flex items-center gap-2 border-l border-border/50 pl-3">
-          <div className="flex flex-col">
+        {/* === AMD Score + sparkline === */}
+        <div className="flex items-center gap-2 border-l border-border/50 pl-3 min-w-0">
+          <div className="flex flex-col shrink-0">
             <div className="text-[9px] text-muted-foreground font-mono uppercase">AMD Score</div>
             <div className="flex items-baseline gap-1">
               <span className="text-lg font-bold tabular-nums leading-none">{lastScoreV != null ? formatScore(lastScoreV) : "—"}</span>
               {trend && <span className={`text-xs font-bold ${trendColor}`}>{trend}</span>}
             </div>
           </div>
-          <Sparkline values={scoreHistory} className="h-7 flex-1 text-sky-500" />
+          <Sparkline values={scoreHistory} className="h-7 flex-1 min-w-[60px] text-sky-500" />
         </div>
 
-        {/* === M/X/F メトリクス (= col-span-1.5) === */}
-        <div className="col-span-1 border-l border-border/50 pl-3">
+        {/* === M/X/F メトリクス === */}
+        <div className="border-l border-border/50 pl-3">
           {metrics ? (
-            <div className="grid grid-cols-3 gap-0.5 text-[9px]">
+            <div className="grid grid-cols-3 gap-1 text-[9px]">
               <MetricCell label="M" value={metrics.m} />
               <MetricCell label="X" value={metrics.x} />
               <MetricCell label="F" value={metrics.f} />
@@ -226,8 +232,8 @@ function ProjectStripe({
           )}
         </div>
 
-        {/* === billing 5 dot (= col-span-2) === */}
-        <div className="col-span-2 border-l border-border/50 pl-3">
+        {/* === billing 5 dot === */}
+        <div className="border-l border-border/50 pl-3">
           {billing ? (
             <>
               <div className="text-[9px] text-muted-foreground font-mono mb-0.5">{billing.ym?.slice(0, 4)}.{billing.ym?.slice(4, 6)}</div>
@@ -277,6 +283,9 @@ function BillingDot({ done, label }: { done: boolean; label: string }) {
 }
 
 function Sparkline({ values, className }: { values: number[]; className?: string }) {
+  // 2026-05-25 #71 v3 まさ「線の太さがバラバラで気持ち悪い」確定:
+  // preserveAspectRatio="none" + 異なる横幅 container で stroke が non-uniform scale されてた
+  // → vector-effect="non-scaling-stroke" を polyline に追加して常に 2.5px 均一に
   if (!values || values.length < 2) return <div className={className} />;
   const max = Math.max(...values);
   const min = Math.min(...values);
@@ -288,7 +297,15 @@ function Sparkline({ values, className }: { values: number[]; className?: string
   });
   return (
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" className={className}>
-      <polyline points={pts.join(" ")} fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+      <polyline
+        points={pts.join(" ")}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
     </svg>
   );
 }

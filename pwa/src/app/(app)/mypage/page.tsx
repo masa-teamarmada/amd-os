@@ -87,6 +87,7 @@ interface RoutineStep {
 }
 
 const supabase = createClient();
+const CTB_ESTIMATE_MARKER = "[[CTB_ESTIMATE_SENT]]";
 
 function getCurrentYm(): string {
   const now = new Date();
@@ -347,17 +348,28 @@ function deadlineFor(stepId: string, ym: string, isCTB: boolean) {
 }
 
 function buildRoutineSteps(cycle: Record<string, unknown> | undefined, ym: string, isCTB: boolean): RoutineStep[] {
-  const estimateDone = !!cycle?.invoice_base_lines_json || !!cycle?.invoice_subject || !!cycle?.invoice_issued_at;
-  const base = [
-    ...(isCTB ? [{ stepId: "estimateSend", label: "見積書送付", done: estimateDone }] : []),
-    { stepId: "budget", label: "請求額確定", done: !!cycle?.budget_confirmed_at || cycle?.status === "budget_confirmed" || cycle?.status === "allocation_confirmed" },
-    { stepId: "meeting", label: "報告会日程調整", done: !!cycle?.meeting_event_id || !!cycle?.meeting_start_at },
-    { stepId: "reportFix", label: "月次報告書FIX", done: !!cycle?.report_fixed_at },
-    { stepId: "reimburseConfirm", label: "立替精算確認", done: cycle?.reimburse_confirm_done !== false },
-    { stepId: "invoiceIssue", label: "請求書発行", done: !!cycle?.invoice_issued_at },
-    { stepId: "invoiceSend", label: "請求書送付", done: !!cycle?.invoice_sent_at },
-  ];
-  return base.map((s) => {
+  const invoiceYm = typeof cycle?.invoice_ym === "string" && cycle.invoice_ym.trim() ? cycle.invoice_ym.trim() : ym;
+  const deferred = invoiceYm !== ym;
+  const estimateDone = typeof cycle?.invoice_base_lines_json === "string" && cycle.invoice_base_lines_json.includes(CTB_ESTIMATE_MARKER);
+  const standardOrder = ["budget", "meeting", "reportFix", "reimburseConfirm", "invoiceIssue", "invoiceSend"];
+  const ctbOrder = ["estimateSend", "budget", "meeting", "invoiceIssue", "invoiceSend", "reportFix", "reimburseConfirm"];
+  const base: Record<string, { label: string; done: boolean; deferred?: boolean }> = {
+    estimateSend: { label: "見積書送付", done: estimateDone, deferred },
+    budget: {
+      label: "請求額確定",
+      done: !!cycle?.budget_confirmed_at || cycle?.status === "budget_confirmed" || cycle?.status === "allocation_confirmed",
+      deferred,
+    },
+    meeting: { label: "報告会日程調整", done: !!cycle?.meeting_event_id || !!cycle?.meeting_start_at, deferred },
+    reportFix: { label: "月次報告書FIX", done: !!cycle?.report_fixed_at },
+    reimburseConfirm: { label: "立替精算確認", done: cycle?.reimburse_confirm_done !== false, deferred },
+    invoiceIssue: { label: "請求書発行", done: !!cycle?.invoice_issued_at, deferred },
+    invoiceSend: { label: "請求書送付", done: !!cycle?.invoice_sent_at, deferred },
+  };
+  const order = isCTB ? ctbOrder : standardOrder;
+  return order.map((stepId) => ({ stepId, ...base[stepId] }))
+    .filter((s) => !s.deferred)
+    .map((s) => {
     const deadline = deadlineFor(s.stepId, ym, isCTB);
     return { ...s, deadline, status: recomputedStatus(s.done, deadline) };
   });
@@ -453,6 +465,7 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
   const viewer = await resolveLoggedInMember();
   const member = await resolvePageMember(viewer, requestedMemberId);
   const yms = targetYms(6);
+  const routineYms = Array.from(new Set([...yms, nextYm(yms[0])]));
   const progressYms = Array.from(new Set([...yms, ...yms.map(prevYm)]));
   const week = currentWeekBoundsJST();
 
@@ -506,7 +519,7 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
     reimburseRes,
   ] = await Promise.all([
     supabase.from("projects").select("project_id, project_name, status, start_ym, end_ym, project_type, project_category").in("project_id", projectIds),
-    supabase.from("billing_cycles").select("*").in("project_id", projectIds).in("ym", yms),
+    supabase.from("billing_cycles").select("*").in("project_id", projectIds).in("ym", routineYms),
     supabase.from("value_plan_cycles").select("plan_cycle_id, project_id, status, total_points, period_start_ym, period_end_ym").in("project_id", projectIds).in("status", ["active", "confirmed", "fixed", "draft"]),
     supabase.from("monthly_reports").select("project_id, ym, section_members").in("project_id", projectIds).in("ym", yms),
     supabase.from("reimbursements").select("project_id, date, status").in("project_id", projectIds).gte("date", firstDay(yms[yms.length - 1])).lt("date", firstDay(nextYm(yms[0]))),
@@ -745,7 +758,9 @@ export default function MyPage() {
   );
 }
 
-function MyPageContent() {
+// 2026-05-25 #71 v3: dashboard 右側で `<MyPageContent />` を再利用するため export 化。
+// mypage page.tsx 自体の Suspense 構造は変えない。
+export function MyPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedMemberId = searchParams.get("memberId");

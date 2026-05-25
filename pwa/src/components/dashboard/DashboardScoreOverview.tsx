@@ -47,60 +47,20 @@ const TONE_CLASS: Record<DashboardActionItem["tone"], string> = {
 };
 
 export function DashboardScoreOverview({
-  notifications,
   managementScore,
   managementHistory,
   actionItems,
 }: {
-  notifications: DashboardNotificationsSummary | null;
   managementScore: DashboardManagementScoreSnapshot | null;
   managementHistory: DashboardManagementScoreSnapshot[];
   actionItems: DashboardActionItem[];
 }) {
+  // 2026-05-25 #71 v3 まさ確定: 通知センター削除 (= 右マイページに含まれる)、上部 2 列に
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-      <NotificationsCard summary={notifications} />
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <ManagementScoreCard score={managementScore} history={managementHistory} />
       <MonthlyActionsCard items={actionItems} />
     </div>
-  );
-}
-
-function NotificationsCard({ summary }: { summary: DashboardNotificationsSummary | null }) {
-  if (!summary || !summary.canView) {
-    return (
-      <section className="rounded-lg border border-border bg-card p-3 flex items-center justify-center text-xs text-muted-foreground min-h-[120px]">
-        通知センター (admin のみ)
-      </section>
-    );
-  }
-  return (
-    <Link
-      href="/notifications"
-      className="rounded-lg border border-border bg-card p-3 hover:shadow-md transition-shadow flex flex-col gap-1.5"
-    >
-      <div className="flex items-center gap-2">
-        <span className="text-xl">📬</span>
-        <h2 className="text-sm font-semibold flex-1">通知センター</h2>
-        {summary.unread > 0 ? (
-          <span className="inline-flex items-center justify-center bg-rose-500 text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5">
-            {summary.unread > 99 ? "99+" : `${summary.unread}`}
-          </span>
-        ) : (
-          <span className="text-[10px] text-muted-foreground">(未読なし)</span>
-        )}
-      </div>
-      {summary.recentTitles.length > 0 && (
-        <ul className="space-y-0.5 mt-1">
-          {summary.recentTitles.slice(0, 3).map((t, i) => (
-            <li key={i} className="text-[11px] text-muted-foreground truncate">
-              • {t}
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="text-[10px] text-muted-foreground/70 mt-auto pt-1">→ 一覧</div>
-    </Link>
   );
 }
 
@@ -194,8 +154,17 @@ function SparklineWithAxes({ values, labels, className }: { values: number[]; la
       <text x={padLeft + innerW} y={H - 3} textAnchor="end" className="fill-zinc-500" style={{ fontSize: "8px" }}>
         {endLabel}
       </text>
-      {/* polyline */}
-      <polyline points={pts.join(" ")} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" className="text-sky-600" />
+      {/* polyline (= vector-effect non-scaling-stroke で線太さ均一、まさ #71 v3) */}
+      <polyline
+        points={pts.join(" ")}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+        className="text-sky-600"
+      />
     </svg>
   );
 }
