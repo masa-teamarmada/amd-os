@@ -189,7 +189,8 @@ function ProjectStripe({
       href={`${hrefPrefix}/${project.projectId}/cockpit`}
       className={`relative block rounded-lg border border-border border-l-4 ${leftBorder} ${isMine ? "bg-sky-50/30 ring-1 ring-sky-200/60" : "bg-card"} overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5`}
     >
-      {/* 固定 12 列 grid (= まさ「コンテンツによって表示位置が変わる」確定): 各列幅は project 間で揃う */}
+      {/* 固定 12 列 grid: 各列幅は project 間で揃う。col-span 再配分 (= 3/2/3/2/2 = 12)
+          M/X/F と billing が狭くて縦書き化してたので幅増やす */}
       <div className="grid grid-cols-12 gap-3 items-center px-3 py-2">
         {/* === 識別: col-span-3 === */}
         <div className="col-span-3 min-w-0">
@@ -202,8 +203,8 @@ function ProjectStripe({
           {project.clientName && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{project.clientName}</p>}
         </div>
 
-        {/* === 担当: col-span-3 (= PL/PM/Closer を inline 1 行) === */}
-        <div className="col-span-3 border-l border-border/50 pl-3 text-[10px] min-w-0">
+        {/* === 担当: col-span-2 (= inline 1 行で省スペース) === */}
+        <div className="col-span-2 border-l border-border/50 pl-3 text-[10px] min-w-0">
           <div className="text-[9px] text-muted-foreground font-mono uppercase">担当</div>
           <div className="truncate text-foreground" title={rolesInline}>{rolesInline}</div>
         </div>
@@ -220,10 +221,10 @@ function ProjectStripe({
           <Sparkline values={scoreHistory} className="h-7 flex-1 min-w-[60px] text-sky-500" />
         </div>
 
-        {/* === M/X/F: col-span-1 === */}
-        <div className="col-span-1 border-l border-border/50 pl-3">
+        {/* === M/X/F: col-span-2 === */}
+        <div className="col-span-2 border-l border-border/50 pl-3">
           {metrics ? (
-            <div className="grid grid-cols-3 gap-1 text-[9px]">
+            <div className="grid grid-cols-3 gap-1 text-[10px]">
               <MetricCell label="M" value={metrics.m} />
               <MetricCell label="X" value={metrics.x} />
               <MetricCell label="F" value={metrics.f} />
@@ -237,13 +238,13 @@ function ProjectStripe({
         <div className="col-span-2 border-l border-border/50 pl-3">
           {billing ? (
             <>
-              <div className="text-[9px] text-muted-foreground font-mono mb-0.5">{billing.ym?.slice(0, 4)}.{billing.ym?.slice(4, 6)}</div>
-              <div className="flex items-center gap-1">
-                <BillingDot done={billing.budgetDone} label="確定" />
-                <BillingDot done={billing.meetingDone} label="報告" />
-                <BillingDot done={billing.reportDone} label="月次" />
-                <BillingDot done={billing.invoiceDone} label="請求" />
-                <BillingDot done={billing.paymentDone} label="入金" />
+              <div className="text-[9px] text-muted-foreground font-mono mb-1">{billing.ym?.slice(0, 4)}.{billing.ym?.slice(4, 6)}</div>
+              <div className="flex items-center justify-between gap-0.5">
+                <BillingStep done={billing.budgetDone} label="確" full="確定" />
+                <BillingStep done={billing.meetingDone} label="報" full="報告" />
+                <BillingStep done={billing.reportDone} label="月" full="月次" />
+                <BillingStep done={billing.invoiceDone} label="請" full="請求" />
+                <BillingStep done={billing.paymentDone} label="入" full="入金" />
               </div>
             </>
           ) : (
@@ -279,6 +280,16 @@ function BillingDot({ done, label }: { done: boolean; label: string }) {
     <span className="flex items-center gap-0.5" title={label}>
       <span className={`inline-block w-1.5 h-1.5 rounded-full ${done ? "bg-emerald-500" : "bg-zinc-300"}`} />
       <span className="text-[8px] text-muted-foreground">{label}</span>
+    </span>
+  );
+}
+
+/** billing 5 step (= 縦書き化を回避: 1 文字短縮ラベル + title で full 表示) */
+function BillingStep({ done, label, full }: { done: boolean; label: string; full: string }) {
+  return (
+    <span className="flex flex-col items-center gap-0.5" title={full}>
+      <span className={`inline-block w-2 h-2 rounded-full ${done ? "bg-emerald-500" : "bg-zinc-300"}`} />
+      <span className="text-[8px] text-muted-foreground leading-none">{label}</span>
     </span>
   );
 }
