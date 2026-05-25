@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * CockpitStrategySignals — PJ cockpit の col2 (経営・事業シグナル) セクション。
+ * CockpitStrategySignals — PJ cockpit の col2 (経営ハイライト) セクション。
  *
  * まさ #14 (2026-05-24) 確定:
  *  - 旧 3 分類 (外部環境 / 経営判断 / 事業進捗) は分類自体がズレていた。
@@ -27,6 +27,7 @@
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import type { ProjectStrategySignal } from "@/lib/supabase-data";
+import { Hint } from "@/components/ui/Hint";
 
 // まさ #34 短期 2026-05-25: 経営ハイライト各カード下に「過去のつくよみ修正依頼」を表示する。
 // 親 component で 1 回 fetch して signal_id ごとに scope_key 前方一致で filter する設計。
@@ -63,12 +64,27 @@ const IMPACT_CLASS: Record<string, string> = {
   critical: "border-red-200 bg-red-50 text-red-800",
 };
 
-const STATE_LABEL: Record<string, string> = {
-  observed: "観測",
-  proposed: "提案",
-  decided: "決定",
-  executing: "実行中",
-  revised: "修正",
+const POLARITY_META: Record<string, { emoji: string; label: string; className: string }> = {
+  breakthrough: {
+    emoji: "🎉",
+    label: "大進捗",
+    className: "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-800",
+  },
+  forward: {
+    emoji: "✨",
+    label: "前進",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  },
+  pivot: {
+    emoji: "🔄",
+    label: "方針転換",
+    className: "border-violet-200 bg-violet-50 text-violet-800",
+  },
+  risk: {
+    emoji: "⚠️",
+    label: "リスク",
+    className: "border-red-200 bg-red-50 text-red-800",
+  },
 };
 
 // 4 分類 (まさ #14 2026-05-24 確定)
@@ -192,7 +208,7 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
   return (
     <section className="rounded-lg border border-border bg-background">
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-        <h2 className="text-[13px] font-semibold">経営・事業シグナル</h2>
+        <h2 className="text-[13px] font-semibold">経営ハイライト</h2>
         <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
           {sorted.length}件
         </span>
@@ -251,6 +267,7 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
 function StrategySignalRow({ signal, projectId, categoryBorder, categoryEmoji, pastFeedbacks }: { signal: ProjectStrategySignal; projectId: string; categoryBorder: string; categoryEmoji: string; pastFeedbacks: FeedbackItem[] }) {
   const refs = sourceSummary(signal.sourceRefs);
   const impactClass = IMPACT_CLASS[signal.impactLevel] ?? IMPACT_CLASS.medium;
+  const polarity = signal.polarity ? POLARITY_META[signal.polarity] : null;
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [sending, setSending] = useState(false);
@@ -294,34 +311,47 @@ function StrategySignalRow({ signal, projectId, categoryBorder, categoryEmoji, p
         <span className="mt-0.5 font-mono text-[10px] text-muted-foreground">
           {formatDate(signal.signalDate)}
         </span>
-        <span className="text-[12px]" title="カテゴリ">{categoryEmoji}</span>
+        <span
+          className={`rounded border px-1.5 py-0.5 text-[10px] ${polarity?.className ?? "border-border bg-muted/40 text-muted-foreground"}`}
+          title={polarity ? `polarity: ${polarity.label}` : "カテゴリ"}
+        >
+          {polarity ? `${polarity.emoji} ${polarity.label}` : categoryEmoji}
+        </span>
         <span className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px]">
           {TYPE_LABEL[signal.signalType] ?? signal.signalType}
         </span>
-        <span className={`rounded border px-1.5 py-0.5 text-[10px] ${impactClass}`}>
-          {signal.impactLevel}
-        </span>
-        <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-          {STATE_LABEL[signal.decisionState] ?? signal.decisionState}
+        <span className="inline-flex items-center gap-0.5">
+          <span className={`rounded border px-1.5 py-0.5 text-[10px] ${impactClass}`}>
+            {signal.impactLevel}
+          </span>
+          <Hint id="cockpit.strategy-signals.impact-chip" />
         </span>
         {signal.status === "candidate" && (
           <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-800">
-            候補
+            未確認
           </span>
         )}
-        <button
-          type="button"
-          onClick={() => setFeedbackOpen((v) => !v)}
-          className="ml-auto rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
-          title="つくよみ (LLM) にこの抽出への修正依頼を送る"
-        >
-          ⚠️ つくよみに修正依頼
-        </button>
+        <span className="ml-auto inline-flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => setFeedbackOpen((v) => !v)}
+            className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+            title="つくよみ (LLM) にこの抽出への修正依頼を送る"
+          >
+            ⚠️ つくよみに修正依頼
+          </button>
+          <Hint id="cockpit.strategy-signals.tsukuyomi-feedback" />
+        </span>
       </div>
       <div className="mt-1 text-[12px] font-semibold leading-snug">{signal.title}</div>
       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
         {signal.summary}
       </p>
+      {signal.scoreImpactSummary && (
+        <p className="mt-1 rounded border border-sky-100 bg-sky-50/70 px-2 py-1 text-[10px] leading-relaxed text-sky-800">
+          📊 影響: {signal.scoreImpactSummary}
+        </p>
+      )}
       {refs.length > 0 && (
         <details className="mt-1.5 text-[10px] text-muted-foreground">
           <summary className="cursor-pointer select-none">根拠 {signal.sourceRefs.length}件</summary>
