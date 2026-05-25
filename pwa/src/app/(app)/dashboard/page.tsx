@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
 import {
   DashboardScoreOverview,
   type DashboardActionItem,
   type DashboardManagementScoreSnapshot,
-  type DashboardProjectSignal,
+  type DashboardNotificationsSummary,
 } from "@/components/dashboard/DashboardScoreOverview";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -37,9 +36,11 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<DashProject[]>([]);
   const [billingStatus, setBillingStatus] = useState<Record<string, DashBillingStatus>>({});
   const [actionItems, setActionItems] = useState<DashboardActionItem[]>([]);
-  const [projectSignals, setProjectSignals] = useState<DashboardProjectSignal[]>([]);
+  const [scoreHistory, setScoreHistory] = useState<Record<string, number[]>>({});
+  const [signalMetrics, setSignalMetrics] = useState<Record<string, { m: number; x: number; f: number }>>({});
   const [managementScore, setManagementScore] = useState<DashboardManagementScoreSnapshot | null>(null);
   const [managementHistory, setManagementHistory] = useState<DashboardManagementScoreSnapshot[]>([]);
+  const [notifications, setNotifications] = useState<DashboardNotificationsSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -68,38 +69,29 @@ export default function DashboardPage() {
         return { history, metrics };
       }),
       fetchManagementScoreHistory(supabase),
-    ]).then(([projRes, billRes, scoreRes, mgmtRes]) => {
-      const projects = projRes.status === "fulfilled" ? projRes.value : [];
-      const billing = billRes.status === "fulfilled" ? billRes.value : {};
-      setProjects(projects);
-      setBillingStatus(billing);
+      fetchNotificationsSummary(supabase),
+    ]).then(([projRes, billRes, scoreRes, mgmtRes, notiRes]) => {
+      const projectsValue = projRes.status === "fulfilled" ? projRes.value : [];
+      const billingValue = billRes.status === "fulfilled" ? billRes.value : {};
+      setProjects(projectsValue);
+      setBillingStatus(billingValue);
 
       if (projRes.status === "fulfilled" && billRes.status === "fulfilled") {
-        setActionItems(buildMonthlyRoutineActions(projects, billing));
+        setActionItems(buildMonthlyRoutineActions(projectsValue, billingValue));
       }
 
       if (scoreRes.status === "fulfilled") {
-        const signals: DashboardProjectSignal[] = projects
-          .filter((p) => p.status === "active")
-          .map((p) => {
-            const hist = scoreRes.value.history[p.projectId] || [];
-            const m = scoreRes.value.metrics[p.projectId];
-            return {
-              projectId: p.projectId,
-              projectName: p.projectName,
-              shortLabel: p.shortLabel ?? null,
-              scoreHistory: hist,
-              m: m?.m ?? null,
-              x: m?.x ?? null,
-              f: m?.f ?? null,
-            };
-          });
-        setProjectSignals(signals);
+        setScoreHistory(scoreRes.value.history);
+        setSignalMetrics(scoreRes.value.metrics);
       }
 
       if (mgmtRes.status === "fulfilled") {
         setManagementHistory(mgmtRes.value);
         setManagementScore(mgmtRes.value[mgmtRes.value.length - 1] ?? null);
+      }
+
+      if (notiRes.status === "fulfilled") {
+        setNotifications(notiRes.value);
       }
 
       setLoading(false);
@@ -119,98 +111,19 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-4">
-      <NotificationsBanner />
       <DashboardScoreOverview
+        notifications={notifications}
         managementScore={managementScore}
         managementHistory={managementHistory}
         actionItems={actionItems}
-        projectSignals={projectSignals}
       />
-      <DashboardGrid projects={projects} billingStatus={billingStatus} />
+      <DashboardGrid
+        projects={projects}
+        billingStatus={billingStatus}
+        scoreHistory={scoreHistory}
+        signalMetrics={signalMetrics}
+      />
     </div>
-  );
-}
-
-// 通知センターへの導線バナー (= ダッシュボード先頭に常設)
-function NotificationsBanner() {
-  const [canView, setCanView] = useState<boolean | null>(null);
-  const [unread, setUnread] = useState<number | null>(null);
-  const [recentTitles, setRecentTitles] = useState<string[]>([]);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        const email = user?.email?.toLowerCase() || "";
-        if (!email) {
-          setCanView(false);
-          return;
-        }
-        const { data: member } = await supabase
-          .from("members")
-          .select("is_admin")
-          .eq("email", email)
-          .maybeSingle();
-        if (!member?.is_admin) {
-          setCanView(false);
-          return;
-        }
-        setCanView(true);
-        const [l2Res, mtgRes, recentL2Res] = await Promise.all([
-          supabase
-            .from("l2_notifications")
-            .select("notification_id", { count: "exact", head: true })
-            .is("read_at", null),
-          supabase
-            .from("meeting_notifications")
-            .select("meeting_id", { count: "exact", head: true })
-            .is("read_at", null),
-          supabase
-            .from("l2_notifications")
-            .select("title")
-            .order("created_at", { ascending: false })
-            .limit(3),
-        ]);
-        setUnread((l2Res.count ?? 0) + (mtgRes.count ?? 0));
-        setRecentTitles(((recentL2Res.data ?? []) as { title: string }[]).map((r) => r.title));
-      } catch {
-        setCanView(false);
-        setUnread(0);
-      }
-    };
-    load();
-  }, []);
-
-  if (!canView) return null;
-
-  return (
-    <Link
-      href="/notifications"
-      className="block border rounded-lg p-3 hover:bg-muted/50 transition-colors bg-card"
-    >
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">📬</span>
-        <div className="flex-1 min-w-0">
-          <div className="font-medium text-sm">
-            通知センター
-            {unread !== null && unread > 0 && (
-              <span className="ml-2 inline-flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5">
-                {unread > 99 ? "99+" : `${unread} 未読`}
-              </span>
-            )}
-            {unread === 0 && <span className="ml-2 text-xs text-muted-foreground">(未読なし)</span>}
-          </div>
-          {recentTitles.length > 0 && (
-            <div className="text-xs text-muted-foreground mt-0.5 truncate">
-              直近: {recentTitles.slice(0, 2).join(" / ")}
-              {recentTitles.length > 2 && " ..."}
-            </div>
-          )}
-        </div>
-        <span className="text-muted-foreground text-sm">→</span>
-      </div>
-    </Link>
   );
 }
 
@@ -235,6 +148,32 @@ async function fetchManagementScoreHistory(supabase: ReturnType<typeof createCli
     });
   }
   return Array.from(latestByYm.values()).filter((row) => row.ym);
+}
+
+async function fetchNotificationsSummary(supabase: ReturnType<typeof createClient>): Promise<DashboardNotificationsSummary> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const email = user?.email?.toLowerCase() || "";
+    if (!email) return { canView: false, unread: 0, recentTitles: [] };
+    const { data: member } = await supabase
+      .from("members")
+      .select("is_admin")
+      .eq("email", email)
+      .maybeSingle();
+    if (!member?.is_admin) return { canView: false, unread: 0, recentTitles: [] };
+    const [l2Res, mtgRes, recentL2Res] = await Promise.all([
+      supabase.from("l2_notifications").select("notification_id", { count: "exact", head: true }).is("read_at", null),
+      supabase.from("meeting_notifications").select("meeting_id", { count: "exact", head: true }).is("read_at", null),
+      supabase.from("l2_notifications").select("title").order("created_at", { ascending: false }).limit(3),
+    ]);
+    return {
+      canView: true,
+      unread: (l2Res.count ?? 0) + (mtgRes.count ?? 0),
+      recentTitles: ((recentL2Res.data ?? []) as { title: string }[]).map((r) => r.title),
+    };
+  } catch {
+    return { canView: false, unread: 0, recentTitles: [] };
+  }
 }
 
 function visibleScoreInputs(rows: Awaited<ReturnType<typeof fetchAllAmdScoreInputs>>) {
