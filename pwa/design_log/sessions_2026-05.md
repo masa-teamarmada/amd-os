@@ -8748,3 +8748,41 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 
 ### 反映 md
 - (= 別 session) pwa/manual/03 + 38 + 05、pwa/design/L2_DATA.md、pwa/design/l2_extract_claude_routine.md
+
+### 2026-05-26 続き: cap 15/day 判明 + Codex automation 検討
+
+**Cloud routine cap 判明**: claude.ai/code/routines に **daily run cap = 15/day** がある。私の設計 (= L2 ②〜⑨ 個別 8 routine、毎時 routine 2 個含む) だと 1 日 60 回発火 → cap で打ち切り。まさが画面で「15/15 使用済み」エラーを発見。
+
+**まさ集約案 (#2026-05-26)**: 「全 L2 データは 1 つの routine に集約すべき」 → 採用。
+
+実装:
+1. 集約 SKILL `pwa/scheduled-tasks/amd-os-l2-all-extract/SKILL.md` 作成 + commit (= `bde16c7`)。Phase 0-I で L2 ⑥→②→④→⑤→⑦→⑧→⑨→③ の順 (= 依存関係考慮) で各 L2 個別 SKILL を inline 実行
+2. L2 ② Cloud routine (= 7 個 Connector + repo OK の唯一完全動作確認済の base) を編集モーダル経由で **集約 routine に書き換え** (= 名前「AMD OS L2 全抽出 (daily 08:00, 集約版)」、指示は集約 SKILL.md 参照に変更)
+3. L3-L9 個別 Cloud routine は残存 (= 削除作業中に UI bug で進まず)。明日朝 cap reset 後に L3/L6 (= 毎時、cap 大量消費) を最優先削除する別 session
+
+**まさ追加提案 (#2026-05-26)**: 「Windows MMO は常時 ON なんだから、そこで Codex 動かせばいいのでは?」 → 戦略再評価:
+
+- Mac の **Codex.app** (= OpenAI Codex Desktop、GPT-5.5 使用) = `~/.codex/automations/<name>/automation.toml` で cron 設定する Anthropic とは別 product
+- Windows MMO PC に Codex CLI 0.133 (= `OpenAI.Codex` winget package) インストール完了
+- ただし残課題: `codex login` (= OAuth ブラウザ承認、まさ手動)、Codex Desktop の Windows install (= `codex app` で installer 起動だが GUI 操作)、`~/.codex/automations/amd-os*` 移植 (= 5 個 + 新規 L2 ②④⑤⑥)
+
+**最終戦略 (= 当面)**: Cloud routine 集約版 (= 明日 08:00 JST 発火、daily 1 回で cap 余裕) を当面の primary writer に。Codex Desktop on Windows MMO は別 session で完遂。L3-L9 余分 Cloud routine 削除も別 session。
+
+### 残課題引き継ぎ
+
+1. **明日朝 (= 2026-05-27)** Cloud routine 集約版の自動発火結果を `claude.ai/code/routines/trig_01YEcyejLzKF7zYgmAiw3w8P` で確認 (= Phase 0-I 全部完走するか、execution time 内に収まるか)
+2. **L3-L9 個別 Cloud routine 7 個を削除** (= claude.ai UI で順次、削除 dialog の Cancel 経由で UI bug 回避すれば確実)
+3. **Windows MMO に Codex Desktop install + automation 移植**:
+   - `codex app` (Windows) で Desktop installer 起動 (まさ手動完了)
+   - `codex login` で OpenAI ChatGPT 認証 (まさ手動、AGENTS 例外)
+   - Mac の `~/.codex/automations/` 5 個 (= amd-os, amd-os-ms, amd-os-strategy-signals, amd-atlas, amd-atlas-2, amd-macrotrend-evidence-review) を Windows に rsync
+   - L2 ②④⑤⑥ も Codex automation 化 (= 既存の amd-os-ms に統合 or 新規)
+   - 動作確認後、Mac の Codex.app は停止 (= 重複防止) or Windows 側だけ稼働に切替
+4. **Mac 側 Local routine 9 個 disable** (= Cloud + Codex 動作確認後)
+5. **マニュアル 38/05/L2_DATA の Codex 反映** (= Windows MMO Codex 稼働確認後)
+
+### 学び
+
+- Anthropic Cloud routine の **daily run cap 15/day** は事前確認不足 (= 公式ドキュ「daily run allowance」言及あり、Agent サマリでも触れてたが「集計タイミング」未認識)
+- まさ提案を Cloud で固執せず Codex に切り替えできなかった = 自分の提案を疑う selfcheck 不足
+- UI 操作の不安定さ (= ステータス toggle / 削除 dialog の click 反応せず) で時間溶け継続
