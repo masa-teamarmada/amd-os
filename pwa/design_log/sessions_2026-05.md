@@ -8677,3 +8677,74 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 
 ### 教訓 (BUGS [meta/ai-interpretation] に追加)
 - まさ「重複 + しょぼ + 全体設計しないと」「PL/PM/Closer 抜けてる」など UI 設計の根本問題を指摘されてから手を動かす運用に。「とりあえず作る」じゃなく「全体構造 → 情報項目リスト → UI 階層」を先に提示
+
+## 2026-05-26 — L2 ②〜⑨ Cloud routines 移行 (= claude.ai/code/routines 一本化)
+
+### 起点
+- まさ「いますぐclaude automationで全L2データが抽出できるようにして、マニュアルもそのように変更しよう」
+- 前提: 2026-05-25 #71 で「L2 ②〜⑨ を Claude routine 8 個に統一」確定済、Mac 側 SKILL は登録済だが Mac スリープで実発火ゼロ
+
+### 経緯 (= 大きな方針転換 3 回)
+1. **Mac scheduled task の発火確認** → L3 (= 5/25 16:01 JST に 1 回) だけ走った fact、他はスリープ中で未発火確認
+2. **Windows MMO PC への移行戦略** (まさ「同じwifiにつないでる別 PC」):
+   - LAN 上に MSI.local (= 192.168.11.2) 発見
+   - OpenSSH Server 有効化 (まさ手動、PowerShell 3 行) + ファイアウォール Public profile 追加
+   - 公開鍵認証で ssh 接続確立 (= `~/.ssh/config` に `Host msi` alias 登録、user=`masa`)
+   - Claude Desktop / Git for Windows / Claude Code CLI / Git Bash を winget install
+   - Windows 側 Claude Desktop は **既にログイン済** (= `coworkScheduledTasksEnabled=true`、`remoteToolsDeviceName=msi`)
+   - SKILL 8 個 + amd-os repo + pwa/.env.local を Windows に転送、$HOME 相対 path に sed 書き換え
+3. **claude.ai/code/routines (Cloud routine) 発見**:
+   - Mac セッション画面に「ローカルルーティンは、コンピューターが起動している間のみ実行されます」表示確認
+   - 公式ドキュ ([code.claude.com/docs/en/routines](https://code.claude.com/docs/en/routines)) で **「Routines execute on Anthropic-managed cloud infrastructure, so they keep working when your laptop is closed.」** 確認
+   - 「Remote」routine = Anthropic サーバー側で 24/7 動く、「Local」routine = 従来の Mac scheduled task
+   - まさ判断 → **Windows MMO 移行を破棄、Cloud routine 一本化** (= 永続資産、複数 PC 共有可能)
+
+### Cloud routine 作成 (= 8 個)
+- Mac 用 SKILL 8 個を `pwa/scheduled-tasks/` に commit (= commit `41ef14c`)、Mac 絶対 path を repo 相対に書き換え
+- claude.ai/code/routines 上で 8 個全部 entry 完了:
+
+| L2 | trigger ID | cron | repo | Connector |
+|---|---|---|---|---|
+| ② プロトコル | `trig_01YEcyejLzKF7zYgmAiw3w8P` | daily 08:00 JST | ✅ amd-os | ✅ 7 個 |
+| ③ MS 進捗 | `trig_01MxR8nyEvJvSHaCwDcHoqmb` | 毎時 0 分 | ✅ amd-os | ✅ 7 個 |
+| ④ PJ ナレッジ | `trig_01DtARvCSkz99GsgG8xihceX` | daily 08:15 JST | ✅ amd-os | ✅ 7 個 |
+| ⑤ メンバーナレッジ | `trig_011FUoNE2YCLgVoZVa9C4q2m` | daily 08:30 JST | ✅ amd-os | ⚠️ Docusign+Supabase のみ |
+| ⑥ MTG サマリ | `trig_01LHbVwy9KH2RNv1E7TtoaQd` | 毎時 0 分 | ✅ amd-os | ⚠️ 5 個 (Supabase + Calendar 欠) |
+| ⑦ OS 台帳差分 | `trig_01211WVhf1pVw7mMdCk2RZxr` | 6h ごと (`0 */6 * * *`) | ✅ amd-os | ⚠️ Docusign のみ |
+| ⑧ XRL 根拠 | `trig_01QktXVABmg7ohA8NCUSFY9C` | 6h ごと (`15 */6 * * *`) | ✅ amd-os | ⚠️ Docusign のみ |
+| ⑨ 経営ハイライト | `trig_011ohxcGastNHLedBxti65jY` | daily 03:20 JST | ❌ 未設定 | ⚠️ Docusign のみ |
+
+### 動作テスト fact (= L2 ② 手動 run)
+- L2 ② で「今すぐ実行」 → Phase 0 (active projects + l2_extract_state 取得) → Phase A (4 targets identify: p00/202605, p19/202605, p21/202605, p25/202605) → Phase C (LLM extraction 開始) まで進行確認
+- Supabase MCP `execute_sql` 経由で `projects` / `l2_extract_state` / `project_meeting_summaries` / `protocols` 列スキーマ確認 + データ取得を正常実行
+- 経過 8m+ で Phase C 思考中、サーバー側で継続中 (= ローカル PC OFF でも動く確証)
+
+### UI 不安定問題 (= 残課題)
+- 新規 routine 作成画面で **Connector 7 個 default が L5 以降 1 個に縮退** (= L4 失敗時の操作が user preference を破壊した可能性)
+- 編集モーダルでも **Connector 追加 dropdown で option click が反映されない** (= Supabase / Calendar が chip 追加されない事象を 5 回以上経験)
+- L9 編集モーダルでは repo 追加すら反映されず保存できない
+- 結果: L6 は repo のみ補完成功 + Connector 5 個維持、L9 は完全に未補完
+
+### Cloud routines 仕様メモ
+- **Routines on the web** (= claude.ai/code/routines): Anthropic サーバー側 sandbox VM で実行、Pro/Max/Team/Enterprise sub に含まれる
+- repo 紐づけは「リポジトリを選択」UI で行う (= 既存の **GitHub連携 Connector** 経由で auth)、未選択だと sandbox に repo 自動 clone されない
+- Connector 一覧 (`claude.ai/customize/connectors`): Docusign / GitHub連携 / Gmail / Google Calendar / Google Drive / Notion / Slack / Supabase = 8 個既登録
+- ローカル MCP は使えない (= claude.ai の Connector として登録し直し)
+- network access は **Default = Trusted** allowlist 制、Supabase は MCP connector 経由なら allowlist 設定不要
+- 最小実行間隔 = 1 時間 (= sub-hourly cron は reject)
+- routine は個人アカウント所属 (= teammate 共有不可)
+
+### 残課題 (= 別 session)
+1. **L9 に repo `masa-teamarmada/amd-os` 追加** (= 未設定だと明日 03:20 cron で sandbox 内 SKILL 読めずに失敗)
+2. **L5/L6/L7/L8/L9 に Supabase Connector 追加** (= Supabase MCP `execute_sql` がないと DB 操作不可)
+3. **L6/L7/L9 に Calendar/Notion/Gmail/Drive/Slack 追加** (= SKILL の Phase A で 5 ソース読むのに必要)
+4. **マニュアル 4 章更新**: 03-data-and-extraction.md (= Cloud routine 移行を全 L2 で正式採用)、38-l2-extraction-routines-spec.md (= 全 8 routine 対象に拡張)、05-decisions-and-history.md §5.4 (= 責務分担マトリクス)、design/L2_DATA.md (= 全 cron 表)
+5. **Mac 側 8 routine の disable** (= Cloud 動作確認後)
+6. **claude.ai UI bug 報告**: Connector 追加が反映されない / 編集モーダルで repo 追加効かない事象を Anthropic に共有
+
+### 副産物 (= 永続資産)
+- Mac → Windows MMO PC への ssh アクセス (= `ssh msi`)、Windows 側 Claude Desktop + Claude Code CLI + Git + Git Bash 環境整備済
+- `pwa/scheduled-tasks/` に SKILL 8 個 + README commit (= Mac/Cloud 共通正本)
+
+### 反映 md
+- (= 別 session) pwa/manual/03 + 38 + 05、pwa/design/L2_DATA.md、pwa/design/l2_extract_claude_routine.md

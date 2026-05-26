@@ -11,29 +11,45 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 | **Notion** | チームアルマダ Workspace | 議事録 / 設計ドキュメント |
 | **Calendar** | Google Workspace | MTG イベント |
 | **Drive** | チームアルマダ Drive | 議事録 docs / 試算表 / 提案資料 PDF |
-| **Gmail** | まさ + AMD メンバー受信箱 | 外部関係者連絡 |
+| **Gmail** | AMD 関係者の受信箱 / 会社アカウント | 外部関係者連絡 |
 
-### 🚨 現状 (= 2026-05-25 fact)
+### 🚨 現状 (= 2026-05-26 fact)
 
-2026-05-22 に「LLM 課金が発生する定期抽出 cron を全廃止」した時に、**「Codex automation が全部カバーしてる前提」が間違ってた**ことが 5/25 判明。実態:
+**2026-05-25 #71 確定方針**: L2 ②〜⑨ の **全 8 routine を Claude routine に統一**。① monthly_reports だけは別 GAS R313 (= LLM 不使用) のまま。
 
-| L2 | 何を生成 | 元 writer | 現状 | 復旧方針 |
-|---|---|---|---|---|
-| ① monthly_reports | PJ 月次レポート | AMD-Report GAS R313 | ✅ 稼働 (= R313 は LLM 不使用、別 GAS で生きてる) | — |
-| ② AMD プロトコル | `protocols` | GAS 155 | ⛔ **5/22 停止 (`L2_KNOWLEDGE_CRON_DISABLED_20260522`)**、Codex automation 受け皿無し | 🚧 Claude routine 新設予定 |
-| ③ MS 進捗 | `milestone_monthly_progress` 等 | GAS 154 → Codex automation `amd-os-ms` | ✅ 稼働 (= `amd-os-ms` が 6h ごとに `outbox.revisions` 生成 → applier upsert) | — |
-| ④ PJ ナレッジ | `project_knowledge` | GAS 155 | ⛔ **5/22 停止**、Codex automation は通知のみ (生成なし) | 🚧 Claude routine 新設予定 |
-| ⑤ メンバーナレッジ | `member_knowledge` | GAS 155 | ⛔ **5/22 停止**、Codex automation は通知のみ | 🚧 Claude routine 新設予定 |
-| ⑥ MTG サマリ (議事録) | `project_meeting_summaries` | GAS 153 (毎時 polling) | ⛔ **5/22 停止 (`MEETING_HOURLY_CRON_DISABLED_20260522`)**、Codex automation 受け皿無し | 🚧 Claude routine 新設予定 |
-| ⑦ OS 台帳差分 | `project_registry_diffs` | Codex automation `amd-os-ms` | ✅ 稼働 (= `outbox.registryDiffs` 生成 → applier upsert) | — |
-| ⑧ XRL 根拠 | `project_xrl_evidence` | Codex automation `amd-os-ms` | ✅ 稼働 (= `outbox.xrlEvidence` 生成 → applier upsert) | — |
-| ⑨ 経営ハイライト | `project_strategy_signals` | Codex automation `amd-os` (daily 03:20) | ✅ 稼働 (= applier dir 修復済 2026-05-25)、ただし**修正依頼ループ未実装** | 別 task で `amd-os` prompt 拡張 |
+2026-05-22 に「LLM 課金が発生する定期抽出 cron を全廃止」した経緯と、5/25 判明した後継処理のカバー範囲誤認の詳細は **[05 章 5.1 cron 廃止経緯](05-decisions-and-history.md#51-cron-廃止経緯)** + **[05 章 5.7](05-decisions-and-history.md#57-l2-②④⑤⑥-ghost-化と-claude-routine-4-個新設計画--2026-05-25)** 参照。
 
-つまり **②④⑤⑥ = 議事録 / プロトコル / PJ ナレッジ / メンバーナレッジ の 4 種が 5/22 以降 ghost 状態** (= 5/22 以前の row が cockpit に表示されるが、新規取り込みゼロ)。実 fact:
+| L2 | 何を生成 | 旧 writer (停止/移管対象) | 新 writer (= Claude routine) | 頻度 | 状態 (2026-05-26) |
+|---|---|---|---|---|---|
+| ① monthly_reports | PJ 月次レポート | AMD-Report GAS R313 | (対象外 = R313 のまま) | daily 05:00 JST | ✅ 稼働 |
+| ② AMD プロトコル | `protocols` | ~~GAS 155~~ ⛔ 5/22 停止 | `amd-os-l2-protocol-extract` | daily 08:00 JST | ✅ **Mac 登録済 (5/25)**、🚧 実 DB write 観察中 |
+| ③ MS 進捗 | `milestone_monthly_progress` | (並行) PWA `/api/cron/hourly-estimate` (= GAS 154 → 毎時 ping) | `amd-os-l3-ms-progress-extract` | 毎時 0 分 | ✅ **Mac 登録済 (5/25)、並行稼働**。Mac routine は 5/25 16:01 JST に 1 回発火確認、source_hash unchanged で no-op (= 既存 PWA cron が先行 update のため正常動作) |
+| ④ PJ ナレッジ | `project_knowledge` | ~~GAS 155~~ ⛔ 5/22 停止 | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | ✅ **Mac 登録済 (5/25)**、🚧 実 DB write 観察中 |
+| ⑤ メンバーナレッジ | `member_knowledge` | ~~GAS 155~~ ⛔ 5/22 停止 | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | ✅ **Mac 登録済 (5/25)**、🚧 `member_knowledge` に `status` / `source_hash` 列無し schema gap、🚧 実 DB write 観察中 |
+| ⑥ MTG サマリ | `project_meeting_summaries` | ~~GAS 153 (毎時 polling)~~ ⛔ 5/22 停止 | `amd-os-l6-meeting-extract` | 毎時 0 分 | ✅ **Mac 登録済 (5/25)**、🚧 実 DB write 観察中 |
+| ⑦ OS 台帳差分 | `project_registry_diffs` | (並行) Codex automation `amd-os-ms` (6h ごと、outbox.registryDiffs) | `amd-os-l7-registry-diff-extract` | 6h ごと | ✅ **Mac 登録済 (5/25)、並行稼働** |
+| ⑧ XRL 根拠 | `project_xrl_evidence` | (並行) Codex automation `amd-os-ms` (6h ごと、outbox.xrlEvidence) | `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 と 15 分ずらし) | ✅ **Mac 登録済 (5/25)、並行稼働** |
+| ⑨ 経営ハイライト | `project_strategy_signals` | (並行) Codex automation `amd-os` (daily 03:20) | `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | ✅ **Mac 登録済 (5/25)、並行稼働**。修正依頼ループは対話型 (= `feedback_dialog.md`) と接続予定 |
+
+### ⚠️ 2026-05-26 fact 補足 (= 稼働信頼性)
+
+Mac の Claude Desktop scheduled task は **「app open + 非スリープ中」のみ発火**。MacBook Air がスリープ / 蓋閉じ中だと cron 時刻でも発火しない (= 「次回起動時に追いつき」仕様)。
+
+実際の発火履歴 (5/26 朝時点):
+- L3 (毎時 0 分): 5/25 16:01 JST に 1 回発火、それ以降未発火 (スリープ疑い)
+- L6 (毎時 0 分、旧 amd-os-meeting-extract): 5/25 03:07 JST に 1 回発火、それ以降未発火
+- L2/L4/L5/L7/L8/L9: 未発火 (= cron 時刻のうち多くは Mac スリープ中)
+
+→ **稼働環境を Mac から常時稼働マシンへ移行作業中** (= 2026-05-26 セッション)。候補:
+- **(A) Windows MMO PC** (= 常時起動デスクトップ) への移行: SKILL/repo/.env コピー完了、Claude Desktop ログイン済、scheduled task 8 個登録待ち
+- **(B) Mac の sleep 完全 OFF**: シンプルだが MacBook Air を常時起動デスクトップ化、運用面の負担
+- **(C) Anthropic クラウド routine** (= `RemoteTrigger` API, `/v1/code/triggers`): スリープ無関係、要調査 (β機能 / org UUID 取得問題)
+
+実 fact (= ghost 状態の row、5/26 朝時点):
 - `protocols`: 2026-05-22 が最後の created_at
 - `project_knowledge`: 2026-05-23 が最後の updated_at (残留分)
 - `member_knowledge`: 2026-05-22 が最後の updated_at
-- `project_meeting_summaries`: 5/22 以降 created の自動取り込みは事実上ゼロ (= dialogue (まさえい手動) と manual_eimi のみ)
+- `project_meeting_summaries`: 5/22 以降 created の自動取り込みは事実上ゼロ (= dialogue 手動投入分と manual_eimi のみ)
 
 ### 取り込み path 一覧 (= 稼働中 path だけ)
 
@@ -41,14 +57,21 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 ✅ ① monthly_reports
    AMD-Report GAS R313_MonthlyReport_Cron (05:00 daily) → Supabase
 
-✅ ③ MS 進捗 / ⑦ OS 台帳差分 / ⑧ XRL 根拠
+✅ ③ MS 進捗 (= primary writer)
+   [GAS 154 `nav_pwa_pingHourlyEstimate`] (= 毎時 0 分)
+     ↓ Bearer CRON_SECRET
+   [PWA `/api/cron/hourly-estimate`]
+     ↓ estimateProgress(projectId, ym, { force:false })
+   [Supabase] (= `milestone_monthly_progress`, `progress_estimate_state`, `l2_notifications`)
+
+✅ ③ MS 進捗レビュー / ⑦ OS 台帳差分 / ⑧ XRL 根拠
    [Codex automation `amd-os-ms`] (= 6h ごと、subscription 内 LLM)
      ↓ outbox JSON
    [~/.codex/automations/amd-os-ms/outbox/]
      ↓ 5 分ごと polling
    [LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier`]
      ↓ pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir
-   [Supabase] (= L2 ③⑦⑧)
+   [Supabase] (= `ms_progress_revisions` / L2 ⑦ / L2 ⑧)
 
 ✅ ⑨ 経営ハイライト (= L2 ⑨)
    [Codex automation `amd-os`] (= daily 03:20 JST)
@@ -64,7 +87,7 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 
 → 全責務分担は **[05 章 5.4 責務分担マトリクス](05-decisions-and-history.md#54-codex--claude--vercel--launchagent-責務分担マトリクス)** に正本表あり (= 上記マトリクスとの整合チェックは 5.4 を真とする)
 
-→ 復旧計画は **[`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)** (= Claude routine 4 個新設、まさ案 C 採用 2026-05-25)
+→ 復旧計画は **[`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)** (= Claude routine 4 個新設、2026-05-25 採用方針)
 
 → なぜ 5/22 cron 廃止したかの背景は **[05 章 5.1 cron 廃止経緯](05-decisions-and-history.md#51-cron-廃止経緯)**
 
@@ -76,13 +99,13 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 |---|---|---|---|---|---|
 | ① | `monthly_reports` | PJ 月次レポート | 5 ソース全部 | AMD-Report GAS `R313_MonthlyReport_Cron` (= 別 clasp、05:00 daily) | ✅ 稼働 |
 | ② | `protocols` | AMD プロトコル (= 経営判断の構造化記録) | 議事録の二次集約 | ~~GAS 155~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-protocol-extract` 新設予定 | ⛔ ghost |
-| ③ | `milestone_monthly_progress` + 進捗系 | MS 達成度 | 5 ソース + OS snapshot | Codex automation `amd-os-ms` (= 6h ごと、`outbox.revisions`) | ✅ 稼働 |
+| ③ | `milestone_monthly_progress` + 進捗系 | MS 達成度 | 月次報告書 + MTGサマリ + OS snapshot | PWA `/api/cron/hourly-estimate` (= primary writer) + Codex automation `amd-os-ms` (= 6h ごとの修正候補 `outbox.revisions`) | ✅ 稼働 |
 | ④ | `project_knowledge` | PJ 知識ナレッジ | `monthly_reports` + 議事録 二次集約 | ~~GAS 155~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-project-knowledge-extract` 新設予定 | ⛔ ghost |
 | ⑤ | `member_knowledge` | メンバー個人のナレッジ | `member_activities` + 議事録 二次集約 | ~~GAS 155~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-member-knowledge-extract` 新設予定 | ⛔ ghost |
-| ⑥ | `project_meeting_summaries` | MTG サマリ (議事録) | Calendar + Notion 議事録 + Slack + Drive Docs + Gmail | ~~GAS 153 (= 毎時 polling)~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-meeting-extract` 新設予定。dialogue (= まさえい手動) は POST `/api/dialogue-meeting` で稼働 | ⛔ ghost (手動 dialogue 投入分を除く) |
+| ⑥ | `project_meeting_summaries` | MTG サマリ (議事録) | Calendar + Notion 議事録 + Slack + Drive Docs + Gmail | ~~GAS 153 (= 毎時 polling)~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-meeting-extract` 新設予定。dialogue (= 提案前の論点整理セッション) は POST `/api/dialogue-meeting` で稼働 | ⛔ ghost (手動 dialogue 投入分を除く) |
 | ⑦ | `project_registry_diffs` (= 通知 nudge) | OS 台帳差分 | OS snapshot vs 5 ソース | Codex automation `amd-os-ms` (= `outbox.registryDiffs`) | ✅ 稼働 |
 | ⑧ | `project_xrl_evidence` | XRL 根拠 | 5 ソース + OS snapshot | Codex automation `amd-os-ms` (= `outbox.xrlEvidence`) | ✅ 稼働 |
-| ⑨ | `project_strategy_signals` | **経営ハイライト** | 5 ソース + OS snapshot | Codex automation `amd-os` (= daily 03:20) + dialogue API (= まさえいMTG)、applier 監視先修復済 2026-05-25 | ✅ 稼働 (修正依頼ループ未実装) |
+| ⑨ | `project_strategy_signals` | **経営ハイライト** | 5 ソース + OS snapshot | Codex automation `amd-os` (= daily 03:20) + dialogue API (= 提案前の論点整理セッション)、applier 監視先修復済 2026-05-25 | ✅ 稼働 (修正依頼ループ未実装) |
 
 **📊 別 L2** (= `member_activities`、メンバー活動ログ): `cron/member-weekly-activities` (= LLM 不使用の残存運用 Vercel cron、daily 18:00 JST) で Gmail / Calendar から直接 fetch。これは厳密には L2 ②じゃないが、L2 ⑤ メンバーナレッジの入力ソースとして重要
 
@@ -96,7 +119,7 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 ### Codex automation
 - 場所: `~/.codex/automations/{name}/automation.toml`
 - 主要 automation:
-  - **`amd-os-ms`** (= 6h ごと) — L2 ③ MS 進捗 / L2 ⑦ OS 台帳差分 / L2 ⑧ XRL 根拠を outbox 書き出し。L2 ②④⑤⑥ は生成しない (= 2026-05-25 ghost 化の原因、[05 章 5.7](05-decisions-and-history.md#57-l2-②④⑤⑥-ghost-化と-claude-routine-4-個新設計画--2026-05-25) 参照)
+  - **`amd-os-ms`** (= 6h ごと) — MS 進捗の修正候補 / L2 ⑦ OS 台帳差分 / L2 ⑧ XRL 根拠を outbox 書き出し。MS 進捗の primary writer は PWA `/api/cron/hourly-estimate`。L2 ②④⑤⑥ は生成しない (= 2026-05-25 ghost 化の原因、[05 章 5.7](05-decisions-and-history.md#57-l2-②④⑤⑥-ghost-化と-claude-routine-4-個新設計画--2026-05-25) 参照)
   - **`amd-os`** (= daily 03:20 JST) — L2 ⑨ 経営ハイライト抽出 + outbox 書き出し
   - **`amd-atlas-2`** (= daily 08:10 JST) — 外部マクロ Atlas 抽出
   - **`amd-macrotrend-evidence-review`** (= weekly Mon 07:30) — UN SDGs / WEF Global Risks 整理
@@ -120,12 +143,13 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 - 登録: `mcp__scheduled-tasks__create_scheduled_task` (= ローカル時刻で cron 式)
 - LaunchAgent と違い、Claude Code app が動いてる時に発火 (= app 閉じてた時は次回起動時に追いつき)
 - 主要 routine (= 2026-05-25 時点):
-  - ✅ **`amd-os-management-dialogue-prep`** (= daily 07:00 JST) — まさえいMTG 議題プリペア
+  - ✅ **`amd-os-management-dialogue-prep`** (= daily 07:00 JST) — 提案前 dialogue の議題プリペア
   - 🚧 **`amd-os-meeting-extract`** (= **毎時 0 分発火 予定**) — L2 ⑥ MTG サマリ抽出、GAS 153 後継
   - 🚧 **`amd-os-protocol-extract`** (= daily 08:00 JST 予定) — L2 ② AMD プロトコル抽出、GAS 155 後継
   - 🚧 **`amd-os-project-knowledge-extract`** (= daily 08:15 JST 予定) — L2 ④ PJ ナレッジ抽出、GAS 155 後継
   - 🚧 **`amd-os-member-knowledge-extract`** (= daily 08:30 JST 予定) — L2 ⑤ メンバーナレッジ抽出、GAS 155 後継
 - 各 routine の prompt は [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md) で議論中
+- 実装/登録/DB upsert の詳細は **[38 章 L2 Extraction Routines](38-l2-extraction-routines-spec.md)** を正本にする。2026-05-25 #68 時点では `amd-os-meeting-extract` の SKILL と GAS dryRun は ready、scheduled task 登録待ち。
 - **🚨 重要**: routine 内では Codex automation outbox path を経由せず **直接 Supabase REST に upsert** する設計 (= subscription 帯域節約 + 冪等性は source_hash + 通知連携は `l2_notifications` / `meeting_notifications`)
 
 ### PWA cron (= Vercel)
@@ -146,12 +170,12 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 
 ### つくよみとは
 - AMD OS 内の LLM 抽出担当キャラ
-- 「ばっちこい」のえいみとは別人格 (= おっとり女子、月モチーフ、バッチ型担当)
+- 通常の会話支援AIとは別人格 (= おっとり女子、月モチーフ、バッチ型担当)
 - 普段「そうかなあ…」「別にいいよお〜」、満月の夜は神モード「人の子よ」
 
 ### 修正依頼フロー
 ```
-[まさが cockpit でシグナル / 議事録の誤抽出を見つける]
+[レビュー担当が cockpit でシグナル / 議事録の誤抽出を見つける]
    │
    │ 「⚠️ つくよみに修正依頼」ボタン → textarea に修正コメント
    │
@@ -185,30 +209,32 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 
 - **L2 ②④⑤⑥**: 新設 Claude routine 4 個 (= [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)) の prompt に `l2_feedbacks` 読み込み手順を最初から組み込む
 - **L2 ⑨ 経営ハイライト**: `amd-os` automation の prompt に `l2_feedbacks` 読み込み手順を追加 (= 別 task)
-- **UI 側**: CockpitStrategySignals 等の各 L2 表示部に「過去の修正依頼」セクション追加 (= まさが「形跡が残らない」と気づく問題への対処、別 task)
+- **UI 側**: CockpitStrategySignals 等の各 L2 表示部に「過去の修正依頼」セクション追加 (= 修正依頼の形跡が残らない問題への対処、別 task)
 
 ---
 
 ## 3.5 用語と実装の対応 ⭐
 
-**ここは「変数名と UI 表記と実態の食い違い」を必ず参照する場所**。新セッションのえいみも必ず読む。
+**ここは「変数名と UI 表記と実態の食い違い」を必ず参照する場所**。新セッションの開発担当も必ず読む。
 
 ### foundingProposal / project_founding_members
-- **変数名から想像する意味**: 創業メンバーリスト
-- **実態**: **関連メンバー全体** (= SU 創業候補 + 事業会社担当 + VC 担当 + 大学 PI + その他関係者すべて)
-- LLM が議事録 / Slack から抽出した「PJ に関係する人物全員」
-- 「創業メンバー」かどうかはその中の一部にタグが付くだけ
+- **変数名から想像する意味**: founder だけのリスト
+- **実態**: **HRL 評価のベースになる関連メンバー台帳** (= SU 創業・経営・技術に直接コミットする人 + AMD 伴走メンバー + 大学キーパーソン)
+- LLM が monthly reports / MTG サマリ / project knowledge / SU 基本情報から抽出する
+- VC / 顧客 / 行政 / 産業パートナーは HRL 根拠外として入れない、または `invalid` 化する
 - **マニュアルでは「関連メンバー (= LLM 抽出)」と呼ぶ**
 - リネーム候補: `relatedMembersProposal` / `project_related_members` (= 別 task)
 
-### 「メンバー」「創業メンバー」「事業会社」「VC」の使い分け
+### 「メンバー」「関連メンバー」「事業会社」「VC」の使い分け
 | UI / コード上の表記 | 実態 | 例 |
 |---|---|---|
 | 「メンバー」(= cockpit 上のボタン) / `project_members` | **AMD 内部メンバー**で、この PJ に伴走 | PJ を担当する AMD メンバー |
-| 「関連メンバー」 (= 上記 foundingProposal の実態) / `project_founding_members` (misleading) | **PJ に関係する人物全員** | SU 創業候補 + 事業会社担当 + VC 担当 + 大学 PI |
+| 「関連メンバー」 (= 上記 foundingProposal の実態) / `project_founding_members` (misleading) | **HRL 評価のベースになる人物台帳** | SU 創業候補 + AMD 伴走 + 大学キーパーソン |
 | 「事業会社」 (= 🤝 ボタン) / `project_partners` | 興味事業会社 (= 法人レベル) | ファインケム / ダイキアクシス / 三浦工業 |
 | 「VC」 / `vcs` テーブル | ベンチャーキャピタル (= 法人レベル) | JAFCO / DG ダイワ |
 | 「投資家」 | 個人投資家 + VC 担当者 | (= 個人と法人で別管理) |
+
+関連メンバーの category / role / HRL / FRL ロジックは **[35 章 FRL / 関連メンバー / HRL 詳細仕様](35-frl-related-members-score-spec.md)** を正本にする。
 
 ### signal_type
 | signal_type (= DB 値) | 日本語表記 (= UI 表示) | 該当カテゴリ |
@@ -222,16 +248,16 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 | `ip_regulatory` | 外部規制 (= 他国規制動向 / 競合知財動向) | 外部環境 |
 | `tech_progress` | 自社知財/技術 (= 自社特許出願 / 技術スタック進捗) | 技術開発 |
 | `risk` | リスク | 外部環境 |
-| `next_move` | 次の一手 | 経営全般 (= ただし「未了」系は経営ハイライト対象外、まさ #26 確定) |
+| `next_move` | 次の一手 | 経営全般 (= ただし「未了」系は経営ハイライト対象外) |
 
 ### decision_state / status / impact_level / polarity の 4 軸
-シグナルカードに表示される情報は紛らわしい (= まさ #29 指摘 2026-05-24)。整理:
+シグナルカードに表示される情報は紛らわしいため、整理:
 | 軸 | 値 | UI 上の見た目 |
 |---|---|---|
-| **status** | `candidate` / `confirmed` / `rejected` / `archived` | candidate のみ「⚠️ 未確認」注釈、それ以外は表示なし (= まさ #29 整理後) |
-| **decision_state** | `observed` / `proposed` / `decided` / `executing` / `revised` | **撤廃予定** (= まさ #26 確定、done のみ書く運用なので不要) |
+| **status** | `candidate` / `confirmed` / `rejected` / `archived` | candidate のみ「⚠️ 未確認」注釈、それ以外は表示なし |
+| **decision_state** | `observed` / `proposed` / `decided` / `executing` / `revised` | **撤廃予定** (= done のみ書く運用なので不要) |
 | **impact_level** | `low` / `medium` / `high` / `critical` | chip 表示 |
-| **polarity** (= 新規) | `breakthrough` (🎉) / `forward` (✨) / `pivot` (🔄) / `risk` (⚠️) | カード左端のアイコン (= まさ #29 確定) |
+| **polarity** (= 新規) | `breakthrough` (🎉) / `forward` (✨) / `pivot` (🔄) / `risk` (⚠️) | カード左端のアイコン |
 
 ---
 
