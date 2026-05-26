@@ -50,13 +50,19 @@ git status -s
 
 clone 後に repo root でこれを叩く。
 
+Windows PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\dev-doctor.ps1
+```
+
 Mac / Linux / Git Bash:
 
 ```sh
 bash scripts/dev-doctor.sh
 ```
 
-Windows では、どのターミナルを開いているかでコマンドが変わる。`「」` や先頭の説明文は入れず、コード部分だけを貼る。
+もし PowerShell script ではなく Git Bash で進める場合は、以下。`「」` や先頭の説明文は入れず、コード部分だけを貼る。
 
 PowerShell:
 

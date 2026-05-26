@@ -63,13 +63,19 @@ git checkout -b kiyo/os-manual-brushup
 
 ## 4. 環境チェック
 
-Mac / Linux / Git Bash では:
+Windows PowerShell では、repo root でまずこれを叩く。`bash` は不要。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\dev-doctor.ps1
+```
+
+Mac / Linux / Git Bash では、従来どおりこれでもよい。
 
 ```sh
 bash scripts/dev-doctor.sh
 ```
 
-Windows では、まずどのターミナルを開いているかでコマンドが変わる。`「」` や先頭の説明文は入れず、コード部分だけを貼る。
+もし PowerShell script ではなく Git Bash で進める場合は、以下。`「」` や先頭の説明文は入れず、コード部分だけを貼る。
 
 1. スタートメニューから **Git Bash** を開き、repo に移動して実行する。
 
