@@ -56,13 +56,28 @@ Mac / Linux / Git Bash:
 bash scripts/dev-doctor.sh
 ```
 
-Windows の PowerShell / コマンドプロンプトで `bash` が認識されない場合:
+Windows では、どのターミナルを開いているかでコマンドが変わる。`「」` や先頭の説明文は入れず、コード部分だけを貼る。
+
+PowerShell:
 
 ```powershell
-& "C:\Program Files\Git\bin\bash.exe" scripts/dev-doctor.sh
+& "C:\Program Files\Git\bin\bash.exe" "scripts/dev-doctor.sh"
+```
+
+コマンドプロンプト (cmd.exe):
+
+```bat
+"C:\Program Files\Git\bin\bash.exe" "scripts/dev-doctor.sh"
 ```
 
 または、スタートメニューから **Git Bash** を開いて repo root に移動し、同じ `bash scripts/dev-doctor.sh` を実行する。
+
+上のパスで見つからない場合は、Git Bash が入っていないか、Git のインストール先が違う。まず以下で確認する。
+
+```powershell
+where.exe git
+where.exe bash
+```
 
 このスクリプトは以下を見る。
 

@@ -69,7 +69,7 @@ Mac / Linux / Git Bash では:
 bash scripts/dev-doctor.sh
 ```
 
-Windows の PowerShell / コマンドプロンプトで `bash` が認識されない場合は、以下のどちらかで進める。
+Windows では、まずどのターミナルを開いているかでコマンドが変わる。`「」` や先頭の説明文は入れず、コード部分だけを貼る。
 
 1. スタートメニューから **Git Bash** を開き、repo に移動して実行する。
 
@@ -78,13 +78,26 @@ cd ~/projects/AMD/amd-os
 bash scripts/dev-doctor.sh
 ```
 
-2. PowerShell から Git for Windows 付属の bash を直接呼ぶ。
+2. **PowerShell** から Git for Windows 付属の bash を直接呼ぶ。
 
 ```powershell
-& "C:\Program Files\Git\bin\bash.exe" scripts/dev-doctor.sh
+& "C:\Program Files\Git\bin\bash.exe" "scripts/dev-doctor.sh"
 ```
 
-Git Bash が入っていない場合は、Git for Windows を入れ直す時に `Git Bash` を含める。
+3. **コマンドプロンプト (cmd.exe)** から呼ぶ場合は、先頭の `&` を付けない。
+
+```bat
+"C:\Program Files\Git\bin\bash.exe" "scripts/dev-doctor.sh"
+```
+
+上のパスで見つからない場合は、Git Bash が入っていないか、Git のインストール先が違う。まず以下で確認する。
+
+```powershell
+where.exe git
+where.exe bash
+```
+
+`where.exe bash` が空なら、Git for Windows を入れ直す時に `Git Bash` を含める。
 
 最低限、OS マニュアルの Markdown を直すだけなら、PWA secrets はなくても作業できる。
 ただし full PWA build / local preview / deploy までやるなら、`pwa/.env.local` と `pwa/.env.production.local`、Vercel link が必要になる。
