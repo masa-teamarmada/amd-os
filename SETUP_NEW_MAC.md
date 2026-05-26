@@ -50,7 +50,13 @@ git status -s
 
 clone 後に repo root でこれを叩く。
 
-Windows PowerShell:
+Windows (PowerShell / コマンドプロンプト):
+
+```powershell
+.\scripts\dev-doctor.cmd
+```
+
+`.cmd` が使えない環境だけ、PowerShell script を直接叩く。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\dev-doctor.ps1

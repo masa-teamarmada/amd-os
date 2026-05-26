@@ -63,7 +63,13 @@ git checkout -b kiyo/os-manual-brushup
 
 ## 4. 環境チェック
 
-Windows PowerShell では、repo root でまずこれを叩く。`bash` は不要。
+Windows では、repo root でまずこれを叩く。PowerShell / コマンドプロンプトのどちらでもよい。`bash` は不要。
+
+```powershell
+.\scripts\dev-doctor.cmd
+```
+
+`.cmd` が使えない環境だけ、PowerShell script を直接叩く。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\dev-doctor.ps1
