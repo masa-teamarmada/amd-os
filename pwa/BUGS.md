@@ -2738,3 +2738,43 @@
 - **解決策**: migration apply のたびに db_schema.md を再生成する運用は pwa/CLAUDE.md に既に書いてある (= 列名は想像で書かない、 db_schema.md を必ず参照)。 ただし、 まずは現状の db_schema.md を信じて確認 → ない場合は migration、 という流れだと「再生成忘れ」 で誤判定する
 - **再発防止策**: 列の存在判定で「無い」 と思った時に、 一度 db_schema.md を再生成してから判断する。 もしくは Supabase MCP で `list_tables` 直接叩いて確認 (= 二次情報の db_schema.md を信じない)
 
+### [codex-mmo/repo-stale] MMO PC の repo が古くて Codex automation が SKILL.md 認識失敗
+
+- **発見日**: 2026-05-27 01:00
+- **状態**: ✅ 修正済 + 予防策投入済
+- **症状**: Windows MMO PC で `amd-os-l6-meeting-flow` automation を手動 run したら「SKILL.md が無い」と Codex が言ってきた。Mac には `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` 存在するのに MMO 側に無い
+- **原因**: MMO の git repo HEAD が `373d9a1` (2026-05-25) で古かった。SKILL.md 8 個を追加した commit `41ef14c` (= 前セッション分) が MMO に pull されてなかった。Mac で push しても MMO は誰かが pull しない限り更新されない (= Codex Desktop は repo を git clone するわけではなく、 `cwds = ["C:/Users/masa/projects/AMD/amd-os"]` で指定した既存 path を使うだけ)
+- **解決策**:
+  - **即時**: ssh msi で `cd C:\Users\masa\projects\AMD\amd-os && git pull origin main` 実行 → HEAD `27ca4a7` に更新、 SKILL.md 認識可能に
+  - **恒久**: MMO の Windows Task Scheduler に `amd-os-git-pull` task を仕込んだ。 30 分ごとに `C:\Users\masa\.codex\automations\amd-os-git-pull.ps1` が走り、 `git fetch + pull origin main` をログ付き (`C:\Users\masa\.codex\automations\.amd-os-git-pull.log`) で実行
+- **再発防止策**:
+  - 「Codex automation を MMO に置くなら、 MMO 側の repo も自動 pull する仕組みが必須」 を運用ルール化
+  - Mac から `bash pwa/scripts/deploy.sh` で push する commit に **SKILL.md / 設計 md の変更** が含まれる場合、 MMO 反映までは最大 30 分の遅延がある (= scheduled task 間隔)。 即時反映したい場合は `ssh msi 'cd C:\Users\masa\projects\AMD\amd-os && git pull origin main'` を手動キック
+  - 同じ問題は将来別マシン (= ラズパイ / 別の PC) で Codex automation を動かす場合も発生する → 配置先 PC ごとに同等の auto-pull schtask を仕込む
+
+### [codex-mmo/toml-format] Codex Desktop の automation.toml は triple-quoted prompt を読まない (= Mac/Windows 両方)
+
+- **発見日**: 2026-05-26 23:30
+- **状態**: ✅ 修正済
+- **症状**: 新規 automation 4 個 (`amd-os-l2-protocol`, `l4-project-knowledge`, `l5-member-knowledge`, `l6-meeting-flow`) を `prompt = """..."""` (triple-quoted) で MMO に配置したが、 Codex Desktop の Automations 画面に出てこない。Mac で動いてる `amd-os-ms` と何が違うか分からず時間溶けた
+- **原因**: Codex Desktop が認識する `automation.toml` は **`prompt = "..."` (single-quoted) + 改行は `\n` escape + `created_at` / `updated_at` (unix ms timestamp) 必須**。triple-quoted の TOML literal は正しい TOML 1.0 仕様だが、 Codex Desktop パーサーが対応してない
+- **解決策**: `/tmp/codex-fix-toml.py` で正しい形式に再生成 (= `prompt.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")` で escape + `created_at = {now_ms}` + `updated_at = {now_ms}`)、 MMO に scp、 MD5 byte-perfect 確認、 Codex Desktop 再起動で全 4 個認識
+- **再発防止策**:
+  - 新規 automation.toml を書く時は必ず Mac の `~/.codex/automations/amd-os-ms/automation.toml` (= 動作中の参照実装) と diff を取って同じ形式か確認
+  - `/tmp/codex-fix-toml.py` パターン (= Python で escape して TOML を組み立てる) を踏襲、 手書きで triple-quoted から始めない
+  - `automation.toml` 変更したら **Codex Desktop プロセス全 kill + 再起動** が必要 (= hot-reload しない仕様)
+
+### [codex-mmo/cron-waste] Codex automation の `FREQ=HOURLY` は深夜も走って credit 無駄
+
+- **発見日**: 2026-05-27 00:30
+- **状態**: ✅ 修正済 (= A+B ハイブリッド)
+- **症状**: L6 MTG フロー automation を `FREQ=HOURLY;INTERVAL=1;BYMINUTE=0` で配置していたが、 まさが「深夜 1 時に動いても MTG ないし無駄」と指摘
+- **原因**: HOURLY 指定だと 24 回/日 × 7 = 168 回/週、 深夜 22:00-08:00 の 11 時間 × 7 = 77 回/週は確実に空打ち。 gpt-5.5 high reasoning で起動するだけでも credit 微妙に消費
+- **解決策**: A+B ハイブリッド採用
+  - **A (cron 絞り)**: `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU;BYHOUR=9,10,11,12,13,14,15,16,17,18,19,20,21;BYMINUTE=0;BYSECOND=0` (= 13回/日 × 7 = 91回/週、 元の 54%)。深夜不発火、 土日も 9-21 時走る (= AMD は柔軟、 朝晩 / 土日 MTG も拾う)
+  - **B (Phase A 早期 exit 明文化)**: prompt 内で「Calendar window filter 結果が 0 件なら Phase B 以降一切実行せず 1 行 summary だけで終了。outbox JSON 作らず Supabase 書き込みも一切しない」 を明示
+- **再発防止策**:
+  - Codex automation の rrule を書く時、 まず「実際に処理対象データが発生する時間帯」 を考える。 24 時間動かす必要があるのは特殊なケースだけ
+  - 早期 exit は cron 絞りより重要 (= 万一空打ちしても credit ゼロ収束)。 prompt 冒頭で「対象データ無しなら即終了」を必ず明文化
+  - rrule で複数時間帯指定する場合は `BYHOUR=9,10,...,21` のように list 列挙 (= `INTERVAL=1` だと毎時無限に走る)
+

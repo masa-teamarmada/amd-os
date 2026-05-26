@@ -13,6 +13,18 @@
 
 詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾「2026-05-26〜27 — バイタルサイン v4 大改修」 セクション全部 (= Phase 1-9)。
 
+### 並列セッション (= L6 Codex automation 改修) — 2026-05-27 00:00-01:10
+
+**もう一人のえいみ** (= Cowork 並列) が独立に動いて、 L6 MTG フロー automation を拡張 + Windows MMO PC 運用を整備。 既に commit 27ca4a7 / 487fc68 で push 済、 main 反映済。 次セッションは無視して OK (= 自分の作業に影響しない)。 影響範囲:
+- `pwa/manual/38-l2-extraction-routines-spec.md` (= L6 セクション拡張)
+- `pwa/design/L2_DATA.md` (= L6 行更新)
+- `pwa/design_log/sessions_2026-05.md` (= 2026-05-27 00:00 / 00:35 セクション追記)
+- `pwa/BUGS.md` (= MMO repo 古くて SKILL.md 認識失敗 + Codex automation TOML 形式 + cron 設計の 3 件追記)
+- MMO 側 `C:\Users\masa\.codex\automations\{l2-protocol, l4, l5, l6}/automation.toml` (= Mac 互換 TOML、 L6 は 11064 bytes)
+- MMO 側 schtasks `amd-os-git-pull` (= 30 分ごとに `git pull origin main`、 `.amd-os-git-pull.log` 出力)
+
+詳細は [`design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) の 2026-05-27 00:00 / 00:35 セクション。
+
 ## Repo State
 
 - branch: `main`
