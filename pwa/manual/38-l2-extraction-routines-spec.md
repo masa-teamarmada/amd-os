@@ -1,10 +1,10 @@
-# 38. L2 Extraction Routines — claude.ai Cloud routines 統一仕様 (L2 ②〜⑨)
+# L2 Extraction Routines — claude.ai Cloud routines 統一仕様 (L2 ②〜⑨)
 
 この章は、2026-05-26 に **L2 ②〜⑨ 全 8 種を claude.ai/code/routines (= Remote routine) に統一** した仕様をまとめる。
 
 **起点**: 2026-05-22 の LLM cron 全廃止で ghost 化した L2 ②④⑤⑥ の復旧をきっかけに、2026-05-25 #71 で「L2 ②〜⑨ 全 8 個を Claude routine 統一」確定。当初 Mac の `~/.claude/scheduled-tasks/` (= Local routine) で実装したが、Mac スリープ依存問題が判明したため、2026-05-26 に claude.ai Cloud routine (= Remote routine、Anthropic-managed cloud infrastructure 上で実行) に一本化。
 
-## 38.1 対象 L2
+## 対象 L2
 
 | L2 | テーブル | 役割 | 旧 writer | 新 writer |
 |---|---|---|---|---|
@@ -19,7 +19,7 @@
 
 L2 ① monthly reports (= AMD-Report GAS R313、LLM 不使用) はこの章の対象外。全体表は [03 章](03-data-and-extraction.md) と [05 章 5.4](05-decisions-and-history.md#54-codex--claude--vercel--launchagent-責務分担マトリクス) を見る。
 
-## 38.2 なぜ Cloud routines (= Remote) を選んだか
+## なぜ Cloud routines (= Remote) を選んだか
 
 claude.ai/code/routines の Cloud routine は **Anthropic-managed cloud infrastructure 上の sandbox VM で実行** されるため:
 
@@ -35,7 +35,7 @@ vs ローカル Mac scheduled task の問題:
 公式ドキュ引用:
 > "Routines execute on Anthropic-managed cloud infrastructure, so they keep working when your laptop is closed." ([code.claude.com/docs/en/routines](https://code.claude.com/docs/en/routines))
 
-## 38.3 Routine 一覧 (= 2026-05-26 entry 済)
+## Routine 一覧 (= 2026-05-26 entry 済)
 
 | routine 名 (= UI 表示) | trigger ID | cron | リポジトリ | Connector |
 |---|---|---|---|---|
@@ -55,7 +55,7 @@ vs ローカル Mac scheduled task の問題:
 - **SKILL 正本**: [`pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md`](../scheduled-tasks/) (= repo 入り、Cloud routine が clone で参照)
 - **設計議論**: [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)
 
-## 38.4 各 routine の動作フロー (= 共通パターン)
+## 各 routine の動作フロー (= 共通パターン)
 
 1. **発火**: Anthropic 側 cron scheduler が trigger 時刻に session を起動
 2. **sandbox VM 環境セットアップ**: AMD OS repo (= masa-teamarmada/amd-os) を `/home/user/amd-os/` 等に自動 clone
@@ -70,7 +70,7 @@ vs ローカル Mac scheduled task の問題:
 - Calendar/Notion/Gmail/Drive/Slack の MCP 呼び出し → claude.ai Connector 経由 (= MCP tool 名はそのまま使える)
 - 列名は `pwa/design/db_schema.md` で grep してから upsert (= MCP `list_tables` でも可)
 
-## 38.4 ⑥ MTG サマリ routine の現状
+## ⑥ MTG サマリ routine の現状
 
 2026-05-26 時点で、全 8 routine は claude.ai/code/routines に entry 済 (= §38.3 trigger ID 一覧)。動作確認できたのは L2 ② のみ。
 
@@ -87,7 +87,7 @@ vs ローカル Mac scheduled task の問題:
 
 L2 ② 動作テスト fact: `progress_estimate_state` / `l2_extract_state` テーブルスキーマを Supabase MCP `execute_sql` で取得 + `project_meeting_summaries` から `p00/202605, p19/202605, p21/202605, p25/202605` の 4 target identify + 各 target の summaries / feedbacks を並列 fetch + Phase C (LLM extraction) 突入を `claude.ai/code/session_01EWKTv1JzaKXKCqAUXUGifr` で確認 (= 8m+ サーバー側継続)。
 
-## 38.5 各 L2 の入出力仕様
+## 各 L2 の入出力仕様
 
 各 routine の SKILL.md (= `pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md`) に Phase 0-E の詳細手順が書かれている。以下は L2 ごとの入出力サマリ。
 
@@ -115,12 +115,40 @@ L2 ② 動作テスト fact: `progress_estimate_state` / `l2_extract_state` テ�
 - 現スキーマ: `member_knowledge` には `status` / `source_hash` 列が無い
 - 現行の採否 UI は通知側の `l2_notifications` を介する。候補/却下を row 自体に保存するには migration が必要
 
-### ⑥ MTG サマリ
+### ⑥ MTG サマリ + フロー (= 2026-05-26 23:59 拡張)
 
-- 入力: Calendar event (= 過去 60-180 分終了) + Notion 議事録 + Gmail (= report_emails スレッド) + Drive Doc + Slack thread
-- 出力: `project_meeting_summaries` (PK=`meeting_id`) + `meeting_notifications`
-- source_kinds: `notion+gmail+drive+slack` 等 (= 30 chars 閾値で各 source 判定)
+**現在の writer**: Codex Desktop automation `amd-os-l6-meeting-flow` (= Windows MMO PC、毎時 0 分発火、gpt-5.5 high reasoning)。Cloud routine は 2026-05-26 25 時時点で deprecated (= Mac/Cloud 共に問題があり Windows MMO の Codex Desktop に集約)。
+
+**役割**: 議事録抽出を超えて MTG 1 回のライフサイクル全体を自動化 (= Phase A-J、10 機能):
+
+1. (A) 議事録抽出 + 高品質化 narrative_md (= 前後 MTG / PJ 全体 / 関連 MS を踏まえた 8 セクション構成)
+2. (C) 次 MTG カード生成 + Calendar event 登録 + 参加者招待 + Notion DB に「📋 準備情報 / 📝 議事録」toggle
+3. (D) 次 MTG までのタスクを Slack nudge (= 担当者 mention + thread)
+4. (E) タスク完了検出 → MTG 資料 update
+5. (F) 前日までに資料未完成ならファシリに Slack DM
+6. (G) 当日 MTG 終了 → MTG カード内に議事録 insert + 準備情報 toggle close
+7. **(H) MTG TODO → cockpit + Calendar 作業枠 (= まさ 2026-05-26 23:55 要求)**: TODO を `tsukuyomi_nudge_queue` 等 cockpit テーブルに upsert + 実行者 & PL カレンダーに「+<PJコード> <task>」枠を freebusy 見て空き時間に作成 (= estimated_hours は LLM 推定、典型値: 資料作り 2h / 軽い調査 1h / アポ調整 0.5h)
+8. **(I) automation 内で資料即生成 (= まさ要求)**: 「議事録 + monthly_reports + 既存 Drive 資料で前提が揃う」「成果物が text/markdown/Google Docs/Slides/Sheets」と判定したものは Phase I で LLM が本文生成 → Drive 保存 → Calendar 作業枠の description に「📎 資料 draft: <drive_url>」追記
+9. **(J) ファシリ役名義で follow-up メール下書き (= まさ要求)**: 当該 MTG の facilitator (= projects.facilitator_member_id) 名義で Gmail draft 作成 (本送信禁止、ファシリが本人 Gmail で確認後送信)。本文構成 = 挨拶 / 本日サマリ / 決まったこと / 次回までの宿題 / 次回 MTG 概要 / 添付資料案内 / 結び。当日シェアした Drive 資料は exportLinks で PDF 化して attach
+10. (旧) iOS APNs 通知 (= meeting_notifications upsert)
+
+**入力**: Calendar event (= 過去 60-180 分終了) + Notion 議事録 + Gmail (= report_emails スレッド) + Drive Doc + Slack thread + `project_meeting_summaries` 過去 3 件 (= 前回比較) + `monthly_reports` 直近 3 件 (= PJ 全体文脈) + `value_milestones` + `milestone_monthly_progress` (= MS context) + Calendar freebusy (= H 用) + `projects.drive_folder_id` + `projects.facilitator_member_id` + `project_members` (= role=PL 特定)
+
+**出力**:
+- `project_meeting_summaries` (PK=`meeting_id`) + `meeting_notifications` (旧)
+- `tsukuyomi_nudge_queue` or `project_todos` (= cockpit TODO 反映、H)
+- Calendar event (+<PJ> prefix task 枠、H)
+- Drive file (= Phase I 生成資料、命名 `<YYYY-MM-DD>_<PJcode>_<task slug>_draft.<ext>`)
+- Gmail draft (= Phase J follow-up メール、添付 PDF 含む)
+- source_kinds: `notion+gmail+drive+slack` 等 (= 30 chars 閾値)
 - 議事録なし event は `source_kinds='none'` のマーカー行を upsert (= 重複判定用)
+
+**禁止事項追加 (= Phase H/I/J 用)**:
+- LLM が Calendar / Drive / Gmail に直接書き込み (= 全部 non-LLM helper `apply-outbox` 経由)
+- Gmail メール本送信 (= draft 止まり、ファシリ役本人が確認後送信)
+- Calendar 既存枠と重複作成 (= freebusy 必ず確認)
+- TODO Calendar 枠を「+<PJ>」prefix 無しで作る (= まさルール違反)
+- 生成不能タスクを強引に資料生成 (= 前提データ不足なら skip + reason 記録)
 
 ### ⑦ OS 台帳差分
 
@@ -142,7 +170,7 @@ L2 ② 動作テスト fact: `progress_estimate_state` / `l2_extract_state` テ�
 - ルール: 「進んだこと・起きたこと」(= done のみ、未了は除外、まさ #26)、impact_level / signal_type / polarity 等 4 軸で記録
 - 修正依頼は対話型 (= `/api/notifications/feedback/dialog/*` + CockpitStrategySignals UI 拡張) と接続予定
 
-## 38.6 冪等性と通知
+## 冪等性と通知
 
 | テーブル | 使い方 |
 |---|---|
@@ -152,17 +180,18 @@ L2 ② 動作テスト fact: `progress_estimate_state` / `l2_extract_state` テ�
 | `meeting_notifications` | ⑥ MTG サマリの承認/通知カード (= iOS APNs 通知用) |
 | `progress_estimate_state` | ③ MS 進捗の `source_hash` 差分検知 (= UNIQUE `project_id, ym`) |
 
-## 38.7 実装時の禁止事項
+## 実装時の禁止事項
 
 - ローカル Mac scheduled task (= `~/.claude/scheduled-tasks/amd-os-l*`) の Live 化 (= Cloud routine と並行は idempotent だが credit 重複、Cloud 動作確認後に disable)
 - GAS 153 / 155 の kill switch を外して LLM cron を復活させない
+- PWA / GAS / Vercel route から Anthropic・Gemini・OpenAI の従量課金 API を L2 抽出用途で新規に呼ばない。LLM が必要な抽出・要約・議事録品質改善は Cloud routine 側の SKILL に寄せる
 - raw Gmail / raw Notion 本文を L2 row に丸ごと保存しない (= source refs + short snippet + hash のみ)
 - `member_knowledge` に存在しない `status` や `source_hash` を書かない (= schema gap、migration 必要)
 - `protocols` の「はい」を `active` にしない。正本は `confirmed`
 - Codex automation と Cloud routine を同じものとして扱わない (= 7/8/9 は Codex `amd-os-ms` / `amd-os` から移行、Codex 側は段階的に停止)
 - 列名を想像しない。必ず [`pwa/design/db_schema.md`](../design/db_schema.md) を見る
 
-## 38.8 残課題
+## 残課題
 
 | 優先 | タスク | 備考 |
 |---|---|---|
@@ -176,7 +205,7 @@ L2 ② 動作テスト fact: `progress_estimate_state` / `l2_extract_state` テ�
 | P2 | Codex automation `amd-os-ms` / `amd-os` の段階的停止 | Cloud routine L7/L8/L9 が安定稼働してから |
 | P3 | claude.ai UI bug 報告 (= Connector 追加が反映されない、編集モーダルで repo 設定が消える) | Anthropic に共有、修正待ち |
 
-## 38.9 2026-05-26 移行ログ
+## 2026-05-26 移行ログ
 
 - claude.ai/code/routines に 8 個全部 entry 完了 (= §38.3 trigger ID 一覧)
 - SKILL 8 個を repo `pwa/scheduled-tasks/` に commit (= `41ef14c`)、Cloud routine の sandbox VM が auto-clone する正本

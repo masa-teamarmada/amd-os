@@ -8916,3 +8916,55 @@ C:\Users\masa\.codex\automations\
 5. **Mac 側 Local routine 9 個 disable**
 6. **MTG フロー実装の helper** = `apply-outbox` で Notion / Calendar / Slack 反映する non-LLM script (= `pwa/scripts/ms_progress_review_tool.mjs` 拡張 or 別 helper)
 7. **マニュアル 38/05/L2_DATA に Windows MMO Codex 反映** (= 別 session)
+
+## 2026-05-27 00:00 — L2 ⑥ MTG フロー Phase H/I/J 拡張 (= まさ 23:55 追加要求)
+
+### きっかけ
+
+L6 MTG フロー Phase A-G が表示確認できた直後、まさが「もう少し機能を追加したい」と 3 機能を要求:
+
+1. **MTG TODO のコックピット反映 + Calendar 作業枠**: MTG で発生した TODO → cockpit の TODO 欄に追加 + 実行者と PL のカレンダーに「実行に十分な時間枠」を空き時間に作成。タイトル冒頭は `+<PJコード>` (例: `+SX`)
+2. **automation 内資料即生成**: タスクが automation 内で生成可能なら、MTG 終了後すぐに資料を作成 → カレンダーのタスク枠にファイル link を貼る
+3. **ファシリ役メール下書き**: MTG 終了後、ファシリ役名義で参加者向け Gmail 下書きを作成。決まったこと + 次回 MTG 概要 + 当日シェア資料の PDF 添付
+
+### Phase 追加内容
+
+**Phase H — MTG TODO → cockpit + Calendar 作業枠**:
+- TODO 統合: `meetingSummary.next_actions` + `nextMtgDrafts.tasks` を merge
+- 各 TODO の estimated_hours を LLM 推定 (= 資料作り 2h / 軽い調査 1h / アポ調整 0.5h / 設計レビュー 1.5h / 重資料 3-4h)
+- cockpit TODO テーブル (= 第一候補 `tsukuyomi_nudge_queue`、第二候補 `project_todos`) に outbox.todos で upsert
+- 実行者 + PL (= projects.primary_owner_member_id / project_members で role=PL) の Calendar freebusy を確認 → 空き時間に Calendar event 作成
+- タイトルルール: `+<projectCode> <task title>` (例: `+SX 顧客 X 向け Pitch deck 修正`)
+- 既存 +<PJ> event があれば重複作成しない (= calendar list で title prefix + assignee 一致確認)
+
+**Phase I — automation 内資料即生成**:
+- 生成可能判定: 議事録 + monthly_reports + 既存 Drive 資料で前提が揃う AND 成果物が text/markdown/Google Docs/Slides/Sheets
+- 典型例: 議事録要約スライド / 次 MTG agenda doc / Pitch deck 更新 / 提案書 draft / 調査メモ / 1pager
+- LLM が本文生成 → Drive 保存 (= 親フォルダ = projects.drive_folder_id 配下「次回MTG準備」/「成果物」、命名 `<YYYY-MM-DD>_<PJcode>_<task slug>_draft.<ext>`)
+- outbox.generatedMaterials に push、Phase H の Calendar event description に「📎 資料 draft: <drive_url>」追記
+- 生成不可は { todo_id, skipped: true, reason } で残す (= 後で人手生成のヒント)
+
+**Phase J — ファシリ役メール下書き**:
+- facilitator = projects.facilitator_member_id (fallback: primary_owner_member_id) 名義で Gmail draft 作成
+- recipients = Calendar attendees、cc = PL (facilitator と別なら)
+- subject: 【<projectName>】<meeting_date> 定例 議事メモと次回ご案内
+- body_md (7 セクション): 挨拶 / 本日サマリ / 決まったこと / 次回までの宿題 / 次回 MTG 概要 / 添付資料案内 / 結び
+- attachments: 当日シェアした Drive 資料 (= Calendar event description / Notion 議事録 / Slack thread の Drive link 経由) を Drive exportLinks の application/pdf で PDF 化 → attach
+- 本送信禁止 (= draft 止まり、ファシリ役が本人 Gmail で確認後送信)
+
+### 反映
+
+- `/tmp/codex-fix-toml.py` の amd-os-l6-meeting-flow prompt に Phase H/I/J 追記 (= 8052 → 10651 bytes)
+- name 拡張: `AMD OS L2 ⑥ MTG サマリ + フロー (議事録 / 次 MTG カード / Slack nudge / TODO→cockpit + Calendar 作業枠 / 資料即生成 / ファシリ役メール下書き)`
+- outbox top-level keys 追加: `todos`, `calendarTaskBlocks`, `generatedMaterials`, `followUpEmailDrafts`
+- 禁止事項追加: Gmail 本送信 / Calendar 既存枠と重複作成 / `+<PJ>` prefix 無し / 生成不能タスクの強引な資料生成
+- run summary に Phase H/I/J カウント追加: `TODO → cockpit <N> queued / Calendar 作業枠 (+<PJ>) <N> created / 資料自動生成 <N> drafts / ファシリ役メール下書き <N> drafts`
+- Windows MMO PC に scp → MD5 byte-perfect (= `74fe8b985a8051aeeab3cfc247b38ecb`)
+- Codex Desktop 再起動完了 (= 23:59 新プロセス) → まさ確認で UI に反映確認済
+
+### 残課題
+
+- outbox.todos / calendarTaskBlocks / generatedMaterials / followUpEmailDrafts を反映する non-LLM `apply-outbox` helper の実装 (= 現状 LLM が outbox 出すだけで反映されない)
+- cockpit TODO 欄の正確なテーブル名確認 (= `tsukuyomi_nudge_queue` か `project_todos` か別か、db_schema.md で grep)
+- projects.facilitator_member_id の列存在確認 (= 無ければ projects.primary_owner_member_id fallback で動く設計だが、明示列があった方が運用ラク)
+- Phase I で生成した Drive file の権限設定 (= デフォルト owner only か、PJ メンバー share か)
