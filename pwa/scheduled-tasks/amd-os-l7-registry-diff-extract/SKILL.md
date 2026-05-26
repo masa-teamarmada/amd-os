@@ -1,0 +1,152 @@
+---
+name: amd-os-l7-registry-diff-extract
+description: AMD OS L2 ⑦ OS 台帳差分 (PJ メンバー候補 / 関係先メール / 担当者 / 契約 / 請求等) 抽出 routine。6 時間ごと発火、active PJ × 当月 / 前月の 5 生データ (Gmail / Notion / Calendar / Slack / Drive) と OS 台帳 (= project_members / projects.report_emails / project_partners 等) を突合 → 差分候補をサブスク内 Claude で抽出 → Supabase `project_registry_diffs` に pending で upsert + 通知。Codex automation `amd-os-ms` の `outbox.registryDiffs` 部分を Claude routine 内に inline 移植 (= 既存 Codex は段階的停止、2026-05-25 まさ #71)。
+---
+
+# AMD OS L2 ⑦ OS 台帳差分抽出 (Codex amd-os-ms 完全 inline 移植版)
+
+## 設計の要点
+- 既存 = Codex automation `amd-os-ms` (= 6h ごと) が `outbox.registryDiffs` を吐く → LaunchAgent applier が Supabase に反映
+- 新 = Claude routine が 5 生データを直接見て diff を抽出 → Supabase REST 直叩き (= Codex automation + outbox applier 経路を bypass)
+- **diff_kind** 例: `member_candidate` / `partner_candidate` / `partner_email_candidate` / `report_email_candidate` / `contact_candidate`
+- target_table 例: `project_members` / `projects` / `project_partners`
+- proposed_patch_json は最小限の patch payload
+- status='pending' で upsert → 通知 → まさが /notifications で「はい」で apply
+
+## 並行稼働の慎重さ
+**既存 Codex `amd-os-ms` が稼働中** (= 6h ごと)。本 routine 登録直後は両方走り outbox を吐く / Supabase に書く → 重複 / 競合の可能性。
+fact 比較できたら既存 Codex `amd-os-ms` の registryDiffs 部分を automation.toml prompt から削除。LaunchAgent applier は L8 移管後に unload。
+
+## 【絶対】 動く前に必ず Read
+1. `pwa/manual/03-data-and-extraction.md` §3.2-3.4
+2. `pwa/design/project_registry_diffs.md` (= L2 ⑦ 仕様正本)
+3. `pwa/design/db_schema.md` (= project_registry_diffs / project_members / projects / project_partners / members 列名)
+4. `/Users/masa/.codex/automations/amd-os-ms/automation.toml` (= 元実装 prompt、特に「OS 台帳差分の作り方」)
+
+═══════════════════════════════════════════════════
+Phase 0: env + active projects + ymList
+═══════════════════════════════════════════════════
+
+```bash
+ENV=pwa/.env.local
+SUPABASE_URL=$(grep '^NEXT_PUBLIC_SUPABASE_URL=' "$ENV" | cut -d= -f2-)
+SRK=$(grep '^SUPABASE_SERVICE_ROLE_KEY=' "$ENV" | cut -d= -f2-)
+```
+
+- `projects?status=eq.active&select=project_id,project_name,slack_channel_id,drive_folder_id,report_emails`
+- ymList = [当月 (JST), 前月]
+- 1 回の実行で max 5 PJ × 1 ym = 5 targets まで
+
+═══════════════════════════════════════════════════
+Phase A: 5 生データ収集 (= 各 PJ ごと)
+═══════════════════════════════════════════════════
+
+各 (projectId, ym) について:
+
+### A-1: OS snapshot (= 既存 OS データ)
+- `project_members?project_id=eq.<projectId>&is_active=is.true&select=member_id` → 既存 PJ メンバー (members JOIN で code_name)
+- `projects.report_emails` (= projects テーブルから既取得) → 既存関係先メール
+- `project_partners?project_id=eq.<projectId>&select=partner_name,partner_email,role` → 既存事業会社
+
+### A-2: 5 生データから候補抽出 (= MCP 直叩き)
+- **Gmail** `mcp__6177d349-3dda-4619-a696-29643fc4587d__search_threads`:
+  - query = `(from:<report_email1> OR to:<report_email1> OR ...) after:<ym 開始 YYYY/MM/DD> before:<ym 終了+1日>`
+  - メール送受信から外部関係先メール抽出 (= 内部 `@team-armada.jp` 除外)
+- **Notion** `mcp__e4a96d32-6a4a-482d-80ba-4e7792f0cd29__notion-search`:
+  - query = `<projectName> <ym>` で議事録 attendees / メンション抽出
+- **Calendar** `mcp__509862f5-b23a-4c45-bf99-9978f6bc4d61__list_events`:
+  - 当月内 PJ 関連 events の attendees から関係者抽出
+- **Slack** `mcp__833b660c-3bc6-43e7-923e-68e2bd3b6695__slack_read_channel` (= projects.slack_channel_id):
+  - 当月内メッセージから PJ メンバー候補 (= AMD members で project_members 未登録のもの)
+- **Drive** `mcp__66e633f8-4f3e-495d-aa3c-4733ce09335f__search_files`:
+  - drive_folder_id 配下の更新ファイルから関係先 / 担当者抽出
+
+### A-3: alias map + members 全件取得
+- L5 と同様、`members?select=member_id,code_name,email,status` で alias map 構築
+
+═══════════════════════════════════════════════════
+Phase B: LLM 抽出 (= 私自身)
+═══════════════════════════════════════════════════
+
+入力:
+- OS snapshot (= 既存 PJ メンバー / 関係先メール / 事業会社)
+- 5 生データから抽出した候補リスト
+- alias map
+- past l2_feedbacks (= `l2_feedbacks?l2_kind=eq.project_registry_diff&target_id=eq.<projectId>&status=eq.active`)
+
+**抽出ルール**:
+- AMD 内部メンバー (= members に存在) で繰り返し PJ 生データに登場するが `project_members` に居なければ → registryDiffs (target_table='project_members')
+- Gmail から外部関係先メール抽出、`projects.report_emails` 未登録なら → registryDiffs (target_table='projects' / proposed_patch_json.email)
+- 内部アドレス `@team-armada.jp` は除外
+- 協業先 / 顧客候補 → target_table='project_partners'
+- 既存 OS snapshot に存在する候補は出さない (= 重複防止)
+- 既存 `project_registry_diffs` で status='pending' or 'applied' に同じ target_key があれば出さない
+- past_feedbacks の指示を必ず反映
+
+**出力 JSON のみ**:
+```json
+{
+  "diffs": [
+    {
+      "project_id": "<projectId>",
+      "ym": "<ym>",
+      "scope_key": "<scope_key>",
+      "diff_kind": "member_candidate|partner_candidate|partner_email_candidate|report_email_candidate|contact_candidate",
+      "target_table": "project_members|projects|project_partners",
+      "target_key": "<entity name or email>",
+      "target_key_norm": "<lowercase + trim>",
+      "current_snapshot_json": { ... },
+      "proposed_patch_json": { ... },
+      "proposed_patch_hash": "<sha256 of patch>",
+      "evidence_refs_json": [ { "source": "gmail|notion|calendar|slack|drive", "ref_id": "...", "snippet": "<200 chars>", "source_url": "...", "hash": "..." } ],
+      "confidence": 0.0-1.0
+    },
+    ...
+  ]
+}
+```
+
+═══════════════════════════════════════════════════
+Phase C: Supabase upsert
+═══════════════════════════════════════════════════
+
+各 diff について:
+```
+POST $SUPABASE_URL/rest/v1/project_registry_diffs
+body: {
+  ...diff 全部
+  "status": "pending",
+  "created_by": "claude_routine_l7"
+}
+Prefer: return=minimal
+```
+
+### l2_notifications upsert (= diffs.length > 0)
+```
+body: {
+  "l2_kind": "project_registry_diff",
+  "target_id": "<projectId>",
+  "scope_key": "<ym>",
+  "title": "📋 <projectName> (<ym>) OS 台帳差分候補 (<diffsN>件)",
+  "summary": "<top 3 diff_kind:target_key joined / >",
+  "saved_count": <diffsN>,
+  "total_count": <diffsN>,
+  "importance": 2
+}
+```
+
+### feedback applied_count++
+
+═══════════════════════════════════════════════════
+Phase D: run summary
+═══════════════════════════════════════════════════
+
+- まさへの 1 行サマリ:
+  `📋 OS 台帳差分 routine HH:MM 完了: N PJ チェック、M diffs (= member_candidate=X, partner=Y, email=Z)`
+
+【禁止】
+- 内部アドレス `@team-armada.jp` を関係先メールとして登録
+- 既存 OS snapshot に存在する候補を再提出 (= 重複防止)
+- 既存 pending diff に同じ target_key を再提出
+- past_feedbacks 無視
+- 5 ソース全部見ない (= まさ絶対ルール 2026-05-11)
