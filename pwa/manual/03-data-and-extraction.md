@@ -102,7 +102,7 @@ Mac の Claude Desktop scheduled task は **「app open + 非スリープ中」�
 | ③ | `milestone_monthly_progress` + 進捗系 | MS 達成度 | 月次報告書 + MTGサマリ + OS snapshot | PWA `/api/cron/hourly-estimate` (= primary writer) + Codex automation `amd-os-ms` (= 6h ごとの修正候補 `outbox.revisions`) | ✅ 稼働 |
 | ④ | `project_knowledge` | PJ 知識ナレッジ | `monthly_reports` + 議事録 二次集約 | ~~GAS 155~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-project-knowledge-extract` 新設予定 | ⛔ ghost |
 | ⑤ | `member_knowledge` | メンバー個人のナレッジ | `member_activities` + 議事録 二次集約 | ~~GAS 155~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-member-knowledge-extract` 新設予定 | ⛔ ghost |
-| ⑥ | `project_meeting_summaries` | MTG サマリ (議事録) | Calendar + Notion 議事録 + Slack + Drive Docs + Gmail | ~~GAS 153 (= 毎時 polling)~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-meeting-extract` 新設予定。dialogue (= 提案前の論点整理セッション) は POST `/api/dialogue-meeting` で稼働 | ⛔ ghost (手動 dialogue 投入分を除く) |
+| ⑥ | `project_meeting_summaries` + cockpit TODO + Calendar 作業枠 + Drive 資料 + Gmail draft | MTG サマリ + **MTG 全フロー** (= 2026-05-27 拡張) | Calendar + Notion 議事録 + Slack + Drive Docs + Gmail | ~~GAS 153~~ ⛔ → ✅ **Codex Desktop automation `amd-os-l6-meeting-flow`** (= Windows MMO PC、 平日土日 09:00-21:00 毎時 0 分発火、 gpt-5.5 high reasoning)。議事録抽出だけでなく次 MTG カード生成 / Slack nudge / TODO→cockpit / Calendar 作業枠 (+<PJ> prefix) / 資料即生成 / ファシリ役メール下書きまで自動。dialogue (= 提案前の論点整理セッション) は POST `/api/dialogue-meeting` で稼働 | ✅ 稼働 (Phase A 早期 exit 付き、 該当 event 0 件なら即終了) |
 | ⑦ | `project_registry_diffs` (= 通知 nudge) | OS 台帳差分 | OS snapshot vs 5 ソース | Codex automation `amd-os-ms` (= `outbox.registryDiffs`) | ✅ 稼働 |
 | ⑧ | `project_xrl_evidence` | XRL 根拠 | 5 ソース + OS snapshot | Codex automation `amd-os-ms` (= `outbox.xrlEvidence`) | ✅ 稼働 |
 | ⑨ | `project_strategy_signals` | **経営ハイライト** | 5 ソース + OS snapshot | Codex automation `amd-os` (= daily 03:20) + dialogue API (= 提案前の論点整理セッション)、applier 監視先修復済 2026-05-25 | ✅ 稼働 (修正依頼ループ未実装) |
@@ -142,12 +142,13 @@ Mac の Claude Desktop scheduled task は **「app open + 非スリープ中」�
 - 場所: `~/.claude/scheduled-tasks/{name}/SKILL.md`
 - 登録: `mcp__scheduled-tasks__create_scheduled_task` (= ローカル時刻で cron 式)
 - LaunchAgent と違い、Claude Code app が動いてる時に発火 (= app 閉じてた時は次回起動時に追いつき)
-- 主要 routine (= 2026-05-25 時点):
-  - ✅ **`amd-os-management-dialogue-prep`** (= daily 07:00 JST) — 提案前 dialogue の議題プリペア
-  - 🚧 **`amd-os-meeting-extract`** (= **毎時 0 分発火 予定**) — L2 ⑥ MTG サマリ抽出、GAS 153 後継
-  - 🚧 **`amd-os-protocol-extract`** (= daily 08:00 JST 予定) — L2 ② AMD プロトコル抽出、GAS 155 後継
-  - 🚧 **`amd-os-project-knowledge-extract`** (= daily 08:15 JST 予定) — L2 ④ PJ ナレッジ抽出、GAS 155 後継
-  - 🚧 **`amd-os-member-knowledge-extract`** (= daily 08:30 JST 予定) — L2 ⑤ メンバーナレッジ抽出、GAS 155 後継
+- 主要 routine (= 2026-05-27 時点):
+  - ✅ **`amd-os-management-dialogue-prep`** (= daily 07:00 JST、 Mac Local) — 提案前 dialogue の議題プリペア
+  - 🚚 **L2 ②④⑤⑥ は Windows MMO PC の Codex Desktop automation に集約済** (= 2026-05-26 移行、 詳細は [38 章 L2 Extraction Routines](38-l2-extraction-routines-spec.md) § ⑥ MTG サマリ + フロー)
+    - `amd-os-l2-protocol` (= daily 08:00) — L2 ② AMD プロトコル抽出
+    - `amd-os-l4-project-knowledge` (= daily 08:15) — L2 ④ PJ ナレッジ抽出
+    - `amd-os-l5-member-knowledge` (= daily 08:30) — L2 ⑤ メンバーナレッジ抽出
+    - `amd-os-l6-meeting-flow` (= **平日土日 09:00-21:00 毎時 0 分**、 Phase A 早期 exit 付き) — L2 ⑥ **MTG 全フロー** (議事録 / 次 MTG カード / Slack nudge / TODO→cockpit / Calendar 作業枠 (+<PJ>) / 資料即生成 / ファシリ役メール下書き)
 - 各 routine の prompt は [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md) で議論中
 - 実装/登録/DB upsert の詳細は **[38 章 L2 Extraction Routines](38-l2-extraction-routines-spec.md)** を正本にする。2026-05-25 #68 時点では `amd-os-meeting-extract` の SKILL と GAS dryRun は ready、scheduled task 登録待ち。
 - **🚨 重要**: routine 内では Codex automation outbox path を経由せず **直接 Supabase REST に upsert** する設計 (= subscription 帯域節約 + 冪等性は source_hash + 通知連携は `l2_notifications` / `meeting_notifications`)

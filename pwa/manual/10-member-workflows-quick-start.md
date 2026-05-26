@@ -102,6 +102,20 @@ PJ 判定は、 PJ 専用 email / PJ 名 / client 名 / `project_knowledge(categ
 - MTG サマリ tab (= 自分が出た MTG の決定・進捗・next action)
 - 経営ハイライト tab (= 自分が confirm 担当の signal、 まさえいMTG で確定されたもの)
 
+## MTG 終了後に自動で起きること (= 2026-05-27 拡張)
+
+メンバーが Calendar に登録した MTG が終わると、 60-180 分後に **Codex Desktop automation `amd-os-l6-meeting-flow`** (= Windows MMO PC、 平日土日 09:00-21:00 毎時 0 分発火) が以下を自動で実行する。 該当 MTG event が無い時間帯は即終了 (= 早期 exit) なので深夜にも余計な処理は走らない。 詳細は [38 章 § ⑥ MTG サマリ + フロー](38-l2-extraction-routines-spec.md)。
+
+1. **議事録抽出 + 高品質化** (= Phase A): Calendar event 1 個ごとに、 Notion 議事録 / Gmail report mail / Drive Docs / Slack thread の 4 ソースを横断 fetch → narrative_md を 8 セクション構造 (前回 MTG までの流れ / この MTG の目的 / 議事録本体 / 重要決定 / 進捗事実 / 次のアクション / リスク / MS 進捗への影響) で生成。 `project_meeting_summaries` に upsert
+2. **次 MTG カード生成** (= Phase C): 次 MTG 用 page を Notion 議事録 DB に「<日付> <PJ name> 定例 (draft)」 で自動作成、 「📋 次 MTG 準備情報」 toggle + 「📝 議事録」 toggle 構造。 Calendar event も自動作成、 参加者を attendees に招待
+3. **Slack nudge** (= Phase D): 担当メンバーに mention 付きで Slack 投稿、 1 thread に tasks 並ぶ
+4. **TODO → cockpit + 自分の Calendar に作業枠** (= Phase H): MTG で発生した TODO は cockpit の TODO 欄に並び、 さらに **自分 + PL の Google Calendar に「+<PJコード> <task>」 タイトルで作業枠が空き時間に勝手に入る** (= estimated_hours は LLM が推定、 資料作り 2h / 軽い調査 1h / アポ調整 0.5h / 設計レビュー 1.5h / 重資料 3-4h)。 例: `+SX 顧客 X 向け Pitch deck 修正`
+5. **自動資料生成** (= Phase I): タスクのうち「議事録 + monthly_reports + 既存 Drive 資料で前提が揃う」 AND 「成果物が text/markdown/Google Docs/Slides/Sheets」 と判定されたものは、 automation 内で資料 draft を自動生成 → Drive 保存 (= 命名 `<YYYY-MM-DD>_<PJcode>_<task slug>_draft.<ext>`) → Calendar 作業枠の description に「📎 資料 draft: <drive_url>」 が自動追記
+6. **ファシリ役メール下書き** (= Phase J): ファシリ役 (= `projects.facilitator_member_id`、 無ければ `primary_owner_member_id`) の Gmail に follow-up メールの **下書き** が自動作成される。 本文構成は (1) 挨拶 / (2) 本日サマリ / (3) 決まったこと / (4) 次回までの宿題 / (5) 次回 MTG 概要 / (6) 添付資料案内 / (7) 結び の 7 セクション。 当日シェアした Drive 資料は exportLinks で PDF 化して添付。 **本送信は禁止** = ファシリが本人 Gmail で確認してから手動送信する
+7. **当日処理** (= Phase G): MTG 当日終了後、 元々 draft だった次 MTG カードの「📝 議事録」 toggle 内に narrative_md が自動 insert され、 page title から `(draft)` が削除される。 「📋 次 MTG 準備情報」 toggle は折りたたまれる
+
+⚠️ **注意**: 現状 LLM は **outbox JSON を吐くまで**。 Notion / Calendar / Drive / Gmail への実反映は別の non-LLM helper (`apply-outbox`) を実装するまでは保留 (= 2026-05-27 時点未実装)。
+
 ## 通知レビュー (`/notifications`)
 
 通知のカード一覧。 詳細は [22 章 通知・修正依頼・正本反映ゲート](22-notifications-and-tsukuyomi.md) と [28 章 通知レビュー UI 仕様](28-notification-review-and-strategy-signals-spec.md)。
