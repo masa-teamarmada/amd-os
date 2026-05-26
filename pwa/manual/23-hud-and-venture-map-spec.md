@@ -38,6 +38,9 @@ HUD版
 | `/hud/atlas` / `/hud/atlas/*` | HUD skin 付き Atlas |
 | `/hud/seeds` / `/hud/seeds/*` | HUD skin 付き Seeds |
 | `/hud/vcs` / `/hud/vcs/*` | HUD skin 付き VC List |
+| `/hud/seeds/[id]` | HUD skin 付き seed detail |
+| `/hud/vcs/[id]` | HUD skin 付き VC detail |
+| `/hud/vcs/[id]/edit` | HUD skin 付き VC edit |
 | `/hud/venture-map/amd-score/retrofit` | HUD 版 retrofit view |
 | `/hud/dashboard/embed` | 外部プレゼン用の公開 embed route |
 
@@ -159,24 +162,48 @@ D_i(t) = dN_i/dt - dM_i/dt
 
 `/venture-map/cyberspace` や `oscillator` は、まだ意思決定の正本画面ではなく、表現・分析の実験ビュー。判断ロジックの正本は `/venture-map`, `/venture-map/amd-score`, `pwa/design/venture_map_model.md`, [21 章](21-amd-score-spec.md)。
 
+`/project/{projectId}/cockpit` の SU 系 hero (= 事業概要、沿革、XRL dot 修正、月次試算表、つくよみヒアリング) は [37 章 Venture Status / Narrative / PL / XRL Feedback](37-venture-status-narrative-pl-xrl-spec.md) が正本。
+
 ## 23.9 自動更新
 
 | 処理 | 役割 | 現状 |
 |---|---|---|
-| `papers-quarterly-ingest` | OpenAlex 論文数 -> `papers_log` | Vercel cron / Run Now 可 |
+| `papers-quarterly-ingest` | OpenAlex 論文数 -> `papers_log` | Vercel cron / Run Now 可。詳細は [33 章](33-research-assets-vc-seeds-scholar-spec.md) |
 | `macro-aggregate-indicators` | `observation_log` / `atlas_signals` から macro 集計 | Vercel cron / Run Now 可 |
 | `relearn-lane-weights` | α/β/γ/δ/λ/η 再学習 | LLM 系のため停止中扱い |
 | `macro-backfill-historical` | 2010-2025 の historical 補完 | LLM 系のため停止中扱い |
-| `venture-xrl-refresh` | XRL 自動判定 | LLM 課金あり。例外扱いとして要監視 |
+| `venture-xrl-refresh` | XRL 自動判定 | LLM 系のため schedule 停止中。route は手動検証用に残す |
 
 cron の稼働状態は [24 章 Operations Settings](24-operations-settings-spec.md) と [05 章 5.4](05-decisions-and-history.md#54-codex--claude--vercel--launchagent-責務分担マトリクス) を見る。
 
-## 23.10 関連設計 md
+## 23.10 Cyber Dashboard 実験ルート
+
+`/dashboard-cyber-*` は HUD client の正本画面ではなく、3D dashboard の表現実験。社内で見た目・情報密度・操作感を比較するために残している。
+
+| route | 公開 mock | 位置付け |
+|---|---|---|
+| `/dashboard-cyber-3d-lab` | `/mock/dashboard-cyber-3d-lab` | X/F/M 空間に PJ 球体を置く現行 3D lab。床面 KPI と PJ cockpit 投影を試す |
+| `/dashboard-cyber-glass-cube` | `/mock/dashboard-cyber-glass-cube` | 廃案比較用。glass cube 中心だと情報構造が散るため、今後の正本候補にしない |
+| `/dashboard-cyber-hud-wall` | `/mock/dashboard-cyber-hud-wall` | 第2案の作り直し。固定視点、HUDモジュール、VALUE CONVERSION CORE、同一空間内 PJ Focus を試す |
+
+実験ルートのルール:
+
+- 認証付き route と公開 mock route を分ける
+- three.js / CanvasTexture 側で HUD の形状・発光・ゲージ・接続線を作る
+- CSS はページ土台、文字、軽い配置補助に留める
+- Glass Cube は比較用に残すが、正本候補として育てない
+- `/hud/dashboard` の業務項目を欠落させないため、将来統合する時は [23.4 parity checklist](#234-hud-化の-parity-checklist) を先に埋める
+
+詳細な見た目・禁止事項は `pwa/design/cyber_dashboard_content_design.md` と `pwa/design/cyber_hud_design_code.md`。
+
+## 23.11 関連設計 md
 
 | md | 内容 |
 |---|---|
 | `pwa/design/HUD_CLIENT_MIGRATION.md` | HUD client 移行方針 |
 | `pwa/design/hud_visual_language.md` | HUD 視覚言語 |
+| `pwa/design/cyber_dashboard_content_design.md` | 3D Cyber Dashboard の情報設計 |
+| `pwa/design/cyber_hud_design_code.md` | cyber HUD 実装ルール |
 | `pwa/design/venture_map_model.md` | Venture Map 数理モデル |
 | `pwa/design/macrotrend_atlas_seeds_architecture.md` | Macrotrend -> Atlas -> Seeds 階層 |
 | `pwa/design/amd_score.md` | AMD Score 理論・UI |

@@ -2,6 +2,62 @@
 
 月次の管理オペレーション。
 
+## 4.0 月次運用カレンダー
+
+admin 視点では、月次運用は **稼働月のルーティン** と **支払月の回収・支払** を分けて見る。
+
+- 稼働月のルーティン: PJ cockpit 右カラム / `/mypage` / `/admin/billing`
+- 支払月の回収・支払: `/admin/billing` / `/admin/payouts?ym=YYYYMM` / `/admin/finance`
+
+標準 PJ の稼働月ルーティン:
+
+```mermaid
+flowchart LR
+  B["前月25日<br/>請求額確定<br/>PM申告 -> PL承認"] --> M["当月20日<br/>報告会日程調整<br/>Calendar確定"]
+  M --> R["翌月3日<br/>月次報告書FIX<br/>monthly_reports固定"]
+  R --> E["翌月4日<br/>立替精算確認<br/>未処理立替なしを確認"]
+  E --> I["翌月8日<br/>請求書発行<br/>freee invoice / PDF"]
+  I --> S["翌月9日<br/>請求書送付<br/>invoice_sent_at保存"]
+```
+
+CTB PJ は、見積と請求を前倒しする:
+
+```mermaid
+flowchart LR
+  Q["前月28日<br/>見積書送付<br/>quotation / marker保存"] --> B["前月28日<br/>請求額確定<br/>PM申告 -> PL承認"]
+  B --> M["当月20日<br/>報告会日程調整"]
+  M --> I["当月28日<br/>請求書発行"]
+  I --> S["当月28日<br/>請求書送付"]
+  S --> R["翌月3日<br/>月次報告書FIX"]
+  R --> E["翌月4日<br/>立替精算確認"]
+```
+
+請求書送付後は、固定締切ではなく PJ ごとの支払条件で動く。
+
+```mermaid
+flowchart LR
+  S["請求書送付<br/>invoice_sent_at"] --> D["支払期日<br/>payment_due_rule / invoice_ym"]
+  D --> P["入金確認<br/>/admin/billing / Slack nudge / freee同期"]
+  P --> C["報酬キャッシュ確認<br/>/admin/payouts"]
+  C --> N["支払通知書PDF発行・送付"]
+  N --> R["報酬支払<br/>reward_paid_at"]
+```
+
+| タイミング | 主担当 | 画面 | やること | 完了 / 保存先 |
+|---|---|---|---|---|
+| 前月25日 | PM -> PL | PJ cockpit / `/mypage` | 標準 PJ の請求額・バッファ・PJ予算を申告し、PL が承認する | `billing_cycles.budget_confirmed_at`, `budget_yen`, `status='budget_confirmed'` |
+| 前月28日 | PM / admin | PJ cockpit | CTB の見積書送付と請求額確定を行う | `invoice_base_lines_json` の `[[CTB_ESTIMATE_SENT]]`, `budget_confirmed_at` |
+| 当月20日 | PM | PJ cockpit | 月次報告会の日程を確定する | `meeting_event_id` or `meeting_start_at` |
+| 当月28日 | PM / admin | PJ cockpit | CTB の請求書を発行・送付する | `invoice_issued_at`, `invoice_sent_at` |
+| 翌月3日 | PM / PL | PJ cockpit | 月次報告書を確認し、送付可能な状態に固定する | `monthly_reports.status`, `billing_cycles.report_fixed_at` |
+| 翌月4日 | PM / admin | `/reimburse` / `/admin/billing` | 未処理の立替申請がないか確認する | 締切後に `submitted` / `pmapproved` が無ければ自動完了 |
+| 翌月8日 | PM / admin | PJ cockpit | 標準 PJ の請求書を freee で発行する | `invoice_issued_at`, `freee_invoice_number` |
+| 翌月9日 | PM / admin | PJ cockpit | 標準 PJ の請求書を送付済みにする | `invoice_sent_at` |
+| 支払期日 | admin | `/admin/billing`, Slack, `/payment-confirm` | 入金を確認する。期日は `/admin/projects` の支払条件と `invoice_ym` で決まる | `payment_confirmed_at`, `billing_log` |
+| 支払月 | admin | `/admin/payouts?ym=YYYYMM` | 報酬キャッシュを確認し、支払データ保存、支払通知書 PDF 発行、送付済み化を行う | `monthly_reward_payout`, `payout_notices` |
+
+`billing_cycles.invoice_ym` が稼働月と違う場合、稼働月側には **月次報告書FIXだけ**残り、請求・日程・立替・発行・送付は請求月側にまとめる。月次ルーティンの細かいクリック先と完了判定は [01 章 1.5](01-pj-cockpit.md#15-月次ルーティン--報告書--請求--会計) が正本。
+
 ## 4.1 admin/payouts (= 月次支払通知書フロー)
 
 URL: `/admin/payouts?ym=YYYYMM`
@@ -9,26 +65,23 @@ URL: `/admin/payouts?ym=YYYYMM`
 ### 何をする画面か
 AMD から SU に対する月次業務委託費 (= AMD 業務委託フィー) の **支払通知書発行**フロー。SU 法人がまだ無い PJ (= pre-founding) でも、業務委託契約に基づき支払が発生する。
 
+報酬キャッシュ、支払月 / 稼働月の判定、PJ別収支、PDF確認 / 正式発行、送付済み管理の詳細は **[31 章 Admin Payouts / 支払通知書](31-admin-payouts-reward-notice-spec.md)** が正本。
+
 ### 月次サイクル
 1. **報酬サマリ表示** (= 過去 cycle の `billing_cycles.reward_summary_json` をキャッシュ表示)
 2. **月次ベースでメンバー別支払額確認**
 3. **支払通知書発行**:
    - **番号発行** (= `payout_notices.notice_no` = `PN-YYYYMM-NNN`)
-   - **PDF URL 保存** (= GAS `064_PayoutFreeeNotice.js` で改善版フォーマット生成)
+   - **PDF URL 保存** (= 改善版フォーマット生成)
    - **送付済み化** (= `payout_notices.sent_at` set)
 4. 「PDF 確認」ボタンで支払データ確定前でも確認用 PDF 生成可能 (= 確認用は `payout_notices` に保存しない)
 
-### 重要な仕様 (= 過去ハマり防止)
-- 通常 GET は **報酬キャッシュを読むだけ** (= `syncRewardSummariesForBillingCycles` は重い再計算なので暗黙実行しない)
-- 手動「報酬キャッシュ再計算」ボタンまたは保存系処理だけが `refreshRewards=1` で再計算
+### 重要な仕様
+- 通常表示は **報酬キャッシュを読むだけ**。重い再計算は暗黙実行しない
+- 手動「報酬キャッシュ再計算」ボタンまたは保存系処理だけが再計算する
 - 支払通知書 PDF フォーマット: **2026-04 改善版** が正本。白地、青アクセント、公式ロゴ画像、青ヘッダ明細表、税内訳、支払予定/方法/振込先/備考を出す
-- `setValue("team ARMADA")` / `brandCell` / `支払通知書番号` 等の旧版 anchor は復活禁止 (= `npm run test:critical-ui` で検知)
-- golden PNG: `pwa/scripts/__fixtures__/payout_notice_golden.png` + SHA256
 
-### ScriptProperties
-- `PAYOUT_LOGO_FILE_ID` / `PAYOUT_LOGOTYPE_FILE_ID` を gas/CLAUDE.md に明記
-
-→ 詳細仕様: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md)
+→ 守るべき PDF / UI 契約: [31 章 Admin Payouts / 支払通知書](31-admin-payouts-reward-notice-spec.md)
 
 ---
 
@@ -44,7 +97,11 @@ URL: `/admin/projects`
 - report_emails (= 月次報告書送付先メールアドレス、chip 表示で個別削除 + 一括保存可能)
 
 ### sticky thead
-- ヘッダーは `sticky top-0 z-30` で固定 (= 大量 PJ で下スクロールしてもヘッダー見える、まさ #15 確定 2026-05-24)
+- ヘッダーは `sticky top-0 z-30` で固定 (= 大量 PJ で下スクロールしてもヘッダーが見える)
+
+### 詳細仕様
+
+セル単位編集、支払条件、関係先メアド、PJメンバー、ASPI lane は **[30 章 Admin Projects / Members 台帳](30-admin-projects-members-ledger-spec.md)** が正本。
 
 ### projects.status (= PJ の稼働・営業状態)
 
@@ -75,11 +132,11 @@ URL: `/admin/projects`
 | `dtsu` | DTSU (cyan) | 学術発 SU 伴走 PJ (通常) | 対象 | 対象 |
 | `new_business` | 新規事業創出 (emerald) | レガシー企業 DX + 研究シーズ取込で新規事業創出 | 対象 | 対象 |
 | `ecosystem` | Ecosystem (violet) | 研究機関の SU エコシステム構築業務 | 対象外 | 対象 |
-| `advisor` | Advisor (amber) | まさが社外取締役 / 経営顧問として入る PJ | 対象 | 対象外 (月次ノート運用) |
+| `advisor` | Advisor (amber) | AMD が社外取締役 / 経営顧問として入る PJ | 対象 | 対象外 (月次ノート運用) |
 
-- ZMP (`p19`) は `new_business` (= まさ判断 2026-05-25、葛飾ロード新規事業創出)
+- ZMP (`p19`) は `new_business` (= 葛飾ロード新規事業創出)
 - KUTE (`p25`) は `ecosystem`、LST (`p07`) は `advisor`
-- 詳細・追加経緯は [§5.6 project_category に `new_business` 追加](05-decisions-and-history.md#56-project_category-に-new_business-追加--2026-05-25) 参照
+- 追加経緯や内部判断ログは開発者向けマニュアルで管理する
 
 ---
 
@@ -96,6 +153,8 @@ AMD 内部メンバー台帳の編集。
 
 ### sticky thead 同様
 
+Google Calendar 状態、最終ログイン、admin / officer、Slack ID、保存方式は **[30 章](30-admin-projects-members-ledger-spec.md#3011-adminmembers)** が正本。
+
 ---
 
 ## 4.4 admin/billing
@@ -104,6 +163,19 @@ URL: `/admin/billing`
 
 ### 何をする画面か
 月次請求マトリクス。各 SU × 各月の請求状態 (= 発行済 / 送付済 / 入金済 / 未対応) を一覧。
+
+請求書 / 見積書の freee 発行、既存導線の扱いは **[32 章 Invoice / Billing Routine](32-invoice-and-billing-routine-spec.md)** が正本。
+
+### 対象と step
+
+- 対象月は 13 ヶ月分 (= 基準月の 11 ヶ月前から翌月)
+- 対象 PJ は `active` / `frozen` と、`ended` でも cycle が `end_ym` 以前のもの
+- 標準 PJ は `予算確定 -> 報告会 -> 報告書 -> 立替確認 -> 請求発行 -> 請求送付 -> 支払通知 -> 入金確認 -> 報酬支払`
+- CTB PJ は `見積送付 -> 予算確定 -> 報告会 -> 請求発行 -> 請求送付 -> 報告書 -> 立替確認 -> 支払通知 -> 入金確認 -> 報酬支払`。請求発行 / 請求送付は当月 28 日基準になる
+- `立替確認` は手動更新不可。締切後に未処理立替がなければ自動で完了扱い
+- 入金確認 / 報酬支払は、手前の step が残っていると完了できない
+
+詳細仕様は [26 章 Member Ops / Billing / Prompt](26-member-billing-prompts-spec.md#266-adminbilling)。
 
 ---
 
@@ -115,7 +187,20 @@ URL: `/reimburse`
 AMD メンバーが業務関連で立替えた費用 (= 出張 / イベント参加費 / 書籍 等) を申請。
 - 領収書 (= 写真 / PDF アップロード)
 - 金額 / 用途 / PJ 紐付け
-- 承認フロー (= まさが /admin で確認 → 月次支払に合算)
+- 承認フロー (= PM 承認 → admin 承認)
+- `approved` の立替だけが請求書発行時の明細対象
+
+### status flow
+
+```text
+submitted -> pmApproved -> approved -> paid
+        \-> rejected
+pmApproved -> rejected
+```
+
+自分の申請は `submitted` の間だけ編集 / 削除できる。領収書は private Storage `reimbursement-receipts` に保存し、画面では signed URL を作る。
+
+詳しい入力項目・権限・保存仕様は [10 章](10-member-workflows-quick-start.md#104-reimburse-で立替を申請する) と [26 章](26-member-billing-prompts-spec.md#265-reimburse-と-reimbursements)。
 
 ---
 
@@ -140,9 +225,10 @@ admin
   /admin/projects  -> PJ 台帳・支払条件・月次予算
   /admin/billing   -> SU x 月の請求状態マトリクス
   /admin/payouts   -> AMD から SU への支払通知書
+  /admin/finance   -> 固定費・領収書・budget forward-fill
 ```
 
-締切・クリック先・CTB 例外は **[01 章 1.5 月次ルーティン](01-pj-cockpit.md#15-月次ルーティン--報告書--請求--会計)** が読み手向け正本。実装詳細と回帰防止は [`pwa/design/routine.md`](../design/routine.md) が開発正本。
+締切・クリック先・CTB 例外は **[01 章 1.5 月次ルーティン](01-pj-cockpit.md#15-月次ルーティン--報告書--請求--会計)** が読み手向け正本。
 
 ---
 
@@ -159,13 +245,106 @@ Raw Data / L2 Data / Cron Control を見る admin 専用の運用台帳。
 - DB Settings: `settings` table の key/value
 
 ### 重要な仕様
-- `Stopped` の operation は意図的に止めている。旧 LLM cron や Codex / Claude routine 移管対象なので、すぐ復活させない
+- `Stopped` の operation は意図的に止めている。開発者向けの移管対象なので、すぐ復活させない
 - `Run Now` できるものも、`dryRun` がある時はまず `dryRun=1` で確認する
 - 表示内容の正本は `pwa/src/lib/operations-catalog.ts`
 
-詳細は **[24 章 Operations Settings](24-operations-settings-spec.md)**。
+内部設定の詳細は開発者向けマニュアルで管理する。
+
+---
+
+## 4.8 admin/finance (= 経理オペ台帳)
+
+URL: `/admin/finance`
+
+### 何をする画面か
+月次 PL に入る前段の、会社固定費・領収書・自動振替の運用台帳。
+
+| ブロック | 役割 |
+|---|---|
+| Recurring items | サブスク / 固定継続費 / 年次費用 / 自動振替 / 引落口座を管理 |
+| Budget forward-fill | 毎月発生する費用だけ `company_budget_monthly` へ将来分を同期 |
+| Receipt events | Gmail / freee / manual 由来の領収書候補を確認し、`company_actual_monthly` へ同期 |
+| 役員除外分 | 支払通知書から除外され AMD 運営費へ残る金額の見落とし防止 |
+
+### 重要な仕様
+- 月次 PL baseline に既に入っている固定費は、二重計上を避けるため `budget_forward_fill=false` で始める
+- 新しいサブスク / 自動振替 / 固定費を見つけたら recurring item に登録する
+- 実績に入れるのは receipt event を確認してから。同期済みは `status='synced'`
+- 入金確認 nudge は `/admin/payouts` から動き、Slack の signed token フォーム `/payment-confirm` につながる
+
+詳細仕様は **[25 章 Finance / Payment Confirm](25-finance-payment-confirm-spec.md)**。
+
+---
+
+## 4.9 admin/prompts (= LLM prompt 管理)
+
+URL: `/admin/prompts`
+
+### 何をする画面か
+
+LLM prompt を `llm_prompts` に置き、コード内 hardcode ではなく DB 正本として管理する。`prompt_key` ごとに body / model / max_tokens / is_active / notes を確認・編集できる。
+
+`tsukuyomi_context` も併記するが、これは本体スプシ `DB_TsukuyomiContext` 由来の context 群。PWA 側では主に閲覧し、正本編集はスプシ側で行う。
+
+詳細仕様は [26 章 Member Ops / Billing / Prompt](26-member-billing-prompts-spec.md#267-adminprompts)。
+
+---
+
+## 4.10 admin/protocols (= AMD Protocol 候補確認)
+
+URL: `/admin/protocols`
+
+### 何をする画面か
+
+AMD Protocol の候補を確認し、正式化・修正依頼・却下・archive する画面。
+
+- `protocols`: 普遍的な判断パターン
+- `protocol_examples`: 具体事例
+- `protocol_result_observations`: 後追いの結果観測
+
+`確定` は `status='confirmed'`、`修正依頼` はつくよみ chat drawer への prefill、`却下` は `status='rejected'`、`archive` は `status='archived'`。旧形式 `kind='legacy_specific'` は新形式と混ぜず、再抽出または archive 対象。
+
+詳細仕様は [27 章 Knowledge Admin / Tsukuyomi](27-knowledge-admin-tsukuyomi-spec.md#273-adminprotocols)。
+
+---
+
+## 4.11 admin/contexts (= LLM Context 管理)
+
+URL: `/admin/contexts`
+
+### 何をする画面か
+
+`tsukuyomi_context` の汎用編集画面。`context_id` / `tags` / `priority` / `system_prompt` / `status` を確認・編集する。
+
+prompt 本文の正本は `/admin/prompts`、context の正本は `/admin/contexts`。つくよみ人格・学習運用は `/admin/tsukuyomi` で扱う。
+
+詳細仕様は [27 章 Knowledge Admin / Tsukuyomi](27-knowledge-admin-tsukuyomi-spec.md#274-admincontexts)。
+
+---
+
+## 4.12 admin/tsukuyomi (= つくよみ管理)
+
+URL: `/admin/tsukuyomi`
+
+### 何をする画面か
+
+つくよみの投稿・学習メモ・人格 DB layer を見る admin 画面。
+
+| ブロック | 役割 |
+|---|---|
+| PJチャンネルへ強制発言 | AI生成または手書きで PJ Slack チャンネルへ投稿 |
+| つくよみ学習状況 | `tsukuyomi_learnings` / `tsukuyomi_learnings_status` を見る |
+| 人格DB編集 | `judge / role / memory / tone / safety` layer で context を編集 |
+
+2026-05-25 時点では、PWA 側の強制発言ボタンは投稿導線として使う前に修正が必要。
+
+詳細仕様と既知ギャップは [27 章 Knowledge Admin / Tsukuyomi](27-knowledge-admin-tsukuyomi-spec.md#275-admintsukuyomi)。
 
 ---
 
 ## 関連
-- 設計議論: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md) (= 各画面の消してはいけない業務導線), [`pwa/design/routine.md`](../design/routine.md) (= 月次ルーティン)
+- **[01 章 PJ コックピット](01-pj-cockpit.md)**
+- **[30 章 Admin Projects / Members 台帳](30-admin-projects-members-ledger-spec.md)**
+- **[31 章 Admin Payouts / 支払通知書](31-admin-payouts-reward-notice-spec.md)**
+- **[32 章 Invoice / Billing Routine](32-invoice-and-billing-routine-spec.md)**

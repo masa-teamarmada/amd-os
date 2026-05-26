@@ -33,7 +33,7 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 | 何を知りたいか | ファイル | 内容 |
 |---|---|---|
-| **AMD OS マニュアル正本** ⭐⭐⭐ (= 2026-05-25 以降) | `pwa/manual/00-intro.md` 〜 `06-developer.md` | **7 章構成のユーザー + 開発者マニュアル**。過去判断 / 用語と実装の対応 / cron 廃止経緯 / Codex-Claude-Vercel-LaunchAgent 責務分担マトリクス / 過去事故ログを集約。**新セッションは必ずここから読む** |
+| **AMD OS マニュアル正本** ⭐⭐⭐ (= 2026-05-25 以降) | `pwa/manual/*.md` + `pwa/design/os_manual.md` | **ユーザー向け + 開発者向けマニュアル**。`/manual` は本の目次型 UI、`?audience=developer` で開発者向けに切替。章構成・番号体系・UI 方針は `os_manual.md` が正本。**新セッションは必ずここから読む** |
 | **AMD OS 中核データ正本** ⭐⭐⭐ | `pwa/design/L2_DATA.md` | **L2 9 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ / OS台帳差分 / XRL根拠 / 経営・事業シグナル) + レポート + 全 cron**。データに触る作業の前に必ず読む |
 | **設計 md フォルダ全体の入口** ⭐ | `pwa/design/README.md` | 設計の正本フォルダのインデックス。**まずここを読んで「次に何を読むか」を決める** |
 | **PWA 全体の正本仕様** ⭐ | `pwa/design/SPEC_pwa.md` | 画面・ルート・データモデル・cron・共通インフラ・運用コマンド・実装規約 |
@@ -49,6 +49,32 @@ Next.js 16 + React 19 + Tailwind CSS v4
 - 設計判断・仕様変更は必ず `pwa/design/` 配下に置く
 - `pwa/design_log/` には **過去セッションの sessions_*.md** だけ。新規設計 md を作ってはいけない (次セッションのえいみが見落とす)
 - 新セッション開始時は **必ず `pwa/design/README.md` から読む**
+
+---
+
+## 🔢 build version の bump up（毎回必須）
+
+**コード修正で deploy する前に必ず [`src/lib/build-info.ts`](src/lib/build-info.ts) の `BUILD_VERSION` を bump up する**。
+
+これは画面左上の AMD OS ロゴ直下に表示され、まさが見た瞬間に「リロード効いてるか」「Service Worker / CDN cache が新しい build に切り替わったか」を判別できるようにする運用ルール。
+
+### bump up の粒度
+
+- **patch (v0.1.0 → v0.1.1)**: 細かい修正 / UI 微調整 / バグ fix
+- **minor (v0.1.0 → v0.2.0)**: 機能追加 / 画面追加 / DB schema 変更
+- **major (v0.1.0 → v1.0.0)**: 大きな仕様変更 / アーキテクチャ刷新
+
+判断に迷ったら patch を bump。**bump up を忘れたまま deploy しない**。
+
+### キャッシュ問題の判別フロー
+
+まさが「変更が反映されてない」と言ったとき:
+
+1. **画面左上の version 表示を確認**
+2. version が**新しい** → コードは反映されてる、表示ロジック側の問題 (filter / fetch / 別 snapshot 参照など)
+3. version が**古い** → SW / CDN / ブラウザキャッシュ。DevTools → Application → Service Workers → Unregister + Clear site data + ハードリロード (Cmd+Shift+R)
+
+過去事例: 2026-05-26 management-score 改修で「v1 evidence が見える」と報告 → 実際は DB は v2 だったが、SW がキャッシュした v1 HTML を return していた。 build version 表示がなかったため、キャッシュ問題かコード問題か判別に時間がかかった。
 
 ---
 

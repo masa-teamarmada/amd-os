@@ -20,6 +20,8 @@ VC      = 投資家・ファンド・接点
 Scholar = 学術活動量の時系列
 ```
 
+Atlas / Macrotrend の signal / story / theme / divergence や、Seeds / VC / Scholar の DB、inbox、DPE、Scholar の ASPI 8 domain 集計まで見る場合は、開発者向けマニュアルの **[34 章 Atlas / Macrotrend 詳細仕様](34-atlas-macrotrend-signal-spec.md)** / **[33 章 探索系アセット詳細仕様](33-research-assets-vc-seeds-scholar-spec.md)** を読む。
+
 ## 9.2 Atlas を見る
 
 Atlas は、外部環境が AMD の判断にどう効くかを見る場所。
@@ -58,7 +60,7 @@ candidate -> investigating -> contacted -> discussing
 | 担当 filter | AMD 側 owner ごとに見る |
 | 行クリック | 詳細 modal で概要、機関・研究者、AMD 評価、補助金、接触履歴、ニュースを見る |
 | `+ 新規シーズ` | 手入力で候補を追加する |
-| `/seeds/inbox` | cron / automation で見つかった未確認 seed を verify / dismiss する |
+| `/seeds/inbox` | 自動収集で見つかった未確認 seed を verify / dismiss する |
 
 `spun_off_project_id` が入った seed は PJ 化済みとして `projects` に紐づく。PJ 化済みでも情報資産として残す。
 
@@ -89,7 +91,7 @@ DPE 残は出所を分けて見る。
 Scholar は、個別論文の文献管理ではなく、学術活動量の観測画面。
 
 - データソース: OpenAlex -> `papers_log`
-- 粒度: lane x quarter
+- 粒度: ASPI 8 domain x quarter
 - 指標: `paper_count`
 - 用途: AMD Score の M 軸、特に Triple Helix の学術観測量 `N`
 

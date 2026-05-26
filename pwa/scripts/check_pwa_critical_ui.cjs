@@ -186,30 +186,50 @@ expectIncludes("src/components/cockpit/CockpitManagementScoreHero.tsx", [
 // MTGサマリ UI: フレーム廃止 + dialogue ラベル + source link
 expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   "isDialogueMeeting",
-  "2人で出した提案（チームへの相談）",
+  "isUpcomingMeeting",
+  "提案前の論点整理セッション",
+  "チームへの提案案",
+  "予定MTG",
+  "初見ブリーフ",
+  "UpcomingProseSection",
+  "会議後に残したい状態",
+  "1段落1ブロック",
+  "blockTextToArray",
+  "MeetingPrepEditor",
+  "/api/meeting-prep",
   "DialogueMeetingBody",
   "narrativeMd",
   "TopicList",
   "NarrativeSection",
 ]);
-// dialogue narrative の本文ラベルは半角SPなし「2人」で書く (#2-2nd まさ 2026-05-24)
+// dialogue narrative は「2人で出した」ではなく、チームへの提案案として書く。
 expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   "2 人で出した",
+  "2人で出した",
 ]);
 expectNotIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
-  "2 人で出した提案 (チームへの相談)",
+  "2 人で出した" + "提案 (チームへの相談)",
+  "2人で出した" + "提案",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   // 旧フレーム枠の anchor (border-l + bg-white の rounded-lg 個別ボックス) は廃止
   "border-l-[3px] border-emerald-400/70",
+  "1行1項目",
 ]);
 expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
   "isDialogue",
+  "isUpcomingMeeting",
+  "予定MTG / 準備中",
   "sourceUrl",
-  "まさえい",
+  "提案整理",
   // モーダル close 時に URL から ?meeting= を消す (#10 まさ 2026-05-24)
   "closeSelectedMeeting",
   "autoOpenedRef",
+]);
+expectIncludes("src/app/api/meeting-prep/route.ts", [
+  "source_kinds: \"upcoming\"",
+  "project_meeting_summaries",
+  "upcoming:",
 ]);
 
 // 経営事業シグナルの 4 分類 (#14 まさ 2026-05-24) + つくよみ修正依頼 (#11)
@@ -235,22 +255,20 @@ expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   "meeting_summary",
   "/api/notifications/feedback",
 ]);
-// 「経営会議」表記は使わない (= かる/ちこ が疎外感を持つので「まさえいMTG」に統一、#7-3rd 2026-05-24)
-expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
-  "まさ × えいみ 経営会議",
-  "まさ × えいみ経営会議",
-]);
-expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
-  "まさえいMTG",
-]);
+const forbiddenDialogueLabels = [
+  "まさ" + " × " + "えいみ " + "経営" + "会議",
+  "まさ" + " × " + "えいみ" + "経営" + "会議",
+  "まさ" + "えいMTG",
+];
+expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", forbiddenDialogueLabels);
 expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
-  "まさえいMTG",
-  "経営会議という表現は",
+  "提案前の論点整理セッション",
+  "特定個人だけで確定したように読める言い方は避ける",
   "U+2715 MULTIPLICATION X",
   "事業戦略上そろそろ方針を決めておきたい",
 ]);
 expectIncludes("src/app/api/dialogue-meeting/route.ts", [
-  "まさえいMTG",
+  "提案前の論点整理セッション",
 ]);
 
 // dialogue narrative API
@@ -258,11 +276,11 @@ expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
   "narrative_md",
   "project_meeting_summaries",
   "claude-sonnet-4-6",
-  "2人で出した提案（チームへの相談）",
+  "チームへの提案案",
 ]);
 
 expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [
-  "経営・事業シグナル",
+  "経営ハイライト",
   "sourceRefs",
 ]);
 
@@ -286,7 +304,7 @@ expectIncludes("scripts/ms_progress_review_tool.mjs", [
 
 expectIncludes("design/FEATURE_REGISTRY.md", [
   "/project/[projectId]/cockpit",
-  "経営・事業シグナル",
+  "経営ハイライト",
   "project_strategy_signals",
 ]);
 
@@ -305,6 +323,10 @@ expectIncludes("src/app/(app)/mypage/page.tsx", [
   "WeeklyActivitiesCard",
   "今週やったこと",
   "weeklyActivities",
+  "rewardAmountHidden",
+  "NO_COMPENSATION_SECONDED_MEMBER_IDS",
+  "ID006",
+  "REWARD_AMOUNT_PLACEHOLDER",
 ]);
 
 expectIncludes("src/app/api/cron/member-weekly-activities/route.ts", [
@@ -385,13 +407,46 @@ expectIncludes("src/app/api/notifications/feedback/route.ts", [
   "founding_members",
   "activated member_knowledge",
   "activated project_knowledge",
-  "activated protocols",
+  "confirmed protocols",
   "activated founding_members",
 ]);
 
 expectIncludes("../gas/155_L2KnowledgeExtractor.js", [
   "status: \"candidate\"",
   "承認されるまで正本反映しない",
+]);
+
+expectIncludes("src/app/(app)/manual/ManualMapClient.tsx", [
+  "ManualGlobalToc",
+  "カテゴリメニュー",
+  "aria-expanded",
+  "tabular-nums",
+  "groups={visibleSections}",
+  "showDirectory && (",
+  "manual-chapter-",
+  "scrollIntoView",
+]);
+expectNotIncludes("src/app/(app)/manual/ManualMapClient.tsx", [
+  "{selected.label} の章",
+  "表示中の章は下に続く。",
+]);
+
+expectIncludes("src/app/(app)/manual/[slug]/page.tsx", [
+  "getManualBookChapters",
+  "normalizeManualMarkdownSource",
+  "showDirectory={false}",
+]);
+
+expectIncludes("src/components/cockpit/MarkdownView.tsx", [
+  "takeHeadingId",
+  "scroll-mt-24",
+  "buildHeadingIdQueues",
+]);
+
+expectIncludes("src/lib/markdown-headings.ts", [
+  "extractMarkdownHeadings",
+  "markdownHeadingId",
+  "cleanMarkdownHeadingTitle",
 ]);
 
 require("./check_payout_notice_pdf_golden.cjs");

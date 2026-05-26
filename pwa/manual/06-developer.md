@@ -1,6 +1,6 @@
 # 06. 開発者向け
 
-新しい機能を追加する開発者 (= えいみ含む) 向け。
+新しい機能を追加する開発者向け。
 
 ## 6.1 リポジトリ構成
 
@@ -35,7 +35,7 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 
 - `--cwd` は repo root を指す (`pwa/` ではない、二重指定で失敗する)
 - `--archive=tgz` 必須 (= モノレポで 15000 files 越え対応)
-- 完了通知 (= macOS Glass 音) でまさに知らせる
+- 完了通知 (= macOS Glass 音) で依頼者に知らせる
 - 失敗は Basso 音
 
 ### 事前確認
@@ -113,7 +113,7 @@ fi
 場所: `~/.claude/scheduled-tasks/{name}/SKILL.md`
 
 ### 登録 (= 正本フロー)
-1. SKILL.md の prompt を起草 (= `pwa/design/{name}.md` に inline で書いてまさレビュー、`pwa/design/l2_extract_claude_routine.md` 参照)
+1. SKILL.md の prompt を起草 (= `pwa/design/{name}.md` に inline で書いてレビュー、`pwa/design/l2_extract_claude_routine.md` 参照)
 2. レビュー OK 後、`mcp__scheduled-tasks__create_scheduled_task` tool で登録 (= cron 式はローカル時刻)
 3. routine は Claude Code app 起動中に発火 (= app 閉じてた時は次回起動時に追いつき)
 4. `notifyOnCompletion=true` で running session に通知 (= 標準)
@@ -151,16 +151,16 @@ Phase B: {処理 + upsert}
 Phase C: run summary
 ═══════════════════════════════════════════════════
 - 処理件数 / saved / skipped / エラー
-- まさへの 1 行サマリ
+- 依頼者への 1 行サマリ
 ```
 
 ### Skill の特徴
-- Claude Code Skill としても動作 (= まさが `/{name}` で手動キック可)
+- Claude Code Skill としても動作 (= 手動キック可)
 - scheduled で勝手に動く + 結果を running session に通知 (`notifyOnCompletion=true`)
 - LaunchAgent と違い、Claude Code app が動いてる時に発火 (= app 閉じてた時は次回起動時に追いつき)
 
 ### 既存 routine (= 2026-05-25 時点)
-- ✅ `amd-os-management-dialogue-prep` (daily 07:00 JST) — まさえいMTG 議題プリペア
+- ✅ `amd-os-management-dialogue-prep` (daily 07:00 JST) — 提案前 dialogue の議題プリペア
 - 🚧 `amd-os-meeting-extract` (毎時 0 分 予定) — L2 ⑥ MTG サマリ抽出 (= GAS 153 後継)
 - 🚧 `amd-os-protocol-extract` (daily 08:00 JST 予定) — L2 ② AMD プロトコル抽出
 - 🚧 `amd-os-project-knowledge-extract` (daily 08:15 JST 予定) — L2 ④ PJ ナレッジ抽出
@@ -195,8 +195,15 @@ launchctl load -w ~/Library/LaunchAgents/jp.teamarmada.{name}.plist
 
 ## 6.7 デバッグ・トラブルシュート
 
-### Codex automation が動いてない時
+### MS進捗推定 / Codex automation が動いてない時
+
+MS進捗の primary writer は PWA `/api/cron/hourly-estimate`。Codex automation `amd-os-ms` は、MS進捗の修正候補 / OS台帳差分 / XRL根拠のレビュー outbox を作る。
+
 ```bash
+# PWA hourly estimate の手動確認
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  "https://amd-os-pwa.vercel.app/api/cron/hourly-estimate?ym=YYYYMM&maxItems=3"
+
 # 最新 outbox 確認
 ls -lat ~/.codex/automations/amd-os/strategy-signals-outbox/
 ls -lat ~/.codex/automations/amd-os-ms/outbox/

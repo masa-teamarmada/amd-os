@@ -12,6 +12,7 @@ AMD OS の判断エンジン側を俯瞰する章。PJ コックピットが「�
 | **AMD Protocol** | 判断パターンの知財化 | 似た分岐点にまた出会った時、どの判断材料でどう動くか | `/admin/protocols`, `protocols`, `protocol_examples` |
 
 `AMD Management Score` はこの 4 つと関係するが、役割は別。これは **会社全体の経営健康度**を見る p00 向けスコア。
+5 軸ロジックと finance simulation は [29 章 Management Score / Finance Simulation](29-management-score-and-finance-simulation-spec.md) に分けて書く。
 
 ## 7.2 全体フロー
 
@@ -31,7 +32,7 @@ AMD Score
   X = TRL / BRL / GRL / SRL / HRL
   F = FRL
         ↓
-まさえいMTG / PJ MTG / 月次レビュー
+提案前の論点整理 / PJ MTG / 月次レビュー
         ↓
 AMD Protocol
   分岐点 -> 判断材料 -> アクション -> 結果観測
@@ -66,10 +67,11 @@ Atlas は、AMD が見るべき外部シグナルを蓄積し、後から判断�
 - `/atlas/decisions`: Atlas 由来の判断ログ
 
 運用:
-- Codex automation `amd-atlas-2` が daily 08:10 JST 目安で外部マクロ signal を作る
-- 出力先は `/Users/masa/.codex/automations/amd-atlas/outbox/*.json`
-- LaunchAgent が outbox を拾い、`/api/atlas/signals-ingest` 経由で Supabase に入れる
+- 外部マクロ signal は定期的に候補化され、Atlas inbox / Atlas 画面で確認できる
+- 重要な signal は story / theme / divergence に紐づき、後から判断材料として再利用できる
 - Atlas は AMD OS 内部の 5 生データ差分レビューとは混ぜない。外部マクロ専用
+
+データモデル、A-R domain、story / theme / divergence、停止中処理、API 認証境界まで見る時は開発者向けマニュアルの [34 章 Atlas / Macrotrend 詳細仕様](34-atlas-macrotrend-signal-spec.md) を読む。
 
 ## 7.5 AMD Score
 
@@ -108,9 +110,8 @@ AMD Protocol は、AMD の経営判断を **再利用できる判断パターン
 4. **結果**: 実際に何が起きたか。自動抽出で推測して埋めない
 
 現状 (= 2026-05-25):
-- 旧 writer の GAS 155 は 2026-05-22 に停止
-- L2 ② AMD Protocol は新規自動取り込みが ghost 状態
-- 復旧方針は Claude routine `amd-os-protocol-extract` 新設
+- AMD Protocol は Knowledge Admin で確認・編集する
+- 新規自動取り込みや復旧計画の詳細は開発者向けマニュアルで管理する
 
 ## 7.7 AMD Management Score との違い
 
@@ -123,15 +124,17 @@ AMD Protocol は、AMD の経営判断を **再利用できる判断パターン
 
 ## 7.8 どこを直す時に何を見るか
 
-| 直したいもの | まず読む md |
+| 直したいもの | まず読むもの |
 |---|---|
-| OS 全体の画面・データ・自動処理 | [20 章 全体設計](20-system-architecture.md) |
-| Atlas の signal / inbox / 外部マクロ運用 | [`pwa/design/atlas.md`](../design/atlas.md), [`pwa/design/atlas_routine.md`](../design/atlas_routine.md) |
-| Macrotrend と Seeds の階層 | [`pwa/design/macrotrend_atlas_seeds_architecture.md`](../design/macrotrend_atlas_seeds_architecture.md) |
+| OS 全体の画面・データ・自動処理 | 開発者向けマニュアル |
+| Atlas の signal / inbox / story / theme / divergence / 外部マクロ運用 | 開発者向けマニュアルの [34 章 Atlas / Macrotrend 詳細仕様](34-atlas-macrotrend-signal-spec.md) |
+| Macrotrend と Seeds の階層 | [09 章 探索系アセット](09-research-assets-quick-start.md) |
 | Atlas / Seeds / VC / Scholar の使い方 | [09 章 探索系アセット](09-research-assets-quick-start.md) |
+| Seeds / VC / Scholar の DB・inbox・自動収集 | 開発者向けマニュアルの [33 章 探索系アセット詳細仕様](33-research-assets-vc-seeds-scholar-spec.md) |
 | HUD / Venture Map の数理モデル・実験ビュー | [23 章 HUD / Venture Map](23-hud-and-venture-map-spec.md) |
-| AMD Score の式・UI・軸の意味 | [21 章 AMD Score 詳細仕様](21-amd-score-spec.md), [`pwa/design/amd_score.md`](../design/amd_score.md) |
-| AMD Management Score | [`pwa/design/management_score.md`](../design/management_score.md) |
-| AMD Protocol | [`pwa/design/amd_protocol.md`](../design/amd_protocol.md) |
+| AMD Score の式・UI・軸の意味 | [21 章 AMD Score 詳細仕様](21-amd-score-spec.md) |
+| FRL / 関連メンバー / HRL | [35 章 FRL / 関連メンバー / HRL 詳細仕様](35-frl-related-members-score-spec.md) |
+| AMD Management Score | [29 章 Management Score / Finance Simulation](29-management-score-and-finance-simulation-spec.md) |
+| AMD Protocol | [27 章 Knowledge Admin / Tsukuyomi](27-knowledge-admin-tsukuyomi-spec.md) |
 | 通知・修正依頼・正本反映ゲート | [22 章 通知・つくよみ](22-notifications-and-tsukuyomi.md) |
-| 自動処理の稼働状態 | [24 章 Operations Settings](24-operations-settings-spec.md), [05 章 5.4 責務分担マトリクス](05-decisions-and-history.md#54-codex--claude--vercel--launchagent-責務分担マトリクス) |
+| 自動処理の稼働状態 | 開発者向けマニュアル |

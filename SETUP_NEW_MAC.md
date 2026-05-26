@@ -255,3 +255,11 @@ AMD OS をこの Mac でも開発できる状態にしたい。
 
 最終的に、この Mac で PWA / GAS / iOS のどこまで開発可能か、足りない secret / login / CLI が何かを短く報告して。
 ```
+
+## 11. きよPCで OS マニュアルをレビューする時
+
+OS マニュアルのブラッシュアップだけをきよPCで行う場合は、まず
+[`manual-review/KIYO_PC_SETUP.md`](manual-review/KIYO_PC_SETUP.md) を読む。
+
+見るだけなら本番 URL でよい。きよPC側の AI と一緒に `pwa/manual/*.md` を直接直す場合だけ、repo を
+`~/projects/AMD/amd-os` に clone して branch 作業する。

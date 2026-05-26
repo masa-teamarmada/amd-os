@@ -3,8 +3,8 @@
 URL: `/project/p00/cockpit`。**会社全体 (= AMD 株式会社) を 1 つの PJ として扱う特殊ケース**。`project_id='p00'` で他の PJ と同じテーブル構造に乗る。
 
 ## 誰がいつ使うか
-- **まさ**が会社全体の経営状況を見る
-- **まさえいMTG** で会社全体の議題を扱うとき
+- **AMD 経営チーム**が会社全体の経営状況を見る
+- **提案前の論点整理セッション**で会社全体の議題を扱うとき
 - 月次の経営状況レビュー + 全 PJ 横断の戦略議論
 
 ## 2.1 Management Score
@@ -17,36 +17,32 @@ URL: `/project/p00/cockpit`。**会社全体 (= AMD 株式会社) を 1 つの P
   - **戦略接近** (= 投資家/パートナー戦略実行度)
 - Total スコア (= 5 軸の合成) と各軸スコアを月次推移グラフで表示
 - スコア source: `amd_management_score_snapshots` テーブル
-- 月次更新 cron で計算 + 各 evidence (= `amd_management_score_evidence`) と紐付け
+- 月次更新で計算 + 各 evidence (= `amd_management_score_evidence`) と紐付け
 
 ### 詳細ビュー
-- `/management-score` で 5 軸ごとの evidence・推移・PJ ごとの寄与を確認
-- evidence の追加は LLM 抽出 (= Codex automation) + 手動入力
+- `/management-score` で score history、5 軸 mini trend、runway / cash、月次試算表ビュー、差分メモを確認
+- raw signal は `amd_management_score_raw_signals`、snapshot は `amd_management_score_snapshots`、短い根拠は `amd_management_score_evidence`
+- 5 軸の重み・算出ロジック・finance simulation は **[29 章 Management Score / Finance Simulation](29-management-score-and-finance-simulation-spec.md)** が正本
 
 ---
 
-## 2.2 まさえいMTG
+## 2.2 提案前の論点整理セッション
 
-まさえいMTGは、まさとえいみが OS 上の candidate を 1 件ずつ読み、チームへ提案する前の論点・提案・残課題を整理する対話セッション。
+提案前の論点整理セッションは、レビュー担当が LLM と OS 上の candidate を 1 件ずつ読み、チームへ提案する前の論点・提案・残課題を整理する対話セッション。
 
 議事録 / MTG サマリでは、正式決定ではなく **提案**・**整理**・**相談前提の論点**として残す。
 
 ### トリガー
-まさが claude / codex セッションで以下を言ったら **即着手**:
-- 「まさえいMTGやろう」
+レビュー担当が以下のように指示したら開始する:
+- 「提案前の論点整理をしよう」
 - 「経営ハイライト見よう」
 - 「signals レビュー」
 
 (= 再起動不要、新セッション初回でも OK)
 
-### えいみがやる手順
+### レビュー支援AIがやる手順
 
-1. **candidate を全 PJ 横断 read** (= service_role REST):
-   ```
-   GET /rest/v1/project_strategy_signals
-       ?status=eq.candidate
-       &order=impact_level.desc,signal_date.desc
-   ```
+1. **candidate を全 PJ 横断で読む**:
    - impact: `critical` > `high` > `medium` > `low`
    - 同 impact 内は signal_date desc
 
@@ -54,43 +50,31 @@ URL: `/project/p00/cockpit`。**会社全体 (= AMD 株式会社) を 1 つの P
    - PJ コードネーム + signal_type chip + impact chip + title + summary 2-3 行
    - 「これどう?」と短く問う
 
-3. **まさの反応に応じて API を叩く** (= その場で、後でやらない):
-   - `進める` / `これで確定` / `decided` → `POST /api/strategy-signals { action:'confirm', signal_id, decision_state:'decided' or 'executing' }`
-   - `違う` / `不採用` / `保留` → `action:'reject'`
-   - `こう修正` → `action:'update'` で title/summary/impact 等を差し替え
-   - `これ別 signal で残したい` → `action:'create', status:'confirmed', decision_state:'decided'`
+3. **レビュー担当の反応に応じて反映する** (= その場で、後でやらない):
+   - `進める` / `これで確定` / `decided` → 確定扱いにする
+   - `違う` / `不採用` / `保留` → 却下扱いにする
+   - `こう修正` → title / summary / impact などを差し替える
+   - `これ別 signal で残したい` → 新しい confirmed signal として残す
 
-4. **次の議題へ。1 セッションで 5-10 件目安**、まさが「これで終わり」と言うまで
+4. **次の議題へ。1 セッションで 5-10 件目安**、レビュー担当が「これで終わり」と言うまで
 
 5. **セッション終了時に議論ログを保存**:
-   ```
-   POST /api/dialogue-meeting
-   { project_id, summary_short, decided[], progress[], next_actions[], risks[],
-     related_signal_ids: [...] }
-   ```
    - PJ 単位、会社全体は `project_id='p00'`
    - cockpit の MTG サマリ欄に `source_kinds='dialogue'` で並ぶ
    - `decided[]` は「**提案**」のニュアンスで書く (= チームへの相談前提)
 
 6. **narrative 化** (= 直後):
-   ```
-   POST /api/dialogue-meeting/narrate { meeting_id }
-   ```
-   - Sonnet 4.6 が raw 配列を「背景 → 議論の流れ → 2 人で出した提案 → 残課題」の Markdown に
+   - Sonnet 4.6 が raw 配列を「背景 → 議論の流れ → チームへの提案案 → 残課題」の Markdown に
    - cockpit の MTG サマリ詳細で主表示
 
-### 認証
-- まさ session でログイン済みなら admin auth で通る
-- セッション外から叩くなら `Authorization: Bearer ${CRON_SECRET}`
-
-### よくある間違い (= えいみへの注意)
+### よくある間違い
 - ❌ 議題を 10 件一気に箇条書きで出す → 1 件ずつ会話形式で
-- ❌ まさが返事する前に勝手に confirm する → まさの明示判断後
+- ❌ レビュー担当が返事する前に勝手に confirm する → 明示判断後
 - ❌ 議論ログ保存を後回しにする → セッション終了時に必ず叩く
 - ❌ p00 を忘れる → AMD 全体の議題 (Management Score / freee / 月次運用) は p00
 
 ### candidate が空 / 古いとき
-- `status='candidate'` 行が無い、または signal_date が 1 週間以上前 → えいみが OS を横断 read して新規 candidate を `proposed` で積んでから議論開始 (= daily routine と同じ動作を手動)
+- `status='candidate'` 行が無い、または signal_date が 1 週間以上前 → レビュー支援AIが OS を横断 read して新規 candidate を `proposed` で積んでから議論開始 (= daily routine と同じ動作を手動)
 
 ---
 
@@ -114,5 +98,6 @@ p00 でも他 PJ と同じ月次ルーティンが回る:
 ---
 
 ## 関連
-- 設計議論: [`pwa/design/cockpit.md`](../design/cockpit.md) (= p00 月次データ仕様), [`pwa/CLAUDE.md`](../CLAUDE.md) (= まさえいMTG 運用詳細)
-- まさえいMTG プリペア cron: [`05 章 5.4 責務分担マトリクス](05-decisions-and-history.md#54-codex--claude--vercel--launchagent-責務分担マトリクス)
+- **[01 章 PJ コックピット](01-pj-cockpit.md)**
+- **[29 章 Management Score / Finance Simulation](29-management-score-and-finance-simulation-spec.md)**
+- **[28 章 通知レビュー UI / 経営ハイライト確認](28-notification-review-and-strategy-signals-spec.md)**

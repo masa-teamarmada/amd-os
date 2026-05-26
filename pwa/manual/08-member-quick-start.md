@@ -25,6 +25,8 @@ AMD OS をまだよく分かっていないメンバーが、最初に迷わな�
 | 立替を申請したい | `/reimburse` | 領収書添付、金額、用途、PJ 紐付け |
 | 請求・支払・PJ台帳を触りたい | `/admin/*` | admin 権限が必要 |
 
+`/mypage` と `/reimburse` の日常作業をもう少し具体的に見るなら [10 章 メンバーの日常ワークフロー](10-member-workflows-quick-start.md)。
+
 ## 8.2 日常の使い方
 
 ### 自分の仕事を見る
@@ -57,6 +59,8 @@ AMD OS をまだよく分かっていないメンバーが、最初に迷わな�
 
 各 step は行をクリックすると専用モーダル / ページが開く。月見出しをクリックした時だけ、月次の集約モーダルが開く。
 
+締切日、CTB 例外、報酬取り消し線との関係は [10 章](10-member-workflows-quick-start.md#103-月次todoの流れ) にもまとめている。
+
 ### 通知に答える
 
 `/notifications` は、OS が「これを正本に入れていい?」と聞いてくる場所。
@@ -76,7 +80,7 @@ AMD OS をまだよく分かっていないメンバーが、最初に迷わな�
 | PJ 担当メンバー | `/mypage` | 担当 PJ cockpit |
 | PM | 担当 PJ cockpit | 月次ルーティン / `/notifications` |
 | PL | `/mypage` | 請求額確定の承認通知 |
-| まさ | `p00 cockpit` / `/notifications` | 各 PJ cockpit / `まさえいMTG` |
+| AMD 経営チーム | `p00 cockpit` / `/notifications` | 各 PJ cockpit / 提案前の論点整理 |
 | admin | `/admin/projects` / `/admin/billing` | `/admin/payouts` / `/admin/members` |
 
 ## 8.4 探索系の画面
@@ -106,6 +110,7 @@ AMD OS をまだよく分かっていないメンバーが、最初に迷わな�
 |---|---|
 | PJ cockpit の見方が分からない | [01 章](01-pj-cockpit.md) |
 | 月次ルーティンの締切が分からない | [01 章 1.5](01-pj-cockpit.md#15-月次ルーティン--報告書--請求--会計) |
+| `/mypage` の報酬や立替の流れを知りたい | [10 章](10-member-workflows-quick-start.md) |
 | 通知の「はい / いいえ」が怖い | [22 章](22-notifications-and-tsukuyomi.md) |
-| どのデータがどこから来るか知りたい | [03 章](03-data-and-extraction.md) |
+| どのデータがどこから来るか知りたい | [00 章 0.3](00-intro.md#03-5-生データの俯瞰) |
 | AMD Score の式まで知りたい | [21 章](21-amd-score-spec.md) |

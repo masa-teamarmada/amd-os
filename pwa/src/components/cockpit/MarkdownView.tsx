@@ -1,7 +1,14 @@
 "use client";
 
+import { isValidElement, useEffect, useId, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import {
+  cleanMarkdownHeadingTitle,
+  extractMarkdownHeadings,
+  markdownHeadingId,
+  type MarkdownHeadingLevel,
+} from "@/lib/markdown-headings";
 
 interface Props {
   source: string;
@@ -24,6 +31,7 @@ interface Props {
  */
 export function MarkdownView({ source, tone = "light", linkMode = "default" }: Props) {
   const isHud = tone === "hud";
+  const headingIdQueues = buildHeadingIdQueues(source);
   const baseText = isHud ? "text-[12px] text-cyan-50/90" : "text-[13px] text-[#1d1d1f]";
   const codeClass = isHud
     ? "rounded bg-cyan-300/10 px-1 py-0.5 text-[11px] font-mono text-cyan-100"
@@ -40,28 +48,28 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
         components={{
           // ===== Headings: 絵文字付き / 色アクセント / 下線 =====
           h1: ({ children }) => (
-            <h1 className={isHud
-              ? "text-cyan-100 text-[20px] font-bold mt-5 mb-2.5 pb-1.5 border-b-2 border-cyan-300/40"
-              : "text-[#1d1d1f] text-[20px] font-bold mt-5 mb-2.5 pb-1.5 border-b-2 border-[#1d1d1f]"}>
+            <h1 id={takeHeadingId(headingIdQueues, 1, children)} className={isHud
+              ? "scroll-mt-24 text-cyan-100 text-[20px] font-bold mt-5 mb-2.5 pb-1.5 border-b-2 border-cyan-300/40"
+              : "scroll-mt-24 text-[#1d1d1f] text-[20px] font-bold mt-5 mb-2.5 pb-1.5 border-b-2 border-[#1d1d1f]"}>
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className={isHud
-              ? "text-cyan-100 text-[16px] font-bold mt-6 mb-2 pb-1 border-b-2 border-cyan-300/40 flex items-baseline gap-1"
-              : "text-[#1d1d1f] text-[16.5px] font-bold mt-6 mb-2 pb-1 border-b-2 border-[#1d1d1f] flex items-baseline gap-1"}>
+            <h2 id={takeHeadingId(headingIdQueues, 2, children)} className={isHud
+              ? "scroll-mt-24 text-cyan-100 text-[16px] font-bold mt-6 mb-2 pb-1 border-b-2 border-cyan-300/40 flex items-baseline gap-1"
+              : "scroll-mt-24 text-[#1d1d1f] text-[16.5px] font-bold mt-6 mb-2 pb-1 border-b-2 border-[#1d1d1f] flex items-baseline gap-1"}>
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className={isHud
-              ? "text-cyan-200 text-[14px] font-bold mt-4 mb-1.5 pl-2 border-l-[3px] border-cyan-300"
-              : "text-[#1d1d1f] text-[14px] font-bold mt-4 mb-1.5 pl-2 border-l-[3px] border-blue-400"}>
+            <h3 id={takeHeadingId(headingIdQueues, 3, children)} className={isHud
+              ? "scroll-mt-24 text-cyan-200 text-[14px] font-bold mt-4 mb-1.5 pl-2 border-l-[3px] border-cyan-300"
+              : "scroll-mt-24 text-[#1d1d1f] text-[14px] font-bold mt-4 mb-1.5 pl-2 border-l-[3px] border-blue-400"}>
               {children}
             </h3>
           ),
           h4: ({ children }) => (
-            <h4 className={isHud ? "text-cyan-100 text-[12.5px] font-bold mt-3 mb-1" : "text-[#1d1d1f] text-[12.5px] font-bold mt-3 mb-1"}>
+            <h4 id={takeHeadingId(headingIdQueues, 4, children)} className={isHud ? "scroll-mt-24 text-cyan-100 text-[12.5px] font-bold mt-3 mb-1" : "scroll-mt-24 text-[#1d1d1f] text-[12.5px] font-bold mt-3 mb-1"}>
               {children}
             </h4>
           ),
@@ -141,10 +149,27 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
           },
 
           // ===== Code =====
-          code: ({ children }) => <code className={codeClass}>{children}</code>,
-          pre: ({ children }) => (
-            <pre className={`my-2 overflow-x-auto rounded p-3 text-[11px] font-mono ${isHud ? "bg-slate-900/70 text-cyan-50" : "bg-[#f5f5f7] text-[#1d1d1f]"}`}>{children}</pre>
-          ),
+          code: ({ children, className }) => {
+            const language = /language-(\w+)/.exec(className || "")?.[1];
+            if (language === "mermaid") {
+              return <MermaidBlock chart={String(children).replace(/\n$/, "")} isHud={isHud} />;
+            }
+            return <code className={codeClass}>{children}</code>;
+          },
+          pre: ({ children }) => {
+            const child = Array.isArray(children) ? children[0] : children;
+            if (isValidElement(child)) {
+              const props = child.props as { className?: string; children?: unknown };
+              const language = /language-(\w+)/.exec(props.className || "")?.[1];
+              if (language === "mermaid") {
+                return <MermaidBlock chart={String(props.children ?? "").replace(/\n$/, "")} isHud={isHud} />;
+              }
+              if (child.type === MermaidBlock) return <>{children}</>;
+            }
+            return (
+              <pre className={`my-2 overflow-x-auto rounded p-3 text-[11px] font-mono ${isHud ? "bg-slate-900/70 text-cyan-50" : "bg-[#f5f5f7] text-[#1d1d1f]"}`}>{children}</pre>
+            );
+          },
 
           // ===== Blockquote: 左ボーダー色 + 微妙な背景で callout 風 =====
           blockquote: ({ children }) => (
@@ -183,6 +208,114 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
       >
         {source}
       </ReactMarkdown>
+    </div>
+  );
+}
+
+function buildHeadingIdQueues(source: string) {
+  const queues = new Map<string, string[]>();
+  for (const heading of extractMarkdownHeadings(source)) {
+    if (heading.level > 4) continue;
+    const key = headingQueueKey(heading.level, heading.title);
+    queues.set(key, [...(queues.get(key) ?? []), heading.id]);
+  }
+  return queues;
+}
+
+function headingQueueKey(level: MarkdownHeadingLevel, title: string) {
+  return `${level}:${cleanMarkdownHeadingTitle(title)}`;
+}
+
+function takeHeadingId(queues: Map<string, string[]>, level: MarkdownHeadingLevel, children: ReactNode) {
+  const title = cleanMarkdownHeadingTitle(reactNodeToText(children));
+  const key = headingQueueKey(level, title);
+  const queue = queues.get(key);
+  const nextId = queue?.shift();
+  return nextId ?? markdownHeadingId(title);
+}
+
+function reactNodeToText(node: ReactNode): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(reactNodeToText).join("");
+  if (isValidElement(node)) {
+    return reactNodeToText((node.props as { children?: ReactNode }).children);
+  }
+  return "";
+}
+
+function MermaidBlock({ chart, isHud }: { chart: string; isHud: boolean }) {
+  const reactId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const [svg, setSvg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSvg(null);
+    setError(null);
+
+    (async () => {
+      const mermaidModule = await import("mermaid");
+      const mermaid = mermaidModule.default;
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        theme: "base",
+        themeVariables: isHud
+          ? {
+              background: "transparent",
+              primaryColor: "#083344",
+              primaryTextColor: "#ecfeff",
+              primaryBorderColor: "#22d3ee",
+              lineColor: "#67e8f9",
+              secondaryColor: "#111827",
+              tertiaryColor: "#0f172a",
+              clusterBkg: "#0f172a",
+              clusterBorder: "#22d3ee",
+              fontFamily: "ui-sans-serif, system-ui, sans-serif",
+            }
+          : {
+              background: "transparent",
+              primaryColor: "#f8fafc",
+              primaryTextColor: "#1d1d1f",
+              primaryBorderColor: "#94a3b8",
+              lineColor: "#334155",
+              secondaryColor: "#eef2ff",
+              tertiaryColor: "#f8fafc",
+              clusterBkg: "#f8fafc",
+              clusterBorder: "#cbd5e1",
+              fontFamily: "ui-sans-serif, system-ui, sans-serif",
+            },
+      });
+      const renderId = `manual-mermaid-${reactId}-${Math.random().toString(36).slice(2)}`;
+      const result = await mermaid.render(renderId, chart);
+      if (!cancelled) setSvg(result.svg);
+    })().catch((err) => {
+      if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chart, isHud, reactId]);
+
+  if (error) {
+    return (
+      <pre className={`my-3 overflow-x-auto rounded p-3 text-[11px] font-mono ${isHud ? "bg-red-950/40 text-red-100" : "bg-red-50 text-red-900"}`}>
+        Mermaid render error: {error}
+        {"\n\n"}
+        {chart}
+      </pre>
+    );
+  }
+
+  return (
+    <div className={`my-4 overflow-x-auto rounded-lg border p-3 ${isHud ? "border-cyan-300/30 bg-slate-950/40" : "border-[#d2d2d7] bg-white"} [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-full`}>
+      {svg ? (
+        <div dangerouslySetInnerHTML={{ __html: svg }} />
+      ) : (
+        <div className={isHud ? "text-cyan-100/70" : "text-[#6e6e73]"}>図を描画中...</div>
+      )}
     </div>
   );
 }

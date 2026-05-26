@@ -7,7 +7,7 @@ AMD Score は、PJ / SU の価値・成熟度を数値化する指標。日常�
 | 名前 | 対象 | 目的 |
 |---|---|---|
 | **AMD Score** | PJ / SU | その PJ が立ち上がる価値・成熟度を見る |
-| **AMD Management Score** | AMD 全社 | 今月の会社経営状態を見る |
+| **AMD Management Score** | AMD 全社 | 今月の会社経営状態を見る。5 軸ロジックは [29 章](29-management-score-and-finance-simulation-spec.md) |
 
 混ぜない。PJ の価値評価は AMD Score、会社全体の健康度は AMD Management Score。
 
@@ -42,7 +42,7 @@ F = (FRL+1)^α_F
 | X | 会社側 readiness | TRL / BRL / GRL / SRL / HRL |
 | F | Founder / CEO readiness | FRL |
 
-まさの言語化では「マクロトレンドの流れがあり、会社の XRL が整い、それを FRL 高い CEO が牽引する」。
+AMD Score の読み方は「マクロトレンドの流れがあり、会社の XRL が整い、それを FRL 高い CEO / founder が牽引する」。
 
 ## 21.4 軸の意味
 
@@ -55,7 +55,7 @@ F = (FRL+1)^α_F
 | BRL | Business Readiness | 事業化成熟度 |
 | GRL | Governance / Government Readiness | 規制・制度成熟度 |
 | SRL | Social Readiness | 社会受容・市場受容 |
-| HRL | Human Readiness | チーム・人材・創業コア |
+| HRL | Human Readiness | チーム・人材・SU 立ち上げコア |
 | FRL | Founder Readiness | CEO / founder のリーダーシップ |
 
 ## 21.5 α の base case
@@ -106,7 +106,26 @@ bottleneck = argmax_i α_i / (X_i + 1)
 
 値だけでなく、なぜその値なのかを残すことが重要。
 
-## 21.9 更新フロー
+## 21.9 HRL / FRL の詳細ロジック
+
+HRL と FRL はどちらも「人」の readiness だが、見る対象が違う。
+
+| 軸 | 対象 | 主な根拠 |
+|---|---|---|
+| HRL | チーム / 人材 / SU 立ち上げコア | `project_founding_members` (= 関連メンバー), `project_xrl_evidence`, `amd_score_inputs.xrl_notes.hrl` |
+| FRL | CEO / founder 個人の牽引力 | ALQ 4 次元 + Grit + Resilience + `frl_notes` |
+
+FRL の自動算出モードは次の式。
+
+```text
+FRL = 0.6·ALQ_avg + 0.2·Grit + 0.2·Resilience
+```
+
+`project_founding_members` は DB 名が紛らわしいが、manual 上は「関連メンバー」と呼ぶ。HRL に算入するのは `category in ('amd','startup','university')` の active row。大学・研究機関の人物でも、起源PI / 共同創業者 / 技術リードとして SU と一体なら HRL 根拠に入れる。
+
+詳細は [35 章 FRL / 関連メンバー / HRL 詳細仕様](35-frl-related-members-score-spec.md)。
+
+## 21.10 更新フロー
 
 ```text
 XRL / Macrotrend / FRL の根拠が増える
@@ -117,12 +136,59 @@ cockpit / venture-map が今日以前の最新 row を読む
         ↓
 M / X / F / AMD Score / 律速軸を表示
         ↓
-まさが違和感を持ったら Tsukuyomi へ修正依頼
+レビュー担当が違和感を持ったら Tsukuyomi へ修正依頼
 ```
 
 今後の設計では、経営ハイライトに `score_impact_summary` を付け、AMD Score のどの軸にどう効いたかを 1 行で表示する予定。
 
-## 21.10 画面
+## 21.11 未来予測修正と alpha feedback loop
+
+AMD Score graph の未来予測 (= 破線) は、現在の `amd_score_inputs` と α から計算した仮説。レビュー担当が違和感を持った時に「単発で値を直す」だけで終えると、同じズレが他 PJ でも再発する。そこで、未来予測の修正履歴を `amd_score_revisions` に残し、後で `amd_score_alpha` や signal 定義を見直す feedback loop にする。
+
+```mermaid
+flowchart TD
+  A["未来予測ドットを確認"] --> B{"違和感あり?"}
+  B -->|なし| C["そのまま観測継続"]
+  B -->|あり| D["axis / new_value / reason_md を記録"]
+  D --> E["amd_score_revisions"]
+  E --> F["直近修正を集約"]
+  F --> G["amd_score_alpha_proposals"]
+  G --> H["approve されたら amd_score_alpha 新versionへ"]
+```
+
+現状の境界:
+
+| 要素 | 現状 |
+|---|---|
+| DB | migration 090 で `amd_score_revisions` / `amd_score_alpha_proposals` の設計あり |
+| cockpit graph | 未来予測点の透明 hit area は実装済み。クリック時はまだ `project_events` 新規作成モーダルを開く |
+| `AmdScoreFutureEditModal` | 未実装。未来予測前提そのものを修正する UI はこれから |
+| `/admin/amd-score-alpha-review` | 未実装。alpha proposal の approve / reject 画面はこれから |
+| つくよみ自動提案 | 未実装。`source='tsukuyomi_proposal'` は設計上の受け皿 |
+
+`amd_score_revisions` の主な列:
+
+| column | 意味 |
+|---|---|
+| `project_id` | 対象 PJ |
+| `score_input_id` | 元になった `amd_score_inputs.id`。無い場合もある |
+| `axis` | `mu_A`, `mu_I`, `mu_G`, `trl`, `brl`, `grl`, `srl`, `hrl`, `frl_grit`, `frl_resilience` |
+| `old_value` / `new_value` | 修正前後の値 |
+| `evaluated_at` | どの未来日付の予測を直したか |
+| `reason_md` | なぜ直したか。人間の判断理由なので必須 |
+| `discussion_md` | 提案前の論点整理セッションなどの議論メモ。任意 |
+| `source` | `manual`, `tsukuyomi_proposal`, `admin` |
+| `status` | `active`, `confirmed`, `rejected`, `archived` |
+| `applied_to_alpha` | α 見直しに反映済みか |
+
+実装時のルール:
+
+- 未来予測点をクリックしても、score 前提修正 UI が無い間は `amd_score_revisions` に書かない。
+- `reason_md` なしの未来予測修正は禁止。修正理由が alpha 学習の主データになる。
+- `amd_score_inputs` の現在値表示は引き続き `evaluated_at <= today` の最新行だけを見る。未来 row を「最新値」として使わない。
+- alpha proposal は自動適用しない。approve された時だけ `amd_score_alpha` の新 version を作る。
+
+## 21.12 画面
 
 | 画面 | 役割 |
 |---|---|
@@ -131,9 +197,10 @@ M / X / F / AMD Score / 律速軸を表示
 | `/venture-map/amd-score/{projectId}` | 詳細。式、M/X/F、FRL、根拠 notes |
 | `/venture-map/amd-score/retrofit` | α 重み調整と simulation |
 
-## 21.11 関連設計 md
+SU 系 PJ hero の XRL dot 修正、沿革、月次試算表、つくよみヒアリングは [37 章 Venture Status / Narrative / PL / XRL Feedback](37-venture-status-narrative-pl-xrl-spec.md) を見る。
 
-- [`pwa/design/amd_score.md`](../design/amd_score.md)
-- [`pwa/design/xrl_evidence.md`](../design/xrl_evidence.md)
-- [`pwa/design/score_revision_feedback_loop.md`](../design/score_revision_feedback_loop.md)
-- [`pwa/design/macrotrend_atlas_seeds_architecture.md`](../design/macrotrend_atlas_seeds_architecture.md)
+## 21.13 関連章
+
+- [07 章 判断エンジン overview](07-atlas-protocol-score-macrotrend.md)
+- [35 章 FRL / 関連メンバー / HRL 詳細仕様](35-frl-related-members-score-spec.md)
+- [37 章 Venture Status / Narrative / PL / XRL](37-venture-status-narrative-pl-xrl-spec.md)
