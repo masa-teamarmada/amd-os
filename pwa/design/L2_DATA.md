@@ -256,7 +256,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | ③ MS 進捗 | (並行) PWA `/api/cron/hourly-estimate` + Codex `amd-os-ms` | `AMD OS L2 ③ MS 進捗抽出` | `trig_01MxR8nyEvJvSHaCwDcHoqmb` | 毎時 0 分 | 🚧 並行稼働、Cloud 動作確認後に既存停止 |
 | ④ PJ ナレッジ | ~~GAS 155~~ ⛔ + Mac Local | `AMD OS L2 ④ PJ ナレッジ抽出` | `trig_01DtARvCSkz99GsgG8xihceX` | daily 08:15 JST | 🚧 未テスト |
 | ⑤ メンバーナレッジ | ~~GAS 155~~ ⛔ + Mac Local | `AMD OS L2 ⑤ メンバーナレッジ抽出` | `trig_011FUoNE2YCLgVoZVa9C4q2m` | daily 08:30 JST | 🚧 Connector 不完全 + schema gap |
-| ⑥ MTG サマリ + フロー | ~~GAS 153~~ ⛔ + Mac Local + ~~Cloud routine~~ ⛔ | **Codex Desktop automation** `amd-os-l6-meeting-flow` (= Windows MMO PC、gpt-5.5 high reasoning) | — (Codex side ID) | 毎時 0 分 | ✅ 2026-05-27 拡張完了 (= 議事録 + 次 MTG カード + Slack nudge + **TODO→cockpit + Calendar 作業枠 (+<PJ> prefix)** + **automation 内資料即生成** + **ファシリ役メール下書き**) |
+| ⑥ MTG サマリ + フロー | ~~GAS 153~~ ⛔ + Mac Local + ~~Cloud routine~~ ⛔ | **Codex Desktop automation** `amd-os-l6-meeting-flow` (= Windows MMO PC、gpt-5.5 high reasoning) | — (Codex side ID) | **毎日 09:00-21:00 毎時** (= 91回/週、深夜不発火) + Phase A 早期 exit | ✅ 2026-05-27 拡張完了 (= 議事録 + 次 MTG カード + Slack nudge + **TODO→cockpit + Calendar 作業枠 (+<PJ> prefix)** + **automation 内資料即生成** + **ファシリ役メール下書き** + **早期 exit credit 節約**) |
 | ⑦ OS 台帳差分 | (並行) Codex `amd-os-ms` `outbox.registryDiffs` | `AMD OS L2 ⑦ OS 台帳差分抽出` | `trig_01211WVhf1pVw7mMdCk2RZxr` | `0 */6 * * *` (6h ごと) | 🚧 Connector Docusign のみ |
 | ⑧ XRL 根拠 | (並行) Codex `amd-os-ms` `outbox.xrlEvidence` | `AMD OS L2 ⑧ XRL 根拠抽出` | `trig_01QktXVABmg7ohA8NCUSFY9C` | `15 */6 * * *` (L7+15 分) | 🚧 Connector Docusign のみ |
 | ⑨ 経営ハイライト | (並行) Codex `amd-os` (5/25 applier 修復済) | `AMD OS L2 ⑨ 経営ハイライト抽出` | `trig_011hJJ17Do1bwb1ESXDMt8rH` | daily 03:20 JST | 🚧 Connector 5 個 (Supabase+Calendar 欠)、対話型修正依頼 (#34) と接続予定 |

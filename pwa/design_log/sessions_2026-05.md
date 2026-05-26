@@ -8968,3 +8968,30 @@ L6 MTG フロー Phase A-G が表示確認できた直後、まさが「もう�
 - cockpit TODO 欄の正確なテーブル名確認 (= `tsukuyomi_nudge_queue` か `project_todos` か別か、db_schema.md で grep)
 - projects.facilitator_member_id の列存在確認 (= 無ければ projects.primary_owner_member_id fallback で動く設計だが、明示列があった方が運用ラク)
 - Phase I で生成した Drive file の権限設定 (= デフォルト owner only か、PJ メンバー share か)
+
+## 2026-05-27 00:35 — L6 cron 絞り + Phase A 早期 exit (= まさ「深夜は無駄」指摘)
+
+### きっかけ
+
+L6 を MMO で run 中、まさが気づいた:
+> てか気づいたけど、これ深夜も1時間ごとに動くのか。さすがに無駄だな…。平日10:00-20:00 の 11 回だけ動けば十分かも。それでもかなり無駄になりそう。あるいは、カレンダーを見て MTG が開催されてなければすぐ終了させる設計にすれば無駄にならんかも。どう思う？
+
+### 採用方針: A+B ハイブリッド
+
+- **A (cron 絞り)**: 元 `FREQ=HOURLY` (= 24回/日 × 7 = 168回/週) → **`FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU;BYHOUR=9,10,11,12,13,14,15,16,17,18,19,20,21;BYMINUTE=0;BYSECOND=0`** (= 13回/日 × 7 = 91回/週、元の 54%)
+  - 深夜 22:00-08:00 は完全不発火
+  - 平日のみではなく土日も日中走らせる (= AMD は柔軟、土日 MTG / 朝晩 MTG も拾う、まさ提案より少し広めに)
+- **B (早期 exit 明文化)**: Phase A の window filter 結果が 0 件 (= 該当 MTG event 無し) なら、Phase B 以降一切実行せず即終了。outbox JSON 作らず、Supabase 書き込みも一切しない。run summary は 1 行のみ「🗓️ L2 ⑥ MTG フロー HH:MM 該当 event なし、即終了 (経過時間 <秒> 秒)」
+- **理由**: B 単独だと深夜も理屈上は起動コスト食う。A 単独だと土日や朝晩 MTG 拾えなくなる。A+B で「**そもそも MTG なさそうな時間帯は cron が動かず、日中の cron でも該当ナシなら即終了**」が最もきれい。
+
+### 反映
+
+- `/tmp/codex-fix-toml.py` の L6 rrule + prompt 早期 exit 追記
+- MMO に scp → MD5 byte-perfect → Codex Desktop 再起動完了
+- manual 38 章 + L2_DATA.md にも反映
+
+### 想定 credit インパクト
+
+- 深夜 (22-08 時) = 11時間 × 7日 = 77回/週 が完全消滅
+- 日中 91回/週のうち、該当 MTG event 0 件の回 (= 大半の時間帯) は Phase A だけで終了 (= 数秒、credit ほぼゼロ)
+- 重い Phase B-J が走るのは「実際 MTG が終わった直後の 1-2 時間枠」のみ (= AMD 全体で 1 日数件 ≒ 週 20-30 回程度の見込み)

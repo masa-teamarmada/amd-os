@@ -117,7 +117,13 @@ L2 ② 動作テスト fact: `progress_estimate_state` / `l2_extract_state` テ�
 
 ### ⑥ MTG サマリ + フロー (= 2026-05-26 23:59 拡張)
 
-**現在の writer**: Codex Desktop automation `amd-os-l6-meeting-flow` (= Windows MMO PC、毎時 0 分発火、gpt-5.5 high reasoning)。Cloud routine は 2026-05-26 25 時時点で deprecated (= Mac/Cloud 共に問題があり Windows MMO の Codex Desktop に集約)。
+**現在の writer**: Codex Desktop automation `amd-os-l6-meeting-flow` (= Windows MMO PC、毎日 09:00-21:00 毎時 0 分発火 = 13回/日 × 7 = 91回/週、gpt-5.5 high reasoning)。Cloud routine は 2026-05-26 25 時時点で deprecated (= Mac/Cloud 共に問題があり Windows MMO の Codex Desktop に集約)。
+
+**🚨 cron 設計 (= 2026-05-27 00:30 まさ要求で credit 節約)**:
+- 元: 毎時 0 分 (= 24回/日 × 7 = 168回/週、深夜も走って無駄)
+- 新: **毎日 09:00-21:00 毎時** (= 91回/週、元の 54%) + **Phase A 早期 exit** (= 該当 MTG event 0 件なら Phase B 以降一切実行せず 1 行 summary だけ出して終了)
+- 結果: 深夜 (22:00-08:00) は完全不発火、日中も実際に MTG event がある時だけ重い Phase B-J が走る
+- 土日 9-21 時も毎時走る (= AMD は柔軟、土日 MTG / 朝晩 MTG も拾う)
 
 **役割**: 議事録抽出を超えて MTG 1 回のライフサイクル全体を自動化 (= Phase A-J、10 機能):
 
