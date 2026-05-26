@@ -8786,3 +8786,49 @@ function mr_gen_getPromptFromSupabase_(promptKey) {
 - Anthropic Cloud routine の **daily run cap 15/day** は事前確認不足 (= 公式ドキュ「daily run allowance」言及あり、Agent サマリでも触れてたが「集計タイミング」未認識)
 - まさ提案を Cloud で固執せず Codex に切り替えできなかった = 自分の提案を疑う selfcheck 不足
 - UI 操作の不安定さ (= ステータス toggle / 削除 dialog の click 反応せず) で時間溶け継続
+
+### 2026-05-26 続き 2: Windows MMO に Codex Desktop 移植 完了
+
+**まさが Codex Desktop install + login 完了** (= ChatGPT OAuth 承認)。Codex プロセス 7 個 (Electron 系) 起動確認 + `auth.json` 4558 bytes 保存確認。
+
+Mac → Windows MMO に移植したファイル:
+- `~/.codex/automations/amd-os/automation.toml` (3854 bytes、Mac path → Windows path 修正済)
+- `~/.codex/automations/amd-os-ms/automation.toml` (11764 bytes、同上)
+- `~/.codex/config.toml` (4313 bytes、Mac の Codex Computer Use notify line 削除済)
+- AMD OS repo clone (= `C:\Users\masa\projects\AMD\amd-os`、commit 41ef14c 時点で clone 済)
+
+これで **Windows MMO PC が常時 ON 状態を保つ限り、Codex automation cron が発火**:
+- `amd-os` = daily 03:20 JST (= L9 経営ハイライト)
+- `amd-os-ms` = 6h ごと (= L7 OS 台帳差分 + L8 XRL 根拠 + MS 進捗修正)
+
+### 状態整理 (= 2026-05-26 終了時)
+
+| 抽出経路 | L2 ① | ② | ③ | ④ | ⑤ | ⑥ | ⑦ | ⑧ | ⑨ |
+|---|---|---|---|---|---|---|---|---|---|
+| AMD-Report GAS R313 (= LLM 不使用) | ✅ | | | | | | | | |
+| PWA hourly-estimate (= GAS 154 ping、Sonnet 4.5) | | | ✅ 並行 | | | | | | |
+| Codex automation `amd-os-ms` (Mac、6h ごと、GPT-5.5) | | | ✅ 修正候補 | | | | ✅ outbox | ✅ outbox | |
+| Codex automation `amd-os` (Mac、daily 03:20、GPT-5.5) | | | | | | | | | ✅ outbox |
+| **Codex automation `amd-os-ms` (Windows MMO、新規)** | | | ✅ 修正候補 | | | | ✅ outbox | ✅ outbox | |
+| **Codex automation `amd-os` (Windows MMO、新規)** | | | | | | | | | ✅ outbox |
+| Cloud routine 集約版 (= daily 08:00、Sonnet 4.6、Anthropic) | | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Mac Local routine 8 個 (= スリープで発火しない) | | (登録のみ) | (同) | (同) | (同) | (同) | (同) | (同) | (同) |
+
+= **L2 ②④⑤⑥ は Cloud routine 集約版だけがカバー、明日 08:00 JST 発火試行**。
+
+### 次の判断ポイント (= 別 session)
+
+1. **Mac Codex.app の重複稼働を解消**: Mac の `~/.codex/automations/amd-os/automation.toml` と `amd-os-ms/automation.toml` を `status = "INACTIVE"` に書き換え → Windows MMO 動作確認 (= 次の cron 発火 + outbox 生成) 完了後
+2. **L2 ②④⑤⑥ を Codex automation 新規作成** = 現状は Cloud routine 集約版でカバーしてるが、Cloud cap 15/day と subscription 別管理 (Anthropic vs OpenAI) を統一するため、Codex に集約する選択肢
+3. **Cloud routine 集約版を残すか削除** = Codex 全部動いたら Cloud 不要、ただし「複数 vendor backup」として残すのもあり
+4. **L3-L9 個別 Cloud routine 7 個削除** = cap 15/day 消費要因、削除 dialog の UI 慎重操作
+5. **Mac 側 Local routine 9 個 disable** = 全部 Cloud/Codex 移管確認後
+6. **manual 38/05/L2_DATA に Windows MMO Codex 反映**
+
+### 学び (= 2026-05-26 セッション総括)
+
+1. **公式ドキュ確認は具体数値まで**: Cloud routine の「daily run allowance」を概念認識止まりで具体数値 (= 15) を見落とした
+2. **最初に全選択肢を列挙**: 「Anthropic Cloud routine 一択」「Codex automation 一択」と思考停止せず、Anthropic / OpenAI / ローカル / クラウド の組み合わせを最初に並べる
+3. **不可逆操作は実行前にメタ判断**: Cloud routine の削除を進めようとして、まさの「MMO で codex」提案で stop。事前確認の重要性
+4. **UI 操作の不安定さに早めに見切り**: claude.ai のドロップダウン option click が反映されない、編集モーダルで repo 設定が消える等の UI bug で時間溶けた → 別 approach (= API / CLI / file 直編集) に切替判断の遅さ
+5. **自走前にメタ判断、ハマったら別 approach**: AskUserQuestion で停止しすぎ + UI 操作にこだわりすぎ。「3 つ試してダメなら別ルート」を実践
