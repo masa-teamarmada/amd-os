@@ -123,10 +123,25 @@ npm run test:critical-ui
 npm run build
 ```
 
+Windows PowerShell で `このシステムではスクリプトの実行が無効になっています` と出る場合は、`npm.ps1` がブロックされているだけなので `.cmd` 版を使う。
+
+```powershell
+cd pwa
+npm.cmd ci
+npm.cmd run test:critical-ui
+npm.cmd run build
+```
+
 ローカルで見たい場合:
 
 ```sh
 npm run dev
+```
+
+Windows PowerShell では:
+
+```powershell
+npm.cmd run dev
 ```
 
 ## 5. きよAIに渡す最初の prompt

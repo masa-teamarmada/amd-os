@@ -111,11 +111,26 @@ npm ci
 npm run build
 ```
 
+Windows PowerShell で `このシステムではスクリプトの実行が無効になっています` と出る場合:
+
+```powershell
+cd pwa
+npm.cmd ci
+npm.cmd run build
+```
+
 開発サーバ:
 
 ```sh
 cd pwa
 npm run dev
+```
+
+Windows PowerShell では:
+
+```powershell
+cd pwa
+npm.cmd run dev
 ```
 
 本番 deploy は repo root から必ずこれ。
