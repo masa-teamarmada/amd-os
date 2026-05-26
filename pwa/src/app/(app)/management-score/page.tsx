@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { GasMonthlySimulationPanel, type GasMonthlyRow, type GasProjectListItem, type GasSimulationResult } from "@/components/management-score/GasMonthlySimulationPanel";
-import { EvidencePanel, type EvidenceRow } from "@/components/management-score/EvidencePanel";
-import { DialogueModeButton, type DialogueCandidate } from "@/components/management-score/DialogueModeButton";
+import {
+  EvidencePanel,
+  type EvidenceRow,
+  type DialogueConfirmedSignal,
+} from "@/components/management-score/EvidencePanel";
 import type { MonthlyPlInputs } from "@/lib/finance/monthly-pl-simulation";
 
 export const dynamic = "force-dynamic";
@@ -336,7 +339,7 @@ export default async function ManagementScorePage() {
   // 計算ミスやデータ不足の 6 月 snapshot が「最新」 と判定されて表示されないように、
   // ym <= currentYmJST() で filter する。
   const ymCap = currentYmJST();
-  const [scoreRes, scoreHistoryRes, budgetRes, inputRes, runRes, notesRes, evidenceRes, dialogueCandidatesRes] = await Promise.all([
+  const [scoreRes, scoreHistoryRes, budgetRes, inputRes, runRes, notesRes, evidenceRes, dialogueConfirmedRes] = await Promise.all([
     safeSelect<ScoreSnapshotFull[]>(() =>
       supabase
         .from("amd_management_score_snapshots")
@@ -389,18 +392,21 @@ export default async function ManagementScorePage() {
         .order("created_at", { ascending: false })
         .limit(200)
     ),
-    safeSelect<DialogueCandidate[]>(() =>
+    // dialogue で confirmed されたシグナル (= status='confirmed' AND decision_state IN decided/executing/revised)。
+    // バイタル計算の新規軸 / 方向軸の入力に流れるので、EvidencePanel に chip 表示して
+    // 「議論 → バイタル反映」 の経路を可視化する (= まさ #91 再設計)。
+    safeSelect<DialogueConfirmedSignal[]>(() =>
       supabase
         .from("project_strategy_signals")
-        .select("signal_id,project_id,ym,signal_type,impact_level,decision_state,title,summary,signal_date,confidence,status,created_by")
-        .eq("project_id", "p00")
-        .eq("status", "candidate")
-        .order("impact_level", { ascending: false })
-        .order("signal_date", { ascending: false })
-        .limit(20)
+        .select("signal_id,project_id,ym,signal_type,impact_level,decision_state,title,confirmed_at,polarity")
+        .eq("status", "confirmed")
+        .in("decision_state", ["decided", "executing", "revised"])
+        .lte("ym", ymCap)
+        .order("confirmed_at", { ascending: false, nullsFirst: false })
+        .limit(40)
     ),
   ]);
-  const dialogueCandidates: DialogueCandidate[] = dialogueCandidatesRes.data ?? [];
+  const dialogueConfirmedSignals: DialogueConfirmedSignal[] = dialogueConfirmedRes.data ?? [];
 
   const score = scoreRes.data?.[0] ?? null;
   const previous = scoreHistoryRes.data && scoreHistoryRes.data.length >= 2 ? scoreHistoryRes.data[1] : null;
@@ -475,10 +481,7 @@ export default async function ManagementScorePage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-muted-foreground">AMD Management Score</p>
-            <div className="flex flex-wrap items-baseline gap-3">
-              <h1 className="text-2xl font-semibold tracking-normal">経営状況</h1>
-              <DialogueModeButton candidates={dialogueCandidates} />
-            </div>
+            <h1 className="text-2xl font-semibold tracking-normal">経営状況</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>対象月 {score?.ym ?? latestYm ?? "-"}</span>
@@ -598,7 +601,7 @@ export default async function ManagementScorePage() {
           ))}
         </section>
 
-        <EvidencePanel rows={evidenceRows} />
+        <EvidencePanel rows={evidenceRows} dialogueConfirmedSignals={dialogueConfirmedSignals} />
 
         <GasMonthlySimulationPanel result={gasSimulationResult} inputs={gasSimulationInputs} />
 

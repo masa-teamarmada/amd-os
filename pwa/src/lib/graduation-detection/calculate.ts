@@ -5,16 +5,18 @@
  * 70% 以上で project_strategy_signals に candidate insert され、 まさえいMTG 議題に上がる。
  *
  * 6 シグナル (= manual/39-graduation-detection-spec.md):
- *  1. MTG main talker の遷移 (LLM 必須 → MVP では 0)
+ *  1. MTG main talker の遷移 (LLM、 llm_prompts.graduation_detection.talker_ratio is_active=TRUE で稼働)
  *  2. AMD member events 減少 (= member_activities 月次推移 線形回帰)
- *  3. monthly_reports の AMD 寄与文言減少 (LLM 必須 → MVP では 0)
+ *  3. monthly_reports の AMD 寄与文言減少 (LLM、 llm_prompts.graduation_detection.report_attribution is_active=TRUE で稼働)
  *  4. CEO 候補の milestone 主導比率 (= milestone_responsibility 集計)
  *  5. 経営判断の起点シフト (= protocols 集計)
  *  6. 「もう大丈夫」キーワード検知 (= project_meeting_summaries grep)
  *
- * Phase 2 で signal 1 / 3 を LLM 経由で実装する。
+ * LLM signal (1, 3) は llm_prompts が is_active=FALSE / 空のとき 0 を返す (= AGENTS 絶対ルール: 空なら抽出 skip)。
+ * 詳細 prompt は migration 095_graduation_detection_llm_prompts.sql。
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type Anthropic from "@anthropic-ai/sdk";
 
 interface SignalResult {
   signal_1_talker: number;
@@ -52,6 +54,210 @@ function ymAddMonths(ym: string, delta: number): string {
   const newY = Math.floor(total / 12);
   const newM = (total % 12) + 1;
   return `${newY}${String(newM).padStart(2, "0")}`;
+}
+
+interface PromptRow {
+  body: string;
+  model: string | null;
+  max_tokens: number | null;
+}
+
+async function loadPrompt(supabase: SupabaseClient, promptKey: string): Promise<PromptRow | null> {
+  const { data } = await supabase
+    .from("llm_prompts")
+    .select("body, model, max_tokens, is_active")
+    .eq("prompt_key", promptKey)
+    .limit(1)
+    .single();
+  if (!data) return null;
+  if (!data.is_active || !data.body || !String(data.body).trim()) return null;
+  return { body: data.body, model: data.model, max_tokens: data.max_tokens };
+}
+
+function parseJsonFromLlm(text: string): Record<string, unknown> | null {
+  const cleaned = text
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  try {
+    return JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+async function computeSignal1_TalkerRatioLlm(
+  supabase: SupabaseClient,
+  anthropic: Anthropic | null,
+  prompt: PromptRow | null,
+  projectId: string,
+  projectName: string,
+  ym: string,
+): Promise<{ score: number; inputs: Record<string, unknown> }> {
+  if (!anthropic || !prompt) {
+    return { score: 0, inputs: { note: "LLM prompt is_active=FALSE / ANTHROPIC_API_KEY 未設定、 signal 1 skip" } };
+  }
+  // 過去 3 ヶ月の MTG サマリを集める
+  const sinceYm = ymAddMonths(ym, -2);
+  const { data: meetings } = await supabase
+    .from("project_meeting_summaries")
+    .select("ym,meeting_date,title,summary_short,decided,next_actions,risks")
+    .eq("project_id", projectId)
+    .gte("ym", sinceYm)
+    .order("meeting_date", { ascending: true })
+    .limit(60);
+  const rows = (meetings ?? []) as Array<{
+    ym: string;
+    meeting_date: string;
+    title: string;
+    summary_short: string;
+    decided: unknown;
+    next_actions: unknown;
+    risks: unknown;
+  }>;
+  if (rows.length === 0) {
+    return { score: 0, inputs: { note: "MTG サマリなし、 signal 1 skip" } };
+  }
+  // 関連メンバー (= CEO 候補同定用)
+  const { data: founders } = await supabase
+    .from("project_founding_members")
+    .select("person_name,role,role_label_jp,category,affiliation")
+    .eq("project_id", projectId)
+    .eq("status", "active")
+    .limit(30);
+  type Founder = {
+    person_name: string;
+    role: string | null;
+    role_label_jp: string | null;
+    category: string | null;
+    affiliation: string | null;
+  };
+  const founderRows = (founders ?? []) as Founder[];
+  const external = founderRows.filter((f) => f.category !== "amd");
+  const amd = founderRows.filter((f) => f.category === "amd");
+  const fmt = (f: Founder) => `- ${f.person_name} / ${f.role_label_jp ?? f.role ?? "?"} / ${f.affiliation ?? ""}`;
+  const founderBlock =
+    `### 外部 CEO 候補 (= 主導比率を測る側)\n${external.map(fmt).join("\n") || "（未抽出）"}\n\n` +
+    `### AMD member (= 主導比率を測る側)\n${amd.map(fmt).join("\n") || "（未抽出）"}`;
+
+  const meetingBlock = rows
+    .map((m) => {
+      const dec = Array.isArray(m.decided) ? (m.decided as string[]).filter(Boolean) : [];
+      const nxt = Array.isArray(m.next_actions) ? (m.next_actions as string[]).filter(Boolean) : [];
+      const rsk = Array.isArray(m.risks) ? (m.risks as string[]).filter(Boolean) : [];
+      const parts = [
+        `### ${m.meeting_date} ${m.title}`,
+        m.summary_short ? `要約: ${m.summary_short}` : "",
+        dec.length ? `決定: ${dec.join(" / ")}` : "",
+        nxt.length ? `次アクション: ${nxt.join(" / ")}` : "",
+        rsk.length ? `リスク: ${rsk.join(" / ")}` : "",
+      ].filter(Boolean);
+      return parts.join("\n");
+    })
+    .join("\n\n")
+    .slice(0, 10000);
+
+  const userPrompt =
+    `## PJ 情報\n- projectId: ${projectId}\n- PJ 名: ${projectName}\n- 期間: 過去 3 ヶ月 (since ${sinceYm}, target ${ym})\n\n` +
+    `## 関連メンバー\n${founderBlock}\n\n` +
+    `## MTG サマリ集 (過去 3 ヶ月分、 全 ${rows.length} 件)\n${meetingBlock}\n\n` +
+    `上記から talker_ratio_score を 0-100 で評価してください。 JSON のみで返答。`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: prompt.model || "claude-sonnet-4-6",
+      max_tokens: prompt.max_tokens || 2048,
+      system: prompt.body,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+    const text = response.content[0]?.type === "text" ? response.content[0].text : "";
+    const parsed = parseJsonFromLlm(text);
+    if (!parsed) {
+      return { score: 0, inputs: { note: "LLM no JSON", raw: text.slice(0, 200) } };
+    }
+    const score = clamp(Number(parsed.talker_ratio_score ?? 0));
+    return {
+      score,
+      inputs: {
+        score,
+        ceo_speakers: parsed.ceo_speakers ?? [],
+        amd_speakers: parsed.amd_speakers ?? [],
+        reasoning: String(parsed.reasoning ?? "").slice(0, 500),
+        meetingCount: rows.length,
+      },
+    };
+  } catch (err) {
+    return { score: 0, inputs: { note: "LLM error", error: err instanceof Error ? err.message : String(err) } };
+  }
+}
+
+async function computeSignal3_ReportAttributionLlm(
+  supabase: SupabaseClient,
+  anthropic: Anthropic | null,
+  prompt: PromptRow | null,
+  projectId: string,
+  projectName: string,
+  ym: string,
+): Promise<{ score: number; inputs: Record<string, unknown> }> {
+  if (!anthropic || !prompt) {
+    return { score: 0, inputs: { note: "LLM prompt is_active=FALSE / ANTHROPIC_API_KEY 未設定、 signal 3 skip" } };
+  }
+  // 過去 6 ヶ月の monthly_reports
+  const yms: string[] = [];
+  for (let i = 5; i >= 0; i--) yms.push(ymAddMonths(ym, -i));
+  const { data: reports } = await supabase
+    .from("monthly_reports")
+    .select("ym,final_content,draft_content")
+    .eq("project_id", projectId)
+    .in("ym", yms)
+    .order("ym", { ascending: true });
+  const rows = (reports ?? []) as Array<{ ym: string; final_content: string | null; draft_content: string | null }>;
+  const reportBlock = rows
+    .map((r) => {
+      const content = (r.final_content || r.draft_content || "").trim();
+      if (!content) return "";
+      return `### ${r.ym}\n${content.slice(0, 3000)}`;
+    })
+    .filter(Boolean)
+    .join("\n\n");
+  if (!reportBlock) {
+    return { score: 0, inputs: { note: "monthly_reports 本文なし、 signal 3 skip", yms } };
+  }
+
+  const userPrompt =
+    `## PJ 情報\n- projectId: ${projectId}\n- PJ 名: ${projectName}\n- 期間: 過去 6 ヶ月 (${yms.join(" → ")})\n\n` +
+    `## monthly_reports 本文 (過去 6 ヶ月、 全 ${rows.filter((r) => r.final_content || r.draft_content).length} 件)\n${reportBlock}\n\n` +
+    `上記から report_attribution_score を 0-100 で評価してください。 JSON のみで返答。`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: prompt.model || "claude-sonnet-4-6",
+      max_tokens: prompt.max_tokens || 2048,
+      system: prompt.body,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+    const text = response.content[0]?.type === "text" ? response.content[0].text : "";
+    const parsed = parseJsonFromLlm(text);
+    if (!parsed) {
+      return { score: 0, inputs: { note: "LLM no JSON", raw: text.slice(0, 200) } };
+    }
+    const score = clamp(Number(parsed.report_attribution_score ?? 0));
+    return {
+      score,
+      inputs: {
+        score,
+        monthly_ratios: parsed.monthly_ratios ?? [],
+        reasoning: String(parsed.reasoning ?? "").slice(0, 500),
+        reportCount: rows.length,
+      },
+    };
+  } catch (err) {
+    return { score: 0, inputs: { note: "LLM error", error: err instanceof Error ? err.message : String(err) } };
+  }
 }
 
 async function fetchAmdMemberIds(supabase: SupabaseClient): Promise<Set<string>> {
@@ -187,17 +393,18 @@ async function computeSignal6_Keywords(
 
 async function computeSignalsForProject(
   supabase: SupabaseClient,
+  anthropic: Anthropic | null,
+  talkerPrompt: PromptRow | null,
+  reportPrompt: PromptRow | null,
   projectId: string,
   projectName: string,
   ym: string,
   amdMemberIds: Set<string>,
 ): Promise<SignalResult> {
-  // signal 1 / 3 は LLM 必須、 MVP では 0 で保存
-  const signal1 = { score: 0, inputs: { note: "LLM 未実装、 Phase 2 で追加" } };
-  const signal3 = { score: 0, inputs: { note: "LLM 未実装、 Phase 2 で追加" } };
-
-  const [signal2, signal4, signal5, signal6] = await Promise.all([
+  const [signal1, signal2, signal3, signal4, signal5, signal6] = await Promise.all([
+    computeSignal1_TalkerRatioLlm(supabase, anthropic, talkerPrompt, projectId, projectName, ym),
     computeSignal2_EventsDecline(supabase, projectId, ym, amdMemberIds),
+    computeSignal3_ReportAttributionLlm(supabase, anthropic, reportPrompt, projectId, projectName, ym),
     computeSignal4_MilestoneShift(supabase, projectId, ym, amdMemberIds),
     computeSignal5_DecisionShift(supabase, projectId),
     computeSignal6_Keywords(supabase, projectId, ym),
@@ -212,14 +419,17 @@ async function computeSignalsForProject(
     + signal6.score * SIGNAL_WEIGHTS.signal_6_keywords,
   );
 
+  const llmEnabled = anthropic && (talkerPrompt || reportPrompt);
   const evidence = [
     `${projectName} の卒業準備度 ${Math.round(readiness)}%。`,
+    `主導比率 ${Math.round(signal1.score)}点、`,
     `events 推移 ${Math.round(signal2.score)}点、`,
+    `寄与文言 ${Math.round(signal3.score)}点、`,
     `milestone CEO 主導 ${Math.round(signal4.score)}点、`,
     `経営判断 CEO 起点 ${Math.round(signal5.score)}点、`,
     signal6.matched.length > 0 ? `🚨 キーワード「${signal6.matched.join("/")}」検出。` : "キーワード未検出。",
-    "(signal 1/3 は LLM 未実装、 Phase 2 で追加)",
-  ].join(" ");
+    llmEnabled ? "" : "(LLM prompt is_active=FALSE → signal 1/3 は 0)",
+  ].filter(Boolean).join(" ");
 
   return {
     signal_1_talker: signal1.score,
@@ -235,11 +445,17 @@ async function computeSignalsForProject(
   };
 }
 
-export async function runGraduationDetection(supabase: SupabaseClient, ym: string): Promise<{ ok: boolean; processed: number; candidates: number; results: Array<{ project_id: string; readiness: number; alert: string }> }> {
+export async function runGraduationDetection(
+  supabase: SupabaseClient,
+  ym: string,
+  anthropic: Anthropic | null = null,
+): Promise<{ ok: boolean; processed: number; candidates: number; llm_enabled: boolean; results: Array<{ project_id: string; readiness: number; alert: string }> }> {
   // 対象 PJ: status='active' AND project_ventures.amd_support_ended_at IS NULL
-  const [{ data: activeProjects }, { data: ventures }] = await Promise.all([
+  const [{ data: activeProjects }, { data: ventures }, talkerPrompt, reportPrompt] = await Promise.all([
     supabase.from("projects").select("project_id,project_name,status").eq("status", "active"),
     supabase.from("project_ventures").select("project_id,amd_support_ended_at"),
+    loadPrompt(supabase, "graduation_detection.talker_ratio"),
+    loadPrompt(supabase, "graduation_detection.report_attribution"),
   ]);
   const graduatedPjs = new Set(
     ((ventures ?? []) as Array<{ project_id: string; amd_support_ended_at: string | null }>)
@@ -249,12 +465,22 @@ export async function runGraduationDetection(supabase: SupabaseClient, ym: strin
   const targets = ((activeProjects ?? []) as Array<{ project_id: string; project_name: string }>)
     .filter((p) => !graduatedPjs.has(String(p.project_id)) && p.project_id !== "p00");
 
+  const llmEnabled = !!(anthropic && (talkerPrompt || reportPrompt));
   const amdMemberIds = await fetchAmdMemberIds(supabase);
   const results: Array<{ project_id: string; readiness: number; alert: string }> = [];
   let candidatesCreated = 0;
 
   for (const pj of targets) {
-    const sig = await computeSignalsForProject(supabase, pj.project_id, pj.project_name, ym, amdMemberIds);
+    const sig = await computeSignalsForProject(
+      supabase,
+      anthropic,
+      talkerPrompt,
+      reportPrompt,
+      pj.project_id,
+      pj.project_name,
+      ym,
+      amdMemberIds,
+    );
     await supabase
       .from("project_graduation_signals")
       .upsert(
@@ -313,5 +539,5 @@ export async function runGraduationDetection(supabase: SupabaseClient, ym: strin
     results.push({ project_id: pj.project_id, readiness: sig.readiness_score, alert });
   }
 
-  return { ok: true, processed: targets.length, candidates: candidatesCreated, results };
+  return { ok: true, processed: targets.length, candidates: candidatesCreated, llm_enabled: llmEnabled, results };
 }

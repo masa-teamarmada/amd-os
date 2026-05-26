@@ -2700,7 +2700,8 @@
 
 - **症状**: `DialogueModeButton.tsx` で `project_strategy_signals.status='candidate'` を 1 件ずつレビューする UI を作って /management-score に追加した。 まさが「議論してないものは重要じゃないから議論してない、 議論したものは確認なしで採用すべき。 この機能、 意味あるの?」 と指摘
 - **原因**: まさえいMTG (= L2 ⑨ dialogue) の本来の意図を取り違えた。 まさが求めていたのは「**議論で confirmed されたシグナルが必ずバイタル計算ロジックに反映される仕組み**」 (= 反映保証)。 私が作ったのは「**自動抽出された candidate を承認するワークフロー**」 = レビューワークフローで、 これは「議論してないものを後から評価する」 構造になっており、 まさの思考と逆向き
-- **解決策**: 次セッションで `DialogueModeButton` 削除。 代わりに `EvidencePanel` に「dialogue で confirmed されたシグナル」 chip を強調表示する方向で再設計。 raw-data v4 で confirmed funding/commercial が direction/pipeline 入力に流れる経路は既に動いているので、 そこを可視化する
+- **状態**: ✅ 修正済 (= 2026-05-27 後続セッション、 v0.4.0 deploy 済)
+- **対応内容**: `DialogueModeButton.tsx` 削除 / `/management-score/page.tsx` の import + render + query 削除 / `EvidencePanel.tsx` 上部に「まさえいMTG で確定したシグナル」 chip 帯を追加 (= `status='confirmed' AND decision_state IN ('decided','executing','revised')` の signals を新規軸 / 方向軸別に表示)。 詳細 [manual 29 章「まさえいMTG 確定シグナル 帯」](manual/29-management-score-and-finance-simulation-spec.md)
 - **再発防止策**: 機能を作る前に「これは誰が、 どんな状況で押すか」 を 1 文で言語化。 まさが「議論したものは確認なしで採用」 と言うなら、 確認 UI を作る発想自体が NG
 
 ### [infra/manual-ui] 静的 chapter.number と動的 applyManualBookNumbering 併存で誤読 (= まさ #87)

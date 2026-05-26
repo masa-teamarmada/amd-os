@@ -221,24 +221,34 @@ GET /api/cron/graduation-detection?ym=YYYYMM
 6. readiness_score >= 90 なら l2_notifications に critical 通知
 ```
 
-### LLM プロンプト
+### LLM プロンプト (= 2026-05-27 seed 済)
 
-シグナル 1 (= main talker) とシグナル 3 (= AMD 寄与文言) は LLM 必要。 prompt は `llm_prompts` テーブルで管理する (= 旧 GAS rewardscoring と同じパターン)。
+シグナル 1 (= main talker) とシグナル 3 (= AMD 寄与文言) は LLM 必須。 prompt は `llm_prompts` テーブルで管理する (= 旧 GAS rewardscoring と同じパターン)。
 
-```sql
-INSERT INTO llm_prompts (prompt_key, description, body, model, max_tokens, is_active, notes)
-VALUES (
-  'graduation_detection.talker_ratio',
-  '議事録の主要発言者比率分析。CEO 候補 vs AMD member の発言量比率を 0-100 で返す。',
-  $$ ... $$,
-  'claude-sonnet-4-6',
-  2048,
-  TRUE,
-  '...'
-);
-```
+| prompt_key | 用途 | seed migration |
+|---|---|---|
+| `graduation_detection.talker_ratio` | signal 1 (= MTG 発言比率) | [095_graduation_detection_llm_prompts.sql](../scripts/migrations/095_graduation_detection_llm_prompts.sql) |
+| `graduation_detection.report_attribution` | signal 3 (= monthly_reports AMD 寄与文言) | 同上 |
 
-`graduation_detection.report_attribution` も同様。 詳細プロンプト本文は migration ファイルで管理。
+**運用ルール (= AGENTS 絶対ルール踏襲)**:
+- migration 095 で `is_active=FALSE` で seed 済。 まさが [`/admin/prompts`](../src/app/(app)/admin/prompts/page.tsx) で body を確認 / 微調整 → `is_active=TRUE` にする
+- `is_active=FALSE` / body 空 のときは [`calculate.ts`](../src/lib/graduation-detection/calculate.ts) が **0 を返す** (= サイレントに変な抽出をしない、 まさ #判断不能なら null ルール踏襲)
+- 両方 `inactive` でも cron は **正常動作**。 readiness_score は signal 2/4/5/6 だけから計算され、 LLM 経由のシグナルは 0 のまま保存される (= 2026-05-27 本番 smoke test 確認済、 `llm_enabled=false` で全 8 PJ processed)
+- 片方だけ `active` でも OK (= 例: talker_ratio だけ activate して、 report_attribution は様子見)
+
+**コスト目安**:
+- 1 PJ あたり token 数千 (= 過去 3 ヶ月 MTG サマリ + 過去 6 ヶ月 monthly_reports)
+- active PJ 8 件 × signal 1+3 = 16 calls / 月
+- claude-sonnet-4-6 で月 $1-5 程度
+
+**signal 1 (talker_ratio) 入力**:
+- 過去 3 ヶ月の `project_meeting_summaries` (= summary_short / decided / next_actions / risks)
+- 関連メンバー (= `project_founding_members` category=`startup`/`university` を CEO 候補、 category=`amd` を AMD member として LLM に渡す)
+
+**signal 3 (report_attribution) 入力**:
+- 過去 6 ヶ月の `monthly_reports` (= final_content / draft_content)
+
+LLM 出力 JSON の取り回しは [`parseJsonFromLlm()`](../src/lib/graduation-detection/calculate.ts) でガード (= JSON でなければ 0 点 + raw を inputs に保存)。 LLM error も catch して 0 点 + error を inputs に保存する (= cron 全体は止めない)。
 
 ## UI
 

@@ -9085,3 +9085,64 @@ deploy.sh で計 8-9 回 (v0.1.0 → v0.3.5)、 全 Ready。 production aliased 
 - 要因 (= evidence) の中に「シーズ探索結果」 のような weight の弱い signal が残ってないか再確認 (= raw-data 改修したつもりだが、 何か残ってる可能性)
 - freee revenue=0 問題: account_category_name の文字列マッチ精度調査、 もしくは freee 試算表側で売上計上タイミング確認
 
+## 2026-05-27 続き (= 後続セッション、 v0.3.5 → v0.4.0)
+
+前セッションの確認漏れ + LLM 化を引き継いで処理。
+
+### Phase 10 (= DialogueModeButton 削除 + EvidencePanel に dialogue confirmed chip 追加) - まさ #91
+
+- `src/components/management-score/DialogueModeButton.tsx` ファイル削除
+- `src/app/(app)/management-score/page.tsx` から import / candidate fetch / header render を削除
+- `src/app/(app)/management-score/page.tsx` の query を `status='candidate'` から `status='confirmed' AND decision_state IN ('decided','executing','revised')` に書き換え (= 確定済シグナル取得)、 `EvidencePanel` の props として渡す
+- [`src/components/management-score/EvidencePanel.tsx`](src/components/management-score/EvidencePanel.tsx) 上部に `DialogueConfirmedChips` セクション追加。 signal_type → 軸マップ (`commercial_progress` → 新規 / `funding/partner_growth/graduation/next_move` → 方向) で chip 着色
+- patch bump (= v0.3.5 → v0.3.6)、 マニュアル 29 章に「まさえいMTG 確定シグナル 帯」 セクション追記
+
+### Phase 11 (= 旧 signal 残存 SQL 再確認) - HANDOFF #2
+
+- Supabase MCP `execute_sql` で `amd_management_score_evidence` を全 evidence_kind 集計
+- 202605 の evidence_kind: direction (`amd_os_install`/`graduation`/`partner_growth`/`non_masa_initiative`/`fund_setup`/`axis_summary`/`monetization`)、 finance (`budget_variance`/`axis_summary`)、 initiative (`passive_event`/`proactive_event`/`axis_summary`)、 pipeline (`registry_diff`/`axis_summary`/`commercial_progress`)、 retention (`meeting_risk`/`progress_strong`/`axis_summary`/`freeze`) — **v4 仕様通り、 seeds 系一切なし**
+- 過去 6 ヶ月で `seed/venture_portfolio/amd_score/protocol/atlas/macro` 系 evidence_kind を全件 SQL 検索 → 0 件 (= raw-data v4 削除が正しく反映)
+- 結論: 残存なし、 clean
+
+### Phase 12 (= migration 093 番号衝突整理) - HANDOFF #4
+
+- 私の `093_project_ventures_amd_support_ended_at.sql` (= no-op、 既存列だった) を削除
+- 他セッション `093_meeting_workflow_orchestration.sql` のみ残す
+- 094 (project_graduation_signals) は私のままで連番継続
+
+### Phase 13 (= freee revenue=0 調査) - HANDOFF #3
+
+`amd_management_score_raw_signals` で `signal_key LIKE 'freee_actual:revenue%'` を全件確認:
+- 過去 5 ヶ月で revenue 系は **2 件のみ** (= 202601 雑収入 ¥112 + 受取利息 ¥69、 freee_cat=`営業外収益`)
+- 「売上高」「商品売上」「役務収入」 系ノードは raw_signals に 1 件も存在しない
+- `raw-data.ts` の `freeeCategory()` 文字列マッチは「売上 / 収益 / revenue / sales」 を網羅、 マッチロジック問題ではない
+- → **freee 試算表 API レスポンス側の問題**: (a) 売上が「売掛金」 計上で trial_pl 売上セクション未反映、 (b) freee API trial_pl が 0 円ノードを omit、 (c) AMD 経理が現金主義で入金月計上、 のどれか
+- 結論: PWA コード側で解決不可能、 まさが freee dashboard で確認 / 経理運用見直しが必要。 [manual 29 章 既知ギャップ表](manual/29-management-score-and-finance-simulation-spec.md) を P0 案件として更新
+
+### Phase 14 (= graduation_detection LLM 化、 signal 1 + 3) - HANDOFF #5
+
+[manual 39 章](manual/39-graduation-detection-spec.md) の signal 1 (= MTG main talker 比率) と signal 3 (= monthly_reports AMD 寄与文言) を LLM 経路で実装:
+
+- [migration 095_graduation_detection_llm_prompts.sql](scripts/migrations/095_graduation_detection_llm_prompts.sql) で `llm_prompts` に 2 件 seed (= `graduation_detection.talker_ratio` / `graduation_detection.report_attribution`、 sonnet 4.6、 `is_active=FALSE` で出荷)
+- [`src/lib/graduation-detection/calculate.ts`](src/lib/graduation-detection/calculate.ts) に `loadPrompt()` / `computeSignal1_TalkerRatioLlm()` / `computeSignal3_ReportAttributionLlm()` / `parseJsonFromLlm()` を追加。 `is_active=FALSE` / body 空 / `ANTHROPIC_API_KEY` 未設定 のとき **0 を返す** (= AGENTS 絶対ルール: 捏造禁止、 サイレントに変な抽出をしない)。 LLM error は catch して 0 + error を inputs に保存 (= cron 全体は止めない)
+- [`src/app/api/cron/graduation-detection/route.ts`](src/app/api/cron/graduation-detection/route.ts) で `Anthropic` instance を作って `runGraduationDetection(supabase, ym, anthropic)` に渡す。 `maxDuration` を 120s → 300s に拡張 (= 1 PJ あたり 2-3s で 8 PJ × 2 signal = ~40s 程度を見込み)
+- minor bump (= 新機能 = v0.3.6 → v0.4.0)
+- 本番 smoke test: `curl /api/cron/graduation-detection?ym=202605` → `{ ok:true, processed:8, candidates:0, llm_enabled:false, ... }` (= prompt is_active=FALSE なので skip された、 従来通りの動作確認 OK)
+
+### 次セッションへ (= まさ向け / 次のえいみ向け)
+
+**まさ向けアクション**:
+- [`/admin/prompts`](https://amd-os-pwa.vercel.app/admin/prompts) で `graduation_detection.talker_ratio` と `graduation_detection.report_attribution` の body を確認 (= migration 095 で seed したものがそのまま入ってる)、 微調整したら `is_active=TRUE` に変更
+- 次月初 06:00 JST の自動 cron 実行から LLM 経路が走り、 signal 1/3 が 0 でなく実値で埋まる
+- freee revenue=0 問題は freee dashboard で売上計上の有無 / タイミングを確認
+
+**次のえいみ向け Open Tasks**:
+- `amd_os_installations` 新テーブル新設 (= direction 軸 25% 重み、 当面 0 で全体引き下げ要因)
+- manual 39 章 + 29 章 anchor link 整備 (= 動的番号に追随しない text 参照、 優先度低)
+- LLM activate 後 cron 結果モニタリング (= p21「撤退」 検出済なので readiness 跳ね上がる可能性、 そこで MTG 議題に上がるか確認)
+
+### deploy
+
+deploy.sh で 1 回 (v0.3.6 → v0.4.0)、 Ready 2 分 21 秒。 production aliased 確認済 (= `amd-os-pwa.vercel.app`)。
+
+

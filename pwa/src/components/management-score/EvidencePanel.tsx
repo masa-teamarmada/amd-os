@@ -16,6 +16,18 @@ export type EvidenceRow = {
   payload: Record<string, unknown> | null;
 };
 
+export type DialogueConfirmedSignal = {
+  signal_id: string;
+  project_id: string;
+  ym: string | null;
+  signal_type: string;
+  decision_state: string;
+  impact_level: string;
+  title: string;
+  confirmed_at: string | null;
+  polarity: string | null;
+};
+
 const AXIS_LABEL: Record<EvidenceAxis, string> = {
   initiative: "先手",
   finance: "財務",
@@ -98,7 +110,89 @@ function EvidenceCard({ row }: { row: EvidenceRow }) {
   );
 }
 
-export function EvidencePanel({ rows }: { rows: EvidenceRow[] }) {
+function signalTypeToAxis(signalType: string): EvidenceAxis | "other" {
+  if (signalType === "commercial_progress") return "pipeline";
+  if (
+    signalType === "funding" ||
+    signalType === "partner_growth" ||
+    signalType === "graduation" ||
+    signalType === "next_move"
+  )
+    return "direction";
+  return "other";
+}
+
+function signalTypeLabel(signalType: string): string {
+  const labels: Record<string, string> = {
+    commercial_progress: "案件",
+    funding: "ファンド",
+    partner_growth: "連携",
+    graduation: "卒業",
+    next_move: "次の一手",
+  };
+  return labels[signalType] ?? signalType;
+}
+
+function decisionStateLabel(state: string): string {
+  const labels: Record<string, string> = {
+    decided: "決定",
+    executing: "実行中",
+    revised: "完了",
+    proposed: "提案",
+    observed: "観察",
+  };
+  return labels[state] ?? state;
+}
+
+function DialogueConfirmedChips({ signals }: { signals: DialogueConfirmedSignal[] }) {
+  if (signals.length === 0) {
+    return (
+      <div className="border-b px-4 py-3">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold">まさえいMTG で確定したシグナル</h3>
+          <span className="text-xs text-muted-foreground">該当なし</span>
+        </div>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          <code className="rounded bg-muted px-1">/api/strategy-signals</code> で confirm された signal がここに並ぶ。 新規軸 / 方向軸の計算入力に流れる。
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="border-b bg-primary/[0.03] px-4 py-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-sm font-semibold">まさえいMTG で確定したシグナル</h3>
+        <span className="text-xs text-muted-foreground">{signals.length} 件 → 新規 / 方向軸の計算に反映</span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {signals.map((sig) => {
+          const axis = signalTypeToAxis(sig.signal_type);
+          const tone = axis === "other" ? "bg-muted text-foreground border-border" : axisTone(axis);
+          const axisName = axis === "other" ? sig.signal_type : axisLabel(axis);
+          return (
+            <span
+              key={sig.signal_id}
+              className={`inline-flex max-w-[28ch] items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] ${tone}`}
+              title={`${sig.project_id} / ${sig.ym ?? "-"} / ${signalTypeLabel(sig.signal_type)} / ${decisionStateLabel(sig.decision_state)}`}
+            >
+              <span className="font-semibold">{sig.project_id}</span>
+              <span className="text-[10px] opacity-75">{axisName}軸</span>
+              <span className="truncate">{sig.title}</span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function EvidencePanel({
+  rows,
+  dialogueConfirmedSignals = [],
+}: {
+  rows: EvidenceRow[];
+  dialogueConfirmedSignals?: DialogueConfirmedSignal[];
+}) {
   const [axis, setAxis] = useState<EvidenceAxis | "all">("all");
 
   const filtered = useMemo(() => {
@@ -126,6 +220,8 @@ export function EvidencePanel({ rows }: { rows: EvidenceRow[] }) {
 
   return (
     <section className="rounded-md border bg-card">
+      <DialogueConfirmedChips signals={dialogueConfirmedSignals} />
+
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
         <h2 className="text-sm font-semibold">上げ要因 / 下げ要因</h2>
         <span className="text-xs text-muted-foreground">evidence {rows.length} 件</span>

@@ -11,10 +11,11 @@
  * 認証: Authorization: Bearer ${CRON_SECRET}
  */
 import { NextRequest, NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runGraduationDetection } from "@/lib/graduation-detection/calculate";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 function currentYmJST(): string {
   const now = new Date();
@@ -33,7 +34,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const ym = req.nextUrl.searchParams.get("ym") || currentYmJST();
-    const result = await runGraduationDetection(createAdminClient(), ym);
+    // ANTHROPIC_API_KEY が set かつ llm_prompts.graduation_detection.* が is_active=TRUE のとき
+    // signal 1 (talker_ratio) と signal 3 (report_attribution) が LLM 経路で埋まる。
+    // 片方だけ active でも OK。 両方 inactive なら従来通り 0 で保存され、 readiness_score は
+    // signal 2/4/5/6 だけから計算される (= MVP 通り)。
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    const anthropic = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : null;
+    const result = await runGraduationDetection(createAdminClient(), ym, anthropic);
     return NextResponse.json(result);
   } catch (error) {
     console.error("[cron/graduation-detection]", error);

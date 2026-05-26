@@ -445,16 +445,29 @@ admin-only。body は `inputs.params`, `inputs.projects`, `inputs.fixedCosts` �
 - 「シーズ候補「非麻薬性オピオイド鎮痛薬」 (観察中, AMD評価 3/5)」 ← 良
 - 「seed:investigating: 非麻薬性オピオイド鎮痛薬」 ← 廃止 (= 機械的)
 
+### まさえいMTG 確定シグナル 帯 (= 2026-05-27 #91 確定)
+
+EvidencePanel の上部に「**まさえいMTG で確定したシグナル**」 帯を表示する。 まさが daily MTG で confirm した `project_strategy_signals` (= `status='confirmed' AND decision_state IN ('decided','executing','revised')`) を chip で並べ、 それらがバイタル計算の **新規 / 方向** 軸に流れていることを可視化する。
+
+| 状態 | UI |
+|---|---|
+| 確定シグナル 0 件 | グレー帯 (= 該当なし) |
+| 1 件以上 | 薄プライマリ帯。 chip 1 個 = 1 signal で「PJ ID / 軸名 (新規/方向) / title」 を表示。 hover で `project_id / ym / signal_type / decision_state` tooltip |
+
+chip の軸判定 ([EvidencePanel.tsx](../src/components/management-score/EvidencePanel.tsx#signalTypeToAxis)):
+- `commercial_progress` → 新規軸
+- `funding / partner_growth / graduation / next_move` → 方向軸
+- それ以外 → 軸なし
+
+**設計判断**:旧 `DialogueModeButton` (= candidate を 1 件ずつ承認するレビュー UI) は廃止 (= まさ #91「議論してないものは重要じゃないから議論してない、 議論したものは確認なしで採用すべき」)。 確認ワークフローを作るのではなく、 「議論で confirm された結果がバイタル入力にどう流れるか」 を見せる方向に再設計した。
+
 ## 既知ギャップ + v4 移行 TODO
 
 | 優先 | ギャップ | 状態 | 次にやること |
 |---|---|---|---|
-| P0 | calculate.ts v4 改修 | v3 (= 加算 + finance cap のみ) | 29.4-29.7 を実装、 #2 task |
+| P0 | freee 試算表に売上高ノード返ってこない | 過去 5 ヶ月で revenue 系 raw_signals は 雑収入 + 受取利息 計 ¥181 のみ。 売上高 / 商品売上 / 役務収入 系ノードが freee API レスポンスに 1 件も含まれない (= 2026-05-27 raw_signals 直接確認済) | freee dashboard で売上が「売掛金」 計上になってないか / 計上タイミングが入金ベースになってないか / freee API trial_pl が 0 円ノードを omit してないかを確認。 PWA コード側 (= `freeeCategory()`) の文字列マッチは「売上」「収益」「revenue」「sales」 網羅済、 問題なし |
 | P0 | initiative 抽出の cron 健康度 | 202606 unknown 100% (= 入力薄) | `/api/cron/member-activities` 実行履歴と入力本文を確認 |
-| P0 | freee 実績インポート運用化 | includeFreee=0 default で実績取れてない | cron schedule を includeFreee=1 で組む、 #4 task |
-| P0 | amd_os_installations 新テーブル | 未作成 | migration 設計 + L2 抽出経路、 #3 task |
-| P1 | UI 対象月 filter | currentYm 超え snapshot が表示される | page.tsx で `ym <= currentYm` filter、 #1 task |
-| P1 | project_revenue 好調バグ | categoryLabel 未登録で fallback 誤判定 | categoryLabel + isFavorable 修正、 #1 task |
+| P0 | amd_os_installations 新テーブル | 未作成 | migration 設計 + L2 抽出経路 |
 | P1 | next_actions 自動生成 | `next_actions_json` は空配列で保存 | evidence と strategy signal から次アクション生成 |
 | P2 | finance simulation 保存運用 | 画面ボタンは persist=false プレビューのみ | 保存運用が必要になったら simulation_only / company_monthly を admin operation として分ける |
 | P2 | freee freshness 見える化 | freee row が無い時に score / confidence が下がる | token / sync failure を `/admin/settings` と差分メモで見える化 |
