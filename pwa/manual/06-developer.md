@@ -27,6 +27,36 @@ amd-os/
 - Google Drive 配下に clone するのは **禁止** (= `.git` が壊れる事故あり、`~/.Trash/` に退避)
 - 推奨パス: `~/projects/AMD/amd-os/`
 
+## handoff 時の OS マニュアル同期ゲート
+
+handoff は「次セッションへ渡すメモ」だけでなく、新たな仕様がマニュアルへ落ちたか確認する最後のゲート。
+
+Codex の handoff skill / Claude の handoff どちらでも、AMD OS 配下では同じルールで閉じる。
+
+### 対象
+このセッションで以下を実装・変更したら、`pwa/manual/*.md` に追記する。
+
+- 新規 route / 画面 / UI 導線 / API action
+- cron / routine / automation / LaunchAgent / deploy 手順
+- DB table / column / status / permission / write boundary
+- finance / notification / L2 / Atlas / cockpit / admin / member workflow の挙動
+- 次回の開発者が知らないと事故る運用ルール
+
+### やること
+1. `pwa/src/app/(app)/manual/manual-chapters.ts` で該当章を探す
+2. 詳細仕様は該当 `pwa/design/*.md` / `FEATURE_REGISTRY.md` / `db_schema.md` に置く
+3. マニュアルには、ユーザー/開発者が読む要約と運用手順を追記する
+4. 新章を作る場合は、本文 md だけでなく `manual-chapters.ts` と `pwa/design/os_manual.md` も更新する
+5. 純粋な refactor / typo / test only などマニュアル対象外なら、handoff の棚卸し表に `対象外: 理由` と書く
+
+handoff のチャット出力には以下の表を出し、すべて `✅` または `対象外: 理由` になるまで migration prompt に進まない。
+
+```md
+| # | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|---|
+| 1 | ... | pwa/design/... | pwa/manual/... | ✅ / 対象外: 理由 / ⚠️ |
+```
+
 ## Vercel デプロイ (= 正本)
 
 ```bash
@@ -45,6 +75,40 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 ```bash
 npx vercel promote <デプロイID> --scope armada0130 --yes
 ```
+
+### build version の bump up (= 毎回必須、 まさ #87 確定 2026-05-26)
+
+`src/lib/build-info.ts` の `BUILD_VERSION` 定数を **コード修正 + deploy のたびに必ず bump up** する。 画面左上の AMD OS ロゴ直下に小さく表示され、 まさが「リロード効いてるか / SW・CDN cache が新しい build に切り替わったか」 を目視で判別できるようにする運用ルール。
+
+粒度 (= まさ #89 確定 patch 中心):
+
+- **patch** (= v0.3.0 → v0.3.1): 細かい修正 / UI 微調整 / バグ fix / リファクタ / UI 整理 / デバグ目的の確認。 既存機能の挙動変更も patch 止まり
+- **minor** (= v0.3.0 → v0.4.0): **本物の新機能追加 / 新画面追加 / 新 DB テーブル追加**。 確信が持てる時だけ
+- **major** (= v0.3.0 → v1.0.0): 大きな仕様変更 / アーキテクチャ刷新
+
+**迷ったら patch**。 audience 廃止 / リファクタ / UI 整理は patch。 詳細は `pwa/CLAUDE.md` の「🔢 build version の bump up」 セクション。
+
+### キャッシュ問題の判別フロー
+
+まさが「変更が反映されてない」 と言った時:
+
+1. **画面左上の version 表示を確認**
+2. version が**新しい** → コードは反映されてる、 表示ロジック側の問題 (= filter / fetch / 別 snapshot 参照)
+3. version が**古い** → SW / CDN / ブラウザキャッシュ。 DevTools → Application → Service Workers → Unregister + Clear site data + ハードリロード (Cmd+Shift+R)
+
+## マニュアル UI の仕組み (= 2026-05-27 確定)
+
+`/manual` 系画面 (= `pwa/src/app/(app)/manual/`) の動作:
+
+- **章番号は動的計算のみ** (= まさ #87 確定): `chapter.number` の静的 field は廃止。 `applyManualBookNumbering()` で「section-chapter」 形式 (= 例 "4-5") を実行時に振る。 `ManualNumberedChapter` 型 (= `ManualChapterConfig` を継承 + `number` 必須) として戻る
+- **md ファイルの h1 / h2 / h3 に数字 prefix を書かない**: 例 NG「# 29. Management Score」、 例 OK「# Management Score」。 `[slug]/page.tsx` で `normalizeManualMarkdownSource` 経由で動的注入される
+- **audience 切替は廃止** (= まさ #88 確定): user / developer の 2 種類分けをやめて、 単一マニュアル化。 全 31 章 (= 18 既存 + 13 新規) が `MANUAL_SECTIONS` に登録される
+- **目次は `manual-chapters.ts` の MANUAL_SECTIONS 順**: 新章を追加する時はファイル先頭の数字 (= internal slug、 URL 用) と独立に、 MANUAL_SECTIONS の slugs 配列に挿入する
+- **manual md を直接読む人 (= claude / codex / ChatGPT) も、 動的注入後の番号は知らない**。 md 内部の章間参照は「タイトル」 ベースで書く (= 「29.6 戦略接近度」 のような番号参照は将来ズレるので避ける、 ただし暫定許容)
+
+過去事故 (= 2026-05-27 BUGS [infra/manual-ui] 参照):
+- 静的 `chapter.number` と動的計算が併存して誤読発生 (= 「マニュアル 29」 と「4-5」 が同じ章を指す状態が分かりにくい)
+- main ブランチに「壊れた page.tsx」 が commit されていて (= 存在しない export を import)、 codex/kiyo-manual-review-setup ブランチから 3 ファイル復元が必要だった
 
 ## Supabase
 

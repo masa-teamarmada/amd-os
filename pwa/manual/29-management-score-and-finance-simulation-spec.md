@@ -99,6 +99,9 @@ death_clamp (= 死亡判定):
 
 `ω_pipeline` 以外の重みは 0.30 / 0.30 / 0.20 / 0.15 = 0.95 で固定 (= 残り 0.05 が新規軸動的部分の最小値)。 ω が 0.20 まで上がった場合は合計 1.10 となり、 base_total が 100 を超えないよう 100 でクリップする。
 
+**ω_pipeline 計算の status 更新漏れ対応** (= まさ #90 確定 2026-05-27):
+`projects.status='active'` のまま end_ym が過去になっている PJ (= 終了したが台帳更新漏れ) は、 残期間を 0 として平均算入する (= 計算から除外しない)。 これがないと「BWE/CTB/JC が 3 月終了で status='active' のまま」 のケースが拾えず「現行 active PJ がすべて終了済」 という誤判定が出る (= 旧ロジックの bug、 詳細 BUGS [score/omega-pipeline])。 end_ym が NULL の active PJ は残期間不明として平均から除外する。
+
 | 軸 | 固定重み | 意味 | 主な入力 |
 |---|---:|---|---|
 | 先手力 `initiative` | 30% | AMD まだ持ってる PJ で他人主導 events が出ていないか | `member_activities` (= 卒業 PJ 除外) |
@@ -424,6 +427,23 @@ admin-only。body は `inputs.params`, `inputs.projects`, `inputs.fixedCosts` �
 ```
 
 `/admin/settings` には operation として表示するが、Run Now は出さない。 対象月、freee 同期有無、実行順序を間違えると読み解きづらい snapshot が残るため。
+
+### 自動 cron (= vercel.json 2026-05-27 から運用化)
+
+```text
+"0 21 * * *"  → /api/cron/management-score-raw-data?includeFreee=1   (= 毎日 06:00 JST)
+"30 21 * * *" → /api/cron/management-score-calculate                  (= 毎日 06:30 JST)
+"0 20 1 * *"  → /api/cron/graduation-detection                        (= 月初 1 日 05:00 JST)
+```
+
+毎朝まさが /management-score を開く時には、前日までの freee 実績 + 内部 signal が反映済の状態になる。 raw-data 収集後 30 分待ってから calculate を走らせて、 freee 取得失敗時 (= partial / failed) にも score 算出は走る (= confidence を下げて表示)。
+
+### evidence drilldown UI (= EvidencePanel)
+
+`/management-score` の「上げ要因 / 下げ要因」 セクションは `amd_management_score_evidence` を impact 順で 2 カラム表示。 軸タブ (= 全て / 先手 / 財務 / 継続 / 新規 / 方向) で filter 可能、 「詳細」 ボタンで payload JSON 展開。 v4 では evidence の `summary` は自然文で書く (= まさ #80 で機械的 `signal_key` 表示を廃止)。 例:
+
+- 「シーズ候補「非麻薬性オピオイド鎮痛薬」 (観察中, AMD評価 3/5)」 ← 良
+- 「seed:investigating: 非麻薬性オピオイド鎮痛薬」 ← 廃止 (= 機械的)
 
 ## 既知ギャップ + v4 移行 TODO
 
