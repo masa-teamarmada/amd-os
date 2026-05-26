@@ -8832,3 +8832,87 @@ Mac → Windows MMO に移植したファイル:
 3. **不可逆操作は実行前にメタ判断**: Cloud routine の削除を進めようとして、まさの「MMO で codex」提案で stop。事前確認の重要性
 4. **UI 操作の不安定さに早めに見切り**: claude.ai のドロップダウン option click が反映されない、編集モーダルで repo 設定が消える等の UI bug で時間溶けた → 別 approach (= API / CLI / file 直編集) に切替判断の遅さ
 5. **自走前にメタ判断、ハマったら別 approach**: AskUserQuestion で停止しすぎ + UI 操作にこだわりすぎ。「3 つ試してダメなら別ルート」を実践
+
+### 2026-05-26 続き 3: L2 全部 Codex automation 化 + L2 ⑥ MTG フロー大規模設計
+
+**まさ要件**:
+1. 全部の L2 を Codex automation で作る (= Mac の 2 個から 6 個 +α に拡張)
+2. L2 ⑥ MTG サマリは「議事録抽出」を超えて、**MTG 一連のライフサイクルフロー全体** を automation 化
+3. 議事録クオリティ向上 (= 箇条書き化を廃止、OS context 反映)
+
+### 新規 Codex automation (= Windows MMO PC 配置)
+
+| id | name | cron | 役割 |
+|---|---|---|---|
+| `amd-os-l2-protocol` | AMD OS L2 ② AMD プロトコル抽出 | daily 08:00 JST | `protocols` 抽出 (= GAS 155 後継) |
+| `amd-os-l4-project-knowledge` | AMD OS L2 ④ PJ ナレッジ抽出 | daily 08:15 JST | `project_knowledge` 9 category 抽出 |
+| `amd-os-l5-member-knowledge` | AMD OS L2 ⑤ メンバーナレッジ抽出 | daily 08:30 JST | `member_knowledge` 7 category 抽出 |
+| `amd-os-l6-meeting-flow` | AMD OS L2 ⑥ MTG サマリ + フロー (議事録 / 次 MTG カード / Slack nudge / 当日 update) | **毎時 0 分** | **下記 7 Phase の大規模設計** |
+
+### L2 ⑥ MTG フロー設計 (= 254 行 prompt、まさ要件 3 つ全部反映)
+
+**Phase A**: 議事録抽出 + 高品質化:
+- Calendar 過去 60-180 分終了 events scan → PJ 判定 → 5 ソース context 収集 (= Notion 3 段 fallback / Gmail / Drive / Slack)
+- **議事録クオリティ向上** (= まさ「箇条書きじゃなく」要件):
+  - 元の Notion / Gemini 議事録を **原文構造そのまま** narrative_md の核に (箇条書き化禁止)
+  - OS context 反映: 前 3 MTG の next_actions → 今回進捗、monthly_reports 3 件 → PJ 戦略、当該 MS title → MTG 目的明示
+  - narrative_md 8 セクション構造: 「前回 MTG までの流れ → この MTG の目的 (MS context) → 今回の議事録 (原文) → 決定 → 進捗 → 次アクション → リスク → MS 進捗影響」
+
+**Phase B**: outbox 出力 (= `C:/Users/masa/.codex/automations/amd-os-l6-meeting-flow/outbox/<timestamp>-meeting-flow.json`)
+
+**Phase C**: 次 MTG カード生成:
+- 議事録から「次 MTG までのタスク」「議題候補」「資料ベース」LLM 抽出
+- Notion 議事録 DB に「<next_date> <PJname> 定例 (draft)」page 作成 + toggle 構造:
+  - 「📋 次 MTG 準備情報」(default open): tasks / agenda / materials / references
+  - 「📝 議事録」(default close): 空欄、当日 Phase G で記入
+- Calendar event 登録 (= title / start / end / attendees / description)
+
+**Phase D**: Slack nudge:
+- 各 task を assignee へ DM/mention (= channel thread + reply)
+- メッセージ: `@<member> <PJ> 次回 MTG (<date>) に向けて: <task>。期限: <due>。準備カード: <Notion url>`
+
+**Phase E**: タスク完了検出 + 資料 update:
+- Notion checkbox 更新 or Slack reply 「done」「✅」を検出
+- 紐付け資料を自動生成 or template から作成 → Notion Materials section に link 追加
+
+**Phase F**: 前日完成チェック + ファシリ nudge:
+- `next_mtg_date == tomorrow` の MTG カードを scan
+- Required materials の status 確認、unfinished あれば facilitator へ Slack DM:
+  `@<facilitator> 明日の <PJ> 定例 (<time>) 準備不足: <unfinished list>。準備カード: <Notion url>`
+
+**Phase G**: 当日 MTG 終了処理:
+- Phase A で抽出した meetingSummary が「次 MTG カード」と紐づくなら:
+  - 「📝 議事録」toggle 内に narrative_md 挿入 + 開く
+  - 「📋 準備情報」toggle close (= 折りたたみ)
+  - page title から `(draft)` 削除
+
+**禁止事項**:
+- LLM が DB / Notion / Calendar / Slack に直接書き込み (= 反映は全部 non-LLM helper `apply-outbox` 経由)
+- 議事録の箇条書き化 (= まさ「クオリティ低い」フィードバック反映)
+- OS context (= 前後 MTG / PJ / MS) を踏まえない単純抽出
+- 次 MTG カード作成漏れ (= 議事録抽出だけで終わらない、フロー全体回す)
+- 「📋 準備情報」を残したまま当日処理しない (= 必ず fold + 議事録 insert)
+
+### Windows MMO PC 上の最終 automation 構成 (= 8 個、24/7 稼働)
+
+```
+C:\Users\masa\.codex\automations\
+  ├── amd-os-l2-protocol/         (= L2 ②、daily 08:00)
+  ├── amd-os-ms/                  (= L2 ③⑦⑧、6h ごと)
+  ├── amd-os-l4-project-knowledge/(= L2 ④、daily 08:15)
+  ├── amd-os-l5-member-knowledge/ (= L2 ⑤、daily 08:30)
+  ├── amd-os-l6-meeting-flow/     (= L2 ⑥ + MTG フロー、毎時 0 分)
+  ├── amd-os/                     (= L2 ⑨、daily 03:20)
+  ├── amd-atlas-2/                (= Atlas 外部シグナル、daily 08:10)
+  └── amd-macrotrend-evidence-review/  (= UN SDGs/WEF、weekly Mon 07:30)
+```
+
+### 残課題
+
+1. **Mac 側 amd-os / amd-os-ms / amd-atlas-2 / amd-macrotrend を INACTIVE 化** = Windows MMO 動作確認後に重複稼働解消 (= subscription credit 二重消費防止)
+2. **新規 4 automation の動作確認** = 各 cron 発火後 `outbox/` に JSON 生成されるか
+3. **Cloud routine 集約版 (= trig_01YEcyejLzKF7zYgmAiw3w8P) は削除予定** = まさが「全 L2 Codex」と決断、Cloud 不要
+4. **L3-L9 個別 Cloud routine 7 個削除** = cap 消費要因
+5. **Mac 側 Local routine 9 個 disable**
+6. **MTG フロー実装の helper** = `apply-outbox` で Notion / Calendar / Slack 反映する non-LLM script (= `pwa/scripts/ms_progress_review_tool.mjs` 拡張 or 別 helper)
+7. **マニュアル 38/05/L2_DATA に Windows MMO Codex 反映** (= 別 session)
