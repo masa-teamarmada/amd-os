@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { fetchAtlasInboxCount } from "@/lib/supabase-data";
 import { fetchVcInboxCount } from "@/lib/vc-data";
 import { fetchSeedInboxCount } from "@/lib/seeds-data";
+import { BUILD_VERSION } from "@/lib/build-info";
 
 interface GlobalNavProps {
   userCodeName?: string;
@@ -39,10 +40,14 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
         <Link
           href="/dashboard"
           className="flex items-center gap-2 font-semibold text-sm shrink-0"
+          title={`build ${BUILD_VERSION}`}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/amd-logo.png" alt="AMD" className="h-7 w-7" />
-          <span>AMD OS</span>
+          <div className="flex flex-col leading-tight">
+            <span>AMD OS</span>
+            <span className="text-[9px] font-mono font-normal text-muted-foreground/70">{BUILD_VERSION}</span>
+          </div>
         </Link>
 
         {/* Dashboard link */}

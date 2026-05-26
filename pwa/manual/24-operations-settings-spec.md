@@ -1,8 +1,8 @@
-# 24. Operations Settings 仕様
+# Operations Settings 仕様
 
 `/admin/settings` は、AMD OS の Raw Data / L2 Data / Cron Control を一覧化する admin 専用画面。何がどこから入り、どの処理が動いていて、どれが止まっているかを確認するための運用台帳。
 
-## 24.1 画面構成
+## 画面構成
 
 URL: `/admin/settings`
 
@@ -13,7 +13,7 @@ URL: `/admin/settings`
 
 admin 以外は `notFound()` で見えない。
 
-## 24.2 Raw Data
+## Raw Data
 
 Raw Data は L2 の前にある一次データ。
 
@@ -28,7 +28,7 @@ Raw Data は L2 の前にある一次データ。
 
 この一覧は `pwa/src/lib/operations-catalog.ts` の `rawDataSources` が正本。
 
-## 24.3 L2 Data
+## L2 Data
 
 L2 Data は、Raw Data を OS が使える知識に変換したもの。
 
@@ -52,7 +52,7 @@ L2 Data は、Raw Data を OS が使える知識に変換したもの。
 - ③ `milestone_monthly_progress` は GAS 154 -> PWA `/api/cron/hourly-estimate` が primary writer。Codex automation `amd-os-ms` は修正候補レビュー / OS 台帳差分 / XRL 根拠を outbox に出す。
 - ②④⑤⑥ は 5/22 の LLM cron 停止以降 ghost 状態。復旧計画は [03 章](03-data-and-extraction.md) と `pwa/design/l2_extract_claude_routine.md` を見る。
 
-## 24.4 Cron Control の読み方
+## Cron Control の読み方
 
 Cron Control は「実行ボタン」ではなく、まず状態台帳として読む。
 
@@ -66,7 +66,7 @@ Cron Control は「実行ボタン」ではなく、まず状態台帳として�
 
 停止中のものは、旧頻度・入力・出力・停止理由を見せるために残している。`Stopped` は「壊れている」ではなく「自動課金を避けるために止めた / 別実行系へ移した」という意味。
 
-## 24.5 Run Now の内部フロー
+## Run Now の内部フロー
 
 `Run Now` は `/api/settings/cron-run` に POST する。
 
@@ -92,7 +92,7 @@ GAS function の場合:
 
 `run.type === "manual"` の operation は、API 側でも 400 を返して実行しない。
 
-## 24.6 Run Now できる代表例
+## Run Now できる代表例
 
 2026-05-25 時点で UI から直接起動できる代表例:
 
@@ -113,7 +113,7 @@ GAS function の場合:
 
 `pwa-payment-confirm-nudges` は Slack DM を実送信する処理。対象 group、予定税込額、admin 送信先だけ確認したい時は `{"query":{"ym":"YYYYMM","dryRun":1}}` を使う。signed token と `/payment-confirm` の仕様は [25 章](25-finance-payment-confirm-spec.md)。
 
-## 24.7 停止中として残す代表例
+## 停止中として残す代表例
 
 | operation | 止めている理由 |
 |---|---|
@@ -127,7 +127,7 @@ GAS function の場合:
 
 止まっているからといって、すぐ cron 復活しない。まず [05 章 5.1](05-decisions-and-history.md#51-cron-廃止経緯--2026-05-22-仕様変更の本丸) の cron 廃止経緯を見る。
 
-## 24.8 手動 route と Run Now に出さない route
+## 手動 route と Run Now に出さない route
 
 PWA route は存在するが、UI の `Run Now` には出さない運用 job がある。理由は、LLM 課金が大きい、範囲指定を間違えると広く書き換える、または事前に対象確認が必要だから。
 
@@ -154,7 +154,7 @@ ASPI / Macrotrend 系には、route は残っているが Vercel schedule と Ru
 
 これらは `pwa/design/aspi_lanes.md` と [34 章](34-atlas-macrotrend-signal-spec.md) が詳細仕様。`CRON_SECRET` で守られていても、LLM費用と広範囲 upsert があるため、再開は owner 承認後にする。
 
-## 24.9 Cron / source route 棚卸し
+## Cron / source route 棚卸し
 
 `/admin/settings` の Cron Control は「全 API route 一覧」ではない。用途別に以下のように分ける。
 
@@ -168,7 +168,7 @@ ASPI / Macrotrend 系には、route は残っているが Vercel schedule と Ru
 
 `source_cache` は全文保存の正本ではなく、短い snippet / hash / source_url の証跡キャッシュ。Gmail / Slack 取り込み route は `Bearer CRON_SECRET` で守り、取り込み完了通知は作らない。
 
-## 24.10 更新するときのルール
+## 更新するときのルール
 
 `/admin/settings` の表示内容を変える時は、次を同時に更新する。
 
@@ -181,7 +181,7 @@ ASPI / Macrotrend 系には、route は残っているが Vercel schedule と Ru
 
 operation を追加する時は、`id`, `label`, `layer`, `cadence`, `trigger`, `input`, `output`, `run` を全部埋める。`run` が危ない、LLM 課金が大きい、手動レビューが必要なものは `manual` にして `Run Now` を出さない。
 
-## 24.11 トラブル時
+## トラブル時
 
 | 症状 | 見る場所 |
 |---|---|

@@ -52,6 +52,31 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 ---
 
+## 🔢 build version の bump up（毎回必須）
+
+**コード修正で deploy する前に必ず [`src/lib/build-info.ts`](src/lib/build-info.ts) の `BUILD_VERSION` を bump up する**。
+
+画面左上の AMD OS ロゴ直下に表示され、まさが見た瞬間に「リロード効いてるか」「Service Worker / CDN cache が新しい build に切り替わったか」を判別できるようにする運用ルール。
+
+### bump up の粒度
+
+- **patch (v0.3.0 → v0.3.1)**: 細かい修正 / UI 微調整 / バグ fix / デバグ目的の確認 / 既存機能の挙動変更 / リファクタ / UI 簡略化
+- **minor (v0.3.0 → v0.4.0)**: **本物の新機能追加 / 新画面追加 / 新 DB テーブル追加**。 既存機能の整理は patch 止まり
+- **major (v0.3.0 → v1.0.0)**: 大きな仕様変更 / アーキテクチャ刷新
+
+**迷ったら patch**。 minor は「これは新機能と言える」と確信が持てる時だけ (= まさ #89 確定 2026-05-26 で patch 中心の運用に修正)。 audience 廃止 / リファクタ / UI 整理は patch。
+**bump up を忘れたまま deploy しない**。
+
+### キャッシュ問題の判別フロー
+
+まさが「変更が反映されてない」と言ったとき:
+
+1. **画面左上の version 表示を確認**
+2. version が**新しい** → コードは反映されてる、表示ロジック側の問題 (filter / fetch / 別 snapshot 参照など)
+3. version が**古い** → SW / CDN / ブラウザキャッシュ。DevTools → Application → Service Workers → Unregister + Clear site data + ハードリロード (Cmd+Shift+R)
+
+---
+
 ## ⚠️ Vercel デプロイコマンド（正本・必ずこれを使う）
 
 ```bash

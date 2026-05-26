@@ -1,8 +1,8 @@
-# 21. AMD Score 詳細仕様
+# AMD Score 詳細仕様
 
 AMD Score は、PJ / SU の価値・成熟度を数値化する指標。日常画面では cockpit の上段に M / X / F として表示されるが、設計上は Before Zero Theory v3.2 の 7 軸 Cobb-Douglas 指標。
 
-## 21.1 AMD Score と Management Score の違い
+## AMD Score と Management Score の違い
 
 | 名前 | 対象 | 目的 |
 |---|---|---|
@@ -11,7 +11,7 @@ AMD Score は、PJ / SU の価値・成熟度を数値化する指標。日常�
 
 混ぜない。PJ の価値評価は AMD Score、会社全体の健康度は AMD Management Score。
 
-## 21.2 基本式
+## 基本式
 
 ```text
 AMD Score = K · Π (X_i + 1)^α_i
@@ -24,7 +24,7 @@ K    = 100,000 / 10^Σα
 
 全軸が 9 の IPO 級 PJ が 100,000 になるように K を校正する。Shallow Tech mode では TRL 軸を除外し、6 軸で K を再校正する。
 
-## 21.3 UI 表示の M / X / F
+## UI 表示の M / X / F
 
 理論上は 7 軸の積だが、画面では次の 3 大要素で見せる。
 
@@ -44,7 +44,7 @@ F = (FRL+1)^α_F
 
 まさの言語化では「マクロトレンドの流れがあり、会社の XRL が整い、それを FRL 高い CEO が牽引する」。
 
-## 21.4 軸の意味
+## 軸の意味
 
 | 軸 | 読み方 | 見るもの |
 |---|---|---|
@@ -58,7 +58,7 @@ F = (FRL+1)^α_F
 | HRL | Human Readiness | チーム・人材・創業コア |
 | FRL | Founder Readiness | CEO / founder のリーダーシップ |
 
-## 21.5 α の base case
+## α の base case
 
 | 軸 | α | 意味 |
 |---|---:|---|
@@ -72,7 +72,7 @@ F = (FRL+1)^α_F
 
 α は `amd_score_alpha` でバージョン管理する。日常 UI では直接触らず、retrofit / review 専用画面で扱う。
 
-## 21.6 律速軸
+## 律速軸
 
 律速軸は「1 段階上げた時に score が一番増える軸」。
 
@@ -83,7 +83,7 @@ bottleneck = argmax_i α_i / (X_i + 1)
 
 単に値が低い軸ではない。α が大きく、かつ現在値が低い軸が最も効く。
 
-## 21.7 データソース
+## データソース
 
 | データ | 主な source |
 |---|---|
@@ -95,7 +95,7 @@ bottleneck = argmax_i α_i / (X_i + 1)
 
 `amd_score_inputs` には未来予測 row も入るため、現在値を出す時は **`evaluated_at <= today` の最新行**を使う。経時グラフは未来予測も表示してよい。
 
-## 21.8 根拠 notes の優先順
+## 根拠 notes の優先順
 
 | 軸 | 優先順 |
 |---|---|
@@ -106,7 +106,7 @@ bottleneck = argmax_i α_i / (X_i + 1)
 
 値だけでなく、なぜその値なのかを残すことが重要。
 
-## 21.9 更新フロー
+## 更新フロー
 
 ```text
 XRL / Macrotrend / FRL の根拠が増える
@@ -122,7 +122,7 @@ M / X / F / AMD Score / 律速軸を表示
 
 今後の設計では、経営ハイライトに `score_impact_summary` を付け、AMD Score のどの軸にどう効いたかを 1 行で表示する予定。
 
-## 21.10 画面
+## 画面
 
 | 画面 | 役割 |
 |---|---|
@@ -131,7 +131,7 @@ M / X / F / AMD Score / 律速軸を表示
 | `/venture-map/amd-score/{projectId}` | 詳細。式、M/X/F、FRL、根拠 notes |
 | `/venture-map/amd-score/retrofit` | α 重み調整と simulation |
 
-## 21.11 関連設計 md
+## 関連設計 md
 
 - [`pwa/design/amd_score.md`](../design/amd_score.md)
 - [`pwa/design/xrl_evidence.md`](../design/xrl_evidence.md)

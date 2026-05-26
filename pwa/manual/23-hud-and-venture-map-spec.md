@@ -1,8 +1,8 @@
-# 23. HUD / Venture Map 仕様
+# HUD / Venture Map 仕様
 
 HUD と Venture Map は、AMD OS の中でも「経営判断の制御盤」に近い領域。この章では、HUD client の位置付け、Venture Map の数理モデル、実験ビューの扱いをまとめる。
 
-## 23.1 HUD client の位置付け
+## HUD client の位置付け
 
 HUD は、現行 PWA を壊さずにもう 1 系統として育てるクライアント。
 
@@ -28,7 +28,7 @@ HUD版
 | parity を先に確認 | 表示項目、クリック、modal、DB 書き込み、権限、空状態を現行と照合する |
 | visual language を守る | `pwa/design/hud_visual_language.md` が正本。暗いカード UI に戻さない |
 
-## 23.2 HUD routes
+## HUD routes
 
 | Route | 内容 |
 |---|---|
@@ -43,7 +43,7 @@ HUD版
 
 `/hud/*` 配下では通常の GlobalNav を隠し、HUD shell nav を使う。
 
-## 23.3 HUD dashboard のデータ入力
+## HUD dashboard のデータ入力
 
 `/hud/dashboard` は次のデータを統合する。
 
@@ -67,7 +67,7 @@ action queue は `billing_cycles` から未完タスクを作る。
 
 HUD dashboard の数値は「別計算」ではなく、現行 cockpit / admin が使う正本データを別表示している。
 
-## 23.4 HUD 化の parity checklist
+## HUD 化の parity checklist
 
 HUD 側で部品を置き換える前に、最低限この表を埋める。
 
@@ -83,7 +83,7 @@ HUD 側で部品を置き換える前に、最低限この表を埋める。
 
 見た目の品質より先に、業務操作の欠落を潰す。
 
-## 23.5 Venture Map の目的
+## Venture Map の目的
 
 Venture Map は、過去 PJ の学習と外部マクロ波を重ねて、次にどの lane / timing を見るか判断するための画面。
 
@@ -99,7 +99,7 @@ Venture Map / AMD Score / Timeline / State Space
 
 対象は「会社数」ではなく PJ。設立前の pre-founding も扱うので、AMD OS では原則として PJ 単位で見る。
 
-## 23.6 数理モデルの概要
+## 数理モデルの概要
 
 ### Macrotrend 指数
 
@@ -132,7 +132,7 @@ D_i(t) = dN_i/dt - dM_i/dt
 
 現時点では微分は主に可視化・議論用で、完全な自動意思決定には使わない。
 
-## 23.7 主なテーブル
+## 主なテーブル
 
 | テーブル | 役割 |
 |---|---|
@@ -144,7 +144,7 @@ D_i(t) = dN_i/dt - dM_i/dt
 | `atlas_signals` | macro 指数の根拠になる外部 signal |
 | `seeds` | 研究シーズ候補。Venture Map の旧予兆 seed とは意味が違う |
 
-## 23.8 画面と読み方
+## 画面と読み方
 
 | 画面 | 読むもの |
 |---|---|
@@ -159,7 +159,7 @@ D_i(t) = dN_i/dt - dM_i/dt
 
 `/venture-map/cyberspace` や `oscillator` は、まだ意思決定の正本画面ではなく、表現・分析の実験ビュー。判断ロジックの正本は `/venture-map`, `/venture-map/amd-score`, `pwa/design/venture_map_model.md`, [21 章](21-amd-score-spec.md)。
 
-## 23.9 自動更新
+## 自動更新
 
 | 処理 | 役割 | 現状 |
 |---|---|---|
@@ -171,7 +171,7 @@ D_i(t) = dN_i/dt - dM_i/dt
 
 cron の稼働状態は [24 章 Operations Settings](24-operations-settings-spec.md) と [05 章 5.4](05-decisions-and-history.md#54-codex--claude--vercel--launchagent-責務分担マトリクス) を見る。
 
-## 23.10 関連設計 md
+## 関連設計 md
 
 | md | 内容 |
 |---|---|

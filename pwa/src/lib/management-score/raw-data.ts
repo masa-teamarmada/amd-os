@@ -138,31 +138,66 @@ async function fetchAll<T extends Record<string, unknown>>(
 }
 
 async function collectInternalSignals(supabase: SupabaseClient, ym: string): Promise<RawSignal[]> {
-  const [memberActivities, budgetActuals, actuals, billing, financeItems, receiptEvents, projects, milestones, freezes, meetings, seeds, seedContacts, registryDiffs, knowledge, scoreInputs, protocols, ventures, atlasSignals, macroIndex] = await Promise.all([
+  // v4 (2026-05-26 まさ #82, #83, #84):
+  // - 戦略接近度の入力を 6 つに全面差し替え (= ファンド / 連携機関 / OS導入 / マネタイズ / 属人脱却 / 成功卒業)
+  // - pipeline 軸の seed 在庫加点を廃止、 commercial_progress stage 中心に切り替え
+  // - initiative 軸で卒業 PJ (= amd_support_ended_at IS NOT NULL) を除外
+  // - 削除した入力: seeds / seed_contact_log / amd_score_inputs / protocols / atlas_signals / macro_index_log
+  // - 追加した入力: project_strategy_signals (= funding/commercial_progress) / project_partners
+  const [
+    memberActivities,
+    budgetActuals,
+    actuals,
+    billing,
+    financeItems,
+    receiptEvents,
+    projects,
+    milestones,
+    freezes,
+    meetings,
+    registryDiffs,
+    knowledge,
+    ventures,
+    strategySignals,
+    projectPartners,
+  ] = await Promise.all([
     fetchAll(supabase, "member_activities", "id,member_id,project_id,ym,source,source_item_id,title,content_preview,item_date,raw_metadata,milestone_id,initiative_origin,impact,depth,reject_reason", (q) => q.eq("ym", ym)),
     fetchAll(supabase, "company_budget_actual_monthly", "ym,scope,project_id,category,account_name,budget_amount_yen,actual_amount_yen,variance_yen,cash_amount_yen,runway_months,budget_version,freee_account_item_id,freee_partner_id,budget_payload,actual_payload", (q) => q.eq("ym", ym)),
     fetchAll(supabase, "company_actual_monthly", "id,ym,scope,project_id,category,account_name,actual_amount_yen,freee_account_item_id,freee_partner_id,source_ref,raw_hash,payload,imported_at", (q) => q.eq("ym", ym)),
     fetchAll(supabase, "billing_cycles", "id,project_id,ym,budget_yen,status,meeting_start_at,report_fixed_at,invoice_sent_at,payment_confirmed_at,budget_confirmed_at,invoice_issued_at,invoice_ym,freee_invoice_number,updated_at", (q) => q.eq("ym", ym)),
     fetchAll(supabase, "company_finance_recurring_items", "id,status,item_kind,display_name,vendor_name,category,amount_yen,frequency,start_ym,end_ym,budget_forward_fill,auto_debit,withdrawal_account,payment_method,source_kind,source_ref,last_receipt_at,last_budget_synced_at,notes,updated_at"),
     fetchAll(supabase, "company_finance_receipt_events", "id,recurring_item_id,ym,receipt_date,vendor_name,amount_yen,payment_method,withdrawal_account,subject,source_kind,source_ref,raw_hash,status,created_at,updated_at", (q) => q.or(`ym.eq.${ym},created_at.gte.${monthStartIso(ym)}`).lt("created_at", monthEndExclusiveIso(ym))),
-    fetchAll(supabase, "projects", "project_id,project_name,status,client_name,start_ym,end_ym,fee_type,fee_amount,freee_partner_id,freeze_from_ym,restart_expected_ym,updated_at"),
+    fetchAll(supabase, "projects", "project_id,project_name,status,client_name,start_ym,end_ym,fee_type,fee_amount,freee_partner_id,updated_at"),
     fetchAll(supabase, "milestone_monthly_progress", "id,milestone_key,ym,progress_pct,consumed_pt,source,confirmed_at,note", (q) => q.eq("ym", ym)),
     fetchAll(supabase, "project_freeze_periods", "period_id,project_id,freeze_from_ym,restart_ym,status,reason,source,source_ref,updated_at"),
     fetchAll(supabase, "project_meeting_summaries", "meeting_id,project_id,ym,meeting_date,title,summary_short,decided,progress,next_actions,risks,source_hash,source_url,updated_at", (q) => q.eq("ym", ym)),
-    fetchAll(supabase, "seeds", "id,title,summary,org_name,domain_lane,trl,brl,hrl,status,amd_rating,next_action,source,source_detail,created_at,updated_at,spun_off_project_id"),
-    fetchAll(supabase, "seed_contact_log", "id,seed_id,contacted_on,method,amd_member_id,note,next_action,created_at,updated_at", (q) => q.gte("contacted_on", `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`).lt("contacted_on", `${nextYm(ym).slice(0, 4)}-${nextYm(ym).slice(4, 6)}-01`)),
     fetchAll(supabase, "project_registry_diffs", "diff_id,project_id,ym,scope_key,diff_kind,target_table,target_key,proposed_patch_json,evidence_refs_json,confidence,status,created_at,updated_at", (q) => q.or(`ym.eq.${ym},created_at.gte.${monthStartIso(ym)}`).lt("created_at", monthEndExclusiveIso(ym))),
     fetchAll(supabase, "project_knowledge", "id,project_id,category,entity_name,fact_text,confidence,source,status,updated_at", (q) => q.gte("updated_at", monthStartIso(ym)).lt("updated_at", monthEndExclusiveIso(ym))),
-    fetchAll(supabase, "amd_score_inputs", "id,project_id,evaluated_at,mu_a,mu_i,mu_g,trl,brl,grl,srl,hrl,frl,frl_grit,frl_resilience,evaluator,notes,updated_at", (q) => q.lte("evaluated_at", monthEndExclusiveIso(ym))),
-    fetchAll(supabase, "protocols", "id,protocol_id,project_id,title,status,importance,source,tags,is_universal,kind,created_at,updated_at"),
     fetchAll(supabase, "project_ventures", "project_id,lane,lanes,display_name,outcome_pattern,amd_role,amd_support_started_at,amd_support_ended_at,updated_at"),
-    fetchAll(supabase, "atlas_signals", "id,title,content,source_url,source_type,domain,suggested_tags,importance,status,submitted_at,reviewed_at,metadata", (q) => q.gte("submitted_at", monthStartIso(ym)).lt("submitted_at", monthEndExclusiveIso(ym))),
-    fetchAll(supabase, "macro_index_log", "id,lane,observed_at,index_value,policy_density,budget_amount,investment_amount,policy_mention_count,raw_signal_count,computed_at", (q) => q.gte("observed_at", `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`).lte("observed_at", ymToDateRange(ym).endDate)),
+    fetchAll(supabase, "project_strategy_signals", "signal_id,project_id,ym,signal_type,impact_level,decision_state,status,title,summary,confidence,signal_date,created_at,updated_at", (q) => q.eq("status", "confirmed")),
+    fetchAll(supabase, "project_partners", "id,project_id,partner_name,partner_type,partner_role,is_sold,created_at,updated_at"),
   ]);
+
+  // 卒業 PJ 識別 (= 先手力評価対象外 + direction の成功卒業加点用)
+  // outcome_pattern in ('rocket','lifted','smb') AND amd_support_ended_at IS NOT NULL = 成功卒業 (= まさ #85)
+  const graduatedPjSet = new Set<string>();
+  const successGraduatedPjs: Array<{ project_id: string; outcome_pattern: string; ended_at: string }> = [];
+  for (const row of ventures as Array<{ project_id: string; outcome_pattern: string; amd_support_ended_at: string | null }>) {
+    if (row.amd_support_ended_at) {
+      graduatedPjSet.add(String(row.project_id));
+      if (["rocket", "lifted", "smb"].includes(String(row.outcome_pattern))) {
+        successGraduatedPjs.push({ project_id: String(row.project_id), outcome_pattern: String(row.outcome_pattern), ended_at: String(row.amd_support_ended_at) });
+      }
+    }
+  }
+  const MASA_MEMBER_ID = "ID001"; // まさ識別 (= members.member_id="ID001", code_name="まさ", 属人脱却率の分母から除外)
 
   const signals: RawSignal[] = [];
 
+  // v4: 卒業 PJ (= amd_support_ended_at IS NOT NULL) は先手力評価対象から除外 (= まさ #83)
+  // 「AMD が育てた組織が自走 → 他人主導 events が出ても歓迎」 のため減点しない
   for (const row of memberActivities) {
+    if (graduatedPjSet.has(String(row.project_id))) continue;
     const impact = asNumber(row.impact) ?? 0;
     const depth = asNumber(row.depth) ?? 0;
     signals.push(signal({
@@ -181,6 +216,29 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
       payload: row,
     }));
   }
+
+  // v4: 属人脱却率 (= direction 軸)
+  // まさ以外の AMD member が amd_proposed events を起こした比率 (= 全 amd_proposed events 中)
+  // 卒業 PJ は除外
+  const amdProposedActiveEvents = memberActivities.filter((row) =>
+    String(row.initiative_origin) === "amd_proposed" && !graduatedPjSet.has(String(row.project_id))
+  );
+  const nonMasaAmdProposed = amdProposedActiveEvents.filter((row) => String(row.member_id) !== MASA_MEMBER_ID).length;
+  const allAmdProposed = amdProposedActiveEvents.length;
+  const nonMasaRatio = allAmdProposed > 0 ? nonMasaAmdProposed / allAmdProposed : 0;
+  signals.push(signal({
+    ym,
+    axis: "direction",
+    source_kind: "non_masa_initiative",
+    source_table: "member_activities",
+    source_id: `non_masa_initiative:${ym}`,
+    signal_key: "direction:non_masa_initiative",
+    signal_value_numeric: nonMasaRatio,
+    signal_value_text: `${nonMasaAmdProposed}/${allAmdProposed}`,
+    confidence: allAmdProposed >= 5 ? 0.75 : 0.4,
+    weight_hint: 1,
+    payload: { nonMasaAmdProposed, allAmdProposed, ratio: nonMasaRatio, masa_member_id: MASA_MEMBER_ID },
+  }));
 
   for (const row of budgetActuals) {
     signals.push(signal({
@@ -351,40 +409,8 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
     }));
   }
 
-  for (const row of seeds) {
-    signals.push(signal({
-      ym,
-      axis: "pipeline",
-      source_kind: "seed",
-      source_table: "seeds",
-      source_id: String(row.id),
-      signal_key: `seed:${row.status || "unknown"}`,
-      signal_value_numeric: asNumber(row.amd_rating),
-      signal_value_text: String(row.title || ""),
-      project_id: row.spun_off_project_id ? String(row.spun_off_project_id) : null,
-      observed_at: row.updated_at ? String(row.updated_at) : null,
-      confidence: 0.65,
-      weight_hint: asNumber(row.amd_rating) ?? 1,
-      payload: row,
-    }));
-  }
-
-  for (const row of seedContacts) {
-    signals.push(signal({
-      ym,
-      axis: "pipeline",
-      source_kind: "seed_contact",
-      source_table: "seed_contact_log",
-      source_id: String(row.id),
-      signal_key: "seed:contacted",
-      signal_value_numeric: 1,
-      signal_value_text: String(row.next_action || row.note || ""),
-      observed_at: row.contacted_on ? `${row.contacted_on}T00:00:00.000Z` : null,
-      confidence: 0.8,
-      weight_hint: 2,
-      payload: row,
-    }));
-  }
+  // v4: seeds / seed_contact_log の在庫加点を廃止 (= まさ #79、 「ネット拾いシーズが pipeline 点を上げる」 問題)
+  // seeds は AMD Score 側 (= 21 章) の入力として別途使う、 management-score の pipeline 入力からは外す
 
   for (const row of registryDiffs) {
     signals.push(signal({
@@ -423,95 +449,122 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
     }));
   }
 
-  for (const row of scoreInputs) {
-    signals.push(signal({
-      ym,
-      axis: "direction",
-      source_kind: "amd_score",
-      source_table: "amd_score_inputs",
-      source_id: String(row.id),
-      signal_key: "amd_score:latest_project_score_inputs",
-      signal_value_numeric: [
-        asNumber(row.trl),
-        asNumber(row.brl),
-        asNumber(row.grl),
-        asNumber(row.srl),
-        asNumber(row.hrl),
-        asNumber(row.frl),
-      ].filter((n): n is number => n !== null).reduce((a, b, _, arr) => a + b / arr.length, 0),
-      signal_value_text: String(row.evaluator || ""),
-      project_id: String(row.project_id),
-      observed_at: row.evaluated_at ? String(row.evaluated_at) : null,
-      confidence: 0.7,
-      weight_hint: 1,
-      payload: row,
-    }));
-  }
+  // ===== v4 戦略接近度 6 入力 (= まさ #82) =====
+  // 削除: amd_score_inputs / protocols / venture_portfolio (= 旧形式) / atlas_signals / macro_index_log
+  // 追加: funding / partner_growth / amd_os_install / monetization / non_masa_initiative (= 上で実装済) / graduation
 
-  for (const row of protocols) {
+  // 入力 1: ファンド設立進捗 (= project_strategy_signals signal_type='funding' confirmed)
+  const fundingSignals = (strategySignals as Array<{ signal_id: string; project_id: string; ym: string; signal_type: string; status: string; decision_state: string; impact_level: string; title: string; summary: string; confidence: number; created_at: string }>).filter((r) => String(r.signal_type) === "funding");
+  for (const row of fundingSignals) {
     signals.push(signal({
       ym,
       axis: "direction",
-      source_kind: "protocol",
-      source_table: "protocols",
-      source_id: String(row.id),
-      signal_key: `protocol:${row.status || "unknown"}:${row.kind || "pattern"}`,
-      signal_value_numeric: asNumber(row.importance),
+      source_kind: "funding",
+      source_table: "project_strategy_signals",
+      source_id: String(row.signal_id),
+      signal_key: `funding:${row.decision_state || "proposed"}`,
       signal_value_text: String(row.title || ""),
-      project_id: row.project_id ? String(row.project_id) : null,
-      observed_at: row.updated_at ? String(row.updated_at) : null,
-      confidence: 0.7,
-      weight_hint: asNumber(row.importance) ?? 1,
-      payload: row,
-    }));
-  }
-
-  for (const row of ventures) {
-    signals.push(signal({
-      ym,
-      axis: "direction",
-      source_kind: "venture_portfolio",
-      source_table: "project_ventures",
-      source_id: String(row.project_id),
-      signal_key: `venture:${row.outcome_pattern || "unknown"}`,
-      signal_value_text: String(row.display_name || row.project_id),
       project_id: String(row.project_id),
-      observed_at: row.updated_at ? String(row.updated_at) : null,
-      confidence: 0.75,
-      weight_hint: row.amd_support_ended_at ? 0.5 : 2,
+      observed_at: row.created_at ? String(row.created_at) : null,
+      confidence: asNumber(row.confidence) ?? 0.7,
+      weight_hint: row.impact_level === "critical" ? 3 : row.impact_level === "high" ? 2 : 1,
       payload: row,
     }));
   }
+  // 集計 signal (= calculate.ts が「累積 confirmed funding 件数」 を読む)
+  signals.push(signal({
+    ym,
+    axis: "direction",
+    source_kind: "funding_aggregate",
+    source_table: "project_strategy_signals",
+    source_id: `funding_aggregate:${ym}`,
+    signal_key: "direction:fund_setup_count",
+    signal_value_numeric: fundingSignals.length,
+    signal_value_text: `${fundingSignals.length} 件 confirmed funding`,
+    confidence: 0.75,
+    payload: { count: fundingSignals.length, project_ids: fundingSignals.map((r) => r.project_id) },
+  }));
 
-  for (const row of atlasSignals) {
+  // 入力 2: 連携研究機関数 (= project_partners、 university / research_institute)
+  const researchPartners = (projectPartners as Array<{ id: string; project_id: string; partner_name: string; partner_type: string; created_at: string }>).filter((r) => {
+    const t = String(r.partner_type || "").toLowerCase();
+    return t.includes("university") || t.includes("research") || t.includes("研究") || t.includes("大学");
+  });
+  signals.push(signal({
+    ym,
+    axis: "direction",
+    source_kind: "partner_growth",
+    source_table: "project_partners",
+    source_id: `partner_growth:${ym}`,
+    signal_key: "direction:research_partner_count",
+    signal_value_numeric: researchPartners.length,
+    signal_value_text: `${researchPartners.length} 件 research/university partners`,
+    confidence: 0.75,
+    payload: { count: researchPartners.length, partners: researchPartners.map((r) => ({ project_id: r.project_id, name: r.partner_name, type: r.partner_type })) },
+  }));
+
+  // 入力 3: AMD OS 導入進捗 (= amd_os_installations、 まだテーブル未作成、 NULL で skip)
+  signals.push(signal({
+    ym,
+    axis: "direction",
+    source_kind: "amd_os_install",
+    source_table: "amd_os_installations",
+    source_id: `amd_os_install:${ym}`,
+    signal_key: "direction:amd_os_install_count",
+    signal_value_numeric: 0,
+    signal_value_text: "amd_os_installations テーブル未作成 (= TODO)",
+    confidence: 0.2,
+    payload: { count: 0, note: "amd_os_installations テーブル未実装、 Phase 4 で追加予定" },
+  }));
+
+  // 入力 4: マネタイズ仮説の前進 (= project_strategy_signals signal_type='commercial_progress' & decision_state='decided')
+  const monetizationSignals = (strategySignals as Array<{ signal_id: string; project_id: string; signal_type: string; decision_state: string; status: string; title: string; summary: string; impact_level: string; confidence: number; created_at: string }>).filter((r) =>
+    String(r.signal_type) === "commercial_progress" && (String(r.decision_state) === "decided" || String(r.decision_state) === "executing")
+  );
+  signals.push(signal({
+    ym,
+    axis: "direction",
+    source_kind: "monetization_aggregate",
+    source_table: "project_strategy_signals",
+    source_id: `monetization_aggregate:${ym}`,
+    signal_key: "direction:monetization_decided_count",
+    signal_value_numeric: monetizationSignals.length,
+    signal_value_text: `${monetizationSignals.length} 件 decided/executing commercial progress`,
+    confidence: 0.75,
+    payload: { count: monetizationSignals.length, project_ids: monetizationSignals.map((r) => r.project_id) },
+  }));
+
+  // 入力 5: 属人脱却率 (= 上の memberActivities ループ後で実装済)
+
+  // 入力 6: PJ 成功卒業進捗 (= project_ventures.outcome_pattern IN (rocket,lifted,smb) AND amd_support_ended_at IS NOT NULL)
+  signals.push(signal({
+    ym,
+    axis: "direction",
+    source_kind: "graduation",
+    source_table: "project_ventures",
+    source_id: `graduation:${ym}`,
+    signal_key: "direction:success_graduation_count",
+    signal_value_numeric: successGraduatedPjs.length,
+    signal_value_text: `${successGraduatedPjs.length} 件 success graduation (rocket/lifted/smb)`,
+    confidence: 0.85,
+    payload: { count: successGraduatedPjs.length, projects: successGraduatedPjs },
+  }));
+
+  // ===== v4 pipeline 軸: commercial_progress stage 別 (= まさ #79 で seed 加点を廃止し Gmail/Slack 案件追跡に切り替え) =====
+  const commercialSignals = (strategySignals as Array<{ signal_id: string; project_id: string; signal_type: string; decision_state: string; status: string; title: string; summary: string; impact_level: string; confidence: number; created_at: string }>).filter((r) => String(r.signal_type) === "commercial_progress");
+  for (const row of commercialSignals) {
     signals.push(signal({
       ym,
-      axis: "direction",
-      source_kind: "atlas",
-      source_table: "atlas_signals",
-      source_id: String(row.id),
-      signal_key: `atlas:${row.domain || "unknown"}:${row.importance || "medium"}`,
+      axis: "pipeline",
+      source_kind: "commercial_progress",
+      source_table: "project_strategy_signals",
+      source_id: String(row.signal_id),
+      signal_key: `commercial:${row.decision_state || "proposed"}`,
       signal_value_text: String(row.title || ""),
-      observed_at: row.submitted_at ? String(row.submitted_at) : null,
-      confidence: 0.55,
-      weight_hint: row.importance === "high" ? 3 : row.importance === "low" ? 0.5 : 1,
-      payload: row,
-    }));
-  }
-
-  for (const row of macroIndex) {
-    signals.push(signal({
-      ym,
-      axis: "direction",
-      source_kind: "macro_index",
-      source_table: "macro_index_log",
-      source_id: String(row.id),
-      signal_key: `macro:${row.lane || "unknown"}`,
-      signal_value_numeric: asNumber(row.index_value),
-      signal_value_text: String(row.lane || ""),
-      observed_at: row.observed_at ? `${row.observed_at}T00:00:00.000Z` : null,
-      confidence: 0.65,
-      weight_hint: asNumber(row.raw_signal_count) ?? 1,
+      project_id: String(row.project_id),
+      observed_at: row.created_at ? String(row.created_at) : null,
+      confidence: asNumber(row.confidence) ?? 0.7,
+      weight_hint: row.impact_level === "critical" ? 3 : row.impact_level === "high" ? 2 : 1,
       payload: row,
     }));
   }

@@ -1,8 +1,8 @@
-# 07. 判断エンジン — Atlas / Macrotrend / AMD Score / AMD Protocol
+# 判断エンジン — Atlas / Macrotrend / AMD Score / AMD Protocol
 
 AMD OS の判断エンジン側を俯瞰する章。PJ コックピットが「いま各 PJ がどう動いているか」を見る場所だとすると、この章の対象は **何を見るか / どう評価するか / どう判断を資産化するか**。
 
-## 7.1 4 つの役割
+## つの役割
 
 | 領域 | 一言でいうと | 主な問い | 主な場所 |
 |---|---|---|---|
@@ -13,7 +13,7 @@ AMD OS の判断エンジン側を俯瞰する章。PJ コックピットが「�
 
 `AMD Management Score` はこの 4 つと関係するが、役割は別。これは **会社全体の経営健康度**を見る p00 向けスコア。
 
-## 7.2 全体フロー
+## 全体フロー
 
 ```text
 世界の構造課題 / 10-30年の変化仮説
@@ -39,7 +39,7 @@ AMD Protocol
 次の似た判断で再利用
 ```
 
-## 7.3 Macrotrend
+## Macrotrend
 
 Macrotrend は、単発ニュースの一覧ではなく **世界の構造課題クラスター**を見るレイヤー。
 
@@ -53,7 +53,7 @@ Macrotrend は、単発ニュースの一覧ではなく **世界の構造課題
 
 現状の設計では、Atlas signal の domain は A-R の細かい分類で保存し、Macrotrend 側の上位分類は ASPI Critical Technology Tracker 系の大きな技術領域へ寄せる方針。UN SDGs や WEF Global Risks は主分類ではなく、課題を見るための overlay として使う。
 
-## 7.4 Atlas
+## Atlas
 
 Atlas は、AMD が見るべき外部シグナルを蓄積し、後から判断材料として使う地図。
 
@@ -71,7 +71,7 @@ Atlas は、AMD が見るべき外部シグナルを蓄積し、後から判断�
 - LaunchAgent が outbox を拾い、`/api/atlas/signals-ingest` 経由で Supabase に入れる
 - Atlas は AMD OS 内部の 5 生データ差分レビューとは混ぜない。外部マクロ専用
 
-## 7.5 AMD Score
+## AMD Score
 
 AMD Score は、PJ / SU 単位の価値・成熟度を見るスコア。理論は Before Zero Theory v3.2。
 
@@ -92,7 +92,7 @@ F = Founder / CEO leadership readiness
 - `F` は牽引する人側の readiness。FRL として扱う
 - 律速軸は「1 段階上げた時に score が一番増える軸」。次の経営介入候補になる
 
-## 7.6 AMD Protocol
+## AMD Protocol
 
 AMD Protocol は、AMD の経営判断を **再利用できる判断パターン**として残す L2。
 
@@ -112,7 +112,7 @@ AMD Protocol は、AMD の経営判断を **再利用できる判断パターン
 - L2 ② AMD Protocol は新規自動取り込みが ghost 状態
 - 復旧方針は Claude routine `amd-os-protocol-extract` 新設
 
-## 7.7 AMD Management Score との違い
+## AMD Management Score との違い
 
 | スコア | 対象 | 見るもの |
 |---|---|---|
@@ -121,7 +121,7 @@ AMD Protocol は、AMD の経営判断を **再利用できる判断パターン
 
 混ぜない。PJ の価値を見る時は AMD Score、会社として今月良くなったかを見る時は AMD Management Score。
 
-## 7.8 どこを直す時に何を見るか
+## どこを直す時に何を見るか
 
 | 直したいもの | まず読む md |
 |---|---|

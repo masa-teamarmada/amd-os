@@ -1,8 +1,8 @@
-# 22. 通知・つくよみ修正依頼・正本反映ゲート
+# 通知・つくよみ修正依頼・正本反映ゲート
 
 AMD OS の通知は「お知らせ」だけではない。多くの通知は、LLM / automation が作った候補を **正本に入れてよいか確認するゲート**。
 
-## 22.1 通知の種類
+## 通知の種類
 
 | 種類 | 主なテーブル | 役割 |
 |---|---|---|
@@ -11,7 +11,7 @@ AMD OS の通知は「お知らせ」だけではない。多くの通知は、L
 | アプリ通知 | `app_notifications` | OS 運用上の通知 |
 | Slack nudge | Slack DM + signed URL | 入金確認、PL承認など |
 
-## 22.2 `/notifications` でやること
+## `/notifications` でやること
 
 `/notifications` は admin 向け。カードを展開して、候補の内容・根拠・既存 feedback を見て判断する。
 
@@ -23,7 +23,7 @@ AMD OS の通知は「お知らせ」だけではない。多くの通知は、L
 
 回答後は未対応から外れ、回答済みとして扱う。
 
-## 22.3 正本反映ゲート
+## 正本反映ゲート
 
 | l2_kind | 保存時 | はい | いいえ |
 |---|---|---|---|
@@ -37,7 +37,7 @@ AMD OS の通知は「お知らせ」だけではない。多くの通知は、L
 
 経営ハイライト (`project_strategy_signals`) は `candidate` / `confirmed` / `rejected` / `archived` を持つ。cockpit には candidate も表示するが、未確認であることを明示する。
 
-## 22.4 つくよみ修正依頼
+## つくよみ修正依頼
 
 ```text
 候補に違和感がある
@@ -59,7 +59,7 @@ l2_feedbacks に保存
 - 「この MS は PM 手動確定済みなので上書きしない」
 - 「この external signal は SX には追い風だが CTB には関係ない」
 
-## 22.5 現状ギャップ
+## 現状ギャップ
 
 2026-05-25 時点では、L2 ②④⑤⑥ の旧 writer が停止している。
 
@@ -73,7 +73,7 @@ l2_feedbacks に保存
 
 つまり、feedback UI だけ見ても「次回改善」がまだ完全には閉じていない領域がある。復旧計画は [03 章](03-data-and-extraction.md) と [05 章](05-decisions-and-history.md)。
 
-## 22.6 入金確認・PL承認 nudge
+## 入金確認・PL承認 nudge
 
 通知には L2 以外の業務 nudge もある。
 
@@ -85,7 +85,7 @@ l2_feedbacks に保存
 
 これらは LLM を使わない運用処理。LLM 系 cron 停止とは別枠で稼働する。
 
-## 22.7 既読と履歴
+## 既読と履歴
 
 - `notified_at`: iOS / APNs などへ通知した時刻
 - `read_at`: PWA で人間が開いた時刻
@@ -94,7 +94,7 @@ l2_feedbacks に保存
 
 通知行は削除せず蓄積する。UI は最新100件 + タブで整理する。
 
-## 22.8 関連設計 md
+## 関連設計 md
 
 - [`pwa/design/notifications.md`](../design/notifications.md)
 - [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)

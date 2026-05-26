@@ -1,8 +1,8 @@
-# 04. admin オペ
+# admin オペ
 
 月次の管理オペレーション。
 
-## 4.1 admin/payouts (= 月次支払通知書フロー)
+## admin/payouts (= 月次支払通知書フロー)
 
 URL: `/admin/payouts?ym=YYYYMM`
 
@@ -21,6 +21,7 @@ AMD から SU に対する月次業務委託費 (= AMD 業務委託フィー) �
 ### 重要な仕様 (= 過去ハマり防止)
 - 通常 GET は **報酬キャッシュを読むだけ** (= `syncRewardSummariesForBillingCycles` は重い再計算なので暗黙実行しない)
 - 手動「報酬キャッシュ再計算」ボタンまたは保存系処理だけが `refreshRewards=1` で再計算
+- ZMP の通常固定費は 300,000 円 × 65% = 195,000 円を cap として扱う。OkuDoor追加開発など追加受託分を支払うときは、`PJ予算確定・調整` で `cap外追加支払枠` に合意額を入れ、`billing_cycles.budget_yen` を `通常cap + 追加枠` にする
 - 支払通知書 PDF フォーマット: **2026-04 改善版** が正本。白地、青アクセント、公式ロゴ画像、青ヘッダ明細表、税内訳、支払予定/方法/振込先/備考を出す
 - `setValue("team ARMADA")` / `brandCell` / `支払通知書番号` 等の旧版 anchor は復活禁止 (= `npm run test:critical-ui` で検知)
 - golden PNG: `pwa/scripts/__fixtures__/payout_notice_golden.png` + SHA256
@@ -32,7 +33,7 @@ AMD から SU に対する月次業務委託費 (= AMD 業務委託フィー) �
 
 ---
 
-## 4.2 admin/projects
+## admin/projects
 
 URL: `/admin/projects`
 
@@ -83,7 +84,7 @@ URL: `/admin/projects`
 
 ---
 
-## 4.3 admin/members
+## admin/members
 
 URL: `/admin/members`
 
@@ -98,7 +99,7 @@ AMD 内部メンバー台帳の編集。
 
 ---
 
-## 4.4 admin/billing
+## admin/billing
 
 URL: `/admin/billing`
 
@@ -107,7 +108,7 @@ URL: `/admin/billing`
 
 ---
 
-## 4.5 立替申請
+## 立替申請
 
 URL: `/reimburse`
 
@@ -119,7 +120,7 @@ AMD メンバーが業務関連で立替えた費用 (= 出張 / イベント参
 
 ---
 
-## 4.6 コックピット月次ルーティンとの接続
+## コックピット月次ルーティンとの接続
 
 コックピット右カラムの月次ルーティンは、admin の請求・支払・立替データを触る入口。
 
@@ -146,7 +147,7 @@ admin
 
 ---
 
-## 4.7 admin/settings (= Operations Settings)
+## admin/settings (= Operations Settings)
 
 URL: `/admin/settings`
 

@@ -3,13 +3,21 @@ import path from "node:path";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MarkdownView } from "@/components/cockpit/MarkdownView";
-import { sortManualSlugs } from "../manual-chapters";
+import {
+  applyManualBookNumbering,
+  getManualChapter,
+  MANUAL_CHAPTERS,
+  sortManualSlugs,
+} from "../manual-chapters";
+import { normalizeManualMarkdownSource } from "../manual-data";
 
 /**
  * /manual/[slug] — AMD OS マニュアル各章
  *
  * pwa/manual/{slug}.md を fs で読んで MarkdownView でレンダリング。
- * (まさ #23 確定 2026-05-24)
+ * h1 / h2 prefix は md ファイルから外しておき (= 2026-05-26 まさ #87)、
+ * 表示時に `normalizeManualMarkdownSource()` で section-chapter 形式 (= "4-5" など) の
+ * 動的番号を注入する。 audience 切替は廃止 (= まさ #88) → 全章単一マニュアル。
  */
 
 export async function generateStaticParams() {
@@ -26,7 +34,17 @@ export default async function ManualChapterPage({ params }: { params: Promise<{ 
   if (!fs.existsSync(filePath)) {
     notFound();
   }
-  const source = fs.readFileSync(filePath, "utf8");
+  const rawSource = fs.readFileSync(filePath, "utf8");
+
+  // 章番号動的注入 (= 全章一括 numbering、 section-chapter 形式)
+  let displaySource = rawSource;
+  const chapter = getManualChapter(decoded);
+  if (chapter) {
+    const numbered = applyManualBookNumbering(MANUAL_CHAPTERS).find((c) => c.slug === decoded);
+    if (numbered) {
+      displaySource = normalizeManualMarkdownSource(rawSource, numbered);
+    }
+  }
 
   // 章一覧 (= prev/next ナビ用)
   const allFiles = fs
@@ -46,7 +64,7 @@ export default async function ManualChapterPage({ params }: { params: Promise<{ 
         </Link>
       </div>
       <article className="prose prose-sm max-w-none">
-        <MarkdownView source={source} tone="light" linkMode="manual" />
+        <MarkdownView source={displaySource} tone="light" linkMode="manual" />
       </article>
       <nav className="mt-10 flex justify-between border-t border-border pt-4 text-xs">
         {prev ? (

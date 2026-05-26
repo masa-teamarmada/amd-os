@@ -1,8 +1,8 @@
-# 09. 探索系アセット — Atlas / Seeds / VC / Scholar の使い方
+# 探索系アセット — Atlas / Seeds / VC / Scholar の使い方
 
 AMD OS は、既存 PJ を管理するだけでなく、次の PJ 候補を探すための探索系アセットも持つ。この章は、AMD メンバーが「どの画面を見れば何が分かるか」を最短で掴むための入口。
 
-## 9.1 4 つの役割
+## つの役割
 
 | 画面 | 一言でいうと | 使う場面 |
 |---|---|---|
@@ -20,7 +20,7 @@ VC      = 投資家・ファンド・接点
 Scholar = 学術活動量の時系列
 ```
 
-## 9.2 Atlas を見る
+## Atlas を見る
 
 Atlas は、外部環境が AMD の判断にどう効くかを見る場所。
 
@@ -41,7 +41,7 @@ Atlas は、外部環境が AMD の判断にどう効くかを見る場所。
 
 Atlas は VC 個別ニュースや Seeds 本体の棚ではない。VC のファンド動向は `/vcs`、研究シーズ本体は `/seeds` で扱う。
 
-## 9.3 Seeds を見る
+## Seeds を見る
 
 Seeds は、AMD の Before 0 起点となる研究シーズリスト。
 
@@ -62,7 +62,7 @@ candidate -> investigating -> contacted -> discussing
 
 `spun_off_project_id` が入った seed は PJ 化済みとして `projects` に紐づく。PJ 化済みでも情報資産として残す。
 
-## 9.4 VC List を見る
+## VC List を見る
 
 VC List は、国内 deeptech VC のファンド・接点・ニュースをまとめる。
 
@@ -84,7 +84,7 @@ DPE 残は出所を分けて見る。
 
 `/vcs/inbox` は VC ニュース候補の受信箱。verify すると `vc_news` の確認済み情報として使える。
 
-## 9.5 Scholar を見る
+## Scholar を見る
 
 Scholar は、個別論文の文献管理ではなく、学術活動量の観測画面。
 
@@ -95,7 +95,7 @@ Scholar は、個別論文の文献管理ではなく、学術活動量の観測
 
 読む時は「この論文が良い」ではなく、「この lane で学術活動が増えているか / 鈍っているか」を見る。
 
-## 9.6 Venture Map との接続
+## Venture Map との接続
 
 Venture Map は、探索系アセットを使って「どの波にいつ PJ を投入するか」を見る場所。
 
@@ -109,7 +109,7 @@ Venture Map は、探索系アセットを使って「どの波にいつ PJ を�
 
 細かいモデルは [23 章 HUD / Venture Map 仕様](23-hud-and-venture-map-spec.md)、AMD Score の式は [21 章](21-amd-score-spec.md) を見る。
 
-## 9.7 注意
+## 注意
 
 - Atlas 候補、Seeds inbox、VC news inbox は、確認前は正本ではない
 - Seeds は外部公開ショーケースではなく、まず AMD 内部の探索台帳

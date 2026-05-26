@@ -8995,3 +8995,93 @@ L6 を MMO で run 中、まさが気づいた:
 - 深夜 (22-08 時) = 11時間 × 7日 = 77回/週 が完全消滅
 - 日中 91回/週のうち、該当 MTG event 0 件の回 (= 大半の時間帯) は Phase A だけで終了 (= 数秒、credit ほぼゼロ)
 - 重い Phase B-J が走るのは「実際 MTG が終わった直後の 1-2 時間枠」のみ (= AMD 全体で 1 日数件 ≒ 週 20-30 回程度の見込み)
+
+## 2026-05-26〜27 — バイタルサイン v4 大改修 + manual UI 単一化 + 卒業フェーズ検出機能 (= まさ #75-#90)
+
+### 概要
+
+`/management-score` (= バイタルサイン) を大改修。 計算ロジック v3 (= 加重平均 + finance cap) → v4 (= 加算 + 不可逆閾値 + 動的重み + 死亡判定) に切り替え、 入力ソースも全面差し替え。 並行して manual UI の章番号体系を構造的にズレない設計に書き直し、 卒業フェーズ検出機能を新設、 freee 連携を cron 化。
+
+### Phase 0 (= evidence drilldown UI 追加) - まさ #75 セッション冒頭
+
+`/management-score` の現状確認後、 まず evidence (= `amd_management_score_evidence` の中身) を「上げ要因 / 下げ要因」 として可視化する [EvidencePanel.tsx](src/components/management-score/EvidencePanel.tsx) を新規作成。 軸タブ + 2 カラム (上げ/下げ) + 「詳細」 で payload 展開、 各カードに axis chip / evidence_kind / impact / confidence を表示。 ただしこの段階では evidence summary は機械的 (= signal_key 表示) で「数字だけで根拠じゃない」 (= まさ #80) と指摘されたため、 calculate.ts 改修と並行して自然文化することに。
+
+### Phase 1 (= 即パッチ) - まさ #75-76
+
+- **project_revenue 好調誤判定バグ修正** ([calculate.ts](src/lib/management-score/calculate.ts)): `categoryLabel` に `project_revenue` 未登録で fallback 分岐 (= variance<0 で「好調」) に落ちていた。 新 helper `isFavorableVariance` で「収益系 / 費用系」 フラグ分類に修正
+- **UI 対象月 filter**: `score.ym <= currentYmJST()` で未来月 (= 202606 のような半端 snapshot) を表示から除外
+
+### Phase 2 (= calculate.ts v4) - まさ #80-82
+
+v3 (= 単純加重平均 + runway cap) → v4 (= 混合方式) に書き換え:
+
+```
+total_score = base_total × initiative_modifier × death_clamp
+base_total  = 0.30×fin + 0.30×init + 0.20×ret + ω_pipeline×pip + 0.15×dir
+ω_pipeline  = 0.05 / 0.10 / 0.20 (= 現行 PJ 平均残期間に応じて動的)
+initiative_modifier = 1.0 / 0.7 / 0.3 (= 先手力 ≥90 / 70-90 / <70)
+death_clamp = 債務超過 → 0 / runway<1 → min(total,10)
+```
+
+詳細仕様は [manual 29 章](manual/29-management-score-and-finance-simulation-spec.md)。
+
+**先手力を減点方式に変更**: v3 加点方式 (= AMD起点率) は origin unknown 多発で破綻していた → デフォルト 100、 `partner_proposed` / `external` × impact≥3 のみ減点に切り替え。 卒業 PJ (= `amd_support_ended_at IS NOT NULL`) は先手力評価対象外。
+
+### Phase 3 (= raw-data.ts v4 入力ソース差し替え) - まさ #79, #82-83
+
+- **削除**: `seeds` / `seed_contact_log` (= pipeline 在庫加点問題)、 `amd_score_inputs` / `protocols` / `venture_portfolio (旧)` / `atlas_signals` / `macro_index_log` (= direction 軸の判定として弱い)
+- **追加**: `project_strategy_signals` (= funding / commercial_progress) と `project_partners` (= 連携機関)
+- **戦略接近度 6 入力**: ファンド設立進捗 (= funding confirmed) / 連携研究機関数 (= partner_type research/university) / AMD OS 導入進捗 (= 当面 0、 amd_os_installations テーブル未実装) / マネタイズ仮説 (= commercial_progress decided) / 属人脱却率 (= まさ以外 AMD 起点比率) / PJ 成功卒業進捗 (= outcome_pattern IN rocket/lifted/smb)
+- **pipeline 軸 commercial_progress 中心化**: stage 別 (= proposed 0.20 / decided 0.60 / executing 0.85 / revised 1.00) 確度評価。 KUTE 契約 executing が pipeline 軸に 13 点として正しく検出されることを確認 (= まさが「KUTE 契約反映されてない」 と指摘してたやつが解決)
+
+### Phase 4 (= freee 連携運用化) - まさ #4
+
+- [vercel.json](vercel.json) に cron 追加: `?includeFreee=1` で毎日 06:00 JST raw-data、 06:30 JST calculate
+- 過去 5 ヶ月で freee trial_pl 取り込み確認 (= 通信費 / 租税公課 / メンバー原価 等)。 ただし **revenue = 0** (= freee 試算表で売上未確定 or freeeCategory 文字列マッチ精度問題、 次回調査)
+
+### Phase 5 (= まさえいMTG UI) - **次回削除予定**
+
+`DialogueModeButton.tsx` を新規作成したが、 まさが「議論してないものは重要じゃないから議論してない、 議論したものは確認なしで採用すべき」 と指摘 (= まさ #91)。 「自動抽出 candidate のレビュー UI」 は本来の意図 (= dialogue で confirmed されたものを必ずバイタル反映する保証機能) と取り違えていた。
+
+**次回削除**。 代わりに「dialogue で confirmed されたシグナルが evidence にどう反映されてるか」 を可視化する方向で再設計。
+
+### Phase 6 (= 卒業フェーズ検出機能) - まさ #84-85
+
+- [migration 094](scripts/migrations/094_project_graduation_signals.sql): `project_graduation_signals` テーブル新設
+- [/api/cron/graduation-detection](src/app/api/cron/graduation-detection/route.ts): 月初 05:00 JST cron 自動実行
+- [lib/graduation-detection/calculate.ts](src/lib/graduation-detection/calculate.ts): 6 シグナル集計 (MVP では LLM 必要な s1 main_talker / s3 reports は 0、 s2 events減少 / s4 milestone主導 / s5 decisions / s6 keywords のみ実装)
+- 過去 6 ヶ月で実行 → p21 で過去 5 ヶ月連続「撤退」 キーワード検出。 ただし readiness 10 点止まり (= LLM 入れたら精度向上見込み)
+- 成功卒業判定: `outcome_pattern IN ('rocket','lifted','smb') AND amd_support_ended_at IS NOT NULL` (= まさ #85 確定)
+- [migration 093_project_ventures_amd_support_ended_at](scripts/migrations/093_project_ventures_amd_support_ended_at.sql): 既存列だったので no-op (= db_schema.md 再生成漏れで見えてなかっただけ)
+
+### Phase 7 (= manual UI 単一化) - まさ #87-89
+
+- **codex/kiyo-manual-review-setup ブランチから 4 ファイル復元** (= main の page.tsx が壊れた export を import していた、 manual-chapters.ts / manual-data.ts / ManualMapClient.tsx / page.tsx)
+- **静的 `chapter.number` field 廃止** (= まさ #87): MANUAL_CHAPTERS から `number` 削除、 動的計算 (= `applyManualBookNumbering`) のみ。 `ManualNumberedChapter` 型新設
+- **md 32 ファイルの h1 / h2 / h3 prefix 削除** (= sed 一括、 「# 29. タイトル」 → 「# タイトル」)
+- **[slug]/page.tsx で動的番号注入** (= `normalizeManualMarkdownSource` 経由で「4-5. タイトル」 形式で h1 表示)
+- **audience 切替廃止** (= まさ #88): user/developer の 2 種類分けを廃止して単一マニュアル化。 ManualMapClient.tsx の audience prop / Props 削除、 toggle UI 削除
+- **不足 13 章 md は別フォークセッションで作成** (= spawn_task で起動、 帰着時 31 章フル完備状態)
+- **manual 29 (= バイタルサイン) を v4 内容で全面改訂、 manual 39 (= 卒業フェーズ検出) 新規作成**
+
+### Phase 8 (= build version 表示) - まさ #87
+
+- [src/lib/build-info.ts](src/lib/build-info.ts) 新規: `BUILD_VERSION` 定数
+- [GlobalNav.tsx](src/components/nav/GlobalNav.tsx) の「AMD OS」 ロゴ直下に小さく version 表示
+- [pwa/CLAUDE.md](CLAUDE.md) に「修正 → bump up → deploy」 ルール追加。 まさ #89 の「patch 中心、 minor は新機能のみ」 ルールも反映
+- 今セッション中に v0.1.0 → v0.3.5 まで 9 回 bump up (= 反映確認のため、 patch 中心)
+
+### Phase 9 (= ω バグ fix) - まさ #90
+
+「現行 PJ 全部終了」 誤判定 → 過去 `end_ym` の active PJ を残期間 0 として平均算入 ([computePipelineOmega](src/lib/management-score/calculate.ts))。 BWE/CTB/JC が 3 月終了 で status='active' のまま (= status 更新漏れ) なケースをカウントするように。
+
+### deploy
+
+deploy.sh で計 8-9 回 (v0.1.0 → v0.3.5)、 全 Ready。 production aliased 確認済 (= `amd-os-pwa.vercel.app`)。
+
+### 確認漏れ (= 次回)
+
+- DialogueModeButton 削除 (= 設計取り違え、 まさ #91)
+- 要因 (= evidence) の中に「シーズ探索結果」 のような weight の弱い signal が残ってないか再確認 (= raw-data 改修したつもりだが、 何か残ってる可能性)
+- freee revenue=0 問題: account_category_name の文字列マッチ精度調査、 もしくは freee 試算表側で売上計上タイミング確認
+

@@ -1,8 +1,8 @@
-# 06. 開発者向け
+# 開発者向け
 
 新しい機能を追加する開発者 (= えいみ含む) 向け。
 
-## 6.1 リポジトリ構成
+## リポジトリ構成
 
 正本リポ: **`github.com/masa-teamarmada/amd-os`** (= 唯一)
 
@@ -27,7 +27,7 @@ amd-os/
 - Google Drive 配下に clone するのは **禁止** (= `.git` が壊れる事故あり、`~/.Trash/` に退避)
 - 推奨パス: `~/projects/AMD/amd-os/`
 
-## 6.2 Vercel デプロイ (= 正本)
+## Vercel デプロイ (= 正本)
 
 ```bash
 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
@@ -46,7 +46,7 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 npx vercel promote <デプロイID> --scope armada0130 --yes
 ```
 
-## 6.3 Supabase
+## Supabase
 
 - プロジェクト: `nbnhrhybjslbawdukvvk`
 - migration: `pwa/scripts/migrations/NNN_name.sql`
@@ -66,7 +66,7 @@ npx vercel promote <デプロイID> --scope armada0130 --yes
 - DDL を変更したら同じ commit で `dump_schema.py` を実行して `db_schema.md` を再生成
 - 他の md / コードで「テーブル X の列 Y」と書くときも必ず `db_schema.md` を grep
 
-## 6.4 Codex automation の追加
+## Codex automation の追加
 
 場所: `~/.codex/automations/{name}/`
 
@@ -108,7 +108,7 @@ if [ "${NEW_COUNT}" != "0" ]; then
 fi
 ```
 
-## 6.5 Claude routine (= scheduled task) の追加
+## Claude routine (= scheduled task) の追加
 
 場所: `~/.claude/scheduled-tasks/{name}/SKILL.md`
 
@@ -166,7 +166,7 @@ Phase C: run summary
 - 🚧 `amd-os-project-knowledge-extract` (daily 08:15 JST 予定) — L2 ④ PJ ナレッジ抽出
 - 🚧 `amd-os-member-knowledge-extract` (daily 08:30 JST 予定) — L2 ⑤ メンバーナレッジ抽出
 
-## 6.6 LaunchAgent (= outbox applier) の追加 / 拡張
+## LaunchAgent (= outbox applier) の追加 / 拡張
 
 場所: `~/Library/LaunchAgents/jp.teamarmada.{name}.plist`
 
@@ -193,7 +193,7 @@ Phase C: run summary
 launchctl load -w ~/Library/LaunchAgents/jp.teamarmada.{name}.plist
 ```
 
-## 6.7 デバッグ・トラブルシュート
+## デバッグ・トラブルシュート
 
 ### Codex automation が動いてない時
 ```bash

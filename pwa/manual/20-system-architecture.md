@@ -1,8 +1,8 @@
-# 20. 全体設計 — OS の地図
+# 全体設計 — OS の地図
 
 AMD OS 全体の構成を、画面・データ・自動処理・外部サービスの関係で見る章。細かいコードや migration の正本は `pwa/design/` と `pwa/scripts/migrations/` だが、まずここで全体像を掴む。
 
-## 20.1 プラットフォーム構成
+## プラットフォーム構成
 
 ```text
 5 生データ
@@ -29,7 +29,7 @@ Supabase
 | LaunchAgent | outbox JSON を 5 分ごとに拾って Supabase / API へ反映 |
 | Vercel cron | LLM を使わない運用 cron。freee、入金、週次活動、集計など |
 
-## 20.2 画面マップ
+## 画面マップ
 
 ### 日常利用
 
@@ -106,7 +106,7 @@ Supabase
 | `/project/{project_id}/config` | 旧 PJ 設定。契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/vcs/{id}/edit` | VC 手入力編集 |
 
-## 20.3 データレイヤー
+## データレイヤー
 
 ```text
 Raw evidence
@@ -138,7 +138,7 @@ Decision / Ops UI
 | Seeds / VC | `seeds`, `seed_*`, `vcs`, `vc_*` |
 | Scores | `amd_score_inputs`, `amd_score_alpha`, `amd_management_score_*`, `macro_index_log`, `papers_log` |
 
-## 20.4 書き込み経路
+## 書き込み経路
 
 | 経路 | 例 | 原則 |
 |---|---|---|
@@ -148,7 +148,7 @@ Decision / Ops UI
 | Vercel cron -> Supabase | freee同期、入金確認、週次活動、集計 | LLM 非使用の運用処理だけ残す |
 | GAS -> Supabase / Slack / freee | 支払通知書 PDF、外部サービス連携 | LLM 定期抽出は停止中 |
 
-## 20.5 認証と権限
+## 認証と権限
 
 - PWA の `(app)` 配下は Supabase Auth の Google login が必要
 - `/auth/login` と `/auth/callback` は公開
@@ -156,7 +156,7 @@ Decision / Ops UI
 - admin 画面と `/notifications` は admin 権限を前提にする
 - Google Workspace login は Calendar / Gmail scope を使う。Calendar 共有状態は `members.google_calendar_status` に残す
 
-## 20.6 今回クロールで見つけた manual 化対象
+## 今回クロールで見つけた manual 化対象
 
 今回の OS 全体クロールで、manual 側が薄かったもの:
 

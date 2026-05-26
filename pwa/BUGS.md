@@ -2669,3 +2669,72 @@
 - **再発防止策**:
   - OS 表示名を変えた時は、manual / design / critical guard / operations catalog / browser production を同じ周回で確認する。
   - チーム向け manual / design には、内部配慮の理由や特定メンバーだけが例として目立つ書き方を残さない。
+
+---
+
+### [automation/raw-data-gap] `〜がOS未取り込み` 通知が「はいで取り込める」と誤読される
+
+- **発見日**: 2026-05-25
+- **状態**: ✅ automation prompt / manual / design を修正済
+- **症状**:
+  - Codex automation `amd-os-ms` が `raw_data_gap` 通知の title に `〜がOS未取り込み` と書いた。
+  - まさから「automation はOSにデータを取り込む役割なのに、なぜ未取り込みを報告するのか」「はいを押せばそのデータがOSに入るという意味か」と指摘。
+  - 実際の `raw_data_gap` は、現行 `feedback` API では自動 apply handler を持たず、はいで `source_cache` 等へ現物が入る保証はない。
+- **原因**:
+  - `raw_data_gap` を「具体的なL2化先が未確定な抽出経路確認」ではなく、汎用の未取り込み報告として扱う prompt になっていた。
+  - 通知タイトルが、承認後に起きることではなく状態報告になっていた。
+- **対応内容**:
+  - `/Users/masa/.codex/automations/amd-os-ms/automation.toml` に `raw_data_gap` の厳格ルールを追加。
+  - 反映可能な候補は `project_registry_diff` / `xrl_evidence` / `ms_progress` revision / `meeting_summary` へ寄せる、と明記。
+  - `pwa/design/notifications.md` / `pwa/design/L2_DATA.md` / `pwa/manual/22-notifications-and-tsukuyomi.md` に、`raw_data_gap` は現物DB取り込みを保証しない例外通知だと追記。
+- **再発防止策**:
+  - 通知 title は `〜をBRL根拠候補にする？` / `〜のL2化先を確認` / `〜の取り込み経路を確認` のように、押した後に起きることを書く。
+  - `raw_data_gap` を作る時は `metadata_json.review_note` に、直接DB反映される候補か、抽出/backfill経路確認だけかを書く。
+  - 取り込める候補があるのに `raw_data_gap` だけで終える outbox はレビュー時に差し戻す。
+
+---
+
+## 2026-05-27 — バイタル v4 改修中に発見した設計バグ / 誤判定 (まとめ)
+
+### [ui/dialogue-mode] 「議論候補レビュー UI」 を作ったが本来は「議論結果のバイタル反映保証」 だった (= まさ #91)
+
+- **症状**: `DialogueModeButton.tsx` で `project_strategy_signals.status='candidate'` を 1 件ずつレビューする UI を作って /management-score に追加した。 まさが「議論してないものは重要じゃないから議論してない、 議論したものは確認なしで採用すべき。 この機能、 意味あるの?」 と指摘
+- **原因**: まさえいMTG (= L2 ⑨ dialogue) の本来の意図を取り違えた。 まさが求めていたのは「**議論で confirmed されたシグナルが必ずバイタル計算ロジックに反映される仕組み**」 (= 反映保証)。 私が作ったのは「**自動抽出された candidate を承認するワークフロー**」 = レビューワークフローで、 これは「議論してないものを後から評価する」 構造になっており、 まさの思考と逆向き
+- **解決策**: 次セッションで `DialogueModeButton` 削除。 代わりに `EvidencePanel` に「dialogue で confirmed されたシグナル」 chip を強調表示する方向で再設計。 raw-data v4 で confirmed funding/commercial が direction/pipeline 入力に流れる経路は既に動いているので、 そこを可視化する
+- **再発防止策**: 機能を作る前に「これは誰が、 どんな状況で押すか」 を 1 文で言語化。 まさが「議論したものは確認なしで採用」 と言うなら、 確認 UI を作る発想自体が NG
+
+### [infra/manual-ui] 静的 chapter.number と動的 applyManualBookNumbering 併存で誤読 (= まさ #87)
+
+- **症状**: 私が「マニュアル 29」 と呼んだ章が、 まさが見てる UI では「4-5」 と表示されていた。 何度確認しても噛み合わず、 まさが「4 章は Admin だよ」 と指摘して初めて気づいた
+- **原因**: `MANUAL_CHAPTERS[].number = "34"` のような静的 number field と、 `applyManualBookNumbering()` の動的計算 (= section-chapter 形式 "2-3" / "4-5") が**併存**していた。 開発時 (= コード) は「34」 を見て、 UI は「4-5」 を表示。 さらに md 本文の h1 には「# 29. ...」 と内部 slug 番号が直書きされており、 **3 重ズレ**状態
+- **解決策**: `ManualChapterConfig.number` を完全削除、 動的計算結果のみを `ManualNumberedChapter.number` として保持。 md 32 ファイルから h1 / h2 / h3 の番号 prefix を sed で一括削除。 [slug]/page.tsx で `normalizeManualMarkdownSource` 経由で動的注入。 詳細 [pwa/manual/29-management-score-and-finance-simulation-spec.md](manual/29-management-score-and-finance-simulation-spec.md) と sessions_2026-05.md Phase 7
+- **再発防止策**: 同じ意味の field を **静的値と動的計算で同時に持たない**。 表示専用 field は計算関数の戻り値のみで持つ
+
+### [infra/manual-ui] main ブランチに「壊れた page.tsx だけ」 commit されてた
+
+- **症状**: /manual を直すために `/Users/masa/projects/AMD/amd-os/pwa/src/app/(app)/manual/page.tsx` を開いたら、 存在しない export (`MANUAL_CHAPTERS`, `MANUAL_TOPIC_NODES`, `getManualChapter`) と存在しないファイル (`./ManualMapClient`, `./manual-data`) を import していた。 tsc 通らない状態が HEAD commit に入っていた
+- **原因**: 過去のセッション (= 2026-05-26 別 codex/claude) で `codex/kiyo-manual-review-setup` ブランチ上で manual UI 大改修したが、 4 ファイル (= ManualMapClient.tsx / manual-data.ts / 拡張版 manual-chapters.ts / 新 page.tsx) のうち page.tsx だけが main にマージされ、 残り 3 ファイルは codex ブランチに置き去り。 結果 main は「壊れた状態で「Ready」 commit」 されていた
+- **解決策**: codex ブランチから 3 ファイルを `git show codex/kiyo-manual-review-setup:<path>` で取り出して main にコピー。 その後 v4 改修と統合
+- **再発防止策**: PR 単位で「依存ファイルが揃った状態」 で commit する。 別ブランチに残ったままにしない。 build / tsc が通ることを commit 前に必ず確認 (= push 直前の `npx tsc --noEmit` 必須化)
+
+### [score/seeds-stock-vs-pipeline] seeds 在庫加点で pipeline 点が膨らむ問題 (= まさ #79)
+
+- **症状**: バイタルサイン v3 で pipeline 軸が高得点 (= 73 点) なのに、 実態は KUTE 契約も含めて新規案件が出てない状態。 evidence を開くと「シーズ候補「非麻薬性オピオイド」 (観察中)」 のような **ネット拾いシーズ**が pipeline 点を押し上げていた
+- **原因**: raw-data.ts の v3 で `seeds` (= 観察中・接触前のシーズ候補) を pipeline 軸の signal として加点していた。 まさ「ネットで検索して面白そうなシーズが見つかった、 というだけで、 それが AMD の経営に何も影響与えてなくない?」
+- **解決策**: v4 で `seeds` / `seed_contact_log` を pipeline 軸の入力から完全除外。 代わりに `project_strategy_signals.signal_type='commercial_progress'` (= Gmail/Slack 案件追跡で confirm された案件) を stage 別 (= proposed/decided/executing/revised) で確度評価。 seeds は AMD Score 側 (= PJ / SU 評価) の入力としてのみ残す
+- **再発防止策**: 「**AMD アクション付き**」 だけを評価入力にする。 「在庫があるだけ」 では加点しない
+
+### [score/omega-pipeline] 「現行 PJ 全部終了」 誤判定 (= まさ #90)
+
+- **症状**: バイタルサイン v4 の snapshot.summary に「新規軸重み: 現行 active PJ がすべて終了済、 ω 0.20 で営業強化」 と表示されたが、 実際は KUTE / CTB / SX / ZMP 等の active PJ が存在する。 まさ「現行 PJ 全部終了とかになってるけどw」
+- **原因**: `computePipelineOmega` で `projects.status='active' AND end_ym < currentYm` の PJ を「既に終了」 として除外していた。 残期間正の PJ がゼロになると「全部終了」 判定。 ところが実態は status 更新漏れ (= BWE / CTB / JC 等が 3 月終了でも status='active' のまま)
+- **解決策**: 過去 `end_ym` の active PJ を **残期間 0 として平均算入**するように変更 (`Math.max(0, diff)`)。 これで「status 更新漏れ PJ」 も計算に含まれ、 「全部終了」 ではなく「平均残期間 0 ヶ月 = 営業必須」 と正しい reasoning が出るように
+- **再発防止策**: 「除外」 ではなく「0 で含める」 を選ぶ。 status 更新漏れデータも本物の現実なので無視せず計算に含める
+
+### [infra/db-schema-stale] db_schema.md 再生成忘れで「列無い」 と誤判定
+
+- **症状**: `project_ventures.amd_support_ended_at` 列の存在を db_schema.md grep で「無い」 と判断、 migration 093 で新規追加しようとした。 実際は **既存列**で `IF NOT EXISTS` のおかげで no-op で済んだが、 設計判断 (= 「列追加が必要か」) を 1 ステップ無駄にした
+- **原因**: db_schema.md は手動 (= `python3 scripts/dump_schema.py`) で再生成する仕組み。 直近の別セッションで列追加 (= 「display_name」「short_label」「amd_support_started_at」「amd_support_ended_at」 etc) があったが db_schema.md 再生成されていなかった
+- **解決策**: migration apply のたびに db_schema.md を再生成する運用は pwa/CLAUDE.md に既に書いてある (= 列名は想像で書かない、 db_schema.md を必ず参照)。 ただし、 まずは現状の db_schema.md を信じて確認 → ない場合は migration、 という流れだと「再生成忘れ」 で誤判定する
+- **再発防止策**: 列の存在判定で「無い」 と思った時に、 一度 db_schema.md を再生成してから判断する。 もしくは Supabase MCP で `list_tables` 直接叩いて確認 (= 二次情報の db_schema.md を信じない)
+

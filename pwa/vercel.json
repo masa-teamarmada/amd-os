@@ -6,6 +6,9 @@
     { "path": "/api/cron/payout-reward-cache-refresh", "schedule": "5 18 * * *" },
     { "path": "/api/cron/papers-quarterly-ingest", "schedule": "20 18 * * 1" },
     { "path": "/api/cron/sync-pj-facts", "schedule": "0 19 * * *" },
-    { "path": "/api/cron/macro-aggregate-indicators", "schedule": "0 19 1 * *" }
+    { "path": "/api/cron/macro-aggregate-indicators", "schedule": "0 19 1 * *" },
+    { "path": "/api/cron/management-score-raw-data?includeFreee=1", "schedule": "0 21 * * *" },
+    { "path": "/api/cron/management-score-calculate", "schedule": "30 21 * * *" },
+    { "path": "/api/cron/graduation-detection", "schedule": "0 20 1 * *" }
   ]
 }

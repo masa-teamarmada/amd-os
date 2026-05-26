@@ -1,8 +1,8 @@
-# 05. 過去判断と経緯
+# 過去判断と経緯
 
 「**なぜそうなっているか**」が分かる場所。新セッションの開発担当が「これ動いてないけど何で?」となった時、まずここを読む。
 
-## 5.1 cron 廃止経緯 (= 2026-05-22 仕様変更の本丸)
+## cron 廃止経緯 (= 2026-05-22 仕様変更の本丸)
 
 ### 何が起きたか
 2026-05 上旬まで、PWA は Vercel cron で毎時/毎日に **LLM 課金が発生する定期抽出** (= L1 / L2 抽出系) を回していた。GAS 側でも同様。
@@ -43,13 +43,16 @@
 - `macro-aggregate-indicators`
 
 ### ⚠️ 新セッションの開発担当へ
-- **「cron 復活すればいい」と提案するのは禁忌**。token 課金問題で慌てて止めた経緯あり
-- データ取り込み不足を見つけたら、まず **Codex automation か Claude routine で実装** することを検討
-- どうしても Vercel cron が必要なら、LLM 非依存 (= 純粋な DB 同期や fetch のみ) であることを確認
+- **「cron 復活すればいい」と雑に提案するのは禁忌**。問題は cron そのものではなく、token 課金が発生する LLM cron / LLM route を勝手に復活・新設すること
+- **追加課金ゼロ** は「LLM 禁止」でも「cron 禁止」でもない。PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 API を勝手に呼ばない、という意味。LLM が必要な L2 抽出は **Claude Cloud routine / Codex automation のサブスク枠**へ寄せる
+- LLM 非依存の cron (= DB 同期、外部API fetch、通知、キャッシュ更新、入金/請求系など) は問題なし。新規に作る場合は「token 課金なし」をコードと設計 md に明記する
+- データ取り込み不足を見つけたら、まず **Claude Cloud routine / Codex automation / event-driven API** で実装する
+- Cloud routine の trigger は allowed path。PWA / GAS / Vercel cron は LLM 非依存の運用処理だけ allowed path
+- L2 ②〜⑨の品質改善は `pwa/scheduled-tasks/amd-os-l<N>-*/SKILL.md` を更新する。PWA route / GAS function に新しい API-billed LLM 呼び出しを追加しない
 
 ---
 
-## 5.2 4 分類 → 経営ハイライト 改訂経緯 (= 2026-05-24)
+## 分類 → 経営ハイライト 改訂経緯 (= 2026-05-24)
 
 ### 何が起きたか
 2026-05-24 PM に「経営・事業シグナル」を 9 種 → 3 分類 → 4 分類 と再設計したが、改訂中に **本質的なズレ**が判明:
@@ -70,7 +73,7 @@
 
 ---
 
-## 5.3 提案前の論点整理セッション運用ルール (= 2026-05-24)
+## 提案前の論点整理セッション運用ルール (= 2026-05-24)
 
 提案前の論点整理セッションは、レビュー担当が LLM と OS 上の candidate を読み、チームへ提案する前の論点・提案・残課題を整理する対話セッション。
 
@@ -85,7 +88,7 @@
 
 ---
 
-## 5.4 Codex / Claude Cloud / Vercel / LaunchAgent 責務分担マトリクス
+## Codex / Claude Cloud / Vercel / LaunchAgent 責務分担マトリクス
 
 「**どの自動処理がどこで動いてるか**」が分かる正本表。新セッションの開発担当は必ず確認。
 
@@ -132,6 +135,8 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md`](../scheduled-t
 
 ### 残存・関連自動処理
 
+2026-05-26 現在、`pwa/vercel.json` には LLM 非依存の運用系 cron が 7 本残っている。これは問題なし。禁止対象は、token 追加課金が発生する LLM cron / LLM route の復活・新設。
+
 | 自動処理 | 動く場所 | 頻度 | 役割 | LLM 課金 | 関連 file |
 |---|---|---|---|---|---|
 | **amd-atlas-2** | Codex automation | daily 08:10 JST | Atlas 外部マクロ抽出 + outbox 出力 | あり | `~/.codex/automations/amd-atlas-2/automation.toml` |
@@ -161,7 +166,7 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md`](../scheduled-t
 
 ---
 
-## 5.5 design_log と本マニュアルの関係
+## design_log と本マニュアルの関係
 
 | 区分 | 役割 | 場所 |
 |---|---|---|
@@ -181,7 +186,7 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md`](../scheduled-t
 
 ---
 
-## 5.6 project_category に `new_business` 追加 (= 2026-05-25)
+## project_category に `new_business` 追加 (= 2026-05-25)
 
 ### 何が起きたか
 2026-05-25 に「ZMP は新規事業創出モデルなので、これも PJ タイプに追加してほしい」と要望。
@@ -211,7 +216,7 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md`](../scheduled-t
 
 ---
 
-## 5.7 L2 ②④⑤⑥ ghost 化と Claude routine 4 個新設計画 (= 2026-05-25)
+## L2 ②④⑤⑥ ghost 化と Claude routine 4 個新設計画 (= 2026-05-25)
 
 ### 何が起きたか
 2026-05-25 に「議事録を取り込む automation/routines がない」と指摘 → 調査で発覚。**5/22 cron 廃止判断時の後継処理カバー範囲が不足していた**。
@@ -265,7 +270,7 @@ GAS 153 のソース冒頭コメントに「Use Codex automation/review batches�
 
 ---
 
-## 5.8 過去の重要なバグ・事故ログ (= 抜粋)
+## 過去の重要なバグ・事故ログ (= 抜粋)
 
 新セッションで同じ事故を繰り返さないために、特に学んだ教訓:
 

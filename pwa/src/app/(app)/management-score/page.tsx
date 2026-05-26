@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { GasMonthlySimulationPanel, type GasMonthlyRow, type GasProjectListItem, type GasSimulationResult } from "@/components/management-score/GasMonthlySimulationPanel";
+import { EvidencePanel, type EvidenceRow } from "@/components/management-score/EvidencePanel";
+import { DialogueModeButton, type DialogueCandidate } from "@/components/management-score/DialogueModeButton";
+import type { MonthlyPlInputs } from "@/lib/finance/monthly-pl-simulation";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +40,27 @@ type ScoreSnapshot = {
   pipeline_score: number | null;
   direction_score: number | null;
   confidence: number | null;
+};
+
+type ScoreSnapshotFull = ScoreSnapshot & {
+  id: string;
+  inputs_json: Record<string, unknown> | null;
+  next_actions_json: unknown;
+  summary: string | null;
+  finance_cap_applied: string | null;
+  updated_at: string | null;
+};
+
+type EvidenceQueryRow = {
+  id: string;
+  axis: string;
+  evidence_kind: string;
+  summary: string;
+  source_type: string | null;
+  source_ref: string | null;
+  impact: number | string | null;
+  confidence: number | string | null;
+  payload: Record<string, unknown> | null;
 };
 
 type SimulationRun = {
@@ -281,13 +305,43 @@ function buildGasSimulationResult(
   };
 }
 
+function buildMonthlyPlInputs(inputRows: BudgetInputRow[]): MonthlyPlInputs | null {
+  const payloads = (kind: string): Record<string, unknown>[] =>
+    inputRows
+      .filter((row) => row.input_kind === kind && row.payload)
+      .map((row) => row.payload as Record<string, unknown>);
+  const params = inputRows.find((row) => row.input_kind === "params" && row.payload)?.payload;
+  if (!params) return null;
+  return {
+    params: params as unknown as MonthlyPlInputs["params"],
+    projects: payloads("project") as unknown as MonthlyPlInputs["projects"],
+    fixedCosts: payloads("fixed_cost") as unknown as MonthlyPlInputs["fixedCosts"],
+    projectRevenues: payloads("project_revenue") as unknown as MonthlyPlInputs["projectRevenues"],
+    varCosts: payloads("var_cost") as unknown as MonthlyPlInputs["varCosts"],
+    loans: payloads("loan") as unknown as MonthlyPlInputs["loans"],
+    spots: payloads("spot") as unknown as MonthlyPlInputs["spots"],
+    scenarios: payloads("scenario") as unknown as MonthlyPlInputs["scenarios"],
+  };
+}
+
+function currentYmJST(): string {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return `${jst.getUTCFullYear()}${String(jst.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 export default async function ManagementScorePage() {
   const supabase = await createClient();
-  const [scoreRes, scoreHistoryRes, budgetRes, inputRes, runRes, notesRes] = await Promise.all([
-    safeSelect<ScoreSnapshot[]>(() =>
+  // 未来月の snapshot を除外 (= まさ #76 確定 2026-05-26)。
+  // 計算ミスやデータ不足の 6 月 snapshot が「最新」 と判定されて表示されないように、
+  // ym <= currentYmJST() で filter する。
+  const ymCap = currentYmJST();
+  const [scoreRes, scoreHistoryRes, budgetRes, inputRes, runRes, notesRes, evidenceRes, dialogueCandidatesRes] = await Promise.all([
+    safeSelect<ScoreSnapshotFull[]>(() =>
       supabase
         .from("amd_management_score_snapshots")
-        .select("ym,total_score,initiative_score,finance_score,retention_score,pipeline_score,direction_score,confidence")
+        .select("id,ym,total_score,initiative_score,finance_score,retention_score,pipeline_score,direction_score,confidence,inputs_json,next_actions_json,summary,finance_cap_applied,updated_at")
+        .lte("ym", ymCap)
         .order("ym", { ascending: false })
         .limit(1)
     ),
@@ -295,6 +349,7 @@ export default async function ManagementScorePage() {
       supabase
         .from("amd_management_score_snapshots")
         .select("ym,total_score,initiative_score,finance_score,retention_score,pipeline_score,direction_score,confidence")
+        .lte("ym", ymCap)
         .order("ym", { ascending: false })
         .limit(25)
     ),
@@ -327,16 +382,59 @@ export default async function ManagementScorePage() {
         .order("created_at", { ascending: false })
         .limit(8)
     ),
+    safeSelect<(EvidenceQueryRow & { ym: string; snapshot_id: string | null })[]>(() =>
+      supabase
+        .from("amd_management_score_evidence")
+        .select("id,snapshot_id,ym,axis,evidence_kind,summary,source_type,source_ref,impact,confidence,payload")
+        .order("created_at", { ascending: false })
+        .limit(200)
+    ),
+    safeSelect<DialogueCandidate[]>(() =>
+      supabase
+        .from("project_strategy_signals")
+        .select("signal_id,project_id,ym,signal_type,impact_level,decision_state,title,summary,signal_date,confidence,status,created_by")
+        .eq("project_id", "p00")
+        .eq("status", "candidate")
+        .order("impact_level", { ascending: false })
+        .order("signal_date", { ascending: false })
+        .limit(20)
+    ),
   ]);
+  const dialogueCandidates: DialogueCandidate[] = dialogueCandidatesRes.data ?? [];
 
   const score = scoreRes.data?.[0] ?? null;
+  const previous = scoreHistoryRes.data && scoreHistoryRes.data.length >= 2 ? scoreHistoryRes.data[1] : null;
   const scoreHistory = (scoreHistoryRes.data ?? []).slice().reverse();
   const budgetRows = budgetRes.data ?? [];
+  const scoreInputs = (score?.inputs_json ?? {}) as Record<string, unknown>;
+  const financeCap = score?.finance_cap_applied ?? (typeof scoreInputs.financeCap === "string" ? (scoreInputs.financeCap as string) : null);
+  const snapshotSummary = score?.summary ?? null;
+  const rawSignalCount = typeof scoreInputs.rawSignalCount === "number" ? (scoreInputs.rawSignalCount as number) : null;
+  const nextActionsRaw = score?.next_actions_json;
+  const nextActions = Array.isArray(nextActionsRaw)
+    ? (nextActionsRaw as unknown[]).filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+  const evidenceRowsRaw = (evidenceRes.data ?? []) as Array<EvidenceQueryRow & { ym: string; snapshot_id: string | null }>;
+  const evidenceRows: EvidenceRow[] = evidenceRowsRaw
+    .filter((row) => (score?.id ? row.snapshot_id === score.id : score?.ym ? row.ym === score.ym : true))
+    .map((row) => ({
+      id: row.id,
+      axis: row.axis,
+      evidence_kind: row.evidence_kind,
+      summary: row.summary,
+      source_type: row.source_type,
+      source_ref: row.source_ref,
+      impact: Number(row.impact ?? 0),
+      confidence: Number(row.confidence ?? 0),
+      payload: row.payload,
+    }));
   const selectedYm = score?.ym ?? null;
   const availableBudgetYms = Array.from(new Set(budgetRows.filter((row) => row.scope === "company").map((row) => row.ym)));
   const financeMonths = availableBudgetYms.length > 0 ? availableBudgetYms.sort() : centeredMonths(selectedYm, availableBudgetYms);
   const budgetCategoryRows = byMonthCategory(budgetRows.filter((row) => row.scope === "company"));
-  const gasSimulationResult = buildGasSimulationResult(financeMonths, budgetCategoryRows, budgetRows, inputRes.data ?? []);
+  const budgetInputRows = inputRes.data ?? [];
+  const gasSimulationResult = buildGasSimulationResult(financeMonths, budgetCategoryRows, budgetRows, budgetInputRows);
+  const gasSimulationInputs = buildMonthlyPlInputs(budgetInputRows);
   const latestRows = aggregateCategoryRows(budgetRows, selectedYm ?? undefined);
   const latestYm = latestRows[0]?.ym ?? null;
   const latestRun = runRes.data?.[0] ?? null;
@@ -346,7 +444,30 @@ export default async function ManagementScorePage() {
   const revenueActual = findAmount(latestRows, "revenue", "actual_amount_yen");
   const netCashBudget = findAmount(latestRows, "net_cash_flow", "budget_amount_yen");
   const netCashActual = findAmount(latestRows, "net_cash_flow", "actual_amount_yen");
-  const blockingError = scoreRes.error || scoreHistoryRes.error || budgetRes.error || inputRes.error || runRes.error || notesRes.error;
+  const blockingError = scoreRes.error || scoreHistoryRes.error || budgetRes.error || inputRes.error || runRes.error || notesRes.error || evidenceRes.error;
+  const totalDelta = score?.total_score != null && previous?.total_score != null ? Number(score.total_score) - Number(previous.total_score) : null;
+  function delta(curr: number | null | undefined, prev: number | null | undefined): number | null {
+    if (curr == null || prev == null) return null;
+    return Number(curr) - Number(prev);
+  }
+  function deltaLabel(value: number | null): string {
+    if (value == null) return "";
+    if (value === 0) return "±0";
+    const sign = value > 0 ? "+" : "";
+    return `${sign}${Math.round(value)}`;
+  }
+  function deltaTone(value: number | null): string {
+    if (value == null) return "text-muted-foreground";
+    if (value > 0) return "text-emerald-600";
+    if (value < 0) return "text-red-600";
+    return "text-muted-foreground";
+  }
+  function financeCapLabel(cap: string | null): string | null {
+    if (!cap) return null;
+    if (cap === "runway_lt_2") return "runway <2ヶ月: total max 45";
+    if (cap === "runway_lt_4") return "runway <4ヶ月: total max 60";
+    return cap;
+  }
 
   return (
     <div className="min-h-[calc(100vh-2.75rem)] bg-background">
@@ -354,14 +475,51 @@ export default async function ManagementScorePage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-muted-foreground">AMD Management Score</p>
-            <h1 className="text-2xl font-semibold tracking-normal">経営状況</h1>
+            <div className="flex flex-wrap items-baseline gap-3">
+              <h1 className="text-2xl font-semibold tracking-normal">経営状況</h1>
+              <DialogueModeButton candidates={dialogueCandidates} />
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>対象月 {score?.ym ?? latestYm ?? "-"}</span>
             <span className="h-1 w-1 rounded-full bg-border" />
-            <span>計算 {latestRun ? new Date(latestRun.ran_at).toLocaleString("ja-JP") : "-"}</span>
+            <span>前月比 <span className={`font-semibold tabular-nums ${deltaTone(totalDelta)}`}>{deltaLabel(totalDelta) || "-"}</span></span>
+            <span className="h-1 w-1 rounded-full bg-border" />
+            <span>confidence {score?.confidence != null ? `${Math.round(Number(score.confidence) * 100)}%` : "-"}</span>
+            {rawSignalCount != null && (
+              <>
+                <span className="h-1 w-1 rounded-full bg-border" />
+                <span>raw {rawSignalCount}件</span>
+              </>
+            )}
+            <span className="h-1 w-1 rounded-full bg-border" />
+            <span>計算 {latestRun ? new Date(latestRun.ran_at).toLocaleString("ja-JP") : score?.updated_at ? new Date(score.updated_at).toLocaleString("ja-JP") : "-"}</span>
           </div>
         </div>
+
+        {snapshotSummary && (
+          <section className="rounded-md border bg-card px-4 py-3">
+            <div className="text-xs font-semibold text-muted-foreground">今月の結論</div>
+            <p className="mt-1.5 text-sm leading-relaxed text-foreground">{snapshotSummary}</p>
+          </section>
+        )}
+
+        {financeCap && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-900">
+            <span className="font-semibold">finance cap 適用中:</span> {financeCapLabel(financeCap)}
+          </div>
+        )}
+
+        {nextActions.length > 0 && (
+          <section className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3">
+            <div className="text-xs font-semibold text-primary">次の一手</div>
+            <ul className="mt-1.5 space-y-1 text-sm">
+              {nextActions.map((action, idx) => (
+                <li key={idx} className="leading-snug">・{action}</li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {blockingError && (
           <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -370,12 +528,48 @@ export default async function ManagementScorePage() {
         )}
 
         <section className="grid gap-3 md:grid-cols-6">
-          <Metric label="Total" value={score ? pct(score.total_score) : "-"} className={scoreTone(score?.total_score)} />
-          <Metric label="先手力" value={score ? pct(score.initiative_score) : "-"} className={scoreTone(score?.initiative_score)} />
-          <Metric label="財務" value={score ? pct(score.finance_score) : "-"} className={scoreTone(score?.finance_score)} />
-          <Metric label="継続" value={score ? pct(score.retention_score) : "-"} className={scoreTone(score?.retention_score)} />
-          <Metric label="新規" value={score ? pct(score.pipeline_score) : "-"} className={scoreTone(score?.pipeline_score)} />
-          <Metric label="方向" value={score ? pct(score.direction_score) : "-"} className={scoreTone(score?.direction_score)} />
+          <Metric
+            label="Total"
+            value={score ? pct(score.total_score) : "-"}
+            delta={deltaLabel(totalDelta)}
+            deltaClassName={deltaTone(totalDelta)}
+            className={scoreTone(score?.total_score)}
+          />
+          <Metric
+            label="先手力"
+            value={score ? pct(score.initiative_score) : "-"}
+            delta={deltaLabel(delta(score?.initiative_score, previous?.initiative_score))}
+            deltaClassName={deltaTone(delta(score?.initiative_score, previous?.initiative_score))}
+            className={scoreTone(score?.initiative_score)}
+          />
+          <Metric
+            label="財務"
+            value={score ? pct(score.finance_score) : "-"}
+            delta={deltaLabel(delta(score?.finance_score, previous?.finance_score))}
+            deltaClassName={deltaTone(delta(score?.finance_score, previous?.finance_score))}
+            className={scoreTone(score?.finance_score)}
+          />
+          <Metric
+            label="継続"
+            value={score ? pct(score.retention_score) : "-"}
+            delta={deltaLabel(delta(score?.retention_score, previous?.retention_score))}
+            deltaClassName={deltaTone(delta(score?.retention_score, previous?.retention_score))}
+            className={scoreTone(score?.retention_score)}
+          />
+          <Metric
+            label="新規"
+            value={score ? pct(score.pipeline_score) : "-"}
+            delta={deltaLabel(delta(score?.pipeline_score, previous?.pipeline_score))}
+            deltaClassName={deltaTone(delta(score?.pipeline_score, previous?.pipeline_score))}
+            className={scoreTone(score?.pipeline_score)}
+          />
+          <Metric
+            label="方向"
+            value={score ? pct(score.direction_score) : "-"}
+            delta={deltaLabel(delta(score?.direction_score, previous?.direction_score))}
+            deltaClassName={deltaTone(delta(score?.direction_score, previous?.direction_score))}
+            className={scoreTone(score?.direction_score)}
+          />
         </section>
 
         <section className="grid gap-3 md:grid-cols-4">
@@ -404,7 +598,9 @@ export default async function ManagementScorePage() {
           ))}
         </section>
 
-        <GasMonthlySimulationPanel result={gasSimulationResult} />
+        <EvidencePanel rows={evidenceRows} />
+
+        <GasMonthlySimulationPanel result={gasSimulationResult} inputs={gasSimulationInputs} />
 
         <section className="grid gap-4 xl:grid-cols-[1fr_0.42fr]">
           <div className="rounded-md border bg-card">
@@ -432,10 +628,27 @@ export default async function ManagementScorePage() {
   );
 }
 
-function Metric({ label, value, className = "" }: { label: string; value: string; className?: string }) {
+function Metric({
+  label,
+  value,
+  delta,
+  deltaClassName = "",
+  className = "",
+}: {
+  label: string;
+  value: string;
+  delta?: string;
+  deltaClassName?: string;
+  className?: string;
+}) {
   return (
     <div className="rounded-md border bg-card px-4 py-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        {delta && (
+          <div className={`text-[11px] font-semibold tabular-nums ${deltaClassName}`}>{delta}</div>
+        )}
+      </div>
       <div className={`mt-1 text-lg font-semibold tabular-nums tracking-normal ${className}`}>{value}</div>
     </div>
   );
