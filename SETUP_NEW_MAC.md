@@ -50,9 +50,19 @@ git status -s
 
 clone 後に repo root でこれを叩く。
 
+Mac / Linux / Git Bash:
+
 ```sh
 bash scripts/dev-doctor.sh
 ```
+
+Windows の PowerShell / コマンドプロンプトで `bash` が認識されない場合:
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" scripts/dev-doctor.sh
+```
+
+または、スタートメニューから **Git Bash** を開いて repo root に移動し、同じ `bash scripts/dev-doctor.sh` を実行する。
 
 このスクリプトは以下を見る。
 

@@ -63,9 +63,28 @@ git checkout -b kiyo/os-manual-brushup
 
 ## 4. 環境チェック
 
+Mac / Linux / Git Bash では:
+
 ```sh
 bash scripts/dev-doctor.sh
 ```
+
+Windows の PowerShell / コマンドプロンプトで `bash` が認識されない場合は、以下のどちらかで進める。
+
+1. スタートメニューから **Git Bash** を開き、repo に移動して実行する。
+
+```sh
+cd ~/projects/AMD/amd-os
+bash scripts/dev-doctor.sh
+```
+
+2. PowerShell から Git for Windows 付属の bash を直接呼ぶ。
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" scripts/dev-doctor.sh
+```
+
+Git Bash が入っていない場合は、Git for Windows を入れ直す時に `Git Bash` を含める。
 
 最低限、OS マニュアルの Markdown を直すだけなら、PWA secrets はなくても作業できる。
 ただし full PWA build / local preview / deploy までやるなら、`pwa/.env.local` と `pwa/.env.production.local`、Vercel link が必要になる。
@@ -155,4 +174,3 @@ git push origin kiyo/os-manual-brushup
 ```
 
 push 後、まさPC / えいみに branch 名を渡す。
-
