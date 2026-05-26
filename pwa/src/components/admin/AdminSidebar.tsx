@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const ADMIN_TABS = [
   { label: "Projects", href: "/admin/projects" },
   { label: "Members", href: "/admin/members" },
+  { label: "週次活動", href: "/admin/weekly" },
   { label: "Protocols", href: "/admin/protocols" },
   { label: "LLM Context", href: "/admin/contexts" },
   { label: "つくよみ", href: "/admin/tsukuyomi" },
