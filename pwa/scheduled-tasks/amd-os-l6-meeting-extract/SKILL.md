@@ -86,9 +86,9 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
 
 ### A-2: 未来Calendar予定 → 予定MTGカード同期
 
-終了済みMTGの議事録抽出とは別に、毎回 **今後60日** の確定Calendar予定を同期する。これは LLM 不要・deterministic で、議事録がまだ無いPJにも準備カードを作るためのルート。
+終了済みMTGの議事録抽出とは別に、毎回 **今日0:00 JSTから今後60日** の確定Calendar予定を同期する。これは LLM 不要・deterministic で、議事録がまだ無いPJにも準備カードを作るためのルート。今日すでに開始済みの予定も、Drive資料やURL補強のために当日中は同期対象にする。
 
-1. Calendar MCP で `now` から `now + 60 days` までを bounded search/list する。`title` が `+` / `＋` 始まり、全日予定、start datetime の無い予定は除外。
+1. Calendar MCP で `today 00:00 JST` から `now + 60 days` までを bounded search/list する。`title` が `+` / `＋` 始まり、全日予定、start datetime の無い予定は除外。
 2. 各 event について、PJ が解決できる場合は **Drive 関連資料も先に探す** (= LLM 不要、準備カード用 metadata):
    - `projects.drive_folder_id` があれば folder root を Drive MCP で list し、event 日付 token (`YYMMDD` / `YYYYMMDD` / `YYYY-MM-DD`) と title token (`取締役会` / `board` / `月次` / `報告会` / `キックオフ` / PJ名 / client_name) でサブフォルダを探す。
    - 日付フォルダが見つかったら、その直下の Docs / Slides / Sheets / PDF / Office files を最大 8 件採用。例: CLG `260527_取締役会` folder の招集通知 PDF・予算xlsx・報告xlsx。

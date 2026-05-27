@@ -348,6 +348,7 @@ export async function POST(req: NextRequest) {
   }
   const dryRun = body.dry_run === true;
   const nowIso = new Date().toISOString();
+  const currentMeetingDate = jstDate(nowIso);
   const projectIds = Array.isArray(body.project_ids)
     ? body.project_ids.map((v) => String(v).trim()).filter(Boolean)
     : [];
@@ -374,7 +375,7 @@ export async function POST(req: NextRequest) {
       results.push({ ok: false, reason });
       continue;
     }
-    if (event.startIso < nowIso) {
+    if (event.meetingDate < currentMeetingDate) {
       skipped += 1;
       results.push({ ok: false, reason: "past_event", calendar_event_id: event.eventId, title: event.title, start: event.startIso });
       continue;
