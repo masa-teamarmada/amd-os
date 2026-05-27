@@ -46,6 +46,11 @@ type FeedbackItem = {
   last_applied_at: string | null;
 };
 
+type StrategySignalWithAiMeta = ProjectStrategySignal & {
+  polarity?: string | null;
+  scoreImpactSummary?: string | null;
+};
+
 const TYPE_LABEL: Record<string, string> = {
   management_decision: "方針決定",
   business_progress: "事業進捗",
@@ -292,7 +297,7 @@ function StrategySignalRow({
   pastFeedbacks,
   onConfirmed,
 }: {
-  signal: ProjectStrategySignal;
+  signal: StrategySignalWithAiMeta;
   projectId: string;
   categoryBorder: string;
   categoryEmoji: string;
