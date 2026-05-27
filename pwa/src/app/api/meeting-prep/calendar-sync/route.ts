@@ -278,7 +278,7 @@ function buildPrepBody(event: NormalizedEvent, project: ProjectRow) {
     : "";
 
   return {
-    summaryShort: `${displayTitle}。Calendarで日時確定済みのため、開催前の論点と準備物を整理する。${driveSummary}`,
+    summaryShort: `${displayTitle}。Calendarで日時確定済みのため、開催前/当日の論点と資料を整理する。${driveSummary}`,
     decided: [`${event.title}で確認・決定すべき論点を事前に整理する。`],
     progress: [
       `Calendar上で ${when} の開催が確定している。`,
@@ -286,8 +286,8 @@ function buildPrepBody(event: NormalizedEvent, project: ProjectRow) {
     ],
     nextActions: [
       event.driveFiles.length > 0
-        ? "Drive関連資料、前回までの論点、当日確認したい質問を事前に揃える。"
-        : "関連資料、前回までの論点、当日確認したい質問を事前に揃える。",
+        ? "Drive関連資料、前回までの論点、当日確認したい質問を確認する。"
+        : "関連資料、前回までの論点、当日確認したい質問を確認する。",
     ],
     risks: [
       "Calendar予定だけでは議題・資料・意思決定範囲が不足している可能性がある。",
@@ -305,8 +305,8 @@ function buildPrepBody(event: NormalizedEvent, project: ProjectRow) {
       driveLines.length ? "## 関連Drive資料" : "",
       ...driveLines,
       "",
-      "## 事前に見ること",
-      "このカードは、Calendarで確定している未来MTGをOS上の準備ブリーフとして先に見えるようにするためのもの。議事録や資料がまだ入っていない場合でも、当日までに確認したい論点、資料、質問をここに追記する。",
+      "## 見ること",
+      "このカードは、Calendarで確定しているMTGをOS上の準備ブリーフとして見えるようにするためのもの。議事録や資料がまだ入っていない場合でも、確認したい論点、資料、質問をここに追記する。",
     ].filter(Boolean).join("\n"),
   };
 }
