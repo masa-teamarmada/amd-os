@@ -15,6 +15,7 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
+import type { MonthlyPlInputs, MonthlyPlSimulationResult } from "@/lib/finance/monthly-pl-simulation";
 
 Chart.register(
   BarController,
@@ -79,6 +80,12 @@ export type GasSimulationResult = {
   projectList: GasProjectListItem[];
 };
 
+type SimulateResponse = {
+  ok: boolean;
+  error?: string;
+  result?: MonthlyPlSimulationResult;
+};
+
 type ToggleState = {
   revenue: boolean;
   fixedCost: boolean;
@@ -100,7 +107,11 @@ function kpiYen(value: number): string {
   return `¥${fmt(value)}`;
 }
 
-export function GasMonthlySimulationPanel({ result }: { result: GasSimulationResult }) {
+export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimulationResult; inputs?: MonthlyPlInputs | null }) {
+  const [displayResult, setDisplayResult] = useState<GasSimulationResult>(result);
+  const [scenarioId, setScenarioId] = useState("");
+  const [simRunning, setSimRunning] = useState(false);
+  const [simStatus, setSimStatus] = useState("");
   const [toggleState, setToggleState] = useState<ToggleState>({
     revenue: false,
     fixedCost: false,
@@ -108,8 +119,21 @@ export function GasMonthlySimulationPanel({ result }: { result: GasSimulationRes
   });
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
-  const rows = result.rows;
-  const pjList = result.projectList;
+  const rows = displayResult.rows;
+  const pjList = displayResult.projectList;
+  const scenarioOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return (inputs?.scenarios ?? [])
+      .filter((row) => {
+        if (!row.scenarioId || seen.has(row.scenarioId)) return false;
+        seen.add(row.scenarioId);
+        return true;
+      })
+      .map((row) => ({
+        id: row.scenarioId,
+        name: row.scenarioName || row.scenarioId,
+      }));
+  }, [inputs]);
 
   const kpis = useMemo(() => {
     const totalRev = rows.reduce((sum, row) => sum + row.revenue, 0);
@@ -216,6 +240,38 @@ export function GasMonthlySimulationPanel({ result }: { result: GasSimulationRes
     setToggleState((current) => ({ ...current, [key]: !current[key] }));
   };
 
+  const runScenario = async () => {
+    if (!inputs) {
+      setSimStatus("入力データなし");
+      return;
+    }
+    setSimRunning(true);
+    setSimStatus("");
+    try {
+      const res = await fetch("/api/management-score/finance/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inputs,
+          scenarioId: scenarioId || null,
+          persist: false,
+          version: "interactive-preview",
+          sourceRef: "/management-score",
+        }),
+      });
+      const json = (await res.json()) as SimulateResponse;
+      if (!res.ok || !json.ok || !json.result) {
+        throw new Error(json.error || `HTTP ${res.status}`);
+      }
+      setDisplayResult(json.result);
+      setSimStatus(scenarioId ? `${scenarioId} を反映` : "ベースラインを再計算");
+    } catch (err) {
+      setSimStatus(`実行エラー: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSimRunning(false);
+    }
+  };
+
   const detailRow = (label: string, getValue: (row: GasMonthlyRow) => number) => (
     <tr key={label}>
       <td className="gas-detail-label">{label}</td>
@@ -267,6 +323,19 @@ export function GasMonthlySimulationPanel({ result }: { result: GasSimulationRes
         }
         .btn-sim:hover {
           background: #2ecc71;
+        }
+        .btn-sim:disabled {
+          background: #9aa7b4;
+          cursor: not-allowed;
+          opacity: 0.75;
+        }
+        .scenario-select:disabled {
+          color: #777;
+          background: #f5f5f5;
+        }
+        .sim-status {
+          color: #555;
+          font-size: 12px;
         }
         .sim-top-row {
           display: flex;
@@ -417,12 +486,23 @@ export function GasMonthlySimulationPanel({ result }: { result: GasSimulationRes
       `}</style>
 
       <div className="sim-bar">
-        <select className="scenario-select" defaultValue="">
+        <select
+          className="scenario-select"
+          value={scenarioId}
+          onChange={(event) => setScenarioId(event.target.value)}
+          disabled={!inputs || simRunning}
+        >
           <option value="">ベースライン</option>
+          {scenarioOptions.map((scenario) => (
+            <option key={scenario.id} value={scenario.id}>
+              {scenario.name}
+            </option>
+          ))}
         </select>
-        <button className="btn-sim" type="button">
-          シミュレーション実行
+        <button className="btn-sim" type="button" onClick={runScenario} disabled={!inputs || simRunning}>
+          {simRunning ? "実行中…" : "シミュレーション実行"}
         </button>
+        <span className="sim-status">{simStatus || (!inputs ? "入力データなし" : "")}</span>
       </div>
 
       <div className="sim-top-row">
