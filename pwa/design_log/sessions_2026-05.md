@@ -9145,4 +9145,94 @@ deploy.sh で計 8-9 回 (v0.1.0 → v0.3.5)、 全 Ready。 production aliased 
 
 deploy.sh で 1 回 (v0.3.6 → v0.4.0)、 Ready 2 分 21 秒。 production aliased 確認済 (= `amd-os-pwa.vercel.app`)。
 
+## 2026-05-27 11:45 — admin/payouts MSなしPJ 強制報酬確定
 
+### きっかけ
+
+まさから「MS設定してないPJで強引にadmin側で報酬額を確定できる設計を追加してほしい。admin/payout内でできるようにして」と依頼。既存の `/admin/payouts` は `billing_cycles.reward_summary_json` を正本キャッシュとして読み、`monthly_reward_payout` / `payout_notices` へ保存・通知書発行する設計だったため、新テーブルを増やさず手入力報酬を `reward_summary_json` へ入れる方針にした。
+
+### 実装
+
+- `/admin/payouts` に `MSなしPJ 強制報酬確定` パネルを追加。
+  - 入力: PJ / 稼働月 / メンバー / 支払額 / メモ
+  - `強制確定` で `PATCH /api/admin/payouts { action: "manual_reward_override" }`
+- `src/app/api/admin/payouts/route.ts`
+  - `manual_reward_override` を追加。
+  - `billing_cycles(project_id, ym)` が無ければ upsert で作成。
+  - `invoice_ym` は今開いている支払月へ固定。
+  - `reward_summary_json.members` に `source: "admin_manual_payout"` / `manualOverride: true` の member row を保存。
+  - `budget_yen` は手入力報酬合計以上にして、通常の `支払データ保存` / `PDF確認` / `支払通知書発行` に合流。
+- `src/lib/reward-summary.ts`
+  - 既存 `admin_manual_payout` を検出する helper を追加。
+  - PlanCycle が無い、milestone が無い、reward members が出ない場合でも、既存 manual override を消さずに返す。
+  - これにより `payout-reward-cache-refresh` や「報酬キャッシュ再計算」で MSなしPJ手入力報酬が消えない。
+- `src/components/admin/AdminPayoutsClient.tsx`
+  - `ManualRewardOverridePanel` と保存 flow を追加。
+- `src/lib/build-info.ts`
+  - `v0.4.4` に bump。
+
+### 正本更新
+
+- `pwa/design/SPEC_pwa.md`
+  - `/admin/payouts` の仕様に `MSなしPJの手入力報酬確定 (admin_manual_payout)` を追加。
+- `pwa/design/FEATURE_REGISTRY.md`
+  - 消してはいけない業務導線として `MSなしPJ 強制報酬確定` を登録。
+- `pwa/manual/31-admin-payouts-reward-notice-spec.md`
+  - OSマニュアル 31章に運用手順、保存先、再計算時の保持ルールを追記。
+- `pwa/src/app/(app)/manual/manual-chapters.ts`
+  - 31章 summary に `MSなしPJ手入力報酬` を追加。
+- `pwa/scripts/check_pwa_critical_ui.cjs`
+  - `MSなしPJ 強制報酬確定` / `manual_reward_override` / `admin_manual_payout` anchor を追加。
+
+### 検証 / deploy
+
+- `npm run test:critical-ui` → pass
+- `npx tsc --noEmit` → pass
+- `npm run build` → pass
+- `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` → Ready
+  - Production alias: `https://amd-os-pwa.vercel.app`
+  - Deployment URL: `https://amd-os-ps1vse7en-armada0130.vercel.app`
+  - Inspect: `https://vercel.com/armada0130/amd-os-pwa/8KpM9bgduLkKyQFjpAM4r4kJXBWS`
+- まさが本番で「ちゃんと動いた」と確認済み。
+
+### 注意
+
+作業開始時点から worktree は広範囲に dirty。今回の payout feature 以外に GAS / meeting workflow / management-score / cockpit / Atlas / VC / notification / iOS Supabase などの未コミット差分が多数ある。commit する場合は、今回の payout 関連ファイルだけを明示 stage すること。
+
+## 2026-05-27 (#89) — Cowork セッション (cowork-eimi) / 支払通知書PDF 先回り生成 (cron prebuild + 一括ボタン + 差分検出)
+
+> Cowork (Claude Desktop) 上で動いた cowork-eimi セッションのログ。次のえいみ (Codex / 別 Cowork) が読めば把握できるよう残す。
+
+### コンテキスト
+- まさから「`/admin/payouts` の支払通知書PDFを 1人ずつボタン押して GAS の生成を待つのがめちゃくちゃだるい、前もって生成しておけない？」と依頼
+- AskUserQuestion で方向性確定: ① cron で毎日深夜先回り、② issue/preview 両方一括ボタンを別途追加、③ 差分検出あり (既存pdf_url有り + total_yen一致ならスキップ)
+- 「個別ボタンも残す」「保存と同時に古い pdf_url はクリア」をセルフルールとして組み込み
+
+### 実装
+- **DB**: [migration 096](../scripts/migrations/096_payout_notices_last_generated_at.sql) で `payout_notices.last_generated_at timestamptz` 追加。差分検出 + UI「生成 N分前」表示用 (sandbox から Supabase Management API 到達不可だったため**まさ Mac から `python -X utf8 scripts/apply_ddl.py scripts/migrations/096_payout_notices_last_generated_at.sql` 必須**)
+- **コード (helper)**: [route.ts](../src/app/api/admin/payouts/route.ts) に `generateNoticePdfForMember` / `shouldRegenerateNotice` / `generateNoticePdfBulk` / `clearStalePayoutNoticePdfs` を named export。既存 `issue_notice_pdf` / `preview_notice_pdf` action もこの helper 経由にリファクタ
+- **コード (新 action)**: `bulk_issue_notice_pdf` / `bulk_preview_notice_pdf` を PATCH に追加。concurrency=3 で並列、結果サマリ `{ targetCount, generated, skipped, failed, results[] }` を返す
+- **コード (cron)**: [/api/cron/payout-notice-prebuild](../src/app/api/cron/payout-notice-prebuild/route.ts) 新設。CRON_SECRET 認証、当月+翌月の支払 ym 対象。`force=1` / `lookahead=N` パラメータ対応
+- **コード (saveAll)**: POST で「金額変わったメンバー」の `pdf_url` / `last_generated_at` を NULL クリア (sent_at 立ってる行は触らない)。次回 cron / 一括ボタンで差分検出が再生成を発火させる仕組み
+- **コード (UI)**: [AdminPayoutsClient.tsx](../src/components/admin/AdminPayoutsClient.tsx) ヘッダに「全員分PDF一括発行」「全員分PDF確認」ボタン追加、`fmtRelativeTime` で各 `NoticeBadge` に「生成 3分前」表示、失敗時は赤帯にエラー最大 8件表示
+- **infra**: [vercel.json](../vercel.json) に `0 17 * * *` (JST 02:00) で `payout-notice-prebuild` cron 登録
+- **doc**: [pwa/manual/31-admin-payouts-reward-notice-spec.md](../manual/31-admin-payouts-reward-notice-spec.md) に「先回り生成」セクション (cron / 手動 / 差分検出 / saveAll連携) 追記、[pwa/design/SPEC_pwa.md](../design/SPEC_pwa.md) cron表に追記、[check_pwa_critical_ui.cjs](../scripts/check_pwa_critical_ui.cjs) に anchor 追加
+- **build version**: v0.4.4 → v0.4.5 bump
+
+### Verified
+- `tsc --noEmit` OK
+- `eslint` warning のみ (既存の unused vars / unused disable directive)
+- `node scripts/check_pwa_critical_ui.cjs` ok (= 新 anchor 含め)
+- `next build` は sandbox の network/arch 制限で実行不可 → **まさ Mac で `bash scripts/deploy.sh` する前に migration 096 apply 必須**
+- 実機 deploy 後の動作確認は: 朝 `/admin/payouts` 開いて NoticeBadge に「生成 X分前」が並んでいれば cron 成功、ボタンが即PDF開けば差分検出スキップ成功
+
+### Cowork ↔ Codex 衝突メモ
+- 同時編集なし。`route.ts` / `AdminPayoutsClient.tsx` は Cowork が単独で触った
+- ただし `route.ts` は 1300 行超まで膨らんでいるので、次の機能追加時は lib 切り出し検討推奨
+
+### 残作業 (まさ Mac で必要)
+1. `python -X utf8 scripts/apply_ddl.py scripts/migrations/096_payout_notices_last_generated_at.sql` で DB migration 適用
+2. `python3 -X utf8 scripts/dump_schema.py` で `design/db_schema.md` 再生成 (= `last_generated_at` 列反映) + commit
+3. `bash scripts/deploy.sh` で Vercel deploy
+4. (任意) `curl -X POST "$VERCEL_URL/api/cron/payout-notice-prebuild" -H "Authorization: Bearer $CRON_SECRET" -d '{"ym":"202605","force":true}'` で初回ベイク
+5. `pwa/design/SPEC_pwa.md` の cron 表に `cron/payout-notice-prebuild` 行を追加 (= 本セッションで編集したが、worktree 全体が他の dirty 差分でカオスだったため Codex の進行中作業を巻き込まないように未 commit にした。 仕様の概要は本セッションで `pwa/manual/31-admin-payouts-reward-notice-spec.md` と `vercel.json` / `scripts/check_pwa_critical_ui.cjs` に反映済み)

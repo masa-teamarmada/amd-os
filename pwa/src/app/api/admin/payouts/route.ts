@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import {
@@ -11,6 +12,12 @@ import { syncRewardSummariesForBillingCycles } from "@/lib/reward-summary";
 export const runtime = "nodejs";
 
 const YM_RE = /^[0-9]{6}$/;
+const MANUAL_REWARD_SOURCE = "admin_manual_payout";
+const MANUAL_REWARD_VERSION = "admin_manual_override_v1";
+
+// 一括PDF生成時の並列度。GAS payoutCreatePwaNoticePdf のスループットに配慮して 3 で固定。
+// 上げすぎると Apps Script 側の同時実行制限 (project あたり 30) や freee 連携待ちで詰まる。
+const BULK_NOTICE_CONCURRENCY = 3;
 
 type BillingCycleRow = {
   project_id: string;
@@ -27,6 +34,7 @@ type BillingCycleRow = {
 };
 
 type RewardMemberRow = {
+  [key: string]: unknown;
   memberId?: unknown;
   member_id?: unknown;
   memberName?: unknown;
@@ -39,11 +47,17 @@ type RewardMemberRow = {
   bonus_pt?: unknown;
   totalPay?: unknown;
   total_pay?: unknown;
+  source?: unknown;
+  manualOverride?: unknown;
 };
 
 type RewardSummary = {
   members?: RewardMemberRow[];
   monthlyBudget65?: unknown;
+  totalPaySum?: unknown;
+  totalGrossDueYen?: unknown;
+  capBudgetYen?: unknown;
+  meta?: unknown;
 };
 
 type PayoutEntry = {
@@ -63,6 +77,38 @@ type MemberRow = {
   email?: string | null;
   is_officer?: boolean | null;
   exclude_from_payout_notice?: boolean | null;
+};
+
+type PayoutNoticeRow = {
+  member_id: string;
+  ym: string;
+  sent_at?: string | null;
+  notice_no?: string | null;
+  pdf_url?: string | null;
+  total_yen?: number | string | null;
+  last_generated_at?: string | null;
+};
+
+export type GenerateNoticeResult = {
+  memberId: string;
+  status: "generated" | "skipped" | "failed";
+  reason?:
+    | "no_member"
+    | "no_entries"
+    | "no_change"
+    | "gas_error"
+    | "db_error"
+    | "preview_always_regen"
+    | "force"
+    | "no_existing"
+    | "no_pdf_url"
+    | "preview_notice_no"
+    | "total_yen_changed";
+  noticeNo?: string;
+  pdfUrl?: string;
+  totalYen?: number;
+  lastGeneratedAt?: string;
+  error?: string;
 };
 
 type LoadTargetDataOptions = {
@@ -151,6 +197,91 @@ function normalizeStatusAfterBudgetConfirm(status: string | null) {
     return "budget_confirmed";
   }
   return current;
+}
+
+function rewardMemberId(member: RewardMemberRow): string {
+  return textValue(member.memberId) || textValue(member.member_id);
+}
+
+function mergeManualRewardMember({
+  existingSummary,
+  projectId,
+  sourceYm,
+  memberId,
+  memberName,
+  totalPayYen,
+  note,
+  currentBudgetYen,
+}: {
+  existingSummary: unknown;
+  projectId: string;
+  sourceYm: string;
+  memberId: string;
+  memberName: string;
+  totalPayYen: number;
+  note: string;
+  currentBudgetYen: number;
+}) {
+  const existingRecord = asRecord(existingSummary) ?? {};
+  const existing = asRewardSummary(existingSummary);
+  const now = new Date().toISOString();
+  const manualMember: RewardMemberRow = {
+    memberId,
+    memberName,
+    earnedPt: 0,
+    basePay: totalPayYen,
+    bonusPt: 0,
+    totalPay: totalPayYen,
+    grossDueYen: totalPayYen,
+    carryInYen: 0,
+    stockYen: 0,
+    cappedFrom: totalPayYen,
+    manualOverride: true,
+    source: MANUAL_REWARD_SOURCE,
+    note: note || undefined,
+    breakdown: [
+      {
+        msKey: "admin-manual-payout",
+        title: "admin強制確定",
+        share: 1,
+        earnedPt: 0,
+        msConsumedPt: 0,
+        payYen: totalPayYen,
+        source: MANUAL_REWARD_SOURCE,
+      },
+    ],
+  };
+  const members = [
+    ...(existing?.members ?? []).filter((member) => rewardMemberId(member) !== memberId),
+    manualMember,
+  ].sort((a, b) => {
+    const aPay = yenValue(a.totalPay ?? a.total_pay);
+    const bPay = yenValue(b.totalPay ?? b.total_pay);
+    return bPay - aPay || rewardMemberId(a).localeCompare(rewardMemberId(b));
+  });
+  const totalPaySum = members.reduce((sum, member) => sum + yenValue(member.totalPay ?? member.total_pay), 0);
+  const capBudgetYen = Math.max(currentBudgetYen, totalPaySum);
+  const metaRecord = asRecord(existingRecord.meta) ?? {};
+
+  return {
+    ...existingRecord,
+    members,
+    totalPaySum,
+    totalGrossDueYen: Math.max(totalPaySum, yenValue(existing?.totalGrossDueYen)),
+    capBudgetYen,
+    monthlyBudget65: capBudgetYen,
+    manualOverride: true,
+    manualOverrideSource: MANUAL_REWARD_SOURCE,
+    meta: {
+      ...metaRecord,
+      version: MANUAL_REWARD_VERSION,
+      source: MANUAL_REWARD_SOURCE,
+      generatedAt: now,
+      projectId,
+      ym: sourceYm,
+      planCycleId: textValue(metaRecord.planCycleId) || "manual",
+    },
+  };
 }
 
 function buildPayoutEntries(cycles: BillingCycleRow[], excludedMemberIds: Set<string> = new Set()): PayoutEntry[] {
@@ -260,6 +391,259 @@ function findMember(memberId: string, members: unknown[]): MemberRow | null {
   return ((members ?? []) as MemberRow[]).find((member) => member.member_id === memberId) ?? null;
 }
 
+function noticeNoIsPreview(noticeNo: string | null | undefined): boolean {
+  const text = textValue(noticeNo);
+  return text.startsWith("PREVIEW-");
+}
+
+/**
+ * 既存の payout_notices と「今回計算した total_yen」を比較して、
+ * GAS を再度叩いて PDF を作り直す必要があるかを判定する。
+ *
+ * - previewOnly: 確認用 PDF は毎回新規生成 (= notice_no も PREVIEW-... 固定で DB保存もしない)
+ * - force: 強制再生成
+ * - 既存 pdf_url が無い / notice_no が PREVIEW-... / total_yen が変わっている → 再生成
+ * - それ以外 → スキップ
+ */
+export function shouldRegenerateNotice(
+  existing: PayoutNoticeRow | null,
+  expectedTotalYen: number,
+  options: { previewOnly?: boolean; force?: boolean } = {}
+): { regenerate: boolean; reason: GenerateNoticeResult["reason"] } {
+  if (options.force) return { regenerate: true, reason: "force" };
+  if (options.previewOnly) return { regenerate: true, reason: "preview_always_regen" };
+  if (!existing) return { regenerate: true, reason: "no_existing" };
+  if (!textValue(existing.pdf_url)) return { regenerate: true, reason: "no_pdf_url" };
+  if (noticeNoIsPreview(existing.notice_no)) return { regenerate: true, reason: "preview_notice_no" };
+  if (yenValue(existing.total_yen) !== Math.round(expectedTotalYen)) {
+    return { regenerate: true, reason: "total_yen_changed" };
+  }
+  return { regenerate: false, reason: "no_change" };
+}
+
+/**
+ * 1 メンバー分の支払通知書 PDF を生成して payout_notices に upsert する。
+ * issue_notice_pdf / preview_notice_pdf / bulk_*_notice_pdf / cron payout-notice-prebuild
+ * の共通実装。
+ *
+ * - data は呼び出し側で 1 回 loadTargetData() した結果を渡す (= bulk で N+1 を避けるため)
+ * - previewOnly=true なら DB upsert を行わず、確認用 PDF URL だけ返す
+ * - force=false (デフォルト) の場合は差分検出でスキップ可
+ */
+export async function generateNoticePdfForMember(
+  db: SupabaseClient,
+  data: Awaited<ReturnType<typeof loadTargetData>>,
+  options: { memberId: string; previewOnly?: boolean; force?: boolean }
+): Promise<GenerateNoticeResult> {
+  const { memberId } = options;
+  const previewOnly = Boolean(options.previewOnly);
+  const force = Boolean(options.force);
+  const ym = data.ym;
+
+  const member = findMember(memberId, data.members);
+  if (!member) {
+    return {
+      memberId,
+      status: "failed",
+      reason: "no_member",
+      error: `member not found: ${memberId}`,
+    };
+  }
+
+  const entries = expectedNoticeEntriesForMember(memberId, data);
+  const totalYen = entries.reduce((sum, entry) => sum + entry.total_pay, 0);
+  if (entries.length === 0 || totalYen <= 0) {
+    return { memberId, status: "skipped", reason: "no_entries" };
+  }
+
+  const { data: existingRaw, error: existingError } = await db
+    .from("payout_notices")
+    .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen, last_generated_at")
+    .eq("member_id", memberId)
+    .eq("ym", ym)
+    .maybeSingle();
+  if (existingError) {
+    return {
+      memberId,
+      status: "failed",
+      reason: "db_error",
+      error: existingError.message,
+    };
+  }
+  const existing = (existingRaw ?? null) as PayoutNoticeRow | null;
+
+  const decision = shouldRegenerateNotice(existing, totalYen, { previewOnly, force });
+  if (!decision.regenerate && existing) {
+    return {
+      memberId,
+      status: "skipped",
+      reason: decision.reason,
+      noticeNo: textValue(existing.notice_no) || undefined,
+      pdfUrl: textValue(existing.pdf_url) || undefined,
+      totalYen: yenValue(existing.total_yen),
+      lastGeneratedAt: textValue(existing.last_generated_at) || undefined,
+    };
+  }
+
+  let noticeNo: string;
+  if (previewOnly) {
+    noticeNo = `PREVIEW-${ym}-${memberId}`;
+  } else if (existing?.notice_no && !noticeNoIsPreview(existing.notice_no)) {
+    noticeNo = textValue(existing.notice_no);
+  } else {
+    const { count, error: countError } = await db
+      .from("payout_notices")
+      .select("member_id", { count: "exact", head: true })
+      .eq("ym", ym)
+      .not("notice_no", "is", null)
+      .not("notice_no", "like", "PREVIEW-%");
+    if (countError) {
+      return {
+        memberId,
+        status: "failed",
+        reason: "db_error",
+        error: countError.message,
+      };
+    }
+    noticeNo = generatedNoticeNo(ym, (count ?? 0) + 1);
+  }
+
+  const payeeName = textValue(member.member_name) || textValue(member.code_name) || memberId;
+  const issuedAt = new Date().toISOString();
+
+  let gasResult: Record<string, unknown>;
+  try {
+    gasResult = await callGasPayoutNoticePdf({
+      ym,
+      memberId,
+      noticeNo,
+      payeeName,
+      payeeEmail: textValue(member.email),
+      totalYen,
+      issuedAt,
+      breakdown: entries.map((entry) => ({
+        projectId: entry.project_id,
+        projectName: entry.project_name,
+        sourceYm: entry.ym,
+        description: entry.description,
+        earnedPt: entry.earned_pt,
+        basePay: entry.base_pay,
+        bonusPt: entry.bonus_pt,
+        totalYen: entry.total_pay,
+      })),
+    });
+  } catch (err) {
+    return {
+      memberId,
+      status: "failed",
+      reason: "gas_error",
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  const pdfUrl = textValue(gasResult.pdfUrl) || textValue(gasResult.pdf_url);
+  if (!pdfUrl) {
+    return {
+      memberId,
+      status: "failed",
+      reason: "gas_error",
+      error: "GAS did not return pdfUrl",
+    };
+  }
+  const actualNoticeNo = textValue(gasResult.noticeNo) || textValue(gasResult.freeeNoticeNo) || noticeNo;
+  const generatedAt = new Date().toISOString();
+
+  if (!previewOnly) {
+    const { error: upsertError } = await db
+      .from("payout_notices")
+      .upsert(
+        {
+          member_id: memberId,
+          ym,
+          sent_at: existing?.sent_at ?? null,
+          notice_no: actualNoticeNo,
+          pdf_url: pdfUrl,
+          total_yen: Math.round(totalYen),
+          last_generated_at: generatedAt,
+        },
+        { onConflict: "member_id,ym" }
+      );
+    if (upsertError) {
+      return {
+        memberId,
+        status: "failed",
+        reason: "db_error",
+        error: upsertError.message,
+      };
+    }
+  }
+
+  return {
+    memberId,
+    status: "generated",
+    noticeNo: actualNoticeNo,
+    pdfUrl,
+    totalYen: Math.round(totalYen),
+    lastGeneratedAt: generatedAt,
+  };
+}
+
+/**
+ * 与えられたメンバーリストに対して、concurrency 制限付きで並列に PDF 生成を実行する。
+ * cron の payout-notice-prebuild と、admin/payouts の bulk_*_notice_pdf action の共通実装。
+ */
+export async function generateNoticePdfBulk(
+  db: SupabaseClient,
+  data: Awaited<ReturnType<typeof loadTargetData>>,
+  options: {
+    memberIds: string[];
+    previewOnly?: boolean;
+    force?: boolean;
+    concurrency?: number;
+  }
+): Promise<GenerateNoticeResult[]> {
+  const concurrency = Math.max(1, Math.min(8, options.concurrency ?? BULK_NOTICE_CONCURRENCY));
+  const queue = [...options.memberIds];
+  const results: GenerateNoticeResult[] = [];
+
+  async function worker() {
+    while (queue.length > 0) {
+      const memberId = queue.shift();
+      if (!memberId) return;
+      const result = await generateNoticePdfForMember(db, data, {
+        memberId,
+        previewOnly: options.previewOnly,
+        force: options.force,
+      });
+      results.push(result);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, options.memberIds.length) }, () => worker()));
+  return results.sort((a, b) => a.memberId.localeCompare(b.memberId));
+}
+
+/**
+ * payout_notices.pdf_url を NULL クリアする。saveAll で「total_yen が変わったメンバー」だけ
+ * クリアして、cron / bulk の差分検出を発火させる用途。
+ */
+export async function clearStalePayoutNoticePdfs(
+  db: SupabaseClient,
+  ym: string,
+  staleMemberIds: string[]
+): Promise<{ cleared: number }> {
+  if (staleMemberIds.length === 0) return { cleared: 0 };
+  const { data, error } = await db
+    .from("payout_notices")
+    .update({ pdf_url: null, last_generated_at: null })
+    .eq("ym", ym)
+    .in("member_id", staleMemberIds)
+    .is("sent_at", null)
+    .select("member_id");
+  if (error) throw error;
+  return { cleared: data?.length ?? 0 };
+}
+
 async function callGasPayoutNoticePdf(payload: Record<string, unknown>) {
   const baseUrl = process.env.NEXT_PUBLIC_GAS_WEBAPP_URL || "";
   const apiKey = process.env.NEXT_PUBLIC_GAS_API_KEY || process.env.CRON_SECRET || "";
@@ -285,7 +669,7 @@ async function callGasPayoutNoticePdf(payload: Record<string, unknown>) {
   return result;
 }
 
-async function loadTargetData(ym: string, options: LoadTargetDataOptions = {}) {
+export async function loadTargetData(ym: string, options: LoadTargetDataOptions = {}) {
   const db = createAdminClient();
   const cycleSelect =
     "project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, invoice_ym, reward_summary_json, payout_notice_uploaded_at, payment_confirmed_at, reward_paid_at";
@@ -299,7 +683,7 @@ async function loadTargetData(ym: string, options: LoadTargetDataOptions = {}) {
       .order("code_name"),
     db
       .from("projects")
-      .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day")
+      .select("project_id, project_name, client_name, status, fee_type, fee_amount, freee_partner_id, payment_due_rule, payment_due_day")
       .order("project_name"),
     db
       .from("billing_cycles")
@@ -489,77 +873,20 @@ export async function PATCH(req: NextRequest) {
     try {
       const db = createAdminClient();
       const data = await loadTargetData(ym);
-      const member = findMember(memberId, data.members);
-      if (!member) {
-        return NextResponse.json({ ok: false, error: `member not found: ${memberId}` }, { status: 404 });
-      }
-
-      const entries = expectedNoticeEntriesForMember(memberId, data);
-      const totalYen = entries.reduce((sum, entry) => sum + entry.total_pay, 0);
-      if (entries.length === 0 || totalYen <= 0) {
-        return NextResponse.json({ ok: false, error: "no payout entries for notice" }, { status: 409 });
-      }
-
-      const { data: existing, error: existingError } = await db
-        .from("payout_notices")
-        .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen")
-        .eq("member_id", memberId)
-        .eq("ym", ym)
-        .maybeSingle();
-      if (existingError) throw existingError;
-
-      const { count, error: countError } = await db
-        .from("payout_notices")
-        .select("member_id", { count: "exact", head: true })
-        .eq("ym", ym)
-        .not("notice_no", "is", null);
-      if (countError) throw countError;
-
-      const noticeNo = previewOnly
-        ? `PREVIEW-${ym}-${memberId}`
-        : textValue(existing?.notice_no) || generatedNoticeNo(ym, (count ?? 0) + 1);
-      const payeeName = textValue(member.member_name) || textValue(member.code_name) || memberId;
-      const issuedAt = new Date().toISOString();
-
-      const gasResult = await callGasPayoutNoticePdf({
-        ym,
+      // 個別ボタン経由は常に force=true (= 既存PDFがあっても明示再発行できるように)。
+      // 差分検出スキップが必要なケースは bulk / cron 側で処理する。
+      const result = await generateNoticePdfForMember(db, data, {
         memberId,
-        noticeNo,
-        payeeName,
-        payeeEmail: textValue(member.email),
-        totalYen,
-        issuedAt,
-        breakdown: entries.map((entry) => ({
-          projectId: entry.project_id,
-          projectName: entry.project_name,
-          sourceYm: entry.ym,
-          description: entry.description,
-          earnedPt: entry.earned_pt,
-          basePay: entry.base_pay,
-          bonusPt: entry.bonus_pt,
-          totalYen: entry.total_pay,
-        })),
+        previewOnly,
+        force: true,
       });
 
-      const pdfUrl = textValue(gasResult.pdfUrl) || textValue(gasResult.pdf_url);
-      if (!pdfUrl) throw new Error("GAS did not return pdfUrl");
-      const actualNoticeNo = textValue(gasResult.noticeNo) || textValue(gasResult.freeeNoticeNo) || noticeNo;
-
-      if (!previewOnly) {
-        const { error: upsertError } = await db
-          .from("payout_notices")
-          .upsert(
-            {
-              member_id: memberId,
-              ym,
-              sent_at: existing?.sent_at ?? null,
-              notice_no: actualNoticeNo,
-              pdf_url: pdfUrl,
-              total_yen: Math.round(totalYen),
-            },
-            { onConflict: "member_id,ym" }
-          );
-        if (upsertError) throw upsertError;
+      if (result.status === "failed") {
+        const code = result.reason === "no_member" ? 404 : 500;
+        return NextResponse.json({ ok: false, error: result.error || "notice pdf failed" }, { status: code });
+      }
+      if (result.status === "skipped" && result.reason === "no_entries") {
+        return NextResponse.json({ ok: false, error: "no payout entries for notice" }, { status: 409 });
       }
 
       const after = await loadTargetData(ym);
@@ -568,15 +895,195 @@ export async function PATCH(req: NextRequest) {
         previewOnly,
         issuedNotice: {
           memberId,
-          noticeNo: actualNoticeNo,
-          pdfUrl,
-          totalYen: Math.round(totalYen),
-          issuedAtJst: textValue(gasResult.issuedAtJst),
+          noticeNo: result.noticeNo,
+          pdfUrl: result.pdfUrl,
+          totalYen: result.totalYen,
+          lastGeneratedAt: result.lastGeneratedAt,
         },
         ...after,
       });
     } catch (err) {
       console.error("[admin payouts PATCH issue_notice_pdf]", err);
+      return NextResponse.json(
+        { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 }
+      );
+    }
+  }
+
+  if (body.action === "bulk_issue_notice_pdf" || body.action === "bulk_preview_notice_pdf") {
+    const previewOnly = body.action === "bulk_preview_notice_pdf";
+    const force = boolValue(body.force);
+    const onlyMemberIds = Array.isArray(body.memberIds)
+      ? (body.memberIds as unknown[]).map((value) => textValue(value)).filter((id) => !!id)
+      : null;
+
+    if (!ym) {
+      return NextResponse.json({ ok: false, error: "ym is required" }, { status: 400 });
+    }
+
+    try {
+      const db = createAdminClient();
+      const data = await loadTargetData(ym);
+
+      // 当月の支払対象メンバーを expectedEntries から抽出 (= aggregateNotices と同じロジック)。
+      // 役員 / exclude_from_payout_notice を除外し、support_pay > 0 のメンバーだけ。
+      const excludedMemberIds = new Set(
+        (data.members as MemberRow[])
+          .filter((member) => member.exclude_from_payout_notice || member.is_officer)
+          .map((member) => member.member_id)
+      );
+      const totalByMember = new Map<string, number>();
+      for (const entry of data.expectedEntries) {
+        if (excludedMemberIds.has(entry.member_id)) continue;
+        totalByMember.set(entry.member_id, (totalByMember.get(entry.member_id) ?? 0) + entry.total_pay);
+      }
+      let targetMemberIds = [...totalByMember.entries()]
+        .filter(([, total]) => total > 0)
+        .map(([memberId]) => memberId);
+      if (onlyMemberIds && onlyMemberIds.length > 0) {
+        const allowSet = new Set(onlyMemberIds);
+        targetMemberIds = targetMemberIds.filter((memberId) => allowSet.has(memberId));
+      }
+
+      if (targetMemberIds.length === 0) {
+        const after = await loadTargetData(ym);
+        return NextResponse.json({
+          ok: true,
+          previewOnly,
+          bulkResult: {
+            targetCount: 0,
+            generated: 0,
+            skipped: 0,
+            failed: 0,
+            results: [],
+          },
+          ...after,
+        });
+      }
+
+      const results = await generateNoticePdfBulk(db, data, {
+        memberIds: targetMemberIds,
+        previewOnly,
+        force,
+        concurrency: BULK_NOTICE_CONCURRENCY,
+      });
+
+      const summary = {
+        targetCount: targetMemberIds.length,
+        generated: results.filter((r) => r.status === "generated").length,
+        skipped: results.filter((r) => r.status === "skipped").length,
+        failed: results.filter((r) => r.status === "failed").length,
+        results,
+      };
+
+      const after = await loadTargetData(ym);
+      return NextResponse.json({
+        ok: true,
+        previewOnly,
+        bulkResult: summary,
+        ...after,
+      });
+    } catch (err) {
+      console.error("[admin payouts PATCH bulk_notice_pdf]", err);
+      return NextResponse.json(
+        { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 }
+      );
+    }
+  }
+
+  if (body.action === "manual_reward_override") {
+    const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
+    const sourceYm = cleanYm(typeof body.sourceYm === "string" ? body.sourceYm : null) ?? ym;
+    const memberId = textValue(body.memberId);
+    const totalPayYen = yenValue(body.totalPayYen);
+    const note = textValue(body.note);
+    if (!ym || !sourceYm || !projectId || !memberId || totalPayYen <= 0) {
+      return NextResponse.json(
+        { ok: false, error: "ym, sourceYm, projectId, memberId and positive totalPayYen are required" },
+        { status: 400 }
+      );
+    }
+
+    try {
+      const db = createAdminClient();
+      const [projectRes, memberRes, cycleRes] = await Promise.all([
+        db
+          .from("projects")
+          .select("project_id, project_name, client_name, status, fee_type, fee_amount, freee_partner_id, payment_due_rule, payment_due_day")
+          .eq("project_id", projectId)
+          .maybeSingle(),
+        db
+          .from("members")
+          .select("member_id, code_name, member_name, email, status, is_officer, exclude_from_payout_notice")
+          .eq("member_id", memberId)
+          .maybeSingle(),
+        db
+          .from("billing_cycles")
+          .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, invoice_ym, reward_summary_json")
+          .eq("project_id", projectId)
+          .eq("ym", sourceYm)
+          .maybeSingle(),
+      ]);
+      if (projectRes.error) throw projectRes.error;
+      if (memberRes.error) throw memberRes.error;
+      if (cycleRes.error) throw cycleRes.error;
+      if (!projectRes.data) {
+        return NextResponse.json({ ok: false, error: `project not found: ${projectId}` }, { status: 404 });
+      }
+      if (!memberRes.data) {
+        return NextResponse.json({ ok: false, error: `member not found: ${memberId}` }, { status: 404 });
+      }
+
+      const existingCycle = (cycleRes.data ?? null) as BillingCycleRow | null;
+      const currentBudgetYen = yenValue(existingCycle?.budget_yen);
+      const member = memberRes.data as MemberRow;
+      const memberName = textValue(member.code_name) || textValue(member.member_name) || memberId;
+      const rewardSummary = mergeManualRewardMember({
+        existingSummary: existingCycle?.reward_summary_json ?? null,
+        projectId,
+        sourceYm,
+        memberId,
+        memberName,
+        totalPayYen,
+        note,
+        currentBudgetYen,
+      });
+      const totalPaySum = yenValue(rewardSummary.totalPaySum);
+      const now = new Date().toISOString();
+
+      const { error: upsertError } = await db
+        .from("billing_cycles")
+        .upsert(
+          {
+            project_id: projectId,
+            ym: sourceYm,
+            invoice_ym: ym,
+            status: normalizeStatusAfterBudgetConfirm(existingCycle?.status ?? null),
+            budget_yen: Math.max(currentBudgetYen, totalPaySum),
+            reward_summary_json: rewardSummary,
+            budget_confirmed_at: existingCycle?.budget_yen ? undefined : now,
+            budget_confirmed_by: existingCycle?.budget_yen ? undefined : auth.user.email,
+            updated_at: now,
+          },
+          { onConflict: "project_id,ym" }
+        );
+      if (upsertError) throw upsertError;
+
+      const after = await loadTargetData(ym);
+      return NextResponse.json({
+        ok: true,
+        manualRewardOverride: {
+          projectId,
+          sourceYm,
+          memberId,
+          totalPayYen,
+        },
+        ...after,
+      });
+    } catch (err) {
+      console.error("[admin payouts PATCH manual_reward_override]", err);
       return NextResponse.json(
         { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
         { status: 500 }
@@ -591,6 +1098,7 @@ export async function PATCH(req: NextRequest) {
     : [];
   const clientAmountYen = yenValue(body.clientAmountYen);
   const bufferYen = Math.max(0, yenValue(body.bufferYen));
+  const extraPayoutBudgetYen = Math.max(0, yenValue(body.extraPayoutBudgetYen));
 
   if (!ym || !invoiceYm || !projectId || sourceYms.length === 0) {
     return NextResponse.json(
@@ -612,7 +1120,7 @@ export async function PATCH(req: NextRequest) {
         .in("ym", sourceYms),
       db
         .from("projects")
-        .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day")
+        .select("project_id, project_name, client_name, status, fee_type, fee_amount, freee_partner_id, payment_due_rule, payment_due_day")
         .eq("project_id", projectId)
         .maybeSingle(),
       db
@@ -650,25 +1158,40 @@ export async function PATCH(req: NextRequest) {
     }
 
     const totalPayout = cycles.reduce((sum, cycle) => sum + (payoutByYm.get(cycle.ym) ?? 0), 0);
-    const pjBudgetTotal = Math.max(0, Math.round(clientAmountYen * 0.65) - bufferYen);
+    const basePjBudgetTotal = Math.max(0, Math.round(clientAmountYen * 0.65) - bufferYen);
+    const pjBudgetTotal = basePjBudgetTotal + extraPayoutBudgetYen;
     const weights = cycles.map((cycle) => {
       if (totalPayout > 0) return (payoutByYm.get(cycle.ym) ?? 0) / totalPayout;
       return 1 / cycles.length;
     });
 
-    let allocatedBudget = 0;
+    let allocatedBaseBudget = 0;
+    let allocatedExtraPayoutBudget = 0;
     let allocatedReported = 0;
     let allocatedBuffer = 0;
     const now = new Date().toISOString();
-    const updatedCycles: Array<{ projectId: string; ym: string; budgetYen: number; reportedAmountYen: number; bufferYen: number }> = [];
+    const updatedCycles: Array<{
+      projectId: string;
+      ym: string;
+      budgetYen: number;
+      baseBudgetYen: number;
+      extraPayoutBudgetYen: number;
+      reportedAmountYen: number;
+      bufferYen: number;
+    }> = [];
 
     for (let i = 0; i < cycles.length; i += 1) {
       const cycle = cycles[i];
       const isLast = i === cycles.length - 1;
-      const budgetYen = isLast ? pjBudgetTotal - allocatedBudget : Math.round(pjBudgetTotal * weights[i]);
+      const baseBudgetYen = isLast ? basePjBudgetTotal - allocatedBaseBudget : Math.round(basePjBudgetTotal * weights[i]);
+      const extraBudgetYen = isLast
+        ? extraPayoutBudgetYen - allocatedExtraPayoutBudget
+        : Math.round(extraPayoutBudgetYen * weights[i]);
+      const budgetYen = baseBudgetYen + extraBudgetYen;
       const reportedAmountYen = isLast ? clientAmountYen - allocatedReported : Math.round(clientAmountYen * weights[i]);
       const cycleBufferYen = isLast ? bufferYen - allocatedBuffer : Math.round(bufferYen * weights[i]);
-      allocatedBudget += budgetYen;
+      allocatedBaseBudget += baseBudgetYen;
+      allocatedExtraPayoutBudget += extraBudgetYen;
       allocatedReported += reportedAmountYen;
       allocatedBuffer += cycleBufferYen;
 
@@ -690,6 +1213,8 @@ export async function PATCH(req: NextRequest) {
         projectId: cycle.project_id,
         ym: cycle.ym,
         budgetYen,
+        baseBudgetYen,
+        extraPayoutBudgetYen: extraBudgetYen,
         reportedAmountYen,
         bufferYen: cycleBufferYen,
       });
@@ -699,8 +1224,10 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       clientAmountYen,
+      basePjBudgetTotal,
       pjBudgetTotal,
       bufferYen,
+      extraPayoutBudgetYen,
       updatedCycles,
       ...after,
     });
@@ -777,6 +1304,25 @@ export async function POST(req: NextRequest) {
       if (error) throw error;
     }
 
+    // 金額が変わったメンバーの古い pdf_url / last_generated_at を NULL クリアして、
+    // 次回 cron payout-notice-prebuild または UI 一括発行で差分検出が再生成を発火するようにする。
+    // ただし sent_at が立っている (= 既にメンバーに送付済) 行は触らない (= 履歴保護)。
+    const beforeNoticeByMember = new Map<string, number>();
+    for (const row of (before.notices ?? []) as Array<{ member_id: string; total_yen: number | string | null }>) {
+      beforeNoticeByMember.set(row.member_id, yenValue(row.total_yen));
+    }
+    const staleMemberIds = notices
+      .filter((notice) => {
+        const previous = beforeNoticeByMember.get(notice.member_id);
+        return typeof previous === "number" && previous !== notice.total_yen;
+      })
+      .map((notice) => notice.member_id);
+    let clearedStaleNoticePdfs = 0;
+    if (staleMemberIds.length > 0) {
+      const cleared = await clearStalePayoutNoticePdfs(db, ym, staleMemberIds);
+      clearedStaleNoticePdfs = cleared.cleared;
+    }
+
     if (notices.length > 0) {
       const { error } = await db
         .from("payout_notices")
@@ -789,6 +1335,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       savedPayoutRows: entries.length,
       savedNoticeRows: notices.length,
+      clearedStaleNoticePdfs,
       ...after,
     });
   } catch (err) {

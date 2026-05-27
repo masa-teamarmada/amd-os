@@ -64,6 +64,17 @@ flowchart TD
 
 通常 GET は **読むだけ**。 admin の保存系処理または手動ボタンだけが再計算を走らせる (= まさ #過去 教訓)。
 
+### MSなしPJ 強制報酬確定
+
+MS / PlanCycle が未設定の PJ でも、 `/admin/payouts` の `MSなしPJ 強制報酬確定` から PJ・稼働月・メンバー・支払額を指定して報酬明細に入れられる。
+
+- 保存先: `billing_cycles.reward_summary_json`
+- source: `admin_manual_payout`
+- 対象 cycle が無ければ `billing_cycles(project_id, ym)` を作成する
+- `invoice_ym` は今開いている支払月へ固定する
+- `budget_yen` は手入力報酬合計以上にして、通常の `支払データ保存` / `PDF確認` / `支払通知書発行` に合流する
+- `payout-reward-cache-refresh` は MS なし / reward members なしの場合、既存の `admin_manual_payout` を消さずに保持する
+
 ### 2. メンバー別支払額確認
 
 メンバー行 × PJ 列のマトリクス。 各セルに per-PJ の per-member 支払額。 行末に各メンバーの月次合計、 PJ 列末に各 PJ の月次合計。
@@ -83,7 +94,7 @@ sequenceDiagram
   GAS->>PDF: HTML → PDF (= 2026-04 改善版)
   PDF-->>GAS: PDF URL
   GAS-->>PWA: pdf_url 返却
-  PWA->>DB: payout_notices.pdf_url / total_yen set
+  PWA->>DB: payout_notices.pdf_url / total_yen / last_generated_at set
   Admin->>PWA: 「送付済化」クリック
   PWA->>DB: payout_notices.sent_at = now()
 ```
@@ -94,9 +105,10 @@ sequenceDiagram
 |---|---|
 | `member_id` / `ym` | composite PK |
 | `sent_at` | 送付済化時刻 (= NULL なら未送付) |
-| `notice_no` | `PN-YYYYMM-NNN` (= 月内 seq) |
+| `notice_no` | `PN-YYYYMM-NNN` (= 月内 seq)。preview PDF は `PREVIEW-YYYYMM-{memberId}` |
 | `pdf_url` | Drive / Storage PDF URL |
 | `total_yen` | 当月支払総額 (= 内訳ではなく集計値) |
+| `last_generated_at` | 最終 PDF 生成時刻。cron prebuild / 一括発行 / 個別発行で更新 (= 差分検出 + UI 表示用) |
 
 ### `payout_agreement` 列
 
@@ -144,6 +156,59 @@ GAS rv2 の最終計算結果を per-PJ × per-ym × per-member で保存する 
 ### 確認用 PDF
 
 `/admin/payouts` の「PDF 確認」ボタンは、 確定前でも PDF 生成可能。 確認用 PDF は **`payout_notices` に保存しない** (= 番号採番もしない)。 まさが「これでよさそう」と見た上で「通知書発行」を押す。
+
+### 先回り生成 (= 2026-05-27 追加, まさ #バルクPDF 確定)
+
+メンバー 1 人ずつ「PDF 確認」「支払通知書発行」を押して GAS の PDF 生成完了を待つのが遅いので、 **裏で先回り生成** する仕組みが入っている。
+
+#### 自動: cron `payout-notice-prebuild`
+
+- vercel cron で **毎日 02:00 JST (= `0 17 * * *` UTC)** に起動
+- 対象: 当月 + 翌月の 2 支払 ym
+- 各 ym で、 `exclude_from_payout_notice=false` かつ `is_officer=false` で支払額 > 0 のメンバー全員を対象に並列生成 (= concurrency 3)
+- **差分検出**: 既に `payout_notices.pdf_url` があり、 かつ `total_yen` が一致しているメンバーは **スキップ** (= GAS を叩かない)
+- 差分があるメンバーのみ GAS に投げて、 `pdf_url` / `notice_no` / `total_yen` / `last_generated_at` を更新
+- 朝、 まさが `/admin/payouts` を開いた時点でほとんどのメンバーの PDF が既に存在する状態にする
+
+手動で叩く時:
+
+```bash
+curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{ "ym": "202605", "force": false }'
+```
+
+`force: true` で差分検出を無視して全員強制再生成。`lookahead: N` で当月+N ヶ月先まで対象を広げる (デフォルト 1)。
+
+#### 手動: `/admin/payouts` の「全員分PDF一括発行」「全員分PDF確認」
+
+ヘッダのボタンから即時で全員分を並列生成。
+
+- 「全員分PDF一括発行」: `bulk_issue_notice_pdf` action。 差分検出あり、 本番 notice_no で `payout_notices` に保存。 **支払データ保存済の場合だけ active** になる
+- 「全員分PDF確認」: `bulk_preview_notice_pdf` action。 確認用 (= `notice_no` は `PREVIEW-...` 固定で DB 保存しない)。 保存前でも押せる
+
+レスポンスには `{ targetCount, generated, skipped, failed, results[] }` が入る。 失敗があったメンバーは UI 上部の赤い帯に最大 8 件表示される。
+
+#### 差分検出のロジック (= `shouldRegenerateNotice`)
+
+| 状況 | 再生成する？ |
+|---|---|
+| `previewOnly=true` | はい (= preview は毎回新規生成、 DB保存なし) |
+| `force=true` | はい |
+| 既存行なし | はい |
+| `pdf_url` が NULL / 空 | はい |
+| `notice_no` が `PREVIEW-...` | はい (= 仮 PDF を本番化) |
+| `total_yen` が一致しない | はい (= 金額が変わった) |
+| 上記すべて該当なし | **いいえ** (= スキップして既存 `pdf_url` を再利用) |
+
+#### `saveAll` (= 「支払データ保存」) との連携
+
+`saveAll` 内で、 既存 `payout_notices.total_yen` と新計算値を比較し、 **金額が変わったメンバーは `pdf_url` / `last_generated_at` を NULL クリア**する (`sent_at` が立っている行は触らない)。 これで次回 cron / 一括発行で差分検出が再生成を発火させる仕組み。
+
+#### UI
+
+`NoticeBadge` 内に最終生成時刻を相対表示 (= 「生成 3分前」「生成 15時間前」)。 まさが朝開いた時に「最新の PDF か古いキャッシュか」を即判別できる。
 
 ### golden test
 

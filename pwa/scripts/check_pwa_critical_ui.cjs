@@ -79,22 +79,45 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "stockYen",
   "openMonthlyModal",
   "報酬キャッシュ再計算",
+  "MSなしPJ 強制報酬確定",
+  "admin_manual_payout",
   "支払通知書発行",
   "PDF確認",
   "送付",
   "PayoutNoticeActions",
+  "全員分PDF一括発行",
+  "全員分PDF確認",
+  "bulk_issue_notice_pdf",
+  "bulk_preview_notice_pdf",
+  "fmtRelativeTime",
 ]);
 
 expectIncludes("src/app/api/admin/payouts/route.ts", [
   "refreshRewards",
   "issue_notice_pdf",
   "preview_notice_pdf",
+  "manual_reward_override",
+  "admin_manual_payout",
   "payoutCreatePwaNoticePdf",
   "update_notice",
   "payout_notices",
   "notice_no",
   "pdf_url",
   "sent_at",
+  "bulk_issue_notice_pdf",
+  "bulk_preview_notice_pdf",
+  "generateNoticePdfForMember",
+  "generateNoticePdfBulk",
+  "shouldRegenerateNotice",
+  "clearStalePayoutNoticePdfs",
+  "last_generated_at",
+]);
+
+expectIncludes("src/app/api/cron/payout-notice-prebuild/route.ts", [
+  "payout-notice-prebuild",
+  "generateNoticePdfBulk",
+  "loadTargetData",
+  "CRON_SECRET",
 ]);
 
 expectIncludes("../gas/064_PayoutFreeeNotice.js", [
@@ -132,12 +155,15 @@ expectIncludes("src/app/api/cron/payout-reward-cache-refresh/route.ts", [
 expectIncludes("vercel.json", [
   "/api/cron/payout-reward-cache-refresh",
   "5 18 * * *",
+  "/api/cron/payout-notice-prebuild",
+  "0 17 * * *",
 ]);
 
 expectIncludes("design/FEATURE_REGISTRY.md", [
   "/admin/payouts",
   "支払通知書発行",
   "報酬キャッシュ",
+  "MSなしPJ 強制報酬確定",
   "縦型PJ収支表",
 ]);
 
@@ -186,11 +212,16 @@ expectIncludes("src/components/cockpit/CockpitManagementScoreHero.tsx", [
 // MTGサマリ UI: フレーム廃止 + dialogue ラベル + source link
 expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   "isDialogueMeeting",
-  "2人で出した提案（チームへの相談）",
+  "チームへの提案案",
   "DialogueMeetingBody",
   "narrativeMd",
   "TopicList",
   "NarrativeSection",
+]);
+expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
+  "params.set(\"meeting\", meetingId)",
+  "params.delete(\"ym\")",
+  "router.replace(meetingUrl(meeting.meetingId), { scroll: false })",
 ]);
 // dialogue narrative の本文ラベルは半角SPなし「2人」で書く (#2-2nd まさ 2026-05-24)
 expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
@@ -206,7 +237,7 @@ expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
 expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
   "isDialogue",
   "sourceUrl",
-  "まさえい",
+  "提案整理",
   // モーダル close 時に URL から ?meeting= を消す (#10 まさ 2026-05-24)
   "closeSelectedMeeting",
   "autoOpenedRef",
@@ -241,16 +272,15 @@ expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   "まさ × えいみ経営会議",
 ]);
 expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
-  "まさえいMTG",
+  "提案前の論点整理セッション",
 ]);
 expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
-  "まさえいMTG",
-  "経営会議という表現は",
+  "提案前の論点整理セッション",
   "U+2715 MULTIPLICATION X",
   "事業戦略上そろそろ方針を決めておきたい",
 ]);
 expectIncludes("src/app/api/dialogue-meeting/route.ts", [
-  "まさえいMTG",
+  "提案前の論点整理セッション",
 ]);
 
 // dialogue narrative API
@@ -258,11 +288,11 @@ expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
   "narrative_md",
   "project_meeting_summaries",
   "claude-sonnet-4-6",
-  "2人で出した提案（チームへの相談）",
+  "チームへの提案案",
 ]);
 
 expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [
-  "経営・事業シグナル",
+  "経営ハイライト",
   "sourceRefs",
 ]);
 
@@ -286,7 +316,7 @@ expectIncludes("scripts/ms_progress_review_tool.mjs", [
 
 expectIncludes("design/FEATURE_REGISTRY.md", [
   "/project/[projectId]/cockpit",
-  "経営・事業シグナル",
+  "経営ハイライト",
   "project_strategy_signals",
 ]);
 
@@ -385,7 +415,7 @@ expectIncludes("src/app/api/notifications/feedback/route.ts", [
   "founding_members",
   "activated member_knowledge",
   "activated project_knowledge",
-  "activated protocols",
+  "confirmed protocols",
   "activated founding_members",
 ]);
 
