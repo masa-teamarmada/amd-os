@@ -768,10 +768,16 @@ export async function collectManagementScoreRawData(
   const runId = String(run.id);
 
   try {
-    const internal = await collectInternalSignals(supabase, ym);
-    counts.internal = internal.length;
-    await insertSignals(supabase, runId, internal);
-
+    // 🔧 2026-05-27 バグ修正: freee 取り込みを **internal collect より先に** 走らせる必要がある。
+    //
+    // 旧設計: collectInternalSignals → importFreeeActuals の順だと、 internal 内で fetch する
+    // `company_budget_actual_monthly` (= VIEW) が `company_actual_monthly` を JOIN してるため、
+    // freee actual がまだ company_actual_monthly に未投入の状態で view を fetch してしまい、
+    // 売上高 ¥2.72M などの freee 由来 actual 行が raw_signals に乗らないバグがあった
+    // (= まさが freee で売上仕訳しても evidence で「実績 0 円」 と表示される事故、 2026-05-27)。
+    //
+    // 修正: freee → internal の順にして、 internal が view fetch するとき既に
+    // company_actual_monthly に freee actual が入ってる状態にする。
     if (options.includeFreee) {
       try {
         await supabase
@@ -792,6 +798,10 @@ export async function collectManagementScoreRawData(
         counts.freee = 0;
       }
     }
+
+    const internal = await collectInternalSignals(supabase, ym);
+    counts.internal = internal.length;
+    await insertSignals(supabase, runId, internal);
 
     const status: RunStatus = errors.length ? "partial" : "success";
     await supabase

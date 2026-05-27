@@ -5,6 +5,33 @@
 
 ---
 
+### [score/freee-fetch-order] freee 売上仕訳が evidence に「実績 0 円」 表示される (= 2026-05-27)
+
+- **発見日**: 2026-05-27
+- **状態**: ✅ 修正済 (= v0.4.6 deploy 済)
+- **症状**: まさが freee で売上仕訳を入れたのに、 `/management-score` の evidence で「売上: 予算 ¥1.82M に対し実績 0円 (下振れ 100%) — 注意」 と表示される。 SQL で `company_actual_monthly` を直接見ると freee 由来の「売上高 ¥2.72M」 row はちゃんと入ってる
+- **原因 (1)**: `company_budget_actual_monthly` は **VIEW** で、 定義が `company_budget_monthly b FULL JOIN company_actual_monthly a ON (... AND b.account_key = a.account_key)`。 予算側 row は `account_key=空`、 freee actual 側 row は `account_key='売上高'` で、 JOIN 条件で **マッチせず FULL JOIN で 2 行に分裂**。 同じ category='revenue' でも別 row になる
+- **原因 (2)**: より深いバグ - `raw-data.ts collectManagementScoreRawData()` の処理順が `collectInternalSignals` (= VIEW fetch) → `importFreeeActuals` (= `company_actual_monthly` insert) の順だったため、 VIEW fetch 時点で freee actual がまだ DB に投入されておらず、 売上高 row が raw_signals にすら乗らなかった
+- **対応内容**:
+  - [`raw-data.ts`](src/lib/management-score/raw-data.ts): `importFreeeActuals` を `collectInternalSignals` の **前** に動かす。 これで VIEW fetch 時に既に `company_actual_monthly` に freee actual が入ってる状態にする
+  - [`calculate.ts`](src/lib/management-score/calculate.ts): `aggregateBudgetActualByCategory()` helper を追加し、 `scoreFinance()` で budget_actual_view 由来 signals を `(scope, project_id, category)` 単位で SUM 集約してから evidence 化。 これで VIEW 分裂分も category 単位で正しく集計される (= 原因 1 への安全網)
+  - v0.4.6 deploy 済、 過去 5 ヶ月再計算 → 202605 evidence で「売上: 予算 ¥1.82M → 実績 ¥2.72M (上振れ 89.7万円) — 好調」 が正しく表示されることを確認
+- **再発防止策**:
+  - **VIEW を fetch する処理の前に、 その VIEW の元テーブル (= component table) を更新する処理を完了させる**。 Promise.all で並列実行する場合は順序が保証されないので、 update → fetch の依存関係を明示する
+  - 「FULL JOIN ON multiple keys」 の VIEW は片方 NULL 行が発生しやすいので、 calculate 側で集約 helper を必ず通す
+  - freee revenue=0 のような「実績 0 円」 表示を見たら、 まず `amd_management_score_raw_signals` 直接 SQL で「該当 row が raw_signals 段階で存在するか」 を確認 (= calculate 以降の問題か raw-data 以前の問題かを切り分け)
+
+### [score/freee-pj-mapping] PJ売上 (project_revenue) は依然 freee actual と紐付かない
+
+- **発見日**: 2026-05-27
+- **状態**: ⚠️ 既知の制約 (= 仕様レベルの議論が必要)
+- **症状**: 202605 evidence で「PJ売上: 予算 ¥1.82M → 実績 0円 (下振れ 100%)」 と表示される一方、 company scope の「売上」 は freee と紐付いて好調表示される
+- **原因**: freee の trial_pl レスポンスは仕訳に紐付く partner_id / 部門コードを持つが、 OS 側に **`freee_partner_id → project_id` mapping** が存在しない。 結果、 freee 由来 actual は全部 `scope='company'` の `category='revenue'` に集約され、 `scope='project'` 別の `project_revenue` には流れない
+- **対応案** (= 未着手):
+  1. freee 側運用で partner / 部門 / 摘要に PJ ID を入れる
+  2. OS 側に `project_partners.freee_partner_id` 列を追加し、 raw-data で mapping して project scope に振り分け
+- **再発防止策**: 別タスクとしてマニュアル 29 章の「既知ギャップ表」 に明記し、 PJ別売上が必要な意思決定をする前に対応する
+
 ### [pwa/monthly-routine] CTB の月次ルーティン順序が章・画面ごとにズレていた
 
 - **発見日**: 2026-05-25

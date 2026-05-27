@@ -9236,3 +9236,66 @@ deploy.sh で 1 回 (v0.3.6 → v0.4.0)、 Ready 2 分 21 秒。 production alia
 3. `bash scripts/deploy.sh` で Vercel deploy
 4. (任意) `curl -X POST "$VERCEL_URL/api/cron/payout-notice-prebuild" -H "Authorization: Bearer $CRON_SECRET" -d '{"ym":"202605","force":true}'` で初回ベイク
 5. `pwa/design/SPEC_pwa.md` の cron 表に `cron/payout-notice-prebuild` 行を追加 (= 本セッションで編集したが、worktree 全体が他の dirty 差分でカオスだったため Codex の進行中作業を巻き込まないように未 commit にした。 仕様の概要は本セッションで `pwa/manual/31-admin-payouts-reward-notice-spec.md` と `vercel.json` / `scripts/check_pwa_critical_ui.cjs` に反映済み)
+
+## 2026-05-27 続き 2 (= freee 売上反映 + budget_actual_view 順序バグ修正、 v0.4.6)
+
+まさが「実績 0 円のままだけど、 freee からデータは取り出せてる？」 と質問 → freee 連携を調査 → 取り込み自体は OK、 ただ「売上高」 ノードが返ってきてなかったのが原因 → まさが freee 側で売上仕訳を数件入れた → これを反映するための処理。
+
+### Phase 15 (= freee fetch 過去 5 ヶ月手動キック)
+
+- `curl /api/cron/management-score-raw-data?ym=YYYYMM&includeFreee=1` × 5 ヶ月 (= 202601〜202605) 全 success
+- `company_actual_monthly` に売上高 row が初めて入った:
+  - 202605: ¥2,720,000
+  - 202604: ¥2,379,635
+  - 202603: ¥500,000
+  - 計 ¥5,599,635
+
+### Phase 16 (= budget_actual_view 行分裂バグ発覚)
+
+calculate 後 evidence を SQL で確認 → **依然「売上: 予算 182.3万円 / 実績 0円」** と表示。 freee の売上が evidence に反映されてない。
+
+調査:
+- `company_budget_actual_monthly` は **VIEW** (= BASE TABLE ではない)
+- VIEW 定義: `company_budget_monthly b FULL JOIN company_actual_monthly a ON (b.ym=a.ym AND b.scope=a.scope AND b.project_key=a.project_key AND b.category=a.category AND b.account_key=a.account_key)`
+- JOIN key に **`account_key`** が含まれるため、 予算側 (= `account_key=空`) と freee actual 側 (= `account_key='売上高'`) がマッチせず、 FULL JOIN で **同じ category='revenue' でも 2 行に分裂**
+- 結果 evidence でも「予算 ¥1.82M, 実績 ¥0 (= 予算行のみ)」 と「予算 ¥0, 実績 ¥2.72M (= actual 行のみ)」 が別 evidence として top 5 を競合
+
+### Phase 17 (= calculate.ts に category 単位集約 helper 追加、 v0.4.5)
+
+VIEW を直すと「同じ category 内の複数 account (= 固定費の通信費 / 旅費 / 交際費)」 を巻き込む副作用が大きい → calculate.ts 側で集約する方針に。
+
+- [`src/lib/management-score/calculate.ts`](src/lib/management-score/calculate.ts) に `aggregateBudgetActualByCategory()` を追加。 `(scope, project_id, category)` 単位で budget / actual を SUM、 variance を再計算
+- `scoreFinance()` の variance / forecast / topBy 全部 aggregated 版から計算するよう書き換え
+- patch bump v0.4.4 → v0.4.5
+- deploy + calculate 再実行 → **まだ「実績 0 円」** 表示 (= 根本原因はここじゃなかった)
+
+### Phase 18 (= raw-data.ts の freee fetch タイミングバグ発覚 + 修正、 v0.4.6)
+
+raw_signals 直接確認 → 「売上高 ¥2.72M」 行が **raw_signals に存在しない** ことが判明。
+
+根本原因: [`src/lib/management-score/raw-data.ts`](src/lib/management-score/raw-data.ts) `collectManagementScoreRawData()` の処理順:
+
+1. `collectInternalSignals` で `company_budget_actual_monthly` VIEW を fetch (= `budgetActuals` 変数固定)
+2. その後 `importFreeeActuals` が `company_actual_monthly` に freee actual を insert
+3. しかし `budgetActuals` 変数は step 1 の **古い** 結果のまま (= 売上高 row は VIEW に未反映)
+4. raw_signals には売上高 row が乗らない → evidence でも実績 0 円表示
+
+修正: `importFreeeActuals` を `collectInternalSignals` の **前** に動かす。 これで internal の VIEW fetch 時には `company_actual_monthly` に freee actual が入ってる状態。
+
+- patch bump v0.4.5 → v0.4.6
+- deploy + raw-data + calculate × 3 ヶ月 再実行
+- ✅ 202605 evidence:「売上: 予算 182.3万円 → 実績 **272.0万円** (上振れ 89.7万円 / 49%) — **好調**」 ← きた！
+- 202604 は予算 ¥2.36M / 実績 ¥2.38M で variance ±0.8% = top 5 圏外 (= 仕訳完璧)
+- 202603 は予算 ¥1.73M / 実績 ¥0.5M = 下振れ (= 5月計上分が一部 3月にズレた可能性)
+
+### 残課題 (= 次回 / まさ向け)
+
+- **`project_revenue` (= PJ売上、 scope='project') は依然「実績 0 円」**: freee 仕訳に project_id 紐付けが無いため、 全部 company scope の `revenue` に流れる。 PJ 別売上を取りたい場合、 freee 側で:
+  - partner / 取引先で PJ 区別
+  - 部門コードで PJ 区別
+  - 摘要欄に PJ ID 入力
+  のどれかの運用が必要。 OS 側で freee partner_id → project_id mapping を持つ案も検討余地あり
+
+### deploy
+
+deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production aliased 確認済 (= `amd-os-pwa.vercel.app`)。

@@ -338,19 +338,88 @@ function scoreInitiative(rows: RawSignal[], ctx: ScoreContext): AxisScore {
   };
 }
 
+/**
+ * budget_actual_view 由来の signals を `(scope, project_id, category)` 単位で集約する。
+ *
+ * 背景 (= 2026-05-27 バグ修正): `company_budget_actual_monthly` は VIEW で
+ * `FULL JOIN ... ON ... AND b.account_key = a.account_key` のため、 予算側 (account_key=空)
+ * と freee actual 側 (account_key='売上高') が **マッチせず 2 行に分裂**してた。
+ * その結果 evidence で「売上: 予算 ¥1.82M 実績 ¥0 (下振れ)」 と表示され、 freee で売上を
+ * 仕訳しても反映されてないように見える事故が発生した。
+ *
+ * 修正方針: VIEW は触らず、 calculate.ts 側で category 単位に集約 (= budget / actual を
+ * それぞれ SUM)。 これで「同じ category 内に複数 account がある」 ケース (= 固定費の
+ * 通信費 / 旅費 / 交際費 等) も自然に合算される。 ただし `topBy` で account 別の細かい
+ * variance を上位表示する用途のため、 集約版とは別に元 rows も残す。
+ */
+type AggregatedBudgetRow = {
+  scope: string;
+  project_id: string | null;
+  category: string;
+  budget_amount_yen: number;
+  actual_amount_yen: number;
+  variance_yen: number;
+  runway_months: number | null;
+  cash_amount_yen: number | null;
+  confidence: number;
+  source_table: string;
+  source_hash: string | null;
+  source_ref: string;
+};
+
+function aggregateBudgetActualByCategory(budgetRows: RawSignal[]): AggregatedBudgetRow[] {
+  const map = new Map<string, AggregatedBudgetRow>();
+  for (const row of budgetRows) {
+    const scope = String(row.payload?.scope ?? "company");
+    const projectId = row.payload?.project_id ? String(row.payload.project_id) : null;
+    const category = String(row.payload?.category ?? "");
+    if (!category) continue;
+    const key = `${scope}|${projectId ?? "-"}|${category}`;
+    const cur = map.get(key) ?? {
+      scope,
+      project_id: projectId,
+      category,
+      budget_amount_yen: 0,
+      actual_amount_yen: 0,
+      variance_yen: 0,
+      runway_months: null as number | null,
+      cash_amount_yen: null as number | null,
+      confidence: 0,
+      source_table: row.source_table,
+      source_hash: row.source_hash ?? null,
+      source_ref: `company_budget_actual_monthly:${scope}:${projectId ?? "company"}:${category}`,
+    };
+    cur.budget_amount_yen += num(row.payload?.budget_amount_yen);
+    cur.actual_amount_yen += num(row.payload?.actual_amount_yen);
+    const rwm = row.payload?.runway_months;
+    if (rwm != null && cur.runway_months == null) cur.runway_months = num(rwm);
+    const cash = row.payload?.cash_amount_yen;
+    if (cash != null && cur.cash_amount_yen == null) cur.cash_amount_yen = num(cash);
+    cur.confidence = Math.max(cur.confidence, num(row.confidence, 0.5));
+    map.set(key, cur);
+  }
+  for (const cur of map.values()) {
+    cur.variance_yen = cur.actual_amount_yen - cur.budget_amount_yen;
+  }
+  return Array.from(map.values());
+}
+
 function scoreFinance(rows: RawSignal[], ctx: ScoreContext): AxisScore {
   const budgetRows = rows.filter((row) => row.source_kind === "budget_actual_view");
   const billingRows = rows.filter((row) => row.source_kind === "billing");
   const freeeRows = rows.filter((row) => row.source_kind === "freee_trial_pl" || row.source_kind === "freee_actual");
 
+  // category 単位で集約 (= VIEW の account_key JOIN 分裂を吸収)
+  const aggregated = aggregateBudgetActualByCategory(budgetRows);
+
   const runwayRows = budgetRows.filter((row) => row.payload?.runway_months != null);
   const runway = avg(runwayRows.map((row) => num(row.payload.runway_months)).filter((n) => n > 0 && n < 999), 12);
   const runwayScore = clamp((runway / 12) * 100);
 
-  const comparable = budgetRows.filter((row) => Math.abs(num(row.payload?.budget_amount_yen)) > 0);
+  const comparable = aggregated.filter((row) => Math.abs(row.budget_amount_yen) > 0);
   const varianceRatios = comparable.map((row) => {
-    const budget = Math.abs(num(row.payload?.budget_amount_yen));
-    const variance = Math.abs(num(row.payload?.variance_yen));
+    const budget = Math.abs(row.budget_amount_yen);
+    const variance = Math.abs(row.variance_yen);
     return budget > 0 ? Math.min(1.5, variance / budget) : 0;
   });
   const varianceScore = clamp(100 - avg(varianceRatios, 0.4) * 100);
@@ -359,7 +428,7 @@ function scoreFinance(rows: RawSignal[], ctx: ScoreContext): AxisScore {
   const billingSentUnpaid = billingRows.filter((row) => row.signal_key.includes("sent_unpaid")).length;
   const billingScore = billingRows.length ? clamp(((billingDone + 0.5 * (billingRows.length - billingDone - billingSentUnpaid)) / billingRows.length) * 100) : 50;
 
-  const forecastRows = budgetRows.filter((row) => ["revenue", "net_cash_flow", "operating_profit"].some((cat) => row.signal_key.endsWith(cat)));
+  const forecastRows = aggregated.filter((row) => ["revenue", "net_cash_flow", "operating_profit"].includes(row.category) && row.budget_amount_yen !== 0);
   const forecastScore = clamp(Math.min(1, forecastRows.length / 6) * 100);
   const freshnessScore = freeeRows.length > 0 ? 90 : 55;
 
@@ -379,13 +448,13 @@ function scoreFinance(rows: RawSignal[], ctx: ScoreContext): AxisScore {
       source_ref: "company_budget_actual_monthly+company_actual_monthly+billing_cycles+freee.trial_pl",
       impact: delta ?? (score - 50) / 2,
       confidence: freeeRows.length ? 0.8 : 0.55,
-      payload: { score, prev, delta, runway, runwayScore, varianceScore, billingScore, forecastScore, freshnessScore, freeeRows: freeeRows.length, billingTotal, billingDone, billingSentUnpaid },
+      payload: { score, prev, delta, runway, runwayScore, varianceScore, billingScore, forecastScore, freshnessScore, freeeRows: freeeRows.length, billingTotal, billingDone, billingSentUnpaid, aggregatedCount: aggregated.length },
     },
-    ...topBy(budgetRows, (row) => num(row.payload?.variance_yen), 5).map((row) => {
-      const variance = num(row.payload?.variance_yen);
-      const budget = num(row.payload?.budget_amount_yen);
-      const actual = num(row.payload?.actual_amount_yen);
-      const cat = categoryLabel(row.payload?.category);
+    ...topBy(aggregated, (row) => row.variance_yen, 6).map((row) => {
+      const variance = row.variance_yen;
+      const budget = row.budget_amount_yen;
+      const actual = row.actual_amount_yen;
+      const cat = categoryLabel(row.category);
       const sign = variance >= 0 ? "上振れ" : "下振れ";
       const pct = budget !== 0 ? Math.round((Math.abs(variance) / Math.abs(budget)) * 100) : null;
       const isFavorable = isFavorableVariance(cat, variance);
@@ -394,18 +463,18 @@ function scoreFinance(rows: RawSignal[], ctx: ScoreContext): AxisScore {
         evidence_kind: "budget_variance",
         summary: `${cat}: 予算 ${fmtYen(budget)} に対し実績 ${fmtYen(actual)} (${sign} ${fmtYen(Math.abs(variance))}${pct != null ? ` / ${pct}%` : ""})${isFavorable ? " — 好調" : " — 注意"}`,
         source_type: row.source_table,
-        source_ref: sourceRef(row),
+        source_ref: row.source_ref,
         source_hash: row.source_hash,
         impact: isFavorable ? Math.min(15, Math.abs(variance) / 200000) : -Math.min(20, Math.abs(variance) / 100000),
-        confidence: num(row.confidence, 0.5),
-        payload: { category: cat, budget, actual, variance, isFavorable, runway_months: row.payload?.runway_months },
+        confidence: row.confidence,
+        payload: { category: cat, scope: row.scope, project_id: row.project_id, budget, actual, variance, isFavorable, runway_months: row.runway_months },
       };
     }),
   ];
   return {
     score,
     confidence: freeeRows.length ? 0.78 : 0.55,
-    inputs: { runway, runwayScore, varianceScore, billingScore, forecastScore, freshnessScore, budgetRows: budgetRows.length, freeeRows: freeeRows.length, billingTotal, billingDone, billingSentUnpaid, delta, summary: summarySentence },
+    inputs: { runway, runwayScore, varianceScore, billingScore, forecastScore, freshnessScore, budgetRows: budgetRows.length, aggregatedCategories: aggregated.length, freeeRows: freeeRows.length, billingTotal, billingDone, billingSentUnpaid, delta, summary: summarySentence },
     evidence,
   };
 }
