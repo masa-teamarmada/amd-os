@@ -48,6 +48,7 @@ type CalendarEventInput = {
   description?: unknown;
   location?: unknown;
   project_id?: unknown;
+  drive_files?: unknown;
 };
 
 type NormalizedEvent = {
@@ -60,6 +61,15 @@ type NormalizedEvent = {
   description: string;
   location: string;
   forcedProjectId: string | null;
+  driveFiles: DriveFileRef[];
+};
+
+type DriveFileRef = {
+  title: string;
+  url: string;
+  mimeType: string | null;
+  modifiedTime: string | null;
+  snippet: string | null;
 };
 
 function sha256(s: string): string {
@@ -105,8 +115,38 @@ function formatJst(iso: string): string {
   }).format(new Date(iso));
 }
 
+function maybeFormatJst(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : formatJst(iso);
+}
+
 function normalizeForMatch(value: string): string {
   return value.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function normalizeDriveFiles(value: unknown): DriveFileRef[] {
+  if (!Array.isArray(value)) return [];
+  const out: DriveFileRef[] = [];
+  const seen = new Set<string>();
+  for (const raw of value.slice(0, 12)) {
+    if (!raw || typeof raw !== "object") continue;
+    const rec = raw as Record<string, unknown>;
+    const title = pickString(rec.title, rec.name).slice(0, 240);
+    const url = pickString(rec.url, rec.web_url, rec.webViewLink, rec.alternateLink);
+    if (!title || !url) continue;
+    const key = url || title;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      title,
+      url,
+      mimeType: pickString(rec.mime_type, rec.mimeType) || null,
+      modifiedTime: pickString(rec.modified_time, rec.modifiedTime) || null,
+      snippet: pickString(rec.snippet, rec.text, rec.excerpt).replace(/\s+/g, " ").slice(0, 500) || null,
+    });
+  }
+  return out;
 }
 
 function companyNameVariants(value: string): string[] {
@@ -187,6 +227,7 @@ function normalizeEvent(input: CalendarEventInput): { event: NormalizedEvent | n
       description: pickString(input.description),
       location: pickString(input.location),
       forcedProjectId: pickString(input.project_id) || null,
+      driveFiles: normalizeDriveFiles(input.drive_files),
     },
     reason: "ok",
   };
@@ -203,6 +244,13 @@ function buildCalendarHash(event: NormalizedEvent, projectId: string): string {
     sourceUrl: event.sourceUrl,
     description: event.description.slice(0, 1000),
     location: event.location,
+    driveFiles: event.driveFiles.map((f) => ({
+      title: f.title,
+      url: f.url,
+      mimeType: f.mimeType,
+      modifiedTime: f.modifiedTime,
+      snippet: f.snippet,
+    })),
   }));
 }
 
@@ -216,13 +264,35 @@ function buildPrepBody(event: NormalizedEvent, project: ProjectRow) {
     event.location ? `場所: ${event.location}` : "",
     event.description ? `Calendarメモ: ${event.description.replace(/\s+/g, " ").trim().slice(0, 500)}` : "",
   ].filter(Boolean);
+  const driveLines = event.driveFiles.slice(0, 8).map((file) => {
+    const modified = maybeFormatJst(file.modifiedTime);
+    const meta = [
+      file.mimeType ? file.mimeType.split("/").pop() : "",
+      modified ? `更新: ${modified}` : "",
+    ].filter(Boolean).join(" / ");
+    const snippet = file.snippet ? ` — ${file.snippet}` : "";
+    return `- [${file.title}](${file.url})${meta ? ` (${meta})` : ""}${snippet}`;
+  });
+  const driveSummary = event.driveFiles.length > 0
+    ? `関連Drive資料${event.driveFiles.length}件も確認済み。`
+    : "";
 
   return {
-    summaryShort: `${displayTitle}。Calendarで日時確定済みのため、開催前の論点と準備物を整理する。`,
+    summaryShort: `${displayTitle}。Calendarで日時確定済みのため、開催前の論点と準備物を整理する。${driveSummary}`,
     decided: [`${event.title}で確認・決定すべき論点を事前に整理する。`],
-    progress: [`Calendar上で ${when} の開催が確定している。`],
-    nextActions: ["関連資料、前回までの論点、当日確認したい質問を事前に揃える。"],
-    risks: ["Calendar予定だけでは議題・資料・意思決定範囲が不足している可能性がある。"],
+    progress: [
+      `Calendar上で ${when} の開催が確定している。`,
+      ...(event.driveFiles.length > 0 ? [`Drive上で関連資料${event.driveFiles.length}件を確認している。`] : []),
+    ],
+    nextActions: [
+      event.driveFiles.length > 0
+        ? "Drive関連資料、前回までの論点、当日確認したい質問を事前に揃える。"
+        : "関連資料、前回までの論点、当日確認したい質問を事前に揃える。",
+    ],
+    risks: [
+      "Calendar予定だけでは議題・資料・意思決定範囲が不足している可能性がある。",
+      ...(event.driveFiles.length > 0 ? ["Drive資料は会議関連候補として自動紐付けしたものなので、最終的な議案・決議範囲は当日資料で確認する。"] : []),
+    ],
     narrativeMd: [
       "## 予定",
       `- PJ: ${projectName}`,
@@ -231,6 +301,9 @@ function buildPrepBody(event: NormalizedEvent, project: ProjectRow) {
       event.sourceUrl ? `- Calendar: ${event.sourceUrl}` : "",
       eventContext.length ? "" : "",
       ...eventContext.map((line) => `- ${line}`),
+      driveLines.length ? "" : "",
+      driveLines.length ? "## 関連Drive資料" : "",
+      ...driveLines,
       "",
       "## 事前に見ること",
       "このカードは、Calendarで確定している未来MTGをOS上の準備ブリーフとして先に見えるようにするためのもの。議事録や資料がまだ入っていない場合でも、当日までに確認したい論点、資料、質問をここに追記する。",

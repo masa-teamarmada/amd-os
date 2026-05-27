@@ -89,15 +89,20 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
 終了済みMTGの議事録抽出とは別に、毎回 **今後60日** の確定Calendar予定を同期する。これは LLM 不要・deterministic で、議事録がまだ無いPJにも準備カードを作るためのルート。
 
 1. Calendar MCP で `now` から `now + 60 days` までを bounded search/list する。`title` が `+` / `＋` 始まり、全日予定、start datetime の無い予定は除外。
-2. 取得した event metadata をそのまま PWA に渡す:
+2. 各 event について、PJ が解決できる場合は **Drive 関連資料も先に探す** (= LLM 不要、準備カード用 metadata):
+   - `projects.drive_folder_id` があれば folder root を Drive MCP で list し、event 日付 token (`YYMMDD` / `YYYYMMDD` / `YYYY-MM-DD`) と title token (`取締役会` / `board` / `月次` / `報告会` / `キックオフ` / PJ名 / client_name) でサブフォルダを探す。
+   - 日付フォルダが見つかったら、その直下の Docs / Slides / Sheets / PDF / Office files を最大 8 件採用。例: CLG `260527_取締役会` folder の招集通知 PDF・予算xlsx・報告xlsx。
+   - 日付フォルダが無い場合だけ、folder root 直下と Drive search で title/date/PJ token を検索する。
+   - 各 file は `{title,url,mime_type,modified_time,snippet}` に正規化する。本文 fetch は重ければ不要、snippet はタイトルだけでもよい。raw 本文全文は渡さない。
+3. 取得した event metadata を PWA に渡す:
    ```bash
    curl -s -X POST "$APP_BASE_URL/api/meeting-prep/calendar-sync" \
      -H "Authorization: Bearer $WORKFLOW_SECRET" \
      -H "Content-Type: application/json" \
-     --data '{"events":[{"calendar_event_id":"<event.id>","title":"<event.summary>","start":"<event.start>","end":"<event.end>","url":"<event.url>","description":"<event.description>","location":"<event.location>"}]}'
+     --data '{"events":[{"calendar_event_id":"<event.id>","title":"<event.summary>","start":"<event.start>","end":"<event.end>","url":"<event.url>","description":"<event.description>","location":"<event.location>","drive_files":[{"title":"<file.title>","url":"<file.url>","mime_type":"<file.mime_type>","modified_time":"<file.modified_time>","snippet":"<short snippet>"}]}]}'
    ```
-3. PWA 側で `projects.project_name` / `project_id` / `client_name` によりPJ判定し、`upcoming:<calendar_event_id>` を upsert する。既に手動編集済みの準備本文は上書きせず、Calendar由来の日時・title・URLだけ同期する。
-4. これにより、CLG `CLG 取締役会` のような recurring board meeting も、前回MTGサマリからの `finalize` を待たずに「予定MTG / 準備中」に出る。
+4. PWA 側で `projects.project_name` / `project_id` / `client_name` によりPJ判定し、`upcoming:<calendar_event_id>` を upsert する。既に手動編集済みの準備本文は上書きせず、Calendar由来の日時・title・URL・Drive資料リンクだけ同期する。
+5. これにより、CLG `CLG 取締役会` のような recurring board meeting も、前回MTGサマリからの `finalize` を待たずに「予定MTG / 準備中」に出る。Drive folder に会議資料がある場合は、予定カード内の `関連Drive資料` として先に見える。
 
 ═══════════════════════════════════════════════════
 Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 移植)
@@ -146,16 +151,55 @@ Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 �
 20. 全 thread 結合 → `gmailText` (= 上限 ~8000 chars)
 21. `gmailThreadIds` = ヒットした threadId list
 
-### B-4: Drive 議事録ファイル取得 (= GAS 074c 移植、optional)
+### B-4: Drive 関連資料取得 (= 会議資料・議事録・招集通知・予実表を拾う)
 
-22. PJ の `drive_folder_id` がある場合のみ:
-    - Drive `search_files` で query = `'<drive_folder_id>' in parents and modifiedTime > '<event 日 -1 日 ISO>' and modifiedTime < '<event 日 +2 日 ISO>' and (title contains '議事録' or title contains 'meeting' or title contains 'MTG' or title contains '定例' or title contains '打合せ' or title contains '報告会' or title contains 'kickoff') and mimeType = 'application/vnd.google-apps.document'`
-    - ヒットファイルそれぞれを `read_file_content` で本文取得 (= 最大 ~16000 chars)
-    - 結合 → `driveText`
+22. PJ の `drive_folder_id` がある場合のみ実行。`drive_folder_id` が空の場合は、Drive を「生データなし」とは扱わず、run summary に `drive_folder_id missing` として残す。
+23. **候補 folder 探索**:
+    - Drive MCP `list_folder` で root folder (`https://drive.google.com/drive/folders/<drive_folder_id>`) を最大 50 件 list。
+    - event 日付 token を作る: `YYMMDD` (= 260527), `YYYYMMDD`, `YYYY-MM-DD`, `M月D日`。
+    - title / PJ token を作る: event title から `CLG` / `チャレナジー` / `取締役会` / `board` / `月次` / `報告会` / `キックオフ` / `MTG` / `定例` / `議案` / `資料` などを抽出。
+    - folder title が日付 token または title token を含む場合、まずその folder を候補にする。例: CLG root の `260527_取締役会`。
+    - 候補 folder がある場合は、その直下を `list_folder` で最大 50 件読む。候補 folder が無い場合だけ root 直下 file と Drive search を使う。
+    - 必要なら 1 階層だけ再帰してよい。深掘りしすぎて無関係資料を混ぜない。
+24. **Drive search fallback** (= folder list だけで拾えない場合):
+    - `query` は短く分割する。例: `CLG 取締役会`, `チャレナジー 取締役会`, `260527 取締役会`, `<project_name> <YYMMDD>`。
+    - `special_filter_query_str` が使える場合は `'<drive_folder_id>' in parents and mimeType != 'application/vnd.google-apps.folder'` を基本に、`modifiedTime` は **会議日前後だけに狭めすぎない**。招集通知や取締役会資料は 1 週間以上前に作成されることがある。
+25. **採用する file 種別**:
+    - Google Docs / Slides / Sheets
+    - PDF
+    - Office files (`.docx` / `.pptx` / `.xlsx`)
+    - text / markdown
+    - folder は本文 source にはしない (= folder 内の file を読む)
+26. **ranking**:
+    - +5: title に event 日付 token
+    - +4: title に event title の主要語 (`取締役会`, `報告会`, `キックオフ`, `MTG` など)
+    - +3: title に `議事録` / `招集通知` / `議案` / `報告資料` / `予算` / `予実` / `月次`
+    - +2: parent folder が event 日付 folder
+    - -5: title が明らかに別月・別日
+    - score 上位 8 件まで採用。
+27. **本文取得**:
+    - Docs: `fetch` / `get_document` で text 化。
+    - Slides: `get_presentation_text` を優先。重い場合は title + outline text のみ。
+    - Sheets / xlsx: `fetch` で text 化できる範囲だけ。大きい workbook は sheet 全体を読まず、file title / sheet names / first visible summary 程度に留める。
+    - PDF / Office binary: `fetch` の text extraction が返れば使う。返らない場合でも title / url / mime_type / modified_time を `driveText` に入れ、「本文未抽出」と明記する。
+    - 各 file 本文は最大 2000 chars、Drive 全体で最大 12000 chars。
+28. `driveText` format:
+    ```
+    --- drive file: <title> ---
+    url: <url>
+    mime_type: <mime_type>
+    modified_time: <modified_time>
+    extraction: <text|metadata_only>
+    <extracted text or short metadata note>
+    ```
+29. **汚染防御**:
+    - Drive資料は「会議資料・補助根拠」として扱う。Drive資料に書かれているだけで、当日会議で決定されたとは書かない。
+    - `decided` は Notion/Gmail/Slack/発言系 source に明確な決定がある場合を優先。Driveのみの場合は `progress` / `risks` / `next_actions` / `narrative_md` に寄せる。
+    - ただし招集通知・議案資料・予実資料のように取締役会の正式資料であることが file title / folder から明確なら、`narrative_md` に「資料上の論点」として反映する。
 
 ### B-5: Slack thread 取得 (= GAS 074b 移植、optional)
 
-23. PJ の `slack_channel_id` がある場合のみ:
+30. PJ の `slack_channel_id` がある場合のみ:
     - Slack `slack_read_channel` で channel_id = `<slack_channel_id>`、oldest = `<event 日 -1 日 unix秒>.000000`、latest = `<event 日 +2 日 unix秒>.000000`、limit = 50
     - 各 message について thread root (= `thread_ts === ts` or `thread_ts` 不在) で reply_count >= 2 OR parentText >= 200 chars のものだけを対象
     - 候補スレッドそれぞれを `slack_read_thread` で message_ts = `<parent_ts>` で取得 (= 親 + replies)
@@ -164,18 +208,18 @@ Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 �
 
 ### B-6: source_kinds 判定 (= GAS 074 と同じ閾値 30 chars)
 
-24. 各 source の文字数:
+31. 各 source の文字数:
     - `hasNotion` = `notionText.length >= 30`
     - `hasGmail` = `gmailText.length >= 30`
     - `hasDrive` = `driveText.length >= 30`
     - `hasSlack` = `slackText.length >= 30`
-25. **source_kinds 文字列** (= "+ で結合"、GAS 074 / 074b-e と同じ):
+32. **source_kinds 文字列** (= "+ で結合"、GAS 074 / 074b-e と同じ):
     - すべて false → `"none"`
     - 該当した source 名を `notion` / `gmail` / `drive` / `slack` のいずれかで `+` join (= 例: `"notion+gmail+slack"`)
 
 ### B-7: source_hash 計算 + 差分検知 (= GAS 074 `_meeting_sha256_` 移植)
 
-26. **combined text** を組み立て:
+33. **combined text** を組み立て:
     ```
     === notion ===
     <notionText>
@@ -191,7 +235,7 @@ Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 �
     ```
     (= has* が true の section のみ含める)
 
-27. **alias map + feedback の hash** を combined に混ぜる (= GAS と同じ、feedback 追加で自動再抽出):
+34. **alias map + feedback の hash** を combined に混ぜる (= GAS と同じ、feedback 追加で自動再抽出):
     - alias = Phase C-2 で構築 (= members 全件、members.member_name 列が無い場合は member_id + code_name + email local だけ)
     - feedback = Phase C-3 で構築 (= l2_feedbacks の active rows)
     - `fbHashInput` = feedback 各行の `feedback_id + "|" + feedback_text` を `\n` join (= 該当なしなら "")
@@ -202,17 +246,17 @@ Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 �
       newHash=$(printf '%s' "$hashInput" | sha256sum | awk '{print $1}')
       ```
 
-28. **既存 row** を Supabase REST で fetch:
+35. **既存 row** を Supabase REST で fetch:
     ```bash
     curl -s "$SUPABASE_URL/rest/v1/project_meeting_summaries?meeting_id=eq.<event.id>&select=source_hash&limit=1" \
       -H "apikey: $SRK" -H "Authorization: Bearer $SRK"
     ```
-29. 既存 `source_hash == newHash` なら **skip_unchanged** (= LLM 呼ばない、idempotent)
-30. 既存 row なしまたは hash 違うなら C へ
+36. 既存 `source_hash == newHash` なら **skip_unchanged** (= LLM 呼ばない、idempotent)
+37. 既存 row なしまたは hash 違うなら C へ
 
 ### B-8: 議事録なしケース (= source_kinds == "none"、GAS 074 移植)
 
-31. `source_kinds == "none"` のとき:
+38. `source_kinds == "none"` のとき:
     - `noneHash` = sha256(`"none|" + meetingDate + "|" + title`)
     - 既存 source_hash == noneHash なら skip
     - そうでなければ **マーカー行** として upsert:
@@ -397,6 +441,7 @@ filter:
 - 推測で書かない、combinedText に出てる事実のみ
 - os_context は「今回の会議の意味づけ」に使う。前回からの流れ、MSとの関係、次MTGへ持ち越す論点は narrative_md に書く。ただし os_context だけにある内容を「今回決まったこと」にしない
 - manual_meeting_assets は画面共有・表・スライドなどの補助根拠。caption / extracted_text がある場合は narrative_md の「添付資料から見えること」に反映してよいが、画像を読めていないのに中身を断定しない
+- drive source は会議資料・招集通知・議案・予実表・報告資料として扱う。Drive だけを根拠に「会議で決定した」とは書かず、`資料上の論点` / `会議前に確認すべき資料` / `当日確認された資料` として narrative_md に位置づける。Notion/Gmail/Slack の発言根拠と一致する場合だけ decided に寄せる。
 - 雑談 / 個人事情は除外 (= MTG として意味のある合意・進捗・課題だけ)
 - narrative_md は 700-1800 字、「PJ全体の流れの中での位置づけ → このMTGで議論したこと → 決まったこと → MSへの影響 → 次にやること → 残課題」の markdown。全体を箇条書きだけにしない
 - **JSON 以外の文字一切出力禁止** (= markdown ブロックも禁)
