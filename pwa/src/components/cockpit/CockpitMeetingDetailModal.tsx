@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import type { ProjectMeetingSummary } from "@/lib/supabase-data";
 import { MarkdownView } from "./MarkdownView";
+import { MeetingAssetsPanel } from "./MeetingAssetsPanel";
 
 interface Props {
   meeting: ProjectMeetingSummary | null;
@@ -85,6 +86,8 @@ export function CockpitMeetingDetailModal({ meeting, open, onOpenChange }: Props
         ) : (
           <RegularMeetingBody meeting={meeting} />
         )}
+
+        <MeetingAssetsPanel meeting={meeting} />
 
         {/* つくよみ修正依頼 (#11 まさ 2026-05-24): 議事録抽出に対する修正を l2_feedbacks へ */}
         <MeetingFeedbackBlock meeting={meeting} />

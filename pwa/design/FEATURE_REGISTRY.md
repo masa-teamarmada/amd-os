@@ -20,6 +20,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 支払月選択: `ym=YYYYMM` で対象月を選び、`billing_cycles.invoice_ym` を優先する。未設定cycleは `/admin/projects` の `projects.payment_due_rule` から支払月を判定する。
 - 高速初期表示: 通常GETは `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにする。毎回 `syncRewardSummariesForBillingCycles()` を再計算しない。
 - 報酬キャッシュ再計算: 明示的な「報酬キャッシュ再計算」操作または保存系処理だけが `refreshRewards=1` / `refreshRewards: true` で再計算する。
+- MSなしPJ 強制報酬確定: MSが未設定または月次MSが空のPJでも、admin確認済みの例外支払は `admin_manual_payout` として明示保存し、通常のMS報酬計算と混ざらないようにする。
 - 報酬キャッシュ日次更新: `payout-reward-cache-refresh` cron が毎日03:05 JSTに、前月・当月・翌月の支払月について `billing_cycles.reward_summary_json` を再生成する。
 - 縦型PJ収支表: 「全体収支」列とPJ列を並べ、クライアント支払、バッファ、PJ予算、支払予定、役員分、役員相殺、最終収支、メンバー別支払を確認できる。
 - 後追いPJ予算確定: 契約や支払額が後から確定したPJは、支払月画面から確定委託料とバッファを入れ、対象稼働月の `billing_cycles.budget_yen` / `budget_reported_amount` / `budget_buffer_amount` へ配分する。
@@ -49,6 +50,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 月次モーダル: 月次カードやroutine stepから `CockpitMonthlyModal` を開き、report / reward / invoice を確認できる。p00 (= AMD 会社全体) でも他 PJ と同じく月次カード + 月次モーダルが出る (`billing_cycles` を 12 行 backfill 済)。
 - 月次ルーティン: active/sales PJのみ表示し、PM/admin以外は読み取り専用にする。col3 内で `lg:sticky` で固定する。
 - MTGサマリ: `CockpitMeetingSummary` 各行に source link (Notion / Slack / Drive / Gmail / Calendar event の元データへ直リンク) を `元 ↗` の形で出す。`dialogue:*` で始まる meeting_id は「まさ×えいみ」チップ付きで識別し、`CockpitMeetingDetailModal` でラベルを「2人で出した提案 (チームへの相談)」に置き換える (= 「決まったこと」と書かない)。dialogue meeting は `narrative_md` があれば 1 本の Markdown narrative として表示し、raw decided/progress/next_actions/risks は折りたたみ「元データ」として残す。`narrative_md` は `POST /api/dialogue-meeting/narrate` で生成する。各 TopicList の項目は border-l フレーム枠ではなく、`<ul>` + 太字 / マーカー / 見出しの強弱で読ませる。
+- MTG添付資料: `CockpitMeetingDetailModal` には `MeetingAssetsPanel` を置き、画像/PDFの選択、ドラッグ&ドロップ、クリップボード貼り付け、画面キャプチャを `meeting_assets` + private Storage `meeting-assets` に保存する。`/api/meeting-assets/insert-markdown` は添付を `narrative_md` の `<!-- meeting-assets:start -->` セクションとして差し込み、画像は `/api/meeting-assets/file/[assetId]` 経由でadminだけが短期signed URLにアクセスできる。
 
 回帰防止:
 
