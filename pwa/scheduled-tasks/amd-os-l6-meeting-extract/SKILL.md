@@ -1,6 +1,6 @@
 ---
 name: amd-os-l6-meeting-extract
-description: AMD OS L2 ⑥ MTG サマリ (議事録) 抽出 routine。毎時 0 分、Calendar/Notion/Gmail/Drive/Slack MCP 直叩き → サブスク内 Claude で抽出 → project_meeting_summaries + meeting_notifications upsert。GAS 153 + 074 + 074b-e 完全 inline 移植版 (= GAS 完全 bypass、まさ #71)。
+description: AMD OS L2 ⑥ MTG サマリ (議事録) 抽出 Cloud routine。routine trigger で起動し、Calendar/Notion/Gmail/Drive/Slack MCP 直叩き → サブスク内 Claude で抽出 → project_meeting_summaries + meeting_notifications upsert。PWA/GAS/Vercel に token 課金LLM cron は作らず、GAS 153 + 074 + 074b-e の業務ロジックだけを inline 移植 (= GAS 完全 bypass、まさ #71)。
 ---
 
 # AMD OS L2 ⑥ MTG サマリ抽出 (GAS 153 + 074 完全 inline 移植版)
@@ -11,13 +11,18 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 
 - **GAS 完全 bypass**: 旧 dryRun 経由は廃止。Calendar / Notion / Gmail / Drive / Slack へは MCP で直接 access
 - **LLM 呼びはサブスク内 Claude (= 私自身)**: Anthropic SDK 不要、scheduled task 内で私が prompt 受けて JSON 生成
+- **追加課金ゼロ境界**: PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 API を呼ばない。LLM を使うのはこの Claude Cloud routine 内だけ。
+- **token 課金LLM cron 禁止**: routine trigger は allowed path。PWA / GAS / Vercel の cron / time trigger は、LLM 非依存の deterministic sync / 通知 / キャッシュ更新なら問題なし。この L2⑥では Gemini 経路の 153 / 152 を復活させない。
 - **業務ロジックは GAS 元コード完全保存**: 「終了 60-180 分前 filter」「Stage 1-3 Notion fallback」「source_kinds 判定 (= 30 chars 閾値)」「source_hash 差分検知」「修正依頼織り込み」「議事録なし行のマーカー upsert」を踏襲
 - **5 ソース全部見る** (= まさ絶対ルール 2026-05-11): Notion + Gmail + Drive + Slack + Calendar event 本文。GAS 074 + 074b-e の集約をこの 1 routine で実現
+- **議事録品質の本丸**: Notion / Gemini / CircleBack 等が既に作った会議本文を潰さず、前後 MTG・PJ 全体の流れ・現行 MS を読んだうえで `narrative_md` に「初見でも分かる議事録」を残す。
+- **未来予定カード**: 終了済みMTGの議事録がまだ無いPJでも、今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡して `source_kinds='upcoming'` を作る。CLG取締役会のように前回議事録が空でも予定MTGカードを欠落させない。
+- **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
 
 ## 【絶対】 動く前に必ず Read
 
-1. `pwa/manual/03-data-and-extraction.md` (§3.1 取り込み path / §3.2 L2 9 種正本 / §3.4 修正依頼ループ)
-2. `pwa/manual/05-decisions-and-history.md` (§5.4 責務分担マトリクス / §5.7 L2 ghost 復旧計画)
+1. `pwa/manual/3-2-data-and-extraction.md` (§3.1 取り込み path / §3.2 L2 9 種正本 / §3.4 修正依頼ループ)
+2. `pwa/manual/9-1-decisions-and-history.md` (§5.4 責務分担マトリクス / §5.7 L2 ghost 復旧計画)
 3. `pwa/design/meeting_summaries.md` (= MTG サマリ仕様正本)
 4. `pwa/design/db_schema.md` (= **列名は想像で書かない、必ず grep**)
 5. `pwa/design/l2_extract_claude_routine.md` (= 設計議論)
@@ -35,6 +40,9 @@ Phase 0: env と calendar の準備
    ENV=pwa/.env.local
    SUPABASE_URL=$(grep '^NEXT_PUBLIC_SUPABASE_URL=' "$ENV" | cut -d= -f2- | tr -d '"')
    SRK=$(grep '^SUPABASE_SERVICE_ROLE_KEY=' "$ENV" | cut -d= -f2- | tr -d '"')
+   CRON_SECRET=$(grep '^CRON_SECRET=' "$ENV" | cut -d= -f2- | tr -d '"')
+   WORKFLOW_SECRET=$(grep '^WORKFLOW_SECRET=' "$ENV" | cut -d= -f2- | tr -d '"')
+   WORKFLOW_SECRET="${WORKFLOW_SECRET:-$CRON_SECRET}"
    ```
 3. Calendar `mcp__509862f5-b23a-4c45-bf99-9978f6bc4d61__list_calendars` で primary calendar を確認 (= 通常まさの primary)。MAIN_CALENDAR_ID を `.env.local` に置く運用にしてないので、毎回 primary を採用。
 
@@ -76,6 +84,21 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
 
 8. PJ 紐付けが取れた events を **処理キュー** に積む
 
+### A-2: 未来Calendar予定 → 予定MTGカード同期
+
+終了済みMTGの議事録抽出とは別に、毎回 **今後60日** の確定Calendar予定を同期する。これは LLM 不要・deterministic で、議事録がまだ無いPJにも準備カードを作るためのルート。
+
+1. Calendar MCP で `now` から `now + 60 days` までを bounded search/list する。`title` が `+` / `＋` 始まり、全日予定、start datetime の無い予定は除外。
+2. 取得した event metadata をそのまま PWA に渡す:
+   ```bash
+   curl -s -X POST "$APP_BASE_URL/api/meeting-prep/calendar-sync" \
+     -H "Authorization: Bearer $WORKFLOW_SECRET" \
+     -H "Content-Type: application/json" \
+     --data '{"events":[{"calendar_event_id":"<event.id>","title":"<event.summary>","start":"<event.start>","end":"<event.end>","url":"<event.url>","description":"<event.description>","location":"<event.location>"}]}'
+   ```
+3. PWA 側で `projects.project_name` / `project_id` / `client_name` によりPJ判定し、`upcoming:<calendar_event_id>` を upsert する。既に手動編集済みの準備本文は上書きせず、Calendar由来の日時・title・URLだけ同期する。
+4. これにより、CLG `CLG 取締役会` のような recurring board meeting も、前回MTGサマリからの `finalize` を待たずに「予定MTG / 準備中」に出る。
+
 ═══════════════════════════════════════════════════
 Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 移植)
 ═══════════════════════════════════════════════════
@@ -110,7 +133,8 @@ Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 �
 14. PJ の `report_emails` を取得 (= projects.report_emails の semicolon / comma 区切りリスト)
 15. **report_emails が空 PJ** はスキップ (= 該当なし、Gmail なし扱い)
 16. Gmail `search_threads` で:
-    - query = `(from:<email1> OR to:<email1> OR from:<email2> OR ...) after:<event 日 -1 日 YYYY/MM/DD> before:<event 日 +2 日 YYYY/MM/DD>`
+    - 通常MTG: query = `(from:<email1> OR to:<email1> OR from:<email2> OR ...) after:<event 日 -1 日 YYYY/MM/DD> before:<event 日 +2 日 YYYY/MM/DD>`
+    - 取締役会 / 株主報告 / 月次報告 / 予算 / 招集通知 / board / monthly を title or project context に含む場合: `after:<event 日 -21 日>` まで広げる。CLGのように招集通知・資料送付が会議の1週間以上前に届くPJを拾うため。
     - pageSize = 20
 17. ヒットスレッドそれぞれを `get_thread` (messageFormat=FULL_CONTENT) で本文取得
 18. **chitchat 抑制**: bot 配信 (= from に noreply/no-reply/notification@ 含む) は除外
@@ -171,7 +195,8 @@ Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 �
     - alias = Phase C-2 で構築 (= members 全件、members.member_name 列が無い場合は member_id + code_name + email local だけ)
     - feedback = Phase C-3 で構築 (= l2_feedbacks の active rows)
     - `fbHashInput` = feedback 各行の `feedback_id + "|" + feedback_text` を `\n` join (= 該当なしなら "")
-    - `hashInput` = `"rev=v4_alias_feedback\nfb=" + fbHashInput + "\n" + combinedText`
+    - `hashInput` = `"rev=v5_routine_narrative_os_context\nfb=" + fbHashInput + "\n" + combinedText`
+    - **os_context は source_hash に混ぜない**。MS進捗や予定MTGが変わるたびに議事録を再生成すると credit を浪費するため、OS文脈は新規抽出時の品質向上に使い、再生成は source / feedback / prompt revision の変化だけで起こす。
     - `newHash` = bash で計算:
       ```bash
       newHash=$(printf '%s' "$hashInput" | sha256sum | awk '{print $1}')
@@ -230,6 +255,63 @@ Phase C: LLM 抽出 (= サブスク内 私自身が JSON 生成)
 ═══════════════════════════════════════════════════
 
 source_kinds != "none" の event について:
+
+### C-0: OS context block (= まさ #MTGサマリ品質改善)
+
+Supabase から、この会議を PJ 全体の流れに位置づけるための context を取得する。
+
+1. **PJ 本体**
+   ```bash
+   curl -s "$SUPABASE_URL/rest/v1/projects?project_id=eq.<projectId>&select=project_id,project_name,status,project_category,start_ym,end_ym&limit=1" \
+     -H "apikey: $SRK" -H "Authorization: Bearer $SRK"
+   ```
+2. **直近の過去 MTG** (= 同 PJ、開催日前、`source_kinds != upcoming`、最大 4 件)
+   ```bash
+   curl -s "$SUPABASE_URL/rest/v1/project_meeting_summaries?project_id=eq.<projectId>&meeting_date=lt.<YYYY-MM-DD>&source_kinds=neq.upcoming&order=meeting_date.desc&limit=4&select=meeting_id,meeting_date,title,summary_short,decided,progress,next_actions,risks,narrative_md" \
+     -H "apikey: $SRK" -H "Authorization: Bearer $SRK"
+   ```
+3. **既にある次 MTG / 準備カード** (= `source_kinds=upcoming`、最大 3 件)
+   ```bash
+   curl -s "$SUPABASE_URL/rest/v1/project_meeting_summaries?project_id=eq.<projectId>&meeting_date=gte.<YYYY-MM-DD>&source_kinds=eq.upcoming&order=meeting_date.asc&limit=3&select=meeting_id,meeting_date,title,summary_short,next_actions,risks,narrative_md,prep_status" \
+     -H "apikey: $SRK" -H "Authorization: Bearer $SRK"
+   ```
+4. **PWA 手動添付** (= Meet/Gmail 議事録に落ちないスクショ・PDF・画面キャプチャ)
+   ```bash
+   curl -s "$SUPABASE_URL/rest/v1/meeting_assets?meeting_id=eq.<event.id>&select=asset_id,file_name,media_type,asset_kind,caption,extracted_text,sort_order&order=sort_order.asc,created_at.asc" \
+     -H "apikey: $SRK" -H "Authorization: Bearer $SRK"
+   ```
+   - 画像そのものが必要な時だけ private Storage `meeting-assets` を signed URL 経由で読む。
+   - まずは `caption` / `extracted_text` / `file_name` を context に入れ、未OCRなら `file_name + caption` のみを使う。
+5. **現行 plan cycle + MS**
+   - `value_plan_cycles`: `project_id=<projectId>` かつ `period_start_ym <= ym <= period_end_ym`、`status in (active,confirmed,fixed,draft)`、最大 1 件
+   - `value_milestones`: その `plan_cycle_id` の `is_active=true`、`sort_order asc`、最大 12 件
+   - `milestone_monthly_progress`: 上記 `milestone_id` × `ym`
+
+format:
+```
+=== os_context (AMD OS 側の文脈。今回MTGの意味づけに使う。ここだけを根拠に決定事項を捏造しない) ===
+## project
+project_id=... / project_name=... / status=... / category=...
+
+## recent_previous_meetings
+- YYYY-MM-DD <title>
+  summary: ...
+  next: ...
+
+## known_next_or_prep_meetings
+- YYYY-MM-DD <title>
+  summary: ...
+
+## manual_meeting_assets
+- <asset_kind> <file_name> (<media_type>)
+  caption: ...
+  extracted_text: ...
+
+## active_milestones
+- <MS title> / points=... / progress=... / criteria=...
+```
+
+長文は各項目 200-500 字で truncate。os_context 全体は最大 9000 chars。
 
 ### C-1: meeting_meta block
 
@@ -294,9 +376,13 @@ filter:
 === meeting_meta ===
 <C-1>
 
+<C-0 os_context block>
+
 <C-2 alias block>
 
 <C-3 feedback block (該当ありなら)>
+
+<manual_meeting_assets block (該当ありなら)>
 
 === combined sources ===
 <combinedText>
@@ -309,8 +395,10 @@ filter:
 - summary_short は 80-180 字目安
 - 該当事項なし field は `[]`、null / undefined は禁止
 - 推測で書かない、combinedText に出てる事実のみ
+- os_context は「今回の会議の意味づけ」に使う。前回からの流れ、MSとの関係、次MTGへ持ち越す論点は narrative_md に書く。ただし os_context だけにある内容を「今回決まったこと」にしない
+- manual_meeting_assets は画面共有・表・スライドなどの補助根拠。caption / extracted_text がある場合は narrative_md の「添付資料から見えること」に反映してよいが、画像を読めていないのに中身を断定しない
 - 雑談 / 個人事情は除外 (= MTG として意味のある合意・進捗・課題だけ)
-- narrative_md は 500-1500 字、「背景 → 進捗 → 決定 → 次の一手 → 残課題」の markdown
+- narrative_md は 700-1800 字、「PJ全体の流れの中での位置づけ → このMTGで議論したこと → 決まったこと → MSへの影響 → 次にやること → 残課題」の markdown。全体を箇条書きだけにしない
 - **JSON 以外の文字一切出力禁止** (= markdown ブロックも禁)
 
 **出力形式**:
@@ -397,8 +485,25 @@ curl -s -X POST "$SUPABASE_URL/rest/v1/meeting_notifications?on_conflict=meeting
      -H "apikey: $SRK" -H "Authorization: Bearer $SRK" \
      -H "Content-Type: application/json" \
      -H "Prefer: return=minimal" \
-     --data '{"applied_count":<+1>,"last_applied_at":"<ISO now>"}'
-   ```
+	   --data '{"applied_count":<+1>,"last_applied_at":"<ISO now>"}'
+	   ```
+
+### D-4: 次MTGカード生成 (= exact date/time のみ)
+
+保存した議事録 row の `decided` / `next_actions` / `narrative_md` に、`6/11（水）15:00` や `2026-06-11 15:00` のような **日付と時刻が両方ある** 次MTG表現があれば、PWA の deterministic workflow を呼ぶ。
+
+```bash
+curl -s -X POST "$APP_BASE_URL/api/meeting-workflow/finalize" \
+  -H "Authorization: Bearer $WORKFLOW_SECRET" \
+  -H "Content-Type: application/json" \
+  --data '{"meeting_id":"<event.id>"}'
+```
+
+workflow 側のルール:
+- 複数候補があれば最大 6 件まで `project_meeting_summaries` に `source_kinds='upcoming'` で保存する。
+- `next_meeting` が明示指定されない限り Google Calendar event は作らない。Calendar は source of truth ではなく、予定カードは OS 上の準備ブリーフとして作る。
+- `6月3週目以降`、`日程調整`、`候補日未定` のような曖昧な候補は確定予定として自動保存しない。必要なら `POST /api/meeting-prep` に `is_tentative=true` を渡して `source_kinds='upcoming_tentative'` として仮置き保存する。仮置き row は PWA の「日程調整中MTG」に残る。
+- 旧 fallback の「次MTG指定がなければ7日後に1件」は禁止。架空カードを作らない。
 
 ═══════════════════════════════════════════════════
 Phase E: run summary
