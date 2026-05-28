@@ -272,7 +272,7 @@ MTGカードの一覧に出る短い文章は `project_meeting_summaries.summary
 - `next_actions`
 - `risks`
 
-手動修正では `source_hash` を変更しない。同じ Calendar / Notion / Slack / Drive / Gmail ソースに対する抽出 routine は source hash が一致する限り再生成せず、手動修正文を壊さない。実ソースが更新されて routine が再抽出する場合は上書きされうるため、抽出方針そのものを学習させたい誤りは従来どおり `l2_feedbacks` へ「つくよみに修正依頼」も残す。
+手動修正では `source_hash` を変更しない。同じ Calendar / Notion / Slack / Drive / Gmail ソースに対する抽出 routine は source hash が一致する限り再生成せず、手動修正文を壊さない。2026-05-29 以降、コックピットの MTG 詳細モーダルでは「つくよみに修正依頼」を出さない。誤抽出は `POST /api/meeting-summary/manual-update` で人間が直接直し、保存後の `generated_by_model` は `manual-edit` とする。
 
 ## MTG 添付資料 / スクショアップロード (2026-05-27 追加)
 
@@ -491,7 +491,7 @@ if existing.source_hash === newHash: skip (LLM 呼ばない)
 - 一覧カードの本文は `summary_short` を line-clamp 2 で表示する。詳細モーダルは `narrative_md` があれば本文として優先表示し、`narrative_md` が無い場合だけ `summary_short` + raw 配列を表示する。
 - モーダル内: ヘッダ (日時 + title + notion link + source_kinds chip) → サマリ → 決まったこと → 進んだこと → 次やること → リスク を縦並び。各 item は `MarkdownView` で markdown 描画 (= 表/見出し/リスト/コード/引用 OK)
 - 議事録なしマーカー行は `summary_short` だけ "議事録なし" が出る (decided/progress/... は空なので非表示、`Notion で開く` リンクは notion_url があれば出る)
-- 通常MTG / dialogue は詳細モーダル末尾の「議事録を手動修正」から `title / summary_short / narrative_md / decided / progress / next_actions / risks` を更新できる。保存先は `POST /api/meeting-summary/manual-update`。
+- 通常MTG / dialogue は詳細モーダル末尾の「議事録を手動修正」から `title / summary_short / narrative_md / decided / progress / next_actions / risks` を更新できる。保存先は `POST /api/meeting-summary/manual-update`。MTG 詳細モーダルには「つくよみに修正依頼」を置かず、LLM 再解釈ではなく手動編集を正本にする。
 - jsonb 配列 (decided / progress / next_actions / risks) の各要素には **GFM table を含む長文 markdown を保存する運用** に変更 (= 提案前の論点整理セッションの議事録のように、L表/U表/L×U マトリクスを各要素に埋め込んで詳細解説する用途)。表は `<div className="overflow-x-auto">` で横スクロール対応
 
 ---
@@ -553,6 +553,7 @@ Phase 2 完了後:
 | **2026-05-09** | **page 選択ロジック簡素化**: cron テンプレ vs AI ページの本文厚さ比較を廃止し `last_edited_time 降順 sort で先頭採用` に統一 | 同上 |
 | **2026-05-09** | **alias map 統合** (gas/079 NameAliasMap 新設): `members.member_name` + email から動的に正規化マップ生成。姓・フルネーム・ローマ字表記を `members.code_name` へ寄せる block を 074 / 155 双方の LLM プロンプトに渡す | 72293f4 |
 | **2026-05-09** | **MTGサマリ feedback 対応** (gas/074 v4_alias_feedback): `_l2_loadFeedbackBlock_("meeting_summary", projectId, meetingId)` で過去依頼を取得 → userPrompt に追加。saved>0 で `_l2_recordFeedbackApplied_` で applied_count++。source_hash に active feedback hash を混ぜる → 修正依頼追加で自動再抽出。`POST /api/notifications/feedback` 末尾で **即 force 再抽出を fire-and-forget** | ac23ec1 |
+| **2026-05-29** | **コックピット MTGサマリ修正導線を手動編集へ一本化**: `CockpitMeetingDetailModal` から「つくよみに修正依頼」ブロックを撤去し、「議事録を手動修正」→ `POST /api/meeting-summary/manual-update` を主導線に変更。既存の historical `l2_feedbacks` は routine 側で読めるが、コックピット詳細から新規作成しない。 | 本セッション |
 | **2026-05-09** | **debug_meeting_inspectBlocks(pageId)** 新設 (gas/158): 任意ページの blocks 構造を JSON で返す常設 debug 関数 | fbeabb5 |
 | TBD | Phase 2.1: reportEmails の整備 + CircleBack / GMeet 議事録メールの経路確認 | |
 | TBD | Phase 2.5: AMD-Report GAS の R313 を会議サマリ集約に書き換え (別セッション) | |

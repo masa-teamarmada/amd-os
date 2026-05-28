@@ -117,9 +117,9 @@ AMD OS の **中心画面**。各 PJ ごとに 1 つあり、URL は `/project/{
 - MTGサマリ先頭では、`source_kinds='upcoming'` は「予定MTG / 準備中」、`source_kinds='upcoming_tentative'` や `meeting_id` が `upcoming:` で始まるだけの仮置き row は「日程調整中MTG」に出す。未確定分は確定予定 count には含めず、一覧の日付は未定として表示する
 - L2⑥ routine は今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡し、前回議事録がまだ無いPJでも `source_kinds='upcoming'` の予定MTGカードを作る
 - 一覧カードの短い説明は `summary_short`。詳細モーダルは `narrative_md` があればそれを主表示する
-- 詳細モーダルで `narrative_md` (= Sonnet 4.6 が「背景 → 議論の流れ → 2 人で出した提案 → 残課題」の Markdown narrative に書き直したもの) を主表示
+- 詳細モーダルで `narrative_md` (= L2⑥の MTG サマリ抽出 routine が「背景 → 議論の流れ → 2 人で出した提案 → 残課題」の Markdown narrative に書き直したもの) を主表示
 - raw 配列 (= 元データ) は折りたたみ「元データ」へ
-- 通常MTG / dialogue は詳細モーダル末尾の「議事録を手動修正」から `title / summary_short / narrative_md / decided / progress / next_actions / risks` を更新できる。手動修正は `source_hash` を変えないため、同じ元ソースに対する自動抽出の再実行で上書きされにくい
+- 通常MTG / dialogue は詳細モーダル末尾の「議事録を手動修正」から `title / summary_short / narrative_md / decided / progress / next_actions / risks` を更新できる。手動修正は `source_hash` を変えないため、同じ元ソースに対する自動抽出の再実行で上書きされにくい。MTG 詳細モーダルには「つくよみに修正依頼」を置かず、人間が直した本文を `manual-edit` として保存する
 - `narrative_md` は議事録本文の正本。`summary_short` と raw 配列だけの保存は品質劣化なので、開催済みMTGの backfill / routine は narrative なしで保存しない。既存の長い narrative は migration 098 と manual-update API で、空欄や箇条書き優勢の更新から保護される
 - `notion:<page_id>` 由来で narrative なしの弱い手動 duplicate が、同じ日・同じタイトルの強い row と並ぶ場合は、一覧では強い row を優先して表示する
 - 詳細モーダルの「添付資料」では、PNG / JPG / WebP / GIF / PDF を MTG に紐づけて保存できる。ファイル選択、drag & drop、クリップボード画像のペースト、browser の画面キャプチャを同じ `meeting_assets` に保存する

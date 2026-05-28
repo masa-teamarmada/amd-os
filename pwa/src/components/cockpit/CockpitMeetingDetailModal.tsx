@@ -112,11 +112,6 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
           <RegularMeetingBody meeting={meeting} prepMeeting={prepMeeting} />
         )}
 
-        <MeetingAssetsPanel
-          meeting={meeting}
-          onMeetingUpdated={onMeetingUpdated}
-        />
-
         {!prep && (
           <MeetingSummaryEditor
             key={meeting.meetingId}
@@ -125,10 +120,10 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
           />
         )}
 
-        <MeetingAssetsPanel meeting={meeting} />
-
-        {/* つくよみ修正依頼 (#11 まさ 2026-05-24): 議事録抽出に対する修正を l2_feedbacks へ */}
-        {!prep && <MeetingFeedbackBlock meeting={meeting} />}
+        <MeetingAssetsPanel
+          meeting={meeting}
+          onMeetingUpdated={onMeetingUpdated}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -473,7 +468,7 @@ function MeetingSummaryEditor({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 rounded border border-[#d2d2d7] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7]"
+        className="inline-flex items-center gap-1.5 rounded border border-[#1d1d1f] bg-[#1d1d1f] px-3 py-1.5 text-[11px] font-medium text-white hover:bg-[#3c3c43]"
       >
         <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
         <span>議事録を手動修正</span>
@@ -526,96 +521,6 @@ function MeetingEditTextarea({
         className="w-full rounded border border-[#d2d2d7] bg-[#fbfbfd] px-2.5 py-2 text-[12px] leading-relaxed text-[#1d1d1f] focus:outline-none focus:ring-1 focus:ring-[#007aff]"
       />
     </label>
-  );
-}
-
-function MeetingFeedbackBlock({ meeting }: { meeting: ProjectMeetingSummary }) {
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState("");
-  const [sending, setSending] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
-
-  async function submit() {
-    const body = text.trim();
-    if (!body) return;
-    setSending(true);
-    setNote(null);
-    try {
-      const res = await fetch("/api/notifications/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          l2_kind: "meeting_summary",
-          target_id: meeting.projectId,
-          scope_key: meeting.meetingId,
-          meeting_id: meeting.meetingId,
-          feedback_text: body,
-          action: "comment",
-        }),
-      });
-      if (res.ok) {
-        setNote("✓ つくよみへの修正依頼を保存しました (tsukuyomi 学習リストへ追加)");
-        setText("");
-        setTimeout(() => { setOpen(false); setNote(null); }, 2000);
-      } else {
-        const j = await res.json().catch(() => ({}));
-        setNote(`✕ 送信失敗: ${j.error || res.status}`);
-      }
-    } catch (e) {
-      setNote(`✕ 送信失敗: ${e instanceof Error ? e.message : "unknown"}`);
-    } finally {
-      setSending(false);
-    }
-  }
-
-  return (
-    <div className="border-t border-[#e5e5e7] bg-amber-50/30 px-5 py-3">
-      {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="text-[11px] text-amber-800 hover:underline"
-          title="つくよみ (LLM 抽出) にこの議事録の修正を依頼する"
-        >
-          ⚠️ つくよみに修正依頼
-        </button>
-      ) : (
-        <div>
-          <div className="text-[11px] text-amber-900 mb-1.5 font-semibold">
-            つくよみへの修正依頼 — この議事録の抽出 / narrative の修正点を書いてください
-          </div>
-          <div className="text-[10px] text-amber-900/80 mb-2">
-            送信内容は `l2_feedbacks` に保存され、次回 narrate / 議事録抽出で LLM プロンプトに含まれます。同時に `tsukuyomi_learnings` (notification_response scope) に蓄積され、つくよみが今後の抽出で学習します。
-          </div>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="例: 「5月下旬の開発部長MTG」へのフォーカスが強すぎる。実態は NDA 後のキックオフ会話なので、narrative のトーンを「事業戦略上そろそろ決めたい」に変えて。"
-            className="w-full rounded border border-amber-300 bg-white p-2 text-[12px] focus:outline-none focus:ring-1 focus:ring-amber-400"
-            rows={4}
-            disabled={sending}
-          />
-          <div className="mt-2 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={submit}
-              disabled={sending || !text.trim()}
-              className="rounded bg-amber-600 px-3 py-1 text-[11px] text-white disabled:opacity-40"
-            >
-              {sending ? "送信中..." : "送信"}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setOpen(false); setText(""); setNote(null); }}
-              className="rounded border border-amber-300 px-2.5 py-1 text-[11px] text-amber-800 hover:bg-amber-100"
-            >
-              キャンセル
-            </button>
-            {note && <span className="text-[11px] text-amber-900">{note}</span>}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 

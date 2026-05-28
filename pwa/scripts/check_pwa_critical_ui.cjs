@@ -351,11 +351,15 @@ expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [
   "project_strategy_signal",
 ]);
 
-// 議事録モーダルにもつくよみ修正依頼ボタン (#11)
+// 議事録モーダルの修正導線は手動編集に一本化する。
 expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
+  "MeetingSummaryEditor",
+  "/api/meeting-summary/manual-update",
+  "議事録を手動修正",
+]);
+expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   "MeetingFeedbackBlock",
-  "meeting_summary",
-  "/api/notifications/feedback",
+  "つくよみに修正依頼",
 ]);
 // 「経営会議」表記は使わない (= かる/ちこ が疎外感を持つので「まさえいMTG」に統一、#7-3rd 2026-05-24)
 expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
