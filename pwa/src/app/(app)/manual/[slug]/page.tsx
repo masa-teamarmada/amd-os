@@ -3,13 +3,15 @@ import path from "node:path";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MarkdownView } from "@/components/cockpit/MarkdownView";
+import { ManualMapClient } from "../ManualMapClient";
 import {
   applyManualBookNumbering,
   getManualChapter,
   MANUAL_CHAPTERS,
+  MANUAL_TOPIC_NODES,
   sortManualSlugs,
 } from "../manual-chapters";
-import { normalizeManualMarkdownSource } from "../manual-data";
+import { getManualBookChapters, getManualChapters, normalizeManualMarkdownSource } from "../manual-data";
 
 /**
  * /manual/[slug] — AMD OS マニュアル各章
@@ -55,33 +57,38 @@ export default async function ManualChapterPage({ params }: { params: Promise<{ 
   const idx = sortedFiles.indexOf(decoded);
   const prev = idx > 0 ? sortedFiles[idx - 1] : null;
   const next = idx >= 0 && idx < sortedFiles.length - 1 ? sortedFiles[idx + 1] : null;
+  const chapters = getManualBookChapters(getManualChapters());
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
-      <div className="mb-4 flex items-center gap-3 text-xs">
-        <Link href="/manual" className="text-muted-foreground hover:text-foreground">
-          ← マニュアル目次
-        </Link>
-      </div>
-      <article className="prose prose-sm max-w-none">
-        <MarkdownView source={displaySource} tone="light" linkMode="manual" />
-      </article>
-      <nav className="mt-10 flex justify-between border-t border-border pt-4 text-xs">
-        {prev ? (
-          <Link href={`/manual/${encodeURIComponent(prev)}`} className="text-muted-foreground hover:text-foreground">
-            ← {prev}
-          </Link>
-        ) : (
-          <span />
-        )}
-        {next ? (
-          <Link href={`/manual/${encodeURIComponent(next)}`} className="text-muted-foreground hover:text-foreground">
-            {next} →
-          </Link>
-        ) : (
-          <span />
-        )}
-      </nav>
+    <div className="mx-auto max-w-6xl px-6 py-8">
+      <ManualMapClient chapters={chapters} topics={MANUAL_TOPIC_NODES} activeChapterSlug={decoded} showDirectory={false}>
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-4 flex items-center gap-3 text-xs">
+            <Link href="/manual" className="text-muted-foreground hover:text-foreground">
+              ← マニュアル目次
+            </Link>
+          </div>
+          <article className="prose prose-sm max-w-none">
+            <MarkdownView source={displaySource} tone="light" linkMode="manual" />
+          </article>
+          <nav className="mt-10 flex justify-between border-t border-border pt-4 text-xs">
+            {prev ? (
+              <Link href={`/manual/${encodeURIComponent(prev)}`} className="text-muted-foreground hover:text-foreground">
+                ← {prev}
+              </Link>
+            ) : (
+              <span />
+            )}
+            {next ? (
+              <Link href={`/manual/${encodeURIComponent(next)}`} className="text-muted-foreground hover:text-foreground">
+                {next} →
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        </div>
+      </ManualMapClient>
     </div>
   );
 }
