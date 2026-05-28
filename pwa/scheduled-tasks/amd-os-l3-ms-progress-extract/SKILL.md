@@ -11,7 +11,7 @@ description: AMD OS L2 ③ MS 進捗 (マイルストーン月次進捗) 抽出 
 - **MS 管理対象**: `project_category in ('dtsu','ecosystem','new_business')` (= 2026-05-25 #56 new_business 追加)
   - `advisor` は MS 進捗対象外 → 月次モーダル `project_monthly_notes` に保存
 - **MS 不在月**: 対象月を覆う MS が無い場合 → `monthly_reports` + `project_meeting_summaries` を `project_monthly_notes` に保存 (= MS 設定 nudge は出さない)
-- LLM 抽出は 0/20/40/60/80/100 の粗い候補 (= 保守的)
+- LLM 抽出は対象月時点の累積進捗率。MS個別期間の按分を基本値にして、遅れ/先行を5%刻み程度で補正する。
 - `success_criteria` / `milestone_sub_items` は必ず入力に含める。高進捗は「MS名に近い活動」ではなく、成功条件に書かれた成果物へ直結する証拠で判断する。
 - LLM 呼びはサブスク内 Claude
 - Supabase REST 直叩き
@@ -62,9 +62,9 @@ Phase A: 各 (projectId, ym) について estimate 実行
    - `progress_estimate_state?project_id=eq.<projectId>&ym=eq.<ym>&select=source_hash` と一致なら **skipped_unchanged**
 7. LLM 抽出 (= 私自身):
    - input: 各 MS の title / goal_level / success_criteria / sub_items + report + summaries
-   - output: `{ "milestones": [ { "milestone_id": "<id>", "progress_pct": 0|20|40|60|80|100, "consumed_pt": <number>, "note": "<根拠 50 字>" }, ... ] }`
-   - ルール: 完了条件に直接対応する証拠がない高進捗は下げる (= 保守的)
-   - `80%` 以上、または前回から `+50%` 以上の増分は、`success_criteria` 内の成果物が「完成/完了/確定/提出/作成済/策定済/レビュー可能」になった同一文脈の証拠がある場合だけ許可
+   - output: `{ "milestones": [ { "milestone_id": "<id>", "progress_pct": 0-100の累積値, "consumed_pt": <number>, "note": "<根拠 50 字>" }, ... ] }`
+   - ルール: MS個別期間の按分が基本値。5か月MSなら1か月目20%、2か月目40%、3か月目60%を基準に、遅れ/先行を補正する
+   - `80%` 以上や `100%` は、`success_criteria` またはMS名に直結する成果物が「完成/完了/確定/提出/作成済/策定済/承認済/レビュー可能」になった同一文脈の証拠がある場合だけ許可
    - JAFCO/VC が前向き、DD開始、面談実施、資料作成予定、準備、着手、進行中だけでは、事業計画・資本政策・知財戦略などの成果物MSを高進捗にしない
    - 資本政策MSは、資本政策表・調達方針・持分方針・EXITまでの道筋の実物またはレビュー可能なドラフトが確認できる場合だけ高進捗にする
    - confirmed_at が set されてる milestone_monthly_progress 行、または `ms_progress_revisions.status='confirmed'` がある MS は **上書き禁止** (= まさ手動確定済)
@@ -111,7 +111,7 @@ Phase C: run summary
 - confirmed_at が set されてる milestone_monthly_progress を上書き (= まさ手動確定済を破壊禁止)
 - 列名想像 (= db_schema.md grep)
 - 旧 missing_ms_plan / missing_ms_items 通知 (= 2026-05-22 廃止)
-- 進捗 % を 0/20/40/60/80/100 以外の細かい刻みで出す (= 保守的、粗い候補のみ)
+- progress_pct を今月の追加分として扱う (= 必ず対象月時点の累積値)
 
 【参考】
 - 完全 inline 移植のため、複雑な進捗推定ロジックは PWA `progress-estimator.ts` を Read で確認しながら実装

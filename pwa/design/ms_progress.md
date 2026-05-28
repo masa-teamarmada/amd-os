@@ -11,7 +11,7 @@
 
 L2 ③ MS進捗 (`milestone_monthly_progress`) の自動更新 cron 全般。
 
-- 1 PJ × 1 ym の `monthly_reports` 本文を LLM に渡し、各 MS の今月の追加進捗% (delta) を推定 → 累積化 → upsert
+- 1 PJ × 1 ym の `monthly_reports` 本文を LLM に渡し、各 MS の対象月時点の累積進捗率を推定 → 期間按分基準で補正 → upsert
 - 毎時 0 分 polling + `progress_estimate_state.source_hash` 差分検知で、本文が変わってないときは LLM を呼ばずスキップ
 
 ⭐ **この md と関連する progress_estimation.md (旧設計) は同居している**。本ファイルが Phase 4 (毎時 polling 化) 後の正本、`progress_estimation.md` は Phase 3 までの設計記録 (履歴)。
@@ -88,15 +88,15 @@ L2 ③ MS進捗 (`milestone_monthly_progress`) の自動更新 cron 全般。
    │       │
    │       └─ ⚙ それ以外:
    │             ├─ tag='routine' のMSは、先に `value_milestones.period_start_ym`〜`target_ym` の月割りで `routine_auto` 進捗を補完
-   │             ├─ Sonnet 4.5 で各 MS の delta(progressPct) を抽出
-   │             │     success_criteria / sub_items を入力し、成功条件に直結する成果物証拠を優先
-   │             ├─ 各 MS について累積化 (newCumPct = min(100, prevCum + delta))
-   │             │     スキップ条件:
-   │             │       - tag='routine' (定常業務は上記の月割り自動補完に寄せる)
-   │             │       - success_criteria があるMSで 80%以上または大幅増分なのに、成果物の完成/提出/確定/レビュー可能を示す直接証拠がない
-   │             │       - delta=0
-   │             │       - source='pm_manual' / 'pm_confirmed' / 'pm_rejected' / 'criteria_toggle' / 'tsukuyomi_revision' (手動確定済みは上書き禁止)
-   │             │       - newCumPct <= 現在登録値 (単調増加のみ保存)
+  │             ├─ Sonnet 4.5 で各 MS の対象月時点の累積 progressPct を抽出
+  │             │     MS別期間の期待累積 / success_criteria / sub_items を入力し、期間按分を基準に補正
+  │             ├─ 各 MS について保存値を決定 (基本 = 期間按分、遅れ/先行があれば上下)
+  │             │     スキップ条件:
+  │             │       - tag='routine' (定常業務は上記の月割り自動補完に寄せる)
+  │             │       - MS個別期間の開始前
+  │             │       - 80%以上なのに、成果物の完成/提出/確定/承認/レビュー可能を示す直接証拠がない
+  │             │       - source='pm_manual' / 'pm_confirmed' / 'pm_rejected' / 'criteria_toggle' / 'tsukuyomi_revision' (手動確定済みは上書き禁止)
+  │             │       - AI由来ではない既存値を下げる変更
    │             ├─ milestone_monthly_progress に upsert (onConflict: milestone_key, ym)
    │             └─ progress_estimate_state に upsert (source_hash, last_processed_at)
    │
@@ -254,10 +254,11 @@ GAS ScriptProperties:
 - **monthly_report / meeting summary 本文が無い PJ の場合**: `月次ノートに入れるソースなし` として `progress_estimate_state` だけtouchし、次回 cron で再チェック。
 - **pm_manual / pm_confirmed / pm_rejected / criteria_toggle / tsukuyomi_revision で手動確定済みの MS**: LLM が delta を返しても上書きされない。LLM 呼び出し自体はされる (source_hash が変わってれば) が、save 段階でスキップされる
 - **confirmed revision lock**: `ms_progress_revisions.status='confirmed'` がある MS は、`milestone_monthly_progress.source` が古い推定値に戻っていても、抽出開始時に `tsukuyomi_revision` として再適用し、LLM保存対象から外す。
-- **単調増加のみ保存**: LLM が前月より低い値を返しても save しない。「進捗が下がる」ケースは PM が手動で `pm_manual` で書き換える運用
-- **成功条件ガード**: `success_criteria` がある MS では、80%以上または前月から +50%以上の大きな増分を保存するには、成功条件に書かれた成果物が完成・完了・確定・提出・作成済・策定済・レビュー可能になった直接証拠が必要。面談、関心表明、VC/DD開始、準備、着手、進行中だけでは高進捗を保存しない。
+- **期間按分が基本値**: 5か月MSなら1か月目20%、2か月目40%、3か月目60%を基準にする。情報ソースから遅れが分かれば10%/15%などに下げ、先行が分かれば25%などに上げる。
+- **AI由来値は下方修正OK**: `source='tsukuyomi_estimate'` の過去値が過大なら、次回推定で下げてよい。PM/confirmed/revision系は下げない。
+- **成功条件ガード**: 80%以上や100%を保存するには、成功条件やMS名に直結する成果物が完成・完了・確定・提出・作成済・策定済・承認済・レビュー可能になった直接証拠が必要。面談、関心表明、VC/DD開始、準備、着手、進行中だけでは高進捗を保存しない。
 - **routine タグ MS**: トラブルがなければ期間按分で毎月進む。`value_milestones.period_start_ym`〜`target_ym` の月数で 100% を割り、対象月までの各月を `source='routine_auto'` で補完する。1年PJなら毎月 `100/12%`。PMが `pm_manual` などで対象月を確定している場合は上書きしない。
-- **delta=0**: 「今月は進んでない」を意味する。LLM が 0 を返したら save しない (= 既存値そのまま)
+- **progressPct=0**: 対象月時点の累積進捗 0%。既存AI推定が過大なら0への下方修正も許可する。
 - **`tsukuyomi_context` の system prompt 変更も差分検知に含む**: prompt を更新したら次回 cron で全 PJ が再推定対象になる (意図通り)
 - **maxItems 打ち切り**: default 14。アクティブ PJ × 2 ym = 14 を全部 LLM で回せる想定。差分検知でほとんど skip されるので実際の LLM call は 0-3 程度になることが多い
 - **Vercel Hobby maxDuration 60秒**: route 自体は `export const maxDuration = 300` で書いてあるが Hobby plan では 60 秒が天井。差分検知で実走 LLM call は少ないので問題は出ない想定。Pro 移行後は 300 秒まで使える
