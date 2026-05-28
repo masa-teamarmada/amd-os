@@ -52,6 +52,7 @@ cadence: 毎時 0 分 JST (= [8-3 章 §③](8-3-l2-extraction-routines-spec.md)
 - 1年PJなら毎月 `100/12%`
 - `progress-estimator` は対象月までの各月を `milestone_monthly_progress.source='routine_auto'` で補完する
 - PMが `pm_manual` / `pm_confirmed` / `pm_rejected` / `criteria_toggle` / `tsukuyomi_revision` で確定済みの月は上書きしない
+- `ms_progress_revisions.status='confirmed'` がある月は、その修正値を `tsukuyomi_revision` として再適用し、自動推定より優先する
 - `/api/progress/ms-schedule` のMS別期待進捗アンカーも同じ MS別期間から計算する
 
 ### 成果物MSの高進捗ガード
@@ -193,7 +194,7 @@ mypage で SU 側メンバーが「自分はこの MS を 50% やったよ」と
 | `reject_reason_raw` | 却下理由 |
 | `reviewed_by` / `reviewed_at` | レビュー |
 
-提案 → admin or PM が confirm → `ms_progress_revisions` 経由で `milestone_monthly_progress` に反映。
+提案 → admin or PM が confirm → `ms_progress_revisions` 経由で `milestone_monthly_progress` に反映。自動推定が後から走っても、confirmed revision が対象月のロックとして再適用される。
 
 ### 月次報告書修正 (= `monthly_report_revisions` + `monthly_report_revision_messages`)
 

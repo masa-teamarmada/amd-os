@@ -253,6 +253,7 @@ GAS ScriptProperties:
 - **MS管理対象PJで対象月のMS計画/項目がない場合**: `value_plan_cycles` が無い、または有効な `value_milestones` が無い場合でも `project_config_gap` 通知は出さない。`monthly_reports` + `project_meeting_summaries` を `project_monthly_notes` に保存し、月次モーダルにその月の動きを残す。LLMは呼ばない。
 - **monthly_report / meeting summary 本文が無い PJ の場合**: `月次ノートに入れるソースなし` として `progress_estimate_state` だけtouchし、次回 cron で再チェック。
 - **pm_manual / pm_confirmed / pm_rejected / criteria_toggle / tsukuyomi_revision で手動確定済みの MS**: LLM が delta を返しても上書きされない。LLM 呼び出し自体はされる (source_hash が変わってれば) が、save 段階でスキップされる
+- **confirmed revision lock**: `ms_progress_revisions.status='confirmed'` がある MS は、`milestone_monthly_progress.source` が古い推定値に戻っていても、抽出開始時に `tsukuyomi_revision` として再適用し、LLM保存対象から外す。
 - **単調増加のみ保存**: LLM が前月より低い値を返しても save しない。「進捗が下がる」ケースは PM が手動で `pm_manual` で書き換える運用
 - **成功条件ガード**: `success_criteria` がある MS では、80%以上または前月から +50%以上の大きな増分を保存するには、成功条件に書かれた成果物が完成・完了・確定・提出・作成済・策定済・レビュー可能になった直接証拠が必要。面談、関心表明、VC/DD開始、準備、着手、進行中だけでは高進捗を保存しない。
 - **routine タグ MS**: トラブルがなければ期間按分で毎月進む。`value_milestones.period_start_ym`〜`target_ym` の月数で 100% を割り、対象月までの各月を `source='routine_auto'` で補完する。1年PJなら毎月 `100/12%`。PMが `pm_manual` などで対象月を確定している場合は上書きしない。

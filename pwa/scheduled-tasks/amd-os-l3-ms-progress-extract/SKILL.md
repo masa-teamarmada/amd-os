@@ -67,7 +67,7 @@ Phase A: 各 (projectId, ym) について estimate 実行
    - `80%` 以上、または前回から `+50%` 以上の増分は、`success_criteria` 内の成果物が「完成/完了/確定/提出/作成済/策定済/レビュー可能」になった同一文脈の証拠がある場合だけ許可
    - JAFCO/VC が前向き、DD開始、面談実施、資料作成予定、準備、着手、進行中だけでは、事業計画・資本政策・知財戦略などの成果物MSを高進捗にしない
    - 資本政策MSは、資本政策表・調達方針・持分方針・EXITまでの道筋の実物またはレビュー可能なドラフトが確認できる場合だけ高進捗にする
-   - confirmed_at が set されてる milestone_monthly_progress 行は **上書き禁止** (= まさ手動確定済)
+   - confirmed_at が set されてる milestone_monthly_progress 行、または `ms_progress_revisions.status='confirmed'` がある MS は **上書き禁止** (= まさ手動確定済)
 8. 各 MS について `milestone_monthly_progress?on_conflict=milestone_key,ym` で upsert (= confirmed_at 既存は skip)
 9. **MS 不在 / 計画なし通知**: 旧 `missing_ms_plan` / `missing_ms_items` 通知は廃止 (= 2026-05-22 確定)、何も通知しない
 
