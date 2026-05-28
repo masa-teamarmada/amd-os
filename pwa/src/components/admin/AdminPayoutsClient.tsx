@@ -274,6 +274,8 @@ interface Props {
   ymOptions: string[];
 }
 
+const LOCKED_SAVED_PAYOUT_SOURCE_YMS = new Set(["202604"]);
+
 const BC_STATUS_LABEL: Record<string, string> = {
   not_started: "未着手",
   reported: "報告済",
@@ -528,6 +530,53 @@ function buildEntries(cycles: BillingCycle[], memberMap: Map<string, string>, ex
   });
 }
 
+function applySavedPayoutsForLockedSourceYms({
+  entries,
+  payouts,
+  cycles,
+  memberMap,
+  excludedMemberIds,
+}: {
+  entries: PayoutEntry[];
+  payouts: MonthlyRewardPayout[];
+  cycles: BillingCycle[];
+  memberMap: Map<string, string>;
+  excludedMemberIds: Set<string>;
+}): PayoutEntry[] {
+  const cycleByKey = new Map(cycles.map((cycle) => [`${cycle.project_id}:${cycle.ym}`, cycle]));
+  const byKey = new Map(entries.map((entry) => [entryKey(entry), entry]));
+
+  for (const payout of payouts) {
+    if (!LOCKED_SAVED_PAYOUT_SOURCE_YMS.has(payout.ym)) continue;
+    if (excludedMemberIds.has(payout.member_id)) continue;
+    const cycle = cycleByKey.get(`${payout.project_id}:${payout.ym}`);
+    if (!cycle) continue;
+    const totalPay = Math.round(numberValue(payout.total_pay));
+    if (totalPay <= 0) continue;
+    byKey.set(`${payout.project_id}:${payout.ym}:${payout.member_id}`, {
+      projectId: payout.project_id,
+      ym: payout.ym,
+      invoiceYm: cycle.invoice_ym || cycle.ym,
+      memberId: payout.member_id,
+      memberName: memberMap.get(payout.member_id) || payout.member_id,
+      earnedPt: numberValue(payout.earned_pt),
+      basePay: Math.round(numberValue(payout.base_pay)),
+      bonusPt: Math.round(numberValue(payout.bonus_pt)),
+      totalPay,
+      grossDueYen: totalPay,
+      carryInYen: 0,
+      stockYen: 0,
+      cappedFrom: totalPay,
+    });
+  }
+
+  return [...byKey.values()].sort((a, b) => {
+    if (a.memberName !== b.memberName) return a.memberName.localeCompare(b.memberName, "ja");
+    if (a.ym !== b.ym) return a.ym.localeCompare(b.ym);
+    return a.projectId.localeCompare(b.projectId);
+  });
+}
+
 function capEntriesToBudget(entries: PayoutEntry[], budgetYen: number | null): PayoutEntry[] {
   const budget = Math.round(numberValue(budgetYen));
   const totalPay = entries.reduce((sum, entry) => sum + entry.totalPay, 0);
@@ -630,8 +679,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   }, [data?.members]);
 
   const expectedEntries = useMemo(
-    () => buildEntries(data?.cycles ?? [], memberMap, officerMemberIds),
-    [data?.cycles, memberMap, officerMemberIds]
+    () => applySavedPayoutsForLockedSourceYms({
+      entries: buildEntries(data?.cycles ?? [], memberMap, officerMemberIds),
+      payouts: data?.payouts ?? [],
+      cycles: data?.cycles ?? [],
+      memberMap,
+      excludedMemberIds: officerMemberIds,
+    }),
+    [data?.cycles, data?.payouts, memberMap, officerMemberIds]
   );
 
   const officerReserveEntries = useMemo(

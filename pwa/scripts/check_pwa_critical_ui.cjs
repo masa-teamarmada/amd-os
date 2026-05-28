@@ -90,6 +90,8 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "bulk_issue_notice_pdf",
   "bulk_preview_notice_pdf",
   "fmtRelativeTime",
+  "LOCKED_SAVED_PAYOUT_SOURCE_YMS",
+  "applySavedPayoutsForLockedSourceYms",
 ]);
 
 expectIncludes("src/components/admin/AdminMembersTable.tsx", [
@@ -122,6 +124,8 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "contractor_name",
   "payeeAddress",
   "bankInfo",
+  "LOCKED_SAVED_PAYOUT_SOURCE_YMS",
+  "applySavedPayoutsForLockedSourceYms",
 ]);
 
 expectIncludes("src/app/api/cron/payout-notice-prebuild/route.ts", [
@@ -203,6 +207,7 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "実績配分",
   "milestone_monthly_contribution_allocations",
   "4月稼働分",
+  "monthly_reward_payout.total_pay",
   "MSなしPJ 強制報酬確定",
   "縦型PJ収支表",
 ]);

@@ -24,6 +24,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 報酬キャッシュ日次更新: `payout-reward-cache-refresh` cron が毎日03:05 JSTに、前月・当月・翌月の支払月について `billing_cycles.reward_summary_json` を再生成する。
 - MS実績配分: `syncRewardSummariesForBillingCycles()` は `member_activities(project_id, ym, milestone_id)` から当月MS別の実績配分を自動算出し、`milestone_monthly_contribution_allocations.actual_share` を `auto_applied` / `needs_review` として保存する。`confirmed` / `pm_override` があるMS月は人間確認値を優先し、低確信度や行なしは `milestone_responsibility.share` にfallbackする。
 - 4月稼働分の固定: 202604 の支払額は既に確定済みなので、実績配分を適用せず、従来どおり `milestone_responsibility.share` で計算する。支払通知書PDFでは、この税抜支払額に消費税10%だけを上乗せする。
+- 保存済み支払額の優先: 202604 は `monthly_reward_payout.total_pay` に保存済みの確定額があれば、画面の支払額・`payout_notices.total_yen`・PDF生成の元データをこの保存済み額に揃える。`reward_summary_json` の再計算値で上書きしない。
 - 縦型PJ収支表: 「全体収支」列とPJ列を並べ、クライアント支払、バッファ、PJ予算、支払予定、役員分、役員相殺、最終収支、メンバー別支払を確認できる。
 - MSなしPJ 強制報酬確定: MS / PlanCycle が未設定の PJ でも、`/admin/payouts` から PJ・稼働月・メンバー・支払額を指定して `billing_cycles.reward_summary_json` に `admin_manual_payout` を保存できる。必要なら `billing_cycles` を作成し、`invoice_ym` を支払月へ固定し、`budget_yen` を手入力合計以上にして保存・通知書発行フローへ合流させる。
 - 後追いPJ予算確定: 契約や支払額が後から確定したPJは、支払月画面から確定委託料とバッファを入れ、対象稼働月の `billing_cycles.budget_yen` / `budget_reported_amount` / `budget_buffer_amount` へ配分する。

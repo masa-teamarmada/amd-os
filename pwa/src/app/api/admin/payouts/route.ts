@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 const YM_RE = /^[0-9]{6}$/;
 const MANUAL_REWARD_SOURCE = "admin_manual_payout";
 const MANUAL_REWARD_VERSION = "admin_manual_override_v1";
+const LOCKED_SAVED_PAYOUT_SOURCE_YMS = new Set(["202604"]);
 
 // 一括PDF生成時の並列度。GAS payoutCreatePwaNoticePdf のスループットに配慮して 3 で固定。
 // 上げすぎると Apps Script 側の同時実行制限 (project あたり 30) や freee 連携待ちで詰まる。
@@ -68,6 +69,10 @@ type PayoutEntry = {
   base_pay: number;
   bonus_pt: number;
   total_pay: number;
+};
+
+type MonthlyRewardPayoutRow = PayoutEntry & {
+  created_at?: string | null;
 };
 
 type MemberRow = {
@@ -409,6 +414,39 @@ function buildPayoutEntries(cycles: BillingCycleRow[], excludedMemberIds: Set<st
   }
 
   return entries;
+}
+
+function applySavedPayoutsForLockedSourceYms(
+  entries: PayoutEntry[],
+  payouts: MonthlyRewardPayoutRow[],
+  cycles: BillingCycleRow[],
+  excludedMemberIds: Set<string> = new Set()
+): PayoutEntry[] {
+  const cycleKeys = new Set(cycles.map((cycle) => cycleKey(cycle)));
+  const byKey = new Map(entries.map((entry) => [`${entry.project_id}:${entry.ym}:${entry.member_id}`, entry]));
+
+  for (const payout of payouts) {
+    if (!LOCKED_SAVED_PAYOUT_SOURCE_YMS.has(payout.ym)) continue;
+    if (!cycleKeys.has(`${payout.project_id}:${payout.ym}`)) continue;
+    if (excludedMemberIds.has(payout.member_id)) continue;
+    const totalPay = yenValue(payout.total_pay);
+    if (totalPay <= 0) continue;
+    byKey.set(`${payout.project_id}:${payout.ym}:${payout.member_id}`, {
+      project_id: payout.project_id,
+      ym: payout.ym,
+      member_id: payout.member_id,
+      earned_pt: numberValue(payout.earned_pt),
+      base_pay: yenValue(payout.base_pay),
+      bonus_pt: yenValue(payout.bonus_pt),
+      total_pay: totalPay,
+    });
+  }
+
+  return [...byKey.values()].sort((a, b) => {
+    if (a.ym !== b.ym) return a.ym.localeCompare(b.ym);
+    if (a.member_id !== b.member_id) return a.member_id.localeCompare(b.member_id);
+    return a.project_id.localeCompare(b.project_id);
+  });
 }
 
 function capPayoutEntriesToBudget(entries: PayoutEntry[], budgetYen: unknown): PayoutEntry[] {
@@ -867,7 +905,12 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     cycles,
     payouts: payoutsRes.data ?? [],
     notices: noticesRes.data ?? [],
-    expectedEntries: buildPayoutEntries(cycles, officerMemberIds),
+    expectedEntries: applySavedPayoutsForLockedSourceYms(
+      buildPayoutEntries(cycles, officerMemberIds),
+      (payoutsRes.data ?? []) as MonthlyRewardPayoutRow[],
+      cycles,
+      officerMemberIds
+    ),
     refreshedRewards: Boolean(options.refreshRewards),
   };
 }
