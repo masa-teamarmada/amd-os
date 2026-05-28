@@ -14,7 +14,6 @@ export const runtime = "nodejs";
 const YM_RE = /^[0-9]{6}$/;
 const MANUAL_REWARD_SOURCE = "admin_manual_payout";
 const MANUAL_REWARD_VERSION = "admin_manual_override_v1";
-const LOCKED_SAVED_PAYOUT_SOURCE_YMS = new Set(["202604"]);
 
 // 一括PDF生成時の並列度。GAS payoutCreatePwaNoticePdf のスループットに配慮して 3 で固定。
 // 上げすぎると Apps Script 側の同時実行制限 (project あたり 30) や freee 連携待ちで詰まる。
@@ -416,7 +415,7 @@ function buildPayoutEntries(cycles: BillingCycleRow[], excludedMemberIds: Set<st
   return entries;
 }
 
-function applySavedPayoutsForLockedSourceYms(
+function applySavedPayoutsForExistingRows(
   entries: PayoutEntry[],
   payouts: MonthlyRewardPayoutRow[],
   cycles: BillingCycleRow[],
@@ -426,7 +425,6 @@ function applySavedPayoutsForLockedSourceYms(
   const byKey = new Map(entries.map((entry) => [`${entry.project_id}:${entry.ym}:${entry.member_id}`, entry]));
 
   for (const payout of payouts) {
-    if (!LOCKED_SAVED_PAYOUT_SOURCE_YMS.has(payout.ym)) continue;
     if (!cycleKeys.has(`${payout.project_id}:${payout.ym}`)) continue;
     if (excludedMemberIds.has(payout.member_id)) continue;
     const totalPay = yenValue(payout.total_pay);
@@ -905,7 +903,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     cycles,
     payouts: payoutsRes.data ?? [],
     notices: noticesRes.data ?? [],
-    expectedEntries: applySavedPayoutsForLockedSourceYms(
+    expectedEntries: applySavedPayoutsForExistingRows(
       buildPayoutEntries(cycles, officerMemberIds),
       (payoutsRes.data ?? []) as MonthlyRewardPayoutRow[],
       cycles,

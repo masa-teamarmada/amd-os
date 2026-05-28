@@ -274,8 +274,6 @@ interface Props {
   ymOptions: string[];
 }
 
-const LOCKED_SAVED_PAYOUT_SOURCE_YMS = new Set(["202604"]);
-
 const BC_STATUS_LABEL: Record<string, string> = {
   not_started: "未着手",
   reported: "報告済",
@@ -530,7 +528,7 @@ function buildEntries(cycles: BillingCycle[], memberMap: Map<string, string>, ex
   });
 }
 
-function applySavedPayoutsForLockedSourceYms({
+function applySavedPayoutsForExistingRows({
   entries,
   payouts,
   cycles,
@@ -547,7 +545,6 @@ function applySavedPayoutsForLockedSourceYms({
   const byKey = new Map(entries.map((entry) => [entryKey(entry), entry]));
 
   for (const payout of payouts) {
-    if (!LOCKED_SAVED_PAYOUT_SOURCE_YMS.has(payout.ym)) continue;
     if (excludedMemberIds.has(payout.member_id)) continue;
     const cycle = cycleByKey.get(`${payout.project_id}:${payout.ym}`);
     if (!cycle) continue;
@@ -679,7 +676,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   }, [data?.members]);
 
   const expectedEntries = useMemo(
-    () => applySavedPayoutsForLockedSourceYms({
+    () => applySavedPayoutsForExistingRows({
       entries: buildEntries(data?.cycles ?? [], memberMap, officerMemberIds),
       payouts: data?.payouts ?? [],
       cycles: data?.cycles ?? [],

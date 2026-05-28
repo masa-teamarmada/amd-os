@@ -90,8 +90,7 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "bulk_issue_notice_pdf",
   "bulk_preview_notice_pdf",
   "fmtRelativeTime",
-  "LOCKED_SAVED_PAYOUT_SOURCE_YMS",
-  "applySavedPayoutsForLockedSourceYms",
+  "applySavedPayoutsForExistingRows",
 ]);
 
 expectIncludes("src/components/admin/AdminMembersTable.tsx", [
@@ -124,8 +123,7 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "contractor_name",
   "payeeAddress",
   "bankInfo",
-  "LOCKED_SAVED_PAYOUT_SOURCE_YMS",
-  "applySavedPayoutsForLockedSourceYms",
+  "applySavedPayoutsForExistingRows",
 ]);
 
 expectIncludes("src/app/api/cron/payout-notice-prebuild/route.ts", [
