@@ -22,7 +22,7 @@ description: AMD OS L2 ②〜⑨ 全 8 種を 1 routine で順次抽出する集
 5. **⑦ OS 台帳差分** (= 5 生データ vs OS 台帳、独立)
 6. **⑧ XRL 根拠** (= 5 生データ + 既存 L2 依存、後段)
 7. **⑨ 経営ハイライト** (= 5 生データ + OS snapshot + 既存 L2 依存、最後段)
-8. **③ MS 進捗** (= monthly_reports + meeting_summaries 依存、PWA hourly-estimate と並行稼働なので最後でも OK)
+8. **③ MS 進捗** (= monthly_reports + meeting_summaries 依存、旧 PWA hourly-estimate は停止済み。入力依存上最後に実行)
 
 ## 【絶対】 動く前に必ず Read
 
@@ -123,7 +123,7 @@ Phase H: ③ MS 進捗推定
 - 出力: `milestone_monthly_progress` (= MS あり PJ) または `project_monthly_notes` (= MS 不在月)
 - `progress_estimate_state.source_hash` で差分検知
 - `confirmed_at` set 済の `milestone_monthly_progress` 行は上書き禁止
-- PWA hourly-estimate と並行稼働 (= idempotent、Cloud 動作確認後に PWA 停止判断)
+- 旧 PWA hourly-estimate は停止済み。定期抽出は本 routine / subscription automation 側を primary とする
 
 ═══════════════════════════════════════════════════
 Phase I: run summary

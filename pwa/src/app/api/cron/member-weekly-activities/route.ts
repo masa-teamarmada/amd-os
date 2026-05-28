@@ -930,6 +930,15 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  if (process.env.ALLOW_PWA_LLM_CRONS !== "1") {
+    return NextResponse.json({
+      ok: true,
+      disabled: true,
+      reason: "LLM-backed PWA background cron is disabled; member activity extraction should run via subscription automation.",
+      saved: 0,
+    });
+  }
+
   try {
     const supabase = getServiceClient();
     const bounds = activityWindowBoundsJST(req.nextUrl.searchParams.get("windowEnd") || req.nextUrl.searchParams.get("weekStart"));

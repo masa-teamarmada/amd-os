@@ -9,7 +9,7 @@
 | L2 | テーブル | 役割 | 旧 writer | 新 writer |
 |---|---|---|---|---|
 | ② AMD Protocol | `protocols` / `protocol_examples` | 経営判断を普遍パターンとして残す | GAS 155 (5/22 停止) | Cloud routine `AMD OS L2 ② AMD プロトコル抽出` |
-| ③ MS 進捗 | `milestone_monthly_progress` / `project_monthly_notes` | マイルストーン月次進捗 % | PWA `/api/cron/hourly-estimate` + GAS 154 ping | Cloud routine `AMD OS L2 ③ MS 進捗抽出` |
+| ③ MS 進捗 | `milestone_monthly_progress` / `project_monthly_notes` | マイルストーン月次進捗 % | ~~PWA `/api/cron/hourly-estimate` + GAS 154 ping~~ ⛔ 2026-05-29 再停止 | Cloud routine `AMD OS L2 ③ MS 進捗抽出` |
 | ④ PJ ナレッジ | `project_knowledge` | PJ に関する人物 / 技術 / 組織 / 市場 | GAS 155 (5/22 停止) | Cloud routine `AMD OS L2 ④ PJ ナレッジ抽出` |
 | ⑤ メンバーナレッジ | `member_knowledge` | メンバーごとの強み / スタイル / 関心 | GAS 155 (5/22 停止) | Cloud routine `AMD OS L2 ⑤ メンバーナレッジ抽出` |
 | ⑥ MTG サマリ | `project_meeting_summaries` / `meeting_notifications` | Calendar event 単位の議事録要約 | GAS 153 + GAS 074 (5/22 停止) | Cloud routine `AMD OS L2 ⑥ MTG サマリ抽出` |
@@ -40,7 +40,7 @@ vs ローカル Mac scheduled task の問題:
 | routine 名 (= UI 表示) | trigger ID | cron | リポジトリ | Connector |
 |---|---|---|---|---|
 | L2 ② AMD プロトコル抽出 | `trig_01YEcyejLzKF7zYgmAiw3w8P` | daily 08:00 JST | ✅ amd-os | ✅ 7 個全部 |
-| L2 ③ MS 進捗抽出 | `trig_01MxR8nyEvJvSHaCwDcHoqmb` | 毎時 0 分 | ✅ amd-os | ✅ 7 個全部 |
+| L2 ③ MS 進捗抽出 | `trig_01MxR8nyEvJvSHaCwDcHoqmb` | 毎時 0 分 | ✅ amd-os | ✅ 7 個全部。PWA/GAS hourly は停止済み |
 | L2 ④ PJ ナレッジ抽出 | `trig_01DtARvCSkz99GsgG8xihceX` | daily 08:15 JST | ✅ amd-os | ✅ 7 個全部 |
 | L2 ⑤ メンバーナレッジ抽出 | `trig_011FUoNE2YCLgVoZVa9C4q2m` | daily 08:30 JST | ✅ amd-os | ⚠️ Docusign+Supabase のみ |
 | L2 ⑥ MTG サマリ抽出 | `trig_01LHbVwy9KH2RNv1E7TtoaQd` | 毎時 0 分 | ✅ amd-os | ⚠️ 5 個 (Supabase + Calendar 欠) |

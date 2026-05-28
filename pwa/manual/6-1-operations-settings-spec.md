@@ -49,7 +49,7 @@ L2 Data は、Raw Data を OS が使える知識に変換したもの。
 
 2026-05-25 時点の注意:
 - ① `monthly_reports` は AMD-Report GAS R313 が別 clasp で生成し、PWA の report route / backfill route が補助する。
-- ③ `milestone_monthly_progress` は GAS 154 -> PWA `/api/cron/hourly-estimate` が primary writer。Codex automation `amd-os-ms` は修正候補レビュー / OS 台帳差分 / XRL 根拠を outbox に出す。
+- ③ `milestone_monthly_progress` は MMO/Codex automation `amd-os-l3-ms-progress-extract` が primary writer。GAS 154 -> PWA `/api/cron/hourly-estimate` は 2026-05-29 に再停止済み。Codex automation `amd-os-ms` は修正候補レビュー / OS 台帳差分 / XRL 根拠を outbox に出す。
 - ②④⑤⑥ は 5/22 の LLM cron 停止以降 ghost 状態。復旧計画は [3-2 章](3-2-data-and-extraction.md) と `pwa/design/l2_extract_claude_routine.md` を見る。
 
 ## Cron Control の読み方
@@ -94,12 +94,10 @@ GAS function の場合:
 
 ## Run Now できる代表例
 
-2026-05-25 時点で UI から直接起動できる代表例:
+2026-05-29 時点で UI から直接起動できる代表例:
 
 | operation | 役割 | default params |
 |---|---|---|
-| `pwa-hourly-estimate` | MS進捗 hourly estimate を手動キック | `{"query":{"maxItems":3}}` |
-| `pwa-member-weekly-activities` | メンバー週次活動抽出 | `{"query":{"save":1}}` |
 | `pwa-papers-quarterly-ingest` | OpenAlex / papers ingest | `{}` |
 | `pwa-sync-pj-facts` | PJ facts sync | `{}` |
 | `pwa-macro-aggregate-indicators` | macro 指標集計 | `{"query":{"since":"YYYY-MM"}}` |
@@ -109,7 +107,7 @@ GAS function の場合:
 
 `dryRun` があるものは、まず `dryRun=1` で挙動確認してから本実行する。
 
-`pwa-hourly-estimate` は L2 ③ MS 進捗の primary writer。通常は GAS 154 が毎時 0 分に叩く。UI からの `Run Now` は詰まり確認や小さな再実行用なので、default は `maxItems=3` に抑えている。全件再推定したい時は [4-8 章](4-8-ms-progress-monthly-report-revision-spec.md) の `force=1` / `ym=YYYYMM` / `maxItems` の意味を確認してから実行する。
+`pwa-hourly-estimate` と `pwa-member-weekly-activities` は旧 PWA LLM cron。2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは LLM を呼ばない。MS進捗の定期抽出は `amd-os-l3-ms-progress-extract` 側で行う。
 
 `pwa-payment-confirm-nudges` は Slack DM を実送信する処理。対象 group、予定税込額、admin 送信先だけ確認したい時は `{"query":{"ym":"YYYYMM","dryRun":1}}` を使う。signed token と `/payment-confirm` の仕様は [6-4 章](6-4-finance-payment-confirm-spec.md)。
 
@@ -118,6 +116,8 @@ GAS function の場合:
 | operation | 止めている理由 |
 |---|---|
 | GAS meeting hourly | 旧 LLM / Gemini 系。Claude routine `amd-os-l6-meeting-extract` へ移管済 (= 2026-05-25 まさ #71) |
+| PWA hourly-estimate | 旧 MS進捗 writer。定期抽出は `amd-os-l3-ms-progress-extract` へ移管済 |
+| PWA member-weekly-activities | Anthropic 経路を持つため停止。定期化する場合は subscription automation 側で実行 |
 | GAS L2 knowledge | 旧 LLM / Gemini 系。Claude routine `amd-os-l2..l5-*-extract` へ移管済 (= 2026-05-25 まさ #71) |
 | Claude routine `amd-os-l<N>-<data>-extract` | 2026-05-25 まさ #71 確定。L2 ②〜⑨ すべて Claude routine に統一。`CronOperation.layer="Claude"` で `operations-catalog.ts` に登録、`run.type="manual"` (= `~/.claude/scheduled-tasks/` ローカル cron、PWA から直接叩けない、Claude Code セッション経由で実行)。詳細は [9-1 章 §5.7](9-1-decisions-and-history.md#57-l2-②④⑤⑥-ghost-化と-claude-routine-4-個新設計画--2026-05-25) + 設計議論 [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md) |
 | Atlas collect / policy collect | LLM web search 系。Codex automation / review batch へ移管 |
@@ -160,7 +160,7 @@ ASPI / Macrotrend 系には、route は残っているが Vercel schedule と Ru
 
 | 種類 | route 例 | 表示方針 |
 |---|---|---|
-| 実行中の運用 cron | `/api/cron/freee-payment-sync`, `/api/cron/member-weekly-activities`, `/api/cron/hourly-estimate` | Run Now または active operation として表示 |
+| 実行中の運用 cron | `/api/cron/freee-payment-sync`, `/api/cron/payment-confirm-nudges`, `/api/cron/payout-reward-cache-refresh` | Run Now または active operation として表示 |
 | 停止中だが仕様を残す cron | `/api/cron/amd-score-l2-refresh`, `/api/cron/member-activities`, `/api/cron/venture-narrative-refresh` | Stopped / manual reason を表示 |
 | backfill / recompute | `/api/cron/monthly-reports-backfill`, `/api/cron/freeze-period-backfill`, `/api/cron/triple-helix-recompute` | `manual-*` operation として棚卸しだけ表示 |
 | source refs collect | `/api/sources/gmail/collect`, `/api/sources/slack/collect` | Raw Data / L2 入力として説明。Cron Control には原則出さない |
@@ -192,4 +192,4 @@ operation を追加する時は、`id`, `label`, `layer`, `cadence`, `trigger`, 
 | GAS endpoint error | `NEXT_PUBLIC_GAS_WEBAPP_URL` / `NEXT_PUBLIC_GAS_API_KEY` |
 | Stopped で押せない | 停止中 operation。9-1 章と operations-catalog の reason を見る |
 | 入金確認 nudge が飛ばない | `SLACK_BOT_TOKEN`, admin の `slack_id`, [6-4 章](6-4-finance-payment-confirm-spec.md) |
-| MS進捗が増えない | `gas/154_PwaCronCaller.js` の `NAV_PWA_HOURLY_ESTIMATE_DISABLED_20260522` が `false` か、GAS trigger が `nav_pwa_pingHourlyEstimate` を持つか、PWA `/api/cron/hourly-estimate` が 401/500 を返していないか |
+| MS進捗が増えない | `amd-os-l3-ms-progress-extract` の実行履歴、`progress_estimate_state.source_hash`、月次モーダルの手動「AIで再推定」。PWA/GAS hourly は停止済みなので復旧対象にしない |

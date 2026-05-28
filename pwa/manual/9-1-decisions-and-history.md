@@ -99,7 +99,7 @@
 | routine 名 | trigger ID | 動く場所 | 頻度 | 役割 | 状態 |
 |---|---|---|---|---|---|
 | L2 ② AMD プロトコル抽出 | `trig_01YEcyejLzKF7zYgmAiw3w8P` | claude.ai Cloud sandbox VM | daily 08:00 JST | `protocols` 抽出 (GAS 155 後継) | ✅ 動作テスト済 |
-| L2 ③ MS 進捗抽出 | `trig_01MxR8nyEvJvSHaCwDcHoqmb` | 同上 | 毎時 0 分 | `milestone_monthly_progress` 推定 (PWA hourly-estimate 後継) | 🚧 並行稼働 |
+| L2 ③ MS 進捗抽出 | `trig_01MxR8nyEvJvSHaCwDcHoqmb` | 同上 | 毎時 0 分 | `milestone_monthly_progress` 推定 (PWA hourly-estimate 後継) | ✅ 定期抽出 primary。PWA/GAS は停止済み |
 | L2 ④ PJ ナレッジ抽出 | `trig_01DtARvCSkz99GsgG8xihceX` | 同上 | daily 08:15 JST | `project_knowledge` 抽出 (GAS 155 後継) | 🚧 未テスト |
 | L2 ⑤ メンバーナレッジ抽出 | `trig_011FUoNE2YCLgVoZVa9C4q2m` | 同上 | daily 08:30 JST | `member_knowledge` 抽出 (GAS 155 後継) | 🚧 Connector 不完全 |
 | L2 ⑥ MTG サマリ抽出 | `trig_01LHbVwy9KH2RNv1E7TtoaQd` | 同上 | 毎時 0 分 | `project_meeting_summaries` 抽出 (GAS 153 + 074 後継、5 ソース全部見る) | 🚧 Connector 不完全 (Supabase + Calendar 欠) |
@@ -111,11 +111,11 @@ LLM 課金: claude.ai Pro/Max/Team/Enterprise sub 内 (= 追加課金なし、So
 管理 URL: [claude.ai/code/routines](https://claude.ai/code/routines)
 SKILL 正本: [`pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md`](../scheduled-tasks/)
 
-### 並行稼働中 (= Cloud 動作確認後に停止予定)
+### 残存レビュー系 / 停止済み旧 cron
 
 | 自動処理 | 動く場所 | 頻度 | 役割 | LLM 課金 | 関連 file |
 |---|---|---|---|---|---|
-| **PWA hourly-estimate** | GAS 154 → PWA route | 毎時 0 分 | (Cloud L2 ③ 移管中) `milestone_monthly_progress` 推定の現 primary writer | あり (Sonnet 4.5、差分時のみ) | `gas/154_PwaCronCaller.js`, `pwa/src/app/api/cron/hourly-estimate/route.ts`, [4-8 章](4-8-ms-progress-monthly-report-revision-spec.md) |
+| ~~**PWA hourly-estimate**~~ | ~~GAS 154 → PWA route~~ | ⛔ 2026-05-29 再停止 | 旧 `milestone_monthly_progress` 推定 writer。`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す | なし | `gas/154_PwaCronCaller.js`, `pwa/src/app/api/cron/hourly-estimate/route.ts`, [4-8 章](4-8-ms-progress-monthly-report-revision-spec.md) |
 | **amd-os-ms** | Codex automation | 6h ごと | (Cloud L2 ⑦⑧ 移管中) MS 進捗修正候補 / L2 ⑦ OS 台帳差分 / L2 ⑧ XRL 根拠の outbox 出力 | あり | `~/.codex/automations/amd-os-ms/automation.toml` |
 | **amd-os** | Codex automation | daily 03:20 JST | (Cloud L2 ⑨ 移管中) L2 ⑨ 経営ハイライト outbox 出力 | あり | `~/.codex/automations/amd-os/automation.toml` |
 | **outbox applier** | LaunchAgent | 5 分ごと | Codex outbox → Supabase POST。L2 ⑦⑧⑨ Cloud 移管完了後は不要 | なし (= 純粋 DB 反映) | `~/Library/LaunchAgents/jp.teamarmada.amd-os-ms-outbox-applier.plist` |
@@ -147,7 +147,7 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md`](../scheduled-t
 | ~~**GAS 152 NavigatorCron 月次 extract**~~ | ⛔ 2026-05-22 停止 | — | (旧) 月単位 fallback 抽出 → kill switch | あり | `gas/152_NavigatorCron.js` |
 | **freee-payment-sync** | Vercel cron | daily | freee API → Supabase 入金同期 | なし | `pwa/src/app/api/cron/freee-payment-sync/route.ts` |
 | **payment-confirm-nudges** | Vercel cron | daily | 入金確認通知 | なし | `pwa/src/app/api/cron/payment-confirm-nudges/route.ts` |
-| **member-weekly-activities** | Vercel cron | daily 18:00 | Gmail/Calendar 直接 fetch → `member_activities` 直書き | なし (= LLM 不使用、ルール抽出のみ) | `pwa/src/app/api/cron/member-weekly-activities/route.ts` |
+| ~~**member-weekly-activities**~~ | ~~Vercel cron~~ | ⛔ 2026-05-29 退避 | Gmail/Calendar 直接 fetch → `member_activities` 直書き。Anthropic経路があるため active cron から外す | なし (定期停止中) | `pwa/src/app/api/cron/member-weekly-activities/route.ts` |
 | **payout-reward-cache-refresh** | Vercel cron | daily | 報酬キャッシュ再計算 | なし | `pwa/src/app/api/cron/payout-reward-cache-refresh/route.ts` |
 | **papers-quarterly-ingest** | Vercel cron | quarterly | 論文 ingest | なし | `pwa/src/app/api/cron/papers-quarterly-ingest/route.ts` |
 | **sync-pj-facts** | Vercel cron | daily | PJ メタ同期 | なし | `pwa/src/app/api/cron/sync-pj-facts/route.ts` |
@@ -251,7 +251,7 @@ GAS 153 のソース冒頭コメントに「Use Codex automation/review batches�
 | `amd-os-protocol-extract` | daily 08:00 JST | L2 ② AMD プロトコル | GAS 155 (= protocol_pollAll、kill switch) | 🚧 未作成 |
 | `amd-os-project-knowledge-extract` | daily 08:15 JST | L2 ④ PJ ナレッジ | GAS 155 (= project_knowledge_pollAll、kill switch) | 🚧 未作成 |
 | `amd-os-member-knowledge-extract` | daily 08:30 JST | L2 ⑤ メンバーナレッジ | GAS 155 (= member_knowledge_pollAll、kill switch) | 🚧 未作成 + member_knowledge schema gap (= status / source_hash 列なし) |
-| `amd-os-ms-progress-extract` | 毎時 0 分 | L2 ③ MS 進捗 | GAS 154 → PWA `/api/cron/hourly-estimate` (稼働中) + Codex `amd-os-ms` (修正候補) | 🚧 未作成、**移管慎重** (= 既存 primary writer 動作中) |
+| `amd-os-ms-progress-extract` | 毎時 0 分 | L2 ③ MS 進捗 | ~~GAS 154 → PWA `/api/cron/hourly-estimate`~~ ⛔ 2026-05-29 再停止 + Codex `amd-os-ms` (修正候補) | ✅ 定期抽出 primary。PWA/GAS background LLM cron は停止 |
 | `amd-os-registry-diff-extract` | 6h ごと | L2 ⑦ OS 台帳差分 | Codex `amd-os-ms` の `outbox.registryDiffs` (稼働中) | 🚧 未作成、移管慎重 |
 | `amd-os-xrl-evidence-extract` | 6h ごと | L2 ⑧ XRL 根拠 | Codex `amd-os-ms` の `outbox.xrlEvidence` (稼働中) | 🚧 未作成、移管慎重 |
 | `amd-os-strategy-signal-extract` | daily 03:20 JST | L2 ⑨ 経営ハイライト | Codex `amd-os` (稼働中、5/25 applier 修復済) | 🚧 未作成、対話型修正依頼 (#34) と接続必要 |

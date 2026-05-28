@@ -17,16 +17,13 @@
     { "path": "/api/cron/seeds-ingest", "schedule": "0 0 * * 1" },
     { "path": "/api/cron/vc-discover", "schedule": "0 0 * * 6" },
     { "path": "/api/cron/founding-members-extract", "schedule": "30 18 * * 1" },
-    { "path": "/api/cron/frl-grit-resilience-extract", "schedule": "0 18 1 * *" }
+    { "path": "/api/cron/frl-grit-resilience-extract", "schedule": "0 18 1 * *" },
+    { "path": "/api/cron/member-weekly-activities", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/graduation-detection", "schedule": "0 20 1 * *" }
   ],
-  "gas_adapters_restored_in_code": [
-    {
-      "fn": "nav_pwa_pingHourlyEstimate",
-      "restored_at": "2026-05-25",
-      "reason": "L2 ③ MS進捗の primary writer。Vercel Hobby cron制約を避けるためGAS 154からPWA hourly-estimateを叩く"
-    }
-  ],
+  "gas_adapters_restored_in_code": [],
   "gas_adapters_disabled_in_code": [
+    "nav_pwa_pingHourlyEstimate",
     "nav_pwa_pingWeeklyAspiSet1",
     "nav_pwa_pingWeeklyAspiSet2",
     "nav_pwa_pingLaneSuggest",

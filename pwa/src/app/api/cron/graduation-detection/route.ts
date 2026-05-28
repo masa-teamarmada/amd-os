@@ -32,6 +32,15 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  if (process.env.ALLOW_PWA_LLM_CRONS !== "1") {
+    return NextResponse.json({
+      ok: true,
+      disabled: true,
+      reason: "LLM-backed PWA background cron is disabled; graduation detection should run only after explicit owner approval.",
+      saved: 0,
+    });
+  }
+
   try {
     const ym = req.nextUrl.searchParams.get("ym") || currentYmJST();
     // ANTHROPIC_API_KEY が set かつ llm_prompts.graduation_detection.* が is_active=TRUE のとき

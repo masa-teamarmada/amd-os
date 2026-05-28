@@ -109,6 +109,7 @@ pwa/
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定 (取り消し線 = 未完月次ルーティンによる除外)。りり (`ID006`) は NIMS からの無償出向のため、報酬額は金額ではなく `ー` 表示 |
 | `/project/[projectId]/cockpit` | PJ コックピット (案C レイアウト = 上 Header + Hero (AMD Score + XRL 横並び) + 3 カラム MS / 経営ハイライト / 月次ルーティン sticky + 下段 月次 + MTGサマリ + 最下カンバン)。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
+| `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` がマニュアル抜粋を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
 | `/reimburse` | 立替精算 |
 | `/admin/settings` | Operations Settings。admin限定で Raw Data / L2 Data / Cron Control を一覧化する。停止中cronはここに旧頻度・入力・出力・停止理由を表示する。`/settings` は一般ユーザー誤操作防止のため削除 |
 | `/atlas` | シグナル & ストーリー一覧 |
@@ -159,12 +160,12 @@ pwa/
 
 ### Cron (`vercel.json`、UTC、Hobby plan で maxDuration=300 上限)
 
-2026-05-25時点で Vercel cron に残すのは、LLMを使わない `member-weekly-activities` / `papers-quarterly-ingest` / `sync-pj-facts` / `macro-aggregate-indicators` と、支払運用に必要な `freee-payment-sync` / `payment-confirm-nudges` だけ。例外として、L2 ③ MS進捗の primary writer は Vercel cron ではなく GAS 154 の毎時 trigger から `/api/cron/hourly-estimate` を叩く。その他の LLM利用cronは `vercel.disabled-crons.json` に退避し、復活にはownerの明示承認を要する。
+2026-05-29時点で Vercel cron に残すのは、LLMを使わない運用・同期系だけ。LLM利用cronは `vercel.disabled-crons.json` に退避し、復活にはownerの明示承認を要する。L2 ③ MS進捗の旧 GAS 154 → PWA `/api/cron/hourly-estimate` も停止済みで、定期抽出は MMO/Codex automation 側へ寄せる。
 
 | path | schedule (UTC) | JST | 内容 |
 |---|---|---|---|
 | `cron/daily-estimate` | disabled | 03:00 daily | 旧進捗推定cron。LLM課金回避のためVercel scheduleから外す |
-| `cron/hourly-estimate` | GAS 154 (`nav_pwa_pingHourlyEstimate`) | 毎時0分 | L2 ③ MS進捗の primary writer。Vercel Hobby cron制約のため Vercel schedule には入れず、GASから `Bearer CRON_SECRET` 付きで叩く。`progress_estimate_state.source_hash` 差分時だけ Sonnet を呼ぶ |
+| `cron/hourly-estimate` | disabled fallback | — | 旧 L2 ③ MS進捗 writer。2026-05-29 に GAS 154 と PWA route を再停止。`ALLOW_PWA_LLM_CRONS=1` なしでは LLM を呼ばない |
 | `cron/atlas-collect` | disabled | 08:00 daily | 課金回避のため停止済み。旧定義は `vercel.disabled-crons.json` に保管。現在は Codex automation `AMD Atlas外部シグナルレビュー` が担当 |
 | `cron/atlas-collect-policy` | disabled | 07:00 daily | 政府方針シグナル収集。Sonnet利用のため停止済み |
 | `cron/atlas-daily` | disabled | 06:00 daily | atlas 日次レポート。内部で `atlas-report.ts` がAnthropicを使うため停止済み |
@@ -172,7 +173,7 @@ pwa/
 | `cron/atlas-monthly` | disabled | 07:00 month-1 | atlas 月次。内部で `atlas-report.ts` がAnthropicを使うため停止済み |
 | `cron/atlas-divergence` | disabled | 06:00 sun | テーマ単位 divergence 再生成。Sonnet利用のため停止済み |
 | `cron/member-activities` | disabled | 04:00 daily | 月次レポート + MTGサマリ + source_cache refs → Sonnet 推論 → member_activities。LLM課金回避で停止済み |
-| `cron/member-weekly-activities` | `0 9 * * *` | 18:00 daily | Gmail / 共有メンバーカレンダー / source_cache → member_activities(source='member_weekly')。毎日18:00 JSTに、前日18:00〜当日18:00の24hを抽出 |
+| `cron/member-weekly-activities` | disabled | — | Anthropic 経路を持つため 2026-05-29 に active cron から退避。`ALLOW_PWA_LLM_CRONS=1` なしでは LLM を呼ばない |
 | `cron/payout-reward-cache-refresh` | `5 18 * * *` | 03:05 daily | `/admin/payouts` の高速表示用に、前月・当月・翌月の支払月で対象cycleを集約し、`syncRewardSummariesForBillingCycles()` で `billing_cycles.reward_summary_json` を再生成する。LLM/GAS非使用。手動実行は `?ym=YYYYMM` 指定可 |
 | `cron/payout-notice-prebuild` | `0 17 * * *` | 02:00 daily | 当月+翌月の支払 ym 全部について、各メンバーの支払通知書PDFを「金額が変わったもの・まだ無いもの」だけ事前生成して `payout_notices.pdf_url` / `last_generated_at` に埋める (= 差分検出スキップあり、concurrency=3 並列)。朝 `/admin/payouts` を開いた時点で即PDF表示可能にするのが目的。手動実行は `?ym=YYYYMM&force=1` 指定可。仕様: `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`「先回り生成」セクション |
 | `cron/relearn-lane-weights` | disabled | 03:30 daily | macro lane weights 再学習。Sonnet利用のため停止済み |
@@ -329,6 +330,7 @@ pwa/
 - 4 アニメ × 18 frames × 128×128、足元アンカー (64, 124)
 - 2026-05-28: 右下に常駐していた visible mascot button は非表示化。`(app)/layout.tsx` には `TsukuyomiChatBridge` だけを残し、`window.dispatchEvent(new CustomEvent("tsukuyomi:open", ...))` で起動する明示的な修正依頼導線は維持する。
 - 旧 mascot は `pwa/src/components/tsukuyomi/Mascot.tsx` に残るが、global layout からは読み込まない。
+- 2026-05-29: `/manual` 系だけ `ManualTsukuyomiFloat` を表示する実験導線を追加。これは global mascot 復活ではなく、OS マニュアル専用の読取 Q&A。`/api/manual/tsukuyomi/ask` は Gemini 2.5 Flash に `pwa/manual/*.md` の検索上位抜粋を渡し、回答 + 参照章を返す。DB 書き込み、project 修正、`tsukuyomi_chat_logs` 保存はしない。
 - 素材生成元: `/Users/masa/projects/masa/output/tsukuyomi_animations_amd/` (Codex 生成、annotation なし)
 - 統合シート生成: `/tmp/combine_v2_frames.py` (FRAMES_PER_ROW=18, ROWS=4)
 

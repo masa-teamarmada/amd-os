@@ -12,7 +12,7 @@
 
 2026-05-22 「LLM 課金が発生する定期抽出 cron を全廃止」した時に、**Codex automation が L2 全種をカバーしてる前提が間違ってた** ことが 5/25 判明。実態 (= 2026-05-25 朝):
 
-- **稼働中**: ① monthly_reports (= 別 GAS R313) / ③ MS 進捗 (= GAS 154 → PWA `/api/cron/hourly-estimate` が primary writer、Codex automation `amd-os-ms` は修正候補レビュー) / ⑦ OS 台帳差分 + ⑧ XRL 根拠 (= Codex automation `amd-os-ms`) / ⑨ 経営ハイライト (= Codex automation `amd-os`)
+- **稼働中**: ① monthly_reports (= 別 GAS R313) / ③ MS 進捗 (= `amd-os-ms-progress-extract` が primary writer、PWA/GAS hourly は 2026-05-29 再停止、Codex automation `amd-os-ms` は修正候補レビュー) / ⑦ OS 台帳差分 + ⑧ XRL 根拠 (= Codex automation `amd-os-ms`) / ⑨ 経営ハイライト (= Codex automation `amd-os`)
 - **ghost (= 2026-05-22 以降取り込みゼロ)**: ② AMD プロトコル / ④ PJ ナレッジ / ⑤ メンバーナレッジ / ⑥ MTG サマリ
 
 (詳細 fact は 03 章 3.1 マトリクス参照)
@@ -57,7 +57,7 @@
 | L2 | Routine 名 | 頻度 | 旧 writer (停止/移管対象) | 状態 |
 |---|---|---|---|---|
 | **② AMD プロトコル** | `amd-os-protocol-extract` | daily 08:00 JST | GAS 155 (= kill switch、completed bypass) | 🚧 SKILL.md 未作成 |
-| **③ MS 進捗** | `amd-os-ms-progress-extract` | 毎時 0 分 | GAS 154 → PWA `/api/cron/hourly-estimate` + Codex `amd-os-ms` の `outbox.revisions` | 🚧 SKILL.md 未作成。**移管慎重**: 既存 primary writer が稼働中なので、Claude routine が動作確認できてから既存停止 |
+| **③ MS 進捗** | `amd-os-ms-progress-extract` | 毎時 0 分 | ~~GAS 154 → PWA `/api/cron/hourly-estimate`~~ ⛔ 2026-05-29 再停止 + Codex `amd-os-ms` の `outbox.revisions` | ✅ 定期抽出 primary。PWA/GAS background LLM cron は停止 |
 | **④ PJ ナレッジ** | `amd-os-project-knowledge-extract` | daily 08:15 JST | GAS 155 (= kill switch) | 🚧 SKILL.md 未作成 |
 | **⑤ メンバーナレッジ** | `amd-os-member-knowledge-extract` | daily 08:30 JST | GAS 155 (= kill switch) | 🚧 SKILL.md 未作成。**schema gap**: 現 `member_knowledge` に `status` / `source_hash` 列なし、候補採否設計には migration 必要 |
 | **⑥ MTG サマリ** | `amd-os-meeting-extract` | **毎時 0 分** (= GAS 153 と同パターン、終了 +60-180 分の窓で拾う) | GAS 153 (= kill switch) | ✅ **SKILL.md 完全 inline 移植版 Write 済 2026-05-25 #71**、scheduled task 登録待ち |
@@ -80,7 +80,7 @@
 | 採用案 | **C 拡張版 (= Claude routine 8 個新設、L2 ②〜⑨ 全統一)** |
 | 議事録 (= Routine 1 ⑥) の頻度 | **毎時 0 分発火 + 過去 60-180 分終了 events スキャン** (= GAS 153 と同パターン) |
 | ナレッジ系 (= Routine 2-4 ②④⑤) の頻度 | **daily 08:00 / 08:15 / 08:30 JST** (= 30 分間隔ずらしで重なり回避) |
-| MS 進捗 (= Routine 5 ③) の頻度 | **毎時 0 分** (= 既存 PWA hourly と同パターン) |
+| MS 進捗 (= Routine 5 ③) の頻度 | **毎時 0 分** (= 旧 PWA hourly の cadence を踏襲。PWA/GAS は 2026-05-29 停止済み) |
 | OS 台帳差分 + XRL 根拠 (= Routine 6/7 ⑦⑧) の頻度 | **6h ごと** (= 既存 Codex `amd-os-ms` と同パターン) |
 | 経営ハイライト (= Routine 8 ⑨) の頻度 | **daily 03:20 JST** (= 既存 Codex `amd-os` と同パターン) |
 | subscription 帯域 | OK と判断 (= まさ確認済 #71) |
@@ -292,7 +292,7 @@ Phase C: run summary
 1. **MAIN_CALENDAR_ID の永続化**: Claude routine では `list_calendars` MCP で primary を都度確認、もしくは `.env.local` に `MAIN_CALENDAR_ID` 追加。Routine 1 では暫定 primary を使う
 2. **Notion DB ID 固定化**: 議事録 DB / PJ DB の collection URL を `.env.local` に固定すると notion-search が速くなる。Routine 1 は `query` だけで動く設計、最適化は後回し
 3. **members.member_name 列追加**: GAS 079 で想定してた `member_name` 列が現 schema に無い。migration で追加してまさが入れれば alias map が充実
-4. **Routine 5 (= ③ MS 進捗) の primary writer 移管**: 既存 PWA `/api/cron/hourly-estimate` が稼働中なので、Routine 5 が動作確認 (= 数日観察) できてから既存停止
+4. **Routine 5 (= ③ MS 進捗) の primary writer 移管**: 2026-05-29 に既存 PWA `/api/cron/hourly-estimate` / GAS 154 は再停止。Routine 5 / subscription automation 側を定期抽出 primary とする
 5. **Routine 6/7/8 (= ⑦⑧⑨) の Codex automation 停止**: 既存 `amd-os-ms` / `amd-os` を unload + LaunchAgent applier も outbox 経路が空になり次第 unload
 6. **5/22-5/25 取り込み穴期間の backfill**: Routine 1-8 すべて稼働開始後に、各 routine に `--backfill-from 2026-05-22` モード追加 or 手動キック routine 別建て
 
@@ -305,7 +305,7 @@ Phase C: run summary
 2. **🚧 Routine 2-4 (= ②④⑤ ghost 復旧)** を次セッションで同パターンで実装:
    - GAS 155 `nav_protocol_pollAll` / `nav_project_knowledge_pollAll` / `nav_member_knowledge_pollAll` の prompt を Notion / Supabase REST から拾って markdown 化
    - SKILL.md の Phase A-D 構造は Routine 1 と共通テンプレートにする
-3. **🚧 Routine 5 (= ③ MS 進捗)** を実装、既存 PWA hourly と並行稼働で fact 比較 → OK なら既存停止
+3. **✅ Routine 5 (= ③ MS 進捗)** を実装、2026-05-29 に既存 PWA hourly は停止済み。以後は routine 出力の観察と backfill 判断
 4. **🚧 Routine 6/7 (= ⑦⑧)** を実装、既存 Codex `amd-os-ms` と並行稼働で fact 比較 → OK なら既存停止
 5. **🚧 Routine 8 (= ⑨ 経営ハイライト)** を実装 + 対話型修正依頼ループ (= `feedback_dialog.md`) と接続
 6. **5/22-5/25 の取り込み穴期間 backfill**: 各 routine に `--backfill-from 2026-05-22` モード追加 or 手動キック routine 別建て

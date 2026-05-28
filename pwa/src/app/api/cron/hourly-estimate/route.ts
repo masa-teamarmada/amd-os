@@ -1,8 +1,11 @@
 /**
  * GET /api/cron/hourly-estimate
  *
- * Vercel Cron: 毎時 0 分発火 (vercel.json schedule: "0 * * * *")。
- * L2 ③ MS進捗の毎時 polling cron (Phase 4)。
+ * L2 ③ MS進捗の旧 PWA polling route。
+ *
+ * 2026-05-29: LLM 課金が発生する定期抽出 cron は停止。
+ * 定期抽出は MMO / Codex automation 側へ寄せるため、この route は
+ * ALLOW_PWA_LLM_CRONS=1 を明示した環境だけで動く fallback とする。
  *
  * 仕様正本: pwa/design/ms_progress.md (Phase 4 セクション)
  *
@@ -17,7 +20,7 @@
  *   4. LLM call 数が maxItems (default 14) に達したら hasMore=true で打ち切り
  *      → 翌時の cron で残りを処理 (last_processed_at 古い順なので公平に回る)
  *
- * 認証: Authorization: Bearer CRON_SECRET (Vercel が自動で付与)
+ * 認証: Authorization: Bearer CRON_SECRET
  *
  * 互換: 旧 cron/daily-estimate (03:00 daily) は削除済。手動再推定は /api/progress/estimate (force=true)。
  */
@@ -66,6 +69,16 @@ export async function GET(req: NextRequest) {
   const force = url.searchParams.get("force") === "1";
   const ymOverride = url.searchParams.get("ym") || "";
   const maxItems = Number(url.searchParams.get("maxItems") || 14);
+
+  if (process.env.ALLOW_PWA_LLM_CRONS !== "1") {
+    return NextResponse.json({
+      ok: true,
+      disabled: true,
+      reason: "LLM-backed PWA/GAS background cron is disabled; L2 extraction runs via MMO/Codex automation.",
+      llmCalls: 0,
+      ran: 0,
+    });
+  }
 
   const baseYm = ymOverride && /^\d{6}$/.test(ymOverride) ? ymOverride : currentYmJST();
   const ymList = ymOverride && /^\d{6}$/.test(ymOverride) ? [ymOverride] : [baseYm, prevYm(baseYm)];

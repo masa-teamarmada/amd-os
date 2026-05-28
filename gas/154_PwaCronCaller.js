@@ -1,8 +1,8 @@
-/** 154_PwaCronCaller.gs — Phase 4 PWA cron をGAS time-trigger から叩くアダプタ
+/** 154_PwaCronCaller.gs — 旧 Phase 4 PWA cron caller
  *
- * Vercel Hobby plan は cron schedule が "daily 1 回まで" に制限されている。
- * Phase 4 ③ MS進捗の毎時 polling を Vercel cron では実現できないため、
- * 本体GAS の毎時 time-trigger から PWA の `/api/cron/hourly-estimate` を curl で叩く。
+ * 2026-05-29: LLM 課金が発生する定期抽出 cron は停止。
+ * L2 ③ MS進捗も MMO / Codex automation 側へ寄せるため、
+ * GAS から PWA `/api/cron/hourly-estimate` を叩かない。
  *
  * 仕様正本: pwa/design/ms_progress.md (Phase 4 セクション)
  *
@@ -11,9 +11,7 @@
  * ─────────────────────────────────────────────
  * 1. setup: 一度だけ `nav_pwa_setupHourlyPwaTrigger_` を実行
  *    → 毎時 0 分発火の time-trigger 1 個が作られる
- * 2. 毎時 0 分: `nav_pwa_pingHourlyEstimate` が呼ばれる
- *    → PWA の `/api/cron/hourly-estimate` を `Authorization: Bearer $CRON_SECRET` で GET
- *    → PWA 側で source_hash 差分検知 + LLM 抽出 + Supabase upsert
+ * 2. 毎時 0 分: `nav_pwa_pingHourlyEstimate` が呼ばれても disabled response を返す
  *
  * ─────────────────────────────────────────────
  * ScriptProperties (`nav_pwa_setProps_` で 1 度だけ設定)
@@ -22,10 +20,9 @@
  * - CRON_SECRET   = Vercel Production env の CRON_SECRET と同じ値
  */
 
-// 2026-05-22 に PWA/GAS background cron を一括停止したが、L2 ③ MS進捗は
-// GAS 154 -> PWA `/api/cron/hourly-estimate` が primary writer なので復旧対象。
-// ASPI 系の週次 LLM ingest は cost/owner 再確認まで停止を継続する。
-var NAV_PWA_HOURLY_ESTIMATE_DISABLED_20260522 = false;
+// 2026-05-22 の「LLM 課金が発生する定期抽出 cron 全廃止」方針へ戻す。
+// MS進捗も MMO / Codex automation 側へ移管済みとして扱い、PWA/GAS hourly は停止。
+var NAV_PWA_HOURLY_ESTIMATE_DISABLED_20260522 = true;
 var NAV_PWA_ASPI_CRON_DISABLED_20260522 = true;
 
 function nav_pwa_disabledCronResponse_(name) {

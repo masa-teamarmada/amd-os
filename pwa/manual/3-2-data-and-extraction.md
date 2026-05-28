@@ -23,7 +23,7 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 |---|---|---|---|---|---|
 | ① monthly_reports | PJ 月次レポート | AMD-Report GAS R313 | (対象外 = R313 のまま) | daily 05:00 JST | ✅ 稼働 |
 | ② AMD プロトコル | `protocols` | ~~GAS 155~~ ⛔ 5/22 停止 | `amd-os-l2-protocol-extract` | daily 08:00 JST | ✅ **Mac 登録済 (5/25)**、🚧 実 DB write 観察中 |
-| ③ MS 進捗 | `milestone_monthly_progress` | (並行) PWA `/api/cron/hourly-estimate` (= GAS 154 → 毎時 ping) | `amd-os-l3-ms-progress-extract` | 毎時 0 分 | ✅ **Mac 登録済 (5/25)、並行稼働**。Mac routine は 5/25 16:01 JST に 1 回発火確認、source_hash unchanged で no-op (= 既存 PWA cron が先行 update のため正常動作) |
+| ③ MS 進捗 | `milestone_monthly_progress` | ~~PWA `/api/cron/hourly-estimate` (= GAS 154 → 毎時 ping)~~ ⛔ **2026-05-29 再停止** | `amd-os-l3-ms-progress-extract` | 毎時 0 分 | ✅ **MMO/Codex automation 側へ移管**。PWA/GAS hourly は `ALLOW_PWA_LLM_CRONS=1` を明示しない限り disabled response のみ返す |
 | ④ PJ ナレッジ | `project_knowledge` | ~~GAS 155~~ ⛔ 5/22 停止 | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | ✅ **Mac 登録済 (5/25)**、🚧 実 DB write 観察中 |
 | ⑤ メンバーナレッジ | `member_knowledge` | ~~GAS 155~~ ⛔ 5/22 停止 | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | ✅ **Mac 登録済 (5/25)**、🚧 `member_knowledge` に `status` / `source_hash` 列無し schema gap、🚧 実 DB write 観察中 |
 | ⑥ MTG サマリ | `project_meeting_summaries` | ~~GAS 153 (毎時 polling)~~ ⛔ 5/22 停止 | `amd-os-l6-meeting-extract` | 毎時 0 分 | ✅ **Mac 登録済 (5/25)**、🚧 実 DB write 観察中 |
@@ -58,11 +58,13 @@ Mac の Claude Desktop scheduled task は **「app open + 非スリープ中」�
    AMD-Report GAS R313_MonthlyReport_Cron (05:00 daily) → Supabase
 
 ✅ ③ MS 進捗 (= primary writer)
-   [GAS 154 `nav_pwa_pingHourlyEstimate`] (= 毎時 0 分)
-     ↓ Bearer CRON_SECRET
-   [PWA `/api/cron/hourly-estimate`]
-     ↓ estimateProgress(projectId, ym, { force:false })
+   [MMO/Codex automation `amd-os-l3-ms-progress-extract`] (= subscription 内 LLM)
+     ↓ source_hash 差分検知
    [Supabase] (= `milestone_monthly_progress`, `progress_estimate_state`, `l2_notifications`)
+
+⛔ 旧 fallback
+   [GAS 154 `nav_pwa_pingHourlyEstimate`] → [PWA `/api/cron/hourly-estimate`]
+   2026-05-29 再停止。`ALLOW_PWA_LLM_CRONS=1` を明示しない限り LLM を呼ばない
 
 ✅ ③ MS 進捗レビュー / ⑦ OS 台帳差分 / ⑧ XRL 根拠
    [Codex automation `amd-os-ms`] (= 6h ごと、subscription 内 LLM)
@@ -99,7 +101,7 @@ Mac の Claude Desktop scheduled task は **「app open + 非スリープ中」�
 |---|---|---|---|---|---|
 | ① | `monthly_reports` | PJ 月次レポート | 5 ソース全部 | AMD-Report GAS `R313_MonthlyReport_Cron` (= 別 clasp、05:00 daily) | ✅ 稼働 |
 | ② | `protocols` | AMD プロトコル (= 経営判断の構造化記録) | 議事録の二次集約 | ~~GAS 155~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-protocol-extract` 新設予定 | ⛔ ghost |
-| ③ | `milestone_monthly_progress` + 進捗系 | MS 達成度 | 月次報告書 + MTGサマリ + OS snapshot | PWA `/api/cron/hourly-estimate` (= primary writer) + Codex automation `amd-os-ms` (= 6h ごとの修正候補 `outbox.revisions`) | ✅ 稼働 |
+| ③ | `milestone_monthly_progress` + 進捗系 | MS 達成度 | 月次報告書 + MTGサマリ + OS snapshot | MMO/Codex automation `amd-os-l3-ms-progress-extract` (= primary writer) + Codex automation `amd-os-ms` (= 6h ごとの修正候補 `outbox.revisions`)。PWA `/api/cron/hourly-estimate` は停止済 fallback | ✅ 稼働 |
 | ④ | `project_knowledge` | PJ 知識ナレッジ | `monthly_reports` + 議事録 二次集約 | ~~GAS 155~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-project-knowledge-extract` 新設予定 | ⛔ ghost |
 | ⑤ | `member_knowledge` | メンバー個人のナレッジ | `member_activities` + 議事録 二次集約 | ~~GAS 155~~ ⛔ 5/22 停止 → 🚧 Claude routine `amd-os-member-knowledge-extract` 新設予定 | ⛔ ghost |
 | ⑥ | `project_meeting_summaries` + `meeting_assets` + cockpit TODO + Calendar 作業枠 + Drive 資料 + Gmail draft | MTG サマリ + **MTG 全フロー** (= 2026-05-27 拡張)。Meet/Gmail 議事録に落ちないスクショ・表・画面共有資料は PWA から `meeting_assets` に手動添付し、`narrative_md` に Markdown 画像/リンクとして挿入できる | Calendar + Notion 議事録 + Slack + Drive Docs + Gmail + PWA 添付資料 | ~~GAS 153~~ ⛔ → ✅ **Codex Desktop automation `amd-os-l6-meeting-flow`** (= Windows MMO PC、 平日土日 09:00-21:00 毎時 0 分発火、 gpt-5.5 high reasoning)。議事録抽出だけでなく次 MTG カード生成 / Slack nudge / TODO→cockpit / Calendar 作業枠 (+<PJ> prefix) / 資料即生成 / ファシリ役メール下書きまで自動。dialogue (= 提案前の論点整理セッション) は POST `/api/dialogue-meeting` で稼働。PWA `POST /api/meeting-assets` はアップロード/挿入だけで、従量課金 LLM は呼ばない | ✅ 稼働 (Phase A 早期 exit 付き、 該当 event 0 件なら即終了) |
@@ -107,7 +109,7 @@ Mac の Claude Desktop scheduled task は **「app open + 非スリープ中」�
 | ⑧ | `project_xrl_evidence` | XRL 根拠 | 5 ソース + OS snapshot | Codex automation `amd-os-ms` (= `outbox.xrlEvidence`) | ✅ 稼働 |
 | ⑨ | `project_strategy_signals` | **経営ハイライト** | 5 ソース + OS snapshot | Codex automation `amd-os` (= daily 03:20) + dialogue API (= 提案前の論点整理セッション)、applier 監視先修復済 2026-05-25 | ✅ 稼働 (修正依頼ループ未実装) |
 
-**📊 別 L2** (= `member_activities`、メンバー活動ログ): `cron/member-weekly-activities` (= LLM 不使用の残存運用 Vercel cron、daily 18:00 JST) で Gmail / Calendar から直接 fetch。これは厳密には L2 ②じゃないが、L2 ⑤ メンバーナレッジの入力ソースとして重要
+**📊 別 L2** (= `member_activities`、メンバー活動ログ): `cron/member-weekly-activities` は Anthropic 経路を持つため 2026-05-29 に Vercel active cron から退避。定期生成する場合は subscription 内 automation 側で実行する。
 
 ### L2 ⑥ 予定MTGカード同期
 
@@ -125,7 +127,7 @@ PJに `drive_folder_id` がある場合、routine側でDrive root直下と会議
 ### Codex automation
 - 場所: `~/.codex/automations/{name}/automation.toml`
 - 主要 automation:
-  - **`amd-os-ms`** (= 6h ごと) — MS 進捗の修正候補 / L2 ⑦ OS 台帳差分 / L2 ⑧ XRL 根拠を outbox 書き出し。MS 進捗の primary writer は PWA `/api/cron/hourly-estimate`。L2 ②④⑤⑥ は生成しない (= 2026-05-25 ghost 化の原因、[9-1 章 5.7](9-1-decisions-and-history.md#57-l2-②④⑤⑥-ghost-化と-claude-routine-4-個新設計画--2026-05-25) 参照)
+  - **`amd-os-ms`** (= 6h ごと) — MS 進捗の修正候補 / L2 ⑦ OS 台帳差分 / L2 ⑧ XRL 根拠を outbox 書き出し。MS 進捗の primary writer は `amd-os-l3-ms-progress-extract`。PWA `/api/cron/hourly-estimate` は停止済 fallback。L2 ②④⑤⑥ は生成しない (= 2026-05-25 ghost 化の原因、[9-1 章 5.7](9-1-decisions-and-history.md#57-l2-②④⑤⑥-ghost-化と-claude-routine-4-個新設計画--2026-05-25) 参照)
   - **`amd-os`** (= daily 03:20 JST) — L2 ⑨ 経営ハイライト抽出 + outbox 書き出し
   - **`amd-atlas-2`** (= daily 08:10 JST) — 外部マクロ Atlas 抽出
   - **`amd-macrotrend-evidence-review`** (= weekly Mon 07:30) — UN SDGs / WEF Global Risks 整理
@@ -164,11 +166,13 @@ PJに `drive_folder_id` がある場合、routine側でDrive root直下と会議
 - 残ってる cron (= LLM 非依存の運用系のみ):
   - `freee-payment-sync` (= 入金同期)
   - `payment-confirm-nudges` (= 入金確認通知)
-  - `member-weekly-activities` (= メンバー活動集計、直接 fetch、source_cache に書かず L2 ② に直接書く)
   - `payout-reward-cache-refresh`
+  - `payout-notice-prebuild`
   - `papers-quarterly-ingest`
   - `sync-pj-facts`
   - `macro-aggregate-indicators`
+  - `management-score-raw-data`
+  - `management-score-calculate`
 - **LLM 課金が発生する定期抽出 cron は全停止** (= `vercel.disabled-crons.json` に退避)
 
 ---

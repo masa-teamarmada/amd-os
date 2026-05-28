@@ -1,13 +1,14 @@
 ---
 name: amd-os-l3-ms-progress-extract
-description: AMD OS L2 ③ MS 進捗 (マイルストーン月次進捗) 抽出 routine。毎時 0 分発火、active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から各 MS の進捗 % をサブスク内 Claude で推定 → Supabase `milestone_monthly_progress` に upsert + project_monthly_notes (= MS 不在月)、progress_estimate_state.source_hash で差分検知。PWA `/api/cron/hourly-estimate` + `estimateProgress` 完全 inline 移植版 (= GAS 154 + PWA hourly-estimate 経路を Claude routine 内に統合、2026-05-25 まさ #71)。既存 PWA hourly-estimate との並行稼働中、動作確認 → fact 比較で OK なら既存停止。
+description: AMD OS L2 ③ MS 進捗 (マイルストーン月次進捗) 抽出 routine。毎時 0 分発火、active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から各 MS の進捗 % をサブスク内 Claude で推定 → Supabase `milestone_monthly_progress` に upsert + project_monthly_notes (= MS 不在月)、progress_estimate_state.source_hash で差分検知。PWA `/api/cron/hourly-estimate` + `estimateProgress` 完全 inline 移植版 (= GAS 154 + PWA hourly-estimate 経路を Claude routine 内に統合、2026-05-25 まさ #71)。2026-05-29 に既存 PWA/GAS hourly は再停止し、本 routine を定期抽出 primary とする。
 ---
 
 # AMD OS L2 ③ MS 進捗推定 (PWA hourly-estimate 完全 inline 移植版)
 
 ## 設計の要点
-- 既存 = GAS 154 `nav_pwa_pingHourlyEstimate` → PWA `/api/cron/hourly-estimate` → `estimateProgress(projectId, ym, {force:false})`
-- 新 = Claude routine が同等ロジックを inline で実行 (= GAS / PWA hourly cron 完全 bypass)
+- 旧 = GAS 154 `nav_pwa_pingHourlyEstimate` → PWA `/api/cron/hourly-estimate` → `estimateProgress(projectId, ym, {force:false})`
+- 現 = Claude routine が同等ロジックを inline で実行 (= GAS / PWA hourly cron 完全 bypass)
+- PWA/GAS hourly は 2026-05-29 に再停止。PWA route は `ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す。
 - **MS 管理対象**: `project_category in ('dtsu','ecosystem','new_business')` (= 2026-05-25 #56 new_business 追加)
   - `advisor` は MS 進捗対象外 → 月次モーダル `project_monthly_notes` に保存
 - **MS 不在月**: 対象月を覆う MS が無い場合 → `monthly_reports` + `project_meeting_summaries` を `project_monthly_notes` に保存 (= MS 設定 nudge は出さない)
@@ -17,9 +18,8 @@ description: AMD OS L2 ③ MS 進捗 (マイルストーン月次進捗) 抽出 
 - LLM 呼びはサブスク内 Claude
 - Supabase REST 直叩き
 
-## 並行稼働の慎重さ
-**既存 PWA hourly-estimate が稼働中**。本 routine 登録直後は両方走る。
-fact 比較 (= milestone_monthly_progress.confirmed_at / source 列で比較) で「Claude routine 出力 = PWA hourly 出力」になったら、PWA `/api/cron/hourly-estimate` を停止 + GAS 154 `nav_pwa_pingHourlyEstimate` を kill switch ON。
+## 稼働方針
+LLM 課金が発生する PWA/GAS background cron は停止済み。定期実行は subscription 内の本 routine を primary とする。
 
 ## 【絶対】 動く前に必ず Read
 1. `pwa/manual/3-2-data-and-extraction.md` §3.1-3.3
@@ -117,4 +117,4 @@ Phase C: run summary
 
 【参考】
 - 完全 inline 移植のため、複雑な進捗推定ロジックは PWA `progress-estimator.ts` を Read で確認しながら実装
-- 既存 PWA cron `/api/cron/hourly-estimate` は当面並行稼働 → fact 比較で OK なら停止
+- 旧 PWA cron `/api/cron/hourly-estimate` は 2026-05-29 に停止済み。`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す

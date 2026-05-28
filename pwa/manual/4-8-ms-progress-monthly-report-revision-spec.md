@@ -42,7 +42,7 @@ flowchart LR
   F --> I[progress_estimate_state upsert]
 ```
 
-cadence: 毎時 0 分 JST (= [8-3 章 §③](8-3-l2-extraction-routines-spec.md))。 PWA `/api/cron/hourly-estimate` (= 並行稼働中) と Claude routine `amd-os-l3-ms-progress-extract` の dual writer。
+cadence: 毎時 0 分 JST (= [8-3 章 §③](8-3-l2-extraction-routines-spec.md))。定期抽出の primary writer は Cloud routine / MMO automation `amd-os-l3-ms-progress-extract`。旧 PWA `/api/cron/hourly-estimate` は 2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す。
 
 ### 定常業務 MS (`tag='routine'`)
 
@@ -231,19 +231,19 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 
 | operation | 役割 | cadence |
 |---|---|---|
-| `pwa-hourly-estimate` | MS 進捗 hourly estimate を手動キック | 毎時 0 分 |
-| `claude-l3-ms-progress-extract` | L2 ③ Cloud routine (= 並行) | 毎時 0 分 |
+| `claude-l3-ms-progress-extract` | L2 ③ Cloud routine / MMO automation (= primary) | 毎時 0 分 |
+| `pwa-hourly-estimate` | 旧 PWA fallback。停止中 | disabled |
 | `manual-monthly-reports-backfill` | 月次報告書を Sonnet で生成 | 手動 |
 | `manual-freeze-period-backfill` | 休止期間 PJ の reports + meetings 統合 | 手動 |
 
-[6-1 章](6-1-operations-settings-spec.md) に詳細。 `pwa-hourly-estimate` の `Run Now` default は `maxItems=3` (= 詰まり確認用)。 全件再推定したい時は `force=1` / `ym=YYYYMM` / `maxItems` の意味を確認してから実行する。
+[6-1 章](6-1-operations-settings-spec.md) に詳細。定期 cron として PWA hourly-estimate は使わない。月次モーダルの「AIで再推定」は `POST /api/progress/estimate` の明示操作で、定期抽出とは別導線。
 
 ## トラブル時
 
 | 症状 | 確認場所 |
 |---|---|
 | 月次モーダルで MS 進捗が出ない | `milestone_monthly_progress` の該当 ym 行、 `value_milestones.is_active=true` |
-| 進捗 % が更新されない | `progress_estimate_state.source_hash` が変わったか、 cron 実行履歴、 modal の `pwa-hourly-estimate` Run Now |
+| 進捗 % が更新されない | `progress_estimate_state.source_hash` が変わったか、 `amd-os-l3-ms-progress-extract` の実行履歴、月次モーダルの手動「AIで再推定」 |
 | 修正依頼が反映されない | `ms_progress_revisions.status='confirmed'`、 `milestone_monthly_progress` 該当行が更新されているか |
 | 月次報告書が空 | `monthly_reports.status='pending'` のまま、 GAS R313 実行履歴、 `/api/cron/monthly-reports-backfill` で再生成 |
 | 休止 PJ の月が空 | `project_freeze_periods.status='active'`、 `manual-freeze-period-backfill` 実行 |
