@@ -1,69 +1,69 @@
 # HANDOFF - AMD OS PWA
 
 - Last updated: 2026-05-28 (codex handoff)
-- Topic: 右下つくよみ visible mascot 非表示 + chat bridge 化 + production/current gap
+- Topic: `/admin/members` インボイス登録番号 + `/admin/payouts` 支払通知書PDF反映
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
-- HEAD before handoff docs: `09a9c2a` (`Add invoice registration number to payouts`)
-- Build version at HEAD: `v0.7.6`
-- Last production version directly observed in this session: `v0.7.5`
+- HEAD before this handoff update: `d635d95` (`docs: update handoff after tsukuyomi bridge deploy`)
+- Latest feature commit: `09a9c2a` (`Add invoice registration number to payouts`)
+- Build version deployed: `v0.7.6`
 
 ## Latest Summary
 
-- `pwa/src/app/(app)/layout.tsx` は visible `TsukuyomiMascot` を mount せず、invisible `TsukuyomiChatBridge` だけを render する状態。
-- `TsukuyomiChatBridge` は `window.dispatchEvent(new CustomEvent("tsukuyomi:open", ...))` を受け、pending prefill を `localStorage` に保存して `TsukuyomiChatDrawer` を開く。右下 fixed button / 当たり判定は出さない。
-- `pwa/design/SPEC_pwa.md` と `pwa/manual/8-1-knowledge-admin-tsukuyomi-spec.md` に、この visible mascot 非表示 + 明示導線維持を記録済み。
-- Production dashboard を Chrome で確認し、`AMD OS v0.7.5` かつ右下 visible mascot なしを確認した。
-- その後 current `main` は `v0.7.6` / `09a9c2a` へ進み、支払通知書宛先の `members.invoice_registration_number` 対応が入っている。`v0.7.6` production 反映と migration 107 remote apply は未確認。
-- 詳細ログ: `pwa/design_log/sessions_2026-05.md` 末尾「2026-05-28 (codex)」。
+- `members.invoice_registration_number` を Supabase に追加。migration `pwa/scripts/migrations/107_members_invoice_registration_number.sql` は remote apply 済み。
+- `/admin/members` の台帳に「インボイス登録番号」列を追加し、既存の inline cell edit パターンで編集できる。
+- `/admin/payouts` は `members.invoice_registration_number` を `invoiceRegistrationNumber` として GAS payload に渡す。
+- `gas/064_PayoutFreeeNotice.js` の改善版PDFが宛先ブロック下に「インボイス登録番号」を出す。未登録時は「インボイス登録番号：（未登録）」。
+- `pwa/design/SPEC_pwa.md` / `pwa/design/FEATURE_REGISTRY.md` / `pwa/manual/6-5-admin-payouts-reward-notice-spec.md` / `pwa/design/db_schema.md` に恒久仕様を反映済み。
+- 詳細ログ: `pwa/design_log/sessions_2026-05.md` 末尾「2026-05-28 (codex) admin/members インボイス登録番号 + 支払通知書PDF反映」。
 
 ## Verification / Deploy
 
-Run and observed for the visible mascot removal:
+Run and observed:
 
-- `npx tsc --noEmit` pass
-- `npm run test:critical-ui` pass
-- `npm run build` pass
-- Vercel deployment `dpl_71ybU9TqXHbbsU8VJTvwNyk4J2ji` Ready
-- Vercel URL: `https://amd-os-7vy0zxpdx-armada0130.vercel.app`
-- Production alias: `https://amd-os-pwa.vercel.app`
-- Chrome production dashboard: `AMD OS v0.7.5`, no bottom-right visible mascot
+- Supabase DDL: `python3 -X utf8 scripts/apply_ddl.py scripts/migrations/107_members_invoice_registration_number.sql` → `OK (201)`
+- Schema dump: `python3 -X utf8 scripts/dump_schema.py` → `members.invoice_registration_number` in `db_schema.md`
+- PWA: `npm run test:critical-ui` pass
+- PWA: `npm run test:next-period-ui` pass
+- PWA: `npx tsc --noEmit` pass
+- PWA: `npm run build` pass
+- PWA targeted lint: changed TS/TSX files pass
+- GAS syntax: `node --check gas/064_PayoutFreeeNotice.js` / `node --check gas/062_PayoutRepo.js` pass
+- GAS deploy: `npx @google/clasp push` pass
+- PWA production deploy: `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` pass
+- Latest Vercel deployment: `dpl_7oa9wHmjzvhQftyhkZFCE9xeH72n`
+- Inspect-only URL: `https://amd-os-mws7pq829-armada0130.vercel.app`
+- User-facing URL: `https://amd-os-pwa.vercel.app`
+- Production auth redirects checked for `/admin/members` and `/admin/payouts` (`HTTP/2 307` to login)
 
-Observed deploy caveat:
+Known verification caveat:
 
-- Vercel CLI / deploy script failed locally during upload or polling with network/DNS errors (`Client network socket disconnected before secure TLS`, `EADDRNOTAVAIL`, `ENOTFOUND api.vercel.com`), while `vercel inspect` later confirmed the deployment was Ready and aliased.
-
-Not verified:
-
-- Current HEAD `v0.7.6` production reflection
-- Supabase migration `pwa/scripts/migrations/107_members_invoice_registration_number.sql` applied on remote
+- Full `npm run lint` still fails on existing unrelated lint debt. Do not treat that as introduced by this session unless touched files regress; targeted lint for touched TS/TSX files passed.
 
 ## Repo State
 
 - Branch: `main`
-- Remote tracking: `main...origin/main`
-- Unpushed commits before handoff docs: none observed
-- Worktree before handoff docs: clean
+- Remote tracking before this handoff update: `main...origin/main`
+- Unpushed commits before this handoff update: none observed
+- Worktree before this handoff update: clean
 - Handoff docs changed in this flow:
   - `HANDOFF.md`
   - `pwa/HANDOFF_pwa_rebuild.md`
   - `pwa/design_log/sessions_2026-05.md`
-  - `pwa/BUGS.md`
 
 ## Open Tasks
 
-- [ ] Decide whether to deploy current `main` (`v0.7.6`) now that production was directly observed at `v0.7.5`.
-- [ ] Before deploying `v0.7.6`, verify Supabase has `members.invoice_registration_number` / migration 107 applied.
-- [ ] If deploying, run the normal PWA deploy path, then inspect the deployment URL directly if CLI polling fails.
+- [ ] Operational: enter actual invoice registration numbers in `/admin/members`.
+- [ ] Operational: reissue already-generated payout PDFs if they need to show the newly entered registration number.
 
 ## First Read Next Session
 
 1. `HANDOFF.md`
 2. `pwa/HANDOFF_pwa_rebuild.md`
 3. `pwa/design/SPEC_pwa.md`
-4. `pwa/manual/8-1-knowledge-admin-tsukuyomi-spec.md`
-5. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
+4. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
+5. `pwa/design/FEATURE_REGISTRY.md`
 6. `pwa/BUGS.md`
 7. `pwa/design_log/sessions_2026-05.md`
 
@@ -76,8 +76,4 @@ git status -s
 git log --branches --not --remotes --oneline
 ```
 
-Then:
-
-1. Check whether production is still `v0.7.5` or has advanced to `v0.7.6`.
-2. Verify migration 107 on Supabase before sending any `v0.7.6` production deploy.
-3. If Vercel CLI shows a network/polling failure, use `npx vercel inspect <deployment-url> --scope armada0130` before retrying.
+Then continue from the user's next request. If the task touches payout notice PDFs, check whether the existing PDF predates `v0.7.6`; old PDFs need force reissue to pick up the registration number.

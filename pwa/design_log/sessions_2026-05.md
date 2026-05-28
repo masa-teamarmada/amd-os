@@ -9600,3 +9600,63 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 - `HANDOFF.md` と `pwa/HANDOFF_pwa_rebuild.md` を current state に更新。
 - `pwa/BUGS.md` の TsukuyomiMascot 干渉エントリを `TsukuyomiChatBridge` 完成形へ更新。
 - `pwa/BUGS.md` に Vercel CLI polling/network false negative と stale `.next/lock` の運用教訓を追記。
+
+---
+
+## 2026-05-28 (codex) admin/members インボイス登録番号 + 支払通知書PDF反映
+
+### 目的
+
+- まさ要望: `admin/members` にインボイス登録番号を入力する列を追加し、`admin/payouts` で作成する支払通知書にインボイス登録番号を記載する。
+
+### 実装サマリ
+
+1. **Supabase schema**
+   - migration `pwa/scripts/migrations/107_members_invoice_registration_number.sql` を追加。
+   - `public.members.invoice_registration_number TEXT` を追加し、非NULL用 index を追加。
+   - `python3 -X utf8 scripts/apply_ddl.py scripts/migrations/107_members_invoice_registration_number.sql` で remote apply 済み。
+   - `python3 -X utf8 scripts/dump_schema.py` で `pwa/design/db_schema.md` を再生成し、`members` の #28 として反映。
+
+2. **`/admin/members`**
+   - `AdminMembersTable` に「インボイス登録番号」列を追加。
+   - 既存の inline cell edit と同じ UX で編集し、保存時に trim + uppercase する。
+   - 検索対象にも `invoice_registration_number` を追加。
+
+3. **`/admin/payouts` + GAS PDF**
+   - `pwa/src/app/api/admin/payouts/route.ts` の members select に `invoice_registration_number` を追加。
+   - `generateNoticePdfForMember()` から GAS payload へ `invoiceRegistrationNumber` を渡す。
+   - `gas/064_PayoutFreeeNotice.js` の `payoutBuildNoticePdfBlob_` が宛先ブロック下に `インボイス登録番号：...` を表示。未登録時は `インボイス登録番号：（未登録）`。
+   - `gas/062_PayoutRepo.js` も `DB_Members.invoiceRegistrationNumber` を optional read / ensure 対象に追加し、旧スプレッドシート fallback 経路でも拾えるようにした。
+
+4. **Docs / guard**
+   - `pwa/design/SPEC_pwa.md`: `/admin/payouts` payload と `/admin/members` 編集項目に `members.invoice_registration_number` を追記。
+   - `pwa/design/FEATURE_REGISTRY.md`: 支払通知書PDFフォーマット契約にインボイス登録番号を追加。
+   - `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`: 宛先要素に `members.invoice_registration_number` を追加。
+   - `pwa/scripts/check_pwa_critical_ui.cjs`: `invoice_registration_number` / `invoiceRegistrationNumber` / `インボイス登録番号` anchor を追加。
+   - `pwa/src/lib/build-info.ts`: `v0.7.6` に bump。
+
+### Verification / deploy
+
+- `npm run test:critical-ui` pass。
+- `npm run test:next-period-ui` pass。
+- `npx tsc --noEmit` pass。
+- `npm run build` pass。
+- changed TS/TSX files targeted eslint pass。
+- `node --check gas/064_PayoutFreeeNotice.js` / `node --check gas/062_PayoutRepo.js` pass。
+- `npx @google/clasp push` pass (`npx clasp push` はこの環境だと executable 解決不可だったため package 名を明示)。
+- `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` pass。
+  - Latest deployment: `dpl_7oa9wHmjzvhQftyhkZFCE9xeH72n`
+  - Inspect-only URL: `https://amd-os-mws7pq829-armada0130.vercel.app`
+  - User-facing URL: `https://amd-os-pwa.vercel.app`
+- Production auth redirect check:
+  - `curl -sI https://amd-os-pwa.vercel.app/admin/members` -> `HTTP/2 307` to `/auth/login?next=%2Fadmin%2Fmembers`
+  - `curl -sI https://amd-os-pwa.vercel.app/admin/payouts` -> `HTTP/2 307` to `/auth/login?next=%2Fadmin%2Fpayouts`
+
+### 運用メモ
+
+- 既に生成済みの `payout_notices.pdf_url` は古いPDFなので、インボイス登録番号を実PDFへ出すには対象月・対象メンバーの PDF 再発行が必要。既存の `支払通知書発行` 個別再発行または `強制再発行 (全員)` を使う。
+- Actual registration numbers themselves are operational data, not committed to repo. `/admin/members` から入力する。
+
+### Handoff 更新
+
+- `HANDOFF.md` / `pwa/HANDOFF_pwa_rebuild.md` を `v0.7.6` deploy + migration 107 remote apply confirmed の current state に更新。

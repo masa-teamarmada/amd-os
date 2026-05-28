@@ -1,61 +1,66 @@
 # HANDOFF - AMD OS
 
 - Last updated: 2026-05-28 (codex handoff)
-- Topic: PWA 右下つくよみ非表示の本番確認 + current main / production 差分整理
+- Topic: `/admin/members` インボイス登録番号 + `/admin/payouts` 支払通知書PDF反映
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
-- HEAD before handoff docs: `09a9c2a` (`Add invoice registration number to payouts`)
-- Build version at HEAD: `v0.7.6`
+- HEAD before this handoff update: `d635d95` (`docs: update handoff after tsukuyomi bridge deploy`)
+- Latest feature commit: `09a9c2a` (`Add invoice registration number to payouts`)
+- Build version deployed: `v0.7.6`
 
 ## Latest Summary
 
-- まさ指摘「右下のつくよみを非表示にして」を受け、PWA global layout から visible `TsukuyomiMascot` を外した状態を確認した。
-- 修正依頼 drawer の明示導線は消さず、`TsukuyomiChatBridge` が `tsukuyomi:open` event だけを受ける invisible bridge として残っている。
-- Production `https://amd-os-pwa.vercel.app/dashboard` を Chrome で確認し、表示 version `AMD OS v0.7.5` かつ右下 mascot なしを確認済み。
-- その後 current `main` は `09a9c2a` / `v0.7.6` まで進み、支払通知書のインボイス登録番号対応が入っている。`v0.7.6` の production 反映と Supabase migration 107 適用状態はこの handoff 時点では未確認。
-- 詳細ログ: `pwa/design_log/sessions_2026-05.md` 末尾「2026-05-28 (codex)」。
+- `members.invoice_registration_number` を Supabase に追加し、`pwa/design/db_schema.md` を remote schema から再生成済み。
+- `/admin/members` に「インボイス登録番号」列を追加。セルクリックで編集し、保存時に trim + uppercase する。
+- `/admin/payouts` の支払通知書PDF生成 payload に `invoiceRegistrationNumber` を渡し、GAS `payoutBuildNoticePdfBlob_` が宛先ブロック下に「インボイス登録番号」を表示する。
+- GAS 本体へ `npx @google/clasp push` 済み。
+- PWA production deploy 済み。最新 deployment: `dpl_7oa9wHmjzvhQftyhkZFCE9xeH72n` / `https://amd-os-mws7pq829-armada0130.vercel.app` / alias `https://amd-os-pwa.vercel.app` Ready。
+- 詳細ログ: `pwa/design_log/sessions_2026-05.md` 末尾「2026-05-28 (codex) admin/members インボイス登録番号 + 支払通知書PDF反映」。
 
 ## Verification / Deploy
 
-Run and observed for the Tsukuyomi visible mascot removal:
+Run and observed:
 
-- `npx tsc --noEmit` pass
+- `python3 -X utf8 scripts/apply_ddl.py scripts/migrations/107_members_invoice_registration_number.sql` pass (`OK (201)`)
+- `python3 -X utf8 scripts/dump_schema.py` pass; `members.invoice_registration_number` appears in `pwa/design/db_schema.md`
 - `npm run test:critical-ui` pass
+- `npm run test:next-period-ui` pass
+- `npx tsc --noEmit` pass
 - `npm run build` pass
-- Vercel deployment `dpl_71ybU9TqXHbbsU8VJTvwNyk4J2ji` Ready
-- Production alias includes `https://amd-os-pwa.vercel.app`
-- Chrome production dashboard: `AMD OS v0.7.5`, no bottom-right visible mascot
+- changed TS/TSX files individual eslint pass
+- `node --check gas/064_PayoutFreeeNotice.js` and `node --check gas/062_PayoutRepo.js` pass
+- `npx @google/clasp push` pass
+- `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` pass, production alias Ready
+- Production auth redirects checked for `/admin/members` and `/admin/payouts` (`HTTP/2 307` to `/auth/login?...`)
 
-Not verified:
+Known verification caveat:
 
-- Current HEAD `v0.7.6` production reflection
-- Supabase migration `107_members_invoice_registration_number.sql` actual remote apply state
+- Full `npm run lint` still fails on existing unrelated repo lint debt (Atlas/HUD/cjs/no-explicit-any etc.). The files touched in this session pass targeted eslint.
 
 ## Repo State
 
 - Branch: `main`
-- Remote tracking: `main...origin/main`
-- Unpushed commits before handoff docs: none observed (`git log --branches --not --remotes --oneline` empty)
-- Worktree before handoff docs: clean
+- Remote tracking before this handoff update: `main...origin/main`
+- Unpushed commits before this handoff update: none observed
+- Worktree before this handoff update: clean
 - Handoff edits in this flow should be limited to:
   - `HANDOFF.md`
   - `pwa/HANDOFF_pwa_rebuild.md`
   - `pwa/design_log/sessions_2026-05.md`
-  - `pwa/BUGS.md`
 
 ## Open Tasks
 
-- [ ] Confirm whether production should be advanced from observed `v0.7.5` to current HEAD `v0.7.6`.
-- [ ] Before deploying `v0.7.6`, verify migration `107_members_invoice_registration_number.sql` / `members.invoice_registration_number` is applied in Supabase.
-- [ ] If Vercel CLI deploy polling fails with local network errors, inspect the deployment URL before retrying; the deployment may already be Ready.
+- [ ] Operational: enter each contractor's invoice registration number in `/admin/members`.
+- [ ] Operational: for already-generated payout PDFs, use existing force reissue / individual reissue flow so the new invoice registration number appears in the actual PDF.
 
 ## Pointers
 
 - PWA handoff: `pwa/HANDOFF_pwa_rebuild.md`
 - PWA canonical spec: `pwa/design/SPEC_pwa.md`
-- Tsukuyomi manual: `pwa/manual/8-1-knowledge-admin-tsukuyomi-spec.md`
 - Payout notice manual: `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
+- Feature registry: `pwa/design/FEATURE_REGISTRY.md`
+- DB schema reference: `pwa/design/db_schema.md`
 - Bug / operations log: `pwa/BUGS.md`
 - Session log: `pwa/design_log/sessions_2026-05.md`
 
@@ -64,8 +69,8 @@ Not verified:
 1. `HANDOFF.md`
 2. `pwa/HANDOFF_pwa_rebuild.md`
 3. `pwa/design/SPEC_pwa.md`
-4. `pwa/manual/8-1-knowledge-admin-tsukuyomi-spec.md`
-5. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
+4. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
+5. `pwa/design/FEATURE_REGISTRY.md`
 6. `pwa/BUGS.md`
 7. `pwa/design_log/sessions_2026-05.md`
 
@@ -78,9 +83,4 @@ git status -s
 git log --branches --not --remotes --oneline
 ```
 
-Then verify the `v0.7.6` deployment/migration decision:
-
-```sh
-cd /Users/masa/projects/AMD/amd-os/pwa
-npx vercel inspect https://amd-os-pwa.vercel.app --scope armada0130
-```
+Then continue from the user's next request. If it concerns payout PDFs, first confirm whether the target member has `members.invoice_registration_number` set and whether the PDF was generated before or after `v0.7.6`.
