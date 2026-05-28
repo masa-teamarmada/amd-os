@@ -306,6 +306,8 @@ npx --yes @google/clasp@latest deploy \
 
 `--deploymentId` は **PWA が叩いてる本番 deployment** (`amd-os-pwa` の `NEXT_PUBLIC_GAS_WEBAPP_URL` で使用中)。これを update することで `/exec` が新コードを serve するようになる。
 
+`clasp push` が `Script is already up to date.` を返しても、Web App deployment が古ければ本番 `/exec` は古い version を serve し続ける。PWA 経由で呼ぶ機能を触った時は **必ず `deploy --deploymentId` まで実行**する。支払通知書 PDF のように Drive 上の生成物を見る機能は、deployment update 後に `force:true` で再生成し、実PDFのテキスト/金額まで確認する。
+
 ### 2. 関数を呼ぶ (GET / POST)
 
 ```bash

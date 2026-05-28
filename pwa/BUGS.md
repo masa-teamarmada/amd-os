@@ -2911,3 +2911,18 @@
 - **原因**: 以前の `next build --webpack` process が残り、CPU 0 のまま lock を保持していた。`.next/trace` も更新されておらず、実質 stale build だった。
 - **解決策**: 実プロセスと trace mtime を確認し、stale `next build --webpack` process を終了してから generated lock (`.next/lock`) を削除。その後 `npm run build` は pass。
 - **教訓**: `.next/lock` を見つけても先に消さない。`ps` と `.next/trace` の更新時刻で active build か stale build か確認し、stale process を止めてから lock を消す。
+
+## [GAS/PWA] 支払通知書PDFだけ旧税計算で出る (= Web App deployment stale) (2026-05-28)
+
+- **症状**: `/admin/payouts` でかるちゃん (ID003) の保存済み支払額は SX 1-3月合計 731,740円に戻ったが、強制出力したPDFが `お支払金額 731,740円（税込）` / `小計（税抜） 665,218円` / `消費税 66,522円` になった。これは 731,740円を税込総額として `÷1.1` で割り戻した数字で、要件の「admin/payouts支払額は税抜、PDFで消費税を上乗せ」と逆。
+- **原因**: repo の `gas/064_PayoutFreeeNotice.js` は `taxBreakdownFromTaxExcludedYen` で税抜→税込に直っていたが、PWA が叩く GAS Web App deployment (`AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G`) が古い version を serve していた。PWA production deploy と Supabase DB は正しくても、GAS `/exec` は `clasp deploy --deploymentId` しないと新コードにならない。
+- **対応内容**:
+  - `npx --yes @google/clasp@latest login` で `invalid_rapt` を解消。
+  - `npx --yes @google/clasp@latest deploy --deploymentId ... --description v1480_payout_notice_tax_excluded` で本番 deployment を更新。
+  - `POST https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild` に `{ ym:"202605", force:true }` を投げ、7名分PDFを再生成。ID003 の新PDF: `https://drive.google.com/file/d/1pardsUP_Yass7640mRyYgwfaZnklQxqK/view?usp=drivesdk`。
+  - 一時的に `payoutDebug_getNoticePdfBase64_` を追加して Drive PDF を取得し、`pypdf` でテキスト抽出。`お支払金額 804,914円（税込）` / `小計 731,740円` / `消費税 73,174円` / `合計 804,914円` を確認。
+  - 検証関数は削除し、`v1482_remove_temp_pdf_probe` で本番 deployment をクリーンな状態に戻した。
+- **再発防止策**:
+  - GAS Web App 経由の機能は `clasp push` だけで完了扱いしない。必ず `clasp deploy --deploymentId <PWA本番deployment>` まで行う。
+  - 支払通知書PDFの税計算・テンプレ・ラベルを触ったら、`force:true` で再生成し、実PDFのテキスト/数字まで確認する。
+  - `731,740円` 税抜の検算基準は `小計 731,740円 / 消費税 73,174円 / 合計 804,914円`。`小計 665,218円` が出たら旧割り戻しロジックが残っている。

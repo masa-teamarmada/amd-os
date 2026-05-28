@@ -179,6 +179,16 @@ GAS rv2 の最終計算結果を per-PJ × per-ym × per-member で保存する 
 | 支払予定 / 方法 / 振込先 | `members.bank_info` を出力 |
 | 右上情報 | 通知書番号 / 作成日 (= 2026-05-28 まさ要望で「支払通知日」表記を「作成日」に変更、`gas/064_PayoutFreeeNotice.js` line 312) |
 
+税計算の検算例:
+
+```text
+admin/payouts 支払額 (= 税抜) 731,740円
+消費税 10%                   73,174円
+お支払金額 / 合計(税込)      804,914円
+```
+
+`731,740円(税込)` / `小計 665,218円` のように出る場合は、GAS本番 Web App deployment が古く、税込総額から税抜へ割り戻す旧ロジックが動いている可能性が高い。`clasp push` だけで止めず、`gas/CLAUDE.md` の本番 deployment ID を `clasp deploy --deploymentId ...` で更新してから `force: true` で再生成する。
+
 ### 旧フォーマット禁止 anchor
 
 以下の旧 anchor は復活禁止 (= `npm run test:critical-ui` で検知):
@@ -294,6 +304,7 @@ ZMP の通常固定費は 300,000 円 × 65% = 195,000 円が cap。 OkuDoor 追
 | 通知書発行で notice_no 重複 | `payout_notices` 既存行 (= UNIQUE PK は `(member_id, ym)`)、 再発行は既存行を update |
 | GAS Payout 権限エラー | `gas-main/A066_PayoutPaidRepo.js` の OAuth 再認可、 [`pwa/design/invoice_url_payout_auth.md`](../design/invoice_url_payout_auth.md) |
 | 旧フォーマット復活 | `npm run test:critical-ui` で `brandCell` / `setValue("team ARMADA")` を検出、 golden png 比較 |
+| PDFだけ税計算が古い | PWA側の金額ではなく GAS Web App deployment が古い可能性。`npx --yes @google/clasp@latest deployments` で本番 ID の version を確認し、`clasp deploy --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G --description ...` 後に `payout-notice-prebuild` を `force:true` で再実行 |
 
 ## 関連
 

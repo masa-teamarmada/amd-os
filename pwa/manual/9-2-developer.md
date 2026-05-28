@@ -96,6 +96,23 @@ npx vercel promote <デプロイID> --scope armada0130 --yes
 2. version が**新しい** → コードは反映されてる、 表示ロジック側の問題 (= filter / fetch / 別 snapshot 参照)
 3. version が**古い** → SW / CDN / ブラウザキャッシュ。 DevTools → Application → Service Workers → Unregister + Clear site data + ハードリロード (Cmd+Shift+R)
 
+## GAS Web App デプロイ
+
+PWA が `NEXT_PUBLIC_GAS_WEBAPP_URL` 経由で呼ぶ本体 GAS は、`clasp push` だけでは本番 `/exec` に反映されない。PWA連携や支払通知書PDFなど、Web App 経由の挙動を変えた時は必ず本番 deployment を更新する。
+
+```bash
+cd /Users/masa/projects/AMD/amd-os/gas
+npx --yes @google/clasp@latest push --force
+npx --yes @google/clasp@latest deploy \
+  --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G \
+  --description "vNNNN_short_desc"
+```
+
+- `clasp` が `invalid_grant` / `invalid_rapt` の時は、先に `npx --yes @google/clasp@latest login` で再認証する
+- `clasp push` が `Script is already up to date.` でも、Web App deployment が古ければ本番は古いまま。`deploy --deploymentId` まで進める
+- 支払通知書PDFを触った時は、`/api/cron/payout-notice-prebuild` を `force:true` で再生成し、実PDFの数字/表記を確認する。例: 税抜 731,740 円なら `小計 731,740円 / 消費税 73,174円 / 合計 804,914円`
+- 検証用の一時 GAS 関数を入れた場合は、確認後に削除し、もう一度 `push` + `deploy --deploymentId` でクリーンな version に戻す
+
 ## マニュアル UI の仕組み (= 2026-05-27 確定)
 
 `/manual` 系画面 (= `pwa/src/app/(app)/manual/`) の動作:

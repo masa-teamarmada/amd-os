@@ -1,69 +1,78 @@
 # HANDOFF - AMD OS
 
 - Last updated: 2026-05-28 (codex handoff)
-- Topic: `/admin/members` インボイス登録番号 + `/admin/payouts` 支払通知書PDF反映
+- Topic: `/admin/payouts` 保存済み支払額優先 + 支払通知書PDF 税抜→税込表示の本番復旧
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
-- HEAD before this handoff update: `d635d95` (`docs: update handoff after tsukuyomi bridge deploy`)
-- Latest feature commit: `09a9c2a` (`Add invoice registration number to payouts`)
-- Build version deployed: `v0.7.6`
+- HEAD before this handoff update: `f96df4e` (`docs: record invoice number manual coverage`)
+- Latest functional commits: `5e91b8f`, `01f840c`, `fb8837f`, `09a9c2a`
 
 ## Latest Summary
 
-- `members.invoice_registration_number` を Supabase に追加し、`pwa/design/db_schema.md` を remote schema から再生成済み。
-- `/admin/members` に「インボイス登録番号」列を追加。セルクリックで編集し、保存時に trim + uppercase する。
-- `/admin/payouts` の支払通知書PDF生成 payload に `invoiceRegistrationNumber` を渡し、GAS `payoutBuildNoticePdfBlob_` が宛先ブロック下に「インボイス登録番号」を表示する。
-- GAS 本体へ `npx @google/clasp push` 済み。
-- PWA production deploy 済み。最新 deployment: `dpl_7oa9wHmjzvhQftyhkZFCE9xeH72n` / `https://amd-os-mws7pq829-armada0130.vercel.app` / alias `https://amd-os-pwa.vercel.app` Ready。
-- 詳細ログ: `pwa/design_log/sessions_2026-05.md` 末尾「2026-05-28 (codex) admin/members インボイス登録番号 + 支払通知書PDF反映」。
+- `/admin/payouts` は既存 `monthly_reward_payout` がある場合、`reward_summary_json` の再計算値ではなく保存済み支払額を正本にする状態まで復旧済み。
+- 4月稼働分 (`202604`) は既に変更不可なので、実績配分を適用せず旧 planned share 計算で固定済み。
+- かるちゃん (ID003) の SX 202601-202603 保存済み内訳は `155,578 + 327,737 + 248,425 = 731,740円`。この 731,740円は税抜。
+- 支払通知書PDFは税抜支払額に消費税10%を上乗せして表示する。検証済み新PDFは `小計 731,740円 / 消費税 73,174円 / 合計 804,914円`。
+- PDFだけ旧税計算で出た原因は、GAS Web App deployment が stale で旧割り戻しロジックを serve していたこと。`@1480` で本番更新し、`@1482` で一時検証関数削除後のクリーン版に戻した。
+- 詳細ログ: `pwa/design_log/sessions_2026-05.md` 末尾「2026-05-28 (codex) /admin/payouts 保存済み支払額優先 + 支払通知書PDF 税抜→税込反映」。
 
 ## Verification / Deploy
 
 Run and observed:
 
-- `python3 -X utf8 scripts/apply_ddl.py scripts/migrations/107_members_invoice_registration_number.sql` pass (`OK (201)`)
-- `python3 -X utf8 scripts/dump_schema.py` pass; `members.invoice_registration_number` appears in `pwa/design/db_schema.md`
 - `npm run test:critical-ui` pass
-- `npm run test:next-period-ui` pass
-- `npx tsc --noEmit` pass
 - `npm run build` pass
-- changed TS/TSX files individual eslint pass
-- `node --check gas/064_PayoutFreeeNotice.js` and `node --check gas/062_PayoutRepo.js` pass
-- `npx @google/clasp push` pass
-- `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` pass, production alias Ready
-- Production auth redirects checked for `/admin/members` and `/admin/payouts` (`HTTP/2 307` to `/auth/login?...`)
+- `node --check gas/064_PayoutFreeeNotice.js` pass
+- PWA production deploy済み: `https://amd-os-pwa.vercel.app`
+- `npx --yes @google/clasp@latest login` pass (`masa@team-armada.jp`)
+- GAS本番 Web App deployment:
+  - `@1480` `v1480_payout_notice_tax_excluded`
+  - `@1482` `v1482_remove_temp_pdf_probe` (一時検証関数削除後)
+- `POST https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild` with `{ ym:"202605", force:true }` pass: generated 7 / failed 0
+- ID003 PDF text extracted and verified:
+  - `お支払金額 804,914円（税込）`
+  - `小計（税抜） 731,740円`
+  - `消費税（10%） 73,174円`
 
-Known verification caveat:
+Known caveat:
 
-- Full `npm run lint` still fails on existing unrelated repo lint debt (Atlas/HUD/cjs/no-explicit-any etc.). The files touched in this session pass targeted eslint.
+- `clasp push` が `Script is already up to date.` でも、本番 Web App は `clasp deploy --deploymentId ...` しないと古い version のまま。支払通知書PDFを触ったら、deployment update + force再生成 + 実PDF確認まで必須。
 
 ## Repo State
 
 - Branch: `main`
-- Remote tracking before this handoff update: `main...origin/main`
-- Unpushed commits before this handoff update: none observed
-- Worktree before this handoff update: clean
-- Handoff edits in this flow should be limited to:
+- Worktree before this handoff doc update: clean
+- During handoff, unrelated dirty files appeared and were not edited/staged here:
+  - `pwa/design/ms_progress.md`
+  - `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md`
+  - `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md`
+  - `pwa/src/lib/build-info.ts`
+  - `pwa/src/lib/progress-estimator.ts`
+  Do not mix them into payout-tax commits without re-reading owner/context.
+- Handoff/docs edits in this flow:
   - `HANDOFF.md`
   - `pwa/HANDOFF_pwa_rebuild.md`
   - `pwa/design_log/sessions_2026-05.md`
-  - `pwa/manual/2-6-admin-ops.md`
-  - `pwa/manual/6-2-admin-projects-members-ledger-spec.md`
+  - `pwa/BUGS.md`
+  - `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
+  - `pwa/manual/9-2-developer.md`
+  - `gas/CLAUDE.md`
 
 ## Open Tasks
 
-- [ ] Operational: enter each contractor's invoice registration number in `/admin/members`.
-- [ ] Operational: for already-generated payout PDFs, use existing force reissue / individual reissue flow so the new invoice registration number appears in the actual PDF.
+- Operational: actual invoice registration numbers still need to be entered in `/admin/members` as needed.
+- No unresolved code task for the payout tax issue at this handoff.
 
 ## Pointers
 
 - PWA handoff: `pwa/HANDOFF_pwa_rebuild.md`
-- PWA canonical spec: `pwa/design/SPEC_pwa.md`
 - Payout notice manual: `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
+- Developer manual: `pwa/manual/9-2-developer.md`
 - Feature registry: `pwa/design/FEATURE_REGISTRY.md`
-- DB schema reference: `pwa/design/db_schema.md`
+- PWA canonical spec: `pwa/design/SPEC_pwa.md`
 - Bug / operations log: `pwa/BUGS.md`
+- GAS deploy rules: `gas/CLAUDE.md`
 - Session log: `pwa/design_log/sessions_2026-05.md`
 
 ## First Read Next Session
@@ -72,9 +81,10 @@ Known verification caveat:
 2. `pwa/HANDOFF_pwa_rebuild.md`
 3. `pwa/design/SPEC_pwa.md`
 4. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
-5. `pwa/design/FEATURE_REGISTRY.md`
-6. `pwa/BUGS.md`
-7. `pwa/design_log/sessions_2026-05.md`
+5. `pwa/BUGS.md`
+6. `pwa/design/FEATURE_REGISTRY.md`
+7. `gas/CLAUDE.md`
+8. `pwa/design_log/sessions_2026-05.md`
 
 ## First Next Action
 
@@ -85,4 +95,4 @@ git status -s
 git log --branches --not --remotes --oneline
 ```
 
-Then continue from the user's next request. If it concerns payout PDFs, first confirm whether the target member has `members.invoice_registration_number` set and whether the PDF was generated before or after `v0.7.6`.
+Then continue from the user's next request. If it touches payout PDFs, confirm whether the issue is PWA/DB amount selection or GAS Web App deployment/PDF rendering before changing code.

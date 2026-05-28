@@ -9662,3 +9662,63 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 ### Handoff 更新
 
 - `HANDOFF.md` / `pwa/HANDOFF_pwa_rebuild.md` を `v0.7.6` deploy + migration 107 remote apply confirmed の current state に更新。
+
+---
+
+## 2026-05-28 (codex) `/admin/payouts` 保存済み支払額優先 + 支払通知書PDF 税抜→税込反映
+
+### 目的
+
+- まさ指摘: かるちゃん (ID003) の SX 1-3月支払額は保存済みの 731,740円が正しいのに、再計算値で減っていた。
+- 追加要件: `/admin/payouts` の支払額は税抜なので、支払通知書PDFでは消費税10%を上乗せして表示する。
+- ただし 4月稼働分は既に変更できないため、202604 は旧計算のまま固定する。
+
+### 実装 / deploy
+
+1. `5e91b8f fix(pwa): freeze April reward amounts`
+   - `pwa/src/lib/reward-summary.ts` に `LEGACY_PLANNED_SHARE_REWARD_YMS = new Set(["202604"])` を追加。
+   - 202604 は実績配分を適用せず、従来の planned share で固定。
+2. `01f840c fix(pwa): use saved April payout totals`
+   - 202604 の既存 `monthly_reward_payout.total_pay` があれば API / UI 側で保存済み額を優先。
+3. `fb8837f fix(pwa): prefer saved payout rows`
+   - `/admin/payouts` の対象支払月に既存 `monthly_reward_payout` がある場合、`reward_summary_json` の再計算値ではなく保存済み row を `expectedEntries` の正本にする。
+   - これにより 202605 / ID003 / SX 202601-202603 は `155,578 + 327,737 + 248,425 = 731,740円` に復帰。
+4. GAS `064_PayoutFreeeNotice.js`
+   - `totalYen` / `breakdown.totalYen` を税抜として扱い、PDF上で `Math.round(net * 0.1)` を上乗せする `taxBreakdownFromTaxExcludedYen` に変更済み。
+   - ただし当初は GAS Web App deployment が古く、PDFだけ旧割り戻しロジックで出ていた。
+5. GAS本番 deployment 修復
+   - `npx --yes @google/clasp@latest login` で `invalid_rapt` を解消。
+   - `clasp deploy --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G --description v1480_payout_notice_tax_excluded` で本番 Web App を更新。
+   - 検証用に一時関数 `payoutDebug_getNoticePdfBase64_` を入れて PDF を抽出し、確認後 `v1482_remove_temp_pdf_probe` で削除済み。
+
+### Verification
+
+- `npm run test:critical-ui` pass。
+- `npm run build` pass。
+- PWA deploy: `bash pwa/scripts/deploy.sh` pass、production alias `https://amd-os-pwa.vercel.app` へ反映。
+- `node --check gas/064_PayoutFreeeNotice.js` pass。
+- GAS deployments:
+  - `@1480` = 税抜→税込 PDF 生成 logic を本番 Web App へ反映。
+  - `@1481` = 一時 PDF base64 probe。
+  - `@1482` = 一時 probe 削除後のクリーン版。
+- `POST /api/cron/payout-notice-prebuild` with `{ ym:"202605", force:true }` pass。
+  - generated 7 / skipped 0 / failed 0。
+  - ID003 PDF: `https://drive.google.com/file/d/1pardsUP_Yass7640mRyYgwfaZnklQxqK/view?usp=drivesdk`
+- ID003 新PDFテキスト抽出:
+  - `お支払金額 804,914円（税込）`
+  - `小計（税抜） 731,740円`
+  - `消費税（10%） 73,174円`
+  - `合計（税込） 804,914円`
+
+### 反省 / 教訓
+
+- PWA側・DB側が正しくても、PDF生成だけは GAS Web App deployment が stale だと旧ロジックで出る。`clasp push` と PWA deploy だけでは足りない。
+- 支払通知書PDFを触った時は、`clasp deploy --deploymentId <PWA本番deployment>` → `force:true` 再生成 → 実PDFテキスト/数字確認までを完了条件にする。
+- 731,740円を税込として割り戻した `小計 665,218円 / 消費税 66,522円 / 合計 731,740円` が出たら旧ロジックが残っているサイン。
+
+### Handoff 更新
+
+- `pwa/BUGS.md` に Web App deployment stale による旧税計算事故を追記。
+- `pwa/manual/6-5-admin-payouts-reward-notice-spec.md` に税計算の検算例と stale deployment 時の対処を追記。
+- `pwa/manual/9-2-developer.md` / `gas/CLAUDE.md` に GAS Web App deployment 更新の完了条件を追記。
+- `HANDOFF.md` / `pwa/HANDOFF_pwa_rebuild.md` を今回の復旧済み状態に更新。
