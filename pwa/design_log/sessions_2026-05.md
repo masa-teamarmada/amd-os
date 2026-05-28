@@ -9632,6 +9632,8 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
    - `pwa/design/SPEC_pwa.md`: `/admin/payouts` payload と `/admin/members` 編集項目に `members.invoice_registration_number` を追記。
    - `pwa/design/FEATURE_REGISTRY.md`: 支払通知書PDFフォーマット契約にインボイス登録番号を追加。
    - `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`: 宛先要素に `members.invoice_registration_number` を追加。
+   - `pwa/manual/6-2-admin-projects-members-ledger-spec.md`: `/admin/members` の `members` 列表に `invoice_registration_number` を追加。
+   - `pwa/manual/2-6-admin-ops.md`: admin/members の支払通知書向け情報としてインボイス登録番号を追記。
    - `pwa/scripts/check_pwa_critical_ui.cjs`: `invoice_registration_number` / `invoiceRegistrationNumber` / `インボイス登録番号` anchor を追加。
    - `pwa/src/lib/build-info.ts`: `v0.7.6` に bump。
 

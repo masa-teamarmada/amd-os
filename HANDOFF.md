@@ -48,6 +48,8 @@ Known verification caveat:
   - `HANDOFF.md`
   - `pwa/HANDOFF_pwa_rebuild.md`
   - `pwa/design_log/sessions_2026-05.md`
+  - `pwa/manual/2-6-admin-ops.md`
+  - `pwa/manual/6-2-admin-projects-members-ledger-spec.md`
 
 ## Open Tasks
 
