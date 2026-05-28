@@ -56,6 +56,14 @@ const nextConfig: NextConfig = {
       "./src/lib/exec_summary/template_section.html",
       "./src/lib/exec_summary/template.css",
     ],
+    // /manual/[slug] と /manual は (app) レイアウトの auth で dynamic (ƒ) になり、
+    // 実行時に process.cwd()/manual/{slug}.md を fs.readFileSync する。動的パスの
+    // fs 読みは nft の自動トレースに乗らないため、manual/*.md を明示 bundle しないと
+    // 実行時 ENOENT → notFound() → 404 になる (= 新章 9-3 が 404 だった真因、2026-05-29)。
+    // Gemini つくよみ Manual Q&A も manual md を文脈に読むため同じ include を付ける。
+    "/manual/[slug]/page": ["./manual/**/*.md"],
+    "/manual/page": ["./manual/**/*.md"],
+    "/api/manual/tsukuyomi/ask/route": ["./manual/**/*.md"],
   },
   async headers() {
     return [

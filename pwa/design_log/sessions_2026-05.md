@@ -9722,3 +9722,37 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 - `pwa/manual/6-5-admin-payouts-reward-notice-spec.md` に税計算の検算例と stale deployment 時の対処を追記。
 - `pwa/manual/9-2-developer.md` / `gas/CLAUDE.md` に GAS Web App deployment 更新の完了条件を追記。
 - `HANDOFF.md` / `pwa/HANDOFF_pwa_rebuild.md` を今回の復旧済み状態に更新。
+
+## 2026-05-29 (#90) — Cowork セッション (cowork-eimi) / カレンダー色→PJ判定の無断削除を復旧 + JC色→VSX + 9-3附則新設 + manual 404 真因修正
+
+> Cowork (Claude Desktop) 上で動いた cowork-eimi セッションのログ。次のえいみ (Codex / 別 Cowork) が読めば把握できるよう残す。
+
+### コンテキスト
+- まさ「今日からカレンダーの JC の色を VSX=p26 に割り当てて、設定変えて」から開始。
+- 調査の結果、色→PJ判定 (`CFG_ColorPJHistory`) が **#71 の Claude routine 移植時に無断削除**され `project_name` substring match に簡略化されていたと判明。まさ「作ってきた機能が勝手に消されてる」「二度と起きないようにして」「マニュアルに書いてないの?」。
+- #71 の実スコープは「L2 抽出を Claude routine に移す」(課金/アーキ移行) で、色判定削除は過去えいみの拡大解釈だった (= 設計 md `l2_extract_claude_routine.md:240` は「color+alias を Supabase に移植して残す」と明記していた)。
+- まさ確認: L2⑥ の現役ランナーは **(B) Windows Codex Desktop `amd-os-l6-meeting-flow`**。Mac の Claude routine (A) は現役でない。
+
+### 実装
+- **設定シート** (`CalendarRepo_AMD_OS`, `COLOR_PJ_CONFIG_SPREADSHEET_ID`): `CFG_ColorPJHistory` に `6 | 2026-05-28 | VSX` 追加 (= colorId 6 = JC の橙 を今日以降 VSX に切替、履歴方式で過去予定は JC のまま)。`CFG_PJAlias` に `VasculaX→VSX(100)` / `VSX→VSX(90)`。Chrome で直接編集。
+- **コード**: [amd-os-l6-meeting-extract SKILL.md](../scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md) (+ ライブ `~/.claude` 版) の Phase A PJ判定に color→PJ 解決を「色優先」で復活 (色 → title alias → substring の3段)。[next.config.ts](../next.config.ts) の `outputFileTracingIncludes` に `manual/**/*.md` を追加。`.env.local` に `COLOR_PJ_CONFIG_SPREADSHEET_ID`。
+- **manual/doc**: [3-2-data-and-extraction.md](../manual/3-2-data-and-extraction.md) に「🎨 カレンダー色→PJ判定 (恒久仕様・削除禁止)」追加。[9-3-appendix-changelog.md](../manual/9-3-appendix-changelog.md) 新設 (附則=append-only 変更履歴) + `manual-chapters.ts` 登録。`AGENTS.common.md` (git外) に「移植・リファクタ時の機能保全」厳格ルール + Cowork memory に `feedback_no_silent_feature_deletion.md`。
+- **guard**: [check_color_pj_resolution.cjs](../scripts/check_color_pj_resolution.cjs) 新規 + `package.json` `test:color-pj-resolution` (= SKILL/manual から色判定が消えたら CI で落ちる)。
+
+### Verified
+- シート: Drive MCP (ルーティンと同経路) で `6|2026-05-28|VSX` + VSX alias 反映確認。
+- guard: `node scripts/check_color_pj_resolution.cjs` exit 0。
+- deploy: `v0.8.2` (Vercel 6adnzockb)。まさログイン Chrome で `/manual/9-3-appendix-changelog` が 200 表示・附則テーブル確認。
+
+### Cowork ↔ Codex 衝突メモ
+- 並行セッションが**同ツリー**でマニュアル改修 (検索 `manual-search.ts` + Gemini つくよみ Q&A `api/manual/tsukuyomi/ask`、`ManualMapClient`/`[slug]/page`/`manual-data`/`page.tsx`) を進行中。build-info が数分おきに churn、deploy も連続。
+- commit は**あたしの分だけ** specific add。並行の純機能ファイル (上記) は触らず未commit のまま残す (向こうが commit する)。
+- 9-3 が連続 404 だった真因: あたしの 9-3 未commit + 並行 deploy 上書き + manual 動的化 (ƒ) で md が serverless bundle 未含有。`next.config` の tracing include 追加で**全章の dynamic 404 穴**を塞いだ。
+
+### 次のえいみへ (帰宅後 TODO)
+- **task#6**: (B) Windows Codex `amd-os-l6-meeting-flow` の automation.toml に色判定を移植 (= Mac SKILL step7 と同じ color→PJ 解決)。**これをやるまで今日の VSX 自動判定は実際には効かない**。
+- **task#4**: B に色判定が入った後、5/25〜の色だけ塗った MTG を backfill。
+- **セキュリティ**: `AMD_OS_DB` シートに ScriptProperties 全平文ダンプ (ANTHROPIC/OPENAI/FREEE/SLACK/NOTION 等) → ローテ + 該当タブ削除推奨。
+
+### 関連メモ更新 (Cowork memory)
+- `feedback_no_silent_feature_deletion.md` 新規 + `MEMORY.md` index 更新。

@@ -122,6 +122,36 @@ PJに `drive_folder_id` がある場合、routine側でDrive root直下と会議
 
 ---
 
+## 🎨 カレンダー色 → PJ 判定 (恒久仕様・削除禁止)
+
+> 🚨 **この判定ロジックは AMD OS の恒久仕様**。MTG サマリ抽出 (L2 ⑥) で「どの Calendar イベントがどの PJ のものか」を決める**第一の軸**。**どの抽出ランナー (Claude routine / Codex Desktop automation / 将来の後継) でも必ず実装する**。移植・リファクタ・「inline 移植版」と称する書き換えで**削除・簡略化しないこと**。2026-05-29 に、#71 の Claude routine 移植時にこの色判定が誤って削除され `project_name` の substring match だけに簡略化されていた事故が発覚 (= まさ未承認の機能削除)。再発防止のためここに正本化する。
+
+### 仕組み: 「色優先」で PJ を決める
+
+まさは Google Calendar の各 MTG を **イベント色 (colorId 1–11)** で PJ ごとに塗り分けて運用している。OS はその色を読んで PJ を自動判定する。
+
+**正本データ** = 外部スプレッドシート **`CalendarRepo_AMD_OS`**
+(fileId は env `COLOR_PJ_CONFIG_SPREADSHEET_ID` = `1s3HfM2…`、まさが直接メンテする。抽出ランナーは Google Drive 連携 (Drive MCP `read_file_content` 等) で読む):
+
+| タブ | ヘッダ | 役割 |
+|---|---|---|
+| **`CFG_ColorPJHistory`** | `colorId \| startDate \| pjCode \| note` | colorId → pjCode の**履歴**。同じ colorId を時期で別 PJ に振り直せる |
+| **`CFG_PJAlias`** | `alias \| pjCode \| priority \| matchType \| note` | タイトル文字列 → pjCode。色で取れない時の補完。`EXCLUDE` は議事録対象外 |
+
+### 解決順 (= GAS 153 `pickPJByColorHistory_` 由来)
+
+1. **色 (第一軸)**: イベントの `colorId` について、`CFG_ColorPJHistory` から `startDate <= イベント開始日` の行のうち **startDate 最大** の `pjCode` を採用。
+   - 例: colorId 6 は `2024-01-01→JC`、`2026-05-28→VSX`。2026-05-28 以降の colorId 6 イベントは **VSX**。過去の JC 予定は JC のまま (履歴方式)。
+2. **title エイリアス (第二軸)**: `(title+description+location)` を `CFG_PJAlias` に matchType で照合し priority 最大の pjCode。`EXCLUDE` なら skip。
+3. **substring フォールバック (最終手段)**: 色も alias も取れない時のみ、`project_name` / `project_id` / `client_name` の substring match。
+4. **pjCode → project_id**: `lower(project_name)==lower(pjCode)` 優先。一致しない code は既知マップで解決 (例: **VSX → VasculaX = p26**)。
+
+### 色の割当を変えるとき (= まさの運用)
+
+`CFG_ColorPJHistory` に**履歴行を1行足すだけ**。例「今日から JC の色 (colorId 6) を VSX に」→ `6 | <今日> | VSX | note` を追加。過去の予定は影響を受けない。実装正本は [8-3 章 L2 Extraction Routines](8-3-l2-extraction-routines-spec.md) の L2 ⑥ と、ランナー SKILL の Phase A PJ 判定。
+
+---
+
 ## 抽出パイプライン
 
 ### Codex automation

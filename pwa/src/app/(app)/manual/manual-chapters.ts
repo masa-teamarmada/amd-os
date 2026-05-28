@@ -155,6 +155,7 @@ export const MANUAL_SECTIONS: ManualSectionConfig[] = [
     slugs: [
       "9-1-decisions-and-history",
       "9-2-developer",
+      "9-3-appendix-changelog",
     ],
   },
 ];
@@ -200,6 +201,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
 
   { slug: "9-1-decisions-and-history", title: "過去判断と経緯", summary: "cron 廃止経緯、責務分担、過去事故ログ、判断履歴。", topics: ["developer", "system-dev"] },
   { slug: "9-2-developer", title: "開発者向け", summary: "環境、実装、検証、デプロイ、設計変更時の運用。", topics: ["developer", "system-dev"] },
+  { slug: "9-3-appendix-changelog", title: "附則（変更履歴）", summary: "マニュアル本則の追加・変更・削除をすべて日付付きで記録する append-only の変更履歴。勝手な削除を検知するための正本。", topics: ["developer", "system-dev"] },
 ];
 
 export const MANUAL_TOPIC_NODES: ManualTopicNodeConfig[] = [

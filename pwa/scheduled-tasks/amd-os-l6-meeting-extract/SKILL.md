@@ -42,6 +42,7 @@ Phase 0: env と calendar の準備
    ENV=pwa/.env.local
    SUPABASE_URL=$(grep '^NEXT_PUBLIC_SUPABASE_URL=' "$ENV" | cut -d= -f2- | tr -d '"')
    SRK=$(grep '^SUPABASE_SERVICE_ROLE_KEY=' "$ENV" | cut -d= -f2- | tr -d '"')
+   COLOR_PJ_CONFIG_SPREADSHEET_ID=$(grep '^COLOR_PJ_CONFIG_SPREADSHEET_ID=' "$ENV" | cut -d= -f2- | tr -d '"')
    CRON_SECRET=$(grep '^CRON_SECRET=' "$ENV" | cut -d= -f2- | tr -d '"')
    WORKFLOW_SECRET=$(grep '^WORKFLOW_SECRET=' "$ENV" | cut -d= -f2- | tr -d '"')
    WORKFLOW_SECRET="${WORKFLOW_SECRET:-$CRON_SECRET}"
@@ -71,18 +72,41 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
    - `title` が空 → **skip**
    - `end.dateTime` を Date に変換 → `winStartMs ≦ ms < winEndMs` 窓外なら **skip**
 
-7. **PJ 判定** (= GAS 153 + 074d の単純 alias マッチ移植、外部スプシ CFG は使わない):
-   - Supabase REST で `projects` を fetch:
+7. **PJ 判定** (= GAS 153 完全再現。**カレンダー色が第一判定軸 =「色優先」**。まさが運用してる正本シート `CFG_ColorPJHistory` + `CFG_PJAlias` を読む):
+
+   > 🚨 **このステップを削除・簡略化しないこと**。2026-05-29 復旧 — #71 の Claude routine 移植時に、この色→PJ 判定 (CFG_ColorPJHistory) が誤って削除され `project_name` substring match だけに簡略化されていた (= まさ未承認の機能削除事故)。正本仕様は `pwa/manual/3-2-data-and-extraction.md` の「カレンダー色→PJ判定」。色判定は AMD OS の恒久仕様。
+
+   **(a) 設定読み込み** (= 外部スプシ正本を Drive MCP で直読み):
+   - `mcp__66e633f8-4f3e-495d-aa3c-4733ce09335f__read_file_content(fileId = COLOR_PJ_CONFIG_SPREADSHEET_ID)` でシート本文 (markdown) を取得
+   - 2 つの table をパース:
+     - **CFG_ColorPJHistory**: `colorId | startDate | pjCode | note` (= colorId ごとに startDate 昇順の履歴)
+     - **CFG_PJAlias**: `alias | pjCode | priority | matchType | note`
+   - active PJ 一覧も fetch (pjCode→project_id 解決用):
      ```bash
      curl -s "$SUPABASE_URL/rest/v1/projects?select=project_id,project_name,client_name,status,slack_channel_id,drive_folder_id,report_emails&status=in.(active,sales)" \
        -H "apikey: $SRK" -H "Authorization: Bearer $SRK"
      ```
-   - 各 event の `(title + ' ' + description + ' ' + location)` を lowercase 化
-   - 各 PJ について `project_name` (lowercase) を **substring match**
-   - 加えて `project_id` 文字列 (= "p06", "p21" 等) も substring match
-   - 加えて `client_name` (lowercase) も substring match
-   - マッチした PJ がなければ **skip_no_pj** としてカウント (= 議事録対象外、AMD 全体 MTG として skip、ghost にしない)
-   - マッチが複数あれば最も具体的なもの 1 つ (= project_name 完全一致 > project_id > client_name の優先順位)
+
+   **(b) colorId → pjCode (第一軸・色優先)**:
+   - event の `colorId` を取る (= 未設定なら primary calendar の default colorId)
+   - CFG_ColorPJHistory のうち、その colorId かつ `startDate <= event 開始日(00:00 JST)` の行で **startDate 最大** を採用 → `pjCode`
+   - 例: colorId=6 は `2024-01-01→JC`、`2026-05-28→VSX`。2026-05-28 以降の colorId 6 イベントは **pjCode=VSX**
+
+   **(c) title alias → pjCode (第二軸・色で取れない時の補完)**:
+   - `(title + ' ' + description + ' ' + location)` を CFG_PJAlias の各 alias に matchType (contains 等) で照合 → priority 最大の pjCode
+   - alias hit が `EXCLUDE` の場合は色で pjCode が取れていても **skip** (= 議事録対象外)
+
+   **(d) pjCode → project_id 解決**:
+   - `lower(projects.project_name) == lower(pjCode)` の active PJ を優先 (= SX/CX/OQC/ZMP/SE/BWE/CTB/CLG など大半は project_name==code)
+   - project_name と一致しない code は既知マップで解決: **VSX → VasculaX (project_id = p26)**
+   - `pjCode` が `pNN` 形式なら project_id として直接使う
+   - `pjCode` が `AMD` / 空 → **skip_no_pj** (= AMD 全体 MTG、ghost にしない)
+
+   **(e) 最終フォールバック** (= 色も alias も取れない時のみ、旧 text-only ロジック):
+   - `(title+desc+loc)` lowercase に対して project_name / project_id / client_name の substring match
+   - それでも取れなければ **skip_no_pj**
+
+   - 複数候補は **色 > title 完全一致 alias > substring** の優先順位で 1 つに絞る
 
 8. PJ 紐付けが取れた events を **処理キュー** に積む
 
