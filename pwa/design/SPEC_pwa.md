@@ -420,10 +420,11 @@ npx tsc --noEmit     # 型チェック
 ## 9. 実装規約 (引っかかりやすい点)
 
 ### 進捗 % の扱い
-- LLM (`progress-estimator.ts`) が返す `progressPct` は **今月の delta**
-- DB `milestone_monthly_progress.progressPct` に保存するのは **累積**
-- 変換: `newCumPct = min(100, prevCum + delta)`
-- 単調増加のみ保存。`pm_manual` / `pm_confirmed` / `pm_rejected` / `criteria_toggle` / `tsukuyomi_revision` はスキップ
+- LLM (`progress-estimator.ts`) が返す `progressPct` は **対象月時点の累積進捗**
+- DB `milestone_monthly_progress.progressPct` に保存するのも **累積**
+- 基本値は `value_milestones.period_start_ym`〜`target_ym` の期間按分。5か月MSなら1か月目20%、2か月目40%、3か月目60%が基準
+- MS開始前は0%。LLM推定対象から外し、既存のAI/自動由来行があれば0%へ補正する
+- AI由来値 (`tsukuyomi_estimate`) は過大推定なら下方修正OK。`pm_manual` / `pm_confirmed` / `pm_rejected` / `criteria_toggle` / `tsukuyomi_revision` はスキップ
 - `tag='routine'` の定常業務は LLM 推定ではなく月割り自動進捗。`value_milestones.period_start_ym`〜`target_ym` の月数で 100% を割り、対象月までの各月を `source='routine_auto'` で補完する。1年PJなら毎月 `100/12%`。
 
 ### コミット % の扱い

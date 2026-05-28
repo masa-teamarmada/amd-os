@@ -255,6 +255,7 @@ GAS ScriptProperties:
 - **pm_manual / pm_confirmed / pm_rejected / criteria_toggle / tsukuyomi_revision で手動確定済みの MS**: LLM が delta を返しても上書きされない。LLM 呼び出し自体はされる (source_hash が変わってれば) が、save 段階でスキップされる
 - **confirmed revision lock**: `ms_progress_revisions.status='confirmed'` がある MS は、`milestone_monthly_progress.source` が古い推定値に戻っていても、抽出開始時に `tsukuyomi_revision` として再適用し、LLM保存対象から外す。
 - **期間按分が基本値**: 5か月MSなら1か月目20%、2か月目40%、3か月目60%を基準にする。情報ソースから遅れが分かれば10%/15%などに下げ、先行が分かれば25%などに上げる。
+- **開始前MSは0%固定**: `value_milestones.period_start_ym` より前の月は期待進捗0%。LLM推定対象から外し、既存のAI/自動由来行が残っていれば0%へ補正する。DD準備やVC接点など周辺作業を、開始前のDD対応MS進捗に混ぜない。
 - **AI由来値は下方修正OK**: `source='tsukuyomi_estimate'` の過去値が過大なら、次回推定で下げてよい。PM/confirmed/revision系は下げない。
 - **成功条件ガード**: 80%以上や100%を保存するには、成功条件やMS名に直結する成果物が完成・完了・確定・提出・作成済・策定済・承認済・レビュー可能になった直接証拠が必要。面談、関心表明、VC/DD開始、準備、着手、進行中だけでは高進捗を保存しない。
 - **routine タグ MS**: トラブルがなければ期間按分で毎月進む。`value_milestones.period_start_ym`〜`target_ym` の月数で 100% を割り、対象月までの各月を `source='routine_auto'` で補完する。1年PJなら毎月 `100/12%`。PMが `pm_manual` などで対象月を確定している場合は上書きしない。

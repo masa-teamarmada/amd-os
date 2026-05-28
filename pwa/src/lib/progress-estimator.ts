@@ -10,6 +10,7 @@
  *   - progressPct はLLMが返す「対象月時点の累積進捗率」。
  *   - AI推定値は絶対値として保存し、delta 加算で 100% に吸い寄せない。
  *   - routineタグのMSは、手動確定がなければMS期間で月割り自動進捗にする
+ *   - MS開始前のAI/自動由来の既存行は0%に戻し、周辺準備を当該MS進捗に混ぜない
  *   - PMが確定・修正・却下した行は上書きしない
  *   - AI推定値は過大推定を補正するため、AI由来の既存値なら下方修正も許可する
  *   - upsert conflict: milestone_key, ym
@@ -85,11 +86,12 @@ type ConfirmedRevisionLock = {
 };
 
 const ROUTINE_AUTO_PROGRESS_SOURCE = "routine_auto";
-const ESTIMATOR_LOGIC_VERSION = "absolute_cumulative_v1";
+const ESTIMATOR_LOGIC_VERSION = "absolute_cumulative_v2";
 const HIGH_PROGRESS_DIRECT_EVIDENCE_THRESHOLD = 80;
 const MAX_AHEAD_WITHOUT_DIRECT_EVIDENCE = 15;
 const MAX_PROGRESS_WITHOUT_DIRECT_EVIDENCE = 75;
 const AI_MUTABLE_PROGRESS_SOURCES = new Set(["", "tsukuyomi_estimate"]);
+const AUTO_MUTABLE_PROGRESS_SOURCES = new Set([...AI_MUTABLE_PROGRESS_SOURCES, ROUTINE_AUTO_PROGRESS_SOURCE]);
 const COMPLETION_EVIDENCE_TERMS = [
   "完成",
   "完了",
@@ -338,6 +340,131 @@ async function applyRoutineAutoProgress(
         delta: 0,
         cumulative: Number(row.progress_pct || 0),
         reason: "",
+        skipped: true,
+        skipReason: `dbError: ${error.message}`,
+      })),
+      savedRows: [],
+    };
+  }
+
+  return { saved: rowsToUpsert.length, skipped, total, details, savedRows };
+}
+
+async function applyBeforeStartProgressGuard(
+  supabase: ServiceClient,
+  milestones: EstimateMilestoneRow[],
+  scheduleByMs: Map<string, ReturnType<typeof milestoneSchedule>>,
+  currMap: CurrentProgressMap,
+  ym: string
+): Promise<{
+  saved: number;
+  skipped: number;
+  total: number;
+  details: EstimateDetail[];
+  savedRows: Array<{ milestoneKey: string; ym: string; progressPct: number; source: string }>;
+}> {
+  const rowsToUpsert: Array<{
+    milestone_key: string;
+    ym: string;
+    progress_pct: number;
+    consumed_pt: number;
+    source: string;
+    confirmed_at: string;
+    note: string;
+  }> = [];
+  const details: EstimateDetail[] = [];
+  const savedRows: Array<{ milestoneKey: string; ym: string; progressPct: number; source: string }> = [];
+  let total = 0;
+  let skipped = 0;
+  const now = new Date().toISOString();
+
+  for (const ms of milestones) {
+    const schedule = scheduleByMs.get(ms.milestone_id);
+    if (!schedule?.isBeforeStart) continue;
+
+    const cur = currMap[ms.milestone_id];
+    if (!cur) continue;
+
+    total++;
+    const reason = `MS開始前 (${schedule.startYm || "unknown"}開始) のため自動推定を0%に補正`;
+    if (PM_LOCKED_PROGRESS_SOURCES.has(cur.source)) {
+      skipped++;
+      details.push({
+        milestoneKey: ms.milestone_id,
+        delta: 0,
+        cumulative: cur.pct,
+        reason,
+        skipped: true,
+        skipReason: `source=${cur.source}`,
+      });
+      continue;
+    }
+    if (!AUTO_MUTABLE_PROGRESS_SOURCES.has(cur.source)) {
+      skipped++;
+      details.push({
+        milestoneKey: ms.milestone_id,
+        delta: 0,
+        cumulative: cur.pct,
+        reason,
+        skipped: true,
+        skipReason: `source=${cur.source || "unknown"} preventsBeforeStartReset`,
+      });
+      continue;
+    }
+    if (cur.pct === 0) {
+      skipped++;
+      details.push({
+        milestoneKey: ms.milestone_id,
+        delta: 0,
+        cumulative: 0,
+        reason,
+        skipped: true,
+        skipReason: "unchanged(cur=0)",
+      });
+      continue;
+    }
+
+    rowsToUpsert.push({
+      milestone_key: ms.milestone_id,
+      ym,
+      progress_pct: 0,
+      consumed_pt: 0,
+      source: cur.source || "tsukuyomi_estimate",
+      confirmed_at: now,
+      note: reason,
+    });
+    savedRows.push({
+      milestoneKey: ms.milestone_id,
+      ym,
+      progressPct: 0,
+      source: cur.source || "tsukuyomi_estimate",
+    });
+    details.push({
+      milestoneKey: ms.milestone_id,
+      delta: -cur.pct,
+      cumulative: 0,
+      reason,
+    });
+  }
+
+  if (rowsToUpsert.length === 0) {
+    return { saved: 0, skipped, total, details, savedRows: [] };
+  }
+
+  const { error } = await supabase
+    .from("milestone_monthly_progress")
+    .upsert(rowsToUpsert, { onConflict: "milestone_key,ym" });
+
+  if (error) {
+    return {
+      saved: 0,
+      skipped: skipped + rowsToUpsert.length,
+      total,
+      details: rowsToUpsert.map((row) => ({
+        milestoneKey: row.milestone_key,
+        delta: 0,
+        cumulative: 0,
+        reason: row.note,
         skipped: true,
         skipReason: `dbError: ${error.message}`,
       })),
@@ -1151,9 +1278,16 @@ export async function estimateProgress(
       prevMap[row.milestoneKey] = Math.max(prevMap[row.milestoneKey] || 0, row.progressPct);
     }
   }
+  const beforeStartGuard = await applyBeforeStartProgressGuard(supabase, milestones, scheduleByMs, currMap, ym);
+  for (const row of beforeStartGuard.savedRows) {
+    currMap[row.milestoneKey] = { pct: row.progressPct, source: row.source };
+  }
+  const baseSaved = revisionLocks.saved + routineAuto.saved + beforeStartGuard.saved;
+  const baseSkipped = revisionLocks.skipped + routineAuto.skipped + beforeStartGuard.skipped;
+  const baseDetails = [...revisionLocks.details, ...routineAuto.details, ...beforeStartGuard.details];
 
   if (estimateMilestones.length === 0) {
-    if (revisionLocks.saved + routineAuto.saved > 0) await syncRewardIfProgressChanged(supabase, projectId, ym);
+    if (baseSaved > 0) await syncRewardIfProgressChanged(supabase, projectId, ym);
     await touchEstimateState(
       supabase,
       projectId,
@@ -1162,10 +1296,10 @@ export async function estimateProgress(
       "対象月に自動推定対象のMSなし"
     );
     return {
-      ok: revisionLocks.saved + routineAuto.saved > 0,
-      saved: revisionLocks.saved + routineAuto.saved,
-      total: revisionLocks.details.length + routineAuto.total,
-      skipped: revisionLocks.skipped + routineAuto.skipped,
+      ok: baseSaved > 0,
+      saved: baseSaved,
+      total: baseDetails.length,
+      skipped: baseSkipped,
       unchanged: false,
       llmCalled: false,
       message: "対象月に自動推定対象のMSなし",
@@ -1176,7 +1310,7 @@ export async function estimateProgress(
         sourceItemCountRaw: 0,
         usingServiceRole,
       },
-      details: [...revisionLocks.details, ...routineAuto.details],
+      details: baseDetails,
     };
   }
 
@@ -1185,15 +1319,15 @@ export async function estimateProgress(
   try {
     monthlySources = await loadMonthlyProgressSources(supabase, projectId, ym);
   } catch (err) {
-    if (revisionLocks.saved + routineAuto.saved > 0) await syncRewardIfProgressChanged(supabase, projectId, ym);
+    if (baseSaved > 0) await syncRewardIfProgressChanged(supabase, projectId, ym);
     return {
-      ok: revisionLocks.saved + routineAuto.saved > 0,
-      saved: revisionLocks.saved + routineAuto.saved,
-      total: revisionLocks.details.length + routineAuto.total,
-      skipped: revisionLocks.skipped + routineAuto.skipped,
+      ok: baseSaved > 0,
+      saved: baseSaved,
+      total: baseDetails.length,
+      skipped: baseSkipped,
       message: err instanceof Error ? err.message : "月次ソース取得エラー",
       diagnostics: { planCycleFound: true, milestoneCount: milestones.length, sourceItemCount: 0, sourceItemCountRaw: 0, usingServiceRole },
-      details: [...revisionLocks.details, ...routineAuto.details],
+      details: baseDetails,
     };
   }
 
@@ -1202,14 +1336,16 @@ export async function estimateProgress(
   const sourceBreakdown = monthlySources.sourceBreakdown;
 
   if (sourceLines.length === 0 || monthlySources.sourceTextLength < 50) {
-    if (revisionLocks.saved + routineAuto.saved > 0) await syncRewardIfProgressChanged(supabase, projectId, ym);
+    if (baseSaved > 0) await syncRewardIfProgressChanged(supabase, projectId, ym);
     return {
-      ok: revisionLocks.saved + routineAuto.saved > 0,
-      saved: revisionLocks.saved + routineAuto.saved,
-      total: revisionLocks.details.length + routineAuto.total,
-      skipped: revisionLocks.skipped + routineAuto.skipped,
+      ok: baseSaved > 0,
+      saved: baseSaved,
+      total: baseDetails.length,
+      skipped: baseSkipped,
       message: revisionLocks.saved > 0
         ? `確定済みMS修正を再適用（LLM推定ソースなし: project_id=${projectId}, ym=${ym}）`
+        : beforeStartGuard.saved > 0
+          ? `開始前MSの自動推定を0%補正（LLM推定ソースなし: project_id=${projectId}, ym=${ym}）`
         : routineAuto.saved > 0
           ? `定常業務を月次按分で補完（LLM推定ソースなし: project_id=${projectId}, ym=${ym}）`
           : `推定ソースなし（monthly_reports / project_meeting_summaries に本文なし: project_id=${projectId}, ym=${ym}）`,
@@ -1221,7 +1357,7 @@ export async function estimateProgress(
         sourceBreakdown,
         usingServiceRole,
       },
-      details: [...revisionLocks.details, ...routineAuto.details],
+      details: baseDetails,
     };
   }
 
@@ -1288,15 +1424,15 @@ export async function estimateProgress(
       .update({ last_processed_at: new Date().toISOString() })
       .eq("project_id", projectId)
       .eq("ym", ym);
-    if (revisionLocks.saved + routineAuto.saved > 0) await syncRewardIfProgressChanged(supabase, projectId, ym);
+    if (baseSaved > 0) await syncRewardIfProgressChanged(supabase, projectId, ym);
     return {
       ok: true,
-      saved: revisionLocks.saved + routineAuto.saved,
-      total: revisionLocks.details.length + routineAuto.total,
-      skipped: revisionLocks.skipped + routineAuto.skipped,
+      saved: baseSaved,
+      total: baseDetails.length,
+      skipped: baseSkipped,
       unchanged: true,
       llmCalled: false,
-      message: revisionLocks.saved + routineAuto.saved > 0 ? "confirmed/routine progress saved; source unchanged (LLM skipped)" : "source unchanged (LLM skipped)",
+      message: baseSaved > 0 ? "locked/routine/before-start progress saved; source unchanged (LLM skipped)" : "source unchanged (LLM skipped)",
       diagnostics: {
         planCycleFound: true,
         milestoneCount: milestones.length,
@@ -1306,7 +1442,7 @@ export async function estimateProgress(
         usingServiceRole,
         sourceHash: newHash,
       },
-      details: [...revisionLocks.details, ...routineAuto.details],
+      details: baseDetails,
     };
   }
 
@@ -1378,9 +1514,9 @@ export async function estimateProgress(
   // 9. 保存
   const validMsIds = new Set(estimateMilestones.map((m) => m.milestone_id));
   const now = new Date().toISOString();
-  let saved = revisionLocks.saved + routineAuto.saved;
-  let skipped = revisionLocks.skipped + routineAuto.skipped;
-  const details: EstimateDetail[] = [...revisionLocks.details, ...routineAuto.details];
+  let saved = baseSaved;
+  let skipped = baseSkipped;
+  const details: EstimateDetail[] = [...baseDetails];
 
   for (const p of parsed.progress || []) {
     const msKey = String(p.milestoneKey || "").trim();
@@ -1499,7 +1635,7 @@ export async function estimateProgress(
 
   // 差分検知 state を更新 (LLM 呼んだ後は必ず更新)。
   // upsert: 同 (project_id, ym) は source_hash + counts + last_processed_at を更新。
-  const totalCount = (parsed.progress || []).length + routineAuto.total + revisionLocks.details.length;
+  const totalCount = (parsed.progress || []).length + routineAuto.total + revisionLocks.details.length + beforeStartGuard.details.length;
   await supabase
     .from("progress_estimate_state")
     .upsert(

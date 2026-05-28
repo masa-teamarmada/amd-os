@@ -23,14 +23,14 @@ PWA で MS 別の月次進捗%を LLM に推定させて `milestone_monthly_prog
   4. **`monthly_reports` から当月レポート本文を取得**（final_content > draft_content の優先順）
   5. `tsukuyomi_context` の `reward_estimate` タグでシステムプロンプト取得（無ければデフォルト文言）
   6. Claude Sonnet 4.5 に MS 一覧＋レポート本文を渡して推定
-  7. LLM 応答の JSON パース: `{ progress: [{ milestoneKey, progressPct(delta), reason }] }`
-  8. `newCumPct = min(100, prevCum + delta)` で累積化して `milestone_monthly_progress` に upsert（conflict: `milestone_key, ym`）
+  7. LLM 応答の JSON パース: `{ progress: [{ milestoneKey, progressPct(対象月時点の累積値), reason }] }`
+  8. MS個別期間の按分を基準に補正し、`milestone_monthly_progress` に累積値として upsert（conflict: `milestone_key, ym`）
 
 - スキップ条件:
-  - `routine` タグの MS（日々の定常業務なので%進捗で測らない）
-  - `delta === 0`
-  - 現在のソースが `pm_manual` / `criteria_toggle`（手動確定済みなので上書き禁止）
-  - 新累積 ≤ 現在値（単調増加のみ保存）
+  - MS個別期間の開始前（期待進捗0%。既存のAI/自動由来行があれば0%補正）
+  - `routine` タグの MS（LLM推定ではなく期間按分の `routine_auto`）
+  - 現在のソースが `pm_manual` / `pm_confirmed` / `pm_rejected` / `criteria_toggle` / `tsukuyomi_revision`（手動・確定済みなので上書き禁止）
+  - 既存値と同じ累積値
 
 - モデル: `claude-sonnet-4-5-20250929`（GAS と同じ）。Haiku だと複雑な抽出タスクで精度が落ちるため使わない。
 
