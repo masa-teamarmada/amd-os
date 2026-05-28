@@ -4,6 +4,7 @@
 
 ログインユーザーが「自分が関わる全PJの当月業務と報酬」を一覧で確認できる画面。
 全PJの報酬額合計 = 当月発行される支払通知書の額 と一致する。
+ただし `ID006` / りりは NIMS からの無償出向メンバーなので、`/mypage` と `/dashboard` 埋め込み上の報酬額は金額ではなく `ー` と表示する。
 
 ## 設計哲学
 
@@ -16,6 +17,7 @@
 ### 表示範囲
 - **過去6ヶ月 + 当月**（計7ヶ月分）
 - 進捗計算用の前月データのため `milestone_monthly_progress` は7ヶ月分（当月〜6ヶ月前 +1ヶ月）取得
+- りり (`ID006`) は無償出向のため、当月合計・月別合計・PJ別報酬額を `ー` 表示にする。報酬計算キャッシュ自体は他メンバーやadmin集計との整合のためそのまま読む。
 
 ### データ源泉（すべてSupabase既存テーブル、追加migration不要）
 | テーブル | 用途 |
@@ -68,7 +70,7 @@
 - **週次活動表示**: ✅ PWA先行で実装。`/api/cron/member-weekly-activities` がGmail / OSから読める共有メンバーカレンダー / source_cache / `project_meeting_summaries` を同一活動単位に束ね、複数の生データのつながりから「実務として何を進めたか」を `member_activities(source='member_weekly')` に保存する。CalendarのTODO/descriptionも根拠であり、議事録だけを優先しない。Gmailは `SENT` / `DRAFT` または社内メンバーが送信者のsource_cacheだけを活動扱いにし、受信しただけのメール・招集通知・メール本文全文は載せない。PJ判定はPJ専用/関係先email・PJ名・client名に加え、当面のPWA runtime mirrorとして `project_knowledge(category='alias', status='active')` を読むが、alias正本はGAS/Notion系で使う外部スプシ `CFG_PJAlias`。`project_knowledge(category='alias')` は正本ではなく、PWAがSupabaseだけで動くための暫定ミラー。OkuDoor / Okudoor / ZeMA は ZMP (`p19`) のaliasとして扱い、`奥ドア` 表記はactive aliasにしない。登録PJに一致しない一般の社内共同作業は、社内メンバー2名以上かつ共同作業語がある場合だけ AMD共通活動 (`p00`) として保存する。毎日18:00 JSTに、前日18:00〜当日18:00の24hを抽出し、`/mypage` は今週(月-日 JST)の行を表示する。
 - **カレンダー共有はログイン時に必須**: Google Workspaceログイン時に `calendar.readonly` を必須scopeとして要求し、callbackでCalendar APIが読めることを確認する。未許可ならOSへ入れず、`members.google_calendar_status` を `missing/error` にする。ログイン成功時は `members.last_login_at` を更新し、既存セッションのまま使い続けるユーザーもmiddlewareが1時間に1回 `last_login_at` をtouchする。`/admin/members` で共有状態と最終ログインを確認できる。`info` / `つくよみ` などの非ログイン系アカウントはCalendar共有の対象外。
 - 週次抽出cronは、「読むカレンダー」と「保存対象メンバー」を分ける。読むカレンダーは `google_calendar_status = connected` のメンバーに限るが、保存対象はactiveな人間メンバー全員（`info` / `つくよみ` 等のシステムアカウントは除外）。共有済みカレンダーや議事録の参加者emailに、未接続メンバー（例: うめ / あび）が含まれる場合、そのメンバーの `member_activities(source='member_weekly')` にも同じ活動を保存する。未接続メンバー本人のカレンダーは読めないが、他メンバーの共有カレンダー / `project_meeting_summaries` / `source_cache` に参加者として出ている活動はマイページに出る。
-- マイページはadmin閲覧時のみ `/mypage?memberId=<member_id>` で他メンバーのページを表示できる。OS内の文章に出るメンバーコードネームは、共通UI `LinkedMemberText` で `/mypage?memberId=<member_id>` へのリンクにする。
+- マイページはadmin閲覧時のみ `/mypage?memberId=<member_id>` で他メンバーのページを表示できる。`member_id` は `members.member_id` の値をそのまま使い、例は `ID001`。`001` のように `ID` prefix を削らない。OS内の文章に出るメンバーコードネームは、共通UI `LinkedMemberText` で `/mypage?memberId=<member_id>` へのリンクにする。`/admin/members` の codeName セルはこのURLの基準リンクUI。
 
 ### Phase 3（アイデアレベル）
 - 年間累積報酬グラフ

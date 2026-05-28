@@ -207,7 +207,7 @@ chip 構成:
 
 理由:
 - 「経営判断未了」= done でない = 経営ハイライト対象外
-- これは **「次回まさえいMTGで議論すべき議題」** として MTG サマリ or 議題リストに記録すべき
+- これは **「次回の提案前の論点整理セッションで議論すべき議題」** として MTG サマリ or 議題リストに記録すべき
 
 代わりに、もし以下のような **done** な事象が発生したら経営ハイライトに入れる:
 ```
@@ -223,7 +223,7 @@ chip 構成:
 
 ## 抽出ロジック (= LLM prompt 更新方針)
 
-Codex automation `amd-os-strategy-signals` の prompt に以下を追加:
+Codex automation `amd-os` の経営ハイライト抽出 prompt に以下を追加:
 
 ```
 経営ハイライト 抽出ルール (まさ #26 #27 #29 #31 2026-05-24):
@@ -284,12 +284,12 @@ Codex automation `amd-os-strategy-signals` の prompt に以下を追加:
 - 「⚠️ つくよみに修正依頼」は維持
 
 ### Step 3: LLM prompt 更新
-- Codex automation `amd-os-strategy-signals` の prompt にルール反映
+- Codex automation `amd-os` の経営ハイライト抽出 prompt にルール反映
 - まさのローカル `.codex/` 配下を触る or scheduled task で更新
 
 ### Step 4: 既存 candidate / confirmed の整理
 - 「未了」「TODO」「アイディア」系の signal を rejected or archive
-- 残った signal に polarity / score_impact_summary を後追い付与 (= まさえいMTG で 1 件ずつ)
+- 残った signal に polarity / score_impact_summary を後追い付与 (= 提案前の論点整理セッションで 1 件ずつ)
 
 ### Step 5: ドキュメント更新
 - `project_strategy_signals.md` → 全面書き換え (= 本書の内容を統合、名称も「経営ハイライト」へ)

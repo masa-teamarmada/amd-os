@@ -38,7 +38,7 @@ function getServiceClient() {
  * ATL 独自 domain (= atlas_signals.domain の "A.地政学・マクロ経済" 等) → ASPI 8 domain への簡易 mapping。
  * 完全 1:1 ではない (= 概念軸が違う) ため、近そうな domain にマッピング、無ければ null で除外。
  *
- * 基準: ATL domain ID prefix (A-O) と ASPI 8 domain の意味的類似性で判定。
+ * 基準: ATL domain ID prefix (A-R) と ASPI 8 domain の意味的類似性で判定。
  *   - I.ICT・AI            → advanced_ict + ai_technologies (両方カウント = 2 倍に乗る、許容)
  *   - C.素材・原料         → advanced_materials_manufacturing
  *   - F.バイオ・医療       → biotechnology
@@ -47,8 +47,9 @@ function getServiceClient() {
  *   - G.モビリティ・ロボティクス → defence_space_robotics_transport
  *   - J.宇宙・防衛         → defence_space_robotics_transport
  *   - E.製造・プロセス技術 → advanced_materials_manufacturing
- *   - 量子 (= ATL に独立 domain なし、I.ICT・AI に内包される傾向 → mapping 無し)
- *   - sensing (= 同上、I or G に分散)
+ *   - P.量子・量子計算 → quantum
+ *   - Q.センシング・計測 → sensing_timing_navigation
+ *   - R.先端通信 → advanced_ict
  *   - A/B/H/K/L/M/N (地政学・規制・建築・食農・金融・社会構造・海洋) → ASPI mapping なし、null で除外
  */
 const ATL_DOMAIN_TO_ASPI: Record<string, AspiDomainId[]> = {
@@ -60,6 +61,9 @@ const ATL_DOMAIN_TO_ASPI: Record<string, AspiDomainId[]> = {
   "G.モビリティ・ロボティクス": ["defence_space_robotics_transport"],
   "J.宇宙・防衛": ["defence_space_robotics_transport"],
   "E.製造・プロセス技術": ["advanced_materials_manufacturing"],
+  "P.量子・量子計算": ["quantum"],
+  "Q.センシング・計測": ["sensing_timing_navigation"],
+  "R.先端通信": ["advanced_ict"],
 };
 
 interface AggregateRow {

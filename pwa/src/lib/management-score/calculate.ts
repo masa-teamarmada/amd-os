@@ -76,7 +76,7 @@ interface CalculateResult {
  *     net_assets < 0 (= 債務超過) → total = 0
  *     runway < 1 ヶ月 → total = min(total, 10)
  *
- * 詳細は pwa/manual/29-management-score-and-finance-simulation-spec.md 参照。
+ * 詳細は pwa/manual/4-5-management-score-and-finance-simulation-spec.md 参照。
  */
 const WEIGHTS_FIXED: Pick<Record<Axis, number>, "finance" | "initiative" | "retention" | "direction"> = {
   finance: 0.30,

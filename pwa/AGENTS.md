@@ -16,7 +16,7 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 
 **まず読む = OS マニュアル正本** (= 2026-05-25 以降):
 
-00. [`pwa/manual/00-intro.md`](manual/00-intro.md) ⭐⭐⭐ — **AMD OS マニュアル**入口 (= 7 章構成)。**新セッションのえいみは必ずここから読む**。過去判断ログ / 用語と実装の対応 / cron 廃止経緯 / Codex-Claude-Vercel-LaunchAgent 責務分担マトリクス / 過去事故ログはすべて [`05-decisions-and-history.md`](manual/05-decisions-and-history.md) に集約
+00. [`pwa/manual/1-1-intro.md`](manual/00-intro.md) ⭐⭐⭐ — **AMD OS マニュアル**入口 (= 7 章構成)。**新セッションのえいみは必ずここから読む**。過去判断ログ / 用語と実装の対応 / cron 廃止経緯 / Codex-Claude-Vercel-LaunchAgent 責務分担マトリクス / 過去事故ログはすべて [`05-decisions-and-history.md`](manual/05-decisions-and-history.md) に集約
 
 そのあと **設計議論 md** (= `pwa/design/` 配下):
 

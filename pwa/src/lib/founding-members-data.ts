@@ -1,8 +1,8 @@
 /**
  * project_founding_members データアクセス層 (= 関連メンバー L2、HRL根拠)。
  *
- * まさ判断 (2026-05-22): HRL の評価ベースは「該当SU社員 + AMD伴走メンバー」だけ。
- * 大学・研究機関 / VC / 顧客 / 行政 / partner_company は HRL 根拠から除外。
+ * HRL の評価ベースは「該当SU社員 + AMD伴走メンバー + 大学キーパーソン」。
+ * VC / 顧客 / 行政 / partner_company は HRL 根拠から除外。
  * AMD メンバーは `members.code_name` で記録 (フルネーム表記との重複は invalid)。
  *
  * 仕様: pwa/scripts/migrations/040_project_founding_members.sql + 075_related_members_cleanup.sql
@@ -110,8 +110,8 @@ export async function fetchFoundingMembers(projectId: string): Promise<FoundingM
 /**
  * HRL (Human Resources Readiness Level) を関連メンバー構成から簡易推定する。
  *
- * まさ判断 (2026-05-22): HRL 根拠 = 「該当SU社員 + AMD伴走メンバー」だけ。
- *   category in ('amd','startup') のみが算入対象。大学・研究機関 / VC / 顧客 /
+ * HRL 根拠 = 「該当SU社員 + AMD伴走メンバー + 大学キーパーソン」。
+ *   category in ('amd','startup','university') が算入対象。VC / 顧客 /
  *   行政 / partner_company は算入しない。
  *
  * 内閣府 SIP HRL 9 段階定義に従う:

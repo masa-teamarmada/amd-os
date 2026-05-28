@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
     }
     try {
       const r = await estimateProgress(t.projectId, t.ym, { force });
-      if (!r.unchanged) llmCalls++;
+      if (r.llmCalled) llmCalls++;
       results.push({
         projectId: t.projectId,
         ym: t.ym,

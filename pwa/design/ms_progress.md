@@ -3,6 +3,8 @@
 最終更新: 2026-05-09 (Phase 4 = 毎時 polling 化)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
+マニュアル版: [`pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md`](../manual/4-8-ms-progress-monthly-report-revision-spec.md)。
+
 ---
 
 ## このドキュメントが扱う範囲
@@ -68,7 +70,7 @@ L2 ③ MS進捗 (`milestone_monthly_progress`) の自動更新 cron 全般。
    │
    ├─ 4. 各 target で estimateProgress(projectId, ym, { force: false })
    │       │
-   │       ├─ value_plan_cycles + value_milestones 取得
+   │       ├─ value_plan_cycles + value_milestones + milestone_sub_items 取得
    │       ├─ project_members + members (codeName) 取得
    │       ├─ 前月までの milestone_monthly_progress 取得 (累積計算用)
    │       ├─ 当月の milestone_monthly_progress 取得 (現在登録値)
@@ -85,12 +87,15 @@ L2 ③ MS進捗 (`milestone_monthly_progress`) の自動更新 cron 全般。
    │       │     LLM 呼ばずに last_processed_at だけ touch して { unchanged: true } を return
    │       │
    │       └─ ⚙ それ以外:
+   │             ├─ tag='routine' のMSは、先に `value_milestones.period_start_ym`〜`target_ym` の月割りで `routine_auto` 進捗を補完
    │             ├─ Sonnet 4.5 で各 MS の delta(progressPct) を抽出
+   │             │     success_criteria / sub_items を入力し、成功条件に直結する成果物証拠を優先
    │             ├─ 各 MS について累積化 (newCumPct = min(100, prevCum + delta))
    │             │     スキップ条件:
-   │             │       - tag='routine' (定常業務)
+   │             │       - tag='routine' (定常業務は上記の月割り自動補完に寄せる)
+   │             │       - success_criteria があるMSで 80%以上または大幅増分なのに、成果物の完成/提出/確定/レビュー可能を示す直接証拠がない
    │             │       - delta=0
-   │             │       - source='pm_manual' or 'criteria_toggle' (手動確定済みは上書き禁止)
+   │             │       - source='pm_manual' / 'pm_confirmed' / 'pm_rejected' / 'criteria_toggle' / 'tsukuyomi_revision' (手動確定済みは上書き禁止)
    │             │       - newCumPct <= 現在登録値 (単調増加のみ保存)
    │             ├─ milestone_monthly_progress に upsert (onConflict: milestone_key, ym)
    │             └─ progress_estimate_state に upsert (source_hash, last_processed_at)
@@ -247,9 +252,10 @@ GAS ScriptProperties:
 - **対象PJ**: cronはactive PJを見に行く。ただしMS進捗抽出はDTSU PJ・エコシステム構築PJ・新規事業創出PJだけ。`projects.project_category in ('dtsu','ecosystem','new_business')` 以外のPJはMS進捗を抽出せず、月次モーダルの月次ノートに毎月の進捗を残す。
 - **MS管理対象PJで対象月のMS計画/項目がない場合**: `value_plan_cycles` が無い、または有効な `value_milestones` が無い場合でも `project_config_gap` 通知は出さない。`monthly_reports` + `project_meeting_summaries` を `project_monthly_notes` に保存し、月次モーダルにその月の動きを残す。LLMは呼ばない。
 - **monthly_report / meeting summary 本文が無い PJ の場合**: `月次ノートに入れるソースなし` として `progress_estimate_state` だけtouchし、次回 cron で再チェック。
-- **pm_manual / criteria_toggle で手動確定済みの MS**: LLM が delta を返しても上書きされない。LLM 呼び出し自体はされる (source_hash が変わってれば) が、save 段階でスキップされる
+- **pm_manual / pm_confirmed / pm_rejected / criteria_toggle / tsukuyomi_revision で手動確定済みの MS**: LLM が delta を返しても上書きされない。LLM 呼び出し自体はされる (source_hash が変わってれば) が、save 段階でスキップされる
 - **単調増加のみ保存**: LLM が前月より低い値を返しても save しない。「進捗が下がる」ケースは PM が手動で `pm_manual` で書き換える運用
-- **routine タグ MS**: 日々の定常業務は%進捗で測らない設計なので skip
+- **成功条件ガード**: `success_criteria` がある MS では、80%以上または前月から +50%以上の大きな増分を保存するには、成功条件に書かれた成果物が完成・完了・確定・提出・作成済・策定済・レビュー可能になった直接証拠が必要。面談、関心表明、VC/DD開始、準備、着手、進行中だけでは高進捗を保存しない。
+- **routine タグ MS**: トラブルがなければ期間按分で毎月進む。`value_milestones.period_start_ym`〜`target_ym` の月数で 100% を割り、対象月までの各月を `source='routine_auto'` で補完する。1年PJなら毎月 `100/12%`。PMが `pm_manual` などで対象月を確定している場合は上書きしない。
 - **delta=0**: 「今月は進んでない」を意味する。LLM が 0 を返したら save しない (= 既存値そのまま)
 - **`tsukuyomi_context` の system prompt 変更も差分検知に含む**: prompt を更新したら次回 cron で全 PJ が再推定対象になる (意図通り)
 - **maxItems 打ち切り**: default 14。アクティブ PJ × 2 ym = 14 を全部 LLM で回せる想定。差分検知でほとんど skip されるので実際の LLM call は 0-3 程度になることが多い

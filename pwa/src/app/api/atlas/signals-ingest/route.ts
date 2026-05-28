@@ -78,7 +78,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "signals array required" }, { status: 400 });
   }
 
-  // 直近 48h 重複チェック (= /api/cron/atlas-collect と同じ)
+  // 重複チェック:
+  // - 直近48hは broad に見る
+  // - outbox staging の遅延反映でも重複しないよう、入力 title / source_url は全期間で exact match も見る
   const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
   const { data: recent } = await db
     .from("atlas_signals")
@@ -90,6 +92,32 @@ export async function POST(req: NextRequest) {
   for (const r of recent ?? []) {
     if (r.title) recentTitles.add(String(r.title));
     if (r.source_url) recentUrls.add(String(r.source_url));
+  }
+  const incomingTitles = Array.from(
+    new Set(incoming.map((s) => asStr(s.title)).filter(Boolean))
+  ).slice(0, 200);
+  const incomingUrls = Array.from(
+    new Set(incoming.map((s) => asStr(s.source_url)).filter(Boolean))
+  ).slice(0, 200);
+  if (incomingTitles.length > 0) {
+    const { data: existingTitles } = await db
+      .from("atlas_signals")
+      .select("title")
+      .in("title", incomingTitles)
+      .limit(300);
+    for (const r of existingTitles ?? []) {
+      if (r.title) recentTitles.add(String(r.title));
+    }
+  }
+  if (incomingUrls.length > 0) {
+    const { data: existingUrls } = await db
+      .from("atlas_signals")
+      .select("source_url")
+      .in("source_url", incomingUrls)
+      .limit(300);
+    for (const r of existingUrls ?? []) {
+      if (r.source_url) recentUrls.add(String(r.source_url));
+    }
   }
 
   // 入力 normalize + 重複除外

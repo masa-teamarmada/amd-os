@@ -20,8 +20,8 @@ description: AMD OS L2 ⑨ 経営ハイライト (経営判断 / 事業進捗 / 
 fact 比較できたら既存 Codex `amd-os` automation を unload + LaunchAgent applier の strategy-signals 監視部分も unload (= 他 outbox はそのまま)。
 
 ## 【絶対】 動く前に必ず Read
-1. `pwa/manual/03-data-and-extraction.md` §3.2-3.4
-2. `pwa/manual/05-decisions-and-history.md` §5.2 (= 経営ハイライト改訂経緯、done のみルール)
+1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4
+2. `pwa/manual/9-1-decisions-and-history.md` §5.2 (= 経営ハイライト改訂経緯、done のみルール)
 3. `pwa/design/project_strategy_signals.md` (= L2 ⑨ 仕様正本)
 4. `pwa/design/strategy_signals_redesign.md` (= 4 分類 + polarity 設計)
 5. `pwa/design/feedback_dialog.md` (= 対話型修正依頼)

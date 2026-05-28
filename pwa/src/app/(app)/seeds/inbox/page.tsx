@@ -39,7 +39,7 @@ export default function SeedsInboxPage() {
         <div>
           <h1 className="text-xl font-semibold">Seeds 受信箱</h1>
           <p className="text-xs text-muted-foreground mt-1">
-            自動収集 (毎週 月曜 09:00 JST cron) で発見した新規シーズ候補。
+            自動収集 route で発見した新規シーズ候補。現在、LLM/web_search の自動 schedule は停止中。
             Verify=シーズマスタに採用 / Dismiss=ノイズ扱いで非表示。
             cron は GAPファンド (各PF) / NEP / AMED / D-Global / CREST / 創発 等の
             直近採択を web_search で拾ってくる。

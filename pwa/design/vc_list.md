@@ -46,7 +46,7 @@ GlobalNav に「VC」を Venture Map と Admin の間に追加。inbox 未確認
 
 ## 自動収集 cron
 
-`/api/cron/vc-discover` 毎週土 09:00 JST (UTC 土 00:00)。
+`/api/cron/vc-discover` は旧 schedule では毎週土 09:00 JST (UTC 土 00:00)。2026-05-22 以降は LLM/web_search 課金回避で自動 schedule 停止中。route は手動 review batch 用に残す。
 
 2026-05-13 統合: 旧 `vc-news-ingest` (= 既知 VC を 25/日 ローテで個別検索) を廃止し、`vc-discover` に役割を集約 + suggested_fund_patch を吸収。理由: 個別検索は 5 日 125 call で 21/164 VC しか拾えず ROI 0.26 件/call (≒ 機能してなかった)。
 

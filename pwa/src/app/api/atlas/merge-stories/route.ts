@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 
 /**
  * 2つのストーリーを統合する。
@@ -8,11 +9,12 @@ import { createClient } from "@supabase/supabase-js";
  * - merge log を残す
  * - from は削除
  *
- * 認証は CRON_SECRET でなく「ログイン済みユーザー」を想定 → このルートは authClient
- * 経由で呼ばれることを期待しないので、シンプルに anon でチェック + service role で動く。
- * DEV_MODE 前提。
+ * 認証は admin セッションで行い、DB 更新だけ service role で実行する。
  */
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
   let body: { from?: string; to?: string; reason?: string };
   try {
     body = await req.json();

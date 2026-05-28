@@ -12,6 +12,7 @@ description: AMD OS L2 ③ MS 進捗 (マイルストーン月次進捗) 抽出 
   - `advisor` は MS 進捗対象外 → 月次モーダル `project_monthly_notes` に保存
 - **MS 不在月**: 対象月を覆う MS が無い場合 → `monthly_reports` + `project_meeting_summaries` を `project_monthly_notes` に保存 (= MS 設定 nudge は出さない)
 - LLM 抽出は 0/20/40/60/80/100 の粗い候補 (= 保守的)
+- `success_criteria` / `milestone_sub_items` は必ず入力に含める。高進捗は「MS名に近い活動」ではなく、成功条件に書かれた成果物へ直結する証拠で判断する。
 - LLM 呼びはサブスク内 Claude
 - Supabase REST 直叩き
 
@@ -20,7 +21,7 @@ description: AMD OS L2 ③ MS 進捗 (マイルストーン月次進捗) 抽出 
 fact 比較 (= milestone_monthly_progress.confirmed_at / source 列で比較) で「Claude routine 出力 = PWA hourly 出力」になったら、PWA `/api/cron/hourly-estimate` を停止 + GAS 154 `nav_pwa_pingHourlyEstimate` を kill switch ON。
 
 ## 【絶対】 動く前に必ず Read
-1. `pwa/manual/03-data-and-extraction.md` §3.1-3.3
+1. `pwa/manual/3-2-data-and-extraction.md` §3.1-3.3
 2. `pwa/design/ms_progress.md` (= L2 ③ 仕様正本、Phase 4 セクション)
 3. `pwa/src/app/api/cron/hourly-estimate/route.ts` (= 既存 PWA cron)
 4. `pwa/src/lib/progress-estimator.ts` (= 既存 estimateProgress 本体)
@@ -53,7 +54,8 @@ Phase A: 各 (projectId, ym) について estimate 実行
 ### A-2: MS 進捗推定 path
 1. `value_plan_cycles?project_id=eq.<projectId>&status=in.(active,confirmed,fixed,draft)&order=period_start_ym.desc` で対象 ym を覆う cycle 取得
 2. cycle 無し → A-3 へ fallback
-3. `value_milestones?plan_cycle_id=eq.<cycleId>&is_active=eq.true&select=milestone_id,title,points,goal_level,success_criteria,target_ym,sub_items` で MS 一覧 + 対象 ym の MS フィルタ
+3. `value_milestones?plan_cycle_id=eq.<cycleId>&is_active=eq.true&select=milestone_id,title,points,goal_level,success_criteria,period_start_ym,target_ym` で MS 一覧 + 対象 ym の MS フィルタ
+   - 続けて `milestone_sub_items?milestone_id=in.(...)&select=milestone_id,title,weight,status,assignee` を取得し、各MSの入力に含める
 4. MS 0 件 → A-3 へ fallback
 5. 各 MS について `monthly_reports?project_id=eq.<projectId>&ym=eq.<ym>&select=final_content,draft_content,status` (= status≠invalid) + `project_meeting_summaries?project_id=eq.<projectId>&ym=eq.<ym>&source_kinds=neq.none&order=meeting_date.desc&limit=20` を入力に進捗推定
 6. **source_hash 差分検知**: hashInput = JSON.stringify({ p, ym, ms_keys: [...], report: report_hash, sums: sums_hash }) → sha256
@@ -62,6 +64,9 @@ Phase A: 各 (projectId, ym) について estimate 実行
    - input: 各 MS の title / goal_level / success_criteria / sub_items + report + summaries
    - output: `{ "milestones": [ { "milestone_id": "<id>", "progress_pct": 0|20|40|60|80|100, "consumed_pt": <number>, "note": "<根拠 50 字>" }, ... ] }`
    - ルール: 完了条件に直接対応する証拠がない高進捗は下げる (= 保守的)
+   - `80%` 以上、または前回から `+50%` 以上の増分は、`success_criteria` 内の成果物が「完成/完了/確定/提出/作成済/策定済/レビュー可能」になった同一文脈の証拠がある場合だけ許可
+   - JAFCO/VC が前向き、DD開始、面談実施、資料作成予定、準備、着手、進行中だけでは、事業計画・資本政策・知財戦略などの成果物MSを高進捗にしない
+   - 資本政策MSは、資本政策表・調達方針・持分方針・EXITまでの道筋の実物またはレビュー可能なドラフトが確認できる場合だけ高進捗にする
    - confirmed_at が set されてる milestone_monthly_progress 行は **上書き禁止** (= まさ手動確定済)
 8. 各 MS について `milestone_monthly_progress?on_conflict=milestone_key,ym` で upsert (= confirmed_at 既存は skip)
 9. **MS 不在 / 計画なし通知**: 旧 `missing_ms_plan` / `missing_ms_items` 通知は廃止 (= 2026-05-22 確定)、何も通知しない

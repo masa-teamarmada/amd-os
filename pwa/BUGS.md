@@ -2387,7 +2387,7 @@
 ### [meta/handoff-reading] cron 廃止経緯を読まずに「cron 復活」を提案して方針違反した
 
 - **発見日**: 2026-05-24 夜 (= まさが指摘)
-- **状態**: ✅ マニュアル化済 (= `pwa/manual/05-decisions-and-history.md` の 5.1 cron 廃止経緯 + 5.6 過去事故ログ)
+- **状態**: ✅ マニュアル化済 (= `pwa/manual/9-1-decisions-and-history.md` の 5.1 cron 廃止経緯 + 5.6 過去事故ログ)
 - **症状**:
   - えいみ (Claude) が「鉱山調査が OS に取り込まれてない」を「Slack ingest cron 停止」と誤判定して `/api/cron/slack-ingest` を vercel.json に追加する案を 2 度提案
   - まさが「**cron はトークン課金で慌てて止めた経緯あるのに、また cron 復活って意味わからない**」と指摘
@@ -2398,11 +2398,11 @@
   - 結果として、「データ取り込みが止まってる→cron 復活すればいい」というナイーブな提案
 - **対応内容**:
   - まさに完全謝罪 + 認識訂正
-  - `pwa/manual/05-decisions-and-history.md` 5.1 に cron 廃止経緯を全文転記 (= 2026-05-13 / 2026-05-17 / 2026-05-22 の 3 段階)
-  - `pwa/manual/05-decisions-and-history.md` 5.6 に「2026-05-24 cron 復活誤判定」を過去事故ログに追加
+  - `pwa/manual/9-1-decisions-and-history.md` 5.1 に cron 廃止経緯を全文転記 (= 2026-05-13 / 2026-05-17 / 2026-05-22 の 3 段階)
+  - `pwa/manual/9-1-decisions-and-history.md` 5.6 に「2026-05-24 cron 復活誤判定」を過去事故ログに追加
   - `pwa/AGENTS.md` / `pwa/CLAUDE.md` の必読リスト先頭に `manual/` を追加 (= 新セッションが必ずマニュアルから読むよう誘導)
 - **再発防止策**:
-  - **新セッション開始時、コードを触る前にマニュアル正本 (`pwa/manual/00-intro.md` 〜 `05-decisions-and-history.md`) を必ず読む**
+  - **新セッション開始時、コードを触る前にマニュアル正本 (`pwa/manual/1-1-intro.md` 〜 `05-decisions-and-history.md`) を必ず読む**
   - 「cron 復活」「Vercel cron 追加」「GAS trigger 復活」は **禁忌**。データ取り込みに穴があるなら **Codex automation / Claude routine / LaunchAgent applier 経由で実装**を検討
   - データ取り込み問題の原因仮説を立てる前に、`source_cache` だけでなく Codex automation outbox の状態も確認 (= 別経路で動いてる)
 
@@ -2432,7 +2432,7 @@
   - bash -n で syntax 確認済
 - **再発防止策**:
   - automation 名と applier 監視 dir の **整合性** を、追加・rename 時に必ず両方確認
-  - `pwa/manual/05-decisions-and-history.md` 5.4 責務分担マトリクスに「⚠️ 現状の片肺」として明記済
+  - `pwa/manual/9-1-decisions-and-history.md` 5.4 責務分担マトリクスに「⚠️ 現状の片肺」として明記済
 
 ---
 
@@ -2496,7 +2496,7 @@
 ### [meta/data-path] source_cache 経由と Codex automation 経由を混同し「5 ソース全肺停止」と誤判定
 
 - **発見日**: 2026-05-24 夜
-- **状態**: ✅ マニュアル化済 (= `pwa/manual/03-data-and-extraction.md` 3.1 + `pwa/manual/05-decisions-and-history.md` 5.4)
+- **状態**: ✅ マニュアル化済 (= `pwa/manual/3-2-data-and-extraction.md` 3.1 + `pwa/manual/9-1-decisions-and-history.md` 5.4)
 - **症状**:
   - えいみが Slack / Notion / Calendar / Drive / Gmail の `source_cache` 最終取り込みを見て「5/21 以降全停止」と判定
   - 「AMD OS は 5/21 以降凍結された生データで動いている」と誤った緊急性で報告
@@ -2506,10 +2506,10 @@
   - 現状の 5 ソース取り込みは **Codex automation `amd-os-ms`** が 6h ごとに直接 fetch して outbox → applier → L2 テーブルに書く別経路
   - `source_cache` の更新が止まっていても、L2 抽出 (= 経営ハイライト / member_knowledge / monthly_reports) は別経路で動いている
 - **対応内容**:
-  - まさへの認識訂正 + 経路図を `pwa/manual/03-data-and-extraction.md` 3.1 に転記
+  - まさへの認識訂正 + 経路図を `pwa/manual/3-2-data-and-extraction.md` 3.1 に転記
   - 5/24 22:48 に手動 backfill した `source_cache` は **副次的な記録**であり、L2 抽出の正規入力ではないことを明記
 - **再発防止策**:
-  - データ取り込み問題を疑う時は、**「どの path が今動いているか」**を `pwa/manual/05-decisions-and-history.md` 5.4 責務分担マトリクスで確認してから原因仮説を立てる
+  - データ取り込み問題を疑う時は、**「どの path が今動いているか」**を `pwa/manual/9-1-decisions-and-history.md` 5.4 責務分担マトリクスで確認してから原因仮説を立てる
   - `source_cache` だけ見て「全停止」と即断しない
 
 ---
@@ -2713,7 +2713,7 @@
 - **対応内容**:
   - `/Users/masa/.codex/automations/amd-os-ms/automation.toml` に `raw_data_gap` の厳格ルールを追加。
   - 反映可能な候補は `project_registry_diff` / `xrl_evidence` / `ms_progress` revision / `meeting_summary` へ寄せる、と明記。
-  - `pwa/design/notifications.md` / `pwa/design/L2_DATA.md` / `pwa/manual/22-notifications-and-tsukuyomi.md` に、`raw_data_gap` は現物DB取り込みを保証しない例外通知だと追記。
+  - `pwa/design/notifications.md` / `pwa/design/L2_DATA.md` / `pwa/manual/3-3-notifications-and-tsukuyomi.md` に、`raw_data_gap` は現物DB取り込みを保証しない例外通知だと追記。
 - **再発防止策**:
   - 通知 title は `〜をBRL根拠候補にする？` / `〜のL2化先を確認` / `〜の取り込み経路を確認` のように、押した後に起きることを書く。
   - `raw_data_gap` を作る時は `metadata_json.review_note` に、直接DB反映される候補か、抽出/backfill経路確認だけかを書く。
@@ -2735,7 +2735,7 @@
 
 - **症状**: 私が「マニュアル 29」 と呼んだ章が、 まさが見てる UI では「4-5」 と表示されていた。 何度確認しても噛み合わず、 まさが「4 章は Admin だよ」 と指摘して初めて気づいた
 - **原因**: `MANUAL_CHAPTERS[].number = "34"` のような静的 number field と、 `applyManualBookNumbering()` の動的計算 (= section-chapter 形式 "2-3" / "4-5") が**併存**していた。 開発時 (= コード) は「34」 を見て、 UI は「4-5」 を表示。 さらに md 本文の h1 には「# 29. ...」 と内部 slug 番号が直書きされており、 **3 重ズレ**状態
-- **解決策**: `ManualChapterConfig.number` を完全削除、 動的計算結果のみを `ManualNumberedChapter.number` として保持。 md 32 ファイルから h1 / h2 / h3 の番号 prefix を sed で一括削除。 [slug]/page.tsx で `normalizeManualMarkdownSource` 経由で動的注入。 詳細 [pwa/manual/29-management-score-and-finance-simulation-spec.md](manual/29-management-score-and-finance-simulation-spec.md) と sessions_2026-05.md Phase 7
+- **解決策**: `ManualChapterConfig.number` を完全削除、 動的計算結果のみを `ManualNumberedChapter.number` として保持。 md 32 ファイルから h1 / h2 / h3 の番号 prefix を sed で一括削除。 [slug]/page.tsx で `normalizeManualMarkdownSource` 経由で動的注入。 詳細 [pwa/manual/4-5-management-score-and-finance-simulation-spec.md](manual/29-management-score-and-finance-simulation-spec.md) と sessions_2026-05.md Phase 7
 - **再発防止策**: 同じ意味の field を **静的値と動的計算で同時に持たない**。 表示専用 field は計算関数の戻り値のみで持つ
 
 ### [infra/manual-ui] main ブランチに「壊れた page.tsx だけ」 commit されてた
@@ -2806,3 +2806,94 @@
   - 早期 exit は cron 絞りより重要 (= 万一空打ちしても credit ゼロ収束)。 prompt 冒頭で「対象データ無しなら即終了」を必ず明文化
   - rrule で複数時間帯指定する場合は `BYHOUR=9,10,...,21` のように list 列挙 (= `INTERVAL=1` だと毎時無限に走る)
 
+---
+
+### [l2-meeting/upcoming-same-day] `calendar-sync` が同日開始済みMTGのDrive補強を弾いた
+
+- **発見日**: 2026-05-27
+- **状態**: 解決済み
+- **症状**:
+  - CLGの2026-05-27取締役会カードにDrive資料を反映しようとした時、既存実装では `event.startIso < nowIso` の判定で開始済み予定を `past_event` としてskipする設計だった。
+  - 当日中のMTGでも、会議開始後にDrive資料やCalendar URLを補強できない。
+- **原因**:
+  - 未来予定カード同期を「今後60日」だけで考え、同日開始済み予定の補強ユースケースを含めていなかった。
+- **対応内容**:
+  - `POST /api/meeting-prep/calendar-sync` のskip条件を「開始時刻が現在より前」ではなく「meeting_date が今日より前」に変更。
+  - L2⑥ SKILL の未来Calendar同期範囲を `today 00:00 JST` から `now + 60 days` に変更。
+- **再発防止策**:
+  - 予定カード同期は「会議前だけ」ではなく、当日中の資料補強・URL補強も対象にする。
+  - 同日予定を扱う route では、時刻比較ではなくJST日付比較を先に確認する。
+
+---
+
+### [l2-meeting/drive-folder-depth] Drive資料探索が直下Docs前提でCLG取締役会資料を拾えなかった
+
+- **発見日**: 2026-05-27
+- **状態**: 解決済み
+- **症状**:
+  - CLGのDrive rootには `260527_取締役会` サブフォルダがあり、その中に招集通知PDF、6月度予算執行xlsx、4月度予算実績比較xlsx が入っていた。
+  - 旧設計はroot直下・Google Docs寄り・更新日範囲狭めの探索だったため、サブフォルダ内のOffice/PDF資料を予定MTGカードに載せられなかった。
+- **原因**:
+  - Drive関連資料を「議事録Docs」中心に見ており、取締役会の正式資料が日付サブフォルダ + xlsx/pdf で置かれる運用を設計に入れていなかった。
+- **対応内容**:
+  - L2⑥ SKILL に、PJ Drive folder rootから会議日 token / title token で1階層サブフォルダを探す手順を追加。
+  - Docs / Slides / Sheets / PDF / Office files を `drive_files` metadata として `calendar-sync` に渡し、予定カードの `関連Drive資料` に表示する設計に変更。
+  - CLG 2026-05-27取締役会カードへ3件のDrive資料リンクを本番反映し、Supabase readbackで確認。
+- **再発防止策**:
+  - Drive資料はfolder直下Docsだけで判定しない。日付フォルダ、議案資料、予実表、招集通知、PDF/Officeを会議資料候補として扱う。
+  - Drive資料だけで `decided` を作らず、資料・論点・準備物として `progress` / `risks` / `narrative_md` に寄せる。
+
+---
+
+### [l2-meeting/narrative-overwrite] 高品質議事録が summary + 配列だけの行に劣化した
+
+- **発見日**: 2026-05-27
+- **状態**: DB/API/routine guard 追加
+- **症状**:
+  - `project_meeting_summaries` の直近更新を確認すると、`generated_by_model='codex_manual_notion_lst'` と `manual:codex_notion_fetch_20260527` の p07/LST 行が `narrative_md` 空のまま大量に upsert されていた。
+  - UI は `narrative_md` があれば主表示する実装なので、空の場合だけ `summary_short` と `decided/progress/next_actions/risks` の箇条書き表示へ落ちる。
+- **原因**:
+  - 手動 backfill / maintenance 系の Supabase 直書きが、L2⑥の品質ルールを通らず、`summary_short` と4配列だけを「議事録」として保存していた。
+  - 既存の高品質 `narrative_md` を低品質更新から守る DB-level guard がなかった。
+- **対応内容**:
+  - migration 098 `pms_preserve_rich_narrative` を追加。既存 300 字以上の `narrative_md` は、空または箇条書き優勢の更新で消えない。
+  - `POST /api/meeting-summary/manual-update` に同じ保護を追加。UI/API 経由で rich narrative を誤って空欄に落としにくくした。
+  - L2⑥ routine / L2 all routine に、`source_kinds != "none"` の開催済みMTGは `narrative_md` 必須、低品質なら保存しない gate を追加。
+- **再発防止策**:
+  - MTGサマリの本文正本は `narrative_md`。4配列は補助フィールドであって本文ではない。
+  - 過去議事録 backfill でも `summary_short` と配列だけの直書きは禁止。まず narrative を生成し、品質 gate を通してから保存する。
+
+---
+
+## [GAS] `clasp push` が `Script is already up to date.` で反映されない罠 (2026-05-28 再発)
+
+- **症状**: `gas/064_PayoutFreeeNotice.js` の文字列リテラル 1 箇所 (`支払通知日` → `作成日`) を Edit して `clasp push --force` したが、PDF を再発行しても古いラベルのまま。
+- **原因**: clasp の差分検出が単一行の文字列リテラル変更を「変更なし」と判定するケースがあり、`Script is already up to date.` で抜ける。`--force` でも変わらない。
+- **解決策**:
+  1. 同じファイルにダミー変更 (コメント追加など) を入れて `clasp push --force` → ファイル一覧が出て push される
+  2. その後 `clasp deploy --deploymentId <ID>` で本番 deployment を update
+  3. リモートで実コードが反映されたかは debug 関数 (`Function.toString()` で関数 body を返す) を runFunc で叩いて確認
+- **教訓**: 文字列リテラル変更だけの単一ファイル修正は clasp の差分検出をすり抜けやすい。CLAUDE.md (gas) ルール 14 の「ダミー変更を加える」運用を最初から守る。
+
+## [PWA] `/admin/payouts` のPDF 一括発行が差分検出で再生成スキップ (= ラベル変更反映漏れ) (2026-05-28)
+
+- **症状**: GAS 側で PDF テンプレのラベルを変えても、`/admin/payouts` の「全員分PDF一括発行」を押した時 `既存利用 N / 生成 0` でスキップされる。
+- **原因**: `shouldRegenerateNotice` の差分検出が「金額 (`total_yen`) が一致 + `pdf_url` あり + `notice_no` が本番」なら **再生成不要** と判定する。コード変更 (= ラベル文言など) は検出対象外。
+- **解決策**:
+  - 「強制再発行 (全員)」黄色ボタンを `/admin/payouts` ヘッダに追加 (2026-05-28、`AdminPayoutsClient.tsx`、v0.7.1)。`bulk_issue_notice_pdf` に `force: true` を渡して差分検出を無視する
+  - 個別行の「支払通知書発行」は元から `force=true` 固定なので既存通り再生成される
+- **教訓**: PDF や帳票ロジックを GAS 側で変更したら、PWA 側で「強制再発行」ボタンを押す運用を必ずセットで案内する。差分検出は金額ベースなので、テンプレ変更は別経路で反映する必要がある。
+
+## [PWA] `/admin/payouts` の TsukuyomiMascot が右下発行ボタンと重なってクリック不能 (2026-05-28)
+
+- **症状**: 右下に常駐する TsukuyomiMascot が `/admin/payouts` の「強制再発行 (全員)」など右下に来るアクションボタンに被って、メンバーによってはクリックできない。
+- **原因**: `pwa/src/app/(app)/layout.tsx` で `<TsukuyomiMascot />` が固定 z-index で全画面共通 mount されており、`/admin/payouts` の業務 UI と当たり判定が衝突。
+- **解決策**: layout.tsx から `<TsukuyomiMascot />` を一旦削除 (まさ手当て、v0.7.2 → v0.7.3 で確定)。再表示時は位置 / pointer-events / 表示画面の絞り込みを直してから戻す。
+- **教訓**: 全画面 fixed 配置の常駐 UI は admin 系業務画面 (= 右下にアクションが集中する) と必ず干渉する。今後類似の追加 (浮遊ヘルパー / 通知バブル) は admin 画面で hidden にする `usePathname` ベースの分岐を最初から組み込む。
+
+## [PWA] BUILD_VERSION 過大 bump up (v0.6.1 → v0.7.0) (2026-05-28)
+
+- **症状**: 「送付」ボタン挙動変更 (= フラグ立てだけ → 実メール送信) で minor bump up (v0.7.0) してしまった。
+- **原因**: CLAUDE.md `bump up の粒度` ルール「迷ったら patch」「minor は本物の新機能と確信が持てる時だけ」を踏み外した。実態は「既存ボタンの挙動差し替え + 既存 sent_at セット動作の前段に確認モーダル追加」で patch 範囲。
+- **解決策**: 後続の追加 (force ボタン、Mascot 削除) は patch (v0.7.1 → v0.7.2 → v0.7.3) で進めた。
+- **教訓**: 既存ボタンの挙動変更は patch。新ボタン追加は新画面追加じゃないので patch。`5xx 行の確認モーダル追加` といった見た目のコード量に引きずられて minor にしない。

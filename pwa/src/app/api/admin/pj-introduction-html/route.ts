@@ -20,6 +20,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -360,6 +361,9 @@ function fallbackPjData(proj: ProjectRow, venture: VentureRow | null, basicFacts
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
   let body: PostBody;
   try {
     body = (await req.json()) as PostBody;

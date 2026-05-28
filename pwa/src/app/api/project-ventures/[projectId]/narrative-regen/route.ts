@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { refreshNarrativeForProject } from "@/lib/narrative-refresh";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -17,6 +18,9 @@ export async function POST(
   _req: Request,
   ctx: { params: Promise<{ projectId: string }> }
 ) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
   const { projectId } = await ctx.params;
   const geminiKey = process.env.GEMINI_API_KEY;
   if (!geminiKey) return NextResponse.json({ error: "GEMINI_API_KEY not set" }, { status: 500 });

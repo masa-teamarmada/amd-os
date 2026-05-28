@@ -28,6 +28,7 @@ export default async function AdminMembersPage() {
     leave_ym: m.leave_ym ?? null,
     bank_info: m.bank_info ?? null,
     member_address: m.member_address ?? null,
+    contractor_name: m.contractor_name ?? m.member_name ?? null,
     google_calendar_status: m.google_calendar_status ?? "missing",
     google_calendar_checked_at: m.google_calendar_checked_at ?? null,
     google_calendar_connected_at: m.google_calendar_connected_at ?? null,

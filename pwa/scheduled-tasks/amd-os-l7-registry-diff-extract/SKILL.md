@@ -18,7 +18,7 @@ description: AMD OS L2 ⑦ OS 台帳差分 (PJ メンバー候補 / 関係先メ
 fact 比較できたら既存 Codex `amd-os-ms` の registryDiffs 部分を automation.toml prompt から削除。LaunchAgent applier は L8 移管後に unload。
 
 ## 【絶対】 動く前に必ず Read
-1. `pwa/manual/03-data-and-extraction.md` §3.2-3.4
+1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4
 2. `pwa/design/project_registry_diffs.md` (= L2 ⑦ 仕様正本)
 3. `pwa/design/db_schema.md` (= project_registry_diffs / project_members / projects / project_partners / members 列名)
 4. `/Users/masa/.codex/automations/amd-os-ms/automation.toml` (= 元実装 prompt、特に「OS 台帳差分の作り方」)

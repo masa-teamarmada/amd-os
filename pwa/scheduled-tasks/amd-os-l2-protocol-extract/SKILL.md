@@ -14,7 +14,7 @@ description: AMD OS L2 ② AMD プロトコル (経営判断の構造化記録) 
 - LLM prompt = Supabase `llm_prompts.protocol.extract` (= AGENTS.common.md ルール、コード hardcode 禁止)
 
 ## 【絶対】 動く前に必ず Read
-1. `pwa/manual/03-data-and-extraction.md` §3.2-3.4
+1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4
 2. `pwa/design/amd_protocol.md` (= L2 ② 仕様正本)
 3. `knowledge/amd_os_vision.md` 「AMDプロトコルの 4 要素」section
 4. `pwa/design/db_schema.md` (= 列名 grep)

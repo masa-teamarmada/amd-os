@@ -155,14 +155,17 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 
 | l2_kind | 保存時 status | はい | いいえ |
 |---|---|---|---|
-| `member_knowledge` | `candidate` | `active` | `rejected` |
+| `member_knowledge` | 現 schema に `status` 列なし。候補採否は migration 検討中 | TBD | TBD |
 | `project_knowledge` | `candidate` | `active` | `rejected` |
-| `protocols` | `candidate` | `active` | `rejected` |
+| `protocols` | `candidate` | `confirmed` | `rejected` |
 | `founding_members` | `tentative` | `active` | `invalid` |
 | `project_registry_diff` | `pending` | allowlist済みDB反映 + `applied` | `rejected` |
 | `xrl_evidence` | `candidate` | `confirmed` | `rejected` |
+| `raw_data_gap` | 通知のみ | feedback記録 + 再抽出/抽出経路確認。現物のDB取り込みは保証しない | feedback記録 |
 
 コメントだけ送る場合は正本反映せず、`l2_feedbacks` / つくよみ学習リストへ残す。
+
+`raw_data_gap` は例外。これは「はいを押せばOSに現物が入る候補」ではなく、raw source は見つかったが L2 化先・backfill 経路・helper/UI 対応が未確定であることを示す運用通知。反映可能な候補を作れる場合は `raw_data_gap` を主成果にせず、`project_registry_diff` / `xrl_evidence` / `ms_progress` revision / `meeting_summary` など、押した後のDB反映先が明確な kind に寄せる。
 
 ### POST API
 [pwa/src/app/api/notifications/feedback/route.ts](../src/app/api/notifications/feedback/route.ts)
@@ -175,7 +178,12 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 
 ## 上流 (GAS / PWA cron) 側の feedback 取り込み
 
-### GAS 155 (`gas/155_L2KnowledgeExtractor.js`)
+### GAS 155 (`gas/155_L2KnowledgeExtractor.js`) / Claude routine 後継
+
+2026-05-25 #68 current truth:
+- GAS 155 は `L2_KNOWLEDGE_CRON_DISABLED_20260522` で停止中。毎時 trigger は復活させない。
+- ②④⑤の復旧は Claude routine (`amd-os-protocol-extract`, `amd-os-project-knowledge-extract`, `amd-os-member-knowledge-extract`) で行う。
+- 詳細は [8-3 章 L2 Extraction Routines](../manual/8-3-l2-extraction-routines-spec.md)。
 
 3 つの extractor (member/project/protocol) で:
 1. `_l2_loadFeedbackBlock_(l2Kind, targetId, scopeKey)` で過去 feedback を取得 (active かつ scope_key 完全一致 or 'global'、最大 10 件。protocols は `YYYYMM:protocol:*` も月次抽出に含める)
@@ -204,6 +212,7 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 ## 既知の制約・運用上の注意
 
 - **RLS**: 2026-05-20以降、通知系はadmin-only。`l2_notifications` / `meeting_notifications` / `app_notifications` / `l2_feedbacks` は anon 不可、一般 authenticated も不可。
+- **raw_data_gapの意味**: `raw_data_gap` は「OS未取り込み」報告ではない。通知タイトルで `〜がOS未取り込み` と書くと、はいを押せば現物がOSへ取り込まれるように見えるため禁止。`〜をBRL根拠候補にする？` / `〜のL2化先を確認` / `〜の取り込み経路を確認` のように、承認後に起きることを明示する。
 - **raw_data_gapの詳細表示**: 通知が持つ `metadata_json.evidence_refs` を正本として表示する。`project_id + ym` の `source_cache` 全件を通知詳細として見せると、後続backfillのSlack/Gmail等が混ざって「生データ取り込み通知」に見えるため禁止。fallbackで `source_cache` を見る場合も、短いsnippet / source_url / hash / item_id だけを出し、本文全文やmetadata全量は表示しない。
 - **raw_data_gapのstale判定**: `meeting-not-ingested` 系は通知作成時のsnapshotが古い場合がある。PWA詳細表示は展開時に `project_meeting_summaries` をlive確認し、該当行があれば「OS取り込み済み」と表示する。生成側も通知前にlive DBを再確認し、認識できている外部ソースは通知だけでなくbackfillへ進める。
 - **xrl_evidenceのscope**: 通知は `YYYYMM:<slug>` の個別scopeを持ってよいが、正本 `project_xrl_evidence.ym` は `YYYYMM`。PWA詳細とfeedback APIは `scope_key` の `YYYYMM` 部分 + `metadata_json.axis/evidence_kind/evidence_source_hash` で候補行を特定する。
@@ -229,7 +238,7 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 | 2026-05-20 | **AMDプロトコル通知の個別化**: protocol candidate は `project_id + ym` でまとめず、`scope_key=YYYYMM:protocol:<protocol_id>` の1候補1通知に変更。PWA詳細表示と feedback 再抽出はこの個別 scope を解釈する。 |
 | 2026-05-21 | **MTGサマリ反映の同期化**: `NEXT_PUBLIC_GAS_API_KEY` 未設定で再抽出がサイレント skip され、LST の固有名詞修正 feedback が `l2_feedbacks` に残ったまま `project_meeting_summaries` へ反映されない事故を修正。PWA は `CRON_SECRET` fallback でGAS runFuncを同期実行し、失敗時は 502。GAS pwaApi は `PWA_API_KEY` 未設定時 `CRON_SECRET` を認証キーに使う。 |
 | 2026-05-21 | **raw_data_gap詳細表示の修正**: `CTB: 5月進捗スライドがOS未取り込み` の通知詳細で、通知metadataのDrive/Notion/Calendar根拠ではなく、後続backfillのSlack `source_cache` が表示されていた。raw_data_gapは `metadata_json.evidence_refs` を優先し、fallbackも短いsnippet/source refのみ表示するよう修正。 |
-| 2026-05-22 | **通知反映ゲート**: `member_knowledge` / `project_knowledge` / `protocols` / `founding_members` は候補状態で保存し、通知の「はい」だけでactive化する。GAS 155 は `clasp push` 済み。 |
+| 2026-05-22 | **通知反映ゲート**: `project_knowledge` / `founding_members` は候補状態で保存し、通知の「はい」だけで active 化する設計にした。当時は `member_knowledge` / `protocols` も同じ語彙で書いていたが、2026-05-25 #68 で current truth を訂正。`protocols` yes は `confirmed`、`member_knowledge` は現 schema に `status` 列なし。 |
 | 2026-05-22 | **XRL個別scope修正 / raw_data_gap stale表示**: `xrl_evidence` は `YYYYMM:<slug>` 通知scopeから `YYYYMM` を抽出して `project_xrl_evidence` を探す。`meeting-not-ingested` のraw_data_gapは展開時にlive DBを確認し、すでに取り込み済みなら詳細先頭に表示する。 |
 
 ---

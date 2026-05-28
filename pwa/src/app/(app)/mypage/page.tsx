@@ -12,6 +12,7 @@ interface Member {
   codeName: string;
   email: string;
   isAdmin: boolean;
+  rewardAmountHidden: boolean;
 }
 
 interface MyPageNotification {
@@ -88,6 +89,8 @@ interface RoutineStep {
 
 const supabase = createClient();
 const CTB_ESTIMATE_MARKER = "[[CTB_ESTIMATE_SENT]]";
+const REWARD_AMOUNT_PLACEHOLDER = "ー";
+const NO_COMPENSATION_SECONDED_MEMBER_IDS = new Set(["ID006"]);
 
 function getCurrentYm(): string {
   const now = new Date();
@@ -129,6 +132,29 @@ function formatYm(ym: string) {
 function formatYen(amount: number | null | undefined) {
   if (amount == null) return "未確定";
   return `¥${Math.round(amount).toLocaleString()}`;
+}
+
+function formatRewardYen(amount: number | null | undefined, hidden: boolean) {
+  return hidden ? REWARD_AMOUNT_PLACEHOLDER : formatYen(amount);
+}
+
+function shouldHideRewardAmount(memberId: string, codeName: string) {
+  return NO_COMPENSATION_SECONDED_MEMBER_IDS.has(memberId) || codeName.trim() === "りり";
+}
+
+function toMember(
+  row: { member_id: string; code_name?: string | null; email?: string | null; is_admin?: boolean | null },
+  fallbackEmail = ""
+): Member {
+  const memberId = row.member_id;
+  const codeName = row.code_name || row.member_id;
+  return {
+    memberId,
+    codeName,
+    email: row.email || fallbackEmail,
+    isAdmin: !!row.is_admin,
+    rewardAmountHidden: shouldHideRewardAmount(memberId, codeName),
+  };
 }
 
 function toNumber(value: unknown): number | null {
@@ -425,8 +451,7 @@ async function resolveLoggedInMember(): Promise<Member> {
 
   let { data, error } = await query;
   if (!error && data && data.length > 0) {
-    const row = data[0];
-    return { memberId: row.member_id, codeName: row.code_name || row.member_id, email: row.email || email, isAdmin: !!row.is_admin };
+    return toMember(data[0], email);
   }
 
   ({ data, error } = await supabase
@@ -438,7 +463,7 @@ async function resolveLoggedInMember(): Promise<Member> {
   if (error) throw error;
   const row = data?.[0];
   if (!row) throw new Error(`${email} に紐づくメンバーが見つかりません`);
-  return { memberId: row.member_id, codeName: row.code_name || row.member_id, email: row.email || email, isAdmin: !!row.is_admin };
+  return toMember(row, email);
 }
 
 async function resolvePageMember(viewer: Member, requestedMemberId?: string | null): Promise<Member> {
@@ -453,12 +478,7 @@ async function resolvePageMember(viewer: Member, requestedMemberId?: string | nu
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error(`${memberId} に紐づくメンバーが見つかりません`);
-  return {
-    memberId: data.member_id,
-    codeName: data.code_name || data.member_id,
-    email: data.email || "",
-    isAdmin: !!data.is_admin,
-  };
+  return toMember(data);
 }
 
 async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPageData> {
@@ -787,6 +807,7 @@ export function MyPageContent() {
   }, [load]);
 
   const currentMonth = data?.months.find((m) => m.isCurrent);
+  const rewardAmountHidden = !!data?.member.rewardAmountHidden;
   const currentTotal = useMemo(
     () => currentMonth?.projects.reduce((sum, p) => sum + payableRewardAmount(p), 0) || 0,
     [currentMonth]
@@ -828,7 +849,7 @@ export function MyPageContent() {
               <p className="text-[13px] text-[#86868b]">{formatYm(currentMonth?.ym || getCurrentYm())}</p>
               <p className="text-[13px] text-[#3c3c43] mt-1">当月報酬合計</p>
             </div>
-            <p className="text-[28px] font-bold tabular-nums text-[#1d1d1f]">{formatYen(currentTotal)}</p>
+            <p className="text-[28px] font-bold tabular-nums text-[#1d1d1f]">{formatRewardYen(currentTotal, rewardAmountHidden)}</p>
           </div>
           {(currentMonth?.projects.length || 0) > 0 && (
             <div className="mt-4 border-t border-[#e5e5e7] pt-3 space-y-1.5">
@@ -841,14 +862,14 @@ export function MyPageContent() {
                       {project.projectName}
                     </span>
                     <span className={`tabular-nums ${project.rewardEligible ? "text-[#1d1d1f] font-semibold" : "text-red-600 line-through decoration-2"}`}>
-                      {formatYen(amount)}
+                      {formatRewardYen(amount, rewardAmountHidden)}
                     </span>
                   </div>
                 );
               })}
               <div className="flex items-center gap-3 border-t border-dashed border-[#d1d1d6] pt-2 text-[13px] font-semibold">
                 <span className="flex-1 text-[#1d1d1f]">合計</span>
-                <span className="tabular-nums text-[#1d1d1f]">{formatYen(currentTotal)}</span>
+                <span className="tabular-nums text-[#1d1d1f]">{formatRewardYen(currentTotal, rewardAmountHidden)}</span>
               </div>
               {currentExcludedProjects.length > 0 && (
                 <p className="text-[11px] leading-relaxed text-red-600">
@@ -891,7 +912,7 @@ export function MyPageContent() {
               >
                 <span className="text-[15px] font-semibold text-[#1d1d1f]">{formatYm(month.ym)}</span>
                 {month.isCurrent && <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#007aff]/10 text-[#007aff] font-semibold">当月</span>}
-                <span className="ml-auto text-[14px] font-semibold tabular-nums text-[#1d1d1f]">{formatYen(total)}</span>
+                <span className="ml-auto text-[14px] font-semibold tabular-nums text-[#1d1d1f]">{formatRewardYen(total, rewardAmountHidden)}</span>
                 <span className="text-[#86868b] text-[12px]">{isExpanded ? "▲" : "▼"}</span>
               </button>
 
@@ -901,7 +922,12 @@ export function MyPageContent() {
                     <div className="bg-white rounded-xl border border-[#e5e5e7] p-4 text-[13px] text-[#86868b]">参加PJなし</div>
                   ) : (
                     month.projects.map((project) => (
-                      <ProjectCard key={`${month.ym}_${project.projectId}`} project={project} codeName={data.member.codeName} />
+                      <ProjectCard
+                        key={`${month.ym}_${project.projectId}`}
+                        project={project}
+                        codeName={data.member.codeName}
+                        rewardAmountHidden={rewardAmountHidden}
+                      />
                     ))
                   )}
                 </div>
@@ -1067,7 +1093,7 @@ function WeeklyActivitiesCard({
   );
 }
 
-function ProjectCard({ project, codeName }: { project: MyPageProject; codeName: string }) {
+function ProjectCard({ project, codeName, rewardAmountHidden }: { project: MyPageProject; codeName: string; rewardAmountHidden: boolean }) {
   const activityText = extractMemberSection(project.sectionMembers, codeName);
   const baseReward = rewardAmount(project);
   return (
@@ -1079,7 +1105,7 @@ function ProjectCard({ project, codeName }: { project: MyPageProject; codeName: 
         </div>
         <div className="text-right shrink-0">
           <p className={`text-[18px] font-bold tabular-nums ${project.rewardEligible ? "text-[#1d1d1f]" : "text-red-600 line-through decoration-2"}`}>
-            {formatYen(baseReward)}
+            {formatRewardYen(baseReward, rewardAmountHidden)}
           </p>
           <p className="text-[11px] text-[#86868b]">{project.billingStatus}</p>
         </div>
@@ -1091,8 +1117,12 @@ function ProjectCard({ project, codeName }: { project: MyPageProject; codeName: 
           {project.rewardEligible ? "今月想定" : "期限超過で除外中"}
         </span>
         <span className={`ml-auto text-[13px] font-semibold tabular-nums ${project.rewardEligible ? "text-[#4338ca]" : "text-red-700 line-through decoration-2"}`}>
-          {project.monthlyEarnedPt ? `${project.monthlyEarnedPt.toFixed(1)}pt · ` : ""}
-          {baseReward ? formatYen(baseReward) : "未計算"}
+          {rewardAmountHidden ? REWARD_AMOUNT_PLACEHOLDER : (
+            <>
+              {project.monthlyEarnedPt ? `${project.monthlyEarnedPt.toFixed(1)}pt · ` : ""}
+              {baseReward ? formatYen(baseReward) : "未計算"}
+            </>
+          )}
         </span>
       </div>
 

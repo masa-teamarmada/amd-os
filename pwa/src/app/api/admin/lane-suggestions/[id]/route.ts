@@ -6,14 +6,20 @@
  * Body: { action: 'approve' | 'reject' }
  *   approve: project_ventures.lanes ← suggested_lanes + lane_suggestions.status='approved'
  *   reject:  lane_suggestions.status='rejected' のみ
+ *
+ * project_ventures 行が無い PJ では 0 件 update を成功扱いにせず、suggestion も approved にしない。
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
   const { id } = await params;
   if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 });
 
@@ -43,14 +49,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       );
     }
     const s = sugg as { project_id: string; suggested_lanes: unknown };
-    const { error: pvErr } = await db
+    const { data: pvRows, error: pvErr } = await db
       .from("project_ventures")
       .update({ lanes: s.suggested_lanes, updated_at: reviewedAt })
-      .eq("project_id", s.project_id);
+      .eq("project_id", s.project_id)
+      .select("project_id");
     if (pvErr) {
       return NextResponse.json(
         { ok: false, error: `project_ventures update: ${pvErr.message}` },
         { status: 500 }
+      );
+    }
+    if (!pvRows || pvRows.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "project_ventures row not found for this project" },
+        { status: 409 }
       );
     }
   }

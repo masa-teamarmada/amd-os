@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 
 /**
  * 既存テーマと各テーマに紐付くストーリー数を返す。
  */
 export async function GET() {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {

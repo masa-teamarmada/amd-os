@@ -9,8 +9,8 @@
  * 設計:
  *   - progressPct はLLMが返す「今月の増分（delta）」。累積値ではない。
  *   - 累積値 = min(100, prevCum + delta)
- *   - routineタグのMSはスキップ
- *   - pm_manual / criteria_toggle は上書きしない
+ *   - routineタグのMSは、手動確定がなければMS期間で月割り自動進捗にする
+ *   - PMが確定・修正・却下した行は上書きしない
  *   - 前回登録値以下なら保存しない
  *   - upsert conflict: milestone_key, ym
  */
@@ -23,6 +23,14 @@ import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || "",
 });
+
+const PM_LOCKED_PROGRESS_SOURCES = new Set([
+  "pm_manual",
+  "pm_confirmed",
+  "pm_rejected",
+  "criteria_toggle",
+  "tsukuyomi_revision",
+]);
 
 function getServiceClient() {
   return createClient(
@@ -46,6 +54,239 @@ function sha256(text: string): string {
 }
 
 type ServiceClient = ReturnType<typeof getServiceClient>;
+
+type EstimateMilestoneRow = {
+  milestone_id: string;
+  title: string | null;
+  points: number | null;
+  tag: string | null;
+  goal_level: string | null;
+  period_start_ym: string | null;
+  target_ym: string | null;
+  success_criteria: string | null;
+};
+
+type EstimateDetail = {
+  milestoneKey: string;
+  delta: number;
+  cumulative: number;
+  reason: string;
+  skipped?: boolean;
+  skipReason?: string;
+};
+
+const ROUTINE_AUTO_PROGRESS_SOURCE = "routine_auto";
+const HIGH_PROGRESS_DIRECT_EVIDENCE_THRESHOLD = 80;
+const LARGE_DELTA_DIRECT_EVIDENCE_THRESHOLD = 50;
+const COMPLETION_EVIDENCE_TERMS = [
+  "完成",
+  "完了",
+  "確定",
+  "提出",
+  "作成済",
+  "策定済",
+  "レビュー可能",
+  "合意済",
+  "submitted",
+  "completed",
+  "finalized",
+];
+const CRITERIA_STOPWORDS = new Set([
+  "こと",
+  "状態",
+  "可能",
+  "レビュー",
+  "方針",
+  "道筋",
+  "まで",
+  "いる",
+  "なる",
+  "できる",
+]);
+
+function isYm(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9]{6}$/.test(value);
+}
+
+function ymToIndex(ym: string): number | null {
+  if (!isYm(ym)) return null;
+  const y = Number(ym.slice(0, 4));
+  const m = Number(ym.slice(4, 6));
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return null;
+  return y * 12 + (m - 1);
+}
+
+function indexToYm(index: number): string {
+  const y = Math.floor(index / 12);
+  const m = (index % 12) + 1;
+  return `${y}${String(m).padStart(2, "0")}`;
+}
+
+function expectedCumPctForYm(asOfYm: string, periodStartYm: string, targetYm: string): number {
+  const asOf = ymToIndex(asOfYm);
+  const start = ymToIndex(periodStartYm);
+  const end = ymToIndex(targetYm);
+  if (asOf == null || start == null || end == null) return 0;
+  if (asOf < start) return 0;
+  if (asOf >= end) return 100;
+  const totalMonths = Math.max(1, end - start + 1);
+  const elapsedMonths = Math.max(0, asOf - start + 1);
+  return Math.min(100, Math.round((elapsedMonths / totalMonths) * 1000) / 10);
+}
+
+async function syncRewardIfProgressChanged(supabase: ServiceClient, projectId: string, ym: string) {
+  try {
+    await syncRewardSummaryForCycle(supabase, projectId, ym);
+  } catch (e) {
+    console.warn("[progress-estimator] reward_summary_json sync failed:", e);
+  }
+}
+
+async function applyRoutineAutoProgress(
+  supabase: ServiceClient,
+  milestones: EstimateMilestoneRow[],
+  planCycle: { period_start_ym: string | null; period_end_ym: string | null },
+  ym: string
+): Promise<{
+  saved: number;
+  skipped: number;
+  total: number;
+  details: EstimateDetail[];
+  savedRows: Array<{ milestoneKey: string; ym: string; progressPct: number; source: string }>;
+}> {
+  const routineMilestones = milestones.filter((m) => String(m.tag || "").toLowerCase() === "routine");
+  if (routineMilestones.length === 0) {
+    return { saved: 0, skipped: 0, total: 0, details: [], savedRows: [] };
+  }
+
+  const asOfIndex = ymToIndex(ym);
+  if (asOfIndex == null) {
+    return { saved: 0, skipped: 0, total: 0, details: [], savedRows: [] };
+  }
+
+  const msKeys = routineMilestones.map((m) => m.milestone_id);
+  const { data: existingRows } = await supabase
+    .from("milestone_monthly_progress")
+    .select("milestone_key, ym, progress_pct, source")
+    .in("milestone_key", msKeys)
+    .lte("ym", ym);
+
+  const existingByKey = new Map<string, { pct: number; source: string }>();
+  for (const row of existingRows || []) {
+    existingByKey.set(`${row.milestone_key}|${row.ym}`, {
+      pct: Number(row.progress_pct || 0),
+      source: String(row.source || ""),
+    });
+  }
+
+  const details: EstimateDetail[] = [];
+  const rowsToUpsert: Array<{
+    milestone_key: string;
+    ym: string;
+    progress_pct: number;
+    consumed_pt: number;
+    source: string;
+    confirmed_at: string;
+    note: string;
+  }> = [];
+  const savedRows: Array<{ milestoneKey: string; ym: string; progressPct: number; source: string }> = [];
+  let total = 0;
+  let skipped = 0;
+  const now = new Date().toISOString();
+
+  for (const ms of routineMilestones) {
+    const periodStartYm = isYm(ms.period_start_ym) ? ms.period_start_ym : (isYm(planCycle.period_start_ym) ? planCycle.period_start_ym : ym);
+    const targetYm = isYm(ms.target_ym) ? ms.target_ym : (isYm(planCycle.period_end_ym) ? planCycle.period_end_ym : periodStartYm);
+    const startIndex = ymToIndex(periodStartYm);
+    const endIndex = ymToIndex(targetYm);
+    if (startIndex == null || endIndex == null || asOfIndex < startIndex) continue;
+
+    const lastIndex = Math.min(asOfIndex, Math.max(startIndex, endIndex));
+    for (let idx = startIndex; idx <= lastIndex; idx += 1) {
+      const rowYm = indexToYm(idx);
+      const expectedPct = expectedCumPctForYm(rowYm, periodStartYm, targetYm);
+      if (expectedPct <= 0) continue;
+      total++;
+
+      const existing = existingByKey.get(`${ms.milestone_id}|${rowYm}`);
+      if (existing && PM_LOCKED_PROGRESS_SOURCES.has(existing.source)) {
+        skipped++;
+        details.push({
+          milestoneKey: ms.milestone_id,
+          delta: 0,
+          cumulative: existing.pct,
+          reason: "",
+          skipped: true,
+          skipReason: `source=${existing.source}`,
+        });
+        continue;
+      }
+      if (existing && expectedPct <= existing.pct) {
+        skipped++;
+        details.push({
+          milestoneKey: ms.milestone_id,
+          delta: 0,
+          cumulative: expectedPct,
+          reason: "",
+          skipped: true,
+          skipReason: `notIncreasing(cur=${existing.pct})`,
+        });
+        continue;
+      }
+
+      const consumed = Math.round((Number(ms.points || 0) * expectedPct) / 100 * 100) / 100;
+      const prevExpected = idx > startIndex ? expectedCumPctForYm(indexToYm(idx - 1), periodStartYm, targetYm) : 0;
+      rowsToUpsert.push({
+        milestone_key: ms.milestone_id,
+        ym: rowYm,
+        progress_pct: expectedPct,
+        consumed_pt: consumed,
+        source: ROUTINE_AUTO_PROGRESS_SOURCE,
+        confirmed_at: now,
+        note: `定常業務の月次按分: ${periodStartYm}〜${targetYm}`,
+      });
+      savedRows.push({
+        milestoneKey: ms.milestone_id,
+        ym: rowYm,
+        progressPct: expectedPct,
+        source: ROUTINE_AUTO_PROGRESS_SOURCE,
+      });
+      details.push({
+        milestoneKey: ms.milestone_id,
+        delta: Math.max(0, Math.round((expectedPct - prevExpected) * 10) / 10),
+        cumulative: expectedPct,
+        reason: `定常業務の月次按分: ${periodStartYm}〜${targetYm}`,
+      });
+    }
+  }
+
+  if (rowsToUpsert.length === 0) {
+    return { saved: 0, skipped, total, details, savedRows: [] };
+  }
+
+  const { error } = await supabase
+    .from("milestone_monthly_progress")
+    .upsert(rowsToUpsert, { onConflict: "milestone_key,ym" });
+
+  if (error) {
+    return {
+      saved: 0,
+      skipped: skipped + rowsToUpsert.length,
+      total,
+      details: rowsToUpsert.map((row) => ({
+        milestoneKey: row.milestone_key,
+        delta: 0,
+        cumulative: Number(row.progress_pct || 0),
+        reason: "",
+        skipped: true,
+        skipReason: `dbError: ${error.message}`,
+      })),
+      savedRows: [],
+    };
+  }
+
+  return { saved: rowsToUpsert.length, skipped, total, details, savedRows };
+}
 
 type ProgressProjectRow = {
   project_name: string | null;
@@ -153,6 +394,47 @@ function jsonTextList(value: unknown): string[] {
       return String(item ?? "").trim();
     })
     .filter(Boolean);
+}
+
+function normalizeCriteriaText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[ \t\r\n"'「」『』（）()[\]【】]/g, "");
+}
+
+function splitEvidenceSentences(text: string): string[] {
+  return text
+    .split(/[\n。！？!?]+/)
+    .map((part) => normalizeCriteriaText(part.trim()))
+    .filter(Boolean);
+}
+
+function extractCriterionKeywords(ms: EstimateMilestoneRow): string[] {
+  const criteria = String(ms.success_criteria || "").trim();
+  if (!criteria) return [];
+  const keywords = criteria
+    .split(/[、。・／/|｜\s]+|および|及び|ならびに|並びに|と|が|を|に|へ|で|の|は/)
+    .map((part) => normalizeCriteriaText(part))
+    .filter((part) => part.length >= 3 && !CRITERIA_STOPWORDS.has(part));
+  return Array.from(new Set(keywords)).slice(0, 12);
+}
+
+function hasDirectCriteriaEvidence(ms: EstimateMilestoneRow, evidenceText: string): boolean {
+  const criteria = String(ms.success_criteria || "").trim();
+  if (!criteria) return true;
+  const keywords = extractCriterionKeywords(ms);
+  if (keywords.length === 0) return true;
+  const sentences = splitEvidenceSentences(evidenceText);
+  return sentences.some((sentence) => {
+    const hasKeyword = keywords.some((keyword) => sentence.includes(keyword));
+    const hasCompletion = COMPLETION_EVIDENCE_TERMS.some((term) => sentence.includes(normalizeCriteriaText(term)));
+    return hasKeyword && hasCompletion;
+  });
+}
+
+function shouldRequireDirectCriteriaEvidence(ms: EstimateMilestoneRow, delta: number, newCumPct: number): boolean {
+  if (!String(ms.success_criteria || "").trim()) return false;
+  return newCumPct >= HIGH_PROGRESS_DIRECT_EVIDENCE_THRESHOLD || delta >= LARGE_DELTA_DIRECT_EVIDENCE_THRESHOLD;
 }
 
 function meetingSourceText(meeting: MeetingSummarySourceRow): string {
@@ -466,6 +748,8 @@ export interface EstimateResult {
   message?: string;
   /** source_hash 一致でスキップしたとき true (毎時 polling 用) */
   unchanged?: boolean;
+  /** 実際にLLMを呼んだとき true。routine自動補完やsource_hash skipは false。 */
+  llmCalled?: boolean;
   diagnostics?: {
     planCycleFound: boolean;
     milestoneCount: number;
@@ -480,7 +764,7 @@ export interface EstimateResult {
     afterWriteSample?: Array<{ milestone_key: string; ym: string; progress_pct: number; source: string }>;
     sourceHash?: string;
   };
-  details?: Array<{ milestoneKey: string; delta: number; cumulative: number; reason: string; skipped?: boolean; skipReason?: string }>;
+  details?: EstimateDetail[];
 }
 
 export interface EstimateOptions {
@@ -541,7 +825,7 @@ export async function estimateProgress(
   // 1. アクティブなPlanCycleとマイルストーンを取得
   const { data: pcRows, error: pcErr } = await supabase
     .from("value_plan_cycles")
-    .select("plan_cycle_id, total_points")
+    .select("plan_cycle_id, total_points, period_start_ym, period_end_ym")
     .eq("project_id", projectId)
     .in("status", ["active", "confirmed", "fixed", "draft"])
     .lte("period_start_ym", ym)
@@ -575,12 +859,12 @@ export async function estimateProgress(
 
   const { data: msRows } = await supabase
     .from("value_milestones")
-    .select("milestone_id, title, points, tag, goal_level")
+    .select("milestone_id, title, points, tag, goal_level, period_start_ym, target_ym, success_criteria")
     .eq("plan_cycle_id", pc.plan_cycle_id)
     .eq("is_active", true)
     .order("sort_order");
 
-  const milestones = (msRows || []).filter((m) => m.goal_level !== "monthly");
+  const milestones = ((msRows || []) as EstimateMilestoneRow[]).filter((m) => m.goal_level !== "monthly");
   if (milestones.length === 0) {
     return saveMonthlyNoteOnly(
       supabase,
@@ -612,6 +896,28 @@ export async function estimateProgress(
 
   // 3. 前月・当月の進捗を取得
   const msKeys = milestones.map((m) => m.milestone_id);
+  const { data: subItemRows } = await supabase
+    .from("milestone_sub_items")
+    .select("milestone_id, title, weight, status, assignee")
+    .in("milestone_id", msKeys.length > 0 ? msKeys : ["__none__"])
+    .order("created_at", { ascending: true });
+  const subItemsByMs = new Map<string, Array<{
+    title: string | null;
+    weight: number | null;
+    status: string | null;
+    assignee: string | null;
+  }>>();
+  for (const item of subItemRows || []) {
+    const key = String(item.milestone_id || "");
+    const list = subItemsByMs.get(key) || [];
+    list.push({
+      title: item.title || null,
+      weight: item.weight == null ? null : Number(item.weight),
+      status: item.status || null,
+      assignee: item.assignee || null,
+    });
+    subItemsByMs.set(key, list);
+  }
 
   const [prevProgRes, currProgRes] = await Promise.all([
     supabase
@@ -638,15 +944,26 @@ export async function estimateProgress(
     currMap[p.milestone_key] = { pct: Number(p.progress_pct || 0), source: p.source || "" };
   }
 
+  const routineAuto = await applyRoutineAutoProgress(supabase, milestones, pc, ym);
+  for (const row of routineAuto.savedRows) {
+    if (row.ym === ym) {
+      currMap[row.milestoneKey] = { pct: row.progressPct, source: row.source };
+    } else if (row.ym <= pym) {
+      prevMap[row.milestoneKey] = Math.max(prevMap[row.milestoneKey] || 0, row.progressPct);
+    }
+  }
+
   // 4. monthly_reports + project_meeting_summaries から当月ソースを取得
   let monthlySources: MonthlyProgressSources;
   try {
     monthlySources = await loadMonthlyProgressSources(supabase, projectId, ym);
   } catch (err) {
+    if (routineAuto.saved > 0) await syncRewardIfProgressChanged(supabase, projectId, ym);
     return {
-      ok: false, saved: 0, total: 0, skipped: 0,
+      ok: routineAuto.saved > 0, saved: routineAuto.saved, total: routineAuto.total, skipped: routineAuto.skipped,
       message: err instanceof Error ? err.message : "月次ソース取得エラー",
       diagnostics: { planCycleFound: true, milestoneCount: milestones.length, sourceItemCount: 0, sourceItemCountRaw: 0, usingServiceRole },
+      details: routineAuto.details,
     };
   }
 
@@ -655,9 +972,15 @@ export async function estimateProgress(
   const sourceBreakdown = monthlySources.sourceBreakdown;
 
   if (sourceLines.length === 0 || monthlySources.sourceTextLength < 50) {
+    if (routineAuto.saved > 0) await syncRewardIfProgressChanged(supabase, projectId, ym);
     return {
-      ok: false, saved: 0, total: 0, skipped: 0,
-      message: `推定ソースなし（monthly_reports / project_meeting_summaries に本文なし: project_id=${projectId}, ym=${ym}）`,
+      ok: routineAuto.saved > 0,
+      saved: routineAuto.saved,
+      total: routineAuto.total,
+      skipped: routineAuto.skipped,
+      message: routineAuto.saved > 0
+        ? `定常業務を月次按分で補完（LLM推定ソースなし: project_id=${projectId}, ym=${ym}）`
+        : `推定ソースなし（monthly_reports / project_meeting_summaries に本文なし: project_id=${projectId}, ym=${ym}）`,
       diagnostics: {
         planCycleFound: true,
         milestoneCount: milestones.length,
@@ -666,6 +989,7 @@ export async function estimateProgress(
         sourceBreakdown,
         usingServiceRole,
       },
+      details: routineAuto.details,
     };
   }
 
@@ -690,7 +1014,18 @@ export async function estimateProgress(
     sourceHash: monthlySources.sourceHash,
     rs: monthlySources.reportStatus,
     ms: milestones.map((m) => ({
-      id: m.milestone_id, ti: m.title, pt: m.points, tg: m.tag, gl: m.goal_level,
+      id: m.milestone_id,
+      ti: m.title,
+      pt: m.points,
+      tg: m.tag,
+      gl: m.goal_level,
+      sc: m.success_criteria,
+      sub: (subItemsByMs.get(m.milestone_id) || []).map((item) => ({
+        t: item.title,
+        w: item.weight,
+        s: item.status,
+        a: item.assignee,
+      })),
     })),
     prev: prevMap,
     curr: Object.fromEntries(Object.entries(currMap).map(([k, v]) => [k, { p: v.pct, s: v.source }])),
@@ -713,13 +1048,15 @@ export async function estimateProgress(
       .update({ last_processed_at: new Date().toISOString() })
       .eq("project_id", projectId)
       .eq("ym", ym);
+    if (routineAuto.saved > 0) await syncRewardIfProgressChanged(supabase, projectId, ym);
     return {
       ok: true,
-      saved: 0,
-      total: 0,
-      skipped: 0,
+      saved: routineAuto.saved,
+      total: routineAuto.total,
+      skipped: routineAuto.skipped,
       unchanged: true,
-      message: "source unchanged (LLM skipped)",
+      llmCalled: false,
+      message: routineAuto.saved > 0 ? "routine auto progress saved; source unchanged (LLM skipped)" : "source unchanged (LLM skipped)",
       diagnostics: {
         planCycleFound: true,
         milestoneCount: milestones.length,
@@ -729,6 +1066,7 @@ export async function estimateProgress(
         usingServiceRole,
         sourceHash: newHash,
       },
+      details: routineAuto.details,
     };
   }
 
@@ -739,7 +1077,13 @@ export async function estimateProgress(
       const prev = prevMap[ms.milestone_id] || 0;
       const curr = currMap[ms.milestone_id]?.pct || 0;
       const tagLabel = ms.tag === "buffer" ? " [buffer]" : "";
-      return `  ${i + 1}. [${ms.milestone_id}] ${ms.title}${tagLabel} (${ms.points}pt, 前月累計: ${prev}%, 現在登録値: ${curr}%)`;
+      const criteria = ms.success_criteria ? `\n     成功条件: ${ms.success_criteria}` : "";
+      const subItems = (subItemsByMs.get(ms.milestone_id) || [])
+        .filter((item) => item.title)
+        .map((item) => `       - ${item.title}${item.status ? ` [${item.status}]` : ""}${item.weight != null ? ` weight=${item.weight}` : ""}`)
+        .join("\n");
+      const subItemBlock = subItems ? `\n     サブMS:\n${subItems}` : "";
+      return `  ${i + 1}. [${ms.milestone_id}] ${ms.title}${tagLabel} (${ms.points}pt, 前月累計: ${prev}%, 現在登録値: ${curr}%)${criteria}${subItemBlock}`;
     })
     .join("\n");
 
@@ -748,6 +1092,10 @@ export async function estimateProgress(
   const userPrompt =
     `## 対象月: ${displayYm}\n\n` +
     `## マイルストーン一覧:\n${msListText}\n\n` +
+    `## 判定ルール:\n` +
+    `- 成功条件があるMSは、成功条件に書かれた成果物が情報ソース内で完了・提出・確定・レビュー可能になった場合だけ高進捗にしてください。\n` +
+    `- 面談、関心表明、DD開始、VCとの接点、資料作成予定、準備、着手、前向きな反応だけでは、事業計画・資本政策・知財戦略などの成果物MSを80%以上にしないでください。\n` +
+    `- 特に資本政策MSは、資本政策表・調達方針・持分方針・EXITまでの道筋の実物またはレビュー可能なドラフトが確認できる場合だけ高進捗にしてください。\n\n` +
     `## PJメンバー:\n${memberListText}\n\n` +
     `## 情報ソース:\n---\n${sourceLines.join("\n")}\n---`;
 
@@ -783,9 +1131,9 @@ export async function estimateProgress(
   // 9. 保存
   const validMsIds = new Set(milestones.map((m) => m.milestone_id));
   const now = new Date().toISOString();
-  let saved = 0;
-  let skipped = 0;
-  const details: EstimateResult["details"] = [];
+  let saved = routineAuto.saved;
+  let skipped = routineAuto.skipped;
+  const details: EstimateDetail[] = [...routineAuto.details];
 
   for (const p of parsed.progress || []) {
     const msKey = String(p.milestoneKey || "").trim();
@@ -812,9 +1160,25 @@ export async function estimateProgress(
     const newCumPct = Math.min(100, prevCum + delta);
     const cur = currMap[msKey];
 
-    // pm_manual / criteria_toggle は上書きしない
-    if (cur && (cur.source === "pm_manual" || cur.source === "criteria_toggle")) {
+    // PMが確定・修正・却下した行は推定で上書きしない。
+    if (cur && PM_LOCKED_PROGRESS_SOURCES.has(cur.source)) {
       details?.push({ milestoneKey: msKey, delta, cumulative: newCumPct, reason: p.reason || "", skipped: true, skipReason: `source=${cur.source}` });
+      skipped++;
+      continue;
+    }
+
+    if (
+      shouldRequireDirectCriteriaEvidence(ms, delta, newCumPct) &&
+      !hasDirectCriteriaEvidence(ms, sourceLines.join("\n"))
+    ) {
+      details?.push({
+        milestoneKey: msKey,
+        delta,
+        cumulative: newCumPct,
+        reason: p.reason || "",
+        skipped: true,
+        skipReason: "directCriteriaEvidenceMissing",
+      });
       skipped++;
       continue;
     }
@@ -826,7 +1190,7 @@ export async function estimateProgress(
       continue;
     }
 
-    const consumed = Math.round((ms.points * newCumPct) / 100 * 100) / 100;
+    const consumed = Math.round((Number(ms.points || 0) * newCumPct) / 100 * 100) / 100;
 
     const { error } = await supabase
       .from("milestone_monthly_progress")
@@ -874,7 +1238,7 @@ export async function estimateProgress(
 
   // 差分検知 state を更新 (LLM 呼んだ後は必ず更新)。
   // upsert: 同 (project_id, ym) は source_hash + counts + last_processed_at を更新。
-  const totalCount = (parsed.progress || []).length;
+  const totalCount = (parsed.progress || []).length + routineAuto.total;
   await supabase
     .from("progress_estimate_state")
     .upsert(
@@ -927,11 +1291,7 @@ export async function estimateProgress(
       console.warn("[progress-estimator] l2_notifications upsert failed:", e);
     }
 
-    try {
-      await syncRewardSummaryForCycle(supabase, projectId, ym);
-    } catch (e) {
-      console.warn("[progress-estimator] reward_summary_json sync failed:", e);
-    }
+    await syncRewardIfProgressChanged(supabase, projectId, ym);
   }
 
   return {
@@ -939,6 +1299,7 @@ export async function estimateProgress(
     saved,
     total: totalCount,
     skipped,
+    llmCalled: true,
     diagnostics: {
       planCycleFound: true,
       milestoneCount: milestones.length,

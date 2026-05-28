@@ -43,6 +43,29 @@ const LAYER_LABEL: Record<string, string> = {
   tone: "🌙 口調",
   safety: "🧯 安全",
 };
+const TSUKUYOMI_POST_ROUTE_ENABLED = false;
+
+function tagTokens(tags: string | null | undefined): string[] {
+  return String(tags || "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+function inferContextLayer(row: { context_type?: string | null; tags?: string | null }) {
+  const explicit = String(row.context_type || "").toLowerCase();
+  if (LAYER_ORDER.includes(explicit as any)) return explicit;
+  const tags = tagTokens(row.tags).map((t) => t.toLowerCase());
+  return LAYER_ORDER.find((layer) => tags.includes(layer)) || "tone";
+}
+
+function tagsWithLayer(tags: string | null | undefined, layer: string | null | undefined) {
+  const selected = LAYER_ORDER.includes(String(layer || "").toLowerCase() as any)
+    ? String(layer).toLowerCase()
+    : "tone";
+  const tokens = tagTokens(tags).filter((tag) => !LAYER_ORDER.includes(tag.toLowerCase() as any));
+  return Array.from(new Set([...tokens, selected])).join(", ");
+}
 
 function formatDateTime(iso: string | null) {
   if (!iso) return "-";
@@ -75,6 +98,7 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
   const [editingCtx, setEditingCtx] = useState<any | null>(null);
   const [showAddCtx, setShowAddCtx] = useState(false);
   const [newCtx, setNewCtx] = useState({
+    context_id: "",
     system_prompt: "",
     context_type: "tone",
     priority: 10,
@@ -103,6 +127,10 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
   };
 
   const sendAI = async () => {
+    if (!TSUKUYOMI_POST_ROUTE_ENABLED) {
+      setStatus("投稿APIは未接続");
+      return;
+    }
     if (!selectedProjectId) { setStatus("PJを選んで〜"); return; }
     setStatus("生成して送信中…");
     try {
@@ -119,6 +147,10 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
   };
 
   const sendManual = async () => {
+    if (!TSUKUYOMI_POST_ROUTE_ENABLED) {
+      setStatus("投稿APIは未接続");
+      return;
+    }
     if (!selectedProjectId) { setStatus("PJを選んで〜"); return; }
     if (!manualText.trim()) { setStatus("本文が空っぽ"); return; }
     setStatus("送信中…");
@@ -137,25 +169,43 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
 
   const saveCtxRow = async (row: any) => {
     const now = new Date().toISOString();
-    const { context_id, ...rest } = row;
-    if (!context_id) {
+    const { id, context_id, context_type, ...rest } = row;
+    const contextId = String(context_id || "").trim();
+    const systemPrompt = String(rest.system_prompt || "").trim();
+    if (!contextId || !systemPrompt) {
+      setCtxHint("context_id と systemPrompt は必須");
+      return;
+    }
+    const payload = {
+      ...rest,
+      context_id: contextId,
+      system_prompt: systemPrompt,
+      priority: Number(rest.priority) || 0,
+      tags: tagsWithLayer(rest.tags, context_type),
+    };
+    if (!id) {
       // new
       const { data, error } = await supabase
         .from("tsukuyomi_context")
-        .insert({ ...rest, created_at: now, updated_at: now })
+        .insert({ ...payload, created_at: now, updated_at: now })
         .select()
         .single();
       if (error) { setCtxHint(`保存失敗: ${error.message}`); }
-      else { setCtxHint("保存できた"); setShowAddCtx(false); setCtxRows((prev) => [data, ...prev]); }
+      else {
+        setCtxHint("保存できた");
+        setShowAddCtx(false);
+        setNewCtx({ context_id: "", system_prompt: "", context_type: "tone", priority: 10, tags: "tsukuyomi", status: "active" });
+        setCtxRows((prev) => [data, ...prev]);
+      }
     } else {
       const { error } = await supabase
         .from("tsukuyomi_context")
-        .update({ ...rest, updated_at: now })
-        .eq("context_id", context_id);
+        .update({ ...payload, updated_at: now })
+        .eq("context_id", contextId);
       if (error) { setCtxHint(`保存失敗: ${error.message}`); }
       else {
         setCtxHint("保存できた");
-        setCtxRows((prev) => prev.map((x) => x.context_id === context_id ? { ...x, ...rest } : x));
+        setCtxRows((prev) => prev.map((x) => x.context_id === contextId ? { ...x, ...payload } : x));
         setEditingCtx(null);
       }
     }
@@ -174,8 +224,7 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
   // Group contexts by layer
   const layerGroups: Record<string, any[]> = { judge: [], role: [], memory: [], tone: [], safety: [] };
   ctxRows.forEach((r) => {
-    const ct = String(r.context_type || "tone").toLowerCase();
-    const key = LAYER_ORDER.includes(ct as any) ? ct : "tone";
+    const key = inferContextLayer(r);
     layerGroups[key].push(r);
   });
   const filteredLearnings = learnings.filter((learning) => {
@@ -194,7 +243,7 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
         <div className="flex items-center justify-between mb-3">
           <div>
             <div className="text-[13px] font-semibold">PJチャンネルへ強制発言</div>
-            <div className="text-[11px] text-muted-foreground">AIで生成するか、手書きで投げるか選べる</div>
+            <div className="text-[11px] text-muted-foreground">PWA投稿APIの接続待ち</div>
           </div>
           <span className="text-[12px] text-muted-foreground">{status}</span>
         </div>
@@ -239,7 +288,8 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
             />
             <button
               onClick={sendAI}
-              className="mt-2 text-[12px] bg-foreground text-background px-4 py-1.5 rounded"
+              disabled={!TSUKUYOMI_POST_ROUTE_ENABLED}
+              className="mt-2 text-[12px] bg-foreground text-background px-4 py-1.5 rounded disabled:opacity-40 disabled:cursor-not-allowed"
             >
               AIで生成して投稿
             </button>
@@ -258,7 +308,8 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
             />
             <button
               onClick={sendManual}
-              className="mt-2 text-[12px] bg-foreground text-background px-4 py-1.5 rounded"
+              disabled={!TSUKUYOMI_POST_ROUTE_ENABLED}
+              className="mt-2 text-[12px] bg-foreground text-background px-4 py-1.5 rounded disabled:opacity-40 disabled:cursor-not-allowed"
             >
               手書きで投稿
             </button>
@@ -267,7 +318,7 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
 
         <p className="text-[11px] text-muted-foreground mt-2">
           ・投稿先は「PJのSlackチャンネル」<br />
-          ・人格は下の 人格DB の tags=tsukuyomi の active 行が使われる
+          ・API接続後は 人格DB の tags=tsukuyomi の active 行が使われる
         </p>
       </div>
 
@@ -391,7 +442,17 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
             <h4 className="text-[12px] font-medium mb-2">新規Context</h4>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <div>
-                <label className="text-[11px] text-muted-foreground block mb-0.5">contextType</label>
+                <label className="text-[11px] text-muted-foreground block mb-0.5">context_id</label>
+                <input
+                  type="text"
+                  value={newCtx.context_id}
+                  onChange={(e) => setNewCtx((v) => ({ ...v, context_id: e.target.value }))}
+                  className="w-full border border-border rounded px-2 py-1 text-[12px] bg-background"
+                  placeholder="例）tsukuyomi.tone.safe_reply"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground block mb-0.5">layer</label>
                 <select
                   value={newCtx.context_type}
                   onChange={(e) => setNewCtx((v) => ({ ...v, context_type: e.target.value }))}
@@ -492,9 +553,9 @@ export function AdminTsukuyomiClient({ projects, contexts, learnings }: Props) {
                               <div className="space-y-2">
                                 <div className="grid grid-cols-2 gap-2">
                                   <div>
-                                    <label className="text-[11px] text-muted-foreground block mb-0.5">contextType</label>
+                                    <label className="text-[11px] text-muted-foreground block mb-0.5">layer</label>
                                     <select
-                                      value={editingCtx.context_type}
+                                      value={editingCtx.context_type ?? inferContextLayer(editingCtx)}
                                       onChange={(e) => setEditingCtx((v: any) => ({ ...v, context_type: e.target.value }))}
                                       className="w-full border border-border rounded px-2 py-1 text-[12px] bg-background"
                                     >

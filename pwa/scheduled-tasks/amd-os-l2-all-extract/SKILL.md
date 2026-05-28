@@ -26,7 +26,7 @@ description: AMD OS L2 ②〜⑨ 全 8 種を 1 routine で順次抽出する集
 
 ## 【絶対】 動く前に必ず Read
 
-1. `pwa/manual/38-l2-extraction-routines-spec.md` (= L2 ②〜⑨ Cloud routines 統一仕様)
+1. `pwa/manual/8-3-l2-extraction-routines-spec.md` (= L2 ②〜⑨ Cloud routines 統一仕様)
 2. `pwa/design/L2_DATA.md` §「L2 ②〜⑨ Cloud routines 統一」
 3. `pwa/design/db_schema.md` (= 列名は想像で書かない、必ず grep)
 4. 各 L2 個別 SKILL (= 詳細手順):
@@ -57,6 +57,7 @@ Phase A: ⑥ MTG サマリ抽出 (= 過去 24h 終了 events)
 - 「過去 60-180 分終了」window → **「過去 24 時間終了」window** に拡張 (= daily 集約)
 - 各 event について Calendar/Notion/Gmail/Drive/Slack MCP で context 取得 → source_kinds 判定 → LLM 抽出 → `project_meeting_summaries` + `meeting_notifications` upsert
 - `l2_feedbacks` (l2_kind='meeting_summary') 反映
+- `source_kinds != "none"` の開催済みMTGは `narrative_md` 必須。`summary_short` と配列だけの直書き、または箇条書き優勢の narrative で既存高品質議事録を上書きすることは禁止。L6 SKILL の品質 gate に従い、低品質なら保存せず run summary に `blocked_low_quality_narrative` / `skipped_preserve_existing_narrative` と書く。
 
 ═══════════════════════════════════════════════════
 Phase B: ② AMD プロトコル抽出

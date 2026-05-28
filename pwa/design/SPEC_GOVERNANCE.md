@@ -43,6 +43,7 @@ AMD OS PWA は、一般的な spec-driven development / ADR / BDD / traceability
 3. 重要な設計判断はADRに残す。古いADRは消さず、新ADRで supersede する。
 4. `test:critical-ui` が落ちる変更は、仕様変更としてmdを更新したうえでtest anchorも更新する。
 5. `design_log/` は履歴であり正本ではない。最終仕様として参照させたい内容は `pwa/design/` に残す。
+6. handoff 時は OS マニュアル同期ゲートを通す。新たな仕様がユーザー/開発者に関係する場合、`pwa/manual/*.md` に読み手向けの要約と運用手順を追記する。対象外なら理由を書く。
 
 ---
 
@@ -57,6 +58,7 @@ AMD OS PWA は、一般的な spec-driven development / ADR / BDD / traceability
 |---|---|---|
 | 既存機能の仕様変更 | 実装者が該当 `pwa/design/*.md` と `FEATURE_REGISTRY.md` を同じcommitで更新 | `npm run test:critical-ui` のanchor検査 |
 | DB schema | migration適用後に `python3 -X utf8 scripts/dump_schema.py` で `db_schema.md` を再生成 | `CLAUDE.md` のDDLルール |
+| OS マニュアル | handoff 時に新仕様を棚卸しし、該当 `pwa/manual/*.md` へユーザー/開発者向けに追記 | `新仕様/仕様変更 \| design正本 \| OSマニュアル章 \| 状態` の表をチャット出力 |
 | セッション履歴 | `pwa/design_log/sessions_YYYY-MM.md` にappend | 正本ではない。恒久仕様は `pwa/design/` へ転記 |
 | handoff | `HANDOFF_pwa_rebuild.md` に次セッション用の短い状態だけを書く | 詳細仕様を書きすぎない |
 | 重要UIの存在契約 | `FEATURE_REGISTRY.md` に登録 | `test:critical-ui` |

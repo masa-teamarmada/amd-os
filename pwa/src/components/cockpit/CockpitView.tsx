@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CockpitHeader } from "./CockpitHeader";
 import { CockpitVentureStatus } from "./CockpitVentureStatus";
@@ -39,6 +39,7 @@ interface PlanCycleBundle {
   milestones: Array<{
     milestoneId: string; title: string; points: number; tag: string;
     goalLevel: string; successCriteria: string; sortOrder: number;
+    periodStartYm?: string | null; targetYm?: string | null;
   }>;
   progress: ProgressShape[];
   subItems: Array<{
@@ -64,10 +65,10 @@ interface CockpitViewProps {
     project: {
       projectId: string;
       projectName: string;
-	      clientName: string;
-	      status: string;
-	      projectCategory?: string;
-	      projectType?: string;
+      clientName: string;
+      status: string;
+      projectCategory?: string;
+      projectType?: string;
       feeType?: string | null;
       feeAmount?: number | null;
       freezeFromYm?: string | null;
@@ -115,6 +116,7 @@ interface CockpitViewProps {
     milestones: Array<{
       milestoneId: string; title: string; points: number; tag: string;
       goalLevel: string; successCriteria: string; sortOrder: number;
+      periodStartYm?: string | null; targetYm?: string | null;
     }>;
     progress: ProgressShape[];
     reports: Array<{
@@ -148,8 +150,11 @@ interface CockpitViewProps {
       ym: string | null;
       signalDate: string | null;
       signalType: string;
+      polarity?: string | null;
       title: string;
       summary: string;
+      scoreImpactSummary?: string | null;
+      scoreImpactDelta?: Record<string, unknown> | null;
       impactLevel: string;
       decisionState: string;
       status: string;
@@ -361,10 +366,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
   const modalMemberActivities = isReportOnlyMonth ? [] : (modalBundle?.memberActivities || memberActivities || []);
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
   const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
-
-  useEffect(() => {
-    if (!showLiveOperations && stepModal) setStepModal(null);
-  }, [showLiveOperations, stepModal]);
+  const activeStepModal = showLiveOperations ? stepModal : null;
 
   // [B2] MS設定バナー / 直接編集 ロジックを案Cの col1 内で使うため関数化。
   const renderMsSetupBanner = () => {
@@ -431,7 +433,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
     //  上: Header + Hero (AMD Score chart + XRL chart 横並び)
     //  メインボード 3 カラム:
     //    col1 = 今期MS + 次期MS設定 + 過去の期間 + 月次カード + 休止期間 backfill
-    //    col2 = 経営・事業シグナル (L2 ⑨) + MTGサマリ
+    //    col2 = 経営ハイライト (L2 ⑨) + MTGサマリ
     //    col3 = ステータスバッジ + 月次ルーティン + nudge (sticky)
     //  最下: TODO カンバン全幅
     <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
@@ -463,6 +465,10 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
               subItems={subItems || []}
               responsibilities={responsibilities || []}
               memberMap={memberMap || {}}
+              progress={currentProgress}
+              currentYm={currentYm}
+              msActivities={msActivities || []}
+              memberActivities={memberActivities || []}
               onEdit={planCycle ? () => setEditingCurrentCycle(true) : undefined}
             />
           )}
@@ -490,6 +496,10 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
                         subItems={bundle.subItems}
                         responsibilities={bundle.responsibilities}
                         memberMap={memberMap || {}}
+                        progress={bundle.progress}
+                        currentYm={currentYm}
+                        msActivities={bundle.msActivities || []}
+                        memberActivities={bundle.memberActivities || []}
                       />
                     </div>
                   ))}
@@ -516,7 +526,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
           />
         </div>
 
-        {/* col2: 経営・事業シグナル (L2 ⑨) + MTGサマリ (まさ #28 2026-05-24)。
+        {/* col2: 経営ハイライト (L2 ⑨) + MTGサマリ (まさ #28 2026-05-24)。
             右カラムを「経営シグナル + MTGサマリ」に統合。 */}
         <div className="flex flex-col gap-3 min-w-0">
           <CockpitStrategySignals signals={strategySignals || []} projectId={project.projectId} />
@@ -589,37 +599,37 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
       )}
 
       {/* ===== Step Modals (各ルーティンタスク → 専用ウィンドウ) ===== */}
-      {stepModal?.kind === "budget" && (
+      {activeStepModal?.kind === "budget" && (
         <CockpitRoutineBudgetModal
           projectId={project.projectId}
-          ym={stepModal.ym}
+          ym={activeStepModal.ym}
           open
           onClose={() => setStepModal(null)}
         />
       )}
-      {stepModal?.kind === "meeting" && (
+      {activeStepModal?.kind === "meeting" && (
         <CockpitRoutineMeetingModal
           projectId={project.projectId}
-          ym={stepModal.ym}
-          isDone={stepModal.isDone}
-          doneAction={stepModal.doneAction}
+          ym={activeStepModal.ym}
+          isDone={activeStepModal.isDone}
+          doneAction={activeStepModal.doneAction}
           open
           onClose={() => setStepModal(null)}
         />
       )}
-      {stepModal?.kind === "invoice" && (
+      {activeStepModal?.kind === "invoice" && (
         <CockpitRoutineInvoiceModal
           projectId={project.projectId}
-          ym={stepModal.ym}
-          documentType={stepModal.documentType}
+          ym={activeStepModal.ym}
+          documentType={activeStepModal.documentType}
           open
           onClose={() => setStepModal(null)}
         />
       )}
-      {stepModal?.kind === "invoiceSend" && (
+      {activeStepModal?.kind === "invoiceSend" && (
         <CockpitRoutineInvoiceSendConfirm
           projectId={project.projectId}
-          ym={stepModal.ym}
+          ym={activeStepModal.ym}
           open
           onClose={() => setStepModal(null)}
         />

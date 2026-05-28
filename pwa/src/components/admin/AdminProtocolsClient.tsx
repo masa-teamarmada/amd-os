@@ -34,6 +34,7 @@ interface Protocol {
   action_taken?: string;
   tags?: string;
   importance?: string;
+  source?: string;
   source_type?: string;
   status: string;
   kind?: string;
@@ -103,8 +104,10 @@ const BLANK: Omit<Protocol, "id" | "created_at" | "updated_at"> = {
   action_taken: "",
   tags: "",
   importance: "1",
-  source_type: "manual",
+  source: "manual",
   status: "candidate",
+  kind: "pattern",
+  is_universal: true,
 };
 
 export function AdminProtocolsClient({ protocols: initial, projects }: Props) {
@@ -205,7 +208,26 @@ ${r.content || r.criteria || "(本文なし)"}
     setSaving(true);
     const now = new Date().toISOString();
     const pid = `PROT-${Date.now()}`;
-    const row = { ...newVals, protocol_id: pid, created_at: now, updated_at: now };
+    const content = [
+      `## ① 分岐点\n${newVals.branch_point || ""}`,
+      `## ② 判断材料\n${newVals.criteria || ""}`,
+      `## ③ アクション\n${newVals.action_taken || ""}`,
+      "## ④ 結果\n",
+    ].join("\n\n");
+    const row = {
+      protocol_id: pid,
+      title: newVals.title.trim(),
+      project_id: newVals.project_id || null,
+      content,
+      tags: newVals.tags || null,
+      importance: Number(newVals.importance) || 1,
+      source: "manual",
+      status: newVals.status || "candidate",
+      kind: "pattern",
+      is_universal: true,
+      created_at: now,
+      updated_at: now,
+    };
     const { data, error } = await supabase.from("protocols").insert(row).select().single();
     if (error) {
       setHint(`作成エラー: ${error.message}`);
@@ -510,7 +532,7 @@ ${r.content || r.criteria || "(本文なし)"}
                     )}
 
                     <div className="text-[10px] text-muted-foreground">
-                      ID: {r.protocol_id} / source: {r.source_type || "—"} / kind: {r.kind || "—"} / updated: {r.updated_at?.slice(0, 10)}
+                      ID: {r.protocol_id} / source: {r.source || r.source_type || "—"} / kind: {r.kind || "—"} / updated: {r.updated_at?.slice(0, 10)}
                     </div>
                   </div>
                 )}

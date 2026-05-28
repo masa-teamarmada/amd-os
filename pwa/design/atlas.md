@@ -126,24 +126,42 @@ atlas_decisions (
 ## UI設計
 
 ### マインドマップビュー
-- ライブラリ候補: `react-force-graph` / `sigma.js` / `vis.js`
-- 中央にPJノード、周囲にtopic、外縁にsignalが引力で配置される
-- **色**: 素材=青 / エネルギー=黄 / 規制=赤 / 技術=緑
-- **サイズ**: importance
-- **点滅**: 最近更新
-- **時間軸スライダー**: 「◯年◯月時点で何が見えていたか」を再現
+- 現行ライブラリ: `react-force-graph-2d`
+- 現行 node: `atlas_stories` の story node のみ。signal / project / decision は detail / link 先として扱い、同じ canvas には混ぜない
+- **色**: `primary_domain` の ATL A-R domain
+- **サイズ**: signal 数 + high importance
+- **強調**: high importance かつ signal 3 件以上は pulse、直近24h更新は `NEW`
+- **時間軸**: `all` / `30d` / `7d` / `24h` の time range filter
 
 ### インタラクション
 - **タップ**: そのノードを中心に再レイアウト、詳細パネル展開
-- **ロングタップ**: 派生論点を新ノードとして追加
-- **フィルタ**: PJ別、カテゴリ別、status別
-- **検索**: ノード間のパス表示（「ヘリウムとBWEはどう繋がる？」）
+- **ドラッグ**: その node を固定し、他 node の古い pin は解除
+- **フィルタ**: domain 複数選択、tag 複数選択、time range
+- **詳細**: story summary、signal timeline、source URL、story tags
+- **未実装**: graph 上から派生論点を新規作成、project/decision node 混在、ノード間 path search
 
 ### Inbox UI
 - えいみが週次で投下したsignal候補がカードで並ぶ
 - **スワイプ**: 右=採択、左=却下、上=保留
 - 採択: topic化 or 既存topicに追記
 - 1日5分で未来を仕込める体験
+
+### 2026-05-25 現行 Atlas Map force layout
+
+`/atlas/map` は一度中央密集 + 外周ドーナツ + 数秒後の再縮小が起きたため、力場を構造的に固定している。詳細正本は [manual/4-2-atlas-macrotrend-signal-spec.md](../manual/4-2-atlas-macrotrend-signal-spec.md)。
+
+| 項目 | 現行値 |
+|---|---|
+| initial position | domain 角度 + `RADIUS=3000` + jitter |
+| center force | `null` |
+| radial domain force | `0.15 * alpha` |
+| hard collide | `(ra+rb)*8`, alpha 非依存 |
+| charge | `-30000` |
+| link | `distance=600`, `strength=0.05` |
+| cooldown | `cooldownTime=8000` |
+| engine stop | 空 handler。`zoomToFit` しない |
+
+2026-05-25 #65 に production `/atlas/map` をブラウザ確認。`183 stories · 144 共通テーマ接続`、canvas、凡例、domain/tag filters が表示されている。
 
 ---
 
@@ -159,7 +177,7 @@ atlas_decisions (
          ↓
   採択 → topic昇格 or 既存topicに追記
          ↓
-[まさえいMTG: 議論]
+[提案前の論点整理: 議論]
    議論ログも topic の子ノードとして記録
          ↓
 [まさ: 判断]
@@ -200,10 +218,13 @@ atlas_decisions (
 → **Atlas** を Dashboard と Admin の間に追加
 
 ### ルート案
-- `/atlas` → Atlas Map（メイン）
-- `/atlas/topics` → トピック一覧
-- `/atlas/topics/[id]` → トピック詳細
-- `/atlas/inbox` → キュレーションUI
+- `/atlas` → accepted signal / story の一覧と story 操作
+- `/atlas/map` → story node graph
+- `/atlas/inbox` → signal review
+- `/atlas/inbox/submit` → manual signal submit
+- `/atlas/admin/themes` → story theme cluster / apply
+- `/atlas/macrotrends` → ASPI 8 domain の上位課題地図
+- `/atlas/divergence` → theme 単位の世界 / 日本差分
 - `/atlas/decisions` → 判断ログ
 
 ---
@@ -222,12 +243,12 @@ AMD OSのプレミアム機能 or 別プロダクトとしてのスピンアウ�
 
 ## 開いた論点・次セッションで詰めること
 
-- [ ] Supabaseテーブル設計の詳細化とmigration
-- [ ] グラフライブラリの比較検証（react-force-graph vs sigma.js）
+- [x] Supabaseテーブル設計の詳細化とmigration
+- [x] グラフライブラリの比較検証（現行は react-force-graph-2d）
 - [ ] AMDプロンプトとの統合方法（topic文脈の注入インターフェース）
 - [ ] 「スルー判断」の振り返り評価ロジック（何をもってギャップとするか）
 - [ ] 即時Push配信（Web Push + APNs）の実装
-- [ ] えいみの自動収集のジョブ設計（scheduled-tasks / GAS cron / Cloudflare Cronどれを使うか）
+- [x] えいみの自動収集のジョブ設計（現行主系は Codex automation `amd-atlas-2` + local applier）
 
 ---
 

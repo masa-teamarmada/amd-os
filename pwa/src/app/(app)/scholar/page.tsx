@@ -1,5 +1,5 @@
 /**
- * Scholar — Triple Helix 観測量 N (論文流出率) の lane × quarter 学術トレンド可視化。
+ * Scholar — Triple Helix 観測量 N (論文流出率) の ASPI 8 domain × quarter 学術トレンド可視化。
  *
  * AMD Score の M カードで使われる μ_A の主観測量 N の trend を一覧で見せる。
  * 個別論文を蓄積するのではなく、**マクロ学術活動の数量指標**として量を追う。
@@ -38,7 +38,7 @@ export default async function ScholarPage() {
           Scholar — 学術トレンド (μ_A 観測量 N)
         </h1>
         <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-          OpenAlex から 5 lane × 直近 16 quarter の論文出版件数を週次取得。AMD Score の μ_A 計算で
+          OpenAlex から ASPI 8 domain × 直近 16 quarter の論文出版件数を週次取得。AMD Score の μ_A 計算で
           観測モデル C 行列の loading c_{`{N→μ_A}`} = 0.90 の入力として使われる。
         </p>
         <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-500">

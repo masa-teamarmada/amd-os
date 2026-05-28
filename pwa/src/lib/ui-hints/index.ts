@@ -119,7 +119,8 @@ export const UI_HINTS: Record<string, UiHint> = {
   "cockpit.amd-score.future-dot": {
     id: "cockpit.amd-score.future-dot",
     title: "未来予測 (= 破線)",
-    body: "現在の入力値から計算された PJ スコアの予測値。ドットをクリックすると修正モーダルが開いて値の見直しができる (まさ #21)。",
+    body: "現在の入力値から計算された PJ スコアの予測値。透明 hit area は実装済みだが、現状クリック時は該当日のイベント追加を開く。値そのものを修正する AmdScoreFutureEditModal は未実装。",
+    docHref: "/manual/21-amd-score-spec#2111-未来予測修正と-alpha-feedback-loop",
   },
   "cockpit.amd-score.m-card": {
     id: "cockpit.amd-score.m-card",
@@ -152,7 +153,7 @@ export const UI_HINTS: Record<string, UiHint> = {
   "cockpit.meeting-summary.card": {
     id: "cockpit.meeting-summary.card",
     title: "MTG サマリ詳細",
-    body: "クリックで詳細モーダル展開。議事録 narrative / 決定 / 進捗 / 次のアクション / リスク を表で見れる。dialogue = まさえいMTG、notion / gmail / slack = 自動抽出。",
+    body: "クリックで詳細モーダル展開。議事録 narrative / 決定 / 進捗 / 次のアクション / リスク を表で見れる。dialogue = 提案前の論点整理セッション、notion / gmail / slack = 自動抽出。",
   },
   "cockpit.meeting-summary.source-link": {
     id: "cockpit.meeting-summary.source-link",

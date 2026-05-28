@@ -33,7 +33,7 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 | 何を知りたいか | ファイル | 内容 |
 |---|---|---|
-| **AMD OS マニュアル正本** ⭐⭐⭐ (= 2026-05-25 以降) | `pwa/manual/00-intro.md` 〜 `06-developer.md` | **7 章構成のユーザー + 開発者マニュアル**。過去判断 / 用語と実装の対応 / cron 廃止経緯 / Codex-Claude-Vercel-LaunchAgent 責務分担マトリクス / 過去事故ログを集約。**新セッションは必ずここから読む** |
+| **AMD OS マニュアル正本** ⭐⭐⭐ (= 2026-05-25 以降) | `pwa/manual/1-1-intro.md` 〜 `06-developer.md` | **7 章構成のユーザー + 開発者マニュアル**。過去判断 / 用語と実装の対応 / cron 廃止経緯 / Codex-Claude-Vercel-LaunchAgent 責務分担マトリクス / 過去事故ログを集約。**新セッションは必ずここから読む** |
 | **AMD OS 中核データ正本** ⭐⭐⭐ | `pwa/design/L2_DATA.md` | **L2 9 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ / OS台帳差分 / XRL根拠 / 経営・事業シグナル) + レポート + 全 cron**。データに触る作業の前に必ず読む |
 | **設計 md フォルダ全体の入口** ⭐ | `pwa/design/README.md` | 設計の正本フォルダのインデックス。**まずここを読んで「次に何を読むか」を決める** |
 | **PWA 全体の正本仕様** ⭐ | `pwa/design/SPEC_pwa.md` | 画面・ルート・データモデル・cron・共通インフラ・運用コマンド・実装規約 |
@@ -49,6 +49,24 @@ Next.js 16 + React 19 + Tailwind CSS v4
 - 設計判断・仕様変更は必ず `pwa/design/` 配下に置く
 - `pwa/design_log/` には **過去セッションの sessions_*.md** だけ。新規設計 md を作ってはいけない (次セッションのえいみが見落とす)
 - 新セッション開始時は **必ず `pwa/design/README.md` から読む**
+
+**🚨 handoff 時の OS マニュアル同期ゲート**:
+- handoff を実行する時は、このセッションで実装・変更した新たな仕様を棚卸しする
+- ユーザー/開発者が次回知るべき仕様なら、`pwa/manual/*.md` (= AMD OS マニュアル正本) に追記する
+- 詳細仕様は該当 `pwa/design/*.md` / `FEATURE_REGISTRY.md` / `db_schema.md` に置き、マニュアルには読み手向けの要約と運用手順を置く
+- 章対応は `pwa/src/app/(app)/manual/manual-chapters.ts` を見る。新章を作る場合は `manual-chapters.ts` と `pwa/design/os_manual.md` も同時に更新する
+- 純粋な refactor / typo / test only など、マニュアル対象外なら「対象外: 理由」を書く
+- handoff のチャット出力には `新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態` の表を必ず出し、すべて `✅` または `対象外: 理由` になるまで migration prompt に進まない
+
+---
+
+## 🔗 メンバーコードネームリンク（admin-only）
+
+- OS内でAMDメンバーの `code_name` を文章・通知・カード・台帳セルに表示するときは、原則 `/mypage?memberId=<members.member_id>` にリンクする。
+- `<members.member_id>` は Supabase の `members.member_id` をそのまま使う。例: `ID001`。`001` のように `ID` prefix を落としたURLは禁止。
+- 他メンバーのマイページ閲覧は admin (`members.is_admin=true`) 専用。一般ユーザー向けの相互閲覧導線として扱わない。
+- 自由文は共通UI `LinkedMemberText` を使い、構造化されたメンバー台帳・一覧では行の `member_id` から明示的に `Link` を組む。
+- `/admin/members` の codeName セルはこの rule の基準UI。コードネームをクリックすると対象メンバーのマイページへ飛び、編集はセル内の編集ボタンから行う。
 
 ---
 

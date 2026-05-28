@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 // だけ事前生成して payout_notices.pdf_url / last_generated_at に埋めておく。
 //
 // 朝、まさが /admin/payouts を開いた時点で「確認」「発行」ボタンが既存 PDF を即開けるようにするのが目的。
-// 仕様: pwa/manual/31-admin-payouts-reward-notice-spec.md「先回り生成」セクション。
+// 仕様: pwa/manual/6-5-admin-payouts-reward-notice-spec.md「先回り生成」セクション。
 
 const DEFAULT_LOOKAHEAD_MONTHS = 1; // 当月 + 翌月
 

@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useMemo } from "react";
+import { Pencil } from "lucide-react";
 import { createClient as createBrowserAuthClient } from "@/lib/supabase/client";
 
 // auth (browser) client。anon RLS で write が弾かれるため、ログイン中ユーザーで書き込む
@@ -22,6 +24,7 @@ export interface MemberRow {
   leave_ym: string | null;
   bank_info: string | null;
   member_address: string | null;
+  contractor_name: string | null;
   google_calendar_status: string;
   google_calendar_checked_at: string | null;
   google_calendar_connected_at: string | null;
@@ -124,7 +127,13 @@ type EditVals = {
   is_admin: boolean;
   is_officer: boolean;
   slack_id: string;
+  contractor_name: string;
+  member_address: string;
 };
+
+function defaultContractorName(member: MemberRow) {
+  return member.member_name?.trim() || member.code_name || member.member_id;
+}
 
 export function AdminMembersTable({ members: initialMembers }: Props) {
   const [members, setMembers] = useState<MemberRow[]>(initialMembers);
@@ -145,6 +154,8 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
           !m.code_name.toLowerCase().includes(q) &&
           !m.email.toLowerCase().includes(q) &&
           !(m.member_name || "").toLowerCase().includes(q) &&
+          !(m.contractor_name || "").toLowerCase().includes(q) &&
+          !(m.member_address || "").toLowerCase().includes(q) &&
           !m.member_id.toLowerCase().includes(q)
         ) return false;
       }
@@ -170,6 +181,8 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
       is_admin: !!m.is_admin,
       is_officer: !!m.is_officer,
       slack_id: m.slack_id ?? "",
+      contractor_name: m.contractor_name || defaultContractorName(m),
+      member_address: m.member_address ?? "",
     });
   };
 
@@ -182,7 +195,15 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     switch (field) {
       case "code_name": patch.code_name = (editVals.code_name as string).trim() || m.code_name; break;
-      case "member_name": patch.member_name = (editVals.member_name as string) || null; break;
+      case "member_name": {
+        const nextName = (editVals.member_name as string).trim();
+        patch.member_name = nextName || null;
+        const currentContractor = (m.contractor_name || "").trim();
+        if (!currentContractor || currentContractor === (m.member_name || "").trim() || currentContractor === m.code_name) {
+          patch.contractor_name = nextName || m.code_name || m.member_id;
+        }
+        break;
+      }
       case "email": patch.email = (editVals.email as string).trim() || m.email; break;
       case "role": patch.role = (editVals.role as string) || null; break;
       case "status": patch.status = editVals.status as string; break;
@@ -191,6 +212,8 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
       case "is_admin": patch.is_admin = !!editVals.is_admin; break;
       case "is_officer": patch.is_officer = !!editVals.is_officer; break;
       case "slack_id": patch.slack_id = (editVals.slack_id as string).trim() || null; break;
+      case "contractor_name": patch.contractor_name = (editVals.contractor_name as string).trim() || defaultContractorName(m); break;
+      case "member_address": patch.member_address = (editVals.member_address as string).trim() || null; break;
     }
     const { error } = await supabase.from("members").update(patch).eq("id", m.id);
     if (error) {
@@ -243,12 +266,14 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
 
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "1580px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: "1980px" }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-24 border-r border-border">codeName</th>
               <th className="text-left px-3 py-2 font-medium w-24">memberId</th>
               <th className="text-left px-3 py-2 font-medium w-40">表示名</th>
+              <th className="text-left px-3 py-2 font-medium w-48">契約者名</th>
+              <th className="text-left px-3 py-2 font-medium w-72">住所</th>
               <th className="text-left px-3 py-2 font-medium w-56">email</th>
               <th className="text-left px-3 py-2 font-medium w-28">Role</th>
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
@@ -301,7 +326,30 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
                           className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background" />
                         {cellActions("code_name")}
                       </div>
-                    ) : m.code_name}
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/mypage?memberId=${encodeURIComponent(m.member_id)}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[#007aff] underline-offset-2 hover:underline"
+                          title={`${m.code_name} のマイページを開く (${m.member_id})`}
+                        >
+                          {m.code_name}
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditCell(m, "code_name");
+                          }}
+                          className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          aria-label={`${m.code_name} の codeName を編集`}
+                          title="codeNameを編集"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
                   </td>
 
                   {/* memberId - read-only (主キー的役割、FK 参照されているため編集不可) */}
@@ -318,6 +366,36 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
                         {cellActions("member_name")}
                       </div>
                     ) : <span>{m.member_name || "—"}</span>}
+                  </td>
+
+                  {/* 契約者名 (contractor_name) */}
+                  <td className={cellCls("contractor_name")} onClick={enterCell("contractor_name")}>
+                    {isEditingField(m, "contractor_name") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input type="text" value={editVals.contractor_name as string} autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, contractor_name: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(m, "contractor_name"); if (e.key === "Escape") cancelEdit(); }}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background" />
+                        {cellActions("contractor_name")}
+                      </div>
+                    ) : <span>{m.contractor_name || defaultContractorName(m)}</span>}
+                  </td>
+
+                  {/* 住所 (member_address) */}
+                  <td className={cellCls("member_address")} onClick={enterCell("member_address")}>
+                    {isEditingField(m, "member_address") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <textarea value={editVals.member_address as string} autoFocus rows={3}
+                          onChange={(e) => setEditVals((v) => ({ ...v, member_address: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Escape") cancelEdit(); }}
+                          className="min-h-16 w-full resize-y rounded border border-border bg-background px-1.5 py-0.5 text-[12px]" />
+                        {cellActions("member_address")}
+                      </div>
+                    ) : (
+                      <span className="line-clamp-2 text-muted-foreground" title={m.member_address || ""}>
+                        {m.member_address || "—"}
+                      </span>
+                    )}
                   </td>
 
                   {/* email */}
@@ -447,7 +525,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={13} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={15} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>

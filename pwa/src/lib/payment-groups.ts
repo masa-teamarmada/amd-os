@@ -25,6 +25,8 @@ export type PaymentProjectRow = {
   project_name: string;
   client_name: string | null;
   status: string | null;
+  fee_type?: string | null;
+  fee_amount?: number | string | null;
   freee_partner_id: string | null;
   payment_due_rule: string | null;
   payment_due_day: number | null;

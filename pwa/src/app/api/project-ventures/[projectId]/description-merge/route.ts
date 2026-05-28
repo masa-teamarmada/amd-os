@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -42,6 +43,9 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ projectId: string }> }
 ) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
   const { projectId } = await ctx.params;
   let body: { addition?: string };
   try {

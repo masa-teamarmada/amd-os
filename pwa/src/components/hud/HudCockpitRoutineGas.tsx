@@ -39,9 +39,10 @@ interface Props {
 }
 
 const supabase = createClient();
+const CTB_ESTIMATE_MARKER = "[[CTB_ESTIMATE_SENT]]";
 
 const STANDARD_ORDER = ["budget", "meeting", "reportFix", "reimburseConfirm", "invoiceIssue", "invoiceSend"];
-const CTB_ORDER = ["estimateSend", ...STANDARD_ORDER];
+const CTB_ORDER = ["estimateSend", "budget", "meeting", "invoiceIssue", "invoiceSend", "reportFix", "reimburseConfirm"];
 
 function formatYm(ym: string) {
   if (!ym || ym.length < 6) return ym;
@@ -124,11 +125,15 @@ function isPastReimburseDeadline(ym: string) {
   return todayJstKey() >= deadline;
 }
 
+function hasCTBEstimateMarker(raw?: string | null) {
+  return (raw || "").includes(CTB_ESTIMATE_MARKER);
+}
+
 function buildSteps(bc: BillingCycle | undefined, ym: string, isCTB: boolean): RoutineStep[] {
   const invoiceYm = bc?.invoiceYm?.trim() || ym;
   const deferred = invoiceYm !== ym;
   const deferredLabel = deferred ? `${Number(invoiceYm.slice(4))}月にまとめて請求` : "";
-  const estimateDone = !!bc?.invoiceBaseLinesJson || !!bc?.invoiceSubject || !!bc?.invoiceIssuedAt;
+  const estimateDone = hasCTBEstimateMarker(bc?.invoiceBaseLinesJson);
 
   const base: Record<string, { label: string; done: boolean; deferred?: boolean }> = {
     estimateSend: { label: "見積書送付", done: estimateDone, deferred },

@@ -32,6 +32,7 @@ async function touchLastLogin(email: string) {
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
   const pathname = request.nextUrl.pathname;
+  const isPublicMeetingArtifact = pathname.startsWith("/kute/");
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,6 +65,7 @@ export async function updateSession(request: NextRequest) {
     !user &&
     !pathname.startsWith("/auth") &&
     !pathname.startsWith("/api/") &&
+    !isPublicMeetingArtifact &&
     pathname !== "/" &&
     pathname !== "/hud/dashboard/embed" &&
     pathname !== "/mock/dashboard-cyber-3d-lab" &&

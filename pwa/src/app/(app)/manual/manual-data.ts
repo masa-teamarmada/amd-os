@@ -4,15 +4,9 @@ import {
   applyManualBookNumbering,
   getManualChapter,
   sortManualSlugs,
-  type ManualAudience,
   type ManualChapterConfig,
   type ManualNumberedChapter,
 } from "./manual-chapters";
-
-export function getManualAudience(params: { audience?: string | string[] | undefined }): ManualAudience {
-  const value = Array.isArray(params.audience) ? params.audience[0] : params.audience;
-  return value === "developer" ? "developer" : "user";
-}
 
 export function getManualMarkdownSlugs() {
   const dir = path.join(process.cwd(), "manual");
@@ -49,7 +43,6 @@ export function getManualChapters(): ManualChapterConfig[] {
       slug,
       title: h1,
       summary,
-      audience: "developer" as const,
       topics: [],
     };
   });

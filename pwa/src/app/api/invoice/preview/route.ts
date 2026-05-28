@@ -56,7 +56,7 @@ export async function GET(req: Request) {
     const defaultDueDate = `${nextYear}-${String(nextMonth).padStart(2, "0")}-${nextLastDay}`;
 
     const budget = bc?.budget_yen || 0;
-    const alreadyIssued = !!bc?.invoice_sent_at;
+    const alreadyIssued = !!bc?.invoice_issued_at;
 
     return NextResponse.json({
       ok: true,
@@ -68,7 +68,9 @@ export async function GET(req: Request) {
       hasFreeeSettings: !!project.freee_partner_id,
       freeePartnerId: project.freee_partner_id,
       alreadyIssued,
+      invoiceIssuedAt: bc?.invoice_issued_at || null,
       invoiceSentAt: bc?.invoice_sent_at || null,
+      freeeInvoiceNumber: bc?.freee_invoice_number || null,
       defaultIssueDate,
       defaultDueDate,
       baseLines: [

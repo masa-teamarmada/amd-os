@@ -1,4 +1,4 @@
-# 経営・事業シグナル (L2 ⑨) — 設計の正本
+# 経営ハイライト (L2 ⑨) — 設計の正本
 
 作成: 2026-05-23
 正本ステータス: 実装中。仕様変更したらこのファイルと `L2_DATA.md` / `cockpit.md` / `FEATURE_REGISTRY.md` を同じ commit で更新する。
@@ -10,7 +10,7 @@
 MS進捗とは別に、PJの経営上の重要方針・事業上の進捗・戦略転換・リスク・次の一手を、短い根拠付きでコックピットに表示する。
 
 MSは「計画した成果物の進捗」を扱う。  
-経営・事業シグナルは「事業や経営判断として見落とすと危ない変化」を扱う。
+経営ハイライトは「進んだこと・起きたこと」を扱う。未了 / TODO / アイディアは別 UI に置く。
 
 ---
 
@@ -18,17 +18,18 @@ MSは「計画した成果物の進捗」を扱う。
 
 `/project/[projectId]/cockpit` の `CockpitGoalsCompact` (= 今期MSリスト) の直下。
 
-表示セクション名: `経営・事業シグナル`
+表示セクション名: `経営ハイライト`
 
 1行に出すもの:
 
 - 日付
+- polarity chip (= `breakthrough` / `forward` / `pivot` / `risk`。未設定ならカテゴリ emoji fallback)
 - type chip
 - impact chip
-- decision state
-- candidate/confirmed status
+- candidate の「未確認」chip
 - title
 - 1-2行 summary
+- `score_impact_summary` があれば AMD Score / XRL への影響 1 行
 - source refs 数と短い根拠
 
 ---
@@ -43,13 +44,14 @@ MSは「計画した成果物の進捗」を扱う。
 - `project_id`: `projects.project_id`
 - `ym`: 対象月。月が明確でないものは NULL
 - `signal_date`: **事象が起きた日** (= occurred_at)。例えば「リアクター特許出願完了（4/27付）」のような signal は、source ref が 5/13 定例で確認されたものでも signal_date は `2026-04-27` にする。観測日 (= 議事録に出てきた日) ではなく事象発生日を使う (まさ #13 2026-05-24 確定)。raw 内に明確な日付パターン (`N/N付` / `N/N に` / `N月N日`) があれば優先採用
+- `polarity`: `breakthrough` / `forward` / `pivot` / `risk` (= migration 090)。旧案の中立 `external` は使わない。未設定 row はカテゴリ emoji fallback で表示する。
 - `signal_type`: `management_decision` / `business_progress` / `strategic_pivot` / `commercial_progress` / `partnership` / `funding` / `ip_regulatory` / `risk` / `next_move` / **`tech_progress`** (= migration 088, まさ #14-3rd 2026-05-24 追加)
   - **cockpit 表示は 4 分類でグルーピング** (= 左ボーダー色 + 時間軸混合、まさ #14 + #14-3rd 2026-05-24 確定):
     - **🏛 経営全般** (violet) = `management_decision` / `strategic_pivot` / `funding` / `next_move`
     - **🚀 事業開発** (emerald) = `business_progress` / `commercial_progress` / `partnership`
     - **🔬 技術開発** (sky) = `tech_progress` (= 自社特許出願 / 技術スタック進捗)
     - **🌐 外部環境** (amber) = `ip_regulatory` (= 他国規制動向 / 競合知財動向) + `risk` (= 純粋な外部要因)
-  - **🚨 次セッション要対応 (まさ #14 2026-05-24 指摘)**: 現状実装では `external` カテゴリを cockpit カードから除外し Atlas リンクのみにしているが、「中国レアアース輸出規制強化」のような **PJ にとって重要な外部環境シグナル** が cockpit から消えた問題が発生した。**外部環境カテゴリも他 3 分類と同じく cockpit に表示する** 仕様に修正必要。Atlas リンクは header に残す (= 横断マクロシグナル一覧として併存)。詳細は [`BUGS.md`](../BUGS.md) の「4 分類で『外部環境 = 表示外』にしたら本来 cockpit に出てほしい外部シグナルも消えた」エントリ参照
+  - 外部環境カテゴリも他 3 分類と同じく cockpit に表示する。Atlas リンクは header に残す (= 横断マクロシグナル一覧として併存)。
   - **LLM 抽出時の判定ガイドライン** (Codex automation prompt 必須記載):
     - `risk` は **純粋な外部要因** (政府方針変化・競合の動き・市場ショック・規制強化) のみに使う
     - 自社内部のリスク (= 経営判断未了 / 財務 variance / Score 急減 / 品質問題 / 商談減額) は `risk` ではなく **本来の分類** (`management_decision` / `business_progress` / `commercial_progress`) を使う
@@ -58,8 +60,10 @@ MSは「計画した成果物の進捗」を扱う。
 - `title`: 短い見出し
 - `summary`: 何が起きたか、なぜ重要か
 - `impact_level`: `low` / `medium` / `high` / `critical`
-- `decision_state`: `observed` / `proposed` / `decided` / `executing` / `revised`
+- `decision_state`: `observed` / `proposed` / `decided` / `executing` / `revised`。legacy 軸として残るが、経営ハイライト UI の主表示軸にはしない。
 - `status`: `candidate` / `confirmed` / `rejected` / `archived`
+- `score_impact_summary`: AMD Score / XRL への影響 1 行。あれば cockpit card に表示する。
+- `score_impact_delta_json`: 後追い集計用の構造化 delta。
 - `source_refs_json`: source id / date / title / short snippet / url / hash
 - `source_hash`: 重複排除用
 - `confidence`: 0-1
@@ -89,10 +93,10 @@ MSは「計画した成果物の進捗」を扱う。
 5生データ
   Gmail / Drive / Calendar / Slack / Notion
         ↓
-Codex automation: amd-os-strategy-signals
+Codex automation: amd-os
         ↓
 outbox JSON
-  /Users/masa/.codex/automations/amd-os-strategy-signals/outbox/*.json
+  /Users/masa/.codex/automations/amd-os/strategy-signals-outbox/*.json
         ↓
 non-LLM applier
   scripts/run-ms-outbox-applier.sh
@@ -111,6 +115,16 @@ Supabase
 
 LLM/Codex automation は DB/API へ直接書き込まない。  
 DB反映は `pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir` が行う。
+
+### automation health の範囲
+
+L2 ⑨の `automation-prepare` は、Supabase と PWA API が取れていれば review を進めてよい。GAS はこの抽出経路の必須依存ではないため、`automation-prepare` / `refresh-snapshot` ではデフォルトで GAS health を skip する。
+
+- L2 ⑨で必須: Supabase snapshot refresh、PWA API、5生データ connector
+- L2 ⑨で任意診断: GAS bridge
+- GAS も含めて診断したい場合: `node pwa/scripts/ms_progress_review_tool.mjs health` または `automation-prepare --include-gas-health`
+
+理由: 経営ハイライト候補は Codex automation が 5生データ / OS snapshot から outbox を作り、非LLM applier が Supabase に反映する。GAS は freee / 一部 cron / legacy bridge の健全性確認には重要だが、この daily review の hard gate にすると不要な false degraded が出る。
 
 ---
 
@@ -214,16 +228,16 @@ node pwa/scripts/ms_progress_review_tool.mjs apply-outbox \
 
 ---
 
-## 議論セッション運用 (= まさえいMTG)
+## 議論セッション運用 (= dialogue)
 
-> **呼称ルール**: 「**まさえいMTG**」と呼ぶ。会社の正式会議体ではなく、チームへ提案する前の論点・提案・残課題を整理する対話セッションとして記録する。
+> **呼称ルール**: UI / manual では「提案前の論点整理セッション」または `dialogue` と呼ぶ。会社の正式会議体ではなく、チームへ提案する前の論点・提案・残課題を整理する対話セッションとして記録する。
 
-Codex automation の candidate 抽出と並列で、**まさえいMTGで対話して、チームに出す提案を整理する** 経路を持つ。
+Codex automation の candidate 抽出と並列で、**dialogue で対話して、チームに出す提案を整理する** 経路を持つ。
 
 ### フロー
 
 ```
-[Phase 1] daily routine (= Codex automation amd-os-strategy-signals)
+[Phase 1] daily routine (= Codex automation amd-os)
   outbox → applier → project_strategy_signals (status='candidate', decision_state='proposed')
    ↓ + l2_notifications(l2_kind='project_strategy_signal')
 
@@ -239,7 +253,7 @@ Codex automation の candidate 抽出と並列で、**まさえいMTGで対話�
     POST /api/dialogue-meeting (= 議論本体ログを project_meeting_summaries に保存)
 
 [Phase 3] cockpit 表示
-  - 経営・事業シグナル section: project_strategy_signals を表示
+  - 経営ハイライト section: project_strategy_signals を表示
   - MTGサマリ section: source_kinds='dialogue' の議論ログを自動表示 (= UI 改修不要)
 ```
 
@@ -274,7 +288,7 @@ cockpit の `CockpitMeetingSummary` が `source_kinds` 無関係に meeting_date
 #### `POST /api/dialogue-meeting/narrate`
 
 dialogue meeting の `decided / progress / next_actions / risks` 配列を、初めて読む人でも
-「背景 → 議論の流れ → 2 人で出した提案 → 残課題」が一気に追える Markdown narrative に
+「背景 → 議論の流れ → チームへの提案案 → 残課題」が一気に追える Markdown narrative に
 書き直して `project_meeting_summaries.narrative_md` に保存する。
 
 - `Body: { meeting_id }` で 1 件 narrate
@@ -288,10 +302,10 @@ cockpit の `CockpitMeetingDetailModal` は `narrative_md` があれば narrativ
 ストーリーとして表示し、raw decided/progress/... は折りたたみ「元データ」へ落とす。
 narrative がなければ従来の section view (= raw を見せる) に fallback する。
 
-#### 運用ルール (= まさえいMTG の議事録)
+#### 運用ルール (= dialogue の議事録)
 
 - 「決まったこと」とは書かない。チームに無断で決めた印象を避けるため、必ず
-  **「2 人で出した提案 (チームへの相談)」** のニュアンスで残す。
+  **「チームへの提案案」** のニュアンスで残す。
 - `summary_short` には「議論の背景 + 何を議論したか」を 2-4 文で書く。1 行サマリだけにしない。
 - 議論ログを保存したあと、`POST /api/dialogue-meeting/narrate { meeting_id }` を叩いて
   narrative_md を生成する。生成後はコックピットに narrative 主体の議事録として出る。

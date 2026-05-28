@@ -16,6 +16,8 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **業務ロジックは GAS 元コード完全保存**: 「終了 60-180 分前 filter」「Stage 1-3 Notion fallback」「source_kinds 判定 (= 30 chars 閾値)」「source_hash 差分検知」「修正依頼織り込み」「議事録なし行のマーカー upsert」を踏襲
 - **5 ソース全部見る** (= まさ絶対ルール 2026-05-11): Notion + Gmail + Drive + Slack + Calendar event 本文。GAS 074 + 074b-e の集約をこの 1 routine で実現
 - **議事録品質の本丸**: Notion / Gemini / CircleBack 等が既に作った会議本文を潰さず、前後 MTG・PJ 全体の流れ・現行 MS を読んだうえで `narrative_md` に「初見でも分かる議事録」を残す。
+- **配列だけ保存禁止**: `source_kinds != "none"` の開催済みMTGでは `narrative_md` が主成果物。`summary_short` / `decided` / `progress` / `next_actions` / `risks` だけの保存は品質劣化なので禁止。`narrative_md` が空・短すぎる・箇条書きだけなら、その event は保存せず run summary に `blocked_low_quality_narrative` として残す。
+- **既存 narrative 保護**: 既存 row に 300字以上の `narrative_md` がある場合、新しい抽出結果が空 / 箇条書き優勢 / 既存より明らかに薄いなら upsert しない。`project_meeting_summaries` には DB trigger でも保護があるが、routine 側でも必ず判定する。
 - **未来予定カード**: 終了済みMTGの議事録がまだ無いPJでも、今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡して `source_kinds='upcoming'` を作る。CLG取締役会のように前回議事録が空でも予定MTGカードを欠落させない。
 - **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
 
@@ -248,7 +250,7 @@ Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 �
 
 35. **既存 row** を Supabase REST で fetch:
     ```bash
-    curl -s "$SUPABASE_URL/rest/v1/project_meeting_summaries?meeting_id=eq.<event.id>&select=source_hash&limit=1" \
+    curl -s "$SUPABASE_URL/rest/v1/project_meeting_summaries?meeting_id=eq.<event.id>&select=source_hash,narrative_md,generated_by_model,updated_at&limit=1" \
       -H "apikey: $SRK" -H "Authorization: Bearer $SRK"
     ```
 36. 既存 `source_hash == newHash` なら **skip_unchanged** (= LLM 呼ばない、idempotent)
@@ -443,7 +445,8 @@ filter:
 - manual_meeting_assets は画面共有・表・スライドなどの補助根拠。caption / extracted_text がある場合は narrative_md の「添付資料から見えること」に反映してよいが、画像を読めていないのに中身を断定しない
 - drive source は会議資料・招集通知・議案・予実表・報告資料として扱う。Drive だけを根拠に「会議で決定した」とは書かず、`資料上の論点` / `会議前に確認すべき資料` / `当日確認された資料` として narrative_md に位置づける。Notion/Gmail/Slack の発言根拠と一致する場合だけ decided に寄せる。
 - 雑談 / 個人事情は除外 (= MTG として意味のある合意・進捗・課題だけ)
-- narrative_md は 700-1800 字、「PJ全体の流れの中での位置づけ → このMTGで議論したこと → 決まったこと → MSへの影響 → 次にやること → 残課題」の markdown。全体を箇条書きだけにしない
+- narrative_md は必須。700-1800 字を目安に、「PJ全体の流れの中での位置づけ → このMTGで議論したこと → 決まったこと → MSへの影響 → 次にやること → 残課題」を文章でつなぐ markdown。箇条書きは補助に留め、本文全体を配列項目の羅列にしない。
+- 元のAI議事録やNotion/Gmail/Drive資料にまとまった本文がある場合は、要点だけに潰さず、読み手が会議の流れを復元できる粒度で narrative_md に残す。`decided` / `progress` / `next_actions` / `risks` は検索・通知用の補助フィールドであり、議事録本文の代替ではない。
 - **JSON 以外の文字一切出力禁止** (= markdown ブロックも禁)
 
 **出力形式**:
@@ -463,6 +466,13 @@ Phase D: Supabase upsert + 通知
 ═══════════════════════════════════════════════════
 
 ### D-1: project_meeting_summaries upsert
+
+upsert 前に品質 gate を必ず通す。
+
+- `source_kinds != "none"` なのに `narrative_md` が空、または trim 後 500 字未満なら保存しない。
+- `narrative_md` の非空行が 4 行以上あり、その 70% 以上が `-` / `*` / `・` / `•` / `1.` などの箇条書きで始まる場合は保存しない。
+- 既存 row の `narrative_md` が 300 字以上あり、新しい `narrative_md` が空・短い・箇条書き優勢なら保存せず、`skipped_preserve_existing_narrative` として run summary に書く。
+- 手動 backfill でもこの gate は同じ。過去議事録を入れる時も `summary_short` と配列だけで `project_meeting_summaries` に直書きしない。
 
 ```bash
 curl -s -X POST "$SUPABASE_URL/rest/v1/project_meeting_summaries?on_conflict=meeting_id" \

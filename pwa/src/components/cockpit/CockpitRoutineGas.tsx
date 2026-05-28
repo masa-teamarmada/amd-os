@@ -43,6 +43,7 @@ interface Props {
 }
 
 const supabase = createClient();
+const CTB_ESTIMATE_MARKER = "[[CTB_ESTIMATE_SENT]]";
 
 const STANDARD_ORDER = [
   "budget",
@@ -55,7 +56,12 @@ const STANDARD_ORDER = [
 
 const CTB_ORDER = [
   "estimateSend",
-  ...STANDARD_ORDER,
+  "budget",
+  "meeting",
+  "invoiceIssue",
+  "invoiceSend",
+  "reportFix",
+  "reimburseConfirm",
 ];
 
 function formatYm(ym: string) {
@@ -140,14 +146,18 @@ function isPastReimburseDeadline(ym: string) {
   return todayJstKey() >= deadline;
 }
 
+function hasCTBEstimateMarker(raw?: string | null) {
+  return (raw || "").includes(CTB_ESTIMATE_MARKER);
+}
+
 function buildSteps(bc: BillingCycle | undefined, ym: string, isCTB: boolean): RoutineStep[] {
   const invoiceYm = bc?.invoiceYm?.trim() || ym;
   const deferred = invoiceYm !== ym;
   const deferredLabel = deferred ? `${Number(invoiceYm.slice(4))}月にまとめて請求` : "";
-  const estimateDone = !!bc?.invoiceBaseLinesJson || !!bc?.invoiceSubject || !!bc?.invoiceIssuedAt;
+  const estimateDone = hasCTBEstimateMarker(bc?.invoiceBaseLinesJson);
 
-  // 請求月を翌月以降に設定した月は「月次報告書FIX」以外を全部 skip 表示
-  // (invoiceIssue/invoiceSend は当月の cycle では deferred、翌月の cycle で本番)
+  // 請求月を翌月以降に設定した月は「月次報告書FIX」以外を全部 skip 表示。
+  // 見積・予算・日程・立替・請求は、invoice_ym 側の cycle でまとめて扱う。
   const base: Record<string, { label: string; done: boolean; deferred?: boolean }> = {
     estimateSend: { label: "見積書送付", done: estimateDone, deferred },
     budget: {

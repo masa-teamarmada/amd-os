@@ -1,14 +1,14 @@
 /**
  * POST /api/dialogue-meeting
  *
- * まさ × えいみ経営会議の議論ログを `project_meeting_summaries` に 1 行 upsert する。
+ * 提案前の論点整理セッションの議論ログを `project_meeting_summaries` に 1 行 upsert する。
  *
  * - meeting_id  = "dialogue:{project_id}:{YYYYMMDD-HHMMSS}"   (= 自動生成、衝突回避は秒精度で十分)
  * - source_kinds = "dialogue"
  * - decided / progress / next_actions / risks にバケツ分け
  *
  * cockpit の `CockpitMeetingSummary` が `source_kinds` 無関係に meeting_date DESC で
- * 表示するため、UI 側の修正なしでそのまま「経営会議ログ」がコックピット MTGサマリ欄に並ぶ。
+ * 表示するため、UI 側の修正なしでそのまま dialogue log がコックピット MTGサマリ欄に並ぶ。
  *
  * 会社全体スコープの議論は `project_id='p00'` を指定。
  *
@@ -19,7 +19,7 @@
  *     project_id: string,            // "p21" / "p00" 等
  *     meeting_date?: string,         // "YYYY-MM-DD" (default = today JST)
  *     ym?: string,                   // "202605" (default = meeting_date から)
- *     title?: string,                // (default = "まさ × えいみ経営会議 (YYYY-MM-DD)")
+ *     title?: string,                // (default = "提案前の論点整理セッション (YYYY-MM-DD)")
  *     summary_short: string,         // 1 行サマリ
  *     decided?: string[],
  *     progress?: string[],
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     : meetingDate.slice(0, 4) + meetingDate.slice(5, 7);
   const title = typeof body.title === "string" && body.title.trim()
     ? body.title.trim()
-    : `まさえいMTG (${meetingDate})`;
+    : `提案前の論点整理セッション (${meetingDate})`;
   const decided = ensureStringArray(body.decided);
   const progress = ensureStringArray(body.progress);
   const nextActions = ensureStringArray(body.next_actions);

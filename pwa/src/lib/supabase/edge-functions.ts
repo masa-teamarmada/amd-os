@@ -3,16 +3,29 @@
  *  エラーになることがあるため、iOS の `URLSession.shared.data` と同じ生 fetch 方式を使う。
  *  iOS の `SupabaseService.callEdgeFunction` ([ios/AMDOS/Core/Services/SupabaseService.swift:355]) と同等。
  */
+import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
+
 function edgeFunctionUrl(name: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!baseUrl) throw new Error("NEXT_PUBLIC_SUPABASE_URL missing");
   return `${baseUrl}/functions/v1/${name}`;
 }
 
-function authHeaders(): Record<string, string> {
+async function authHeaders(): Promise<Record<string, string>> {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!anonKey) throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY missing");
-  return { Authorization: `Bearer ${anonKey}` };
+
+  let bearer = anonKey;
+  if (typeof window !== "undefined") {
+    const supabase = createBrowserSupabase();
+    const { data } = await supabase.auth.getSession();
+    bearer = data.session?.access_token || anonKey;
+  }
+
+  return {
+    Authorization: `Bearer ${bearer}`,
+    apikey: anonKey,
+  };
 }
 
 export async function callEdgeFunctionGET<T>(
@@ -23,7 +36,7 @@ export async function callEdgeFunctionGET<T>(
   const url = `${edgeFunctionUrl(name)}${query ? `?${query}` : ""}`;
   const res = await fetch(url, {
     method: "GET",
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) {
     const body = await res.text();
@@ -39,7 +52,7 @@ export async function callEdgeFunctionPOST<T>(
   const res = await fetch(edgeFunctionUrl(name), {
     method: "POST",
     headers: {
-      ...authHeaders(),
+      ...(await authHeaders()),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),

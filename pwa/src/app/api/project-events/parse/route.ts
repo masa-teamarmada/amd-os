@@ -11,6 +11,7 @@
 
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { requireAuth } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -55,6 +56,9 @@ const SCHEMA_HINTS: Record<string, string> = {
 };
 
 export async function POST(req: Request) {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.errorResponse;
+
   let body: { kind?: string; label?: string; raw_text?: string };
   try {
     body = await req.json();

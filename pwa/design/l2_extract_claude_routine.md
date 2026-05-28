@@ -1,10 +1,10 @@
 # L2 ②〜⑨ 取り込み統一 — claude.ai Cloud routines 移行完了 (設計議論)
 
-> **状態 (= 2026-05-26 更新)**: ✅ **L2 ②〜⑨ 全 8 routine を claude.ai/code/routines (= Cloud / Remote routine) に移行完了、entry 済**。Mac の Local routine から、Anthropic-managed cloud infrastructure 上で動く Remote routine への一本化が完了。詳細仕様は [38 章](../manual/38-l2-extraction-routines-spec.md) を真とする。Local routine は「app open + 非スリープ中のみ発火」制約で MacBook Air 運用と相性悪く、Cloud routine が laptop closed でも動く点で優れる。
+> **状態 (= 2026-05-26 更新)**: ✅ **L2 ②〜⑨ 全 8 routine を claude.ai/code/routines (= Cloud / Remote routine) に移行完了、entry 済**。Mac の Local routine から、Anthropic-managed cloud infrastructure 上で動く Remote routine への一本化が完了。詳細仕様は [8-3 章](../manual/8-3-l2-extraction-routines-spec.md) を真とする。Local routine は「app open + 非スリープ中のみ発火」制約で MacBook Air 運用と相性悪く、Cloud routine が laptop closed でも動く点で優れる。
 >
-> **trigger ID 一覧** + 残課題は [`L2_DATA.md`](L2_DATA.md) の §「L2 ②〜⑨ Cloud routines 統一」と [38 章 §38.3](../manual/38-l2-extraction-routines-spec.md#383-routine-一覧--2026-05-26-entry-済) を参照。
+> **trigger ID 一覧** + 残課題は [`L2_DATA.md`](L2_DATA.md) の §「L2 ②〜⑨ Cloud routines 統一」と [8-3 章 §38.3](../manual/8-3-l2-extraction-routines-spec.md#383-routine-一覧--2026-05-26-entry-済) を参照。
 >
-> 関連: [`pwa/manual/03-data-and-extraction.md`](../manual/03-data-and-extraction.md) §3.1, [`pwa/manual/05-decisions-and-history.md`](../manual/05-decisions-and-history.md) §5.1 / §5.4 / §5.7, [`pwa/manual/38-l2-extraction-routines-spec.md`](../manual/38-l2-extraction-routines-spec.md), [`pwa/design_log/sessions_2026-05.md`](../design_log/) の 2026-05-26 セクション (= 移行経緯詳細)
+> 関連: [`pwa/manual/3-2-data-and-extraction.md`](../manual/3-2-data-and-extraction.md) §3.1, [`pwa/manual/9-1-decisions-and-history.md`](../manual/9-1-decisions-and-history.md) §5.1 / §5.4 / §5.7, [`pwa/manual/8-3-l2-extraction-routines-spec.md`](../manual/8-3-l2-extraction-routines-spec.md), [`pwa/design_log/sessions_2026-05.md`](../design_log/) の 2026-05-26 セクション (= 移行経緯詳細)
 
 ---
 
@@ -223,7 +223,7 @@ description: AMD OS L2 ⑥ MTG サマリ抽出 routine。毎時 0 分発火、�
 AMD OS の L2 ⑥ MTG サマリ抽出 routine。GAS 153 `nav_meeting_pollRecentlyEndedEvents` の後継 (= 5/22 kill switch で停止)。
 
 【絶対】 動く前に必ず Read:
-1. /Users/masa/projects/AMD/amd-os/pwa/manual/03-data-and-extraction.md (= §3.1 取り込み path / §3.2 L2 9 種正本 / §3.4 修正依頼ループ)
+1. /Users/masa/projects/AMD/amd-os/pwa/manual/3-2-data-and-extraction.md (= §3.1 取り込み path / §3.2 L2 9 種正本 / §3.4 修正依頼ループ)
 2. /Users/masa/projects/AMD/amd-os/pwa/design/meeting_summaries.md (= MTG サマリ仕様正本)
 3. /Users/masa/projects/AMD/amd-os/pwa/design/db_schema.md (= 列名は想像で書かない、必ずここを grep)
 

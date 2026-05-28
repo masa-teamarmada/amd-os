@@ -10,8 +10,55 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
 };
+
+type AuthOk = {
+  ok: true;
+  userId: string;
+  email: string;
+};
+
+type AuthFailure = {
+  ok: false;
+  response: Response;
+};
+
+async function requireAdmin(req: Request, supabaseUrl: string, serviceKey: string): Promise<AuthOk | AuthFailure> {
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!anonKey) {
+    return { ok: false, response: json({ ok: false, message: "SUPABASE_ANON_KEY missing" }, 500) };
+  }
+
+  const authHeader = req.headers.get("authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ")) {
+    return { ok: false, response: json({ ok: false, message: "Unauthorized" }, 401) };
+  }
+
+  const authClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: userData, error: userError } = await authClient.auth.getUser();
+  const user = userData?.user;
+  const email = user?.email?.toLowerCase() ?? "";
+  if (userError || !user || !email) {
+    return { ok: false, response: json({ ok: false, message: "Unauthorized" }, 401) };
+  }
+
+  const db = createClient(supabaseUrl, serviceKey);
+  const { data: member, error: memberError } = await db
+    .from("members")
+    .select("is_admin")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (memberError || !member?.is_admin) {
+    return { ok: false, response: json({ ok: false, message: "Forbidden" }, 403) };
+  }
+
+  return { ok: true, userId: user.id, email };
+}
 
 // MARK: - freee token
 
@@ -88,6 +135,14 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const companyId = Deno.env.get("FREEE_COMPANY_ID")!;
+    if (!companyId) return json({ ok: false, message: "FREEE_COMPANY_ID が未設定" }, 500);
+
+    const auth = await requireAdmin(req, supabaseUrl, serviceKey);
+    if (!auth.ok) return auth.response;
+
     const { projectId, ym, issueDate, dueDate, allLinesJson, invoiceSubject, documentType } =
       await req.json() as {
         projectId: string;
@@ -104,11 +159,6 @@ Deno.serve(async (req) => {
     }
 
     const kind = documentType === "quotation" ? "quotation" : "invoice";
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const companyId = Deno.env.get("FREEE_COMPANY_ID")!;
-    if (!companyId) return json({ ok: false, message: "FREEE_COMPANY_ID が未設定" }, 500);
-
     const db = createClient(supabaseUrl, serviceKey);
 
     // 1) プロジェクト情報取得
@@ -215,8 +265,7 @@ Deno.serve(async (req) => {
 
     // 7) billing_cycles 更新
     const now = new Date().toISOString();
-    const authHeader = req.headers.get("authorization") ?? "";
-    const callerEmail = extractEmailFromJWT(authHeader) ?? "system";
+    const callerEmail = auth.email;
 
     const normalizedLinesJson = kind === "quotation"
       ? ensureEstimateMarker(allLinesJson)
@@ -261,11 +310,6 @@ function getNextMonthStart(ym: string): string {
   const m = parseInt(ym.slice(4, 6));
   const next = m >= 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
   return `${next}-01`;
-}
-
-function extractEmailFromJWT(_authHeader: string): string | null {
-  // JWTデコードは省略（service_role keyで呼ばれるためemailは不明）
-  return null;
 }
 
 function ensureEstimateMarker(rawJson: string): string {

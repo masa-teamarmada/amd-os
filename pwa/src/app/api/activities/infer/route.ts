@@ -1,13 +1,14 @@
 /**
  * POST /api/activities/infer
- * マイページの「今すぐ推論」ボタン用。
- * 認証不要（DEV_MODE）。サーバーサイドで推論ロジックを直接実行。
+ * 旧「今すぐ推論」用の admin fallback route。
+ * service_role + Anthropic で member_activities(source='inferred') を再生成するため admin 必須。
  * body: { projectId?: string }  省略時は全アクティブPJ
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 
 function getServiceClient() {
   return createClient(
@@ -156,6 +157,9 @@ JSON形式のみで回答（他のテキスト不要）:
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });

@@ -5,8 +5,8 @@
  *
  * 既存「👥 メンバー」モーダル (CockpitMembersModal) は AMD 内部メンバー (project_members の share)
  * を表示。本モーダルは LLM 抽出した **関連メンバー** を表示。
- * まさ判断 (2026-05-22): HRL 根拠 = 「該当SU社員 + AMD伴走メンバー」だけ。
- *   大学・研究機関 / VC / 顧客 / 行政 / partner_company は HRL 根拠から除外。
+ * HRL 根拠 = 「該当SU社員 + AMD伴走メンバー + 大学キーパーソン」。
+ *   VC / 顧客 / 行政 / partner_company は HRL 根拠から除外。
  *
  * 仕様: pwa/scripts/migrations/040_project_founding_members.sql +
  *       075_related_members_cleanup.sql + pwa/src/lib/founding-members-data.ts
@@ -83,7 +83,7 @@ export function CockpitFoundingMembersModal({
             <h3 className="text-sm font-semibold">🧑‍🤝‍🧑 {ventureName} 関連メンバー</h3>
             <div className="text-[10px] text-muted-foreground mt-0.5">
               関連メンバー候補 {totalActive} 名 (LLM 抽出)。HRL 評価のベース。
-              <span className="block">対象は該当SU社員 + AMD伴走メンバーのみ (大学・研究機関 / VC / 顧客 / 行政 / 産業パートナーは HRL根拠外)。</span>
+              <span className="block">対象は該当SU社員 + AMD伴走メンバー + 大学キーパーソン (VC / 顧客 / 行政 / 産業パートナーは HRL根拠外)。</span>
             </div>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm" aria-label="閉じる">
@@ -98,8 +98,7 @@ export function CockpitFoundingMembersModal({
             <div className="text-[12px] text-muted-foreground py-6 text-center">
               関連メンバーはまだ抽出されていません。
               <div className="mt-2 text-[10px]">
-                毎週月曜 03:30 JST に LLM が monthly_reports / meeting_summaries / project_knowledge から
-                自動抽出します。手動キックは{" "}
+                LLM 抽出 route はあるが、自動 schedule は停止中。手動キックは{" "}
                 <code className="rounded bg-slate-100 px-1">
                   /api/cron/founding-members-extract?project_id={projectId}
                 </code>

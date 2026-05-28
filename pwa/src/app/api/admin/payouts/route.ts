@@ -74,6 +74,9 @@ type MemberRow = {
   member_id: string;
   code_name?: string | null;
   member_name?: string | null;
+  contractor_name?: string | null;
+  member_address?: string | null;
+  bank_info?: string | null;
   email?: string | null;
   is_officer?: boolean | null;
   exclude_from_payout_notice?: boolean | null;
@@ -197,6 +200,101 @@ function normalizeStatusAfterBudgetConfirm(status: string | null) {
     return "budget_confirmed";
   }
   return current;
+}
+
+// === 支払通知書メール送信 (まさ要件 2026-05-28): keiri@ from + PDF添付 + BCC ===
+
+const PAYOUT_NOTICE_MAIL_FROM = "keiri@team-armada.jp";
+const PAYOUT_NOTICE_MAIL_SUBJECT = "支払通知書のご案内";
+const PAYOUT_NOTICE_MAIL_BCC = ["masa@team-armada.jp", "kyoko@team-armada.jp"];
+
+function extractDriveFileId(url: string | null | undefined): string {
+  if (!url) return "";
+  const s = String(url);
+  let m = s.match(/\/file\/d\/([^/?#]+)/);
+  if (m) return m[1];
+  m = s.match(/[?&]id=([^&]+)/);
+  if (m) return m[1];
+  m = s.match(/\/d\/([^/?#]+)/);
+  if (m) return m[1];
+  return "";
+}
+
+function ymPayoutDate(ym: string): Date {
+  const y = Number(ym.slice(0, 4));
+  const m = Number(ym.slice(4, 6));
+  // 翌月 0 日 = 当月末日
+  return new Date(Date.UTC(y, m, 0));
+}
+
+function ymDueDate(ym: string): Date {
+  const last = ymPayoutDate(ym);
+  last.setUTCDate(last.getUTCDate() - 3);
+  return last;
+}
+
+function formatDueDateTextJp(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}年${m}月${day}日 17:00まで`;
+}
+
+function composePayoutNoticeMailBody(memberName: string, dueDateText: string): string {
+  return [
+    `${memberName}様`,
+    `いつもお世話になっております。`,
+    `株式会社チームアルマダです。`,
+    ``,
+    `支払通知書を本メールにてお送りいたします。`,
+    `内容をご確認のうえ、修正やご不明点がございましたら下記期日までにご連絡ください。`,
+    ``,
+    `--------`,
+    `【内容確認・修正の締切】`,
+    `${dueDateText}`,
+    `--------`,
+  ].join("\n");
+}
+
+async function callGasSendNoticeMail(payload: {
+  to: string;
+  memberName: string;
+  ym: string;
+  dueDateText: string;
+  body: string;
+  pdfDriveFileId: string;
+  from: string;
+  subject: string;
+  bcc: string[];
+}) {
+  const baseUrl = process.env.NEXT_PUBLIC_GAS_WEBAPP_URL || "";
+  const apiKey = process.env.NEXT_PUBLIC_GAS_API_KEY || process.env.CRON_SECRET || "";
+  if (!baseUrl) throw new Error("NEXT_PUBLIC_GAS_WEBAPP_URL missing");
+  if (!apiKey) throw new Error("NEXT_PUBLIC_GAS_API_KEY or CRON_SECRET missing");
+
+  const url = new URL(baseUrl);
+  url.searchParams.set("mode", "pwaApi");
+  url.searchParams.set("key", apiKey);
+  url.searchParams.set("action", "runFunc");
+
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      fn: "payout_sendNoticeMailV2_",
+      args: [payload],
+    }),
+  });
+  if (!res.ok) throw new Error(`GAS send notice mail failed: ${res.status}`);
+
+  const json = (await res.json()) as Record<string, unknown>;
+  if (json.ok === false) throw new Error(textValue(json.error) || "GAS send notice mail failed");
+
+  const data = asRecord(json.data) ?? {};
+  const result = asRecord(data.result) ?? {};
+  if (result.ok === false) throw new Error(textValue(result.error) || textValue(result.message) || "GAS send notice mail failed");
+  return result;
 }
 
 function rewardMemberId(member: RewardMemberRow): string {
@@ -508,7 +606,7 @@ export async function generateNoticePdfForMember(
     noticeNo = generatedNoticeNo(ym, (count ?? 0) + 1);
   }
 
-  const payeeName = textValue(member.member_name) || textValue(member.code_name) || memberId;
+  const payeeName = textValue(member.contractor_name) || textValue(member.member_name) || textValue(member.code_name) || memberId;
   const issuedAt = new Date().toISOString();
 
   let gasResult: Record<string, unknown>;
@@ -518,7 +616,9 @@ export async function generateNoticePdfForMember(
       memberId,
       noticeNo,
       payeeName,
+      payeeAddress: textValue(member.member_address),
       payeeEmail: textValue(member.email),
+      bankInfo: textValue(member.bank_info),
       totalYen,
       issuedAt,
       breakdown: entries.map((entry) => ({
@@ -678,7 +778,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   const [membersRes, projectsRes, invoiceCyclesRes, unsetInvoiceCyclesRes] = await Promise.all([
     db
       .from("members")
-          .select("member_id, code_name, member_name, email, status, is_officer, exclude_from_payout_notice")
+          .select("member_id, code_name, member_name, contractor_name, member_address, bank_info, email, status, is_officer, exclude_from_payout_notice")
       .eq("status", "active")
       .order("code_name"),
     db
@@ -806,6 +906,130 @@ export async function PATCH(req: NextRequest) {
   }
 
   const ym = cleanYm(typeof body.ym === "string" ? body.ym : null);
+
+  if (body.action === "preview_notice_email" || body.action === "send_notice_email") {
+    const memberId = textValue(body.memberId);
+    if (!ym || !memberId) {
+      return NextResponse.json({ ok: false, error: "ym and memberId are required" }, { status: 400 });
+    }
+
+    try {
+      const db = createAdminClient();
+      const [memberRes, noticeRes] = await Promise.all([
+        db
+          .from("members")
+          .select("member_id, member_name, contractor_name, code_name, email, exclude_from_payout_notice, is_officer")
+          .eq("member_id", memberId)
+          .maybeSingle(),
+        db
+          .from("payout_notices")
+          .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen")
+          .eq("member_id", memberId)
+          .eq("ym", ym)
+          .maybeSingle(),
+      ]);
+      if (memberRes.error) throw memberRes.error;
+      if (noticeRes.error) throw noticeRes.error;
+
+      const member = memberRes.data;
+      const notice = noticeRes.data;
+      if (!member) {
+        return NextResponse.json({ ok: false, error: "member not found" }, { status: 404 });
+      }
+      if (member.exclude_from_payout_notice || member.is_officer) {
+        return NextResponse.json({ ok: false, error: "this member is excluded from payout notice" }, { status: 409 });
+      }
+      const memberName = textValue(member.contractor_name) || textValue(member.member_name) || textValue(member.code_name) || memberId;
+      const toEmail = textValue(member.email);
+      if (!toEmail) {
+        return NextResponse.json(
+          { ok: false, error: `members.email が未設定: ${memberName} (${memberId})` },
+          { status: 409 }
+        );
+      }
+      const pdfUrl = textValue(notice?.pdf_url);
+      const pdfDriveFileId = extractDriveFileId(pdfUrl);
+      if (!pdfUrl || !pdfDriveFileId) {
+        return NextResponse.json(
+          { ok: false, error: "支払通知書PDFが未発行 / Drive fileId 抽出失敗" },
+          { status: 409 }
+        );
+      }
+      const dueDateText = formatDueDateTextJp(ymDueDate(ym));
+      const defaultBody = composePayoutNoticeMailBody(memberName, dueDateText);
+
+      if (body.action === "preview_notice_email") {
+        return NextResponse.json({
+          ok: true,
+          preview: {
+            memberId,
+            memberName,
+            to: toEmail,
+            from: PAYOUT_NOTICE_MAIL_FROM,
+            subject: PAYOUT_NOTICE_MAIL_SUBJECT,
+            bcc: PAYOUT_NOTICE_MAIL_BCC,
+            body: defaultBody,
+            dueDateText,
+            pdfUrl,
+            pdfDriveFileId,
+            totalYen: yenValue(notice?.total_yen),
+            alreadySentAt: notice?.sent_at ?? null,
+          },
+        });
+      }
+
+      // send_notice_email
+      const customBody = textValue(body.body) || defaultBody;
+      const gasResult = await callGasSendNoticeMail({
+        to: toEmail,
+        memberName,
+        ym,
+        dueDateText,
+        body: customBody,
+        pdfDriveFileId,
+        from: PAYOUT_NOTICE_MAIL_FROM,
+        subject: PAYOUT_NOTICE_MAIL_SUBJECT,
+        bcc: PAYOUT_NOTICE_MAIL_BCC,
+      });
+
+      const sentAt = new Date().toISOString();
+      const { error: upsertError } = await db
+        .from("payout_notices")
+        .upsert(
+          {
+            member_id: memberId,
+            ym,
+            sent_at: sentAt,
+            notice_no: notice?.notice_no ?? defaultNoticeNo(ym, memberId),
+            pdf_url: pdfUrl,
+            total_yen: yenValue(notice?.total_yen),
+          },
+          { onConflict: "member_id,ym" }
+        );
+      if (upsertError) throw upsertError;
+
+      const after = await loadTargetData(ym);
+      return NextResponse.json({
+        ok: true,
+        sentNoticeMail: {
+          memberId,
+          memberName,
+          to: toEmail,
+          bcc: PAYOUT_NOTICE_MAIL_BCC,
+          subject: PAYOUT_NOTICE_MAIL_SUBJECT,
+          sentAt,
+          gas: gasResult,
+        },
+        ...after,
+      });
+    } catch (err) {
+      console.error("[admin payouts PATCH notice_email]", err);
+      return NextResponse.json(
+        { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 }
+      );
+    }
+  }
 
   if (body.action === "update_notice") {
     const memberId = textValue(body.memberId);
@@ -1016,7 +1240,7 @@ export async function PATCH(req: NextRequest) {
           .maybeSingle(),
         db
           .from("members")
-          .select("member_id, code_name, member_name, email, status, is_officer, exclude_from_payout_notice")
+          .select("member_id, code_name, member_name, contractor_name, email, status, is_officer, exclude_from_payout_notice")
           .eq("member_id", memberId)
           .maybeSingle(),
         db

@@ -1,31 +1,26 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  ASPI_DOMAIN_IDS,
+  ASPI_DOMAIN_LABEL_JP,
+  type AspiDomainId,
+} from "@/lib/aspi-lanes";
 import type { ScholarPaperRow } from "@/app/(app)/scholar/page";
 
-const LANES = ["gx_energy", "gx_circular", "materials", "life", "robo"] as const;
-type Lane = (typeof LANES)[number];
-
-const LANE_LABEL: Record<Lane, string> = {
-  gx_energy: "GX エネルギー",
-  gx_circular: "GX サーキュラー",
-  materials: "マテリアル",
-  life: "ライフ",
-  robo: "ロボ",
-};
+const LANES: readonly AspiDomainId[] = ASPI_DOMAIN_IDS;
+type Lane = AspiDomainId;
 
 const LANE_COLOR: Record<Lane, string> = {
-  gx_energy: "#10b981", // emerald
-  gx_circular: "#14b8a6", // teal
-  materials: "#f59e0b", // amber
-  life: "#ec4899", // rose
-  robo: "#0ea5e9", // sky
+  advanced_ict: "#38bdf8",
+  advanced_materials_manufacturing: "#f59e0b",
+  ai_technologies: "#a78bfa",
+  biotechnology: "#ec4899",
+  defence_space_robotics_transport: "#22c55e",
+  energy_environment: "#10b981",
+  quantum: "#818cf8",
+  sensing_timing_navigation: "#14b8a6",
 };
-
-interface QuarterBucket {
-  quarter: string; // "2025-Q3"
-  observed_at: string; // YYYY-MM-DD
-}
 
 function dateToQuarter(observedAt: string): string {
   const [yy, mm] = observedAt.split("-");
@@ -34,37 +29,26 @@ function dateToQuarter(observedAt: string): string {
   return `${yy}-Q${q}`;
 }
 
+function isLane(value: string): value is Lane {
+  return (ASPI_DOMAIN_IDS as readonly string[]).includes(value);
+}
+
 export function ScholarTrendView({ rows }: { rows: ScholarPaperRow[] }) {
   const [hoveredLane, setHoveredLane] = useState<Lane | null>(null);
 
-  // quarter ごとに各 lane の値を整理
+  // quarter ごとに ASPI 8 domain の値を整理
   const data = useMemo(() => {
     const byQuarter = new Map<string, { quarter: string; observed_at: string; counts: Partial<Record<Lane, number>> }>();
     for (const r of rows) {
+      if (!isLane(r.lane)) continue;
       const quarter = dateToQuarter(r.observed_at);
       if (!byQuarter.has(quarter)) {
         byQuarter.set(quarter, { quarter, observed_at: r.observed_at, counts: {} });
       }
-      byQuarter.get(quarter)!.counts[r.lane as Lane] = r.paper_count;
+      byQuarter.get(quarter)!.counts[r.lane] = r.paper_count;
     }
     return Array.from(byQuarter.values()).sort((a, b) => a.observed_at.localeCompare(b.observed_at));
   }, [rows]);
-
-  if (data.length === 0) {
-    return (
-      <div className="rounded-md border border-dashed border-amber-300 bg-amber-50/40 p-6 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-        <strong>papers_log が空です。</strong>
-        <p className="mt-2 text-xs">
-          初回 cron が走るまで待つか、以下を実行して手動キックしてください:
-        </p>
-        <pre className="mt-2 overflow-x-auto rounded bg-amber-100 p-2 text-[11px] dark:bg-amber-900/40">
-          {`SECRET=$(grep '^CRON_SECRET=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | sed 's/^CRON_SECRET=//' | tr -d '"')
-curl -sL --max-time 300 -H "Authorization: Bearer $SECRET" \\
-  https://amd-os-pwa.vercel.app/api/cron/papers-quarterly-ingest`}
-        </pre>
-      </div>
-    );
-  }
 
   // 全 lane の値で y 軸 max 計算
   const yMax = Math.max(
@@ -88,10 +72,26 @@ curl -sL --max-time 300 -H "Authorization: Bearer $SECRET" \\
     return out;
   }, [data]);
 
+  if (data.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed border-amber-300 bg-amber-50/40 p-6 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+        <strong>papers_log が空、または ASPI 8 domain の行がまだありません。</strong>
+        <p className="mt-2 text-xs">
+          初回 cron が走るまで待つか、以下を実行して手動キックしてください:
+        </p>
+        <pre className="mt-2 overflow-x-auto rounded bg-amber-100 p-2 text-[11px] dark:bg-amber-900/40">
+          {`SECRET=$(grep '^CRON_SECRET=' /Users/masa/projects/AMD/amd-os/pwa/.env.local | sed 's/^CRON_SECRET=//' | tr -d '"')
+curl -sL --max-time 300 -H "Authorization: Bearer $SECRET" \\
+  https://amd-os-pwa.vercel.app/api/cron/papers-quarterly-ingest`}
+        </pre>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* === 前年同期比カード × 5 lane === */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      {/* === 前年同期比カード × ASPI 8 domain === */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
         {LANES.map((lane) => {
           const yoy = yoyByLane[lane];
           const pct = yoy.pct;
@@ -110,7 +110,7 @@ curl -sL --max-time 300 -H "Authorization: Bearer $SECRET" \\
                   className="inline-block h-2.5 w-2.5 rounded-full"
                   style={{ backgroundColor: LANE_COLOR[lane] }}
                 />
-                <span className="text-xs font-medium text-slate-900 dark:text-slate-100">{LANE_LABEL[lane]}</span>
+                <span className="text-xs font-medium text-slate-900 dark:text-slate-100">{ASPI_DOMAIN_LABEL_JP[lane]}</span>
               </div>
               <div className="mt-1 font-mono text-base font-semibold text-slate-900 tabular-nums dark:text-slate-100">
                 {yoy.current.toLocaleString()}
@@ -248,7 +248,7 @@ function TrendChart({
                 fill={LANE_COLOR[lane]}
                 opacity={isHover ? 1 : 0.25}
               >
-                <title>{`${LANE_LABEL[lane]} ${d.quarter}: ${v.toLocaleString()} 本`}</title>
+                <title>{`${ASPI_DOMAIN_LABEL_JP[lane]} ${d.quarter}: ${v.toLocaleString()} 本`}</title>
               </circle>
             );
           });
@@ -292,7 +292,7 @@ function QuarterlyTable({
                   className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
                   style={{ backgroundColor: LANE_COLOR[lane] }}
                 />
-                {LANE_LABEL[lane]}
+                {ASPI_DOMAIN_LABEL_JP[lane]}
               </td>
               {recent.map((d) => {
                 const v = d.counts[lane];

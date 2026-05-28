@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 
 /**
  * 1つのシグナルを別ストーリーに移植 / 切り離し / 新ストーリー化する。
@@ -15,6 +16,9 @@ import { createClient } from "@supabase/supabase-js";
  *   - 移植先ストーリーの signal_count / tags / last_updated_at を更新
  */
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
   let body: {
     signalId?: string;
     action?: "detach" | "moveToExisting" | "createNew";

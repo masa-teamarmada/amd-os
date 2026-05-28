@@ -342,13 +342,16 @@ function toYmDate(ym, fallback) {
   return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01T00:00:00.000Z`;
 }
 
-async function health() {
+async function health({ includeGas = true } = {}) {
+  const gasCheck = includeGas
+    ? (GAS_BASE_URL
+        ? requestJson(`${GAS_BASE_URL}?mode=pwaApi&key=${encodeURIComponent(GAS_API_KEY)}&action=listProps`)
+        : Promise.resolve({ skipped: true, message: "NEXT_PUBLIC_GAS_WEBAPP_URL not set" }))
+    : Promise.resolve({ skipped: true, message: "GAS health is not required for this automation path" });
   const checks = await Promise.allSettled([
     get("projects", "select=project_id,project_name&limit=1"),
     requestJson(`${PWA_BASE_URL}/api/progress/ms-schedule?projectId=p21&startYm=202601`),
-    GAS_BASE_URL
-      ? requestJson(`${GAS_BASE_URL}?mode=pwaApi&key=${encodeURIComponent(GAS_API_KEY)}&action=listProps`)
-      : Promise.resolve({ skipped: true, message: "NEXT_PUBLIC_GAS_WEBAPP_URL not set" }),
+    gasCheck,
   ]);
 
   const supabase = settledValue(checks[0]);
@@ -1033,8 +1036,8 @@ async function applyOutbox(file) {
   };
 }
 
-async function refreshSnapshot({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {}) {
-  const healthResult = await health();
+async function refreshSnapshot({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT, includeGasHealth = false } = {}) {
+  const healthResult = await health({ includeGas: includeGasHealth });
   if (!healthResult.supabaseOk) {
     return {
       ok: false,
@@ -1081,8 +1084,8 @@ async function applyOutboxDir({ dir = DEFAULT_OUTBOX_DIR, appliedDir, failedDir 
   };
 }
 
-async function automationPrepare({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {}) {
-  const snapshotResult = await refreshSnapshot({ ym, out });
+async function automationPrepare({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT, includeGasHealth = false } = {}) {
+  const snapshotResult = await refreshSnapshot({ ym, out, includeGasHealth });
   const localSnapshotHealth = inspectSnapshotFile(out);
   const shouldApplyOutbox = process.env.AMD_OS_AUTOMATION_APPLY_OUTBOX === "1";
   const applyResult = shouldApplyOutbox
@@ -1364,7 +1367,7 @@ async function main() {
   const cmd = args._[0] || "help";
   let result;
   if (cmd === "health") {
-    result = await health();
+    result = await health({ includeGas: args["no-gas"] !== true });
   } else if (cmd === "snapshot-health") {
     result = inspectSnapshotFile(args.file || DEFAULT_OS_SNAPSHOT, {
       maxAgeHours: positiveNumber(args["max-age-hours"], DEFAULT_MAX_SNAPSHOT_AGE_HOURS),
@@ -1376,7 +1379,11 @@ async function main() {
   } else if (cmd === "export-os-snapshot") {
     result = await exportOsSnapshot({ ym: args.ym || yyyymm(), out: args.out || DEFAULT_OS_SNAPSHOT });
   } else if (cmd === "refresh-snapshot") {
-    result = await refreshSnapshot({ ym: args.ym || yyyymm(), out: args.out || DEFAULT_OS_SNAPSHOT });
+    result = await refreshSnapshot({
+      ym: args.ym || yyyymm(),
+      out: args.out || DEFAULT_OS_SNAPSHOT,
+      includeGasHealth: args["include-gas-health"] === true,
+    });
   } else if (cmd === "local-targets") {
     result = localTargets({ file: args.file || DEFAULT_OS_SNAPSHOT, ym: args.ym || yyyymm(), includePast: args["no-past"] !== true });
   } else if (cmd === "local-snapshot") {
@@ -1415,12 +1422,17 @@ async function main() {
   } else if (cmd === "apply-outbox-dir") {
     result = await applyOutboxDir({ dir: args.dir || DEFAULT_OUTBOX_DIR });
   } else if (cmd === "automation-prepare") {
-    result = await automationPrepare({ ym: args.ym || yyyymm(), out: args.out || DEFAULT_OS_SNAPSHOT });
+    result = await automationPrepare({
+      ym: args.ym || yyyymm(),
+      out: args.out || DEFAULT_OS_SNAPSHOT,
+      includeGasHealth: args["include-gas-health"] === true,
+    });
   } else {
     result = {
       ok: true,
       usage: [
         "node pwa/scripts/ms_progress_review_tool.mjs health",
+        "node pwa/scripts/ms_progress_review_tool.mjs health --no-gas",
         "node pwa/scripts/ms_progress_review_tool.mjs snapshot-health --file /tmp/os-snapshot.json --max-age-hours 48",
         "node pwa/scripts/ms_progress_review_tool.mjs export-os-snapshot --ym 202605",
         "node pwa/scripts/ms_progress_review_tool.mjs local-targets --ym 202605",
@@ -1439,6 +1451,7 @@ async function main() {
         "node pwa/scripts/ms_progress_review_tool.mjs apply-outbox --file /tmp/amd-os-outbox.json",
         "node pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir",
         "node pwa/scripts/ms_progress_review_tool.mjs automation-prepare --ym 202605",
+        "node pwa/scripts/ms_progress_review_tool.mjs automation-prepare --ym 202605 --include-gas-health",
       ],
     };
   }

@@ -102,7 +102,7 @@ function asObject(value) {
 }
 
 const INCLUDE_RE = /(合意|決定|確定|方針|戦略|転換|断念|出願|特許|知財|NDA|締結|契約|DD|投資|VC|資本政策|CEO|PoC|サンプル|候補|候補地|入札|開札|受注|有償|売上|提携|連携|URA|大学|法人会員|加入|交渉|提供|開始|完了|試運転|公開|リスク|損失|遅延|失注|補助金|申請)/;
-const EXCLUDE_RE = /(予定から検出|^予定:|報酬配分|支払|AMD-OS|PJコックピット|経営会議の定期開催|事務手続き|月次試算表)/;
+const EXCLUDE_RE = /(予定から検出|^予定:|報酬配分|支払|AMD-OS|PJコックピット|経営(?:会議)の定期開催|事務手続き|月次試算表)/;
 
 function signalTypeFor(row) {
   const source = `${row.title || ""}\n${row.content_preview || ""}`;
@@ -209,7 +209,7 @@ function buildSignal(row, projectName, extractionRunId) {
       l2_kind: "project_strategy_signal",
       target_id: row.project_id,
       scope_key: `${row.ym}:strategy:${sourceHash.slice(0, 12)}`,
-      title: `🧭 ${projectName}: ${text(row.title).slice(0, 42)} を経営・事業シグナルにする？`,
+      title: `🧭 ${projectName}: ${text(row.title).slice(0, 42)} を経営ハイライトにする？`,
       summary: text(row.content_preview).slice(0, 450),
       saved_count: 1,
       total_count: 1,

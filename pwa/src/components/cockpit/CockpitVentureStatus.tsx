@@ -439,7 +439,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         <button
           onClick={() => setNarrativeOpen(true)}
           className="text-[11px] px-2 py-0.5 rounded-full border border-[#e5e5e7] hover:bg-[#fafafa]"
-          title="毎朝 03:00 cron で生成した沿革を見る"
+          title="沿革を見る"
         >
           📜 沿革
         </button>
@@ -450,8 +450,8 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         >
           👥 メンバー
         </button>
-        {/* 2026-05-11 まさ指摘 1 番: 「🧑‍🤝‍🧑 創業」ボタン削除。
-            LLM 抽出された創業メンバーは「👥 メンバー」モーダル内に統合表示 */}
+        {/* 2026-05-11 まさ指摘 1 番: 旧「関連メンバー」別ボタンを削除。
+            LLM 抽出された関連メンバーは「👥 メンバー」モーダル内に統合表示 */}
         <button
           onClick={() => setPartnersOpen(true)}
           className="text-[11px] px-2 py-0.5 rounded-full border border-[#e5e5e7] hover:bg-[#fafafa]"
@@ -666,6 +666,34 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
               </g>
             );
           })}
+          {/* 未来予測のクリック hit area。破線 path だけだと狭すぎるので、各未来点に透明 circle を重ねる。 */}
+          {futureSeries.slice(1).map((p, i) => {
+            const x = xOfScoreDate(p.date);
+            const y = yOfScore(p.score);
+            return (
+              <g
+                key={`future-hit-${p.date}-${i}`}
+                style={{ cursor: "crosshair" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCreatingAt(p.date.slice(0, 10));
+                }}
+              >
+                <circle
+                  data-future-score-hit="true"
+                  data-future-score-date={p.date.slice(0, 10)}
+                  cx={x}
+                  cy={y}
+                  r={20}
+                  fill="#fff"
+                  fillOpacity={0.001}
+                  pointerEvents="all"
+                />
+                <circle cx={x} cy={y} r={3.5} fill="#0f172a" opacity={0.45} pointerEvents="none" />
+                <title>{`未来予測 ${p.date.slice(0, 10)} / クリックでイベント追加`}</title>
+              </g>
+            );
+          })}
           {/* 現在スコア pill (まさ #30 2026-05-24): 現在プロット (= 過去最終点) の近くに移動。
               旧実装は SVG 右上固定 + 赤破線の引き出し線で、引き出し線が未来予測破線と並走して
               「破線 2 本問題」が出ていた (= 引き出し線は #20-3rd で削除済)。今回 pill そのものを
@@ -761,7 +789,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
               </span>
             ))}
             <span className="text-[10px] text-muted-foreground">
-              毎朝 03:15 (JST) に差分があれば LLM が自動判定 → 提案ドットを採用 / 却下できる
+              XRL 自動判定 schedule は停止中。既存 / 手動提案ドットは採用・却下できる
             </span>
           </div>
         </div>

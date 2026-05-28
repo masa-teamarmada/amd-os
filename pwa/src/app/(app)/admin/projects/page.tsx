@@ -14,7 +14,7 @@ export default async function AdminProjectsPage() {
     .order("project_name");
 
   // ASPI 8 domain lanes (project_ventures.lanes) を別 query で取って Map で merge。
-  // SU 化されてない PJ (project_ventures に行がない) は lanes = null。
+  // SU 化されてない PJ (project_ventures に行がない) は has_venture_row=false。
   const { data: pvData } = await supabase
     .from("project_ventures")
     .select("project_id, lanes");
@@ -97,6 +97,7 @@ export default async function AdminProjectsPage() {
       pms: r.pms,
       closers: r.closers,
       pls: r.pls,
+      has_venture_row: lanesByPj.has(p.project_id),
       lanes: lanesByPj.get(p.project_id) ?? null,
       lane_suggestion: suggestionByPj.get(p.project_id) ?? null,
       created_at: p.created_at,

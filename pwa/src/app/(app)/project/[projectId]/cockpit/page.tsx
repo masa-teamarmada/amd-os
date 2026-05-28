@@ -88,16 +88,18 @@ export default function CockpitPage() {
 
   const stepParam = searchParams.get("step");
   const ymParam = searchParams.get("ym");
+  const meetingParam = searchParams.get("meeting");
   // ?step=xxx&ym=YYYYMM が両方あれば、stepId 別の専用モーダルを起動時に開く。
   // 月次モーダルを開きたいときは ?ym だけ。
-  const initialStep = stepParam && ymParam ? { ym: ymParam, stepId: stepParam } : null;
+  // ?meeting= がある場合は MTG詳細モーダルを優先し、月次系モーダルとの二重起動を避ける。
+  const initialStep = !meetingParam && stepParam && ymParam ? { ym: ymParam, stepId: stepParam } : null;
 
   return (
     <CockpitView
       cockpit={cockpit}
       nudges={cockpit.nudges || []}
       tasks={cockpit.tasks || []}
-      initialModalYm={initialStep ? null : ymParam}
+      initialModalYm={meetingParam || initialStep ? null : ymParam}
       initialStep={initialStep}
       canEditRoutine={canEditRoutine}
     />

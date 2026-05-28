@@ -17,7 +17,7 @@ description: AMD OS L2 ⑧ XRL 根拠 (TRL / BRL / GRL / SRL / HRL の算定根�
 **既存 Codex `amd-os-ms` が稼働中**。L7 と同じく fact 比較 → 既存停止の段取り。
 
 ## 【絶対】 動く前に必ず Read
-1. `pwa/manual/03-data-and-extraction.md` §3.2-3.4
+1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4
 2. `pwa/design/xrl_evidence.md` (= L2 ⑧ 仕様正本)
 3. `pwa/design/amd_score.md` (= AMD Score 算定式)
 4. `pwa/design/db_schema.md` (= project_xrl_evidence / project_founding_members / project_xrl_log / amd_score_inputs 列名)

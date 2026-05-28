@@ -1,6 +1,6 @@
 # XRL根拠 (L2 ⑧) — 設計の正本
 
-最終更新: 2026-05-22
+最終更新: 2026-05-25
 正本ステータス: 定義確定、実装中。
 
 ---
@@ -12,8 +12,8 @@
 最終スコアそのものではなく、「なぜその TRL / BRL / GRL / SRL / HRL と見たか」を説明できる根拠データを L2 として保持する。
 
 `project_founding_members` はこの L2 の一部で、HRL 推定の根拠として正式採用する。
-ここに入れるのは創業者 / CEO候補 / 技術創業者 / PI などの創業コアだけで、
-VC / 協業先 / 顧客 / 行政 / advisor-only / AMDサポートのみの人物は含めない。
+ここに入れるのは CEO候補 / 技術リード / PI / AMD伴走 / 大学キーパーソンなど、SU 立ち上げに直接コミットする人物だけで、
+VC / 協業先 / 顧客 / 行政 / advisor-only の人物は含めない。
 
 ---
 
@@ -25,7 +25,7 @@ VC / 協業先 / 顧客 / 行政 / advisor-only / AMDサポートのみの人物
 | BRL | Business Readiness Level | 顧客候補、用途仮説、価格、競合、事業計画、PoC候補 |
 | GRL | Governance / Grant / Government Readiness Level | 補助金、規制、大学内承認、産連/URA、認定制度、公共調達 |
 | SRL | Social / Stakeholder Readiness Level | ステークホルダー合意、導入先、社会実装経路、受容性、倫理・安全 |
-| HRL | Human Readiness Level | 創業メンバー、PI、事業責任者候補、外部創業者、AMD伴走体制、採用候補 |
+| HRL | Human Readiness Level | CEO候補、PI、事業責任者候補、外部 founder、AMD伴走体制、採用候補 |
 
 軸名の細部は AMD Score 側の定義に従う。ここでは「XRL 算定の根拠を束ねる L2」として扱う。
 
@@ -35,7 +35,7 @@ VC / 協業先 / 顧客 / 行政 / advisor-only / AMDサポートのみの人物
 
 | テーブル | L2 ⑧での位置づけ |
 |---|---|
-| `project_founding_members` | HRL 根拠。創業メンバー / 共同創業候補 / AMD伴走者 / 外部キーマンを保持 |
+| `project_founding_members` | HRL 根拠。SU 創業候補 / AMD伴走者 / 大学キーパーソンを保持。manual 上は「関連メンバー」と呼ぶ |
 | `project_xrl_log` | XRL 時系列の評価ログ。LLM proposal や bottleneck を保持 |
 | `amd_score_inputs` | AMD Score 入力値。XRL / FRL / Triple Helix 系入力と notes を保持 |
 | `l2_notifications` | XRL根拠の新規抽出・更新・差分を通知 |
@@ -107,15 +107,15 @@ XRL根拠が新規作成・大幅更新されたら `/notifications` に出す�
 
 ### 対象範囲 (まさ判断 2026-05-22)
 
-HRL 根拠に算入するのは **「該当SUの社員 (社員候補 / 創業候補を含む) + AMD の伴走メンバー」だけ**。
+HRL 根拠に算入するのは **「該当SUの社員 (社員候補 / 創業候補を含む) + AMD の伴走メンバー + 大学キーパーソン」**。
 このスコープに合致するものだけが HRL を動かす。
 
 含める (category 値):
 - `amd`: AMD の伴走メンバー (= `members.code_name` に一致する人物)
 - `startup`: 該当SU の社員 / 社員候補 / 創業候補 (= AMD 外で SU 側に入る人物)
+- `university`: 起源PI / 共同創業者 / 技術リード / 共同研究中核として SU と一体で動く大学・研究機関人物
 
 含めない (category 値、status='invalid' 化 / HRL 算定から除外):
-- `university`: 大学 / 研究機関の PI / 共同研究者 / 特許保有者
 - `vc`: VC / ファンド / 投資家 / 出資検討者
 - `partner_company`: 産業パートナー / 顧客候補 / サプライヤー / 委託先
 - `government`: 補助金 / 行政 / 支援機関 / 採択担当
@@ -125,7 +125,7 @@ HRL 根拠に算入するのは **「該当SUの社員 (社員候補 / 創業候
 
 ### 表記ルール
 
-- AMD メンバーは必ず `members.code_name` で記録する (例: `まさ` / `きよ` / `かる`)。
+- AMD メンバーは必ず `members.code_name` で記録する (例: DB の `members.code_name` に存在する値)。
   本名 (`山地正洋`) / 姓のみ (`山地`) / スペース付き表記は invalid 化して `code_name` 1 行に集約する。
 - 関連メンバー抽出cronが読む md は、`/Users/masa/projects/knowledge/<slug>.md` を
   `project_ventures.master_md_text` に同期した SU 別正本。AMD メンバー一覧 md は抽出promptへ直接渡さず、
@@ -133,6 +133,7 @@ HRL 根拠に算入するのは **「該当SUの社員 (社員候補 / 創業候
 - AMD code_name に該当しない person で SU 側人物は `category='startup'` + `affiliation=<SU名>`。
   「JOYCLE / AMD」のような AMD 二重表記は使わない (= 誤分類の温床になる)。
 - 同一人物の別表記 (例: `野田` / `野田先生`) は LLM 抽出時に集約する。
+- 詳細な category / role / FRL 6 因子の式は [`../manual/4-4-frl-related-members-score-spec.md`](../manual/4-4-frl-related-members-score-spec.md) を正本にする。
 
 ### ステータス遷移
 

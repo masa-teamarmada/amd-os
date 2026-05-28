@@ -1,6 +1,6 @@
 # AMDプロトコル (② L2) — 設計の正本
 
-最終更新: 2026-05-09 (Phase 4 = 毎時 polling 化、初版稼働)
+最終更新: 2026-05-25 (#68 current truth 反映)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -69,6 +69,7 @@ LLM (Gemini Flash) は、まず `content` に分岐点 / 判断材料 / アク�
 | ~ Phase 3 | ❌ 未稼働 (テーブル空)。UI 既存だが手動 insert のみ |
 | Phase 4 (初版) | 本体GAS 155 で稼働、ただし PJ 固有事例ベースで抽出 (= 普遍性なし) |
 | **Phase 4.5** ⭐ (本仕様、2026-05-11) | 普遍プロトコル + 1:N 事例構造に移行。protocol_id は `p4u-{sha12(title)}` (= PJ 横断で同タイトル = 同 ID)、project_id=null。examples を protocol_examples に upsert。**LLM プロンプト本文は `llm_prompts.protocol.extract` 必須** (= コード hardcoded fallback 廃止、AGENTS ルール完遵)、まさが /admin/prompts で全文編集可能 |
+| **2026-05-22 以降** | LLM 課金抑制のため GAS 155 が kill switch 停止。`protocols` は ghost 状態。復旧方針は Claude routine `amd-os-protocol-extract` (= daily 08:00 JST 予定)。詳細は [../manual/8-3-l2-extraction-routines-spec.md](../manual/8-3-l2-extraction-routines-spec.md) |
 
 ---
 
@@ -211,8 +212,10 @@ CREATE TABLE protocol_result_observations (
 
 ## 認証 / 呼び出し方
 
-### 本番 (毎時)
-GAS time-trigger `nav_protocol_pollAll` が毎時 1 回発火。
+### 本番
+2026-05-25 #68 時点では、GAS time-trigger は停止中。GAS 155 は `L2_KNOWLEDGE_CRON_DISABLED_20260522` で disabled return するため、毎時発火を復活させない。
+
+復旧後は Claude routine `amd-os-protocol-extract` が daily 08:00 JST に実行し、Supabase REST へ直接 upsert する設計。
 
 ### 手動実行 (curl)
 ```sh
@@ -247,6 +250,7 @@ curl -sL --max-time 300 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_protoco
 | 2026-05-11 | **Phase 4.5: 普遍プロトコル + 1:N 事例構造に移行**。protocol_id を `p4u-{sha12(title)}` に変更、project_id=null、examples を protocol_examples に分離。LLM プロンプトをコード排除 + DB 必須化 (AGENTS ルール完遵)。UI 大改修: 4 要素ステップカード + 関連事例リスト + 4 アクション (✅確定 / 🔄修正依頼 / ❌却下 / 📥archive)。migration 049 (protocol_examples) + 050 (UNIQUE 制約)。**事故**: 既存 13 件を一括 archive にしたら UI 「確定ボタンだけ」表示になった → candidate に戻して復旧 ([BUGS.md](../BUGS.md) 参照) |
 | 2026-05-21 | **結果欄の意味を修正**。旧設計は「結果・学習」として自動抽出時に一般論を埋めていたが、まさ指摘により誤りと確定。結果は「アクション後に実際に起きたこと」を後追いで記録する欄。自動抽出では分岐点 / 判断材料 / アクションの3要素だけ保存し、`protocol_examples.result` は `null`。既存候補は content の結果セクション削除 + example result null へ補正。 |
 | 2026-05-21 | **結果追跡を時系列ledger化**。1年後/2年後で評価が変わる判断を扱うため、結果を単一欄に上書きせず `protocol_result_observations` に append-only 保存する設計へ変更。 |
+| 2026-05-25 | #68 current truth 反映。GAS 155 は 5/22 kill switch で停止中、復旧は Claude routine `amd-os-protocol-extract`。通知 yes は `confirmed` が正本で、`active` ではない。 |
 
 ---
 

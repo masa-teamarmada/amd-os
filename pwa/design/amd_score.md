@@ -283,7 +283,7 @@ M = (σ_SU+1)^α_σ                                          ← 数式 ①
 - migration 038_triple_helix_loading.sql: C 行列 prior を 7 行 seed
 - `src/lib/triple-helix-observations.ts`: 観測量 fetcher / 正規化 / μ 計算
 - `src/components/venture-map/TripleHelixMatrix.tsx`: M カード本体
-- `src/app/api/cron/papers-quarterly-ingest/route.ts`: OpenAlex weekly cron (5 lane × 16 Q)
+- `src/app/api/cron/papers-quarterly-ingest/route.ts`: OpenAlex weekly cron (ASPI 8 domain × 16 Q)
 - `src/app/(app)/scholar/page.tsx` + `src/components/scholar/ScholarTrendView.tsx`: lane × quarter trend chart
 
 #### Phase 2 TODO (観測量の網羅)

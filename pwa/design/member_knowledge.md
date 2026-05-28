@@ -1,6 +1,6 @@
 # メンバーナレッジ (⑤ L2) — 設計の正本
 
-最終更新: 2026-05-09 (Phase 4 = 毎時 polling 化、初版稼働)
+最終更新: 2026-05-25 (#68 current truth 反映)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -19,7 +19,8 @@ L2 ⑤ メンバーナレッジ (`member_knowledge`) の自動更新 cron。
 | 時期 | 内容 |
 |---|---|
 | Phase 1〜3 | ❌ 未稼働 (テーブル空) |
-| **Phase 4** ⭐ (本仕様) | 本体GAS の毎時 trigger (`gas/155_L2KnowledgeExtractor.js` `nav_member_knowledge_pollAll`) で稼働。**入力は二次集約** (= 既存 `member_activities` + `project_meeting_summaries`)。5 生データへの直接アクセスは Phase 4.x 改善案 |
+| Phase 4 | 2026-05-09 に本体GAS の毎時 trigger (`gas/155_L2KnowledgeExtractor.js` `nav_member_knowledge_pollAll`) で稼働開始。**入力は二次集約** (= 既存 `member_activities` + `project_meeting_summaries`) |
+| **2026-05-22 以降** ⭐ (current truth) | LLM 課金抑制のため GAS 155 が kill switch 停止。`member_knowledge` は ghost 状態。復旧方針は Claude routine `amd-os-member-knowledge-extract` (= daily 08:30 JST 予定)。詳細は [../manual/8-3-l2-extraction-routines-spec.md](../manual/8-3-l2-extraction-routines-spec.md) |
 
 ---
 
@@ -109,8 +110,10 @@ CREATE TABLE l2_extract_state (
 
 ## 認証 / 呼び出し方
 
-### 本番 (毎時)
-GAS time-trigger `nav_member_knowledge_pollAll` が毎時 1 回発火。
+### 本番
+2026-05-25 #68 時点では、GAS time-trigger は停止中。GAS 155 は `L2_KNOWLEDGE_CRON_DISABLED_20260522` で disabled return するため、毎時発火を復活させない。
+
+復旧後は Claude routine `amd-os-member-knowledge-extract` が daily 08:30 JST に実行し、Supabase REST へ直接 upsert する設計。
 
 ### 手動実行 (curl)
 ```sh
@@ -131,6 +134,7 @@ curl -sL --max-time 360 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_member_
 - **GAS UrlFetchApp タイムアウト**: 60 秒程度。1 メンバー × Gemini Flash で ~15 秒 → 5 件で 75 秒なので余裕は薄い。長引きそうなら maxItems を下げる
 - **重複防止**: UNIQUE(code_name, category) で同人物 × 同 category は最新のみ残る
 - **source 列 = 'l2_hourly_extract'**: 既存値 'slack_conversation' とは区別 (= Phase 4 cron 由来か手動 insert か区別可能)
+- **status / source_hash 列なし**: 現行 `member_knowledge` schema は `id, code_name, category, summary, source, updated_at` のみ。候補/却下を row 自体に保存するには migration が必要。現時点では `l2_extract_state` と `l2_notifications` 側で差分と通知を扱う。
 
 ---
 
@@ -142,6 +146,7 @@ curl -sL --max-time 360 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_member_
 | 2026-05-09 | **member_activities 列名 4 つ間違いバグ修正** (`code_name`/`created_at`/`activity_text`/`kind` → `member_id`/`extracted_at`/`content_preview`/`source`)。PostgREST 42703 エラーで activities ゼロ → 他 PJ meeting_summaries だけが LLM 入力になり「きよ」のナレッジに「神谷氏との CEO 候補面談」等が誤抽出されていた事故を修正。BUGS.md 参照 |
 | 2026-05-09 | **役割分担データ統合 (Section C 追加)**: 入力に `milestone_responsibility` (share>0) × `value_milestones` (title/success_criteria) × `value_plan_cycles` (project_id) JOIN で「公式の役割分担」をグラウンドトゥルースとして渡す。LLM プロンプトで「skills/work_style はここから抽出」と明示。きよ で検証 → 「請求書処理・契約管理等の月次事務手続き、入札対応全般」が正しく抽出された (= まさの事務担当像と整合) |
 | 2026-05-09 | **alias map 統合**: `gas/079 nameAlias_buildBlock` でメンバー名の表記揺れマップを LLM プロンプトに渡す。`pv: "v3_with_aliases"` で全行再抽出 |
+| 2026-05-25 | #68 current truth 反映。GAS 155 は 5/22 kill switch で停止中、復旧は Claude routine `amd-os-member-knowledge-extract`。現 schema に `status` / `source_hash` が無いことを明記。 |
 
 ---
 

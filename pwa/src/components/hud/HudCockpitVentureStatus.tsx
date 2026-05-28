@@ -397,7 +397,7 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
         <button
           onClick={() => setNarrativeOpen(true)}
           className="border border-cyan-300/24 bg-cyan-300/8 px-2 py-0.5 text-[11px] text-cyan-100 hover:bg-cyan-300/14"
-          title="毎朝 03:00 cron で生成した沿革を見る"
+          title="沿革を見る"
         >
           📜 沿革
         </button>
@@ -408,8 +408,8 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
         >
           👥 メンバー
         </button>
-        {/* 2026-05-11 まさ指摘 1 番: 「🧑‍🤝‍🧑 創業」ボタン削除。
-            LLM 抽出された創業メンバーは「👥 メンバー」モーダル内に統合表示 */}
+        {/* 2026-05-11 まさ指摘 1 番: 旧「関連メンバー」別ボタンを削除。
+            LLM 抽出された関連メンバーは「👥 メンバー」モーダル内に統合表示 */}
         <button
           onClick={() => setPartnersOpen(true)}
           className="border border-cyan-300/24 bg-cyan-300/8 px-2 py-0.5 text-[11px] text-cyan-100 hover:bg-cyan-300/14"
@@ -722,7 +722,7 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
               </span>
             ))}
             <span className="text-[10px] text-muted-foreground">
-              毎朝 03:15 (JST) に差分があれば LLM が自動判定 → 提案ドットを採用 / 却下できる
+              XRL 自動判定 schedule は停止中。既存 / 手動提案ドットは採用・却下できる
             </span>
           </div>
         </div>

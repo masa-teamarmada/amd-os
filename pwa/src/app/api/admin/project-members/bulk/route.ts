@@ -26,6 +26,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
+import { syncRewardSummariesForProject } from "@/lib/reward-summary";
 
 interface MemberInput {
   memberId: string;
@@ -149,10 +150,23 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
   }
 
+  let rewardSynced = 0;
+  let rewardSyncError: string | null = null;
+  if (toUpdate.length + toInsert.length + toDeactivate.length > 0) {
+    try {
+      const synced = await syncRewardSummariesForProject(supabase, projectId);
+      rewardSynced = synced.size;
+    } catch (err) {
+      rewardSyncError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     updated: toUpdate.length,
     inserted: toInsert.length,
     deactivated: toDeactivate.length,
+    rewardSynced,
+    rewardSyncError,
   });
 }

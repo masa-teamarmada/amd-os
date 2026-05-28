@@ -31,6 +31,23 @@ function getAuthClient() {
   return createBrowserSupabase();
 }
 
+async function syncRewardsForPlanCycle(planCycleId: string): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const res = await fetch("/api/rewards/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planCycleId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data?.ok === false) {
+      console.warn("[reward-summary] plan cycle sync failed:", data?.error || res.statusText);
+    }
+  } catch (error) {
+    console.warn("[reward-summary] plan cycle sync failed:", error);
+  }
+}
+
 // ============================================================
 // 型定義（GAS API互換）
 // ============================================================
@@ -109,6 +126,9 @@ export interface RewardSummaryBreakdown {
   share: number; // 0.0–1.0
   earnedPt: number;
   msConsumedPt: number;
+  pool?: "regular" | "cap_extra";
+  ptUnit?: number;
+  payYen?: number;
 }
 
 export interface RewardSummaryMember {
@@ -123,6 +143,16 @@ export interface RewardSummaryMember {
   deferredYen?: number;
   grossDueYen?: number;
   stockYen?: number;
+  regularEarnedPt?: number;
+  extraEarnedPt?: number;
+  regularBasePay?: number;
+  extraBasePay?: number;
+  regularPaidYen?: number;
+  extraPaidYen?: number;
+  regularGrossDueYen?: number;
+  extraGrossDueYen?: number;
+  regularStockYen?: number;
+  extraStockYen?: number;
   breakdown: RewardSummaryBreakdown[];
 }
 
@@ -136,6 +166,15 @@ export interface RewardSummary {
   totalGrossDueYen?: number;
   totalPaySum?: number;
   monthlyBudget65?: number;
+  regularPtUnit?: number;
+  extraPtUnit?: number;
+  regularCapBudgetYen?: number;
+  extraCapBudgetYen?: number;
+  extraPayoutBudgetYen?: number;
+  regularTotalGrossDueYen?: number;
+  extraTotalGrossDueYen?: number;
+  regularCarryOverYen?: number;
+  extraCarryOverYen?: number;
 }
 
 export interface BillingCycleDetail {
@@ -274,8 +313,11 @@ export interface ProjectStrategySignal {
   ym: string | null;
   signalDate: string | null;
   signalType: string;
+  polarity?: string | null;
   title: string;
   summary: string;
+  scoreImpactSummary?: string | null;
+  scoreImpactDelta?: Record<string, unknown> | null;
   impactLevel: string;
   decisionState: string;
   status: string;
@@ -550,7 +592,10 @@ export async function upsertMilestoneResponsibilities(
       task_description: r.taskDescription || null,
     }));
 
-  if (rows.length === 0) return true;
+  if (rows.length === 0) {
+    await syncRewardsForPlanCycle(planCycleId);
+    return true;
+  }
 
   const { error } = await authClient
     .from("milestone_responsibility")
@@ -560,6 +605,7 @@ export async function upsertMilestoneResponsibilities(
     console.error("upsertMilestoneResponsibilities:", error.message);
     return false;
   }
+  await syncRewardsForPlanCycle(planCycleId);
   return true;
 }
 
@@ -1465,15 +1511,70 @@ export interface ProjectMeetingSummary {
   progress: string[];
   nextActions: string[];
   risks: string[];
-  narrativeMd: string | null;     // dialogue meeting 用の Markdown narrative (背景→議論→提案→残課題)
+  narrativeMd: string | null;     // 初見でも読める Markdown 議事録 / dialogue narrative / 予定MTGブリーフ
   generatedAt: string;
   generatedByModel: string | null;
-  sourceKinds: string | null;     // 'notion' | 'gmail' | 'slack' | 'drive' | 'calendar' | 'dialogue' | 'none'
+  sourceKinds: string | null;     // 'notion' | 'gmail' | 'slack' | 'drive' | 'calendar' | 'dialogue' | 'upcoming' | 'upcoming_tentative' | 'none'
+  prepStatus?: string | null;     // upcoming row の準備状態。tentative は日程未確定として調整中 block に出す。
 }
 
 function asStringArray(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   return v.map((x) => (typeof x === "string" ? x : String(x ?? ""))).filter((s) => s.length > 0);
+}
+
+function normalizeMeetingTitleForDedupe(title: string): string {
+  return title
+    .normalize("NFKC")
+    .replace(/\s*@?\d{4}[-/年]\d{1,2}[-/月]\d{1,2}日?\s*\d{1,2}:\d{2}(?:\s*\(?[A-Z]{2,5}\)?)?/gi, "")
+    .replace(/\s*@?\d{4}年\d{1,2}月\d{1,2}日\s*\d{1,2}:\d{2}(?:\s*\(?[A-Z]{2,5}\)?)?/gi, "")
+    .replace(/\s*\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:[^\s]+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function isWeakManualMeetingDuplicate(item: ProjectMeetingSummary): boolean {
+  const model = item.generatedByModel || "";
+  return item.meetingId.startsWith("notion:") &&
+    !item.narrativeMd?.trim() &&
+    (!item.sourceKinds || model.startsWith("manual:codex") || model.startsWith("codex_manual"));
+}
+
+function meetingSummaryQualityScore(item: ProjectMeetingSummary): number {
+  let score = 0;
+  const narrativeLen = item.narrativeMd?.trim().length || 0;
+  if (narrativeLen >= 300) score += 100;
+  else if (narrativeLen > 0) score += 50;
+  if (item.sourceKinds && item.sourceKinds !== "none") score += 20;
+  if (item.calendarEventId) score += 10;
+  if (!item.meetingId.startsWith("notion:")) score += 5;
+  return score;
+}
+
+function dedupeWeakMeetingSummaries(items: ProjectMeetingSummary[]): ProjectMeetingSummary[] {
+  const out: ProjectMeetingSummary[] = [];
+  const indexByKey = new Map<string, number>();
+  for (const item of items) {
+    const normalizedTitle = normalizeMeetingTitleForDedupe(item.title);
+    const key = `${item.projectId}|${item.meetingDate}|${normalizedTitle}`;
+    const existingIndex = indexByKey.get(key);
+    if (existingIndex == null) {
+      indexByKey.set(key, out.length);
+      out.push(item);
+      continue;
+    }
+
+    const existing = out[existingIndex];
+    if (isWeakManualMeetingDuplicate(item) || isWeakManualMeetingDuplicate(existing)) {
+      const winner = meetingSummaryQualityScore(item) > meetingSummaryQualityScore(existing) ? item : existing;
+      out[existingIndex] = winner;
+      continue;
+    }
+
+    out.push(item);
+  }
+  return out;
 }
 
 /**
@@ -1499,7 +1600,7 @@ export async function fetchProjectMeetingSummaries(
     return [];
   }
 
-  return (data || []).map((r) => ({
+  const rows = (data || []).map((r) => ({
     meetingId: r.meeting_id,
     projectId: r.project_id,
     ym: r.ym || "",
@@ -1518,7 +1619,9 @@ export async function fetchProjectMeetingSummaries(
     generatedAt: r.generated_at,
     generatedByModel: r.generated_by_model,
     sourceKinds: r.source_kinds ?? null,
+    prepStatus: r.prep_status ?? null,
   }));
+  return dedupeWeakMeetingSummaries(rows);
 }
 
 // ============================================================
@@ -1754,7 +1857,7 @@ export async function fetchCockpitFromSupabase(
   // 現在の期間: currentYmが start〜end に含まれるもの。
   // 該当がない場合は、次に始まるcycleをトップ表示に使う。
   // 例: 5月中に6-9月のMSを先に設定した場合、コックピットで設定済みMSを確認できるようにする。
-  let planCycle: PlanCycle | null = allPlanCycles.find(
+  const planCycle: PlanCycle | null = allPlanCycles.find(
     (pc) => currentYm >= pc.periodStartYm && currentYm <= pc.periodEndYm
   ) ?? allPlanCycles
     .filter((pc) => currentYm < pc.periodStartYm)
@@ -1922,8 +2025,13 @@ export async function fetchCockpitFromSupabase(
     ym: row.ym || null,
     signalDate: row.signal_date || null,
     signalType: row.signal_type || "business_progress",
+    polarity: row.polarity || null,
     title: row.title || "",
     summary: row.summary || "",
+    scoreImpactSummary: row.score_impact_summary || null,
+    scoreImpactDelta: row.score_impact_delta_json && typeof row.score_impact_delta_json === "object"
+      ? row.score_impact_delta_json as Record<string, unknown>
+      : null,
     impactLevel: row.impact_level || "medium",
     decisionState: row.decision_state || "observed",
     status: row.status || "candidate",

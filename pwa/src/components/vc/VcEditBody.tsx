@@ -1030,7 +1030,7 @@ function NewsSection({ vcId, onChange }: { vcId: string; onChange: () => void })
       }
     >
       <div className="text-[11px] text-muted-foreground">
-        手動追加は補完。基本は自動収集 (毎朝 09:00 JST cron) + つくよみ会話で蓄積される。
+        手動追加は補完。現在は自動収集 schedule 停止中のため、つくよみ会話・手動入力・明示的な review batch で蓄積する。
       </div>
       {editing && (
         <Modal title="ニュース手動追加" onClose={() => setEditing(null)}>

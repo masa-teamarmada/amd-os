@@ -17,7 +17,7 @@ description: AMD OS L2 ⑤ メンバーナレッジ抽出 routine。daily 08:30 
 - `l2_feedbacks` 修正依頼を prompt に注入
 
 ## 【絶対】 動く前に必ず Read
-1. `pwa/manual/03-data-and-extraction.md` §3.1-3.4
+1. `pwa/manual/3-2-data-and-extraction.md` §3.1-3.4
 2. `pwa/design/member_knowledge.md` (= L2 ⑤ 仕様正本)
 3. `pwa/design/db_schema.md` (= 列名 grep)
 4. `gas/155_L2KnowledgeExtractor.js` 行 56-381 (= 元 ⑤ 実装)

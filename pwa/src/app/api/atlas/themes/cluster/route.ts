@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 
 export const maxDuration = 300;
 
@@ -11,8 +12,8 @@ export const maxDuration = 300;
  * 出力: { themes: [{name, description, primary_domain, tag_keywords, story_ids}] }
  */
 export async function POST(req: NextRequest) {
-  // ログイン済み or CRON_SECRET 認証（DEV_MODE 想定だが念のため）
-  // 実運用では認証層を別途用意する。Phase 1 では緩めで運用。
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
 ルール:
 - name: 一般名詞や短いフレーズ（「水素」「半導体製造装置」「AI安全規制」のように、横串で何年も使える名前）
 - description: 100字以内で「このテーマで何を見たいか」
-- primary_domain: A.地政学・マクロ経済 / B.規制・政策 / C.素材・原料 / D.エネルギー / E.製造・プロセス技術 / F.バイオ・医療 / G.モビリティ・ロボティクス / H.建築・インフラ / I.ICT・AI / J.宇宙・防衛 / K.食・農・水産 / L.金融・資本市場 / M.社会構造・社会課題 / N.海洋・水資源 / O.サーキュラーエコノミー のいずれか
+- primary_domain: A.地政学・マクロ経済 / B.規制・政策 / C.素材・原料 / D.エネルギー / E.製造・プロセス技術 / F.バイオ・医療 / G.モビリティ・ロボティクス / H.建築・インフラ / I.ICT・AI / J.宇宙・防衛 / K.食・農・水産 / L.金融・資本市場 / M.社会構造・社会課題 / N.海洋・水資源 / O.サーキュラーエコノミー / P.量子・量子計算 / Q.センシング・計測 / R.先端通信 のいずれか
 - tag_keywords: そのテーマに該当しそうなタグの候補を 5-12個（実シグナルで使われている語彙に近づける）
 - story_indices: そのテーマに含まれるストーリーの [番号] のリスト
 

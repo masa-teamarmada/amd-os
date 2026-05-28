@@ -44,6 +44,24 @@ function todayMinus365IsoDate(): string {
   return d.toISOString().slice(0, 10);
 }
 
+function todayJstIsoDate(): string {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().slice(0, 10);
+}
+
+function isUpcomingMeeting(item: ProjectMeetingSummary): boolean {
+  return item.sourceKinds === "upcoming";
+}
+
+function isPrepMeeting(item: ProjectMeetingSummary): boolean {
+  return item.meetingId.startsWith("upcoming:") || item.sourceKinds === "upcoming" || item.sourceKinds === "upcoming_tentative";
+}
+
+function isTentativePrepMeeting(item: ProjectMeetingSummary): boolean {
+  return isPrepMeeting(item) && !isUpcomingMeeting(item);
+}
+
 interface MeetingGroup {
   ym: string;
   items: ProjectMeetingSummary[];
@@ -120,6 +138,21 @@ export function CockpitMeetingSummary({ projectId }: Props) {
     }
   }, [deepLinkMeetingId, loading, recentItems, olderItems, olderLoaded, olderLoading, projectId, sinceDate, selectedMeeting]);
 
+  function meetingUrl(meetingId: string): string {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("meeting", meetingId);
+    // cockpit には月次系 modal も query で開く導線があるため、MTG詳細リンクでは単一 modal 状態に寄せる。
+    params.delete("ym");
+    params.delete("step");
+    const next = params.toString();
+    return next ? `${pathname}?${next}` : pathname;
+  }
+
+  function openSelectedMeeting(meeting: ProjectMeetingSummary) {
+    setSelectedMeeting(meeting);
+    router.replace(meetingUrl(meeting.meetingId), { scroll: false });
+  }
+
   // モーダルを閉じる時の handler — URL の ?meeting= を消して、再 auto-open を防ぐ
   const closeSelectedMeeting = () => {
     setSelectedMeeting(null);
@@ -146,18 +179,86 @@ export function CockpitMeetingSummary({ projectId }: Props) {
     setOlderLoading(false);
   }
 
-  const recentGroups = useMemo(() => groupByYm(recentItems), [recentItems]);
-  const olderGroups = useMemo(() => groupByYm(olderItems), [olderItems]);
+  const today = useMemo(() => todayJstIsoDate(), []);
+  const prepRows = useMemo(
+    () => [...recentItems, ...olderItems].filter(isPrepMeeting),
+    [recentItems, olderItems]
+  );
+  const upcomingItems = useMemo(
+    () => recentItems
+      .filter((item) => isUpcomingMeeting(item) && item.meetingDate >= today)
+      .sort((a, b) => {
+        const ad = a.meetingStartAt || `${a.meetingDate}T00:00:00+09:00`;
+        const bd = b.meetingStartAt || `${b.meetingDate}T00:00:00+09:00`;
+        return ad.localeCompare(bd);
+      }),
+    [recentItems, today]
+  );
+  const tentativeItems = useMemo(
+    () => recentItems
+      .filter(isTentativePrepMeeting)
+      .sort((a, b) => {
+        const ag = a.generatedAt || "";
+        const bg = b.generatedAt || "";
+        if (ag !== bg) return bg.localeCompare(ag);
+        return b.meetingDate.localeCompare(a.meetingDate);
+      }),
+    [recentItems]
+  );
+  const pastRecentItems = useMemo(
+    () => recentItems.filter((item) => !isPrepMeeting(item) && item.meetingDate <= today),
+    [recentItems, today]
+  );
+  const recentGroups = useMemo(() => groupByYm(pastRecentItems), [pastRecentItems]);
+  const olderGroups = useMemo(
+    () => groupByYm(olderItems.filter((item) => !isPrepMeeting(item))),
+    [olderItems]
+  );
+
+  function applyMeetingUpdate(updated: ProjectMeetingSummary) {
+    setSelectedMeeting(updated);
+    setRecentItems((items) => {
+      const exists = items.some((item) => item.meetingId === updated.meetingId);
+      const next = exists
+        ? items.map((item) => item.meetingId === updated.meetingId ? updated : item)
+        : [updated, ...items];
+      return next.sort((a, b) => b.meetingDate.localeCompare(a.meetingDate));
+    });
+    setOlderItems((items) => items.map((item) => item.meetingId === updated.meetingId ? updated : item));
+  }
+
+  const selectedPrepMeeting = useMemo(() => {
+    if (!selectedMeeting || isUpcomingMeeting(selectedMeeting)) return null;
+    const eventId = selectedMeeting.calendarEventId || selectedMeeting.meetingId;
+    if (!eventId) return null;
+    return prepRows.find((item) => item.calendarEventId === eventId || item.meetingId === `upcoming:${eventId}`) ?? null;
+  }, [prepRows, selectedMeeting]);
 
   return (
     <section className="bg-white rounded-xl border border-[#e5e5e7] px-4 py-3.5">
-      <h3 className="text-[13px] font-medium mb-2.5">MTGサマリ</h3>
+      <div className="mb-2.5 flex items-baseline justify-between gap-2">
+        <h3 className="text-[13px] font-medium">MTGサマリ</h3>
+        {(upcomingItems.length > 0 || tentativeItems.length > 0) && (
+          <div className="flex items-center gap-1.5">
+            {upcomingItems.length > 0 && (
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+                予定 {upcomingItems.length}
+              </span>
+            )}
+            {tentativeItems.length > 0 && (
+              <span className="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-medium text-stone-700">
+                調整中 {tentativeItems.length}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
 
       {loading ? (
         <p className="text-[12px] text-[#86868b]">読み込み中...</p>
-      ) : recentItems.length === 0 && !showOlder ? (
+      ) : upcomingItems.length === 0 && tentativeItems.length === 0 && pastRecentItems.length === 0 && !showOlder ? (
         <div className="space-y-2">
-          <p className="text-[12px] text-[#86868b]">直近1年の議事録データなし</p>
+          <p className="text-[12px] text-[#86868b]">直近1年の議事録・予定MTGデータなし</p>
           <button
             onClick={loadOlder}
             className="text-[11px] text-[#007aff] hover:underline"
@@ -167,11 +268,30 @@ export function CockpitMeetingSummary({ projectId }: Props) {
         </div>
       ) : (
         <div className="flex flex-col gap-3 max-h-[480px] overflow-y-auto">
+          {upcomingItems.length > 0 && (
+            <UpcomingMeetingBlock
+              title="予定MTG / 準備中"
+              helper="決めること・準備物"
+              items={upcomingItems}
+              onSelect={openSelectedMeeting}
+            />
+          )}
+
+          {tentativeItems.length > 0 && (
+            <UpcomingMeetingBlock
+              title="日程調整中MTG"
+              helper="日程未定・仮置き"
+              items={tentativeItems}
+              onSelect={openSelectedMeeting}
+              tone="tentative"
+            />
+          )}
+
           {recentGroups.map((g) => (
             <MeetingGroupBlock
               key={g.ym}
               group={g}
-              onSelect={setSelectedMeeting}
+              onSelect={openSelectedMeeting}
             />
           ))}
 
@@ -195,7 +315,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
                 <MeetingGroupBlock
                   key={g.ym}
                   group={g}
-                  onSelect={setSelectedMeeting}
+                  onSelect={openSelectedMeeting}
                 />
               ))}
             </div>
@@ -209,10 +329,56 @@ export function CockpitMeetingSummary({ projectId }: Props) {
 
       <CockpitMeetingDetailModal
         meeting={selectedMeeting}
+        prepMeeting={selectedPrepMeeting}
         open={selectedMeeting !== null}
         onOpenChange={(open) => { if (!open) closeSelectedMeeting(); }}
+        onMeetingUpdated={applyMeetingUpdate}
       />
     </section>
+  );
+}
+
+interface UpcomingMeetingBlockProps {
+  title: string;
+  helper: string;
+  items: ProjectMeetingSummary[];
+  onSelect: (m: ProjectMeetingSummary) => void;
+  tone?: "scheduled" | "tentative";
+}
+
+function UpcomingMeetingBlock({
+  title,
+  helper,
+  items,
+  onSelect,
+  tone = "scheduled",
+}: UpcomingMeetingBlockProps) {
+  const blockClass = tone === "tentative"
+    ? "rounded-lg border border-stone-200 bg-stone-50/75 px-2.5 py-2"
+    : "rounded-lg border border-amber-200 bg-amber-50/45 px-2.5 py-2";
+  const titleClass = tone === "tentative"
+    ? "text-[12px] font-semibold text-stone-800"
+    : "text-[12px] font-semibold text-amber-950";
+  const helperClass = tone === "tentative"
+    ? "text-[10px] text-stone-600"
+    : "text-[10px] text-amber-800";
+
+  return (
+    <div className={blockClass}>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <div className={titleClass}>{title}</div>
+        <div className={helperClass}>{helper}</div>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {items.map((item) => (
+          <MeetingRow
+            key={item.meetingId}
+            item={item}
+            onClick={() => onSelect(item)}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -246,11 +412,16 @@ interface RowProps {
 }
 
 function MeetingRow({ item, onClick }: RowProps) {
-  const dateLabel = formatDateLabel(item.meetingDate);
-  const timeLabel = formatTimeLabel(item.meetingStartAt);
   const isDialogue = item.meetingId.startsWith("dialogue:") || item.sourceKinds === "dialogue";
+  const isUpcoming = isUpcomingMeeting(item);
+  const isPrep = isPrepMeeting(item);
+  const isTentativePrep = isTentativePrepMeeting(item);
+  const dateLabel = isTentativePrep ? "未定" : formatDateLabel(item.meetingDate);
+  const timeLabel = isTentativePrep ? "" : formatTimeLabel(item.meetingStartAt);
   const sourceLink = item.sourceUrl || item.notionUrl;
-  const sourceLabel = isDialogue
+  const sourceLabel = isUpcoming
+    ? "Calendar"
+    : isDialogue
     ? null  // dialogue は外部ソースを持たないので原則 null
     : item.sourceUrl
       ? (item.sourceKinds || "source")
@@ -259,7 +430,13 @@ function MeetingRow({ item, onClick }: RowProps) {
         : null;
 
   return (
-    <div className="group w-full border border-[#f0f0f2] rounded-lg hover:bg-[#fafafa] hover:border-[#d2d2d7] transition-colors flex items-start gap-2 px-3 py-2">
+    <div className={`group w-full rounded-lg border transition-colors flex items-start gap-2 px-3 py-2 ${
+      isUpcoming
+        ? "border-amber-200 bg-white hover:bg-amber-50 hover:border-amber-300"
+        : isPrep
+          ? "border-stone-200 bg-stone-50 hover:bg-stone-100 hover:border-stone-300"
+        : "border-[#f0f0f2] hover:bg-[#fafafa] hover:border-[#d2d2d7]"
+    }`}>
       <button
         onClick={onClick}
         className="text-left flex items-start gap-2 flex-1 min-w-0"
@@ -274,9 +451,19 @@ function MeetingRow({ item, onClick }: RowProps) {
         )}
         <div className="flex-1 min-w-0">
           <div className="text-[12px] font-medium truncate flex items-center gap-1.5">
+            {isUpcoming && (
+              <span className="text-[9px] px-1 py-px rounded bg-amber-100 border border-amber-200 text-amber-800 shrink-0">
+                予定MTG
+              </span>
+            )}
+            {!isUpcoming && isPrep && (
+              <span className="text-[9px] px-1 py-px rounded bg-stone-100 border border-stone-200 text-stone-700 shrink-0">
+                日程調整中
+              </span>
+            )}
             {isDialogue && (
               <span className="text-[9px] px-1 py-px rounded bg-violet-50 border border-violet-200 text-violet-800 shrink-0">
-                まさえい
+                提案整理
               </span>
             )}
             <span className="truncate">{item.title}</span>

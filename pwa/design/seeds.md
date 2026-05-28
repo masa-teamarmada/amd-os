@@ -75,7 +75,7 @@ AMD 視点:       status, amd_rating (1-5), amd_owner_member_id, next_action,
 | `/seeds` | リスト画面 (検索 / フィルタ / ソート / 行クリックで `SeedDetailModal`)。新規発見シーズは行頭に 🆕 マーク、右上に「受信箱」リンク + バッジ |
 | `/seeds/[id]` | 単独詳細ページ。直接 URL アクセス用フォールバック (リスト画面で開く Modal を full-page で表示) |
 | `/seeds/inbox` | 受信箱 (cron 自動収集分の未確認シーズ)。verify=採用 / dismiss=非表示 |
-| `/api/cron/seeds-ingest` | 毎週 月曜 09:00 JST に Claude Sonnet + web_search で 7 ソース (GAP/NEP/AMED/D-Global/CREST/創発/先導研究) を巡回 → discovery_status='discovered' で投入 |
+| `/api/cron/seeds-ingest` | 旧: 毎週 月曜 09:00 JST に Claude Sonnet + web_search で 7 ソース (GAP/NEP/AMED/D-Global/CREST/創発/先導研究) を巡回 → discovery_status='discovered' で投入。2026-05-22 以降は LLM/web_search 課金回避で自動 schedule 停止 |
 
 GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](../src/components/nav/GlobalNav.tsx))。
 
@@ -113,7 +113,7 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 ### Phase 2 (一部実装済 / 残り TODO)
 
 - ✅ **`/seeds/inbox`**: 自動収集された未確認シーズの受信箱 (vcs/inbox 同型)
-- ✅ **`cron/seeds-ingest`**: 毎週 月曜 09:00 JST で web_search 自動発見 (下記参照)
+- ✅ **`cron/seeds-ingest` route**: web_search 自動発見の実装はあるが、2026-05-22 以降は自動 schedule 停止 (下記参照)
 - ✅ **GlobalNav バッジ**: Seeds に sky 色の未確認件数バッジ
 - ⬜ **既存 PJ から逆引き seed 化**: `project_ventures.origin_org` / `origin_pi` を参照して、既存 9 PJ の起源を seeds に登録 (status='spun_off')
 - ⬜ **HSFC 残り 23 件 / さきがけ 175件** の収集

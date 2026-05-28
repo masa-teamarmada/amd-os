@@ -13,7 +13,7 @@
  * @param {Object} payload
  *   - memberId
  *   - ym
- *   - totalYen
+ *   - totalYen (tax excluded)
  *   - breakdownText
  */
 function payoutCreateFreeeNotice(payload){
@@ -77,6 +77,7 @@ function payoutCreateFreeeNotice(payload){
 /**
  * PWA /admin/payouts から、改善版フォーマットの支払通知書PDFを作成する。
  * Supabase側で集約した支払月・メンバー別明細を正本にし、GASはPDFレンダリングとDrive保存だけ担当する。
+ * totalYen / breakdown.totalYen は税抜として受け取り、PDF上で消費税10%を上乗せする。
  */
 function payoutCreatePwaNoticePdf(payload){
   payload = payload || {};
@@ -190,10 +191,10 @@ function payoutBuildNoticePdfBlob_(p){
   const fmtYen = (n) => Math.round(Number(n||0)).toLocaleString("ja-JP") + "円";
   const fmtNum = (n) => Math.round(Number(n||0)).toLocaleString("ja-JP");
 
-  const taxBreakdown = (grossYen) => {
-    const gross = Math.round(Number(grossYen || 0));
-    const net = Math.round(gross / 1.1);
-    const tax = gross - net;
+  const taxBreakdownFromTaxExcludedYen = (netYen) => {
+    const net = Math.round(Number(netYen || 0));
+    const tax = Math.round(net * 0.1);
+    const gross = net + tax;
     return { net, tax, gross };
   };
 
@@ -235,9 +236,10 @@ function payoutBuildNoticePdfBlob_(p){
   const issueDate = formatDateJa(issuedAtJst ? issuedAtJst.slice(0,10) : payoutNowJstIso().slice(0,10));
   const payDate = calcPayDateFromYm(ym);
   const subject = `${Number(ym.slice(4,6))}月末お支払予定のご連絡`;
-  const tax = taxBreakdown(totalYen);
+  // /admin/payouts の支払額は税抜。支払通知書で消費税10%を上乗せする。
+  const tax = taxBreakdownFromTaxExcludedYen(totalYen);
   const details = splitBreakdown(breakdownText);
-  if (details.length === 0) details.push({ desc: "業務委託料", yen: tax.gross });
+  if (details.length === 0) details.push({ desc: "業務委託料", yen: tax.net });
 
   const COMPANY_NAME = "株式会社チームアルマダ";
   const COMPANY_ADDR = "〒305-0031 茨城県つくば市吾妻1-10-1";
@@ -309,7 +311,7 @@ function payoutBuildNoticePdfBlob_(p){
     .setWrap(true);
 
   // ====== 右：通知日/番号 + 正本ロゴ ======
-  sh.getRange("G5:H5").merge().setValue("支払通知日").setFontSize(9).setFontColor(MUTED);
+  sh.getRange("G5:H5").merge().setValue("作成日").setFontSize(9).setFontColor(MUTED);
   sh.getRange("I5:L5").merge().setValue(issueDate).setFontSize(10).setHorizontalAlignment("right");
   sh.getRange("G6:H6").merge().setValue("通知書番号").setFontSize(9).setFontColor(MUTED);
   sh.getRange("I6:L6").merge().setValue(noticeNo).setFontSize(9).setFontColor(MUTED).setHorizontalAlignment("right");

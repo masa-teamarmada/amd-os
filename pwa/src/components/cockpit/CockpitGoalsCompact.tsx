@@ -8,6 +8,7 @@ interface Milestone {
   title: string;
   points: number;
   tag: string;
+  successCriteria?: string;
   periodStartYm?: string | null;
   targetYm?: string | null;
 }
@@ -43,6 +44,38 @@ interface MsScheduleInfo {
   msMonths: number;
 }
 
+interface Progress {
+  milestoneKey: string;
+  ym: string;
+  progressPct: number;
+  source?: string | null;
+  note?: string | null;
+  confirmedAt?: string | null;
+}
+
+interface MemberMsActivity {
+  memberId: string;
+  milestoneId: string;
+  ym: string;
+  narrative?: string | null;
+  learnedAddendum?: string | null;
+  generatedAt?: string | null;
+}
+
+interface MemberActivity {
+  id: string;
+  memberId: string;
+  projectId: string;
+  ym: string;
+  source: string;
+  sourceItemId: string;
+  milestoneId?: string | null;
+  title?: string | null;
+  contentPreview?: string | null;
+  itemDate?: string | null;
+  extractedAt: string;
+}
+
 interface Props {
   milestones: Milestone[];
   planCycle: PlanCycle;
@@ -50,6 +83,10 @@ interface Props {
   subItems: SubItem[];
   responsibilities: Responsibility[];
   memberMap: Record<string, string>;
+  progress?: Progress[];
+  currentYm?: string;
+  msActivities?: MemberMsActivity[];
+  memberActivities?: MemberActivity[];
   onEdit?: () => void;
 }
 
@@ -60,6 +97,10 @@ export function CockpitGoalsCompact({
   subItems,
   responsibilities,
   memberMap,
+  progress = [],
+  currentYm,
+  msActivities = [],
+  memberActivities = [],
   onEdit,
 }: Props) {
   const [schedules, setSchedules] = useState<Record<string, MsScheduleInfo>>({});
@@ -98,6 +139,10 @@ export function CockpitGoalsCompact({
       responsibilities={responsibilities}
       memberMap={memberMap}
       schedules={schedules}
+      progress={progress}
+      currentYm={currentYm}
+      msActivities={msActivities}
+      memberActivities={memberActivities}
       onEdit={onEdit}
     />
   );

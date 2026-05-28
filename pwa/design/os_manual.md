@@ -25,34 +25,96 @@ UI ヒント ([`ui_hint_tooltip.md`](ui_hint_tooltip.md)) は「個別 UI 要素
 
 `立替` の右隣に `📖 マニュアル` (or `❓ Help` / `📚 Docs`) を追加。
 
-## 現行の章立て (= 2026-05-25)
+## 現行の章立て (= 2026-05-27 refactor で確定)
 
-`pwa/src/app/(app)/manual/manual-chapters.ts` が表示順の正本。
+`pwa/src/app/(app)/manual/manual-chapters.ts` が表示順の正本。 **ファイル名 prefix = section-chapter 番号** で完全一致 (= 例: `7-1-reward-calc-spec.md` → 7 章 1 節)。 2026-05-27 まさ確定の refactor で audience 概念を廃止し、 全章を全 user に見せる単一マニュアルにした。
 
-### まず使う人向け
-
-```text
-00 はじめに
-08 はじめて使う人向け
-09 探索系アセット
-01 PJ コックピット
-02 AMD 会社全体
-04 admin オペ
-```
-
-### 全体設計・細かい仕様
+### section 1: 入口
 
 ```text
-20 全体設計
-07 判断エンジン
-21 AMD Score 詳細仕様
-22 通知・つくよみ
-23 HUD / Venture Map 仕様
-24 Operations Settings 仕様
-03 データと抽出
-05 過去判断と経緯
-06 開発者向け
+1-1 AMD OS とは
 ```
+
+### section 2: まず使う人向け
+
+```text
+2-1 はじめて使う人向け
+2-2 メンバーの日常ワークフロー
+2-3 PJ コックピットの見方
+2-4 AMD 全体コックピットの見方
+2-5 探索系アセットの使い方
+2-6 月次ルーティン早見表
+```
+
+### section 3: OS の基本構造
+
+```text
+3-1 全体設計
+3-2 データと抽出
+3-3 通知・修正依頼・正本反映ゲート
+```
+
+### section 4: 経営判断エンジン
+
+```text
+4-1 判断エンジン overview
+4-2 Atlas / Macrotrend 詳細仕様
+4-3 AMD Score 詳細仕様
+4-4 FRL / HRL / 関連メンバー詳細仕様
+4-5 AMD Management Score / Finance Simulation
+4-6 卒業フェーズ検出
+4-7 Venture Status / Narrative / PL / XRL
+4-8 MS Progress / Monthly Report / Revision Loop
+```
+
+### section 5: 外部探索・事業アセット
+
+```text
+5-1 Seeds / VC / Scholar 詳細仕様
+5-2 HUD / Venture Map 仕様
+```
+
+### section 6: Admin / Finance / 月次オペ
+
+```text
+6-1 Operations Settings
+6-2 Admin Projects / Members 台帳
+6-3 Invoice / Billing Routine
+6-4 Finance / Payment Confirm
+6-5 Admin Payouts / 支払通知書
+6-6 Member Ops / Billing / Prompt
+```
+
+### section 7: 報酬・契約 (= 2026-05-27 新設)
+
+```text
+7-1 報酬計算ロジック 詳細仕様
+```
+
+- `gas-main/059_RewardV2_Ops.js` (= `rv2_calcRewardSummary`) の計算式・入力データ・進捗ソース優先度・月次キャップ・繰越制御を明文化
+- 報酬実装を触るとき (= GAS 059 / 058 / 043 を変更したとき) はこの章を同 commit で更新する
+- 既存の 6-5 (admin/payouts) / 6-6 (mypage) はあくまで「画面側の仕様」、 計算正本は 7-1 に集約
+
+### section 8: Knowledge / Automation
+
+```text
+8-1 Knowledge Admin / Tsukuyomi
+8-2 通知レビュー UI / 経営ハイライト確認
+8-3 L2 Extraction Routines
+```
+
+### section 9: 開発者・履歴
+
+```text
+9-1 過去判断と経緯
+9-2 開発者向け
+```
+
+### 2026-05-27 refactor のポイント
+
+- 旧体系: ファイル名は `00-`, `01-`, ... `40-` の歴史的順序 (= flat 番号)、 表示章番号は `applyManualBookNumbering()` で section-chapter 形式に動的計算。 audience (= user / developer) で章が visible filter されて番号がズレる問題があった。
+- 新体系: **ファイル名 = section-chapter 番号** に統一 (= 例: `7-1-reward-calc-spec.md`)。 audience 概念を廃止して全章を全 user に見せる。 動的計算は MANUAL_SECTIONS の順序通りに振るだけ (= 常に slug prefix と一致)。
+- 旧スラッグから新スラッグへの全 cross-link は同 commit で更新済み。
 
 ## 初期設計案の履歴
 
@@ -132,6 +194,17 @@ F. 開発者が機能を追加するときの流れ (= 設計 md → 実装 → 
 - 章本文 (= 設計仕様・運用フロー・解説) は md ファイル (= A) で git 管理
 - LLM 生成の「FAQ」「最近変わったこと」セクションは DB (= B) で動的更新
 - まさが議事録 / 設計 md を update したときに「マニュアル該当章に反映」を LLM が自動 propose する
+
+## handoff 時の追記ゲート (= 2026-05-27)
+
+handoff は、実装した新仕様が OS マニュアルへ落ちたか確認する最後のゲートにする。Codex の handoff skill / Claude 側の handoff どちらでも同じ。
+
+ルール:
+- 新たな route / 画面 / UI 導線 / API / cron / routine / automation / DB 状態 / 運用ルールを実装したら、該当する `pwa/manual/*.md` にユーザー/開発者向けの説明を追記する
+- 詳細仕様は `pwa/design/*.md` や `FEATURE_REGISTRY.md` に置き、マニュアルには「使う人・次に触る開発者が迷わない要約」を置く
+- 章対応は `pwa/src/app/(app)/manual/manual-chapters.ts` を見る。新章を作る場合は、本文 md と `manual-chapters.ts` とこの `os_manual.md` を同時に更新する
+- 純粋な refactor / typo / test only などマニュアル対象外の場合は、handoff の棚卸し表で `対象外: 理由` を明記する
+- `HANDOFF_pwa_rebuild.md` だけに恒久仕様を書いて閉じない
 
 ## 検索 / 横断機能
 

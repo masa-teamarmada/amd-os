@@ -1,13 +1,13 @@
 /**
  * POST /api/strategy-signals
  *
- * L2 ⑨ 経営・事業シグナル (`project_strategy_signals`) への dialogue 経路 CRUD ハブ。
+ * L2 ⑨ 経営ハイライト (`project_strategy_signals`) への dialogue 経路 CRUD ハブ。
  *
  * 呼び元 (dialogue 経路のみ):
- *   - まさ × えいみ経営会議の議論セッション内で、確定経営判断を書き込む
+ *   - 提案前の論点整理セッション内で、確定経営判断を書き込む
  *   - 既存 candidate を confirm / reject に状態遷移する
  *
- * daily 抽出 (= Codex automation `amd-os-strategy-signals`) は outbox + applier 経由なので
+ * daily 抽出 (= Codex automation `amd-os`) は outbox + applier 経由なので
  * このAPIを使わない。outbox/applier 詳細は `pwa/design/project_strategy_signals.md` 参照。
  *
  * 認証: admin (members.is_admin=true) または Authorization: Bearer ${CRON_SECRET}。

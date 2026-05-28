@@ -22,15 +22,32 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
   const [seedInboxCount, setSeedInboxCount] = useState(0);
 
   useEffect(() => {
-    // Inboxバッジ: 15秒ごとにポーリング
+    // Inboxバッジ: 60秒ポーリング + 背景タブでは停止 (= 2026-05-28 egress 削減)。
     const load = () => {
       fetchAtlasInboxCount().then(setInboxCount);
       fetchVcInboxCount().then(setVcInboxCount);
       fetchSeedInboxCount().then(setSeedInboxCount);
     };
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (timer) return;
+      timer = setInterval(load, 60000);
+    };
+    const stop = () => {
+      if (timer) { clearInterval(timer); timer = null; }
+    };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        stop();
+      } else {
+        load();
+        start();
+      }
+    };
     load();
-    const timer = setInterval(load, 15000);
-    return () => clearInterval(timer);
+    start();
+    document.addEventListener("visibilitychange", onVis);
+    return () => { stop(); document.removeEventListener("visibilitychange", onVis); };
   }, []);
 
   return (
@@ -234,8 +251,9 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
   );
 }
 
-// 通知ベル (= /notifications へのリンク + 未読バッジ、15 秒 polling)
+// 通知ベル (= /notifications へのリンク + 未読バッジ)
 // l2_notifications + meeting_notifications + app_notifications の未読合算。
+// 60 秒 polling + 背景タブで停止 (= 2026-05-28 egress 削減)。
 function NotificationBell() {
   const pathname = usePathname();
   const [unread, setUnread] = useState(0);
@@ -266,9 +284,26 @@ function NotificationBell() {
         // ignore
       }
     };
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (timer) return;
+      timer = setInterval(load, 60000);
+    };
+    const stop = () => {
+      if (timer) { clearInterval(timer); timer = null; }
+    };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        stop();
+      } else {
+        load();
+        start();
+      }
+    };
     load();
-    const id = setInterval(load, 15000);
-    return () => clearInterval(id);
+    start();
+    document.addEventListener("visibilitychange", onVis);
+    return () => { stop(); document.removeEventListener("visibilitychange", onVis); };
   }, []);
 
   const isActive = pathname.startsWith("/notifications");

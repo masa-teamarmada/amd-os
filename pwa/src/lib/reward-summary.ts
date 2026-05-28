@@ -1,16 +1,34 @@
-type SupabaseLike = {
-  from: (table: string) => any;
-};
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+type SupabaseLike = SupabaseClient;
 
 const ACTIVE_PLAN_STATUSES = ["active", "confirmed", "fixed", "draft"];
-const REWARD_SUMMARY_VERSION = "server_v1";
+const REWARD_SUMMARY_VERSION = "server_v2_actual_contribution";
+const MANUAL_REWARD_SOURCE = "admin_manual_payout";
+const CAP_EXTRA_MILESTONE_TAGS = new Set(["cap_extra", "extra_contract", "contract_extra", "cap_outside", "uncapped"]);
+const CONTRIBUTION_AUTO_SOURCE = "member_activities";
+const CONTRIBUTION_AUTO_APPLY_CONFIDENCE = 0.6;
+const CONTRIBUTION_MANUAL_STATUSES = new Set(["confirmed", "pm_override"]);
+const CONTRIBUTION_USED_STATUSES = new Set(["auto_applied", "confirmed", "pm_override"]);
+
+type RewardPool = "regular" | "cap_extra";
+type ContributionShareSource = "planned" | "member_activities" | "confirmed" | "pm_override";
+type ContributionAllocationStatus = "auto_applied" | "needs_review" | "confirmed" | "pm_override" | "rejected";
 
 export interface RewardBreakdown {
   msKey: string;
   title: string;
   share: number;
+  plannedShare?: number;
+  shareSource?: ContributionShareSource;
+  allocationStatus?: ContributionAllocationStatus;
+  allocationConfidence?: number;
+  evidenceCount?: number;
   earnedPt: number;
   msConsumedPt: number;
+  pool?: RewardPool;
+  ptUnit?: number;
+  payYen?: number;
 }
 
 export interface RewardMember {
@@ -25,6 +43,18 @@ export interface RewardMember {
   deferredYen?: number;
   grossDueYen?: number;
   stockYen?: number;
+  regularEarnedPt?: number;
+  extraEarnedPt?: number;
+  regularBasePay?: number;
+  extraBasePay?: number;
+  regularPaidYen?: number;
+  extraPaidYen?: number;
+  regularGrossDueYen?: number;
+  extraGrossDueYen?: number;
+  regularStockYen?: number;
+  extraStockYen?: number;
+  regularCarryInYen?: number;
+  extraCarryInYen?: number;
   breakdown: RewardBreakdown[];
 }
 
@@ -37,14 +67,24 @@ export interface RewardSummary {
   carryInYen?: number;
   carryOverYen?: number;
   monthlyBudget65?: number;
+  regularPtUnit?: number;
+  extraPtUnit?: number;
+  regularCapBudgetYen?: number;
+  extraCapBudgetYen?: number;
+  extraPayoutBudgetYen?: number;
+  regularTotalGrossDueYen?: number;
+  extraTotalGrossDueYen?: number;
+  regularCarryOverYen?: number;
+  extraCarryOverYen?: number;
   members: RewardMember[];
   meta?: {
     version: string;
-    source: "supabase_reward_summary";
+    source: "supabase_reward_summary" | "admin_manual_payout";
     generatedAt: string;
     projectId: string;
     ym: string;
     planCycleId: string;
+    contributionAllocationSource?: "milestone_monthly_contribution_allocations";
   };
 }
 
@@ -65,6 +105,7 @@ type ProjectRow = {
 
 type PlanCycleRow = {
   plan_cycle_id: string;
+  project_id?: string | null;
   status?: string | null;
   budget_yen?: number | string | null;
   total_points?: number | string | null;
@@ -77,6 +118,7 @@ type MilestoneRow = {
   title?: string | null;
   points?: number | string | null;
   tag?: string | null;
+  goal_level?: string | null;
   sort_order?: number | string | null;
 };
 
@@ -91,6 +133,55 @@ type ResponsibilityRow = {
   milestone_id: string;
   member_id: string;
   share?: number | string | null;
+};
+
+type ContributionAllocationRow = {
+  project_id?: string | null;
+  milestone_id: string;
+  ym: string;
+  member_id: string;
+  planned_share?: number | string | null;
+  actual_share?: number | string | null;
+  confidence?: number | string | null;
+  source?: string | null;
+  status?: string | null;
+  reason?: string | null;
+  evidence_count?: number | string | null;
+  evidence_refs?: unknown;
+};
+
+type MemberActivityRow = {
+  id: string;
+  member_id?: string | null;
+  project_id: string;
+  ym: string;
+  source: string;
+  source_item_id: string;
+  milestone_id?: string | null;
+  title?: string | null;
+  content_preview?: string | null;
+  item_date?: string | null;
+  raw_metadata?: unknown;
+  impact?: number | string | null;
+  depth?: number | string | null;
+};
+
+type EffectiveContributionShare = {
+  milestone_id: string;
+  ym: string;
+  member_id: string;
+  share: number;
+  plannedShare: number;
+  source: ContributionShareSource;
+  status: ContributionAllocationStatus;
+  confidence: number;
+  evidenceCount: number;
+  reason?: string | null;
+};
+
+type ContributionAllocationPlan = {
+  effectiveSharesByKey: Map<string, EffectiveContributionShare[]>;
+  autoRowsToPersist: ContributionAllocationRow[];
 };
 
 type MemberRow = {
@@ -110,6 +201,346 @@ export type RewardSyncResult = {
 function numberValue(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value ?? 0);
   return Number.isFinite(n) ? n : 0;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function clamp01(value: number): number {
+  return clamp(value, 0, 1);
+}
+
+function normalizeShare(value: unknown): number {
+  const n = numberValue(value);
+  if (n > 1 && n <= 100) return clamp01(n / 100);
+  return clamp01(n);
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function allocationKey(ym: string, milestoneId: string): string {
+  return `${ym}:${milestoneId}`;
+}
+
+function plannedShareMap(responsibilities: ResponsibilityRow[], milestoneId: string): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const resp of responsibilities) {
+    if (resp.milestone_id !== milestoneId) continue;
+    const share = normalizeShare(resp.share);
+    if (share > 0) map.set(resp.member_id, share);
+  }
+  return map;
+}
+
+function activitySourceWeight(source: string): number {
+  switch (source) {
+    case "manual":
+      return 1.1;
+    case "inferred":
+      return 1;
+    case "member_weekly":
+      return 0.75;
+    case "gmail":
+    case "slack":
+    case "calendar":
+    case "gmeet":
+    case "drive":
+    case "notion":
+      return 0.85;
+    default:
+      return 0.8;
+  }
+}
+
+function activityScore(activity: MemberActivityRow): number {
+  const impact = clamp(numberValue(activity.impact) || 3, 1, 5);
+  const depthValue = activity.depth == null ? null : numberValue(activity.depth);
+  const depthWeight = depthValue === 1 ? 1 : depthValue === 0 ? 0.45 : 0.7;
+  const metadata = asRecord(activity.raw_metadata);
+  const synthesisConfidence = clamp01(numberValue(metadata?.synthesis_confidence) || 0.75);
+  const confidenceWeight = 0.75 + synthesisConfidence * 0.25;
+  return impact * depthWeight * activitySourceWeight(activity.source) * confidenceWeight;
+}
+
+function activityMemberWeights(activity: MemberActivityRow): Array<{ memberId: string; weight: number }> {
+  const metadata = asRecord(activity.raw_metadata);
+  const responsibilities = Array.isArray(metadata?.responsibilities)
+    ? metadata.responsibilities
+    : [];
+  const weighted = responsibilities
+    .map((item) => {
+      const row = asRecord(item);
+      const memberId = String(row?.memberId || row?.member_id || "").trim();
+      const weight = normalizeShare(row?.responsibility);
+      return memberId && weight > 0 ? { memberId, weight } : null;
+    })
+    .filter((item): item is { memberId: string; weight: number } => !!item);
+
+  if (weighted.length > 0) return weighted;
+  const memberId = String(activity.member_id || "").trim();
+  return memberId ? [{ memberId, weight: 1 }] : [];
+}
+
+function evidenceRefsForActivity(activity: MemberActivityRow): Array<Record<string, unknown>> {
+  const metadata = asRecord(activity.raw_metadata);
+  const refs = Array.isArray(metadata?.evidence_refs)
+    ? metadata.evidence_refs
+    : [];
+  if (refs.length > 0) {
+    return refs
+      .map((ref) => asRecord(ref))
+      .filter((ref): ref is Record<string, unknown> => !!ref)
+      .slice(0, 8);
+  }
+  return [{
+    activity_id: activity.id,
+    source: activity.source,
+    source_item_id: activity.source_item_id,
+    title: activity.title || null,
+    item_date: activity.item_date || null,
+  }];
+}
+
+function contributionConfidence(params: {
+  evidenceCount: number;
+  explicitResponsibilityCount: number;
+  topShare: number;
+  totalScore: number;
+}): number {
+  let confidence = 0.55;
+  if (params.evidenceCount >= 2) confidence += 0.08;
+  if (params.evidenceCount >= 4) confidence += 0.04;
+  if (params.explicitResponsibilityCount > 0) confidence += 0.12;
+  if (params.topShare >= 0.8) confidence += 0.05;
+  if (params.totalScore >= 3) confidence += 0.05;
+  return Math.round(clamp(confidence, 0.35, 0.95) * 100) / 100;
+}
+
+function buildAutoContributionRows({
+  projectId,
+  months,
+  milestoneIds,
+  responsibilities,
+  activities,
+}: {
+  projectId: string;
+  months: string[];
+  milestoneIds: string[];
+  responsibilities: ResponsibilityRow[];
+  activities: MemberActivityRow[];
+}): ContributionAllocationRow[] {
+  const monthSet = new Set(months);
+  const milestoneSet = new Set(milestoneIds);
+  const groups = new Map<string, {
+    milestoneId: string;
+    ym: string;
+    memberScores: Map<string, number>;
+    evidenceCount: number;
+    explicitResponsibilityCount: number;
+    evidenceRefs: Array<Record<string, unknown>>;
+  }>();
+
+  for (const activity of activities) {
+    const milestoneId = String(activity.milestone_id || "").trim();
+    if (!milestoneId || !milestoneSet.has(milestoneId) || !monthSet.has(activity.ym)) continue;
+    const weights = activityMemberWeights(activity);
+    if (weights.length === 0) continue;
+    const totalWeight = weights.reduce((sum, row) => sum + row.weight, 0);
+    if (totalWeight <= 0) continue;
+
+    const key = allocationKey(activity.ym, milestoneId);
+    const group = groups.get(key) || {
+      milestoneId,
+      ym: activity.ym,
+      memberScores: new Map<string, number>(),
+      evidenceCount: 0,
+      explicitResponsibilityCount: 0,
+      evidenceRefs: [],
+    };
+    const score = activityScore(activity);
+    const hasExplicitResponsibilities = Array.isArray(asRecord(activity.raw_metadata)?.responsibilities)
+      && (asRecord(activity.raw_metadata)?.responsibilities as unknown[]).length > 0;
+    group.evidenceCount += 1;
+    if (hasExplicitResponsibilities) group.explicitResponsibilityCount += 1;
+    group.evidenceRefs.push(...evidenceRefsForActivity(activity));
+    for (const row of weights) {
+      const current = group.memberScores.get(row.memberId) || 0;
+      group.memberScores.set(row.memberId, current + score * (row.weight / totalWeight));
+    }
+    groups.set(key, group);
+  }
+
+  const rows: ContributionAllocationRow[] = [];
+  for (const group of groups.values()) {
+    const totalScore = Array.from(group.memberScores.values()).reduce((sum, score) => sum + score, 0);
+    if (totalScore <= 0) continue;
+    const planned = plannedShareMap(responsibilities, group.milestoneId);
+    const memberIds = new Set([...planned.keys(), ...group.memberScores.keys()]);
+    const topShare = Math.max(...Array.from(group.memberScores.values()).map((score) => score / totalScore));
+    const confidence = contributionConfidence({
+      evidenceCount: group.evidenceCount,
+      explicitResponsibilityCount: group.explicitResponsibilityCount,
+      topShare,
+      totalScore,
+    });
+    const status: ContributionAllocationStatus = confidence >= CONTRIBUTION_AUTO_APPLY_CONFIDENCE
+      ? "auto_applied"
+      : "needs_review";
+    const reason = status === "auto_applied"
+      ? "member_activities から当月実績配分を自動算出"
+      : "member_activities の根拠が薄いため予定配分にfallback";
+    for (const memberId of memberIds) {
+      const score = group.memberScores.get(memberId) || 0;
+      rows.push({
+        project_id: projectId,
+        milestone_id: group.milestoneId,
+        ym: group.ym,
+        member_id: memberId,
+        planned_share: planned.get(memberId) || 0,
+        actual_share: Math.round((score / totalScore) * 10000) / 10000,
+        confidence,
+        source: CONTRIBUTION_AUTO_SOURCE,
+        status,
+        reason,
+        evidence_count: group.evidenceCount,
+        evidence_refs: group.evidenceRefs.slice(0, 12),
+      });
+    }
+  }
+  return rows;
+}
+
+function effectiveSharesFromRows(rows: ContributionAllocationRow[], fallbackSource: ContributionShareSource): EffectiveContributionShare[] {
+  const positive = rows
+    .map((row) => ({
+      row,
+      share: normalizeShare(row.actual_share),
+    }))
+    .filter(({ row, share }) => share > 0 && CONTRIBUTION_USED_STATUSES.has(String(row.status || "") as ContributionAllocationStatus));
+  const total = positive.reduce((sum, item) => sum + item.share, 0);
+  if (total <= 0) return [];
+  return positive.map(({ row, share }) => {
+    const status = String(row.status || "auto_applied") as ContributionAllocationStatus;
+    const source = status === "confirmed" ? "confirmed" : status === "pm_override" ? "pm_override" : fallbackSource;
+    return {
+      milestone_id: row.milestone_id,
+      ym: row.ym,
+      member_id: row.member_id,
+      share: Math.round((share / total) * 10000) / 10000,
+      plannedShare: normalizeShare(row.planned_share),
+      source,
+      status,
+      confidence: clamp01(numberValue(row.confidence)),
+      evidenceCount: Math.max(0, Math.round(numberValue(row.evidence_count))),
+      reason: row.reason || null,
+    };
+  });
+}
+
+function buildContributionAllocationPlan({
+  projectId,
+  months,
+  milestones,
+  responsibilities,
+  activities,
+  persistedAllocations,
+}: {
+  projectId: string;
+  months: string[];
+  milestones: MilestoneRow[];
+  responsibilities: ResponsibilityRow[];
+  activities: MemberActivityRow[];
+  persistedAllocations: ContributionAllocationRow[];
+}): ContributionAllocationPlan {
+  const milestoneIds = milestones.map((ms) => ms.milestone_id);
+  const autoRows = buildAutoContributionRows({ projectId, months, milestoneIds, responsibilities, activities });
+  const manualRowsByKey = new Map<string, ContributionAllocationRow[]>();
+  for (const row of persistedAllocations) {
+    const status = String(row.status || "");
+    if (!CONTRIBUTION_MANUAL_STATUSES.has(status)) continue;
+    const key = allocationKey(row.ym, row.milestone_id);
+    const rows = manualRowsByKey.get(key) || [];
+    rows.push(row);
+    manualRowsByKey.set(key, rows);
+  }
+
+  const autoRowsByKey = new Map<string, ContributionAllocationRow[]>();
+  for (const row of autoRows) {
+    const key = allocationKey(row.ym, row.milestone_id);
+    const rows = autoRowsByKey.get(key) || [];
+    rows.push(row);
+    autoRowsByKey.set(key, rows);
+  }
+
+  const effectiveSharesByKey = new Map<string, EffectiveContributionShare[]>();
+  for (const key of new Set([...manualRowsByKey.keys(), ...autoRowsByKey.keys()])) {
+    const manualShares = effectiveSharesFromRows(manualRowsByKey.get(key) || [], "confirmed");
+    if (manualShares.length > 0) {
+      effectiveSharesByKey.set(key, manualShares);
+      continue;
+    }
+    const autoShares = effectiveSharesFromRows(autoRowsByKey.get(key) || [], "member_activities");
+    if (autoShares.length > 0) {
+      effectiveSharesByKey.set(key, autoShares);
+    }
+  }
+
+  const manualKeys = new Set(manualRowsByKey.keys());
+  return {
+    effectiveSharesByKey,
+    autoRowsToPersist: autoRows.filter((row) => !manualKeys.has(allocationKey(row.ym, row.milestone_id))),
+  };
+}
+
+function resolveContributionShares({
+  ym,
+  milestoneId,
+  responsibilities,
+  contributionSharesByKey,
+}: {
+  ym: string;
+  milestoneId: string;
+  responsibilities: ResponsibilityRow[];
+  contributionSharesByKey?: Map<string, EffectiveContributionShare[]>;
+}): EffectiveContributionShare[] {
+  const actual = contributionSharesByKey?.get(allocationKey(ym, milestoneId)) || [];
+  if (actual.length > 0) return actual;
+  return responsibilities
+    .filter((resp) => resp.milestone_id === milestoneId && normalizeShare(resp.share) > 0)
+    .map((resp) => ({
+      milestone_id: resp.milestone_id,
+      ym,
+      member_id: resp.member_id,
+      share: normalizeShare(resp.share),
+      plannedShare: normalizeShare(resp.share),
+      source: "planned" as const,
+      status: "confirmed" as const,
+      confidence: 1,
+      evidenceCount: 0,
+      reason: "milestone_responsibility.share fallback",
+    }));
+}
+
+function manualRewardSummary(value: unknown): RewardSummary | null {
+  const record = asRecord(value);
+  if (!record || !Array.isArray(record.members)) return null;
+  const meta = asRecord(record.meta);
+  const source = String(record.manualOverrideSource ?? meta?.source ?? "");
+  if (source !== MANUAL_REWARD_SOURCE && record.manualOverride !== true) return null;
+  return record as unknown as RewardSummary;
+}
+
+function normalizedTag(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isCapExtraMilestone(ms: Pick<MilestoneRow, "tag">): boolean {
+  return CAP_EXTRA_MILESTONE_TAGS.has(normalizedTag(ms.tag));
 }
 
 function ymToMonths(ym: string): number {
@@ -143,12 +574,8 @@ function monthRangeUntil(planCycle: PlanCycleRow | null, targetYm: string): stri
 
 function choosePlanCycle(rows: PlanCycleRow[], ym: string): PlanCycleRow | null {
   const activeRows = rows.filter((row) => ACTIVE_PLAN_STATUSES.includes(String(row.status || "")));
-  const containing = activeRows
-    .filter((row) => row.period_start_ym <= ym && row.period_end_ym >= ym)
-    .sort((a, b) => b.period_start_ym.localeCompare(a.period_start_ym))[0];
-  if (containing) return containing;
   return activeRows
-    .filter((row) => row.period_start_ym <= ym)
+    .filter((row) => row.period_start_ym <= ym && row.period_end_ym >= ym)
     .sort((a, b) => b.period_start_ym.localeCompare(a.period_start_ym))[0] ?? null;
 }
 
@@ -187,6 +614,28 @@ function deriveRewardBudgetForPt({
   return Math.max(0, Math.round(numberValue(billing.budget_yen)));
 }
 
+function deriveBaseMonthlyRewardBudget({
+  billing,
+  planCycle,
+  project,
+}: {
+  billing: BillingRow;
+  planCycle: PlanCycleRow | null;
+  project: ProjectRow | null;
+}): number {
+  const reportedAmount = numberValue(billing.budget_reported_amount);
+  if (reportedAmount > 0) {
+    return Math.max(0, Math.round(reportedAmount * 0.65) - Math.round(numberValue(billing.budget_buffer_amount)));
+  }
+  if (String(project?.fee_type || "").toLowerCase() === "monthly_fixed") {
+    const fee = numberValue(project?.fee_amount);
+    if (fee > 0) return Math.round(fee * 0.65);
+  }
+  const cycleBudget = numberValue(planCycle?.budget_yen);
+  if (cycleBudget > 0) return Math.round(cycleBudget / cycleMonthCount(planCycle));
+  return Math.max(0, Math.round(numberValue(billing.budget_yen)));
+}
+
 function deriveMonthlyRewardBudget({
   billing,
   planCycle,
@@ -205,6 +654,81 @@ function deriveMonthlyRewardBudget({
   const cycleBudget = numberValue(planCycle?.budget_yen);
   if (cycleBudget > 0) return Math.round(cycleBudget / cycleMonthCount(planCycle));
   return 0;
+}
+
+function rewardPointBasis(milestones: MilestoneRow[], planCycle: PlanCycleRow | null): { hasCapExtra: boolean; totalPt: number } {
+  const hasCapExtra = milestones.some(isCapExtraMilestone);
+  if (!hasCapExtra) {
+    return {
+      hasCapExtra,
+      totalPt: numberValue(planCycle?.total_points) || milestones.reduce((sum, ms) => sum + numberValue(ms.points), 0),
+    };
+  }
+  const extraPt = milestones.filter(isCapExtraMilestone).reduce((sum, ms) => sum + numberValue(ms.points), 0);
+  const planTotalPt = numberValue(planCycle?.total_points);
+  if (planTotalPt > extraPt) {
+    return {
+      hasCapExtra,
+      totalPt: planTotalPt - extraPt,
+    };
+  }
+  return {
+    hasCapExtra,
+    totalPt: milestones
+      .filter((ms) => !isCapExtraMilestone(ms))
+      .reduce((sum, ms) => sum + numberValue(ms.points), 0),
+  };
+}
+
+function deriveRewardUnits({
+  milestones,
+  billing,
+  planCycle,
+  project,
+}: {
+  milestones: MilestoneRow[];
+  billing: BillingRow;
+  planCycle: PlanCycleRow | null;
+  project: ProjectRow | null;
+}) {
+  const { hasCapExtra, totalPt } = rewardPointBasis(milestones, planCycle);
+  const payoutBudget = deriveRewardBudgetForPt({ billing, planCycle, project });
+  const regularPtUnit = totalPt > 0 ? Math.round(payoutBudget / totalPt) : 0;
+  return {
+    hasCapExtra,
+    regularPtUnit,
+    extraPtUnit: regularPtUnit,
+    regularTotalPt: totalPt,
+    payoutBudget,
+  };
+}
+
+function deriveMonthlyRewardCaps({
+  billing,
+  planCycle,
+  project,
+  hasCapExtra,
+}: {
+  billing: BillingRow;
+  planCycle: PlanCycleRow | null;
+  project: ProjectRow | null;
+  hasCapExtra: boolean;
+}) {
+  const fullBudget = deriveMonthlyRewardBudget({ billing, planCycle, project });
+  if (!hasCapExtra) {
+    return {
+      regularCapYen: fullBudget,
+      extraCapYen: 0,
+      totalCapYen: fullBudget,
+    };
+  }
+  const regularCapYen = deriveBaseMonthlyRewardBudget({ billing, planCycle, project });
+  const extraCapYen = Math.max(0, fullBudget - regularCapYen);
+  return {
+    regularCapYen,
+    extraCapYen,
+    totalCapYen: regularCapYen + extraCapYen,
+  };
 }
 
 function derivePersistedCycleBudget({
@@ -230,94 +754,223 @@ function derivePersistedCycleBudget({
   return 0;
 }
 
-function buildCarryOnlyReward(memberMap: Record<string, string>, carryStock: Map<string, number>, ptUnit: number): RewardSummary | null {
-  const members = Array.from(carryStock.entries())
-    .filter(([, amount]) => amount > 0)
-    .map(([memberId, amount]) => ({
+function buildCarryOnlyReward(
+  memberMap: Record<string, string>,
+  regularCarryStock: Map<string, number>,
+  extraCarryStock: Map<string, number>,
+  ptUnit: number,
+  extraPtUnit: number
+): RewardSummary | null {
+  const memberIds = new Set([...regularCarryStock.keys(), ...extraCarryStock.keys()]);
+  const members = Array.from(memberIds)
+    .filter((memberId) => (regularCarryStock.get(memberId) || 0) > 0 || (extraCarryStock.get(memberId) || 0) > 0)
+    .map((memberId) => ({
       memberId,
       memberName: memberMap[memberId] || memberId,
       earnedPt: 0,
       basePay: 0,
       bonusPt: 0,
       totalPay: 0,
-      carryInYen: Math.round(amount),
-      grossDueYen: Math.round(amount),
+      regularEarnedPt: 0,
+      extraEarnedPt: 0,
+      regularBasePay: 0,
+      extraBasePay: 0,
       breakdown: [],
     }));
   if (members.length === 0) return null;
-  return { ptUnit, totalPaySum: 0, members };
+  return { ptUnit, regularPtUnit: ptUnit, extraPtUnit, totalPaySum: 0, members };
 }
 
-export function applyRewardCapForMonth(
-  reward: RewardSummary,
-  capBudgetYen: number,
-  carryStock: Map<string, number>
-): RewardSummary {
-  const cap = Math.round(Number(capBudgetYen || 0));
-  const membersWithGross = reward.members.map((member) => {
-    const currentEarned = Math.round(member.totalPay || member.basePay || 0);
-    const carryIn = Math.round(carryStock.get(member.memberId) || member.carryInYen || 0);
-    const grossDue = Math.max(0, currentEarned + carryIn);
-    return {
-      ...member,
-      basePay: Math.round(member.basePay || currentEarned),
-      carryInYen: carryIn,
-      grossDueYen: grossDue,
-      totalPay: currentEarned,
-    };
-  });
+type CapAllocationInput = {
+  memberId: string;
+  basePay: number;
+  carryInYen: number;
+};
 
-  const totalGrossDue = membersWithGross.reduce((sum, member) => sum + (member.grossDueYen || 0), 0);
-  const carryInTotal = membersWithGross.reduce((sum, member) => sum + (member.carryInYen || 0), 0);
-  if (cap <= 0 || totalGrossDue <= cap) {
-    const paidMembers = membersWithGross.map((member) => ({
-      ...member,
-      totalPay: member.grossDueYen || 0,
-      deferredYen: 0,
-      stockYen: 0,
-    }));
-    return {
-      ...reward,
-      members: paidMembers,
-      totalPaySum: paidMembers.reduce((sum, member) => sum + member.totalPay, 0),
-      totalGrossDueYen: totalGrossDue,
-      capBudgetYen: cap,
-      capped: false,
-      carryInYen: carryInTotal,
-      carryOverYen: 0,
-      monthlyBudget65: cap,
-    };
+type CapAllocation = {
+  basePay: number;
+  carryInYen: number;
+  grossDueYen: number;
+  paidYen: number;
+  stockYen: number;
+};
+
+function allocateCap(
+  inputs: CapAllocationInput[],
+  capBudgetYen: number,
+  options: { payAllWhenCapMissing: boolean }
+): Map<string, CapAllocation> {
+  const items = inputs
+    .map((item) => ({
+      memberId: item.memberId,
+      basePay: Math.max(0, Math.round(item.basePay)),
+      carryInYen: Math.max(0, Math.round(item.carryInYen)),
+    }))
+    .map((item) => ({ ...item, grossDueYen: item.basePay + item.carryInYen }))
+    .filter((item) => item.grossDueYen > 0);
+
+  const map = new Map<string, CapAllocation>();
+  if (items.length === 0) return map;
+
+  const totalGrossDue = items.reduce((sum, item) => sum + item.grossDueYen, 0);
+  const cap = Math.max(0, Math.round(capBudgetYen));
+  if (cap <= 0) {
+    for (const item of items) {
+      const paidYen = options.payAllWhenCapMissing ? item.grossDueYen : 0;
+      map.set(item.memberId, {
+        basePay: item.basePay,
+        carryInYen: item.carryInYen,
+        grossDueYen: item.grossDueYen,
+        paidYen,
+        stockYen: Math.max(0, item.grossDueYen - paidYen),
+      });
+    }
+    return map;
+  }
+
+  if (totalGrossDue <= cap) {
+    for (const item of items) {
+      map.set(item.memberId, {
+        basePay: item.basePay,
+        carryInYen: item.carryInYen,
+        grossDueYen: item.grossDueYen,
+        paidYen: item.grossDueYen,
+        stockYen: 0,
+      });
+    }
+    return map;
   }
 
   let remainingCap = cap;
   let remainingGross = totalGrossDue;
-  const paidMembers = membersWithGross.map((member, index) => {
-    const grossDue = member.grossDueYen || 0;
-    const isLast = index === membersWithGross.length - 1;
-    const proportional = remainingGross > 0 ? Math.round((remainingCap * grossDue) / remainingGross) : 0;
-    const paid = Math.min(grossDue, Math.max(0, isLast ? remainingCap : proportional));
-    remainingCap -= paid;
-    remainingGross -= grossDue;
-    const deferred = Math.max(0, grossDue - paid);
-    return {
-      ...member,
-      cappedFrom: grossDue,
-      totalPay: paid,
-      deferredYen: deferred,
-      stockYen: deferred,
-    };
+  items.forEach((item, index) => {
+    const isLast = index === items.length - 1;
+    const proportional = remainingGross > 0 ? Math.round((remainingCap * item.grossDueYen) / remainingGross) : 0;
+    const paidYen = Math.min(item.grossDueYen, Math.max(0, isLast ? remainingCap : proportional));
+    remainingCap -= paidYen;
+    remainingGross -= item.grossDueYen;
+    map.set(item.memberId, {
+      basePay: item.basePay,
+      carryInYen: item.carryInYen,
+      grossDueYen: item.grossDueYen,
+      paidYen,
+      stockYen: Math.max(0, item.grossDueYen - paidYen),
+    });
   });
+  return map;
+}
+
+function emptyAllocation(): CapAllocation {
+  return { basePay: 0, carryInYen: 0, grossDueYen: 0, paidYen: 0, stockYen: 0 };
+}
+
+export function applyRewardCapsForMonth(
+  reward: RewardSummary,
+  caps: { regularCapYen: number; extraCapYen: number; totalCapYen: number },
+  regularCarryStock: Map<string, number>,
+  extraCarryStock: Map<string, number>,
+  memberMap: Record<string, string> = {}
+): RewardSummary {
+  const memberById = new Map(reward.members.map((member) => [member.memberId, member]));
+  const memberIds = new Set([...memberById.keys(), ...regularCarryStock.keys(), ...extraCarryStock.keys()]);
+  const regularInputs: CapAllocationInput[] = [];
+  const extraInputs: CapAllocationInput[] = [];
+
+  for (const memberId of memberIds) {
+    const member = memberById.get(memberId);
+    const extraBasePay = Math.max(0, Math.round(member?.extraBasePay || 0));
+    const regularBasePay = Math.max(
+      0,
+      Math.round(member?.regularBasePay ?? Math.max(0, (member?.basePay || 0) - extraBasePay))
+    );
+    regularInputs.push({
+      memberId,
+      basePay: regularBasePay,
+      carryInYen: regularCarryStock.get(memberId) || 0,
+    });
+    extraInputs.push({
+      memberId,
+      basePay: extraBasePay,
+      carryInYen: extraCarryStock.get(memberId) || 0,
+    });
+  }
+
+  const extraGrossBeforeCap = extraInputs.reduce(
+    (sum, item) => sum + Math.max(0, Math.round(item.basePay)) + Math.max(0, Math.round(item.carryInYen)),
+    0
+  );
+  const effectiveExtraCapYen = caps.extraCapYen > 0 ? caps.extraCapYen : extraGrossBeforeCap;
+  const effectiveTotalCapYen = caps.regularCapYen + effectiveExtraCapYen;
+
+  const regularAllocations = allocateCap(regularInputs, caps.regularCapYen, { payAllWhenCapMissing: true });
+  const extraAllocations = allocateCap(extraInputs, effectiveExtraCapYen, { payAllWhenCapMissing: false });
+
+  const paidMembers = Array.from(memberIds)
+    .map((memberId) => {
+      const member = memberById.get(memberId);
+      const regular = regularAllocations.get(memberId) || emptyAllocation();
+      const extra = extraAllocations.get(memberId) || emptyAllocation();
+      const basePay = regular.basePay + extra.basePay;
+      const carryInYen = regular.carryInYen + extra.carryInYen;
+      const grossDueYen = regular.grossDueYen + extra.grossDueYen;
+      const totalPay = regular.paidYen + extra.paidYen;
+      const stockYen = regular.stockYen + extra.stockYen;
+      return {
+        ...(member || {
+          memberId,
+          memberName: memberMap[memberId] || memberId,
+          earnedPt: 0,
+          bonusPt: 0,
+          breakdown: [],
+        }),
+        basePay,
+        totalPay,
+        carryInYen,
+        grossDueYen,
+        cappedFrom: grossDueYen > totalPay ? grossDueYen : undefined,
+        deferredYen: stockYen,
+        stockYen,
+        regularBasePay: regular.basePay,
+        extraBasePay: extra.basePay,
+        regularPaidYen: regular.paidYen,
+        extraPaidYen: extra.paidYen,
+        regularGrossDueYen: regular.grossDueYen,
+        extraGrossDueYen: extra.grossDueYen,
+        regularStockYen: regular.stockYen,
+        extraStockYen: extra.stockYen,
+        regularCarryInYen: regular.carryInYen,
+        extraCarryInYen: extra.carryInYen,
+      };
+    })
+    .filter((member) => (member.grossDueYen || 0) > 0 || (member.earnedPt || 0) > 0)
+    .sort((a, b) => (b.earnedPt || 0) - (a.earnedPt || 0) || (b.grossDueYen || 0) - (a.grossDueYen || 0));
+
+  const totalGrossDue = paidMembers.reduce((sum, member) => sum + (member.grossDueYen || 0), 0);
+  const totalPay = paidMembers.reduce((sum, member) => sum + member.totalPay, 0);
+  const carryInTotal = paidMembers.reduce((sum, member) => sum + (member.carryInYen || 0), 0);
+  const carryOverYen = paidMembers.reduce((sum, member) => sum + (member.stockYen || 0), 0);
+  const regularTotalGrossDueYen = paidMembers.reduce((sum, member) => sum + (member.regularGrossDueYen || 0), 0);
+  const extraTotalGrossDueYen = paidMembers.reduce((sum, member) => sum + (member.extraGrossDueYen || 0), 0);
+  const regularCarryOverYen = paidMembers.reduce((sum, member) => sum + (member.regularStockYen || 0), 0);
+  const extraCarryOverYen = paidMembers.reduce((sum, member) => sum + (member.extraStockYen || 0), 0);
 
   return {
     ...reward,
     members: paidMembers,
-    totalPaySum: paidMembers.reduce((sum, member) => sum + member.totalPay, 0),
+    totalPaySum: totalPay,
     totalGrossDueYen: totalGrossDue,
-    capBudgetYen: cap,
-    capped: true,
+    capBudgetYen: effectiveTotalCapYen,
+    capped: carryOverYen > 0,
     carryInYen: carryInTotal,
-    carryOverYen: paidMembers.reduce((sum, member) => sum + (member.stockYen || 0), 0),
-    monthlyBudget65: cap,
+    carryOverYen,
+    monthlyBudget65: effectiveTotalCapYen,
+    regularCapBudgetYen: caps.regularCapYen,
+    extraCapBudgetYen: effectiveExtraCapYen,
+    extraPayoutBudgetYen: effectiveExtraCapYen,
+    regularTotalGrossDueYen,
+    extraTotalGrossDueYen,
+    regularCarryOverYen,
+    extraCarryOverYen,
   };
 }
 
@@ -326,6 +979,7 @@ function buildRewardSummaryUncapped({
   milestones,
   progress,
   responsibilities,
+  contributionSharesByKey,
   memberMap,
   billing,
   planCycle,
@@ -335,6 +989,7 @@ function buildRewardSummaryUncapped({
   milestones: MilestoneRow[];
   progress: ProgressRow[];
   responsibilities: ResponsibilityRow[];
+  contributionSharesByKey?: Map<string, EffectiveContributionShare[]>;
   memberMap: Record<string, string>;
   billing: BillingRow;
   planCycle: PlanCycleRow | null;
@@ -346,10 +1001,8 @@ function buildRewardSummaryUncapped({
   const prevConsumedMap = buildEffectiveConsumedMap(progress, milestones, prevYm);
   const currConsumedMap = buildEffectiveConsumedMap(progress, milestones, ym);
   const msById = new Map(milestones.map((ms) => [ms.milestone_id, ms]));
-  const totalPt = numberValue(planCycle?.total_points) || milestones.reduce((sum, ms) => sum + numberValue(ms.points), 0);
-  const payoutBudget = deriveRewardBudgetForPt({ billing, planCycle, project });
-  const ptUnit = totalPt > 0 ? Math.round(payoutBudget / totalPt) : 0;
-  const memberPt = new Map<string, number>();
+  const { regularPtUnit, extraPtUnit, hasCapExtra } = deriveRewardUnits({ milestones, billing, planCycle, project });
+  const memberPt = new Map<string, { total: number; regular: number; extra: number; regularBasePay: number; extraBasePay: number }>();
   const memberBreakdown = new Map<string, RewardBreakdown[]>();
 
   for (const ms of milestones) {
@@ -357,18 +1010,43 @@ function buildRewardSummaryUncapped({
     const prev = prevConsumedMap.get(ms.milestone_id) || 0;
     const msConsumedPt = Math.round(Math.max(0, curr - prev) * 100) / 100;
     if (msConsumedPt <= 0) continue;
+    const pool: RewardPool = isCapExtraMilestone(ms) ? "cap_extra" : "regular";
+    const ptUnit = pool === "cap_extra" ? extraPtUnit : regularPtUnit;
 
-    const resps = responsibilities.filter((resp) => resp.milestone_id === ms.milestone_id && numberValue(resp.share) > 0);
+    const resps = resolveContributionShares({
+      ym,
+      milestoneId: ms.milestone_id,
+      responsibilities,
+      contributionSharesByKey,
+    }).filter((resp) => resp.share > 0);
     for (const resp of resps) {
-      const earnedPt = Math.round(msConsumedPt * numberValue(resp.share) * 100) / 100;
-      memberPt.set(resp.member_id, (memberPt.get(resp.member_id) || 0) + earnedPt);
+      const earnedPt = Math.round(msConsumedPt * resp.share * 100) / 100;
+      const payYen = Math.round(earnedPt * ptUnit);
+      const current = memberPt.get(resp.member_id) || { total: 0, regular: 0, extra: 0, regularBasePay: 0, extraBasePay: 0 };
+      current.total += earnedPt;
+      if (pool === "cap_extra") {
+        current.extra += earnedPt;
+        current.extraBasePay += payYen;
+      } else {
+        current.regular += earnedPt;
+        current.regularBasePay += payYen;
+      }
+      memberPt.set(resp.member_id, current);
       const list = memberBreakdown.get(resp.member_id) || [];
       list.push({
         msKey: ms.milestone_id,
         title: msById.get(ms.milestone_id)?.title || ms.milestone_id,
         msConsumedPt,
-        share: numberValue(resp.share),
+        share: resp.share,
+        plannedShare: resp.plannedShare,
+        shareSource: resp.source,
+        allocationStatus: resp.status,
+        allocationConfidence: resp.confidence,
+        evidenceCount: resp.evidenceCount,
         earnedPt,
+        pool,
+        ptUnit,
+        payYen,
       });
       memberBreakdown.set(resp.member_id, list);
     }
@@ -376,8 +1054,12 @@ function buildRewardSummaryUncapped({
 
   const members = Array.from(memberPt.entries())
     .map(([memberId, earned]) => {
-      const earnedPt = Math.round(earned * 100) / 100;
-      const basePay = Math.round(earnedPt * ptUnit);
+      const earnedPt = Math.round(earned.total * 100) / 100;
+      const regularEarnedPt = Math.round(earned.regular * 100) / 100;
+      const extraEarnedPt = Math.round(earned.extra * 100) / 100;
+      const regularBasePay = Math.round(earned.regularBasePay);
+      const extraBasePay = Math.round(earned.extraBasePay);
+      const basePay = regularBasePay + extraBasePay;
       return {
         memberId,
         memberName: memberMap[memberId] || memberId,
@@ -385,6 +1067,10 @@ function buildRewardSummaryUncapped({
         basePay,
         bonusPt: 0,
         totalPay: basePay,
+        regularEarnedPt,
+        extraEarnedPt,
+        regularBasePay,
+        extraBasePay,
         breakdown: memberBreakdown.get(memberId) || [],
       };
     })
@@ -394,7 +1080,9 @@ function buildRewardSummaryUncapped({
   if (members.length === 0) return null;
 
   return {
-    ptUnit,
+    ptUnit: regularPtUnit,
+    regularPtUnit,
+    extraPtUnit: hasCapExtra ? extraPtUnit : undefined,
     totalPaySum: members.reduce((sum, member) => sum + member.totalPay, 0),
     members,
   };
@@ -405,8 +1093,10 @@ export function buildRewardSummary({
   milestones,
   progress,
   responsibilities,
+  contributionSharesByKey,
   memberMap,
   billing,
+  billingsByYm,
   planCycle,
   project,
 }: {
@@ -414,35 +1104,40 @@ export function buildRewardSummary({
   milestones: MilestoneRow[];
   progress: ProgressRow[];
   responsibilities: ResponsibilityRow[];
+  contributionSharesByKey?: Map<string, EffectiveContributionShare[]>;
   memberMap: Record<string, string>;
   billing: BillingRow;
+  billingsByYm?: Map<string, BillingRow>;
   planCycle: PlanCycleRow | null;
   project: ProjectRow | null;
 }): RewardSummary | null {
-  const monthlyCap = deriveMonthlyRewardBudget({ billing, planCycle, project });
-  const totalPt = numberValue(planCycle?.total_points) || milestones.reduce((sum, ms) => sum + numberValue(ms.points), 0);
-  const payoutBudget = deriveRewardBudgetForPt({ billing, planCycle, project });
-  const ptUnit = totalPt > 0 ? Math.round(payoutBudget / totalPt) : 0;
-  const carryStock = new Map<string, number>();
+  const regularCarryStock = new Map<string, number>();
+  const extraCarryStock = new Map<string, number>();
   let result: RewardSummary | null = null;
 
   for (const month of monthRangeUntil(planCycle, ym)) {
+    const billingForMonth = billingsByYm?.get(month) ?? billing;
+    const unitsForMonth = deriveRewardUnits({ milestones, billing: billingForMonth, planCycle, project });
     const uncapped = buildRewardSummaryUncapped({
       ym: month,
       milestones,
       progress,
       responsibilities,
+      contributionSharesByKey,
       memberMap,
-      billing,
+      billing: billingForMonth,
       planCycle,
       project,
-    }) || buildCarryOnlyReward(memberMap, carryStock, ptUnit);
+    }) || buildCarryOnlyReward(memberMap, regularCarryStock, extraCarryStock, unitsForMonth.regularPtUnit, unitsForMonth.extraPtUnit);
 
     if (!uncapped) continue;
-    const capped = applyRewardCapForMonth(uncapped, monthlyCap, carryStock);
-    carryStock.clear();
+    const caps = deriveMonthlyRewardCaps({ billing: billingForMonth, planCycle, project, hasCapExtra: unitsForMonth.hasCapExtra });
+    const capped = applyRewardCapsForMonth(uncapped, caps, regularCarryStock, extraCarryStock, memberMap);
+    regularCarryStock.clear();
+    extraCarryStock.clear();
     for (const member of capped.members) {
-      if ((member.stockYen || 0) > 0) carryStock.set(member.memberId, member.stockYen || 0);
+      if ((member.regularStockYen || 0) > 0) regularCarryStock.set(member.memberId, member.regularStockYen || 0);
+      if ((member.extraStockYen || 0) > 0) extraCarryStock.set(member.memberId, member.extraStockYen || 0);
     }
     if (month === ym) result = capped;
   }
@@ -457,8 +1152,80 @@ export function buildRewardSummary({
       projectId: billing.project_id,
       ym,
       planCycleId: planCycle?.plan_cycle_id || "",
+      contributionAllocationSource: "milestone_monthly_contribution_allocations",
     },
   };
+}
+
+async function persistRewardSummaryForCycle({
+  db,
+  projectId,
+  ym,
+  billing,
+  project,
+  rewardSummary,
+}: {
+  db: SupabaseLike;
+  projectId: string;
+  ym: string;
+  billing: BillingRow;
+  project: ProjectRow | null;
+  rewardSummary: RewardSummary | null;
+}) {
+  const persistedBudgetYen = derivePersistedCycleBudget({ billing, project });
+  const rewardBudgetYen = Math.round(numberValue(rewardSummary?.capBudgetYen));
+  const updatePayload: Record<string, unknown> = {
+    reward_summary_json: rewardSummary,
+    updated_at: new Date().toISOString(),
+  };
+  const currentBudgetYen = numberValue(billing.budget_yen);
+  if (rewardBudgetYen > currentBudgetYen) {
+    updatePayload.budget_yen = rewardBudgetYen;
+  } else if (currentBudgetYen <= 0 && persistedBudgetYen > 0) {
+    updatePayload.budget_yen = persistedBudgetYen;
+  }
+
+  const { error } = await db
+    .from("billing_cycles")
+    .update(updatePayload)
+    .eq("project_id", projectId)
+    .eq("ym", ym);
+  if (error) throw error;
+}
+
+function isMissingContributionAllocationTableError(error: { code?: string; message?: string } | null | undefined): boolean {
+  const code = String(error?.code || "");
+  const message = String(error?.message || "").toLowerCase();
+  return code === "42P01"
+    || code === "PGRST205"
+    || message.includes("milestone_monthly_contribution_allocations")
+    || message.includes("could not find the table")
+    || message.includes("does not exist");
+}
+
+async function persistAutoContributionAllocationRows(db: SupabaseLike, rows: ContributionAllocationRow[]) {
+  if (rows.length === 0) return;
+  const now = new Date().toISOString();
+  const payload = rows.map((row) => ({
+    project_id: row.project_id,
+    milestone_id: row.milestone_id,
+    ym: row.ym,
+    member_id: row.member_id,
+    planned_share: row.planned_share,
+    actual_share: row.actual_share,
+    confidence: row.confidence,
+    source: row.source,
+    status: row.status,
+    reason: row.reason,
+    evidence_count: row.evidence_count,
+    evidence_refs: row.evidence_refs,
+    auto_generated_at: now,
+    updated_at: now,
+  }));
+  const { error } = await db
+    .from("milestone_monthly_contribution_allocations")
+    .upsert(payload, { onConflict: "milestone_id,ym,member_id" });
+  if (error && !isMissingContributionAllocationTableError(error)) throw error;
 }
 
 export async function syncRewardSummaryForCycle(
@@ -480,7 +1247,7 @@ export async function syncRewardSummaryForCycle(
       .maybeSingle(),
     db
       .from("value_plan_cycles")
-      .select("plan_cycle_id, status, budget_yen, total_points, period_start_ym, period_end_ym")
+      .select("plan_cycle_id, project_id, status, budget_yen, total_points, period_start_ym, period_end_ym")
       .eq("project_id", projectId)
       .in("status", ACTIVE_PLAN_STATUSES)
       .order("period_start_ym", { ascending: false }),
@@ -494,23 +1261,32 @@ export async function syncRewardSummaryForCycle(
 
   const billing = billingRes.data as BillingRow | null;
   if (!billing) return { ok: false, projectId, ym, rewardSummary: null, skippedReason: "billing_cycle_not_found" };
+  const existingManualSummary = manualRewardSummary(billing.reward_summary_json);
   const project = (projectRes.data ?? null) as ProjectRow | null;
   const planCycle = choosePlanCycle((planCyclesRes.data ?? []) as PlanCycleRow[], ym);
-  if (!planCycle) return { ok: false, projectId, ym, rewardSummary: null, skippedReason: "plan_cycle_not_found" };
+  if (!planCycle) {
+    if (existingManualSummary) return { ok: true, projectId, ym, rewardSummary: existingManualSummary, skippedReason: "manual_override" };
+    return { ok: false, projectId, ym, rewardSummary: null, skippedReason: "plan_cycle_not_found" };
+  }
 
   const milestonesRes = await db
     .from("value_milestones")
-    .select("milestone_id, title, points, tag, sort_order")
+    .select("milestone_id, title, points, tag, goal_level, sort_order")
     .eq("plan_cycle_id", planCycle.plan_cycle_id)
     .eq("is_active", true)
     .order("sort_order");
   if (milestonesRes.error) throw milestonesRes.error;
 
-  const milestones = ((milestonesRes.data ?? []) as MilestoneRow[]).filter((ms) => String(ms.tag || "").toLowerCase() !== "routine");
-  if (milestones.length === 0) return { ok: false, projectId, ym, rewardSummary: null, skippedReason: "milestones_not_found" };
+  const milestones = ((milestonesRes.data ?? []) as MilestoneRow[]).filter((ms) => String(ms.goal_level || "").toLowerCase() !== "monthly");
+  if (milestones.length === 0) {
+    if (existingManualSummary) return { ok: true, projectId, ym, rewardSummary: existingManualSummary, skippedReason: "manual_override" };
+    await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary: null });
+    return { ok: true, projectId, ym, rewardSummary: null, skippedReason: "milestones_not_found" };
+  }
 
   const milestoneIds = milestones.map((ms) => ms.milestone_id);
-  const [progressRes, responsibilitiesRes] = await Promise.all([
+  const rewardMonths = monthRangeUntil(planCycle, ym);
+  const [progressRes, responsibilitiesRes, billingRangeRes, activitiesRes, contributionAllocationsRes] = await Promise.all([
     db
       .from("milestone_monthly_progress")
       .select("milestone_key, ym, progress_pct, consumed_pt")
@@ -521,45 +1297,71 @@ export async function syncRewardSummaryForCycle(
       .from("milestone_responsibility")
       .select("milestone_id, member_id, share")
       .in("milestone_id", milestoneIds),
+    db
+      .from("billing_cycles")
+      .select("project_id, ym, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
+      .eq("project_id", projectId)
+      .gte("ym", planCycle.period_start_ym)
+      .lte("ym", ym)
+      .order("ym", { ascending: true }),
+    db
+      .from("member_activities")
+      .select("id, member_id, project_id, ym, source, source_item_id, milestone_id, title, content_preview, item_date, raw_metadata, impact, depth")
+      .eq("project_id", projectId)
+      .in("ym", rewardMonths)
+      .in("milestone_id", milestoneIds),
+    db
+      .from("milestone_monthly_contribution_allocations")
+      .select("project_id, milestone_id, ym, member_id, planned_share, actual_share, confidence, source, status, reason, evidence_count, evidence_refs")
+      .eq("project_id", projectId)
+      .in("ym", rewardMonths)
+      .in("milestone_id", milestoneIds),
   ]);
   if (progressRes.error) throw progressRes.error;
   if (responsibilitiesRes.error) throw responsibilitiesRes.error;
+  if (billingRangeRes.error) throw billingRangeRes.error;
+  if (activitiesRes.error) throw activitiesRes.error;
+  if (contributionAllocationsRes.error && !isMissingContributionAllocationTableError(contributionAllocationsRes.error)) {
+    throw contributionAllocationsRes.error;
+  }
 
   const memberMap: Record<string, string> = {};
   for (const member of (membersRes.data ?? []) as MemberRow[]) {
     memberMap[member.member_id] = member.code_name || member.member_name || member.member_id;
   }
 
+  const contributionPlan = buildContributionAllocationPlan({
+    projectId,
+    months: rewardMonths,
+    milestones,
+    responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
+    activities: (activitiesRes.data ?? []) as MemberActivityRow[],
+    persistedAllocations: contributionAllocationsRes.error
+      ? []
+      : (contributionAllocationsRes.data ?? []) as ContributionAllocationRow[],
+  });
+  await persistAutoContributionAllocationRows(db, contributionPlan.autoRowsToPersist);
+
   const rewardSummary = buildRewardSummary({
     ym,
     milestones,
     progress: (progressRes.data ?? []) as ProgressRow[],
     responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
+    contributionSharesByKey: contributionPlan.effectiveSharesByKey,
     memberMap,
     billing,
+    billingsByYm: new Map(((billingRangeRes.data ?? []) as BillingRow[]).map((row) => [row.ym, row])),
     planCycle,
     project,
   });
 
   if (!rewardSummary || rewardSummary.members.length === 0) {
-    return { ok: false, projectId, ym, rewardSummary: null, skippedReason: "reward_members_not_found" };
+    if (existingManualSummary) return { ok: true, projectId, ym, rewardSummary: existingManualSummary, skippedReason: "manual_override" };
+    await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary: null });
+    return { ok: true, projectId, ym, rewardSummary: null, skippedReason: "reward_members_not_found" };
   }
 
-  const persistedBudgetYen = derivePersistedCycleBudget({ billing, project });
-  const updatePayload: Record<string, unknown> = {
-    reward_summary_json: rewardSummary,
-    updated_at: new Date().toISOString(),
-  };
-  if (numberValue(billing.budget_yen) <= 0 && persistedBudgetYen > 0) {
-    updatePayload.budget_yen = persistedBudgetYen;
-  }
-
-  const { error: updateError } = await db
-    .from("billing_cycles")
-    .update(updatePayload)
-    .eq("project_id", projectId)
-    .eq("ym", ym);
-  if (updateError) throw updateError;
+  await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary });
 
   return { ok: true, projectId, ym, rewardSummary };
 }
@@ -574,4 +1376,63 @@ export async function syncRewardSummariesForBillingCycles(
     if (result.rewardSummary) synced.set(`${cycle.project_id}:${cycle.ym}`, result.rewardSummary);
   }
   return synced;
+}
+
+export async function syncRewardSummariesForProject(
+  db: SupabaseLike,
+  projectId: string
+): Promise<Map<string, RewardSummary>> {
+  const cyclesRes = await db
+    .from("billing_cycles")
+    .select("project_id, ym, reward_paid_at, payout_notice_uploaded_at, payment_confirmed_at")
+    .eq("project_id", projectId)
+    .order("ym", { ascending: true });
+  if (cyclesRes.error) throw cyclesRes.error;
+  return syncRewardSummariesForBillingCycles(
+    db,
+    ((cyclesRes.data ?? []) as Array<{
+      project_id: string;
+      ym: string;
+      reward_paid_at?: string | null;
+      payout_notice_uploaded_at?: string | null;
+      payment_confirmed_at?: string | null;
+    }>).filter((cycle) =>
+      cycle.project_id &&
+      cycle.ym &&
+      !cycle.reward_paid_at &&
+      !cycle.payout_notice_uploaded_at &&
+      !cycle.payment_confirmed_at
+    )
+  );
+}
+
+export async function syncRewardSummariesForPlanCycle(
+  db: SupabaseLike,
+  planCycleId: string
+): Promise<{ projectId: string; yms: string[]; synced: Map<string, RewardSummary> }> {
+  const planCycleRes = await db
+    .from("value_plan_cycles")
+    .select("project_id, period_start_ym, period_end_ym")
+    .eq("plan_cycle_id", planCycleId)
+    .maybeSingle();
+  if (planCycleRes.error) throw planCycleRes.error;
+
+  const planCycle = planCycleRes.data as { project_id?: string | null; period_start_ym?: string | null; period_end_ym?: string | null } | null;
+  const projectId = planCycle?.project_id || "";
+  if (!projectId || !planCycle?.period_start_ym || !planCycle?.period_end_ym) {
+    return { projectId, yms: [], synced: new Map() };
+  }
+
+  const cyclesRes = await db
+    .from("billing_cycles")
+    .select("project_id, ym")
+    .eq("project_id", projectId)
+    .gte("ym", planCycle.period_start_ym)
+    .lte("ym", planCycle.period_end_ym)
+    .order("ym", { ascending: true });
+  if (cyclesRes.error) throw cyclesRes.error;
+
+  const cycles = ((cyclesRes.data ?? []) as Array<{ project_id: string; ym: string }>).filter((cycle) => cycle.project_id && cycle.ym);
+  const synced = await syncRewardSummariesForBillingCycles(db, cycles);
+  return { projectId, yms: cycles.map((cycle) => cycle.ym), synced };
 }

@@ -40,7 +40,9 @@ export interface ProjectRow {
   pms: string[];
   closers: string[];
   pls: string[];
-  /** ASPI 8 domain weighted lanes (project_ventures.lanes 由来)。SU 未化 PJ は null。 */
+  /** project_ventures 行がある SU 系 PJ。false の PJ は lanes 編集不可。 */
+  has_venture_row: boolean;
+  /** ASPI 8 domain weighted lanes (project_ventures.lanes 由来)。未設定 or SU 未化 PJ は null。 */
   lanes: LaneWeight[] | null;
   /** LLM (Sonnet) による lane 推定 candidate (pending、未承認)。null = 提案なし。 */
   lane_suggestion: {
@@ -244,6 +246,10 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
   // lanes は project_ventures テーブルへの書き込み
   const saveLanes = async (p: ProjectRow, lanes: LaneWeight[]) => {
+    if (!p.has_venture_row) {
+      setHint(`${p.project_name} は SU 未化のため lanes を保存できません`);
+      return;
+    }
     setSaving(p.id);
     const r = await patchProject(p.id, { venturesPatch: { lanes } });
     if (!r.ok) {
@@ -513,8 +519,19 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
 	                  {/* Lane (ASPI 8 domains weighted, project_ventures.lanes)
                       lanes が null かつ LLM 提案 (lane_suggestion) があれば「採用 / 却下」UI も表示。 */}
-                  <td className={cellCls("lanes")} onClick={enterCell("lanes")}>
-                    {isEditingField(p, "lanes") ? (
+                  <td
+                    className={p.has_venture_row ? cellCls("lanes") : "px-3 py-2 text-muted-foreground"}
+                    onClick={p.has_venture_row ? enterCell("lanes") : undefined}
+                    title={p.has_venture_row ? "クリックで lane を編集" : "project_ventures 行がないため lane 編集不可"}
+                  >
+                    {!p.has_venture_row ? (
+                      <div className="space-y-1">
+                        <LaneBadges lanes={null} fallback="SU未化" />
+                        <div className="text-[9px] text-muted-foreground leading-tight">
+                          project_ventures 作成後に編集
+                        </div>
+                      </div>
+                    ) : isEditingField(p, "lanes") ? (
                       <div onClick={(e) => e.stopPropagation()}>
                         <LaneEditor
                           initial={p.lanes ?? p.lane_suggestion?.suggested_lanes ?? null}
@@ -862,7 +879,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
             const res = await fetch(`/api/admin/projects/${emailsModal.rowId}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ report_emails: joined || null }),
+              body: JSON.stringify({ projectsPatch: { report_emails: joined || null } }),
             });
             if (!res.ok) {
               const j = await res.json().catch(() => ({}));

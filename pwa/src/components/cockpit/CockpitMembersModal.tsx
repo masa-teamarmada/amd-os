@@ -20,7 +20,7 @@ import {
   type MemberKind,
   type AmdMemberLite,
 } from "@/lib/venture-status-data";
-// 2026-05-11 まさ指摘 1 番: 「創業」ボタン削除 + LLM 抽出創業メンバーを「👥 メンバー」モーダルに統合
+// 2026-05-11 まさ指摘 1 番: 旧「創業」ボタンを削除し、LLM 抽出の関連メンバーを「👥 メンバー」モーダルに統合
 import {
   fetchFoundingMembers,
   estimateHrlFromMembers,
@@ -234,7 +234,7 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
         body: JSON.stringify({ projectId, instruction: foundingInstruction, mode: "apply", proposal: foundingProposal }),
       });
       const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.message || json.error || "創業メンバー修正の反映に失敗");
+      if (!res.ok || !json.ok) throw new Error(json.message || json.error || "関連メンバー修正の反映に失敗");
       setFoundingProposal(null);
       setFoundingInstruction("");
       await reload();
@@ -451,16 +451,16 @@ export function CockpitMembersModal({ projectId, onClose }: Props) {
             </button>
           )}
 
-          {/* 2026-05-22 まさ指摘: 旧「🧑‍🤝‍🧑 創業コア候補」セクションを「関連メンバー候補」に再定義。
-              HRL根拠は「該当SU社員 + AMD伴走メンバー」だけ。大学・研究機関 / VC / 顧客 / 行政 /
-              partner_company は HRL根拠外として除外。AMDメンバーは code_name で記録。 */}
+          {/* 旧 founder 候補セクションを「関連メンバー候補」に再定義。
+              HRL根拠は「該当SU社員 + AMD伴走メンバー + 大学キーパーソン」。
+              VC / 顧客 / 行政 / partner_company は HRL根拠外として除外。AMDメンバーは code_name で記録。 */}
           {!loading && (
             <div className="mt-5 border-t border-[#e5e5e7] pt-4">
               <div className="flex items-baseline justify-between mb-2">
                 <h4 className="text-[12px] font-semibold text-slate-700">
                   🧑‍🤝‍🧑 LLM 抽出 関連メンバー候補 ({foundingTotal} 名 = active {foundingActiveCount} / 候補 {foundingTentativeCount})
                 </h4>
-                <span className="text-[9px] italic text-slate-500">monthly_reports + meeting_summaries から抽出 / 毎週月曜 03:30 更新</span>
+                <span className="text-[9px] italic text-slate-500">monthly_reports + meeting_summaries から抽出 / 自動 schedule は停止中、手動 route で更新</span>
               </div>
 
               <div className="rounded-md border border-indigo-200 bg-indigo-50/40 px-3 py-2 mb-3 space-y-2">

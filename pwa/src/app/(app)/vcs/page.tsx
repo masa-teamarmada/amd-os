@@ -117,7 +117,7 @@ export default function VcListPage() {
           <h1 className="text-xl font-semibold">VC List</h1>
           <p className="text-xs text-muted-foreground mt-1">
             国内ディープテック VC の特性 / ファンド / 自社 PJ 接点 / 出資先 / ニュースを統合。
-            自動収集 (毎朝 09:00 JST) + つくよみ + 手入力。行クリックで詳細。
+            自動収集 route (現在はスケジュール停止中) + つくよみ + 手入力。行クリックで詳細。
           </p>
         </div>
         <Link

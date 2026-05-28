@@ -30,6 +30,9 @@ const DOMAIN_FULL: Record<string, string> = {
   M: "M.社会構造・社会課題",
   N: "N.海洋・水資源",
   O: "O.サーキュラーエコノミー",
+  P: "P.量子・量子計算",
+  Q: "Q.センシング・計測",
+  R: "R.先端通信",
 };
 
 /**
@@ -47,7 +50,7 @@ export async function GET(req: NextRequest) {
   const months = Math.max(1, Math.min(12, parseInt(params.get("months") || "3", 10)));
   const fullDomain = DOMAIN_FULL[dKey];
   if (!fullDomain) {
-    return NextResponse.json({ error: "invalid domain (A-O)" }, { status: 400 });
+    return NextResponse.json({ error: "invalid domain (A-R)" }, { status: 400 });
   }
 
   const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

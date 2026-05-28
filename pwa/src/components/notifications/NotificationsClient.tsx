@@ -1034,7 +1034,7 @@ function DeepLinkForL2({ n }: { n: Notification }) {
     case "project_strategy_signal":
       return (
         <a className="text-blue-600 hover:underline" href={`/project/${n.target_id}/cockpit?ym=${notificationYm(n.scope_key)}`}>
-          /project/{n.target_id}/cockpit (経営・事業シグナルを確認)
+          /project/{n.target_id}/cockpit (経営ハイライトを確認)
         </a>
       );
     default:

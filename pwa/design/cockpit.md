@@ -54,7 +54,7 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 │   ├── [B2]  CockpitNextPeriodSetup  次期 MS 設定バナー / 直接編集
 │   └── [B3]  過去の期間 (折りたたみ)
 │
-├── col2: 経営・事業シグナル (L2 ⑨)
+├── col2: 経営ハイライト (L2 ⑨)
 │   └── [B1]  CockpitStrategySignals  candidate / confirmed をMS直下の上位ボードとして見せる
 │
 └── col3: 月次オペ (lg 以上で sticky top-12)
@@ -77,6 +77,7 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 - **CockpitFreezeBackfill**: `freeze_period_backfills` テーブルから `(project_id, freeze_from_ym, restart_ym)` を fetch、再開月以降に「📦 休止期間サマリ」パネルを MTGサマリの直上に表示。データソースは `cron/freeze-period-backfill` が休止期間中の monthly_reports + project_meeting_summaries を Sonnet で 400-700 字に統合
 - **canEditRoutine prop** (= members.is_admin OR project_members.is_pm): false なら CockpitRoutineGas を `pointer-events-none opacity-60` で読取専用に。一般メンバーが月次ルーティンを誤操作しないようガード
 - **タブタイトル動的化**: `/project/[projectId]/layout.tsx` の generateMetadata が `projects.project_name` → `project_ventures.display_name` 順で fallback して `<PJ名> - AMD OS` を返す
+- **MTG添付資料トレイ**: `CockpitMeetingDetailModal` 内の `MeetingAssetsPanel` で、選択 / drag & drop / clipboard paste / browser screen capture の4経路から PNG・JPG・WebP・GIF・PDF を `meeting_assets` に保存する。`本文へ` は添付一覧を `narrative_md` の Markdown block に挿入し、Meet/Gmail 自動議事録に落ちない画面共有情報を後から補完できるようにする。
 
 ### 今期MSの表示対象
 
@@ -87,7 +88,17 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 例外として、現在月を含む cycle が存在せず、次に始まる future cycle が登録済みの場合は、その future cycle をトップ表示に使う。  
 これにより、5月時点で6-9月の次期MSを先行入力したCXのようなケースでも、コックピット上で設定済みMSを確認できる。
 
-### 経営・事業シグナル
+### MSの論点追跡UI
+
+`CockpitGoalsCompact` の各MS行は、クリックで展開し、MSを長期テーマのホーム画面として扱う。
+
+- **ゴール**: `value_milestones.success_criteria`、MS個別期間 (`period_start_ym` / `target_ym`)、pt、担当shareを表示する。
+- **TODO**: `milestone_sub_items` のopen/done状態と、`milestone_responsibility.task_description` を並べる。サブアイテムは展開欄からdone/openを切り替えられる。
+- **現状**: `milestone_monthly_progress` の最新 `progress_pct` / `note`、`member_ms_activities` の narrative、`member_activities` の直近材料を表示する。
+
+これにより、長期テーマを別コンテンツとして増やさず、MSそのものを「ゴール / やること / 現状 / 根拠履歴」の追跡単位にする。MTGサマリや経営ハイライトはMSの外側に残し、MS展開欄ではそれらから抽出済みの進捗材料だけを短く見る。
+
+### 経営ハイライト
 
 今期MSリスト直下に `CockpitStrategySignals` を表示する。
 
@@ -107,11 +118,12 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 
 ### MS設計と報酬配分
 
-MSは報酬配分の最小単位でもある。`milestone_responsibility.share` は「そのMSで進んだptを誰に配るか」なので、独立して進む成果物を1つのMSに混ぜると、未着手パートの担当者にも報酬が乗る。
+MSは報酬配分の最小単位でもある。`milestone_responsibility.share` はMS設計時点の予定担当比率で、月次報酬では `member_activities(project_id, ym, milestone_id)` から自動算出した `milestone_monthly_contribution_allocations.actual_share` を優先する。
 
 - 1つの成果物が複数人共同で進む場合: 1MS + shareで表現する。
 - 事業計画 / 資本政策 / 知財戦略のように、進捗が別々に確定する場合: 成果物ごとに別MSへ分ける。
-- SX旧MS#1はこのルールにより、`事業計画策定` (かる70% / まさ30%)、`資本政策策定` (まさ100%)、`知財戦略策定` (ちこ80% / まさ20%) に分割済み。
+- SX旧MS#1はこのルールにより、`事業計画策定`、`資本政策策定`、`知財戦略策定` のように成果物単位へ分割済み。担当割合は各 `milestone_responsibility` に保存し、個人名を仕様例として固定しない。
+- 当月活動ログの根拠が十分な場合は `status='auto_applied'` の実績配分を使う。根拠が薄い場合は `needs_review` として保存するが報酬計算には使わず、予定担当比率へfallbackする。PM/admin が調整した行は `confirmed` / `pm_override` として自動案より優先する。
 - 年間MS設定では、各MSに `period_start_ym` / `target_ym` を持たせる。UI上は `MS開始` / `MS終了` として表示し、月次モーダル・HUDの期間表示もこのDB値を優先する。
 - このUIは過去に消えた回帰が複数回あるため、PWAで年間MS設定を触るときは `npm run test:next-period-ui` を必ず通す。
 
@@ -124,7 +136,7 @@ MSは報酬配分の最小単位でもある。`milestone_responsibility.share` 
 │ Header (全要素クリックで CockpitVentureMetaEditModal)      │
 │  - emoji (outcome) / PJ 名 / lane chip / outcome chip      │
 │  - 設立日 / origin_org / origin_pi                         │
-│  - [📜 沿革] [👥 メンバー] [🧑‍🤝‍🧑 創業] [🤝 事業会社] [📊 試算表] │
+│  - [📜 沿革] [👥 メンバー] [🧑‍🤝‍🧑 関連メンバー] [🤝 事業会社] [📊 試算表] │
 │  - AMD score chip (クリックで CockpitAmdScoreBreakdownModal)│
 │                                                              │
 │ short_description (クリックで CockpitDescriptionDetailModal)│
@@ -140,7 +152,7 @@ MSは報酬配分の最小単位でもある。`milestone_responsibility.share` 
 │  - ドット直径 r=12 (proposal r=15) で大きく                │
 │  - 確定ドット → CockpitXrlDetailModal (axis 個別の詳細)    │
 │  - LLM proposal ドット → 採用 / 却下 banner                │
-│  - 「LLM 判定は毎朝 03:15 cron」の文言あり (ボタン無し)    │
+│  - XRL 自動判定 schedule 停止中の文言あり (ボタン無し)    │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -155,7 +167,7 @@ MSは報酬配分の最小単位でもある。`milestone_responsibility.share` 
 | CockpitVentureMetaEditModal      | Header 各要素タップ                      | display_name / lane / founded_at / outcome / AMD 支援期間 / origin / 概要 |
 | CockpitVentureStatusEditModal    | AMD スコアチャート空白 / ドットタップ    | イベント追加・編集 (自由文 + Gemini 構造化)                          |
 | CockpitMembersModal              | 👥 メンバー                              | project_venture_members 編集 (member_kind: amd_internal / su_internal / support_org) |
-| CockpitFoundingMembersModal      | 🧑‍🤝‍🧑 創業                                | project_founding_members 表示。**関連メンバー (HRL評価のベース)** として運用。対象は `category='amd'` (= AMD code_name 一致) と `category='startup'` (= 該当SU 社員 / 創業候補) だけ。大学・研究機関 / VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として `status='invalid'` 化する。AMDメンバーは `members.code_name` で記録 (フルネーム / 姓のみ表記は重複として invalid)。つくよみ修正依頼UIから追加・修正・invalid化を依頼できる。HRL 簡易推定 (ルールベース 0-9、`amd`+`startup` のみで算出) を末尾表示。詳細は [`xrl_evidence.md`](xrl_evidence.md) |
+| CockpitFoundingMembersModal      | 🧑‍🤝‍🧑 関連メンバー                         | project_founding_members 表示。**関連メンバー (HRL評価のベース)** として運用。対象は `category in ('amd','startup','university')` (= AMD伴走 / 該当SU 社員・創業候補 / 大学キーパーソン)。VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として `status='invalid'` 化する。AMDメンバーは `members.code_name` で記録 (フルネーム / 姓のみ表記は重複として invalid)。つくよみ修正依頼UIから追加・修正・invalid化を依頼できる。HRL 簡易推定 (ルールベース 0-9、`amd`+`startup`+`university` で算出) を末尾表示。詳細は [`xrl_evidence.md`](xrl_evidence.md) / [`../manual/4-4-frl-related-members-score-spec.md`](../manual/4-4-frl-related-members-score-spec.md) |
 | CockpitPartnersModal             | 🤝 事業会社                              | project_partners (collab / customer)                                 |
 | CockpitPlMonthlyModal            | 📊 試算表                                | project_pl_monthly 縦横ピボット表示 + 直接入力                       |
 | CockpitPlHearingModal            | 試算表内「✨ つくよみとヒアリング」      | Sonnet が質問→回答→月次 PL 36ヶ月生成 → upsert                       |
@@ -208,11 +220,11 @@ migrations: `pwa/scripts/migrations/008_project_ventures.sql` 〜 `012_xrl_feedb
 | `/api/project-ventures/[id]/pl-hearing/turn`                | Sonnet と試算表ヒアリング 1 ターン                 |
 | `/api/tsukuyomi/chat`                                       | マスコット会話 + tool use (update_short_long_description / invalidate_narrative / record_xrl_feedback / web_search) |
 
-### Cron (vercel.json)
-| Path                                | UTC schedule | JST     | 用途                                                            |
-|-------------------------------------|-------------|---------|-----------------------------------------------------------------|
-| `/api/cron/venture-xrl-refresh`     | `15 18 * * *` | 03:15 daily | 差分があれば全 SU 系 PJ で Gemini 判定 → llm_proposal 挿入 |
-| `/api/cron/venture-narrative-refresh` | `45 18 * * *` | 03:45 daily | invalidated > generated の PJ で Gemini 沿革再生成 + Sonnet lesson 抽出 |
+### Cron
+| Path | 現状 | 用途 |
+|---|---|---|
+| `/api/cron/venture-xrl-refresh` | schedule 停止中 (`vercel.disabled-crons.json`) | 手動検証時に全 SU 系 PJ で Gemini 判定 → llm_proposal 挿入 |
+| `/api/cron/venture-narrative-refresh` | schedule 停止中 (`vercel.disabled-crons.json`) | 手動検証時に invalidated > generated の PJ で Gemini 沿革再生成 + Sonnet lesson 抽出 |
 
 ---
 
@@ -259,7 +271,7 @@ event_bonus: hire +3 / funding +8 / deal +5 / tech_progress +4 / governance +2 /
 4. 次回以降の沿革生成・つくよみ会話に general lesson が自動注入される
 5. admin/tsukuyomi の `🧷 記憶` (memory) layer に `pj_status:narrative` source で表示
 
-XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → cron `/venture-xrl-refresh` でも反映)。
+XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/venture-xrl-refresh` でも反映)。自動 schedule は停止中。
 
 ---
 
@@ -300,18 +312,18 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → cron `/ven
 - `amd-score-l2-refresh` は `ecosystem` をskipする。
 - MS 進捗対象判定 (`progress-estimator.ts` `MS_PROGRESS_PROJECT_CATEGORIES` / `activities/infer` / `CockpitView` / `HudCockpitView`) は `('dtsu','ecosystem','new_business')`。
 
-## 関連メンバー (旧 Founding Members)
+## 関連メンバー
 
 `project_founding_members` はL2 ⑧ XRL根拠のうち、HRL評価のベースとなる **関連メンバー** 台帳。
 
-### 表示対象 (まさ判断 2026-05-22)
+### 表示対象
 
 - `category='amd'`: AMD の伴走メンバー (`members.code_name` に一致した人物)
 - `category='startup'`: 該当SU の社員 / 社員候補 / 創業候補
+- `category='university'`: 起源PI / 共同創業者 / 技術リード / 共同研究中核として SU と一体で動く大学・研究機関人物
 
 ### 除外対象 (HRL根拠から外す = status='invalid')
 
-- `university`: 大学・研究機関のPI / 共同研究者 / 特許保有者
 - `vc`: VC / ファンド / 投資家
 - `partner_company`: 産業パートナー / 顧客 / サプライヤー / 委託先
 - `government`: 補助金 / 行政 / 支援機関
@@ -347,6 +359,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → cron `/ven
 月次モーダルのメンバー報酬は、PJ予算を絶対に超えない。
 
 - 今月払ってよい額 = 月次PJ予算 (`billing_cycles.budget_yen` or monthly fixed fee 65%)
+- 月額固定PJの追加受託分は `/admin/payouts` の cap外追加支払枠で `billing_cycles.budget_yen` に足す。例: ZMP は通常 300,000 円 × 65% = 195,000 円を cap とし、OkuDoor追加開発分だけ追加枠で支払可能額を増やす。
 - gross due = 今月発生報酬 + 前月までのmember別stock
 - gross dueがcapを超える場合、支払額をcap内に比例配分し、未払い分を `stockYen` として翌月へ繰越
 - UIは `要支払 / 支払 / 繰越入 / 現ストック / キャップ発動` を表示する
@@ -359,7 +372,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → cron `/ven
 
 ### 背景
 
-2026-05-23 まさ × えいみ戦略再構築セッションで、AMD の長期目標を「SU 創出数中心」→「研究機関提携 + AMD OS 普及 + 学術体系化」中心へ転換。それに伴い、AMD 全社のミッション・戦略構造を**コックピット上で常時可視化**しておく必要が出てきた。
+2026-05-23 の戦略再構築セッションで、AMD の長期目標を「SU 創出数中心」→「研究機関提携 + AMD OS 普及 + 学術体系化」中心へ転換。それに伴い、AMD 全社のミッション・戦略構造を**コックピット上で常時可視化**しておく必要が出てきた。
 
 まさの言葉:
 > てかさ、そういう長期的目標、MVV とかをちゃんとコックピットにも書いておかないとだよね。
@@ -439,7 +452,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → cron `/ven
 │   ├── 7. AMD ファンド（ゼブラ思想）カード
 │   └── 8. FY26 OKR KR1-KR6 進捗バー
 ├── [B]   CockpitGoalsCompact         今期 MS リスト（14 個）
-├── [B1]  CockpitStrategySignals      経営・事業シグナル
+├── [B1]  CockpitStrategySignals      経営ハイライト
 ├── [B2]  CockpitNextPeriodSetup
 ├── [B3]  過去の期間
 ├── [C]   CockpitKanbanGas

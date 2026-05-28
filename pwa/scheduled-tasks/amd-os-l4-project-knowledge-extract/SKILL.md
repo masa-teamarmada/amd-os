@@ -13,7 +13,7 @@ description: AMD OS L2 ④ PJ ナレッジ抽出 routine。daily 08:15 JST 発�
 - 9 category: `people` / `tech` / `ip` / `org` / `funding` / `market` / `competitor` / `strategy` / `term`
 
 ## 【絶対】 動く前に必ず Read
-1. `pwa/manual/03-data-and-extraction.md` §3.2-3.4
+1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4
 2. `pwa/design/project_knowledge.md` (= L2 ④ 仕様正本)
 3. `pwa/design/db_schema.md` (= 列名 grep)
 4. `gas/155_L2KnowledgeExtractor.js` 行 387-606 (= 元 ④ 実装)

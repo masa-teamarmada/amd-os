@@ -3,8 +3,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 
-// まさ判断 (2026-05-22): 関連メンバー (HRL 評価のベース) は「該当SU社員 + AMD伴走メンバー」だけ。
-// 大学・研究機関 / VC / 顧客 / 行政 / partner_company は HRL 根拠から除外する。
+// 関連メンバー (HRL 評価のベース) は「該当SU社員 + AMD伴走メンバー + 大学キーパーソン」。
+// VC / 顧客 / 行政 / partner_company は HRL 根拠から除外する。
 const ALLOWED_ROLES = new Set([
   "ceo_candidate",
   "co_founder",
@@ -14,10 +14,9 @@ const ALLOWED_ROLES = new Set([
   "researcher",
   "unknown",
 ]);
-const ALLOWED_CATEGORIES = new Set(["amd", "startup", "unknown"]);
+const ALLOWED_CATEGORIES = new Set(["amd", "startup", "university", "unknown"]);
 const EXCLUDED_ROLES = new Set(["investor", "partner"]);
 const EXCLUDED_CATEGORIES = new Set([
-  "university",
   "vc",
   "partner_company",
   "government",
@@ -32,7 +31,7 @@ const ROLE_VALUES = [
   "researcher",
   "unknown",
 ] as const;
-const CATEGORY_VALUES = ["amd", "startup", "unknown"] as const;
+const CATEGORY_VALUES = ["amd", "startup", "university", "unknown"] as const;
 
 interface FoundingMemberSnapshot {
   id: string;
@@ -212,9 +211,10 @@ async function buildProposal(input: {
     temperature: 0.1,
     system: [
       "あなたはAMD OSのアシスタントAI「つくよみ」。PJの関連メンバー台帳を、PMの指示に従って安全に修正する。",
-      "このリストはHRL評価のベース。「該当SU社員 + AMD伴走メンバー」だけが対象。",
-      "大学・研究機関のPI / 共同研究者 / 特許保有者、VC、顧客、行政、産業パートナーは除外する (= category=university/vc/partner_company/government/individual)。",
-      "AMDメンバーは必ず code_name (まさ / きよ / かる 等) で記録。フルネーム表記や姓のみ表記は code_name に集約する。",
+      "このリストはHRL評価のベース。「該当SU社員 + AMD伴走メンバー + 大学キーパーソン」が対象。",
+      "大学・研究機関でも、CEO候補 / 共同創業者 / 技術リード / 起源PI としてSUに関与する人物は category='university' で残す。",
+      "VC、顧客、行政、産業パートナーは除外する (= category=vc/partner_company/government/individual)。",
+      "AMDメンバーは必ず members.code_name に存在する code_name で記録。フルネーム表記や姓のみ表記は code_name に集約する。",
       "AMD code_name に一致する人物は category='amd'、それ以外で該当SU側は category='startup'、判断保留は 'unknown'。",
       "迷う人物は invalidates ではなく skipped に理由を書き、upserts には入れない。",
       "返答はJSONだけ。",

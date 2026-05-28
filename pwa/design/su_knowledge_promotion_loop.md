@@ -1,6 +1,6 @@
-# SU_KNOWLEDGE_PROMOTION_LOOP — SU経営知識を二人で育てるループの設計
+# SU_KNOWLEDGE_PROMOTION_LOOP — SU経営知識を複数入口から育てるループの設計
 
-> amd-os の根幹候補。えいみとつくよみ、それから自動cron抽出（議事録/Slack）が、別の入口で得た「SU の経営判断・拡張機会・新規論点」を、各 SU の正本md (`knowledge/{su}.md`) に合流させる仕組み。
+> amd-os の根幹候補。会話セッション、つくよみ、それから自動cron抽出（議事録/Slack）が、別の入口で得た「SU の経営判断・拡張機会・新規論点」を、各 SU の正本md (`knowledge/{su}.md`) に合流させる仕組み。
 >
 > Personal OS Loop (`/Users/masa/projects/kagami/PERSONAL_OS_LOOP.md`) の構造を SU 知識領域に拡張した姉妹設計。
 >

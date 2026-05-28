@@ -21,6 +21,9 @@ const DOMAINS = [
   "M.社会構造・社会課題",
   "N.海洋・水資源",
   "O.サーキュラーエコノミー",
+  "P.量子・量子計算",
+  "Q.センシング・計測",
+  "R.先端通信",
 ];
 
 const SOURCE_TYPES: { value: AtlasSignal["source_type"]; label: string }[] = [

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
-import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
+import { syncRewardSummariesForPlanCycle, syncRewardSummaryForCycle } from "@/lib/reward-summary";
 
 export const runtime = "nodejs";
 
@@ -20,8 +20,29 @@ export async function POST(req: NextRequest) {
 
   const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
   const ym = typeof body.ym === "string" ? body.ym.trim() : "";
+  const planCycleId = typeof body.planCycleId === "string" ? body.planCycleId.trim() : "";
+
+  if (planCycleId) {
+    try {
+      const result = await syncRewardSummariesForPlanCycle(createAdminClient(), planCycleId);
+      return NextResponse.json({
+        ok: true,
+        mode: "planCycle",
+        projectId: result.projectId,
+        yms: result.yms,
+        syncedCount: result.synced.size,
+      });
+    } catch (err) {
+      console.error("[rewards/sync planCycle]", err);
+      return NextResponse.json(
+        { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 }
+      );
+    }
+  }
+
   if (!projectId || !YM_RE.test(ym)) {
-    return NextResponse.json({ ok: false, error: "projectId and valid ym are required" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "projectId and valid ym, or planCycleId, are required" }, { status: 400 });
   }
 
   try {

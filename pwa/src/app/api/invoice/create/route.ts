@@ -2,6 +2,9 @@
  * POST /api/invoice/create
  * freee APIで請求書を作成し、Supabaseに記録する。
  * body: { projectId, ym, issueDate, dueDate, subject, lines, remark }
+ *
+ * legacy route。現行正本は CockpitRoutineInvoiceModal + Edge Function issue-invoice。
+ * 残す間も「発行」と「送付」を混ぜず、billing_cycles.invoice_issued_* 側だけ更新する。
  */
 
 import { NextResponse } from "next/server";
@@ -13,6 +16,15 @@ interface InvoiceLine {
   description: string;
   quantity: number;
   unitPrice: number;
+}
+
+function toInvoiceBaseLinesJson(lines: InvoiceLine[]) {
+  return JSON.stringify(lines.map((line) => ({
+    type: "item",
+    description: line.description,
+    quantity: String(line.quantity || 1),
+    unit_price: String(line.unitPrice || 0),
+  })));
 }
 
 export async function POST(req: Request) {
@@ -29,6 +41,9 @@ export async function POST(req: Request) {
 
     if (!projectId || !ym || !issueDate || !dueDate) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+    if (!Array.isArray(lines) || lines.length === 0) {
+      return NextResponse.json({ error: "lines required" }, { status: 400 });
     }
 
     // プロジェクト情報
@@ -49,7 +64,8 @@ export async function POST(req: Request) {
     const companyId = parseInt(process.env.FREEE_COMPANY_ID || "0");
 
     // freee請求書作成リクエスト
-    const invoiceLines = (lines as InvoiceLine[]).map((line, i) => ({
+    const inputLines = lines as InvoiceLine[];
+    const invoiceLines = inputLines.map((line, i) => ({
       type: "normal",
       description: line.description,
       quantity: line.quantity,
@@ -80,15 +96,24 @@ export async function POST(req: Request) {
     const freeeInvoiceNumber = createRes.invoice.invoice_number;
     const totalAmount = createRes.invoice.total_amount;
 
-    // Supabase billing_cycles 更新
+    // Supabase billing_cycles 更新。発行と送付は別 step なので invoice_sent_at は触らない。
     const now = new Date().toISOString();
-    await supabase
+    const { data: updatedRows, error: updateError } = await supabase
       .from("billing_cycles")
       .update({
-        invoice_sent_at: now,
+        invoice_issued_at: now,
+        invoice_issued_by: auth.user.email,
+        freee_invoice_number: freeeInvoiceNumber,
+        invoice_subject: subject || `${project.project_name} 請求書`,
+        invoice_base_lines_json: toInvoiceBaseLinesJson(inputLines),
       })
       .eq("project_id", projectId)
-      .eq("ym", ym);
+      .eq("ym", ym)
+      .select("id");
+    if (updateError) throw updateError;
+    if (!updatedRows || updatedRows.length === 0) {
+      return NextResponse.json({ error: "billing_cycle not found" }, { status: 404 });
+    }
 
     return NextResponse.json({
       ok: true,

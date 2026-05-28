@@ -23,11 +23,31 @@ function monthDiffInclusive(startYm: string, endYm: string): number {
   return Math.max(1, (ey * 12 + em) - (sy * 12 + sm) + 1);
 }
 
+function ymToIndex(ym: string): number | null {
+  if (!isYm(ym)) return null;
+  const y = Number(ym.slice(0, 4));
+  const m = Number(ym.slice(4, 6));
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return null;
+  return y * 12 + (m - 1);
+}
+
+function expectedCumPctForYm(asOfYm: string, periodStartYm: string, targetYm: string): number {
+  const asOf = ymToIndex(asOfYm);
+  const start = ymToIndex(periodStartYm);
+  const end = ymToIndex(targetYm);
+  if (asOf == null || start == null || end == null) return 0;
+  if (asOf < start) return 0;
+  if (asOf >= end) return 100;
+  const totalMonths = Math.max(1, end - start + 1);
+  const elapsedMonths = Math.max(0, asOf - start + 1);
+  return Math.min(100, Math.round((elapsedMonths / totalMonths) * 1000) / 10);
+}
+
 function isYm(value: unknown): value is string {
   return typeof value === "string" && /^[0-9]{6}$/.test(value);
 }
 
-async function loadDbSchedules(projectId: string, startYm: string) {
+async function loadDbSchedules(projectId: string, startYm: string, asOfYm: string) {
   const empty = { startYm, endYm: "", schedules: [] as Array<{
     milestoneId: string;
     periodStartYm: string;
@@ -64,7 +84,7 @@ async function loadDbSchedules(projectId: string, startYm: string) {
         periodStartYm,
         targetYm,
         msMonths,
-        expectedCumPct: 0,
+        expectedCumPct: expectedCumPctForYm(asOfYm, periodStartYm, targetYm),
         monthlyPt: msMonths > 0 ? Number(ms.points || 0) / msMonths : Number(ms.points || 0),
       };
     }).filter((m) => m.milestoneId);
@@ -90,12 +110,24 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const projectId = url.searchParams.get("projectId") || "";
   const startYm = url.searchParams.get("startYm") || "";
+  const asOfYm = url.searchParams.get("ym") || startYm;
 
-  if (!projectId || !/^\d{6}$/.test(startYm)) {
+  if (!projectId || !/^\d{6}$/.test(startYm) || !/^\d{6}$/.test(asOfYm)) {
     return NextResponse.json({ error: "projectId and startYm required" }, { status: 400 });
   }
 
-  const dbFallback = await loadDbSchedules(projectId, startYm);
+  const dbFallback = await loadDbSchedules(projectId, startYm, asOfYm);
+  if (dbFallback.schedules.length > 0) {
+    return NextResponse.json({
+      ok: true,
+      projectId,
+      startYm: dbFallback.startYm,
+      endYm: dbFallback.endYm,
+      asOfYm,
+      schedules: dbFallback.schedules,
+      source: "supabase",
+    });
+  }
 
   const gasBaseUrl = process.env.NEXT_PUBLIC_GAS_WEBAPP_URL || "";
   const gasApiKey = process.env.NEXT_PUBLIC_GAS_API_KEY || "";

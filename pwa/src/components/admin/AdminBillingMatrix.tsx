@@ -81,10 +81,10 @@ const standardStepDefs: MatrixStepDef[] = [
 ];
 
 const ctbStepDefs: MatrixStepDef[] = [
-  { key: "budget", label: "予算確定", canSkip: false },
   { key: "estimateSend", label: "見積送付", canSkip: false },
-  { key: "invoice", label: "請求発行", canSkip: false },
+  { key: "budget", label: "予算確定", canSkip: false },
   { key: "meeting", label: "報告会", canSkip: true },
+  { key: "invoice", label: "請求発行", canSkip: false },
   { key: "invoiceSent", label: "請求送付", canSkip: false },
   { key: "reportFix", label: "報告書", canSkip: false },
   { key: "reimburseConfirm", label: "立替確認", canSkip: false },

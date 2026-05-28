@@ -26,6 +26,9 @@ interface RewardBreakdown {
   share: number;
   earnedPt: number;
   msConsumedPt: number;
+  pool?: "regular" | "cap_extra";
+  ptUnit?: number;
+  payYen?: number;
 }
 
 interface RewardMember {
@@ -40,6 +43,16 @@ interface RewardMember {
   deferredYen?: number;
   grossDueYen?: number;
   stockYen?: number;
+  regularEarnedPt?: number;
+  extraEarnedPt?: number;
+  regularBasePay?: number;
+  extraBasePay?: number;
+  regularPaidYen?: number;
+  extraPaidYen?: number;
+  regularGrossDueYen?: number;
+  extraGrossDueYen?: number;
+  regularStockYen?: number;
+  extraStockYen?: number;
   breakdown: RewardBreakdown[];
 }
 
@@ -52,6 +65,15 @@ interface RewardSummary {
   carryInYen?: number;
   carryOverYen?: number;
   monthlyBudget65?: number;
+  regularPtUnit?: number;
+  extraPtUnit?: number;
+  regularCapBudgetYen?: number;
+  extraCapBudgetYen?: number;
+  extraPayoutBudgetYen?: number;
+  regularTotalGrossDueYen?: number;
+  extraTotalGrossDueYen?: number;
+  regularCarryOverYen?: number;
+  extraCarryOverYen?: number;
   members: RewardMember[];
   meta?: Record<string, unknown>;
 }
@@ -268,6 +290,20 @@ function prevYmStr(ym: string): string {
 function cycleMonthCount(planCycle: PlanCycleShape | null): number {
   if (!planCycle) return 1;
   return Math.max(1, ymToMonths(planCycle.periodEndYm) - ymToMonths(planCycle.periodStartYm) + 1);
+}
+
+const CAP_EXTRA_MILESTONE_TAGS = new Set(["cap_extra", "extra_contract", "contract_extra", "cap_outside", "uncapped"]);
+
+function isCapExtraMilestoneInfo(ms: Pick<MilestoneInfo, "tag">): boolean {
+  return CAP_EXTRA_MILESTONE_TAGS.has((ms.tag || "").trim().toLowerCase());
+}
+
+function rewardPointBasisForUnit(milestones: MilestoneInfo[], planCycle: PlanCycleShape | null): number {
+  const hasCapExtra = milestones.some(isCapExtraMilestoneInfo);
+  if (!hasCapExtra) return planCycle?.totalPoints || milestones.reduce((sum, ms) => sum + ms.points, 0);
+  const extraPoints = milestones.filter(isCapExtraMilestoneInfo).reduce((sum, ms) => sum + ms.points, 0);
+  if (planCycle && planCycle.totalPoints > extraPoints) return planCycle.totalPoints - extraPoints;
+  return milestones.filter((ms) => !isCapExtraMilestoneInfo(ms)).reduce((sum, ms) => sum + ms.points, 0);
 }
 
 function deriveRewardBudgetForPt({
@@ -851,6 +887,7 @@ function RewardTab({
   const [localMemberActivities, setLocalMemberActivities] = useState<MemberActivityInfo[]>(memberActivities);
   const [msSchedules, setMsSchedules] = useState<Record<string, MsScheduleInfo>>({});
   const [syncedReward, setSyncedReward] = useState<RewardSummary | null>(null);
+  const [hasSyncedReward, setHasSyncedReward] = useState(false);
   const [rewardSyncing, setRewardSyncing] = useState(false);
   const [rewardSyncMsg, setRewardSyncMsg] = useState<string | null>(null);
 
@@ -877,10 +914,30 @@ function RewardTab({
   const [monthlyNoteSavedAt, setMonthlyNoteSavedAt] = useState<number | null>(null);
 
   const isFuture = ym > currentYm;
+  const rewardMilestoneSignature = milestones
+    .map((ms) => `${ms.milestoneId}:${ms.points}:${ms.tag}`)
+    .join("|");
+  const rewardResponsibilitySignature = responsibilities
+    .map((resp) => `${resp.milestoneId}:${resp.memberId}:${resp.share}`)
+    .sort()
+    .join("|");
+  const rewardMemberSignature = Object.entries(memberMap)
+    .map(([memberId, name]) => `${memberId}:${name}`)
+    .sort()
+    .join("|");
+
+  function applySyncedReward(rewardSummary: unknown) {
+    const reward = rewardSummary && typeof rewardSummary === "object" && Array.isArray((rewardSummary as RewardSummary).members)
+      ? (rewardSummary as RewardSummary)
+      : null;
+    setSyncedReward(reward?.members?.length ? reward : null);
+    setHasSyncedReward(true);
+    return reward?.members?.length ? reward : null;
+  }
 
   async function syncRewardSummary() {
     if (!billing || milestones.length === 0 || responsibilities.length === 0) {
-      setSyncedReward(null);
+      applySyncedReward(null);
       return null;
     }
     setRewardSyncing(true);
@@ -892,8 +949,7 @@ function RewardTab({
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "reward sync failed");
-      const reward = data.rewardSummary?.members?.length ? (data.rewardSummary as RewardSummary) : null;
-      setSyncedReward(reward);
+      const reward = applySyncedReward(data.rewardSummary);
       setRewardSyncMsg(null);
       return reward;
     } catch (err) {
@@ -928,11 +984,19 @@ function RewardTab({
 
   useEffect(() => {
     setSyncedReward(null);
+    setHasSyncedReward(false);
     setRewardSyncMsg(null);
-    if (!billing?.rewardSummaryJson?.members?.length) {
-      void syncRewardSummary();
-    }
-  }, [projectId, ym, billing?.budgetYen, billing?.rewardSummaryJson, milestones.length, responsibilities.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    void syncRewardSummary();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    projectId,
+    ym,
+    billing?.budgetYen,
+    billing?.rewardSummaryJson,
+    rewardMilestoneSignature,
+    rewardResponsibilitySignature,
+    rewardMemberSignature,
+  ]);
 
   // 未確認推定
   const fetchUnconfirmed = async () => {
@@ -958,7 +1022,7 @@ function RewardTab({
       return;
     }
     try {
-      const res = await fetch(`/api/progress/ms-schedule?projectId=${projectId}&startYm=${planCycle.periodStartYm}`);
+      const res = await fetch(`/api/progress/ms-schedule?projectId=${projectId}&startYm=${planCycle.periodStartYm}&ym=${ym}`);
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "schedule load failed");
       const map: Record<string, MsScheduleInfo> = {};
@@ -1138,7 +1202,7 @@ function RewardTab({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      if (data.rewardSummary?.members?.length) setSyncedReward(data.rewardSummary as RewardSummary);
+      if ("rewardSummary" in data) applySyncedReward(data.rewardSummary);
 
       setUnconfirmed((prev) => prev.filter((u) => u.milestoneKey !== milestoneKey));
       setModifyingKey(null);
@@ -1224,7 +1288,7 @@ function RewardTab({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "更新に失敗しました");
-      if (data.rewardSummary?.members?.length) setSyncedReward(data.rewardSummary as RewardSummary);
+      if ("rewardSummary" in data) applySyncedReward(data.rewardSummary);
       if (action === "confirm" && data.progress) {
         upsertLocalProgress([data.progress]);
       }
@@ -1260,7 +1324,7 @@ function RewardTab({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      if (data.rewardSummary?.members?.length) setSyncedReward(data.rewardSummary as RewardSummary);
+      if ("rewardSummary" in data) applySyncedReward(data.rewardSummary);
 
       // ローカル進捗を更新（consumedPt も再計算して報酬予定額に即時反映）
       const msPtsMap = new Map(milestones.map((m) => [m.milestoneId, m.points]));
@@ -1358,11 +1422,12 @@ function RewardTab({
   // ptUnit 計算
   const rewardBudgetForPt = deriveRewardBudgetForPt({ billing, planCycle, projectFeeType, projectFeeAmount });
   const monthlyRewardBudget = deriveMonthlyRewardBudget({ billing, planCycle, projectFeeType, projectFeeAmount });
-  const planPtUnit = planCycle && planCycle.totalPoints > 0 && rewardBudgetForPt > 0
-    ? Math.round(rewardBudgetForPt / planCycle.totalPoints)
+  const rewardPointBasis = rewardPointBasisForUnit(milestones, planCycle);
+  const planPtUnit = rewardPointBasis > 0 && rewardBudgetForPt > 0
+    ? Math.round(rewardBudgetForPt / rewardPointBasis)
     : billing.rewardSummaryJson?.ptUnit || 0;
   const storedReward = billing.rewardSummaryJson?.members?.length ? billing.rewardSummaryJson : null;
-  const displayReward = syncedReward?.members?.length ? syncedReward : storedReward;
+  const displayReward = hasSyncedReward ? syncedReward : storedReward;
   const isRewardPreview = false;
 
   // MS分類
@@ -1370,6 +1435,7 @@ function RewardTab({
     const tag = (m.tag || "").toLowerCase();
     return tag !== "routine" && tag !== "buffer";
   });
+  const msExtra = milestones.filter(isCapExtraMilestoneInfo);
   const msRoutine = milestones.filter((m) => (m.tag || "").toLowerCase() === "routine");
   const msBuffer = milestones.filter((m) => (m.tag || "").toLowerCase() === "buffer");
   const bufferPt = msBuffer.reduce((s, m) => s + m.points, 0);
@@ -1381,6 +1447,7 @@ function RewardTab({
         <div className="text-[12px] text-muted-foreground bg-muted/20 rounded-lg px-3 py-2 flex flex-wrap gap-3 items-center">
           <span>{formatYm(planCycle.periodStartYm)} 〜 {formatYm(planCycle.periodEndYm)}</span>
           <span>全 {planCycle.totalPoints}pt</span>
+          {msExtra.length > 0 && <span>通常単価対象 {rewardPointBasis}pt</span>}
           {planPtUnit > 0 && <span>1pt = ¥{planPtUnit.toLocaleString()}</span>}
           {bufferPt > 0 && (
             <span className="text-[11px] text-muted-foreground/70">バッファ: {bufferPt}pt</span>
@@ -2610,11 +2677,15 @@ function MemberPayoutSection({
   missingBudget?: boolean;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const ptUnit = reward.ptUnit || 0;
+  const ptUnit = reward.regularPtUnit || reward.ptUnit || 0;
+  const extraPtUnit = reward.extraPtUnit || ptUnit;
   const totalPay = Math.round(
     reward.totalPaySum ?? reward.members.reduce((sum, member) => sum + (member.totalPay || member.basePay || 0), 0)
   );
   const capBudget = Math.round(reward.capBudgetYen ?? pjBudgetYen);
+  const regularCapBudget = Math.round(reward.regularCapBudgetYen ?? capBudget);
+  const extraCapBudget = Math.round(reward.extraCapBudgetYen ?? 0);
+  const extraGrossDue = Math.round(reward.extraTotalGrossDueYen ?? reward.members.reduce((sum, member) => sum + (member.extraGrossDueYen || 0), 0));
   const totalGrossDue = Math.round(
     reward.totalGrossDueYen ?? reward.members.reduce((sum, member) => sum + (member.grossDueYen || member.totalPay || member.basePay || 0), 0)
   );
@@ -2647,9 +2718,19 @@ function MemberPayoutSection({
           <span className="rounded bg-muted/50 px-1.5 py-0.5 text-muted-foreground">
             {ptUnit > 0 ? `1pt = ¥${ptUnit.toLocaleString()}` : "1pt単価未設定"}
           </span>
+          {extraGrossDue > 0 && (
+            <span className="rounded bg-cyan-100 px-1.5 py-0.5 font-semibold text-cyan-900">
+              追加枠 {formatYenValue(extraCapBudget)}
+            </span>
+          )}
           <span className="rounded bg-muted/50 px-1.5 py-0.5 text-muted-foreground">
-            PJ予算 {formatYenValue(capBudget)}
+            通常cap {formatYenValue(regularCapBudget)}
           </span>
+          {extraCapBudget > 0 && (
+            <span className="rounded bg-muted/50 px-1.5 py-0.5 text-muted-foreground">
+              PJ予算 {formatYenValue(capBudget)}
+            </span>
+          )}
           {carryInYen > 0 && (
             <span className="rounded bg-sky-100 px-1.5 py-0.5 font-semibold text-sky-800">
               繰越入 {formatYenValue(carryInYen)}
@@ -2703,6 +2784,8 @@ function MemberPayoutSection({
               const stock = Math.round(mb.stockYen || mb.deferredYen || 0);
               const carryIn = Math.round(mb.carryInYen || 0);
               const grossDue = Math.round(mb.grossDueYen || mb.cappedFrom || mb.totalPay || mb.basePay || 0);
+              const extraPaid = Math.round(mb.extraPaidYen || 0);
+              const extraStock = Math.round(mb.extraStockYen || 0);
               return (
                 <Fragment key={rowId}>
                   <tr
@@ -2711,10 +2794,11 @@ function MemberPayoutSection({
                   >
                     <td className="px-3 py-2">
                       <div className="font-medium">{codeName}</div>
-                      {(carryIn > 0 || stock > 0) && (
+                      {(carryIn > 0 || stock > 0 || extraPaid > 0 || extraStock > 0) && (
                         <div className="mt-0.5 flex flex-wrap gap-1 text-[10px]">
                           {carryIn > 0 && <span className="rounded bg-sky-100 px-1 text-sky-800">繰越入 {formatYenValue(carryIn)}</span>}
                           {stock > 0 && <span className="rounded bg-amber-100 px-1 text-amber-900">ストック {formatYenValue(stock)}</span>}
+                          {(extraPaid > 0 || extraStock > 0) && <span className="rounded bg-cyan-100 px-1 text-cyan-900">追加枠 {formatYenValue(extraPaid)}</span>}
                         </div>
                       )}
                     </td>
@@ -2752,12 +2836,15 @@ function MemberPayoutSection({
                             <tbody>
                               {mb.breakdown.map((bd, bi) => (
                                 <tr key={`${bd.msKey}-${bi}`} className="border-t border-border/50">
-                                  <td className="py-1 pl-2 truncate max-w-[280px]">{bd.title}</td>
+                                  <td className="py-1 pl-2 truncate max-w-[280px]">
+                                    {bd.title}
+                                    {bd.pool === "cap_extra" && <span className="ml-1 rounded bg-cyan-100 px-1 text-[10px] text-cyan-900">追加枠</span>}
+                                  </td>
                                   <td className="py-1 px-2 text-right">{bd.msConsumedPt}pt</td>
                                   <td className="py-1 px-2 text-right">{Math.round((bd.share || 0) * 100)}%</td>
                                   <td className="py-1 px-2 text-right">{bd.earnedPt}pt</td>
                                   <td className="py-1 px-2 text-right">
-                                    ¥{Math.round((bd.earnedPt || 0) * ptUnit).toLocaleString()}
+                                    ¥{Math.round(bd.payYen ?? ((bd.earnedPt || 0) * (bd.ptUnit || (bd.pool === "cap_extra" ? extraPtUnit : ptUnit)))).toLocaleString()}
                                   </td>
                                 </tr>
                               ))}

@@ -128,6 +128,7 @@ JSON を組み立てて、以下に POST:
 - schedule: daily 08:10 JST 目安。既存 `/api/cron/atlas-collect` (08:00 JST) は課金回避のため停止し、この automation を主系にする。
 - output:
   - outbox: `/Users/masa/.codex/automations/amd-atlas/outbox/*.json`
+  - staging outbox: `/Users/masa/.codex/automations/amd-atlas-2/outbox/*.json` (= sandbox 等で公式 outbox に書けない時だけ)
   - applied: `/Users/masa/.codex/automations/amd-atlas/applied/*.json`
   - failed: `/Users/masa/.codex/automations/amd-atlas/failed/*.json`
   - recent snapshot: `/Users/masa/.codex/automations/amd-atlas/snapshots/recent-titles.json`
@@ -161,8 +162,10 @@ automation は原則:
 - `health` / `recent` の `EPERM`, `EAI_AGAIN`, `ENOTFOUND`, `ENETUNREACH`, `ECONNRESET`, `ETIMEDOUT`, `timeout`, `fetch failed` は **一時ネットワーク断** とみなす。
 - helper はこれらを `retryable: true`, `errorKind: "transient_network"` として JSON 出力し、exit code `75` を返す。
 - `apply-outbox` / `apply-outbox-dir` は一時ネットワーク断、または HTTP `408/425/429/500/502/503/504` の場合、対象 outbox を `failed/` に動かさず `outbox/` に残す。次回 LaunchAgent が再試行する。
+- `scripts/run-ms-outbox-applier.sh` は公式 outbox と staging outbox の両方を見る。staging から反映しても、成功ファイルは公式 `amd-atlas/applied/` に移動する。
+- `/api/atlas/signals-ingest` は直近 48h に加え、入力 `title` / `source_url` の全期間 exact match で重複排除する。staging artifact の遅延反映や二重反映でも同じ signal を増やさない。
 - `401/403`, schema 不正, `signals` 空などの恒久エラーだけ `failed/` へ退避する。
-- Codex automation 側で公式 outbox に書けない sandbox の場合は、`/Users/masa/.codex/automations/amd-atlas-2/outbox/` に valid JSON を staging し、公式 outbox へ移せなかったことを結果に明記する。full access に戻ったら staging artifact を公式 outbox へコピーして復旧する。
+- Codex automation 側で公式 outbox に書けない sandbox の場合は、`/Users/masa/.codex/automations/amd-atlas-2/outbox/` に valid JSON を staging し、公式 outbox へ移せなかったことを結果に明記する。
 
 ## Claude Routine 登録手順 (旧案)
 

@@ -33,7 +33,7 @@ CREATE TABLE amd_score_revisions (
   new_value          NUMERIC NOT NULL,
   evaluated_at       DATE NOT NULL,
   reason_md          TEXT NOT NULL,            -- 「なぜ修正したか」(まさ必須記入)
-  discussion_md      TEXT,                     -- まさえいMTG の議論ログ (任意)
+  discussion_md      TEXT,                     -- 提案前の論点整理セッションの議論ログ (任意)
   revised_by         TEXT NOT NULL,            -- 'まさ' / 'tsukuyomi_auto' / 等
   revised_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   applied_to_alpha   BOOL NOT NULL DEFAULT FALSE,
@@ -132,9 +132,9 @@ CREATE TABLE amd_score_alpha_proposals (
 ...
 ```
 
-## まさ × えいみMTG での議論
+## 提案前の論点整理セッションでの議論
 
-- まさえいMTG セッションで「最近の修正パターン」を Sonnet に質問 → 議論 → alpha 微調整の判断
+- 提案前の論点整理セッションで「最近の修正パターン」を Sonnet に質問 → 議論 → alpha 微調整の判断
 - alpha 修正後の数ヶ月で「修正頻度が下がったか」を tracking (= dashboard で見える化)
 - 修正パターンに偏りがあれば signal_type 定義 / FRL 計算式自体の見直しを提案 (= 構造変更レベル)
 

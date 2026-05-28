@@ -8,6 +8,9 @@ type Member = {
   member_id: string;
   code_name: string;
   member_name: string | null;
+  contractor_name?: string | null;
+  member_address?: string | null;
+  bank_info?: string | null;
   email: string | null;
   status: string;
   is_officer?: boolean | null;
@@ -234,6 +237,28 @@ type ModalTarget = {
 type NoticeSavePatch = {
   markSent?: boolean;
   clearSent?: boolean;
+};
+
+type NoticeMailPreview = {
+  memberId: string;
+  memberName: string;
+  to: string;
+  from: string;
+  subject: string;
+  bcc: string[];
+  body: string;
+  dueDateText: string;
+  pdfUrl: string;
+  pdfDriveFileId: string;
+  totalYen: number;
+  alreadySentAt: string | null;
+};
+
+type NoticeMailModalState = {
+  row: MemberPayoutRow;
+  preview: NoticeMailPreview;
+  editedBody: string;
+  editing: boolean;
 };
 
 type ManualRewardDraft = {
@@ -537,6 +562,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const [budgetTarget, setBudgetTarget] = useState<BudgetConfirmGroup | null>(null);
   const [budgetSaving, setBudgetSaving] = useState(false);
   const [noticeSavingMemberId, setNoticeSavingMemberId] = useState<string | null>(null);
+  const [noticeMailModal, setNoticeMailModal] = useState<NoticeMailModalState | null>(null);
+  const [noticeMailLoading, setNoticeMailLoading] = useState(false);
+  const [noticeMailSending, setNoticeMailSending] = useState(false);
+  const [noticeMailError, setNoticeMailError] = useState<string | null>(null);
   const [paymentNudgeSending, setPaymentNudgeSending] = useState(false);
   const [bulkPdfMode, setBulkPdfMode] = useState<"issue" | "preview" | null>(null);
   const [bulkPdfResult, setBulkPdfResult] = useState<BulkNoticeSummary | null>(null);
@@ -1035,6 +1064,85 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     }
   }
 
+  async function openNoticeMailModal(row: MemberPayoutRow) {
+    if (!row.notice?.pdf_url) {
+      setHint("先に支払通知書PDFを発行してね");
+      return;
+    }
+    setNoticeMailLoading(true);
+    setNoticeMailError(null);
+    setHint("メール本文を準備中...");
+    try {
+      const res = await fetch("/api/admin/payouts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "preview_notice_email",
+          ym,
+          memberId: row.memberId,
+        }),
+      });
+      const payload = (await res.json()) as { ok?: boolean; error?: string; preview?: NoticeMailPreview };
+      if (!res.ok || payload.ok === false || !payload.preview) {
+        throw new Error(payload.error || `メール本文の準備に失敗 (${res.status})`);
+      }
+      setNoticeMailModal({
+        row,
+        preview: payload.preview,
+        editedBody: payload.preview.body,
+        editing: false,
+      });
+      setHint("");
+    } catch (err) {
+      setHint(err instanceof Error ? err.message : "メール本文の準備に失敗");
+    } finally {
+      setNoticeMailLoading(false);
+    }
+  }
+
+  function closeNoticeMailModal() {
+    if (noticeMailSending) return;
+    setNoticeMailModal(null);
+    setNoticeMailError(null);
+  }
+
+  async function sendNoticeMailNow() {
+    if (!noticeMailModal) return;
+    const { row, preview, editedBody } = noticeMailModal;
+    setNoticeMailSending(true);
+    setNoticeMailError(null);
+    setHint(`${preview.memberName} に支払通知メールを送信中...`);
+    try {
+      const res = await fetch("/api/admin/payouts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send_notice_email",
+          ym,
+          memberId: row.memberId,
+          body: editedBody,
+        }),
+      });
+      const payload = (await res.json()) as PayoutData & {
+        ok?: boolean;
+        error?: string;
+        sentNoticeMail?: { memberName?: string; to?: string };
+      };
+      if (!res.ok || payload.ok === false) {
+        throw new Error(payload.error || `メール送信に失敗 (${res.status})`);
+      }
+      setData(payload);
+      setNoticeMailModal(null);
+      setHint(`${preview.memberName} <${preview.to}> に支払通知メールを送信した`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "メール送信エラー";
+      setNoticeMailError(message);
+      setHint(message);
+    } finally {
+      setNoticeMailSending(false);
+    }
+  }
+
   async function saveAll() {
     if (expectedEntries.length === 0) {
       setHint("保存できる報酬明細がない");
@@ -1347,6 +1455,31 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           {bulkPdfMode === "preview" ? "確認用PDF生成中..." : "全員分PDF確認"}
         </button>
 
+        <button
+          type="button"
+          onClick={() => {
+            if (!window.confirm("全員分の支払通知書PDFを強制的に再生成する (= 差分検出を無視)。\n金額が変わってなくてもラベル変更などのコード変更を反映したい時用。\n進める?")) return;
+            void runBulkPdf(false, { force: true });
+          }}
+          disabled={
+            loading ||
+            saving ||
+            noticeSavingMemberId != null ||
+            paymentNudgeSending ||
+            bulkPdfMode != null ||
+            !savedAll ||
+            memberRows.length === 0
+          }
+          title={
+            !savedAll
+              ? "先に「支払データ保存」を実行してね"
+              : "差分検出を無視して全員分のPDFを強制再生成 (コードラベル変更などを反映する用)"
+          }
+          className="h-9 rounded-md border border-amber-300 bg-amber-50 px-3 text-[12px] text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+        >
+          {bulkPdfMode === "issue" ? "強制再発行中..." : "強制再発行 (全員)"}
+        </button>
+
         <div className="ml-auto flex flex-wrap items-center gap-3 text-[12px]">
           <span className="text-muted-foreground">{hint}</span>
           <span className="font-semibold">合計 {fmtYen(grandTotal)}</span>
@@ -1565,12 +1698,13 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
                     <td className="px-3 py-2">
                       <PayoutNoticeActions
                         row={row}
-                        disabled={loading || saving || noticeSavingMemberId != null}
-                        saving={noticeSavingMemberId === row.memberId}
+                        disabled={loading || saving || noticeSavingMemberId != null || noticeMailLoading || noticeMailSending}
+                        saving={noticeSavingMemberId === row.memberId || (noticeMailLoading && noticeMailModal?.row.memberId === row.memberId)}
                         onIssueNoticePdf={issueNoticePdf}
                         onOpenPdf={openPdfUrl}
                         onPreviewNoticePdf={previewNoticePdf}
                         onUpdateNoticeSent={updateNoticeSent}
+                        onOpenSendMailModal={openNoticeMailModal}
                       />
                     </td>
                   </tr>
@@ -1622,6 +1756,25 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
             if (!budgetSaving) setBudgetTarget(null);
           }}
           onSave={(clientAmountYen, bufferYen, extraPayoutBudgetYen) => saveBudgetGroup(budgetTarget, clientAmountYen, bufferYen, extraPayoutBudgetYen)}
+        />
+      )}
+
+      {noticeMailModal && (
+        <PayoutNoticeMailModal
+          state={noticeMailModal}
+          sending={noticeMailSending}
+          error={noticeMailError}
+          onToggleEditing={() =>
+            setNoticeMailModal((prev) => (prev ? { ...prev, editing: !prev.editing } : prev))
+          }
+          onBodyChange={(value) =>
+            setNoticeMailModal((prev) => (prev ? { ...prev, editedBody: value } : prev))
+          }
+          onResetBody={() =>
+            setNoticeMailModal((prev) => (prev ? { ...prev, editedBody: prev.preview.body } : prev))
+          }
+          onSend={sendNoticeMailNow}
+          onClose={closeNoticeMailModal}
         />
       )}
     </div>
@@ -2253,6 +2406,7 @@ function PayoutNoticeActions({
   onOpenPdf,
   onPreviewNoticePdf,
   onUpdateNoticeSent,
+  onOpenSendMailModal,
 }: {
   row: MemberPayoutRow;
   disabled: boolean;
@@ -2261,6 +2415,7 @@ function PayoutNoticeActions({
   onOpenPdf: (pdfUrl: string | null | undefined) => void;
   onPreviewNoticePdf: (row: MemberPayoutRow) => void;
   onUpdateNoticeSent: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
+  onOpenSendMailModal: (row: MemberPayoutRow) => void;
 }) {
   if (row.noticeExcluded) {
     return <span className="block text-right text-[11px] text-muted-foreground">通知対象外</span>;
@@ -2270,7 +2425,9 @@ function PayoutNoticeActions({
   const canIssuePdf = !blocked && row.isSaved;
   const hasPdf = Boolean(row.notice?.pdf_url);
   const canPreviewPdf = !blocked && row.totalPay > 0;
-  const canToggleSent = !blocked && hasPdf;
+  const isSent = Boolean(row.notice?.sent_at);
+  const canOpenSendModal = !blocked && hasPdf && row.isSaved && !isSent;
+  const canClearSent = !blocked && isSent;
   const savedNoticeTotal = Math.round(numberValue(row.notice?.total_yen));
   const totalMismatch = savedNoticeTotal > 0 && savedNoticeTotal !== Math.round(row.totalPay);
   const issueTitle = row.isSaved
@@ -2281,11 +2438,13 @@ function PayoutNoticeActions({
   const pdfTitle = hasPdf
     ? "保存済みPDFを別タブで確認する"
     : "支払データ保存前でも確認用PDFを作成してフォーマットを見る";
-  const sentTitle = hasPdf
-    ? row.notice?.sent_at
-      ? "送付済みを取り消して未送付に戻す"
-      : "送付済みにする"
-    : "PDF発行後に送付済みにできる";
+  const sentTitle = isSent
+    ? "送付済みを取り消して未送付に戻す (メールは取り消されない)"
+    : hasPdf
+      ? row.isSaved
+        ? "確認モーダルを開いてメンバーに支払通知メールを送信する"
+        : "先に支払データ保存を押すと送信できる"
+      : "PDF発行後に送信できる";
 
   return (
     <div className="flex flex-col items-end gap-1.5">
@@ -2310,12 +2469,16 @@ function PayoutNoticeActions({
         </button>
         <button
           type="button"
-          onClick={() => onUpdateNoticeSent(row, row.notice?.sent_at ? { clearSent: true } : { markSent: true })}
-          disabled={!canToggleSent}
+          onClick={() =>
+            isSent
+              ? onUpdateNoticeSent(row, { clearSent: true })
+              : onOpenSendMailModal(row)
+          }
+          disabled={isSent ? !canClearSent : !canOpenSendModal}
           title={sentTitle}
           className="rounded-md bg-foreground px-2 py-1 text-[11px] font-medium text-background disabled:opacity-50"
         >
-          {row.notice?.sent_at ? "送付取消" : "送付"}
+          {isSent ? "送付取消" : "送付"}
         </button>
       </div>
       <div className="text-right text-[10px] text-muted-foreground">
@@ -2334,6 +2497,162 @@ function PayoutNoticeActions({
       {!row.isSaved && (
         <div className="text-right text-[10px] text-amber-700">確認用PDFは保存前でも作成可 / 発行・送付は保存後</div>
       )}
+    </div>
+  );
+}
+
+function PayoutNoticeMailModal({
+  state,
+  sending,
+  error,
+  onToggleEditing,
+  onBodyChange,
+  onResetBody,
+  onSend,
+  onClose,
+}: {
+  state: NoticeMailModalState;
+  sending: boolean;
+  error: string | null;
+  onToggleEditing: () => void;
+  onBodyChange: (value: string) => void;
+  onResetBody: () => void;
+  onSend: () => void;
+  onClose: () => void;
+}) {
+  const { preview, editedBody, editing } = state;
+  const bodyChanged = editedBody !== preview.body;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-2xl rounded-lg border border-border bg-background shadow-xl">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div>
+            <div className="text-sm font-semibold">支払通知メール送信の確認</div>
+            <div className="text-[11px] text-muted-foreground">
+              {preview.memberName} 宛 / {fmtYm(state.row.entries[0]?.ym ?? "")} 支払
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={sending}
+            className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
+          >
+            キャンセル
+          </button>
+        </div>
+
+        <div className="max-h-[70vh] overflow-y-auto px-4 py-3 space-y-3 text-[12px]">
+          <div className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1.5">
+            <div className="text-muted-foreground">From</div>
+            <div className="font-mono">{preview.from}</div>
+            <div className="text-muted-foreground">To</div>
+            <div>
+              <span className="font-medium">{preview.memberName}</span>{" "}
+              <span className="font-mono text-muted-foreground">&lt;{preview.to}&gt;</span>
+            </div>
+            <div className="text-muted-foreground">Bcc</div>
+            <div className="font-mono text-[11px] text-muted-foreground">
+              {preview.bcc.length > 0 ? preview.bcc.join(", ") : "—"}
+            </div>
+            <div className="text-muted-foreground">件名</div>
+            <div className="font-medium">{preview.subject}</div>
+            <div className="text-muted-foreground">添付</div>
+            <div className="text-[11px]">
+              <a
+                href={preview.pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-700 underline"
+              >
+                支払通知書PDF (Drive)
+              </a>
+              <span className="ml-2 text-muted-foreground">fileId: {preview.pdfDriveFileId.slice(0, 8)}...</span>
+              <span className="ml-2 text-muted-foreground">合計 {fmtYen(preview.totalYen)}</span>
+            </div>
+            <div className="text-muted-foreground">期日</div>
+            <div>{preview.dueDateText}</div>
+          </div>
+
+          <div className="border-t border-border pt-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[11px] font-medium text-muted-foreground">本文</span>
+              <div className="flex gap-1.5">
+                {bodyChanged && (
+                  <button
+                    type="button"
+                    onClick={onResetBody}
+                    disabled={sending}
+                    className="rounded-md border border-border px-2 py-0.5 text-[10px] hover:bg-muted/40 disabled:opacity-50"
+                  >
+                    テンプレに戻す
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onToggleEditing}
+                  disabled={sending}
+                  className="rounded-md border border-border px-2 py-0.5 text-[10px] hover:bg-muted/40 disabled:opacity-50"
+                >
+                  {editing ? "編集を確定" : "本文修正"}
+                </button>
+              </div>
+            </div>
+            {editing ? (
+              <textarea
+                value={editedBody}
+                onChange={(event) => onBodyChange(event.target.value)}
+                rows={18}
+                className="w-full rounded-md border border-border bg-background p-2 text-[12px] font-mono leading-relaxed"
+                disabled={sending}
+              />
+            ) : (
+              <pre className="whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-3 text-[12px] leading-relaxed font-sans">
+                {editedBody}
+              </pre>
+            )}
+          </div>
+
+          {preview.alreadySentAt && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+              ⚠️ このメンバーは既に {new Date(preview.alreadySentAt).toLocaleString("ja-JP")} に送付済として記録されている。
+              「はい・送信」を押すと再度メールが送信され、sent_at が上書きされる。
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-[11px] text-red-700">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between border-t border-border px-4 py-3">
+          <span className="text-[10px] text-muted-foreground">
+            「はい・送信」を押すと {preview.to} に Gmail から実送信されます
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={sending}
+              className="rounded-md border border-border px-3 py-1.5 text-[12px] hover:bg-muted/40 disabled:opacity-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={onSend}
+              disabled={sending || editing}
+              title={editing ? "本文編集を「編集を確定」で閉じてから送信" : ""}
+              className="rounded-md bg-foreground px-3 py-1.5 text-[12px] font-medium text-background disabled:opacity-50"
+            >
+              {sending ? "送信中..." : "はい・送信"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

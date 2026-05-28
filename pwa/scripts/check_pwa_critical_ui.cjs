@@ -92,6 +92,14 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "fmtRelativeTime",
 ]);
 
+expectIncludes("src/components/admin/AdminMembersTable.tsx", [
+  "contractor_name",
+  "member_address",
+  "契約者名",
+  "住所",
+  "defaultContractorName",
+]);
+
 expectIncludes("src/app/api/admin/payouts/route.ts", [
   "refreshRewards",
   "issue_notice_pdf",
@@ -111,6 +119,9 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "shouldRegenerateNotice",
   "clearStalePayoutNoticePdfs",
   "last_generated_at",
+  "contractor_name",
+  "payeeAddress",
+  "bankInfo",
 ]);
 
 expectIncludes("src/app/api/cron/payout-notice-prebuild/route.ts", [
@@ -126,6 +137,9 @@ expectIncludes("../gas/064_PayoutFreeeNotice.js", [
   "PAYOUT_LOGOTYPE_FILE_ID",
   "payoutGetPayoutLogotypeBlob_",
   "insertImage",
+  "taxBreakdownFromTaxExcludedYen",
+  "const tax = Math.round(net * 0.1);",
+  "/admin/payouts の支払額は税抜",
   "お支払金額",
   "摘要",
   "数量",
@@ -152,6 +166,24 @@ expectIncludes("src/app/api/cron/payout-reward-cache-refresh/route.ts", [
   "03:05",
 ]);
 
+expectIncludes("src/lib/reward-summary.ts", [
+  "milestone_monthly_contribution_allocations",
+  "member_activities",
+  "actual_share",
+  "plannedShare",
+  "shareSource",
+  "CONTRIBUTION_AUTO_APPLY_CONFIDENCE",
+]);
+
+expectIncludes("scripts/migrations/099_milestone_monthly_contribution_allocations.sql", [
+  "milestone_monthly_contribution_allocations",
+  "planned_share",
+  "actual_share",
+  "auto_applied",
+  "needs_review",
+  "pm_override",
+]);
+
 expectIncludes("vercel.json", [
   "/api/cron/payout-reward-cache-refresh",
   "5 18 * * *",
@@ -163,6 +195,10 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "/admin/payouts",
   "支払通知書発行",
   "報酬キャッシュ",
+  "members.contractor_name",
+  "members.member_address",
+  "実績配分",
+  "milestone_monthly_contribution_allocations",
   "MSなしPJ 強制報酬確定",
   "縦型PJ収支表",
 ]);
@@ -214,9 +250,52 @@ expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   "isDialogueMeeting",
   "チームへの提案案",
   "DialogueMeetingBody",
+  "MeetingAssetsPanel",
+  "MeetingSummaryEditor",
+  "/api/meeting-summary/manual-update",
   "narrativeMd",
   "TopicList",
   "NarrativeSection",
+]);
+expectIncludes("src/components/cockpit/MeetingAssetsPanel.tsx", [
+  "添付資料",
+  "navigator.clipboard.read",
+  "getDisplayMedia",
+  "/api/meeting-assets",
+  "/api/meeting-assets/insert-markdown",
+  "assetKind",
+  "screen_capture",
+]);
+expectIncludes("src/app/api/meeting-assets/route.ts", [
+  "requireAdmin",
+  "meeting_assets",
+  "meeting-assets",
+  "asset_kind",
+  "screen_capture",
+  "createSignedUrl",
+]);
+expectIncludes("src/app/api/meeting-assets/insert-markdown/route.ts", [
+  "meeting-assets:start",
+  "narrative_md",
+  "/api/meeting-assets/file/",
+  "manual-asset-insert",
+]);
+expectIncludes("src/app/api/meeting-assets/file/[assetId]/route.ts", [
+  "requireAdmin",
+  "createSignedUrl",
+  "NextResponse.redirect",
+]);
+expectIncludes("src/app/api/meeting-summary/manual-update/route.ts", [
+  "requireAdmin",
+  "source_hash",
+  "generated_by_model",
+  "manual-edit",
+]);
+expectIncludes("src/app/api/meeting-prep/calendar-sync/route.ts", [
+  "calendar-future-sync",
+  "upcoming:",
+  "source_kinds",
+  "preserve_manual_body",
 ]);
 expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
   "params.set(\"meeting\", meetingId)",

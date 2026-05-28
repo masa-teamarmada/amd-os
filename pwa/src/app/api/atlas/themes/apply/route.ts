@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 
 export const maxDuration = 120;
 
@@ -21,6 +22,9 @@ interface ThemeInput {
  *  - replace=true なら、含まれる story_id の既存紐付けを一旦全削除してから入れ直す
  */
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
   let body: { themes?: ThemeInput[]; replace?: boolean };
   try {
     body = await req.json();

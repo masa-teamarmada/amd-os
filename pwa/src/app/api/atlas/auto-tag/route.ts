@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { requireAuth } from "@/lib/supabase/api-auth";
 
 /**
  * シグナルの title / content / domain から、横串検索用のタグを LLM が自動生成する。
@@ -7,6 +8,9 @@ import Anthropic from "@anthropic-ai/sdk";
  */
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.errorResponse;
+
     const body = await req.json();
     const { title, content, domain } = body || {};
 

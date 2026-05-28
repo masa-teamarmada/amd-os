@@ -40,7 +40,7 @@ export default function VcInboxPage() {
         <div>
           <h1 className="text-xl font-semibold">VC ニュース受信箱</h1>
           <p className="text-xs text-muted-foreground mt-1">
-            自動収集 (毎朝 09:00 JST cron) + つくよみ会話で蓄積された未確認ニュース。
+            自動収集 route・つくよみ会話・手動入力で蓄積された未確認ニュース。現在、自動 schedule は停止中。
             Verify=採用 / Dismiss=ノイズ扱いで消す。fundraise/fund_close は
             VC のファンド情報に 1 クリックで反映できる。
           </p>
@@ -73,7 +73,7 @@ export default function VcInboxPage() {
         <div className="text-center text-muted-foreground py-10 text-sm">読み込み中…</div>
       ) : filtered.length === 0 ? (
         <div className="text-center text-muted-foreground py-10 text-sm">
-          未確認ニュースなし。次の cron は毎朝 09:00 JST。
+          未確認ニュースなし。自動 schedule は停止中。
         </div>
       ) : (
         <ul className="space-y-2">

@@ -1,8 +1,9 @@
 /**
  * Related Members Extract cron — PJ の関連メンバーを LLM で抽出。
  *
- * まさ判断 (2026-05-22): HRL 根拠 = 「該当SU 社員 + AMD 伴走メンバー」だけ。
- *   大学・研究機関の PI / 共同研究者 / 特許保有者、VC、顧客、行政、partner_company は除外。
+ * HRL 根拠 = 「該当SU 社員 + AMD 伴走メンバー + 大学キーパーソン」。
+ *   大学・研究機関でも CEO候補 / 共同創業者 / 技術リード / 起源PI として SU に関与する人物は残す。
+ *   VC、顧客、行政、partner_company は除外。
  *   AMD メンバーは `members.code_name` で表記 (フルネーム / 姓のみ表記禁止 = 重複防止)。
  *
  * 入力 (PJ ごと):

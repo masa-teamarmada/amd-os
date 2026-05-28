@@ -48,7 +48,7 @@ INSERT INTO projects (
   project_type, project_category, invoice_send_manual
 )
 VALUES (
-  'p26', 'GreenPulse', 'active', '202605',
+  'p26', 'GP', 'active', '202605',
   'standard', 'dtsu', true
 )
 ON CONFLICT (project_id) DO UPDATE SET
@@ -68,7 +68,7 @@ INSERT INTO project_ventures (
 )
 VALUES (
   'p26',
-  'GreenPulse (仮称)',
+  'GP (仮称)',
   'GP',
   'agritech',
   '[{"domain": "sensing_timing_navigation", "weight": 0.6}, {"domain": "biotechnology", "weight": 0.4}]'::jsonb,

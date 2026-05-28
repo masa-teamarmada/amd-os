@@ -133,8 +133,8 @@ async function extractForProject(
     .join("\n\n")
     .slice(0, 8000);
 
-  // 5) 創業メンバー (= CEO 候補の同定用)。db_schema.md の列名に従う (organization は存在しない、affiliation が正解)。
-  //    category='amd' の AMD 伴走メンバーと category='university'/'startup'/'unknown' の外部創業者を区別して LLM に渡す。
+  // 5) 関連メンバー (= CEO 候補の同定用)。db_schema.md の列名に従う (organization は存在しない、affiliation が正解)。
+  //    category='amd' の AMD 伴走メンバーと category='university'/'startup'/'unknown' の外部 founder 候補を区別して LLM に渡す。
   const { data: founders } = await supabase
     .from("project_founding_members")
     .select("person_name, role, role_label_jp, category, affiliation, responsibility")
@@ -161,8 +161,8 @@ async function extractForProject(
 
   const founderBlock =
     externalFounders.length > 0
-      ? `### 外部創業者 / CEO 候補 (= 評価対象)\n${externalFounders.map(fmtFounder).join("\n")}\n\n### AMD 伴走メンバー (= 評価対象外、参考情報)\n${amdMembers.map(fmtFounder).join("\n") || "（なし）"}`
-      : "（創業メンバー未抽出。月次レポート + MTG サマリ本文から CEO/創業者っぽい人物を直接推定してください）";
+      ? `### 外部 founder / CEO 候補 (= 評価対象)\n${externalFounders.map(fmtFounder).join("\n")}\n\n### AMD 伴走メンバー (= 評価対象外、参考情報)\n${amdMembers.map(fmtFounder).join("\n") || "（なし）"}`
+      : "（関連メンバー未抽出。月次レポート + MTG サマリ本文から CEO/founder っぽい人物を直接推定してください）";
 
   // 6) 入力ソースが空ならスキップ
   if (!reportBlock && !meetingBlock) {
@@ -174,7 +174,7 @@ async function extractForProject(
     `- projectId: ${projectId}\n` +
     `- PJ 名: ${projectName}\n` +
     `- 対象期間: 過去 3 ヶ月 (${yms.slice().reverse().join(" → ")})\n\n` +
-    `## 創業メンバー\n${founderBlock}\n\n` +
+    `## 関連メンバー\n${founderBlock}\n\n` +
     `## 月次レポート (過去 3 ヶ月分)\n${reportBlock || "（月次レポート未生成）"}\n\n` +
     `## MTG サマリ集 (過去 3 ヶ月分)\n${meetingBlock || "（MTG サマリなし）"}\n\n` +
     `上記から CEO の frl_grit / frl_resilience を 0-9 で推定してください。\n` +
