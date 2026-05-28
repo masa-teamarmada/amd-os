@@ -10,6 +10,7 @@ const CONTRIBUTION_AUTO_SOURCE = "member_activities";
 const CONTRIBUTION_AUTO_APPLY_CONFIDENCE = 0.6;
 const CONTRIBUTION_MANUAL_STATUSES = new Set(["confirmed", "pm_override"]);
 const CONTRIBUTION_USED_STATUSES = new Set(["auto_applied", "confirmed", "pm_override"]);
+const LEGACY_PLANNED_SHARE_REWARD_YMS = new Set(["202604"]);
 
 type RewardPool = "regular" | "cap_extra";
 type ContributionShareSource = "planned" | "member_activities" | "confirmed" | "pm_override";
@@ -227,6 +228,10 @@ function allocationKey(ym: string, milestoneId: string): string {
   return `${ym}:${milestoneId}`;
 }
 
+function isActualContributionAllocationEnabledForYm(ym: string): boolean {
+  return !LEGACY_PLANNED_SHARE_REWARD_YMS.has(ym);
+}
+
 function plannedShareMap(responsibilities: ResponsibilityRow[], milestoneId: string): Map<string, number> {
   const map = new Map<string, number>();
   for (const resp of responsibilities) {
@@ -347,7 +352,12 @@ function buildAutoContributionRows({
 
   for (const activity of activities) {
     const milestoneId = String(activity.milestone_id || "").trim();
-    if (!milestoneId || !milestoneSet.has(milestoneId) || !monthSet.has(activity.ym)) continue;
+    if (
+      !milestoneId ||
+      !milestoneSet.has(milestoneId) ||
+      !monthSet.has(activity.ym) ||
+      !isActualContributionAllocationEnabledForYm(activity.ym)
+    ) continue;
     const weights = activityMemberWeights(activity);
     if (weights.length === 0) continue;
     const totalWeight = weights.reduce((sum, row) => sum + row.weight, 0);
@@ -458,9 +468,17 @@ function buildContributionAllocationPlan({
   persistedAllocations: ContributionAllocationRow[];
 }): ContributionAllocationPlan {
   const milestoneIds = milestones.map((ms) => ms.milestone_id);
-  const autoRows = buildAutoContributionRows({ projectId, months, milestoneIds, responsibilities, activities });
+  const actualContributionMonths = months.filter(isActualContributionAllocationEnabledForYm);
+  const autoRows = buildAutoContributionRows({
+    projectId,
+    months: actualContributionMonths,
+    milestoneIds,
+    responsibilities,
+    activities,
+  });
   const manualRowsByKey = new Map<string, ContributionAllocationRow[]>();
   for (const row of persistedAllocations) {
+    if (!isActualContributionAllocationEnabledForYm(row.ym)) continue;
     const status = String(row.status || "");
     if (!CONTRIBUTION_MANUAL_STATUSES.has(status)) continue;
     const key = allocationKey(row.ym, row.milestone_id);
@@ -508,7 +526,9 @@ function resolveContributionShares({
   responsibilities: ResponsibilityRow[];
   contributionSharesByKey?: Map<string, EffectiveContributionShare[]>;
 }): EffectiveContributionShare[] {
-  const actual = contributionSharesByKey?.get(allocationKey(ym, milestoneId)) || [];
+  const actual = isActualContributionAllocationEnabledForYm(ym)
+    ? contributionSharesByKey?.get(allocationKey(ym, milestoneId)) || []
+    : [];
   if (actual.length > 0) return actual;
   return responsibilities
     .filter((resp) => resp.milestone_id === milestoneId && normalizeShare(resp.share) > 0)
@@ -1152,7 +1172,9 @@ export function buildRewardSummary({
       projectId: billing.project_id,
       ym,
       planCycleId: planCycle?.plan_cycle_id || "",
-      contributionAllocationSource: "milestone_monthly_contribution_allocations",
+      ...(isActualContributionAllocationEnabledForYm(ym)
+        ? { contributionAllocationSource: "milestone_monthly_contribution_allocations" as const }
+        : {}),
     },
   };
 }

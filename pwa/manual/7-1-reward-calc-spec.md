@@ -135,6 +135,12 @@ autoCumPct      = min(100, round(routineMonthPct × elapsed, 1 桁))
 
 例: SX の `PoC先候補開拓` が予定 `まさ50% / かる50%` でも、5月の `member_activities` がまさ側だけなら、その月の `actualShare` は `まさ100% / かる0%` になり、報酬もそれで計算する。
 
+### 4月稼働分の固定
+
+202604 の支払額はすでに確定済みなので、実績配分を後から適用しない。`ym=202604` は `member_activities` / `milestone_monthly_contribution_allocations.actual_share` を無視し、従来どおり `milestone_responsibility.share` で計算する。
+
+支払通知書PDFでは、ここで決まった税抜支払額に消費税10%だけを上乗せする。
+
 ## responsibility 解決順序
 
 メンバー × MS の share は 2 段階で決まる:

@@ -435,6 +435,7 @@ npx tsc --noEmit     # 型チェック
 - `milestone_responsibility.share` は **MS設計時点の予定担当比率**。新規MSではここを初期値として入れる。
 - 当月報酬では、`member_activities(project_id, ym, milestone_id)` から自動算出した `milestone_monthly_contribution_allocations.actual_share` を優先する。`status in ('auto_applied','confirmed','pm_override')` の行があれば `consumedPt × actual_share` で `earnedPt` を計算し、`needs_review` / `rejected` / 行なしの時だけ予定担当比率へfallbackする。
 - `auto_applied` は活動ログの根拠が十分な自動案、`needs_review` は根拠が薄いので支払いへ使わない候補。人間が月次締めで直す場合は `confirmed` / `pm_override` にする。
+- 例外: 4月稼働分 (`ym=202604`) は支払額確定後なので、実績配分を適用しない。従来どおり `milestone_responsibility.share` で計算し、支払通知書PDFでは税抜支払額に消費税10%を上乗せする。
 - 1つのMSに、事業計画 / 資本政策 / 知財戦略のような独立して進捗する成果物を混ぜない。
 - 誰か1人または一部メンバーだけで進む成果物が含まれる場合は、成果物ごとに別MSへ分ける。
 - 例: SX旧MS#1は `事業計画策定` / `資本政策策定` / `知財戦略策定` へ分割。知財戦略だけ進んだ月に、事業計画・資本政策担当へ報酬が乗らないようにする。

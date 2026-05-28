@@ -173,6 +173,9 @@ expectIncludes("src/lib/reward-summary.ts", [
   "plannedShare",
   "shareSource",
   "CONTRIBUTION_AUTO_APPLY_CONFIDENCE",
+  "LEGACY_PLANNED_SHARE_REWARD_YMS",
+  "202604",
+  "isActualContributionAllocationEnabledForYm",
 ]);
 
 expectIncludes("scripts/migrations/099_milestone_monthly_contribution_allocations.sql", [
@@ -199,6 +202,7 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "members.member_address",
   "実績配分",
   "milestone_monthly_contribution_allocations",
+  "4月稼働分",
   "MSなしPJ 強制報酬確定",
   "縦型PJ収支表",
 ]);
