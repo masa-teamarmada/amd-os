@@ -25,6 +25,7 @@ export interface MemberRow {
   bank_info: string | null;
   member_address: string | null;
   contractor_name: string | null;
+  invoice_registration_number: string | null;
   google_calendar_status: string;
   google_calendar_checked_at: string | null;
   google_calendar_connected_at: string | null;
@@ -129,6 +130,7 @@ type EditVals = {
   slack_id: string;
   contractor_name: string;
   member_address: string;
+  invoice_registration_number: string;
 };
 
 function defaultContractorName(member: MemberRow) {
@@ -156,6 +158,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
           !(m.member_name || "").toLowerCase().includes(q) &&
           !(m.contractor_name || "").toLowerCase().includes(q) &&
           !(m.member_address || "").toLowerCase().includes(q) &&
+          !(m.invoice_registration_number || "").toLowerCase().includes(q) &&
           !m.member_id.toLowerCase().includes(q)
         ) return false;
       }
@@ -183,6 +186,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
       slack_id: m.slack_id ?? "",
       contractor_name: m.contractor_name || defaultContractorName(m),
       member_address: m.member_address ?? "",
+      invoice_registration_number: m.invoice_registration_number ?? "",
     });
   };
 
@@ -214,6 +218,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
       case "slack_id": patch.slack_id = (editVals.slack_id as string).trim() || null; break;
       case "contractor_name": patch.contractor_name = (editVals.contractor_name as string).trim() || defaultContractorName(m); break;
       case "member_address": patch.member_address = (editVals.member_address as string).trim() || null; break;
+      case "invoice_registration_number": patch.invoice_registration_number = (editVals.invoice_registration_number as string).trim().toUpperCase() || null; break;
     }
     const { error } = await supabase.from("members").update(patch).eq("id", m.id);
     if (error) {
@@ -266,7 +271,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
 
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "1980px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: "2140px" }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-24 border-r border-border">codeName</th>
@@ -274,6 +279,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
               <th className="text-left px-3 py-2 font-medium w-40">表示名</th>
               <th className="text-left px-3 py-2 font-medium w-48">契約者名</th>
               <th className="text-left px-3 py-2 font-medium w-72">住所</th>
+              <th className="text-left px-3 py-2 font-medium w-44">インボイス登録番号</th>
               <th className="text-left px-3 py-2 font-medium w-56">email</th>
               <th className="text-left px-3 py-2 font-medium w-28">Role</th>
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
@@ -395,6 +401,22 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
                       <span className="line-clamp-2 text-muted-foreground" title={m.member_address || ""}>
                         {m.member_address || "—"}
                       </span>
+                    )}
+                  </td>
+
+                  {/* インボイス登録番号 (invoice_registration_number) */}
+                  <td className={cellCls("invoice_registration_number")} onClick={enterCell("invoice_registration_number")}>
+                    {isEditingField(m, "invoice_registration_number") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input type="text" value={editVals.invoice_registration_number as string} autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, invoice_registration_number: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(m, "invoice_registration_number"); if (e.key === "Escape") cancelEdit(); }}
+                          placeholder="T1234567890123"
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background font-mono" />
+                        {cellActions("invoice_registration_number")}
+                      </div>
+                    ) : (
+                      <span className="font-mono text-muted-foreground">{m.invoice_registration_number || "—"}</span>
                     )}
                   </td>
 
@@ -525,7 +547,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={15} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={16} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>

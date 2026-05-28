@@ -80,6 +80,7 @@ type MemberRow = {
   member_name?: string | null;
   contractor_name?: string | null;
   member_address?: string | null;
+  invoice_registration_number?: string | null;
   bank_info?: string | null;
   email?: string | null;
   is_officer?: boolean | null;
@@ -653,6 +654,7 @@ export async function generateNoticePdfForMember(
       noticeNo,
       payeeName,
       payeeAddress: textValue(member.member_address),
+      invoiceRegistrationNumber: textValue(member.invoice_registration_number),
       payeeEmail: textValue(member.email),
       bankInfo: textValue(member.bank_info),
       totalYen,
@@ -814,7 +816,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   const [membersRes, projectsRes, invoiceCyclesRes, unsetInvoiceCyclesRes] = await Promise.all([
     db
       .from("members")
-          .select("member_id, code_name, member_name, contractor_name, member_address, bank_info, email, status, is_officer, exclude_from_payout_notice")
+      .select("member_id, code_name, member_name, contractor_name, member_address, invoice_registration_number, bank_info, email, status, is_officer, exclude_from_payout_notice")
       .eq("status", "active")
       .order("code_name"),
     db

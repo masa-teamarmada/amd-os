@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-28 12:00 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-28 14:37 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -1091,6 +1091,7 @@ UNIQUE: `(member_id)` (constraint: `members_member_id_key`)
 | 25 | `last_login_at` | `timestamptz` | NULL | `` |
 | 26 | `is_officer` | `bool` | NOT NULL | `false` |
 | 27 | `contractor_name` | `text` | NULL | `` |
+| 28 | `invoice_registration_number` | `text` | NULL | `` |
 
 ## michinori_app_config
 
@@ -1472,7 +1473,7 @@ UNIQUE: `(project_id,member_id)` (constraint: `payout_agreement_project_id_membe
 
 ## payout_notices
 
-行数 (概算): -1
+行数 (概算): 18
 PRIMARY KEY: `member_id, ym`
 
 | # | column | type | nullable | default |
@@ -1487,7 +1488,7 @@ PRIMARY KEY: `member_id, ym`
 
 ## progress_estimate_state
 
-行数 (概算): 32
+行数 (概算): 34
 PRIMARY KEY: `project_id, ym`
 
 | # | column | type | nullable | default |

@@ -36,6 +36,7 @@ function payoutCreateFreeeNotice(payload){
   // 宛名（memberName優先）＋住所（memberAddress）＋振込先（bankInfo）
   let payeeName = memberId;
   let payeeAddress = "";
+  let invoiceRegistrationNumber = "";
   let bankInfo = "";
 
   try{
@@ -44,6 +45,7 @@ function payoutCreateFreeeNotice(payload){
     if (m){
       payeeName = String(m.memberName || m.codeName || m.memberId || memberId).trim() || memberId;
       payeeAddress = String(m.memberAddress || "").trim();
+      invoiceRegistrationNumber = String(m.invoiceRegistrationNumber || "").trim();
       bankInfo = String(m.bankInfo || "").trim();
     }
   } catch(e){}
@@ -53,6 +55,7 @@ function payoutCreateFreeeNotice(payload){
     memberId,
     payeeName,
     payeeAddress,
+    invoiceRegistrationNumber,
     bankInfo,
     totalYen,
     breakdownText,
@@ -95,6 +98,7 @@ function payoutCreatePwaNoticePdf(payload){
 
   let payeeName = String(payload.payeeName || "").trim();
   let payeeAddress = String(payload.payeeAddress || "").trim();
+  let invoiceRegistrationNumber = String(payload.invoiceRegistrationNumber || payload.invoice_registration_number || "").trim();
   let bankInfo = String(payload.bankInfo || "").trim();
 
   try{
@@ -103,6 +107,7 @@ function payoutCreatePwaNoticePdf(payload){
     if (m){
       payeeName = payeeName || String(m.memberName || m.codeName || m.memberId || memberId).trim() || memberId;
       payeeAddress = payeeAddress || String(m.memberAddress || "").trim();
+      invoiceRegistrationNumber = invoiceRegistrationNumber || String(m.invoiceRegistrationNumber || "").trim();
       bankInfo = bankInfo || String(m.bankInfo || "").trim();
     }
   } catch(e){}
@@ -114,6 +119,7 @@ function payoutCreatePwaNoticePdf(payload){
     memberId,
     payeeName,
     payeeAddress,
+    invoiceRegistrationNumber,
     bankInfo,
     totalYen,
     breakdownText,
@@ -177,6 +183,7 @@ function payoutBuildNoticePdfBlob_(p){
   const memberId = String(p.memberId || "").trim();
   const payeeName = String(p.payeeName || "").trim() || memberId;
   const payeeAddress = String(p.payeeAddress || "").trim();
+  const invoiceRegistrationNumber = String(p.invoiceRegistrationNumber || p.invoice_registration_number || "").trim();
   const bankInfo = String(p.bankInfo || "").trim();
   const issuedAtJst = String(p.issuedAtJst || "").trim();
   const noticeNo = String(p.noticeNo || "").trim();
@@ -307,6 +314,10 @@ function payoutBuildNoticePdfBlob_(p){
     .setBorder(false, false, true, false, false, false, "#6b7280", SpreadsheetApp.BorderStyle.SOLID);
   sh.getRange("A6:F6").merge()
     .setValue(payeeAddress || "（住所未登録）")
+    .setFontSize(9).setFontColor(MUTED)
+    .setWrap(true);
+  sh.getRange("A7:F7").merge()
+    .setValue(invoiceRegistrationNumber ? `インボイス登録番号：${invoiceRegistrationNumber}` : "インボイス登録番号：（未登録）")
     .setFontSize(9).setFontColor(MUTED)
     .setWrap(true);
 

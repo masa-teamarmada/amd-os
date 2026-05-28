@@ -96,8 +96,10 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
 expectIncludes("src/components/admin/AdminMembersTable.tsx", [
   "contractor_name",
   "member_address",
+  "invoice_registration_number",
   "契約者名",
   "住所",
+  "インボイス登録番号",
   "defaultContractorName",
 ]);
 
@@ -122,6 +124,7 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "last_generated_at",
   "contractor_name",
   "payeeAddress",
+  "invoiceRegistrationNumber",
   "bankInfo",
   "applySavedPayoutsForExistingRows",
 ]);
@@ -152,6 +155,7 @@ expectIncludes("../gas/064_PayoutFreeeNotice.js", [
   "支払予定日",
   "支払方法",
   "振込先",
+  "インボイス登録番号",
   "備考",
 ]);
 
@@ -202,6 +206,7 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "報酬キャッシュ",
   "members.contractor_name",
   "members.member_address",
+  "members.invoice_registration_number",
   "実績配分",
   "milestone_monthly_contribution_allocations",
   "4月稼働分",

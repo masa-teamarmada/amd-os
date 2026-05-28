@@ -41,6 +41,7 @@ function payoutGetMembersBasic(){
       email: String(row[header2.email - 1] || "").trim(),
       memberName: header2.memberName ? String(row[header2.memberName - 1] || "").trim() : "",
       memberAddress: header2.memberAddress ? String(row[header2.memberAddress - 1] || "").trim() : "",
+      invoiceRegistrationNumber: header2.invoiceRegistrationNumber ? String(row[header2.invoiceRegistrationNumber - 1] || "").trim() : "",
       bankInfo: header2.bankInfo ? String(row[header2.bankInfo - 1] || "").trim() : ""
     });
   }
@@ -91,11 +92,12 @@ function payoutEnsureMembersSchema(){
   const sh = payoutGetSheetByName("DB_Members");
   const header = payoutGetHeaderMap(sh);
 
-  // bankInfo（なければ追加）
-  if (!header.bankInfo){
+  ["bankInfo", "invoiceRegistrationNumber"].forEach((key) => {
+    if (header[key]) return;
     const lastCol = sh.getLastColumn();
-    sh.getRange(1, lastCol + 1).setValue("bankInfo");
-  }
+    sh.getRange(1, lastCol + 1).setValue(key);
+    header[key] = lastCol + 1;
+  });
 
   // ★fullName は作らない。memberName を正本として使う（既存スキーマ尊重）
   return { ok: true };
