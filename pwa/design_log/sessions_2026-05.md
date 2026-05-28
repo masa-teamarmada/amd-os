@@ -9559,3 +9559,44 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
   - `pwa/BUGS.md` / `pwa/design_log/sessions_2026-05.md` (このエントリ)
 - worktree には別えいみの未 commit/untracked が大量にあり (= 140+ 件、`pwa/manual/*` の旧構造 → 新構造への大規模移行作業ほか)。**勝手に commit に巻き込まない**。
 - 本番反映済 (Vercel `v0.7.3` + GAS `@1479`)。コードが本番だけ進んで git 未反映の状態なので、まさ承認後に上記自分作業分だけ stage して commit + push する。
+
+---
+
+## 2026-05-28 (codex) 右下つくよみ visible mascot 非表示の確認 + handoff 整理
+
+### 目的
+
+- まさ指摘: 「右下のつくよみを非表示にしてってお願いしたやつが忘れられてる。消して。」
+- 既存修正が「visible mascot を消す」だけでなく、画面内の明示的な「つくよみに修正依頼」導線を壊していないか確認する。
+
+### 実装 / 現状確認
+
+- `pwa/src/app/(app)/layout.tsx` は visible `TsukuyomiMascot` を mount せず、`TsukuyomiChatBridge` だけを render する状態。
+- `pwa/src/components/tsukuyomi/TsukuyomiChatBridge.tsx` は `tsukuyomi:open` event を listen し、prefill を `localStorage` に入れて `TsukuyomiChatDrawer` を開く invisible bridge。右下 fixed button / 当たり判定は出さない。
+- `pwa/design/SPEC_pwa.md` の「つくよみ chat bridge」と `pwa/manual/8-1-knowledge-admin-tsukuyomi-spec.md` に、2026-05-28 以降 visible mascot は非表示で、明示導線だけ維持する設計を記録済み。
+
+### Verification / Deploy
+
+- `npx tsc --noEmit` pass。
+- `npm run test:critical-ui` pass。
+- `npm run build` pass。
+- Vercel deployment `dpl_71ybU9TqXHbbsU8VJTvwNyk4J2ji` Ready。
+- Production alias `https://amd-os-pwa.vercel.app` に反映済み。
+- Chrome で production dashboard を開き、左下 version が `AMD OS v0.7.5`、右下 visible mascot が出ていないことを確認。
+
+### 運用メモ
+
+- Vercel CLI / deploy script は local network/DNS/polling error (`Client network socket disconnected before secure TLS`, `EADDRNOTAVAIL`, `ENOTFOUND api.vercel.com`) で失敗表示になることがあったが、`npx vercel inspect <deployment-url> --scope armada0130` では deployment Ready + alias 済みだった。upload/build 後の失敗は必ず inspect してから retry 判断する。
+- `npm run build` が `Another next build process is already running` で止まった時は、stale `next build --webpack` process と `.next/lock` が原因だった。process / `.next/trace` mtime を確認し、stale process 停止後に lock を削除して build pass。
+
+### Current caveat
+
+- visible mascot 非表示の production 確認は `v0.7.5`。
+- その後 current `main` は `09a9c2a` / `v0.7.6` (`Add invoice registration number to payouts`) まで進んでいる。
+- `v0.7.6` の production 反映と `pwa/scripts/migrations/107_members_invoice_registration_number.sql` の Supabase remote apply は、この handoff 時点では未確認。
+
+### Handoff 更新
+
+- `HANDOFF.md` と `pwa/HANDOFF_pwa_rebuild.md` を current state に更新。
+- `pwa/BUGS.md` の TsukuyomiMascot 干渉エントリを `TsukuyomiChatBridge` 完成形へ更新。
+- `pwa/BUGS.md` に Vercel CLI polling/network false negative と stale `.next/lock` の運用教訓を追記。

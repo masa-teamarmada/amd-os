@@ -1,68 +1,71 @@
-# HANDOFF — AMD OS PWA
+# HANDOFF - AMD OS PWA
 
-- Last updated: 2026-05-28 (claude session)
-- Topic: `/admin/payouts` 送付ボタン実メール送信化 + PDF ラベル変更 + 強制再発行ボタン + TsukuyomiMascot 削除
+- Last updated: 2026-05-28 (codex handoff)
+- Topic: 右下つくよみ visible mascot 非表示 + chat bridge 化 + production/current gap
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
-- Build version: `v0.7.3` (本番反映済)
-- GAS deployment: `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` @1479 (本番反映済)
-- HEAD at handoff: `01f7305` (= `feat(pwa): add GreenPulse PJ (p26) + fix AmdScore detail page HUD→normal UI`)
-- Unpushed commits: **なし** (`git log --branches --not --remotes --oneline` 空)。本セッションの自分作業は **uncommitted** のまま本番だけ進んでいる状態。
+- HEAD before handoff docs: `09a9c2a` (`Add invoice registration number to payouts`)
+- Build version at HEAD: `v0.7.6`
+- Last production version directly observed in this session: `v0.7.5`
 
-## Latest Summary (3-10 lines)
+## Latest Summary
 
-`/admin/payouts` の「送付」ボタンを「`sent_at` フラグを立てるだけ」から **`keiri@team-armada.jp` から実メール送信 + 確認モーダル + PDF添付 + Bcc: masa@/kyoko@** に差し替え。並行で支払通知書 PDF の右上ラベルを「支払通知日」→「作成日」に変更、差分検出で再生成スキップされる問題に対処する「強制再発行 (全員)」黄色ボタンを `/admin/payouts` に追加、`TsukuyomiMascot` を `layout.tsx` から削除 (右下発行ボタンに被るメンバーがいたため)。GAS clasp 再ログインを含む 4 つの GAS deploy + Vercel deploy を実行。本番動作確認はまさが完了 (`できてた！`)。
-
-詳細: [`pwa/design_log/sessions_2026-05.md`](design_log/sessions_2026-05.md) 末尾「2026-05-28 (claude)」セクション。
+- `pwa/src/app/(app)/layout.tsx` は visible `TsukuyomiMascot` を mount せず、invisible `TsukuyomiChatBridge` だけを render する状態。
+- `TsukuyomiChatBridge` は `window.dispatchEvent(new CustomEvent("tsukuyomi:open", ...))` を受け、pending prefill を `localStorage` に保存して `TsukuyomiChatDrawer` を開く。右下 fixed button / 当たり判定は出さない。
+- `pwa/design/SPEC_pwa.md` と `pwa/manual/8-1-knowledge-admin-tsukuyomi-spec.md` に、この visible mascot 非表示 + 明示導線維持を記録済み。
+- Production dashboard を Chrome で確認し、`AMD OS v0.7.5` かつ右下 visible mascot なしを確認した。
+- その後 current `main` は `v0.7.6` / `09a9c2a` へ進み、支払通知書宛先の `members.invoice_registration_number` 対応が入っている。`v0.7.6` production 反映と migration 107 remote apply は未確認。
+- 詳細ログ: `pwa/design_log/sessions_2026-05.md` 末尾「2026-05-28 (codex)」。
 
 ## Verification / Deploy
 
-Run and observed:
+Run and observed for the visible mascot removal:
 
-- `npx tsc --noEmit` → pass
-- `npm run build` → pass
-- `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` → v0.7.3 Ready (= 本番URL alias 切り替え済)
-- まさが `/admin/payouts` の送付モーダルから実メール送信を実行し「できてた！」確認
-- GAS `clasp push --force` + `clasp deploy --deploymentId AKfycbwzA...` を 4 回 (@1476 → @1477 → @1478 → @1479)
-- `payoutAdmin_listMailAliases_` を runFunc で叩いて `keiri@team-armada.jp` が Gmail send-as に存在することを実機確認済
+- `npx tsc --noEmit` pass
+- `npm run test:critical-ui` pass
+- `npm run build` pass
+- Vercel deployment `dpl_71ybU9TqXHbbsU8VJTvwNyk4J2ji` Ready
+- Vercel URL: `https://amd-os-7vy0zxpdx-armada0130.vercel.app`
+- Production alias: `https://amd-os-pwa.vercel.app`
+- Chrome production dashboard: `AMD OS v0.7.5`, no bottom-right visible mascot
+
+Observed deploy caveat:
+
+- Vercel CLI / deploy script failed locally during upload or polling with network/DNS errors (`Client network socket disconnected before secure TLS`, `EADDRNOTAVAIL`, `ENOTFOUND api.vercel.com`), while `vercel inspect` later confirmed the deployment was Ready and aliased.
+
+Not verified:
+
+- Current HEAD `v0.7.6` production reflection
+- Supabase migration `pwa/scripts/migrations/107_members_invoice_registration_number.sql` applied on remote
 
 ## Repo State
 
-- Branch: `main`、未 push commit なし
-- 本セッションで触ったが **未 commit** (= 本番だけ進んでいるので handoff 後に commit 必須):
-  - GAS: `gas/064_PayoutFreeeNotice.js` / `gas/065_PayoutMailer.js`
-  - GAS untracked: `gas/074f_MeetingWorkflow.js` (= 別えいみ作業中ファイルの typo fix も入った、clasp push のブロッカー解消のため)
-  - PWA: `pwa/src/app/(app)/layout.tsx` (Mascot 削除完成形はまさ手当て) / `pwa/src/app/api/admin/payouts/route.ts` / `pwa/src/components/admin/AdminPayoutsClient.tsx` / `pwa/src/lib/build-info.ts`
-  - Design / Manual: `pwa/design/SPEC_pwa.md` (MM) / `pwa/design/FEATURE_REGISTRY.md` (**UU = unmerged conflict ⚠️**) / `pwa/manual/6-5-admin-payouts-reward-notice-spec.md` (= 新 manual 配下、`pwa/manual/` フォルダ全体が untracked) / `pwa/BUGS.md` / `pwa/design_log/sessions_2026-05.md`
-- **worktree 全体は別えいみセッションの作業途中で大量に dirty** (140+ ファイル、`pwa/manual/00-*.md` 〜 `39-*.md` の旧構造 deleted + 新 `pwa/manual/1-1-...md` 〜 `8-3-...md` untracked、大規模 reorganization が進行中)。**勝手に commit に巻き込まない**。
-- 自分作業のみを stage する手順例:
-  ```sh
-  git add gas/064_PayoutFreeeNotice.js gas/065_PayoutMailer.js gas/074f_MeetingWorkflow.js \
-          pwa/src/app/\(app\)/layout.tsx \
-          pwa/src/app/api/admin/payouts/route.ts \
-          pwa/src/components/admin/AdminPayoutsClient.tsx \
-          pwa/src/lib/build-info.ts \
-          pwa/manual/6-5-admin-payouts-reward-notice-spec.md \
-          pwa/BUGS.md pwa/design_log/sessions_2026-05.md pwa/HANDOFF_pwa_rebuild.md
-  # SPEC_pwa.md / FEATURE_REGISTRY.md は MM / UU なので個別判断 (= conflict resolution が必要)
-  ```
+- Branch: `main`
+- Remote tracking: `main...origin/main`
+- Unpushed commits before handoff docs: none observed
+- Worktree before handoff docs: clean
+- Handoff docs changed in this flow:
+  - `HANDOFF.md`
+  - `pwa/HANDOFF_pwa_rebuild.md`
+  - `pwa/design_log/sessions_2026-05.md`
+  - `pwa/BUGS.md`
 
 ## Open Tasks
 
-- `pwa/design/FEATURE_REGISTRY.md` の `UU` conflict を解決。本セッションでは「作成日」記述を入れたつもりだが、現状ファイル中身を再確認して必要なら手で merge。
-- `pwa/design/SPEC_pwa.md` も `MM` (staged が他人 + worktree が自分)。staged 側を `git diff --cached` で確認し、worktree 側を `git add` でまとめて commit するか、分割するか判断。
-- 別えいみセッションの大量 dirty (新 manual 移行 / `meeting-workflow` API / migration 093/098/099 等) は本セッション handoff の対象外。担当セッションに引き継ぐ。
+- [ ] Decide whether to deploy current `main` (`v0.7.6`) now that production was directly observed at `v0.7.5`.
+- [ ] Before deploying `v0.7.6`, verify Supabase has `members.invoice_registration_number` / migration 107 applied.
+- [ ] If deploying, run the normal PWA deploy path, then inspect the deployment URL directly if CLI polling fails.
 
 ## First Read Next Session
 
-1. **`pwa/HANDOFF_pwa_rebuild.md`** (= この文書、最新状態)
-2. **`pwa/design_log/sessions_2026-05.md`** 末尾「2026-05-28 (claude)」(= 今セッション詳細)
-3. **`pwa/BUGS.md`** 末尾 4 件 (clasp 罠 / 差分検出スキップ / Mascot 干渉 / version bump 過大)
-4. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md` (= 送付メール仕様 + 強制再発行ボタン仕様)
-5. `pwa/design/SPEC_pwa.md` `/admin/payouts` 行
-6. `pwa/design/FEATURE_REGISTRY.md` (= 要 conflict 確認)
-7. `pwa/CLAUDE.md` (= デプロイ / DDL / bump up ルール)
+1. `HANDOFF.md`
+2. `pwa/HANDOFF_pwa_rebuild.md`
+3. `pwa/design/SPEC_pwa.md`
+4. `pwa/manual/8-1-knowledge-admin-tsukuyomi-spec.md`
+5. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
+6. `pwa/BUGS.md`
+7. `pwa/design_log/sessions_2026-05.md`
 
 ## First Next Action
 
@@ -73,4 +76,8 @@ git status -s
 git log --branches --not --remotes --oneline
 ```
 
-未 push 自分作業を stage して commit + push する。SPEC_pwa.md / FEATURE_REGISTRY.md の MM/UU は中身を確認してから判断。GAS は既に `clasp deploy @1479` で本番反映済なので、`git push` 後の動作確認は不要。
+Then:
+
+1. Check whether production is still `v0.7.5` or has advanced to `v0.7.6`.
+2. Verify migration 107 on Supabase before sending any `v0.7.6` production deploy.
+3. If Vercel CLI shows a network/polling failure, use `npx vercel inspect <deployment-url> --scope armada0130` before retrying.

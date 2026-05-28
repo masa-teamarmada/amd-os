@@ -2888,8 +2888,8 @@
 
 - **症状**: 右下に常駐する TsukuyomiMascot が `/admin/payouts` の「強制再発行 (全員)」など右下に来るアクションボタンに被って、メンバーによってはクリックできない。
 - **原因**: `pwa/src/app/(app)/layout.tsx` で `<TsukuyomiMascot />` が固定 z-index で全画面共通 mount されており、`/admin/payouts` の業務 UI と当たり判定が衝突。
-- **解決策**: layout.tsx から `<TsukuyomiMascot />` を一旦削除 (まさ手当て、v0.7.2 → v0.7.3 で確定)。再表示時は位置 / pointer-events / 表示画面の絞り込みを直してから戻す。
-- **教訓**: 全画面 fixed 配置の常駐 UI は admin 系業務画面 (= 右下にアクションが集中する) と必ず干渉する。今後類似の追加 (浮遊ヘルパー / 通知バブル) は admin 画面で hidden にする `usePathname` ベースの分岐を最初から組み込む。
+- **解決策**: visible `<TsukuyomiMascot />` は global layout から外し、`TsukuyomiChatBridge` だけを残す形にした。右下 fixed button / 当たり判定は消しつつ、画面内の明示的な「つくよみに修正依頼」導線は `tsukuyomi:open` event で drawer を開ける。v0.7.5 production dashboard で右下 mascot なしを確認済み。
+- **教訓**: 全画面 fixed 配置の常駐 UI は admin 系業務画面 (= 右下にアクションが集中する) と必ず干渉する。今後類似の追加 (浮遊ヘルパー / 通知バブル) は global layout 直 mount ではなく、event bridge / page-local explicit trigger / path guard のどれかにする。
 
 ## [PWA] BUILD_VERSION 過大 bump up (v0.6.1 → v0.7.0) (2026-05-28)
 
@@ -2897,3 +2897,17 @@
 - **原因**: CLAUDE.md `bump up の粒度` ルール「迷ったら patch」「minor は本物の新機能と確信が持てる時だけ」を踏み外した。実態は「既存ボタンの挙動差し替え + 既存 sent_at セット動作の前段に確認モーダル追加」で patch 範囲。
 - **解決策**: 後続の追加 (force ボタン、Mascot 削除) は patch (v0.7.1 → v0.7.2 → v0.7.3) で進めた。
 - **教訓**: 既存ボタンの挙動変更は patch。新ボタン追加は新画面追加じゃないので patch。`5xx 行の確認モーダル追加` といった見た目のコード量に引きずられて minor にしない。
+
+## [PWA/Vercel] deploy script がローカル回線・polling 失敗でも deployment 自体は Ready になる (2026-05-28)
+
+- **症状**: PWA deploy 中に Vercel CLI / deploy script が `Client network socket disconnected before secure TLS connection was established`、`EADDRNOTAVAIL`、`ENOTFOUND api.vercel.com` などで失敗表示になった。
+- **原因**: local Mac 側の network / DNS / polling が途中で切れたが、Vercel 側では upload/build/deployment が進んでいた。CLI の終了状態だけを見ると deploy failed と誤判定する。
+- **解決策**: 失敗表示後に deployment URL を `npx vercel inspect <deployment-url> --scope armada0130` で確認し、`dpl_71ybU9TqXHbbsU8VJTvwNyk4J2ji` が Ready かつ production alias (`https://amd-os-pwa.vercel.app`) 付きであることを確認した。
+- **教訓**: deploy script が upload/build 後の polling で失敗した時は、再 deploy の前に deployment URL を inspect する。ローカル通信エラーと Vercel 側 failure を分けて判断する。
+
+## [PWA/Next] stale next build process が `.next/lock` を握り続ける (2026-05-28)
+
+- **症状**: `npm run build` が `Another next build process is already running` で止まり、`pwa/.next/lock` が残っていた。
+- **原因**: 以前の `next build --webpack` process が残り、CPU 0 のまま lock を保持していた。`.next/trace` も更新されておらず、実質 stale build だった。
+- **解決策**: 実プロセスと trace mtime を確認し、stale `next build --webpack` process を終了してから generated lock (`.next/lock`) を削除。その後 `npm run build` は pass。
+- **教訓**: `.next/lock` を見つけても先に消さない。`ps` と `.next/trace` の更新時刻で active build か stale build か確認し、stale process を止めてから lock を消す。
