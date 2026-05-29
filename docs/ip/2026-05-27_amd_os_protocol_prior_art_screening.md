@@ -76,8 +76,8 @@
 
 | # | 公報 | 出願人 | 法域 | 公開年 | 危険度 |
 |---|---|---|---|---|---|
-| A-1 | **Seek AI 米国特許 2 件 (公報番号未 verify)** | Seek AI Inc. | US | 2024-12 登録 | 🔴 high (HITL+LLM 上位概念) |
-| A-2 | **US20240256582A1 — Search with Generative AI** | Glean Technologies | US | 2024-08 公開 | 🟡 medium (検索+生成 上位概念) |
+| A-1 | **Seek AI 米国特許 2 件 (公報番号は 2026-05-29 時点でも特定できず)** | Seek AI Inc. (2025-06 IBM 買収 → 権利 IBM 移転の可能性) | US | 2024 登録 | 🔴 high (HITL+LLM 上位概念、番号確定は次回 USPTO Public Search) |
+| A-2 | **US 12,050,712 B2 (登録、2026-05-29 verify 確定) — 権限考慮型エンタープライズ知識アシスタント** + US20240256582A1 (係属) | Glean Technologies | US | 2024-07 登録 | 🟡 medium (**ACL/権限フィルタが必須要素**。AMD が権限考慮を要素に含まなければ回避余地) |
 | A-3 | US10361981B2 — Auto-extraction of commitments/requests | Microsoft | US | 2019 登録 | 🟡 medium (LLM 以前の NLP 系、親特許) |
 | A-4 | US12131115B2 — Summarization for recorded audio | IBM | US | 2024-10 登録 | 🟢 low (単一会議内に閉じる) |
 | A-5 | Notion Labs 関連 (XML 検証付き LLM 命令、DB×LLM、外部 SaaS 連携) | Notion Labs | US | 出願多数 | 🟡 medium (Notion 中心 API、要 verify) |
@@ -98,7 +98,7 @@
 
 | # | 公報 / 文献 | 出願人 | 法域 | 公開年 | 危険度 |
 |---|---|---|---|---|---|
-| C-1 | **BigID 関連特許 ("ML for Confidence Levels of Personal Information Findings", 公報番号未 verify)** | BigID Inc. | US | 出願多数 | 🔴 high (no-copy + hash + confidence の思想最接近) |
+| C-1 | **US 11,100,252 B1 — ML for Confidence Levels of Personal Information Findings (2026-05-29 verify 確定)** + 関連 US11113633/US11243990/US11295034/US11238176/US11106703 (計 6 件登録) | BigID Inc. | US | 2021-08 登録 | 🔴 **最高** (「文書メタデータのみ受領 → 本文アクセスせず ML 予測」が WS-1 に真正面から重なる、要回避設計) |
 | C-2 | US8576283B1 — Hash-based chain of custody | Sensormatic (Tyco) | US | 2013 登録 | 🟢 low (原本保存前提) |
 | C-3 | US9779284B2 — Privacy-preserving evidence (ALPR) | Conduent (Xerox) | US | 2017 登録 | 🟢 low (原本暗号保存) |
 | C-4 | WO2021043144A1 — Blockchain evidence collection | 中国系 | WO | 2021 | 🟢 low (原本別 DB 保存) |
@@ -168,6 +168,59 @@
 | F-9 | MLflow Model Registry (Databricks, OSS) | Databricks | (OSS 公知) | 2018- | 🟡 medium (自明性攻撃材料) |
 | F-10 | DataRobot Model Deployment Approval Workflow (製品仕様) | DataRobot | (周辺特許多数あり、特定未) | — | 🟡 medium (37 件出願 / 30 件登録、要精査) |
 | F-11 | Domino Governance (製品、2024-10 発表) | Domino Data Lab | (製品) | 2024-10 | 🟡 medium (公知文献として強い) |
+
+### 3.8 公報番号 verify 結果 (2026-05-29 実施)
+
+「未検証」だった主要公報について、Google Patents / USPTO / 各社プレスで bibliographic データと Claim 要旨を verify した結果。**捏造せず、確認できなかったものは「確認できず」と明記**。
+
+#### 海外 (8 件)
+
+| 対象 | 確定公報番号 | 出願人 | ステータス | verify 結果・含意 |
+|---|---|---|---|---|
+| Microsoft 設立予測 | **US 12,315,010 B2** ✓ | Microsoft (発明者 Bijral/Feldman/Kumar) | 登録 (出願 2022-05-31 / 2025-05-27 登録) | 予測対象は **funding/exit/closure のみ。incorporation/founding は一切なし**。国際ファミリー無し。→ AMD は「設立イベント予測」で差別化確定 |
+| Seek AI (2 件) | **番号特定できず** | Seek AI (2025-06 IBM 買収) | 登録 (2 件) | プレスは存在確認、公報番号は未公表。候補 (Mindbridge/Anomali/Hebbia) は全て別社。→ 次回 USPTO Public Search で assignee/inventor 照会 |
+| EQT Motherbrain | **確認できず** | EQT 名義特許は特定できず | 不明 | 🟢 **格下げ**。指定 tech.eu 記事 (2025-11-20) に "patent" の語なし。「初の PE 特許」主張は裏取れず。granted patent の存在を確認できない (pending の可能性は残す) |
+| CB Insights Mosaic | **確認できず (証跡なし)** | CB Insights 名義特許なし | — | 🟢 **格下げ**。Mosaic は NSF 共同開発アルゴリズムだが特許化の証跡なし。トレードシークレット保護の公算 |
+| Glean Technologies | **US 12,050,712 B2** ✓ + US2024/0256582A1 (係属) | Glean Technologies | 登録 + 係属 | Claim 1 = **権限フィルタ付き (permissions-aware)** 知識アシスタント。権限制御が必須要素 → AMD が権限考慮を要素にしなければ回避余地 |
+| BigID | **US 11,100,252 B1** ✓ + 関連 6 件 | BigID Inc. (2024-10 JPMorgan が IP 担保権) | 登録 | 🔴 **直撃**。「文書メタデータのみ受領 → 本文アクセスせず ML 予測」が WS-1 に真正面から重なる。要回避設計 |
+| Ciena | **US 10,965,527 B2** ✓ | Ciena Corp | 登録 (2021-03) | **blockchain 必須 (タイトルに "in a blockchain ledger") + network 管理限定**。AMD が blockchain/network 使わなければ Claim 1 と直接抵触しない可能性高い。※ Claim 1 逐語は次回 USPTO PDF で要精読 |
+| Optum / IBM | **US 11,620,581 B2** / **US 7,730,005 B2** ✓ | ⚠ Optum/IBM 記録不一致 / IBM (現 X Corp 移転表示) | 登録 | 番号は実在確定。US11620581 は権利者名が Google Patents=IBM / Justia=Optum で不一致 → USPTO Assignment DB で要確定 |
+
+#### 国内 JP (5 件)
+
+| 対象 | 結果 | 含意 |
+|---|---|---|
+| C2X / XRL+ | 運営は **一般社団法人 C2X** (株式会社ではない)、スマートシティ企画(株)内。**特許化の証跡なし** (PR に知財言及ゼロ) | XRL 5 軸は内閣府 SIP 由来の公知概念。特許権の衝突は薄いが審査上の引用リスクは残る |
+| 早稲田大学 / 小野田弘士研 | 事業化判定・レディネス評価系の出願は確認できず (小野田氏専門は環境/エネルギー/LCA) | 直接ぶつかる特許の証跡なし |
+| スマートシティ企画(株) | 該当出願確認できず (※「株式会社スマートシティ技術研究所」は別法人、混同注意) | 同上 |
+| JST / NEDO / AIST | AI/システムによる事業化 GO-NO-GO/設立タイミング判定の特許は確認できず (すべて人的支援プログラム) | 行政伴走プロセスは公知資料として進歩性引用リスク、特許権の衝突はなし |
+| 一般 JP キーワードスイープ | 「研究シーズ 事業化 時期 判定」等で直接該当する JP 公開特許は WebSearch では検出されず | — |
+
+#### J-PlatPat 手動全文検索 結果 (2026-05-29 Chrome MCP で実施済み)
+
+前回 agent は WebFetch で J-PlatPat 全文検索ができなかったが、今回 Chrome MCP で「特許・実用新案検索」(全文 = 要約 + 請求の範囲 + 明細書) を手動操作して実施した。国内文献 + 外国文献対象。
+
+| # | 検索式 (全文 AND、フィールド内スペース = OR) | 国内ヒット | 内容 |
+|---|---|---|---|
+| JP-1 | 研究シーズ AND 事業化 | **1 件** | 特開2001-350767「科学技術情報流通支援システム」(2000 出願、特許消滅=年金不納)。AMD と無関係 |
+| JP-2 | (設立時期 OR 設立タイミング OR 起業時期 OR 創業時期) AND 事業化 | **1 件** | 特開2003-256663「分散投資方法、分散投資システム及び投資用プログラム」(2002 出願、特許消滅)。AMD と無関係 |
+| JP-3 | (事業化判定 OR 事業化評価) AND (人工知能 OR 機械学習) | **0 件** | AI による事業化判定の JP 特許はゼロ |
+| JP-4 | (経営判断 OR 意思決定) AND (議事録 OR 会議録) | 364 件 | 「意思決定支援 × 議事録」という populated な一般分野。AMD 固有概念ではない |
+| JP-5 | JP-4 AND 抽出 AND (人工知能 OR 機械学習 OR LLM) | 185 件 | 同上 (株式会社ゼロボード / ソフトバンク等の汎用 IPS 特許)。AMD の固有 5 要素組合せに一致するものは確認されず。海外調査 (workflow 系は混んでいる) と整合 |
+| JP-6 | 書誌的事項 = スマートシティ企画 | **1 件** | 特開2021-006983 (出願人 IoT-EX 株式会社、IoT 接続システム)。スマートシティ企画名義の事業化判定特許は無し |
+
+**結論 (J-PlatPat 全文検索後、確度向上)**:
+- **AMD の Before-Zero / 設立タイミング判定フレーム (研究シーズ × 事業化 × 判定/設立時期 × AI) に直接ぶつかる JP 特許は確認できず** (JP-1〜JP-3 がいずれも 0〜1 件、ヒットも全て無関係 + 失効)。
+- **XRL+ の実運営会社「スマートシティ企画」に関連特許なし** (JP-6)。C2X は一般社団法人で知財言及なし、早稲田小野田研も事業化判定特許なし (前回 agent 確認)。
+- workflow 系 (議事録 × 意思決定 × AI 抽出) は JP でも populated (185-364 件) だが、AMD の固有 5 要素 AND (snippet+hash / prompt 注入 / 普遍 protocol ハッシュ集約 / multi-horizon ledger / 却下→prompt) に一致する単一 JP 公報は浮上せず。これは海外調査と整合。
+- **残検索**: 早稲田大学 × 事業化レディネス の出願人 AND 検索は未実施 (前回 agent が ipforce で早稲田の出願にレディネス系なしと確認済みのため優先度低)。完全網羅には弁理士事務所の正式サーチャー調査を推奨。
+
+#### verify による危険度の変動まとめ
+
+- **格下げ**: EQT Motherbrain (🔴→🟢)、CB Insights Mosaic (🔴→🟢) — いずれも granted patent の証跡が確認できず
+- **格上げ / 確定**: BigID US 11,100,252 B1 (🔴 最高に確定) — WS-1 に直撃する登録特許
+- **差別化点が確定**: Microsoft US 12,315,010 (incorporation 含まず)、Glean US 12,050,712 (権限フィルタ必須)、Ciena US 10,965,527 (blockchain/network 必須)
+- **未確定で持ち越し**: Seek AI 2 件の番号、Optum US11620581 の権利者名、Ciena/Optum の Claim 1 逐語
 
 ---
 
@@ -283,9 +336,11 @@
 
 ### WS-1: 全文非保存 + 5 タプル証拠メタデータ (snippet + hash + url + run_id + confidence)
 
-- 直接の先行特許は見つからない (BigID は思想接近だが目的・データ構造が異なる)
-- 学術文献 (arXiv 2511.17118, 2025-11) が同思想を発表しつつあり、**早期出願が必須**
-- 請求項 1 の核に維持
+- ⚠️ **2026-05-29 verify で評価変更**: BigID **US 11,100,252 B1** (登録済) が「文書メタデータのみ受領 → 本文アクセスせず ML 予測」を押さえていることが確定。**「全文非保存」単体を技術的特徴として強く押すのは弱くなった**。
+- ただし BigID は **「個人情報を含むか判定」というプライバシー/コンプライアンスのデータ発見用途**。AMD は **「事業化判断 L2 候補抽出 + 人手承認ゲート + 正本反映 + reject コメント prompt 注入」**の用途・後段処理が全く異なる。
+- → **WS-1 は「全文非保存」単体ではなく、「snippet+hash+url+run_id+confidence の 5 タプル証拠メタ + 人手承認ゲート (WS-2) + 正本反映 + 普遍 protocol 化 (WS-4) とのセット」で書く**。BigID 単体 (メタデータ ML 予測) とは差別化可能。
+- 学術文献 (arXiv 2511.17118, 2025-11) も同思想を発表しつつあり、**早期出願が必須**
+- 請求項 1 では維持するが、「全文非保存」だけを独立クレームにしない (BigID があるため)
 
 ### WS-2: 却下 / コメントが次回 LLM プロンプトに自動注入 (prompt-level 継続学習)
 
@@ -361,6 +416,14 @@
 ### 6.5 請求項 9 (旧 Cobb-Douglas 言及) — 削除済み
 
 まさ判断によりスコアロジックは特許化対象外。削除済み。
+
+### 6.6 出願戦略の基本方針 (まさ判断 2026-05-27 確定)
+
+> まさ: 「適用先が新しいというだけじゃ厳しいっしょ。おれも後者のが筋が良いと思う。」
+
+- **主軸 = WS-1〜WS-5 のワークフロー / データ構造軸の AND 結合** (請求項 1-11) を新規性・進歩性の中心に置く。
+- **Before-Zero 適用 + 法人設立タイミング判定 (WS-6 / 請求項 12) は補強的な独立従属項**に位置づける。「適用先の新しさ」だけでは進歩性が厳しいため、主請求項に格上げしない。
+- スコア値 / スコア式 / 5-7 軸 readiness 定義 / Triple Helix 式 / 重みの値は新規性主張対象外 (= 明細書で公知文献として引用するのみ)。
 
 ---
 
@@ -526,3 +589,5 @@
 | 2026-05-27 | 初版 (旧 6 領域)。スコアロジック軸 (#1 #2 #3) も含めて調査していたが、まさ判断「スコア値・式・軸は特許化対象外」によりピント外れと判明。破棄。 |
 | 2026-05-27 (新版) | ピント修正後の 6 軸 (A-F) で再調査。スコアロジック関連の公報 (CHI Research / 内閣府 SIP / C2X / EQT / CB Insights / arXiv VC scoring 系) を全て除外。最大の発見は FHIR Observation / OMOP CDM が軸 E の schema と同型 (新規性破壊リスク) と Ciena US 10,965,527 が軸 F の 4 要素を網羅 (ブロックチェーン必須が差別化点)。Seek AI 2 件、BigID、Glean、Notion Labs、Microsoft meeting tapestries も要警戒。AMD の請求項 5 と 6-8 は新規性主張を強化するためにシステム複合クレームに組み直す改訂方針を提示。 |
 | 2026-05-27 (新版 + 軸 G) | まさ #q1「いつ設立すべきかを判断できるという点は新しいかなと思ったけど、すでにある？」に対応するため、軸 G (Before-Zero / pre-incorporation 研究シーズの法人設立タイミング判定 AI) を追加調査。**結論 conditional yes**: 同一クレームの先行例は発見されず。Microsoft US 12,315,010 B2 (2025) がテンポラル予測モデル方法論で最接近だが対象イベントに incorporation 含まず。ReadyScore.ai / JST START / NEDO TCP / R.A.I.S.E. はいずれも post-founding か 人手か フレームワーク定義。WS-6 (Before-Zero 適用 + 設立タイミング判定出力) を新規ホワイトスペースとして追加、請求項 12 として独立クレーム化を提案。 |
+| 2026-05-29 (J-PlatPat 手動全文検索) | §3.8 国内セクションに J-PlatPat 手動全文検索結果を追記 (Chrome MCP で「特許・実用新案検索」全文検索 6 式を実施)。**Before-Zero / 設立タイミング判定フレーム (研究シーズ × 事業化 × 判定/設立時期 × AI) に直接ぶつかる JP 特許は確認できず** (JP-1〜JP-3 が 0-1 件、全て無関係 + 失効)。スマートシティ企画 (XRL+ 実運営) に関連特許なし。workflow 系 (議事録 × 意思決定 × AI) は JP でも populated (185-364 件) だが AMD 固有 5 要素一致は浮上せず (海外調査と整合)。前回 agent の「JP 全文検索未実施」但し書きを解消。 |
+| 2026-05-29 (公報番号 verify) | §3.8 を新設。海外 8 件 + 国内 5 件を verify。**EQT Motherbrain / CB Insights Mosaic は granted patent の証跡が確認できず 🔴→🟢 格下げ** (元の出典記事に "patent" の語なし)。**BigID US 11,100,252 B1 (登録) が WS-1 = 全文非保存に直撃すると確定** (🔴 最高)。Microsoft US 12,315,010 (incorporation 含まず)、Glean US 12,050,712 (権限フィルタ必須)、Ciena US 10,965,527 (blockchain/network 必須) の差別化点を確定。WS-1 の評価を「全文非保存単体ではなく承認ゲート + 正本反映とのセットで書く」に修正。**未確定持ち越し**: Seek AI 2 件の番号 (IBM 買収) / Optum US11620581 の権利者名 (Optum vs IBM) / Ciena・Optum の Claim 1 逐語。**国内 JP 全文検索 (J-PlatPat 要約 + 請求の範囲) は JS レンダリングで WebFetch 不可のため未実施** = Chrome MCP or 人手での手動操作が残課題。 |

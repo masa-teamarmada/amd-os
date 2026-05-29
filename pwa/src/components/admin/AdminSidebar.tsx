@@ -15,6 +15,7 @@ const ADMIN_TABS = [
   { label: "Billing", href: "/admin/billing" },
   { label: "Payouts", href: "/admin/payouts" },
   { label: "Finance", href: "/admin/finance" },
+  { label: "📄 知財 / IP", href: "/admin/ip" },
   { label: "Settings", href: "/admin/settings" },
 ];
 

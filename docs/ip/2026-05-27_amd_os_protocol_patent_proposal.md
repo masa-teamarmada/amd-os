@@ -62,6 +62,16 @@
 
 **防御線**: 請求項 1-11 の **ワークフロー / データ構造軸の AND 結合** + 請求項 12 の **Before-Zero 適用 + 法人設立タイミング出力** の組み合わせで進歩性を主張する。
 
+### 出願戦略の基本方針 (まさ判断 2026-05-27 確定)
+
+> まさ: 「適用先が新しいというだけじゃ厳しいっしょ。おれも後者のが筋が良いと思う。」
+
+これを受けて、出願戦略の基本方針を以下に固定する。
+
+- **主軸 = WS-1〜WS-5 のワークフロー / データ構造軸の AND 結合**。請求項 1-11 を新規性・進歩性の中心に置く。
+- **Before-Zero 適用 + 法人設立タイミング判定 (WS-6 / 請求項 12) は「適用先の新しさ」だけでは進歩性が厳しいため、補強的な独立従属項に位置づける**。主請求項には格上げしない。
+- スコア値 / スコア式 (Cobb-Douglas) / 5-7 軸 readiness 定義 / Triple Helix 式 / 重みの値は、論文・内閣府 SIP 等からの引用であり、**新規性主張対象にしない (= 明細書で公知文献として明示引用するのみ)**。
+
 ---
 
 ## 2. 想定発明名
@@ -404,32 +414,38 @@ flowchart LR
 - AFRL TRL Calculator (Nolte 2003), AEB IMATEC (2018)
 - CN102890753A (TRL determination)
 - WO2014146088A2 (investment scoring)
-- EQT Motherbrain (CNN による VC スコアリング)
-- CB Insights Mosaic (4 軸加重スコア)
+- EQT Motherbrain (CNN による VC スコアリング) — ※ 2026-05-29 verify: granted patent の証跡確認できず (元出典記事に "patent" の語なし)
+- CB Insights Mosaic (4 軸加重スコア) — ※ 2026-05-29 verify: 特許化の証跡なし (トレードシークレット保護の公算)
 - arXiv 2407.04885 / 2509.14448 / 2509.08140 (LLM-powered VC scoring)
 
 これらは AMD の請求項 1-11 のいずれもブロックしない。**スコアの「値」「式」「軸」を特許化対象から外したことで、これらの懸念は構造的に消えた**。
 
-### 10.2 ワークフロー / データ構造軸での先行特許 (再調査中)
+### 10.2 ワークフロー / データ構造軸での先行特許 (2026-05-29 verify 反映)
 
-詳細は別文書 `2026-05-27_amd_os_protocol_prior_art_screening.md` を参照 (新版起草中、2026-05-27 ピント修正後再調査中)。再調査軸:
+詳細は別文書 `2026-05-27_amd_os_protocol_prior_art_screening.md` §3 / §3.8 を参照。再調査軸 (A-G) と verify 済み主要公報:
 
-| 軸 | 内容 |
-|---|---|
-| A | 業務マルチソース HITL LLM 構造化抽出 + 承認ワークフロー + 正本 DB 反映 (Glean / Seek AI / Otter / Gong / Microsoft / Notion AI) |
-| B | 却下 / コメントが次回 LLM プロンプトに自動注入される prompt-level 継続学習ループ |
-| C | 証拠メタデータ (snippet + hash + url + run_id + confidence) で原本非保存・監査可能 |
-| D | 意思決定 / 教訓 / 議事録ナレッジベース (CBR / Lessons Learned / Confluence Decisions / ServiceNow KB) |
-| E | multi-horizon append-only outcome ledger (経営判断 + 医療 + 投資 + 教育 + 臨床試験) |
-| F | AI 提案 → 人手承認 → 設定 / ルール / プロンプト / モデルの new version 昇格 governance loop |
+| 軸 | 内容 | verify 済み主要公報 |
+|---|---|---|
+| A | 業務マルチソース HITL LLM 構造化抽出 + 承認 + 正本 DB | Glean **US 12,050,712 B2** (権限フィルタ必須=差別化点) / Seek AI 2 件 (番号未確定) |
+| B | 却下 / コメントが次回 LLM プロンプトに注入 (prompt-level) | 直接登録特許なし、学術 (arXiv 2408.04560 等) が新規性破壊リスク |
+| C | 証拠メタデータ (snippet + hash + url + run_id) 原本非保存 | **BigID US 11,100,252 B1** 🔴 (本文非保存 ML 予測が直撃、要回避設計) |
+| D | 意思決定 / 教訓 / 議事録 KB (抽象化 + 1:N) | IBM US 7,730,005 / HP US 9,299,025 / ServiceNow US 11,082,310 |
+| E | multi-horizon append-only outcome ledger | FHIR Observation / OMOP CDM (規格=新規性破壊リスク) |
+| F | AI 提案 → 人手承認 → version 昇格 governance | Ciena **US 10,965,527 B2** (blockchain/network 必須=差別化点) |
+| G | Before-Zero 適用 + 法人設立タイミング判定 | Microsoft **US 12,315,010 B2** (incorporation 含まず=差別化点) |
 
-(参考: 初版調査で IBM US 7,730,005 (Lessons Learned)、HP US 9,299,025 (CBR generalization)、Seek AI 2 件 (HITL LLM)、Glean 関連出願群 (multi-source KG)、Microsoft US20250131289A1 (KG extraction) が候補として確認されている)
+**verify による危険度変動 (2026-05-29)**:
+- 🔴→🟢 格下げ: EQT Motherbrain / CB Insights Mosaic (granted patent 確認できず)
+- 🔴 最高に確定: BigID US 11,100,252 B1 (WS-1 = 全文非保存に直撃)
+- 差別化点が確定: Microsoft US12315010 (incorporation 含まず) / Glean US12050712 (権限フィルタ必須) / Ciena US10965527 (blockchain/network 必須)
+- 未確定: Seek AI 2 件の番号 (2025-06 IBM 買収) / Optum US11620581 の権利者名 / Ciena・Optum の Claim 1 逐語
+- ⚠️ JP 全文検索 (J-PlatPat 要約 + 請求の範囲) は WebFetch 不可で未実施 = Chrome MCP or 人手の手動操作が残課題
 
 ### 10.3 本発明の新規性 (ホワイトスペース)
 
 本発明は、以下 5 要素の **AND 結合** に新規性・進歩性がある。**スコア値・式・軸は含まない**。
 
-1. **WS-1**: 全文非保存 + ソース URL + 日付 + タイトル + 短い抜粋 + ハッシュ + 抽出処理識別子 + 信頼度 の **5 タプル証拠メタデータ**で監査可能性とプライバシーを両立
+1. **WS-1**: 全文非保存 + ソース URL + 日付 + タイトル + 短い抜粋 + ハッシュ + 抽出処理識別子 + 信頼度 の **5 タプル証拠メタデータ**で監査可能性とプライバシーを両立 (※ 2026-05-29 verify: BigID US 11,100,252 B1 が「本文非保存 ML 予測」を押さえているため、**「全文非保存」単体は独立クレームにせず、人手承認ゲート [WS-2] + 正本反映 + 普遍 protocol 化 [WS-4] とのセットで書く**。BigID はプライバシー/コンプライアンスのデータ発見用途で、AMD の事業化判断 L2 抽出 + 承認 + 正本反映とは用途・後段処理が異なる)
 2. **WS-2**: **却下入力 / コメント入力が、次回の LLM 抽出プロンプトに自動注入される継続学習ループ** (重みを更新せず prompt few-shot で更新)
 3. **WS-3**: 同一意思決定に対する **multi-horizon (immediate / 1m / 3m / 6m / 12m / 24m / long_term) × 5 値 valence × confidence の append-only 結果観測 ledger**。過去の観測を上書きしない
 4. **WS-4**: **固有名詞除去 + 題目ハッシュによる普遍 protocol 集約 + 1 protocol : N project_examples の 1:N 構造**。各 example は source_meeting_id を持つ
