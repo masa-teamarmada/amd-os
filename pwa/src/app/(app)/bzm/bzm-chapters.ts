@@ -81,6 +81,12 @@ export const BZM_PARTS: BzmPartConfig[] = [
     description: "理論を日々の経営判断に落とす。重みスライダー、律速表示、Shallow Tech。",
     slugs: ["8-1-amd-os-operations"],
   },
+  {
+    key: "appendix",
+    label: "巻末資料",
+    description: "統合参考文献・記号一覧・用語集。全部を横断して参照する三点セット。",
+    slugs: ["9-1-references", "9-2-notation", "9-3-glossary"],
+  },
 ];
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
@@ -94,6 +100,9 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "6-1-retrofit-verification", title: "検証 — 9 PJ retrofit でモデルを確かめる", summary: "ティエム時系列、「5 年早かった」を約 23 倍差で定量化、他 PJ 試算。" },
   { slug: "7-1-ers-ecosystem-readiness", title: "ERS — 苗床（研究機関）の整備度を測る", summary: "加重和（充足率）、8 軸 × サブ軸 × Lv1-5、二重計上を避ける二層構造。" },
   { slug: "8-1-amd-os-operations", title: "運用 — AMD OS への実装", summary: "各軸のデータソース、M×X×F、重みスライダーと K 自動再校正、律速表示。" },
+  { slug: "9-1-references", title: "統合参考文献", summary: "全 10 章が引用した学術文献・公的資料・内部正本を一箇所に集約。" },
+  { slug: "9-2-notation", title: "記号一覧", summary: "マクロ → 個体 → 苗床の順に、数学記号の意味・値域・初出をまとめた notation table。" },
+  { slug: "9-3-glossary", title: "用語集", summary: "Before Zero・Triple Helix・律速・retrofit・ERS など主要用語の定義。" },
 ];
 
 const partOrder = new Map(
