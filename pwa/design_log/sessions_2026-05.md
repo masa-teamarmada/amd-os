@@ -10010,3 +10010,54 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 - current branch は `feat/bzm-textbook`。`c06cdd6` は `main` と `origin/main` にも入っている。
 - worktree は広く dirty。BZM/IP/ERS/L2/manual など並行作業が残っているので、次回も stage/revert は file-by-file でやる。
 - deploy rollback 事故は `pwa/BUGS.md` の `[PWA/manual-qa-deploy]` に恒久メモ化済み。
+
+## 2026-05-29 (#96) — Codex セッション / 入金確認nudge Slack action準備 + GAS invalid_raptで安全弁運用
+
+### コンテキスト
+
+- まさ指摘: 入金確認nudgeの「予定通り入金済み」を押すだけでブラウザが開き、「入金確認をOSに反映したよ」を見る待ち時間が発生するのがUX悪い。
+- 望ましい挙動は、Slack上でボタンを押したらそのままつくよみがSlackスレッドに「反映したよ」と返すこと。
+- 既存の「金額を入力」は実額・差額メモ用の公開フォームなのでブラウザ導線を残す。
+
+### 実装 / doc 更新
+
+- `pwa/src/app/api/admin/payment-confirm/route.ts` に `POST mode=expected` を追加。signed tokenの予定額で `confirmPaymentGroup` を実行し、HTML遷移ではなくJSONで成功/失敗を返す。
+- `pwa/src/app/api/cron/payment-confirm-nudges/route.ts` を変更し、`PAYMENT_CONFIRM_SLACK_INTERACTIVE=1` のときだけ「予定通り入金済み」を Slack interactive action (`payment_confirm_expected`) にする。未設定なら既存URL confirmのまま。
+- `gas/80_SlackWebhook.js` は `payment_confirm_expected` を許可し、Slackへ即時ackを返す。
+- `gas/081_SlackInteractive.js` は `payment_confirm_expected` workerを追加。action value内のsigned tokenでPWA `POST /api/admin/payment-confirm` を `mode=expected` で呼び、完了後に元DMスレッドへつくよみ返信を投稿する。
+- `pwa/design/SPEC_pwa.md` と `pwa/manual/6-4-finance-payment-confirm-spec.md` に、Slack action / `mode=expected` / `PAYMENT_CONFIRM_SLACK_INTERACTIVE` safety flag / GAS deploy順序を反映。
+- `pwa/BUGS.md` に、GAS未deployのままPWAだけSlack actionを有効化すると押下不能になる事故パターンを恒久メモ化。
+
+### Verification / deploy
+
+- Current checkout:
+  - `npm run lint -- src/app/api/cron/payment-confirm-nudges/route.ts src/app/api/admin/payment-confirm/route.ts src/lib/build-info.ts` pass。
+  - `node --check gas/80_SlackWebhook.js && node --check gas/081_SlackInteractive.js` pass。
+  - `npm run build` pass。
+- Clean worktree `/tmp/amd-os-payment-confirm-action`:
+  - `npm ci` 後に同じlint / GAS syntax check / build pass。
+  - Clean feature commit: `dc7027a fix(payment): prepare Slack-native payment confirmation`。
+  - Branch: `codex/payment-confirm-slack-action`。
+  - Draft PR: `https://github.com/masa-teamarmada/amd-os/pull/2`。
+- PWA production:
+  - 初回はSlack action常時ON版を `dpl_EcWatpieftJpQJSBAGjzxFF5Zirh` にdeployしてしまった。
+  - GAS deploy失敗後、安全弁 `PAYMENT_CONFIRM_SLACK_INTERACTIVE` default offを入れて `dpl_9jcgL4SRYk97zq7PpsvwhTVSTBVB` へ再deploy。
+  - `https://amd-os-pwa.vercel.app` は final safe deploymentにalias済み。
+  - `vercel env ls --scope armada0130` で `PAYMENT_CONFIRM_SLACK_INTERACTIVE` が未設定なことを確認。現時点では本番buttonは既存URL confirmのまま。
+- GAS:
+  - `npx --yes @google/clasp@latest push --force` が `invalid_grant` / `invalid_rapt` で失敗。
+  - `npx --yes @google/clasp@latest deployments` も同じ再認証blockerで失敗。
+  - GAS worker production deployは未完了。
+
+### 未確認 / 次回
+
+- `clasp login` でGoogle再認証を通す。
+- GAS deployment `AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G` を `clasp deploy --deploymentId` で更新する。
+- GAS反映後にだけ、Vercel production env `PAYMENT_CONFIRM_SLACK_INTERACTIVE=1` を設定してPWAを再deployする。
+- 最後にSlack実押下で、即時ack、PWA API更新、`billing_cycles.payment_confirmed_at`、`billing_log.action='payment_confirmed'`、つくよみスレッド返信をend-to-end確認する。
+
+### 衝突 / 運用メモ
+
+- current local branchは `feat/bzm-textbook` で、worktreeはBZM/IP/ERS/L2/cockpit/manual/paymentなど広くdirty。`git add .` / broad revert禁止。
+- Payment-confirmの実装差分は clean worktree branch `codex/payment-confirm-slack-action` と PR #2 に隔離済み。
+- PWAだけを先に本番へ出す場合でも、Slack actionは必ずfeature flagで閉じておく。GAS OAuth再認証が必要なときは、コードを疑ってretry連打しない。

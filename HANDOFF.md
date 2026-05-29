@@ -1,77 +1,87 @@
 # HANDOFF - AMD OS
 
 - Last updated: 2026-05-29 (codex handoff)
-- Topic: OSマニュアル検索 + つくよみ Manual Q&A + production rollback 復旧
+- Topic: 入金確認nudgeの「予定通り入金済み」をSlack内完結にする準備 + GAS再認証 blocker
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
-- Feature commit: `c06cdd6 Add searchable manual and manual Tsukuyomi Q&A`
-- Current branch at handoff: `feat/bzm-textbook`
-- Important: `c06cdd6` is on `main` and `origin/main` too. The branch name is not the source of truth for this feature.
-- Production alias note: parallel deploys moved the alias during handoff. Last inspected at 2026-05-29 16:47 JST: `dpl_EcWatpieftJpQJSBAGjzxFF5Zirh` (`https://amd-os-qsfx93eva-armada0130.vercel.app`), Ready, aliased to `https://amd-os-pwa.vercel.app`. Re-run `vercel inspect` before using a deploy ID as current truth.
+- Current local branch at handoff: `feat/bzm-textbook`
+- Clean PR branch: `codex/payment-confirm-slack-action`
+- Draft PR: `https://github.com/masa-teamarmada/amd-os/pull/2`
+- Clean feature commit: `dc7027a fix(payment): prepare Slack-native payment confirmation`
 
 ## Latest Summary
 
-- `/manual` と `/manual/[slug]` に全文検索を追加。検索欄は「検索ワード」と明示し、章タイトル / summary / 見出し / 本文 / 画面パス / table 名を対象にした。
-- `/manual` 限定で `ManualTsukuyomiFloat` を復活。global visible mascot は戻していない。
-- `POST /api/manual/tsukuyomi/ask` を追加。`GEMINI_API_KEY` + `gemini-2.5-flash` でマニュアル本文だけを根拠に回答する read-only route。
-- 回答は `ここ見たらOK` の参照章リンクつき、敬語なしのつくよみ口調、高校生にも分かる説明へ調整。「この抜粋」表現は出さない。
-- 一度フロートが消えた原因は、dirty direct deploy 後に GitHub `main` clean deploy が production alias を上書きしたこと。`c06cdd6` を `origin/main` に push して復旧済み。
-- 詳細ログ: `pwa/design_log/sessions_2026-05.md` の「2026-05-29 (#95)」。
+- まさ指摘: 入金確認nudgeで「予定通り入金済み」を押すだけなのにブラウザが開き、「入金確認をOSに反映したよ」を見る待ち時間がUX悪い。
+- PWA側に `POST /api/admin/payment-confirm` の `mode=expected` を追加し、予定額どおりの入金確認をJSONで完了できるようにした。
+- `GET /api/cron/payment-confirm-nudges` は `PAYMENT_CONFIRM_SLACK_INTERACTIVE=1` のときだけ Slack action button を出す。未設定なら既存URL confirmのまま。
+- GAS側 `gas/80_SlackWebhook.js` / `gas/081_SlackInteractive.js` に `payment_confirm_expected` worker を追加。成功時はつくよみがSlackスレッドに返信する設計。
+- GAS deploy は `clasp` の `invalid_grant / invalid_rapt` で未反映。PWA本番は安全弁つきで再deploy済み、現時点ではSlack actionは有効化していない。
+- 詳細ログ: `pwa/design_log/sessions_2026-05.md` の「2026-05-29 (#96)」。
 
 ## Verification / Deploy
 
-- `npx tsc --noEmit` pass。
-- `npm run build` pass。
-- Chrome authenticated verification:
-  - `/manual` に `検索ワード` が 2 箇所表示。
-  - `つくよみに聞く` float が表示。
-  - `L2データにはどのような種類がある？` / `L2データってなに？` で、9種類説明、`ここ見たらOK` リンク、underscore 保護、敬語除去、「この抜粋」なしを確認。
-- `c06cdd6` を `origin/main` に push 済み。
-- `npx vercel inspect https://amd-os-pwa.vercel.app --scope armada0130` で production alias `dpl_EcWatpieftJpQJSBAGjzxFF5Zirh` Ready を確認。
-- 未確認: `dpl_EcWat...` へ alias が更新された後の authenticated DOM 再チェック。ただし feature commit は `origin/main` と current branch に入り、まさが直前の本番で「復活した！」と確認済み。
+- Current checkout and clean worktreeで確認済み:
+  - `npm run lint -- src/app/api/cron/payment-confirm-nudges/route.ts src/app/api/admin/payment-confirm/route.ts src/lib/build-info.ts`
+  - `node --check gas/80_SlackWebhook.js && node --check gas/081_SlackInteractive.js`
+  - `npm run build`
+- PWA production:
+  - 最初にSlack action常時ON版を `dpl_EcWatpieftJpQJSBAGjzxFF5Zirh` へdeployしてしまった。
+  - その後、安全弁 `PAYMENT_CONFIRM_SLACK_INTERACTIVE` default off を入れて再deploy。
+  - Final safe deployment: `dpl_9jcgL4SRYk97zq7PpsvwhTVSTBVB` / `https://amd-os-azsenw0p3-armada0130.vercel.app`
+  - `https://amd-os-pwa.vercel.app` へalias済み。
+  - `vercel env ls --scope armada0130` で `PAYMENT_CONFIRM_SLACK_INTERACTIVE` が未設定であることを確認。つまり本番ボタンは既存URL confirmのままで安全。
+- GAS:
+  - `npx --yes @google/clasp@latest push --force` が `invalid_grant` / `invalid_rapt` で失敗。
+  - `npx --yes @google/clasp@latest deployments` も同じOAuth再認証blockerで失敗。
+  - GAS worker本番反映は未完了。
 
 ## Repo State
 
 - Current branch: `feat/bzm-textbook`
-- Feature commit: `c06cdd6` (`main` / `origin/main` / `feat/bzm-textbook` に存在)
-- `git log --branches --not --remotes --oneline`: handoff開始時点では空。
-- Worktree is dirty with broad parallel work. Do not revert or stage blindly.
-- Known unrelated or parallel dirty areas:
-  - BZM/IP/ERS: `pwa/bzm/`, `pwa/src/app/(app)/institutions/`, `pwa/src/lib/ers*.ts`, IP docs/code
-  - L2/manual route docs and scheduled-task docs
-  - cockpit / meeting-summary / operations catalog / payment cron files
-  - `pwa/src/lib/build-info.ts`
-- This handoff intentionally updates only handoff/docs/Manual Q&A documentation and bug log files. Stage file-by-file.
+- Current HEAD at handoff: this docs handoff commit (`docs: refresh payment confirm handoff`; run `git log -1 --oneline` for exact hash)
+- Worktree is broadly dirty with BZM/IP/ERS/L2/cockpit/manual/payment parallel work. Do not revert or `git add .`.
+- Payment-confirm code is safely isolated in clean worktree branch `codex/payment-confirm-slack-action` and draft PR #2.
+- This local checkout also contains payment-confirm edits, but they are mixed with broad unrelated dirty work. Stage file-by-file only.
+- Handoff/docs touched by this handoff are local documentation updates. Treat them separately from the clean feature PR unless explicitly merging.
 
 ## Open Tasks
 
-- Manual search / Manual Q&A feature itself: no known blocker.
-- If `/manual` loses the float again, inspect production alias first, then compare the alias deploy source against `origin/main` containing `c06cdd6`.
-- If touching Manual Q&A next, run one authenticated browser check on `/manual` and ask `L2データってなに？` to verify links, tone, and search context.
-- Keep unrelated dirty work separated; do not clean or revert broad worktree changes during a Manual Q&A follow-up.
+- Run `clasp login` to refresh Google auth and clear `invalid_rapt`.
+- Deploy GAS interactive worker:
+  - `npx --yes @google/clasp@latest push --force`
+  - `npx --yes @google/clasp@latest deploy --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G --description payment_confirm_expected_slack_action`
+- After GAS deploy succeeds, set PWA production env `PAYMENT_CONFIRM_SLACK_INTERACTIVE=1`, redeploy PWA from repo root, and inspect production alias.
+- Send or dry-run an入金確認nudge and test Slack押下 end-to-end:
+  - button click returns immediate Slack ack
+  - GAS calls PWA `POST /api/admin/payment-confirm` with `mode=expected`
+  - `billing_cycles.payment_confirmed_at` / `billing_log.action='payment_confirmed'` update
+  - つくよみが元DMスレッドに返信
 
 ## Pointers
 
 - PWA handoff: `pwa/HANDOFF_pwa_rebuild.md`
-- Manual design: `pwa/design/os_manual.md`
-- PWA route registry: `pwa/design/SPEC_pwa.md`
-- Feature registry: `pwa/design/FEATURE_REGISTRY.md`
-- Manual chapters: `pwa/manual/1-1-intro.md`, `pwa/manual/3-3-notifications-and-tsukuyomi.md`, `pwa/manual/9-2-developer.md`, `pwa/manual/9-3-appendix-changelog.md`
+- PWA route spec: `pwa/design/SPEC_pwa.md`
+- Finance/payment manual: `pwa/manual/6-4-finance-payment-confirm-spec.md`
 - Bug / operations log: `pwa/BUGS.md`
 - Session log: `pwa/design_log/sessions_2026-05.md`
+- PWA API route: `pwa/src/app/api/admin/payment-confirm/route.ts`
+- PWA nudge cron: `pwa/src/app/api/cron/payment-confirm-nudges/route.ts`
+- Shared confirmation logic: `pwa/src/lib/payment-confirmation.ts`
+- GAS Slack ack/router: `gas/80_SlackWebhook.js`
+- GAS Slack worker: `gas/081_SlackInteractive.js`
 
 ## First Read Next Session
 
 1. `HANDOFF.md`
-2. `pwa/design/os_manual.md`
-3. `pwa/design/SPEC_pwa.md`
-4. `pwa/design/FEATURE_REGISTRY.md`
-5. `pwa/BUGS.md`
-6. `pwa/design_log/sessions_2026-05.md`
-7. `pwa/src/app/(app)/manual/ManualTsukuyomiFloat.tsx`
-8. `pwa/src/app/api/manual/tsukuyomi/ask/route.ts`
-9. `pwa/src/app/(app)/manual/manual-search.ts`
+2. `pwa/design/SPEC_pwa.md`
+3. `pwa/BUGS.md`
+4. `pwa/manual/6-4-finance-payment-confirm-spec.md`
+5. `pwa/design_log/sessions_2026-05.md`
+6. `gas/80_SlackWebhook.js`
+7. `gas/081_SlackInteractive.js`
+8. `pwa/src/app/api/admin/payment-confirm/route.ts`
+9. `pwa/src/app/api/cron/payment-confirm-nudges/route.ts`
 
 ## First Next Action
 
@@ -83,4 +93,4 @@ git log --oneline --decorate -5
 npx vercel inspect https://amd-os-pwa.vercel.app --scope armada0130
 ```
 
-Then open `/manual` in an authenticated browser only if the next task touches Manual search or Manual Q&A.
+Then refresh GAS auth and deploy the worker before enabling `PAYMENT_CONFIRM_SLACK_INTERACTIVE`.

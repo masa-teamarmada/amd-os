@@ -2963,3 +2963,10 @@
 - **原因**: 先に direct production deploy した時点では Manual Q&A 関連ファイルがまだ未コミットで、本番だけが local dirty worktree を含む状態だった。その後、GitHub `main` の clean auto deploy が production alias を取り直し、未コミットだった `ManualTsukuyomiFloat` / `/api/manual/tsukuyomi/ask` / 検索 UI が落ちた。
 - **対応内容**: direct deploy で一度復旧し、Manual search / Manual Q&A 関連ファイルだけを選んで `c06cdd6 Add searchable manual and manual Tsukuyomi Q&A` として commit。`origin/main` へ push し、GitHub `main` auto deploy 後も production alias が Manual Q&A 入り build を指す状態に戻した。まさが「復活した！」と本番で確認。
 - **再発防止策**: 本番に出す新 UI / API route は、direct deploy 後すぐ commit/push する。production の機能が消えた時は、まず `npx vercel inspect https://amd-os-pwa.vercel.app --scope armada0130` で alias target を確認し、direct deploy と GitHub clean deploy のどちらが勝っているかを見る。dirty deploy のまま別 auto deploy を待たない。
+
+## [GAS/PWA] 入金確認Slack actionはGAS未deployのままPWAだけONにすると押下不能になる (2026-05-29)
+
+- **症状**: 入金確認nudgeの「予定通り入金済み」ボタンをSlack actionに変えるとブラウザ遷移は消せるが、GAS側 `slackInteractiveWorker` が本番反映されていない状態でPWAだけactionボタンを出すと、Slack押下が処理されずUXが悪化する。初回PWA deployでは一時的にaction常時ON版をproduction aliasへ出してしまった。
+- **原因**: Slack buttonの押下はSlack app request URL -> GAS interactivity endpoint -> PWA APIの3段構成。PWAだけdeployしても、GAS Web App側に `payment_confirm_expected` handlerが無いとSlack actionを受けられない。今回のGAS deployは `clasp` のGoogle OAuth再認証切れ (`invalid_grant` / `invalid_rapt`) で止まった。
+- **対応内容**: PWA側に `PAYMENT_CONFIRM_SLACK_INTERACTIVE` safety flagを追加し、未設定時は既存URL confirm buttonを維持するように戻した。最終PWA productionは `dpl_9jcgL4SRYk97zq7PpsvwhTVSTBVB` へ再deployし、`vercel env ls --scope armada0130` で同envが未設定であることを確認。Slack action実装は draft PR #2 (`dc7027a`) に隔離済み。
+- **再発防止策**: Slack interactivityを含む変更は、GAS deploy成功を確認してからPWA env flagをONにする。順序は `clasp login` -> `clasp push --force` -> `clasp deploy --deploymentId <本番WebApp>` -> PWA `PAYMENT_CONFIRM_SLACK_INTERACTIVE=1` -> PWA redeploy -> Slack実押下test。`clasp invalid_rapt` はコード問題ではなく再認証blockerなので、retry連打ではなくhandoff/BUGSに残して認証を更新する。
