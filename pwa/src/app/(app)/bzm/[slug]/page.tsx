@@ -3,7 +3,8 @@ import path from "node:path";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BzmMarkdown } from "@/components/bzm/BzmMarkdown";
-import { applyBzmBookNumbering, BZM_CHAPTERS, getBzmChapter, sortBzmSlugs } from "../bzm-chapters";
+import { BzmSideNav, type BzmSideNavGroup } from "@/components/bzm/BzmSideNav";
+import { applyBzmBookNumbering, BZM_CHAPTERS, BZM_PARTS, getBzmChapter, sortBzmSlugs } from "../bzm-chapters";
 import { normalizeBzmMarkdownSource } from "../bzm-data";
 
 /**
@@ -56,34 +57,44 @@ export default async function BzmChapterPage({ params }: { params: Promise<{ slu
   const prevChapter = prev ? numbered.find((c) => c.slug === prev) : null;
   const nextChapter = next ? numbered.find((c) => c.slug === next) : null;
 
+  const numberBySlug = new Map(numbered.map((c) => [c.slug, c]));
+  const navGroups: BzmSideNavGroup[] = BZM_PARTS.map((part) => ({
+    key: part.key,
+    label: part.label,
+    chapters: part.slugs
+      .map((s) => numberBySlug.get(s))
+      .filter((c): c is (typeof numbered)[number] => c != null)
+      .map((c) => ({ slug: c.slug, number: c.number, title: c.title })),
+  })).filter((group) => group.chapters.length > 0);
+
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
-      <div className="mb-4 text-xs">
-        <Link href="/bzm" className="text-muted-foreground hover:text-foreground">
-          ← BZM 教科書 目次
-        </Link>
+    <section className="grid gap-6 px-6 py-8 lg:grid-cols-[260px_minmax(0,1fr)]">
+      <aside className="lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
+        <BzmSideNav groups={navGroups} activeSlug={decoded} />
+      </aside>
+
+      <div className="min-w-0">
+        <article className="mx-auto max-w-3xl">
+          <BzmMarkdown source={displaySource} />
+
+          <nav className="mt-10 flex justify-between gap-4 border-t border-border pt-4 text-xs">
+            {prev ? (
+              <Link href={`/bzm/${encodeURIComponent(prev)}`} className="text-muted-foreground hover:text-foreground">
+                ← {prevChapter ? `${prevChapter.number} ${prevChapter.title}` : prev}
+              </Link>
+            ) : (
+              <span />
+            )}
+            {next ? (
+              <Link href={`/bzm/${encodeURIComponent(next)}`} className="text-right text-muted-foreground hover:text-foreground">
+                {nextChapter ? `${nextChapter.number} ${nextChapter.title}` : next} →
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        </article>
       </div>
-
-      <article className="max-w-none">
-        <BzmMarkdown source={displaySource} />
-      </article>
-
-      <nav className="mt-10 flex justify-between gap-4 border-t border-border pt-4 text-xs">
-        {prev ? (
-          <Link href={`/bzm/${encodeURIComponent(prev)}`} className="text-muted-foreground hover:text-foreground">
-            ← {prevChapter ? `${prevChapter.number} ${prevChapter.title}` : prev}
-          </Link>
-        ) : (
-          <span />
-        )}
-        {next ? (
-          <Link href={`/bzm/${encodeURIComponent(next)}`} className="text-right text-muted-foreground hover:text-foreground">
-            {nextChapter ? `${nextChapter.number} ${nextChapter.title}` : next} →
-          </Link>
-        ) : (
-          <span />
-        )}
-      </nav>
-    </div>
+    </section>
   );
 }
