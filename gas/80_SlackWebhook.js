@@ -65,6 +65,7 @@ function doPost(e){
 
       const label = (actionId === "reimb_approve") ? "承認"
                   : (actionId === "reimb_reject") ? "却下"
+                  : (actionId === "payment_confirm_expected") ? "入金確認"
                   : "処理";
 
       return ContentService
@@ -506,7 +507,8 @@ function slackQueueInteractiveCacheFromPayload_(payloadStr){
     reimb_reject: true,
     reimb_admin_approve: true,
     reimb_admin_reject: true,
-    invoice_send_done: true
+    invoice_send_done: true,
+    payment_confirm_expected: true
   };
   if (!allow[actionId]) return;
 
