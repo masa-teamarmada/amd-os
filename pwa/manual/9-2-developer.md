@@ -49,6 +49,18 @@ Codex の handoff skill / Claude の handoff どちらでも、AMD OS 配下で�
 4. 新章を作る場合は、本文 md だけでなく `manual-chapters.ts` と `pwa/design/os_manual.md` も更新する
 5. 純粋な refactor / typo / test only などマニュアル対象外なら、handoff の棚卸し表に `対象外: 理由` と書く
 
+### マニュアル本文の品質ルール
+
+マニュアルは設計ログではなく、次に読む人の入口。内部語をそのまま置かない。
+
+- 章の冒頭で、読む人・使う場面・結論を先に書く
+- 初出の内部語はその場で短く説明する。例: `L2 (= 5 生データから OS が使える形に抽出した構造化データ)`
+- `生データ` / `L2` / `正本` / `source_cache` / `outbox` / `LaunchAgent` / `routine` / `automation` / `candidate` / `confirmed` を使う章は、[1-1 章の共通用語](1-1-intro.md#先に知っておく共通用語) または [3-2 章の用語表](3-2-data-and-extraction.md#この章の読み方) へリンクする
+- 実装状況を書く時は「何が動いているか」「何が止まっているか」「ユーザーがどう見ればよいか」を分ける
+- 古い writer / 停止済み cron / 復旧予定は、現行の primary writer と混ぜずに明示する
+- 表だけで説明を終えない。表の前後に「なぜ見るのか」「どう判断するのか」を 1-2 文で置く
+- 設計 md から貼るだけで閉じない。マニュアル側では、読者がその章だけ読んでも最低限分かる状態にする
+
 handoff のチャット出力には以下の表を出し、すべて `✅` または `対象外: 理由` になるまで migration prompt に進まない。
 
 ```md
@@ -122,6 +134,8 @@ npx --yes @google/clasp@latest deploy \
 - **audience 切替は廃止** (= まさ #88 確定): user / developer の 2 種類分けをやめて、 単一マニュアル化。 全 6-5 章 (= 18 既存 + 13 新規) が `MANUAL_SECTIONS` に登録される
 - **目次は `manual-chapters.ts` の MANUAL_SECTIONS 順**: 新章を追加する時はファイル先頭の数字 (= internal slug、 URL 用) と独立に、 MANUAL_SECTIONS の slugs 配列に挿入する
 - **manual md を直接読む人 (= claude / codex / ChatGPT) も、 動的注入後の番号は知らない**。 md 内部の章間参照は「タイトル」 ベースで書く (= 「29.6 戦略接近度」 のような番号参照は将来ズレるので避ける、 ただし暫定許容)
+- **検索 index は `getManualSearchDocuments()` で生成**: `pwa/manual/*.md` の本文・見出し・画面パス・テーブル名を `ManualSearchDocument` にし、`manual-search.ts` の軽量スコアリングで `ManualMapClient` が検索結果を出す。`monthly_reports` などの underscore はテーブル名の一部なので、Markdown 正規化時に削らない。`L2データには...` のような英数字 + 日本語の結合語は `L2` / `データ` / `L2 データ` でも拾えるよう token 化する。新しい検索対象フィールドを足す時は `manual-data.ts` と UI の表示 chip を揃える。
+- **Manual Q&A は `/manual` 限定**: `ManualTsukuyomiFloat` は `/manual` と `/manual/[slug]` からだけ読み込む。`POST /api/manual/tsukuyomi/ask` は `GEMINI_API_KEY` + `gemini-2.5-flash` で該当章のマニュアル本文を根拠に回答する read-only API。検索結果に加えて `L2` / `検索` など頻出質問は高信頼の章を先に含める。回答にはサーバー側で「ここ見たらOK」の章リンクを必ず付ける。つくよみは敬語禁止で、高校生にも分かるように「ざっくり → たとえ → 正確な説明 → 次に見るところ」の順で答える。drawer header にも `TsukuyomiSprite` を出し、開いた後もキャラ性を維持する。回答表示では `monthly_reports` のような underscore 入り識別子を code 表示に保護する。global visible mascot を戻したい時でも、この導線を理由に `(app)/layout.tsx` へ `Mascot.tsx` を戻さない。
 
 過去事故 (= 2026-05-27 BUGS [infra/manual-ui] 参照):
 - 静的 `chapter.number` と動的計算が併存して誤読発生 (= 「マニュアル 29」 と「4-5」 が同じ章を指す状態が分かりにくい)
@@ -189,14 +203,14 @@ if [ "${NEW_COUNT}" != "0" ]; then
 fi
 ```
 
-## Claude routine (= scheduled task) の追加
+## Subscription automation / scheduled task の追加
 
-場所: `~/.claude/scheduled-tasks/{name}/SKILL.md`
+場所: 現行 L2 抽出は [8-3 章](8-3-l2-extraction-routines-spec.md) の実行場所表に従う。repo 側の正本は `pwa/scheduled-tasks/{name}/SKILL.md`。
 
 ### 登録 (= 正本フロー)
 1. SKILL.md の prompt を起草 (= `pwa/design/{name}.md` に inline で書いてまさレビュー、`pwa/design/l2_extract_claude_routine.md` 参照)
-2. レビュー OK 後、`mcp__scheduled-tasks__create_scheduled_task` tool で登録 (= cron 式はローカル時刻)
-3. routine は Claude Code app 起動中に発火 (= app 閉じてた時は次回起動時に追いつき)
+2. レビュー OK 後、Codex automation / MMOマシン Codex Desktop automation / 旧 scheduled task のどれで動かすかを 8-3 に追記してから登録
+3. 旧 Mac Local routine は Claude Code app 起動中にしか発火しないため、L2 の現行 writer として新規採用しない
 4. `notifyOnCompletion=true` で running session に通知 (= 標準)
 
 ### 構成

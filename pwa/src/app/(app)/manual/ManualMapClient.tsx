@@ -11,10 +11,12 @@ import {
   ChevronDown,
   ChevronRight,
   Code2,
+  CornerDownRight,
   Database,
   LayoutDashboard,
   Search,
   Settings,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -26,10 +28,12 @@ import {
   type ManualTopicIcon,
   type ManualTopicNodeConfig,
 } from "./manual-chapters";
+import { searchManualDocuments, type ManualSearchDocument, type ManualSearchResult } from "./manual-search";
 
 interface ManualMapClientProps {
   chapters: ManualNumberedChapter[];
   topics: ManualTopicNodeConfig[];
+  searchDocuments: ManualSearchDocument[];
   activeChapterSlug?: string;
   children?: ReactNode;
   initialTopicKey?: string;
@@ -163,7 +167,7 @@ const sectionColorByKey: Record<string, ManualTopicColor> = {
   "developer-history": "indigo",
 };
 
-function manualChapterHref(chapter: ManualNumberedChapter) {
+function manualChapterHref(chapter: { slug: string }) {
   return `/manual/${encodeURIComponent(chapter.slug)}`;
 }
 
@@ -430,9 +434,121 @@ function ManualGlobalToc({
   );
 }
 
+function ManualSearchBox({
+  value,
+  onChange,
+  resultCount,
+  compact = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  resultCount: number;
+  compact?: boolean;
+}) {
+  const trimmed = value.trim();
+
+  return (
+    <div className={`rounded-lg border border-slate-200 bg-white shadow-sm ${compact ? "p-3" : "p-4"}`}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h2 className={compact ? "text-sm font-black text-slate-950" : "text-base font-black text-slate-950"}>
+          検索ワード
+        </h2>
+        {trimmed && (
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+            {resultCount} hits
+          </span>
+        )}
+      </div>
+      <label className="relative block">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="ここに入力: 請求額確定 / MS 期間設定 / project_strategy_signals"
+          className={`${compact ? "h-9" : "h-11"} w-full rounded-md border border-slate-200 bg-white pl-8 pr-8 text-sm font-semibold text-slate-950 outline-none transition-colors placeholder:text-slate-400 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100`}
+        />
+        {trimmed && (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="absolute right-1.5 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
+            aria-label="検索をクリア"
+          >
+            <X className="size-3.5" aria-hidden="true" />
+          </button>
+        )}
+      </label>
+      <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+        章タイトル、本文、画面パス、テーブル名を横断して探す。入力すると下に検索結果が出る。
+      </p>
+    </div>
+  );
+}
+
+function ManualSearchResults({
+  query,
+  results,
+}: {
+  query: string;
+  results: ManualSearchResult[];
+}) {
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+
+  return (
+    <section id="manual-search-results" className="scroll-mt-24 rounded-lg border border-cyan-200 bg-cyan-50/35 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-black text-slate-950">検索結果</h2>
+          <p className="mt-0.5 text-xs font-semibold text-slate-600">「{trimmed}」で {results.length} 件</p>
+        </div>
+      </div>
+      {results.length === 0 ? (
+        <div className="rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-600">
+          該当する章が見つからなかったよ。別の言い方や画面名でもう一回探してみて。
+        </div>
+      ) : (
+        <div className="grid gap-2">
+          {results.map(({ doc, snippet }) => (
+            <Link
+              key={doc.slug}
+              href={manualChapterHref(doc)}
+              className="group grid gap-2 rounded-lg border border-slate-200 bg-white px-3 py-3 transition-colors hover:border-cyan-300 hover:bg-white/90 sm:grid-cols-[4.2rem_minmax(0,1fr)]"
+            >
+              <span className="flex h-8 w-14 items-center justify-center rounded-md bg-cyan-600 text-xs font-black tabular-nums text-white">
+                {doc.number}
+              </span>
+              <span className="min-w-0">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate text-sm font-black text-slate-950 group-hover:underline">{doc.title}</span>
+                  <CornerDownRight className="size-3.5 shrink-0 text-cyan-600" aria-hidden="true" />
+                </span>
+                <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-slate-600">{snippet || doc.summary}</span>
+                <span className="mt-2 flex flex-wrap gap-1.5">
+                  {doc.topics.slice(0, 3).map((topic) => (
+                    <span key={topic} className="rounded-full border border-cyan-200 bg-cyan-50 px-1.5 py-0.5 text-[10px] font-bold leading-none text-cyan-900">
+                      {topic}
+                    </span>
+                  ))}
+                  {doc.screens.slice(0, 2).map((screen) => (
+                    <span key={screen} className="rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-mono leading-none text-slate-600">
+                      {screen}
+                    </span>
+                  ))}
+                </span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function ManualMapClient({
   chapters,
   topics,
+  searchDocuments,
   activeChapterSlug,
   children,
   initialTopicKey,
@@ -446,8 +562,10 @@ export function ManualMapClient({
     [activeChapterSlug, chapterBySlug, initialTopicKey, topics],
   );
   const [selectedKey, setSelectedKey] = useState(initialSelectedKey);
+  const [searchQuery, setSearchQuery] = useState("");
   const configuredSlugs = useMemo(() => new Set(MANUAL_CHAPTERS.map((chapter) => chapter.slug)), []);
   const groupedSlugs = useMemo(() => new Set(MANUAL_SECTIONS.flatMap((section) => section.slugs)), []);
+  const searchResults = useMemo(() => searchManualDocuments(searchDocuments, searchQuery, 10), [searchDocuments, searchQuery]);
 
   useEffect(() => {
     setSelectedKey(initialSelectedKey);
@@ -495,6 +613,8 @@ export function ManualMapClient({
     <section className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
         <div className="space-y-3">
+          <ManualSearchBox value={searchQuery} onChange={setSearchQuery} resultCount={searchResults.length} compact />
+
           <ManualGlobalToc groups={visibleSections} activeChapterSlug={activeChapterSlug} />
 
           <div className="rounded-lg border border-border bg-background p-3 shadow-sm">
@@ -535,6 +655,10 @@ export function ManualMapClient({
       </aside>
 
       <div className="min-w-0 space-y-6">
+        <ManualSearchBox value={searchQuery} onChange={setSearchQuery} resultCount={searchResults.length} />
+
+        <ManualSearchResults query={searchQuery} results={searchResults} />
+
         {children}
 
         {showDirectory && (

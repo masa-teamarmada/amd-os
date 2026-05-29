@@ -1,6 +1,6 @@
 # AMD OS 全体マニュアル 設計議論 (#23)
 
-> **状態**: 2026-05-25 実装済み。`pwa/manual/*.md` を正本にし、`/manual` route で表示。章構成は「まず使う人向け」と「全体設計・細かい仕様」の 2 セクションへ整理済み。
+> **状態**: 2026-05-25 実装済み。`pwa/manual/*.md` を正本にし、`/manual` route で表示。2026-05-29 に全文検索と `/manual` 限定 Gemini 版つくよみ Q&A フロートを追加。章構成は「まず使う人向け」と「全体設計・細かい仕様」の 2 セクションへ整理済み。
 >
 > 関連: [`ui_hint_tooltip.md`](ui_hint_tooltip.md) (= 個別 UI ヒント)
 
@@ -108,6 +108,7 @@ UI ヒント ([`ui_hint_tooltip.md`](ui_hint_tooltip.md)) は「個別 UI 要素
 ```text
 9-1 過去判断と経緯
 9-2 開発者向け
+9-3 附則（変更履歴）
 ```
 
 ### 2026-05-27 refactor のポイント
@@ -206,9 +207,21 @@ handoff は、実装した新仕様が OS マニュアルへ落ちたか確認�
 - 純粋な refactor / typo / test only などマニュアル対象外の場合は、handoff の棚卸し表で `対象外: 理由` を明記する
 - `HANDOFF_pwa_rebuild.md` だけに恒久仕様を書いて閉じない
 
+### マニュアル本文の品質ルール (= 2026-05-29 追加)
+
+まさ指摘: 3-2 で `生データ` や `L2` が説明なしに出ており、全体として設計ログの切り貼りになっている箇所がある。今後の manual 更新では以下を必須にする。
+
+- 章冒頭に、読む人・使う場面・その章の結論を置く
+- 初出の内部語はその場で短く説明する
+- `生データ` / `L2` / `正本` / `source_cache` / `outbox` / `LaunchAgent` / `routine` / `automation` / `candidate` / `confirmed` は、1-1 共通用語または 3-2 用語表へリンクする
+- 表だけで説明を終えず、表の前後に「何を見る表か」「どう判断する表か」を書く
+- 古い writer・停止済み cron・復旧予定は、現行の primary writer と混ぜずに分ける
+- 設計 md の詳細を貼るだけで閉じず、マニュアル単体で最低限読める説明に変換する
+
 ## 検索 / 横断機能
 
-- **検索バー**: 「請求額確定」「MS 期間設定」等で章 + 個別 UI hint も検索ヒット
+- **検索バー**: 2026-05-29 実装済み。`manual-data.ts` が `pwa/manual/*.md` から `ManualSearchDocument` を作り、`ManualMapClient` の左カラム検索で章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を横断検索する。「請求額確定」「MS 期間設定」等で該当章へ遷移できる。追加 dependency は使わず、`manual-search.ts` の軽量スコアリングで処理する。
+- **つくよみ Manual Q&A**: 2026-05-29 実験実装。`/manual` と `/manual/[slug]` だけに `ManualTsukuyomiFloat` を表示し、`POST /api/manual/tsukuyomi/ask` が `GEMINI_API_KEY` + `gemini-2.5-flash` でマニュアル抜粋を根拠に回答する。既存 global Tsukuyomi mascot は復活させない。DB 書き込み・修正 tool は持たず、回答と参照章リンクだけ返す。
 - **「最近変わったこと」セクション**: 直近 1 週間で md が変わった章をリスト
 - **「関連章」自動リンク**: 章末尾に Sonnet が「この章を読んだあなたへの推奨章」生成
 - **コックピットからの誘導**: `Hint` クリック → 該当マニュアル章にジャンプ (= `ui_hint_tooltip.md` 案 D との接続)

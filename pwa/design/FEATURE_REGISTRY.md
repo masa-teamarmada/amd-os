@@ -11,6 +11,22 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `npm run test:critical-ui` は、この登録簿と実装内の重要 anchor を検査する。
 - 重要 UI を置き換える場合は、旧 anchor を消す前に新 UI の anchor と仕様を登録する。
 
+## /manual
+
+目的: AMD OS の使い方・仕様・運用履歴の正本を、読み手が自力で検索し、必要ならページ限定つくよみに質問できる状態にする。
+
+必須機能:
+
+- 左カラム検索: `pwa/manual/*.md` から生成した `ManualSearchDocument` を使い、章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を横断検索する。検索結果は章番号・タイトル・抜粋・topic/screen chip を出し、該当 `/manual/[slug]` へ遷移できる。
+- 章本文と目次の維持: `/manual` はセクション別目次、`/manual/[slug]` は本文 + 左目次を表示し、検索を使っても既存の `ManualMapClient` / `MarkdownView` 導線を消さない。
+- ページ限定つくよみ: `ManualTsukuyomiFloat` は `/manual` と `/manual/[slug]` だけに出す。global layout の visible mascot を復活させない。
+- Gemini Q&A: `POST /api/manual/tsukuyomi/ask` は `GEMINI_API_KEY` と `gemini-2.5-flash` でマニュアル抜粋を根拠に回答し、参照章リンクを返す。DB 書き込み、PJ 修正 tool、`tsukuyomi_chat_logs` 保存は持たせない。
+
+回帰防止:
+
+- global `TsukuyomiChatBridge` は従来どおり invisible event bridge のまま。`Mascot.tsx` を `(app)/layout.tsx` に戻さない。
+- マニュアル章の追加・削除・構成変更は `pwa/src/app/(app)/manual/manual-chapters.ts` と `pwa/design/os_manual.md`、必要なら `pwa/manual/9-3-appendix-changelog.md` を同じ作業単位で更新する。
+
 ## /admin/payouts
 
 目的: 支払月単位で、対象cycleの報酬確認、PJ別収支確認、支払データ保存、支払通知書発行、入金確認nudgeを一画面で運用する。

@@ -188,11 +188,12 @@ pwa/
 | `cron/macro-aggregate-indicators` | `0 19 1 * *` | 月初 04:00 JST | observation_log + atlas_signals を ASPI lane × month で集計 → `macro_index_log` の `budget_amount` (= kaken/grant 集計) / `investment_amount` (= vc 集計) / `policy_mention_count` (= atlas_signals.source_type='policy' 件数) / `raw_signal_count` (= atlas_signals 全件) を update + 欠落 row を insert。`?since=YYYY-MM` 指定可 (= デフォルト過去 36 ヶ月)。atlas_signals.domain (= "I.ICT・AI" 等の ATL 独自) → ASPI domain mapping は cron 内 ATL_DOMAIN_TO_ASPI に定義 |
 | `cron/freee-payment-sync` | `10 0 * * *` | 09:10 daily | freee会計の収入取引 (`/api/1/deals`, `type=income`) と口座明細 (`/api/1/wallet_txns`, `entry_side=income`) を支払月で取得し、取引先ID・請求番号・入金額・PJ別 `payment_alias` からOSの入金予定と照合。支払済みなら `billing_cycles.payment_confirmed_at` を自動更新し、照合証跡を `billing_log.detail` に保存 |
 | `cron/payment-confirm-nudges` | `30 0 * * *` | 09:30 daily | 支払月単位で未入金のPJを抽出し、active admin (`members.is_admin=true`) のSlack DMへ入金確認nudgeを送る。ボタンは「予定通り入金済み」(1クリック反映) と「金額を入力」(`/payment-confirm`)。LLM非使用なのでLLM系cron停止とは別枠で稼働 |
+| Codex `AMD OS L2① 月次報告抽出` | Codex automation | 05:30 daily | 5生データ + OS snapshot から `monthly_reports` draft を抽出し、`/Users/masa/.codex/automations/amd-os-ms/outbox/*.json` の `monthlyReports` を作る。非LLM applier が Supabase に反映。R313 / PWA heavy route は定期実行しない |
 | Codex `amd-os` | Codex automation | 03:20 daily | 5生データ + OS snapshot から経営ハイライト候補を抽出し、`/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/*.json` を作る。非LLM applier が `project_strategy_signals` / `l2_notifications` へ反映 |
 | `scripts/backfill_strategy_signals_from_activities.mjs` | one-shot script | on-demand | 既存 `member_activities` から初期表示用の経営ハイライト候補を決定的ルールで抽出し、outbox JSON を作る。`ms_progress_review_tool.mjs apply-outbox` で `project_strategy_signals` / `l2_notifications` へ反映する。LLM/GAS非使用 |
 | `cron/management-score-raw-data` | (vercel cron 未登録) | on-demand / monthly | AMD Management Score 用 raw signal intake。OS内部データを `amd_management_score_raw_signals` に集約。`?includeFreee=1` で freee trial_pl → `company_actual_monthly` も同期。local: `npm run collect:management-score-raw -- --ym=YYYYMM [--include-freee]` |
 | `cron/management-score-calculate` | (vercel cron 未登録) | on-demand / after raw | `amd_management_score_raw_signals` から `amd_management_score_snapshots` / evidence を算出。`?ym=YYYYMM` 指定可 |
-| `cron/monthly-reports-backfill` | (vercel cron 未登録) | on-demand 手動 curl | billing_cycles LEFT JOIN monthly_reports IS NULL の row を Sonnet 4.6 で順次生成 → monthly_reports upsert。prompt = `llm_prompts.monthly_report.r313_extract` (Supabase fetch、is_active 無視、AGENTS 完遵)。`?limit=N&concurrency=M` で並列処理 (デフォルト 6 件 / 5 並列、Vercel maxDuration 300s soft timeout 260s)。文字化け検出 (= ? 比率 > 50% で reject)。AMD-Report GAS R313 と機能重複、R313 が動かない時の保険 + backfill 用 |
+| `cron/monthly-reports-backfill` | (vercel cron 未登録) | on-demand 手動 curl | billing_cycles LEFT JOIN monthly_reports IS NULL の row を Sonnet 4.6 で順次生成 → monthly_reports upsert。重い従量課金 route なので定期実行しない。定期 writer は Codex `AMD OS L2① 月次報告抽出` |
 | `cron/freeze-period-backfill` | (vercel cron 未登録) | on-demand / daily candidate | `projects.freeze_from_ym` + `restart_expected_ym` がある PJ について、休止期間の `monthly_reports` + `project_meeting_summaries` を Sonnet で統合し、`freeze_period_backfills` に保存。対象PJと再開月確認後に手動キック |
 | `cron/triple-helix-recompute` | (vercel cron 未登録) | on-demand / weekly candidate | ASPI 8 domain × 直近 16 quarter について、`papers_log` / `atlas_signals` / `observation_log` / `project_ventures.lanes` から BVAR/Kalman smoother で `triple_helix_state_log` を再計算 |
 
@@ -530,7 +531,7 @@ MTG サマリ詳細は `/project/[projectId]/cockpit?meeting=<meeting_id>` で�
 - **AMD プロトコル結果運用**: プロトコル抽出本体は稼働中。`結果` は自動抽出せず、`protocol_result_observations` に時間差の観測として入れる。観測登録UI/cronは今後拡張対象。
 - **Atlas タグ正規化 UI**: 表記揺れ (semiconductor / 半導体 等) 統合管理が数百シグナル超で必要 (`/admin/atlas/tags` 候補)
 - **本番認証**: 現状 DEV_MODE。Supabase Auth + RLS ポリシー再構築 (再帰なし) が必要
-- **`source_cache` 依存**: `/api/report/generate` はまだ `source_cache` を参照する。GAS broad L1 cron は廃止済みだが、PWA API で Gmail/Slack の短い source refs は投入可能。Drive/Calendar/Notion の同形PWA化と、既存 `monthly_reports` 直読みとの役割整理が残る
+- **`source_cache` 依存**: `/api/report/generate` はまだ `source_cache` を参照するが、定期 L2① writer ではない。GAS broad L1 cron は廃止済みだが、PWA API で Gmail/Slack の短い source refs は投入可能。Drive/Calendar/Notion の同形PWA化と、L2① Codex automation への接続整理が残る
 - **GAS bridge → PWA 直抽出**: Gmail/source 抽出を PWA サーバーから直接やる設計に置換
 - **Supabase → スプシ逆同期**: 現在は GAS → Supabase 一方向のみ。バックアップ手段未定
 - **Venture Map**: 数式モデルの未解決論点 5 点 (`venture_map_model.md`)、競合密度 / 予算データ未投入

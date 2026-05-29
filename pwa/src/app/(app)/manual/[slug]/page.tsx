@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MarkdownView } from "@/components/cockpit/MarkdownView";
 import { ManualMapClient } from "../ManualMapClient";
+import { ManualTsukuyomiFloat } from "../ManualTsukuyomiFloat";
 import {
   applyManualBookNumbering,
   getManualChapter,
@@ -11,7 +12,7 @@ import {
   MANUAL_TOPIC_NODES,
   sortManualSlugs,
 } from "../manual-chapters";
-import { getManualBookChapters, getManualChapters, normalizeManualMarkdownSource } from "../manual-data";
+import { getManualBookChapters, getManualChapters, getManualSearchDocuments, normalizeManualMarkdownSource } from "../manual-data";
 
 /**
  * /manual/[slug] — AMD OS マニュアル各章
@@ -58,10 +59,11 @@ export default async function ManualChapterPage({ params }: { params: Promise<{ 
   const prev = idx > 0 ? sortedFiles[idx - 1] : null;
   const next = idx >= 0 && idx < sortedFiles.length - 1 ? sortedFiles[idx + 1] : null;
   const chapters = getManualBookChapters(getManualChapters());
+  const searchDocuments = getManualSearchDocuments();
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
-      <ManualMapClient chapters={chapters} topics={MANUAL_TOPIC_NODES} activeChapterSlug={decoded} showDirectory={false}>
+      <ManualMapClient chapters={chapters} topics={MANUAL_TOPIC_NODES} searchDocuments={searchDocuments} activeChapterSlug={decoded} showDirectory={false}>
         <div className="mx-auto max-w-3xl">
           <div className="mb-4 flex items-center gap-3 text-xs">
             <Link href="/manual" className="text-muted-foreground hover:text-foreground">
@@ -89,6 +91,7 @@ export default async function ManualChapterPage({ params }: { params: Promise<{ 
           </nav>
         </div>
       </ManualMapClient>
+      <ManualTsukuyomiFloat currentSlug={decoded} />
     </div>
   );
 }

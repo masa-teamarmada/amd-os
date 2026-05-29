@@ -3,10 +3,12 @@ import path from "node:path";
 import {
   applyManualBookNumbering,
   getManualChapter,
+  getManualTopic,
   sortManualSlugs,
   type ManualChapterConfig,
   type ManualNumberedChapter,
 } from "./manual-chapters";
+import type { ManualSearchDocument } from "./manual-search";
 
 export function getManualMarkdownSlugs() {
   const dir = path.join(process.cwd(), "manual");
@@ -50,6 +52,44 @@ export function getManualChapters(): ManualChapterConfig[] {
 
 export function getManualBookChapters(chapters: ManualChapterConfig[]) {
   return applyManualBookNumbering(chapters);
+}
+
+function stripManualMarkdown(source: string) {
+  return source
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]+)]\([^)]*\)/g, "$1")
+    .replace(/^[#>\-\s*`|:]+/gm, " ")
+    .replace(/[*`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractManualHeadings(source: string) {
+  return source
+    .split("\n")
+    .filter((line) => /^#{1,3}\s+/.test(line))
+    .map((line) => line.replace(/^#{1,3}\s+/, "").trim())
+    .filter(Boolean);
+}
+
+export function getManualSearchDocuments(): ManualSearchDocument[] {
+  const chapters = getManualBookChapters(getManualChapters());
+
+  return chapters.map((chapter) => {
+    const source = getManualMarkdownSource(chapter.slug) ?? "";
+    return {
+      slug: chapter.slug,
+      number: chapter.number,
+      title: chapter.title,
+      summary: chapter.summary,
+      topics: chapter.topics.map((key) => getManualTopic(key)?.label ?? key),
+      screens: chapter.screens ?? [],
+      tables: chapter.tables ?? [],
+      headings: extractManualHeadings(source),
+      text: stripManualMarkdown(source),
+    };
+  });
 }
 
 export function normalizeManualMarkdownSource(source: string, chapter: ManualNumberedChapter) {

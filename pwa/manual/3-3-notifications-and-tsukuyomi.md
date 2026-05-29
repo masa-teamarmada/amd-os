@@ -2,6 +2,18 @@
 
 AMD OS の通知は「お知らせ」だけではない。多くの通知は、LLM / automation が作った候補を **正本に入れてよいか確認するゲート**。
 
+## 先に知っておく言葉
+
+| 用語 | 意味 |
+|---|---|
+| **通知** | ユーザーに見せるカード。単なるお知らせもあるが、多くは候補データの確認依頼。 |
+| **正本反映ゲート** | 候補を正式データにしてよいか、人間が「はい / いいえ / コメント」で判断する入口。 |
+| **L2 通知** | L2 候補や差分候補を確認する通知。例: PJ ナレッジ、MS 進捗、XRL 根拠、経営ハイライト。 |
+| **candidate / pending** | 未確認候補。表示されても、まだ OS の確定事実ではない。 |
+| **active / confirmed / applied** | 確認済み、または正本へ反映済みの状態。 |
+| **l2_feedbacks** | 「ここが違う」「次回からこう見てほしい」という修正依頼の保存先。次回抽出の prompt に入れる。 |
+| **つくよみ** | L2 抽出と修正依頼ループの担当名。Manual Q&A のつくよみとは別の運用概念。 |
+
 ## 通知の種類
 
 | 種類 | 主なテーブル | 役割 |
@@ -59,19 +71,28 @@ l2_feedbacks に保存
 - 「この MS は PM 手動確定済みなので上書きしない」
 - 「この external signal は SX には追い風だが CTB には関係ない」
 
-## 現状ギャップ
+### マニュアル限定つくよみ Q&A
 
-2026-05-25 時点では、L2 ②④⑤⑥ の旧 writer が停止している。
+`/manual` と `/manual/[slug]` 右下の **つくよみ Manual Q&A** は、上の修正依頼ループとは別物。Gemini が `pwa/manual/*.md` の抜粋を読んで回答し、参照章リンクを返すだけの read-only 実験導線。
+
+- DB に書き込まない
+- `l2_feedbacks` / `tsukuyomi_chat_logs` に保存しない
+- PJ コックピットや Venture Map の内容を修正しない
+- global の visible mascot は復活させず、マニュアル route だけで表示する
+
+## 修正依頼ループの現状
+
+2026-05-25 時点では、L2 ②④⑤⑥ の旧 GAS writer が停止していた。2026-05-29 時点の現行 writer は subscription automation 側に移管済みなので、復旧時は [3-2 章](3-2-data-and-extraction.md) と [8-3 章](8-3-l2-extraction-routines-spec.md) の実行場所つき表を見る。
 
 | L2 | 状態 |
 |---|---|
-| ② AMD Protocol | GAS 155 停止。Claude routine 復旧予定 |
-| ④ PJ ナレッジ | GAS 155 停止。Claude routine 復旧予定 |
-| ⑤ メンバーナレッジ | GAS 155 停止。Claude routine 復旧予定 |
-| ⑥ MTG サマリ | GAS 153 停止。Claude routine 復旧予定 |
-| ⑨ 経営ハイライト | 抽出は動いているが、修正依頼ループは未実装 |
+| ② AMD Protocol | MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract`。`l2_feedbacks` を prompt に入れる |
+| ④ PJ ナレッジ | MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract`。`l2_feedbacks` を prompt に入れる |
+| ⑤ メンバーナレッジ | MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract`。schema gap は別途確認 |
+| ⑥ MTG サマリ | Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow`。MTG修正依頼を次回抽出に入れる |
+| ⑨ 経営ハイライト | Codex automation `amd-os`。修正依頼ループは対話型と接続予定 |
 
-つまり、feedback UI だけ見ても「次回改善」がまだ完全には閉じていない領域がある。復旧計画は [3-2 章](3-2-data-and-extraction.md) と [9-1 章](9-1-decisions-and-history.md)。
+つまり、feedback UI だけでは完結しない。次回 automation がどこで動くかまで含めて確認する。
 
 ## 入金確認・PL承認 nudge
 

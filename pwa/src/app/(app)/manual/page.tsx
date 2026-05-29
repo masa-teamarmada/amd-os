@@ -1,6 +1,7 @@
 import { ManualMapClient } from "./ManualMapClient";
+import { ManualTsukuyomiFloat } from "./ManualTsukuyomiFloat";
 import { MANUAL_TOPIC_NODES } from "./manual-chapters";
-import { getManualBookChapters, getManualChapters } from "./manual-data";
+import { getManualBookChapters, getManualChapters, getManualSearchDocuments } from "./manual-data";
 
 /**
  * /manual — AMD OS マニュアル index
@@ -17,6 +18,7 @@ export default async function ManualIndexPage({
   const initialTopicKey = Array.isArray(params.topic) ? params.topic[0] : params.topic;
   const allChapters = getManualChapters();
   const chapters = getManualBookChapters(allChapters);
+  const searchDocuments = getManualSearchDocuments();
   const topics = MANUAL_TOPIC_NODES;
 
   return (
@@ -28,12 +30,13 @@ export default async function ManualIndexPage({
         </p>
       </div>
 
-      <ManualMapClient chapters={chapters} topics={topics} initialTopicKey={initialTopicKey} />
+      <ManualMapClient chapters={chapters} topics={topics} searchDocuments={searchDocuments} initialTopicKey={initialTopicKey} />
 
       <p className="mt-6 text-xs text-muted-foreground">
         正本: <code className="rounded bg-muted px-1">pwa/manual/*.md</code> (= git 管理)。
         新規セッション開始時 / 「なぜそうなってるか」を知りたい時に開く。
       </p>
+      <ManualTsukuyomiFloat />
     </div>
   );
 }
