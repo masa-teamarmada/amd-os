@@ -65,6 +65,7 @@ UI ヒント ([`ui_hint_tooltip.md`](ui_hint_tooltip.md)) は「個別 UI 要素
 4-6 卒業フェーズ検出
 4-7 Venture Status / Narrative / PL / XRL
 4-8 MS Progress / Monthly Report / Revision Loop
+4-9 研究機関 ERS (機関エコシステム整備度)
 ```
 
 ### section 5: 外部探索・事業アセット

@@ -106,6 +106,7 @@ export const MANUAL_SECTIONS: ManualSectionConfig[] = [
       "4-6-graduation-detection-spec",
       "4-7-venture-status-narrative-pl-xrl-spec",
       "4-8-ms-progress-monthly-report-revision-spec",
+      "4-9-institution-ers-spec",
     ],
   },
   {
@@ -182,6 +183,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "4-6-graduation-detection-spec", title: "卒業フェーズ検出", summary: "AMD 主導の卒業提案。 6 シグナル × 月次集計 → まさえいMTG 議題。 reputation flywheel。", topics: ["decision", "cockpit", "system-dev"], screens: ["/management-score", "/project/{projectId}/cockpit"], tables: ["project_graduation_signals", "project_ventures", "project_strategy_signals"] },
   { slug: "4-7-venture-status-narrative-pl-xrl-spec", title: "Venture Status / Narrative / PL / XRL", summary: "SU の事業概要、沿革、PL hearing、XRL 修正導線。", topics: ["decision", "cockpit", "system-dev"], screens: ["/project/{projectId}/cockpit"], tables: ["project_ventures", "project_xrl_log"] },
   { slug: "4-8-ms-progress-monthly-report-revision-spec", title: "MS Progress / Monthly Report / Revision Loop", summary: "MS 進捗、月次報告書、月次ノート、つくよみ修正依頼 loop。", topics: ["cockpit", "monthly", "system-dev"], screens: ["/project/{projectId}/cockpit"], tables: ["milestone_monthly_progress", "ms_progress_revisions"] },
+  { slug: "4-9-institution-ers-spec", title: "研究機関 ERS (機関エコシステム整備度)", summary: "苗床レイヤー指標。8 軸 × サブ軸 Lv1-5 の加重和 (充足率)。AMD Score (個体) とは別ロジックで σ_SU 経由で概念連動。二重計上しない。", topics: ["decision", "discovery", "system-dev"], screens: ["/institutions", "/institutions/{institutionId}", "/dashboard"], tables: ["institutions", "institution_assessments"] },
 
   { slug: "5-1-research-assets-vc-seeds-scholar-spec", title: "Seeds / VC / Scholar 詳細仕様", summary: "研究シーズ、VC、Scholar の DB、inbox、cron route。", topics: ["discovery", "admin-dev"], screens: ["/seeds", "/vcs", "/scholar"], tables: ["seeds", "vcs", "papers_log"] },
   { slug: "5-2-hud-and-venture-map-spec", title: "HUD / Venture Map 仕様", summary: "HUD mirror、Venture Map、実験ビュー、ルート一覧。", topics: ["discovery", "system-dev"], screens: ["/hud", "/venture-map"] },
@@ -238,7 +240,7 @@ export const MANUAL_TOPIC_NODES: ManualTopicNodeConfig[] = [
     description: "外部 signal、AMD Protocol、AMD Score、XRL、Management Score、卒業検出をつなげる。",
     icon: "brain",
     color: "violet",
-    chapterSlugs: ["4-1-atlas-protocol-score-macrotrend", "4-2-atlas-macrotrend-signal-spec", "4-3-amd-score-spec", "4-4-frl-related-members-score-spec", "4-5-management-score-and-finance-simulation-spec", "4-6-graduation-detection-spec", "4-7-venture-status-narrative-pl-xrl-spec", "8-2-notification-review-and-strategy-signals-spec"],
+    chapterSlugs: ["4-1-atlas-protocol-score-macrotrend", "4-2-atlas-macrotrend-signal-spec", "4-3-amd-score-spec", "4-4-frl-related-members-score-spec", "4-5-management-score-and-finance-simulation-spec", "4-6-graduation-detection-spec", "4-7-venture-status-narrative-pl-xrl-spec", "4-9-institution-ers-spec", "8-2-notification-review-and-strategy-signals-spec"],
     relatedTopicKeys: ["discovery", "cockpit", "knowledge"],
   },
   {
@@ -247,7 +249,7 @@ export const MANUAL_TOPIC_NODES: ManualTopicNodeConfig[] = [
     description: "Atlas、Macrotrend、Seeds、VC、Scholar、Venture Map から事業機会を見る。",
     icon: "search",
     color: "amber",
-    chapterSlugs: ["2-5-research-assets-quick-start", "4-2-atlas-macrotrend-signal-spec", "5-1-research-assets-vc-seeds-scholar-spec", "5-2-hud-and-venture-map-spec"],
+    chapterSlugs: ["2-5-research-assets-quick-start", "4-2-atlas-macrotrend-signal-spec", "5-1-research-assets-vc-seeds-scholar-spec", "5-2-hud-and-venture-map-spec", "4-9-institution-ers-spec"],
     relatedTopicKeys: ["decision", "admin", "developer"],
   },
   {
