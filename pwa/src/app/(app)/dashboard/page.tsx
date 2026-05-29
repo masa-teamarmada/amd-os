@@ -26,6 +26,8 @@ import {
   latestVisibleScorableScoreInput,
 } from "@/lib/amd-score-derived";
 import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
+import { InstitutionReadinessList } from "@/components/dashboard/InstitutionReadinessList";
+import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
 
 function getCurrentYm() {
   const now = new Date();
@@ -41,6 +43,7 @@ export default function DashboardPage() {
   const [managementScore, setManagementScore] = useState<DashboardManagementScoreSnapshot | null>(null);
   const [managementHistory, setManagementHistory] = useState<DashboardManagementScoreSnapshot[]>([]);
   const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
+  const [ersBundle, setErsBundle] = useState<ErsBundle | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -70,7 +73,8 @@ export default function DashboardPage() {
       }),
       fetchManagementScoreHistory(supabase),
       fetchMyProjectIds(supabase),
-    ]).then(([projRes, billRes, scoreRes, mgmtRes, myProjRes]) => {
+      fetchErsBundle(),
+    ]).then(([projRes, billRes, scoreRes, mgmtRes, myProjRes, ersRes]) => {
       const projectsValue = projRes.status === "fulfilled" ? projRes.value : [];
       const billingValue = billRes.status === "fulfilled" ? billRes.value : {};
       setProjects(projectsValue);
@@ -92,6 +96,10 @@ export default function DashboardPage() {
 
       if (myProjRes.status === "fulfilled") {
         setMyProjectIds(myProjRes.value);
+      }
+
+      if (ersRes.status === "fulfilled") {
+        setErsBundle(ersRes.value);
       }
 
       setLoading(false);
@@ -125,6 +133,7 @@ export default function DashboardPage() {
             signalMetrics={signalMetrics}
             myProjectIds={myProjectIds}
           />
+          <InstitutionReadinessList bundle={ersBundle} />
         </main>
         {/* /mypage の中身そっくり embed (= まさ #71 v3 確定、MyPageContent を再利用) */}
         <aside className="hidden xl:block min-w-0 border-l border-border/50 pl-4">

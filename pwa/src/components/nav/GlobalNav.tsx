@@ -140,6 +140,20 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
           Venture Map
         </Link>
 
+        {/* 研究機関 (ERS / 苗床レイヤー) — Venture Map (個体) の隣に機関 (苗床) を並べる */}
+        <Link
+          href="/institutions"
+          className={cn(
+            "text-xs px-2.5 py-1 rounded-md transition-colors",
+            pathname.startsWith("/institutions")
+              ? "bg-accent text-accent-foreground font-medium"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+          title="研究機関 ERS — エコシステム整備度 (苗床レイヤー)"
+        >
+          研究機関
+        </Link>
+
         <Link
           href="/management-score"
           className={cn(
