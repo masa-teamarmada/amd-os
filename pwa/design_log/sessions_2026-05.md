@@ -9934,3 +9934,37 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 ### 関連メモ更新 (Cowork memory)
 - `memory/feedback_mtg_narrative_required.md` 新規 (MTG議事録は narrative が正本、箇条書きは劣化、全抽出経路が narrative 生成すべき)
 - `MEMORY.md` に1行追加
+
+## 2026-05-30 (#97) — Cowork セッション (cowork-eimi) / 研究機関 ERS を新設 origin/main へ clean commit (f671edd, v0.10.0)
+
+> Cowork (Claude Desktop) 上で動いた cowork-eimi セッションのログ。次のえいみ (Codex / 別 Cowork) が読めば把握できるよう残す。
+
+### コンテキスト
+- まさから「各研究機関 (香川大 / KUTE / NIMS) が何をできて・何が未整備で・どんな特徴かを OS で記録・スコアリングしたい」と依頼。
+- 個体レイヤー (AMD Score) とは別の **苗床レイヤー指標 = ERS (Ecosystem Readiness Score / 機関エコシステム整備度)** として新設。ERS は **加重和 (充足率) で乗算しない**。AMD Score の数式には**絶対に入れない** (二重計上禁止)、σ_SU の μ_A 経由で概念連動するだけ。
+- 並行作業ドラマ: まさは別セッションで BZM 教科書を実装したい → このセッションは ERS 専念で確定。fork で作った `feat/bzm` は削除済、まさの BZM ブランチ `feat/bzm-textbook` は残す指示。
+
+### 実装
+- **DB**: 4 テーブル新設 (institution / 軸 / サブ軸 criteria / assessment 系)。migration `pwa/scripts/migrations/108_institution_readiness_ers.sql` で適用済。`db_schema.md` を `dump_schema.py` で再生成 (128 tables)。
+- **コード**:
+  - [ers.ts](../src/lib/ers.ts) / [ers-data.ts](../src/lib/ers-data.ts) — 集計ロジック (normalizeLevel=(lv-1)/4、軸=採点済サブ軸の平均 (N/A 除外)、ERS=採点済軸の加重平均×100)。
+  - [institutions/page.tsx](../src/app/\(app\)/institutions/page.tsx) — 機関一覧ヒートマップ。
+  - [institutions/[institutionId]/page.tsx](../src/app/\(app\)/institutions/[institutionId]/page.tsx) — 8 軸 SVG レーダー + 軸ごとサブ軸 rubric (Lv1-5)。
+  - [InstitutionReadinessList.tsx](../src/components/dashboard/InstitutionReadinessList.tsx) — dashboard 下段に機関一覧を縦積み (上=SU/AMD Score、下=機関/ERS)。
+  - [GlobalNav.tsx](../src/components/nav/GlobalNav.tsx) に「研究機関」リンク追加、[layout.tsx](../src/app/\(app\)/layout.tsx) にタブタイトル追加。
+- **doc**: 設計正本 [institution_readiness.md](../design/institution_readiness.md) (前セッション作成) を commit に同梱。
+
+### Verified
+- `tsc --noEmit` 通過。clean staging worktree (origin/main 起点 detached) に ERS の 12 ファイルだけ再現 → commit `f671edd` (v0.10.0) → `0d1eb0b..f671edd HEAD -> main` push。
+- staging で GlobalNav の「研究機関」リンクは **Edit で再現** (= BZM の `/bzm` リンクを除外するため copy せず)、dashboard/layout 差分も ERS-only を verify。`.env.local` 混入なし。
+
+### Cowork ↔ Codex/BZM 衝突メモ
+- 共有 working tree は他セッション (BZM / payment-confirm / L2 / cockpit 等) の dirty を多数含む。`git add -A` / broad revert 厳禁。今回も staging worktree 方式で main 汚染を完全回避。
+- origin/main の session log は #93 まで。#94-96 (Codex) と BZM の無番号エントリは別ブランチのみ → 衝突回避で本エントリは #97 採番。
+- 教訓: 並列セッションでは共有 working tree のブランチを勝手に切り替えない。clean commit は /tmp の detached worktree で。
+
+### 次セッションのタスク
+- **実データ投入してスコアリング**: 3 機関 (香川大 / KUTE / NIMS) の各サブ軸を実際に Lv1-5 評価して `institution_assessments` に投入。KUTE は seed 時「※正式名称・タイプ要確認」付きなので確定も必要。
+
+### 関連メモ更新 (Cowork memory)
+- `memory/feedback_handoff_commit_push_auto.md` 新規 (handoff は確認待ちせず commit→push まで一気に完遂)
