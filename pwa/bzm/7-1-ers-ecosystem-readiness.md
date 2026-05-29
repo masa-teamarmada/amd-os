@@ -79,7 +79,7 @@ $$A_k = \mathrm{mean}(\text{軸 } k \text{ のサブ軸 } s) \qquad \text{ERS} =
 | 4 | IP ライセンス対価の SO 取得まで可能。運用実績は限定的 |
 | 5 | 株式・SO 保有・IP-equity・ファンド経由出資まで規程化＆運用実績あり |
 
-他の軸（シーズ DB 化、TLO の専門性、ギャップファンドの規模、EIR 制度、国の拠点プログラム参画など）も、同じ形式で Lv1/Lv3/Lv5 のアンカーを定義します。詳細な rubric は設計正本 `pwa/design/institution_readiness.md` を参照してください。
+他の軸（シーズ DB 化、TLO の専門性、ギャップファンドの規模、EIR 制度、国の拠点プログラム参画など）も、同じ形式で Lv1/Lv3/Lv5 のアンカーを定義します。**8 軸すべてのサブ軸 × rubric は巻末「付録：ERS 全 8 軸 rubric」に集約**しました。本書だけで機関評価を再現できるようにしてあります（設計正本は `pwa/design/institution_readiness.md`）。
 
 ### 4.2 軸の置き場と将来のゲート化（レビュー論点）
 

@@ -84,8 +84,8 @@ export const BZM_PARTS: BzmPartConfig[] = [
   {
     key: "appendix",
     label: "巻末資料",
-    description: "統合参考文献・記号一覧・用語集。全部を横断して参照する三点セット。",
-    slugs: ["9-1-references", "9-2-notation", "9-3-glossary"],
+    description: "統合参考文献・記号一覧・用語集・ERS rubric 付録。全部を横断して参照する資料集。",
+    slugs: ["9-1-references", "9-2-notation", "9-3-glossary", "9-4-ers-rubric"],
   },
 ];
 
@@ -103,6 +103,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "9-1-references", title: "統合参考文献", summary: "全 10 章が引用した学術文献・公的資料・内部正本を一箇所に集約。" },
   { slug: "9-2-notation", title: "記号一覧", summary: "マクロ → 個体 → 苗床の順に、数学記号の意味・値域・初出をまとめた notation table。" },
   { slug: "9-3-glossary", title: "用語集", summary: "Before Zero・Triple Helix・律速・retrofit・ERS など主要用語の定義。" },
+  { slug: "9-4-ers-rubric", title: "付録：ERS 全 8 軸 rubric", summary: "第 7 部 ERS の 8 軸 × サブ軸 × Lv1〜5 到達状態定義を全軸ぶん集約。本書だけで機関評価を再現できる。" },
 ];
 
 const partOrder = new Map(
