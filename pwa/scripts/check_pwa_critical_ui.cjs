@@ -303,6 +303,15 @@ expectIncludes("src/app/api/meeting-summary/manual-update/route.ts", [
   "generated_by_model",
   "manual-edit",
 ]);
+expectIncludes("scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md", [
+  "箇条書き禁止",
+  "その MTG に参加していなかったメンバー",
+  "v6_absent_member_narrative",
+]);
+expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
+  "箇条書き禁止",
+  "その MTG に参加していなかった",
+]);
 expectIncludes("src/app/api/meeting-prep/calendar-sync/route.ts", [
   "calendar-future-sync",
   "upcoming:",
