@@ -10061,3 +10061,38 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 - current local branchは `feat/bzm-textbook` で、worktreeはBZM/IP/ERS/L2/cockpit/manual/paymentなど広くdirty。`git add .` / broad revert禁止。
 - Payment-confirmの実装差分は clean worktree branch `codex/payment-confirm-slack-action` と PR #2 に隔離済み。
 - PWAだけを先に本番へ出す場合でも、Slack actionは必ずfeature flagで閉じておく。GAS OAuth再認証が必要なときは、コードを疑ってretry連打しない。
+
+## 2026-05-29 — BZM 教科書 全10章を教科書品質に増補 (Opus, branch `feat/bzm-textbook`)
+
+### 概要
+
+BZM (Before Zero Model) 教科書の既存 10 章が「中身スカスカ」だったため、各章に **worked example (例題)・導出・章末まとめ・練習問題** を追加して教科書品質に引き上げた。コンテンツ正本は `pwa/bzm/*.md`、ページ実装は `pwa/src/app/(app)/bzm/`、レンダラは `BzmMarkdown` (KaTeX)。
+
+### 章ごとの追記内容
+
+- **0-1-preface**: 「各章の構成」節 (例題/まとめ/練習問題 の教育方針説明) を追加。
+- **1-1-why-before-zero**: §2.1 同 Valuation 10億・内部状態の違う 2 ベンチャー比較表、§6 まとめ、§7 考察問題。
+- **2-1-sigma-su-triple-helix**: §3.3 例題2-1 (σ_SU 幾何平均 vs min: μ=(6,1,2)→42^(1/3)−1≈2.48)、§4.1 例題2-2 (観測モデルから μ_G=14.80/2.75=5.38)、§6.1 まとめ、§6.2 練習4問。
+- **2-2-state-space-model**: §5.1 例題2-2 (A_c=[[-0.1,-0.6],[0.6,-0.1]], λ=-0.1±0.6i, T=2π/0.6≈10.5四半期, τ=10; 対称→実固有値→螺旋なし)、連続時間ノート、§8 まとめ、§9 練習4問。※ theory の `state_space_model.md`/`bvar_prior.md` はリポに無いので捏造せず自己完結な例で対応。
+- **3-1-xrl-group**: §3.1 例題3-1 (アンカリング表, X≈34.3)、§5.1 まとめ、§5.2 練習4問。
+- **4-1-frl-founder-readiness**: §4.1 例題4-1 (ALQ平均7.0→FRL=6.8)、§4.2 感度分析 (ΔFRL=0.2×(8−5)=0.6)、§6.1 まとめ、§6.2 練習4問。
+- **5-1-amd-score-integration**: §で誤りだった練習問題 #1 を修正 (詳細は下記バグ)。
+- **6-1-retrofit-verification**: §3.4 例題6-1 (2012 setup =133 を再現)、透明性ノート (表値=専門家事前情報による期待値)、§7 まとめ、§8 練習4問。
+- **7-1-ers-ecosystem-readiness**: §4.3 例題7-1 (軸7 sub-axes→A_7=0.75, 8軸→ERS=50%)、§7.1 まとめ、§7.2 練習4問。
+- **8-1-amd-os-operations**: §4.1 例題8-1 (K再校正: SRL 0.2→0.7→Σα=6.5→K≈0.0316)、§6 Shallow Tech K=1.0 ノート、§10.1 まとめ、§10.2 練習4問。
+
+### 自己発見した不具合 (BUGS.md `[bzm/retrofit-table-inconsistency]` に記録)
+
+- 前セッションの 5-1 練習問題 #1 が「2009 ティエムの score を計算して表の 27 と一致を確かめよ」という再現不能な誤問だった (手計算 ≈78)。retrofit 表の期待値を「再計算できる値」と誤認したのが原因。→ 自己完結な計算問題 (≈581) に差し替え。
+- より深い問題: 6-1 retrofit 表の headline score 列は **専門家事前情報による期待値** で、同表の軸値からは再現しない行が複数 (2009/2011/2012-10/2014)。一方 2007/2012setup/2017 は再現する。theory 正本 §335-358 に「表と seed の μ は一致しない/数式は正しい」と明記済み。本文に透明性ノート (B案) を暫定追記。表自体の扱いは **まさの A/B 判断待ち** (A=全行再計算で自己整合 / B=期待値のまま運用)。
+
+### Commit / deploy
+
+- commit `de97c62` (5章増補) → `f35c2b3` (全章増補 + 5-1修正)。`feat/bzm-textbook` に push 済、未 push commit なし。
+- `pwa/src/lib/build-info.ts` BUILD_VERSION v0.10.3 → v0.10.4。
+- deploy 成功 (`byvyl0ye3`, exit 0, Ready, 約4分)。build 成功 = KaTeX 記法が build 時にパース OK。ただし `(app)` は auth 配下で curl が 307、レンダ後 HTML は未確認 → まさに /bzm 目視を依頼済み。
+
+### 運用メモ / 衝突
+
+- worktree は他セッション (payment-confirm / ERS / L2 / cockpit / manual 等) の dirty を多数含む。`git add .` / broad revert 禁止。今回は `pwa/bzm/*.md` と `build-info.ts` のみ stage して commit した。
+- HANDOFF_pwa_rebuild.md は codex の payment-confirm 引き継ぎが正本。BZM の引き継ぎは別途 `pwa/HANDOFF_bzm_textbook.md` に分離 (clobber 回避)。
