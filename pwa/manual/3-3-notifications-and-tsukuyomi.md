@@ -73,7 +73,7 @@ l2_feedbacks に保存
 
 ### マニュアル限定つくよみ Q&A
 
-`/manual` と `/manual/[slug]` 右下の **つくよみ Manual Q&A** は、上の修正依頼ループとは別物。Gemini が `pwa/manual/*.md` の抜粋を読んで回答し、参照章リンクを返すだけの read-only 実験導線。
+`/manual` と `/manual/[slug]` 右下の **つくよみ Manual Q&A** は、上の修正依頼ループとは別物。Gemini が該当する `pwa/manual/*.md` の本文を読んで回答し、「ここ見たらOK」の参照章リンクを返すだけの read-only 実験導線。つくよみキャラとして敬語は使わず、高校生にも分かるくらい噛み砕いて案内する。
 
 - DB に書き込まない
 - `l2_feedbacks` / `tsukuyomi_chat_logs` に保存しない

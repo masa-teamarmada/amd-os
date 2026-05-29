@@ -109,7 +109,7 @@ pwa/
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定 (取り消し線 = 未完月次ルーティンによる除外)。りり (`ID006`) は NIMS からの無償出向のため、報酬額は金額ではなく `ー` 表示 |
 | `/project/[projectId]/cockpit` | PJ コックピット (案C レイアウト = 上 Header + Hero (AMD Score + XRL 横並び) + 3 カラム MS / 経営ハイライト / 月次ルーティン sticky + 下段 月次 + MTGサマリ + 最下カンバン)。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
-| `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` がマニュアル抜粋を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
+| `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` が該当章のマニュアル本文を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
 | `/reimburse` | 立替精算 |
 | `/admin/settings` | Operations Settings。admin限定で Raw Data / L2 Data / Cron Control を一覧化する。停止中cronはここに旧頻度・入力・出力・停止理由を表示する。`/settings` は一般ユーザー誤操作防止のため削除 |
 | `/atlas` | シグナル & ストーリー一覧 |
@@ -331,7 +331,7 @@ pwa/
 - 4 アニメ × 18 frames × 128×128、足元アンカー (64, 124)
 - 2026-05-28: 右下に常駐していた visible mascot button は非表示化。`(app)/layout.tsx` には `TsukuyomiChatBridge` だけを残し、`window.dispatchEvent(new CustomEvent("tsukuyomi:open", ...))` で起動する明示的な修正依頼導線は維持する。
 - 旧 mascot は `pwa/src/components/tsukuyomi/Mascot.tsx` に残るが、global layout からは読み込まない。
-- 2026-05-29: `/manual` 系だけ `ManualTsukuyomiFloat` を表示する実験導線を追加。これは global mascot 復活ではなく、OS マニュアル専用の読取 Q&A。`/api/manual/tsukuyomi/ask` は Gemini 2.5 Flash に `pwa/manual/*.md` の検索上位抜粋を渡し、回答 + 参照章を返す。DB 書き込み、project 修正、`tsukuyomi_chat_logs` 保存はしない。
+- 2026-05-29: `/manual` 系だけ `ManualTsukuyomiFloat` を表示する実験導線を追加。これは global mascot 復活ではなく、OS マニュアル専用の読取 Q&A。`/api/manual/tsukuyomi/ask` は Gemini 2.5 Flash に検索で選んだ該当章の本文を渡し、回答 + 「ここ見たらOK」の参照章リンクを返す。DB 書き込み、project 修正、`tsukuyomi_chat_logs` 保存はしない。
 - 素材生成元: `/Users/masa/projects/masa/output/tsukuyomi_animations_amd/` (Codex 生成、annotation なし)
 - 統合シート生成: `/tmp/combine_v2_frames.py` (FRAMES_PER_ROW=18, ROWS=4)
 

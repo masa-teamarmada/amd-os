@@ -2903,6 +2903,7 @@
 - **症状**: PWA deploy 中に Vercel CLI / deploy script が `Client network socket disconnected before secure TLS connection was established`、`EADDRNOTAVAIL`、`ENOTFOUND api.vercel.com` などで失敗表示になった。
 - **原因**: local Mac 側の network / DNS / polling が途中で切れたが、Vercel 側では upload/build/deployment が進んでいた。CLI の終了状態だけを見ると deploy failed と誤判定する。
 - **解決策**: 失敗表示後に deployment URL を `npx vercel inspect <deployment-url> --scope armada0130` で確認し、`dpl_71ybU9TqXHbbsU8VJTvwNyk4J2ji` が Ready かつ production alias (`https://amd-os-pwa.vercel.app`) 付きであることを確認した。
+- **2026-05-29 再発メモ**: `bash pwa/scripts/deploy.sh` の local session は code -1 / no output で切れたが、Vercel 側では `dpl_H9RG63JndSyL84ks9TazQkcSEXn7` が Ready になり、`https://amd-os-pwa.vercel.app` の alias も付いていた。`vercel inspect` と `curl` で本番 HTML の `data-dpl-id` まで確認してから完了扱いにした。
 - **教訓**: deploy script が upload/build 後の polling で失敗した時は、再 deploy の前に deployment URL を inspect する。ローカル通信エラーと Vercel 側 failure を分けて判断する。
 
 ## [PWA/Next] stale next build process が `.next/lock` を握り続ける (2026-05-28)
@@ -2910,6 +2911,7 @@
 - **症状**: `npm run build` が `Another next build process is already running` で止まり、`pwa/.next/lock` が残っていた。
 - **原因**: 以前の `next build --webpack` process が残り、CPU 0 のまま lock を保持していた。`.next/trace` も更新されておらず、実質 stale build だった。
 - **解決策**: 実プロセスと trace mtime を確認し、stale `next build --webpack` process を終了してから generated lock (`.next/lock`) を削除。その後 `npm run build` は pass。
+- **2026-05-29 再発メモ**: unrelated syntax error 修正後の再 build で古い `next build` process が残り、`.next/lock` を握っていた。`ps` で stale process を特定して終了し、lock 削除後に `npm run build` が pass。
 - **教訓**: `.next/lock` を見つけても先に消さない。`ps` と `.next/trace` の更新時刻で active build か stale build か確認し、stale process を止めてから lock を消す。
 
 ## [GAS/PWA] 支払通知書PDFだけ旧税計算で出る (= Web App deployment stale) (2026-05-28)
@@ -2940,3 +2942,24 @@
 - **原因**: `narrative_md` の文体ルールはあったが、固定見出し順と箇条書き禁止が L2⑥ routine / dialogue narrate / manual / critical guard 全体で一枚岩になっていなかった。修正導線も人間の直接編集ではなく LLM correction 前提に寄っていた。
 - **対応内容**: MTG詳細モーダルは「議事録を手動修正」に一本化し、`POST /api/meeting-summary/manual-update` で表示用フィールドを直接更新する。L2⑥ routine と dialogue narrate は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定5見出し、段落 narrative、箇条書き禁止へ更新。見出し違いは `blocked_wrong_narrative_headings` として保存しない。commits `6c83fd5`, `170b731`, `0ff8a9f`。
 - **再発防止策**: 議事録の正本は `narrative_md`。`decided/progress/next_actions/risks` は補助フィールドであって本文ではない。コックピットのMTG詳細に「つくよみに修正依頼」を戻さない。長い議事録 prompt は `/mtg-minutes` skill に寄せ、まさに毎回手入力させない。
+
+## [docs/l2-routes] ③だけ直して、同じ画面範囲の L2 ①②④⑤⑥⑦⑧⑨ が人間に分からないまま残った (2026-05-29)
+
+- **症状**: まさが「`amd-os-l3-ms-progress-extract` が何か分からない。MMOマシン automation ならマニュアルにもそう書いてほしい」と言った後、最初は L2 ③ MS進捗の表示だけを直した。ところが同じ画面範囲の他 L2 には、処理IDだけ、古い Cloud routine / ghost 表記、課金ルート不明、復旧場所不明の行が残っていた。まさ「③だけやったから、人間はこの画面範囲全部理解できる状態になったといえるの？」
+- **原因**: 要望を「③の文言修正」と狭く解釈し、「人間にもつくよみにも一発で分かる状態にする」= 同じ表・同じ章・同じ種類の operational route を横展開して直す、という本質を取り逃がした。マニュアル本文だけでなく `manual-chapters.ts` の summary / topic description のような表示メタデータにも古い current-looking 表記が残っていた。
+- **対応内容**: `pwa/manual/3-2-data-and-extraction.md` 冒頭に L2 ①〜⑨ 全体の「実行場所 / 現行処理 / 課金ルート / 止まった時に見る場所」早見表を追加。`pwa/manual/8-3-l2-extraction-routines-spec.md`、`6-1`、`9-1`、`pwa/design/L2_DATA.md`、`pwa/scheduled-tasks/README.md`、関連 design/manual を現行 automation 表記へ同期。`pwa/src/app/(app)/manual/manual-chapters.ts` の stale `Claude routine` summary も修正。
+- **再発防止策**: 「これ直して」が運用表・章・画面範囲の一部を指す時は、同じ表の全行、関連章、表示メタデータ、検索/Q&Aに出る summary まで横断 grep する。処理IDだけを正本にせず、最低限 `実行環境 / 課金ルート / 復旧時に見る場所 / 正本SKILL` をセットで書く。1箇所だけ直して終わらせる前に「同種の行は他にないか」を必ず棚卸しする。
+
+## [deploy/vercel] `pwa/` 直下から production deploy すると repo root 設定で `pwa/pwa` を見に行く (2026-05-29)
+
+- **症状**: `pwa/` から Vercel production deploy を実行したところ、Vercel 側が `pwa/pwa` を root として見に行き、build 前に失敗した。
+- **原因**: Vercel project の root directory が `pwa` に設定されているため、ローカル cwd も `pwa/` にすると root が二重になる。
+- **対応内容**: repo root `/Users/masa/projects/AMD/amd-os` から production deploy を再実行し、最終的に `dpl_DuETT2yHgf35KZPQsMdp2Jox4MeP` を `https://amd-os-pwa.vercel.app` に alias。
+- **再発防止策**: AMD OS PWA の Vercel deploy は repo root から実行する。`pwa/` 直下から打たない。
+
+## [PWA/manual-qa-deploy] Manual Q&A float が本番から一度消えた (2026-05-29)
+
+- **症状**: `/manual` で検索欄とつくよみ Manual Q&A を実装・deploy した後、まさの画面で一度つくよみフロートが消えた。
+- **原因**: 先に direct production deploy した時点では Manual Q&A 関連ファイルがまだ未コミットで、本番だけが local dirty worktree を含む状態だった。その後、GitHub `main` の clean auto deploy が production alias を取り直し、未コミットだった `ManualTsukuyomiFloat` / `/api/manual/tsukuyomi/ask` / 検索 UI が落ちた。
+- **対応内容**: direct deploy で一度復旧し、Manual search / Manual Q&A 関連ファイルだけを選んで `c06cdd6 Add searchable manual and manual Tsukuyomi Q&A` として commit。`origin/main` へ push し、GitHub `main` auto deploy 後も production alias が Manual Q&A 入り build を指す状態に戻した。まさが「復活した！」と本番で確認。
+- **再発防止策**: 本番に出す新 UI / API route は、direct deploy 後すぐ commit/push する。production の機能が消えた時は、まず `npx vercel inspect https://amd-os-pwa.vercel.app --scope armada0130` で alias target を確認し、direct deploy と GitHub clean deploy のどちらが勝っているかを見る。dirty deploy のまま別 auto deploy を待たない。

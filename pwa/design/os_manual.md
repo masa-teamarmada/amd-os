@@ -221,7 +221,7 @@ handoff は、実装した新仕様が OS マニュアルへ落ちたか確認�
 ## 検索 / 横断機能
 
 - **検索バー**: 2026-05-29 実装済み。`manual-data.ts` が `pwa/manual/*.md` から `ManualSearchDocument` を作り、`ManualMapClient` の左カラム検索で章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を横断検索する。「請求額確定」「MS 期間設定」等で該当章へ遷移できる。追加 dependency は使わず、`manual-search.ts` の軽量スコアリングで処理する。
-- **つくよみ Manual Q&A**: 2026-05-29 実験実装。`/manual` と `/manual/[slug]` だけに `ManualTsukuyomiFloat` を表示し、`POST /api/manual/tsukuyomi/ask` が `GEMINI_API_KEY` + `gemini-2.5-flash` でマニュアル抜粋を根拠に回答する。既存 global Tsukuyomi mascot は復活させない。DB 書き込み・修正 tool は持たず、回答と参照章リンクだけ返す。
+- **つくよみ Manual Q&A**: 2026-05-29 実験実装。`/manual` と `/manual/[slug]` だけに `ManualTsukuyomiFloat` を表示し、`POST /api/manual/tsukuyomi/ask` が `GEMINI_API_KEY` + `gemini-2.5-flash` で該当章のマニュアル本文を根拠に回答する。既存 global Tsukuyomi mascot は復活させない。DB 書き込み・修正 tool は持たず、回答と「ここ見たらOK」の参照章リンクだけ返す。回答文体はつくよみキャラとして敬語禁止、高校生にも分かる噛み砕き優先。
 - **「最近変わったこと」セクション**: 直近 1 週間で md が変わった章をリスト
 - **「関連章」自動リンク**: 章末尾に Sonnet が「この章を読んだあなたへの推奨章」生成
 - **コックピットからの誘導**: `Hint` クリック → 該当マニュアル章にジャンプ (= `ui_hint_tooltip.md` 案 D との接続)

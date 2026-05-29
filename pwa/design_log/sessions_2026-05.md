@@ -9934,3 +9934,79 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 ### 関連メモ更新 (Cowork memory)
 - `memory/feedback_mtg_narrative_required.md` 新規 (MTG議事録は narrative が正本、箇条書きは劣化、全抽出経路が narrative 生成すべき)
 - `MEMORY.md` に1行追加
+
+## 2026-05-29 (#94) — Codex セッション / L2抽出ルートを「人間が復旧できる粒度」に再整理 + v0.8.10 deploy
+
+### コンテキスト
+
+- まさ指摘: `amd-os-l3-ms-progress-extract` のような処理IDだけでは、MMOマシン automation なのか、課金ルートは何か、止まったらどこを見るのかが人間にもつくよみにも分からない。
+- さらに、③ MS進捗だけ直しても、同じ画面範囲にある L2 ①②④⑤⑥⑦⑧⑨ が同じ粒度で説明されていなければ要望未達。まさ「③だけやったから、人間はこの画面範囲全部理解できる状態になったといえるの？」
+- MS進捗ロジック自体は、`pwa/src/lib/progress-estimator.ts` と `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md` に、5か月MSなら月20%基準 / MS開始前は0% / 成功条件に直結する成果物なしで80%以上にしない、というルールが入っていることを確認した。
+
+### 実装 / doc 更新
+
+- `pwa/manual/3-2-data-and-extraction.md` 冒頭に、L2 ①〜⑨ 全体の「実行場所 / 現行処理 / 課金ルート / 止まった時に見る場所」早見表を追加。
+- `pwa/manual/8-3-l2-extraction-routines-spec.md` を、旧 Cloud routine 案の説明ではなく、現行の subscription automation / MMOマシン automation / outbox applier の正本表として再整理。
+- `pwa/manual/6-1-operations-settings-spec.md` / `9-1-decisions-and-history.md` / `3-1-system-architecture.md` / `3-3-notifications-and-tsukuyomi.md` / `4-1` / `4-7` / `2-2` / `8-1` / `8-2` / `9-2` / `6-6` / `2-6` など、古い current-looking Cloud routine / ghost / PWA hourly 表記を現行ルートへ同期。
+- `pwa/design/L2_DATA.md` と `pwa/design/l2_extract_claude_routine.md` に、Claude routine は履歴であり、現行復旧主導線は実行場所つきの automation 表を見る、という正本を反映。
+- `pwa/scheduled-tasks/README.md` に実行場所列を追加。
+- `pwa/src/app/(app)/manual/manual-chapters.ts` の 8-3 summary / topic description に残っていた古い `Claude routine` 表記を、MMOマシン automation / outbox-applier 表記へ修正。
+- `pwa/src/lib/build-info.ts` を `v0.8.10` に更新。
+
+### Verification / deploy
+
+- `npm run build` pass (`/Users/masa/projects/AMD/amd-os/pwa`)。
+- Vercel production deploy pass:
+  - Deployment URL: `https://amd-os-lq15f5gi1-armada0130.vercel.app`
+  - Deployment id: `dpl_DuETT2yHgf35KZPQsMdp2Jox4MeP`
+  - Production alias: `https://amd-os-pwa.vercel.app`
+- 最初に `pwa/` から `vercel --prod` した時は、Vercel が repo root 下の `pwa/pwa` を見に行って失敗。repo root (`/Users/masa/projects/AMD/amd-os`) から再deployして成功。
+- 最後の deploy script は local session が code -1 / no output で切れたが、`vercel ls` / `vercel inspect` で `dpl_DuETT2yHgf35KZPQsMdp2Jox4MeP` Ready + production alias を確認。`/auth/login` HTML の `data-dpl-id` も同 deployment を指していた。
+- stale-current grep: `current truth.*Cloud|現状.*Cloud|現状.*ghost|復旧方針は Claude|Claude routine 復旧予定|Cloud routine \+|Cloud routine L2|Claude routine \`amd-os|ghost 状態。復旧|新規自動取り込みが ghost|Cloud routine 側|Cloud routine 発火|Cloud routine fetch|Cloud routine ->|Claude routine ->|旧 GAS L2 の復旧先` は、履歴として許容される `6-1` 1件のみ。
+
+### 未確認 / 次回
+
+- 本番 `/manual/3-2-data-and-extraction` / `/manual/8-3-l2-extraction-routines-spec` をブラウザで開き、v0.8.10 の表示と Manual Q&A の回答品質を目視するところまでは未確認。
+- L2 ⑤ `member_knowledge` の schema gap (`status` / `source_hash` 不在) は未解決。
+- 今回は docs/manual/metadata の整合が主。MS進捗の実データ再推定結果 (= DD開始前MSが202604で0%になるか) は DB readback 未確認。次に触るなら `pwa/src/lib/progress-estimator.ts` と `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md` を起点に、実行履歴 / `milestone_monthly_progress` を確認する。
+
+## 2026-05-29 (#95) — Codex セッション / OSマニュアル検索 + つくよみ Manual Q&A + deploy rollback 復旧
+
+### コンテキスト
+
+- まさ要望: OSマニュアルに検索機能を追加し、`/manual` だけつくよみフロートを復活させて、Gemini にマニュアル質問へ回答させる形式を試したい。
+- 初回 deploy 後、検索欄の場所が分からず、つくよみフロートも出ていなかったため、表示導線を見直した。
+- Manual Q&A の初回回答で「この抜粋だけだと」と出て、L2質問にも弱かった。まさ指摘どおり、設計ロジック側の検索/RAG表現がユーザー向けに漏れていた。
+- その後、回答内容は改善したが、つくよみフロートが本番から一度消えた。原因は direct dirty deploy 後に GitHub `main` clean deploy が production alias を上書きしたこと。
+
+### 実装 / doc 更新
+
+- `pwa/src/app/(app)/manual/manual-search.ts` を追加し、軽量スコアリングで章タイトル / summary / 見出し / 本文 / 画面パス / table 名を検索できるようにした。
+- `ManualMapClient` に「検索ワード」欄を明示し、左カラム・上部のどちらでも検索できるようにした。
+- `ManualTsukuyomiFloat` を追加し、`/manual` と `/manual/[slug]` だけ右下に「つくよみに聞く」フロートを出す。global visible mascot は戻していない。
+- `POST /api/manual/tsukuyomi/ask` を追加。`requireAuth()` + `GEMINI_API_KEY` + `gemini-2.5-flash` でマニュアル本文だけを根拠に回答する read-only route。DB 書き込み、PJ修正 tool、`tsukuyomi_chat_logs` 保存はしない。
+- L2 / 検索などの頻出質問は guide docs を先に含め、日本語 + 英数字結合 token の検索を補強。`monthly_reports` など underscore 入り identifier は code 表示を保護する。
+- 回答 UX は、つくよみキャラとして敬語禁止、高校生にも分かる噛み砕き、「ここ見たらOK」の参照章リンクつきにした。「この抜粋」表現は prompt / docs から外した。
+- `pwa/design/os_manual.md` / `pwa/design/SPEC_pwa.md` / `pwa/design/FEATURE_REGISTRY.md` / `pwa/manual/1-1-intro.md` / `3-3` / `9-2` / `9-3` に仕様を反映。
+
+### Verification / deploy
+
+- `npx tsc --noEmit` pass。
+- `npm run build` pass。
+- Chrome authenticated verification:
+  - `/manual` に `検索ワード` が 2 箇所表示されることを確認。
+  - `つくよみに聞く` float が表示されることを確認。
+  - `L2データにはどのような種類がある？` と `L2データってなに？` で、9種類説明、`ここ見たらOK` リンク、underscore 保護、敬語除去、「この抜粋」なしを確認。
+- Commit / push:
+  - `c06cdd6 Add searchable manual and manual Tsukuyomi Q&A`
+  - `origin/main` へ push 済み。
+- Vercel:
+  - direct deploy 復旧後、GitHub `main` auto deploy でも Manual Q&A 入り build が Ready。
+  - handoff直前の `vercel inspect https://amd-os-pwa.vercel.app --scope armada0130` では `dpl_3NwkTDdF5yQDoupeVRCAdyFSfemc` / `https://amd-os-aryj3ke4k-armada0130.vercel.app` が production alias。
+  - まさが本番画面で「復活した！」と確認。
+
+### 衝突 / 運用メモ
+
+- current branch は `feat/bzm-textbook`。`c06cdd6` は `main` と `origin/main` にも入っている。
+- worktree は広く dirty。BZM/IP/ERS/L2/manual など並行作業が残っているので、次回も stage/revert は file-by-file でやる。
+- deploy rollback 事故は `pwa/BUGS.md` の `[PWA/manual-qa-deploy]` に恒久メモ化済み。

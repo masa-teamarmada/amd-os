@@ -1,84 +1,86 @@
 # HANDOFF - AMD OS
 
 - Last updated: 2026-05-29 (codex handoff)
-- Topic: マニュアル sidebar 復旧 + コックピット MTGサマリ手動編集 + 議事録 narrative 固定 + `/mtg-minutes` skill
+- Topic: OSマニュアル検索 + つくよみ Manual Q&A + production rollback 復旧
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
-- HEAD before this handoff update: `0ff8a9f` (`fix(pwa): enforce narrative meeting minutes format`)
-- Latest functional commits: `f2947fa`, `6c83fd5`, `170b731`, `0ff8a9f`
+- Feature commit: `c06cdd6 Add searchable manual and manual Tsukuyomi Q&A`
+- Current branch at handoff: `feat/bzm-textbook`
+- Important: `c06cdd6` is on `main` and `origin/main` too. The branch name is not the source of truth for this feature.
+- Latest production alias observed: `dpl_3NwkTDdF5yQDoupeVRCAdyFSfemc` (`https://amd-os-aryj3ke4k-armada0130.vercel.app`), Ready, aliased to `https://amd-os-pwa.vercel.app` at 2026-05-29 16:38 JST.
 
 ## Latest Summary
 
-- マニュアル章ページは、本文表示時も `ManualMapClient` を通すよう戻し、左メニュー / 本文目次 / カテゴリ導線が消えない状態に復旧した。
-- コックピット MTGサマリ詳細は「つくよみに修正依頼」を廃止し、「議事録を手動修正」から `title / summary_short / narrative_md / decided / progress / next_actions / risks` を直接保存する運用にした。保存先は `POST /api/meeting-summary/manual-update`、`source_hash` は変えない。
-- MTG議事録本文は `narrative_md` を正本とし、箇条書きではなく、欠席メンバーが背景から次の一手まで追える文章にする。
-- 開催済みMTGの `narrative_md` 見出しは `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定順。L2⑥ routine / dialogue narrate / critical-ui guard / manual に反映済み。
-- まさが毎回長い prompt を打たなくて済むように、repo外のローカル Codex skill `/Users/masa/.codex/skills/mtg-minutes` を追加した。次回から `/mtg-minutes` で議事録化を呼べる。
-- 詳細ログ: `pwa/design_log/sessions_2026-05.md` 末尾「2026-05-29 (#92) — Codex セッション / マニュアル sidebar 復旧 + MTGサマリ手動修正 + 議事録 narrative 固定 + /mtg-minutes skill」。
+- `/manual` と `/manual/[slug]` に全文検索を追加。検索欄は「検索ワード」と明示し、章タイトル / summary / 見出し / 本文 / 画面パス / table 名を対象にした。
+- `/manual` 限定で `ManualTsukuyomiFloat` を復活。global visible mascot は戻していない。
+- `POST /api/manual/tsukuyomi/ask` を追加。`GEMINI_API_KEY` + `gemini-2.5-flash` でマニュアル本文だけを根拠に回答する read-only route。
+- 回答は `ここ見たらOK` の参照章リンクつき、敬語なしのつくよみ口調、高校生にも分かる説明へ調整。「この抜粋」表現は出さない。
+- 一度フロートが消えた原因は、dirty direct deploy 後に GitHub `main` clean deploy が production alias を上書きしたこと。`c06cdd6` を `origin/main` に push して復旧済み。
+- 詳細ログ: `pwa/design_log/sessions_2026-05.md` の「2026-05-29 (#95)」。
 
 ## Verification / Deploy
 
-Run and observed:
-
-- `npm run test:critical-ui` pass
-- `npx tsc --noEmit --pretty false` pass
-- Clean worktree verification also passed for `test:critical-ui` and `tsc --noEmit`
-- PWA production deploy済み:
-  - Deployment: `https://amd-os-9cvi9iswi-armada0130.vercel.app`
-  - Inspect: `https://vercel.com/armada0130/amd-os-pwa/GzCtmNY6VwVxJYSsgK5t3GhWQpfV`
-  - Deployment id: `dpl_GzCtmNY6VwVxJYSsgK5t3GhWQpfV`
-  - Production alias: `https://amd-os-pwa.vercel.app`
-- `curl -I -L https://amd-os-pwa.vercel.app/manual/2-3-pj-cockpit` は login へ 307 redirect、`next=/manual/2-3-pj-cockpit` 保持を確認。
+- `npx tsc --noEmit` pass。
+- `npm run build` pass。
+- Chrome authenticated verification:
+  - `/manual` に `検索ワード` が 2 箇所表示。
+  - `つくよみに聞く` float が表示。
+  - `L2データにはどのような種類がある？` / `L2データってなに？` で、9種類説明、`ここ見たらOK` リンク、underscore 保護、敬語除去、「この抜粋」なしを確認。
+- `c06cdd6` を `origin/main` に push 済み。
+- `npx vercel inspect https://amd-os-pwa.vercel.app --scope armada0130` で latest production alias `dpl_3NwkTDdF5yQDoupeVRCAdyFSfemc` Ready を確認。
+- 未確認: `dpl_3Nwk...` へ alias が更新された後の authenticated DOM 再チェック。ただし feature commit は `origin/main` に入り、まさが直前の本番で「復活した！」と確認済み。
 
 ## Repo State
 
-- Branch: `main`
-- Local HEAD / origin/main: `0ff8a9f` synced before this handoff doc update.
-- Worktree is dirty with unrelated/unresolved parallel work. Do not revert or mix without re-reading context.
-- Known unrelated dirty areas at handoff time include:
-  - `docs/ip/*.docx` / `docs/ip/*.md`
-  - Manual search / manual Tsukuyomi work: `pwa/src/app/(app)/manual/*`, `pwa/src/app/api/manual/*`
-  - Weekly recurring upcoming MTG changes: `pwa/src/app/api/meeting-prep/calendar-sync/route.ts`, `pwa/src/components/cockpit/CockpitMeetingSummary.tsx`, parts of `pwa/design/meeting_summaries.md`, `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`, `pwa/scripts/check_pwa_critical_ui.cjs`
-  - L2① monthly report automation work: `pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/`, `pwa/manual/8-3-l2-extraction-routines-spec.md`, `pwa/design/L2_DATA.md`, `pwa/src/lib/operations-catalog.ts`
-  - Current worktree `pwa/src/lib/build-info.ts` shows `v0.8.6`, but committed/deployed HEAD for this handoff topic is `v0.8.5`.
+- Current branch: `feat/bzm-textbook`
+- Feature commit: `c06cdd6` (`main` / `origin/main` / `feat/bzm-textbook` に存在)
+- `git log --branches --not --remotes --oneline`: handoff開始時点では空。
+- Worktree is dirty with broad parallel work. Do not revert or stage blindly.
+- Known unrelated or parallel dirty areas:
+  - BZM/IP/ERS: `pwa/bzm/`, `pwa/src/app/(app)/institutions/`, `pwa/src/lib/ers*.ts`, IP docs/code
+  - L2/manual route docs and scheduled-task docs
+  - cockpit / meeting-summary / operations catalog / payment cron files
+  - `pwa/src/lib/build-info.ts`
+- This handoff intentionally updates only handoff/docs/Manual Q&A documentation and bug log files. Stage file-by-file.
 
 ## Open Tasks
 
-- No unresolved code task for the manual sidebar or MTG narrative format commits.
-- `/mtg-minutes` is local to this Mac under `/Users/masa/.codex/skills/mtg-minutes`; if a different machine needs it, copy/install the skill there too.
-- Slash-skill discovery may require a new Codex thread or app reload before `/mtg-minutes` appears in the UI.
+- Manual search / Manual Q&A feature itself: no known blocker.
+- If `/manual` loses the float again, inspect production alias first, then compare the alias deploy source against `origin/main` containing `c06cdd6`.
+- If touching Manual Q&A next, run one authenticated browser check on `/manual` and ask `L2データってなに？` to verify links, tone, and search context.
+- Keep unrelated dirty work separated; do not clean or revert broad worktree changes during a Manual Q&A follow-up.
 
 ## Pointers
 
 - PWA handoff: `pwa/HANDOFF_pwa_rebuild.md`
-- Meeting summaries design: `pwa/design/meeting_summaries.md`
-- PJ cockpit manual: `pwa/manual/2-3-pj-cockpit.md`
-- L2 extraction manual: `pwa/manual/8-3-l2-extraction-routines-spec.md`
-- L2⑥ routine skill: `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`
-- Dialogue MTG rule: `pwa/CLAUDE.md` and `pwa/design/project_strategy_signals.md`
+- Manual design: `pwa/design/os_manual.md`
+- PWA route registry: `pwa/design/SPEC_pwa.md`
+- Feature registry: `pwa/design/FEATURE_REGISTRY.md`
+- Manual chapters: `pwa/manual/1-1-intro.md`, `pwa/manual/3-3-notifications-and-tsukuyomi.md`, `pwa/manual/9-2-developer.md`, `pwa/manual/9-3-appendix-changelog.md`
 - Bug / operations log: `pwa/BUGS.md`
 - Session log: `pwa/design_log/sessions_2026-05.md`
-- Local slash skill: `/Users/masa/.codex/skills/mtg-minutes/SKILL.md`
 
 ## First Read Next Session
 
 1. `HANDOFF.md`
-2. `pwa/HANDOFF_pwa_rebuild.md`
+2. `pwa/design/os_manual.md`
 3. `pwa/design/SPEC_pwa.md`
-4. `pwa/design/meeting_summaries.md`
-5. `pwa/manual/2-3-pj-cockpit.md`
-6. `pwa/manual/8-3-l2-extraction-routines-spec.md`
-7. `pwa/BUGS.md`
-8. `pwa/design_log/sessions_2026-05.md`
+4. `pwa/design/FEATURE_REGISTRY.md`
+5. `pwa/BUGS.md`
+6. `pwa/design_log/sessions_2026-05.md`
+7. `pwa/src/app/(app)/manual/ManualTsukuyomiFloat.tsx`
+8. `pwa/src/app/api/manual/tsukuyomi/ask/route.ts`
+9. `pwa/src/app/(app)/manual/manual-search.ts`
 
 ## First Next Action
 
 ```sh
 cd /Users/masa/projects/AMD/amd-os
 git fetch --all --prune
-git status -s
-git log --branches --not --remotes --oneline
+git status -sb
+git log --oneline --decorate -5
+npx vercel inspect https://amd-os-pwa.vercel.app --scope armada0130
 ```
 
-Then continue from the user's next request. If it touches MTG summaries, preserve `narrative_md` as the primary artifact and avoid reintroducing Tsukuyomi correction UI in the MTG detail modal.
+Then open `/manual` in an authenticated browser only if the next task touches Manual search or Manual Q&A.
