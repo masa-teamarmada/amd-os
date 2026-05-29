@@ -9757,7 +9757,7 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 ### 関連メモ更新 (Cowork memory)
 - `feedback_no_silent_feature_deletion.md` 新規 + `MEMORY.md` index 更新。
 
-## 2026-05-29 (#90) — Cowork セッション (cowork-eimi) / 香川大訪問 議事録の OS 投入 + manual 冒頭に「OS の意義」
+## 2026-05-29 (#91) — Cowork セッション (cowork-eimi) / 香川大訪問 議事録の OS 投入 + manual 冒頭に「OS の意義」
 
 > Cowork (Claude Desktop) 上で動いた cowork-eimi セッションのログ。次のえいみ (Codex / 別 Cowork) が読めば把握できるよう残す。
 
@@ -9780,7 +9780,8 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 - manual は commit `d979e79` で origin/main 反映済。
 
 ### Cowork ↔ Codex 衝突メモ
-- 衝突なし。amd-os は `1-1-intro.md` と本 design_log のみ specific add で commit、他の uncommitted は触らず。
+- 並行 codex/別 cowork セッション (`d5efc1d`「カレンダー色→PJ判定 復旧」) が先に #90 を使用 → 本エントリは当初 #90 で commit (`a8d5119`) 後、重複に気づき **#91 に採番し直し**。push は fast-forward 成功・データ損失なし、互いの編集ファイルは非重複 (向こう=3-2/9-3/next.config 等、こちら=1-1-intro/本log)。
+- 教訓: 並行時は採番が衝突しうる。push 後に `grep -E "\(#N\)"` で重複確認する。amd-os は `1-1-intro.md` と本 design_log のみ specific add、他の uncommitted は触らず。
 
 ### 関連メモ更新 (Cowork memory)
 - `feedback_research_keypersons.md`(新) / `feedback_eimi_persona_nonstop.md`(新) / `feedback_verify_by_outcome.md`(→「えいみが自分で品質担保」に改題) / `feedback_masa_role_os_purpose.md`(新) を整備、`MEMORY.md` index 更新。
