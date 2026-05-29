@@ -9786,6 +9786,48 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 ### 関連メモ更新 (Cowork memory)
 - `feedback_research_keypersons.md`(新) / `feedback_eimi_persona_nonstop.md`(新) / `feedback_verify_by_outcome.md`(→「えいみが自分で品質担保」に改題) / `feedback_masa_role_os_purpose.md`(新) を整備、`MEMORY.md` index 更新。
 
+## 2026-05-29 (codex) — コックピット予定MTG weekly recurring を次回1件に制限 + v0.8.5 deploy
+
+### コンテキスト
+
+- まさ指摘: コックピットの MTG ツリーで、weekly MTG が数か月先まで全部カード化されていてノイズになっていた。
+- 要件: weekly MTG は次回分だけ見えていればよい。複数の weekly があるケースでは、それぞれの series ごとに1件ずつ表示する。
+- 既に作られた future row も画面で隠す必要があるため、同期 route と cockpit 表示の両方に guard を入れた。
+
+### 実装
+
+- `pwa/src/app/api/meeting-prep/calendar-sync/route.ts`
+  - `recurring_event_id` / `recurringEventId` / `recurrence` を受け取り、Google Calendar recurring series を優先 key にする。
+  - recurring id が無い場合は `project + title + weekday + JST start time + location` を fallback series key にする。
+  - 6〜8日間隔の future occurrence を weekly series とみなし、2件目以降を `weekly_recurring_future_occurrence` として skip。
+- `pwa/src/components/cockpit/CockpitMeetingSummary.tsx`
+  - DBに既に残っている weekly future row も、series ごとに次回1件だけ残す `keepNextWeeklyOccurrenceOnly` filter を追加。
+- `pwa/design/meeting_summaries.md` / `pwa/design/L2_DATA.md` / `pwa/manual/3-2-data-and-extraction.md` / `pwa/manual/8-3-l2-extraction-routines-spec.md`
+  - L2⑥予定MTG同期の恒久仕様として「weekly recurring は series ごとに次回1件のみ」を追記。
+- `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`
+  - routine が recurring metadata を渡し、weekly は次回1件だけ送るよう明記。
+- `pwa/scripts/check_pwa_critical_ui.cjs`
+  - `weekly_recurring_future_occurrence` と weekly recurring 設計文言を guard に追加。
+- `pwa/src/lib/build-info.ts`
+  - `v0.8.5` に bump。
+
+### Verification / Deploy
+
+- `npx tsc --noEmit` pass。
+- `npm run test:critical-ui` pass。
+- `npm run build` pass。
+- Vercel deployment: `https://amd-os-drc9u9qmv-armada0130.vercel.app` / `dpl_H9RG63JndSyL84ks9TazQkcSEXn7` が Ready。
+- Production alias `https://amd-os-pwa.vercel.app` が同 deployment を指すことを `vercel inspect` で確認。
+- `curl -I -L https://amd-os-pwa.vercel.app/project/p21/cockpit` は login redirect、`/auth/login` HTML の `data-dpl-id` が `dpl_H9RG63JndSyL84ks9TazQkcSEXn7` であることを確認。
+- まさが本番画面で「ちゃんとできてた！」と確認。
+
+### 衝突 / 運用メモ
+
+- worktree は並行作業で広く dirty。今回の weekly MTG 差分以外に manual search、L2① monthly report、docs/ip などの未整理差分がある。
+- `pwa/src/app/api/dialogue-meeting/narrate/route.ts` は build 中に unrelated syntax issue が見つかり、固定見出しの backtick escape だけ修正した。元の narrative heading 改修は並行作業由来なので、次回は ownership を決めて扱う。
+- deploy script は local session が code -1 / no output で切れたが、Vercel 側は Ready。再 deploy せず `vercel inspect` と alias 確認で完了判定した。
+- `npm run build` 中に stale `next build` が `.next/lock` を握る再発があり、`ps` 確認後に stale process 終了 + lock 削除で復旧。
+
 ## 2026-05-29 (#92) — Codex セッション / マニュアル sidebar 復旧 + MTGサマリ手動修正 + 議事録 narrative 固定 + `/mtg-minutes` skill
 
 ### コンテキスト
@@ -9842,3 +9884,53 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 - handoff時点で同じ worktree には、manual search / weekly recurring upcoming MTG / L2① monthly reports / docs/ip などの未整理差分が残っている。今回の手動修正・議事録固定とは混ぜない。
 - 現在の worktree `pwa/src/lib/build-info.ts` は別作業由来で `v0.8.6` になっているが、本エントリで deploy 済みの functional HEAD は `v0.8.5`。
 - `/mtg-minutes` はこの Mac のローカル skill。別マシンで使う場合は同じ skill をコピー / install する。
+
+## 2026-05-29 (codex handoff refresh) — `defcfb5` と本番 weekly-MTG 差分の整合メモ
+
+### 目的
+
+- `/handoff` 呼び出し時点で `HANDOFF.md` / `pwa/HANDOFF_pwa_rebuild.md` が weekly recurring MTG fix を指していた一方、git の `HEAD` / `origin/main` は `defcfb5` だった。
+- つまり production `dpl_H9RG63JndSyL84ks9TazQkcSEXn7` は、`defcfb5` 上の未コミット weekly-MTG 差分を含む可能性が高い。
+- 次回 clean deploy で production behavior が巻き戻らないよう、handoff に production-ahead-of-git risk を明記した。
+
+### 更新
+
+- `HANDOFF.md` と `pwa/HANDOFF_pwa_rebuild.md` の HEAD 表記を `defcfb5` に更新。
+- 「weekly recurring MTG は production verified だが、関連差分は worktree に未コミットで残っている」ことを Repo State / Open Tasks に追記。
+- 本 handoff refresh ではコード・DB・manual仕様は変更していない。
+
+### Verification
+
+- `git log --branches --not --remotes --oneline` が空で、未push commit が無いことを確認。
+- `git diff --check` pass。
+
+## 2026-05-29 (#93) — Cowork セッション (cowork-eimi) / 過去の箇条書きMTGサマリ 110+件を narrative backfill + 通常MTG用 narrate API 新設
+
+> Cowork (Claude Desktop) 上で動いた cowork-eimi セッションのログ。#92 (Codex) が「今後の議事録は narrative」という生成ルールを作ったのに対し、本セッションは「既存の箇条書きデータを遡及で narrative 化」を担当した。補完関係。
+
+### コンテキスト
+- 発端は「SX コックピットの FC (ファインケム) との MTG モーダルが勝手にブラウザで開いた」というまさの気づき → 別セッション (#92 Codex) の verify 動作と判明
+- まさ不満: FC・JAFCO の MTG サマリが箇条書きに劣化し narrative が無い。「せっかくクオリティ高い議事録作ったのに上書きされて消えてる」
+- 原因特定: 旧抽出経路 (`gemini-2.5-flash` / `anthropic:claude-sonnet-4-5-20250929` / `(null)` / `codex_manual_*`) が `narrative_md` を作らず箇条書きだけ書いていた。新 L2⑥ は過去 MTG (終了60-180分窓外) を再処理しないため箇条書きのまま凍結。JAFCO は旧 sonnet-4-5 backfill が「まさ(JAFCO)」等の誤りごと上書きしていた
+- まさ指示: ①Codex automation は議事録を書き続ける (止めない) ②ただし narrative 形式必須 ③MMOマシンの automation 更新は帰宅後 ④既存の箇条書き全MTGを narrative に書き換え ⑤帰宅後タスクを別セッションでリマインド
+
+### 実装
+- **DB**: `project_meeting_summaries.narrative_md` を 110+件 backfill (SX 36 / p06 16 / p19 14 / p20 12 / p07 LiSTie 9 / FC・JAFCO 2)。最終 `with_narrative_total=167`、`real_meetings_still_no_narrative=0`。`source_hash` / `generated_by_model` は不変 (= 抽出経路情報を保持 + L2⑥ 再抽出から保護)
+- **コード**: [meeting-summary/narrate/route.ts](../src/app/api/meeting-summary/narrate/route.ts) 新設。dialogue narrate と対称の通常MTG用バッチ narrate (Sonnet 4.6 / 固定5見出し / 箇条書き禁止 = #92 ルール準拠)。`{meeting_id}` 単発 + `{all:true, project_id?, limit?}` バッチ、CRON_SECRET 認証
+- **scheduled task**: `amd-os-codex-narrative-upgrade-reminder` 新設 (毎朝9時、帰宅後 MMOマシンの Codex automation narrative 化をプッシュリマインド、完了で自己 disable)
+
+### Verified
+- DB: `real_meetings_still_no_narrative=0` / `with_narrative_total=167` を SELECT 確認
+- コード: FC/JAFCO/愛大産連/LiSTie 経営会議の narrative をまさが本番目視「クオリティ戻った！」と確認。tsc pass、v0.8.4 で deploy
+- backfill 経路: SX〜p20 は narrate API バッチ (Sonnet)、FC・JAFCO と p07 LiSTie 9件は cowork-eimi 直接生成 (Opus) → SQL UPDATE
+
+### Cowork ↔ Codex 衝突メモ
+- #92 (Codex) と本セッションは**同じ MTG narrative 領域を並行**。#92 が「生成ルール (L2⑥ prompt / dialogue narrate / 品質gate `v7_fixed_heading`)」、本セッションが「既存データ backfill + バッチ narrate API」= 補完関係
+- narrate/route.ts は本セッション新設後、#92 の SYSTEM_PROMPT ルール (固定5見出し・箇条書き禁止) に別セッションが整合させた
+- **事故**: narrate route を v0.8.4 で deploy → 直後に #92 系の v0.8.5 deploy が走り、未コミットの narrate route が本番から消えた (POST が HTML を返す)。backfill 後半 (p07) は API 非依存の Opus 手書きに切替えて回避
+- **教訓**: 未コミットの新 route は別セッション deploy で本番から落ちる。新 route は早めに commit して保全すべき。`build-info.ts` は #92 系が v0.8.5/v0.8.6 を管理中のため本セッションは触っていない
+- **未処理**: narrate route はまだ未コミット (本 handoff で commit する)。L2⑥ routine と「MMOマシンの Codex automation (outbox 系)」が narrative を出すかは #92 と本リマインドで二重追跡中
+
+### 関連メモ更新 (Cowork memory)
+- `memory/feedback_mtg_narrative_required.md` 新規 (MTG議事録は narrative が正本、箇条書きは劣化、全抽出経路が narrative 生成すべき)
+- `MEMORY.md` に1行追加
