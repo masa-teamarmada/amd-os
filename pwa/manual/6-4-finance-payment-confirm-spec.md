@@ -10,7 +10,7 @@ AMD の請求 → 入金確認 → 会計反映までの finance 系オペレー
 |---|---|---|
 | `/admin/finance` | 月次 finance 概況。 recurring items、 receipt events、 freee 連携状況、 入金未確認 cycle 一覧を見る | admin |
 | `/payment-confirm?token=XXX` | SU 側担当が「予定通り入金しました」を 1 クリックで申告する公開ページ | signed token で認可 |
-| `POST /api/admin/payment-confirm` | confirm 申告を受けて `billing_cycles.payment_confirmed_at` を更新 | signed token verify |
+| `POST /api/admin/payment-confirm` | confirm 申告を受けて `billing_cycles.payment_confirmed_at` を更新。`mode=expected` は予定額のまま Slack action から確定、通常 POST は実額入力フォームから確定 | signed token verify |
 | `GET /api/cron/freee-payment-sync` | freee 会計の income deals を読み、 該当する `billing_cycles` を payment_confirmed に上げる | `CRON_SECRET` |
 | `GET /api/cron/payment-confirm-nudges` | 当日が支払日付近の cycle を抽出、 SU 担当に Slack DM を送る | `CRON_SECRET` |
 
@@ -186,12 +186,16 @@ WHERE invoice_sent_at IS NOT NULL
 予定額: ¥{expectedNetAmountYen} (= 振込予定)
 予定日: {paymentDueDate}
 
-入金済みなら 1 タップで確定:
-{APP_BASE_URL}/payment-confirm?token={token}
-
-freee で確認 (admin):
-{APP_BASE_URL}/api/admin/payment-confirm?mode=expected&token={token}
+ボタン:
+- 予定通り入金済み
+- 金額を入力
 ```
+
+`予定通り入金済み` は、GAS `slackInteractiveWorker` の `payment_confirm_expected` handler が本番デプロイ済みで、PWA env `PAYMENT_CONFIRM_SLACK_INTERACTIVE=1` のときだけ Slack interactive action になる。押すと GAS worker が value 内の signed token を使って `POST /api/admin/payment-confirm` を `mode=expected` で呼び、`billing_cycles.payment_confirmed_at` を更新する。完了後はブラウザを開かず、つくよみが元DMのスレッドに反映結果を返信する。
+
+`PAYMENT_CONFIRM_SLACK_INTERACTIVE` が未設定の間は、既存互換の URL confirm ボタンとして出す。GAS 側の Google OAuth / `clasp` 再認証が切れていると action handler を本番反映できないため、壊れた押下体験を出さないための安全弁。
+
+`金額を入力` だけは `/payment-confirm?token=...` を開く。実額・差額メモを入力するための公開フォームなので、ここはブラウザ導線のまま。
 
 `token` は `createPaymentConfirmationToken(payload)` で発行 (= 14 日 expiry)。
 
@@ -222,9 +226,11 @@ freee で確認 (admin):
 |---|---|
 | `PAYMENT_CONFIRM_TOKEN_SECRET` | signed token の HMAC secret (= 未設定なら `CRON_SECRET` を fallback) |
 | `CRON_SECRET` | cron API 認証 + signed token fallback |
-| `SLACK_BOT_TOKEN` | nudge 送信用 |
+| `SLACK_BOT_TOKEN` | nudge 送信用。GAS 側は interactivity worker のスレッド返信にも使う |
 | `FREEE_CLIENT_ID` / `FREEE_CLIENT_SECRET` | freee OAuth |
 | `APP_BASE_URL` | confirm URL 組み立て (= `https://amd-os-pwa.vercel.app`) |
+| `PAYMENT_CONFIRM_SLACK_INTERACTIVE` | `1` のときだけ `予定通り入金済み` を Slack action ボタンにする。GAS worker デプロイ前は未設定にする |
+| GAS `PWA_BASE_URL` | Slack action worker が PWA `POST /api/admin/payment-confirm` を呼ぶ先 |
 
 ## トラブル時
 

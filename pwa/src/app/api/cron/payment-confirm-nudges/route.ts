@@ -8,6 +8,7 @@ import { cleanYm, currentYmJst, loadPaymentConfirmationGroups } from "@/lib/paym
 export const runtime = "nodejs";
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_BASE_URL || "https://amd-os-pwa.vercel.app";
+const ENABLE_SLACK_INTERACTIVE_CONFIRM = process.env.PAYMENT_CONFIRM_SLACK_INTERACTIVE === "1";
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -90,6 +91,29 @@ async function sendPaymentConfirmNudges(paymentYm: string, dryRun: boolean) {
         });
         const expectedUrl = `${APP_BASE_URL}/api/admin/payment-confirm?mode=expected&token=${encodeURIComponent(confirmToken)}`;
         const actualUrl = `${APP_BASE_URL}/payment-confirm?token=${encodeURIComponent(confirmToken)}`;
+        const confirmValue = JSON.stringify({
+          token: confirmToken,
+          projectId: group.projectId,
+          projectName: group.projectName,
+          invoiceYm: group.invoiceYm,
+          sourceYms: group.sourceYms,
+          expectedAmountYen: group.expectedGrossAmountYen,
+          expectedNetAmountYen: group.expectedNetAmountYen,
+        });
+        const expectedButton = ENABLE_SLACK_INTERACTIVE_CONFIRM
+          ? {
+              type: "button",
+              text: { type: "plain_text", text: "予定通り入金済み" },
+              style: "primary",
+              action_id: "payment_confirm_expected",
+              value: confirmValue,
+            }
+          : {
+              type: "button",
+              text: { type: "plain_text", text: "予定通り入金済み" },
+              style: "primary",
+              url: expectedUrl,
+            };
         const text = `入金確認: ${group.projectName} ${ymLabel(group.invoiceYm)} ${fmtYen(group.expectedGrossAmountYen)}`;
         const blocks = [
           {
@@ -107,7 +131,7 @@ async function sendPaymentConfirmNudges(paymentYm: string, dryRun: boolean) {
           {
             type: "actions",
             elements: [
-              { type: "button", text: { type: "plain_text", text: "予定通り入金済み" }, style: "primary", url: expectedUrl },
+              expectedButton,
               { type: "button", text: { type: "plain_text", text: "金額を入力" }, url: actualUrl },
             ],
           },
