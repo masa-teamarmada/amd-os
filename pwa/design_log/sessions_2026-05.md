@@ -9785,3 +9785,60 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 
 ### 関連メモ更新 (Cowork memory)
 - `feedback_research_keypersons.md`(新) / `feedback_eimi_persona_nonstop.md`(新) / `feedback_verify_by_outcome.md`(→「えいみが自分で品質担保」に改題) / `feedback_masa_role_os_purpose.md`(新) を整備、`MEMORY.md` index 更新。
+
+## 2026-05-29 (#92) — Codex セッション / マニュアル sidebar 復旧 + MTGサマリ手動修正 + 議事録 narrative 固定 + `/mtg-minutes` skill
+
+### コンテキスト
+
+- まさ指摘: マニュアル章を開くと左のメニューが消える。章ページでもメニューを消さず復活させる。
+- まさ要望: コックピットの MTGサマリは「つくよみに修正依頼」ではなく、人間が手動で修正できるようにする。LLM補正に頼らない。
+- まさ要望: えいみが今後議事録を作るとき、箇条書きにしない。参加していなかったメンバーにも理解できる文章にする。
+- まさ確認: 議事録本文は `🎯背景 → 📊経緯 → ✅決まったこと → ▶️次の一手 → ⚠️残課題` の順で Markdown 化する。
+- まさ指摘: 長い prompt を毎回手で打つのは現実的でない。slash で呼べる skill が必要。
+
+### 実装
+
+1. **マニュアル章ページ**
+   - commit `f2947fa fix(pwa): keep manual sidebar on chapter pages`
+   - `pwa/src/app/(app)/manual/[slug]/page.tsx` を `ManualMapClient` で包み直し、章本文を開いた状態でも左の本文目次 / カテゴリメニューが残るようにした。
+   - `BUILD_VERSION` は `v0.7.8`。
+
+2. **MTGサマリ手動修正**
+   - commit `6c83fd5 fix(pwa): make meeting summaries manually editable`
+   - `CockpitMeetingDetailModal` から「つくよみに修正依頼」ブロックを撤去し、「議事録を手動修正」UIを主導線にした。
+   - `POST /api/meeting-summary/manual-update` で `title / summary_short / narrative_md / decided / progress / next_actions / risks` を保存し、`generated_by_model='manual-edit'` にする。`source_hash` は変えない。
+   - `pwa/design/FEATURE_REGISTRY.md` / `pwa/design/meeting_summaries.md` / `pwa/manual/2-3-pj-cockpit.md` / `check_pwa_critical_ui.cjs` に手動編集正本化を反映。
+   - `BUILD_VERSION` は `v0.7.12`。
+
+3. **議事録 narrative ルール**
+   - commit `170b731 fix(pwa): require narrative meeting minutes`
+   - commit `0ff8a9f fix(pwa): enforce narrative meeting minutes format`
+   - `project_meeting_summaries.narrative_md` を本文正本とし、`summary_short` / `decided` / `progress` / `next_actions` / `risks` は検索・通知用の補助にした。
+   - L2⑥ routine と `/api/dialogue-meeting/narrate` の prompt を、箇条書き禁止 + 欠席メンバーに伝わる文章 + 固定5見出しへ更新した。
+   - `v7_fixed_heading_narrative` と `blocked_wrong_narrative_headings` を追加し、見出し表記・順序違いを品質 gate で止める。
+   - `pwa/CLAUDE.md` / `pwa/design/meeting_summaries.md` / `pwa/design/project_strategy_signals.md` / `pwa/manual/2-2-member-workflows-quick-start.md` / `pwa/manual/2-3-pj-cockpit.md` / `pwa/manual/2-4-amd-cockpit.md` / `pwa/manual/8-3-l2-extraction-routines-spec.md` に同期。
+   - 最終 deploy 対象の `BUILD_VERSION` は `v0.8.5`。
+
+4. **Codex slash skill**
+   - repo外ローカル skill として `/Users/masa/.codex/skills/mtg-minutes/SKILL.md` と `/Users/masa/.codex/skills/mtg-minutes/agents/openai.yaml` を追加。
+   - 呼び出し名は `/mtg-minutes`。メモ貼り付けだけでなく、Notion URL / Notionページ名 / 「Notionの議事録を見て」などの素材指定でも使える。
+   - 出力は固定5見出し、本文は箇条書き禁止。正式決定でない内容は「提案として固まったこと」と分かるように書く。
+
+### Verification / deploy
+
+- `npm run test:critical-ui` pass。
+- `npx tsc --noEmit --pretty false` pass。
+- clean worktree `/tmp/amd-os-verify-0ff8a9f` でも `npm run test:critical-ui` と `npx tsc --noEmit --pretty false` pass。
+- deploy script pass。
+  - Deployment: `https://amd-os-9cvi9iswi-armada0130.vercel.app`
+  - Inspect: `https://vercel.com/armada0130/amd-os-pwa/GzCtmNY6VwVxJYSsgK5t3GhWQpfV`
+  - Deployment id: `dpl_GzCtmNY6VwVxJYSsgK5t3GhWQpfV`
+  - Production alias: `https://amd-os-pwa.vercel.app`
+- `curl -I -L https://amd-os-pwa.vercel.app/manual/2-3-pj-cockpit` は login へ 307 redirect、`next=/manual/2-3-pj-cockpit` 保持を確認。
+
+### Handoff メモ
+
+- `main` / `origin/main` は `0ff8a9f` で同期済み。
+- handoff時点で同じ worktree には、manual search / weekly recurring upcoming MTG / L2① monthly reports / docs/ip などの未整理差分が残っている。今回の手動修正・議事録固定とは混ぜない。
+- 現在の worktree `pwa/src/lib/build-info.ts` は別作業由来で `v0.8.6` になっているが、本エントリで deploy 済みの functional HEAD は `v0.8.5`。
+- `/mtg-minutes` はこの Mac のローカル skill。別マシンで使う場合は同じ skill をコピー / install する。

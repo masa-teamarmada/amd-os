@@ -558,6 +558,7 @@ Phase 2 完了後:
 | **2026-05-09** | **MTGサマリ feedback 対応** (gas/074 v4_alias_feedback): `_l2_loadFeedbackBlock_("meeting_summary", projectId, meetingId)` で過去依頼を取得 → userPrompt に追加。saved>0 で `_l2_recordFeedbackApplied_` で applied_count++。source_hash に active feedback hash を混ぜる → 修正依頼追加で自動再抽出。`POST /api/notifications/feedback` 末尾で **即 force 再抽出を fire-and-forget** | ac23ec1 |
 | **2026-05-29** | **コックピット MTGサマリ修正導線を手動編集へ一本化**: `CockpitMeetingDetailModal` から「つくよみに修正依頼」ブロックを撤去し、「議事録を手動修正」→ `POST /api/meeting-summary/manual-update` を主導線に変更。既存の historical `l2_feedbacks` は routine 側で読めるが、コックピット詳細から新規作成しない。 | 本セッション |
 | **2026-05-29** | **MTGサマリ narrative の箇条書き禁止を明文化**: L2⑥ routine / dialogue narrate は、欠席メンバーが背景から次の一手まで追える文章 narrative を生成する。`decided` 等の配列は検索・通知用の補助で、議事録本文を箇条書きに戻さない。 | 本セッション |
+| **2026-05-29** | **議事録本文の5見出し固定順を正本化**: 開催済みMTGの `narrative_md` は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順に固定。表記ゆれや順序違いは品質 gate で保存しない。 | 本セッション |
 | **2026-05-09** | **debug_meeting_inspectBlocks(pageId)** 新設 (gas/158): 任意ページの blocks 構造を JSON で返す常設 debug 関数 | fbeabb5 |
 | TBD | Phase 2.1: reportEmails の整備 + CircleBack / GMeet 議事録メールの経路確認 | |
 | TBD | Phase 2.5: AMD-Report GAS の R313 を会議サマリ集約に書き換え (別セッション) | |

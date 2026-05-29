@@ -1,82 +1,63 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-05-28 (codex handoff)
-- Topic: `/admin/payouts` 保存済み支払額優先 + 支払通知書PDF 税抜→税込表示の本番復旧
+- Last updated: 2026-05-29 (codex handoff)
+- Topic: マニュアル sidebar 復旧 + コックピット MTGサマリ手動編集 + 議事録 narrative 固定 + `/mtg-minutes` skill
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
-- HEAD before this handoff update: `f96df4e` (`docs: record invoice number manual coverage`)
-- Latest functional commits: `5e91b8f`, `01f840c`, `fb8837f`, `09a9c2a`
+- HEAD before this handoff update: `0ff8a9f` (`fix(pwa): enforce narrative meeting minutes format`)
+- Latest functional commits: `f2947fa`, `6c83fd5`, `170b731`, `0ff8a9f`
 
 ## Latest Summary
 
-- `/admin/payouts` は既存 `monthly_reward_payout` がある場合、保存済み支払額を画面・`payout_notices.total_yen`・PDF payload の正本にする。
-- 4月稼働分 (`202604`) は変更不可扱いで、実績配分ではなく旧 planned share 計算を維持する。
-- かるちゃん (ID003) の SX 202601-202603 は `155,578 + 327,737 + 248,425 = 731,740円`。これは税抜。
-- GAS支払通知書PDFは税抜支払額に消費税10%を上乗せし、`お支払金額` / `合計（税込）` に税込額を出す。
-- 一度、PDFだけ `731,740円(税込)` / `小計 665,218円` と旧割り戻しロジックで出たが、原因は GAS Web App deployment stale。`@1480` で修正を本番化し、`@1482` で一時検証関数削除後のクリーン版へ戻した。
-- 詳細ログ: `pwa/design_log/sessions_2026-05.md` 末尾「2026-05-28 (codex) /admin/payouts 保存済み支払額優先 + 支払通知書PDF 税抜→税込反映」。
+- `/manual/[slug]` は `ManualMapClient` を使う構造に戻し、章を開いても左のメニューが消えない。
+- コックピット MTG詳細では「つくよみに修正依頼」を出さず、「議事録を手動修正」から `POST /api/meeting-summary/manual-update` で表示用フィールドを直接更新する。
+- `project_meeting_summaries.narrative_md` は議事録本文の正本。`summary_short` / `decided` / `progress` / `next_actions` / `risks` は補助であり、本文を箇条書きへ戻さない。
+- `narrative_md` の見出しは `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` に固定。L2⑥ routine と `/api/dialogue-meeting/narrate` の prompt / guard / manual に反映済み。
+- repo外のローカル Codex skill `/Users/masa/.codex/skills/mtg-minutes` を追加。まさは `/mtg-minutes` にメモ、Notion URL、ページタイトルなどを添えて議事録化を呼べる。
+- 詳細ログ: `pwa/design_log/sessions_2026-05.md` 末尾「2026-05-29 (#92) — Codex セッション / マニュアル sidebar 復旧 + MTGサマリ手動修正 + 議事録 narrative 固定 + /mtg-minutes skill」。
 
 ## Verification / Deploy
 
 Run and observed:
 
-- PWA: `npm run test:critical-ui` pass
-- PWA: `npm run build` pass
-- GAS syntax: `node --check gas/064_PayoutFreeeNotice.js` pass
-- PWA production deploy済み: `https://amd-os-pwa.vercel.app`
-- GAS auth: `npx --yes @google/clasp@latest login` pass (`masa@team-armada.jp`)
-- GAS production deployment:
-  - `@1480` `v1480_payout_notice_tax_excluded`
-  - `@1482` `v1482_remove_temp_pdf_probe`
-- Forced PDF regeneration:
-  - `POST /api/cron/payout-notice-prebuild` with `{ ym:"202605", force:true }`
-  - generated 7 / skipped 0 / failed 0
-  - ID003 new PDF: `https://drive.google.com/file/d/1pardsUP_Yass7640mRyYgwfaZnklQxqK/view?usp=drivesdk`
-- ID003 PDF text extraction verified:
-  - `お支払金額 804,914円（税込）`
-  - `小計（税抜） 731,740円`
-  - `消費税（10%） 73,174円`
-  - `合計（税込） 804,914円`
-
-Known caveat:
-
-- `clasp push` と PWA deploy だけでは GAS Web App `/exec` は更新されない。PWA が叩く deployment ID を `clasp deploy --deploymentId ...` で更新すること。
+- `npm run test:critical-ui` pass
+- `npx tsc --noEmit --pretty false` pass
+- Clean worktree verification also passed for `test:critical-ui` and `tsc --noEmit`
+- PWA production deploy済み:
+  - Deployment: `https://amd-os-9cvi9iswi-armada0130.vercel.app`
+  - Inspect: `https://vercel.com/armada0130/amd-os-pwa/GzCtmNY6VwVxJYSsgK5t3GhWQpfV`
+  - Deployment id: `dpl_GzCtmNY6VwVxJYSsgK5t3GhWQpfV`
+  - Production alias: `https://amd-os-pwa.vercel.app`
+- `curl -I -L https://amd-os-pwa.vercel.app/manual/2-3-pj-cockpit` は login へ 307 redirect、`next=/manual/2-3-pj-cockpit` 保持を確認。
 
 ## Repo State
 
 - Branch: `main`
-- Worktree before this handoff doc update: clean
-- During handoff, unrelated dirty files appeared and were not edited/staged here:
-  - `pwa/design/ms_progress.md`
-  - `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md`
-  - `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md`
-  - `pwa/src/lib/build-info.ts`
-  - `pwa/src/lib/progress-estimator.ts`
-  Do not mix them into payout-tax commits without re-reading owner/context.
-- Handoff/docs changed in this flow:
-  - `HANDOFF.md`
-  - `pwa/HANDOFF_pwa_rebuild.md`
-  - `pwa/design_log/sessions_2026-05.md`
-  - `pwa/BUGS.md`
-  - `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
-  - `pwa/manual/9-2-developer.md`
-  - `gas/CLAUDE.md`
+- Local HEAD / origin/main: `0ff8a9f` synced before this handoff doc update.
+- Worktree is dirty with unrelated/unresolved parallel work. Do not revert or mix without re-reading context.
+- Known unrelated dirty areas at handoff time include:
+  - `docs/ip/*.docx` / `docs/ip/*.md`
+  - Manual search / manual Tsukuyomi work: `pwa/src/app/(app)/manual/*`, `pwa/src/app/api/manual/*`
+  - Weekly recurring upcoming MTG changes: `pwa/src/app/api/meeting-prep/calendar-sync/route.ts`, `pwa/src/components/cockpit/CockpitMeetingSummary.tsx`, parts of `pwa/design/meeting_summaries.md`, `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`, `pwa/scripts/check_pwa_critical_ui.cjs`
+  - L2① monthly report automation work: `pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/`, `pwa/manual/8-3-l2-extraction-routines-spec.md`, `pwa/design/L2_DATA.md`, `pwa/src/lib/operations-catalog.ts`
+  - Current worktree `pwa/src/lib/build-info.ts` shows `v0.8.6`, but committed/deployed HEAD for this handoff topic is `v0.8.5`.
 
 ## Open Tasks
 
-- Operational: actual invoice registration numbers still need to be entered in `/admin/members` as needed.
-- No unresolved code task for the payout tax issue.
+- No unresolved code task for the manual sidebar or MTG narrative format commits.
+- `/mtg-minutes` is local to this Mac under `/Users/masa/.codex/skills/mtg-minutes`; if a different machine needs it, copy/install the skill there too.
+- Slash-skill discovery may require a new Codex thread or app reload before `/mtg-minutes` appears in the UI.
 
 ## First Read Next Session
 
 1. `HANDOFF.md`
 2. `pwa/HANDOFF_pwa_rebuild.md`
 3. `pwa/design/SPEC_pwa.md`
-4. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
-5. `pwa/BUGS.md`
-6. `pwa/design/FEATURE_REGISTRY.md`
-7. `gas/CLAUDE.md`
+4. `pwa/design/meeting_summaries.md`
+5. `pwa/manual/2-3-pj-cockpit.md`
+6. `pwa/manual/8-3-l2-extraction-routines-spec.md`
+7. `pwa/BUGS.md`
 8. `pwa/design_log/sessions_2026-05.md`
 
 ## First Next Action
@@ -88,4 +69,4 @@ git status -s
 git log --branches --not --remotes --oneline
 ```
 
-Then continue from the user's next request. If it touches payout PDFs, split investigation into (1) saved payout amount source, (2) PWA payload, and (3) GAS Web App deployment/PDF rendering.
+Then continue from the user's next request. If it touches MTG summaries, preserve `narrative_md` as the primary artifact and avoid reintroducing Tsukuyomi correction UI in the MTG detail modal.

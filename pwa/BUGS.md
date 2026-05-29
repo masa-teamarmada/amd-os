@@ -2926,3 +2926,17 @@
   - GAS Web App 経由の機能は `clasp push` だけで完了扱いしない。必ず `clasp deploy --deploymentId <PWA本番deployment>` まで行う。
   - 支払通知書PDFの税計算・テンプレ・ラベルを触ったら、`force:true` で再生成し、実PDFのテキスト/数字まで確認する。
   - `731,740円` 税抜の検算基準は `小計 731,740円 / 消費税 73,174円 / 合計 804,914円`。`小計 665,218円` が出たら旧割り戻しロジックが残っている。
+
+## [PWA/manual] 章ページで左メニューが消える (2026-05-29)
+
+- **症状**: `/manual/[slug]` の章ページを開くと、`/manual` トップにあった左メニュー / 本文目次 / カテゴリ移動が消え、本文だけの細いレイアウトになった。
+- **原因**: 章ページが `ManualMapClient` を通らず、article だけを描画する構造になっていた。manual 全体のナビゲーション仕様と章ページの実装が分離していた。
+- **対応内容**: `pwa/src/app/(app)/manual/[slug]/page.tsx` を `ManualMapClient` で包み、`activeChapterSlug` を渡して章本文表示中も左メニューを維持するようにした。commit `f2947fa`。
+- **再発防止策**: マニュアル UI を触る時は `/manual` トップだけでなく、代表章 `/manual/2-3-pj-cockpit` などの chapter route も確認する。章ページが独自レイアウトで manual shell を bypass していないかを見る。
+
+## [PWA/l2-meeting] 議事録が箇条書きや表記ゆれ見出しに戻る余地があった (2026-05-29)
+
+- **症状**: MTG議事録の本文が、参加していないメンバーには流れが分からない箇条書きや、8セクション形式 / 表記ゆれ見出しへ戻る余地が残っていた。コックピット詳細も「つくよみに修正依頼」に依存しており、低品質なLLM再解釈を手動で止めづらかった。
+- **原因**: `narrative_md` の文体ルールはあったが、固定見出し順と箇条書き禁止が L2⑥ routine / dialogue narrate / manual / critical guard 全体で一枚岩になっていなかった。修正導線も人間の直接編集ではなく LLM correction 前提に寄っていた。
+- **対応内容**: MTG詳細モーダルは「議事録を手動修正」に一本化し、`POST /api/meeting-summary/manual-update` で表示用フィールドを直接更新する。L2⑥ routine と dialogue narrate は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定5見出し、段落 narrative、箇条書き禁止へ更新。見出し違いは `blocked_wrong_narrative_headings` として保存しない。commits `6c83fd5`, `170b731`, `0ff8a9f`。
+- **再発防止策**: 議事録の正本は `narrative_md`。`decided/progress/next_actions/risks` は補助フィールドであって本文ではない。コックピットのMTG詳細に「つくよみに修正依頼」を戻さない。長い議事録 prompt は `/mtg-minutes` skill に寄せ、まさに毎回手入力させない。
