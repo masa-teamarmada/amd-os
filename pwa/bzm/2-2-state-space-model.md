@@ -101,6 +101,29 @@ $$\mathbf{A} = \mathbf{V}\,\mathbf{\Lambda}\,\mathbf{V}^{-1}, \qquad \mathbf{\La
 
 $$T_k = \frac{2\pi}{\beta_k}, \qquad \tau_k = -\frac{1}{\alpha_k}$$
 
+（ここでは連続時間形 $\dot{\mathbf{x}} = \mathbf{A}_c\mathbf{x}$ の固有値で書いています。§2.1 の離散遷移行列はその行列指数 $\mathbf{A} = e^{\mathbf{A}_c \Delta t}$ に対応し、固有値は $\lambda_{\text{離散}} = e^{\lambda_c \Delta t}$ で写ります。）
+
+### 5.1 例題 2-2 — 非対称 A から螺旋が生まれることを確かめる
+
+3 本のうち学・産の 2 軸に縮約して、慣性（対角）と役割の引き受け合い（非対角を非対称）を入れた連続時間の遷移行列を考えます（単位は四半期）。
+
+$$\mathbf{A}_c = \begin{pmatrix} -0.1 & -0.6 \\ 0.6 & -0.1 \end{pmatrix}$$
+
+固有値は特性方程式 $\lambda^2 - (\mathrm{tr}\,\mathbf{A}_c)\lambda + \det\mathbf{A}_c = 0$ から求めます。
+
+$$
+\begin{aligned}
+\mathrm{tr}\,\mathbf{A}_c &= -0.2, \qquad \det\mathbf{A}_c = (-0.1)(-0.1) - (-0.6)(0.6) = 0.01 + 0.36 = 0.37 \\
+\lambda &= \frac{-0.2 \pm \sqrt{(-0.2)^2 - 4(0.37)}}{2} = \frac{-0.2 \pm \sqrt{-1.44}}{2} = -0.1 \pm 0.6\,i
+\end{aligned}
+$$
+
+複素ペア $\lambda = \alpha \pm i\beta$ で $\alpha = -0.1,\ \beta = 0.6$。ここから周期と減衰時定数を読みます。
+
+$$T = \frac{2\pi}{\beta} = \frac{2\pi}{0.6} \approx 10.5\ \text{四半期（約 2.6 年）}, \qquad \tau = -\frac{1}{\alpha} = -\frac{1}{-0.1} = 10\ \text{四半期}$$
+
+**読み方**：学と産は約 2.6 年周期で互いに勢いを渡し合いながら（非対角 $\pm0.6$）、約 10 四半期の時定数で均衡へ向かって減衰します。$\alpha < 0$ なので軌道は内向きに巻く **減衰螺旋** です。もし対角（慣性）が $0$ なら $\alpha = 0$ で持続振動、正なら発散します。非対角をゼロ（対称に潰す）にすると固有値は実数になり、螺旋は消えて単調減衰だけが残ります —— **螺旋は「役割の引き受け合い（非対称結合）」から生まれる** ことが、固有値計算から直接確認できます。
+
 状態次元が 3 で複素ペアが現れると、軌道は **三次元空間で螺旋** を描きます。これがまさに Etzkowitz の "triple helix" の数学的実体です。
 
 > **学術的主張**：Triple Helix の "helix"（螺旋）という比喩は、文学的修辞ではなく、状態空間モデルの固有モード構造によって厳密に正当化される。
@@ -118,6 +141,22 @@ $$\mathrm{GO}(t) = \mathbb{1}[\sigma_{SU}(t) \geq \theta_\sigma] \cdot g_{TRL}(t
 ## 7. まとめと次部への接続
 
 ここまでで、マクロ環境 σ_SU を観測量から推定する枠組みが揃いました。次の第 3 部では、視点を個社に移し、ベンチャー自身の成熟度を測る **XRL 群（5 つの Readiness Level）** に進みます。
+
+## 8. 本章のまとめ
+
+- マクロモデルは連成振動（物理メタファー）から **状態空間モデルの一般形** へ再定式化した。連成振動はその特殊ケースで、物理的解釈に頼らず固有値分解から「振動」が自然に出る。
+- 状態方程式 $\mathbf{x}_{t+1} = \mathbf{A}\mathbf{x}_t + \mathbf{B}\mathbf{u}_t + \epsilon$、観測方程式 $\mathbf{y}_t = \mathbf{C}\mathbf{x}_t + \mathbf{D}\mathbf{u}_t + \eta$。隠れ状態 $\mathbf{x}=(\mu_A,\mu_I,\mu_G)$、観測 $\mathbf{y}$ は 7 観測量、$\mathbf{C}$ は 2-1 章の負荷量表。
+- base case は $n=3$（Triple Helix）。2 次元では政策と市場の位相差が消え、ティエム型の「政策は来たが市場は来ない」が表現できない。
+- 識別不能性は **Minnesota prior**（Litterman 1986）＋ **階層 prior**（Canova & Ciccarelli 2013、9 社プール）で解消する。
+- 遷移行列 $\mathbf{A}$ の **非対称な非対角成分**（役割の引き受け合い）が複素固有値を生み、軌道が螺旋になる。"helix" は修辞でなく固有モード構造として正当化される。
+- σ_SU はマクロのみ。立ち上げ判定は TRL ゲートとの AND：$\mathrm{GO} = \mathbb{1}[\sigma_{SU}\ge\theta_\sigma]\cdot g_{TRL}$。
+
+## 9. 練習問題
+
+1. **固有値と螺旋**：$\mathbf{A}_c = \begin{pmatrix} 0 & -0.4 \\ 0.4 & 0 \end{pmatrix}$ の固有値を求め、周期 $T$ を計算せよ。対角（慣性）がゼロのとき軌道が「持続振動」になることを確かめよ。<br>（答え：$\lambda = \pm 0.4i$、$T = 2\pi/0.4 \approx 15.7$ 四半期、$\alpha=0$ で減衰しない）
+2. **対称化で螺旋が消える**：例題 2-2 の非対角を対称 $\begin{pmatrix} -0.1 & 0.6 \\ 0.6 & -0.1 \end{pmatrix}$ に変えると固有値はどうなるか。実数になり螺旋が消えることを示せ。
+3. **次元の必要性**：なぜ 2 次元（Regime/Niche）では Triple Helix の位相差を表現できないのか。ティエムの「政策先行・市場遅行」を例に説明せよ。
+4. **二軸判定**：σ_SU が GO 閾値を超えていても $g_{TRL}=0$ なら立ち上げ GO が出ない。これがティエム 2012 の「早すぎた」をどう構造的に説明するか、第 6 部の retrofit と結びつけて述べよ。
 
 ---
 

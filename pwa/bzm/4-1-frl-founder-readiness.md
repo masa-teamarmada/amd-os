@@ -72,6 +72,34 @@ $$\mathrm{FRL} = 0.6 \cdot \overline{\mathrm{ALQ}_4} + 0.2 \cdot \mathrm{Grit} +
 
 重み（0.6 / 0.2 / 0.2）は、「人格の根っこに authenticity があり、その上で集中力と打たれ強さが事業化を支える」という構造をモデル化したものです。値は仮置きであり、9 PJ retrofit でキャリブレーションする予定です。
 
+### 4.1 例題 4-1 — ある CEO の FRL を手で計算する
+
+ALQ 4 次元の評定が次のように得られた CEO を考えます。
+
+| 次元 | 自己認識 | 関係透明性 | 均衡的処理 | 内在化道徳観 |
+|---|---|---|---|---|
+| 評定（0〜9） | 7 | 8 | 6 | 7 |
+
+加えて、Grit $= 8$、Resilience $= 5$ と評定されたとします。
+
+**① ALQ 4 次元の平均**：
+
+$$\overline{\mathrm{ALQ}_4} = \frac{7 + 8 + 6 + 7}{4} = \frac{28}{4} = 7.0$$
+
+**② 重み付き合成**：
+
+$$\mathrm{FRL} = 0.6 \times 7.0 + 0.2 \times 8 + 0.2 \times 5 = 4.2 + 1.6 + 1.0 = \boxed{6.8}$$
+
+**読み方**：authenticity（7.0）が高水準でこの CEO の土台を支えていますが、Resilience が 5 とやや低く、FRL を押し下げています。
+
+### 4.2 感度分析 — どの因子を伸ばすと効くか
+
+「VC 50 社に断られてめげる」状態（Resilience $=5$）を、メンタリングや小さな失敗の蓄積で $8$ まで引き上げたとします。FRL の変化は、
+
+$$\Delta \mathrm{FRL} = 0.2 \times (8 - 5) = 0.6 \quad\Rightarrow\quad \mathrm{FRL}: 6.8 \to 7.4$$
+
+一方、authenticity（重み 0.6）を $7.0 \to 7.5$ と $0.5$ だけ伸ばすと $\Delta \mathrm{FRL} = 0.6 \times 0.5 = 0.3$。**重みが大きい ALQ は少し動かすだけで効く** —— FRL 単体の感度は重みに比例します。ただし第 5 部で見るように、AMD Score 全体への寄与は「重み ÷（現在値+1）」で決まるため、FRL がすでに高い PJ では別軸が律速になります。
+
 ## 5. 運用上の妥協と限界
 
 ALQ は自己申告（self-report）であり、self-bias を含みます。学術的に厳密を期すなら、本来は次も必要です。
@@ -85,6 +113,21 @@ ALQ は自己申告（self-report）であり、self-bias を含みます。学�
 ## 6. まとめと次部への接続
 
 これで BZM の 7 軸（σ_SU + 5 XRL + FRL）がすべて出揃いました。次の第 5 部では、これら 7 軸を **一つの数値（AMD Score）** に統合します。なぜ単純な平均ではなく Cobb-Douglas を使うのか、軸ごとの重みをどう決めるのか、そして「次に手当てすべき律速軸」をどう導くのかを説明します。
+
+### 6.1 本章のまとめ
+
+- CEO のリーダーシップ・人間性は HRL（組織体制）では捉えられないため、独立軸 **FRL** として切り出す。
+- FRL には **間接効果** があり、魅力的な CEO は技術・人材・資金など他軸を能動的に引き上げる（Hsu 2007 の Founder Network 効果）。
+- 学術的根拠：Authentic Leadership（Avolio & Gardner 2005、ALQ は Walumbwa et al. 2008）、Founder Quality（Bernstein et al. 2017 → 第 5 部で重み最大の根拠）、Grit（Duckworth 2007）、Resilience（Markman et al. 2005）。
+- 構成は 6 因子：**ALQ 4 次元 + Grit + Resilience**。計算式は $\mathrm{FRL} = 0.6\,\overline{\mathrm{ALQ}_4} + 0.2\,\mathrm{Grit} + 0.2\,\mathrm{Resilience}$。
+- ALQ は self-report のため self-bias を含む。厳密化には 360° 評価とアウトカム相関の追加が必要（論文化の課題）。
+
+### 6.2 練習問題
+
+1. **FRL の計算**：ALQ 4 次元が $(5, 6, 5, 4)$、Grit $=7$、Resilience $=8$ の CEO の FRL を求めよ。<br>（答え：$\overline{\mathrm{ALQ}_4} = 5.0$、$\mathrm{FRL} = 0.6(5.0) + 0.2(7) + 0.2(8) = 3.0 + 1.4 + 1.6 = 6.0$）
+2. **重みの意味**：もし重みを $(0.4, 0.3, 0.3)$ に変えたら、例題 4-1 の CEO の FRL はどう変わるか。authenticity 偏重を弱めることの意味を論ぜよ。
+3. **間接効果**：FRL が高い CEO が σ_SU や TRL を「能動的に引き上げる」とはどういうことか、Hsu(2007) の Founder Network 効果を引用して 3 行で説明せよ。
+4. **測定の限界**：ALQ の self-report bias を補正するために、どのような外部データを追加すべきか。本文 §5 を踏まえて 3 つ挙げよ。
 
 ---
 
