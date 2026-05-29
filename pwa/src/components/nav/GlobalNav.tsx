@@ -226,6 +226,18 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
             立替
           </Link>
           <Link
+            href="/bzm"
+            className={cn(
+              "px-2.5 py-1 rounded-md transition-colors",
+              pathname.startsWith("/bzm")
+                ? "bg-accent text-accent-foreground font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title="Before Zero Model — σ_SU / XRL / FRL / AMD Score / ERS の理論教科書"
+          >
+            📐 BZM
+          </Link>
+          <Link
             href="/manual"
             className={cn(
               "px-2.5 py-1 rounded-md transition-colors",
