@@ -210,7 +210,8 @@ select / filter / insert / upsert を書くこと。
    POST /api/dialogue-meeting/narrate
    { meeting_id: "dialogue:{project_id}:..." }
    ```
-   - Sonnet 4.6 が raw 配列を「背景 → 議論の流れ → 2 人で出した提案 → 残課題」の Markdown narrative に書き直し
+   - Sonnet 4.6 が raw 配列を `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の Markdown narrative に書き直し
+   - まさえいMTGの `✅決まったこと` は「チームへ出す提案として固まったこと」の意味で書く。会社として正式決定済みと誤読される表現は避ける
    - `project_meeting_summaries.narrative_md` に保存される
    - cockpit の MTGサマリ詳細では narrative が主表示、raw は折りたたみ「元データ」へ
    - 全件まとめて narrate するなら `{ all: true, limit: 20 }` を叩く

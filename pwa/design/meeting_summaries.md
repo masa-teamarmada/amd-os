@@ -37,6 +37,9 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 
 `project_meeting_summaries.narrative_md` は議事録本文の正本。`summary_short` / `decided` / `progress` / `next_actions` / `risks` は検索・通知・補助表示用であり、本文の代替ではない。
 
+- 開催済みMTGの `narrative_md` は、必ず `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の5見出しをこの順で使う。絵文字・見出し文言・順序は固定で、`## 🎯 背景` のように絵文字と語の間に空白を入れない。
+- 各見出しの本文は段落で書く。箇条書き・チェックボックス・配列項目の貼り付けは議事録本文として扱わない。Markdown table は元データに表がある場合だけ許可する。
+- `## ✅決まったこと` には、会議で実際に合意・確認・採択されたことだけを書く。Drive資料や準備資料だけから推定した論点は `## 📊経緯` または `## ⚠️残課題` に寄せる。
 - 開催済みMTG (`source_kinds != 'none'` かつ `upcoming*` ではない) を保存する extractor / backfill は、原則 `narrative_md` を必ず同時に保存する。
 - `narrative_md` が空、短すぎる、または箇条書き優勢の出力は「議事録を入れた」と見なさない。そういう場合は DB に直書きせず、run summary に `blocked_low_quality_narrative` として残す。
 - 既存 row に 300 字以上の `narrative_md` がある場合、空・短文・箇条書き優勢の更新でそれを消してはいけない。migration 098 の `pms_preserve_rich_narrative` trigger が DB 側でも保護する。
@@ -488,7 +491,7 @@ if existing.source_hash === newHash: skip (LLM 呼ばない)
 - **行クリックで詳細モーダル展開** (= 旧アコーディオン折り畳みは廃止)
 - 行クリック時は URL を `/project/[projectId]/cockpit?meeting=<meeting_id>` に更新する。共有された同 URL で開くと該当 MTG 詳細モーダルを auto-open し、直近 1 年に無い row は older load で探す。閉じると `meeting` query だけを外す。`ym` / `step` と同時に来た場合は MTG 詳細を優先し、月次系モーダルとの二重起動は避ける。
 - `source_kinds='upcoming'` は月別議事録より上の「予定MTG / 準備中」に出し、詳細モーダルでは初見ブリーフとして表示する
-- 一覧カードの本文は `summary_short` を line-clamp 2 で表示する。詳細モーダルは `narrative_md` があれば本文として優先表示し、`narrative_md` が無い場合だけ `summary_short` + raw 配列を表示する。`narrative_md` は「そのMTGに参加していなかったメンバーでも会議の流れを理解できる文章」とし、箇条書き・チェックボックス・配列項目の貼り付けを本文にしない。
+- 一覧カードの本文は `summary_short` を line-clamp 2 で表示する。詳細モーダルは `narrative_md` があれば本文として優先表示し、`narrative_md` が無い場合だけ `summary_short` + raw 配列を表示する。`narrative_md` は「そのMTGに参加していなかったメンバーでも会議の流れを理解できる文章」とし、`## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定順で書く。箇条書き・チェックボックス・配列項目の貼り付けを本文にしない。
 - モーダル内: ヘッダ (日時 + title + notion link + source_kinds chip) → サマリ → 決まったこと → 進んだこと → 次やること → リスク を縦並び。各 item は `MarkdownView` で markdown 描画 (= 表/見出し/リスト/コード/引用 OK)
 - 議事録なしマーカー行は `summary_short` だけ "議事録なし" が出る (decided/progress/... は空なので非表示、`Notion で開く` リンクは notion_url があれば出る)
 - 通常MTG / dialogue は詳細モーダル末尾の「議事録を手動修正」から `title / summary_short / narrative_md / decided / progress / next_actions / risks` を更新できる。保存先は `POST /api/meeting-summary/manual-update`。MTG 詳細モーダルには「つくよみに修正依頼」を置かず、LLM 再解釈ではなく手動編集を正本にする。

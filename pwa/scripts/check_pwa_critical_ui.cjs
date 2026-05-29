@@ -306,11 +306,35 @@ expectIncludes("src/app/api/meeting-summary/manual-update/route.ts", [
 expectIncludes("scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md", [
   "箇条書き禁止",
   "その MTG に参加していなかったメンバー",
-  "v6_absent_member_narrative",
+  "v7_fixed_heading_narrative",
+  "## 🎯背景",
+  "## 📊経緯",
+  "## ✅決まったこと",
+  "## ▶️次の一手",
+  "## ⚠️残課題",
 ]);
 expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
   "箇条書き禁止",
   "その MTG に参加していなかった",
+  "## 🎯背景",
+  "## 📊経緯",
+  "## ✅決まったこと",
+  "## ▶️次の一手",
+  "## ⚠️残課題",
+]);
+expectIncludes("design/meeting_summaries.md", [
+  "## 🎯背景",
+  "## 📊経緯",
+  "## ✅決まったこと",
+  "## ▶️次の一手",
+  "## ⚠️残課題",
+]);
+expectIncludes("manual/2-3-pj-cockpit.md", [
+  "## 🎯背景",
+  "## 📊経緯",
+  "## ✅決まったこと",
+  "## ▶️次の一手",
+  "## ⚠️残課題",
 ]);
 expectIncludes("src/app/api/meeting-prep/calendar-sync/route.ts", [
   "calendar-future-sync",
@@ -392,7 +416,7 @@ expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
   "narrative_md",
   "project_meeting_summaries",
   "claude-sonnet-4-6",
-  "チームへの提案案",
+  "提案として固まったこと",
 ]);
 
 expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [

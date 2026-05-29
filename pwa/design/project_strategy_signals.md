@@ -288,7 +288,7 @@ cockpit の `CockpitMeetingSummary` が `source_kinds` 無関係に meeting_date
 #### `POST /api/dialogue-meeting/narrate`
 
 dialogue meeting の `decided / progress / next_actions / risks` 配列を、初めて読む人でも
-「背景 → 議論の流れ → チームへの提案案 → 残課題」が一気に追える Markdown narrative に
+`## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` が一気に追える Markdown narrative に
 書き直して `project_meeting_summaries.narrative_md` に保存する。
 
 - `Body: { meeting_id }` で 1 件 narrate
@@ -304,8 +304,8 @@ narrative がなければ従来の section view (= raw を見せる) に fallbac
 
 #### 運用ルール (= dialogue の議事録)
 
-- 「決まったこと」とは書かない。チームに無断で決めた印象を避けるため、必ず
-  **「チームへの提案案」** のニュアンスで残す。
+- `## ✅決まったこと` は「チームへ出す提案としてこの場で固まったこと」の意味で使う。チームに無断で会社として正式決定したように読める言い方は避ける。
+- 見出しは `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順に固定し、箇条書きではなく段落で書く。
 - `summary_short` には「議論の背景 + 何を議論したか」を 2-4 文で書く。1 行サマリだけにしない。
 - 議論ログを保存したあと、`POST /api/dialogue-meeting/narrate { meeting_id }` を叩いて
   narrative_md を生成する。生成後はコックピットに narrative 主体の議事録として出る。

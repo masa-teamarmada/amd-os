@@ -127,7 +127,7 @@ L2 ② 動作テスト fact: `progress_estimate_state` / `l2_extract_state` テ�
 
 **役割**: 議事録抽出を超えて MTG 1 回のライフサイクル全体を自動化 (= Phase A-J、10 機能):
 
-1. (A) 議事録抽出 + 高品質化 narrative_md (= 前後 MTG / PJ 全体 / 関連 MS を踏まえた 8 セクション構成)
+1. (A) 議事録抽出 + 高品質化 narrative_md (= 前後 MTG / PJ 全体 / 関連 MS を踏まえた `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の5見出し構成)
 2. (C) 次 MTG カード生成 + Calendar event 登録 + 参加者招待 + Notion DB に「📋 準備情報 / 📝 議事録」toggle
 3. (D) 次 MTG までのタスクを Slack nudge (= 担当者 mention + thread)
 4. (E) タスク完了検出 → MTG 資料 update
@@ -139,6 +139,12 @@ L2 ② 動作テスト fact: `progress_estimate_state` / `l2_extract_state` テ�
 10. (旧) iOS APNs 通知 (= meeting_notifications upsert)
 
 **入力**: Calendar event (= 過去 60-180 分終了 + 今日0:00 JSTから60日先の確定予定) + Notion 議事録 + Gmail (= report_emails スレッド) + Drive Doc/PDF/Office/Sheets + Slack thread + PWA `meeting_assets` (= まさが直接アップロードしたスクショ / PDF / 画面キャプチャ) + `project_meeting_summaries` 過去 3 件 (= 前回比較) + `monthly_reports` 直近 3 件 (= PJ 全体文脈) + `value_milestones` + `milestone_monthly_progress` (= MS context) + Calendar freebusy (= H 用) + `projects.drive_folder_id` + `projects.facilitator_member_id` + `project_members` (= role=PL 特定)
+
+**議事録本文の固定フォーマット**:
+- 開催済みMTGの `narrative_md` は必ず `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順にする。
+- 見出し文言・絵文字・順序は固定。`## 🎯 背景` のように絵文字と語の間に空白を入れない。
+- 各見出しの本文は、MTGに参加していなかったメンバーが前提から次の動きまで理解できる段落で書く。箇条書き・チェックボックス・raw配列の貼り付けは使わない。
+- `## ✅決まったこと` には会議で実際に合意・確認されたことだけを書く。Drive資料や準備資料だけからの推定は `## 📊経緯` または `## ⚠️残課題` に置く。
 
 **予定MTGカード同期 (= LLM不要 / deterministic)**:
 - L2⑥ は議事録抽出とは別に、`today 00:00 JST` から `now + 60 days` までの確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡す。

@@ -119,7 +119,9 @@ AMD OS の **中心画面**。各 PJ ごとに 1 つあり、URL は `/project/{
 - 一覧カードの短い説明は `summary_short`。詳細モーダルは `narrative_md` があればそれを主表示する
 - 詳細モーダルで `narrative_md` (= L2⑥の MTG サマリ抽出 routine が、そのMTGに参加していなかったメンバーでも背景・議論の流れ・決定/未決・次の一手を理解できる文章 narrative に書き直したもの) を主表示
 - raw 配列 (= 元データ) は折りたたみ「元データ」へ
+- 今後の議事録本文は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順で書く。絵文字・見出し文言・順序は固定で、絵文字と語の間に空白を入れない
 - 今後の議事録本文は箇条書き禁止。`decided / progress / next_actions / risks` の配列は検索・通知用の補助であり、本文は段落で流れを説明する
+- 手動修正する場合も、`narrative_md` はこの5見出し順を守る。`✅決まったこと` には会議で実際に合意・確認されたことだけを書き、資料だけからの推定や未決事項は `📊経緯` または `⚠️残課題` に残す
 - 通常MTG / dialogue は詳細モーダル末尾の「議事録を手動修正」から `title / summary_short / narrative_md / decided / progress / next_actions / risks` を更新できる。手動修正は `source_hash` を変えないため、同じ元ソースに対する自動抽出の再実行で上書きされにくい。MTG 詳細モーダルには「つくよみに修正依頼」を置かず、人間が直した本文を `manual-edit` として保存する
 - `narrative_md` は議事録本文の正本。`summary_short` と raw 配列だけの保存は品質劣化なので、開催済みMTGの backfill / routine は narrative なしで保存しない。既存の長い narrative は migration 098 と manual-update API で、空欄や箇条書き優勢の更新から保護される
 - `notion:<page_id>` 由来で narrative なしの弱い手動 duplicate が、同じ日・同じタイトルの強い row と並ぶ場合は、一覧では強い row を優先して表示する

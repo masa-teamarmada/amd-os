@@ -76,7 +76,8 @@ URL: `/project/p00/cockpit`。**会社全体 (= AMD 株式会社) を 1 つの P
    ```
    POST /api/dialogue-meeting/narrate { meeting_id }
    ```
-   - Sonnet 4.6 が raw 配列を「背景 → 議論の流れ → 2 人で出した提案 → 残課題」の Markdown に
+   - Sonnet 4.6 が raw 配列を `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の Markdown に
+   - まさえいMTGの `✅決まったこと` は「チームへ出す提案として固まったこと」の意味で書き、会社として正式決定済みと誤読される表現は避ける
    - cockpit の MTG サマリ詳細で主表示
 
 ### 認証
