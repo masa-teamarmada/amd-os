@@ -10002,7 +10002,7 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
   - `origin/main` へ push 済み。
 - Vercel:
   - direct deploy 復旧後、GitHub `main` auto deploy でも Manual Q&A 入り build が Ready。
-  - handoff直前の `vercel inspect https://amd-os-pwa.vercel.app --scope armada0130` では `dpl_3NwkTDdF5yQDoupeVRCAdyFSfemc` / `https://amd-os-aryj3ke4k-armada0130.vercel.app` が production alias。
+  - handoff中に parallel deploy で production alias が複数回動いた。最後の `vercel inspect https://amd-os-pwa.vercel.app --scope armada0130` では `dpl_EcWatpieftJpQJSBAGjzxFF5Zirh` / `https://amd-os-qsfx93eva-armada0130.vercel.app` が production alias。次回は deploy ID を固定せず、必ず inspect し直す。
   - まさが本番画面で「復活した！」と確認。
 
 ### 衝突 / 運用メモ

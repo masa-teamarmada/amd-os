@@ -7,7 +7,7 @@
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Feature commit: `c06cdd6 Add searchable manual and manual Tsukuyomi Q&A`
 - Current branch at handoff: `feat/bzm-textbook`
-- Latest production alias observed: `dpl_3NwkTDdF5yQDoupeVRCAdyFSfemc` (`https://amd-os-aryj3ke4k-armada0130.vercel.app`), Ready, aliased to production.
+- Production alias note: parallel deploys moved the alias during handoff. Last inspected at 2026-05-29 16:47 JST: `dpl_EcWatpieftJpQJSBAGjzxFF5Zirh` (`https://amd-os-qsfx93eva-armada0130.vercel.app`), Ready, aliased to production. Re-run `vercel inspect` before treating a deploy ID as current truth.
 
 ## Latest Summary
 
@@ -24,8 +24,8 @@
 - `npm run build` pass.
 - Chrome authenticated verification confirmed search input, float visibility, L2 answer quality, reference links, no polite phrases, no `この抜粋`, and underscore preservation.
 - `c06cdd6` pushed to `origin/main`.
-- Latest alias inspect: `npx vercel inspect https://amd-os-pwa.vercel.app --scope armada0130` -> `dpl_3NwkTDdF5yQDoupeVRCAdyFSfemc` Ready.
-- 未確認: authenticated DOM check after this latest `dpl_3Nwk...` alias update. The same feature commit is on `origin/main`, and user confirmed the restored float immediately before handoff.
+- Latest alias inspect: `npx vercel inspect https://amd-os-pwa.vercel.app --scope armada0130` -> `dpl_EcWatpieftJpQJSBAGjzxFF5Zirh` Ready.
+- 未確認: authenticated DOM check after this latest `dpl_EcWat...` alias update. The same feature commit is on `origin/main` and current branch, and user confirmed the restored float immediately before handoff.
 
 ## Repo State
 

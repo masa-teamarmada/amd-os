@@ -8,7 +8,7 @@
 - Feature commit: `c06cdd6 Add searchable manual and manual Tsukuyomi Q&A`
 - Current branch at handoff: `feat/bzm-textbook`
 - Important: `c06cdd6` is on `main` and `origin/main` too. The branch name is not the source of truth for this feature.
-- Latest production alias observed: `dpl_3NwkTDdF5yQDoupeVRCAdyFSfemc` (`https://amd-os-aryj3ke4k-armada0130.vercel.app`), Ready, aliased to `https://amd-os-pwa.vercel.app` at 2026-05-29 16:38 JST.
+- Production alias note: parallel deploys moved the alias during handoff. Last inspected at 2026-05-29 16:47 JST: `dpl_EcWatpieftJpQJSBAGjzxFF5Zirh` (`https://amd-os-qsfx93eva-armada0130.vercel.app`), Ready, aliased to `https://amd-os-pwa.vercel.app`. Re-run `vercel inspect` before using a deploy ID as current truth.
 
 ## Latest Summary
 
@@ -28,8 +28,8 @@
   - `つくよみに聞く` float が表示。
   - `L2データにはどのような種類がある？` / `L2データってなに？` で、9種類説明、`ここ見たらOK` リンク、underscore 保護、敬語除去、「この抜粋」なしを確認。
 - `c06cdd6` を `origin/main` に push 済み。
-- `npx vercel inspect https://amd-os-pwa.vercel.app --scope armada0130` で latest production alias `dpl_3NwkTDdF5yQDoupeVRCAdyFSfemc` Ready を確認。
-- 未確認: `dpl_3Nwk...` へ alias が更新された後の authenticated DOM 再チェック。ただし feature commit は `origin/main` に入り、まさが直前の本番で「復活した！」と確認済み。
+- `npx vercel inspect https://amd-os-pwa.vercel.app --scope armada0130` で production alias `dpl_EcWatpieftJpQJSBAGjzxFF5Zirh` Ready を確認。
+- 未確認: `dpl_EcWat...` へ alias が更新された後の authenticated DOM 再チェック。ただし feature commit は `origin/main` と current branch に入り、まさが直前の本番で「復活した！」と確認済み。
 
 ## Repo State
 
