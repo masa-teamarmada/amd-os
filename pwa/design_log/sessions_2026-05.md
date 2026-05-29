@@ -9756,3 +9756,31 @@ deploy.sh で計 2 回 (v0.4.4 → v0.4.5 → v0.4.6)、 全 Ready。 production
 
 ### 関連メモ更新 (Cowork memory)
 - `feedback_no_silent_feature_deletion.md` 新規 + `MEMORY.md` index 更新。
+
+## 2026-05-29 (#90) — Cowork セッション (cowork-eimi) / 香川大訪問 議事録の OS 投入 + manual 冒頭に「OS の意義」
+
+> Cowork (Claude Desktop) 上で動いた cowork-eimi セッションのログ。次のえいみ (Codex / 別 Cowork) が読めば把握できるよう残す。
+
+### コンテキスト
+- 2026-05-28 香川大訪問 (VasculaX/p26) の議事録を、Notion 自動議事録が落とした座組み・対価・次ステップを補完して OS に投入する依頼。
+- 途中で重要な原則指摘が連続: ①成果物は「行がある/表示される/まさが確認」でなく **えいみ自身が品質を担保**して完了 ②**OS が唯一の正本**で全情報を OS に集約 ③まさは**代表パートナー (CEO不在・特別扱いしない)**、OS は**脱・属人化 (まさ依存を減らす)** のためにある。
+- 下川先生への御礼メール返信案も作成 (まさが修正して送信、こちらは送信せず)。
+
+### 実装
+- **DB** (PJ=p26):
+  - `project_meeting_summaries` 1件 (`meeting_id=manual_eimi:p26:2026-05-28`, `source_kinds=manual_eimi`)。当初 narrative 数行で過少だったため、まさのダンプを漏れなく拾った **3,347字の完全版**に書き直し。
+  - `project_strategy_signals` 5件を `candidate` で投入 (funding/partnership/commercial_progress/tech_progress/risk)。
+  - `project_founding_members` 4件 (下川/永冨/丸尾/筧、`category=university` = HRL 根拠)。
+- **doc**: [pwa/manual/1-1-intro.md](../manual/1-1-intro.md) 冒頭に「OS の意義 (脱・属人化)」を新設。CEO→代表パートナー、「自動意思決定=まさの判断を奪わない」の本末転倒記述を修正、SU 側メンバーを利用者から削除 (OS は社内専用)。→ commit `d979e79` で push 済。
+- **ローカル正本** (`~/projects/knowledge/`, git 管理外): `VasculaX.md` 新規、`members.md`/`partner_institutions.md`/`su.md` を訪問成果で更新。`~/projects/AMD/kagawa/2026-05-28_meeting_notes.md` 作成。
+
+### Verified
+- DB: `ms=1 / signals=5 / founders=4`、`narrative_len=3347` を SELECT で確認。
+- 本番コックピット `/project/p26/cockpit` を Chrome で開き、MTGサマリ詳細モーダルに narrative が整形表示・経営ハイライト5件が「未確認 (candidate)」表示されるのを目視。
+- manual は commit `d979e79` で origin/main 反映済。
+
+### Cowork ↔ Codex 衝突メモ
+- 衝突なし。amd-os は `1-1-intro.md` と本 design_log のみ specific add で commit、他の uncommitted は触らず。
+
+### 関連メモ更新 (Cowork memory)
+- `feedback_research_keypersons.md`(新) / `feedback_eimi_persona_nonstop.md`(新) / `feedback_verify_by_outcome.md`(→「えいみが自分で品質担保」に改題) / `feedback_masa_role_os_purpose.md`(新) を整備、`MEMORY.md` index 更新。
