@@ -38,6 +38,7 @@
 | XRL根拠 (TRL/BRL/GRL/SRL/HRL 算定根拠) ⭐ | [xrl_evidence.md](xrl_evidence.md) |
 | Venture Map | [venture_map_model.md](venture_map_model.md) / [venture_map_demo.md](venture_map_demo.md) / [venture_map_v01_critique.md](venture_map_v01_critique.md) |
 | Seeds (研究シーズリスト) ⭐ | [seeds.md](seeds.md) |
+| BZM 論文化 (教科書×IMRaD対応・論文骨子・図版方針) | [bzm_paper.md](bzm_paper.md) — JASVE 向け論文設計。教科書正本は `pwa/bzm/*.md`、引き継ぎは `pwa/HANDOFF_bzm_textbook.md` |
 | VC List | [vc_list.md](vc_list.md) |
 | AMD Management Score (会社全体の経営スコア) ⭐ | [management_score.md](management_score.md) |
 | 月次試算表 (project_pl_monthly) | [project_pl_monthly.md](project_pl_monthly.md) — 生データから未来予測抽出方針、優先度低 |
