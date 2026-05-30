@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchActiveAlpha, fetchAmdScoreInputs } from "@/lib/amd-score-data";
 import { fetchAtlasMacroSignals } from "@/lib/atlas-macro-signals";
+import { createClient } from "@/lib/supabase/server";
 import { fetchTripleHelixComputed } from "@/lib/triple-helix-observations";
 import { fetchVentureById, fetchXrlLog } from "@/lib/venture-map-data";
 
@@ -14,6 +15,14 @@ export async function GET(
   const { projectId } = await ctx.params;
   if (!projectId) {
     return NextResponse.json({ error: "projectId required" }, { status: 400 });
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const [venture, inputs, activeAlpha, xrlLog, atlasMacroSignals] = await Promise.all([
