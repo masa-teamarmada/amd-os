@@ -64,61 +64,82 @@ export default function InstitutionsPage() {
         </p>
       </header>
 
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-xs border-collapse">
+      <div className="overflow-auto rounded-lg border border-border max-h-[80vh]">
+        <table className="text-xs border-collapse">
           <thead>
-            <tr className="bg-muted/40">
-              <th className="text-left px-3 py-2 font-medium sticky left-0 bg-muted/40">機関</th>
-              <th className="px-2 py-2 font-medium">ERS</th>
-              {sortedAxes.map((a) => (
-                <th key={a.axisId} className="px-2 py-2 font-mono font-medium" title={`${a.axisNo}. ${a.name}`}>
-                  {a.axisNo}
+            <tr>
+              <th className="sticky top-0 left-0 z-30 bg-muted px-3 py-2 text-left font-medium border-b border-r border-border min-w-[260px]">
+                軸 / 機関
+              </th>
+              {results.map(({ inst }) => (
+                <th
+                  key={inst.institutionId}
+                  className="sticky top-0 z-20 bg-muted px-3 py-2 text-center font-medium border-b border-r border-border min-w-[120px]"
+                >
+                  <Link href={`/institutions/${inst.institutionId}`} className="font-semibold hover:underline">
+                    {inst.name}
+                  </Link>
+                  <span className="block mt-0.5 text-[9px] rounded border px-1 py-0.5 bg-indigo-50 text-indigo-800 border-indigo-300 w-fit mx-auto">
+                    {INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type}
+                  </span>
                 </th>
               ))}
-              <th className="px-2 py-2 font-medium">評価済</th>
             </tr>
           </thead>
           <tbody>
-            {results.map(({ inst, result }) => (
-              <tr key={inst.institutionId} className="border-t border-border hover:bg-muted/20">
-                <td className="px-3 py-2 sticky left-0 bg-card">
-                  <Link href={`/institutions/${inst.institutionId}`} className="font-semibold text-foreground hover:underline">
-                    {inst.name}
-                  </Link>
-                  <span className="ml-1.5 text-[9px] rounded border px-1 py-0.5 bg-indigo-50 text-indigo-800 border-indigo-300">
-                    {INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type}
-                  </span>
-                </td>
-                <td className="px-2 py-2 text-center font-bold">
+            {/* 総合 ERS */}
+            <tr>
+              <th className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-semibold border-b border-r border-border">
+                総合 ERS 充足率
+              </th>
+              {results.map(({ inst, result }) => (
+                <td
+                  key={inst.institutionId}
+                  className="px-2 py-2 text-center font-mono font-bold text-white/95 border-b border-r border-border"
+                  style={{ background: ersScoreColor(result.ers != null ? result.ers / 100 : null) }}
+                >
                   {result.ers != null ? `${Math.round(result.ers)}%` : "—"}
                 </td>
-                {result.axisScores.map((a) => (
-                  <td
-                    key={a.axisId}
-                    className="px-2 py-2 text-center font-mono text-white/90"
-                    style={{ background: ersScoreColor(a.score) }}
-                    title={`${a.axisNo}. ${a.name}: ${a.score != null ? Math.round(a.score * 100) + "%" : "未評価"} (${a.assessedCount}/${a.totalCount})`}
-                  >
-                    {a.score != null ? Math.round(a.score * 100) : "–"}
-                  </td>
-                ))}
-                <td className="px-2 py-2 text-center text-muted-foreground">
-                  {result.assessedCriteria}/{result.totalCriteria}
-                </td>
+              ))}
+            </tr>
+            {/* 各軸 */}
+            {sortedAxes.map((axis) => (
+              <tr key={axis.axisId} className="hover:bg-muted/10">
+                <th className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-normal border-b border-r border-border">
+                  <span className="font-mono font-semibold text-foreground mr-1.5">{axis.axisNo}</span>
+                  <span className="font-medium">{axis.name}</span>
+                  {axis.correspondsXrl && (
+                    <span className="ml-1 text-[10px] text-muted-foreground">（{axis.correspondsXrl}）</span>
+                  )}
+                </th>
+                {results.map(({ inst, result }) => {
+                  const a = result.axisScores.find((s) => s.axisId === axis.axisId);
+                  return (
+                    <td
+                      key={inst.institutionId}
+                      className="px-2 py-2 text-center font-mono text-white/95 border-b border-r border-border"
+                      style={{ background: ersScoreColor(a?.score ?? null) }}
+                      title={`${a?.score != null ? Math.round(a.score * 100) + "%" : "未評価"} (${a?.assessedCount ?? 0}/${a?.totalCount ?? 0})`}
+                    >
+                      {a?.score != null ? Math.round(a.score * 100) : "–"}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
+            {/* 評価済 */}
+            <tr>
+              <th className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-normal text-muted-foreground border-r border-border">
+                評価済サブ軸
+              </th>
+              {results.map(({ inst, result }) => (
+                <td key={inst.institutionId} className="px-2 py-2 text-center text-muted-foreground border-r border-border">
+                  {result.assessedCriteria}/{result.totalCriteria}
+                </td>
+              ))}
+            </tr>
           </tbody>
         </table>
-      </div>
-
-      <div className="text-[10px] text-muted-foreground leading-relaxed">
-        <span className="font-medium">軸凡例: </span>
-        {sortedAxes.map((a) => (
-          <span key={a.axisId} className="mr-3 inline-block">
-            <span className="font-mono font-semibold">{a.axisNo}</span> {a.name}
-            {a.correspondsXrl && <span className="opacity-60">（{a.correspondsXrl}）</span>}
-          </span>
-        ))}
       </div>
     </div>
   );
