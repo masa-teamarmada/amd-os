@@ -22,7 +22,8 @@
 | L2③ MS Progress | `3-10` | `rebuildable` | MMO PC 側 automation 登録状態は repo 外。run log は別途必要 |
 | L2④ Project Knowledge | `3-11` | `rebuildable` | MMO PC 側 automation 登録状態は repo 外。5生データ直結ではなく現行二次集約 |
 | L2⑤ Member Knowledge | `3-12` | `rebuildable` | MMO PC 側 automation 登録状態は repo 外。alias map は code_name/email 中心 |
-| L2 extraction overall | `3-1`〜`3-6`, `3-9`〜`3-12`, `5-3` | `partial` | L2⑥ のmeeting flow深掘り、L2⑦⑧⑨の個別schemaをさらに column-level 化 |
+| L2⑩ Textbook Insights | `3-13` | `partial` | DB/API/outbox/local applier contract は追加。実 automation schedule と BZM 追記レビュー運用は repo 外で登録確認が必要 |
+| L2 extraction overall | `3-1`〜`3-6`, `3-9`〜`3-13`, `5-3` | `partial` | L2⑥ のmeeting flow深掘り、L2⑦⑧⑨の個別schema、L2⑩の実 schedule / BZM commit loop をさらに column-level 化 |
 | notifications / 採否 | `3-7` | `partial` | `applyApprovedNotification()` の kind 別分岐を全件 table 化 |
 | cockpit | `3-8` | `partial` | routine stepId / monthly-reward modal / Edge Function bridge は補完済み。kanban、meeting detail attachments、score tabs は未完 |
 | AMD Score / FRL | `4-1`, `4-2` | `partial` | alpha retrofit UI、XRL revision API、Triple Helix recompute の詳細 |

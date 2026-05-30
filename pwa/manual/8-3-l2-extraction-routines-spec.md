@@ -1,10 +1,10 @@
-# L2 Extraction Routines — subscription automation 統一仕様 (L2 ①〜⑨)
+# L2 Extraction Routines — subscription automation 統一仕様 (L2 ①〜⑩)
 
-この章は、L2 ①〜⑨ を **定額 subscription automation** で抽出する仕様をまとめる。処理IDだけでなく、**どの実行環境で、どの課金ルートで、止まった時にどこを見るか** を正本化する。
+この章は、L2 ①〜⑩ を **定額 subscription automation** で抽出する仕様をまとめる。処理IDだけでなく、**どの実行環境で、どの課金ルートで、止まった時にどこを見るか** を正本化する。
 
 > 実装者向けの確定仕様は [/spec/3-1-l2-data-extraction-current-spec](/spec/3-1-l2-data-extraction-current-spec) へ移行開始済み。この章は、復旧時に読む運用手順として残す。迷う内容は移行完了まで両方に置く。
 
-**2026-05-29 正本訂正**: 2026-05-25〜26 の Claude routine / Cloud routine 案は履歴として残すが、現行の復旧主導線は下の **現行 writer 表** を見る。L2 ①は Codex automation、L2 ②〜⑥は MMOマシン Codex Desktop automation、L2 ⑦⑧⑨は Codex automation + outbox/applier が現行ルート。
+**2026-05-29 正本訂正**: 2026-05-25〜26 の Claude routine / Cloud routine 案は履歴として残すが、現行の復旧主導線は下の **現行 writer 表** を見る。L2 ①は Codex automation、L2 ②〜⑥は MMOマシン Codex Desktop automation、L2 ⑦⑧⑨⑩は Codex automation + outbox/applier が現行ルート。
 
 ## 対象 L2
 
@@ -19,6 +19,7 @@
 | ⑦ OS 台帳差分 | `project_registry_diffs` | 5 生データ vs OS 台帳の差分候補 | 旧 Cloud routine 案 / PWA LLM route | Codex automation `amd-os-ms` + SKILL `amd-os-l7-registry-diff-extract` |
 | ⑧ XRL 根拠 | `project_xrl_evidence` | TRL/BRL/GRL/SRL/HRL の算定根拠 | 旧 Cloud routine 案 / PWA LLM route | Codex automation `amd-os-ms` + SKILL `amd-os-l8-xrl-evidence-extract` |
 | ⑨ 経営ハイライト | `project_strategy_signals` | 経営判断 / 事業進捗 / 戦略転換 等 | 旧 Cloud routine 案 | Codex automation `amd-os` + SKILL `amd-os-l9-strategy-signal-extract` |
+| ⑩ Textbook Insights | `textbook_insight_candidates` | BZM 教科書へ追記すべき Before Zero 実務知見 | 新規 | Codex automation / local worker `amd-os-l10-textbook-insight-extract` + approved 後 local BZM applier |
 
 L2 ① monthly reports はこの章の対象。R313 は旧経路で、差分あり/未生成時に R303 generator 経由で Claude API を呼びうるため、定期 trigger を置かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。定期 writer は Codex automation `AMD OS L2① 月次報告抽出` で、正本 SKILL は [`pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`](../scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md)。
 
@@ -57,6 +58,7 @@ vs ローカル Mac scheduled task の問題:
 | ⑦ OS 台帳差分 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l7-registry-diff-extract` | 6h ごと | `amd-os-ms` automation 履歴、`outbox.registryDiffs`、LaunchAgent applier |
 | ⑧ XRL 根拠 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `amd-os-ms` automation 履歴、`outbox.xrlEvidence`、LaunchAgent applier |
 | ⑨ 経営ハイライト | Codex automation + outbox applier | `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `amd-os` automation 履歴、strategy-signals outbox、LaunchAgent applier |
+| ⑩ Textbook Insights | Codex automation / local worker + outbox applier + local BZM applier | `amd-os-l10-textbook-insight-extract` | TBD / manual start | `amd-os-ms` outbox `textbookInsights`、`textbook_insight_candidates`、`apply_approved_textbook_insights.mjs` |
 
 ## 各 L2 の入出力仕様
 
@@ -184,13 +186,21 @@ vs ローカル Mac scheduled task の問題:
 - ルール: 「進んだこと・起きたこと」(= done のみ、未了は除外、まさ #26)、impact_level / signal_type / polarity 等 4 軸で記録
 - 修正依頼は対話型 (= `/api/notifications/feedback/dialog/*` + CockpitStrategySignals UI 拡張) と接続予定
 
+### ⑩ Textbook Insights
+
+- 入力: Supabase 内の既存 L2 / OS データ (= `monthly_reports`, `project_meeting_summaries`, `project_strategy_signals`, `protocols`, `protocol_examples`, `project_knowledge`, `member_knowledge`, `project_registry_diffs`, `project_xrl_evidence`, `amd_score_inputs`, `project_ventures`, `projects`)。`source_cache` は補助証跡であり、これだけで no-data 判定しない
+- 出力: `textbook_insight_candidates` (= status='candidate') + `l2_notifications(l2_kind='textbook_insight')`
+- 優先度: `before_zero_knowhow` > `cross_project_pattern` > `case_study` / `theory_evidence`
+- 採否: 通知 yes で `approved`、no で `rejected`
+- 追記: approved 後に local worker が `node pwa/scripts/apply_approved_textbook_insights.mjs --apply` で `pwa/bzm/*.md` へ追記し、git commit/push する。Vercel runtime から git file を直接編集しない
+
 ## 冪等性と通知
 
 | テーブル | 使い方 |
 |---|---|
 | `l2_extract_state` | `(l2_kind, target_id, scope_key)` ごとに `source_hash`, `saved_count`, `total_count`, `last_processed_at` を保存 |
 | `l2_feedbacks` | レビュー担当の修正依頼。現行 automation は該当 `l2_kind` / `target_id` / `scope_key` の active feedback を prompt に入れる |
-| `l2_notifications` | ②④⑤⑦⑧⑨ の承認カード。`saved_count` が変わったら再通知対象 |
+| `l2_notifications` | ②④⑤⑦⑧⑨⑩ の承認カード。`saved_count` が変わったら再通知対象 |
 | `meeting_notifications` | ⑥ MTG サマリの承認/通知カード (= iOS APNs 通知用) |
 | `progress_estimate_state` | ③ MS 進捗の `source_hash` 差分検知 (= UNIQUE `project_id, ym`) |
 
@@ -200,6 +210,7 @@ vs ローカル Mac scheduled task の問題:
 - AMD-Report GAS R313 の `run_monthlyReportCron` / `run_L2CronDaily` trigger 復活 (= L2①の定期 writer は Codex automation)
 - GAS 153 / 155 の kill switch を外して LLM cron を復活させない
 - PWA / GAS / Vercel route から Anthropic・Gemini・OpenAI の従量課金 API を L2 抽出用途で新規に呼ばない。LLM が必要な抽出・要約・議事録品質改善は repo 内 SKILL と subscription automation 側に寄せる
+- L2⑩ の承認を受けて、Vercel runtime から `pwa/bzm/*.md` を直接編集・commit しない。追記は local applier + git commit/push だけ
 - raw Gmail / raw Notion 本文を L2 row に丸ごと保存しない (= source refs + short snippet + hash のみ)
 - `member_knowledge` の列名を想像で書かない。`status` / `source_hash` / `last_processed_at` は migration 091 + `db_schema.md` 前提で使う
 - L6 で Notion `eventId` 欠損だけを理由に議事録抽出を skip しない
@@ -215,7 +226,7 @@ vs ローカル Mac scheduled task の問題:
 | P1 | Mac 側 `~/.claude/scheduled-tasks/amd-os-l*` 8 個の扱いを棚卸し | 現行 writer ではない。重複稼働や誤復旧の原因になるなら disable / archive |
 | P1 | 旧 `amd-os-meeting-extract` (Mac scheduled task、リネーム済の disabled) を削除 | 整理 |
 | P2 | L5 `member_knowledge` の採否 UI 接続確認 | migration 091 の `status` / `source_hash` 前提で MMO automation と通知側の接続を確認 |
-| P2 | `/admin/settings` に L2①〜⑨ automation の稼働状態を表示 | MMOマシン側 / Codex automation / outbox applier の状態を分けて表示 |
+| P2 | `/admin/settings` に L2①〜⑩ automation の稼働状態を表示 | MMOマシン側 / Codex automation / outbox applier / local BZM applier の状態を分けて表示 |
 
 ## 2026-05-26 移行ログ (= 履歴)
 

@@ -162,7 +162,7 @@ export const MANUAL_SECTIONS: ManualSectionConfig[] = [
 ];
 
 export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
-  { slug: "1-1-intro", title: "AMD OS とは", summary: "OS の目的、想定ユーザー、5 生データ、L2 9 種、読み方ガイド。", topics: ["start", "system"], screens: ["/manual"], tables: ["L2 9 種"] },
+  { slug: "1-1-intro", title: "AMD OS とは", summary: "OS の目的、想定ユーザー、5 生データ、L2 10 種、読み方ガイド。", topics: ["start", "system"], screens: ["/manual"], tables: ["L2 10 種"] },
 
   { slug: "2-1-member-quick-start", title: "はじめて使う人向け", summary: "最初に見る画面と、ざっくりした使い方。", topics: ["start", "cockpit"], screens: ["/dashboard", "/project/{projectId}/cockpit", "/mypage"] },
   { slug: "2-2-member-workflows-quick-start", title: "メンバーの日常ワークフロー", summary: "マイページ、立替、週次活動、月次 TODO の日常導線。", topics: ["start", "monthly"], screens: ["/mypage", "/reimburse"] },
@@ -172,7 +172,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "2-6-admin-ops", title: "月次ルーティン早見表", summary: "支払、請求、立替、報告書、入金確認の締切と流れ。", topics: ["monthly", "admin"], screens: ["/admin/billing", "/admin/payouts"] },
 
   { slug: "3-1-system-architecture", title: "全体設計", summary: "画面、データ、書き込み経路、設計 md 索引まで含む OS の地図。", topics: ["system-dev", "developer"], screens: ["/manual"], tables: ["projects", "members", "billing_cycles"] },
-  { slug: "3-2-data-and-extraction", title: "データと抽出", summary: "5 生データ、L2 9 種、抽出 pipeline、復旧状況の開発者向け正本。", topics: ["system-dev", "knowledge-dev"], tables: ["source_cache", "project_meeting_summaries", "project_strategy_signals"] },
+  { slug: "3-2-data-and-extraction", title: "データと抽出", summary: "5 生データ、L2 10 種、抽出 pipeline、復旧状況の開発者向け正本。", topics: ["system-dev", "knowledge-dev"], tables: ["source_cache", "project_meeting_summaries", "project_strategy_signals"] },
   { slug: "3-3-notifications-and-tsukuyomi", title: "通知・修正依頼・正本反映ゲート", summary: "通知、つくよみ、ユーザー確認、正本反映の考え方。", topics: ["knowledge", "system"], screens: ["/notifications"], tables: ["l2_notifications", "l2_feedbacks"] },
 
   { slug: "4-1-atlas-protocol-score-macrotrend", title: "判断エンジン overview", summary: "Atlas、AMD Protocol、AMD Score、Macrotrend の関係。", topics: ["decision", "discovery"], screens: ["/atlas", "/venture-map/amd-score"] },
@@ -199,7 +199,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
 
   { slug: "8-1-knowledge-admin-tsukuyomi-spec", title: "Knowledge Admin / Tsukuyomi", summary: "AMD Protocol、contexts、つくよみ学習、feedback API。", topics: ["knowledge-dev", "admin-dev"], screens: ["/admin/protocols", "/admin/contexts", "/admin/tsukuyomi"], tables: ["protocols", "tsukuyomi_context"] },
   { slug: "8-2-notification-review-and-strategy-signals-spec", title: "通知レビュー UI / 経営ハイライト確認", summary: "notifications 実 UI、経営ハイライト、修正依頼履歴。", topics: ["knowledge-dev", "decision", "cockpit"], screens: ["/notifications", "/project/{projectId}/cockpit"], tables: ["project_strategy_signals", "l2_feedbacks"] },
-  { slug: "8-3-l2-extraction-routines-spec", title: "L2 Extraction Routines", summary: "L2 ①〜⑨ の現行 writer、MMOマシン automation、outbox/applier、課金ルート、復旧時に見る場所。", topics: ["knowledge-dev", "developer"], tables: ["monthly_reports", "milestone_monthly_progress", "project_knowledge", "member_knowledge", "protocols"] },
+  { slug: "8-3-l2-extraction-routines-spec", title: "L2 Extraction Routines", summary: "L2 ①〜⑩ の現行 writer、MMOマシン automation、outbox/applier、local BZM applier、課金ルート、復旧時に見る場所。", topics: ["knowledge-dev", "developer"], tables: ["monthly_reports", "milestone_monthly_progress", "project_knowledge", "member_knowledge", "protocols", "textbook_insight_candidates"] },
 
   { slug: "9-1-decisions-and-history", title: "過去判断と経緯", summary: "過去判断の読者向け入口。実装制約の正本は /spec/5-3 / 5-4 に移行済み。", topics: ["developer", "system-dev"] },
   { slug: "9-2-developer", title: "開発者向け", summary: "開発者が最初に読む /spec 章への入口。deploy / DDL / automation 詳細は /spec に移行済み。", topics: ["developer", "system-dev"] },

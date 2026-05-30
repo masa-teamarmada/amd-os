@@ -11,7 +11,7 @@
  *
  * Body:
  *   {
- *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal',
+ *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal'|'textbook_insight',
  *     target_id: string,            // code_name (member系) / project_id (PJ系)
  *     scope_key?: string,            // ym (PJ系) / 'global' (member系) — default 'global'
  *     notification_id?: string,      // 関連 l2_notifications (optional)
@@ -127,6 +127,7 @@ export async function POST(req: NextRequest) {
       "project_registry_diff",
       "xrl_evidence",
       "project_strategy_signal",
+      "textbook_insight",
       "founding_members",
       "meeting_summary",
     ]);
@@ -403,6 +404,18 @@ async function applyApprovedNotification(args: {
     });
   }
 
+  if (args.l2Kind === "textbook_insight") {
+    return updateTextbookInsightCandidates({
+      supabase: args.supabase,
+      targetId: args.targetId,
+      scopeKey: args.scopeKey,
+      notificationId: args.notificationId,
+      status: "approved",
+      feedbackText: args.feedbackText,
+      createdBy: args.createdBy,
+    });
+  }
+
   return { applied: false, message: `no automatic apply handler for ${args.l2Kind}` };
 }
 
@@ -490,6 +503,18 @@ async function rejectNotificationCandidates(args: {
       scopeKey: args.scopeKey,
       notificationId: args.notificationId,
       status: "rejected",
+      createdBy: args.createdBy,
+    });
+  }
+
+  if (args.l2Kind === "textbook_insight") {
+    return updateTextbookInsightCandidates({
+      supabase: args.supabase,
+      targetId: args.targetId,
+      scopeKey: args.scopeKey,
+      notificationId: args.notificationId,
+      status: "rejected",
+      feedbackText: args.feedbackText,
       createdBy: args.createdBy,
     });
   }
@@ -790,6 +815,59 @@ async function updateStrategySignalCandidates(args: {
   return {
     applied: (fallback.data ?? []).length > 0,
     message: `${args.status} strategy signals: ${(fallback.data ?? []).length}`,
+    row: fallback.data,
+  };
+}
+
+async function updateTextbookInsightCandidates(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  targetId: string;
+  scopeKey: string;
+  notificationId?: string | null;
+  status: "approved" | "rejected";
+  feedbackText: string;
+  createdBy: string | null;
+}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  const meta = await loadNotificationMetadata(args.supabase, args.notificationId);
+  const sourceHash = textValue(meta.candidate_source_hash);
+  const candidateId = textValue(meta.candidate_id);
+  const now = new Date().toISOString();
+
+  const run = async (includeExact: boolean) => {
+    let query = args.supabase
+      .from("textbook_insight_candidates")
+      .update({
+        status: args.status,
+        reviewed_by: args.createdBy,
+        review_comment: args.feedbackText || null,
+        reviewed_at: now,
+        updated_at: now,
+      })
+      .eq("target_id", args.targetId)
+      .eq("status", "candidate");
+    if (includeExact && candidateId) query = query.eq("candidate_id", candidateId);
+    if (includeExact && sourceHash && !candidateId) query = query.eq("source_hash", sourceHash);
+    if (!includeExact) query = query.eq("scope_key", args.scopeKey);
+    return query.select("candidate_id, title, target_bzm_slug, insight_type, status");
+  };
+
+  if (candidateId || sourceHash) {
+    const exact = await run(true);
+    if (exact.error) return { applied: false, message: exact.error.message };
+    if ((exact.data ?? []).length > 0 || candidateId || sourceHash) {
+      return {
+        applied: (exact.data ?? []).length > 0,
+        message: `${args.status} textbook insight candidates: ${(exact.data ?? []).length}`,
+        row: exact.data,
+      };
+    }
+  }
+
+  const fallback = await run(false);
+  if (fallback.error) return { applied: false, message: fallback.error.message };
+  return {
+    applied: (fallback.data ?? []).length > 0,
+    message: `${args.status} textbook insight candidates: ${(fallback.data ?? []).length}`,
     row: fallback.data,
   };
 }

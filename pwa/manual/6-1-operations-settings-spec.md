@@ -50,7 +50,7 @@ L2 Data は、Raw Data を OS が使える知識に変換したもの。
 2026-05-29 時点の注意:
 - ① `monthly_reports` は OS の必須データなので生成対象。primary writer は Codex automation `AMD OS L2① 月次報告抽出` (= daily 05:30 JST) で、`amd-os-ms/outbox.monthlyReports` を非LLM helper が反映する。PWA の report route / backfill route、月次報告モーダルの手動生成・修正、AMD-Report GAS R313 は復旧・手動編集・旧経路。R313 は未生成/差分あり時に Claude API を呼びうるため、2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger を置いていない。
 - ③ `milestone_monthly_progress` は **MMOマシン automation `amd-os-l3-ms-progress-extract`** が primary writer。GAS 154 -> PWA `/api/cron/hourly-estimate` は 2026-05-29 に再停止済み。Codex automation `amd-os-ms` は修正候補レビュー / OS 台帳差分 / XRL 根拠を outbox に出す。
-- ②④⑤⑥ は旧 GAS LLM cron から subscription automation へ移管済み。②④⑤は **MMOマシン Codex Desktop automation** (`amd-os-l2-protocol-extract` / `amd-os-l4-project-knowledge-extract` / `amd-os-l5-member-knowledge-extract`)、⑥は **Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow`**。復旧時は [3-2 章](3-2-data-and-extraction.md) と [8-3 章](8-3-l2-extraction-routines-spec.md) の L2①〜⑨ 抽出ルート表を見る。
+- ②④⑤⑥ は旧 GAS LLM cron から subscription automation へ移管済み。②④⑤は **MMOマシン Codex Desktop automation** (`amd-os-l2-protocol-extract` / `amd-os-l4-project-knowledge-extract` / `amd-os-l5-member-knowledge-extract`)、⑥は **Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow`**。⑩ Textbook Insights は approved 後に local BZM applier が `pwa/bzm/*.md` へ追記する。復旧時は [3-2 章](3-2-data-and-extraction.md) と [8-3 章](8-3-l2-extraction-routines-spec.md) の L2①〜⑩ 抽出ルート表を見る。
 
 ## Cron Control の読み方
 

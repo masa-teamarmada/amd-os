@@ -1,8 +1,8 @@
-# L2 ①〜⑨ 取り込み統一 — subscription automation 移行 (設計議論)
+# L2 ①〜⑩ 取り込み統一 — subscription automation 移行 (設計議論)
 
 > **状態 (= 2026-05-29 正本訂正)**: ✅ **L2 ① `monthly_reports` も正式対象に訂正**。現行ルートは、L2 ① = Codex automation `AMD OS L2① 月次報告抽出`、L2 ②〜⑥ = MMOマシン Codex Desktop automation、L2 ⑦⑧⑨ = Codex automation + outbox/applier。詳細仕様は [8-3 章](../manual/8-3-l2-extraction-routines-spec.md) を真とする。R313 は旧有料API経路であり、定期 trigger は置かない。
 >
-> 現行の復旧・運用確認は [`L2_DATA.md`](L2_DATA.md) の §「L2 ①〜⑨ subscription automation 統一」と [8-3 章](../manual/8-3-l2-extraction-routines-spec.md) の現行 automation 表を参照。古い trigger ID は履歴扱い。
+> 現行の復旧・運用確認は [`L2_DATA.md`](L2_DATA.md) の §「L2 ①〜⑩ subscription automation 統一」と [8-3 章](../manual/8-3-l2-extraction-routines-spec.md) の現行 automation 表を参照。古い trigger ID は履歴扱い。
 >
 > 関連: [`pwa/manual/3-2-data-and-extraction.md`](../manual/3-2-data-and-extraction.md) §3.1, [`pwa/manual/9-1-decisions-and-history.md`](../manual/9-1-decisions-and-history.md) §5.1 / §5.4 / §5.7, [`pwa/manual/8-3-l2-extraction-routines-spec.md`](../manual/8-3-l2-extraction-routines-spec.md), [`pwa/design_log/sessions_2026-05.md`](../design_log/) の 2026-05-26 セクション (= 移行経緯詳細)
 
@@ -226,7 +226,7 @@ description: AMD OS L2 ⑥ MTG サマリ抽出 routine。毎時 0 分発火、�
 AMD OS の L2 ⑥ MTG サマリ抽出 routine。GAS 153 `nav_meeting_pollRecentlyEndedEvents` の後継 (= 5/22 kill switch で停止)。
 
 【絶対】 動く前に必ず Read:
-1. /Users/masa/projects/AMD/amd-os/pwa/manual/3-2-data-and-extraction.md (= §3.1 取り込み path / §3.2 L2 9 種正本 / §3.4 修正依頼ループ)
+1. /Users/masa/projects/AMD/amd-os/pwa/manual/3-2-data-and-extraction.md (= §3.1 取り込み path / §3.2 L2 10 種正本 / §3.4 修正依頼ループ)
 2. /Users/masa/projects/AMD/amd-os/pwa/design/meeting_summaries.md (= MTG サマリ仕様正本)
 3. /Users/masa/projects/AMD/amd-os/pwa/design/db_schema.md (= 列名は想像で書かない、必ずここを grep)
 

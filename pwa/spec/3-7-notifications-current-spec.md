@@ -56,6 +56,7 @@ POST body:
 | `xrl_evidence` | `project_xrl_evidence.status='confirmed'` | `status='rejected'` |
 | `founding_members` | `project_founding_members.status='active'` | `status='invalid'` |
 | `project_strategy_signal` | `project_strategy_signals.status='confirmed'` | `status='rejected'` |
+| `textbook_insight` | `textbook_insight_candidates.status='approved'`。その後 local applier が `pwa/bzm/*.md` へ追記 | `status='rejected'` |
 
 すべての action は `l2_feedbacks` に保存し、`tsukuyomi_learnings` にも通知回答として残す。
 
@@ -64,6 +65,7 @@ POST body:
 - candidate を通知表示しただけで正本反映しない。
 - allowlist 外の DB patch を自動適用しない。
 - source refs が弱い候補を「はい」なしで confirmed にしない。
+- `textbook_insight` は「はい」だけで git 管理ファイルを本番 runtime から編集しない。追記は local applier / commit / push 経路に限定する。
 
 ## Failure Mode
 

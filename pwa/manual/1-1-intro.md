@@ -21,7 +21,7 @@ AMD OS は、**株式会社チームアルマダ (= AMD)** が手がけるディ
 
 **やってること**:
 - 5 生データソース (Slack / Notion / Calendar / Drive / Gmail) を継続的に取り込み
-- LLM (= Codex / Claude / Gemini) で「意味のある知識」(= L2 9 種) に抽出
+- LLM (= Codex / Claude / Gemini) で「意味のある知識」(= L2 10 種) に抽出
 - 各 PJ コックピット画面で経営判断・MS 進捗・経営ハイライト・MTG サマリを表示
 - AMD 全体コックピット (= p00) で会社全体の Management Score・まさえいMTG (= 経営判断 dialogue) を回す
 
@@ -71,9 +71,9 @@ AMD OS は、**株式会社チームアルマダ (= AMD)** が手がけるディ
 
 → 詳細は **[3-2 章 データと抽出](3-2-data-and-extraction.md)** へ。
 
-## L2 9 種の俯瞰
+## L2 10 種の俯瞰
 
-5 生データから LLM が抽出した「意味のある知識」を L2 と呼ぶ。9 種類ある。
+5 生データ、または Supabase 内の既存 L2 / OS データから LLM が抽出した「意味のある知識」を L2 と呼ぶ。10 種類ある。
 
 | L2 種 | 名前 | 内容 | 例 |
 |---|---|---|---|
@@ -86,6 +86,7 @@ AMD OS は、**株式会社チームアルマダ (= AMD)** が手がけるディ
 | **L2 ⑦** | `project_registry_diffs` | OS 台帳差分 | 「新規メンバー追加候補」 |
 | **L2 ⑧** | `project_xrl_evidence` | XRL 根拠 | 「BRL 5 の根拠: ファインケム MoU 締結」 |
 | **L2 ⑨** | `project_strategy_signals` | **経営ハイライト** | 「JAFCO DD 開始」「中国レアアース規制 → SX 追い風」 |
+| **L2 ⑩** | `textbook_insight_candidates` | Textbook Insights | 「BZM 教科書へ追記すべき Before Zero 実務知見」 |
 
 → 詳細は **[3-2 章 データと抽出](3-2-data-and-extraction.md)** へ。
 

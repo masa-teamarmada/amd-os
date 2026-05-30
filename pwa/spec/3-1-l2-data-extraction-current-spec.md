@@ -1,6 +1,6 @@
 # L2 データ抽出 / Outbox 仕様
 
-> **この章は何か**: AMD OS の中核データである L2 ①〜⑨と、5 生データ、subscription automation、outbox / LaunchAgent 反映の確定仕様。運用者向けの読み方は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも置く。移行中は両方を更新する。
+> **この章は何か**: AMD OS の中核データである L2 ①〜⑩と、5 生データ、subscription automation、outbox / LaunchAgent 反映の確定仕様。運用者向けの読み方は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも置く。移行中は両方を更新する。
 
 ## 5 生データ
 
@@ -16,7 +16,7 @@ L2 抽出は必ず次の 5 種類を対象にする。
 
 `source_cache` は旧 L1 正本ではなく、source refs / short snippet / hash の証跡キャッシュ。メール全文・議事録全文・Slack全文を L2 row に保存しない。
 
-## L2 ①〜⑨
+## L2 ①〜⑩
 
 | L2 | table | 現行 writer | 反映 |
 |---|---|---|---|
@@ -29,6 +29,7 @@ L2 抽出は必ず次の 5 種類を対象にする。
 | ⑦ OS台帳差分 | `project_registry_diffs` | Codex automation `amd-os-ms` / SKILL `amd-os-l7-registry-diff-extract` | outbox → LaunchAgent |
 | ⑧ XRL根拠 | `project_xrl_evidence` / `project_founding_members` | Codex automation `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | outbox → LaunchAgent |
 | ⑨ 経営ハイライト | `project_strategy_signals` | Codex automation `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | strategy-signals outbox → LaunchAgent |
+| ⑩ Textbook Insights | `textbook_insight_candidates` | Codex automation / local worker `amd-os-l10-textbook-insight-extract` | `outbox.textbookInsights` → candidate + notification → approved → local BZM applier |
 
 ## L2 ⑥ MTG サマリの開催済みソース guard
 
@@ -46,10 +47,11 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 
 ## Writer 境界
 
-- L2 ①⑦⑧⑨は Codex automation が JSON outbox を作り、非LLM LaunchAgent が Supabase / PWA API に反映する。
+- L2 ①⑦⑧⑨⑩は Codex automation が JSON outbox を作り、非LLM LaunchAgent が Supabase / PWA API に反映する。
 - L2 ②〜⑥は MMOマシン Codex Desktop automation が現行 writer。
 - 旧 GAS 153 / 155、AMD-Report GAS R313、PWA LLM cron は定期 writer として復活させない。
 - PWA `/api/cron/hourly-estimate` は `ALLOW_PWA_LLM_CRONS=1` がない限り disabled response のみ。
+- L2⑩ は `/notifications` の「はい」で DB 候補を `approved` にするだけ。git 管理の `pwa/bzm/*.md` 追記は local applier / worker が行い、Vercel runtime から直接 commit しない。
 
 ## Outbox 契約
 
@@ -69,6 +71,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 | OS台帳差分 | allowlist 済み DB 更新 | `project_registry_diffs.status='rejected'` |
 | XRL根拠 | `project_xrl_evidence.status='confirmed'` | `rejected` |
 | 経営ハイライト | `project_strategy_signals.status='confirmed'` | `rejected` |
+| Textbook Insights | `textbook_insight_candidates.status='approved'` → local applier で `pwa/bzm/*.md` 追記 | `rejected` |
 | PJナレッジ | `project_knowledge.status='active'` | `rejected` |
 | AMD Protocol | `protocols.status='confirmed'` | `rejected` |
 | founding members | `project_founding_members.status='active'` | `invalid` |
@@ -90,6 +93,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 | ③ MS Progress | [/spec/3-10-l2-ms-progress-current-spec](/spec/3-10-l2-ms-progress-current-spec) |
 | ④ Project Knowledge | [/spec/3-11-l2-project-knowledge-current-spec](/spec/3-11-l2-project-knowledge-current-spec) |
 | ⑤ Member Knowledge | [/spec/3-12-l2-member-knowledge-current-spec](/spec/3-12-l2-member-knowledge-current-spec) |
+| ⑩ Textbook Insights | [/spec/3-13-l2-textbook-insights-current-spec](/spec/3-13-l2-textbook-insights-current-spec) |
 
 ## 復旧時の確認順
 

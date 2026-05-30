@@ -8,7 +8,7 @@
 
 これは「cron 禁止」ではない。DB同期、外部API fetch、通知、キャッシュ更新、入金・請求系など、LLM 非依存の cron は許可される。
 
-## L2 ①〜⑨ current writers
+## L2 ①〜⑩ current writers
 
 | L2 | table | current writer | 実行場所 | schedule | apply |
 |---|---|---|---|---|---|
@@ -21,6 +21,7 @@
 | ⑦ Registry Diffs | `project_registry_diffs` | `amd-os-ms` + `amd-os-l7-registry-diff-extract` | Codex automation + outbox applier | every 6h | `outbox.registryDiffs` → LaunchAgent |
 | ⑧ XRL Evidence | `project_xrl_evidence` | `amd-os-ms` + `amd-os-l8-xrl-evidence-extract` | Codex automation + outbox applier | every 6h +15m | `outbox.xrlEvidence` → LaunchAgent |
 | ⑨ Strategy Signals | `project_strategy_signals` | `amd-os` + `amd-os-l9-strategy-signal-extract` | Codex automation + outbox applier | daily 03:20 JST | strategy-signals outbox → LaunchAgent |
+| ⑩ Textbook Insights | `textbook_insight_candidates` | `amd-os-l10-textbook-insight-extract` | Codex automation / local worker + outbox applier + local BZM applier | TBD / manual start | `outbox.textbookInsights` → candidate + notification。approved 後 `apply_approved_textbook_insights.mjs` が `pwa/bzm/*.md` へ追記 |
 
 SKILL 正本は `pwa/scheduled-tasks/amd-os-l<N>-*/SKILL.md`。L2 の品質改善は、PWA route / GAS function ではなく SKILL と outbox/applier contract を更新する。
 
@@ -63,6 +64,8 @@ LaunchAgent は Codex automation の outbox を Supabase に反映する非LLM a
 | 禁止 | automation が DB に直接 bypass write して outbox を飛ばすこと |
 
 新しい automation outbox を追加したら、`scripts/run-ms-outbox-applier.sh` の監視対象へ明示追加する。
+
+L2⑩ は既存 `amd-os-ms/outbox` の `textbookInsights` payload を使うため監視ディレクトリ追加は不要。ただし approved candidate を `pwa/bzm/*.md` に反映する local applier は git file を触る別段階であり、LaunchAgent の DB outbox applier だけでは完了しない。
 
 ## 再発防止
 
