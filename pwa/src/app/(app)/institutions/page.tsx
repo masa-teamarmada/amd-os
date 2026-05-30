@@ -7,7 +7,18 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
-import { computeErs, ersScoreColor, INSTITUTION_TYPE_LABEL } from "@/lib/ers";
+import { computeErs, INSTITUTION_TYPE_LABEL } from "@/lib/ers";
+
+/** ヒートマップ用 単色 (indigo) 濃淡。score 0..1、高いほど濃い。null=未評価グレー。 */
+function heatCell(score: number | null): { background: string; color: string } {
+  if (score == null) return { background: "#f4f4f5", color: "#a1a1aa" };
+  const s = Math.max(0, Math.min(1, score));
+  const L = 93 - s * 61; // 高得点ほど L が小さい (濃い)
+  return {
+    background: `hsl(243 58% ${L}%)`,
+    color: L < 62 ? "rgba(255,255,255,0.96)" : "hsl(243 45% 30%)",
+  };
+}
 
 export default function InstitutionsPage() {
   const [bundle, setBundle] = useState<ErsBundle | null>(null);
@@ -87,20 +98,24 @@ export default function InstitutionsPage() {
             </tr>
           </thead>
           <tbody>
-            {/* 総合 ERS */}
+            {/* 総合 ERS (強調) */}
             <tr>
-              <th className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-semibold border-b border-r border-border">
-                総合 ERS 充足率
+              <th className="sticky left-0 z-10 bg-card px-3 py-5 text-left text-base font-bold border-b-2 border-r border-border align-middle">
+                総合 ERS
+                <span className="block text-[10px] font-normal text-muted-foreground">エコシステム整備度</span>
               </th>
-              {results.map(({ inst, result }) => (
-                <td
-                  key={inst.institutionId}
-                  className="px-2 py-2 text-center font-mono font-bold text-white/95 border-b border-r border-border"
-                  style={{ background: ersScoreColor(result.ers != null ? result.ers / 100 : null) }}
-                >
-                  {result.ers != null ? `${Math.round(result.ers)}%` : "—"}
-                </td>
-              ))}
+              {results.map(({ inst, result }) => {
+                const c = heatCell(result.ers != null ? result.ers / 100 : null);
+                return (
+                  <td
+                    key={inst.institutionId}
+                    className="px-2 py-5 text-center font-mono text-3xl font-extrabold border-b-2 border-r border-border align-middle"
+                    style={c}
+                  >
+                    {result.ers != null ? `${Math.round(result.ers)}%` : "—"}
+                  </td>
+                );
+              })}
             </tr>
             {/* 各軸 */}
             {sortedAxes.map((axis) => (
@@ -117,8 +132,8 @@ export default function InstitutionsPage() {
                   return (
                     <td
                       key={inst.institutionId}
-                      className="px-2 py-2 text-center font-mono text-white/95 border-b border-r border-border"
-                      style={{ background: ersScoreColor(a?.score ?? null) }}
+                      className="px-2 py-2.5 text-center font-mono text-sm border-b border-r border-border"
+                      style={heatCell(a?.score ?? null)}
                       title={`${a?.score != null ? Math.round(a.score * 100) + "%" : "未評価"} (${a?.assessedCount ?? 0}/${a?.totalCount ?? 0})`}
                     >
                       {a?.score != null ? Math.round(a.score * 100) : "–"}
