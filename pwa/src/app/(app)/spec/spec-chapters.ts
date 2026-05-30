@@ -7,7 +7,7 @@
  *
  * 内容正本は `pwa/spec/{slug}.md` (= git 管理かつ OS 画面表示)。
  * 設計書は AMD OS の「確定した実装仕様」の正本。数式・理論は /bzm、使い方は /manual。
- * `pwa/design/*.md` は廃止し、確定仕様はここへ集約する (2026-05-30 まさ確定)。
+ * `pwa/design/*.md` から章単位で移行中。移行済み章だけ /spec を正本にする。
  */
 
 export interface SpecSectionConfig {
@@ -29,19 +29,43 @@ export interface SpecNumberedChapter extends SpecChapterConfig {
 
 /**
  * section 構成。フェーズ B で旧 design/ の S ファイルと manual の -spec 章を
- * ここへ集約する。現状は overview のみ (= 箱を作った段階)。
+ * ここへ集約する。現状は overview と移行マップ (= 方針を固める段階)。
  */
 export const SPEC_SECTIONS: SpecSectionConfig[] = [
   {
     key: "overview",
     label: "はじめに",
-    description: "設計書セクションの目的、3 層ドキュメント体系、OS 画面で正本管理する理由。",
-    slugs: ["1-1-overview"],
+    description: "設計書セクションの目的、3 層ドキュメント体系、移行中の正本境界。",
+    slugs: ["1-1-overview", "1-2-document-layer-migration-map"],
+  },
+  {
+    key: "platform",
+    label: "PWA 基盤",
+    description: "PWA の実行環境、route、API、cron、auth 境界。",
+    slugs: ["2-1-pwa-runtime-routes"],
+  },
+  {
+    key: "data-automation",
+    label: "データ / Automation",
+    description: "5 生データ、L2 ①〜⑨、outbox、LaunchAgent、採否ループ。",
+    slugs: ["3-1-l2-data-extraction-current-spec", "3-2-monthly-reports-current-spec", "3-3-meeting-flow-current-spec"],
+  },
+  {
+    key: "decision-engine",
+    label: "経営判断エンジン",
+    description: "AMD Score、FRL、XRL、経営判断ロジックの確定実装仕様。",
+    slugs: ["4-1-frl-ces-current-spec"],
   },
 ];
 
 export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "1-1-overview", title: "設計書について", summary: "確定仕様の正本。manual / spec / bzm の 3 層体系と、OS 画面で正本管理する理由。" },
+  { slug: "1-2-document-layer-migration-map", title: "ドキュメント3層移行マップ", summary: "manual / design / bzm / spec の重複・衝突、移行優先順位、章単位の移行ゲート。" },
+  { slug: "2-1-pwa-runtime-routes", title: "PWA ランタイム / ルート仕様", summary: "Next.js PWA の実行環境、主要 route、API / cron / auth の現行契約。" },
+  { slug: "3-1-l2-data-extraction-current-spec", title: "L2 データ抽出 / Outbox 仕様", summary: "5 生データ、L2 ①〜⑨、subscription automation、outbox / LaunchAgent 反映の確定仕様。" },
+  { slug: "3-2-monthly-reports-current-spec", title: "L2① Monthly Reports 仕様", summary: "monthly_reports の writer、上書き禁止、source refs、outbox 反映、旧 R313 / PWA route の扱い。" },
+  { slug: "3-3-meeting-flow-current-spec", title: "L2⑥ Meeting Flow 仕様", summary: "MTGサマリ、予定MTGカード、Drive資料同期、TODO、Calendar作業枠、Gmail draft の現行仕様。" },
+  { slug: "4-1-frl-ces-current-spec", title: "FRL CES 実装仕様", summary: "F_character × F_capability の CES 合成、DB列、実装関数、後方互換の現行契約。" },
 ];
 
 const sectionOrder = new Map(

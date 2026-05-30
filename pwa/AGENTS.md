@@ -16,18 +16,21 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 
 **まず読む = OS マニュアル正本** (= 2026-05-25 以降):
 
-00. [`pwa/manual/1-1-intro.md`](manual/00-intro.md) ⭐⭐⭐ — **AMD OS マニュアル**入口 (= 7 章構成)。**新セッションのえいみは必ずここから読む**。過去判断ログ / 用語と実装の対応 / cron 廃止経緯 / Codex-Claude-Vercel-LaunchAgent 責務分担マトリクス / 過去事故ログはすべて [`05-decisions-and-history.md`](manual/05-decisions-and-history.md) に集約
+00. [`pwa/manual/1-1-intro.md`](manual/1-1-intro.md) ⭐⭐⭐ — **AMD OS マニュアル**入口。**新セッションのえいみは必ずここから読む**。過去判断ログ / 用語と実装の対応 / cron 廃止経緯 / Codex-Claude-Vercel-LaunchAgent 責務分担マトリクス / 過去事故ログは [`pwa/manual/9-1-decisions-and-history.md`](manual/9-1-decisions-and-history.md) と [`pwa/manual/9-3-appendix-changelog.md`](manual/9-3-appendix-changelog.md) に集約
 
-そのあと **設計議論 md** (= `pwa/design/` 配下):
+そのあと **設計仕様 md** (= `/spec` へ移行中。未移行領域は `pwa/design/` が正本):
 
-0. [`pwa/design/L2_DATA.md`](design/L2_DATA.md) ⭐⭐⭐ — 中核データ正本 (L2 9 種 + レポート + 全 cron)
-1. [`pwa/design/README.md`](design/README.md) — 設計フォルダ全体のインデックス
-2. [`pwa/design/SPEC_pwa.md`](design/SPEC_pwa.md) ⭐ — PWA 全体仕様
-3. [`pwa/design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md) ⭐ — 消してはいけない業務導線
-4. [`pwa/design/SPEC_GOVERNANCE.md`](design/SPEC_GOVERNANCE.md) ⭐ — 仕様統制
-5. [`pwa/design/cockpit.md`](design/cockpit.md) ⭐ — コックピット詳細
-6. [`pwa/design/routine.md`](design/routine.md) ⭐ — 月次ルーティン (回帰多発)
-7. その他テーマ別 md は `pwa/design/README.md` の表参照
+0. [`pwa/spec/1-1-overview.md`](spec/1-1-overview.md) / [`pwa/spec/1-2-document-layer-migration-map.md`](spec/1-2-document-layer-migration-map.md) — manual / spec / bzm 3層分割と移行マップ
+1. [`pwa/spec/2-1-pwa-runtime-routes.md`](spec/2-1-pwa-runtime-routes.md) — PWA ランタイム / route / API / cron / auth 境界
+2. [`pwa/spec/3-1-l2-data-extraction-current-spec.md`](spec/3-1-l2-data-extraction-current-spec.md) — L2 ①〜⑨ / 5 生データ / outbox / LaunchAgent / 採否ループ
+3. [`pwa/design/L2_DATA.md`](design/L2_DATA.md) ⭐⭐⭐ — 中核データ正本 (L2 9 種 + レポート + 全 cron)。移行完了までは `/spec` と両方見る
+4. [`pwa/design/README.md`](design/README.md) — 未移行設計フォルダのインデックス
+5. [`pwa/design/SPEC_pwa.md`](design/SPEC_pwa.md) ⭐ — PWA 全体仕様。移行完了までは `/spec` と両方見る
+6. [`pwa/design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md) ⭐ — 消してはいけない業務導線
+7. [`pwa/design/SPEC_GOVERNANCE.md`](design/SPEC_GOVERNANCE.md) ⭐ — 仕様統制
+8. [`pwa/design/cockpit.md`](design/cockpit.md) ⭐ — コックピット詳細
+9. [`pwa/design/routine.md`](design/routine.md) ⭐ — 月次ルーティン (回帰多発)
+10. その他テーマ別 md は `pwa/design/README.md` の表参照
 
 そのあと:
 - [`pwa/HANDOFF_pwa_rebuild.md`](HANDOFF_pwa_rebuild.md) — 直近セッション状態・次の一手
@@ -35,7 +38,7 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 - [`pwa/CLAUDE.md`](CLAUDE.md) — PWA 固有運用 (デプロイ・DDL)
 - [`pwa/design_log/sessions_YYYY-MM.md`](design_log/) — 過去セッションログ (時系列)
 
-**設計変更を入れるときは必ず `pwa/manual/` (= 正本) + 必要なら `pwa/design/` 配下を同じ commit で更新する**。
+**設計変更を入れるときは、使い方は `pwa/manual/`、確定実装仕様は移行済みなら `pwa/spec/`、未移行なら `pwa/design/` を同じ commit で更新する**。
 新規の設計 md を `design_log/` に作らない (見落とされる)。
 
 # 確認方針 (PWA は常に本番)

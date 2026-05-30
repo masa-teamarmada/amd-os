@@ -1,8 +1,7 @@
-# pwa/design/ — 設計の正本フォルダ
+# pwa/design/ — 設計正本フォルダ (/spec へ移行中)
 
-> **新セッションのえいみが最初に読むフォルダ。**
-> ここの md がすべて PWA の設計の正本。`AGENTS.md` / `CLAUDE.md` から
-> このフォルダに案内される構造になっている。
+> **新セッションのえいみが `/spec` と合わせて読むフォルダ。**
+> AMD OS は manual / spec / bzm の3層へ移行中。未移行の確定実装仕様は、引き続きこの `pwa/design/` が正本。移行済み章だけ `pwa/spec/*.md` を正本にする。
 
 ---
 
@@ -10,7 +9,8 @@
 
 | 順 | ファイル | 内容 |
 |---|---|---|
-| **0** | [**L2_DATA.md**](L2_DATA.md) ⭐⭐⭐ | **AMD OS 中核データ正本** — L2 9 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ / OS台帳差分 / XRL根拠 / 経営・事業シグナル) + レポート + 全 cron。データに触る前に必ず読む |
+| **-1** | [../spec/1-1-overview.md](../spec/1-1-overview.md) / [../spec/1-2-document-layer-migration-map.md](../spec/1-2-document-layer-migration-map.md) | manual / spec / bzm 3層分割と、`design/` から `/spec` への移行マップ |
+| **0** | [**L2_DATA.md**](L2_DATA.md) ⭐⭐⭐ | **AMD OS 中核データ正本** — L2 9 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ / OS台帳差分 / XRL根拠 / 経営・事業シグナル) + レポート + 全 cron。`/spec` 未移行のため、データに触る前に必ず読む |
 | 1 | [SPEC_pwa.md](SPEC_pwa.md) ⭐ | **PWA 全体の正本仕様** — 画面・ルート・データモデル・cron・運用コマンド・実装規約 |
 | 2 | [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) ⭐ | **重要UIの回帰防止登録簿** — 画面ごとの「消してはいけない業務導線」と `test:critical-ui` anchor |
 | 2.5 | [SPEC_GOVERNANCE.md](SPEC_GOVERNANCE.md) ⭐ | **仕様ドリフト防止運用** — Capability Catalog / functional spec / ADR / traceability / executable spec の使い分け |
@@ -53,7 +53,8 @@
 
 | 場所 | 役割 |
 |---|---|
-| `pwa/design/` ⭐ | **設計の正本** (このフォルダ) — 仕様変更したらここを同じ commit で更新 |
+| `pwa/spec/` ⭐ | **移行後の確定実装仕様正本** — OS画面 `/spec` に出る。移行済み章だけここが正本 |
+| `pwa/design/` ⭐ | **未移行の設計正本** (このフォルダ) — `/spec` へ移すまでは仕様変更したらここを同じ commit で更新 |
 | [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) ⭐ | 重要業務UIの登録簿。消す・置き換える前に同じ commit で更新する |
 | [pwa/HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md) | 直近セッションの引き継ぎ・次の一手 (~200 行以下) |
 | [pwa/BUGS.md](../BUGS.md) | バグ・教訓・回帰防止メモ |
@@ -61,5 +62,5 @@
 | [pwa/AGENTS.md](../AGENTS.md) | 入口メモ (このフォルダへの案内) |
 | `pwa/design_log/sessions_*.md` | 過去セッションの作業ログ (時系列の append-only) |
 
-**重要**: 設計判断・仕様変更を入れる md は必ずこの `pwa/design/` 配下に置く。
+**重要**: 設計判断・仕様変更は、移行済みなら `pwa/spec/`、未移行ならこの `pwa/design/` 配下に置く。
 `design_log/` は時系列ログ用。新規設計 md を `design_log/` に作らない。

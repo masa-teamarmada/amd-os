@@ -170,19 +170,19 @@ DESIGN.md は **全プラットフォーム共通の正本**。Android / PWA も
 Claude / えいみがこのリポジトリで handoff を実行する時は、Codex の handoff skill と同じ仕様で閉じる。
 
 - このセッションで実装・変更した **新たな仕様** を棚卸しする
-- ユーザー/開発者が次回知るべき仕様なら `pwa/manual/*.md` (= AMD OS マニュアル正本) に追記する
-- 詳細仕様は該当 `pwa/design/*.md` / `FEATURE_REGISTRY.md` / `db_schema.md` に置き、マニュアルには読み手向けの要約と運用手順を置く
+- ユーザー/開発者が次回知るべき使い方なら `pwa/manual/*.md` (= AMD OS マニュアル正本) に追記する
+- 詳細仕様は移行済みなら `pwa/spec/*.md`、未移行なら該当 `pwa/design/*.md` / `FEATURE_REGISTRY.md` / `db_schema.md` に置き、マニュアルには読み手向けの要約と運用手順を置く
 - 章対応は `pwa/src/app/(app)/manual/manual-chapters.ts` を見る。新章を作る場合は `manual-chapters.ts` と `pwa/design/os_manual.md` も同時に更新する
 - 純粋な refactor / typo / test only など、マニュアル対象外なら「対象外: 理由」を書く
 - handoff のチャット出力には以下の棚卸し表を必ず含め、すべて `✅` または `対象外: 理由` になるまで migration prompt に進まない
 
 ```md
-| # | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+| # | 新仕様/仕様変更 | spec/design正本 | OSマニュアル章 | 状態 |
 |---|---|---|---|---|
-| 1 | ... | pwa/design/... | pwa/manual/... | ✅ / 対象外: 理由 / ⚠️ |
+| 1 | ... | pwa/spec/... or pwa/design/... | pwa/manual/... | ✅ / 対象外: 理由 / ⚠️ |
 ```
 
-HANDOFF だけに恒久仕様を書いて閉じるのは禁止。長く残る仕様は `pwa/manual/` と `pwa/design/` に逃がしてから、HANDOFF には次セッション用の状態だけを書く。
+HANDOFF だけに恒久仕様を書いて閉じるのは禁止。長く残る仕様は `pwa/manual/` と、移行済みなら `pwa/spec/`、未移行なら `pwa/design/` に逃がしてから、HANDOFF には次セッション用の状態だけを書く。
 
 ---
 

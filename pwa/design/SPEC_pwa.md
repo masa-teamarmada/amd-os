@@ -3,6 +3,8 @@
 AMD OS PWA の **正本仕様書**。
 画面構成・データモデル・共通インフラ・運用コマンド・実装規約を 1 箇所にまとめる。
 
+> **manual / spec / bzm 3層分割中**: PWA ランタイム・route・API・cron の確定仕様は `/spec/2-1-pwa-runtime-routes.md` へ移行開始済み。移行完了までは、この `design/SPEC_pwa.md` も未移行領域の正本として残し、迷う内容は両方に置く。
+
 このファイルは「いま何があるか」を記述する。
 - 各セッションの作業ログ → `design_log/sessions_YYYY-MM.md`
 - バグ・教訓 → `BUGS.md`

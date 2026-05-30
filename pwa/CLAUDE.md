@@ -33,10 +33,12 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 | 何を知りたいか | ファイル | 内容 |
 |---|---|---|
-| **AMD OS マニュアル正本** ⭐⭐⭐ (= 2026-05-25 以降) | `pwa/manual/1-1-intro.md` 〜 `06-developer.md` | **7 章構成のユーザー + 開発者マニュアル**。過去判断 / 用語と実装の対応 / cron 廃止経緯 / Codex-Claude-Vercel-LaunchAgent 責務分担マトリクス / 過去事故ログを集約。**新セッションは必ずここから読む** |
+| **AMD OS マニュアル正本** ⭐⭐⭐ (= 2026-05-25 以降) | `pwa/manual/1-1-intro.md` 〜 `9-3-appendix-changelog.md` | **ユーザー + 開発者マニュアル**。過去判断 / 用語と実装の対応 / cron 廃止経緯 / Codex-Claude-Vercel-LaunchAgent 責務分担マトリクス / 過去事故ログを集約。**新セッションは必ずここから読む** |
 | **AMD OS 中核データ正本** ⭐⭐⭐ | `pwa/design/L2_DATA.md` | **L2 9 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ / OS台帳差分 / XRL根拠 / 経営・事業シグナル) + レポート + 全 cron**。データに触る作業の前に必ず読む |
-| **設計 md フォルダ全体の入口** ⭐ | `pwa/design/README.md` | 設計の正本フォルダのインデックス。**まずここを読んで「次に何を読むか」を決める** |
-| **PWA 全体の正本仕様** ⭐ | `pwa/design/SPEC_pwa.md` | 画面・ルート・データモデル・cron・共通インフラ・運用コマンド・実装規約 |
+| **設計書 (/spec) 移行入口** ⭐ | `pwa/spec/1-1-overview.md` / `pwa/spec/1-2-document-layer-migration-map.md` | manual / spec / bzm の3層分割、移行中の正本境界、次に移す章の優先順位 |
+| **PWA runtime / L2 現行仕様** ⭐ | `pwa/spec/2-1-pwa-runtime-routes.md` / `pwa/spec/3-1-l2-data-extraction-current-spec.md` | PWA route/API/cron/auth と L2 ①〜⑨/outbox/採否ループ。移行完了まで `design/SPEC_pwa.md` / `design/L2_DATA.md` と両方見る |
+| **設計 md フォルダ全体の入口** ⭐ | `pwa/design/README.md` | `/spec` 未移行領域の設計正本インデックス。**まずここを読んで「次に何を読むか」を決める** |
+| **PWA 全体の正本仕様** ⭐ | `pwa/design/SPEC_pwa.md` | 画面・ルート・データモデル・cron・共通インフラ・運用コマンド・実装規約。`/spec` へ章移行予定 |
 | **重要UI登録簿** ⭐ | `pwa/design/FEATURE_REGISTRY.md` | 画面ごとの「消してはいけない業務導線」と `test:critical-ui` anchor |
 | **仕様統制** ⭐ | `pwa/design/SPEC_GOVERNANCE.md` | 仕様がmdへ書き込まれる仕組み、spec/ADR/traceability運用、新セッションの読み順 |
 | **コックピット詳細 / 月次ルーティン** ⭐ | `pwa/design/cockpit.md` | PJ Status / MS / 経営・事業シグナル / 月次ルーティン stepId × クリック挙動 (回帰多発) |
@@ -46,17 +48,18 @@ Next.js 16 + React 19 + Tailwind CSS v4
 | 過去セッションの作業ログ | `pwa/design_log/sessions_YYYY-MM.md` | 月単位の作業ログ (append-only) |
 
 **🚨 重要 — 設計 md の置き場所ルール**:
-- 設計判断・仕様変更は必ず `pwa/design/` 配下に置く
+- 使い方は `pwa/manual/`、確定実装仕様は移行済みなら `pwa/spec/`、未移行なら `pwa/design/` に置く
+- `pwa/design/` は廃止済みではなく移行中。既存ファイルを削除せず、章単位で `/spec` へ移す
 - `pwa/design_log/` には **過去セッションの sessions_*.md** だけ。新規設計 md を作ってはいけない (次セッションのえいみが見落とす)
-- 新セッション開始時は **必ず `pwa/design/README.md` から読む**
+- 新セッション開始時は **必ず `pwa/spec/1-1-overview.md` / `pwa/spec/1-2-document-layer-migration-map.md` と `pwa/design/README.md` から読む**
 
 **🚨 handoff 時の OS マニュアル同期ゲート**:
 - handoff を実行する時は、このセッションで実装・変更した新たな仕様を棚卸しする
 - ユーザー/開発者が次回知るべき仕様なら、`pwa/manual/*.md` (= AMD OS マニュアル正本) に追記する
-- 詳細仕様は該当 `pwa/design/*.md` / `FEATURE_REGISTRY.md` / `db_schema.md` に置き、マニュアルには読み手向けの要約と運用手順を置く
+- 詳細仕様は移行済みなら `pwa/spec/*.md`、未移行なら該当 `pwa/design/*.md` / `FEATURE_REGISTRY.md` / `db_schema.md` に置き、マニュアルには読み手向けの要約と運用手順を置く
 - 章対応は `pwa/src/app/(app)/manual/manual-chapters.ts` を見る。新章を作る場合は `manual-chapters.ts` と `pwa/design/os_manual.md` も同時に更新する
 - 純粋な refactor / typo / test only など、マニュアル対象外なら「対象外: 理由」を書く
-- handoff のチャット出力には `新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態` の表を必ず出し、すべて `✅` または `対象外: 理由` になるまで migration prompt に進まない
+- handoff のチャット出力には `新仕様/仕様変更 | spec/design正本 | OSマニュアル章 | 状態` の表を必ず出し、すべて `✅` または `対象外: 理由` になるまで migration prompt に進まない
 
 ---
 

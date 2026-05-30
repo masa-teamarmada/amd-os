@@ -3,6 +3,8 @@
 作成: 2026-05-07 (blissful-kepler-9e95b0 セッション)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
+> **manual / spec / bzm 3層分割中**: FRL CES の実装仕様は `/spec/4-1-frl-ces-current-spec.md` へ移行済み。AMD Score 全体の未移行仕様は、この `design/amd_score.md` も引き続き正本として残す。理論導出は `/bzm`、画面の読み方は `/manual` に置く。
+
 ---
 
 ## ⚠️ 既存 UI を勝手に消すな (再掲)
@@ -119,11 +121,14 @@ migration:
 - [`pwa/scripts/migrations/015_amd_score_frl_alq.sql`](../scripts/migrations/015_amd_score_frl_alq.sql) (本番適用済 2026-05-07) — FRL ALQ 4 次元 + frl_notes
 - [`pwa/scripts/migrations/030_amd_score_axis_notes.sql`](../scripts/migrations/030_amd_score_axis_notes.sql) (本番適用済 2026-05-09) — `mu_notes` (JSONB: a/i/g) と `xrl_notes` (JSONB: trl/brl/grl/srl/hrl) を追加。**各軸の値の根拠**を保存・表示するための拡張
 - [`pwa/scripts/migrations/031_amd_score_frl_grit_resilience.sql`](../scripts/migrations/031_amd_score_frl_grit_resilience.sql) (本番適用済 2026-05-09) — FRL を 6 因子 (ALQ 4 + Grit + Resilience) に拡張。`frl_grit` (Duckworth 2007) と `frl_resilience` (Markman 2005) を追加
+- `110_amd_score_frl_capability_ces` (本番適用済 2026-05-30) — FRL 2 レイヤー化。`frl_cap` / `frl_cap_amd` / `frl_cap_notes` / `frl_ces_a` / `frl_ces_rho` を追加。詳細仕様は [`pwa/spec/4-1-frl-ces-current-spec.md`](../spec/4-1-frl-ces-current-spec.md)
+- [`pwa/scripts/migrations/111_frl_cap_amd_active_projects.sql`](../scripts/migrations/111_frl_cap_amd_active_projects.sql) (本番適用済 2026-05-31) — active/current 4 PJ (CTB/LST/CX/SX) の AMD メンバー紐付けと `frl_cap_amd` first pass backfill
 
 ```
 amd_score_inputs (project_id FK projects, evaluated_at, mu_A/I/G + 5 XRL + FRL, shallow_tech_mode)
   UNIQUE(project_id, evaluated_at)
   ALQ 4 次元 + frl_notes (FRL 内訳・自由備考)
+  frl_cap / frl_cap_amd / frl_cap_notes / frl_ces_a / frl_ces_rho
   mu_notes  JSONB {a, i, g}              -- Triple Helix μ_A/I/G の評価根拠
   xrl_notes JSONB {trl, brl, grl, srl, hrl} -- 5 XRL の評価根拠
 amd_score_alpha (alpha jsonb, effective_from / effective_to)

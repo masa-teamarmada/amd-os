@@ -1,6 +1,6 @@
 # FRL / HRL / 関連メンバー 詳細仕様
 
-AMD Score 7 軸のうち **FRL (= Founding Readiness)** と **HRL (= Human Resources Readiness)** に紐づく「人」評価軸と、 PJ に関わる **関連メンバー** (= `project_founding_members` / `project_venture_members`) のモデル正本。 AMD Score 全体は [4-3 章](4-3-amd-score-spec.md) を見る。
+AMD Score 7 軸のうち **FRL (= Founding Readiness)** と **HRL (= Human Resources Readiness)** に紐づく「人」評価軸と、 PJ に関わる **関連メンバー** (= `project_founding_members` / `project_venture_members`) の見方。 AMD Score 全体は [4-3 章](4-3-amd-score-spec.md) を見る。FRL の実装仕様・DB列・関数契約は [/spec/4-1-frl-ces-current-spec](/spec/4-1-frl-ces-current-spec)、理論導出は [/bzm/4-1-frl-founder-readiness](/bzm/4-1-frl-founder-readiness) が正本。
 
 ## FRL (= Founder Readiness Level)
 
@@ -90,19 +90,19 @@ F_cap の 0-9 は **えいみが推測で初期投入 → まさが画面で修�
 
 | column | 用途 |
 |---|---|
-| `frl` | FRL 合成スコア (= 0-9、 F_char × F_cap の CES 合成 or 直接入力) |
+| `frl` | F_character (= 旧 FRL 0-9)。`frl_cap` が NULL の行では後方互換で最終 FRL として扱う |
 | `alq_self_awareness` / `_relational_transparency` / `_balanced_processing` / `_internalized_moral` | ALQ 4 次元 (= F_character 構成) |
 | `frl_grit` | Grit 次元 (= F_character 構成) |
 | `frl_resilience` | Resilience 次元 (= F_character 構成) |
 | `frl_cap` ⭐ | F_capability (= 経営実行力 0-9、 チーム best-of)。 migration 110 で実装済 |
-| `frl_cap_amd` ⭐ | F_capability のうち AMD メンバー寄与分 (= AMD 価値定量化用)。 migration 110 で実装済 |
+| `frl_cap_amd` ⭐ | F_capability のうち AMD メンバー寄与分 (= AMD 価値定量化用)。 migration 110 で実装済。active/current 4 PJ は migration 111 で first pass backfill 済 |
 | `frl_cap_notes` ⭐ | F_capability / AMD 寄与の根拠 |
 | `frl_ces_a` / `frl_ces_rho` ⭐ | CES パラメータ (= 初期 a=0.6 / ρ=-2、 retrofit 校正)。 migration 110 で実装済 |
 | `frl_notes` | 自由記述根拠 |
-
-> ⭐ 列は 2026-05-30 の FRL 2 レイヤー化で DB 実装済み。 migration 110 で `amd_score_inputs` に追加され、 `amd-score.ts` / `amd-score-derived.ts` は F_char/F_cap 2 入力 + CES 合成に対応済み。 既存 `frl` は F_character 相当で、 `frl_cap` が NULL の行は後方互換として従来どおり `frl` を最終 FRL に使う。
 | `mu_notes` | JSONB `{a, b, g}` (= Triple Helix μ_A/I/G の評価根拠) |
 | `xrl_notes` | JSONB `{trl, brl, grl, srl, hrl}` (= 5 XRL の評価根拠) |
+
+> ⭐ 列は 2026-05-30 の FRL 2 レイヤー化で DB 実装済み。migration 110 で `amd_score_inputs` に追加され、`amd-score.ts` / `amd-score-derived.ts` は F_char/F_cap 2 入力 + CES 合成に対応済み。既存 `frl` は F_character 相当で、`frl_cap` が NULL の行は後方互換として従来どおり `frl` を最終 FRL に使う。
 
 ### 各軸の評価根拠 (= notes) 運用
 

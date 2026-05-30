@@ -6,6 +6,7 @@ import { getSpecBookChapters, getSpecChapters } from "./spec-data";
  * /spec — 設計書 index
  *
  * 内容正本は `pwa/spec/*.md` (= git 管理かつ OS 画面表示)。section ごとの目次を並べる。
+ * 移行中のため、未移行領域は既存 `pwa/design/*.md` / manual 章を参照する。
  * 各章は `/spec/{slug}` へ。admin 限定 (= spec/layout.tsx で保護)。
  */
 export default async function SpecIndexPage() {
@@ -59,7 +60,7 @@ export default async function SpecIndexPage() {
 
       <p className="mt-8 text-xs text-muted-foreground">
         内容正本: <code className="rounded bg-muted px-1">pwa/spec/*.md</code>（= git 管理かつ OS 画面表示）。
-        旧 <code className="rounded bg-muted px-1">pwa/design/*.md</code> は廃止。
+        既存 <code className="rounded bg-muted px-1">pwa/design/*.md</code> は章単位で移行中。
       </p>
     </div>
   );

@@ -2,6 +2,8 @@
 
 **最重要**: AMD OS の中核データ。すべての Claude / Codex / GPT セッションは作業前にここを読む。
 
+> **manual / spec / bzm 3層分割中**: L2 ①〜⑨、5 生データ、outbox / LaunchAgent、採否ループの確定仕様は `/spec/3-1-l2-data-extraction-current-spec.md` へ移行開始済み。移行完了までは、この `design/L2_DATA.md` も未移行領域の正本として残し、迷う内容は両方に置く。
+
 ---
 
 ## 🚨 社内生データは **5 種類** (絶対忘れない)
