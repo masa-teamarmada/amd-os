@@ -2,6 +2,8 @@
 
 `/notifications` 画面と、 PJ コックピット内 `CockpitStrategySignals` の **経営ハイライト確認** UI、 修正依頼履歴の見方をまとめる。 ユーザー向け概念は [3-3 章](3-3-notifications-and-tsukuyomi.md) を、 つくよみ修正依頼 dialog API は [8-1 章](8-1-knowledge-admin-tsukuyomi-spec.md) を見る。
 
+> 実装者向けの L2⑨ 経営ハイライト確定仕様は [/spec/3-6-strategy-signals-current-spec](/spec/3-6-strategy-signals-current-spec) へ移行済み。ここでは `/notifications` の運用・確認手順を中心に扱う。
+
 ## 何を見る画面か
 
 `/notifications` は admin が **「通知 = 反映前の承認 UI」** として開く画面。 L2 抽出 routine が候補を作って通知を投げてくる、 まさが「はい・反映」「いいえ・不採用」「コメント」を返すと正本反映 or rejected する。

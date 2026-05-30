@@ -3,7 +3,7 @@
 作成: 2026-05-07 (blissful-kepler-9e95b0 セッション)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
-> **manual / spec / bzm 3層分割中**: FRL CES の実装仕様は `/spec/4-1-frl-ces-current-spec.md` へ移行済み。AMD Score 全体の未移行仕様は、この `design/amd_score.md` も引き続き正本として残す。理論導出は `/bzm`、画面の読み方は `/manual` に置く。
+> **manual / spec / bzm 3層分割中**: FRL CES の実装仕様は `/spec/4-1-frl-ces-current-spec.md`、AMD Score 全体契約は `/spec/4-2-amd-score-current-spec.md` へ移行済み。AMD Score の設計議論・履歴は、この `design/amd_score.md` も引き続き残す。理論導出は `/bzm`、画面の読み方は `/manual` に置く。
 
 ---
 

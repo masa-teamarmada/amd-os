@@ -2,6 +2,8 @@
 
 AMD Score は、PJ / SU の価値・成熟度を数値化する指標。日常画面では cockpit の上段に M / X / F として表示されるが、設計上は Before Zero Theory v3.2 の 7 軸 Cobb-Douglas 指標。
 
+> 実装者向けの AMD Score 確定仕様は [/spec/4-2-amd-score-current-spec](/spec/4-2-amd-score-current-spec) へ移行済み。理論導出は `/bzm`、日常画面での読み方はこの章に残す。
+
 ## AMD Score と Management Score の違い
 
 | 名前 | 対象 | 目的 |

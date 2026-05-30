@@ -48,13 +48,20 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
     key: "data-automation",
     label: "データ / Automation",
     description: "5 生データ、L2 ①〜⑨、outbox、LaunchAgent、採否ループ。",
-    slugs: ["3-1-l2-data-extraction-current-spec", "3-2-monthly-reports-current-spec", "3-3-meeting-flow-current-spec"],
+    slugs: [
+      "3-1-l2-data-extraction-current-spec",
+      "3-2-monthly-reports-current-spec",
+      "3-3-meeting-flow-current-spec",
+      "3-4-registry-diffs-current-spec",
+      "3-5-xrl-evidence-current-spec",
+      "3-6-strategy-signals-current-spec",
+    ],
   },
   {
     key: "decision-engine",
     label: "経営判断エンジン",
     description: "AMD Score、FRL、XRL、経営判断ロジックの確定実装仕様。",
-    slugs: ["4-1-frl-ces-current-spec"],
+    slugs: ["4-1-frl-ces-current-spec", "4-2-amd-score-current-spec"],
   },
 ];
 
@@ -65,7 +72,11 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "3-1-l2-data-extraction-current-spec", title: "L2 データ抽出 / Outbox 仕様", summary: "5 生データ、L2 ①〜⑨、subscription automation、outbox / LaunchAgent 反映の確定仕様。" },
   { slug: "3-2-monthly-reports-current-spec", title: "L2① Monthly Reports 仕様", summary: "monthly_reports の writer、上書き禁止、source refs、outbox 反映、旧 R313 / PWA route の扱い。" },
   { slug: "3-3-meeting-flow-current-spec", title: "L2⑥ Meeting Flow 仕様", summary: "MTGサマリ、予定MTGカード、Drive資料同期、TODO、Calendar作業枠、Gmail draft の現行仕様。" },
+  { slug: "3-4-registry-diffs-current-spec", title: "L2⑦ OS 台帳差分仕様", summary: "5 生データと OS 台帳の差分候補、project_registry_diffs、通知採否、allowlist 適用の契約。" },
+  { slug: "3-5-xrl-evidence-current-spec", title: "L2⑧ XRL 根拠仕様", summary: "XRL / AMD Score 根拠、project_xrl_evidence、関連メンバー、HRL 算定境界の契約。" },
+  { slug: "3-6-strategy-signals-current-spec", title: "L2⑨ 経営ハイライト仕様", summary: "project_strategy_signals、cockpit 表示、通知採否、dialogue 接続の契約。" },
   { slug: "4-1-frl-ces-current-spec", title: "FRL CES 実装仕様", summary: "F_character × F_capability の CES 合成、DB列、実装関数、後方互換の現行契約。" },
+  { slug: "4-2-amd-score-current-spec", title: "AMD Score 実装仕様", summary: "7 軸 Cobb-Douglas、M/X/F 表示、DB、route、bottleneck、FRL 境界の契約。" },
 ];
 
 const sectionOrder = new Map(

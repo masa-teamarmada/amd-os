@@ -3,6 +3,8 @@
 作成: 2026-05-23
 正本ステータス: 実装中。仕様変更したらこのファイルと `L2_DATA.md` / `cockpit.md` / `FEATURE_REGISTRY.md` を同じ commit で更新する。
 
+> **manual / spec / bzm 3層分割中**: L2⑨ 経営ハイライトの確定実装仕様は `/spec/3-6-strategy-signals-current-spec.md` へ移行済み。移行完了までは、この design も設計議論・履歴として残し、迷う内容は両方に置く。
+
 ---
 
 ## 目的
