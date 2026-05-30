@@ -791,3 +791,23 @@ frl_cap_amd = F_cap(全員) - F_cap(AMD抜き)
 
 - 制度比較マトリクスの初期評価値はまだ未投入。香川大/KUTE/NIMS の規程・制度情報を次に入れる。
 - PWA本番deploy後、Chromeで `/institutions/assess` の4タブ表示・保存を確認する。
+
+---
+
+## 2026-05-31 (#106) — Codex (えいみ) / ERS 制度比較マトリクス RLS 境界修正
+
+> OS開発司令塔レビューで、`institution_policy_assessments` は `source_path` / `internal_doc` / `hearing` / `evidence_note` を保持するため anon read に置かない方針へ修正。
+
+### 実装
+
+- migration `114_institution_policy_assessments_admin_read.sql` 追加・本番適用済。
+- `institution_policy_items`: 公開マスタなので anon read 維持。
+- `institution_policy_assessments`: `institution_policy_assessments_anon_read` を drop、`anon` の権限を revoke。
+- `institution_policy_assessments`: admin authenticated (`is_admin()`) の all policy と service_role all policy に限定。
+- `pwa/design/db_schema.md`、`pwa/design/institution_readiness.md`、`pwa/manual/4-9-institution-ers-spec.md` をRLS境界に合わせて更新。
+
+### Verified
+
+- Supabase Management API: migration 114 `OK (201)`。
+- `pg_policies` / `information_schema.role_table_grants` で `institution_policy_items` は public read、`institution_policy_assessments` は admin/service_role read に限定されていることを確認。
+- anon key REST で `institution_policy_assessments` が読めないことを確認。

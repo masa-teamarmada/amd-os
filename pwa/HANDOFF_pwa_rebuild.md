@@ -60,6 +60,7 @@ Recommendation:
 - ERS 実データ本評価: `pwa/design_log/sessions_2026-05.md` #103
 - ERS 制度比較マトリクス: `pwa/design_log/sessions_2026-05.md` #104
 - ERS 制度比較マトリクス実装: `pwa/design_log/sessions_2026-05.md` #105
+- ERS 制度比較マトリクスRLS境界修正: `pwa/design_log/sessions_2026-05.md` #106
 - FRL/F_capability CES: `pwa/design_log/sessions_2026-05.md` #101 and `pwa/HANDOFF_bzm_textbook.md`
 
 ## First Next Action

@@ -91,6 +91,7 @@ institution_policy_assessments
 ```
 
 2026-05-31 migration `113_institution_policy_matrix.sql` で実装済み。初期マスタは 32 件（制度整備 19 件 / 属性 13 件）。
+2026-05-31 migration `114_institution_policy_assessments_admin_read.sql` で `institution_policy_assessments` の read/write は admin authenticated + service_role 限定に変更。`institution_policy_items` は公開マスタとして anon read のまま。
 
 UI は `/institutions/assess` に全部詰め込まず、`ERS評価` / `制度整備` / `規程比較` / `根拠資料` のタブに分ける。制度整備・規程比較・根拠資料は `POST /api/institutions/policies` で 1 セルずつ upsert する。
 

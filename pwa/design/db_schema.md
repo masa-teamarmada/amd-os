@@ -774,6 +774,8 @@ UNIQUE: `(institution_id,policy_item_id)`
 | 12 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 13 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
+RLS: `anon` access is revoked. `authenticated` users can select/write only when `is_admin()` is true; `service_role` keeps full access. This table can store `internal_doc` / `hearing` evidence, `source_path`, and internal notes.
+
 ## institution_policy_items
 
 行数 (概算): 32

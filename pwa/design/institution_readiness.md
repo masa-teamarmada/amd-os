@@ -124,6 +124,7 @@ institution_policy_assessments
 ```
 
 2026-05-31 migration `113_institution_policy_matrix.sql` で本番実装済み。初期マスタは 32 件（制度整備 19 / 属性 13）。
+2026-05-31 migration `114_institution_policy_assessments_admin_read.sql` で、`institution_policy_items` は公開マスタのまま、`institution_policy_assessments` は `source_path` / ヒアリングメモ / 内部資料根拠を保持しうるため admin authenticated + service_role のみ read/write に変更した。
 
 表示は `/institutions/assess` を肥大化させず、タブ分けする。
 
