@@ -62,7 +62,8 @@ vs ローカル Mac scheduled task の問題:
 
 ### ① monthly_reports
 
-- 入力: active / sales PJ × {当月, 前月} の Gmail / Drive / Calendar / Slack / Notion 5 生データ + OS snapshot
+- 入力: active / sales PJ × {当月, 前月} の Supabase L2 snapshot primary。最低でも `project_meeting_summaries` / `project_strategy_signals` / `project_xrl_evidence` / `project_registry_diffs` / `protocols` / `project_knowledge` / `member_knowledge` / `milestone_monthly_progress` / `progress_estimate_state` / 既存 `monthly_reports` を見る
+- fallback: L2 coverage が薄い・古い・source refs 不足・no-data 判定候補・backfill 候補があるときは Gmail / Drive / Calendar / Slack / Notion 5 生データを gap check する。`source_cache` だけで no-data 判定しない
 - 抽出: 対象月に起きた進捗、判断、外部関係者の動き、技術/資料、リスク、来月焦点を markdown draft にする
 - 出力: `monthly_reports` (`status='draft'`)。既存 `final_content` は force 明示なしで上書きしない
 - 反映: `~/.codex/automations/amd-os-ms/outbox/*.json` の `monthlyReports` を LaunchAgent が `ms_progress_review_tool.mjs apply-outbox-dir` で反映
@@ -89,8 +90,8 @@ vs ローカル Mac scheduled task の問題:
 - 入力: `member_activities` + `project_meeting_summaries`
 - 出力: `member_knowledge`
 - category: `skills`, `personality`, `communication_style`, `growth_areas`, `work_style`, `interests`, `episodes`
-- 現スキーマ: `member_knowledge` には `status` / `source_hash` 列が無い
-- 現行の採否 UI は通知側の `l2_notifications` を介する。候補/却下を row 自体に保存するには migration が必要
+- 現スキーマ: migration 091 以降、`member_knowledge` は `status` / `source_hash` / `last_processed_at` を持つ。列名は `pwa/design/db_schema.md` を確認してから使う
+- 採否: 新規抽出は `status='candidate'`、通知 yes で `active`、no で `rejected`、古いものは `archived`
 
 ### ⑥ MTG サマリ + フロー (= 2026-05-27 予定MTG + Drive資料同期まで拡張)
 
@@ -116,6 +117,11 @@ vs ローカル Mac scheduled task の問題:
 10. (旧) iOS APNs 通知 (= meeting_notifications upsert)
 
 **入力**: Calendar event (= 過去 60-180 分終了 + 今日0:00 JSTから60日先の確定予定。ただし weekly recurring は series ごとに次回1件のみ) + Notion 議事録 + Gmail (= report_emails スレッド) + Drive Doc/PDF/Office/Sheets + Slack thread + PWA `meeting_assets` (= まさが直接アップロードしたスクショ / PDF / 画面キャプチャ) + `project_meeting_summaries` 過去 3 件 (= 前回比較) + `monthly_reports` 直近 3 件 (= PJ 全体文脈) + `value_milestones` + `milestone_monthly_progress` (= MS context) + Calendar freebusy (= H 用) + `projects.drive_folder_id` + `projects.facilitator_member_id` + `project_members` (= role=PL 特定)
+
+**Notion eventId 方針 (= 2026-05-31 incident guard)**:
+- MMO automation は Calendar event から Notion 議事録ページを見つけたら、可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記する。これは L6 writer 側の責務。
+- Notion page に `eventId` が無いことだけを理由に skip しない。eventId 検索で取れない場合は title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索し、Notion が取れない場合も Gmail / Drive / Slack / Calendar 本文で `source_kinds` を判定する。
+- eventId 追記に失敗しても抽出は続け、run summary に `notion_event_id_backfill_failed` と page id / reason を残す。`skip_no_notion_event_id` は現行仕様では禁止。
 
 **議事録本文の固定フォーマット**:
 - 開催済みMTGの `narrative_md` は必ず `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順にする。
@@ -187,7 +193,8 @@ vs ローカル Mac scheduled task の問題:
 - GAS 153 / 155 の kill switch を外して LLM cron を復活させない
 - PWA / GAS / Vercel route から Anthropic・Gemini・OpenAI の従量課金 API を L2 抽出用途で新規に呼ばない。LLM が必要な抽出・要約・議事録品質改善は repo 内 SKILL と subscription automation 側に寄せる
 - raw Gmail / raw Notion 本文を L2 row に丸ごと保存しない (= source refs + short snippet + hash のみ)
-- `member_knowledge` に存在しない `status` や `source_hash` を書かない (= schema gap、migration 必要)
+- `member_knowledge` の列名を想像で書かない。`status` / `source_hash` / `last_processed_at` は migration 091 + `db_schema.md` 前提で使う
+- L6 で Notion `eventId` 欠損だけを理由に議事録抽出を skip しない
 - `protocols` の「はい」を `active` にしない。正本は `confirmed`
 - 実行場所を曖昧にしない。`amd-os-l3-ms-progress-extract` のような処理IDだけで書かず、MMOマシン / Codex automation / outbox applier まで明記する
 - 列名を想像しない。必ず [`pwa/design/db_schema.md`](../design/db_schema.md) を見る
@@ -199,7 +206,7 @@ vs ローカル Mac scheduled task の問題:
 | P0 | 現行 automation 履歴の見方を 3-2 / 8-3 / 6-1 で統一 | 人間が `amd-os-l3-ms-progress-extract` のようなIDだけを見て迷わないようにする |
 | P1 | Mac 側 `~/.claude/scheduled-tasks/amd-os-l*` 8 個の扱いを棚卸し | 現行 writer ではない。重複稼働や誤復旧の原因になるなら disable / archive |
 | P1 | 旧 `amd-os-meeting-extract` (Mac scheduled task、リネーム済の disabled) を削除 | 整理 |
-| P2 | `member_knowledge` の候補 status 設計 | migration するか通知側だけで扱うか決める |
+| P2 | L5 `member_knowledge` の採否 UI 接続確認 | migration 091 の `status` / `source_hash` 前提で MMO automation と通知側の接続を確認 |
 | P2 | `/admin/settings` に L2①〜⑨ automation の稼働状態を表示 | MMOマシン側 / Codex automation / outbox applier の状態を分けて表示 |
 
 ## 2026-05-26 移行ログ (= 履歴)

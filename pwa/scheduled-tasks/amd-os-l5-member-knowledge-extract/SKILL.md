@@ -1,17 +1,18 @@
 ---
 name: amd-os-l5-member-knowledge-extract
-description: AMD OS L2 ⑤ メンバーナレッジ抽出 routine。daily 08:30 JST 発火、各 active member の member_activities (直近 90 日) + 関連 PJ の project_meeting_summaries (直近 60 日) + milestone_responsibility (公式役割分担) から本人の skills / personality / communication_style / growth_areas / work_style / interests / episodes をサブスク内 Claude で抽出 → Supabase `member_knowledge` (UNIQUE code_name+category) に candidate で upsert + 通知。GAS 155 `nav_member_knowledge_pollAll` + `nav_member_knowledge_extractOne_` 完全 inline 移植版 (= GAS 完全 bypass、2026-05-25 まさ #71)。
+description: AMD OS L2 ⑤ メンバーナレッジ抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l5-member-knowledge-extract` (= daily 08:30 JST)。各 active member の member_activities + 関連 PJ の project_meeting_summaries + milestone_responsibility から本人の skills / personality / communication_style / growth_areas / work_style / interests / episodes を subscription 内 Codex で抽出し、Supabase `member_knowledge` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
 ---
 
-# AMD OS L2 ⑤ メンバーナレッジ抽出 (GAS 155 完全 inline 移植版)
+# AMD OS L2 ⑤ メンバーナレッジ抽出 (GAS 155 移植版)
 
 ## 設計の要点
-- GAS 155 `nav_member_knowledge_pollAll` / `nav_member_knowledge_extractOne_` を Claude routine 内に inline 移植 (= GAS 完全 bypass)
+- GAS 155 `nav_member_knowledge_pollAll` / `nav_member_knowledge_extractOne_` の業務ロジックを Windows MMO Codex Desktop automation に移植 (= GAS 完全 bypass)
+- 現行復旧先は MMO マシン側の Codex Desktop automation 履歴・ログ。Mac local routine / Claude Cloud routine は履歴扱い
 - 入力 3 セクション:
   - C) **公式の役割分担** = milestone_responsibility (share>0) → skills / work_style のグラウンドトゥルース
   - A) **本人活動ログ** = member_activities (直近 90 日)
   - B) **PJ 全体会議サマリ** = project_meeting_summaries (直近 60 日) ※本人主体とは限らない、本人名明示 + C 整合のみ
-- LLM 呼びはサブスク内 Claude
+- LLM 呼びは subscription 内 Codex automation
 - Supabase REST 直叩き (= service_role)
 - source_hash 差分検知で冪等性 (= l2_extract_state、PK l2_kind+target_id+scope_key)
 - `l2_feedbacks` 修正依頼を prompt に注入

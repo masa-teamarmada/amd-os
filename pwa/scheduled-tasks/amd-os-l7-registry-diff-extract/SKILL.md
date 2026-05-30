@@ -1,21 +1,22 @@
 ---
 name: amd-os-l7-registry-diff-extract
-description: AMD OS L2 ⑦ OS 台帳差分 (PJ メンバー候補 / 関係先メール / 担当者 / 契約 / 請求等) 抽出 routine。6 時間ごと発火、active PJ × 当月 / 前月の 5 生データ (Gmail / Notion / Calendar / Slack / Drive) と OS 台帳 (= project_members / projects.report_emails / project_partners 等) を突合 → 差分候補をサブスク内 Claude で抽出 → Supabase `project_registry_diffs` に pending で upsert + 通知。Codex automation `amd-os-ms` の `outbox.registryDiffs` 部分を Claude routine 内に inline 移植 (= 既存 Codex は段階的停止、2026-05-25 まさ #71)。
+description: AMD OS L2 ⑦ OS台帳差分抽出の repo 正本。現行 writer は Codex automation `amd-os-ms` + non-LLM LaunchAgent applier。active PJ × 当月/前月の 5 生データと OS 台帳を突合し、`registryDiffs` outbox JSON を `/Users/masa/.codex/automations/amd-os-ms/outbox/` に作る。Supabase `project_registry_diffs` への upsert は `ms_progress_review_tool.mjs apply-outbox-dir` が行う。DB/APIへ直接書き込まない。
 ---
 
-# AMD OS L2 ⑦ OS 台帳差分抽出 (Codex amd-os-ms 完全 inline 移植版)
+# AMD OS L2 ⑦ OS 台帳差分抽出 automation
 
 ## 設計の要点
-- 既存 = Codex automation `amd-os-ms` (= 6h ごと) が `outbox.registryDiffs` を吐く → LaunchAgent applier が Supabase に反映
-- 新 = Claude routine が 5 生データを直接見て diff を抽出 → Supabase REST 直叩き (= Codex automation + outbox applier 経路を bypass)
+- Codex automation `amd-os-ms` (= 6h ごと) が `outbox.registryDiffs` を吐く → LaunchAgent applier が Supabase に反映
+- この SKILL は outbox payload の生成仕様。DB/API へ直接書き込まない
+- 古い Claude routine / direct Supabase REST 移植案は履歴扱い。復活させない
 - **diff_kind** 例: `member_candidate` / `partner_candidate` / `partner_email_candidate` / `report_email_candidate` / `contact_candidate`
 - target_table 例: `project_members` / `projects` / `project_partners`
 - proposed_patch_json は最小限の patch payload
 - status='pending' で upsert → 通知 → まさが /notifications で「はい」で apply
 
-## 並行稼働の慎重さ
-**既存 Codex `amd-os-ms` が稼働中** (= 6h ごと)。本 routine 登録直後は両方走り outbox を吐く / Supabase に書く → 重複 / 競合の可能性。
-fact 比較できたら既存 Codex `amd-os-ms` の registryDiffs 部分を automation.toml prompt から削除。LaunchAgent applier は L8 移管後に unload。
+## 反映経路
+
+outbox は `/Users/masa/.codex/automations/amd-os-ms/outbox/*.json` に保存する。LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` が 5 分ごとに `pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir` を実行し、成功ファイルを `applied/`、失敗ファイルを `failed/` へ移動する。
 
 ## 【絶対】 動く前に必ず Read
 1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4

@@ -53,7 +53,7 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 | ⑧ XRL 根拠 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | subscription automation 枠。PWA/GAS LLM cron ではない | `amd-os-ms` automation 履歴、`outbox.xrlEvidence`、LaunchAgent applier |
 | ⑨ 経営ハイライト | Codex automation + outbox applier | `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | subscription automation 枠。PWA/GAS LLM cron ではない | `amd-os` automation 履歴、strategy-signals outbox、LaunchAgent applier |
 
-**L2 ①の primary writer**: Codex automation `AMD OS L2① 月次報告抽出`。実行手順の正本は [`pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`](../scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md)。automation は 5 生データを読み、`/Users/masa/.codex/automations/amd-os-ms/outbox/` に `monthlyReports` JSON を出し、既存 LaunchAgent + `ms_progress_review_tool.mjs` が非LLMで Supabase `monthly_reports` に反映する。
+**L2 ①の primary writer**: Codex automation `AMD OS L2① 月次報告抽出`。実行手順の正本は [`pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`](../scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md)。automation は Supabase 内の既存 L2 snapshot を primary input にし、L2 coverage が薄い場合だけ 5 生データを gap check / backfill fallback として読み、`/Users/masa/.codex/automations/amd-os-ms/outbox/` に `monthlyReports` JSON を出す。既存 LaunchAgent + `ms_progress_review_tool.mjs` が非LLMで Supabase `monthly_reports` に反映する。
 
 **R313 の扱い**: AMD-Report GAS R313 は旧経路。現物では `R313_MonthlyReport_Cron.js` が未生成レポートや差分ありレポートで `api_generateMonthlyReport` / `mr_generateDraftUpdate_` を呼び、`R303_MonthlyReport_Generator.js` が Anthropic Claude API を呼ぶ。したがって R313 trigger を有効化すると token 課金が発生しうる。R313 はバックアップ/手動確認用に残すが、定期 L2① writer ではない。
 
@@ -65,11 +65,11 @@ PWA `/api/report/generate` と `/api/cron/monthly-reports-backfill` は手動復
 
 | L2 | 何を生成 | 旧 writer (停止/移管対象) | 現行 writer (= 実行場所 + automation) | 頻度 | 状態 (2026-05-29) |
 |---|---|---|---|---|---|
-| ① monthly_reports | PJ 月次レポート | AMD-Report GAS R313 / PWA report route | Codex automation `AMD OS L2① 月次報告抽出` + outbox applier | daily 05:30 JST | ✅ 正式対象。R313 trigger は置かない。PWA heavy route は手動復旧のみ |
+| ① monthly_reports | PJ 月次レポート | AMD-Report GAS R313 / PWA report route | Codex automation `AMD OS L2① 月次報告抽出` + outbox applier | daily 05:30 JST | ✅ 正式対象。Supabase L2-first、5生データは gap check fallback。R313 trigger は置かない。PWA heavy route は手動復旧のみ |
 | ② AMD プロトコル | `protocols` | ~~GAS 155~~ ⛔ 5/22 停止 | **MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract`** | daily 08:00 JST | ✅ MMOマシン側へ移管。復旧時は MMO 側 automation 履歴を見る |
 | ③ MS 進捗 | `milestone_monthly_progress` | ~~PWA `/api/cron/hourly-estimate` (= GAS 154 → 毎時 ping)~~ ⛔ **2026-05-29 再停止** | **MMOマシン automation `amd-os-l3-ms-progress-extract`** | 毎時 0 分 | ✅ **MMOマシン側へ移管**。PWA/GAS hourly は `ALLOW_PWA_LLM_CRONS=1` を明示しない限り disabled response のみ返す |
 | ④ PJ ナレッジ | `project_knowledge` | ~~GAS 155~~ ⛔ 5/22 停止 | **MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract`** | daily 08:15 JST | ✅ MMOマシン側へ移管。復旧時は MMO 側 automation 履歴を見る |
-| ⑤ メンバーナレッジ | `member_knowledge` | ~~GAS 155~~ ⛔ 5/22 停止 | **MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract`** | daily 08:30 JST | ✅ MMOマシン側へ移管。`member_knowledge` の schema gap は別途確認 |
+| ⑤ メンバーナレッジ | `member_knowledge` | ~~GAS 155~~ ⛔ 5/22 停止 | **MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract`** | daily 08:30 JST | ✅ MMOマシン側へ移管。`status` / `source_hash` / `last_processed_at` は migration 091 + `db_schema.md` に反映済み |
 | ⑥ MTG サマリ | `project_meeting_summaries` | ~~GAS 153 (毎時 polling)~~ ⛔ 5/22 停止 | **MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`** (= SKILL `amd-os-l6-meeting-extract`) | 毎日 09:00-21:00 毎時 0 分 | ✅ MMOマシン側へ移管。該当 event 0 件なら早期 exit |
 | ⑦ OS 台帳差分 | `project_registry_diffs` | 旧 Codex automation `amd-os-ms` の部分機能 | Codex automation `amd-os-ms` + SKILL `amd-os-l7-registry-diff-extract` | 6h ごと | ✅ subscription automation 枠。`outbox.registryDiffs` と applier を見る |
 | ⑧ XRL 根拠 | `project_xrl_evidence` | 旧 Codex automation `amd-os-ms` の部分機能 | Codex automation `amd-os-ms` + SKILL `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 と 15 分ずらし) | ✅ subscription automation 枠。`outbox.xrlEvidence` と applier を見る |
@@ -155,11 +155,11 @@ PWA `/api/report/generate` と `/api/cron/monthly-reports-backfill` は手動復
 
 | L2 # | テーブル | 用途 | 主な入力ソース | 主な writer | 状態 |
 |---|---|---|---|---|---|
-| ① | `monthly_reports` | PJ 月次レポート | 5 ソース全部 | Codex automation `AMD OS L2① 月次報告抽出` (= daily 05:30 JST) → `amd-os-ms/outbox.monthlyReports` → LaunchAgent applier。PWA `/api/cron/monthly-reports-backfill` / `/api/report/generate` と AMD-Report GAS R313 は手動復旧/旧経路 | ✅ 正式稼働対象。2026-05-29 実画面確認では `run_monthlyReportCron` / `run_L2CronDaily` trigger なし |
+| ① | `monthly_reports` | PJ 月次レポート | Supabase L2 snapshot primary + 5 ソース gap check fallback | Codex automation `AMD OS L2① 月次報告抽出` (= daily 05:30 JST) → `amd-os-ms/outbox.monthlyReports` → LaunchAgent applier。PWA `/api/cron/monthly-reports-backfill` / `/api/report/generate` と AMD-Report GAS R313 は手動復旧/旧経路 | ✅ 正式稼働対象。2026-05-29 実画面確認では `run_monthlyReportCron` / `run_L2CronDaily` trigger なし |
 | ② | `protocols` | AMD プロトコル (= 経営判断の構造化記録) | 議事録の二次集約 | **MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract`**。旧 GAS 155 は停止済み | ✅ MMOマシン側へ移管 |
 | ③ | `milestone_monthly_progress` + 進捗系 | MS 達成度 | 月次報告書 + MTGサマリ + OS snapshot | **MMOマシン automation `amd-os-l3-ms-progress-extract`** (= primary writer) + Codex automation `amd-os-ms` (= 6h ごとの修正候補 `outbox.revisions`)。PWA `/api/cron/hourly-estimate` は停止済 fallback | ✅ 稼働 |
 | ④ | `project_knowledge` | PJ 知識ナレッジ | `monthly_reports` + 議事録 二次集約 | **MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract`**。旧 GAS 155 は停止済み | ✅ MMOマシン側へ移管 |
-| ⑤ | `member_knowledge` | メンバー個人のナレッジ | `member_activities` + 議事録 二次集約 | **MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract`**。旧 GAS 155 は停止済み | ✅ MMOマシン側へ移管。schema gap は別途確認 |
+| ⑤ | `member_knowledge` | メンバー個人のナレッジ | `member_activities` + 議事録 二次集約 | **MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract`**。旧 GAS 155 は停止済み | ✅ MMOマシン側へ移管。migration 091 の `status` / `source_hash` / `last_processed_at` 前提 |
 | ⑥ | `project_meeting_summaries` + `meeting_assets` + cockpit TODO + Calendar 作業枠 + Drive 資料 + Gmail draft | MTG サマリ + **MTG 全フロー** (= 2026-05-27 拡張)。Meet/Gmail 議事録に落ちないスクショ・表・画面共有資料は PWA から `meeting_assets` に手動添付し、`narrative_md` に Markdown 画像/リンクとして挿入できる | Calendar + Notion 議事録 + Slack + Drive Docs + Gmail + PWA 添付資料 | ~~GAS 153~~ ⛔ → ✅ **Codex Desktop automation `amd-os-l6-meeting-flow`** (= Windows MMO PC、 平日土日 09:00-21:00 毎時 0 分発火、 gpt-5.5 high reasoning)。議事録抽出だけでなく次 MTG カード生成 / Slack nudge / TODO→cockpit / Calendar 作業枠 (+<PJ> prefix) / 資料即生成 / ファシリ役メール下書きまで自動。dialogue (= 提案前の論点整理セッション) は POST `/api/dialogue-meeting` で稼働。PWA `POST /api/meeting-assets` はアップロード/挿入だけで、従量課金 LLM は呼ばない | ✅ 稼働 (Phase A 早期 exit 付き、 該当 event 0 件なら即終了) |
 | ⑦ | `project_registry_diffs` (= 通知 nudge) | OS 台帳差分 | OS snapshot vs 5 ソース | Codex automation `amd-os-ms` (= `outbox.registryDiffs`) + SKILL `amd-os-l7-registry-diff-extract` | ✅ subscription automation 枠で稼働 |
 | ⑧ | `project_xrl_evidence` | XRL 根拠 | 5 ソース + OS snapshot | Codex automation `amd-os-ms` (= `outbox.xrlEvidence`) + SKILL `amd-os-l8-xrl-evidence-extract` | ✅ subscription automation 枠で稼働 |
@@ -172,6 +172,12 @@ PWA `/api/report/generate` と `/api/cron/monthly-reports-backfill` は手動復
 L2 ⑥は、終了済みMTGの議事録抽出とは別に、今日0:00 JSTから60日先までの確定Calendar予定を `POST /api/meeting-prep/calendar-sync` へ渡す。`calendar-sync` は `source_kinds='upcoming'` の予定MTGカードを `project_meeting_summaries` に upsert し、同日中なら開始済み予定もDrive資料・URL補強の対象にする。ただし weekly recurring MTG は series ごとに次回1件だけ同期・表示し、それ以降の future occurrence はノイズとして扱う。複数の weekly series がある場合は、それぞれ1件ずつ残す。
 
 PJに `drive_folder_id` がある場合、automation側でDrive root直下と会議日/title token に合う1階層サブフォルダを探し、Docs / Slides / Sheets / PDF / Office files の metadata を `drive_files` として渡す。PWA route はDriveを直接読まず、渡された metadata を `narrative_md` の `関連Drive資料` に載せる。Drive資料は補助根拠であり、資料に書かれているだけで当日決定事項とは扱わない。
+
+### L2 ⑥ Notion eventId fallback
+
+Notion 議事録ページの `eventId` / 相当プロパティを埋められるのは、Calendar event と Notion page の両方を同時に見ている MMO automation だけ。`amd-os-l6-meeting-flow` は Calendar event から該当 Notion page を見つけたら、可能な範囲で Calendar event id を Notion page に追記する。追記に失敗しても議事録抽出は止めず、run summary に `notion_event_id_backfill_failed` と page id / reason を残す。
+
+Notion page に `eventId` が無いことだけを理由に skip しない。必ず title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索し、Notion が取れなければ Gmail / Drive / Slack / Calendar 本文だけでも `source_kinds` を判定する。`eventId` 欠損だけで `source_kinds='none'` や `skip_no_notion_event_id` にしない。
 
 → 仕様詳細は [`pwa/design/L2_DATA.md`](../design/L2_DATA.md) と [8-3 章](8-3-l2-extraction-routines-spec.md)。
 → 旧 ghost 4 種の復旧経緯は [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)。
@@ -213,7 +219,7 @@ PJに `drive_folder_id` がある場合、automation側でDrive root直下と会
 ### Codex automation
 - 場所: `~/.codex/automations/{name}/automation.toml`
 - 主要 automation:
-  - **`AMD OS L2① 月次報告抽出`** (= daily 05:30 JST) — 5 生データから `monthly_reports` draft を作り、`amd-os-ms/outbox.monthlyReports` に書き出す。R313 / PWA heavy route は使わない
+  - **`AMD OS L2① 月次報告抽出`** (= daily 05:30 JST) — Supabase L2 snapshot primary + 5 生データ gap check fallback で `monthly_reports` draft を作り、`amd-os-ms/outbox.monthlyReports` に書き出す。R313 / PWA heavy route は使わない
   - **MMOマシン automation `amd-os-l3-ms-progress-extract`** (= 毎時 0 分) — MS 進捗の primary writer。`milestone_monthly_progress` / `progress_estimate_state` を更新する
   - **`amd-os-ms`** (= 6h ごと) — MS 進捗の修正候補 / L2 ⑦ OS 台帳差分 / L2 ⑧ XRL 根拠を outbox 書き出し。MS 進捗の primary writer ではない。PWA `/api/cron/hourly-estimate` は停止済 fallback。L2 ②④⑤⑥ は生成しない (= 2026-05-25 ghost 化の原因、[9-1 章 5.7](9-1-decisions-and-history.md#57-l2-②④⑤⑥-ghost-化と-claude-routine-4-個新設計画--2026-05-25) 参照)
   - **`amd-os`** (= daily 03:20 JST) — L2 ⑨ 経営ハイライト抽出 + outbox 書き出し

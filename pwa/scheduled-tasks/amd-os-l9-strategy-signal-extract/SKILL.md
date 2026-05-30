@@ -1,13 +1,14 @@
 ---
 name: amd-os-l9-strategy-signal-extract
-description: AMD OS L2 ⑨ 経営ハイライト (経営判断 / 事業進捗 / 戦略転換 / 提携 / 資金 / 知財・規制 / 重要リスク / 次の一手) 抽出 routine。daily 03:20 JST 発火、active PJ × 当月 / 前月 の 5 生データ + OS snapshot から「進んだこと・起きたこと」(= done のみ、未了は除外、まさ #26) をサブスク内 Claude で抽出 → Supabase `project_strategy_signals` に candidate で upsert + 通知。Codex automation `amd-os` を Claude routine 内に inline 移植 (= 既存 Codex automation + applier 段階的停止、2026-05-25 まさ #71)。修正依頼ループは対話型 (= /api/notifications/feedback/dialog/*) と接続。
+description: AMD OS L2 ⑨ 経営ハイライト抽出の repo 正本。現行 writer は Codex automation `amd-os` + non-LLM LaunchAgent applier。active PJ × 当月/前月の 5 生データ + OS snapshot から「進んだこと・起きたこと」(= done のみ、未了は除外、まさ #26) を抽出し、`strategySignals` outbox JSON を `/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/` に作る。Supabase `project_strategy_signals` への upsert は `ms_progress_review_tool.mjs apply-outbox-dir --dir` が行う。DB/APIへ直接書き込まない。
 ---
 
-# AMD OS L2 ⑨ 経営ハイライト抽出 (Codex amd-os 完全 inline 移植版)
+# AMD OS L2 ⑨ 経営ハイライト抽出 automation
 
 ## 設計の要点
-- 既存 = Codex automation `amd-os` (= daily 03:20 JST) が `strategy-signals-outbox` に JSON 吐く → LaunchAgent applier → Supabase 反映
-- 新 = Claude routine が 5 生データ + OS snapshot から直接 signal 抽出 + Supabase REST 直叩き
+- Codex automation `amd-os` (= daily 03:20 JST) が `strategy-signals-outbox` に JSON を吐く → LaunchAgent applier → Supabase 反映
+- この SKILL は outbox payload の生成仕様。DB/API へ直接書き込まない
+- 古い Claude routine / direct Supabase REST 移植案は履歴扱い。復活させない
 - **中身ルール (= まさ #26 確定 2026-05-24)**: 「進んだこと・起きたこと」だけ書く (= done のみ、未了 / TODO / アイディアは TODO かんばん側、本 routine では除外)
 - **signal_type**: management_decision / business_progress / strategic_pivot / commercial_progress / partnership / funding / ip_regulatory / tech_progress / risk / next_move (= 10 種)
 - **impact_level**: low / medium / high / critical
@@ -15,9 +16,9 @@ description: AMD OS L2 ⑨ 経営ハイライト (経営判断 / 事業進捗 / 
 - **score_impact_summary** (= まさ #31 2026-05-24、migration 090 適用後): 「📊 影響: TRL 4→5、X 軸 +40pt」短文
 - 修正依頼は対話型 (= 経営ハイライト UI で 「⚠️ つくよみに修正依頼」 → /api/notifications/feedback/dialog/start → 提案 → 適用) で運用、本 routine では `l2_feedbacks` 読み込んで prompt に反映
 
-## 並行稼働の慎重さ
-**既存 Codex `amd-os` が稼働中** (= daily 03:20)。本 routine 登録直後は両方走り Supabase に書く → 重複の可能性。
-fact 比較できたら既存 Codex `amd-os` automation を unload + LaunchAgent applier の strategy-signals 監視部分も unload (= 他 outbox はそのまま)。
+## 反映経路
+
+outbox は `/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/*.json` に保存する。LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` が 5 分ごとに `pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir --dir /Users/masa/.codex/automations/amd-os/strategy-signals-outbox` を実行し、成功ファイルを `applied/`、失敗ファイルを `failed/` へ移動する。
 
 ## 【絶対】 動く前に必ず Read
 1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4

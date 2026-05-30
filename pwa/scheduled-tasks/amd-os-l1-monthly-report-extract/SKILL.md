@@ -1,21 +1,23 @@
 ---
 name: amd-os-l1-monthly-report-extract
-description: AMD OS L2 ① monthly_reports 抽出 automation。active / sales PJ の当月・前月を対象に、Gmail / Drive / Calendar / Slack / Notion の 5 生データから月次報告 draft を subscription 内 Codex automation で作成し、/Users/masa/.codex/automations/amd-os-ms/outbox の monthlyReports JSON 経由で Supabase に反映する。R313 / PWA report route / Anthropic API など従量課金LLM経路は定期実行に使わない。
+description: AMD OS L2 ① monthly_reports 抽出 automation。active / sales PJ の当月・前月を対象に、Supabase 内の既存 L2 データを primary input として月次報告 draft を subscription 内 Codex automation で作成し、/Users/masa/.codex/automations/amd-os-ms/outbox の monthlyReports JSON 経由で Supabase に反映する。Gmail / Drive / Calendar / Slack / Notion の 5 生データは L2 coverage gap / backfill / 監査用 fallback として確認する。R313 / PWA report route / Anthropic API など従量課金LLM経路は定期実行に使わない。
 ---
 
 # AMD OS L2 ① monthly_reports 抽出
 
 ## 目的
 
-L2 ① `monthly_reports` は、MS 進捗、PJ ナレッジ、XRL 根拠、月次FIXの前提になる一次 L2。  
-5 生データから、PJ ごとの月次断面を「OS が使える形」にする。
+L2 ① `monthly_reports` は、MS 進捗、PJ ナレッジ、XRL 根拠、月次FIXの前提になる月次断面 L2。
+2026-05-31 以降は、L2 ②〜⑨ の品質が上がってきたため、**Supabase 内の既存 L2 を primary input** として PJ ごとの月次断面を作る。
+5 生データは、L2 側の根拠が薄い / 欠けている / stale な場合の gap check と backfill 用 fallback として使う。
 
 この automation は **定額 subscription 内で動く Codex automation** が writer。DB 反映は既存の非LLM helper が行う。
 
 ## 絶対ルール
 
-- Gmail / Drive / Calendar / Slack / Notion の **5 生データ全部**を確認する。
-- `source_cache` だけを見て「データなし」と決めない。source_cache は証跡キャッシュであって、生データの全量ではない。
+- まず Supabase の L2 coverage matrix を作る。見るテーブルは最低でも `project_meeting_summaries` / `project_strategy_signals` / `project_xrl_evidence` / `project_registry_diffs` / `protocols` / `project_knowledge` / `member_knowledge` / `milestone_monthly_progress` / `progress_estimate_state` / 既存 `monthly_reports`。
+- Gmail / Drive / Calendar / Slack / Notion の **5 生データ全部**は、L2 coverage が薄い・古い・source refs 不足・no-data 判定候補・新規 backfill 候補があるときに確認する。どれか 1 connector だけを見て「データなし」と決めない。
+- `source_cache` だけを見て「データなし」と決めない。source_cache は証跡キャッシュであって、生データの全量でも L2 正本でもない。
 - R313 / `api_generateMonthlyReport` / PWA `/api/report/generate` / PWA `/api/cron/monthly-reports-backfill` を定期実行しない。
 - Anthropic / OpenAI / Gemini の従量課金 API を直接呼ばない。LLM 生成はこの Codex automation 自身の model だけで行う。
 - 既存 `final_content` がある `monthly_reports` は `force: true` が明示されない限り上書きしない。
@@ -40,19 +42,37 @@ L2 ① `monthly_reports` は、MS 進捗、PJ ナレッジ、XRL 根拠、月次
 - 優先順:
   1. `monthly_reports` が存在しない project_id + ym
   2. no-data / placeholder / 100文字未満など、後続L2の入力として弱い draft
-  3. `generated_at` が古く、5 生データ側に新しい evidence がある draft
+  3. `generated_at` が古く、他 L2 / 5 生データ側に新しい evidence がある draft
   4. `collection_summary_json.source_counts` が薄い draft
 
 ## 入力収集
 
-各 project_id + ym について、次を確認する。
+各 project_id + ym について、まず Supabase L2 snapshot を確認する。
 
-- Gmail: report_emails / 関係先ドメイン / PJ 名 / PJ コード / 既知固有語で検索
+- `project_meeting_summaries`: 開催済み MTG / `upcoming` ではない議事録、`narrative_md`、source refs
+- `project_strategy_signals`: 経営ハイライト、signal_type、impact_level、status
+- `project_xrl_evidence`: XRL / AMD Score 根拠
+- `project_registry_diffs`: OS 台帳差分候補、pending / applied / rejected
+- `protocols`: 経営判断の構造化記録
+- `project_knowledge` / `member_knowledge`: PJ / メンバー知識
+- `milestone_monthly_progress` / `progress_estimate_state` / `project_monthly_notes`: MS 進捗と非MS管理PJの月次ノート
+- `source_cache`: source refs / short snippet / hash の補助証跡。これ単独で no-data 判定しない
+- 既存 `monthly_reports`: draft/final 保護、collection_summary_json、source_counts
+
+次の条件に当たる project_id + ym は、5 生データ connector を使って gap check / backfill 候補を探す。
+
+- L2 snapshot が 0 件、または no-data / placeholder の根拠しかない
+- L2 はあるが source refs / source_hash / meeting_id / project_id 紐付けが薄く、根拠を辿れない
+- 最新 MTG / strategy / XRL / registry diff が対象月に無いのに、PJ が active / sales で稼働している
+- `final_content` があり自動上書きできないが、追記候補だけ作る必要がある
+
+gap check で見る 5 生データ:
+
+- Gmail: report_emails / 関係先ドメイン / PJ 名 / PJ コード / 既知固有語 / Gemini notes
 - Drive: PJ folder、月次・議事録・提案・契約・実験・試算表・発表資料
 - Calendar: 対象月の MTG event、attendees、description、Notion/Drive URL
 - Slack: PJ channel、関連 thread、資料共有、進捗報告
 - Notion: 議事録 DB、PJ page、設計 docs、会議ページ
-- OS snapshot: `source_cache`、`project_meeting_summaries`、`member_activities`、`member_ms_activities`、既存 `monthly_reports`、`value_milestones`
 
 5 生データ connector が使えない場合は、その connector 名と理由を `collection_summary_json.missing_connectors` と notes に残す。使えない connector があるだけで「データなし」とは書かない。
 
@@ -82,7 +102,7 @@ L2 ① `monthly_reports` は、MS 進捗、PJ ナレッジ、XRL 根拠、月次
 
 - 根拠セクションには source name / date / title / sender / short snippet 程度だけを載せる。
 - 事実と推測を混ぜない。推測は「推定」「未確認」と明示する。
-- 何も確認できない場合でも、どの 5 生データをどう探したかを collection summary に残す。
+- 何も確認できない場合でも、どの L2 と 5 生データをどう探したかを collection summary に残す。
 
 ## outbox 形式
 
@@ -115,6 +135,14 @@ top-level:
   "collection_summary_json": {
     "source": "codex-automation-l2-monthly-report",
     "source_counts": {
+      "l2_meeting_summaries": 0,
+      "l2_strategy_signals": 0,
+      "l2_xrl_evidence": 0,
+      "l2_registry_diffs": 0,
+      "l2_protocols": 0,
+      "l2_project_knowledge": 0,
+      "l2_member_knowledge": 0,
+      "l2_ms_progress": 0,
       "gmail": 0,
       "drive": 0,
       "calendar": 0,
@@ -135,6 +163,7 @@ top-level:
 
 次のときは `notifications[]` も作る。
 
+- Supabase L2 には活動が見えるが source refs / meeting_id / project_id 紐付けが薄く、次回以降の抽出が不安定
 - 5 生データの現物はあるが、PJ 台帳の report_emails / slack_channel / drive_folder が不足していて継続抽出が不安定
 - no-data draft を暫定更新したが、人間確認が必要
 - connector 不足で重要 source を見られなかった
@@ -147,7 +176,8 @@ top-level:
 最後に次を短く出す。
 
 - 対象 project_id + ym
-- 5 生データ別の確認件数
+- Supabase L2 別の確認件数
+- gap check した 5 生データ別の確認件数
 - 作成 / 更新 / skip final / no-data / connector missing
 - outbox path
 - 次回へ残した対象
@@ -157,5 +187,6 @@ top-level:
 - R313 trigger を作成・復活する
 - PWA / GAS / Vercel から従量課金 LLM route を定期実行する
 - `final_content` を暗黙上書きする
-- 5 生データを見ずに既存 monthly_reports だけを要約し直す
+- 既存 monthly_reports だけを要約し直す (= Supabase L2 cross-section を必ず見る)
+- Supabase L2 が薄い / stale / no-data 候補なのに、5 生データ gap check を省く
 - no-data の理由を確認せず「活動なし」と断定する

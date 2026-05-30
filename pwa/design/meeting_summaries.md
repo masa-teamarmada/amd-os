@@ -1,6 +1,6 @@
 # MTG サマリ — 設計の正本
 
-最終更新: 2026-05-29 (weekly recurring 予定MTGは系列ごとに次回1件だけ表示)
+最終更新: 2026-05-31 (Notion eventId 欠損 fallback / monthly_reports Supabase L2-first)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -30,6 +30,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - **LLMを使わない場所**: PWA/GAS/Vercel route。会議後 workflow は既存 `narrative_md` を使って、次MTG準備と通知の状態遷移だけを行う。
 - **source_hash 方針**: 会議ソース + feedback + prompt revision で差分検知する。MS進捗のような揺れやすい OS context は hash に混ぜない。文脈更新のたびに再生成して credit を浪費しないため。
 - **旧GAS LLM cron**: 153 / 152 は kill switch 維持。Gemini 経路なので復活させない。LLM 非依存の運用 cron はこの禁止対象ではない。
+- **Notion eventId 方針**: Calendar event と Notion page の両方を見ている MMO automation が、該当 Notion page に `eventId` / 相当プロパティを可能な範囲で追記する。`eventId` が空でも title + event date + attendees + Gemini/Drive/Gmail URL で fallback し、欠損だけを理由に議事録を skip しない。
 
 品質劣化の主因は「元のAI議事録が低品質」ではなく、OS側が `summary_short` と配列へ潰して表示していたこと。正しい修正は、routine が `narrative_md` を本文として保存し、UI がそれを主表示すること。
 
@@ -58,7 +59,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 | 観点 | Phase 1 (廃) | Phase 2 → Phase 3 (旧GAS実装) |
 |---|---|---|
 | 主軸 | Notion 議事録ページ単独 | **1 calendar event = 1 行** |
-| `meeting_id` PK | Notion page id | **calendar event id** (Notion 議事録ページの `eventId` プロパティから) |
+| `meeting_id` PK | Notion page id | **calendar event id**。Notion 議事録ページの `eventId` プロパティがあれば使い、無い場合は Calendar event 側を正として title/date fallback で Notion page を探す |
 | 議事録ソース | Notion ページ本文のみ | **Notion ページ本文 + Gmail (reportEmails ±1日)** を結合 |
 | 議事録なし扱い | 抽出スキップ (= 行が出ない) | `summary_short = "議事録なし"` でマーカー行を残す |
 | 範囲 | 1 PJ × 1 ym | 同左 (旧GASでは daily 実行で当月分を再走) |
@@ -504,7 +505,7 @@ if existing.source_hash === newHash: skip (LLM 呼ばない)
 ## 既知の制約・運用上の注意
 
 - **議事録ページ未作成回**: `cron_createMinutesFromCalendar` で対象外 (allDay / `+`prefix / `EXCLUDE` alias) になった calendar event は議事録ページが無いので Phase 2 cron では拾えない。これは仕様 (= MTG ではないと判定された)
-- **古い議事録 (eventId プロパティなし)**: CalendarToNotionMinutes 導入前の手動議事録ページは `eventId` が空で、Phase 2 では meeting_id を作れないので skip される (`action: "skipped_no_event_id"`)。Phase 1 で入れた 7 行も migration 027 の DELETE で消えてる
+- **古い議事録 / 手動議事録 (eventId プロパティなし)**: 現行の MMO automation は `eventId` 欠損だけでは skip しない。title + event date + attendees + Gemini/Drive/Gmail URL で fallback し、採用した Notion page には可能なら Calendar event id を追記する。追記できない場合も Gmail / Drive / Slack / Calendar 本文で抽出を続ける。旧GAS履歴上の `skipped_no_event_id` は現行仕様では禁止。
 - **PJ 関係ないメールが Gmail cache に混じる**: `reportEmails` filter で from/to のいずれか一致のものだけ取るが、それでも会議無関係のメールが混ざることはある。±1日に絞り、最終的に LLM 側で選別する設計
 - **PJ 別の議事録経路の傾向** (2026-05-09 まさ確認):
   - **p20 = CX (NIMS 関係)**: 議事録は Notion メインで Gmail には来ない傾向。`reportEmails` は NIMS 関係者の個人メール 2 件
@@ -519,11 +520,12 @@ if existing.source_hash === newHash: skip (LLM 呼ばない)
 
 ## L2① monthly_reports automation との関係
 
-R313 (AMD-Report GAS) は旧経路で、定期 trigger は置かない。月次レポート生成は L2① Codex automation `AMD OS L2① 月次報告抽出` が担当し、MTG サマリは 5 生データのひとつとして月次 draft の入力に使う。
+R313 (AMD-Report GAS) は旧経路で、定期 trigger は置かない。月次レポート生成は L2① Codex automation `AMD OS L2① 月次報告抽出` が担当し、MTG サマリは Supabase L2 snapshot の primary input として月次 draft に使う。5 生データは L2 coverage が薄いときの gap check / backfill fallback。
 
 ```
 L2① automation:
-  Gmail / Drive / Calendar / Slack / Notion + project_meeting_summaries
+  Supabase L2 snapshot (project_meeting_summaries / strategy / XRL / registry / protocols / knowledge / MS)
+    + Gmail / Drive / Calendar / Slack / Notion gap check fallback
       ↓ Sonnet で集約
     amd-os-ms/outbox.monthlyReports
       ↓ LaunchAgent + non-LLM applier
