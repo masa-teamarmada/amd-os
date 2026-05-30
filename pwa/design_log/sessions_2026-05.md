@@ -671,7 +671,7 @@ frl_cap_amd = F_cap(全員) - F_cap(AMD抜き)
 |---|---:|---:|---:|---|---|
 | p03 tiem | 2 | 2 | 0 | 未反映 | AMD設立前。紐付けなし |
 | p04 KT | 5 | 4 | 1 | 保留 | まさ=COO/体制構築候補。ただし current row はAMD関与終了後なので timeline化して反映 |
-| p06 CTB | 4 | 3 | 1 | migration 111 | まさ=COO/AMED事務対応を active 化 |
+| p06 CTB | 3 | 3 | 0 | migration 112 | frozen。AMD activeなし (`まさ` row は left) |
 | p07 LST | 6 | 5 | 1 | migration 111 | まさ=COO/CEO据付/体制構築を active 化 |
 | p09 JC | 3 | 2 | 1 | 保留 | まさ/うめ/きよ候補。ただし AMD関与終結 row なので timeline化して反映 |
 | p11 BWE | 3 | 2 | 1 | 保留 | まさ候補。ただし 2026-04-30 退任/移譲 row なので timeline化して反映 |
@@ -684,14 +684,16 @@ frl_cap_amd = F_cap(全員) - F_cap(AMD抜き)
 - `pwa/scripts/migrations/111_frl_cap_amd_active_projects.sql` 追加・本番適用済。
 - p06/p07/p20/p21 の `project_founding_members` に AMD active 行を upsert。
 - p06/p07/p20/p21 の current `amd_score_inputs` row に `frl_cap` / `frl_cap_amd` / `frl_cap_notes` / CES default を反映。
+- その後、まさ指示「CTBもfrozenだし、amd activeは無し」で migration 112 を追加。p06 は `status='left'`, `frl_cap=3`, `frl_cap_amd=0` に補正。
 - `pwa/manual/4-4-frl-related-members-score-spec.md`: migration 110 実装済みに更新。
 - `pwa/HANDOFF_bzm_textbook.md`: PJ別案と保留理由を追記。
 
 ### Verified
 
 - migration 111: Supabase Management API `OK (201)`。
+- migration 112: Supabase Management API `OK (201)`。
 - live DB verify:
-  - p06: `frl_cap=4`, `frl_cap_amd=1`, AMD active 1件 (`まさ`)
+  - p06: `frl_cap=3`, `frl_cap_amd=0`, AMD active 0件 (`まさ` row は `left`)
   - p07: `frl_cap=6`, `frl_cap_amd=1`, AMD active 1件 (`まさ`)
   - p20: `frl_cap=5`, `frl_cap_amd=2`, AMD active 4件 (`まさ`/`あき`/`きよ`/`りり`)
   - p21: `frl_cap=4`, `frl_cap_amd=1`, AMD active 4件 (`まさ`/`かる`/`ちこ`/`きよ`)

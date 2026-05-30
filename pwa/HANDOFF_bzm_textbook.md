@@ -1,6 +1,6 @@
 # HANDOFF — BZM 教科書 / AMD Score モデルワークストリーム
 
-> 最終更新: 2026-05-31 (Codex/eimi) / トピック: **FRL_cap_amd first pass。active PJ 4件だけ AMD提供価値を小さく反映、ended PJ は表で保留**。
+> 最終更新: 2026-05-31 (Codex/eimi) / トピック: **FRL_cap_amd first pass。active/current PJ 3件に反映、CTBはfrozenのためAMD activeなしに補正**。
 > ⚠️ payment-confirm の引き継ぎは別ファイル `HANDOFF_pwa_rebuild.md` (codex 正本)。混ぜない。
 > 🚨 **モデル議論の正本は `/Users/masa/projects/knowledge/before_zero_theory.md`** (monorepo 外)。経営知識・モデル議論を `pwa/design/` に書くのは AGENTS.common 違反。各PJ=`knowledge/{pj}.md`、XRL/F_cap rubric=`knowledge/xrl_rubric.md`。
 > 📊 グラフは **matplotlib** で統一 (memory `feedback_graphs_matplotlib`)。
@@ -27,13 +27,13 @@ BZM (Before Zero Model) を **学会発表・論文化まで見据えた厳密�
 
 - live DB で `project_founding_members.status` 実値を確認: `active` / `tentative` / `invalid` / `left`。対象9PJでは `category='amd' AND status='active'` が0件だった。
 - 算定式は `frl_cap_amd = F_cap(全員) - F_cap(AMD抜き)`。`status='active'` + 実意思決定/PM/資金調達/事業計画へのコミットで見る。HRL と違い、F_cap では VC/シリアルアントレ等も算定候補。
-- migration 111 で **active/current row だけ小さく反映**: p06 CTB / p07 LST / p20 CX / p21 SX。ended / historical PJ は timeline row を分けて扱う必要があるので、この migration ではDB反映しない。
+- migration 111 で active/current row に first pass を入れた後、まさ指示「CTBもfrozenだし、amd activeは無し」で migration 112 を追加。p06 CTB は `frl_cap=3`, `frl_cap_amd=0`, AMD row は `left` に補正。active/current 反映は p07 LST / p20 CX / p21 SX の3件。
 
 | PJ | F_cap(全員)案 | F_cap(AMD抜き)案 | `frl_cap_amd`案 | DB反映 | AMD紐付け |
 |---|---:|---:|---:|---|---|
 | p03 tiem | 2 | 2 | 0 | 未反映 | AMD設立前。紐付けなし |
 | p04 KT | 5 | 4 | 1 | 保留 | まさ=COO/体制構築候補。ただし current row はAMD関与終了後なので timeline化して反映 |
-| p06 CTB | 4 | 3 | 1 | migration 111 | まさ=COO/AMED事務対応を active 化 |
+| p06 CTB | 3 | 3 | 0 | migration 112 | frozen。AMD activeなし (`まさ` row は left) |
 | p07 LST | 6 | 5 | 1 | migration 111 | まさ=COO/CEO据付/体制構築を active 化 |
 | p09 JC | 3 | 2 | 1 | 保留 | まさ/うめ/きよ候補。ただし AMD関与終結 row なので timeline化して反映 |
 | p11 BWE | 3 | 2 | 1 | 保留 | まさ候補。ただし 2026-04-30 退任/移譲 row なので timeline化して反映 |
@@ -41,7 +41,7 @@ BZM (Before Zero Model) を **学会発表・論文化まで見据えた厳密�
 | p20 CX | 5 | 3 | 2 | migration 111 | まさ/あき/きよ/りりを active 化 |
 | p21 SX | 4 | 3 | 1 | migration 111 | まさ/かる/ちこ/きよを active 化 |
 
-次の一手: ended PJ (p04/p09/p11) は「現在の active state」ではなく、AMD関与時点の `amd_score_inputs` row を追加/選定して `frl_cap_amd` を入れる。p07/p20/p21 は今後 F_cap 編集 UI でまさ修正できるようにする。
+次の一手: ended PJ (p04/p09/p11) は「現在の active state」ではなく、AMD関与時点の `amd_score_inputs` row を追加/選定して `frl_cap_amd` を入れる。p07/p20/p21 は今後 F_cap 編集 UI でまさ修正できるようにする。p06 CTB は frozen 中なので current active AMD 寄与は 0 のまま扱う。
 
 **その後の FRL 校正・UI タスク**:
 - CES の a/ρ を 9PJ retrofit で校正 (a=0.6/ρ=-2 は仮置き)。
