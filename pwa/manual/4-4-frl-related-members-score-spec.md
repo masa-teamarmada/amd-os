@@ -38,10 +38,10 @@ FRL + 1 = [ a·(F_char+1)^ρ + (1-a)·(F_cap+1)^ρ ]^(1/ρ)     ρ < 0 (補完)
 
 ### F_capability の算定 (= 経験 ≫ 知識、 AMD 価値の定量化)
 
-経営実行力を 0-9 で評価。 **チームの経営中核メンバーの best-of** (= approved + コミット度重み付け)。 CEO 一人に閉じない (= まさ「COO が IPO 経験者なら成り立つ」を表現)。
+経営実行力を 0-9 で評価。 **チームの経営中核メンバーの best-of** (= active + コミット度重み付け)。 CEO 一人に閉じない (= まさ「COO が IPO 経験者なら成り立つ」を表現)。
 
 ```text
-F_cap = best-of(経営実行力; status='approved', コミット度重み付け)
+F_cap = best-of(経営実行力; status='active', コミット度重み付け)
   ├─ F_cap_founder : 創業者・SU 内部メンバー由来
   └─ F_cap_amd     : AMD メンバー (category='amd') が押し上げた分 ★
 
@@ -50,12 +50,12 @@ AMD の提供価値 = F_cap(全員) − F_cap(AMD 除く)
 
 - **経験 ≫ 知識** (Hsu 2007 RP / Unger 2011 JBV: 経験的 human capital が知識的より成果相関強い)。 MBA/体系知識は「事故を減らす下方リスク低減」として軽く効かせる (ゼロにはしない)。
 - **AMD 価値の定量化**: `F_cap_amd` で「AMD が入って経営 readiness を X→Y に上げた」分を PJ ごと・経時で追える。 LP 報告・営業資料に使える。
-- **名義貸し対策**: 社外取・名義だけアドバイザーで釣り上げない。 `status='approved'` + フルタイム的役割 (実意思決定権) で重み付け。 rubric は「IPO 経験者が *経営中核に* いる」のように役割の実質を観測項目にする。
+- **名義貸し対策**: 社外取・名義だけアドバイザーで釣り上げない。 `status='active'` + フルタイム的役割 (実意思決定権) で重み付け。 rubric は「IPO 経験者が *経営中核に* いる」のように役割の実質を観測項目にする。
 - **HRL と算定対象が違う**: HRL は `category IN ('amd','startup','university')` で **vc 除外**。 F_cap は逆に **VC 出身者・シリアルアントレこそ中核** (経営実行力の源泉) として算入。
 
 ### 運用 (= えいみ初期投入 → まさ修正)
 
-F_cap の 0-9 は **えいみが推測で初期投入 → まさが画面で修正** (= XRL チェックリストと同運用、 Tsukuyomi 不使用)。 データ源: `project_founding_members` (status='approved') + `knowledge/{pj}.md` + L2 + Web。 rubric は `knowledge/xrl_rubric.md` の F_cap セクション。 OS 原則「初手手動入力はしない、 えいみが生データから推測」(= memory `feedback_tsukuyomi_builds_from_raw_data`) に従う。
+F_cap の 0-9 は **えいみが推測で初期投入 → まさが画面で修正** (= XRL チェックリストと同運用、 Tsukuyomi 不使用)。 データ源: `project_founding_members` (status='active') + `knowledge/{pj}.md` + L2 + Web。 rubric は `knowledge/xrl_rubric.md` の F_cap セクション。 OS 原則「初手手動入力はしない、 えいみが生データから推測」(= memory `feedback_tsukuyomi_builds_from_raw_data`) に従う。
 
 ### FRL 学術定義からの不足要素 (= 運用上の妥協)
 
@@ -131,7 +131,7 @@ PJ に関わる人物のマスタ 2 表。 用途が違う:
 | `responsibility` | 担当領域 |
 | `contribution` | これまでの貢献 |
 | `notes` | 自由メモ |
-| `status` | `approved` (= 承認・採用) / `candidate` (= 候補、 未承認)。 ※実 DB は 2 値 (旧 active/tentative/invalid は誤記、 2026-05-30 修正) |
+| `status` | `active` (= 採用) / `tentative` (= 候補、 通知未確認) / `invalid` (= 却下) / `left` (= 離脱)。 ※実 DB の現行 4 値 (db_schema で裏取り) |
 | `extracted_by` | `llm` / `manual` |
 | `source_documents` | JSONB (= 元データ refs) |
 | `first_observed_at` / `last_observed_at` | 観測期間 |
@@ -189,7 +189,7 @@ AMD Score の各軸 (= TRL/BRL/GRL/SRL/HRL/FRL/μ) の値を誰かが「違う�
    ↓
 status='tentative' で保存
    ↓
-まさ "はい" → status='approved', project_knowledge に member 知識として昇格 (= active)
+まさ "はい" → status='active', project_knowledge に member 知識として昇格 (= active)
 まさ "いいえ" → status='invalid'
 ```
 
@@ -212,7 +212,7 @@ status='tentative' で保存
 | FRL スコアが極端に低い | ALQ 4 + Grit + Resilience の値、 `frl_grit` / `frl_resilience` が NULL なら 0 扱いで合成が下がる |
 | HRL が想定と違う | `project_founding_members.category` 別件数、 `category IN ('amd','startup','university')` で絞ったあとの人数 / 階層 |
 | 関連メンバーの抽出に VC / 顧客が混じる | L2 ⑧ XRL 根拠抽出 prompt の「VC/顧客/行政無効」ルール、 [8-3 章](8-3-l2-extraction-routines-spec.md) を確認 |
-| 修正依頼が反映されない | `amd_score_revisions.status='approved'`、 `applied_to_alpha` が false でも `amd_score_inputs.frl` 自体は更新されるか |
+| 修正依頼が反映されない | `amd_score_revisions.status='active'`、 `applied_to_alpha` が false でも `amd_score_inputs.frl` 自体は更新されるか |
 | 評価根拠 (notes) が表示されない | `mu_notes` / `xrl_notes` / `frl_notes` の値、 `AxisSliderWithNote` の textarea 連携 |
 
 ## 関連
