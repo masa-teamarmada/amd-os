@@ -591,3 +591,54 @@ BZM (Before Zero Model) 教科書の既存 10 章が「中身スカスカ」だ�
 
 ### 次セッションへ
 - 実データ本評価: 3 機関の確信低サブ軸を `/institutions/assess` で実態評価して確定 (現状ドラフト 84 件、ERS 香川大 35% / 工学院 24% / NIMS 62%)。
+
+---
+
+## 2026-05-30 (#101) — Claude Code (eimi) / FRL を 資質 F_character × 経営実行力 F_capability に再設計 (CES 補完合成) + 本番実装
+
+> まさ問題提起「AMD Score の F (Founder Readiness) に経営の知識・経験も入れるべきでは。知識は軽く経験は重く。一方でそれは CEO 本人でなく COO 等の CxO が補完してもよい (オーセンティシティ抜群の CEO + IPO 経験 COO なら成立する)」から、FRL の内部構造を再設計 → 設計確定 → 教科書/正本/DB/コード/本番デプロイまで一気通貫。
+
+### モデル確定事項 (まさ判断、knowledge/before_zero_theory.md に正本化)
+
+- **FRL を 2 レイヤーに分離** (委譲可能性で切る):
+  - **F_character** (資質・委譲不可) = 旧 6 因子 (ALQ4 + Grit + Resilience) = 既存 `frl` 列
+  - **F_capability** (経営実行力・CxO/AMD で補完可) = 経験 ≫ 知識 (IPO/Exit > 調達リード > PL責任運営 > 同業界 ≫ MBA/知識) = 新 `frl_cap` 列
+- **合成は CES (補完性 ρ<0)**: まさ要求「どちらの F も一定以下なら成立しない、一定水準以下で全体が大きく下がる」= 補完性。Cobb-Douglas の +1 シフト (代替的) では原理的に作れないので CES を導入 (理論 §1/§14-5 が将来拡張として予告していた初適用)。`FRL+1 = [a(F_char+1)^ρ + (1-a)(F_cap+1)^ρ]^(1/ρ)`。ρ→0 で Cobb-Douglas、ρ→-∞ で min。
+- **二層構造**: S 全体 (σ_SU × R_net × FRL) は Cobb-Douglas (代替的) のまま、FRL 内部だけ CES (補完的)。
+- **初期パラメータ** (retrofit 校正待ち): a=0.6 (資質やや重め)、ρ=-2 (中庸)、α_F=1.5 据置。
+- **AMD 価値の定量化** (まさ着眼、本設計の重要産物): F_cap を所属で分離記録。`frl_cap_amd` = AMD メンバー寄与分。`F_cap(全員) − F_cap(AMD除く)` = AMD が経営 readiness を何段階押し上げたか = LP 報告/営業に使える AMD 提供価値。
+- **経験 ≫ 知識の学術裏付け**: Hsu (2007, RP) / Unger et al. (2011, JBV メタ分析: 経験的 human capital > 知識的)。CES 原典 = Arrow et al. (1961)。
+- **名義貸し対策**: status='active' + コミット度 (フルタイム的実意思決定権) で重み付け。HRL は vc 除外だが F_cap は VC 出身者・シリアルアントレこそ中核として算入 (算定対象が違う)。
+
+### 実装 (すべて push/deploy 済)
+
+1. **設計正本** (monorepo 外含む):
+   - `knowledge/before_zero_theory.md`: 新セクション「FRL を F_char × F_cap に分離 (CES 補完合成)」+ 残論点「S 内部構造」を解決済みに + changelog。
+   - `knowledge/xrl_rubric.md`: FRL を F_character / F_capability の 2 rubric に分割。F_cap は経験≫知識を Yes/No 観測化 (Lv0 経営者皆無 → Lv8 IPO/Exit 経験者中核 → Lv9 複数)。
+   - `pwa/bzm/4-1-frl-founder-readiness.md`: §4 を全面改稿 (二層構造 + CES + 例題4-1 CES挙動 + 例題4-2 F_char計算) + §5 AMD価値 + §6運用 + §7まとめ + 出典に Unger2011/Arrow1961 追加。
+   - `pwa/manual/4-4-frl-related-members-score-spec.md`: FRL 2レイヤー + CES式 + F_cap算定 + AMD価値 + 列追加 + status を実DB準拠 (active/tentative/invalid/left) に。
+2. **migration 110** (本番適用済): `amd_score_inputs` に `frl_cap` / `frl_cap_amd` / `frl_cap_notes` / `frl_ces_a` / `frl_ces_rho` 追加。db_schema.md 再生成。
+3. **コード**:
+   - `src/lib/amd-score.ts`: `computeFrlCES(fChar, fCap, a, rho)` 追加。ρ≈0 で Cobb-Douglas フォールバック、片方 null で fChar をそのまま返す (後方互換)。`FRL_CES_A_DEFAULT=0.6` / `FRL_CES_RHO_DEFAULT=-2`。
+   - `src/lib/amd-score-data.ts`: Row/RawRow/Upsert に 5 列追加、INPUT_COLUMNS / flattenInput / payload に配線。
+   - `src/lib/amd-score-derived.ts`: `resolveFrl(row)` 追加 (frl_cap あれば CES、なければ frl=F_character)。`calculateAmdScoreForInput` を resolveFrl 経由に。
+   - `AmdScoreList` / `AmdScoreRetrofit` / `CyberspaceView`: FRL 構築を resolveFrl 経由に統一。
+4. **F_cap 9PJ 初期投入済** (えいみ推測、project_founding_members + knowledge md ベース、捏造なし、まさ画面修正前提):
+   - p03=2 / p04=5 / p06=3 / p07=5 / p09=3 / p11=3 / p18=2 / p20=3 / p21=4 (frl_cap_notes に根拠+「[えいみ初期推測]」明記)。
+   - CES 検算 OK: 例 p03 ティエム F_char 4 → F_cap 2 → FRL 2.82、p06 CTB 6→3→4.18、p20 CX 7→3→4.39、p21 SX 5→4→4.53。全 PJ で「経営実行力が低いと FRL が資質より下がる」がまさの意図どおり効く。
+
+### Verified
+- tsc 通過 (resolveFrl import 漏れ 2 件を検出して修正後クリーン)、`npm run build` 通過、deploy 成功 (本番疎通 307=ログインリダイレクト正常)。
+- commit: 088648e (CES実装) / 340269c (一旦status approved誤記) / 6f6ce43 (status実DB準拠に是正) / 65ff0cc (HANDOFF)。すべて main push 済。
+- F_cap 投入は Supabase execute_sql で実行・CES 検算クエリで確認済。
+
+### 途中ミスと是正 (恒久教訓は既存 BUGS に集約済みのため新規エントリ不要)
+- status 列値を一度 `approved` と想像で書いた → 実DBは active/tentative/invalid/left。`db_schema`/execute_sql で裏取りして是正。既存 BUGS「列名・列値を想像で書かない」の実例。
+- F_cap 投入 SQL が最初 project_id 引数欠落で全失敗 → 取り直して投入成功。
+- cockpit 系を broken と早とちり → 実際は clean (git/tsc で確認)。サブエージェント/早合点を正本で裏取りする MEMORY ルールの実例。
+
+### 次セッションへの申し送り (HANDOFF_bzm_textbook.md にも記載)
+- **【最重要】AMD の提供価値の定量評価 (frl_cap_amd)**: 今回 founding_members に AMD メンバー (category='amd') が status='active' で居らず算出不能 → 全 NULL。AMD メンバーを founding_members に紐付ける整理 (category='amd' が active でない問題) → F_cap_amd を埋める。これがまさ着眼の本丸。
+- CES の a/ρ を 9PJ retrofit で校正 (a=0.6/ρ=-2 は仮置き)。
+- F_cap を全 PJ の経時各点に展開 (今回は最新行のみ)。まさが画面で各 F_cap を修正する運用 (XRL チェックリストと同じ)。
+- F_cap 編集 UI: スコア詳細ページ (FrlAlqPanel 近辺) に F_capability スライダー + notes を追加。
