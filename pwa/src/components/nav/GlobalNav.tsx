@@ -251,6 +251,20 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
           >
             📐 BZM
           </Link>
+          {isAdmin && (
+            <Link
+              href="/spec"
+              className={cn(
+                "px-2.5 py-1 rounded-md transition-colors",
+                pathname.startsWith("/spec")
+                  ? "bg-accent text-accent-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title="設計書 — 確定した実装仕様 (画面/API/cron/DB/判断ロジック)。admin 限定"
+            >
+              ⚙ 設計書
+            </Link>
+          )}
           <Link
             href="/manual"
             className={cn(
