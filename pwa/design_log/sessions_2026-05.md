@@ -734,3 +734,34 @@ frl_cap_amd = F_cap(全員) - F_cap(AMD抜き)
 - 香川大: 全学シーズDB継続運用、EIR/CXO人材プール、IP-equity/SO対価、大学個別の出資・ファンド組成運用。
 - 工学院大: 認定規程の施行、出資・株式/SO保有規程、IP-equity、EIR/CXO人材プール。
 - NIMS: EIR制度の正式名称/常設性、VC導線の制度化、IP-equity/SO対価の定常運用、ギャップファンド/POC資金の制度詳細。
+
+---
+
+## 2026-05-31 (#104) — Codex (えいみ) / ERS 制度比較マトリクス設計をKUTE規程整備ベースで追記
+
+> まさ提案「各大学の規程や制度の整備状況を、5段階に限らず3段階・属性マトリクスで細かくデータ化したい」に対応。KUTE の大学発ベンチャー認定規程整備ログを参照し、ERS 本体と raw evidence レイヤーを分ける設計へ更新。
+
+### 参照したKUTE資料
+
+- `/Users/masa/projects/AMD/kute/output/regulations/KUTE_GoogleDoc_大学発ベンチャー認定規程_論点別比較.md`
+- `/Users/masa/projects/AMD/kute/output/regulations/条文別修正方針_大学発ベンチャー認定規程.md`
+- `/Users/masa/projects/AMD/kute/docs/20260512_大学発ベンチャー認定規程_作業記録.md`
+- `/Users/masa/projects/AMD/kute/output/mtg_20260526/02_認定ベンチャー規程_想定問答集.md`
+- `/Users/masa/projects/AMD/kute/output/mtg_20260526/03_決裁者pros_cons比較.md`
+
+### 設計更新
+
+- `pwa/design/institution_readiness.md`: 「制度比較マトリクス（ERS raw evidence レイヤー）」を追加。
+- `pwa/manual/4-9-institution-ers-spec.md`: 運用仕様として、3段階 + `unknown` の制度ステータス、認定規程の比較項目、PWA/DB最小項目案を追記。
+
+### 方針
+
+- ERS 本体は Lv1–5 の成熟度評価として維持。
+- 規程・制度は `unknown` / `not_started` / `drafting` / `established` で別管理。
+- `unknown` と `not_started` は分ける。未確認を未整備扱いしない。
+- 認定規程は、規程主体、決裁者、認定対象、登記前申請、更新、称号使用制限、知財利用、報告・変更届、取消後処理、支援申請、支援期間・対価、関係規程接続まで比較する。
+- UI は `/institutions/assess` を `ERS評価` / `制度整備` / `規程比較` / `根拠資料` のタブに分ける案。
+
+### 未実装
+
+- DB migration / PWA UI はまだ未実装。次に作るなら `institution_policy_items` と `institution_policy_assessments` を追加する。
