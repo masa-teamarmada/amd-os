@@ -22,8 +22,9 @@
 | L2③ MS Progress | `3-10` | `rebuildable` | MMO PC 側 automation 登録状態は repo 外。run log は別途必要 |
 | L2④ Project Knowledge | `3-11` | `rebuildable` | MMO PC 側 automation 登録状態は repo 外。5生データ直結ではなく現行二次集約 |
 | L2⑤ Member Knowledge | `3-12` | `rebuildable` | MMO PC 側 automation 登録状態は repo 外。alias map は code_name/email 中心 |
+| L2⑥ Meeting Flow | `3-3` | `partial` | writer/data flow/DB/API/failure/validation は再構築可能。MMO PC 側 automation 登録状態・run log、Calendar作業枠/Drive資料draft/Gmail draft の live 実装確認は repo 外 |
 | L2⑩ Textbook Insights | `3-13` | `partial` | DB/API/outbox/local applier contract は追加。実 automation schedule と BZM 追記レビュー運用は repo 外で登録確認が必要 |
-| L2 extraction overall | `3-1`〜`3-6`, `3-9`〜`3-13`, `5-3` | `partial` | L2⑥ のmeeting flow深掘り、L2⑦⑧⑨の個別schema、L2⑩の実 schedule / BZM commit loop をさらに column-level 化 |
+| L2 extraction overall | `3-1`〜`3-6`, `3-9`〜`3-13`, `5-3` | `partial` | L2⑦⑧⑨の個別schema、L2⑩の実 schedule / BZM commit loop をさらに column-level 化。L2⑥ は `3-3` に深掘り済みだが repo外 automation 状態は未確認 |
 | notifications / 採否 | `3-7` | `partial` | `applyApprovedNotification()` の kind 別分岐を全件 table 化 |
 | cockpit | `3-8` | `partial` | routine stepId / monthly-reward modal / Edge Function bridge は補完済み。kanban、meeting detail attachments、score tabs は未完 |
 | AMD Score / FRL | `4-1`, `4-2` | `partial` | alpha retrofit UI、XRL revision API、Triple Helix recompute の詳細 |
@@ -43,6 +44,7 @@
 - `/bzm` metadata: `pwa/src/app/(app)/bzm/bzm-chapters.ts`
 - notifications: `pwa/src/app/(app)/notifications/page.tsx`, `pwa/src/components/notifications/NotificationsClient.tsx`, `pwa/src/app/api/notifications/feedback/route.ts`
 - L2②〜⑤: `pwa/scheduled-tasks/amd-os-l2-protocol-extract/SKILL.md`, `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md`, `pwa/scheduled-tasks/amd-os-l4-project-knowledge-extract/SKILL.md`, `pwa/scheduled-tasks/amd-os-l5-member-knowledge-extract/SKILL.md`
+- L2⑥: `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`, `pwa/src/app/api/meeting-prep/calendar-sync/route.ts`, `pwa/src/app/api/meeting-prep/route.ts`, `pwa/src/app/api/meeting-workflow/finalize/route.ts`, `pwa/src/app/api/meeting-assets/route.ts`, `pwa/scripts/l6_meeting_held_source_guard.cjs`, `gas/153_MeetingHourlyTrigger.js`, `gas/074_MeetingSummaryRepo.js`
 - cockpit: `pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx`, `pwa/src/components/cockpit/CockpitView.tsx`, `pwa/src/components/cockpit/CockpitRoutineGas.tsx`, `pwa/src/components/cockpit/CockpitMonthlyModal.tsx`
 - ERS: `pwa/src/lib/ers-data.ts`, `pwa/src/app/api/institutions/assess/route.ts`
 - iOS role boundary: `ios/DESIGN.md`
@@ -56,8 +58,7 @@
 
 ## TODO
 
-1. L2⑥ Meeting Flow の個別 spec を、予定MTGカード / assets / Calendar sync まで深掘りする。
-2. Admin / Finance / Reward を `/spec` へ移す。
-3. GAS file/function current/deprecated matrix を作る。
-4. Atlas / Seeds / VC / Scholar を `/spec` へ移す。
-5. iOS screen migration を `/spec` へ移す。
+1. Admin / Finance / Reward を `/spec` へ移す。
+2. GAS file/function current/deprecated matrix を作る。
+3. Atlas / Seeds / VC / Scholar を `/spec` へ移す。
+4. iOS screen migration を `/spec` へ移す。
