@@ -19,6 +19,7 @@ import {
 } from "@/lib/amd-score";
 // PHASE_COLOR / PHASE_LABEL_JP / AmdScorePhase は使用しない (検証データ蓄積後に復活検討、2026-05-09)
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
+import { resolveFrl } from "@/lib/amd-score-derived";
 import type { VentureRow } from "@/lib/venture-map-data";
 import { LaneBadges } from "@/components/lanes/LaneBadges";
 
@@ -60,7 +61,7 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
               GRL: latest.grl ?? 0,
               SRL: latest.srl ?? 0,
               HRL: latest.hrl ?? 0,
-              FRL: latest.frl ?? 0,
+              FRL: resolveFrl(latest),
             },
             alpha
           )

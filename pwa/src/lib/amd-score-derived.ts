@@ -1,10 +1,22 @@
 import {
   calculateAmdScore,
+  computeFrlCES,
   type AlphaWeights,
   type AmdScoreAxis,
   type AmdScoreResult,
 } from "@/lib/amd-score";
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
+
+/**
+ * 入力行から最終 FRL (0-9) を導出する。
+ * F_capability (frl_cap) があれば CES 合成 (F_character=frl × F_capability=frl_cap)、
+ * なければ F_character (frl) をそのまま返す (後方互換)。
+ * 全 calculateAmdScore 呼び出し元はこのヘルパー経由で FRL を作ること。
+ */
+export function resolveFrl(row: Pick<AmdScoreInputRow, "frl" | "frl_cap" | "frl_ces_a" | "frl_ces_rho">): number {
+  const fChar = row.frl ?? 0;
+  return computeFrlCES(fChar, row.frl_cap, row.frl_ces_a ?? undefined, row.frl_ces_rho ?? undefined);
+}
 import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
 
 export interface AmdScoreBreakdown {
@@ -60,7 +72,7 @@ export function calculateAmdScoreForInput(row: AmdScoreInputRow, alpha: AlphaWei
       GRL: row.grl ?? 0,
       SRL: row.srl ?? 0,
       HRL: row.hrl ?? 0,
-      FRL: row.frl ?? 0,
+      FRL: resolveFrl(row),
     },
     alpha
   );
@@ -129,13 +141,18 @@ function cloneRowWithScaledMxf(row: AmdScoreInputRow, alpha: AlphaWeights, index
     grl: scaleInputValueByContribution(row.grl ?? 0, alpha.GRL ?? 0, xScale),
     srl: scaleInputValueByContribution(row.srl ?? 0, alpha.SRL ?? 0, xScale),
     hrl: scaleInputValueByContribution(row.hrl ?? 0, alpha.HRL ?? 0, xScale),
-    frl: scaleInputValueByContribution(row.frl ?? 0, alpha.FRL ?? 0, 1.05),
+    frl: scaleInputValueByContribution(resolveFrl(row), alpha.FRL ?? 0, 1.05),
     alq_self_awareness: null,
     alq_relational_transparency: null,
     alq_balanced_processing: null,
     alq_internalized_moral: null,
     frl_grit: null,
     frl_resilience: null,
+    frl_cap: null,
+    frl_cap_amd: null,
+    frl_cap_notes: null,
+    frl_ces_a: null,
+    frl_ces_rho: null,
     evaluator: "sx-derived-demo",
     notes: "P99-AAA demo score data cloned from SX with M/X/F contributions scaled by 1.05.",
   };

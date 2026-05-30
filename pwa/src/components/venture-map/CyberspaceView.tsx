@@ -36,6 +36,7 @@ import {
   type AmdScorePhase,
 } from "@/lib/amd-score";
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
+import { resolveFrl } from "@/lib/amd-score-derived";
 import type { VentureRow } from "@/lib/venture-map-data";
 
 // ============================================================
@@ -110,7 +111,7 @@ function buildPoints(
         GRL: latest.grl ?? 0,
         SRL: latest.srl ?? 0,
         HRL: latest.hrl ?? 0,
-        FRL: latest.frl ?? 0,
+        FRL: resolveFrl(latest),
       },
       alpha
     );
@@ -124,7 +125,7 @@ function buildPoints(
       (alpha.SRL ?? 0) * Math.log10(Math.max(0, latest.srl ?? 0) + 1) +
       (alpha.HRL ?? 0) * Math.log10(Math.max(0, latest.hrl ?? 0) + 1);
     const xNorm = AX_MAX_X > 0 ? Math.min(1, xrlContribLog / AX_MAX_X) : 0;
-    const fNorm = Math.log10(Math.max(0, latest.frl ?? 0) + 1);
+    const fNorm = Math.log10(Math.max(0, resolveFrl(latest)) + 1);
 
     points.push({
       projectId: v.project_id,
@@ -141,7 +142,7 @@ function buildPoints(
       raw: {
         sigmaSU: result.sigma_SU,
         xCompositeLog: xrlContribLog,
-        frl: latest.frl ?? 0,
+        frl: resolveFrl(latest),
         inputs: {
           sigma_SU: result.sigma_SU,
           TRL: latest.trl,
@@ -149,7 +150,7 @@ function buildPoints(
           GRL: latest.grl,
           SRL: latest.srl,
           HRL: latest.hrl,
-          FRL: latest.frl,
+          FRL: resolveFrl(latest),
         },
       },
     });

@@ -59,6 +59,59 @@ export const ALPHA_DEFAULT: AlphaWeights = {
 
 export const IPO_TARGET = 100_000;
 
+// ============================================================
+// FRL 2 レイヤー化 (2026-05-30): FRL = CES(F_character, F_capability)
+// ============================================================
+//
+// F_character  = 資質 (ALQ4 + Grit + Resilience, 委譲不可) ← 既存 frl 列
+// F_capability = 経営実行力 (経験 ≫ 知識, CxO/AMD で補完可)  ← frl_cap 列 (新規)
+//
+// 合成は CES (補完性 ρ<0): 「どちらかが一定以下なら FRL が大きく崩れる」(まさ確定)。
+// Cobb-Douglas の +1 シフト (代替的) では作れない補完性を CES ρ<0 で表す。
+//   FRL + 1 = [ a·(F_char+1)^ρ + (1-a)·(F_cap+1)^ρ ]^(1/ρ)
+//   ρ→0   で Cobb-Douglas (代替的・甘い)
+//   ρ→-∞ で min (完全ゲート)
+// 正本: knowledge/before_zero_theory.md「FRL を F_char × F_cap に分離」/ pwa/bzm/4-1 §4.3
+
+/** CES 資質側重み a の既定値 (資質をやや重く)。 */
+export const FRL_CES_A_DEFAULT = 0.6;
+/** CES ρ の既定値 (補完性, 中庸)。retrofit で校正。 */
+export const FRL_CES_RHO_DEFAULT = -2;
+
+/**
+ * F_character と F_capability を CES (補完性 ρ<0) で合成して最終 FRL (0-9) を返す。
+ *
+ * @param fChar 資質 F_character (0-9)
+ * @param fCap  経営実行力 F_capability (0-9)。null/undefined なら fChar をそのまま返す (後方互換)
+ * @param a     資質側重み (既定 0.6)
+ * @param rho   CES ρ (既定 -2, 補完性)。0 に極めて近い場合は Cobb-Douglas にフォールバック
+ */
+export function computeFrlCES(
+  fChar: number,
+  fCap: number | null | undefined,
+  a: number = FRL_CES_A_DEFAULT,
+  rho: number = FRL_CES_RHO_DEFAULT
+): number {
+  const cChar = Math.max(0, Math.min(9, fChar));
+  // F_capability 未評価なら従来どおり F_character をそのまま FRL とする (後方互換)。
+  if (fCap == null || !Number.isFinite(fCap)) return cChar;
+  const cCap = Math.max(0, Math.min(9, fCap));
+  const w = Math.max(0, Math.min(1, a));
+
+  const xChar = cChar + 1; // シフト方式 [1,10]
+  const xCap = cCap + 1;
+
+  // ρ≈0 は Cobb-Douglas (CES の極限): (x_char)^a · (x_cap)^(1-a)
+  if (Math.abs(rho) < 1e-6) {
+    const v = Math.pow(xChar, w) * Math.pow(xCap, 1 - w);
+    return Math.max(0, Math.min(9, v - 1));
+  }
+
+  const inner = w * Math.pow(xChar, rho) + (1 - w) * Math.pow(xCap, rho);
+  const v = Math.pow(inner, 1 / rho);
+  return Math.max(0, Math.min(9, v - 1));
+}
+
 export function sumAlpha(alpha: AlphaWeights, includeTRL = true): number {
   return AMD_SCORE_AXES
     .filter((a) => includeTRL || a !== "TRL")

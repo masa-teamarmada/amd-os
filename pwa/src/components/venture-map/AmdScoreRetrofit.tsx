@@ -27,6 +27,7 @@ import {
   type AmdScoreAxis,
 } from "@/lib/amd-score";
 import { saveNewAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
+import { resolveFrl } from "@/lib/amd-score-derived";
 import type { VentureRow } from "@/lib/venture-map-data";
 import { Tex } from "@/components/venture-map/Tex";
 import { AmdScoreFormulaPanel } from "@/components/venture-map/AmdScoreFormulaPanel";
@@ -71,7 +72,7 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
           GRL: latest.grl ?? 0,
           SRL: latest.srl ?? 0,
           HRL: latest.hrl ?? 0,
-          FRL: latest.frl ?? 0,
+          FRL: resolveFrl(latest),
         };
         currentScore = calculateAmdScore(baseInput, initialAlpha).score;
         newScore = calculateAmdScore(baseInput, alpha).score;

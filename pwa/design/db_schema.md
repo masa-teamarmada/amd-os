@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-30 18:15 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-30 21:45 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -176,6 +176,11 @@ UNIQUE: `(project_id,evaluated_at)` (constraint: `amd_score_inputs_project_id_ev
 | 25 | `frl_grit` | `float4` | NULL | `` |
 | 26 | `frl_resilience` | `float4` | NULL | `` |
 | 27 | `xrl_checklist` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 28 | `frl_cap` | `float4` | NULL | `` |
+| 29 | `frl_cap_amd` | `float4` | NULL | `` |
+| 30 | `frl_cap_notes` | `text` | NULL | `` |
+| 31 | `frl_ces_a` | `float4` | NULL | `` |
+| 32 | `frl_ces_rho` | `float4` | NULL | `` |
 
 ## amd_score_revisions
 

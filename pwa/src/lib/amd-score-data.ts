@@ -85,6 +85,13 @@ export interface AmdScoreInputRow {
   frl_grit: number | null;
   frl_resilience: number | null;
   frl_notes: string | null;
+  // FRL 2 レイヤー化 (2026-05-30): F_capability = 経営実行力 (経験≫知識, CxO/AMDで補完可)
+  // 最終 FRL = CES(F_character=frl, F_capability=frl_cap)。frl_cap が null なら frl をそのまま使う。
+  frl_cap: number | null;       // F_capability 0-9 (チーム best-of)
+  frl_cap_amd: number | null;   // うち AMD メンバー寄与分 (= AMD 提供価値)
+  frl_cap_notes: string | null; // F_capability の根拠
+  frl_ces_a: number | null;     // CES 資質側重み a (既定 0.6)
+  frl_ces_rho: number | null;   // CES ρ (既定 -2)
   // 各軸の評価根拠 (2026-05-09 追加)
   mu_notes: MuNotes | null;
   xrl_notes: XrlNotes | null;
@@ -103,7 +110,7 @@ export interface AmdScoreAlphaRow {
 }
 
 const INPUT_COLUMNS =
-  "id, project_id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, mu_notes, xrl_notes, xrl_checklist, shallow_tech_mode, evaluator, notes";
+  "id, project_id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, frl_cap, frl_cap_amd, frl_cap_notes, frl_ces_a, frl_ces_rho, mu_notes, xrl_notes, xrl_checklist, shallow_tech_mode, evaluator, notes";
 
 type RawInputRow = {
   id: string;
@@ -125,6 +132,11 @@ type RawInputRow = {
   frl_grit: number | null;
   frl_resilience: number | null;
   frl_notes: string | null;
+  frl_cap: number | null;
+  frl_cap_amd: number | null;
+  frl_cap_notes: string | null;
+  frl_ces_a: number | null;
+  frl_ces_rho: number | null;
   mu_notes: MuNotes | null;
   xrl_notes: XrlNotes | null;
   xrl_checklist: XrlChecklist | null;
@@ -154,6 +166,11 @@ function flattenInput(r: RawInputRow): AmdScoreInputRow {
     frl_grit: r.frl_grit,
     frl_resilience: r.frl_resilience,
     frl_notes: r.frl_notes,
+    frl_cap: r.frl_cap,
+    frl_cap_amd: r.frl_cap_amd,
+    frl_cap_notes: r.frl_cap_notes,
+    frl_ces_a: r.frl_ces_a,
+    frl_ces_rho: r.frl_ces_rho,
     mu_notes: r.mu_notes ?? null,
     xrl_notes: r.xrl_notes ?? null,
     xrl_checklist: r.xrl_checklist ?? null,
@@ -211,6 +228,11 @@ export interface AmdScoreInputUpsert {
   frl_grit?: number | null;
   frl_resilience?: number | null;
   frl_notes?: string | null;
+  frl_cap?: number | null;
+  frl_cap_amd?: number | null;
+  frl_cap_notes?: string | null;
+  frl_ces_a?: number | null;
+  frl_ces_rho?: number | null;
   mu_notes?: MuNotes | null;
   xrl_notes?: XrlNotes | null;
   xrl_checklist?: XrlChecklist | null;
@@ -243,6 +265,11 @@ export async function upsertAmdScoreInput(
     frl_grit: input.frl_grit ?? null,
     frl_resilience: input.frl_resilience ?? null,
     frl_notes: input.frl_notes ?? null,
+    frl_cap: input.frl_cap ?? null,
+    frl_cap_amd: input.frl_cap_amd ?? null,
+    frl_cap_notes: input.frl_cap_notes ?? null,
+    frl_ces_a: input.frl_ces_a ?? null,
+    frl_ces_rho: input.frl_ces_rho ?? null,
     mu_notes: input.mu_notes ?? null,
     xrl_notes: input.xrl_notes ?? null,
     xrl_checklist: input.xrl_checklist ?? null,
