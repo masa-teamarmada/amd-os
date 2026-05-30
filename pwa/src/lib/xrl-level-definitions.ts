@@ -1,127 +1,148 @@
 /**
- * XRL (TRL/BRL/GRL/SRL/HRL) の 9 段階定義 — 内閣府 SIP「サーキュラーエコノミーシステム構築」2023 公募要領 PDF p11-15 互換。
+ * XRL (TRL/BRL/GRL/SRL/HRL) のレベル定義 — **内閣府 SIP「サーキュラーエコノミーシステムの構築」
+ * 2023年度公募要領 (Ver1.1) の図2〜図6 に完全準拠**。
  *
- * 各レベルは:
- *   - label: 段階の短い名前
- *   - description: その段階で達成されるべき内容
- *   - exit_criteria: 次レベルに進むための具体的な条件 (cleared 必須項目)
+ * 🚨 重要 (まさ確定 2026-05-30): AMD が勝手な判定基準を作るとこの仕組みの信頼性の根幹を揺るがす。
+ *    各レベルの label / description は**原典の図の文言そのまま**。checklist は原典 description を
+ *    観測可能な粒度に分解しただけ（新しい概念を足さない）。原典 PDF:
+ *    共有ドライブ ARMADA/a1_all/データベース/XRLの元文献.pdf 図2-6。
  *
- * UI で「現在 4 → 5 に進むには？」という形で参照する。
+ * ⚠️ 段階数は軸で違う（原典どおり）:
+ *    - TRL / BRL = 9 段階 (NASA / Access2EIC 由来)
+ *    - GRL / SRL / HRL = 8 段階 (慶應義塾大学 栗野研究室 提案)
+ *    各軸の段階数は `maxLevel` で持つ。AMD Score 計算 (amd-score.ts) の 0-9 正規化とは独立。
+ *
+ * checklist: 各レベルの「観測可能な達成項目」。えいみが全 PJ に初期入力 → まさが修正する運用
+ *    (まさ指示 2026-05-30: Tsukuyomi は使わない)。チェック状態は amd_score_inputs.xrl_checklist (JSONB) に保存。
  */
 
 export type XrlAxisKey = "trl" | "brl" | "grl" | "srl" | "hrl";
 
 export interface XrlLevelDefinition {
-  level: number;          // 1-9
-  label: string;
-  description: string;
-  exit_criteria: string;  // 次レベルに進むための条件
+  level: number;          // 1-9 (GRL/SRL/HRL は 1-8)
+  label: string;          // 原典の段階名
+  description: string;    // 原典の状態定義（そのまま）
+  checklist: string[];    // 原典 description を観測可能項目に分解（達成判定用）
 }
 
 export interface XrlAxisDefinition {
   axis: XrlAxisKey;
   axisName: string;
-  axisDescription: string;
-  levels: XrlLevelDefinition[]; // length = 9
+  axisDescription: string; // 原典 表1 の説明
+  source: string;          // 原典の参考資料表記
+  maxLevel: number;        // 9 (TRL/BRL) or 8 (GRL/SRL/HRL)
+  levels: XrlLevelDefinition[];
 }
 
 // ----------------------------------------------------------------
-// TRL (NASA / 内閣府 SIP)
+// TRL (図2、参考: Technology Readiness Level Definitions, NASA) — 9 段階
 // ----------------------------------------------------------------
 export const TRL_DEFINITION: XrlAxisDefinition = {
   axis: "trl",
   axisName: "TRL",
-  axisDescription: "Technology Readiness Level — 技術成熟度。NASA 起源、内閣府 SIP 互換 9 段階",
+  axisDescription:
+    "技術成熟度レベル — 必要な技術はどれくらい発展しているか。「ある技術」が社会の技術要求水準に達するまでの段階を示す指標。",
+  source: "内閣府SIP 2023公募要領 図2 / Technology Readiness Level Definitions, NASA",
+  maxLevel: 9,
   levels: [
-    { level: 1, label: "基本原理確認", description: "基本原理の観察と報告 (論文レベル)", exit_criteria: "原理を実証する 1 件以上の査読論文 / 学会発表" },
-    { level: 2, label: "概念定義", description: "技術コンセプトの定式化、応用領域の特定", exit_criteria: "応用シナリオ × 必要パラメータが文書化されている" },
-    { level: 3, label: "実験的検証", description: "ラボでの critical function / 部分実証", exit_criteria: "コア機能の単独試験成功 + 再現性確認" },
-    { level: 4, label: "ラボ試作", description: "ラボ環境で構成要素を統合した試作", exit_criteria: "統合試作品がラボ環境で動作 + 性能データ取得" },
-    { level: 5, label: "関連環境試作", description: "実環境を模した条件で試作品が動作", exit_criteria: "実環境模擬試験 (温度・振動・負荷など) を pass" },
-    { level: 6, label: "実環境試作", description: "実環境での試作品評価", exit_criteria: "実環境フィールドテスト 1 件以上で目標性能達成" },
-    { level: 7, label: "実環境デモ", description: "実環境での実機システム実証", exit_criteria: "実機が実環境で連続稼働 (一定期間)、第三者検証" },
-    { level: 8, label: "実機完成", description: "実機システムの製作・認定", exit_criteria: "量産仕様確定 + 規格認定取得" },
-    { level: 9, label: "運用実績", description: "実環境での運用実績", exit_criteria: "商業運用での実績データ蓄積、安定稼働" },
+    { level: 1, label: "基礎研究", description: "科学的な基本原理・現象・知識が発見された状態。", checklist: ["対象技術の科学的な基本原理・現象・知識が（文献等で）発見・確認されている"] },
+    { level: 2, label: "仮説", description: "原理・現象の定式化、概念の基本的特性の定義化等の応用的な研究を通じて、技術コンセプトや実現的な用途と利用者にとっての価値に関する仮説が立てられている状態。", checklist: ["原理・現象を定式化した（概念の基本的特性を定義した）", "技術コンセプトの仮説がある", "実現的な用途と、利用者にとっての価値の仮説がある"] },
+    { level: 3, label: "検証", description: "技術コンセプトの実現可能性や技術用途の実用性が、実験・分析・シミュレーション等によって検証された状態。実用性が確認されるまで仮説と検証が繰り返されている状態。", checklist: ["技術コンセプトの実現可能性を実験・分析・シミュレーション等で検証した", "技術用途の実用性を検証している（仮説と検証を反復している）"] },
+    { level: 4, label: "研究室レベルでの初期テスト", description: "制御された環境下において、要素技術の基本的な機能・性能が実証された状態。", checklist: ["制御された（ラボ）環境で要素技術の基本的な機能を実証した", "要素技術の基本的な性能を実測した"] },
+    { level: 5, label: "想定使用環境でのテスト", description: "模擬的な運用環境下において、要素技術が満たすべき機能・性能が実証された状態。", checklist: ["模擬的な運用環境（想定使用条件）を用意した", "その環境で要素技術が満たすべき機能・性能を実証した"] },
+    { level: 6, label: "実証（システム）", description: "実運用環境下において、要求水準を満たすシステム*の機能・性能が実証された状態。 *システム：要素技術以外の構成要素を含む、サービスや製品としての機能を完備した要素群", checklist: ["要素技術以外の構成要素を含むシステム（製品・サービス相当）を構成した", "実運用環境下で、要求水準を満たすシステムの機能・性能を実証した"] },
+    { level: 7, label: "生産計画", description: "サービスや製品の供給に係る全ての詳細な技術情報が揃い、生産計画が策定された状態。（生産ラインの諸元、設計仕様等）", checklist: ["供給に係る詳細な技術情報（生産ラインの諸元・設計仕様等）が揃った", "生産計画が策定された"] },
+    { level: 8, label: "スケール（パイロットライン）", description: "初期の顧客需要を満たす、サービスや製品を供給することが可能な状態。", checklist: ["パイロットライン等で生産できる", "初期の顧客需要を満たす量のサービス・製品を供給できる"] },
+    { level: 9, label: "安定供給", description: "全ての顧客需要を満たす、サービスや製品を安定的に供給することが可能な状態。", checklist: ["全ての顧客需要を満たす量を供給できる", "安定的に供給できる体制がある"] },
   ],
 };
 
 // ----------------------------------------------------------------
-// BRL (内閣府 SIP)
+// BRL (図3、参考: The Business Readiness Levels, Ramsden & Chowdhury 2019 / Access2EIC) — 9 段階
 // ----------------------------------------------------------------
 export const BRL_DEFINITION: XrlAxisDefinition = {
   axis: "brl",
   axisName: "BRL",
-  axisDescription: "Business Readiness Level — 事業化成熟度",
+  axisDescription:
+    "ビジネス成熟度レベル — ビジネスとしての継続可能性はどうか。「創出財を利用した事業」が安定した事業として成り立つ水準までの段階を示す指標。",
+  source: "内閣府SIP 2023公募要領 図3 / The Business Readiness Levels, Ramsden & Chowdhury 2019 / Access2EIC",
+  maxLevel: 9,
   levels: [
-    { level: 1, label: "事業仮説", description: "市場 / 顧客仮説の言語化", exit_criteria: "1 ページの事業仮説 (顧客 / 課題 / 解決) が書ける" },
-    { level: 2, label: "顧客インタビュー", description: "想定顧客への定性ヒアリング", exit_criteria: "10 件以上の顧客インタビューで課題確認" },
-    { level: 3, label: "PoC 検討", description: "PoC 設計 / コスト試算", exit_criteria: "PoC 計画書 + ユニットエコノミクス試算" },
-    { level: 4, label: "PoC 実施", description: "1 顧客 PoC の実施", exit_criteria: "PoC 完了報告 + 顧客の継続意向" },
-    { level: 5, label: "有償 PoC", description: "複数顧客の有償 PoC", exit_criteria: "2 件以上の有償契約締結" },
-    { level: 6, label: "本契約", description: "本格契約 / 事業モデル確立", exit_criteria: "本契約 1 件 + 事業モデル LP / pitch deck 完成" },
-    { level: 7, label: "繰返契約", description: "リピート / アップセル発生", exit_criteria: "リピート率 / LTV データ取得" },
-    { level: 8, label: "拡大期", description: "営業組織化 / 横展開", exit_criteria: "営業 KPI 設計 + 月次成長率記録" },
-    { level: 9, label: "事業確立", description: "黒字化 / 事業安定", exit_criteria: "営業利益黒字 + 安定的な月次成長" },
+    { level: 1, label: "基礎研究", description: "潜在的な課題、顧客、解決方法等が発見された状態。（任意の現場における観察・体験、エスノグラフィー等）", checklist: ["潜在的な課題を発見した（現場観察・体験等）", "潜在顧客・解決方法の候補を発見した"] },
+    { level: 2, label: "仮説", description: "課題と顧客が明確化され、提供価値（解決策の優位性）、リターン・コスト等の事業モデルに関する仮説が立てられている状態。（ビジネスモデルキャンバス等）", checklist: ["課題とターゲット顧客を明確化した", "提供価値（解決策の優位性）の仮説がある", "リターン・コスト等の事業モデル仮説がある（BMC等）"] },
+    { level: 3, label: "検証", description: "事業モデルの仮説が顧客にとって有望であることがペーパープロトタイプ※、プレゼンテーション、インタビュー、アンケート等のテストで検証された状態。顧客価値が確認されるまで仮説と検証が繰り返されている状態。※模型的な試作品", checklist: ["事業モデル仮説を顧客にテストした（インタビュー/アンケート/ペーパープロトタイプ/プレゼン等）", "顧客にとって有望であることが検証された（仮説と検証を反復している）"] },
+    { level: 4, label: "実用最小限の初期テスト", description: "一部で旧技術を使用するなど限定的な機能を有する試作品を用いた疑似体験によって、提供価値が想定顧客にとって有用であることが実証された状態。顧客価値が確認されるまで仮説、検証、初期テストが繰り返されている状態。", checklist: ["限定機能の試作品（MVP/疑似体験）を用意した", "想定顧客にとって提供価値が有用であることを実証した"] },
+    { level: 5, label: "想定顧客のフィードバックテスト", description: "想定顧客からフィードバックを得ながら、顧客要望を満たす機能・性能が定義・設計され、その設計条件で事業モデルの妥当性が実証された状態。", checklist: ["想定顧客からフィードバックを得ている", "顧客要望を満たす機能・性能を定義・設計した", "その設計条件で事業モデルの妥当性が実証された"] },
+    { level: 6, label: "実証", description: "サービスや製品が実際に初期顧客に提供され、設計した条件で事業モデルの成立性や高い顧客満足度が実証された状態。", checklist: ["実際に初期顧客にサービス・製品を提供した（実売上）", "設計条件で事業モデルの成立性が実証された", "高い顧客満足度が実証された"] },
+    { level: 7, label: "事業計画", description: "上記の事業モデルを基にした、事業ロードマップ、投資計画、収益予測等を含む事業計画が策定された状態。", checklist: ["事業ロードマップ・投資計画・収益予測を含む事業計画を策定した"] },
+    { level: 8, label: "スケール", description: "定期的な顧客からフィードバックをもとにサービスや製品が改善されている状態。サービスや製品が、新規顧客に展開可能な根拠がある状態。", checklist: ["定期顧客のフィードバックで製品・サービスを改善している", "新規顧客に展開可能な根拠（再現性データ）がある"] },
+    { level: 9, label: "安定成長", description: "プロダクトおよび提供者が良く知られ、売上高が健全に成長する状態。", checklist: ["プロダクトおよび提供者が広く知られている", "売上高が健全に成長している"] },
   ],
 };
 
 // ----------------------------------------------------------------
-// GRL (内閣府 SIP)
+// GRL (図4、提案: 慶應義塾大学 栗野研究室) — 8 段階
 // ----------------------------------------------------------------
 export const GRL_DEFINITION: XrlAxisDefinition = {
   axis: "grl",
   axisName: "GRL",
-  axisDescription: "Governance Readiness Level — 制度・規制適合性 + 標準化",
+  axisDescription:
+    "ガバナンス成熟度レベル — 制度や規制は整っているか。「創出財」が社会に普及するために必要な制度・規制が完備（改善）するまでの段階を示す指標。",
+  source: "内閣府SIP 2023公募要領 図4 / 慶應義塾大学 栗野研究室 ご提案",
+  maxLevel: 8,
   levels: [
-    { level: 1, label: "規制マップ", description: "関係法令 / 所管省庁の特定", exit_criteria: "適用法令一覧 + 主担当省庁の整理" },
-    { level: 2, label: "規制ヒアリング", description: "省庁・業界団体への問合せ", exit_criteria: "1 省庁以上のヒアリング実施" },
-    { level: 3, label: "適合性検討", description: "現行規制との適合性評価", exit_criteria: "適合 / 改正必要項目の整理 + 法律家レビュー" },
-    { level: 4, label: "認可申請準備", description: "申請書類の準備", exit_criteria: "必要書類セット完成 + 事前相談" },
-    { level: 5, label: "認可申請", description: "正式申請", exit_criteria: "申請受理通知" },
-    { level: 6, label: "認可取得", description: "認可 / 許可の取得", exit_criteria: "認可書 / 許可証取得" },
-    { level: 7, label: "標準化参画", description: "業界標準・規格への参画", exit_criteria: "JIS / ISO / 業界団体規格 WG への参加" },
-    { level: 8, label: "標準化貢献", description: "標準化提案", exit_criteria: "規格提案書の提出" },
-    { level: 9, label: "標準化採択", description: "提案規格の採択", exit_criteria: "規格として正式公開" },
+    { level: 1, label: "基礎検討", description: "創出財が類型化（公共性の有無が検討）され、創出財の影響が及ぶ範囲を特定した状態。", checklist: ["創出財を類型化した（公共性の有無を検討した）", "創出財の影響が及ぶ範囲を特定した"] },
+    { level: 2, label: "制度に求める性質のコンセプト化", description: "ガバナンスに関する検討チームが形成され、現実的な制約（安全性、国際基準、法規等に加え社会・業界通念等）を踏まえて、制度に求める性質（効率性、公平性、インセンティブ条件）が整理された状態。", checklist: ["ガバナンスに関する検討チームを形成した", "現実的な制約（安全性・国際基準・法規・社会/業界通念等）を整理した", "制度に求める性質（効率性・公平性・インセンティブ条件）を整理した"] },
+    { level: 3, label: "評価", description: "制度に求める性質を現制度が満たしているかを評価している状態。", checklist: ["制度に求める性質を現行制度が満たしているかを評価している"] },
+    { level: 4, label: "制度のコンセプト化", description: "現制度で不十分な場合、レベル2で求める性質を満たす制度（法制度の解釈変更・規制改革、規格化・標準化、ガイドライン等）を考案できた状態。", checklist: ["現行制度の不足を特定した", "求める性質を満たす制度案（解釈変更/規制改革/規格化/標準化/ガイドライン等）を考案できた"] },
+    { level: 5, label: "実証", description: "実証実験（フィールド実験、被験者実験、シミュレーション実験等）を通して、レベル2で求める性質に適した制度が特定された状態。制度の有効性が確認されるまで、仮説と実証が繰り返されている状態。", checklist: ["制度案の実証実験を行った（フィールド/被験者/シミュレーション等）", "求める性質に適した制度が特定された（仮説と実証を反復している）"] },
+    { level: 6, label: "導入計画", description: "上記の実験結果を基に、省庁・自治体・民間企業等を含む関係機関が具体的な導入計画を策定できた状態。", checklist: ["関係機関（省庁/自治体/民間企業等）を巻き込んだ", "具体的な制度導入計画を策定できた"] },
+    { level: 7, label: "展開と評価", description: "上記ガバナンスに係る内容が実際に導入され、データに基づいて評価・改善されながら、段階的に展開されている状態。", checklist: ["制度が実際に導入された", "データに基づき評価・改善しながら段階的に展開している"] },
+    { level: 8, label: "安定運用", description: "上記ガバナンスに係る内容が社会全体に周知され、運用とチェック機能が適切に機能している状態。", checklist: ["制度が社会全体に周知された", "運用とチェック機能が適切に機能している"] },
   ],
 };
 
 // ----------------------------------------------------------------
-// SRL (内閣府 SIP / EU H2020)
+// SRL / S(C)RL (図5、提案: 慶應義塾大学 栗野研究室) — 8 段階
 // ----------------------------------------------------------------
 export const SRL_DEFINITION: XrlAxisDefinition = {
   axis: "srl",
   axisName: "SRL",
-  axisDescription: "Social Readiness Level — 社会受容性 (一般消費者・世論)",
+  axisDescription:
+    "社会（コミュニティ）成熟度レベル — 受容しようと思えるか。「ある技術」そのもの、或いは創出財の社会（コミュニティ）受容性を高め、社会実装し、一定の普及水準に達する段階を示す指標。",
+  source: "内閣府SIP 2023公募要領 図5 / 慶應義塾大学 栗野研究室 ご提案",
+  maxLevel: 8,
   levels: [
-    { level: 1, label: "社会課題マップ", description: "対象社会課題の言語化", exit_criteria: "課題が公開資料 / メディアで認知されている" },
-    { level: 2, label: "ステークホルダー識別", description: "影響を受ける関係者の整理", exit_criteria: "ステークホルダーマップ作成" },
-    { level: 3, label: "受容性調査", description: "アンケート / インタビュー", exit_criteria: "100 件以上の調査データ取得" },
-    { level: 4, label: "受容性検証", description: "限定的な社会実装試行", exit_criteria: "1 自治体 / 1 コミュニティでの実証" },
-    { level: 5, label: "メディア露出", description: "メディアでの好意的取り扱い", exit_criteria: "全国紙 / 主要メディア 3 媒体以上の取り上げ" },
-    { level: 6, label: "ファン化", description: "サポーター / コミュニティ形成", exit_criteria: "コミュニティ規模 1,000 人以上" },
-    { level: 7, label: "業界アライアンス", description: "業界団体 / NGO との連携", exit_criteria: "1 団体以上との MOU / 共同声明" },
-    { level: 8, label: "社会的影響", description: "政策・世論への影響", exit_criteria: "政策提言が報道 / 採用される事例" },
-    { level: 9, label: "社会基盤化", description: "社会インフラとして定着", exit_criteria: "標準的に利用される存在になっている" },
+    { level: 1, label: "基礎検討", description: "創出財によって実現される社会像やその意義が示され、全ての人々に直接的に与えるリターン・コスト（倫理性・公平性を含む）が金銭・非金銭の両面から検討された状態。", checklist: ["創出財が実現する社会像・意義を示した", "人々に与えるリターン・コスト（倫理性・公平性含む）を金銭/非金銭の両面で検討した"] },
+    { level: 2, label: "仮説", description: "創出財が与えるリターンへの理解度、コストの許容度、実装の実現可能性を高めるための施策について仮説が立てられている状態。", checklist: ["リターンへの理解度・コストの許容度・実装可能性を高める施策の仮説がある"] },
+    { level: 3, label: "検証", description: "初期実装コミュニティの人々にとって、上記の施策が有効であることが、プレゼンテーション、インタビュー、アンケート等で検証されている状態。施策の有効性が確認されるまで、仮説と検証が繰り返されている状態。", checklist: ["初期実装コミュニティを特定した", "施策の有効性をプレゼン/インタビュー/アンケート等で検証している（仮説と検証を反復）"] },
+    { level: 4, label: "初期検討", description: "初期実装コミュニティの人々のリターンへの理解度、コストへの許容度を高める施策が（消費体験、消費疑似体験、説明会等）検討された状態。", checklist: ["理解度・許容度を高める施策（消費体験/疑似体験/説明会等）を検討した"] },
+    { level: 5, label: "実証", description: "初期実装コミュニティに上記の施策を実施・検証し、人々がリターン・コストを含めて創出財の受け入れを許容した状態。", checklist: ["初期実装コミュニティで施策を実施・検証した", "人々がリターン・コストを含めて創出財の受け入れを許容した"] },
+    { level: 6, label: "普及計画", description: "実証から得たフィードバックやデータを検証し、施策を改善しながら、より一般的にコミュニティの人々が創出財を許容するための普及計画が策定された状態。", checklist: ["実証のフィードバック/データを検証し施策を改善した", "より一般的な普及計画を策定した"] },
+    { level: 7, label: "スケール", description: "上記の普及計画が実行され、創出財が、コミュニティに合わせて修正・再発明されながら、受け入れが許容される範囲が拡大している状態。", checklist: ["普及計画を実行している", "創出財がコミュニティに合わせ修正・再発明され、受容範囲が拡大している"] },
+    { level: 8, label: "市場への浸透", description: "創出財が、最終的に目標とするスケールで受容され、継続的に生産・消費（利用）されている状態。", checklist: ["目標スケールで受容された", "継続的に生産・消費（利用）されている"] },
   ],
 };
 
 // ----------------------------------------------------------------
-// HRL (内閣府 SIP)
+// HRL (図6、提案: 慶應義塾大学 栗野研究室) — 8 段階
 // ----------------------------------------------------------------
 export const HRL_DEFINITION: XrlAxisDefinition = {
   axis: "hrl",
   axisName: "HRL",
-  axisDescription: "Human Resources Readiness Level — 人材成熟度 (チーム補完性・スキル分布)",
+  axisDescription:
+    "人材成熟度レベル — 実装に必要な人材は揃っているか。「ある技術」を利用した事業が社会に普及するために必要な人的資源の涵養と活用の手順を示す指標。",
+  source: "内閣府SIP 2023公募要領 図6 / 慶應義塾大学 栗野研究室 ご提案",
+  maxLevel: 8,
   levels: [
-    { level: 1, label: "発案者単独", description: "発明者 / 起案者のみ", exit_criteria: "発案者の専門性 + 補完候補者の認識" },
-    { level: 2, label: "コア候補識別", description: "共同創業者候補の特定", exit_criteria: "Co-Founder 候補との対話開始" },
-    { level: 3, label: "コア参画", description: "Co-Founder の参画", exit_criteria: "正式参画 + 役割分担" },
-    { level: 4, label: "技術リード", description: "技術担当の確保", exit_criteria: "CTO / 技術リード雇用 or 参画" },
-    { level: 5, label: "事業リード", description: "事業担当の確保", exit_criteria: "COO / 事業リード雇用 or 参画" },
-    { level: 6, label: "管理体制", description: "経理・法務・労務など管理機能", exit_criteria: "管理機能を内製 or 外注で確保" },
-    { level: 7, label: "営業組織", description: "営業 / マーケ機能の組織化", exit_criteria: "営業 KPI を持つ組織化" },
-    { level: 8, label: "後継育成", description: "次世代リーダー育成", exit_criteria: "ミドル層 / リーダー育成プログラム稼働" },
-    { level: 9, label: "組織自立", description: "創業者依存から脱却", exit_criteria: "創業者なしでも事業継続可能な体制" },
+    { level: 1, label: "基礎検討", description: "創出財を作り出すうえで必要となるコア人材※のスキル要素が検討された状態。※財の特長に係るスキルを保有する人材", checklist: ["創出財を作るのに必要なコア人材のスキル要素を検討した"] },
+    { level: 2, label: "仮説", description: "コア人材のスキル要素に加え、事業モデルの実施に必要なスキル要素群の仮説が立てられた状態。目的に賛同し、スキル要素群や事業領域に精通した人材等でのチーミング、育成（学びなおし）等の対応策の仮説が立てられた状態。", checklist: ["事業モデル実施に必要なスキル要素群の仮説がある", "チーミング・育成（学びなおし）等の対応策の仮説がある"] },
+    { level: 3, label: "検証", description: "シュミレーションや実業務（OJT）等を通じて、上記の仮説や対応策（スキル要素群の過不足、チーミングの適正等）が検証されている状態。有効性が確認されるまで仮説と検証が繰り返されている状態。", checklist: ["シミュレーション/実業務（OJT）でスキル要素群の過不足・チーミング適正を検証している（仮説と検証を反復）"] },
+    { level: 4, label: "初期テスト", description: "初期テストの実施を通して、上記の仮説や対応策が検討され、必要に応じて実装に重要な人材が補充された状態。育成（学びなおし）等の対応策が上記に連動して実施されている状態。", checklist: ["初期テストを通じて仮説・対応策を検討した", "必要に応じて実装に重要な人材を補充した", "育成（学びなおし）を連動して実施している"] },
+    { level: 5, label: "実証", description: "実証試験の実施を通して、上記の仮説や対応策が検討され、必要に応じて実装に重要な人材が補充された状態。育成（学びなおし）等の対応策が上記に連動して実施されている状態。", checklist: ["実証試験を通じて仮説・対応策を検討した", "必要に応じて実装に重要な人材を補充した", "育成を連動して実施している"] },
+    { level: 6, label: "実施計画", description: "当該領域において必要な人材のスキル要素群と必要量、教育方針と手段、マッチング手法が明らかとなり、実施に向けた計画が策定された状態。", checklist: ["必要な人材のスキル要素群と必要量を明確化した", "教育方針・手段・マッチング手法を定めた", "実施に向けた計画を策定した"] },
+    { level: 7, label: "スケール", description: "当該領域において必要な人材の教育環境の整備が進むとともに、それら人材が社会で最適にマッチングされながら活躍の場が拡がる状態。", checklist: ["必要人材の教育環境の整備が進んでいる", "人材が社会で最適にマッチングされ活躍の場が拡がっている"] },
+    { level: 8, label: "安定的な人材輩出", description: "当該領域において必要な人材の輩出が社会全体で行われ、適切な活用がなされている状態。また、スキル要素群の高度化が図られている状態。", checklist: ["必要人材の輩出が社会全体で行われている", "適切な活用がなされ、スキル要素群の高度化が図られている"] },
   ],
 };
 
@@ -133,17 +154,21 @@ export const ALL_XRL_DEFINITIONS: Record<XrlAxisKey, XrlAxisDefinition> = {
   hrl: HRL_DEFINITION,
 };
 
-/** 任意の axis × 任意のレベル (浮動小数許容) から、現レベル / 次レベル / 進捗 % を返す */
+/**
+ * 任意の axis × レベル値 (浮動小数許容) から、現レベル / 次レベル / 進捗 % を返す。
+ * 軸ごとに段階数が違う (TRL/BRL=9, GRL/SRL/HRL=8) ので maxLevel でクランプする。
+ */
 export function getLevelInfo(axis: XrlAxisKey, value: number | null) {
   const def = ALL_XRL_DEFINITIONS[axis];
+  const max = def.maxLevel;
   if (value == null) {
     return { current: null, next: def.levels[0], progressPct: 0, def };
   }
-  const cv = Math.max(0, Math.min(9, value));
+  const cv = Math.max(0, Math.min(max, value));
   const lower = Math.floor(cv);
-  const upper = Math.min(9, lower + 1);
+  const upper = Math.min(max, lower + 1);
   const progressPct = lower === upper ? 100 : Math.round((cv - lower) * 100);
   const current = lower === 0 ? null : def.levels[lower - 1];
-  const next = upper === 0 ? null : def.levels[Math.min(8, upper - 1)];
+  const next = upper === 0 ? null : def.levels[Math.min(max - 1, upper - 1)];
   return { current, next, progressPct, def };
 }

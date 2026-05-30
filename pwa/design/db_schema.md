@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-29 17:50 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-30 18:15 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -38,7 +38,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 6,145
+行数 (概算): 6,215
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -175,6 +175,7 @@ UNIQUE: `(project_id,evaluated_at)` (constraint: `amd_score_inputs_project_id_ev
 | 24 | `xrl_notes` | `jsonb` | NULL | `` |
 | 25 | `frl_grit` | `float4` | NULL | `` |
 | 26 | `frl_resilience` | `float4` | NULL | `` |
+| 27 | `xrl_checklist` | `jsonb` | NOT NULL | `'{}'::jsonb` |
 
 ## amd_score_revisions
 
@@ -351,7 +352,7 @@ PRIMARY KEY: `id`
 
 ## atlas_stories
 
-行数 (概算): 241
+行数 (概算): 249
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -701,7 +702,7 @@ UNIQUE: `(project_id,freeze_from_ym,restart_ym)` (constraint: `freeze_period_bac
 
 ## institution_assessments
 
-行数 (概算): -1
+行数 (概算): 84
 PRIMARY KEY: `assessment_id`
 UNIQUE: `(institution_id,criterion_id,evaluated_at)` (constraint: `institution_assessments_institution_id_criterion_id_evaluat_key`)
 

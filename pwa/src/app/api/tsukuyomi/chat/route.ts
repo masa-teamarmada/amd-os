@@ -155,7 +155,7 @@ async function loadProjectContext(
               current_level_label: info.current?.label ?? null,
               next_level_label: info.next?.label ?? null,
               progress_pct: info.progressPct,
-              exit_criteria: info.current?.exit_criteria ?? null,
+              next_level_checklist: info.next?.checklist ?? null,
             },
           ];
         }),

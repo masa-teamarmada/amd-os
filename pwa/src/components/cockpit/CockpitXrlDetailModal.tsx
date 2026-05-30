@@ -15,7 +15,7 @@
 import { useState } from "react";
 import { MentionTextarea } from "./MentionTextarea";
 import { submitXrlFeedback, type ProjectXrlRow } from "@/lib/venture-status-data";
-import { getLevelInfo, type XrlAxisKey } from "@/lib/xrl-level-definitions";
+import { getLevelInfo, ALL_XRL_DEFINITIONS, type XrlAxisKey } from "@/lib/xrl-level-definitions";
 
 type Axis = "TRL" | "BRL" | "GRL" | "SRL" | "HRL";
 type AxisLower = "trl" | "brl" | "grl" | "srl" | "hrl";
@@ -117,7 +117,7 @@ export function CockpitXrlDetailModal({ projectId, row, axis, onClose, onUpdated
     const info = getLevelInfo(axisLower, value);
     return (
       <div className="border border-slate-200 rounded-md px-3 py-2 bg-slate-50/50 text-[11px] flex flex-col gap-2">
-        <div className="text-[10px] text-muted-foreground">次レベルへの進捗 — 内閣府 SIP 9 段階定義より</div>
+        <div className="text-[10px] text-muted-foreground">次レベルへの進捗 — {info.def.source}</div>
         {info.current && (
           <div>
             <span className="text-[10px] text-slate-500">現在 (Lv.{info.current.level} {info.current.label}): </span>
@@ -134,16 +134,15 @@ export function CockpitXrlDetailModal({ projectId, row, axis, onClose, onUpdated
               <span className="font-mono text-[10px] w-[44px] text-right">{info.progressPct}%</span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-500">次レベル到達条件: </span>
-              <span className="text-slate-800">{info.current.exit_criteria}</span>
-            </div>
-            <div className="text-[10px] text-slate-600 italic">
-              ↳ 次のステージ Lv.{info.next.level} 「{info.next.label}」: {info.next.description}
+              <div className="text-[10px] text-slate-500 mb-0.5">↳ 次のステージ Lv.{info.next.level}「{info.next.label}」の達成項目:</div>
+              <ul className="list-disc pl-4 text-slate-800 space-y-0.5">
+                {info.next.checklist.map((c, i) => <li key={i}>{c}</li>)}
+              </ul>
             </div>
           </>
         )}
         {info.current && info.next && info.next.level === info.current.level && (
-          <div className="text-[11px] text-emerald-700">最終段階 (Lv.9) に到達 — 上限</div>
+          <div className="text-[11px] text-emerald-700">最終段階 (Lv.{info.def.maxLevel}) に到達 — 上限</div>
         )}
         {!info.current && info.next && (
           <div className="text-[11px] text-slate-700">
@@ -210,7 +209,7 @@ export function CockpitXrlDetailModal({ projectId, row, axis, onClose, onUpdated
             <div className="text-5xl font-bold leading-none" style={{ color }}>
               {value ?? "—"}
             </div>
-            <div className="text-[10px] text-muted-foreground self-end">/ 9</div>
+            <div className="text-[10px] text-muted-foreground self-end">/ {ALL_XRL_DEFINITIONS[axis.toLowerCase() as XrlAxisKey].maxLevel}</div>
           </div>
 
           {row.milestone_label && (

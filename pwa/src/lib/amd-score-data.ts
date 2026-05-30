@@ -49,6 +49,20 @@ export interface XrlNotes {
   hrl?: string | null;
 }
 
+/**
+ * XRL 観測チェックリストの状態 (内閣府 SIP 原典 図2-6 準拠)。
+ * 形式: { <axis>: { <level>: [bool, ...] } }。配列は xrl-level-definitions.ts の各レベル checklist 順に対応。
+ * 例: { trl: { "3": [true, false], "4": [true, true] } }
+ */
+export type XrlChecklistAxis = Record<string, boolean[]>;
+export interface XrlChecklist {
+  trl?: XrlChecklistAxis;
+  brl?: XrlChecklistAxis;
+  grl?: XrlChecklistAxis;
+  srl?: XrlChecklistAxis;
+  hrl?: XrlChecklistAxis;
+}
+
 export interface AmdScoreInputRow {
   id: string;
   project_id: string;
@@ -74,6 +88,7 @@ export interface AmdScoreInputRow {
   // 各軸の評価根拠 (2026-05-09 追加)
   mu_notes: MuNotes | null;
   xrl_notes: XrlNotes | null;
+  xrl_checklist: XrlChecklist | null;
   shallow_tech_mode: boolean;
   evaluator: string | null;
   notes: string | null;
@@ -88,7 +103,7 @@ export interface AmdScoreAlphaRow {
 }
 
 const INPUT_COLUMNS =
-  "id, project_id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, evaluator, notes";
+  "id, project_id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, mu_notes, xrl_notes, xrl_checklist, shallow_tech_mode, evaluator, notes";
 
 type RawInputRow = {
   id: string;
@@ -112,6 +127,7 @@ type RawInputRow = {
   frl_notes: string | null;
   mu_notes: MuNotes | null;
   xrl_notes: XrlNotes | null;
+  xrl_checklist: XrlChecklist | null;
   shallow_tech_mode: boolean;
   evaluator: string | null;
   notes: string | null;
@@ -140,6 +156,7 @@ function flattenInput(r: RawInputRow): AmdScoreInputRow {
     frl_notes: r.frl_notes,
     mu_notes: r.mu_notes ?? null,
     xrl_notes: r.xrl_notes ?? null,
+    xrl_checklist: r.xrl_checklist ?? null,
     shallow_tech_mode: r.shallow_tech_mode,
     evaluator: r.evaluator,
     notes: r.notes,
@@ -196,6 +213,7 @@ export interface AmdScoreInputUpsert {
   frl_notes?: string | null;
   mu_notes?: MuNotes | null;
   xrl_notes?: XrlNotes | null;
+  xrl_checklist?: XrlChecklist | null;
   shallow_tech_mode: boolean;
   evaluator?: string | null;
   notes?: string | null;
@@ -227,6 +245,7 @@ export async function upsertAmdScoreInput(
     frl_notes: input.frl_notes ?? null,
     mu_notes: input.mu_notes ?? null,
     xrl_notes: input.xrl_notes ?? null,
+    xrl_checklist: input.xrl_checklist ?? null,
     shallow_tech_mode: input.shallow_tech_mode,
     evaluator: input.evaluator ?? null,
     notes: input.notes ?? null,

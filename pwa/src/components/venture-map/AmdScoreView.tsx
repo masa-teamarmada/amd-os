@@ -39,6 +39,7 @@ import type { AtlasMacroSignals } from "@/lib/atlas-macro-signals";
 import type { TripleHelixComputed } from "@/lib/triple-helix-observations";
 import { TripleHelixMatrix } from "@/components/venture-map/TripleHelixMatrix";
 import { AmdScoreFormulaPanel } from "@/components/venture-map/AmdScoreFormulaPanel";
+import { XrlChecklistPanel } from "@/components/venture-map/XrlChecklistPanel";
 
 interface Props {
   venture: VentureRow;
@@ -317,6 +318,11 @@ export function AmdScoreView({
           tripleHelix={tripleHelix}
         />
         <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.display_name} />
+        <XrlChecklistPanel
+          projectId={venture.project_id}
+          latestInput={latest}
+          onSaved={() => window.location.reload()}
+        />
       </div>
       </div>
     </div>
