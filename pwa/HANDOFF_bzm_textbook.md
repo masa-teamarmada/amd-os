@@ -42,21 +42,36 @@ AMD Score_new = P(潜在規模) × R(到達度=XRL群) × S(生存確率 = σ_SU
 - 作業ツリーは他セッションの dirty を多数含む。**`git add .` / broad revert 禁止**。対象ファイルのみ個別 stage → 即 push。
 - BUILD_VERSION は別セッションが v0.10.9 に bump 済 (本番反映は別管轄)。
 
-## 次セッションの最初の一手 (モデル校正・データ収集フェーズ)
+## 2026-05-30 後半3 セッション成果（データ収集→rubric化フェーズ）
 
-**最優先は B (モデル) の前進。まさと一緒にやる必要があるのはデータ収集。**
+**B(モデル)を大きく前進。確定事項と成果物:**
 
-1. **P (潜在規模) と ライスワーク実益 (RW) の各 PJ データ収集** — 新式 retrofit の前提。ティエム以外 (輝翠/ctb/sx/cx/bwe/yd/LiSTie) を埋める。**軸値は捏造しない**、まさ口述 + L2 (`project_xrl_log` / `project_knowledge`) から。CX=アカデミア市場開拓 (まさ確定済)。ティエム依存を減らすのが目的。
-2. **重み αP/αRW の校正** と **スケール頂点の方針** (IPO=100,000 単一頂点 vs 潜在規模 P に応じた多元的成功スケール)。試算で新式が現行7軸より低く出るのは K 正規化の副作用。
-3. **本番 AMD Score 実装に2軸追加** (`pwa/src` の amd-score 系)。データと校正が固まってから。現行ロジックを壊さず拡張 (まさ合意済の順序: 試算→データ→校正→本番)。
-4. **論文 §1.1 の DCF 記述修正**: 「DCF は設立前に使えない」はえいみの作文の誇張。まさ認識=「DCF は作れるが精度低く評価に使いにくい」に直す。
-5. **概念図 G1 (二層構造フロー) / G3 (Triple Helix 螺旋) は外部生成依頼** (まさ)。PNG を `pwa/public/bzm/` に配置して教科書7-1・論文§3.1に組み込む。
-6. (低優先) 論文 §2 先行研究の文中引用さらに精緻化。
+1. **収益化指数 (R_net) — 軸名・定義 確定（まさ）**: 旧「ライスワーク実益/RW」廃止（RW2文字は積と誤読/系統I連想）。**系統I(つなぎ事業)と系統II(本命の先行収益)を区別しない**＝本命/非本命問わず「事業が生む純キャッシュ貢献 R_net」。理由: ①収益あれば系統問わず生存↑ ②系統IIはR軸も上げるのでモデルが自然に差を吸収。生存条件式 `B−R_net≤F`。
+2. **創薬RW=0問題 — まさ見解確定**: 創薬はRW=0でも事業化プロセスの型確立+大EXIT+大Pで S を別ルート確保→大差にならない。SをRW一本に依存させない。
+3. **全9PJのP/R_net/XRLデータ収集完了**（捏造せず L2 + Web市場調査 + まさ口述）。各PJ md に出典付き記録。**LST.md 新規作成**（p07, 設立2023-07-06, Before0, UMI打診→星野CEO/まさCOO/2年弱体制構築）。jc/BWE/KT/yd/tiem/ctb に口述+Web反映。
+4. **9PJ横断 retrofit スクリプト** `pwa/scripts/prxs_9pj_inputs.py`（push済）。設立時点スナップ・根拠付き0-9化。結果: ティエム(P最大でもTRL0でScore最下位級)・CTB(RW=0でも中位)がまさ直感どおり再現。図 `public/bzm/_prxs_9pj.png`（配信外）。
+5. **判定 rubric v0.1 新設** `knowledge/xrl_rubric.md`（まさ依頼）: 各軸0-9を案件ごとブレずに埋める観測可能Yes/Noチェックリスト（「ラボで原理検証」「顧客からROI獲得」「COOいる」「CFOいる」等）。既存SIP9段階を観測項目に分解。9軸網羅。
+6. **論文§1.1 DCF修正済**（前半）。
+
+## 次セッションの最初の一手
+
+**最優先: rubric を運用に乗せて値を締め、重み校正へ。**
+
+1. **rubric v0.1 をまさレビュー** (`knowledge/xrl_rubric.md`)。チェック項目の過不足を磨く。承認後、9PJの0-9値を rubric ベースで再評価（現在の値は rubric 前の第一次置き）。
+2. **重み校正**: αP/α収益化指数 を、まさの体感ランキングと9PJ retrofit 順位を照合して締める。
+3. **多元スケール（まさ方針）**: 別指標を作らず、成功スケール(ユニコーン/中規模自走/ライセンス)ごとに **α を変えるだけ**で成立するか検証。足りなければ1-2変数追加。評価は「Pに対する達成」で読む。
+4. **時点 = 経時で見る（まさ確定）**: 設立時点だけでなく時系列で rubric を当て、スコアの**理論値と実測値の乖離**を見る（データは激増するが価値大）。
+5. **反実仮想ツール**（別軸で重要）: 「ティエムが商社やってたら」等、R_net を変えた複数ビジネスプラン比較。他PJのBM検討にも転用。
+6. **本番 AMD Score 実装に2軸追加** (`pwa/src` amd-score系)。校正確定後。順序: 試算→データ→rubric→校正→本番。
+7. (低優先) 概念図 G1/G3 外部生成依頼、論文§2 引用精緻化。
 
 ## ポインタ
 
-- **モデル議論の正本** ⭐⭐⭐: `/Users/masa/projects/knowledge/before_zero_theory.md` (monorepo 外、新章 P×R×S)
+- **モデル議論の正本** ⭐⭐⭐: `/Users/masa/projects/knowledge/before_zero_theory.md` (monorepo 外、新章 P×R×S + 収益化指数確定 + 判定rubric方針)
+- **判定 rubric** ⭐ (各軸0-9のチェックリスト): `/Users/masa/projects/knowledge/xrl_rubric.md`
 - ティエム固有 (モノリス/パウダー・商社案・retrofit): `/Users/masa/projects/knowledge/tiem.md`
+- LiSTie 固有 (p07, リサイクル先行→装置販売, Before0): `/Users/masa/projects/knowledge/LST.md`
+- 各PJのP/R_net生データ: 各 `knowledge/{pj}.md` の「P（潜在規模）」節 + before_zero_theory.md「データ収集」章
 - 教科書 全14章: `pwa/bzm/*.md` / 論文化設計: `pwa/design/bzm_paper.md` / 論文ドラフト: `pwa/design/bzm_paper_draft.md`
 - データ図ジェネレータ: `pwa/scripts/bzm_figures.py` (F1-F5) / 新式試算: `pwa/scripts/prxs_retrofit_test.py`
 - AMD Score / theory 正本: `/Users/masa/projects/AMD/before-zero/theory/amd_score.md` (monorepo の**外**)、`pwa/design/amd_score.md`、`pwa/design/institution_readiness.md`
