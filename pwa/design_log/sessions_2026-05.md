@@ -765,3 +765,29 @@ frl_cap_amd = F_cap(全員) - F_cap(AMD抜き)
 ### 未実装
 
 - DB migration / PWA UI はまだ未実装。次に作るなら `institution_policy_items` と `institution_policy_assessments` を追加する。
+
+---
+
+## 2026-05-31 (#105) — Codex (えいみ) / ERS 制度比較マトリクスをPWA/DBへ実装
+
+> #104 の設計を実装。ERS本体の5段階評価は維持しつつ、規程・制度整備状況を3段階+unknown/属性/根拠資料として蓄積できるようにした。
+
+### 実装
+
+- migration `113_institution_policy_matrix.sql` 追加・本番適用済。
+- `institution_policy_items`: 制度整備/属性マスタ。初期マスタ 32 件（制度整備 19 / 属性 13）。
+- `institution_policy_assessments`: 機関 × 制度項目の評価。`status`、`attribute_value`、`evidence_note`、`source_type`、`source_url`、`source_path`、`confirmed_at`、`evaluator` を保持。
+- `POST /api/institutions/policies`: admin限定で 1 セル upsert。
+- `/institutions/assess`: `ERS評価` / `制度整備` / `規程比較` / `根拠資料` のタブを追加。
+- `pwa/design/db_schema.md` と `pwa/manual/4-9-institution-ers-spec.md` を更新。
+
+### Verified
+
+- Supabase Management API: migration 113 `OK (201)`。
+- live DB verify: `institution_policy_items=32`, `statusItems=19`, `attributeItems=13`, `institution_policy_assessments=0`。
+- 対象ファイル lint: `npx eslint 'src/app/(app)/institutions/assess/page.tsx' src/app/api/institutions/policies/route.ts src/lib/institution-policy.ts src/lib/institution-policy-data.ts` 通過。
+
+### 未完
+
+- 制度比較マトリクスの初期評価値はまだ未投入。香川大/KUTE/NIMS の規程・制度情報を次に入れる。
+- PWA本番deploy後、Chromeで `/institutions/assess` の4タブ表示・保存を確認する。

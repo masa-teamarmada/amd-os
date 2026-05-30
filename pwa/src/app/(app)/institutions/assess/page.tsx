@@ -12,6 +12,18 @@
 import { Fragment, useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
+import { fetchInstitutionPolicyBundle } from "@/lib/institution-policy-data";
+import {
+  POLICY_SOURCE_LABEL,
+  POLICY_SOURCE_TYPES,
+  POLICY_STATUS_LABEL,
+  POLICY_STATUS_TONE,
+  POLICY_STATUSES,
+  type InstitutionPolicyBundle,
+  type InstitutionPolicyItem,
+  type InstitutionPolicySourceType,
+  type InstitutionPolicyStatus,
+} from "@/lib/institution-policy";
 import {
   computeErs,
   ersScoreColor,
@@ -22,22 +34,48 @@ import {
 
 type CellState = { level: number | null; na: boolean; note: string | null };
 type EditMap = Record<string, CellState>; // key = `${institutionId}::${criterionId}`
+type PolicyCellState = {
+  status: InstitutionPolicyStatus;
+  attributeValue: string | null;
+  evidenceNote: string | null;
+  sourceType: InstitutionPolicySourceType;
+  sourceUrl: string | null;
+  sourcePath: string | null;
+  confirmedAt: string | null;
+};
+type PolicyEditMap = Record<string, PolicyCellState>;
+type ActiveTab = "ers" | "policy-status" | "policy-attributes" | "evidence";
 
 const cellKey = (instId: string, critId: string) => `${instId}::${critId}`;
+const policyCellKey = (instId: string, itemId: string) => `${instId}::${itemId}`;
 const LEVELS = [1, 2, 3, 4, 5] as const;
 const EMPTY_CELL: CellState = { level: null, na: false, note: null };
+const EMPTY_POLICY_CELL: PolicyCellState = {
+  status: "unknown",
+  attributeValue: null,
+  evidenceNote: null,
+  sourceType: "unknown",
+  sourceUrl: null,
+  sourcePath: null,
+  confirmedAt: null,
+};
 
 export default function AssessMatrixPage() {
   const [bundle, setBundle] = useState<ErsBundle | null>(null);
+  const [policyBundle, setPolicyBundle] = useState<InstitutionPolicyBundle | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("ers");
   const [edits, setEdits] = useState<EditMap>({});
+  const [policyEdits, setPolicyEdits] = useState<PolicyEditMap>({});
   const [saving, setSaving] = useState<Set<string>>(new Set());
+  const [policySaving, setPolicySaving] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchErsBundle()
-      .then((b) => {
+    Promise.all([fetchErsBundle(), fetchInstitutionPolicyBundle()])
+      .then(([b, p]) => {
         setBundle(b);
+        setPolicyBundle(p);
         const map: EditMap = {};
         for (const inst of b.institutions) {
           const list = b.assessmentsByInstitution[inst.institutionId] ?? [];
@@ -52,6 +90,24 @@ export default function AssessMatrixPage() {
           }
         }
         setEdits(map);
+        const policyMap: PolicyEditMap = {};
+        for (const inst of b.institutions) {
+          const list = p.assessmentsByInstitution[inst.institutionId] ?? [];
+          const byItem = new Map(list.map((a) => [a.policyItemId, a]));
+          for (const item of p.items) {
+            const a = byItem.get(item.policyItemId);
+            policyMap[policyCellKey(inst.institutionId, item.policyItemId)] = {
+              status: a?.status ?? "unknown",
+              attributeValue: a?.attributeValue ?? null,
+              evidenceNote: a?.evidenceNote ?? null,
+              sourceType: a?.sourceType ?? "unknown",
+              sourceUrl: a?.sourceUrl ?? null,
+              sourcePath: a?.sourcePath ?? null,
+              confirmedAt: a?.confirmedAt ?? null,
+            };
+          }
+        }
+        setPolicyEdits(policyMap);
       })
       .catch(() => setError("読み込みに失敗しました"))
       .finally(() => setLoading(false));
@@ -72,6 +128,21 @@ export default function AssessMatrixPage() {
     }
     return m;
   }, [bundle]);
+  const statusPolicyItems = useMemo(
+    () => (policyBundle?.items ?? []).filter((item) => item.itemKind === "status"),
+    [policyBundle],
+  );
+  const attributePolicyItems = useMemo(
+    () => (policyBundle?.items ?? []).filter((item) => item.itemKind === "attribute"),
+    [policyBundle],
+  );
+  const policyCategories = useMemo(() => {
+    const out: string[] = [];
+    for (const item of policyBundle?.items ?? []) {
+      if (!out.includes(item.category)) out.push(item.category);
+    }
+    return out;
+  }, [policyBundle]);
 
   // 機関ごと ERS をリアルタイム計算
   const ersByInst = useMemo(() => {
@@ -164,6 +235,75 @@ export default function AssessMatrixPage() {
     [persist],
   );
 
+  const persistPolicy = useCallback(
+    async (instId: string, itemId: string, next: PolicyCellState, prev: PolicyCellState) => {
+      const k = policyCellKey(instId, itemId);
+      setPolicySaving((s) => new Set(s).add(k));
+      setError(null);
+      try {
+        const res = await fetch("/api/institutions/policies", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            institution_id: instId,
+            policy_item_id: itemId,
+            status: next.status,
+            attribute_value: next.attributeValue,
+            evidence_note: next.evidenceNote,
+            source_type: next.sourceType,
+            source_url: next.sourceUrl,
+            source_path: next.sourcePath,
+            confirmed_at: next.confirmedAt,
+          }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || `保存失敗 (${res.status})`);
+        }
+      } catch (e) {
+        setPolicyEdits((m) => ({ ...m, [k]: prev }));
+        setError(e instanceof Error ? e.message : "保存に失敗しました");
+      } finally {
+        setPolicySaving((s) => {
+          const n = new Set(s);
+          n.delete(k);
+          return n;
+        });
+      }
+    },
+    [],
+  );
+
+  const updatePolicyCell = useCallback(
+    (instId: string, itemId: string, patch: Partial<PolicyCellState>) => {
+      const k = policyCellKey(instId, itemId);
+      setPolicyEdits((m) => {
+        const prev = m[k] ?? EMPTY_POLICY_CELL;
+        const next: PolicyCellState = { ...prev, ...patch };
+        void persistPolicy(instId, itemId, next, prev);
+        return { ...m, [k]: next };
+      });
+    },
+    [persistPolicy],
+  );
+
+  const setPolicyLocal = useCallback((instId: string, itemId: string, patch: Partial<PolicyCellState>) => {
+    const k = policyCellKey(instId, itemId);
+    setPolicyEdits((m) => ({ ...m, [k]: { ...(m[k] ?? EMPTY_POLICY_CELL), ...patch } }));
+  }, []);
+
+  const savePolicyCell = useCallback(
+    (instId: string, itemId: string) => {
+      const k = policyCellKey(instId, itemId);
+      setPolicyEdits((m) => {
+        const cell = m[k] ?? EMPTY_POLICY_CELL;
+        void persistPolicy(instId, itemId, cell, cell);
+        return m;
+      });
+    },
+    [persistPolicy],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -194,8 +334,31 @@ export default function AssessMatrixPage() {
         {error && (
           <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">⚠️ {error}</div>
         )}
+        <nav className="flex flex-wrap gap-1 border-b border-border pt-2">
+          {[
+            ["ers", "ERS評価"],
+            ["policy-status", "制度整備"],
+            ["policy-attributes", "規程比較"],
+            ["evidence", "根拠資料"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveTab(key as ActiveTab)}
+              className={[
+                "px-3 py-1.5 text-xs font-medium border border-b-0 rounded-t-md",
+                activeTab === key
+                  ? "bg-card text-foreground border-border"
+                  : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted",
+              ].join(" ")}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
       </header>
 
+      {activeTab === "ers" && (
       <div className="overflow-auto rounded-lg border border-border max-h-[80vh]">
         <table className="text-xs border-collapse w-full">
           <thead>
@@ -349,6 +512,345 @@ export default function AssessMatrixPage() {
           </tbody>
         </table>
       </div>
+      )}
+
+      {activeTab === "policy-status" && (
+        <PolicyStatusTable
+          items={statusPolicyItems}
+          insts={insts}
+          policyEdits={policyEdits}
+          policySaving={policySaving}
+          onStatusChange={(instId, itemId, status) => updatePolicyCell(instId, itemId, { status })}
+          onNoteLocal={(instId, itemId, evidenceNote) => setPolicyLocal(instId, itemId, { evidenceNote })}
+          onSave={(instId, itemId) => savePolicyCell(instId, itemId)}
+        />
+      )}
+
+      {activeTab === "policy-attributes" && (
+        <PolicyAttributeTable
+          items={attributePolicyItems}
+          insts={insts}
+          policyEdits={policyEdits}
+          policySaving={policySaving}
+          onValueLocal={(instId, itemId, attributeValue) => setPolicyLocal(instId, itemId, { attributeValue })}
+          onStatusChange={(instId, itemId, status) => updatePolicyCell(instId, itemId, { status })}
+          onSave={(instId, itemId) => savePolicyCell(instId, itemId)}
+        />
+      )}
+
+      {activeTab === "evidence" && (
+        <PolicyEvidenceTable
+          categories={policyCategories}
+          items={policyBundle?.items ?? []}
+          insts={insts}
+          policyEdits={policyEdits}
+          policySaving={policySaving}
+          onLocal={(instId, itemId, patch) => setPolicyLocal(instId, itemId, patch)}
+          onSourceChange={(instId, itemId, sourceType) => updatePolicyCell(instId, itemId, { sourceType })}
+          onSave={(instId, itemId) => savePolicyCell(instId, itemId)}
+        />
+      )}
+    </div>
+  );
+}
+
+function PolicyCategoryRow({ label, colSpan }: { label: string; colSpan: number }) {
+  return (
+    <tr>
+      <th
+        colSpan={colSpan}
+        className="sticky left-0 z-10 bg-indigo-100 px-3 py-1.5 text-left border-y border-border text-xs font-semibold text-indigo-900"
+      >
+        {label}
+      </th>
+    </tr>
+  );
+}
+
+function PolicyStatusBadge({ status }: { status: InstitutionPolicyStatus }) {
+  return (
+    <span className={`inline-block rounded border px-1.5 py-0.5 text-[10px] font-medium ${POLICY_STATUS_TONE[status]}`}>
+      {POLICY_STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+function PolicyStatusTable({
+  items,
+  insts,
+  policyEdits,
+  policySaving,
+  onStatusChange,
+  onNoteLocal,
+  onSave,
+}: {
+  items: InstitutionPolicyItem[];
+  insts: ErsBundle["institutions"];
+  policyEdits: PolicyEditMap;
+  policySaving: Set<string>;
+  onStatusChange: (instId: string, itemId: string, status: InstitutionPolicyStatus) => void;
+  onNoteLocal: (instId: string, itemId: string, evidenceNote: string | null) => void;
+  onSave: (instId: string, itemId: string) => void;
+}) {
+  return (
+    <div className="overflow-auto rounded-lg border border-border max-h-[80vh]">
+      <table className="text-xs border-collapse w-full">
+        <thead>
+          <tr>
+            <th className="sticky top-0 left-0 z-30 bg-muted px-3 py-2 text-left font-medium border-b border-r border-border min-w-[300px]">
+              制度項目
+            </th>
+            {insts.map((inst) => (
+              <th key={inst.institutionId} className="sticky top-0 z-20 bg-muted px-2 py-2 text-center font-medium border-b border-r border-border min-w-[220px]">
+                {inst.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, index) => {
+            const showCategory = index === 0 || item.category !== items[index - 1]?.category;
+            return (
+              <Fragment key={item.policyItemId}>
+                {showCategory && <PolicyCategoryRow label={item.category} colSpan={insts.length + 1} />}
+                <tr className="border-t border-border">
+                  <th className="sticky left-0 z-10 bg-card px-3 py-2 text-left border-r border-border align-top">
+                    <div className="font-semibold text-foreground">{item.label}</div>
+                    {item.description && <div className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{item.description}</div>}
+                  </th>
+                  {insts.map((inst) => {
+                    const k = policyCellKey(inst.institutionId, item.policyItemId);
+                    const cell = policyEdits[k] ?? EMPTY_POLICY_CELL;
+                    const isSaving = policySaving.has(k);
+                    return (
+                      <td key={inst.institutionId} className="border-r border-border px-2 py-2 align-top">
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={cell.status}
+                            onChange={(e) => onStatusChange(inst.institutionId, item.policyItemId, e.target.value as InstitutionPolicyStatus)}
+                            className="w-full rounded border border-border bg-background px-1.5 py-1 text-[11px] focus:outline-none focus:border-primary"
+                          >
+                            {POLICY_STATUSES.map((status) => (
+                              <option key={status} value={status}>
+                                {POLICY_STATUS_LABEL[status]}
+                              </option>
+                            ))}
+                          </select>
+                          {isSaving && <span className="w-2 h-2 border border-primary border-t-transparent rounded-full animate-spin shrink-0" />}
+                        </div>
+                        <div className="mt-1">
+                          <PolicyStatusBadge status={cell.status} />
+                        </div>
+                        <input
+                          type="text"
+                          value={cell.evidenceNote ?? ""}
+                          onChange={(e) => onNoteLocal(inst.institutionId, item.policyItemId, e.target.value || null)}
+                          onBlur={() => onSave(inst.institutionId, item.policyItemId)}
+                          placeholder="根拠・未確認メモ"
+                          className="mt-1 w-full rounded border border-border bg-background px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PolicyAttributeTable({
+  items,
+  insts,
+  policyEdits,
+  policySaving,
+  onValueLocal,
+  onStatusChange,
+  onSave,
+}: {
+  items: InstitutionPolicyItem[];
+  insts: ErsBundle["institutions"];
+  policyEdits: PolicyEditMap;
+  policySaving: Set<string>;
+  onValueLocal: (instId: string, itemId: string, attributeValue: string | null) => void;
+  onStatusChange: (instId: string, itemId: string, status: InstitutionPolicyStatus) => void;
+  onSave: (instId: string, itemId: string) => void;
+}) {
+  return (
+    <div className="overflow-auto rounded-lg border border-border max-h-[80vh]">
+      <table className="text-xs border-collapse w-full">
+        <thead>
+          <tr>
+            <th className="sticky top-0 left-0 z-30 bg-muted px-3 py-2 text-left font-medium border-b border-r border-border min-w-[300px]">
+              属性項目
+            </th>
+            {insts.map((inst) => (
+              <th key={inst.institutionId} className="sticky top-0 z-20 bg-muted px-2 py-2 text-center font-medium border-b border-r border-border min-w-[240px]">
+                {inst.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, index) => {
+            const showCategory = index === 0 || item.category !== items[index - 1]?.category;
+            return (
+              <Fragment key={item.policyItemId}>
+                {showCategory && <PolicyCategoryRow label={item.category} colSpan={insts.length + 1} />}
+                <tr className="border-t border-border">
+                  <th className="sticky left-0 z-10 bg-card px-3 py-2 text-left border-r border-border align-top">
+                    <div className="font-semibold text-foreground">{item.label}</div>
+                    {item.description && <div className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{item.description}</div>}
+                  </th>
+                  {insts.map((inst) => {
+                    const k = policyCellKey(inst.institutionId, item.policyItemId);
+                    const cell = policyEdits[k] ?? EMPTY_POLICY_CELL;
+                    const isSaving = policySaving.has(k);
+                    return (
+                      <td key={inst.institutionId} className="border-r border-border px-2 py-2 align-top">
+                        <input
+                          type="text"
+                          value={cell.attributeValue ?? ""}
+                          onChange={(e) => onValueLocal(inst.institutionId, item.policyItemId, e.target.value || null)}
+                          onBlur={() => onSave(inst.institutionId, item.policyItemId)}
+                          placeholder="値を入力"
+                          className="w-full rounded border border-border bg-background px-1.5 py-1 text-[11px] focus:outline-none focus:border-primary"
+                        />
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <select
+                            value={cell.status}
+                            onChange={(e) => onStatusChange(inst.institutionId, item.policyItemId, e.target.value as InstitutionPolicyStatus)}
+                            className="min-w-20 rounded border border-border bg-background px-1 py-0.5 text-[10px] focus:outline-none focus:border-primary"
+                          >
+                            {POLICY_STATUSES.map((status) => (
+                              <option key={status} value={status}>
+                                {POLICY_STATUS_LABEL[status]}
+                              </option>
+                            ))}
+                          </select>
+                          <PolicyStatusBadge status={cell.status} />
+                          {isSaving && <span className="w-2 h-2 border border-primary border-t-transparent rounded-full animate-spin shrink-0" />}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PolicyEvidenceTable({
+  categories,
+  items,
+  insts,
+  policyEdits,
+  policySaving,
+  onLocal,
+  onSourceChange,
+  onSave,
+}: {
+  categories: string[];
+  items: InstitutionPolicyItem[];
+  insts: ErsBundle["institutions"];
+  policyEdits: PolicyEditMap;
+  policySaving: Set<string>;
+  onLocal: (instId: string, itemId: string, patch: Partial<PolicyCellState>) => void;
+  onSourceChange: (instId: string, itemId: string, sourceType: InstitutionPolicySourceType) => void;
+  onSave: (instId: string, itemId: string) => void;
+}) {
+  return (
+    <div className="overflow-auto rounded-lg border border-border max-h-[80vh]">
+      <table className="text-xs border-collapse w-full">
+        <thead>
+          <tr>
+            <th className="sticky top-0 left-0 z-30 bg-muted px-3 py-2 text-left font-medium border-b border-r border-border min-w-[280px]">
+              根拠項目
+            </th>
+            {insts.map((inst) => (
+              <th key={inst.institutionId} className="sticky top-0 z-20 bg-muted px-2 py-2 text-center font-medium border-b border-r border-border min-w-[300px]">
+                {inst.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {categories.map((category) => (
+            <Fragment key={category}>
+              <PolicyCategoryRow label={category} colSpan={insts.length + 1} />
+              {items.filter((item) => item.category === category).map((item) => (
+                <tr key={item.policyItemId} className="border-t border-border">
+                  <th className="sticky left-0 z-10 bg-card px-3 py-2 text-left border-r border-border align-top">
+                    <div className="font-semibold text-foreground">{item.label}</div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">{item.key}</div>
+                  </th>
+                  {insts.map((inst) => {
+                    const k = policyCellKey(inst.institutionId, item.policyItemId);
+                    const cell = policyEdits[k] ?? EMPTY_POLICY_CELL;
+                    const isSaving = policySaving.has(k);
+                    return (
+                      <td key={inst.institutionId} className="border-r border-border px-2 py-2 align-top space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={cell.sourceType}
+                            onChange={(e) => onSourceChange(inst.institutionId, item.policyItemId, e.target.value as InstitutionPolicySourceType)}
+                            className="min-w-24 rounded border border-border bg-background px-1 py-0.5 text-[10px] focus:outline-none focus:border-primary"
+                          >
+                            {POLICY_SOURCE_TYPES.map((type) => (
+                              <option key={type} value={type}>
+                                {POLICY_SOURCE_LABEL[type]}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="date"
+                            value={cell.confirmedAt ?? ""}
+                            onChange={(e) => onLocal(inst.institutionId, item.policyItemId, { confirmedAt: e.target.value || null })}
+                            onBlur={() => onSave(inst.institutionId, item.policyItemId)}
+                            className="rounded border border-border bg-background px-1 py-0.5 text-[10px] focus:outline-none focus:border-primary"
+                          />
+                          {isSaving && <span className="w-2 h-2 border border-primary border-t-transparent rounded-full animate-spin shrink-0" />}
+                        </div>
+                        <input
+                          type="text"
+                          value={cell.sourceUrl ?? ""}
+                          onChange={(e) => onLocal(inst.institutionId, item.policyItemId, { sourceUrl: e.target.value || null })}
+                          onBlur={() => onSave(inst.institutionId, item.policyItemId)}
+                          placeholder="公式URL"
+                          className="w-full rounded border border-border bg-background px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
+                        />
+                        <input
+                          type="text"
+                          value={cell.sourcePath ?? ""}
+                          onChange={(e) => onLocal(inst.institutionId, item.policyItemId, { sourcePath: e.target.value || null })}
+                          onBlur={() => onSave(inst.institutionId, item.policyItemId)}
+                          placeholder="OS内資料パス"
+                          className="w-full rounded border border-border bg-background px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
+                        />
+                        <textarea
+                          value={cell.evidenceNote ?? ""}
+                          onChange={(e) => onLocal(inst.institutionId, item.policyItemId, { evidenceNote: e.target.value || null })}
+                          onBlur={() => onSave(inst.institutionId, item.policyItemId)}
+                          placeholder="根拠メモ・未確認メモ"
+                          rows={2}
+                          className="w-full resize-y rounded border border-border bg-background px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -77,7 +77,7 @@ KUTE の大学発ベンチャー認定規程整備から、ERS は **5段階の�
 - 支援期間・対価: 称号期間と支援期間の分離、実費・有償負担
 - 関係規程接続: 兼業、COI、知財、共同研究、施設利用、共有機器、研究倫理、安全保障貿易管理
 
-### PWA/DB に載せる場合の最小項目
+### PWA/DB 実装
 
 ```text
 institution_policy_items
@@ -90,7 +90,9 @@ institution_policy_assessments
   confirmed_at, evaluator
 ```
 
-UI は `/institutions/assess` に全部詰め込まず、`ERS評価` / `制度整備` / `規程比較` / `根拠資料` のタブに分ける。
+2026-05-31 migration `113_institution_policy_matrix.sql` で実装済み。初期マスタは 32 件（制度整備 19 件 / 属性 13 件）。
+
+UI は `/institutions/assess` に全部詰め込まず、`ERS評価` / `制度整備` / `規程比較` / `根拠資料` のタブに分ける。制度整備・規程比較・根拠資料は `POST /api/institutions/policies` で 1 セルずつ upsert する。
 
 ## 画面
 

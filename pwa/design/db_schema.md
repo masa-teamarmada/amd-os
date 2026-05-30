@@ -752,6 +752,47 @@ PRIMARY KEY: `criterion_id`
 | 5 | `rubric` | `jsonb` | NOT NULL | `'{}'::jsonb` |
 | 6 | `sort_order` | `int4` | NOT NULL | `0` |
 
+## institution_policy_assessments
+
+行数 (概算): 0
+PRIMARY KEY: `policy_assessment_id`
+UNIQUE: `(institution_id,policy_item_id)`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `policy_assessment_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `institution_id` | `text` | NOT NULL | `` |
+| 3 | `policy_item_id` | `text` | NOT NULL | `` |
+| 4 | `status` | `text` | NOT NULL | `'unknown'::text` |
+| 5 | `attribute_value` | `text` | NULL | `` |
+| 6 | `evidence_note` | `text` | NULL | `` |
+| 7 | `source_type` | `text` | NOT NULL | `'unknown'::text` |
+| 8 | `source_url` | `text` | NULL | `` |
+| 9 | `source_path` | `text` | NULL | `` |
+| 10 | `confirmed_at` | `date` | NULL | `` |
+| 11 | `evaluator` | `text` | NULL | `` |
+| 12 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 13 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## institution_policy_items
+
+行数 (概算): 32
+PRIMARY KEY: `policy_item_id`
+UNIQUE: `(key)`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `policy_item_id` | `text` | NOT NULL | `` |
+| 2 | `category` | `text` | NOT NULL | `` |
+| 3 | `item_kind` | `text` | NOT NULL | `` |
+| 4 | `key` | `text` | NOT NULL | `` |
+| 5 | `label` | `text` | NOT NULL | `` |
+| 6 | `description` | `text` | NULL | `` |
+| 7 | `value_type` | `text` | NOT NULL | `'text'::text` |
+| 8 | `sort_order` | `int4` | NOT NULL | `100` |
+| 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
 ## institutions
 
 行数 (概算): -1

@@ -23,6 +23,7 @@
 - 本番確認済み: `/institutions` に 44% / 44% / 74% 表示、`/institutions/assess` に Lv チェックと根拠メモ表示。
 - 次に見る場所: `/institutions/assess` の根拠メモに「未確認」と残した項目。香川大は軸5/6/7、工学院大は軸5/6/7、NIMSは軸3/5/6/7-d が優先。
 - KUTE 規程整備ログを元に、ERS raw evidence として制度比較マトリクス案を追加。ERS 本体は Lv1–5、規程・制度は `unknown` / `not_started` / `drafting` / `established`、詳細は `pwa/design_log/sessions_2026-05.md` #104。
+- 制度比較マトリクスは migration `113_institution_policy_matrix.sql` で本番DBへ実装済み。`/institutions/assess` は `ERS評価` / `制度整備` / `規程比較` / `根拠資料` の4タブ。詳細は #105。
 
 ## Dirty / Local State
 
@@ -58,6 +59,7 @@ Recommendation:
 - ERS UI: `pwa/design_log/sessions_2026-05.md` #100
 - ERS 実データ本評価: `pwa/design_log/sessions_2026-05.md` #103
 - ERS 制度比較マトリクス: `pwa/design_log/sessions_2026-05.md` #104
+- ERS 制度比較マトリクス実装: `pwa/design_log/sessions_2026-05.md` #105
 - FRL/F_capability CES: `pwa/design_log/sessions_2026-05.md` #101 and `pwa/HANDOFF_bzm_textbook.md`
 
 ## First Next Action
