@@ -51,6 +51,8 @@ interface Props {
   atlasMacroSignals?: AtlasMacroSignals | null;
   /** Triple Helix 観測モデル C 行列 + 観測値 + μ 計算結果 (M カードで表示) */
   tripleHelix?: TripleHelixComputed | null;
+  /** cockpit tab など、ページ chrome なしで中身だけ埋め込む表示 */
+  embedded?: boolean;
 }
 
 /**
@@ -214,6 +216,7 @@ export function AmdScoreView({
   latestXrlLog = null,
   atlasMacroSignals = null,
   tripleHelix = null,
+  embedded = false,
 }: Props) {
   const [alpha, setAlpha] = useState(initialAlpha);
   const [scoreInputs, setScoreInputs] = useState(inputs);
@@ -254,7 +257,7 @@ export function AmdScoreView({
 
   if (!result || !latestBreakdown) {
     return (
-      <div className="grid min-h-screen place-items-center bg-slate-950 px-5 text-center text-cyan-50">
+      <div className={`${embedded ? "grid min-h-[240px] place-items-center rounded-xl border border-slate-200 bg-slate-950 px-5 text-center text-cyan-50" : "grid min-h-screen place-items-center bg-slate-950 px-5 text-center text-cyan-50"}`}>
         <div className="border border-cyan-300/30 bg-cyan-300/8 p-5 font-mono text-sm font-black uppercase tracking-[0.12em]">
           NO AMD SCORE DATA
         </div>
@@ -263,25 +266,27 @@ export function AmdScoreView({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
-      <div className="mx-auto w-full max-w-[1240px]">
-      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <Link href="/venture-map/amd-score" className="text-xs font-semibold tracking-wide text-slate-600 hover:text-slate-900">← スコア一覧</Link>
-        <Link
-          href={venture.project_id === "p99" ? `/hud/project/${venture.project_id}/cockpit` : `/project/${venture.project_id}/cockpit`}
-          className="text-xs font-semibold tracking-wide text-slate-500 hover:text-slate-900"
-        >
-          ↩ コックピット
-        </Link>
-        <h1 className="ml-2 text-2xl font-bold tracking-tight text-slate-900">{venture.display_name}</h1>
-        <span className="text-xs font-semibold tracking-wide text-slate-500">AMD Score 詳細</span>
-        <Link
-          href="/venture-map/amd-score/retrofit"
-          className="ml-auto rounded-md border border-pink-200 bg-pink-50 px-3 py-1 text-[11px] font-semibold tracking-wide text-pink-700 hover:bg-pink-100"
-        >
-          α retrofit →
-        </Link>
-      </div>
+    <div className={embedded ? "text-slate-900" : "min-h-screen bg-slate-50 px-4 py-6 text-slate-900"}>
+      <div className={embedded ? "w-full" : "mx-auto w-full max-w-[1240px]"}>
+      {!embedded && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <Link href="/venture-map/amd-score" className="text-xs font-semibold tracking-wide text-slate-600 hover:text-slate-900">← スコア一覧</Link>
+          <Link
+            href={venture.project_id === "p99" ? `/hud/project/${venture.project_id}/cockpit` : `/project/${venture.project_id}/cockpit`}
+            className="text-xs font-semibold tracking-wide text-slate-500 hover:text-slate-900"
+          >
+            ↩ コックピット
+          </Link>
+          <h1 className="ml-2 text-2xl font-bold tracking-tight text-slate-900">{venture.display_name}</h1>
+          <span className="text-xs font-semibold tracking-wide text-slate-500">AMD Score 詳細</span>
+          <Link
+            href="/venture-map/amd-score/retrofit"
+            className="ml-auto rounded-md border border-pink-200 bg-pink-50 px-3 py-1 text-[11px] font-semibold tracking-wide text-pink-700 hover:bg-pink-100"
+          >
+            α retrofit →
+          </Link>
+        </div>
+      )}
 
       <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-medium leading-relaxed text-amber-800">
         値の修正は <strong>Tsukuyomi 経由</strong>。各軸の値や根拠をクリックすると、その軸についてつくよみに話しかけられる

@@ -19,6 +19,7 @@ import { CockpitRoutineBudgetModal } from "./CockpitRoutineBudgetModal";
 import { CockpitRoutineMeetingModal } from "./CockpitRoutineMeetingModal";
 import { CockpitRoutineInvoiceModal } from "./CockpitRoutineInvoiceModal";
 import { CockpitRoutineInvoiceSendConfirm } from "./CockpitRoutineInvoiceSendConfirm";
+import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 
 interface PlanCycleShape {
   planCycleId: string; status: string; budgetYen: number; totalPoints: number;
@@ -285,8 +286,11 @@ type StepModal =
   | { kind: "invoiceSend"; ym: string }
   | null;
 
+type CockpitTab = "progress" | "score-detail";
+
 export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialStep, canEditRoutine = false }: CockpitViewProps) {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<CockpitTab>("progress");
   const [modalYm, setModalYm] = useState<string | null>(
     initialStep?.stepId === "reportFix" ? initialStep.ym : initialModalYm || null
   );
@@ -366,6 +370,7 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
   const modalMemberActivities = isReportOnlyMonth ? [] : (modalBundle?.memberActivities || memberActivities || []);
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
   const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
+  const hasScoreDetailTab = project.projectId !== "p00" && showAmdScore;
   const activeStepModal = showLiveOperations ? stepModal : null;
 
   // [B2] MS設定バナー / 直接編集 ロジックを案Cの col1 内で使うため関数化。
@@ -450,6 +455,35 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
         <CockpitVentureStatus projectId={project.projectId} />
       ) : null}
 
+      {hasScoreDetailTab && (
+        <div className="flex flex-wrap gap-1 rounded-xl border border-[#e5e5e7] bg-white p-1" role="tablist" aria-label="コックピット表示切り替え">
+          {[
+            { key: "progress" as const, label: "進捗管理" },
+            { key: "score-detail" as const, label: "スコア詳細" },
+          ].map((tab) => {
+            const selected = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setActiveTab(tab.key)}
+                className={`min-h-9 rounded-lg px-4 text-[12px] font-semibold transition-colors ${
+                  selected
+                    ? "bg-slate-950 text-white shadow-sm"
+                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {(!hasScoreDetailTab || activeTab === "progress") && (
+        <>
       {/* メインボード: 3 カラム grid (lg breakpoint 以上)
           1.2fr 1.2fr 300px = MS / 経営シグナル / 月次ルーティン
           col3 は sticky (mobile / md は通常配置) */}
@@ -571,6 +605,14 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
       {/* [C] TODO Kanban — 全幅 (案D 最下段) */}
       {tasks.length > 0 && (
         <CockpitKanbanGas tasks={tasks} milestones={usesMsProgress ? milestones : []} memberMap={memberMap || {}} />
+      )}
+        </>
+      )}
+
+      {hasScoreDetailTab && activeTab === "score-detail" && (
+        <section role="tabpanel" aria-label="スコア詳細" className="min-w-0">
+          <CockpitAmdScoreDetailTab projectId={project.projectId} />
+        </section>
       )}
 
       {/* ===== Monthly Modal ===== */}

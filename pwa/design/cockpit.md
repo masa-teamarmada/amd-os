@@ -48,6 +48,11 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 [A2]  CockpitVentureStatus (full width hero)    PJ Status — 内部で AMD Score chart と XRL chart を xl: 横並び
                                                 ecosystem PJ は AMD Score 対象外で非表示
 
+[A3]  Cockpit tabs                              SU 系 PJ では Hero 下に「進捗管理 / スコア詳細」タブ。
+                                                Hero はタブ外なので AMD Score + XRL は常時表示。
+                                                進捗管理 = 従来 cockpit 本文。
+                                                スコア詳細 = `AmdScoreView embedded` (`/venture-map/amd-score/[projectId]` 相当の主要内容)。
+
 メインボード: grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px] gap-3
 ├── col1: 今期MS + 設定 + 過去
 │   ├── [B]   CockpitGoalsCompact     今期 MS Gantt + 担当・割合

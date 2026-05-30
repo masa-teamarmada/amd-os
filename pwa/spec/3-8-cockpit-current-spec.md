@@ -51,6 +51,8 @@
 | header | `CockpitHeader` | project metadata |
 | venture status | `CockpitVentureStatus` | `project_ventures`, `project_xrl_log`, related data |
 | AMD / Management score hero | `CockpitManagementScoreHero` | AMD Score / Management Score derived data |
+| tabs | `CockpitView` | `進捗管理` / `スコア詳細` display state |
+| score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | `/api/project/[projectId]/amd-score-detail` |
 | goals compact | `CockpitGoalsCompact` | value plan / MS |
 | strategy signals | `CockpitStrategySignals` | `project_strategy_signals` |
 | routine | `CockpitRoutineGas` + routine modals | `billing_cycles` / GAS bridge / APIs |
@@ -65,6 +67,7 @@
 |---|---|
 | `fetchCockpitFromSupabase` pending | spinner |
 | fetch error | error message + reload button |
+| score detail API returns 404 | tab shows a compact error; progress tab remains usable |
 | PM check fails | routine edit disabled by default |
 | unknown stepId | no modal or fallback modal based on resolver |
 
