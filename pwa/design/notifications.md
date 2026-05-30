@@ -178,11 +178,11 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 
 ## 上流 (GAS / PWA cron) 側の feedback 取り込み
 
-### GAS 155 (`gas/155_L2KnowledgeExtractor.js`) / Claude routine 後継
+### GAS 155 (`gas/155_L2KnowledgeExtractor.js`) / MMOマシン automation 後継
 
-2026-05-25 #68 current truth:
+2026-05-29 current truth:
 - GAS 155 は `L2_KNOWLEDGE_CRON_DISABLED_20260522` で停止中。毎時 trigger は復活させない。
-- ②④⑤の復旧は Claude routine (`amd-os-protocol-extract`, `amd-os-project-knowledge-extract`, `amd-os-member-knowledge-extract`) で行う。
+- ②④⑤の現行 writer は MMOマシン Codex Desktop automation (`amd-os-l2-protocol-extract`, `amd-os-l4-project-knowledge-extract`, `amd-os-l5-member-knowledge-extract`)。
 - 詳細は [8-3 章 L2 Extraction Routines](../manual/8-3-l2-extraction-routines-spec.md)。
 
 3 つの extractor (member/project/protocol) で:

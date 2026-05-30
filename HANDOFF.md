@@ -1,84 +1,64 @@
 # HANDOFF - AMD OS
 
-- Last updated: 2026-05-29 (codex handoff)
-- Topic: マニュアル sidebar 復旧 + コックピット MTGサマリ手動編集 + 議事録 narrative 固定 + `/mtg-minutes` skill
+- Last updated: 2026-05-30 (codex handoff)
+- Topic: CTB 2026-04 請求額 / 入金予定額 mismatch 修正、`予定請求額` 概念の廃止寄せ
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
-- HEAD before this handoff update: `0ff8a9f` (`fix(pwa): enforce narrative meeting minutes format`)
-- Latest functional commits: `f2947fa`, `6c83fd5`, `170b731`, `0ff8a9f`
+- Current branch: `feat/bzm-textbook`
+- Current HEAD: `720720d docs(bzm): 巻末3点セット新設 + 6-1 retrofit 透明性ノートを論文水準に`
 
 ## Latest Summary
 
-- マニュアル章ページは、本文表示時も `ManualMapClient` を通すよう戻し、左メニュー / 本文目次 / カテゴリ導線が消えない状態に復旧した。
-- コックピット MTGサマリ詳細は「つくよみに修正依頼」を廃止し、「議事録を手動修正」から `title / summary_short / narrative_md / decided / progress / next_actions / risks` を直接保存する運用にした。保存先は `POST /api/meeting-summary/manual-update`、`source_hash` は変えない。
-- MTG議事録本文は `narrative_md` を正本とし、箇条書きではなく、欠席メンバーが背景から次の一手まで追える文章にする。
-- 開催済みMTGの `narrative_md` 見出しは `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定順。L2⑥ routine / dialogue narrate / critical-ui guard / manual に反映済み。
-- まさが毎回長い prompt を打たなくて済むように、repo外のローカル Codex skill `/Users/masa/.codex/skills/mtg-minutes` を追加した。次回から `/mtg-minutes` で議事録化を呼べる。
-- 詳細ログ: `pwa/design_log/sessions_2026-05.md` 末尾「2026-05-29 (#92) — Codex セッション / マニュアル sidebar 復旧 + MTGサマリ手動修正 + 議事録 narrative 固定 + /mtg-minutes skill」。
+- CTB (`p06`) 2026-04 稼働分で、freee 請求書は `270,000円税抜 / 297,000円税込` なのに、OS の入金予定が `275,844円税抜 / 303,428円税込` になっていた原因を調査。
+- live Supabase の `billing_cycles(p06,202604).budget_reported_amount=275844` が入金予定計算で優先されていた。`5,844円` の由来は current DB / `source_cache` / `billing_log` からは復元不可。
+- live DB は補正済み: `budget_reported_amount=270000`, `budget_yen=175500`, `reward_summary_json.monthlyBudget65/capBudgetYen=175500`。`billing_log.action='invoice_amount_corrected'` も追加。
+- PWA code/docs は、`budget_reported_amount` を「予定請求額」ではなく「請求額（税抜）」として扱う方向へ変更済み。承認前は `請求額案`、承認後は `確定請求額`。
+- 入金確認の税抜額は、freee 発行済み明細があれば `invoice_base_lines_json` を優先し、なければ確定請求額を使うように変更。
+- Detailed session log: `pwa/design_log/sessions_2026-05.md` の「2026-05-30 (#97)」。
 
-## Verification / Deploy
+## Verification
 
-Run and observed:
-
+- `npx tsc --noEmit` pass (`/Users/masa/projects/AMD/amd-os/pwa`)
 - `npm run test:critical-ui` pass
-- `npx tsc --noEmit --pretty false` pass
-- Clean worktree verification also passed for `test:critical-ui` and `tsc --noEmit`
-- PWA production deploy済み:
-  - Deployment: `https://amd-os-9cvi9iswi-armada0130.vercel.app`
-  - Inspect: `https://vercel.com/armada0130/amd-os-pwa/GzCtmNY6VwVxJYSsgK5t3GhWQpfV`
-  - Deployment id: `dpl_GzCtmNY6VwVxJYSsgK5t3GhWQpfV`
-  - Production alias: `https://amd-os-pwa.vercel.app`
-- `curl -I -L https://amd-os-pwa.vercel.app/manual/2-3-pj-cockpit` は login へ 307 redirect、`next=/manual/2-3-pj-cockpit` 保持を確認。
+- `npm run build` pass
+- `git diff --check` pass
+- Production deploy: 未実施。worktree に別作業の dirty 差分が多く、今回差分だけを安全に切り出す前に deploy しない。
 
 ## Repo State
 
-- Branch: `main`
-- Local HEAD / origin/main: `0ff8a9f` synced before this handoff doc update.
-- Worktree is dirty with unrelated/unresolved parallel work. Do not revert or mix without re-reading context.
-- Known unrelated dirty areas at handoff time include:
-  - `docs/ip/*.docx` / `docs/ip/*.md`
-  - Manual search / manual Tsukuyomi work: `pwa/src/app/(app)/manual/*`, `pwa/src/app/api/manual/*`
-  - Weekly recurring upcoming MTG changes: `pwa/src/app/api/meeting-prep/calendar-sync/route.ts`, `pwa/src/components/cockpit/CockpitMeetingSummary.tsx`, parts of `pwa/design/meeting_summaries.md`, `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`, `pwa/scripts/check_pwa_critical_ui.cjs`
-  - L2① monthly report automation work: `pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/`, `pwa/manual/8-3-l2-extraction-routines-spec.md`, `pwa/design/L2_DATA.md`, `pwa/src/lib/operations-catalog.ts`
-  - Current worktree `pwa/src/lib/build-info.ts` shows `v0.8.6`, but committed/deployed HEAD for this handoff topic is `v0.8.5`.
+- `git log --branches --not --remotes --oneline` は空。未 push commit なし。
+- worktree は広く dirty。BZM / ERS / L2 / cockpit / manual / payment-confirm Slack action / finance fix が混在している。
+- `git add .` / broad revert 禁止。必ず file-by-file で確認して stage する。
+- BZM ワークストリームの handoff は `pwa/HANDOFF_bzm_textbook.md`。この handoff と混ぜない。
+- 以前の payment-confirm Slack action は draft PR #2 (`codex/payment-confirm-slack-action`) と `pwa/design_log/sessions_2026-05.md` #96 を参照。GAS `invalid_rapt` blocker は未解決。
 
 ## Open Tasks
 
-- No unresolved code task for the manual sidebar or MTG narrative format commits.
-- `/mtg-minutes` is local to this Mac under `/Users/masa/.codex/skills/mtg-minutes`; if a different machine needs it, copy/install the skill there too.
-- Slash-skill discovery may require a new Codex thread or app reload before `/mtg-minutes` appears in the UI.
-
-## Pointers
-
-- PWA handoff: `pwa/HANDOFF_pwa_rebuild.md`
-- Meeting summaries design: `pwa/design/meeting_summaries.md`
-- PJ cockpit manual: `pwa/manual/2-3-pj-cockpit.md`
-- L2 extraction manual: `pwa/manual/8-3-l2-extraction-routines-spec.md`
-- L2⑥ routine skill: `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`
-- Dialogue MTG rule: `pwa/CLAUDE.md` and `pwa/design/project_strategy_signals.md`
-- Bug / operations log: `pwa/BUGS.md`
-- Session log: `pwa/design_log/sessions_2026-05.md`
-- Local slash skill: `/Users/masa/.codex/skills/mtg-minutes/SKILL.md`
+- 今回の finance fix を clean branch / clean worktree に切り出して commit する。
+- その後、PWA deploy script で production 反映し、`https://amd-os-pwa.vercel.app` の build version と CTB 入金予定額表示を確認する。
+- payment-confirm Slack action を続ける場合は、先に `clasp login` で GAS auth を更新し、GAS worker deploy 成功後にだけ `PAYMENT_CONFIRM_SLACK_INTERACTIVE=1` を有効化する。
 
 ## First Read Next Session
 
 1. `HANDOFF.md`
-2. `pwa/HANDOFF_pwa_rebuild.md`
-3. `pwa/design/SPEC_pwa.md`
-4. `pwa/design/meeting_summaries.md`
-5. `pwa/manual/2-3-pj-cockpit.md`
-6. `pwa/manual/8-3-l2-extraction-routines-spec.md`
-7. `pwa/BUGS.md`
-8. `pwa/design_log/sessions_2026-05.md`
+2. `pwa/design/SPEC_pwa.md`
+3. `pwa/BUGS.md`
+4. `pwa/manual/6-3-invoice-and-billing-routine-spec.md`
+5. `pwa/manual/6-4-finance-payment-confirm-spec.md`
+6. `pwa/design/routine.md`
+7. `pwa/design_log/sessions_2026-05.md`
+8. `pwa/src/lib/payment-groups.ts`
+9. `pwa/src/components/cockpit/CockpitRoutineBudgetModal.tsx`
+10. `pwa/src/components/cockpit/CockpitRoutineInvoiceModal.tsx`
 
 ## First Next Action
 
 ```sh
 cd /Users/masa/projects/AMD/amd-os
 git fetch --all --prune
-git status -s
-git log --branches --not --remotes --oneline
+git status -sb
+git diff -- pwa/src/lib/payment-groups.ts pwa/src/components/cockpit/CockpitRoutineBudgetModal.tsx pwa/src/components/cockpit/CockpitRoutineInvoiceModal.tsx pwa/src/app/payment-confirm/PaymentConfirmClient.tsx pwa/src/app/api/cron/payment-confirm-nudges/route.ts pwa/manual/6-3-invoice-and-billing-routine-spec.md pwa/manual/6-4-finance-payment-confirm-spec.md pwa/design/routine.md pwa/design/FEATURE_REGISTRY.md pwa/design/SPEC_pwa.md
 ```
 
-Then continue from the user's next request. If it touches MTG summaries, preserve `narrative_md` as the primary artifact and avoid reintroducing Tsukuyomi correction UI in the MTG detail modal.
+Then isolate the finance fix before commit/deploy. Do not deploy the broad dirty worktree as-is.

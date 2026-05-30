@@ -28,11 +28,11 @@ L2 ③ MS 進捗、 L2 ① 月次報告書、 月次ノート、 つくよみ修
 | `message` | エラー / state メッセージ |
 | `last_processed_at` | 直近 |
 
-### 抽出フロー (= Cloud routine `amd-os-l3-ms-progress-extract`)
+### 抽出フロー (= MMOマシン automation `amd-os-l3-ms-progress-extract`)
 
 ```mermaid
 flowchart LR
-  A[monthly_reports + project_meeting_summaries] --> B[Cloud routine 毎時0分]
+  A[monthly_reports + project_meeting_summaries] --> B[MMOマシン automation 毎時0分]
   B --> C[source_hash 差分検知]
   C --> D{変更あり?}
   D -->|no| E[touch state, skip]
@@ -42,7 +42,7 @@ flowchart LR
   F --> I[progress_estimate_state upsert]
 ```
 
-cadence: 毎時 0 分 JST (= [8-3 章 §③](8-3-l2-extraction-routines-spec.md))。定期抽出の primary writer は Cloud routine / MMO automation `amd-os-l3-ms-progress-extract`。旧 PWA `/api/cron/hourly-estimate` は 2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す。
+cadence: 毎時 0 分 JST (= [8-3 章 §③](8-3-l2-extraction-routines-spec.md))。定期抽出の primary writer は **MMOマシン上の subscription automation `amd-os-l3-ms-progress-extract`**。旧 PWA `/api/cron/hourly-estimate` は 2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す。
 
 ### 定常業務 MS (`tag='routine'`)
 
@@ -92,7 +92,11 @@ GAS `rv2_calcRewardSummary` が報酬計算時に `share` を掛けて per-membe
 
 ## 月次報告書 (= L2 ①、 `monthly_reports`)
 
-`monthly_reports` は AMD-Report GAS R313 が別 clasp で生成し、 PWA の report route / backfill route が補助する。 **LLM 不使用** (= 5 生データを deterministic に集約)。
+`monthly_reports` は Codex automation `AMD OS L2① 月次報告抽出` が primary writer。5 生データを読み、`amd-os-ms/outbox.monthlyReports` 経由で非LLM applier が Supabase に反映する。
+
+**🚨 課金注意 (2026-05-29 訂正)**: R313 は単なる deterministic 集約ではない。AMD-Report GAS 現物では、未生成レポートや差分ありレポートのときに R303 generator 経由で Anthropic Claude API を呼ぶ。`run_monthlyReportCron` trigger が有効なら token 課金が発生しうるため、「R313 = LLM 不使用」と書かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。
+
+これは月次報告書の生成停止ではない。`monthly_reports` は OS の必須データで、定期生成は Codex automation 側で行う。PWA の手動/backfill route と月次報告モーダルは復旧・手動編集用。避けるのは、対象範囲や費用意図が曖昧なまま日次の有料API trigger を復活させること。
 
 ### `monthly_reports` 列
 
@@ -116,9 +120,9 @@ GAS `rv2_calcRewardSummary` が報酬計算時に `share` を掛けて per-membe
 
 ```mermaid
 flowchart TD
-  A[5 生データ &lpar;Slack/Notion/Calendar/Drive/Gmail&rpar;] --> B[GAS R313 集約]
-  B --> C[draft_content 生成]
-  C --> D[Slide / PDF 生成 → Drive]
+  A[5 生データ &lpar;Slack/Notion/Calendar/Drive/Gmail&rpar;] --> B[Codex automation L2① 月次報告抽出]
+  B --> C[amd-os-ms/outbox monthlyReports JSON]
+  C --> D[LaunchAgent + non-LLM applier]
   D --> E[monthly_reports.status='draft']
   E --> F[PWA cockpit 月次モーダル]
   F --> G[PL レビュー依頼]
@@ -131,7 +135,7 @@ flowchart TD
 
 休止期間 (= `project_freeze_periods.status='active'`) の PJ は monthly reports が空欄になる。 `/api/cron/freeze-period-backfill` (= manual operation) が Sonnet で休止期間サマリを生成、 `freeze_period_backfills` に保存する。
 
-通常月の backfill は `/api/cron/monthly-reports-backfill` (= manual operation、 [6-1 章](6-1-operations-settings-spec.md))。
+通常月の backfill は `/api/cron/monthly-reports-backfill` (= manual operation、 [6-1 章](6-1-operations-settings-spec.md))。Vercel cron には登録しない。必要な月・件数を確認してから手動で使う。
 
 ## 月次ノート (= `project_monthly_notes`)
 
@@ -231,7 +235,8 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 
 | operation | 役割 | cadence |
 |---|---|---|
-| `claude-l3-ms-progress-extract` | L2 ③ Cloud routine / MMO automation (= primary) | 毎時 0 分 |
+| `AMD OS L2① 月次報告抽出` | L2 ① Codex automation (= primary) | daily 05:30 JST |
+| `claude-l3-ms-progress-extract` | L2 ③ MMOマシン automation (= primary) | 毎時 0 分 |
 | `pwa-hourly-estimate` | 旧 PWA fallback。停止中 | disabled |
 | `manual-monthly-reports-backfill` | 月次報告書を Sonnet で生成 | 手動 |
 | `manual-freeze-period-backfill` | 休止期間 PJ の reports + meetings 統合 | 手動 |
@@ -245,7 +250,7 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 | 月次モーダルで MS 進捗が出ない | `milestone_monthly_progress` の該当 ym 行、 `value_milestones.is_active=true` |
 | 進捗 % が更新されない | `progress_estimate_state.source_hash` が変わったか、 `amd-os-l3-ms-progress-extract` の実行履歴、月次モーダルの手動「AIで再推定」 |
 | 修正依頼が反映されない | `ms_progress_revisions.status='confirmed'`、 `milestone_monthly_progress` 該当行が更新されているか |
-| 月次報告書が空 | `monthly_reports.status='pending'` のまま、 GAS R313 実行履歴、 `/api/cron/monthly-reports-backfill` で再生成 |
+| 月次報告書が空 | `AMD OS L2① 月次報告抽出` の実行履歴、`amd-os-ms/outbox` の applied/failed、`monthly_reports.collection_summary_json`。R313 trigger は復活させない |
 | 休止 PJ の月が空 | `project_freeze_periods.status='active'`、 `manual-freeze-period-backfill` 実行 |
 | advisor PJ で MS が出る | `projects.project_category='advisor'` の判定、 月次ノート側に寄せる ([2-6 章](2-6-admin-ops.md)) |
 

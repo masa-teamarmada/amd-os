@@ -19,7 +19,7 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **議事録本文の固定順**: `narrative_md` は必ず `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順で書く。見出し文言・絵文字・順序を変えない。各見出しの本文は箇条書きではなく段落で書く。
 - **配列だけ保存禁止 / 箇条書き禁止**: `source_kinds != "none"` の開催済みMTGでは `narrative_md` が主成果物。`summary_short` / `decided` / `progress` / `next_actions` / `risks` は検索・通知用の補助であり、議事録本文の代替ではない。`narrative_md` が空・短すぎる・箇条書き中心なら、その event は保存せず run summary に `blocked_low_quality_narrative` として残す。
 - **既存 narrative 保護**: 既存 row に 300字以上の `narrative_md` がある場合、新しい抽出結果が空 / 箇条書き優勢 / 既存より明らかに薄いなら upsert しない。`project_meeting_summaries` には DB trigger でも保護があるが、routine 側でも必ず判定する。
-- **未来予定カード**: 終了済みMTGの議事録がまだ無いPJでも、今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡して `source_kinds='upcoming'` を作る。CLG取締役会のように前回議事録が空でも予定MTGカードを欠落させない。
+- **未来予定カード**: 終了済みMTGの議事録がまだ無いPJでも、今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡して `source_kinds='upcoming'` を作る。weekly recurring MTG は series ごとに次回1件だけ同期し、それ以降の occurrence はノイズとして送らない/表示しない。CLG取締役会のように前回議事録が空でも予定MTGカードを欠落させない。
 - **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
 
 ## 【絶対】 動く前に必ず Read
@@ -116,6 +116,8 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
 終了済みMTGの議事録抽出とは別に、毎回 **今日0:00 JSTから今後60日** の確定Calendar予定を同期する。これは LLM 不要・deterministic で、議事録がまだ無いPJにも準備カードを作るためのルート。今日すでに開始済みの予定も、Drive資料やURL補強のために当日中は同期対象にする。
 
 1. Calendar MCP で `today 00:00 JST` から `now + 60 days` までを bounded search/list する。`title` が `+` / `＋` 始まり、全日予定、start datetime の無い予定は除外。
+   - weekly recurring は `recurringEventId` / `recurring_event_id` が取れる場合はその series id、取れない場合は PJ + title + 曜日 + 開始時刻で series を推定する。
+   - 6〜8日間隔で続く weekly series は **次回1件だけ** `calendar-sync` に渡す。複数の weekly がある場合は series ごとに1件ずつ残す。
 2. 各 event について、PJ が解決できる場合は **Drive 関連資料も先に探す** (= LLM 不要、準備カード用 metadata):
    - `projects.drive_folder_id` があれば folder root を Drive MCP で list し、event 日付 token (`YYMMDD` / `YYYYMMDD` / `YYYY-MM-DD`) と title token (`取締役会` / `board` / `月次` / `報告会` / `キックオフ` / PJ名 / client_name) でサブフォルダを探す。
    - 日付フォルダが見つかったら、その直下の Docs / Slides / Sheets / PDF / Office files を最大 8 件採用。例: CLG `260527_取締役会` folder の招集通知 PDF・予算xlsx・報告xlsx。
@@ -126,9 +128,9 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
    curl -s -X POST "$APP_BASE_URL/api/meeting-prep/calendar-sync" \
      -H "Authorization: Bearer $WORKFLOW_SECRET" \
      -H "Content-Type: application/json" \
-     --data '{"events":[{"calendar_event_id":"<event.id>","title":"<event.summary>","start":"<event.start>","end":"<event.end>","url":"<event.url>","description":"<event.description>","location":"<event.location>","drive_files":[{"title":"<file.title>","url":"<file.url>","mime_type":"<file.mime_type>","modified_time":"<file.modified_time>","snippet":"<short snippet>"}]}]}'
+     --data '{"events":[{"calendar_event_id":"<event.id>","recurring_event_id":"<event.recurringEventId if any>","title":"<event.summary>","start":"<event.start>","end":"<event.end>","url":"<event.url>","description":"<event.description>","location":"<event.location>","drive_files":[{"title":"<file.title>","url":"<file.url>","mime_type":"<file.mime_type>","modified_time":"<file.modified_time>","snippet":"<short snippet>"}]}]}'
    ```
-4. PWA 側で `projects.project_name` / `project_id` / `client_name` によりPJ判定し、`upcoming:<calendar_event_id>` を upsert する。既に手動編集済みの準備本文は上書きせず、Calendar由来の日時・title・URL・Drive資料リンクだけ同期する。
+4. PWA 側で `projects.project_name` / `project_id` / `client_name` によりPJ判定し、`upcoming:<calendar_event_id>` を upsert する。PWA route も safety net として同じ weekly series の2件目以降を skip する。既に手動編集済みの準備本文は上書きせず、Calendar由来の日時・title・URL・Drive資料リンクだけ同期する。
 5. これにより、CLG `CLG 取締役会` のような recurring board meeting も、前回MTGサマリからの `finalize` を待たずに「予定MTG / 準備中」に出る。Drive folder に会議資料がある場合は、予定カード内の `関連Drive資料` として先に見える。
 
 ═══════════════════════════════════════════════════

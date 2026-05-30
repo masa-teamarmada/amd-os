@@ -199,7 +199,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
 
   { slug: "8-1-knowledge-admin-tsukuyomi-spec", title: "Knowledge Admin / Tsukuyomi", summary: "AMD Protocol、contexts、つくよみ学習、feedback API。", topics: ["knowledge-dev", "admin-dev"], screens: ["/admin/protocols", "/admin/contexts", "/admin/tsukuyomi"], tables: ["protocols", "tsukuyomi_context"] },
   { slug: "8-2-notification-review-and-strategy-signals-spec", title: "通知レビュー UI / 経営ハイライト確認", summary: "notifications 実 UI、経営ハイライト、修正依頼履歴。", topics: ["knowledge-dev", "decision", "cockpit"], screens: ["/notifications", "/project/{projectId}/cockpit"], tables: ["project_strategy_signals", "l2_feedbacks"] },
-  { slug: "8-3-l2-extraction-routines-spec", title: "L2 Extraction Routines", summary: "L2 ②④⑤⑥ の Claude routine、GAS dryRun、ghost 復旧状況。", topics: ["knowledge-dev", "developer"], tables: ["project_knowledge", "member_knowledge", "protocols"] },
+  { slug: "8-3-l2-extraction-routines-spec", title: "L2 Extraction Routines", summary: "L2 ①〜⑨ の現行 writer、MMOマシン automation、outbox/applier、課金ルート、復旧時に見る場所。", topics: ["knowledge-dev", "developer"], tables: ["monthly_reports", "milestone_monthly_progress", "project_knowledge", "member_knowledge", "protocols"] },
 
   { slug: "9-1-decisions-and-history", title: "過去判断と経緯", summary: "cron 廃止経緯、責務分担、過去事故ログ、判断履歴。", topics: ["developer", "system-dev"] },
   { slug: "9-2-developer", title: "開発者向け", summary: "環境、実装、検証、デプロイ、設計変更時の運用。", topics: ["developer", "system-dev"] },
@@ -313,7 +313,7 @@ export const MANUAL_TOPIC_NODES: ManualTopicNodeConfig[] = [
   {
     key: "knowledge-dev",
     label: "抽出・復旧",
-    description: "L2 抽出、Claude routine、停止中 job、復旧計画を開発者向けに見る。",
+    description: "L2 抽出、MMOマシン automation、outbox/applier、停止済み旧経路、復旧手順を開発者向けに見る。",
     icon: "database",
     color: "teal",
     chapterSlugs: ["3-2-data-and-extraction", "8-3-l2-extraction-routines-spec", "3-3-notifications-and-tsukuyomi", "8-1-knowledge-admin-tsukuyomi-spec", "8-2-notification-review-and-strategy-signals-spec", "4-8-ms-progress-monthly-report-revision-spec"],

@@ -21,7 +21,7 @@ AMD OS をまだよく分かっていないメンバーが、最初に迷わな�
 | 自分の担当 PJ を確認したい | `/dashboard` | PJ 一覧、各 PJ cockpit への入口 |
 | 自分の今週の活動・報酬予定を見たい | `/mypage` | 参加 PJ、今週やったこと、月次報酬予定、月次TODO |
 | PJ の状況を見たい | `/project/{project_id}/cockpit` | AMD Score、MS、経営ハイライト、月次ルーティン、MTG サマリ |
-| OS からの確認依頼に答えたい | `/notifications` | L2 候補、MS差分、台帳差分、XRL根拠、修正依頼 |
+| OS からの確認依頼に答えたい | `/notifications` | L2 候補 (= OS が抽出した構造化データの未確認候補)、MS差分、台帳差分、XRL根拠、修正依頼 |
 | 立替を申請したい | `/reimburse` | 領収書添付、金額、用途、PJ 紐付け |
 | 請求・支払・PJ台帳を触りたい | `/admin/*` | admin 権限が必要 |
 

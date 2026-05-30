@@ -14,7 +14,7 @@ PJ × ym の月次サイクル。 1 行で「予算確定 → 報告会 → 報�
 | `status` | `not_started` / `budget_reported` / `budget_confirmed` / `report_fixed` / `invoice_issued` / `invoice_sent` / `payment_confirmed` / `reward_paid` |
 | `budget_yen` | 月次予算 (= 通常 cap + cap 外追加枠を含む確定額) |
 | `budget_buffer_amount` | バッファ枠 (= 追加業務の上振れ枠) |
-| `budget_reported_amount` / `budget_reported_at` / `budget_reported_by` | PM/PL からの予算申告 (= まずここに入る) |
+| `budget_reported_amount` / `budget_reported_at` / `budget_reported_by` | 請求額（税抜）。承認前は請求額案、承認後は確定請求額。列名は互換のため `budget_reported_*` のまま |
 | `budget_confirmed_at` / `budget_confirmed_by` | admin が予算確定 |
 | `meeting_event_id` / `meeting_start_at` / `meeting_html_link` | 報告会の Calendar event |
 | `meeting_skipped` | true なら報告会 skip (= ステップを非表示にする) |
@@ -38,9 +38,9 @@ PJ × ym の月次サイクル。 1 行で「予算確定 → 報告会 → 報�
 
 ```text
 not_started
-   ↓ PM/PL が予算申告
+   ↓ PM/PL が請求額案を入力
 budget_reported
-   ↓ admin / PL が PL レビュー → 承認
+   ↓ admin / PL が PL レビュー → 請求額とPJ予算を承認
 budget_confirmed
    ↓ 月次報告書 FIX
 report_fixed
@@ -59,6 +59,8 @@ reward_paid
 ## 月次ルーティン (= cockpit 右カラム)
 
 `/project/{projectId}/cockpit` 右カラムが「月次ルーティン」入口。 PJ の `status` が `active` / `sales` のときだけ表示。 詳細仕様 (= 回帰多発エリア) は [`pwa/design/routine.md`](../design/routine.md) と [01.5 月次ルーティン](2-3-pj-cockpit.md#15-月次ルーティン--報告書--請求--会計)。
+
+`請求額確定` ステップで入力する金額は、別の「予定請求額」ではなく OS 上の請求額そのもの。承認前だけ `請求額案` と呼び、承認後は `確定請求額` として `budget_reported_amount` に保持する。PJ 予算 (`budget_yen`) は `確定請求額 × 65% - バッファ` を基本に計算する。
 
 ### ステップ並び
 
@@ -125,6 +127,16 @@ GAS `gas-main/007_FreeeInvoiceFlow.js` が freee API への発行を担当。
 - 内容: 請求額 / バッファ / PJ 予算 + `承認する` / `差し戻す` / `OS で確認` ボタン
 - 開く: `conversations.open` で DM channel 確保
 - 承認 / 差し戻し: `/api/admin/budget-approval` が `billing_cycles` を更新
+
+### 入金予定額の算出
+
+入金確認で使う税抜請求額は `予定請求額` という別概念を持たない。算出順は次の通り。
+
+1. freee 請求書が発行済み (`invoice_issued_at` または `freee_invoice_number` がある) で、`invoice_base_lines_json` に明細がある場合は、その明細合計を正本にする。
+2. 未発行または明細が無い場合は、確定請求額 (`budget_reported_amount`) を使う。
+3. 互換 fallback として、明細合計、最後に `budget_yen / 0.65` を使う。
+
+税込の入金予定額はこの税抜請求額に消費税 10% を掛けたもの。freee 側に発行済み請求書がある場合、過去に入力した請求額案が残っていても発行済み明細を優先する。
 
 ### invoice 送付経路
 

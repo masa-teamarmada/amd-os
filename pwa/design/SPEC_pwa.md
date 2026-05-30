@@ -109,7 +109,7 @@ pwa/
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定 (取り消し線 = 未完月次ルーティンによる除外)。りり (`ID006`) は NIMS からの無償出向のため、報酬額は金額ではなく `ー` 表示 |
 | `/project/[projectId]/cockpit` | PJ コックピット (案C レイアウト = 上 Header + Hero (AMD Score + XRL 横並び) + 3 カラム MS / 経営ハイライト / 月次ルーティン sticky + 下段 月次 + MTGサマリ + 最下カンバン)。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
-| `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` がマニュアル抜粋を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
+| `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` が該当章のマニュアル本文を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
 | `/reimburse` | 立替精算 |
 | `/admin/settings` | Operations Settings。admin限定で Raw Data / L2 Data / Cron Control を一覧化する。停止中cronはここに旧頻度・入力・出力・停止理由を表示する。`/settings` は一般ユーザー誤操作防止のため削除 |
 | `/atlas` | シグナル & ストーリー一覧 |
@@ -148,7 +148,7 @@ pwa/
 **PJ 月次ノート:** `project/monthly-note` (= GET / POST。MS なし PJ でも月次モーダルで自由記述ノートを残せる。`project_monthly_notes` テーブル、PK `(project_id, ym)`、まさ 2026-05-12 タスク 3)
 **Atlas:** `atlas/auto-tag` `atlas/backfill` `atlas/seed` `atlas/match-stories` `atlas/merge-stories` `atlas/move-signal` `atlas/themes/{cluster,apply,list}`
 **請求/レポート:** `invoice/{create,preview}` `report/{generate,fix}`
-**Admin:** `admin/projects/[id]` (= PATCH、AdminProjectsTable から projects + project_ventures 1 セル単位 update を service_role 経由、admin必須)、`admin/payment-confirm` (= Slack入金確認ボタン / 金額入力フォームから signed token で `billing_cycles.payment_confirmed_at` を更新し、実額・freee照合の証跡は `billing_log.detail` に保存)、`admin/project-members/bulk` (= POST、PJ メンバー一括 incremental update + 論理削除 (is_active=false)、`ProjectMembersEditor` から呼ばれる、admin/projects のメンバー列モーダルと project/[id]/config の両方で共有、admin必須)、`admin/pj-introduction-html` (= ダッシュボード「📑 全 PJ 紹介資料作成」ボタンから POST、選択 PJ のエグゼクティブサマリー HTML を雛形 fmt で生成。Sonnet 4.5 で 1 PJ ごと JSON 集約 + concurrency 3。雛形 = `src/lib/exec_summary/template_section.html` + `template.css`、prompt = `llm_prompts.exec_summary.extract`、admin必須)、`admin/lane-suggestions/[id]` (= LLM lane 提案の approve/reject、admin必須)、`admin/seed-vcs` 等
+**Admin:** `admin/projects/[id]` (= PATCH、AdminProjectsTable から projects + project_ventures 1 セル単位 update を service_role 経由、admin必須)、`admin/payment-confirm` (= Slack入金確認ボタン / 金額入力フォームから signed token で `billing_cycles.payment_confirmed_at` を更新し、`POST mode=expected` はブラウザを開かず予定額で確定、実額・freee照合の証跡は `billing_log.detail` に保存)、`admin/project-members/bulk` (= POST、PJ メンバー一括 incremental update + 論理削除 (is_active=false)、`ProjectMembersEditor` から呼ばれる、admin/projects のメンバー列モーダルと project/[id]/config の両方で共有、admin必須)、`admin/pj-introduction-html` (= ダッシュボード「📑 全 PJ 紹介資料作成」ボタンから POST、選択 PJ のエグゼクティブサマリー HTML を雛形 fmt で生成。Sonnet 4.5 で 1 PJ ごと JSON 集約 + concurrency 3。雛形 = `src/lib/exec_summary/template_section.html` + `template.css`、prompt = `llm_prompts.exec_summary.extract`、admin必須)、`admin/lane-suggestions/[id]` (= LLM lane 提案の approve/reject、admin必須)、`admin/seed-vcs` 等
 **通知:** `notifications/feedback` (= admin限定。まさ/きよからの修正依頼を `l2_feedbacks` に保存し、候補L2の「はい/いいえ」状態遷移も処理)
 **ソース refs:** `sources/slack/collect` / `sources/gmail/collect` (= source_cacheへ短いsnippet/hash/source_urlだけ保存。取り込み完了通知は作らない)
 **関連メンバー:** `founding-members/revise` (= コックピットのつくよみ修正依頼。提案プレビュー後、OK確定で `project_founding_members` をupsert/invalid化)
@@ -187,7 +187,7 @@ pwa/
 | `cron/frl-grit-resilience-extract` | disabled | 月初 03:00 JST | FRL grit/resilience抽出。Sonnet利用のため停止済み |
 | `cron/macro-aggregate-indicators` | `0 19 1 * *` | 月初 04:00 JST | observation_log + atlas_signals を ASPI lane × month で集計 → `macro_index_log` の `budget_amount` (= kaken/grant 集計) / `investment_amount` (= vc 集計) / `policy_mention_count` (= atlas_signals.source_type='policy' 件数) / `raw_signal_count` (= atlas_signals 全件) を update + 欠落 row を insert。`?since=YYYY-MM` 指定可 (= デフォルト過去 36 ヶ月)。atlas_signals.domain (= "I.ICT・AI" 等の ATL 独自) → ASPI domain mapping は cron 内 ATL_DOMAIN_TO_ASPI に定義 |
 | `cron/freee-payment-sync` | `10 0 * * *` | 09:10 daily | freee会計の収入取引 (`/api/1/deals`, `type=income`) と口座明細 (`/api/1/wallet_txns`, `entry_side=income`) を支払月で取得し、取引先ID・請求番号・入金額・PJ別 `payment_alias` からOSの入金予定と照合。支払済みなら `billing_cycles.payment_confirmed_at` を自動更新し、照合証跡を `billing_log.detail` に保存 |
-| `cron/payment-confirm-nudges` | `30 0 * * *` | 09:30 daily | 支払月単位で未入金のPJを抽出し、active admin (`members.is_admin=true`) のSlack DMへ入金確認nudgeを送る。ボタンは「予定通り入金済み」(1クリック反映) と「金額を入力」(`/payment-confirm`)。LLM非使用なのでLLM系cron停止とは別枠で稼働 |
+| `cron/payment-confirm-nudges` | `30 0 * * *` | 09:30 daily | 支払月単位で未入金のPJを抽出し、active admin (`members.is_admin=true`) のSlack DMへ入金確認nudgeを送る。ボタンは「予定通り入金済み」(通常は既存URL confirm。`PAYMENT_CONFIRM_SLACK_INTERACTIVE=1` かつ GAS worker デプロイ済みなら Slack interactive action -> GAS worker -> `POST /api/admin/payment-confirm mode=expected` -> つくよみがSlackスレッド返信) と「金額を入力」(`/payment-confirm`)。LLM非使用なのでLLM系cron停止とは別枠で稼働 |
 | Codex `AMD OS L2① 月次報告抽出` | Codex automation | 05:30 daily | 5生データ + OS snapshot から `monthly_reports` draft を抽出し、`/Users/masa/.codex/automations/amd-os-ms/outbox/*.json` の `monthlyReports` を作る。非LLM applier が Supabase に反映。R313 / PWA heavy route は定期実行しない |
 | Codex `amd-os` | Codex automation | 03:20 daily | 5生データ + OS snapshot から経営ハイライト候補を抽出し、`/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/*.json` を作る。非LLM applier が `project_strategy_signals` / `l2_notifications` へ反映 |
 | `scripts/backfill_strategy_signals_from_activities.mjs` | one-shot script | on-demand | 既存 `member_activities` から初期表示用の経営ハイライト候補を決定的ルールで抽出し、outbox JSON を作る。`ms_progress_review_tool.mjs apply-outbox` で `project_strategy_signals` / `l2_notifications` へ反映する。LLM/GAS非使用 |
@@ -331,7 +331,7 @@ pwa/
 - 4 アニメ × 18 frames × 128×128、足元アンカー (64, 124)
 - 2026-05-28: 右下に常駐していた visible mascot button は非表示化。`(app)/layout.tsx` には `TsukuyomiChatBridge` だけを残し、`window.dispatchEvent(new CustomEvent("tsukuyomi:open", ...))` で起動する明示的な修正依頼導線は維持する。
 - 旧 mascot は `pwa/src/components/tsukuyomi/Mascot.tsx` に残るが、global layout からは読み込まない。
-- 2026-05-29: `/manual` 系だけ `ManualTsukuyomiFloat` を表示する実験導線を追加。これは global mascot 復活ではなく、OS マニュアル専用の読取 Q&A。`/api/manual/tsukuyomi/ask` は Gemini 2.5 Flash に `pwa/manual/*.md` の検索上位抜粋を渡し、回答 + 参照章を返す。DB 書き込み、project 修正、`tsukuyomi_chat_logs` 保存はしない。
+- 2026-05-29: `/manual` 系だけ `ManualTsukuyomiFloat` を表示する実験導線を追加。これは global mascot 復活ではなく、OS マニュアル専用の読取 Q&A。`/api/manual/tsukuyomi/ask` は Gemini 2.5 Flash に検索で選んだ該当章の本文を渡し、回答 + 「ここ見たらOK」の参照章リンクを返す。DB 書き込み、project 修正、`tsukuyomi_chat_logs` 保存はしない。
 - 素材生成元: `/Users/masa/projects/masa/output/tsukuyomi_animations_amd/` (Codex 生成、annotation なし)
 - 統合シート生成: `/tmp/combine_v2_frames.py` (FRAMES_PER_ROW=18, ROWS=4)
 
@@ -479,7 +479,7 @@ cockpit 右カラムの月次ルーティンで「タスク行」をクリック
 
 | stepId | 開く UI | 実装 |
 |---|---|---|
-| `budget` (請求額確定) | `CockpitRoutineBudgetModal` | `billing_cycles` へ申告保存 / `/api/notify/pl-review`。`projects.fee_type='monthly_fixed'` かつ `fee_amount` ありなら「今月も¥Xでおけ？」として請求額確認だけ行う。メンバー別支払額はpt計算の正本なので入力しない。PL確認依頼は `project_members.is_pl=true` のSlack DMへ、請求額・バッファ・PJ予算と `承認する` / `差し戻す` / `OSで確認` ボタンを送る。承認は `/api/admin/budget-approval` に集約し、`status='budget_confirmed'` と `budget_yen` を同時に確定する |
+| `budget` (請求額確定) | `CockpitRoutineBudgetModal` | `billing_cycles` へ請求額案を保存 / `/api/notify/pl-review`。`budget_reported_amount` は列名互換のため残すが、意味は「請求額（税抜）」であり別の予定請求額ではない。`projects.fee_type='monthly_fixed'` かつ `fee_amount` ありなら「今月も¥Xでおけ？」として請求額確認だけ行う。メンバー別支払額はpt計算の正本なので入力しない。PL確認依頼は `project_members.is_pl=true` のSlack DMへ、請求額・バッファ・PJ予算と `承認する` / `差し戻す` / `OSで確認` ボタンを送る。承認は `/api/admin/budget-approval` に集約し、`status='budget_confirmed'` と `budget_yen` を同時に確定する |
 | `estimateSend` (見積書送付・CTBのみ) | `CockpitRoutineInvoiceModal` (documentType=`quotation`) | billing_cycles 直叩き / Edge Fn `issue-invoice` `cancel-invoice` |
 | `meeting` (報告会日程調整) | `CockpitRoutineMeetingModal` | Edge Fn `meeting-slots` (GET) / `schedule-meeting` (GET) |
 | `reportFix` (月次報告書FIX) | `CockpitMonthlyModal` の `report` タブ | 月次モーダル内の Markdown 表示/編集UIを正本にする |

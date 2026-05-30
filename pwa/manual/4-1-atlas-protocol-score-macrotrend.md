@@ -2,7 +2,7 @@
 
 AMD OS の判断エンジン側を俯瞰する章。PJ コックピットが「いま各 PJ がどう動いているか」を見る場所だとすると、この章の対象は **何を見るか / どう評価するか / どう判断を資産化するか**。
 
-## つの役割
+## 4 つの役割
 
 | 領域 | 一言でいうと | 主な問い | 主な場所 |
 |---|---|---|---|
@@ -107,10 +107,10 @@ AMD Protocol は、AMD の経営判断を **再利用できる判断パターン
 3. **アクション**: どの方針を採ったか
 4. **結果**: 実際に何が起きたか。自動抽出で推測して埋めない
 
-現状 (= 2026-05-25):
+現状 (= 2026-05-29):
 - 旧 writer の GAS 155 は 2026-05-22 に停止
-- L2 ② AMD Protocol は新規自動取り込みが ghost 状態
-- 復旧方針は Claude routine `amd-os-protocol-extract` 新設
+- L2 ② AMD Protocol の現行 writer は MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract`
+- 復旧時は [3-2 章](3-2-data-and-extraction.md) / [8-3 章](8-3-l2-extraction-routines-spec.md) の実行場所つき表を見る
 
 ## AMD Management Score との違い
 

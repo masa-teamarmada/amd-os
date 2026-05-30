@@ -90,8 +90,8 @@ export const l2Datasets: L2Dataset[] = [
     id: "monthly_reports",
     label: "① monthly report",
     table: "monthly_reports",
-    source: "AMD-Report GAS R313 / PWA report routes / backfill route",
-    cadence: "05:00 daily + on-demand",
+    source: "Codex automation AMD OS L2① 月次報告抽出 / amd-os-ms outbox.monthlyReports (R313 triggerなし確認: 2026-05-29)",
+    cadence: "daily 05:30 JST (subscription automation)",
     purpose: "PJ月次レポート本文。後続L2の二次集約ソース。",
   },
   {
@@ -594,10 +594,19 @@ export const cronOperations: CronOperation[] = [
     output: "amd_management_score_snapshots / evidence",
     run: { type: "manual", reason: "手動実行はCodex automation側でraw収集後に行う" },
   },
-  // === Claude routine (= 2026-05-25 #71 まさ確定、L2 ②〜⑨ 全 8 routine 統一) ===
-  // すべて ~/.claude/scheduled-tasks/<taskId>/SKILL.md に保存、scheduled-tasks MCP で登録。
-  // PWA からは直接叩けない (= まさ手元 mac の Claude Code セッション内 local cron)。
-  // run は manual で、reason に外部キック不可と Claude Code セッション経由の代替を明記。
+  // === Subscription automation (= L2 ①〜⑨。L2①はCodex automation、L2②〜⑨はCloud/Codex routine) ===
+  // L2①はCodex automation、L2②〜⑨はClaude/Codex routine。PWA からは直接叩けない。
+  {
+    id: "codex-l1-monthly-report-extract",
+    label: "L2 ① 月次報告抽出 (Codex automation)",
+    layer: "Codex",
+    cadence: "daily 05:30 JST",
+    trigger: "AMD OS L2① 月次報告抽出",
+    defaultParams: "(SKILL.md に従う)",
+    input: "5 生データ + OS snapshot / active・sales PJ 当月・前月",
+    output: "monthly_reports via amd-os-ms/outbox.monthlyReports",
+    run: { type: "manual", reason: "Codex automationがoutboxを作り、LaunchAgentの非LLM applierが反映する" },
+  },
   {
     id: "claude-l2-protocol-extract",
     label: "L2 ② AMDプロトコル抽出 (Claude routine)",

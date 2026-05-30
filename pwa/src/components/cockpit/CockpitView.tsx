@@ -193,7 +193,7 @@ type BillingCycleShape = {
   reportFixedAt: string | null;
 };
 
-type MonthlyModalTab = "reward" | "report" | "invoice";
+type MonthlyModalTab = "reward" | "report";
 
 function resolveStepModalFromTap(
   ym: string,

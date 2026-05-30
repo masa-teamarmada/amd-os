@@ -5,6 +5,34 @@
 
 ---
 
+### [git/cross-session-bundling] 別セッションが working tree 全体をコミットして他セッションの未コミット作業を巻き込んだ (= 2026-05-30)
+
+- **発見日**: 2026-05-30
+- **状態**: ✅ クローズ (= 作業は全部 push・本番反映済みで実害なし。履歴は放置)
+- **症状**: BZM データ図チャンク (図埋め込み `pwa/bzm/{2-1,2-2,5-1,7-1}.md` + `pwa/public/bzm/f{1,2,4,5}.png` + `pwa/scripts/bzm_figures.py` + `pwa/design/bzm_paper_draft.md` + `build-info.ts` v0.10.7) を個別 stage する前に working tree を見たら全部 clean。`git log` 先頭は別セッションの `481113f fix(cockpit): MTGサマリモーダル修正`。`git log -1 -- <各ファイル>` を引くと全ファイルの最終コミットが `481113f` で、cockpit 修正コミットに BZM 図作業 11 ファイルが丸ごと混入して push 済みだった
+- **原因**: (1) 前セッションで `tsc --noEmit` / `npm run build` 通過後すぐコミットせず figure チャンクを**未コミット放置**したまま要約リクエストで中断した。(2) 並行して走っていた別セッションが cockpit 修正をコミットする際に `git add -A` 相当で working tree 全体を拾い、BZM 図作業を巻き込んだ。CLAUDE.md の「BZM 作業は個別 stage」「commit したら即 push・未コミット放置するな」が**両方破られた合わせ技**で発生
+- **対応内容**: 作業は 11 ファイルすべて `481113f` に入って origin/feat/bzm-textbook に push 済み、v0.10.7 本番デプロイも成功済みで**内容欠損は無い**。コミットメッセージ (cockpit) と中身 (cockpit + BZM 図) が不一致だが、**既に push 済みのため `reset`/`rebase`+force push で履歴を割るのは destructive リスク > 美観の益**と判断し放置クローズ
+- **再発防止策**:
+  - `tsc`/`build` が通ったら作業チャンクは**即コミット＆即 push**。「次のステップへ」と未コミットで進まない (CLAUDE.md 最重要ルールの実例)
+  - **要約・handoff・セッション中断の直前は必ずコミットを挟む**。中断点に未コミット差分を残すと、並行セッションに巻き込まれるか、巻き戻る
+  - 複数セッション並行時は特に、自分の作業ファイルだけ個別 `git add <path>` で素早く確定させる。working tree を dirty なまま長く放置しない
+
+### [bzm/retrofit-table-inconsistency] 6-1 retrofit 表の headline 値が axis 値から再計算できない (= 2026-05-29)
+
+- **発見日**: 2026-05-29
+- **状態**: ✅ クローズ (= 2026-05-30 まさ B 確定。期待値のまま運用 + 透明性ノートを論文水準に磨いた)
+- **まさ判断 (2026-05-30)**: 「現状のデータはまだ全然甘いから、どっちにしろすべて再計算しないといけない気はしてる。でもすぐやらなくてもいいから、とりあえず B でいい」→ **B 採用 + 将来 A 移行を計画として明示**。6-1 の透明性ノートに (1) score 列=専門家期待値で軸からの一方向計算ではない、(2) 数式妥当性は例題 + theory 全PJ検証で別経路担保、(3) §2 表の非再現行と theory 検証の −14〜−20% は別事象、(4) L2 抽出で軸評価が客観化したら全行再計算の自己整合版 (A) へ移行、を記載
+- **症状**: BZM 教科書 6-1 (retrofit 検証) の見出し表の score が、同じ表に載っている各軸 (σ_SU/TRL/.../FRL) の値を AMD Score 数式 `S = K·∏(X+1)^α` (K=0.1) に入れても再現しない行が複数ある。例: 2009 行は表 27 だが手計算 ≈78、2011 行は表 78 だが ≈240、2012-10 は表 120 だが ≈399、2014 は表 300 だが ≈554。一方 2007=3 / 2012setup=133 / 2017=2,400 はちゃんと再現する
+- **原因**: retrofit 表の score 列は「各軸値から計算した結果」ではなく **専門家事前情報による期待値 (= 別途ハンドセットした目標値)**。theory 正本 `before-zero/theory/amd_score.md` §335-358 にも「§8 の表と seed の μ は一致しない」「数式自体は正しい」と明記済み。つまり表の score とその行の軸値は **別ソース** で、軸値→score の再現性は最初から保証されていない
+- **派生バグ (= 同時修正済)**: 前セッションで書いた 5-1 練習問題 #1 が「2009 ティエムの score を計算して表の 27 と一致することを確かめよ」という **再現不能な誤問** だった (手計算 ≈78)。retrofit 表の期待値を「再計算できる値」と誤認して練習問題に転用したのが原因。→ 軸値を問題文内で自己完結させた別計算 (≈581) に差し替えて修正 (commit f35c2b3)
+- **対応内容**:
+  - 5-1 練習問題 #1 を自己完結な計算問題に差し替え (修正済)
+  - 6-1 本文に「表の score = 期待値であり軸値からの計算結果ではない」旨の透明性ノートを追記 (B 案を暫定採用)
+  - retrofit 表そのものの扱いは **まさの A/B 判断待ち**: A=全行を軸値から再計算して自己整合させる (headline 数値が変わる) / B=期待値のまま透明性ノートで運用
+- **再発防止策**:
+  - **「表に載っている数値」を「その表の他の列から再計算できる値」と暗黙に仮定しない**。特に retrofit / 検証系の表は期待値・実測値・パラメータが混在しがち。練習問題や本文で「計算して一致を確かめよ」と書く前に、自分で一度ハンドで再現してから載せる
+  - モデル定義に触れる前に theory 正本を Read で全文通す (= MEMORY のルール)。今回も §335-358 を読んでいたから「表=期待値」と気づけた
+
 ### [score/freee-fetch-order] freee 売上仕訳が evidence に「実績 0 円」 表示される (= 2026-05-27)
 
 - **発見日**: 2026-05-27
@@ -2903,6 +2931,7 @@
 - **症状**: PWA deploy 中に Vercel CLI / deploy script が `Client network socket disconnected before secure TLS connection was established`、`EADDRNOTAVAIL`、`ENOTFOUND api.vercel.com` などで失敗表示になった。
 - **原因**: local Mac 側の network / DNS / polling が途中で切れたが、Vercel 側では upload/build/deployment が進んでいた。CLI の終了状態だけを見ると deploy failed と誤判定する。
 - **解決策**: 失敗表示後に deployment URL を `npx vercel inspect <deployment-url> --scope armada0130` で確認し、`dpl_71ybU9TqXHbbsU8VJTvwNyk4J2ji` が Ready かつ production alias (`https://amd-os-pwa.vercel.app`) 付きであることを確認した。
+- **2026-05-29 再発メモ**: `bash pwa/scripts/deploy.sh` の local session は code -1 / no output で切れたが、Vercel 側では `dpl_H9RG63JndSyL84ks9TazQkcSEXn7` が Ready になり、`https://amd-os-pwa.vercel.app` の alias も付いていた。`vercel inspect` と `curl` で本番 HTML の `data-dpl-id` まで確認してから完了扱いにした。
 - **教訓**: deploy script が upload/build 後の polling で失敗した時は、再 deploy の前に deployment URL を inspect する。ローカル通信エラーと Vercel 側 failure を分けて判断する。
 
 ## [PWA/Next] stale next build process が `.next/lock` を握り続ける (2026-05-28)
@@ -2910,6 +2939,7 @@
 - **症状**: `npm run build` が `Another next build process is already running` で止まり、`pwa/.next/lock` が残っていた。
 - **原因**: 以前の `next build --webpack` process が残り、CPU 0 のまま lock を保持していた。`.next/trace` も更新されておらず、実質 stale build だった。
 - **解決策**: 実プロセスと trace mtime を確認し、stale `next build --webpack` process を終了してから generated lock (`.next/lock`) を削除。その後 `npm run build` は pass。
+- **2026-05-29 再発メモ**: unrelated syntax error 修正後の再 build で古い `next build` process が残り、`.next/lock` を握っていた。`ps` で stale process を特定して終了し、lock 削除後に `npm run build` が pass。
 - **教訓**: `.next/lock` を見つけても先に消さない。`ps` と `.next/trace` の更新時刻で active build か stale build か確認し、stale process を止めてから lock を消す。
 
 ## [GAS/PWA] 支払通知書PDFだけ旧税計算で出る (= Web App deployment stale) (2026-05-28)
@@ -2940,3 +2970,51 @@
 - **原因**: `narrative_md` の文体ルールはあったが、固定見出し順と箇条書き禁止が L2⑥ routine / dialogue narrate / manual / critical guard 全体で一枚岩になっていなかった。修正導線も人間の直接編集ではなく LLM correction 前提に寄っていた。
 - **対応内容**: MTG詳細モーダルは「議事録を手動修正」に一本化し、`POST /api/meeting-summary/manual-update` で表示用フィールドを直接更新する。L2⑥ routine と dialogue narrate は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定5見出し、段落 narrative、箇条書き禁止へ更新。見出し違いは `blocked_wrong_narrative_headings` として保存しない。commits `6c83fd5`, `170b731`, `0ff8a9f`。
 - **再発防止策**: 議事録の正本は `narrative_md`。`decided/progress/next_actions/risks` は補助フィールドであって本文ではない。コックピットのMTG詳細に「つくよみに修正依頼」を戻さない。長い議事録 prompt は `/mtg-minutes` skill に寄せ、まさに毎回手入力させない。
+
+## [docs/l2-routes] ③だけ直して、同じ画面範囲の L2 ①②④⑤⑥⑦⑧⑨ が人間に分からないまま残った (2026-05-29)
+
+- **症状**: まさが「`amd-os-l3-ms-progress-extract` が何か分からない。MMOマシン automation ならマニュアルにもそう書いてほしい」と言った後、最初は L2 ③ MS進捗の表示だけを直した。ところが同じ画面範囲の他 L2 には、処理IDだけ、古い Cloud routine / ghost 表記、課金ルート不明、復旧場所不明の行が残っていた。まさ「③だけやったから、人間はこの画面範囲全部理解できる状態になったといえるの？」
+- **原因**: 要望を「③の文言修正」と狭く解釈し、「人間にもつくよみにも一発で分かる状態にする」= 同じ表・同じ章・同じ種類の operational route を横展開して直す、という本質を取り逃がした。マニュアル本文だけでなく `manual-chapters.ts` の summary / topic description のような表示メタデータにも古い current-looking 表記が残っていた。
+- **対応内容**: `pwa/manual/3-2-data-and-extraction.md` 冒頭に L2 ①〜⑨ 全体の「実行場所 / 現行処理 / 課金ルート / 止まった時に見る場所」早見表を追加。`pwa/manual/8-3-l2-extraction-routines-spec.md`、`6-1`、`9-1`、`pwa/design/L2_DATA.md`、`pwa/scheduled-tasks/README.md`、関連 design/manual を現行 automation 表記へ同期。`pwa/src/app/(app)/manual/manual-chapters.ts` の stale `Claude routine` summary も修正。
+- **再発防止策**: 「これ直して」が運用表・章・画面範囲の一部を指す時は、同じ表の全行、関連章、表示メタデータ、検索/Q&Aに出る summary まで横断 grep する。処理IDだけを正本にせず、最低限 `実行環境 / 課金ルート / 復旧時に見る場所 / 正本SKILL` をセットで書く。1箇所だけ直して終わらせる前に「同種の行は他にないか」を必ず棚卸しする。
+
+## [deploy/vercel] `pwa/` 直下から production deploy すると repo root 設定で `pwa/pwa` を見に行く (2026-05-29)
+
+- **症状**: `pwa/` から Vercel production deploy を実行したところ、Vercel 側が `pwa/pwa` を root として見に行き、build 前に失敗した。
+- **原因**: Vercel project の root directory が `pwa` に設定されているため、ローカル cwd も `pwa/` にすると root が二重になる。
+- **対応内容**: repo root `/Users/masa/projects/AMD/amd-os` から production deploy を再実行し、最終的に `dpl_DuETT2yHgf35KZPQsMdp2Jox4MeP` を `https://amd-os-pwa.vercel.app` に alias。
+- **再発防止策**: AMD OS PWA の Vercel deploy は repo root から実行する。`pwa/` 直下から打たない。
+
+## [PWA/manual-qa-deploy] Manual Q&A float が本番から一度消えた (2026-05-29)
+
+- **症状**: `/manual` で検索欄とつくよみ Manual Q&A を実装・deploy した後、まさの画面で一度つくよみフロートが消えた。
+- **原因**: 先に direct production deploy した時点では Manual Q&A 関連ファイルがまだ未コミットで、本番だけが local dirty worktree を含む状態だった。その後、GitHub `main` の clean auto deploy が production alias を取り直し、未コミットだった `ManualTsukuyomiFloat` / `/api/manual/tsukuyomi/ask` / 検索 UI が落ちた。
+- **対応内容**: direct deploy で一度復旧し、Manual search / Manual Q&A 関連ファイルだけを選んで `c06cdd6 Add searchable manual and manual Tsukuyomi Q&A` として commit。`origin/main` へ push し、GitHub `main` auto deploy 後も production alias が Manual Q&A 入り build を指す状態に戻した。まさが「復活した！」と本番で確認。
+- **再発防止策**: 本番に出す新 UI / API route は、direct deploy 後すぐ commit/push する。production の機能が消えた時は、まず `npx vercel inspect https://amd-os-pwa.vercel.app --scope armada0130` で alias target を確認し、direct deploy と GitHub clean deploy のどちらが勝っているかを見る。dirty deploy のまま別 auto deploy を待たない。
+
+## [GAS/PWA] 入金確認Slack actionはGAS未deployのままPWAだけONにすると押下不能になる (2026-05-29)
+
+- **症状**: 入金確認nudgeの「予定通り入金済み」ボタンをSlack actionに変えるとブラウザ遷移は消せるが、GAS側 `slackInteractiveWorker` が本番反映されていない状態でPWAだけactionボタンを出すと、Slack押下が処理されずUXが悪化する。初回PWA deployでは一時的にaction常時ON版をproduction aliasへ出してしまった。
+- **原因**: Slack buttonの押下はSlack app request URL -> GAS interactivity endpoint -> PWA APIの3段構成。PWAだけdeployしても、GAS Web App側に `payment_confirm_expected` handlerが無いとSlack actionを受けられない。今回のGAS deployは `clasp` のGoogle OAuth再認証切れ (`invalid_grant` / `invalid_rapt`) で止まった。
+- **対応内容**: PWA側に `PAYMENT_CONFIRM_SLACK_INTERACTIVE` safety flagを追加し、未設定時は既存URL confirm buttonを維持するように戻した。最終PWA productionは `dpl_9jcgL4SRYk97zq7PpsvwhTVSTBVB` へ再deployし、`vercel env ls --scope armada0130` で同envが未設定であることを確認。Slack action実装は draft PR #2 (`dc7027a`) に隔離済み。
+- **再発防止策**: Slack interactivityを含む変更は、GAS deploy成功を確認してからPWA env flagをONにする。順序は `clasp login` -> `clasp push --force` -> `clasp deploy --deploymentId <本番WebApp>` -> PWA `PAYMENT_CONFIRM_SLACK_INTERACTIVE=1` -> PWA redeploy -> Slack実押下test。`clasp invalid_rapt` はコード問題ではなく再認証blockerなので、retry連打ではなくhandoff/BUGSに残して認証を更新する。
+
+## [PWA/finance] CTB 202604 の入金予定額が freee 請求書より大きく出た (2026-05-30)
+
+- **状態**: DB補正済み / code・docs修正済み / PWA production deploy は未実施
+- **症状**: CTB (`p06`) 2026-04 稼働分の freee 請求書は `270,000円税抜 / 297,000円税込` なのに、AMD OS の入金予定額が `275,844円税抜 / 303,428円税込` と表示された。差分は税抜 `5,844円`、税込 `6,428円`。
+- **原因**:
+  - live `billing_cycles(p06,202604).budget_reported_amount` に `275844` が保存されており、`payment-groups.ts` がこの値を税抜入金予定額として優先していた。
+  - UI/仕様上も `budget_reported_amount` が「予定請求額」っぽく見え、請求額そのものなのか、予定額なのかが曖昧だった。
+  - p06/202604 の `billing_log` は空で、`source_cache` / `reimbursements` にも `5,844円` の由来を示す証跡は無かったため、元入力理由は復元不可。
+  - 請求書発行モーダルの fallback も `budget_yen` (= AMD側支払cap) を明細単価に使っており、明細が無いケースではクライアント請求額とPJ予算を混同しうる状態だった。
+- **対応内容**:
+  - live DB を `budget_reported_amount=270000`, `budget_yen=175500`, `reward_summary_json.monthlyBudget65/capBudgetYen=175500` に補正し、`billing_log.action='invoice_amount_corrected'` を追加した。
+  - `payment-groups.ts` は、freee 発行済み明細がある場合 `invoice_base_lines_json` の合計を優先し、なければ確定請求額 (`budget_reported_amount`) を使うように変更した。
+  - `CockpitRoutineInvoiceModal` の fallback を `budget_reported_amount` 優先へ変更し、`budget_yen` は互換 fallback として `budget_yen / 0.65` の形でのみ使う。
+  - UI / manual / design を `請求額案` / `確定請求額` / `請求額（税抜）` に整理し、「予定請求額」という別概念を置かない仕様へ寄せた。
+- **再発防止策**:
+  - `budget_reported_amount` は列名互換で残すが、業務意味は「請求額（税抜）」に固定する。承認前は `請求額案`、承認後は `確定請求額`。
+  - `budget_yen` は AMD 側の支払可能額 / PJ予算。クライアント請求額や入金予定額として直接使わない。
+  - freee 請求書が発行済みなら、入金確認は発行済み明細 (`invoice_base_lines_json`) を優先する。
+  - finance の金額不一致を調べる時は、code path、live `billing_cycles`、`monthly_reward_payout`、`billing_log`、`source_cache` をセットで確認し、証跡が無い元入力は推測で断定しない。

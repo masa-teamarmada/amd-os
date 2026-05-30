@@ -16,6 +16,7 @@ export type PaymentCycleRow = {
   invoice_ym: string | null;
   invoice_base_lines_json: string | null;
   invoice_subject: string | null;
+  invoice_issued_at: string | null;
   freee_invoice_number: string | null;
   payment_confirmed_at: string | null;
 };
@@ -95,9 +96,10 @@ function invoiceLinesNet(raw: string | null): number {
 }
 
 function expectedNetForCycle(cycle: PaymentCycleRow): number {
+  const invoiceNet = invoiceLinesNet(cycle.invoice_base_lines_json);
+  if ((cycle.invoice_issued_at || cycle.freee_invoice_number) && invoiceNet > 0) return invoiceNet;
   const reported = Math.round(numberValue(cycle.budget_reported_amount));
   if (reported > 0) return reported;
-  const invoiceNet = invoiceLinesNet(cycle.invoice_base_lines_json);
   if (invoiceNet > 0) return invoiceNet;
   const budget = Math.round(numberValue(cycle.budget_yen));
   return budget > 0 ? Math.round(budget / 0.65) : 0;
@@ -133,6 +135,7 @@ export async function loadPaymentConfirmationGroups(
     "invoice_ym",
     "invoice_base_lines_json",
     "invoice_subject",
+    "invoice_issued_at",
     "freee_invoice_number",
     "payment_confirmed_at",
   ].join(", ");

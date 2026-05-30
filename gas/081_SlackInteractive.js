@@ -168,6 +168,13 @@ function slackInteractiveWorker(){
     return;
   }
 
+  if (String(job.actionId || "") === "payment_confirm_expected") {
+    try { paymentConfirm_handleExpectedFromQueue_(job); } catch (e) {
+      Logger.log("payment_confirm_expected handler failed: " + (e && e.message ? e.message : e));
+    }
+    return;
+  }
+
   let av = {};
   try { av = job.actionValue ? JSON.parse(String(job.actionValue)) : {}; } catch(_e){ av = {}; }
   const reimbursementId = String(av.reimbursementId || "").trim();
@@ -220,6 +227,109 @@ function slackInteractiveWorker(){
       });
     }
   } catch(_e){}
+}
+
+function paymentConfirm_handleExpectedFromQueue_(job) {
+  job = job || {};
+  var value = {};
+  try { value = job.actionValue ? JSON.parse(String(job.actionValue)) : {}; } catch (_e) { value = {}; }
+
+  var token = String(value.token || "").trim();
+  var projectName = String(value.projectName || value.projectId || "対象PJ").trim();
+  var invoiceYm = String(value.invoiceYm || "").trim();
+  var amountYen = Number(value.expectedAmountYen || 0);
+
+  if (!token) {
+    paymentConfirm_postSlackThread_(job, "つくよみです。入金確認トークンが取れなかったから、OSで確認してね。");
+    return;
+  }
+
+  var cache = CacheService.getScriptCache();
+  var dedupeKey = "payment_confirm_expected_" + [String(value.projectId || ""), invoiceYm, String(job.userId || "")].join("_");
+  if (cache.get(dedupeKey)) {
+    paymentConfirm_postSlackThread_(job, "つくよみです。もう受け取ってるから大丈夫だよ。");
+    return;
+  }
+  cache.put(dedupeKey, "1", 300);
+
+  var result = paymentConfirm_callPwaExpected_(token);
+  if (!result.ok) {
+    paymentConfirm_postSlackThread_(
+      job,
+      "つくよみです。入金確認をOSへ反映できなかった…\n" +
+        String(result.error || "unknown error") + "\n" +
+        "金額入力ボタンかOS側で確認してね。"
+    );
+    return;
+  }
+
+  var updated = Number(result.updated || 0);
+  var already = Number(result.alreadyConfirmed || 0);
+  var y = paymentConfirm_ymLabel_(String(result.invoiceYm || invoiceYm));
+  var a = paymentConfirm_yen_(Number(result.amountYen || amountYen || 0));
+  var alreadyText = already > 0 ? "（うち確認済み " + already + " cycle）" : "";
+  paymentConfirm_postSlackThread_(
+    job,
+    "つくよみです。*予定通り入金済み* としてOSに反映したよ。\n" +
+      "PJ: *" + projectName + "* / 支払月: *" + y + "* / 入金額: *" + a + "*\n" +
+      "更新: " + updated + " cycle " + alreadyText
+  );
+}
+
+function paymentConfirm_callPwaExpected_(token) {
+  var props = PropertiesService.getScriptProperties();
+  var base = String(props.getProperty("PWA_BASE_URL") || "https://amd-os-pwa.vercel.app").trim().replace(/\/+$/, "");
+  var res = UrlFetchApp.fetch(base + "/api/admin/payment-confirm", {
+    method: "post",
+    contentType: "application/json; charset=utf-8",
+    payload: JSON.stringify({
+      token: String(token || ""),
+      mode: "expected",
+      note: "Slack button: expected amount received"
+    }),
+    muteHttpExceptions: true
+  });
+
+  var code = res.getResponseCode();
+  var text = res.getContentText() || "";
+  var json = null;
+  try { json = text ? JSON.parse(text) : null; } catch (_e) { json = null; }
+  if (code >= 200 && code < 300 && json && json.ok === true) return json;
+  return {
+    ok: false,
+    error: json && json.error ? String(json.error) : ("PWA payment-confirm failed: " + code + " " + text)
+  };
+}
+
+function paymentConfirm_postSlackThread_(job, text) {
+  var channelId = String(job && job.channelId || "").trim();
+  var messageTs = String(job && job.messageTs || "").trim();
+  var body = String(text || "").trim();
+  if (!channelId || !messageTs || !body) return;
+
+  try {
+    slack_callApi("chat.postMessage", {
+      channel: channelId,
+      thread_ts: messageTs,
+      text: body,
+      unfurl_links: false,
+      unfurl_media: false
+    });
+  } catch (e) {
+    Logger.log("paymentConfirm_postSlackThread_ failed: " + (e && e.message ? e.message : e));
+  }
+}
+
+function paymentConfirm_ymLabel_(ym) {
+  ym = String(ym || "");
+  if (!/^\d{6}$/.test(ym)) return ym || "-";
+  return ym.slice(0, 4) + "年" + Number(ym.slice(4, 6)) + "月";
+}
+
+function paymentConfirm_yen_(value) {
+  var n = Number(value || 0);
+  if (!isFinite(n)) n = 0;
+  return "¥" + Math.round(n).toLocaleString("ja-JP");
 }
 
 function reimburseApplyDecision(reimbursementId, actionId, approverEmail){

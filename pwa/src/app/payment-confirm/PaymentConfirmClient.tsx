@@ -94,11 +94,11 @@ export function PaymentConfirmClient({ token }: { token: string }) {
 
         <div className="mt-5 rounded-lg border border-[#e5e5e7] bg-[#fafafa] p-4 text-sm">
           <div className="flex justify-between gap-4">
-            <span className="text-[#6e6e73]">予定入金額</span>
+            <span className="text-[#6e6e73]">入金予定額</span>
             <span className="font-semibold">{fmtYen(meta.expectedAmountYen)}</span>
           </div>
           <div className="mt-1 flex justify-between gap-4 text-xs text-[#86868b]">
-            <span>税抜ベース</span>
+            <span>請求額（税抜）</span>
             <span>{fmtYen(meta.expectedNetAmountYen)}</span>
           </div>
         </div>

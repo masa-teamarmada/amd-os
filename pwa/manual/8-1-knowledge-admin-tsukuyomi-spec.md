@@ -183,7 +183,7 @@ dialog_id は client 側で UUID 発行、 サーバは state を持たない (=
 | `applied_count` | confirm されるたび ++ |
 | `last_applied_at` | 直近 confirm 時刻 |
 
-`status='active'` の `l2_feedbacks` は、 次回 Cloud routine 発火時に同 `l2_kind` / `target_id` / `scope_key` で SELECT され、 LLM の prompt に「過去にまさが指摘した修正依頼」として注入される (= [8-3 章 §冪等性と通知](8-3-l2-extraction-routines-spec.md#冪等性と通知))。
+`status='active'` の `l2_feedbacks` は、次回 subscription automation 発火時に同 `l2_kind` / `target_id` / `scope_key` で SELECT され、LLM の prompt に「過去にまさが指摘した修正依頼」として注入される (= [8-3 章 §冪等性と通知](8-3-l2-extraction-routines-spec.md#冪等性と通知))。
 
 ### Sonnet プロンプト (= 案 A)
 
@@ -235,7 +235,7 @@ flowchart LR
   D -->|適用| E[dialog/confirm API]
   E --> F[l2_feedbacks INSERT]
   E --> G[signal/protocol UPDATE]
-  F -.->|next routine 発火| H[Cloud routine fetch active feedbacks]
+  F -.->|next automation 発火| H[subscription automation fetch active feedbacks]
   H --> I[LLM prompt に注入]
   I --> J[次回抽出に反映]
 ```

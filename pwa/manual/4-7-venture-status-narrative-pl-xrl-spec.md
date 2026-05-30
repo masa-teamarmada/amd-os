@@ -156,7 +156,7 @@ XRL (= TRL/BRL/GRL/SRL/HRL) の評価値とその根拠を時系列で残す。
 | `created_by` | `automation` / `codex` / `manual` |
 | `confirmed_at` | 確認時刻 |
 
-抽出は Cloud routine `amd-os-l8-xrl-evidence-extract` (= 6h ごと、 [8-3 章 §⑧](8-3-l2-extraction-routines-spec.md))。 入力: 5 生データ + 既存 L2 (= monthly_reports / meeting_summaries / member_knowledge 等)。
+抽出は Codex automation `amd-os-ms` + SKILL `amd-os-l8-xrl-evidence-extract` (= 6h ごと、 [8-3 章 §⑧](8-3-l2-extraction-routines-spec.md))。入力: 5 生データ + 既存 L2 (= monthly_reports / meeting_summaries / member_knowledge 等)。
 
 ### `xrl_feedbacks` 列 (= 修正依頼)
 

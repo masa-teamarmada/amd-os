@@ -161,7 +161,7 @@ Raw Data / L2 Data / Cron Control を見る admin 専用の運用台帳。
 - DB Settings: `settings` table の key/value
 
 ### 重要な仕様
-- `Stopped` の operation は意図的に止めている。旧 LLM cron や Codex / Claude routine 移管対象なので、すぐ復活させない
+- `Stopped` の operation は意図的に止めている。旧 LLM cron や subscription automation 移管対象なので、すぐ復活させない
 - `Run Now` できるものも、`dryRun` がある時はまず `dryRun=1` で確認する
 - 表示内容の正本は `pwa/src/lib/operations-catalog.ts`
 

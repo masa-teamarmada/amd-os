@@ -312,6 +312,7 @@ expectIncludes("scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md", [
   "## ✅決まったこと",
   "## ▶️次の一手",
   "## ⚠️残課題",
+  "weekly recurring",
 ]);
 expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
   "箇条書き禁止",
@@ -338,6 +339,7 @@ expectIncludes("manual/2-3-pj-cockpit.md", [
 ]);
 expectIncludes("src/app/api/meeting-prep/calendar-sync/route.ts", [
   "calendar-future-sync",
+  "weekly_recurring_future_occurrence",
   "upcoming:",
   "source_kinds",
   "preserve_manual_body",
