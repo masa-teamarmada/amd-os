@@ -700,3 +700,35 @@ frl_cap_amd = F_cap(全員) - F_cap(AMD抜き)
 
 - ended PJ の p04/p09/p11 は、current row に雑に入れず、AMD関与時点の `amd_score_inputs` timeline row を作る/選ぶ。p03/p18 は AMD寄与0案。
 - p07/p20/p21 は F_cap 編集 UI でまさ修正できるようにする。
+
+---
+
+## 2026-05-31 (#103) — Codex (えいみ) / ERS 実データ本評価 84件を本番DBへ反映
+
+> #100 の残タスク「香川大 / 工学院大 / NIMS の確信低サブ軸を実態評価して確定」を継続。UI変更なし。production DB の `institution_assessments` だけを更新し、根拠・未確認論点を note に残した。
+
+### 実施
+
+- 事前確認: `/Users/masa/projects/AGENTS.common.md`、root `AGENTS.md` / `CLAUDE.md`、`pwa/HANDOFF_pwa_rebuild.md`、`pwa/manual/4-9-institution-ers-spec.md`、`pwa/design/institution_readiness.md`、#98/#100、`git status -sb` を確認。
+- 作業ツリーには別件 dirty (`pwa/design/venture_map_demo.md`、`pwa/public/bzm/_prxs_9pj.png` など) があったため触らず、DB更新とERS docsだけを個別対象にした。
+- 根拠として使った現物:
+  - OS/ローカル: `knowledge/partner_institutions.md`、`knowledge/VasculaX.md`、`AMD/kagawa/2026-05-28_meeting_notes.md`、`AMD/kute/docs/20260531_KUTE司令塔.md`、`AMD/kute/docs/20260508_KUTE_2026_MS_design.md`、`AMD/kute/output/regulations/KUTE_GoogleDoc_大学発ベンチャー認定規程_論点別比較.md`、`AMD/CX/docs/20260427_NIMS定例会_アジェンダ.md`
+  - 公式: 香川大 産学連携・知的財産センター / 産官学連携統括本部 / イノベーションデザイン研究所 / アントレ実践型講座 / 大学発ベンチャー認定規則、工学院大 スタートアップ支援 / GTIE・IJIE加盟 / 産学連携申込 / COI規程 / CORC、NIMS 外部連携部門 / NIMSベンチャー企業情報 / 組織連携一覧 / 知財ポリシー・規程。
+- Supabase REST(service_role) で 84 件を `evaluated_at='2026-05-31'` / `evaluator='えいみ'` として upsert。最新行の `draft` note は 0 件。
+
+### 評価変更サマリ
+
+- 香川大: ERS 35% → **44%**。Lv変更 9 件。上方修正は 1-a/1-c/2-c/3-a/3-b/4-a/4-c/6-c/8-b。アントレ実践型講座、産官学連携統括本部、イノベ研、地域連携を反映。
+- 工学院大: ERS 24% → **44%**。Lv変更 20 件。GTIE/IJIE、スタートアップ支援プログラム、研究推進課、CORC、COI規程、多摩/地域連携を反映。
+- NIMS: ERS 62% → **74%**。Lv変更 13 件。外部連携部門、知財室、企業連携室、スタートアップ支援室、NIMSベンチャー/組織連携実績を反映。
+
+### Verified
+
+- DB再計算: 香川大 44.3% (28/28)、工学院大 43.9% (28/28)、NIMS 74.0% (28/28)。
+- Chrome本番確認: `https://amd-os-pwa.vercel.app/institutions` に 44% / 44% / 74% が表示。`/institutions/assess` に Lv チェックと `本評価2026-05-31` 根拠メモが表示。
+
+### 残確認
+
+- 香川大: 全学シーズDB継続運用、EIR/CXO人材プール、IP-equity/SO対価、大学個別の出資・ファンド組成運用。
+- 工学院大: 認定規程の施行、出資・株式/SO保有規程、IP-equity、EIR/CXO人材プール。
+- NIMS: EIR制度の正式名称/常設性、VC導線の制度化、IP-equity/SO対価の定常運用、ギャップファンド/POC資金の制度詳細。

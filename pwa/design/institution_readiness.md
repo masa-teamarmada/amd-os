@@ -181,7 +181,7 @@ ERS（充足率）     ERS = 100 · Σ_k w_k · A_k  (Σw_k = 1)
 - [x] **A: 軸・サブ軸・rubric の確定**（2026-05-29 まさ承認、8 軸 × 28 サブ軸 × Lv1–5 rubric）
 - [x] **B: データモデル**（migration `108_institution_readiness_ers.sql` 適用済 — `institutions` / `institution_capability_axes` / `institution_capability_criteria` / `institution_assessments`）
 - [x] **C: UI 実装**（比較ヒートマップ `/institutions` ＋ 機関詳細 ＋ **評価入力マトリクス `/institutions/assess`** ＋ 書き込み API）
-- [ ] **実データ本評価**: 3 機関（香川大 / 工学院大 / NIMS）の確信低サブ軸を `/institutions/assess` で実態評価して確定（現状はドラフト 84 件、ERS 香川大 35% / 工学院 24% / NIMS 62%）
+- [x] **実データ本評価 v1**: 2026-05-31 に 3 機関（香川大 / 工学院大 / NIMS）× 28 サブ軸 = 84 件を本評価 note へ更新（ERS 香川大 44% / 工学院大 44% / NIMS 74%）。未確認論点は各 note に残し、運用しながら追加確認する。
 - [ ] 軸3 ギャップファンドの置き場所（軸3 or 軸5）／軸7 ゲート化、は運用しながら再検討（当面は現状の加重和のまま）
 - [ ] 機関 ↔ PJ の relation（σ_SU μ_A 接続。機関詳細「この機関発の PJ」枠が未整備）
 

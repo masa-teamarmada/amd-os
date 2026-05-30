@@ -1,19 +1,27 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-05-31 (codex cleanup)
-- Topic: current-state cleanup after #97/#100/#101; payment PR triage; generated BZM PNG dirty handling
+- Last updated: 2026-05-31 (Codex ERS 実データ本評価)
+- Topic: current-state cleanup after #97/#100/#101/#102/#103; payment PR triage; generated BZM PNG dirty handling; ERS 84件本評価反映
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Current branch: `main`
-- Current HEAD: `4195c94 docs(handoff): #101 FRL 2レイヤー化(CES)を design_log 追記 + HANDOFF スリム化`
+- Current HEAD: see latest `main` (`#103` ERS docs commit follows `1aa3e2e feat(score): backfill FRL cap AMD for active projects`)
 
 ## Current State
 
-- Main and origin/main are aligned at `4195c94`.
+- Main includes `1aa3e2e feat(score): backfill FRL cap AMD for active projects`; this handoff adds #103 ERS docs on top.
 - Production was reported Ready from the 2026-05-30 22:33 JST deploy. This cleanup did not deploy.
 - #97 finance fix, #100 ERS work, and #101 FRL/F_capability work are already represented in main-era docs/logs. This handoff no longer treats `feat/bzm-textbook` or the #100 ERS session as the current branch tip.
 - `pwa/HANDOFF_bzm_textbook.md` remains the BZM/AMD Score workstream handoff. Keep BZM model work there, not here.
+
+## ERS 実データ本評価
+
+- 2026-05-31 に 3 機関 × 28 サブ軸 = 84 件を本番 `institution_assessments` へ `evaluated_at='2026-05-31'` / `evaluator='えいみ'` で upsert。
+- 最新 note はすべて `本評価2026-05-31` に更新済み。最新行の `draft` note は 0 件。
+- 最新 ERS: 香川大 44% / 工学院大 44% / NIMS 74%。
+- 本番確認済み: `/institutions` に 44% / 44% / 74% 表示、`/institutions/assess` に Lv チェックと根拠メモ表示。
+- 次に見る場所: `/institutions/assess` の根拠メモに「未確認」と残した項目。香川大は軸5/6/7、工学院大は軸5/6/7、NIMSは軸3/5/6/7-d が優先。
 
 ## Dirty / Local State
 
@@ -47,6 +55,7 @@ Recommendation:
 - Payment-confirm Slack action: `pwa/design_log/sessions_2026-05.md` #96 and `pwa/BUGS.md` `[GAS/PWA] 入金確認Slack action...`
 - CTB finance correction: `pwa/design_log/sessions_2026-05.md` #97 and `pwa/BUGS.md` `[PWA/finance] CTB 202604...`
 - ERS UI: `pwa/design_log/sessions_2026-05.md` #100
+- ERS 実データ本評価: `pwa/design_log/sessions_2026-05.md` #103
 - FRL/F_capability CES: `pwa/design_log/sessions_2026-05.md` #101 and `pwa/HANDOFF_bzm_textbook.md`
 
 ## First Next Action
