@@ -567,3 +567,27 @@ BZM (Before Zero Model) 教科書の既存 10 章が「中身スカスカ」だ�
 ### 次セッションへの申し送り (まさ指示、HANDOFF_bzm_textbook.md にも記載)
 - **#1 スコア詳細ページが HUD版に汚染**: 現状UIはHUD版側に新設し、通常版スコア詳細ページを別途実装
 - **#2 スコア詳細をコックピットに移植**: コックピット上部のAMDスコアグラフ+XRLグラフは常時表示、その下を「進捗管理」「スコア詳細」2タブに。現状表示は進捗管理タブ、スコア詳細ページ中身を丸ごとスコア詳細タブへ。スコアクリックで出る「スコア内訳」モーダルは完全廃止
+
+---
+
+## 2026-05-30 (#100) — Cowork セッション (cowork-eimi) / ERS 評価入力マトリクス UI + 比較ヒートマップ転置・単色濃淡
+
+> #98 で新設した研究機関 ERS のセッション (タイトル "Ecosystem institution scoring system") がエラーで落ちたため、別 Cowork セッションで継続。過去トランスクリプト (`~/.claude/projects/<proj>/<uuid>.jsonl`) を読んで文脈復元 → 実装まで前進。
+
+### prod 表示問題は解消済みだった (調査結果)
+- 元セッション末尾の課題「prod で `/institutions` が見えない (真因 = BZM 枝がデプロイされ ERS コミットを含まないデプロイずれ)」は、**`bfd4b55` (Merge feat/bzm-textbook into main) で既に解消済み**だった。ERS のコード・migration・データは main + 本番に乗っており、ログイン後に `/institutions` ヒートマップが正常表示されることを確認。残課題ではなかった。
+
+### 実装 (本セッションの主成果)
+- **評価入力マトリクス** `/institutions/assess` (page.tsx) 新規 (admin)。各サブ軸を Lv1-5 の 5 行に展開し各レベルの rubric をフル表示、右の各機関列はチェックボックスのみ。1 つにチェック=そのレベル、どの Lv にも未チェック=N/A (軸平均から除外)。各サブ軸末尾に根拠メモ行 (インライン)。変更は 1 セル即保存 (楽観更新)、ERS リアルタイム再計算。ヘッダ行・左列 sticky。
+  - UX 変遷 (捨てた案): 初版は「列=機関/行=サブ軸、各セルに Lv1-5 ボタン + rubric ツールチップ」→ まさ指摘「ツールチップ UX 悪い／各レベルを行で分けて基準を全部見せてチェックだけ」で行展開型に刷新。
+- **書き込み API** `POST /api/institutions/assess` (route.ts) 新規。admin 判定 → institution_assessments を当日分で onConflict(institution_id,criterion_id,evaluated_at) upsert。スキーマ変更なし (既存テーブルへの書き込みのみ)。
+- **比較ヒートマップ** `/institutions` を転置 (行=8軸〔左に番号+軸名+対応XRL〕/列=機関)、最上部に総合 ERS 行を大フォント太字で強調、セルを indigo 単色濃淡 (濃いほど高得点) に変更 (赤→緑配色を廃止)、下部凡例を撤去。右上に「評価を入力/編集」導線。
+- KUTE = 工学院大学 (大学) に確定済を確認 (seed の「※要確認」は解消済)。
+
+### Verified
+- tsc / build 通過、deploy 成功 (v0.11.2 → v0.11.4)。本番 https://amd-os-pwa.vercel.app/institutions で転置・単色濃淡・ERS 強調を目視確認 (まさ)。
+- commit: d22eb0a (マトリクス初版) → 9651470 (行展開型に刷新) → 1fc68f0 (ヒートマップ転置) → e9fbd41 (単色濃淡 + ERS 強調)。すべて main push 済。
+- 並行セッション (#99 続き / XRL checklist) が worktree を dirty にしていたため、自分の institutions 関連ファイルのみ個別 stage して commit (git add . 不使用)。build-info.ts は別セッションの版番号運用 (v0.11.3) を尊重し、deploy 判別用に working tree で v0.11.4 に上げたが commit には含めず。
+
+### 次セッションへ
+- 実データ本評価: 3 機関の確信低サブ軸を `/institutions/assess` で実態評価して確定 (現状ドラフト 84 件、ERS 香川大 35% / 工学院 24% / NIMS 62%)。

@@ -167,18 +167,25 @@ ERS（充足率）     ERS = 100 · Σ_k w_k · A_k  (Σw_k = 1)
 - 研究機関リストの各行: 機関名 / タイプ / ERS 充足率 / 8 軸ミニヒートマップ / 詳細リンク。
 - ナビにも機関一覧（横断ヒートマップ比較）への導線を置く。
 
+### 実装後の表示・編集 UI（2026-05-30 #100 でまさ添削して確定）
+
+- **比較ヒートマップ `/institutions`**: **行 = 8 軸（左ヘッダ列に番号＋軸名＋対応 XRL をフル表示）／列 = 機関**の転置レイアウト。最上部に総合 ERS 行（大フォント太字で強調）、最下部に評価済サブ軸数。セルは **indigo 単色の濃淡（濃いほど高得点）**で、赤→緑のカラフル配色はやめた（色覚的に読みやすく・総合点が一望できる、というまさ判断）。ヘッダ行・列は sticky 固定、下部の軸凡例は行ヘッダに名前が入ったので廃止。
+- **評価入力マトリクス `/institutions/assess`（admin）**: 各サブ軸を **Lv1–5 の 5 行に展開し各レベルの rubric をフル表示**、右の各機関列はチェックボックスのみ。1 つにチェック＝そのレベル、**どの Lv にもチェックしなければ N/A**（軸平均から除外）。各サブ軸末尾に根拠メモ行（インライン入力）。変更は 1 セルずつ即保存（楽観更新）、ERS はリアルタイム再計算。チャットで 1 件ずつ伝える運用を置き換える狙い。
+  - UX 変遷（捨てた案）: 当初は「列＝機関／行＝サブ軸、各セルに Lv1–5 ボタン＋ rubric ツールチップ」だったが、まさ指摘「ツールチップは UX 悪い／各レベルを行で分けて基準を全部見せたうえでチェックだけ付けたい」で現行の行展開型に刷新。
+- **書き込み**: `POST /api/institutions/assess`（admin）→ `institution_assessments` を当日分で `onConflict(institution_id,criterion_id,evaluated_at)` upsert。`fetchErsBundle` が (機関 × サブ軸) ごとに最新 1 件を採用。
+
 ---
 
 ## TODO（このあとの作業）
 
-- [ ] **A: 軸・サブ軸・rubric の確定**（← イマココ。まさが香川大/KUTE/NIMS 実態で添削）
-  - [ ] 軸3 ギャップファンドの置き場所（軸3 or 軸5）を決める
-  - [ ] 軸7 をゲート化するか等加重のままか決める
-  - [ ] NIMS（研究所）に当てて不自然なサブ軸がないか確認
-- [ ] **B: データモデル設計**（`institutions` / `institution_capabilities`（サブ軸定義）/ `institution_assessments`（Lv＋根拠）/ 重み表）→ `db_schema.md` 再生成
-- [ ] **C: UI 実装**（機関マップ一覧ヒートマップ＋機関詳細）
-- [ ] OS マニュアル新章 + `manual-chapters.ts` + `os_manual.md` 更新（実装時）
-- [ ] `pwa/design/README.md` に本 md を登録
+- [x] **A: 軸・サブ軸・rubric の確定**（2026-05-29 まさ承認、8 軸 × 28 サブ軸 × Lv1–5 rubric）
+- [x] **B: データモデル**（migration `108_institution_readiness_ers.sql` 適用済 — `institutions` / `institution_capability_axes` / `institution_capability_criteria` / `institution_assessments`）
+- [x] **C: UI 実装**（比較ヒートマップ `/institutions` ＋ 機関詳細 ＋ **評価入力マトリクス `/institutions/assess`** ＋ 書き込み API）
+- [ ] **実データ本評価**: 3 機関（香川大 / 工学院大 / NIMS）の確信低サブ軸を `/institutions/assess` で実態評価して確定（現状はドラフト 84 件、ERS 香川大 35% / 工学院 24% / NIMS 62%）
+- [ ] 軸3 ギャップファンドの置き場所（軸3 or 軸5）／軸7 ゲート化、は運用しながら再検討（当面は現状の加重和のまま）
+- [ ] 機関 ↔ PJ の relation（σ_SU μ_A 接続。機関詳細「この機関発の PJ」枠が未整備）
+
+> 進捗ログ: 実装・添削の経緯は `design_log/sessions_2026-05.md` #98（新設）/ #100（編集UI・表示刷新）。OS マニュアルは `pwa/manual/4-9-institution-ers-spec.md`。
 
 ---
 
