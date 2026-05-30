@@ -642,3 +642,61 @@ BZM (Before Zero Model) 教科書の既存 10 章が「中身スカスカ」だ�
 - CES の a/ρ を 9PJ retrofit で校正 (a=0.6/ρ=-2 は仮置き)。
 - F_cap を全 PJ の経時各点に展開 (今回は最新行のみ)。まさが画面で各 F_cap を修正する運用 (XRL チェックリストと同じ)。
 - F_cap 編集 UI: スコア詳細ページ (FrlAlqPanel 近辺) に F_capability スライダー + notes を追加。
+
+---
+
+## 2026-05-31 (#102) — Codex (eimi) / FRL_cap_amd first pass: active PJ 4件だけ小さく本番反映
+
+> まさ依頼「FRL 2レイヤー化の続きとして `frl_cap_amd` を再開して。AMDが各PJの経営実行力 F_capability をどれだけ押し上げたかを定量化する」に対応。指定 docs / `db_schema.md` / live DB を確認してから実施。
+
+### live DB で確認した事実
+
+- `project_founding_members.status` 実値は `active` / `tentative` / `invalid` / `left`。`approved` は存在しない。
+- 対象9PJで `category='amd' AND status='active'` は0件だった。AMD行は p09/p11/p20/p21 に `tentative`、p09/p20 に bot由来 `invalid` があるだけ。
+- `amd_score_inputs` には migration 110 の列 (`frl_cap`, `frl_cap_amd`, `frl_cap_notes`, `frl_ces_a`, `frl_ces_rho`) が実装済み。マニュアル側の「未実装」記述が古かったため修正。
+
+### 算定ルール
+
+```text
+frl_cap_amd = F_cap(全員) - F_cap(AMD抜き)
+```
+
+- F_cap は `status='active'` + 実意思決定/PM/資金調達/事業計画へのコミットで見る。
+- HRL と異なり、F_cap は VC/シリアルアントレ/外部CEO候補も算定候補に含める。
+- ended PJ は「現在の active state」ではなく、AMD関与時点の timeline row を分ける必要があるため、今回のDB反映から外した。
+
+### PJ別案
+
+| PJ | F_cap(全員)案 | F_cap(AMD抜き)案 | `frl_cap_amd`案 | DB反映 | AMD紐付け |
+|---|---:|---:|---:|---|---|
+| p03 tiem | 2 | 2 | 0 | 未反映 | AMD設立前。紐付けなし |
+| p04 KT | 5 | 4 | 1 | 保留 | まさ=COO/体制構築候補。ただし current row はAMD関与終了後なので timeline化して反映 |
+| p06 CTB | 4 | 3 | 1 | migration 111 | まさ=COO/AMED事務対応を active 化 |
+| p07 LST | 6 | 5 | 1 | migration 111 | まさ=COO/CEO据付/体制構築を active 化 |
+| p09 JC | 3 | 2 | 1 | 保留 | まさ/うめ/きよ候補。ただし AMD関与終結 row なので timeline化して反映 |
+| p11 BWE | 3 | 2 | 1 | 保留 | まさ候補。ただし 2026-04-30 退任/移譲 row なので timeline化して反映 |
+| p18 YD | 2 | 2 | 0 | 未反映 | 資金調達サポートのみで押し上げ無し案 |
+| p20 CX | 5 | 3 | 2 | migration 111 | まさ/あき/きよ/りりを active 化 |
+| p21 SX | 4 | 3 | 1 | migration 111 | まさ/かる/ちこ/きよを active 化 |
+
+### 実装
+
+- `pwa/scripts/migrations/111_frl_cap_amd_active_projects.sql` 追加・本番適用済。
+- p06/p07/p20/p21 の `project_founding_members` に AMD active 行を upsert。
+- p06/p07/p20/p21 の current `amd_score_inputs` row に `frl_cap` / `frl_cap_amd` / `frl_cap_notes` / CES default を反映。
+- `pwa/manual/4-4-frl-related-members-score-spec.md`: migration 110 実装済みに更新。
+- `pwa/HANDOFF_bzm_textbook.md`: PJ別案と保留理由を追記。
+
+### Verified
+
+- migration 111: Supabase Management API `OK (201)`。
+- live DB verify:
+  - p06: `frl_cap=4`, `frl_cap_amd=1`, AMD active 1件 (`まさ`)
+  - p07: `frl_cap=6`, `frl_cap_amd=1`, AMD active 1件 (`まさ`)
+  - p20: `frl_cap=5`, `frl_cap_amd=2`, AMD active 4件 (`まさ`/`あき`/`きよ`/`りり`)
+  - p21: `frl_cap=4`, `frl_cap_amd=1`, AMD active 4件 (`まさ`/`かる`/`ちこ`/`きよ`)
+
+### 次セッションへの申し送り
+
+- ended PJ の p04/p09/p11 は、current row に雑に入れず、AMD関与時点の `amd_score_inputs` timeline row を作る/選ぶ。p03/p18 は AMD寄与0案。
+- p07/p20/p21 は F_cap 編集 UI でまさ修正できるようにする。

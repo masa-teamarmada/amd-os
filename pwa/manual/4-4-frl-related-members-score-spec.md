@@ -94,12 +94,13 @@ F_cap の 0-9 は **えいみが推測で初期投入 → まさが画面で修�
 | `alq_self_awareness` / `_relational_transparency` / `_balanced_processing` / `_internalized_moral` | ALQ 4 次元 (= F_character 構成) |
 | `frl_grit` | Grit 次元 (= F_character 構成) |
 | `frl_resilience` | Resilience 次元 (= F_character 構成) |
-| `frl_cap` ⭐ | F_capability (= 経営実行力 0-9、 チーム best-of)。 **要 migration (未実装)** |
-| `frl_cap_amd` ⭐ | F_capability のうち AMD メンバー寄与分 (= AMD 価値定量化用)。 **要 migration (未実装)** |
-| `frl_ces_a` / `frl_ces_rho` ⭐ | CES パラメータ (= 初期 a=0.6 / ρ=-2、 retrofit 校正)。 **要 migration (未実装)** |
+| `frl_cap` ⭐ | F_capability (= 経営実行力 0-9、 チーム best-of)。 migration 110 で実装済 |
+| `frl_cap_amd` ⭐ | F_capability のうち AMD メンバー寄与分 (= AMD 価値定量化用)。 migration 110 で実装済 |
+| `frl_cap_notes` ⭐ | F_capability / AMD 寄与の根拠 |
+| `frl_ces_a` / `frl_ces_rho` ⭐ | CES パラメータ (= 初期 a=0.6 / ρ=-2、 retrofit 校正)。 migration 110 で実装済 |
 | `frl_notes` | 自由記述根拠 |
 
-> ⭐ 列は 2026-05-30 の FRL 2 レイヤー化で**設計確定だが DB 未実装**。 本番反映時に migration で追加し、 `amd-score.ts` の FRL 計算を F_char/F_cap 2 入力 + CES 合成に拡張する (= 次セッションタスク)。 既存 `frl` は当面 F_character 相当で動く (F_cap 列が NULL なら従来挙動)。
+> ⭐ 列は 2026-05-30 の FRL 2 レイヤー化で DB 実装済み。 migration 110 で `amd_score_inputs` に追加され、 `amd-score.ts` / `amd-score-derived.ts` は F_char/F_cap 2 入力 + CES 合成に対応済み。 既存 `frl` は F_character 相当で、 `frl_cap` が NULL の行は後方互換として従来どおり `frl` を最終 FRL に使う。
 | `mu_notes` | JSONB `{a, b, g}` (= Triple Helix μ_A/I/G の評価根拠) |
 | `xrl_notes` | JSONB `{trl, brl, grl, srl, hrl}` (= 5 XRL の評価根拠) |
 
