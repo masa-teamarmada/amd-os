@@ -1194,7 +1194,7 @@ function MilestoneRow({ ms }: { ms: MyPageMilestone }) {
 
 function StatusBadge({ status }: { status: AllocationStatus }) {
   if (status === "confirmed") return <p className="text-[11px] text-emerald-600 mt-0.5">● 確定</p>;
-  if (status === "reported") return <p className="text-[11px] text-orange-600 mt-0.5">● 申告中</p>;
+  if (status === "reported") return <p className="text-[11px] text-orange-600 mt-0.5">● 承認待ち</p>;
   return <p className="text-[11px] text-[#86868b] mt-0.5">○ 未設定</p>;
 }
 

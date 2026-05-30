@@ -10,7 +10,7 @@ AMD の請求 → 入金確認 → 会計反映までの finance 系オペレー
 |---|---|---|
 | `/admin/finance` | 月次 finance 概況。 recurring items、 receipt events、 freee 連携状況、 入金未確認 cycle 一覧を見る | admin |
 | `/payment-confirm?token=XXX` | SU 側担当が「予定通り入金しました」を 1 クリックで申告する公開ページ | signed token で認可 |
-| `POST /api/admin/payment-confirm` | confirm 申告を受けて `billing_cycles.payment_confirmed_at` を更新 | signed token verify |
+| `POST /api/admin/payment-confirm` | confirm 申告を受けて `billing_cycles.payment_confirmed_at` を更新。`mode=expected` は入金予定額のまま Slack action から確定、通常 POST は実額入力フォームから確定 | signed token verify |
 | `GET /api/cron/freee-payment-sync` | freee 会計の income deals を読み、 該当する `billing_cycles` を payment_confirmed に上げる | `CRON_SECRET` |
 | `GET /api/cron/payment-confirm-nudges` | 当日が支払日付近の cycle を抽出、 SU 担当に Slack DM を送る | `CRON_SECRET` |
 
@@ -25,8 +25,8 @@ type PaymentConfirmationPayload = {
   projectId: string;          // 対象 PJ
   invoiceYm: string;          // 請求書 ym (= YYYYMM)
   sourceYms: string[];        // 報酬計算源の ym 配列 (= 1 請求書に複数月含む場合あり)
-  expectedAmountYen: number;  // 税込予定額
-  expectedNetAmountYen: number; // 振込予定額 (= 源泉税控除後)
+  expectedAmountYen: number;  // 税込の入金予定額
+  expectedNetAmountYen: number; // 請求額（税抜）
   recipientSlackId?: string | null; // Slack DM 送信先
   exp: number;                // expiry epoch ms
 };
@@ -57,8 +57,8 @@ secret = process.env.PAYMENT_CONFIRM_TOKEN_SECRET
 | 請求対象 | `payload.projectId` の `projects.project_name` |
 | 請求書 ym | `payload.invoiceYm` |
 | 源 ym リスト | `payload.sourceYms` |
-| 予定額 | `payload.expectedAmountYen` (= 税込) / `expectedNetAmountYen` (= 振込予定) |
-| 入力欄 | 実振込額 (= 確認用、 default は expectedNetAmountYen)、 任意メモ |
+| 入金予定額 | `payload.expectedAmountYen` (= 税込) / `expectedNetAmountYen` (= 請求額・税抜) |
+| 入力欄 | 実振込額 (= 確認用、 default は expectedAmountYen)、 任意メモ |
 | ボタン | 「入金確認しました」→ `POST /api/admin/payment-confirm` |
 
 POST 完了後は `billing_cycles.payment_confirmed_at=now()` / `payment_confirmed_by` set、 `status='payment_confirmed'`、 `billing_log` に `action='payment_confirmed'` で 1 行 insert される。
@@ -151,9 +151,11 @@ cadence: 日次 09:10 JST。 input: freee 会計 income deals + `projects.freee_
 
 1. freee `/deals?type=income&limit=100` を query (= `freee_oauth_tokens.refresh_token` で access_token refresh)
 2. 各 deal の `partner_id` から `projects.freee_partner_id` で逆引き → 対象 PJ 確定
-3. deal の `amount` (= 入金額) と `billing_cycles.budget_yen × (1 + 税)` を ±1% で一致確認
+3. deal の `amount` (= 入金額) と入金確認グループの `expectedAmountYen` / `expectedNetAmountYen` を ±1% で一致確認
 4. 一致したら `confirmPaymentGroup(payload, { source: 'freee_deal' })` を呼ぶ
 5. 不一致 / multi-month 不明は `billing_log.action='freee_payment_unmatched'` で残す
+
+`expectedNetAmountYen` は、freee 発行済み請求書の明細合計があればそれを最優先する。未発行または明細が無い場合は、月次ルーティンで承認済みの請求額 (`billing_cycles.budget_reported_amount`) を使う。`budget_yen` は AMD 側の支払可能額なので、クライアントへの請求額として直接使わない。
 
 `dryRun=1` を query に付けると実 update を skip して候補のみ JSON 返す (= 月初の手動確認用)。
 
@@ -183,15 +185,20 @@ WHERE invoice_sent_at IS NOT NULL
 
 ```text
 {projectName} の {invoiceYm} 月分入金が予定日に近づいてます。
-予定額: ¥{expectedNetAmountYen} (= 振込予定)
+入金予定額: ¥{expectedAmountYen}
+請求額（税抜）: ¥{expectedNetAmountYen}
 予定日: {paymentDueDate}
 
-入金済みなら 1 タップで確定:
-{APP_BASE_URL}/payment-confirm?token={token}
-
-freee で確認 (admin):
-{APP_BASE_URL}/api/admin/payment-confirm?mode=expected&token={token}
+ボタン:
+- 予定通り入金済み
+- 金額を入力
 ```
+
+`予定通り入金済み` は、GAS `slackInteractiveWorker` の `payment_confirm_expected` handler が本番デプロイ済みで、PWA env `PAYMENT_CONFIRM_SLACK_INTERACTIVE=1` のときだけ Slack interactive action になる。押すと GAS worker が value 内の signed token を使って `POST /api/admin/payment-confirm` を `mode=expected` で呼び、`billing_cycles.payment_confirmed_at` を更新する。完了後はブラウザを開かず、つくよみが元DMのスレッドに反映結果を返信する。
+
+`PAYMENT_CONFIRM_SLACK_INTERACTIVE` が未設定の間は、既存互換の URL confirm ボタンとして出す。GAS 側の Google OAuth / `clasp` 再認証が切れていると action handler を本番反映できないため、壊れた押下体験を出さないための安全弁。
+
+`金額を入力` だけは `/payment-confirm?token=...` を開く。実額・差額メモを入力するための公開フォームなので、ここはブラウザ導線のまま。
 
 `token` は `createPaymentConfirmationToken(payload)` で発行 (= 14 日 expiry)。
 
@@ -222,9 +229,11 @@ freee で確認 (admin):
 |---|---|
 | `PAYMENT_CONFIRM_TOKEN_SECRET` | signed token の HMAC secret (= 未設定なら `CRON_SECRET` を fallback) |
 | `CRON_SECRET` | cron API 認証 + signed token fallback |
-| `SLACK_BOT_TOKEN` | nudge 送信用 |
+| `SLACK_BOT_TOKEN` | nudge 送信用。GAS 側は interactivity worker のスレッド返信にも使う |
 | `FREEE_CLIENT_ID` / `FREEE_CLIENT_SECRET` | freee OAuth |
 | `APP_BASE_URL` | confirm URL 組み立て (= `https://amd-os-pwa.vercel.app`) |
+| `PAYMENT_CONFIRM_SLACK_INTERACTIVE` | `1` のときだけ `予定通り入金済み` を Slack action ボタンにする。GAS worker デプロイ前は未設定にする |
+| GAS `PWA_BASE_URL` | Slack action worker が PWA `POST /api/admin/payment-confirm` を呼ぶ先 |
 
 ## トラブル時
 

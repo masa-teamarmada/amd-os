@@ -47,10 +47,10 @@ L2 Data は、Raw Data を OS が使える知識に変換したもの。
 
 この一覧は `operations-catalog.ts` の `l2Datasets` が正本。
 
-2026-05-25 時点の注意:
-- ① `monthly_reports` は AMD-Report GAS R313 が別 clasp で生成し、PWA の report route / backfill route が補助する。
-- ③ `milestone_monthly_progress` は MMO/Codex automation `amd-os-l3-ms-progress-extract` が primary writer。GAS 154 -> PWA `/api/cron/hourly-estimate` は 2026-05-29 に再停止済み。Codex automation `amd-os-ms` は修正候補レビュー / OS 台帳差分 / XRL 根拠を outbox に出す。
-- ②④⑤⑥ は 5/22 の LLM cron 停止以降 ghost 状態。復旧計画は [3-2 章](3-2-data-and-extraction.md) と `pwa/design/l2_extract_claude_routine.md` を見る。
+2026-05-29 時点の注意:
+- ① `monthly_reports` は OS の必須データなので生成対象。primary writer は Codex automation `AMD OS L2① 月次報告抽出` (= daily 05:30 JST) で、`amd-os-ms/outbox.monthlyReports` を非LLM helper が反映する。PWA の report route / backfill route、月次報告モーダルの手動生成・修正、AMD-Report GAS R313 は復旧・手動編集・旧経路。R313 は未生成/差分あり時に Claude API を呼びうるため、2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger を置いていない。
+- ③ `milestone_monthly_progress` は **MMOマシン automation `amd-os-l3-ms-progress-extract`** が primary writer。GAS 154 -> PWA `/api/cron/hourly-estimate` は 2026-05-29 に再停止済み。Codex automation `amd-os-ms` は修正候補レビュー / OS 台帳差分 / XRL 根拠を outbox に出す。
+- ②④⑤⑥ は旧 GAS LLM cron から subscription automation へ移管済み。②④⑤は **MMOマシン Codex Desktop automation** (`amd-os-l2-protocol-extract` / `amd-os-l4-project-knowledge-extract` / `amd-os-l5-member-knowledge-extract`)、⑥は **Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow`**。復旧時は [3-2 章](3-2-data-and-extraction.md) と [8-3 章](8-3-l2-extraction-routines-spec.md) の L2①〜⑨ 抽出ルート表を見る。
 
 ## Cron Control の読み方
 
@@ -107,7 +107,7 @@ GAS function の場合:
 
 `dryRun` があるものは、まず `dryRun=1` で挙動確認してから本実行する。
 
-`pwa-hourly-estimate` と `pwa-member-weekly-activities` は旧 PWA LLM cron。2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは LLM を呼ばない。MS進捗の定期抽出は `amd-os-l3-ms-progress-extract` 側で行う。
+`pwa-hourly-estimate` と `pwa-member-weekly-activities` は旧 PWA LLM cron。2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは LLM を呼ばない。MS進捗の定期抽出は **MMOマシン automation `amd-os-l3-ms-progress-extract`** 側で行う。
 
 `pwa-payment-confirm-nudges` は Slack DM を実送信する処理。対象 group、予定税込額、admin 送信先だけ確認したい時は `{"query":{"ym":"YYYYMM","dryRun":1}}` を使う。signed token と `/payment-confirm` の仕様は [6-4 章](6-4-finance-payment-confirm-spec.md)。
 
@@ -115,11 +115,12 @@ GAS function の場合:
 
 | operation | 止めている理由 |
 |---|---|
-| GAS meeting hourly | 旧 LLM / Gemini 系。Claude routine `amd-os-l6-meeting-extract` へ移管済 (= 2026-05-25 まさ #71) |
-| PWA hourly-estimate | 旧 MS進捗 writer。定期抽出は `amd-os-l3-ms-progress-extract` へ移管済 |
+| GAS R313 monthly report trigger | L2①の定期 writer は Codex automation `AMD OS L2① 月次報告抽出`。R313 は従量課金 Claude API を呼びうる旧経路なので trigger 復活しない |
+| GAS meeting hourly | 旧 LLM / Gemini 系。Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow` へ移管済 |
+| PWA hourly-estimate | 旧 MS進捗 writer。定期抽出は MMOマシン automation `amd-os-l3-ms-progress-extract` へ移管済 |
 | PWA member-weekly-activities | Anthropic 経路を持つため停止。定期化する場合は subscription automation 側で実行 |
-| GAS L2 knowledge | 旧 LLM / Gemini 系。Claude routine `amd-os-l2..l5-*-extract` へ移管済 (= 2026-05-25 まさ #71) |
-| Claude routine `amd-os-l<N>-<data>-extract` | 2026-05-25 まさ #71 確定。L2 ②〜⑨ すべて Claude routine に統一。`CronOperation.layer="Claude"` で `operations-catalog.ts` に登録、`run.type="manual"` (= `~/.claude/scheduled-tasks/` ローカル cron、PWA から直接叩けない、Claude Code セッション経由で実行)。詳細は [9-1 章 §5.7](9-1-decisions-and-history.md#57-l2-②④⑤⑥-ghost-化と-claude-routine-4-個新設計画--2026-05-25) + 設計議論 [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md) |
+| GAS L2 knowledge | 旧 LLM / Gemini 系。②④⑤は MMOマシン Codex Desktop automation `amd-os-l2/l4/l5-*-extract` へ移管済 |
+| Claude routine `amd-os-l<N>-<data>-extract` | 2026-05-25〜26 の移行検討/一部登録の履歴。現行判断では、復旧・運用確認は 3-2 / 8-3 の **実行場所 + automation** 表を見る。PWA から直接叩く対象ではない |
 | Atlas collect / policy collect | LLM web search 系。Codex automation / review batch へ移管 |
 | Seeds ingest / VC discover | web_search + LLM 系。費用対効果を見て手動 / automation 側で扱う |
 | AMD Score L2 refresh | LLM 系。修正依頼ループと一緒に見直す |
@@ -133,7 +134,7 @@ PWA route は存在するが、UI の `Run Now` には出さない運用 job が
 
 | operation | route | 理由 |
 |---|---|---|
-| `manual-monthly-reports-backfill` | `/api/cron/monthly-reports-backfill` | missing `monthly_reports` を Sonnet で生成する重い backfill。`limit` / `concurrency` と対象月を確認してから使う |
+| `manual-monthly-reports-backfill` | `/api/cron/monthly-reports-backfill` | missing `monthly_reports` を Sonnet で生成する重い backfill。`limit` / `concurrency` と対象月を確認してから使う。R313 trigger が止まっていても、この route を手動実行すれば token 課金は発生しうる |
 | `manual-freeze-period-backfill` | `/api/cron/freeze-period-backfill` | 休止期間 PJ の reports + meetings を Sonnet で統合する。対象 PJ と再開月の確認が必要 |
 | `manual-triple-helix-recompute` | `/api/cron/triple-helix-recompute` | ASPI 8 domain × 16 quarter の BVAR/Kalman 再計算。時間と投入データを確認してから使う |
 | `manual-management-score-raw` | `/api/cron/management-score-raw-data` | Management Score は raw -> calculate の順番がある |

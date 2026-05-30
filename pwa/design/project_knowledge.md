@@ -20,7 +20,7 @@ L2 ④ PJナレッジ (`project_knowledge`) の自動更新 cron。
 |---|---|
 | ~ Phase 3 | ⚠️ 流入元不明だが既に 2024 行存在 (= 過去のスプシ手入力 or 別経路で蓄積) |
 | Phase 4 | 2026-05-09 に本体GAS の毎時 trigger (`gas/155_L2KnowledgeExtractor.js` `nav_project_knowledge_pollAll`) で稼働開始。**入力は二次集約** (monthly_reports + project_meeting_summaries)。**既存 2024 行は破壊しない設計** (entity_name 単位で SELECT → 既存有り UPDATE / 無し INSERT) |
-| **2026-05-22 以降** ⭐ (current truth) | LLM 課金抑制のため GAS 155 が kill switch 停止。`project_knowledge` は ghost 状態。復旧方針は Claude routine `amd-os-project-knowledge-extract` (= daily 08:15 JST 予定)。詳細は [../manual/8-3-l2-extraction-routines-spec.md](../manual/8-3-l2-extraction-routines-spec.md) |
+| **2026-05-29 以降** ⭐ (current truth) | LLM 課金抑制のため GAS 155 は kill switch 停止のまま。`project_knowledge` の現行 writer は MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract` (= daily 08:15 JST)。詳細は [../manual/8-3-l2-extraction-routines-spec.md](../manual/8-3-l2-extraction-routines-spec.md) |
 
 ---
 
@@ -105,7 +105,7 @@ CREATE TABLE project_knowledge (
 ### 本番
 2026-05-25 #68 時点では、GAS time-trigger は停止中。GAS 155 は `L2_KNOWLEDGE_CRON_DISABLED_20260522` で disabled return するため、毎時発火を復活させない。
 
-復旧後は Claude routine `amd-os-project-knowledge-extract` が daily 08:15 JST に実行し、Supabase REST へ直接 upsert する設計。
+現行は MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract` が daily 08:15 JST に実行し、Supabase へ upsert する設計。
 
 ### 手動実行 (curl)
 ```sh
@@ -132,7 +132,7 @@ curl -sL --max-time 300 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_project
 | 2026-05-09 | Phase 4 初版稼働。GAS 155 で毎時 polling + source_hash 差分検知 + 二次集約 (monthly_reports + meeting_summaries → Gemini → SELECT/INSERT/PATCH) |
 | 2026-05-09 | **alias map 統合**: `gas/079 nameAlias_buildBlock` でメンバー名の表記揺れマップを LLM プロンプトに渡す。`pv: "v3_with_aliases"` で全行再抽出 |
 | 2026-05-09 | **v4_meta_strict 防御強化** (BUGS.md 「PJナレッジ抽出で SE に CryoX/神谷 が紛れ込む」事故対応): userPrompt 冒頭に `=== project_meta ===` セクション (projectId / projectName / ym) 追加 + systemPrompt に「monthly_report が他 PJ 内容で汚染されているケース (例: projectName='SE' なのに CryoX/NIMS神谷 が書かれている) は items: [] を返せ」明示。`monthly_reports.status=neq.invalid` フィルタで汚染レポートは入力対象外に。汚染レポートは手動で `status='invalid'` にマーク運用 |
-| 2026-05-25 | #68 current truth 反映。GAS 155 は 5/22 kill switch で停止中、復旧は Claude routine `amd-os-project-knowledge-extract`。 |
+| 2026-05-29 | 正本訂正。GAS 155 は 5/22 kill switch で停止中、現行 writer は MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract`。 |
 
 ---
 

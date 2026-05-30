@@ -192,7 +192,7 @@ LLM プロンプトと、 つくよみの context (= スプシ由来の旧 syste
 
 | prompt_key | 利用元 |
 |---|---|
-| `meeting_summary.extract` | L2 ⑥ MTG サマリ抽出 (= Cloud routine + PWA fallback) |
+| `meeting_summary.extract` | L2 ⑥ MTG サマリ抽出 (= Windows MMO Codex Desktop automation + PWA event route) |
 | `member_activities.extract` | L2 ② 先手力判定の `initiative_origin` 抽出 |
 | `project_knowledge.extract` | L2 ④ PJ ナレッジ抽出 |
 | `member_knowledge.extract` | L2 ⑤ メンバーナレッジ抽出 |

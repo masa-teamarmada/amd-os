@@ -20,7 +20,7 @@ L2 ⑤ メンバーナレッジ (`member_knowledge`) の自動更新 cron。
 |---|---|
 | Phase 1〜3 | ❌ 未稼働 (テーブル空) |
 | Phase 4 | 2026-05-09 に本体GAS の毎時 trigger (`gas/155_L2KnowledgeExtractor.js` `nav_member_knowledge_pollAll`) で稼働開始。**入力は二次集約** (= 既存 `member_activities` + `project_meeting_summaries`) |
-| **2026-05-22 以降** ⭐ (current truth) | LLM 課金抑制のため GAS 155 が kill switch 停止。`member_knowledge` は ghost 状態。復旧方針は Claude routine `amd-os-member-knowledge-extract` (= daily 08:30 JST 予定)。詳細は [../manual/8-3-l2-extraction-routines-spec.md](../manual/8-3-l2-extraction-routines-spec.md) |
+| **2026-05-29 以降** ⭐ (current truth) | LLM 課金抑制のため GAS 155 は kill switch 停止のまま。`member_knowledge` の現行 writer は MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract` (= daily 08:30 JST)。詳細は [../manual/8-3-l2-extraction-routines-spec.md](../manual/8-3-l2-extraction-routines-spec.md) |
 
 ---
 
@@ -113,7 +113,7 @@ CREATE TABLE l2_extract_state (
 ### 本番
 2026-05-25 #68 時点では、GAS time-trigger は停止中。GAS 155 は `L2_KNOWLEDGE_CRON_DISABLED_20260522` で disabled return するため、毎時発火を復活させない。
 
-復旧後は Claude routine `amd-os-member-knowledge-extract` が daily 08:30 JST に実行し、Supabase REST へ直接 upsert する設計。
+現行は MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract` が daily 08:30 JST に実行し、Supabase へ upsert する設計。
 
 ### 手動実行 (curl)
 ```sh
@@ -146,7 +146,7 @@ curl -sL --max-time 360 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_member_
 | 2026-05-09 | **member_activities 列名 4 つ間違いバグ修正** (`code_name`/`created_at`/`activity_text`/`kind` → `member_id`/`extracted_at`/`content_preview`/`source`)。PostgREST 42703 エラーで activities ゼロ → 他 PJ meeting_summaries だけが LLM 入力になり「きよ」のナレッジに「神谷氏との CEO 候補面談」等が誤抽出されていた事故を修正。BUGS.md 参照 |
 | 2026-05-09 | **役割分担データ統合 (Section C 追加)**: 入力に `milestone_responsibility` (share>0) × `value_milestones` (title/success_criteria) × `value_plan_cycles` (project_id) JOIN で「公式の役割分担」をグラウンドトゥルースとして渡す。LLM プロンプトで「skills/work_style はここから抽出」と明示。きよ で検証 → 「請求書処理・契約管理等の月次事務手続き、入札対応全般」が正しく抽出された (= まさの事務担当像と整合) |
 | 2026-05-09 | **alias map 統合**: `gas/079 nameAlias_buildBlock` でメンバー名の表記揺れマップを LLM プロンプトに渡す。`pv: "v3_with_aliases"` で全行再抽出 |
-| 2026-05-25 | #68 current truth 反映。GAS 155 は 5/22 kill switch で停止中、復旧は Claude routine `amd-os-member-knowledge-extract`。現 schema に `status` / `source_hash` が無いことを明記。 |
+| 2026-05-29 | 正本訂正。GAS 155 は 5/22 kill switch で停止中、現行 writer は MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract`。現 schema に `status` / `source_hash` が無いことを明記。 |
 
 ---
 

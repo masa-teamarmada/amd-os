@@ -62,6 +62,91 @@ function isTentativePrepMeeting(item: ProjectMeetingSummary): boolean {
   return isPrepMeeting(item) && !isUpcomingMeeting(item);
 }
 
+function normalizeUpcomingSeriesTitle(title: string): string {
+  return title
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\b\d{4}[-/.年]\d{1,2}[-/.月]\d{1,2}日?\b/g, " ")
+    .replace(/\b\d{1,2}:\d{2}\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function dayNumber(ymd: string): number {
+  const [year, month, day] = ymd.split("-").map((v) => Number(v));
+  if (!year || !month || !day) return Number.NaN;
+  return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
+}
+
+function weekdayKey(ymd: string): string {
+  const d = new Date(`${ymd}T00:00:00+09:00`);
+  return Number.isNaN(d.getTime()) ? "unknown" : String(d.getDay());
+}
+
+function timeKey(item: ProjectMeetingSummary): string {
+  return item.meetingStartAt ? formatTimeLabel(item.meetingStartAt) : "";
+}
+
+function recurringSeriesId(item: ProjectMeetingSummary): string | null {
+  const raw = item.calendarEventId || item.meetingId.replace(/^upcoming:/, "");
+  const match = raw.match(/^(.+)_\d{8}(?:T\d{6}Z?)?$/);
+  return match?.[1] || null;
+}
+
+function upcomingSeriesKey(item: ProjectMeetingSummary): string {
+  const seriesId = recurringSeriesId(item);
+  if (seriesId) return `calendar-series:${item.projectId}:${seriesId}`;
+  return [
+    "fallback",
+    item.projectId,
+    normalizeUpcomingSeriesTitle(item.title) || "(untitled)",
+    weekdayKey(item.meetingDate),
+    timeKey(item),
+  ].join(":");
+}
+
+function hasWeeklyCadence(items: ProjectMeetingSummary[], hasCalendarSeriesId: boolean): boolean {
+  if (items.length < (hasCalendarSeriesId ? 2 : 3)) return false;
+  const ordered = [...items].sort((a, b) => {
+    const ad = a.meetingStartAt || `${a.meetingDate}T00:00:00+09:00`;
+    const bd = b.meetingStartAt || `${b.meetingDate}T00:00:00+09:00`;
+    return ad.localeCompare(bd);
+  });
+  let weeklyPairs = 0;
+  for (let i = 1; i < ordered.length; i += 1) {
+    const prev = dayNumber(ordered[i - 1].meetingDate);
+    const current = dayNumber(ordered[i].meetingDate);
+    if (!Number.isFinite(prev) || !Number.isFinite(current)) continue;
+    const diff = current - prev;
+    if (diff >= 6 && diff <= 8) weeklyPairs += 1;
+  }
+  const requiredPairs = hasCalendarSeriesId ? 1 : Math.max(2, Math.floor((ordered.length - 1) * 0.6));
+  return weeklyPairs >= requiredPairs;
+}
+
+function keepNextWeeklyOccurrenceOnly(items: ProjectMeetingSummary[]): ProjectMeetingSummary[] {
+  const groups = new Map<string, ProjectMeetingSummary[]>();
+  for (const item of items) {
+    const key = upcomingSeriesKey(item);
+    const group = groups.get(key) ?? [];
+    group.push(item);
+    groups.set(key, group);
+  }
+
+  const hiddenMeetingIds = new Set<string>();
+  for (const [key, group] of groups) {
+    if (!hasWeeklyCadence(group, key.startsWith("calendar-series:"))) continue;
+    const ordered = [...group].sort((a, b) => {
+      const ad = a.meetingStartAt || `${a.meetingDate}T00:00:00+09:00`;
+      const bd = b.meetingStartAt || `${b.meetingDate}T00:00:00+09:00`;
+      return ad.localeCompare(bd);
+    });
+    for (const item of ordered.slice(1)) hiddenMeetingIds.add(item.meetingId);
+  }
+
+  return items.filter((item) => !hiddenMeetingIds.has(item.meetingId));
+}
+
 interface MeetingGroup {
   ym: string;
   items: ProjectMeetingSummary[];
@@ -149,6 +234,9 @@ export function CockpitMeetingSummary({ projectId }: Props) {
   }
 
   function openSelectedMeeting(meeting: ProjectMeetingSummary) {
+    // 手動 open も auto-open 済みとして記憶する。これをしないと、閉じた直後 (router.replace で
+    // ?meeting= が消える前) に auto-open effect が再発火して同じ MTG を開き直す (#10 まさ 2026-05-29)
+    autoOpenedRef.current = meeting.meetingId;
     setSelectedMeeting(meeting);
     router.replace(meetingUrl(meeting.meetingId), { scroll: false });
   }
@@ -185,13 +273,14 @@ export function CockpitMeetingSummary({ projectId }: Props) {
     [recentItems, olderItems]
   );
   const upcomingItems = useMemo(
-    () => recentItems
-      .filter((item) => isUpcomingMeeting(item) && item.meetingDate >= today)
-      .sort((a, b) => {
-        const ad = a.meetingStartAt || `${a.meetingDate}T00:00:00+09:00`;
-        const bd = b.meetingStartAt || `${b.meetingDate}T00:00:00+09:00`;
-        return ad.localeCompare(bd);
-      }),
+    () => keepNextWeeklyOccurrenceOnly(
+      recentItems
+        .filter((item) => isUpcomingMeeting(item) && item.meetingDate >= today)
+    ).sort((a, b) => {
+      const ad = a.meetingStartAt || `${a.meetingDate}T00:00:00+09:00`;
+      const bd = b.meetingStartAt || `${b.meetingDate}T00:00:00+09:00`;
+      return ad.localeCompare(bd);
+    }),
     [recentItems, today]
   );
   const tentativeItems = useMemo(

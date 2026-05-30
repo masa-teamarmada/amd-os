@@ -127,7 +127,7 @@ PJ 判定は、 PJ 専用 email / PJ 名 / client 名 / `project_knowledge(categ
 - **MTG サマリ修正依頼カード** (= 議事録の decided/progress が違う、 narrative_md を直して、 等)
 - **経営ハイライト確認カード** (= L2 ⑨ が抽出した signal、 まさえいMTG にかける前のレビュー)
 
-カードを confirm/reject すると、 該当の `l2_feedbacks` 行が `status='active'` で残り、 次回 Cloud routine 発火時に prompt に注入される (= 同じ間違いを繰り返さない)。
+カードを confirm/reject すると、 該当の `l2_feedbacks` 行が `status='active'` で残り、 次回 subscription automation 発火時に prompt に注入される (= 同じ間違いを繰り返さない)。
 
 ## 月次の流れ (= メンバー視点)
 

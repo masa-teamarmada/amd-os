@@ -33,6 +33,9 @@ type CalendarEventInput = {
   id?: unknown;
   event_id?: unknown;
   calendar_event_id?: unknown;
+  recurring_event_id?: unknown;
+  recurringEventId?: unknown;
+  recurrence?: unknown;
   title?: unknown;
   summary?: unknown;
   start?: unknown;
@@ -61,6 +64,8 @@ type NormalizedEvent = {
   description: string;
   location: string;
   forcedProjectId: string | null;
+  recurringEventId: string | null;
+  recurrenceRules: string[];
   driveFiles: DriveFileRef[];
 };
 
@@ -70,6 +75,13 @@ type DriveFileRef = {
   mimeType: string | null;
   modifiedTime: string | null;
   snippet: string | null;
+};
+
+type MatchedCalendarEvent = {
+  inputIndex: number;
+  event: NormalizedEvent;
+  project: ProjectRow;
+  reason: string;
 };
 
 function sha256(s: string): string {
@@ -147,6 +159,15 @@ function normalizeDriveFiles(value: unknown): DriveFileRef[] {
     });
   }
   return out;
+}
+
+function normalizeRecurrenceRules(value: unknown): string[] {
+  if (typeof value === "string" && value.trim()) return [value.trim()];
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter(Boolean)
+    .slice(0, 8);
 }
 
 function companyNameVariants(value: string): string[] {
@@ -227,10 +248,89 @@ function normalizeEvent(input: CalendarEventInput): { event: NormalizedEvent | n
       description: pickString(input.description),
       location: pickString(input.location),
       forcedProjectId: pickString(input.project_id) || null,
+      recurringEventId: pickString(input.recurring_event_id, input.recurringEventId) || null,
+      recurrenceRules: normalizeRecurrenceRules(input.recurrence),
       driveFiles: normalizeDriveFiles(input.drive_files),
     },
     reason: "ok",
   };
+}
+
+function normalizeSeriesTitle(value: string): string {
+  return normalizeForMatch(value)
+    .replace(/\b\d{4}[-/.年]\d{1,2}[-/.月]\d{1,2}日?\b/g, " ")
+    .replace(/\b\d{1,2}:\d{2}\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function jstWeekdayKey(ymd: string): string {
+  const d = new Date(`${ymd}T00:00:00+09:00`);
+  return Number.isNaN(d.getTime()) ? "unknown" : String(d.getDay());
+}
+
+function jstTimeKey(iso: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || "";
+  return `${get("hour")}:${get("minute")}`;
+}
+
+function dayNumber(ymd: string): number {
+  const [year, month, day] = ymd.split("-").map((v) => Number(v));
+  if (!year || !month || !day) return Number.NaN;
+  return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
+}
+
+function weeklySeriesKey(item: MatchedCalendarEvent): string {
+  if (item.event.recurringEventId) {
+    return `recurring:${item.project.project_id}:${item.event.recurringEventId}`;
+  }
+  const title = normalizeSeriesTitle(item.event.title) || "(untitled)";
+  const weekday = jstWeekdayKey(item.event.meetingDate);
+  const time = jstTimeKey(item.event.startIso);
+  const location = normalizeForMatch(item.event.location).slice(0, 80);
+  return `fallback:${item.project.project_id}:${title}:${weekday}:${time}:${location}`;
+}
+
+function isWeeklyCadence(items: MatchedCalendarEvent[], hasExplicitSeriesId: boolean): boolean {
+  if (items.length < (hasExplicitSeriesId ? 2 : 3)) return false;
+  const ordered = [...items].sort((a, b) => a.event.startIso.localeCompare(b.event.startIso));
+  let weeklyPairs = 0;
+  for (let i = 1; i < ordered.length; i += 1) {
+    const prev = dayNumber(ordered[i - 1].event.meetingDate);
+    const current = dayNumber(ordered[i].event.meetingDate);
+    if (!Number.isFinite(prev) || !Number.isFinite(current)) continue;
+    const diff = current - prev;
+    if (diff >= 6 && diff <= 8) weeklyPairs += 1;
+  }
+  const requiredPairs = hasExplicitSeriesId ? 1 : Math.max(2, Math.floor((ordered.length - 1) * 0.6));
+  return weeklyPairs >= requiredPairs;
+}
+
+function findExtraWeeklyOccurrences(items: MatchedCalendarEvent[]): Map<number, { kept: MatchedCalendarEvent; seriesKey: string }> {
+  const groups = new Map<string, MatchedCalendarEvent[]>();
+  for (const item of items) {
+    const key = weeklySeriesKey(item);
+    const group = groups.get(key) ?? [];
+    group.push(item);
+    groups.set(key, group);
+  }
+
+  const hidden = new Map<number, { kept: MatchedCalendarEvent; seriesKey: string }>();
+  for (const [seriesKey, group] of groups) {
+    const hasExplicitSeriesId = seriesKey.startsWith("recurring:");
+    const hasWeeklyRule = group.some((item) => item.event.recurrenceRules.some((rule) => /FREQ=WEEKLY/i.test(rule)));
+    if (!hasWeeklyRule && !isWeeklyCadence(group, hasExplicitSeriesId)) continue;
+    const ordered = [...group].sort((a, b) => a.event.startIso.localeCompare(b.event.startIso));
+    const kept = ordered[0];
+    for (const item of ordered.slice(1)) hidden.set(item.inputIndex, { kept, seriesKey });
+  }
+  return hidden;
 }
 
 function buildCalendarHash(event: NormalizedEvent, projectId: string): string {
@@ -244,6 +344,8 @@ function buildCalendarHash(event: NormalizedEvent, projectId: string): string {
     sourceUrl: event.sourceUrl,
     description: event.description.slice(0, 1000),
     location: event.location,
+    recurringEventId: event.recurringEventId,
+    recurrenceRules: event.recurrenceRules,
     driveFiles: event.driveFiles.map((f) => ({
       title: f.title,
       url: f.url,
@@ -363,33 +465,58 @@ export async function POST(req: NextRequest) {
   if (projectError) return NextResponse.json({ error: projectError.message }, { status: 500 });
   const projects = (projectsData ?? []) as ProjectRow[];
 
-  const results: Array<Record<string, unknown>> = [];
+  const results: Array<Record<string, unknown> | null> = new Array(rawEvents.length).fill(null);
+  const matchedEvents: MatchedCalendarEvent[] = [];
   let created = 0;
   let updated = 0;
   let skipped = 0;
 
-  for (const raw of rawEvents) {
+  for (let inputIndex = 0; inputIndex < rawEvents.length; inputIndex += 1) {
+    const raw = rawEvents[inputIndex];
     const { event, reason } = normalizeEvent((raw ?? {}) as CalendarEventInput);
     if (!event) {
       skipped += 1;
-      results.push({ ok: false, reason });
+      results[inputIndex] = { ok: false, reason };
       continue;
     }
     if (event.meetingDate < currentMeetingDate) {
       skipped += 1;
-      results.push({ ok: false, reason: "past_event", calendar_event_id: event.eventId, title: event.title, start: event.startIso });
+      results[inputIndex] = { ok: false, reason: "past_event", calendar_event_id: event.eventId, title: event.title, start: event.startIso };
       continue;
     }
 
     const match = matchProject(event, projects);
     if (!match.project) {
       skipped += 1;
-      results.push({ ok: false, reason: match.reason, calendar_event_id: event.eventId, title: event.title, start: event.startIso });
+      results[inputIndex] = { ok: false, reason: match.reason, calendar_event_id: event.eventId, title: event.title, start: event.startIso };
+      continue;
+    }
+
+    matchedEvents.push({ inputIndex, event, project: match.project, reason: match.reason });
+  }
+
+  const extraWeeklyOccurrences = findExtraWeeklyOccurrences(matchedEvents);
+
+  for (const matched of matchedEvents) {
+    const { inputIndex, event } = matched;
+    const weeklySkip = extraWeeklyOccurrences.get(inputIndex);
+    if (weeklySkip) {
+      skipped += 1;
+      results[inputIndex] = {
+        ok: false,
+        reason: "weekly_recurring_future_occurrence",
+        calendar_event_id: event.eventId,
+        title: event.title,
+        meeting_start_at: event.startIso,
+        project_id: matched.project.project_id,
+        kept_meeting_id: `upcoming:${weeklySkip.kept.event.eventId}`,
+        series_key: weeklySkip.seriesKey,
+      };
       continue;
     }
 
     const meetingId = `upcoming:${event.eventId}`;
-    const sourceHash = buildCalendarHash(event, match.project.project_id);
+    const sourceHash = buildCalendarHash(event, matched.project.project_id);
     const { data: existingData, error: existingError } = await admin
       .from("project_meeting_summaries")
       .select("meeting_id,generated_by_model,prep_status,source_hash,summary_short,narrative_md")
@@ -399,14 +526,14 @@ export async function POST(req: NextRequest) {
     const existing = existingData as ExistingPrepRow | null;
     if (existing?.source_hash === sourceHash) {
       skipped += 1;
-      results.push({ ok: true, mode: "unchanged", meeting_id: meetingId, project_id: match.project.project_id, reason: match.reason });
+      results[inputIndex] = { ok: true, mode: "unchanged", meeting_id: meetingId, project_id: matched.project.project_id, reason: matched.reason };
       continue;
     }
 
-    const bodyText = buildPrepBody(event, match.project);
+    const bodyText = buildPrepBody(event, matched.project);
     const baseRow = {
       meeting_id: meetingId,
-      project_id: match.project.project_id,
+      project_id: matched.project.project_id,
       ym: event.meetingDate.slice(0, 4) + event.meetingDate.slice(5, 7),
       meeting_date: event.meetingDate,
       meeting_start_at: event.startIso,
@@ -445,17 +572,17 @@ export async function POST(req: NextRequest) {
 
     if (existing) updated += 1;
     else created += 1;
-    results.push({
+    results[inputIndex] = {
       ok: true,
       mode: existing ? "updated" : "created",
       preserve_manual_body: shouldPreserveManualBody,
       meeting_id: meetingId,
-      project_id: match.project.project_id,
+      project_id: matched.project.project_id,
       title: event.title,
       meeting_start_at: event.startIso,
-      reason: match.reason,
+      reason: matched.reason,
       dry_run: dryRun,
-    });
+    };
   }
 
   return NextResponse.json({
@@ -465,6 +592,6 @@ export async function POST(req: NextRequest) {
     skipped,
     total: rawEvents.length,
     created_by: authz.createdBy,
-    results,
+    results: results.filter((result): result is Record<string, unknown> => result !== null),
   });
 }

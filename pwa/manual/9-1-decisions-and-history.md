@@ -44,11 +44,11 @@
 
 ### ⚠️ 新セッションの開発担当へ
 - **「cron 復活すればいい」と雑に提案するのは禁忌**。問題は cron そのものではなく、token 課金が発生する LLM cron / LLM route を勝手に復活・新設すること
-- **追加課金ゼロ** は「LLM 禁止」でも「cron 禁止」でもない。PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 API を勝手に呼ばない、という意味。LLM が必要な L2 抽出は **Claude Cloud routine / Codex automation のサブスク枠**へ寄せる
+- **追加課金ゼロ** は「LLM 禁止」でも「cron 禁止」でもない。PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 API を勝手に呼ばない、という意味。LLM が必要な L2 抽出は **MMOマシン Codex Desktop automation / Codex automation のサブスク枠**へ寄せる
 - LLM 非依存の cron (= DB 同期、外部API fetch、通知、キャッシュ更新、入金/請求系など) は問題なし。新規に作る場合は「token 課金なし」をコードと設計 md に明記する
-- データ取り込み不足を見つけたら、まず **Claude Cloud routine / Codex automation / event-driven API** で実装する
-- Cloud routine の trigger は allowed path。PWA / GAS / Vercel cron は LLM 非依存の運用処理だけ allowed path
-- L2 ②〜⑨の品質改善は `pwa/scheduled-tasks/amd-os-l<N>-*/SKILL.md` を更新する。PWA route / GAS function に新しい API-billed LLM 呼び出しを追加しない
+- データ取り込み不足を見つけたら、まず **MMOマシン Codex Desktop automation / Codex automation / event-driven API** で実装する
+- subscription automation の trigger は allowed path。PWA / GAS / Vercel cron は LLM 非依存の運用処理だけ allowed path
+- L2 ①〜⑨の品質改善は `pwa/scheduled-tasks/amd-os-l<N>-*/SKILL.md` を更新する。PWA route / GAS function に新しい API-billed LLM 呼び出しを追加しない
 
 ---
 
@@ -92,23 +92,26 @@
 
 「**どの自動処理がどこで動いてるか**」が分かる正本表。新セッションの開発担当は必ず確認。
 
-**🚨 2026-05-26 大変更**: L2 ②〜⑨ 全 8 種を **claude.ai/code/routines (= Cloud / Remote routine、Anthropic-managed cloud infrastructure)** に統一移行 ([8-3 章](8-3-l2-extraction-routines-spec.md))。GAS 153/155/152 と Codex automation `amd-os-ms` / `amd-os` は段階的に停止 (= Cloud routine 動作確認後)。理由: Mac の Local routine (`~/.claude/scheduled-tasks/`) は **app open + 非スリープ中のみ発火** で MacBook Air 運用と相性悪い、Cloud routine は laptop closed でも動く。
+**🚨 2026-05-29 正本訂正**: L2 ① `monthly_reports` も定額 subscription automation の正式対象。Codex automation `AMD OS L2① 月次報告抽出` が daily 05:30 JST に 5 生データから draft を作り、`amd-os-ms/outbox.monthlyReports` を LaunchAgent が反映する。R313 は旧有料API経路で、trigger は復活しない。
 
-### Cloud routines (= L2 ②〜⑨ 統一、2026-05-26 entry 済)
+**🚨 2026-05-29 運用表記の訂正**: 2026-05-26 の Cloud routine 移行ログは履歴として残すが、現行の復旧・運用判断では **実行場所 + automation 名 + outbox/applier** を見る。人間が ID だけを見て迷わないよう、現行表では MMOマシン / Codex automation / LaunchAgent を明記する。
 
-| routine 名 | trigger ID | 動く場所 | 頻度 | 役割 | 状態 |
+### Subscription automations (= L2 ①〜⑨)
+
+| routine 名 | automation / ID | 動く場所 | 頻度 | 役割 | 状態 |
 |---|---|---|---|---|---|
-| L2 ② AMD プロトコル抽出 | `trig_01YEcyejLzKF7zYgmAiw3w8P` | claude.ai Cloud sandbox VM | daily 08:00 JST | `protocols` 抽出 (GAS 155 後継) | ✅ 動作テスト済 |
-| L2 ③ MS 進捗抽出 | `trig_01MxR8nyEvJvSHaCwDcHoqmb` | 同上 | 毎時 0 分 | `milestone_monthly_progress` 推定 (PWA hourly-estimate 後継) | ✅ 定期抽出 primary。PWA/GAS は停止済み |
-| L2 ④ PJ ナレッジ抽出 | `trig_01DtARvCSkz99GsgG8xihceX` | 同上 | daily 08:15 JST | `project_knowledge` 抽出 (GAS 155 後継) | 🚧 未テスト |
-| L2 ⑤ メンバーナレッジ抽出 | `trig_011FUoNE2YCLgVoZVa9C4q2m` | 同上 | daily 08:30 JST | `member_knowledge` 抽出 (GAS 155 後継) | 🚧 Connector 不完全 |
-| L2 ⑥ MTG サマリ抽出 | `trig_01LHbVwy9KH2RNv1E7TtoaQd` | 同上 | 毎時 0 分 | `project_meeting_summaries` 抽出 (GAS 153 + 074 後継、5 ソース全部見る) | 🚧 Connector 不完全 (Supabase + Calendar 欠) |
-| L2 ⑦ OS 台帳差分抽出 | `trig_01211WVhf1pVw7mMdCk2RZxr` | 同上 | `0 */6 * * *` (6h ごと) | `project_registry_diffs` 抽出 (Codex `amd-os-ms` 後継) | 🚧 Connector Docusign のみ |
-| L2 ⑧ XRL 根拠抽出 | `trig_01QktXVABmg7ohA8NCUSFY9C` | 同上 | `15 */6 * * *` (L7+15 分) | `project_xrl_evidence` 抽出 (Codex `amd-os-ms` 後継) | 🚧 Connector Docusign のみ |
-| L2 ⑨ 経営ハイライト抽出 | `trig_011hJJ17Do1bwb1ESXDMt8rH` | 同上 | daily 03:20 JST | `project_strategy_signals` 抽出 (Codex `amd-os` 後継) | 🚧 Connector 不完全 |
+| L2 ① 月次報告抽出 | `amd-os-l2` | Codex automation | daily 05:30 JST | `monthly_reports` draft 抽出。5 生データ → `amd-os-ms/outbox.monthlyReports` → LaunchAgent applier | ✅ ACTIVE |
+| L2 ② AMD プロトコル抽出 | `amd-os-l2-protocol-extract` | MMOマシン Codex Desktop automation | daily 08:00 JST | `protocols` 抽出 (GAS 155 後継) | ✅ MMOマシン側へ移管 |
+| L2 ③ MS 進捗抽出 | `amd-os-l3-ms-progress-extract` | MMOマシン Codex Desktop automation | 毎時 0 分 | `milestone_monthly_progress` 推定 (PWA hourly-estimate 後継) | ✅ 定期抽出 primary。PWA/GAS は停止済み |
+| L2 ④ PJ ナレッジ抽出 | `amd-os-l4-project-knowledge-extract` | MMOマシン Codex Desktop automation | daily 08:15 JST | `project_knowledge` 抽出 (GAS 155 後継) | ✅ MMOマシン側へ移管 |
+| L2 ⑤ メンバーナレッジ抽出 | `amd-os-l5-member-knowledge-extract` | MMOマシン Codex Desktop automation | daily 08:30 JST | `member_knowledge` 抽出 (GAS 155 後継) | ✅ MMOマシン側へ移管。schema gap は別途確認 |
+| L2 ⑥ MTG サマリ抽出 | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | Windows MMO Codex Desktop automation | 毎日 09:00-21:00 毎時 | `project_meeting_summaries` 抽出 + MTGフロー | ✅ 稼働 |
+| L2 ⑦ OS 台帳差分抽出 | `amd-os-ms` + SKILL `amd-os-l7-registry-diff-extract` | Codex automation + outbox applier | 6h ごと | `project_registry_diffs` 抽出 | ✅ subscription automation 枠 |
+| L2 ⑧ XRL 根拠抽出 | `amd-os-ms` + SKILL `amd-os-l8-xrl-evidence-extract` | Codex automation + outbox applier | 6h ごと (L7+15 分) | `project_xrl_evidence` 抽出 | ✅ subscription automation 枠 |
+| L2 ⑨ 経営ハイライト抽出 | `amd-os` + SKILL `amd-os-l9-strategy-signal-extract` | Codex automation + outbox applier | daily 03:20 JST | `project_strategy_signals` 抽出 | ✅ subscription automation 枠 |
 
-LLM 課金: claude.ai Pro/Max/Team/Enterprise sub 内 (= 追加課金なし、Sonnet 4.6 が default 実行モデル)
-管理 URL: [claude.ai/code/routines](https://claude.ai/code/routines)
+LLM 課金: subscription automation 枠 (= PWA/GAS/Vercel から Anthropic・Gemini・OpenAI API を定期実行しない)
+管理場所: ①/⑦/⑧/⑨は Codex automation 履歴 + outbox/applier、②〜⑥は MMOマシン側 Codex Desktop automation 履歴
 SKILL 正本: [`pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md`](../scheduled-tasks/)
 
 ### 残存レビュー系 / 停止済み旧 cron
@@ -154,15 +157,15 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md`](../scheduled-t
 | **macro-aggregate-indicators** | Vercel cron | daily | マクロ指標集計 | なし | `pwa/src/app/api/cron/macro-aggregate-indicators/route.ts` |
 | ~~venture-xrl-refresh~~ | PWA route (schedule 停止中) | disabled | XRL 自動判定 (Gemini 2.5 Flash)。route は手動検証用に残す | あり ⚠️ | `pwa/src/app/api/cron/venture-xrl-refresh/route.ts`, `pwa/vercel.disabled-crons.json` |
 
-### ⚠️ 現状の片肺
-1. ~~**`amd-os/strategy-signals-outbox/` を拾う applier が無い**~~ → **✅ 2026-05-25 修復済** (= 修復後、2026-05-26 に Cloud routine L2 ⑨ へ移管予定で remaining 役割は段階停止)
+### ⚠️ 片肺だった箇所と現在の扱い
+1. ~~**`amd-os/strategy-signals-outbox/` を拾う applier が無い**~~ → **✅ 2026-05-25 修復済**。現行は Codex automation `amd-os` + outbox/applier を見る
 1. ~~**`amd-atlas-2/outbox/` の staging artifact を applier が拾わない**~~ → **✅ 2026-05-25 修復済**
 2. **GAS clasp push 未反映**: kill switch ソースは local commit 済だが GAS live には push されてない。live trigger は削除済みなので動作上は止まってる
 3. ~~**XRL 自動判定だけは Vercel cron 例外として残る**~~ → **✅ 2026-05-25 訂正**: `pwa/vercel.disabled-crons.json` に退避済み
 4. **LLM プロンプトのコード hardcode**: `venture-xrl-refresh/route.ts` などに prompt が hardcode されている。AGENTS.common.md ルール「LLM プロンプトは DB 管理」に違反。DB 化が別 task で必要
-5. ~~**経営ハイライト (= L2 ⑨) の修正依頼ループ未実装**~~ → **🚧 2026-05-26 進行中**: Cloud routine `L2 ⑨ 経営ハイライト抽出` の SKILL に `l2_feedbacks` 読み込み手順を組み込み済。修正依頼ループは対話型 (= `/api/notifications/feedback/dialog/*` + CockpitStrategySignals UI 拡張) に置換予定 ([feedback_dialog.md](../design/feedback_dialog.md))
-6. ~~**L2 ②④⑤⑥ の 4 種 自動取り込みが 5/22-5/25 完全 ghost 化**~~ → **🚧 2026-05-26 復旧進行中**: Cloud routine L2 ②④⑤⑥ を claude.ai/code/routines に entry 完了 (= §5.4 表)。明日朝の scheduled run で発火試行。L5/L6/L9 の Connector が claude.ai UI bug で不完全 (= Supabase 必須なのに追加できず)、別 session で補完予定
-7. 🆕 **claude.ai UI bug (= Cloud routine 編集で Connector / repo 追加が反映されない)**: 2026-05-26 セッションで判明。L4 失敗時に Connector default が破損 → L5-L9 で Connector 1 個 (Docusign のみ) default、編集モーダルの dropdown option click が React state を更新しない。Anthropic に共有 + 修正待ち、または Connector を Cloud routine 内で動的に有効化する仕組みを別 routine 内で確認
+5. ~~**経営ハイライト (= L2 ⑨) の修正依頼ループ未実装**~~ → **🚧 対話型ループへ接続予定**。現行 writer は Codex automation `amd-os`
+6. ~~**L2 ②④⑤⑥ の 4 種 自動取り込みが 5/22-5/25 完全 ghost 化**~~ → **✅ subscription automation 側へ移管**。②④⑤は MMOマシン Codex Desktop automation、⑥は Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow`
+7. **claude.ai UI bug (= Cloud routine 編集で Connector / repo 追加が反映されない)** は 2026-05-26 の移行履歴。現行復旧先は Cloud routine ではなく、§5.4 の現行 automation 表を優先する
 
 ---
 

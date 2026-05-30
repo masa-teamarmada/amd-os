@@ -2986,3 +2986,23 @@
 - **原因**: Slack buttonの押下はSlack app request URL -> GAS interactivity endpoint -> PWA APIの3段構成。PWAだけdeployしても、GAS Web App側に `payment_confirm_expected` handlerが無いとSlack actionを受けられない。今回のGAS deployは `clasp` のGoogle OAuth再認証切れ (`invalid_grant` / `invalid_rapt`) で止まった。
 - **対応内容**: PWA側に `PAYMENT_CONFIRM_SLACK_INTERACTIVE` safety flagを追加し、未設定時は既存URL confirm buttonを維持するように戻した。最終PWA productionは `dpl_9jcgL4SRYk97zq7PpsvwhTVSTBVB` へ再deployし、`vercel env ls --scope armada0130` で同envが未設定であることを確認。Slack action実装は draft PR #2 (`dc7027a`) に隔離済み。
 - **再発防止策**: Slack interactivityを含む変更は、GAS deploy成功を確認してからPWA env flagをONにする。順序は `clasp login` -> `clasp push --force` -> `clasp deploy --deploymentId <本番WebApp>` -> PWA `PAYMENT_CONFIRM_SLACK_INTERACTIVE=1` -> PWA redeploy -> Slack実押下test。`clasp invalid_rapt` はコード問題ではなく再認証blockerなので、retry連打ではなくhandoff/BUGSに残して認証を更新する。
+
+## [PWA/finance] CTB 202604 の入金予定額が freee 請求書より大きく出た (2026-05-30)
+
+- **状態**: DB補正済み / code・docs修正済み / PWA production deploy は未実施
+- **症状**: CTB (`p06`) 2026-04 稼働分の freee 請求書は `270,000円税抜 / 297,000円税込` なのに、AMD OS の入金予定額が `275,844円税抜 / 303,428円税込` と表示された。差分は税抜 `5,844円`、税込 `6,428円`。
+- **原因**:
+  - live `billing_cycles(p06,202604).budget_reported_amount` に `275844` が保存されており、`payment-groups.ts` がこの値を税抜入金予定額として優先していた。
+  - UI/仕様上も `budget_reported_amount` が「予定請求額」っぽく見え、請求額そのものなのか、予定額なのかが曖昧だった。
+  - p06/202604 の `billing_log` は空で、`source_cache` / `reimbursements` にも `5,844円` の由来を示す証跡は無かったため、元入力理由は復元不可。
+  - 請求書発行モーダルの fallback も `budget_yen` (= AMD側支払cap) を明細単価に使っており、明細が無いケースではクライアント請求額とPJ予算を混同しうる状態だった。
+- **対応内容**:
+  - live DB を `budget_reported_amount=270000`, `budget_yen=175500`, `reward_summary_json.monthlyBudget65/capBudgetYen=175500` に補正し、`billing_log.action='invoice_amount_corrected'` を追加した。
+  - `payment-groups.ts` は、freee 発行済み明細がある場合 `invoice_base_lines_json` の合計を優先し、なければ確定請求額 (`budget_reported_amount`) を使うように変更した。
+  - `CockpitRoutineInvoiceModal` の fallback を `budget_reported_amount` 優先へ変更し、`budget_yen` は互換 fallback として `budget_yen / 0.65` の形でのみ使う。
+  - UI / manual / design を `請求額案` / `確定請求額` / `請求額（税抜）` に整理し、「予定請求額」という別概念を置かない仕様へ寄せた。
+- **再発防止策**:
+  - `budget_reported_amount` は列名互換で残すが、業務意味は「請求額（税抜）」に固定する。承認前は `請求額案`、承認後は `確定請求額`。
+  - `budget_yen` は AMD 側の支払可能額 / PJ予算。クライアント請求額や入金予定額として直接使わない。
+  - freee 請求書が発行済みなら、入金確認は発行済み明細 (`invoice_base_lines_json`) を優先する。
+  - finance の金額不一致を調べる時は、code path、live `billing_cycles`、`monthly_reward_payout`、`billing_log`、`source_cache` をセットで確認し、証跡が無い元入力は推測で断定しない。

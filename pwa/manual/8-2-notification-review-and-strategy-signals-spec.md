@@ -187,7 +187,7 @@ API (= dialogue API):
 
 ```mermaid
 sequenceDiagram
-  participant Routine as Cloud routine
+  participant Routine as subscription automation
   participant DB as l2_notifications
   participant iOS as Swift APNs
   participant PWA as /notifications

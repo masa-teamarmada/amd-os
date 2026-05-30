@@ -73,20 +73,35 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as { token?: string; amountYen?: number; note?: string | null };
+    const body = (await req.json()) as {
+      token?: string;
+      amountYen?: number;
+      note?: string | null;
+      mode?: "actual" | "expected";
+    };
     const payload = verifyPaymentConfirmationToken(body.token || "");
-    const amountYen = Number(body.amountYen ?? 0);
-    if (!Number.isFinite(amountYen) || amountYen <= 0) {
+    const isExpectedMode = body.mode === "expected";
+    const amountYen = isExpectedMode ? payload.expectedAmountYen : Number(body.amountYen ?? 0);
+    if (!isExpectedMode && (!Number.isFinite(amountYen) || amountYen <= 0)) {
       return NextResponse.json({ ok: false, error: "amountYen must be positive" }, { status: 400 });
     }
     const db = createAdminClient();
     const result = await confirmPaymentGroup(db, payload, {
       amountYen,
-      source: "slack_actual",
+      source: isExpectedMode ? "slack_expected" : "slack_actual",
       actor: payload.recipientSlackId ? `slack:${payload.recipientSlackId}` : "slack:payment-confirm",
-      note: body.note ?? "Slack form: actual amount received",
+      note: body.note ?? (isExpectedMode ? "Slack button: expected amount received" : "Slack form: actual amount received"),
     });
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({
+      ok: true,
+      ...result,
+      projectId: payload.projectId,
+      invoiceYm: payload.invoiceYm,
+      sourceYms: payload.sourceYms,
+      amountYen,
+      expectedAmountYen: payload.expectedAmountYen,
+      expectedNetAmountYen: payload.expectedNetAmountYen,
+    });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 400 });
   }

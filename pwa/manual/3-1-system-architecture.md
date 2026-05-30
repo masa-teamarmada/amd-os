@@ -2,6 +2,8 @@
 
 AMD OS 全体の構成を、画面・データ・自動処理・外部サービスの関係で見る章。細かいコードや migration の正本は `pwa/design/` と `pwa/scripts/migrations/` だが、まずここで全体像を掴む。
 
+用語が不安な時は、先に [1-1 章の共通用語](1-1-intro.md#先に知っておく共通用語) と [3-2 章の用語表](3-2-data-and-extraction.md#この章の読み方) を見る。ここでの `5 生データ` は Gmail / Drive / Calendar / Slack / Notion、`L2` はそこから OS 用に抽出した構造化データのこと。
+
 ## プラットフォーム構成
 
 ```text
@@ -9,7 +11,7 @@ AMD OS 全体の構成を、画面・データ・自動処理・外部サービ�
   Slack / Notion / Calendar / Drive / Gmail
         ↓
 L2 抽出・運用処理
-  Codex automation / Claude routine / Vercel cron / GAS
+  Codex automation / MMOマシン Codex Desktop automation / Vercel cron / GAS
         ↓
 Supabase
   projects / members / billing_cycles / L2 tables / Atlas / Scores
@@ -25,7 +27,7 @@ Supabase
 | iOS | ネイティブ版。先行実装がある機能も多い |
 | GAS | freee / Slack / 外部サービス連携の一部。LLM定期抽出は 2026-05-22 に停止 |
 | Codex automation | 5 生データ・Atlas の LLM レビューを subscription 枠で実行し outbox を出す |
-| Claude routine | 旧 GAS L2 の復旧先。議事録 / protocol / knowledge 抽出を予定 |
+| MMOマシン Codex Desktop automation | L2 ②〜⑥ の現行 writer。protocol / knowledge / MS進捗 / MTGフローを subscription 枠で抽出 |
 | LaunchAgent | outbox JSON を 5 分ごとに拾って Supabase / API へ反映 |
 | Vercel cron | LLM を使わない運用 cron。freee、入金、週次活動、集計など |
 
@@ -144,7 +146,7 @@ Decision / Ops UI
 |---|---|---|
 | PWA UI -> API -> Supabase | 月次ルーティン、通知回答、admin編集 | ユーザー操作を即保存 |
 | Codex automation -> outbox -> LaunchAgent -> API/Supabase | MS進捗、XRL根拠、経営ハイライト、Atlas | LLM が直接 DB へ大量書き込みしない |
-| Claude routine -> Supabase REST | 議事録 / protocol / knowledge 復旧予定 | source_hash と feedback を見て冪等に upsert |
+| MMOマシン Codex Desktop automation -> Supabase/API | protocol / knowledge / MS進捗 / MTGフロー | source_hash と feedback を見て冪等に upsert |
 | Vercel cron -> Supabase | freee同期、入金確認、週次活動、集計 | LLM 非使用の運用処理だけ残す |
 | GAS -> Supabase / Slack / freee | 支払通知書 PDF、外部サービス連携 | LLM 定期抽出は停止中 |
 

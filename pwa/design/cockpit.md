@@ -37,7 +37,7 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
 
 ### p00 (= AMD 会社全体) の月次データ
 
-p00 にも他 PJ と同じく月次カード + 月次モーダルが出る。`billing_cycles` は backfill 済 (= 202601-202612 で 12 行、`status='not_started'`)。月次モーダルでは進捗タブだけ意味があり、請求書 / 報酬は他 PJ の動作と同じ UI が出るが内容は空。`monthly_reports` は将来 cron / 手動で生成する。
+p00 にも他 PJ と同じく月次カード + 月次モーダルが出る。`billing_cycles` は backfill 済 (= 202601-202612 で 12 行、`status='not_started'`)。月次モーダルでは進捗タブだけ意味があり、請求書 / 報酬は他 PJ の動作と同じ UI が出るが内容は空。`monthly_reports` は L2① Codex automation `AMD OS L2① 月次報告抽出` の対象。手動生成 route は復旧用。
 
 
 ```

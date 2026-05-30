@@ -219,7 +219,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
       const plRes = await notifyPlReview({ projectId, ym, taskKind: "budget", taskLabel: "請求額確定" });
 
       setToast({
-        msg: plRes.sent > 0 ? `申告しました (PL ${plRes.sent} 名に通知)` : "申告しました",
+        msg: plRes.sent > 0 ? `請求額案を保存しました (PL ${plRes.sent} 名に通知)` : "請求額案を保存しました",
         isError: false,
       });
       setTimeout(() => onClose(), 1300);
@@ -289,7 +289,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
           }
         : prev
       );
-      setToast({ msg: decision === "approve" ? "予算を確定しました" : "差し戻しました", isError: false });
+      setToast({ msg: decision === "approve" ? "請求額とPJ予算を確定しました" : "差し戻しました", isError: false });
     } catch (e) {
       setToast({ msg: e instanceof Error ? e.message : String(e), isError: true });
     } finally {
@@ -306,7 +306,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>予算確定</DialogTitle>
+          <DialogTitle>請求額確定</DialogTitle>
         </DialogHeader>
 
         {loading && <p className="text-sm text-muted-foreground py-6 text-center">読み込み中...</p>}
@@ -325,8 +325,8 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
 
             {isConfirmed && (
               <section className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 space-y-2 text-sm">
-                <div className="font-semibold text-emerald-700">✓ 承認済み</div>
-                <InfoRow label="請求額" value={fmtYen(data.budgetReportedAmount)} />
+                <div className="font-semibold text-emerald-700">✓ 請求額確定済み</div>
+                <InfoRow label="確定請求額" value={fmtYen(data.budgetReportedAmount)} />
                 <InfoRow label="バッファ" value={fmtYen(data.budgetBufferAmount ?? 0)} />
                 <InfoRow label="PJ予算（承認額）" value={fmtYen(data.budgetYen)} />
                 <InfoRow label="承認日時" value={fmtDate(data.budgetConfirmedAt)} />
@@ -345,15 +345,15 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
             {isReported && (
               <>
                 <section className="rounded-lg border border-orange-300 bg-orange-50 p-3 space-y-2 text-sm">
-                  <div className="font-semibold text-orange-700">⏳ 申告済み（admin承認待ち）</div>
-                  <InfoRow label="請求額" value={fmtYen(data.budgetReportedAmount)} />
+                  <div className="font-semibold text-orange-700">⏳ 請求額案（admin承認待ち）</div>
+                  <InfoRow label="請求額案" value={fmtYen(data.budgetReportedAmount)} />
                   <InfoRow label="バッファ" value={fmtYen(data.budgetBufferAmount ?? 0)} />
                   <InfoRow
                     label="PJ予算（65%−バッファ）"
                     value={fmtYen(calcPjBudget(data.budgetReportedAmount || 0, data.budgetBufferAmount || 0))}
                   />
-                  <InfoRow label="申告日時" value={fmtDate(data.budgetReportedAt)} />
-                  <InfoRow label="申告者" value={data.budgetReportedBy || "—"} />
+                  <InfoRow label="入力日時" value={fmtDate(data.budgetReportedAt)} />
+                  <InfoRow label="入力者" value={data.budgetReportedBy || "—"} />
                 </section>
 
                 <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -415,7 +415,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
             {isRejected && !showEditArea && (
               <section className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2 text-sm">
                 <div className="font-semibold text-red-700">差し戻し済み</div>
-                <InfoRow label="前回請求額" value={fmtYen(data.budgetReportedAmount)} />
+                <InfoRow label="前回の請求額案" value={fmtYen(data.budgetReportedAmount)} />
                 <InfoRow label="前回バッファ" value={fmtYen(data.budgetBufferAmount ?? 0)} />
                 <Button
                   size="sm"
@@ -437,7 +437,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                     setShowEditArea(true);
                   }}
                 >
-                  再申告する
+                  再入力する
                 </Button>
               </section>
             )}
@@ -447,11 +447,10 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                 <section className="space-y-3">
                   <div className="space-y-1">
                     <h3 className="text-sm font-semibold">
-                      {fixedInvoiceAmount ? `今月も${fmtYen(fixedInvoiceAmount)}でおけ？` : "今月の請求額を申告"}
+                      {fixedInvoiceAmount ? `今月も${fmtYen(fixedInvoiceAmount)}でおけ？` : "今月の請求額を入力"}
                     </h3>
                     <p className="text-[11px] leading-relaxed text-muted-foreground">
-                      メンバー別の支払額は、月次モーダルのMS進捗と担当ptから自動計算するよ。
-                      ここではクライアントへの請求額だけ確認する。
+                      ここで入力した金額がOSの請求額になる。freee請求書を発行した後は、freee発行時の明細合計を入金確認の正本にする。
                     </p>
                   </div>
                   <div className="space-y-1">
@@ -509,7 +508,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                 <div className="flex flex-col gap-2">
                   <Button onClick={submit} disabled={submitting || !invoiceText}>
                     {submitting
-                      ? "申告中..."
+                      ? "保存中..."
                       : fixedInvoiceAmount && invoiceAmount === fixedInvoiceAmount
                         ? `${fmtYen(fixedInvoiceAmount)}でPLに確認依頼する`
                         : "PLに確認依頼する"}
@@ -533,9 +532,9 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
         {showWithdrawConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="bg-background rounded-xl p-4 w-full max-w-sm space-y-3 shadow-xl">
-              <h3 className="font-semibold">予算を取り下げますか？</h3>
+              <h3 className="font-semibold">請求額案を取り下げますか？</h3>
               <p className="text-xs text-muted-foreground">
-                申告・承認額がクリアされ、未申告状態に戻ります。
+                入力済みの請求額案・承認額がクリアされ、未入力状態に戻ります。
               </p>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" size="sm" onClick={() => setShowWithdrawConfirm(false)} disabled={withdrawing}>

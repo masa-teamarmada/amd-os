@@ -73,7 +73,7 @@ export const UI_HINTS: Record<string, UiHint> = {
   "cockpit.routine.budget": {
     id: "cockpit.routine.budget",
     title: "請求額確定",
-    body: "当月の業務委託フィー (= PJ 委託料) を確定するステップ。fee_type='variable' の PJ は budget_reported_amount を毎月確定する必要がある。fixed の PJ は自動。",
+    body: "当月の業務委託フィー (= クライアントへの請求額・税抜) を確定するステップ。fee_type='variable' の PJ は毎月入力、fixed の PJ は自動。",
     docHref: "/manual/04-admin-ops",
   },
   "cockpit.routine.estimateSend": {
