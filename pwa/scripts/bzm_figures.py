@@ -5,8 +5,9 @@ BZM 教科書・論文用データ図を生成する。
 
 データ図 (数式・確定データから決まる図) のみ生成する。
 概念図 (二層構造フロー G1 / Triple Helix 螺旋 G3) は外部画像生成が要るのでここでは作らない。
-retrofit 時系列 (F3) は確定実データが要るため、本スクリプトでは生成しない
-(OS /venture-map/amd-score/retrofit のスクショ or 実データ接続後に追加)。
+retrofit 時系列 (F3) は B 案 = theory §9 の各時点軸値を Cobb-Douglas に入れて
+自己整合再計算した AMD Score をプロットする (= 期待値の転記ではなく数式から決まる
+データ図なので捏造ではない)。専門家期待値との乖離は論文 §5.4 限界1 で別途明示。
 
 ラベルは出版慣習に従い英語 (matplotlib 日本語フォント依存を避ける)。
 正本: pwa/design/amd_score.md / institution_readiness.md。
@@ -146,9 +147,76 @@ def fig_f5():
     save(fig, "f5_bottleneck_bar.png")
 
 
+# ---------------------------------------------------------------------------
+# F3: Tiem retrofit AMD Score time-series (B-plan: self-consistent recompute)
+# S = K * prod (X_i + 1)^alpha_i, with theory §9 axis values per time point.
+# ---------------------------------------------------------------------------
+_ALPHA = {"sigma": 1.3, "trl": 1.0, "brl": 0.6, "grl": 0.3, "srl": 0.2, "hrl": 1.1, "frl": 1.5}
+_K = 0.1
+
+
+def amd_score(sigma, trl, brl, grl, srl, hrl, frl):
+    vals = {"sigma": sigma, "trl": trl, "brl": brl, "grl": grl, "srl": srl, "hrl": hrl, "frl": frl}
+    s = _K
+    for k, a in _ALPHA.items():
+        s *= (vals[k] + 1) ** a
+    return s
+
+
+def fig_f3():
+    # (year_x, sigma, trl, brl, grl, srl, hrl, frl) — theory §9 のティエム経時評価
+    rows = [
+        (1995.0, 2, 0, 0, 1, 1, 0, 0),
+        (2000.0, 3, 0, 0, 2, 2, 0, 0),
+        (2005.0, 4, 0, 0, 3, 3, 0, 0),
+        (2007.0, 4, 1, 0, 3, 3, 0, 0),   # 中西 PMSQ 発明
+        (2009.0, 5, 1, 1, 4, 4, 1, 2),
+        (2010.0, 5, 1, 1, 4, 4, 1, 3),
+        (2011.25, 6, 2, 1, 5, 5, 1, 3),  # 東日本大震災
+        (2012.83, 7, 2, 1, 5, 5, 1, 4),  # 2012-10
+        (2012.92, 7, 0, 1, 5, 5, 1, 4),  # 2012-11 設立 (TRL=0)
+        (2014.0, 7, 1, 2, 6, 5, 2, 4),
+        (2015.0, 7, 3, 2, 6, 5, 2, 4),
+        (2017.0, 6, 4, 3, 5, 5, 3, 5),   # 2017 実際
+    ]
+    xs = [r[0] for r in rows]
+    ys = [amd_score(*r[1:]) for r in rows]
+
+    found_x, found_y = 2012.92, amd_score(7, 0, 1, 5, 5, 1, 4)
+    cf_x, cf_y = 2017.0, amd_score(6, 5, 3, 5, 5, 3, 5)  # 仮想 2017 設立 (TRL=5)
+    ratio = cf_y / found_y
+
+    fig, ax = plt.subplots(figsize=(9, 5.2))
+    ax.plot(xs, ys, "-o", color="#1f77b4", lw=1.8, ms=5,
+            label="self-consistent AMD Score (axis values → Cobb-Douglas)")
+    ax.scatter([found_x], [found_y], color="crimson", s=100, zorder=6,
+               label=f"actual founding 2012 (TRL=0): {found_y:.0f}")
+    ax.scatter([cf_x], [cf_y], color="green", marker="*", s=260, zorder=6,
+               label=f"counterfactual founding 2017 (TRL=5): {cf_y:.0f}")
+
+    ax.annotate("", xy=(cf_x, cf_y), xytext=(found_x, found_y),
+                arrowprops=dict(arrowstyle="->", color="gray", ls="--", lw=1.3))
+    ax.text(2014.6, (found_y * cf_y) ** 0.5, f"≈{ratio:.0f}×",
+            color="black", fontsize=14, fontweight="bold", ha="center")
+    ax.annotate("founding: TRL gate unmet\n(self-tech not ready)", xy=(found_x, found_y),
+                xytext=(2009.2, found_y * 2.3), fontsize=8, color="crimson",
+                arrowprops=dict(arrowstyle="->", color="crimson", lw=0.8))
+
+    ax.set_yscale("log")
+    ax.set_xlabel("year")
+    ax.set_ylabel("AMD Score (log scale)")
+    ax.set_title("F3. Tiem retrofit: self-consistent AMD Score time-series\n"
+                 "founding (TRL gate unmet) vs counterfactual 2017 (gate met)")
+    ax.legend(loc="upper left", fontsize=8)
+    ax.grid(True, which="both", alpha=0.25)
+    save(fig, "f3_retrofit_timeseries.png")
+    print(f"  F3: founding={found_y:.1f}, counterfactual={cf_y:.1f}, ratio={ratio:.2f}x")
+
+
 if __name__ == "__main__":
     fig_f1()
     fig_f2()
+    fig_f3()
     fig_f4()
     fig_f5()
-    print("done. F3 (retrofit time-series) skipped — needs confirmed real data.")
+    print("done. F1-F5 generated (F3 = self-consistent retrofit recompute, B-plan).")
