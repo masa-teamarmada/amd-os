@@ -4,9 +4,10 @@
  * /institutions/assess — ERS 評価入力マトリクス (admin)
  * 設計正本: pwa/design/institution_readiness.md
  *
- * 行 = 28 サブ軸 (8 軸グループ)、列 = 各機関。各セルで Lv1-5 を選ぶ / N/A 切替 / note 編集。
- * ヘッダ行 (機関) と左ヘッダ列 (サブ軸) は sticky 固定。変更は 1 セルずつ即保存 (楽観更新)。
- * 各機関の ERS% は編集に応じてリアルタイム再計算。
+ * 各サブ軸を Lv1-5 の 5 行 + メモ行に展開。各レベル行に基準 (rubric) をフル表示し、
+ * 右側の各機関列はチェックボックスのみ。Lv1-5 のどれか 1 つにチェックでそのレベル。
+ * どれにもチェックしなければ N/A (軸平均から除外)。列 = 機関、ヘッダ行・左列 sticky 固定。
+ * 変更は 1 セルずつ即保存 (楽観更新)、ERS はリアルタイム再計算。
  */
 import { Fragment, useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
@@ -24,6 +25,7 @@ type EditMap = Record<string, CellState>; // key = `${institutionId}::${criterio
 
 const cellKey = (instId: string, critId: string) => `${instId}::${critId}`;
 const LEVELS = [1, 2, 3, 4, 5] as const;
+const EMPTY_CELL: CellState = { level: null, na: false, note: null };
 
 export default function AssessMatrixPage() {
   const [bundle, setBundle] = useState<ErsBundle | null>(null);
@@ -31,8 +33,6 @@ export default function AssessMatrixPage() {
   const [edits, setEdits] = useState<EditMap>({});
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [openNote, setOpenNote] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState("");
 
   useEffect(() => {
     fetchErsBundle()
@@ -79,7 +79,7 @@ export default function AssessMatrixPage() {
     if (!bundle) return out;
     for (const inst of bundle.institutions) {
       const list: ErsAssessment[] = bundle.criteria.map((c) => {
-        const s = edits[cellKey(inst.institutionId, c.criterionId)] ?? { level: null, na: false, note: null };
+        const s = edits[cellKey(inst.institutionId, c.criterionId)] ?? EMPTY_CELL;
         return { criterionId: c.criterionId, level: s.level, na: s.na, note: s.note, evaluatedAt: "" };
       });
       out[inst.institutionId] = computeErs(bundle.axes, bundle.criteria, list);
@@ -126,11 +126,39 @@ export default function AssessMatrixPage() {
     (instId: string, critId: string, patch: Partial<CellState>) => {
       const k = cellKey(instId, critId);
       setEdits((m) => {
-        const prev = m[k] ?? { level: null, na: false, note: null };
+        const prev = m[k] ?? EMPTY_CELL;
         const next: CellState = { ...prev, ...patch };
         if (next.na) next.level = null;
         void persist(instId, critId, next, prev);
         return { ...m, [k]: next };
+      });
+    },
+    [persist],
+  );
+
+  // Lv チェックボックス: 既にそのLvならOFF(→N/A)、そうでなければそのLvをON
+  const toggleLevel = useCallback(
+    (instId: string, critId: string, lv: number) => {
+      const cell = edits[cellKey(instId, critId)] ?? EMPTY_CELL;
+      const isChecked = cell.level === lv && !cell.na;
+      if (isChecked) updateCell(instId, critId, { na: true, level: null });
+      else updateCell(instId, critId, { level: lv, na: false });
+    },
+    [edits, updateCell],
+  );
+
+  // メモ: 入力中はローカルのみ、blur で保存
+  const setNoteLocal = useCallback((instId: string, critId: string, note: string) => {
+    const k = cellKey(instId, critId);
+    setEdits((m) => ({ ...m, [k]: { ...(m[k] ?? EMPTY_CELL), note: note || null } }));
+  }, []);
+  const saveNote = useCallback(
+    (instId: string, critId: string) => {
+      const k = cellKey(instId, critId);
+      setEdits((m) => {
+        const cell = m[k] ?? EMPTY_CELL;
+        void persist(instId, critId, cell, cell);
+        return m;
       });
     },
     [persist],
@@ -159,29 +187,28 @@ export default function AssessMatrixPage() {
           </Link>
         </div>
         <p className="text-xs text-muted-foreground">
-          各機関 × 各サブ軸の到達レベル (Lv1–5) を選ぶ。該当しない軸は <span className="font-mono">N/A</span> で軸平均から除外。
-          各 Lv ボタンにカーソルを乗せると基準 (rubric) が出る。変更は自動保存・ERS はリアルタイム再計算。
+          各サブ軸の Lv1–5 の基準を読み、機関ごとに到達レベルへチェックを 1 つ入れる。
+          <span className="font-medium text-foreground">どのレベルにもチェックしなければ N/A</span>（軸平均から除外）。
+          変更は自動保存・ERS はリアルタイム再計算。
         </p>
         {error && (
-          <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
-            ⚠️ {error}
-          </div>
+          <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">⚠️ {error}</div>
         )}
       </header>
 
-      <div className="overflow-auto rounded-lg border border-border max-h-[78vh]">
-        <table className="text-xs border-collapse">
+      <div className="overflow-auto rounded-lg border border-border max-h-[80vh]">
+        <table className="text-xs border-collapse w-full">
           <thead>
             <tr>
-              <th className="sticky top-0 left-0 z-30 bg-muted px-3 py-2 text-left font-medium border-b border-r border-border min-w-[230px]">
-                サブ軸 \ 機関
+              <th className="sticky top-0 left-0 z-30 bg-muted px-3 py-2 text-left font-medium border-b border-r border-border min-w-[340px] w-[42%]">
+                サブ軸 / レベル基準
               </th>
               {insts.map((inst) => {
                 const ers = ersByInst[inst.institutionId]?.ers ?? null;
                 return (
                   <th
                     key={inst.institutionId}
-                    className="sticky top-0 z-20 bg-muted px-3 py-2 text-center font-medium border-b border-r border-border min-w-[200px] align-bottom"
+                    className="sticky top-0 z-20 bg-muted px-2 py-2 text-center font-medium border-b border-r border-border min-w-[110px] align-bottom"
                   >
                     <Link href={`/institutions/${inst.institutionId}`} className="hover:underline">
                       {inst.name}
@@ -211,7 +238,7 @@ export default function AssessMatrixPage() {
                 <Fragment key={axis.axisId}>
                   {/* 軸グループ見出し */}
                   <tr>
-                    <th className="sticky left-0 z-10 bg-indigo-50/90 px-3 py-1.5 text-left border-b border-r border-border">
+                    <th className="sticky left-0 z-10 bg-indigo-100 px-3 py-1.5 text-left border-y border-r border-border">
                       <span className="font-mono font-bold text-indigo-900">{axis.axisNo}</span>
                       <span className="ml-1.5 font-semibold text-indigo-900">{axis.name}</span>
                       {axis.correspondsXrl && (
@@ -221,7 +248,7 @@ export default function AssessMatrixPage() {
                     {insts.map((inst) => {
                       const a = ersByInst[inst.institutionId]?.axisScores.find((s) => s.axisId === axis.axisId);
                       return (
-                        <td key={inst.institutionId} className="bg-indigo-50/60 text-center border-b border-r border-border px-2 py-1.5">
+                        <td key={inst.institutionId} className="bg-indigo-50 text-center border-y border-r border-border px-1 py-1.5">
                           <span className="font-mono text-[11px] text-indigo-900/80">
                             {a?.score != null ? `${Math.round(a.score * 100)}%` : "—"}
                           </span>
@@ -229,83 +256,92 @@ export default function AssessMatrixPage() {
                       );
                     })}
                   </tr>
-                  {/* サブ軸行 */}
+                  {/* 各サブ軸 = 名前行 + Lv1-5 行 + メモ行 */}
                   {crits.map((c) => (
-                    <tr key={c.criterionId} className="hover:bg-muted/10">
-                      <th
-                        className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-normal border-b border-r border-border align-top"
-                        title={LEVELS.map((lv) => `Lv${lv}: ${c.rubric[String(lv)] ?? "—"}`).join("\n")}
-                      >
-                        <span className="text-[10px] font-mono text-muted-foreground mr-1.5">{c.code}</span>
-                        <span className="text-xs font-medium">{c.name}</span>
-                      </th>
-                      {insts.map((inst) => {
-                        const k = cellKey(inst.institutionId, c.criterionId);
-                        const cell = edits[k] ?? { level: null, na: false, note: null };
-                        const isSaving = saving.has(k);
-                        return (
-                          <td
-                            key={inst.institutionId}
-                            className="border-b border-r border-border px-2 py-1.5 align-top"
-                          >
-                            <div className="flex flex-col items-center gap-1">
-                              <div className={`flex items-center gap-0.5 ${cell.na ? "opacity-30 pointer-events-none" : ""}`}>
-                                {LEVELS.map((lv) => {
-                                  const active = cell.level === lv;
-                                  return (
-                                    <button
-                                      key={lv}
-                                      type="button"
-                                      title={`Lv${lv}: ${c.rubric[String(lv)] ?? "—"}`}
-                                      onClick={() => updateCell(inst.institutionId, c.criterionId, { level: active ? null : lv, na: false })}
-                                      className="w-5 h-5 rounded text-[10px] font-mono font-semibold border transition-colors"
-                                      style={
-                                        active
-                                          ? { background: ersScoreColor(normalizeLevel(lv)), color: "white", borderColor: "transparent" }
-                                          : { background: "transparent", color: "var(--muted-foreground, #71717a)", borderColor: "var(--border, #e4e4e7)" }
-                                      }
-                                    >
-                                      {lv}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                              <div className="flex items-center gap-2 text-[9px]">
-                                <button
-                                  type="button"
-                                  onClick={() => updateCell(inst.institutionId, c.criterionId, { na: !cell.na })}
-                                  className={`rounded px-1 py-0.5 border ${
-                                    cell.na
-                                      ? "bg-zinc-200 text-zinc-700 border-zinc-300"
-                                      : "bg-transparent text-muted-foreground/60 border-border hover:bg-muted"
-                                  }`}
-                                >
-                                  N/A
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenNote(k);
-                                    setNoteDraft(cell.note ?? "");
-                                  }}
-                                  className={`rounded px-1 py-0.5 border ${
-                                    cell.note
-                                      ? "bg-amber-50 text-amber-800 border-amber-300"
-                                      : "bg-transparent text-muted-foreground/60 border-border hover:bg-muted"
-                                  }`}
-                                  title={cell.note ?? "根拠メモを追加"}
-                                >
-                                  📝{cell.note ? "✓" : ""}
-                                </button>
-                                {isSaving && (
-                                  <span className="w-2.5 h-2.5 border border-primary border-t-transparent rounded-full animate-spin inline-block" />
-                                )}
-                              </div>
-                            </div>
+                    <Fragment key={c.criterionId}>
+                      {/* サブ軸名 */}
+                      <tr className="border-t-2 border-border">
+                        <th className="sticky left-0 z-10 bg-card px-3 pt-2 pb-1 text-left font-semibold border-r border-border">
+                          <span className="text-[10px] font-mono text-muted-foreground mr-1.5">{c.code}</span>
+                          <span className="text-xs">{c.name}</span>
+                        </th>
+                        {insts.map((inst) => {
+                          const cell = edits[cellKey(inst.institutionId, c.criterionId)] ?? EMPTY_CELL;
+                          const lvl = cell.na ? null : cell.level;
+                          return (
+                            <td key={inst.institutionId} className="bg-card text-center border-r border-border px-1 pt-2 pb-1">
+                              <span
+                                className="inline-block text-[9px] font-mono rounded px-1 py-0.5 text-white/95"
+                                style={{ background: lvl != null ? ersScoreColor(normalizeLevel(lvl)) : "#d4d4d8" }}
+                              >
+                                {lvl != null ? `Lv${lvl}` : "N/A"}
+                              </span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      {/* Lv1-5 */}
+                      {LEVELS.map((lv) => (
+                        <tr key={lv} className="hover:bg-muted/10">
+                          <td className="sticky left-0 z-10 bg-card px-3 py-1 text-left border-r border-border align-top">
+                            <span className="flex gap-1.5">
+                              <span
+                                className="font-mono text-[10px] font-bold rounded px-1 h-4 leading-4 text-white/95 shrink-0"
+                                style={{ background: ersScoreColor(normalizeLevel(lv)) }}
+                              >
+                                Lv{lv}
+                              </span>
+                              <span className="text-[11px] text-foreground/85 leading-snug">
+                                {c.rubric[String(lv)] ?? "—"}
+                              </span>
+                            </span>
                           </td>
-                        );
-                      })}
-                    </tr>
+                          {insts.map((inst) => {
+                            const k = cellKey(inst.institutionId, c.criterionId);
+                            const cell = edits[k] ?? EMPTY_CELL;
+                            const checked = cell.level === lv && !cell.na;
+                            const isSaving = saving.has(k);
+                            return (
+                              <td key={inst.institutionId} className="text-center border-r border-border px-1 py-1 align-middle">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleLevel(inst.institutionId, c.criterionId, lv)}
+                                  className="w-4 h-4 cursor-pointer align-middle"
+                                  style={{ accentColor: ersScoreColor(normalizeLevel(lv)) }}
+                                  aria-label={`${inst.name} ${c.code} Lv${lv}`}
+                                />
+                                {isSaving && checked && (
+                                  <span className="ml-1 w-2 h-2 border border-primary border-t-transparent rounded-full animate-spin inline-block align-middle" />
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                      {/* メモ */}
+                      <tr className="bg-amber-50/40">
+                        <td className="sticky left-0 z-10 bg-amber-50/60 px-3 py-1 text-left border-r border-border text-[10px] text-amber-800/80 align-middle">
+                          📝 根拠メモ
+                        </td>
+                        {insts.map((inst) => {
+                          const k = cellKey(inst.institutionId, c.criterionId);
+                          const cell = edits[k] ?? EMPTY_CELL;
+                          return (
+                            <td key={inst.institutionId} className="border-r border-border px-1 py-1 align-middle">
+                              <input
+                                type="text"
+                                value={cell.note ?? ""}
+                                onChange={(e) => setNoteLocal(inst.institutionId, c.criterionId, e.target.value)}
+                                onBlur={() => saveNote(inst.institutionId, c.criterionId)}
+                                placeholder="根拠…"
+                                className="w-full text-[10px] rounded border border-amber-200 bg-white/70 px-1 py-0.5 focus:outline-none focus:border-amber-400"
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </Fragment>
                   ))}
                 </Fragment>
               );
@@ -313,49 +349,6 @@ export default function AssessMatrixPage() {
           </tbody>
         </table>
       </div>
-
-      {/* note 編集モーダル */}
-      {openNote && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setOpenNote(null)}
-        >
-          <div
-            className="bg-card rounded-lg border border-border shadow-xl w-full max-w-md p-4 space-y-3"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-sm font-semibold">評価根拠メモ</h3>
-            <textarea
-              value={noteDraft}
-              onChange={(e) => setNoteDraft(e.target.value)}
-              rows={4}
-              className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 resize-y"
-              placeholder="この Lv と判断した根拠・出典・補足など"
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setOpenNote(null)}
-                className="text-xs px-3 py-1.5 rounded border border-border hover:bg-muted"
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const [instId, critId] = openNote.split("::");
-                  updateCell(instId, critId, { note: noteDraft.trim() || null });
-                  setOpenNote(null);
-                }}
-                className="text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90"
-              >
-                保存
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
