@@ -2,19 +2,28 @@
 
 AMD Score 7 軸のうち **FRL (= Founding Readiness)** と **HRL (= Human Resources Readiness)** に紐づく「人」評価軸と、 PJ に関わる **関連メンバー** (= `project_founding_members` / `project_venture_members`) のモデル正本。 AMD Score 全体は [4-3 章](4-3-amd-score-spec.md) を見る。
 
-## FRL (= Founding Readiness Level)
+## FRL (= Founder Readiness Level)
 
-CEO リーダーシップ readiness。 AMD Score 7 軸の最重要 (= α_F=1.5)。 「マクロトレンドに乗っていて、 会社 XRL が整っていても、 CEO の質が低ければ Scale しない」 (= Bernstein 2017 JF: Founder Quality が VC 意思決定の最大因子)。
+CEO リーダーシップ readiness。 AMD Score の最重要軸 (= α_F=1.5)。 「マクロトレンドに乗っていて、 会社 XRL が整っていても、 CEO の質が低ければ Scale しない」 (= Bernstein 2017 JF: Founder Quality が VC 意思決定の最大因子)。 P×R×S 新モデルでは **S (生存確率) の一因子** (= 創業者の調達/自走力)。
 
-### FRL 6 因子拡張 (= 2026-05-09 確定)
+### FRL 2 レイヤー構造 (= 2026-05-30 確定、CES 補完合成)
 
-旧: ALQ 4 次元のみで FRL 算出。 新: **ALQ 4 + Grit + Resilience** の 6 因子で算出。
+旧: 6 因子 (ALQ4 + Grit + Resilience) フラット平均で FRL 算出。 新: FRL を **委譲可能性で 2 レイヤーに分離**し、 **CES (補完性)** で合成する。
 
 ```text
-FRL = 0.6 × ALQ_4_avg + 0.2 × Grit + 0.2 × Resilience
+FRL + 1 = [ a·(F_char+1)^ρ + (1-a)·(F_cap+1)^ρ ]^(1/ρ)     ρ < 0 (補完)
+  F_char = 0.6 × ALQ_4_avg + 0.2 × Grit + 0.2 × Resilience    資質 (委譲不可)
+  F_cap  = best-of(経営実行力; 経験 ≫ 知識)                   経営実行力 (CxO/AMD で補完可)
+初期: a=0.6, ρ=-2, α_F=1.5 据置 (= retrofit で校正)
 ```
 
-### 6 因子と学術根拠
+- **F_character (資質)**: CEO 固有・委譲不可。 旧 6 因子をそのまま使う。
+- **F_capability (経営実行力)**: 経験 ≫ 知識 (IPO/Exit > 調達リード > PL責任運営 > 同業界 ≫ MBA/知識)。 COO/CFO・**AMD メンバー**で補完できる。
+- **CES (ρ<0)**: 「**どちらの F も一定以下なら成立しない、 一定水準以下で全体が大きく下がる**」(= まさ確定 2026-05-30) を表現。 Cobb-Douglas の +1 シフト (代替的) では作れない補完性を CES ρ<0 で表す。 ρ→0 で Cobb-Douglas (甘い)、 ρ→-∞ で min (完全ゲート)、 初期 ρ=-2 は中庸。
+
+> ⚠️ **S 全体は Cobb-Douglas (代替的)、 FRL 内部だけ CES (補完的)** の二層。 S 内の σ_SU・R_net・FRL は「どれか強ければ補える」代替関係、 FRL 内の char・cap は「両方必要」補完関係。 モデル正本: `knowledge/before_zero_theory.md`「FRL を F_char × F_cap に分離」セクション。 教科書: `pwa/bzm/4-1-frl-founder-readiness.md` §4。
+
+### F_character 6 因子と学術根拠
 
 | 因子 | 列名 | 学術根拠 |
 |---|---|---|
@@ -27,9 +36,30 @@ FRL = 0.6 × ALQ_4_avg + 0.2 × Grit + 0.2 × Resilience
 
 各因子は 0-9 の連続値。 補助で `frl_notes` (= text) に自由記述の根拠。
 
+### F_capability の算定 (= 経験 ≫ 知識、 AMD 価値の定量化)
+
+経営実行力を 0-9 で評価。 **チームの経営中核メンバーの best-of** (= active + コミット度重み付け)。 CEO 一人に閉じない (= まさ「COO が IPO 経験者なら成り立つ」を表現)。
+
+```text
+F_cap = best-of(経営実行力; status='active', コミット度重み付け)
+  ├─ F_cap_founder : 創業者・SU 内部メンバー由来
+  └─ F_cap_amd     : AMD メンバー (category='amd') が押し上げた分 ★
+
+AMD の提供価値 = F_cap(全員) − F_cap(AMD 除く)
+```
+
+- **経験 ≫ 知識** (Hsu 2007 RP / Unger 2011 JBV: 経験的 human capital が知識的より成果相関強い)。 MBA/体系知識は「事故を減らす下方リスク低減」として軽く効かせる (ゼロにはしない)。
+- **AMD 価値の定量化**: `F_cap_amd` で「AMD が入って経営 readiness を X→Y に上げた」分を PJ ごと・経時で追える。 LP 報告・営業資料に使える。
+- **名義貸し対策**: 社外取・名義だけアドバイザーで釣り上げない。 `status='active'` + フルタイム的役割 (実意思決定権) で重み付け。 rubric は「IPO 経験者が *経営中核に* いる」のように役割の実質を観測項目にする。
+- **HRL と算定対象が違う**: HRL は `category IN ('amd','startup','university')` で **vc 除外**。 F_cap は逆に **VC 出身者・シリアルアントレこそ中核** (経営実行力の源泉) として算入。
+
+### 運用 (= えいみ初期投入 → まさ修正)
+
+F_cap の 0-9 は **えいみが推測で初期投入 → まさが画面で修正** (= XRL チェックリストと同運用、 Tsukuyomi 不使用)。 データ源: `project_founding_members` (status='active') + `knowledge/{pj}.md` + L2 + Web。 rubric は `knowledge/xrl_rubric.md` の F_cap セクション。 OS 原則「初手手動入力はしない、 えいみが生データから推測」(= memory `feedback_tsukuyomi_builds_from_raw_data`) に従う。
+
 ### FRL 学術定義からの不足要素 (= 運用上の妥協)
 
-完全な FRL 評価には以下も必要だが、 現状 6 因子で運用:
+完全な FRL 評価には以下も必要だが、 現状の F_char 6 因子 + F_cap で運用:
 
 1. Cognitive Reframing 能力 (= 危機解釈の柔軟性)
 2. Vision Articulation の明確度
@@ -38,6 +68,7 @@ FRL = 0.6 × ALQ_4_avg + 0.2 × Grit + 0.2 × Resilience
 5. Psychological Safety への寄与 (= Edmondson 1999 ASQ、 HRL とも一部重なる)
 6. Network Centrality (= Hsu 2007 RP)
 7. Founder Network 効果 (= 魅力的 CEO が技術/人材/資金を引き上げる間接効果、 FRL × 他軸交差項)
+8. F_cap の経験データの一次ソース検証 (= IPO/調達/Exit 実績の裏取り、 入力精度に直結)
 
 これらは現状 `frl_notes` に自由記述 + Tsukuyomi 対話で補強する運用。
 
@@ -59,11 +90,16 @@ FRL = 0.6 × ALQ_4_avg + 0.2 × Grit + 0.2 × Resilience
 
 | column | 用途 |
 |---|---|
-| `frl` | FRL 合成スコア (= 0-9、 6 因子の重み付け平均 or 直接入力) |
-| `alq_self_awareness` / `_relational_transparency` / `_balanced_processing` / `_internalized_moral` | ALQ 4 次元 |
-| `frl_grit` | Grit 次元 |
-| `frl_resilience` | Resilience 次元 |
+| `frl` | FRL 合成スコア (= 0-9、 F_char × F_cap の CES 合成 or 直接入力) |
+| `alq_self_awareness` / `_relational_transparency` / `_balanced_processing` / `_internalized_moral` | ALQ 4 次元 (= F_character 構成) |
+| `frl_grit` | Grit 次元 (= F_character 構成) |
+| `frl_resilience` | Resilience 次元 (= F_character 構成) |
+| `frl_cap` ⭐ | F_capability (= 経営実行力 0-9、 チーム best-of)。 **要 migration (未実装)** |
+| `frl_cap_amd` ⭐ | F_capability のうち AMD メンバー寄与分 (= AMD 価値定量化用)。 **要 migration (未実装)** |
+| `frl_ces_a` / `frl_ces_rho` ⭐ | CES パラメータ (= 初期 a=0.6 / ρ=-2、 retrofit 校正)。 **要 migration (未実装)** |
 | `frl_notes` | 自由記述根拠 |
+
+> ⭐ 列は 2026-05-30 の FRL 2 レイヤー化で**設計確定だが DB 未実装**。 本番反映時に migration で追加し、 `amd-score.ts` の FRL 計算を F_char/F_cap 2 入力 + CES 合成に拡張する (= 次セッションタスク)。 既存 `frl` は当面 F_character 相当で動く (F_cap 列が NULL なら従来挙動)。
 | `mu_notes` | JSONB `{a, b, g}` (= Triple Helix μ_A/I/G の評価根拠) |
 | `xrl_notes` | JSONB `{trl, brl, grl, srl, hrl}` (= 5 XRL の評価根拠) |
 
