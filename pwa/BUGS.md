@@ -5,6 +5,18 @@
 
 ---
 
+### [git/cross-session-bundling] 別セッションが working tree 全体をコミットして他セッションの未コミット作業を巻き込んだ (= 2026-05-30)
+
+- **発見日**: 2026-05-30
+- **状態**: ✅ クローズ (= 作業は全部 push・本番反映済みで実害なし。履歴は放置)
+- **症状**: BZM データ図チャンク (図埋め込み `pwa/bzm/{2-1,2-2,5-1,7-1}.md` + `pwa/public/bzm/f{1,2,4,5}.png` + `pwa/scripts/bzm_figures.py` + `pwa/design/bzm_paper_draft.md` + `build-info.ts` v0.10.7) を個別 stage する前に working tree を見たら全部 clean。`git log` 先頭は別セッションの `481113f fix(cockpit): MTGサマリモーダル修正`。`git log -1 -- <各ファイル>` を引くと全ファイルの最終コミットが `481113f` で、cockpit 修正コミットに BZM 図作業 11 ファイルが丸ごと混入して push 済みだった
+- **原因**: (1) 前セッションで `tsc --noEmit` / `npm run build` 通過後すぐコミットせず figure チャンクを**未コミット放置**したまま要約リクエストで中断した。(2) 並行して走っていた別セッションが cockpit 修正をコミットする際に `git add -A` 相当で working tree 全体を拾い、BZM 図作業を巻き込んだ。CLAUDE.md の「BZM 作業は個別 stage」「commit したら即 push・未コミット放置するな」が**両方破られた合わせ技**で発生
+- **対応内容**: 作業は 11 ファイルすべて `481113f` に入って origin/feat/bzm-textbook に push 済み、v0.10.7 本番デプロイも成功済みで**内容欠損は無い**。コミットメッセージ (cockpit) と中身 (cockpit + BZM 図) が不一致だが、**既に push 済みのため `reset`/`rebase`+force push で履歴を割るのは destructive リスク > 美観の益**と判断し放置クローズ
+- **再発防止策**:
+  - `tsc`/`build` が通ったら作業チャンクは**即コミット＆即 push**。「次のステップへ」と未コミットで進まない (CLAUDE.md 最重要ルールの実例)
+  - **要約・handoff・セッション中断の直前は必ずコミットを挟む**。中断点に未コミット差分を残すと、並行セッションに巻き込まれるか、巻き戻る
+  - 複数セッション並行時は特に、自分の作業ファイルだけ個別 `git add <path>` で素早く確定させる。working tree を dirty なまま長く放置しない
+
 ### [bzm/retrofit-table-inconsistency] 6-1 retrofit 表の headline 値が axis 値から再計算できない (= 2026-05-29)
 
 - **発見日**: 2026-05-29

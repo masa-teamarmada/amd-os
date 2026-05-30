@@ -461,3 +461,15 @@ BZM (Before Zero Model) 教科書の既存 10 章が「中身スカスカ」だ�
 - `budget_reported_amount` は列名互換で残るが、業務上の意味は「請求額（税抜）」。別の「予定請求額」は置かない。
 - `budget_yen` は AMD 側の支払可能額 / PJ予算であり、クライアントへの請求額として直接使わない。
 - finance の数字理由を説明するときは、code + live DB values + `billing_log` を必ず見る。証跡が無い元入力は「復元不可」と明示する。
+
+---
+
+## 2026-05-30 (後半) — BZM データ図 F1/F2/F4/F5 生成・教科書埋め込み・v0.10.7
+
+- **データ図を matplotlib で生成** (`pwa/scripts/bzm_figures.py` → `pwa/public/bzm/f{1,2,4,5}.png`)。F1=σ_SU シフト幾何平均 vs min 律の比較、F2=複素固有値ペアが生む減衰螺旋 (T=12,τ=18)、F4=ERS 8軸レーダー (例題7-1、軸4/5 赤強調)、F5=軸別限界感度 α_i/(X_i+1) と律速軸 (FRL crimson)。
+- **F3 (retrofit 時系列) はスキップ**: 実データ未確定で、数値捏造は AGENTS 図捏造禁止に触れるため。実データ確定後に生成。
+- **データ図 vs 概念図の切り分け**: 数式・実データからの matplotlib プロットは「正当な可視化」で「画像生成ごまかし」ではない。概念図 (G1 二層構造フロー / G3 Triple Helix 螺旋) のみ外部生成依頼対象、と `design/bzm_paper.md` §3 で確定。
+- **埋め込み先**: 教科書 2-1/2-2/5-1/7-1 (各 `![alt](/bzm/fX.png)` + 図番号 blockquote) と論文ドラフト `design/bzm_paper_draft.md` (図1〜4)。`BzmMarkdown` の `img` で描画。middleware matcher は `.png` を auth 除外済 → 静的配信。
+- **before-zero/ 場所誤認を恒久修正**: 理論正本 `before-zero/theory/*.md` は実在 (monorepo の外 `/Users/masa/projects/AMD/before-zero/theory/`)。過去要約に「does NOT exist」と刷り込まれ毎セッション誤認 → メモリ `feedback_read_full_theory_md.md` に絶対パスを固定。
+- **巻き込みコミット事故**: figure チャンク 11 ファイルが別セッションの `481113f` (cockpit 修正) に混入して push 済み。実害なし・本番反映済みで放置クローズ。詳細 `BUGS.md [git/cross-session-bundling]`。
+- BUILD_VERSION v0.10.7、deploy.sh で本番反映成功 (2分59秒)。
