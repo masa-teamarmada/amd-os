@@ -49,7 +49,15 @@ export default function InstitutionsPage() {
   return (
     <div className="p-4 max-w-[1400px] mx-auto space-y-4">
       <header className="space-y-1">
-        <h1 className="text-xl font-bold">研究機関 — ERS / エコシステム整備度</h1>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h1 className="text-xl font-bold">研究機関 — ERS / エコシステム整備度</h1>
+          <Link
+            href="/institutions/assess"
+            className="shrink-0 text-xs rounded-md border border-primary/40 bg-primary/5 text-primary px-3 py-1.5 font-medium hover:bg-primary/10"
+          >
+            📝 評価を入力 / 編集
+          </Link>
+        </div>
         <p className="text-xs text-muted-foreground">
           各機関が「ベンチャーを生み育てる装置」としてどれだけ整備されているかを 8 軸 × サブ軸 (Lv1–5) の充足率で表す。
           <span className="font-medium text-foreground">AMD Score（個体レイヤー）とは別ロジック</span>の苗床レイヤー指標。各セルは軸スコア（0–100%）。
