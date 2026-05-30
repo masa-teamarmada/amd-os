@@ -534,3 +534,36 @@ BZM (Before Zero Model) 教科書の既存 10 章が「中身スカスカ」だ�
 
 ### 関連メモ更新 (memory)
 - `feedback_graphs_matplotlib.md` 新規 (グラフは matplotlib 統一。まさ「クオリティ高い、毎回これ使って」2026-05-30)
+
+## 2026-05-30 (#99 後半) — Claude Code (eimi) / BZM: データ収集→収益化指数確定→XRL原典準拠実装
+
+> #99 の続き。P×R×S モデルを「データ収集→定義の線引き確定→本番OS実装」まで前進。モデル議論の正本は `knowledge/before_zero_theory.md` (monorepo外)。
+
+### モデル確定事項 (まさ判断、knowledge/before_zero_theory.md に正本化)
+- **収益化指数 (R_net) — 軸名・定義確定**: 旧「ライスワーク実益/RW」廃止 (RW2文字は2変数の積と誤読、ライスワークは系統I連想)。正式名「**収益化指数**」、中身は R_net=事業が生む純キャッシュ貢献。**系統I(つなぎ事業)/系統II(本命の先行収益)を区別しない** (理由①収益あれば系統問わず生存↑ ②系統IIはR軸も上げるのでモデルが自然に差を吸収)。生存条件式 B−R_net≤F
+- **創薬RW=0問題**: 創薬は型確立+大EXIT+大Pで S を別ルート確保→RW=0でも大差にならない。SをRW一本に依存させない (まさ見解)
+- **時点=経時で見る** / **反実仮想は別軸で重要** / **多元スケール=別指標でなく重みを変えるだけ** (まさ方針)
+
+### データ収集 (捏造せず L2 + Web + 口述)
+- 全9PJの P(潜在規模)/収益化指数/XRL を収集。各PJ `knowledge/{pj}.md` の「P（潜在規模）」節に Web市場調査を出典付き記録
+- **`knowledge/LST.md` 新規作成** (論文9PJだが md 欠落していた。p07, 設立2023-07-06, Before0, UMI打診→星野CEO/まさCOO/2年弱体制構築)
+- jc/BWE/KT/yd/tiem/ctb に口述+Web反映。誤報告訂正 (BWE/SX の md は最初から正しかった=サブエージェント抽出ミスを鵜呑みにした)
+- **判定 rubric v0.1** `knowledge/xrl_rubric.md` 作成 (後に原典準拠実装で OS 側に移行)
+- 9PJ横断 retrofit スクリプト [prxs_9pj_inputs.py](../scripts/prxs_9pj_inputs.py) (設立時点・根拠付き0-9化)。ティエム(P最大でもTRL0でScore最下位級)・CTB(RW=0でも中位)がまさ直感どおり再現
+
+### XRL 原典準拠実装 (本セッションの主成果)
+- **原典PDF** (共有ドライブ ARMADA/a1_all/データベース/XRLの元文献.pdf = 内閣府SIP2023公募要領 図2-6) を読込
+- 既存 [xrl-level-definitions.ts](../src/lib/xrl-level-definitions.ts) は前任の創作 (原典に無い語・全軸9段階) で**間違い** → 原典完全準拠で全面書換え
+  - **TRL/BRL=9段階、GRL/SRL/HRL=8段階** (後者は慶應栗野研提案)。label/description は原典文言そのまま。`maxLevel` で軸別段階数。`exit_criteria` 廃止→各レベルに観測 `checklist[]` (原典description分解)
+- **DB**: [migration 109](../scripts/migrations/109_amd_score_xrl_checklist.sql) で `amd_score_inputs.xrl_checklist` (JSONB) 追加・適用済。形式 `{axis:{level:[bool,...]}}`
+- **UI**: [XrlChecklistPanel.tsx](../src/components/venture-map/XrlChecklistPanel.tsx) 新規。スコア詳細ページ ([AmdScoreView.tsx](../src/components/venture-map/AmdScoreView.tsx)) の FrlAlqPanel 下に設置。5軸タブ→レベル別チェック→達成レベル自動算出(積み上げ式)→保存でupsert+XRL生値上書き。運用=えいみ初期入力→まさ修正 (Tsukuyomi不使用、まさ指示)
+- [CockpitXrlDetailModal.tsx](../src/components/cockpit/CockpitXrlDetailModal.tsx) と [tsukuyomi/chat/route.ts](../src/app/api/tsukuyomi/chat/route.ts) を新定義に追従 (exit_criteria→checklist)
+- **全11PJ初期投入** [seed_xrl_checklist.mjs](../scripts/seed_xrl_checklist.mjs): 各PJ最新評価行の現在XRL値のfloorを達成レベルとし、そのレベル以下の全項目true。項目数は定義ファイルから機械抽出。まさ確認「現実との乖離は意外と少ない」
+
+### Verified
+- tsc/build 通過・v0.11.3 deploy 成功 (build-info は後に別更新で v0.11.4)。全11PJ投入 11/11 OK・SQLで検証 (p06 TRL6→Lv1-6全true 確認)
+- 全 commit main push 済 (`df4534a`→`44a904d`)
+
+### 次セッションへの申し送り (まさ指示、HANDOFF_bzm_textbook.md にも記載)
+- **#1 スコア詳細ページが HUD版に汚染**: 現状UIはHUD版側に新設し、通常版スコア詳細ページを別途実装
+- **#2 スコア詳細をコックピットに移植**: コックピット上部のAMDスコアグラフ+XRLグラフは常時表示、その下を「進捗管理」「スコア詳細」2タブに。現状表示は進捗管理タブ、スコア詳細ページ中身を丸ごとスコア詳細タブへ。スコアクリックで出る「スコア内訳」モーダルは完全廃止

@@ -89,7 +89,7 @@ bottleneck = argmax_i α_i / (X_i + 1)
 |---|---|
 | μ_A | `papers_log`, scholar ingest, OpenAlex |
 | μ_I / μ_G | `atlas_signals`, `macro_index_log`, Atlas / Macrotrend |
-| TRL/BRL/GRL/SRL/HRL | `project_xrl_log`, `project_xrl_evidence`, `amd_score_inputs.xrl_notes` |
+| TRL/BRL/GRL/SRL/HRL | `project_xrl_log`, `project_xrl_evidence`, `amd_score_inputs.xrl_notes` / `amd_score_inputs.xrl_checklist` (観測チェックリスト) |
 | FRL | `amd_score_inputs.frl_*`, ALQ / Grit / Resilience |
 | annotation | `project_events`, 経営ハイライト |
 
@@ -105,6 +105,17 @@ bottleneck = argmax_i α_i / (X_i + 1)
 | FRL | `amd_score_inputs.frl_notes` -> 仮置き |
 
 値だけでなく、なぜその値なのかを残すことが重要。
+
+## XRL 観測チェックリスト (2026-05-30 追加)
+
+XRL の各軸レベルを「案件ごとにブレずに」判定するため、**内閣府 SIP「サーキュラーエコノミーシステムの構築」2023 公募要領 (図2-6) の原典定義に完全準拠**したレベル定義 + 観測チェックリストを持つ。
+
+- **段階数は軸で違う (原典どおり)**: TRL / BRL = **9 段階**、GRL / SRL / HRL = **8 段階** (後者は慶應義塾大学 栗野研究室 提案)。AMD が勝手な基準を作らない (= 仕組みの信頼性の根幹)。
+- 定義の正本は [`src/lib/xrl-level-definitions.ts`](../src/lib/xrl-level-definitions.ts)。各レベルに原典の `label` / `description` と、それを観測可能項目に分解した `checklist[]` を持つ。
+- **判定ロジック**: 達成レベル = 下から見て「全項目チェック済みの連続最大レベル」(積み上げ式)。途中のレベルが欠けたらそこで止まる。
+- **UI**: スコア詳細ページ (`/venture-map/amd-score/{projectId}`) の **XRL 観測チェックリストパネル**。5 軸タブ → レベル別にチェック項目を表示 → チェックすると達成レベルを自動算出 → 保存で `amd_score_inputs.xrl_checklist` (JSONB `{axis:{level:[bool,...]}}`) に保存し、XRL 生値 (trl..hrl) も達成レベルで上書きする。
+- **運用**: えいみ (Claude/Codex) が全 PJ に初期チェックを投入 → まさが画面で修正する (Tsukuyomi は使わない、まさ確定 2026-05-30)。初期投入は [`scripts/seed_xrl_checklist.mjs`](../scripts/seed_xrl_checklist.mjs)。
+- 原典 PDF: 共有ドライブ `ARMADA/a1_all/データベース/XRLの元文献.pdf`。
 
 ## 更新フロー
 
@@ -128,7 +139,7 @@ M / X / F / AMD Score / 律速軸を表示
 |---|---|
 | `各 PJ cockpit` | 現在の score、M/X/F、XRL、経時グラフ |
 | `/venture-map/amd-score` | PJ / SU 一覧 |
-| `/venture-map/amd-score/{projectId}` | 詳細。式、M/X/F、FRL、根拠 notes |
+| `/venture-map/amd-score/{projectId}` | 詳細。式、M/X/F、FRL、根拠 notes、**XRL 観測チェックリスト** |
 | `/venture-map/amd-score/retrofit` | α 重み調整と simulation |
 
 ## 関連設計 md

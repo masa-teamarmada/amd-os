@@ -1,79 +1,57 @@
 # HANDOFF — BZM 教科書ワークストリーム
 
-> 最終更新: 2026-05-30 (後半2) / トピック: **モデルが P×R×S 3因子へ進化**。F3 生成・論文付録ABC・自走性/生存条件式/潜在規模を knowledge に正本化・新式(A=9軸)ティエム試算。次は P×ライスワーク実益データ収集→校正→本番AMD Score実装。
+> 最終更新: 2026-05-30 (後半3) / トピック: **XRL判定を内閣府SIP原典準拠に刷新+観測チェックリストUIをスコア詳細ページに実装、全11PJ初期投入完了**。次は UI 構造の整理 (#1 HUD汚染分離 / #2 コックピット移植)。
 > ⚠️ payment-confirm の引き継ぎは別ファイル `HANDOFF_pwa_rebuild.md` (codex 正本)。混ぜない。
-> 🚨 **モデル議論の正本は `/Users/masa/projects/knowledge/before_zero_theory.md`** (monorepo 外、新章「2026-05-30 P×R×S 3因子再構成」)。経営知識・モデル議論を `pwa/design/` に書くのは AGENTS.common 違反 (今セッションで是正済)。ティエム固有は `knowledge/tiem.md`。
-> 📊 グラフは **matplotlib** で統一 (まさ指示、memory `feedback_graphs_matplotlib`)。
+> 🚨 **モデル議論の正本は `/Users/masa/projects/knowledge/before_zero_theory.md`** (monorepo 外)。経営知識・モデル議論を `pwa/design/` に書くのは AGENTS.common 違反。ティエム=`knowledge/tiem.md`、各PJ=`knowledge/{pj}.md`、XRL rubric=`knowledge/xrl_rubric.md`。
+> 📊 グラフは **matplotlib** で統一 (memory `feedback_graphs_matplotlib`)。
 
 ## このワークストリームの目的
 
-BZM (Before Zero Model) を **学会発表・論文化まで見据えた厳密版** にする。Web 教科書 (`pwa/bzm/*.md`, 全14章) とアカデミック論文 (JASVE 向け・日本語・IMRaD) を **並行育成**。コンテンツ正本は `pwa/bzm/*.md`、ページ実装 `pwa/src/app/(app)/bzm/`、レンダラ `BzmMarkdown` (KaTeX + `img`)。**モデル定義の議論正本は `knowledge/before_zero_theory.md` (monorepo 外)**。
+BZM (Before Zero Model) を **学会発表・論文化まで見据えた厳密版** にする。Web 教科書 (`pwa/bzm/*.md`) + アカデミック論文 (JASVE向け) を並行育成。**モデル定義の議論正本は `knowledge/before_zero_theory.md` (monorepo外)**。本番実装は AMD Score (`pwa/src/lib/amd-score.ts` + venture-map/amd-score ページ)。
 
-## 最新セッション要約 (2026-05-30 後半2) — ここが今回の主成果
+## 直近セッション要約 (2026-05-30 後半3)
 
-このセッションは「論文の図」から始まり、**AMD Score の根本的なモデル進化**に発展した。
+詳細は [design_log/sessions_2026-05.md](design_log/sessions_2026-05.md) の「#99 後半」エントリ。要点:
 
-### A. 図・論文 (前半)
-- **F3 (retrofit 時系列図) を B案=自己整合再計算で生成** (`pwa/scripts/bzm_figures.py` の `fig_f3()` → `pwa/public/bzm/f3_retrofit_timeseries.png`)。theory §9 ティエム軸値を Cobb-Douglas に通して再計算。設立2012(133) vs 仮想2017(2861) ≈ 22倍 (期待値ベース23倍とほぼ一致=ロバスト)。教科書 6-1 §3.2 (図6-1) と論文 §4.2 (図5) に埋め込み。
-- **論文ドラフト精緻化** (`pwa/design/bzm_paper_draft.md`): 付録A/B/C を「教科書参照」スタブから self-contained 化 (状態空間の固有値→螺旋, 記号表, ERS 8軸構造+7-c rubric)、§4.2 に表1 (ティエム時系列)。
-- **v0.10.8 デプロイ済**。F3 本番配信確認済 (200)。
-
-### B. モデル進化 P×R×S (後半・本丸)
-まさのティエム振り返り (モノリス/パウダーで TRL が違う・VC 頼り切らずライスワークで自走) から、AMD Score の構造そのものを再設計:
-
-```
-AMD Score_new = P(潜在規模) × R(到達度=XRL群) × S(生存確率 = σ_SU × FRL × ライスワーク実益)
-```
-- **R = XRL群 (TRL/BRL/GRL/SRL/HRL 全部)**。GRL/SRL も「PJ が外部環境に侵食し始める Readiness」として含む。
-- **S = σ_SU × FRL × ライスワーク実益**。内部自走性 × 外部資金環境 × 創業者力。
-- **P = 潜在規模 (新設)**。従来 DCF ≒ P の上位互換 (到達度 R と生存確率 S を掛けて精度を上げる)。
-- **生存条件式 `B − R_net ≤ F`** (B=本命バーン, R_net=ライスワーク純貢献, F=無理ない調達上限)。自走BEP は F=0 の特殊ケース。
-- **(A) フラット9軸 Cobb-Douglas に確定** (現行7軸 + P + RW の2軸追加 = 既存を壊さない拡張)。
-- **ティエム試算済** (`pwa/scripts/prxs_retrofit_test.py`、全て仮値): 史実(商社せずRW=0) vs 反実仮想(商社RW立ち上げ) で 2017 に 4.2倍差。「自走してれば生存確率Sが上がり評価が伸びた」を定量化。
-
-### C. 是正・正本化
-- **AGENTS.common 違反を是正**: モデル議論・ティエム経営知識を `pwa/design/bzm_retrofit_cases.md` に書いていた (場所違反 + tiem.md と重複) → `knowledge/before_zero_theory.md` (新章) + `knowledge/tiem.md` (相互リンク) に移管、design 側は削除。
-- グラフ matplotlib 統一を memory 化。
+- **収益化指数 (R_net) 確定**: 旧「ライスワーク実益/RW」廃止。系統I(つなぎ)/II(本命先行収益)を**区別しない**=事業が生む純キャッシュ貢献。生存条件式 `B−R_net≤F`。
+- **全9PJのP/R_net/XRL収集**(L2+Web+口述、捏造なし)。`knowledge/LST.md`新規。9PJ横断retrofitスクリプト [prxs_9pj_inputs.py](scripts/prxs_9pj_inputs.py)。
+- **XRL判定を内閣府SIP原典準拠に刷新** (本セッション主成果):
+  - 原典PDF(内閣府SIP2023公募要領 図2-6)に完全準拠で [xrl-level-definitions.ts](src/lib/xrl-level-definitions.ts) 書換え。**TRL/BRL=9段階, GRL/SRL/HRL=8段階**。各レベルに観測 `checklist[]`。
+  - `amd_score_inputs.xrl_checklist` (JSONB, migration 109) 追加。
+  - スコア詳細ページに [XrlChecklistPanel.tsx](src/components/venture-map/XrlChecklistPanel.tsx) 設置。チェック→達成レベル自動算出(積み上げ式)→保存。運用=えいみ初期入力→まさ修正(Tsukuyomi不使用)。
+  - 全11PJ初期投入済 ([seed_xrl_checklist.mjs](scripts/seed_xrl_checklist.mjs))。まさ確認「現実との乖離は意外と少ない」。
 
 ## リポ状態
 
-- **branch: `main` 直運用** (旧 `feat/bzm-textbook` は別セッションが main にマージ済・削除済。CLAUDE.md「main 直運用」ルール確定)。
-- 今セッションの BZM commit はすべて main に push 済 (最終 `146679d`)。未 push なし。
-- 作業ツリーは他セッションの dirty を多数含む。**`git add .` / broad revert 禁止**。対象ファイルのみ個別 stage → 即 push。
-- BUILD_VERSION は別セッションが v0.10.9 に bump 済 (本番反映は別管轄)。
+- **branch: `main` 直運用**。今セッションの commit はすべて push 済 (最終 `44a904d`)。未 push なし。
+- 作業ツリー dirty: `build-info.ts` (v0.11.4 へ別更新、要 commit) / `public/bzm/_prxs_9pj.png` (検証用図、配信外)。**`git add .` 禁止、対象のみ個別 add**。
+- 本番: v0.11.3 deploy 済 (XRLチェックリスト反映)。次 deploy で build-info v0.11.4 反映。
 
-## 2026-05-30 後半3 セッション成果（データ収集→rubric化フェーズ）
+## 次セッションの最初の一手 (まさ指示の UI 整理が最優先)
 
-**B(モデル)を大きく前進。確定事項と成果物:**
+**#1 スコア詳細ページの HUD版汚染を分離**
+- 現状のスコア詳細ページ UI が HUD版に汚染されている。現状UIは **HUD版側に新たに設置**した上で、**通常版のスコア詳細ページを実装**する。
+- 対象: `src/app/(app)/venture-map/amd-score/[projectId]/page.tsx` + `AmdScoreView.tsx`、HUD系 (`/hud/dashboard` 等) を確認。
 
-1. **収益化指数 (R_net) — 軸名・定義 確定（まさ）**: 旧「ライスワーク実益/RW」廃止（RW2文字は積と誤読/系統I連想）。**系統I(つなぎ事業)と系統II(本命の先行収益)を区別しない**＝本命/非本命問わず「事業が生む純キャッシュ貢献 R_net」。理由: ①収益あれば系統問わず生存↑ ②系統IIはR軸も上げるのでモデルが自然に差を吸収。生存条件式 `B−R_net≤F`。
-2. **創薬RW=0問題 — まさ見解確定**: 創薬はRW=0でも事業化プロセスの型確立+大EXIT+大Pで S を別ルート確保→大差にならない。SをRW一本に依存させない。
-3. **全9PJのP/R_net/XRLデータ収集完了**（捏造せず L2 + Web市場調査 + まさ口述）。各PJ md に出典付き記録。**LST.md 新規作成**（p07, 設立2023-07-06, Before0, UMI打診→星野CEO/まさCOO/2年弱体制構築）。jc/BWE/KT/yd/tiem/ctb に口述+Web反映。
-4. **9PJ横断 retrofit スクリプト** `pwa/scripts/prxs_9pj_inputs.py`（push済）。設立時点スナップ・根拠付き0-9化。結果: ティエム(P最大でもTRL0でScore最下位級)・CTB(RW=0でも中位)がまさ直感どおり再現。図 `public/bzm/_prxs_9pj.png`（配信外）。
-5. **判定 rubric v0.1 新設** `knowledge/xrl_rubric.md`（まさ依頼）: 各軸0-9を案件ごとブレずに埋める観測可能Yes/Noチェックリスト（「ラボで原理検証」「顧客からROI獲得」「COOいる」「CFOいる」等）。既存SIP9段階を観測項目に分解。9軸網羅。
-6. **論文§1.1 DCF修正済**（前半）。
+**#2 スコア詳細をコックピットに移植 (タブ化)**
+- 現状スコア詳細はコックピットと別ページ → **コックピット内に移植**。
+- コックピット上部の **AMDスコアグラフ + XRLグラフだけ常時表示**にし、それより下を「**進捗管理**」「**スコア詳細**」の2タブに分ける。
+- 現状表示中のものは「進捗管理」タブへ。「スコア詳細」タブにスコア詳細ページの中身を**全部移植**。
+- スコアクリックで出る「スコア内訳」モーダルは **完全廃止**でOK。
+- 対象: `src/components/cockpit/CockpitVentureStatus.tsx` + スコア内訳モーダル (`CockpitAmdScoreBreakdownModal.tsx`)。
 
-## 次セッションの最初の一手
-
-**最優先: rubric を運用に乗せて値を締め、重み校正へ。**
-
-1. **rubric v0.1 をまさレビュー** (`knowledge/xrl_rubric.md`)。チェック項目の過不足を磨く。承認後、9PJの0-9値を rubric ベースで再評価（現在の値は rubric 前の第一次置き）。
-2. **重み校正**: αP/α収益化指数 を、まさの体感ランキングと9PJ retrofit 順位を照合して締める。
-3. **多元スケール（まさ方針）**: 別指標を作らず、成功スケール(ユニコーン/中規模自走/ライセンス)ごとに **α を変えるだけ**で成立するか検証。足りなければ1-2変数追加。評価は「Pに対する達成」で読む。
-4. **時点 = 経時で見る（まさ確定）**: 設立時点だけでなく時系列で rubric を当て、スコアの**理論値と実測値の乖離**を見る（データは激増するが価値大）。
-5. **反実仮想ツール**（別軸で重要）: 「ティエムが商社やってたら」等、R_net を変えた複数ビジネスプラン比較。他PJのBM検討にも転用。
-6. **本番 AMD Score 実装に2軸追加** (`pwa/src` amd-score系)。校正確定後。順序: 試算→データ→rubric→校正→本番。
-7. (低優先) 概念図 G1/G3 外部生成依頼、論文§2 引用精緻化。
+**その後 (モデル校正フェーズ)**
+3. まさが各PJのXRLチェックリストを画面で修正 (初期投入はえいみ案)。特に GRL/SRL が旧定義で高めに出てる PJ (CTB GRL8, BWE GRL8/SRL7 等) を原典準拠で見直し。
+4. P・収益化指数を本番 AMD Score に2軸追加 (`amd-score.ts`)。重み αP/α収益化指数 の校正。多元スケール=スケールごとに α を変える方針 (まさ)。
+5. 論文/教科書側に P×R×S・収益化指数・原典準拠XRL を反映。
 
 ## ポインタ
 
-- **モデル議論の正本** ⭐⭐⭐: `/Users/masa/projects/knowledge/before_zero_theory.md` (monorepo 外、新章 P×R×S + 収益化指数確定 + 判定rubric方針)
-- **判定 rubric** ⭐ (各軸0-9のチェックリスト): `/Users/masa/projects/knowledge/xrl_rubric.md`
-- ティエム固有 (モノリス/パウダー・商社案・retrofit): `/Users/masa/projects/knowledge/tiem.md`
-- LiSTie 固有 (p07, リサイクル先行→装置販売, Before0): `/Users/masa/projects/knowledge/LST.md`
-- 各PJのP/R_net生データ: 各 `knowledge/{pj}.md` の「P（潜在規模）」節 + before_zero_theory.md「データ収集」章
-- 教科書 全14章: `pwa/bzm/*.md` / 論文化設計: `pwa/design/bzm_paper.md` / 論文ドラフト: `pwa/design/bzm_paper_draft.md`
-- データ図ジェネレータ: `pwa/scripts/bzm_figures.py` (F1-F5) / 新式試算: `pwa/scripts/prxs_retrofit_test.py`
-- AMD Score / theory 正本: `/Users/masa/projects/AMD/before-zero/theory/amd_score.md` (monorepo の**外**)、`pwa/design/amd_score.md`、`pwa/design/institution_readiness.md`
+- **モデル議論の正本** ⭐⭐⭐: `/Users/masa/projects/knowledge/before_zero_theory.md`
+- **XRL判定 rubric (議論用)**: `/Users/masa/projects/knowledge/xrl_rubric.md` (実装版は `src/lib/xrl-level-definitions.ts` が正)
+- 各PJ固有 (P/R_net生データ含む): `/Users/masa/projects/knowledge/{tiem,LST,ctb,jc,BWE,KT,yd,cx,sx}.md`
+- XRL原典: 共有ドライブ `ARMADA/a1_all/データベース/XRLの元文献.pdf` (内閣府SIP2023公募要領 図2-6)
+- AMD Score 実装仕様: `pwa/design/amd_score.md` / 理論正本: `/Users/masa/projects/AMD/before-zero/theory/amd_score.md`
+- 教科書: `pwa/bzm/*.md` / 論文: `pwa/design/bzm_paper_draft.md` / 図: `pwa/scripts/bzm_figures.py`
 - セッション詳細: `pwa/design_log/sessions_2026-05.md` / バグ: `pwa/BUGS.md`
-- deploy: `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` (直 `npx vercel` 禁止)、deploy 前に必ず BUILD_VERSION bump。グラフは matplotlib 統一。
+- deploy: `bash pwa/scripts/deploy.sh` (直 npx vercel 禁止)、deploy 前に BUILD_VERSION bump。DDL: `python3 -X utf8 scripts/apply_ddl.py scripts/migrations/NNN.sql`。
