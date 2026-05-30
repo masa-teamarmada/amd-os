@@ -5,6 +5,8 @@ description: AMD OS L2 ①〜⑨ 全 9 種を 1 routine / automation 群で順�
 
 # AMD OS L2 ①〜⑨ 集約抽出 routine (= subscription automation、daily 1 回、cap 対策)
 
+> **履歴扱い**: 2026-05-29 以降の current writer は、L2① = Codex automation、L2②〜⑥ = Windows MMO Codex Desktop automation、L2⑦⑧⑨ = Codex automation + outbox/applier。新規復旧・MMO反映ではこの集約版を主導線にせず、個別 SKILL と `pwa/manual/8-3-l2-extraction-routines-spec.md` の現行 writer 表を正本にする。
+
 ## 設計の要点 (2026-05-26 まさ集約案 確定)
 
 - **背景**: 個別 routine で運用しようとしたが claude.ai daily run cap 15/day に抵触 (= 毎時 routine 2 個で 14 cap 消費)。1 routine / day に集約。
@@ -16,7 +18,7 @@ description: AMD OS L2 ①〜⑨ 全 9 種を 1 routine / automation 群で順�
 
 ## 実行順序 (= 依存関係考慮)
 
-1. **① monthly_reports** (= 5 生データから月次断面を作る、後段 L2 の入力源)
+1. **① monthly_reports** (= Supabase L2 snapshot を primary input に月次断面を作る。5 生データは gap check / backfill fallback)
 2. **⑥ MTG サマリ** (= 議事録、後段の入力源、毎時取りこぼし対応で daily まとめ取り)
 3. **② AMD プロトコル** (= 議事録依存、決定/分岐点を構造化)
 4. **④ PJ ナレッジ** (= 議事録 + monthly_reports 依存)
@@ -57,7 +59,7 @@ Phase A: ① monthly_reports 抽出 (= 当月 / 前月)
 ═══════════════════════════════════════════════════
 
 `pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md` の手順を実行。ただし:
-- 入力: active / sales PJ × {当月, 前月} の 5 生データ + OS snapshot
+- 入力: active / sales PJ × {当月, 前月} の Supabase L2 snapshot primary + 5 生データ gap check fallback
 - 出力: `monthly_reports` draft。Cloud routine 直書きが使えない環境では `/Users/masa/.codex/automations/amd-os-ms/outbox/` の `monthlyReports` 経由で非LLM helper が反映する
 - 既存 `final_content` は force 明示なしで上書きしない
 - R313 / PWA report route / Anthropic API は呼ばない
@@ -98,7 +100,7 @@ Phase E: ⑤ メンバーナレッジ抽出
 `pwa/scheduled-tasks/amd-os-l5-member-knowledge-extract/SKILL.md` の手順実行。
 - 入力: `member_activities` (直近 90 日) + 関連 PJ の `project_meeting_summaries` (直近 60 日) + `milestone_responsibility`
 - 出力: `member_knowledge` (UNIQUE code_name+category)
-- schema gap (= status / source_hash 列無し) に注意
+- `status` / `source_hash` / `last_processed_at` は migration 091 で追加済み。列名は `pwa/design/db_schema.md` を確認してから使う
 
 ═══════════════════════════════════════════════════
 Phase F: ⑦ OS 台帳差分抽出

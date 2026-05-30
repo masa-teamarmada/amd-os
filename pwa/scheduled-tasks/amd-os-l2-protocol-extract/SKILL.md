@@ -1,14 +1,15 @@
 ---
 name: amd-os-l2-protocol-extract
-description: AMD OS L2 ② AMD プロトコル (経営判断の構造化記録) 抽出 routine。daily 08:00 JST 発火、各 active PJ × {当月, 前月} の project_meeting_summaries (decided 中心) + monthly_reports から「分岐点 / 判断材料 / アクション / 結果 (= 後追い欄、自動抽出時は空)」をサブスク内 Claude で構造化抽出 → Supabase `protocols` に candidate で upsert + 通知。GAS 155 `nav_protocol_pollAll` + `nav_protocol_extractOneForYm_` 完全 inline 移植版 (= GAS 完全 bypass、`llm_prompts.protocol.extract` DB 管理 prompt 使用、2026-05-25 まさ #71)。
+description: AMD OS L2 ② AMDプロトコル抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l2-protocol-extract` (= daily 08:00 JST)。各 active PJ × {当月, 前月} の project_meeting_summaries + monthly_reports から「分岐点 / 判断材料 / アクション / 結果 (= 後追い欄、自動抽出時は空)」を subscription 内 Codex で構造化抽出し、Supabase `protocols` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
 ---
 
-# AMD OS L2 ② AMD プロトコル抽出 (GAS 155 完全 inline 移植版)
+# AMD OS L2 ② AMD プロトコル抽出 (GAS 155 移植版)
 
 ## 設計の要点
 - AMD プロトコル = AMD の最重要知財 (= 経営判断の構造化記録、分岐点 / 判断材料 / アクション / 結果)
 - 「結果」欄はアクション後に実際に起きたことを後追いで入れる欄 → **自動抽出では空**
-- GAS 155 `nav_protocol_pollAll` / `nav_protocol_extractOneForYm_` を Claude routine 内 inline 移植
+- GAS 155 `nav_protocol_pollAll` / `nav_protocol_extractOneForYm_` の業務ロジックを Windows MMO Codex Desktop automation に移植
+- 現行復旧先は MMO マシン側の Codex Desktop automation 履歴・ログ。Mac local routine / Claude Cloud routine は履歴扱い
 - 入力 = active PJ × {当月, 前月} の `project_meeting_summaries` (decided / risks / next_actions 中心)
 - 出力 = `protocols` (= 既存 row は protocol_id で SELECT → INSERT/PATCH、status='candidate' で通知採否 → yes で `confirmed` 昇格)
 - LLM prompt = Supabase `llm_prompts.protocol.extract` (= AGENTS.common.md ルール、コード hardcode 禁止)

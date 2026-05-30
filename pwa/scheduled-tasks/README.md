@@ -9,6 +9,8 @@
 - **Cloud routine 用 (履歴/補助)**: claude.ai/code/routines の「指示」フィールドで `pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md を読んで実行` と指示していた。現行復旧先は 8-3 の実行場所表を優先
 - **Windows MMO Codex 用**: Codex Desktop automation の prompt でこの repo 内 SKILL を読む。repo は MMO 側で auto-pull されるが、即時反映したい場合は MMO 側で `git pull origin main` を確認する。
 - **編集は repo の正本で**。Mac 側は rsync で同期 (= 双方向同期スクリプトを別途)
+- **L2① monthly report**: 2026-05-31 以降は Supabase L2 snapshot primary。5生データは L2 coverage gap / stale / source refs 不足 / no-data 判定候補の fallback として見る。
+- **L2⑥ Notion eventId**: eventId を埋められるのは MMO automation。Calendar event から Notion page を見つけたら可能な範囲で `eventId` を追記し、欠損だけを理由に skip しない。title/date/attendees/Gemini/Drive/Gmail URL fallback を必ず使う。
 
 ## Routine 一覧
 

@@ -14,6 +14,7 @@
 
 - **稼働対象**: ① monthly_reports (= Codex automation `AMD OS L2① 月次報告抽出`) / ② AMD プロトコル・④ PJ ナレッジ・⑤ メンバーナレッジ・⑥ MTG サマリ (= MMOマシン Codex Desktop automation) / ③ MS 進捗 (= `amd-os-l3-ms-progress-extract` が primary writer、PWA/GAS hourly は 2026-05-29 再停止) / ⑦ OS 台帳差分 + ⑧ XRL 根拠 (= Codex automation `amd-os-ms`) / ⑨ 経営ハイライト (= Codex automation `amd-os`)
 - **ghost は履歴**: 2026-05-22〜25 に ②④⑤⑥ が止まっていたが、現行復旧先は 8-3 章の automation 表を見る。
+- **L2① 方針更新 (2026-05-31)**: 月次報告書は Supabase 内の L2 snapshot を primary input にする。5生データは L2 coverage gap / stale / source refs 不足 / no-data 判定候補の fallback として見る。
 
 (詳細 fact は 03 章 3.1 マトリクス参照)
 
@@ -47,7 +48,7 @@
 - LaunchAgent applier `jp.teamarmada.amd-os-ms-outbox-applier` も outbox 経路が不要になり次第 unload
 
 **2026-05-29 訂正**:
-- ① monthly_reports も **定額 subscription automation の正式対象**。Codex automation `AMD OS L2① 月次報告抽出` が 5 生データから draft を作り、`amd-os-ms/outbox.monthlyReports` 経由で非LLM applier が Supabase に反映する。
+- ① monthly_reports も **定額 subscription automation の正式対象**。Codex automation `AMD OS L2① 月次報告抽出` が Supabase L2 snapshot primary + 5 生データ gap check fallback で draft を作り、`amd-os-ms/outbox.monthlyReports` 経由で非LLM applier が Supabase に反映する。
 - R313 現物は未生成/差分あり時に R303 generator 経由で Claude API を呼びうるため、Apps Script 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しないし、定期 writer として復活させない。
 - 修正依頼ループ (= `l2_feedbacks` 読み込み) は各 routine / automation の SKILL.md prompt に必ず組み込む。
 
@@ -61,7 +62,7 @@
 | **② AMD プロトコル** | `amd-os-l2-protocol-extract` | daily 08:00 JST | GAS 155 (= kill switch、completed bypass) | ✅ MMOマシン Codex Desktop automation |
 | **③ MS 進捗** | `amd-os-l3-ms-progress-extract` | 毎時 0 分 | ~~GAS 154 → PWA `/api/cron/hourly-estimate`~~ ⛔ 2026-05-29 再停止 + Codex `amd-os-ms` の `outbox.revisions` | ✅ 定期抽出 primary。PWA/GAS background LLM cron は停止 |
 | **④ PJ ナレッジ** | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | GAS 155 (= kill switch) | ✅ MMOマシン Codex Desktop automation |
-| **⑤ メンバーナレッジ** | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | GAS 155 (= kill switch) | ✅ MMOマシン Codex Desktop automation。**schema gap**: 現 `member_knowledge` に `status` / `source_hash` 列なし、候補採否設計には migration 必要 |
+| **⑤ メンバーナレッジ** | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | GAS 155 (= kill switch) | ✅ MMOマシン Codex Desktop automation。migration 091 以降 `status` / `source_hash` / `last_processed_at` 前提 |
 | **⑥ MTG サマリ** | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | **毎日 09:00-21:00 毎時** | GAS 153 (= kill switch) | ✅ Windows MMO Codex Desktop automation |
 | **⑦ OS 台帳差分** | `amd-os-ms` + `amd-os-l7-registry-diff-extract` | 6h ごと | PWA/GAS LLM route は使わない | ✅ Codex automation + outbox/applier |
 | **⑧ XRL 根拠** | `amd-os-ms` + `amd-os-l8-xrl-evidence-extract` | 6h ごと | PWA/GAS LLM route は使わない | ✅ Codex automation + outbox/applier |
@@ -118,7 +119,7 @@
 - **本文**: 必ず最初に Read するファイルリスト → Phase A 抽出 → Phase B 後段処理 / 通知
 - **登録**: `mcp__scheduled-tasks__create_scheduled_task` で `cronExpression` 指定 (= ローカル時間)
 - **DB upsert**: 直接 Supabase REST (= service_role) または PWA API (= `CRON_SECRET` ヘッダ)
-- **冪等性**: source_hash 差分検知 + L2 ごとの status 語彙に合わせた通知採否ループ。`protocols` は yes で `confirmed`、`project_knowledge` は yes で `active`。`member_knowledge` は現 schema に `status` 列が無いので migration 判断が必要。
+- **冪等性**: source_hash 差分検知 + L2 ごとの status 語彙に合わせた通知採否ループ。`protocols` は yes で `confirmed`、`project_knowledge` は yes で `active`。`member_knowledge` は migration 091 以降 `status` / `source_hash` / `last_processed_at` を使える。
 
 ---
 
@@ -165,7 +166,7 @@
 | 頻度 | **daily 08:30 JST** |
 | 入力 | 直近 30 日の `member_activities` + `project_meeting_summaries` (= 二次集約) |
 | 処理 | メンバー個人の強み / スキル / 関心を 7 category で抽出 |
-| 出力先 | `member_knowledge` (= 現 schema は `status` 列なし。候補採否を row に持たせるなら migration が必要) |
+| 出力先 | `member_knowledge` (= migration 091 以降 `status='candidate'` / `source_hash` / `last_processed_at` を使える) |
 | LLM | Claude Sonnet 4.6 |
 | 既存 GAS 155 との関係 | `nav_member_knowledge_pollAll` の prompt 移植 |
 

@@ -1,17 +1,17 @@
 ---
 name: amd-os-l6-meeting-extract
-description: AMD OS L2 ⑥ MTG サマリ (議事録) 抽出 Cloud routine。routine trigger で起動し、Calendar/Notion/Gmail/Drive/Slack MCP 直叩き → サブスク内 Claude で抽出 → project_meeting_summaries + meeting_notifications upsert。PWA/GAS/Vercel に token 課金LLM cron は作らず、GAS 153 + 074 + 074b-e の業務ロジックだけを inline 移植 (= GAS 完全 bypass、まさ #71)。
+description: AMD OS L2 ⑥ MTGサマリ + MTGフローの repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l6-meeting-flow` (= 毎日09:00-21:00毎時 + Phase A早期exit)。Calendar/Notion/Gmail/Drive/Slack を読み、subscription 内 Codex で narrative_md + summary arrays を抽出して `project_meeting_summaries` に保存する。PWA/GAS/Vercel に token課金LLM cron は作らず、GAS 153 + 074 + 074b-e の業務ロジックだけを移植する。
 ---
 
-# AMD OS L2 ⑥ MTG サマリ抽出 (GAS 153 + 074 完全 inline 移植版)
+# AMD OS L2 ⑥ MTG サマリ抽出 (GAS 153 + 074 移植版)
 
-GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneEvent_` の Phase 3 ロジックを **Claude routine 内に完全 inline 移植** したもの。GAS は完全 bypass (= kill switch のまま死んでて OK、参照すらしない)。
+GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneEvent_` の Phase 3 ロジックを **Windows MMO Codex Desktop automation** に移植したもの。GAS は完全 bypass (= kill switch のまま死んでて OK、参照すらしない)。
 
 ## 設計の要点 (2026-05-25 まさ #71 確定)
 
 - **GAS 完全 bypass**: 旧 dryRun 経由は廃止。Calendar / Notion / Gmail / Drive / Slack へは MCP で直接 access
-- **LLM 呼びはサブスク内 Claude (= 私自身)**: Anthropic SDK 不要、scheduled task 内で私が prompt 受けて JSON 生成
-- **追加課金ゼロ境界**: PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 API を呼ばない。LLM を使うのはこの Claude Cloud routine 内だけ。
+- **LLM 呼びは subscription 内 Codex automation**: Anthropic SDK 不要、Codex Desktop automation 内で JSON 生成
+- **追加課金ゼロ境界**: PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 API を呼ばない。LLM を使うのはこの MMO Codex Desktop automation 内だけ。
 - **token 課金LLM cron 禁止**: routine trigger は allowed path。PWA / GAS / Vercel の cron / time trigger は、LLM 非依存の deterministic sync / 通知 / キャッシュ更新なら問題なし。この L2⑥では Gemini 経路の 153 / 152 を復活させない。
 - **業務ロジックは GAS 元コード完全保存**: 「終了 60-180 分前 filter」「Stage 1-3 Notion fallback」「source_kinds 判定 (= 30 chars 閾値)」「source_hash 差分検知」「修正依頼織り込み」「議事録なし行のマーカー upsert」を踏襲
 - **5 ソース全部見る** (= まさ絶対ルール 2026-05-11): Notion + Gmail + Drive + Slack + Calendar event 本文。GAS 074 + 074b-e の集約をこの 1 routine で実現
@@ -21,6 +21,8 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **既存 narrative 保護**: 既存 row に 300字以上の `narrative_md` がある場合、新しい抽出結果が空 / 箇条書き優勢 / 既存より明らかに薄いなら upsert しない。`project_meeting_summaries` には DB trigger でも保護があるが、routine 側でも必ず判定する。
 - **未来予定カード**: 終了済みMTGの議事録がまだ無いPJでも、今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡して `source_kinds='upcoming'` を作る。weekly recurring MTG は series ごとに次回1件だけ同期し、それ以降の occurrence はノイズとして送らない/表示しない。CLG取締役会のように前回議事録が空でも予定MTGカードを欠落させない。
 - **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
+- **Notion eventId は MMO 側で埋める**: Calendar event から Notion 議事録ページを見つけたら、MMO automation は可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記する。これは次回以降の冪等性と traceability のためで、PWA/GAS 側ではなく L6 writer 側の責務。
+- **eventId 欠損で弾かない**: Notion page に `eventId` が無いのは欠落インシデントとして記録しつつ、必ず title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索する。`eventId` が無いことだけを理由に `source_kinds='none'` や `skip_no_notion_event_id` にしない。
 
 ## 【絶対】 動く前に必ず Read
 
@@ -139,24 +141,27 @@ Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 �
 
 各 event について順に実行 (= 同期、1 件ずつ):
 
-### B-1: Notion 議事録ページ検索 (= GAS 074 `_meeting_findNotionPageByEventId_` Stage 1-3 fallback 移植)
+### B-1: Notion 議事録ページ検索 (= eventId 優先 + title/date fallback)
 
 9. **Stage 1**: Notion `notion-search` で **eventId 相当文字列** をクエリに含めて検索:
    - query = `<event.id>`
    - `data_source_url` は議事録 DB の collection URL (= 既知の Notion 議事録 DB を使う想定。後述 ScriptProperties `NOTION_DATABASE_ID` 相当を `.env.local` に追加するか、または毎回 search で十分)
    - ヒットがあれば該当ページ採用 → B-2 へ
-10. **Stage 2** (= Stage 1 失敗時): title から ISO datetime / `<mention-date>` / `@今日` / ` HH:MM以降` を除去した **prefix** で再検索:
+10. **Stage 1b** (= eventId hit 時): 採用した Notion page の `eventId` / 相当プロパティが空なら、MMO automation は可能な範囲で Calendar event id を追記する。書き込みに失敗しても抽出は続け、run summary に `notion_event_id_backfill_failed` と page id / reason を残す。
+11. **Stage 2** (= Stage 1 失敗時、または Notion page に eventId が無い時の必須 fallback): title から ISO datetime / `<mention-date>` / `@今日` / ` HH:MM以降` を除去した **prefix** で再検索:
     - query = `<prefix> <YYYY-MM-DD>` (= event 日も併記)
     - ヒット最大 30 件 → 各ページの `created_time` slice(0,10) で event 日 ±1 日内のものに filter
     - `last_edited_time` desc で 1 件採用
-11. **Stage 3** (= Stage 2 失敗時): event 日のみで search:
+    - 採用後、Notion page の `eventId` / 相当プロパティが空なら Calendar event id を追記する。追記できない場合も抽出は続ける。
+12. **Stage 3** (= Stage 2 失敗時): event 日のみで search:
     - query = `<YYYY-MM-DD>` + 議事録 DB scope
     - 1 件採用
-12. すべて失敗なら **notion なし** として `notionText = ""` で続行 (= Gmail / Drive / Slack 拾えるかも)
+    - 複数ヒット時は title 類似度、attendees、Calendar/Drive/Gmail URL一致、created/edited time で rank し、曖昧なら Notion source なしとして他 source へ進む。
+13. すべて失敗なら **notion なし** として `notionText = ""` で続行 (= Gmail / Drive / Slack 拾えるかも)。`eventId` が無いから失敗扱いにしない。
 
 ### B-2: Notion ページ本文取得 (= GAS 074 `_meeting_fetchAiNotesBody_` + `nav_repo_notion_fetchPageBodyText` 移植)
 
-13. ページが取れたら `notion-fetch` で本文取得:
+14. ページが取れたら `notion-fetch` で本文取得:
     - id = page URL or UUID
     - 通常 block の本文 + props `内容` rich_text + **AI 議事録 transcription block** (= type=`transcription` の children.summary_block_id + notes_block_id を再帰取得) を取得
     - 3 つを `\n\n` 結合 → `notionText`
@@ -164,21 +169,22 @@ Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 �
 
 ### B-3: Gmail thread 取得 (= GAS 074 `_meeting_loadGmailCacheForMonth_` + `_meeting_pickRelevantGmailThreads_` 移植)
 
-14. PJ の `report_emails` を取得 (= projects.report_emails の semicolon / comma 区切りリスト)
-15. **report_emails が空 PJ** はスキップ (= 該当なし、Gmail なし扱い)
-16. Gmail `search_threads` で:
-    - 通常MTG: query = `(from:<email1> OR to:<email1> OR from:<email2> OR ...) after:<event 日 -1 日 YYYY/MM/DD> before:<event 日 +2 日 YYYY/MM/DD>`
+15. PJ の `report_emails` を取得 (= projects.report_emails の semicolon / comma 区切りリスト)
+16. **report_emails が空 PJ** でも Gmail を完全スキップしない。Calendar event title / project_name / client_name / known keywords / Gemini notes sender (`gemini-notes@google.com`) / Meet recording 通知を使って限定検索し、run summary に `report_emails_missing_but_gmail_fallback_used` を残す。
+17. Gmail `search_threads` で:
+    - `report_emails` がある通常MTG: query = `(from:<email1> OR to:<email1> OR from:<email2> OR ...) after:<event 日 -1 日 YYYY/MM/DD> before:<event 日 +2 日 YYYY/MM/DD>`
+    - `report_emails` が空の fallback: query = `("<event title token>" OR "<project_name>" OR "<client_name>") (from:gemini-notes@google.com OR "Gemini によるメモ" OR "meeting notes" OR "議事録") after:<event 日 -1 日> before:<event 日 +2 日>`
     - 取締役会 / 株主報告 / 月次報告 / 予算 / 招集通知 / board / monthly を title or project context に含む場合: `after:<event 日 -21 日>` まで広げる。CLGのように招集通知・資料送付が会議の1週間以上前に届くPJを拾うため。
     - pageSize = 20
-17. ヒットスレッドそれぞれを `get_thread` (messageFormat=FULL_CONTENT) で本文取得
-18. **chitchat 抑制**: bot 配信 (= from に noreply/no-reply/notification@ 含む) は除外
-19. 各 thread の subject + message bodies (= 各 message 800 chars × 最大 5 msg、合計 ~4000 chars) を format:
+18. ヒットスレッドそれぞれを `get_thread` (messageFormat=FULL_CONTENT) で本文取得
+19. **chitchat 抑制**: bot 配信 (= from に noreply/no-reply/notification@ 含む) は除外。ただし Gemini notes / Google Meet recording 通知は会議本文 source なので除外しない。
+20. 各 thread の subject + message bodies (= 各 message 800 chars × 最大 5 msg、合計 ~4000 chars) を format:
     ```
     --- mail [MM/dd HH:mm] subject: <subject> ---
     <body>
     ```
-20. 全 thread 結合 → `gmailText` (= 上限 ~8000 chars)
-21. `gmailThreadIds` = ヒットした threadId list
+21. 全 thread 結合 → `gmailText` (= 上限 ~8000 chars)
+22. `gmailThreadIds` = ヒットした threadId list
 
 ### B-4: Drive 関連資料取得 (= 会議資料・議事録・招集通知・予実表を拾う)
 

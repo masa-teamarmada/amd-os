@@ -1,13 +1,13 @@
 ---
 name: amd-os-l3-ms-progress-extract
-description: AMD OS L2 ③ MS 進捗 (マイルストーン月次進捗) 抽出 routine。毎時 0 分発火、active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から各 MS の進捗 % をサブスク内 Claude で推定 → Supabase `milestone_monthly_progress` に upsert + project_monthly_notes (= MS 不在月)、progress_estimate_state.source_hash で差分検知。PWA `/api/cron/hourly-estimate` + `estimateProgress` 完全 inline 移植版 (= GAS 154 + PWA hourly-estimate 経路を Claude routine 内に統合、2026-05-25 まさ #71)。2026-05-29 に既存 PWA/GAS hourly は再停止し、本 routine を定期抽出 primary とする。
+description: AMD OS L2 ③ MS進捗抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l3-ms-progress-extract` (= 毎時0分)。active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から各 MS の進捗 % を subscription 内 Codex で推定し、`milestone_monthly_progress` / `project_monthly_notes` / `progress_estimate_state` に反映する。PWA `/api/cron/hourly-estimate` と GAS 154 は 2026-05-29 に再停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ。
 ---
 
 # AMD OS L2 ③ MS 進捗推定 (PWA hourly-estimate 完全 inline 移植版)
 
 ## 設計の要点
 - 旧 = GAS 154 `nav_pwa_pingHourlyEstimate` → PWA `/api/cron/hourly-estimate` → `estimateProgress(projectId, ym, {force:false})`
-- 現 = Claude routine が同等ロジックを inline で実行 (= GAS / PWA hourly cron 完全 bypass)
+- 現 = Windows MMO Codex Desktop automation が同等ロジックを実行 (= GAS / PWA hourly cron 完全 bypass)
 - PWA/GAS hourly は 2026-05-29 に再停止。PWA route は `ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す。
 - **MS 管理対象**: `project_category in ('dtsu','ecosystem','new_business')` (= 2026-05-25 #56 new_business 追加)
   - `advisor` は MS 進捗対象外 → 月次モーダル `project_monthly_notes` に保存
@@ -15,11 +15,11 @@ description: AMD OS L2 ③ MS 進捗 (マイルストーン月次進捗) 抽出 
 - LLM 抽出は対象月時点の累積進捗率。MS個別期間の按分を基本値にして、遅れ/先行を5%刻み程度で補正する。
 - MS個別期間の開始前は期待進捗0%。LLM推定対象から外し、既存のAI/自動由来行が残っていれば0%へ補正する。
 - `success_criteria` / `milestone_sub_items` は必ず入力に含める。高進捗は「MS名に近い活動」ではなく、成功条件に書かれた成果物へ直結する証拠で判断する。
-- LLM 呼びはサブスク内 Claude
+- LLM 呼びは subscription 内 Codex automation
 - Supabase REST 直叩き
 
 ## 稼働方針
-LLM 課金が発生する PWA/GAS background cron は停止済み。定期実行は subscription 内の本 routine を primary とする。
+LLM 課金が発生する PWA/GAS background cron は停止済み。定期実行は Windows MMO PC の subscription 内 Codex Desktop automation を primary とする。
 
 ## 【絶対】 動く前に必ず Read
 1. `pwa/manual/3-2-data-and-extraction.md` §3.1-3.3

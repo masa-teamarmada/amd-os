@@ -1,20 +1,22 @@
 ---
 name: amd-os-l8-xrl-evidence-extract
-description: AMD OS L2 ⑧ XRL 根拠 (TRL / BRL / GRL / SRL / HRL の算定根拠) 抽出 routine。6 時間ごと発火 (L7 と 15 分ずらし)、active PJ × 当月 / 前月の 5 生データ + 既存 L2 から各 axis の evidence をサブスク内 Claude で抽出 → Supabase `project_xrl_evidence` に candidate で upsert + 通知。Codex automation `amd-os-ms` の `outbox.xrlEvidence` 部分を Claude routine 内に inline 移植 (= 既存 Codex は段階的停止、2026-05-25 まさ #71)。
+description: AMD OS L2 ⑧ XRL根拠抽出の repo 正本。現行 writer は Codex automation `amd-os-ms` + non-LLM LaunchAgent applier。active PJ × 当月/前月の 5 生データ + 既存 L2 から各 axis の evidence を抽出し、`xrlEvidence` outbox JSON を `/Users/masa/.codex/automations/amd-os-ms/outbox/` に作る。Supabase `project_xrl_evidence` への upsert は `ms_progress_review_tool.mjs apply-outbox-dir` が行う。DB/APIへ直接書き込まない。
 ---
 
-# AMD OS L2 ⑧ XRL 根拠抽出 (Codex amd-os-ms 完全 inline 移植版)
+# AMD OS L2 ⑧ XRL 根拠抽出 automation
 
 ## 設計の要点
-- 既存 = Codex automation `amd-os-ms` の `outbox.xrlEvidence` → applier → Supabase 反映
-- 新 = Claude routine が 5 生データ + 既存 L2 を読んで XRL evidence を直接 candidate INSERT
+- Codex automation `amd-os-ms` の `outbox.xrlEvidence` → LaunchAgent applier → Supabase 反映
+- この SKILL は outbox payload の生成仕様。DB/API へ直接書き込まない
+- 古い Claude routine / direct Supabase REST 移植案は履歴扱い。復活させない
 - **axis**: `trl` (技術成熟度) / `brl` (事業成熟度) / `grl` (政府/補助金) / `srl` (社会受容) / `hrl` (人材/組織)
 - **evidence_kind** 例: `founding_member` / `technical_validation` / `customer_signal` / `grant_signal` / `governance_signal` / `stakeholder_signal` / `team_signal` / `other`
 - score は直接確定しない → candidate で INSERT → 通知 → まさが「はい」で `confirmed` 昇格
 - HRL = `project_founding_members` (= 関連メンバー、category in ('amd','startup','university') が算入対象、VC/顧客/行政/産業パートナーは HRL 根拠外 = invalid)
 
-## 並行稼働の慎重さ
-**既存 Codex `amd-os-ms` が稼働中**。L7 と同じく fact 比較 → 既存停止の段取り。
+## 反映経路
+
+outbox は `/Users/masa/.codex/automations/amd-os-ms/outbox/*.json` に保存する。LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` が 5 分ごとに `pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir` を実行し、成功ファイルを `applied/`、失敗ファイルを `failed/` へ移動する。
 
 ## 【絶対】 動く前に必ず Read
 1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4

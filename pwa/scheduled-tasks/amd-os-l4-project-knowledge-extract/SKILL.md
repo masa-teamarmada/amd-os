@@ -1,12 +1,13 @@
 ---
 name: amd-os-l4-project-knowledge-extract
-description: AMD OS L2 ④ PJ ナレッジ抽出 routine。daily 08:15 JST 発火、各 active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から PJ にまつわる事実 (= people / tech / ip / org / funding / market / competitor / strategy / term の 9 category) をサブスク内 Claude で抽出 → Supabase `project_knowledge` に candidate で upsert + 通知。GAS 155 `nav_project_knowledge_pollAll` + `nav_project_knowledge_extractOneForYm_` 完全 inline 移植版 (= GAS 完全 bypass、汚染防御 v4_meta_strict 継承、2026-05-25 まさ #71)。
+description: AMD OS L2 ④ PJナレッジ抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l4-project-knowledge-extract` (= daily 08:15 JST)。各 active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から PJ にまつわる事実を subscription 内 Codex で抽出し、Supabase `project_knowledge` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
 ---
 
-# AMD OS L2 ④ PJ ナレッジ抽出 (GAS 155 完全 inline 移植版)
+# AMD OS L2 ④ PJ ナレッジ抽出 (GAS 155 移植版)
 
 ## 設計の要点
-- GAS 155 `nav_project_knowledge_pollAll` / `nav_project_knowledge_extractOneForYm_` を Claude routine 内 inline 移植
+- GAS 155 `nav_project_knowledge_pollAll` / `nav_project_knowledge_extractOneForYm_` の業務ロジックを Windows MMO Codex Desktop automation に移植
+- 現行復旧先は MMO マシン側の Codex Desktop automation 履歴・ログ。Mac local routine / Claude Cloud routine は履歴扱い
 - **汚染防御 v4_meta_strict 継承** = project_meta セクションを prompt 冒頭、無関係内容は items: [] で抽出 0 件 (= 2026-05-09 SE PJ 汚染事故対応)
 - 入力 = active PJ × {当月, 前月} の `monthly_reports` (status≠invalid) + `project_meeting_summaries` (source_kinds≠none)
 - 出力 = `project_knowledge` (= 既存 row は entity_name+category で SELECT → INSERT/PATCH、status='candidate' で通知採否)
