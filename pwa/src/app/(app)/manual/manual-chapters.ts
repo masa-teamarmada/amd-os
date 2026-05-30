@@ -201,8 +201,8 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "8-2-notification-review-and-strategy-signals-spec", title: "通知レビュー UI / 経営ハイライト確認", summary: "notifications 実 UI、経営ハイライト、修正依頼履歴。", topics: ["knowledge-dev", "decision", "cockpit"], screens: ["/notifications", "/project/{projectId}/cockpit"], tables: ["project_strategy_signals", "l2_feedbacks"] },
   { slug: "8-3-l2-extraction-routines-spec", title: "L2 Extraction Routines", summary: "L2 ①〜⑨ の現行 writer、MMOマシン automation、outbox/applier、課金ルート、復旧時に見る場所。", topics: ["knowledge-dev", "developer"], tables: ["monthly_reports", "milestone_monthly_progress", "project_knowledge", "member_knowledge", "protocols"] },
 
-  { slug: "9-1-decisions-and-history", title: "過去判断と経緯", summary: "cron 廃止経緯、責務分担、過去事故ログ、判断履歴。", topics: ["developer", "system-dev"] },
-  { slug: "9-2-developer", title: "開発者向け", summary: "環境、実装、検証、デプロイ、設計変更時の運用。", topics: ["developer", "system-dev"] },
+  { slug: "9-1-decisions-and-history", title: "過去判断と経緯", summary: "過去判断の読者向け入口。実装制約の正本は /spec/5-3 / 5-4 に移行済み。", topics: ["developer", "system-dev"] },
+  { slug: "9-2-developer", title: "開発者向け", summary: "開発者が最初に読む /spec 章への入口。deploy / DDL / automation 詳細は /spec に移行済み。", topics: ["developer", "system-dev"] },
   { slug: "9-3-appendix-changelog", title: "附則（変更履歴）", summary: "マニュアル本則の追加・変更・削除をすべて日付付きで記録する append-only の変更履歴。勝手な削除を検知するための正本。", topics: ["developer", "system-dev"] },
 ];
 

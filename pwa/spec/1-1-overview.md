@@ -23,4 +23,12 @@ AMD OS のドキュメントは、読み手と目的で 3 層に分かれてい�
 
 🚧 **移行中** — 旧 `pwa/design/*.md` と `/manual` の `-spec` 章をこの設計書セクションへ集約している最中。移行済み章だけ `/spec` を正本とし、未移行の設計仕様は引き続き `pwa/design/` と既存 manual 章を参照する。既存ファイルは削除しない。
 
-次の作業台: [ドキュメント3層移行マップ](/spec/1-2-document-layer-migration-map)。
+品質バーは「この設計書を読んだだけで、現在の AMD OS を再構築できること」。各章には、可能な範囲で「再構築可能性チェック」を置き、足りない情報は `TODO` / `未確認` として明示する。
+
+変更するたびに、対象層の附則へ日時つきで追記する:
+
+- manual: [/manual/9-3-appendix-changelog](/manual/9-3-appendix-changelog)
+- spec: [/spec/6-1-appendix-changelog](/spec/6-1-appendix-changelog)
+- bzm: [/bzm/9-5-appendix-changelog](/bzm/9-5-appendix-changelog)
+
+次の作業台: [ドキュメント3層移行マップ](/spec/1-2-document-layer-migration-map)、[再構築カバレッジ監査](/spec/1-3-reconstruction-coverage-audit)。

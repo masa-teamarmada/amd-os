@@ -14,9 +14,10 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 
 ## 📚 新セッション必読 (= この順) ⭐
 
-**まず読む = OS マニュアル正本** (= 2026-05-25 以降):
+**まず読む = OS マニュアル入口 + 設計書の再構築監査**:
 
 00. [`pwa/manual/1-1-intro.md`](manual/1-1-intro.md) ⭐⭐⭐ — **AMD OS マニュアル**入口。**新セッションのえいみは必ずここから読む**。過去判断ログ / 用語と実装の対応 / cron 廃止経緯 / Codex-Claude-Vercel-LaunchAgent 責務分担マトリクス / 過去事故ログは [`pwa/manual/9-1-decisions-and-history.md`](manual/9-1-decisions-and-history.md) と [`pwa/manual/9-3-appendix-changelog.md`](manual/9-3-appendix-changelog.md) に集約
+00.5. [`pwa/spec/1-3-reconstruction-coverage-audit.md`](spec/1-3-reconstruction-coverage-audit.md) ⭐⭐⭐ — 設計書だけで current OS を再構築できるかの監査表。作業前に該当領域が `rebuildable` / `partial` / `not yet` のどれかを見る
 
 そのあと **設計仕様 md** (= `/spec` へ移行中。未移行領域は `pwa/design/` が正本):
 
@@ -38,7 +39,7 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 - [`pwa/CLAUDE.md`](CLAUDE.md) — PWA 固有運用 (デプロイ・DDL)
 - [`pwa/design_log/sessions_YYYY-MM.md`](design_log/) — 過去セッションログ (時系列)
 
-**設計変更を入れるときは、使い方は `pwa/manual/`、確定実装仕様は移行済みなら `pwa/spec/`、未移行なら `pwa/design/` を同じ commit で更新する**。
+**設計変更を入れるときは、使い方は `pwa/manual/`、確定実装仕様は `pwa/spec/`、理論・数式・rubric は `pwa/bzm/` を同じ commit で更新する**。変更した層の附則 (`manual/9-3`, `spec/6-1`, `bzm/9-5`) に日時つきで必ず追記する。
 新規の設計 md を `design_log/` に作らない (見落とされる)。
 
 # 確認方針 (PWA は常に本番)

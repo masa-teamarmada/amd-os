@@ -58,6 +58,7 @@ BZM は大きく **二つのレイヤー** から成り立っています。本�
 | 第 6 部 | 検証 — 9 PJ retrofit | 過去事例でモデルの妥当性を確かめる |
 | 第 7 部 | ERS（苗床レイヤー） | 研究機関の整備度を測り、支援ギャップを見せる |
 | 第 8 部 | 運用 — AMD OS への実装 | 理論を日々の経営判断に落とす |
+| 巻末資料 | 参考文献・記号・用語・附則 | 出典、表記、rubric、変更履歴を横断参照する |
 
 ## 各章の構成
 
@@ -78,4 +79,4 @@ BZM は大きく **二つのレイヤー** から成り立っています。本�
 
 ## 出典について
 
-本書の理論正本は `before-zero/theory/` 配下の各 md（`amd_score.md` / `state_space_model.md` / `bvar_prior.md` / `data_specification.md`）と、AMD OS の実装設計 `pwa/design/amd_score.md` / `pwa/design/institution_readiness.md` です。本書はこれらを教科書として再構成したものであり、仕様変更があれば正本側と本書を同じ更新で揃えます。
+本書の理論正本は `before-zero/theory/` 配下の各 md（`amd_score.md` / `state_space_model.md` / `bvar_prior.md` / `data_specification.md`）と、AMD OS の実装設計 `/spec` 側の AMD Score / ERS 章です。本書はこれらを教科書として再構成したものであり、理論・rubric・出典を変更したら [附則（テキストブック変更履歴）](9-5-appendix-changelog.md) に日時つきで追記します。
