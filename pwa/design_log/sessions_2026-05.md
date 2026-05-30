@@ -507,3 +507,30 @@ BZM (Before Zero Model) 教科書の既存 10 章が「中身スカスカ」だ�
 
 ### 関連メモ更新 (Cowork memory)
 - `memory/feedback_handoff_commit_push_auto.md` 新規 (handoff は確認待ちせず commit→push まで一気に完遂)
+
+## 2026-05-30 (#99) — Claude Code セッション (eimi) / BZM: AMD Score を P×R×S 3因子に再構成 + F3生成
+
+> Claude Code (CLI) で動いた eimi セッション。BZM 教科書/論文ワークストリームが、図作成から **AMD Score の根本モデル進化**に発展。モデル議論の正本は `knowledge/before_zero_theory.md` (monorepo 外)。
+
+### コンテキスト
+- 「BZM 教科書/論文を継続」で開始。当初は F3 retrofit図とデータ拡充の予定
+- まさが「ティエム retrofit に頼りすぎ」「DTSU は VC 頼り切らずライスワークで自走が肝」と問題提起 → AMD Score の構造そのものの再設計に発展
+- まさの因果修正: 「2つの TRL は根幹でなく、自走性を高めた結果」。えいみの (i)ライン別案・DCFの割引率r は撤回。まさ「批判的視点を入れろ、迎合するな」明示で是々非々で議論
+
+### 実装
+- **図**: [bzm_figures.py](../scripts/bzm_figures.py) に `fig_f3()` 追加 (theory §9 軸値の自己整合再計算、設立133→仮想2017 2861≈22倍)。`public/bzm/f3_retrofit_timeseries.png`。教科書 [6-1](../bzm/6-1-retrofit-verification.md) §3.2・論文 [bzm_paper_draft.md](../design/bzm_paper_draft.md) §4.2 に埋込。v0.10.8 deploy・本番配信200確認
+- **論文**: 付録A/B/C を self-contained 化 + §4.2 に表1 (ティエム時系列)
+- **新モデル試算**: [prxs_retrofit_test.py](../scripts/prxs_retrofit_test.py) 新規。現行7軸に P(潜在規模)+RW(ライスワーク実益)を足した9軸(A案)。ティエム史実(RW=0) vs 商社案(RW立ち上げ)で2017に4.2倍差を可視化 (全て仮値、retrofit校正前提)
+- **正本化(monorepo外)**: `knowledge/before_zero_theory.md` に新章「P×R×S 3因子再構成」(AMD Score = P潜在規模 × R到達度=XRL群 × S生存確率=σ_SU×FRL×RW、生存条件式 B−R_net≤F)。`knowledge/tiem.md` に相互リンク
+- **是正**: 経営知識/モデル議論を `pwa/design/bzm_retrofit_cases.md` に書いた AGENTS.common 違反 → knowledge へ移管し design 側削除
+- **HANDOFF**: [HANDOFF_bzm_textbook.md](../HANDOFF_bzm_textbook.md) を P×R×S 反映で全面更新
+
+### Verified
+- F3 本番配信 200・tsc/build 通過・v0.10.8 deploy 成功。prxs 試算スクリプト実行成功 (検証PNGは非配信)
+- 全 commit main に push 済 (`8712ad6`→`da5cb7e`)
+
+### Cowork ↔ Codex 衝突メモ
+- セッション中に別セッションが `feat/bzm-textbook` を main にマージ+削除 (main直運用へ) → 以降 main で個別 add→push に切替、巻き込みなし。build-info は別セッションが v0.10.9 に bump
+
+### 関連メモ更新 (memory)
+- `feedback_graphs_matplotlib.md` 新規 (グラフは matplotlib 統一。まさ「クオリティ高い、毎回これ使って」2026-05-30)
