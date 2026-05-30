@@ -31,6 +31,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - **source_hash 方針**: 会議ソース + feedback + prompt revision で差分検知する。MS進捗のような揺れやすい OS context は hash に混ぜない。文脈更新のたびに再生成して credit を浪費しないため。
 - **旧GAS LLM cron**: 153 / 152 は kill switch 維持。Gemini 経路なので復活させない。LLM 非依存の運用 cron はこの禁止対象ではない。
 - **Notion eventId 方針**: Calendar event と Notion page の両方を見ている MMO automation が、該当 Notion page に `eventId` / 相当プロパティを可能な範囲で追記する。`eventId` が空でも title + event date + attendees + Gemini/Drive/Gmail URL で fallback し、欠損だけを理由に議事録を skip しない。
+- **held-source guard**: Calendar 添付の Gemini / Google Meet notes Doc、Notion eventId 空の fallback match、`projects.report_emails` 空 PJ の Gmail Gemini notes / follow-up hit は、開催済みソースとして扱う。既存 `upcoming:<calendar_event_id>` は残し、開催済み row は `meeting_id=<calendar_event_id>` で別行作成し、可能なら `prep_source_meeting_id` で紐付ける。再発防止 fixture は `npm run test:l6-held-source-guard`。
 
 品質劣化の主因は「元のAI議事録が低品質」ではなく、OS側が `summary_short` と配列へ潰して表示していたこと。正しい修正は、routine が `narrative_md` を本文として保存し、UI がそれを主表示すること。
 

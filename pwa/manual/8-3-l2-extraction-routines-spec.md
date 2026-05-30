@@ -125,6 +125,12 @@ vs ローカル Mac scheduled task の問題:
 - Notion page に `eventId` が無いことだけを理由に skip しない。eventId 検索で取れない場合は title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索し、Notion が取れない場合も Gmail / Drive / Slack / Calendar 本文で `source_kinds` を判定する。
 - eventId 追記に失敗しても抽出は続け、run summary に `notion_event_id_backfill_failed` と page id / reason を残す。`skip_no_notion_event_id` は現行仕様では禁止。
 
+**held-source guard (= 2026-05-31 飯野さんケース再発防止)**:
+- `source_kinds='upcoming'` の準備カードは残しつつ、開催済みソースがある event は `meeting_id=<calendar_event_id>` の別 row 候補へ進める。既存 upcoming row がある場合は `prep_source_meeting_id='upcoming:<calendar_event_id>'` で紐付ける。
+- Calendar event に Gemini / Google Meet notes Doc 添付、Notion 議事録ページが title + date + attendees fallback で hit、または `projects.report_emails` が空でも Gemini notes / follow-up Gmail が event 文脈で hit した場合は、準備カードだけで完了扱いにしない。
+- repo guard は `pwa/scripts/l6_meeting_held_source_guard.cjs`。`npm run test:l6-held-source-guard` で `Calendar添付Geminiメモ + Notion eventId空 + report_emails空 + 既存upcoming行` から開催済み候補が出ることを検査する。
+- fallback 紐付けは `confidence` と `needs_review` を残す。`projects.report_emails` の補完は自動DB更新せず、registry diff / 通知候補として出す。
+
 **議事録本文の固定フォーマット**:
 - 開催済みMTGの `narrative_md` は必ず `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順にする。
 - 見出し文言・絵文字・順序は固定。`## 🎯 背景` のように絵文字と語の間に空白を入れない。

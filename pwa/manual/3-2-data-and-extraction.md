@@ -181,6 +181,14 @@ Notion 議事録ページの `eventId` / 相当プロパティを埋められる
 
 Notion page に `eventId` が無いことだけを理由に skip しない。必ず title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索し、Notion が取れなければ Gmail / Drive / Slack / Calendar 本文だけでも `source_kinds` を判定する。`eventId` 欠損だけで `source_kinds='none'` や `skip_no_notion_event_id` にしない。
 
+### L2 ⑥ 開催済みソース guard
+
+準備カード (`meeting_id='upcoming:<calendar_event_id>'`) は会議前の考えとして残し、実施後ソースがある場合は開催済み row (`meeting_id='<calendar_event_id>'`) を別に作る。既存 upcoming row があるなら `prep_source_meeting_id` で紐付ける。
+
+Calendar event に Gemini / Google Meet notes Doc 添付がある、Notion の `eventId` が空でも title + 日付 + 参加者 + PJ 文脈で fallback match できる、または `projects.report_emails` が空でも Gemini notes / follow-up Gmail が event 文脈で hit する場合は、upcoming だけで完了扱いにしない。fallback は `confidence` / `needs_review` を残し、`report_emails` の不足は自動更新せず registry diff / 通知候補へ寄せる。
+
+再発防止 guard は `pwa/scripts/l6_meeting_held_source_guard.cjs`。`cd pwa && npm run test:l6-held-source-guard` で、飯野さんケース相当の fixture から開催済み候補が出ることを検査する。
+
 → 仕様詳細は [`pwa/design/L2_DATA.md`](../design/L2_DATA.md) と [8-3 章](8-3-l2-extraction-routines-spec.md)。
 → 旧 ghost 4 種の復旧経緯は [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)。
 

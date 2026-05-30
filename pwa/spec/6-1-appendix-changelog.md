@@ -19,3 +19,4 @@
 | 2026-05-31 01:21 JST | 5-1 / 5-2 / 5-3 / 5-4 / 6-1 | 追加 | ドキュメント統制、開発/デプロイ運用、automation責務分担、判断履歴/事故ログ、設計書附則を追加 | まさ指摘「manual 9章に開発情報が残っている」「設計書だけでOSを再構築できる粒度が必要」「附則がないと勝手に消える事故を防げない」への対応 | えいみ |
 | 2026-05-31 01:21 JST | 1-1 / 1-2 / 1-3 / 2-2 / 2-3 / 3-7 / 3-8 / 4-3 | 追加・変更 | 再構築品質バー、カバレッジ監査、PWA surface、Supabase data model、notifications、cockpit、ERS を追加し、移行マップを更新 | 司令塔追加指示「読むだけで current OS を再構築できるか」で監視する前提に合わせ、薄い整理ではなく不足と current truth を明示するため | えいみ |
 | 2026-05-31 01:21 JST | 5-5 / 1-3 | 追加・変更 | GAS / iOS 役割境界仕様を追加し、カバレッジ監査の GAS / iOS 判定を `partial` に更新 | 合格条件に iOS 側の役割と GAS automation が含まれていたため、未確認点を明示しつつ現行境界を spec に上げるため | えいみ |
+| 2026-05-31 | 3-1 | 追加 | L2⑥ MTGサマリの開催済みソース guard を追加。Calendar添付Gemini notes、Notion eventId空 fallback、report_emails空Gmail fallback、`prep_source_meeting_id`、`npm run test:l6-held-source-guard` を仕様化 | 飯野さんMTG欠落の再発防止を `/spec` だけで再構築できる粒度に上げるため | えいみ |

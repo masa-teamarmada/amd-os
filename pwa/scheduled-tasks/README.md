@@ -11,6 +11,7 @@
 - **編集は repo の正本で**。Mac 側は rsync で同期 (= 双方向同期スクリプトを別途)
 - **L2① monthly report**: 2026-05-31 以降は Supabase L2 snapshot primary。5生データは L2 coverage gap / stale / source refs 不足 / no-data 判定候補の fallback として見る。
 - **L2⑥ Notion eventId**: eventId を埋められるのは MMO automation。Calendar event から Notion page を見つけたら可能な範囲で `eventId` を追記し、欠損だけを理由に skip しない。title/date/attendees/Gemini/Drive/Gmail URL fallback を必ず使う。
+- **L2⑥ held-source guard**: `npm run test:l6-held-source-guard` は、Calendar添付Geminiメモ + Notion eventId空 + report_emails空でも開催済み `project_meeting_summaries` 候補が出ることを検査する。upcoming row は残し、開催済み row は `prep_source_meeting_id` で紐付ける。
 
 ## Routine 一覧
 
