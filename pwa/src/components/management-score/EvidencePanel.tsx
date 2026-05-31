@@ -24,8 +24,12 @@ export type DialogueConfirmedSignal = {
   decision_state: string;
   impact_level: string;
   title: string;
+  summary: string | null;
+  signal_date: string | null;
   confirmed_at: string | null;
   polarity: string | null;
+  score_impact_summary: string | null;
+  source_refs_json: unknown;
 };
 
 const AXIS_LABEL: Record<EvidenceAxis, string> = {
@@ -144,7 +148,98 @@ function decisionStateLabel(state: string): string {
   return labels[state] ?? state;
 }
 
+function impactLevelLabel(level: string): string {
+  const labels: Record<string, string> = {
+    critical: "最重要",
+    high: "重要",
+    medium: "通常",
+    low: "低",
+  };
+  return labels[level] ?? level;
+}
+
+function signalSources(signal: DialogueConfirmedSignal): Array<Record<string, unknown>> {
+  return Array.isArray(signal.source_refs_json)
+    ? signal.source_refs_json.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    : [];
+}
+
+function sourceLabel(source: Record<string, unknown>, index: number): string {
+  const sourceKind = typeof source.source === "string" ? source.source : typeof source.kind === "string" ? source.kind : `source ${index + 1}`;
+  const date = typeof source.date === "string" ? source.date : null;
+  const title = typeof source.title === "string" ? source.title : null;
+  const snippet = typeof source.snippet === "string" ? source.snippet : null;
+  return [sourceKind, date, title, snippet].filter(Boolean).join(" / ");
+}
+
+function SignalDetailCard({ signal }: { signal: DialogueConfirmedSignal }) {
+  const axis = signalTypeToAxis(signal.signal_type);
+  const tone = axis === "other" ? "bg-muted text-foreground border-border" : axisTone(axis);
+  const axisName = axis === "other" ? "評価軸なし" : `${axisLabel(axis)}軸`;
+  const confirmedAt = signal.confirmed_at ? new Date(signal.confirmed_at).toLocaleDateString("ja-JP") : "-";
+  const sources = signalSources(signal);
+  return (
+    <article className="rounded-md border bg-card px-3 py-3">
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <span className={`inline-flex min-h-5 items-center rounded-full border px-2 font-medium ${tone}`}>{axisName}</span>
+        <span className="inline-flex min-h-5 items-center rounded-full border bg-background px-2 text-muted-foreground">{signal.project_id}</span>
+        <span className="inline-flex min-h-5 items-center rounded-full border bg-background px-2 text-muted-foreground">{signalTypeLabel(signal.signal_type)}</span>
+        <span className="inline-flex min-h-5 items-center rounded-full border bg-background px-2 text-muted-foreground">{decisionStateLabel(signal.decision_state)}</span>
+        <span className="inline-flex min-h-5 items-center rounded-full border bg-background px-2 text-muted-foreground">{impactLevelLabel(signal.impact_level)}</span>
+      </div>
+
+      <h4 className="mt-2 text-sm font-semibold leading-snug break-words">{signal.title || "(無題)"}</h4>
+      {signal.summary && <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground break-words">{signal.summary}</p>}
+
+      <div className="mt-2 grid gap-1.5 text-[11px] text-muted-foreground sm:grid-cols-2">
+        <div>確定: {confirmedAt}</div>
+        <div>発生日: {signal.signal_date ?? signal.ym ?? "-"}</div>
+      </div>
+
+      {signal.score_impact_summary && (
+        <p className="mt-2 rounded bg-primary/5 px-2 py-1.5 text-xs leading-relaxed text-primary break-words">
+          {signal.score_impact_summary}
+        </p>
+      )}
+
+      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+        {axis === "pipeline"
+          ? "このsignalは新規軸で、商談・紹介・提案の前進としてpipeline_valueに効く。"
+          : axis === "direction"
+            ? "このsignalは方向軸で、ファンド・連携・卒業・次の一手などAMDの勝ち筋に近づく材料として効く。"
+            : "このsignalは現行の新規/方向軸には直接入らず、経営ハイライトとして読む。"}
+      </p>
+
+      {sources.length > 0 && (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground hover:text-foreground">
+            根拠 {sources.length}件
+          </summary>
+          <div className="mt-1.5 space-y-1.5">
+            {sources.slice(0, 4).map((source, index) => (
+              <div key={index} className="rounded bg-muted/30 px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground break-words">
+                {sourceLabel(source, index)}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </article>
+  );
+}
+
 function DialogueConfirmedChips({ signals }: { signals: DialogueConfirmedSignal[] }) {
+  const grouped = signals.reduce<Record<"pipeline" | "direction" | "other", DialogueConfirmedSignal[]>>(
+    (acc, signal) => {
+      const axis = signalTypeToAxis(signal.signal_type);
+      if (axis === "pipeline") acc.pipeline.push(signal);
+      else if (axis === "direction") acc.direction.push(signal);
+      else acc.other.push(signal);
+      return acc;
+    },
+    { pipeline: [], direction: [], other: [] }
+  );
+
   if (signals.length === 0) {
     return (
       <div className="border-b px-4 py-3">
@@ -153,35 +248,33 @@ function DialogueConfirmedChips({ signals }: { signals: DialogueConfirmedSignal[
           <span className="text-xs text-muted-foreground">該当なし</span>
         </div>
         <p className="mt-1 text-[11px] text-muted-foreground">
-          <code className="rounded bg-muted px-1">/api/strategy-signals</code> で confirm された signal がここに並ぶ。 新規軸 / 方向軸の計算入力に流れる。
+          まさえいMTGで「チームへ出す提案として固まった材料」がここに並ぶ。 commercial_progress は新規軸、 funding / next_move / graduation などは方向軸に流れる。
         </p>
       </div>
     );
   }
   return (
     <div className="border-b bg-primary/[0.03] px-4 py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-sm font-semibold">まさえいMTG で確定したシグナル</h3>
-        <span className="text-xs text-muted-foreground">{signals.length} 件 → 新規 / 方向軸の計算に反映</span>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">まさえいMTG で確定したシグナル</h3>
+          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+            まさとえいみが議論して「次の経営判断に使える」と固めたsignal。1件を開くと、何が決まったか、どの評価軸に効くか、どのPJか、いつ確定したか、根拠を読める。
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+          <span className="rounded-full border bg-background px-2 py-1">全{signals.length}件</span>
+          <span className="rounded-full border bg-background px-2 py-1">新規{grouped.pipeline.length}件</span>
+          <span className="rounded-full border bg-background px-2 py-1">方向{grouped.direction.length}件</span>
+        </div>
       </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {signals.map((sig) => {
-          const axis = signalTypeToAxis(sig.signal_type);
-          const tone = axis === "other" ? "bg-muted text-foreground border-border" : axisTone(axis);
-          const axisName = axis === "other" ? sig.signal_type : axisLabel(axis);
-          return (
-            <span
-              key={sig.signal_id}
-              className={`inline-flex max-w-[28ch] items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] ${tone}`}
-              title={`${sig.project_id} / ${sig.ym ?? "-"} / ${signalTypeLabel(sig.signal_type)} / ${decisionStateLabel(sig.decision_state)}`}
-            >
-              <span className="font-semibold">{sig.project_id}</span>
-              <span className="text-[10px] opacity-75">{axisName}軸</span>
-              <span className="truncate">{sig.title}</span>
-            </span>
-          );
-        })}
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        {signals.slice(0, 12).map((signal) => (
+          <SignalDetailCard key={signal.signal_id} signal={signal} />
+        ))}
       </div>
+      {signals.length > 12 && <p className="mt-2 text-[11px] text-muted-foreground">最新12件を表示中。古いsignalはDB上に残る。</p>}
     </div>
   );
 }

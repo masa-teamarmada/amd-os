@@ -96,15 +96,24 @@ const SCORE_COMPONENTS: Array<{
     ScoreSnapshot,
     "initiative_score" | "finance_score" | "retention_score" | "pipeline_score" | "direction_score"
   >;
+  axis: EvidenceRow["axis"];
   label: string;
   colorClass: string;
 }> = [
-  { key: "initiative_score", label: "先手力", colorClass: "text-sky-600" },
-  { key: "finance_score", label: "財務", colorClass: "text-emerald-600" },
-  { key: "retention_score", label: "継続", colorClass: "text-amber-600" },
-  { key: "pipeline_score", label: "新規", colorClass: "text-violet-600" },
-  { key: "direction_score", label: "方向", colorClass: "text-rose-600" },
+  { key: "initiative_score", axis: "initiative", label: "先手力", colorClass: "text-sky-600" },
+  { key: "finance_score", axis: "finance", label: "財務", colorClass: "text-emerald-600" },
+  { key: "retention_score", axis: "retention", label: "継続", colorClass: "text-amber-600" },
+  { key: "pipeline_score", axis: "pipeline", label: "新規", colorClass: "text-violet-600" },
+  { key: "direction_score", axis: "direction", label: "方向", colorClass: "text-rose-600" },
 ];
+
+const AXIS_FIELD: Record<string, keyof Pick<ScoreSnapshot, "initiative_score" | "finance_score" | "retention_score" | "pipeline_score" | "direction_score">> = {
+  initiative: "initiative_score",
+  finance: "finance_score",
+  retention: "retention_score",
+  pipeline: "pipeline_score",
+  direction: "direction_score",
+};
 
 async function safeSelect<T>(
   run: () => PromiseLike<{ data: T | null; error: { message?: string } | null }>
@@ -221,6 +230,66 @@ function payloadNumberValue(payload: Record<string, unknown> | null | undefined,
   const value = payload?.[key];
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function humanizeValue(value: unknown): string {
+  if (value == null) return "-";
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return "-";
+    return Math.abs(value) >= 1000 ? value.toLocaleString("ja-JP") : String(Math.round(value * 10) / 10);
+  }
+  if (typeof value === "string") return value;
+  if (typeof value === "boolean") return value ? "yes" : "no";
+  return JSON.stringify(value);
+}
+
+function axisInputFacts(axis: EvidenceRow["axis"], inputs: Record<string, unknown>): string[] {
+  if (axis === "pipeline") {
+    const stageCount = recordValue(inputs.stageCount);
+    return [
+      `案件追跡 ${humanizeValue(inputs.commercials)}件`,
+      `decided ${humanizeValue(stageCount.decided)} / executing ${humanizeValue(stageCount.executing)}`,
+      `pipeline_value ${humanizeValue(inputs.pipelineValue)} / 10`,
+      `OS未反映diff ${humanizeValue(inputs.diffs)}件`,
+      `PJ派生knowledge ${humanizeValue(inputs.knowledge)}件`,
+    ];
+  }
+  if (axis === "direction") {
+    return [
+      `ファンド ${humanizeValue(inputs.fundCount)}件`,
+      `研究機関連携 ${humanizeValue(inputs.partnerCount)}件`,
+      `OS導入 ${humanizeValue(inputs.osInstallCount)}件`,
+      `マネタイズ ${humanizeValue(inputs.monetCount)}件`,
+      `属人脱却 ${Math.round(Number(inputs.nonMasaRatio ?? 0) * 100)}%`,
+      `成功卒業 ${humanizeValue(inputs.graduationCount)}件`,
+    ];
+  }
+  if (axis === "initiative") {
+    return [
+      `対象event ${humanizeValue(inputs.totalEvents)}件`,
+      `受け身event ${humanizeValue(inputs.passiveEvents)}件`,
+      `AMD起点 ${humanizeValue(inputs.amdProposedCount)}件`,
+      `共同決定 ${humanizeValue(inputs.coDecidedCount)}件`,
+    ];
+  }
+  if (axis === "finance") {
+    return [
+      `runway ${humanizeValue(inputs.runway)}ヶ月`,
+      `予実score ${humanizeValue(inputs.varianceScore)}`,
+      `請求score ${humanizeValue(inputs.billingScore)}`,
+      `freee行 ${humanizeValue(inputs.freeeRows)}件`,
+    ];
+  }
+  return [
+    `active PJ ${humanizeValue(inputs.activeProjects)}件`,
+    `freeze ${humanizeValue(inputs.freezeCount)}件`,
+    `進捗score ${humanizeValue(inputs.progressScore)}`,
+    `MTG risk ${humanizeValue(inputs.riskMeetings)}件`,
+  ];
 }
 
 function companyBudgetRow(categoryRows: Map<string, Map<string, BudgetActualRow[]>>, ym: string, category: string): BudgetActualRow | null {
@@ -398,7 +467,7 @@ export default async function ManagementScorePage() {
     safeSelect<DialogueConfirmedSignal[]>(() =>
       supabase
         .from("project_strategy_signals")
-        .select("signal_id,project_id,ym,signal_type,impact_level,decision_state,title,confirmed_at,polarity")
+        .select("signal_id,project_id,ym,signal_type,impact_level,decision_state,title,summary,signal_date,confirmed_at,polarity,score_impact_summary,source_refs_json")
         .eq("status", "confirmed")
         .in("decision_state", ["decided", "executing", "revised"])
         .lte("ym", ymCap)
@@ -575,6 +644,15 @@ export default async function ManagementScorePage() {
           />
         </section>
 
+        <AxisMovePanel
+          score={score}
+          previous={previous}
+          axisInputs={recordValue(scoreInputs.axisInputs)}
+          evidenceRows={evidenceRows}
+          dialogueConfirmedSignals={dialogueConfirmedSignals}
+          omegaReasoning={typeof scoreInputs.omega_reasoning === "string" ? scoreInputs.omega_reasoning : null}
+        />
+
         <section className="grid gap-3 md:grid-cols-4">
           <Metric label="Runway" value={runway == null ? "-" : `${runway.toFixed(1)}ヶ月`} />
           <Metric label="Cash" value={yen(cash)} />
@@ -655,6 +733,152 @@ function Metric({
       <div className={`mt-1 text-lg font-semibold tabular-nums tracking-normal ${className}`}>{value}</div>
     </div>
   );
+}
+
+function AxisMovePanel({
+  score,
+  previous,
+  axisInputs,
+  evidenceRows,
+  dialogueConfirmedSignals,
+  omegaReasoning,
+}: {
+  score: ScoreSnapshotFull | null;
+  previous: ScoreSnapshot | null;
+  axisInputs: Record<string, unknown>;
+  evidenceRows: EvidenceRow[];
+  dialogueConfirmedSignals: DialogueConfirmedSignal[];
+  omegaReasoning: string | null;
+}) {
+  if (!score) return null;
+
+  return (
+    <section className="rounded-md border bg-card">
+      <div className="border-b px-4 py-3">
+        <h2 className="text-sm font-semibold">各軸の変動理由</h2>
+        <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+          前月から何点動いたか、その月の計算入力、効いた根拠を軸ごとに読む場所。急に落ちた軸はここを開けば、 raw signal と evidence のどちらを確認すべきか分かる。
+        </p>
+      </div>
+
+      <div className="divide-y">
+        {SCORE_COMPONENTS.map((component) => {
+          const axis = component.axis;
+          const scoreKey = AXIS_FIELD[axis];
+          const currentScore = score[scoreKey];
+          const previousScore = previous?.[scoreKey] ?? null;
+          const axisDelta = deltaNumber(currentScore, previousScore);
+          const inputs = recordValue(axisInputs[axis]);
+          const axisEvidence = evidenceRows
+            .filter((row) => row.axis === axis)
+            .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
+          const axisSignals = dialogueConfirmedSignals.filter((signal) => {
+            if (axis === "pipeline") return signal.signal_type === "commercial_progress";
+            if (axis === "direction") return ["funding", "partner_growth", "graduation", "next_move"].includes(signal.signal_type);
+            return false;
+          });
+          const summary =
+            typeof inputs.summary === "string"
+              ? inputs.summary
+              : axisEvidence.find((row) => row.evidence_kind === "axis_summary")?.summary ?? "この軸のsummary evidence待ち。";
+          const facts = axisInputFacts(axis, inputs).filter((fact) => !fact.includes("undefined") && !fact.includes("NaN"));
+          const open = axis === "pipeline" || (axisDelta != null && axisDelta <= -8);
+
+          return (
+            <details key={axis} className="group" open={open}>
+              <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 px-4 py-3 hover:bg-muted/30">
+                <span className="min-w-16 text-sm font-semibold">{component.label}</span>
+                <span className={`text-sm font-semibold tabular-nums ${scoreTone(currentScore)}`}>{pct(currentScore)}</span>
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums ${axisDeltaTone(axisDelta)}`}>
+                  {deltaLabelText(axisDelta)}
+                </span>
+                <span className="min-w-0 flex-1 text-xs leading-relaxed text-muted-foreground break-words">{summary}</span>
+                <span className="text-[11px] text-muted-foreground group-open:hidden">開く</span>
+                <span className="hidden text-[11px] text-muted-foreground group-open:inline">閉じる</span>
+              </summary>
+
+              <div className="grid gap-3 px-4 pb-4 lg:grid-cols-[0.9fr_1.1fr]">
+                <div className="rounded-md border bg-background px-3 py-3">
+                  <div className="text-xs font-semibold">計算入力</div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {facts.map((fact) => (
+                      <span key={fact} className="rounded-full border bg-card px-2 py-1 text-[11px] text-muted-foreground">
+                        {fact}
+                      </span>
+                    ))}
+                    {axis === "pipeline" && omegaReasoning && (
+                      <span className="rounded-full border bg-violet-50 px-2 py-1 text-[11px] text-violet-700">
+                        新規重み: {omegaReasoning}
+                      </span>
+                    )}
+                    {axisSignals.length > 0 && (
+                      <span className="rounded-full border bg-primary/5 px-2 py-1 text-[11px] text-primary">
+                        まさえいMTG確定 {axisSignals.length}件
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                    {axis === "pipeline"
+                      ? "新規は商談・紹介・提案の前進が少ない月ほど下がる。commercial_progress が減る、または proposed/observed 止まりだと pipeline_value が伸びない。"
+                      : axis === "direction"
+                        ? "方向はAMDの勝ち筋に近づいた材料を見る。funding、研究機関連携、OS導入、マネタイズ、属人脱却、成功卒業が主入力。"
+                        : "この軸は下のevidenceを見れば、加点・減点に効いた具体的な出来事へ辿れる。"}
+                  </p>
+                </div>
+
+                <div className="rounded-md border bg-background px-3 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs font-semibold">効いた根拠</div>
+                    <div className="text-[11px] text-muted-foreground">{axisEvidence.length}件</div>
+                  </div>
+                  {axisEvidence.length === 0 ? (
+                    <div className="mt-2 rounded border border-dashed bg-muted/20 px-3 py-4 text-center text-xs text-muted-foreground">
+                      evidence待ち。 raw signal はあるが説明カードが生成されていない可能性がある。
+                    </div>
+                  ) : (
+                    <div className="mt-2 space-y-2">
+                      {axisEvidence.slice(0, 4).map((row) => (
+                        <div key={row.id} className="rounded border bg-card px-2.5 py-2">
+                          <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                            <span className="font-medium text-muted-foreground">{row.evidence_kind}</span>
+                            <span className={`font-semibold tabular-nums ${row.impact >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                              {row.impact >= 0 ? "+" : ""}{row.impact.toFixed(1)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs leading-relaxed break-words">{row.summary}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </details>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function deltaNumber(curr: number | string | null | undefined, prev: number | string | null | undefined): number | null {
+  if (curr == null || prev == null) return null;
+  const c = Number(curr);
+  const p = Number(prev);
+  if (!Number.isFinite(c) || !Number.isFinite(p)) return null;
+  return c - p;
+}
+
+function deltaLabelText(value: number | null): string {
+  if (value == null) return "前月なし";
+  if (Math.abs(value) < 0.5) return "±0";
+  return `${value > 0 ? "+" : ""}${Math.round(value)}`;
+}
+
+function axisDeltaTone(value: number | null): string {
+  if (value == null) return "border-border text-muted-foreground bg-background";
+  if (value > 0) return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (value < 0) return "border-red-200 bg-red-50 text-red-700";
+  return "border-border text-muted-foreground bg-background";
 }
 
 function linePoints(values: Array<number | null>, width: number, height: number, minValue: number, maxValue: number): string {

@@ -445,19 +445,44 @@ admin-only。body は `inputs.params`, `inputs.projects`, `inputs.fixedCosts` �
 - 「シーズ候補「非麻薬性オピオイド鎮痛薬」 (観察中, AMD評価 3/5)」 ← 良
 - 「seed:investigating: 非麻薬性オピオイド鎮痛薬」 ← 廃止 (= 機械的)
 
-### まさえいMTG 確定シグナル 帯 (= 2026-05-27 #91 確定)
+### 軸別の変動理由 UI (= 2026-06-01 追加)
+
+`/management-score` の score cards 直下に **各軸の変動理由** を表示する。目的は、まさが「新規 推移がなぜ急に下がったのか」「どの根拠を見れば次の一手に繋がるのか」を、DB名を知らなくても追えるようにすること。
+
+1軸ごとに `<details>` で展開でき、以下を表示する。
+
+| 表示 | 内容 | 主な保存先 |
+|---|---|---|
+| 前月差分 | 当月score - 前月score。急落軸は赤chip | `amd_management_score_snapshots` |
+| 軸summary | 計算時に生成した自然文。新規なら案件追跡件数 / stage / pipeline_value を含む | `amd_management_score_snapshots.inputs_json.axisInputs.<axis>.summary` |
+| 計算入力 | raw件数、stageCount、pipelineValue、freeze数、runwayなどの短いfact chip | `inputs_json.axisInputs` |
+| 効いた根拠 | impact絶対値順の上位 evidence。何が加点/減点したかを自然文で読む | `amd_management_score_evidence` |
+| まさえいMTG確定signal | 新規/方向軸に流れる confirmed signal 件数 | `project_strategy_signals` |
+
+**新規軸の読み方**:
+
+- `project_strategy_signals.signal_type='commercial_progress'` が主入力。
+- `decision_state` が `observed/proposed/decided/executing/revised` のどこかで確度が変わる。
+- `commercial_progress` が少ない、または `observed/proposed` 止まりだと `pipeline_value` が伸びず、新規scoreが下がる。
+- `project_registry_diffs` / `project_knowledge` は補助入力。商談・紹介・提案の前進が弱い月は、ここだけでは大きくは戻らない。
+
+保存済みの `axisInputs` / `evidence` だけで理由を出す。現時点で保存されていないものは、画面で捏造せず `evidence待ち` と表示する。より強い説明が必要な場合は、raw signal 作成時に `project_strategy_signals.source_refs_json` と `score_impact_summary` を厚くする。
+
+### まさえいMTG 確定シグナル 一覧 (= 2026-05-27 #91 確定、2026-06-01 UI更新)
 
 EvidencePanel の上部に「**まさえいMTG で確定したシグナル**」 帯を表示する。 まさが daily MTG で confirm した `project_strategy_signals` (= `status='confirmed' AND decision_state IN ('decided','executing','revised')`) を chip で並べ、 それらがバイタル計算の **新規 / 方向** 軸に流れていることを可視化する。
 
 | 状態 | UI |
 |---|---|
 | 確定シグナル 0 件 | グレー帯 (= 該当なし) |
-| 1 件以上 | 薄プライマリ帯。 chip 1 個 = 1 signal で「PJ ID / 軸名 (新規/方向) / title」 を表示。 hover で `project_id / ym / signal_type / decision_state` tooltip |
+| 1 件以上 | 薄プライマリ帯。 chip 羅列ではなく、読めるカード一覧で「何が固まったか」「どの評価軸に効くか」「どのPJか」「いつ確定/発生したか」「根拠件数」「score_impact_summary」を表示 |
 
-chip の軸判定 ([EvidencePanel.tsx](../src/components/management-score/EvidencePanel.tsx#signalTypeToAxis)):
+一覧の軸判定 ([EvidencePanel.tsx](../src/components/management-score/EvidencePanel.tsx#signalTypeToAxis)):
 - `commercial_progress` → 新規軸
 - `funding / partner_growth / graduation / next_move` → 方向軸
 - それ以外 → 軸なし
+
+各signalは `<details>` で根拠 `source_refs_json` を開ける。title / summary は truncate せず、長い文字列も折り返して読む。確定シグナルは会社として正式決定済みという意味ではなく、**チームへ出す提案としてまさえいMTGで固まった材料**を意味する。
 
 **設計判断**:旧 `DialogueModeButton` (= candidate を 1 件ずつ承認するレビュー UI) は廃止 (= まさ #91「議論してないものは重要じゃないから議論してない、 議論したものは確認なしで採用すべき」)。 確認ワークフローを作るのではなく、 「議論で confirm された結果がバイタル入力にどう流れるか」 を見せる方向に再設計した。
 
