@@ -7,11 +7,23 @@
 
 ## 未完タスク（優先順位順）
 
+- **販売前提の公開本としてTextbookを再定義する**
+  - お願いした内容: 現状の「AMDが見ていること」中心の内部教材から、日本中の研究機関の産連担当者、URA、研究者、スタートアップを目指す若者が買って読める本へ作り直す。
+  - 背景: まさの指摘どおり、今の本文はAMD/まさ/内部運用語が強く、読者から見ると宣伝や内部資料に見えるリスクがあるため。宣伝は極小に抑え、読者の課題解決を主役にする。
+  - 現状: `pwa/bzm/textbook/PUBLICATION_STRATEGY.md` を追加し、読者定義、類書カテゴリ、差別化、公開/内部分離、禁止語、公開原稿の章構成、worker計画を明文化。
+  - 残課題: 公開原稿監査workerと公開TOC workerを切り、`pwa/bzm/*.md` を `public_keep` / `public_rewrite` / `internal_only` / `case_seed` に分類する。公開原稿では `AMD`、`まさ`、`L2⑩`、内部path、司令塔/worker語を原則出さない。
+
+- **公開原稿と内部正本を分離する**
+  - お願いした内容: `pwa/bzm/*.md` をそのまま販売原稿扱いせず、内部source-of-truthと公開manuscriptを分ける。
+  - 背景: L2⑩、applier、routing、changelog、source path、production deployなどは運用には必要だが、販売本の本文には混ぜてはいけないため。
+  - 現状: 方針は `PUBLICATION_STRATEGY.md` に記録済み。公開原稿候補の出力先は `pwa/bzm/public-manuscript/*.md` または export script のどちらかで検討。
+  - 残課題: workerで現行章の内部語監査と出力先案を作り、司令塔レビュー後に実際の公開原稿ベースを作る。
+
 - **TextbookをBefore Zero実践テキストへ広げる**
   - お願いした内容: BZMの概念説明だけでなく、Before Zeroの現場で起きる判断、失敗、迷い、仮説修正、関係構築、ケース、横断パターンを統合した実践テキストへ育てる。
   - 背景: まさの意図は「BZM理論書」ではなく、次のBefore Zeroでどう動くかを学べる実務知の蓄積にあるため。
   - 現状: 方針はOS司令塔レビューで採用済み。Phase 1として第8部に実践章 skeleton を追加済み。`Textbook whole-structure base` workerで、前半を「Before Zero の現場 → 鬼門 → 関係構築 → 現場要素からBZM変数へ」に組み替え、main取り込み・production deploy済み。
-  - 残課題: スタパイベント文字起こしなど実ケース素材を継続的に本文へ反映し、実践章を「読むと判断に使える」内容へ増やす。L2⑩承認候補もdry-run後に追記判断する。
+  - 残課題: 実ケース素材は公開本の読者向けに匿名化・一般化してから本文化する。販売原稿では内部イベント名やAMD視点を出さず、「現場で何が起きるか」と「読者が何を判断できるか」に変換する。
 
 - **スタパイベント文字起こしをTextbook素材として掘り切る**
   - お願いした内容: `/Users/masa/projects/AMD/AMD/stapa/イベントの文字起こし.docx` を素材に、Before Zeroの現場課題、研究者支援の局所最適、GAPファンド/VC/CEO論、研究者理解、会社化前準備をTextbookへ反映する。
