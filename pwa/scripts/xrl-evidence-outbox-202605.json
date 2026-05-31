@@ -1,0 +1,412 @@
+{
+  "generated_at": "2026-05-31T00:00:00Z",
+  "routine": "claude_routine_l8",
+  "ym_list": [
+    "202605"
+  ],
+  "pj_count": 4,
+  "evidence_count": 14,
+  "note": "Supabase MCP未接続のため project_xrl_log / project_founding_members migration ファイルと design docs から抽出。Supabase REST API でのupsertが必要。",
+  "xrlEvidence": {
+    "evidences": [
+      {
+        "project_id": "p06",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "trl",
+        "evidence_kind": "technical_validation",
+        "summary": "CTB211 Phase 1 治験進行中（TRL7）。大動物試験クリア済み。",
+        "structured_value_json": {
+          "trl_level": 7,
+          "milestone": "Phase 1 治験進行中",
+          "compound": "CTB211",
+          "target": "虚血性脳卒中"
+        },
+        "source_refs_json": [
+          {
+            "source": "project_xrl_log",
+            "ref_id": "ctb_2026-01",
+            "snippet": "Phase 1 治験申請→進行中 / シリーズA調達中",
+            "source_url": null,
+            "hash": "b0dff7c2a9c6d8e7f56adce51ff6b9377d5df44ce898aeec3eaff1b95c5bad84"
+          }
+        ],
+        "source_hash": "91f43f21a97f254d01233ec49c786ec4c982c905140d5fd24730c6312f5fd2eb",
+        "confidence": 0.85,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p06",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "grl",
+        "evidence_kind": "grant_signal",
+        "summary": "AMED採択確定。国家公的資金による治験支援。GRL6相当。",
+        "structured_value_json": {
+          "grl_level": 6,
+          "grant_name": "AMED",
+          "grant_type": "national_public",
+          "stage": "治験フェーズ"
+        },
+        "source_refs_json": [
+          {
+            "source": "project_xrl_log",
+            "ref_id": "ctb_2023-04",
+            "snippet": "設立 — AMED採択確定 / 化合物TRL4",
+            "source_url": null,
+            "hash": "813c0200ec2a15a8c702cec6d844b2fcd29ea70e0082520f1acca409f836e7a3"
+          }
+        ],
+        "source_hash": "8a515e64d01f7ffaa662966da6df2451d510fbda96a83309d45200a10087d783",
+        "confidence": 0.9,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p06",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "hrl",
+        "evidence_kind": "founding_member",
+        "summary": "丸島CEO（医師・研究者）がCTB運営主導。AMD伴走現在frozen。HRL3維持。",
+        "structured_value_json": {
+          "hrl_level": 3,
+          "ceo_role": "医師・研究者CEO",
+          "person": "丸島",
+          "category": "startup",
+          "amd_active_count": 0
+        },
+        "source_refs_json": [
+          {
+            "source": "project_founding_members migration_112",
+            "ref_id": "ctb_pfm_2026-05-31",
+            "snippet": "丸島=医師・研究者CEOで創薬/AMED実務。まさrow=left。AMD active=0。frl_cap=3。",
+            "source_url": null,
+            "hash": "13118079f0224bf5f6dea8eb979240884f2e1392606bd793284a7d13a171e60a"
+          }
+        ],
+        "source_hash": "853b631b784c6c7e3b7ae38fa2dae0285289a21e157204bcd9eb2fd750e5cb1a",
+        "confidence": 0.8,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p07",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "grl",
+        "evidence_kind": "grant_signal",
+        "summary": "SBIR核融合枠15億採択+QST出資確定。国策補助金GRL7相当。",
+        "structured_value_json": {
+          "grl_level": 7,
+          "grant_name": "SBIR核融合",
+          "amount_oku": 15,
+          "grant_type": "SBIR"
+        },
+        "source_refs_json": [
+          {
+            "source": "amd_score.md timeline",
+            "ref_id": "lst_sbir_2026",
+            "snippet": "SBIR核融合15億 + QST出資、UMIシード1.5億",
+            "source_url": null,
+            "hash": "5e2be0733d3beb114fc9364263e1684ba9c8eac718f48c9d978a09f6f40abbd5"
+          }
+        ],
+        "source_hash": "5aa2381fd3e43f3316523b459b2222f0ba26c3a5a2215e5c79096d0f83081ba2",
+        "confidence": 0.92,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p07",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "srl",
+        "evidence_kind": "stakeholder_signal",
+        "summary": "2026-04 国産リチウム脱中国メディア露出でSRL急上昇。SRL6相当。",
+        "structured_value_json": {
+          "srl_level": 6,
+          "media_event": "脱・中国 99.99% 国産リチウム報道",
+          "media_date": "2026-04",
+          "impact": "SRL jump"
+        },
+        "source_refs_json": [
+          {
+            "source": "amd_score.md timeline",
+            "ref_id": "lst_media_202604",
+            "snippet": "2026-04 メディア『脱・中国 99.99% 国産リチウム』でSRLジャンプ",
+            "source_url": null,
+            "hash": "1d1302291e6fc71e6b8701eed01659df1f9ae824d71530c2d2d7b427bfeece45"
+          }
+        ],
+        "source_hash": "0cbb4e875dcda4055f573f68ca6bc6bb502fec00ccbb094661b5ef587eb0e353",
+        "confidence": 0.88,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p07",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "brl",
+        "evidence_kind": "customer_signal",
+        "summary": "UMIシード1.5億調達+自動車メーカー廃液PoC継続中。BRL5。",
+        "structured_value_json": {
+          "brl_level": 5,
+          "funding": "UMIシード1.5億",
+          "poc_partner": "自動車メーカー廃液供給",
+          "stage": "量産プロセス設計中"
+        },
+        "source_refs_json": [
+          {
+            "source": "project_xrl_log",
+            "ref_id": "lst_2026-01",
+            "snippet": "PoC継続 / 量産プロセス設計中。UMI 1.5億seed。BRL5。",
+            "source_url": null,
+            "hash": "a5d1a82c5aaada9b2175352fc15e626820d261dae6da7cfa6c3a33c1f066117c"
+          }
+        ],
+        "source_hash": "86014993e04430ae9b528ab64791178ff0072a7d378f7ac6d6e18f2369f33ce6",
+        "confidence": 0.87,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p07",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "hrl",
+        "evidence_kind": "founding_member",
+        "summary": "星野CEO（実行力確立）+まさCOO伴走でHRL5。frl_cap=6体制。",
+        "structured_value_json": {
+          "hrl_level": 5,
+          "ceo": "星野CEO",
+          "amd_active_count": 1,
+          "amd_person": "まさ",
+          "amd_role": "COO/体制構築",
+          "frl_cap": 6
+        },
+        "source_refs_json": [
+          {
+            "source": "project_founding_members migration_111",
+            "ref_id": "lst_pfm_2026-05-31",
+            "snippet": "まさCOO設立前参画、星野CEO据付・ラボ開設。frl_cap=6,amd=1。",
+            "source_url": null,
+            "hash": "12c4054674289cf38fd82453b37759594725caf074cc9638995f3476c847a711"
+          }
+        ],
+        "source_hash": "a7a3df59686deb2df7e8d04c3212f2a17c7462a54fe4ee3b4152e0355c82d853",
+        "confidence": 0.85,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p20",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "trl",
+        "evidence_kind": "technical_validation",
+        "summary": "NIMS神谷PI 20年超の磁気冷凍研究。ラボスケール実証済(TRL4)。",
+        "structured_value_json": {
+          "trl_level": 4,
+          "pi": "神谷氏",
+          "institution": "NIMS",
+          "research_years": 20,
+          "technology": "磁気冷凍素子",
+          "application": "CO2フリーDC冷却+量子QC冷却"
+        },
+        "source_refs_json": [
+          {
+            "source": "project_xrl_log amd_score.md",
+            "ref_id": "cx_2026-04_xrl",
+            "snippet": "設立前 — 磁気冷凍素子TRL3/NIMS神谷氏20+年研究 → ラボスケール実証TRL4",
+            "source_url": null,
+            "hash": "93b45182128b0e661449157b6f88d8dccb1a9a534ffe4834a2cbcbd5d250d5ba"
+          }
+        ],
+        "source_hash": "950e5cf059114f01d2a93e83139a8a65956ff16e16b1f8fabcf6d55a195bfdf8",
+        "confidence": 0.8,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p20",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "grl",
+        "evidence_kind": "governance_signal",
+        "summary": "量子コンピュータ冷却が国家量子戦略と整合。GRL4相当の政策接続確認。",
+        "structured_value_json": {
+          "grl_level": 4,
+          "policy": "国家量子技術戦略",
+          "connection": "DC冷却・量子コンピュータ国策接続",
+          "founding_target": "2026-08"
+        },
+        "source_refs_json": [
+          {
+            "source": "amd_score.md timeline",
+            "ref_id": "cx_national_strategy_2026",
+            "snippet": "市場調査 → 国家戦略接続 → 2026-08設立予定",
+            "source_url": null,
+            "hash": "3fa2e83b1443fca52734615f987b0dce1aff935d815c1fe1ddc84a0024adcd53"
+          }
+        ],
+        "source_hash": "45920f03576ddd99e1252bbe2e6440b2169bb1f866a030fefc728e239d9d75de",
+        "confidence": 0.75,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p20",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "hrl",
+        "evidence_kind": "founding_member",
+        "summary": "神谷PI(NIMS/university)+AMD4名伴走でHRL5。設立前フェーズで体制充実。",
+        "structured_value_json": {
+          "hrl_level": 5,
+          "pi": "神谷氏",
+          "pi_category": "university",
+          "pi_institution": "NIMS",
+          "amd_active_count": 4,
+          "amd_members": [
+            "まさ",
+            "あき",
+            "きよ",
+            "りり"
+          ],
+          "frl_cap": 5
+        },
+        "source_refs_json": [
+          {
+            "source": "project_founding_members migration_111",
+            "ref_id": "cx_pfm_2026-05-31",
+            "snippet": "神谷PI(NIMS)+まさ/あき/きよ/りり4名active。frl_cap=5,amd_cap=2。",
+            "source_url": null,
+            "hash": "c14dab8bb8c673de07ee20099aef95fff923c2660d55970840ce2029dd6515fe"
+          }
+        ],
+        "source_hash": "bdf3a5892af83cebb51a76c9bb918c011c56d058a7994af267a3d1ea83ee9277",
+        "confidence": 0.83,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p21",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "grl",
+        "evidence_kind": "grant_signal",
+        "summary": "PSI Step2採択(2025-12)でGRL6。JST/文科省公的資金確保。",
+        "structured_value_json": {
+          "grl_level": 6,
+          "grant_name": "PSI Step2",
+          "grant_date": "2025-12",
+          "grantor": "JST/MEXT"
+        },
+        "source_refs_json": [
+          {
+            "source": "amd_score.md timeline",
+            "ref_id": "sx_psi_step2_202512",
+            "snippet": "2025-12 PSI Step2採択でμ_Gジャンプ",
+            "source_url": null,
+            "hash": "10b6553b57895b300565314a957da22cfca7fd956f5e2c4460f229e95be33e53"
+          }
+        ],
+        "source_hash": "945a3ec8eb403a8695c86b7eb4b0428a7584b1918861bdf45316272281b38046",
+        "confidence": 0.93,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p21",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "trl",
+        "evidence_kind": "technical_validation",
+        "summary": "愛媛大学杉浦PI のシアノバクテリア処理技術ラボ実証済(TRL4)。",
+        "structured_value_json": {
+          "trl_level": 4,
+          "technology": "シアノバクテリア排水処理",
+          "pi": "杉浦PI",
+          "institution": "愛媛大学"
+        },
+        "source_refs_json": [
+          {
+            "source": "project_xrl_log",
+            "ref_id": "sx_2026-04_xrl",
+            "snippet": "排水処理契約候補あり / 設立準備中。TRL4。",
+            "source_url": null,
+            "hash": "3d723399d122ab11e5c8c3b20958cdd05d1a3c5431efc7555094d884693fdf0c"
+          }
+        ],
+        "source_hash": "a5873b23d8f4b87a5dd21ecb8f64af755cad09908337c4eb82d19afa0553b3dc",
+        "confidence": 0.78,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p21",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "brl",
+        "evidence_kind": "customer_signal",
+        "summary": "排水処理契約候補接触中。BRL3段階（顧客候補特定済）。",
+        "structured_value_json": {
+          "brl_level": 3,
+          "customer_status": "排水処理契約候補あり",
+          "stage": "設立準備中"
+        },
+        "source_refs_json": [
+          {
+            "source": "project_xrl_log",
+            "ref_id": "sx_2026-04_brl",
+            "snippet": "排水処理契約候補あり / 設立準備中",
+            "source_url": null,
+            "hash": "d89ff7443ffd8a4dd5049056e9c9dc803cafabd27ab6f393a49c6da09d292c58"
+          }
+        ],
+        "source_hash": "039f7596d00882b0d3fbea068c1665c1dc11066eae59ed2816e91a9fc4e930c0",
+        "confidence": 0.72,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      },
+      {
+        "project_id": "p21",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "hrl",
+        "evidence_kind": "founding_member",
+        "summary": "杉浦PI(愛媛大/university)+AMD4名でHRL4。CEO未確定だが設立準備体制整備中。",
+        "structured_value_json": {
+          "hrl_level": 4,
+          "pi": "杉浦PI",
+          "pi_category": "university",
+          "pi_institution": "愛媛大学",
+          "amd_active_count": 4,
+          "amd_members": [
+            "まさ",
+            "かる",
+            "ちこ",
+            "きよ"
+          ],
+          "frl_cap": 4
+        },
+        "source_refs_json": [
+          {
+            "source": "project_founding_members migration_111",
+            "ref_id": "sx_pfm_2026-05-31",
+            "snippet": "杉浦PI(愛媛大)+まさ/かる/ちこ/きよ4名active。frl_cap=4,amd_cap=1。",
+            "source_url": null,
+            "hash": "6919fc8525d971ad8d57639e1ee8e3dfc17f6a7f68467b89aa1240b4091c665a"
+          }
+        ],
+        "source_hash": "a2f6f2cb5f82b157d8e955ab7b5bce3bb00946406469387b09f989da2c364a6c",
+        "confidence": 0.8,
+        "status": "candidate",
+        "created_by": "claude_routine_l8"
+      }
+    ]
+  }
+}
