@@ -105,7 +105,7 @@ KUTE で規程整備した時の論点を、大学別に比較できる raw evid
 | エクイティ | 株式/SO取得規程、IPライセンス対価としての株式/SO、議決権行使方針、売却ルール、発明者還元 |
 | 人材・資金 | 外部CEO/CXO/EIR、人材プール、VC/金融接続、自治体/地域金融連携、PSI/GTIE等の外部プログラム |
 
-### PWA/DB に載せる時の最小項目案
+### PWA/DB 実装
 
 ```text
 institution_policy_items
@@ -122,6 +122,9 @@ institution_policy_assessments
   confirmed_at
   evaluator
 ```
+
+2026-05-31 migration `113_institution_policy_matrix.sql` で本番実装済み。初期マスタは 32 件（制度整備 19 / 属性 13）。
+2026-05-31 migration `114_institution_policy_assessments_admin_read.sql` で、`institution_policy_items` は公開マスタのまま、`institution_policy_assessments` は `source_path` / ヒアリングメモ / 内部資料根拠を保持しうるため admin authenticated + service_role のみ read/write に変更した。
 
 表示は `/institutions/assess` を肥大化させず、タブ分けする。
 

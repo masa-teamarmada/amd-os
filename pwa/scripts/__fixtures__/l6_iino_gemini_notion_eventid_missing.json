@@ -1,0 +1,84 @@
+{
+  "projects": [
+    {
+      "project_id": "p19",
+      "project_name": "ZMP",
+      "client_name": "東京理科大学",
+      "status": "active",
+      "report_emails": null,
+      "aliases": ["飯野", "飯野さん", "TUS"]
+    }
+  ],
+  "events": [
+    {
+      "id": "0q5lelucq7hf5fdteo7p1b5d1i",
+      "title": "ZMP 東京理科大学 飯野さんMTG",
+      "start": "2026-05-26T10:00:00+09:00",
+      "end": "2026-05-26T10:30:00+09:00",
+      "htmlLink": "https://calendar.google.com/calendar/event?eid=0q5lelucq7hf5fdteo7p1b5d1i",
+      "description": "東京理科大学 飯野さんとのZMP打合せ。Gemini notes attached.",
+      "attendees": [
+        { "email": "masa@teamarmada.jp", "displayName": "山地" },
+        { "email": "iino@example.ac.jp", "displayName": "飯野" }
+      ],
+      "attachments": [
+        {
+          "fileId": "1GwJf_5or5EpntLKda3sW_gj0eiV_sBhyN94p7ZP6YIU",
+          "title": "Gemini によるメモ - ZMP 東京理科大学 飯野さんMTG",
+          "mimeType": "application/vnd.google-apps.document",
+          "fileUrl": "https://docs.google.com/document/d/1GwJf_5or5EpntLKda3sW_gj0eiV_sBhyN94p7ZP6YIU/edit"
+        }
+      ]
+    }
+  ],
+  "upcomingRows": [
+    {
+      "meeting_id": "upcoming:0q5lelucq7hf5fdteo7p1b5d1i",
+      "project_id": "p19",
+      "calendar_event_id": "0q5lelucq7hf5fdteo7p1b5d1i",
+      "source_kinds": "upcoming"
+    }
+  ],
+  "notionPages": [
+    {
+      "id": "36c97749-c608-808b-9025-f310cc9f849c",
+      "url": "https://www.notion.so/36c97749c608808b9025f310cc9f849c",
+      "title": "2026-05-26 ZMP 東京理科大学 飯野さんMTG 議事録",
+      "eventId": "",
+      "date": "2026-05-26",
+      "participants": ["まさ", "飯野"],
+      "text": "GeminiによるメモDocをもとにした実施後議事録。東京理科大学 飯野さんとZMPの次アクションを整理した。"
+    }
+  ],
+  "gmailThreads": [
+    {
+      "id": "19e61fccfe8820aa",
+      "subject": "Gemini によるメモ: ZMP 東京理科大学 飯野さんMTG",
+      "from": "gemini-notes@google.com",
+      "to": "masa@teamarmada.jp",
+      "date": "2026-05-26T10:34:00+09:00",
+      "snippet": "Gemini notes for the ZMP 東京理科大学 飯野さん meeting are ready."
+    },
+    {
+      "id": "19e628fc3fca507f",
+      "subject": "東京理科大学 飯野先生フォローアップ",
+      "from": "masa@teamarmada.jp",
+      "to": "iino@example.ac.jp",
+      "date": "2026-05-26T15:20:00+09:00",
+      "snippet": "本日のZMP MTGで話した次回までの宿題と資料共有についてフォローアップします。"
+    }
+  ],
+  "expected": {
+    "heldCandidates": 1,
+    "meetingId": "0q5lelucq7hf5fdteo7p1b5d1i",
+    "projectId": "p19",
+    "prepSourceMeetingId": "upcoming:0q5lelucq7hf5fdteo7p1b5d1i",
+    "sourceKindsContains": ["drive", "gmail", "notion"],
+    "guardFlags": {
+      "calendar_attached_gemini_doc": true,
+      "notion_event_id_missing_fallback": true,
+      "report_emails_missing_but_gmail_fallback_used": true
+    },
+    "configGaps": 1
+  }
+}

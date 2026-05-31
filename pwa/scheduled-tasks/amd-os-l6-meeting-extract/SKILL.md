@@ -23,6 +23,7 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
 - **Notion eventId は MMO 側で埋める**: Calendar event から Notion 議事録ページを見つけたら、MMO automation は可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記する。これは次回以降の冪等性と traceability のためで、PWA/GAS 側ではなく L6 writer 側の責務。
 - **eventId 欠損で弾かない**: Notion page に `eventId` が無いのは欠落インシデントとして記録しつつ、必ず title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索する。`eventId` が無いことだけを理由に `source_kinds='none'` や `skip_no_notion_event_id` にしない。
+- **held-source preflight guard**: Calendar event に Gemini/Google Meet notes Doc 添付、Notion fallback hit、Gmail Gemini notes / follow-up がある場合は、既存 `upcoming:<event_id>` があっても開催済み `meeting_id=<event_id>` 候補へ進む。fixture guard は `npm run test:l6-held-source-guard`。これは外部サービスや DB に触らない deterministic test で、飯野さんケース相当 (`Calendar添付Geminiメモ + Notion eventId空 + report_emails空`) を落とさないことを検査する。
 
 ## 【絶対】 動く前に必ず Read
 
@@ -142,6 +143,15 @@ Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 �
 各 event について順に実行 (= 同期、1 件ずつ):
 
 ### B-1: Notion 議事録ページ検索 (= eventId 優先 + title/date fallback)
+
+開催済み候補へ進む前に、connector から取得した短い metadata snapshot がある場合は repo guard を使って preflight する。
+
+```bash
+cd /Users/masa/projects/AMD/amd-os/pwa
+npm run test:l6-held-source-guard
+```
+
+この guard は fixture 用の再発防止だけでなく、同じ入力形 (`projects`, `events`, `upcomingRows`, `notionPages`, `gmailThreads`) を渡せる helper (`scripts/l6_meeting_held_source_guard.cjs`) としても使える。出力に `heldCandidates[]` が出た event は、準備カードだけで終了せず Phase B-D の開催済み upsert へ進める。`prep_source_meeting_id` がある場合は `project_meeting_summaries.prep_source_meeting_id` に入れ、upcoming row 自体は消さない。fallback 紐付けは `confidence` と `needs_review` を run summary に残す。
 
 9. **Stage 1**: Notion `notion-search` で **eventId 相当文字列** をクエリに含めて検索:
    - query = `<event.id>`
@@ -542,6 +552,7 @@ row 構造:
   "next_actions": [...],
   "risks": [...],
   "narrative_md": "<extracted.narrative_md>",
+  "prep_source_meeting_id": "<upcoming:event.id が既存ならその meeting_id / 無ければ null>",
   "source_hash": "<newHash>",
   "generated_at": "<ISO now>",
   "generated_by_model": "anthropic:claude-sonnet-4-7@claude-routine"

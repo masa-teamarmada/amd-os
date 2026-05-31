@@ -14,7 +14,7 @@
 
 - `pwa/vercel.json` に LLM-backed route を cron 登録しない。
 - GAS source に kill switch がある処理は、live trigger を復活させない。
-- L2 ①〜⑨ の writer は `/spec/5-3-automation-responsibility-current-spec` を見る。
+- L2 ①〜⑩ の writer は `/spec/5-3-automation-responsibility-current-spec` を見る。
 
 ## 2026-05-24 経営ハイライト再設計
 

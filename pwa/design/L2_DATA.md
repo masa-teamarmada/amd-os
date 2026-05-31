@@ -2,7 +2,7 @@
 
 **最重要**: AMD OS の中核データ。すべての Claude / Codex / GPT セッションは作業前にここを読む。
 
-> **manual / spec / bzm 3層分割中**: L2 ①〜⑨、5 生データ、outbox / LaunchAgent、採否ループの確定仕様は `/spec/3-1-l2-data-extraction-current-spec.md` へ移行開始済み。移行完了までは、この `design/L2_DATA.md` も未移行領域の正本として残し、迷う内容は両方に置く。
+> **manual / spec / bzm 3層分割中**: L2 ①〜⑩、5 生データ、outbox / LaunchAgent、採否ループの確定仕様は `/spec/3-1-l2-data-extraction-current-spec.md` へ移行開始済み。移行完了までは、この `design/L2_DATA.md` も未移行領域の正本として残し、迷う内容は両方に置く。
 
 ---
 
@@ -72,6 +72,7 @@ L2データ
   ⑦ project_registry_diffs
   ⑧ project_xrl_evidence + project_founding_members
   ⑨ project_strategy_signals
+  ⑩ textbook_insight_candidates
         ↓
 通知
   l2_notifications / meeting_notifications
@@ -125,6 +126,7 @@ L2データ
 | ⑦ OS台帳差分 | allowlist 済みの安全な DB 更新を実行 (`project_members`, `projects.report_emails`, `project_partners`) | `project_registry_diffs.status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 | ⑧ XRL根拠 | `project_xrl_evidence.status='confirmed'` | `project_xrl_evidence.status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 | ⑨ 経営ハイライト | `project_strategy_signals.status='confirmed'` | `project_strategy_signals.status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
+| ⑩ Textbook Insights | `textbook_insight_candidates.status='approved'`。local applier が承認済み候補だけを `pwa/bzm/*.md` へ追記し、commit/push する | `textbook_insight_candidates.status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 | ④ PJナレッジ / ⑤ メンバーナレッジ | `status='active'` | `status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 | ② AMDプロトコル | `status='active'` | `status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 | founding members | `status='active'` | `status='invalid'` | `l2_feedbacks` / `tsukuyomi_learnings` |
@@ -156,7 +158,7 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 
 ---
 
-## L2 データ 9 種 (正本リスト)
+## L2 データ 10 種 (正本リスト)
 
 | L2 | 意味 | テーブル | cron / 書き込み元 | 場所 | 状態 |
 |---|---|---|---|---|---|
@@ -169,6 +171,7 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 | ⑦ **OS台帳差分** | 5生データとOS構造データの差分。PJメンバー候補、関係先メール、担当者、契約/期間/スコープ、請求/ステータスなど「OSに反映する?」が必要な候補 | `project_registry_diffs` + `l2_notifications(l2_kind='project_registry_diff')` | Codex automation `amd-os-ms` + SKILL `amd-os-l7-registry-diff-extract` → `outbox.registryDiffs` → non-LLM applier | Codex automation + LaunchAgent | ✅ subscription automation 枠で稼働。詳細 [project_registry_diffs.md](project_registry_diffs.md) |
 | ⑧ **XRL根拠** | AMD Score / XRL 算定に使う構造化根拠。`project_founding_members` は HRL 評価のベース = **関連メンバー** リストで、`category in ('amd','startup','university')` (= AMD 伴走 / 該当SU 社員・創業候補 / 大学キーパーソン) を HRL 算入対象にする。VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として `status='invalid'` 化。AMDメンバーは `members.code_name` で記録 (フルネーム / 姓のみ表記は重複として invalid)。`projects.project_category='ecosystem'` は AMD Score 対象外 | `project_founding_members`, `project_xrl_evidence`, `project_xrl_log`, `amd_score_inputs.xrl_notes` | Codex automation `amd-os-ms` + SKILL `amd-os-l8-xrl-evidence-extract` → `outbox.xrlEvidence` → non-LLM applier | Codex automation + LaunchAgent | ✅ subscription automation 枠で稼働。詳細 [xrl_evidence.md](xrl_evidence.md) |
 | ⑨ **経営ハイライト** | MS進捗より上位の、経営上の重要方針・事業上の進捗・戦略転換・提携・資金・知財/規制・重要リスク・次の一手。PJ cockpit のMSリスト直下に表示する | `project_strategy_signals` + `l2_notifications(l2_kind='project_strategy_signal')` | Codex automation `amd-os` (= daily 03:20 JST) → `/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/` → non-LLM applier `ms_progress_review_tool.mjs apply-outbox-dir`。初期backfillは `scripts/backfill_strategy_signals_from_activities.mjs` → `ms_progress_review_tool.mjs apply-outbox` | Codex automation / PWA | ✅ DB・cockpit表示・通知採否UIを追加。抽出はCodex automationで日次運用。2026-05-23に既存 `member_activities` から40件backfill済み。詳細 [project_strategy_signals.md](project_strategy_signals.md) |
+| ⑩ **Textbook Insights** | Before Zero / BZM 教科書に追記すべき実務知見。最重要は Before Zero PJ推進のノウハウ・経営判断、次点でPJ横断傾向、ケーススタディ、既存理論の裏付け。承認前は候補DBだけに保存し、承認後も本番runtimeからgitを直接編集しない | `textbook_insight_candidates` + `l2_notifications(l2_kind='textbook_insight')` | Codex automation / local worker `amd-os-l10-textbook-insight-extract` → `outbox.textbookInsights` → non-LLM applier が candidate + notification 作成 → `/notifications` yes で approved → `apply_approved_textbook_insights.mjs` が `pwa/bzm/*.md` へ追記 | Codex automation / local BZM applier | 🟡 partial。DB/API/outbox/local applier contract を追加。実 schedule 登録と commit loop は司令塔レビュー後に確定 |
 
 **重要**: 5 生データから抽出した結果 = L2 だけ。Atlas / VC ニュース / マクロ index は外部ソース由来なので **L2 ではなく「レポート関連」**カテゴリ。
 
@@ -248,7 +251,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 
 ---
 
-## 🚨 L2 ①〜⑨ subscription automation 統一 (= 2026-05-29 正本訂正)
+## 🚨 L2 ①〜⑩ subscription automation 統一 (= 2026-05-29 正本訂正)
 
 **📜 経緯** (= 3 段階の方針進化):
 1. **2026-05-22**: 「LLM 課金が発生する定期抽出 cron 全廃止」判断 → GAS 153/155/152 kill switch → L2 ②④⑤⑥ ghost 化
@@ -268,11 +271,12 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | ⑦ OS 台帳差分 | 旧 Cloud routine 案 / PWA LLM route | Codex automation `amd-os-ms` + SKILL `amd-os-l7-registry-diff-extract` → `outbox.registryDiffs` → LaunchAgent | 6h ごと | ✅ subscription automation 枠で稼働 |
 | ⑧ XRL 根拠 | 旧 Cloud routine 案 / PWA LLM route | Codex automation `amd-os-ms` + SKILL `amd-os-l8-xrl-evidence-extract` → `outbox.xrlEvidence` → LaunchAgent | 6h ごと (L7 +15 分) | ✅ subscription automation 枠で稼働 |
 | ⑨ 経営ハイライト | 旧 Cloud routine 案 | Codex automation `amd-os` + SKILL `amd-os-l9-strategy-signal-extract` → strategy-signals outbox → LaunchAgent | daily 03:20 JST | ✅ subscription automation 枠で稼働。修正依頼ループは対話型と接続予定 |
+| ⑩ Textbook Insights | 新規 | Codex automation / local worker `amd-os-l10-textbook-insight-extract` → `outbox.textbookInsights` → candidate + notification → approved → local BZM applier | TBD | 🟡 partial。候補・採否・安全な追記導線を追加。Vercel runtime から git 追記しない |
 
 **SKILL 正本**: [`pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md`](../scheduled-tasks/) (= repo 入り、MMO/Codex/automation が読む)
 **マニュアル正本**: [8-3 章 L2 Extraction Routines](../manual/8-3-l2-extraction-routines-spec.md)
 **詳細経緯**: [`pwa/design_log/sessions_2026-05.md`](../design_log/) の 2026-05-26 セクション
-**管理場所**: ①/⑦/⑧/⑨は Codex automation 履歴と outbox/applier、②〜⑥は MMOマシン側 Codex Desktop automation 履歴。古い claude.ai trigger ID は履歴確認用で、復旧の主導線ではない。
+**管理場所**: ①/⑦/⑧/⑨/⑩は Codex automation 履歴と outbox/applier、②〜⑥は MMOマシン側 Codex Desktop automation 履歴。⑩ の `pwa/bzm` 追記は approved 後の local BZM applier と git commit/push が別段階。古い claude.ai trigger ID は履歴確認用で、復旧の主導線ではない。
 
 **経営ハイライト修正依頼 (= L2 ⑨ + #34)**: 一方通行 update を廃止、**対話型ループ** (= `/api/notifications/feedback/dialog/start|refine|confirm` + CockpitStrategySignals UI 拡張) に置換 2026-05-25 #71。設計議論は [`feedback_dialog.md`](feedback_dialog.md)。
 
@@ -284,10 +288,11 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 |---|---|---|
 | ⑦ OS台帳差分 | DB・通知・採否UIは本番反映済。KUTE Gmail で差分通知の手動実証中 | オートメーション抽出器を汎用化し、5生データすべてから `project_registry_diffs` を作る |
 | ⑧ XRL根拠 | `project_founding_members` は稼働済。`project_xrl_evidence` 受け皿は本番反映済。TRL/BRL/GRL/SRL/HRL 根拠の統合抽出器は未完 | `project_xrl_evidence` の抽出器を作り、XRL/AMD Score 再計算と通知確認フローへ接続 |
+| ⑩ Textbook Insights | DB・通知採否・outbox・local BZM applier の最小導線は追加 | 実 schedule 登録、approved 候補を commit/push する運用、章選定のレビュー基準を詰める |
 
 ## L2 候補
 
-現時点で候補扱いの L2 はなし。
+現時点で候補扱いの L2 は、⑩ Textbook Insights。DB/API/outbox/local applier の最小実装はあるが、実 schedule と BZM 追記レビュー運用は partial。
 
 `project_founding_members` は候補から正式昇格し、⑧ **XRL根拠** の HRL 根拠として扱う。関連メンバー単体を独立 L2 とするのではなく、TRL / BRL / GRL / SRL / HRL の算定根拠を束ねる L2 として運用する。
 
@@ -303,6 +308,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 - ⑥ MTGサマリ → [`meeting_summaries.md`](meeting_summaries.md)
 - ⑦ OS台帳差分 → [`project_registry_diffs.md`](project_registry_diffs.md)
 - ⑧ XRL根拠 → [`xrl_evidence.md`](xrl_evidence.md) / [`amd_score.md`](amd_score.md)
+- ⑩ Textbook Insights → [`../spec/3-13-l2-textbook-insights-current-spec.md`](../spec/3-13-l2-textbook-insights-current-spec.md) / [`../scheduled-tasks/amd-os-l10-textbook-insight-extract/SKILL.md`](../scheduled-tasks/amd-os-l10-textbook-insight-extract/SKILL.md)
 - 全体的な PWA 仕様 → [`SPEC_pwa.md`](SPEC_pwa.md)
 
 ---

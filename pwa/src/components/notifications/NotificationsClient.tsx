@@ -550,6 +550,54 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
           if (rows.length === 0) {
             rows = strategySignalNotificationFallbackRows(n);
           }
+        } else if (n.l2_kind === "textbook_insight") {
+          const meta = objectValue(n.metadata_json);
+          const candidateId = textFromUnknown(meta.candidate_id);
+          const sourceHash = textFromUnknown(meta.candidate_source_hash);
+          let query = supabase
+            .from("textbook_insight_candidates")
+            .select("candidate_id, title, topic, proposed_section, target_bzm_slug, insight_type, priority, body_md, evidence_refs, source_tables, source_hash, status, reviewed_at, applied_at, applied_file")
+            .eq("target_id", n.target_id);
+          if (candidateId) {
+            query = query.eq("candidate_id", candidateId);
+          } else if (sourceHash) {
+            query = query.eq("source_hash", sourceHash);
+          } else {
+            query = query.eq("scope_key", n.scope_key);
+          }
+          const { data, error } = await query.order("created_at", { ascending: false }).limit(20);
+          if (error) throw error;
+          rows = (data ?? []).map((r) => {
+            const refs = Array.isArray(r.evidence_refs) ? r.evidence_refs : [];
+            const refText = refs
+              .slice(0, 4)
+              .map((e) => {
+                const ref = e && typeof e === "object" ? e as Record<string, unknown> : {};
+                return [
+                  ref.table || ref.source || ref.kind || "source",
+                  ref.row_id || ref.ref_id || ref.id || "",
+                  ref.date || ref.item_date || "",
+                  ref.title || ref.snippet || ref.summary || "",
+                ].filter(Boolean).join(" / ");
+              })
+              .filter(Boolean)
+              .join("\n");
+            const sourceTables = Array.isArray(r.source_tables) ? r.source_tables.join(", ") : "";
+            return {
+              heading: `${r.title} [${r.status}]`,
+              body: [
+                `分類: ${r.insight_type} / priority ${r.priority}`,
+                `追記先: /bzm/${r.target_bzm_slug}${r.proposed_section ? ` / ${r.proposed_section}` : ""}`,
+                String(r.body_md ?? ""),
+                refText ? `根拠:\n${refText}` : "",
+              ].filter(Boolean).join("\n"),
+              sub: [
+                sourceTables ? `source=${sourceTables}` : "",
+                r.applied_file ? `applied=${r.applied_file}` : "",
+                r.applied_at ? `applied_at=${formatJST(String(r.applied_at))}` : "",
+              ].filter(Boolean).join(" · ") || undefined,
+            };
+          });
         }
       } else {
         // meeting_summary: project_meeting_summaries から実内容取得
@@ -1037,6 +1085,15 @@ function DeepLinkForL2({ n }: { n: Notification }) {
           /project/{n.target_id}/cockpit (経営ハイライトを確認)
         </a>
       );
+    case "textbook_insight": {
+      const meta = objectValue(n.metadata_json);
+      const slug = textFromUnknown(meta.target_bzm_slug) || "8-1-amd-os-operations";
+      return (
+        <a className="text-blue-600 hover:underline" href={`/bzm/${encodeURIComponent(slug)}`}>
+          /bzm/{slug} (承認後に local applier が追記)
+        </a>
+      );
+    }
     default:
       return <span>{n.l2_kind}</span>;
   }
@@ -1076,6 +1133,7 @@ const NOTIFICATION_COST_ESTIMATE_JPY: Record<string, number> = {
   project_registry_diff: 0.2,
   xrl_evidence: 2,
   project_strategy_signal: 1,
+  textbook_insight: 1,
   founding_members: 10,
   meeting_summary: 0.2,
 };

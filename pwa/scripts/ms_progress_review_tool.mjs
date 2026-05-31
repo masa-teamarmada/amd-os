@@ -455,6 +455,7 @@ async function snapshot({ projectId, ym }) {
     registryDiffs,
     xrlEvidence,
     strategySignals,
+    textbookInsights,
     foundingMembers,
     projectXrlLog,
     amdScoreInputs,
@@ -475,6 +476,7 @@ async function snapshot({ projectId, ym }) {
     get("project_registry_diffs", `select=*&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&order=created_at.desc&limit=80`),
     get("project_xrl_evidence", `select=*&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&order=created_at.desc&limit=80`),
     get("project_strategy_signals", `select=*&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&order=created_at.desc&limit=80`),
+    get("textbook_insight_candidates", `select=*&target_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&order=created_at.desc&limit=80`),
     get("project_founding_members", `select=*&project_id=eq.${enc(projectId)}&order=updated_at.desc&limit=120`),
     get("project_xrl_log", `select=*&project_id=eq.${enc(projectId)}&order=observed_at.desc&limit=80`),
     get("amd_score_inputs", `select=*&project_id=eq.${enc(projectId)}&order=evaluated_at.desc&limit=20`),
@@ -522,6 +524,7 @@ async function snapshot({ projectId, ym }) {
     registryDiffs,
     xrlEvidence,
     strategySignals,
+    textbookInsights,
     foundingMembers,
     projectXrlLog,
     amdScoreInputs,
@@ -561,6 +564,7 @@ async function exportOsSnapshot({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {
     registryDiffs,
     xrlEvidence,
     strategySignals,
+    textbookInsights,
     foundingMembers,
     projectXrlLog,
     amdScoreInputs,
@@ -587,6 +591,7 @@ async function exportOsSnapshot({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {
     get("project_registry_diffs", `select=*&ym=in.${inList([currentYm, priorYm])}&order=created_at.desc&limit=1000`),
     get("project_xrl_evidence", `select=*&ym=in.${inList([currentYm, priorYm])}&order=created_at.desc&limit=1000`),
     get("project_strategy_signals", `select=*&ym=in.${inList([currentYm, priorYm])}&order=created_at.desc&limit=1000`),
+    get("textbook_insight_candidates", "select=*&order=created_at.desc&limit=1000"),
     get("project_founding_members", "select=*&order=project_id.asc,updated_at.desc&limit=2000"),
     get("project_xrl_log", "select=*&order=observed_at.desc&limit=1000"),
     get("amd_score_inputs", "select=*&order=evaluated_at.desc&limit=1000"),
@@ -620,6 +625,7 @@ async function exportOsSnapshot({ ym = yyyymm(), out = DEFAULT_OS_SNAPSHOT } = {
       project_registry_diffs: registryDiffs,
       project_xrl_evidence: xrlEvidence,
       project_strategy_signals: strategySignals,
+      textbook_insight_candidates: textbookInsights,
       project_founding_members: foundingMembers,
       project_xrl_log: projectXrlLog,
       amd_score_inputs: amdScoreInputs,
@@ -715,6 +721,7 @@ function localSnapshot({ file = DEFAULT_OS_SNAPSHOT, projectId, ym }) {
     registryDiffs: tableRows(doc, "project_registry_diffs").filter((r) => r.project_id === projectId && r.ym === ym),
     xrlEvidence: tableRows(doc, "project_xrl_evidence").filter((r) => r.project_id === projectId && r.ym === ym),
     strategySignals: tableRows(doc, "project_strategy_signals").filter((r) => r.project_id === projectId && r.ym === ym),
+    textbookInsights: tableRows(doc, "textbook_insight_candidates").filter((r) => r.target_id === projectId && r.ym === ym),
     foundingMembers: tableRows(doc, "project_founding_members").filter((r) => r.project_id === projectId),
     projectXrlLog: tableRows(doc, "project_xrl_log").filter((r) => r.project_id === projectId),
     amdScoreInputs: tableRows(doc, "amd_score_inputs").filter((r) => r.project_id === projectId),
@@ -981,6 +988,7 @@ async function applyOutbox(file) {
     registryDiffs: null,
     xrlEvidence: null,
     strategySignals: null,
+    textbookInsights: null,
     sourceCache: null,
     monthlyReports: null,
     projectPatches: null,
@@ -1011,6 +1019,9 @@ async function applyOutbox(file) {
   }
   if (Array.isArray(payload.strategySignals) && payload.strategySignals.length) {
     results.strategySignals = await upsertStrategySignals(payload.strategySignals);
+  }
+  if (Array.isArray(payload.textbookInsights) && payload.textbookInsights.length) {
+    results.textbookInsights = await upsertTextbookInsights(payload.textbookInsights);
   }
   if (Array.isArray(payload.sourceCache) && payload.sourceCache.length) {
     results.sourceCache = await upsertSourceCache(payload.sourceCache);
@@ -1234,6 +1245,85 @@ async function upsertStrategySignals(items) {
   return { ok: true, writtenCount: written?.length || 0, written };
 }
 
+async function upsertTextbookInsights(items) {
+  const now = new Date().toISOString();
+  const validTypes = new Set([
+    "before_zero_knowhow",
+    "cross_project_pattern",
+    "case_study",
+    "theory_evidence",
+  ]);
+  const validStatuses = new Set(["candidate", "approved", "rejected", "applied", "archived"]);
+  const rows = items.map((item) => {
+    const refs = item.evidence_refs || item.evidenceRefs || [];
+    const sourceTables = item.source_tables || item.sourceTables || [];
+    const targetId = item.target_id || item.targetId || item.project_id || item.projectId || "p00";
+    const insightType = String(item.insight_type || item.insightType || "before_zero_knowhow").trim();
+    const sourceHash = item.source_hash || item.sourceHash || stableHash({
+      targetId,
+      title: item.title,
+      body: item.body_md || item.bodyMd || item.body,
+      refs,
+    });
+    const rawStatus = String(item.status || "candidate").trim().toLowerCase();
+    return {
+      target_id: targetId,
+      ym: item.ym || null,
+      scope_key: item.scope_key || item.scopeKey || `textbook:${String(sourceHash).slice(0, 12)}`,
+      topic: String(item.topic || item.title || "").slice(0, 180),
+      title: String(item.title || item.topic || "").slice(0, 180),
+      proposed_section: item.proposed_section || item.proposedSection || null,
+      target_bzm_slug: String(item.target_bzm_slug || item.targetBzmSlug || "8-1-amd-os-operations").trim(),
+      insight_type: validTypes.has(insightType) ? insightType : "before_zero_knowhow",
+      priority: Math.min(4, Math.max(1, Number(item.priority || 2))),
+      body_md: String(item.body_md || item.bodyMd || item.body || "").trim(),
+      evidence_refs: refs,
+      source_tables: sourceTables,
+      source_hash: String(sourceHash),
+      status: validStatuses.has(rawStatus) ? rawStatus : "candidate",
+      extraction_run_id: item.extraction_run_id || item.extractionRunId || null,
+      created_by: item.created_by || item.createdBy || "codex_automation_l10",
+      created_at: item.created_at || now,
+      updated_at: now,
+    };
+  });
+  const missing = rows.find((r) => !r.target_id || !r.scope_key || !r.title || !r.body_md || !r.source_hash);
+  if (missing) throw new Error(`textbookInsights missing target_id/scope_key/title/body_md/source_hash: ${JSON.stringify(missing)}`);
+  const written = await requestJson(rest("textbook_insight_candidates", "on_conflict=target_id,scope_key&select=*"), {
+    method: "POST",
+    headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
+    body: rows,
+  });
+
+  const notifications = [];
+  for (const row of written || []) {
+    const notification = await requestJson(rest("l2_notifications", "on_conflict=l2_kind,target_id,scope_key&select=*"), {
+      method: "POST",
+      headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
+      body: {
+        l2_kind: "textbook_insight",
+        target_id: row.target_id,
+        scope_key: row.scope_key,
+        title: `📘 BZM追記候補: ${row.title}`,
+        summary: String(row.body_md || "").replace(/\s+/g, " ").slice(0, 500),
+        saved_count: 1,
+        total_count: 1,
+        importance: Math.max(1, Math.min(3, 5 - Number(row.priority || 2))),
+        metadata_json: {
+          candidate_id: row.candidate_id,
+          candidate_source_hash: row.source_hash,
+          insight_type: row.insight_type,
+          target_bzm_slug: row.target_bzm_slug,
+          priority: row.priority,
+        },
+      },
+    });
+    notifications.push(notification?.[0] || null);
+  }
+
+  return { ok: true, writtenCount: written?.length || 0, notificationCount: notifications.length, written, notifications };
+}
+
 async function upsertSourceCache(items) {
   const now = new Date().toISOString();
   const rows = items.map((item) => {
@@ -1415,6 +1505,8 @@ async function main() {
     result = await upsertSourceCache(readJson(args.file).sourceCache || readJson(args.file).items || []);
   } else if (cmd === "upsert-monthly-reports") {
     result = await upsertMonthlyReports(readJson(args.file).monthlyReports || readJson(args.file).items || []);
+  } else if (cmd === "upsert-textbook-insights") {
+    result = await upsertTextbookInsights(readJson(args.file).textbookInsights || readJson(args.file).items || []);
   } else if (cmd === "update-projects") {
     result = await updateProjectPatches(readJson(args.file).projectPatches || readJson(args.file).items || []);
   } else if (cmd === "apply-outbox") {
@@ -1447,6 +1539,7 @@ async function main() {
         "node pwa/scripts/ms_progress_review_tool.mjs notify --file /tmp/notification.json",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-source-cache --file /tmp/source-cache.json",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports --file /tmp/monthly-reports.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs upsert-textbook-insights --file /tmp/textbook-insights.json",
         "node pwa/scripts/ms_progress_review_tool.mjs update-projects --file /tmp/project-patches.json",
         "node pwa/scripts/ms_progress_review_tool.mjs apply-outbox --file /tmp/amd-os-outbox.json",
         "node pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir",

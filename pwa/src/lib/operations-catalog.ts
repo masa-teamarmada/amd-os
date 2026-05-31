@@ -159,6 +159,14 @@ export const l2Datasets: L2Dataset[] = [
     purpose: "経営上の重要方針、事業進捗、戦略転換、提携、リスク、次の一手をPJ cockpitへ表示する。",
   },
   {
+    id: "textbook_insight_candidates",
+    label: "⑩ Textbook Insights",
+    table: "textbook_insight_candidates",
+    source: "Codex automation/local worker amd-os-l10-textbook-insight-extract / approved後local BZM applier",
+    cadence: "TBD / manual start",
+    purpose: "Before Zero / BZM 教科書へ追記すべき実務知見候補。通知承認後に pwa/bzm へ追記する。",
+  },
+  {
     id: "amd_score_inputs",
     label: "Score Inputs",
     table: "amd_score_inputs",
@@ -594,7 +602,7 @@ export const cronOperations: CronOperation[] = [
     output: "amd_management_score_snapshots / evidence",
     run: { type: "manual", reason: "手動実行はCodex automation側でraw収集後に行う" },
   },
-  // === Subscription automation (= L2 ①〜⑨。L2①はCodex automation、L2②〜⑨はCloud/Codex routine) ===
+  // === Subscription automation (= L2 ①〜⑩。L2①/⑦/⑧/⑨/⑩はCodex automation/outbox、L2②〜⑥はMMO automation) ===
   // L2①はCodex automation、L2②〜⑨はClaude/Codex routine。PWA からは直接叩けない。
   {
     id: "codex-l1-monthly-report-extract",
@@ -693,6 +701,17 @@ export const cronOperations: CronOperation[] = [
     defaultParams: "(SKILL.md に従う、done のみ / polarity 必須 / 修正依頼は対話型 UI 経由)",
     input: "5 生データ + OS snapshot (monthly_reports / project_meeting_summaries / project_xrl_log / amd_score_inputs)",
     output: "project_strategy_signals (candidate, 10 signal_type) / l2_notifications",
+    run: { type: "manual", reason: CLAUDE_ROUTINE_MANUAL_REASON },
+  },
+  {
+    id: "claude-l10-textbook-insight-extract",
+    label: "L2 ⑩ Textbook Insights 抽出 (Claude routine)",
+    layer: "Claude",
+    cadence: "TBD / manual start",
+    trigger: "amd-os-l10-textbook-insight-extract (scheduled-task)",
+    defaultParams: "(SKILL.md に従う、承認前に pwa/bzm へ追記しない)",
+    input: "Supabase 内の既存 L2 / OS データ (monthly_reports / meeting_summaries / strategy_signals / protocols / XRL evidence ほか)",
+    output: "textbook_insight_candidates (candidate) / l2_notifications。approved後は local BZM applier",
     run: { type: "manual", reason: CLAUDE_ROUTINE_MANUAL_REASON },
   },
 ];

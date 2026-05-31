@@ -37,9 +37,9 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 
 ### 🚨 現状 (= 2026-05-29 正本訂正)
 
-**正本方針**: L2 ①〜⑨ の全データは、Gmail / Drive / Calendar / Slack / Notion の 5 生データから **定額 subscription automation** で安定抽出する。① `monthly_reports` も例外ではない。
+**正本方針**: L2 ①〜⑩ の全データは、Gmail / Drive / Calendar / Slack / Notion の 5 生データ、または Supabase 内の既存 L2 / OS データから **定額 subscription automation** で安定抽出する。① `monthly_reports` も例外ではない。
 
-**先にここだけ読む: L2 ①〜⑨ の抽出ルート**
+**先にここだけ読む: L2 ①〜⑩ の抽出ルート**
 
 この表では、処理IDだけでなく **実行場所 / 課金ルート / 止まった時に見る場所** までをセットで読む。旧 GAS / PWA / Vercel cron は、明示的に「旧経路」と書かれていない限り復旧対象にしない。
 
@@ -54,6 +54,7 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 | ⑦ OS 台帳差分 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l7-registry-diff-extract` | subscription automation 枠。PWA/GAS LLM cron ではない | `amd-os-ms` automation 履歴、`outbox.registryDiffs`、LaunchAgent applier |
 | ⑧ XRL 根拠 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | subscription automation 枠。PWA/GAS LLM cron ではない | `amd-os-ms` automation 履歴、`outbox.xrlEvidence`、LaunchAgent applier |
 | ⑨ 経営ハイライト | Codex automation + outbox applier | `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | subscription automation 枠。PWA/GAS LLM cron ではない | `amd-os` automation 履歴、strategy-signals outbox、LaunchAgent applier |
+| ⑩ Textbook Insights | Codex automation / local worker + outbox applier + local BZM applier | SKILL `amd-os-l10-textbook-insight-extract` / `apply_approved_textbook_insights.mjs` | subscription automation 枠。承認後も Vercel runtime から git file は直接編集しない | `amd-os-ms` outbox `textbookInsights`、`textbook_insight_candidates`、local BZM applier |
 
 **L2 ①の primary writer**: Codex automation `AMD OS L2① 月次報告抽出`。実行手順の正本は [`pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`](../scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md)。automation は Supabase 内の既存 L2 snapshot を primary input にし、L2 coverage が薄い場合だけ 5 生データを gap check / backfill fallback として読み、`/Users/masa/.codex/automations/amd-os-ms/outbox/` に `monthlyReports` JSON を出す。既存 LaunchAgent + `ms_progress_review_tool.mjs` が非LLMで Supabase `monthly_reports` に反映する。
 
@@ -79,14 +80,14 @@ PWA `/api/report/generate` と `/api/cron/monthly-reports-backfill` は手動復
 
 ### ⚠️ 2026-05-26 fact 補足 (= 稼働信頼性)
 
-**2026-05-26 履歴**: Mac の Claude Desktop scheduled task は **「app open + 非スリープ中」のみ発火**。MacBook Air がスリープ / 蓋閉じ中だと cron 時刻でも発火しない (= 「次回起動時に追いつき」仕様)。このため、現行の復旧主導線は上の L2①〜⑨ 抽出ルート表に移した。
+**2026-05-26 履歴**: Mac の Claude Desktop scheduled task は **「app open + 非スリープ中」のみ発火**。MacBook Air がスリープ / 蓋閉じ中だと cron 時刻でも発火しない (= 「次回起動時に追いつき」仕様)。このため、現行の復旧主導線は上の L2①〜⑩ 抽出ルート表に移した。
 
 実際の発火履歴 (5/26 朝時点):
 - L3 (毎時 0 分): 5/25 16:01 JST に 1 回発火、それ以降未発火 (スリープ疑い)
 - L6 (毎時 0 分、旧 amd-os-meeting-extract): 5/25 03:07 JST に 1 回発火、それ以降未発火
 - L2/L4/L5/L7/L8/L9: 未発火 (= cron 時刻のうち多くは Mac スリープ中)
 
-→ この時点では **Windows MMO PC / Mac sleep OFF / Anthropic Cloud routine** を候補として比較していた。現在の判断は、L2②〜⑥は MMOマシン Codex Desktop automation、L2①⑦⑧⑨は Codex automation + outbox/applier を見る。
+→ この時点では **Windows MMO PC / Mac sleep OFF / Anthropic Cloud routine** を候補として比較していた。現在の判断は、L2②〜⑥は MMOマシン Codex Desktop automation、L2①⑦⑧⑨⑩は Codex automation + outbox/applier を見る。
 
 当時の fact (= ghost 状態の row、5/26 朝時点):
 - `protocols`: 2026-05-22 が最後の created_at
@@ -153,7 +154,7 @@ PWA `/api/report/generate` と `/api/cron/monthly-reports-backfill` は手動復
 
 ---
 
-## L2 9 種の正本
+## L2 10 種の正本
 
 | L2 # | テーブル | 用途 | 主な入力ソース | 主な writer | 状態 |
 |---|---|---|---|---|---|
@@ -166,6 +167,7 @@ PWA `/api/report/generate` と `/api/cron/monthly-reports-backfill` は手動復
 | ⑦ | `project_registry_diffs` (= 通知 nudge) | OS 台帳差分 | OS snapshot vs 5 ソース | Codex automation `amd-os-ms` (= `outbox.registryDiffs`) + SKILL `amd-os-l7-registry-diff-extract` | ✅ subscription automation 枠で稼働 |
 | ⑧ | `project_xrl_evidence` | XRL 根拠 | 5 ソース + OS snapshot | Codex automation `amd-os-ms` (= `outbox.xrlEvidence`) + SKILL `amd-os-l8-xrl-evidence-extract` | ✅ subscription automation 枠で稼働 |
 | ⑨ | `project_strategy_signals` | **経営ハイライト** | 5 ソース + OS snapshot | Codex automation `amd-os` (= daily 03:20) + SKILL `amd-os-l9-strategy-signal-extract` + dialogue API (= 提案前の論点整理セッション) | ✅ subscription automation 枠で稼働。修正依頼ループは対話型と接続予定 |
+| ⑩ | `textbook_insight_candidates` | **Textbook Insights** | Supabase 内の既存 L2 / OS データ primary。必要なら 5 ソースは gap check | Codex automation / local worker `amd-os-l10-textbook-insight-extract` → `outbox.textbookInsights` → 通知 yes で approved → local BZM applier が `pwa/bzm/*.md` へ追記 | 🟡 partial。DB/API/outbox/local applier の最小導線を追加。実 schedule は未確定 |
 
 **📊 別 L2** (= `member_activities`、メンバー活動ログ): `cron/member-weekly-activities` は Anthropic 経路を持つため 2026-05-29 に Vercel active cron から退避。定期生成する場合は subscription 内 automation 側で実行する。
 
@@ -180,6 +182,14 @@ PJに `drive_folder_id` がある場合、automation側でDrive root直下と会
 Notion 議事録ページの `eventId` / 相当プロパティを埋められるのは、Calendar event と Notion page の両方を同時に見ている MMO automation だけ。`amd-os-l6-meeting-flow` は Calendar event から該当 Notion page を見つけたら、可能な範囲で Calendar event id を Notion page に追記する。追記に失敗しても議事録抽出は止めず、run summary に `notion_event_id_backfill_failed` と page id / reason を残す。
 
 Notion page に `eventId` が無いことだけを理由に skip しない。必ず title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索し、Notion が取れなければ Gmail / Drive / Slack / Calendar 本文だけでも `source_kinds` を判定する。`eventId` 欠損だけで `source_kinds='none'` や `skip_no_notion_event_id` にしない。
+
+### L2 ⑥ 開催済みソース guard
+
+準備カード (`meeting_id='upcoming:<calendar_event_id>'`) は会議前の考えとして残し、実施後ソースがある場合は開催済み row (`meeting_id='<calendar_event_id>'`) を別に作る。既存 upcoming row があるなら `prep_source_meeting_id` で紐付ける。
+
+Calendar event に Gemini / Google Meet notes Doc 添付がある、Notion の `eventId` が空でも title + 日付 + 参加者 + PJ 文脈で fallback match できる、または `projects.report_emails` が空でも Gemini notes / follow-up Gmail が event 文脈で hit する場合は、upcoming だけで完了扱いにしない。fallback は `confidence` / `needs_review` を残し、`report_emails` の不足は自動更新せず registry diff / 通知候補へ寄せる。
+
+再発防止 guard は `pwa/scripts/l6_meeting_held_source_guard.cjs`。`cd pwa && npm run test:l6-held-source-guard` で、飯野さんケース相当の fixture から開催済み候補が出ることを検査する。
 
 → 仕様詳細は [`pwa/design/L2_DATA.md`](../design/L2_DATA.md) と [8-3 章](8-3-l2-extraction-routines-spec.md)。
 → 旧 ghost 4 種の復旧経緯は [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)。
@@ -225,6 +235,7 @@ Notion page に `eventId` が無いことだけを理由に skip しない。必
   - **MMOマシン automation `amd-os-l3-ms-progress-extract`** (= 毎時 0 分) — MS 進捗の primary writer。`milestone_monthly_progress` / `progress_estimate_state` を更新する
   - **`amd-os-ms`** (= 6h ごと) — MS 進捗の修正候補 / L2 ⑦ OS 台帳差分 / L2 ⑧ XRL 根拠を outbox 書き出し。MS 進捗の primary writer ではない。PWA `/api/cron/hourly-estimate` は停止済 fallback。L2 ②④⑤⑥ は生成しない (= 2026-05-25 ghost 化の原因、[9-1 章 5.7](9-1-decisions-and-history.md#57-l2-②④⑤⑥-ghost-化と-claude-routine-4-個新設計画--2026-05-25) 参照)
   - **`amd-os`** (= daily 03:20 JST) — L2 ⑨ 経営ハイライト抽出 + outbox 書き出し
+  - **`amd-os-l10-textbook-insight-extract`** (= TBD / manual start) — L2 ⑩ Textbook Insights 候補を `outbox.textbookInsights` に書き出す。approved 後の BZM 追記は local applier
   - **`amd-atlas-2`** (= daily 08:10 JST) — 外部マクロ Atlas 抽出
   - **`amd-macrotrend-evidence-review`** (= weekly Mon 07:30) — UN SDGs / WEF Global Risks 整理
 - それぞれ outbox に JSON を吐くだけ、Supabase 直接書き込みはしない

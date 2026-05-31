@@ -123,7 +123,7 @@ UI ヒント ([`ui_hint_tooltip.md`](ui_hint_tooltip.md)) は「個別 UI 要素
 ### 案 1: 機能別 (= 横断的) 章立て
 
 ```
-1. はじめに (AMD OS とは / 5 生データ / L2 9 種)
+1. はじめに (AMD OS とは / 5 生データ / L2 10 種)
 2. PJ コックピット
    2.1 PJ Status (AMD Score + XRL)
    2.2 MS 進捗管理
@@ -139,7 +139,7 @@ UI ヒント ([`ui_hint_tooltip.md`](ui_hint_tooltip.md)) は「個別 UI 要素
    4.3 admin/members (メンバー台帳)
    4.4 admin/billing (請求マトリクス)
 5. つくよみ (LLM 抽出)
-   5.1 L2 9 種の抽出フロー
+   5.1 L2 10 種の抽出フロー
    5.2 通知と修正依頼
    5.3 学習ループ
 6. Atlas (外部マクロシグナル)
@@ -232,7 +232,7 @@ handoff は、実装した新仕様が OS マニュアルへ落ちたか確認�
 優先度:
 
 1. **PJ コックピット**: PM が日常的に開くので。MS 進捗 / 月次ルーティン / 経営・事業シグナル / MTG サマリの 4 セクション
-2. **L2 9 種**: AMD OS の中核データ正本 (= `pwa/design/L2_DATA.md` を読み手向けに書き直し)
+2. **L2 10 種**: AMD OS の中核データ正本 (= `pwa/design/L2_DATA.md` を読み手向けに書き直し)
 3. **まさえいMTG 運用**: 対話セッションの使い方 (= `pwa/CLAUDE.md` 末尾を読み手向けに書き直し)
 4. **つくよみ修正依頼**: 通知での「はい/いいえ/コメント」の意味 / 学習ループの仕組み
 5. **admin/payouts**: 月次支払通知書発行フロー (= `pwa/design/FEATURE_REGISTRY.md` ベース)
@@ -250,4 +250,4 @@ handoff は、実装した新仕様が OS マニュアルへ落ちたか確認�
 - [`ui_hint_tooltip.md`](ui_hint_tooltip.md) — 個別 UI ヒント
 - [`FEATURE_REGISTRY.md`](FEATURE_REGISTRY.md) — 「消してはいけない業務導線」 = マニュアル化必須リスト
 - [`SPEC_GOVERNANCE.md`](SPEC_GOVERNANCE.md) — 仕様 md の正本構造 (= マニュアルとの役割分担)
-- [`L2_DATA.md`](L2_DATA.md) — L2 中核データ正本 (= マニュアル「L2 9 種」章の元データ)
+- [`L2_DATA.md`](L2_DATA.md) — L2 中核データ正本 (= マニュアル「L2 10 種」章の元データ)
