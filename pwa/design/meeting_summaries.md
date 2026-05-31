@@ -127,6 +127,8 @@ Phase 2 (月単位 fallback) に加えて、Phase 3 (毎時 0 分の cron で「
         │    (= 会議終わって 1〜3 時間が経過したあたりを毎時拾う)
         │    重複処理は Supabase の source_hash 差分検知で防ぐので窓は広めでも問題ない
         │ c) PJ 判定 (CFG_ColorPJHistory + CFG_PJAlias)
+        │    - get_colors/default color 不可時は明示 colorId あり event のみ候補
+        │    - 明示色なしは skip_no_explicit_calendar_color（alias単独でLive writeしない）
         │    allDay / +prefix / EXCLUDE alias / pjCode=AMD は除外
         │ d) 各 event について nav_meeting_processOneEvent_(eventId, projectId)  ← 074_MeetingSummaryRepo.js
         │      - Notion 議事録 DB から eventId プロパティ equals でページを 1 件取得

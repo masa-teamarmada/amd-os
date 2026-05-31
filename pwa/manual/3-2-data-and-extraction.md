@@ -204,7 +204,9 @@ Notion page に `eventId` が無いことだけを理由に skip しない。必
 
 1. **色 (第一軸)**: イベントの `colorId` について、`CFG_ColorPJHistory` から `startDate <= イベント開始日` の行のうち **startDate 最大** の `pjCode` を採用。
    - 例: colorId 6 は `2024-01-01→JC`、`2026-05-28→VSX`。2026-05-28 以降の colorId 6 イベントは **VSX**。過去の JC 予定は JC のまま (履歴方式)。
+   - **get_colors / default-color lookup 不可時の安全代替**: 抽出ランナーが Google Calendar の色一覧・default color を読めない環境では、event 自身に明示 `colorId` がある予定だけを処理候補にする。明示 `colorId` が無い予定は既定色を推定せず **`skip_no_explicit_calendar_color`** としてログ/報告に残す。
 2. **title エイリアス (第二軸)**: `(title+description+location)` を `CFG_PJAlias` に matchType で照合し priority 最大の pjCode。`EXCLUDE` なら skip。
+   - Live write では title alias / substring だけで PJ を確定しない。色が確定できない予定は候補/要確認へ落とし、`source_kinds` や skip reason に残す。
 3. **substring フォールバック (最終手段)**: 色も alias も取れない時のみ、`project_name` / `project_id` / `client_name` の substring match。
 4. **pjCode → project_id**: `lower(project_name)==lower(pjCode)` 優先。一致しない code は既知マップで解決 (例: **VSX → VasculaX = p26**)。
 

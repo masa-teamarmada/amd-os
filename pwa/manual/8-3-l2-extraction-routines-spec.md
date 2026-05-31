@@ -118,6 +118,13 @@ vs ローカル Mac scheduled task の問題:
 
 **入力**: Calendar event (= 過去 60-180 分終了 + 今日0:00 JSTから60日先の確定予定。ただし weekly recurring は series ごとに次回1件のみ) + Notion 議事録 + Gmail (= report_emails スレッド) + Drive Doc/PDF/Office/Sheets + Slack thread + PWA `meeting_assets` (= まさが直接アップロードしたスクショ / PDF / 画面キャプチャ) + `project_meeting_summaries` 過去 3 件 (= 前回比較) + `monthly_reports` 直近 3 件 (= PJ 全体文脈) + `value_milestones` + `milestone_monthly_progress` (= MS context) + Calendar freebusy (= H 用) + `projects.drive_folder_id` + `projects.facilitator_member_id` + `project_members` (= role=PL 特定)
 
+**Calendar 色→PJ 判定の安全代替 (= `get_colors` 不可時)**:
+- 原則は `pwa/manual/3-2-data-and-extraction.md` の恒久仕様どおり、Calendar 色を第一軸に `CFG_ColorPJHistory` → `CFG_PJAlias` の順で解決する。
+- Google Calendar connector の `get_colors` / default-color lookup が権限不足等で使えない runner では、event 自身に明示 `colorId` がある予定だけを L6 処理候補にする。
+- 明示 `colorId` が無い予定は primary calendar の既定色を推定せず、`skip_no_explicit_calendar_color` として早期 skip / 要確認へ回す。
+- title alias / substring だけで project_id を確定して Live write しない。skip reason と候補情報は run summary / diagnostic log に残し、必要なら司令塔判断へ回す。
+- 既存良質サマリ保護、eventId / source_hash による重複回避、`skip_no_notion_event_id` 禁止はこの代替設計でも維持する。
+
 **Notion eventId 方針 (= 2026-05-31 incident guard)**:
 - MMO automation は Calendar event から Notion 議事録ページを見つけたら、可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記する。これは L6 writer 側の責務。
 - Notion page に `eventId` が無いことだけを理由に skip しない。eventId 検索で取れない場合は title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索し、Notion が取れない場合も Gmail / Drive / Slack / Calendar 本文で `source_kinds` を判定する。

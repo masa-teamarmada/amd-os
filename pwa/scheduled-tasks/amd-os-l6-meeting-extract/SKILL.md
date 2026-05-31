@@ -91,13 +91,16 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
      ```
 
    **(b) colorId → pjCode (第一軸・色優先)**:
-   - event の `colorId` を取る (= 未設定なら primary calendar の default colorId)
+   - event 自身の **明示的な** `colorId` を取る。
+   - Google Calendar connector の `get_colors` / default-color lookup が使えない環境では、primary calendar の default colorId を推定しない。event に明示 `colorId` が無い場合は **`skip_no_explicit_calendar_color`** として安全に skip / 要確認へ回し、title alias や substring だけで Live write 対象にしない。
+   - default-color lookup が正常に使える環境でも、default color 採用時は run summary に `used_calendar_default_color=true` と lookup source を残す。
    - CFG_ColorPJHistory のうち、その colorId かつ `startDate <= event 開始日(00:00 JST)` の行で **startDate 最大** を採用 → `pjCode`
    - 例: colorId=6 は `2024-01-01→JC`、`2026-05-28→VSX`。2026-05-28 以降の colorId 6 イベントは **pjCode=VSX**
 
    **(c) title alias → pjCode (第二軸・色で取れない時の補完)**:
    - `(title + ' ' + description + ' ' + location)` を CFG_PJAlias の各 alias に matchType (contains 等) で照合 → priority 最大の pjCode
    - alias hit が `EXCLUDE` の場合は色で pjCode が取れていても **skip** (= 議事録対象外)
+   - Live write では title alias / substring だけで PJ を確定しない。明示 `colorId` が無い、または color history から pjCode が取れない event は `skip_no_explicit_calendar_color` / `skip_no_color_history_match` としてログに残し、必要なら候補/要確認へ落とす。
 
    **(d) pjCode → project_id 解決**:
    - `lower(projects.project_name) == lower(pjCode)` の active PJ を優先 (= SX/CX/OQC/ZMP/SE/BWE/CTB/CLG など大半は project_name==code)
