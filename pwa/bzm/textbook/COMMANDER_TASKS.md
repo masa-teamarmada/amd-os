@@ -1,6 +1,6 @@
 # Textbook Commander Tasks
 
-> Last updated: 2026-05-31 JST
+> Last updated: 2026-06-01 JST
 >
 > Textbook司令塔のタスク台帳。タスク追加、方針変更、worker切り出し、
 > 完了報告、差し戻し、archive のたびに更新する。
@@ -10,8 +10,14 @@
 - **TextbookをBefore Zero実践テキストへ広げる**
   - お願いした内容: BZMの概念説明だけでなく、Before Zeroの現場で起きる判断、失敗、迷い、仮説修正、関係構築、ケース、横断パターンを統合した実践テキストへ育てる。
   - 背景: まさの意図は「BZM理論書」ではなく、次のBefore Zeroでどう動くかを学べる実務知の蓄積にあるため。
-  - 現状: 方針はOS司令塔レビューで採用済み。Phase 1として第8部に実践章 skeleton を追加済み。`Textbook whole-structure base` worker で、前半を「Before Zero の現場 → 鬼門 → 関係構築 → 現場要素からBZM変数へ」に組み替えるbase skeletonを作成中。
-  - 残課題: 実ケース本文はまだ入っていない。L2⑩候補を承認・追記しながら、実践章を「読むと判断に使える」内容へ増やす。司令塔レビュー後、必要なら章粒度・表現・routingを調整する。
+  - 現状: 方針はOS司令塔レビューで採用済み。Phase 1として第8部に実践章 skeleton を追加済み。`Textbook whole-structure base` workerで、前半を「Before Zero の現場 → 鬼門 → 関係構築 → 現場要素からBZM変数へ」に組み替え、main取り込み・production deploy済み。
+  - 残課題: スタパイベント文字起こしなど実ケース素材を継続的に本文へ反映し、実践章を「読むと判断に使える」内容へ増やす。L2⑩承認候補もdry-run後に追記判断する。
+
+- **スタパイベント文字起こしをTextbook素材として掘り切る**
+  - お願いした内容: `/Users/masa/projects/AMD/AMD/stapa/イベントの文字起こし.docx` を素材に、Before Zeroの現場課題、研究者支援の局所最適、GAPファンド/VC/CEO論、研究者理解、会社化前準備をTextbookへ反映する。
+  - 背景: まさの指摘どおり、スタパイベントには「現場で何が起きているか」「どこが鬼門か」を伝える素材が多く含まれているため。
+  - 現状: 2026-06-01に文字起こしを読み、初回として `1-3`、`1-4`、`1-6` へ「支援制度の局所最適」「GAPファンドとVCの要求矛盾」「研究者の真正性とCEO機能分解」を反映。素材メモ `pwa/bzm/textbook/runs/2026-06-01-stapa-event-textbook-source-notes.md` を追加。
+  - 残課題: 研究者との初回関係構築、会社化前VC DD 6〜9か月問題、産学連携/URAを通す分岐、つくば型の研究集積地と経営人材育成を後続workerで本文化する。
 
 - **L2⑩候補抽出・承認・追記フローを実運用に乗せる**
   - お願いした内容: Supabase内の既存L2/OSデータからTextbook追記候補を抽出し、通知で承認し、承認後にlocal applierで `pwa/bzm/*.md` へ安全に追記する。
