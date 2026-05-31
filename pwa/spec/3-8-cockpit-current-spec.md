@@ -28,6 +28,8 @@
 | `tasks` | kanban tasks |
 | `nudges` | cockpit nudges |
 
+`proactive_outbox` は `CockpitData` bundle には混ぜず、`ProactiveQueuePanel` が authenticated browser Supabase client で read-only fetch する。RLS は admin authenticated read 前提で、権限がない場合は UI 内で非表示相当のメッセージにする。
+
 ## Permission
 
 月次 routine の編集権限は:
@@ -65,6 +67,7 @@ This route is read-only during load. It does not create a NIMS project or write 
 | tabs | `CockpitView` | `進捗管理` / `スコア詳細` display state。SU 系 PJ では横幅いっぱいを2等分し、各タブのクリック領域も 1/2 にする |
 | score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | `/api/project/[projectId]/amd-score-detail`。cockpit mount 時に hidden panel として先読みし、client memory cache 5 分TTL + private HTTP cache で再表示待ちを減らす。TTL 超過後にタブが active になったら、表示済み内容を保ったまま背景再取得する |
 | goals compact | `CockpitGoalsCompact` | value plan / MS |
+| proactive queue | `ProactiveQueuePanel` | `proactive_outbox` read-only。`queued`, `sent_to_commander`, `drafted`, `blocked` を期限・優先度順に表示 |
 | strategy signals | `CockpitStrategySignals` | `project_strategy_signals` |
 | routine | `CockpitRoutineGas` + routine modals | `billing_cycles` / GAS bridge / APIs |
 | monthly list/modal | `CockpitMonthlyList`, `CockpitMonthlyModal` | reports / reward / progress |
@@ -153,6 +156,7 @@ GAS remains relevant for legacy freee/Slack/background automation, but cockpit m
 | invoice_ym deferred | non-report steps are deferred to invoice month |
 | Edge Function fails | modal keeps open, shows error/toast, does not mark step done |
 | report-only month | monthly modal opens report tab only |
+| proactive_outbox RLS denies read | proactive queue shows admin-only fallback text and does not block the rest of cockpit |
 
 ## Validation
 
