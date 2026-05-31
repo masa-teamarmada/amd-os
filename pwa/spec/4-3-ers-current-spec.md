@@ -8,9 +8,11 @@
 |---|---|
 | `/institutions` | ERS 一覧 |
 | `/institutions/[institutionId]` | 機関詳細 |
+| `/institutions/[institutionId]/cockpit` | 機関カード起点の関連PJコックピット。NIMSは `inst_nims -> p20` |
 | `/institutions/assess` | ERS 評価 matrix |
 | `pwa/src/lib/ers-data.ts` | client fetch bundle |
 | `pwa/src/lib/ers.ts` | ERS 型 / score calculation |
+| `pwa/src/lib/institution-projects.ts` | 機関と既存PJの静的関連付け |
 | `pwa/src/app/api/institutions/assess/route.ts` | 評価 cell upsert |
 
 ## DB
@@ -34,6 +36,19 @@
 - `institution_assessments` order by `evaluated_at desc`
 
 assessment は `(institution_id, criterion_id)` ごとに最新 `evaluated_at` の 1 行だけを採用する。
+
+## Institution Cockpit Contract
+
+`/dashboard` の研究機関ERSリストから、NIMS (`inst_nims`) は `/institutions/inst_nims/cockpit` へ遷移する。これは新規PJ作成ではなく、既存関連PJ CX (`p20`) のコックピットを機関文脈で表示する route。
+
+実装 contract:
+
+- `pwa/src/lib/institution-projects.ts` が `inst_nims -> p20` を定義する。
+- `/institutions/[institutionId]/cockpit` は `fetchErsBundle()`, `fetchCockpitFromSupabase(projectId)`, `fetchProjectMeetingSummaries(projectId)` を読むだけで、本番DBへ write しない。
+- 上部に ERS summary / 関連PJ / 今期MS / MTG件数を表示する。
+- `project_meeting_summaries` は月別の MTG tree として表示し、各 row は `/project/[projectId]/cockpit?meeting=<meeting_id>` へ遷移する。
+- 下部は既存 `CockpitView` を使うため、MS進捗管理、月次モーダル、月次ルーティン、MTGサマリの挙動は通常PJコックピットと同じ。
+- まだ機関とPJの正式 scope table はない。外部機関向け tenant/access 設計は `pwa/design/institution_tenant_access.md` の draft を正本にし、現時点では内部向け導線に留める。
 
 ## API
 
@@ -72,6 +87,8 @@ body:
 - `/institutions/assess` で cell を更新し、同日同 criterion が 1 row に upsert されること。
 - `fetchErsBundle()` が最新評価だけを採用すること。
 - rubric の文言は `/bzm/9-4-ers-rubric` と一致させる。
+- `/dashboard` の NIMS 研究機関カードから `/institutions/inst_nims/cockpit` へ遷移し、CX `p20` の既存コックピットを表示できること。
+- NIMSコックピット上のMTG treeから通常PJコックピットの `?meeting=` detail route へ遷移できること。
 
 ## 再構築可能性チェック
 

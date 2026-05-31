@@ -7,6 +7,7 @@
 | route | file |
 |---|---|
 | `/project/[projectId]/cockpit` | `pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx` |
+| `/institutions/[institutionId]/cockpit` | `pwa/src/app/(app)/institutions/[institutionId]/cockpit/page.tsx` wraps an existing project cockpit in institution context |
 | main component | `pwa/src/components/cockpit/CockpitView.tsx` |
 | data fetch | `pwa/src/lib/supabase-data.ts` (`fetchCockpitFromSupabase`) |
 
@@ -35,6 +36,16 @@
 - または `project_members.is_pm=true` and `is_active=true`
 
 それ以外は表示のみ。
+
+## Institution Card Entry
+
+NIMS is represented as an existing ERS institution card, not as a new project row.
+
+| institution | related project | behavior |
+|---|---|---|
+| `inst_nims` | `p20` (CX / CryoX) | `/dashboard` NIMS card opens `/institutions/inst_nims/cockpit`; the page shows ERS summary + MTG tree, then mounts the existing `CockpitView` for `p20` |
+
+This route is read-only during load. It does not create a NIMS project or write production DB rows. If MS plan data is missing, the embedded normal cockpit shows the existing MS setup banner / monthly note fallback.
 
 ## Initial Modal Rules
 

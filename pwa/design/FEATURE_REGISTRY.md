@@ -79,3 +79,15 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `pwa/scripts/check_pwa_critical_ui.cjs` が `経営ハイライト`、`CockpitStrategySignals`、`project_strategy_signals`、`project_strategy_signal` の anchor を検査する。
 - MTGサマリの予定MTG block / `POST /api/meeting-prep` / `POST /api/meeting-prep/calendar-sync` / `MeetingPrepEditor` / `POST /api/meeting-summary/manual-update` / `MeetingSummaryEditor` / `MeetingAssetsPanel` / `POST /api/meeting-assets` も `check_pwa_critical_ui.cjs` で検査する。
 - 案C レイアウト anchor (`max-w-[1600px]`、`lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]`、`xl:flex-row` Hero) も `check_pwa_critical_ui.cjs` で検査する。`max-w-[1060px]` や旧 left/right 2 カラム構造に巻き戻ったら `npm run test:critical-ui` で落ちる。
+
+## /institutions/[institutionId]/cockpit
+
+目的: 研究機関カードから、機関の箱を保ったまま関連PJの進捗・月次・MTG履歴へ入る。
+
+必須機能:
+
+- NIMSカードは `/dashboard` の研究機関ERSリストから `/institutions/inst_nims/cockpit` へ遷移する。新規NIMS PJは作らない。
+- NIMSコックピットは `inst_nims -> p20` の静的関連付けを使い、既存CXコックピットの `CockpitView` を同画面にマウントする。これによりMS進捗、月次モーダル、月次ルーティン、MTGサマリを既存データのまま使う。
+- 上部にERS充足率、関連PJ、今期MS件数、MTG履歴件数を出す。
+- `project_meeting_summaries` を月ごとに束ねたMTGツリーを表示し、各行から通常PJコックピットのMTG詳細 (`?meeting=`) へ遷移する。
+- `/institutions/[institutionId]` の詳細画面からもNIMSコックピットと通常PJコックピットへ戻れる。

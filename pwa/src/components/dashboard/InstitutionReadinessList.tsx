@@ -10,6 +10,7 @@
 import Link from "next/link";
 import { computeErs, ersScoreColor, INSTITUTION_TYPE_LABEL, type ErsResult, type ErsInstitution } from "@/lib/ers";
 import type { ErsBundle } from "@/lib/ers-data";
+import { getInstitutionProjectLink } from "@/lib/institution-projects";
 
 export function InstitutionReadinessList({ bundle }: { bundle: ErsBundle | null }) {
   if (!bundle || bundle.institutions.length === 0) return null;
@@ -48,10 +49,11 @@ export function InstitutionReadinessList({ bundle }: { bundle: ErsBundle | null 
 function InstitutionStripe({ inst, result }: { inst: ErsInstitution; result: ErsResult }) {
   const ers = result.ers;
   const meta = [inst.region, inst.description].filter(Boolean).join(" · ");
+  const projectLink = getInstitutionProjectLink(inst.institutionId);
 
   return (
     <Link
-      href={`/institutions/${inst.institutionId}`}
+      href={projectLink ? `/institutions/${inst.institutionId}/cockpit` : `/institutions/${inst.institutionId}`}
       className="relative block rounded-lg border border-border border-l-4 border-l-indigo-500 bg-card overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5"
     >
       <div className="grid grid-cols-12 gap-3 items-center px-3 py-2">
@@ -62,8 +64,18 @@ function InstitutionStripe({ inst, result }: { inst: ErsInstitution; result: Ers
             <span className="text-[9px] rounded border px-1.5 py-0.5 bg-indigo-50 text-indigo-800 border-indigo-300">
               {INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type}
             </span>
+            {projectLink && (
+              <span className="text-[9px] rounded border px-1.5 py-0.5 bg-sky-50 text-sky-800 border-sky-300">
+                PJ cockpit
+              </span>
+            )}
           </div>
           {meta && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{meta}</p>}
+          {projectLink && (
+            <p className="text-[10px] text-sky-700 truncate mt-0.5">
+              {projectLink.relationLabel}: {projectLink.projectLabel}
+            </p>
+          )}
         </div>
 
         {/* === ERS 充足率: col-span-3 === */}

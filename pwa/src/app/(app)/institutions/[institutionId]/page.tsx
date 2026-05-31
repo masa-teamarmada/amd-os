@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
+import { getInstitutionProjectLink } from "@/lib/institution-projects";
 import {
   computeErs,
   ersScoreColor,
@@ -77,6 +78,7 @@ export default function InstitutionDetailPage() {
   }
 
   const meta = [inst.region, inst.description].filter(Boolean).join(" · ");
+  const projectLink = getInstitutionProjectLink(institutionId);
 
   return (
     <div className="p-4 max-w-[1100px] mx-auto space-y-6">
@@ -202,12 +204,29 @@ export default function InstitutionDetailPage() {
         })}
       </div>
 
-      {/* === この機関発の PJ (relation データ未整備) === */}
+      {/* === この機関発の PJ === */}
       <section className="rounded-lg border border-dashed border-border p-4 text-center">
-        <h2 className="text-sm font-semibold text-muted-foreground">この機関発のベンチャー</h2>
-        <p className="text-[11px] text-muted-foreground/70 mt-1">
-          機関 ↔ PJ の紐付けデータは未整備。σ_SU の μ_A 経由で各 PJ の AMD Score に効く設計。
-        </p>
+        <h2 className="text-sm font-semibold text-muted-foreground">この機関発のベンチャー / PJ</h2>
+        {projectLink ? (
+          <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
+            <Link
+              href={`/institutions/${institutionId}/cockpit`}
+              className="text-xs rounded-md border border-primary/40 bg-primary/5 text-primary px-3 py-1.5 font-medium hover:bg-primary/10"
+            >
+              {projectLink.cockpitTitle}
+            </Link>
+            <Link
+              href={`/project/${projectLink.projectId}/cockpit`}
+              className="text-xs rounded-md border border-border bg-white px-3 py-1.5 hover:bg-muted/40"
+            >
+              {projectLink.projectLabel}
+            </Link>
+          </div>
+        ) : (
+          <p className="text-[11px] text-muted-foreground/70 mt-1">
+            機関 ↔ PJ の紐付けデータは未整備。σ_SU の μ_A 経由で各 PJ の AMD Score に効く設計。
+          </p>
+        )}
       </section>
     </div>
   );
