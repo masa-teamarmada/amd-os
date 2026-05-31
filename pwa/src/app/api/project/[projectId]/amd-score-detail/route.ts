@@ -49,5 +49,9 @@ export async function GET(
     latestXrlLog,
     atlasMacroSignals,
     tripleHelix,
+  }, {
+    headers: {
+      "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+    },
   });
 }

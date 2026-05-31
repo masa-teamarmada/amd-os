@@ -456,11 +456,11 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
       ) : null}
 
       {hasScoreDetailTab && (
-        <div className="flex flex-wrap gap-1 rounded-xl border border-[#e5e5e7] bg-white p-1" role="tablist" aria-label="コックピット表示切り替え">
+        <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-[#d6d6da] bg-[#f5f5f7]" role="tablist" aria-label="コックピット表示切り替え">
           {[
             { key: "progress" as const, label: "進捗管理" },
             { key: "score-detail" as const, label: "スコア詳細" },
-          ].map((tab) => {
+          ].map((tab, index) => {
             const selected = activeTab === tab.key;
             return (
               <button
@@ -469,10 +469,12 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
                 role="tab"
                 aria-selected={selected}
                 onClick={() => setActiveTab(tab.key)}
-                className={`min-h-9 rounded-lg px-4 text-[12px] font-semibold transition-colors ${
+                className={`relative min-h-11 w-full px-3 text-center text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
+                  index > 0 ? "border-l border-[#d6d6da]" : ""
+                } ${
                   selected
-                    ? "bg-slate-950 text-white shadow-sm"
-                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a]"
+                    : "text-slate-500 hover:bg-white/70 hover:text-slate-900"
                 }`}
               >
                 {tab.label}
@@ -609,9 +611,14 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
         </>
       )}
 
-      {hasScoreDetailTab && activeTab === "score-detail" && (
-        <section role="tabpanel" aria-label="スコア詳細" className="min-w-0">
-          <CockpitAmdScoreDetailTab projectId={project.projectId} />
+      {hasScoreDetailTab && (
+        <section
+          role="tabpanel"
+          aria-label="スコア詳細"
+          hidden={activeTab !== "score-detail"}
+          className={activeTab === "score-detail" ? "min-w-0" : "hidden"}
+        >
+          <CockpitAmdScoreDetailTab projectId={project.projectId} active={activeTab === "score-detail"} />
         </section>
       )}
 

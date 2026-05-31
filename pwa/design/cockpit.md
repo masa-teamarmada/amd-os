@@ -50,8 +50,11 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 
 [A3]  Cockpit tabs                              SU 系 PJ では Hero 下に「進捗管理 / スコア詳細」タブ。
                                                 Hero はタブ外なので AMD Score + XRL は常時表示。
+                                                2タブは横幅いっぱいを 1/2 ずつ占有し、クリック領域も左右半分。
                                                 進捗管理 = 従来 cockpit 本文。
                                                 スコア詳細 = `AmdScoreView embedded` (`/venture-map/amd-score/[projectId]` 相当の主要内容)。
+                                                スコア詳細は cockpit mount 時に非表示で先読みし、同一セッションでは 5 分TTLで再利用。
+                                                タブ再表示時に TTL 超過なら表示済み内容を保ったまま背景再取得する。
 
 メインボード: grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px] gap-3
 ├── col1: 今期MS + 設定 + 過去

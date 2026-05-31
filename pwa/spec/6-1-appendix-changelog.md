@@ -26,3 +26,4 @@
 | 2026-05-31 | 3-13 | 変更 | L2⑩ を Before Zero 実践テキストに拡張し、`metadata_json.practice_kind` 7分類、`confidentiality`、BZM review gate、`theory_change_scope`、migration未適用境界を追記 | Textbook implementation worker B で metadata / confidentiality / BZM review gate を repo 内に実装するため | えいみ |
 | 2026-05-31 | 3-13 / db_schema | 変更 | OS司令塔が migration 116 を本番DBへ緊急適用済みであることを反映し、`textbook_insight_candidates` の metadata / confidentiality / BZM review gate 5カラムを schema dump で同期 | `metadata_json` 未存在による DB/code mismatch 解消後、production schema と docs を一致させるため | えいみ |
 | 2026-05-31 | 4-3 / 3-8 | 変更 | ERS NIMSカードから `/institutions/inst_nims/cockpit` へ遷移し、既存CX (`p20`) の `CockpitView` とMTG treeを機関文脈で表示する contract を追記 | 新規NIMS PJを作らず、既存NIMSカードをPJコックピット相当に進化させるため | えいみ |
+| 2026-05-31 | 3-8 | 変更 | コックピットの `進捗管理` / `スコア詳細` タブを横幅2等分にし、スコア詳細タブは hidden panel 先読み、client memory cache 5分TTL、private HTTP cache、active時の背景再取得を contract 化 | まさ指摘「スコア詳細タブのローディングに時間がかかる」「2タブしかないので横幅いっぱいを2分割」への対応 | えいみ |

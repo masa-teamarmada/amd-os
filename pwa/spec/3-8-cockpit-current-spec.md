@@ -62,8 +62,8 @@ This route is read-only during load. It does not create a NIMS project or write 
 | header | `CockpitHeader` | project metadata |
 | venture status | `CockpitVentureStatus` | `project_ventures`, `project_xrl_log`, related data |
 | AMD / Management score hero | `CockpitManagementScoreHero` | AMD Score / Management Score derived data |
-| tabs | `CockpitView` | `進捗管理` / `スコア詳細` display state |
-| score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | `/api/project/[projectId]/amd-score-detail` |
+| tabs | `CockpitView` | `進捗管理` / `スコア詳細` display state。SU 系 PJ では横幅いっぱいを2等分し、各タブのクリック領域も 1/2 にする |
+| score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | `/api/project/[projectId]/amd-score-detail`。cockpit mount 時に hidden panel として先読みし、client memory cache 5 分TTL + private HTTP cache で再表示待ちを減らす。TTL 超過後にタブが active になったら、表示済み内容を保ったまま背景再取得する |
 | goals compact | `CockpitGoalsCompact` | value plan / MS |
 | strategy signals | `CockpitStrategySignals` | `project_strategy_signals` |
 | routine | `CockpitRoutineGas` + routine modals | `billing_cycles` / GAS bridge / APIs |
