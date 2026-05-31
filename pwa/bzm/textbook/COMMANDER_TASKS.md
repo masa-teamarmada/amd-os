@@ -16,8 +16,14 @@
 - **L2⑩候補抽出・承認・追記フローを実運用に乗せる**
   - お願いした内容: Supabase内の既存L2/OSデータからTextbook追記候補を抽出し、通知で承認し、承認後にlocal applierで `pwa/bzm/*.md` へ安全に追記する。
   - 背景: Vercel runtimeやPWA APIからgit管理ファイルを直接編集せず、候補化、承認、local追記、commit/pushの二段階で事故を避けるため。
-  - 現状: `textbook_insight_candidates`、通知feedback、`apply_approved_textbook_insights.mjs`、L10 SKILL、specは実装済み。migration 116も本番DBへ適用済みで、schema docsも同期済み。2026-05-31 worker `Textbook L2⑩ real-data first-run dry-run` で本番候補/通知が0件、approvedも0件であることを確認し、実データ由来の少数候補案を `pwa/bzm/textbook/runs/2026-05-31-textbook-l10-real-data-first-run-proposal.json` に作成した。本番DB作成は未実施。
-  - 残課題: 候補案2件を本番 `textbook_insight_candidates` + `l2_notifications` に作るかをまさ/司令塔が判断する。作成後は `/notifications` でまさが yes し、approved 候補だけ local applier dry-run に進める。
+  - 現状: `textbook_insight_candidates`、通知feedback、`apply_approved_textbook_insights.mjs`、L10 SKILL、specは実装済み。migration 116も本番DBへ適用済みで、schema docsも同期済み。2026-05-31 worker `Textbook L2⑩ real-data first-run dry-run` で本番候補/通知が0件、approvedも0件であることを確認し、実データ由来の少数候補案を `pwa/bzm/textbook/runs/2026-05-31-textbook-l10-real-data-first-run-proposal.json` に作成した。追加指示後、同2件を本番 `textbook_insight_candidates` + `l2_notifications` へ作成済み。2件とも `status='candidate'` で、approved化なし。
+  - 残課題: まさが `/notifications` で2件を yes/no する。yes 後も次は approved 候補の local applier dry-run までで止め、本文追記は別途承認後に進める。
+
+- **Textbook通知のno理由フィードバックを強化する**
+  - お願いした内容: `/notifications` で Textbook候補を no にしたとき、なぜ不採用だったかが Textbook司令塔へ確実に戻るようにする。
+  - 背景: L2⑩は候補生成ルールのチューニングが重要で、単なる yes/no だけでは「抽象化しすぎ」「機密度が不安」「章違い」「Protocolで十分」などの学習が戻らないため。
+  - 現状: 既存実装では no 時も `l2_feedbacks.feedback_text` に `[いいえ] <任意コメント>` が保存され、コメントがあれば `textbook_insight_candidates.review_comment` にも入る。UIも過去feedbackを表示できる。ただし no理由入力は必須ではなく、空コメントnoでは `[いいえ]` だけが残る。
+  - 残課題: Textbook候補だけ no理由を必須化するか、no理由カテゴリ（抽象化しすぎ / 固有情報を削りすぎ / 章違い / 既存Protocolで十分 / 機密度NG など）を追加する。
 
 - **BZM司令塔レビューが必要な候補の扱いを固める**
   - お願いした内容: BZM理論、用語、rubric、数式、重み、章構成へ影響するTextbook候補を、Textbook司令塔だけで通さずBZM司令塔レビューへ回す。
