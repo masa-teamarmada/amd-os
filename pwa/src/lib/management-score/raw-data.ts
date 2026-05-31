@@ -92,6 +92,41 @@ function nextYm(ym: string): string {
   return `${year}${String(month).padStart(2, "0")}`;
 }
 
+function dateToYm(value: unknown): string | null {
+  if (typeof value !== "string" || !value) return null;
+  const match = value.match(/^(\d{4})-(\d{2})/);
+  return match ? `${match[1]}${match[2]}` : null;
+}
+
+function signalEventYm(row: { ym?: unknown; signal_date?: unknown; confirmed_at?: unknown; created_at?: unknown }): string | null {
+  return dateToYm(row.signal_date) ?? (typeof row.ym === "string" ? row.ym : null) ?? dateToYm(row.confirmed_at) ?? dateToYm(row.created_at);
+}
+
+function signalInTargetMonth(row: { ym?: unknown; signal_date?: unknown; confirmed_at?: unknown; created_at?: unknown }, ym: string): boolean {
+  return signalEventYm(row) === ym;
+}
+
+function signalKnownByTargetMonth(row: { ym?: unknown; signal_date?: unknown; confirmed_at?: unknown; created_at?: unknown }, ym: string): boolean {
+  const eventYm = signalEventYm(row);
+  return Boolean(eventYm && eventYm <= ym);
+}
+
+function isCompanyScoreStrategySignal(row: { project_id?: unknown }): boolean {
+  return String(row.project_id || "") === "p00";
+}
+
+function isHighConfidencePipelineCandidate(row: { signal_type?: unknown; status?: unknown; confidence?: unknown }): boolean {
+  return (
+    String(row.signal_type) === "commercial_progress"
+    && String(row.status) === "candidate"
+    && (asNumber(row.confidence) ?? 0) >= 0.75
+  );
+}
+
+function isConfirmed(row: { status?: unknown }): boolean {
+  return String(row.status) === "confirmed";
+}
+
 function monthEndExclusiveIso(ym: string) {
   return monthStartIso(nextYm(ym));
 }
@@ -174,7 +209,7 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
     fetchAll(supabase, "project_registry_diffs", "diff_id,project_id,ym,scope_key,diff_kind,target_table,target_key,proposed_patch_json,evidence_refs_json,confidence,status,created_at,updated_at", (q) => q.or(`ym.eq.${ym},created_at.gte.${monthStartIso(ym)}`).lt("created_at", monthEndExclusiveIso(ym))),
     fetchAll(supabase, "project_knowledge", "id,project_id,category,entity_name,fact_text,confidence,source,status,updated_at", (q) => q.gte("updated_at", monthStartIso(ym)).lt("updated_at", monthEndExclusiveIso(ym))),
     fetchAll(supabase, "project_ventures", "project_id,lane,lanes,display_name,outcome_pattern,amd_role,amd_support_started_at,amd_support_ended_at,updated_at"),
-    fetchAll(supabase, "project_strategy_signals", "signal_id,project_id,ym,signal_type,impact_level,decision_state,status,title,summary,confidence,signal_date,created_at,updated_at", (q) => q.eq("status", "confirmed")),
+    fetchAll(supabase, "project_strategy_signals", "signal_id,project_id,ym,signal_type,impact_level,decision_state,status,title,summary,confidence,signal_date,confirmed_at,created_at,updated_at", (q) => q.or("status.eq.confirmed,status.eq.candidate")),
     fetchAll(supabase, "project_partners", "id,project_id,partner_name,partner_type,partner_role,is_sold,created_at,updated_at"),
   ]);
 
@@ -431,6 +466,7 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
   }
 
   for (const row of knowledge) {
+    if (String(row.project_id || "") !== "p00") continue;
     const text = `${row.category || ""} ${row.entity_name || ""} ${row.fact_text || ""}`;
     const axis: Axis = textIncludesAny(text, ["紹介", "新規", "相談", "案件", "候補", "提案"]) ? "pipeline" : "retention";
     signals.push(signal({
@@ -454,7 +490,15 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
   // 追加: funding / partner_growth / amd_os_install / monetization / non_masa_initiative (= 上で実装済) / graduation
 
   // 入力 1: ファンド設立進捗 (= project_strategy_signals signal_type='funding' confirmed)
-  const fundingSignals = (strategySignals as Array<{ signal_id: string; project_id: string; ym: string; signal_type: string; status: string; decision_state: string; impact_level: string; title: string; summary: string; confidence: number; created_at: string }>).filter((r) => String(r.signal_type) === "funding");
+  const companyStrategySignals = (strategySignals as Array<{ signal_id: string; project_id: string; ym: string | null; signal_type: string; status: string; decision_state: string; impact_level: string; title: string; summary: string; confidence: number; signal_date?: string | null; confirmed_at?: string | null; created_at: string }>).filter(isCompanyScoreStrategySignal);
+  const strategySignalsForMonth = companyStrategySignals.filter((row) =>
+    signalInTargetMonth(row, ym) && (isConfirmed(row) || isHighConfidencePipelineCandidate(row))
+  );
+  const strategySignalsKnownByMonth = companyStrategySignals.filter((row) =>
+    signalKnownByTargetMonth(row, ym) && isConfirmed(row)
+  );
+
+  const fundingSignals = strategySignalsKnownByMonth.filter((r) => String(r.signal_type) === "funding");
   for (const row of fundingSignals) {
     signals.push(signal({
       ym,
@@ -518,7 +562,7 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
   }));
 
   // 入力 4: マネタイズ仮説の前進 (= project_strategy_signals signal_type='commercial_progress' & decision_state='decided')
-  const monetizationSignals = (strategySignals as Array<{ signal_id: string; project_id: string; signal_type: string; decision_state: string; status: string; title: string; summary: string; impact_level: string; confidence: number; created_at: string }>).filter((r) =>
+  const monetizationSignals = strategySignalsForMonth.filter((r) =>
     String(r.signal_type) === "commercial_progress" && (String(r.decision_state) === "decided" || String(r.decision_state) === "executing")
   );
   signals.push(signal({
@@ -551,7 +595,7 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
   }));
 
   // ===== v4 pipeline 軸: commercial_progress stage 別 (= まさ #79 で seed 加点を廃止し Gmail/Slack 案件追跡に切り替え) =====
-  const commercialSignals = (strategySignals as Array<{ signal_id: string; project_id: string; signal_type: string; decision_state: string; status: string; title: string; summary: string; impact_level: string; confidence: number; created_at: string }>).filter((r) => String(r.signal_type) === "commercial_progress");
+  const commercialSignals = strategySignalsForMonth.filter((r) => String(r.signal_type) === "commercial_progress");
   for (const row of commercialSignals) {
     signals.push(signal({
       ym,

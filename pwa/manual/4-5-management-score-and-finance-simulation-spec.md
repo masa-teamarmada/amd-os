@@ -486,6 +486,27 @@ EvidencePanel の上部に「**まさえいMTG で確定したシグナル**」 
 
 **設計判断**:旧 `DialogueModeButton` (= candidate を 1 件ずつ承認するレビュー UI) は廃止 (= まさ #91「議論してないものは重要じゃないから議論してない、 議論したものは確認なしで採用すべき」)。 確認ワークフローを作るのではなく、 「議論で confirm された結果がバイタル入力にどう流れるか」 を見せる方向に再設計した。
 
+### 鮮度 guard / pre-month snapshot 除外 (= 2026-06-01 追加)
+
+`/management-score` は、当月 `ym` の snapshot でも `created_at` / `updated_at` がその月の 1 日 00:00 JST より前なら **pre-month snapshot** とみなし、最新の経営バイタル扱いから外す。
+
+例: `ym=202606` の snapshot が `2026-05-26` に作られている場合、6 月の材料ではなく 5 月時点の未来月試算なので、6 月の最新スコアとしては表示しない。画面には「当月スコアの鮮度警告」として、除外した snapshot の対象月と材料時点を出す。
+
+ヘッダーには `材料時点` を表示し、まさが「この月のスコアは何日時点の材料か」を見て判断できるようにする。スコアを更新するには、月開始後に `management-score-raw-data` → `management-score-calculate` を対象月指定で走らせる。
+
+まさえいMTG確定シグナル帯は、選択中 snapshot の `ym` に属し、かつ `project_id='p00'` の会社スコープで、`commercial_progress / funding / partner_growth / graduation / next_move` のように新規/方向軸へ対応する type だけを表示する。`management_decision` など PJ 個別の技術・事業メモ、発生日が対象月と違う古い signal、axis なしの signal はこのスコア欄には混ぜない。
+
+### AMD会社バイタルとPJ個別シグナルの境界 (= 2026-06-01 追加)
+
+`project_strategy_signals` は本来 PJ cockpit の「経営ハイライト」正本で、LST/p07 の技術進捗・設立予定・顧客/装置/研究論点も入る。これを AMD Management Score がそのまま全PJ横断で読むと、AMD会社全体の経営バイタルではなく、個別PJの内部進捗が混入する。
+
+暫定 guard として、Management Score が `project_strategy_signals` から読むのは `project_id='p00'` の会社スコープだけに限定する。例外として、`project_id='p00' AND signal_type='commercial_progress' AND status='candidate' AND confidence >= 0.75` は、契約前でも高確度 pipeline として新規軸に入れてよい。香川大のように MTG 実施前からほぼ契約確定だった案件は、MTG後の confirmed を待つのではなく、会社スコープの高確度 pipeline candidate として表現する。
+
+根本修正では、`project_strategy_signals` または別 pipeline/forecast テーブルに `signal_scope` / `applies_to_company_score` / `pipeline_probability` / `expected_amount_yen` / `expected_contract_ym` 相当を追加し、抽出時点で以下を分ける。
+
+- 会社スコープ: AMDの売上・契約・提案・入金・採択・アライアンス・資源配分・組織運営に効くもの。
+- PJスコープ: 個別PJの技術/実験/設立/事業内容/研究/顧客/装置論点。PJ cockpit、MTGサマリ、PJ knowledge、BZM実践知には残すが、AMD Management Score には入れない。
+
 ## 既知ギャップ + v4 移行 TODO
 
 | 優先 | ギャップ | 状態 | 次にやること |

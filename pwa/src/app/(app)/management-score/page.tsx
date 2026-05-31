@@ -43,6 +43,8 @@ type ScoreSnapshot = {
   pipeline_score: number | null;
   direction_score: number | null;
   confidence: number | null;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 type ScoreSnapshotFull = ScoreSnapshot & {
@@ -51,7 +53,6 @@ type ScoreSnapshotFull = ScoreSnapshot & {
   next_actions_json: unknown;
   summary: string | null;
   finance_cap_applied: string | null;
-  updated_at: string | null;
 };
 
 type EvidenceQueryRow = {
@@ -402,6 +403,63 @@ function currentYmJST(): string {
   return `${jst.getUTCFullYear()}${String(jst.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function monthStartJstInstant(ym: string): Date {
+  const year = Number(ym.slice(0, 4));
+  const monthIndex = Number(ym.slice(4, 6)) - 1;
+  return new Date(Date.UTC(year, monthIndex, 1, -9, 0, 0, 0));
+}
+
+function nextYm(ym: string): string {
+  let year = Number(ym.slice(0, 4));
+  let month = Number(ym.slice(4, 6)) + 1;
+  if (month > 12) {
+    year += 1;
+    month = 1;
+  }
+  return `${year}${String(month).padStart(2, "0")}`;
+}
+
+function dateStringToYm(date: string | null | undefined): string | null {
+  if (!date) return null;
+  const match = date.match(/^(\d{4})-(\d{2})/);
+  return match ? `${match[1]}${match[2]}` : null;
+}
+
+function snapshotMaterialTime(snapshot: Pick<ScoreSnapshot, "updated_at" | "created_at">): Date | null {
+  const value = snapshot.updated_at ?? snapshot.created_at;
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isPreMonthSnapshot(snapshot: Pick<ScoreSnapshot, "ym" | "updated_at" | "created_at">): boolean {
+  const materialTime = snapshotMaterialTime(snapshot);
+  if (!materialTime) return false;
+  return materialTime < monthStartJstInstant(snapshot.ym);
+}
+
+function signalTypeToVitalAxis(signalType: string): EvidenceRow["axis"] | null {
+  if (signalType === "commercial_progress") return "pipeline";
+  if (["funding", "partner_growth", "graduation", "next_move"].includes(signalType)) return "direction";
+  return null;
+}
+
+function filterVitalConfirmedSignals(signals: DialogueConfirmedSignal[], targetYm: string | null): DialogueConfirmedSignal[] {
+  if (!targetYm) return [];
+  const start = monthStartJstInstant(targetYm);
+  const end = monthStartJstInstant(nextYm(targetYm));
+  return signals.filter((signal) => {
+    if (signal.project_id !== "p00") return false;
+    if (!signalTypeToVitalAxis(signal.signal_type)) return false;
+    if (signal.ym !== targetYm) return false;
+    const signalDateYm = dateStringToYm(signal.signal_date);
+    if (signalDateYm && signalDateYm !== targetYm) return false;
+    const confirmedAt = signal.confirmed_at ? new Date(signal.confirmed_at) : null;
+    if (!confirmedAt || Number.isNaN(confirmedAt.getTime())) return false;
+    return confirmedAt >= start && confirmedAt < end;
+  });
+}
+
 export default async function ManagementScorePage() {
   const supabase = await createClient();
   // 未来月の snapshot を除外 (= まさ #76 確定 2026-05-26)。
@@ -412,15 +470,15 @@ export default async function ManagementScorePage() {
     safeSelect<ScoreSnapshotFull[]>(() =>
       supabase
         .from("amd_management_score_snapshots")
-        .select("id,ym,total_score,initiative_score,finance_score,retention_score,pipeline_score,direction_score,confidence,inputs_json,next_actions_json,summary,finance_cap_applied,updated_at")
+        .select("id,ym,total_score,initiative_score,finance_score,retention_score,pipeline_score,direction_score,confidence,inputs_json,next_actions_json,summary,finance_cap_applied,created_at,updated_at")
         .lte("ym", ymCap)
         .order("ym", { ascending: false })
-        .limit(1)
+        .limit(6)
     ),
     safeSelect<ScoreSnapshot[]>(() =>
       supabase
         .from("amd_management_score_snapshots")
-        .select("ym,total_score,initiative_score,finance_score,retention_score,pipeline_score,direction_score,confidence")
+        .select("ym,total_score,initiative_score,finance_score,retention_score,pipeline_score,direction_score,confidence,created_at,updated_at")
         .lte("ym", ymCap)
         .order("ym", { ascending: false })
         .limit(25)
@@ -470,16 +528,17 @@ export default async function ManagementScorePage() {
         .select("signal_id,project_id,ym,signal_type,impact_level,decision_state,title,summary,signal_date,confirmed_at,polarity,score_impact_summary,source_refs_json")
         .eq("status", "confirmed")
         .in("decision_state", ["decided", "executing", "revised"])
+        .in("signal_type", ["commercial_progress", "funding", "partner_growth", "graduation", "next_move"])
         .lte("ym", ymCap)
         .order("confirmed_at", { ascending: false, nullsFirst: false })
         .limit(40)
     ),
   ]);
-  const dialogueConfirmedSignals: DialogueConfirmedSignal[] = dialogueConfirmedRes.data ?? [];
-
-  const score = scoreRes.data?.[0] ?? null;
-  const previous = scoreHistoryRes.data && scoreHistoryRes.data.length >= 2 ? scoreHistoryRes.data[1] : null;
-  const scoreHistory = (scoreHistoryRes.data ?? []).slice().reverse();
+  const hiddenPreMonthSnapshots = (scoreRes.data ?? []).filter(isPreMonthSnapshot);
+  const scoreHistoryDesc = (scoreHistoryRes.data ?? []).filter((row) => !isPreMonthSnapshot(row));
+  const score = (scoreRes.data ?? []).find((row) => !isPreMonthSnapshot(row)) ?? null;
+  const previous = scoreHistoryDesc.find((row) => score && row.ym < score.ym) ?? null;
+  const scoreHistory = scoreHistoryDesc.slice().reverse();
   const budgetRows = budgetRes.data ?? [];
   const scoreInputs = (score?.inputs_json ?? {}) as Record<string, unknown>;
   const financeCap = score?.finance_cap_applied ?? (typeof scoreInputs.financeCap === "string" ? (scoreInputs.financeCap as string) : null);
@@ -504,6 +563,9 @@ export default async function ManagementScorePage() {
       payload: row.payload,
     }));
   const selectedYm = score?.ym ?? null;
+  const dialogueConfirmedSignals = filterVitalConfirmedSignals(dialogueConfirmedRes.data ?? [], selectedYm);
+  const materialTime = score ? snapshotMaterialTime(score) : null;
+  const excludedCurrentSnapshot = hiddenPreMonthSnapshots.find((row) => row.ym === ymCap) ?? null;
   const availableBudgetYms = Array.from(new Set(budgetRows.filter((row) => row.scope === "company").map((row) => row.ym)));
   const financeMonths = availableBudgetYms.length > 0 ? availableBudgetYms.sort() : centeredMonths(selectedYm, availableBudgetYms);
   const budgetCategoryRows = byMonthCategory(budgetRows.filter((row) => row.scope === "company"));
@@ -565,9 +627,20 @@ export default async function ManagementScorePage() {
               </>
             )}
             <span className="h-1 w-1 rounded-full bg-border" />
-            <span>計算 {latestRun ? new Date(latestRun.ran_at).toLocaleString("ja-JP") : score?.updated_at ? new Date(score.updated_at).toLocaleString("ja-JP") : "-"}</span>
+            <span>材料時点 {materialTime ? materialTime.toLocaleString("ja-JP") : "-"}</span>
+            <span className="h-1 w-1 rounded-full bg-border" />
+            <span>計算 {latestRun ? new Date(latestRun.ran_at).toLocaleString("ja-JP") : materialTime ? materialTime.toLocaleString("ja-JP") : "-"}</span>
           </div>
         </div>
+
+        {excludedCurrentSnapshot && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
+            <span className="font-semibold">当月スコアの鮮度警告:</span>{" "}
+            {excludedCurrentSnapshot.ym} の snapshot は月開始前
+            {snapshotMaterialTime(excludedCurrentSnapshot) ? ` (${snapshotMaterialTime(excludedCurrentSnapshot)?.toLocaleString("ja-JP")})` : ""}
+            に作られているため、最新の経営バイタルとしては除外した。月初後の raw 収集と再計算が必要。
+          </div>
+        )}
 
         {snapshotSummary && (
           <section className="rounded-md border bg-card px-4 py-3">
