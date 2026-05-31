@@ -31,8 +31,8 @@
 
 - お願いした内容: 既存の請求項たたき台を、回避されにくく、先行技術に潰されにくい構造へ見直す。
 - 背景: 単体要素はBigID、FHIR/OMOP、Ciena、Seek AI、Glean、MLOps governance等に近く、広く取りに行くほど拒絶リスクが上がる。一方、WS-1〜WS-5を閉ループとして組み合わせると、AMD OSの実装に近いホワイトスペースが残る。
-- 現状: worker Cで、主請求項は evidence pointer + human approval + reject/comment feedback + approved-only master DB reflection + abstract protocol + outcome ledger + parameter governance の鎖に寄せるべきと整理済み。
-- 残課題: `source_meeting_id` や `title hash` など狭すぎる実装例を従属項・実施例へ落とし、主請求項では source evidence identifier / identity determination のように広める見直し案を作る。
+- 現状: worker Cで、主請求項は evidence pointer + human approval + reject/comment feedback + approved-only master DB reflection + abstract protocol + outcome ledger + parameter governance の鎖に寄せるべきと整理済み。内部版の請求項見直し案 `docs/ip/2026-06-01_claim_revision_internal.md` を作成済み。
+- 残課題: まさ確認後、弁理士初回相談パックへ要約を反映する。`source_meeting_id` や `title hash` など狭すぎる実装例を従属項・実施例へ落とし、主請求項では source evidence identifier / identity determination のように広める方針を弁理士へ確認する。
 
 ### 4. 発明者・職務発明・権利帰属を整理する
 
