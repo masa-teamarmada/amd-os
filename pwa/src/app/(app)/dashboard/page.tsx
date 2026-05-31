@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
 import {
   DashboardScoreOverview,
@@ -28,6 +28,7 @@ import {
 import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
 import { InstitutionReadinessList } from "@/components/dashboard/InstitutionReadinessList";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
+import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
 
 function getCurrentYm() {
   const now = new Date();
@@ -106,6 +107,15 @@ export default function DashboardPage() {
     }).catch(() => setLoading(false));
   }, []);
 
+  const projectLabels = useMemo(() => {
+    return Object.fromEntries(
+      projects.map((project) => [
+        project.projectId,
+        project.shortLabel || project.displayName || project.projectName || project.projectId,
+      ])
+    );
+  }, [projects]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-2.75rem)]">
@@ -121,6 +131,7 @@ export default function DashboardPage() {
     <div className="p-4 max-w-[1700px] mx-auto">
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(520px,640px)] gap-4">
         <main className="space-y-4 min-w-0">
+          <ProactiveQueuePanel projectLabels={projectLabels} variant="dashboard" limit={5} />
           <DashboardScoreOverview
             managementScore={managementScore}
             managementHistory={managementHistory}

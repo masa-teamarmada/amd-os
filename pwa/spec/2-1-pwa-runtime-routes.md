@@ -37,8 +37,8 @@
 
 | route | 役割 |
 |---|---|
-| `/dashboard` | PJ 一覧と主要機能への入口 |
-| `/project/[projectId]/cockpit` | PJ cockpit。Status / AMD Score / XRL / MS / 経営ハイライト / 月次 / MTGサマリ |
+| `/dashboard` | PJ 一覧と主要機能への入口。上部に `proactive_outbox` の「今日打つべき一手」read-only panel を出す |
+| `/project/[projectId]/cockpit` | PJ cockpit。Status / AMD Score / XRL / MS / 先手キュー / 経営ハイライト / 月次 / MTGサマリ |
 | `/manual` | AMD OS マニュアル。使い方・運用者向け |
 | `/spec` | 設計書。確定実装仕様。admin 限定 |
 | `/bzm` | BZM テキストブック。理論・数式・rubric 導出 |

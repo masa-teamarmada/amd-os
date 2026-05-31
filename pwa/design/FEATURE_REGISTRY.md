@@ -59,6 +59,16 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 改善版PDFを意図的に更新したら、まさが新PNGを目視確認したうえで `payout_notice_golden.png` と `payout_notice_golden.png.sha256` を再生成して commit する。新規 PDF を PNG 化したファイルとの突合は `npm run test:payout-notice-pdf -- --diff <input.png>` で同じスクリプトを再利用する。
 - この画面で UI を削る変更は、`FEATURE_REGISTRY.md` と `SPEC_pwa.md` を同時に更新する。
 
+## /dashboard
+
+目的: まさと司令塔が全PJの現状と、今日先に打つべき一手を最初に見る入口。
+
+必須機能:
+
+- 先手力維持ループ: `ProactiveQueuePanel` で `proactive_outbox` の `queued` / `sent_to_commander` / `drafted` / `blocked` を read-only 表示する。状態、誰のボールか、期限、優先度、下書き種別、トリガー理由、担当司令塔、推奨 first move を出す。Dashboard から状態更新・外部送付はしない。
+- PJ一覧: Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。
+- Dashboard上部: Management Score と月次ルーティン残タスクを維持する。
+
 ## /project/[projectId]/cockpit
 
 目的: PJの現在地、MS進捗、経営ハイライト、月次ルーティン、TODO/nudgeを一画面で見る。
@@ -69,6 +79,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 上 hero: PJ ごとに出し分け。p00 (= AMD 会社全体) は `CockpitManagementScoreHero` で AMD Management Score の時系列折れ線 + 最新値カード。SU 系 PJ は `CockpitVentureStatus` 内で AMD Score 折れ線と XRL 折れ線を `xl:flex-row` で横並びにする。`xl` 未満では縦並びへ自動 fallback する。
 - Hero 下タブ: SU 系 PJ は `進捗管理` / `スコア詳細` を切り替える。AMD Score / XRL hero はタブ外に置いて常時表示し、`進捗管理` に従来の cockpit 本文、`スコア詳細` に `AmdScoreView` の embedded 表示を出す。
 - 今期MSリスト: `CockpitGoalsCompact` / `MilestoneGanttChart` でMS期間、pt、担当、sub itemを表示する。
+- 先手キュー: `ProactiveQueuePanel` でそのPJの `proactive_outbox` を read-only 表示する。状態、誰のボールか、期限、優先度、下書き種別、トリガー理由、担当司令塔、推奨 first move、遅れた場合のリスクを出す。Cockpit UI から状態更新・外部送付はしない。
 - 経営ハイライト: MSリスト横の col2 として `CockpitStrategySignals` を表示し、`project_strategy_signals` の candidate/confirmed を日付・type・impact・summary・source refs付きで表示する。
 - 月次モーダル: 月次カードやroutine stepから `CockpitMonthlyModal` を開き、report / reward / invoice を確認できる。p00 (= AMD 会社全体) でも他 PJ と同じく月次カード + 月次モーダルが出る (`billing_cycles` を 12 行 backfill 済)。
 - 月次ルーティン: active/sales PJのみ表示し、PM/admin以外は読み取り専用にする。col3 内で `lg:sticky` で固定する。

@@ -23,6 +23,18 @@ URL: `/project/p00/cockpit`。**会社全体 (= AMD 株式会社) を 1 つの P
 - `/management-score` で 5 軸ごとの evidence・推移・PJ ごとの寄与を確認
 - evidence の追加は LLM 抽出 (= Codex automation) + 手動入力
 
+## Dashboard の「今日打つべき一手」
+
+`/dashboard` の上部に、PJ横断の `proactive_outbox` を read-only で表示する。まさや司令塔が最初に見る入口として、期限が近い先手キューから「今日打つべき一手」を先頭に出す。
+
+表示するもの:
+- PJ名、優先度、期限、状態
+- 推奨 first move
+- 誰のボールか、下書き種別、トリガー理由、担当司令塔
+- 下書き済み件数と期限超過件数
+
+対象 status は `queued`, `sent_to_commander`, `drafted`, `blocked`。状態更新や外部送付は Dashboard では行わない。キュー行を押すと該当 PJ cockpit に移動し、PJ文脈で同じ先手キューを確認できる。
+
 ---
 
 ## まさえいMTG

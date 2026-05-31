@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CockpitHeader } from "./CockpitHeader";
 import { CockpitVentureStatus } from "./CockpitVentureStatus";
@@ -20,6 +20,7 @@ import { CockpitRoutineMeetingModal } from "./CockpitRoutineMeetingModal";
 import { CockpitRoutineInvoiceModal } from "./CockpitRoutineInvoiceModal";
 import { CockpitRoutineInvoiceSendConfirm } from "./CockpitRoutineInvoiceSendConfirm";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
+import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
 
 interface PlanCycleShape {
   planCycleId: string; status: string; budgetYen: number; totalPoints: number;
@@ -372,6 +373,10 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
   const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
   const hasScoreDetailTab = project.projectId !== "p00" && showAmdScore;
   const activeStepModal = showLiveOperations ? stepModal : null;
+  const proactiveProjectLabels = useMemo(
+    () => ({ [project.projectId]: project.projectName || project.projectId }),
+    [project.projectId, project.projectName]
+  );
 
   // [B2] MS設定バナー / 直接編集 ロジックを案Cの col1 内で使うため関数化。
   const renderMsSetupBanner = () => {
@@ -565,6 +570,12 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
         {/* col2: 経営ハイライト (L2 ⑨) + MTGサマリ (まさ #28 2026-05-24)。
             右カラムを「経営シグナル + MTGサマリ」に統合。 */}
         <div className="flex flex-col gap-3 min-w-0">
+          <ProactiveQueuePanel
+            projectId={project.projectId}
+            projectLabels={proactiveProjectLabels}
+            variant="cockpit"
+            limit={6}
+          />
           <CockpitStrategySignals signals={strategySignals || []} projectId={project.projectId} />
           <CockpitMeetingSummary projectId={project.projectId} />
         </div>
