@@ -35,6 +35,7 @@
 | MTG サマリ (各回 decided/progress/nextActions/risks) ⭐ | [meeting_summaries.md](meeting_summaries.md) |
 | 経営・事業シグナル (重要方針/事業進捗/リスク) ⭐ | [project_strategy_signals.md](project_strategy_signals.md) |
 | 先手力維持ループ (OS検知 + commander outbox + SLA) ⭐ | [proactive_operating_loop.md](proactive_operating_loop.md) |
+| 外部機関 tenant / 権限設計 (NIMS Pilot gate) ⭐ | [institution_tenant_access.md](institution_tenant_access.md) |
 | OS台帳差分 (PJメンバー/関係先/契約/期間/担当の差分候補) ⭐ | [project_registry_diffs.md](project_registry_diffs.md) |
 | XRL根拠 (TRL/BRL/GRL/SRL/HRL 算定根拠) ⭐ | [xrl_evidence.md](xrl_evidence.md) |
 | Venture Map | [venture_map_model.md](venture_map_model.md) / [venture_map_demo.md](venture_map_demo.md) / [venture_map_v01_critique.md](venture_map_v01_critique.md) |
