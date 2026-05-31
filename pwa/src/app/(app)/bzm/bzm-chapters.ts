@@ -2,7 +2,8 @@
  * BZM (Before Zero Model) 教科書の目次メタデータ。
  *
  * manual-chapters.ts と同じ思想:
- *  - **slug 自体が part-chapter 番号を含む** (例: `5-1-amd-score-integration` → 第 5 部の 1 章 → 番号 "5-1")。
+ *  - **slug は既存リンク互換の stable id**。初期は part-chapter 番号を含んでいたが、
+ *    Textbook 全体構成の再配置後も既存 slug を保持する。
  *  - 表示番号は `applyBzmBookNumbering()` が BZM_PARTS の順に振る。
  *
  * 内容正本は `pwa/bzm/{slug}.md` (= git 管理)。理論正本は
@@ -30,55 +31,57 @@ export const BZM_PARTS: BzmPartConfig[] = [
   {
     key: "preface",
     label: "序章",
-    description: "この教科書のねらい、想定読者、二層構造の見取り図、読み方ガイド。",
+    description: "Before Zero 実践テキストとしてのねらい、読み方、後半に置く BZM 理論への接続。",
     slugs: ["0-1-preface"],
   },
   {
-    key: "why",
-    label: "第 1 部 — なぜ Before Zero なのか",
-    description: "Valuation の限界と、BZM が解く問題設定・四つの設計原則。",
-    slugs: ["1-1-why-before-zero"],
+    key: "before-zero",
+    label: "第 1 部 — Before Zero とは何か",
+    description: "会社化・事業化の前に勝負が決まる理由と、研究・技術・知財・人・制度・顧客の不確実性。",
+    slugs: ["1-1-why-before-zero", "1-2-before-zero-field-landscape"],
   },
   {
-    key: "macro",
-    label: "第 2 部 — マクロ環境 σ_SU と Triple Helix",
-    description: "学・産・官の追い風を測る。Triple Helix と状態空間モデル。",
-    slugs: ["2-1-sigma-su-triple-helix", "2-2-state-space-model"],
+    key: "field-frictions",
+    label: "第 2 部 — Before Zero の現場で実際に起きること",
+    description: "研究者、大学・研究機関、企業、VC、行政、知財の間で何がズレるか。",
+    slugs: ["1-3-field-frictions-and-patterns"],
   },
   {
-    key: "xrl",
-    label: "第 3 部 — XRL 群",
-    description: "技術・事業・規制・社会・人材の 5 つの Readiness Level。",
-    slugs: ["3-1-xrl-group"],
+    key: "judgment-gates",
+    label: "第 3 部 — 鬼門と判断分岐",
+    description: "外部開示、論文化前/知財前、会社化タイミング、GO / WAIT / NO_GO / HOLD。",
+    slugs: ["1-4-gates-and-judgment-branches"],
   },
   {
-    key: "frl",
-    label: "第 4 部 — FRL（創業者リーダーシップ）",
-    description: "なぜ CEO の質を独立軸にするのか。ALQ + Grit + Resilience。",
-    slugs: ["4-1-frl-founder-readiness"],
+    key: "relationships-learning",
+    label: "第 4 部 — 関係構築と失敗からの学習",
+    description: "研究者、大学・研究機関、企業、VC、行政との関係構築と、失敗・手戻りの学習化。",
+    slugs: ["1-5-relationships-and-learning"],
   },
   {
-    key: "amd-score",
-    label: "第 5 部 — AMD Score の統合",
-    description: "7 軸を Cobb-Douglas で一つの数値にまとめる。律速判定。",
-    slugs: ["5-1-amd-score-integration"],
+    key: "field-elements",
+    label: "第 5 部 — BZM を構成する現場要素",
+    description: "各パラメータを、現場でなぜ大事かから説明し、後半の理論変数へ接続する。",
+    slugs: ["1-6-field-elements-to-bzm-variables"],
   },
   {
-    key: "verification",
-    label: "第 6 部 — 検証（9 PJ retrofit）",
-    description: "過去事例でモデルの妥当性を確かめる。ティエム「5 年早かった」の定量化。",
-    slugs: ["6-1-retrofit-verification"],
-  },
-  {
-    key: "ers",
-    label: "第 7 部 — ERS（苗床レイヤー）",
-    description: "研究機関の整備度を測り、支援ギャップを見せる。AMD Score との二層構造。",
-    slugs: ["7-1-ers-ecosystem-readiness"],
+    key: "theory",
+    label: "第 6 部 — BZM 理論パート",
+    description: "既存の σ_SU、状態空間、XRL、FRL、AMD Score、retrofit、ERS 章を温存し、道具として後半に置く。",
+    slugs: [
+      "2-1-sigma-su-triple-helix",
+      "2-2-state-space-model",
+      "3-1-xrl-group",
+      "4-1-frl-founder-readiness",
+      "5-1-amd-score-integration",
+      "6-1-retrofit-verification",
+      "7-1-ers-ecosystem-readiness",
+    ],
   },
   {
     key: "operations",
-    label: "第 8 部 — 実践（AMD OS と Before Zero の進め方）",
-    description: "理論を日々の判断に落とし、分岐・失敗・関係構築・チェックポイントへ変換する。",
+    label: "第 7 部 — ケーススタディ / チェックリスト / AMD OS 運用",
+    description: "L2⑩承認済み知見の受け皿、AMD OS 実装、現場判断・失敗・関係構築・チェックポイント。",
     slugs: [
       "8-1-amd-os-operations",
       "8-2-field-decisions-and-branches",
@@ -96,8 +99,13 @@ export const BZM_PARTS: BzmPartConfig[] = [
 ];
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
-  { slug: "0-1-preface", title: "この教科書について", summary: "BZM のねらい、3 つの想定読者、AMD Score / ERS の二層構造、読み方ガイド。" },
+  { slug: "0-1-preface", title: "この教科書について", summary: "Before Zero 実践テキストとしてのねらい、現場から入り後半で BZM 理論を道具として読むガイド。" },
   { slug: "1-1-why-before-zero", title: "なぜ Before Zero なのか", summary: "「ゼロ」の定義、Valuation の限界、問題設定、四つの設計原則。" },
+  { slug: "1-2-before-zero-field-landscape", title: "Before Zero とは何か — 会社になる前に勝負が決まる場所", summary: "研究・技術・知財・人・制度・顧客がまだ形になる前の不確実性と典型フェーズ。" },
+  { slug: "1-3-field-frictions-and-patterns", title: "Before Zero の現場で実際に起きること", summary: "研究者、大学・研究機関、企業、VC、行政、知財のズレと「良い技術なのに進まない」典型パターン。" },
+  { slug: "1-4-gates-and-judgment-branches", title: "鬼門と判断分岐 — 進める、待つ、止めるを分ける", summary: "外部開示、論文化前/知財前、会社化タイミング、GO / WAIT / NO_GO / HOLD の判断ログ。" },
+  { slug: "1-5-relationships-and-learning", title: "関係構築と失敗からの学習", summary: "研究者・大学・企業・VC・行政との関係構築と、失敗・手戻りを次の判断資産へ変える学習ループ。" },
+  { slug: "1-6-field-elements-to-bzm-variables", title: "BZM を構成する現場要素 — 現場の問いから理論変数へ", summary: "σ_SU、TRL、BRL、GRL、SRL、HRL、FRL、F_character、F_capability、frl_cap_amd、ERS、AMD Score を現場語から接続する。" },
   { slug: "2-1-sigma-su-triple-helix", title: "マクロ環境 σ_SU と Triple Helix", summary: "学 μ_A・産 μ_I・官 μ_G の幾何平均で σ_SU を作る。観測モデル。" },
   { slug: "2-2-state-space-model", title: "状態空間モデルによるマクロ推定", summary: "状態空間モデル、固有値分解が「螺旋」を正当化、マクロ/ミクロ二軸判定。" },
   { slug: "3-1-xrl-group", title: "XRL 群 — 5 つの Readiness Level", summary: "TRL/BRL/GRL/SRL/HRL の定義、9 段階、σ_SU/SRL の重なり、Shallow Tech。" },

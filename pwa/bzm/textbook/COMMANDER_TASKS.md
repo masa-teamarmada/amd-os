@@ -10,8 +10,8 @@
 - **TextbookをBefore Zero実践テキストへ広げる**
   - お願いした内容: BZMの概念説明だけでなく、Before Zeroの現場で起きる判断、失敗、迷い、仮説修正、関係構築、ケース、横断パターンを統合した実践テキストへ育てる。
   - 背景: まさの意図は「BZM理論書」ではなく、次のBefore Zeroでどう動くかを学べる実務知の蓄積にあるため。
-  - 現状: 方針はOS司令塔レビューで採用済み。Phase 1として第8部に実践章 skeleton を追加し、L2⑩ metadata / confidentiality / BZM review gate も実装済み。
-  - 残課題: 実ケース本文はまだ入っていない。L2⑩候補を承認・追記しながら、実践章を「読むと判断に使える」内容へ増やす。
+  - 現状: 方針はOS司令塔レビューで採用済み。Phase 1として第8部に実践章 skeleton を追加済み。`Textbook whole-structure base` worker で、前半を「Before Zero の現場 → 鬼門 → 関係構築 → 現場要素からBZM変数へ」に組み替えるbase skeletonを作成中。
+  - 残課題: 実ケース本文はまだ入っていない。L2⑩候補を承認・追記しながら、実践章を「読むと判断に使える」内容へ増やす。司令塔レビュー後、必要なら章粒度・表現・routingを調整する。
 
 - **L2⑩候補抽出・承認・追記フローを実運用に乗せる**
   - お願いした内容: Supabase内の既存L2/OSデータからTextbook追記候補を抽出し、通知で承認し、承認後にlocal applierで `pwa/bzm/*.md` へ安全に追記する。
@@ -32,6 +32,12 @@
   - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
 
 ## 完了済みタスク
+
+- **Textbook whole-structure base**
+  - お願いした内容: Textbook の入口を BZM 理論説明から Before Zero 実践テキストへ変え、既存理論章を後半の理論パートとして温存する。
+  - 背景: まさの意図は、まず現場で何が起き、どこが鬼門で、どう判断し、その奥に BZM 理論があるかを伝える構成にすること。
+  - 現状: worker branch `codex/textbook-structure-base` で、前半5部の新規章 skeleton、序章、BZM chapter registry、8-1案内、附則を更新。既存理論本文と L2⑩ target slug `8-2`〜`8-5` は温存。
+  - 残課題: 司令塔レビュー待ち。実ケース本文は承認済み L2⑩候補から追記する。
 
 - **Phase 1実践章追加**
   - お願いした内容: 既存slugを壊さず、第8部にBefore Zero実践章 skeleton を追加する。
