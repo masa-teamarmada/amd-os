@@ -1,7 +1,7 @@
 # ERS 制度比較マトリクス 実データ入力記録 (2026-05-31)
 
 対象: 香川大学 / 工学院大学 (KUTE) / 物質・材料研究機構 (NIMS)
-DB反映: `pwa/scripts/migrations/115_institution_policy_assessments_seed.sql`
+DB反映: `pwa/scripts/migrations/116_institution_policy_assessments_seed.sql`
 
 ## 入力方針
 
@@ -94,7 +94,7 @@ DB反映: `pwa/scripts/migrations/115_institution_policy_assessments_seed.sql`
 
 ## 反映方法
 
-- `115_institution_policy_assessments_seed.sql` を Supabase Management API (`pwa/scripts/apply_ddl.py`) で適用する。
+- `116_institution_policy_assessments_seed.sql` を Supabase Management API (`pwa/scripts/apply_ddl.py`) で適用する。
 - `institution_policy_assessments` は `(institution_id, policy_item_id)` unique の upsert。
 - 適用後は REST service role で件数、機関別status分布、サンプル根拠を確認する。
 - 画面確認は `/institutions/assess` の「制度整備」「規程比較」「根拠資料」タブで行う。
