@@ -43,9 +43,9 @@ NIMS is represented as an existing ERS institution card, not as a new project ro
 
 | institution | related project | behavior |
 |---|---|---|
-| `inst_nims` | `p20` (CX / CryoX) | `/dashboard` NIMS card opens `/institutions/inst_nims/cockpit`; the page shows ERS summary + MTG tree, then mounts the existing `CockpitView` for `p20` |
+| `inst_nims` | `p20` (CX / CryoX) | `/dashboard` NIMS card opens `/institutions/inst_nims/cockpit`; the page shows institution summary / readiness snapshot first, then `進捗管理` / `スコア詳細` tabs. `進捗管理` mounts the existing `CockpitView` for `p20` and keeps the MTG tree below it. `スコア詳細` shows ERS axis/criterion detail, not SU AMD Score |
 
-This route is read-only during load. It does not create a NIMS project or write production DB rows. If MS plan data is missing, the embedded normal cockpit shows the existing MS setup banner / monthly note fallback.
+This route is read-only during load. It does not create a NIMS project or write production DB rows. If MS plan data is missing, the embedded normal cockpit shows the existing MS setup banner / monthly note fallback. MTG tree must not be the first visible block after the institution header; research institution cockpit uses the same high-level information architecture as PJ cockpit: summary first, progress tab for operational state, score detail tab for score evidence.
 
 ## Initial Modal Rules
 

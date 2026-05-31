@@ -107,7 +107,7 @@ UI は `/institutions/assess` に全部詰め込まず、`ERS評価` / `制度�
 
 - ナビ最上部に **「研究機関」** リンク (Venture Map の隣)。
 - 各レイヤーで使うスコアは別ロジック (上=AMD Score / 下=ERS 充足率) なので、研究機関リスト側に「ERS は整備度であり AMD Score とは別指標」と明示している。
-- ダッシュボード下段の NIMS カードは、機関詳細ではなく NIMS コックピットへ入る。NIMS の箱は研究機関 ERS として残しつつ、進捗管理は既存 CX (`p20`) の PJ コックピットを使う。画面上部に ERS 概要と月別 MTG ツリーを置き、下に通常の PJ コックピットを表示する。
+- ダッシュボード下段の NIMS カードは、機関詳細ではなく NIMS コックピットへ入る。NIMS の箱は研究機関 ERS として残しつつ、進捗管理は既存 CX (`p20`) の PJ コックピットを使う。画面上部は ERS 概要と readiness snapshot を先に見せ、その下を `進捗管理` / `スコア詳細` の2タブにする。`進捗管理` では通常PJコックピットを先に表示し、月別 MTG ツリーは下部に置く。`スコア詳細` はSU向けAMD Scoreではなく、ERS 8軸・評価項目・Lv/根拠メモを表示する。
 - **評価の書き込み**は `POST /api/institutions/assess` (admin 限定 / `requireAdmin` 相当)。body = `{ institution_id, criterion_id, level (1–5/null), na, note }`。`institution_assessments` を **当日分 (`evaluated_at = today JST`) で `onConflict(institution_id,criterion_id,evaluated_at)` upsert** する。同日中の編集は 1 レコードに集約、過去日の評価は履歴として残り、`fetchErsBundle` は (機関 × サブ軸) ごとに最新 1 件を採用する。
 
 ## データモデル (= 4 テーブル)
