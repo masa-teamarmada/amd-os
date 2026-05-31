@@ -1,0 +1,89 @@
+{
+  "generatedAt": "2026-05-31T09:23:39Z",
+  "source": "codex-worker-textbook-l10-real-data-first-run-dry-run",
+  "dryRunOnly": true,
+  "notAppliedReason": "本番DB候補/通知は0件。workerが勝手にuser approvalを偽造せず、少数候補のDB作成も司令塔/まさ判断待ちにした。",
+  "duplicateRisk": {
+    "checkedAt": "2026-05-31T09:23:39Z",
+    "existingTextbookCandidates": 0,
+    "existingTextbookNotifications": 0,
+    "dedupeKeys": [
+      "target_id + scope_key",
+      "source_hash"
+    ],
+    "rollbackIfApplied": [
+      "textbook_insight_candidates から対象 scope_key の行を削除または archived/rejected 化",
+      "l2_notifications から l2_kind='textbook_insight' かつ対象 scope_key の行を削除",
+      "pwa/bzm/*.md は local applier dry-run までなので追記なし"
+    ]
+  },
+  "textbookInsights": [
+    {
+      "target_id": "p10",
+      "ym": "202605",
+      "scope_key": "textbook:e9f2991e58c6",
+      "topic": "外部説明線引きの意思決定",
+      "title": "未公開技術を含む外部相談は説明語彙と開示範囲を先に固定する",
+      "proposed_section": "現場判断と分岐",
+      "insight_type": "before_zero_knowhow",
+      "priority": 1,
+      "metadata_json": {
+        "practice_kind": "decision_branch"
+      },
+      "confidentiality": "sanitized",
+      "bzm_review_required": false,
+      "bzm_review_status": "not_required",
+      "theory_change_scope": "none",
+      "body_md": "未公開技術や未実証の知財を含む外部相談では、相手先の魅力度だけで相談を急がない。先に関係者間で説明してよい範囲、使う語彙、まだ出さない論点を固定し、その線引きが済んでから候補企業との会話に進む。Before Zeroでは、この一手が技術検証、論文化、知財保全、事業開発の順序を崩さないための分岐になる。",
+      "evidence_refs": [
+        {
+          "table": "project_strategy_signals",
+          "row_id": "0f7bb7e6-58ec-4f4c-a014-528b840cb9fb",
+          "date": "2026-05-28",
+          "title": "外部企業相談を一旦HOLDし外部説明線引きを優先",
+          "snippet": "外部会話では未公開技術を出さず、認識合わせと実証・論文化の後に再検討する流れになった。",
+          "hash": "5469ccfa7ca52deb",
+          "confidentiality": "sanitized"
+        }
+      ],
+      "source_tables": [
+        "project_strategy_signals"
+      ],
+      "source_hash": "e9f2991e58c6c5d414398be31e45d021e57a2572a58be8ea29b77d16a04c9b61"
+    },
+    {
+      "target_id": "p00",
+      "ym": null,
+      "scope_key": "textbook:cecd5768a518",
+      "topic": "研究機関連携の初回接触",
+      "title": "研究機関の初回接触は提案先行より課題傾聴を優先する",
+      "proposed_section": "関係構築プレイブック",
+      "insight_type": "before_zero_knowhow",
+      "priority": 2,
+      "metadata_json": {
+        "practice_kind": "relationship_playbook"
+      },
+      "confidentiality": "sanitized",
+      "bzm_review_required": false,
+      "bzm_review_status": "not_required",
+      "theory_change_scope": "none",
+      "body_md": "研究機関の産学連携担当者との初回接触では、AMD側の提案説明を急がず、相手機関がどこで詰まっているかを先に聞く。営業訪問として処理されると次の接点が細るため、最初の目的は売り込みではなく、相手の制度、研究者、事業化支援の摩擦を見つけることに置く。そこから支援範囲を相手の言葉に合わせて再設計する。",
+      "evidence_refs": [
+        {
+          "table": "protocols",
+          "row_id": "p4u-b035cb789f34",
+          "date": "2026-05-31",
+          "title": "研究機関連携の初回接触で提案先行型にするか課題傾聴型を優先するか",
+          "snippet": "提案先行は営業訪問と判断されるリスクがあり、傾聴型は相手の実際の課題に合わせた提案につながる。",
+          "hash": "p4u-b035cb789f34",
+          "confidentiality": "sanitized"
+        }
+      ],
+      "source_tables": [
+        "protocols"
+      ],
+      "source_hash": "cecd5768a5188612f1edc247204fb953fb3cbf7cf555bd117220629d70025328"
+    }
+  ],
+  "nextDecision": "このJSONを apply-outbox で本番DB候補/通知へ作るか、まさ/司令塔判断が必要。作成後は /notifications でまさが yes した approved 候補だけ local applier dry-run に進める。"
+}
