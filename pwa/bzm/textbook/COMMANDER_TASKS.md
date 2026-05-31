@@ -10,14 +10,14 @@
 - **販売前提の公開本としてTextbookを再定義する**
   - お願いした内容: 現状の「AMDが見ていること」中心の内部教材から、日本中の研究機関の産連担当者、URA、研究者、スタートアップを目指す若者が買って読める本へ作り直す。
   - 背景: まさの指摘どおり、今の本文はAMD/まさ/内部運用語が強く、読者から見ると宣伝や内部資料に見えるリスクがあるため。宣伝は極小に抑え、読者の課題解決を主役にする。
-  - 現状: `pwa/bzm/textbook/PUBLICATION_STRATEGY.md` を追加し、読者定義、類書カテゴリ、差別化、公開/内部分離、禁止語、公開原稿の章構成、worker計画を明文化。
-  - 残課題: 公開原稿監査workerと公開TOC workerを切り、`pwa/bzm/*.md` を `public_keep` / `public_rewrite` / `internal_only` / `case_seed` に分類する。公開原稿では `AMD`、`まさ`、`L2⑩`、内部path、司令塔/worker語を原則出さない。
+  - 現状: `pwa/bzm/textbook/PUBLICATION_STRATEGY.md` を追加し、読者定義、類書カテゴリ、差別化、公開/内部分離、禁止語、公開原稿の章構成、worker計画を明文化。2026-06-01に Public-Manuscript Audit worker が `pwa/bzm/textbook/runs/2026-06-01-public-manuscript-audit.md` を追加し、`pwa/bzm/*.md` を公開可能性別に分類済み。
+  - 残課題: 公開TOC workerを切り、audit結果をもとに公開原稿の章立てと source mapping を作る。公開原稿では `AMD`、`まさ`、`L2⑩`、内部path、司令塔/worker語を原則出さない。
 
 - **公開原稿と内部正本を分離する**
   - お願いした内容: `pwa/bzm/*.md` をそのまま販売原稿扱いせず、内部source-of-truthと公開manuscriptを分ける。
   - 背景: L2⑩、applier、routing、changelog、source path、production deployなどは運用には必要だが、販売本の本文には混ぜてはいけないため。
-  - 現状: 方針は `PUBLICATION_STRATEGY.md` に記録済み。公開原稿候補の出力先は `pwa/bzm/public-manuscript/*.md` または export script のどちらかで検討。
-  - 残課題: workerで現行章の内部語監査と出力先案を作り、司令塔レビュー後に実際の公開原稿ベースを作る。
+  - 現状: 方針は `PUBLICATION_STRATEGY.md` に記録済み。Public-Manuscript Audit で `8-1`、`8-2`〜`8-5` のL2/applier受け皿、`9-5`、`COMMANDER_TASKS.md`、内部path/changelogを `internal_only` として退避対象化済み。公開原稿候補の出力先は `pwa/bzm/public-manuscript/*.md` または export script のどちらかで検討。
+  - 残課題: 司令塔レビュー後に公開原稿ベースを作る。現行 `pwa/bzm/*.md` は内部sourceとして維持し、future public layer にだけ禁止語 lint をかける。
 
 - **TextbookをBefore Zero実践テキストへ広げる**
   - お願いした内容: BZMの概念説明だけでなく、Before Zeroの現場で起きる判断、失敗、迷い、仮説修正、関係構築、ケース、横断パターンを統合した実践テキストへ育てる。
@@ -50,6 +50,12 @@
   - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
 
 ## 完了済みタスク
+
+- **Textbook public-manuscript audit**
+  - お願いした内容: 現行 `pwa/bzm/*.md` を販売本の原稿として見たとき、公開可能、公開向け書き換え必須、内部退避、匿名化ケース素材に分類する。
+  - 背景: 公開本は「AMDすごい」では売れず、読者主語で Before Zero の現場課題を解く必要があるため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-01-public-manuscript-audit.md` を追加。全 `pwa/bzm/*.md` について章/section単位の分類、禁止語ヒット、置換案、AMD推しリスク、次worker方針を整理済み。
+  - 残課題: 公開TOC draft、case_seed の匿名シーン化、公開原稿layer作成、publication lint。
 
 - **Textbook whole-structure base**
   - お願いした内容: Textbook の入口を BZM 理論説明から Before Zero 実践テキストへ変え、既存理論章を後半の理論パートとして温存する。
