@@ -457,7 +457,17 @@ filter:
 | CX | p20 | NIMS / CryoX 法人設立準備。NIMS OS導入の先行事例 | 重要 PJ |
 | SX | p21 | 愛媛大 / PSI / 国策・PoC機会が多い | 先手提案の価値が高い |
 | VSX / 香川大 | p26 | 初回訪問直後。称号・クロアポ・GAP・次回MTGが曖昧 | `ambiguous` を AMD ボール扱い |
-| NIMS OS導入 | institution-level | FY27 OS導入準備。CX と連動 | PJ row がなければ institution loop |
+| NIMS OS導入 | `nims_os` + `inst_nims` | FY27 OS導入準備。CX と連動 | Stage0-1 は内部確認のみ |
+
+### Project ID policy / current seed status
+
+2026-05-31 current truth:
+
+- ZMP の canonical AMD OS project id は `projects.project_id='p19'`。`projects` / `monthly_reports` / `project_meeting_summaries` / `member_activities` / admin 報酬・請求導線は `p19` を正として扱う。
+- `zmp` は `project_commander_threads` と `proactive_outbox` 初期seedに入った legacy commander routing scope。`project_commander_threads.project_id` は FK なし TEXT なので技術的には使えるが、今後の新規 proactive row は原則 `p19` へ寄せる。
+- 既存 live DB では ZMP 初期 outbox `seed:2026-05-31:zmp-tus-next-action` が `project_id='zmp'` / `status='sent_to_commander'` / `drafted_at IS NULL`。この row は重複作成せず、ZMP司令塔側のdraft回収か、司令塔判断後の `p19` への移行で閉じる。
+- `pwa/scripts/seeds/002_proactive_initial_outbox_cx_sx_nims_zmp_alignment.sql` は、`p19` の commander route を追加しつつ、既存 `zmp` outbox を消さない追加seed案。production DB へ適用する前に司令塔レビューを通す。
+- NIMS OS導入は `nims_os` pseudo scope + `institution_id='inst_nims'`。Stage0-1 のまさ/りり確認前は、外部送付・NIMSログイン前提・相手向け依頼を outbox 化しない。内部確認 agenda / data-scope / gate 整理だけを扱う。
 
 初期対象外:
 
@@ -573,20 +583,21 @@ risk_if_late:
 
 - partner institutions 正本では NIMS の AMD OS 導入は FY27 予定、現在は Y 準備中。
 - 機関導入は個別 PJ の進行とは別に、URA / EIR / security / onboarding / use case の準備が必要。
+- Stage0-1 のまさ/りり確認前なので、相手先へ出す文面、NIMSログイン前提、NIMS側作業依頼は初期 outbox にしない。
 
 検知:
 
 - `trigger_type='strategy_signal_needs_action'` or `deadline_approaching`
-- institution-level loop。project_id は仮に `p00` または dedicated pseudo project を要判断。
-- `draft_type='roadmap'`
+- institution-level loop。project_id は `nims_os` pseudo scope、institution_id は `inst_nims`。
+- `draft_type='agenda'` or `next_action_plan`
 
 recommended_first_move:
 
-- FY27 導入開始ゲート、最小ユースケース、NIMS 側担当者、権限設計、URA onboarding playbook の準備項目をロードマップ化する。
+- FY27 導入開始ゲート、最小ユースケース、NIMS 側担当者候補、権限設計、URA onboarding playbook の準備項目を、まさ/りり向け内部確認 agenda として整理する。
 
 risk_if_late:
 
-- OS導入が「いつかやる」状態で流れ、AMD OS の仕組みレイヤー収益化が遅れる。
+- OS導入が「いつかやる」状態で流れる一方、確認前に外部送付やログイン前提へ進むと期待値・権限・データ分離が未確定のまま進んでしまう。
 
 ## Implementation phases
 
@@ -636,7 +647,7 @@ risk_if_late:
 ## Open questions
 
 1. `proactive_loops` は L2 ⑪ として扱うか、L2 とは別の control layer として扱うか。推奨は別 control layer。
-2. NIMS OS導入のような institution-level loop の `project_id` をどう持つか。`p00` で会社全体扱いにするか、institution pseudo project を作るか。
+2. institution-level loop は `nims_os` のような pseudo project scope + `institution_id` で持つ方針で開始した。この方式を NIMS 以外にも広げるか。
 3. `project_commander_threads` の初期 seed を誰が持つか。AMD総司令塔だけでなく、KUTE / ZMP / CX / SX / VSX 司令塔 thread をどう登録するか。
 4. `sent_to_counterpart` を誰が押すか。司令塔 / PM / admin UI のどれを正本にするか。
 5. Gmail / Slack の counterpart nudge detector で誤検知をどう抑えるか。初期は `candidate` 扱いで commander review を挟むべき。
