@@ -11,13 +11,13 @@
   - お願いした内容: 現状の「AMDが見ていること」中心の内部教材から、日本中の研究機関の産連担当者、URA、研究者、スタートアップを目指す若者が買って読める本へ作り直す。
   - 背景: まさの指摘どおり、今の本文はAMD/まさ/内部運用語が強く、読者から見ると宣伝や内部資料に見えるリスクがあるため。宣伝は極小に抑え、読者の課題解決を主役にする。
   - 現状: `pwa/bzm/textbook/PUBLICATION_STRATEGY.md` を追加し、読者定義、類書カテゴリ、差別化、公開/内部分離、禁止語、公開原稿の章構成、worker計画を明文化。2026-06-01に Public-Manuscript Audit worker が `pwa/bzm/textbook/runs/2026-06-01-public-manuscript-audit.md` を追加し、`pwa/bzm/*.md` を公開可能性別に分類済み。公開TOC workerで、販売本の全体目次案・章ごとの読者への約束・既存素材マップ・不足素材・理論接続を `pwa/bzm/textbook/runs/2026-06-01-public-toc-draft.md` に整理。
-  - 残課題: Audit と TOC を司令塔レビューで統合し、公開原稿layerを `pwa/bzm/public-manuscript/*.md` にするか export script にするかを決める。case_seed は匿名シーン化し、公開原稿では `AMD`、`まさ`、`L2⑩`、内部path、司令塔/worker語を原則出さない。
+  - 残課題: 司令塔レビューで、初期公開原稿layerは `pwa/bzm/public-manuscript/*.md` として手書きで作る判断にした。次は Prologue〜Chapter 3 の reader-first draft を作り、case_seed は匿名シーン化し、公開原稿では `AMD`、`まさ`、`L2⑩`、内部path、司令塔/worker語を原則出さない。
 
 - **公開原稿と内部正本を分離する**
   - お願いした内容: `pwa/bzm/*.md` をそのまま販売原稿扱いせず、内部source-of-truthと公開manuscriptを分ける。
   - 背景: L2⑩、applier、routing、changelog、source path、production deployなどは運用には必要だが、販売本の本文には混ぜてはいけないため。
   - 現状: 方針は `PUBLICATION_STRATEGY.md` に記録済み。Public-Manuscript Audit で `8-1`、`8-2`〜`8-5` のL2/applier受け皿、`9-5`、`COMMANDER_TASKS.md`、内部path/changelogを `internal_only` として退避対象化済み。公開原稿候補の出力先は `pwa/bzm/public-manuscript/*.md` または export script のどちらかで検討。
-  - 残課題: 司令塔レビュー後に公開原稿ベースを作る。現行 `pwa/bzm/*.md` は内部sourceとして維持し、future public layer にだけ禁止語 lint をかける。
+  - 残課題: `pwa/bzm/public-manuscript/*.md` に Prologue〜Chapter 3 の公開原稿ベースを作る。現行 `pwa/bzm/*.md` は内部sourceとして維持し、future public layer にだけ禁止語 lint をかける。
 
 - **TextbookをBefore Zero実践テキストへ広げる**
   - お願いした内容: BZMの概念説明だけでなく、Before Zeroの現場で起きる判断、失敗、迷い、仮説修正、関係構築、ケース、横断パターンを統合した実践テキストへ育てる。
