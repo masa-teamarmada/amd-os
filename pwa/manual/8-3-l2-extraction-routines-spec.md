@@ -196,6 +196,7 @@ vs ローカル Mac scheduled task の問題:
 - 優先度: `before_zero_knowhow` > `cross_project_pattern` > `case_study` / `theory_evidence`
 - 採否: 通知 yes で `approved`、no で `rejected`
 - 追記: approved 後に local worker が `node pwa/scripts/apply_approved_textbook_insights.mjs --apply` で `pwa/bzm/*.md` へ追記し、git commit/push する。Vercel runtime から git file を直接編集しない
+- target routing: `practice_kind` に応じて第8部へ振り分ける。`decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5`。`cross_project_pattern` は明確な単一実践章がないため default は `8-1`、具体的な retrofit 検証ケースなら抽出側が `6-1` を明示する。`theory_case` は式・rubric・定義を変えず、BZM review 前提で `6-1` へ候補化する
 
 ## 冪等性と通知
 
@@ -214,6 +215,7 @@ vs ローカル Mac scheduled task の問題:
 - GAS 153 / 155 の kill switch を外して LLM cron を復活させない
 - PWA / GAS / Vercel route から Anthropic・Gemini・OpenAI の従量課金 API を L2 抽出用途で新規に呼ばない。LLM が必要な抽出・要約・議事録品質改善は repo 内 SKILL と subscription automation 側に寄せる
 - L2⑩ の承認を受けて、Vercel runtime から `pwa/bzm/*.md` を直接編集・commit しない。追記は local applier + git commit/push だけ
+- L2⑩ の unknown `practice_kind` を helper 側で勝手に既知分類へ丸めない。`metadata_json.validation_warnings` に残し、fallback slug のまま review 対象にする
 - raw Gmail / raw Notion 本文を L2 row に丸ごと保存しない (= source refs + short snippet + hash のみ)
 - `member_knowledge` の列名を想像で書かない。`status` / `source_hash` / `last_processed_at` は migration 091 + `db_schema.md` 前提で使う
 - L6 で Notion `eventId` 欠損だけを理由に議事録抽出を skip しない

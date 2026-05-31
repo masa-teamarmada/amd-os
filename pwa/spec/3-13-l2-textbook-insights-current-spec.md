@@ -143,16 +143,28 @@ node pwa/scripts/apply_approved_textbook_insights.mjs --apply --limit 20
 
 ## Target Routing
 
-| practice / scope | default target |
+`pwa/scripts/ms_progress_review_tool.mjs` は、`pwa/scripts/textbook_insight_routing.mjs` の routing helper で `metadata_json.practice_kind` から追記先を決める。抽出側が非defaultの `target_bzm_slug` を明示した場合は、その明示 slug を優先する。
+
+| practice_kind | default target | proposed_section | 理由 |
+|---|---|---|---|
+| `decision_branch` | `8-2-field-decisions-and-branches` | `現場判断と分岐` | GO / WAIT / NO_GO、設立時期、律速判断を第8部の意思決定章に集める |
+| `failure_learning` | `8-3-failures-pivots-and-revisions` | `失敗・ピボット・仮説修正` | 失敗・未達・手戻りを次回PJの判断ルールへ変換する |
+| `relationship_playbook` | `8-4-relationship-playbook` | `関係構築プレイブック` | 研究者・大学・企業・VC・行政との関係構築を相手別に整理する |
+| `reusable_question` | `8-5-before-zero-checkpoints` | `再利用できる問い` | 次回PJで使う問い・チェックリストとして残す |
+| `field_transition` | `8-5-before-zero-checkpoints` | `現場から事業化への移行チェック` | 研究現場から事業化・会社化へ移る確認項目として扱う |
+| `cross_project_pattern` | `8-1-amd-os-operations` | `PJ横断パターン` | 明確な単一章がない横断傾向は AMD OS 運用知として置く。具体的な retrofit / case validation なら抽出側が `6-1-retrofit-verification` を明示する |
+| `theory_case` | `6-1-retrofit-verification` | `BZMレビュー対象ケース` | 式・rubric・定義は変更せず、BZM review 前提の検証ケースとして残す |
+
+既存の理論章へ明確に置ける候補は、抽出側が `target_bzm_slug` を明示する。
+
+| scope | explicit target |
 |---|---|
-| Before Zero 実務運用・OS化 | `8-1-amd-os-operations` |
-| retrofit / case study | `6-1-retrofit-verification` |
 | XRL / readiness | `3-1-xrl-group` |
 | FRL / founder readiness | `4-1-frl-founder-readiness` |
 | AMD Score / 律速判断 | `5-1-amd-score-integration` |
 | ERS / research institution readiness | `7-1-ers-ecosystem-readiness` |
 
-新章が main にまだ無い場合は、新章を勝手に作らず `8-1-amd-os-operations` + `proposed_section='未分類の実務知見'` へ fallback し、`metadata_json.validation_warnings` に routing fallback を残す。
+新章が main にまだ無い場合は、新章を勝手に作らず `8-1-amd-os-operations` + `proposed_section='未分類の実務知見'` へ fallback し、`metadata_json.validation_warnings` に routing fallback を残す。unknown `practice_kind` は helper が勝手に丸めず、fallback slug と warning のまま候補DBへ残す。
 
 ## Outbox Format
 

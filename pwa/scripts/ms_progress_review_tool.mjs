@@ -13,6 +13,7 @@ import dns from "node:dns";
 import path from "node:path";
 import crypto from "node:crypto";
 import os from "node:os";
+import { resolveTextbookInsightRouting } from "./textbook_insight_routing.mjs";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const AUTOMATION_DIR = path.join(process.env.CODEX_HOME || path.join(os.homedir(), ".codex"), "automations", "amd-os-ms");
@@ -1294,7 +1295,7 @@ async function upsertTextbookInsights(items) {
         validationWarnings.push(`unknown practice_kind: ${rawPracticeKind}`);
       }
     } else if (!metadata.practice_kind) {
-      metadata.practice_kind = "decision_branch";
+      validationWarnings.push("missing practice_kind; target routing fell back to explicit/default slug");
     }
     const rawTheoryCaseKind = String(item.theory_case_kind || item.theoryCaseKind || metadata.theory_case_kind || "").trim();
     if (rawTheoryCaseKind) {
@@ -1314,8 +1315,10 @@ async function upsertTextbookInsights(items) {
       validationWarnings.push(`unknown theory_change_scope treated as none: ${rawTheoryChangeScope}`);
     }
     const practiceKind = String(metadata.practice_kind || "");
-    const hasTheoryCaseReview =
-      practiceKind === "theory_case" && validTheoryCaseKinds.has(String(metadata.theory_case_kind || ""));
+    const hasTheoryCaseReview = practiceKind === "theory_case";
+    if (practiceKind === "theory_case" && !rawTheoryCaseKind) {
+      validationWarnings.push("theory_case missing theory_case_kind; BZM review required");
+    }
     const bzmReviewRequired =
       Boolean(item.bzm_review_required ?? item.bzmReviewRequired ?? metadata.bzm_review_required)
       || theoryChangeScope !== "none"
@@ -1329,6 +1332,19 @@ async function upsertTextbookInsights(items) {
     if (bzmReviewRequired && bzmReviewStatus === "not_required") {
       validationWarnings.push("bzm_review_required=true with not_required status; treated as pending");
     }
+    const rawTargetBzmSlug = String(item.target_bzm_slug || item.targetBzmSlug || "").trim();
+    const rawProposedSection = item.proposed_section || item.proposedSection || null;
+    const routing = resolveTextbookInsightRouting({
+      practiceKind,
+      targetBzmSlug: rawTargetBzmSlug,
+      proposedSection: rawProposedSection,
+    });
+    for (const warning of routing.warnings || []) validationWarnings.push(warning);
+    metadata.target_routing = {
+      source: routing.source,
+      reason: routing.reason,
+      target_bzm_slug: routing.targetBzmSlug,
+    };
     metadata.confidentiality = confidentiality;
     metadata.bzm_review_required = bzmReviewRequired;
     metadata.bzm_review_status = bzmReviewRequired && bzmReviewStatus === "not_required" ? "pending" : bzmReviewStatus;
@@ -1347,8 +1363,8 @@ async function upsertTextbookInsights(items) {
       scope_key: item.scope_key || item.scopeKey || `textbook:${String(sourceHash).slice(0, 12)}`,
       topic: String(item.topic || item.title || "").slice(0, 180),
       title: String(item.title || item.topic || "").slice(0, 180),
-      proposed_section: item.proposed_section || item.proposedSection || null,
-      target_bzm_slug: String(item.target_bzm_slug || item.targetBzmSlug || "8-1-amd-os-operations").trim(),
+      proposed_section: rawProposedSection || routing.proposedSection || null,
+      target_bzm_slug: routing.targetBzmSlug,
       insight_type: validTypes.has(insightType) ? insightType : "before_zero_knowhow",
       priority: Math.min(4, Math.max(1, Number(item.priority || 2))),
       body_md: String(item.body_md || item.bodyMd || item.body || "").trim(),

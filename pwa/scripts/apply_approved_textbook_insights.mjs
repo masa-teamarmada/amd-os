@@ -139,7 +139,7 @@ function normalizedCandidateMeta(candidate) {
       : "not_required";
   return {
     metadata,
-    practiceKind: String(metadata.practice_kind || "decision_branch"),
+    practiceKind: String(metadata.practice_kind || "unknown"),
     confidentiality,
     bzmReviewRequired,
     bzmReviewStatus,

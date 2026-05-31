@@ -164,14 +164,22 @@ Bad:
 
 ## 追記先 slug の選び方
 
-- BZM の運用知見: `8-1-amd-os-operations`
-- retrofit / case study: `6-1-retrofit-verification`
+- `decision_branch`: `8-2-field-decisions-and-branches`
+- `failure_learning`: `8-3-failures-pivots-and-revisions`
+- `relationship_playbook`: `8-4-relationship-playbook`
+- `reusable_question`: `8-5-before-zero-checkpoints`
+- `field_transition`: `8-5-before-zero-checkpoints`
+- `cross_project_pattern`: default は `8-1-amd-os-operations`。明確な retrofit / case validation の形で第6部に置くべき場合だけ、抽出側が `target_bzm_slug='6-1-retrofit-verification'` を明示する。
+- `theory_case`: default は `6-1-retrofit-verification`。BZM / AMD Score / ERS / Protocol の式・rubric・定義は変更せず、BZM review 承認前提のケースとして候補に残す。
+
+既存の理論章へ明確に置ける候補は `target_bzm_slug` を明示してよい。
+
 - XRL / readiness の裏付け: `3-1-xrl-group`
 - FRL の裏付け: `4-1-frl-founder-readiness`
 - AMD Score / 律速判断: `5-1-amd-score-integration`
 - ERS: `7-1-ers-ecosystem-readiness`
 
-新章を勝手に作らない。既存章に入れにくい場合、または新章が main にまだ無い場合は `target_bzm_slug='8-1-amd-os-operations'`、`proposed_section='未分類の実務知見'` として候補化し、`metadata_json.validation_warnings` に routing fallback を残す。
+新章を勝手に作らない。既存章に入れにくい場合、または新章が main にまだ無い場合は `target_bzm_slug='8-1-amd-os-operations'`、`proposed_section='未分類の実務知見'` として候補化し、`metadata_json.validation_warnings` に routing fallback を残す。unknown `practice_kind` は helper が勝手に丸めず、fallback slug と warning のまま候補DBへ残す。
 
 ## BZM review / confidentiality gate
 

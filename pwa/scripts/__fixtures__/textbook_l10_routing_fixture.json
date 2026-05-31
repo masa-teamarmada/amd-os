@@ -1,0 +1,51 @@
+{
+  "items": [
+    {
+      "title": "decision branch routes to 8-2",
+      "metadata_json": { "practice_kind": "decision_branch" },
+      "expected_target_bzm_slug": "8-2-field-decisions-and-branches"
+    },
+    {
+      "title": "failure learning routes to 8-3",
+      "metadata_json": { "practice_kind": "failure_learning" },
+      "expected_target_bzm_slug": "8-3-failures-pivots-and-revisions"
+    },
+    {
+      "title": "relationship playbook routes to 8-4",
+      "metadata_json": { "practice_kind": "relationship_playbook" },
+      "expected_target_bzm_slug": "8-4-relationship-playbook"
+    },
+    {
+      "title": "reusable question routes to 8-5",
+      "metadata_json": { "practice_kind": "reusable_question" },
+      "expected_target_bzm_slug": "8-5-before-zero-checkpoints"
+    },
+    {
+      "title": "field transition routes to 8-5",
+      "metadata_json": { "practice_kind": "field_transition" },
+      "expected_target_bzm_slug": "8-5-before-zero-checkpoints"
+    },
+    {
+      "title": "cross project pattern defaults to operations",
+      "metadata_json": { "practice_kind": "cross_project_pattern" },
+      "expected_target_bzm_slug": "8-1-amd-os-operations"
+    },
+    {
+      "title": "theory case defaults to retrofit verification",
+      "metadata_json": { "practice_kind": "theory_case" },
+      "expected_target_bzm_slug": "6-1-retrofit-verification"
+    },
+    {
+      "title": "explicit non-default target is preserved",
+      "target_bzm_slug": "5-1-amd-score-integration",
+      "metadata_json": { "practice_kind": "decision_branch" },
+      "expected_target_bzm_slug": "5-1-amd-score-integration"
+    },
+    {
+      "title": "unknown practice kind is not rounded",
+      "metadata_json": { "practice_kind": "mystery_kind" },
+      "expected_target_bzm_slug": "8-1-amd-os-operations",
+      "expected_warning_includes": "unknown practice_kind"
+    }
+  ]
+}
