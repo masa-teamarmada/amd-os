@@ -104,12 +104,12 @@ pwa/
 
 | パス | 機能 |
 |---|---|
-| `/dashboard` | トップ。PJ 一覧 + 先手力維持ループの「今日打つべき一手」 + Atlas/Venture Map/MyPage/Admin への入口。下段の研究機関ERSリストで、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する |
+| `/dashboard` | トップ。PJ 一覧 + 先手力維持ループの TODO + Atlas/Venture Map/MyPage/Admin への入口。下段の研究機関ERSリストで、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する |
 | `/dashboard-cyber-3d-lab` | 実験中の3D Cyber Dashboard。`three.js` 空間上に X/F/M 軸、PJ球体、床面KPI、ホログラム投影コックピットを配置。仕様方針は [`cyber_hud_design_code.md`](cyber_hud_design_code.md) / [`cyber_dashboard_content_design.md`](cyber_dashboard_content_design.md) |
 | `/dashboard-cyber-glass-cube` | 廃案比較用の旧 Cyber Dashboard 第2案。ガラスキューブPJ群は情報構造がカオス化したため、今後の正本候補にはしない。公開モックは `/mock/dashboard-cyber-glass-cube` |
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定 (取り消し線 = 未完月次ルーティンによる除外)。りり (`ID006`) は NIMS からの無償出向のため、報酬額は金額ではなく `ー` 表示 |
-| `/project/[projectId]/cockpit` | PJ コックピット (案C レイアウト = 上 Header + Hero (AMD Score + XRL 横並び) + 3 カラム MS / 先手キュー + 経営ハイライト / 月次ルーティン sticky + 下段 月次 + MTGサマリ + 最下カンバン)。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
+| `/project/[projectId]/cockpit` | PJ コックピット (案C レイアウト = 上 Header + Hero (AMD Score + XRL 横並び) + 3 カラム MS / TODO + 経営ハイライト / 月次ルーティン sticky + 下段 月次 + MTGサマリ)。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
 | `/institutions/[institutionId]/cockpit` | 研究機関カードから開く機関コックピット。NIMS (`inst_nims`) は新規PJを作らず、既存関連PJ CX (`p20`) の `CockpitView` を同画面へマウントし、MS進捗・月次・MTG履歴を操作/確認する。上部にERS概要と月別MTGツリーを置く |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` が該当章のマニュアル本文を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
@@ -253,7 +253,7 @@ pwa/
 | `triple_helix_loading` | C 行列 (6 観測量 × 3 隠れ状態 μ_A/I/G の loading prior、bvar_prior §3.2)。AmdScoreView の M カードで参照 |
 | `project_founding_members` | PJ 関連メンバー (= HRL 評価のベース。SU 立ち上げ候補 / AMD伴走 / 大学キーパーソン)。DB名は紛らわしいが manual 上は「関連メンバー」と呼ぶ。LLM 抽出 route はあるが Sonnet 利用のため schedule 停止中。`(project_id, person_name)` UNIQUE。詳細は [`xrl_evidence.md`](xrl_evidence.md) / [`amd_score.md`](amd_score.md) / [`../manual/4-4-frl-related-members-score-spec.md`](../manual/4-4-frl-related-members-score-spec.md) |
 | `project_strategy_signals` | L2 ⑨ 経営ハイライト。重要方針・事業進捗・戦略転換・提携・資金・知財/規制・リスク・次の一手をPJ単位で保持し、cockpitのMS直下に表示する。詳細は [`project_strategy_signals.md`](project_strategy_signals.md) |
-| `proactive_outbox` | 先手力維持ループの主キュー。Dashboard の「今日打つべき一手」と PJ cockpit の「先手キュー」は authenticated admin read-only で `queued` / `sent_to_commander` / `drafted` / `blocked` を表示する。UIから外部送付・状態更新はしない |
+| `proactive_outbox` | 先手力維持ループの主キュー。Dashboard と PJ cockpit の TODO は authenticated admin read-only で表示する。Dashboard は `queued` / `sent_to_commander` / `blocked` を最大3件、PJ cockpit はそのPJの `queued` / `sent_to_commander` / `drafted` / `blocked` を表示する。UIから外部送付・状態更新はしない |
 
 ### つくよみ / その他
 

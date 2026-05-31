@@ -7,7 +7,6 @@ import { CockpitVentureStatus } from "./CockpitVentureStatus";
 import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
 import { CockpitStrategySignals } from "./CockpitStrategySignals";
-import { CockpitKanbanGas } from "./CockpitKanbanGas";
 import { CockpitMonthlyList } from "./CockpitMonthlyList";
 import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
 import { CockpitNudge } from "./CockpitNudge";
@@ -289,7 +288,7 @@ type StepModal =
 
 type CockpitTab = "progress" | "score-detail";
 
-export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialStep, canEditRoutine = false }: CockpitViewProps) {
+export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canEditRoutine = false }: CockpitViewProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<CockpitTab>("progress");
   const [modalYm, setModalYm] = useState<string | null>(
@@ -443,9 +442,8 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
     //  上: Header + Hero (AMD Score chart + XRL chart 横並び)
     //  メインボード 3 カラム:
     //    col1 = 今期MS + 次期MS設定 + 過去の期間 + 月次カード + 休止期間 backfill
-    //    col2 = 経営ハイライト (L2 ⑨) + MTGサマリ
+    //    col2 = TODO + 経営ハイライト (L2 ⑨) + MTGサマリ
     //    col3 = ステータスバッジ + 月次ルーティン + nudge (sticky)
-    //  最下: TODO カンバン全幅
     <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} />
@@ -615,10 +613,6 @@ export function CockpitView({ cockpit, nudges, tasks, initialModalYm, initialSte
         </div>
       </div>
 
-      {/* [C] TODO Kanban — 全幅 (案D 最下段) */}
-      {tasks.length > 0 && (
-        <CockpitKanbanGas tasks={tasks} milestones={usesMsProgress ? milestones : []} memberMap={memberMap || {}} />
-      )}
         </>
       )}
 

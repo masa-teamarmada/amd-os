@@ -77,7 +77,7 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
     ├── [G0]  CockpitFreezeBackfill ⭐          休止期間サマリ (再開予定月以降のみ表示)
     └── [E]   CockpitMeetingSummary             MTG サマリ
 
-最下: [C] CockpitKanbanGas (tasks.length > 0 のときだけ全幅で表示)
+※ 旧最下段の `CockpitKanbanGas` は主要導線から外す。MS内の細かな作業はMS詳細、先手力の次アクションはTODOに集約する。
 ```
 
 ★ 2026-05-11 追加:
@@ -463,7 +463,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 ├── [B1]  CockpitStrategySignals      経営ハイライト
 ├── [B2]  CockpitNextPeriodSetup
 ├── [B3]  過去の期間
-├── [C]   CockpitKanbanGas
+├── [C]   TODO (`ProactiveQueuePanel`)
 ├── [G/E] CockpitMonthlyList + CockpitMeetingSummary
 └── [Right] CockpitRoutineGas + CockpitNudge
 ```

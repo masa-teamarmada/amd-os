@@ -131,7 +131,7 @@ export default function DashboardPage() {
     <div className="p-4 max-w-[1700px] mx-auto">
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(520px,640px)] gap-4">
         <main className="space-y-4 min-w-0">
-          <ProactiveQueuePanel projectLabels={projectLabels} variant="dashboard" limit={5} />
+          <ProactiveQueuePanel projectLabels={projectLabels} variant="dashboard" limit={3} />
           <DashboardScoreOverview
             managementScore={managementScore}
             managementHistory={managementHistory}

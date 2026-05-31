@@ -65,7 +65,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須機能:
 
-- 先手力維持ループ: `ProactiveQueuePanel` で `proactive_outbox` の `queued` / `sent_to_commander` / `drafted` / `blocked` を read-only 表示する。状態、誰のボールか、期限、優先度、下書き種別、トリガー理由、担当司令塔、推奨 first move を出す。Dashboard から状態更新・外部送付はしない。
+- TODO: `ProactiveQueuePanel` で `proactive_outbox` の `queued` / `sent_to_commander` / `blocked` を最大3件 read-only 表示する。状態、誰のボールか、期限、優先度、資料の種類、トリガー理由、担当司令塔、推奨 first move を出す。Dashboard から状態更新・外部送付はしない。行クリックはPJ遷移ではなく、発生経緯・資料リンク・次アクションを読むモーダルを開く。
 - PJ一覧: Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。
 - Dashboard上部: Management Score と月次ルーティン残タスクを維持する。
 
@@ -75,11 +75,11 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須機能:
 
-- レイアウト: `max-w-[1600px]` の幅広 container、上 Header → hero (PJ Status) → 3 カラム grid (`今期MS / 経営ハイライト / 月次ルーティン (sticky)`) → 下段 2 カラム (`月次カード / 休止期間 + MTGサマリ`) → 最下段全幅カンバンの 案C 構成。`max-w-[1060px]` + 左 720 / 右 220 の旧 2 カラムには戻さない。
+- レイアウト: `max-w-[1600px]` の幅広 container、上 Header → hero (PJ Status) → 3 カラム grid (`今期MS / 経営ハイライト / 月次ルーティン (sticky)`) → 下段 2 カラム (`月次カード / 休止期間 + MTGサマリ`) の案C系構成。`max-w-[1060px]` + 左 720 / 右 220 の旧 2 カラムには戻さない。最下段の旧 TODO かんばんは主要導線から外す。
 - 上 hero: PJ ごとに出し分け。p00 (= AMD 会社全体) は `CockpitManagementScoreHero` で AMD Management Score の時系列折れ線 + 最新値カード。SU 系 PJ は `CockpitVentureStatus` 内で AMD Score 折れ線と XRL 折れ線を `xl:flex-row` で横並びにする。`xl` 未満では縦並びへ自動 fallback する。
 - Hero 下タブ: SU 系 PJ は `進捗管理` / `スコア詳細` を切り替える。AMD Score / XRL hero はタブ外に置いて常時表示し、`進捗管理` に従来の cockpit 本文、`スコア詳細` に `AmdScoreView` の embedded 表示を出す。
 - 今期MSリスト: `CockpitGoalsCompact` / `MilestoneGanttChart` でMS期間、pt、担当、sub itemを表示する。
-- 先手キュー: `ProactiveQueuePanel` でそのPJの `proactive_outbox` を read-only 表示する。状態、誰のボールか、期限、優先度、下書き種別、トリガー理由、担当司令塔、推奨 first move、遅れた場合のリスクを出す。Cockpit UI から状態更新・外部送付はしない。
+- TODO: `ProactiveQueuePanel` でそのPJの `proactive_outbox` を read-only 表示する。状態、誰のボールか、期限、優先度、資料の種類、トリガー理由、担当司令塔、推奨 first move、遅れた場合のリスクを出す。Cockpit UI から状態更新・外部送付はしない。行クリックはモーダルで詳細を開く。
 - 経営ハイライト: MSリスト横の col2 として `CockpitStrategySignals` を表示し、`project_strategy_signals` の candidate/confirmed を日付・type・impact・summary・source refs付きで表示する。
 - 月次モーダル: 月次カードやroutine stepから `CockpitMonthlyModal` を開き、report / reward / invoice を確認できる。p00 (= AMD 会社全体) でも他 PJ と同じく月次カード + 月次モーダルが出る (`billing_cycles` を 12 行 backfill 済)。
 - 月次ルーティン: active/sales PJのみ表示し、PM/admin以外は読み取り専用にする。col3 内で `lg:sticky` で固定する。

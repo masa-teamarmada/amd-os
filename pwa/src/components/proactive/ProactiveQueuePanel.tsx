@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Clock3, FileText, Send, ShieldAlert } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, CheckCircle2, Clock3, ExternalLink, FileText, Send, ShieldAlert, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export type ProactiveQueueItem = {
@@ -23,7 +22,22 @@ export type ProactiveQueueItem = {
   draftedAt: string | null;
   sentToCounterpartAt: string | null;
   closedAt: string | null;
-  draftArtifactRefs: unknown[];
+  draftArtifactRefs: DraftArtifactRef[];
+  evidenceRefs: EvidenceRef[];
+  sourceKind: string;
+  sourceId: string;
+};
+
+type DraftArtifactRef = {
+  artifact: string;
+  summary: string;
+  addedAt: string;
+};
+
+type EvidenceRef = {
+  source: string;
+  section?: string;
+  snippet?: string;
 };
 
 type ProactiveStatus = "queued" | "sent_to_commander" | "drafted" | "sent_to_counterpart" | "closed" | "blocked";
@@ -36,12 +50,13 @@ type ProactiveQueuePanelProps = {
   limit?: number;
 };
 
-const ACTIVE_STATUSES: ProactiveStatus[] = ["queued", "sent_to_commander", "drafted", "blocked"];
+const DASHBOARD_STATUSES: ProactiveStatus[] = ["blocked", "queued", "sent_to_commander"];
+const COCKPIT_STATUSES: ProactiveStatus[] = ["blocked", "queued", "sent_to_commander", "drafted"];
 
 const STATUS_META: Record<ProactiveStatus, { label: string; className: string; icon: typeof Clock3 }> = {
   queued: { label: "未送信", className: "border-slate-300 bg-slate-50 text-slate-700", icon: Clock3 },
   sent_to_commander: { label: "司令塔送信済み", className: "border-sky-300 bg-sky-50 text-sky-800", icon: Send },
-  drafted: { label: "下書き済み", className: "border-violet-300 bg-violet-50 text-violet-800", icon: FileText },
+  drafted: { label: "資料作成済み", className: "border-violet-300 bg-violet-50 text-violet-800", icon: FileText },
   sent_to_counterpart: { label: "相手へ送信済み", className: "border-emerald-300 bg-emerald-50 text-emerald-800", icon: CheckCircle2 },
   closed: { label: "完了", className: "border-zinc-300 bg-zinc-50 text-zinc-600", icon: CheckCircle2 },
   blocked: { label: "ブロック", className: "border-rose-300 bg-rose-50 text-rose-800", icon: ShieldAlert },
@@ -94,11 +109,14 @@ export function ProactiveQueuePanel({
   projectId,
   projectLabels = {},
   variant = "dashboard",
-  limit = 8,
+  limit,
 }: ProactiveQueuePanelProps) {
   const [items, setItems] = useState<ProactiveQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ProactiveQueueItem | null>(null);
+  const effectiveLimit = limit ?? (variant === "dashboard" ? 3 : 6);
+  const statuses = variant === "dashboard" ? DASHBOARD_STATUSES : COCKPIT_STATUSES;
 
   useEffect(() => {
     let cancelled = false;
@@ -109,12 +127,12 @@ export function ProactiveQueuePanel({
       let query = supabase
         .from("proactive_outbox")
         .select(
-          "outbox_id,project_id,status,priority,due_at,trigger_type,ball_owner,draft_type,recommended_first_move,risk_if_late,commander_thread_id,blocked_reason,sent_at,drafted_at,sent_to_counterpart_at,closed_at,draft_artifact_refs"
+          "outbox_id,project_id,status,priority,due_at,trigger_type,ball_owner,draft_type,recommended_first_move,risk_if_late,commander_thread_id,blocked_reason,sent_at,drafted_at,sent_to_counterpart_at,closed_at,draft_artifact_refs,evidence_refs,source_kind,source_id"
         )
-        .in("status", ACTIVE_STATUSES)
+        .in("status", statuses)
         .order("priority", { ascending: true })
         .order("due_at", { ascending: true })
-        .limit(limit);
+        .limit(effectiveLimit);
       if (projectId) query = query.eq("project_id", projectId);
       const { data, error: fetchError } = await query;
       if (cancelled) return;
@@ -134,12 +152,13 @@ export function ProactiveQueuePanel({
     return () => {
       cancelled = true;
     };
-  }, [limit, projectId, projectLabels]);
+  }, [effectiveLimit, projectId, projectLabels, statuses]);
 
-  const todayMove = useMemo(() => items.find((item) => item.status !== "drafted") ?? items[0] ?? null, [items]);
   const overdueCount = items.filter((item) => dueState(item.dueAt) === "overdue").length;
   const draftedCount = items.filter((item) => item.status === "drafted").length;
-  const title = variant === "dashboard" ? "今日打つべき一手" : "先手キュー";
+  const blockedCount = items.filter((item) => item.status === "blocked").length;
+  const title = "TODO";
+  const description = projectId ? "このPJの未完TODO" : "今日見る未完TODO";
 
   return (
     <section className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2 min-h-[120px]">
@@ -147,63 +166,48 @@ export function ProactiveQueuePanel({
         <div className="min-w-0">
           <h2 className="text-sm font-semibold leading-tight">{title}</h2>
           <p className="text-[10px] text-muted-foreground mt-0.5">
-            {projectId ? "このPJの先手outbox" : "期限が近いPJ横断の先手outbox"}
+            {description}
           </p>
         </div>
         <div className="ml-auto flex items-center gap-1 text-[10px]">
           <span className="rounded border border-border bg-background px-1.5 py-0.5">{items.length} 件</span>
           {overdueCount > 0 && <span className="rounded border border-rose-300 bg-rose-50 px-1.5 py-0.5 text-rose-800">超過 {overdueCount}</span>}
-          {draftedCount > 0 && <span className="rounded border border-violet-300 bg-violet-50 px-1.5 py-0.5 text-violet-800">下書き {draftedCount}</span>}
+          {blockedCount > 0 && <span className="rounded border border-rose-300 bg-rose-50 px-1.5 py-0.5 text-rose-800">停止 {blockedCount}</span>}
+          {draftedCount > 0 && <span className="rounded border border-violet-300 bg-violet-50 px-1.5 py-0.5 text-violet-800">資料済 {draftedCount}</span>}
         </div>
       </div>
 
       {loading ? (
         <div className="my-auto h-16 rounded border border-border/60 bg-muted/20 animate-pulse" />
       ) : error ? (
-        <p className="text-xs text-muted-foreground my-auto text-center">先手キューはadmin権限で表示されるよ</p>
+        <p className="text-xs text-muted-foreground my-auto text-center">TODOはadmin権限で表示されるよ</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-muted-foreground my-auto text-center">期限が近い先手キューなし</p>
+        <p className="text-xs text-muted-foreground my-auto text-center">今すぐ見るTODOなし</p>
       ) : (
         <>
-          {todayMove && variant === "dashboard" && <HeroMove item={todayMove} />}
           <ul className="space-y-1.5">
-            {items.slice(variant === "dashboard" ? 0 : 0, limit).map((item) => (
-              <QueueRow key={item.outboxId} item={item} compact={variant === "dashboard"} />
+            {items.slice(0, effectiveLimit).map((item) => (
+              <QueueRow key={item.outboxId} item={item} compact={variant === "dashboard"} onOpen={() => setSelectedItem(item)} />
             ))}
           </ul>
         </>
       )}
+      {selectedItem && <TodoDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
     </section>
   );
 }
 
-function HeroMove({ item }: { item: ProactiveQueueItem }) {
-  const priority = PRIORITY_META[item.priority] ?? PRIORITY_META.yellow;
-  return (
-    <Link
-      href={`/project/${encodeURIComponent(item.projectId)}/cockpit`}
-      className={`block rounded-md border border-l-4 ${priority.rail} bg-background px-2.5 py-2 hover:bg-muted/30 transition-colors`}
-    >
-      <div className="flex items-center gap-1.5 text-[10px] mb-1">
-        <span className={`rounded border px-1.5 py-0.5 ${priority.className}`}>{priority.label}</span>
-        <span className="font-mono text-muted-foreground">{item.projectLabel}</span>
-        <span className="text-muted-foreground ml-auto">{formatDue(item.dueAt)}</span>
-      </div>
-      <p className="text-[12px] font-medium leading-snug line-clamp-2">{item.recommendedFirstMove}</p>
-    </Link>
-  );
-}
-
-function QueueRow({ item, compact }: { item: ProactiveQueueItem; compact: boolean }) {
+function QueueRow({ item, compact, onOpen }: { item: ProactiveQueueItem; compact: boolean; onOpen: () => void }) {
   const status = STATUS_META[item.status] ?? STATUS_META.queued;
   const priority = PRIORITY_META[item.priority] ?? PRIORITY_META.yellow;
   const Icon = status.icon;
   const state = dueState(item.dueAt);
   return (
     <li>
-      <Link
-        href={`/project/${encodeURIComponent(item.projectId)}/cockpit`}
-        className={`block rounded-md border border-l-4 ${priority.rail} bg-background px-2.5 py-2 hover:bg-muted/30 transition-colors`}
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`block w-full text-left rounded-md border border-l-4 ${priority.rail} bg-background px-2.5 py-2 hover:bg-muted/30 transition-colors`}
       >
         <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
           <span className="font-mono text-muted-foreground">{item.projectLabel}</span>
@@ -221,7 +225,7 @@ function QueueRow({ item, compact }: { item: ProactiveQueueItem; compact: boolea
         </p>
         <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
           <span>ボール: {BALL_OWNER_LABEL[item.ballOwner] ?? item.ballOwner}</span>
-          <span>下書き: {DRAFT_TYPE_LABEL[item.draftType] ?? item.draftType}</span>
+          <span>資料: {DRAFT_TYPE_LABEL[item.draftType] ?? item.draftType}</span>
           <span>理由: {TRIGGER_LABEL[item.triggerType] ?? item.triggerType}</span>
           {item.commanderThreadId && <span>司令塔: {shortThread(item.commanderThreadId)}</span>}
         </div>
@@ -235,8 +239,117 @@ function QueueRow({ item, compact }: { item: ProactiveQueueItem; compact: boolea
             {item.blockedReason && <div className="mt-1 text-rose-700">停止理由: {item.blockedReason}</div>}
           </div>
         )}
-      </Link>
+      </button>
     </li>
+  );
+}
+
+function TodoDetailModal({ item, onClose }: { item: ProactiveQueueItem; onClose: () => void }) {
+  const status = STATUS_META[item.status] ?? STATUS_META.queued;
+  const priority = PRIORITY_META[item.priority] ?? PRIORITY_META.yellow;
+  const Icon = status.icon;
+  const nextAction = nextActionLabel(item.status);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-3 py-4" role="dialog" aria-modal="true">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
+        <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-border bg-card px-4 py-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+              <span className="font-mono text-muted-foreground">{item.projectLabel}</span>
+              <span className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 ${status.className}`}>
+                <Icon className="h-3 w-3" />
+                {status.label}
+              </span>
+              <span className={`rounded border px-1.5 py-0.5 ${priority.className}`}>{priority.label}</span>
+              <span className="text-muted-foreground">期限 {formatDue(item.dueAt)}</span>
+            </div>
+            <h3 className="mt-1 text-base font-semibold leading-snug">TODO詳細</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto rounded border border-border p-1.5 text-muted-foreground hover:bg-muted/40"
+            aria-label="TODO詳細を閉じる"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-4 py-4 text-sm">
+          <section className="rounded-md border border-border/70 bg-muted/10 p-3">
+            <h4 className="text-xs font-semibold text-muted-foreground">次にやること</h4>
+            <p className="mt-1 leading-relaxed">{item.recommendedFirstMove}</p>
+          </section>
+
+          <section className="grid gap-2 md:grid-cols-2">
+            <InfoRow label="いまの状態" value={statusExplanation(item.status)} />
+            <InfoRow label="誰のボールか" value={BALL_OWNER_LABEL[item.ballOwner] ?? item.ballOwner} />
+            <InfoRow label="資料の種類" value={DRAFT_TYPE_LABEL[item.draftType] ?? item.draftType} />
+            <InfoRow label="発生理由" value={TRIGGER_LABEL[item.triggerType] ?? item.triggerType} />
+            <InfoRow label="司令塔" value={item.commanderThreadId ? shortThread(item.commanderThreadId) : "未設定"} />
+            <InfoRow label="次の期待アクション" value={nextAction} />
+          </section>
+
+          <section>
+            <h4 className="text-xs font-semibold text-muted-foreground">遅れた場合のリスク</h4>
+            <p className="mt-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950">{item.riskIfLate}</p>
+          </section>
+
+          {item.draftArtifactRefs.length > 0 && (
+            <section>
+              <h4 className="text-xs font-semibold text-muted-foreground">えいみ/司令塔が作成済みの資料</h4>
+              <div className="mt-2 space-y-2">
+                {item.draftArtifactRefs.map((ref, idx) => (
+                  <a
+                    key={`${ref.artifact}-${idx}`}
+                    href={pathToHref(ref.artifact)}
+                    className="block rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-violet-950 hover:bg-violet-100"
+                  >
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold">
+                      <ExternalLink className="h-3 w-3" />
+                      {ref.artifact}
+                    </span>
+                    {ref.summary && <p className="mt-1 text-xs leading-relaxed text-violet-900">{ref.summary}</p>}
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {item.evidenceRefs.length > 0 && (
+            <section>
+              <h4 className="text-xs font-semibold text-muted-foreground">このTODOが発生した経緯</h4>
+              <div className="mt-2 space-y-2">
+                {item.evidenceRefs.map((ref, idx) => (
+                  <div key={`${ref.source}-${idx}`} className="rounded-md border border-border/70 bg-background px-3 py-2">
+                    <div className="text-xs font-semibold">{ref.source}</div>
+                    {ref.section && <div className="text-[11px] text-muted-foreground">{ref.section}</div>}
+                    {ref.snippet && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{ref.snippet}</p>}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {item.blockedReason && (
+            <section>
+              <h4 className="text-xs font-semibold text-rose-700">停止理由</h4>
+              <p className="mt-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-rose-900">{item.blockedReason}</p>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border/70 bg-background px-3 py-2">
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="mt-0.5 text-xs font-medium">{value}</div>
+    </div>
   );
 }
 
@@ -260,8 +373,42 @@ function normalizeRow(row: Record<string, unknown>, projectLabels: Record<string
     draftedAt: row.drafted_at ? String(row.drafted_at) : null,
     sentToCounterpartAt: row.sent_to_counterpart_at ? String(row.sent_to_counterpart_at) : null,
     closedAt: row.closed_at ? String(row.closed_at) : null,
-    draftArtifactRefs: Array.isArray(row.draft_artifact_refs) ? row.draft_artifact_refs : [],
+    draftArtifactRefs: normalizeArtifactRefs(row.draft_artifact_refs),
+    evidenceRefs: normalizeEvidenceRefs(row.evidence_refs),
+    sourceKind: String(row.source_kind || ""),
+    sourceId: String(row.source_id || ""),
   };
+}
+
+function normalizeArtifactRefs(value: unknown): DraftArtifactRef[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const record = item as Record<string, unknown>;
+      return {
+        artifact: String(record.artifact || ""),
+        summary: String(record.summary || ""),
+        addedAt: String(record.added_at || ""),
+      };
+    })
+    .filter((item): item is DraftArtifactRef => Boolean(item?.artifact));
+}
+
+function normalizeEvidenceRefs(value: unknown): EvidenceRef[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item): EvidenceRef | null => {
+      if (!item || typeof item !== "object") return null;
+      const record = item as Record<string, unknown>;
+      const ref: EvidenceRef = {
+        source: String(record.source || ""),
+      };
+      if (record.section) ref.section = String(record.section);
+      if (record.snippet) ref.snippet = String(record.snippet);
+      return ref;
+    })
+    .filter((item): item is EvidenceRef => Boolean(item?.source));
 }
 
 function normalizeStatus(value: unknown): ProactiveStatus {
@@ -319,4 +466,27 @@ function dueState(iso: string): "overdue" | "today" | "future" {
 function shortThread(threadId: string) {
   if (threadId.length <= 10) return threadId;
   return `${threadId.slice(0, 8)}…${threadId.slice(-4)}`;
+}
+
+function statusExplanation(status: ProactiveStatus) {
+  if (status === "queued") return "まだ司令塔へ投げる前。司令塔に送って着手させる段階。";
+  if (status === "sent_to_commander") return "司令塔へ依頼済み。司令塔/workerが内部資料を作る段階。";
+  if (status === "drafted") return "内部資料は作成済み。内容レビュー、外部送付、完了判断のどれかへ進める段階。";
+  if (status === "blocked") return "止まっている。停止理由を解消する必要がある。";
+  if (status === "sent_to_counterpart") return "相手へ送付済み。反応待ちまたは完了判断の段階。";
+  return "完了済み。";
+}
+
+function nextActionLabel(status: ProactiveStatus) {
+  if (status === "queued") return "司令塔へ通知する";
+  if (status === "sent_to_commander") return "司令塔/workerの成果物を待つ";
+  if (status === "drafted") return "資料を確認して、外部送付・追加修正・完了のどれかを決める";
+  if (status === "blocked") return "停止理由を解消する";
+  if (status === "sent_to_counterpart") return "相手の反応を確認する";
+  return "追加対応なし";
+}
+
+function pathToHref(path: string) {
+  if (/^https?:\/\//.test(path)) return path;
+  return `file://${path}`;
 }

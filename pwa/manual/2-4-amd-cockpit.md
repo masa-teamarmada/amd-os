@@ -23,17 +23,19 @@ URL: `/project/p00/cockpit`。**会社全体 (= AMD 株式会社) を 1 つの P
 - `/management-score` で 5 軸ごとの evidence・推移・PJ ごとの寄与を確認
 - evidence の追加は LLM 抽出 (= Codex automation) + 手動入力
 
-## Dashboard の「今日打つべき一手」
+## Dashboard の TODO
 
-`/dashboard` の上部に、PJ横断の `proactive_outbox` を read-only で表示する。まさや司令塔が最初に見る入口として、期限が近い先手キューから「今日打つべき一手」を先頭に出す。
+`/dashboard` の上部に、PJ横断の `proactive_outbox` を read-only で表示する。まさや司令塔が最初に見る入口として、まだ司令塔通知前 / 司令塔対応中 / ブロック中の TODO を最大 3 件に絞って出す。資料作成済みのものは Dashboard 上部には混ぜず、各 PJ cockpit 側で確認する。
 
 表示するもの:
 - PJ名、優先度、期限、状態
 - 推奨 first move
-- 誰のボールか、下書き種別、トリガー理由、担当司令塔
-- 下書き済み件数と期限超過件数
+- 誰のボールか、資料の種類、トリガー理由、担当司令塔
+- 期限超過件数と停止件数
 
-対象 status は `queued`, `sent_to_commander`, `drafted`, `blocked`。状態更新や外部送付は Dashboard では行わない。キュー行を押すと該当 PJ cockpit に移動し、PJ文脈で同じ先手キューを確認できる。
+対象 status は `queued`, `sent_to_commander`, `blocked`。状態更新や外部送付は Dashboard では行わない。TODO 行を押すと画面内モーダルが開き、その TODO が発生した経緯、遅れた場合のリスク、司令塔/worker が作った資料リンク、次の期待アクションを確認できる。
+
+`drafted` は「司令塔/worker が内部資料を作成済み」の状態。ここからは、まさまたは担当司令塔が内容を確認し、外部送付する / 追加修正する / 完了扱いにする、のどれかへ進める。
 
 ---
 

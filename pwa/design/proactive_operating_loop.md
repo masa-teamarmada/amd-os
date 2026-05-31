@@ -43,7 +43,7 @@ AMD OS には現在、先手力を可視化するスコアや、L2 ⑥ MTGサマ
 3. 相手から催促される前に、進捗共有・提案・資料ドラフトを出しているか。
 4. 重要 PJ で、次回 MTG 前に提示すべき agenda / roadmap / proposal が準備されているか。
 
-このループは L2 そのものではなく、L2 と司令塔 / worker をつなぐ control layer として扱う。入力は L2 ⑥ MTGサマリ、L2 ⑨ 経営ハイライト、Calendar、Gmail、Slack、Drive、Notion、monthly reports、MS 進捗など。出力は outbox row と commander 通知、UI 上の先手キュー、SLA 違反ログ。
+このループは L2 そのものではなく、L2 と司令塔 / worker をつなぐ control layer として扱う。入力は L2 ⑥ MTGサマリ、L2 ⑨ 経営ハイライト、Calendar、Gmail、Slack、Drive、Notion、monthly reports、MS 進捗など。出力は outbox row と commander 通知、UI 上の TODO、SLA 違反ログ。
 
 ## OS vs Codex/commander responsibility split
 
@@ -404,20 +404,21 @@ LIMIT 20;
 
 ## UI proposal
 
-### Dashboard: 今日打つべき一手
+### Dashboard: TODO
 
-Dashboard 上部または Management Score 近くに「今日打つべき一手」を出す。
+Dashboard 上部または Management Score 近くに「TODO」を出す。Dashboard では、まだ司令塔通知前 / 司令塔対応中 / ブロック中の未完 TODO だけを最大3件に絞る。作成済み資料の確認や履歴確認は、各 PJ cockpit 側で見る。
 
 表示:
 
 - red / yellow 件数
-- 期限が近い top 5
+- 期限が近い top 3
 - PJ、相手、due、recommended_first_move
-- `司令塔へ送信済み` / `draft済み` / `blocked` の状態
+- `未送信` / `司令塔へ送信済み` / `blocked` の状態
+- 行クリック時は PJ へ遷移せず、発生経緯・遅延リスク・作成済み資料リンク・次の期待アクションをモーダルで開く
 
-### Cockpit: 先手キュー tab
+### Cockpit: TODO panel
 
-`/project/[projectId]/cockpit` に「先手キュー」タブまたは MTG サマリ近くの panel を追加する。
+`/project/[projectId]/cockpit` に PJ 単位の TODO panel を置く。
 
 表示:
 
@@ -622,8 +623,8 @@ risk_if_late:
 
 ### Phase 3: UI MVP
 
-- Dashboard に「今日打つべき一手」を出す。
-- Cockpit に PJ 別先手キューを出す。
+- Dashboard に TODO を出す。
+- Cockpit に PJ 別 TODO を出す。
 - Admin / commander view は Phase 3 後半でよい。
 
 ### Phase 4: Trigger expansion
@@ -659,8 +660,8 @@ risk_if_late:
    - commander notification
    - retry / dedupe / blocked handling
 5. UI worker を切る。
-   - Dashboard 「今日打つべき一手」
-   - Cockpit 「先手キュー」
+   - Dashboard 「TODO」
+   - Cockpit 「TODO」
    - Admin commander outbox view
 6. seed worker を切る。
    - KUTE / ZMP / CX / SX / VSX / NIMS OS導入の initial commander_thread_id と initial loop を登録する。
