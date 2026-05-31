@@ -556,7 +556,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
           const sourceHash = textFromUnknown(meta.candidate_source_hash);
           let query = supabase
             .from("textbook_insight_candidates")
-            .select("candidate_id, title, topic, proposed_section, target_bzm_slug, insight_type, priority, body_md, evidence_refs, source_tables, source_hash, status, reviewed_at, applied_at, applied_file")
+            .select("candidate_id, title, topic, proposed_section, target_bzm_slug, insight_type, priority, body_md, evidence_refs, source_tables, source_hash, status, reviewed_at, applied_at, applied_file, metadata_json, confidentiality, bzm_review_required, bzm_review_status, theory_change_scope")
             .eq("target_id", n.target_id);
           if (candidateId) {
             query = query.eq("candidate_id", candidateId);
@@ -587,6 +587,8 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
               heading: `${r.title} [${r.status}]`,
               body: [
                 `分類: ${r.insight_type} / priority ${r.priority}`,
+                `実践分類: ${textFromUnknown(objectValue(r.metadata_json).practice_kind) || "decision_branch"}`,
+                `機密: ${r.confidentiality || "internal_only"} / BZM review: ${r.bzm_review_required ? r.bzm_review_status || "pending" : "not_required"} / scope: ${r.theory_change_scope || "none"}`,
                 `追記先: /bzm/${r.target_bzm_slug}${r.proposed_section ? ` / ${r.proposed_section}` : ""}`,
                 String(r.body_md ?? ""),
                 refText ? `根拠:\n${refText}` : "",

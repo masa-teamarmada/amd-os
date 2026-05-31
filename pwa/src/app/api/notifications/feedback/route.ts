@@ -848,7 +848,7 @@ async function updateTextbookInsightCandidates(args: {
     if (includeExact && candidateId) query = query.eq("candidate_id", candidateId);
     if (includeExact && sourceHash && !candidateId) query = query.eq("source_hash", sourceHash);
     if (!includeExact) query = query.eq("scope_key", args.scopeKey);
-    return query.select("candidate_id, title, target_bzm_slug, insight_type, status");
+    return query.select("candidate_id, title, target_bzm_slug, insight_type, metadata_json, confidentiality, bzm_review_required, bzm_review_status, theory_change_scope, status");
   };
 
   if (candidateId || sourceHash) {
