@@ -64,7 +64,7 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 ## 完了済みタスク
 
 1. 2026-05-31 BZM司令塔タスク台帳作成
-   - お願いした内容: BZM司令塔のタスクを `COMMANDER_TASKS_BZM.md` として台帳化する。
+   - お願いした内容: BZM司令塔のタスクを `COMMANDER_TASKS.md` として台帳化する。
    - 背景: AMD総司令塔から `司令塔タスク台帳ルール` が標準運用になり、BZM司令塔でもまさが状況を読める台帳が必要になったため。
    - 現状: このファイルを作成し、Textbook役割分担、実践知の理論取り込み判断、理論変更候補レビュー、過剰一般化防止、Textbook側レビュー待ちを未完タスクに整理した。
    - 残課題: 今後、worker切り出し・完了・差し戻し・archiveのたびに更新する。
