@@ -110,7 +110,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "8-3-failures-pivots-and-revisions", title: "失敗・ピボット・仮説修正 — 消耗を学習に変える", summary: "早すぎた設立、顧客仮説の外れ、VC拒絶、制度・技術の詰まりを判断ルールへ変換する。" },
   { slug: "8-4-relationship-playbook", title: "関係構築プレイブック — 研究者・大学・企業・VC・行政", summary: "Before Zero で誰とどう関係を作り、何を先に握るかを相手カテゴリごとに整理する。" },
   { slug: "8-5-before-zero-checkpoints", title: "Before Zero チェックポイント — 次に何を見るか", summary: "フェーズごとの確認項目、赤信号、次アクション、再利用できる問いを整理する。" },
-  { slug: "9-1-references", title: "統合参考文献", summary: "全 10 章が引用した学術文献・公的資料・内部正本を一箇所に集約。" },
+  { slug: "9-1-references", title: "統合参考文献", summary: "BZM 教科書が引用した学術文献・公的資料・内部正本を一箇所に集約。" },
   { slug: "9-2-notation", title: "記号一覧", summary: "マクロ → 個体 → 苗床の順に、数学記号の意味・値域・初出をまとめた notation table。" },
   { slug: "9-3-glossary", title: "用語集", summary: "Before Zero・Triple Helix・律速・retrofit・ERS など主要用語の定義。" },
   { slug: "9-4-ers-rubric", title: "付録：ERS 全 8 軸 rubric", summary: "第 7 部 ERS の 8 軸 × サブ軸 × Lv1〜5 到達状態定義を全軸ぶん集約。本書だけで機関評価を再現できる。" },
