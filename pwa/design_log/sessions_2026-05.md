@@ -811,3 +811,30 @@ frl_cap_amd = F_cap(全員) - F_cap(AMD抜き)
 - Supabase Management API: migration 114 `OK (201)`。
 - `pg_policies` / `information_schema.role_table_grants` で `institution_policy_items` は public read、`institution_policy_assessments` は admin/service_role read に限定されていることを確認。
 - anon key REST で `institution_policy_assessments` が読めないことを確認。
+
+---
+
+## 2026-05-31 (#107) — Codex (えいみ) / 先手力維持ループ DB 土台
+
+> AMD総司令塔判断「先手力ループは新L2ではなく control layer」と、`pwa/design/proactive_operating_loop.md` に基づく migration worker。
+
+### 実装
+
+- migration `117_proactive_operating_loop.sql` 追加。
+- `project_commander_threads`: PJ / institution と Codex commander thread の routing table。
+- `proactive_loops`: 先手リスクの親レコード。`loop_kind` / `ball_owner` / `priority` / `status` / `sla_due_at` / `evidence_refs` を保持。
+- `proactive_outbox`: heartbeat が拾う queue。`trigger_type` / `draft_type` / `due_at` / `commander_thread_id` / `draft_artifact_refs` / sent-drafted-closed timestamps を保持。
+- `proactive_loop_events`: 監査ログ / SLA違反ログ。
+- RLS は初期安全側として `anon` revoke、admin authenticated (`is_admin()`) と `service_role` のみに限定。
+- `pwa/design/db_schema.md` へ4テーブルの列・CHECK・dedupe index・RLS方針を追記。
+
+### Verified
+
+- Supabase Management API: migration 117 `OK (201)`。
+- live DB verify: `project_commander_threads=9 columns`, `proactive_loops=22 columns`, `proactive_outbox=29 columns`, `proactive_loop_events=10 columns`。
+- `pg_indexes` で dedupe / status+due / project / commander_thread / loop indexes を確認。
+- `pg_policies` と `information_schema.role_table_grants` で `anon` grant なし、admin authenticated (`is_admin()`) / `service_role` policy のみを確認。
+
+### 未完
+
+- helper / heartbeat / UI / initial seed は未実装。次workerで `proactive_loop_tool.mjs` と 10:15-20:15 heartbeat に進む。

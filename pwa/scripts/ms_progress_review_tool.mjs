@@ -1253,12 +1253,87 @@ async function upsertTextbookInsights(items) {
     "case_study",
     "theory_evidence",
   ]);
+  const validPracticeKinds = new Set([
+    "decision_branch",
+    "failure_learning",
+    "cross_project_pattern",
+    "theory_case",
+    "reusable_question",
+    "relationship_playbook",
+    "field_transition",
+  ]);
+  const validTheoryCaseKinds = new Set(["edge_case", "update_candidate"]);
+  const validConfidentiality = new Set(["internal_only", "sanitized", "publishable"]);
+  const validBzmReviewStatuses = new Set(["not_required", "pending", "approved", "changes_requested", "rejected"]);
+  const validTheoryChangeScopes = new Set([
+    "none",
+    "terminology",
+    "axis_definition",
+    "rubric",
+    "formula",
+    "weight",
+    "chapter_structure",
+  ]);
   const validStatuses = new Set(["candidate", "approved", "rejected", "applied", "archived"]);
   const rows = items.map((item) => {
     const refs = item.evidence_refs || item.evidenceRefs || [];
     const sourceTables = item.source_tables || item.sourceTables || [];
     const targetId = item.target_id || item.targetId || item.project_id || item.projectId || "p00";
     const insightType = String(item.insight_type || item.insightType || "before_zero_knowhow").trim();
+    const metadataInput = item.metadata_json || item.metadataJson || item.metadata || {};
+    const metadata = metadataInput && typeof metadataInput === "object" && !Array.isArray(metadataInput)
+      ? { ...metadataInput }
+      : {};
+    const validationWarnings = Array.isArray(metadata.validation_warnings)
+      ? metadata.validation_warnings.map((v) => String(v)).filter(Boolean)
+      : [];
+    const rawPracticeKind = String(item.practice_kind || item.practiceKind || metadata.practice_kind || "").trim();
+    if (rawPracticeKind) {
+      metadata.practice_kind = rawPracticeKind;
+      if (!validPracticeKinds.has(rawPracticeKind)) {
+        validationWarnings.push(`unknown practice_kind: ${rawPracticeKind}`);
+      }
+    } else if (!metadata.practice_kind) {
+      metadata.practice_kind = "decision_branch";
+    }
+    const rawTheoryCaseKind = String(item.theory_case_kind || item.theoryCaseKind || metadata.theory_case_kind || "").trim();
+    if (rawTheoryCaseKind) {
+      metadata.theory_case_kind = rawTheoryCaseKind;
+      if (!validTheoryCaseKinds.has(rawTheoryCaseKind)) {
+        validationWarnings.push(`unknown theory_case_kind: ${rawTheoryCaseKind}`);
+      }
+    }
+    const rawConfidentiality = String(item.confidentiality || metadata.confidentiality || "internal_only").trim();
+    const confidentiality = validConfidentiality.has(rawConfidentiality) ? rawConfidentiality : "internal_only";
+    if (!validConfidentiality.has(rawConfidentiality)) {
+      validationWarnings.push(`unknown confidentiality treated as internal_only: ${rawConfidentiality}`);
+    }
+    const rawTheoryChangeScope = String(item.theory_change_scope || item.theoryChangeScope || metadata.theory_change_scope || "none").trim();
+    const theoryChangeScope = validTheoryChangeScopes.has(rawTheoryChangeScope) ? rawTheoryChangeScope : "none";
+    if (!validTheoryChangeScopes.has(rawTheoryChangeScope)) {
+      validationWarnings.push(`unknown theory_change_scope treated as none: ${rawTheoryChangeScope}`);
+    }
+    const practiceKind = String(metadata.practice_kind || "");
+    const hasTheoryCaseReview =
+      practiceKind === "theory_case" && validTheoryCaseKinds.has(String(metadata.theory_case_kind || ""));
+    const bzmReviewRequired =
+      Boolean(item.bzm_review_required ?? item.bzmReviewRequired ?? metadata.bzm_review_required)
+      || theoryChangeScope !== "none"
+      || hasTheoryCaseReview;
+    const rawBzmReviewStatus = String(item.bzm_review_status || item.bzmReviewStatus || metadata.bzm_review_status || "").trim();
+    const bzmReviewStatus = validBzmReviewStatuses.has(rawBzmReviewStatus)
+      ? rawBzmReviewStatus
+      : bzmReviewRequired
+        ? "pending"
+        : "not_required";
+    if (bzmReviewRequired && bzmReviewStatus === "not_required") {
+      validationWarnings.push("bzm_review_required=true with not_required status; treated as pending");
+    }
+    metadata.confidentiality = confidentiality;
+    metadata.bzm_review_required = bzmReviewRequired;
+    metadata.bzm_review_status = bzmReviewRequired && bzmReviewStatus === "not_required" ? "pending" : bzmReviewStatus;
+    metadata.theory_change_scope = theoryChangeScope;
+    if (validationWarnings.length) metadata.validation_warnings = Array.from(new Set(validationWarnings));
     const sourceHash = item.source_hash || item.sourceHash || stableHash({
       targetId,
       title: item.title,
@@ -1279,6 +1354,11 @@ async function upsertTextbookInsights(items) {
       body_md: String(item.body_md || item.bodyMd || item.body || "").trim(),
       evidence_refs: refs,
       source_tables: sourceTables,
+      metadata_json: metadata,
+      confidentiality,
+      bzm_review_required: bzmReviewRequired,
+      bzm_review_status: metadata.bzm_review_status,
+      theory_change_scope: theoryChangeScope,
       source_hash: String(sourceHash),
       status: validStatuses.has(rawStatus) ? rawStatus : "candidate",
       extraction_run_id: item.extraction_run_id || item.extractionRunId || null,
@@ -1313,6 +1393,11 @@ async function upsertTextbookInsights(items) {
           candidate_id: row.candidate_id,
           candidate_source_hash: row.source_hash,
           insight_type: row.insight_type,
+          practice_kind: row.metadata_json?.practice_kind,
+          confidentiality: row.confidentiality,
+          bzm_review_required: row.bzm_review_required,
+          bzm_review_status: row.bzm_review_status,
+          theory_change_scope: row.theory_change_scope,
           target_bzm_slug: row.target_bzm_slug,
           priority: row.priority,
         },

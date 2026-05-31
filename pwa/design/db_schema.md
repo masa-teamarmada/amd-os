@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-31 02:59 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-31 13:06 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -11,7 +11,7 @@
 
 ## 索引
 
-[`amd_management_score_evidence`](#amd-management-score-evidence) / [`amd_management_score_raw_signals`](#amd-management-score-raw-signals) / [`amd_management_score_snapshots`](#amd-management-score-snapshots) / [`amd_management_score_source_runs`](#amd-management-score-source-runs) / [`amd_score_alpha`](#amd-score-alpha) / [`amd_score_alpha_proposals`](#amd-score-alpha-proposals) / [`amd_score_inputs`](#amd-score-inputs) / [`amd_score_revisions`](#amd-score-revisions) / [`app_notifications`](#app-notifications) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`company_actual_monthly`](#company-actual-monthly) / [`company_budget_actual_monthly`](#company-budget-actual-monthly) / [`company_budget_inputs`](#company-budget-inputs) / [`company_budget_monthly`](#company-budget-monthly) / [`company_budget_simulation_runs`](#company-budget-simulation-runs) / [`company_budget_variance_notes`](#company-budget-variance-notes) / [`company_finance_receipt_events`](#company-finance-receipt-events) / [`company_finance_recurring_items`](#company-finance-recurring-items) / [`freee_oauth_tokens`](#freee-oauth-tokens) / [`freeze_period_backfills`](#freeze-period-backfills) / [`institution_assessments`](#institution-assessments) / [`institution_capability_axes`](#institution-capability-axes) / [`institution_capability_criteria`](#institution-capability-criteria) / [`institution_policy_assessments`](#institution-policy-assessments) / [`institution_policy_items`](#institution-policy-items) / [`institutions`](#institutions) / [`issues`](#issues) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`lane_suggestions`](#lane-suggestions) / [`llm_model_config`](#llm-model-config) / [`llm_prompts`](#llm-prompts) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`meeting_action_items`](#meeting-action-items) / [`meeting_assets`](#meeting-assets) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_google_oauth_tokens`](#member-google-oauth-tokens) / [`member_knowledge`](#member-knowledge) / [`member_ms_activities`](#member-ms-activities) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`milestone_monthly_contribution_allocations`](#milestone-monthly-contribution-allocations) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`observation_log`](#observation-log) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`progress_estimate_state`](#progress-estimate-state) / [`project_config`](#project-config) / [`project_events`](#project-events) / [`project_founding_members`](#project-founding-members) / [`project_freeze_periods`](#project-freeze-periods) / [`project_graduation_signals`](#project-graduation-signals) / [`project_knowledge`](#project-knowledge) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_monthly_notes`](#project-monthly-notes) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_registry_diffs`](#project-registry-diffs) / [`project_strategy_signals`](#project-strategy-signals) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_xrl_evidence`](#project-xrl-evidence) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocol_examples`](#protocol-examples) / [`protocol_result_observations`](#protocol-result-observations) / [`protocols`](#protocols) / [`reimbursements`](#reimbursements) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seeds`](#seeds) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`tasks`](#tasks) / [`textbook_insight_candidates`](#textbook-insight-candidates) / [`triple_helix_loading`](#triple-helix-loading) / [`triple_helix_state_log`](#triple-helix-state-log) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`tsukuyomi_usage_log`](#tsukuyomi-usage-log) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`xrl_feedbacks`](#xrl-feedbacks)
+[`amd_management_score_evidence`](#amd-management-score-evidence) / [`amd_management_score_raw_signals`](#amd-management-score-raw-signals) / [`amd_management_score_snapshots`](#amd-management-score-snapshots) / [`amd_management_score_source_runs`](#amd-management-score-source-runs) / [`amd_score_alpha`](#amd-score-alpha) / [`amd_score_alpha_proposals`](#amd-score-alpha-proposals) / [`amd_score_inputs`](#amd-score-inputs) / [`amd_score_revisions`](#amd-score-revisions) / [`app_notifications`](#app-notifications) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`company_actual_monthly`](#company-actual-monthly) / [`company_budget_actual_monthly`](#company-budget-actual-monthly) / [`company_budget_inputs`](#company-budget-inputs) / [`company_budget_monthly`](#company-budget-monthly) / [`company_budget_simulation_runs`](#company-budget-simulation-runs) / [`company_budget_variance_notes`](#company-budget-variance-notes) / [`company_finance_receipt_events`](#company-finance-receipt-events) / [`company_finance_recurring_items`](#company-finance-recurring-items) / [`freee_oauth_tokens`](#freee-oauth-tokens) / [`freeze_period_backfills`](#freeze-period-backfills) / [`institution_assessments`](#institution-assessments) / [`institution_capability_axes`](#institution-capability-axes) / [`institution_capability_criteria`](#institution-capability-criteria) / [`institution_policy_assessments`](#institution-policy-assessments) / [`institution_policy_items`](#institution-policy-items) / [`institutions`](#institutions) / [`issues`](#issues) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`lane_suggestions`](#lane-suggestions) / [`llm_model_config`](#llm-model-config) / [`llm_prompts`](#llm-prompts) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`meeting_action_items`](#meeting-action-items) / [`meeting_assets`](#meeting-assets) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_google_oauth_tokens`](#member-google-oauth-tokens) / [`member_knowledge`](#member-knowledge) / [`member_ms_activities`](#member-ms-activities) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`milestone_monthly_contribution_allocations`](#milestone-monthly-contribution-allocations) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`observation_log`](#observation-log) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`proactive_loop_events`](#proactive-loop-events) / [`proactive_loops`](#proactive-loops) / [`proactive_outbox`](#proactive-outbox) / [`progress_estimate_state`](#progress-estimate-state) / [`project_commander_threads`](#project-commander-threads) / [`project_config`](#project-config) / [`project_events`](#project-events) / [`project_founding_members`](#project-founding-members) / [`project_freeze_periods`](#project-freeze-periods) / [`project_graduation_signals`](#project-graduation-signals) / [`project_knowledge`](#project-knowledge) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_monthly_notes`](#project-monthly-notes) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_registry_diffs`](#project-registry-diffs) / [`project_strategy_signals`](#project-strategy-signals) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_xrl_evidence`](#project-xrl-evidence) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocol_examples`](#protocol-examples) / [`protocol_result_observations`](#protocol-result-observations) / [`protocols`](#protocols) / [`reimbursements`](#reimbursements) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seeds`](#seeds) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`tasks`](#tasks) / [`textbook_insight_candidates`](#textbook-insight-candidates) / [`triple_helix_loading`](#triple-helix-loading) / [`triple_helix_state_log`](#triple-helix-state-log) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`tsukuyomi_usage_log`](#tsukuyomi-usage-log) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`xrl_feedbacks`](#xrl-feedbacks)
 
 ---
 
@@ -38,7 +38,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 6,215
+行数 (概算): 6,284
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1598,6 +1598,109 @@ PRIMARY KEY: `member_id, ym`
 | 6 | `total_yen` | `int4` | NULL | `` |
 | 7 | `last_generated_at` | `timestamptz` | NULL | `` |
 
+## proactive_loop_events
+
+行数 (概算): 0
+PRIMARY KEY: `event_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `event_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `loop_id` | `uuid` | NULL | `` |
+| 3 | `outbox_id` | `uuid` | NULL | `` |
+| 4 | `project_id` | `text` | NOT NULL | `` |
+| 5 | `event_type` | `text` | NOT NULL | `` |
+| 6 | `event_summary` | `text` | NOT NULL | `` |
+| 7 | `actor_kind` | `text` | NOT NULL | `'system'::text` |
+| 8 | `actor_id` | `text` | NULL | `` |
+| 9 | `metadata_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+CHECK: `event_type` is one of `detected`, `queued`, `sent_to_commander`, `drafted`, `sent_to_counterpart`, `closed`, `blocked`, `sla_breached`, `counterpart_nudge_detected`, `deduped`. `actor_kind` is one of `system`, `codex`, `commander`, `human`, `service`.
+
+Indexes: `loop_id`, `outbox_id`, `(project_id, created_at DESC)`, `(event_type, created_at DESC)`.
+
+RLS: `anon` is revoked. `authenticated` users can select/write only when `is_admin()` is true; `service_role` keeps full access. This table is the audit/SLA breach log for proactive control loops.
+
+## proactive_loops
+
+行数 (概算): 0
+PRIMARY KEY: `loop_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `loop_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `institution_id` | `text` | NULL | `` |
+| 4 | `commander_thread_id` | `text` | NULL | `` |
+| 5 | `loop_kind` | `text` | NOT NULL | `` |
+| 6 | `source_kind` | `text` | NOT NULL | `` |
+| 7 | `source_id` | `text` | NULL | `` |
+| 8 | `source_hash` | `text` | NULL | `` |
+| 9 | `meeting_id` | `text` | NULL | `` |
+| 10 | `calendar_event_id` | `text` | NULL | `` |
+| 11 | `title` | `text` | NOT NULL | `` |
+| 12 | `summary` | `text` | NULL | `` |
+| 13 | `ball_owner` | `text` | NOT NULL | `'ambiguous'::text` |
+| 14 | `priority` | `text` | NOT NULL | `'yellow'::text` |
+| 15 | `sla_due_at` | `timestamptz` | NULL | `` |
+| 16 | `status` | `text` | NOT NULL | `'open'::text` |
+| 17 | `evidence_refs` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 18 | `metadata_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 19 | `created_by` | `text` | NOT NULL | `'codex_automation'::text` |
+| 20 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 21 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 22 | `closed_at` | `timestamptz` | NULL | `` |
+
+CHECK: `loop_kind` is one of `post_meeting`, `ambiguous_ball`, `next_meeting_preparation`, `counterpart_nudge`, `deadline_followup`, `strategy_signal_action`, `report_only_gap`. `ball_owner` is one of `amd`, `counterpart`, `shared`, `ambiguous`. `priority` is one of `red`, `yellow`, `green`. `status` is one of `open`, `watching`, `closed`, `blocked`.
+
+Indexes: `(status, sla_due_at)`, `project_id`, `institution_id`, `commander_thread_id`, `(source_kind, source_id)`. Dedupe: unique `(project_id, loop_kind, source_kind, source_id)` when `source_id` exists; fallback unique `(project_id, loop_kind, source_hash)` when source id is absent.
+
+RLS: `anon` is revoked. `authenticated` users can select/write only when `is_admin()` is true; `service_role` keeps full access. `evidence_refs` should hold row refs, snippets, URLs, and hashes, not full email/minutes/Slack bodies.
+
+## proactive_outbox
+
+行数 (概算): 0
+PRIMARY KEY: `outbox_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `outbox_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `loop_id` | `uuid` | NULL | `` |
+| 3 | `project_id` | `text` | NOT NULL | `` |
+| 4 | `institution_id` | `text` | NULL | `` |
+| 5 | `meeting_id` | `text` | NULL | `` |
+| 6 | `calendar_event_id` | `text` | NULL | `` |
+| 7 | `source_kind` | `text` | NOT NULL | `` |
+| 8 | `source_id` | `text` | NULL | `` |
+| 9 | `source_hash` | `text` | NULL | `` |
+| 10 | `trigger_type` | `text` | NOT NULL | `` |
+| 11 | `ball_owner` | `text` | NOT NULL | `'ambiguous'::text` |
+| 12 | `priority` | `text` | NOT NULL | `'yellow'::text` |
+| 13 | `draft_type` | `text` | NOT NULL | `` |
+| 14 | `recommended_first_move` | `text` | NOT NULL | `` |
+| 15 | `risk_if_late` | `text` | NOT NULL | `` |
+| 16 | `due_at` | `timestamptz` | NOT NULL | `` |
+| 17 | `commander_thread_id` | `text` | NULL | `` |
+| 18 | `status` | `text` | NOT NULL | `'queued'::text` |
+| 19 | `sent_at` | `timestamptz` | NULL | `` |
+| 20 | `drafted_at` | `timestamptz` | NULL | `` |
+| 21 | `sent_to_counterpart_at` | `timestamptz` | NULL | `` |
+| 22 | `closed_at` | `timestamptz` | NULL | `` |
+| 23 | `blocked_reason` | `text` | NULL | `` |
+| 24 | `evidence_refs` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 25 | `draft_artifact_refs` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 26 | `metadata_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 27 | `created_by` | `text` | NOT NULL | `'codex_automation'::text` |
+| 28 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 29 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+CHECK: `trigger_type` is one of `meeting_ended`, `minutes_added`, `ball_ambiguous`, `next_meeting_due`, `counterpart_nudge_detected`, `deadline_approaching`, `strategy_signal_needs_action`, `report_only_gap`. `ball_owner` is one of `amd`, `counterpart`, `shared`, `ambiguous`. `priority` is one of `red`, `yellow`, `green`. `draft_type` is one of `email`, `slack`, `agenda`, `proposal`, `roadmap`, `next_action_plan`. `status` is one of `queued`, `sent_to_commander`, `drafted`, `sent_to_counterpart`, `closed`, `blocked`.
+
+Indexes: `(status, due_at)`, `project_id`, `institution_id`, `commander_thread_id`, `loop_id`, `(trigger_type, priority, due_at)`. Dedupe: unique `(project_id, trigger_type, source_id, draft_type)` when `source_id` exists; unique `(project_id, calendar_event_id, draft_type)` for next-meeting rows; fallback unique `(project_id, trigger_type, source_hash, draft_type)`.
+
+RLS: `anon` is revoked. `authenticated` users can select/write only when `is_admin()` is true; `service_role` keeps full access. `sent_to_counterpart_at` means a human/commander confirmed external sending; OS runtime does not send externally by itself.
+
 ## progress_estimate_state
 
 行数 (概算): 34
@@ -1614,6 +1717,30 @@ PRIMARY KEY: `project_id, ym`
 | 7 | `llm_model` | `text` | NULL | `` |
 | 8 | `message` | `text` | NULL | `` |
 | 9 | `last_processed_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_commander_threads
+
+行数 (概算): 0
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,commander_thread_id)` (constraint: `project_commander_threads_project_id_commander_thread_id_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `institution_id` | `text` | NULL | `` |
+| 4 | `commander_thread_id` | `text` | NOT NULL | `` |
+| 5 | `thread_label` | `text` | NULL | `` |
+| 6 | `status` | `text` | NOT NULL | `'active'::text` |
+| 7 | `created_by` | `text` | NOT NULL | `'codex_worker'::text` |
+| 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+CHECK: `status` is one of `active`, `archived`, `unknown`.
+
+Indexes: `project_id`, `institution_id`, `commander_thread_id`, `status`.
+
+RLS: `anon` is revoked. `authenticated` users can select/write only when `is_admin()` is true; `service_role` keeps full access. This is the routing table from project/institution scope to Codex commander threads.
 
 ## project_config
 
@@ -1717,7 +1844,7 @@ UNIQUE: `(project_id,ym)` (constraint: `project_graduation_signals_ym_unique`)
 
 ## project_knowledge
 
-行数 (概算): 2,551
+行数 (概算): 2,717
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -2356,6 +2483,11 @@ PRIMARY KEY: `candidate_id`
 | 24 | `applied_at` | `timestamptz` | NULL | `` |
 | 25 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 26 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 27 | `metadata_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 28 | `confidentiality` | `text` | NOT NULL | `'internal_only'::text` |
+| 29 | `bzm_review_required` | `bool` | NOT NULL | `false` |
+| 30 | `bzm_review_status` | `text` | NOT NULL | `'not_required'::text` |
+| 31 | `theory_change_scope` | `text` | NOT NULL | `'none'::text` |
 
 ## triple_helix_loading
 

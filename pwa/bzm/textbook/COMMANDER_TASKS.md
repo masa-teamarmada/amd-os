@@ -1,0 +1,58 @@
+# Textbook Commander Tasks
+
+> Last updated: 2026-05-31 JST
+>
+> Textbook司令塔のタスク台帳。タスク追加、方針変更、worker切り出し、
+> 完了報告、差し戻し、archive のたびに更新する。
+
+## 未完タスク（優先順位順）
+
+- **TextbookをBefore Zero実践テキストへ広げる**
+  - お願いした内容: BZMの概念説明だけでなく、Before Zeroの現場で起きる判断、失敗、迷い、仮説修正、関係構築、ケース、横断パターンを統合した実践テキストへ育てる。
+  - 背景: まさの意図は「BZM理論書」ではなく、次のBefore Zeroでどう動くかを学べる実務知の蓄積にあるため。
+  - 現状: 方針はOS司令塔レビューで採用済み。Phase 1として第8部に実践章 skeleton を追加し、L2⑩ metadata / confidentiality / BZM review gate も実装済み。
+  - 残課題: 実ケース本文はまだ入っていない。L2⑩候補を承認・追記しながら、実践章を「読むと判断に使える」内容へ増やす。
+
+- **L2⑩候補抽出・承認・追記フローを実運用に乗せる**
+  - お願いした内容: Supabase内の既存L2/OSデータからTextbook追記候補を抽出し、通知で承認し、承認後にlocal applierで `pwa/bzm/*.md` へ安全に追記する。
+  - 背景: Vercel runtimeやPWA APIからgit管理ファイルを直接編集せず、候補化、承認、local追記、commit/pushの二段階で事故を避けるため。
+  - 現状: `textbook_insight_candidates`、通知feedback、`apply_approved_textbook_insights.mjs`、L10 SKILL、specは実装済み。migration 116も本番DBへ適用済みで、schema docsも同期済み。
+  - 残課題: 既存候補のbackfill、実データでの候補品質確認、承認後の追記運用、applier実行後のcommit/deploy運用を実ケースで回す。
+
+- **BZM司令塔レビューが必要な候補の扱いを固める**
+  - お願いした内容: BZM理論、用語、rubric、数式、重み、章構成へ影響するTextbook候補を、Textbook司令塔だけで通さずBZM司令塔レビューへ回す。
+  - 背景: Textbookは掲載形式と実践テキスト運用を持つが、BZM理論の一貫性やモデル変更判断はBZM司令塔の守備範囲だから。
+  - 現状: `bzm_review_required`、`bzm_review_status`、`theory_change_scope` が候補DBに追加済み。applierはBZM未承認の理論候補をskipする。
+  - 残課題: BZM司令塔がどうレビューし、誰が `bzm_review_status` を更新するかの運用UI/手順が未実装。通知UIから直接更新するか、司令塔レビュー経由にするか決める。
+
+- **新章へのL2⑩ target routingを調整する**
+  - お願いした内容: L2⑩候補の `practice_kind` や内容に応じて、追記先を新章 `8-2`〜`8-5` へ自然に振り分ける。
+  - 背景: Phase 1実践章を追加したので、従来defaultの `8-1-amd-os-operations` に実務知見が集中すると、章の役割がまた曖昧になるため。
+  - 現状: 新章slugはmainに反映済み。specにはtarget routingの考え方があるが、helper側の具体的な新章振り分けはまだ次候補。
+  - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
+
+## 完了済みタスク
+
+- **Phase 1実践章追加**
+  - お願いした内容: 既存slugを壊さず、第8部にBefore Zero実践章 skeleton を追加する。
+  - 背景: Textbookを実践テキスト化するには、判断、失敗、関係構築、チェックポイントを受ける章が必要だったため。
+  - 現状: `8-2-field-decisions-and-branches`、`8-3-failures-pivots-and-revisions`、`8-4-relationship-playbook`、`8-5-before-zero-checkpoints` を追加済み。`bzm-chapters.ts`、preface、`8-1`、changelogも更新済み。main反映済みでVercel productionもREADY確認済み。
+  - 残課題: skeletonなので実ケース本文は未記入。今後のL2⑩承認候補で本文を育てる。
+
+- **L2⑩ metadata / confidentiality / BZM review gate 実装**
+  - お願いした内容: Textbook候補に実践分類、機密区分、BZMレビュー要否、理論影響範囲を持たせる。
+  - 背景: Before Zero実践テキストでは、単なるBZM理論補足だけでなく、機密度や理論変更リスクを分けて扱う必要があるため。
+  - 現状: migration 116で `metadata_json`、`confidentiality`、`bzm_review_required`、`bzm_review_status`、`theory_change_scope` を追加済み。helper、applier、notifications最小表示、spec、SKILLも更新済み。
+  - 残課題: 既存候補のmetadata backfill、BZMレビュー状態更新の運用UI、実データでのvalidation tuningが残っている。
+
+- **migration 116本番適用とschema/docs同期**
+  - お願いした内容: migration 116を本番DBへ適用し、`db_schema.md` とspecを現状へ同期する。
+  - 背景: worker Bのmain pushによりproduction codeが新カラムを読む状態になり、migration未適用だとDB/code mismatchが起きたため。
+  - 現状: OS司令塔がmigration 116を本番適用済み。`metadata_json` missingのRESTエラーは解消済み。worker Cがschema dumpを実行し、`pwa/design/db_schema.md` とspec/changelogを同期済み。
+  - 残課題: 今回の事故を踏まえ、main push後のVercel production確認とDB/code compatibility確認をworker終了ゲートに入れ続ける。
+
+- **Textbook worker完了報告ゲートの強化**
+  - お願いした内容: worker完了/停止/要判断時に、worker内finalだけでなくTextbook司令塔へ能動報告させる。
+  - 背景: heartbeatやread_threadだけでは報告漏れを拾う保険にしかならず、司令塔が統合判断を遅らせるため。
+  - 現状: Textbook worker prompt標準に、報告タイトル `【司令塔へ報告】<作業名> 完了/要判断/停止/ブロック`、送信先thread id、必須報告項目を追加済み。worker A main取り込みでも新形式の報告を受領済み。
+  - 残課題: 今後新規workerを切るたびにこの台帳とworker promptへ反映する。`UU` conflictや未分類dirtyが残るworkerはarchiveしない。

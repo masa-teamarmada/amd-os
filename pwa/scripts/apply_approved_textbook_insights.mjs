@@ -21,6 +21,8 @@ const SUPABASE_URL = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
 const SERVICE_KEY = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
 const BZM_DIR = path.join(ROOT, "bzm");
 const APPLIER = process.env.TEXTBOOK_INSIGHT_APPLIER || "local_textbook_applier";
+const VALID_CONFIDENTIALITY = new Set(["internal_only", "sanitized", "publishable"]);
+const VALID_BZM_REVIEW_STATUS = new Set(["not_required", "pending", "approved", "changes_requested", "rejected"]);
 
 const args = parseArgs(process.argv.slice(2));
 const limit = Math.min(50, Math.max(1, Number(args.limit || 20)));
@@ -103,6 +105,7 @@ function evidenceMarkdown(refs) {
       ref.date || ref.item_date || "",
       ref.title || "",
       ref.snippet || ref.summary || "",
+      ref.confidentiality ? `confidentiality=${ref.confidentiality}` : "",
       ref.hash ? `hash=${String(ref.hash).slice(0, 12)}` : "",
     ].filter(Boolean);
     return `- ${bits.join(" / ")}`;
@@ -110,14 +113,71 @@ function evidenceMarkdown(refs) {
   return ["", "### 根拠", "", ...lines].join("\n");
 }
 
+function objectValue(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizedCandidateMeta(candidate) {
+  const metadata = objectValue(candidate.metadata_json);
+  const confidentiality = VALID_CONFIDENTIALITY.has(candidate.confidentiality)
+    ? candidate.confidentiality
+    : VALID_CONFIDENTIALITY.has(metadata.confidentiality)
+      ? metadata.confidentiality
+      : "internal_only";
+  const theoryChangeScope = String(candidate.theory_change_scope || metadata.theory_change_scope || "none").trim() || "none";
+  const hasTheoryCaseReview =
+    String(metadata.practice_kind || "") === "theory_case"
+    && ["edge_case", "update_candidate"].includes(String(metadata.theory_case_kind || ""));
+  const bzmReviewRequired = Boolean(candidate.bzm_review_required ?? metadata.bzm_review_required)
+    || theoryChangeScope !== "none"
+    || hasTheoryCaseReview;
+  const bzmReviewStatusRaw = String(candidate.bzm_review_status || metadata.bzm_review_status || "").trim();
+  const bzmReviewStatus = VALID_BZM_REVIEW_STATUS.has(bzmReviewStatusRaw)
+    ? bzmReviewStatusRaw
+    : bzmReviewRequired
+      ? "pending"
+      : "not_required";
+  return {
+    metadata,
+    practiceKind: String(metadata.practice_kind || "decision_branch"),
+    confidentiality,
+    bzmReviewRequired,
+    bzmReviewStatus,
+    theoryChangeScope,
+  };
+}
+
+function candidateGate(candidate) {
+  const meta = normalizedCandidateMeta(candidate);
+  if (meta.confidentiality === "internal_only") {
+    return { ok: false, reason: "confidentiality internal_only; BZM file append requires sanitized or publishable", meta };
+  }
+  if (meta.bzmReviewRequired && meta.bzmReviewStatus !== "approved") {
+    return { ok: false, reason: `BZM review required but status is ${meta.bzmReviewStatus}`, meta };
+  }
+  if (meta.theoryChangeScope !== "none" && meta.bzmReviewStatus !== "approved") {
+    return { ok: false, reason: `theory_change_scope=${meta.theoryChangeScope} requires BZM review approved`, meta };
+  }
+  return { ok: true, reason: null, meta };
+}
+
 function candidateBlock(candidate) {
   const marker = `<!-- textbook-insight:${candidate.candidate_id} -->`;
+  const gate = normalizedCandidateMeta(candidate);
   return [
     "",
     marker,
     `## ${candidate.proposed_section || "Textbook Insight"}: ${candidate.title}`,
     "",
-    `> L2⑩ Textbook Insights / ${candidate.insight_type} / priority ${candidate.priority}`,
+    [
+      `> L2⑩ Textbook Insights`,
+      `practice_kind=${gate.practiceKind}`,
+      `insight_type=${candidate.insight_type}`,
+      `priority=${candidate.priority}`,
+      `confidentiality=${gate.confidentiality}`,
+      `bzm_review_status=${gate.bzmReviewStatus}`,
+      `theory_change_scope=${gate.theoryChangeScope}`,
+    ].join(" / "),
     "",
     String(candidate.body_md || "").trim(),
     evidenceMarkdown(candidate.evidence_refs),
@@ -155,6 +215,18 @@ async function main() {
   const candidates = await request(`textbook_insight_candidates?${filters.join("&")}`);
   const results = [];
   for (const candidate of candidates || []) {
+    const gate = candidateGate(candidate);
+    if (!gate.ok) {
+      results.push({
+        candidate_id: candidate.candidate_id,
+        title: candidate.title,
+        target_bzm_slug: candidate.target_bzm_slug,
+        skipped: true,
+        reason: gate.reason,
+        gate: gate.meta,
+      });
+      continue;
+    }
     const destination = slugToFile(candidate.target_bzm_slug);
     if (!apply) {
       results.push({
@@ -163,6 +235,7 @@ async function main() {
         target_bzm_slug: candidate.target_bzm_slug,
         file: destination,
         dryRun: true,
+        gate: gate.meta,
       });
       continue;
     }
