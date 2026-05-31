@@ -15,7 +15,7 @@
 | metadata gate | `metadata_json.practice_kind` 7分類、`confidentiality`、`bzm_review_required/status`、`theory_change_scope` を候補ごとに持つ |
 | 禁止 | Vercel runtime / PWA API から git 管理ファイルを直接編集・commit しない |
 
-2026-05-31 時点では metadata / confidentiality / BZM review gate 用 migration は repo 内に追加するだけ。本番DBへの `apply_ddl.py` 実行、Supabase DDL 適用、既存候補のDB更新はこの worker の範囲外。OS司令塔レビュー後に適用し、適用後だけ `python3 -X utf8 scripts/dump_schema.py` で `pwa/design/db_schema.md` を再生成する。
+2026-05-31 に OS司令塔が migration 116 (`pwa/scripts/migrations/116_textbook_insight_candidate_metadata_gates.sql`) を本番DBへ緊急適用し、`metadata_json` 未存在による DB/code mismatch は解消済み。この schema/docs sync worker は追加DDLを実行せず、適用済み production schema を `python3 -X utf8 scripts/dump_schema.py` で `pwa/design/db_schema.md` へ同期する。
 
 ## 目的と優先順位
 
@@ -215,7 +215,7 @@ node pwa/scripts/apply_approved_textbook_insights.mjs --apply --limit 20
 ## 未確認 / Partial
 
 - MMO / Codex automation の実 schedule 登録は repo 外状態。現時点の repo は SKILL と outbox/applier contract までを正本化する。
-- metadata / confidentiality / BZM review gate migration は repo 内作成済みでも、本番DB適用は OS司令塔レビュー後。適用前に `db_schema.md` を手書き更新しない。
+- metadata / confidentiality / BZM review gate migration 116 は本番DB適用済み。追加DDLは行わず、schema dump で `db_schema.md` を同期する。
 - notifications UI は候補詳細に metadata を表示する最小対応。BZM review status を通知画面から直接変更する運用UIは次worker候補。
 - 章の大規模再編はしない。初期は既存章 `8-1-amd-os-operations` / `6-1-retrofit-verification` / 関連理論章へ候補単位で追記する。
 - `applied_commit` は local applier 実行時点の HEAD を入れるため、厳密な追記 commit hash は commit 後に別途補完する運用が残る。

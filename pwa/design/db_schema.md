@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-31 02:59 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-31 13:06 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -38,7 +38,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 6,215
+行数 (概算): 6,284
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1717,7 +1717,7 @@ UNIQUE: `(project_id,ym)` (constraint: `project_graduation_signals_ym_unique`)
 
 ## project_knowledge
 
-行数 (概算): 2,551
+行数 (概算): 2,717
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -2356,6 +2356,11 @@ PRIMARY KEY: `candidate_id`
 | 24 | `applied_at` | `timestamptz` | NULL | `` |
 | 25 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 26 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 27 | `metadata_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 28 | `confidentiality` | `text` | NOT NULL | `'internal_only'::text` |
+| 29 | `bzm_review_required` | `bool` | NOT NULL | `false` |
+| 30 | `bzm_review_status` | `text` | NOT NULL | `'not_required'::text` |
+| 31 | `theory_change_scope` | `text` | NOT NULL | `'none'::text` |
 
 ## triple_helix_loading
 
