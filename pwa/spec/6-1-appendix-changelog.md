@@ -31,3 +31,4 @@
 | 2026-05-31 | 3-13 | 変更 | L2⑩ Textbook Insights の `practice_kind` routing を第8部新章へ同期。`decision_branch`→8-2、`failure_learning`→8-3、`relationship_playbook`→8-4、`reusable_question`/`field_transition`→8-5、`cross_project_pattern`→8-1 default、`theory_case`→6-1 + BZM review 前提を明記 | 第8部実践章追加後も helper / SKILL / spec の target routing が食い違わないようにするため | えいみ |
 | 2026-05-31 | 2-1 / 3-8 | 変更 | Dashboard と PJ cockpit に `ProactiveQueuePanel` を追加し、`proactive_outbox` を authenticated admin read-only で表示する contract を追記 | 先手力維持ループを通知だけでなくPWA上でも確認できるようにするため | えいみ |
 | 2026-05-31 | 3-8 / 4-3 | 変更 | 研究機関コックピットを `概要 + readiness snapshot + 進捗管理/スコア詳細タブ` の基本型へ変更し、MTGツリーを最上部から進捗管理下部へ移動する契約を追記 | NIMSコックピットでMTGツリーが最上部に出ていた違和感を解消し、研究機関でもPJ cockpitに近い情報設計に揃えるため | えいみ |
+| 2026-06-01 | 4-4 | 追加 | Management Score会社バイタル分類の本修正案を追加し、`signal_scope` / `applies_to_company_score` / pipeline分類、L2抽出validator、既存signals backfill、snapshot再計算ゲートを整理 | 暫定guard採用後、PJ個別情報をAMD会社バイタルへ混ぜない根本修正の判断材料を固定するため | えいみ |

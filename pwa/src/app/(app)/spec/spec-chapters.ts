@@ -68,7 +68,12 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
     key: "decision-engine",
     label: "経営判断エンジン",
     description: "AMD Score、FRL、XRL、経営判断ロジックの確定実装仕様。",
-    slugs: ["4-1-frl-ces-current-spec", "4-2-amd-score-current-spec", "4-3-ers-current-spec"],
+    slugs: [
+      "4-1-frl-ces-current-spec",
+      "4-2-amd-score-current-spec",
+      "4-3-ers-current-spec",
+      "4-4-management-score-company-vital-scope-plan",
+    ],
   },
   {
     key: "governance-ops",
@@ -113,6 +118,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "4-1-frl-ces-current-spec", title: "FRL CES 実装仕様", summary: "F_character × F_capability の CES 合成、DB列、実装関数、後方互換の現行契約。" },
   { slug: "4-2-amd-score-current-spec", title: "AMD Score 実装仕様", summary: "7 軸 Cobb-Douglas、M/X/F 表示、DB、route、bottleneck、FRL 境界の契約。" },
   { slug: "4-3-ers-current-spec", title: "ERS 実装仕様", summary: "研究機関 ERS の route、DB、fetch bundle、assessment upsert API、admin gate。" },
+  { slug: "4-4-management-score-company-vital-scope-plan", title: "Management Score 会社バイタル分類 本修正案", summary: "Management Score材料を会社バイタル/PJ個別へ分けるDB分類、L2抽出validator、backfill、snapshot再計算の未適用設計案。" },
   { slug: "5-1-document-governance-current-spec", title: "ドキュメント統制仕様", summary: "manual / spec / bzm の責務分離、附則更新ゲート、再構築要件。" },
   { slug: "5-2-development-operations-current-spec", title: "開発 / デプロイ運用仕様", summary: "repo、PWA技術スタック、deploy、build version、Supabase DDL、GAS deploy、検証 gate。" },
   { slug: "5-3-automation-responsibility-current-spec", title: "Automation 責務分担仕様", summary: "L2 ①〜⑩ writer、停止済み LLM cron、allowed cron、outbox applier、再発防止。" },
