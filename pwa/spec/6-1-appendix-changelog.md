@@ -27,3 +27,4 @@
 | 2026-05-31 | 3-13 / db_schema | 変更 | OS司令塔が migration 116 を本番DBへ緊急適用済みであることを反映し、`textbook_insight_candidates` の metadata / confidentiality / BZM review gate 5カラムを schema dump で同期 | `metadata_json` 未存在による DB/code mismatch 解消後、production schema と docs を一致させるため | えいみ |
 | 2026-05-31 | 4-3 / 3-8 | 変更 | ERS NIMSカードから `/institutions/inst_nims/cockpit` へ遷移し、既存CX (`p20`) の `CockpitView` とMTG treeを機関文脈で表示する contract を追記 | 新規NIMS PJを作らず、既存NIMSカードをPJコックピット相当に進化させるため | えいみ |
 | 2026-05-31 | 3-8 | 変更 | コックピットの `進捗管理` / `スコア詳細` タブを横幅2等分にし、スコア詳細タブは hidden panel 先読み、client memory cache 5分TTL、private HTTP cache、active時の背景再取得を contract 化 | まさ指摘「スコア詳細タブのローディングに時間がかかる」「2タブしかないので横幅いっぱいを2分割」への対応 | えいみ |
+| 2026-05-31 | 5-3 | 追加 | 先手力 heartbeat を L2 ではなく control layer として追加し、`amd-os-proactive-heartbeat` SKILL、helper `heartbeat`、send_message_to_thread 後の `mark-sent` 契約を記載 | `proactive_outbox` の queued/blocked を毎時15分に司令塔へ通知し、通知済みをDBに記録する運用を固定するため | えいみ |

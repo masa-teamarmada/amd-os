@@ -36,3 +36,4 @@
 | 2026-05-31 | 3-2 データと抽出 / 8-3 L2 routines | 追加 | L2⑥の開催済みソース guard を追加。Calendar添付Geminiメモ、Notion eventId空 fallback、report_emails空PJのGmail fallback、upcoming rowとの `prep_source_meeting_id` 紐付け、`npm run test:l6-held-source-guard` を明記 | 2026-05-26 東京理科大学 飯野さんMTGが実施後ソースありなのに upcoming 準備カードだけで止まった事故の再発防止 | えいみ |
 | 2026-05-31 | 4-9 研究機関 ERS | 変更 | NIMSカードから `/institutions/inst_nims/cockpit` へ入り、既存CX (`p20`) コックピットでMS進捗・月次・MTG履歴を追う導線を追記 | まさ依頼「NIMSの箱はもうある。新しいPJを作るより、そのカードをコックピット化する」への対応。重複PJを作らず既存カードと既存PJ導線を活かすため | えいみ |
 | 2026-05-31 | 2-3 PJ コックピット | 変更 | コックピット2タブを横幅いっぱいの左右2分割にし、スコア詳細は裏読み込みと短期再利用で2回目以降の読み込み待ちを減らす仕様を追記 | まさ指摘「スコア詳細タブのローディングに時間がかかる」「2タブしかないので横幅いっぱいを2分割」への対応 | えいみ |
+| 2026-05-31 | 8-3 L2 routines | 追加 | 先手力 heartbeat を L2 ではなく control layer として追記し、10:15-20:15 JST 毎時15分に `proactive_outbox` queued/blocked をPJ司令塔へ通知して `mark-sent` 記録する運用と SKILL 正本へのリンクを追加 | 先手力 outbox が積まれても司令塔へ届かない未完を解消し、復旧時に見る場所を人間にも分かるようにするため | えいみ |

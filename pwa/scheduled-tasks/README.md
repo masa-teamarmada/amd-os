@@ -1,6 +1,6 @@
 # AMD OS L2 抽出 Routine SKILL 正本
 
-このディレクトリは、L2 ①〜⑨ の **routine / automation が読む SKILL 正本**。L2 ①は Codex automation、L2 ②〜⑥は Windows MMO PC の Codex Desktop automation、L2 ⑦⑧⑨は Codex automation + outbox/applier で動く。実行手順の正本はこの repo 配下の SKILL.md に置く。
+このディレクトリは、L2 ①〜⑩ と control layer の **routine / automation が読む SKILL 正本**。L2 ①は Codex automation、L2 ②〜⑥は Windows MMO PC の Codex Desktop automation、L2 ⑦⑧⑨は Codex automation + outbox/applier、L2⑩は candidate/outbox + local BZM applier、先手力 heartbeat は Codex thread notification で動く。実行手順の正本はこの repo 配下の SKILL.md に置く。
 
 ## 運用 (= 2026-05-26 以降)
 
@@ -26,9 +26,11 @@
 | ⑦ OS 台帳差分 | Codex automation + outbox applier | `amd-os-l7-registry-diff-extract` | 6h ごと | `project_registry_diffs` |
 | ⑧ XRL 根拠 | Codex automation + outbox applier | `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `project_xrl_evidence` |
 | ⑨ 経営ハイライト | Codex automation + outbox applier | `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `project_strategy_signals` |
+| control | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox` → PJ司令塔 thread通知 → `mark-sent` |
 
 ## 関連 md
 
 - 設計議論: [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)
 - マニュアル: [`pwa/manual/8-3-l2-extraction-routines-spec.md`](../manual/8-3-l2-extraction-routines-spec.md)
 - L2 全体仕様: [`pwa/design/L2_DATA.md`](../design/L2_DATA.md)
+- 先手力 heartbeat: [`pwa/scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md`](amd-os-proactive-heartbeat/SKILL.md)

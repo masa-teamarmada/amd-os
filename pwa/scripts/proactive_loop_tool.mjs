@@ -16,6 +16,15 @@ const REPO_ROOT = path.resolve(PWA_ROOT, "..");
 const DEFAULT_DUE_HOURS = 72;
 const DEFAULT_LIMIT = 20;
 const ACTOR_ID = process.env.PROACTIVE_LOOP_ACTOR || "proactive_loop_tool";
+const PROJECT_LABELS = {
+  p25: "KUTE",
+  zmp: "ZMP / OkuDoor",
+  p19: "ZMP / OkuDoor",
+  p20: "CX",
+  p21: "SX",
+  p26: "VSX / 香川大",
+  nims_os: "NIMS / AMD OS導入",
+};
 const INITIAL_TARGETS = [
   { label: "KUTE", project_ids: ["p25"] },
   { label: "ZMP / OkuDoor / Tokyo University of Science", project_ids: ["p19", "zmp"] },
@@ -162,6 +171,95 @@ function sortOutbox(rows) {
     if (pa !== pb) return pa - pb;
     return String(a.due_at || "").localeCompare(String(b.due_at || ""));
   });
+}
+
+function formatJst(iso) {
+  if (!iso) return "未設定";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return String(iso);
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
+function labelForProject(projectId) {
+  return PROJECT_LABELS[projectId] || projectId;
+}
+
+function evidenceLines(refs) {
+  const items = Array.isArray(refs) ? refs : [];
+  if (!items.length) return "- 未設定";
+  return items.map((ref) => {
+    const source = ref.source || ref.url || ref.id || "source";
+    const section = ref.section ? ` / ${ref.section}` : "";
+    const snippet = ref.snippet ? `: ${ref.snippet}` : "";
+    return `- ${source}${section}${snippet}`;
+  }).join("\n");
+}
+
+function buildCommanderPrompt(row) {
+  const label = labelForProject(row.project_id);
+  const title = `【先手力outbox】${label}: ${row.draft_type} / ${row.trigger_type}`;
+  return `${title}
+
+priority: ${row.priority}
+due_at: ${formatJst(row.due_at)} JST
+project_id: ${row.project_id}
+outbox_id: ${row.outbox_id}
+trigger: ${row.trigger_type}
+ball_owner: ${row.ball_owner}
+draft_type: ${row.draft_type}
+
+推奨 first move:
+${row.recommended_first_move}
+
+遅れた場合のリスク:
+${row.risk_if_late}
+
+根拠:
+${evidenceLines(row.evidence_refs)}
+
+司令塔でやること:
+1. 必要なら worker を切って、上の first move のドラフト/整理資料を作る。
+2. worker には成果物、検証、残課題、次アクションをこの司令塔へ能動報告させる。
+3. 外部送付またはチーム提示が終わったら proactive_outbox を drafted / sent_to_counterpart / closed のどれかへ進める。
+
+heartbeat note:
+この通知は 10:15-20:15 JST 毎時15分の先手力 heartbeat が queued/blocked outbox を拾って送る運用。重い draft 生成は heartbeat ではやらない。`;
+}
+
+async function heartbeat(args) {
+  const listResult = await listOutbox({
+    ...args,
+    status: args.status || "queued,blocked",
+    limit: args.limit || DEFAULT_LIMIT,
+  });
+  const actions = listResult.rows.map((row) => ({
+    outbox_id: row.outbox_id,
+    project_id: row.project_id,
+    project_label: labelForProject(row.project_id),
+    status: row.status,
+    priority: row.priority,
+    due_at: row.due_at,
+    due_at_jst: formatJst(row.due_at),
+    commander_thread_id: row.commander_thread_id || null,
+    can_send: Boolean(row.commander_thread_id),
+    prompt: buildCommanderPrompt(row),
+    mark_sent_command: `node pwa/scripts/proactive_loop_tool.mjs mark-sent ${row.outbox_id} --summary "Heartbeat notified ${labelForProject(row.project_id)} commander."`,
+  }));
+  return {
+    ok: true,
+    count: actions.length,
+    due_hours: Number(args["due-hours"] || DEFAULT_DUE_HOURS),
+    actions,
+    missing_routes: actions.filter((action) => !action.can_send),
+  };
 }
 
 async function loadOutbox(outboxId) {
@@ -379,6 +477,7 @@ function usage() {
     ok: true,
     usage: [
       "node pwa/scripts/proactive_loop_tool.mjs list [--status queued,blocked] [--project p25] [--institution inst_id] [--limit 20] [--json]",
+      "node pwa/scripts/proactive_loop_tool.mjs heartbeat [--status queued,blocked] [--due-hours 72] [--limit 20] [--json]",
       "node pwa/scripts/proactive_loop_tool.mjs threads [--project p25] [--institution inst_id] [--status active] [--json]",
       "node pwa/scripts/proactive_loop_tool.mjs seed-check [--json]",
       "node pwa/scripts/proactive_loop_tool.mjs mark-sent <outbox_id> [--summary text] [--dry-run]",
@@ -416,6 +515,18 @@ function printHuman(command, result) {
     ]);
     return;
   }
+  if (command === "heartbeat") {
+    printTable(result.actions, [
+      { header: "send", get: (row) => (row.can_send ? "yes" : "no") },
+      { header: "priority", get: (row) => row.priority },
+      { header: "status", get: (row) => row.status },
+      { header: "due_at_jst", get: (row) => row.due_at_jst },
+      { header: "project", get: (row) => row.project_label },
+      { header: "thread_id", get: (row) => row.commander_thread_id || "" },
+      { header: "outbox_id", get: (row) => row.outbox_id },
+    ]);
+    return;
+  }
   if (command === "threads") {
     printTable(result.rows, [
       { header: "status", get: (row) => row.status },
@@ -446,6 +557,7 @@ async function main() {
   const outboxId = args._[1];
   let result;
   if (command === "list") result = await listOutbox(args);
+  else if (command === "heartbeat") result = await heartbeat(args);
   else if (command === "threads") result = await threads(args);
   else if (command === "seed-check") result = await seedCheck(args);
   else if (command === "mark-sent") result = await markSent(outboxId, args);
@@ -455,7 +567,7 @@ async function main() {
   else if (command === "block") result = await blockOutbox(outboxId, args);
   else result = usage();
 
-  if (args.json || !["list", "threads", "seed-check"].includes(command)) {
+  if (args.json || !["list", "heartbeat", "threads", "seed-check"].includes(command)) {
     console.log(JSON.stringify(result, null, 2));
   } else {
     printHuman(command, result);

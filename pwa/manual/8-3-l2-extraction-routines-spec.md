@@ -6,6 +6,8 @@
 
 **2026-05-29 正本訂正**: 2026-05-25〜26 の Claude routine / Cloud routine 案は履歴として残すが、現行の復旧主導線は下の **現行 writer 表** を見る。L2 ①は Codex automation、L2 ②〜⑥は MMOマシン Codex Desktop automation、L2 ⑦⑧⑨⑩は Codex automation + outbox/applier が現行ルート。
 
+**先手力 heartbeat**: `proactive_outbox` は L2 ではなく、L2 と司令塔 / worker をつなぐ control layer。10:15-20:15 JST の毎時15分に `amd-os-proactive-heartbeat` が queued/blocked の due soon を拾い、PJ司令塔へ通知してから `mark-sent` で通知済みを記録する。正本手順は [`pwa/scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md`](../scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md)。
+
 ## 対象 L2
 
 | L2 | テーブル | 役割 | 旧 writer | 現行 writer |
@@ -59,6 +61,7 @@ vs ローカル Mac scheduled task の問題:
 | ⑧ XRL 根拠 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `amd-os-ms` automation 履歴、`outbox.xrlEvidence`、LaunchAgent applier |
 | ⑨ 経営ハイライト | Codex automation + outbox applier | `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `amd-os` automation 履歴、strategy-signals outbox、LaunchAgent applier |
 | ⑩ Textbook Insights | Codex automation / local worker + outbox applier + local BZM applier | `amd-os-l10-textbook-insight-extract` | TBD / manual start | `amd-os-ms` outbox `textbookInsights`、`textbook_insight_candidates`、`apply_approved_textbook_insights.mjs` |
+| control 先手力 heartbeat | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox`、`project_commander_threads`、`proactive_loop_tool.mjs heartbeat`、司令塔 thread への通知結果 |
 
 ## 各 L2 の入出力仕様
 

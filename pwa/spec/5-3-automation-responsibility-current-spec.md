@@ -25,6 +25,19 @@
 
 SKILL 正本は `pwa/scheduled-tasks/amd-os-l<N>-*/SKILL.md`。L2 の品質改善は、PWA route / GAS function ではなく SKILL と outbox/applier contract を更新する。
 
+## Control layer: proactive heartbeat
+
+先手力維持ループは L2 ではなく、L2 と司令塔 / worker をつなぐ control layer。`proactive_outbox` に積まれた `queued` / `blocked` かつ due soon の行を、10:15-20:15 JST の毎時15分 heartbeat が拾い、`project_commander_threads.commander_thread_id` へ `send_message_to_thread` 相当で通知する。
+
+| 項目 | 契約 |
+|---|---|
+| SKILL 正本 | `pwa/scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md` |
+| helper | `node pwa/scripts/proactive_loop_tool.mjs heartbeat --status queued,blocked --due-hours 72 --limit 20 --json` |
+| 通知先 | `project_commander_threads.commander_thread_id` または `proactive_outbox.commander_thread_id` |
+| 成功後 | `mark-sent <outbox_id>` で `status='sent_to_commander'`, `sent_at=now()`, `proactive_loop_events.event_type='sent_to_commander'` を記録 |
+| 禁止 | heartbeat 内で外部送信や重い draft 生成をしない。司令塔 worker に渡す |
+| 例外 | routing missing / duplicate risk / network failure は mark-sent せず、AMD OS司令塔へ報告 |
+
 ## Stopped LLM cron
 
 | 旧経路 | 状態 | 理由 |
