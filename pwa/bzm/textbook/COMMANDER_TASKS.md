@@ -16,8 +16,8 @@
 - **公開原稿と内部正本を分離する**
   - お願いした内容: `pwa/bzm/*.md` をそのまま販売原稿扱いせず、内部source-of-truthと公開manuscriptを分ける。
   - 背景: L2⑩、applier、routing、changelog、source path、production deployなどは運用には必要だが、販売本の本文には混ぜてはいけないため。
-  - 現状: 方針は `PUBLICATION_STRATEGY.md` に記録済み。Public-Manuscript Audit で `8-1`、`8-2`〜`8-5` のL2/applier受け皿、`9-5`、`COMMANDER_TASKS.md`、内部path/changelogを `internal_only` として退避対象化済み。公開原稿候補の出力先は `pwa/bzm/public-manuscript/*.md` または export script のどちらかで検討。
-  - 残課題: `pwa/bzm/public-manuscript/*.md` に Prologue〜Chapter 3 の公開原稿ベースを作る。現行 `pwa/bzm/*.md` は内部sourceとして維持し、future public layer にだけ禁止語 lint をかける。
+  - 現状: 方針は `PUBLICATION_STRATEGY.md` に記録済み。Public-Manuscript Audit で `8-1`、`8-2`〜`8-5` のL2/applier受け皿、`9-5`、`COMMANDER_TASKS.md`、内部path/changelogを `internal_only` として退避対象化済み。公開原稿layerとして `pwa/bzm/public-manuscript/00-prologue.md`〜`03-support-can-isolate-researchers.md` を作成し、司令塔レビュー通過。
+  - 残課題: `pwa/bzm/public-manuscript/*.md` に Chapter 4以降を展開する。現行 `pwa/bzm/*.md` は内部sourceとして維持し、future public layer にだけ禁止語 lint をかける。
 
 - **TextbookをBefore Zero実践テキストへ広げる**
   - お願いした内容: BZMの概念説明だけでなく、Before Zeroの現場で起きる判断、失敗、迷い、仮説修正、関係構築、ケース、横断パターンを統合した実践テキストへ育てる。
@@ -56,6 +56,12 @@
   - 背景: 公開本は「AMDすごい」では売れず、読者主語で Before Zero の現場課題を解く必要があるため。
   - 現状: `pwa/bzm/textbook/runs/2026-06-01-public-manuscript-audit.md` を追加。全 `pwa/bzm/*.md` について章/section単位の分類、禁止語ヒット、置換案、AMD推しリスク、次worker方針を整理済み。
   - 残課題: 公開TOC draft、case_seed の匿名シーン化、公開原稿layer作成、publication lint。
+
+- **Textbook public manuscript prologue ch1-3**
+  - お願いした内容: 販売本として読める公開原稿layerの最初の4ファイルを作る。
+  - 背景: まず「AMDの宣伝ではない本」として読者契約を固めるため。
+  - 現状: `pwa/bzm/public-manuscript/00-prologue.md`、`01-research-results-are-not-companies.md`、`02-different-clocks.md`、`03-support-can-isolate-researchers.md` を追加。禁止語scanはno hits。司令塔レビューで公開原稿の入り口として通過。
+  - 残課題: Chapter 4〜6へ展開し、外部開示、GAP/VC/CEO機能、会社化タイミングを同じ公開文体で本文化する。
 
 - **Textbook whole-structure base**
   - お願いした内容: Textbook の入口を BZM 理論説明から Before Zero 実践テキストへ変え、既存理論章を後半の理論パートとして温存する。
