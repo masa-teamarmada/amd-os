@@ -15,22 +15,22 @@
 4. NIMS向け説明候補が、内部下書き止まりか、実提示済みか、どの範囲で共有されたか。
 5. PWA `/admin/ip` やAMD OS画面を外部へ画面共有した実績の有無、見せた可能性がある情報粒度。
 
-まさ認識「StartPassでは概要のみで今回の発明内容は話していない」は、ここでは未確認事実として扱う。現時点で「問題なし」「新規性喪失なし」とは断定しない。
+2026-06-02時点のまさ回答では、2026-05-20 StartPass / Stapa関連資料は実在し、AMD OS等の投影もあったが、今回の申請内容は開示していない前提。営業資料等は多数外部送付済みだが、今回の申請内容とは無関係との認識。Web / note / public manuscript / `/bzm`系の公開済みURLはなく、NIMS向けのOS画面又は説明資料の実提示もないとの回答。ここでは事実確認メモに留め、「問題なし」「新規性喪失なし」とは断定しない。
 
 ## 1. 軽量棚卸し表
 
 | category | item / material candidate | date / period | externality | material existence | distribution/shared? | invention-core exposure | current evidence location | next action | attorney question |
 |---|---|---|---|---|---|---|---|---|---|
-| StartPass / Stapa | 公開ページ / イベント告知 / アーカイブ候補 | 2026-05-20前後 | public / unknown | unknown | unknown | unknown | まさ確認待ち。Web調査は禁止のため未確認 | まさ側で公開ページ有無、公開範囲、掲載内容、公開日を確認 | 公開ページが概要告知だけの場合、どの記録を残せば足りるか |
-| StartPass / Stapa | 登壇資料 / 投影資料 / デモ表示候補 | 2026-05-20 | external-private / public / unknown | likely | unknown | overview / possible WS touch | `pwa/design/venture_map_demo.md`、`pwa/design_log/`内の5/20関連メモ。実投影版はまさ確認待ち | 当日実際に投影したファイル、配布有無、デモ操作範囲を確認 | デモ画面がAMD Score / BZM理論 / OS導入構想に触れる場合、発明公開に近づく粒度はどこか |
-| StartPass / Stapa | 録画 / 文字起こし / 参加者向け共有候補 | 2026-05-20以降 | external-private / public / unknown | likely | unknown | overview / possible WS touch | `pwa/bzm/textbook/runs/2026-06-01-stapa-event-textbook-source-notes.md`。元文字起こし実物はまさ確認待ち | 元文字起こし、録画、参加者共有リンク又は配布ファイルの有無を確認 | まさ認識どおり概要のみだった場合、録画 / transcriptを弁理士へどこまで見せるべきか |
-| Sales / investor / proposal | 営業資料 / 導入提案資料 / 投資家説明資料 | 日付未特定 | external-private / NDA / unknown | unknown | unknown | unknown | repo内IP資料では候補として明記。実資料一覧と送付履歴はまさ確認待ち | 資料名、送付日、相手区分、NDA有無、AMD OS / Protocol説明粒度を一覧化 | NDAあり / NDAなしで、WS-1〜WS-6のどの説明が発明公開に近づくか |
+| StartPass / Stapa | 公開ページ / イベント告知 / アーカイブ候補 | 2026-05-20前後 | public / unknown | exists per Masa | unknown | no current application content per Masa | 2026-06-02まさ回答。Web調査は禁止のため実物未確認 | 必要なら公開ページ有無、公開範囲、掲載内容、公開日だけ確認 | 公開ページが概要告知だけの場合、どの記録を残せば足りるか |
+| StartPass / Stapa | 登壇資料 / 投影資料 / デモ表示候補 | 2026-05-20 | external-private / public / unknown | exists / projected per Masa | unknown | no current application content per Masa | 2026-06-02まさ回答。`pwa/design/venture_map_demo.md`、`pwa/design_log/`内の5/20関連メモは候補 | 当日実際に投影したファイル名、配布有無、デモ操作範囲を必要最小限で確認 | デモ画面がAMD Score / BZM理論 / OS導入構想に触れる場合、発明公開に近づく粒度はどこか |
+| StartPass / Stapa | 録画 / 文字起こし / 参加者向け共有候補 | 2026-05-20以降 | external-private / public / unknown | exists per Masa | unknown | no current application content per Masa | 2026-06-02まさ回答。`pwa/bzm/textbook/runs/2026-06-01-stapa-event-textbook-source-notes.md`。元文字起こし実物は未確認 | 元文字起こし、録画、参加者共有リンク又は配布ファイルの有無を必要なら確認 | まさ認識どおり概要のみだった場合、録画 / transcriptを弁理士へどこまで見せるべきか |
+| Sales / investor / proposal | 営業資料 / 導入提案資料 / 投資家説明資料 | 日付未特定 | external-private / NDA / unknown | many per Masa | many per Masa | unrelated to current application per Masa | 2026-06-02まさ回答。repo内IP資料では候補として明記 | 必要なら資料群を「今回申請内容と無関係」と説明できる粒度で分類 | NDAあり / NDAなしで、WS-1〜WS-6のどの説明が発明公開に近づくか |
 | Sales / investor / proposal | 共同研究 / RFP / 提携向け説明候補 | 日付未特定 | external-private / NDA / unknown | unknown | unknown | unknown | repo内IP資料では候補として明記。実送付有無はまさ確認待ち | 送付 / 画面共有 / 口頭説明の実績を確認し、資料があれば削除版候補へ分ける | 出願前に「出願準備中」「出願予定」と言ってよい範囲はどこまでか |
-| Web / note / public manuscript | note / Web / public site候補 | 日付未特定 | public / unknown | unknown | unknown | unknown | Web調査は禁止のため未確認。公開URL確認待ち | まさ側で公開URL一覧と公開日、本文のAMD OS / Protocol記載有無を確認 | 一般的なAMD OS理念やBefore Zero説明と、発明コア開示の境界はどこか |
+| Web / note / public manuscript | note / Web / public site候補 | 日付未特定 | public / none per Masa | none per Masa | none per Masa | none per Masa | 2026-06-02まさ回答。Web調査は禁止のため実物未確認 | 現時点では公開済みURLなしとして内部メモ化。公開前に再確認 | 一般的なAMD OS理念やBefore Zero説明と、発明コア開示の境界はどこか |
 | Web / note / public manuscript | BZM / Textbook本文、`/bzm` 系表示 | 2026-06-01時点 | internal-only / public / unknown | found | unknown | overview / possible WS touch | `pwa/bzm/`、`pwa/src/app/(app)/bzm/`、`pwa/public/bzm/` | 認証有無、公開範囲、外部共有済み範囲、`/bzm/public`相当の実URL有無を確認 | BZM本文内の設立時期、ERS、AMD Score、OS運用説明がWS-6又は請求項中核へ触れるか |
 | Web / note / public manuscript | Stapa素材を反映したBZM本文 | 2026-06-01以降 | internal-only / public / unknown | found | unknown | overview / possible WS touch | `pwa/bzm/1-3-field-frictions-and-patterns.md`、`pwa/bzm/1-4-gates-and-judgment-branches.md`、`pwa/bzm/1-6-field-elements-to-bzm-variables.md` | 公開予定前に、発明コアのAND結合、具体処理フロー、実施例に見える表現をscan | Before Zero一般論として安全な範囲と、出願前に削るべきOS具体処理の境界はどこか |
 | NIMS説明候補 | NIMS向けAMD OS導入ゲート / 価格仮説 / 初回説明候補 | 2026-05-31以降 | internal-only / unknown | found | unknown | overview / possible WS touch | `docs/strategy/2026-06-nims-os-installation-gates-pricing.md` | 実提示済みか、内部下書き止まりか、共有範囲とNDA / 契約文脈を確認 | 研究機関向け説明で、出願前にOS機能名・Protocol・HITL・outcomeをどこまで話してよいか |
-| NIMS説明候補 | NIMS向け低摩擦説明 / screen-share候補 | 2026-05-31以降 | external-private / internal-only / unknown | likely | unknown | unknown | まさ確認待ち。repo内検索では導入準備mdはあるが、実提示資料は未確認 | 実際に見せたスライド / 画面 / 口頭説明の有無を確認 | 実提示済みの場合、特許法30条、外国出願、守秘義務の観点で何を記録すべきか |
+| NIMS説明候補 | NIMS向け低摩擦説明 / screen-share候補 | 2026-05-31以降 | internal-only per Masa | internal draft / none shown per Masa | none per Masa | none per Masa | 2026-06-02まさ回答。repo内検索では導入準備mdはあるが、実提示資料は未確認 | 現時点では外部提示なしとして内部メモ化。提示前に送付版 / 画面共有範囲を確認 | 実提示予定の場合、特許法30条、外国出願、守秘義務の観点で何を記録すべきか |
 | `/admin/ip` / OS screen share | PWA `/admin/ip` 知財レポート | 2026-05-29以降 | internal-only / NDA / unknown | found | unknown | likely core | `pwa/src/app/(app)/admin/ip/page.tsx`、`pwa/src/app/(app)/admin/ip/ip-report.ts`、`docs/ip/HANDOFF_ip.md` | 外部画面共有実績、見せた相手区分、NDA有無、表示した範囲を確認 | 内部admin画面を弁理士へ画面共有する場合、守秘義務前提で足りるか、削除版が必要か |
 | `/admin/ip` / OS screen share | AMD OS通常画面 / HUD / Venture Mapデモ | 2026-05-20前後 / 日付未特定 | external-private / public / unknown | likely | unknown | overview / possible WS touch | `pwa/design/venture_map_demo.md`、`pwa/src/app/(app)/venture-map/`、`pwa/public/hud/` | 当日又は商談で見せた画面、公開embed、事前録画の有無を確認 | OSの見た目・スコア画面だけでも、請求項中核の公開と見られる場合があるか |
 
@@ -41,6 +41,16 @@
 3. 営業資料、投資家資料、導入提案資料、共同研究 / RFP資料で、AMD OS又はAMDプロトコルの説明を外部送付した履歴はあるか。NDA有無も分かるか。
 4. note / Web / public manuscript / `/bzm`系で、既に公開済み又は公開URLがあるものはどれか。認証付きか、誰でも読めるか。
 5. NIMS向けに、OS画面又は説明資料を実際に見せたか。内部下書き止まりなら、現時点で外部共有なしとして扱ってよいか。
+
+## 2.1 2026-06-02 まさ回答メモ
+
+1. StartPass / Stapa関連資料は実在する。ただし、そのイベントでは今回の申請内容は開示していない前提。
+2. 当日、AMD OS等の投影はしている。ただし、今回の申請内容は投影・説明していない前提。
+3. 営業資料等は多数外部へ渡している。ただし、今回の申請内容とは無関係。
+4. note / Web / public manuscript / `/bzm`系で、今回の確認対象となる公開済みURLはなし。
+5. NIMS向けに、OS画面又は説明資料を実際に見せた実績はなし。
+
+この回答により、現時点の実務上の優先度は「新規性喪失の重い調査」よりも、「弁理士へ説明できる公開候補の事実メモ化」と「今後の外部説明停止線の維持」に寄せる。ただし、法的評価、特許法30条の例外適用要否、外国出願への影響は弁理士確認事項として残す。
 
 ## 3. 弁理士確認事項
 
