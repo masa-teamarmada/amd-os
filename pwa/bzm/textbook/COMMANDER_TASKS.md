@@ -36,8 +36,8 @@
 - **public manuscript 00-06 scene-first rewrite**
   - お願いした内容: 北極星と `2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` に沿って、`pwa/bzm/public-manuscript/00`〜`06` を読み物としてつながる本文へ改稿する。
   - 背景: 現行draftは章ごとの論点整理としては進んだが、小見出し単位の説明が並びやすく、販売本として読者を惹きつける連続した読書体験がまだ弱い。
-  - 現状: まさ確認待ちは解除済み。次workerで本文改稿を再開する。
-  - 残課題: Prologue〜Chapter 6を `違和感 → 現場 → 鬼門 → 問い` へ自然につなげ、GAP/VC/CEO論は中心ではなく代表例として扱う。公開禁止語scanと司令塔レビューを通す。
+  - 現状: worker branch `codex/textbook-public-manuscript-00-06-scene-first-rewrite` で、Prologue〜Chapter 6を scene-first / tension-first に改稿済み。追加フィードバックを受け、各章冒頭に「誰が、どの会議で、何を言い、何が言えなかったのか」が見える場面を足し、章末の未解決フックを強化。改稿note `pwa/bzm/textbook/runs/2026-06-01-public-manuscript-00-06-scene-first-rewrite.md` に自己批評も追加。
+  - 残課題: Textbook司令塔レビュー。特に魅力度、GAP/VC/CEO論への寄りすぎ、Chapter 4/5のsemantic orderと公開nav metadata同期要否を見る。
 
 - **販売前提の公開本としてTextbookを再定義する**
   - お願いした内容: 現状の「AMDが見ていること」中心の内部教材から、日本中の研究機関の産連担当者、URA、研究者、スタートアップを目指す若者が買って読める本へ作り直す。
