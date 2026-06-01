@@ -7,11 +7,17 @@
 
 ## 未完タスク（優先順位順）
 
+- **公開本の前半をscene-firstで再構成する**
+  - お願いした内容: `pwa/bzm/public-manuscript/00`〜`06` を、正しい説明の連続ではなく、ひとつの読書体験として読ませるためのscene-first rewrite briefを作る。
+  - 背景: Publication narrative strategy workerで、現行公開原稿は会社紹介リスクはかなり減った一方、章ごとの説明が並び、前後の感情線と橋渡しがまだ弱いと診断したため。特に `GAPファンド -> スタートアップらしい発表 -> VCで外部経営者要求` は、1文の例ではなく本全体の中核シーンとして育てる必要がある。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-01-publication-narrative-strategy.md` で、`05-gap-vc-ceo-function.md` を公開スパイン上のChapter 4へ昇格し、現行 `04-before-disclosure.md` をその後へ動かす再構成案、章別レビュー、Scene -> Tension -> Diagnosis -> Tool/Question -> Bridge の章型、次worker方針を整理済み。
+  - 残課題: まず本文大改稿ではなく、`00`〜`06` のrewrite briefを作る。prologue scene、Chapter 1 false acceleration、Chapter 2 actor clocks、Chapter 3 researcher isolation、Chapter 4 GAP/VC/CEO central hinge、Chapter 5 disclosure after outward push、Chapter 6 VC DD/incorporation timing pressure を1本の連続体として設計する。
+
 - **販売前提の公開本としてTextbookを再定義する**
   - お願いした内容: 現状の「AMDが見ていること」中心の内部教材から、日本中の研究機関の産連担当者、URA、研究者、スタートアップを目指す若者が買って読める本へ作り直す。
   - 背景: まさの指摘どおり、今の本文はAMD/まさ/内部運用語が強く、読者から見ると宣伝や内部資料に見えるリスクがあるため。宣伝は極小に抑え、読者の課題解決を主役にする。
-  - 現状: `pwa/bzm/textbook/PUBLICATION_STRATEGY.md` を追加し、読者定義、類書カテゴリ、差別化、公開/内部分離、禁止語、公開原稿の章構成、worker計画を明文化。2026-06-01に Public-Manuscript Audit worker が `pwa/bzm/textbook/runs/2026-06-01-public-manuscript-audit.md` を追加し、`pwa/bzm/*.md` を公開可能性別に分類済み。公開TOC workerで、販売本の全体目次案・章ごとの読者への約束・既存素材マップ・不足素材・理論接続を `pwa/bzm/textbook/runs/2026-06-01-public-toc-draft.md` に整理。出版ポジショニングは `pwa/bzm/textbook/PUBLICATION_POSITIONING.md` に切り出し、公開本文では `AMD` / `Team ARMADA` / `株式会社チームアルマダ` / `まさ` を原則出さない方針を明文化。
-  - 残課題: 以後のpublic manuscript workerには必ず `PUBLICATION_POSITIONING.md` を読ませる。case_seed は匿名シーン化し、会社紹介・事業紹介に見える表現を禁止する。
+  - 現状: `pwa/bzm/textbook/PUBLICATION_STRATEGY.md` を追加し、読者定義、類書カテゴリ、差別化、公開/内部分離、禁止語、公開原稿の章構成、worker計画を明文化。2026-06-01に Public-Manuscript Audit worker が `pwa/bzm/textbook/runs/2026-06-01-public-manuscript-audit.md` を追加し、`pwa/bzm/*.md` を公開可能性別に分類済み。公開TOC workerで、販売本の全体目次案・章ごとの読者への約束・既存素材マップ・不足素材・理論接続を `pwa/bzm/textbook/runs/2026-06-01-public-toc-draft.md` に整理。出版ポジショニングは `pwa/bzm/textbook/PUBLICATION_POSITIONING.md` に切り出し、公開本文では `AMD` / `Team ARMADA` / `株式会社チームアルマダ` / `まさ` を原則出さない方針を明文化。publication narrative strategy workerで、現行 `00`〜`14` の読み物品質レビューと全体ナラティブ戦略を `pwa/bzm/textbook/runs/2026-06-01-publication-narrative-strategy.md` に整理。
+  - 残課題: 以後のpublic manuscript workerには必ず `PUBLICATION_POSITIONING.md` と `2026-06-01-publication-narrative-strategy.md` を読ませる。case_seed は匿名シーン化し、会社紹介・事業紹介に見える表現を禁止する。
 
 - **公開原稿と内部正本を分離する**
   - お願いした内容: `pwa/bzm/*.md` をそのまま販売原稿扱いせず、内部source-of-truthと公開manuscriptを分ける。
@@ -50,6 +56,12 @@
   - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
 
 ## 完了済みタスク
+
+- **Textbook publication narrative strategy**
+  - お願いした内容: 現行公開原稿 `00`〜`14` を販売本としての読み物品質でレビューし、本全体のナラティブ戦略、再構成案、章の書き方ルール、次タスクを作る。
+  - 背景: まさの指摘どおり、現行原稿は小見出しごとの説明が並び、前後のつながりや読者を引っ張る編集戦略が弱かったため。特にGAPファンドとVC/CEO問題はイントロの1文で消費せず、本の中核シーンとして扱う必要があった。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-01-publication-narrative-strategy.md` を追加。章別レビュー、読者の感情線、GAP/VC/CEO central hinge、現行 `05` をChapter 4へ昇格する再構成案、Scene -> Tension -> Diagnosis -> Tool/Question -> Bridge 型、big field insight rule、次worker方針を整理済み。
+  - 残課題: 次workerで `00`〜`06` のscene-first rewrite briefを作り、本文大改稿に入る前に司令塔レビューを通す。
 
 - **Textbook public-manuscript audit**
   - お願いした内容: 現行 `pwa/bzm/*.md` を販売本の原稿として見たとき、公開可能、公開向け書き換え必須、内部退避、匿名化ケース素材に分類する。
