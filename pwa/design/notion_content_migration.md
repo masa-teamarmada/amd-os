@@ -1,7 +1,7 @@
 # Notion Content Migration UIUX Plan
 
 作成日: 2026-06-02
-状態: 司令塔レビュー前の設計案。runtime 実装、DB migration、本番データ write はまだ行わない。
+状態: P0 UI sketch + schema mapping まで。runtime 実装、DB migration、本番データ write、Notion sync はまだ行わない。
 
 ## 目的
 
@@ -32,7 +32,7 @@ Notion にある `member list` / `history` / `photo` 系コンテンツを AMD O
 | `project_founding_members` | PJ 関連メンバー。大学 / SU / AMD 伴走など、HRL 根拠にも使う | 外部キーパーソンはここまたは private wiki に寄せる。AMD member profile とは分ける |
 | `project_events` | PJ 単位の event。`occurred_on`, `kind`, `label`, `meta`, `source` | history の PJ 紐付きイベントを最初に寄せられる既存 table |
 | `project_ventures` | 公開可能な PJ venture narrative と `is_public` を持つ | public-facing company/PJ history の一部に使える |
-| public/company/team/media route | 会社プロフィール・team・history・gallery の専用 route は未確認 | P3 で追加候補。社外共有はレビュー後に別実装 |
+| `/company` `/about` `/profile` route | 2026-06-02 時点で専用 route は未実装。`/mypage` は内部メンバー詳細、`/admin/members` はアカウント台帳 | `/company` は P2 以降に authenticated read-only hub として追加候補。社外共有はレビュー後に別実装 |
 
 ## 推奨情報設計
 
@@ -56,6 +56,30 @@ Notion から移した company profile / team / history / photo を編集する 
 - `/admin/private-wiki` は admin-only の関係性メモで、public-ready content と混ぜない方が安全。
 - company/team/history/media は、Notion 移植後も OS 上で編集したい「会社コンテンツ台帳」として独立させるのが自然。
 
+#### P0 UI sketch
+
+`/admin/company` は `/admin` layout の `members.is_admin=true` gate 配下に置く。sidebar には P2 実装時に `Company` を追加する。P0 では route 実装せず、以下を UI 契約として固定する。
+
+| tab | 表示するもの | 編集する field | guard / 表示 chip |
+|---|---|---|---|
+| Profile | 会社概要、boilerplate、mission / vision、社外共有候補コピー、source status | `entry_key`, `title`, `body_md`, `visibility`, `status`, `tags`, `notion_source_id`, `notion_source_url`, `notion_last_synced_at`, `reviewed_by`, `reviewed_at` | `visibility` と `status` を header に常時表示。`admin_private` / `draft` / `needs_review` は `/company` へ出さない |
+| Team | メンバー公開プロフィール一覧、profile photo preview、PJ relation、公開可否、review 状態 | `member_id`, `display_name`, `public_title`, `internal_title`, `bio_short`, `bio_long`, `expertise_tags`, `visibility`, `status`, `tags`, `photo_asset_id`, source / review fields | `members` の契約・支払・住所・銀行・invoice 情報は表示しない。必要なときは `/admin/members` への deep link のみ |
+| History | company / PJ timeline、event table、重要度、PJ tag、公開 preview | `occurred_on`, `title`, `summary`, `event_type`, `project_id`, `member_ids`, `importance`, `visibility`, `status`, `tags`, source / review fields | `project_id` ありは `project_events` との二重管理警告を出す。未review event は `/company` と PJ cockpit へ出さない |
+| Media | gallery + table、thumbnail、人物/PJ/event tag、撮影日、権利状態 | `title`, `asset_kind`, `captured_at`, `photographer`, `location_label`, `project_ids`, `member_ids`, `event_id`, `tags`, `visibility`, `status`, `usage_permission`, `consent_status`, `storage_bucket`, `storage_path`, `thumbnail_path`, source / review fields | `usage_permission` / `consent_status` を card 上に必ず表示。`unknown` / `pending` は public preview に出さない |
+| Import | Notion source の dry-run結果、mapping差分、未解決 relation、写真取り込み待ち、last sync | P0 では編集なし。P3 で `import_batch_id`, source database, dry-run diff, selected action を扱う | DB write なし。Notion本文値・写真URL・個人情報値は画面外/ログ外に出さない |
+
+Private boundary:
+
+- `/admin/company` は public-ready / internal-ready な会社コンテンツ台帳。人物の関係性、趣味、弱い確度の評価、営業上の温度感は置かない。
+- `/admin/private-wiki` は `private_wiki_entries.visibility='admin_private'` 固定の人物メモ。`/admin/company` から参照するときも件数 badge と deep link までに留め、本文を混ぜない。
+- `members` は login / admin / payout / contract の正本。Team tab は `members.member_id` 参照だけ持ち、契約・支払・住所・bank fields を profile table へ複製しない。
+
+Photo / personal-info permission display:
+
+- Team / Media の card と detail panel には `visibility`, `status`, `usage_permission`, `consent_status`, `reviewed_by`, `reviewed_at` を必ず同じ位置に出す。
+- 顔写真・集合写真は `member_ids` または people tag を必須にし、人物が特定できる asset は `consent_status='granted'` か `not_needed` 以外を public 出力禁止にする。
+- 本名、居住地、出身地、MBTI、個人的趣味、Notion user relation は default `admin_private` / `internal`。public field へ昇格するには `status='approved'`, `reviewed_by`, `reviewed_at` を必須にする。
+
 ### 2. Internal read-only: `/company`
 
 OS 内メンバーが見る company profile hub。最初は authenticated-only の read-only でよい。
@@ -75,20 +99,45 @@ OS 内メンバーが見る company profile hub。最初は authenticated-only �
 - public へ出す前に、公開可否や写真利用許諾を目視レビューできる。
 - NIMS / 事業会社向けの説明準備にも使えるが、外部公開 route とは分ける。
 
+#### P0 read-only UI sketch
+
+`/company` は authenticated users 向けの read-only hub。admin-only の編集 action、未review source、private wiki 本文は出さない。
+
+| section | 見せるもの | 隠すもの |
+|---|---|---|
+| Profile | `visibility in ('internal','public')` かつ `status='active'` / `approved` の会社概要、mission、社内共有用 boilerplate | `admin_private`, `draft`, `needs_review`, source URL、生の Notion本文、review未了コピー |
+| Team | `member_profiles.visibility in ('internal','public')` かつ approved の表示名、role、short bio、expertise、関与 PJ、許諾済み thumbnail | legal name、email、住所、bank、invoice、effort、内部評価、private wiki memo、consent未確認写真 |
+| History | active / approved の会社年表。PJ filter つきで、PJ event は要約のみ | `draft`, `needs_review`, `admin_private`, source excerpt、根拠未確認 event |
+| Media | `usage_permission in ('internal_ok','public_ok')` かつ consent OK の thumbnail gallery。PJ / member / event tag filter | Notion file URL、private Storage path、restricted / expired / unknown assets、顔写真の同意未確認素材 |
+
+Display rule:
+
+- `/company` は社内閲覧用なので `visibility='internal'` まで表示可。ただし `status='approved'` または `active` を必須にする。
+- admin でログインしていても `/company` は read-only surface として振る舞う。編集は `/admin/company` へ遷移する。
+- source / Notion / review details は admin-only detail に寄せ、通常閲覧者には `last reviewed` 程度の品質表示だけ出す。
+
 ### 3. PJ cockpit 連携
 
 PJ cockpit には「全部」を置かず、PJ に紐づく最小情報だけ差し込む。
 
 | cockpit block | 表示候補 |
 |---|---|
-| 関連メンバー | AMD member profile への link、role、public/internal badge |
-| PJ history | `project_events` 由来の重要 event 3-5 件、timeline modal |
-| Media | PJ tag の写真だけ。usage permission が `public_ok` または `internal_ok` のもの |
+| 関連メンバー | `project_members` + `member_profiles` の薄い card。code_name / display_name、role、public/internal badge、`/mypage?memberId=` または `/company` profile への link |
+| PJ history | `project_events` 由来の重要 event 3-5 件。`company_history_events.project_id` を作る場合も cockpit では milestone だけに絞る |
+| Media | PJ tagged media から 3-6 件の thumbnail。`usage_permission in ('internal_ok','public_ok')`, consent OK, status approved のみ |
 | 外部キーパーソン | `project_founding_members` / private wiki から admin-only で表示。公開面には出さない |
+
+表示粒度:
+
+- cockpit は PJ 判断のための context だけを差し込む。Team tab / Media gallery の全量 browsing は `/company` または `/admin/company` へ逃がす。
+- PJ関連メンバーは active role と公開可能プロフィール要約まで。内部タイトル・effort・個人情報は出さない。
+- 重要historyは `importance in ('high','milestone')` を優先し、古いものは modal / timeline へ折りたたむ。
+- PJ tagged media は thumbnail + title + permission chip まで。download / original path は admin-only。
+
 
 ### 4. Public-facing
 
-P3 まで defer。実装するなら、AMD OS 内の login-free route より、社外向け site / shared view として切るかを先に司令塔レビューする。
+P4 まで defer。実装するなら、AMD OS 内の login-free route より、社外向け site / shared view として切るかを先に司令塔レビューする。
 
 公開候補:
 
@@ -158,6 +207,39 @@ UI:
 
 ## データ設計案
 
+### Schema mapping
+
+Notion 側の本文値・写真URL・個人情報値は docs に貼らない。mapping は schema / property / relation 単位だけを扱う。
+
+| Notion source | Notion schema / property group | 既存 table に寄せるもの | 新 table 候補 | 分離判断 |
+|---|---|---|---|---|
+| AMD home wiki | title, tags, owner, PJ relation, created / updated, verification | PJ relation が明確な operational note は `project_knowledge` / `project_events` 候補。人物の関係性メモは `private_wiki_entries` | `company_profile_entries` | company boilerplate / mission / public-ready copy は `company_profile_entries`。private wiki と company profile を混ぜない |
+| member list | name / display fields, title, status, join date, effort, photo, user relation, bio, background, hometown / residence / MBTI, PJ relation | login / contract / payout / admin fields は既存 `members`。PJ relation は `project_members`。外部キーパーソンは `project_founding_members` | `member_profiles`, `media_assets` | `members` はアカウント台帳。公開/内部プロフィール、写真、専門タグは `member_profiles` に分離。本名・居住地・MBTI等は default internal/admin_private |
+| history | title, date, PJ relation | PJ relation があり event として使えるものは `project_events` (`occurred_on`, `kind`, `label`, `meta`, `source`) | `company_history_events` | company-wide 沿革は新 table。PJ cockpit へ出すのは milestone だけ。event_type / visibility / status / review を補う |
+| photo | title, date, PJ relation, member relation, location, photographer, file / gallery metadata | PJ tag は `projects.project_id` へ、member tag は `members.member_id` へ mapping。meeting由来なら `meeting_assets` との重複確認 | `media_assets` | Notion file URL は公開しない。Storage 取り込み後の `storage_bucket`, `storage_path`, `thumbnail_path` を正にする。usage / consent を必須 gate にする |
+| Notion relation index | PJ / member / history / photo / docs / meeting relation | 既存 operational tables (`project_members`, `project_meeting_summaries`, `project_knowledge`) へ寄せられる relation は寄せる | import helper 側の dry-run diff structure | relation resolution は P3 dry-run で未解決を list 化。勝手に新PJ・新memberを作らない |
+
+Required fields for all new company-content tables:
+
+- `notion_source_id`
+- `notion_source_url`
+- `notion_last_synced_at`
+- `visibility`
+- `status`
+- `tags`
+- `reviewed_by`
+- `reviewed_at`
+- `created_at`
+- `updated_at`
+
+Photo / media required fields:
+
+- `usage_permission`
+- `consent_status`
+- `storage_bucket`
+- `storage_path`
+- `thumbnail_path`
+
 ### 既存 table に寄せる
 
 | 目的 | 既存 table | 方針 |
@@ -166,7 +248,7 @@ UI:
 | PJ と AMD メンバーの紐付け | `project_members` | Notion `PJ_all` relation を mapping して反映候補にする |
 | 外部 / SU / 大学キーパーソン | `project_founding_members` | HRL / 関連メンバー文脈に載る人だけ |
 | admin-only 関係性メモ | `private_wiki_entries` | private な人物メモはここ。public profile へ出さない |
-| PJ history | `project_events` | PJ relation 付き history の P1 受け皿 |
+| PJ history | `project_events` | PJ relation 付き history の既存受け皿候補。P1 では設計レビューのみ、反映は P2 以降 |
 | public PJ narrative | `project_ventures` | public approved な PJ story だけ |
 
 ### 新 table 候補
@@ -181,6 +263,7 @@ company_profile_entries
 - body_md text
 - visibility text -- internal / public / admin_private
 - status text -- draft / active / archived
+- tags text[]
 - notion_source_id text
 - notion_source_url text
 - notion_last_synced_at timestamptz
@@ -201,7 +284,8 @@ member_profiles
 - bio_long text
 - expertise_tags text[]
 - visibility text -- admin_private / internal / public
-- profile_status text -- draft / needs_review / approved / archived
+- status text -- draft / needs_review / approved / archived
+- tags text[]
 - photo_asset_id uuid
 - notion_source_id text
 - notion_source_url text
@@ -224,11 +308,14 @@ company_history_events
 - importance text -- low / medium / high / milestone
 - visibility text -- admin_private / internal / public
 - status text -- draft / active / archived
+- tags text[]
 - source_kind text -- notion / manual / l2 / import
 - source_ref text
 - notion_source_id text
 - notion_source_url text
 - notion_last_synced_at timestamptz
+- reviewed_by text
+- reviewed_at timestamptz
 - created_at timestamptz
 - updated_at timestamptz
 ```
@@ -249,6 +336,7 @@ media_assets
 - event_id uuid null
 - tags text[]
 - visibility text -- admin_private / internal / public
+- status text -- draft / needs_review / approved / archived
 - usage_permission text -- unknown / internal_ok / public_ok / restricted / expired
 - consent_status text -- unknown / not_needed / pending / granted / denied
 - source_kind text -- notion / manual / drive
@@ -289,10 +377,10 @@ media_assets
 | コンテンツ | 推奨 | 理由 |
 |---|---|---|
 | メンバーリスト | one-time import + OS 編集正本化 | プロフィールや公開可否は OS 側の運用に寄せた方が安全 |
-| history | one-time import + P1 で OS 編集 | Notion 側は最小構造。OS で event_type / visibility / summary を補う |
+| history | one-time import + P2 以降で OS 編集 | Notion 側は最小構造。OS で event_type / visibility / summary を補う |
 | photo | one-time import with dry-run。sync は後回し | 写真 URL / 許諾 / storage 取り込みが絡むので自動 sync は危険 |
 | AMD home wiki | 必要ページだけ選別 import | wiki 全体を丸ごと移すと private / public 境界が崩れる |
-| Notion sync | P2 以降、source id と差分 preview だけ | Notion を恒久正本にすると OS 編集と競合するため |
+| Notion sync | P3 以降、source id と差分 preview だけ | Notion を恒久正本にすると OS 編集と競合するため |
 
 Codex / えいみが後から追記する場所:
 
@@ -303,34 +391,42 @@ Codex / えいみが後から追記する場所:
 
 ただし、公開化・写真使用許諾・個人情報の公開判断は人間レビューを必須にする。
 
-## 優先実装順
+## 実装優先順位
 
-### P0: 設計 + read-only preview
+### P0: UI sketch + schema mapping
 
-- この設計案を司令塔レビュー。
-- Notion member/history/photo の schema mapping 表を作る。
-- DB write なしで static JSON / mock data の UI sketch だけ作るなら可。
-- route 候補は `/admin/company` と `/company`。
+- この設計案を司令塔レビューする。
+- `/admin/company` と `/company` の UI sketch を確定する。
+- Notion member / history / photo / home schema から既存 table / 新 table 候補への mapping を確定する。
+- DB write / DDL / production migration / Notion sync / 写真取り込みはしない。
+- UI mock を作る場合も static / fixture のみ。Notion本文値、写真URL、個人情報値は fixture に入れない。
 
-### P1: admin 編集 UI + 最小 DB
+### P1: migration draft / apply なしの設計レビュー
 
-- `member_profiles`, `company_history_events`, `media_assets` の migration。
-- `/admin/company` の Team / History / Media tabs。
-- `visibility`, `status`, `usage_permission`, `consent_status` を必須表示。
-- import 前に手入力できる形を作る。
+- migration SQL はまだ書かない / apply しない。
+- `company_profile_entries`, `member_profiles`, `company_history_events`, `media_assets` の責務境界、RLS方針、visibility enum、review gate をレビューする。
+- `members`, `project_members`, `project_events`, `project_founding_members`, `project_ventures`, `private_wiki_entries` へ寄せる範囲を決める。
+- photo consent / usage permission のレビュー担当と運用ルールを決める。
 
-### P2: Notion import / sync helper
+### P2: admin 編集 UI
 
-- read-only Notion fetch -> mapping dry-run -> diff preview -> selective import。
-- Notion source id / last synced at を保存。
-- 写真は Notion URL を保存するだけでなく、private Storage 取り込みを基本にする。
-- auto sync は off by default。変更差分の提案だけを出す。
+- 司令塔レビュー後に最小 DDL を別タスクで作成し、apply 後に `/admin/company` を実装する。
+- Profile / Team / History / Media / Import の5タブを作る。
+- Team / Media では `visibility`, `status`, `usage_permission`, `consent_status`, `reviewed_by`, `reviewed_at` を必須表示にする。
+- `/admin/members` と `/admin/private-wiki` は deep link だけで、データ本体を混ぜない。
 
-### P3: public-facing / 社外共有 view
+### P3: import / sync helper dry-run
 
-- approved public profile / history / media だけで構成。
-- corporate-site に出すか AMD OS の login-free route に出すかを司令塔レビュー。
-- external URL 発行前に `public_ok` / `reviewed_at` / `reviewed_by` を必須 gate にする。
+- read-only Notion fetch -> mapping dry-run -> diff preview -> selective import plan まで。
+- dry-run は unresolved relation、missing permission、duplicate asset、private/public boundary risk を出す。
+- DB write は明示アクション後。auto sync は off by default。
+- 写真は Notion URL を保存するだけにせず、Storage 取り込み計画と permission gate を先に出す。
+
+### P4: public-facing approved view
+
+- approved public profile / history / media だけで構成する。
+- corporate-site に出すか AMD OS の login-free route に出すかを司令塔レビューする。
+- external URL 発行前に `visibility='public'`, `status='approved'`, `usage_permission='public_ok'`, `reviewed_at`, `reviewed_by` を必須 gate にする。
 
 ## open questions
 
