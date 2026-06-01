@@ -75,8 +75,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 9. BZM 7軸モデルとP×R×S/9軸候補の整合
    - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
    - 背景: 現行教科書は7軸中心だが、知識側にはP×R×S再構成と収益化指数の議論があり、Textbook実践知と結びつきやすい論点になっているため。
-   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft は作成済み。BZM一次判断は `Adopt as comparison layer` 継続で、正式理論採用はまだしない。
-   - 残課題: 観測項目draftの未確認flagを9PJ evidence cardsへ戻し、L2抽出候補で埋めるsource / worker調査source / まさ・BZM判断sourceを分ける source map worker `019e83a6-fd63-71e0-b507-bd2417c23c7c` を起動済み。0-9値表、DB化、過去score再計算はまだしない。
+   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft、未確認flag source map は作成済み。source map は、未確認flagを `l2_extractable` / `worker_research` / `masa_or_bzm_judgement` に分け、正式rubricや0-9値に踏み込んでいないためBZMレビュー採用。次の `P/R_net L2 source inventory` worker `019e83af-598b-7691-8c8d-405653f1783e` がActive。
+   - 残課題: L2 source inventory workerで、既存L2/DB/docs/outboxから拾えるsource候補を read-only で棚卸しする。source候補を見たあと、公開/knowledge調査、BZM judgement brief、evidence cards v2 の順で進めるか判断する。0-9値表、DB化、過去score再計算はまだしない。
 
 ## 完了済みタスク
 
