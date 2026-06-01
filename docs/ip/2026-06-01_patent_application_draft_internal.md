@@ -11,13 +11,13 @@
 
 このドラフトを書き始めた時点で見えた不足は以下。
 
-1. Fig.1〜Fig.7相当の図面が未作成。
-2. WS-1〜WS-5を1つの処理フローとして説明するretrofit図がまだ弱い。
-3. evidence metadata、candidate、master DB、protocol、example、outcome、pending proposalのテーブル対応が未確定。
-4. reject/comment feedbackの抽象説明はあるが、出願書類に書ける「安全な粒度」の処理例がまだ足りない。
-5. Before-Zero/設立タイミング推奨の実施例が、営業秘密を出さずに書ける粒度まで落ちていない。
+1. Fig.1〜Fig.7相当の図面案を追加済み。ただし特許図面としての清書は未実施。
+2. WS-1〜WS-5を1つの処理フローとして説明するretrofit図を追加済み。
+3. evidence metadata、candidate、master DB、protocol、example、outcome、pending proposalの抽象テーブル例を追加済み。
+4. reject/comment feedbackの抽象処理例を追加済み。ただし具体prompt変換ロジックは営業秘密として非開示。
+5. Before-Zero/設立タイミング推奨の安全な抽象実施例を追加済み。ただし実weight/threshold/calibrationは非開示。
 
-よって次の作業は、明細書完成ではなく、**明細書を書けるだけのretrofit材料を作ること**。
+よって次の作業は、弁理士が形式化できるように、**図面の清書、請求項との対応表、及び実施例の過不足レビュー**を行うこと。
 
 ---
 
@@ -100,7 +100,7 @@
 
 ## 【図面の簡単な説明】
 
-現時点では図面未作成。以下を作成予定。
+以下の図面を用いて本発明の実施形態を説明する。
 
 - 【図1】本発明の情報処理装置の全体構成例
 - 【図2】候補データ生成及び証拠メタデータ付与処理のフローチャート
@@ -109,6 +109,136 @@
 - 【図5】結果観測データのappend-only保存及び矛盾観測提示の画面例
 - 【図6】システムパラメータ変更候補のpending proposal及びversion昇格処理のフローチャート
 - 【図7】法人設立前研究シーズに対する法人設立時期推奨処理のフローチャート
+
+### 図面案
+
+以下のMermaid図は、弁理士又は図面作成者が特許図面へ清書するための内部材料である。
+
+#### 【図1】全体構成例
+
+```mermaid
+flowchart LR
+  DS["複数業務データ源<br/>mail / document / calendar / chat / notes / reports"] --> ACQ["データ取得部"]
+  ACQ --> CG["候補データ生成部"]
+  CG --> EM["証拠メタデータ生成部"]
+  EM --> UI["確認インターフェース制御部"]
+  UI -->|承認| MR["正本データベース反映部"]
+  UI -->|却下/コメント| FB["フィードバック反映部"]
+  FB --> CG
+  MR --> PG["事業化判断プロトコル生成部"]
+  PG --> EX["プロジェクト固有事例管理部"]
+  EX --> OM["結果観測データ管理部"]
+  UI --> PP["システムパラメータ提案管理部"]
+  PP --> SP["システムパラメータversion"]
+  MR --> IT["法人設立時期推奨部"]
+  PG --> IT
+  OM --> IT
+```
+
+#### 【図2】候補データ生成及び証拠メタデータ付与
+
+```mermaid
+flowchart TD
+  S201["対象プロジェクトを特定"] --> S202["複数業務データ源から参照を取得"]
+  S202 --> S203["ソースデータ又は参照を解析"]
+  S203 --> S204["候補データを生成"]
+  S204 --> S205["snippet/hash/run_id/confidence等を生成"]
+  S205 --> S206["候補データと証拠メタデータを関連付け"]
+  S206 --> S207["確認インターフェースへ提示"]
+```
+
+#### 【図3】人間承認、却下、コメント、正本反映
+
+```mermaid
+flowchart TD
+  S301["候補データを表示"] --> S302{"入力種別"}
+  S302 -->|承認| S303["候補データを正本DBへ反映"]
+  S302 -->|却下| S304["却下状態を保存"]
+  S302 -->|コメント| S305["コメントをfeedback dataとして保存"]
+  S304 --> S306["後続抽出条件/判定ルールへ反映"]
+  S305 --> S306
+  S306 --> S307["次回候補生成処理で参照"]
+  S303 --> S308["protocol生成又は更新へ進む"]
+```
+
+#### 【図4】protocol / example / outcomeデータ構造
+
+```mermaid
+erDiagram
+  MASTER_RECORD ||--o{ COMMERCIALIZATION_PROTOCOL : generates
+  COMMERCIALIZATION_PROTOCOL ||--o{ PROTOCOL_EXAMPLE : has
+  PROTOCOL_EXAMPLE ||--o{ OUTCOME_OBSERVATION : observes
+  EVIDENCE_METADATA ||--o{ CANDIDATE_DATA : supports
+  CANDIDATE_DATA ||--o| MASTER_RECORD : approved_into
+  EVIDENCE_METADATA ||--o{ OUTCOME_OBSERVATION : supports
+
+  CANDIDATE_DATA {
+    string candidate_id
+    string project_id
+    string candidate_type
+    string status
+    string evidence_id
+  }
+  COMMERCIALIZATION_PROTOCOL {
+    string protocol_id
+    string abstract_label
+    string branch_point
+    string criteria
+    string action_pattern
+  }
+  PROTOCOL_EXAMPLE {
+    string example_id
+    string protocol_id
+    string project_id
+    string source_evidence_id
+  }
+  OUTCOME_OBSERVATION {
+    string observation_id
+    string example_id
+    string horizon
+    string valence
+    string evidence_id
+  }
+```
+
+#### 【図5】append-only outcome及び矛盾観測提示
+
+```mermaid
+flowchart TD
+  S501["アクション後の結果候補を取得"] --> S502["horizon / valence / confidenceを付与"]
+  S502 --> S503["既存観測を検索"]
+  S503 --> S504{"同一horizonに異なるvalenceが存在?"}
+  S504 -->|いいえ| S505["新規観測としてappend-only保存"]
+  S504 -->|はい| S506["既存観測を上書きせず併存保存"]
+  S505 --> S507["時系列表示"]
+  S506 --> S508["矛盾観測として並列表示"]
+```
+
+#### 【図6】pending proposal / version governance
+
+```mermaid
+flowchart TD
+  S601["変更候補を生成又は入力"] --> S602["対象parameter種別を特定"]
+  S602 --> S603["pending proposalとして保存"]
+  S603 --> S604["確認インターフェースへ提示"]
+  S604 --> S605{"承認入力?"}
+  S605 -->|はい| S606["新規versionとして保存"]
+  S605 -->|いいえ| S607["却下又は保留状態を保存"]
+  S606 --> S608["過去versionを保持"]
+  S608 --> S609["後続処理で新versionを参照"]
+```
+
+#### 【図7】Before-Zero設立時期推奨処理
+
+```mermaid
+flowchart TD
+  S701["対象が法人設立前研究シーズか判定"] --> S702["承認済み候補データを取得"]
+  S702 --> S703["protocol / example / outcomeを取得"]
+  S703 --> S704["設立時期推奨カテゴリを生成"]
+  S704 --> S705{"通知条件を満たす?"}
+  S705 -->|はい| S706["意思決定者に推奨を提示"]
+  S705 -->|いいえ| S707["追加検証又は保留として保存"]
+```
 
 ---
 
@@ -278,6 +408,233 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 
 ただし、具体的なスコア重み、閾値、calibration dataset、又は実プロジェクト事例本文は、本実施形態に限定されない。
 
+### 13. 抽象データ構造例
+
+本実施形態において、正本データベースは、以下の抽象データ構造を含んでもよい。各フィールド名は説明の便宜上の例であり、実装上のテーブル名又はカラム名に限定されない。
+
+#### candidate_data
+
+| field | description |
+|---|---|
+| candidate_id | 候補データ識別子 |
+| project_id | 対象プロジェクト識別子 |
+| candidate_type | 事業化判断、readiness根拠、状態変化等の種別 |
+| candidate_summary | 候補内容の要約 |
+| status | pending / approved / rejected / archived等 |
+| confidence | 候補生成時の信頼度 |
+| evidence_id | 関連する証拠メタデータ識別子 |
+| extraction_run_id | 候補生成処理識別子 |
+
+#### evidence_metadata
+
+| field | description |
+|---|---|
+| evidence_id | 証拠メタデータ識別子 |
+| source_type | ソース種別 |
+| source_identifier | ソース識別子 |
+| source_locator | ソース所在情報 |
+| source_date | ソースの日付 |
+| title | タイトル又は件名 |
+| snippet | 所定長以下の抜粋 |
+| hash_value | ソース又は抜粋等から生成したハッシュ値 |
+| extraction_run_id | 抽出処理識別子 |
+
+#### review_feedback
+
+| field | description |
+|---|---|
+| feedback_id | フィードバック識別子 |
+| candidate_id | 対象候補データ識別子 |
+| reviewer_id | レビュー担当者識別子 |
+| review_action | approved / rejected / commented等 |
+| comment_summary | コメントの要約 |
+| feedback_scope | 後続処理へ反映する範囲 |
+| created_at | 作成日時 |
+
+#### master_record
+
+| field | description |
+|---|---|
+| master_record_id | 正本レコード識別子 |
+| project_id | 対象プロジェクト識別子 |
+| source_candidate_id | 反映元候補データ識別子 |
+| record_type | 正本レコード種別 |
+| content_summary | 正本化された内容の要約 |
+| approved_by | 承認者識別子 |
+| approved_at | 承認日時 |
+
+#### commercialization_protocol
+
+| field | description |
+|---|---|
+| protocol_id | 事業化判断プロトコル識別子 |
+| abstract_label | 抽象化ラベル |
+| branch_point | 分岐点 |
+| decision_criteria | 判断材料 |
+| action_pattern | アクションパターン |
+| result_category | 結果カテゴリ |
+| identity_basis | hash / similarity / manual tag等の識別根拠 |
+
+#### protocol_example
+
+| field | description |
+|---|---|
+| example_id | プロジェクト固有事例識別子 |
+| protocol_id | 関連プロトコル識別子 |
+| project_id | 対象プロジェクト識別子 |
+| occurred_on | 発生日 |
+| branch_point | 当該事例に固有の分岐点 |
+| criteria | 当該事例に固有の判断材料 |
+| action_taken | 当該事例で採用したアクション |
+| source_evidence_id | 出典証拠識別子 |
+
+#### outcome_observation
+
+| field | description |
+|---|---|
+| observation_id | 結果観測データ識別子 |
+| protocol_id | 関連プロトコル識別子 |
+| example_id | 関連事例識別子 |
+| observed_on | 観測日 |
+| horizon | immediate / 1m / 3m / 6m / 12m / 24m / long_term等 |
+| valence | positive / negative / mixed / neutral / unknown等 |
+| confidence | 観測信頼度 |
+| summary | 結果要約 |
+| evidence_id | 関連証拠識別子 |
+
+#### system_parameter
+
+| field | description |
+|---|---|
+| parameter_id | システムパラメータ識別子 |
+| parameter_type | prompt / rule / config / model / workflow等 |
+| current_version_id | 現行version識別子 |
+| scope | 適用範囲 |
+
+#### parameter_proposal
+
+| field | description |
+|---|---|
+| proposal_id | 変更候補識別子 |
+| parameter_id | 対象システムパラメータ識別子 |
+| proposed_change_summary | 変更候補の要約 |
+| proposal_source | AI / human等 |
+| status | pending / approved / rejected等 |
+| reviewer_comment | レビューコメント要約 |
+
+#### parameter_version
+
+| field | description |
+|---|---|
+| version_id | version識別子 |
+| parameter_id | 対象システムパラメータ識別子 |
+| version_number | version番号 |
+| change_summary | 変更要約 |
+| approved_proposal_id | 承認済みproposal識別子 |
+| effective_from | 有効開始日時 |
+
+#### incorporation_timing_recommendation
+
+| field | description |
+|---|---|
+| recommendation_id | 設立時期推奨識別子 |
+| project_id | 対象プロジェクト識別子 |
+| recommendation_category | 即時設立 / 一定期間後 / 追加検証後 / 保留等 |
+| basis_summary | 根拠要約 |
+| source_record_refs | 参照した正本レコード又は観測データ |
+| confidence | 推奨信頼度 |
+| generated_at | 生成日時 |
+
+### 14. 疑似処理フロー例
+
+以下は、実施形態を説明するための抽象的な処理フローである。具体的なprompt、few-shot、重み、閾値、calibration、又は実プロジェクト事例は含めない。
+
+#### 14.1 candidate generation flow
+
+1. 対象プロジェクト識別子を取得する。
+2. 対象プロジェクトに紐づく複数業務データ源の参照を取得する。
+3. 各参照について、取得可能なメタデータ及び所定長以下の抜粋を生成する。
+4. ソースデータ又は参照を、抽出器又は言語モデルに入力する。
+5. 事業化判断候補、readiness根拠候補、状態変化候補等を生成する。
+6. 候補データと証拠メタデータを関連付けてpending状態で保存する。
+
+#### 14.2 evidence metadata generation flow
+
+1. ソース種別及びソース識別子を取得する。
+2. ソース所在情報及びソース日付を取得する。
+3. タイトル又は件名を取得する。
+4. 所定長以下のsnippetを生成する。
+5. ソース又はsnippetに基づくhash値を生成する。
+6. extraction_run_id及びconfidenceを付与する。
+7. evidence_metadataとして保存する。
+
+#### 14.3 review approval/rejection flow
+
+1. pending状態の候補データを確認インターフェースに表示する。
+2. レビュー担当者から承認、却下、又はコメントを受け付ける。
+3. 承認の場合、候補データを正本データベースへ反映する。
+4. 却下の場合、候補データをrejected又はarchivedとして保存する。
+5. コメントの場合、コメント要約をreview_feedbackとして保存する。
+6. 却下又はコメントを、後続候補生成処理のfeedbackとして参照可能にする。
+
+#### 14.4 feedback-to-next-extraction flow
+
+1. 過去のreview_feedbackを対象プロジェクト、候補種別、抽出器種別、又は適用範囲で検索する。
+2. 後続候補生成処理に適用すべきfeedback dataを選択する。
+3. feedback dataを、抽出スコープ、抽出条件、入力プロンプト、判定ルール、又は信頼度判定の少なくとも一つへ反映する。
+4. 反映後の条件に基づき候補データ生成を実行する。
+5. 生成結果を新たな候補データとして保存し、確認インターフェースへ提示する。
+
+#### 14.5 protocol abstraction flow
+
+1. 承認済み正本レコードを取得する。
+2. 事業化判断に関する分岐点、判断材料、アクション、結果カテゴリを抽出する。
+3. プロジェクト固有名詞又は個人名を除去又は抽象化する。
+4. ハッシュ、類似度判定、埋め込みクラスタ、手動タグ、又はUUID等によりprotocol identifierを決定する。
+5. 既存protocolがある場合は更新し、ない場合は新規protocolを作成する。
+6. プロジェクト固有事例をprotocolに関連付ける。
+
+#### 14.6 outcome observation flow
+
+1. 事業化判断プロトコル又はプロジェクト固有事例に紐づくアクションを取得する。
+2. アクション後に得られた業務データ源又は結果参照を取得する。
+3. observed_on、horizon、valence、confidence、summary、evidence_idを生成する。
+4. 既存観測を上書きせず、新規outcome_observationとしてappend-only保存する。
+5. 同一protocol又はexampleに対し同一horizonで異なるvalenceがある場合、矛盾観測として確認インターフェースへ併記する。
+
+#### 14.7 parameter governance flow
+
+1. システムパラメータに対する変更候補を生成又は受け付ける。
+2. 変更候補をparameter_proposalとしてpending状態で保存する。
+3. 確認インターフェースにproposalを表示する。
+4. 承認入力を受けた場合、新規parameter_versionを生成する。
+5. 過去versionを保持し、current_version_idを更新する。
+6. 却下入力又はコメント入力を受けた場合、proposal状態又はreview_feedbackを保存する。
+
+#### 14.8 incorporation timing recommendation flow
+
+1. 対象プロジェクトが法人設立前研究シーズであるか判定する。
+2. 承認済み候補データ、protocol、example、outcome、及び必要に応じてスコアリングモデル出力を取得する。
+3. 実weight、閾値、calibrationを開示しない抽象ロジックにより、設立時期推奨カテゴリを生成する。
+4. 推奨カテゴリ、根拠要約、参照レコード、confidenceを保存する。
+5. 所定の通知条件を満たす場合、意思決定者へ提示する。
+
+### 15. 安全な実施例
+
+以下は、営業秘密を含まない合成例である。
+
+ある研究シーズAについて、情報処理装置は、会議録、カレンダーイベント、クラウド文書、及び月次レポートへの参照を取得する。情報処理装置は、各参照から所定長以下の抜粋、ソース種別、ソース識別子、日付、ハッシュ値、抽出処理識別子、及び信頼度を含む証拠メタデータを生成する。
+
+情報処理装置は、当該研究シーズAについて、顧客候補との検証を優先すべきであるという候補データを生成し、確認インターフェースへ提示する。レビュー担当者が承認した場合、当該候補データは正本データベースへ反映される。レビュー担当者が「顧客候補の種別を限定しすぎている」とコメントした場合、当該コメントは後続の候補生成処理における抽出条件又は判定ルールへ反映される。
+
+承認済み候補データから、情報処理装置は、個別の研究シーズ名を除いた事業化判断プロトコルデータを生成する。当該プロトコルデータは、分岐点、判断材料、アクションパターン、及び結果カテゴリを含む。別の研究シーズBで類似の判断が発生した場合、情報処理装置は当該研究シーズBの事例を同一又は類似のプロトコル識別子へ関連付ける。
+
+その後、情報処理装置は、1か月後、6か月後、及び24か月後の結果観測データをappend-onlyに保存する。1か月後の観測がpositiveであり、24か月後の観測がnegativeである場合でも、情報処理装置は一方を上書きせず、双方を確認インターフェースへ時系列に提示する。
+
+また、情報処理装置は、抽出ルール又は判定ルールに対する変更候補をpending proposalとして保存し、承認入力を受けた場合に限り、新規versionとして保存する。
+
+対象プロジェクトが法人設立前研究シーズである場合、情報処理装置は、承認済み候補データ、事業化判断プロトコルデータ、及び結果観測データに基づいて、法人設立時期推奨データを生成する。当該推奨データは、即時設立、一定期間後の設立、追加検証後の設立、又は設立保留等のカテゴリを含んでもよい。
+
 ---
 
 ## 【請求項案】
@@ -430,19 +787,19 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 
 ### A-1. 図面不足
 
-必須に近い:
+図面案は本文へ追加済み。ただし、特許図面としての清書が必要。
 
-- Fig.1 全体システム構成
-- Fig.2 candidate生成/evidence metadata付与
-- Fig.3 HITL承認/reject/comment/正本反映
-- Fig.4 protocol + example + outcomeのデータ構造
-- Fig.5 contradictory outcome UI
-- Fig.6 pending proposal/version governance
-- Fig.7 Before-Zero設立時期推奨
+- Fig.1 全体システム構成: Mermaid案あり
+- Fig.2 candidate生成/evidence metadata付与: Mermaid案あり
+- Fig.3 HITL承認/reject/comment/正本反映: Mermaid案あり
+- Fig.4 protocol + example + outcomeのデータ構造: Mermaid ER案あり
+- Fig.5 contradictory outcome UI: Mermaid案あり
+- Fig.6 pending proposal/version governance: Mermaid案あり
+- Fig.7 Before-Zero設立時期推奨: Mermaid案あり
 
 ### A-2. データ構造不足
 
-安全な抽象テーブル例が必要。
+安全な抽象テーブル例は本文へ追加済み。ただし、請求項との対応表は未作成。
 
 - `candidate_data`
 - `evidence_metadata`
@@ -458,7 +815,7 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 
 ### A-3. 処理フロー不足
 
-明細書に書ける粒度の疑似フローが必要。
+疑似フローは本文へ追加済み。ただし、各請求項との対応表は未作成。
 
 - candidate generation flow
 - evidence metadata generation flow
@@ -490,4 +847,5 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 4. outcome ledgerはFHIR/OMOP回避として矛盾観測UIと異種evidenceをどこまで入れるか。
 5. system parameter governanceを同一出願に含めるか、分割候補にするか。
 6. Before-Zero設立時期推奨を従属項に留めるか、独立請求項も置くか。
-
+7. Mermaid図の各構成を特許図面へ清書する際、どの構成要素番号を振るべきか。
+8. 抽象テーブル例が実施可能要件の説明として十分か。
