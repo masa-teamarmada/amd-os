@@ -309,8 +309,11 @@
   - 差し戻し対応では、キャッシュ判断パネルを補助として残しつつ、下部の `GasMonthlySimulationPanel` を項目ごとの `予算` / `実績` / `差額` subrow構造に直した。
   - 売上計、入金、売上原価、粗利、固定費、社保、臨時収入/支出、営業利益、融資実行、借入返済、税金、月次CF、支払い、キャッシュを同じ表内で比較できる。
   - 未来月は実績欄を `未確定`、過去月で実績sourceが無い欄は `未反映`、source未接続の項目は `未連携` として表示する。
+  - production alias `https://amd-os-pwa.vercel.app` のReady deployment `dpl_G1R6rxpaybUPiJ6vAa7oQFdWdviM` で、ログイン済みChromeから `/management-score` を確認済み。
+  - production画面versionは `v0.13.0`。`売上計予算 / 実績freee PL / 差額 実績 - 予算`、`入金予算 / 実績billing確認済(税込)`、`売上原価予算 / 実績支払通知書送付済(税抜)`、未来月 `未確定` 表示を確認済み。
 - 残課題は何か
   - このタスク自体は完了。
+  - 最新main全体のproduction追従deployはVercel quota待ちだが、Management予実表そのものの本番確認は完了済み。
   - p19:202605は client入金未確認のため、支払通知/振込情報は反映しつつstatusは維持している。運用を変えるなら別判断。
 
 ### 3. PRSモデルを、現行AMD Scoreを壊さず比較/シミュレーション層として実装する
