@@ -38,8 +38,8 @@
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
-  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成中。
-  - 残課題: 00-24をcold-reader / ruthless-editor reviewへ回し、artifact spineが一冊の読書体験になっているか、22-24を本文/appendix/toolkitのどこに置くべきかを判定する。
+  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成。2026-06-01にcold-reader review `pwa/bzm/textbook/runs/2026-06-01-cold-reader-review-artifact-spine-00-24.md` を追加し、00-24の通読・artifact spine・Ch11-12冷え・Ch15-21理論接続・Ch22-24配置を判定済み。
+  - 残課題: 次rewriteでは Ch05 traveling slide mini-plot、Ch01/09/16/20 budget-owner failure thread、Ch11-12のscene pressure、Ch15-21のbad meeting / revised table、Ch22-24のtoolkit/appendix再配置を優先する。
 
 - **public manuscript 00-06 scene-first rewrite**
   - お願いした内容: 北極星と `2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` に沿って、`pwa/bzm/public-manuscript/00`〜`06` を読み物としてつながる本文へ改稿する。
