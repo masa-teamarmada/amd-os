@@ -439,6 +439,13 @@ UI で必ず出すもの:
 - 財務耐久の内訳として、対象月の前後 12 か月を横断する予実グラフと、GAS 月次試算表の `OUT_Monthly` に近い行構成の月次予実表
   - 表の基本順: 売上計 / PJ明細 / 売上原価 / 粗利 / PJ粗利 / 固定費 / 固定費明細 / 社保 / 臨時収入 / 臨時支出 / 営業利益 / 融資実行 / 借入返済 / 利息 / 税 / 月次CF / キャッシュ
   - 予算は `company_budget_monthly` の GAS 移植結果、実績は freee `trial_pl` 由来の `company_actual_monthly`
+  - 入金実績は `billing_cycles.payment_confirmed_at` を正本にし、`invoice_ym` / `payment_due_rule` で入金月へ寄せる。金額は発行済み請求明細 (`invoice_base_lines_json`) → 確定請求額 (`budget_reported_amount`) → 互換 fallback (`budget_yen / 0.65`) の順で税抜を取り、税込にして表示する
+  - 支払通知書は `payout_notices.sent_at` / `total_yen` を正本にし、送付済み税抜額と cash outflow 用の税込相当を分ける。報酬振込済みの反映有無は `billing_cycles.reward_paid_at` を見る
+- キャッシュ判断パネル
+  - 過去実績: freee PL 売上、入金確認済み、支払通知書送付済み、実績差引
+  - 当月着地見込み: 試算上の入金・支出・月次CF
+  - 先3か月: 入金予定、支出予定、通常月CF (= 一括入金除き)、月末Cash、最低Cash
+  - source/confidence label: `実績` (`payment_confirmed_at` / `sent_at` / freee PL), `予定` (budget simulation), `未確認` (invoice未送付/入金未確認/支払済み未反映)
 - confidence / data freshness
 - finance cap がかかった場合の表示
 - 上げ要因 top 5

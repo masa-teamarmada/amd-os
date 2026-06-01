@@ -507,6 +507,29 @@ EvidencePanel の上部に「**まさえいMTG で確定したシグナル**」 
 - 会社スコープ: AMDの売上・契約・提案・入金・採択・アライアンス・資源配分・組織運営に効くもの。
 - PJスコープ: 個別PJの技術/実験/設立/事業内容/研究/顧客/装置論点。PJ cockpit、MTGサマリ、PJ knowledge、BZM実践知には残すが、AMD Management Score には入れない。
 
+### 予実管理・先3か月キャッシュ判断 (= 2026-06-01 追加)
+
+`/management-score` は、GAS月次試算表の予算行だけでなく、実績・予定・未確認を分けたキャッシュ判断を表示する。
+
+| 見るもの | 正本 | UI上の扱い |
+|---|---|---|
+| freee PL実績 | `company_actual_monthly` / `company_budget_actual_monthly.actual_amount_yen` | `売上実績 freee PL`、`固定費実績 freee`、`実績差引` |
+| 入金確認済み | `billing_cycles.payment_confirmed_at` + `budget_reported_amount` / `invoice_base_lines_json` | 税込入金として `入金確認済` に集計。CTB 202604 のように `invoice_ym=202605` なら入金月側に寄せる |
+| 支払通知書 | `payout_notices.sent_at` / `total_yen` | `支払通知書送付済(税抜)` として表示。実績差引では税込相当を cash outflow として扱う |
+| 報酬支払済み | `billing_cycles.reward_paid_at` | 支払済み反映の有無をアラートに使う |
+| 先3か月入金予定 | `billing_cycles` + `projects.payment_due_rule` | `invoice_sent` / `invoice_issued` / `budget_confirmed` / `unconfirmed` の source label 付きで表示 |
+| 先3か月支出予定・Cash | `company_budget_actual_monthly.budget_payload.cashInflow/cashOutflow` と `cash_amount_yen` | 当月着地見込み、先3か月最低Cash、一括入金除きCFを表示 |
+
+この画面では `actual` と `forecast` を同じ数字として混ぜない。実績は `payment_confirmed_at` / `sent_at` / freee PL のように OS が確認済みのデータだけ、予定は予算・請求サイクル・支払ルールに基づく見込み、未確認は請求未送付・入金未確認・支払済み未反映として label を出す。
+
+意思決定アラートは次を出す。
+
+- 一括入金を除いた通常月CFが赤字か。
+- 先3か月の最低Cashが閾値を下回るか。
+- 未入金予定が残っているか、そのうち高確度 (`invoice_sent` / `invoice_issued` / `budget_confirmed`) がいくらか。
+- 支払通知書は送付済みだが `reward_paid_at` が未反映か。
+- 支払済み cycle に `payout_notice_uploaded_at` が未反映か。
+
 ## 既知ギャップ + v4 移行 TODO
 
 | 優先 | ギャップ | 状態 | 次にやること |

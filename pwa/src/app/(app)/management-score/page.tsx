@@ -6,6 +6,7 @@ import {
   type DialogueConfirmedSignal,
 } from "@/components/management-score/EvidencePanel";
 import type { MonthlyPlInputs } from "@/lib/finance/monthly-pl-simulation";
+import { effectivePaymentYmForCycle } from "@/lib/payment-groups";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,73 @@ type BudgetInputRow = {
   source_id: string | null;
   label: string | null;
   payload: Record<string, unknown> | null;
+};
+
+type PaymentProjectRow = {
+  project_id: string;
+  project_name: string;
+  client_name: string | null;
+  status: string | null;
+  freee_partner_id: string | null;
+  payment_due_rule: string | null;
+  payment_due_day: number | null;
+};
+
+type BillingCycleActualRow = {
+  id: string;
+  project_id: string;
+  ym: string;
+  status: string | null;
+  budget_yen: number | string | null;
+  budget_reported_amount: number | string | null;
+  invoice_ym: string | null;
+  invoice_base_lines_json: string | null;
+  invoice_issued_at: string | null;
+  invoice_sent_at: string | null;
+  freee_invoice_number: string | null;
+  payment_confirmed_at: string | null;
+  payment_confirmed_by: string | null;
+  payout_notice_uploaded_at: string | null;
+  reward_paid_at: string | null;
+  reward_paid_by: string | null;
+  reward_summary_json: Record<string, unknown> | null;
+};
+
+type PayoutNoticeActualRow = {
+  member_id: string;
+  ym: string;
+  total_yen: number | string | null;
+  sent_at: string | null;
+  pdf_url: string | null;
+};
+
+type MonthlyActualSummary = {
+  ym: string;
+  actualRevenue: number;
+  confirmedDepositsGross: number;
+  payoutNoticeNetTotal: number;
+  payoutNoticeSentNetTotal: number;
+  payoutNoticePendingNetTotal: number;
+  payoutNoticeGrossTotal: number;
+  actualFixedCost: number;
+  actualSocialIns: number;
+  actualLoanPayment: number;
+  actualCtaxPayment: number;
+  actualCorpTaxPayment: number;
+  actualNetCashFlow: number;
+};
+
+type ExpectedReceiptSummary = {
+  gross: number;
+  highConfidenceGross: number;
+  items: Array<{
+    projectId: string;
+    projectName: string;
+    sourceYm: string;
+    gross: number;
+    status: string | null;
+    source: "invoice_sent" | "invoice_issued" | "budget_confirmed" | "unconfirmed";
+  }>;
 };
 
 const SCORE_COMPONENTS: Array<{
@@ -233,6 +301,186 @@ function payloadNumberValue(payload: Record<string, unknown> | null | undefined,
   return Number.isFinite(n) ? n : 0;
 }
 
+function numberValue(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(n) ? Math.round(n) : 0;
+}
+
+function invoiceLinesNet(raw: string | null): number {
+  if (!raw?.trim()) return 0;
+  try {
+    const parsed = JSON.parse(raw) as Array<Record<string, unknown>>;
+    if (!Array.isArray(parsed)) return 0;
+    return Math.round(
+      parsed.reduce((sum, row) => {
+        if ((row.type ?? "item") === "text") return sum;
+        const quantity = numberValue(row.qty ?? row.quantity) || 1;
+        const unitPrice = numberValue(row.unit_price);
+        return sum + quantity * unitPrice;
+      }, 0)
+    );
+  } catch {
+    return 0;
+  }
+}
+
+function expectedNetForCycle(cycle: BillingCycleActualRow): number {
+  const invoiceNet = invoiceLinesNet(cycle.invoice_base_lines_json);
+  if ((cycle.invoice_issued_at || cycle.freee_invoice_number) && invoiceNet > 0) return invoiceNet;
+  const reported = numberValue(cycle.budget_reported_amount);
+  if (reported > 0) return reported;
+  if (invoiceNet > 0) return invoiceNet;
+  const budget = numberValue(cycle.budget_yen);
+  return budget > 0 ? Math.round(budget / 0.65) : 0;
+}
+
+function actualCompanyValue(categoryRows: Map<string, Map<string, BudgetActualRow[]>>, ym: string, category: string): number {
+  return (categoryRows.get(ym)?.get(category) ?? []).reduce((sum, row) => sum + (row.actual_amount_yen ?? 0), 0);
+}
+
+function emptyActualSummary(ym: string): MonthlyActualSummary {
+  return {
+    ym,
+    actualRevenue: 0,
+    confirmedDepositsGross: 0,
+    payoutNoticeNetTotal: 0,
+    payoutNoticeSentNetTotal: 0,
+    payoutNoticePendingNetTotal: 0,
+    payoutNoticeGrossTotal: 0,
+    actualFixedCost: 0,
+    actualSocialIns: 0,
+    actualLoanPayment: 0,
+    actualCtaxPayment: 0,
+    actualCorpTaxPayment: 0,
+    actualNetCashFlow: 0,
+  };
+}
+
+function buildMonthlyActualSummaries(
+  months: string[],
+  categoryRows: Map<string, Map<string, BudgetActualRow[]>>,
+  cycles: BillingCycleActualRow[],
+  projects: PaymentProjectRow[],
+  payoutNotices: PayoutNoticeActualRow[]
+): Map<string, MonthlyActualSummary> {
+  const summaries = new Map<string, MonthlyActualSummary>();
+  const projectMap = new Map(projects.map((project) => [project.project_id, project]));
+  const ensure = (ym: string) => {
+    const current = summaries.get(ym) ?? emptyActualSummary(ym);
+    summaries.set(ym, current);
+    return current;
+  };
+  for (const ym of months) {
+    const summary = ensure(ym);
+    summary.actualRevenue = actualCompanyValue(categoryRows, ym, "revenue");
+    summary.actualFixedCost = actualCompanyValue(categoryRows, ym, "fixed_cost");
+    summary.actualSocialIns = actualCompanyValue(categoryRows, ym, "social_insurance");
+    summary.actualLoanPayment = actualCompanyValue(categoryRows, ym, "loan_payment");
+    summary.actualCtaxPayment = actualCompanyValue(categoryRows, ym, "tax_payment_consumption");
+    summary.actualCorpTaxPayment = actualCompanyValue(categoryRows, ym, "tax_payment_corporate");
+  }
+  for (const cycle of cycles) {
+    if (!cycle.payment_confirmed_at) continue;
+    const project = projectMap.get(cycle.project_id);
+    const paymentYm = effectivePaymentYmForCycle(cycle, project);
+    const summary = ensure(paymentYm);
+    summary.confirmedDepositsGross += Math.round(expectedNetForCycle(cycle) * 1.1);
+  }
+  for (const notice of payoutNotices) {
+    const summary = ensure(notice.ym);
+    const amount = numberValue(notice.total_yen);
+    summary.payoutNoticeNetTotal += amount;
+    summary.payoutNoticeGrossTotal += Math.round(amount * 1.1);
+    if (notice.sent_at) {
+      summary.payoutNoticeSentNetTotal += amount;
+    } else {
+      summary.payoutNoticePendingNetTotal += amount;
+    }
+  }
+  for (const summary of summaries.values()) {
+    const paidOutflowGross = Math.round(summary.payoutNoticeSentNetTotal * 1.1);
+    const actualOutflow =
+      paidOutflowGross +
+      summary.actualFixedCost +
+      summary.actualSocialIns +
+      summary.actualLoanPayment +
+      summary.actualCtaxPayment +
+      summary.actualCorpTaxPayment;
+    summary.actualNetCashFlow = summary.confirmedDepositsGross - actualOutflow;
+  }
+  return summaries;
+}
+
+function cycleForecastSource(cycle: BillingCycleActualRow): ExpectedReceiptSummary["items"][number]["source"] {
+  if (cycle.invoice_sent_at) return "invoice_sent";
+  if (cycle.invoice_issued_at || cycle.freee_invoice_number) return "invoice_issued";
+  if (["budget_confirmed", "report_fixed", "invoice_issued", "invoice_sent"].includes(cycle.status ?? "")) return "budget_confirmed";
+  return "unconfirmed";
+}
+
+function buildExpectedReceiptsByPaymentYm(cycles: BillingCycleActualRow[], projects: PaymentProjectRow[]): Map<string, ExpectedReceiptSummary> {
+  const projectMap = new Map(projects.map((project) => [project.project_id, project]));
+  const map = new Map<string, ExpectedReceiptSummary>();
+  const ensure = (ym: string) => {
+    const current = map.get(ym) ?? { gross: 0, highConfidenceGross: 0, items: [] };
+    map.set(ym, current);
+    return current;
+  };
+  for (const cycle of cycles) {
+    if (cycle.payment_confirmed_at) continue;
+    const project = projectMap.get(cycle.project_id);
+    const paymentYm = effectivePaymentYmForCycle(cycle, project);
+    const net = expectedNetForCycle(cycle);
+    if (net <= 0) continue;
+    const gross = Math.round(net * 1.1);
+    const source = cycleForecastSource(cycle);
+    const summary = ensure(paymentYm);
+    summary.gross += gross;
+    if (source !== "unconfirmed") summary.highConfidenceGross += gross;
+    summary.items.push({
+      projectId: cycle.project_id,
+      projectName: project?.project_name || cycle.project_id,
+      sourceYm: cycle.ym,
+      gross,
+      status: cycle.status,
+      source,
+    });
+  }
+  return map;
+}
+
+function buildOneOffInflowGrossByYm(inputRows: BudgetInputRow[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const row of inputRows) {
+    if (row.input_kind !== "project" || !row.payload) continue;
+    const payload = row.payload as Record<string, unknown>;
+    if (payload.type !== "spot") continue;
+    const ym = String(payload.startYm ?? "");
+    if (!/^[0-9]{6}$/.test(ym)) continue;
+    const revenue = numberValue(payload.monthlyRevenue);
+    if (revenue <= 0) continue;
+    map.set(ym, (map.get(ym) ?? 0) + Math.round(revenue * 1.1));
+  }
+  return map;
+}
+
+function compactReceiptItems(items: ExpectedReceiptSummary["items"], limit = 3): string {
+  if (items.length === 0) return "なし";
+  const sourceLabels: Record<ExpectedReceiptSummary["items"][number]["source"], string> = {
+    invoice_sent: "請求送付済",
+    invoice_issued: "請求発行済",
+    budget_confirmed: "予算確定",
+    unconfirmed: "未確認",
+  };
+  const head = items.slice(0, limit).map((item) => `${item.projectName} ${shortYm(item.sourceYm)} ${yen(item.gross)} ${sourceLabels[item.source]}`);
+  const rest = items.length - head.length;
+  return rest > 0 ? `${head.join(" / ")} ほか${rest}件` : head.join(" / ");
+}
+
+function rowForYm(rows: GasMonthlyRow[], ym: string): GasMonthlyRow | null {
+  return rows.find((row) => String(row.ym) === ym) ?? null;
+}
+
 function recordValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -319,7 +567,8 @@ function buildGasSimulationResult(
   months: string[],
   categoryRows: Map<string, Map<string, BudgetActualRow[]>>,
   rawRows: BudgetActualRow[],
-  inputRows: BudgetInputRow[]
+  inputRows: BudgetInputRow[],
+  actualSummaries: Map<string, MonthlyActualSummary>
 ): GasSimulationResult {
   const projectInputs = inputRows.filter((row) => row.input_kind === "project" && row.source_id);
   const projectList: GasProjectListItem[] = projectInputs.map((row) => ({
@@ -341,17 +590,27 @@ function buildGasSimulationResult(
     return {
       ym: Number(ym),
       revenue: companyBudgetValue(categoryRows, ym, "revenue"),
+      actualRevenue: actualSummaries.get(ym)?.actualRevenue ?? 0,
+      confirmedDepositsGross: actualSummaries.get(ym)?.confirmedDepositsGross ?? 0,
       costMember: companyBudgetValue(categoryRows, ym, "cost_member"),
       costCloser: companyBudgetValue(categoryRows, ym, "cost_closer"),
       grossProfit: companyBudgetValue(categoryRows, ym, "gross_profit"),
       fixedCost: companyBudgetValue(categoryRows, ym, "fixed_cost"),
+      actualFixedCost: actualSummaries.get(ym)?.actualFixedCost ?? 0,
       socialIns: companyBudgetValue(categoryRows, ym, "social_insurance"),
+      actualSocialIns: actualSummaries.get(ym)?.actualSocialIns ?? 0,
       operatingProfit: companyBudgetValue(categoryRows, ym, "operating_profit"),
       loanPayment: companyBudgetValue(categoryRows, ym, "loan_payment"),
+      actualLoanPayment: actualSummaries.get(ym)?.actualLoanPayment ?? 0,
       loanInterest: companyBudgetValue(categoryRows, ym, "loan_interest"),
       ctaxPayment: companyBudgetValue(categoryRows, ym, "tax_payment_consumption"),
+      actualCtaxPayment: actualSummaries.get(ym)?.actualCtaxPayment ?? 0,
       corpTaxPayment: companyBudgetValue(categoryRows, ym, "tax_payment_corporate"),
+      actualCorpTaxPayment: actualSummaries.get(ym)?.actualCorpTaxPayment ?? 0,
       netCashFlow: companyBudgetValue(categoryRows, ym, "net_cash_flow"),
+      actualNetCashFlow: actualSummaries.get(ym)?.actualNetCashFlow ?? 0,
+      payoutNoticeNetTotal: actualSummaries.get(ym)?.payoutNoticeNetTotal ?? 0,
+      payoutNoticeSentNetTotal: actualSummaries.get(ym)?.payoutNoticeSentNetTotal ?? 0,
       cashBalance: revenueRow?.cash_amount_yen ?? 0,
       runway: Number(revenueRow?.runway_months ?? 0),
       loanDisbursement: payloadNumberValue(netCash?.budget_payload, "loanDisbursement"),
@@ -570,8 +829,88 @@ export default async function ManagementScorePage() {
   const financeMonths = availableBudgetYms.length > 0 ? availableBudgetYms.sort() : centeredMonths(selectedYm, availableBudgetYms);
   const budgetCategoryRows = byMonthCategory(budgetRows.filter((row) => row.scope === "company"));
   const budgetInputRows = inputRes.data ?? [];
-  const gasSimulationResult = buildGasSimulationResult(financeMonths, budgetCategoryRows, budgetRows, budgetInputRows);
+  const financeStartYm = financeMonths[0] ?? addMonths(ymCap, -12);
+  const financeEndYm = financeMonths.at(-1) ?? addMonths(ymCap, 12);
+  const cycleStartYm = addMonths(financeStartYm, -3);
+  const cycleEndYm = addMonths(financeEndYm, 1);
+  const [paymentProjectsRes, billingCyclesRes, payoutNoticesRes] = await Promise.all([
+    safeSelect<PaymentProjectRow[]>(() =>
+      supabase
+        .from("projects")
+        .select("project_id,project_name,client_name,status,freee_partner_id,payment_due_rule,payment_due_day")
+        .limit(500)
+    ),
+    safeSelect<BillingCycleActualRow[]>(() =>
+      supabase
+        .from("billing_cycles")
+        .select("id,project_id,ym,status,budget_yen,budget_reported_amount,invoice_ym,invoice_base_lines_json,invoice_issued_at,invoice_sent_at,freee_invoice_number,payment_confirmed_at,payment_confirmed_by,payout_notice_uploaded_at,reward_paid_at,reward_paid_by,reward_summary_json")
+        .gte("ym", cycleStartYm)
+        .lte("ym", cycleEndYm)
+        .limit(1200)
+    ),
+    safeSelect<PayoutNoticeActualRow[]>(() =>
+      supabase
+        .from("payout_notices")
+        .select("member_id,ym,total_yen,sent_at,pdf_url")
+        .gte("ym", financeStartYm)
+        .lte("ym", financeEndYm)
+        .limit(1200)
+    ),
+  ]);
+  const paymentProjects = paymentProjectsRes.data ?? [];
+  const billingCycles = billingCyclesRes.data ?? [];
+  const payoutNotices = payoutNoticesRes.data ?? [];
+  const monthlyActualSummaries = buildMonthlyActualSummaries(
+    financeMonths,
+    budgetCategoryRows,
+    billingCycles,
+    paymentProjects,
+    payoutNotices
+  );
+  const gasSimulationResult = buildGasSimulationResult(financeMonths, budgetCategoryRows, budgetRows, budgetInputRows, monthlyActualSummaries);
   const gasSimulationInputs = buildMonthlyPlInputs(budgetInputRows);
+  const expectedReceiptsByYm = buildExpectedReceiptsByPaymentYm(billingCycles, paymentProjects);
+  const oneOffInflowGrossByYm = buildOneOffInflowGrossByYm(budgetInputRows);
+  const pastActualYm = addMonths(ymCap, -1);
+  const outlookMonths = [ymCap, addMonths(ymCap, 1), addMonths(ymCap, 2)];
+  const pastActual = monthlyActualSummaries.get(pastActualYm) ?? emptyActualSummary(pastActualYm);
+  const currentForecast = rowForYm(gasSimulationResult.rows, ymCap);
+  const lowestCashOutlook = outlookMonths.reduce(
+    (lowest, ym) => {
+      const row = rowForYm(gasSimulationResult.rows, ym);
+      if (!row) return lowest;
+      return row.cashBalance < lowest.cash ? { ym, cash: row.cashBalance } : lowest;
+    },
+    { ym: ymCap, cash: Number.POSITIVE_INFINITY }
+  );
+  const unconfirmedReceiptTotal = outlookMonths.reduce((sum, ym) => sum + (expectedReceiptsByYm.get(ym)?.gross ?? 0), 0);
+  const highConfidenceReceiptTotal = outlookMonths.reduce((sum, ym) => sum + (expectedReceiptsByYm.get(ym)?.highConfidenceGross ?? 0), 0);
+  const paidCycleCount = billingCycles.filter((cycle) => {
+    const project = paymentProjects.find((item) => item.project_id === cycle.project_id);
+    return effectivePaymentYmForCycle(cycle, project) === pastActualYm && Boolean(cycle.reward_paid_at);
+  }).length;
+  const paymentNoticeUploadedMissing = billingCycles.filter((cycle) => {
+    const project = paymentProjects.find((item) => item.project_id === cycle.project_id);
+    return effectivePaymentYmForCycle(cycle, project) === pastActualYm && cycle.reward_paid_at && !cycle.payout_notice_uploaded_at;
+  }).length;
+  const financeAlerts = [
+    pastActual.confirmedDepositsGross === 0 ? `${pastActualYm} の入金確認がまだ0円。billing/paymentログの取り込み確認が必要。` : null,
+    pastActual.payoutNoticeNetTotal > 0 && pastActual.payoutNoticePendingNetTotal > 0
+      ? `${pastActualYm} の支払通知書に未送付扱い ${yen(pastActual.payoutNoticePendingNetTotal)} が残っている。`
+      : null,
+    paidCycleCount === 0 && pastActual.payoutNoticeSentNetTotal > 0
+      ? `${pastActualYm} の支払通知書は送付済みだが、billing_cycles.reward_paid_at が未反映。`
+      : null,
+    paymentNoticeUploadedMissing > 0
+      ? `${pastActualYm} の支払済みcycle ${paymentNoticeUploadedMissing}件で payout_notice_uploaded_at が未反映。`
+      : null,
+    lowestCashOutlook.cash !== Number.POSITIVE_INFINITY && lowestCashOutlook.cash < 1_500_000
+      ? `${lowestCashOutlook.ym} 月末Cashが ${yen(lowestCashOutlook.cash)} まで落ちる見込み。入金前倒し/支出抑制の確認が必要。`
+      : null,
+    unconfirmedReceiptTotal > 0
+      ? `先3か月に未入金予定 ${yen(unconfirmedReceiptTotal)}。うち請求送付/発行/予算確定済みは ${yen(highConfidenceReceiptTotal)}。`
+      : null,
+  ].filter((item): item is string => Boolean(item));
   const latestRows = aggregateCategoryRows(budgetRows, selectedYm ?? undefined);
   const latestYm = latestRows[0]?.ym ?? null;
   const latestRun = runRes.data?.[0] ?? null;
@@ -581,7 +920,17 @@ export default async function ManagementScorePage() {
   const revenueActual = findAmount(latestRows, "revenue", "actual_amount_yen");
   const netCashBudget = findAmount(latestRows, "net_cash_flow", "budget_amount_yen");
   const netCashActual = findAmount(latestRows, "net_cash_flow", "actual_amount_yen");
-  const blockingError = scoreRes.error || scoreHistoryRes.error || budgetRes.error || inputRes.error || runRes.error || notesRes.error || evidenceRes.error;
+  const blockingError =
+    scoreRes.error ||
+    scoreHistoryRes.error ||
+    budgetRes.error ||
+    inputRes.error ||
+    runRes.error ||
+    notesRes.error ||
+    evidenceRes.error ||
+    paymentProjectsRes.error ||
+    billingCyclesRes.error ||
+    payoutNoticesRes.error;
   const totalDelta = score?.total_score != null && previous?.total_score != null ? Number(score.total_score) - Number(previous.total_score) : null;
   function delta(curr: number | null | undefined, prev: number | null | undefined): number | null {
     if (curr == null || prev == null) return null;
@@ -753,6 +1102,129 @@ export default async function ManagementScorePage() {
         </section>
 
         <EvidencePanel rows={evidenceRows} dialogueConfirmedSignals={dialogueConfirmedSignals} />
+
+        <section className="rounded-md border bg-card">
+          <div className="border-b px-4 py-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold">キャッシュ判断</h2>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  実績は freee PL / 入金確認 / 支払通知書、見込みは月次試算と請求サイクルから分けて見る。
+                </p>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                過去実績 {pastActualYm} / 当月 {ymCap} / 先3か月 {outlookMonths.join(", ")}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 p-4 md:grid-cols-4">
+            <Metric label={`${pastActualYm} 入金確認済`} value={yen(pastActual.confirmedDepositsGross)} />
+            <Metric label={`${pastActualYm} 支払通知書送付済`} value={yen(pastActual.payoutNoticeSentNetTotal)} />
+            <Metric
+              label={`${ymCap} 月次CF見込み`}
+              value={yen(currentForecast?.netCashFlow)}
+              className={(currentForecast?.netCashFlow ?? 0) < 0 ? "text-red-600" : "text-emerald-600"}
+            />
+            <Metric
+              label="先3か月の最低Cash"
+              value={lowestCashOutlook.cash === Number.POSITIVE_INFINITY ? "-" : `${lowestCashOutlook.ym} ${yen(lowestCashOutlook.cash)}`}
+              className={lowestCashOutlook.cash < 1_500_000 ? "text-red-600" : ""}
+            />
+          </div>
+
+          <div className="border-t px-4 py-3">
+            <div className="overflow-x-auto">
+              <table className="min-w-[980px] w-full text-xs">
+                <thead className="text-muted-foreground">
+                  <tr className="border-b">
+                    <th className="py-2 pr-3 text-left font-medium">月</th>
+                    <th className="py-2 px-3 text-right font-medium">試算上の入金</th>
+                    <th className="py-2 px-3 text-right font-medium">未入金予定</th>
+                    <th className="py-2 px-3 text-right font-medium">支出予定</th>
+                    <th className="py-2 px-3 text-right font-medium">月次CF</th>
+                    <th className="py-2 px-3 text-right font-medium">一括入金除きCF</th>
+                    <th className="py-2 pl-3 text-right font-medium">月末Cash</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {outlookMonths.map((ym) => {
+                    const row = rowForYm(gasSimulationResult.rows, ym);
+                    const expected = expectedReceiptsByYm.get(ym);
+                    const oneOff = oneOffInflowGrossByYm.get(ym) ?? 0;
+                    const normalCf = row ? row.netCashFlow - oneOff : 0;
+                    const receiptDetail = compactReceiptItems(expected?.items ?? []);
+                    return (
+                      <tr key={ym} className="border-b last:border-b-0">
+                        <td className="py-2 pr-3 font-medium tabular-nums">{ym}</td>
+                        <td className="py-2 px-3 text-right tabular-nums">
+                          <div>{yen(row?.cashInflow)}</div>
+                          <div className="text-[11px] text-muted-foreground">予定</div>
+                        </td>
+                        <td className="py-2 px-3 text-right tabular-nums">
+                          <div>{yen(expected?.gross ?? 0)}</div>
+                          <div className="mt-0.5 max-w-[300px] truncate text-left text-[11px] text-muted-foreground" title={receiptDetail}>
+                            {receiptDetail}
+                          </div>
+                        </td>
+                        <td className="py-2 px-3 text-right tabular-nums">
+                          <div>{yen(row?.cashOutflow)}</div>
+                          <div className="text-[11px] text-muted-foreground">予定</div>
+                        </td>
+                        <td className={`py-2 px-3 text-right tabular-nums ${(row?.netCashFlow ?? 0) < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                          {yen(row?.netCashFlow)}
+                        </td>
+                        <td className={`py-2 px-3 text-right tabular-nums ${normalCf < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                          {yen(normalCf)}
+                          {oneOff > 0 && <div className="text-[11px] text-muted-foreground">一括入金 {yen(oneOff)} 除き</div>}
+                        </td>
+                        <td className={`py-2 pl-3 text-right tabular-nums ${(row?.cashBalance ?? 0) < 1_500_000 ? "text-red-600" : ""}`}>
+                          {yen(row?.cashBalance)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="grid gap-3 border-t px-4 py-3 lg:grid-cols-[0.75fr_1.25fr]">
+            <div className="rounded-md border bg-background px-3 py-3">
+              <div className="text-xs font-semibold">5月実績の読み分け</div>
+              <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-xs">
+                <dt className="text-muted-foreground">freee PL 売上</dt>
+                <dd className="font-medium tabular-nums">{yen(pastActual.actualRevenue)}</dd>
+                <dt className="text-muted-foreground">入金確認済み</dt>
+                <dd className="font-medium tabular-nums">{yen(pastActual.confirmedDepositsGross)}</dd>
+                <dt className="text-muted-foreground">支払通知書 送付済み(税抜)</dt>
+                <dd className="font-medium tabular-nums">{yen(pastActual.payoutNoticeSentNetTotal)}</dd>
+                <dt className="text-muted-foreground">実績差引</dt>
+                <dd className={`font-medium tabular-nums ${pastActual.actualNetCashFlow < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                  {yen(pastActual.actualNetCashFlow)}
+                </dd>
+              </dl>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <span className="rounded-full border bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700">実績: payment_confirmed_at / sent_at</span>
+                <span className="rounded-full border bg-sky-50 px-2 py-1 text-[11px] text-sky-700">予定: budget simulation</span>
+                <span className="rounded-full border bg-amber-50 px-2 py-1 text-[11px] text-amber-700">未確認: 未送付・未入金cycle</span>
+              </div>
+            </div>
+
+            <div className="rounded-md border bg-background px-3 py-3">
+              <div className="text-xs font-semibold text-muted-foreground">意思決定アラート</div>
+              {financeAlerts.length === 0 ? (
+                <p className="mt-1 text-sm text-muted-foreground">直近3か月に重大アラートなし。</p>
+              ) : (
+                <ul className="mt-1.5 space-y-1 text-sm">
+                  {financeAlerts.map((alert, index) => (
+                    <li key={index} className="leading-relaxed">・{alert}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </section>
 
         <GasMonthlySimulationPanel result={gasSimulationResult} inputs={gasSimulationInputs} />
 

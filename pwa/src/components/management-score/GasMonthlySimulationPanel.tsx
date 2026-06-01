@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarController,
   BarElement,
@@ -52,17 +52,27 @@ export type GasFixedCostDetail = {
 export type GasMonthlyRow = {
   ym: number;
   revenue: number;
+  actualRevenue: number;
+  confirmedDepositsGross: number;
   costMember: number;
   costCloser: number;
   grossProfit: number;
   fixedCost: number;
+  actualFixedCost: number;
   socialIns: number;
+  actualSocialIns: number;
   operatingProfit: number;
   loanPayment: number;
+  actualLoanPayment: number;
   loanInterest: number;
   ctaxPayment: number;
+  actualCtaxPayment: number;
   corpTaxPayment: number;
+  actualCorpTaxPayment: number;
   netCashFlow: number;
+  actualNetCashFlow: number;
+  payoutNoticeNetTotal: number;
+  payoutNoticeSentNetTotal: number;
   cashBalance: number;
   runway: number;
   loanDisbursement: number;
@@ -105,6 +115,29 @@ function fmtYm(ym: number): string {
 
 function kpiYen(value: number): string {
   return `¥${fmt(value)}`;
+}
+
+function mergeActualRows(result: GasSimulationResult, baselineRows: GasMonthlyRow[]): GasSimulationResult {
+  const actualByYm = new Map(baselineRows.map((row) => [row.ym, row]));
+  return {
+    ...result,
+    rows: result.rows.map((row) => {
+      const actual = actualByYm.get(row.ym);
+      return {
+        ...row,
+        actualRevenue: actual?.actualRevenue ?? 0,
+        confirmedDepositsGross: actual?.confirmedDepositsGross ?? 0,
+        actualFixedCost: actual?.actualFixedCost ?? 0,
+        actualSocialIns: actual?.actualSocialIns ?? 0,
+        actualLoanPayment: actual?.actualLoanPayment ?? 0,
+        actualCtaxPayment: actual?.actualCtaxPayment ?? 0,
+        actualCorpTaxPayment: actual?.actualCorpTaxPayment ?? 0,
+        actualNetCashFlow: actual?.actualNetCashFlow ?? 0,
+        payoutNoticeNetTotal: actual?.payoutNoticeNetTotal ?? 0,
+        payoutNoticeSentNetTotal: actual?.payoutNoticeSentNetTotal ?? 0,
+      };
+    }),
+  };
 }
 
 export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimulationResult; inputs?: MonthlyPlInputs | null }) {
@@ -263,7 +296,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
       if (!res.ok || !json.ok || !json.result) {
         throw new Error(json.error || `HTTP ${res.status}`);
       }
-      setDisplayResult(json.result);
+      setDisplayResult(mergeActualRows(json.result as unknown as GasSimulationResult, result.rows));
       setSimStatus(scenarioId ? `${scenarioId} を反映` : "ベースラインを再計算");
     } catch (err) {
       setSimStatus(`実行エラー: ${err instanceof Error ? err.message : String(err)}`);
@@ -449,6 +482,34 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           color: #555;
           font-size: 11px;
         }
+        .gas-actual-label {
+          position: sticky;
+          left: 0;
+          z-index: 1;
+          background: #f4fbf8;
+          padding-left: 20px;
+          color: #0f6b45;
+          font-size: 11px;
+        }
+        .gas-actual-num {
+          color: #0f6b45;
+          font-size: 11px;
+          background: #f4fbf8;
+        }
+        .gas-payment-label {
+          position: sticky;
+          left: 0;
+          z-index: 1;
+          background: #f5f8ff;
+          padding-left: 20px;
+          color: #1b4f9c;
+          font-size: 11px;
+        }
+        .gas-payment-num {
+          color: #1b4f9c;
+          font-size: 11px;
+          background: #f5f8ff;
+        }
         .gas-cost-label {
           position: sticky;
           left: 0;
@@ -552,6 +613,22 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
                 </td>
               ))}
             </tr>
+            <tr>
+              <td className="gas-actual-label">売上実績 freee PL</td>
+              {rows.map((row) => (
+                <td key={`actual_revenue_${row.ym}`} className="num gas-actual-num">
+                  {row.actualRevenue > 0 ? fmt(row.actualRevenue) : "-"}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="gas-payment-label">入金確認済 税込</td>
+              {rows.map((row) => (
+                <td key={`confirmed_deposits_${row.ym}`} className="num gas-payment-num">
+                  {row.confirmedDepositsGross > 0 ? fmt(row.confirmedDepositsGross) : "-"}
+                </td>
+              ))}
+            </tr>
             {toggleState.revenue &&
               pjList.flatMap((pj, pi) => {
                 const revenueRow = detailRow(pj.projectName, (row) => row.pjDetails[pi]?.revenue || 0);
@@ -611,44 +688,87 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
                 </td>
               ))}
             </tr>
+            <tr>
+              <td className="gas-actual-label">固定費実績 freee</td>
+              {rows.map((row) => (
+                <td key={`actual_fixed_${row.ym}`} className="num gas-actual-num">
+                  {row.actualFixedCost > 0 ? fmt(row.actualFixedCost) : "-"}
+                </td>
+              ))}
+            </tr>
             {toggleState.fixedCost &&
               Array.from(new Set(rows.flatMap((row) => row.fixedCostDetails.map((detail) => detail.name)))).map((name) =>
                 detailRow(name, (row) => row.fixedCostDetails.find((detail) => detail.name === name)?.amount || 0)
               )}
 
             {[
-              { label: "社保", key: "socialIns" as const },
+              { label: "社保", key: "socialIns" as const, actualKey: "actualSocialIns" as const },
               { label: "臨時収入", key: "spotIncome" as const },
               { label: "臨時支出", key: "spotExpense" as const },
               { label: "営業利益", key: "operatingProfit" as const, bold: true, highlight: true },
               { label: "融資実行", key: "loanDisbursement" as const },
-              { label: "借入返済", key: "loanPayment" as const },
+              { label: "借入返済", key: "loanPayment" as const, actualKey: "actualLoanPayment" as const },
               { label: "（うち利息）", key: "loanInterest" as const, indent: true },
-              { label: "消費税", key: "ctaxPayment" as const, refund: true },
-              { label: "法人税", key: "corpTaxPayment" as const },
-              { label: "月次CF", key: "netCashFlow" as const, bold: true, highlight: true },
+              { label: "消費税", key: "ctaxPayment" as const, actualKey: "actualCtaxPayment" as const, refund: true },
+              { label: "法人税", key: "corpTaxPayment" as const, actualKey: "actualCorpTaxPayment" as const },
+              { label: "月次CF", key: "netCashFlow" as const, bold: true, highlight: true, actualKey: "actualNetCashFlow" as const },
               { label: "キャッシュ", key: "cashBalance" as const, bold: true },
             ].map((def) => (
-              <tr key={def.key}>
-                <td className={`plain-label ${def.bold ? "bold-label" : ""} ${def.indent ? "indent-label" : ""}`}>{def.label}</td>
-                {rows.map((row) => {
-                  const value = row[def.key];
-                  const className = [
-                    "num",
-                    def.highlight && value < 0 ? "negative" : "",
-                    def.refund && value < 0 ? "refund" : "",
-                    def.bold ? "bold-label" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ");
-                  const display = def.refund && value < 0 ? `${fmt(Math.abs(value))}（還付）` : fmt(value);
-                  return (
-                    <td key={`${def.key}_${row.ym}`} className={className}>
-                      {display}
-                    </td>
-                  );
-                })}
-              </tr>
+              <Fragment key={def.key}>
+                <tr>
+                  <td className={`plain-label ${def.bold ? "bold-label" : ""} ${def.indent ? "indent-label" : ""}`}>{def.label}</td>
+                  {rows.map((row) => {
+                    const value = row[def.key];
+                    const className = [
+                      "num",
+                      def.highlight && value < 0 ? "negative" : "",
+                      def.refund && value < 0 ? "refund" : "",
+                      def.bold ? "bold-label" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+                    const display = def.refund && value < 0 ? `${fmt(Math.abs(value))}（還付）` : fmt(value);
+                    return (
+                      <td key={`${def.key}_${row.ym}`} className={className}>
+                        {display}
+                      </td>
+                    );
+                  })}
+                </tr>
+                {def.actualKey && (
+                  <tr>
+                    <td className="gas-actual-label">{def.key === "netCashFlow" ? "実績差引" : `${def.label}実績`}</td>
+                    {rows.map((row) => {
+                      const value = row[def.actualKey] ?? 0;
+                      return (
+                        <td key={`${def.actualKey}_${row.ym}`} className={`num gas-actual-num ${value < 0 ? "negative" : ""}`}>
+                          {value !== 0 ? fmt(value) : "-"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                )}
+                {def.key === "netCashFlow" && (
+                  <>
+                    <tr>
+                      <td className="gas-payment-label">支払通知書 税抜</td>
+                      {rows.map((row) => (
+                        <td key={`payout_notice_${row.ym}`} className="num gas-payment-num">
+                          {row.payoutNoticeNetTotal > 0 ? fmt(row.payoutNoticeNetTotal) : "-"}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="gas-payment-label">送付済通知書 税抜</td>
+                      {rows.map((row) => (
+                        <td key={`payout_notice_sent_${row.ym}`} className="num gas-payment-num">
+                          {row.payoutNoticeSentNetTotal > 0 ? fmt(row.payoutNoticeSentNetTotal) : "-"}
+                        </td>
+                      ))}
+                    </tr>
+                  </>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
