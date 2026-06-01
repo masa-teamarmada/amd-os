@@ -128,12 +128,16 @@
 - 現状どうなってるか
   - 制度整備状況や規程比較を入力する枠は実装済み。
   - 本番側の安全設定も見直し済み。
-  - 実データ入力workerは動いているが、mainへ取り込む前に他の変更との番号衝突や取り込み順序を確認する必要がある。
+  - 実データ入力worker成果を棚卸しし、`origin/codex/ers-policy-matrix-data` に香川大/KUTE/NIMSの制度比較seed 96件と入力記録があることを確認した。
+  - `origin/main` では migration `116`〜`119` が既に別用途で使われていたため、worker成果の `116_institution_policy_assessments_seed.sql` は `120_institution_policy_assessments_seed.sql` へ採番変更した。
+  - 入力記録、OSマニュアル、spec、再構築監査を `120` 前提に更新し、main取り込み前レビュー用branch `codex/ers-policy-data-integration` に整理した。
+  - 本番DBは read-only で確認し、`institution_policy_assessments` に対象3機関計96件、各機関32件、`confirmed_at` 欠け0件が既に存在することを確認した。このworkerではDB write/DDLは実行していない。
 - 残課題は何か
   - 香川大はヒアリングで未確認項目を確認する。
-  - KUTEは規程整備ログから埋める。
-  - NIMSは公開情報と既存DBから埋める。
-  - worker成果をmainへ取り込む前に、他作業との衝突を司令塔が確認する。
+  - KUTEは規程最終化後に、drafting/unknown の項目を更新する。
+  - NIMSは公開規程で未確認だった審査主体・EIR/CXO・IP-equity等を追加確認する。
+  - `120_institution_policy_assessments_seed.sql` はDB修復・新環境再構築用の冪等seedとして残す。既に本番DBに96件があるため、通常のmain取り込みだけなら追加writeは不要。
+  - 制度判断としては、香川大の支援運用・エクイティ・人材/VC導線、KUTEの最終決裁者/規程確定、NIMSの審査主体・EIR/CXO・IP-equityが未確認。
 
 ### 5. 設計書を「読めば再構築できる」水準まで引き上げ続ける
 
