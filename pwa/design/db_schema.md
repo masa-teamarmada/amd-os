@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-01 09:27 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-01 18:30 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -11,13 +11,13 @@
 
 ## 索引
 
-[`amd_management_score_evidence`](#amd-management-score-evidence) / [`amd_management_score_raw_signals`](#amd-management-score-raw-signals) / [`amd_management_score_snapshots`](#amd-management-score-snapshots) / [`amd_management_score_source_runs`](#amd-management-score-source-runs) / [`amd_score_alpha`](#amd-score-alpha) / [`amd_score_alpha_proposals`](#amd-score-alpha-proposals) / [`amd_score_inputs`](#amd-score-inputs) / [`amd_score_revisions`](#amd-score-revisions) / [`app_notifications`](#app-notifications) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`company_actual_monthly`](#company-actual-monthly) / [`company_budget_actual_monthly`](#company-budget-actual-monthly) / [`company_budget_inputs`](#company-budget-inputs) / [`company_budget_monthly`](#company-budget-monthly) / [`company_budget_simulation_runs`](#company-budget-simulation-runs) / [`company_budget_variance_notes`](#company-budget-variance-notes) / [`company_finance_receipt_events`](#company-finance-receipt-events) / [`company_finance_recurring_items`](#company-finance-recurring-items) / [`freee_oauth_tokens`](#freee-oauth-tokens) / [`freeze_period_backfills`](#freeze-period-backfills) / [`institution_assessments`](#institution-assessments) / [`institution_capability_axes`](#institution-capability-axes) / [`institution_capability_criteria`](#institution-capability-criteria) / [`institution_policy_assessments`](#institution-policy-assessments) / [`institution_policy_items`](#institution-policy-items) / [`institutions`](#institutions) / [`issues`](#issues) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`lane_suggestions`](#lane-suggestions) / [`llm_model_config`](#llm-model-config) / [`llm_prompts`](#llm-prompts) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`meeting_action_items`](#meeting-action-items) / [`meeting_assets`](#meeting-assets) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_google_oauth_tokens`](#member-google-oauth-tokens) / [`member_knowledge`](#member-knowledge) / [`member_ms_activities`](#member-ms-activities) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`milestone_monthly_contribution_allocations`](#milestone-monthly-contribution-allocations) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`observation_log`](#observation-log) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`proactive_loop_events`](#proactive-loop-events) / [`proactive_loops`](#proactive-loops) / [`proactive_outbox`](#proactive-outbox) / [`progress_estimate_state`](#progress-estimate-state) / [`project_commander_threads`](#project-commander-threads) / [`project_config`](#project-config) / [`project_events`](#project-events) / [`project_founding_members`](#project-founding-members) / [`project_freeze_periods`](#project-freeze-periods) / [`project_graduation_signals`](#project-graduation-signals) / [`project_knowledge`](#project-knowledge) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_monthly_notes`](#project-monthly-notes) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_registry_diffs`](#project-registry-diffs) / [`project_strategy_signals`](#project-strategy-signals) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_xrl_evidence`](#project-xrl-evidence) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocol_examples`](#protocol-examples) / [`protocol_result_observations`](#protocol-result-observations) / [`protocols`](#protocols) / [`reimbursements`](#reimbursements) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seeds`](#seeds) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`tasks`](#tasks) / [`textbook_insight_candidates`](#textbook-insight-candidates) / [`triple_helix_loading`](#triple-helix-loading) / [`triple_helix_state_log`](#triple-helix-state-log) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`tsukuyomi_usage_log`](#tsukuyomi-usage-log) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`xrl_feedbacks`](#xrl-feedbacks)
+[`amd_management_score_evidence`](#amd-management-score-evidence) / [`amd_management_score_raw_signals`](#amd-management-score-raw-signals) / [`amd_management_score_snapshots`](#amd-management-score-snapshots) / [`amd_management_score_source_runs`](#amd-management-score-source-runs) / [`amd_score_alpha`](#amd-score-alpha) / [`amd_score_alpha_proposals`](#amd-score-alpha-proposals) / [`amd_score_inputs`](#amd-score-inputs) / [`amd_score_revisions`](#amd-score-revisions) / [`app_notifications`](#app-notifications) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`company_actual_monthly`](#company-actual-monthly) / [`company_budget_actual_monthly`](#company-budget-actual-monthly) / [`company_budget_inputs`](#company-budget-inputs) / [`company_budget_monthly`](#company-budget-monthly) / [`company_budget_simulation_runs`](#company-budget-simulation-runs) / [`company_budget_variance_notes`](#company-budget-variance-notes) / [`company_finance_receipt_events`](#company-finance-receipt-events) / [`company_finance_recurring_items`](#company-finance-recurring-items) / [`freee_oauth_tokens`](#freee-oauth-tokens) / [`freeze_period_backfills`](#freeze-period-backfills) / [`institution_assessments`](#institution-assessments) / [`institution_capability_axes`](#institution-capability-axes) / [`institution_capability_criteria`](#institution-capability-criteria) / [`institution_policy_assessments`](#institution-policy-assessments) / [`institution_policy_items`](#institution-policy-items) / [`institutions`](#institutions) / [`issues`](#issues) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`lane_suggestions`](#lane-suggestions) / [`llm_model_config`](#llm-model-config) / [`llm_prompts`](#llm-prompts) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`meeting_action_items`](#meeting-action-items) / [`meeting_assets`](#meeting-assets) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_google_oauth_tokens`](#member-google-oauth-tokens) / [`member_knowledge`](#member-knowledge) / [`member_ms_activities`](#member-ms-activities) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`milestone_monthly_contribution_allocations`](#milestone-monthly-contribution-allocations) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`observation_log`](#observation-log) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`private_wiki_entries`](#private-wiki-entries) / [`proactive_loop_events`](#proactive-loop-events) / [`proactive_loops`](#proactive-loops) / [`proactive_outbox`](#proactive-outbox) / [`progress_estimate_state`](#progress-estimate-state) / [`project_commander_threads`](#project-commander-threads) / [`project_config`](#project-config) / [`project_events`](#project-events) / [`project_founding_members`](#project-founding-members) / [`project_freeze_periods`](#project-freeze-periods) / [`project_graduation_signals`](#project-graduation-signals) / [`project_knowledge`](#project-knowledge) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_monthly_notes`](#project-monthly-notes) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_registry_diffs`](#project-registry-diffs) / [`project_strategy_signals`](#project-strategy-signals) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_xrl_evidence`](#project-xrl-evidence) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocol_examples`](#protocol-examples) / [`protocol_result_observations`](#protocol-result-observations) / [`protocols`](#protocols) / [`reimbursements`](#reimbursements) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seeds`](#seeds) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`tasks`](#tasks) / [`textbook_insight_candidates`](#textbook-insight-candidates) / [`triple_helix_loading`](#triple-helix-loading) / [`triple_helix_state_log`](#triple-helix-state-log) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`tsukuyomi_usage_log`](#tsukuyomi-usage-log) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`xrl_feedbacks`](#xrl-feedbacks)
 
 ---
 
 ## amd_management_score_evidence
 
-行数 (概算): 174
+行数 (概算): 176
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -38,7 +38,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 6,284
+行数 (概算): 4,216
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -334,7 +334,7 @@ PRIMARY KEY: `id`
 
 ## atlas_signals
 
-行数 (概算): 793
+行数 (概算): 929
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -357,7 +357,7 @@ PRIMARY KEY: `id`
 
 ## atlas_stories
 
-行数 (概算): 249
+行数 (概算): 258
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1597,6 +1597,33 @@ PRIMARY KEY: `member_id, ym`
 | 5 | `pdf_url` | `text` | NULL | `` |
 | 6 | `total_yen` | `int4` | NULL | `` |
 | 7 | `last_generated_at` | `timestamptz` | NULL | `` |
+
+## private_wiki_entries
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NULL | `` |
+| 3 | `person_name` | `text` | NOT NULL | `` |
+| 4 | `person_kind` | `text` | NOT NULL | `'external_collaborator'::text` |
+| 5 | `affiliation` | `text` | NULL | `` |
+| 6 | `relationship_context` | `text` | NULL | `` |
+| 7 | `tags` | `_text` | NOT NULL | `'{}'::text[]` |
+| 8 | `memo_body` | `text` | NOT NULL | `''::text` |
+| 9 | `source_kind` | `text` | NOT NULL | `'manual'::text` |
+| 10 | `source_ref` | `text` | NULL | `` |
+| 11 | `source_excerpt` | `text` | NULL | `` |
+| 12 | `confidence` | `numeric` | NOT NULL | `0.50` |
+| 13 | `visibility` | `text` | NOT NULL | `'admin_private'::text` |
+| 14 | `status` | `text` | NOT NULL | `'active'::text` |
+| 15 | `created_by` | `text` | NULL | `` |
+| 16 | `updated_by` | `text` | NULL | `` |
+| 17 | `archived_at` | `timestamptz` | NULL | `` |
+| 18 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 19 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
 ## proactive_loop_events
 

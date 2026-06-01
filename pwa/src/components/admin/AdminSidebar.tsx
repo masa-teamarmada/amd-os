@@ -10,6 +10,7 @@ const ADMIN_TABS = [
   { label: "週次活動", href: "/admin/weekly" },
   { label: "Protocols", href: "/admin/protocols" },
   { label: "LLM Context", href: "/admin/contexts" },
+  { label: "裏wiki", href: "/admin/private-wiki" },
   { label: "つくよみ", href: "/admin/tsukuyomi" },
   { label: "📝 LLM プロンプト", href: "/admin/prompts" },
   { label: "Billing", href: "/admin/billing" },

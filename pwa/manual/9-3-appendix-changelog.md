@@ -49,3 +49,4 @@
 | 2026-06-01 | 4-9 研究機関 ERS | 変更 | 制度比較マトリクス実データ96件 (3機関 × 32項目) の入力記録 `pwa/design/institution_policy_matrix_inputs_2026-05-31.md` と再構築用seed `pwa/scripts/migrations/120_institution_policy_assessments_seed.sql` を追記 | ERS制度比較マトリクスのworker成果を最新mainへ取り込める形にし、既存116/117/118/119 migrationと衝突しないよう120へ採番するため | えいみ-worker |
 | 2026-06-01 17:43 JST | 4-3 AMD Score 詳細仕様 | 変更 | `/venture-map/amd-score/retrofit` の PRS候補比較試算を追記。P/R_netは正式DB列ではなく保存しない仮入力、未設定時は `not enough data`、正式採用はBZM review requiredと明記 | 現行7軸AMD Scoreと新モデル候補を混同せず、運用者が比較レイヤーとして読めるようにするため | えいみ |
 | 2026-06-01 | 4-5 Management Score | 変更 | `/management-score` 下部のGAS月次試算表を、項目ごとの `予算` / `実績` / `差額` subrowで読める予実管理表へ修正する仕様を追記 | 前回のキャッシュ判断パネル追加だけでは、まさが期待した「添付の月次試算表そのものの予実比較」になっていなかったため | えいみ |
+| 2026-06-01 | 2-6 adminオペ | 追加 | `/admin/private-wiki` 裏wikiを追加し、人物単位の関係性メモ、source/evidence、admin-only境界、archive運用を追記 | センシティブな人物メモを通常cockpitや外部workspaceへ出さず、admin専用で保存・編集できるようにするため | えいみ-worker |

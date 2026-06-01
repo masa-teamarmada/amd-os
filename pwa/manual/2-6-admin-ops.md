@@ -100,6 +100,27 @@ AMD 内部メンバー台帳の編集。
 
 ---
 
+## admin/private-wiki (= 裏wiki)
+
+URL: `/admin/private-wiki`
+
+### 何をする画面か
+AMDメンバー、取引先、クライアント、研究者、外部協力者など、人物単位の関係性メモを PJ ごとに残す admin-only 台帳。
+
+- 人物名 / 種別 / 所属 / 関係性
+- 趣味・関心・プライベート寄りの接点メモ
+- tag / confidence / status
+- source_kind / source_ref / source_excerpt
+
+### 重要な仕様
+- 保存先は `private_wiki_entries`。RLS は admin authenticated と service_role だけ。
+- 通常 PJ cockpit、公開ページ、研究機関外部 workspace には出さない。
+- source_excerpt は短い根拠抜粋だけ。メール全文・議事録全文・資料全文は保存しない。
+- Codex / えいみが後から投入する entry は `source_kind='codex'` などで出所を残し、低確度なら `status='needs_review'` にする。
+- 不要になった entry は削除ではなくまず `archived` にする。直接的すぎる機微情報は本文に残さず、source_ref で辿れる最小限にする。
+
+---
+
 ## admin/billing
 
 URL: `/admin/billing`
