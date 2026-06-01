@@ -55,8 +55,8 @@
 - **公開原稿と内部正本を分離する**
   - お願いした内容: `pwa/bzm/*.md` をそのまま販売原稿扱いせず、内部source-of-truthと公開manuscriptを分ける。
   - 背景: L2⑩、applier、routing、changelog、source path、production deployなどは運用には必要だが、販売本の本文には混ぜてはいけないため。
-  - 現状: 方針は `PUBLICATION_STRATEGY.md` に記録済み。Public-Manuscript Audit で `8-1`、`8-2`〜`8-5` のL2/applier受け皿、`9-5`、`COMMANDER_TASKS.md`、内部path/changelogを `internal_only` として退避対象化済み。公開原稿layerとして `pwa/bzm/public-manuscript/00-prologue.md`〜`14-institution-as-nursery.md` を作成し、司令塔レビュー通過。
-  - 残課題: `pwa/bzm/public-manuscript/*.md` に Chapter 15以降のBZM理論パートを展開する。現行 `pwa/bzm/*.md` は内部sourceとして維持し、future public layer にだけ禁止語 lint をかける。
+  - 現状: 方針は `PUBLICATION_STRATEGY.md` に記録済み。Public-Manuscript Audit で `8-1`、`8-2`〜`8-5` のL2/applier受け皿、`9-5`、`COMMANDER_TASKS.md`、内部path/changelogを `internal_only` として退避対象化済み。公開原稿layerとして `pwa/bzm/public-manuscript/00-prologue.md`〜`14-institution-as-nursery.md` を作成し、司令塔レビュー通過。2026-06-01に `Textbook public manuscript 15-21 continuous theory narrative rewrite` workerが、Ch15〜21を同一composite caseで理論が必要になる連続物語へ初稿改稿中。
+  - 残課題: Ch15〜21 continuous theory narrative rewrite のcommit/pushと司令塔レビュー。現行 `pwa/bzm/*.md` は内部sourceとして維持し、future public layer にだけ禁止語 lint をかける。
 
 - **TextbookをBefore Zero実践テキストへ広げる**
   - お願いした内容: BZMの概念説明だけでなく、Before Zeroの現場で起きる判断、失敗、迷い、仮説修正、関係構築、ケース、横断パターンを統合した実践テキストへ育てる。
@@ -119,6 +119,12 @@
   - 背景: 理論パートに入る前に、マクロ追い風、準備度軸、創業者準備度、研究機関の苗床性を現場語で読者に渡すため。
   - 現状: `pwa/bzm/public-manuscript/11-macro-tailwinds-as-conditions.md`、`12-readiness-axes.md`、`13-founder-readiness-field-language.md`、`14-institution-as-nursery.md` を追加。禁止語scanはno hits。司令塔レビューで公開原稿として通過。
   - 残課題: Chapter 15〜18へ展開し、BZM理論パートの前半を公開原稿化する。
+
+- **Textbook public manuscript ch15-21 continuous theory narrative**
+  - お願いした内容: cold-reader review の P0 reject を受け、Ch15〜21を理論説明ではなく、00〜14から続く同一composite caseの連続物語として改稿する。
+  - 背景: 既存15〜21はfield-firstの意図はあるが、まだ「sceneつき理論解説」に見え、読者が現場の誤読を十分感じる前に理論語が出るため。
+  - 現状: branch `codex/textbook-public-manuscript-15-21-continuous-theory-narrative` で、`pwa/bzm/public-manuscript/15-why-model-the-field.md`〜`21-institution-readiness-as-nursery.md` と run note `pwa/bzm/textbook/runs/2026-06-01-public-manuscript-15-21-continuous-theory-narrative.md` を作成中。医療隣接シーズ、地域PoC、企業関心、GAP/支援制度、創業者機能、機関導線を同じcase spineとして通した。
+  - 残課題: commit/push後、fresh cold-reader reviewで理論語の出るタイミング、Ch17 PoC corridor、Ch19 RESOURCE_SHIFT、Ch20 evidence-rule revision、Ch21 unknown/not_startedの効き方を再評価する。
 
 - **Textbook whole-structure base**
   - お願いした内容: Textbook の入口を BZM 理論説明から Before Zero 実践テキストへ変え、既存理論章を後半の理論パートとして温存する。
