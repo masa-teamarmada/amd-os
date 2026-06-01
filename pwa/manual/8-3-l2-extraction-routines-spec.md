@@ -159,6 +159,12 @@ vs ローカル Mac scheduled task の問題:
 - Docs / Slides / Sheets / PDF / Office files を最大8件 `{title,url,mime_type,modified_time,snippet}` に正規化し、`drive_files` として `calendar-sync` に渡す。route自体はDriveを読みに行かない。
 - Drive資料は `narrative_md` の `関連Drive資料` と `summary_short` / `progress` / `risks` に反映するが、Drive資料だけで `decided` に「決定済み」とは書かない。
 
+**Notion 文字起こし導線 (= PWA UI補助 / LLM不要)**:
+- `CockpitMeetingSummary` は `project_meeting_summaries.notion_url` がある MTG / 予定MTGに `Notion文字起こし` CTA を出す。
+- `notion_url` が無い予定MTGは、`source_url` の Calendar 予定へ遷移する `Calendarから開始` CTA を出す。Notionの録音/文字起こし開始は Notion 側で行う。
+- `notion_url` も `source_url` も無い場合は `Notion未連携` と表示し、DB write / DDL / Notion page 自動作成はしない。
+- L6 automation が後から `notion_url` / `eventId` を補完した場合は、PWA の `メモ再読込` で `project_meeting_summaries` を再取得する。
+
 **出力**:
 - `project_meeting_summaries` (PK=`meeting_id`) + `meeting_notifications` (旧)
 - `meeting_assets` (= PWA から追加される private Storage 添付。routine は必要に応じて caption / extracted_text を読む)

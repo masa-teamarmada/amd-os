@@ -75,6 +75,18 @@ This route is read-only during load. It does not create a NIMS project or write 
 | legacy kanban | `CockpitKanbanGas` | `tasks`。2026-05-31 時点で PJ cockpit の主要導線からは外し、TODO は proactive queue へ寄せる |
 | freeze / next period | `CockpitFreezeBackfill`, `CockpitNextPeriodSetup` | freeze and plan setup |
 
+## Meeting Summary Notion CTA
+
+`CockpitMeetingSummary` shows `project_meeting_summaries` rows as past MTG summaries plus upcoming/tentative prep cards. Each row and detail modal exposes a Notion transcription path without starting recording from AMD OS:
+
+| data state | UI |
+|---|---|
+| `notion_url` exists | `Notion文字起こし` opens the Notion page in a new tab |
+| `source_kinds='upcoming'` and `notion_url` empty but `source_url` exists | `Calendarから開始` opens the Calendar event so the user can start Notion transcription from Notion/Calendar context |
+| no `notion_url` and no usable `source_url` | `Notion未連携` disabled state |
+
+The card header includes `メモ再読込`, which refetches `project_meeting_summaries` for the current project and updates the open detail modal if the selected row was refreshed. This is for cases where L6 later backfills `notion_url` / eventId. The PWA does not call a Notion recording API, does not create Notion pages, and does not perform DB DDL for this CTA.
+
 ## Routine Step Contract
 
 `CockpitRoutineGas` builds routine steps from `billing_cycles` and `projects.project_type / project_category`.

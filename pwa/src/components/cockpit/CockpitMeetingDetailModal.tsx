@@ -52,11 +52,19 @@ function isPrepMeeting(meeting: ProjectMeetingSummary): boolean {
   return meeting.meetingId.startsWith("upcoming:") || meeting.sourceKinds === "upcoming" || meeting.sourceKinds === "upcoming_tentative";
 }
 
+function notionTranscriptLink(meeting: ProjectMeetingSummary): { href: string; label: string; tone: "notion" | "calendar" } | null {
+  if (isDialogueMeeting(meeting)) return null;
+  if (meeting.notionUrl) return { href: meeting.notionUrl, label: "Notion文字起こしを開く", tone: "notion" };
+  if (isUpcomingMeeting(meeting) && meeting.sourceUrl) return { href: meeting.sourceUrl, label: "CalendarからNotionを開始", tone: "calendar" };
+  return null;
+}
+
 export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, onOpenChange, onMeetingUpdated }: Props) {
   if (!meeting) return null;
   const dialogue = isDialogueMeeting(meeting);
   const upcoming = isUpcomingMeeting(meeting);
   const prep = isPrepMeeting(meeting);
+  const notionLink = notionTranscriptLink(meeting);
   const sourceLink = meeting.sourceUrl || meeting.notionUrl;
   // dialogue 以外は元ソースを「Notion / Drive / Slack / Gmail / Calendar」と sourceKinds から推測
   const sourceLabel = upcoming
@@ -92,16 +100,37 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
             ) : null}
           </div>
           <DialogTitle className="mt-1 text-[15px] font-semibold leading-snug">{meeting.title}</DialogTitle>
-          {sourceLink && sourceLabel && (
-            <a
-              href={sourceLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1 inline-block text-[11px] text-[#007aff] hover:underline"
-            >
-              {sourceLabel} で開く ↗
-            </a>
-          )}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {notionLink ? (
+              <a
+                href={notionLink.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={notionLink.tone === "notion"
+                  ? "inline-flex items-center rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 hover:bg-emerald-100"
+                  : "inline-flex items-center rounded border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-900 hover:bg-amber-100"}
+              >
+                {notionLink.label} ↗
+              </a>
+            ) : !dialogue ? (
+              <span
+                className="inline-flex items-center rounded border border-[#e5e5e7] bg-[#f5f5f7] px-2.5 py-1 text-[11px] text-[#86868b]"
+                title="project_meeting_summaries.notion_url が未連携"
+              >
+                Notion未連携
+              </span>
+            ) : null}
+            {sourceLink && sourceLabel && sourceLink !== notionLink?.href && (
+              <a
+                href={sourceLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-[#007aff] hover:underline"
+              >
+                {sourceLabel} で開く ↗
+              </a>
+            )}
+          </div>
         </header>
 
         {prep ? (

@@ -169,6 +169,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
   const [recentItems, setRecentItems] = useState<ProjectMeetingSummary[]>([]);
   const [olderItems, setOlderItems] = useState<ProjectMeetingSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showOlder, setShowOlder] = useState(false);
   const [olderLoading, setOlderLoading] = useState(false);
   const [olderLoaded, setOlderLoaded] = useState(false);
@@ -189,6 +190,24 @@ export function CockpitMeetingSummary({ projectId }: Props) {
       .then(setRecentItems)
       .finally(() => setLoading(false));
   }, [projectId, sinceDate]);
+
+  async function reloadRecentMeetings() {
+    setRefreshing(true);
+    try {
+      const next = await fetchProjectMeetingSummaries(projectId, { sinceDate });
+      setRecentItems(next);
+      setOlderLoaded(false);
+      setOlderItems([]);
+      setShowOlder(false);
+      const selectedId = selectedMeeting?.meetingId;
+      if (selectedId) {
+        const updated = next.find((item) => item.meetingId === selectedId);
+        if (updated) setSelectedMeeting(updated);
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   // recent items 取得後に deep link meeting を auto-open (= 同じ meeting_id に対しては 1 回だけ)
   useEffect(() => {
@@ -327,8 +346,9 @@ export function CockpitMeetingSummary({ projectId }: Props) {
     <section className="bg-white rounded-xl border border-[#e5e5e7] px-4 py-3.5">
       <div className="mb-2.5 flex items-baseline justify-between gap-2">
         <h3 className="text-[13px] font-medium">MTGサマリ</h3>
-        {(upcomingItems.length > 0 || tentativeItems.length > 0) && (
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5">
+          {(upcomingItems.length > 0 || tentativeItems.length > 0) && (
+            <>
             {upcomingItems.length > 0 && (
               <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
                 予定 {upcomingItems.length}
@@ -339,8 +359,17 @@ export function CockpitMeetingSummary({ projectId }: Props) {
                 調整中 {tentativeItems.length}
               </span>
             )}
-          </div>
-        )}
+            </>
+          )}
+          <button
+            type="button"
+            onClick={reloadRecentMeetings}
+            disabled={refreshing || loading}
+            className="rounded border border-[#d2d2d7] bg-white px-2 py-0.5 text-[10px] font-medium text-[#3c3c43] hover:bg-[#f5f5f7] disabled:opacity-50"
+          >
+            {refreshing ? "再読込中" : "メモ再読込"}
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -565,6 +594,7 @@ function MeetingRow({ item, onClick }: RowProps) {
         </div>
       </button>
       <div className="flex flex-col items-end gap-1 shrink-0">
+        <NotionTranscriptCta meeting={item} compact />
         {sourceLink && sourceLabel && (
           <a
             href={sourceLink}
@@ -580,4 +610,63 @@ function MeetingRow({ item, onClick }: RowProps) {
       </div>
     </div>
   );
+}
+
+function NotionTranscriptCta({
+  meeting,
+  compact = false,
+}: {
+  meeting: ProjectMeetingSummary;
+  compact?: boolean;
+}) {
+  if (isDialogueMeetingId(meeting)) return null;
+
+  if (meeting.notionUrl) {
+    return (
+      <a
+        href={meeting.notionUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className={compact
+          ? "text-[10px] font-medium text-emerald-700 hover:underline whitespace-nowrap"
+          : "inline-flex items-center rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 hover:bg-emerald-100"}
+        title={`Notionメモを別タブで開く: ${meeting.notionUrl}`}
+      >
+        Notion文字起こし ↗
+      </a>
+    );
+  }
+
+  if (isUpcomingMeeting(meeting) && meeting.sourceUrl) {
+    return (
+      <a
+        href={meeting.sourceUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className={compact
+          ? "text-[10px] font-medium text-amber-800 hover:underline whitespace-nowrap"
+          : "inline-flex items-center rounded border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-900 hover:bg-amber-100"}
+        title={`Calendar予定を別タブで開く: ${meeting.sourceUrl}`}
+      >
+        Calendarから開始 ↗
+      </a>
+    );
+  }
+
+  return (
+    <span
+      className={compact
+        ? "text-[10px] text-[#86868b] whitespace-nowrap"
+        : "inline-flex items-center rounded border border-[#e5e5e7] bg-[#f5f5f7] px-2.5 py-1 text-[11px] text-[#86868b]"}
+      title="project_meeting_summaries.notion_url が未連携"
+    >
+      Notion未連携
+    </span>
+  );
+}
+
+function isDialogueMeetingId(meeting: ProjectMeetingSummary): boolean {
+  return meeting.meetingId.startsWith("dialogue:") || meeting.sourceKinds === "dialogue";
 }

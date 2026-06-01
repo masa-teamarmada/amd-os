@@ -177,6 +177,12 @@ L2 ⑥は、終了済みMTGの議事録抽出とは別に、今日0:00 JSTから
 
 PJに `drive_folder_id` がある場合、automation側でDrive root直下と会議日/title token に合う1階層サブフォルダを探し、Docs / Slides / Sheets / PDF / Office files の metadata を `drive_files` として渡す。PWA route はDriveを直接読まず、渡された metadata を `narrative_md` の `関連Drive資料` に載せる。Drive資料は補助根拠であり、資料に書かれているだけで当日決定事項とは扱わない。
 
+### L2 ⑥ Notion 文字起こし導線
+
+PWA の MTGサマリ / 予定MTGカードは、L6 が読む Notion メモをまさが会議前・会議中に開きやすくする入口を持つ。`project_meeting_summaries.notion_url` があれば `Notion文字起こし` CTA で Notion ページを別タブ表示する。`notion_url` が無い予定MTGでは、`source_url` の Calendar 予定を開く導線を出し、Notion 側の録音/文字起こし開始に移れるようにする。どちらも無い場合は `Notion未連携` と表示する。
+
+この導線は UI 補助であり、AMD OS から Notion の録音開始 API を呼んだり、DB write / DDL を伴って Notion ページを自動作成したりしない。L6 automation が後から Notion page を見つけて `notion_url` / `eventId` を補完した場合は、PWA の `メモ再読込` で `project_meeting_summaries` を読み直して反映する。
+
 ### L2 ⑥ Notion eventId fallback
 
 Notion 議事録ページの `eventId` / 相当プロパティを埋められるのは、Calendar event と Notion page の両方を同時に見ている MMO automation だけ。`amd-os-l6-meeting-flow` は Calendar event から該当 Notion page を見つけたら、可能な範囲で Calendar event id を Notion page に追記する。追記に失敗しても議事録抽出は止めず、run summary に `notion_event_id_backfill_failed` と page id / reason を残す。
