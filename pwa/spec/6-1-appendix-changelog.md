@@ -34,3 +34,4 @@
 | 2026-06-01 | 4-4 | 追加 | Management Score会社バイタル分類の本修正案を追加し、`signal_scope` / `applies_to_company_score` / pipeline分類、L2抽出validator、既存signals backfill、snapshot再計算ゲートを整理 | 暫定guard採用後、PJ個別情報をAMD会社バイタルへ混ぜない根本修正の判断材料を固定するため | えいみ |
 | 2026-06-01 | 3-6 / 4-4 | 変更 | `project_strategy_signals` に会社バイタル分類列を追加し、L2⑨/applier/API/Management Score raw collector が `applies_to_company_score` と高確度pipelineを扱う契約へ更新。香川大/KUTE/NIMS initial backfill と 202605/202606 再計算結果を追記 | 個別PJ除外だけでなく、香川大のような高確度pipelineを正式根拠に入れ、継続/新規/方向の低さを raw replacement と入力分解で検証できるようにするため | えいみ |
 | 2026-06-01 | 3-8 | 変更 | Cockpit MTGサマリに Notion文字起こし CTA と `メモ再読込` を追加。`notion_url` / `source_url` の状態別表示と、PWAからNotion録音開始・Notion page自動作成・DDLをしない境界を contract 化 | MTG前/会議中にカードからNotionメモへ入れるようにしつつ、L6既存処理との責務境界を崩さないため | えいみ |
+| 2026-06-01 | 2-1 | 追加 | `/admin/private-wiki` と `/api/admin/private-wiki`、`private_wiki_entries` の admin-only contract を追加 | センシティブな人物関係性メモを admin 境界内で扱い、通常cockpitや外部workspaceへ漏らさないため | えいみ-worker |

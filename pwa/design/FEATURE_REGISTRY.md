@@ -59,6 +59,25 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 改善版PDFを意図的に更新したら、まさが新PNGを目視確認したうえで `payout_notice_golden.png` と `payout_notice_golden.png.sha256` を再生成して commit する。新規 PDF を PNG 化したファイルとの突合は `npm run test:payout-notice-pdf -- --diff <input.png>` で同じスクリプトを再利用する。
 - この画面で UI を削る変更は、`FEATURE_REGISTRY.md` と `SPEC_pwa.md` を同時に更新する。
 
+## /admin/private-wiki
+
+目的: admin だけが、AMDメンバー・取引先・クライアント・研究者・外部協力者などの人物単位の趣味・プライベート・関係性メモを PJ ごとに保存・検索・更新できる。
+
+必須機能:
+
+- admin-only route: `/admin` layout の admin gate 内に置き、通常 PJ cockpit、公開ページ、研究機関外部 workspace から参照しない。
+- PJ別グルーピング: `private_wiki_entries.project_id` で PJ 別に grouping し、null は AMD 全体 / 未紐付けとして扱う。
+- 手作業編集: 追加 / 編集 / archive が UI からできる。直接削除を主導線にしない。
+- フィルタ: 検索、PJ、人物種別、tag、status で絞り込める。
+- evidence 表示: `source_kind` / `source_ref` / `source_excerpt` / `confidence` / `updated_by` を一覧上で確認できる。
+- source hygiene: `source_excerpt` は短い抜粋だけ。メール全文・議事録全文・資料全文を保存する場所にしない。
+- API 境界: browser 直接DB writeではなく `/api/admin/private-wiki` の `requireAdmin()` + service_role 経由で list/create/update/archive する。
+
+回帰防止:
+
+- `private_wiki_entries.visibility` は `admin_private` 固定。別画面へ再利用するときは `FEATURE_REGISTRY.md` と `/spec/2-1` を先に更新し、admin-only を崩さない。
+- seed は入れない。必要なテストデータはダミーだけにする。
+
 ## /dashboard
 
 目的: まさと司令塔が全PJの現状と、今日先に打つべき一手を最初に見る入口。
