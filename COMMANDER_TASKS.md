@@ -19,31 +19,7 @@
 
 ## 未完タスク（優先順位順）
 
-### 1. バイタル評価のスコア入力と変動理由を、AMD経営判断に使える形へ直す
-
-- お願いしたタスク内容
-  - Management Scoreの「継続」「新規」「方向」がなぜ低いのかを、入力分解して原因を特定する。
-  - AMDの経営に関係ない個別PJ情報を除外しつつ、香川大のような会社全体に効く高確度パイプラインは正式根拠に入れる。
-  - 表示だけでなく、DB分類、L2抽出、backfill、snapshot再計算まで含めて直す。
-- お願いした背景
-  - p07/LSTなどの個別PJ情報がAMD会社全体の経営バイタルへ混ざっていた。
-  - 一方で、個別PJを除外するだけだと、会社全体に効く契約見込みや提案活動まで落として過小評価する危険がある。
-  - 香川大はMTG実施前から高確度案件だったため、MTG後confirmed待ちではなく会社パイプラインとして評価されるべき。
-- 現状どうなってるか
-  - 動作状態: active workerあり。worker thread `019e808b-d206-78a1-927c-e18ae97412a6` が会社バイタルの根本修正を担当している。
-  - 監視状態: AMD OS未完タスク監視heartbeatで継続監視中。
-  - 変動理由UIのworkerは完了し、本番に反映済み。
-  - 暫定guardとして、Management Scoreは原則 `p00` の会社スコープだけを読むようにし、香川大のような高確度会社パイプラインだけを候補として拾う方針へ寄せた。
-  - worker側では、`signal_scope`、`applies_to_company_score`、pipeline確度、想定契約月などを追加するmigrationと、raw collectorの読み取り修正を実装中。
-  - `継続` / `新規` / `方向` の低さについて、材料不足、抽出漏れ、式の厳しさ、古いsnapshotのどれが原因かを分解中。
-- 残課題は何か
-  - DBに会社全体シグナル/個別PJシグナル/横断シグナルの分類を追加する。
-  - L2抽出とまさえいMTG確定時点で、AMD会社バイタルに入れてよい情報だけを分類する。
-  - 香川大をMTG後の確定待ちではなく、高確度会社パイプラインとして正式根拠に入れる。
-  - 継続・新規・方向の低さが実態なのか、抽出/設計ミスなのかを分解する。
-  - 必要なら、スコア計算前のフィルタ、重み、月次集計、表示ラベル、snapshot再計算を修正する。
-
-### 2. Claude Code routinesへ移せるautomationを設計する
+### 1. Claude Code routinesへ移せるautomationを設計する
 
 - お願いしたタスク内容
   - MMOマシンやCodex側で動いている定期処理のうち、Claude Code routinesへ移せるものを整理する。
@@ -54,26 +30,23 @@
   - 一方でClaude Codeの定額トークンは余り、Codex側の定額トークンは今後逼迫しそう。
   - 余っているClaude Code側を、低頻度・重めの定期抽出に使うと全体の運用コストを下げられる。
 - 現状どうなってるか
-  - 動作状態: active workerあり。worker thread `019e809e-8588-7ce0-bf69-88710cfd99b5` がL2①〜⑩、Atlas、Macrotrendの責任分担・実行履歴・outbox/DB反映・データ取得元を再確認している。
-  - 監視状態: AMD OS未完タスク監視heartbeatで継続監視中。
+  - 動作状態: watch。Claude routinesは停止したまま。L2/Atlas/Macrotrendの主系はCodex/MMO側へ戻し、Claudeは今後もread-only audit/report候補に留める。
+  - 監視状態: AMD OS未完タスク監視heartbeatで、L2①の次回発火とL6色取得代替helperを継続監視中。
   - Claude routinesは停止済み。勝手に再開しない。
-  - まずCodex/MMO/PWA cron側で全L2系の鮮度を戻し、その上でClaudeは上限に抵触しないread-only audit/report用途に限定する方針。
+  - Codex/MMO/PWA cron側で全L2系の鮮度を戻し、その上でClaudeは上限に抵触しないread-only audit/report用途に限定する方針。
   - 全体設計workerとPhase 0実態確認workerの完了報告を受領した。
   - Claude Codeへ移す中心は、日次・週次のレビューや合成にする方針。
   - 会議サマリ抽出とMS進捗の主処理は、高頻度・即応性が必要なためCodex/MMO側に残す方針。
   - Claude側は、日次のL2合成、日次のスコア根拠・戦略レビュー、週次の外部シグナル確認を中心にする案。
   - 通常日は2〜3本、週次日は4〜5本程度で、1日15件制限内に収める案になっている。
-  - ただしMMO側には未処理ファイルが残っており、保留中ステータスだけでは成功・失敗・何もしなかった実行を判定できないことが分かった。
-  - 月次報告抽出は、仕様上は重要な定期処理だが、実際の自動実行は止まっている可能性が高い。
+  - MMO側に残っていた未処理ファイルは、L2/Atlas/Macrotrend抽出安定化workerが分類・反映・退避済み。
+  - 月次報告抽出はMac側Codex automationをACTIVEへ戻し、次回 2026-06-02 05:30 JST の発火確認待ち。
 - 残課題は何か
-  - L2①〜⑩、Atlas、Macrotrendについて、データ取得元・実行主体・頻度・最終成功・失敗理由を一覧化する。
-  - Claude routines停止後に、どの抽出をCodex/MMO、PWA cron、Claude read-only auditへ置くか確定する。
-  - MMO側に残っている未処理ファイルを、反映済み・失敗・重複・破棄候補に分類する。
-  - 月次報告抽出の責任者と再開方法を決める。
-  - Claude移植は、まず書き込みなしの確認レポートから始める。
-  - Codex/MMO側を止める前に、重複実行防止、対象期間、承認後の反映経路を揃える。
+  - Claude routinesを再開する場合は、L2主処理ではなく、低頻度のread-only audit/reportだけにする。
+  - 1日15件制限に抵触しない具体的なroutine登録は、L2主系が安定した後の後続タスクにする。
+  - L2①次回発火、L6色取得代替helper、MMO側PENDING_REVIEWの継続監視を続ける。
 
-### 3. L2会議サマリ抽出を、MMOマシンで確実に毎時起動させる
+### 2. L2会議サマリ抽出を、MMOマシンで確実に毎時起動させる
 
 - お願いしたタスク内容
   - ZMPの前回会議サマリが自動生成されなかった原因を特定し、同じ事故が起きないようにする。
@@ -83,7 +56,7 @@
   - 調査すると、会議後にサマリ抽出が走るべき時間帯に、MMOマシン側の抽出処理が起動していなかった可能性が高かった。
   - 会議サマリはBefore Zeroの現場知やTextbook候補の元にもなるため、ここが抜けるとOS全体の地盤が弱くなる。
 - 現状どうなってるか
-  - 動作状態: active workerあり。Google Calendar再認証は完了済み前提に更新し、workerが再診断・監視付き1回Live・毎時Live化条件を確認している。
+  - 動作状態: active workerあり。worker thread `019e809e-ce94-7db2-bf55-7da44ff1023d` がCalendar色取得の代替経路とCFG_Alias判定の再評価を担当している。
   - 監視状態: AMD OS未完タスク監視heartbeatで継続監視中。
   - ZMPの対象会議サマリ自体は復旧済み。
   - MMOマシン側の抽出ルールには、会議IDが入っていなくても、タイトル・日時・参加者・関連資料から拾う方針を反映済み。
@@ -98,18 +71,20 @@
   - 反映時はMMOマシン側の設定ファイルをバックアップし、他の設定はコピーしていない。
   - 書き込みなしの診断で、MMOマシンから色→PJ設定を読み取れることを確認済み。
   - 設定シート側の履歴表と別名表も読めており、代表的な色や別名からPJ候補を解決できることを確認済み。
-  - 直近の候補予定を確認する診断では、Calendarの詳細読み取りが認証で止まり、候補予定が色付きPJ対象か確定できなかった。
-  - 追加診断で、会議予定の一覧取得や個別予定の読み取りは一部通るが、予定色やカレンダー既定色の取得に必要な権限が足りないことが分かった。
-  - 前回診断ログに残っていた設定IDはマスク済み。
-  - そのため、監視付きの1回実行はまだ登録していない。
+  - 再認証後も、Google Calendar connector経由では予定一覧・個別予定は読めるが、予定色/default colorは取得できていない。
+  - workerは、Connector待ちではなく、GAS Advanced Calendar ServiceまたはPWAのGoogle Calendar API直読みで、event colorを読む診断helperを実装中。
+  - ただし、まさから「これまでCFG_Aliasで判定できていたはず」という指摘があり、色だけに依存せず、CFG_Alias exact matchで安全に候補化できる条件を再評価中。
+  - 単なるtitle substringだけでLive書き込み候補に昇格することは禁止のまま。
+  - 監視付きの1回実行はまだ登録していない。
   - 毎時稼働はまだ有効化していない。
 - 残課題は何か
-  - 再認証済み前提で、Calendar接続の診断を再実行する。
-  - Calendarの色取得まで通ったら、直近で色付き予定がある時間帯を再確認し、その時間帯に合わせて監視付きの1回実行を行う。
+  - CFG_Alias exact matchをL6 Phase Aの安全なPJ判定として使ってよい条件を確定する。
+  - GAS helperをdeployするか、PWA/MSIにGoogle Calendar readonly OAuthを安全投入するかを決める。
+  - 色またはCFG_Aliasで候補予定を安全に確定できたら、その時間帯に合わせて監視付きの1回実行を行う。
   - 問題なければ、毎時稼働用の予約をLive化するか判断する。
   - 毎時稼働へ進める場合も、最初の1〜2回は監視してから常時稼働扱いにする。
 
-### 4. L2データ抽出全体を、MMOマシンと現行仕様に合わせて安定稼働させる
+### 3. L2データ抽出全体を、MMOマシンと現行仕様に合わせて安定稼働させる
 
 - お願いしたタスク内容
   - 香川出張の前後で変更したL2抽出仕様を確認し、MMOマシンへ反映する。
@@ -119,18 +94,24 @@
   - ここがズレると、コックピット、Textbook、スコア、月次レビュー、通知の全部が弱くなる。
   - 香川出張の間にロジックを少し変えた記憶があり、実機に反映されているか確認が必要だった。
 - 現状どうなってるか
-  - 動作状態: active workerあり。worker thread `019e809e-8588-7ce0-bf69-88710cfd99b5` がL2/Atlas/Macrotrend抽出責任と実行状態を再整理している。
-  - 監視状態: AMD OS未完タスク監視heartbeatで継続監視中。
+  - 動作状態: 復旧済み、次回発火watch。worker thread `019e809e-8588-7ce0-bf69-88710cfd99b5` がL2/Atlas/Macrotrend抽出責任と実行状態を再整理し、backlogを反映した。
+  - 監視状態: AMD OS未完タスク監視heartbeatで、2026-06-02朝のL2①次回実行とMMO側outbox増加を継続監視する。
   - MMOマシンには接続でき、主要なL2抽出ルールは反映済み。
+  - L2①月次報告はMac側Codex automation `amd-os-l2` をACTIVEへ戻した。次回実行は2026-06-02 05:30 JST。
+  - L2②〜⑥はMMOマシンCodex Desktop automationがACTIVEで、2026-06-01朝の実行履歴を確認済み。
+  - L2⑦⑧/MS差分・L2⑨・Atlas・MacrotrendはMMO側Codex automationがACTIVE。
+  - MMO側outbox backlogはdrain済み。`amd-atlas-2`, `amd-macrotrend-evidence-review`, `amd-os-ms`, `amd-os-strategy-signals`, `amd-os-l6-meeting-flow` のoutbox json countは0。
+  - DB/API反映済み: L2① monthly reports 5件、source cache 11件、通知1件。L2⑦⑧/MS差分 registryDiffs 11件、xrlEvidence 20件、revisions 8件、通知35件。L2⑨ strategySignals 3件、通知3件。Macrotrend 12件insert/1件skip。Atlasは既存分重複skip、2026-06-01分はrecent照合で9件存在確認。
+  - Atlasは、Codex automationがweb/source searchで一次情報・信頼できる報道・公式発表URLを集め、`atlas_signal_review_tool.mjs` 経由で `atlas_signals` へ入れる。省庁系は別系統で `atlas-collect-policy` のdirect fetch設計がある。
+  - Macrotrendは、UN SDGs / WEF Global Risksをbackboneにしつつ、公開source URL付きのmacrotrend evidenceをAtlas signals形式で投入する。LLM非依存のVercel cron `macro-aggregate-indicators` は `observation_log` と `atlas_signals` から `macro_index_log` を更新する。
   - 会議サマリは、会議IDがなくても弾かない方針へ更新済み。
   - 月次報告は、今後は生データを毎回直接見るより、まずOS内に集まった整理済みデータを主入力にする方針へ寄せた。
-  - ただし、実際に毎時・毎日きれいに起動しているかは、会議サマリ抽出を中心にまだ確認中。
 - 残課題は何か
-  - 会議サマリ抽出の起動問題を解決する。
-  - 更新後の各抽出が、次回実行で実データを正しく作るか確認する。
-  - 月次報告を「整理済みデータ優先」にする設計を、実運用レベルまで固める。
+  - 2026-06-02朝にL2①が再発火し、outbox生成・applier反映まで通るか確認する。
+  - MMO側run statusは保留中表示が多いため、今後もACTIVEだけでhealthy扱いせず、outbox/applied/DB反映まで見る。
+  - L2⑥は毎時起動しているが、Calendar色/default color権限問題は別タスクで解決する。
 
-### 5. ERS制度比較マトリクスの実データ入力を進める
+### 4. ERS制度比較マトリクスの実データ入力を進める
 
 - お願いしたタスク内容
   - ERS評価を5段階だけでなく、制度整備状況や規程比較として細かく入力できるようにする。
@@ -149,7 +130,7 @@
   - NIMSは公開情報と既存DBから埋める。
   - worker成果をmainへ取り込む前に、他作業との衝突を司令塔が確認する。
 
-### 6. 設計書を「読めば再構築できる」水準まで引き上げ続ける
+### 5. 設計書を「読めば再構築できる」水準まで引き上げ続ける
 
 - お願いしたタスク内容
   - 設計書を、単なる説明ではなく、今のAMD OSを再構築できる水準まで引き上げる。
@@ -165,7 +146,7 @@
   - 管理画面、報酬・請求、GAS、iOS、Atlas、Seeds、VC、Scholarなどはまだ再構築水準に届いていない。
   - 完了扱いにする前に、司令塔が「本当に再構築できるか」を見る。
 
-### 7. TextbookをBefore Zero実践テキストとして育てる
+### 6. TextbookをBefore Zero実践テキストとして育てる
 
 - お願いしたタスク内容
   - OS全体司令塔として、Textbookが単なるBZM理論の解説書ではなく、Before Zeroの現場判断、失敗、仮説修正、関係構築、ケースを扱う実践テキストへ育つよう監督する。
@@ -185,7 +166,7 @@
   - 理論変更に関わるものは、BZM司令塔レビューを必ず挟む。
   - 実ケースを増やすときは、秘密情報や固有名の扱いを慎重に見る。
 
-### 8. OS司令塔・BZM司令塔・Textbook司令塔のタスク台帳運用を定着させる
+### 7. OS司令塔・BZM司令塔・Textbook司令塔のタスク台帳運用を定着させる
 
 - お願いしたタスク内容
   - 司令塔ごとに、人間が読めるタスク台帳を作る。
@@ -204,7 +185,7 @@
   - Textbook司令塔に、Textbook領域の台帳を作ってもらう。
   - 今後のタスク追加、worker切り出し、完了報告、差し戻しのたびに台帳更新を徹底する。
 
-### 9. 最新mainの新規変更を司令塔として読み直す
+### 8. 最新mainの新規変更を司令塔として読み直す
 
 - お願いしたタスク内容
   - origin/mainに新しく入った変更を、司令塔として読み直して current truth へ反映する。
@@ -221,7 +202,31 @@
 
 ## 完了済みタスク
 
-### 1. Managementページで予実管理と先3か月キャッシュ判断ができる状態にする
+### 1. バイタル評価のスコア入力と変動理由を、AMD経営判断に使える形へ直す
+
+- お願いしたタスク内容
+  - Management Scoreの「継続」「新規」「方向」がなぜ低いのかを、入力分解して原因を特定する。
+  - AMDの経営に関係ない個別PJ情報を除外しつつ、香川大のような会社全体に効く高確度パイプラインは正式根拠に入れる。
+  - 表示だけでなく、DB分類、L2抽出、backfill、snapshot再計算まで含めて直す。
+- お願いした背景
+  - p07/LSTなどの個別PJ情報がAMD会社全体の経営バイタルへ混ざっていた。
+  - 一方で、個別PJを除外するだけだと、会社全体に効く契約見込みや提案活動まで落として過小評価する危険があった。
+  - 香川大はMTG実施前から高確度案件だったため、MTG後confirmed待ちではなく会社パイプラインとして評価されるべきだった。
+- 現状どうなってるか
+  - 完了。会社バイタル用の分類列をDBへ追加し、本番適用済み。
+  - 香川大/KUTE/NIMS/SX/CXの会社level high-confidence pipeline/capacityを targeted backfill した。
+  - L2/まさえいMTG signal proposal/validatorを修正し、company / project / cross_project を分類するようにした。
+  - 個別PJの技術・実験・設立・顧客論点は会社バイタルから除外し、会社全体の売上、契約見込み、営業パイプライン、資金繰り、人員稼働、資源配分だけを入れる方針にした。
+  - 香川大は、202605の新規pipeline根拠として正式反映済み。見込み額、見込み月、確度、会社スコア軸をpayloadに持つ。
+  - 202605/202606を本番DBで再収集・再計算済み。
+  - 202605は、新規が75まで回復した。以前の100寄りは古いraw材料が残った過大評価も混ざっていた。
+  - 202606は、新規21、継続14、方向15。6月データの薄さと、方向軸のOS導入/研究機関partner/fund/graduation入力不足が主因。
+  - commit `8ba4a86 Fix management score company vital scope` が `origin/main` に入り、production deploy済み。
+- 残課題は何か
+  - このタスク自体は完了。
+  - 後続候補として、方向軸のpartner評価を会社level strategy signalからどこまで拾うか、OS導入実績を正式テーブルで持つか、入力なし月を0点ではなくunknown扱いにするかを別タスクで判断する。
+
+### 2. Managementページで予実管理と先3か月キャッシュ判断ができる状態にする
 
 - お願いしたタスク内容
   - Managementページの月次試算表を、予算だけでなく実績も見える表へ進化させる。
@@ -239,7 +244,7 @@
   - ログイン済みブラウザでの最終目視だけ残っている。build/deploy/auth redirectは確認済み。
   - p19:202605は client入金未確認のため、支払通知/振込情報は反映しつつstatusは維持している。運用を変えるなら別判断。
 
-### 2. コックピット2タブの速度とタブUIを改善する
+### 3. コックピット2タブの速度とタブUIを改善する
 
 - お願いしたタスク内容
   - プロジェクトコックピット上部にAMDスコアとXRLグラフを常時表示する。
