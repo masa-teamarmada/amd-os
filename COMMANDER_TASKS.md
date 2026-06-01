@@ -27,7 +27,30 @@
 
 ## 未完タスク（優先順位順）
 
-### 1. Claude Code routinesへ移せるautomationを設計する
+### 1. 特許案と現OSの乖離箇所をretrofit実装する
+
+- お願いしたタスク内容
+  - 特許案に書かれているが現OSでは薄い機能を、出願用の飾りではなくOS実態としても強くする。
+  - 優先候補は、`protocol_result_observations` のadmin UI化、outcome evidence refsの強化、WS-5 generic system parameter governance、WS-6 Before-Zero設立時期推奨、`/notifications`・`/admin/protocols`・`/admin/ip` の関連導線整理。
+  - DB writeやmigrationは、設計レビューで安全性と秘密保持境界を確認してから実装workerへ分ける。
+- お願いした背景
+  - まさ判断として、「未実装でも出願は可能そうだが、OSとして本来的に実装されていた方が優れているなら実装しておきたい」。
+  - 参照成果物は `docs/ip/2026-06-01_patent_os_gap_audit_internal.md`、`docs/ip/2026-06-01_patent_application_draft_internal.md`、`docs/ip/2026-06-01_claim_revision_internal.md`。
+  - 特許を弱めるためではなく、特許案に書く価値がある機能をAMD OSの実運用としても厚くするためのretrofit。
+- 現状どうなってるか
+  - 動作状態: design worker切り出し。まずDB write/DDLなしで、既存schema・admin/protocols・admin/ip・notifications・protocol outcome周辺を調査する。
+  - `/admin/ip` には別workerが「現状の出願案」ビューを実装済み。出願書類たたき台、請求項見直し案、請求項サポート対応表、現OS乖離監査をOS内で確認できるようにした。
+  - admin/IP表示workerの成果は branch `codex/ip-patent-consult-pack-os-gap-audit`、commit `36f0257`。正本は引き続き `docs/ip/*.md`。
+  - retrofitの初回workerは、実装前レビューとして、機能ごとの実装可否、秘密情報を出さないschema案、最小first worker案、main取り込み順を返す。
+  - 秘密保持境界として、実DB行、source permalink、実本文、prompt全文、few-shot、score weight/threshold/calibration、実PJ本文は保存・表示しない。
+- 残課題は何か
+  - `protocol_result_observations` の既存table/利用箇所を確認し、同一horizonの矛盾観測を上書きせず併記できるadmin UI案を固める。
+  - evidence refsをJSONで持つか中間tableにするかを、既存RLS/API/admin UIとの相性で比較する。
+  - generic parameter governanceは、prompt/rule/config/model/workflowを横断しつつ、営業秘密をUIやDBに出さない抽象schemaにする。
+  - Before-Zero設立時期推奨は、入力を抽象カテゴリ、missing/conflicting categories、recommendation status程度から始める。
+  - 設計レビュー後、最小実装workerを1本ずつ切る。
+
+### 2. Claude Code routinesへ移せるautomationを設計する
 
 - お願いしたタスク内容
   - MMOマシンやCodex側で動いている定期処理のうち、Claude Code routinesへ移せるものを整理する。
@@ -49,12 +72,16 @@
   - 通常日は2〜3本、週次日は4〜5本程度で、1日15件制限内に収める案になっている。
   - MMO側に残っていた未処理ファイルは、L2/Atlas/Macrotrend抽出安定化workerが分類・反映・退避済み。
   - 月次報告抽出はMac側Codex automationをACTIVEへ戻し、自然発火前に手動で正規outbox/applier経路を確認済み。
+  - 2026-06-01夜のproactive heartbeat報告では、`/Users/masa/projects/AMD/amd-os` に `pwa/scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md` と `heartbeat` subcommand が無いように見えると報告された。
+  - ただし最新 `origin/main` のclean worktreeでは、`SKILL.md` は存在し、`.env.local` を読み込めば `node pwa/scripts/proactive_loop_tool.mjs heartbeat --status queued,blocked --due-hours 72 --limit 20 --json` は `{ ok: true, count: 0, actions: [] }` で通る。
+  - よって現時点の切り分けは、main実装欠落ではなく、実行側が古い/別branchのcheckoutを見ている可能性が高い。送信対象は0件のため、重複送信・mark-sent事故は起きていない。
 - 残課題は何か
   - Claude routinesを再開する場合は、L2主処理ではなく、低頻度のread-only audit/reportだけにする。
   - 1日15件制限に抵触しない具体的なroutine登録は、L2主系が安定した後の後続タスクにする。
+  - proactive heartbeat runnerの実行checkoutを最新 `origin/main` に揃える、またはclean runtime worktreeを固定して使う。
   - L2①の2026-06-02 05:30 JST自然発火、L6監視付き1回Live準備、MMO側PENDING_REVIEWの継続監視を続ける。
 
-### 2. L2会議サマリ抽出を、MMOマシンで確実に毎時起動させる
+### 3. L2会議サマリ抽出を、MMOマシンで確実に毎時起動させる
 
 - お願いしたタスク内容
   - ZMPの前回会議サマリが自動生成されなかった原因を特定し、同じ事故が起きないようにする。
@@ -98,7 +125,7 @@
   - 問題なければ、毎時稼働用の予約をLive化するか判断する。
   - 毎時稼働へ進める場合も、最初の1〜2回は監視してから常時稼働扱いにする。
 
-### 3. L2データ抽出全体を、MMOマシンと現行仕様に合わせて安定稼働させる
+### 4. L2データ抽出全体を、MMOマシンと現行仕様に合わせて安定稼働させる
 
 - お願いしたタスク内容
   - 香川出張の前後で変更したL2抽出仕様を確認し、MMOマシンへ反映する。
@@ -128,7 +155,7 @@
   - MMO側run statusは保留中表示が多いため、今後もACTIVEだけでhealthy扱いせず、outbox/applied/DB反映まで見る。
   - L2⑥は毎時起動しているが、Calendar色/default color権限問題は別タスクで解決する。
 
-### 4. ERS制度比較マトリクスの実データ入力を進める
+### 5. ERS制度比較マトリクスの実データ入力を進める
 
 - お願いしたタスク内容
   - ERS評価を5段階だけでなく、制度整備状況や規程比較として細かく入力できるようにする。
@@ -153,7 +180,7 @@
   - NIMSは公開情報と既存DBから埋める。
   - 今後の新環境再構築時は `120_institution_policy_assessments_seed.sql` を冪等seedとして使う。
 
-### 5. 設計書を「読めば再構築できる」水準まで引き上げ続ける
+### 6. 設計書を「読めば再構築できる」水準まで引き上げ続ける
 
 - お願いしたタスク内容
   - 設計書を、単なる説明ではなく、今のAMD OSを再構築できる水準まで引き上げる。
@@ -169,7 +196,7 @@
   - 管理画面、報酬・請求、GAS、iOS、Atlas、Seeds、VC、Scholarなどはまだ再構築水準に届いていない。
   - 完了扱いにする前に、司令塔が「本当に再構築できるか」を見る。
 
-### 6. TextbookをBefore Zero実践テキストとして育てる
+### 7. TextbookをBefore Zero実践テキストとして育てる
 
 - お願いしたタスク内容
   - OS全体司令塔として、Textbookが単なるBZM理論の解説書ではなく、Before Zeroの現場判断、失敗、仮説修正、関係構築、ケースを扱う実践テキストへ育つよう監督する。
@@ -189,7 +216,7 @@
   - 理論変更に関わるものは、BZM司令塔レビューを必ず挟む。
   - 実ケースを増やすときは、秘密情報や固有名の扱いを慎重に見る。
 
-### 7. OS司令塔・BZM司令塔・Textbook司令塔のタスク台帳運用を定着させる
+### 8. OS司令塔・BZM司令塔・Textbook司令塔のタスク台帳運用を定着させる
 
 - お願いしたタスク内容
   - 司令塔ごとに、人間が読めるタスク台帳を作る。
@@ -209,7 +236,7 @@
   - BZM/Textbookの詳細タスクは、それぞれの台帳を正本として見る。
   - 今後のタスク追加、worker切り出し、完了報告、差し戻しのたびに台帳更新を徹底する。
 
-### 8. 最新mainの新規変更を司令塔として読み直す
+### 9. 最新mainの新規変更を司令塔として読み直す
 
 - お願いしたタスク内容
   - origin/mainに新しく入った変更を、司令塔として読み直して current truth へ反映する。
@@ -310,11 +337,17 @@
   - 数字色は、予算をグレー、実績を黒、差分をプラス水色・マイナスピンクで表示する。
   - 売上計、入金、売上原価、粗利、固定費、社保、臨時収入/支出、営業利益、融資実行、借入返済、税金、月次CF、支払い、キャッシュを同じ表内で比較できる。
   - 未来月は実績欄を `未確定`、過去月で実績sourceが無い欄は `未反映`、source未接続の項目は `未連携` として表示する。
-  - production alias `https://amd-os-pwa.vercel.app` のReady deployment `dpl_G1R6rxpaybUPiJ6vAa7oQFdWdviM` で、ログイン済みChromeから `/management-score` を確認済み。
-  - production画面versionは `v0.13.0`。`売上計予算 / 実績freee PL / 差額 実績 - 予算`、`入金予算 / 実績billing確認済(税込)`、`売上原価予算 / 実績支払通知書送付済(税抜)`、未来月 `未確定` 表示を確認済み。
+  - 追加差し戻しとして、予算・実績・差分が縦に並ぶ構造ではなく、1か月を3列にして左から `予算` / `実績` / `差分` の順に横並びで読める形へ修正済み。
+  - 数字色は、予算をグレー、実績を黒、差分プラスを水色、差分マイナスをピンクで表示する。
+  - commit `f8594f6 Improve management budget actual table layout` が `origin/main` に入り、Vercel production Readyまで完了した。
+  - production alias `https://amd-os-pwa.vercel.app` は deployment `dpl_Hkd9qKd1ZiFAo9wEHFeoS1icCobM` / `https://amd-os-8zmf0n0z6-armada0130.vercel.app` に向いている。
+  - production画面versionは `v0.13.2`。ログイン済みChromeから `/management-score` を確認済み。
+  - `2026年1月` などの月headerが `colSpan=3`、下段headerが `予算 / 実績 / 差分` になっていることを確認済み。
+  - budget cell color `rgb(127, 135, 146)`、actual cell color `rgb(26, 26, 26)`、negative variance color `rgb(216, 77, 122)`、positive diffの `+19,135` / `+761,610` などの表示を確認済み。
+  - source chip `freee PL`、`billing確認済(税込)`、`支払通知書送付済(税抜)` も確認済み。
 - 残課題は何か
   - このタスク自体は完了。
-  - 最新main全体のproduction追従deployはVercel quota待ちだが、Management予実表そのものの本番確認は完了済み。
+  - Management月次試算表の3列予実UIはproduction反映・目視確認まで完了。未解決なし。
   - p19:202605は client入金未確認のため、支払通知/振込情報は反映しつつstatusは維持している。運用を変えるなら別判断。
 
 ### 3. PRSモデルを、現行AMD Scoreを壊さず比較/シミュレーション層として実装する
@@ -356,7 +389,7 @@
   - 取引先やクライアントとの関係づくりでは、仕事上の肩書きだけでなく、趣味・関心・話題・過去の接点などの文脈が重要。
   - ただしセンシティブな個人メモなので、通常PJ画面や外部workspaceには出さず、admin-onlyで閉じる必要がある。
 - 現状どうなってるか
-  - 動作状態: deploy quota待ち。admin裏wiki実装workerが実装・DB適用・main取り込みまで完了した。
+  - 動作状態: main取り込み済み、production追従確認待ち。admin裏wiki実装workerが実装・DB適用・main取り込みまで完了した。
   - worker thread: `019e8269-69f6-7be3-9b24-bca052c25754`。
   - branch: `codex/admin-private-wiki` / main取り込みbranch `codex/admin-private-wiki-main`。
   - 実装commit: `32a7835 Add admin private wiki`。
@@ -366,10 +399,10 @@
   - AdminSidebarに「裏wiki」を追加し、PJ別grouping、検索、filter、追加/編集/archive form、source/confidence表示を実装済み。
   - ローカルのログイン済みChromeで `/admin/private-wiki` を確認済み。title、version `v0.13.0`、sidebar、空データ、追加フォーム表示を確認した。
   - 未ログイン状態は `/auth/login?next=%2Fadmin%2Fprivate-wiki` へredirect確認済み。非admin sessionでは未確認だが、route/API/RLSはadmin guard実装済み。
-  - Vercel production deployは `api-deployments-free-per-day` quotaで失敗し、本番URLはまだ未反映。
+  - 当時のVercel production deployは `api-deployments-free-per-day` quotaで失敗していた。
+  - その後、最新mainはManagement v0.13.2としてproduction Readyまで進んでいるため、`/admin/private-wiki` が本番aliasへ含まれている可能性が高い。ログイン済みadminでの本番URL直接確認は未完。
 - 残課題は何か
-  - Vercel quota回復後、最新 `origin/main` を `amd-os-pwa` へproduction deployする。
-  - deploy後、本番 `https://amd-os-pwa.vercel.app/admin/private-wiki` をログイン済みadminで確認する。
+  - 本番 `https://amd-os-pwa.vercel.app/admin/private-wiki` をログイン済みadminで確認する。
   - 可能なら非adminで拒否されることも確認する。
 
 ### 5. コックピット2タブの速度とタブUIを改善する
