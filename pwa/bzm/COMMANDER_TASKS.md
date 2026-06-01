@@ -69,8 +69,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 8. FRL_cap_amd historical整理
    - お願いした内容: 終了済みPJやAMD関与終了後のPJについて、current active rowではなく当時のtimeline-specific rowで `frl_cap_amd` を扱う方針を整理する。
    - 背景: `frl_cap_amd` はAMD提供価値の定量化の本丸だが、ended PJを現在状態だけで見ると当時のAMD寄与を誤判定するため。
-   - 現状: Active。p07 LST / p20 CX / p21 SX はfirst pass反映済み。p06 CTBはfrozenでAMD activeなし、寄与0に補正済み。p04 KT / p09 JC / p11 BWE は保留。`FRL_cap_amd historical policy memo` はBZMレビュー採用。ended/support-ended/frozen/company-active-after-AMDはcurrent rowへ過去AMD寄与を載せず、AMD関与時点のtimeline-specific rowへ分離する方針。次の `frl_cap_amd timeline row source pack` worker `019e84e3-c376-7e32-b101-4d21ff2a19c3` がActive。
-   - 残課題: p04 / p09 / p11 / p06 のAMD関与期間、candidate evaluated_at、notes、source、support_end_at、do_not_count_afterをsource-firstで整理する。正式FRL再計算、DB化、過去score再計算はまだしない。
+   - 現状: Active。p07 LST / p20 CX / p21 SX はfirst pass反映済み。p06 CTBはfrozenでAMD activeなし、寄与0に補正済み。p04 KT / p09 JC / p11 BWE は保留。`FRL_cap_amd historical policy memo` と `frl_cap_amd timeline row source pack` はBZMレビュー採用。p04/p09/p11/p06はcurrent rowへ過去AMD寄与を戻さず、AMD関与時点のtimeline-specific row candidateへ分離する。次の `frl_cap_amd timeline date source lookup` worker `019e84e8-0bc3-7822-b6f1-0fe1b8a249e8` がActive。
+   - 残課題: KT/CTBのCOO参画開始・終了日、JCのAMD関与開始日、BWEの代表/退任primary sourceをread-onlyで探索し、candidate evaluated_atとnotes confidenceを固める。正式FRL再計算、DB化、過去score再計算はまだしない。
 
 9. BZM 7軸モデルとP×R×S/9軸候補の整合
    - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
