@@ -68,8 +68,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 8. BZM 7軸モデルとP×R×S/9軸候補の整合
    - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
    - 背景: 現行教科書は7軸中心だが、知識側にはP×R×S再構成と収益化指数の議論があり、Textbook実践知と結びつきやすい論点になっているため。
-   - 現状: workerが `pwa/bzm/runs/2026-06-01-prs-seven-axis-alignment.md` を作成。BZM一次判断は `Adopt as comparison layer`。続くworkerが `pwa/bzm/runs/2026-06-01-prs-9pj-delta-review.md` を作成し、9PJ差分としてティエム商社化/JOYCLE本命毀損/YD UE不成立/BWE初期自走性を強いPRS差分候補、CTBをR_net単純化の反例として整理した。さらにworkerが `pwa/bzm/runs/2026-06-01-prs-pr-rnet-evidence-cards.md` を作成し、9PJごとにP仮説、R_netの粗利貢献/運営コスト/本命毀損、7軸で説明できること、PRS追加説明、反例、次観測、rubric化暫定判定をカード化した。P/R_netは正式DB列・rubric未採用のまま扱う。
-   - 残課題: BZM司令塔レビュー。次に進めるなら、rubric draftの前にCTB/JOYCLE/YD/BWEを中心に `R_net guard memo` を作り、売上ゼロ成立型・負のR_net・低P/UE不成立・膜外販未確定を誤判定しない観測項目へ分解する。
+   - 現状: workerが `pwa/bzm/runs/2026-06-01-prs-seven-axis-alignment.md` を作成。BZM一次判断は `Adopt as comparison layer`。続くworkerが `pwa/bzm/runs/2026-06-01-prs-9pj-delta-review.md` を作成し、9PJ差分としてティエム商社化/JOYCLE本命毀損/YD UE不成立/BWE初期自走性を強いPRS差分候補、CTBをR_net単純化の反例として整理した。さらにworkerが `pwa/bzm/runs/2026-06-01-prs-pr-rnet-evidence-cards.md` を作成し、9PJごとにP仮説、R_netの粗利貢献/運営コスト/本命毀損、7軸で説明できること、PRS追加説明、反例、次観測、rubric化暫定判定をカード化した。R_net guard workerが `pwa/bzm/runs/2026-06-01-prs-rnet-guard-memo.md` を作成し、CTB/JOYCLE/YD/BWEを中心に、売上ゼロ成立型・負のR_net・低P/UE不成立・膜外販未確定の誤判定防止guard、R_netと混ぜない観測項目、次の観測項目draftへ渡せる/まだ使わない項目を整理した。P/R_netは正式DB列・rubric未採用のまま扱う。
+   - 残課題: BZM司令塔レビュー。次に進めるなら、`P/R_net観測項目 draft` workerを切る。ただし0-9値表やDB列ではなく、観測項目・source・入力主体・更新頻度・guard条件の表までに留める。司令塔判断事項は、CTB型のSurvival guard分離、JOYCLE型を負のR_netと呼ぶかdamage guardにするか、YD型をP側/粗利不成立側のどちらへ寄せるか、BWE膜外販を未確定R_netに置く条件。
 
 ## 完了済みタスク
 
