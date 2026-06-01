@@ -75,8 +75,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 9. BZM 7軸モデルとP×R×S/9軸候補の整合
    - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
    - 背景: 現行教科書は7軸中心だが、知識側にはP×R×S再構成と収益化指数の議論があり、Textbook実践知と結びつきやすい論点になっているため。
-   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft、未確認flag source map、L2 source inventory、finance/cash source pack、billing vs SU revenue join map、evidence cards v2 finance classification refresh、bridge/validation source pack は作成済み。bridge/validation pack は、`validation_value_source` を粗利と分け、p03反実仮想をscenario扱いにし、p11膜外販のreview gate継続を守っているためBZMレビュー採用。次の `PRS damage and reinvestment source pack` worker `019e844b-2bc8-7dc1-b4b7-57c0e6bf5fe8` がActive。
-   - 残課題: damage/reinvestment workerで、p09 JOYCLEを主対象に、本命R&D毀損、AMD関与終結、目先収益化、つなぎ収益の本命再投資/リソース毀損をread-onlyで整理する。次はlane-specific survival、public/knowledge research、BZM judgement brief の順に進めるか判断する。0-9値表、DB化、過去score再計算はまだしない。
+   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft、未確認flag source map、L2 source inventory、finance/cash source pack、billing vs SU revenue join map、evidence cards v2 finance classification refresh、bridge/validation source pack、damage/reinvestment source pack は作成済み。damage pack は、JOYCLE型を当面 `damage guard` / `本命毀損候補` と呼び、`negative R_net` を正式採用せず、JB-02/JB-02A販売前夜を正のR_netにしない整理を守っているためBZMレビュー採用。次の `JOYCLE AMD support end current truth review` worker `019e8453-ef2d-78d0-a126-a628cc517b6c` がActive。
+   - 残課題: JOYCLE current truth review workerで、knowledge `jc.md` の2026-03 AMD関与終結とDB `project_ventures.amd_support_ended_at=NULL` の差分をread-onlyで確認し、OS/BZM判断briefにする。次はlane-specific survival、public/knowledge research、BZM judgement brief の順に進めるか判断する。0-9値表、DB化、過去score再計算はまだしない。
 
 ## 完了済みタスク
 
