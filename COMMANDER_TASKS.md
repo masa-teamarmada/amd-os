@@ -226,7 +226,27 @@
 
 ## 完了済みタスク
 
-### 1. MTGサマリカードにNotion文字起こし導線を追加する
+### 1. Dashboard / PJ Cockpit の TODO UI を整理する
+
+- お願いしたタスク内容
+  - Dashboard上部の「今日打つべき一手」とPJ Cockpit側の「先手キュー」を「TODO」に統一する。
+  - Dashboardは未送信/要対応だけ最大3件に絞り、注目カードと一覧の重複をなくす。
+  - TODOクリック時は遷移ではなく、発生経緯、成果物、履歴、次アクションが分かるモーダルを開く。
+  - 既存TODOかんばんは新TODO UIと競合しないよう主要導線から外す。
+- お願いした背景
+  - 同じTODOが重複表示され、件数が増えるとDashboard上部がTODOだけで埋まっていた。
+  - 名称がDashboardとCockpitで揺れていて、カードクリック後も状況を思い出す情報が足りなかった。
+- 現状どうなってるか
+  - `ProactiveQueuePanel` をTODO UIとして整理済み。
+  - Dashboardは `blocked`, `queued`, `sent_to_commander` のみを対象にし、期限超過 / blocked / queued / sent_to_commander / priority / due_at の順で最大3件へ絞る。
+  - `outbox_id` 重複排除後、先頭の優先TODOと一覧を分離し、同じTODOを二重表示しない。
+  - 詳細モーダルに `source_kind/source_id`、`proactive_loop_events` 履歴、artifact refs、外部送付可否、PJ cockpit補助リンクを追加した。
+  - HUD cockpit の旧TODOかんばん表示は主要導線から外した。
+  - 検証: targeted eslint、`tsc --noEmit`、`npm run build`、`npm run test:critical-ui`、local browser smokeを実施済み。
+- 残課題は何か
+  - production deployと本番URL確認を完了ゲートで確認する。
+
+### 2. MTGサマリカードにNotion文字起こし導線を追加する
 
 - お願いしたタスク内容
   - MTGサマリや予定MTGカードから、Notion文字起こしを始めやすくする導線を追加する。

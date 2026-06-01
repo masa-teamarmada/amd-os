@@ -41,9 +41,9 @@ SU 系 PJ では、AMD スコアグラフ / M-X-F / XRL グラフは常時表示
 - 担当司令塔 thread の短縮ID
 - 推奨 first move と、遅れた場合のリスク
 
-対象 status は、初期表示では `queued`, `sent_to_commander`, `drafted`, `blocked`。`closed` や `sent_to_counterpart` は完了・送付済みの履歴であり、通常の TODO には出さない。行を押すと画面内モーダルで、発生経緯、遅れた場合のリスク、司令塔/worker が作成済みの資料リンク、次の期待アクションを確認できる。RLS は admin の authenticated read 前提なので、権限がないユーザーにはキューは表示されない。
+対象 status は、初期表示では `queued`, `sent_to_commander`, `drafted`, `blocked`。`closed` や `sent_to_counterpart` は完了・送付済みの履歴であり、通常の TODO には出さない。行を押すと画面内モーダルで、発生経緯、`source_kind/source_id`、`proactive_loop_events` の履歴、遅れた場合のリスク、司令塔/worker が作成済みの資料リンク、外部送付可否、次の期待アクションを確認できる。RLS は admin の authenticated read 前提なので、権限がないユーザーにはキューは表示されない。
 
-既存の最下段 TODO かんばんは、PJ cockpit の主要導線から外す。MS の細かな作業項目は MS 詳細、先手力系の次アクションはこの TODO に集約する。
+既存の最下段 TODO かんばんは、PJ cockpit と HUD cockpit の主要導線から外す。MS の細かな作業項目は MS 詳細、先手力系の次アクションはこの TODO に集約する。
 
 ---
 

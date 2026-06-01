@@ -67,12 +67,12 @@ This route is read-only during load. It does not create a NIMS project or write 
 | tabs | `CockpitView` | `進捗管理` / `スコア詳細` display state。SU 系 PJ では横幅いっぱいを2等分し、各タブのクリック領域も 1/2 にする |
 | score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | `/api/project/[projectId]/amd-score-detail`。cockpit mount 時に hidden panel として先読みし、client memory cache 5 分TTL + private HTTP cache で再表示待ちを減らす。TTL 超過後にタブが active になったら、表示済み内容を保ったまま背景再取得する |
 | goals compact | `CockpitGoalsCompact` | value plan / MS |
-| TODO | `ProactiveQueuePanel` | `proactive_outbox` read-only。Dashboard は `queued`, `sent_to_commander`, `blocked` を最大3件、PJ cockpit は `queued`, `sent_to_commander`, `drafted`, `blocked` をPJ単位で表示。行クリックは発生経緯・資料リンク・次アクションのモーダル |
+| TODO | `ProactiveQueuePanel` | `proactive_outbox` read-only。Dashboard は `queued`, `sent_to_commander`, `blocked` を最大3件、PJ cockpit は `queued`, `sent_to_commander`, `drafted`, `blocked` をPJ単位で表示。DBから多めに読み、期限超過 / blocked / queued / sent_to_commander / priority / due_at でUI側sort後、`outbox_id` 重複を排除する。行クリックは発生経緯・`proactive_loop_events` 履歴・資料リンク・外部送付可否・次アクションのモーダル |
 | strategy signals | `CockpitStrategySignals` | `project_strategy_signals` |
 | routine | `CockpitRoutineGas` + routine modals | `billing_cycles` / GAS bridge / APIs |
 | monthly list/modal | `CockpitMonthlyList`, `CockpitMonthlyModal` | reports / reward / progress |
 | meeting summaries | `CockpitMeetingSummary` | `project_meeting_summaries` |
-| legacy kanban | `CockpitKanbanGas` | `tasks`。2026-05-31 時点で PJ cockpit の主要導線からは外し、TODO は proactive queue へ寄せる |
+| legacy kanban | `CockpitKanbanGas` / `HudCockpitKanbanGas` | `tasks`。PJ cockpit / HUD cockpit の主要導線からは外し、TODO は proactive queue へ寄せる |
 | freeze / next period | `CockpitFreezeBackfill`, `CockpitNextPeriodSetup` | freeze and plan setup |
 
 ## Meeting Summary Notion CTA

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export type ProactiveQueueItem = {
   outboxId: string;
+  loopId: string | null;
   projectId: string;
   projectLabel: string;
   status: ProactiveStatus;
@@ -24,8 +25,15 @@ export type ProactiveQueueItem = {
   closedAt: string | null;
   draftArtifactRefs: DraftArtifactRef[];
   evidenceRefs: EvidenceRef[];
+  eventHistory: ProactiveEvent[];
   sourceKind: string;
   sourceId: string;
+  sourceHash: string | null;
+  meetingId: string | null;
+  calendarEventId: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type DraftArtifactRef = {
@@ -40,6 +48,15 @@ type EvidenceRef = {
   snippet?: string;
 };
 
+type ProactiveEvent = {
+  eventId: string;
+  eventType: string;
+  eventSummary: string;
+  actorKind: string;
+  actorId: string | null;
+  createdAt: string;
+};
+
 type ProactiveStatus = "queued" | "sent_to_commander" | "drafted" | "sent_to_counterpart" | "closed" | "blocked";
 type ProactivePriority = "red" | "yellow" | "green";
 
@@ -52,6 +69,7 @@ type ProactiveQueuePanelProps = {
 
 const DASHBOARD_STATUSES: ProactiveStatus[] = ["blocked", "queued", "sent_to_commander"];
 const COCKPIT_STATUSES: ProactiveStatus[] = ["blocked", "queued", "sent_to_commander", "drafted"];
+const FETCH_MULTIPLIER = 20;
 
 const STATUS_META: Record<ProactiveStatus, { label: string; className: string; icon: typeof Clock3 }> = {
   queued: { label: "未送信", className: "border-slate-300 bg-slate-50 text-slate-700", icon: Clock3 },
@@ -116,6 +134,7 @@ export function ProactiveQueuePanel({
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<ProactiveQueueItem | null>(null);
   const effectiveLimit = limit ?? (variant === "dashboard" ? 3 : 6);
+  const fetchLimit = Math.max(effectiveLimit * FETCH_MULTIPLIER, variant === "dashboard" ? 60 : 80);
   const statuses = variant === "dashboard" ? DASHBOARD_STATUSES : COCKPIT_STATUSES;
 
   useEffect(() => {
@@ -127,12 +146,11 @@ export function ProactiveQueuePanel({
       let query = supabase
         .from("proactive_outbox")
         .select(
-          "outbox_id,project_id,status,priority,due_at,trigger_type,ball_owner,draft_type,recommended_first_move,risk_if_late,commander_thread_id,blocked_reason,sent_at,drafted_at,sent_to_counterpart_at,closed_at,draft_artifact_refs,evidence_refs,source_kind,source_id"
+          "outbox_id,loop_id,project_id,status,priority,due_at,trigger_type,ball_owner,draft_type,recommended_first_move,risk_if_late,commander_thread_id,blocked_reason,sent_at,drafted_at,sent_to_counterpart_at,closed_at,draft_artifact_refs,evidence_refs,source_kind,source_id,source_hash,meeting_id,calendar_event_id,metadata_json,created_by,created_at,updated_at"
         )
         .in("status", statuses)
-        .order("priority", { ascending: true })
         .order("due_at", { ascending: true })
-        .limit(effectiveLimit);
+        .limit(fetchLimit);
       if (projectId) query = query.eq("project_id", projectId);
       const { data, error: fetchError } = await query;
       if (cancelled) return;
@@ -140,11 +158,15 @@ export function ProactiveQueuePanel({
         setError(fetchError.message);
         setItems([]);
       } else {
-        setItems(
-          (data || [])
-            .map((row) => normalizeRow(row, projectLabels))
-            .sort(sortQueueItems)
+        const normalized = dedupeByOutboxId((data || []).map((row) => normalizeRow(row, projectLabels)))
+          .sort(sortQueueItems)
+          .slice(0, effectiveLimit);
+        const eventHistory = await loadEventHistory(
+          supabase,
+          normalized.map((item) => item.outboxId)
         );
+        if (cancelled) return;
+        setItems(normalized.map((item) => ({ ...item, eventHistory: eventHistory[item.outboxId] || [] })));
       }
       setLoading(false);
     };
@@ -152,13 +174,15 @@ export function ProactiveQueuePanel({
     return () => {
       cancelled = true;
     };
-  }, [effectiveLimit, projectId, projectLabels, statuses]);
+  }, [effectiveLimit, fetchLimit, projectId, projectLabels, statuses]);
 
   const overdueCount = items.filter((item) => dueState(item.dueAt) === "overdue").length;
   const draftedCount = items.filter((item) => item.status === "drafted").length;
   const blockedCount = items.filter((item) => item.status === "blocked").length;
   const title = "TODO";
   const description = projectId ? "このPJの未完TODO" : "今日見る未完TODO";
+  const featuredItem = items[0] || null;
+  const listItems = featuredItem ? items.filter((item) => item.outboxId !== featuredItem.outboxId) : [];
 
   return (
     <section className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2 min-h-[120px]">
@@ -185,15 +209,61 @@ export function ProactiveQueuePanel({
         <p className="text-xs text-muted-foreground my-auto text-center">今すぐ見るTODOなし</p>
       ) : (
         <>
-          <ul className="space-y-1.5">
-            {items.slice(0, effectiveLimit).map((item) => (
+          {featuredItem && (
+            <QueueFocusCard item={featuredItem} compact={variant === "dashboard"} onOpen={() => setSelectedItem(featuredItem)} />
+          )}
+          {listItems.length > 0 && (
+            <ul className="space-y-1.5">
+              {listItems.map((item) => (
               <QueueRow key={item.outboxId} item={item} compact={variant === "dashboard"} onOpen={() => setSelectedItem(item)} />
-            ))}
-          </ul>
+              ))}
+            </ul>
+          )}
         </>
       )}
       {selectedItem && <TodoDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
     </section>
+  );
+}
+
+function QueueFocusCard({ item, compact, onOpen }: { item: ProactiveQueueItem; compact: boolean; onOpen: () => void }) {
+  const status = STATUS_META[item.status] ?? STATUS_META.queued;
+  const priority = PRIORITY_META[item.priority] ?? PRIORITY_META.yellow;
+  const Icon = status.icon;
+  const state = dueState(item.dueAt);
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`w-full rounded-md border border-l-4 ${priority.rail} bg-muted/20 px-3 py-2.5 text-left transition-colors hover:bg-muted/35`}
+    >
+      <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+        <span className="rounded border border-border bg-background px-1.5 py-0.5 font-medium">優先TODO</span>
+        <span className="font-mono text-muted-foreground">{item.projectLabel}</span>
+        <span className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 ${status.className}`}>
+          <Icon className="h-3 w-3" />
+          {status.label}
+        </span>
+        <span className={`rounded border px-1.5 py-0.5 ${priority.className}`}>{priority.label}</span>
+        <span className={state === "overdue" ? "ml-auto font-medium text-rose-700" : "ml-auto text-muted-foreground"}>
+          {formatDue(item.dueAt)}
+        </span>
+      </div>
+      <p className={`mt-1.5 text-[13px] font-semibold leading-snug ${compact ? "line-clamp-2" : ""}`}>
+        {item.recommendedFirstMove}
+      </p>
+      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+        <span>ボール: {BALL_OWNER_LABEL[item.ballOwner] ?? item.ballOwner}</span>
+        <span>理由: {TRIGGER_LABEL[item.triggerType] ?? item.triggerType}</span>
+        <span>{externalSendLabel(item)}</span>
+      </div>
+      {!compact && (
+        <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+          遅延リスク: {item.riskIfLate}
+        </p>
+      )}
+    </button>
   );
 }
 
@@ -249,6 +319,7 @@ function TodoDetailModal({ item, onClose }: { item: ProactiveQueueItem; onClose:
   const priority = PRIORITY_META[item.priority] ?? PRIORITY_META.yellow;
   const Icon = status.icon;
   const nextAction = nextActionLabel(item.status);
+  const sourceLabel = [item.sourceKind, item.sourceId].filter(Boolean).join(" / ") || "未設定";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-3 py-4" role="dialog" aria-modal="true">
@@ -285,10 +356,14 @@ function TodoDetailModal({ item, onClose }: { item: ProactiveQueueItem; onClose:
           <section className="grid gap-2 md:grid-cols-2">
             <InfoRow label="いまの状態" value={statusExplanation(item.status)} />
             <InfoRow label="誰のボールか" value={BALL_OWNER_LABEL[item.ballOwner] ?? item.ballOwner} />
+            <InfoRow label="期限" value={formatDue(item.dueAt)} />
+            <InfoRow label="優先度" value={priority.label} />
             <InfoRow label="資料の種類" value={DRAFT_TYPE_LABEL[item.draftType] ?? item.draftType} />
             <InfoRow label="発生理由" value={TRIGGER_LABEL[item.triggerType] ?? item.triggerType} />
-            <InfoRow label="司令塔" value={item.commanderThreadId ? shortThread(item.commanderThreadId) : "未設定"} />
+            <InfoRow label="司令塔thread" value={item.commanderThreadId || "未設定"} />
+            <InfoRow label="外部送付可否" value={externalSendLabel(item)} />
             <InfoRow label="次の期待アクション" value={nextAction} />
+            <InfoRow label="source" value={sourceLabel} />
           </section>
 
           <section>
@@ -332,12 +407,52 @@ function TodoDetailModal({ item, onClose }: { item: ProactiveQueueItem; onClose:
             </section>
           )}
 
+          <section>
+            <h4 className="text-xs font-semibold text-muted-foreground">outbox / 履歴</h4>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              <InfoRow label="outbox_id" value={item.outboxId} />
+              <InfoRow label="loop_id" value={item.loopId || "未設定"} />
+              <InfoRow label="meeting_id" value={item.meetingId || "未設定"} />
+              <InfoRow label="calendar_event_id" value={item.calendarEventId || "未設定"} />
+              <InfoRow label="created_by" value={item.createdBy || "未設定"} />
+              <InfoRow label="created / updated" value={`${formatDue(item.createdAt)} / ${formatDue(item.updatedAt)}`} />
+            </div>
+            {item.eventHistory.length > 0 ? (
+              <div className="mt-2 space-y-2">
+                {item.eventHistory.slice(0, 6).map((event) => (
+                  <div key={event.eventId} className="rounded-md border border-border/70 bg-background px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                      <span className="font-semibold">{EVENT_LABEL[event.eventType] ?? event.eventType}</span>
+                      <span className="text-muted-foreground">{formatDue(event.createdAt)}</span>
+                      <span className="text-muted-foreground">{event.actorKind}{event.actorId ? ` / ${event.actorId}` : ""}</span>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{event.eventSummary}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 rounded-md border border-border/70 bg-background px-3 py-2 text-xs text-muted-foreground">
+                履歴イベントはまだ読めてないよ。
+              </p>
+            )}
+          </section>
+
           {item.blockedReason && (
             <section>
               <h4 className="text-xs font-semibold text-rose-700">停止理由</h4>
               <p className="mt-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-rose-900">{item.blockedReason}</p>
             </section>
           )}
+
+          <section className="flex flex-wrap gap-2 border-t border-border pt-3">
+            <a
+              href={`/project/${encodeURIComponent(item.projectId)}/cockpit`}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium hover:bg-muted/40"
+            >
+              <ExternalLink className="h-3 w-3" />
+              PJ cockpitで見る
+            </a>
+          </section>
         </div>
       </div>
     </div>
@@ -355,8 +470,10 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function normalizeRow(row: Record<string, unknown>, projectLabels: Record<string, string>): ProactiveQueueItem {
   const projectId = String(row.project_id || "");
+  const metadata = normalizeRecord(row.metadata_json);
   return {
     outboxId: String(row.outbox_id || ""),
+    loopId: row.loop_id ? String(row.loop_id) : null,
     projectId,
     projectLabel: projectLabels[projectId] || PROJECT_FALLBACK_LABELS[projectId] || projectId,
     status: normalizeStatus(row.status),
@@ -373,11 +490,53 @@ function normalizeRow(row: Record<string, unknown>, projectLabels: Record<string
     draftedAt: row.drafted_at ? String(row.drafted_at) : null,
     sentToCounterpartAt: row.sent_to_counterpart_at ? String(row.sent_to_counterpart_at) : null,
     closedAt: row.closed_at ? String(row.closed_at) : null,
-    draftArtifactRefs: normalizeArtifactRefs(row.draft_artifact_refs),
+    draftArtifactRefs: dedupeArtifactRefs([
+      ...normalizeArtifactRefs(row.draft_artifact_refs),
+      ...normalizeArtifactRefs(metadata.artifact_refs),
+      ...normalizeArtifactRefs(metadata.draft_artifact_refs),
+    ]),
     evidenceRefs: normalizeEvidenceRefs(row.evidence_refs),
+    eventHistory: [],
     sourceKind: String(row.source_kind || ""),
     sourceId: String(row.source_id || ""),
+    sourceHash: row.source_hash ? String(row.source_hash) : null,
+    meetingId: row.meeting_id ? String(row.meeting_id) : null,
+    calendarEventId: row.calendar_event_id ? String(row.calendar_event_id) : null,
+    createdBy: String(row.created_by || ""),
+    createdAt: String(row.created_at || ""),
+    updatedAt: String(row.updated_at || ""),
   };
+}
+
+async function loadEventHistory(
+  supabase: ReturnType<typeof createClient>,
+  outboxIds: string[]
+): Promise<Record<string, ProactiveEvent[]>> {
+  const ids = outboxIds.filter(Boolean);
+  if (ids.length === 0) return {};
+  const { data, error } = await supabase
+    .from("proactive_loop_events")
+    .select("event_id,outbox_id,event_type,event_summary,actor_kind,actor_id,created_at")
+    .in("outbox_id", ids)
+    .order("created_at", { ascending: false })
+    .limit(120);
+  if (error || !data) return {};
+  const grouped: Record<string, ProactiveEvent[]> = {};
+  for (const row of data) {
+    const record = row as Record<string, unknown>;
+    const outboxId = String(record.outbox_id || "");
+    if (!outboxId) continue;
+    grouped[outboxId] ||= [];
+    grouped[outboxId].push({
+      eventId: String(record.event_id || `${outboxId}-${grouped[outboxId].length}`),
+      eventType: String(record.event_type || ""),
+      eventSummary: String(record.event_summary || ""),
+      actorKind: String(record.actor_kind || ""),
+      actorId: record.actor_id ? String(record.actor_id) : null,
+      createdAt: String(record.created_at || ""),
+    });
+  }
+  return grouped;
 }
 
 function normalizeArtifactRefs(value: unknown): DraftArtifactRef[] {
@@ -395,6 +554,16 @@ function normalizeArtifactRefs(value: unknown): DraftArtifactRef[] {
     .filter((item): item is DraftArtifactRef => Boolean(item?.artifact));
 }
 
+function dedupeArtifactRefs(refs: DraftArtifactRef[]) {
+  const seen = new Set<string>();
+  return refs.filter((ref) => {
+    const key = `${ref.artifact}|${ref.summary}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function normalizeEvidenceRefs(value: unknown): EvidenceRef[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -409,6 +578,20 @@ function normalizeEvidenceRefs(value: unknown): EvidenceRef[] {
       return ref;
     })
     .filter((item): item is EvidenceRef => Boolean(item?.source));
+}
+
+function normalizeRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function dedupeByOutboxId(items: ProactiveQueueItem[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (!item.outboxId) return true;
+    if (seen.has(item.outboxId)) return false;
+    seen.add(item.outboxId);
+    return true;
+  });
 }
 
 function normalizeStatus(value: unknown): ProactiveStatus {
@@ -433,11 +616,16 @@ function sortQueueItems(a: ProactiveQueueItem, b: ProactiveQueueItem) {
     sent_to_counterpart: 4,
     closed: 5,
   };
+  const dueRank = (item: ProactiveQueueItem) => (dueState(item.dueAt) === "overdue" ? 0 : dueState(item.dueAt) === "today" ? 1 : 2);
+  const dueStateDiff = dueRank(a) - dueRank(b);
+  if (dueStateDiff !== 0) return dueStateDiff;
+  const statusDiff = statusRank[a.status] - statusRank[b.status];
+  if (statusDiff !== 0) return statusDiff;
   const priorityDiff = priorityRank[a.priority] - priorityRank[b.priority];
   if (priorityDiff !== 0) return priorityDiff;
   const dueDiff = new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
   if (Number.isFinite(dueDiff) && dueDiff !== 0) return dueDiff;
-  return statusRank[a.status] - statusRank[b.status];
+  return a.outboxId.localeCompare(b.outboxId);
 }
 
 function formatDue(iso: string) {
@@ -486,7 +674,30 @@ function nextActionLabel(status: ProactiveStatus) {
   return "追加対応なし";
 }
 
+function externalSendLabel(item: ProactiveQueueItem) {
+  if (item.status === "sent_to_counterpart") return "外部送付済み";
+  if (item.status === "closed") return "外部送付不要";
+  if (item.status === "blocked") return "外部送付不可: 停止理由の解消が先";
+  if (item.status === "drafted" && item.draftArtifactRefs.length > 0) return "外部送付候補: 資料レビュー後に判断";
+  if (item.status === "drafted") return "外部送付候補: 資料所在の確認が先";
+  if (item.status === "sent_to_commander") return "外部送付前: 司令塔/worker成果物待ち";
+  return "外部送付前: まず司令塔へ通知";
+}
+
 function pathToHref(path: string) {
   if (/^https?:\/\//.test(path)) return path;
   return `file://${path}`;
 }
+
+const EVENT_LABEL: Record<string, string> = {
+  detected: "検知",
+  queued: "TODO化",
+  sent_to_commander: "司令塔送信",
+  drafted: "資料作成",
+  sent_to_counterpart: "外部送付",
+  closed: "完了",
+  blocked: "停止",
+  sla_breached: "期限超過",
+  counterpart_nudge_detected: "相手催促検知",
+  deduped: "重複整理",
+};

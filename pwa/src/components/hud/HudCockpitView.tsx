@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { HudCockpitHeader } from "./HudCockpitHeader";
 import { HudCockpitVentureStatus } from "./HudCockpitVentureStatus";
 import { HudCockpitGoalsCompact } from "./HudCockpitGoalsCompact";
-import { HudCockpitKanbanGas } from "./HudCockpitKanbanGas";
 import { HudCockpitMonthlyList } from "./HudCockpitMonthlyList";
 import { HudCockpitMonthlyModal } from "./HudCockpitMonthlyModal";
 import { HudCockpitNudge } from "./HudCockpitNudge";
@@ -308,10 +307,9 @@ type StepModal =
   | { kind: "invoiceSend"; ym: string }
   | null;
 
-export function HudCockpitView({ cockpit, nudges, tasks, initialModalYm, initialStep, canEditRoutine = false }: HudCockpitViewProps) {
+export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, canEditRoutine = false }: HudCockpitViewProps) {
   const router = useRouter();
   const cockpitNudges = nudges || cockpit.nudges || [];
-  const cockpitTasks = tasks || cockpit.tasks || [];
   const [modalYm, setModalYm] = useState<string | null>(
     initialStep?.stepId === "reportFix" ? initialStep.ym : initialModalYm || null
   );
@@ -390,10 +388,7 @@ export function HudCockpitView({ cockpit, nudges, tasks, initialModalYm, initial
   const modalMemberActivities = modalBundle?.memberActivities || memberActivities || [];
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
   const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
-
-  useEffect(() => {
-    if (!showLiveOperations && stepModal) setStepModal(null);
-  }, [showLiveOperations, stepModal]);
+  const visibleStepModal = showLiveOperations ? stepModal : null;
 
   return (
     <section className="hud-cockpit-clone" aria-label="HUD cockpit clone">
@@ -530,13 +525,6 @@ export function HudCockpitView({ cockpit, nudges, tasks, initialModalYm, initial
           </div>
         </div>
 
-        {/* [C] TODO Kanban */}
-        {cockpitTasks.length > 0 && (
-          <div className="hud-cockpit-panel hud-cockpit-panel--tasks">
-            <HudCockpitKanbanGas tasks={cockpitTasks} milestones={usesMsProgress ? milestones : []} memberMap={memberMap || {}} />
-          </div>
-        )}
-
         {/* [G][E] Bottom Row: Monthly Cards + MTG Summary */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.16fr)_minmax(360px,0.84fr)]">
           <div className="min-w-0 hud-cockpit-panel hud-cockpit-panel--monthly">
@@ -658,37 +646,37 @@ export function HudCockpitView({ cockpit, nudges, tasks, initialModalYm, initial
       )}
 
       {/* ===== Step Modals (各ルーティンタスク → 専用ウィンドウ) ===== */}
-      {stepModal?.kind === "budget" && (
+      {visibleStepModal?.kind === "budget" && (
         <CockpitRoutineBudgetModal
           projectId={project.projectId}
-          ym={stepModal.ym}
+          ym={visibleStepModal.ym}
           open
           onClose={() => setStepModal(null)}
         />
       )}
-      {stepModal?.kind === "meeting" && (
+      {visibleStepModal?.kind === "meeting" && (
         <CockpitRoutineMeetingModal
           projectId={project.projectId}
-          ym={stepModal.ym}
-          isDone={stepModal.isDone}
-          doneAction={stepModal.doneAction}
+          ym={visibleStepModal.ym}
+          isDone={visibleStepModal.isDone}
+          doneAction={visibleStepModal.doneAction}
           open
           onClose={() => setStepModal(null)}
         />
       )}
-      {stepModal?.kind === "invoice" && (
+      {visibleStepModal?.kind === "invoice" && (
         <CockpitRoutineInvoiceModal
           projectId={project.projectId}
-          ym={stepModal.ym}
-          documentType={stepModal.documentType}
+          ym={visibleStepModal.ym}
+          documentType={visibleStepModal.documentType}
           open
           onClose={() => setStepModal(null)}
         />
       )}
-      {stepModal?.kind === "invoiceSend" && (
+      {visibleStepModal?.kind === "invoiceSend" && (
         <CockpitRoutineInvoiceSendConfirm
           projectId={project.projectId}
-          ym={stepModal.ym}
+          ym={visibleStepModal.ym}
           open
           onClose={() => setStepModal(null)}
         />

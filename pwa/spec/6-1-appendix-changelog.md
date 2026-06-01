@@ -36,3 +36,4 @@
 | 2026-06-01 | 3-8 | 変更 | Cockpit MTGサマリに Notion文字起こし CTA と `メモ再読込` を追加。`notion_url` / `source_url` の状態別表示と、PWAからNotion録音開始・Notion page自動作成・DDLをしない境界を contract 化 | MTG前/会議中にカードからNotionメモへ入れるようにしつつ、L6既存処理との責務境界を崩さないため | えいみ |
 | 2026-06-01 17:43 JST | 4-2 | 変更 | AMD Score retrofit画面に PRS候補比較レイヤーを追加する契約を追記。`calculatePrsScore()` / `derivePrsComponents()`、P/R_net missing時はscoreを出さない、DB schema未採用、BZM review requiredを明記 | 現行7軸AMD Scoreを壊さず、P x R x S / 9軸候補を比較・シミュレーションとして検証するため | えいみ |
 | 2026-06-01 | 2-1 | 追加 | `/admin/private-wiki` と `/api/admin/private-wiki`、`private_wiki_entries` の admin-only contract を追加 | センシティブな人物関係性メモを admin 境界内で扱い、通常cockpitや外部workspaceへ漏らさないため | えいみ-worker |
+| 2026-06-01 | 3-8 | 変更 | `ProactiveQueuePanel` をTODO UIへ整理。Dashboardは未送信/要対応だけ最大3件、期限超過・blocked・queuedを優先し、`outbox_id` 重複排除後に優先TODOと一覧へ分ける。詳細モーダルは source / outbox history / artifact refs / 外部送付可否 / PJ導線を表示し、HUD側旧かんばんは主要導線から外す | 先手力UIを通知一覧ではなく、忘れていても再開できるread-only TODO入口にするため | えいみ-worker |

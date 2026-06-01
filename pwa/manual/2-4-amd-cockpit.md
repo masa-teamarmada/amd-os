@@ -27,13 +27,15 @@ URL: `/project/p00/cockpit`。**会社全体 (= AMD 株式会社) を 1 つの P
 
 `/dashboard` の上部に、PJ横断の `proactive_outbox` を read-only で表示する。まさや司令塔が最初に見る入口として、まだ司令塔通知前 / 司令塔対応中 / ブロック中の TODO を最大 3 件に絞って出す。資料作成済みのものは Dashboard 上部には混ぜず、各 PJ cockpit 側で確認する。
 
+表示順は、期限超過、ブロック、未送信、司令塔送信済み、優先度、期限の順で決める。DBからは少し多めに読み、画面上で `outbox_id` を重複排除してから最大3件に絞る。先頭の優先TODOと下の一覧には同じ `outbox_id` を二重表示しない。
+
 表示するもの:
 - PJ名、優先度、期限、状態
 - 推奨 first move
 - 誰のボールか、資料の種類、トリガー理由、担当司令塔
 - 期限超過件数と停止件数
 
-対象 status は `queued`, `sent_to_commander`, `blocked`。状態更新や外部送付は Dashboard では行わない。TODO 行を押すと画面内モーダルが開き、その TODO が発生した経緯、遅れた場合のリスク、司令塔/worker が作った資料リンク、次の期待アクションを確認できる。
+対象 status は `queued`, `sent_to_commander`, `blocked`。状態更新や外部送付は Dashboard では行わない。TODO 行を押すと画面内モーダルが開き、その TODO が発生した経緯、`proactive_loop_events` の履歴、遅れた場合のリスク、司令塔/worker が作った資料リンク、外部送付可否、次の期待アクションを確認できる。PJ cockpit へ移動する導線はモーダル内の補助リンクとして置く。
 
 `drafted` は「司令塔/worker が内部資料を作成済み」の状態。ここからは、まさまたは担当司令塔が内容を確認し、外部送付する / 追加修正する / 完了扱いにする、のどれかへ進める。
 
