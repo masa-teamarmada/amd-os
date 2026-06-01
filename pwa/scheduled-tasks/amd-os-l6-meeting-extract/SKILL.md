@@ -52,12 +52,27 @@ Phase 0: env と calendar の準備
    WORKFLOW_SECRET="${WORKFLOW_SECRET:-$CRON_SECRET}"
    ```
 3. Calendar `mcp__509862f5-b23a-4c45-bf99-9978f6bc4d61__list_calendars` で primary calendar を確認 (= 通常まさの primary)。MAIN_CALENDAR_ID を `.env.local` に置く運用にしてないので、毎回 primary を採用。
+4. **connector が `event.colorId` / `get_colors` を返さない場合の前段 diagnostic**:
+   - `Google Calendar connector` の payload だけで色が見えないときは、待ち続けず `pwa/scripts/l6_calendar_color_diagnostic.mjs` を使う。
+   - この helper は既存 PWA Google env (`GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `GOOGLE_OAUTH_REFRESH_TOKEN`、または `GOOGLE_SERVICE_ACCOUNT_JSON` + 必要なら `GOOGLE_SERVICE_ACCOUNT_SUBJECT`) で Calendar API v3 を read-only 実行する。
+   - PWA 側 Google env が無い環境では、GAS Advanced Calendar Service の `l6_calendar_color_diagnostic(opts)` を `pwaApi runFunc` から呼ぶ。GAS 側は `gas/188_L6CalendarColorDiagnostic.js` が正本で、既存 `NEXT_PUBLIC_GAS_WEBAPP_URL` + `NEXT_PUBLIC_GAS_API_KEY` を使う。
+   - 実行例:
+     ```bash
+     cd /Users/masa/projects/AMD/amd-os/pwa
+     npm run diagnose:l6-calendar-colors -- \
+       --calendar-id primary \
+       --time-min 2026-06-01T00:00:00+09:00 \
+       --time-max 2026-06-03T23:59:59+09:00 \
+       --max-results 80
+     ```
+   - 返すのは `event_id` / `calendar_id` / `summary` / `start` / `end` / 明示 `colorId` / `calendar_default.colorId` / CFG_PJAlias の高信頼候補有無だけ。attendees / description / DB / outbox は触らない。
+   - `calendar_default.colorId` は診断情報であり、明示色の代替として自動採用しない。明示 `event.colorId` が無い event でも、CFG_PJAlias の exact / regex / bracketed / ASCII whole-token title alias が high confidence で当たり、`EXCLUDE` / `AMD` でなく、duplicate guard と既存良質サマリ保護を通る場合だけ Live 候補へ進める。単なる substring は review-only で Live 候補にしない。
 
 ═══════════════════════════════════════════════════
 Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
 ═══════════════════════════════════════════════════
 
-4. **時刻計算** (= 現在 JST 起点で過去 3 時間の window):
+5. **時刻計算** (= 現在 JST 起点で過去 3 時間の window):
    - `now` = 現在時刻 (UTC ISO)
    - `queryStart` = now - 240 分 (= 4 時間前、余裕 60 分含む)
    - `queryEnd` = now
@@ -65,18 +80,18 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
    - `winEndMs` = now - 60 分 (= 終了 60 分前)
    - **窓**: イベントの `end` datetime が `winStartMs ≦ end < winEndMs` の範囲に入るものだけ処理対象
 
-5. Calendar `mcp__509862f5-b23a-4c45-bf99-9978f6bc4d61__list_events`:
+6. Calendar `mcp__509862f5-b23a-4c45-bf99-9978f6bc4d61__list_events`:
    - `startTime` = `queryStart` ISO
    - `endTime` = `queryEnd` ISO
    - `pageSize` = 50
 
-6. 各 event について **filter** (= GAS 153 と同じ):
+7. 各 event について **filter** (= GAS 153 と同じ):
    - `event.start.date` のみで `dateTime` なし (= 全日イベント) → **skip** (= 議事録対象外)
    - `title` が `+` または `＋` 始まり → **skip** (= 候補だが未確定)
    - `title` が空 → **skip**
    - `end.dateTime` を Date に変換 → `winStartMs ≦ ms < winEndMs` 窓外なら **skip**
 
-7. **PJ 判定** (= GAS 153 完全再現。**カレンダー色が第一判定軸 =「色優先」**。まさが運用してる正本シート `CFG_ColorPJHistory` + `CFG_PJAlias` を読む):
+8. **PJ 判定** (= GAS 153 完全再現。**カレンダー色が第一判定軸 =「色優先」**。まさが運用してる正本シート `CFG_ColorPJHistory` + `CFG_PJAlias` を読む):
 
    > 🚨 **このステップを削除・簡略化しないこと**。2026-05-29 復旧 — #71 の Claude routine 移植時に、この色→PJ 判定 (CFG_ColorPJHistory) が誤って削除され `project_name` substring match だけに簡略化されていた (= まさ未承認の機能削除事故)。正本仕様は `pwa/manual/3-2-data-and-extraction.md` の「カレンダー色→PJ判定」。色判定は AMD OS の恒久仕様。
 
@@ -92,13 +107,20 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
      ```
 
    **(b) colorId → pjCode (第一軸・色優先)**:
-   - event の `colorId` を取る (= 未設定なら primary calendar の default colorId)
+   - event の明示 `colorId` を取る。connector payload で見えない場合は `pwa/scripts/l6_calendar_color_diagnostic.mjs` の Calendar API v3 read-only 結果を使う。
+   - `calendar_default.colorId` は診断・設定確認用に読むが、`get_colors` / event payload 不調時の Live write target には使わない。明示 `event.colorId` が無い event は color route では止め、下の CFG_PJAlias high-confidence route へ回す。
    - CFG_ColorPJHistory のうち、その colorId かつ `startDate <= event 開始日(00:00 JST)` の行で **startDate 最大** を採用 → `pjCode`
    - 例: colorId=6 は `2024-01-01→JC`、`2026-05-28→VSX`。2026-05-28 以降の colorId 6 イベントは **pjCode=VSX**
 
    **(c) title alias → pjCode (第二軸・色で取れない時の補完)**:
-   - `(title + ' ' + description + ' ' + location)` を CFG_PJAlias の各 alias に matchType (contains 等) で照合 → priority 最大の pjCode
+   - `(title + ' ' + description + ' ' + location)` を CFG_PJAlias の各 alias に matchType で照合 → priority 最大の pjCode
    - alias hit が `EXCLUDE` の場合は色で pjCode が取れていても **skip** (= 議事録対象外)
+   - 明示 `event.colorId` が無い event を Live 候補へ上げてよいのは、CFG_PJAlias の high-confidence hit のみ:
+     - `matchType=exact` の title 完全一致
+     - `matchType=regex` の明示ルール一致
+     - `[ZMP]` / `【ZMP】` / `(ZMP)` 形式など bracketed title alias
+     - `ZMP MTG` のような ASCII whole-token title alias
+   - `matchType=contains` の単純 substring や project_name / client_name substring は review-only。PJ 候補メモには残してよいが Live write target にはしない。
 
    **(d) pjCode → project_id 解決**:
    - `lower(projects.project_name) == lower(pjCode)` の active PJ を優先 (= SX/CX/OQC/ZMP/SE/BWE/CTB/CLG など大半は project_name==code)
@@ -110,9 +132,9 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
    - `(title+desc+loc)` lowercase に対して project_name / project_id / client_name の substring match
    - それでも取れなければ **skip_no_pj**
 
-   - 複数候補は **色 > title 完全一致 alias > substring** の優先順位で 1 つに絞る
+   - 複数候補は **明示色 > CFG_PJAlias high-confidence > review-only substring** の優先順位で 1 つに絞る。Live write は最初の 2 つだけ。
 
-8. PJ 紐付けが取れた events を **処理キュー** に積む
+9. PJ 紐付けが取れた events を **処理キュー** に積む
 
 ### A-2: 未来Calendar予定 → 予定MTGカード同期
 

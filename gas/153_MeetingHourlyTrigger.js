@@ -43,7 +43,7 @@
  * - 074_MeetingSummaryRepo.js: nav_meeting_processOneEvent_
  * - CalendarToNotionMinutes.js: readColorPJHistory_, pickPJByColorHistory_,
  *                                _loadPJAliasesForMinutes_, _matchAlias_, listEventsByApi_,
- *                                getCalendarDefaultColorId_, readKeyValueConfig_
+ *                                readKeyValueConfig_
  * - NotionProtocolSync.js: _resolveAmdProjectIdByProjectNameOrCode_
  * - 180_SupabaseClient.js: supa_upsert
  *
@@ -87,10 +87,6 @@ function nav_meeting_pollRecentlyEndedEvents(opts) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const colorHistory = readColorPJHistory_(ss);
   const pjAliases = _loadPJAliasesForMinutes_();
-  const calendarDefaultColorId = (typeof getCalendarDefaultColorId_ === "function")
-    ? String(getCalendarDefaultColorId_(calendarId) || "").trim()
-    : "";
-
   const now = Date.now();
   const winStartMs = now - winStartMinAgo * 60 * 1000;  // 例: 180分前
   const winEndMs = now - winEndMinAgo * 60 * 1000;      // 例: 60分前
@@ -146,9 +142,10 @@ function nav_meeting_pollRecentlyEndedEvents(opts) {
     in_window++;
 
     // PJ 判定
-    const colorId = String(ev.colorId || calendarDefaultColorId || "").trim();
-    let pjCode = pickPJByColorHistory_(colorId, startAt, colorHistory) || "";
-    if (!pjCode && aliasHit && String(aliasHit.pjCode || "").trim()) {
+    const explicitColorId = String(ev.colorId || "").trim();
+    let pjCode = explicitColorId ? (pickPJByColorHistory_(explicitColorId, startAt, colorHistory) || "") : "";
+    const safeAlias = _meeting_highConfidencePjAliasForLive_(title, aliasHit);
+    if (!pjCode && safeAlias.ok) {
       pjCode = String(aliasHit.pjCode || "").trim();
     }
     if (!pjCode || pjCode.toUpperCase() === "AMD") {
@@ -226,6 +223,49 @@ function nav_meeting_pollRecentlyEndedEvents(opts) {
     errors: errors,
     items: items
   };
+}
+
+function _meeting_highConfidencePjAliasForLive_(title, aliasHit) {
+  if (!aliasHit || !aliasHit.alias || !aliasHit.pjCode) return { ok: false, reason: "no_alias_hit" };
+  const pjCode = String(aliasHit.pjCode || "").trim().toUpperCase();
+  if (!pjCode || pjCode === "EXCLUDE" || pjCode === "AMD") return { ok: false, reason: "alias_skip_code" };
+
+  const rawTitle = String(title || "").trim();
+  const rawAlias = String(aliasHit.alias || "").trim();
+  if (!rawTitle || !rawAlias) return { ok: false, reason: "empty_title_or_alias" };
+
+  const matchType = String(aliasHit.matchType || "contains").trim().toLowerCase() || "contains";
+  const titleLower = rawTitle.toLowerCase();
+  const aliasLower = rawAlias.toLowerCase();
+
+  if (matchType === "exact") {
+    return { ok: titleLower === aliasLower, reason: titleLower === aliasLower ? "cfg_exact_title" : "exact_not_title" };
+  }
+  if (matchType === "regex") {
+    let re = aliasHit.re || null;
+    if (!re) {
+      try { re = new RegExp(rawAlias, "i"); } catch (_e) { re = null; }
+    }
+    const ok = !!(re && re.test(rawTitle));
+    return { ok: ok, reason: ok ? "cfg_regex_title" : "regex_not_title" };
+  }
+
+  const bracketed = ["[" + rawAlias + "]", "【" + rawAlias + "】", "(" + rawAlias + ")", "（" + rawAlias + "）"];
+  for (let i = 0; i < bracketed.length; i++) {
+    if (titleLower.indexOf(bracketed[i].toLowerCase()) >= 0) {
+      return { ok: true, reason: "cfg_bracketed_title_alias" };
+    }
+  }
+
+  if (/^[A-Za-z0-9_-]{2,}$/.test(rawAlias)) {
+    const escaped = rawAlias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const wholeToken = new RegExp("(^|[^A-Za-z0-9])" + escaped + "([^A-Za-z0-9]|$)", "i");
+    if (wholeToken.test(rawTitle)) {
+      return { ok: true, reason: "cfg_whole_token_title_alias" };
+    }
+  }
+
+  return { ok: false, reason: "contains_review_only" };
 }
 
 /**
