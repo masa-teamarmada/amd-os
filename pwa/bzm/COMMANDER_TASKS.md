@@ -69,8 +69,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 8. FRL_cap_amd historical整理
    - お願いした内容: 終了済みPJやAMD関与終了後のPJについて、current active rowではなく当時のtimeline-specific rowで `frl_cap_amd` を扱う方針を整理する。
    - 背景: `frl_cap_amd` はAMD提供価値の定量化の本丸だが、ended PJを現在状態だけで見ると当時のAMD寄与を誤判定するため。
-   - 現状: Active。p07 LST / p20 CX / p21 SX はfirst pass反映済み。p06 CTBはfrozenでAMD activeなし、寄与0に補正済み。p04 KT / p09 JC / p11 BWE は保留。`FRL_cap_amd historical policy memo`、`frl_cap_amd timeline row source pack`、`frl_cap_amd timeline date source lookup` はBZMレビュー採用。date lookupではKT/CTB exact COO日付はmissing、JC開始日は衝突、BWEはfounding高confidenceだが代表権喪失日と退任/移譲snapshotを分離する判断。次の `frl_cap_amd notes rubric guard` worker `019e84ef-4177-7182-a49d-2ad94a632e7e` がActive。
-   - 残課題: `frl_cap_notes` / timeline row notesに入れる必須field、confidence語彙、date/source conflict表記、private/public boundary、candidate_statusを標準化する。正式FRL再計算、DB化、過去score再計算はまだしない。
+   - 現状: Active。p07 LST / p20 CX / p21 SX はfirst pass反映済み。p06 CTBはfrozenでAMD activeなし、寄与0に補正済み。p04 KT / p09 JC / p11 BWE は保留。`FRL_cap_amd historical policy memo`、`frl_cap_amd timeline row source pack`、`frl_cap_amd timeline date source lookup`、`frl_cap_amd notes rubric guard` はBZMレビュー採用。notes guardでは `candidate_only` / `reviewed_candidate` / `adopted_for_score` を分離し、`relationship_state` / `do_not_count_after` / `confidence` / `date_source_status` / `private_public_boundary` を必須field化。今回の整理は `candidate_only` で、score採用には進めない。次の `frl_cap_amd DB hygiene handoff` worker `019e84f3-623c-7f83-a570-b90e43964f7c` がActive。
+   - 残課題: p18 YD、p11 BWE、p06 CTB、p09 JCなどのDB hygiene issueをOS/DBへ渡せる形に整理する。DB補正、正式FRL再計算、DB化、過去score再計算はまだしない。
 
 9. BZM 7軸モデルとP×R×S/9軸候補の整合
    - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
