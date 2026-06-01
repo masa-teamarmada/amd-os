@@ -204,6 +204,8 @@ Calendar event に Gemini / Google Meet notes Doc 添付がある、Notion の `
 
 まさは Google Calendar の各 MTG を **イベント色 (colorId 1–11)** で PJ ごとに塗り分けて運用している。OS はその色を読んで PJ を自動判定する。
 
+2026-06-01 以降、Google Calendar connector が `get_colors` / raw `event.colorId` を返さない場合は、connector 再認証待ちで止めず、PWA 側の read-only helper `pwa/scripts/l6_calendar_color_diagnostic.mjs` で Calendar API v3 を直接読む。PWA 側 Google env が無い環境では、GAS Advanced Calendar Service の `gas/188_L6CalendarColorDiagnostic.js` (`l6_calendar_color_diagnostic`) を `pwaApi runFunc` から呼ぶ。どちらも対象 window の `event_id` / `calendar_id` / `summary` / `start` / `end` / 明示 `colorId` / `calendar_default.colorId` を JSON で返す。GAS helper は CFG_PJAlias が読める場合だけ、alias 値を出さずに high-confidence 候補の有無も返す。DB、outbox、Calendar、Notion、Gmail、Drive、Slack への書き込みは禁止。
+
 **正本データ** = 外部スプレッドシート **`CalendarRepo_AMD_OS`**
 (fileId は env `COLOR_PJ_CONFIG_SPREADSHEET_ID` = `1s3HfM2…`、まさが直接メンテする。抽出ランナーは Google Drive 連携 (Drive MCP `read_file_content` 等) で読む):
 
@@ -216,8 +218,10 @@ Calendar event に Gemini / Google Meet notes Doc 添付がある、Notion の `
 
 1. **色 (第一軸)**: イベントの `colorId` について、`CFG_ColorPJHistory` から `startDate <= イベント開始日` の行のうち **startDate 最大** の `pjCode` を採用。
    - 例: colorId 6 は `2024-01-01→JC`、`2026-05-28→VSX`。2026-05-28 以降の colorId 6 イベントは **VSX**。過去の JC 予定は JC のまま (履歴方式)。
+   - connector から明示 `event.colorId` が取れない event は color route では止める。`calendar_default.colorId` は診断・設定確認には残すが、Live write 候補を作るための代替色として自動採用しない。
 2. **title エイリアス (第二軸)**: `(title+description+location)` を `CFG_PJAlias` に matchType で照合し priority 最大の pjCode。`EXCLUDE` なら skip。
-3. **substring フォールバック (最終手段)**: 色も alias も取れない時のみ、`project_name` / `project_id` / `client_name` の substring match。
+   - 明示 `event.colorId` が無い event を Live 候補へ上げてよいのは、CFG_PJAlias の `matchType=exact` / `matchType=regex` / bracketed title alias / ASCII whole-token title alias が high confidence で当たり、`EXCLUDE` / `AMD` でなく、duplicate guard と既存良質サマリ保護を通る場合だけ。
+3. **substring フォールバック (最終手段)**: 色も alias も取れない時のみ、`project_name` / `project_id` / `client_name` の substring match。これは diagnostic / review 用で、Live write target にはしない。
 4. **pjCode → project_id**: `lower(project_name)==lower(pjCode)` 優先。一致しない code は既知マップで解決 (例: **VSX → VasculaX = p26**)。
 
 ### 色の割当を変えるとき (= まさの運用)

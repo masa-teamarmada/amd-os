@@ -125,6 +125,13 @@ vs ローカル Mac scheduled task の問題:
 
 **入力**: Calendar event (= 過去 60-180 分終了 + 今日0:00 JSTから60日先の確定予定。ただし weekly recurring は series ごとに次回1件のみ) + Notion 議事録 + Gmail (= report_emails スレッド) + Drive Doc/PDF/Office/Sheets + Slack thread + PWA `meeting_assets` (= まさが直接アップロードしたスクショ / PDF / 画面キャプチャ) + `project_meeting_summaries` 過去 3 件 (= 前回比較) + `monthly_reports` 直近 3 件 (= PJ 全体文脈) + `value_milestones` + `milestone_monthly_progress` (= MS context) + Calendar freebusy (= H 用) + `projects.drive_folder_id` + `projects.facilitator_member_id` + `project_members` (= role=PL 特定)
 
+**Calendar color diagnostic helper (= connector 色payload欠落時の前段)**:
+- Google Calendar connector が `get_colors` / raw `event.colorId` を返さない場合でも、connector 待ちだけで止めない。
+- `pwa/scripts/l6_calendar_color_diagnostic.mjs` は Calendar API v3 の `events.list` / `calendarList.get` を既存 PWA Google env で read-only 実行し、対象 window の `event_id` / `calendar_id` / `summary` / `start` / `end` / 明示 `colorId` / `calendar_default.colorId` だけを返す。
+- PWA 側 Google env が無い環境では、GAS Advanced Calendar Service の `gas/188_L6CalendarColorDiagnostic.js` (`l6_calendar_color_diagnostic`) を `pwaApi runFunc` から呼ぶ。GAS manifest は Calendar API v3 advanced service と calendar scope を持つ。
+- GAS helper は CFG_PJAlias が読める場合だけ、alias 値を出さずに high-confidence 候補の有無も返す。
+- helper は diagnostic 専用で、DB/API/outbox/Calendar/Notion/Gmail/Drive/Slack へ write しない。明示 `event.colorId` が無い event でも、CFG_PJAlias の exact / regex / bracketed / ASCII whole-token title alias が high confidence で当たり、`EXCLUDE` / `AMD` でなく、duplicate guard と既存良質サマリ保護を通る場合だけ Live 候補へ進める。単なる substring は review-only で Live 候補にしない。
+
 **Notion eventId 方針 (= 2026-05-31 incident guard)**:
 - MMO automation は Calendar event から Notion 議事録ページを見つけたら、可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記する。これは L6 writer 側の責務。
 - Notion page に `eventId` が無いことだけを理由に skip しない。eventId 検索で取れない場合は title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索し、Notion が取れない場合も Gmail / Drive / Slack / Calendar 本文で `source_kinds` を判定する。
