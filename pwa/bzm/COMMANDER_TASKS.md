@@ -75,8 +75,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 9. BZM 7軸モデルとP×R×S/9軸候補の整合
    - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
    - 背景: 現行教科書は7軸中心だが、知識側にはP×R×S再構成と収益化指数の議論があり、Textbook実践知と結びつきやすい論点になっているため。
-   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards は作成済み。BZM一次判断は `Adopt as comparison layer` 継続で、正式理論採用はまだしない。
-   - 残課題: P/R_net rubric draftの前に、CTB/JOYCLE/YD/BWEを中心にR_net誤判定を防ぐ guard memo worker `019e8398-1326-79a3-81cb-e322be15f08f` を起動済み。結果が出るまでP/R_net rubric確定、DB化、過去score再計算はしない。
+   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo は作成済み。BZM一次判断は `Adopt as comparison layer` 継続で、正式理論採用はまだしない。
+   - 残課題: P/R_net正式rubricの前段として、観測項目・source・入力主体・更新頻度・guard条件を整理する観測項目draft worker `019e839f-9ada-7eb3-bc8d-fbb52f35d440` を起動済み。0-9値表、DB化、過去score再計算はまだしない。
 
 ## 完了済みタスク
 
