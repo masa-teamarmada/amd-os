@@ -9,7 +9,7 @@ import {
 } from "./bzm-chapters";
 
 /**
- * BZM 教科書の内容正本は `pwa/bzm/{slug}.md` に置く (= manual と同じ思想)。
+ * 教科書の内容正本は `pwa/bzm/{slug}.md` に置く (= manual と同じ思想)。
  * このローダーが fs で読み、章番号を動的注入する。
  */
 

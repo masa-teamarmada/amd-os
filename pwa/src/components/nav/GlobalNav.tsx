@@ -247,9 +247,9 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
                 ? "bg-accent text-accent-foreground font-medium"
                 : "text-muted-foreground hover:text-foreground"
             )}
-            title="Before Zero Model — σ_SU / XRL / FRL / AMD Score / ERS の理論教科書"
+            title="教科書 — Before Zero の現場から BZM 理論と実践ツールへ"
           >
-            📐 BZM
+            📚 教科書
           </Link>
           {isAdmin && (
             <Link

@@ -7,9 +7,9 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 /**
- * BzmMarkdown — BZM 教科書専用の Markdown レンダラー。
+ * BzmMarkdown — 教科書専用の Markdown レンダラー。
  *
- * 既存の MarkdownView は数式 ($...$ / $$...$$) を解釈しない。BZM は
+ * 既存の MarkdownView は数式 ($...$ / $$...$$) を解釈しない。教科書は
  * 数式が本質なので、`remark-math` / `rehype-katex` を入れずに (= 依存追加なし)、
  * 自前で数式ブロックを切り出して katex でレンダリングする。
  *

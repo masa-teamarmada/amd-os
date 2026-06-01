@@ -114,7 +114,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "3-10-l2-ms-progress-current-spec", title: "L2③ MS Progress 仕様", summary: "milestone_monthly_progress / project_monthly_notes / progress_estimate_state の抽出、guard、cockpit反映。" },
   { slug: "3-11-l2-project-knowledge-current-spec", title: "L2④ Project Knowledge 仕様", summary: "project_knowledge の9カテゴリ、汚染防御、DB upsert、通知採否、MMO automation contract。" },
   { slug: "3-12-l2-member-knowledge-current-spec", title: "L2⑤ Member Knowledge 仕様", summary: "member_knowledge の7カテゴリ、3 section input、本人帰属guard、DB upsert、通知採否。" },
-  { slug: "3-13-l2-textbook-insights-current-spec", title: "L2⑩ Textbook Insights 仕様", summary: "BZM 教科書追記候補、candidate DB、通知採否、approved 後の local BZM applier contract。" },
+  { slug: "3-13-l2-textbook-insights-current-spec", title: "L2⑩ Textbook Insights 仕様", summary: "教科書追記候補、candidate DB、通知採否、approved 後の local BZM applier contract。" },
   { slug: "4-1-frl-ces-current-spec", title: "FRL CES 実装仕様", summary: "F_character × F_capability の CES 合成、DB列、実装関数、後方互換の現行契約。" },
   { slug: "4-2-amd-score-current-spec", title: "AMD Score 実装仕様", summary: "7 軸 Cobb-Douglas、M/X/F 表示、DB、route、bottleneck、FRL 境界の契約。" },
   { slug: "4-3-ers-current-spec", title: "ERS 実装仕様", summary: "研究機関 ERS の route、DB、fetch bundle、assessment upsert API、admin gate。" },

@@ -11,7 +11,7 @@ export interface BzmSideNavGroup {
 }
 
 /**
- * BZM 教科書の左サイドバー目次 (= manual の ManualGlobalToc 相当)。
+ * 教科書の左サイドバー目次 (= manual の ManualGlobalToc 相当)。
  * BZM_PARTS でグループ化し、現在表示中の章をハイライトする。
  */
 export function BzmSideNav({
@@ -41,7 +41,7 @@ export function BzmSideNav({
     <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
       <div className="mb-3 border-b border-slate-200 pb-2">
         <Link href="/bzm" className="text-sm font-black text-slate-950 hover:underline">
-          BZM 教科書 — 目次
+          教科書 — 目次
         </Link>
       </div>
       <div className="space-y-2">

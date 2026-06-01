@@ -164,7 +164,7 @@ export const l2Datasets: L2Dataset[] = [
     table: "textbook_insight_candidates",
     source: "Codex automation/local worker amd-os-l10-textbook-insight-extract / approved後local BZM applier",
     cadence: "TBD / manual start",
-    purpose: "Before Zero / BZM 教科書へ追記すべき実務知見候補。通知承認後に pwa/bzm へ追記する。",
+    purpose: "Before Zero / 教科書へ追記すべき実務知見候補。通知承認後に pwa/bzm へ追記する。",
   },
   {
     id: "amd_score_inputs",

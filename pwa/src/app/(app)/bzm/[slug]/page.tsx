@@ -8,7 +8,7 @@ import { applyBzmBookNumbering, BZM_CHAPTERS, BZM_PARTS, getBzmChapter, sortBzmS
 import { normalizeBzmMarkdownSource } from "../bzm-data";
 
 /**
- * /bzm/[slug] — BZM 教科書の各章
+ * /bzm/[slug] — 教科書の各章
  *
  * pwa/bzm/{slug}.md を fs で読み、BzmMarkdown (= 数式対応 renderer) で描画。
  * h1 に part-chapter 番号 (= "5-1" 等) を動的注入する。
