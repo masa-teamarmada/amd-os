@@ -64,6 +64,14 @@ export async function POST(req: NextRequest) {
       signal_type: String(proposedIn.signal_type || context.current.signal_type),
       polarity: proposedIn.polarity == null ? null : String(proposedIn.polarity),
       score_impact_summary: proposedIn.score_impact_summary == null ? null : String(proposedIn.score_impact_summary),
+      signal_scope: proposedIn.signal_scope == null ? context.current.signal_scope : String(proposedIn.signal_scope),
+      applies_to_company_score: typeof proposedIn.applies_to_company_score === "boolean" ? proposedIn.applies_to_company_score : context.current.applies_to_company_score,
+      pipeline_status: proposedIn.pipeline_status == null ? context.current.pipeline_status : String(proposedIn.pipeline_status),
+      pipeline_probability: typeof proposedIn.pipeline_probability === "number" ? proposedIn.pipeline_probability : context.current.pipeline_probability,
+      expected_amount_yen: typeof proposedIn.expected_amount_yen === "number" ? proposedIn.expected_amount_yen : context.current.expected_amount_yen,
+      expected_contract_ym: proposedIn.expected_contract_ym == null ? context.current.expected_contract_ym : String(proposedIn.expected_contract_ym),
+      company_score_axis: proposedIn.company_score_axis == null ? context.current.company_score_axis : String(proposedIn.company_score_axis),
+      scope_reason: proposedIn.scope_reason == null ? context.current.scope_reason : String(proposedIn.scope_reason),
     };
 
     const applyRes = await applyProposal({

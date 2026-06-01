@@ -32,3 +32,4 @@
 | 2026-05-31 | 2-1 / 3-8 | 変更 | Dashboard と PJ cockpit に `ProactiveQueuePanel` を追加し、`proactive_outbox` を authenticated admin read-only で表示する contract を追記 | 先手力維持ループを通知だけでなくPWA上でも確認できるようにするため | えいみ |
 | 2026-05-31 | 3-8 / 4-3 | 変更 | 研究機関コックピットを `概要 + readiness snapshot + 進捗管理/スコア詳細タブ` の基本型へ変更し、MTGツリーを最上部から進捗管理下部へ移動する契約を追記 | NIMSコックピットでMTGツリーが最上部に出ていた違和感を解消し、研究機関でもPJ cockpitに近い情報設計に揃えるため | えいみ |
 | 2026-06-01 | 4-4 | 追加 | Management Score会社バイタル分類の本修正案を追加し、`signal_scope` / `applies_to_company_score` / pipeline分類、L2抽出validator、既存signals backfill、snapshot再計算ゲートを整理 | 暫定guard採用後、PJ個別情報をAMD会社バイタルへ混ぜない根本修正の判断材料を固定するため | えいみ |
+| 2026-06-01 | 3-6 / 4-4 | 変更 | `project_strategy_signals` に会社バイタル分類列を追加し、L2⑨/applier/API/Management Score raw collector が `applies_to_company_score` と高確度pipelineを扱う契約へ更新。香川大/KUTE/NIMS initial backfill と 202605/202606 再計算結果を追記 | 個別PJ除外だけでなく、香川大のような高確度pipelineを正式根拠に入れ、継続/新規/方向の低さを raw replacement と入力分解で検証できるようにするため | えいみ |

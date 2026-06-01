@@ -580,10 +580,16 @@ function scorePipeline(rows: RawSignal[], ctx: ScoreContext): AxisScore {
   // decision_state を stage 相当の probability にマッピング
   const stageProbability = (signalKey: string): number => {
     if (signalKey.includes("observed")) return 0.05;
+    if (signalKey.includes("prospect")) return 0.35;
     if (signalKey.includes("proposed")) return 0.20;
     if (signalKey.includes("decided")) return 0.60;
+    if (signalKey.includes("high_confidence")) return 0.85;
+    if (signalKey.includes("contracting")) return 0.90;
     if (signalKey.includes("executing")) return 0.85;
+    if (signalKey.includes("contracted")) return 1.00;
     if (signalKey.includes("revised")) return 1.00;
+    if (signalKey.includes("deferred")) return 0.10;
+    if (signalKey.includes("lost")) return 0.00;
     return 0.15;
   };
   const impactWeightFromHint = (row: RawSignal): number => {
@@ -630,17 +636,19 @@ function scorePipeline(rows: RawSignal[], ctx: ScoreContext): AxisScore {
         const stage = row.signal_key.replace("commercial:", "");
         const pjLabel = projectLabel(ctx, row.project_id);
         const pjPart = pjLabel ? ` [${pjLabel}]` : "";
-        const prob = stageProbability(row.signal_key);
+        const payloadProb = num(row.payload?.pipeline_probability, NaN);
+        const prob = Number.isFinite(payloadProb) && payloadProb > 0 ? payloadProb : stageProbability(row.signal_key);
+        const expectedYm = row.payload?.expected_contract_ym ? ` / 見込み ${row.payload.expected_contract_ym}` : "";
         return {
           axis: "pipeline" as const,
           evidence_kind: "commercial_progress",
-          summary: `案件「${title}」${pjPart} (${stage}、 確度 ${Math.round(prob * 100)}%) — 新規 pipeline 形成`,
+          summary: `案件「${title}」${pjPart} (${stage}、 確度 ${Math.round(prob * 100)}%${expectedYm}) — 新規 pipeline 形成`,
           source_type: row.source_table,
           source_ref: sourceRef(row),
           source_hash: row.source_hash,
           impact: Math.round(prob * 15),
           confidence: num(row.confidence, 0.5),
-          payload: { project_id: row.project_id, project_name: pjLabel, title, stage, probability: prob },
+          payload: { project_id: row.project_id, project_name: pjLabel, title, stage, probability: prob, expected_contract_ym: row.payload?.expected_contract_ym ?? null, expected_amount_yen: row.payload?.expected_amount_yen ?? null, scope_reason: row.payload?.scope_reason ?? null },
         };
       }),
       ...topBy(diffs, (row) => num(row.weight_hint, 1), 3).map((row) => {

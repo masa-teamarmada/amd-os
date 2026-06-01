@@ -14,6 +14,7 @@ description: AMD OS L2 ⑨ 経営ハイライト抽出の repo 正本。現行 w
 - **impact_level**: low / medium / high / critical
 - **polarity** (= まさ #29 2026-05-24、migration 090 適用後): breakthrough (🎉) / forward (✨) / pivot (🔄) / risk (⚠️) (= 🌐 中立廃止)
 - **score_impact_summary** (= まさ #31 2026-05-24、migration 090 適用後): 「📊 影響: TRL 4→5、X 軸 +40pt」短文
+- **company vital scope** (= migration 118): `signal_scope` / `applies_to_company_score` / `pipeline_status` / `pipeline_probability` / `expected_amount_yen` / `expected_contract_ym` / `company_score_axis` / `scope_reason`。PJ cockpit表示と Management Score 採用可否を分ける
 - 修正依頼は対話型 (= 経営ハイライト UI で 「⚠️ つくよみに修正依頼」 → /api/notifications/feedback/dialog/start → 提案 → 適用) で運用、本 routine では `l2_feedbacks` 読み込んで prompt に反映
 
 ## 反映経路
@@ -86,6 +87,11 @@ Phase B: LLM 抽出 (= 私自身、done のみ / polarity 必須)
 - 既存 source_hash と同じなら出さない (= 重複防止)
 - past_feedbacks 必ず反映
 - 「経営判断未了」「○○の方針未定」のような未了系は **絶対に出さない** (= まさ #26)
+- Management Score会社バイタル分類:
+  - AMD会社全体の売上、入金、契約見込み、営業pipeline、資金繰り、人員稼働、資源配分へ直接効く signal は `signal_scope="company"` or `"cross_project"`, `applies_to_company_score=true`, `company_score_axis` を必ず入れる
+  - 個別PJの技術・実験・設立・顧客/装置/研究論点だけなら `signal_scope="project"`, `applies_to_company_score=false`
+  - 契約前でも香川大/KUTE/NIMSのような高確度案件は `company_score_axis="pipeline"`, `pipeline_status="high_confidence"`, `pipeline_probability>=0.75`, `expected_contract_ym` を入れる
+  - `scope_reason` は対象/非対象にした根拠を1文で残す
 
 **出力 JSON のみ**:
 ```json
@@ -102,6 +108,14 @@ Phase B: LLM 抽出 (= 私自身、done のみ / polarity 必須)
       "impact_level": "low|medium|high|critical",
       "polarity": "breakthrough|forward|pivot|risk",
       "score_impact_summary": "<1 行 or null>",
+      "signal_scope": "company|project|cross_project",
+      "applies_to_company_score": true,
+      "pipeline_status": "prospect|high_confidence|contracting|contracted|lost|deferred|null",
+      "pipeline_probability": 0.5,
+      "expected_amount_yen": 1000000,
+      "expected_contract_ym": "202606",
+      "company_score_axis": "pipeline|funding|runway|finance|capacity|decision|resource_allocation|revenue|null",
+      "scope_reason": "<会社スコア対象/非対象の根拠1文>",
       "decision_state": "observed|proposed|decided|executing|revised",
       "source_refs_json": [ { "kind": "...", "ref_id": "...", "snippet": "<200 chars>", "source_url": "...", "hash": "..." } ],
       "source_hash": "<sha256>",

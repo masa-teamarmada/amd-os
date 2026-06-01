@@ -1,6 +1,6 @@
-# Management Score 会社バイタル分類 本修正案
+# Management Score 会社バイタル分類 本修正
 
-> **この章は何か**: `/management-score` に入れる材料を、AMD会社全体の経営バイタルとPJ個別情報へ分けるための未適用設計案。2026-06-01時点では暫定guardを採用済みだが、DB schema / L2抽出 / backfill / snapshot再計算はまだ実行していない。
+> **この章は何か**: `/management-score` に入れる材料を、AMD会社全体の経営バイタルとPJ個別情報へ分けるための確定仕様。2026-06-01に additive DB migration、L2/applier/API分類、initial backfill、202605/202606 snapshot再計算を実行済み。
 
 ## 背景
 
@@ -10,7 +10,7 @@
 - 香川大はMTG実施前から高確度パイプラインだったが、現行材料はconfirmed signal / MTG後signalに寄り、`candidate` の高確度company pipelineを拾えていなかった。
 - `project_strategy_signals` はPJ cockpit向けの経営ハイライトとしてPJ横断で蓄積されるが、company-level / project-level分類がなく、LST/p07などのPJ個別技術・設立・顧客論点がAMD会社全体の経営バイタルへ混入し得る。
 
-暫定対応として、Management Score側では `project_id='p00'` を会社全体シグナルとして扱い、`p00` かつ高確度の `commercial_progress` candidateだけをpipeline材料へ入れるguardを入れた。これは最低限の防波堤であり、根本修正ではない。
+暫定対応として、Management Score側では `project_id='p00'` を会社全体シグナルとして扱い、`p00` かつ高確度の `commercial_progress` candidateだけをpipeline材料へ入れるguardを入れた。根本修正後は `applies_to_company_score=true` を正本として読む。backfill前の古い row に限り `p00` guardを fallback として残す。
 
 ## 入れてよい情報 / 入れてはいけない情報
 
@@ -29,11 +29,11 @@ Management Scoreに入れてはいけない情報:
 - LST/p07など特定PJ内部の進捗や論点。
 - Before Zero実践知として価値があっても、AMD会社全体の経営バイタルではないもの。
 
-## DB migration案
+## DB migration
 
 対象は `project_strategy_signals` を第一候補にする。`amd_management_score_evidence` はsnapshot生成結果なので、まず上流signalの分類を正す。
 
-追加候補カラム:
+追加済みカラム:
 
 | column | type | 目的 |
 |---|---|---|
@@ -46,12 +46,18 @@ Management Scoreに入れてはいけない情報:
 | `company_score_axis` | text | `pipeline` / `funding` / `runway` / `capacity` / `decision` など、会社スコア側の軸。 |
 | `scope_reason` | text | なぜcompany score対象/非対象かの短い根拠。 |
 
-制約案:
+制約:
 
 - `signal_scope in ('company','project','cross_project')`。
 - `pipeline_probability` はnullまたは0以上1以下。
 - `applies_to_company_score=true` の場合は `signal_scope in ('company','cross_project')` を必須にする。
-- `pipeline_status is not null` の場合は `company_score_axis='pipeline'` を原則にする。
+- `pipeline_status is not null` の場合は `company_score_axis is null or company_score_axis='pipeline'` を必須にする。
+
+実装ファイル:
+
+- `pwa/scripts/migrations/118_management_score_company_vital_scope.sql`
+- `pwa/scripts/migrations/119_management_score_company_vital_initial_backfill.sql`
+- `pwa/scripts/management_score_vital_scope_tool.mjs`
 
 ## L2抽出 / まさえいMTG確定時の分類案
 
@@ -75,7 +81,7 @@ validator案:
 - まさが「これは会社全体に効く」と判断した場合だけ `applies_to_company_score=true` へ昇格する。
 - confirmed化は「PJ cockpitへ出す」意味と「Management Scoreへ入れる」意味を分離する。
 
-## 既存signals backfill方針
+## 既存signals backfill
 
 安全な順番:
 
@@ -85,7 +91,16 @@ validator案:
 4. 例外として、複数PJ横断の資源配分・AMD契約・資金繰り・営業pipelineへ効くものだけ `cross_project` へ昇格する。
 5. 香川大のような高確度pipelineは、根拠source、見込み金額、契約時期、確度を埋めたうえで `pipeline_status='high_confidence'` とする。
 
-backfillは自動一括applyしない。まず候補CSV/JSONを作り、まさまたは司令塔レビュー後にDB writeする。
+backfillは全件自動applyしない。まず `management_score_vital_scope_tool.mjs --mode=backfill-dry-run` で候補JSONを作り、司令塔レビュー後に小さな migration としてDB writeする。
+
+2026-06-01 initial backfill:
+
+- 香川大100万円予算確保: `cross_project`, `applies_to_company_score=true`, `pipeline_status='high_confidence'`, `pipeline_probability=0.95`, `expected_amount_yen=1000000`, `company_score_axis='pipeline'`。
+- 香川大学案件獲得/来年度AMD契約方針: `company`, `high_confidence`, `pipeline_probability=0.82`。
+- KUTE受託3ミッション/承認導線: `cross_project`, `high_confidence`, `expected_contract_ym=202606`。
+- NIMS見積/新規契約: `cross_project`, `high_confidence`, `expected_amount_yen=1000000`, `expected_contract_ym=202605/202606`。
+- SX PoC/前売上方針: `cross_project`, `high_confidence`。
+- CX/NIMSコンソーシアム戦略: `cross_project`, `company_score_axis='capacity'`。
 
 ## Snapshot再計算手順と安全ゲート
 
@@ -102,7 +117,20 @@ backfillは自動一括applyしない。まず候補CSV/JSONを作り、まさ�
 3. `202605` / `202606` について、暫定guard前後、本修正後の差分を比較する。
 4. p07/LSTなどPJ個別signalが会社スコアへ入らないことを件数とsampleで確認する。
 5. 香川大高確度pipelineが、MTG実施前の対象月でもpipeline材料として入ることを確認する。
-6. まさ/司令塔承認後に本番snapshotを再生成する。
+6. 本番snapshotを再生成する。
+
+2026-06-01実行結果:
+
+| ym | total | 継続 | 新規 | 方向 | 主な確認 |
+|---|---:|---:|---:|---:|---|
+| 202605 | 66 | 22 | 75 | 24 | 香川大/KUTE/NIMS が pipeline evidence に入った。旧 `seed` / `project_knowledge` raw を掃除したため新規100の過大評価は解消。 |
+| 202606 | 55 | 14 | 21 | 15 | KUTE/NIMS が 6月 pipeline evidence に入った。香川大は `expected_contract_ym=202605` のため5月根拠。 |
+
+低すぎる原因:
+
+- 継続: active 9/24、CTB freeze -18、進捗平均が202605=27%、202606=5%。式上も実データ上も低い。
+- 新規: 202606は会社level pipelineが KUTE/NIMS 3件に留まり、`project_registry_diffs` / PJ派生 knowledge が0。過小評価の一部は backfill不足だが、旧raw掃除後は seed在庫加点が消えるため低めに出るのは仕様通り。
+- 方向: monetizationは入るが、funding/研究機関数/OS導入/卒業/属人脱却が0。`project_partners` に研究機関 partner が入っていない、`amd_os_installations` 未実装が大きい。
 
 再計算の停止条件:
 
@@ -113,10 +141,10 @@ backfillは自動一括applyしない。まず候補CSV/JSONを作り、まさ�
 
 ## 暫定guardを外す条件
 
-以下が満たされるまで、PWA側の `p00` guard と高確度candidate例外は残す。
+以下が満たされるまで、PWA側の `p00` fallback は残す。
 
-- DBにscope/pipeline分類が入っている。
-- L2抽出とconfirm APIが分類を必ず書く。
-- 既存signalsのbackfillが完了している。
-- Management Score raw/calculateが `applies_to_company_score` を正本として読む。
-- 202605/202606のsnapshot再計算と画面確認が完了している。
+- DBにscope/pipeline分類が入っている。→ 118/119で開始済み。
+- L2抽出とconfirm APIが分類を必ず書く。→ applier/API/prompt helper 修正済み。
+- 既存signalsのbackfillが完了している。→ initial backfill済み、全件はdry-runレビュー継続。
+- Management Score raw/calculateが `applies_to_company_score` を正本として読む。→ 実装済み。
+- 202605/202606のsnapshot再計算と画面確認が完了している。→ DB再計算済み、UI deploy後に画面確認が必要。

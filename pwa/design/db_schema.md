@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-05-31 13:06 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-01 09:27 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -675,7 +675,7 @@ PRIMARY KEY: `id`
 
 ## freee_oauth_tokens
 
-行数 (概算): -1
+行数 (概算): 1
 PRIMARY KEY: `token_key`
 
 | # | column | type | nullable | default |
@@ -1600,7 +1600,7 @@ PRIMARY KEY: `member_id, ym`
 
 ## proactive_loop_events
 
-行数 (概算): 0
+行数 (概算): -1
 PRIMARY KEY: `event_id`
 
 | # | column | type | nullable | default |
@@ -1616,15 +1616,9 @@ PRIMARY KEY: `event_id`
 | 9 | `metadata_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
 | 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 
-CHECK: `event_type` is one of `detected`, `queued`, `sent_to_commander`, `drafted`, `sent_to_counterpart`, `closed`, `blocked`, `sla_breached`, `counterpart_nudge_detected`, `deduped`. `actor_kind` is one of `system`, `codex`, `commander`, `human`, `service`.
-
-Indexes: `loop_id`, `outbox_id`, `(project_id, created_at DESC)`, `(event_type, created_at DESC)`.
-
-RLS: `anon` is revoked. `authenticated` users can select/write only when `is_admin()` is true; `service_role` keeps full access. This table is the audit/SLA breach log for proactive control loops.
-
 ## proactive_loops
 
-行数 (概算): 0
+行数 (概算): -1
 PRIMARY KEY: `loop_id`
 
 | # | column | type | nullable | default |
@@ -1652,15 +1646,9 @@ PRIMARY KEY: `loop_id`
 | 21 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 | 22 | `closed_at` | `timestamptz` | NULL | `` |
 
-CHECK: `loop_kind` is one of `post_meeting`, `ambiguous_ball`, `next_meeting_preparation`, `counterpart_nudge`, `deadline_followup`, `strategy_signal_action`, `report_only_gap`. `ball_owner` is one of `amd`, `counterpart`, `shared`, `ambiguous`. `priority` is one of `red`, `yellow`, `green`. `status` is one of `open`, `watching`, `closed`, `blocked`.
-
-Indexes: `(status, sla_due_at)`, `project_id`, `institution_id`, `commander_thread_id`, `(source_kind, source_id)`. Dedupe: unique `(project_id, loop_kind, source_kind, source_id)` when `source_id` exists; fallback unique `(project_id, loop_kind, source_hash)` when source id is absent.
-
-RLS: `anon` is revoked. `authenticated` users can select/write only when `is_admin()` is true; `service_role` keeps full access. `evidence_refs` should hold row refs, snippets, URLs, and hashes, not full email/minutes/Slack bodies.
-
 ## proactive_outbox
 
-行数 (概算): 0
+行数 (概算): -1
 PRIMARY KEY: `outbox_id`
 
 | # | column | type | nullable | default |
@@ -1695,12 +1683,6 @@ PRIMARY KEY: `outbox_id`
 | 28 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 29 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
-CHECK: `trigger_type` is one of `meeting_ended`, `minutes_added`, `ball_ambiguous`, `next_meeting_due`, `counterpart_nudge_detected`, `deadline_approaching`, `strategy_signal_needs_action`, `report_only_gap`. `ball_owner` is one of `amd`, `counterpart`, `shared`, `ambiguous`. `priority` is one of `red`, `yellow`, `green`. `draft_type` is one of `email`, `slack`, `agenda`, `proposal`, `roadmap`, `next_action_plan`. `status` is one of `queued`, `sent_to_commander`, `drafted`, `sent_to_counterpart`, `closed`, `blocked`.
-
-Indexes: `(status, due_at)`, `project_id`, `institution_id`, `commander_thread_id`, `loop_id`, `(trigger_type, priority, due_at)`. Dedupe: unique `(project_id, trigger_type, source_id, draft_type)` when `source_id` exists; unique `(project_id, calendar_event_id, draft_type)` for next-meeting rows; fallback unique `(project_id, trigger_type, source_hash, draft_type)`.
-
-RLS: `anon` is revoked. `authenticated` users can select/write only when `is_admin()` is true; `service_role` keeps full access. `sent_to_counterpart_at` means a human/commander confirmed external sending; OS runtime does not send externally by itself.
-
 ## progress_estimate_state
 
 行数 (概算): 34
@@ -1720,7 +1702,7 @@ PRIMARY KEY: `project_id, ym`
 
 ## project_commander_threads
 
-行数 (概算): 0
+行数 (概算): -1
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,commander_thread_id)` (constraint: `project_commander_threads_project_id_commander_thread_id_key`)
 
@@ -1735,12 +1717,6 @@ UNIQUE: `(project_id,commander_thread_id)` (constraint: `project_commander_threa
 | 7 | `created_by` | `text` | NOT NULL | `'codex_worker'::text` |
 | 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
-
-CHECK: `status` is one of `active`, `archived`, `unknown`.
-
-Indexes: `project_id`, `institution_id`, `commander_thread_id`, `status`.
-
-RLS: `anon` is revoked. `authenticated` users can select/write only when `is_admin()` is true; `service_role` keeps full access. This is the routing table from project/institution scope to Codex commander threads.
 
 ## project_config
 
@@ -2018,7 +1994,7 @@ PRIMARY KEY: `diff_id`
 
 ## project_strategy_signals
 
-行数 (概算): 263
+行数 (概算): 282
 PRIMARY KEY: `signal_id`
 
 | # | column | type | nullable | default |
@@ -2046,6 +2022,14 @@ PRIMARY KEY: `signal_id`
 | 21 | `polarity` | `text` | NULL | `` |
 | 22 | `score_impact_summary` | `text` | NULL | `` |
 | 23 | `score_impact_delta_json` | `jsonb` | NULL | `` |
+| 24 | `signal_scope` | `text` | NULL | `` |
+| 25 | `applies_to_company_score` | `bool` | NULL | `` |
+| 26 | `pipeline_status` | `text` | NULL | `` |
+| 27 | `pipeline_probability` | `numeric` | NULL | `` |
+| 28 | `expected_amount_yen` | `numeric` | NULL | `` |
+| 29 | `expected_contract_ym` | `text` | NULL | `` |
+| 30 | `company_score_axis` | `text` | NULL | `` |
+| 31 | `scope_reason` | `text` | NULL | `` |
 
 ## project_vc_relations
 

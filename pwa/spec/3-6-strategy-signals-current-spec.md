@@ -56,6 +56,11 @@
 | `status` | `candidate` / `confirmed` / `rejected` / `archived` |
 | `source_refs_json` | source id / date / title / short snippet / url / hash |
 | `source_hash` | 重複排除 |
+| `signal_scope` | `company` / `project` / `cross_project`。Management Scoreに入れる範囲分類 |
+| `applies_to_company_score` | AMD会社バイタルへ入れてよいとき TRUE |
+| `pipeline_status` / `pipeline_probability` | 契約前pipelineの状態と確度。高確度candidateは原則 0.75 以上 |
+| `expected_amount_yen` / `expected_contract_ym` | 見込み金額と契約・請求・開始見込み月 |
+| `company_score_axis` / `scope_reason` | Management Score 側の軸と、company/PJ分類の根拠 |
 
 `signal_date` は「リアクター特許出願完了（4/27付）」なら 4/27。議事録に出た日ではなく、事象発生日を優先する。
 
@@ -82,6 +87,8 @@ candidate も表示してよいが、未確認 chip を必ず付ける。
 - コメント: `l2_feedbacks` に保存して次回 automation へ入れる。
 
 `risk` は純粋な外部要因に使う。自社内部のリスクは本来の分類 (`management_decision` / `business_progress` / `commercial_progress` など) に寄せる。
+
+Management Scoreへ入れるかどうかは `status='confirmed'` とは別契約。PJ cockpit上の経営ハイライトとしては candidate/confirmed を表示してよいが、AMD会社バイタルへ入れるには `applies_to_company_score=true` かつ `signal_scope in ('company','cross_project')` が必要。個別PJの技術・実験・設立・顧客論点は `signal_scope='project'` / `applies_to_company_score=false` にする。
 
 ## Dialogue 接続
 

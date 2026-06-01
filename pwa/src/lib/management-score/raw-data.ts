@@ -111,16 +111,65 @@ function signalKnownByTargetMonth(row: { ym?: unknown; signal_date?: unknown; co
   return Boolean(eventYm && eventYm <= ym);
 }
 
-function isCompanyScoreStrategySignal(row: { project_id?: unknown }): boolean {
+type StrategySignalRow = {
+  signal_id: string;
+  project_id: string;
+  ym: string | null;
+  signal_type: string;
+  status: string;
+  decision_state: string;
+  impact_level: string;
+  title: string;
+  summary: string;
+  confidence: number;
+  signal_date?: string | null;
+  confirmed_at?: string | null;
+  created_at: string;
+  signal_scope?: string | null;
+  applies_to_company_score?: boolean | null;
+  pipeline_status?: string | null;
+  pipeline_probability?: number | string | null;
+  expected_amount_yen?: number | string | null;
+  expected_contract_ym?: string | null;
+  company_score_axis?: string | null;
+  scope_reason?: string | null;
+};
+
+function isCompanyScoreStrategySignal(row: { project_id?: unknown; signal_scope?: unknown; applies_to_company_score?: unknown }): boolean {
+  if (row.applies_to_company_score === true) {
+    const scope = String(row.signal_scope || "");
+    return scope === "company" || scope === "cross_project";
+  }
+  if (row.applies_to_company_score === false) return false;
+  // migration 118 backfill完了までは p00 暫定guardを fallback として残す。
   return String(row.project_id || "") === "p00";
 }
 
-function isHighConfidencePipelineCandidate(row: { signal_type?: unknown; status?: unknown; confidence?: unknown }): boolean {
+function pipelineProbability(row: { pipeline_probability?: unknown; confidence?: unknown }): number {
+  return asNumber(row.pipeline_probability) ?? asNumber(row.confidence) ?? 0;
+}
+
+function isHighConfidencePipelineCandidate(row: { signal_type?: unknown; status?: unknown; confidence?: unknown; pipeline_status?: unknown; pipeline_probability?: unknown; company_score_axis?: unknown }): boolean {
+  const status = String(row.pipeline_status || "");
+  const probability = pipelineProbability(row);
+  const isPipeline = String(row.company_score_axis || "") === "pipeline" || String(row.signal_type) === "commercial_progress";
   return (
-    String(row.signal_type) === "commercial_progress"
+    isPipeline
     && String(row.status) === "candidate"
-    && (asNumber(row.confidence) ?? 0) >= 0.75
+    && (
+      ["high_confidence", "contracting", "contracted"].includes(status)
+      || probability >= 0.75
+    )
   );
+}
+
+function isHighConfidencePipelineActiveForYm(row: StrategySignalRow, ym: string): boolean {
+  if (!isHighConfidencePipelineCandidate(row)) return false;
+  if (!signalKnownByTargetMonth(row, ym)) return false;
+  const eventYm = signalEventYm(row);
+  const expectedYm = typeof row.expected_contract_ym === "string" ? row.expected_contract_ym : null;
+  // 期待契約月が未来/当月なら pipeline として継続、未設定でも event 月だけは拾う。
+  return Boolean(!expectedYm || expectedYm >= ym || eventYm === ym);
 }
 
 function isConfirmed(row: { status?: unknown }): boolean {
@@ -209,7 +258,7 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
     fetchAll(supabase, "project_registry_diffs", "diff_id,project_id,ym,scope_key,diff_kind,target_table,target_key,proposed_patch_json,evidence_refs_json,confidence,status,created_at,updated_at", (q) => q.or(`ym.eq.${ym},created_at.gte.${monthStartIso(ym)}`).lt("created_at", monthEndExclusiveIso(ym))),
     fetchAll(supabase, "project_knowledge", "id,project_id,category,entity_name,fact_text,confidence,source,status,updated_at", (q) => q.gte("updated_at", monthStartIso(ym)).lt("updated_at", monthEndExclusiveIso(ym))),
     fetchAll(supabase, "project_ventures", "project_id,lane,lanes,display_name,outcome_pattern,amd_role,amd_support_started_at,amd_support_ended_at,updated_at"),
-    fetchAll(supabase, "project_strategy_signals", "signal_id,project_id,ym,signal_type,impact_level,decision_state,status,title,summary,confidence,signal_date,confirmed_at,created_at,updated_at", (q) => q.or("status.eq.confirmed,status.eq.candidate")),
+    fetchAll(supabase, "project_strategy_signals", "signal_id,project_id,ym,signal_type,impact_level,decision_state,status,title,summary,confidence,signal_date,confirmed_at,created_at,updated_at,signal_scope,applies_to_company_score,pipeline_status,pipeline_probability,expected_amount_yen,expected_contract_ym,company_score_axis,scope_reason", (q) => q.or("status.eq.confirmed,status.eq.candidate")),
     fetchAll(supabase, "project_partners", "id,project_id,partner_name,partner_type,partner_role,is_sold,created_at,updated_at"),
   ]);
 
@@ -490,9 +539,10 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
   // 追加: funding / partner_growth / amd_os_install / monetization / non_masa_initiative (= 上で実装済) / graduation
 
   // 入力 1: ファンド設立進捗 (= project_strategy_signals signal_type='funding' confirmed)
-  const companyStrategySignals = (strategySignals as Array<{ signal_id: string; project_id: string; ym: string | null; signal_type: string; status: string; decision_state: string; impact_level: string; title: string; summary: string; confidence: number; signal_date?: string | null; confirmed_at?: string | null; created_at: string }>).filter(isCompanyScoreStrategySignal);
+  const companyStrategySignals = (strategySignals as StrategySignalRow[]).filter(isCompanyScoreStrategySignal);
   const strategySignalsForMonth = companyStrategySignals.filter((row) =>
-    signalInTargetMonth(row, ym) && (isConfirmed(row) || isHighConfidencePipelineCandidate(row))
+    (signalInTargetMonth(row, ym) && isConfirmed(row))
+    || isHighConfidencePipelineActiveForYm(row, ym)
   );
   const strategySignalsKnownByMonth = companyStrategySignals.filter((row) =>
     signalKnownByTargetMonth(row, ym) && isConfirmed(row)
@@ -563,7 +613,12 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
 
   // 入力 4: マネタイズ仮説の前進 (= project_strategy_signals signal_type='commercial_progress' & decision_state='decided')
   const monetizationSignals = strategySignalsForMonth.filter((r) =>
-    String(r.signal_type) === "commercial_progress" && (String(r.decision_state) === "decided" || String(r.decision_state) === "executing")
+    (String(r.signal_type) === "commercial_progress" || String(r.company_score_axis || "") === "pipeline")
+    && (
+      String(r.decision_state) === "decided"
+      || String(r.decision_state) === "executing"
+      || isHighConfidencePipelineCandidate(r)
+    )
   );
   signals.push(signal({
     ym,
@@ -595,21 +650,27 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
   }));
 
   // ===== v4 pipeline 軸: commercial_progress stage 別 (= まさ #79 で seed 加点を廃止し Gmail/Slack 案件追跡に切り替え) =====
-  const commercialSignals = strategySignalsForMonth.filter((r) => String(r.signal_type) === "commercial_progress");
+  const commercialSignals = strategySignalsForMonth.filter((r) =>
+    String(r.signal_type) === "commercial_progress" || String(r.company_score_axis || "") === "pipeline"
+  );
   for (const row of commercialSignals) {
+    const probability = pipelineProbability(row);
+    const stage = row.pipeline_status || row.decision_state || "proposed";
+    const amount = asNumber(row.expected_amount_yen);
+    const amountWeight = amount === null ? 1 : Math.max(1, Math.min(3, amount / 1_000_000));
     signals.push(signal({
       ym,
       axis: "pipeline",
       source_kind: "commercial_progress",
       source_table: "project_strategy_signals",
       source_id: String(row.signal_id),
-      signal_key: `commercial:${row.decision_state || "proposed"}`,
+      signal_key: `commercial:${stage}`,
       signal_value_text: String(row.title || ""),
       project_id: String(row.project_id),
       observed_at: row.created_at ? String(row.created_at) : null,
-      confidence: asNumber(row.confidence) ?? 0.7,
-      weight_hint: row.impact_level === "critical" ? 3 : row.impact_level === "high" ? 2 : 1,
-      payload: row,
+      confidence: probability || asNumber(row.confidence) || 0.7,
+      weight_hint: Math.max(row.impact_level === "critical" ? 3 : row.impact_level === "high" ? 2 : 1, amountWeight),
+      payload: { ...row, management_score_reason: row.scope_reason || null, pipeline_probability: probability },
     }));
   }
 
@@ -787,6 +848,15 @@ async function insertSignals(supabase: SupabaseClient, runId: string, rows: RawS
   }
 }
 
+async function deleteReplaceableRawSignals(supabase: SupabaseClient, ym: string) {
+  const { error } = await supabase
+    .from("amd_management_score_raw_signals")
+    .delete()
+    .eq("ym", ym)
+    .neq("source_kind", "freee_actual");
+  if (error) throw new Error(`raw_signals cleanup: ${error.message}`);
+}
+
 export async function collectManagementScoreRawData(
   supabase: SupabaseClient,
   options: CollectOptions = {}
@@ -843,6 +913,7 @@ export async function collectManagementScoreRawData(
       }
     }
 
+    await deleteReplaceableRawSignals(supabase, ym);
     const internal = await collectInternalSignals(supabase, ym);
     counts.internal = internal.length;
     await insertSignals(supabase, runId, internal);

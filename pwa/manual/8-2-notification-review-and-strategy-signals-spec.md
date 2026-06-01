@@ -117,6 +117,9 @@ server page で `members.is_admin` を確認、 admin 以外は `notFound()`。 
 | `source_refs_json` | 抽出元 5 生データへの参照 |
 | `source_hash` | 冪等性 |
 | `score_impact_summary` / `score_impact_delta_json` | Management Score / AMD Score への影響 |
+| `signal_scope` / `applies_to_company_score` | AMD会社バイタルへ入れる範囲分類。`company` / `cross_project` かつ TRUE のものだけ Management Score 対象 |
+| `pipeline_status` / `pipeline_probability` / `expected_amount_yen` / `expected_contract_ym` | 契約前 pipeline の状態、確度、見込み金額、見込み月 |
+| `company_score_axis` / `scope_reason` | Management Score 側の軸と、対象/非対象にした理由 |
 | `confirmed_by` / `confirmed_at` | 確定アクター |
 
 ### CockpitStrategySignals 表示
@@ -138,6 +141,8 @@ PJ cockpit 経営ハイライト tab で:
 ### まさえいMTG (= L2 ⑨ dialogue) 接続
 
 p00 cockpit + 各 PJ cockpit で `status='candidate'` 経営ハイライトを impact 順に並べ、 まさえいMTG セッションで 1 件ずつ確認していく。 詳細は `pwa/CLAUDE.md` の「🧭 まさえいMTG の始め方」section と [`pwa/design/project_strategy_signals.md`](../design/project_strategy_signals.md) を見る。
+
+`status='confirmed'` は「PJ cockpit上で採用する」意味で、AMD会社バイタルへ入れる意味とは分ける。会社スコアへ入れるには `applies_to_company_score=true` と `company_score_axis` が必要。香川大/KUTE/NIMSのような契約前高確度案件は candidate のままでも、確度・見込み月・scope理由が揃っていれば pipeline 材料にできる。
 
 API (= dialogue API):
 

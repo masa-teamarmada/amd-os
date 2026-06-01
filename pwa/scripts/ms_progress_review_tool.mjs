@@ -1206,17 +1206,27 @@ async function upsertStrategySignals(items) {
     "partnership",
     "funding",
     "ip_regulatory",
+    "tech_progress",
     "risk",
     "next_move",
   ]);
   const validImpacts = new Set(["low", "medium", "high", "critical"]);
   const validStates = new Set(["observed", "proposed", "decided", "executing", "revised"]);
+  const validScopes = new Set(["company", "project", "cross_project"]);
+  const validPipelineStatus = new Set(["prospect", "high_confidence", "contracting", "contracted", "lost", "deferred"]);
+  const validCompanyScoreAxis = new Set(["pipeline", "funding", "runway", "finance", "capacity", "decision", "resource_allocation", "revenue"]);
   const rows = items.map((item) => {
     const refs = item.source_refs_json || item.sourceRefs || [];
     const signalType = String(item.signal_type || item.signalType || "business_progress").trim();
     const impact = String(item.impact_level || item.impactLevel || "medium").trim();
     const state = String(item.decision_state || item.decisionState || "observed").trim();
     const rawStatus = String(item.status || "candidate").trim().toLowerCase();
+    const rawScope = item.signal_scope || item.signalScope || null;
+    const rawPipelineStatus = item.pipeline_status || item.pipelineStatus || null;
+    const rawCompanyScoreAxis = item.company_score_axis || item.companyScoreAxis || null;
+    const probability = item.pipeline_probability ?? item.pipelineProbability;
+    const expectedAmount = item.expected_amount_yen ?? item.expectedAmountYen;
+    const expectedContractYm = item.expected_contract_ym || item.expectedContractYm || null;
     return {
       project_id: item.project_id || item.projectId,
       ym: item.ym || null,
@@ -1234,10 +1244,48 @@ async function upsertStrategySignals(items) {
       created_by: item.created_by || "codex_automation",
       created_at: item.created_at || now,
       updated_at: now,
+      signal_scope: rawScope && validScopes.has(String(rawScope)) ? String(rawScope) : null,
+      applies_to_company_score: typeof (item.applies_to_company_score ?? item.appliesToCompanyScore) === "boolean" ? (item.applies_to_company_score ?? item.appliesToCompanyScore) : null,
+      pipeline_status: rawPipelineStatus && validPipelineStatus.has(String(rawPipelineStatus)) ? String(rawPipelineStatus) : null,
+      pipeline_probability: Number.isFinite(Number(probability)) ? Math.max(0, Math.min(1, Number(probability))) : null,
+      expected_amount_yen: Number.isFinite(Number(expectedAmount)) ? Number(expectedAmount) : null,
+      expected_contract_ym: expectedContractYm && /^\d{6}$/.test(String(expectedContractYm)) ? String(expectedContractYm) : null,
+      company_score_axis: rawCompanyScoreAxis && validCompanyScoreAxis.has(String(rawCompanyScoreAxis)) ? String(rawCompanyScoreAxis) : null,
+      scope_reason: item.scope_reason || item.scopeReason ? String(item.scope_reason || item.scopeReason).slice(0, 1000) : null,
     };
   });
+  for (const row of rows) {
+    for (const key of [
+      "signal_scope",
+      "applies_to_company_score",
+      "pipeline_status",
+      "pipeline_probability",
+      "expected_amount_yen",
+      "expected_contract_ym",
+      "company_score_axis",
+      "scope_reason",
+    ]) {
+      if (row[key] === null || row[key] === undefined) delete row[key];
+    }
+  }
   const missing = rows.find((r) => !r.project_id || !r.title || !r.summary || !r.source_hash);
   if (missing) throw new Error(`strategySignals missing project_id/title/summary/source_hash: ${JSON.stringify(missing)}`);
+  const invalidCompanyScope = rows.find((r) =>
+    r.applies_to_company_score === true
+    && (!["company", "cross_project"].includes(r.signal_scope) || !r.company_score_axis || !r.scope_reason)
+  );
+  if (invalidCompanyScope) {
+    throw new Error(`strategySignals invalid company-score scope: ${JSON.stringify(invalidCompanyScope)}`);
+  }
+  const invalidCandidatePipeline = rows.find((r) =>
+    r.status === "candidate"
+    && r.applies_to_company_score === true
+    && r.company_score_axis === "pipeline"
+    && Math.max(Number(r.pipeline_probability || 0), Number(r.confidence || 0)) < 0.75
+  );
+  if (invalidCandidatePipeline) {
+    throw new Error(`strategySignals candidate company pipeline requires probability >= 0.75: ${JSON.stringify(invalidCandidatePipeline)}`);
+  }
   const written = await requestJson(rest("project_strategy_signals", "on_conflict=project_id,scope_key,signal_type,source_hash&select=*"), {
     method: "POST",
     headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),

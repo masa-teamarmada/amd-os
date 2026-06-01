@@ -28,6 +28,14 @@ export type ProposedSignal = {
   signal_type: string;
   polarity: string | null;
   score_impact_summary: string | null;
+  signal_scope: string | null;
+  applies_to_company_score: boolean | null;
+  pipeline_status: string | null;
+  pipeline_probability: number | null;
+  expected_amount_yen: number | null;
+  expected_contract_ym: string | null;
+  company_score_axis: string | null;
+  scope_reason: string | null;
 };
 
 export type SignalContext = {
@@ -53,6 +61,9 @@ const SIGNAL_TYPE_VALUES = [
 ] as const;
 const IMPACT_LEVEL_VALUES = ["low", "medium", "high", "critical"] as const;
 const POLARITY_VALUES = ["breakthrough", "forward", "pivot", "risk"] as const;
+const SIGNAL_SCOPE_VALUES = ["company", "project", "cross_project"] as const;
+const PIPELINE_STATUS_VALUES = ["prospect", "high_confidence", "contracting", "contracted", "lost", "deferred"] as const;
+const COMPANY_SCORE_AXIS_VALUES = ["pipeline", "funding", "runway", "finance", "capacity", "decision", "resource_allocation", "revenue"] as const;
 
 /**
  * scope_key から ym + hash prefix を抽出して該当 signal を逆引き。
@@ -107,6 +118,14 @@ export async function fetchSignalContext(args: {
         // migration 090 適用前は列が無く undefined → null として扱う
         polarity: (target.polarity ?? null) as string | null,
         score_impact_summary: (target.score_impact_summary ?? null) as string | null,
+        signal_scope: (target.signal_scope ?? null) as string | null,
+        applies_to_company_score: (target.applies_to_company_score ?? null) as boolean | null,
+        pipeline_status: (target.pipeline_status ?? null) as string | null,
+        pipeline_probability: target.pipeline_probability == null ? null : Number(target.pipeline_probability),
+        expected_amount_yen: target.expected_amount_yen == null ? null : Number(target.expected_amount_yen),
+        expected_contract_ym: (target.expected_contract_ym ?? null) as string | null,
+        company_score_axis: (target.company_score_axis ?? null) as string | null,
+        scope_reason: (target.scope_reason ?? null) as string | null,
       },
       past_feedbacks: (pastFeedbacks ?? []).map((f) => ({
         feedback_id: String(f.feedback_id),
@@ -151,6 +170,12 @@ export async function generateProposal(args: {
 - impact_level: ${IMPACT_LEVEL_VALUES.join(" / ")}
 - polarity (= null OK): ${POLARITY_VALUES.join(" / ")}
 - score_impact_summary は「📊 影響: TRL 4→5、X 軸 +40pt」のような 1 行 (null OK)
+- Management Score会社バイタル分類:
+  - signal_scope: ${SIGNAL_SCOPE_VALUES.join(" / ")}
+  - applies_to_company_score: AMD会社全体の売上、入金、契約見込み、営業pipeline、資金繰り、人員稼働、資源配分へ直接効く時だけ true
+  - 個別PJの技術・実験・設立・顧客論点だけなら signal_scope="project" / applies_to_company_score=false
+  - 契約前高確度pipelineは company_score_axis="pipeline"、pipeline_status="high_confidence"、pipeline_probability>=0.75、expected_contract_ym を根拠付きで出す
+  - scope_reason は会社スコア対象/非対象の根拠を 1 文で書く
 - reasoning は「まさの修正依頼を受けて、〜〜のように改訂しました。これでいいですか?」の対話的トーン (= 1-2 文)
 - applied_feedback_summary は「反映した修正依頼の 1 文要約」
 - **JSON 以外の文字一切出力禁止** (= markdown コードブロック含め)
@@ -163,7 +188,15 @@ export async function generateProposal(args: {
     "impact_level": "...",
     "signal_type": "...",
     "polarity": "..." or null,
-    "score_impact_summary": "..." or null
+    "score_impact_summary": "..." or null,
+    "signal_scope": "company|project|cross_project" or null,
+    "applies_to_company_score": true/false/null,
+    "pipeline_status": "prospect|high_confidence|contracting|contracted|lost|deferred" or null,
+    "pipeline_probability": 0.0-1.0 or null,
+    "expected_amount_yen": number or null,
+    "expected_contract_ym": "YYYYMM" or null,
+    "company_score_axis": "pipeline|funding|runway|finance|capacity|decision|resource_allocation|revenue" or null,
+    "scope_reason": "..." or null
   },
   "reasoning": "...",
   "applied_feedback_summary": "..."
@@ -189,6 +222,14 @@ signal_type: ${args.context.current.signal_type}
 impact_level: ${args.context.current.impact_level}
 polarity: ${args.context.current.polarity ?? "(未設定)"}
 score_impact_summary: ${args.context.current.score_impact_summary ?? "(未設定)"}
+signal_scope: ${args.context.current.signal_scope ?? "(未分類)"}
+applies_to_company_score: ${args.context.current.applies_to_company_score ?? "(未分類)"}
+pipeline_status: ${args.context.current.pipeline_status ?? "(未設定)"}
+pipeline_probability: ${args.context.current.pipeline_probability ?? "(未設定)"}
+expected_amount_yen: ${args.context.current.expected_amount_yen ?? "(未設定)"}
+expected_contract_ym: ${args.context.current.expected_contract_ym ?? "(未設定)"}
+company_score_axis: ${args.context.current.company_score_axis ?? "(未設定)"}
+scope_reason: ${args.context.current.scope_reason ?? "(未設定)"}
 
 === 過去の修正依頼 (= 時系列、DB 永続化済み) ===
 ${fbLines}
@@ -233,6 +274,41 @@ ${convLines}
               ? String(p.polarity)
               : args.context.current.polarity,
         score_impact_summary: p.score_impact_summary == null ? null : String(p.score_impact_summary),
+        signal_scope:
+          p.signal_scope == null
+            ? args.context.current.signal_scope
+            : SIGNAL_SCOPE_VALUES.includes(p.signal_scope as (typeof SIGNAL_SCOPE_VALUES)[number])
+              ? String(p.signal_scope)
+              : args.context.current.signal_scope,
+        applies_to_company_score:
+          typeof p.applies_to_company_score === "boolean"
+            ? p.applies_to_company_score
+            : args.context.current.applies_to_company_score,
+        pipeline_status:
+          p.pipeline_status == null
+            ? args.context.current.pipeline_status
+            : PIPELINE_STATUS_VALUES.includes(p.pipeline_status as (typeof PIPELINE_STATUS_VALUES)[number])
+              ? String(p.pipeline_status)
+              : args.context.current.pipeline_status,
+        pipeline_probability:
+          typeof p.pipeline_probability === "number" && Number.isFinite(p.pipeline_probability)
+            ? Math.max(0, Math.min(1, p.pipeline_probability))
+            : args.context.current.pipeline_probability,
+        expected_amount_yen:
+          typeof p.expected_amount_yen === "number" && Number.isFinite(p.expected_amount_yen)
+            ? p.expected_amount_yen
+            : args.context.current.expected_amount_yen,
+        expected_contract_ym:
+          typeof p.expected_contract_ym === "string" && /^\d{6}$/.test(p.expected_contract_ym)
+            ? p.expected_contract_ym
+            : args.context.current.expected_contract_ym,
+        company_score_axis:
+          p.company_score_axis == null
+            ? args.context.current.company_score_axis
+            : COMPANY_SCORE_AXIS_VALUES.includes(p.company_score_axis as (typeof COMPANY_SCORE_AXIS_VALUES)[number])
+              ? String(p.company_score_axis)
+              : args.context.current.company_score_axis,
+        scope_reason: p.scope_reason == null ? args.context.current.scope_reason : String(p.scope_reason),
       },
       reasoning: String(parsed.reasoning || "").trim(),
       applied_feedback_summary: String(parsed.applied_feedback_summary || "").trim(),
@@ -270,14 +346,30 @@ export async function applyProposal(args: {
   // 1 度試して失敗したら fallback で core fields だけで再 update する。
   if (args.proposed.polarity !== undefined) updatePayload.polarity = args.proposed.polarity;
   if (args.proposed.score_impact_summary !== undefined) updatePayload.score_impact_summary = args.proposed.score_impact_summary;
+  if (args.proposed.signal_scope !== undefined) updatePayload.signal_scope = args.proposed.signal_scope;
+  if (args.proposed.applies_to_company_score !== undefined) updatePayload.applies_to_company_score = args.proposed.applies_to_company_score;
+  if (args.proposed.pipeline_status !== undefined) updatePayload.pipeline_status = args.proposed.pipeline_status;
+  if (args.proposed.pipeline_probability !== undefined) updatePayload.pipeline_probability = args.proposed.pipeline_probability;
+  if (args.proposed.expected_amount_yen !== undefined) updatePayload.expected_amount_yen = args.proposed.expected_amount_yen;
+  if (args.proposed.expected_contract_ym !== undefined) updatePayload.expected_contract_ym = args.proposed.expected_contract_ym;
+  if (args.proposed.company_score_axis !== undefined) updatePayload.company_score_axis = args.proposed.company_score_axis;
+  if (args.proposed.scope_reason !== undefined) updatePayload.scope_reason = args.proposed.scope_reason;
   let { error: updErr } = await supabase
     .from("project_strategy_signals")
     .update(updatePayload)
     .eq("signal_id", args.context.signal_id);
-  if (updErr && /polarity|score_impact_summary/.test(updErr.message)) {
-    // migration 090 未適用環境: 拡張列を payload から外して再試行
+  if (updErr && /polarity|score_impact_summary|signal_scope|applies_to_company_score|pipeline_status|pipeline_probability|expected_amount_yen|expected_contract_ym|company_score_axis|scope_reason/.test(updErr.message)) {
+    // migration 090/118 未適用環境: 拡張列を payload から外して再試行
     delete updatePayload.polarity;
     delete updatePayload.score_impact_summary;
+    delete updatePayload.signal_scope;
+    delete updatePayload.applies_to_company_score;
+    delete updatePayload.pipeline_status;
+    delete updatePayload.pipeline_probability;
+    delete updatePayload.expected_amount_yen;
+    delete updatePayload.expected_contract_ym;
+    delete updatePayload.company_score_axis;
+    delete updatePayload.scope_reason;
     const retry = await supabase
       .from("project_strategy_signals")
       .update(updatePayload)
@@ -312,6 +404,9 @@ export async function applyProposal(args: {
     `- summary: ${args.proposed.summary}`,
     `- impact: ${args.proposed.impact_level} / type: ${args.proposed.signal_type} / polarity: ${args.proposed.polarity ?? "-"}`,
     `- score_impact_summary: ${args.proposed.score_impact_summary ?? "-"}`,
+    `- company_score: scope=${args.proposed.signal_scope ?? "-"} / applies=${args.proposed.applies_to_company_score ?? "-"} / axis=${args.proposed.company_score_axis ?? "-"} / pipeline=${args.proposed.pipeline_status ?? "-"} / probability=${args.proposed.pipeline_probability ?? "-"}`,
+    `- expected: amount=${args.proposed.expected_amount_yen ?? "-"} / contract_ym=${args.proposed.expected_contract_ym ?? "-"}`,
+    `- scope_reason: ${args.proposed.scope_reason ?? "-"}`,
     ``,
     `## 対話履歴`,
     convoMd,

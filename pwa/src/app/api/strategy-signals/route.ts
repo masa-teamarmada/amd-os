@@ -33,6 +33,14 @@
  *     source_refs?: unknown[],      // [{kind, ref_id, snippet, source_url, hash}] 等
  *     source_hash?: string,         // 省略時は title+summary+signal_type+project_id+ym で SHA-256
  *     confidence?: number,          // 0-1
+ *     signal_scope?: 'company' | 'project' | 'cross_project',
+ *     applies_to_company_score?: boolean,
+ *     pipeline_status?: 'prospect' | 'high_confidence' | 'contracting' | 'contracted' | 'lost' | 'deferred',
+ *     pipeline_probability?: number,
+ *     expected_amount_yen?: number,
+ *     expected_contract_ym?: string, // YYYYMM
+ *     company_score_axis?: 'pipeline' | 'funding' | 'runway' | 'finance' | 'capacity' | 'decision' | 'resource_allocation' | 'revenue',
+ *     scope_reason?: string,
  *     created_by?: string,          // 'daily_routine' / 'dialogue' / 'まさ' / 'えいみ' 等
  *     confirmed_by?: string,
  *   }
@@ -60,6 +68,9 @@ const VALID_TYPES = new Set([
 const VALID_IMPACT = new Set(["low", "medium", "high", "critical"]);
 const VALID_STATE = new Set(["observed", "proposed", "decided", "executing", "revised"]);
 const VALID_STATUS = new Set(["candidate", "confirmed", "rejected", "archived"]);
+const VALID_SIGNAL_SCOPE = new Set(["company", "project", "cross_project"]);
+const VALID_PIPELINE_STATUS = new Set(["prospect", "high_confidence", "contracting", "contracted", "lost", "deferred"]);
+const VALID_COMPANY_SCORE_AXIS = new Set(["pipeline", "funding", "runway", "finance", "capacity", "decision", "resource_allocation", "revenue"]);
 
 function sha256(s: string): string {
   return crypto.createHash("sha256").update(s).digest("hex");
@@ -69,6 +80,58 @@ function todayJstYmd(): string {
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return jst.toISOString().slice(0, 10);
+}
+
+function addCompanyScoreFields(patch: Record<string, unknown>, body: Record<string, unknown>) {
+  if (typeof body.signal_scope === "string" && VALID_SIGNAL_SCOPE.has(body.signal_scope)) {
+    patch.signal_scope = body.signal_scope;
+  }
+  if (typeof body.applies_to_company_score === "boolean") {
+    patch.applies_to_company_score = body.applies_to_company_score;
+  }
+  if (typeof body.pipeline_status === "string" && VALID_PIPELINE_STATUS.has(body.pipeline_status)) {
+    patch.pipeline_status = body.pipeline_status;
+  }
+  if (typeof body.pipeline_probability === "number") {
+    patch.pipeline_probability = Math.max(0, Math.min(1, body.pipeline_probability));
+  }
+  if (typeof body.expected_amount_yen === "number" && Number.isFinite(body.expected_amount_yen)) {
+    patch.expected_amount_yen = body.expected_amount_yen;
+  }
+  if (typeof body.expected_contract_ym === "string" && /^\d{6}$/.test(body.expected_contract_ym)) {
+    patch.expected_contract_ym = body.expected_contract_ym;
+  }
+  if (typeof body.company_score_axis === "string" && VALID_COMPANY_SCORE_AXIS.has(body.company_score_axis)) {
+    patch.company_score_axis = body.company_score_axis;
+  }
+  if (typeof body.scope_reason === "string") {
+    patch.scope_reason = body.scope_reason.slice(0, 1000);
+  }
+}
+
+function validateCompanyScoreFields(row: Record<string, unknown>): string | null {
+  if (row.applies_to_company_score === true) {
+    const scope = String(row.signal_scope || "");
+    if (scope !== "company" && scope !== "cross_project") {
+      return "applies_to_company_score=true requires signal_scope company/cross_project";
+    }
+    if (!row.company_score_axis) {
+      return "applies_to_company_score=true requires company_score_axis";
+    }
+    if (!row.scope_reason) {
+      return "applies_to_company_score=true requires scope_reason";
+    }
+  }
+  if (row.pipeline_status && row.company_score_axis && row.company_score_axis !== "pipeline") {
+    return "pipeline_status requires company_score_axis=pipeline";
+  }
+  if (row.status === "candidate" && row.applies_to_company_score === true && row.company_score_axis === "pipeline") {
+    const probability = typeof row.pipeline_probability === "number" ? row.pipeline_probability : Number(row.confidence ?? 0);
+    if (!Number.isFinite(probability) || probability < 0.75) {
+      return "candidate company pipeline requires pipeline_probability/confidence >= 0.75";
+    }
+  }
+  return null;
 }
 
 async function authorize(req: NextRequest): Promise<{ ok: true; createdBy: string } | { ok: false; res: NextResponse }> {
@@ -124,6 +187,18 @@ export async function POST(req: NextRequest) {
       updated_at: now,
     };
     if (decisionState) patch.decision_state = decisionState;
+    addCompanyScoreFields(patch, body);
+
+    const { data: existing, error: existingError } = await admin
+      .from("project_strategy_signals")
+      .select("*")
+      .eq("signal_id", signalId)
+      .single();
+    if (existingError || !existing) {
+      return NextResponse.json({ error: existingError?.message || "signal not found" }, { status: 404 });
+    }
+    const validationError = validateCompanyScoreFields({ ...existing, ...patch });
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
     const { data, error } = await admin
       .from("project_strategy_signals")
@@ -151,6 +226,18 @@ export async function POST(req: NextRequest) {
     if (Array.isArray(body.source_refs)) patch.source_refs_json = body.source_refs;
     if (typeof body.confidence === "number") patch.confidence = Math.max(0, Math.min(1, body.confidence));
     if (typeof body.confirmed_by === "string") patch.confirmed_by = body.confirmed_by;
+    addCompanyScoreFields(patch, body);
+
+    const { data: existing, error: existingError } = await admin
+      .from("project_strategy_signals")
+      .select("*")
+      .eq("signal_id", signalId)
+      .single();
+    if (existingError || !existing) {
+      return NextResponse.json({ error: existingError?.message || "signal not found" }, { status: 404 });
+    }
+    const validationError = validateCompanyScoreFields({ ...existing, ...patch });
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
     const { data, error } = await admin
       .from("project_strategy_signals")
@@ -207,6 +294,9 @@ export async function POST(req: NextRequest) {
     confirmed_at: status === "confirmed" ? now : null,
     updated_at: now,
   };
+  addCompanyScoreFields(row, body);
+  const validationError = validateCompanyScoreFields(row);
+  if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
   // ON CONFLICT (project_id, scope_key, signal_type, source_hash) → update
   const { data, error } = await admin

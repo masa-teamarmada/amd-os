@@ -148,10 +148,12 @@ source 別の大枠 (v4):
 | initiative | `member_activities` (= 卒業 PJ 除外) |
 | finance | `budget_actual_view`, `company_actual_monthly`, `billing_cycles`, `company_finance_recurring_items`, `company_finance_receipt_events`, freee `trial_pl` |
 | retention | `projects`, `milestone_monthly_progress`, `project_freeze_periods`, `project_meeting_summaries`, retention 寄り `project_knowledge` |
-| pipeline | `project_strategy_signals` (`signal_type='commercial_progress'` stage 別)、`project_registry_diffs` |
-| direction | `project_strategy_signals` (`signal_type='funding'`)、`project_partners`、新テーブル `amd_os_installations`、`project_ventures` 卒業集計、属人脱却率 |
+| pipeline | `project_strategy_signals` (`applies_to_company_score=true` かつ `company_score_axis='pipeline'` / `commercial_progress`)、`project_registry_diffs` |
+| direction | `project_strategy_signals` (`funding` / company pipeline monetization)、`project_partners`、新テーブル `amd_os_installations`、`project_ventures` 卒業集計、属人脱却率 |
 
 **v4 で外す入力**:`seeds` (= 在庫加点問題、 まさ #79)、`amd_score_inputs` 平均 (= 方向性無関係、 まさ #82)、`protocols` 件数 / `project_ventures` 件数 / `atlas_signals` / `macro_index_log` (= 戦略接近度の判定として弱い)。`seeds` は AMD Score 側 (= [4-3 章](4-3-amd-score-spec.md)) の入力としてのみ使う。
+
+**raw置換ルール** (= 2026-06-01): `management-score-raw-data` は対象 `ym` の raw を再生成するとき、`freee_actual` 以外の既存 `amd_management_score_raw_signals` を削除してから入れ直す。旧 `seed` / `project_knowledge` / `atlas` / `protocol` など v4 で外した source_kind が残ると、5月は新規が過大、6月は逆に材料不足で新規/方向が過小に見えるため、月次rawは append ではなく replace として扱う。
 
 ## score 計算 (= v4)
 
@@ -500,12 +502,14 @@ EvidencePanel の上部に「**まさえいMTG で確定したシグナル**」 
 
 `project_strategy_signals` は本来 PJ cockpit の「経営ハイライト」正本で、LST/p07 の技術進捗・設立予定・顧客/装置/研究論点も入る。これを AMD Management Score がそのまま全PJ横断で読むと、AMD会社全体の経営バイタルではなく、個別PJの内部進捗が混入する。
 
-暫定 guard として、Management Score が `project_strategy_signals` から読むのは `project_id='p00'` の会社スコープだけに限定する。例外として、`project_id='p00' AND signal_type='commercial_progress' AND status='candidate' AND confidence >= 0.75` は、契約前でも高確度 pipeline として新規軸に入れてよい。香川大のように MTG 実施前からほぼ契約確定だった案件は、MTG後の confirmed を待つのではなく、会社スコープの高確度 pipeline candidate として表現する。
+DB分類として、`project_strategy_signals` に `signal_scope` / `applies_to_company_score` / `pipeline_status` / `pipeline_probability` / `expected_amount_yen` / `expected_contract_ym` / `company_score_axis` / `scope_reason` を追加した。Management Score は `applies_to_company_score=true` を正本として読み、backfill前の古い row だけ `project_id='p00'` fallback を残す。
 
-根本修正では、`project_strategy_signals` または別 pipeline/forecast テーブルに `signal_scope` / `applies_to_company_score` / `pipeline_probability` / `expected_amount_yen` / `expected_contract_ym` 相当を追加し、抽出時点で以下を分ける。
+契約前 pipeline は `status='candidate'` でも、`signal_scope in ('company','cross_project')`、`applies_to_company_score=true`、`company_score_axis='pipeline'`、`pipeline_probability >= 0.75`、`expected_contract_ym` ありなら新規/方向軸へ入れてよい。香川大のように MTG 実施前からほぼ契約確定だった案件は、MTG後の confirmed を待つのではなく、会社level high-confidence pipeline candidate として表現する。
 
 - 会社スコープ: AMDの売上・契約・提案・入金・採択・アライアンス・資源配分・組織運営に効くもの。
 - PJスコープ: 個別PJの技術/実験/設立/事業内容/研究/顧客/装置論点。PJ cockpit、MTGサマリ、PJ knowledge、BZM実践知には残すが、AMD Management Score には入れない。
+
+2026-06-01初期backfillでは、香川大100万円予算確保、KUTE受託ミッション、NIMS見積/契約、SX PoC前売上方針などを `company_score_axis='pipeline'` の高確度pipelineとして分類し、202605/202606 snapshot を再生成した。香川大は `amd_management_score_evidence` の pipeline evidence に「香川大が今年度予算100万円を確保... 確度95%」として入る。
 
 ### 予実管理・先3か月キャッシュ判断 (= 2026-06-01 追加)
 
