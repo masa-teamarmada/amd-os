@@ -18,6 +18,7 @@
 | ドキュメント統制 | `1-1`, `1-2`, `1-3`, `5-1`, `6-1` | `partial` | spec lint / 附則追記漏れを機械検知する test |
 | PWA route / API surface | `2-1`, `2-2` | `partial` | route ごとの props / component state / edge cases は未移行 |
 | Supabase data model | `2-3` | `partial` | 全 table の column-level contract は `db_schema.md` 依存 |
+| PJ logo assets | `2-4` | `partial` | UI componentと保存方針は追加済み。`project_assets` DDL / import helper / Storage bucket は未適用 |
 | L2② AMD Protocol | `3-9` | `rebuildable` | MMO PC 側 automation 登録状態は repo 外。登録確認は別途必要 |
 | L2③ MS Progress | `3-10` | `rebuildable` | MMO PC 側 automation 登録状態は repo 外。run log は別途必要 |
 | L2④ Project Knowledge | `3-11` | `rebuildable` | MMO PC 側 automation 登録状態は repo 外。5生データ直結ではなく現行二次集約 |
@@ -41,6 +42,7 @@
 - API route files: `pwa/src/app/api/**/route.ts`
 - `/spec` metadata: `pwa/src/app/(app)/spec/spec-chapters.ts`
 - `/bzm` metadata: `pwa/src/app/(app)/bzm/bzm-chapters.ts`
+- PJ logo UI: `pwa/src/components/projects/ProjectLogo.tsx`, `pwa/src/components/projects/ProjectMention.tsx`, `pwa/src/lib/project-logo-assets.ts`
 - notifications: `pwa/src/app/(app)/notifications/page.tsx`, `pwa/src/components/notifications/NotificationsClient.tsx`, `pwa/src/app/api/notifications/feedback/route.ts`
 - L2②〜⑤: `pwa/scheduled-tasks/amd-os-l2-protocol-extract/SKILL.md`, `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md`, `pwa/scheduled-tasks/amd-os-l4-project-knowledge-extract/SKILL.md`, `pwa/scheduled-tasks/amd-os-l5-member-knowledge-extract/SKILL.md`
 - cockpit: `pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx`, `pwa/src/components/cockpit/CockpitView.tsx`, `pwa/src/components/cockpit/CockpitRoutineGas.tsx`, `pwa/src/components/cockpit/CockpitMonthlyModal.tsx`

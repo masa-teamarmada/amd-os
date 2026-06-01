@@ -1,5 +1,8 @@
 "use client";
 
+import { ProjectLogo } from "@/components/projects/ProjectLogo";
+import type { ProjectLogoUsageStatus } from "@/lib/project-logo-assets";
+
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-emerald-500/10 text-emerald-700",
   sales: "bg-blue-500/10 text-blue-700",
@@ -9,7 +12,15 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 interface Props {
-  project: { projectId: string; projectName: string; clientName: string; status: string; projectCategory?: string };
+  project: {
+    projectId: string;
+    projectName: string;
+    clientName: string;
+    status: string;
+    projectCategory?: string;
+    logoAssetUrl?: string | null;
+    logoUsageStatus?: ProjectLogoUsageStatus;
+  };
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -27,6 +38,14 @@ const CATEGORY_COLORS: Record<string, string> = {
 export function CockpitHeader({ project }: Props) {
   return (
     <div className="flex items-center gap-3 py-1">
+      <ProjectLogo
+        projectId={project.projectId}
+        projectName={project.projectName}
+        pjCode={project.projectName}
+        logoAssetUrl={project.logoAssetUrl}
+        usageStatus={project.logoUsageStatus}
+        size="lg"
+      />
       <h1 className="text-lg font-bold">{project.projectName}</h1>
       {project.clientName && (
         <span className="text-[13px] text-[#86868b]">{project.clientName}</span>

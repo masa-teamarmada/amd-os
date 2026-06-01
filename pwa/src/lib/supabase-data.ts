@@ -7,6 +7,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
+import { resolveProjectLogoAsset, type ProjectLogoUsageStatus } from "@/lib/project-logo-assets";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -57,6 +58,8 @@ export interface DashProject {
   projectName: string;
   displayName?: string;
   shortLabel?: string;
+  logoAssetUrl?: string | null;
+  logoUsageStatus?: ProjectLogoUsageStatus;
   roleLine?: string;
   clientName: string;
   status: string;
@@ -92,11 +95,13 @@ export interface PlanCycleBundle {
 export interface CockpitData {
   project: {
     projectId: string;
-	    projectName: string;
-	    clientName: string;
-	    status: string;
-	    projectCategory?: string;
-	    projectType?: string;
+    projectName: string;
+    clientName: string;
+    status: string;
+    projectCategory?: string;
+    projectType?: string;
+    logoAssetUrl?: string | null;
+    logoUsageStatus?: ProjectLogoUsageStatus;
     feeType?: string | null;
     feeAmount?: number | null;
     freezeFromYm?: string | null;
@@ -1701,22 +1706,35 @@ export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
     );
   }
 
-  return (data || []).map((r) => ({
-    projectId: r.project_id,
-    projectName: r.project_name,
-    displayName: normalizeDashboardProjectName(r.project_id, ventureMap.get(r.project_id)?.displayName || r.project_name),
-    shortLabel: ventureMap.get(r.project_id)?.shortLabel || r.project_name,
-    roleLine: roleLineMap.get(r.project_id) || "PL -- / PM -- / Closer --",
-    clientName: r.client_name || "",
-    // 2026-05-11 まさ指摘 8 番: 旧コードは r.status || "active" だったため、
-    // status='frozen' でも空文字 fallback ロジックの記憶混乱で dashboard で active 表示される
-    // 事故あり (まさ「停止中にしても dashboard で active のまま」)。空文字 fallback に変更
-    // して、unknown は dashboard 側で「その他」セクションに振り分ける。
-	    status: r.status || "",
-	    projectCategory: r.project_category || "dtsu",
-	    startYm: r.start_ym || "",
-    endYm: r.end_ym || "",
-  }));
+  return (data || []).map((r) => {
+    const venture = ventureMap.get(r.project_id);
+    const displayName = normalizeDashboardProjectName(r.project_id, venture?.displayName || r.project_name);
+    const shortLabel = venture?.shortLabel || r.project_name;
+    const logoAsset = resolveProjectLogoAsset({
+      projectId: r.project_id,
+      projectName: r.project_name,
+      pjCode: shortLabel || displayName,
+    });
+
+    return {
+      projectId: r.project_id,
+      projectName: r.project_name,
+      displayName,
+      shortLabel,
+      logoAssetUrl: logoAsset.logoAssetUrl,
+      logoUsageStatus: logoAsset.usageStatus,
+      roleLine: roleLineMap.get(r.project_id) || "PL -- / PM -- / Closer --",
+      clientName: r.client_name || "",
+      // 2026-05-11 まさ指摘 8 番: 旧コードは r.status || "active" だったため、
+      // status='frozen' でも空文字 fallback ロジックの記憶混乱で dashboard で active 表示される
+      // 事故あり (まさ「停止中にしても dashboard で active のまま」)。空文字 fallback に変更
+      // して、unknown は dashboard 側で「その他」セクションに振り分ける。
+      status: r.status || "",
+      projectCategory: r.project_category || "dtsu",
+      startYm: r.start_ym || "",
+      endYm: r.end_ym || "",
+    };
+  });
 }
 
 /**
@@ -1798,6 +1816,11 @@ export async function fetchCockpitFromSupabase(
 
   if (projRes.error) throw new Error(`project: ${projRes.error.message}`);
   const pj = projRes.data;
+  const cockpitLogoAsset = resolveProjectLogoAsset({
+    projectId: pj.project_id,
+    projectName: pj.project_name,
+    pjCode: pj.project_name,
+  });
 
   const allYms = (bcRes.data || []).map((bc) => bc.ym).filter(Boolean).sort();
   const firstYm = allYms[allYms.length - 1] || currentYm;
@@ -2077,9 +2100,11 @@ export async function fetchCockpitFromSupabase(
       projectId: pj.project_id,
       projectName: pj.project_name,
       clientName: pj.client_name || "",
-	      status: pj.status || "",
-	      projectCategory: pj.project_category || "dtsu",
-	      projectType: pj.project_type || "",
+      status: pj.status || "",
+      projectCategory: pj.project_category || "dtsu",
+      projectType: pj.project_type || "",
+      logoAssetUrl: cockpitLogoAsset.logoAssetUrl,
+      logoUsageStatus: cockpitLogoAsset.usageStatus,
       feeType: pj.fee_type || null,
       feeAmount: pj.fee_amount != null ? Number(pj.fee_amount) : null,
       freezeFromYm: pj.freeze_from_ym || null,

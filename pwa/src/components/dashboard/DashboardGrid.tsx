@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { DashProject as GasProject, DashBillingStatus as GasBillingStatus } from "@/lib/supabase-data";
 import { AllPjIntroductionModal } from "./AllPjIntroductionModal";
+import { ProjectLogo } from "@/components/projects/ProjectLogo";
 
 const STATUS_BADGE: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-800 border-emerald-300",
@@ -193,14 +194,24 @@ function ProjectStripe({
           M/X/F と billing が狭くて縦書き化してたので幅増やす */}
       <div className="grid grid-cols-12 gap-3 items-center px-3 py-2">
         {/* === 識別: col-span-3 === */}
-        <div className="col-span-3 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-mono text-[10px] text-muted-foreground">{project.projectId}</span>
-            <h3 className="text-sm font-semibold truncate">{project.projectName}</h3>
-            <span className={`text-[9px] rounded border px-1.5 py-0.5 ${badgeClass}`}>{project.status}</span>
-            {isMine && <span className="text-[9px] rounded border border-sky-300 bg-sky-100 text-sky-800 px-1.5 py-0.5">参画</span>}
+        <div className="col-span-3 min-w-0 flex items-center gap-2">
+          <ProjectLogo
+            projectId={project.projectId}
+            projectName={project.projectName}
+            pjCode={project.shortLabel || project.displayName || project.projectName}
+            logoAssetUrl={project.logoAssetUrl}
+            usageStatus={project.logoUsageStatus}
+            size="md"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-mono text-[10px] text-muted-foreground">{project.projectId}</span>
+              <h3 className="text-sm font-semibold truncate">{project.projectName}</h3>
+              <span className={`text-[9px] rounded border px-1.5 py-0.5 ${badgeClass}`}>{project.status}</span>
+              {isMine && <span className="text-[9px] rounded border border-sky-300 bg-sky-100 text-sky-800 px-1.5 py-0.5">参画</span>}
+            </div>
+            {project.clientName && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{project.clientName}</p>}
           </div>
-          {project.clientName && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{project.clientName}</p>}
         </div>
 
         {/* === 担当: col-span-2 (= inline 1 行で省スペース) === */}
@@ -256,31 +267,12 @@ function ProjectStripe({
   );
 }
 
-function RoleBadge({ label, value }: { label: string; value: string }) {
-  const isUnset = !value || value === "--";
-  return (
-    <div className="flex flex-col min-w-0">
-      <span className="font-mono text-[8px] uppercase opacity-60">{label}</span>
-      <span className={`truncate text-[10px] ${isUnset ? "text-muted-foreground/50" : "text-foreground font-medium"}`}>{isUnset ? "—" : value}</span>
-    </div>
-  );
-}
-
 function MetricCell({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded bg-muted/40 px-1 py-0.5 text-center leading-tight">
       <div className="font-mono text-[8px] text-muted-foreground">{label}</div>
       <div className="text-[10px] font-semibold">{formatMetric(value)}</div>
     </div>
-  );
-}
-
-function BillingDot({ done, label }: { done: boolean; label: string }) {
-  return (
-    <span className="flex items-center gap-0.5" title={label}>
-      <span className={`inline-block w-1.5 h-1.5 rounded-full ${done ? "bg-emerald-500" : "bg-zinc-300"}`} />
-      <span className="text-[8px] text-muted-foreground">{label}</span>
-    </span>
   );
 }
 

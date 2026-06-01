@@ -20,6 +20,7 @@ import { CockpitRoutineInvoiceModal } from "./CockpitRoutineInvoiceModal";
 import { CockpitRoutineInvoiceSendConfirm } from "./CockpitRoutineInvoiceSendConfirm";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
+import type { ProjectLogoUsageStatus } from "@/lib/project-logo-assets";
 
 interface PlanCycleShape {
   planCycleId: string; status: string; budgetYen: number; totalPoints: number;
@@ -70,6 +71,8 @@ interface CockpitViewProps {
       status: string;
       projectCategory?: string;
       projectType?: string;
+      logoAssetUrl?: string | null;
+      logoUsageStatus?: ProjectLogoUsageStatus;
       feeType?: string | null;
       feeAmount?: number | null;
       freezeFromYm?: string | null;
