@@ -55,7 +55,27 @@
   - Before-Zero設立時期推奨は、入力を抽象カテゴリ、missing/conflicting categories、recommendation status程度から始める。
   - P2以降はDDL適用せず、migration draftから司令塔reviewへ進める。
 
-### 2. Claude Code routinesへ移せるautomationを設計する
+### 2. Notion側コンテンツをAMD OSへ移植するUIUXを設計する
+
+- お願いしたタスク内容
+  - Notion側にあるメンバーリスト、history（沿革）、photoなどのコンテンツをAMD OSへ移植する。
+  - まずは実装前に、OS内でどこにどう配置するのがUIUXとして自然かを設計する。
+  - Notionの実コンテンツ構造、OSの既存画面、admin/public/internal境界を見たうえで、配置案・導線・編集権限・データ構造案を出す。
+- お願いした背景
+  - Team ARMADA/AMDの会社情報、メンバー情報、沿革、写真素材がNotion側に残っており、OS内で扱える状態にしたい。
+  - ただしメンバー情報や写真は公開可否・利用許諾・内部メモの境界が重要なので、単純移植ではなく情報設計が必要。
+- 現状どうなってるか
+  - 動作状態: UIUX設計worker切り出し。
+  - worker pending worktree: `local:552b9a71-bc0d-45f0-9788-67637267036b`。
+  - workerには、Notionのmember list / history / photoの構造をread-onlyで確認し、AMD OS内の推奨配置案、UIUX案、データ設計案、実装優先順位を返すよう依頼済み。
+  - runtime実装、DB migration、Notion同期helperは、設計案を司令塔レビューしてから後続workerへ分ける。
+- 残課題は何か
+  - Notion側で確認できるコンテンツ構造を、個人情報や写真URLを伏せた形で整理する。
+  - メンバー一覧、沿革、photo galleryを、public-facing / admin-only / project cockpit連携のどこへ置くか判断する。
+  - visibility、usage permission、source id、last synced at、tags、statusなどの最低限のdata modelを決める。
+  - P0 read-only UI、P1 admin編集UI、P2 Notion import/sync helper、P3 public-facing viewの優先順位を決める。
+
+### 3. Claude Code routinesへ移せるautomationを設計する
 
 - お願いしたタスク内容
   - MMOマシンやCodex側で動いている定期処理のうち、Claude Code routinesへ移せるものを整理する。
@@ -86,7 +106,7 @@
   - proactive heartbeat runnerの実行checkoutを最新 `origin/main` に揃える、またはclean runtime worktreeを固定して使う。
   - L2①の2026-06-02 05:30 JST自然発火、L6監視付き1回Live準備、MMO側PENDING_REVIEWの継続監視を続ける。
 
-### 3. L2会議サマリ抽出を、MMOマシンで確実に毎時起動させる
+### 4. L2会議サマリ抽出を、MMOマシンで確実に毎時起動させる
 
 - お願いしたタスク内容
   - ZMPの前回会議サマリが自動生成されなかった原因を特定し、同じ事故が起きないようにする。
@@ -130,7 +150,7 @@
   - 問題なければ、毎時稼働用の予約をLive化するか判断する。
   - 毎時稼働へ進める場合も、最初の1〜2回は監視してから常時稼働扱いにする。
 
-### 4. L2データ抽出全体を、MMOマシンと現行仕様に合わせて安定稼働させる
+### 5. L2データ抽出全体を、MMOマシンと現行仕様に合わせて安定稼働させる
 
 - お願いしたタスク内容
   - 香川出張の前後で変更したL2抽出仕様を確認し、MMOマシンへ反映する。
@@ -160,7 +180,7 @@
   - MMO側run statusは保留中表示が多いため、今後もACTIVEだけでhealthy扱いせず、outbox/applied/DB反映まで見る。
   - L2⑥は毎時起動しているが、Calendar色/default color権限問題は別タスクで解決する。
 
-### 5. ERS制度比較マトリクスの実データ入力を進める
+### 6. ERS制度比較マトリクスの実データ入力を進める
 
 - お願いしたタスク内容
   - ERS評価を5段階だけでなく、制度整備状況や規程比較として細かく入力できるようにする。
@@ -185,7 +205,7 @@
   - NIMSは公開情報と既存DBから埋める。
   - 今後の新環境再構築時は `120_institution_policy_assessments_seed.sql` を冪等seedとして使う。
 
-### 6. 設計書を「読めば再構築できる」水準まで引き上げ続ける
+### 7. 設計書を「読めば再構築できる」水準まで引き上げ続ける
 
 - お願いしたタスク内容
   - 設計書を、単なる説明ではなく、今のAMD OSを再構築できる水準まで引き上げる。
@@ -201,7 +221,7 @@
   - 管理画面、報酬・請求、GAS、iOS、Atlas、Seeds、VC、Scholarなどはまだ再構築水準に届いていない。
   - 完了扱いにする前に、司令塔が「本当に再構築できるか」を見る。
 
-### 7. TextbookをBefore Zero実践テキストとして育てる
+### 8. TextbookをBefore Zero実践テキストとして育てる
 
 - お願いしたタスク内容
   - OS全体司令塔として、Textbookが単なるBZM理論の解説書ではなく、Before Zeroの現場判断、失敗、仮説修正、関係構築、ケースを扱う実践テキストへ育つよう監督する。
@@ -221,7 +241,7 @@
   - 理論変更に関わるものは、BZM司令塔レビューを必ず挟む。
   - 実ケースを増やすときは、秘密情報や固有名の扱いを慎重に見る。
 
-### 8. OS司令塔・BZM司令塔・Textbook司令塔のタスク台帳運用を定着させる
+### 9. OS司令塔・BZM司令塔・Textbook司令塔のタスク台帳運用を定着させる
 
 - お願いしたタスク内容
   - 司令塔ごとに、人間が読めるタスク台帳を作る。
@@ -241,7 +261,7 @@
   - BZM/Textbookの詳細タスクは、それぞれの台帳を正本として見る。
   - 今後のタスク追加、worker切り出し、完了報告、差し戻しのたびに台帳更新を徹底する。
 
-### 9. 最新mainの新規変更を司令塔として読み直す
+### 10. 最新mainの新規変更を司令塔として読み直す
 
 - お願いしたタスク内容
   - origin/mainに新しく入った変更を、司令塔として読み直して current truth へ反映する。
