@@ -75,8 +75,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 9. BZM 7軸モデルとP×R×S/9軸候補の整合
    - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
    - 背景: 現行教科書は7軸中心だが、知識側にはP×R×S再構成と収益化指数の議論があり、Textbook実践知と結びつきやすい論点になっているため。
-   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft、未確認flag source map は作成済み。source map は、未確認flagを `l2_extractable` / `worker_research` / `masa_or_bzm_judgement` に分け、正式rubricや0-9値に踏み込んでいないためBZMレビュー採用。次の `P/R_net L2 source inventory` worker `019e83af-598b-7691-8c8d-405653f1783e` がActive。
-   - 残課題: L2 source inventory workerで、既存L2/DB/docs/outboxから拾えるsource候補を read-only で棚卸しする。source候補を見たあと、公開/knowledge調査、BZM judgement brief、evidence cards v2 の順で進めるか判断する。0-9値表、DB化、過去score再計算はまだしない。
+   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft、未確認flag source map、L2 source inventory は作成済み。L2 source inventory は、既存L2/DB/docs/outbox/source_cacheを `available_now` / `available_but_needs_join` / `not_currently_available` / `unsafe_to_infer` / `requires_masa_or_bzm_review` に分け、`billing_cycles` とSU本体粗利の混同も防いでいるためBZMレビュー採用。次の `P/R_net finance and cash source pack` worker `019e8430-d118-72c0-bed3-af85571daab9` がActive。
+   - 残課題: finance/cash source pack workerで、p07/p20/p21/p06/p11の売上・受注・粗利・運営コスト・入金サイト・助成金・政策資金のsource候補を read-only で一覧化する。次は bridge/validation、damage guard、lane-specific survival、public/knowledge research、BZM judgement brief の順に進めるか判断する。0-9値表、DB化、過去score再計算はまだしない。
 
 ## 完了済みタスク
 
