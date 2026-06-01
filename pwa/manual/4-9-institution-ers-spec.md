@@ -129,6 +129,7 @@ migration `pwa/scripts/migrations/108_institution_readiness_ers.sql` で適用�
 - UI・DB・集計は実装済 (v0.10.0、2026-05-30 origin/main へ)。
 - **比較ヒートマップ転置 + 単色濃淡 + 総合 ERS 強調、評価入力マトリクス `/institutions/assess` + 書き込み API を実装** (2026-05-30、#100、v0.11.x)。これで まさが OS 上でポチポチ評価できる (チャットで 1 件ずつ伝える必要なし)。
 - **2026-05-31 実データ本評価 84 件反映済** (3 機関 × 28 サブ軸)。最新 ERS = 香川大 44% / 工学院大 44% / NIMS 74%。根拠 note は `本評価2026-05-31` で統一し、未確認論点は note 内に明記。次タスクは `/institutions/assess` で「未確認」と残した項目を現物資料で追加確認すること。
+- **2026-05-31 制度比較マトリクス実データ 96 件反映済** (3 機関 × 32 項目)。入力記録は [`pwa/design/institution_policy_matrix_inputs_2026-05-31.md`](../design/institution_policy_matrix_inputs_2026-05-31.md)、再構築用seedは `pwa/scripts/migrations/120_institution_policy_assessments_seed.sql`。香川大は公開情報で埋められる認定規則だけ入れ、支援運用・株式/SO・外部CEO/CXO/EIR・VC/金融接続は `unknown` として質問票化。KUTEは内部規程案を `drafting`、公式スタートアップ支援を `established` に分けた。NIMSは公式NIMSベンチャー援助等規程を主根拠に入力し、IP-equityなど未確認は `unknown` に残した。
 - **KUTE = 工学院大学 (大学) に確定済** (seed 時の「※正式名称・タイプ要確認」は解消)。
 - 機関タイプ (研究所 NIMS / 大学 香川大、国立 / 私立) で性格は違うが、**当面は軸セットを分けない**。評価精度が上がってから機関タイプ別チューニングを検討する。
 - 軸7 (ガバナンス) は「整っていないと他軸が空回りする前提条件」だが、当面は等加重。将来「軸7 が低いと全体に係数で効くゲート」にする案は検討余地あり (= まずは加重和のまま、欠損可視化を優先)。
