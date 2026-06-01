@@ -315,6 +315,18 @@ Path: `/venture-map/amd-score/retrofit` (タブバーには出さない、詳細
 - α を動かすたび右の表がリアルタイム更新 → retrofit (過去 PJ の設立タイミング判定が当たるか) を見ながら慎重に決められる
 - 「現役 α に戻す」「base case (default) に戻す」「新しい α を保存」ボタン
 
+### PRS候補 比較レイヤー (2026-06-01 追加)
+
+同じ `/venture-map/amd-score/retrofit` に、現行7軸AMD Scoreを置き換えない比較/シミュレーション層として PRS (`P x R x S`) 候補を追加した。
+
+実装上の扱い:
+
+- 計算ロジックは `src/lib/amd-score.ts` の `calculatePrsScore()` / `PRS_ALPHA_DEFAULT` に独立追加。既存 `calculateAmdScore()` は変更しない。
+- `P` と `R_net` は `amd_score_inputs` に列を追加せず、retrofit画面の保存しない仮入力としてのみ扱う。
+- `P` / `R_net` が無い場合は `status='missing'` とし、scoreを出さない。0固定で誤読させない。
+- `R` は TRL/BRL/GRL/SRL/HRL の contribution product、`S` は σ_SU/FRL/R_net の contribution product として表示する。
+- PRS候補の正式採用、P/R_net rubric、DB schema化、9PJ正式retrofit表は BZM review required。
+
 ### FRL 6 因子拡張 (2026-05-09 追加)
 
 `theory/amd_score.md` §3.F.5 で正式化。`pwa/src/components/venture-map/AmdScoreView.tsx` の `deriveFrl` で計算:

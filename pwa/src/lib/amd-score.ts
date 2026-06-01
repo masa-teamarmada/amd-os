@@ -46,6 +46,21 @@ export const AXIS_COLOR: Record<AmdScoreAxis, string> = {
 
 export type AlphaWeights = Record<AmdScoreAxis, number>;
 
+export const PRS_SCORE_AXES = [
+  "P",
+  "TRL",
+  "BRL",
+  "GRL",
+  "SRL",
+  "HRL",
+  "sigma_SU",
+  "FRL",
+  "R_net",
+] as const;
+export type PrsScoreAxis = (typeof PRS_SCORE_AXES)[number];
+
+export type PrsScoreWeights = Record<PrsScoreAxis, number>;
+
 /** Base case (まさ判断 + Bernstein 2017 + 内閣府 SIP, sum = 6.0). */
 export const ALPHA_DEFAULT: AlphaWeights = {
   sigma_SU: 1.3,
@@ -55,6 +70,19 @@ export const ALPHA_DEFAULT: AlphaWeights = {
   SRL: 0.2,
   HRL: 1.1,
   FRL: 1.5,
+};
+
+/** PRS candidate weights. P/R_net are provisional and require BZM review before formal adoption. */
+export const PRS_ALPHA_DEFAULT: PrsScoreWeights = {
+  P: 1.0,
+  TRL: ALPHA_DEFAULT.TRL,
+  BRL: ALPHA_DEFAULT.BRL,
+  GRL: ALPHA_DEFAULT.GRL,
+  SRL: ALPHA_DEFAULT.SRL,
+  HRL: ALPHA_DEFAULT.HRL,
+  sigma_SU: ALPHA_DEFAULT.sigma_SU,
+  FRL: ALPHA_DEFAULT.FRL,
+  R_net: 0.8,
 };
 
 export const IPO_TARGET = 100_000;
@@ -316,4 +344,138 @@ export function normalizeAlpha(raw: unknown): AlphaWeights {
     }
   }
   return out;
+}
+
+// ============================================================
+// P x R x S candidate layer (comparison/simulation only)
+// ============================================================
+
+export interface PrsScoreInput {
+  /** Potential / target success scale ceiling (0-9). Provisional until a formal rubric exists in DB. */
+  P: number | null;
+  mu_A: number;
+  mu_I: number;
+  mu_G: number;
+  TRL: number | null;
+  BRL: number;
+  GRL: number;
+  SRL: number;
+  HRL: number;
+  FRL: number;
+  /** Net survival cash contribution: gross margin - operating cost - main-project resource damage. */
+  R_net: number | null;
+}
+
+export interface PrsComponentBreakdown {
+  potential: number;
+  reach: number;
+  survival: number;
+}
+
+export interface PrsScoreResult {
+  status: "ready" | "missing";
+  score: number | null;
+  sigma_SU: number;
+  K: number;
+  alphaSum: number;
+  shallowTechMode: boolean;
+  missingAxes: Array<"P" | "R_net">;
+  axisValues: Record<PrsScoreAxis, number | null>;
+  contributions: Partial<Record<PrsScoreAxis, number>>;
+  components: PrsComponentBreakdown | null;
+}
+
+export function sumPrsAlpha(weights: PrsScoreWeights = PRS_ALPHA_DEFAULT, includeTRL = true): number {
+  return PRS_SCORE_AXES
+    .filter((axis) => includeTRL || axis !== "TRL")
+    .reduce((acc, axis) => acc + (weights[axis] ?? 0), 0);
+}
+
+/** PRS candidate K. Same IPO-target calibration, but with the 9-axis candidate weight sum. */
+export function computePrsK(weights: PrsScoreWeights = PRS_ALPHA_DEFAULT, shallowTechMode = false): number {
+  return IPO_TARGET / Math.pow(10, sumPrsAlpha(weights, !shallowTechMode));
+}
+
+/**
+ * Candidate PRS score.
+ *
+ * This is a side-by-side retrofit/simulation layer. It does not replace calculateAmdScore(),
+ * does not imply DB schema adoption, and refuses to emit a score when P/R_net are missing.
+ */
+export function calculatePrsScore(
+  input: PrsScoreInput,
+  weights: PrsScoreWeights = PRS_ALPHA_DEFAULT
+): PrsScoreResult {
+  const shallowTechMode = input.TRL === null;
+  const sigma_SU = computeSigmaSU(input.mu_A, input.mu_I, input.mu_G);
+  const missingAxes: Array<"P" | "R_net"> = [];
+  if (input.P == null || !Number.isFinite(input.P)) missingAxes.push("P");
+  if (input.R_net == null || !Number.isFinite(input.R_net)) missingAxes.push("R_net");
+
+  const axisValues: Record<PrsScoreAxis, number | null> = {
+    P: input.P,
+    TRL: input.TRL,
+    BRL: input.BRL,
+    GRL: input.GRL,
+    SRL: input.SRL,
+    HRL: input.HRL,
+    sigma_SU,
+    FRL: input.FRL,
+    R_net: input.R_net,
+  };
+  const K = computePrsK(weights, shallowTechMode);
+  const alphaSum = sumPrsAlpha(weights, !shallowTechMode);
+
+  if (missingAxes.length > 0) {
+    return {
+      status: "missing",
+      score: null,
+      sigma_SU,
+      K,
+      alphaSum,
+      shallowTechMode,
+      missingAxes,
+      axisValues,
+      contributions: {},
+      components: null,
+    };
+  }
+
+  const contributions: Partial<Record<PrsScoreAxis, number>> = {};
+  let product = 1;
+  for (const axis of PRS_SCORE_AXES) {
+    if (shallowTechMode && axis === "TRL") continue;
+    const value = axisValues[axis];
+    if (value == null) continue;
+    const clipped = Math.max(0, Math.min(9, value));
+    const contribution = Math.pow(clipped + 1, weights[axis] ?? 0);
+    contributions[axis] = contribution;
+    product *= contribution;
+  }
+
+  const reachAxes: PrsScoreAxis[] = ["TRL", "BRL", "GRL", "SRL", "HRL"];
+  const reach = reachAxes.reduce((acc, axis) => {
+    if (shallowTechMode && axis === "TRL") return acc;
+    return acc * (contributions[axis] ?? 1);
+  }, 1);
+  const survival =
+    (contributions.sigma_SU ?? 1) * (contributions.FRL ?? 1) * (contributions.R_net ?? 1);
+  const potential = contributions.P ?? 1;
+
+  return {
+    status: "ready",
+    score: K * product,
+    sigma_SU,
+    K,
+    alphaSum,
+    shallowTechMode,
+    missingAxes,
+    axisValues,
+    contributions,
+    components: {
+      potential,
+      reach,
+      survival,
+    },
+  };
 }
