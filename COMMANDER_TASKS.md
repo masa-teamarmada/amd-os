@@ -40,11 +40,11 @@
   - Claude側は、日次のL2合成、日次のスコア根拠・戦略レビュー、週次の外部シグナル確認を中心にする案。
   - 通常日は2〜3本、週次日は4〜5本程度で、1日15件制限内に収める案になっている。
   - MMO側に残っていた未処理ファイルは、L2/Atlas/Macrotrend抽出安定化workerが分類・反映・退避済み。
-  - 月次報告抽出はMac側Codex automationをACTIVEへ戻し、次回 2026-06-02 05:30 JST の発火確認待ち。
+  - 月次報告抽出はMac側Codex automationをACTIVEへ戻し、自然発火前に手動で正規outbox/applier経路を確認済み。
 - 残課題は何か
   - Claude routinesを再開する場合は、L2主処理ではなく、低頻度のread-only audit/reportだけにする。
   - 1日15件制限に抵触しない具体的なroutine登録は、L2主系が安定した後の後続タスクにする。
-  - L2①次回発火、L6色取得代替helper、MMO側PENDING_REVIEWの継続監視を続ける。
+  - L2①の2026-06-02 05:30 JST自然発火、L6監視付き1回Live準備、MMO側PENDING_REVIEWの継続監視を続ける。
 
 ### 2. L2会議サマリ抽出を、MMOマシンで確実に毎時起動させる
 
@@ -56,7 +56,7 @@
   - 調査すると、会議後にサマリ抽出が走るべき時間帯に、MMOマシン側の抽出処理が起動していなかった可能性が高かった。
   - 会議サマリはBefore Zeroの現場知やTextbook候補の元にもなるため、ここが抜けるとOS全体の地盤が弱くなる。
 - 現状どうなってるか
-  - 動作状態: 外部認証待ち。worker thread `019e809e-ce94-7db2-bf55-7da44ff1023d` がCalendar色取得の代替経路とCFG_Alias判定の再評価を担当しているが、GAS反映に必要なclasp再認証で止まっている。
+  - 動作状態: active worker。worker thread `019e809e-ce94-7db2-bf55-7da44ff1023d` がCalendar色取得の代替経路とCFG_Alias判定の再評価を担当している。
   - 監視状態: AMD OS未完タスク監視heartbeatで継続監視中。
   - ZMPの対象会議サマリ自体は復旧済み。
   - MMOマシン側の抽出ルールには、会議IDが入っていなくても、タイトル・日時・参加者・関連資料から拾う方針を反映済み。
@@ -78,13 +78,12 @@
   - 単なるcontains、project_name substring、client_name substringだけでLive書き込み候補に昇格することは禁止のまま。
   - L6 alias/color helper変更は `2cfccc4 Add L6 calendar color and alias diagnostics` として `origin/main` に反映済み。
   - `【ZeMA】定例MTG` はCFG_PJAlias high-confidenceでZMP/p19 activeへ解ける候補として確認済み。
-  - ただし、GAS本番反映の `clasp push --force` が Mac側・MSI側とも `invalid_grant` / `invalid_rapt` で失敗している。コード差分ではなくclasp OAuth再認証の問題。
+  - `clasp` のGoogle再認証は司令塔側で実施済み。
+  - 再認証後、worker側で `clasp push --force` が通り、GAS側read-only diagnosticへ進んでいる。
   - 監視付きの1回実行はまだ登録していない。
   - 毎時稼働はまだ有効化していない。
 - 残課題は何か
-  - まさ側でclaspのGoogle再認証を行う。
-  - 再認証後、`gas/` から `npx --yes @google/clasp@latest push --force` を再実行する。
-  - GAS反映後、read-only diagnosticで `【ZeMA】定例MTG` がCFG_PJAlias high-confidenceでZMP/p19へ解けることを確認する。
+  - GAS反映後のread-only diagnosticで `【ZeMA】定例MTG` がCFG_PJAlias high-confidenceでZMP/p19へ解けることを確認する。
   - diagnosticが通ったら、2026-06-03 12:00 JST の監視付き1回Live taskを登録する。
   - 問題なければ、毎時稼働用の予約をLive化するか判断する。
   - 毎時稼働へ進める場合も、最初の1〜2回は監視してから常時稼働扱いにする。
@@ -99,10 +98,13 @@
   - ここがズレると、コックピット、Textbook、スコア、月次レビュー、通知の全部が弱くなる。
   - 香川出張の間にロジックを少し変えた記憶があり、実機に反映されているか確認が必要だった。
 - 現状どうなってるか
-  - 動作状態: 復旧済み、次回発火watch。worker thread `019e809e-8588-7ce0-bf69-88710cfd99b5` がL2/Atlas/Macrotrend抽出責任と実行状態を再整理し、backlogを反映した。
+  - 動作状態: 復旧済み、自然発火watch。worker thread `019e809e-8588-7ce0-bf69-88710cfd99b5` がL2/Atlas/Macrotrend抽出責任と実行状態を再整理し、backlogを反映した。
   - 監視状態: AMD OS未完タスク監視heartbeatで、2026-06-02朝のL2①次回実行とMMO側outbox増加を継続監視する。
   - MMOマシンには接続でき、主要なL2抽出ルールは反映済み。
   - L2①月次報告はMac側Codex automation `amd-os-l2` をACTIVEへ戻した。次回実行は2026-06-02 05:30 JST。
+  - 自然発火前の手動確認では、`amd-os-l2` automation定義、正規outbox、LaunchAgent applier、helper health、DB現物が確認済み。
+  - `automation-prepare --ym 202606` でsnapshot refreshに成功し、正規outboxに置いたno-op route-checkは正規applierで `applied/` へ移動した。DB writeは発生していない。
+  - Supabase現物として、L2① monthly reports 5件とsource cache 11件が2026-06-01に反映済みであることを確認した。
   - L2②〜⑥はMMOマシンCodex Desktop automationがACTIVEで、2026-06-01朝の実行履歴を確認済み。
   - L2⑦⑧/MS差分・L2⑨・Atlas・MacrotrendはMMO側Codex automationがACTIVE。
   - MMO側outbox backlogはdrain済み。`amd-atlas-2`, `amd-macrotrend-evidence-review`, `amd-os-ms`, `amd-os-strategy-signals`, `amd-os-l6-meeting-flow` のoutbox json countは0。
@@ -112,7 +114,7 @@
   - 会議サマリは、会議IDがなくても弾かない方針へ更新済み。
   - 月次報告は、今後は生データを毎回直接見るより、まずOS内に集まった整理済みデータを主入力にする方針へ寄せた。
 - 残課題は何か
-  - 2026-06-02朝にL2①が再発火し、outbox生成・applier反映まで通るか確認する。
+  - 2026-06-02朝にL2①が自然発火し、automation run、outbox生成、applier反映、monthly reports/source cacheの更新まで通るか確認する。
   - MMO側run statusは保留中表示が多いため、今後もACTIVEだけでhealthy扱いせず、outbox/applied/DB反映まで見る。
   - L2⑥は毎時起動しているが、Calendar色/default color権限問題は別タスクで解決する。
 
