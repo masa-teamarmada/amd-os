@@ -69,14 +69,14 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 8. FRL_cap_amd historical整理
    - お願いした内容: 終了済みPJやAMD関与終了後のPJについて、current active rowではなく当時のtimeline-specific rowで `frl_cap_amd` を扱う方針を整理する。
    - 背景: `frl_cap_amd` はAMD提供価値の定量化の本丸だが、ended PJを現在状態だけで見ると当時のAMD寄与を誤判定するため。
-   - 現状: Active。p07 LST / p20 CX / p21 SX はfirst pass反映済み。p06 CTBはfrozenでAMD activeなし、寄与0に補正済み。p04 KT / p09 JC / p11 BWE は保留。
-   - 残課題: historical rowの対象時点、根拠、BZM/Textbook上の扱いを整理するworkerを切る。
+   - 現状: Active。p07 LST / p20 CX / p21 SX はfirst pass反映済み。p06 CTBはfrozenでAMD activeなし、寄与0に補正済み。p04 KT / p09 JC / p11 BWE は保留。`FRL_cap_amd historical policy memo` worker `019e84df-82a1-7553-be7d-d059a46a5312` がActive。
+   - 残課題: historical rowの対象時点、根拠、ended/frozen/company-active-after-AMDの分類、BZM/Textbook上の扱いを整理する。正式FRL再計算、DB化、過去score再計算はまだしない。
 
 9. BZM 7軸モデルとP×R×S/9軸候補の整合
    - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
    - 背景: 現行教科書は7軸中心だが、知識側にはP×R×S再構成と収益化指数の議論があり、Textbook実践知と結びつきやすい論点になっているため。
-   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft、未確認flag source map、L2 source inventory、finance/cash source pack、billing vs SU revenue join map、evidence cards v2 finance classification refresh、bridge/validation source pack、damage/reinvestment source pack、JOYCLE AMD support end current truth review、PRS BZM judgement brief、classification adoption patch、JOYCLE damage source split、evidence cards v3/v4/v5/v6/v7/v8/v9/v10/v11/v12 refresh、p11 GP30 raw source lookup、p11 system GP30 source join、p11 Sumitomo Riko transaction proof lookup、p11 Sumitomo Riko management meeting result lookup、YD low-P / UE guard source split、YD UE/LCOE source join は作成済み。v12はBZMレビュー採用。YDは公式source上2026-05まで活動継続、AMD関与はDB上ended。福岡市実証はvalidation/survival contextで、商用UEやR_net粗利には使わない。経済界記事はwave lane generalの低P補強sourceに限定。次の `YD founded_at current truth review` worker `019e84db-2f49-79c3-b56e-227ff672c4c8` がActive。
-   - 残課題: 公式設立日 `2023-08-04` とDB `2019-01-01` の衝突について、法人設立日、研究開始/活動開始、仮置きのどれかをread-onlyで確認し、OS/DB hygieneへ渡せるsource hygiene briefを作る。DB設立日補正はBZMだけで判断せず、必要ならOS側current truth補正タスクに分ける。p11は新しい住友理工result source ID / Drive file ID / Gmail thread IDが出るまで追加lookupを切らず、system lane / membrane lane 分離とreview-onlyを維持する。0-9値表、DB化、過去score再計算はまだしない。
+   - 現状: Watch（OS/DB判断待ち）。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft、未確認flag source map、L2 source inventory、finance/cash source pack、billing vs SU revenue join map、evidence cards v2 finance classification refresh、bridge/validation source pack、damage/reinvestment source pack、JOYCLE AMD support end current truth review、PRS BZM judgement brief、classification adoption patch、JOYCLE damage source split、evidence cards v3/v4/v5/v6/v7/v8/v9/v10/v11/v12 refresh、p11 GP30 raw source lookup、p11 system GP30 source join、p11 Sumitomo Riko transaction proof lookup、p11 Sumitomo Riko management meeting result lookup、YD low-P / UE guard source split、YD UE/LCOE source join、YD founded_at current truth review は作成済み。公式設立日 `2023-08-04` とDB `2019-01-01` の衝突は `official_company_founded_at_conflicts_with_db_current_value` としてBZMレビュー採用。DB `2019-01-01` は `unknown_db_origin`、`project_knowledge` は `pj_basic_facts_sync` 派生factで独立sourceではない。
+   - 残課題: OS/DB側で `project_ventures.founded_at` を公式sourceに合わせて `2023-08-04` へ補正するか判断する。補正する場合は `project_knowledge` basic fact同期確認と、`project_xrl_log` 2019 manual timelineを法人設立日補正から分離する。BZM側ではこのままPRS comparison layerのreview-only current truthとして保持し、0-9値表、DB化、過去score再計算はまだしない。
 
 ## 完了済みタスク
 
