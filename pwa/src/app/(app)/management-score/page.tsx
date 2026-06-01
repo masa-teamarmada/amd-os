@@ -606,7 +606,7 @@ function buildGasSimulationResult(
     const actualSummary = actualSummaries.get(ym);
     return {
       ym: Number(ym),
-      actualStatus: actualSummary?.hasActualData ? "actual" : Number(ym) < Number(currentYm) ? "missing" : "future",
+      actualStatus: Number(ym) > Number(currentYm) ? "future" : actualSummary?.hasActualData ? "actual" : "missing",
       revenue: companyBudgetValue(categoryRows, ym, "revenue"),
       actualRevenue: actualSummary?.actualRevenue ?? 0,
       confirmedDepositsGross: actualSummary?.confirmedDepositsGross ?? 0,
