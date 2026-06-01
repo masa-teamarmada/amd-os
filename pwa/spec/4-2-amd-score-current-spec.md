@@ -75,8 +75,36 @@ bottleneck = argmax alpha_i / (X_i + 1)
 |---|---|
 | `/venture-map/amd-score` | 全 SU PJ の AMD Score 一覧 |
 | `/venture-map/amd-score/[projectId]` | 個別 score / M-X-F / 経時 / FRL panel |
-| `/venture-map/amd-score/retrofit` | alpha 重み調整 + retrofit |
+| `/venture-map/amd-score/retrofit` | alpha 重み調整 + retrofit。PRS候補の比較/シミュレーションも同じ画面に置く |
 | `/project/[projectId]/cockpit` | AMD Score chip / breakdown modal |
+
+## PRS候補 比較レイヤー
+
+PRS (`P x R x S`) は、現行7軸AMD Scoreの正式置換ではない。2026-06-01時点では `/venture-map/amd-score/retrofit` 上の比較/シミュレーション層として扱う。
+
+| 要素 | 実装上の扱い |
+|---|---|
+| `P` | Potential / 潜在規模。DB列は未採用。retrofit画面の保存しない仮入力でのみ試算する |
+| `R` | Reach / Readiness。TRL / BRL / GRL / SRL / HRL の contribution product |
+| `S` | Survival。`sigma_SU` / FRL / `R_net` の contribution product |
+| `R_net` | 収益化指数。粗利 - 運営コスト - 本命から奪うリソース毀損。DB列は未採用 |
+
+実装ファイル:
+
+| file | 契約 |
+|---|---|
+| `pwa/src/lib/amd-score.ts` | `PRS_ALPHA_DEFAULT` / `calculatePrsScore()`。P/R_net missing 時は score を返さず `status='missing'` |
+| `pwa/src/lib/amd-score-derived.ts` | `derivePrsComponents()`。`amd_score_inputs` row と保存しない仮P/R_netからPRS候補を作る |
+| `pwa/src/components/venture-map/AmdScoreRetrofit.tsx` | 「PRS候補 比較レイヤー」。仮P/R_netをONにした時だけ全PJ共通の試算値を表に出す |
+
+禁止事項:
+
+- `calculateAmdScore()` の置換
+- `amd_score_inputs` への `p` / `r_net` 列追加
+- 既存7軸の履歴再計算
+- PRS候補値の本番DB write
+
+正式採用・DB schema化・P/R_net rubric確定・9PJ retrofit表の確定は BZM review required。
 
 ## 変更ゲート
 

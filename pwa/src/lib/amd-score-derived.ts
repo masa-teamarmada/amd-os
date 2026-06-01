@@ -1,9 +1,11 @@
 import {
   calculateAmdScore,
+  calculatePrsScore,
   computeFrlCES,
   type AlphaWeights,
   type AmdScoreAxis,
   type AmdScoreResult,
+  type PrsScoreResult,
 } from "@/lib/amd-score";
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 
@@ -76,6 +78,30 @@ export function calculateAmdScoreForInput(row: AmdScoreInputRow, alpha: AlphaWei
     },
     alpha
   );
+}
+
+export interface PrsProvisionalInputs {
+  P: number | null;
+  R_net: number | null;
+}
+
+export function derivePrsComponents(
+  row: AmdScoreInputRow,
+  provisional: PrsProvisionalInputs = { P: null, R_net: null }
+): PrsScoreResult {
+  return calculatePrsScore({
+    P: provisional.P,
+    mu_A: row.mu_A ?? 0,
+    mu_I: row.mu_I ?? 0,
+    mu_G: row.mu_G ?? 0,
+    TRL: row.shallow_tech_mode ? null : row.trl ?? 0,
+    BRL: row.brl ?? 0,
+    GRL: row.grl ?? 0,
+    SRL: row.srl ?? 0,
+    HRL: row.hrl ?? 0,
+    FRL: resolveFrl(row),
+    R_net: provisional.R_net,
+  });
 }
 
 export function breakdownFromResult(result: AmdScoreResult): AmdScoreBreakdown {
