@@ -396,6 +396,11 @@ Codex / えいみが後から追記する場所:
 - history event の `imported` / `needs_review`
 - media asset の metadata 補完
 - member profile の public/internal 分離案
+- この設計案を司令塔レビュー。
+- Notion member/history/photo の schema mapping 表を作る。
+- DB write なしで static JSON / mock data の UI sketch だけ作るなら可。
+- route 候補は `/admin/company` と `/company`。
+- 2026-06-02 first placement: `/dashboard` のPJ一覧下に `CompanyContentShelf` としてメンバー / 沿革 / photo の3カラム preview を置く。メンバーと沿革は既存DB read-only、photo は usage permission / consent review 前提の preview だけにする。
 
 ただし、公開化・写真使用許諾・個人情報の公開判断は人間レビューを必須にする。
 

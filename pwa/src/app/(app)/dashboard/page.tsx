@@ -3,6 +3,12 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
 import {
+  CompanyContentShelf,
+  type CompanyHistoryPreview,
+  type CompanyMemberPreview,
+  type CompanyPhotoPreview,
+} from "@/components/dashboard/CompanyContentShelf";
+import {
   DashboardScoreOverview,
   type DashboardActionItem,
   type DashboardManagementScoreSnapshot,
@@ -45,6 +51,11 @@ export default function DashboardPage() {
   const [managementHistory, setManagementHistory] = useState<DashboardManagementScoreSnapshot[]>([]);
   const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
   const [ersBundle, setErsBundle] = useState<ErsBundle | null>(null);
+  const [companyContent, setCompanyContent] = useState<CompanyContentPreview>({
+    members: [],
+    history: [],
+    photos: DASHBOARD_PHOTO_PREVIEW,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -75,7 +86,8 @@ export default function DashboardPage() {
       fetchManagementScoreHistory(supabase),
       fetchMyProjectIds(supabase),
       fetchErsBundle(),
-    ]).then(([projRes, billRes, scoreRes, mgmtRes, myProjRes, ersRes]) => {
+      fetchCompanyContentPreview(supabase),
+    ]).then(([projRes, billRes, scoreRes, mgmtRes, myProjRes, ersRes, companyRes]) => {
       const projectsValue = projRes.status === "fulfilled" ? projRes.value : [];
       const billingValue = billRes.status === "fulfilled" ? billRes.value : {};
       setProjects(projectsValue);
@@ -101,6 +113,10 @@ export default function DashboardPage() {
 
       if (ersRes.status === "fulfilled") {
         setErsBundle(ersRes.value);
+      }
+
+      if (companyRes.status === "fulfilled") {
+        setCompanyContent(companyRes.value);
       }
 
       setLoading(false);
@@ -144,18 +160,54 @@ export default function DashboardPage() {
             signalMetrics={signalMetrics}
             myProjectIds={myProjectIds}
           />
-          <InstitutionReadinessList bundle={ersBundle} />
         </main>
         {/* /mypage の中身そっくり embed (= まさ #71 v3 確定、MyPageContent を再利用) */}
         <aside className="hidden xl:block min-w-0 border-l border-border/50 pl-4">
           <Suspense fallback={<div className="text-sm text-muted-foreground py-8 text-center">マイページ読み込み中…</div>}>
-            <MyPageContent />
+            <MyPageContent embedded showMonthlyProjects={false} />
           </Suspense>
         </aside>
+        <div className="xl:col-span-2">
+          <CompanyContentShelf
+            members={companyContent.members}
+            history={companyContent.history}
+            photos={companyContent.photos}
+          />
+        </div>
+        <div className="xl:col-span-2">
+          <InstitutionReadinessList bundle={ersBundle} />
+        </div>
       </div>
     </div>
   );
 }
+
+interface CompanyContentPreview {
+  members: CompanyMemberPreview[];
+  history: CompanyHistoryPreview[];
+  photos: CompanyPhotoPreview[];
+}
+
+const DASHBOARD_PHOTO_PREVIEW: CompanyPhotoPreview[] = [
+  {
+    id: "member-profile",
+    title: "Member profile",
+    meta: "Notion member photos / consent required",
+    status: "unknown",
+  },
+  {
+    id: "project-scenes",
+    title: "Project scenes",
+    meta: "PJ / event tags before public use",
+    status: "unknown",
+  },
+  {
+    id: "company-assets",
+    title: "Company assets",
+    meta: "Logo / deck / gallery candidates",
+    status: "internal_ok",
+  },
+];
 
 async function fetchManagementScoreHistory(supabase: ReturnType<typeof createClient>): Promise<DashboardManagementScoreSnapshot[]> {
   const { data, error } = await supabase
@@ -178,6 +230,73 @@ async function fetchManagementScoreHistory(supabase: ReturnType<typeof createCli
     });
   }
   return Array.from(latestByYm.values()).filter((row) => row.ym);
+}
+
+async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClient>): Promise<CompanyContentPreview> {
+  const [membersRes, projectMembersRes, eventsRes, venturesRes] = await Promise.all([
+    supabase
+      .from("members")
+      .select("member_id,code_name,member_name,role,status,is_officer,join_ym")
+      .eq("status", "active")
+      .order("is_officer", { ascending: false })
+      .order("join_ym", { ascending: true, nullsFirst: false })
+      .order("code_name", { ascending: true })
+      .limit(24),
+    supabase
+      .from("project_members")
+      .select("member_id,project_id")
+      .eq("is_active", true),
+    supabase
+      .from("project_events")
+      .select("id,project_id,occurred_on,kind,label")
+      .order("occurred_on", { ascending: false })
+      .limit(10),
+    supabase
+      .from("project_ventures")
+      .select("project_id,display_name,short_label,founded_at,amd_support_started_at")
+      .order("amd_support_started_at", { ascending: false, nullsFirst: false })
+      .limit(10),
+  ]);
+
+  const projectCounts = new Map<string, number>();
+  for (const row of projectMembersRes.data ?? []) {
+    const memberId = String(row.member_id ?? "");
+    if (!memberId) continue;
+    projectCounts.set(memberId, (projectCounts.get(memberId) ?? 0) + 1);
+  }
+
+  const members: CompanyMemberPreview[] = (membersRes.data ?? []).map((row) => ({
+    memberId: String(row.member_id),
+    codeName: String(row.code_name || row.member_id),
+    displayName: String(row.code_name || row.member_name || row.member_id),
+    role: row.role ? String(row.role) : null,
+    status: String(row.status || "active"),
+    projectCount: projectCounts.get(String(row.member_id)) ?? 0,
+  }));
+
+  const historyFromEvents: CompanyHistoryPreview[] = (eventsRes.data ?? []).map((row) => ({
+    id: String(row.id),
+    projectId: row.project_id ? String(row.project_id) : null,
+    occurredOn: row.occurred_on ? String(row.occurred_on) : null,
+    title: String(row.label || row.kind || "History event"),
+    kind: row.kind ? String(row.kind) : null,
+  }));
+
+  const historyFallback: CompanyHistoryPreview[] = (venturesRes.data ?? [])
+    .map((row) => ({
+      id: `venture-${row.project_id}`,
+      projectId: row.project_id ? String(row.project_id) : null,
+      occurredOn: row.amd_support_started_at || row.founded_at ? String(row.amd_support_started_at || row.founded_at) : null,
+      title: String(row.display_name || row.short_label || row.project_id || "Project"),
+      kind: row.amd_support_started_at ? "support_started" : "venture",
+    }))
+    .filter((row) => row.occurredOn);
+
+  return {
+    members,
+    history: historyFromEvents.length > 0 ? historyFromEvents : historyFallback,
+    photos: DASHBOARD_PHOTO_PREVIEW,
+  };
 }
 
 /** 自分が参画してる active PJ id Set (= ProjectStripe ソート優先用、軽量 fetch) */

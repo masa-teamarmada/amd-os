@@ -276,9 +276,6 @@ function displayableWeeklyActivity(row: {
 }) {
   const meta = row.raw_metadata || {};
   const rawSourceKind = typeof meta.source_kind === "string" ? meta.source_kind : row.source;
-  const sourceKind = rawSourceKind === "source_cache" && typeof meta.source_subkind === "string"
-    ? meta.source_subkind
-    : rawSourceKind;
   const sourceSubkind = typeof meta.source_subkind === "string" ? meta.source_subkind : "";
   if (rawSourceKind === "gmail" && sourceSubkind !== "sent" && sourceSubkind !== "draft") return false;
   return true;
@@ -443,7 +440,7 @@ async function resolveLoggedInMember(): Promise<Member> {
   const email = userData.user?.email?.toLowerCase();
   if (!email) throw new Error("ログインしてください");
 
-  let query = supabase
+  const query = supabase
     .from("members")
     .select("member_id, code_name, email, is_admin")
     .eq("email", email)
@@ -780,7 +777,13 @@ export default function MyPage() {
 
 // 2026-05-25 #71 v3: dashboard 右側で `<MyPageContent />` を再利用するため export 化。
 // mypage page.tsx 自体の Suspense 構造は変えない。
-export function MyPageContent() {
+export function MyPageContent({
+  embedded = false,
+  showMonthlyProjects = true,
+}: {
+  embedded?: boolean;
+  showMonthlyProjects?: boolean;
+} = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedMemberId = searchParams.get("memberId");
@@ -833,7 +836,7 @@ export function MyPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7] pb-16">
+    <div className={`${embedded ? "bg-[#f5f5f7] pb-4" : "min-h-screen bg-[#f5f5f7] pb-16"}`}>
       <div className="bg-white border-b border-[#e5e5e7] px-6 py-4">
         <div className="max-w-4xl mx-auto">
           <p className="text-[11px] font-semibold tracking-[0.16em] text-[#86868b] uppercase">My Page</p>
@@ -842,7 +845,7 @@ export function MyPageContent() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 mt-6 flex flex-col gap-5">
+      <div className={`${embedded ? "px-3 mt-4" : "max-w-4xl mx-auto px-4 mt-6"} flex flex-col gap-5`}>
         <section className="bg-white rounded-2xl border border-[#e5e5e7] p-4 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -893,7 +896,7 @@ export function MyPageContent() {
           }}
         />
 
-        {data.months.map((month) => {
+        {showMonthlyProjects && data.months.map((month) => {
           const isExpanded = month.isCurrent || expandedMonths.has(month.ym);
           const total = month.projects.reduce((sum, p) => sum + payableRewardAmount(p), 0);
           return (

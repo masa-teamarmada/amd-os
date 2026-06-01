@@ -104,7 +104,7 @@ pwa/
 
 | パス | 機能 |
 |---|---|
-| `/dashboard` | トップ。PJ 一覧 + 先手力維持ループの TODO + Atlas/Venture Map/MyPage/Admin への入口。下段の研究機関ERSリストで、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する |
+| `/dashboard` | トップ。PJ 一覧 + 先手力維持ループの TODO + Atlas/Venture Map/MyPage/Admin への入口。PJ一覧と右カラム MyPage embed の下に Company Content shelf を置き、メンバー / 沿革 / photo を3カラムで preview する。右カラムの MyPage embed は「今週やったこと」までに留め、月別PJカードは `/mypage` 単体にだけ残す。下段の研究機関ERSリストで、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する |
 | `/dashboard-cyber-3d-lab` | 実験中の3D Cyber Dashboard。`three.js` 空間上に X/F/M 軸、PJ球体、床面KPI、ホログラム投影コックピットを配置。仕様方針は [`cyber_hud_design_code.md`](cyber_hud_design_code.md) / [`cyber_dashboard_content_design.md`](cyber_dashboard_content_design.md) |
 | `/dashboard-cyber-glass-cube` | 廃案比較用の旧 Cyber Dashboard 第2案。ガラスキューブPJ群は情報構造がカオス化したため、今後の正本候補にはしない。公開モックは `/mock/dashboard-cyber-glass-cube` |
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |
