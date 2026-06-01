@@ -90,6 +90,12 @@
 
 ## 完了済みタスク
 
+- **Textbook public manuscript 07-14 bridge/redundancy expansion**
+  - お願いした内容: `pwa/bzm/public-manuscript/07`〜`14` を、00-06の scene-first / page-turner 方針に合わせて、橋渡しと重複整理を中心に改稿する。
+  - 背景: 07-14が中盤として、会社化判断、責任分担、リスク資本前準備、失敗学習、追い風、readiness軸、founder readiness、研究機関の苗床性を一冊の流れで読める必要があるため。
+  - 現状: worker branch `codex/textbook-public-manuscript-07-14-bridge-expansion` で、07-14本文と改稿note `pwa/bzm/textbook/runs/2026-06-01-public-manuscript-07-14-bridge-expansion.md` を更新。旧テンプレ章末を外し、記入済み表・ログ・現場scene・次章pullを追加。
+  - 残課題: Textbook司令塔レビュー待ち。次は15-21理論章をfield-first化し、07-14で見せた現場要素から理論へ入る。
+
 - **Textbook public-manuscript audit**
   - お願いした内容: 現行 `pwa/bzm/*.md` を販売本の原稿として見たとき、公開可能、公開向け書き換え必須、内部退避、匿名化ケース素材に分類する。
   - 背景: 公開本は「AMDすごい」では売れず、読者主語で Before Zero の現場課題を解く必要があるため。
