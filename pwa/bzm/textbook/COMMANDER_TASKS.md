@@ -7,12 +7,6 @@
 
 ## 未完タスク（優先順位順）
 
-- **公開本の前半をscene-firstで再構成する**
-  - お願いした内容: `pwa/bzm/public-manuscript/00`〜`06` を、正しい説明の連続ではなく、ひとつの読書体験として読ませるためのscene-first rewrite briefを作る。
-  - 背景: Publication narrative strategy workerで、現行公開原稿は会社紹介リスクはかなり減った一方、章ごとの説明が並び、前後の感情線と橋渡しがまだ弱いと診断したため。特に `GAPファンド -> スタートアップらしい発表 -> VCで外部経営者要求` は、1文の例ではなく本全体の中核シーンとして育てる必要がある。
-  - 現状: `pwa/bzm/textbook/runs/2026-06-01-publication-narrative-strategy.md` で、`05-gap-vc-ceo-function.md` を公開スパイン上のChapter 4へ昇格し、現行 `04-before-disclosure.md` をその後へ動かす再構成案、章別レビュー、Scene -> Tension -> Diagnosis -> Tool/Question -> Bridge の章型、次worker方針を整理済み。
-  - 残課題: まず本文大改稿ではなく、`00`〜`06` のrewrite briefを作る。prologue scene、Chapter 1 false acceleration、Chapter 2 actor clocks、Chapter 3 researcher isolation、Chapter 4 GAP/VC/CEO central hinge、Chapter 5 disclosure after outward push、Chapter 6 VC DD/incorporation timing pressure を1本の連続体として設計する。
-
 - **販売前提の公開本としてTextbookを再定義する**
   - お願いした内容: 現状の「AMDが見ていること」中心の内部教材から、日本中の研究機関の産連担当者、URA、研究者、スタートアップを目指す若者が買って読める本へ作り直す。
   - 背景: まさの指摘どおり、今の本文はAMD/まさ/内部運用語が強く、読者から見ると宣伝や内部資料に見えるリスクがあるため。宣伝は極小に抑え、読者の課題解決を主役にする。
@@ -56,6 +50,12 @@
   - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
 
 ## 完了済みタスク
+
+- **公開本の前半をscene-firstで再構成する**
+  - お願いした内容: `pwa/bzm/public-manuscript/00`〜`06` を、正しい説明の連続ではなく、ひとつの読書体験として読ませるためのscene-first rewrite briefを作る。
+  - 背景: Publication narrative strategy workerで、現行公開原稿は会社紹介リスクはかなり減った一方、章ごとの説明が並び、前後の感情線と橋渡しがまだ弱いと診断したため。特に `GAPファンド -> スタートアップらしい発表 -> VCで外部経営者要求` は、1文の例ではなく本全体の中核シーンとして育てる必要がある。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` を追加。新公開スパイン、`05-gap-vc-ceo-function.md` のChapter 4昇格、`04-before-disclosure.md` のChapter 5移動、章別の残す/移動/膨らませる/削る素材、`GAP/VC/CEO case zero` の再登場設計、次 manuscript rewrite worker 向けの具体指示を整理済み。本文大改稿は未実施。
+  - 残課題: 司令塔レビュー後、次workerで public manuscript `00`〜`06` を実際にscene-firstで改稿する。公開本文側では引き続き内部語・会社紹介化を禁止し、case zero は匿名composite sceneとして扱う。
 
 - **Textbook publication narrative strategy**
   - お願いした内容: 現行公開原稿 `00`〜`14` を販売本としての読み物品質でレビューし、本全体のナラティブ戦略、再構成案、章の書き方ルール、次タスクを作る。
