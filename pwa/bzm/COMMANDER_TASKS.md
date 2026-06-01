@@ -23,49 +23,55 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 
 ## 未完タスク（優先順位順）
 
-1. worker稼働監視 / heartbeat運用
+1. PRSモデルOS実装worker監督
+   - お願いした内容: PRSモデル（P×R×S / 9軸候補）を、現行7軸AMD Scoreの置換ではなく比較/シミュレーション層としてAMD OSに実装するworkerを監督する。
+   - 背景: まさから「PRSモデルをOSに実装してほしい」と依頼があり、BZM理論側ではまだ正式置換ではなく理論更新候補として扱うのが安全なため。
+   - 現状: worker thread `019e8252-577c-7d90-a4be-2789a1500d71` を切り出し済み。実装方針は「既存7軸を壊さない」「DB本体の大規模migrationはしない」「P/R_net未整備はmissingとして誤読防止」。
+   - 残課題: workerの着手報告・中間報告・完了報告を受け、BZMとして理論一貫性、過剰一般化、P/R_netの扱い、既存スコア置換の有無をレビューする。
+
+2. worker稼働監視 / heartbeat運用
    - お願いした内容: 未完タスクが残っている間は、worker全員が停止・完了・待機で次アクションもない状態を作らず、heartbeatで台帳とworker状態を確認する。
    - 背景: 未完タスクがあるのに司令塔側もworker側も動いていないと、BZM領域のcurrent truth管理とレビュー待ちが止まるため。
    - 現状: 全司令塔共通ルールとして採用。BZM司令塔の運用ルールへ反映済みで、次回worker promptにも入れる前提。
    - 残課題: 次にBZM workerを切る時、能動報告ゲートに加えてheartbeat確認・報告漏れ検知・未完タスク再起動方針をpromptへ明記する。
 
-2. Textbookとの役割分担
+3. Textbookとの役割分担
    - お願いした内容: Textbook司令塔とBZM司令塔の担当境界を明確にし、BZM司令塔は理論接続・過剰一般化防止・rubric/数式/用語変更ゲートを担当する。
    - 背景: TextbookはBZM理論解説だけでなく、Before Zeroの現場事例・経営判断・失敗・迷い・仮説修正・横断傾向を扱う実践テキストへ広げる方針になったため。
    - 現状: OS司令塔判断で暫定採用済み。Textbook司令塔は実践テキストの章構成・ケース配置・読者体験を主導し、BZM司令塔は理論整合を担当する。
    - 残課題: Textbook司令塔のPhase 1章構成worker成果を見て、BZM理論章に入れるべきものとTextbook実践章に置くべきものを分類する。
 
-3. Before Zero実践知をBZM理論へ入れる/入れない判断
+4. Before Zero実践知をBZM理論へ入れる/入れない判断
    - お願いした内容: L2⑩やTextbook側workerが出す実践知について、BZM理論へ取り込むか、ケースに留めるか、Textbook司令塔へ渡すかを判定する。
    - 背景: 実践知を全部BZM理論に入れると理論が肥大化し、逆に全部ケース扱いにするとBZMが現場から学習できないため。
    - 現状: 判断軸として `practice_kind='theory_case'`、`metadata_json.theory_case_kind='edge_case' | 'update_candidate'`、`theory_change_scope`、`bzm_review_required` を使う方針が確定。
    - 残課題: Textbook側のL2⑩ metadata migration/spec worker成果を待ち、local applierがBZM review未承認候補をskipできる仕様になっているか確認する。
 
-4. 理論変更候補のレビュー基準
+5. 理論変更候補のレビュー基準
    - お願いした内容: `theory_case_kind='update_candidate'` を、数式・rubric・重み・変数定義の更新候補として扱うためのレビュー基準を準備する。
    - 背景: 1つの事例だけでBZMの式やrubricを変えると、過去PJ retrofitや既存スコア解釈が壊れる可能性があるため。
    - 現状: 採用レビュー基準は `Evidence quality / Reusability / Mechanism clarity / Boundary clarity / Non-overfit / Actionability / Theory safety`。
    - 残課題: 複数PJ根拠、強い反例、観測可能性、既存理論で説明可能か、BZM附則更新要否をworkerレビュー時に必ず確認する。
 
-5. 過剰一般化防止
+6. 過剰一般化防止
    - お願いした内容: 現場事例を「理論更新」として過剰に一般化しないため、edge case / update candidate / operational knowhow の境界を守る。
    - 背景: Textbookが実践テキスト化すると強い事例ほど理論化したくなるが、BZMは再利用可能な判断原則だけを理論側に入れる必要があるため。
    - 現状: `theory_edge_case` / `theory_update_candidate` は独立practice_kindにせず、`practice_kind='theory_case'` のmetadataで表現する方針が確定。
    - 残課題: `relationship_playbook` / `field_transition` / `decision_branch` で足りるものを `theory_case` にしていないか、worker成果物ごとに差し戻し判定する。
 
-6. Textbook側から来る理論関連候補のレビュー待ち
+7. Textbook側から来る理論関連候補のレビュー待ち
    - お願いした内容: Textbook司令塔配下workerから来る `theory_case` 関連候補をBZM司令塔でレビューする。
    - 背景: Textbook司令塔には、Textbook Phase 1 chapter skeleton と L2⑩ metadata migration/spec worker が切られているため。
    - 現状: BZM司令塔は直接編集せず、worker成果到着待ち。レビュー対象は `theory_case` / `theory_case_kind` / `theory_change_scope` / `bzm_review_required`。
    - 残課題: 成果物が来たら、BZM review required の漏れ、local applier skip条件、BZM式・rubric・用語への影響を確認し、必要ならworkerへ差し戻す。
 
-7. FRL_cap_amd historical整理
+8. FRL_cap_amd historical整理
    - お願いした内容: 終了済みPJやAMD関与終了後のPJについて、current active rowではなく当時のtimeline-specific rowで `frl_cap_amd` を扱う方針を整理する。
    - 背景: `frl_cap_amd` はAMD提供価値の定量化の本丸だが、ended PJを現在状態だけで見ると当時のAMD寄与を誤判定するため。
    - 現状: p07 LST / p20 CX / p21 SX はfirst pass反映済み。p06 CTBはfrozenでAMD activeなし、寄与0に補正済み。p04 KT / p09 JC / p11 BWE は保留。
    - 残課題: historical rowの対象時点、根拠、BZM/Textbook上の扱いを整理するworkerを切る。
 
-8. BZM 7軸モデルとP×R×S/9軸候補の整合
+9. BZM 7軸モデルとP×R×S/9軸候補の整合
    - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
    - 背景: 現行教科書は7軸中心だが、知識側にはP×R×S再構成と収益化指数の議論があり、Textbook実践知と結びつきやすい論点になっているため。
    - 現状: まだBZM教科書への本格統合は未完。理論更新候補として扱うべき状態。
