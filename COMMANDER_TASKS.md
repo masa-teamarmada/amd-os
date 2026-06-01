@@ -306,7 +306,8 @@
   - freee PL売上、入金確認済み、支払通知書送付済み、実績差引、通常月キャッシュフロー、最低現金残高、未確認アラートは出している。
   - CTB 202604と202605支払通知書のOS反映も実施済み。
   - commit `44bb784 feat(management): show actual cash outlook` が `origin/main` に入り、Vercel production `amd-os-pwa` へdeploy済み。
-  - 差し戻し対応では、キャッシュ判断パネルを補助として残しつつ、下部の `GasMonthlySimulationPanel` を項目ごとの `予算` / `実績` / `差額` subrow構造に直した。
+  - 差し戻し対応では、キャッシュ判断パネルを補助として残しつつ、下部の `GasMonthlySimulationPanel` を月ごとに `予算` / `実績` / `差分` の3列が横並びになる構造に直した。
+  - 数字色は、予算をグレー、実績を黒、差分をプラス水色・マイナスピンクで表示する。
   - 売上計、入金、売上原価、粗利、固定費、社保、臨時収入/支出、営業利益、融資実行、借入返済、税金、月次CF、支払い、キャッシュを同じ表内で比較できる。
   - 未来月は実績欄を `未確定`、過去月で実績sourceが無い欄は `未反映`、source未接続の項目は `未連携` として表示する。
   - production alias `https://amd-os-pwa.vercel.app` のReady deployment `dpl_G1R6rxpaybUPiJ6vAa7oQFdWdviM` で、ログイン済みChromeから `/management-score` を確認済み。

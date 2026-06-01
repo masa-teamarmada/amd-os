@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BarController,
   BarElement,
@@ -316,11 +316,17 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
       <td className="gas-detail-label">{label}</td>
       {rows.map((row) => {
         const value = getValue(row);
-        return (
-          <td key={`${label}_${row.ym}`} className="num gas-detail-num">
+        return [
+          <td key={`${label}_${row.ym}_budget`} className="num gas-detail-num budget-num">
             {value > 0 ? fmt(value) : "-"}
-          </td>
-        );
+          </td>,
+          <td key={`${label}_${row.ym}_actual`} className="num gas-detail-num table-blank">
+            -
+          </td>,
+          <td key={`${label}_${row.ym}_variance`} className="num gas-detail-num table-blank">
+            -
+          </td>,
+        ];
       })}
     </tr>
   );
@@ -361,13 +367,25 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
 
   const diffDisplay = (row: GasMonthlyRow, budget: number, actual: number | null | undefined) => {
     if (actualValueState(row, actual) !== "actual") return "-";
-    return fmt((actual ?? 0) - budget);
+    const diff = (actual ?? 0) - budget;
+    return diff > 0 ? `+${fmt(diff)}` : fmt(diff);
   };
 
   const actualCellClass = (row: GasMonthlyRow, value: number | null | undefined, baseClass = "") => {
     const state = actualValueState(row, value);
-    const numeric = value ?? 0;
-    return ["num", baseClass, state !== "actual" ? "actual-pending" : "", state === "actual" && numeric < 0 ? "negative" : ""]
+    return ["num", baseClass, state !== "actual" ? "actual-pending" : ""].filter(Boolean).join(" ");
+  };
+
+  const varianceCellClass = (row: GasMonthlyRow, actual: number | null | undefined, budget: number) => {
+    const state = actualValueState(row, actual);
+    const diff = (actual ?? 0) - budget;
+    return [
+      "num",
+      "variance-num",
+      state !== "actual" ? "actual-pending" : "",
+      state === "actual" && diff > 0 ? "variance-positive" : "",
+      state === "actual" && diff < 0 ? "variance-negative" : "",
+    ]
       .filter(Boolean)
       .join(" ");
   };
@@ -379,7 +397,6 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
     actual,
     source,
     bold,
-    highlight,
     refund,
     onToggle,
   }: {
@@ -393,60 +410,31 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
     refund?: boolean;
     onToggle?: () => void;
   }) => (
-    <Fragment key={id}>
-      <tr className="budget-row">
-        <td className={`group-label ${bold ? "bold-label" : ""} ${onToggle ? "toggleable" : ""}`} onClick={onToggle}>
-          <span>{label}</span>
-          <span className="row-kind">予算</span>
-        </td>
-        {rows.map((row) => {
-          const value = budget(row);
-          const display = refund && value < 0 ? `${fmt(Math.abs(value))}（還付）` : fmt(value);
-          return (
-            <td
-              key={`${id}_budget_${row.ym}`}
-              className={`num ${highlight && value < 0 ? "negative" : ""} ${refund && value < 0 ? "refund" : ""} ${bold ? "bold-label" : ""}`}
-            >
-              {display}
-            </td>
-          );
-        })}
-      </tr>
-      <tr className="actual-row">
-        <td className="actual-sub-label">
-          <span>実績</span>
-          <span className="source-chip">{source}</span>
-        </td>
-        {rows.map((row) => {
-          const value = actual?.(row) ?? null;
-          return (
-            <td key={`${id}_actual_${row.ym}`} className={actualCellClass(row, value, "gas-actual-num")}>
-              {actualDisplay(row, value, refund)}
-            </td>
-          );
-        })}
-      </tr>
-      <tr className="variance-row">
-        <td className="variance-sub-label">
-          <span>差額</span>
-          <span className="source-chip">実績 - 予算</span>
-        </td>
-        {rows.map((row) => {
-          const budgetValue = budget(row);
-          const actualValue = actual?.(row) ?? null;
-          const state = actualValueState(row, actualValue);
-          const diff = (actualValue ?? 0) - budgetValue;
-          return (
-            <td
-              key={`${id}_variance_${row.ym}`}
-              className={`num variance-num ${state !== "actual" ? "actual-pending" : ""} ${state === "actual" && diff < 0 ? "negative" : ""}`}
-            >
-              {diffDisplay(row, budgetValue, actualValue)}
-            </td>
-          );
-        })}
-      </tr>
-    </Fragment>
+    <tr key={id} className={`comparison-row ${bold ? "comparison-row-bold" : ""}`}>
+      <td className={`group-label ${bold ? "bold-label" : ""} ${onToggle ? "toggleable" : ""}`} onClick={onToggle}>
+        <span>{label}</span>
+        <span className="source-chip">{source}</span>
+      </td>
+      {rows.flatMap((row) => {
+        const budgetValue = budget(row);
+        const actualValue = actual?.(row) ?? null;
+        const budgetDisplay = refund && budgetValue < 0 ? `${fmt(Math.abs(budgetValue))}（還付）` : fmt(budgetValue);
+        return [
+          <td
+            key={`${id}_budget_${row.ym}`}
+            className={`num budget-num ${bold ? "bold-label" : ""}`}
+          >
+            {budgetDisplay}
+          </td>,
+          <td key={`${id}_actual_${row.ym}`} className={actualCellClass(row, actualValue, "gas-actual-num")}>
+            {actualDisplay(row, actualValue, refund)}
+          </td>,
+          <td key={`${id}_variance_${row.ym}`} className={varianceCellClass(row, actualValue, budgetValue)}>
+            {diffDisplay(row, budgetValue, actualValue)}
+          </td>,
+        ];
+      })}
+    </tr>
   );
 
   return (
@@ -558,12 +546,23 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           border-bottom: 1px solid #e8e8e8;
           white-space: nowrap;
         }
+        .gas-sim-panel :global(td) {
+          padding: 5px 8px;
+          border-bottom: 1px solid #e8e8e8;
+          white-space: nowrap;
+        }
         tr:hover td {
           background: #f0f4ff;
         }
         .num {
           text-align: right;
           font-family: "Consolas", monospace;
+          font-variant-numeric: tabular-nums;
+        }
+        .gas-sim-panel :global(.num) {
+          text-align: right;
+          font-family: "Consolas", monospace;
+          font-variant-numeric: tabular-nums;
         }
         .head-item {
           position: sticky;
@@ -573,14 +572,39 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           background: #1b3a6b;
           min-width: 120px;
           text-align: left;
+          vertical-align: middle;
         }
         .head-month {
           position: sticky;
           top: 0;
           z-index: 2;
           background: #1b3a6b;
-          min-width: 90px;
+          min-width: 210px;
+          text-align: center;
+          border-left: 1px solid rgba(255, 255, 255, 0.16);
+        }
+        .head-sub {
+          position: sticky;
+          top: 30px;
+          z-index: 2;
+          min-width: 70px;
           text-align: right;
+          font-size: 10px;
+          letter-spacing: 0;
+          border-top: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .head-budget {
+          background: #243f67;
+          color: #cfd6df;
+          border-left: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .head-actual {
+          background: #1b3a6b;
+          color: #fff;
+        }
+        .head-variance {
+          background: #213552;
+          color: #dce8f4;
         }
         .toggle-label {
           position: sticky;
@@ -590,7 +614,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           font-weight: bold;
           cursor: pointer;
         }
-        .group-label {
+        .gas-sim-panel :global(.group-label) {
           position: sticky;
           left: 0;
           z-index: 1;
@@ -598,45 +622,20 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           border-top: 2px solid #d8e0ea;
           font-weight: 700;
         }
-        .group-label.toggleable {
+        .gas-sim-panel :global(.group-label.toggleable) {
           cursor: pointer;
         }
-        .group-label span,
-        .actual-sub-label span,
-        .variance-sub-label span {
+        .gas-sim-panel :global(.group-label span) {
           display: inline-flex;
           align-items: center;
         }
-        .row-kind {
-          margin-left: 8px;
-          color: #1b3a6b;
-          font-size: 10px;
-          font-weight: 700;
-        }
-        .budget-row td:not(:first-child) {
+        .gas-sim-panel :global(.comparison-row td) {
           border-top: 2px solid #d8e0ea;
+        }
+        .gas-sim-panel :global(.comparison-row-bold td:not(:first-child)) {
           font-weight: 700;
         }
-        .actual-row td,
-        .variance-row td {
-          font-size: 11px;
-        }
-        .actual-sub-label,
-        .variance-sub-label {
-          position: sticky;
-          left: 0;
-          z-index: 1;
-          padding-left: 22px;
-        }
-        .actual-sub-label {
-          background: #f4fbf8;
-          color: #0f6b45;
-        }
-        .variance-sub-label {
-          background: #fff9ef;
-          color: #8a5a00;
-        }
-        .source-chip {
+        .gas-sim-panel :global(.source-chip) {
           margin-left: 8px;
           border: 1px solid currentColor;
           border-radius: 999px;
@@ -645,11 +644,22 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           font-weight: 700;
           opacity: 0.78;
         }
-        .variance-num {
-          background: #fff9ef;
-          color: #8a5a00;
+        .gas-sim-panel :global(.budget-num) {
+          color: #7f8792;
         }
-        .actual-pending {
+        .gas-sim-panel :global(.table-blank) {
+          color: #b5bbc4;
+        }
+        .gas-sim-panel :global(.variance-num) {
+          color: #7f8792;
+        }
+        .gas-sim-panel :global(.variance-positive) {
+          color: #118ab2;
+        }
+        .gas-sim-panel :global(.variance-negative) {
+          color: #d84d7a;
+        }
+        .gas-sim-panel :global(.actual-pending) {
           color: #8a8f98;
           font-family: "Yu Gothic", "Meiryo", sans-serif;
           font-size: 10px;
@@ -660,10 +670,10 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           z-index: 1;
           background: #fff;
         }
-        .bold-label {
+        .gas-sim-panel :global(.bold-label) {
           font-weight: bold;
         }
-        .gas-detail-label {
+        .gas-sim-panel :global(.gas-detail-label) {
           position: sticky;
           left: 0;
           z-index: 1;
@@ -672,8 +682,8 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           color: #555;
           font-size: 11px;
         }
-        .gas-detail-num {
-          color: #555;
+        .gas-sim-panel :global(.gas-detail-num) {
+          color: #7f8792;
           font-size: 11px;
         }
         .gas-actual-label {
@@ -685,10 +695,9 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           color: #0f6b45;
           font-size: 11px;
         }
-        .gas-actual-num {
-          color: #0f6b45;
+        .gas-sim-panel :global(.gas-actual-num) {
+          color: #1a1a1a;
           font-size: 11px;
-          background: #f4fbf8;
         }
         .gas-payment-label {
           position: sticky;
@@ -704,7 +713,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           font-size: 11px;
           background: #f5f8ff;
         }
-        .gas-cost-label {
+        .gas-sim-panel :global(.gas-cost-label) {
           position: sticky;
           left: 0;
           z-index: 1;
@@ -713,20 +722,20 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           color: #c0392b;
           font-size: 10px;
         }
-        .gas-cost-num {
-          color: #c0392b;
+        .gas-sim-panel :global(.gas-cost-num) {
+          color: #7f8792;
           font-size: 10px;
         }
-        .indent-label {
+        .gas-sim-panel :global(.indent-label) {
           padding-left: 20px;
           color: #888;
           font-size: 11px;
         }
-        .negative {
-          color: #c0392b;
+        .gas-sim-panel :global(.negative) {
+          color: #d84d7a;
         }
-        .refund {
-          color: #2980b9;
+        .gas-sim-panel :global(.refund) {
+          color: #118ab2;
         }
         @media (max-width: 900px) {
           .sim-top-row {
@@ -788,12 +797,27 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
         <table>
           <thead>
             <tr>
-              <th className="head-item">項目</th>
+              <th className="head-item" rowSpan={2}>
+                項目
+              </th>
               {rows.map((row) => (
-                <th key={row.ym} className="head-month">
+                <th key={row.ym} className="head-month" colSpan={3}>
                   {fmtYm(row.ym)}
                 </th>
               ))}
+            </tr>
+            <tr>
+              {rows.flatMap((row) => [
+                <th key={`${row.ym}_budget_head`} className="head-sub head-budget">
+                  予算
+                </th>,
+                <th key={`${row.ym}_actual_head`} className="head-sub head-actual">
+                  実績
+                </th>,
+                <th key={`${row.ym}_variance_head`} className="head-sub head-variance">
+                  差分
+                </th>,
+              ])}
             </tr>
           </thead>
           <tbody>
@@ -824,11 +848,17 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
                       const det = row.pjDetails[pi] || { revenue: 0, externalMember: 0 };
                       const closerExt = det.revenue > 0 && !pj.closerInternal ? Math.round(det.revenue * (result.params.rateCloser ?? 0.05)) : 0;
                       const cost = (det.externalMember || 0) + closerExt;
-                      return (
-                        <td key={`${pj.projectId}_cost_${row.ym}`} className="num gas-cost-num">
+                      return [
+                        <td key={`${pj.projectId}_cost_${row.ym}_budget`} className="num gas-cost-num budget-num">
                           {cost > 0 ? `-${fmt(cost)}` : "-"}
-                        </td>
-                      );
+                        </td>,
+                        <td key={`${pj.projectId}_cost_${row.ym}_actual`} className="num gas-cost-num table-blank">
+                          -
+                        </td>,
+                        <td key={`${pj.projectId}_cost_${row.ym}_variance`} className="num gas-cost-num table-blank">
+                          -
+                        </td>,
+                      ];
                     })}
                   </tr>
                 );
