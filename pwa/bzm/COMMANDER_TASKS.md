@@ -75,8 +75,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 9. BZM 7軸モデルとP×R×S/9軸候補の整合
    - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
    - 背景: 現行教科書は7軸中心だが、知識側にはP×R×S再構成と収益化指数の議論があり、Textbook実践知と結びつきやすい論点になっているため。
-   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft、未確認flag source map、L2 source inventory、finance/cash source pack は作成済み。finance/cash source pack は、p07/p20/p21/p06/p11の売上・受注・粗利・運営コスト・入金サイト・助成金・政策資金のsource候補を整理し、助成金/政策資金をR_net粗利へ加算しない、`billing_cycles` をAMD請求として別ラベル化する前提を守っているためBZMレビュー採用。次の `P/R_net billing vs SU revenue join map` worker `019e8439-2ac5-7252-ad6c-3f917b265987` がActive。
-   - 残課題: billing vs SU revenue join map workerで、finance/cash候補を `su_revenue_candidate` / `amd_billing_or_research_contract` / `survival_cash_or_grant` に分け、`usable source` / `review-only` / `exclude from PRS` を付ける。次は bridge/validation、damage guard、lane-specific survival、public/knowledge research、BZM judgement brief の順に進めるか判断する。0-9値表、DB化、過去score再計算はまだしない。
+   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft、未確認flag source map、L2 source inventory、finance/cash source pack、billing vs SU revenue join map は作成済み。join map は、`research_contract_cash` を `amd_billing_or_research_contract` の下位ラベルとして分け、p20 NIMS / p21 愛媛大学・PSII / p11 SIPをSU本体売上から恒久分離し、`billing_cycles` を原則 `exclude from PRS` とする線を明確にしたためBZMレビュー採用。次の `PRS evidence cards v2 finance classification refresh` worker `019e843d-eae5-7e23-8b6b-984f4ac3da71` がActive。
+   - 残課題: evidence cards v2 workerで、既存9PJ evidence cardsへ `classification` / `evidence_label` / `prs_use` / `source_status` / `double_count_guard` を戻す。次は bridge/validation、damage guard、lane-specific survival、public/knowledge research、BZM judgement brief の順に進めるか判断する。0-9値表、DB化、過去score再計算はまだしない。
 
 ## 完了済みタスク
 
