@@ -37,8 +37,8 @@
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
-  - 現状: `Textbook public manuscript 00-06 scene-first rewrite` workerへ品質バー追加指示を送信済み。さらに `Textbook editorial critic page-turner audit` と `Textbook source mining field-knowledge harvest` を切り出し済み。
-  - 残課題: 2 workerの成果を司令塔レビューし、00-06 rewriteへ差し戻す。以後の章も同じ編集循環で、魅力度と内容量の両方を上げる。
+  - 現状: `Textbook public manuscript 00-14 continuous page-turner rewrite` workerが、editor v2 / source mining v3 / 00-06 / 07-14 の成果を統合し、`pwa/bzm/public-manuscript/00*.md`〜`14*.md` と `pwa/bzm/textbook/runs/2026-06-01-public-manuscript-00-14-continuous-page-turner.md` を更新。5つのrecurring case thread、読者導線、04/05 route rename debt、自己チェックをrun noteに記録済み。
+  - 残課題: 司令塔レビューで00-14の連続読書感、Ch11/12のglossary drift、Ch05/09の開示・資本面談scene厚み、Ch10の関係修復scene、Ch14のinstitution self-diagnostic感を確認する。問題なければ次は冷読者personaレビュー、またはCh15以降のtheory field-first展開へ進む。
 
 - **public manuscript 00-06 scene-first rewrite**
   - お願いした内容: 北極星と `2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` に沿って、`pwa/bzm/public-manuscript/00`〜`06` を読み物としてつながる本文へ改稿する。
