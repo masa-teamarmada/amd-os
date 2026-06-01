@@ -29,6 +29,7 @@
 |---|---|
 | 認証 | [google_signin.md](google_signin.md) |
 | 仕様ドリフト防止 | [SPEC_GOVERNANCE.md](SPEC_GOVERNANCE.md) / [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) |
+| Notion コンテンツ移植 | [notion_content_migration.md](notion_content_migration.md) — member list / history / photo を AMD OS に移すための UIUX・権限・データ設計案 |
 | Atlas (判断の地図) | [atlas.md](atlas.md) |
 | Atlas 政策シグナル | [policy_signals.md](policy_signals.md) |
 | 進捗推定 (Tsukuyomi MS 推定) | [progress_estimation.md](progress_estimation.md) |
