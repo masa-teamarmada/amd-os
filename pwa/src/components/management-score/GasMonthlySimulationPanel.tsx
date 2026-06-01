@@ -51,6 +51,7 @@ export type GasFixedCostDetail = {
 
 export type GasMonthlyRow = {
   ym: number;
+  actualStatus: "actual" | "missing" | "future";
   revenue: number;
   actualRevenue: number;
   confirmedDepositsGross: number;
@@ -69,6 +70,8 @@ export type GasMonthlyRow = {
   actualCtaxPayment: number;
   corpTaxPayment: number;
   actualCorpTaxPayment: number;
+  actualSpotIncome: number;
+  actualSpotExpense: number;
   netCashFlow: number;
   actualNetCashFlow: number;
   payoutNoticeNetTotal: number;
@@ -125,10 +128,13 @@ function mergeActualRows(result: GasSimulationResult, baselineRows: GasMonthlyRo
       const actual = actualByYm.get(row.ym);
       return {
         ...row,
+        actualStatus: actual?.actualStatus ?? "future",
         actualRevenue: actual?.actualRevenue ?? 0,
         confirmedDepositsGross: actual?.confirmedDepositsGross ?? 0,
         actualFixedCost: actual?.actualFixedCost ?? 0,
         actualSocialIns: actual?.actualSocialIns ?? 0,
+        actualSpotIncome: actual?.actualSpotIncome ?? 0,
+        actualSpotExpense: actual?.actualSpotExpense ?? 0,
         actualLoanPayment: actual?.actualLoanPayment ?? 0,
         actualCtaxPayment: actual?.actualCtaxPayment ?? 0,
         actualCorpTaxPayment: actual?.actualCorpTaxPayment ?? 0,
@@ -319,6 +325,130 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
     </tr>
   );
 
+  const actualCashOutflow = (row: GasMonthlyRow) =>
+    Math.max(
+      0,
+      Math.round(row.payoutNoticeSentNetTotal * 1.1) +
+        row.actualFixedCost +
+        row.actualSocialIns +
+        row.actualSpotExpense -
+        row.actualSpotIncome +
+        row.actualLoanPayment +
+        row.actualCtaxPayment +
+        row.actualCorpTaxPayment
+    );
+
+  const actualGrossProfit = (row: GasMonthlyRow) => row.actualRevenue - row.payoutNoticeSentNetTotal;
+  const actualOperatingProfit = (row: GasMonthlyRow) =>
+    actualGrossProfit(row) - row.actualFixedCost - row.actualSocialIns + row.actualSpotIncome - row.actualSpotExpense;
+
+  const actualValueState = (row: GasMonthlyRow, value: number | null | undefined) => {
+    if (value == null) return "unlinked";
+    if (row.actualStatus === "future") return "future";
+    if (row.actualStatus === "missing" && value === 0) return "missing";
+    return "actual";
+  };
+
+  const actualDisplay = (row: GasMonthlyRow, value: number | null | undefined, refund = false) => {
+    const state = actualValueState(row, value);
+    if (state === "future") return "未確定";
+    if (state === "missing") return "未反映";
+    if (state === "unlinked") return "未連携";
+    const numeric = value ?? 0;
+    if (refund && numeric < 0) return `${fmt(Math.abs(numeric))}（還付）`;
+    return fmt(numeric);
+  };
+
+  const diffDisplay = (row: GasMonthlyRow, budget: number, actual: number | null | undefined) => {
+    if (actualValueState(row, actual) !== "actual") return "-";
+    return fmt((actual ?? 0) - budget);
+  };
+
+  const actualCellClass = (row: GasMonthlyRow, value: number | null | undefined, baseClass = "") => {
+    const state = actualValueState(row, value);
+    const numeric = value ?? 0;
+    return ["num", baseClass, state !== "actual" ? "actual-pending" : "", state === "actual" && numeric < 0 ? "negative" : ""]
+      .filter(Boolean)
+      .join(" ");
+  };
+
+  const renderComparisonGroup = ({
+    id,
+    label,
+    budget,
+    actual,
+    source,
+    bold,
+    highlight,
+    refund,
+    onToggle,
+  }: {
+    id: string;
+    label: string;
+    budget: (row: GasMonthlyRow) => number;
+    actual?: (row: GasMonthlyRow) => number | null;
+    source: string;
+    bold?: boolean;
+    highlight?: boolean;
+    refund?: boolean;
+    onToggle?: () => void;
+  }) => (
+    <Fragment key={id}>
+      <tr className="budget-row">
+        <td className={`group-label ${bold ? "bold-label" : ""} ${onToggle ? "toggleable" : ""}`} onClick={onToggle}>
+          <span>{label}</span>
+          <span className="row-kind">予算</span>
+        </td>
+        {rows.map((row) => {
+          const value = budget(row);
+          const display = refund && value < 0 ? `${fmt(Math.abs(value))}（還付）` : fmt(value);
+          return (
+            <td
+              key={`${id}_budget_${row.ym}`}
+              className={`num ${highlight && value < 0 ? "negative" : ""} ${refund && value < 0 ? "refund" : ""} ${bold ? "bold-label" : ""}`}
+            >
+              {display}
+            </td>
+          );
+        })}
+      </tr>
+      <tr className="actual-row">
+        <td className="actual-sub-label">
+          <span>実績</span>
+          <span className="source-chip">{source}</span>
+        </td>
+        {rows.map((row) => {
+          const value = actual?.(row) ?? null;
+          return (
+            <td key={`${id}_actual_${row.ym}`} className={actualCellClass(row, value, "gas-actual-num")}>
+              {actualDisplay(row, value, refund)}
+            </td>
+          );
+        })}
+      </tr>
+      <tr className="variance-row">
+        <td className="variance-sub-label">
+          <span>差額</span>
+          <span className="source-chip">実績 - 予算</span>
+        </td>
+        {rows.map((row) => {
+          const budgetValue = budget(row);
+          const actualValue = actual?.(row) ?? null;
+          const state = actualValueState(row, actualValue);
+          const diff = (actualValue ?? 0) - budgetValue;
+          return (
+            <td
+              key={`${id}_variance_${row.ym}`}
+              className={`num variance-num ${state !== "actual" ? "actual-pending" : ""} ${state === "actual" && diff < 0 ? "negative" : ""}`}
+            >
+              {diffDisplay(row, budgetValue, actualValue)}
+            </td>
+          );
+        })}
+      </tr>
+    </Fragment>
+  );
+
   return (
     <section className="gas-sim-panel">
       <style jsx>{`
@@ -459,6 +589,70 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           background: #fff;
           font-weight: bold;
           cursor: pointer;
+        }
+        .group-label {
+          position: sticky;
+          left: 0;
+          z-index: 1;
+          background: #fff;
+          border-top: 2px solid #d8e0ea;
+          font-weight: 700;
+        }
+        .group-label.toggleable {
+          cursor: pointer;
+        }
+        .group-label span,
+        .actual-sub-label span,
+        .variance-sub-label span {
+          display: inline-flex;
+          align-items: center;
+        }
+        .row-kind {
+          margin-left: 8px;
+          color: #1b3a6b;
+          font-size: 10px;
+          font-weight: 700;
+        }
+        .budget-row td:not(:first-child) {
+          border-top: 2px solid #d8e0ea;
+          font-weight: 700;
+        }
+        .actual-row td,
+        .variance-row td {
+          font-size: 11px;
+        }
+        .actual-sub-label,
+        .variance-sub-label {
+          position: sticky;
+          left: 0;
+          z-index: 1;
+          padding-left: 22px;
+        }
+        .actual-sub-label {
+          background: #f4fbf8;
+          color: #0f6b45;
+        }
+        .variance-sub-label {
+          background: #fff9ef;
+          color: #8a5a00;
+        }
+        .source-chip {
+          margin-left: 8px;
+          border: 1px solid currentColor;
+          border-radius: 999px;
+          padding: 1px 6px;
+          font-size: 9px;
+          font-weight: 700;
+          opacity: 0.78;
+        }
+        .variance-num {
+          background: #fff9ef;
+          color: #8a5a00;
+        }
+        .actual-pending {
+          color: #8a8f98;
+          font-family: "Yu Gothic", "Meiryo", sans-serif;
+          font-size: 10px;
         }
         .plain-label {
           position: sticky;
@@ -603,32 +797,23 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td className="toggle-label" onClick={() => switchToggle("revenue")}>
-                {toggleState.revenue ? "▼" : "▶"} 売上計
-              </td>
-              {rows.map((row) => (
-                <td key={`revenue_${row.ym}`} className={`num ${row.revenue < 0 ? "negative" : ""}`} style={{ fontWeight: "bold" }}>
-                  {fmt(row.revenue)}
-                </td>
-              ))}
-            </tr>
-            <tr>
-              <td className="gas-actual-label">売上実績 freee PL</td>
-              {rows.map((row) => (
-                <td key={`actual_revenue_${row.ym}`} className="num gas-actual-num">
-                  {row.actualRevenue > 0 ? fmt(row.actualRevenue) : "-"}
-                </td>
-              ))}
-            </tr>
-            <tr>
-              <td className="gas-payment-label">入金確認済 税込</td>
-              {rows.map((row) => (
-                <td key={`confirmed_deposits_${row.ym}`} className="num gas-payment-num">
-                  {row.confirmedDepositsGross > 0 ? fmt(row.confirmedDepositsGross) : "-"}
-                </td>
-              ))}
-            </tr>
+            {renderComparisonGroup({
+              id: "revenue",
+              label: `${toggleState.revenue ? "▼" : "▶"} 売上計`,
+              budget: (row) => row.revenue,
+              actual: (row) => row.actualRevenue,
+              source: "freee PL",
+              bold: true,
+              onToggle: () => switchToggle("revenue"),
+            })}
+            {renderComparisonGroup({
+              id: "cash_in",
+              label: "入金",
+              budget: (row) => row.cashInflow,
+              actual: (row) => row.confirmedDepositsGross,
+              source: "billing確認済(税込)",
+              bold: true,
+            })}
             {toggleState.revenue &&
               pjList.flatMap((pj, pi) => {
                 const revenueRow = detailRow(pj.projectName, (row) => row.pjDetails[pi]?.revenue || 0);
@@ -650,25 +835,24 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
                 return [revenueRow, costRow];
               })}
 
-            <tr>
-              <td className="plain-label">売上原価</td>
-              {rows.map((row) => (
-                <td key={`cost_${row.ym}`} className="num">
-                  {fmt(row.costMember + row.costCloser)}
-                </td>
-              ))}
-            </tr>
+            {renderComparisonGroup({
+              id: "cost",
+              label: "売上原価",
+              budget: (row) => row.costMember + row.costCloser,
+              actual: (row) => row.payoutNoticeSentNetTotal,
+              source: "支払通知書送付済(税抜)",
+            })}
 
-            <tr>
-              <td className="toggle-label" onClick={() => switchToggle("grossProfit")}>
-                {toggleState.grossProfit ? "▼" : "▶"} 粗利
-              </td>
-              {rows.map((row) => (
-                <td key={`gross_${row.ym}`} className={`num ${row.grossProfit < 0 ? "negative" : ""}`} style={{ fontWeight: "bold" }}>
-                  {fmt(row.grossProfit)}
-                </td>
-              ))}
-            </tr>
+            {renderComparisonGroup({
+              id: "gross_profit",
+              label: `${toggleState.grossProfit ? "▼" : "▶"} 粗利`,
+              budget: (row) => row.grossProfit,
+              actual: (row) => actualGrossProfit(row),
+              source: "freee PL - 支払通知",
+              bold: true,
+              highlight: true,
+              onToggle: () => switchToggle("grossProfit"),
+            })}
             {toggleState.grossProfit &&
               pjList.map((pj, pi) =>
                 detailRow(pj.projectName, (row) => {
@@ -678,24 +862,15 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
                 })
               )}
 
-            <tr>
-              <td className="toggle-label" onClick={() => switchToggle("fixedCost")}>
-                {toggleState.fixedCost ? "▼" : "▶"} 固定費
-              </td>
-              {rows.map((row) => (
-                <td key={`fixed_${row.ym}`} className={`num ${row.fixedCost < 0 ? "negative" : ""}`} style={{ fontWeight: "bold" }}>
-                  {fmt(row.fixedCost)}
-                </td>
-              ))}
-            </tr>
-            <tr>
-              <td className="gas-actual-label">固定費実績 freee</td>
-              {rows.map((row) => (
-                <td key={`actual_fixed_${row.ym}`} className="num gas-actual-num">
-                  {row.actualFixedCost > 0 ? fmt(row.actualFixedCost) : "-"}
-                </td>
-              ))}
-            </tr>
+            {renderComparisonGroup({
+              id: "fixed_cost",
+              label: `${toggleState.fixedCost ? "▼" : "▶"} 固定費`,
+              budget: (row) => row.fixedCost,
+              actual: (row) => row.actualFixedCost,
+              source: "freee PL",
+              bold: true,
+              onToggle: () => switchToggle("fixedCost"),
+            })}
             {toggleState.fixedCost &&
               Array.from(new Set(rows.flatMap((row) => row.fixedCostDetails.map((detail) => detail.name)))).map((name) =>
                 detailRow(name, (row) => row.fixedCostDetails.find((detail) => detail.name === name)?.amount || 0)
@@ -703,73 +878,41 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
 
             {[
               { label: "社保", key: "socialIns" as const, actualKey: "actualSocialIns" as const },
-              { label: "臨時収入", key: "spotIncome" as const },
-              { label: "臨時支出", key: "spotExpense" as const },
-              { label: "営業利益", key: "operatingProfit" as const, bold: true, highlight: true },
+              { label: "臨時収入", key: "spotIncome" as const, actualKey: "actualSpotIncome" as const },
+              { label: "臨時支出", key: "spotExpense" as const, actualKey: "actualSpotExpense" as const },
+              { label: "営業利益", key: "operatingProfit" as const, actual: actualOperatingProfit, bold: true, highlight: true },
               { label: "融資実行", key: "loanDisbursement" as const },
               { label: "借入返済", key: "loanPayment" as const, actualKey: "actualLoanPayment" as const },
-              { label: "（うち利息）", key: "loanInterest" as const, indent: true },
+              { label: "（うち利息）", key: "loanInterest" as const },
               { label: "消費税", key: "ctaxPayment" as const, actualKey: "actualCtaxPayment" as const, refund: true },
               { label: "法人税", key: "corpTaxPayment" as const, actualKey: "actualCorpTaxPayment" as const },
               { label: "月次CF", key: "netCashFlow" as const, bold: true, highlight: true, actualKey: "actualNetCashFlow" as const },
+              { label: "支払い", key: "cashOutflow" as const, actual: actualCashOutflow, bold: true },
               { label: "キャッシュ", key: "cashBalance" as const, bold: true },
-            ].map((def) => (
-              <Fragment key={def.key}>
-                <tr>
-                  <td className={`plain-label ${def.bold ? "bold-label" : ""} ${def.indent ? "indent-label" : ""}`}>{def.label}</td>
-                  {rows.map((row) => {
-                    const value = row[def.key];
-                    const className = [
-                      "num",
-                      def.highlight && value < 0 ? "negative" : "",
-                      def.refund && value < 0 ? "refund" : "",
-                      def.bold ? "bold-label" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ");
-                    const display = def.refund && value < 0 ? `${fmt(Math.abs(value))}（還付）` : fmt(value);
-                    return (
-                      <td key={`${def.key}_${row.ym}`} className={className}>
-                        {display}
-                      </td>
-                    );
-                  })}
-                </tr>
-                {def.actualKey && (
-                  <tr>
-                    <td className="gas-actual-label">{def.key === "netCashFlow" ? "実績差引" : `${def.label}実績`}</td>
-                    {rows.map((row) => {
-                      const value = row[def.actualKey] ?? 0;
-                      return (
-                        <td key={`${def.actualKey}_${row.ym}`} className={`num gas-actual-num ${value < 0 ? "negative" : ""}`}>
-                          {value !== 0 ? fmt(value) : "-"}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                )}
-                {def.key === "netCashFlow" && (
-                  <>
-                    <tr>
-                      <td className="gas-payment-label">支払通知書 税抜</td>
-                      {rows.map((row) => (
-                        <td key={`payout_notice_${row.ym}`} className="num gas-payment-num">
-                          {row.payoutNoticeNetTotal > 0 ? fmt(row.payoutNoticeNetTotal) : "-"}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className="gas-payment-label">送付済通知書 税抜</td>
-                      {rows.map((row) => (
-                        <td key={`payout_notice_sent_${row.ym}`} className="num gas-payment-num">
-                          {row.payoutNoticeSentNetTotal > 0 ? fmt(row.payoutNoticeSentNetTotal) : "-"}
-                        </td>
-                      ))}
-                    </tr>
-                  </>
-                )}
-              </Fragment>
-            ))}
+            ].map((def) =>
+              renderComparisonGroup({
+                id: def.key,
+                label: def.label,
+                budget: (row) => row[def.key],
+                actual:
+                  "actual" in def
+                    ? def.actual
+                    : "actualKey" in def
+                      ? (row) => Number(row[def.actualKey as keyof GasMonthlyRow] ?? 0)
+                      : undefined,
+                source:
+                  def.key === "netCashFlow"
+                    ? "入金確認 - 支払/費用"
+                    : def.key === "cashOutflow"
+                      ? "支払通知/費用(税込)"
+                      : "actualKey" in def
+                        ? "freee PL / OS実績"
+                        : "未連携",
+                bold: def.bold,
+                highlight: def.highlight,
+                refund: def.refund,
+              })
+            )}
           </tbody>
         </table>
       </div>
