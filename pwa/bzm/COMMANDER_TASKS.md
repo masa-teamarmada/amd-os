@@ -75,8 +75,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 9. BZM 7軸モデルとP×R×S/9軸候補の整合
    - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
    - 背景: 現行教科書は7軸中心だが、知識側にはP×R×S再構成と収益化指数の議論があり、Textbook実践知と結びつきやすい論点になっているため。
-   - 現状: Active。まだBZM教科書への本格統合は未完。理論更新候補として扱うべき状態。7軸とP×R×S/9軸候補の整合メモworker `019e8384-d947-7682-8e00-b5e901e4e081` を切り出し済み。
-   - 残課題: worker成果を受け、1事例過適合を避け、複数PJ retrofit・観測可能性・既存7軸で説明できない差分を確認してから理論更新候補にする。
+   - 現状: Active。整合メモ `pwa/bzm/runs/2026-06-01-prs-seven-axis-alignment.md` は worker `019e8384-d947-7682-8e00-b5e901e4e081` が作成し、BZM一次判断は `Adopt as comparison layer`。正式理論採用はまだせず、PRSは比較/シミュレーション層として扱う。
+   - 残課題: 次段として、9PJで「現行7軸では説明できない差分」が本当にあるかを見る worker `019e838b-22e6-70f0-99eb-a33c59e3e54e` を起動済み。結果が出るまでP/R_net rubric確定、DB化、過去score再計算はしない。
 
 ## 完了済みタスク
 
