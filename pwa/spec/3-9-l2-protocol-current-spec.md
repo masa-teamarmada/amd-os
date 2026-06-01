@@ -81,6 +81,14 @@
 | `confidence` | `low / medium / high` |
 | `summary` | 実際に起きたこと。一般論や学習要約は禁止 |
 
+### `/admin/protocols` outcome ledger read UI
+
+P0 retrofit では `/admin/protocols` の server page が `protocol_result_observations` を read-only で取得し、`AdminProtocolsClient` の各 protocol 展開領域に outcome ledger として表示する。
+
+表示する列は `observed_on`, `horizon`, `valence`, `confidence`, `summary`, `project_id`, `evidence_source_type`, `evidence_source_id` まで。`evidence_url`、source permalink、実本文、prompt全文、few-shot、score weight / threshold / calibration は取得・表示しない。
+
+同一 `horizon` 内に複数の `valence` が存在する場合だけ、該当 protocol に `矛盾観測` chip を出す。P0 は write UI を持たず、既存観測の更新・上書き・DDL適用は行わない。
+
 ## Dedup / Status / Feedback
 
 | concern | rule |

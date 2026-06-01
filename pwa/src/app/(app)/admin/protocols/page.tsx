@@ -7,13 +7,17 @@ import { AdminProtocolsClient } from "@/components/admin/AdminProtocolsClient";
 export default async function AdminProtocolsPage() {
   const supabase = await createClient();
 
-  const [protocolsRes, projectsRes, examplesRes] = await Promise.all([
+  const [protocolsRes, projectsRes, examplesRes, observationsRes] = await Promise.all([
     supabase.from("protocols").select("*").order("updated_at", { ascending: false }),
     supabase.from("projects").select("project_id, project_name").order("project_name"),
     supabase
       .from("protocol_examples")
       .select("protocol_id, project_id, occurred_on, summary, branch_point, criteria, action_taken, result, source_meeting_id")
       .order("occurred_on", { ascending: false, nullsFirst: false }),
+    supabase
+      .from("protocol_result_observations")
+      .select("id, protocol_id, protocol_example_id, project_id, observed_on, horizon, valence, confidence, summary, evidence_source_type, evidence_source_id, created_at")
+      .order("observed_on", { ascending: false, nullsFirst: false }),
   ]);
 
   // protocol_id → examples[] map
@@ -22,6 +26,13 @@ export default async function AdminProtocolsPage() {
     const list = examplesByProtocol.get(e.protocol_id) ?? [];
     list.push(e);
     examplesByProtocol.set(e.protocol_id, list);
+  }
+
+  const observationsByProtocol = new Map<string, unknown[]>();
+  for (const o of (observationsRes.data ?? []) as { protocol_id: string }[]) {
+    const list = observationsByProtocol.get(o.protocol_id) ?? [];
+    list.push(o);
+    observationsByProtocol.set(o.protocol_id, list);
   }
 
   return (
@@ -40,6 +51,7 @@ export default async function AdminProtocolsPage() {
         protocols={(protocolsRes.data ?? []).map((p) => ({
           ...p,
           examples: (examplesByProtocol.get(p.protocol_id as string) ?? []) as never[],
+          observations: (observationsByProtocol.get(p.protocol_id as string) ?? []) as never[],
         }))}
         projects={(projectsRes.data ?? []).map((p) => ({ id: p.project_id, name: p.project_name }))}
       />

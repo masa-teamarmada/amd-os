@@ -20,6 +20,21 @@ interface ProtocolExample {
   source_meeting_id: string | null;
 }
 
+interface ProtocolResultObservation {
+  id: string;
+  protocol_id: string;
+  protocol_example_id: string | null;
+  project_id: string | null;
+  observed_on: string;
+  horizon: string;
+  valence: string;
+  confidence: string;
+  summary: string;
+  evidence_source_type: string | null;
+  evidence_source_id: string | null;
+  created_at: string;
+}
+
 interface Protocol {
   id: string;
   protocol_id: string;
@@ -40,6 +55,7 @@ interface Protocol {
   kind?: string;
   is_universal?: boolean;
   examples?: ProtocolExample[];
+  observations?: ProtocolResultObservation[];
   created_at: string;
   updated_at: string;
 }
@@ -94,6 +110,20 @@ const IMPORTANCE_LABEL: Record<string, string> = {
   "3": "★★★",
 };
 
+const VALENCE_BADGE: Record<string, string> = {
+  positive: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  negative: "bg-red-50 text-red-700 border-red-200",
+  mixed: "bg-amber-50 text-amber-700 border-amber-200",
+  neutral: "bg-slate-50 text-slate-600 border-slate-200",
+  unknown: "bg-zinc-50 text-zinc-500 border-zinc-200",
+};
+
+const CONFIDENCE_BADGE: Record<string, string> = {
+  high: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  medium: "bg-sky-50 text-sky-700 border-sky-200",
+  low: "bg-zinc-50 text-zinc-500 border-zinc-200",
+};
+
 const BLANK: Omit<Protocol, "id" | "created_at" | "updated_at"> = {
   protocol_id: "",
   title: "",
@@ -109,6 +139,22 @@ const BLANK: Omit<Protocol, "id" | "created_at" | "updated_at"> = {
   kind: "pattern",
   is_universal: true,
 };
+
+function hasConflictingObservations(observations: ProtocolResultObservation[]): boolean {
+  const valencesByHorizon = new Map<string, Set<string>>();
+  for (const observation of observations) {
+    const normalized = observation.valence || "unknown";
+    const set = valencesByHorizon.get(observation.horizon) ?? new Set<string>();
+    set.add(normalized);
+    valencesByHorizon.set(observation.horizon, set);
+  }
+  return Array.from(valencesByHorizon.values()).some((set) => set.size > 1);
+}
+
+function shortReferenceId(referenceId: string | null): string {
+  if (!referenceId) return "";
+  return referenceId.length > 18 ? `${referenceId.slice(0, 18)}...` : referenceId;
+}
 
 export function AdminProtocolsClient({ protocols: initial, projects }: Props) {
   const [rows, setRows] = useState<Protocol[]>(initial);
@@ -369,6 +415,8 @@ ${r.content || r.criteria || "(本文なし)"}
           {mainRows.map((r) => {
             const isExpanded = expandedId === r.id;
             const tags = (r.tags || "").split(",").map((t) => t.trim()).filter(Boolean);
+            const observations = r.observations ?? [];
+            const hasConflict = hasConflictingObservations(observations);
             return (
               <div key={r.id}>
                 <div className="flex items-start gap-3 px-4 py-3">
@@ -394,6 +442,11 @@ ${r.content || r.criteria || "(本文なし)"}
                       {tags.map((t) => (
                         <span key={t} className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{t}</span>
                       ))}
+                      {hasConflict && (
+                        <span className="text-[10px] bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5 rounded">
+                          矛盾観測
+                        </span>
+                      )}
                     </div>
                     {/* 折りたたみ時の preview: Phase 4 は content、旧手動は criteria */}
                     {!isExpanded && (r.content || r.criteria) && (
@@ -530,6 +583,56 @@ ${r.content || r.criteria || "(本文なし)"}
                         </ol>
                       </div>
                     )}
+
+                    <div className="mt-2 pt-2 border-t border-border/50">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="text-[11px] font-semibold text-muted-foreground">
+                          結果観測 ledger ({observations.length})
+                        </div>
+                        {hasConflict && (
+                          <span className="text-[10px] bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5 rounded">
+                            同一horizonで矛盾観測あり
+                          </span>
+                        )}
+                      </div>
+                      {observations.length === 0 ? (
+                        <div className="rounded border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+                          outcome ledger はまだ空です。P0 は read-only 表示のみで、既存観測の上書きや追加はしません。
+                        </div>
+                      ) : (
+                        <ol className="space-y-1.5">
+                          {observations.map((observation) => (
+                            <li key={observation.id} className="rounded border border-border/60 bg-background p-2 text-[11px]">
+                              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                <span className="font-mono font-bold text-[10px] text-muted-foreground">
+                                  {observation.observed_on}
+                                </span>
+                                <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">
+                                  {observation.horizon}
+                                </span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${VALENCE_BADGE[observation.valence] ?? VALENCE_BADGE.unknown}`}>
+                                  {observation.valence}
+                                </span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${CONFIDENCE_BADGE[observation.confidence] ?? CONFIDENCE_BADGE.medium}`}>
+                                  {observation.confidence}
+                                </span>
+                                {observation.project_id && (
+                                  <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">
+                                    {observation.project_id}
+                                  </span>
+                                )}
+                                {(observation.evidence_source_type || observation.evidence_source_id) && (
+                                  <span className="text-[9px] text-muted-foreground font-mono truncate">
+                                    ref: {[observation.evidence_source_type, shortReferenceId(observation.evidence_source_id)].filter(Boolean).join(" / ")}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="leading-relaxed whitespace-pre-wrap">{observation.summary}</p>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </div>
 
                     <div className="text-[10px] text-muted-foreground">
                       ID: {r.protocol_id} / source: {r.source || r.source_type || "—"} / kind: {r.kind || "—"} / updated: {r.updated_at?.slice(0, 10)}

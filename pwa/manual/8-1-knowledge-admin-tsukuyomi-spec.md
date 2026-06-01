@@ -55,6 +55,8 @@ AMD Protocol (= L2 ②) の確認・編集画面。 詳細仕様は [`pwa/design
 
 「1 年後に正しく見えた判断が、 2 年後には別の副作用を生む」 状況を扱うため、 結果は 1 欄上書きせず時系列で積む (= まさ #57 2026-05-21)。
 
+`/admin/protocols` では P0 として、各プロトコルの展開領域に `protocol_result_observations` を read-only の outcome ledger として表示する。表示対象は horizon / valence / confidence / summary / PJ ID / evidence category / 短い reference id までで、`evidence_url` や source permalink、実本文、prompt全文、few-shot、score weight / threshold / calibration は出さない。同じ horizon に異なる valence がある場合だけ `矛盾観測` chip を出す。
+
 ### 画面 UI
 
 `pwa/src/components/admin/AdminProtocolsClient.tsx` が client 本体。 各 protocol カードは:
@@ -65,6 +67,7 @@ AMD Protocol (= L2 ②) の確認・編集画面。 詳細仕様は [`pwa/design
   - 🎯 ③ アクション (緑 `bg-emerald-50`)
   - 💡 ④ 結果 (紫 `bg-violet-50`、 記録時のみ表示)
 - 📂 関連事例リスト (= protocol_examples を日付順)
+- 結果観測 ledger (= protocol_result_observations を時系列で表示、P0 は read-only)
 - アクション: ✅ 確定 (`status='confirmed'`) / 🔄 修正依頼 / ❌ 却下 / 📥 archive
 
 `parseFourElements(content)` で `**① 分岐点**:` 等の見出しから自動分解する。
