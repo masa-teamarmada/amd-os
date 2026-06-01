@@ -133,6 +133,7 @@ type PayoutNoticeActualRow = {
 
 type MonthlyActualSummary = {
   ym: string;
+  hasActualData: boolean;
   actualRevenue: number;
   confirmedDepositsGross: number;
   payoutNoticeNetTotal: number;
@@ -141,6 +142,8 @@ type MonthlyActualSummary = {
   payoutNoticeGrossTotal: number;
   actualFixedCost: number;
   actualSocialIns: number;
+  actualSpotIncome: number;
+  actualSpotExpense: number;
   actualLoanPayment: number;
   actualCtaxPayment: number;
   actualCorpTaxPayment: number;
@@ -341,6 +344,7 @@ function actualCompanyValue(categoryRows: Map<string, Map<string, BudgetActualRo
 function emptyActualSummary(ym: string): MonthlyActualSummary {
   return {
     ym,
+    hasActualData: false,
     actualRevenue: 0,
     confirmedDepositsGross: 0,
     payoutNoticeNetTotal: 0,
@@ -349,6 +353,8 @@ function emptyActualSummary(ym: string): MonthlyActualSummary {
     payoutNoticeGrossTotal: 0,
     actualFixedCost: 0,
     actualSocialIns: 0,
+    actualSpotIncome: 0,
+    actualSpotExpense: 0,
     actualLoanPayment: 0,
     actualCtaxPayment: 0,
     actualCorpTaxPayment: 0,
@@ -375,9 +381,14 @@ function buildMonthlyActualSummaries(
     summary.actualRevenue = actualCompanyValue(categoryRows, ym, "revenue");
     summary.actualFixedCost = actualCompanyValue(categoryRows, ym, "fixed_cost");
     summary.actualSocialIns = actualCompanyValue(categoryRows, ym, "social_insurance");
+    summary.actualSpotIncome = actualCompanyValue(categoryRows, ym, "spot_income");
+    summary.actualSpotExpense = actualCompanyValue(categoryRows, ym, "spot_expense");
     summary.actualLoanPayment = actualCompanyValue(categoryRows, ym, "loan_payment");
     summary.actualCtaxPayment = actualCompanyValue(categoryRows, ym, "tax_payment_consumption");
     summary.actualCorpTaxPayment = actualCompanyValue(categoryRows, ym, "tax_payment_corporate");
+    summary.hasActualData = (categoryRows.get(ym) ? Array.from(categoryRows.get(ym)!.values()).flat() : []).some(
+      (row) => row.actual_amount_yen != null
+    );
   }
   for (const cycle of cycles) {
     if (!cycle.payment_confirmed_at) continue;
@@ -385,6 +396,7 @@ function buildMonthlyActualSummaries(
     const paymentYm = effectivePaymentYmForCycle(cycle, project);
     const summary = ensure(paymentYm);
     summary.confirmedDepositsGross += Math.round(expectedNetForCycle(cycle) * 1.1);
+    summary.hasActualData = true;
   }
   for (const notice of payoutNotices) {
     const summary = ensure(notice.ym);
@@ -396,6 +408,7 @@ function buildMonthlyActualSummaries(
     } else {
       summary.payoutNoticePendingNetTotal += amount;
     }
+    summary.hasActualData = true;
   }
   for (const summary of summaries.values()) {
     const paidOutflowGross = Math.round(summary.payoutNoticeSentNetTotal * 1.1);
@@ -403,6 +416,8 @@ function buildMonthlyActualSummaries(
       paidOutflowGross +
       summary.actualFixedCost +
       summary.actualSocialIns +
+      summary.actualSpotExpense -
+      summary.actualSpotIncome +
       summary.actualLoanPayment +
       summary.actualCtaxPayment +
       summary.actualCorpTaxPayment;
@@ -568,7 +583,8 @@ function buildGasSimulationResult(
   categoryRows: Map<string, Map<string, BudgetActualRow[]>>,
   rawRows: BudgetActualRow[],
   inputRows: BudgetInputRow[],
-  actualSummaries: Map<string, MonthlyActualSummary>
+  actualSummaries: Map<string, MonthlyActualSummary>,
+  currentYm: string
 ): GasSimulationResult {
   const projectInputs = inputRows.filter((row) => row.input_kind === "project" && row.source_id);
   const projectList: GasProjectListItem[] = projectInputs.map((row) => ({
@@ -587,30 +603,34 @@ function buildGasSimulationResult(
     const netCash = companyBudgetRow(categoryRows, ym, "net_cash_flow");
     const revenueRow = companyBudgetRow(categoryRows, ym, "revenue");
     const projectRows = projectRowsByMonth.get(ym) ?? [];
+    const actualSummary = actualSummaries.get(ym);
     return {
       ym: Number(ym),
+      actualStatus: actualSummary?.hasActualData ? "actual" : Number(ym) < Number(currentYm) ? "missing" : "future",
       revenue: companyBudgetValue(categoryRows, ym, "revenue"),
-      actualRevenue: actualSummaries.get(ym)?.actualRevenue ?? 0,
-      confirmedDepositsGross: actualSummaries.get(ym)?.confirmedDepositsGross ?? 0,
+      actualRevenue: actualSummary?.actualRevenue ?? 0,
+      confirmedDepositsGross: actualSummary?.confirmedDepositsGross ?? 0,
       costMember: companyBudgetValue(categoryRows, ym, "cost_member"),
       costCloser: companyBudgetValue(categoryRows, ym, "cost_closer"),
       grossProfit: companyBudgetValue(categoryRows, ym, "gross_profit"),
       fixedCost: companyBudgetValue(categoryRows, ym, "fixed_cost"),
-      actualFixedCost: actualSummaries.get(ym)?.actualFixedCost ?? 0,
+      actualFixedCost: actualSummary?.actualFixedCost ?? 0,
       socialIns: companyBudgetValue(categoryRows, ym, "social_insurance"),
-      actualSocialIns: actualSummaries.get(ym)?.actualSocialIns ?? 0,
+      actualSocialIns: actualSummary?.actualSocialIns ?? 0,
       operatingProfit: companyBudgetValue(categoryRows, ym, "operating_profit"),
       loanPayment: companyBudgetValue(categoryRows, ym, "loan_payment"),
-      actualLoanPayment: actualSummaries.get(ym)?.actualLoanPayment ?? 0,
+      actualLoanPayment: actualSummary?.actualLoanPayment ?? 0,
       loanInterest: companyBudgetValue(categoryRows, ym, "loan_interest"),
       ctaxPayment: companyBudgetValue(categoryRows, ym, "tax_payment_consumption"),
-      actualCtaxPayment: actualSummaries.get(ym)?.actualCtaxPayment ?? 0,
+      actualCtaxPayment: actualSummary?.actualCtaxPayment ?? 0,
       corpTaxPayment: companyBudgetValue(categoryRows, ym, "tax_payment_corporate"),
-      actualCorpTaxPayment: actualSummaries.get(ym)?.actualCorpTaxPayment ?? 0,
+      actualCorpTaxPayment: actualSummary?.actualCorpTaxPayment ?? 0,
       netCashFlow: companyBudgetValue(categoryRows, ym, "net_cash_flow"),
-      actualNetCashFlow: actualSummaries.get(ym)?.actualNetCashFlow ?? 0,
-      payoutNoticeNetTotal: actualSummaries.get(ym)?.payoutNoticeNetTotal ?? 0,
-      payoutNoticeSentNetTotal: actualSummaries.get(ym)?.payoutNoticeSentNetTotal ?? 0,
+      actualNetCashFlow: actualSummary?.actualNetCashFlow ?? 0,
+      actualSpotIncome: actualSummary?.actualSpotIncome ?? 0,
+      actualSpotExpense: actualSummary?.actualSpotExpense ?? 0,
+      payoutNoticeNetTotal: actualSummary?.payoutNoticeNetTotal ?? 0,
+      payoutNoticeSentNetTotal: actualSummary?.payoutNoticeSentNetTotal ?? 0,
       cashBalance: revenueRow?.cash_amount_yen ?? 0,
       runway: Number(revenueRow?.runway_months ?? 0),
       loanDisbursement: payloadNumberValue(netCash?.budget_payload, "loanDisbursement"),
@@ -867,7 +887,14 @@ export default async function ManagementScorePage() {
     paymentProjects,
     payoutNotices
   );
-  const gasSimulationResult = buildGasSimulationResult(financeMonths, budgetCategoryRows, budgetRows, budgetInputRows, monthlyActualSummaries);
+  const gasSimulationResult = buildGasSimulationResult(
+    financeMonths,
+    budgetCategoryRows,
+    budgetRows,
+    budgetInputRows,
+    monthlyActualSummaries,
+    ymCap
+  );
   const gasSimulationInputs = buildMonthlyPlInputs(budgetInputRows);
   const expectedReceiptsByYm = buildExpectedReceiptsByPaymentYm(billingCycles, paymentProjects);
   const oneOffInflowGrossByYm = buildOneOffInflowGrossByYm(budgetInputRows);

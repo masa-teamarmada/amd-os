@@ -438,9 +438,11 @@ UI で必ず出すもの:
 - score total と 5 軸それぞれの月次推移グラフ
 - 財務耐久の内訳として、対象月の前後 12 か月を横断する予実グラフと、GAS 月次試算表の `OUT_Monthly` に近い行構成の月次予実表
   - 表の基本順: 売上計 / PJ明細 / 売上原価 / 粗利 / PJ粗利 / 固定費 / 固定費明細 / 社保 / 臨時収入 / 臨時支出 / 営業利益 / 融資実行 / 借入返済 / 利息 / 税 / 月次CF / キャッシュ
+  - 月次予実表は、月列を維持したまま、各項目の下に `予算` / `実績` / `差額` subrow を置く。実績行だけを薄く挟む形は禁止。まさが5月などの実績月で、同じ項目内の予算差を直接読めることを優先する
   - 予算は `company_budget_monthly` の GAS 移植結果、実績は freee `trial_pl` 由来の `company_actual_monthly`
   - 入金実績は `billing_cycles.payment_confirmed_at` を正本にし、`invoice_ym` / `payment_due_rule` で入金月へ寄せる。金額は発行済み請求明細 (`invoice_base_lines_json`) → 確定請求額 (`budget_reported_amount`) → 互換 fallback (`budget_yen / 0.65`) の順で税抜を取り、税込にして表示する
   - 支払通知書は `payout_notices.sent_at` / `total_yen` を正本にし、送付済み税抜額と cash outflow 用の税込相当を分ける。報酬振込済みの反映有無は `billing_cycles.reward_paid_at` を見る
+  - 未来月の実績欄は `未確定`、過去月でOSに実績が無い欄は `未反映`、実績source自体がまだ接続されていない項目は `未連携` と出す
 - キャッシュ判断パネル
   - 過去実績: freee PL 売上、入金確認済み、支払通知書送付済み、実績差引
   - 当月着地見込み: 試算上の入金・支出・月次CF
