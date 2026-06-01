@@ -87,12 +87,14 @@
   - L6 alias/color helper変更は `2cfccc4 Add L6 calendar color and alias diagnostics` として `origin/main` に反映済み。
   - `【ZeMA】定例MTG` はCFG_PJAlias high-confidenceでZMP/p19 activeへ解ける候補として確認済み。
   - `clasp` のGoogle再認証は司令塔側で実施済み。
-  - 再認証後、worker側で `clasp push --force` が通り、GAS側read-only diagnosticへ進んでいる。
-  - 監視付きの1回実行はまだ登録していない。
+  - 再認証後、worker側で `clasp push --force` が通った。
+  - MSI側の `NEXT_PUBLIC_GAS_API_KEY` 経路を復旧し、既存PWA WebApp deploymentを更新済み。
+  - GAS read-only diagnosticで `【ZeMA】定例MTG` が、明示 `event.colorId` と `CFG_PJAlias high-confidence` の両方でZMP/p19 activeへ解けることを確認済み。
+  - exact meeting_id / upcoming rowはなく、EXCLUDE/AMDでもなく、既存良質サマリ上書き対象も見当たらない。
+  - 2026-06-03 12:00 JST の監視付き1回Live task `amd-os-l6-meeting-flow-zema-once-live-20260603-1200` を登録済み。StateはReady。
   - 毎時稼働はまだ有効化していない。
 - 残課題は何か
-  - GAS反映後のread-only diagnosticで `【ZeMA】定例MTG` がCFG_PJAlias high-confidenceでZMP/p19へ解けることを確認する。
-  - diagnosticが通ったら、2026-06-03 12:00 JST の監視付き1回Live taskを登録する。
+  - 2026-06-03 12:00 JST 実行後に、launcher log / last message / exact DB row / outbox / 既存summary上書き有無を確認する。
   - 問題なければ、毎時稼働用の予約をLive化するか判断する。
   - 毎時稼働へ進める場合も、最初の1〜2回は監視してから常時稼働扱いにする。
 
@@ -300,17 +302,43 @@
   - 現行AMD ScoreはMXFモデル寄りのままなので、新モデル候補をOS上で検証したい。
   - ただし、P/R_netのrubricや正式DB schema、BZM教科書の理論更新はまだ確定させない。
 - 現状どうなってるか
-  - 動作状態: BZM配下active workerをwatch。BZM司令塔がPRSモデルOS実装workerを切り出し済み。
+  - 動作状態: OS/まさレビュー待ち。BZM司令塔がPRSモデルOS実装workerを切り出し、BZM一次レビューまで完了した。
   - worker thread: `019e8252-577c-7d90-a4be-2789a1500d71`。
-  - worktree: `/Users/masa/.codex/worktrees/4795/amd-os`。
-  - BZM台帳には `PRSモデルOS実装worker監督` が最上位未完タスクとして追加済み。commit: `1b8a811697473e7b34fc5569a58d366e04f65af4` on `origin/codex/bzm-commander-tasks`。
+  - branch: `origin/codex/prs-comparison-layer`。
+  - commit: `c101e6c feat: add PRS comparison layer`。
+  - BZM一次レビュー判断: 採用圏内、差し戻し不要。
+  - 現行7軸 `calculateAmdScore()` は置換しておらず、PRS計算は `calculatePrsScore()` として独立追加。
+  - P/R_netはDB列化せず、retrofit画面の保存しない仮入力に留めている。
+  - P/R_net未設定時はscoreを出さず `not enough data` / missing扱いにしている。
+  - BZM台帳は `OS/まさレビュー待ち` に更新済み。commit: `6f2b2b4b9010017e6025155d4c95d23aed9e4b44` on `origin/codex/bzm-commander-tasks`。
   - BZM判断として、現行7軸の正式置換、P/R_net正式rubric、DB本番列追加、全PJ正式retrofit再計算、BZM教科書正式理論更新は今回決め打ちしない。
 - 残課題は何か
-  - workerの中間報告を待ち、OS実装面で既存7軸との境界、DB migration回避、UI上の誤読防止を確認する。
+  - OS司令塔として `origin/codex/prs-comparison-layer` をレビューする。
+  - 必要なら認証済み環境で `/venture-map/amd-score/retrofit` を目視確認する。
   - P/R_netや理論変更に踏み込む場合はBZM司令塔レビューを必須にする。
   - OS側でmain取り込み・deployが必要になったら、通常の検証ゲートを通す。
 
-### 4. コックピット2タブの速度とタブUIを改善する
+### 4. admin裏wikiページを作る
+
+- お願いしたタスク内容
+  - adminページに新しく「裏wiki」を作る。
+  - AMDメンバー、取引先、クライアントなどの趣味・プライベート・関係性メモを、PJごとにグループ分けして保存できるようにする。
+  - UI上で手作業でも追加・編集でき、Codex/えいみが拾った情報を後で投入できるデータ構造にする。
+- お願いした背景
+  - 取引先やクライアントとの関係づくりでは、仕事上の肩書きだけでなく、趣味・関心・話題・過去の接点などの文脈が重要。
+  - ただしセンシティブな個人メモなので、通常PJ画面や外部workspaceには出さず、admin-onlyで閉じる必要がある。
+- 現状どうなってるか
+  - 動作状態: active worker。admin裏wiki実装workerが着手報告済み。
+  - worker thread: `019e8269-69f6-7be3-9b24-bca052c25754`。
+  - worktree: `/Users/masa/.codex/worktrees/ec80/amd-os`。
+  - 司令塔側では実装を抱えず、workerにDB設計、RLS/API、admin UI、docs、検証まで渡している。
+  - admin-only、通常PJ/公開/外部workspace非表示、センシティブ情報seed禁止を前提にしている。
+- 残課題は何か
+  - workerの中間/完了/要判断報告を回収する。
+  - DB migration/RLS/API/UI設計がadmin-onlyで安全か確認する。
+  - main取り込み、必要なら本番DB migration適用、production deploy、ログイン済み画面確認まで監視する。
+
+### 5. コックピット2タブの速度とタブUIを改善する
 
 - お願いしたタスク内容
   - プロジェクトコックピット上部にAMDスコアとXRLグラフを常時表示する。
