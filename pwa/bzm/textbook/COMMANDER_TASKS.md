@@ -1,6 +1,6 @@
 # Textbook Commander Tasks
 
-> Last updated: 2026-06-01 JST
+> Last updated: 2026-06-02 JST
 >
 > Textbook司令塔のタスク台帳。タスク追加、方針変更、worker切り出し、
 > 完了報告、差し戻し、archive のたびに更新する。
@@ -38,8 +38,8 @@
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
-  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成・push済み。`Textbook cold-reader review artifact spine 00-24` と `Textbook source mining budget-owner / artifact scenes v5` のP0を受け、2026-06-02に `Textbook public manuscript artifact spine P0 rewrite` workerが本文へ直接反映中。
-  - 残課題: P0 rewriteのcommit/pushと能動報告後、追加場面の統合感、Toolkit A/B/C配置、Ch05/Ch04 filename/title order debtを次の編集レビューで確認する。
+  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成・push済み。`Textbook cold-reader review artifact spine 00-24` と `Textbook source mining budget-owner / artifact scenes v5` のP0を受け、2026-06-02に `Textbook public manuscript artifact spine P0 rewrite` workerが本文へ直接反映済み。続く冷読レビューは `pwa/bzm/textbook/runs/2026-06-02-cold-reader-review-artifact-spine-p0.md` に整理済みで、結論は「全体再rewrite不要、P0 surgical fixesで次段へGO」。
+  - 残課題: 次workerはCh04/Ch05 filename-title semantic order debt、`後半の理論への橋` 等のscaffolding除去、Toolkit A/B/Cのappendix/route配置、Ch14/21/24重複圧縮を本文/構造へ反映する。
 
 - **public manuscript 00-06 scene-first rewrite**
   - お願いした内容: 北極星と `2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` に沿って、`pwa/bzm/public-manuscript/00`〜`06` を読み物としてつながる本文へ改稿する。
