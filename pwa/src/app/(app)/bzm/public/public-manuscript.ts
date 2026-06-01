@@ -32,8 +32,8 @@ export const PUBLIC_MANUSCRIPT_PARTS: PublicManuscriptPart[] = [
     key: "traps",
     label: "Part 2 — Before Zero の鬼門",
     chapters: [
-      { slug: "04-before-disclosure", number: "4", title: "外に出す前に、守るものを決める" },
-      { slug: "05-gap-vc-ceo-function", number: "5", title: "GAPファンドとVCのあいだで、CEO機能がねじれる" },
+      { slug: "04-gap-vc-ceo-function", number: "4", title: "GAPファンドとVCのあいだで、CEO機能がねじれる" },
+      { slug: "05-before-disclosure", number: "5", title: "外に出す前に、守るものを決める" },
       { slug: "06-incorporation-timing", number: "6", title: "会社化は早すぎても、遅すぎても壊れる" },
     ],
   },
@@ -55,6 +55,28 @@ export const PUBLIC_MANUSCRIPT_PARTS: PublicManuscriptPart[] = [
       { slug: "12-readiness-axes", number: "12", title: "技術・事業・制度・社会・人材を別々に見る" },
       { slug: "13-founder-readiness-field-language", number: "13", title: "創業者を見るとは、人を見るだけではない" },
       { slug: "14-institution-as-nursery", number: "14", title: "苗床としての研究機関を見る" },
+    ],
+  },
+  {
+    key: "theory",
+    label: "Part 5 — BZM理論を現場に戻す",
+    chapters: [
+      { slug: "15-why-model-the-field", number: "15", title: "なぜ現場をモデルにするのか" },
+      { slug: "16-readiness-axes-field-guide", number: "16", title: "「準備できている」を五つに分ける" },
+      { slug: "17-macro-alignment-and-triple-helix", number: "17", title: "追い風の位相差を読む" },
+      { slug: "18-founder-readiness-field-first", number: "18", title: "創業者機能を、人格評価にしない" },
+      { slug: "19-integrated-score-as-next-action", number: "19", title: "統合スコアは、次の一手を変えるために使う" },
+      { slug: "20-retrofit-validation-as-learning", number: "20", title: "外れた地図を、証拠ルールから直す" },
+      { slug: "21-institution-readiness-as-nursery", number: "21", title: "個別案件と苗床を混ぜない" },
+    ],
+  },
+  {
+    key: "toolkit",
+    label: "Toolkit — 実務道具",
+    chapters: [
+      { slug: "22-field-note-safety-loop", number: "A", title: "現場メモを、誰かを傷つけない問いに変える" },
+      { slug: "23-decision-and-disclosure-toolkit", number: "B", title: "判断と開示の道具箱" },
+      { slug: "24-institution-nursery-checklist", number: "C", title: "研究機関を、苗床として点検する" },
     ],
   },
 ];
