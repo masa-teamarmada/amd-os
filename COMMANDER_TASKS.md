@@ -79,19 +79,21 @@
   - 一方でClaude Codeの定額トークンは余り、Codex側の定額トークンは今後逼迫しそう。
   - 余っているClaude Code側を、低頻度・重めの定期抽出に使うと全体の運用コストを下げられる。
 - 現状どうなってるか
-  - 動作状態: 要再開。Claude routinesは停止済みで、Codex/MMO側の現行cron/automation一覧とAtlas/Macrotrendを含めたL2安定稼働表を更新する必要がある。
+  - 動作状態: 復旧済み。Claude routinesは停止したまま、L2①はMac側Codex automation `amd-os-l2`、L2②〜⑥はMMOマシン、L2⑦⑧⑨/Atlas/MacrotrendはMMO側Codex automation + outbox/applierで継続する形に整理した。
+  - 2026-06-01 09:50 JST時点で、MMO側の `amd-os-l2-protocol` / `amd-os-l3-ms-progress-extract` / `amd-os-l4-project-knowledge` / `amd-os-l5-member-knowledge` / `amd-os-l6-meeting-flow` / `amd-os-ms` / `amd-os` / `amd-atlas-2` / `amd-macrotrend-evidence-review` はACTIVEで、当日朝の実行履歴を確認した。
+  - Mac側で止まっていたL2①月次報告抽出 `amd-os-l2` はACTIVEへ戻し、次回実行を2026-06-02 05:30 JSTに設定した。Mac側のL2⑦⑧⑨/Atlas/Macrotrendは、MMO側と重複するため再開していない。
   - 全体設計workerとPhase 0実態確認workerの完了報告を受領した。
   - Claude Codeへ移す中心は、日次・週次のレビューや合成にする方針。
   - 会議サマリ抽出とMS進捗の主処理は、高頻度・即応性が必要なためCodex/MMO側に残す方針。
   - Claude側は、日次のL2合成、日次のスコア根拠・戦略レビュー、週次の外部シグナル確認を中心にする案。
   - 通常日は2〜3本、週次日は4〜5本程度で、1日15件制限内に収める案になっている。
-  - ただしMMO側には未処理ファイルが残っており、保留中ステータスだけでは成功・失敗・何もしなかった実行を判定できないことが分かった。
-  - 月次報告抽出は、仕様上は重要な定期処理だが、実際の自動実行は止まっている可能性が高い。
+  - MMO側に残っていた未処理outboxは分類・反映・退避済み。L2差分8件、L2⑨1件、Atlas4件、Macrotrend1件、L2⑥の空artifact4件を確認し、反映済み/重複skip/noopへ分けた。
+  - DB反映済み: L2①月次reports 5件 + source_cache 11件 + 通知1件、L2⑦⑧/MS差分系 registryDiffs 11件 + xrlEvidence 20件 + revisions 8件 + 通知35件、L2⑨ strategySignals 3件 + 通知3件、Macrotrend/Atlas signalsはMacrotrend 12件insert/1件skip、Atlas既存分は重複skip、2026-06-01分はrecent照合で9件存在確認。
 - 残課題は何か
-  - MMO側に残っている未処理ファイルを、反映済み・失敗・重複・破棄候補に分類する。
-  - 月次報告抽出の責任者と再開方法を決める。
-  - Claude移植は、まず書き込みなしの確認レポートから始める。
-  - Codex/MMO側を止める前に、重複実行防止、対象期間、承認後の反映経路を揃える。
+  - 2026-06-02朝に、L2①月次報告抽出が再発火し、outboxが `amd-os-ms/outbox` へ出るかを確認する。
+  - MMO側の各automation runは `PENDING_REVIEW` のまま残るため、healthy判定ではthread statusだけでなく、outbox count / applied / DB反映を引き続き見る。
+  - Claude移植は再開しない。使う場合も、まず書き込みなしの確認レポートだけに限定する。
+  - L2⑥はACTIVEで毎時起動しているが、Calendar色/default color権限の制約は別タスク4の残課題として残す。
 
 ### 4. L2会議サマリ抽出を、MMOマシンで確実に毎時起動させる
 
@@ -139,15 +141,20 @@
   - ここがズレると、コックピット、Textbook、スコア、月次レビュー、通知の全部が弱くなる。
   - 香川出張の間にロジックを少し変えた記憶があり、実機に反映されているか確認が必要だった。
 - 現状どうなってるか
-  - 動作状態: 要再開。Claude routines停止後のL2/Atlas/Macrotrend抽出責任を、Codex/MMO/Claudeのどこに置くか再整理が必要。
+  - 動作状態: 復旧済み。Claude routines停止後の責任分担は、Codex/MMOを主系、Vercel cronはLLM非依存のみ、Claudeは当面read-only audit/report候補に限定、で確定。
   - MMOマシンには接続でき、主要なL2抽出ルールは反映済み。
+  - L2① 月次報告はMac側Codex automation `amd-os-l2` が責任者。2026-06-01にPAUSEDからACTIVEへ戻し、次回は2026-06-02 05:30 JST。
+  - L2②〜⑥はMMOマシンCodex Desktop automationが責任者。2026-06-01朝の実行履歴を確認済み。
+  - L2⑦⑧/MS差分・L2⑨・Atlas・MacrotrendはMMO側Codex automationが候補を作り、既存helperでDB/API反映する。MMO側outbox backlogは2026-06-01にdrain済み。
+  - Atlasのデータ取得元は、Codex automationによるweb/source searchでの一次情報・信頼できる報道/公式発表URL、および省庁direct fetch系 `atlas-collect-policy` の設計。DB反映先は `atlas_signals`。
+  - Macrotrendのデータ取得元は、UN SDGs / WEF Global Risksをbackboneにした公開ソースURL付きのMacrotrend evidence review、既存 `atlas_signals`、`observation_log`、`macro_index_log` の集計。Vercel cronで許可されているのはLLM非依存の `macro-aggregate-indicators`。
   - 会議サマリは、会議IDがなくても弾かない方針へ更新済み。
   - 月次報告は、今後は生データを毎回直接見るより、まずOS内に集まった整理済みデータを主入力にする方針へ寄せた。
-  - ただし、実際に毎時・毎日きれいに起動しているかは、会議サマリ抽出を中心にまだ確認中。
+  - ただし、L2⑥は毎時起動自体は見えているが、Calendar色/default colorの読み取り権限は別途確認が必要。
 - 残課題は何か
-  - 会議サマリ抽出の起動問題を解決する。
-  - 更新後の各抽出が、次回実行で実データを正しく作るか確認する。
-  - 月次報告を「整理済みデータ優先」にする設計を、実運用レベルまで固める。
+  - 2026-06-02以降の次回実行で、各抽出がoutboxを増やした場合に自動/手動drainまで通るか確認する。
+  - L2⑥のCalendar色/default color権限問題を解消し、実会議がある時間帯で1回監視する。
+  - 月次報告の次回runで、L2 snapshot primary + 5生データfallbackの運用が続くか確認する。
 
 ### 6. ERS制度比較マトリクスの実データ入力を進める
 
