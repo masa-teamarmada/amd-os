@@ -136,19 +136,20 @@
   - 香川大は次回ヒアリングで一気に確認する項目が多い。
   - KUTEやNIMSは既存資料や公開情報から先に埋められる可能性がある。
 - 現状どうなってるか
-  - 動作状態: PRレビュー待ち。worker thread `019e8231-7b00-7a80-b49e-c1070e28d5a8` が実データ入力・取り込み整理を完了した。
+  - 動作状態: main取り込み済み、確認待ち。worker thread `019e8231-7b00-7a80-b49e-c1070e28d5a8` が実データ入力・取り込み整理を完了した。
   - 制度整備状況や規程比較を入力する枠は実装済み。
   - 本番側の安全設定も見直し済み。
   - 香川大/KUTE/NIMSの制度比較seed 96件と入力記録を取り込み準備済み。
   - 本番DBには対象3機関の制度比較データがすでに96件あり、read-only確認では各機関32件、confirmed_at欠け0件だった。
   - worker成果のmigrationは既存番号と衝突したため、`120_institution_policy_assessments_seed.sql` へ採番変更済み。
-  - main取り込み前レビュー用のdraft PR #4を作成済み: https://github.com/masa-teamarmada/amd-os/pull/4
+  - worker branchには古い台帳差分が混ざっていたため、PR #4はそのままmergeせずclosedにした。
+  - docsと冪等seedの安全な6ファイルだけをmainへ取り込み済み。commit: `9f72c50 docs: add ERS policy matrix seed`。
+  - runtime変更はないためdeploy不要。
 - 残課題は何か
   - 香川大はヒアリングで未確認項目を確認する。
   - KUTEは規程整備ログから埋める。
   - NIMSは公開情報と既存DBから埋める。
-  - PR #4をレビューし、docsと冪等seedだけの差分としてmainへ取り込むか判断する。
-  - runtime変更はないため、main取り込み時のdeployは発生した場合の状態確認だけでよい。
+  - 今後の新環境再構築時は `120_institution_policy_assessments_seed.sql` を冪等seedとして使う。
 
 ### 5. 設計書を「読めば再構築できる」水準まで引き上げ続ける
 
@@ -200,9 +201,10 @@
   - 同じrepo内で台帳名が衝突しないよう、root台帳はAMD OS全体司令塔専用にする。
   - BZM司令塔の台帳は `pwa/bzm/COMMANDER_TASKS.md` へ分ける方針になった。
   - Textbook司令塔の台帳も、Textbook正本ディレクトリ配下へ分ける方針になった。
+  - BZM台帳には、未完タスクあり・全worker停止を禁止するheartbeat運用ルールを反映済み。main取り込み済み commit: `69faea2 docs: add BZM commander heartbeat rule`。
+  - Textbook台帳にも同じworker継続監視ルールを反映済み。main取り込み済み commit: `4ac3a2d docs: add Textbook commander heartbeat rule`。
 - 残課題は何か
-  - BZM司令塔に、rootに置いた台帳をBZM領域へ移してもらう。
-  - Textbook司令塔に、Textbook領域の台帳を作ってもらう。
+  - BZM/Textbookの詳細タスクは、それぞれの台帳を正本として見る。
   - 今後のタスク追加、worker切り出し、完了報告、差し戻しのたびに台帳更新を徹底する。
 
 ### 8. 最新mainの新規変更を司令塔として読み直す
