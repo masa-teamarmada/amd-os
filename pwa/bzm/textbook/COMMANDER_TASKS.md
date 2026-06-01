@@ -31,20 +31,21 @@
 - 章型は小見出し羅列ではなく `Scene → Tension → Diagnosis → Tool/Question → Bridge` に寄せる。
 - DB write、external service write、local applier `--apply`、販売用公開の最終判断は引き続き禁止/要判断。
 - 今後は `本文rewrite → 編集者批評 → AMD OS/生データ素材発掘 → rewrite差し戻し` の循環で進める。本文workerだけで「完成」と見なさず、編集者workerの落第基準と素材発掘workerの章別投入マップを次rewriteに反映する。
+- 2026-06-01: `Textbook full-book artifact spine rewrite 00-21` worker作成が3回 `systemError` になったため、司令塔がclean worktreeで直接scoped rewriteを実施。00-21へtraveling artifact spineを追加し、22-24のtoolkit draftを追加。成果記録は `pwa/bzm/textbook/runs/2026-06-01-full-book-artifact-spine-rewrite-00-21.md`。
 
 ## 未完タスク（優先順位順）
 
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
-  - 現状: `Textbook public manuscript 00-06 scene-first rewrite` workerへ品質バー追加指示を送信済み。さらに `Textbook editorial critic page-turner audit` と `Textbook source mining field-knowledge harvest` を切り出し済み。
-  - 残課題: 2 workerの成果を司令塔レビューし、00-06 rewriteへ差し戻す。以後の章も同じ編集循環で、魅力度と内容量の両方を上げる。
+  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成中。
+  - 残課題: 00-24をcold-reader / ruthless-editor reviewへ回し、artifact spineが一冊の読書体験になっているか、22-24を本文/appendix/toolkitのどこに置くべきかを判定する。
 
 - **public manuscript 00-06 scene-first rewrite**
   - お願いした内容: 北極星と `2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` に沿って、`pwa/bzm/public-manuscript/00`〜`06` を読み物としてつながる本文へ改稿する。
   - 背景: 現行draftは章ごとの論点整理としては進んだが、小見出し単位の説明が並びやすく、販売本として読者を惹きつける連続した読書体験がまだ弱い。
-  - 現状: まさ確認待ちは解除済み。次workerで本文改稿を再開する。
-  - 残課題: Prologue〜Chapter 6を `違和感 → 現場 → 鬼門 → 問い` へ自然につなげ、GAP/VC/CEO論は中心ではなく代表例として扱う。公開禁止語scanと司令塔レビューを通す。
+  - 現状: 00-06はscene-first rewrite、editorial integration、00-14 continuous rewriteを経て、今回artifact spine rewriteにも取り込み済み。
+  - 残課題: 00-06単体タスクとしては完了扱いに寄せる。以後は00-24全体の通読レビューと必要箇所のsurgical rewriteで扱う。
 
 - **販売前提の公開本としてTextbookを再定義する**
   - お願いした内容: 現状の「AMDが見ていること」中心の内部教材から、日本中の研究機関の産連担当者、URA、研究者、スタートアップを目指す若者が買って読める本へ作り直す。
