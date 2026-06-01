@@ -1,6 +1,6 @@
 # AMD OS 司令塔タスク台帳
 
-最終更新: 2026-06-01
+最終更新: 2026-06-02
 
 この台帳は、AMD OS全体司令塔が受けている依頼を「コードを読んでいない人でも分かる」粒度で整理するためのもの。worker報告をそのまま貼らず、司令塔がまさ向けに要約して更新する。
 
@@ -26,6 +26,25 @@
 - 以後のworker promptには、この能動報告と未完タスク監視の前提を含める。
 
 ## 未完タスク（優先順位順）
+
+### 0. JOYCLE `amd_support_ended_at` 正規化カラム補正を判断する
+
+- お願いしたタスク内容
+  - BZMのJOYCLE current truth reviewを受け、OS側で `project_ventures.amd_support_ended_at='2026-03-01'` の補正を進めてよいか、DB writeなしで確認する。
+  - future-like draft月次やfuture billing rowsを、終了済PJの継続支援判定から外す運用をspec/manualへ戻す価値があるか確認する。
+- お願いした背景
+  - BZMレビューでは、DB全体ではなく `project_ventures.amd_support_ended_at` 正規化カラムだけがstale候補と整理された。
+  - `projects.status='ended'` / `projects.end_ym='202603'`、`project_ventures.narrative_text` / `master_md_text` は2026-03 AMD支援終了側。
+  - 終結理由の口述由来部分、PRSのnegative R_net、billing_cyclesのSU粗利転用は今回の補正根拠に混ぜない。
+- 現状どうなってるか
+  - read-only SELECTで、p09/JOYCLEの `projects` は `status='ended'`, `end_ym='202603'`、`project_ventures.amd_support_ended_at` はNULL、venture narrative/masterは2026-03終了側であることを再確認済み。
+  - `monthly_reports` は2026-04以降もdraftがあるが、終了月後のfuture-like draftとして扱い、継続支援根拠にしない。
+  - `billing_cycles` は2026-03以降 `not_started` 中心で、請求/入金/cash timing補助に限定する。
+  - `pwa/spec/2-3`, `pwa/spec/3-2`, `pwa/manual/4-5`, `pwa/manual/8-3` に、正規化カラムNULL単独で継続扱いしないsource hygiene guardを追記した。
+- 残課題は何か
+  - DB writeは未実行。OS司令塔が許可するなら、実行直前に同じread-only SELECTで再照合し、`amd_support_ended_at IS NULL` を条件にした単一カラムupdateだけを行う。
+  - 実行案: `UPDATE project_ventures SET amd_support_ended_at = DATE '2026-03-01', updated_at = now() WHERE project_id = 'p09' AND amd_support_ended_at IS NULL;`
+  - 実行後は `sync-pj-facts` 相当でproject_knowledgeへ「AMD 参画終了日」を反映するか、別workerで副作用を確認する。
 
 ### 1. 特許案と現OSの乖離箇所をretrofit実装する
 

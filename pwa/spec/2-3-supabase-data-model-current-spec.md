@@ -40,6 +40,16 @@
 
 `l2_feedbacks` と `tsukuyomi_learnings` は、候補採否や修正依頼を次回抽出へ戻す feedback loop の正本。
 
+## Project End Current Truth
+
+PJ終了判定では、単一のNULL正規化カラムだけを継続根拠にしない。特に `project_ventures.amd_support_ended_at` がNULLでも、以下が揃う場合は source hygiene issue として扱い、DB補正レビューへ回す。
+
+- `projects.status='ended'`
+- `projects.end_ym` が終了月を持つ
+- `project_ventures.narrative_text` または `master_md_text` が同じ終了月・AMD関与終結を示す
+
+終了日補正は、read-only確認で `projects` / `project_ventures` / 関連L2 / billing補助情報を照合し、司令塔判断後に単一カラムの idempotent update として実行する。終結理由が口述由来の場合は、終結日補正の根拠と混ぜず、別の evidence / oral history review として扱う。
+
 ## Rebuild Rules
 
 1. migration を書く。

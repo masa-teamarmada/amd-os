@@ -26,6 +26,7 @@
 - 既存 `final_content` がある row は、`force:true` が明示されない限り上書きしない。
 - no-data テンプレや未作成 row は、確認済み source refs があれば `draft_content` を暫定更新してよい。
 - `projects.start_ym` より前でも、キックオフ / 提案 / 契約前調整など PJ 形成に意味がある月は作成対象にしてよい。
+- `projects.status='ended'` かつ `projects.end_ym` より後の `monthly_reports.status='draft'` row は、future-like draft / テンプレート由来の可能性があるため、終了済PJの継続支援 current truth には使わない。必要なら source refs を追加確認し、確定活動がない限り補助資料扱いに留める。
 - `sourceChecklist` が 0 のままでも connector で現物が取れた場合は、`raw_data_gap` だけで終えず source refs / L2 候補へ寄せる。
 
 ## 禁止経路

@@ -73,6 +73,7 @@ vs ローカル Mac scheduled task の問題:
 - fallback: L2 coverage が薄い・古い・source refs 不足・no-data 判定候補・backfill 候補があるときは Gmail / Drive / Calendar / Slack / Notion 5 生データを gap check する。`source_cache` だけで no-data 判定しない
 - 抽出: 対象月に起きた進捗、判断、外部関係者の動き、技術/資料、リスク、来月焦点を markdown draft にする
 - 出力: `monthly_reports` (`status='draft'`)。既存 `final_content` は force 明示なしで上書きしない
+- 終了済PJ: `projects.status='ended'` かつ `projects.end_ym` より後の draft 月次は、確定source refsが別途あるまで「future-like draft / テンプレート由来」として扱い、AMD支援継続の根拠にしない
 - 反映: `~/.codex/automations/amd-os-ms/outbox/*.json` の `monthlyReports` を LaunchAgent が `ms_progress_review_tool.mjs apply-outbox-dir` で反映
 - 禁止: R313 trigger 復活、PWA `/api/report/generate` / `/api/cron/monthly-reports-backfill` の定期実行、従量課金LLM API の直接呼び出し
 

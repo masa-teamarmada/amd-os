@@ -182,6 +182,8 @@ GET /api/cron/management-score-calculate?ym=YYYYMM
 
 **評価対象 PJ**:`project_ventures.amd_support_ended_at IS NULL` の PJ のみ。 卒業済 PJ で他人主導 events が出るのは AMD が育てた組織の自走兆候であり、 歓迎すべき事象なので先手力減点しない (= まさ #83)。
 
+source hygiene guard: `amd_support_ended_at` がNULLでも、`projects.status='ended'` / `projects.end_ym` と `project_ventures.narrative_text` / `master_md_text` が同じ終了月を示す場合は、NULLを継続根拠にせず、正規化カラム補正候補として司令塔レビューへ回す。終了月より後の draft 月次や `billing_cycles.status='not_started'` のfuture rowは、終了済PJの支援継続判定には使わない。`billing_cycles` は入金・請求・cash timingの補助であり、PRS本体、SU本体粗利、damage/reinvestment根拠へ転用しない。
+
 ```text
 target_pj_ids = SELECT project_id FROM project_ventures
                 WHERE amd_support_ended_at IS NULL
