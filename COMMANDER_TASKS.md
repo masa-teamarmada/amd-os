@@ -56,7 +56,7 @@
   - 調査すると、会議後にサマリ抽出が走るべき時間帯に、MMOマシン側の抽出処理が起動していなかった可能性が高かった。
   - 会議サマリはBefore Zeroの現場知やTextbook候補の元にもなるため、ここが抜けるとOS全体の地盤が弱くなる。
 - 現状どうなってるか
-  - 動作状態: active workerあり。worker thread `019e809e-ce94-7db2-bf55-7da44ff1023d` がCalendar色取得の代替経路とCFG_Alias判定の再評価を担当している。
+  - 動作状態: 外部認証待ち。worker thread `019e809e-ce94-7db2-bf55-7da44ff1023d` がCalendar色取得の代替経路とCFG_Alias判定の再評価を担当しているが、GAS反映に必要なclasp再認証で止まっている。
   - 監視状態: AMD OS未完タスク監視heartbeatで継続監視中。
   - ZMPの対象会議サマリ自体は復旧済み。
   - MMOマシン側の抽出ルールには、会議IDが入っていなくても、タイトル・日時・参加者・関連資料から拾う方針を反映済み。
@@ -72,15 +72,20 @@
   - 書き込みなしの診断で、MMOマシンから色→PJ設定を読み取れることを確認済み。
   - 設定シート側の履歴表と別名表も読めており、代表的な色や別名からPJ候補を解決できることを確認済み。
   - 再認証後も、Google Calendar connector経由では予定一覧・個別予定は読めるが、予定色/default colorは取得できていない。
-  - workerは、Connector待ちではなく、GAS Advanced Calendar ServiceまたはPWAのGoogle Calendar API直読みで、event colorを読む診断helperを実装中。
-  - ただし、まさから「これまでCFG_Aliasで判定できていたはず」という指摘があり、色だけに依存せず、CFG_Alias exact matchで安全に候補化できる条件を再評価中。
-  - 単なるtitle substringだけでLive書き込み候補に昇格することは禁止のまま。
+  - workerは、Connector待ちではなく、GAS Advanced Calendar ServiceまたはPWAのGoogle Calendar API直読みで、event colorを読む診断helperを実装した。
+  - まさから「これまでCFG_Aliasで判定できていたはず」という指摘があり、色だけに依存せず、CFG_PJAlias high-confidenceで安全に候補化できる条件へ戻した。
+  - `CFG_ColorPJHistory` で色が解ける場合、または `CFG_PJAlias` のexact/regex/bracketed title alias/ASCII whole-token title aliasなら候補化できる。
+  - 単なるcontains、project_name substring、client_name substringだけでLive書き込み候補に昇格することは禁止のまま。
+  - L6 alias/color helper変更は `2cfccc4 Add L6 calendar color and alias diagnostics` として `origin/main` に反映済み。
+  - `【ZeMA】定例MTG` はCFG_PJAlias high-confidenceでZMP/p19 activeへ解ける候補として確認済み。
+  - ただし、GAS本番反映の `clasp push --force` が Mac側・MSI側とも `invalid_grant` / `invalid_rapt` で失敗している。コード差分ではなくclasp OAuth再認証の問題。
   - 監視付きの1回実行はまだ登録していない。
   - 毎時稼働はまだ有効化していない。
 - 残課題は何か
-  - CFG_Alias exact matchをL6 Phase Aの安全なPJ判定として使ってよい条件を確定する。
-  - GAS helperをdeployするか、PWA/MSIにGoogle Calendar readonly OAuthを安全投入するかを決める。
-  - 色またはCFG_Aliasで候補予定を安全に確定できたら、その時間帯に合わせて監視付きの1回実行を行う。
+  - まさ側でclaspのGoogle再認証を行う。
+  - 再認証後、`gas/` から `npx --yes @google/clasp@latest push --force` を再実行する。
+  - GAS反映後、read-only diagnosticで `【ZeMA】定例MTG` がCFG_PJAlias high-confidenceでZMP/p19へ解けることを確認する。
+  - diagnosticが通ったら、2026-06-03 12:00 JST の監視付き1回Live taskを登録する。
   - 問題なければ、毎時稼働用の予約をLive化するか判断する。
   - 毎時稼働へ進める場合も、最初の1〜2回は監視してから常時稼働扱いにする。
 
