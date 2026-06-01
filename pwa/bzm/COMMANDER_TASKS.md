@@ -75,8 +75,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 9. BZM 7軸モデルとP×R×S/9軸候補の整合
    - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
    - 背景: 現行教科書は7軸中心だが、知識側にはP×R×S再構成と収益化指数の議論があり、Textbook実践知と結びつきやすい論点になっているため。
-   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft、未確認flag source map、L2 source inventory、finance/cash source pack、billing vs SU revenue join map、evidence cards v2 finance classification refresh は作成済み。v2は、9PJへ `classification` / `evidence_label` / `prs_use` / `source_status` / `double_count_guard` を戻し、`billing_cycles` のR_net混入防止とp20/p21/p11研究契約cash分離を守っているためBZMレビュー採用。次の `PRS bridge and validation source pack` worker `019e8445-f080-7780-87f3-4b2f3e0851f5` がActive。
-   - 残課題: bridge/validation workerで、p07/p20/p21/p04/p03を中心に、本命前つなぎ事業・本命MVP前倒し・評価データ獲得・反実仮想bridgeのsource候補をread-onlyで整理する。次はdamage guard、lane-specific survival、public/knowledge research、BZM judgement brief の順に進めるか判断する。0-9値表、DB化、過去score再計算はまだしない。
+   - 現状: Active。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft、未確認flag source map、L2 source inventory、finance/cash source pack、billing vs SU revenue join map、evidence cards v2 finance classification refresh、bridge/validation source pack は作成済み。bridge/validation pack は、`validation_value_source` を粗利と分け、p03反実仮想をscenario扱いにし、p11膜外販のreview gate継続を守っているためBZMレビュー採用。次の `PRS damage and reinvestment source pack` worker `019e844b-2bc8-7dc1-b4b7-57c0e6bf5fe8` がActive。
+   - 残課題: damage/reinvestment workerで、p09 JOYCLEを主対象に、本命R&D毀損、AMD関与終結、目先収益化、つなぎ収益の本命再投資/リソース毀損をread-onlyで整理する。次はlane-specific survival、public/knowledge research、BZM judgement brief の順に進めるか判断する。0-9値表、DB化、過去score再計算はまだしない。
 
 ## 完了済みタスク
 
