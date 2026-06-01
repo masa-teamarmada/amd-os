@@ -302,22 +302,25 @@
   - 現行AMD ScoreはMXFモデル寄りのままなので、新モデル候補をOS上で検証したい。
   - ただし、P/R_netのrubricや正式DB schema、BZM教科書の理論更新はまだ確定させない。
 - 現状どうなってるか
-  - 動作状態: active worker。BZM一次レビュー後に止まっていたため、OS司令塔からmain取り込み・production deploy・認証済み画面確認workerを切り出した。
-  - OS取り込みworker: worktree作成中 `local:a123d245-432d-4b08-aa53-e2915eb9b8a9`。
-  - worker thread: `019e8252-577c-7d90-a4be-2789a1500d71`。
+  - 動作状態: deploy quota待ち。BZM一次レビュー後、OS司令塔からmain取り込み・production deploy・認証済み画面確認workerを切り出し、main取り込みまでは完了した。
+  - OS取り込みworker thread: `019e8270-2784-74d1-b48e-adb6dfd699cd`。
   - branch: `origin/codex/prs-comparison-layer`。
   - commit: `c101e6c feat: add PRS comparison layer`。
+  - main取り込みmerge: `90e10f0 Merge PRS comparison layer`。
+  - main追従merge/push: `45a8587 Merge main after PRS comparison layer`。
+  - 現在の `origin/main` は `69e0bf3 fix(management): mark future actuals pending` で、`c101e6c` と `45a8587` は祖先として取り込み確認済み。
   - BZM一次レビュー判断: 採用圏内、差し戻し不要。
   - 現行7軸 `calculateAmdScore()` は置換しておらず、PRS計算は `calculatePrsScore()` として独立追加。
   - P/R_netはDB列化せず、retrofit画面の保存しない仮入力に留めている。
   - P/R_net未設定時はscoreを出さず `not enough data` / missing扱いにしている。
-  - BZM台帳は `OS/まさレビュー待ち` に更新済み。commit: `6f2b2b4b9010017e6025155d4c95d23aed9e4b44` on `origin/codex/bzm-commander-tasks`。
   - BZM判断として、現行7軸の正式置換、P/R_net正式rubric、DB本番列追加、全PJ正式retrofit再計算、BZM教科書正式理論更新は今回決め打ちしない。
+  - targeted eslint、`npx tsc --noEmit`、`npm run build` は最終統合状態で成功。DB write/DDLなし。
+  - Vercel production deployは `api-deployments-free-per-day` quotaで失敗し、production aliasはまだPRS取り込みcommitではない既存Ready deploymentを指している。
 - 残課題は何か
-  - OS取り込みworkerが `origin/codex/prs-comparison-layer` をレビューし、問題なければmainへ取り込む。
-  - Vercel production deploy後、認証済み環境で `/venture-map/amd-score/retrofit` を目視確認する。
+  - Vercel quota回復後、最新 `origin/main` を `amd-os-pwa` へproduction deployする。
+  - deploy後、認証済み環境で `/venture-map/amd-score/retrofit` を目視確認する。
+  - PRS列/表示、既存7軸非置換、P/R_net仮入力・非保存、画面崩れ/文字切れなしを確認する。
   - P/R_netや理論変更に踏み込む場合はBZM司令塔レビューを必須にする。
-  - 完了/要判断報告を回収し、BZM司令塔側にも必要な差し戻しがあれば具体化する。
 
 ### 4. admin裏wikiページを作る
 
@@ -329,15 +332,21 @@
   - 取引先やクライアントとの関係づくりでは、仕事上の肩書きだけでなく、趣味・関心・話題・過去の接点などの文脈が重要。
   - ただしセンシティブな個人メモなので、通常PJ画面や外部workspaceには出さず、admin-onlyで閉じる必要がある。
 - 現状どうなってるか
-  - 動作状態: active worker。admin裏wiki実装workerが着手報告済み。
+  - 動作状態: deploy quota待ち。admin裏wiki実装workerが実装・DB適用・main取り込みまで完了した。
   - worker thread: `019e8269-69f6-7be3-9b24-bca052c25754`。
-  - worktree: `/Users/masa/.codex/worktrees/ec80/amd-os`。
-  - 司令塔側では実装を抱えず、workerにDB設計、RLS/API、admin UI、docs、検証まで渡している。
-  - admin-only、通常PJ/公開/外部workspace非表示、センシティブ情報seed禁止を前提にしている。
+  - branch: `codex/admin-private-wiki` / main取り込みbranch `codex/admin-private-wiki-main`。
+  - 実装commit: `32a7835 Add admin private wiki`。
+  - main取り込みcommit: `e489f93 Add admin private wiki`。
+  - 本番DB migration 121 `private_wiki_entries` は適用済み。seedなし。
+  - admin-only API `GET/POST/PATCH /api/admin/private-wiki` と `/admin/private-wiki` UIを追加済み。
+  - AdminSidebarに「裏wiki」を追加し、PJ別grouping、検索、filter、追加/編集/archive form、source/confidence表示を実装済み。
+  - ローカルのログイン済みChromeで `/admin/private-wiki` を確認済み。title、version `v0.13.0`、sidebar、空データ、追加フォーム表示を確認した。
+  - 未ログイン状態は `/auth/login?next=%2Fadmin%2Fprivate-wiki` へredirect確認済み。非admin sessionでは未確認だが、route/API/RLSはadmin guard実装済み。
+  - Vercel production deployは `api-deployments-free-per-day` quotaで失敗し、本番URLはまだ未反映。
 - 残課題は何か
-  - workerの中間/完了/要判断報告を回収する。
-  - DB migration/RLS/API/UI設計がadmin-onlyで安全か確認する。
-  - main取り込み、必要なら本番DB migration適用、production deploy、ログイン済み画面確認まで監視する。
+  - Vercel quota回復後、最新 `origin/main` を `amd-os-pwa` へproduction deployする。
+  - deploy後、本番 `https://amd-os-pwa.vercel.app/admin/private-wiki` をログイン済みadminで確認する。
+  - 可能なら非adminで拒否されることも確認する。
 
 ### 5. コックピット2タブの速度とタブUIを改善する
 
