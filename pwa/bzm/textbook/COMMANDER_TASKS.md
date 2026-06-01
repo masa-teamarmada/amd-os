@@ -43,8 +43,8 @@
 - **public manuscript 00-06 scene-first rewrite**
   - お願いした内容: 北極星と `2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` に沿って、`pwa/bzm/public-manuscript/00`〜`06` を読み物としてつながる本文へ改稿する。
   - 背景: 現行draftは章ごとの論点整理としては進んだが、小見出し単位の説明が並びやすく、販売本として読者を惹きつける連続した読書体験がまだ弱い。
-  - 現状: まさ確認待ちは解除済み。次workerで本文改稿を再開する。
-  - 残課題: Prologue〜Chapter 6を `違和感 → 現場 → 鬼門 → 問い` へ自然につなげ、GAP/VC/CEO論は中心ではなく代表例として扱う。公開禁止語scanと司令塔レビューを通す。
+  - 現状: まさ確認待ちは解除済み。2026-06-01に editorial critic worker が `pwa/bzm/textbook/runs/2026-06-01-editorial-page-turner-audit.md` を追加し、現行本文は「正しい論点の説明」にはなっているが、販売本としてページをめくらせる場面・緊張・章末引き・内容量が足りないと診断。次workerは本文改稿に入る。
+  - 残課題: Prologue〜Chapter 6を `Scene → Tension → Diagnosis → Tool/Question → Bridge` で書き直し、GAP/VC/CEO論を前半のcase zero/hookとして展開する。現 `05` をChapter 4 hingeへ昇格し、現 `04` はその後のdisclosure risk章へ移す。公開禁止語scanと司令塔レビューを通す。
 
 - **販売前提の公開本としてTextbookを再定義する**
   - お願いした内容: 現状の「AMDが見ていること」中心の内部教材から、日本中の研究機関の産連担当者、URA、研究者、スタートアップを目指す若者が買って読める本へ作り直す。
@@ -89,6 +89,12 @@
   - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
 
 ## 完了済みタスク
+
+- **Textbook editorial critic page-turner audit**
+  - お願いした内容: `pwa/bzm/public-manuscript/00`〜`14` を販売本の編集者視点で批評し、読み進めたくなる力・現場の痛み・章末引き・内容量・読者別導線を厳しく評価する。
+  - 背景: 現行public manuscriptは内部語/会社宣伝リスクは下がったが、まさ評価として「ついつい読み進めてしまう魅力度」と内容量がまだ不足しているため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-01-editorial-page-turner-audit.md` を追加。00〜06章別の厳しめ批評、07〜14の不足素材、全体フック候補、章末引き設計、追加ケース/ノウハウ素材、次rewrite指示、通過/落第基準を整理済み。
+  - 残課題: 次workerで `00`〜`06` 本文を実改稿する。改稿後にpage-turner gateを再レビューし、07〜14はbridge/redundancy passとcase bank/tools appendixへ進む。
 
 - **Textbook public-manuscript audit**
   - お願いした内容: 現行 `pwa/bzm/*.md` を販売本の原稿として見たとき、公開可能、公開向け書き換え必須、内部退避、匿名化ケース素材に分類する。
