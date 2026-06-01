@@ -28,10 +28,12 @@
 - まさ確認待ちは解除済み。Textbook本文を書き進める作業自体は、まさ個別承認なしで進めてよい。
 - `pwa/bzm/public-manuscript/*.md` の追加・修正、台帳/レビューnote更新、禁止語scan、司令塔レビューゲートは継続OK。
 - 必須条件は `pwa/bzm/textbook/PUBLICATION_POSITIONING.md` を守ること。公開本はAMD/Team ARMADA/まさ/会社紹介ではなく、Before Zeroの普遍的な現場と読者を主人公にする。
+- まさから直接出た「必ず残したい思想・現場知」は `pwa/bzm/textbook/AUTHOR_DIRECTIVES.md` に保存する。writer/editor workerは `PUBLICATION_POSITIONING.md` と合わせて必読にし、該当要素を削る場合は、削除ではなく移動・圧縮・代替反映として司令塔レビューへ回す。
 - 章型は小見出し羅列ではなく `Scene → Tension → Diagnosis → Tool/Question → Bridge` に寄せる。
 - DB write、external service write、local applier `--apply`、販売用公開の最終判断は引き続き禁止/要判断。
 - 今後は `本文rewrite → 編集者批評 → AMD OS/生データ素材発掘 → rewrite差し戻し` の循環で進める。本文workerだけで「完成」と見なさず、編集者workerの落第基準と素材発掘workerの章別投入マップを次rewriteに反映する。
 - 2026-06-01: `Textbook full-book artifact spine rewrite 00-21` worker作成が3回 `systemError` になったため、司令塔がclean worktreeで直接scoped rewriteを実施。00-21へtraveling artifact spineを追加し、22-24のtoolkit draftを追加。成果記録は `pwa/bzm/textbook/runs/2026-06-01-full-book-artifact-spine-rewrite-00-21.md`。
+- 2026-06-02: まさ直指定の思想として「生存確率」「稼げる体質」「Jカーブ/IPO一律化への疑問」を受領。`AUTHOR_DIRECTIVES.md` に保存し、Ch06/Ch19へ一次反映。
 
 ## 未完タスク（優先順位順）
 
