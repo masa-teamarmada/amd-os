@@ -26,8 +26,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 1. PRSモデルOS実装worker監督
    - お願いした内容: PRSモデル（P×R×S / 9軸候補）を、現行7軸AMD Scoreの置換ではなく比較/シミュレーション層としてAMD OSに実装するworkerを監督する。
    - 背景: まさから「PRSモデルをOSに実装してほしい」と依頼があり、BZM理論側ではまだ正式置換ではなく理論更新候補として扱うのが安全なため。
-   - 現状: worker thread `019e8252-577c-7d90-a4be-2789a1500d71` を切り出し済み。実装方針は「既存7軸を壊さない」「DB本体の大規模migrationはしない」「P/R_net未整備はmissingとして誤読防止」。
-   - 残課題: workerの着手報告・中間報告・完了報告を受け、BZMとして理論一貫性、過剰一般化、P/R_netの扱い、既存スコア置換の有無をレビューする。
+   - 現状: worker thread `019e8252-577c-7d90-a4be-2789a1500d71` が branch `codex/prs-comparison-layer` / commit `c101e6c` をpush済み。BZM一次レビューでは、現行7軸を壊さず、P/R_netを保存しない仮入力に留め、missing時にscoreを出さないため採用圏内。
+   - 残課題: OS司令塔/まさ側でPRレビュー、認証済み環境での画面目視、正式採用する場合のP/R_net rubric・DB schema・9PJ retrofit表の別worker切り出し要否を判断する。
 
 2. worker稼働監視 / heartbeat運用
    - お願いした内容: 未完タスクが残っている間は、worker全員が停止・完了・待機で次アクションもない状態を作らず、heartbeatで台帳とworker状態を確認する。
