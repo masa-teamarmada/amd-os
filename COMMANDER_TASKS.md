@@ -38,17 +38,22 @@
   - 参照成果物は `docs/ip/2026-06-01_patent_os_gap_audit_internal.md`、`docs/ip/2026-06-01_patent_application_draft_internal.md`、`docs/ip/2026-06-01_claim_revision_internal.md`。
   - 特許を弱めるためではなく、特許案に書く価値がある機能をAMD OSの実運用としても厚くするためのretrofit。
 - 現状どうなってるか
-  - 動作状態: design worker切り出し。まずDB write/DDLなしで、既存schema・admin/protocols・admin/ip・notifications・protocol outcome周辺を調査する。
+  - 動作状態: P0実装worker切り出し。設計レビューworker `019e8397-e254-7692-bb80-839b4309bf95` が完了報告済み。
+  - 設計レビュー成果は branch `origin/codex/ip-retrofit-design-review`、commit `c71008a docs: add IP retrofit implementation plan`。
+  - 設計成果物として `pwa/spec/5-6-ip-retrofit-implementation-plan.md` を追加し、spec章登録と附則更新まで完了した。
+  - 指定IP docsは設計workerのworktree HEADには無かったため、`codex/ip-patent-consult-pack` 系branch上の文書を `git show` でread-only参照した。
+  - レビュー結論として、初手はDB/DDLなしで `/admin/protocols` に `protocol_result_observations` のread-only outcome ledger UIを追加するのが最小。
   - `/admin/ip` には別workerが「現状の出願案」ビューを実装済み。出願書類たたき台、請求項見直し案、請求項サポート対応表、現OS乖離監査をOS内で確認できるようにした。
   - admin/IP表示workerの成果は branch `codex/ip-patent-consult-pack-os-gap-audit`、commit `36f0257`。正本は引き続き `docs/ip/*.md`。
-  - retrofitの初回workerは、実装前レビューとして、機能ごとの実装可否、秘密情報を出さないschema案、最小first worker案、main取り込み順を返す。
+  - P0 UIでは、horizon / valence / confidence / summaryを表示し、同一horizonで異なるvalenceがある場合だけ矛盾観測chipを出す。既存観測は上書きしない。
   - 秘密保持境界として、実DB行、source permalink、実本文、prompt全文、few-shot、score weight/threshold/calibration、実PJ本文は保存・表示しない。
 - 残課題は何か
-  - `protocol_result_observations` の既存table/利用箇所を確認し、同一horizonの矛盾観測を上書きせず併記できるadmin UI案を固める。
+  - P0として、`/admin/protocols` に `protocol_result_observations` のread-only outcome ledger UIを実装し、admin-only境界と秘密情報非表示を確認する。
+  - P1のwrite UIへ進む前に、`protocol_result_observations` のRLS/admin-only write境界を確認する。
   - evidence refsをJSONで持つか中間tableにするかを、既存RLS/API/admin UIとの相性で比較する。
   - generic parameter governanceは、prompt/rule/config/model/workflowを横断しつつ、営業秘密をUIやDBに出さない抽象schemaにする。
   - Before-Zero設立時期推奨は、入力を抽象カテゴリ、missing/conflicting categories、recommendation status程度から始める。
-  - 設計レビュー後、最小実装workerを1本ずつ切る。
+  - P2以降はDDL適用せず、migration draftから司令塔reviewへ進める。
 
 ### 2. Claude Code routinesへ移せるautomationを設計する
 
