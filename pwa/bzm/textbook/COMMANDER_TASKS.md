@@ -90,6 +90,12 @@
 
 ## 完了済みタスク
 
+- **Textbook source mining field-knowledge harvest**
+  - お願いした内容: AMD OS / docs / scripts / design / manual / public manuscript / L2運用 / notifications / project signals に埋もれているBefore Zero実務ノウハウを、次の本文workerが使える素材マップへ変換する。
+  - 背景: 公開本を、GAPファンド/VC/CEO論だけでなく、判断分岐、失敗学習、関係構築、制度/知財/顧客検証/投資家接点/研究機関導入の知見まで含む一冊の本として厚くするため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-01-field-knowledge-harvest.md` を追加。素材カテゴリ、公開化方針、章別投入マップ、追加章/コラム/問い/チェックリスト、フック候補、情報不足、next manuscript worker指示を整理済み。
+  - 残課題: 次本文workerで、00-06改稿、07-14拡充、15-21理論パート、22以降の実践ツールへ、internal_only分類を守って反映する。
+
 - **Textbook public-manuscript audit**
   - お願いした内容: 現行 `pwa/bzm/*.md` を販売本の原稿として見たとき、公開可能、公開向け書き換え必須、内部退避、匿名化ケース素材に分類する。
   - 背景: 公開本は「AMDすごい」では売れず、読者主語で Before Zero の現場課題を解く必要があるため。
