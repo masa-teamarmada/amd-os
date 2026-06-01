@@ -38,8 +38,8 @@
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
-  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成・push済み。`Textbook cold-reader review artifact spine 00-24` と `Textbook source mining budget-owner / artifact scenes v5` のP0を受け、2026-06-02に `Textbook public manuscript artifact spine P0 rewrite` workerが本文へ直接反映中。
-  - 残課題: P0 rewriteのcommit/pushと能動報告後、追加場面の統合感、Toolkit A/B/C配置、Ch05/Ch04 filename/title order debtを次の編集レビューで確認する。
+  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成・push済み。`Textbook cold-reader review artifact spine 00-24` と `Textbook source mining budget-owner / artifact scenes v5` のP0を受け、2026-06-02に `Textbook public manuscript artifact spine P0 rewrite` workerが本文へ直接反映済み。続けて `Textbook surgical editorial pass artifact spine` workerがCh04/Ch05 semantic order、scaffolding語、Toolkit A/B/C配置、Ch14/21/24重複をsurgical修正中。
+  - 残課題: surgical passのcommit/pushと能動報告後、追加場面の統合感と販売前copy rhythmを次のcold-reader reviewで確認する。
 
 - **public manuscript 00-06 scene-first rewrite**
   - お願いした内容: 北極星と `2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` に沿って、`pwa/bzm/public-manuscript/00`〜`06` を読み物としてつながる本文へ改稿する。
@@ -106,7 +106,7 @@
 - **Textbook public manuscript ch4-6**
   - お願いした内容: 公開原稿layerで、外部開示、GAP/VC/CEO機能、会社化タイミングを扱う Chapter 4〜6 を作る。
   - 背景: Before Zero の鬼門を、内部イベント名や会社宣伝ではなく、読者が現場で使える判断レンズとして書くため。
-  - 現状: `pwa/bzm/public-manuscript/04-before-disclosure.md`、`05-gap-vc-ceo-function.md`、`06-incorporation-timing.md` を追加。禁止語scanはno hits。司令塔レビューで公開原稿として通過。
+  - 現状: `pwa/bzm/public-manuscript/04-gap-vc-ceo-function.md`、`05-before-disclosure.md`、`06-incorporation-timing.md` を追加。禁止語scanはno hits。司令塔レビューで公開原稿として通過。2026-06-02 surgical passでCh04/Ch05のfilename/title semantic orderを修正。
   - 残課題: Chapter 7〜10へ展開し、「会社にする前に聞く問い」を公開原稿化する。
 
 - **Textbook public manuscript ch7-10**
