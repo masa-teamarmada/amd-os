@@ -85,6 +85,7 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
       "5-3-automation-responsibility-current-spec",
       "5-4-decision-history-current-spec",
       "5-5-cross-platform-gas-ios-current-spec",
+      "5-6-ip-retrofit-implementation-plan",
     ],
   },
   {
@@ -124,6 +125,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "5-3-automation-responsibility-current-spec", title: "Automation 責務分担仕様", summary: "L2 ①〜⑩ writer、停止済み LLM cron、allowed cron、outbox applier、再発防止。" },
   { slug: "5-4-decision-history-current-spec", title: "判断履歴 / 事故ログ仕様", summary: "LLM cron 廃止、経営ハイライト再設計、dialogue、new_business、主要事故ログ。" },
   { slug: "5-5-cross-platform-gas-ios-current-spec", title: "GAS / iOS 役割境界仕様", summary: "PWA、GAS、iOS の責務境界、current/deprecated の入口、未確認点。" },
+  { slug: "5-6-ip-retrofit-implementation-plan", title: "特許案 retrofit 実装分解案", summary: "特許案と現OSの薄い箇所を、outcome ledger、evidence refs、parameter governance、Before-Zero推奨、関連画面群へ安全に分解する内部実装計画。" },
   { slug: "6-1-appendix-changelog", title: "附則（設計書変更履歴）", summary: "/spec の追加・変更・削除を append-only で記録する変更履歴。" },
 ];
 
