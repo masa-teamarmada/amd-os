@@ -302,7 +302,8 @@
   - 現行AMD ScoreはMXFモデル寄りのままなので、新モデル候補をOS上で検証したい。
   - ただし、P/R_netのrubricや正式DB schema、BZM教科書の理論更新はまだ確定させない。
 - 現状どうなってるか
-  - 動作状態: OS/まさレビュー待ち。BZM司令塔がPRSモデルOS実装workerを切り出し、BZM一次レビューまで完了した。
+  - 動作状態: active worker。BZM一次レビュー後に止まっていたため、OS司令塔からmain取り込み・production deploy・認証済み画面確認workerを切り出した。
+  - OS取り込みworker: worktree作成中 `local:a123d245-432d-4b08-aa53-e2915eb9b8a9`。
   - worker thread: `019e8252-577c-7d90-a4be-2789a1500d71`。
   - branch: `origin/codex/prs-comparison-layer`。
   - commit: `c101e6c feat: add PRS comparison layer`。
@@ -313,10 +314,10 @@
   - BZM台帳は `OS/まさレビュー待ち` に更新済み。commit: `6f2b2b4b9010017e6025155d4c95d23aed9e4b44` on `origin/codex/bzm-commander-tasks`。
   - BZM判断として、現行7軸の正式置換、P/R_net正式rubric、DB本番列追加、全PJ正式retrofit再計算、BZM教科書正式理論更新は今回決め打ちしない。
 - 残課題は何か
-  - OS司令塔として `origin/codex/prs-comparison-layer` をレビューする。
-  - 必要なら認証済み環境で `/venture-map/amd-score/retrofit` を目視確認する。
+  - OS取り込みworkerが `origin/codex/prs-comparison-layer` をレビューし、問題なければmainへ取り込む。
+  - Vercel production deploy後、認証済み環境で `/venture-map/amd-score/retrofit` を目視確認する。
   - P/R_netや理論変更に踏み込む場合はBZM司令塔レビューを必須にする。
-  - OS側でmain取り込み・deployが必要になったら、通常の検証ゲートを通す。
+  - 完了/要判断報告を回収し、BZM司令塔側にも必要な差し戻しがあれば具体化する。
 
 ### 4. admin裏wikiページを作る
 
