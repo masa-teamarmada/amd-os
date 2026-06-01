@@ -11,7 +11,7 @@
 
 このドラフトを書き始めた時点で見えた不足は以下。
 
-1. Fig.1〜Fig.7相当の図面案を追加済み。ただし特許図面としての清書は未実施。
+1. Fig.1〜Fig.8相当の図面案を追加済み。ただし特許図面としての清書は未実施。
 2. WS-1〜WS-5を1つの処理フローとして説明するretrofit図を追加済み。
 3. evidence metadata、candidate、master DB、protocol、example、outcome、pending proposalの抽象テーブル例を追加済み。
 4. reject/comment feedbackの抽象処理例を追加済み。ただし具体prompt変換ロジックは営業秘密として非開示。
@@ -109,6 +109,7 @@
 - 【図5】結果観測データのappend-only保存及び矛盾観測提示の画面例
 - 【図6】システムパラメータ変更候補のpending proposal及びversion昇格処理のフローチャート
 - 【図7】法人設立前研究シーズに対する法人設立時期推奨処理のフローチャート
+- 【図8】候補、証拠、レビュー、プロトコル、結果観測、及び変更候補を横断する統合確認インターフェースの表示態様例
 
 ### 図面案
 
@@ -168,9 +169,10 @@ erDiagram
   MASTER_RECORD ||--o{ COMMERCIALIZATION_PROTOCOL : generates
   COMMERCIALIZATION_PROTOCOL ||--o{ PROTOCOL_EXAMPLE : has
   PROTOCOL_EXAMPLE ||--o{ OUTCOME_OBSERVATION : observes
+  OUTCOME_OBSERVATION ||--o{ OUTCOME_EVIDENCE_REF : has
+  EVIDENCE_METADATA ||--o{ OUTCOME_EVIDENCE_REF : supports
   EVIDENCE_METADATA ||--o{ CANDIDATE_DATA : supports
   CANDIDATE_DATA ||--o| MASTER_RECORD : approved_into
-  EVIDENCE_METADATA ||--o{ OUTCOME_OBSERVATION : supports
 
   CANDIDATE_DATA {
     string candidate_id
@@ -197,7 +199,13 @@ erDiagram
     string example_id
     string horizon
     string valence
+    string evidence_refs
+  }
+  OUTCOME_EVIDENCE_REF {
+    string observation_id
     string evidence_id
+    string evidence_role
+    string source_category
   }
 ```
 
@@ -238,6 +246,19 @@ flowchart TD
   S704 --> S705{"通知条件を満たす?"}
   S705 -->|はい| S706["意思決定者に推奨を提示"]
   S705 -->|いいえ| S707["追加検証又は保留として保存"]
+```
+
+#### 【図8】統合確認インターフェースの表示態様例
+
+```mermaid
+flowchart TD
+  UI0["統合確認インターフェース"]
+  UI0 --> A["候補領域<br/>candidate type / summary / confidence"]
+  UI0 --> B["証拠領域<br/>source type / date / title / short snippet / hash"]
+  UI0 --> C["レビュー領域<br/>approve / reject / comment / feedback scope"]
+  UI0 --> D["protocol領域<br/>protocol id / abstract label / example link"]
+  UI0 --> E["outcome領域<br/>horizon / valence / evidence roles"]
+  UI0 --> F["proposal領域<br/>parameter type / proposed change summary / status"]
 ```
 
 ---
@@ -312,6 +333,10 @@ snippetは、所定長以下の抜粋であってよい。hash valueは、ソー
 
 確認インターフェースは、承認入力、却下入力、又はコメント入力を受け付ける。
 
+一実施形態では、確認インターフェースは、候補領域、証拠領域、レビュー領域、プロトコル領域、結果観測領域、及び変更候補領域の少なくとも一部を含む統合確認画面として構成されてもよい。候補領域は候補種別、候補要約、信頼度、及び対象プロジェクト識別子を表示してもよい。証拠領域はソース種別、日付、タイトル、所定長以下の抜粋、及びハッシュ値を表示してもよい。レビュー領域は承認、却下、コメント、feedback_scope、及びcomment_summaryを表示又は受け付けてもよい。プロトコル領域はprotocol identifier、抽象化ラベル、及び関連するプロジェクト固有事例への参照を表示してもよい。結果観測領域はhorizon、valence、観測要約、及び複数証拠参照の役割を表示してもよい。変更候補領域はparameter_type、proposed_change_summary、承認状態、又はレビューコメント要約を表示してもよい。
+
+この統合確認画面に表示される情報は、全文ソース、具体的なprompt、個別プロジェクト本文、又は内部設定値を含まなくてもよい。これにより、外部から観測可能な表示態様として、候補、証拠、レビュー、プロトコル、結果観測、及び変更候補の関係を確認できる。
+
 ### 6. 正本データベース反映部
 
 正本データベース反映部は、承認入力を受けた候補データを正本データベースに反映する。
@@ -327,6 +352,8 @@ snippetは、所定長以下の抜粋であってよい。hash valueは、ソー
 フィードバックデータは、後続の候補データ生成処理における抽出スコープ、抽出条件、入力プロンプト、判定ルール、信頼度判定、又は設定値の少なくとも一つに反映される。
 
 ただし、具体的なprompt全文、few-shot例、及びcomment-to-guidance変換ロジックは、実施例として詳細に限定しない。
+
+一実施形態では、フィードバックデータは、feedback_scope、comment_summary、target_parameter_type、target_candidate_type、及びapplication_modeの少なくとも一部を含んでもよい。target_parameter_typeは、抽出スコープ、抽出条件、判定ルール、信頼度判定、設定値、又はワークフロー定義等の抽象カテゴリを示してもよい。application_modeは、後続処理で参照する、候補生成前に条件へ反映する、又はレビュー画面上の注意表示として用いる等の抽象的な適用態様を示してもよい。
 
 ### 8. 事業化判断プロトコル生成部
 
@@ -381,6 +408,8 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 
 結果観測データはappend-onlyに保存される。同一のprotocol identifier又はproject-specific exampleに対して、異なるvalenceを有する複数の結果観測データが存在する場合、情報処理装置は当該複数の結果観測データを上書きせず、確認インターフェースに提示する。
 
+一実施形態では、1つの結果観測データは、複数の異種証拠メタデータへの参照を含んでもよい。例えば、結果観測データは、会議録由来の観測、月次レポート由来の観測、組織内指標由来の観測、戦略シグナル由来の観測、プロジェクト状態変化記録由来の観測、又は外部制度情報由来の観測のうち二以上を、evidence_refs又は中間関連データを介して関連付けてもよい。各証拠参照は、当該結果観測に対する役割、ソースカテゴリ、観測日、及び短い根拠要約の少なくとも一部を有してもよい。
+
 ### 11. システムパラメータ提案管理部
 
 システムパラメータ提案管理部は、複数種類のシステムパラメータに対する変更候補を管理する。
@@ -407,6 +436,12 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 法人設立時期推奨データは、例えば、即時設立、一定期間後の設立、追加検証後の設立、又は設立保留等のカテゴリを含んでもよい。
 
 ただし、具体的なスコア重み、閾値、calibration dataset、又は実プロジェクト事例本文は、本実施形態に限定されない。
+
+一実施形態では、法人設立時期推奨部は、入力カテゴリとして、研究シーズ段階情報、検証進捗情報、知的財産関連状態、外部連携又は顧客候補状態、チーム又は関係者状態、資金又は制度対応状態、並びに直近及び過去の結果観測カテゴリの少なくとも一部を用いてもよい。
+
+法人設立時期推奨部が参照する正本レコード種別は、承認済み候補データ、正本化されたプロジェクト状態レコード、事業化判断プロトコルデータ、プロジェクト固有事例、結果観測データ、レビュー済みフィードバックデータ、及び承認済みシステムパラメータversionの少なくとも一部であってよい。
+
+法人設立時期推奨部は、例えば、(i)対象プロジェクトが法人設立前研究シーズであることを判定し、(ii)上記入力カテゴリに対応する正本レコードを取得し、(iii)不足又は矛盾するカテゴリを識別し、(iv)既存の事業化判断プロトコル及び結果観測カテゴリと照合し、(v)推奨カテゴリ及び根拠要約を生成し、(vi)必要に応じて確認インターフェースへ提示する、という処理により設立時期推奨データを生成してもよい。
 
 ### 13. 抽象データ構造例
 
@@ -449,6 +484,8 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 | review_action | approved / rejected / commented等 |
 | comment_summary | コメントの要約 |
 | feedback_scope | 後続処理へ反映する範囲 |
+| target_parameter_type | 抽出スコープ、抽出条件、判定ルール、信頼度判定、設定値、ワークフロー定義等の抽象カテゴリ |
+| application_mode | 後続処理での参照、条件反映、注意表示等の抽象的な適用態様 |
 | created_at | 作成日時 |
 
 #### master_record
@@ -500,7 +537,17 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 | valence | positive / negative / mixed / neutral / unknown等 |
 | confidence | 観測信頼度 |
 | summary | 結果要約 |
-| evidence_id | 関連証拠識別子 |
+| evidence_refs | 関連証拠識別子の集合又は関連データへの参照 |
+
+#### outcome_evidence_ref
+
+| field | description |
+|---|---|
+| observation_id | 結果観測データ識別子 |
+| evidence_id | 証拠メタデータ識別子 |
+| evidence_role | supporting / contradicting / contextual等の役割 |
+| source_category | 会議録、月次レポート、指標、戦略シグナル、状態変化、外部制度情報等の抽象カテゴリ |
+| basis_summary | 所定長以下の根拠要約 |
 
 #### system_parameter
 
@@ -540,8 +587,10 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 | recommendation_id | 設立時期推奨識別子 |
 | project_id | 対象プロジェクト識別子 |
 | recommendation_category | 即時設立 / 一定期間後 / 追加検証後 / 保留等 |
+| input_categories | 推奨生成時に参照した入力カテゴリ |
 | basis_summary | 根拠要約 |
 | source_record_refs | 参照した正本レコード又は観測データ |
+| missing_or_conflicting_categories | 不足又は矛盾がある入力カテゴリ |
 | confidence | 推奨信頼度 |
 | generated_at | 生成日時 |
 
@@ -580,9 +629,9 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 #### 14.4 feedback-to-next-extraction flow
 
 1. 過去のreview_feedbackを対象プロジェクト、候補種別、抽出器種別、又は適用範囲で検索する。
-2. 後続候補生成処理に適用すべきfeedback dataを選択する。
-3. feedback dataを、抽出スコープ、抽出条件、入力プロンプト、判定ルール、又は信頼度判定の少なくとも一つへ反映する。
-4. 反映後の条件に基づき候補データ生成を実行する。
+2. comment_summary、feedback_scope、target_parameter_type、及びapplication_modeを含むfeedback dataを選択する。
+3. feedback dataを、抽出スコープ、抽出条件、判定ルール、信頼度判定、設定値、又はワークフロー定義の少なくとも一つへ抽象的に対応付ける。
+4. 対応付けられた条件に基づき候補データ生成を実行する。
 5. 生成結果を新たな候補データとして保存し、確認インターフェースへ提示する。
 
 #### 14.5 protocol abstraction flow
@@ -598,9 +647,10 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 
 1. 事業化判断プロトコル又はプロジェクト固有事例に紐づくアクションを取得する。
 2. アクション後に得られた業務データ源又は結果参照を取得する。
-3. observed_on、horizon、valence、confidence、summary、evidence_idを生成する。
-4. 既存観測を上書きせず、新規outcome_observationとしてappend-only保存する。
-5. 同一protocol又はexampleに対し同一horizonで異なるvalenceがある場合、矛盾観測として確認インターフェースへ併記する。
+3. 会議録、月次レポート、指標、戦略シグナル、状態変化、外部制度情報等の異種証拠参照を分類する。
+4. observed_on、horizon、valence、confidence、summary、及びevidence_refsを生成する。
+5. outcome_observationをappend-only保存し、複数証拠がある場合はoutcome_evidence_ref等の中間関連データへ保存する。
+6. 同一protocol又はexampleに対し同一horizonで異なるvalenceがある場合、矛盾観測として確認インターフェースへ併記する。
 
 #### 14.7 parameter governance flow
 
@@ -614,10 +664,11 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 #### 14.8 incorporation timing recommendation flow
 
 1. 対象プロジェクトが法人設立前研究シーズであるか判定する。
-2. 承認済み候補データ、protocol、example、outcome、及び必要に応じてスコアリングモデル出力を取得する。
-3. 実weight、閾値、calibrationを開示しない抽象ロジックにより、設立時期推奨カテゴリを生成する。
-4. 推奨カテゴリ、根拠要約、参照レコード、confidenceを保存する。
-5. 所定の通知条件を満たす場合、意思決定者へ提示する。
+2. 研究シーズ段階、検証進捗、知的財産関連状態、外部連携又は顧客候補状態、チーム又は関係者状態、資金又は制度対応状態、及び結果観測カテゴリの少なくとも一部を入力カテゴリとして取得する。
+3. 承認済み候補データ、正本化されたプロジェクト状態レコード、protocol、example、outcome、review_feedback、及び承認済みparameter versionの少なくとも一部を参照する。
+4. 不足又は矛盾する入力カテゴリを識別し、既存protocol及び結果観測カテゴリと照合する。
+5. 設立時期推奨カテゴリ、根拠要約、参照レコード、及び不足又は矛盾カテゴリを保存する。
+6. 必要に応じて意思決定者へ提示する。
 
 ### 15. 安全な実施例
 
@@ -629,11 +680,13 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 
 承認済み候補データから、情報処理装置は、個別の研究シーズ名を除いた事業化判断プロトコルデータを生成する。当該プロトコルデータは、分岐点、判断材料、アクションパターン、及び結果カテゴリを含む。別の研究シーズBで類似の判断が発生した場合、情報処理装置は当該研究シーズBの事例を同一又は類似のプロトコル識別子へ関連付ける。
 
-その後、情報処理装置は、1か月後、6か月後、及び24か月後の結果観測データをappend-onlyに保存する。1か月後の観測がpositiveであり、24か月後の観測がnegativeである場合でも、情報処理装置は一方を上書きせず、双方を確認インターフェースへ時系列に提示する。
+その後、情報処理装置は、1か月後、6か月後、及び24か月後の結果観測データをappend-onlyに保存する。各結果観測データは、会議録由来の観測、月次レポート由来の観測、状態変化記録由来の観測等、複数の異種証拠参照に関連付けられてもよい。1か月後の観測がpositiveであり、24か月後の観測がnegativeである場合でも、情報処理装置は一方を上書きせず、双方を確認インターフェースへ時系列に提示する。
 
 また、情報処理装置は、抽出ルール又は判定ルールに対する変更候補をpending proposalとして保存し、承認入力を受けた場合に限り、新規versionとして保存する。
 
-対象プロジェクトが法人設立前研究シーズである場合、情報処理装置は、承認済み候補データ、事業化判断プロトコルデータ、及び結果観測データに基づいて、法人設立時期推奨データを生成する。当該推奨データは、即時設立、一定期間後の設立、追加検証後の設立、又は設立保留等のカテゴリを含んでもよい。
+統合確認インターフェースは、候補要約、証拠メタデータの短い表示、レビュー入力、関連protocol、結果観測、及びpending proposalを同一画面又は関連画面群として表示してもよい。表示される証拠は短い抜粋又はメタデータに限定されてもよく、実データ本文を含まなくてもよい。
+
+対象プロジェクトが法人設立前研究シーズである場合、情報処理装置は、研究シーズ段階、検証進捗、知的財産関連状態、外部連携又は顧客候補状態、チーム又は関係者状態、資金又は制度対応状態、及び結果観測カテゴリの少なくとも一部に基づいて、法人設立時期推奨データを生成する。当該推奨データは、即時設立、一定期間後の設立、追加検証後の設立、又は設立保留等のカテゴリを含んでもよい。
 
 ---
 
@@ -727,7 +780,7 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 
 請求項8又は9に記載の情報処理方法において、
 
-前記結果観測データの証拠メタデータは、会議録、月次レポート、組織内キーパフォーマンス指標、戦略シグナル、プロジェクト状態変化記録、又は外部制度情報のうち少なくとも二以上の異種ソースからの参照を含む、
+前記結果観測データは、一又は複数の証拠参照又は中間関連データを介して、会議録、月次レポート、組織内キーパフォーマンス指標、戦略シグナル、プロジェクト状態変化記録、又は外部制度情報のうち少なくとも二以上の異種ソースからの参照に関連付けられる、
 
 情報処理方法。
 
@@ -796,6 +849,7 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 - Fig.5 contradictory outcome UI: Mermaid案あり
 - Fig.6 pending proposal/version governance: Mermaid案あり
 - Fig.7 Before-Zero設立時期推奨: Mermaid案あり
+- Fig.8 統合確認インターフェース表示態様: Mermaid案あり
 
 ### A-2. データ構造不足
 
