@@ -6,12 +6,16 @@
  *   伝わることを完成基準にする。箇条書き・表は補助。
  *
  * 正本は docs/ip/ 配下:
+ *  - docs/ip/2026-06-01_patent_application_draft_internal.md  出願書類たたき台
+ *  - docs/ip/2026-06-01_claim_revision_internal.md  請求項見直し案
+ *  - docs/ip/2026-06-01_claim_support_matrix_internal.md  請求項サポート対応表
+ *  - docs/ip/2026-06-01_patent_os_gap_audit_internal.md  現OS乖離監査
  *  - docs/ip/2026-05-27_amd_os_protocol_patent_proposal.md (.docx)  発明提案書
  *  - docs/ip/2026-05-27_amd_os_protocol_prior_art_screening.md (.docx)  先行特許スクリーニング
  *  - docs/ip/README.md  入口
  *  - docs/ip/HANDOFF_ip.md  知財作業 handoff
  */
-export const IP_REPORT_UPDATED = "2026-05-29";
+export const IP_REPORT_UPDATED = "2026-06-01";
 
 export const IP_REPORT_MD = `# AMD OS / AMDプロトコル 知財レポート
 
@@ -113,6 +117,10 @@ AMD OS と AMDプロトコルは、AMD にとって単なる業務効率化ツ�
 
 - **発明提案書**: docs/ip/2026-05-27_amd_os_protocol_patent_proposal.md (.docx)
 - **先行特許スクリーニング**: docs/ip/2026-05-27_amd_os_protocol_prior_art_screening.md (.docx)
+- **出願書類たたき台**: docs/ip/2026-06-01_patent_application_draft_internal.md
+- **請求項見直し案**: docs/ip/2026-06-01_claim_revision_internal.md
+- **請求項サポート対応表**: docs/ip/2026-06-01_claim_support_matrix_internal.md
+- **現OS乖離監査**: docs/ip/2026-06-01_patent_os_gap_audit_internal.md
 - **入口**: docs/ip/README.md
 - **知財作業 handoff**: docs/ip/HANDOFF_ip.md
 `;
