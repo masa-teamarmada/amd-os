@@ -23,7 +23,21 @@
 - BZMは前半から説明しない。読者が現場の違和感と判断の難しさを掴んだ後に、その混乱を整理する理論地図として後半で出す。
 - OS上の `/bzm` 導線は、公開本づくりの混乱を避けるため表示名を `教科書` に寄せる。内部slugや既存URLは互換性維持のため当面 `/bzm` のままにする。
 
+## 本文拡充運用
+
+- まさ確認待ちは解除済み。Textbook本文を書き進める作業自体は、まさ個別承認なしで進めてよい。
+- `pwa/bzm/public-manuscript/*.md` の追加・修正、台帳/レビューnote更新、禁止語scan、司令塔レビューゲートは継続OK。
+- 必須条件は `pwa/bzm/textbook/PUBLICATION_POSITIONING.md` を守ること。公開本はAMD/Team ARMADA/まさ/会社紹介ではなく、Before Zeroの普遍的な現場と読者を主人公にする。
+- 章型は小見出し羅列ではなく `Scene → Tension → Diagnosis → Tool/Question → Bridge` に寄せる。
+- DB write、external service write、local applier `--apply`、販売用公開の最終判断は引き続き禁止/要判断。
+
 ## 未完タスク（優先順位順）
+
+- **public manuscript 00-06 scene-first rewrite**
+  - お願いした内容: 北極星と `2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` に沿って、`pwa/bzm/public-manuscript/00`〜`06` を読み物としてつながる本文へ改稿する。
+  - 背景: 現行draftは章ごとの論点整理としては進んだが、小見出し単位の説明が並びやすく、販売本として読者を惹きつける連続した読書体験がまだ弱い。
+  - 現状: まさ確認待ちは解除済み。次workerで本文改稿を再開する。
+  - 残課題: Prologue〜Chapter 6を `違和感 → 現場 → 鬼門 → 問い` へ自然につなげ、GAP/VC/CEO論は中心ではなく代表例として扱う。公開禁止語scanと司令塔レビューを通す。
 
 - **販売前提の公開本としてTextbookを再定義する**
   - お願いした内容: 現状の「AMDが見ていること」中心の内部教材から、日本中の研究機関の産連担当者、URA、研究者、スタートアップを目指す若者が買って読める本へ作り直す。
