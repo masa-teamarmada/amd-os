@@ -36,6 +36,15 @@
 
 ## 3. 改訂主請求項案
 
+批判的弁理士レビュー後の補足:
+
+請求項1案は、WS-1〜WS-3/WS-4のAND結合を強く示せる一方、protocol生成まで必須にすると競合がprotocol生成を外して回避する余地がある。弁理士相談では、以下の二段構えを確認する。
+
+- **独立候補A**: 複数業務データ源、証拠メタデータ、人間承認、approved-only正本反映、reject/comment feedbackまでを主軸にしたHITL正本化ループ。
+- **独立候補B**: 承認済み正本レコードからのprotocol生成、1:N事例、multi-horizon outcome、矛盾観測、異種evidence参照までを含むprotocol/outcome閉ループ。
+
+WS-5 system parameter governanceは分割候補又は従属項寄り、WS-6 Before-Zero設立時期推奨は従属・補強寄りで相談する。
+
 ### 請求項1案: 事業化判断支援の情報処理方法
 
 事業化判断を支援する情報処理方法であって、コンピュータが、

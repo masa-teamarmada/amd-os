@@ -33,15 +33,15 @@
 
 - お願いした内容: 現在の請求項・明細書案が、AMD OSの現行設計・実装・管理画面・DB設計と乖離していないかを確認する。
 - 背景: 明細書上の発明が実OSから離れすぎると、実施可能要件・説明の説得力・弁理士相談時の優先順位がズレる。一方で、実装細部を出しすぎると営業秘密を失うため、乖離は「特許上補強すべき抽象構造」と「OS側の将来実装TODO」に分ける必要がある。
-- 現状: 現OS乖離チェックworkerを回収済み。成果物 `docs/ip/2026-06-01_patent_os_gap_audit_internal.md` では、WS-1/WS-2/WS-3/WS-4は現OSの実装・設計で比較的強く裏付けあり。一方、outcome ledgerのUI/複数evidence refs、WS-5の汎用system parameter governance、WS-6 Before-Zero設立時期推奨、Fig.8統合確認UIはretrofit候補として整理済み。
-- 残課題: 乖離チェックを踏まえ、明細書補強・請求項修正・OS実装TODO・弁理士確認論点に分類する。特に、outcome ledger最小実装、WS-5を基幹出願に残すか分割候補にするか、WS-6を従属項・補強に留めるかをまさ判断事項として扱う。
+- 現状: 現OS乖離チェックworkerを回収済み。成果物 `docs/ip/2026-06-01_patent_os_gap_audit_internal.md` では、WS-1/WS-2/WS-3/WS-4は現OSの実装・設計で比較的強く裏付けあり。一方、outcome ledgerのUI/複数evidence refs、WS-5の汎用system parameter governance、WS-6 Before-Zero設立時期推奨、Fig.8統合確認UIはretrofit候補として整理済み。さらに、批判的弁理士レビュー `docs/ip/2026-06-01_critical_patent_attorney_review_internal.md` と、その打ち返し方針 `docs/ip/2026-06-01_critical_review_response_brushup_internal.md` を追加し、未実装/partial要素は基幹出願・従属項・分割候補・retrofit候補に分ける方向で整理済み。
+- 残課題: 批判レビューを踏まえ、明細書たたき台へ技術課題、先行技術別の逃げ方、抽象レコード遷移表を反映する。特に、outcome ledger最小実装、WS-5を基幹出願に残すか分割候補にするか、WS-6を従属項・補強に留めるかをまさ判断事項として扱う。
 
 ### 1. 弁理士初回相談パックをまさ確認用に仕上げる
 
 - お願いした内容: 弁理士へ相談する前に、相談目的、持参資料、開示範囲、質問、予算レンジ、まさ判断事項を1つの内部版パックに整理する。
 - 背景: AMD OS特許は、発明の中身を弁理士に作ってもらうより、Codex/workerで叩いた戦略をもとに、弁理士を手続き代理・請求項レビュー・出しすぎ防止チェックとして使うのが現実的。外部送付前に、何を出してよくて、何を出してはいけないかを分ける必要がある。
-- 現状: A/B/C/D worker統合により、出願価値、moat限界、営業秘密境界、請求項の回避容易性、費用対効果の一次判断は完了。内部版パック `docs/ip/2026-06-01_patent_attorney_initial_consultation_pack.md` を作成済み。さらに、弁理士初回相談で何を渡す/画面共有する/口頭に留める/出願書類に書かないかを当日運用へ落とした、まさ確認用の開示制御版 `docs/ip/2026-06-01_patent_attorney_disclosure_control_pack_internal.md` を作成済み。2026-06-01に、既存内部パック群から実案件名・実source所在・prompt/score/DB/connector等の営業秘密を落とし、弁理士へ相談する前にまさ/特許出願司令塔が確認する外部相談用削除版ドラフト `docs/ip/2026-06-01_patent_attorney_external_review_pack_draft.md` を追加した。このドラフト自体も外部送付禁止・弁理士送付禁止。さらに、初回メール/フォーム/紹介DMで使う短い相談依頼文面の内部ドラフト `docs/ip/2026-06-01_patent_attorney_contact_draft_internal.md` と、事前送付資料セット案・送付前チェックリスト `docs/ip/2026-06-01_patent_attorney_pre_send_checklist_internal.md` を追加済み。
-- 残課題: まさが5つの判断事項を確認し、相談先候補と予算上限を決める。実際に外部送付する場合は、今回の削除版ドラフトをそのまま送らず、1〜2ページ概要、請求項要約、公開済み資料棚卸し要約などのさらに短い送付版を別途作り、営業秘密混入チェックをもう一段かける。別workerで批判的弁理士レビューが走っている場合、その結果次第で文面、送付候補、聞く質問を再調整する。
+- 現状: A/B/C/D worker統合により、出願価値、moat限界、営業秘密境界、請求項の回避容易性、費用対効果の一次判断は完了。内部版パック `docs/ip/2026-06-01_patent_attorney_initial_consultation_pack.md` を作成済み。さらに、弁理士初回相談で何を渡す/画面共有する/口頭に留める/出願書類に書かないかを当日運用へ落とした、まさ確認用の開示制御版 `docs/ip/2026-06-01_patent_attorney_disclosure_control_pack_internal.md` を作成済み。2026-06-01に、既存内部パック群から実案件名・実source所在・prompt/score/DB/connector等の営業秘密を落とし、弁理士へ相談する前にまさ/特許出願司令塔が確認する外部相談用削除版ドラフト `docs/ip/2026-06-01_patent_attorney_external_review_pack_draft.md` を追加した。このドラフト自体も外部送付禁止・弁理士送付禁止。さらに、初回メール/フォーム/紹介DMで使う短い相談依頼文面の内部ドラフト `docs/ip/2026-06-01_patent_attorney_contact_draft_internal.md` と、事前送付資料セット案・送付前チェックリスト `docs/ip/2026-06-01_patent_attorney_pre_send_checklist_internal.md` を追加済み。批判的弁理士レビューを受け、外部相談前レビュー用の請求項ツリー案 `docs/ip/2026-06-01_claim_tree_external_review_internal.md` も追加済み。
+- 残課題: まさが5つの判断事項を確認し、相談先候補と予算上限を決める。実際に外部送付する場合は、今回の削除版ドラフトや請求項ツリーをそのまま送らず、1〜2ページ概要、請求項要約、公開済み資料棚卸し要約などのさらに短い送付版を別途作り、営業秘密混入チェックをもう一段かける。批判レビューの結果を踏まえ、送付文面、送付候補、聞く質問はA/B二段構えの請求項相談を中心に再調整済み。
 
 ### 2. 営業秘密リストを出願書類から外す前提で確定する
 

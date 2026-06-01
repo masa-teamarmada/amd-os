@@ -688,6 +688,24 @@ valenceは、positive、negative、mixed、neutral、又はunknownを含んで�
 
 対象プロジェクトが法人設立前研究シーズである場合、情報処理装置は、研究シーズ段階、検証進捗、知的財産関連状態、外部連携又は顧客候補状態、チーム又は関係者状態、資金又は制度対応状態、及び結果観測カテゴリの少なくとも一部に基づいて、法人設立時期推奨データを生成する。当該推奨データは、即時設立、一定期間後の設立、追加検証後の設立、又は設立保留等のカテゴリを含んでもよい。
 
+#### 15.1 合成実施例における抽象レコード遷移
+
+上記実施例では、実データ本文、実プロジェクト名、顧客名、研究機関名、個人名、実source所在、prompt全文、score weight、threshold、calibrationを用いず、以下の抽象レコード遷移として実施できる。
+
+| step | 抽象データ | 生成又は更新される内容 | 保存しない又は秘匿する情報 |
+|---|---|---|---|
+| 1 | source reference | source type、source date、title、所定長以下の抜粋、hash、extraction run id | 元データ全文、実source permalink、長いsnippet |
+| 2 | candidate data | 顧客候補検証、知財状態、チーム状態、資金又は制度対応状態等に関する候補要約 | 実PJ本文、顧客名、個人名 |
+| 3 | review feedback | approve / reject / comment、comment summary、feedback scope、target category | 実コメント全文、comment-to-guidance変換ロジック |
+| 4 | master record | 承認済み候補のみを対象プロジェクトの正本レコードとして保存 | production DB row、内部運用ログ |
+| 5 | commercialization protocol | 固有名詞を除去又は抽象化した分岐点、判断材料、アクション、結果カテゴリ | 実protocol本文、実案件名 |
+| 6 | protocol example | protocol identifier、対象プロジェクト識別子、発生日、出典証拠識別子 | 実meeting id、実source所在 |
+| 7 | outcome observation | horizon、valence、confidence、summary、evidence roleを持つ結果観測 | 実outcome本文、成功/失敗教師ラベル |
+| 8 | parameter proposal | 抽出条件、判定ルール、設定値又はワークフロー定義等の変更候補 | prompt全文、score weight、model設定値 |
+| 9 | incorporation timing recommendation | 不足又は矛盾カテゴリ、参照レコード、設立時期推奨カテゴリ | 実判定条件、threshold、資金計画詳細 |
+
+これにより、営業秘密を開示せずに、候補生成、証拠メタデータ、人間承認、正本反映、feedback、protocol化、結果観測、parameter governance、設立時期推奨の各処理が、どの抽象データを入力及び出力として実行されるかを説明できる。
+
 ---
 
 ## 【請求項案】
