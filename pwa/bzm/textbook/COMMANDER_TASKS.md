@@ -50,6 +50,8 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-03: `Textbook route/main integration review` 完了。story polish branchへ最新 `origin/main` の9コミットをmergeし、衝突なしで取り込み。`origin/main...HEAD` は `0 33` となり、main-only commitは残っていない。`npm run build` passed。main push/deployは未実施。成果物: `pwa/bzm/textbook/runs/2026-06-03-route-main-integration-review.md`。次は `main integration execution` または `final publication readiness audit`。
+
 - 2026-06-03: `Textbook Appendix cold-reader review` 完了。Model NotesとMethod Appendixはconditional pass。物語本文を壊さずモデル説明の置き場所を作れているが、Model Note proseの「このModel Noteは」「巻末の...」はややscaffoldingが見えるため、次はroute/main integration reviewまたはlayout/readabilityで視覚的optional化を検討。成果物: `pwa/bzm/textbook/runs/2026-06-03-appendix-cold-reader-review.md`。次は `route/main integration review` または `Method Appendix layout/readability pass`。
 
 - 2026-06-03: `Textbook Model Note prototype` 完了。Ch16とCh19にだけ短いoptional Model Noteを追加し、物語本文を壊さず補遺へ橋をかける試作を実施。Ch16はTRL/BRL/GRL/SRL/HRL、Ch19は統合準備度式とRESOURCE_SHIFTの関係を短く示し、詳細はMethod Appendixへ逃がした。成果物: `pwa/bzm/textbook/runs/2026-06-03-model-note-prototype.md`。次は `Appendix cold-reader review` または `route/main integration review`。
