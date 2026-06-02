@@ -17,6 +17,7 @@
 | 2026-05-30 | 1-1 / 1-2 / 2-1 / 3-1 / 3-2 / 3-3 / 4-1 | 追加 | `/spec` 初期章を追加し、manual / spec / bzm 3層分割、PWA runtime、L2、monthly_reports、meeting flow、FRL CES を移行 | 現行 manual / design に混在していた確定実装仕様を設計書へ分離するため | えいみ |
 | 2026-05-31 01:21 JST | 3-4 / 3-5 / 3-6 / 4-2 | 追加 | L2⑦ OS台帳差分、L2⑧ XRL根拠、L2⑨経営ハイライト、AMD Score実装仕様を追加 | L2 ⑦⑧⑨ と AMD Score の current contract を `/spec` へ移し、manual/design の重複を減らすため | えいみ |
 | 2026-05-31 01:21 JST | 5-1 / 5-2 / 5-3 / 5-4 / 6-1 | 追加 | ドキュメント統制、開発/デプロイ運用、automation責務分担、判断履歴/事故ログ、設計書附則を追加 | まさ指摘「manual 9章に開発情報が残っている」「設計書だけでOSを再構築できる粒度が必要」「附則がないと勝手に消える事故を防げない」への対応 | えいみ |
+| 2026-06-02 | 5-2 / CLAUDE / AGENTS | 変更 | Vercel production deploy gate を追加し、小刻みdeploy禁止、quota blocker後のretry連打禁止、deployなし報告理由の明記を運用ルール化 | Vercel 1日deploy上限に達し、AMD OS / Textbook / PWA開発で production deploy をまとまった変更単位へ絞る必要が出たため | えいみ |
 | 2026-05-31 01:21 JST | 1-1 / 1-2 / 1-3 / 2-2 / 2-3 / 3-7 / 3-8 / 4-3 | 追加・変更 | 再構築品質バー、カバレッジ監査、PWA surface、Supabase data model、notifications、cockpit、ERS を追加し、移行マップを更新 | 司令塔追加指示「読むだけで current OS を再構築できるか」で監視する前提に合わせ、薄い整理ではなく不足と current truth を明示するため | えいみ |
 | 2026-05-31 01:21 JST | 5-5 / 1-3 | 追加・変更 | GAS / iOS 役割境界仕様を追加し、カバレッジ監査の GAS / iOS 判定を `partial` に更新 | 合格条件に iOS 側の役割と GAS automation が含まれていたため、未確認点を明示しつつ現行境界を spec に上げるため | えいみ |
 | 2026-05-31 | 3-8 | 変更 | `/project/[projectId]/cockpit` の Hero 下に `進捗管理` / `スコア詳細` タブを追加し、スコア詳細タブは `AmdScoreView embedded` と `/api/project/[projectId]/amd-score-detail` で既存詳細ページ相当の内容を表示する契約を追記 | cockpit に score detail を統合しつつ、AMD Score + XRL hero を常時表示するため | えいみ |

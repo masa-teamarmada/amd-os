@@ -28,7 +28,9 @@ Next.js の挙動は version 依存が強い。実装前に必要なら `node_mo
 
 ## Production deploy
 
-PWA の本番反映は必ず repo root から deploy script を使う。
+PWA の本番反映は deploy gate 制。小刻みな実装・md修正ごとに production deploy しない。まず local build / lint / static check / 必要ならローカルまたはpreview相当の確認で固める。
+
+production deploy は、まとまった変更単位、まさ確認が必要な節目、本当に本番確認が必要な時だけ司令塔が必要性を判断して実行する。実行する場合は必ず repo root から deploy script を使う。
 
 ```bash
 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
@@ -41,6 +43,8 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 - `.vercel/project.json` は `amd-os-pwa` / `prj_raZW3HSKIszzPUwNTHfy7xDGzLHm` を指す。
 - script は deploy trigger 後、Ready まで polling し、macOS 通知を出す。
 - 直接 `npx vercel` を叩かない。
+- Vercel quota blocker が出たら retry 連打しない。quota 回復後の retry を Watch に置く。
+- deploy しない最終報告では `deployなし。理由: quota温存 / local buildで十分 / main反映のみ` のように理由を書く。
 
 rollback:
 
@@ -50,7 +54,7 @@ npx vercel promote <deployment-id> --scope armada0130 --yes
 
 ## Build version
 
-コード修正して deploy するたびに `pwa/src/lib/build-info.ts` の `BUILD_VERSION` を bump する。
+コード修正して deploy gate を通し production deploy するたびに `pwa/src/lib/build-info.ts` の `BUILD_VERSION` を bump する。
 
 | bump | 用途 |
 |---|---|
@@ -105,7 +109,7 @@ npx tsc --noEmit
 npm run build
 ```
 
-本番反映が必要な作業は deploy script まで実行する。
+production deploy は deploy gate を通す。本番反映が本当に必要な作業だけ deploy script まで実行する。docs-only、local buildで十分な変更、quota温存中、またはmain反映だけで足りる変更は deploy しない。
 
 ## Git gate
 

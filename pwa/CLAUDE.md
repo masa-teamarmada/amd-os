@@ -27,7 +27,16 @@ Next.js 16 + React 19 + Tailwind CSS v4
 - `git remote -v`: `https://github.com/masa-teamarmada/amd-os.git`
 - `git branch --show-current`: `main`
 - `.vercel/project.json`: projectName `amd-os-pwa` / projectId `prj_raZW3HSKIszzPUwNTHfy7xDGzLHm`
-- Claude/Codexがdeployする場合は、必ずこのローカルcheckoutから `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` を実行する。`--cwd .../pwa` は禁止。
+- Claude/Codexがdeploy gateを通して production deploy する場合は、必ずこのローカルcheckoutから `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` を実行する。`--cwd .../pwa` は禁止。
+
+## Vercel deploy gate（2026-06-02）
+
+- 小刻みな実装・md修正ごとの production deploy は禁止。
+- まず local build / lint / static check / 必要ならローカルまたはpreview相当の確認で固める。
+- production deploy は、まとまった変更単位、まさ確認が必要な節目、本当に本番確認が必要な時だけ、司令塔が必要性を判断して実行する。
+- Vercel quota blocker が出たら retry 連打は禁止。quota 回復後の retry を Watch に置く。
+- Textbook / BZM / PWA worker prompt にはこの deploy gate を含める。
+- deploy しない最終報告では `deployなし。理由: quota温存 / local buildで十分 / main反映のみ` のように理由を書く。
 
 ## ドキュメント構成（**この順で読む**）
 
@@ -78,7 +87,7 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 ## 🔢 build version の bump up（毎回必須）
 
-**コード修正で deploy する前に必ず [`src/lib/build-info.ts`](src/lib/build-info.ts) の `BUILD_VERSION` を bump up する**。
+**コード修正で deploy gate を通して production deploy する前に必ず [`src/lib/build-info.ts`](src/lib/build-info.ts) の `BUILD_VERSION` を bump up する**。
 
 画面左上の AMD OS ロゴ直下に表示され、まさが見た瞬間に「リロード効いてるか」「Service Worker / CDN cache が新しい build に切り替わったか」を判別できるようにする運用ルール。
 
@@ -101,7 +110,7 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 ---
 
-## ⚠️ Vercel デプロイコマンド（正本・必ずこれを使う）
+## ⚠️ Vercel デプロイコマンド（deploy gate通過時の正本）
 
 ```bash
 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
