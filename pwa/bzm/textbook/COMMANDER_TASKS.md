@@ -50,6 +50,8 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-03: `Textbook Public notation rewrite` 完了。旧 `pwa/bzm/9-2-notation.md` の中核式と記号を、Method Appendix M1/M2/M3/M4/M5/M7へ公開安全な説明として反映。branded score名、内部章番号、組織固有例、過度な精密感は避け、integrated readinessはrankingではなく次に減らす不確実性として整理。成果物: `pwa/bzm/textbook/runs/2026-06-03-public-notation-rewrite.md`。次は `Model Note prototype` または `Appendix cold-reader review`。
+
 - 2026-06-03: `Textbook Method Appendix stub implementation` 完了。`Method Appendix — モデル補遺` をpublic manuscript末尾に追加し、M0〜M8のstub本文とmanifest sectionを作成。物語本文とField Toolkit本文は未変更。成果物: `pwa/bzm/textbook/runs/2026-06-03-method-appendix-stub-implementation.md`。次は `Public notation rewrite` または `Model Note prototype`。
 
 - 2026-06-03: `Textbook Model Appendix TOC draft` 完了。物語本文へ式を差し込まず、`Method Appendix — モデル補遺` として M0〜M8 の公開向け構成を設計。sigma_SU、TRL/BRL/GRL/SRL/HRL、FRL、integrated readiness、retrofit/evidence rule、ERS、misuse warningsを、Field Toolkit後または別appendix routeへ置く方針。成果物: `pwa/bzm/textbook/runs/2026-06-03-model-appendix-toc-draft.md`。次は `Method Appendix stub implementation` または `route/main integration review`。
