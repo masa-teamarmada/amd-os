@@ -50,7 +50,7 @@
 
 ## 未完タスク（優先順位順）
 
-- 2026-06-03: `Textbook Prologue-Epilogue story voice polish` 完了。Prologue/Ch02/Ch13/Ch18/Ch21に残る読者契約・理論予告・説明声を、若い事業化人材のノート、会議メモ、研究者との会話へ戻した。加えて章番号参照を出来事の記憶へ置換し、読書中にアウトラインが見えないよう調整。成果物: `pwa/bzm/textbook/runs/2026-06-03-prologue-epilogue-story-voice-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
+- 2026-06-03: `Textbook Prologue-Epilogue story voice polish` 完了。Prologue/Ch02/Ch13/Ch18/Ch21に残る読者契約・理論予告・説明声を、若い事業化人材のノート、会議メモ、研究者との会話へ戻した。加えて章番号参照を出来事の記憶へ置換し、章末の結論文を面談メモ/九十日メモ/三つの紙へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-prologue-epilogue-story-voice-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
 
 - 2026-06-03: `Textbook full-story final readthrough polish` 完了。Prologue〜Epilogue方針を維持し、Ch06/15/21/Epilogueに残っていた説明声を、会議メモ・地図・紙・メールの場面へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-final-readthrough-polish.md`。次は `full-story cold-reader review Prologue-Epilogue` と `model exposition placement brief`。
 
