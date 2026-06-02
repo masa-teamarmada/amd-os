@@ -187,6 +187,7 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
 | `MilestoneManagementSheet` | mile追加・編集・削除 |
 | `MsProgressEditSheet` | 1mileの進捗を %  / ステータスで更新 |
 | `MsRevisionRequestSheet` / `RevisionThreadView` | 進捗修正リクエスト送受信 |
+| `CockpitHUDView` | **HUD版（デモ）**。設定タブから fullScreenCover で開く没入ダッシュボード |
 
 データ: `ms_definitions` / `ms_progress_*` / `ms_revisions` / `ms_proposal_*`
 
@@ -197,6 +198,16 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
   - 押下 → confirmation dialog → `value_plan_cycles.status='fixed'` に UPDATE
   - 確定後、GAS 側で `billing_cycles.reward_summary_json`（メンバー獲得pt / 想定報酬）が計算される
   - 月次モーダルの「メンバー獲得pt / 想定報酬」とマイページの「今月想定」両方がここを起点に出る
+
+**HUD版コックピット（`CockpitHUDView`）— デモ表示レイヤ**:
+- 設定タブの「ディスプレイ」セクション → 「HUD版コックピット」から `fullScreenCover` で開く。サイバー / ネオン HUD テイストの没入型ダッシュボード。右上 `×` で閉じる。
+- データは **Supabase 実データの集計**（モックではない）。`fetchActiveProjects()` で全 active PJ → 各 PJ `fetchCockpitData()` を並列取得し:
+  - 全体達成率 = 全マイルストーンの **ポイント加重平均** 進捗
+  - PJ別ステータス = 当月 `expectedPct` との差分で `AHEAD` / `AT RISK` / `ON TRACK` / `COMPLETE` 判定
+  - メトリクス = ACTIVE PJ / TOTAL POINTS / MONTH BUDGET(当月 `billing_cycles.budget_yen` 合計) / MS CLEARED / AT RISK / VELOCITY
+  - REWARD ALLOCATION = 当月 `reward_summary_json.members` をメンバー横断で合算（pt / 想定報酬¥）
+- ローディング / エラー / 空 も HUD テイストで表示（UPLINK スピナー・`DATA LINK FAILED` + RETRY）。
+- **表示専用でデータ編集は持たない**。デモ用途だが数値は本物。アニメーションは `TimelineView(.animation)` 駆動（スキャンライン・回転リング・流れるティッカー）。
 
 ---
 

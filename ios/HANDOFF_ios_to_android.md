@@ -2,10 +2,38 @@
 
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [DESIGN.md](DESIGN.md) — **全画面の正本仕様（必読）** / [HANDOFF.md](HANDOFF.md) — 配布状況 / [BUGS.md](BUGS.md) — 既知バグ
 
-最終更新: 2026-05-20 11:45 (JST)
-対応 iOS commit: "Add native notification inbox and responses"
-TestFlight build: 21（このコミット群を乗せたら上げる、未 upload）
-masaiPhone (Mac 直接接続実機): 2026-05-20 Debug build で install + launch 済み
+最終更新: 2026-06-02 (JST)
+対応 iOS commit: 54fc19a "feat(ios): add HUD cockpit (real-data) toggled from Settings"
+TestFlight build: 21（未 upload のまま）
+
+---
+
+## 2026-06-02 追記: HUD版コックピット（デモ表示）
+
+### 15. CockpitHUDView — 設定から開く没入型 HUD コックピット
+
+**動機**: デモ用に「かっこいい」タクティカル HUD 表示が欲しい。既存 Cockpit（PJ進捗タブ）とは別に、設定からワンタップで全社サマリを HUD テイストで見せる。
+
+- `SettingsView.swift`
+  - 先頭に「ディスプレイ」セクションを追加。`scope` アイコン + 「HUD版コックピット」ボタン。
+  - `@State showHUDCockpit` → `.fullScreenCover` で `CockpitHUDView` を提示。
+- `CockpitHUDView.swift`（新規）
+  - 没入型フルスクリーン。背景はダークネイビー + ネオンシアン。`TimelineView(.animation)` でスキャンライン・回転リング・流れるティッカーをライブアニメーション。
+  - **データは実データ集計**: `fetchActiveProjects()` → 各 PJ `fetchCockpitData()` を `withTaskGroup` で並列取得。
+    - 全体達成率 = マイルストーンのポイント加重平均
+    - PJ別ステータス = 当月 `expectedPct` との差分（AHEAD / AT RISK / ON TRACK / COMPLETE）
+    - メトリクス = ACTIVE PJ / TOTAL POINTS / MONTH BUDGET / MS CLEARED / AT RISK / VELOCITY
+    - REWARD ALLOCATION = 当月 `reward_summary_json.members` を横断合算
+  - loading / error / empty も HUD テイスト（UPLINK スピナー / `DATA LINK FAILED` + RETRY）。
+  - **表示専用・編集なし**。右上 `×` で閉じる。
+
+**Android 実装時の注意**:
+- 優先度は低い（デモ表示レイヤ。業務フローには影響しない）。移植するなら Compose で同テイストを再現する想定。
+- 既存の Cockpit データ取得（active projects + cockpit data）をそのまま流用して集計するだけなので、新規 API / スキーマ追加は **なし**。
+- 数値ロジック（ポイント加重平均・ステータス判定・報酬横断集計）は上記の通り iOS と揃えること。
+
+### Android 反映状況
+（Win 側のえいみがここを追記する）
 
 ---
 
