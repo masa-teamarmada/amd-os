@@ -1,14 +1,24 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-05-31 (Codex ERS 実データ本評価)
-- Topic: current-state cleanup after #97/#100/#101/#102/#103; payment PR triage; generated BZM PNG dirty handling; ERS 84件本評価反映
+- Last updated: 2026-06-02 (通知 mojibake 調査・fix・DB 掃除)
+- Topic: Codex automation outbox の日本語化け事故の恒久 fix + 化けた DB 11 行の掃除
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Current branch: `main`
-- Current HEAD: see latest `main` (`#103` ERS docs commit follows `1aa3e2e feat(score): backfill FRL cap AMD for active projects`)
+- Current HEAD: `99c4324 fix(automation): reject mojibake outbox before writing to DB + clean 11 garbled rows`
 
-## Current State
+## 直近セッション (2026-06-02 mojibake)
+
+- まさが `/notifications` で「?? ZMP: ??????」と化けた OS台帳差分通知を発見。
+- 原因: Codex automation `amd-os-ms` の 6/1 00:46 run が Gmail 抽出日本語を `?` に lossy 変換し、applier が無検証で DB に保存していた (一過性の LLM 出力事故)。
+- A. 恒久 fix: `pwa/scripts/ms_progress_review_tool.mjs` に `assertNoMojibake` ゲート追加。`?{3,}` を検知して outbox を `failed/` 退避 → DB 非汚染。
+- B. DB 掃除: 化け 11 行を削除 (全て未採否・再生成可)。p21 confirmed の正規注記は除外。バックアップ `pwa/scripts/_mojibake_cleanup_2026-06-02_backup.json`。
+- **次の一手**: 削除した候補は次回 automation run (6h ごと) が生データから再生成する想定。次セッションで `/notifications` を見て正常な日本語で入り直したか確認。入っていなければ手動で automation を走らせる。
+- 詳細: `pwa/design_log/sessions_2026-06.md` / `pwa/BUGS.md` `[automation/mojibake] (2026-06-02)`。
+- ⚠️ コード deploy は不要 (applier はローカル LaunchAgent 経由で動く非 PWA スクリプト。Vercel deploy 対象外、build-info bump も不要)。
+
+## Current State (前ワークストリーム: ERS / payment, 別件)
 
 - Main includes `1aa3e2e feat(score): backfill FRL cap AMD for active projects`; this handoff adds #103 ERS docs on top.
 - Production was reported Ready from the 2026-05-30 22:33 JST deploy. This cleanup did not deploy.

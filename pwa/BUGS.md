@@ -5,6 +5,23 @@
 
 ---
 
+### [automation/mojibake] Codex automation が outbox の日本語を `?` に化けさせ通知が「?? ZMP: ???」になった (2026-06-02)
+
+- **発見日**: 2026-06-02 (まさが /notifications で「?? ZMP: ??????」通知を発見)
+- **状態**: ✅ クローズ (= 化け11行削除 + applier 防壁追加で push 済み `99c4324`。次回 automation run が生データから再生成する想定)
+- **症状**: `/notifications` の OS台帳差分通知 (project_registry_diff) で、タイトル `?? ZMP: ???????`、ヘッドライン、evidence snippet がすべて `?` に化けて採否判断不能。同じ通知の中でも `partner_role` や正常な行の日本語は無事という偏った化け方。
+- **原因**: Codex automation `amd-os-ms` の 6/1 00:46 run で、Gmail 等から抽出した日本語 (multibyte) を outbox JSON に書く際、一部フィールドが U+003F `?` に lossy 変換された。LLM 出力時の一過性のエンコーディング事故 (同 run の strategy_signal 等は正常だったので恒常バグではない)。applier `ms_progress_review_tool.mjs` が `title: payload.title` を無検証で素通しし、`project_registry_diffs` / `l2_notifications` / `project_xrl_evidence` / `ms_progress_revisions` に化けたまま保存した。
+  - 切り分けの決め手: ASCII (`ZMP`, メールアドレス, `source_kind`) は無傷で multibyte だけ `?` → 表示の問題でも DB 全体のエンコーディング問題でもなく「書き込み時の lossy 変換」。`?`(0x3F) は表現不能文字の置換文字。
+  - 発生源は applier 内の `requestJson` (`res.setEncoding("utf8")` 済み・無実) でも `writeJson` (無実) でもなく、**LLM が outbox を生成する段**。snapshot `os-latest.json` の化けは、既に化けた `l2_notifications` を export で読み戻しただけの二次現象。
+- **対応内容**:
+  - `ms_progress_review_tool.mjs` に `assertNoMojibake` ゲートを追加。`?{3,}` (3連続以上) を文字化けシグナルとして `applyOutbox` / `notify` の入口で検知し throw。`applyOutboxDir` が該当 outbox を `failed/` へ退避し DB を汚さない。
+  - DB の化け11行を削除 (全て status=pending/candidate で未採否、再生成可能)。削除前バックアップを `pwa/scripts/_mojibake_cleanup_2026-06-02_backup.json` に保存。
+  - まさが confirm 済みの p21 `ms_progress_revisions` (revised_note 内 "kyoko????" は文字化け部分を指す**意図的な注記**) は除外して残した。
+- **再発防止策**:
+  - applier の `assertNoMojibake` が最終防衛線。LLM 出力の化けは確実な抑止が難しいので、書き込み側で弾く設計にした。`route.ts` 等で新しい write 経路を足すときも同種ゲートを通す。
+  - `?{3,}` は保守的判定。日本語正本の業務通知に半角 `???` を意図的に入れるケースは無い前提。もし将来そういう正当ケースが出たら全角 `？` を使うか、ゲートを field 単位で緩める。
+  - 化けデータを見つけたら「表示か / DB保存か」をまず `repr()` で確認。ASCII無傷 + multibyte だけ `?` なら lossy 変換確定で、書き込み経路を疑う。
+
 ### [git/cross-session-bundling] 別セッションが working tree 全体をコミットして他セッションの未コミット作業を巻き込んだ (= 2026-05-30)
 
 - **発見日**: 2026-05-30
