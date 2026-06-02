@@ -92,6 +92,13 @@
 - 現状: 2026-06-02にself filing package worker `019e86ad-eb48-7661-8fe1-26073df10a94` を回収済み。`docs/ip/self_filing_package/` 配下にREADME、願書候補、明細書提出版候補、特許請求の範囲提出版候補、要約書候補、Fig.1〜Fig.8提出図面清書指示を追加済み。要約本文は400字以内、選択図は図1候補。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は未実施。
 - 残課題: 提出形式パックは出願日を取りに行く直前レビューに使える水準。ただし実提出はまだ止める。残課題は、願書未確認欄、AMD名義の電子出願環境、手数料支払方法、30条例外要否、承継メモ、Fig.1〜Fig.8の白黒線画清書。
 
+### 9. Fig.1〜Fig.8の白黒線画ドラフトを作る
+
+- お願いした内容: Fig.1〜Fig.8について、特許図面用の白黒線画ドラフトを内部作成する。
+- 背景: self filing packageでは図面清書指示まで作成済みだが、提出図面そのものではない。完全セルフ出願で出願日を取りに行くには、Mermaid/ASCII/参照符号付きの図面候補を、正式図面化できる構造へ整える必要がある。
+- 現状: 2026-06-02にpatent figures clean draft worker `019e86b6-b988-7be1-be22-cef9cb95d838` をactiveとして切り出し済み。成果物候補は `docs/ip/self_filing_package/2026-06-02_figures_clean_draft_internal.md`。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
+- 残課題: workerから、Fig.1〜Fig.8の白黒線画ドラフト、参照符号、対応請求項/明細書、入れる/入れない情報、正式画像化TODO、営業秘密scan、終了ゲートの報告を受ける。
+
 ## 完了済みタスク
 
 ### A/B/C/D workerによる事業価値・moat・営業秘密・請求項検証
