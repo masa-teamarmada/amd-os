@@ -40,8 +40,8 @@
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
-  - 現状: 2026-06-02までに、editorial narrative reset audit、OS field knowhow harvest v6、public book architecture reset briefをmainへ回収し、旧BZM/会社紹介寄りの導線をpublic manuscriptへ切り替え済み。司令塔直接作業でCh00〜Ch03をAct I、Ch04〜Ch06をAct II、Ch07〜Ch10をAct III、Ch11〜Ch14をAct IVとして、primary composite case「強くなりすぎたdeck sentence」が顧客証拠、時計衝突、研究者孤独、外部CEO displacement、開示事故寸前、登記/生存確率判断、90日WAIT、責任配置、投資家面談、学習ログ、追い風、公募、準備度の混同、外部経営候補、研究機関の苗床へ進むnarrativeに改稿。Act IV冷読レビューは `2026-06-02-act-iv-cold-reader-editor-review.md` として完了。2026-06-02にCh15〜Ch18をAct V前半 / theory-map entranceとして、同じ案件が期待・低い条件・人の傷・資金圧力で再び混ざり、現場語だけでは整理できなくなる流れからBZM、TRL/BRL/GRL/SRL/HRL、sigma_SU、mu_A/mu_I/mu_G、FRL/F_character/F_capabilityを導入する本文へ改稿。rewrite note `2026-06-02-act-v-theory-map-narrative-rewrite.md` を追加。Act III用 source mining workerも `2026-06-02-act-iii-source-mining.md` を追加し、Ch07〜Ch10向けに composite scene 16件、tool/question/checklist 24件、各章5件のinsertion mapを整理。Act V/Toolkit source mining workerが `2026-06-02-act-v-toolkit-source-mining.md` を追加し、Ch19〜Ch24向けに composite scene 14件、tool/question/checklist 30件、各章4件のinsertion map、Field Toolkit抽出候補、author directive投入点、安全分類を整理。
-  - 残課題: Ch15〜Ch18 cold-reader/editor review、Ch19〜Ch24 Act V/Field Toolkit rewrite worker、`table extraction / toolkit appendix`、`support boundary pass`、Ch00〜Ch18 surgical residue passを切り、v6素材台帳、Act III source mining素材、Act V source mining素材を本文へ直接貼らずcomposite scene / tool artifact化して反映する。
+  - 現状: 2026-06-02までに、editorial narrative reset audit、OS field knowhow harvest v6、public book architecture reset briefをmainへ回収し、旧BZM/会社紹介寄りの導線をpublic manuscriptへ切り替え済み。司令塔直接作業でCh00〜Ch03をAct I、Ch04〜Ch06をAct II、Ch07〜Ch10をAct III、Ch11〜Ch14をAct IVとして、primary composite case「強くなりすぎたdeck sentence」が顧客証拠、時計衝突、研究者孤独、外部CEO displacement、開示事故寸前、登記/生存確率判断、90日WAIT、責任配置、投資家面談、学習ログ、追い風、公募、準備度の混同、外部経営候補、研究機関の苗床へ進むnarrativeに改稿。Act IV冷読レビューは `2026-06-02-act-iv-cold-reader-editor-review.md` として完了。2026-06-02にCh15〜Ch18をAct V前半 / theory-map entranceとして、同じ案件が期待・低い条件・人の傷・資金圧力で再び混ざり、現場語だけでは整理できなくなる流れからBZM、TRL/BRL/GRL/SRL/HRL、sigma_SU、mu_A/mu_I/mu_G、FRL/F_character/F_capabilityを導入する本文へ改稿。rewrite note `2026-06-02-act-v-theory-map-narrative-rewrite.md` を追加。Act III用 source mining workerも `2026-06-02-act-iii-source-mining.md` を追加し、Ch07〜Ch10向けに composite scene 16件、tool/question/checklist 24件、各章5件のinsertion mapを整理。Act V/Toolkit source mining workerが `2026-06-02-act-v-toolkit-source-mining.md` を追加し、Ch19〜Ch24向けに composite scene 14件、tool/question/checklist 30件、各章4件のinsertion map、Field Toolkit抽出候補、author directive投入点、安全分類を整理。Ch15〜Ch18冷読レビューは `2026-06-02-act-v-ch15-18-cold-reader-editor-review.md` として追加。Act V前半は7.8/10でCh19〜Ch24 rewriteへ進行可。ただしCh16/17/18にtheory-name staging、FRL定義ブロック、hidden listが残るため、Ch19〜Ch24後にCh00〜Ch24 surgical residue passが必要。
+  - 残課題: Ch19〜Ch24 Act V/Field Toolkit rewrite worker、`table extraction / toolkit appendix`、`support boundary pass`、Ch00〜Ch24 surgical residue passを切り、v6素材台帳、Act III source mining素材、Act V source mining素材を本文へ直接貼らずcomposite scene / tool artifact化して反映する。次worker候補は `Ch19-24 survival conversation / Field Toolkit rewrite`。Ch19はscore章ではなくsurvival conversation、小さなpaid evidence、RESOURCE_SHIFTから始める。
 
 
 
@@ -94,6 +94,12 @@
   - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
 
 ## 完了済みタスク
+
+- **Textbook Act V Ch15-18 cold-reader/editor review**
+  - お願いした内容: main反映済みのCh15〜Ch18を、Act I〜IVから続く読み物としてBZM理論地図へ自然に入れているか、定義/表/hidden list/理論名の早出しが残っていないか、Ch19〜Ch24へ何をrewriteすべきかを冷読者・編集者目線でレビューする。
+  - 背景: Ch15〜Ch18はBZM、TRL/BRL/GRL/SRL/HRL、sigma_SU、mu_A/mu_I/mu_G、FRL/F_character/F_capabilityを出すAct V前半だが、販売本では理論名が本文を乗っ取ると読者が離れるため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-act-v-ch15-18-cold-reader-editor-review.md` を追加。Ch15〜Ch18は7.8/10でCh19〜Ch24 rewriteへ進行可。Ch15のBZM entrance、Ch17のsame-week clock、Ch18のrepeat-back testは強い。一方でCh16/17の「あとで呼ぶ」型、Ch18のFRL/F_character/F_capability定義ブロック、90日役割紙のhidden listをsurgical residue対象に指定。
+  - 残課題: 次workerはCh19〜Ch24をsurvival conversation / evidence rule update / institution operating design / Field Toolkit extractionとしてrewriteする。特にCh19で小さなpaid evidenceまたはpaid-signal refusalを場面化し、AUTHOR_DIRECTIVESの生存確率、稼げる体質、早すぎる起業、Jカーブ/IPO一律化への違和感を判断の中に残す。
 
 - **Textbook Act V theory-map narrative rewrite Ch15-18**
   - お願いした内容: Ch15〜Ch18を、理論説明章/表/ワークブックではなく、Act I〜IVから続くcomposite caseが現場語だけでは整理できなくなることでBZM理論地図へ入る読み物に改稿する。
