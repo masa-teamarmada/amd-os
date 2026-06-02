@@ -110,8 +110,8 @@
 
 - お願いした内容: 願書、明細書、特許請求の範囲、要約書、図面SVG、図面README、公開資料メモ、発明者 / 出願人メモ、営業秘密scan、JPO提出前Mustを横断し、出願日を取りに行く前にズレを洗い出す。
 - 背景: self filing package と図面SVG候補まで揃ったが、まだ実提出ではない。請求項 / 明細書 / 図面 / 要約 / 願書 / 公開資料 / 権利帰属の横断整合とBlocker分類が必要。
-- 現状: 2026-06-02にfinal consistency review worker `019e86d3-6008-70d2-b70b-1bf967514909` をactiveとして切り出し済み。成果物候補は `docs/ip/self_filing_package/2026-06-02_final_consistency_review_internal.md`。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
-- 残課題: workerから、最終整合readiness結論、Blocker / Warning / Nice-to-have、まさ判断事項1〜3個、未確認 / 要確認、終了ゲートの報告を受ける。
+- 現状: 2026-06-02にfinal consistency review worker `019e86d3-6008-70d2-b70b-1bf967514909` を回収済み。成果物 `docs/ip/self_filing_package/2026-06-02_final_consistency_review_internal.md` を追加し、結論は「出願日を取りに行く直前レビューに使える水準。ただし、このままJPO提出はまだ止める」。Blockerは、明細書の符号説明と図面/SVGの参照符号不一致（特に330/340）、願書未確認欄、正式提出図面未達、承継メモ未作成。営業秘密scanでは、実値混入Blockerは検出なし。
+- 残課題: 明細書の符号説明へ330/340を追加又は図面側を整理する。願書候補へ発明名称欄を追加する。Fig.8の内部注意文を正式図面から外す。AMD名義の電子出願環境、手数料納付、承継メモ、30条例外要否、請求項A/B・WS-5・WS-6判断を出願当日Mustとして潰す。
 
 ## 完了済みタスク
 
