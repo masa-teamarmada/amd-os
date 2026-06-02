@@ -50,6 +50,8 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-03: `Textbook full-story cold-reader review Prologue-Epilogue` 完了。Prologue〜Epilogueは、強すぎた一文から弱いまま送れる一文へ閉じる一冊の物語として継続可。販売前完成原稿ではないが、全体再rewriteではなくCh12〜14 breath pass、Ch16〜18 theory aftertaste pass、Field Toolkit layout/readability、model exposition placement briefへ進む判定。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-cold-reader-review-prologue-epilogue.md`。
+
 - 2026-06-03: `Textbook epilogue final question polish` 完了。Epilogue終盤の抽象まとめを、若い事業化人材が送信前の紙の端へ線を引く動作へ戻し、会社化すべきもの/待つべきもの/会社以外の形を、最後の問いへ向かう記憶として保持した。成果物: `pwa/bzm/textbook/runs/2026-06-03-epilogue-final-question-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
 
 - 2026-06-03: `Textbook full-story ending voice polish` 完了。Ch21/Epilogue終盤に残っていた `本編の会議` / `前の物語` / `成功物語` の本側の締め声を、会議室と半年前の沈黙へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-ending-voice-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
