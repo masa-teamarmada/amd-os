@@ -29,8 +29,14 @@ export function PublicManuscriptNav({
       <div className="space-y-2">
         {parts.map((part) => {
           const isOpen = Boolean(openById[part.key]);
+          const isToolkit = part.key === "toolkit";
           return (
-            <div key={part.key} className="border-b border-slate-100 pb-2 last:border-b-0 last:pb-0">
+            <div
+              key={part.key}
+              className={`border-b pb-2 last:border-b-0 last:pb-0 ${
+                isToolkit ? "mt-3 rounded-md border-amber-200 bg-amber-50/60 px-1.5 pt-1.5" : "border-slate-100"
+              }`}
+            >
               <div className="flex items-center gap-1">
                 <button
                   type="button"
@@ -44,7 +50,9 @@ export function PublicManuscriptNav({
                 <button
                   type="button"
                   onClick={() => toggle(part.key)}
-                  className="min-w-0 flex-1 rounded-md px-1.5 py-1 text-left leading-snug text-slate-950 transition-colors hover:bg-slate-50"
+                  className={`min-w-0 flex-1 rounded-md px-1.5 py-1 text-left leading-snug transition-colors ${
+                    isToolkit ? "text-amber-950 hover:bg-amber-100/70" : "text-slate-950 hover:bg-slate-50"
+                  }`}
                 >
                   <span className="min-w-0 truncate text-[12px] font-black">{part.label}</span>
                 </button>
@@ -59,8 +67,12 @@ export function PublicManuscriptNav({
                         href={`/bzm/public/${encodeURIComponent(chapter.slug)}`}
                         className={`grid grid-cols-[2.4rem_minmax(0,1fr)] gap-1.5 rounded-md px-1.5 py-1.5 text-[11px] leading-snug transition-colors ${
                           isActive
-                            ? "bg-cyan-50 font-black text-cyan-950 ring-1 ring-cyan-200"
-                            : "font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                            ? isToolkit
+                              ? "bg-amber-100 font-black text-amber-950 ring-1 ring-amber-300"
+                              : "bg-cyan-50 font-black text-cyan-950 ring-1 ring-cyan-200"
+                            : isToolkit
+                              ? "font-semibold text-amber-900 hover:bg-amber-100/70 hover:text-amber-950"
+                              : "font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950"
                         }`}
                       >
                         <span className="tabular-nums text-slate-500">{chapter.number}</span>
