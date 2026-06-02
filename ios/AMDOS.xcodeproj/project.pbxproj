@@ -40,6 +40,7 @@
 		8F6665F9402FF6471DD08138 /* RoutineModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07B5D29F618E7BDDD2F4C941 /* RoutineModels.swift */; };
 		91F9E9784A0F3634F9309A75 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51AB49E739CD1F1E525E2D4B /* SupabaseService.swift */; };
 		97061AA63C4667DDB25B86C0 /* MilestoneManagementSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5795FA89450D87FC2B3EE415 /* MilestoneManagementSheet.swift */; };
+		972F8655A3CCBFB5A0E592D6 /* CockpitHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A04B40C7295AA7DD23860FE3 /* CockpitHUDView.swift */; };
 		9DC4E04B1AD120F6F497EB09 /* MyPageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E107E118826DE68EAE329E3 /* MyPageModels.swift */; };
 		A008650CC3E761AE1707088B /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326FB30E4B4C25B8778D51D8 /* DesignSystem.swift */; };
 		A98B86D3008DDC2E9518AFFA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB600E9E4CBF01382876593 /* SettingsView.swift */; };
@@ -94,6 +95,7 @@
 		8D9A62C4F0159E59C0041B34 /* BillingMatrixView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillingMatrixView.swift; sourceTree = "<group>"; };
 		8E107E118826DE68EAE329E3 /* MyPageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyPageModels.swift; sourceTree = "<group>"; };
 		96A81649CC544AA39FF51E1E /* ProjectRewardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRewardCard.swift; sourceTree = "<group>"; };
+		A04B40C7295AA7DD23860FE3 /* CockpitHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitHUDView.swift; sourceTree = "<group>"; };
 		A14F40003562F102A26959BE /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		A23680BC4AD742E2A3D84DC7 /* PayoutNoticePerMemberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayoutNoticePerMemberView.swift; sourceTree = "<group>"; };
 		A77774A56AAE57AFC0DAB33E /* ReimburseFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReimburseFormView.swift; sourceTree = "<group>"; };
@@ -239,6 +241,7 @@
 			isa = PBXGroup;
 			children = (
 				6BC9AC9A893CB5D5FAFE2EF3 /* CockpitDetailView.swift */,
+				A04B40C7295AA7DD23860FE3 /* CockpitHUDView.swift */,
 				6ECCC8F3269182700137A3A8 /* CockpitView.swift */,
 				5795FA89450D87FC2B3EE415 /* MilestoneManagementSheet.swift */,
 				AEED249ABC7816254023EDB7 /* MonthlyModal.swift */,
@@ -417,6 +420,7 @@
 				170C6D65B4FACB39A664B8DE /* BudgetStepView.swift in Sources */,
 				1BBFBFDE6870D19D6D3BDFE2 /* CacheService.swift in Sources */,
 				D057F4EE7CEEDFF8C37E47F9 /* CockpitDetailView.swift in Sources */,
+				972F8655A3CCBFB5A0E592D6 /* CockpitHUDView.swift in Sources */,
 				0B3D5108164948BF2030405E /* CockpitModels.swift in Sources */,
 				01AFAC786AE82F67480AE014 /* CockpitView.swift in Sources */,
 				8F2C573F139F1DDA182A23DF /* ContentView.swift in Sources */,
