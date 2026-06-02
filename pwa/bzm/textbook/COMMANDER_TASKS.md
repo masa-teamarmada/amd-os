@@ -1,6 +1,6 @@
 # Textbook Commander Tasks
 
-> Last updated: 2026-06-01 JST
+> Last updated: 2026-06-02 JST
 >
 > Textbook司令塔のタスク台帳。タスク追加、方針変更、worker切り出し、
 > 完了報告、差し戻し、archive のたびに更新する。
@@ -40,8 +40,8 @@
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
-  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成・push済み。`Textbook cold-reader review artifact spine 00-24` と `Textbook source mining budget-owner / artifact scenes v5` のP0を受け、2026-06-02に `Textbook public manuscript artifact spine P0 rewrite` workerが本文へ直接反映済み。続けて `Textbook surgical editorial pass artifact spine` workerがCh04/Ch05 semantic order、scaffolding語、Toolkit A/B/C配置、Ch14/21/24重複をsurgical修正中。
-  - 残課題: surgical passのcommit/pushと能動報告後、追加場面の統合感と販売前copy rhythmを次のcold-reader reviewで確認する。
+  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成・push済み。`Textbook cold-reader review artifact spine 00-24` と `Textbook source mining budget-owner / artifact scenes v5` のP0を受け、2026-06-02に `Textbook public manuscript artifact spine P0 rewrite` workerが本文へ直接反映済み。続けて `Textbook surgical editorial pass artifact spine` workerがCh04/Ch05 semantic order、scaffolding語、Toolkit A/B/C配置、Ch14/21/24重複をsurgical修正。2026-06-02のeditorial narrative reset auditでは、販売本としてはまだ章別説明/表/チェックリストが強く、さらにOSの `📚 教科書` 導線が旧BZM本文 `/bzm` を見せていることをP0 mismatchとして診断した。
+  - 残課題: まずOS route/content mismatch fix workerを切る。その後、public book architecture reset briefで、00-24を一つのcomposite case arc、Act構成、tables-to-appendix map、BZM登場タイミングへ再設計する。
 
 - **public manuscript 00-06 scene-first rewrite**
   - お願いした内容: 北極星と `2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` に沿って、`pwa/bzm/public-manuscript/00`〜`06` を読み物としてつながる本文へ改稿する。
@@ -92,6 +92,12 @@
   - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
 
 ## 完了済みタスク
+
+- **Textbook editorial narrative reset audit**
+  - お願いした内容: 公開原稿00-24とOS上の教科書/BZM導線を、販売本編集者criticとして「本としてまだ読ませられていない」前提で酷評し、rewrite orderを出す。
+  - 背景: まさから、現状原稿はnarrativeではなく箇条書き/章ごとの説明に見える、さらに冒頭がAMD紹介に見えるという強い差し戻しがあったため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-editorial-narrative-reset-audit.md` を追加。`GlobalNav.tsx` の `📚 教科書` が `/bzm` に向き、`/bzm` が旧 `pwa/bzm/0-1-preface.md` を表示するため、読者がpublic manuscriptではなくAMD/内部運用語の残る旧BZM本文へ送られるP0 mismatchを特定。本文面では、public manuscriptもまだ章別説明・表・チェックリスト密度が高く、composite case arcへのarchitecture resetが必要と診断。
+  - 残課題: 次workerは `OS route/content mismatch fix` を最優先で切る。続けて `public book architecture reset brief`、opening rewrite、tables/toolkit appendix extractionへ進める。
 
 - **Textbook public-manuscript audit**
   - お願いした内容: 現行 `pwa/bzm/*.md` を販売本の原稿として見たとき、公開可能、公開向け書き換え必須、内部退避、匿名化ケース素材に分類する。
