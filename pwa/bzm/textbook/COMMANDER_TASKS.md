@@ -50,6 +50,8 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-03: `Textbook model exposition placement brief` 完了。Prologue〜Epilogueの物語本文を壊さず、モデル説明・式・記号をどこへ置くかを設計。方針は、本文には短いoptional Model Noteだけ、式・重み・記号・境界条件は別のMethod Appendixへ分離。成果物: `pwa/bzm/textbook/runs/2026-06-03-model-exposition-placement-brief.md`。次は `Model Appendix TOC draft` または `route/main integration review`。
+
 - 2026-06-03: `Textbook Field Toolkit layout/readability pass` 完了。Ch22〜Ch24を本文の続きではなくField Toolkit / 参照道具として見せるため、Toolkit章の本文上部と左ナビに控えめな付録表示を追加した。成果物: `pwa/bzm/textbook/runs/2026-06-03-field-toolkit-layout-readability-pass.md`。次は `model exposition placement brief` または `route/main integration review`。
 
 - 2026-06-03: `Textbook Ch16-Ch18 theory aftertaste pass` 完了。full-story cold-reader reviewの次surgical orderに沿って、理論名は削らず、TRL/BRL/GRL/SRL/HRL、sigma_SU、F_character/F_capabilityの直後に紙やメモへ戻る一文を追加した。成果物: `pwa/bzm/textbook/runs/2026-06-03-ch16-18-theory-aftertaste-pass.md`。次は `Field Toolkit layout/readability pass` または `model exposition placement brief`。
