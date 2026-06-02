@@ -22,8 +22,9 @@ Use the following wording in this memo and in the later `L2_DATA.md`, `spec/3-1`
 
 - L2 3 MS progress is **MMO machine Codex Desktop automation** `amd-os-l3-ms-progress-extract`. It is not a Claude routine / subscription routine.
 - L2 6 meeting flow is **MMO machine Codex Desktop automation** `amd-os-l6-meeting-flow`. It is not a Claude routine / subscription routine.
-- The daily consolidated routine target is L2 2 / 4 / 5 / 7 / 8 / 9 / 10 / 11 / 12.
+- The daily consolidated routine target is L2 2 / 4 / 5 / 7 / 9 / 10 / 11 / 12.
 - L2 1 is month-end only, sourced from Supabase internal OS/L2 evidence by default.
+- L2 8 is not a daily evidence collector. It is a month-end XRL checklist audit after L2 1 monthly reports.
 - L2 13 is a separate weekly candidate.
 
 ## Premises
@@ -59,6 +60,28 @@ Proposed route:
 - Source: Supabase internal data only as the normal path. L2 1 should summarize already-ingested OS evidence, not re-scan raw Gmail / Drive / Calendar / Slack / Notion every day.
 - Fallback: raw-source gap check should be manual or explicitly requested, not part of the normal monthly report run.
 - Runner: keep it separate from the daily consolidated routine. L2 1 is a monthly synthesis job, not a daily evidence collector.
+
+## L2 8: XRL checklist audit
+
+Recommendation: stop treating L2 8 as a daily XRL evidence collector.
+
+XRL is a maturity/readiness assessment that normally changes over months or years, not an operational signal that needs daily evidence accumulation. Daily `project_xrl_evidence` candidate generation adds notification noise and consumes review capacity without materially improving the score.
+
+Proposed route:
+
+- Cadence: month-end only, immediately after L2 1 monthly reports are generated.
+- Input: the completed monthly report plus the same Supabase internal L2 / OS cross-section used by L2 1. This includes `project_meeting_summaries`, `project_strategy_signals`, `project_founding_members`, `project_knowledge`, `member_knowledge`, MS progress, and any existing confirmed `project_xrl_evidence`.
+- Checklist definition: `pwa/src/lib/xrl-level-definitions.ts` remains the canonical checklist source. The audit checks TRL / BRL / GRL / SRL / HRL level items against monthly evidence.
+- Output: a reviewable proposal for `amd_score_inputs.xrl_checklist` and `amd_score_inputs.xrl_notes`, not direct score mutation.
+- Apply: after commander / masa confirmation, update `amd_score_inputs.xrl_checklist`; the score detail UI derives `trl` / `brl` / `grl` / `srl` / `hrl` from the checklist when saved.
+
+Role of `project_xrl_evidence`:
+
+- Keep the table as a historical / exceptional evidence log.
+- Do not make it the normal daily output of L2 8.
+- Use it only when a strong event-level XRL observation needs to be preserved before the month-end audit, or when past confirmed evidence should be included in the audit.
+
+This means L2 8 is still part of the L2 taxonomy, but its normal writer is a monthly checklist audit attached to the L2 1 close process.
 
 ### Boundary update
 
@@ -157,7 +180,6 @@ These jobs are high-frequency, operational, or tightly coupled to local helper/o
 | 3 MS progress | MMO machine Codex Desktop automation `amd-os-l3-ms-progress-extract`, with deterministic base where possible | Needs frequent early exits, confirmed-value guards, and reward/monthly interactions. |
 | 6 Meeting flow | MMO machine Codex Desktop automation `amd-os-l6-meeting-flow` | High-frequency event window, Calendar/Drive/Gmail/Slack coupling, and workflow side effects. |
 | 7 Registry diffs | Codex automation + outbox/applier | Candidate generation plus allowlisted non-LLM apply path is already shaped. |
-| 8 XRL evidence | Codex automation + outbox/applier | Evidence candidates and schema/status retry need helper discipline. |
 | 9 Strategy signals | Codex automation + strategy-signals outbox | Management review cadence is already separated from PWA cron. |
 | 11a Atlas signal collection | Codex automation or Claude subscription, but outbox-first | External signal collection needs retryable network handling and duplicate checks. |
 
@@ -167,9 +189,10 @@ These are heavy synthesis / review jobs where subscription tokens are useful and
 
 | Bundle | Contents | Cadence | Why bundle |
 |---|---|---|---|
-| Daily consolidated L2 evidence routine | L2 2, 4, 5, 7, 8, 9, 10, 11, 12 | daily 08:00 JST | These can share one evidence review pass, one state report, and one routine slot. |
+| Daily consolidated L2 evidence routine | L2 2, 4, 5, 7, 9, 10, 11, 12 | daily 08:00 JST | These can share one evidence review pass, one state report, and one routine slot. |
 | Weekly activity synthesis | L2 13 member weekly activities | weekly Mon 06:30 JST or Sun 20:30 JST | Member activity source scan is private and token-heavy; daily scanning is wasteful. |
 | Month-end monthly reports | L2 1 | monthly, last day | Monthly reports should summarize Supabase-internal OS evidence after the month has accumulated. |
+| Month-end XRL checklist audit | L2 8 | monthly, after L2 1 | XRL maturity should be reviewed from the monthly cross-section and checklist, not daily evidence fragments. |
 
 ### Push to deterministic / non-LLM paths
 
@@ -183,17 +206,17 @@ These are heavy synthesis / review jobs where subscription tokens are useful and
 
 ## Bundle decisions
 
-### L2 2, 4, 5, 7, 8, 9, 10, 11, 12
+### L2 2, 4, 5, 7, 9, 10, 11, 12
 
 Recommendation: bundle these into one daily consolidated L2 evidence routine once the commander approves the taxonomy patch.
 
 Reasoning:
 
 - L2 2, 4, and 5 share `monthly_reports`, `project_meeting_summaries`, feedback state, and candidate notification patterns.
-- L2 7, 8, and 9 are governance / evidence / management-signal candidates and can share one state report instead of separate routine runs.
+- L2 7 and 9 are governance / management-signal candidates and can share one state report instead of separate routine runs.
 - L2 10 can run in the same routine as candidate generation, while approved application to `pwa/bzm/*.md` still stays local-only.
 - L2 11 and 12 can share external source freshness, dedupe, source-url checks, and macro/Atlas evidence interpretation.
-- L2 8 XRL evidence can run daily inside this consolidated routine. It does not need a 6-hour cadence unless a specific active review window requires it.
+- L2 8 must not join the daily bundle. XRL changes are maturity changes, so the normal path is a month-end checklist audit after L2 1 monthly reports.
 - L2 3 has stronger coupling to confirmed progress, reward/monthly views, and deterministic progress bases. Keep it as MMO machine Codex Desktop automation `amd-os-l3-ms-progress-extract` unless the hourly need is explicitly retired.
 - L2 6 must not join this bundle because meeting flow is event-window based and high-frequency. Keep it as MMO machine Codex Desktop automation `amd-os-l6-meeting-flow`.
 - L2 1 must not join this bundle because monthly reports should be month-end Supabase synthesis, not daily evidence extraction.
@@ -201,10 +224,22 @@ Reasoning:
 Plain-language phase order:
 
 1. Read current Supabase state and source freshness markers.
-2. Review internal evidence candidates: L2 2 / 4 / 5 / 7 / 8 / 9 / 10.
+2. Review internal evidence candidates: L2 2 / 4 / 5 / 7 / 9 / 10.
 3. Review external evidence candidates: L2 11 / 12.
 4. Write candidates to the appropriate tables or outbox contract.
 5. Produce one run summary: saved / skipped / needs review / blocked.
+
+### L2 8
+
+Recommendation: run L2 8 as the month-end XRL checklist audit, directly after L2 1.
+
+Reasoning:
+
+- XRL levels are not expected to move daily.
+- The checklist source of truth already exists in `pwa/src/lib/xrl-level-definitions.ts`.
+- The score detail UI already stores check state in `amd_score_inputs.xrl_checklist`.
+- Monthly reports are the natural review surface because they summarize the month's actual evidence.
+- This removes one noisy daily candidate stream while preserving a clear way to update XRL when the month has enough evidence.
 
 ### L2 13
 
@@ -223,19 +258,21 @@ This is the proposed steady-state schedule if Claude subscription routines are u
 | Time | Runner | Job | Notes |
 |---|---|---|---|
 | 04:00 monthly / deterministic | PWA non-LLM | L2 12 macro aggregate indicators | Only deterministic aggregate. |
-| 08:00 daily | Claude subscription routine | L2 2/4/5/7/8/9/10/11/12 consolidated evidence routine | One routine, one run summary. L2 8 runs daily here. |
+| 08:00 daily | Claude subscription routine | L2 2/4/5/7/9/10/11/12 consolidated evidence routine | One routine, one run summary. L2 8 is excluded. |
 | hourly / existing cadence | MMO machine Codex Desktop automation | L2 3 MS progress via `amd-os-l3-ms-progress-extract` | Keep separate from the consolidated routine. |
 | 09:00-21:00 hourly | MMO machine Codex Desktop automation | L2 6 meeting flow via `amd-os-l6-meeting-flow` | Keep high-frequency MMO route with early exit. |
 | 20:30 Sun or 06:30 Mon weekly | Claude routine | L2 13 member weekly activities | One weekly run; outbox-first. |
 | Month-end, last day | Claude or Codex subscription routine | L2 1 monthly reports | Supabase-internal OS evidence only by default. |
+| Month-end, after L2 1 | Claude or Codex subscription routine | L2 8 XRL checklist audit | Review monthly evidence against `xrl-level-definitions.ts`; propose checklist / notes updates. |
 
 Daily Claude routine count in this design is 1 for the consolidated evidence routine:
 
-- L2 2/4/5/7/8/9/10/11/12: 1 daily run.
+- L2 2/4/5/7/9/10/11/12: 1 daily run.
 - L2 3: stays MMO machine Codex Desktop automation because progress has confirmed-value and reward/monthly guards.
 - L2 6: stays MMO machine Codex Desktop automation because it is event-window based.
 - L2 13: 1 weekly run.
 - L2 1: 1 monthly month-end run.
+- L2 8: 1 monthly month-end audit after L2 1.
 - This stays far below a 15-run/day cap.
 
 ## Token efficiency rules
