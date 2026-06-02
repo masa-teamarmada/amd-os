@@ -99,6 +99,13 @@
 - 現状: 2026-06-02にpatent figures clean draft worker `019e86b6-b988-7be1-be22-cef9cb95d838` を回収済み。成果物 `docs/ip/self_filing_package/2026-06-02_figures_clean_draft_internal.md` を追加し、Fig.1〜Fig.8の白黒線画化前提Mermaid / 参照符号付き内部ドラフト、対応請求項、対応明細書段落、正式画像化TODO、営業秘密scanを整理済み。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は未実施。
 - 残課題: 内部レビュー用ドラフトとしてはusable。ただし正式提出画像ではないため、黒色線画画像化、参照符号視認性、白黒2値化後の読解性、明細書 / 請求項との最終整合、営業秘密scan再実施が残る。
 
+### 10. Fig.1〜Fig.8の画像候補を作る
+
+- お願いした内容: Fig.1〜Fig.8の白黒線画ドラフトをもとに、SVGを中心とした提出図面候補画像を内部生成する。
+- 背景: 現在の図面readinessは「内部レビュー用ドラフトとしてusable。ただし正式提出画像ではない」。黒色線画画像化、参照符号視認性、白黒2値化後の読解性、明細書 / 請求項との最終整合、営業秘密scan再実施が必要。
+- 現状: 2026-06-02にpatent figures image candidates worker `019e86be-6e14-7e82-9091-ef19e1db3516` をactiveとして切り出し済み。成果物候補は `docs/ip/self_filing_package/figures/` 配下のFig.1〜Fig.8 SVG候補とREADME。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
+- 残課題: workerから、図面画像候補、README、readiness結論、まさ判断事項5個以内、未確認/要確認、営業秘密scan、終了ゲートの報告を受ける。
+
 ## 完了済みタスク
 
 ### A/B/C/D workerによる事業価値・moat・営業秘密・請求項検証
