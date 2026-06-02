@@ -40,8 +40,8 @@
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
-  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成・push済み。`Textbook cold-reader review artifact spine 00-24` と `Textbook source mining budget-owner / artifact scenes v5` のP0を受け、2026-06-02に `Textbook public manuscript artifact spine P0 rewrite` workerが本文へ直接反映済み。続けて `Textbook surgical editorial pass artifact spine` workerがCh04/Ch05 semantic order、scaffolding語、Toolkit A/B/C配置、Ch14/21/24重複をsurgical修正。2026-06-02のeditorial narrative reset auditでは、販売本としてはまだ章別説明/表/チェックリストが強く、さらにOSの `📚 教科書` 導線が旧BZM本文 `/bzm` を見せていることをP0 mismatchとして診断した。追加で `Textbook OS field knowhow harvest v6` が旧 `pwa/bzm/*.md` のAMD主語/AMD OS/AMD Score/L2語を読者主人公の現場ノウハウへ変換する素材台帳を作成し、`source phrase` / `public rewrite direction` / `do_not_publish_as_is` 付きの旧BZM公開化地図、composite case 15件、scene seed 40件、tool/question/checklist 42件、00-24全章投入マップを整理。2026-06-02に `public book architecture reset brief` workerが `pwa/bzm/textbook/runs/2026-06-02-public-book-architecture-reset-brief.md` を追加し、00-24を primary composite case + institutional echo thread、Act I-V、Field Toolkit、tables-to-appendix map、BZM reveal plan、opening rewrite orderへ再設計。続けて司令塔直接作業で `pwa/bzm/public-manuscript/00`〜`03` をAct Iとして、強くなりすぎたdeck sentenceが顧客証拠、時計衝突、研究者孤独へ進むnarrativeへ改稿し、`pwa/bzm/textbook/runs/2026-06-02-opening-act-i-narrative-rewrite.md` を追加。Act I cold-reader/editor reviewで、00-03は本の冒頭として継続可能、ただし `Act I` メタ表現と説明/list residueは後続surgical pass対象と判定し、`pwa/bzm/textbook/runs/2026-06-02-act-i-cold-reader-editor-review.md` を追加。
-  - 残課題: 次は `Textbook Act II CEO/disclosure/incorporation narrative rewrite` として04-06を同じcomposite caseで書き換える。Ch04はCEO機能説明からではなく研究者が「外部CEO」を displacement として聞く場面から入り、Ch05は強すぎるdeck sentenceの開示事故寸前、Ch06は早すぎる会社化と生存確率/稼げる体質の意思決定にする。その後、Act I line-level surgical pass、`table extraction / toolkit appendix`、`survival / earning body pass`、`support boundary pass` を順に切り、v6素材台帳の素材を本文へ直接貼らずcomposite scene化して反映する。
+  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成・push済み。`Textbook cold-reader review artifact spine 00-24` と `Textbook source mining budget-owner / artifact scenes v5` のP0を受け、2026-06-02に `Textbook public manuscript artifact spine P0 rewrite` workerが本文へ直接反映済み。続けて `Textbook surgical editorial pass artifact spine` workerがCh04/Ch05 semantic order、scaffolding語、Toolkit A/B/C配置、Ch14/21/24重複をsurgical修正。2026-06-02のeditorial narrative reset auditでは、販売本としてはまだ章別説明/表/チェックリストが強く、さらにOSの `📚 教科書` 導線が旧BZM本文 `/bzm` を見せていることをP0 mismatchとして診断した。追加で `Textbook OS field knowhow harvest v6` が旧 `pwa/bzm/*.md` のAMD主語/AMD OS/AMD Score/L2語を読者主人公の現場ノウハウへ変換する素材台帳を作成し、`source phrase` / `public rewrite direction` / `do_not_publish_as_is` 付きの旧BZM公開化地図、composite case 15件、scene seed 40件、tool/question/checklist 42件、00-24全章投入マップを整理。2026-06-02に `public book architecture reset brief` workerが `pwa/bzm/textbook/runs/2026-06-02-public-book-architecture-reset-brief.md` を追加し、00-24を primary composite case + institutional echo thread、Act I-V、Field Toolkit、tables-to-appendix map、BZM reveal plan、opening rewrite orderへ再設計。続けて司令塔直接作業で `pwa/bzm/public-manuscript/00`〜`03` をAct Iとして、強くなりすぎたdeck sentenceが顧客証拠、時計衝突、研究者孤独へ進むnarrativeへ改稿し、`pwa/bzm/textbook/runs/2026-06-02-opening-act-i-narrative-rewrite.md` を追加。Act I cold-reader/editor reviewで、00-03は本の冒頭として継続可能、ただし `Act I` メタ表現と説明/list residueは後続surgical pass対象と判定し、`pwa/bzm/textbook/runs/2026-06-02-act-i-cold-reader-editor-review.md` を追加。 続けて司令塔直接作業でCh04〜Ch06をAct IIとして改稿し、外部CEO displacement、送信予約寸前の開示事故、登記/生存確率/稼げる体質の意思決定へつなぐnarrativeへ置換。run note `pwa/bzm/textbook/runs/2026-06-02-act-ii-narrative-rewrite.md` を追加。
+  - 残課題: 次はAct I-IIの編集者レビュー、またはCh07〜Ch10をAct IIIとして同じcomposite caseで書き換える。Ch07は判断語を会議行動へ、Ch08は責任配置を若手事業化人材の行動へ、Ch09は資本面談を証拠更新へ、Ch10は失敗/停滞を関係修復へ変える。その後、Act I line-level surgical pass、`table extraction / toolkit appendix`、`support boundary pass` を順に切り、v6素材台帳の素材を本文へ直接貼らずcomposite scene化して反映する。
 
 - **public manuscript 00-06 scene-first rewrite**
   - お願いした内容: 北極星と `2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` に沿って、`pwa/bzm/public-manuscript/00`〜`06` を読み物としてつながる本文へ改稿する。
@@ -93,17 +93,23 @@
 
 ## 完了済みタスク
 
+- **Textbook Act II CEO/disclosure/incorporation narrative rewrite**
+  - お願いした内容: Ch04〜Ch06を、Act Iから続くcomposite caseとして、CEO機能、開示、会社化タイミングの章から「説明/表/チェックリスト」の残り香を抜き、読ませる本文へ改稿する。
+  - 背景: Act I cold-reader/editor reviewで、次はCh04を外部CEO displacement、Ch05をdeck sentenceの開示事故寸前、Ch06を生存確率/稼げる体質の意思決定として書き換えるべきとされたため。
+  - 現状: 2026-06-02に司令塔直接作業で、Ch04を研究者が外部CEO要求を聞く場面、Ch05を送信予約寸前で止まる開示事故、Ch06を登記提案とpaid-signal/Jカーブ批判/WAIT return conditionの意思決定へ改稿。run note `pwa/bzm/textbook/runs/2026-06-02-act-ii-narrative-rewrite.md` を追加。
+  - 残課題: Act I-IIを通読レビューし、Ch07〜Ch10も同じcomposite caseで書き換える。
+
 - **Textbook Act I cold-reader/editor review**
   - お願いした内容: main反映済みの public manuscript Act I（00-03）を、冷読者・編集者目線で「箇条書き/説明/ワークブック」ではなく一冊の本の冒頭として読めるかレビューする。
   - 背景: まさ指摘のとおり、Act I rewrite後も本当に reader-first narrative になっているか、本文編集前に別worker視点で落第基準とAct IIへのrewrite orderを出す必要があったため。
   - 現状: `pwa/bzm/textbook/runs/2026-06-02-act-i-cold-reader-editor-review.md` を追加。Act Iは会社紹介・著者紹介に寄らず、冒頭5分で現場の話として読めるため継続可。ただし説明/list residue、`Act I` メタ表現、生存確率/稼げる体質のdramatization不足は後続surgical対象。
-  - 残課題: 次workerは `Textbook Act II CEO/disclosure/incorporation narrative rewrite`。Ch04-06でCEO機能、開示事故、早すぎる会社化を同じdeck sentence caseでつなぎ、Act II後にAct Iのline-level surgical passを戻す。
+  - 残課題: Act II rewriteは司令塔直接作業で完了。次はAct I-II通読レビューまたはCh07〜Ch10のAct III narrative rewriteへ進む。
 
 - **Textbook opening and Act I narrative rewrite**
   - お願いした内容: `public book architecture reset brief` に沿って、`pwa/bzm/public-manuscript/00`〜`03` を「実務メモ」ではなく読み物としてのAct Iへ改稿する。
   - 背景: まさから「全くnarrativeじゃない」「箇条書きの本は見たことない」と強い差し戻しがあり、00-24を一冊の本として作り直す必要があったため。
   - 現状: 2026-06-02に司令塔直接作業で、00 Prologue、01、02、03を全面改稿。primary composite case「強くなりすぎたdeck sentence」を、拍手後の違和感、企業の「面白い」誤読、金曜資料締切の複数時計衝突、支援メニュー増加による責任中心の空白へ通した。run note `pwa/bzm/textbook/runs/2026-06-02-opening-act-i-narrative-rewrite.md` を追加。
-  - 残課題: Act Iの冷読者/編集者レビューは完了。次はCh04〜Ch06をAct IIとして、CEO機能、開示事故、早すぎる会社化を同じdeck sentence caseでつなぐ。
+  - 残課題: Ch04〜Ch06のAct II rewriteは完了。次はCh07〜Ch10をAct IIIとして、判断、責任配置、資本面談、失敗学習を同じcase threadでつなぐ。
 
 - **Textbook public book architecture reset brief**
   - お願いした内容: 現行00-24を本文rewriteせず、一冊の本としてcomposite case arc、Act構成、tables-to-appendix map、BZM登場タイミングへ再設計する。

@@ -10,6 +10,9 @@
 - 編集者workerやrewrite workerは、本文から該当要素を削る前に、この台帳を確認し、削除ではなく移動・圧縮・別章反映として扱う。
 - どうしても削る必要がある場合は、理由と代替反映先を `status` に追記し、Textbook司令塔レビューへ回す。
 - 公開本文では会社名・個人名・内部運用語を出さず、読者に届く普遍的な現場語へ翻訳する。
+- writer/editor workerは、本文rewriteや批評noteの `Acceptance gate` に `author_directive retention` を含める。
+- `public_locations` に入っている章からdirective要素を削る場合、同一commit内で移動先を追加するか、run noteに `directive moved to ...` を記録する。
+- directiveは「そのままの文言を残す」ではなく、「本の中で消えない問い・場面・判断軸として残す」ことを優先する。
 
 ## Directives
 
@@ -18,6 +21,8 @@
 - `source`: まさからTextbook司令塔への直接入力
 - `status`: public manuscriptへ一次反映済み。編集時は削除禁止。必要なら章間移動または圧縮で扱う。
 - `public_locations`:
+  - `pwa/bzm/public-manuscript/00-prologue.md`
+  - `pwa/bzm/public-manuscript/01-research-results-are-not-companies.md`
   - `pwa/bzm/public-manuscript/06-incorporation-timing.md`
   - `pwa/bzm/public-manuscript/19-integrated-score-as-next-action.md`
 - `core_intent`:
@@ -31,3 +36,7 @@
   - 「小さな対価が、顧客の痛み・評価条件・予算経路・継続利用可能性を明らかにするか」を見る論点として扱う。
   - Jカーブ/IPOを否定しきらない。狙えるシーズには必要だが、全シーズへ一律適用するのは危うい、というバランスにする。
   - 会社化を遅らせることは逃げではなく、生存確率を上げるためのBefore Zero作業として扱う。
+- `next_dramatization_targets`:
+  - Ch04〜Ch06では、研究者や若手事業化人材がこの問いを「説明として語る」のではなく、外部CEO要求、開示事故寸前、登記判断の中で体験する場面にする。
+  - Ch09〜Ch10では、投資家のNOや企業PoC停滞を、資金調達可否ではなく生存確率を上げるための証拠更新として扱う。
+  - Ch19以降では、readiness map / survival conversation / next uncertainty mapとして理論側に再登場させる。
