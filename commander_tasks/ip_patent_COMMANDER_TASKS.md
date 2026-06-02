@@ -134,6 +134,13 @@
 - 現状: 2026-06-02にdecision sheet/checklist worker `019e86ea-778b-7780-a855-f294202af386` をactiveとして切り出し済み。成果物候補は `docs/ip/self_filing_package/2026-06-02_self_filing_masa_decision_sheet_internal.md` と `docs/ip/self_filing_package/2026-06-02_filing_day_checklist_internal.md`。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
 - 残課題: workerから、まさ判断事項3問以内、出願当日チェックリスト要約、成果物パス、終了ゲートの報告を受ける。
 
+### 15. Blocked by Masa: self filing出願方針3問を決める
+
+- お願いした内容: 完全セルフ出願に向けて、workerで勝手に確定できない出願方針3問をまさが判断する。
+- 背景: self filing package、図面候補、formal figure readiness、decision sheet/checklistまで作成済み。出願準備は「提出直前レビューに使える水準」まで進んだが、請求項構成、手続タイミング、実行経路は事業・法務・実務の意思決定であり、司令塔/workerが勝手に確定できない。
+- 現状: `docs/ip/self_filing_package/2026-06-02_self_filing_masa_decision_sheet_internal.md` と `docs/ip/self_filing_package/2026-06-02_filing_day_checklist_internal.md` を回収済み。まさ判断事項は、1) 発明の出願範囲、2) 手続タイミング、3) 出願当日の実行経路、の3問に圧縮済み。ここからは `Blocked by Masa`。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止継続。
+- 残課題: まさが3問へ回答したら、請求項/明細書/図面/願書/チェックリストへの最終反映workerを切る。回答前はWatchではなくBlocked by Masaとして扱う。
+
 ## 完了済みタスク
 
 ### self filing masa decision sheet / filing day checklist
