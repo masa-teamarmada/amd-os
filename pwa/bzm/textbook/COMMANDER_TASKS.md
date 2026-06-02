@@ -38,13 +38,14 @@
 ## 未完タスク（優先順位順）
 
 - 2026-06-02: `Textbook Act V Ch15-24 cold-reader/editor review` 完了。Ch15〜Ch21はmain narrative endingとして継続可、Ch22〜Ch24はField Toolkit appendixへ分離推奨。成果物: `pwa/bzm/textbook/runs/2026-06-02-act-v-ch15-24-cold-reader-editor-review.md`。
+- 2026-06-02: `Textbook Field Toolkit appendix separation` 完了。Ch21を本編の仮endingとして閉じ、Ch22〜Ch24を `Field Toolkit A/B/C` の付録/実務道具としてH1・冒頭・manifest表示を最小修正。成果物: `pwa/bzm/textbook/runs/2026-06-02-field-toolkit-appendix-separation.md`。
 
 
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
   - 現状: 2026-06-02までに、editorial narrative reset audit、OS field knowhow harvest v6、public book architecture reset briefをmainへ回収し、旧BZM/会社紹介寄りの導線をpublic manuscriptへ切り替え済み。司令塔直接作業でCh00〜Ch03をAct I、Ch04〜Ch06をAct II、Ch07〜Ch10をAct III、Ch11〜Ch14をAct IVとして、primary composite case「強くなりすぎたdeck sentence」が顧客証拠、時計衝突、研究者孤独、外部CEO displacement、開示事故寸前、登記/生存確率判断、90日WAIT、責任配置、投資家面談、学習ログ、追い風、公募、準備度の混同、外部経営候補、研究機関の苗床へ進むnarrativeに改稿。Act IV冷読レビューは `2026-06-02-act-iv-cold-reader-editor-review.md` として完了。2026-06-02にCh15〜Ch18をAct V前半 / theory-map entranceとして、同じ案件が期待・低い条件・人の傷・資金圧力で再び混ざり、現場語だけでは整理できなくなる流れからBZM、TRL/BRL/GRL/SRL/HRL、sigma_SU、mu_A/mu_I/mu_G、FRL/F_character/F_capabilityを導入する本文へ改稿。rewrite note `2026-06-02-act-v-theory-map-narrative-rewrite.md` を追加。Act III用 source mining workerも `2026-06-02-act-iii-source-mining.md` を追加し、Ch07〜Ch10向けに composite scene 16件、tool/question/checklist 24件、各章5件のinsertion mapを整理。Act V/Toolkit source mining workerが `2026-06-02-act-v-toolkit-source-mining.md` を追加し、Ch19〜Ch24向けに composite scene 14件、tool/question/checklist 30件、各章4件のinsertion map、Field Toolkit抽出候補、author directive投入点、安全分類を整理。Ch15〜Ch18冷読レビューは `2026-06-02-act-v-ch15-18-cold-reader-editor-review.md` として追加。Act V前半は7.8/10でCh19〜Ch24 rewriteへ進行可。ただしCh16/17/18にtheory-name staging、FRL定義ブロック、hidden listが残るため、Ch19〜Ch24後にCh00〜Ch24 surgical residue passが必要。2026-06-02にCh19〜Ch24をAct V後半 / Field Toolkit narrativeとして、統合地図をsurvival conversation / RESOURCE_SHIFTへ、retrofitをold evidence rule -> new evidence ruleへ、ERSを研究機関operating designへ、field note safety / decision-disclosure / nursery pilotを場面内で使われる道具へ改稿。run note `2026-06-02-act-v-field-toolkit-narrative-rewrite.md` を追加。Ch15〜Ch24冷読レビューは `2026-06-02-act-v-ch15-24-cold-reader-editor-review.md` として追加し、Act Vは8.0/10、全体再rewriteではなくCh00〜Ch24 surgical residue passとField Toolkit appendix extractionへ進む判定。
-  - 残課題: `table extraction / toolkit appendix`、`support boundary pass`、Ch00〜Ch24 surgical residue passを切り、v6素材台帳、Act III source mining素材、Act V source mining素材を本文へ直接貼らずcomposite scene / tool artifact化して反映する。
+  - 残課題: `support boundary pass`、Ch00〜Ch24 surgical residue pass、full-book ruthless editor narrative appeal audit、deep OS/source data mining for missing book contentを切り、v6素材台帳、Act III source mining素材、Act V source mining素材を本文へ直接貼らずcomposite scene / tool artifact化して反映する。
 
 
 
@@ -97,6 +98,12 @@
   - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
 
 ## 完了済みタスク
+
+- **Textbook Field Toolkit appendix separation**
+  - お願いした内容: Ch21を本編の仮endingとして成立させ、Ch22〜Ch24を章の続きではなく Field Toolkit / 付録 / 実務道具として読めるようにする。
+  - 背景: Ch15〜Ch24 cold-reader reviewで、Ch15〜Ch21はmain narrative endingとして使えるが、Ch22〜Ch24はtoolkit materialであり、Ch21の感情的な終わりから構造的に分けるべきと診断されたため。
+  - 現状: `pwa/bzm/public-manuscript/21-institution-readiness-as-nursery.md` 末尾に本編の物語が閉じることを明示する橋を追加。Ch22〜Ch24のH1を `Field Toolkit A/B/C` に揃え、各章冒頭へ「なぜこの道具が本編から生まれたか」の短い問いを追加。`pwa/src/app/(app)/bzm/public/public-manuscript.ts` の最終section labelを `Field Toolkit — 付録: 実務道具` に更新。run note `pwa/bzm/textbook/runs/2026-06-02-field-toolkit-appendix-separation.md` を追加。
+  - 残課題: Ch00〜Ch24 surgical residue pass、support boundary pass、full-book ruthless editor narrative appeal audit、deep OS/source data mining for missing book contentへ進む。
 
 - **Textbook Act V Ch15-24 cold-reader/editor review**
   - お願いした内容: main反映済みのCh15〜Ch24を、Act I〜IVから続く本の後半として読めるか、理論説明/tool dumpへ戻っていないか、author directiveとappendix分離判断、Ch00〜Ch24 surgical residue範囲を冷読者・編集者目線でレビューする。
