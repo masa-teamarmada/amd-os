@@ -41,7 +41,7 @@
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
   - 現状: 2026-06-02までに、editorial narrative reset audit、OS field knowhow harvest v6、public book architecture reset briefをmainへ回収し、旧BZM/会社紹介寄りの導線をpublic manuscriptへ切り替え済み。司令塔直接作業でCh00〜Ch03をAct I、Ch04〜Ch06をAct II、Ch07〜Ch10をAct III、Ch11〜Ch14をAct IVとして、primary composite case「強くなりすぎたdeck sentence」が顧客証拠、時計衝突、研究者孤独、外部CEO displacement、開示事故寸前、登記/生存確率判断、90日WAIT、責任配置、投資家面談、学習ログ、追い風、公募、準備度の混同、外部経営候補、研究機関の苗床へ進むnarrativeに改稿。review notesとして `2026-06-02-act-i-cold-reader-editor-review.md`、`2026-06-02-act-i-ii-cold-reader-editor-review.md`、`2026-06-02-act-i-iii-cold-reader-editor-review.md`、rewrite notesとして `2026-06-02-opening-act-i-narrative-rewrite.md`、`2026-06-02-act-ii-narrative-rewrite.md`、`2026-06-02-act-iii-narrative-rewrite.md`、`2026-06-02-act-iv-narrative-rewrite.md` を追加。Act III用 source mining workerも `2026-06-02-act-iii-source-mining.md` を追加し、Ch07〜Ch10向けに composite scene 16件、tool/question/checklist 24件、各章5件のinsertion mapを整理。
-  - 残課題: Act IV冷読レビュー、またはCh15〜Ch18をAct V前半として同じcomposite caseからBZM理論地図へ進める。`table extraction / toolkit appendix`、`support boundary pass`、Ch00〜Ch14 surgical residue passも切り、v6素材台帳とAct III source mining素材を本文へ直接貼らずcomposite scene化して反映する。
+  - 残課題: Act IV冷読レビューは `2026-06-02-act-iv-cold-reader-editor-review.md` として完了。次はCh15〜Ch18をAct V前半として同じcomposite caseからBZM理論地図へ進める。`table extraction / toolkit appendix`、`support boundary pass`、Ch00〜Ch18 surgical residue passも切り、v6素材台帳とAct III source mining素材を本文へ直接貼らずcomposite scene化して反映する。
 
 
 
@@ -94,6 +94,12 @@
   - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
 
 ## 完了済みタスク
+
+- **Textbook Act IV cold-reader/editor review**
+  - お願いした内容: main反映済みの public manuscript Ch11〜Ch14を、Act I〜IIIから続く読み物として成立しているか、理論説明章へ戻っていないか、composite case continuity / author directive retention / Act Vへの未解決問いを冷読者・編集者目線でレビューする。
+  - 背景: Act IV rewriteで追い風、公募、準備度混同、外部経営候補、研究機関の土壌へ進んだため、Ch15〜Ch18のBZM理論地図へ入る前に、本としての接続と説明残りを判定する必要があった。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-act-iv-cold-reader-editor-review.md` を追加。Act IVは同じcomposite caseとして継続可、overall 7.4/10、Ch11とCh14のcontinuityは強い。一方でCh12〜Ch14にhidden list / theory-name leakage / explanatory heading residueが残るため、Act V後にCh00〜Ch18 surgical residue passとField Toolkit extractionが必要。
+  - 残課題: 次workerはCh15〜Ch18をAct V前半として、同じcaseからBZM理論地図へ進める。理論名は現場語が足りなくなった後に出し、生存確率 / 稼げる体質 / 早すぎる起業 / Jカーブ一律化への違和感を判断軸として保持する。
 
 - **Textbook Act IV macro/readiness/founder/institution narrative rewrite**
   - お願いした内容: Ch11〜Ch14を、Act I〜IIIから続くcomposite caseとして、追い風、準備度、創業者機能、研究機関の苗床を説明章ではなく読み物へ改稿する。
