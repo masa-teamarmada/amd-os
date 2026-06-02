@@ -127,6 +127,13 @@
 - 現状: 2026-06-02にformal figure readiness worker `019e86e0-2c33-7e12-a521-1e037ffa1f41` をactiveとして切り出し済み。対象はFig.1〜Fig.8 SVGのreadiness点検、必要なら内部提出候補SVG作成、`docs/ip/self_filing_package/2026-06-02_formal_figure_readiness_internal.md` の作成、final consistency reviewと台帳の最小更新。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
 - 残課題: workerから、修正した図面、残した図面Blocker、正式提出直前TODO、営業秘密scan、終了ゲートの報告を受ける。
 
+### 14. self filing masa decision sheet / filing day checklistを作る
+
+- お願いした内容: formal figure readiness後に残っている未判断・提出当日Mustを、まさが判断しやすい3問以内のdecision sheetと、出願当日チェックリストに統合する。
+- 背景: 図面は内部提出候補まで進んだが、請求項A/B、WS-5/WS-6、30条例外、審査請求タイミング、電子出願環境などは、勝手に確定できない。散らばった未判断を、まさが短時間で決められる形へ圧縮する必要がある。
+- 現状: 2026-06-02にdecision sheet/checklist worker `019e86ea-778b-7780-a855-f294202af386` をactiveとして切り出し済み。成果物候補は `docs/ip/self_filing_package/2026-06-02_self_filing_masa_decision_sheet_internal.md` と `docs/ip/self_filing_package/2026-06-02_filing_day_checklist_internal.md`。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
+- 残課題: workerから、まさ判断事項3問以内、出願当日チェックリスト要約、成果物パス、終了ゲートの報告を受ける。
+
 ## 完了済みタスク
 
 ### self filing formal figure readiness
