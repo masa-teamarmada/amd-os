@@ -47,7 +47,7 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
   {
     key: "data-automation",
     label: "データ / Automation",
-    description: "5 生データ、L2 ①〜⑩、outbox、LaunchAgent、採否ループ。",
+    description: "5 生データ、L2 ①〜⑬、outbox、LaunchAgent、採否ループ。",
     slugs: [
       "3-1-l2-data-extraction-current-spec",
       "3-2-monthly-reports-current-spec",
@@ -102,7 +102,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "2-1-pwa-runtime-routes", title: "PWA ランタイム / ルート仕様", summary: "Next.js PWA の実行環境、主要 route、API / cron / auth の現行契約。" },
   { slug: "2-2-pwa-surface-inventory-current-spec", title: "PWA 画面 / API Surface 仕様", summary: "現行 PWA の画面 route、API route groups、auth/authority、failure mode、検証入口。" },
   { slug: "2-3-supabase-data-model-current-spec", title: "Supabase Data Model 仕様", summary: "Supabase schema の source of truth、domain別 table map、status convention、DDL/dump手順。" },
-  { slug: "3-1-l2-data-extraction-current-spec", title: "L2 データ抽出 / Outbox 仕様", summary: "5 生データ、L2 ①〜⑩、subscription automation、outbox / LaunchAgent 反映の確定仕様。" },
+  { slug: "3-1-l2-data-extraction-current-spec", title: "L2 データ抽出 / Outbox 仕様", summary: "5 生データ、L2 ①〜⑬、subscription automation、outbox / LaunchAgent 反映の確定仕様。" },
   { slug: "3-2-monthly-reports-current-spec", title: "L2① Monthly Reports 仕様", summary: "monthly_reports の writer、上書き禁止、source refs、outbox 反映、旧 R313 / PWA route の扱い。" },
   { slug: "3-3-meeting-flow-current-spec", title: "L2⑥ Meeting Flow 仕様", summary: "MTGサマリ、予定MTGカード、Drive資料同期、TODO、Calendar作業枠、Gmail draft の現行仕様。" },
   { slug: "3-4-registry-diffs-current-spec", title: "L2⑦ OS 台帳差分仕様", summary: "5 生データと OS 台帳の差分候補、project_registry_diffs、通知採否、allowlist 適用の契約。" },
@@ -121,7 +121,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "4-4-management-score-company-vital-scope-plan", title: "Management Score 会社バイタル分類 本修正案", summary: "Management Score材料を会社バイタル/PJ個別へ分けるDB分類、L2抽出validator、backfill、snapshot再計算の未適用設計案。" },
   { slug: "5-1-document-governance-current-spec", title: "ドキュメント統制仕様", summary: "manual / spec / bzm の責務分離、附則更新ゲート、再構築要件。" },
   { slug: "5-2-development-operations-current-spec", title: "開発 / デプロイ運用仕様", summary: "repo、PWA技術スタック、deploy、build version、Supabase DDL、GAS deploy、検証 gate。" },
-  { slug: "5-3-automation-responsibility-current-spec", title: "Automation 責務分担仕様", summary: "L2 ①〜⑩ writer、停止済み LLM cron、allowed cron、outbox applier、再発防止。" },
+  { slug: "5-3-automation-responsibility-current-spec", title: "Automation 責務分担仕様", summary: "L2 ①〜⑬ writer、停止済み LLM cron、allowed cron、outbox applier、再発防止。" },
   { slug: "5-4-decision-history-current-spec", title: "判断履歴 / 事故ログ仕様", summary: "LLM cron 廃止、経営ハイライト再設計、dialogue、new_business、主要事故ログ。" },
   { slug: "5-5-cross-platform-gas-ios-current-spec", title: "GAS / iOS 役割境界仕様", summary: "PWA、GAS、iOS の責務境界、current/deprecated の入口、未確認点。" },
   { slug: "6-1-appendix-changelog", title: "附則（設計書変更履歴）", summary: "/spec の追加・変更・削除を append-only で記録する変更履歴。" },

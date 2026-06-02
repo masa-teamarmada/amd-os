@@ -10,7 +10,7 @@
 | 順 | ファイル | 内容 |
 |---|---|---|
 | **-1** | [../spec/1-1-overview.md](../spec/1-1-overview.md) / [../spec/1-2-document-layer-migration-map.md](../spec/1-2-document-layer-migration-map.md) | manual / spec / bzm 3層分割と、`design/` から `/spec` への移行マップ |
-| **0** | [**L2_DATA.md**](L2_DATA.md) ⭐⭐⭐ | **AMD OS 中核データ正本** — L2 10 種 (monthly report / AMDプロトコル / MS進捗 / PJナレッジ / メンバーナレッジ / MTGサマリ / OS台帳差分 / XRL根拠 / 経営・事業シグナル / Textbook Insights) + レポート + 全 cron。`/spec` 未移行のため、データに触る前に必ず読む |
+| **0** | [**L2_DATA.md**](L2_DATA.md) ⭐⭐⭐ | **AMD OS 中核データ正本** — L2 13 種 (①〜⑩ internal operating-memory / ⑪ Atlas Signals / ⑫ Macrotrend Evidence/Index / ⑬ Member Weekly Activities) + derived reports + 全 cron。`/spec` 未移行のため、データに触る前に必ず読む |
 | 1 | [SPEC_pwa.md](SPEC_pwa.md) ⭐ | **PWA 全体の正本仕様** — 画面・ルート・データモデル・cron・運用コマンド・実装規約 |
 | 2 | [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) ⭐ | **重要UIの回帰防止登録簿** — 画面ごとの「消してはいけない業務導線」と `test:critical-ui` anchor |
 | 2.5 | [SPEC_GOVERNANCE.md](SPEC_GOVERNANCE.md) ⭐ | **仕様ドリフト防止運用** — Capability Catalog / functional spec / ADR / traceability / executable spec の使い分け |
@@ -20,7 +20,7 @@
 | 5 | [amd_score.md](amd_score.md) | AMD Score (Before Zero Theory v3.2 — 7 軸 Cobb-Douglas)、cron / L2 抽出 |
 | 5.2 | [management_score.md](management_score.md) ⭐ | **AMD Management Score** — AMD会社全体の経営状況スコア。先手力 / 財務耐久 / 既存PJ継続 / 新規案件獲得 / 戦略接近度 |
 | 5.5 | [aspi_lanes.md](aspi_lanes.md) ⭐ | **ASPI Critical Technology Tracker 8 domain** (= 新 lane 体系、旧 5 lane 廃止)。PJ.lanes JSONB weighted / 10 PJ mapping / 新 cron (lane-suggest / kaken / grant / vc-investment) の正本 |
-| 5.6 | [l2_expanded_automation_strategy.md](l2_expanded_automation_strategy.md) | L2 ①〜⑬ 拡張 taxonomy 案と Claude 定額 token / routine 上限内の抽出戦略 draft |
+| 5.6 | [l2_expanded_automation_strategy.md](l2_expanded_automation_strategy.md) | L2 ①〜⑬ 拡張 taxonomy と Claude 定額 token / routine 上限内の抽出戦略 memo。正本反映後の current taxonomy は [L2_DATA.md](L2_DATA.md) / [../spec/3-1-l2-data-extraction-current-spec.md](../spec/3-1-l2-data-extraction-current-spec.md) / [../manual/8-3-l2-extraction-routines-spec.md](../manual/8-3-l2-extraction-routines-spec.md) を見る |
 
 ---
 
