@@ -72,11 +72,11 @@ export const PUBLIC_MANUSCRIPT_PARTS: PublicManuscriptPart[] = [
   },
   {
     key: "toolkit",
-    label: "Toolkit — 実務道具",
+    label: "Field Toolkit — 付録: 実務道具",
     chapters: [
-      { slug: "22-field-note-safety-loop", number: "A", title: "現場メモを、誰かを傷つけない問いに変える" },
-      { slug: "23-decision-and-disclosure-toolkit", number: "B", title: "判断と開示の道具箱" },
-      { slug: "24-institution-nursery-checklist", number: "C", title: "研究機関を、苗床として点検する" },
+      { slug: "22-field-note-safety-loop", number: "A", title: "現場メモを、安全な問いに変える" },
+      { slug: "23-decision-and-disclosure-toolkit", number: "B", title: "判断と開示の道具を会議に置く" },
+      { slug: "24-institution-nursery-checklist", number: "C", title: "研究機関の九十日pilot charter" },
     ],
   },
 ];
