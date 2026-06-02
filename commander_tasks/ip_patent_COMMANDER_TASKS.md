@@ -103,8 +103,8 @@
 
 - お願いした内容: Fig.1〜Fig.8の白黒線画ドラフトをもとに、SVGを中心とした提出図面候補画像を内部生成する。
 - 背景: 現在の図面readinessは「内部レビュー用ドラフトとしてusable。ただし正式提出画像ではない」。黒色線画画像化、参照符号視認性、白黒2値化後の読解性、明細書 / 請求項との最終整合、営業秘密scan再実施が必要。
-- 現状: 2026-06-02にpatent figures image candidates worker `019e86be-6e14-7e82-9091-ef19e1db3516` をactiveとして切り出し済み。成果物候補は `docs/ip/self_filing_package/figures/` 配下のFig.1〜Fig.8 SVG候補とREADME。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
-- 残課題: workerから、図面画像候補、README、readiness結論、まさ判断事項5個以内、未確認/要確認、営業秘密scan、終了ゲートの報告を受ける。
+- 現状: 2026-06-02にpatent figures image candidates worker `019e86be-6e14-7e82-9091-ef19e1db3516` を回収済み。`docs/ip/self_filing_package/figures/` 配下にFig.1〜Fig.8のSVG画像候補とREADMEを追加済み。白背景、黒線、黒文字のみで、色、グラデーション、実UI、スクリーンショットは不使用。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は未実施。
+- 残課題: SVG画像候補は内部レビュー用の提出図面候補としてusable。ただし正式提出画像ではないため、JPO方式確認、提出形式への変換、余白 / 線幅 / 2値化 / 符号視認性の検査、明細書 / 請求項との最終整合、営業秘密scan再実施が残る。
 
 ## 完了済みタスク
 
