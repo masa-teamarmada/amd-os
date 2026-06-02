@@ -1,0 +1,411 @@
+{
+  "l2_notifications": {
+    "pk": "notification_id",
+    "rows": [
+      {
+        "notification_id": "90e4fe79-993c-4fe9-aace-32e481a158fc",
+        "l2_kind": "project_config_gap",
+        "target_id": "p10",
+        "scope_key": "202605",
+        "title": "?? SE: Drive???????????",
+        "summary": "CryoX??Drive??????????5?snapshot?source_cache???",
+        "saved_count": 1,
+        "total_count": 1,
+        "importance": 2,
+        "notified_at": "2026-06-02T06:37:57+00:00",
+        "created_at": "2026-05-17T08:56:31.138061+00:00",
+        "updated_at": "2026-06-02T06:37:57.250646+00:00",
+        "metadata_json": {
+          "gap_kind": "drive_backfill_missing",
+          "project_id": "p10",
+          "review_note": "?????DB????????????Drive backfill/allowlist???????????????????xrlEvidence??????",
+          "project_name": "SE",
+          "evidence_refs": [
+            {
+              "id": "10u0e6A3pDjrHYAKmGGYkB8ejwQ2LJRJ0",
+              "snippet": "cryox_national_strategy_v22.pdf",
+              "source_kind": "drive"
+            },
+            {
+              "id": "p10:202605",
+              "table": "source_cache",
+              "snippet": "source_cache count=0",
+              "source_kind": "os_snapshot"
+            }
+          ],
+          "snapshot_generated_at": "2026-05-26T14:15:30.545Z"
+        },
+        "read_at": "2026-05-21T15:55:18.982+00:00"
+      },
+      {
+        "notification_id": "4178fcb5-ca4c-4116-9bc8-09b99639c929",
+        "l2_kind": "project_config_gap",
+        "target_id": "p25",
+        "scope_key": "202605",
+        "title": "?? KUTE: Drive?????????",
+        "summary": "Drive?????????????projects.drive_folder_id???source_cache drive=0?",
+        "saved_count": 1,
+        "total_count": 1,
+        "importance": 2,
+        "notified_at": "2026-06-02T06:37:57+00:00",
+        "created_at": "2026-05-17T03:04:50.257839+00:00",
+        "updated_at": "2026-06-02T06:37:57.371336+00:00",
+        "metadata_json": {
+          "gap_kind": "drive_folder_missing",
+          "project_id": "p25",
+          "review_note": "?????DB????????????KUTE Drive folder allowlist/backfill????????Drive???????xrlEvidence????????????????????",
+          "project_name": "KUTE",
+          "evidence_refs": [
+            {
+              "id": "1NB48R8P5n_285ViOV2a08fri6aOuxTUc",
+              "date": "2026-05-10T13:17:43.577Z",
+              "snippet": "KUTE_????????????_?????_??????.html",
+              "source_kind": "drive"
+            },
+            {
+              "id": "p25",
+              "table": "projects",
+              "snippet": "drive_folder_id=null, sourceChecklist.drive=0",
+              "source_kind": "os_snapshot"
+            }
+          ],
+          "snapshot_generated_at": "2026-05-26T14:15:30.545Z"
+        },
+        "read_at": null
+      },
+      {
+        "notification_id": "d62a4116-00d1-42dd-8972-00d148b0cff6",
+        "l2_kind": "project_registry_diff",
+        "target_id": "p25",
+        "scope_key": "202605",
+        "title": "?? KUTE: ???PJ???????????",
+        "summary": "MS????subItem???ID012??????project_members?inactive?",
+        "saved_count": 1,
+        "total_count": 1,
+        "importance": 2,
+        "notified_at": "2026-06-02T05:32:14+00:00",
+        "created_at": "2026-06-01T00:46:47.884028+00:00",
+        "updated_at": "2026-06-02T05:32:14.89987+00:00",
+        "metadata_json": {
+          "category": "registry_diff",
+          "project_id": "p25",
+          "project_name": "KUTE",
+          "evidence_refs": [
+            {
+              "id": "MS-p25-202605-regulations:ID012",
+              "table": "milestone_responsibility",
+              "snippet": "ID012 share=0.3 ????????????????????????",
+              "source_kind": "os_snapshot"
+            },
+            {
+              "id": "p25:ID012",
+              "table": "project_members",
+              "snippet": "is_active=false, role_label=????",
+              "source_kind": "os_snapshot"
+            }
+          ],
+          "snapshot_generated_at": "2026-05-26T14:15:30.545Z"
+        },
+        "read_at": null
+      },
+      {
+        "notification_id": "a895ac59-a035-42d1-8266-37f79ba7a430",
+        "l2_kind": "project_registry_diff",
+        "target_id": "p19",
+        "scope_key": "202605",
+        "title": "?? ZMP: ???????????????",
+        "summary": "?????MTG?????????3???????????????",
+        "saved_count": 1,
+        "total_count": 1,
+        "importance": 2,
+        "notified_at": "2026-06-02T05:32:14+00:00",
+        "created_at": "2026-06-01T00:46:48.966479+00:00",
+        "updated_at": "2026-06-02T13:26:53.212479+00:00",
+        "metadata_json": {
+          "category": "registry_diff",
+          "project_id": "p19",
+          "project_name": "ZMP",
+          "evidence_refs": [
+            {
+              "id": "19e628fc3fca507f",
+              "date": "2026-05-26T13:34:08+09:00",
+              "sender": "masa@team-armada.jp",
+              "snippet": "????????ZeMA??????????????",
+              "source_kind": "gmail"
+            },
+            {
+              "id": "upcoming:0q5lelucq7hf5fdteo7p1b5d1i",
+              "date": "2026-05-26",
+              "snippet": "???????????????????????????????????",
+              "source_kind": "meeting_summary"
+            }
+          ],
+          "snapshot_generated_at": "2026-05-26T14:15:30.545Z"
+        },
+        "read_at": "2026-06-02T13:26:52.981+00:00"
+      },
+      {
+        "notification_id": "4b6122f7-c89e-48a7-badc-5de6396ae55c",
+        "l2_kind": "project_config_gap",
+        "target_id": "p00",
+        "scope_key": "202605",
+        "title": "?? MS????: OS snapshot?????",
+        "summary": "automation-prepare?Supabase/PWA???refresh?????snapshot?96h???",
+        "saved_count": 1,
+        "total_count": 1,
+        "importance": 3,
+        "notified_at": "2026-06-02T06:37:57+00:00",
+        "created_at": "2026-05-17T08:56:30.910614+00:00",
+        "updated_at": "2026-06-02T06:37:57.312081+00:00",
+        "metadata_json": {
+          "gap_kind": "stale_snapshot",
+          "review_note": "???DB?????????????LLM snapshot refresh worker / runner network ????????????stale snapshot + connector?????????",
+          "evidence_refs": [
+            {
+              "id": "automation-prepare",
+              "snippet": "supabase unavailable; pwaSchedule connect EACCES 64.29.17.3:443; snapshot older than 48h",
+              "source_kind": "helper"
+            }
+          ],
+          "snapshot_generated_at": "2026-05-26T14:15:30.545Z"
+        },
+        "read_at": "2026-05-21T15:51:27.897+00:00"
+      },
+      {
+        "notification_id": "d1e88e83-22fe-44b2-8f90-86364c02e5a8",
+        "l2_kind": "ms_progress",
+        "target_id": "p25",
+        "scope_key": "202605",
+        "title": "?? KUTE: ???MS???0%????",
+        "summary": "????????MS?202608???5???15%?????????0%???",
+        "saved_count": 1,
+        "total_count": 1,
+        "importance": 3,
+        "notified_at": "2026-06-02T06:37:57+00:00",
+        "created_at": "2026-05-15T16:25:57.781155+00:00",
+        "updated_at": "2026-06-02T06:37:57.606425+00:00",
+        "metadata_json": {
+          "category": "ms_progress_revision",
+          "project_id": "p25",
+          "review_note": "confirmed_at ?????????????pending revision ??????????? helper ? ms_progress_revisions ???????????????",
+          "project_name": "KUTE",
+          "evidence_refs": [
+            {
+              "id": "MS-p25-202605-seeds",
+              "table": "value_milestones",
+              "snippet": "period_start_ym=202608, target_ym=202703",
+              "source_kind": "os_snapshot"
+            },
+            {
+              "id": "MS-p25-202605-seeds:202605",
+              "table": "milestone_monthly_progress",
+              "snippet": "current progress_pct=15, source=tsukuyomi_estimate, confirmed_at=2026-05-26T09:19:51.625+00:00",
+              "source_kind": "os_snapshot"
+            }
+          ],
+          "snapshot_generated_at": "2026-05-26T14:15:30.545Z"
+        },
+        "read_at": null
+      },
+      {
+        "notification_id": "08d44f27-d3d9-4cde-9dba-e9e9659dd332",
+        "l2_kind": "xrl_evidence",
+        "target_id": "p10",
+        "scope_key": "202605:se-cryox-technical-20260505",
+        "title": "?? SE: CryoX???TRL????????",
+        "summary": "Drive?5????CryoX?????????????????source_cache?0?",
+        "saved_count": 1,
+        "total_count": 1,
+        "importance": 2,
+        "notified_at": "2026-06-02T05:32:14+00:00",
+        "created_at": "2026-06-01T00:46:49.017851+00:00",
+        "updated_at": "2026-06-02T05:32:14.291755+00:00",
+        "metadata_json": {
+          "axis": "trl",
+          "project_id": "p10",
+          "project_name": "SE",
+          "evidence_kind": "technical_validation",
+          "evidence_refs": [
+            {
+              "id": "10u0e6A3pDjrHYAKmGGYkB8ejwQ2LJRJ0",
+              "date": "2026-05-05T07:05:05.701Z",
+              "snippet": "cryox_national_strategy_v22.pdf",
+              "source_kind": "drive"
+            },
+            {
+              "id": "1J9ojIwNbO4PR1yZ-vYHIkjalvZsz--JT",
+              "date": "2026-05-01T07:51:02.938Z",
+              "snippet": "202606_CryoX_AMD_NIMS_????????.docx",
+              "source_kind": "drive"
+            }
+          ],
+          "evidence_source_hash": "codex-p10-cryox-drive-20260505",
+          "snapshot_generated_at": "2026-05-26T14:15:30.545Z"
+        },
+        "read_at": null
+      }
+    ]
+  },
+  "project_registry_diffs": {
+    "pk": "diff_id",
+    "rows": [
+      {
+        "diff_id": "47a70ba1-45e3-4b32-8dda-9c38ec301e92",
+        "project_id": "p25",
+        "ym": "202605",
+        "scope_key": "202605",
+        "diff_kind": "member_candidate",
+        "target_table": "project_members",
+        "target_key": "p25:ID012",
+        "target_key_norm": "p25:ID012",
+        "current_snapshot_json": {
+          "is_active": false,
+          "member_id": "ID012",
+          "project_id": "p25",
+          "role_label": "????"
+        },
+        "proposed_patch_json": {
+          "role": "????????????????????",
+          "is_active": true,
+          "member_id": "ID012",
+          "project_id": "p25",
+          "role_label": "????"
+        },
+        "proposed_patch_hash": "d1baafc706fd18ccf6cb3fde",
+        "evidence_refs_json": [
+          {
+            "id": "MS-p25-202605-regulations:ID012",
+            "table": "milestone_responsibility",
+            "snippet": "ID012 share=0.3 ????????????????????????",
+            "source_kind": "os_snapshot"
+          },
+          {
+            "id": "sub-p25-reg-06/sub-p25-reg-07/sub-p25-seed-02",
+            "table": "milestone_sub_items",
+            "snippet": "ID012 assignee ?KUTE subItems??????",
+            "source_kind": "os_snapshot"
+          }
+        ],
+        "confidence": 0.72,
+        "status": "pending",
+        "review_comment": null,
+        "created_by": "codex-automation",
+        "reviewed_by": null,
+        "created_at": "2026-06-01T00:46:49.173+00:00",
+        "updated_at": "2026-06-01T00:46:49.173+00:00",
+        "reviewed_at": null,
+        "applied_at": null
+      },
+      {
+        "diff_id": "cafbfb46-ec02-47a5-aa62-a7a56a945fcb",
+        "project_id": "p19",
+        "ym": "202605",
+        "scope_key": "202605",
+        "diff_kind": "partner_email_candidate",
+        "target_table": "projects",
+        "target_key": "p19:report_emails",
+        "target_key_norm": "p19:report_emails",
+        "current_snapshot_json": {
+          "project_id": "p19",
+          "report_emails": null
+        },
+        "proposed_patch_json": {
+          "emails": [
+            "iino_hatsumi@admin.tus.ac.jp",
+            "miyamoto_kentaro@admin.tus.ac.jp",
+            "sagara_masatoshi@admin.tus.ac.jp"
+          ]
+        },
+        "proposed_patch_hash": "fe559b937af2a622c3f6393f",
+        "evidence_refs_json": [
+          {
+            "id": "19e628fc3fca507f",
+            "date": "2026-05-26T13:34:08+09:00",
+            "sender": "masa@team-armada.jp",
+            "snippet": "????????ZeMA??????????????",
+            "source_kind": "gmail"
+          },
+          {
+            "id": "7663cc88-06b9-4d63-867e-d75c3f74f34a",
+            "date": "2026-05-26T01:00:00+00:00",
+            "snippet": "???????????????????????????????????",
+            "source_kind": "member_activities"
+          }
+        ],
+        "confidence": 0.86,
+        "status": "pending",
+        "review_comment": null,
+        "created_by": "codex-automation",
+        "reviewed_by": null,
+        "created_at": "2026-06-01T00:46:49.173+00:00",
+        "updated_at": "2026-06-01T00:46:49.173+00:00",
+        "reviewed_at": null,
+        "applied_at": null
+      }
+    ]
+  },
+  "project_xrl_evidence": {
+    "pk": "evidence_id",
+    "rows": [
+      {
+        "evidence_id": "ae8de6de-861e-4c4c-9fc9-d7ca866d9f89",
+        "project_id": "p10",
+        "ym": "202605",
+        "scope_key": "202605",
+        "axis": "trl",
+        "evidence_kind": "technical_validation",
+        "summary": "CryoX?5?Drive?????????????202606???????????????/??????????????",
+        "structured_value_json": {
+          "source": "google_drive",
+          "artifacts": [
+            "cryox_national_strategy_v22.pdf",
+            "202606_CryoX_AMD_NIMS_????????.docx"
+          ]
+        },
+        "source_refs_json": [
+          {
+            "id": "10u0e6A3pDjrHYAKmGGYkB8ejwQ2LJRJ0",
+            "date": "2026-05-05T07:05:05.701Z",
+            "snippet": "cryox_national_strategy_v22.pdf",
+            "source_kind": "drive"
+          },
+          {
+            "id": "1J9ojIwNbO4PR1yZ-vYHIkjalvZsz--JT",
+            "date": "2026-05-01T07:51:02.938Z",
+            "snippet": "202606_CryoX_AMD_NIMS_????????.docx",
+            "source_kind": "drive"
+          }
+        ],
+        "source_hash": "codex-p10-cryox-drive-20260505",
+        "confidence": 0.66,
+        "status": "candidate",
+        "created_by": "codex-automation",
+        "confirmed_by": null,
+        "created_at": "2026-06-01T00:46:49.209+00:00",
+        "updated_at": "2026-06-01T00:46:49.209+00:00",
+        "confirmed_at": null
+      }
+    ]
+  },
+  "ms_progress_revisions": {
+    "pk": "id",
+    "rows": [
+      {
+        "id": "09ee32ab-5151-43cc-83a0-44edee87fd0b",
+        "project_id": "p25",
+        "milestone_id": "MS-p25-202605-seeds",
+        "ym": "202605",
+        "current_pct": 15.0,
+        "current_note": "?????????????????????????????????????????????????????????????????????????????????15%???",
+        "revised_pct": 0.0,
+        "revised_note": "MS period_start_ym=202608 ????202605????????5????????????????????????????????XRL/registry???????????MS????????????confirmed_at?????pending revision??????",
+        "status": "pending",
+        "requested_by": "codex-automation",
+        "confirmed_by": null,
+        "confirmed_at": null,
+        "created_at": "2026-06-01T00:46:48.143027+00:00",
+        "updated_at": "2026-06-01T00:46:49.159429+00:00"
+      }
+    ]
+  }
+}
