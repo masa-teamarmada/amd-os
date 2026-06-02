@@ -46,6 +46,7 @@
 - 2026-06-03: `Textbook Ch16-Ch18 theory-name demotion rewrite` 司令塔直接作業で完了。Ch16は `準備できています` の一文を五つの受け手へ書き直す場面へ、Ch17は8:12公募メールと地域corridorのホワイトボードへ、Ch18は創業者機能を九十日配置メモへ寄せ、理論名ステージングを後段の短い命名へ圧縮。成果記録は `pwa/bzm/textbook/runs/2026-06-03-ch16-18-theory-name-demotion-rewrite.md`。md-onlyのためbuild/deployなし。
 - 2026-06-03: まさ方針「式は後でよい。まずは今のまま物語を仕上げる」を受け、`Textbook story finish midbook consequence pass` を実施。Ch11は公募申請書の危ない一文、Ch12は投資家アップデート予定の送信寸前、Ch13は外部候補のフォローアップメールで強い言葉へ戻る場面、Ch14は別研究者が支援メニューPDFでまた止まる場面を追加。成果記録は `pwa/bzm/textbook/runs/2026-06-03-story-finish-midbook-consequence-pass.md`。md-onlyのためbuild/deployなし。
 - 2026-06-03: `Textbook epilogue story close` を実施。Prologueの「少し強すぎた一文」に呼応するEpilogueとして、半年後の別案件で若い事業化人材が企業返答の一文を少し弱く戻し、今回は研究者が黙らず送信できる場面を追加。Ch21後、Field Toolkit前にEpilogueをmanifest追加。成果記録は `pwa/bzm/textbook/runs/2026-06-03-epilogue-story-close.md`。
+- 2026-06-03: `Textbook full-story readthrough bridge cleanup` を実施。Prologue〜Epilogueの一気読みで見えた章末の `次の章では` / `この章で` / `Act I` などの設計図の声を削り、次の場面へ自然につながる余韻へ変更。成果記録は `pwa/bzm/textbook/runs/2026-06-03-full-story-readthrough-bridge-cleanup.md`。
 
 ## 未完タスク（優先順位順）
 
@@ -56,6 +57,7 @@
 - 2026-06-03: `Textbook Ch16-Ch18 theory-name demotion rewrite` 完了。Ch16〜Ch18の `あとでXと呼ぶ` 型の理論名ステージングを減らし、準備度・位相差・創業者機能を、文書/メール/配置メモが会議で変わる場面へ寄せた。成果物: `pwa/bzm/textbook/runs/2026-06-03-ch16-18-theory-name-demotion-rewrite.md`。
 - 2026-06-03: `Textbook story finish midbook consequence pass` 完了。式/モデル説明追加はいったん後回しにし、Ch11〜Ch14へ各章一つずつ、追い風・準備・外部候補・支援メニューが具体的な文書/予定/メール/次研究者を変える場面を追加。成果物: `pwa/bzm/textbook/runs/2026-06-03-story-finish-midbook-consequence-pass.md`。
 - 2026-06-03: `Textbook epilogue story close` 完了。Prologueと呼応するEpilogueを追加し、本編を「強すぎた一文」から「弱いまま送れる一文」へ閉じた。成果物: `pwa/bzm/public-manuscript/25-epilogue.md`, `pwa/bzm/textbook/runs/2026-06-03-epilogue-story-close.md`。
+- 2026-06-03: `Textbook full-story readthrough bridge cleanup` 完了。物語の筋は変えず、Ch03/10/12/14/15/16/18/20の章末メタ語・講義的ブリッジを圧縮し、読者にアウトラインを見せずに次の場面へ進む文へ変更。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-readthrough-bridge-cleanup.md`。
 
 
 - **page-turner編集レビューと素材発掘ループ**
@@ -63,7 +65,7 @@
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
   - 現状: 2026-06-02までに、editorial narrative reset audit、OS field knowhow harvest v6、public book architecture reset briefをmainへ回収し、旧BZM/会社紹介寄りの導線をpublic manuscriptへ切り替え済み。司令塔直接作業でCh00〜Ch03をAct I、Ch04〜Ch06をAct II、Ch07〜Ch10をAct III、Ch11〜Ch14をAct IVとして、primary composite case「強くなりすぎたdeck sentence」が顧客証拠、時計衝突、研究者孤独、外部CEO displacement、開示事故寸前、登記/生存確率判断、90日WAIT、責任配置、投資家面談、学習ログ、追い風、公募、準備度の混同、外部経営候補、研究機関の苗床へ進むnarrativeに改稿。Act IV冷読レビューは `2026-06-02-act-iv-cold-reader-editor-review.md` として完了。2026-06-02にCh15〜Ch18をAct V前半 / theory-map entranceとして、同じ案件が期待・低い条件・人の傷・資金圧力で再び混ざり、現場語だけでは整理できなくなる流れからBZM、TRL/BRL/GRL/SRL/HRL、sigma_SU、mu_A/mu_I/mu_G、FRL/F_character/F_capabilityを導入する本文へ改稿。rewrite note `2026-06-02-act-v-theory-map-narrative-rewrite.md` を追加。Act III用 source mining workerも `2026-06-02-act-iii-source-mining.md` を追加し、Ch07〜Ch10向けに composite scene 16件、tool/question/checklist 24件、各章5件のinsertion mapを整理。Act V/Toolkit source mining workerが `2026-06-02-act-v-toolkit-source-mining.md` を追加し、Ch19〜Ch24向けに composite scene 14件、tool/question/checklist 30件、各章4件のinsertion map、Field Toolkit抽出候補、author directive投入点、安全分類を整理。Ch15〜Ch18冷読レビューは `2026-06-02-act-v-ch15-18-cold-reader-editor-review.md` として追加。Act V前半は7.8/10でCh19〜Ch24 rewriteへ進行可。ただしCh16/17/18にtheory-name staging、FRL定義ブロック、hidden listが残るため、Ch19〜Ch24後にCh00〜Ch24 surgical residue passが必要。2026-06-02にCh19〜Ch24をAct V後半 / Field Toolkit narrativeとして、統合地図をsurvival conversation / RESOURCE_SHIFTへ、retrofitをold evidence rule -> new evidence ruleへ、ERSを研究機関operating designへ、field note safety / decision-disclosure / nursery pilotを場面内で使われる道具へ改稿。run note `2026-06-02-act-v-field-toolkit-narrative-rewrite.md` を追加。Ch15〜Ch24冷読レビューは `2026-06-02-act-v-ch15-24-cold-reader-editor-review.md` として追加し、Act Vは8.0/10、全体再rewriteではなくCh00〜Ch24 surgical residue passとField Toolkit appendix extractionへ進む判定。
   - 残課題: 2026-06-03 full-book ruthless editor auditで、Ch00〜Ch10とCh19〜Ch21は本の芯として成立、Ch11〜Ch14は中盤の新しい代償不足、Ch22〜Ch24はField Toolkitとしてのappendix明確化が必要と判定。Ch16〜Ch18 theory-name demotionは2026-06-03に完了。全体再rewriteではなく、v6素材台帳、Act III source mining素材、Act V source mining素材を本文へ直接貼らずcomposite scene / tool artifact化して章別surgical passへ渡す。
-  - 次worker候補: full-story readthrough pass Prologue〜Epilogue、epilogue cold-reader review、model exposition placement brief、Ch10-Ch20 bruise-before-learning rewrite、Field Toolkit packaging / public route clarity。
+  - 次worker候補: full-story cold-reader review Prologue〜Epilogue、Ch13/18 final repetition check、model exposition placement brief、Field Toolkit packaging / public route clarity。
 
 
 
