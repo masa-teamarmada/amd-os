@@ -102,6 +102,7 @@ L2データ
 - 5生データから直接 L2 に抽出する。汎用 L1 経由に戻さない
 - 5生データで有効な現物を拾ったら、通知だけで止めず、短い source refs / snippet として Supabase に戻す。月次報告書が no-data テンプレ、または未作成の場合は、完璧な完成版を待たず、L2① automation が確認できた範囲だけで `monthly_reports.draft_content` を暫定更新する
 - **2026-05-31 以降の L2①**: 月次報告書は Supabase 内の既存 L2 (`project_meeting_summaries` / `project_strategy_signals` / `project_xrl_evidence` / `project_registry_diffs` / `protocols` / `project_knowledge` / `member_knowledge` / MS進捗系) を primary input にする。5生データは、L2 coverage が薄い・stale・source refs 不足・no-data 候補のときの gap check / backfill fallback として見る。
+- **2026-06-02 no-activity ガード**: `monthly-reports-backfill` cron は、当月の `source_cache` が 0 件なら LLM に推測本文を書かせない。代わりに「進捗なし」テンプレ（「活動・成果物は検出されていません」と断定せず記述）を `draft_content` に置き、`collection_summary_json` に `sourceChecklist` / `noActivity:true` を残す。これは「投資家向け資料整備」等のハルシネーション本文が活動の無い月に入る事故（`project_config_gap` の `raw-route-zero` 通知の根本原因）の再発防止。source の薄さ自体は extraction 不完全の可能性があるため本文では断定しない。過去に生成済みの捏造 draft は cron では直さない（既存行は backfill 対象外）ので、誤判定リスクを避けて個別にまさ判断で是正する。
 - `projects.start_ym` より前の月でも、キックオフ・提案・契約前調整などPJ形成に意味がある生データがあるなら、月次サマリを作ってよい。MS進捗には直接反映しないが、開始前コンテキストとして `monthly_reports` に残す。
 - メール全文・議事録全文・Slack全文を L2 や通知に保存しない
 - L2 に保存するのは「AMD OS が使う構造化情報」と「短い根拠 snippet / source refs / hash」

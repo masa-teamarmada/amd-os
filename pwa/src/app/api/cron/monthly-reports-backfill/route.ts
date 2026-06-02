@@ -198,6 +198,14 @@ async function generateOne(
     .order("item_date", { ascending: false })
     .limit(60);
   const bySource: Record<string, { title: string; content: string; date: string }[]> = {};
+  const sourceChecklist: Record<string, number> = {
+    gmail: 0,
+    drive: 0,
+    calendar: 0,
+    slack: 0,
+    notion: 0,
+  };
+  let sourceItemCount = 0;
   for (const item of (sourceItems as {
     source: string | null;
     title: string | null;
@@ -211,6 +219,8 @@ async function generateOne(
       content: (item.content_text || "").slice(0, 2000),
       date: item.item_date || "",
     });
+    if (src in sourceChecklist) sourceChecklist[src] += 1;
+    sourceItemCount += 1;
   }
 
   // milestones
@@ -238,8 +248,47 @@ async function generateOne(
     }
   }
 
-  // prompt 組み立て
   const ymFormatted = `${ym.slice(0, 4)}年${parseInt(ym.slice(4), 10)}月`;
+
+  // no-activity ガード: 5生データ集約 (source_cache) が当月 0 件なら、
+  // LLM に推測で本文を書かせない。活動が無い月は「進捗なし」を明示するテンプレを置く。
+  // (= raw-route-zero の月に投資家向け資料整備などのハルシネーション本文が入る事故の防止)
+  // source_cache の薄さ自体は extraction の不完全さの可能性もあるため、本文は断定せず
+  // 「検出されていない」と書き、sourceChecklist と no-activity フラグを証跡として残す。
+  if (sourceItemCount === 0) {
+    const noActivityBody =
+      `# ${project.project_name}（${project.client_name || ""}）${ymFormatted}度 月次報告書\n\n` +
+      `**対象期間:** ${ymFormatted}\n` +
+      `**作成:** AMD OS 月次報告書生成（つくよみ）\n\n` +
+      `---\n\n` +
+      `## 概要\n\n` +
+      `${ymFormatted}は、${project.project_name}プロジェクトにおける活動が検出されませんでした。**進捗はありません。**\n\n` +
+      `5生データ（Gmail / Drive / Calendar / Slack / Notion）のいずれからも当月の活動・会議・成果物は検出されていません。マイルストーン進捗、メンバー活動ともに記録なしです。\n\n` +
+      `活動が発生した時点で月次報告を再開します。\n`;
+    const reportId = `${projectId}_${ym}`;
+    const now = new Date().toISOString();
+    const { error: upsertErr } = await db.from("monthly_reports").upsert(
+      {
+        report_id: reportId,
+        project_id: projectId,
+        ym,
+        draft_content: noActivityBody,
+        status: "draft",
+        generated_at: now,
+        collection_summary_json: {
+          sourceChecklist,
+          sourceItemCount: 0,
+          noActivity: true,
+          note: "no-activity month — source_cache empty, skipped LLM draft (raw-route-zero guard)",
+        },
+      },
+      { onConflict: "project_id,ym" }
+    );
+    if (upsertErr) throw new Error(`upsert(no-activity): ${upsertErr.message}`);
+    return { chars: noActivityBody.length };
+  }
+
+  // prompt 組み立て
   let userPrompt = `# ${project.project_name}（${project.client_name || ""}）${ymFormatted}度 月次報告書\n\n`;
   userPrompt += `メンバー: ${members.join(", ")}\n\n`;
   if (milestonesText) userPrompt += milestonesText + "\n\n";
@@ -305,6 +354,11 @@ async function generateOne(
       draft_content: generatedText,
       status: "draft",
       generated_at: now,
+      collection_summary_json: {
+        sourceChecklist,
+        sourceItemCount,
+        noActivity: false,
+      },
     },
     { onConflict: "project_id,ym" }
   );

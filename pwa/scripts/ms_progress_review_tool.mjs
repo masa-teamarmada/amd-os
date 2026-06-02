@@ -980,6 +980,7 @@ async function notify(file) {
   if (!payload.target_id || !payload.scope_key || !payload.title) {
     throw new Error("notification missing target_id, scope_key or title");
   }
+  assertNoMojibake(payload, file);
   const rawL2Kind = payload.l2_kind || "ms_progress";
   // PWA が知らない l2_kind は採否不能な死に通知になるので、PWA 対応済みの汎用検知種別
   // project_config_gap (= 台帳/抽出経路の欠落) に矯正する。元の野良 kind は metadata に痕跡として残す。
@@ -1011,9 +1012,42 @@ async function notify(file) {
   return { ok: true, written: written?.[0] || null };
 }
 
+// 文字化けゲート: LLM (Codex automation) が outbox を書く際、日本語 (multibyte) が
+// U+003F '?' に lossy 変換される事故が稀に起きる (2026-06-01 p19/p25 registry diff)。
+// 化けた payload を DB に流すと、通知タイトル・evidence snippet が「??? ZMP: ???」と
+// なり採否判断不能になる。正常な日本語文に '?' が 3 個以上連続することはまず無いので、
+// `???` 以上の連続を文字化けシグナルとみなし、該当 outbox を弾いて failed/ へ退避する。
+// 弾かれた run は次回 automation が生データから作り直す (DB は汚さない)。
+const MOJIBAKE_RUN_RE = /\?{3,}/;
+function assertNoMojibake(payload, file) {
+  const hits = [];
+  const walk = (node, path) => {
+    if (typeof node === "string") {
+      if (MOJIBAKE_RUN_RE.test(node)) hits.push({ path, sample: node.slice(0, 60) });
+      return;
+    }
+    if (Array.isArray(node)) {
+      node.forEach((v, i) => walk(v, `${path}[${i}]`));
+      return;
+    }
+    if (node && typeof node === "object") {
+      for (const [k, v] of Object.entries(node)) walk(v, path ? `${path}.${k}` : k);
+    }
+  };
+  walk(payload, "");
+  if (hits.length > 0) {
+    const detail = hits.slice(0, 5).map((h) => `${h.path}="${h.sample}"`).join(" | ");
+    throw new Error(
+      `mojibake detected in outbox (${hits.length} field(s)): ${detail}. ` +
+      `Refusing to write garbled Japanese to DB; this run must be regenerated from raw data.`,
+    );
+  }
+}
+
 async function applyOutbox(file) {
   if (!file) throw new Error("apply-outbox requires --file <payload.json>");
   const payload = readJson(file);
+  assertNoMojibake(payload, file);
   const results = {
     notifications: [],
     revisions: null,

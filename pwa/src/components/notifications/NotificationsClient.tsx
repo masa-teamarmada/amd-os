@@ -39,6 +39,34 @@ function notificationYm(scopeKey: string): string {
   return scopeKey.match(/20\d{4}/)?.[0] ?? scopeKey.slice(0, 6);
 }
 
+// l2_kind → どの L2 抽出器が出した通知か (= operations-catalog.ts の L2 ①〜⑩ と対応)。
+// 通知カードに「L2 ⑨ 経営ハイライト」のように番号 + 名前で出すための正本マップ。
+// 番号の根拠: pwa/lib/operations-catalog.ts / pwa/design/L2_DATA.md
+const L2_KIND_LABEL: Record<string, string> = {
+  protocols: "L2 ② AMDプロトコル",
+  ms_progress: "L2 ③ MS進捗",
+  project_knowledge: "L2 ④ PJナレッジ",
+  member_knowledge: "L2 ⑤ メンバーナレッジ",
+  meeting_summary: "L2 ⑥ MTGサマリ",
+  // ⑦ OS台帳差分 系 (台帳に反映する候補)
+  project_registry_diff: "L2 ⑦ OS台帳差分",
+  project_member_candidate: "L2 ⑦ OS台帳差分",
+  project_contact_candidate: "L2 ⑦ OS台帳差分",
+  raw_data_gap: "L2 ⑦ OS台帳差分",
+  project_config_gap: "L2 ⑦ OS台帳差分",
+  // ⑧ XRL根拠 系 (AMD Score / XRL 算定根拠。founding_members は HRL ベース)
+  xrl_evidence: "L2 ⑧ XRL根拠",
+  founding_members: "L2 ⑧ XRL根拠",
+  // ⑨ 経営ハイライト
+  project_strategy_signal: "L2 ⑨ 経営ハイライト",
+  // ⑩ Textbook Insights
+  textbook_insight: "L2 ⑩ Textbook Insights",
+};
+
+function l2KindLabel(l2Kind: string): string {
+  return L2_KIND_LABEL[l2Kind] ?? l2Kind;
+}
+
 export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [feedbackTexts, setFeedbackTexts] = useState<Record<string, string>>({});
@@ -785,9 +813,16 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {formatJST(i.data.created_at)} ・{" "}
-                    {i.kind === "l2"
-                      ? `${i.data.l2_kind} / ${displayTarget(i.data.target_id, i.data.scope_key, projectMap)}`
-                      : `meeting / ${projectMap[i.data.project_id] ?? i.data.project_id}`}
+                    {i.kind === "l2" ? (
+                      <>
+                        <span className="font-medium text-foreground/80">{l2KindLabel(i.data.l2_kind)}</span>
+                        <span className="ml-1 opacity-60">({i.data.l2_kind})</span>
+                        {" / "}
+                        {displayTarget(i.data.target_id, i.data.scope_key, projectMap)}
+                      </>
+                    ) : (
+                      `L2 ⑥ MTGサマリ / ${projectMap[i.data.project_id] ?? i.data.project_id}`
+                    )}
                     {!isReadUi(i) && <span className="ml-2 text-blue-600 dark:text-blue-400">● 未読</span>}
                     {(() => {
                       const kindKey = i.kind === "l2" ? i.data.l2_kind : "meeting_summary";

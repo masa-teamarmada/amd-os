@@ -1,6 +1,6 @@
 # AMD OS 司令塔タスク台帳
 
-最終更新: 2026-06-01
+最終更新: 2026-06-02
 
 この台帳は、AMD OS全体司令塔が受けている依頼を「コードを読んでいない人でも分かる」粒度で整理するためのもの。worker報告をそのまま貼らず、司令塔がまさ向けに要約して更新する。
 
@@ -24,6 +24,13 @@
 - heartbeat時はこの台帳の未完タスク上位を確認し、進められるものがあればworkerを切る、既存workerを再起動する、または差し戻す。
 - 進められる未完タスクがない場合は、まさ確認・まさ判断・外部作業が必要なはずなので、具体的な質問またはアクションとしてまさを動かす。
 - 以後のworker promptには、この能動報告と未完タスク監視の前提を含める。
+
+PWA production deploy gate:
+- 2026-06-02以降、PWAは変更ごとに小刻みにVercel production deployを打たない。
+- `tsc --noEmit`、`npm run build`、静的検査、commit/push、main反映は必要に応じて実施するが、production deployは「まさが本番確認する節目」「複数変更をまとめたrelease watch」「既存productionの不具合修正」など明確な理由がある時だけ行う。
+- deployしない報告では、`docsのみ`、`UI/runtime変更なし`、`deploy gate待ち`、`quota blocker` など理由を明記する。
+- Vercel quota blocker時はretry連打せず、Watchとして停止理由・再開条件・次回確認条件を残す。
+- この方針は `AGENTS.md` と `pwa/AGENTS.md` に反映済み。
 
 ## 未完タスク（優先順位順）
 
