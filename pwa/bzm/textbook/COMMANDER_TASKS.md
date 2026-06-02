@@ -37,6 +37,7 @@
 - 2026-06-02: `Textbook P0 narrative enrichment rewrite` worker完了。Ch01/06/09/19へ paid evidence / payment refusal / budget-owner absence / survival probability / earning body を場面として増補し、Ch04/08/13/18へ repeat-back / blank-cell / bad-news behavior によるfit/misfitを最小追加。Ch21〜Ch24はField Toolkit分離のH1/manifest alignmentのみ取り込み。成果記録は `pwa/bzm/textbook/runs/2026-06-02-p0-narrative-enrichment-rewrite.md`。
 - 2026-06-02: `Textbook P0 consequence rewrite` を司令塔直接作業で実施。Ch01/06/09/19の paid evidence / payment refusal / RESOURCE_SHIFT が、資料・部屋・関係・次の条件を実際に変える場面になるよう局所改稿。Ch08/10/13/18にもbad-news owner、学習ログ後の関係の痛み、repeat-back重複圧縮を追加。成果記録は `pwa/bzm/textbook/runs/2026-06-02-p0-consequence-rewrite.md`。
 - 2026-06-02: `Textbook P0 consequence cold-reader/editor review` worker完了。P0 consequence rewriteは7.4/10で前進、Ch01/06/09/19は資料・部屋・関係・RESOURCE_SHIFTの代償が増えた。一方でCh08は責任論へ戻り、Ch13/18はrepeat-back arcがまだ重複するため、次はCh08/13/18 overlap compression and actor-rationality passを推奨。成果記録は `pwa/bzm/textbook/runs/2026-06-02-p0-consequence-cold-reader-editor-review.md`。
+- 2026-06-02: `Textbook P0 consequence rewrite` 司令塔レビュー通過。`9290057 docs(textbook): rewrite p0 consequence scenes` は差し戻しではなく、cold-reader/editor reviewでも7.4/10で前進判定。次は全体rewriteではなくCh08/13/18 overlap compressionへ進める。成果記録は `pwa/bzm/textbook/runs/2026-06-02-p0-consequence-commander-review.md`。main merge / deployは未実施。
 
 ## 未完タスク（優先順位順）
 
