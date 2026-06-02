@@ -50,6 +50,8 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-03: `Textbook full-story final readthrough polish` 完了。Prologue〜Epilogue方針を維持し、Ch06/15/21/Epilogueに残っていた説明声を、会議メモ・地図・紙・メールの場面へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-final-readthrough-polish.md`。次は `full-story cold-reader review Prologue-Epilogue` と `model exposition placement brief`。
+
 - 2026-06-02: `Textbook Act V Ch15-24 cold-reader/editor review` 完了。Ch15〜Ch21はmain narrative endingとして継続可、Ch22〜Ch24はField Toolkit appendixへ分離推奨。成果物: `pwa/bzm/textbook/runs/2026-06-02-act-v-ch15-24-cold-reader-editor-review.md`。
 - 2026-06-02: `Textbook Field Toolkit reference-mode cleanup Ch22-Ch24` 完了。Ch22〜Ch24はField Toolkit A/B/Cとして、A=メモ安全化、B=判断/開示、C=機関pilotの役割差を明確化。成果物: `pwa/bzm/textbook/runs/2026-06-02-field-toolkit-reference-mode-cleanup.md`。
 - 2026-06-03: `Textbook support boundary pass` 完了。Ch11/14/19/21で、支援者・投資家・企業・大学・資金提供側の合理性を保持しつつ、未調整圧力が premature GO / over-strong deck / RESOURCE_SHIFT friction を生む構図へ補強。成果物: `pwa/bzm/textbook/runs/2026-06-03-support-boundary-pass.md`。
