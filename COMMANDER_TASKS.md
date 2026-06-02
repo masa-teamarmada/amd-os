@@ -1,6 +1,6 @@
 # AMD OS 司令塔タスク台帳
 
-最終更新: 2026-06-01
+最終更新: 2026-06-02
 
 この台帳は、AMD OS全体司令塔が受けている依頼を「コードを読んでいない人でも分かる」粒度で整理するためのもの。worker報告をそのまま貼らず、司令塔がまさ向けに要約して更新する。
 
@@ -26,6 +26,26 @@
 - 以後のworker promptには、この能動報告と未完タスク監視の前提を含める。
 
 ## 未完タスク（優先順位順）
+
+### 0. BZM FRL/PRS由来の OS/DB hygiene を補正タスクへ分解する
+
+- お願いしたタスク内容
+  - BZM `frl_cap_amd DB hygiene handoff` と JOYCLE support end gap をOS/DB側でread-only再確認し、どれをDB補正候補にするか、どれをsource_conflict / needs_reviewとして残すか整理する。
+  - DB write、DDL、migration apply、deploy、score再計算、PRS正式採用、R_net値付けはしない。
+- お願いした背景
+  - BZM側で p18 YD、p11 BWE、p06 CTB、p09 JOYCLE/JC の日付・derived knowledge・support end gap がOS/DBへ渡せる粒度になった。
+  - `project_knowledge` の basic fact が `project_ventures` 由来の派生で、独立sourceではない可能性が高いため、DB補正と sync follow-up を分ける必要がある。
+- 現状どうなってるか
+  - 動作状態: review完了、DB write待ち。
+  - 成果物: `pwa/spec/4-5-os-db-hygiene-review-2026-06-02.md`。
+  - live DB read-onlyで、p18/p11/p06 の `project_knowledge` stale rows は `source='pj_basic_facts_sync'` 派生であることを確認した。
+  - p09 JOYCLEは `projects.status='ended'` / `end_ym='202603'` と narrative/master text が終了側なのに、`project_ventures.amd_support_ended_at` だけNULL。`amd_support_started_at=2025-11-01` も upstream normalized conflict として確認した。
+  - p06 CTBの最新 `amd_score_inputs` は `frl_cap=3`, `frl_cap_amd=0` で、migration 112のcurrent correctionが残っている。
+- 残課題は何か
+  - p18/p11/p06 の exact founded_at 補正を、DB owner approval付き control task / migration draftへ切る。
+  - `amd_support_started_at` / `amd_support_ended_at` に `YYYY-MM-01` month anchor を許すか、precision field / support-period tableを作るか判断する。
+  - p09 JOYCLEは support end (`2026-03` month precision) と start date conflictを、口述由来damage理由やPRS値付けと混ぜずに補正タスク化する。
+  - p18 `project_xrl_log` 2019 manual milestoneは founded_at補正とは別に、source調査workerへ切る。
 
 ### 1. 特許案と現OSの乖離箇所をretrofit実装する
 
