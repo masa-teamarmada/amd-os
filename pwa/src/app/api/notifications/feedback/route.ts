@@ -428,6 +428,15 @@ async function applyMeetingSummaryFeedback(args: {
   const meetingId = String(args.meetingId || args.scopeKey || "").trim();
   if (!meetingId) return { applied: false, message: "meeting_id missing" };
 
+  // manual: / dialogue: / upcoming: 由来のサマリは Notion 議事録ページを持たないので、
+  // Notion 再抽出 (nav_meeting_processOneEvent_) をかけても必ず notion_page_not_found になる。
+  // これらは手動作成 / 対話 (まさえいMTG) / 予定枠であり、「はい・反映」承認は再抽出を伴わず成功扱いにする。
+  // (誤抽出修正は cockpit の POST /api/meeting-summary/manual-update に一本化済み, 2026-05-29)
+  const sourcePrefix = meetingId.match(/^(manual|dialogue|upcoming_tentative|upcoming):/)?.[1] ?? null;
+  if (sourcePrefix) {
+    return { applied: true, message: `meeting summary approved (no Notion re-extraction for ${sourcePrefix} source)` };
+  }
+
   const gasResult = await triggerImmediateReExtraction({
     l2Kind: "meeting_summary",
     targetId: args.targetId,
@@ -436,7 +445,14 @@ async function applyMeetingSummaryFeedback(args: {
   });
   const result = gasResult?.data?.result;
   if (!gasResult?.ok || !result?.ok) {
-    const message = gasResult?.error || result?.message || result?.action || "GAS re-extraction failed";
+    const action = String(result?.action || "");
+    // Notion ページが見つからない / projectId 解決不能は「再抽出しようがない」確定状態。
+    // サマリは既に DB にあり消えないので、承認自体は成功扱いにし、再抽出失敗は警告として残す。
+    // (設定ミス由来の失敗 = API key 未設定 / GAS HTTP エラー / LLM エラーは従来通り 502 で検知する)
+    if (action === "notion_page_not_found" || action === "project_id_unresolved") {
+      return { applied: true, message: `meeting summary approved (Notion re-extraction skipped: ${action})` };
+    }
+    const message = gasResult?.error || result?.message || action || "GAS re-extraction failed";
     return { applied: false, message };
   }
 
