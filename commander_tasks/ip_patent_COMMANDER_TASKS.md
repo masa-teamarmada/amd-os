@@ -96,8 +96,8 @@
 
 - お願いした内容: Fig.1〜Fig.8について、特許図面用の白黒線画ドラフトを内部作成する。
 - 背景: self filing packageでは図面清書指示まで作成済みだが、提出図面そのものではない。完全セルフ出願で出願日を取りに行くには、Mermaid/ASCII/参照符号付きの図面候補を、正式図面化できる構造へ整える必要がある。
-- 現状: 2026-06-02にpatent figures clean draft worker `019e86b6-b988-7be1-be22-cef9cb95d838` をactiveとして切り出し済み。成果物候補は `docs/ip/self_filing_package/2026-06-02_figures_clean_draft_internal.md`。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
-- 残課題: workerから、Fig.1〜Fig.8の白黒線画ドラフト、参照符号、対応請求項/明細書、入れる/入れない情報、正式画像化TODO、営業秘密scan、終了ゲートの報告を受ける。
+- 現状: 2026-06-02にpatent figures clean draft worker `019e86b6-b988-7be1-be22-cef9cb95d838` を回収済み。成果物 `docs/ip/self_filing_package/2026-06-02_figures_clean_draft_internal.md` を追加し、Fig.1〜Fig.8の白黒線画化前提Mermaid / 参照符号付き内部ドラフト、対応請求項、対応明細書段落、正式画像化TODO、営業秘密scanを整理済み。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は未実施。
+- 残課題: 内部レビュー用ドラフトとしてはusable。ただし正式提出画像ではないため、黒色線画画像化、参照符号視認性、白黒2値化後の読解性、明細書 / 請求項との最終整合、営業秘密scan再実施が残る。
 
 ## 完了済みタスク
 
