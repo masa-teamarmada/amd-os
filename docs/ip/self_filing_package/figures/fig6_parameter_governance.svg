@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1250" height="900" viewBox="0 0 1250 900" role="img" aria-labelledby="title desc">
+  <title id="title">fig6_parameter_governance.svg</title>
+  <desc id="desc">Black and white internal patent figure candidate with reference numerals.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#000"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1250" height="900" fill="#fff"/>
+  
+  <style>
+    .title { font: 700 28px Arial, sans-serif; }
+    .box { fill: #fff; stroke: #000; stroke-width: 2; }
+    .smallbox { fill: #fff; stroke: #000; stroke-width: 1.8; }
+    .line { stroke: #000; stroke-width: 2; fill: none; }
+    .dash { stroke: #000; stroke-width: 2; fill: none; stroke-dasharray: 7 6; }
+    .text { font: 18px Arial, sans-serif; fill: #000; }
+    .small { font: 15px Arial, sans-serif; fill: #000; }
+    .num { font: 700 18px Arial, sans-serif; fill: #000; }
+    .label { font: 14px Arial, sans-serif; fill: #000; }
+  </style>
+
+<text x="625" y="48" class="title" text-anchor="middle"><tspan x="625" dy="0">Fig.6 System Parameter Governance</tspan></text>
+<rect x="90" y="100" width="330" height="86" rx="0" class="box"/>
+<text x="255" y="126" class="text" text-anchor="middle"><tspan x="255" dy="0">System parameters</tspan><tspan x="255" dy="22">rules / config / workflow</tspan></text>
+<rect x="90" y="245" width="330" height="86" rx="0" class="box"/>
+<text x="255" y="271" class="text" text-anchor="middle"><tspan x="255" dy="0">310 Change</tspan><tspan x="255" dy="22">candidate</tspan></text>
+<path d="M255,186 L255,245" class="line" marker-end="url(#arrow)"/>
+<rect x="90" y="390" width="330" height="86" rx="0" class="box"/>
+<text x="255" y="416" class="text" text-anchor="middle"><tspan x="255" dy="0">Identify</tspan><tspan x="255" dy="22">parameter type</tspan></text>
+<path d="M255,331 L255,390" class="line" marker-end="url(#arrow)"/>
+<rect x="500" y="245" width="330" height="86" rx="0" class="box"/>
+<text x="665" y="271" class="text" text-anchor="middle"><tspan x="665" dy="0">Pending</tspan><tspan x="665" dy="22">proposal</tspan></text>
+<path d="M420,433 L500,288" class="line" marker-end="url(#arrow)"/>
+<rect x="500" y="430" width="330" height="86" rx="0" class="box"/>
+<text x="665" y="456" class="text" text-anchor="middle"><tspan x="665" dy="0">150 Review</tspan><tspan x="665" dy="22">interface</tspan></text>
+<path d="M665,331 L665,430" class="line" marker-end="url(#arrow)"/>
+<polygon points="665,595 780,650 665,705 550,650" class="box"/>
+<text x="665" y="646" class="small" text-anchor="middle"><tspan x="665" dy="0">Approved?</tspan></text>
+<path d="M665,516 L665,595" class="line" marker-end="url(#arrow)"/>
+<rect x="880" y="610" width="300" height="82" rx="0" class="box"/>
+<text x="1030" y="636" class="text" text-anchor="middle"><tspan x="1030" dy="0">320 New</tspan><tspan x="1030" dy="22">parameter version</tspan></text>
+<path d="M780,650 L880,650" class="line" marker-end="url(#arrow)"/>
+<text x="850" y="642" class="label" text-anchor="middle"><tspan x="850" dy="0">yes</tspan></text>
+<rect x="880" y="760" width="300" height="70" rx="0" class="box"/>
+<text x="1030" y="786" class="text" text-anchor="middle"><tspan x="1030" dy="0">Keep past</tspan><tspan x="1030" dy="22">versions</tspan></text>
+<path d="M1030,692 L1030,760" class="line" marker-end="url(#arrow)"/>
+<rect x="300" y="760" width="300" height="70" rx="0" class="box"/>
+<text x="450" y="786" class="text" text-anchor="middle"><tspan x="450" dy="0">250 Feedback</tspan><tspan x="450" dy="22">reject / hold</tspan></text>
+<path d="M550,650 L450,760" class="line" marker-end="url(#arrow)"/>
+<text x="420" y="752" class="label" text-anchor="middle"><tspan x="420" dy="0">no</tspan></text>
+<rect x="880" y="100" width="300" height="70" rx="0" class="box"/>
+<text x="1030" y="126" class="text" text-anchor="middle"><tspan x="1030" dy="0">Subsequent</tspan><tspan x="1030" dy="22">processing</tspan></text>
+<path d="M1030,760 L1030,170" class="line" marker-end="url(#arrow)"/>
+
+</svg>
