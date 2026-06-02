@@ -4348,6 +4348,58 @@ extension SupabaseService {
             .execute()
             .value
     }
+
+    /// 現在のセッションを @supabase/ssr 互換 cookie に変換（PWA 詳細ページを WebView で認証付き表示するため）。
+    /// cookie 名: sb-<ref>-auth-token、値: "base64-" + base64url(session JSON)、長い場合は .0/.1 で chunk 分割。
+    func hudWebAuthCookies() async throws -> [HTTPCookie] {
+        let session: Session
+        do { session = try await client.auth.session }
+        catch { session = try await client.auth.refreshSession() }
+
+        let userData = try JSONEncoder().encode(session.user)
+        let userObj = try JSONSerialization.jsonObject(with: userData)
+
+        var dict: [String: Any] = [
+            "access_token": session.accessToken,
+            "token_type": session.tokenType,
+            "expires_in": session.expiresIn,
+            "refresh_token": session.refreshToken,
+            "user": userObj,
+            "expires_at": Int(session.expiresAt),
+        ]
+
+        let jsonData = try JSONSerialization.data(withJSONObject: dict, options: [])
+        let b64 = jsonData.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        let value = "base64-" + b64
+
+        let name = "sb-nbnhrhybjslbawdukvvk-auth-token"
+        let domain = "amd-os-pwa.vercel.app"
+        let maxChunk = 3600
+
+        func cookie(_ n: String, _ v: String) -> HTTPCookie? {
+            HTTPCookie(properties: [
+                .domain: domain, .path: "/", .name: n, .value: v, .secure: "TRUE",
+            ])
+        }
+
+        if value.count <= maxChunk {
+            return [cookie(name, value)].compactMap { $0 }
+        }
+        var cookies: [HTTPCookie] = []
+        let chars = Array(value)
+        var i = 0
+        var idx = 0
+        while i < chars.count {
+            let end = min(i + maxChunk, chars.count)
+            if let c = cookie("\(name).\(idx)", String(chars[i..<end])) { cookies.append(c) }
+            i = end
+            idx += 1
+        }
+        return cookies
+    }
 }
 
 private enum SupabaseError: Error {

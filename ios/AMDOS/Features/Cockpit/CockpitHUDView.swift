@@ -196,9 +196,15 @@ private func monthLabel(_ ym: String) -> String {
 
 // MARK: - Root
 
+private struct DetailTarget: Identifiable {
+    let id: String
+    let name: String
+}
+
 struct CockpitHUDView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var vm = HudViewModel()
+    @State private var detail: DetailTarget?
 
     var body: some View {
         TimelineView(.animation) { timeline in
@@ -218,6 +224,9 @@ struct CockpitHUDView: View {
         .preferredColorScheme(.dark)
         .statusBarHidden(true)
         .task { await vm.load() }
+        .fullScreenCover(item: $detail) { target in
+            ScoreDetailWebView(projectId: target.id, projectName: target.name)
+        }
     }
 
     @ViewBuilder
@@ -294,7 +303,7 @@ struct CockpitHUDView: View {
             VStack(spacing: 12) {
                 panelTitle("AMD Management Score", trailing: "LIVE SCORE / AMD OS")
                 ZStack {
-                    tickRing().rotationEffect(.degrees(t * 7))
+                    tickRing()
                     Circle().stroke(HUD.cyan.opacity(0.12), lineWidth: 11).padding(24)
                     Circle()
                         .trim(from: 0, to: max(0.001, total / 100))
@@ -461,6 +470,9 @@ struct CockpitHUDView: View {
                 Text("\(p.routineDone)/\(p.routineTotal)")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HUD.inkSub)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(HUD.cyan.opacity(0.8))
             }
             GeometryReader { g in
                 ZStack(alignment: .leading) {
@@ -477,6 +489,8 @@ struct CockpitHUDView: View {
             }
             .frame(height: 7)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { detail = DetailTarget(id: p.id, name: p.name) }
     }
 
     // MARK: Next Action Queue
