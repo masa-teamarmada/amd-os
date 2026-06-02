@@ -37,6 +37,9 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-02: `Textbook Act V Ch15-24 cold-reader/editor review` 完了。Ch15〜Ch21はmain narrative endingとして継続可、Ch22〜Ch24はField Toolkit appendixへ分離推奨。成果物: `pwa/bzm/textbook/runs/2026-06-02-act-v-ch15-24-cold-reader-editor-review.md`。
+
+
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
