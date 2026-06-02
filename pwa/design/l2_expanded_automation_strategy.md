@@ -16,6 +16,16 @@ This memo does not change DB schema, routine registrations, cron schedules, or p
 | LaunchAgent applier | The Mac auto-run wrapper for the applier. In human terms: "a local non-AI sync job that wakes up periodically and applies approved JSON drafts." |
 | PWA non-LLM cron | A Vercel/PWA scheduled route that only does deterministic aggregation or cache refresh. No Anthropic / Gemini / OpenAI call. |
 
+## Terminology lock
+
+Use the following wording in this memo and in the later `L2_DATA.md`, `spec/3-1`, and `manual/8-3` patches:
+
+- L2 3 MS progress is **MMO machine Codex Desktop automation** `amd-os-l3-ms-progress-extract`. It is not a Claude routine / subscription routine.
+- L2 6 meeting flow is **MMO machine Codex Desktop automation** `amd-os-l6-meeting-flow`. It is not a Claude routine / subscription routine.
+- The daily consolidated routine target is L2 2 / 4 / 5 / 7 / 8 / 9 / 10 / 11 / 12.
+- L2 1 is month-end only, sourced from Supabase internal OS/L2 evidence by default.
+- L2 13 is a separate weekly candidate.
+
 ## Premises
 
 - Existing current truth defines L2 as structured data extracted from the 5 internal raw sources: Gmail, Drive, Calendar, Slack, and Notion.
@@ -144,8 +154,8 @@ These jobs are high-frequency, operational, or tightly coupled to local helper/o
 
 | L2 | Keep here | Reason |
 |---|---|---|
-| 3 MS progress | MMO/Codex automation, with deterministic base where possible | Needs frequent early exits, confirmed-value guards, and reward/monthly interactions. |
-| 6 Meeting flow | Windows MMO Codex Desktop automation | High-frequency event window, Calendar/Drive/Gmail/Slack coupling, and workflow side effects. |
+| 3 MS progress | MMO machine Codex Desktop automation `amd-os-l3-ms-progress-extract`, with deterministic base where possible | Needs frequent early exits, confirmed-value guards, and reward/monthly interactions. |
+| 6 Meeting flow | MMO machine Codex Desktop automation `amd-os-l6-meeting-flow` | High-frequency event window, Calendar/Drive/Gmail/Slack coupling, and workflow side effects. |
 | 7 Registry diffs | Codex automation + outbox/applier | Candidate generation plus allowlisted non-LLM apply path is already shaped. |
 | 8 XRL evidence | Codex automation + outbox/applier | Evidence candidates and schema/status retry need helper discipline. |
 | 9 Strategy signals | Codex automation + strategy-signals outbox | Management review cadence is already separated from PWA cron. |
@@ -184,8 +194,8 @@ Reasoning:
 - L2 10 can run in the same routine as candidate generation, while approved application to `pwa/bzm/*.md` still stays local-only.
 - L2 11 and 12 can share external source freshness, dedupe, source-url checks, and macro/Atlas evidence interpretation.
 - L2 8 XRL evidence can run daily inside this consolidated routine. It does not need a 6-hour cadence unless a specific active review window requires it.
-- L2 3 has stronger coupling to confirmed progress, reward/monthly views, and deterministic routine progress. It should not be forced into this consolidated routine unless the hourly need is explicitly retired.
-- L2 6 must not join this bundle because meeting flow is event-window based and high-frequency.
+- L2 3 has stronger coupling to confirmed progress, reward/monthly views, and deterministic progress bases. Keep it as MMO machine Codex Desktop automation `amd-os-l3-ms-progress-extract` unless the hourly need is explicitly retired.
+- L2 6 must not join this bundle because meeting flow is event-window based and high-frequency. Keep it as MMO machine Codex Desktop automation `amd-os-l6-meeting-flow`.
 - L2 1 must not join this bundle because monthly reports should be month-end Supabase synthesis, not daily evidence extraction.
 
 Plain-language phase order:
@@ -214,14 +224,16 @@ This is the proposed steady-state schedule if Claude subscription routines are u
 |---|---|---|---|
 | 04:00 monthly / deterministic | PWA non-LLM | L2 12 macro aggregate indicators | Only deterministic aggregate. |
 | 08:00 daily | Claude subscription routine | L2 2/4/5/7/8/9/10/11/12 consolidated evidence routine | One routine, one run summary. L2 8 runs daily here. |
-| 09:00-21:00 hourly | MMO Codex Desktop | L2 6 meeting flow | Keep high-frequency MMO route with early exit. |
+| hourly / existing cadence | MMO machine Codex Desktop automation | L2 3 MS progress via `amd-os-l3-ms-progress-extract` | Keep separate from the consolidated routine. |
+| 09:00-21:00 hourly | MMO machine Codex Desktop automation | L2 6 meeting flow via `amd-os-l6-meeting-flow` | Keep high-frequency MMO route with early exit. |
 | 20:30 Sun or 06:30 Mon weekly | Claude routine | L2 13 member weekly activities | One weekly run; outbox-first. |
 | Month-end, last day | Claude or Codex subscription routine | L2 1 monthly reports | Supabase-internal OS evidence only by default. |
 
 Daily Claude routine count in this design is 1 for the consolidated evidence routine:
 
 - L2 2/4/5/7/8/9/10/11/12: 1 daily run.
-- L2 6: stays MMO hourly because it is event-window based.
+- L2 3: stays MMO machine Codex Desktop automation because progress has confirmed-value and reward/monthly guards.
+- L2 6: stays MMO machine Codex Desktop automation because it is event-window based.
 - L2 13: 1 weekly run.
 - L2 1: 1 monthly month-end run.
 - This stays far below a 15-run/day cap.
@@ -242,7 +254,7 @@ Recommended first implementation: `L2 expanded taxonomy docs patch`.
 Scope:
 
 - Update `pwa/design/L2_DATA.md` from "L2 data 10 types" to a draft-approved "L2 1-13" taxonomy once commander approves this memo.
-- Update `pwa/spec/3-1-l2-data-extraction-current-spec.md` and `pwa/manual/8-3-l2-extraction-routines-spec.md` with provenance classes and writer boundaries.
+- Update `pwa/spec/3-1-l2-data-extraction-current-spec.md` and `pwa/manual/8-3-l2-extraction-routines-spec.md` with provenance classes and writer boundaries. Use the terminology lock above: L2 3 and L2 6 are MMO machine Codex Desktop automations, not Claude routines.
 - Update `pwa/src/lib/operations-catalog.ts` labels so current Codex/MMO routes are not displayed as generic "Claude routine" where manual/spec already says otherwise.
 - Add skeleton scheduled-task docs for L2 11-13 only after the taxonomy patch is approved.
 
