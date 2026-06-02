@@ -98,6 +98,12 @@
 
 ## 完了済みタスク
 
+- **Textbook P0 enrichment ruthless editor review**
+  - お願いした内容: P0 narrative enrichment rewrite後のpublic manuscriptを、販売本編集者criticとして厳しく通読し、paid evidence / payment refusal / budget-owner absence / fit-misfit / Field Toolkit separationが魅力に効いているかを判定し、次rewrite orderを出す。
+  - 背景: まさ評価では、narrative要素は少し入ったが「ついつい読み進めてしまう」魅力度と本としての厚みはまだ足りないため、本文編集ではなくreview noteで落第基準を明確化する必要があった。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-p0-enrichment-ruthless-editor-review.md` を追加。P0 enrichmentはpaid evidence / refusal / paid detour / repeat-back / bad-news behavior / Field Toolkit separationを改善したが、まだ「責任ある説明にsceneが付いたdraft」であり、読者を強く引っ張るcost・bruise・consequenceが足りないと判定。次workerはCh01/04/06/08/09/13/18/19/21のtargeted consequence rewrite、Ch22〜24 Field Toolkit design extraction、support boundary pass、Ch12/15/16/17/18/20 theory residue compressionを優先。
+  - 残課題: 次worker候補は `Textbook P0 consequence rewrite of enriched chapters`。本文を全体再設計せず、P0で足した素材が部屋・文書・関係を変える場面になるまで、章別に差し戻す。
+
 - **Textbook Act V Ch15-24 cold-reader/editor review**
   - お願いした内容: main反映済みのCh15〜Ch24を、Act I〜IVから続く本の後半として読めるか、理論説明/tool dumpへ戻っていないか、author directiveとappendix分離判断、Ch00〜Ch24 surgical residue範囲を冷読者・編集者目線でレビューする。
   - 背景: Ch15〜Ch18はBZM理論地図の入口、Ch19〜Ch24はsurvival conversation / evidence-rule update / institution operating design / Field Toolkitとして改稿済みだが、販売本の終盤では理論名・toolkit・チェックリストが前に出ると読書体験が落ちるため。
