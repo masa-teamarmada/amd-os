@@ -50,6 +50,8 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-03: `Textbook full-story ending voice polish` 完了。Ch21/Epilogue終盤に残っていた `本編の会議` / `前の物語` / `成功物語` の本側の締め声を、会議室と半年前の沈黙へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-ending-voice-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
+
 - 2026-06-03: `Textbook full-story outline residue polish` 完了。Prologue〜EpilogueとField Toolkit冷読で残っていた `前の章` / `創業者を見る章` / `この本` 型のアウトライン声を、ホワイトボードに残った判断語、面談メモ、書き直した紙、九十日メモ横の地図、Toolkitの紙束へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-outline-residue-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
 
 - 2026-06-03: `Textbook full-story cold readthrough surgical polish` 完了。Prologue〜Epilogue冷読で速度が落ちたCh07/08/10/20の判断語・責任論・関係修復・苗床接続説明を、ホワイトボード、三十日行動メモ、学習ログ、研究機関側会議の入口へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-cold-readthrough-surgical-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
