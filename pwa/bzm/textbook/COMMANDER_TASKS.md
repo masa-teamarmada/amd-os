@@ -41,19 +41,21 @@
 - 2026-06-02: `Textbook Ch08/13/18 overlap compression and actor-rationality pass` worker完了。Ch08は弱い事実を戻す権限が若い事業化人材へ渡る行動で終わるよう圧縮。Ch13は外部経営候補の行動scene、Ch18はFRL/F_character/F_capabilityへのlean theory translationへ分離。成果記録は `pwa/bzm/textbook/runs/2026-06-02-ch08-13-18-overlap-compression.md`。md-onlyのためbuild/deployなし。
 - 2026-06-02: `Textbook Ch19 RESOURCE_SHIFT artifact pass` worker完了。Ch19に横向きA4のRESOURCE_SHIFTメモを追加し、切る活動、曇る人、戻る時間/資源、下げる不確実性、九十日後の見直し日を本文内artifactとして具体化。Ch20へ投資家紹介を減らした代償を一文だけ接続。成果記録は `pwa/bzm/textbook/runs/2026-06-02-ch19-resource-shift-artifact-pass.md`。md-onlyのためbuild/deployなし。
 - 2026-06-02: `Textbook Field Toolkit reference-mode cleanup Ch22-Ch24` worker完了。Ch22を現場メモ安全化の六手順、Ch23を結論直前の四枚の紙、Ch24を研究機関の九十日pilot charter / unknown-not_started / responsibility pipeline / stop-expand gateへ整理。成果記録は `pwa/bzm/textbook/runs/2026-06-02-field-toolkit-reference-mode-cleanup.md`。md-onlyのためbuild/deployなし。
+- 2026-06-03: `Textbook support boundary pass` 司令塔直接作業で完了。Ch11/14/19/21へ、支援部署・企業・投資家・資金提供側・大学側の局所合理性を補強し、悪役化せず「正しい圧力同士の未調整」が研究者を急がせる構図へ寄せた。成果記録は `pwa/bzm/textbook/runs/2026-06-03-support-boundary-pass.md`。md-onlyのためbuild/deployなし。
 
 ## 未完タスク（優先順位順）
 
 - 2026-06-02: `Textbook Act V Ch15-24 cold-reader/editor review` 完了。Ch15〜Ch21はmain narrative endingとして継続可、Ch22〜Ch24はField Toolkit appendixへ分離推奨。成果物: `pwa/bzm/textbook/runs/2026-06-02-act-v-ch15-24-cold-reader-editor-review.md`。
 - 2026-06-02: `Textbook Field Toolkit reference-mode cleanup Ch22-Ch24` 完了。Ch22〜Ch24はField Toolkit A/B/Cとして、A=メモ安全化、B=判断/開示、C=機関pilotの役割差を明確化。成果物: `pwa/bzm/textbook/runs/2026-06-02-field-toolkit-reference-mode-cleanup.md`。
+- 2026-06-03: `Textbook support boundary pass` 完了。Ch11/14/19/21で、支援者・投資家・企業・大学・資金提供側の合理性を保持しつつ、未調整圧力が premature GO / over-strong deck / RESOURCE_SHIFT friction を生む構図へ補強。成果物: `pwa/bzm/textbook/runs/2026-06-03-support-boundary-pass.md`。
 
 
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
   - 現状: 2026-06-02までに、editorial narrative reset audit、OS field knowhow harvest v6、public book architecture reset briefをmainへ回収し、旧BZM/会社紹介寄りの導線をpublic manuscriptへ切り替え済み。司令塔直接作業でCh00〜Ch03をAct I、Ch04〜Ch06をAct II、Ch07〜Ch10をAct III、Ch11〜Ch14をAct IVとして、primary composite case「強くなりすぎたdeck sentence」が顧客証拠、時計衝突、研究者孤独、外部CEO displacement、開示事故寸前、登記/生存確率判断、90日WAIT、責任配置、投資家面談、学習ログ、追い風、公募、準備度の混同、外部経営候補、研究機関の苗床へ進むnarrativeに改稿。Act IV冷読レビューは `2026-06-02-act-iv-cold-reader-editor-review.md` として完了。2026-06-02にCh15〜Ch18をAct V前半 / theory-map entranceとして、同じ案件が期待・低い条件・人の傷・資金圧力で再び混ざり、現場語だけでは整理できなくなる流れからBZM、TRL/BRL/GRL/SRL/HRL、sigma_SU、mu_A/mu_I/mu_G、FRL/F_character/F_capabilityを導入する本文へ改稿。rewrite note `2026-06-02-act-v-theory-map-narrative-rewrite.md` を追加。Act III用 source mining workerも `2026-06-02-act-iii-source-mining.md` を追加し、Ch07〜Ch10向けに composite scene 16件、tool/question/checklist 24件、各章5件のinsertion mapを整理。Act V/Toolkit source mining workerが `2026-06-02-act-v-toolkit-source-mining.md` を追加し、Ch19〜Ch24向けに composite scene 14件、tool/question/checklist 30件、各章4件のinsertion map、Field Toolkit抽出候補、author directive投入点、安全分類を整理。Ch15〜Ch18冷読レビューは `2026-06-02-act-v-ch15-18-cold-reader-editor-review.md` として追加。Act V前半は7.8/10でCh19〜Ch24 rewriteへ進行可。ただしCh16/17/18にtheory-name staging、FRL定義ブロック、hidden listが残るため、Ch19〜Ch24後にCh00〜Ch24 surgical residue passが必要。2026-06-02にCh19〜Ch24をAct V後半 / Field Toolkit narrativeとして、統合地図をsurvival conversation / RESOURCE_SHIFTへ、retrofitをold evidence rule -> new evidence ruleへ、ERSを研究機関operating designへ、field note safety / decision-disclosure / nursery pilotを場面内で使われる道具へ改稿。run note `2026-06-02-act-v-field-toolkit-narrative-rewrite.md` を追加。Ch15〜Ch24冷読レビューは `2026-06-02-act-v-ch15-24-cold-reader-editor-review.md` として追加し、Act Vは8.0/10、全体再rewriteではなくCh00〜Ch24 surgical residue passとField Toolkit appendix extractionへ進む判定。
-  - 残課題: `support boundary pass`、Ch00〜Ch24 surgical residue passを切り、v6素材台帳、Act III source mining素材、Act V source mining素材を本文へ直接貼らずcomposite scene / tool artifact化して反映する。Ch08/13/18 overlap compression、Ch19 RESOURCE_SHIFT artifact pass、Field Toolkit reference-mode cleanupは2026-06-02に完了。
-  - 次worker候補: support boundary pass、Ch00〜Ch24 surgical residue pass、Field Toolkit layout/readability pass。
+  - 残課題: Ch00〜Ch24 surgical residue passを切り、v6素材台帳、Act III source mining素材、Act V source mining素材を本文へ直接貼らずcomposite scene / tool artifact化して反映する。Ch08/13/18 overlap compression、Ch19 RESOURCE_SHIFT artifact pass、Field Toolkit reference-mode cleanupは2026-06-02に完了。support boundary passは2026-06-03に完了。
+  - 次worker候補: Ch00〜Ch24 surgical residue pass、full-book ruthless editor narrative appeal audit、Field Toolkit layout/readability pass。
 
 
 
