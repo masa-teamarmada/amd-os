@@ -1,6 +1,6 @@
 # L2 データ抽出 / Outbox 仕様
 
-> **この章は何か**: AMD OS の中核データである L2 ①〜⑩と、5 生データ、subscription automation、outbox / LaunchAgent 反映の確定仕様。運用者向けの読み方は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも置く。移行中は両方を更新する。
+> **この章は何か**: AMD OS の中核データである L2 ①〜⑬と、5 生データ、外部 evidence、subscription automation、outbox / LaunchAgent 反映の確定仕様。運用者向けの読み方は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも置く。移行中は両方を更新する。
 
 ## 5 生データ
 
@@ -16,20 +16,36 @@ L2 抽出は必ず次の 5 種類を対象にする。
 
 `source_cache` は旧 L1 正本ではなく、source refs / short snippet / hash の証跡キャッシュ。メール全文・議事録全文・Slack全文を L2 row に保存しない。
 
-## L2 ①〜⑩
+## L2 provenance class
+
+L2 ①〜⑩は、Gmail / Drive / Calendar / Slack / Notion の 5 生データから直接抽出する internal operating-memory layer。
+
+L2 ⑪〜⑬は、同じ L2 taxonomy に入るが provenance class が違う。
+
+| class | L2 | provenance | 保存境界 |
+|---|---|---|---|
+| internal operating-memory | ①〜⑩ | 5 生データ + Supabase OS snapshot | source refs / short snippet / hash。raw Gmail / raw Notion / raw Slack 全文は禁止 |
+| external evidence | ⑪ Atlas Signals | public / external source with URL and review state | `atlas_signals` が canonical evidence。`atlas_stories` / `atlas_reports` は derived |
+| numeric/index evidence | ⑫ Macrotrend Evidence/Index | external numeric observations + deterministic aggregate | `observation_log` は source-level observation、`macro_index_log` は lane × month aggregate。Atlas narrative とは別 layer |
+| internal hybrid evidence | ⑬ Member Weekly Activities | member-specific weekly source bundles | `member_activities(source='member_weekly')` が primary。`source='inferred'` は低確信度 fallback |
+
+## L2 ①〜⑬
 
 | L2 | table | 現行 writer | 反映 |
 |---|---|---|---|
-| ① monthly_reports | `monthly_reports` | Codex automation `AMD OS L2① 月次報告抽出` | `amd-os-ms/outbox.monthlyReports` → LaunchAgent |
+| ① monthly_reports | `monthly_reports` | Codex automation `AMD OS L2① 月次報告抽出` (= month-end only) | `amd-os-ms/outbox.monthlyReports` → LaunchAgent |
 | ② AMD Protocol | `protocols` | MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract` | Supabase + notifications |
-| ③ MS進捗 | `milestone_monthly_progress` / `project_monthly_notes` | MMOマシン automation `amd-os-l3-ms-progress-extract` | Supabase + revisions |
-| ④ PJナレッジ | `project_knowledge` | MMOマシン automation `amd-os-l4-project-knowledge-extract` | candidate → active/rejected |
-| ⑤ メンバーナレッジ | `member_knowledge` | MMOマシン automation `amd-os-l5-member-knowledge-extract` | candidate → active/rejected |
-| ⑥ MTGサマリ + MTGフロー | `project_meeting_summaries` / `meeting_assets` | MMOマシン automation `amd-os-l6-meeting-flow` | Supabase / Calendar / Drive / Gmail draft |
+| ③ MS進捗 | `milestone_monthly_progress` / `project_monthly_notes` | MMOマシン Codex Desktop automation `amd-os-l3-ms-progress-extract` | Supabase + revisions |
+| ④ PJナレッジ | `project_knowledge` | MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract` | candidate → active/rejected |
+| ⑤ メンバーナレッジ | `member_knowledge` | MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract` | candidate → active/rejected |
+| ⑥ MTGサマリ + MTGフロー | `project_meeting_summaries` / `meeting_assets` | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` | Supabase / Calendar / Drive / Gmail draft |
 | ⑦ OS台帳差分 | `project_registry_diffs` | Codex automation `amd-os-ms` / SKILL `amd-os-l7-registry-diff-extract` | outbox → LaunchAgent |
 | ⑧ XRL根拠 | `project_xrl_evidence` / `project_founding_members` | Codex automation `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | outbox → LaunchAgent |
 | ⑨ 経営ハイライト | `project_strategy_signals` | Codex automation `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | strategy-signals outbox → LaunchAgent |
 | ⑩ Textbook Insights | `textbook_insight_candidates` | Codex automation / local worker `amd-os-l10-textbook-insight-extract` | `outbox.textbookInsights` → candidate + notification → approved → local BZM applier |
+| ⑪ Atlas Signals / External Opportunity Evidence | `atlas_signals`; derived `atlas_stories` / `atlas_reports` | Codex automation `AMD Atlas外部シグナルレビュー` / `atlas_signal_review_tool.mjs`; derived synthesisはsubscription/manual候補 | `amd-atlas/outbox` → LaunchAgent / PWA ingest |
+| ⑫ Macrotrend Evidence/Index | `observation_log` / `macro_index_log`; derived `macro_lane_weights` / `triple_helix_state_log` | PWA non-LLM `cron/macro-aggregate-indicators` for aggregate; observation review / interpretationはCodex or Claude subscription候補 | deterministic aggregate or outbox-first review |
+| ⑬ Member Weekly Activities | `member_activities(source='member_weekly')`; fallback `source='inferred'` | subscription automation + outbox/applier contract候補。旧PWA routeはguarded manualのみ | next workerでoutbox contract確定 |
 
 ## L2 ⑥ MTG サマリの開催済みソース guard
 
@@ -47,10 +63,15 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 
 ## Writer 境界
 
-- L2 ①⑦⑧⑨⑩は Codex automation が JSON outbox を作り、非LLM LaunchAgent が Supabase / PWA API に反映する。
+- L2 ①⑦⑧⑨⑩⑪は Codex automation が JSON outbox を作り、非LLM LaunchAgent が Supabase / PWA API に反映する。
 - L2 ②〜⑥は MMOマシン Codex Desktop automation が現行 writer。
+- Daily consolidated routine の対象は L2 ②④⑤⑦⑧⑨⑩⑪⑫。L2 ③ MS進捗 と L2 ⑥ MTGフローは routine と呼ばず、既存の MMOマシン Codex Desktop automation (`amd-os-l3-ms-progress-extract`, `amd-os-l6-meeting-flow`) を維持する。
+- L2 ①は月末のみ走る monthly synthesis job。通常入力は Supabase 内 OS / L2 evidence で、raw Gmail / Drive / Calendar / Slack / Notion の再スキャンは通常 run ではしない。
+- L2 ⑫は `cron/macro-aggregate-indicators` のような deterministic / non-LLM aggregate だけ PWA cron を許可する。LLM observation review、historical backfill、lane-weight relearn、interpretation synthesis は active PWA / Vercel cron にしない。
+- L2 ⑬は `member_activities(source='member_weekly')` を primary evidence にするが、定期 writer は次workerで subscription automation + outbox/applier contract を確定する。`source='inferred'` は低確信度 fallback として扱い、primary weekly evidence と同列にしない。
 - 旧 GAS 153 / 155、AMD-Report GAS R313、PWA LLM cron は定期 writer として復活させない。
 - PWA `/api/cron/hourly-estimate` は `ALLOW_PWA_LLM_CRONS=1` がない限り disabled response のみ。
+- PWA / Vercel background LLM cron は復活させない。Atlas collection/report、member weekly activities、macro backfill / relearn / LLM ingest は、route が残っていても active cron writer に戻さない。
 - L2⑩ は `/notifications` の「はい」で DB 候補を `approved` にするだけ。git 管理の `pwa/bzm/*.md` 追記は local applier / worker が行い、Vercel runtime から直接 commit しない。
 
 ## Outbox 契約
@@ -60,6 +81,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 | `~/.codex/automations/amd-os-ms/outbox/` | monthlyReports / registryDiffs / xrlEvidence / MS revision |
 | `~/.codex/automations/amd-os/strategy-signals-outbox/` | L2 ⑨ 経営ハイライト |
 | `~/.codex/automations/amd-atlas/outbox/` | Atlas 外部 signal |
+| TBD next worker | L2 ⑬ member weekly activities outbox contract |
 
 反映はローカルの非LLM LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` が行う。成功 file は `applied/`、失敗 file は `failed/` へ移動する。
 
@@ -82,7 +104,12 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 - 5 生データのうち一部だけで「全部確認済み」と扱わない。
 - `monthly_reports.final_content` を `force:true` なしで上書きしない。
 - R313 / `/api/report/generate` / `/api/cron/monthly-reports-backfill` を定期 writer にしない。
+- L2 ①の通常 run で raw Gmail / Drive / Calendar / Slack / Notion を再スキャンしない。raw-source gap check は明示依頼または手動調査だけ。
+- PWA / Vercel background LLM cron を L2 writer として復活させない。`cron/atlas-collect` / `cron/atlas-daily` / `cron/atlas-weekly` / `cron/atlas-monthly` / `cron/member-weekly-activities` / `cron/relearn-lane-weights` / `cron/macro-backfill-historical` / LLM ingest 系は disabled / guarded manual のまま。
 - raw source 全文を L2 row や通知に保存しない。
+- L2⑪で `atlas_stories` / `atlas_reports` だけを見て evidence が存在すると扱わない。canonical evidence は `atlas_signals`。
+- L2⑫で `atlas_signals` と `observation_log` / `macro_index_log` の役割を混ぜない。Atlas は narrative/policy signal、Macrotrend は numeric/index evidence。
+- L2⑬で `member_activities(source='inferred')` を `source='member_weekly'` と同等の primary weekly evidence にしない。
 - 存在しない列名や status 値を想像で書かない。`pwa/design/db_schema.md` を確認する。
 
 ## 個別 Rebuild Spec

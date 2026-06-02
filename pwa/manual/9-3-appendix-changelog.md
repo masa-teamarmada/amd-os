@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-02 | 8-3 L2 routines / 章メタデータ | 変更 | L2 ①〜⑬ の現行 writer と evidence routing に更新。⑪ Atlas Signals、⑫ Macrotrend Evidence/Index、⑬ Member Weekly Activities、daily consolidated routine 対象 (②④⑤⑦⑧⑨⑩⑪⑫)、L2①月末のみ、L2③⑥は MMOマシン Codex Desktop automation 維持、PWA LLM cron禁止を追記 | OS司令塔レビューで expanded taxonomy strategy が採用され、運用者が復旧時に見る正本を13種へ整合するため | えいみ |
 | 2026-06-02 | 2-4 AMD 会社全体 | 変更 | `/dashboard` に Company Content shelf を追加し、メンバー / 沿革 / photo を3カラム preview として配置。右カラムのMyPage埋め込みは「今週やったこと」までに留め、月別PJカードは `/mypage` 単体にだけ残す仕様を追記 | まさ指示「ダッシュボードページのPJリストの下に設置」「右カラムのマイページ枠の各PJごとのカードは削除」「メンバーリスト、沿革、photoを３カラムで並べたい」への対応 | えいみ |
 | 2026-05-29 | 9-3（新設） | 追加 | 附則（変更履歴）章を新設。manual-chapters.ts に登録 | まさ指示「マニュアルも勝手に消されないように、附則のセクションを末尾につけて変更履歴はすべてそこに残して」 | えいみ |
 | 2026-05-29 | 3-2 データと抽出 | 追加 | 「🎨 カレンダー色→PJ判定（恒久仕様・削除禁止）」セクションを追加。CFG_ColorPJHistory + CFG_PJAlias による色優先 PJ 判定の正本化 | #71 の Claude routine 移植時に色判定が無断で削除され `project_name` substring match に簡略化されていた事故（まさ「作ってきた機能が勝手に消されてる」「二度と起きないようにして」2026-05-29）の再発防止。正本に無かったため移植で消えても気づけなかった | えいみ |
