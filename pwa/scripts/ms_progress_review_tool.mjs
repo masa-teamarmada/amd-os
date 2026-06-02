@@ -155,6 +155,29 @@ function inList(values) {
 const projectCategoryCache = new Map();
 const SCORE_L2_NOTIFICATION_KINDS = new Set(["xrl_evidence", "founding_members"]);
 
+// PWA の通知採否ループ (src/app/api/notifications/feedback/route.ts の allowedKinds) が
+// 受け付ける l2_kind の正本リスト。ここに無い l2_kind を l2_notifications へ書くと、
+// 通知センターに表示はされるが「はい・反映 / いいえ・不採用」が 400 unknown l2_kind で
+// 死ぬ採否不能通知になる (例: amd-os-l2 が発明した monthly_report_source_gap、2026-06-02)。
+// automation が新種別を発明しても DB に流入させないための applier 側の最終防衛線。
+// route.ts の allowedKinds を変えたらここも同期する。
+const PWA_FEEDBACK_L2_KINDS = new Set([
+  "member_knowledge",
+  "project_knowledge",
+  "protocols",
+  "ms_progress",
+  "project_member_candidate",
+  "project_contact_candidate",
+  "raw_data_gap",
+  "project_config_gap",
+  "project_registry_diff",
+  "xrl_evidence",
+  "project_strategy_signal",
+  "textbook_insight",
+  "founding_members",
+  "meeting_summary",
+]);
+
 async function loadProjectCategories(projectIds) {
   const missing = [...new Set(projectIds.filter(Boolean))].filter((projectId) => !projectCategoryCache.has(projectId));
   if (missing.length > 0) {
@@ -957,7 +980,16 @@ async function notify(file) {
   if (!payload.target_id || !payload.scope_key || !payload.title) {
     throw new Error("notification missing target_id, scope_key or title");
   }
-  const l2Kind = payload.l2_kind || "ms_progress";
+  const rawL2Kind = payload.l2_kind || "ms_progress";
+  // PWA が知らない l2_kind は採否不能な死に通知になるので、PWA 対応済みの汎用検知種別
+  // project_config_gap (= 台帳/抽出経路の欠落) に矯正する。元の野良 kind は metadata に痕跡として残す。
+  let l2Kind = rawL2Kind;
+  let metadataJson = payload.metadata_json || payload.metadata || {};
+  if (!PWA_FEEDBACK_L2_KINDS.has(l2Kind)) {
+    console.warn(`[notify] PWA 非対応の l2_kind "${rawL2Kind}" を project_config_gap に矯正 (target=${payload.target_id}, scope=${payload.scope_key})`);
+    l2Kind = "project_config_gap";
+    metadataJson = { ...metadataJson, original_l2_kind: rawL2Kind };
+  }
   if (SCORE_L2_NOTIFICATION_KINDS.has(l2Kind) && await isEcosystemProject(payload.target_id)) {
     return { ok: true, skipped: true, reason: "ecosystem project is excluded from AMD Score / XRL notifications" };
   }
@@ -973,7 +1005,7 @@ async function notify(file) {
       saved_count: payload.saved_count ?? 1,
       total_count: payload.total_count ?? 1,
       importance: importanceValue(payload.importance, 2),
-      metadata_json: payload.metadata_json || payload.metadata || {},
+      metadata_json: metadataJson,
     },
   });
   return { ok: true, written: written?.[0] || null };
