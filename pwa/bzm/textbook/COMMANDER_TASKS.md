@@ -40,8 +40,8 @@
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
-  - 現状: 2026-06-02までに、editorial narrative reset audit、OS field knowhow harvest v6、public book architecture reset briefをmainへ回収し、旧BZM/会社紹介寄りの導線をpublic manuscriptへ切り替え済み。司令塔直接作業でCh00〜Ch03をAct I、Ch04〜Ch06をAct II、Ch07〜Ch10をAct IIIとして、primary composite case「強くなりすぎたdeck sentence」が顧客証拠、時計衝突、研究者孤独、外部CEO displacement、開示事故寸前、登記/生存確率判断、90日WAIT、責任配置、投資家面談、学習ログへ進むnarrativeに改稿。review notesとして `2026-06-02-act-i-cold-reader-editor-review.md`、`2026-06-02-act-i-ii-cold-reader-editor-review.md`、rewrite notesとして `2026-06-02-opening-act-i-narrative-rewrite.md`、`2026-06-02-act-ii-narrative-rewrite.md`、`2026-06-02-act-iii-narrative-rewrite.md` を追加。Act III用 source mining workerも `2026-06-02-act-iii-source-mining.md` を追加し、Ch07〜Ch10向けに composite scene 16件、tool/question/checklist 24件、各章5件のinsertion mapを整理。
-  - 残課題: 次はAct I-III通読レビュー、またはCh11〜Ch14をAct IVとして同じcomposite caseで書き換える。続けて `table extraction / toolkit appendix`、`support boundary pass` を切り、v6素材台帳とAct III source mining素材を本文へ直接貼らずcomposite scene化して反映する。
+  - 現状: 2026-06-02までに、editorial narrative reset audit、OS field knowhow harvest v6、public book architecture reset briefをmainへ回収し、旧BZM/会社紹介寄りの導線をpublic manuscriptへ切り替え済み。司令塔直接作業でCh00〜Ch03をAct I、Ch04〜Ch06をAct II、Ch07〜Ch10をAct IIIとして、primary composite case「強くなりすぎたdeck sentence」が顧客証拠、時計衝突、研究者孤独、外部CEO displacement、開示事故寸前、登記/生存確率判断、90日WAIT、責任配置、投資家面談、学習ログへ進むnarrativeに改稿。review notesとして `2026-06-02-act-i-cold-reader-editor-review.md`、`2026-06-02-act-i-ii-cold-reader-editor-review.md`、`2026-06-02-act-i-iii-cold-reader-editor-review.md`、rewrite notesとして `2026-06-02-opening-act-i-narrative-rewrite.md`、`2026-06-02-act-ii-narrative-rewrite.md`、`2026-06-02-act-iii-narrative-rewrite.md` を追加。Act III用 source mining workerも `2026-06-02-act-iii-source-mining.md` を追加し、Ch07〜Ch10向けに composite scene 16件、tool/question/checklist 24件、各章5件のinsertion mapを整理。
+  - 残課題: 次はCh11〜Ch14をAct IVとして同じcomposite caseで書き換える。続けて `table extraction / toolkit appendix`、`support boundary pass`、Ch00〜Ch14 surgical residue passを切り、v6素材台帳とAct III source mining素材を本文へ直接貼らずcomposite scene化して反映する。
 
 
 - **public manuscript 00-06 scene-first rewrite**
@@ -93,6 +93,12 @@
   - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
 
 ## 完了済みタスク
+
+- **Textbook Act I-III cold-reader/editor review**
+  - お願いした内容: main反映済みの public manuscript Ch00〜Ch10を、Act I-IIIとして冷読者・編集者目線で通読レビューし、説明/箇条書き/ワークブックへの逆戻り、composite case continuity、AUTHOR_DIRECTIVES保持、Act IVへの未解決問いを判定する。
+  - 背景: Ch00〜Ch10 rewrite後に、本としての連続読書体験が成立したか、deck sentence / budget owner / disclosure risk / WAIT as work / relationship repairが自然に接続しているかを本文編集前に判定する必要があったため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-act-i-iii-cold-reader-editor-review.md` を追加。Act I-IIIは一冊の本の前半として継続可、overall 7.9/10、Act IVへ進行可。ただしCh00〜Ch10にはagenda compression、stakeholder enumeration、judgment vocabulary teaching、tool rehearsal、Ch03の`Act I`メタ語が残るため、Act IV後にsurgical residue passとField Toolkit extractionが必要。
+  - 残課題: 次workerはCh11〜Ch14 Act IV narrative rewrite。Act IVはmacro/readiness/founder/institutionを説明章として始めず、同じcaseが一つの判断語では読めなくなる場面からreadiness mapへ進める。
 
 - **Textbook Act III decision/responsibility/capital/learning narrative rewrite**
   - お願いした内容: Ch07〜Ch10を、Act I-IIから続くcomposite caseとして、判断語、責任配置、リスク資本面談、失敗学習を説明章ではなく読み物へ改稿する。
