@@ -98,6 +98,12 @@
 
 ## 完了済みタスク
 
+- **Textbook page-turner case source mining v2**
+  - お願いした内容: 公開本を「ついつい読み進めてしまう」レベルへ引き上げるため、本文編集なしで opening incident / recurrent artifact / relationship repair / local rationality conflict / survival-earning scene / reader persona hook / chapter insertion map をさらに掘る。
+  - 背景: ruthless editor audit と deep OS source mining が示したとおり、現行稿は概念・構成は整ってきたが、読者が次の部屋を見たくなる事件、関係の傷、具体アーティファクトの連鎖がまだ薄い。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-page-turner-case-source-mining-v2.md` を追加。page-turner incident 24件、recurrent artifact 16件、relationship repair 12件、local rationality conflict 12件、survival / earning body scene 12件、reader persona hook 6 persona、Ch00〜Ch24全章 insertion map、安全分類 `public_ready` / `public_rewrite` / `internal_only` を整理。本文は未編集。
+  - 残課題: 次workerはこのnoteを入力に、Ch00〜Ch21 page-turner enrichment rewrite、または先に Ch22〜Ch24 Field Toolkit appendix separation を切る。強い素材は本文へ直貼りせず、合成場面・合成道具として反映する。
+
 - **Textbook Act V Ch15-24 cold-reader/editor review**
   - お願いした内容: main反映済みのCh15〜Ch24を、Act I〜IVから続く本の後半として読めるか、理論説明/tool dumpへ戻っていないか、author directiveとappendix分離判断、Ch00〜Ch24 surgical residue範囲を冷読者・編集者目線でレビューする。
   - 背景: Ch15〜Ch18はBZM理論地図の入口、Ch19〜Ch24はsurvival conversation / evidence-rule update / institution operating design / Field Toolkitとして改稿済みだが、販売本の終盤では理論名・toolkit・チェックリストが前に出ると読書体験が落ちるため。
