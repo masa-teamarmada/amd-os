@@ -50,7 +50,7 @@
 
 ## 未完タスク（優先順位順）
 
-- 2026-06-03: `Textbook full-story cold readthrough surgical polish` 完了。Prologue〜Epilogue冷読で速度が落ちたCh07/08/10の判断語・責任論・関係修復説明を、ホワイトボード、三十日行動メモ、学習ログへ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-cold-readthrough-surgical-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
+- 2026-06-03: `Textbook full-story cold readthrough surgical polish` 完了。Prologue〜Epilogue冷読で速度が落ちたCh07/08/10/20の判断語・責任論・関係修復・苗床接続説明を、ホワイトボード、三十日行動メモ、学習ログ、研究機関側会議の入口へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-cold-readthrough-surgical-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
 
 - 2026-06-03: `Textbook Prologue-Epilogue story voice polish` 完了。Prologue/Ch02/Ch13/Ch18/Ch21に残る読者契約・理論予告・説明声を、若い事業化人材のノート、会議メモ、研究者との会話へ戻した。加えて章番号参照を出来事の記憶へ置換し、章末の結論文を面談メモ/九十日メモ/三つの紙へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-prologue-epilogue-story-voice-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
 

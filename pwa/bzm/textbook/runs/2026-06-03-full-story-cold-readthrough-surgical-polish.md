@@ -13,6 +13,7 @@ Prologue〜Epilogueを冷読者目線で読み直し、中盤に残っていた�
 - `pwa/bzm/public-manuscript/07-company-now-later-or-never.md`
 - `pwa/bzm/public-manuscript/08-who-carries-what.md`
 - `pwa/bzm/public-manuscript/10-turning-failure-into-learning.md`
+- `pwa/bzm/public-manuscript/20-retrofit-validation-as-learning.md`
 - `pwa/bzm/textbook/COMMANDER_TASKS.md`
 
 ## Changes
@@ -20,6 +21,7 @@ Prologue〜Epilogueを冷読者目線で読み直し、中盤に残っていた�
 - Ch07: GO / WAIT / HOLD / NO_GO / RESOURCE_SHIFTの定義文を、若い事業化人材がホワイトボードへ注釈として書く場面へ変更。最後に、難しさは用語暗記ではなく具体的に消す活動を書けるかだと接続。
 - Ch08: 役割論の説明を、ホワイトボード上の役職名を消して、三十日で動く欄へ戻す場面へ変更。
 - Ch10: `研究者との関係を守るとは...` の説明を、若い事業化人材が学習ログの横へ書き足す文へ変更。
+- Ch20: 研究機関側の苗床運用への接続を、学習ログ末尾の `次の案件でも、また空きそうなもの` 欄と、産学連携担当者の発言へ変更。
 
 ## Acceptance check
 
