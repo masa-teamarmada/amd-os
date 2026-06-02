@@ -120,6 +120,13 @@
 - 現状: 2026-06-02にblocker cleanup worker `019e86d9-cd53-79f0-a676-fddbe8c9bcd0` をactiveとして切り出し済み。対象は、明細書符号説明と図面/SVG参照符号の不一致修正、願書候補への発明名称欄追加、承継/社内決裁メモの内部雛形作成、final consistency reviewへのcleanup後残Blocker追記。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
 - 残課題: workerから、修正したBlocker、残したBlocker、成果物パス、営業秘密混入なし確認、終了ゲートの報告を受ける。
 
+### 13. self filing formal figure readinessを確認する
+
+- お願いした内容: blocker cleanup後に残った正式提出図面まわりのBlockerを、内部でできる範囲まで詰める。
+- 背景: 符号不一致は内部形式上解消したが、SVGはまだ内部候補であり、JPO方式、提出形式、余白、線幅、2値化、参照符号視認性、Fig.8内部注意文削除の確認が残っている。
+- 現状: 2026-06-02にformal figure readiness worker `019e86e0-2c33-7e12-a521-1e037ffa1f41` をactiveとして切り出し済み。対象はFig.1〜Fig.8 SVGのreadiness点検、必要なら内部提出候補SVG作成、`docs/ip/self_filing_package/2026-06-02_formal_figure_readiness_internal.md` の作成、final consistency reviewと台帳の最小更新。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
+- 残課題: workerから、修正した図面、残した図面Blocker、正式提出直前TODO、営業秘密scan、終了ゲートの報告を受ける。
+
 ## 完了済みタスク
 
 ### A/B/C/D workerによる事業価値・moat・営業秘密・請求項検証
