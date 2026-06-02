@@ -161,6 +161,7 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 | `founding_members` | `tentative` | `active` | `invalid` |
 | `project_registry_diff` | `pending` | allowlist済みDB反映 + `applied` | `rejected` |
 | `xrl_evidence` | `candidate` | `confirmed` | `rejected` |
+| `meeting_summary` | 抽出時に確定保存 (status概念なし) | 確認マークのみ (feedback記録 + 既読化、再抽出しない) | feedback記録 |
 | `raw_data_gap` | 通知のみ | feedback記録 + 再抽出/抽出経路確認。現物のDB取り込みは保証しない | feedback記録 |
 
 コメントだけ送る場合は正本反映せず、`l2_feedbacks` / つくよみ学習リストへ残す。
@@ -172,12 +173,10 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 - Body: `{ l2_kind, target_id, scope_key?, notification_id?, meeting_id?, feedback_text }`
 - 認証: Supabase Auth セッション + `members.is_admin=true` 必須
 - created_by: members.email = auth user.email から code_name を resolve
-- `meeting_summary` の「はい・反映」は、feedback 保存だけで成功扱いにしない。**Notion 議事録ページを持つ通常MTG** (`meeting_id` = calendar event id) のみ `nav_meeting_processOneEvent_` を同期実行し、`project_meeting_summaries` と `meeting_notifications.summary_short` の更新成功を確認してから回答済みにする。GAS再抽出が API key 未設定 / GAS HTTP エラー / LLM エラーで失敗した場合は 502 を返し、通知カードを回答済みに移動しない (= 設定ミスの検知)。
-- **Notion 議事録ページを持たないサマリは再抽出をかけず承認だけ成功させる**。これを Notion 再抽出に縛り付けると構造的に必ず失敗する:
-  - `meeting_id` が `manual:` / `dialogue:`(まさえいMTG) / `upcoming:` / `upcoming_tentative:` プレフィックス → PWA 側で再抽出を skip し `applied:true` で承認成功。
-  - 通常MTG (calendar event id) でも GAS が `notion_page_not_found` / `project_id_unresolved` を返す (ページ削除・移動等) → 承認は成功扱い (200)。サマリは既に DB にあり消えないため、承認を 502 で弾く理由がない。再抽出失敗は `applyResult.message` に警告として残す。
-  - 誤抽出の修正は cockpit の `POST /api/meeting-summary/manual-update` に一本化済み (2026-05-29) なので、通知の「はい」で強制再抽出する必要性自体が薄い。
-  - 過去事故 (2026-06-02): 手動作成サマリ `manual:p00:20260601-lg-cho-visit` を通知から承認しようとして `送信失敗: notion_page_not_found` で弾かれた。`manual:` 由来は Notion ページを持たないため必ず再抽出が失敗していた。
+- **`meeting_summary` の「はい・反映」は再抽出しない。確認マーク (feedback 記録 + 既読化) のみ**。
+  - MTGサマリは通知に出る時点で既に Notion 議事録から抽出され `project_meeting_summaries` / `meeting_notifications` に確定保存済み (= 通知が立つ = 抽出完了)。よって「はい」で作り直す対象は存在しない。`applyResult` は常に `applied:true`、502 は返さない。
+  - かつて (2026-05-21) は固有名詞の修正コメント付き「はい」で `nav_meeting_processOneEvent_` を同期再抽出する "修正依頼ルート" があった。だが誤抽出修正は cockpit の「議事録を手動修正」(`POST /api/meeting-summary/manual-update`) に一本化された (2026-05-29) ため、通知側の同期再抽出は不要になり**廃止した**。
+  - 過去事故 (2026-06-02): 手動作成サマリ `manual:p00:20260601-lg-cho-visit` を通知から承認しようとして `送信失敗: notion_page_not_found` で弾かれた。`manual:`(手動) / `dialogue:`(まさえいMTG) / `upcoming:`(予定枠) 由来は Notion ページを持たないため、再抽出すると構造的に必ず失敗する。2026-05-29 に修正依頼ルートが廃止されたのに通知の「はい=再抽出」だけが取り残されていたのが原因。
 
 ---
 
