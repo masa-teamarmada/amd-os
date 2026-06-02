@@ -50,6 +50,8 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-03: `Textbook main integration execution` 完了。`codex/textbook-full-story-final-readthrough-polish` をcurrent Textbook story baselineとして `main` へ反映。`HEAD` / `origin/main` は `3fd31fa docs(textbook): audit final publication readiness` で一致。main反映前 `npm run build` passed、manifest consistencyはmissing/unlistedともに `[]`。release checkpointとしてproduction deployを1回だけ試行したが、Vercel quota blocker `Resource is limited - try again in 24 hours (more than 100, code: "api-deployments-free-per-day")` によりproduction未反映。retry連打は禁止方針に従い停止。成果物: `pwa/bzm/textbook/runs/2026-06-03-main-integration-deploy-checkpoint.md`。次はquota回復後に1回だけdeployし、`/bzm/public`、Epilogue、Field Toolkit、Method Appendixをroute inspectする。
+
 - 2026-06-03: `Textbook final publication readiness audit` 完了。Prologue〜Epilogueの物語はbranch上で完成ラインに入り、Field Toolkit / Method Appendix / Model Notesも三層分離として成立。販売前完成ではないが、残課題はfull rewriteではなくModel Note表示、Method Appendix navigation、formula typography、production/staging visual check、sales package。main integration executionへ進める判定。成果物: `pwa/bzm/textbook/runs/2026-06-03-final-publication-readiness-audit.md`。
 
 - 2026-06-03: `Textbook route/main integration review` 完了。story polish branchへ最新 `origin/main` の9コミットをmergeし、衝突なしで取り込み。`origin/main...HEAD` は `0 33` となり、main-only commitは残っていない。`npm run build` passed。main push/deployは未実施。成果物: `pwa/bzm/textbook/runs/2026-06-03-route-main-integration-review.md`。次は `main integration execution` または `final publication readiness audit`。
