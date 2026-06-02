@@ -113,6 +113,13 @@
 - 現状: 2026-06-02にfinal consistency review worker `019e86d3-6008-70d2-b70b-1bf967514909` を回収済み。成果物 `docs/ip/self_filing_package/2026-06-02_final_consistency_review_internal.md` を追加し、結論は「出願日を取りに行く直前レビューに使える水準。ただし、このままJPO提出はまだ止める」。Blockerは、明細書の符号説明と図面/SVGの参照符号不一致（特に330/340）、願書未確認欄、正式提出図面未達、承継メモ未作成。営業秘密scanでは、実値混入Blockerは検出なし。
 - 残課題: 明細書の符号説明へ330/340を追加又は図面側を整理する。願書候補へ発明名称欄を追加する。Fig.8の内部注意文を正式図面から外す。AMD名義の電子出願環境、手数料納付、承継メモ、30条例外要否、請求項A/B・WS-5・WS-6判断を出願当日Mustとして潰す。
 
+### 12. self filing final blocker cleanupをする
+
+- お願いした内容: final consistency reviewで出たBlockerのうち、まさ判断なしで直せる書類整合・形式候補を内部補強する。
+- 背景: 最終整合レビューの結論は `Conditional / Not filing-ready yet`。発明内容の内部整合は概ね通るが、符号不一致、願書未確認欄、正式図面化、承継メモ未作成が提出前Blockerとして残っている。請求項A/B、WS-5/WS-6、30条例外はまさ判断事項として残し、まず明らかに直せる部分だけ進める。
+- 現状: 2026-06-02にblocker cleanup worker `019e86d9-cd53-79f0-a676-fddbe8c9bcd0` をactiveとして切り出し済み。対象は、明細書符号説明と図面/SVG参照符号の不一致修正、願書候補への発明名称欄追加、承継/社内決裁メモの内部雛形作成、final consistency reviewへのcleanup後残Blocker追記。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
+- 残課題: workerから、修正したBlocker、残したBlocker、成果物パス、営業秘密混入なし確認、終了ゲートの報告を受ける。
+
 ## 完了済みタスク
 
 ### A/B/C/D workerによる事業価値・moat・営業秘密・請求項検証
