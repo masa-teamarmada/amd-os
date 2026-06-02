@@ -50,6 +50,8 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-03: `Textbook Ch16-Ch18 theory aftertaste pass` 完了。full-story cold-reader reviewの次surgical orderに沿って、理論名は削らず、TRL/BRL/GRL/SRL/HRL、sigma_SU、F_character/F_capabilityの直後に紙やメモへ戻る一文を追加した。成果物: `pwa/bzm/textbook/runs/2026-06-03-ch16-18-theory-aftertaste-pass.md`。次は `Field Toolkit layout/readability pass` または `model exposition placement brief`。
+
 - 2026-06-03: `Textbook Ch12-Ch14 breath pass` 完了。full-story cold-reader reviewの次surgical orderに沿って、Ch12〜Ch14の中盤疲労を全体rewriteせず、各章一箇所だけ紙・余白・線へ戻して息継ぎを作った。成果物: `pwa/bzm/textbook/runs/2026-06-03-ch12-14-breath-pass.md`。次は `Ch16-Ch18 theory aftertaste pass`。
 
 - 2026-06-03: `Textbook full-story cold-reader review Prologue-Epilogue` 完了。Prologue〜Epilogueは、強すぎた一文から弱いまま送れる一文へ閉じる一冊の物語として継続可。販売前完成原稿ではないが、全体再rewriteではなくCh12〜14 breath pass、Ch16〜18 theory aftertaste pass、Field Toolkit layout/readability、model exposition placement briefへ進む判定。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-cold-reader-review-prologue-epilogue.md`。
