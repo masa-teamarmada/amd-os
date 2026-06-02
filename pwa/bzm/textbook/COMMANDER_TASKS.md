@@ -1,6 +1,6 @@
 # Textbook Commander Tasks
 
-> Last updated: 2026-06-01 JST
+> Last updated: 2026-06-02 JST
 >
 > Textbook司令塔のタスク台帳。タスク追加、方針変更、worker切り出し、
 > 完了報告、差し戻し、archive のたびに更新する。
@@ -40,8 +40,8 @@
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
-  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成・push済み。`Textbook cold-reader review artifact spine 00-24` と `Textbook source mining budget-owner / artifact scenes v5` のP0を受け、2026-06-02に `Textbook public manuscript artifact spine P0 rewrite` workerが本文へ直接反映済み。続けて `Textbook surgical editorial pass artifact spine` workerがCh04/Ch05 semantic order、scaffolding語、Toolkit A/B/C配置、Ch14/21/24重複をsurgical修正中。
-  - 残課題: surgical passのcommit/pushと能動報告後、追加場面の統合感と販売前copy rhythmを次のcold-reader reviewで確認する。
+  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成・push済み。`Textbook cold-reader review artifact spine 00-24` と `Textbook source mining budget-owner / artifact scenes v5` のP0を受け、2026-06-02に `Textbook public manuscript artifact spine P0 rewrite` workerが本文へ直接反映済み。続けて `Textbook surgical editorial pass artifact spine` workerがCh04/Ch05 semantic order、scaffolding語、Toolkit A/B/C配置、Ch14/21/24重複をsurgical修正中。追加で `Textbook OS field knowhow harvest v6` が旧 `pwa/bzm/*.md` のAMD主語/AMD OS/AMD Score/L2語を読者主人公の現場ノウハウへ変換する素材台帳を作成し、`source phrase` / `public rewrite direction` / `do_not_publish_as_is` 付きの旧BZM公開化地図、composite case 15件、scene seed 40件、tool/question/checklist 42件、00-24全章投入マップを整理。
+  - 残課題: surgical passのcommit/pushと能動報告後、v6素材台帳を使って `old-BZM conversion pass`、`survival / earning body pass`、`support boundary pass` の優先順で次rewrite workerを切る。追加場面の統合感と販売前copy rhythmは次のcold-reader reviewで確認する。
 
 - **public manuscript 00-06 scene-first rewrite**
   - お願いした内容: 北極星と `2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` に沿って、`pwa/bzm/public-manuscript/00`〜`06` を読み物としてつながる本文へ改稿する。
