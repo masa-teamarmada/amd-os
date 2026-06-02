@@ -12,7 +12,14 @@ Prologue〜Epilogueの読書体験をさらに物語側へ寄せるため、読�
 
 - `pwa/bzm/public-manuscript/00-prologue.md`
 - `pwa/bzm/public-manuscript/02-different-clocks.md`
+- `pwa/bzm/public-manuscript/05-before-disclosure.md`
+- `pwa/bzm/public-manuscript/09-before-risk-capital.md`
+- `pwa/bzm/public-manuscript/11-macro-tailwinds-as-conditions.md`
+- `pwa/bzm/public-manuscript/12-readiness-axes.md`
 - `pwa/bzm/public-manuscript/13-founder-readiness-field-language.md`
+- `pwa/bzm/public-manuscript/14-institution-as-nursery.md`
+- `pwa/bzm/public-manuscript/16-readiness-axes-field-guide.md`
+- `pwa/bzm/public-manuscript/17-macro-alignment-and-triple-helix.md`
 - `pwa/bzm/public-manuscript/18-founder-readiness-field-first.md`
 - `pwa/bzm/public-manuscript/21-institution-readiness-as-nursery.md`
 - `pwa/bzm/textbook/COMMANDER_TASKS.md`
@@ -25,6 +32,7 @@ Prologue〜Epilogueの読書体験をさらに物語側へ寄せるため、読�
 - Ch13: 創業者準備度の理論予告を薄め、名前よりも研究者が黙った理由、外部候補が持つもの、若い事業化人材が拾う空白へ寄せた。
 - Ch18: Ch13の再評価ではなく、言い直しを九十日に移す章として導入を圧縮。FRLは配置を忘れないための名前として扱った。
 - Ch21: 本編終幕前に、研究者が「私の案件だけの話ではない」と言う短い会話を追加し、Field Toolkitへ渡る前の余韻を強めた。
+- Ch05/09/11/12/13/14/16/17/18: `第一章` / `第五章` / `後の章` などの章番号参照を、送信予約、廊下、九十日メモなどの出来事の記憶へ置換。
 
 ## Acceptance check
 
