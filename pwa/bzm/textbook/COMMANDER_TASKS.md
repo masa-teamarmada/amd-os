@@ -50,6 +50,8 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-03: `Textbook Model Appendix TOC draft` 完了。物語本文へ式を差し込まず、`Method Appendix — モデル補遺` として M0〜M8 の公開向け構成を設計。sigma_SU、TRL/BRL/GRL/SRL/HRL、FRL、integrated readiness、retrofit/evidence rule、ERS、misuse warningsを、Field Toolkit後または別appendix routeへ置く方針。成果物: `pwa/bzm/textbook/runs/2026-06-03-model-appendix-toc-draft.md`。次は `Method Appendix stub implementation` または `route/main integration review`。
+
 - 2026-06-03: `Textbook model exposition placement brief` 完了。Prologue〜Epilogueの物語本文を壊さず、モデル説明・式・記号をどこへ置くかを設計。方針は、本文には短いoptional Model Noteだけ、式・重み・記号・境界条件は別のMethod Appendixへ分離。成果物: `pwa/bzm/textbook/runs/2026-06-03-model-exposition-placement-brief.md`。次は `Model Appendix TOC draft` または `route/main integration review`。
 
 - 2026-06-03: `Textbook Field Toolkit layout/readability pass` 完了。Ch22〜Ch24を本文の続きではなくField Toolkit / 参照道具として見せるため、Toolkit章の本文上部と左ナビに控えめな付録表示を追加した。成果物: `pwa/bzm/textbook/runs/2026-06-03-field-toolkit-layout-readability-pass.md`。次は `model exposition placement brief` または `route/main integration review`。
