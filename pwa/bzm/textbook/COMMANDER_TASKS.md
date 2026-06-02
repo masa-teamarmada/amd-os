@@ -50,6 +50,8 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-03: `Textbook Model Note prototype` 完了。Ch16とCh19にだけ短いoptional Model Noteを追加し、物語本文を壊さず補遺へ橋をかける試作を実施。Ch16はTRL/BRL/GRL/SRL/HRL、Ch19は統合準備度式とRESOURCE_SHIFTの関係を短く示し、詳細はMethod Appendixへ逃がした。成果物: `pwa/bzm/textbook/runs/2026-06-03-model-note-prototype.md`。次は `Appendix cold-reader review` または `route/main integration review`。
+
 - 2026-06-03: `Textbook Public notation rewrite` 完了。旧 `pwa/bzm/9-2-notation.md` の中核式と記号を、Method Appendix M1/M2/M3/M4/M5/M7へ公開安全な説明として反映。branded score名、内部章番号、組織固有例、過度な精密感は避け、integrated readinessはrankingではなく次に減らす不確実性として整理。成果物: `pwa/bzm/textbook/runs/2026-06-03-public-notation-rewrite.md`。次は `Model Note prototype` または `Appendix cold-reader review`。
 
 - 2026-06-03: `Textbook Method Appendix stub implementation` 完了。`Method Appendix — モデル補遺` をpublic manuscript末尾に追加し、M0〜M8のstub本文とmanifest sectionを作成。物語本文とField Toolkit本文は未変更。成果物: `pwa/bzm/textbook/runs/2026-06-03-method-appendix-stub-implementation.md`。次は `Public notation rewrite` または `Model Note prototype`。
