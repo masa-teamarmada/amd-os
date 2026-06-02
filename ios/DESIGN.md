@@ -199,15 +199,15 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
   - 確定後、GAS 側で `billing_cycles.reward_summary_json`（メンバー獲得pt / 想定報酬）が計算される
   - 月次モーダルの「メンバー獲得pt / 想定報酬」とマイページの「今月想定」両方がここを起点に出る
 
-**HUD版コックピット（`CockpitHUDView`）— デモ表示レイヤ**:
-- 設定タブの「ディスプレイ」セクション → 「HUD版コックピット」から `fullScreenCover` で開く。サイバー / ネオン HUD テイストの没入型ダッシュボード。右上 `×` で閉じる。
-- データは **Supabase 実データの集計**（モックではない）。`fetchActiveProjects()` で全 active PJ → 各 PJ `fetchCockpitData()` を並列取得し:
-  - 全体達成率 = 全マイルストーンの **ポイント加重平均** 進捗
-  - PJ別ステータス = 当月 `expectedPct` との差分で `AHEAD` / `AT RISK` / `ON TRACK` / `COMPLETE` 判定
-  - メトリクス = ACTIVE PJ / TOTAL POINTS / MONTH BUDGET(当月 `billing_cycles.budget_yen` 合計) / MS CLEARED / AT RISK / VELOCITY
-  - REWARD ALLOCATION = 当月 `reward_summary_json.members` をメンバー横断で合算（pt / 想定報酬¥）
-- ローディング / エラー / 空 も HUD テイストで表示（UPLINK スピナー・`DATA LINK FAILED` + RETRY）。
-- **表示専用でデータ編集は持たない**。デモ用途だが数値は本物。アニメーションは `TimelineView(.animation)` 駆動（スキャンライン・回転リング・流れるティッカー）。
+**HUD版コックピット（`CockpitHUDView`）— PWA Control Center のデモ表示レイヤ**:
+- 設定タブの「ディスプレイ」セクション → 「HUD版コックピット」から `fullScreenCover` で開く。サイバー / ネオン HUD テイスト（PWA `hud_visual_language.md` 準拠の cyan/navy）。右上 `×` で閉じる。
+- **PWA `/hud/dashboard` (HudControlCenterDashboard) と同じ構成・文言**。データは **Supabase 直読み**（API 不要・会場ネット非依存。`SupabaseService.fetchHudManagementSnapshots` / `fetchHudBillingCycles` / `fetchHudMonthlyReports` + `fetchActiveProjects`）:
+  - **AMD Management Score**: `amd_management_score_snapshots` 最新 ym。総合スコアの大リング（`>=75 GOOD` / `>=55 WATCH` / `<55 ALERT`）+ 5サブリング（先手力=initiative / 財務=finance / 継続=retention / 新規=pipeline / 方向=direction）+ 6ヶ月推移ライン + `LOW CONF`（confidence ≤ 0.6）
+  - **System Status**: Data Pipeline / Integration（BC 件数）/ Security / Backup
+  - **Project Signal Board**: active PJ を一覧（凡例 `M : Macrotrend / X : XRL / F : FRL`）。⚠️ **M/X/F の実数値は AMD Score 計算エンジン(PWA `amd-score.ts`)依存で iOS 未移植** → 当面は月次ルーティン進捗（meeting/report/invoice/payment の done 数）で代替表示。`/api/hud/dashboard`（PWA に実装済み）を deploy すれば API 経由で本物に差し替え可。
+  - **Next Action Queue**: `billing_cycles` 未完了から自動生成（PWA `buildMonthlyRoutineActions` 相当）
+- **PJカードをタップ → AMD Score 詳細ページ**（`ScoreDetailWebView`）。PWA `/venture-map/amd-score/{projectId}`（μ/XRL/FRL/ALQ radar/CES・計算式）を WKWebView で表示。iOS の Supabase セッションを `@supabase/ssr` 互換 cookie に変換して注入し、auth 必須ページを認証付きで開く。
+- ローディング / エラーも HUD テイスト（UPLINK スピナー・`DATA LINK FAILED` + RETRY）。**表示専用**。アニメは `TimelineView(.animation)`（スキャンライン・パルス）。**計器目盛は静止**（無意味な常時回転は禁止）。
 
 ---
 
