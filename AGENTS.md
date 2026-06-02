@@ -30,7 +30,7 @@
 
 ## デプロイ
 - **gas** → `clasp push`
-- **pwa** → 変更したら毎回 Vercel
+- **pwa** → Vercel deploy gate を通った時だけ production deploy。小刻みな変更ごとの deploy は禁止
 - **ios** → `xcodebuild → devicectl install → process launch`、毎回
 - **android** → TBD
 

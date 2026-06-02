@@ -42,13 +42,15 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 **設計変更を入れるときは、使い方は `pwa/manual/`、確定実装仕様は `pwa/spec/`、理論・数式・rubric は `pwa/bzm/` を同じ commit で更新する**。変更した層の附則 (`manual/9-3`, `spec/6-1`, `bzm/9-5`) に日時つきで必ず追記する。
 新規の設計 md を `design_log/` に作らない (見落とされる)。
 
-# 確認方針 (PWA は常に本番)
+# 確認方針 (PWA deploy gate)
 
-**開発中の動作確認は常に本番環境で行う。** `npm run dev` のローカル確認は基本やらない (まさが手元で見るのは本番デプロイ後の URL)。
+**2026-06-02 以降、Vercel production deploy は gate 制。** 小刻みな実装・md修正ごとに production deploy しない。まず local build / lint / static check / 必要ならローカルまたはpreview相当の確認で固める。
 
-標準ワークフロー: 実装 → `tsc --noEmit` 通過 → `npm run build` 通過 → `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` → 本番 URL で目視確認 → commit/push。
+production deploy は、まとまった変更単位、まさ確認が必要な節目、本当に本番確認が必要な時だけ、司令塔が必要性を判断して実行する。Vercel quota blocker が出たら retry 連打は禁止。quota 回復後の retry を Watch に置く。
 
-**えいみへの含意**: まさからの確認待ちで止まらず、tsc が通ったら commit/push/deploy まで一気に通す。確認質問が連続して時間を溶かすほうが損失が大きい。本番反映後の見た目で「ここ違う」と言われたら直す、のループの方が速い。
+標準ワークフロー: 実装 → `tsc --noEmit` 通過 → `npm run build` 通過 → commit/push → deploy gate 判断。deploy しない最終報告では `deployなし。理由: quota温存 / local buildで十分 / main反映のみ` のように理由を書く。
+
+**えいみへの含意**: まさからの確認待ちで止まり続けない。ただし「tsc が通ったら毎回deploy」ではなく、deploy gate で production deploy の要否を切る。本番反映が必要な時だけ `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` を使う。
 
 # 🚨 画像生成ごまかし禁止 (絶対ルール)
 
