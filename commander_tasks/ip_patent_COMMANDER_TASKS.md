@@ -136,6 +136,13 @@
 
 ## 完了済みタスク
 
+### self filing masa decision sheet / filing day checklist
+
+- お願いした内容: formal figure readiness後に残っている未判断と提出当日Mustを、3問以内のまさdecision sheetと出願当日チェックリストへ統合する。
+- 背景: 出願直前の残Blockerは、発明内容の破綻ではなく、請求項A/B・WS-5・WS-6、審査請求、30条例外、電子出願環境、願書実入力、手数料、承継メモ、正式図面化、提出後deadline ledgerへ集約されていた。
+- 現状: 2026-06-02に `docs/ip/self_filing_package/2026-06-02_self_filing_masa_decision_sheet_internal.md` と `docs/ip/self_filing_package/2026-06-02_filing_day_checklist_internal.md` を追加済み。まさ判断は3問に圧縮し、当日チェックリストは願書実入力欄、AMD名義の電子出願環境、識別番号、申請人利用登録、支払方法、承継メモ正式化、図面提出形式、営業秘密scan、30条例外要否、審査請求要否、提出後deadline ledgerを整理済み。外部送付、JPO提出、弁理士問い合わせ、DB write、production DB接続、Web公開削除/変更は未実施。
+- 残課題: まさがdecision sheetのQ1-Q3を選び、選択結果を請求項、明細書、願書、図面README、当日チェックリストへ反映する。正式画像化 / 提出方式変換後に、白黒2値化後の実見確認、符号対応、営業秘密scanを再実施する。
+
 ### self filing formal figure readiness
 
 - お願いした内容: self filing final blocker cleanup後に残った正式提出図面まわりを、内部でできる範囲まで詰める。Fig.1〜Fig.8 SVGの方式、余白、線幅、2値化、参照符号視認性、Fig.8内部注意文削除方針を確認し、必要な内部候補ファイルとチェックリストを作る。
