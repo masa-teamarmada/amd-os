@@ -96,8 +96,8 @@
 
 - お願いした内容: Fig.1〜Fig.8について、特許図面用の白黒線画ドラフトを内部作成する。
 - 背景: self filing packageでは図面清書指示まで作成済みだが、提出図面そのものではない。完全セルフ出願で出願日を取りに行くには、Mermaid/ASCII/参照符号付きの図面候補を、正式図面化できる構造へ整える必要がある。
-- 現状: 2026-06-02にpatent figures clean draft worker `019e86b6-b988-7be1-be22-cef9cb95d838` を回収済み。成果物 `docs/ip/self_filing_package/2026-06-02_figures_clean_draft_internal.md` を追加し、Fig.1〜Fig.8の白黒線画化前提Mermaid / 参照符号付き内部ドラフト、対応請求項、対応明細書段落、正式画像化TODO、営業秘密scanを整理済み。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は未実施。
-- 残課題: 内部レビュー用ドラフトとしてはusable。ただし正式提出画像ではないため、黒色線画画像化、参照符号視認性、白黒2値化後の読解性、明細書 / 請求項との最終整合、営業秘密scan再実施が残る。
+- 現状: 2026-06-02にpatent figures clean draft worker `019e86b6-b988-7be1-be22-cef9cb95d838` を回収済み。成果物 `docs/ip/self_filing_package/2026-06-02_figures_clean_draft_internal.md` を追加し、Fig.1〜Fig.8の白黒線画化前提Mermaid / 参照符号付き内部ドラフト、対応請求項、対応明細書段落、正式画像化TODO、営業秘密scanを整理済み。2026-06-02にpatent figures image candidates workerで、内部レビュー用のSVG画像候補 `docs/ip/self_filing_package/figures/fig1_system_overview.svg` 〜 `fig8_integrated_review_ui.svg` と `docs/ip/self_filing_package/figures/README.md` を追加済み。白背景、黒線、黒文字のみ。実画面、実UI、実DB名、実サービス名、実connector名、実URL、実案件名、prompt全文、score weight / threshold / calibration、実DB行、source permalinkは入れていない。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は未実施。
+- 残課題: SVG画像候補は内部レビュー用としてusable。ただし正式提出画像ではないため、JPO方式確認、提出形式への変換、余白 / 線幅 / 参照符号視認性の調整、白黒2値化後の読解性確認、明細書 / 請求項との最終整合、正式画像化後の営業秘密scan再実施が残る。
 
 ### 10. Fig.1〜Fig.8の画像候補を作る
 
