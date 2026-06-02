@@ -71,6 +71,11 @@ export const PUBLIC_MANUSCRIPT_PARTS: PublicManuscriptPart[] = [
     ],
   },
   {
+    key: "epilogue",
+    label: "Epilogue",
+    chapters: [{ slug: "25-epilogue", number: "E", title: "その一文は、少しだけ弱くなった" }],
+  },
+  {
     key: "toolkit",
     label: "Field Toolkit — 付録: 実務道具",
     chapters: [
