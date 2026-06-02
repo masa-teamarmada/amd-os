@@ -106,6 +106,13 @@
 - 現状: 2026-06-02にpatent figures image candidates worker `019e86be-6e14-7e82-9091-ef19e1db3516` を回収済み。`docs/ip/self_filing_package/figures/` 配下にFig.1〜Fig.8のSVG画像候補とREADMEを追加済み。白背景、黒線、黒文字のみで、色、グラデーション、実UI、スクリーンショットは不使用。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は未実施。
 - 残課題: SVG画像候補は内部レビュー用の提出図面候補としてusable。ただし正式提出画像ではないため、JPO方式確認、提出形式への変換、余白 / 線幅 / 2値化 / 符号視認性の検査、明細書 / 請求項との最終整合、営業秘密scan再実施が残る。
 
+### 11. 提出パック全体の最終整合レビューをする
+
+- お願いした内容: 願書、明細書、特許請求の範囲、要約書、図面SVG、図面README、公開資料メモ、発明者 / 出願人メモ、営業秘密scan、JPO提出前Mustを横断し、出願日を取りに行く前にズレを洗い出す。
+- 背景: self filing package と図面SVG候補まで揃ったが、まだ実提出ではない。請求項 / 明細書 / 図面 / 要約 / 願書 / 公開資料 / 権利帰属の横断整合とBlocker分類が必要。
+- 現状: 2026-06-02にfinal consistency review worker `019e86d3-6008-70d2-b70b-1bf967514909` をactiveとして切り出し済み。成果物候補は `docs/ip/self_filing_package/2026-06-02_final_consistency_review_internal.md`。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
+- 残課題: workerから、最終整合readiness結論、Blocker / Warning / Nice-to-have、まさ判断事項1〜3個、未確認 / 要確認、終了ゲートの報告を受ける。
+
 ## 完了済みタスク
 
 ### A/B/C/D workerによる事業価値・moat・営業秘密・請求項検証
