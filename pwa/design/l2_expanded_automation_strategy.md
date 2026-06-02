@@ -6,6 +6,16 @@ Scope: L2 taxonomy expansion from 10 to 13 candidates, and extraction routing un
 
 This memo does not change DB schema, routine registrations, cron schedules, or production deploy state. It is a design proposal for deciding whether to promote Atlas, Macrotrend, and member weekly activities into the L2 taxonomy.
 
+## Plain-language route glossary
+
+| Term | Meaning |
+|---|---|
+| Codex / MMO automation | A scheduled Codex Desktop job. It reads sources, asks the model when needed, and prepares structured output. MMO means the Windows MMO machine runs it. |
+| outbox | A local folder of JSON drafts. The AI job writes "please insert/update these rows" as files instead of touching the DB directly. |
+| applier | A non-LLM helper that reads outbox JSON and applies it to Supabase / PWA APIs. It is the DB-writing worker, not another reasoning routine. |
+| LaunchAgent applier | The Mac auto-run wrapper for the applier. In human terms: "a local non-AI sync job that wakes up periodically and applies approved JSON drafts." |
+| PWA non-LLM cron | A Vercel/PWA scheduled route that only does deterministic aggregation or cache refresh. No Anthropic / Gemini / OpenAI call. |
+
 ## Premises
 
 - Existing current truth defines L2 as structured data extracted from the 5 internal raw sources: Gmail, Drive, Calendar, Slack, and Notion.
@@ -23,6 +33,22 @@ The cleanest expansion is to keep L2 1-10 as the internal operating-memory layer
 | 11 | Atlas Signals | external | `atlas_signals`, derived `atlas_stories`, `atlas_reports` | Atlas signals influence strategy, management score evidence, venture map, and macro interpretation. They are no longer just report output once accepted into `atlas_signals`. |
 | 12 | Macrotrend Evidence / Index | external + deterministic aggregate | `observation_log`, `macro_index_log`, derived `macro_lane_weights`, `triple_helix_state_log` | Macrotrend is numeric / lane-level evidence used by ASPI, Venture Map, and score interpretation. It is distinct from Atlas narrative signals. |
 | 13 | Member Weekly Activities | internal hybrid | `member_activities(source='member_weekly')` | Weekly activities are primary member contribution evidence for mypage, reward allocation, L2 5 member knowledge, and MS contribution review. |
+
+## L2 1: Monthly reports
+
+Current route:
+
+- Frequency: daily 05:30 JST in the current docs.
+- Source: primary source is Supabase internal L2 / OS snapshot. The current spec says it looks at `project_meeting_summaries`, `project_strategy_signals`, `project_xrl_evidence`, `project_registry_diffs`, `protocols`, `project_knowledge`, `member_knowledge`, `milestone_monthly_progress`, `progress_estimate_state`, and existing `monthly_reports`.
+- Fallback: when L2 coverage is thin, stale, missing source refs, or no-data-like, the existing spec allows a 5 internal raw-source gap check across Gmail / Drive / Calendar / Slack / Notion.
+- Apply path: AI job writes `monthlyReports` JSON to an outbox, then the local non-LLM applier writes it into Supabase.
+
+Proposed route:
+
+- Frequency: month-end only. Run on the last day of each month, after normal daily L2 evidence has accumulated.
+- Source: Supabase internal data only as the normal path. L2 1 should summarize already-ingested OS evidence, not re-scan raw Gmail / Drive / Calendar / Slack / Notion every day.
+- Fallback: raw-source gap check should be manual or explicitly requested, not part of the normal monthly report run.
+- Runner: keep it separate from the daily consolidated routine. L2 1 is a monthly synthesis job, not a daily evidence collector.
 
 ### Boundary update
 
@@ -131,11 +157,9 @@ These are heavy synthesis / review jobs where subscription tokens are useful and
 
 | Bundle | Contents | Cadence | Why bundle |
 |---|---|---|---|
-| Daily internal L2 synthesis | L2 2, 4, 5, plus daily catch-up for L2 3 when needed | daily 08:00 JST | Same internal evidence base; avoids 3-4 separate routine runs. |
-| Daily external evidence review | L2 11a Atlas signals + L2 12a macro observations | daily 08:40 JST | Both are external evidence; can share source freshness and duplicate checks. |
+| Daily consolidated L2 evidence routine | L2 2, 4, 5, 7, 8, 9, 10, 11, 12 | daily 08:00 JST | These can share one evidence review pass, one state report, and one routine slot. |
 | Weekly activity synthesis | L2 13 member weekly activities | weekly Mon 06:30 JST or Sun 20:30 JST | Member activity source scan is private and token-heavy; daily scanning is wasteful. |
-| Weekly macro / Atlas synthesis | L2 11b reports + L2 12c interpretation | weekly Fri 17:00 JST | Reports are derived; weekly is enough unless commander asks for ad hoc. |
-| Weekly textbook insights | L2 10 | weekly or manual | Best run after L2 1-13 evidence exists; approved candidates still require local applier. |
+| Month-end monthly reports | L2 1 | monthly, last day | Monthly reports should summarize Supabase-internal OS evidence after the month has accumulated. |
 
 ### Push to deterministic / non-LLM paths
 
@@ -149,40 +173,38 @@ These are heavy synthesis / review jobs where subscription tokens are useful and
 
 ## Bundle decisions
 
-### L2 2-5
+### L2 2, 4, 5, 7, 8, 9, 10, 11, 12
 
-Recommendation: keep current MMO distribution until the commander approves a migration, but if using Claude routines, bundle L2 2, 4, and 5 into one daily internal synthesis. L2 3 can either remain MMO for higher-frequency progress checks or join as a daily catch-up phase.
+Recommendation: bundle these into one daily consolidated L2 evidence routine once the commander approves the taxonomy patch.
 
 Reasoning:
 
 - L2 2, 4, and 5 share `monthly_reports`, `project_meeting_summaries`, feedback state, and candidate notification patterns.
-- L2 3 has stronger coupling to confirmed progress, reward/monthly views, and deterministic routine progress. It should not be forced into a daily-only Claude writer unless the hourly need is explicitly retired.
+- L2 7, 8, and 9 are governance / evidence / management-signal candidates and can share one state report instead of separate routine runs.
+- L2 10 can run in the same routine as candidate generation, while approved application to `pwa/bzm/*.md` still stays local-only.
+- L2 11 and 12 can share external source freshness, dedupe, source-url checks, and macro/Atlas evidence interpretation.
+- L2 8 XRL evidence can run daily inside this consolidated routine. It does not need a 6-hour cadence unless a specific active review window requires it.
+- L2 3 has stronger coupling to confirmed progress, reward/monthly views, and deterministic routine progress. It should not be forced into this consolidated routine unless the hourly need is explicitly retired.
 - L2 6 must not join this bundle because meeting flow is event-window based and high-frequency.
+- L2 1 must not join this bundle because monthly reports should be month-end Supabase synthesis, not daily evidence extraction.
 
-### L2 7-9
+Plain-language phase order:
 
-Recommendation: keep L2 7 and 8 in the `amd-os-ms` outbox family, and keep L2 9 in the strategy-signals outbox family unless the outbox/applier contract is deliberately unified.
+1. Read current Supabase state and source freshness markers.
+2. Review internal evidence candidates: L2 2 / 4 / 5 / 7 / 8 / 9 / 10.
+3. Review external evidence candidates: L2 11 / 12.
+4. Write candidates to the appropriate tables or outbox contract.
+5. Produce one run summary: saved / skipped / needs review / blocked.
 
-Reasoning:
+### L2 13
 
-- L2 7 and 8 are evidence/governance candidates and can share the same 6-hour review window.
-- L2 9 is a management signal surface with its own commander review behavior and timing.
-- The current risk is not too many routines; it is unclear health if outboxes exist outside the canonical watched paths. Unifying writers without unifying outbox drain would increase backlog risk.
-
-### Atlas / Macrotrend / Weekly activities
-
-Recommendation: do not bundle all three into a daily collector.
-
-Use two lanes:
-
-1. Daily external evidence collector: L2 11 Atlas signal collection + L2 12 macro observation review.
-2. Weekly member activity collector: L2 13 member weekly activities.
+Recommendation: keep member weekly activities as a separate weekly routine.
 
 Reasoning:
 
-- Atlas/Macrotrend are external public-source evidence and can share retry / duplicate / source-url discipline.
-- Member weekly activities are private internal evidence with different privacy, token, and cadence needs.
-- Running member activity fusion daily burns tokens and creates noisy repeated evidence. Weekly is a better semantic unit.
+- Member weekly activities are private internal evidence with different privacy and cadence needs.
+- Running member activity fusion daily burns tokens and creates noisy repeated evidence.
+- Weekly is the natural semantic unit for mypage / reward review / member knowledge.
 
 ## Recommended run window
 
@@ -190,20 +212,19 @@ This is the proposed steady-state schedule if Claude subscription routines are u
 
 | Time | Runner | Job | Notes |
 |---|---|---|---|
-| 03:20 daily | Codex automation | L2 9 strategy signals | Keep existing outbox route. |
 | 04:00 monthly / deterministic | PWA non-LLM | L2 12 macro aggregate indicators | Only deterministic aggregate. |
-| 05:30 daily | Codex automation | L2 1 monthly reports | Keep existing outbox route. |
-| 08:00 daily | Claude or MMO | L2 2/4/5 internal synthesis, optional L2 3 daily catch-up | One routine if migrated; otherwise current MMO jobs stay. |
-| 08:40 daily | Codex or Claude | L2 11/12 external evidence collector | Daily, outbox-first. |
+| 08:00 daily | Claude subscription routine | L2 2/4/5/7/8/9/10/11/12 consolidated evidence routine | One routine, one run summary. L2 8 runs daily here. |
 | 09:00-21:00 hourly | MMO Codex Desktop | L2 6 meeting flow | Keep high-frequency MMO route with early exit. |
 | 20:30 Sun or 06:30 Mon weekly | Claude routine | L2 13 member weekly activities | One weekly run; outbox-first. |
-| 17:00 Fri weekly | Claude routine | L2 11 report + L2 12 interpretation synthesis | Derived reports, not atomic evidence. |
-| weekly/manual | Codex/Claude + local applier | L2 10 textbook insights | Candidate only; approved rows require local BZM applier. |
+| Month-end, last day | Claude or Codex subscription routine | L2 1 monthly reports | Supabase-internal OS evidence only by default. |
 
-Daily Claude routine count in this design is 0-2 depending on migration choice:
+Daily Claude routine count in this design is 1 for the consolidated evidence routine:
 
-- Current conservative mode: 0 new daily Claude routines; keep Codex/MMO primary writers.
-- Subscription synthesis mode: 2 daily Claude routines (`daily-internal-l2-synthesis`, `daily-external-evidence-review`) plus weekly routines. This stays far below a 15-run/day cap.
+- L2 2/4/5/7/8/9/10/11/12: 1 daily run.
+- L2 6: stays MMO hourly because it is event-window based.
+- L2 13: 1 weekly run.
+- L2 1: 1 monthly month-end run.
+- This stays far below a 15-run/day cap.
 
 ## Token efficiency rules
 
