@@ -1,7 +1,7 @@
 # XRL根拠 (L2 ⑧) — 設計の正本
 
-最終更新: 2026-05-25
-正本ステータス: 定義確定、実装中。
+最終更新: 2026-06-02
+正本ステータス: 定義確定。通常経路は月末 checklist audit。
 
 > **manual / spec / bzm 3層分割中**: L2⑧ XRL 根拠の確定実装仕様は `/spec/3-5-xrl-evidence-current-spec.md` へ移行済み。移行完了までは、この design も設計議論・履歴として残し、迷う内容は両方に置く。
 
@@ -12,6 +12,8 @@
 **XRL根拠** は、AMD Score / XRL 算定に使う構造化された観測根拠。
 
 最終スコアそのものではなく、「なぜその TRL / BRL / GRL / SRL / HRL と見たか」を説明できる根拠データを L2 として保持する。
+
+2026-06-02 のまさ判断で、通常経路は「日次で XRL 根拠候補を貯める」ではなく、**月末に L2① monthly_reports を作成した直後、月次報告書 + Supabase 内L2断面を `pwa/src/lib/xrl-level-definitions.ts` のチェック項目へ照合する XRL checklist audit** に変更した。XRL は数ヶ月から年単位で変わる成熟度指標なので、daily collector は通常運用から外す。
 
 `project_founding_members` はこの L2 の一部で、HRL 推定の根拠として正式採用する。
 ここに入れるのは CEO候補 / 技術リード / PI / AMD伴走 / 大学キーパーソンなど、SU 立ち上げに直接コミットする人物だけで、
@@ -38,13 +40,15 @@ VC / 協業先 / 顧客 / 行政 / advisor-only の人物は含めない。
 | テーブル | L2 ⑧での位置づけ |
 |---|---|
 | `project_founding_members` | HRL 根拠。SU 創業候補 / AMD伴走者 / 大学キーパーソンを保持。manual 上は「関連メンバー」と呼ぶ |
+| `amd_score_inputs.xrl_checklist` | XRL チェック項目の確認状態。スコア詳細UIの正本 |
+| `amd_score_inputs.xrl_notes` | チェック / XRL 入力値の根拠 notes |
 | `project_xrl_log` | XRL 時系列の評価ログ。LLM proposal や bottleneck を保持 |
-| `amd_score_inputs` | AMD Score 入力値。XRL / FRL / Triple Helix 系入力と notes を保持 |
-| `l2_notifications` | XRL根拠の新規抽出・更新・差分を通知 |
+| `project_xrl_evidence` | 強いイベント根拠や過去 confirmed 根拠を残す例外ログ。通常daily出力ではない |
+| `l2_notifications` | checklist 更新候補、または例外的 XRL根拠の承認カード |
 
 ---
 
-## 新設予定テーブル
+## 例外ログテーブル
 
 `project_xrl_evidence`
 
@@ -72,7 +76,7 @@ VC / 協業先 / 顧客 / 行政 / advisor-only の人物は含めない。
 
 ## 抽出元
 
-入力は 5生データと既存 L2。
+通常入力は L2① monthly_reports と Supabase 内L2断面。5生データは月次断面の coverage が薄いときの明示 fallback。
 
 - Gmail
 - Google Drive
@@ -87,7 +91,7 @@ GAS バックアップシートは正本ではない。人間確認用・非常�
 
 ## 通知ルール
 
-XRL根拠が新規作成・大幅更新されたら `/notifications` に出す。
+XRL checklist audit でチェック状態や notes の更新候補が出たら `/notifications` などの review surface に出す。例外的に `project_xrl_evidence` を作った場合も `/notifications` に出す。
 
 - `l2_kind = 'xrl_evidence'`
 - `target_id = project_id`
@@ -97,7 +101,7 @@ XRL根拠が新規作成・大幅更新されたら `/notifications` に出す�
 - summary は「どの軸の根拠が増えたか」「XRL/AMD Score にどう効くか」を短く書く
 - 全文は載せず、根拠 snippet と source refs を載せる
 
-まさが「はい」を押した場合は `confirmed` に昇格し、必要に応じて `project_xrl_log` / `amd_score_inputs` の再計算対象にする。
+まさが「はい」を押した場合は checklist 更新候補を `amd_score_inputs.xrl_checklist` / `xrl_notes` へ反映する。例外的な `project_xrl_evidence` 候補は `confirmed` に昇格する。
 
 まさが「いいえ」またはコメントした場合は、`l2_feedbacks` / つくよみ学習リストへ保存し、次回抽出の抑制・修正に使う。
 

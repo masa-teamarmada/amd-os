@@ -47,9 +47,9 @@ The cleanest expansion is to keep L2 1-10 as the internal operating-memory layer
 
 ## L2 1: Monthly reports
 
-Current route:
+Previous documented route before this patch:
 
-- Frequency: daily 05:30 JST in the current docs.
+- Frequency: daily 05:30 JST in the older docs.
 - Source: primary source is Supabase internal L2 / OS snapshot. The current spec says it looks at `project_meeting_summaries`, `project_strategy_signals`, `project_xrl_evidence`, `project_registry_diffs`, `protocols`, `project_knowledge`, `member_knowledge`, `milestone_monthly_progress`, `progress_estimate_state`, and existing `monthly_reports`.
 - Fallback: when L2 coverage is thin, stale, missing source refs, or no-data-like, the existing spec allows a 5 internal raw-source gap check across Gmail / Drive / Calendar / Slack / Notion.
 - Apply path: AI job writes `monthlyReports` JSON to an outbox, then the local non-LLM applier writes it into Supabase.

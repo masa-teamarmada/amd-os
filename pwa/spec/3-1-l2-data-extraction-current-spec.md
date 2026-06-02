@@ -20,16 +20,16 @@ L2 抽出は必ず次の 5 種類を対象にする。
 
 | L2 | table | 現行 writer | 反映 |
 |---|---|---|---|
-| ① monthly_reports | `monthly_reports` | Codex automation `AMD OS L2① 月次報告抽出` | `amd-os-ms/outbox.monthlyReports` → LaunchAgent |
-| ② AMD Protocol | `protocols` | MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract` | Supabase + notifications |
+| ① monthly_reports | `monthly_reports` | Codex / subscription automation `AMD OS L2① 月次報告抽出` (month-end only) | `amd-os-ms/outbox.monthlyReports` → LaunchAgent |
+| ② AMD Protocol | `protocols` | daily consolidated evidence `amd-os-l2-consolidated-evidence` | Supabase + notifications |
 | ③ MS進捗 | `milestone_monthly_progress` / `project_monthly_notes` | MMOマシン automation `amd-os-l3-ms-progress-extract` | Supabase + revisions |
-| ④ PJナレッジ | `project_knowledge` | MMOマシン automation `amd-os-l4-project-knowledge-extract` | candidate → active/rejected |
-| ⑤ メンバーナレッジ | `member_knowledge` | MMOマシン automation `amd-os-l5-member-knowledge-extract` | candidate → active/rejected |
+| ④ PJナレッジ | `project_knowledge` | daily consolidated evidence `amd-os-l2-consolidated-evidence` | candidate → active/rejected |
+| ⑤ メンバーナレッジ | `member_knowledge` | daily consolidated evidence `amd-os-l2-consolidated-evidence` | candidate → active/rejected |
 | ⑥ MTGサマリ + MTGフロー | `project_meeting_summaries` / `meeting_assets` | MMOマシン automation `amd-os-l6-meeting-flow` | Supabase / Calendar / Drive / Gmail draft |
-| ⑦ OS台帳差分 | `project_registry_diffs` | Codex automation `amd-os-ms` / SKILL `amd-os-l7-registry-diff-extract` | outbox → LaunchAgent |
-| ⑧ XRL根拠 | `project_xrl_evidence` / `project_founding_members` | Codex automation `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | outbox → LaunchAgent |
-| ⑨ 経営ハイライト | `project_strategy_signals` | Codex automation `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | strategy-signals outbox → LaunchAgent |
-| ⑩ Textbook Insights | `textbook_insight_candidates` | Codex automation / local worker `amd-os-l10-textbook-insight-extract` | `outbox.textbookInsights` → candidate + notification → approved → local BZM applier |
+| ⑦ OS台帳差分 | `project_registry_diffs` | daily consolidated evidence `amd-os-l2-consolidated-evidence` / SKILL `amd-os-l7-registry-diff-extract` | outbox → LaunchAgent |
+| ⑧ XRLチェックリスト監査 | `amd_score_inputs.xrl_checklist` / `amd_score_inputs.xrl_notes` / `project_founding_members` / `project_xrl_evidence` | Month-end audit after L2① monthly reports | review proposal → confirmed `amd_score_inputs` update |
+| ⑨ 経営ハイライト | `project_strategy_signals` | daily consolidated evidence `amd-os-l2-consolidated-evidence` / SKILL `amd-os-l9-strategy-signal-extract` | strategy-signals outbox → LaunchAgent |
+| ⑩ Textbook Insights | `textbook_insight_candidates` | daily consolidated evidence `amd-os-l2-consolidated-evidence` / local worker `amd-os-l10-textbook-insight-extract` | `outbox.textbookInsights` → candidate + notification → approved → local BZM applier |
 
 ## L2 ⑥ MTG サマリの開催済みソース guard
 
@@ -47,8 +47,10 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 
 ## Writer 境界
 
-- L2 ①⑦⑧⑨⑩は Codex automation が JSON outbox を作り、非LLM LaunchAgent が Supabase / PWA API に反映する。
-- L2 ②〜⑥は MMOマシン Codex Desktop automation が現行 writer。
+- L2 ①⑦⑨⑩は Codex automation が JSON outbox を作り、非LLM LaunchAgent が Supabase / PWA API に反映する。
+- L2 ⑧は daily outbox writer ではない。月末 L2① monthly_reports 作成後に、月次報告書 + Supabase 内L2断面を `pwa/src/lib/xrl-level-definitions.ts` のチェック項目へ照合し、`amd_score_inputs.xrl_checklist` / `xrl_notes` 更新候補を作る。
+- L2 ②④⑤⑦⑨⑩は daily consolidated evidence `amd-os-l2-consolidated-evidence` が現行 writer。各 L2 の SKILL は抽出契約として残す。
+- L2 ③⑥は MMOマシン Codex Desktop automation が現行 writer。
 - 旧 GAS 153 / 155、AMD-Report GAS R313、PWA LLM cron は定期 writer として復活させない。
 - PWA `/api/cron/hourly-estimate` は `ALLOW_PWA_LLM_CRONS=1` がない限り disabled response のみ。
 - L2⑩ は `/notifications` の「はい」で DB 候補を `approved` にするだけ。git 管理の `pwa/bzm/*.md` 追記は local applier / worker が行い、Vercel runtime から直接 commit しない。
@@ -57,7 +59,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 
 | outbox | 用途 |
 |---|---|
-| `~/.codex/automations/amd-os-ms/outbox/` | monthlyReports / registryDiffs / xrlEvidence / MS revision |
+| `~/.codex/automations/amd-os-ms/outbox/` | monthlyReports / registryDiffs / MS revision / exceptional xrlEvidence |
 | `~/.codex/automations/amd-os/strategy-signals-outbox/` | L2 ⑨ 経営ハイライト |
 | `~/.codex/automations/amd-atlas/outbox/` | Atlas 外部 signal |
 
@@ -69,7 +71,8 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 |---|---|---|
 | MS進捗 revision | monthly modal 側で confirm | discard |
 | OS台帳差分 | allowlist 済み DB 更新 | `project_registry_diffs.status='rejected'` |
-| XRL根拠 | `project_xrl_evidence.status='confirmed'` | `rejected` |
+| XRL根拠ログ (例外) | `project_xrl_evidence.status='confirmed'` | `rejected` |
+| XRLチェックリスト監査 | confirmed update to `amd_score_inputs.xrl_checklist` / `xrl_notes` | discard proposal |
 | 経営ハイライト | `project_strategy_signals.status='confirmed'` | `rejected` |
 | Textbook Insights | `textbook_insight_candidates.status='approved'` → local applier で `pwa/bzm/*.md` 追記 | `rejected` |
 | PJナレッジ | `project_knowledge.status='active'` | `rejected` |

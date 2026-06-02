@@ -4,7 +4,7 @@
 
 > 実装者向けの確定仕様は [/spec/3-1-l2-data-extraction-current-spec](/spec/3-1-l2-data-extraction-current-spec) へ移行開始済み。この章は、復旧時に読む運用手順として残す。迷う内容は移行完了まで両方に置く。
 
-**2026-05-29 正本訂正**: 2026-05-25〜26 の Claude routine / Cloud routine 案は履歴として残すが、現行の復旧主導線は下の **現行 writer 表** を見る。L2 ①は Codex automation、L2 ②〜⑥は MMOマシン Codex Desktop automation、L2 ⑦⑧⑨⑩は Codex automation + outbox/applier が現行ルート。
+**2026-06-02 正本訂正**: 2026-05-25〜26 の Claude routine / Cloud routine 案は履歴として残すが、現行の復旧主導線は下の **現行 writer 表** を見る。L2 ①は月末の Codex / subscription automation、L2 ②〜⑥は MMOマシン Codex Desktop automation、L2 ⑦⑨⑩は Codex automation + outbox/applier、L2 ⑧は月末 L2① 後の XRL checklist audit が現行ルート。
 
 **先手力 heartbeat**: `proactive_outbox` は L2 ではなく、L2 と司令塔 / worker をつなぐ control layer。10:15-20:15 JST の毎時15分に `amd-os-proactive-heartbeat` が queued/blocked の due soon を拾い、PJ司令塔へ通知してから `mark-sent` で通知済みを記録する。正本手順は [`pwa/scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md`](../scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md)。
 
@@ -12,18 +12,18 @@
 
 | L2 | テーブル | 役割 | 旧 writer | 現行 writer |
 |---|---|---|---|---|
-| ① monthly_reports | `monthly_reports` | PJ 月次レポート。後続 L2 の一次入力 | AMD-Report GAS R313 / PWA report route | Codex automation `AMD OS L2① 月次報告抽出` |
-| ② AMD Protocol | `protocols` / `protocol_examples` | 経営判断を普遍パターンとして残す | GAS 155 (5/22 停止) | MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract` |
+| ① monthly_reports | `monthly_reports` | PJ 月次レポート。後続 L2 の一次入力 | AMD-Report GAS R313 / PWA report route | 月末 Codex / subscription automation `AMD OS L2① 月次報告抽出` |
+| ② AMD Protocol | `protocols` / `protocol_examples` | 経営判断を普遍パターンとして残す | GAS 155 (5/22 停止) | daily consolidated evidence `amd-os-l2-consolidated-evidence` |
 | ③ MS 進捗 | `milestone_monthly_progress` / `project_monthly_notes` | マイルストーン月次進捗 % | ~~PWA `/api/cron/hourly-estimate` + GAS 154 ping~~ ⛔ 2026-05-29 再停止 | MMOマシン automation `amd-os-l3-ms-progress-extract` |
-| ④ PJ ナレッジ | `project_knowledge` | PJ に関する人物 / 技術 / 組織 / 市場 | GAS 155 (5/22 停止) | MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract` |
-| ⑤ メンバーナレッジ | `member_knowledge` | メンバーごとの強み / スタイル / 関心 | GAS 155 (5/22 停止) | MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract` |
+| ④ PJ ナレッジ | `project_knowledge` | PJ に関する人物 / 技術 / 組織 / 市場 | GAS 155 (5/22 停止) | daily consolidated evidence `amd-os-l2-consolidated-evidence` |
+| ⑤ メンバーナレッジ | `member_knowledge` | メンバーごとの強み / スタイル / 関心 | GAS 155 (5/22 停止) | daily consolidated evidence `amd-os-l2-consolidated-evidence` |
 | ⑥ MTG サマリ | `project_meeting_summaries` / `meeting_notifications` | Calendar event 単位の議事録要約 | GAS 153 + GAS 074 (5/22 停止) | Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow` |
-| ⑦ OS 台帳差分 | `project_registry_diffs` | 5 生データ vs OS 台帳の差分候補 | 旧 Cloud routine 案 / PWA LLM route | Codex automation `amd-os-ms` + SKILL `amd-os-l7-registry-diff-extract` |
-| ⑧ XRL 根拠 | `project_xrl_evidence` | TRL/BRL/GRL/SRL/HRL の算定根拠 | 旧 Cloud routine 案 / PWA LLM route | Codex automation `amd-os-ms` + SKILL `amd-os-l8-xrl-evidence-extract` |
-| ⑨ 経営ハイライト | `project_strategy_signals` | 経営判断 / 事業進捗 / 戦略転換 等 | 旧 Cloud routine 案 | Codex automation `amd-os` + SKILL `amd-os-l9-strategy-signal-extract` |
-| ⑩ Textbook Insights | `textbook_insight_candidates` | BZM 教科書へ追記すべき Before Zero 実務知見 | 新規 | Codex automation / local worker `amd-os-l10-textbook-insight-extract` + approved 後 local BZM applier |
+| ⑦ OS 台帳差分 | `project_registry_diffs` | 5 生データ vs OS 台帳の差分候補 | 旧 Cloud routine 案 / PWA LLM route | daily consolidated evidence `amd-os-l2-consolidated-evidence` + outbox/applier |
+| ⑧ XRL checklist audit | `amd_score_inputs.xrl_checklist` / `amd_score_inputs.xrl_notes` / `project_founding_members` / `project_xrl_evidence` | TRL/BRL/GRL/SRL/HRL のチェック項目充足監査 | 旧 Cloud routine 案 / PWA LLM route / 旧 daily XRL evidence 案 | 月末 L2① 後の checklist audit |
+| ⑨ 経営ハイライト | `project_strategy_signals` | 経営判断 / 事業進捗 / 戦略転換 等 | 旧 Cloud routine 案 | daily consolidated evidence `amd-os-l2-consolidated-evidence` + outbox/applier |
+| ⑩ Textbook Insights | `textbook_insight_candidates` | BZM 教科書へ追記すべき Before Zero 実務知見 | 新規 | daily consolidated evidence `amd-os-l2-consolidated-evidence` + approved 後 local BZM applier |
 
-L2 ① monthly reports はこの章の対象。R313 は旧経路で、差分あり/未生成時に R303 generator 経由で Claude API を呼びうるため、定期 trigger を置かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。定期 writer は Codex automation `AMD OS L2① 月次報告抽出` で、正本 SKILL は [`pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`](../scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md)。
+L2 ① monthly reports はこの章の対象。R313 は旧経路で、差分あり/未生成時に R303 generator 経由で Claude API を呼びうるため、定期 trigger を置かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。定期 writer は月末最終日の Codex / subscription automation `AMD OS L2① 月次報告抽出` で、正本 SKILL は [`pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`](../scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md)。
 
 ## Claude Cloud routine 案の扱い
 
@@ -51,16 +51,16 @@ vs ローカル Mac scheduled task の問題:
 
 | L2 | 実行場所 | automation / SKILL | 頻度 | 止まった時に見る場所 |
 |---|---|---|---|---|
-| ① monthly_reports | Codex automation + outbox applier | `AMD OS L2① 月次報告抽出` / `amd-os-l1-monthly-report-extract` | daily 05:30 JST | `amd-os-l2` automation 履歴、`~/.codex/automations/amd-os-ms/outbox/`、LaunchAgent applier |
-| ② AMD Protocol | MMOマシン Codex Desktop automation | `amd-os-l2-protocol-extract` | daily 08:00 JST | MMOマシン側 automation 履歴、`pwa/scheduled-tasks/amd-os-l2-protocol-extract/SKILL.md` |
+| ① monthly_reports | Codex / subscription automation + outbox applier | `AMD OS L2① 月次報告抽出` / `amd-os-l1-monthly-report-extract` | 月末最終日 | `amd-os-l2` automation 履歴、`~/.codex/automations/amd-os-ms/outbox/`、LaunchAgent applier |
+| ② AMD Protocol | Daily consolidated evidence | `amd-os-l2-consolidated-evidence` | daily 08:00 JST | consolidated automation 履歴、`pwa/scheduled-tasks/amd-os-l2-protocol-extract/SKILL.md` |
 | ③ MS 進捗 | MMOマシン Codex Desktop automation | `amd-os-l3-ms-progress-extract` | 毎時 0 分 | MMOマシン側 automation 履歴、`pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md` |
-| ④ PJ ナレッジ | MMOマシン Codex Desktop automation | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | MMOマシン側 automation 履歴、`pwa/scheduled-tasks/amd-os-l4-project-knowledge-extract/SKILL.md` |
-| ⑤ メンバーナレッジ | MMOマシン Codex Desktop automation | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | MMOマシン側 automation 履歴、`pwa/scheduled-tasks/amd-os-l5-member-knowledge-extract/SKILL.md` |
+| ④ PJ ナレッジ | Daily consolidated evidence | `amd-os-l2-consolidated-evidence` | daily 08:00 JST | consolidated automation 履歴、`pwa/scheduled-tasks/amd-os-l4-project-knowledge-extract/SKILL.md` |
+| ⑤ メンバーナレッジ | Daily consolidated evidence | `amd-os-l2-consolidated-evidence` | daily 08:00 JST | consolidated automation 履歴、`pwa/scheduled-tasks/amd-os-l5-member-knowledge-extract/SKILL.md` |
 | ⑥ MTG サマリ + フロー | Windows MMO Codex Desktop automation | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | 毎日 09:00-21:00 毎時 | MMOマシン側 automation 履歴、`pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` |
-| ⑦ OS 台帳差分 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l7-registry-diff-extract` | 6h ごと | `amd-os-ms` automation 履歴、`outbox.registryDiffs`、LaunchAgent applier |
-| ⑧ XRL 根拠 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `amd-os-ms` automation 履歴、`outbox.xrlEvidence`、LaunchAgent applier |
-| ⑨ 経営ハイライト | Codex automation + outbox applier | `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `amd-os` automation 履歴、strategy-signals outbox、LaunchAgent applier |
-| ⑩ Textbook Insights | Codex automation / local worker + outbox applier + local BZM applier | `amd-os-l10-textbook-insight-extract` | TBD / manual start | `amd-os-ms` outbox `textbookInsights`、`textbook_insight_candidates`、`apply_approved_textbook_insights.mjs` |
+| ⑦ OS 台帳差分 | Daily consolidated evidence + outbox applier | `amd-os-l2-consolidated-evidence` / SKILL `amd-os-l7-registry-diff-extract` | daily 08:00 JST | consolidated automation 履歴、`outbox.registryDiffs`、LaunchAgent applier |
+| ⑧ XRL checklist audit | Codex / subscription automation + review | L2① 後の XRL checklist audit | 月末 L2① 後 | `monthly_reports`、Supabase 内L2断面、`xrl-level-definitions.ts`、`amd_score_inputs.xrl_checklist` |
+| ⑨ 経営ハイライト | Daily consolidated evidence + outbox applier | `amd-os-l2-consolidated-evidence` / SKILL `amd-os-l9-strategy-signal-extract` | daily 08:00 JST | consolidated automation 履歴、strategy-signals outbox、LaunchAgent applier |
+| ⑩ Textbook Insights | Daily consolidated evidence + outbox applier + local BZM applier | `amd-os-l2-consolidated-evidence` / SKILL `amd-os-l10-textbook-insight-extract` | daily 08:00 JST candidate generation | `amd-os-ms` outbox `textbookInsights`、`textbook_insight_candidates`、`apply_approved_textbook_insights.mjs` |
 | control 先手力 heartbeat | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox`、`project_commander_threads`、`proactive_loop_tool.mjs heartbeat`、司令塔 thread への通知結果 |
 
 ## 各 L2 の入出力仕様
@@ -74,6 +74,7 @@ vs ローカル Mac scheduled task の問題:
 - 抽出: 対象月に起きた進捗、判断、外部関係者の動き、技術/資料、リスク、来月焦点を markdown draft にする
 - 出力: `monthly_reports` (`status='draft'`)。既存 `final_content` は force 明示なしで上書きしない
 - 反映: `~/.codex/automations/amd-os-ms/outbox/*.json` の `monthlyReports` を LaunchAgent が `ms_progress_review_tool.mjs apply-outbox-dir` で反映
+- 後続: 月次報告書の作成後に L2⑧ XRL checklist audit を走らせる
 - 禁止: R313 trigger 復活、PWA `/api/report/generate` / `/api/cron/monthly-reports-backfill` の定期実行、従量課金LLM API の直接呼び出し
 
 ### ② AMD Protocol
@@ -189,10 +190,13 @@ vs ローカル Mac scheduled task の問題:
 - 判定: 5 生データで言及があるが OS 台帳に無い (or 異なる) 項目を差分候補として抽出
 - 通知採否で apply (= 安全な DB 更新) or `status='rejected'`
 
-### ⑧ XRL 根拠
+### ⑧ XRL checklist audit
 
-- 入力: 5 生データ + 既存 L2 (= monthly_reports / meeting_summaries / member_knowledge 等)
-- 出力: `project_xrl_evidence` (= TRL/BRL/GRL/SRL/HRL の axis × evidence、status='candidate')
+- 入力: L2① monthly report + Supabase 内L2断面 (= `project_meeting_summaries`, `project_strategy_signals`, `project_founding_members`, `project_knowledge`, `member_knowledge`, MS進捗, 既存 confirmed `project_xrl_evidence` 等)
+- チェック項目正本: `pwa/src/lib/xrl-level-definitions.ts`
+- 出力: `amd_score_inputs.xrl_checklist` / `amd_score_inputs.xrl_notes` の更新候補。直接 score 値を確定しない
+- 反映: まさ確認後に `amd_score_inputs.xrl_checklist` を更新。スコア詳細UIが checklist から `trl` / `brl` / `grl` / `srl` / `hrl` を導出する
+- `project_xrl_evidence`: daily 通常出力ではなく、強いイベント根拠や過去 confirmed 根拠を残す例外ログとして扱う
 - 関連メンバー (HRL ベース) は `project_founding_members` の `category in ('amd','startup','university')` 対象、VC/顧客/行政は invalid
 
 ### ⑨ 経営ハイライト
@@ -217,7 +221,7 @@ vs ローカル Mac scheduled task の問題:
 |---|---|
 | `l2_extract_state` | `(l2_kind, target_id, scope_key)` ごとに `source_hash`, `saved_count`, `total_count`, `last_processed_at` を保存 |
 | `l2_feedbacks` | レビュー担当の修正依頼。現行 automation は該当 `l2_kind` / `target_id` / `scope_key` の active feedback を prompt に入れる |
-| `l2_notifications` | ②④⑤⑦⑧⑨⑩ の承認カード。`saved_count` が変わったら再通知対象 |
+| `l2_notifications` | ②④⑤⑦⑨⑩ の承認カード。⑧は checklist 更新候補の review 通知、または例外的な `project_xrl_evidence` 候補だけ通知する |
 | `meeting_notifications` | ⑥ MTG サマリの承認/通知カード (= iOS APNs 通知用) |
 | `progress_estimate_state` | ③ MS 進捗の `source_hash` 差分検知 (= UNIQUE `project_id, ym`) |
 

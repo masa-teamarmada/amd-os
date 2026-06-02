@@ -1,6 +1,6 @@
 ---
 name: amd-os-l1-monthly-report-extract
-description: AMD OS L2 ① monthly_reports 抽出 automation。active / sales PJ の当月・前月を対象に、Supabase 内の既存 L2 データを primary input として月次報告 draft を subscription 内 Codex automation で作成し、/Users/masa/.codex/automations/amd-os-ms/outbox の monthlyReports JSON 経由で Supabase に反映する。Gmail / Drive / Calendar / Slack / Notion の 5 生データは L2 coverage gap / backfill / 監査用 fallback として確認する。R313 / PWA report route / Anthropic API など従量課金LLM経路は定期実行に使わない。
+description: AMD OS L2 ① monthly_reports 抽出 automation。月末最終日に active / sales PJ の対象月を見て、Supabase 内の既存 L2 データを primary input として月次報告 draft を subscription 内 Codex automation で作成し、/Users/masa/.codex/automations/amd-os-ms/outbox の monthlyReports JSON 経由で Supabase に反映する。Gmail / Drive / Calendar / Slack / Notion の 5 生データは L2 coverage gap / backfill / 監査用 fallback として確認する。R313 / PWA report route / Anthropic API など従量課金LLM経路は定期実行に使わない。
 ---
 
 # AMD OS L2 ① monthly_reports 抽出
@@ -12,6 +12,7 @@ L2 ① `monthly_reports` は、MS 進捗、PJ ナレッジ、XRL 根拠、月次
 5 生データは、L2 側の根拠が薄い / 欠けている / stale な場合の gap check と backfill 用 fallback として使う。
 
 この automation は **定額 subscription 内で動く Codex automation** が writer。DB 反映は既存の非LLM helper が行う。
+通常 cadence は月末最終日。日次の evidence collector としては扱わない。
 
 ## 絶対ルール
 

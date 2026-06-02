@@ -1,9 +1,11 @@
 ---
 name: amd-os-l8-xrl-evidence-extract
-description: AMD OS L2 ⑧ XRL根拠抽出の repo 正本。現行 writer は Codex automation `amd-os-ms` + non-LLM LaunchAgent applier。active PJ × 当月/前月の 5 生データ + 既存 L2 から各 axis の evidence を抽出し、`xrlEvidence` outbox JSON を `/Users/masa/.codex/automations/amd-os-ms/outbox/` に作る。Supabase `project_xrl_evidence` への upsert は `ms_progress_review_tool.mjs apply-outbox-dir` が行う。DB/APIへ直接書き込まない。
+description: AMD OS L2 ⑧ XRL根拠抽出の旧/例外用 SKILL。2026-06-02以降、通常のL2⑧は日次 evidence collector ではなく、月末 L2① monthly_reports 後の XRL checklist audit。`project_xrl_evidence` / `outbox.xrlEvidence` は強いイベント根拠を月末前に残す必要がある例外時だけ使う。DB/APIへ直接書き込まない。
 ---
 
-# AMD OS L2 ⑧ XRL 根拠抽出 automation
+# AMD OS L2 ⑧ XRL 根拠抽出 automation (旧/例外用)
+
+> 2026-06-02 方針変更: XRL は日々変動する指標ではなく成熟度指標なので、通常経路は月末 L2① monthly_reports 後の `amd_score_inputs.xrl_checklist` audit に寄せる。この SKILL は daily / 6h の通常実行対象ではない。強いイベント根拠を月末前に保存する必要があるときだけ、例外ログとして `project_xrl_evidence` を使う。
 
 ## 設計の要点
 - Codex automation `amd-os-ms` の `outbox.xrlEvidence` → LaunchAgent applier → Supabase 反映
