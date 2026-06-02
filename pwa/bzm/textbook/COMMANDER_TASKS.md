@@ -44,6 +44,7 @@
 - 2026-06-03: `Textbook support boundary pass` 司令塔直接作業で完了。Ch11/14/19/21へ、支援部署・企業・投資家・資金提供側・大学側の局所合理性を補強し、悪役化せず「正しい圧力同士の未調整」が研究者を急がせる構図へ寄せた。成果記録は `pwa/bzm/textbook/runs/2026-06-03-support-boundary-pass.md`。md-onlyのためbuild/deployなし。
 - 2026-06-03: `Textbook full-book ruthless editor narrative appeal audit` worker完了。Ch00〜Ch24のpage-turner性は7.6/10で、Ch00〜10とCh19〜21は販売本の芯として成立、Ch11〜14とCh16〜18に読書疲労、理論名ステージング、hidden listが残るため、全体再rewriteではなく章別surgical orderへ分解。成果記録は `pwa/bzm/textbook/runs/2026-06-03-full-book-ruthless-editor-narrative-appeal-audit.md`。review noteのみのためbuild/deployなし。
 - 2026-06-03: `Textbook Ch16-Ch18 theory-name demotion rewrite` 司令塔直接作業で完了。Ch16は `準備できています` の一文を五つの受け手へ書き直す場面へ、Ch17は8:12公募メールと地域corridorのホワイトボードへ、Ch18は創業者機能を九十日配置メモへ寄せ、理論名ステージングを後段の短い命名へ圧縮。成果記録は `pwa/bzm/textbook/runs/2026-06-03-ch16-18-theory-name-demotion-rewrite.md`。md-onlyのためbuild/deployなし。
+- 2026-06-03: まさ方針「式は後でよい。まずは今のまま物語を仕上げる」を受け、`Textbook story finish midbook consequence pass` を実施。Ch11は公募申請書の危ない一文、Ch12は投資家アップデート予定の送信寸前、Ch13は外部候補のフォローアップメールで強い言葉へ戻る場面、Ch14は別研究者が支援メニューPDFでまた止まる場面を追加。成果記録は `pwa/bzm/textbook/runs/2026-06-03-story-finish-midbook-consequence-pass.md`。md-onlyのためbuild/deployなし。
 
 ## 未完タスク（優先順位順）
 
@@ -52,6 +53,7 @@
 - 2026-06-03: `Textbook support boundary pass` 完了。Ch11/14/19/21で、支援者・投資家・企業・大学・資金提供側の合理性を保持しつつ、未調整圧力が premature GO / over-strong deck / RESOURCE_SHIFT friction を生む構図へ補強。成果物: `pwa/bzm/textbook/runs/2026-06-03-support-boundary-pass.md`。
 - 2026-06-03: `Textbook full-book ruthless editor narrative appeal audit` 完了。Ch00〜Ch24は7.6/10。次はCh16〜Ch18 theory-name demotion、Ch11〜Ch14 midbook consequence source mining / surgical pass、Ch00〜Ch24 bridge/meta residue cleanupへ進む。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-book-ruthless-editor-narrative-appeal-audit.md`。
 - 2026-06-03: `Textbook Ch16-Ch18 theory-name demotion rewrite` 完了。Ch16〜Ch18の `あとでXと呼ぶ` 型の理論名ステージングを減らし、準備度・位相差・創業者機能を、文書/メール/配置メモが会議で変わる場面へ寄せた。成果物: `pwa/bzm/textbook/runs/2026-06-03-ch16-18-theory-name-demotion-rewrite.md`。
+- 2026-06-03: `Textbook story finish midbook consequence pass` 完了。式/モデル説明追加はいったん後回しにし、Ch11〜Ch14へ各章一つずつ、追い風・準備・外部候補・支援メニューが具体的な文書/予定/メール/次研究者を変える場面を追加。成果物: `pwa/bzm/textbook/runs/2026-06-03-story-finish-midbook-consequence-pass.md`。
 
 
 - **page-turner編集レビューと素材発掘ループ**
