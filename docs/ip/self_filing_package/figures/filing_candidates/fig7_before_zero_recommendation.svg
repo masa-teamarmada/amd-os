@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1100" viewBox="0 0 1400 1100" role="img" aria-labelledby="title desc">
+<title id="title">fig7_before_zero_recommendation.svg</title><desc id="desc">Black and white internal patent figure candidate with reference numerals.</desc>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#000"/></marker></defs>
+<rect x="0" y="0" width="1400" height="1100" fill="#fff"/>
+  <style>
+    .title { font: 700 28px Arial, sans-serif; }
+    .box { fill: #fff; stroke: #000; stroke-width: 2; }
+    .smallbox { fill: #fff; stroke: #000; stroke-width: 1.8; }
+    .line { stroke: #000; stroke-width: 2; fill: none; }
+    .text { font: 18px Arial, sans-serif; fill: #000; }
+    .small { font: 15px Arial, sans-serif; fill: #000; }
+    .label { font: 14px Arial, sans-serif; fill: #000; }
+  </style>
+
+<rect x="80" y="95" width="300" height="80" rx="0" class="box"/>
+<text x="230" y="121" class="text" text-anchor="middle"><tspan x="230" dy="0">Target</tspan><tspan x="230" dy="22">project</tspan></text>
+<polygon points="230,202.5 360,260 230,317.5 100,260" class="box"/>
+<text x="230" y="256" class="small" text-anchor="middle"><tspan x="230" dy="0">Pre-</tspan><tspan x="230" dy="22">incorporation?</tspan></text>
+<path d="M230,175 L230,203" class="line" marker-end="url(#arrow)"/>
+<rect x="80" y="405" width="300" height="76" rx="0" class="box"/>
+<text x="230" y="431" class="text" text-anchor="middle"><tspan x="230" dy="0">Input</tspan><tspan x="230" dy="22">categories</tspan></text>
+<path d="M230,318 L230,405" class="line" marker-end="url(#arrow)"/>
+<text x="204" y="397" class="label" text-anchor="middle"><tspan x="204" dy="0">yes</tspan></text>
+<rect x="470" y="220" width="300" height="76" rx="0" class="box"/>
+<text x="620" y="246" class="text" text-anchor="middle"><tspan x="620" dy="0">Normal</tspan><tspan x="620" dy="22">decision process</tspan></text>
+<path d="M360,260 L470,258" class="line" marker-end="url(#arrow)"/>
+<text x="444" y="250" class="label" text-anchor="middle"><tspan x="444" dy="0">no</tspan></text>
+<rect x="520" y="360" width="250" height="66" rx="0" class="smallbox"/>
+<text x="645" y="383" class="small" text-anchor="middle"><tspan x="645" dy="0">260 Master</tspan><tspan x="645" dy="22">record</tspan></text>
+<rect x="520" y="470" width="250" height="66" rx="0" class="smallbox"/>
+<text x="645" y="493" class="small" text-anchor="middle"><tspan x="645" dy="0">270 Protocol</tspan><tspan x="645" dy="22">data</tspan></text>
+<rect x="520" y="580" width="250" height="66" rx="0" class="smallbox"/>
+<text x="645" y="603" class="small" text-anchor="middle"><tspan x="645" dy="0">290 Outcome</tspan><tspan x="645" dy="22">data</tspan></text>
+<rect x="520" y="690" width="250" height="66" rx="0" class="smallbox"/>
+<text x="645" y="713" class="small" text-anchor="middle"><tspan x="645" dy="0">320 Parameter</tspan><tspan x="645" dy="22">version</tspan></text>
+<path d="M380,443 L520,393" class="line" marker-end="url(#arrow)"/><path d="M380,443 L520,503" class="line" marker-end="url(#arrow)"/><path d="M380,443 L520,613" class="line" marker-end="url(#arrow)"/><path d="M380,443 L520,723" class="line" marker-end="url(#arrow)"/>
+<rect x="900" y="525" width="350" height="84" rx="0" class="box"/>
+<text x="1075" y="551" class="text" text-anchor="middle"><tspan x="1075" dy="0">Identify missing</tspan><tspan x="1075" dy="22">or contradictory categories</tspan></text>
+<path d="M770,393 L900,547" class="line" marker-end="url(#arrow)"/><path d="M770,503 L900,557" class="line" marker-end="url(#arrow)"/><path d="M770,613 L900,567" class="line" marker-end="url(#arrow)"/><path d="M770,723 L900,577" class="line" marker-end="url(#arrow)"/>
+<rect x="900" y="720" width="350" height="80" rx="0" class="box"/>
+<text x="1075" y="746" class="text" text-anchor="middle"><tspan x="1075" dy="0">340 Timing</tspan><tspan x="1075" dy="22">recommendation data</tspan></text>
+<path d="M1075,609 L1075,720" class="line" marker-end="url(#arrow)"/>
+<polygon points="1075,847.5 1205,900 1075,952.5 945,900" class="box"/>
+<text x="1075" y="896" class="small" text-anchor="middle"><tspan x="1075" dy="0">Presentation</tspan><tspan x="1075" dy="22">condition?</tspan></text>
+<path d="M1075,800 L1075,848" class="line" marker-end="url(#arrow)"/>
+<rect x="740" y="1010" width="260" height="62" rx="0" class="box"/>
+<text x="870" y="1036" class="text" text-anchor="middle"><tspan x="870" dy="0">330 Present</tspan><tspan x="870" dy="22">to related screens</tspan></text>
+<rect x="1120" y="1010" width="260" height="62" rx="0" class="box"/>
+<text x="1250" y="1036" class="text" text-anchor="middle"><tspan x="1250" dy="0">Save hold</tspan><tspan x="1250" dy="22">or more checks</tspan></text>
+<path d="M945,900 L870,1010" class="line" marker-end="url(#arrow)"/>
+<text x="844" y="1002" class="label" text-anchor="middle"><tspan x="844" dy="0">yes</tspan></text><path d="M1205,900 L1250,1010" class="line" marker-end="url(#arrow)"/>
+<text x="1224" y="1002" class="label" text-anchor="middle"><tspan x="1224" dy="0">no</tspan></text>
+</svg>

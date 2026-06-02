@@ -19,6 +19,19 @@
 
 cleanup後も、実提出は禁止。残るBlockerは、願書の実入力欄、AMD名義の電子出願環境、手数料納付方法、正式提出図面化、30条例外要否、請求項A/B・WS-5・WS-6のまさ判断である。
 
+## 2026-06-02 formal figure readiness update
+
+正式提出図面化に向けた内部readiness点検を追加し、`docs/ip/self_filing_package/2026-06-02_formal_figure_readiness_internal.md` を作成した。
+
+更新内容:
+
+1. `docs/ip/self_filing_package/figures/filing_candidates/` にFig.1-Fig.8の内部提出候補SVG一式を作成した。
+2. 候補SVGでは、正式図面に不要な可視タイトルを削除した。
+3. `filing_candidates/fig8_integrated_review_ui.svg` では、元SVGにあった内部注意文を削除した。
+4. 元SVG8件と候補SVG8件について、XML parse検証を実施し、構文エラーなしを確認した。
+
+この更新後も、候補SVGはJPO提出ファイルそのものではない。残るBlockerは、提出方式に合う画像形式への変換、白黒2値化後の実見確認、余白 / 線幅 / 文字サイズ / 参照符号の確認、最新JPO方式確認、請求項A/B・WS-5・WS-6のまさ判断である。
+
 ## Executive verdict
 
 提出パック全体のreadinessは、**出願日を取りに行く直前レビューに使える水準。ただし、このままJPO提出はまだ止める**。
@@ -160,7 +173,7 @@ Secret scan verdict:
 | 承継メモ | 内部雛形 `2026-06-02_assignment_decision_memo_draft_internal.md` を作成済み | 正式書面化、署名、押印、決裁者、日付を確認 |
 | 図面形式 | SVG画像候補まで。正式提出画像ではない | JPO方式確認、モノクロ2値相当への変換、余白/線幅/文字/符号視認性確認 |
 | 符号説明 | 明細書・図面brief・図面READMEは330/340まで同期済み | 正式画像化後に符号対応を再確認 |
-| 図面内注意文 | Fig.8に内部注意書きがある | 正式提出図面から削除し、README/secret scan側に残す |
+| 図面内注意文 | 元SVGのFig.8には内部注意書きあり。候補SVGでは削除済み | 元SVGは内部レビュー用として残す。正式画像化は `filing_candidates/` 側から進める |
 
 ## Blocker / Warning / Nice-to-have
 
@@ -224,7 +237,7 @@ Secret scan verdict:
 
 1. 願書未確認欄を、repoに書かない実入力事項として出願ソフト上で確定する。
 2. 承継メモ雛形を正式書面化するか、社内決裁メモとして足りるか確認する。
-3. Fig.8 SVGから内部注意文を削除した正式清書候補を作る。
+3. `figures/filing_candidates/` の候補SVGを提出方式に合う画像形式へ変換し、白黒2値化後の読解性を確認する。
 4. AMD名義の電子出願環境、手数料納付、承継メモ、30条例外要否を出願当日Mustとして別チェックリスト化する。
 5. 正式画像化後に、もう一度 `secret scan + 符号対応 + 請求項番号対応` の提出直前mini reviewを行う。
 

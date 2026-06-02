@@ -110,15 +110,15 @@
 
 - お願いした内容: 願書、明細書、特許請求の範囲、要約書、図面SVG、図面README、公開資料メモ、発明者 / 出願人メモ、営業秘密scan、JPO提出前Mustを横断し、出願日を取りに行く前にズレを洗い出す。
 - 背景: self filing package と図面SVG候補まで揃ったが、まだ実提出ではない。請求項 / 明細書 / 図面 / 要約 / 願書 / 公開資料 / 権利帰属の横断整合とBlocker分類が必要。
-- 現状: 2026-06-02にfinal consistency review worker `019e86d3-6008-70d2-b70b-1bf967514909` を回収済み。成果物 `docs/ip/self_filing_package/2026-06-02_final_consistency_review_internal.md` を追加し、結論は「出願日を取りに行く直前レビューに使える水準。ただし、このままJPO提出はまだ止める」。2026-06-02 self filing final blocker cleanupで、明細書の符号説明と本文へ330/340を追加し、図面brief / figures READMEの符号対応表も補強、願書候補へ発明名称欄を追加、承継・社内決裁メモ雛形 `docs/ip/self_filing_package/2026-06-02_assignment_decision_memo_draft_internal.md` を作成済み。営業秘密scanでは、実値混入Blockerは検出なし。
-- 残課題: Fig.8の内部注意文を正式図面から外す。AMD名義の電子出願環境、願書実入力欄、手数料納付、承継メモの正式化、30条例外要否、請求項A/B・WS-5・WS-6判断を出願当日Mustとして潰す。正式画像化後に符号対応と営業秘密scanを再実施する。
+- 現状: 2026-06-02にfinal consistency review worker `019e86d3-6008-70d2-b70b-1bf967514909` を回収済み。成果物 `docs/ip/self_filing_package/2026-06-02_final_consistency_review_internal.md` を追加し、結論は「出願日を取りに行く直前レビューに使える水準。ただし、このままJPO提出はまだ止める」。2026-06-02 self filing final blocker cleanupで、明細書の符号説明と本文へ330/340を追加し、図面brief / figures READMEの符号対応表も補強、願書候補へ発明名称欄を追加、承継・社内決裁メモ雛形 `docs/ip/self_filing_package/2026-06-02_assignment_decision_memo_draft_internal.md` を作成済み。2026-06-02 formal figure readiness workerで、`docs/ip/self_filing_package/2026-06-02_formal_figure_readiness_internal.md` と `docs/ip/self_filing_package/figures/filing_candidates/` を追加し、候補SVGでは可視タイトルとFig.8内部注意文を削除済み。営業秘密scanでは、実値混入Blockerは検出なし。
+- 残課題: AMD名義の電子出願環境、願書実入力欄、手数料納付、承継メモの正式化、30条例外要否、請求項A/B・WS-5・WS-6判断を出願当日Mustとして潰す。正式画像化 / 提出方式変換後に、余白、線幅、2値化後の読解性、符号対応、営業秘密scanを再実施する。
 
 ### 12. self filing final blocker cleanupをする
 
 - お願いした内容: final consistency reviewで出たBlockerのうち、まさ判断なしで直せる書類整合・形式候補を内部補強する。
 - 背景: 最終整合レビューの結論は `Conditional / Not filing-ready yet`。発明内容の内部整合は概ね通るが、符号不一致、願書未確認欄、正式図面化、承継メモ未作成が提出前Blockerとして残っている。請求項A/B、WS-5/WS-6、30条例外はまさ判断事項として残し、まず明らかに直せる部分だけ進める。
-- 現状: 2026-06-02にblocker cleanup worker `019e86d9-cd53-79f0-a676-fddbe8c9bcd0` をactiveとして切り出し済み。対象は、明細書符号説明と図面/SVG参照符号の不一致修正、願書候補への発明名称欄追加、承継/社内決裁メモの内部雛形作成、final consistency reviewへのcleanup後残Blocker追記。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
-- 残課題: workerから、修正したBlocker、残したBlocker、成果物パス、営業秘密混入なし確認、終了ゲートの報告を受ける。
+- 現状: 2026-06-02にblocker cleanup worker `019e86d9-cd53-79f0-a676-fddbe8c9bcd0` の成果が `docs/ip/self_filing_package/2026-06-02_final_consistency_review_internal.md` へ反映済み。明細書符号説明と本文への330/340追加、図面brief / figures READMEの符号対応表補強、願書候補への発明名称欄追加、承継/社内決裁メモ雛形作成は完了扱い。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は未実施。
+- 残課題: 前段cleanup由来の未完は、formal figure readiness後の残Blockerへ統合済み。正式画像化 / 提出方式変換、願書実入力欄、AMD名義の電子出願環境、手数料納付、承継メモ正式化、30条例外要否、請求項A/B・WS-5・WS-6判断を残す。
 
 ### 13. self filing formal figure readinessを確認する
 
@@ -128,6 +128,13 @@
 - 残課題: workerから、修正した図面、残した図面Blocker、正式提出直前TODO、営業秘密scan、終了ゲートの報告を受ける。
 
 ## 完了済みタスク
+
+### self filing formal figure readiness
+
+- お願いした内容: self filing final blocker cleanup後に残った正式提出図面まわりを、内部でできる範囲まで詰める。Fig.1〜Fig.8 SVGの方式、余白、線幅、2値化、参照符号視認性、Fig.8内部注意文削除方針を確認し、必要な内部候補ファイルとチェックリストを作る。
+- 背景: SVG画像候補は内部レビュー用としてusableだが、正式提出図面ではなかった。JPO提出直前レビューに近づけるには、内部注意文や可視タイトルの削除、正式画像化TODO、符号 / 明細書 / 請求項対応、営業秘密scanを再整理する必要があった。
+- 現状: 2026-06-02に成果物 `docs/ip/self_filing_package/2026-06-02_formal_figure_readiness_internal.md`、`docs/ip/self_filing_package/figures/filing_candidates/`、`docs/ip/self_filing_package/figures/filing_candidates/README.md` を追加済み。候補SVGでは全図の可視タイトルを削除し、Fig.8の内部注意文も削除済み。元SVG8件と候補SVG8件のXML parse検証はOK。外部送付、JPO提出、弁理士問い合わせ、DB write、production DB接続は未実施。
+- 残課題: 候補SVGはJPO提出ファイルそのものではない。提出方式に合う画像形式への変換、白黒2値化後の実見確認、余白 / 線幅 / 参照符号視認性、最新JPO方式確認、請求項A/B・WS-5・WS-6・30条例外・審査請求タイミングのまさ判断が残る。
 
 ### A/B/C/D workerによる事業価値・moat・営業秘密・請求項検証
 
