@@ -40,8 +40,8 @@
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
-  - 現状: 2026-06-02までに、editorial narrative reset audit、OS field knowhow harvest v6、public book architecture reset briefをmainへ回収し、旧BZM/会社紹介寄りの導線をpublic manuscriptへ切り替え済み。司令塔直接作業でCh00〜Ch03をAct I、Ch04〜Ch06をAct II、Ch07〜Ch10をAct III、Ch11〜Ch14をAct IVとして、primary composite case「強くなりすぎたdeck sentence」が顧客証拠、時計衝突、研究者孤独、外部CEO displacement、開示事故寸前、登記/生存確率判断、90日WAIT、責任配置、投資家面談、学習ログ、追い風、公募、準備度の混同、外部経営候補、研究機関の苗床へ進むnarrativeに改稿。review notesとして `2026-06-02-act-i-cold-reader-editor-review.md`、`2026-06-02-act-i-ii-cold-reader-editor-review.md`、`2026-06-02-act-i-iii-cold-reader-editor-review.md`、`2026-06-02-act-iv-cold-reader-editor-review.md`、rewrite notesとして `2026-06-02-opening-act-i-narrative-rewrite.md`、`2026-06-02-act-ii-narrative-rewrite.md`、`2026-06-02-act-iii-narrative-rewrite.md`、`2026-06-02-act-iv-narrative-rewrite.md` を追加。Act III用 source mining workerも `2026-06-02-act-iii-source-mining.md` を追加し、Ch07〜Ch10向けに composite scene 16件、tool/question/checklist 24件、各章5件のinsertion mapを整理。Act V/Toolkit source mining workerが `2026-06-02-act-v-toolkit-source-mining.md` を追加し、Ch19〜Ch24向けに composite scene 14件、tool/question/checklist 30件、各章4件のinsertion map、Field Toolkit抽出候補、author directive投入点、安全分類を整理。
-  - 残課題: Act IV冷読レビューは `2026-06-02-act-iv-cold-reader-editor-review.md` として完了。次はCh15〜Ch18をAct V前半として同じcomposite caseからBZM理論地図へ進める。続けてCh19〜Ch24 Act V/Field Toolkit rewrite workerを切り、Act V source mining素材を本文へ直接貼らずcomposite scene / tool artifact化して反映する。`table extraction / toolkit appendix`、`support boundary pass`、Ch00〜Ch18 surgical residue passも残る。
+  - 現状: 2026-06-02までに、editorial narrative reset audit、OS field knowhow harvest v6、public book architecture reset briefをmainへ回収し、旧BZM/会社紹介寄りの導線をpublic manuscriptへ切り替え済み。司令塔直接作業でCh00〜Ch03をAct I、Ch04〜Ch06をAct II、Ch07〜Ch10をAct III、Ch11〜Ch14をAct IVとして、primary composite case「強くなりすぎたdeck sentence」が顧客証拠、時計衝突、研究者孤独、外部CEO displacement、開示事故寸前、登記/生存確率判断、90日WAIT、責任配置、投資家面談、学習ログ、追い風、公募、準備度の混同、外部経営候補、研究機関の苗床へ進むnarrativeに改稿。Act IV冷読レビューは `2026-06-02-act-iv-cold-reader-editor-review.md` として完了。2026-06-02にCh15〜Ch18をAct V前半 / theory-map entranceとして、同じ案件が期待・低い条件・人の傷・資金圧力で再び混ざり、現場語だけでは整理できなくなる流れからBZM、TRL/BRL/GRL/SRL/HRL、sigma_SU、mu_A/mu_I/mu_G、FRL/F_character/F_capabilityを導入する本文へ改稿。rewrite note `2026-06-02-act-v-theory-map-narrative-rewrite.md` を追加。Act III用 source mining workerも `2026-06-02-act-iii-source-mining.md` を追加し、Ch07〜Ch10向けに composite scene 16件、tool/question/checklist 24件、各章5件のinsertion mapを整理。Act V/Toolkit source mining workerが `2026-06-02-act-v-toolkit-source-mining.md` を追加し、Ch19〜Ch24向けに composite scene 14件、tool/question/checklist 30件、各章4件のinsertion map、Field Toolkit抽出候補、author directive投入点、安全分類を整理。
+  - 残課題: Ch15〜Ch18 cold-reader/editor review、Ch19〜Ch24 Act V/Field Toolkit rewrite worker、`table extraction / toolkit appendix`、`support boundary pass`、Ch00〜Ch18 surgical residue passを切り、v6素材台帳、Act III source mining素材、Act V source mining素材を本文へ直接貼らずcomposite scene / tool artifact化して反映する。
 
 
 
@@ -94,6 +94,12 @@
   - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
 
 ## 完了済みタスク
+
+- **Textbook Act V theory-map narrative rewrite Ch15-18**
+  - お願いした内容: Ch15〜Ch18を、理論説明章/表/ワークブックではなく、Act I〜IVから続くcomposite caseが現場語だけでは整理できなくなることでBZM理論地図へ入る読み物に改稿する。
+  - 背景: Ch15〜Ch18はBZM、readiness axes、macro alignment、founder readinessの理論語を出す必要があるが、理論語から始めると販売本では glossary / workbook に戻るため。
+  - 現状: 2026-06-02に本文を改稿し、Ch15は期待・低い条件・人の傷・資金圧力が同じ案件に戻る会議からBZMを地図として導入、Ch16は研究者/企業/病院/産学連携/若手人材が違う準備を見ている会議からTRL/BRL/GRL/SRL/HRLへ接続、Ch17は公募メール/研究者/病院/企業/自治体の速度差からsigma_SUとmu_A/mu_I/mu_Gへ接続、Ch18は外部経営候補のrepeat-backと最初の90日からFRL/F_character/F_capabilityへ接続した。run note `pwa/bzm/textbook/runs/2026-06-02-act-v-theory-map-narrative-rewrite.md` を追加。
+  - 残課題: Ch15〜Ch18 cold-reader/editor review、Ch19〜Ch24のAct V/Field Toolkit rewrite、Field Toolkit extractionへ進む。
 
 - **Textbook Act IV cold-reader/editor review**
   - お願いした内容: main反映済みの public manuscript Ch11〜Ch14を、Act I〜IIIから続く読み物として成立しているか、理論説明章へ戻っていないか、composite case continuity / author directive retention / Act Vへの未解決問いを冷読者・編集者目線でレビューする。
