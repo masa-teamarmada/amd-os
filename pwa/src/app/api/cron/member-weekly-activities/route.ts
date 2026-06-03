@@ -930,7 +930,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  if (process.env.ALLOW_PWA_LLM_CRONS !== "1") {
+  const interactiveManualRun = req.nextUrl.searchParams.get("interactive") === "1";
+  if (process.env.ALLOW_PWA_LLM_CRONS !== "1" && !interactiveManualRun) {
     return NextResponse.json({
       ok: true,
       disabled: true,

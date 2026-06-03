@@ -496,6 +496,7 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
       .from("member_activities")
       .select("id, project_id, source, title, content_preview, item_date, raw_metadata")
       .eq("member_id", member.memberId)
+      .eq("source", "member_weekly")
       .gte("item_date", week.startIso)
       .lt("item_date", week.endIso)
       .order("item_date", { ascending: false, nullsFirst: false })
