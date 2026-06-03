@@ -5,6 +5,15 @@
 
 ---
 
+### [deps] react-simple-maps は React 19 と peer dep 衝突 → `--legacy-peer-deps` 必須 (2026-06-03)
+
+- **状態**: ✅ 既知ハマり (= 回避策確立済み)
+- **症状**: 🇯🇵 日本文化マップ (`/japanese-culture-map`) で日本地図描画に `react-simple-maps@^3.0.0` を追加。素の `npm install` は `react-simple-maps` の peerDependencies が `react: ^16.8 || 17.x || 18.x` 止まりで、本リポの React 19.2.4 と衝突して ERESOLVE で失敗する。
+- **回避策**: **このリポで `npm install` する時は `--legacy-peer-deps` を付ける** (= `react-simple-maps` / `d3-geo` 追加コミット以降)。`package.json` には正しく入っているので、CI / 別 PC の clone でも `npm install --legacy-peer-deps` で揃う。型定義は `@types/react-simple-maps` (React 17 向けで衝突) を避け、`src/types/react-simple-maps.d.ts` に必要分だけ自前 `declare module` した。
+- **教訓**: React 19 環境に古い react エコシステムライブラリを足す時は peer dep を先に確認 (`npm info <pkg> peerDependencies`)。`--legacy-peer-deps` で「removed N packages」が出ても、`package.json` の差分が追加対象のみで `tsc`/`build` が通れば既存ツリーは壊れていない。
+
+---
+
 ### [automation/mojibake] Codex automation が outbox の日本語を `?` に化けさせ通知が「?? ZMP: ???」になった (2026-06-02)
 
 - **発見日**: 2026-06-02 (まさが /notifications で「?? ZMP: ??????」通知を発見)
