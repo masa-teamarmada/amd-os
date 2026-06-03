@@ -56,6 +56,8 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-03: `Textbook Cloudflare Pages draft reader` 準備完了 / `Blocked by Masa`。Vercel quotaを消費しないTextbook draft reader hostingとしてCloudflare Pagesを採用する方針に固定。`pwa/bzm/textbook/reader/deploy-cloudflare-pages.mjs` と `pwa/bzm/textbook/reader/README.md` を追加し、Cloudflare login後に `textbook-draft` Pages projectへdeployできる状態まで準備。現状blockerはCloudflare account/login未作成のみ。Vercel fallbackは禁止。成果物: `pwa/bzm/textbook/runs/2026-06-03-cloudflare-pages-draft-reader-prep.md`。再開条件: まさがCloudflare accountを作成/ログインできる状態にする。
+
 - 2026-06-03: `Textbook static reader for draft review` 完了。下書き段階のTextbook推敲を毎回PWA productionへ載せるのはやめ、`pwa/bzm/public-manuscript/*.md` から単体HTMLを生成する横スワイプreaderを追加。成果物: `pwa/bzm/textbook/reader/generate-reader.mjs`, `pwa/bzm/textbook/reader/textbook-reader.html`, `pwa/bzm/textbook/runs/2026-06-03-static-reader-for-draft-review.md`。今後の下書き確認はHTML readerを優先し、PWA production deployはrelease checkpointだけにする。
 
 - 2026-06-03: `Textbook docs-only Vercel ignore gate` 完了。Textbook markdown推敲のmain pushがVercel production deployment quotaを大量消費していたため、`pwa/vercel.json` に `ignoreCommand` を追加し、`pwa/scripts/vercel_ignore_build.mjs` でGit自動deploy時のdocs/Textbook-only変更をskipするようにした。PWA code/config/package/public asset変更はbuild継続、手動CLI deployはrelease checkpoint用にbuild継続。成果物: `pwa/bzm/textbook/runs/2026-06-03-vercel-ignore-textbook-docs.md`。次はquota回復後に1回だけrelease checkpoint deploy / route inspect。
