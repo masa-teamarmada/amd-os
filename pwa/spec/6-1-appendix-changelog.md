@@ -14,7 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
-| 2026-06-03 | 3-0 / 3-1 / spec top | 追加・変更 | `/spec` トップにL2データリストへの固定リンクを追加し、L2データ16種の正本リストとL2⑯ Management Monthly Signal Evaluationのsource of truth / payload / 月末17:00更新候補を追記。non-LLM generator / guarded route / UI preview / migration 122 も実装済みと明記 | 開発に携わっていないメンバーもL2一覧へ迷わず入れるようにし、月末経営シグナル評価を単なるUI文言ではなくL2データ設計として固定するため | えいみ |
+| 2026-06-03 | 3-0 / 3-1 / spec top | 追加・変更 | `/spec` トップにL2データリストへの固定リンクを追加し、L2データ16種の正本リストとL2⑯ Management Monthly Signal Evaluationのsource of truth / payload / 月末17:00更新候補を追記。L2⑯は design-only とし、設計確定まで migration / DB write / route / UI本実装 / active cron登録を進めないと明記 | 開発に携わっていないメンバーもL2一覧へ迷わず入れるようにし、月末経営シグナル評価を単なるUI文言ではなくL2データ設計として固定するため | えいみ |
 | 2026-05-30 | 1-1 / 1-2 / 2-1 / 3-1 / 3-2 / 3-3 / 4-1 | 追加 | `/spec` 初期章を追加し、manual / spec / bzm 3層分割、PWA runtime、L2、monthly_reports、meeting flow、FRL CES を移行 | 現行 manual / design に混在していた確定実装仕様を設計書へ分離するため | えいみ |
 | 2026-05-31 01:21 JST | 3-4 / 3-5 / 3-6 / 4-2 | 追加 | L2⑦ OS台帳差分、L2⑧ XRL根拠、L2⑨経営ハイライト、AMD Score実装仕様を追加 | L2 ⑦⑧⑨ と AMD Score の current contract を `/spec` へ移し、manual/design の重複を減らすため | えいみ |
 | 2026-05-31 01:21 JST | 5-1 / 5-2 / 5-3 / 5-4 / 6-1 | 追加 | ドキュメント統制、開発/デプロイ運用、automation責務分担、判断履歴/事故ログ、設計書附則を追加 | まさ指摘「manual 9章に開発情報が残っている」「設計書だけでOSを再構築できる粒度が必要」「附則がないと勝手に消える事故を防げない」への対応 | えいみ |

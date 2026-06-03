@@ -145,6 +145,8 @@ total_score =
 
 候補テーブル: `amd_management_monthly_signal_evaluations`
 
+これは L2 抽出設計の候補であり、設計確定前に migration / DB write / route / UI本実装 / 月末自動生成を進めない。現本番 `/management-score` の「経営シグナル評価」欄は暫定UIで、最終形ではない。
+
 | field | meaning |
 |---|---|
 | `ym` | 対象年月 (`YYYYMM`) |
@@ -160,7 +162,7 @@ total_score =
 | `is_current` | 最新表示対象か |
 | `superseded_at` | 同月の新version生成時に旧currentへ入れる |
 
-migration 122、non-LLM生成lib、guarded API route、`/management-score` UI preview は実装済み。production DBへのmigration適用、active cron登録、deployはこの作業では行っていない。
+source of truth table / payload schema / source_refs_json / 履歴保存ルールは、この節をたたき台に設計確定する。確定後に migration、保存処理、UI文言、status icon、過去ログ表示、月末17:00 automation を本実装する。
 
 ### 入力
 
@@ -201,12 +203,12 @@ migration 122、non-LLM生成lib、guarded API route、`/management-score` UI pr
 
 ### 生成経路
 
-- 毎月末日 17:00 JST に Codex / subscription automation 候補を走らせる
-- raw/calc後の月末断面を読み、`/api/cron/management-monthly-signal-evaluation` でreviewable payloadを作る
-- migration 122適用前は `dryRun=1` でpayload確認だけ行う
+- 毎月末日 17:00 JST に Codex / subscription automation 候補を走らせる設計
+- raw/calc後の月末断面を読み、reviewable payloadを作る。ただし route / DB write は未実装
+- 設計確定までは `/management-score` の評価文・status icon・保存・自動生成を本実装しない
 - PWA / Vercel background LLM cron は復活させない
-- 古い評価は `is_current=false` + `superseded_at` で過去ログへ閉じる
-- `/management-score` では最新評価だけ展開し、古い評価は月別/版別トグルで閉じる
+- 古い評価は `is_current=false` + `superseded_at` で過去ログへ閉じる設計
+- `/management-score` では最新評価だけ展開し、古い評価は月別/版別トグルで閉じる設計
 
 ---
 

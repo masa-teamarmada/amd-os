@@ -35,7 +35,7 @@ internal L2 抽出は必ず次の 5 種類を対象にする。L2 ⑪⑫⑮は e
 | ⑬ Member Weekly Activities | `member_activities(source='member_weekly')` | separate weekly subscription automation candidate | outbox/applier; PWA Anthropic route stays guarded/manual |
 | ⑭ Finance Ops Evidence | `company_finance_recurring_items`, `company_finance_receipt_events`, derived `company_actual_monthly`, `company_budget_monthly` | PWA non-LLM finance cron + admin review + optional subscription automation | source-ref based finance review; no raw receipt body storage |
 | ⑮ VC News / Funding Signals | `vc_news`, `vcs`, `vc_funds`, `vc_investments`, `project_vc_relations` | subscription/Codex automation `amd-os-l2-vc-news-funding-signals`; PWA `vc-discover` stays guarded/manual | VC inbox / review outbox |
-| ⑯ Management Monthly Signal Evaluation | `amd_management_monthly_signal_evaluations` (migration 122) | month-end 17:00 JST Codex / subscription automation candidate + guarded route `/api/cron/management-monthly-signal-evaluation` | reviewable management evaluation; old versions collapsed in UI |
+| ⑯ Management Monthly Signal Evaluation | candidate `amd_management_monthly_signal_evaluations` | month-end 17:00 JST Codex / subscription automation candidate | design-only until source table / payload / source refs / update responsibility are accepted |
 
 ## L2 ⑥ MTG サマリの開催済みソース guard
 
@@ -60,7 +60,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 - L2 ⑬は privacy / cadence が違うため daily consolidated evidence には入れず、別 weekly subscription automation 候補にする。
 - L2 ⑭は finance non-LLM cron / admin review が primary。LLM分類が必要なときだけ subscription automation / guarded manual route に寄せる。
 - L2 ⑮は PWA `vc-discover` を active Vercel cron に戻さず、subscription/Codex automation `amd-os-l2-vc-news-funding-signals` を primary にする。
-- L2 ⑯は数字を再掲しない。`company_budget_actual_monthly` / Management Score snapshot / evidenceを読み、状態アイコン・1行評価・2〜3個の判断理由・次に見るべきことに変換する。non-LLM generator / guarded route / UI preview は実装済みで、migration apply / active cron / deploy は未実施。
+- L2 ⑯は数字を再掲しない。`company_budget_actual_monthly` / Management Score snapshot / evidenceを読み、状態アイコン・1行評価・2〜3個の判断理由・次に見るべきことに変換する設計候補。L2抽出・保存・更新設計が固まるまで、migration / DB write / route / UI本実装 / active cron登録は進めない。
 - L2 ③⑥は MMOマシン Codex Desktop automation が現行 writer。
 - 旧 GAS 153 / 155、AMD-Report GAS R313、PWA LLM cron は定期 writer として復活させない。
 - PWA `/api/cron/hourly-estimate` は `ALLOW_PWA_LLM_CRONS=1` がない限り disabled response のみ。
@@ -76,7 +76,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 | TBD weekly member activities outbox | L2 ⑬ member weekly activities candidate |
 | finance admin review / source refs | L2 ⑭ finance recurring / receipt evidence |
 | `~/.codex/automations/amd-os-l2-vc-news-funding-signals/outbox/` | L2 ⑮ VC news / funding signal candidate |
-| `/api/cron/management-monthly-signal-evaluation?dryRun=1` | L2 ⑯ management monthly evaluation proposal。migration適用後は `amd_management_monthly_signal_evaluations` へ保存 |
+| TBD management monthly signal proposal | L2 ⑯ management monthly evaluation proposal。設計確定まで route / DB write なし |
 
 反映はローカルの非LLM LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` が行う。成功 file は `applied/`、失敗 file は `failed/` へ移動する。
 
@@ -95,7 +95,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 | Member Weekly Activities | accepted `member_activities(source='member_weekly')` row | discard proposal |
 | Finance Ops Evidence | finance admin confirm / deterministic sync | discard proposal |
 | VC News / Funding Signals | accept in VC inbox / update VC/fund/news records | dismiss / duplicate |
-| Management Monthly Signal Evaluation | latest evaluation becomes expanded current row; previous current row is collapsed history | discard proposal |
+| Management Monthly Signal Evaluation | design target: latest evaluation becomes expanded current row; previous current row is collapsed history | discard proposal |
 | PJナレッジ | `project_knowledge.status='active'` | `rejected` |
 | AMD Protocol | `protocols.status='confirmed'` | `rejected` |
 | founding members | `project_founding_members.status='active'` | `invalid` |

@@ -23,7 +23,7 @@ L2 は、メール・議事録・Slack・外部ニュース・freee・予実表�
 | ⑬ | Member Weekly Activities | メンバーごとの週次活動 | mypage、reward、L2⑤、MS貢献レビュー | 別weekly automation候補 |
 | ⑭ | Finance Ops Evidence | サブスク、継続費、自動振替、領収書イベント | 月次PL、Management Score finance軸 | PWA non-LLM finance cron + admin review |
 | ⑮ | VC News / Funding Signals | VCニュース、ファンド組成、投資活動、資金調達シグナル | VC inbox、fund情報、fundraising判断 | weekly Codex automation |
-| ⑯ | Management Monthly Signal Evaluation | 月末時点の会社経営状態を、良い/悪い/次に見ることへ翻訳した評価文 | `/management-score` の月次試算表下、経営判断、過去ログ | 毎月末17:00 Codex automation候補。PWA guarded non-LLM route実装済 |
+| ⑯ | Management Monthly Signal Evaluation | 月末時点の会社経営状態を、良い/悪い/次に見ることへ翻訳した評価文 | `/management-score` の月次試算表下、経営判断、過去ログ | 毎月末17:00 Codex automation候補。設計確定まで route / DB write / UI本実装なし |
 
 ## L2⑯の評価文ルール
 
@@ -38,7 +38,7 @@ L2⑯は、予実表の数字をもう一度読み上げる場所ではない。
 
 ## source of truth
 
-L2⑯のsource of truth tableは `amd_management_monthly_signal_evaluations`。migration 122として追加済みだが、このbranchではproduction DBへ適用していない。
+L2⑯のsource of truth table候補は `amd_management_monthly_signal_evaluations`。これは L2 抽出設計の候補であり、設計確定までは migration / DB write / route / UI本実装 / 月末自動生成を進めない。
 
 最小payload:
 
@@ -68,10 +68,10 @@ type ManagementMonthlySignalEvaluation = {
 ## 更新経路
 
 - 毎月末日 17:00 JST に Codex / subscription automation 候補を走らせる。
-- PWA guarded non-LLM routeは `/api/cron/management-monthly-signal-evaluation`。migration適用前は `dryRun=1` でpayload確認だけ行う。
+- route / DB write は未実装。設計確定後に Codex / subscription automation と保存責務を決める。
 - 入力は `amd_management_score_snapshots`, `amd_management_score_evidence`, `company_budget_actual_monthly`, `company_budget_variance_notes`, L2⑨, L2⑭, L2⑮。
-- 出力は reviewable payload。migration適用後は新versionを保存し、旧currentを過去ログへ閉じる。
-- `/management-score` では最新評価だけを展開し、古い評価は月別トグルの過去ログとして閉じる。
+- 出力候補は reviewable payload。設計確定後は新versionを保存し、旧currentを過去ログへ閉じる。
+- `/management-score` では最新評価だけを展開し、古い評価は月別トグルの過去ログとして閉じる設計。ただし現UIは暫定で、L2設計が固まるまで本実装しない。
 
 ## 関連仕様
 

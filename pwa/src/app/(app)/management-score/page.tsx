@@ -6,11 +6,6 @@ import {
   type DialogueConfirmedSignal,
 } from "@/components/management-score/EvidencePanel";
 import type { MonthlyPlInputs } from "@/lib/finance/monthly-pl-simulation";
-import {
-  buildManagementMonthlySignalEvaluation,
-  normalizeManagementSignalRow,
-  type ManagementMonthlySignalEvaluation,
-} from "@/lib/management-score/monthly-signal";
 import { effectivePaymentYmForCycle } from "@/lib/payment-groups";
 
 export const dynamic = "force-dynamic";
@@ -89,24 +84,6 @@ type VarianceNote = {
   note: string;
   confidence: number | null;
   status: string;
-};
-
-type ManagementSignalRow = {
-  id: string;
-  ym: string;
-  version: number;
-  status: string;
-  icon: string;
-  label: string;
-  headline: string;
-  reason_items_json: unknown;
-  next_watch_json: unknown;
-  source_refs_json: unknown;
-  payload_json: Record<string, unknown> | null;
-  is_current: boolean;
-  superseded_at: string | null;
-  created_at: string | null;
-  updated_at: string | null;
 };
 
 type BudgetInputRow = {
@@ -768,7 +745,7 @@ export default async function ManagementScorePage() {
   // 計算ミスやデータ不足の 6 月 snapshot が「最新」 と判定されて表示されないように、
   // ym <= currentYmJST() で filter する。
   const ymCap = currentYmJST();
-  const [scoreRes, scoreHistoryRes, budgetRes, inputRes, runRes, notesRes, evidenceRes, dialogueConfirmedRes, managementSignalRes] = await Promise.all([
+  const [scoreRes, scoreHistoryRes, budgetRes, inputRes, runRes, notesRes, evidenceRes, dialogueConfirmedRes] = await Promise.all([
     safeSelect<ScoreSnapshotFull[]>(() =>
       supabase
         .from("amd_management_score_snapshots")
@@ -834,15 +811,6 @@ export default async function ManagementScorePage() {
         .lte("ym", ymCap)
         .order("confirmed_at", { ascending: false, nullsFirst: false })
         .limit(40)
-    ),
-    safeSelect<ManagementSignalRow[]>(() =>
-      supabase
-        .from("amd_management_monthly_signal_evaluations")
-        .select("id,ym,version,status,icon,label,headline,reason_items_json,next_watch_json,source_refs_json,payload_json,is_current,superseded_at,created_at,updated_at")
-        .lte("ym", ymCap)
-        .order("ym", { ascending: false })
-        .order("version", { ascending: false })
-        .limit(12)
     ),
   ]);
   const hiddenPreMonthSnapshots = (scoreRes.data ?? []).filter(isPreMonthSnapshot);
@@ -972,52 +940,6 @@ export default async function ManagementScorePage() {
   ].filter((item): item is string => Boolean(item));
   const latestRows = aggregateCategoryRows(budgetRows, selectedYm ?? undefined);
   const latestYm = latestRows[0]?.ym ?? null;
-  const persistedManagementSignals = (managementSignalRes.data ?? []).map((row) =>
-    normalizeManagementSignalRow(row as unknown as Record<string, unknown>)
-  );
-  const persistedCurrentManagementSignal =
-    persistedManagementSignals.find((row) => row.is_current && row.ym === selectedYm) ??
-    persistedManagementSignals.find((row) => row.ym === selectedYm) ??
-    null;
-  const previewManagementSignal = selectedYm
-    ? buildManagementMonthlySignalEvaluation({
-        ym: selectedYm,
-        score,
-        previousScore: previous,
-        evidenceRows: evidenceRows.map((row) => ({
-          id: row.id,
-          axis: row.axis,
-          summary: row.summary,
-          impact: row.impact,
-          confidence: row.confidence,
-          source_type: row.source_type,
-          source_ref: row.source_ref,
-        })),
-        budgetRows: budgetRows
-          .filter((row) => row.scope === "company" && row.ym === selectedYm)
-          .map((row) => ({
-            ym: row.ym,
-            category: row.category,
-            budget_amount_yen: row.budget_amount_yen,
-            actual_amount_yen: row.actual_amount_yen,
-            variance_yen: row.variance_yen,
-            cash_amount_yen: row.cash_amount_yen,
-            runway_months: row.runway_months,
-          })),
-        varianceNotes: (notesRes.data ?? [])
-          .filter((note) => note.ym === selectedYm)
-          .map((note) => ({ id: note.id, note: note.note, category: note.category })),
-        financeAlerts,
-      })
-    : null;
-  const managementSignal = persistedCurrentManagementSignal ?? previewManagementSignal;
-  const managementSignalHistory = persistedManagementSignals.filter((row) => row.id !== persistedCurrentManagementSignal?.id);
-  const managementSignalNotice =
-    managementSignalRes.error
-      ? "保存テーブル未適用のため、画面上で未保存プレビューを生成中。"
-      : persistedCurrentManagementSignal
-        ? null
-        : "保存済みL2⑯がまだないため、現在のManagement Scoreから未保存プレビューを表示中。";
   const latestRun = runRes.data?.[0] ?? null;
   const runway = latestRows.find((row) => row.runway_months != null)?.runway_months ?? null;
   const cash = latestRows.find((row) => row.cash_amount_yen != null)?.cash_amount_yen ?? null;
@@ -1333,12 +1255,6 @@ export default async function ManagementScorePage() {
 
         <GasMonthlySimulationPanel result={gasSimulationResult} inputs={gasSimulationInputs} />
 
-        <ManagementSignalPanel
-          signal={managementSignal}
-          history={managementSignalHistory}
-          notice={managementSignalNotice}
-        />
-
         <section className="grid gap-4 xl:grid-cols-[1fr_0.42fr]">
           <div className="rounded-md border bg-card">
             <div className="border-b px-4 py-3">
@@ -1364,129 +1280,6 @@ export default async function ManagementScorePage() {
     </div>
   );
 }
-
-function ManagementSignalPanel({
-  signal,
-  history,
-  notice,
-}: {
-  signal: ManagementMonthlySignalEvaluation | null;
-  history: ManagementMonthlySignalEvaluation[];
-  notice: string | null;
-}) {
-  if (!signal) {
-    return (
-      <section className="rounded-md border bg-card px-4 py-4">
-        <div className="text-sm font-semibold">経営シグナル評価</div>
-        <p className="mt-1 text-sm text-muted-foreground">Management Score snapshot待ち。</p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="rounded-md border bg-card">
-      <div className="border-b px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground">L2⑯ Management Monthly Signal Evaluation</div>
-            <h2 className="mt-0.5 text-sm font-semibold">経営シグナル評価</h2>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>{signal.ym}</span>
-            <span className="h-1 w-1 rounded-full bg-border" />
-            <span>v{signal.version}</span>
-            {signal.generated_from === "preview" && (
-              <>
-                <span className="h-1 w-1 rounded-full bg-border" />
-                <span>未保存プレビュー</span>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 py-4">
-        {notice && (
-          <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
-            {notice}
-          </div>
-        )}
-
-        <div className="flex flex-col gap-3 md:flex-row md:items-start">
-          <div className="flex min-w-32 items-center gap-2">
-            <span className="text-2xl" aria-hidden="true">{signal.icon}</span>
-            <div>
-              <div className="text-sm font-semibold">{signal.label}</div>
-              <div className="text-[11px] text-muted-foreground">{signal.status}</div>
-            </div>
-          </div>
-          <p className="flex-1 text-base leading-relaxed text-foreground">{signal.headline}</p>
-        </div>
-
-        <div className="mt-4 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground">判断理由</div>
-            <ul className="mt-2 space-y-2">
-              {signal.reasons.length === 0 ? (
-                <li className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-sm text-muted-foreground">
-                  根拠生成待ち。
-                </li>
-              ) : (
-                signal.reasons.map((reason, index) => (
-                  <li key={`${reason.axis}-${index}`} className="rounded-md border bg-background px-3 py-2">
-                    <div className="text-[11px] font-semibold text-muted-foreground">
-                      {AXIS_LABELS_FOR_VIEW[reason.axis] ?? reason.axis}
-                    </div>
-                    <p className="mt-1 text-sm leading-relaxed">{reason.text}</p>
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
-
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground">次に見ること</div>
-            <ul className="mt-2 space-y-2">
-              {signal.next_watch.map((item, index) => (
-                <li key={`${item}-${index}`} className="rounded-md border bg-background px-3 py-2 text-sm leading-relaxed">
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {history.length > 0 && (
-          <details className="mt-4 rounded-md border bg-background">
-            <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-muted-foreground">
-              過去ログ {history.length}件
-            </summary>
-            <div className="divide-y">
-              {history.map((item) => (
-                <div key={item.id ?? `${item.ym}-${item.version}`} className="px-3 py-2">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span>{item.icon} {item.label}</span>
-                    <span>{item.ym}</span>
-                    <span>v{item.version}</span>
-                  </div>
-                  <p className="mt-1 text-sm leading-relaxed">{item.headline}</p>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
-      </div>
-    </section>
-  );
-}
-
-const AXIS_LABELS_FOR_VIEW: Record<string, string> = {
-  initiative: "先手力",
-  finance: "財務",
-  retention: "既存PJ継続",
-  pipeline: "新規案件",
-  direction: "戦略接近",
-};
 
 function Metric({
   label,
