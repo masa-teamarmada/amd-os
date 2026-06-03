@@ -63,8 +63,10 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | AMD-Report GAS R313 | 旧経路。定期 trigger を置かない |
 | `api_generateMonthlyReport` | L2① automation の定期経路として使わない |
 | PWA `/api/report/generate` | 手動復旧用。定期 writer にしない |
-| PWA `/api/cron/monthly-reports-backfill` | 重い手動 backfill route。定期 writer にしない |
+| PWA `/api/cron/monthly-reports-backfill` | 重い手動 backfill route。定期 writer にしない。ただし上記「生成対象ガード」の実装はこの route が持つ (進捗ベース判定の正本実装) |
 | paid external LLM API direct call | automation 外で新規に使わない |
+
+> ⚠️ **writer 間のガード整合**: 上記「生成対象ガード」は backfill route だけでなく、primary writer (Codex automation `AMD OS L2① 月次報告抽出`) も通す必要がある。現状ガードのコード実装は backfill route にあり、Codex automation 側は automation.toml のプロンプト指示で同等の判定をかける。両 writer が「進捗なし & ended/frozen は生成しない」を守ることが正本。
 
 ## 5 生データ確認
 

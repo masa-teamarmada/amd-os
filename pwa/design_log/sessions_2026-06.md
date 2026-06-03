@@ -36,3 +36,34 @@
   - `pwa/scripts/ms_progress_review_tool.mjs` (ゲート追加)
   - `pwa/scripts/_mojibake_cleanup_2026-06-02_backup.json` (削除バックアップ)
 - 詳細・教訓は `pwa/BUGS.md` の `[automation/mojibake] ... (2026-06-02)` 参照。
+
+## 2026-06-03 (#90) — 月次サマリ生成を「進捗ベース」原則に全面是正 + LST 月次9ヶ月 backfill
+
+> Claude Code セッションのログ。次のえいみが読めば把握できるよう残す。
+
+### コンテキスト
+- まさが `/notifications` の「SE: 5月生データ抽出経路を確認」(raw-route-zero) 通知について「どのL2か」と質問 → L2① monthly_reports と特定
+- 「SE/202605 は進捗ゼロなのでそう書いて」→ 手で是正。さらに「automation 側で根本を直して」と展開
+- 指示変遷が重要: 当初あたしは「end_ym で期間カット」するガードを実装 → まさ「PJ終了後でもactiveなら生成すべき」「BWEはactiveじゃないのに生成されてる」と2方向の矛盾を指摘 → **最終原則は「状態でなく実進捗で生成可否を決める」に確定**
+- まさ確定の正本原則: 進捗あれば状態問わず生成 / 進捗なし&active→進捗なしテンプレ / 進捗なし&ended/frozen→生成しない。frozen は status='frozen' or freeze_from_ym≤当月
+- LST は「MTGサマリが豊富にあるので月単位でまとめて月次サマリにして。MS設計してないのでMSなし進捗だけ」と指示
+
+### 実装
+- **コード(L2① 月報)**: [monthly-reports-backfill/route.ts](../src/app/api/cron/monthly-reports-backfill/route.ts) を進捗ベースに書き換え。3経路(source_cache/MTGサマリ/member_activities)で hasActivity 判定、未来月除外、frozen/ended×進捗ゼロは skip
+- **コード(L2⑥ MTG)**: [meeting-prep/route.ts](../src/app/api/meeting-prep/route.ts) と [meeting-workflow/finalize/route.ts](../src/app/api/meeting-workflow/finalize/route.ts) に ended/frozen の未来prep生成ガード追加。calendar-sync は既存ガード、dialogue-meeting は非ガード(人の意図記録)
+- **DB**: 未来月の捏造 draft 84件削除。過去の捏造/期間外 draft 整理(実データは保持)。**LST(p07) の月次サマリを1件→9ヶ月分(202305〜202605)に backfill** = MTGサマリから集約、MS無し進捗のみ、subagent3体で生成。LST end_ym=202507(active継続中の誤り)→null
+- **doc**: spec [3-2](../../spec/3-2-monthly-reports-current-spec.md)/[3-3](../../spec/3-3-meeting-flow-current-spec.md) に進捗ベース原則を正本記載、L2_DATA.md と 6-1 changelog 同期
+
+### Verified
+- DB: LST 月報 9件(全 source='meeting_summaries')、状態境界後の捏造 draft 残存0 を SELECT 確認
+- コード: tsc + npm run build 通過(v0.14.2)
+- deploy: Vercel production Ready 確認(7vn5wgws8)。本番ドメイン 307(auth) 正常
+- commit: b4513fe/83feaf0/6dbe051/b959bdd/25ce12a/2b2ff55/9dc9405 (全push済)
+
+### 教訓
+- **状態(end_ym)で機械的に切るな**。active PJ は end_ym が古いまま放置されることがある(LST: end_ym=202507 だが継続中)。「進捗の有無」で判定するのが正しい
+- 削除前に必ず中身 Read で確認。end_ym だけ見て LST/202605 を消しかけた(実データだった)
+- billing_cycles は請求ライフサイクルで動き PJ状態と一致しない。月次サマリ生成の根拠にすると未来月・終了後を捏造する
+
+### 関連
+- 別ブランチ(codex/bzm-worker-quiet-mode)に commit が乗る事故が一度あり、cherry-pick で main に救出。作業中は main 固定を毎回確認すべし
