@@ -1,6 +1,6 @@
 # BZM Commander Tasks
 
-Last updated: 2026-06-02
+Last updated: 2026-06-03
 Owner: BZM司令塔
 Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook Insights theory review
 
@@ -13,9 +13,11 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 - worker報告をそのまま貼らず、BZM司令塔がまさ向けに要約し直す。
 - まず `未完タスク（優先順位順）`、その下に `完了済みタスク` を置く。
 - 未完タスクの `現状` には `Active` / `Watch` / `Blocked by Masa` のどれかを必ず入れる。
-- BZM司令塔からworkerを切る場合、worker promptにはBZM司令塔 thread id `019e7b97-ceb7-7ef1-9354-20cc017328f7` と能動報告ゲートを必ず入れる。
-- worker完了 / 停止 / 要判断時は、worker自身が `【司令塔へ報告】<作業名> 完了` / `要判断` / `停止/ブロック` でBZM司令塔へ能動報告する。
-- BZM司令塔は、報告漏れが起きる前提でheartbeat / 定期確認を置き、worker終了・停止・報告漏れを検知する。
+- worker quiet modeを採用する。workerは原則として親司令塔チャットへ進捗・中間報告・自己判断の完了報告を送らない。
+- workerが親司令塔へ送るのは、worker thread内でまさが「完全に完了」「OK」「これでよし」等と明示した後の最終closeout 1回だけにする。
+- 例外は `UU` conflict、未分類dirty、権限/破壊的操作/外部判断、同じblocking conditionで進行不能など、司令塔側の介入が必要な場合のみ。その場合も短いblocker/handoffを1回だけ送る。
+- BZM司令塔は、worker報告で親チャットを流さず、必要ならheartbeat / read_thread / 定期確認で静かに状態を確認する。
+- `COMMANDER_TASKS.md` にはworker詳細ログを貼らず、Active workerあり、worker id、状態、次回確認条件、まさ要判断だけを短く残す。
 - heartbeat時はこの台帳の未完タスクを確認し、進められるものがあればworkerを切る / 既存workerを再起動する / 差し戻す。
 - 進められる未完タスクがないのに未完が残る場合は、まさへ具体的な質問または判断依頼を出す。
 - 未完タスクがある状態で、全worker停止かつまさにも何も聞いていない状態を作らない。
@@ -33,8 +35,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 2. worker稼働監視 / heartbeat運用
    - お願いした内容: 未完タスクが残っている間は、worker全員が停止・完了・待機で次アクションもない状態を作らず、heartbeatで台帳とworker状態を確認する。
    - 背景: 未完タスクがあるのに司令塔側もworker側も動いていないと、BZM領域のcurrent truth管理とレビュー待ちが止まるため。
-   - 現状: Active。全司令塔共通ルールとして採用。BZM司令塔の運用ルールへ反映済みで、次回worker promptにも入れる前提。
-   - 残課題: 次にBZM workerを切る時、能動報告ゲートに加えてheartbeat確認・報告漏れ検知・未完タスク再起動方針をpromptへ明記する。
+   - 現状: Active。全司令塔共通ルールとしてworker quiet modeを採用。BZM司令塔の運用ルールへ反映済みで、次回worker promptから旧能動報告ゲートを削除/上書きする。
+   - 残課題: 次にBZM workerを切る時、親司令塔への進捗/中間/自己判断完了報告は禁止し、まさ承認後closeout 1回または司令塔介入が必要なblocker 1回だけ送る方針をpromptへ明記する。
 
 3. Textbookとの役割分担
    - お願いした内容: Textbook司令塔とBZM司令塔の担当境界を明確にし、BZM司令塔は理論接続・過剰一般化防止・rubric/数式/用語変更ゲートを担当する。

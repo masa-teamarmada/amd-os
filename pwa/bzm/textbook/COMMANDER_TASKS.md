@@ -8,12 +8,15 @@
 ## 司令塔継続運用ルール
 
 - 未完タスクがあるのに、Textbook司令塔が作成したworkerが全員完了/停止/待機し、次アクションも切られていない状態を作らない。
-- worker完了/停止/要判断時は、worker内finalだけでなく、必ずTextbook司令塔へ能動報告させる。報告先頭は `【司令塔へ報告】<作業名> 完了` / `要判断` / `停止/ブロック` にする。
-- 報告漏れは起きる前提で、Textbook司令塔heartbeatや定期確認が直近workerの状態、pending worktree、報告未確認、未完タスクと次アクション有無を確認する。
+- worker quiet modeを採用する。workerは原則として親司令塔チャットへ進捗・中間報告・自己判断の完了報告を送らない。
+- workerが親司令塔へ送るのは、worker thread内でまさが「完全に完了」「OK」「これでよし」等と明示した後の最終closeout 1回だけにする。
+- 例外は `UU` conflict、未分類dirty、権限/破壊的操作/外部判断、同じblocking conditionで進行不能など、司令塔側の介入が必要な場合のみ。その場合も短いblocker/handoffを1回だけ送る。
+- 司令塔はworker報告で親チャットを流さず、必要ならheartbeat/read_threadで静かに確認する。
+- `COMMANDER_TASKS.md` にはworker詳細ログを貼らず、Active workerあり、worker id、状態、次回確認条件、まさ要判断だけを短く残す。
 - heartbeatや巡回で未完タスクが残っていて進められるものがある場合は、司令塔がworkerを切る、既存workerを再起動/差し戻す、または司令塔自身で次アクションを実行する。
 - 進められる未完タスクがない場合は、まさ確認/判断/作業が必要なはずなので、具体的な質問または判断依頼としてまさを動かす。
 - `未完あり・全worker停止・まさにも何も聞かない` 状態は禁止する。
-- 今後のTextbook worker promptには、この継続運用ルール、能動報告、終了ゲート、`git add .` 禁止、dirty分類、`UU` conflict時archive禁止を必ず含める。
+- 今後のTextbook worker promptから `完了・停止・要判断時は必ず親司令塔へ能動報告` を削除/上書きし、worker quiet mode、終了ゲート、`git add .` 禁止、dirty分類、`UU` conflict時archive禁止を必ず含める。
 
 ## 出版北極星
 
@@ -296,8 +299,8 @@
   - 現状: OS司令塔がmigration 116を本番適用済み。`metadata_json` missingのRESTエラーは解消済み。worker Cがschema dumpを実行し、`pwa/design/db_schema.md` とspec/changelogを同期済み。
   - 残課題: 今回の事故を踏まえ、main push後のVercel production確認とDB/code compatibility確認をworker終了ゲートに入れ続ける。
 
-- **Textbook worker完了報告ゲートの強化**
-  - お願いした内容: worker完了/停止/要判断時に、worker内finalだけでなくTextbook司令塔へ能動報告させる。
-  - 背景: heartbeatやread_threadだけでは報告漏れを拾う保険にしかならず、司令塔が統合判断を遅らせるため。
-  - 現状: Textbook worker prompt標準に、報告タイトル `【司令塔へ報告】<作業名> 完了/要判断/停止/ブロック`、送信先thread id、必須報告項目を追加済み。worker A main取り込みでも新形式の報告を受領済み。
-  - 残課題: 今後新規workerを切るたびにこの台帳とworker promptへ反映する。`UU` conflictや未分類dirtyが残るworkerはarchiveしない。
+- **Textbook worker quiet mode**
+  - お願いした内容: workerが親司令塔チャットへ進捗・中間報告・自己判断の完了報告を送らないquiet modeへ運用変更する。
+  - 背景: worker報告で親司令塔チャットが流れ、まさと司令塔が見るべきcurrent truthが埋もれやすくなったため。
+  - 現状: 2026-06-03にTextbook司令塔継続運用ルールをquiet modeへ更新。workerは、まさがworker thread内で完全完了/OK等を明示した後だけ最終closeoutを1回送る。例外は `UU` conflict、未分類dirty、権限/破壊的操作/外部判断、進行不能blockerなど司令塔介入が必要な場合のみ。
+  - 残課題: 今後新規worker promptから旧 `完了・停止・要判断時は必ず親司令塔へ能動報告` を削除/上書きする。台帳にはworker詳細ログを貼らず、Active worker id、状態、次回確認条件、まさ要判断だけを短く残す。
