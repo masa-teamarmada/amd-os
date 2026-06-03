@@ -17,6 +17,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 - workerが親司令塔へ送るのは、worker thread内でまさが「完全に完了」「OK」「これでよし」等と明示した後の最終closeout 1回だけにする。
 - 例外は `UU` conflict、未分類dirty、権限/破壊的操作/外部判断、同じblocking conditionで進行不能など、司令塔側の介入が必要な場合のみ。その場合も短いblocker/handoffを1回だけ送る。
 - BZM司令塔は、worker報告で親チャットを流さず、必要ならheartbeat / read_thread / 定期確認で静かに状態を確認する。
+- `askuserquestion` / `request_user_input` はBZM worker promptで禁止する。外部判断が本当に必要な場合は、workerが親へ短いblocker/handoffを1回だけ送り、司令塔が判断を束ねる。
+- `COMMANDER_TASKS.md` は毎回更新しない。worker起動、状態分類変更、司令塔判断、main/deploy gate、blocking conditionなどcurrent truthが変わった時だけ短く更新する。
 - `COMMANDER_TASKS.md` にはworker詳細ログを貼らず、Active workerあり、worker id、状態、次回確認条件、まさ要判断だけを短く残す。
 - heartbeat時はこの台帳の未完タスクを確認し、進められるものがあればworkerを切る / 既存workerを再起動する / 差し戻す。
 - 進められる未完タスクがないのに未完が残る場合は、まさへ具体的な質問または判断依頼を出す。
@@ -35,8 +37,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 2. worker稼働監視 / heartbeat運用
    - お願いした内容: 未完タスクが残っている間は、worker全員が停止・完了・待機で次アクションもない状態を作らず、heartbeatで台帳とworker状態を確認する。
    - 背景: 未完タスクがあるのに司令塔側もworker側も動いていないと、BZM領域のcurrent truth管理とレビュー待ちが止まるため。
-   - 現状: Active。全司令塔共通ルールとしてworker quiet modeを採用。BZM司令塔の運用ルールへ反映済みで、次回worker promptから旧能動報告ゲートを削除/上書きする。
-   - 残課題: 次にBZM workerを切る時、親司令塔への進捗/中間/自己判断完了報告は禁止し、まさ承認後closeout 1回または司令塔介入が必要なblocker 1回だけ送る方針をpromptへ明記する。
+   - 現状: Active。全司令塔共通ルールとしてworker quiet modeを採用。BZM司令塔の運用ルールへ反映済みで、次回worker promptから旧能動報告ゲートを削除/上書きし、`askuserquestion` / `request_user_input` も禁止する。
+   - 残課題: 次にBZM workerを切る時、親司令塔への進捗/中間/自己判断完了報告は禁止し、まさ承認後closeout 1回または司令塔介入が必要なblocker 1回だけ送る方針をpromptへ明記する。台帳は毎回更新せず、current truthが変わった時だけ短く更新する。
 
 3. Textbookとの役割分担
    - お願いした内容: Textbook司令塔とBZM司令塔の担当境界を明確にし、BZM司令塔は理論接続・過剰一般化防止・rubric/数式/用語変更ゲートを担当する。

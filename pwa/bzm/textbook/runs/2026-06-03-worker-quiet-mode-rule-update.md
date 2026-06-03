@@ -32,7 +32,9 @@ The commander should not rely on worker reports to fill the parent chat.
 Instead, the commander should:
 
 - use heartbeat/read_thread quietly when monitoring is needed;
-- keep `COMMANDER_TASKS.md` short;
+- prohibit `askuserquestion` / `request_user_input` in worker prompts;
+- keep `COMMANDER_TASKS.md` short and avoid updating it on every worker turn;
+- update `COMMANDER_TASKS.md` only when current truth changes, such as worker launch, state classification change, commander decision, main/deploy gate, or blocker;
 - record only active worker id, state, next check condition, and Masa decision if any;
 - avoid pasting worker detail logs into the ledger.
 
@@ -45,6 +47,10 @@ Future worker prompts must remove or override the old rule:
 The replacement rule is:
 
 `worker quiet mode: no parent-thread report unless Masa accepted final closeout or commander intervention is required.`
+
+Also add:
+
+`askuserquestion/request_user_input are prohibited. If judgment is truly needed, send one short blocker/handoff to the parent commander; the commander will bundle the decision.`
 
 ## Files updated
 

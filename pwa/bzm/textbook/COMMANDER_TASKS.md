@@ -12,11 +12,13 @@
 - workerが親司令塔へ送るのは、worker thread内でまさが「完全に完了」「OK」「これでよし」等と明示した後の最終closeout 1回だけにする。
 - 例外は `UU` conflict、未分類dirty、権限/破壊的操作/外部判断、同じblocking conditionで進行不能など、司令塔側の介入が必要な場合のみ。その場合も短いblocker/handoffを1回だけ送る。
 - 司令塔はworker報告で親チャットを流さず、必要ならheartbeat/read_threadで静かに確認する。
+- `askuserquestion` / `request_user_input` はTextbook worker promptで禁止する。外部判断が本当に必要な場合は、workerが親へ短いblocker/handoffを1回だけ送り、司令塔が判断を束ねる。
+- `COMMANDER_TASKS.md` は毎回更新しない。worker起動、状態分類変更、司令塔判断、main/deploy gate、blocking conditionなどcurrent truthが変わった時だけ短く更新する。
 - `COMMANDER_TASKS.md` にはworker詳細ログを貼らず、Active workerあり、worker id、状態、次回確認条件、まさ要判断だけを短く残す。
 - heartbeatや巡回で未完タスクが残っていて進められるものがある場合は、司令塔がworkerを切る、既存workerを再起動/差し戻す、または司令塔自身で次アクションを実行する。
 - 進められる未完タスクがない場合は、まさ確認/判断/作業が必要なはずなので、具体的な質問または判断依頼としてまさを動かす。
 - `未完あり・全worker停止・まさにも何も聞かない` 状態は禁止する。
-- 今後のTextbook worker promptから `完了・停止・要判断時は必ず親司令塔へ能動報告` を削除/上書きし、worker quiet mode、終了ゲート、`git add .` 禁止、dirty分類、`UU` conflict時archive禁止を必ず含める。
+- 今後のTextbook worker promptから `完了・停止・要判断時は必ず親司令塔へ能動報告` を削除/上書きし、worker quiet mode、`askuserquestion` / `request_user_input` 禁止、終了ゲート、`git add .` 禁止、dirty分類、`UU` conflict時archive禁止を必ず含める。
 
 ## 出版北極星
 
@@ -303,4 +305,4 @@
   - お願いした内容: workerが親司令塔チャットへ進捗・中間報告・自己判断の完了報告を送らないquiet modeへ運用変更する。
   - 背景: worker報告で親司令塔チャットが流れ、まさと司令塔が見るべきcurrent truthが埋もれやすくなったため。
   - 現状: 2026-06-03にTextbook司令塔継続運用ルールをquiet modeへ更新。workerは、まさがworker thread内で完全完了/OK等を明示した後だけ最終closeoutを1回送る。例外は `UU` conflict、未分類dirty、権限/破壊的操作/外部判断、進行不能blockerなど司令塔介入が必要な場合のみ。
-  - 残課題: 今後新規worker promptから旧 `完了・停止・要判断時は必ず親司令塔へ能動報告` を削除/上書きする。台帳にはworker詳細ログを貼らず、Active worker id、状態、次回確認条件、まさ要判断だけを短く残す。
+  - 残課題: 今後新規worker promptから旧 `完了・停止・要判断時は必ず親司令塔へ能動報告` を削除/上書きし、`askuserquestion` / `request_user_input` も禁止する。台帳は毎回更新せず、worker起動、状態分類変更、司令塔判断、main/deploy gate、blocking conditionなどcurrent truthが変わった時だけ短く更新する。
