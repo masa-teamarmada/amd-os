@@ -56,6 +56,10 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-03: `Textbook static reader for draft review` 完了。下書き段階のTextbook推敲を毎回PWA productionへ載せるのはやめ、`pwa/bzm/public-manuscript/*.md` から単体HTMLを生成する横スワイプreaderを追加。成果物: `pwa/bzm/textbook/reader/generate-reader.mjs`, `pwa/bzm/textbook/reader/textbook-reader.html`, `pwa/bzm/textbook/runs/2026-06-03-static-reader-for-draft-review.md`。今後の下書き確認はHTML readerを優先し、PWA production deployはrelease checkpointだけにする。
+
+- 2026-06-03: `Textbook docs-only Vercel ignore gate` 完了。Textbook markdown推敲のmain pushがVercel production deployment quotaを大量消費していたため、`pwa/vercel.json` に `ignoreCommand` を追加し、`pwa/scripts/vercel_ignore_build.mjs` でGit自動deploy時のdocs/Textbook-only変更をskipするようにした。PWA code/config/package/public asset変更はbuild継続、手動CLI deployはrelease checkpoint用にbuild継続。成果物: `pwa/bzm/textbook/runs/2026-06-03-vercel-ignore-textbook-docs.md`。次はquota回復後に1回だけrelease checkpoint deploy / route inspect。
+
 - 2026-06-03: `Textbook main integration execution` 完了。`codex/textbook-full-story-final-readthrough-polish` をcurrent Textbook story baselineとして `main` へ反映。`HEAD` / `origin/main` は `3fd31fa docs(textbook): audit final publication readiness` で一致。main反映前 `npm run build` passed、manifest consistencyはmissing/unlistedともに `[]`。release checkpointとしてproduction deployを1回だけ試行したが、Vercel quota blocker `Resource is limited - try again in 24 hours (more than 100, code: "api-deployments-free-per-day")` によりproduction未反映。retry連打は禁止方針に従い停止。成果物: `pwa/bzm/textbook/runs/2026-06-03-main-integration-deploy-checkpoint.md`。次はquota回復後に1回だけdeployし、`/bzm/public`、Epilogue、Field Toolkit、Method Appendixをroute inspectする。
 
 - 2026-06-03: `Textbook final publication readiness audit` 完了。Prologue〜Epilogueの物語はbranch上で完成ラインに入り、Field Toolkit / Method Appendix / Model Notesも三層分離として成立。販売前完成ではないが、残課題はfull rewriteではなくModel Note表示、Method Appendix navigation、formula typography、production/staging visual check、sales package。main integration executionへ進める判定。成果物: `pwa/bzm/textbook/runs/2026-06-03-final-publication-readiness-audit.md`。
