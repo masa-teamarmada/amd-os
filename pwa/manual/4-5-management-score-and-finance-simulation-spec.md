@@ -26,7 +26,7 @@ AMD Management Score は、AMD 全社 (= `p00`) の経営状態を月次で見�
 | 画面 | 役割 |
 |---|---|
 | `/project/p00/cockpit` | 会社全体 cockpit。上部 hero にバイタルサイン total + 5 軸時系列を表示する |
-| `/management-score` | バイタルサイン詳細画面。score history、5 軸 mini trend、runway / cash / 予実、evidence drilldown、GAS 月次試算表移植ビュー、差分メモを見る |
+| `/management-score` | バイタルサイン詳細画面。score history、5 軸 mini trend、runway / cash / 予実、evidence drilldown、GAS 月次試算表移植ビュー、経営シグナル評価、差分メモを見る |
 | `/admin/settings` | raw data 収集 / score 計算 operation の稼働状態を見る。2026-05-25 時点では UI からの Run Now は止め、対象月を明示して Codex automation 側で実行する |
 
 `/project/p00/cockpit` の hero は `amd_management_score_snapshots` を直接読み、横軸 `ym`、縦軸 0-100 の折れ線で `total_score` と 5 軸を重ねる。詳細は `/management-score` へ誘導する。
@@ -43,7 +43,8 @@ AMD Management Score は、AMD 全社 (= `p00`) の経営状態を月次で見�
 | 上げ要因 / 下げ要因 | evidence を axis 別 × impact 順 (= drilldown) | `amd_management_score_evidence` |
 | スコア推移 | 最大 25 ヶ月の total bar + 5 軸 table | `amd_management_score_snapshots` |
 | 5 軸 mini trend | 先手力 / 財務 / 継続 / 新規 / 方向の小型折れ線 | `amd_management_score_snapshots` |
-| GAS 月次試算表ビュー | cash balance、cash inflow/outflow、PJ 売上、固定費、税金、runway | `company_budget_actual_monthly`, `company_budget_inputs`, `company_budget_simulation_runs` |
+| GAS 月次試算表ビュー | cash balance、cash inflow/outflow、PJ 売上、固定費、税金、runway。各月は 予算 / 実績 / 差分 の3列で読む | `company_budget_actual_monthly`, `company_budget_inputs`, `company_budget_simulation_runs` |
+| 経営シグナル評価 | 月次試算表の予実から、先3か月見込み、費用抑制、追加獲得目標、予実乖離原因、意思決定アラートを月末Codex評価として残す。最新月は展開、過去月は折りたたみ | `company_management_signal_reviews`, `company_budget_actual_monthly`, `billing_cycles`, `payout_notices` |
 | 差分メモ | 予実差分の理由・確認状態 | `company_budget_variance_notes` |
 
 **対象月は「未来月を除外」**:画面は `score.ym <= currentYmJST()` で filter し、 5/26 に「6月」の半端 snapshot を表示しない (= まさ #76 確定)。
