@@ -84,23 +84,48 @@ export async function GET(req: NextRequest) {
   const maxTokens = (promptRow.max_tokens as number) || 8192;
 
   // 2. missing 取得 (= billing_cycles - monthly_reports)
-  const [{ data: bcs }, { data: existingMrs }] = await Promise.all([
+  const [{ data: bcs }, { data: existingMrs }, { data: projRows }] = await Promise.all([
     db.from("billing_cycles").select("project_id, ym"),
     db.from("monthly_reports").select("project_id, ym"),
+    db.from("projects").select("project_id, start_ym, end_ym, status"),
   ]);
   const existingSet = new Set(
     ((existingMrs as { project_id: string; ym: string }[] | null) ?? []).map(
       (r) => `${r.project_id}_${r.ym}`
     )
   );
+  // PJ ごとの活動期間 (start_ym 〜 end_ym) と status。これを外れた月は月次報告書を作らない。
+  // billing_cycles には PJ 終了後・開始前の請求 ym が残ることがあり (請求は月報と別ライフサイクル)、
+  // ガードが無いと終了済み/開始前 PJ の月次報告書を捏造してしまう (2026-06-03 まさ指摘で発覚)。
+  // ただし end_ym 超過の除外は status='ended' のときだけ。active PJ は end_ym が
+  // 更新されず古いまま残ることがあり (LST p07: end_ym=202507 だが active で継続中)、
+  // end_ym だけで切ると継続中 PJ の実データ月報まで誤除外してしまう。
+  const projRange = new Map<string, { start: string | null; end: string | null; status: string | null }>();
+  for (const p of (projRows as {
+    project_id: string;
+    start_ym: string | null;
+    end_ym: string | null;
+    status: string | null;
+  }[] | null) ?? []) {
+    projRange.set(p.project_id, { start: p.start_ym, end: p.end_ym, status: p.status });
+  }
   // 当月 (JST) の ym。これより後の未来月は backfill 対象にしない。
   // billing_cycles には請求予定として未来月が登録されており、ガードが無いと
   // まだ来ていない月の月次報告書を LLM が先回りで捏造してしまう (2026-06-02 事故)。
   const nowJst = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const currentYm = `${nowJst.getUTCFullYear()}${String(nowJst.getUTCMonth() + 1).padStart(2, "0")}`;
+  const inProjectRange = (bc: MissingTarget): boolean => {
+    const r = projRange.get(bc.project_id);
+    if (!r) return false; // projects に無い PJ は対象外
+    if (r.start && bc.ym < r.start) return false; // 開始前は対象外
+    // 終了後の除外は status='ended' のときだけ (active は end_ym が古いだけの可能性)
+    if (r.status === "ended" && r.end && bc.ym > r.end) return false;
+    return true;
+  };
   const missing: MissingTarget[] = ((bcs as MissingTarget[] | null) ?? [])
     .filter((bc) => !existingSet.has(`${bc.project_id}_${bc.ym}`))
     .filter((bc) => bc.ym <= currentYm)
+    .filter(inProjectRange)
     .sort((a, b) => b.ym.localeCompare(a.ym) || a.project_id.localeCompare(b.project_id))
     .slice(0, limit);
 
@@ -110,7 +135,10 @@ export async function GET(req: NextRequest) {
 
   const totalMissing =
     ((bcs as MissingTarget[] | null) ?? []).filter(
-      (bc) => !existingSet.has(`${bc.project_id}_${bc.ym}`)
+      (bc) =>
+        !existingSet.has(`${bc.project_id}_${bc.ym}`) &&
+        bc.ym <= currentYm &&
+        inProjectRange(bc)
     ).length;
 
   const stats: GenStat[] = [];
