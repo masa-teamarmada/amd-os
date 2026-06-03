@@ -173,6 +173,30 @@ export async function POST(req: NextRequest) {
   };
 
   const admin = createAdminClient();
+
+  // ended / frozen PJ の未来MTG prep (upcoming) は作らない (2026-06-03 まさ確定原則)。
+  // upcoming = これから開催予定の prep なので、終了/凍結後の PJ に作るのは無意味。
+  // frozen 判定は status='frozen' または freeze_from_ym <= 対象 ym。
+  const { data: prepProj } = await admin
+    .from("projects")
+    .select("status, freeze_from_ym")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  const prepStatusProj = (prepProj as { status: string | null } | null)?.status ?? null;
+  const prepFreezeFrom = (prepProj as { freeze_from_ym: string | null } | null)?.freeze_from_ym ?? null;
+  const isInactive =
+    prepStatusProj === "ended" ||
+    prepStatusProj === "frozen" ||
+    (!!prepFreezeFrom && ym >= prepFreezeFrom);
+  if (isInactive) {
+    return NextResponse.json({
+      ok: false,
+      skipped: true,
+      reason: `skip:inactive-project-${prepStatusProj ?? "frozen"}`,
+      message: "ended/frozen PJ の未来MTG prep は生成しません",
+    });
+  }
+
   const { data, error } = await admin
     .from("project_meeting_summaries")
     .upsert(row, { onConflict: "meeting_id" })

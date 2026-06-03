@@ -43,6 +43,17 @@ Calendar event の PJ 判定は、色→PJ判定を第一軸にする。
 - Drive資料は automation 側が metadata として渡す。PWA route は Drive を直接読まない。
 - Drive資料だけを根拠に `decided` へ「決定済み」と書かない。
 
+## ended / frozen PJ の MTGサマリ生成ガード (2026-06-03 まさ確定)
+
+月次サマリと同じ進捗ベース原則を L2⑥ にも適用する。**開催済みの実MTG (= 実進捗) は状態を問わず記録してよい**が、**未来の予定MTG prep を終了/凍結 PJ に自動生成しない**。frozen 判定は `projects.status='frozen'` または (`freeze_from_ym` ≤ 対象 ym)。
+
+| 生成経路 | ガード |
+|---|---|
+| `POST /api/meeting-prep/calendar-sync` | `projects.status in ('active','sales')` のみ対象 (既存) |
+| `POST /api/meeting-prep` (upcoming prep) | ended / frozen / `freeze_from_ym ≤ ym` なら upsert せず `skipped` を返す |
+| `POST /api/meeting-workflow/finalize` (次回 prep 自動生成) | 次回 prep の ym が ended / frozen 境界後ならその candidate をスキップ (開催済みMTGの finalize 自体は許可) |
+| `POST /api/dialogue-meeting` (まさえいMTG 記録) | ガードしない (人が意図的に記録する実進捗のため) |
+
 ## 開催済みMTG narrative
 
 `project_meeting_summaries.narrative_md` は次の見出し順を固定する。
