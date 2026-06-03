@@ -5,6 +5,7 @@ import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
 import {
   CompanyContentShelf,
   type CompanyHistoryPreview,
+  type CompanyMediaMentionPreview,
   type CompanyMemberPreview,
   type CompanyPhotoPreview,
 } from "@/components/dashboard/CompanyContentShelf";
@@ -55,6 +56,7 @@ export default function DashboardPage() {
     members: [],
     history: [],
     photos: DASHBOARD_PHOTO_PREVIEW,
+    mediaMentions: [],
   });
   const [loading, setLoading] = useState(true);
 
@@ -172,6 +174,7 @@ export default function DashboardPage() {
             members={companyContent.members}
             history={companyContent.history}
             photos={companyContent.photos}
+            mediaMentions={companyContent.mediaMentions}
           />
         </div>
         <div className="xl:col-span-2">
@@ -186,6 +189,7 @@ interface CompanyContentPreview {
   members: CompanyMemberPreview[];
   history: CompanyHistoryPreview[];
   photos: CompanyPhotoPreview[];
+  mediaMentions: CompanyMediaMentionPreview[];
 }
 
 const DASHBOARD_PHOTO_PREVIEW: CompanyPhotoPreview[] = [
@@ -233,7 +237,7 @@ async function fetchManagementScoreHistory(supabase: ReturnType<typeof createCli
 }
 
 async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClient>): Promise<CompanyContentPreview> {
-  const [membersRes, projectMembersRes, eventsRes, venturesRes] = await Promise.all([
+  const [membersRes, projectMembersRes, eventsRes, venturesRes, mediaMentionsRes] = await Promise.all([
     supabase
       .from("members")
       .select("member_id,code_name,member_name,role,status,is_officer,join_ym")
@@ -256,6 +260,12 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .select("project_id,display_name,short_label,founded_at,amd_support_started_at")
       .order("amd_support_started_at", { ascending: false, nullsFirst: false })
       .limit(10),
+    supabase
+      .from("project_media_mentions")
+      .select("id,project_id,occurred_on,title,media_name,kind,source_url")
+      .eq("dismissed", false)
+      .order("occurred_on", { ascending: false })
+      .limit(20),
   ]);
 
   const projectCounts = new Map<string, number>();
@@ -292,10 +302,21 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
     }))
     .filter((row) => row.occurredOn);
 
+  const mediaMentions: CompanyMediaMentionPreview[] = (mediaMentionsRes.data ?? []).map((row) => ({
+    id: String(row.id),
+    projectId: String(row.project_id),
+    occurredOn: String(row.occurred_on),
+    title: String(row.title),
+    mediaName: String(row.media_name),
+    kind: String(row.kind),
+    sourceUrl: row.source_url ? String(row.source_url) : null,
+  }));
+
   return {
     members,
     history: historyFromEvents.length > 0 ? historyFromEvents : historyFallback,
     photos: DASHBOARD_PHOTO_PREVIEW,
+    mediaMentions,
   };
 }
 
