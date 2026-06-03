@@ -93,8 +93,14 @@ export async function GET(req: NextRequest) {
       (r) => `${r.project_id}_${r.ym}`
     )
   );
+  // 当月 (JST) の ym。これより後の未来月は backfill 対象にしない。
+  // billing_cycles には請求予定として未来月が登録されており、ガードが無いと
+  // まだ来ていない月の月次報告書を LLM が先回りで捏造してしまう (2026-06-02 事故)。
+  const nowJst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const currentYm = `${nowJst.getUTCFullYear()}${String(nowJst.getUTCMonth() + 1).padStart(2, "0")}`;
   const missing: MissingTarget[] = ((bcs as MissingTarget[] | null) ?? [])
     .filter((bc) => !existingSet.has(`${bc.project_id}_${bc.ym}`))
+    .filter((bc) => bc.ym <= currentYm)
     .sort((a, b) => b.ym.localeCompare(a.ym) || a.project_id.localeCompare(b.project_id))
     .slice(0, limit);
 
