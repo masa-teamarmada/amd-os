@@ -12,6 +12,8 @@
 # Claude / えいみ向けルール:
 #   - 今後 PWA を deploy するときは必ずこのスクリプト経由で行う
 #   - 直接 `npx vercel --prod --yes ...` を叩かない (通知が出ないので)
+#   - Vercel quota hard gate 中は、このスクリプトも実行しない。
+#   - deploy bundle承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1` を付けて実行する。
 
 set -e
 
@@ -22,6 +24,35 @@ PROJECT="amd-os-pwa"
 APP_URL="https://amd-os-pwa.vercel.app"
 
 cd "$REPO_ROOT"
+
+if [ "${AMD_OS_VERCEL_DEPLOY_APPROVED:-}" != "1" ]; then
+  cat <<'EOF'
+⛔ Vercel deploy is currently hard-gated.
+
+Reason:
+  Vercel daily deployment quota has been exhausted by repeated small deploys.
+
+Current rule:
+  Do not run preview or production deploys for wording, markdown, CSS,
+  comments, logs, or micro UI changes.
+  Do not push branches that may trigger Vercel auto-deploy.
+  Bundle worker results and deploy once only after explicit approval.
+
+Required before deploy:
+  - bundle name
+  - included changes
+  - excluded changes
+  - local verification
+  - planned deploy count
+  - push target
+  - rollback plan
+  - route/production inspection plan
+
+If the bundle is approved, rerun with:
+  AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
+EOF
+  exit 1
+fi
 
 echo "▶ Vercel deploy triggering ..."
 START_TS=$(date +%s)
