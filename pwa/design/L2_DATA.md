@@ -2,7 +2,7 @@
 
 **最重要**: AMD OS の中核データ。すべての Claude / Codex / GPT セッションは作業前にここを読む。
 
-> **manual / spec / bzm 3層分割中**: L2 ①〜⑮、5 生データ / external evidence / hybrid weekly evidence、outbox / LaunchAgent、採否ループの確定仕様は `/spec/3-1-l2-data-extraction-current-spec.md` へ移行開始済み。移行完了までは、この `design/L2_DATA.md` も未移行領域の正本として残し、迷う内容は両方に置く。
+> **manual / spec / bzm 3層分割中**: L2 ①〜⑯、5 生データ / external evidence / hybrid weekly evidence / management judgment evidence、outbox / LaunchAgent、採否ループの確定仕様は `/spec/3-1-l2-data-extraction-current-spec.md` へ移行開始済み。移行完了までは、この `design/L2_DATA.md` も未移行領域の正本として残し、迷う内容は両方に置く。
 
 ---
 
@@ -80,6 +80,7 @@ L2データ
   ⑬ member_activities(source='member_weekly')
   ⑭ company_finance_recurring_items / company_finance_receipt_events
   ⑮ vc_news / vcs / vc_funds / vc_investments
+  ⑯ amd_management_monthly_signal_evaluations
         ↓
 通知
   l2_notifications / meeting_notifications / app_notifications / finance review / VC inbox
@@ -154,7 +155,7 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 
 ---
 
-## L2 データ 15 種 (正本リスト)
+## L2 データ 16 種 (正本リスト)
 
 | L2 | 意味 | テーブル | cron / 書き込み元 | 場所 | 状態 |
 |---|---|---|---|---|---|
@@ -173,8 +174,9 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 | ⑬ **Member Weekly Activities** | メンバー単位の週次活動 evidence。`source='member_weekly'` を primary とし、`source='inferred'` は lower-confidence fallback として扱う。mypage / reward / L2⑤ / MS contribution review に接続する | `member_activities(source='member_weekly')` | 週次 subscription automation 候補 → outbox/applier。`/api/cron/member-weekly-activities` は Anthropic 経路を持つため active PWA/Vercel cron に戻さない | Codex / subscription automation + review | 🟡 expanded taxonomy 採用、別weekly候補。raw Gmail / private Calendar 本文は保存しない |
 | ⑭ **Finance Ops Evidence** | サブスク・継続費・自動振替・領収書イベントなど、会社財務オペレーションの根拠。月次PLやManagement Score finance軸に使うが、領収書本文や明細全文は保存しない | `company_finance_recurring_items`, `company_finance_receipt_events`, 派生 `company_actual_monthly`, `company_budget_monthly` | freee/payment PWA non-LLM cron、Gmail receipt source refs、admin manual review。LLMが必要な分類は subscription automation / guarded manual route に寄せる | PWA non-LLM + admin review + optional Codex automation | ✅ 正式L2化。Finance候補から昇格 |
 | ⑮ **VC News / Funding Signals** | VCニュース、ファンド組成、投資活動、dry powder、資金調達に関わる外部シグナル。VC inboxで確認し、VCリスト・fund情報・PJ fundraising判断に接続する | `vc_news`, `vcs`, `vc_funds`, `vc_investments`, `project_vc_relations` | Codex subscription automation `amd-os-l2-vc-news-funding-signals` → review/outbox → VC inbox。PWA `/api/cron/vc-discover` は LLM/web_search 経路なので active Vercel cron には戻さない | Codex / subscription automation + VC inbox review | ✅ 新L2として復活。PWA LLM cronではなくsubscription automationで週次収集 |
+| ⑯ **Management Monthly Signal Evaluation** | `/management-score` 月次試算表下に出す、月末時点の会社経営状態評価。予実表の数字を再掲せず、状態アイコン・短い評価文・判断理由・次に見るべきことへ変換する | `amd_management_monthly_signal_evaluations` (migration 122 未適用)。入力は `amd_management_score_snapshots`, `amd_management_score_evidence`, `company_budget_actual_monthly`, `company_budget_variance_notes`, L2⑨⑭⑮ など | 月末最終日 17:00 JST の Codex / subscription automation候補。PWA guarded non-LLM route `/api/cron/management-monthly-signal-evaluation` は実装済、active cron未登録 | Codex / subscription automation + management review | 🟡 migration/API/UI preview 実装済。DB migration適用・本番cron登録・deployは未実施 |
 
-**重要**: 2026-06-03 以降の L2 は、①〜⑩の internal OS evidence に加えて、⑪ Atlas Signals / ⑫ Macrotrend Evidence / ⑬ Member Weekly Activities / ⑭ Finance Ops Evidence / ⑮ VC News を含む 15 種。⑪⑫⑮は external provenance、⑬は internal hybrid provenance、⑭は finance operations provenance と明示し、5 生データ由来の L2 と混同しない。
+**重要**: 2026-06-03 以降の L2 は、①〜⑩の internal OS evidence に加えて、⑪ Atlas Signals / ⑫ Macrotrend Evidence / ⑬ Member Weekly Activities / ⑭ Finance Ops Evidence / ⑮ VC News / ⑯ Management Monthly Signal Evaluation を含む 16 種。⑪⑫⑮は external provenance、⑬は internal hybrid provenance、⑭は finance operations provenance、⑯は management judgment provenance と明示し、5 生データ由来の L2 と混同しない。
 
 **通知反映ルール (2026-05-25 #68 current truth)**: 通知に出る情報は、通知画面で「はい」を押したものだけが正本反映される。
 `project_knowledge` は `status='candidate'` → yes で `active`、no で `rejected`。`protocols` は `candidate` → yes で `confirmed`、no で `rejected`、archive は `archived`。`member_knowledge` は migration 091 以降 `status='candidate' -> active / rejected / archived` と `source_hash` を持てる。`project_registry_diff` は候補状態から「はい」で apply する。`project_xrl_evidence` は例外的な根拠ログとして残す場合のみ `candidate -> confirmed/rejected` を使い、通常のL2⑧は月末 checklist audit の確認後に `amd_score_inputs.xrl_checklist` / `xrl_notes` を更新する。
@@ -236,6 +238,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **08:10** | Codex automation `AMD Atlas外部シグナルレビュー` | subscription 枠で外部マクロシグナル収集 → outbox → ローカル非LLM applier → `/api/atlas/signals-ingest` に投入 | Codex automation + PWA |
 | ~~18:00 daily~~ ⛔ | ~~`cron/member-weekly-activities`~~ | Anthropic 経路を持つため 2026-05-29 に Vercel active cron から退避。定期化する場合は subscription automation 側 | 旧 PWA |
 | **土 09:00** | `amd-os-l2-vc-news-funding-signals` | **L2⑮ VC News / Funding Signals**。VCニュース・ファンド組成・投資活動を subscription/Codex automation で収集し、VC inbox / review outbox に出す。旧 PWA `cron/vc-discover` は LLM/web_search 経路のため active Vercel cron には戻さない | Codex automation |
+| **月末最終日 17:00** | `/api/cron/management-monthly-signal-evaluation` / `amd-os-l16-management-monthly-signal-evaluation` candidate | **L2⑯ Management Monthly Signal Evaluation**。`/management-score` 月次試算表下の経営評価文を、数字再掲ではなく状態アイコン・1行評価・判断理由・次に見ることへ変換する。migration 122適用前は `dryRun=1` でpayload確認 | Codex / subscription automation candidate + PWA guarded non-LLM route |
 | ~~mon 03:00~~ ⛔ | `cron/amd-score-l2-refresh` | AMD Score / XRL根拠リフレッシュ (L2 ⑧)。Sonnet 利用のため schedule 停止中、route は手動検証用に残す | PWA |
 | ~~月初 03:00 (1日 18:00 UTC)~~ ⛔ | `cron/frl-grit-resilience-extract` | ecosystemを除くactive PJ × 過去 3 ヶ月 monthly_reports + meeting_summaries 集約 → Sonnet 4.6 で frl_grit (Duckworth 2007) / frl_resilience (Markman 2005) を 0-9 推定 → 既存amd_score_inputsをupdate。prompt = `llm_prompts.frl.grit_resilience.extract` (v2、外部創業者優先 / null 厳格化)。Sonnet 利用のため schedule 停止中、手動 route は残す | PWA |
 | **月初 04:00 JST (UTC 1日 19:00)** | `cron/macro-aggregate-indicators` | **稼働中のPWA non-LLM cron**。observation_log (kaken/grant → budget_amount, vc/vc_investment → investment_amount) + atlas_signals (ATL domain → ASPI lane mapping → policy_mention_count / raw_signal_count) を lane × month で集計 → `macro_index_log` の P 以外列を update。AMD Score はこの `macro_index_log` を読む。?since=YYYY-MM 指定可、デフォルト過去 36 ヶ月 | PWA |
@@ -253,7 +256,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 
 ---
 
-## 🚨 L2 ①〜⑮ subscription automation / Codex automation 統一 (= 2026-06-03 正本訂正)
+## 🚨 L2 ①〜⑯ subscription automation / Codex automation 統一 (= 2026-06-03 正本訂正)
 
 **📜 経緯** (= 3 段階の方針進化):
 1. **2026-05-22**: 「LLM 課金が発生する定期抽出 cron 全廃止」判断 → GAS 153/155/152 kill switch → L2 ②④⑤⑥ ghost 化
@@ -261,6 +264,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 3. **2026-05-26**: Mac Local routine は **「app open + 非スリープ中のみ発火」** で MacBook Air 運用と相性悪い問題判明 → **claude.ai/code/routines (= Cloud / Remote routine、Anthropic-managed cloud infrastructure 上で実行)** に一本化、8 個全部 entry 完了
 4. **2026-05-29**: L2 ① `monthly_reports` も正式対象に訂正。Codex automation `AMD OS L2① 月次報告抽出` が draft を作り、`amd-os-ms/outbox.monthlyReports` 経由で非LLM applier が反映する。R313 は旧有料API経路で trigger 復活しない。2026-05-31 以降は Supabase L2 snapshot primary + 5生データ gap check fallback。
 5. **2026-05-29 正本整理**: 人間が復旧できる粒度にするため、現行表は **実行場所 / automation / 課金ルート / 復旧時に見る場所** を優先する。Claude routine / Local routine の旧 ID は履歴であり、現行復旧先として読まない。
+6. **2026-06-03**: L2⑯ Management Monthly Signal Evaluation を追加。`/management-score` の月次試算表下に出す月末経営評価で、数字の再掲ではなく、状態アイコン・1行評価・判断理由・次に見ることを出す。migration 122、non-LLM生成lib、guarded API route、UI previewを追加。migration適用・active cron登録・deployは未実施。
 
 | L2 | 旧 writer (停止/移管対象) | 現行 writer (= 実行場所 + automation) | cron | 状態 |
 |---|---|---|---|---|
@@ -279,11 +283,12 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | ⑬ Member Weekly Activities | 旧 PWA `/api/cron/member-weekly-activities` | separate weekly subscription automation candidate → outbox/applier。PWA route は manual/guarded only | weekly candidate | 🟡 expanded taxonomy 対象。daily bundle には入れない |
 | ⑭ Finance Ops Evidence | 旧 Finance L2 拡張候補 | freee/payment PWA non-LLM cron + admin finance review + optional subscription automation | daily / monthly finance ops | ✅ 正式L2化。領収書本文は保存しない |
 | ⑮ VC News / Funding Signals | 旧 PWA `cron/vc-discover` | Codex subscription automation `amd-os-l2-vc-news-funding-signals` → VC inbox / review outbox。PWA route は manual/guarded only | weekly Sat 09:00 JST | ✅ 新L2として復活。PWA LLM cronは復活させない |
+| ⑯ Management Monthly Signal Evaluation | 現 `/management-score` UI の暫定自動抽出文 | Codex / subscription automation candidate → PWA non-LLM route `/api/cron/management-monthly-signal-evaluation` → `amd_management_monthly_signal_evaluations`。数字を再掲せず、経営状態の評価文へ変換する | 毎月末日 17:00 JST | 🟡 migration 122 / API / UI preview 実装済。migration適用・active cron登録は未実施 |
 
 **SKILL 正本**: [`pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md`](../scheduled-tasks/) (= repo 入り、MMO/Codex/automation が読む)
 **マニュアル正本**: [8-3 章 L2 Extraction Routines](../manual/8-3-l2-extraction-routines-spec.md)
 **詳細経緯**: [`pwa/design_log/sessions_2026-05.md`](../design_log/) の 2026-05-26 セクション
-**管理場所**: daily consolidated evidence (`amd-os-l2-consolidated-evidence`) は L2②④⑤⑦⑨⑩⑪⑫、①は月末 monthlyReports outbox/applier、⑧は月末 L2① 後の checklist audit 結果、③⑥は MMOマシン側 Codex Desktop automation 履歴、⑬は別 weekly subscription automation 候補、⑭は finance non-LLM cron / admin review、⑮は `amd-os-l2-vc-news-funding-signals`。⑩ の `pwa/bzm` 追記は approved 後の local BZM applier と git commit/push が別段階。古い claude.ai trigger ID は履歴確認用で、復旧の主導線ではない。
+**管理場所**: daily consolidated evidence (`amd-os-l2-consolidated-evidence`) は L2②④⑤⑦⑨⑩⑪⑫、①は月末 monthlyReports outbox/applier、⑧は月末 L2① 後の checklist audit 結果、③⑥は MMOマシン側 Codex Desktop automation 履歴、⑬は別 weekly subscription automation 候補、⑭は finance non-LLM cron / admin review、⑮は `amd-os-l2-vc-news-funding-signals`、⑯は月末17:00のManagement評価automation候補。⑩ の `pwa/bzm` 追記は approved 後の local BZM applier と git commit/push が別段階。古い claude.ai trigger ID は履歴確認用で、復旧の主導線ではない。
 
 **経営ハイライト修正依頼 (= L2 ⑨ + #34)**: 一方通行 update を廃止、**対話型ループ** (= `/api/notifications/feedback/dialog/start|refine|confirm` + CockpitStrategySignals UI 拡張) に置換 2026-05-25 #71。設計議論は [`feedback_dialog.md`](feedback_dialog.md)。
 
@@ -301,10 +306,11 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | ⑬ Member Weekly Activities | `member_activities(source='member_weekly')` の PWA route は実装済だが、Anthropic 経路のため active cron から退避済み | separate weekly subscription automation + outbox contract を作る |
 | ⑭ Finance Ops Evidence | `company_finance_recurring_items` / `company_finance_receipt_events` は既存。freee/payment cron は non-LLM で稼働中 | source ref / hash / short subject だけを保存するreview運用を詰める |
 | ⑮ VC News / Funding Signals | `vc_news` / VC inbox は既存。旧 PWA `vc-discover` は停止中 | subscription/Codex automation `amd-os-l2-vc-news-funding-signals` を primary writer とし、VC inbox reviewへ接続 |
+| ⑯ Management Monthly Signal Evaluation | `/management-score` の月次試算表下に、保存済みL2⑯があれば表示、未適用/未保存ならnon-LLMプレビューを表示するUIを追加済み | migration 122適用、月末17:00 automation登録、保存済みログでの本番運用確認 |
 
 ## L2 候補
 
-現時点で実装/運用候補が残る L2 は、⑩ Textbook Insights、⑪ Atlas Signals、⑫ Macrotrend Evidence / Index、⑬ Member Weekly Activities、⑭ Finance Ops Evidence、⑮ VC News / Funding Signals。⑩はDB/API/outbox/local applier の最小実装済みだが、実 schedule と BZM 追記レビュー運用は partial。⑪⑫は daily consolidated evidence 対象、⑬⑮は privacy / source cadence が違うため別 weekly 候補、⑭は finance non-LLM cron + admin review を primary にする。
+現時点で実装/運用候補が残る L2 は、⑩ Textbook Insights、⑪ Atlas Signals、⑫ Macrotrend Evidence / Index、⑬ Member Weekly Activities、⑭ Finance Ops Evidence、⑮ VC News / Funding Signals、⑯ Management Monthly Signal Evaluation。⑩はDB/API/outbox/local applier の最小実装済みだが、実 schedule と BZM 追記レビュー運用は partial。⑪⑫は daily consolidated evidence 対象、⑬⑮は privacy / source cadence が違うため別 weekly 候補、⑭は finance non-LLM cron + admin review を primary にする。⑯は migration/API/UI preview まで実装済みで、残りはmigration適用・月末17:00 automation登録・保存ログ運用確認。
 
 `project_founding_members` は候補から正式昇格し、⑧ **XRL根拠** の HRL 根拠として扱う。関連メンバー単体を独立 L2 とするのではなく、TRL / BRL / GRL / SRL / HRL の算定根拠を束ねる L2 として運用する。
 
@@ -321,14 +327,14 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 - ⑦ OS台帳差分 → [`project_registry_diffs.md`](project_registry_diffs.md)
 - ⑧ XRL根拠 → [`xrl_evidence.md`](xrl_evidence.md) / [`amd_score.md`](amd_score.md)
 - ⑩ Textbook Insights → [`../spec/3-13-l2-textbook-insights-current-spec.md`](../spec/3-13-l2-textbook-insights-current-spec.md) / [`../scheduled-tasks/amd-os-l10-textbook-insight-extract/SKILL.md`](../scheduled-tasks/amd-os-l10-textbook-insight-extract/SKILL.md)
-- ⑪ Atlas Signals / ⑫ Macrotrend Evidence / ⑬ Member Weekly Activities / ⑭ Finance Ops Evidence / ⑮ VC News → [`l2_data_list.md`](l2_data_list.md) / [`l2_expanded_automation_strategy.md`](l2_expanded_automation_strategy.md)
+- ⑪ Atlas Signals / ⑫ Macrotrend Evidence / ⑬ Member Weekly Activities / ⑭ Finance Ops Evidence / ⑮ VC News / ⑯ Management Monthly Signal Evaluation → [`l2_data_list.md`](l2_data_list.md) / [`l2_expanded_automation_strategy.md`](l2_expanded_automation_strategy.md) / [`management_score.md`](management_score.md)
 - 全体的な PWA 仕様 → [`SPEC_pwa.md`](SPEC_pwa.md)
 
 ---
 
 ## このドキュメントを編集するときのルール
 
-- L2 15 種の定義は**まさの正本**。勝手に増やしたり統合したりしない
+- L2 16 種の定義は**まさの正本**。勝手に増やしたり統合したりしない
 - 新規 L2 を追加するときは必ずまさに確認
 - cron を追加 / 削除 / 移動したら必ずこの md を更新する
 - データ流入が止まった / 復活した変更があれば「状態」列を更新する
@@ -340,6 +346,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 
 | 日付 | 変更 |
 |---|---|
+| 2026-06-03 | **L2⑯ Management Monthly Signal Evaluation を追加**。`/management-score` 月次試算表下の経営シグナル評価を、数字再掲ではなく状態アイコン・1行評価・2〜3個の判断理由・次に見るべきことへ変換するL2として定義。migration 122、non-LLM生成lib、guarded API route、UI previewを追加。migration適用・active cron登録・deployは未実施。 |
 | 2026-05-29 | **LLM 課金が発生する定期抽出 cron 全廃止方針へ再同期**。L2 ③ MS進捗の旧 GAS 154 → PWA `/api/cron/hourly-estimate` は再停止し、PWA route は `ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す。Vercel active cron から Anthropic 経路を持つ `member-weekly-activities` / `graduation-detection` も退避。定期抽出 primary は MMO/Codex automation 側。 |
 | 2026-05-29 | **L2⑥ weekly recurring 予定MTGカードを次回1件に制限**。`calendar-sync` は `recurring_event_id` / fallback series key で weekly series を検出し、2件目以降の future occurrence を `weekly_recurring_future_occurrence` として skip。cockpit 表示側も既存DB rowを series ごとに次回1件だけ残す safety filter を持つ。 |
 | 2026-05-26 | **L2 ②〜⑨ を claude.ai/code/routines (= Cloud / Remote routine、Anthropic-managed cloud infrastructure) に移行完了**、8 個全部 entry 済 (= trigger ID 一覧は §「L2 ②〜⑨ Cloud routines 統一」表)。Mac の `~/.claude/scheduled-tasks/` (= Local routine) は「app open + 非スリープ中のみ発火」で MacBook Air 運用と相性悪い問題が判明、Cloud routine が laptop closed でも動くので一本化。SKILL 8 個を `pwa/scheduled-tasks/` に commit (= `41ef14c`、Cloud sandbox VM が auto-clone)。動作テスト: L2 ② 手動 run で Phase 0-A-C まで進行確認 (= Sonnet 4.6 が Supabase MCP execute_sql 経由で `protocols` / `l2_extract_state` / `project_meeting_summaries` 操作)。**残課題**: L5-L9 の Connector 不完全 (Supabase + Calendar が claude.ai UI bug で追加できず)、Mac 側 9 routine は依然 enabled (= Cloud 動作確認後 disable 予定)、Codex automation `amd-os-ms` / `amd-os` は L7/L8/L9 Cloud 安定稼働後に停止予定。詳細経緯: [`pwa/design_log/sessions_2026-05.md`](../design_log/) の 2026-05-26 セクション。 |

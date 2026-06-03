@@ -207,6 +207,14 @@ export const l2Datasets: L2Dataset[] = [
     purpose: "VCニュース・ファンド組成・投資活動・fundraising signalをVC inboxで確認し、VC/Fund/PJ関係へ接続する。",
   },
   {
+    id: "management_monthly_signal_evaluations",
+    label: "⑯ Management Monthly Signal Evaluation",
+    table: "amd_management_monthly_signal_evaluations (migration 122, not applied here)",
+    source: "Month-end 17:00 JST Codex / subscription automation candidate; PWA guarded non-LLM route can generate/store after migration apply",
+    cadence: "monthly last day 17:00 JST",
+    purpose: "Management Scoreと予実表を、数字再掲ではなく状態アイコン・1行評価・判断理由・次に見るべきことへ変換する。",
+  },
+  {
     id: "amd_score_inputs",
     label: "Score Inputs",
     table: "amd_score_inputs",
@@ -506,6 +514,20 @@ export const cronOperations: CronOperation[] = [
     input: "国内deeptech VCニュース + fund / investment public signals + existing VC DB",
     output: "vcs / vc_funds / vc_news",
     run: { type: "manual", reason: "PWA /api/cron/vc-discover はLLM/web_search経路のためactive Vercel cronに戻さず、subscription/Codex automationをprimaryにする" },
+  },
+  {
+    id: "codex-management-monthly-signal-evaluation",
+    label: "Management Monthly Signal Evaluation L2⑯",
+    layer: "Codex",
+    cadence: "月末最終日 17:00 JST",
+    trigger: "/api/cron/management-monthly-signal-evaluation",
+    defaultParams: "{\"ym\":\"YYYYMM\",\"dryRun\":\"1\"}",
+    input: "amd_management_score_snapshots + amd_management_score_evidence + company_budget_actual_monthly + L2⑨⑭⑮",
+    output: "candidate amd_management_monthly_signal_evaluations reviewable payload",
+    run: {
+      type: "manual",
+      reason: "migration 122 適用前は dryRun=1 でpayload確認のみ。active Vercel cronには未登録。",
+    },
   },
   {
     id: "pwa-papers-quarterly-ingest",

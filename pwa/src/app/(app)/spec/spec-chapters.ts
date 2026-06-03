@@ -47,8 +47,9 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
   {
     key: "data-automation",
     label: "データ / Automation",
-    description: "5 生データ、L2 ①〜⑩、outbox、LaunchAgent、採否ループ。",
+    description: "5 生データ、L2 ①〜⑯、outbox、LaunchAgent、採否ループ。",
     slugs: [
+      "3-0-l2-data-list-current-spec",
       "3-1-l2-data-extraction-current-spec",
       "3-2-monthly-reports-current-spec",
       "3-3-meeting-flow-current-spec",
@@ -102,7 +103,8 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "2-1-pwa-runtime-routes", title: "PWA ランタイム / ルート仕様", summary: "Next.js PWA の実行環境、主要 route、API / cron / auth の現行契約。" },
   { slug: "2-2-pwa-surface-inventory-current-spec", title: "PWA 画面 / API Surface 仕様", summary: "現行 PWA の画面 route、API route groups、auth/authority、failure mode、検証入口。" },
   { slug: "2-3-supabase-data-model-current-spec", title: "Supabase Data Model 仕様", summary: "Supabase schema の source of truth、domain別 table map、status convention、DDL/dump手順。" },
-  { slug: "3-1-l2-data-extraction-current-spec", title: "L2 データ抽出 / Outbox 仕様", summary: "5 生データ、L2 ①〜⑩、subscription automation、outbox / LaunchAgent 反映の確定仕様。" },
+  { slug: "3-0-l2-data-list-current-spec", title: "L2データリスト", summary: "AMD OS 中核データ L2 ①〜⑯ の正本リスト。非開発メンバー向けの入口。" },
+  { slug: "3-1-l2-data-extraction-current-spec", title: "L2 データ抽出 / Outbox 仕様", summary: "5 生データ、L2 ①〜⑯、subscription automation、outbox / LaunchAgent 反映の確定仕様。" },
   { slug: "3-2-monthly-reports-current-spec", title: "L2① Monthly Reports 仕様", summary: "monthly_reports の writer、上書き禁止、source refs、outbox 反映、旧 R313 / PWA route の扱い。" },
   { slug: "3-3-meeting-flow-current-spec", title: "L2⑥ Meeting Flow 仕様", summary: "MTGサマリ、予定MTGカード、Drive資料同期、TODO、Calendar作業枠、Gmail draft の現行仕様。" },
   { slug: "3-4-registry-diffs-current-spec", title: "L2⑦ OS 台帳差分仕様", summary: "5 生データと OS 台帳の差分候補、project_registry_diffs、通知採否、allowlist 適用の契約。" },

@@ -135,6 +135,79 @@ total_score =
 | 請求/入金の重大遅延あり | total_score max 70 |
 | freee / billing の主要データ欠損 | confidence を下げ、score は暫定表示 |
 
+## L2⑯ Management Monthly Signal Evaluation
+
+`/management-score` の月次試算表下に出す「経営シグナル評価」は、UIの飾りではなく L2⑯ として扱う。
+
+目的は、予実表やスコアの数字をもう一度読み上げることではない。数字は画面上部の表にあるので、L2⑯は月末時点の会社状態を、まさが経営判断に使える文章へ翻訳する。
+
+### source of truth
+
+候補テーブル: `amd_management_monthly_signal_evaluations`
+
+| field | meaning |
+|---|---|
+| `ym` | 対象年月 (`YYYYMM`) |
+| `version` | 同一月の評価版。再生成時は増やす |
+| `status` | `healthy` / `mostly_good` / `watch` / `intervention_needed` / `critical` |
+| `icon` | `🟢` / `🟩` / `🟡` / `🟠` / `🔴` |
+| `label` | `良好` / `概ね良い` / `注意` / `要介入` / `危険` |
+| `headline` | 1行の経営評価文 |
+| `reason_items_json` | 2〜3個の判断理由。axis / text / source_refs を持つ |
+| `next_watch_json` | 翌月に見るべき1〜3項目 |
+| `source_refs_json` | 参照したtable / row id / hash / short label。raw本文は保存しない |
+| `payload_json` | snapshot id、予実差分要約、score axis summary、数字再掲禁止ポリシー |
+| `is_current` | 最新表示対象か |
+| `superseded_at` | 同月の新version生成時に旧currentへ入れる |
+
+migration 122、non-LLM生成lib、guarded API route、`/management-score` UI preview は実装済み。production DBへのmigration適用、active cron登録、deployはこの作業では行っていない。
+
+### 入力
+
+- `amd_management_score_snapshots`
+- `amd_management_score_evidence`
+- `company_budget_actual_monthly`
+- `company_budget_variance_notes`
+- `company_finance_recurring_items` / `company_finance_receipt_events`
+- L2⑨ `project_strategy_signals`
+- L2⑭ Finance Ops Evidence
+- L2⑮ VC News / Funding Signals
+- `billing_cycles` / pipeline系 evidence
+
+### 評価文ルール
+
+出してよいもの:
+
+- 状態が良いのか悪いのかが即分かるアイコン + ラベル
+- 1行評価。例: 「まあ悪くない。ただ、新規案件の厚みがもう少しあると安心できる。」
+- 2〜3個の判断理由。数字の羅列ではなく、何が効いているかを書く
+- 翌月に見るべきこと
+
+出さないもの:
+
+- `売上はX円、費用はY円` のような予実表の再掲
+- スコア軸の数字を並べただけのコメント
+- 「総合的に判断すると」だけで何が良い/悪いか分からないAI文
+
+### status label
+
+| label | 意味 |
+|---|---|
+| 🟢 良好 | 財務・既存PJ・新規案件・方向性が大きく崩れていない |
+| 🟩 概ね良い | 経営状態は悪くないが、1つ程度の注意点がある |
+| 🟡 注意 | 翌月に見るべき弱点が明確にある |
+| 🟠 要介入 | 今月中に手を打つべき経営課題がある |
+| 🔴 危険 | cash / runway / 売上 / pipeline のいずれかが深刻 |
+
+### 生成経路
+
+- 毎月末日 17:00 JST に Codex / subscription automation 候補を走らせる
+- raw/calc後の月末断面を読み、`/api/cron/management-monthly-signal-evaluation` でreviewable payloadを作る
+- migration 122適用前は `dryRun=1` でpayload確認だけ行う
+- PWA / Vercel background LLM cron は復活させない
+- 古い評価は `is_current=false` + `superseded_at` で過去ログへ閉じる
+- `/management-score` では最新評価だけ展開し、古い評価は月別/版別トグルで閉じる
+
 ---
 
 ## 軸別設計

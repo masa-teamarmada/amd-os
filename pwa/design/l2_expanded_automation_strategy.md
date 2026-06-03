@@ -2,9 +2,9 @@
 
 Status: adopted as docs design on 2026-06-03; implementation remains docs/automation-registration only
 Date: 2026-06-02
-Scope: L2 taxonomy expansion from 10 to 15, and extraction routing under subscription token / routine count constraints.
+Scope: L2 taxonomy expansion from 10 to 16, and extraction routing under subscription token / routine count constraints.
 
-This memo does not change DB schema, DDL, migrations, deploy state, or PWA / Vercel background LLM cron state. The taxonomy decision has been reflected into `L2_DATA.md`, `spec/3-1`, and `manual/8-3`: Atlas Signals = L2 11, Macrotrend Evidence / Index = L2 12, Member Weekly Activities = L2 13, Finance Ops Evidence = L2 14, and VC News / Funding Signals = L2 15.
+This memo does not change DB schema, DDL, migrations, deploy state, or PWA / Vercel background LLM cron state. The taxonomy decision has been reflected into `L2_DATA.md`, `spec/3-0`, `spec/3-1`, and `manual/8-3`: Atlas Signals = L2 11, Macrotrend Evidence / Index = L2 12, Member Weekly Activities = L2 13, Finance Ops Evidence = L2 14, VC News / Funding Signals = L2 15, and Management Monthly Signal Evaluation = L2 16.
 
 Activation note:
 
@@ -13,6 +13,7 @@ Activation note:
 - L2 13 is not daily. It is a separate weekly subscription automation candidate.
 - L2 14 is finance non-LLM cron / admin review first.
 - L2 15 is weekly VC evidence automation. PWA `vc-discover` remains guarded/manual.
+- L2 16 is a month-end 17:00 JST management evaluation candidate for `/management-score`; migration/API/UI preview are implemented, while migration apply, active cron registration, and deploy remain out of scope here.
 - PWA / Vercel background LLM cron remains disabled.
 
 ## Plain-language route glossary
@@ -37,6 +38,7 @@ Use the following wording in this memo and in the later `L2_DATA.md`, `spec/3-1`
 - L2 13 is a separate weekly candidate.
 - L2 14 is Finance Ops Evidence.
 - L2 15 is VC News / Funding Signals.
+- L2 16 is Management Monthly Signal Evaluation.
 
 ## Premises
 
@@ -44,11 +46,11 @@ Use the following wording in this memo and in the later `L2_DATA.md`, `spec/3-1`
 - Before the 2026-06-03 docs patch, `pwa/design/L2_DATA.md`, `pwa/spec/3-1-l2-data-extraction-current-spec.md`, and `pwa/manual/8-3-l2-extraction-routines-spec.md` listed L2 1-10.
 - Before this patch, `pwa/design/L2_DATA.md` classified Atlas, VC news, and macro index as report-related external-source data, not L2.
 - PWA / Vercel background LLM cron must stay disabled. Routes with Anthropic / Gemini / OpenAI imports may remain for manual or guarded use, but must not become active Vercel cron writers.
-- DB write, DDL, migration apply, and deploy are out of scope for this memo.
+- DB write to production, migration apply, active cron registration, and deploy are out of scope for this memo.
 
 ## Proposed taxonomy
 
-The cleanest expansion is to keep L2 1-10 as the internal operating-memory layer, then add L2 11-15 as evidence-grade observation layers. This preserves the old 5-source rule while making the new L2 boundary explicit:
+The cleanest expansion is to keep L2 1-10 as the internal operating-memory layer, then add L2 11-16 as evidence-grade observation and judgment layers. This preserves the old 5-source rule while making the new L2 boundary explicit:
 
 | L2 | Proposed name | Provenance | Primary tables | Why this belongs in L2 |
 |---|---|---|---|---|
@@ -57,6 +59,7 @@ The cleanest expansion is to keep L2 1-10 as the internal operating-memory layer
 | 13 | Member Weekly Activities | internal hybrid | `member_activities(source='member_weekly')` | Weekly activities are primary member contribution evidence for mypage, reward allocation, L2 5 member knowledge, and MS contribution review. |
 | 14 | Finance Ops Evidence | finance operations | `company_finance_recurring_items`, `company_finance_receipt_events`, derived `company_actual_monthly`, `company_budget_monthly` | Finance operations evidence drives monthly PL, cash visibility, and Management Score finance axis. |
 | 15 | VC News / Funding Signals | external | `vc_news`, `vcs`, `vc_funds`, `vc_investments`, `project_vc_relations` | VC news and funding signals influence fundraising strategy, VC relationship management, and macro funding context. |
+| 16 | Management Monthly Signal Evaluation | management judgment | `amd_management_monthly_signal_evaluations` (migration 122) | The month-end management-score narrative should become structured L2 evidence, not temporary UI prose. It translates monthly budget/score evidence into a readable business judgment. |
 
 ## L2 1: Monthly reports
 
@@ -207,6 +210,41 @@ Writer strategy:
 - Output should go to VC inbox / review outbox first, then confirmed items update `vc_news`, `vcs`, `vc_funds`, `vc_investments`, or `project_vc_relations`.
 - Do not auto-patch VC/fund records from public news without review.
 
+## L2 16: Management Monthly Signal Evaluation
+
+Recommendation: add the month-end `/management-score` evaluation as L2 16, but keep it design-first until the table/payload contract is final.
+
+This L2 is not a UI polish note. It is the source-of-truth row that tells masa whether the company state looks good, concerning, or intervention-worthy at month end.
+
+Source-of-truth:
+
+- Table: `amd_management_monthly_signal_evaluations` (migration 122, not applied here)
+- Inputs: `amd_management_score_snapshots`, `amd_management_score_evidence`, `company_budget_actual_monthly`, `company_budget_variance_notes`, L2 9 strategy signals, L2 14 finance ops evidence, L2 15 VC/funding signals, and relevant billing / pipeline evidence.
+- Output: latest current evaluation plus historical versions/months.
+
+Payload shape:
+
+- `ym`, `version`, `status`, `icon`, `label`
+- `headline`: one-line management judgment
+- `reasons`: 2-3 judgment reasons with source refs
+- `next_watch`: 1-3 things to watch next month
+- `source_refs_json`: source tables / row ids / hashes, not raw private source text
+- `payload_json`: compact calculation context and omitted-number policy
+- `is_current`, `superseded_at`
+
+Writing rule:
+
+- Do not repeat the budget table numbers. The table above already shows them.
+- Translate the numbers and signals into a human business judgment, for example: "まあ悪くない。ただ、新規案件の厚みがもう少しあると安心できる。"
+- Use status labels: `良好`, `概ね良い`, `注意`, `要介入`, `危険`.
+- UI should expand only the latest evaluation and collapse older rows as logs.
+
+Route:
+
+- Cadence: last day of each month, 17:00 JST.
+- Runner: Codex / subscription automation candidate, using guarded non-LLM route `/api/cron/management-monthly-signal-evaluation`.
+- Apply: `dryRun=1` before migration apply; after migration apply, the route stores a new version and collapses the previous current row.
+
 ## Extraction routing strategy
 
 ### Keep in Codex Desktop / MMO
@@ -231,6 +269,7 @@ These are heavy synthesis / review jobs where subscription tokens are useful and
 | Weekly activity synthesis | L2 13 member weekly activities | weekly Mon 06:30 JST or Sun 20:30 JST | Member activity source scan is private and token-heavy; daily scanning is wasteful. |
 | Month-end monthly reports | L2 1 | monthly, last day | Monthly reports should summarize Supabase-internal OS evidence after the month has accumulated. |
 | Month-end XRL checklist audit | L2 8 | monthly, after L2 1 | XRL maturity should be reviewed from the monthly cross-section and checklist, not daily evidence fragments. |
+| Month-end management evaluation | L2 16 | monthly, last day 17:00 JST | Reads budget actuals and Management Score evidence after raw/calc are available, then writes a compact judgment proposal. |
 
 ### Push to deterministic / non-LLM paths
 
@@ -302,6 +341,7 @@ This is the proposed steady-state schedule if Claude subscription routines are u
 | 20:30 Sun or 06:30 Mon weekly | Claude routine | L2 13 member weekly activities | One weekly run; outbox-first. |
 | Month-end, last day | Claude or Codex subscription routine | L2 1 monthly reports | Supabase-internal OS evidence only by default. |
 | Month-end, after L2 1 | Claude or Codex subscription routine | L2 8 XRL checklist audit | Review monthly evidence against `xrl-level-definitions.ts`; propose checklist / notes updates. |
+| Month-end, 17:00 | Claude or Codex subscription routine | L2 16 management monthly signal evaluation | Convert Management Score + budget actuals into status label, headline, reasons, and next-watch items. |
 
 Daily Claude routine count in this design is 1 for the consolidated evidence routine:
 
@@ -311,6 +351,7 @@ Daily Claude routine count in this design is 1 for the consolidated evidence rou
 - L2 13: 1 weekly run.
 - L2 1: 1 monthly month-end run.
 - L2 8: 1 monthly month-end audit after L2 1.
+- L2 16: 1 monthly month-end 17:00 evaluation run.
 - This stays far below a 15-run/day cap.
 
 ## Token efficiency rules
@@ -319,6 +360,7 @@ Daily Claude routine count in this design is 1 for the consolidated evidence rou
 - Use `source_hash` / `(member_id, project_id, source, source_item_id)` / external `source_url` to skip unchanged evidence.
 - For L2 11 and L2 12, summarize source pages into 200-400 character evidence rows rather than generating long reports first.
 - For L2 13, process one weekly member window and emit compact `member_activities` rows. Do not ask Claude to produce reward calculations directly.
+- For L2 16, do not spend tokens restating finance table numbers. Read the facts, then emit one compact management judgment with source refs.
 - Do not let report generation drive evidence collection. Evidence rows come first; reports are derived.
 - Keep raw private source text outside L2 rows. Store short preview, source ref, hash, and structured metadata only.
 
@@ -328,8 +370,10 @@ Completed first implementation: `L2 expanded taxonomy docs patch` plus MMO autom
 
 Completed scope:
 
-- Updated `pwa/design/L2_DATA.md` from L2 data 10 types to L2 1-13.
+- Updated `pwa/design/L2_DATA.md` from L2 data 10 types to L2 1-16.
+- Added `/spec` top link and `pwa/spec/3-0-l2-data-list-current-spec.md` as the readable L2 data list.
 - Updated `pwa/spec/3-1-l2-data-extraction-current-spec.md` and `pwa/manual/8-3-l2-extraction-routines-spec.md` with provenance classes and writer boundaries.
+- Added migration 122, a non-LLM generator, guarded PWA route, and `/management-score` UI preview for L2 16. Migration apply / active cron / deploy are not done in this branch.
 - Aligned MMO `amd-os-l2-consolidated-evidence` prompt so daily extraction covers L2 2 / 4 / 5 / 7 / 9 / 10 / 11 / 12 and explicitly skips L2 8.
 - Aligned MMO `amd-os-l1-monthly-report-monthend` prompt so L2 8 checklist audit runs after L2 1 monthly report synthesis.
 

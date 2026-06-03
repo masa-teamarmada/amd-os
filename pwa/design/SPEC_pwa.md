@@ -197,6 +197,7 @@ pwa/
 | `scripts/backfill_strategy_signals_from_activities.mjs` | one-shot script | on-demand | 既存 `member_activities` から初期表示用の経営ハイライト候補を決定的ルールで抽出し、outbox JSON を作る。`ms_progress_review_tool.mjs apply-outbox` で `project_strategy_signals` / `l2_notifications` へ反映する。LLM/GAS非使用 |
 | `cron/management-score-raw-data` | (vercel cron 未登録) | on-demand / monthly | AMD Management Score 用 raw signal intake。OS内部データを `amd_management_score_raw_signals` に集約。`?includeFreee=1` で freee trial_pl → `company_actual_monthly` も同期。local: `npm run collect:management-score-raw -- --ym=YYYYMM [--include-freee]` |
 | `cron/management-score-calculate` | (vercel cron 未登録) | on-demand / after raw | `amd_management_score_raw_signals` から `amd_management_score_snapshots` / evidence を算出。`?ym=YYYYMM` 指定可 |
+| `cron/management-monthly-signal-evaluation` | (vercel cron 未登録) | month-end 17:00 candidate | **L2⑯ Management Monthly Signal Evaluation**。Management Score snapshot / evidence / 予実表から、数字再掲ではない経営評価payloadを生成。`?dryRun=1` はDB writeなし。migration 122適用後に保存可能 |
 | `cron/monthly-reports-backfill` | (vercel cron 未登録) | on-demand 手動 curl | billing_cycles LEFT JOIN monthly_reports IS NULL の row を Sonnet 4.6 で順次生成 → monthly_reports upsert。重い従量課金 route なので定期実行しない。定期 writer は Codex `AMD OS L2① 月次報告抽出` |
 | `cron/freeze-period-backfill` | (vercel cron 未登録) | on-demand / daily candidate | `projects.freeze_from_ym` + `restart_expected_ym` がある PJ について、休止期間の `monthly_reports` + `project_meeting_summaries` を Sonnet で統合し、`freeze_period_backfills` に保存。対象PJと再開月確認後に手動キック |
 | `cron/triple-helix-recompute` | (vercel cron 未登録) | on-demand / weekly candidate | ASPI 8 domain × 直近 16 quarter について、`papers_log` / `atlas_signals` / `observation_log` / `project_ventures.lanes` から BVAR/Kalman smoother で `triple_helix_state_log` を再計算 |
@@ -275,6 +276,7 @@ pwa/
 | `amd_management_score_evidence` | 各軸の短い根拠。full raw data は保存せず、source ref / snippet / confidence / impact を保存 |
 | `amd_management_score_source_runs` | Management Score raw data intake の実行ログ。source別 counts / partial error を保存 |
 | `amd_management_score_raw_signals` | Management Score 算出前の月次 raw signal。5軸ごとに既存OSデータ / freee / Atlas 等を source_hash + payload 付きで保持 |
+| `amd_management_monthly_signal_evaluations` | L2⑯ 月末経営シグナル評価。状態アイコン / 1行評価 / 判断理由 / 次に見ること / source refs を保存。migration 122未適用 |
 | `company_budget_inputs` | GAS `CFG_*` 相当の予算 / 計画入力。PJ売上、固定費、変動費、借入、スポット収支、シナリオを保持 |
 | `company_budget_simulation_runs` | GAS `runSimulation()` 相当の実行 snapshot。scenario / params / engine_version / ran_at を保持 |
 | `company_budget_monthly` | GAS 月次試算表から移植する予算 / 計画の正本 |
