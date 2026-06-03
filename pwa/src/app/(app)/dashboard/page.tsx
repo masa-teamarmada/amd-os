@@ -265,7 +265,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .select("id,project_id,occurred_on,title,media_name,kind,source_url")
       .eq("dismissed", false)
       .order("occurred_on", { ascending: false })
-      .limit(20),
+      .limit(200),
   ]);
 
   const projectCounts = new Map<string, number>();

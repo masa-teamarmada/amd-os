@@ -124,7 +124,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
           countLabel={`${mediaMentions.length} items`}
         >
           <div className="space-y-2">
-            {mediaMentions.slice(0, 6).map((item) => (
+            {mediaMentions.map((item) => (
               <div key={item.id} className="rounded-md border border-border/70 bg-white px-3 py-2">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[10px] text-muted-foreground">
