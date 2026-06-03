@@ -130,6 +130,7 @@ export async function POST(req: NextRequest) {
       "textbook_insight",
       "founding_members",
       "meeting_summary",
+      "news_mention",
     ]);
     if (!allowedKinds.has(l2Kind)) {
       return NextResponse.json({ error: `unknown l2_kind: ${l2Kind}` }, { status: 400 });

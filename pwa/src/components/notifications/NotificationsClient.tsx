@@ -61,6 +61,8 @@ const L2_KIND_LABEL: Record<string, string> = {
   project_strategy_signal: "L2 ⑨ 経営ハイライト",
   // ⑩ Textbook Insights
   textbook_insight: "L2 ⑩ Textbook Insights",
+  // ⑭ メディア掲載
+  news_mention: "L2 ⑭ メディア掲載",
 };
 
 function l2KindLabel(l2Kind: string): string {
