@@ -1,10 +1,10 @@
-# L2 Extraction Routines — subscription automation 統一仕様 (L2 ①〜⑬)
+# L2 Extraction Routines — subscription automation 統一仕様 (L2 ①〜⑮)
 
-この章は、L2 ①〜⑬ を **定額 subscription automation / Codex automation / non-LLM applier** で抽出する仕様をまとめる。処理IDだけでなく、**どの実行環境で、どの課金ルートで、止まった時にどこを見るか** を正本化する。
+この章は、L2 ①〜⑮ を **定額 subscription automation / Codex automation / non-LLM applier** で抽出する仕様をまとめる。処理IDだけでなく、**どの実行環境で、どの課金ルートで、止まった時にどこを見るか** を正本化する。
 
 > 実装者向けの確定仕様は [/spec/3-1-l2-data-extraction-current-spec](/spec/3-1-l2-data-extraction-current-spec) へ移行開始済み。この章は、復旧時に読む運用手順として残す。迷う内容は移行完了まで両方に置く。
 
-**2026-06-03 正本訂正**: 2026-05-25〜26 の Claude routine / Cloud routine 案は履歴として残すが、現行の復旧主導線は下の **現行 writer 表** を見る。L2 ①は月末の Codex / subscription automation、L2 ③⑥は MMOマシン Codex Desktop automation、L2 ②④⑤⑦⑨⑩⑪⑫は daily consolidated evidence、L2 ⑧は月末 L2① 後の XRL checklist audit、L2 ⑬は別 weekly subscription automation 候補が現行ルート。
+**2026-06-03 正本訂正**: 2026-05-25〜26 の Claude routine / Cloud routine 案は履歴として残すが、現行の復旧主導線は下の **現行 writer 表** を見る。L2 ①は月末の Codex / subscription automation、L2 ③⑥は MMOマシン Codex Desktop automation、L2 ②④⑤⑦⑨⑩⑪⑫は daily consolidated evidence、L2 ⑧は月末 L2① 後の XRL checklist audit、L2 ⑬は別 weekly subscription automation 候補、L2 ⑭は finance non-LLM cron / admin review、L2 ⑮は VC weekly subscription automation が現行ルート。
 
 **先手力 heartbeat**: `proactive_outbox` は L2 ではなく、L2 と司令塔 / worker をつなぐ control layer。10:15-20:15 JST の毎時15分に `amd-os-proactive-heartbeat` が queued/blocked の due soon を拾い、PJ司令塔へ通知してから `mark-sent` で通知済みを記録する。正本手順は [`pwa/scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md`](../scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md)。
 
@@ -25,6 +25,8 @@
 | ⑪ Atlas Signals | `atlas_signals`, 派生 `atlas_stories`, `atlas_reports` | 外部ニュース / 政策 / 市場 / 技術シグナルの evidence | 旧 Atlas report / collect cron 群 | daily consolidated evidence `amd-os-l2-consolidated-evidence` または Atlas signal collection automation + outbox/applier |
 | ⑫ Macrotrend Evidence / Index | `observation_log`, `macro_index_log`, 派生 `macro_lane_weights`, `triple_helix_state_log` | lane / month 単位の外部観測・決定的集計 evidence | 旧 macro / ASPI cron 群 | daily consolidated evidence `amd-os-l2-consolidated-evidence` + PWA non-LLM aggregate |
 | ⑬ Member Weekly Activities | `member_activities(source='member_weekly')` | メンバー週次活動 evidence | 旧 PWA `/api/cron/member-weekly-activities` | separate weekly subscription automation candidate + outbox/applier |
+| ⑭ Finance Ops Evidence | `company_finance_recurring_items`, `company_finance_receipt_events` | サブスク・継続費・自動振替・領収書イベント evidence | 旧 Finance L2 拡張候補 | PWA non-LLM finance cron + admin review + optional subscription automation |
+| ⑮ VC News / Funding Signals | `vc_news`, `vcs`, `vc_funds`, `vc_investments`, `project_vc_relations` | VCニュース・ファンド組成・投資活動・fundraising signal | 旧 PWA `cron/vc-discover` | subscription/Codex automation `amd-os-l2-vc-news-funding-signals`; PWA route は manual/guarded only |
 
 L2 ① monthly reports はこの章の対象。R313 は旧経路で、差分あり/未生成時に R303 generator 経由で Claude API を呼びうるため、定期 trigger を置かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。定期 writer は月末最終日の Codex / subscription automation `AMD OS L2① 月次報告抽出` で、正本 SKILL は [`pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`](../scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md)。
 
@@ -67,6 +69,8 @@ vs ローカル Mac scheduled task の問題:
 | ⑪ Atlas Signals | Daily consolidated evidence or Atlas collection automation + outbox applier | `amd-os-l2-consolidated-evidence` / Atlas signal collection | daily 08:00 JST evidence review | consolidated automation 履歴、`amd-atlas/outbox`、Atlas ingest/applier |
 | ⑫ Macrotrend Evidence / Index | Daily consolidated evidence + deterministic aggregate | `amd-os-l2-consolidated-evidence` / `cron/macro-aggregate-indicators` | daily evidence review / monthly aggregate | consolidated automation 履歴、`observation_log`、`macro_index_log` |
 | ⑬ Member Weekly Activities | Separate weekly subscription automation candidate | TBD weekly automation / guarded `/api/cron/member-weekly-activities` | weekly candidate | weekly automation 履歴、`member_activities(source='member_weekly')`、privacy/source-hash review |
+| ⑭ Finance Ops Evidence | PWA non-LLM finance cron + admin review | `freee-payment-sync`, payment nudges, receipt/recurring review | daily / monthly finance ops | finance admin, `company_finance_*`, `company_actual_monthly` |
+| ⑮ VC News / Funding Signals | Subscription/Codex automation + VC inbox | `amd-os-l2-vc-news-funding-signals` / guarded `/api/cron/vc-discover` | weekly Sat 09:00 JST | VC automation履歴、VC inbox、`vc_news`、`vcs`、`vc_funds` |
 | control 先手力 heartbeat | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox`、`project_commander_threads`、`proactive_loop_tool.mjs heartbeat`、司令塔 thread への通知結果 |
 
 ## 各 L2 の入出力仕様
@@ -254,7 +258,7 @@ vs ローカル Mac scheduled task の問題:
 | P1 | Mac 側 `~/.claude/scheduled-tasks/amd-os-l*` 8 個の扱いを棚卸し | 現行 writer ではない。重複稼働や誤復旧の原因になるなら disable / archive |
 | P1 | 旧 `amd-os-meeting-extract` (Mac scheduled task、リネーム済の disabled) を削除 | 整理 |
 | P2 | L5 `member_knowledge` の採否 UI 接続確認 | migration 091 の `status` / `source_hash` 前提で MMO automation と通知側の接続を確認 |
-| P2 | `/admin/settings` に L2①〜⑬ automation / applier の稼働状態を表示 | MMOマシン側 / Codex automation / outbox applier / local BZM applier / weekly L2⑬候補 の状態を分けて表示 |
+| P2 | `/admin/settings` に L2①〜⑮ automation / applier の稼働状態を表示 | MMOマシン側 / Codex automation / outbox applier / local BZM applier / weekly L2⑬ / finance L2⑭ / VC L2⑮ の状態を分けて表示 |
 
 ## 2026-05-26 移行ログ (= 履歴)
 

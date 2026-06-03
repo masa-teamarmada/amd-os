@@ -2,15 +2,17 @@
 
 Status: adopted as docs design on 2026-06-03; implementation remains docs/automation-registration only
 Date: 2026-06-02
-Scope: L2 taxonomy expansion from 10 to 13 candidates, and extraction routing under subscription token / routine count constraints.
+Scope: L2 taxonomy expansion from 10 to 15, and extraction routing under subscription token / routine count constraints.
 
-This memo does not change DB schema, DDL, migrations, deploy state, or PWA / Vercel background LLM cron state. The taxonomy decision has been reflected into `L2_DATA.md`, `spec/3-1`, and `manual/8-3`: Atlas Signals = L2 11, Macrotrend Evidence / Index = L2 12, and Member Weekly Activities = L2 13.
+This memo does not change DB schema, DDL, migrations, deploy state, or PWA / Vercel background LLM cron state. The taxonomy decision has been reflected into `L2_DATA.md`, `spec/3-1`, and `manual/8-3`: Atlas Signals = L2 11, Macrotrend Evidence / Index = L2 12, Member Weekly Activities = L2 13, Finance Ops Evidence = L2 14, and VC News / Funding Signals = L2 15.
 
 Activation note:
 
 - MMO `amd-os-l2-consolidated-evidence` is the daily route for L2 2 / 4 / 5 / 7 / 9 / 10 / 11 / 12.
 - L2 8 is excluded from the daily route and belongs to the month-end checklist audit after L2 1.
 - L2 13 is not daily. It is a separate weekly subscription automation candidate.
+- L2 14 is finance non-LLM cron / admin review first.
+- L2 15 is weekly VC evidence automation. PWA `vc-discover` remains guarded/manual.
 - PWA / Vercel background LLM cron remains disabled.
 
 ## Plain-language route glossary
@@ -33,24 +35,28 @@ Use the following wording in this memo and in the later `L2_DATA.md`, `spec/3-1`
 - L2 1 is month-end only, sourced from Supabase internal OS/L2 evidence by default.
 - L2 8 is not a daily evidence collector. It is a month-end XRL checklist audit after L2 1 monthly reports.
 - L2 13 is a separate weekly candidate.
+- L2 14 is Finance Ops Evidence.
+- L2 15 is VC News / Funding Signals.
 
 ## Premises
 
 - Existing current truth defines L2 as structured data extracted from the 5 internal raw sources: Gmail, Drive, Calendar, Slack, and Notion.
 - Before the 2026-06-03 docs patch, `pwa/design/L2_DATA.md`, `pwa/spec/3-1-l2-data-extraction-current-spec.md`, and `pwa/manual/8-3-l2-extraction-routines-spec.md` listed L2 1-10.
-- `pwa/design/L2_DATA.md` currently classifies Atlas, VC news, and macro index as report-related external-source data, not L2.
+- Before this patch, `pwa/design/L2_DATA.md` classified Atlas, VC news, and macro index as report-related external-source data, not L2.
 - PWA / Vercel background LLM cron must stay disabled. Routes with Anthropic / Gemini / OpenAI imports may remain for manual or guarded use, but must not become active Vercel cron writers.
 - DB write, DDL, migration apply, and deploy are out of scope for this memo.
 
 ## Proposed taxonomy
 
-The cleanest expansion is to keep L2 1-10 as the internal operating-memory layer, then add L2 11-13 as evidence-grade observation layers. This preserves the old 5-source rule while making the new L2 boundary explicit:
+The cleanest expansion is to keep L2 1-10 as the internal operating-memory layer, then add L2 11-15 as evidence-grade observation layers. This preserves the old 5-source rule while making the new L2 boundary explicit:
 
 | L2 | Proposed name | Provenance | Primary tables | Why this belongs in L2 |
 |---|---|---|---|---|
 | 11 | Atlas Signals | external | `atlas_signals`, derived `atlas_stories`, `atlas_reports` | Atlas signals influence strategy, management score evidence, venture map, and macro interpretation. They are no longer just report output once accepted into `atlas_signals`. |
 | 12 | Macrotrend Evidence / Index | external + deterministic aggregate | `observation_log`, `macro_index_log`, derived `macro_lane_weights`, `triple_helix_state_log` | Macrotrend is numeric / lane-level evidence used by ASPI, Venture Map, and score interpretation. It is distinct from Atlas narrative signals. |
 | 13 | Member Weekly Activities | internal hybrid | `member_activities(source='member_weekly')` | Weekly activities are primary member contribution evidence for mypage, reward allocation, L2 5 member knowledge, and MS contribution review. |
+| 14 | Finance Ops Evidence | finance operations | `company_finance_recurring_items`, `company_finance_receipt_events`, derived `company_actual_monthly`, `company_budget_monthly` | Finance operations evidence drives monthly PL, cash visibility, and Management Score finance axis. |
+| 15 | VC News / Funding Signals | external | `vc_news`, `vcs`, `vc_funds`, `vc_investments`, `project_vc_relations` | VC news and funding signals influence fundraising strategy, VC relationship management, and macro funding context. |
 
 ## L2 1: Monthly reports
 
@@ -175,6 +181,31 @@ Current route implication:
 - `/api/cron/member-weekly-activities` imports Anthropic and must not return to active PWA / Vercel cron.
 - The route can remain as a guarded manual route, but the scheduled writer should move to subscription automation and write through an outbox/applier contract.
 - L2 13 should store short evidence previews, source refs, source hashes, and structured metadata. It should not store raw Gmail or private calendar body text.
+
+## L2 14: Finance Ops Evidence
+
+Recommendation: promote the former Finance L2 extension candidate into L2 14.
+
+Finance evidence is not just monthly reporting prose. Recurring subscriptions, automatic withdrawals, receipt events, freee/payment status, and admin confirmations are operational evidence that feed monthly PL, cash visibility, and Management Score finance.
+
+Writer strategy:
+
+- Deterministic finance syncs such as freee/payment cron can remain PWA non-LLM cron.
+- Gmail receipt interpretation and ambiguous vendor classification should use source refs, hashes, short subjects, and review UI. Do not store raw receipt body text.
+- If LLM classification is needed, use subscription automation or guarded manual review rather than active PWA / Vercel LLM cron.
+
+## L2 15: VC News / Funding Signals
+
+Recommendation: revive VC news as a new L2, but do not revive the old PWA LLM/web_search cron.
+
+VC news influences fundraising strategy, fund targeting, partner relationship timing, and the macro funding environment. It should therefore be a reviewable evidence layer, not only a report-related side feed.
+
+Writer strategy:
+
+- Primary scheduled writer: `amd-os-l2-vc-news-funding-signals` on Codex / subscription automation.
+- PWA `/api/cron/vc-discover` remains guarded/manual because it uses LLM/web_search paths.
+- Output should go to VC inbox / review outbox first, then confirmed items update `vc_news`, `vcs`, `vc_funds`, `vc_investments`, or `project_vc_relations`.
+- Do not auto-patch VC/fund records from public news without review.
 
 ## Extraction routing strategy
 

@@ -184,7 +184,7 @@ pwa/
 | `cron/macro-backfill-historical` | disabled | 12:00 sun | 2010-2025 macro_index_log を Sonnet 推定で埋めるため停止済み |
 | `cron/amd-score-l2-refresh` | disabled | 03:00 mon | 6 ソース (Slack/Drive/Notion/Gmail/Calendar/WebSearch) から AMD Score / XRL根拠 (L2 ⑧) を Sonnet 抽出するため停止済み |
 | `cron/seeds-ingest` | disabled | 09:00 mon | 研究シーズ探索。LLM/web search課金回避のため停止済み |
-| `cron/vc-discover` | disabled | 09:00 sat | VCニュース/VC stub探索。LLM/web search課金回避のため停止済み |
+| `cron/vc-discover` | guarded/manual | 09:00 sat (旧) | VCニュース/VC stub探索の旧PWA route。LLM/web search経路のため active Vercel cron には戻さない。L2⑮ VC News / Funding Signals は Codex automation `amd-os-l2-vc-news-funding-signals` で週次復活 |
 | `cron/papers-quarterly-ingest` | `20 18 * * 1` | 03:20 火 | OpenAlex で ASPI 8 domain × 直近 16 quarter の論文数を papers_log に upsert (μ_A 観測量 N の供給)。Triple Helix 観測モデルの主入力。詳細は [`amd_score.md`](amd_score.md) |
 | `cron/founding-members-extract` | disabled | 03:30 火 | 関連メンバー抽出。Sonnet利用のため停止済み |
 | `cron/sync-pj-facts` | `0 19 * * *` | 04:00 daily | `project_ventures` の構造化フィールド (founded_at / outcome_pattern / origin_org / origin_pi / lane / amd_support_*) を `project_knowledge` に `category='basic_fact'` で同期。/admin/contexts や cockpit から見える状態に。**まさが PJ ナレッジで設立日 / outcome を見られる用途** |
@@ -309,7 +309,7 @@ pwa/
 
 旧 `seeds` (006_venture_map.sql の予兆 4 件用) は 024 で破棄。Venture Map のグラフ予兆プロットも同時に削除。詳細は [`seeds.md`](seeds.md)。
 
-データ流入: cron route `vc-discover` (旧: 毎週土 09:00 JST、Claude + web_search、業界横断 + 新規 VC 発見 + suggested_fund_patch。現在は LLM/web_search 課金回避で自動 schedule 停止) / つくよみ chat tool 群 (`upsert_vc` `upsert_vc_fund` `update_vc_dry_powder` `add_vc_investment` `add_vc_contact` `add_vc_news` `link_project_vc`) / `/vcs/[id]/edit` 手動。詳細は [`vc_list.md`](vc_list.md)。
+データ流入: L2⑮ Codex automation `amd-os-l2-vc-news-funding-signals` (週次土09:00 JST、VCニュース / ファンド組成 / 投資活動 / fundraising signal をreview候補化) / guarded manual route `vc-discover` (旧: 毎週土 09:00 JST、Claude + web_search。LLM/web_search課金回避で active Vercel cron には戻さない) / つくよみ chat tool 群 (`upsert_vc` `upsert_vc_fund` `update_vc_dry_powder` `add_vc_investment` `add_vc_contact` `add_vc_news` `link_project_vc`) / `/vcs/[id]/edit` 手動。詳細は [`vc_list.md`](vc_list.md)。
 
 初期投入: `POST /api/admin/seed-vcs` (Bearer CRON_SECRET) で Claude + web_search に国内ディープテック VC を一括生成させ、`vcs` / `vc_funds` / `vc_investments` を upsert。再実行可。
 

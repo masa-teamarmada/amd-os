@@ -144,6 +144,8 @@ PWA route は存在するが、UI の `Run Now` には出さない運用 job が
 
 ASPI / Macrotrend 系には、route は残っているが Vercel schedule と Run Now から外している LLM-backed job もある。
 
+2026-06-03 現在、AMD Score / Venture Map が読む `macro_index_log` の通常更新は、active Vercel cron `/api/cron/macro-aggregate-indicators` が担当する。これは `observation_log` と `atlas_signals` を集計する non-LLM job。下表の stopped route は、LLM推定や広範囲backfillを含むため active schedule に戻さない。
+
 | route | 状態 | 認証 | 使う時の前提 |
 |---|---|---|---|
 | `/api/cron/lane-suggest` | stopped | `CRON_SECRET` | 新規 PJ の `project_ventures.lanes` 候補を `lane_suggestions` に保存する。承認は `/admin/projects` |
