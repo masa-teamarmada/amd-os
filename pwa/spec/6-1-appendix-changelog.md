@@ -14,6 +14,8 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-03 | 3-0 / 3-1 | 追加・変更 | L2⑯ Management Monthly Signal Evaluation を正式L2データとして扱い、`company_management_signal_reviews`、`status_label` / `status_tone` / `status_icon` / `headline` / `summary` / `sections[]` / `source_refs_json` / `source_confidence` / `generated_at` / `reviewed_at` / `codex_thread_id` / `automation_id`、月末最終日17:00 JST生成を正本化 | まさ確認済みの修正版 `/management-score` UIを、数字再掲ではない経営判断L2として月末抽出へ組み込むため | えいみ |
+| 2026-06-03 | 3-0 | 変更 | L2データ16種の表から「通常の更新ルート」列を廃止し、`マシン` / `cron名` / `タイミング` に分割 | 非開発メンバーにも、どのマシンで何というcron/automationがいつ動くのかを直接読めるようにするため | えいみ |
 | 2026-06-03 | 3-0 / 3-1 / spec top | 追加・変更 | `/spec` トップにL2データリストへの固定リンクを追加し、L2データ16種の正本リストとL2⑯ Management Monthly Signal Evaluationのsource of truth / payload / 月末17:00更新候補を追記。L2⑯は修正版 `/management-score` UI の方向を正とし、`status_label` / `status_tone` / `status_icon` / `headline` / `summary` / `sections[]` / `source_refs_json` / `generated_at` / `reviewed_at` / `codex_thread_id` / `automation_id` をschema中心にする | 開発に携わっていないメンバーもL2一覧へ迷わず入れるようにし、月末経営シグナル評価を単なるUI文言ではなくL2データ設計として固定するため | えいみ |
 | 2026-05-30 | 1-1 / 1-2 / 2-1 / 3-1 / 3-2 / 3-3 / 4-1 | 追加 | `/spec` 初期章を追加し、manual / spec / bzm 3層分割、PWA runtime、L2、monthly_reports、meeting flow、FRL CES を移行 | 現行 manual / design に混在していた確定実装仕様を設計書へ分離するため | えいみ |
 | 2026-05-31 01:21 JST | 3-4 / 3-5 / 3-6 / 4-2 | 追加 | L2⑦ OS台帳差分、L2⑧ XRL根拠、L2⑨経営ハイライト、AMD Score実装仕様を追加 | L2 ⑦⑧⑨ と AMD Score の current contract を `/spec` へ移し、manual/design の重複を減らすため | えいみ |

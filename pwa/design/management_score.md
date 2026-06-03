@@ -160,6 +160,7 @@ source of truth table: `company_management_signal_reviews`
 | `summary` | 追加判断コメント。数字は必要最小限だけ自然文に混ぜる |
 | `sections_json` | `sections[]`。`title` / `body` / `items` / `tone` を持つ |
 | `source_refs_json` | 参照したtable / row id / hash / short label。raw本文は保存しない |
+| `source_confidence` | 0-1。snapshot、予実、freee、billing/payout、L2 refs の揃い具合 |
 | `payload_json` | snapshot id、予実差分要約、score axis summary、数字再掲禁止ポリシー、評価ロジックversion |
 | `generated_at` | automation / Codex が評価候補を生成した時刻 |
 | `reviewed_at` | まさ or admin が月末評価として確認した時刻 |
@@ -168,7 +169,7 @@ source of truth table: `company_management_signal_reviews`
 | `is_current` | 最新表示対象か |
 | `superseded_at` | 同月の新version生成時に旧currentへ入れる |
 
-既存 migration `122_management_signal_reviews.sql` は `summary`, `forecast_summary`, `cost_actions`, `pipeline_actions`, `variance_findings`, `risk_alerts`, `decision_signals` を持つ初期形。次のDB設計では、上表の `status_label` / `status_tone` / `status_icon` / `headline` / `sections_json` / `generated_at` / `automation_id` を正規フィールドとして足し、既存 JSON 群は `sections_json` へ統合する。
+既存 migration `122_management_signal_reviews.sql` は `summary`, `forecast_summary`, `cost_actions`, `pipeline_actions`, `variance_findings`, `risk_alerts`, `decision_signals` を持つ初期形。増分 migration 案 `124_management_signal_reviews_l2_schema.sql` で、上表の `status_label` / `status_tone` / `status_icon` / `headline` / `sections_json` / `source_confidence` / `generated_at` / `automation_id` を正規フィールドとして足し、既存 JSON 群は `sections_json` へ統合する。
 
 ### 入力
 
@@ -218,7 +219,7 @@ L2⑯は数字を保存するだけではなく、数字から「良いのか悪
 
 ### 生成経路
 
-- 毎月末日 17:00 JST に Codex / subscription automation `amd-os-l16-management-monthly-signal-evaluation` を走らせる設計
+- 毎月末日 17:00 JST に Codex / subscription automation `amd-os-l16-management-monthly-signal-evaluation` を走らせる。repo 正本は `pwa/scheduled-tasks/amd-os-l16-management-monthly-signal-evaluation/SKILL.md`
 - raw/calc後の月末断面を読み、reviewable payloadを作る
 - DB保存は `company_management_signal_reviews` に集約し、同月の旧評価は `is_current=false` 相当または `status='archived'` + `superseded_at` 相当で過去ログへ閉じる
 - PWA / Vercel background LLM cron は復活させない

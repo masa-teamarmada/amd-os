@@ -72,7 +72,7 @@ vs ローカル Mac scheduled task の問題:
 | ⑬ Member Weekly Activities | Separate weekly subscription automation candidate | TBD weekly automation / guarded `/api/cron/member-weekly-activities` | weekly candidate | weekly automation 履歴、`member_activities(source='member_weekly')`、privacy/source-hash review |
 | ⑭ Finance Ops Evidence | PWA non-LLM finance cron + admin review | `freee-payment-sync`, payment nudges, receipt/recurring review | daily / monthly finance ops | finance admin, `company_finance_*`, `company_actual_monthly` |
 | ⑮ VC News / Funding Signals | Subscription/Codex automation + VC inbox | `amd-os-l2-vc-news-funding-signals` / guarded `/api/cron/vc-discover` | weekly Sat 09:00 JST | VC automation履歴、VC inbox、`vc_news`、`vcs`、`vc_funds` |
-| ⑯ Management Monthly Signal Evaluation | Codex / subscription automation candidate + review | candidate `amd-os-l16-management-monthly-signal-evaluation` | monthly last day 17:00 JST | Management Score snapshot/evidence、予実表、L2⑨⑭⑮、`company_management_signal_reviews`、`/management-score` 過去ログ |
+| ⑯ Management Monthly Signal Evaluation | Codex / subscription automation candidate + review | `amd-os-l16-management-monthly-signal-evaluation` / SKILL `pwa/scheduled-tasks/amd-os-l16-management-monthly-signal-evaluation` | monthly last day 17:00 JST | Management Score snapshot/evidence、予実表、L2⑨⑭⑮、`company_management_signal_reviews`、`/management-score` 過去ログ |
 | control 先手力 heartbeat | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox`、`project_commander_threads`、`proactive_loop_tool.mjs heartbeat`、司令塔 thread への通知結果 |
 
 ## 各 L2 の入出力仕様
@@ -230,10 +230,10 @@ vs ローカル Mac scheduled task の問題:
 ### ⑯ Management Monthly Signal Evaluation
 
 - 入力: `amd_management_score_snapshots` / `amd_management_score_evidence` / `company_budget_actual_monthly` / `company_budget_variance_notes` / L2⑨経営ハイライト / L2⑭Finance Ops Evidence / L2⑮VC News / billing・pipeline evidence
-- 出力: `company_management_signal_reviews`。schemaは `status_label` / `status_tone` / `status_icon` / `headline` / `summary` / `sections[]` / `source_refs_json` / `generated_at` / `reviewed_at` / `codex_thread_id` / `automation_id` を中心にする
+- 出力: `company_management_signal_reviews`。schemaは `status_label` / `status_tone` / `status_icon` / `headline` / `summary` / `sections[]` / `source_refs_json` / `source_confidence` / `generated_at` / `reviewed_at` / `codex_thread_id` / `automation_id` を中心にする
 - cadence: 毎月末日 17:00 JST。raw/calc後の月末断面を読む
 - 文体: 数字は上の予実表にあるので再掲しない。「良い状態か、悪い状態か、次にどこを見るべきか」が1分で分かる文章にする
-- payload: `ym`, `version`, `status_label`, `status_tone`, `status_icon`, `headline`, `summary`, `sections[]`, `source_refs_json`, `payload_json`, `generated_at`, `reviewed_at`, `codex_thread_id`, `automation_id`, `is_current`, `superseded_at`
+- payload: `ym`, `version`, `status_label`, `status_tone`, `status_icon`, `headline`, `summary`, `sections[]`, `source_refs_json`, `source_confidence`, `payload_json`, `generated_at`, `reviewed_at`, `codex_thread_id`, `automation_id`, `is_current`, `superseded_at`
 - status: `概ね良好`, `注意して進める`, `要介入`, `評価候補/中立`
 - UI設計: `/management-score` の月次試算表下で最新評価だけ展開。古い評価は月別/版別トグルの過去ログとして閉じる
 - 実装状態: 修正版UIは本番確認済み。現UIロジックは暫定だが、UX方向はL2⑯の正本として扱う

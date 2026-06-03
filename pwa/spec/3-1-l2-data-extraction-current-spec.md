@@ -60,7 +60,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 - L2 ⑬は privacy / cadence が違うため daily consolidated evidence には入れず、別 weekly subscription automation 候補にする。
 - L2 ⑭は finance non-LLM cron / admin review が primary。LLM分類が必要なときだけ subscription automation / guarded manual route に寄せる。
 - L2 ⑮は PWA `vc-discover` を active Vercel cron に戻さず、subscription/Codex automation `amd-os-l2-vc-news-funding-signals` を primary にする。
-- L2 ⑯は数字を再掲しない。`company_budget_actual_monthly` / Management Score snapshot / evidenceを読み、状態ラベル/アイコン、自然文の一読評価、追加判断コメント、次に見るべきことに変換する。修正版 `/management-score` UI の方向を正とし、保存schemaは `status_label` / `status_tone` / `status_icon` / `headline` / `summary` / `sections[]` / `source_refs_json` / `generated_at` / `reviewed_at` / `codex_thread_id` / `automation_id` を中心にする。
+- L2 ⑯は数字を再掲しない。`company_budget_actual_monthly` / Management Score snapshot / evidenceを読み、状態ラベル/アイコン、自然文の一読評価、追加判断コメント、次に見るべきことに変換する。修正版 `/management-score` UI の方向を正とし、保存schemaは `status_label` / `status_tone` / `status_icon` / `headline` / `summary` / `sections[]` / `source_refs_json` / `source_confidence` / `generated_at` / `reviewed_at` / `codex_thread_id` / `automation_id` を中心にする。
 - L2 ③⑥は MMOマシン Codex Desktop automation が現行 writer。
 - 旧 GAS 153 / 155、AMD-Report GAS R313、PWA LLM cron は定期 writer として復活させない。
 - PWA `/api/cron/hourly-estimate` は `ALLOW_PWA_LLM_CRONS=1` がない限り disabled response のみ。
