@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-03 15:37 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-03 15:59 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -2256,6 +2256,7 @@ UNIQUE: `(project_id)` (constraint: `projects_project_id_key`)
 | 24 | `freeze_from_ym` | `text` | NULL | `` |
 | 25 | `restart_expected_ym` | `text` | NULL | `` |
 | 26 | `project_category` | `text` | NOT NULL | `'dtsu'::text` |
+| 27 | `news_search_query` | `text` | NULL | `` |
 
 ## protocol_examples
 
