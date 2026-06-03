@@ -262,7 +262,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .limit(10),
     supabase
       .from("project_media_mentions")
-      .select("id,project_id,occurred_on,title,media_name,kind,source_url")
+      .select("id,project_id,occurred_on,title,media_name,kind,source_url,projects(project_name)")
       .eq("dismissed", false)
       .order("occurred_on", { ascending: false })
       .limit(200),
@@ -305,6 +305,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
   const mediaMentions: CompanyMediaMentionPreview[] = (mediaMentionsRes.data ?? []).map((row) => ({
     id: String(row.id),
     projectId: String(row.project_id),
+    projectName: String((row.projects as { project_name?: string } | null)?.project_name ?? row.project_id),
     occurredOn: String(row.occurred_on),
     title: String(row.title),
     mediaName: String(row.media_name),
