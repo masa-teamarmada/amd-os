@@ -28,20 +28,33 @@
 - `projects.start_ym` より前でも、キックオフ / 提案 / 契約前調整など PJ 形成に意味がある月は作成対象にしてよい。
 - `sourceChecklist` が 0 のままでも connector で現物が取れた場合は、`raw_data_gap` だけで終えず source refs / L2 候補へ寄せる。
 
-## 生成対象ガード (writer 共通)
+## 生成対象ガード (writer 共通) — 正本原則 (2026-06-03 まさ確定)
 
-month report を新規生成する writer (Codex automation / `monthly-reports-backfill` cron) は、以下 3 ガードを必ず通す。生成元データ (`billing_cycles` 等) は請求ライフサイクルで動くため、ガード無しだと「報告書を書く意味がない月」を LLM が捏造する (2026-06-02〜03 事故)。
+**月次サマリを生成するかは「PJ状態」ではなく「その月に実進捗があるか」で決める。** 生成元 (`billing_cycles`) は請求ライフサイクルで動き状態と一致しないため、状態だけで切ると誤生成・誤除外が起きる (2026-06-02〜03 事故)。
 
-| # | ガード | 規則 | 理由 |
-|---|---|---|---|
-| 1 | **no-activity** | 当月の 5 生データ集約 (`source_cache`) が 0 件なら LLM を呼ばず「進捗なし」テンプレを置く。本文は「活動・成果物は検出されていません」と**断定せず**記述し、`collection_summary_json` に `sourceChecklist` / `noActivity:true` を残す | source が薄いだけで実は活動があった可能性 (extraction 不完全) を否定しないため、断定しない。推測本文で投資家向け資料整備等を捏造する事故 (`raw-route-zero` 通知の根本原因) を防ぐ |
-| 2 | **未来月** | 当月 (JST) より後の ym は生成しない | `billing_cycles` に請求予定の未来 ym があり、ガード無しだと未来の月報を先回り捏造する |
-| 3 | **PJ期間外** | `projects.start_ym` 前は生成しない。`end_ym` 超過は **`projects.status='ended'` のときだけ**除外する | active PJ は `end_ym` が更新されず古いまま残ることがある (例: LST p07 は `end_ym=202507` だが `status='active'` で継続中)。`end_ym` だけで切ると継続中 PJ の実データ月報まで誤除外する |
+| 当月の実進捗 | PJ状態 | 月次サマリ |
+|---|---|---|
+| **あり** (5生データ / MTGサマリ / メンバー活動のどれかに痕跡) | active / ended / frozen いずれも | **生成する** (中身に実進捗を書く。ended でも清算・株主総会等の進捗は残す) |
+| **なし** | active | **生成する** =「進捗なし」テンプレ |
+| **なし** | ended / frozen | **生成しない** (捏造の温床) |
+
+実進捗判定 (`hasActivity`) は 3 経路で見る: `source_cache` (5生データ集約) / `project_meeting_summaries` (L2⑥) / `member_activities`。`source_cache` 単独で no-data 判定しない (extraction 不完全で薄いだけのことがある)。
+
+frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from_ym` があって当月 ym ≥ `freeze_from_ym`) の両方を見る (例: CTB p06 は `status='active'` だが `freeze_from_ym=202605`)。
+
+加えて2つの境界ガード:
+
+| ガード | 規則 | 理由 |
+|---|---|---|
+| **未来月** | 当月 (JST) より後の ym は生成しない | `billing_cycles` に請求予定の未来 ym があり、無いと未来月を先回り捏造する |
+| **開始前** | `projects.start_ym` 前は自動 backfill しない | キックオフ等で意味がある開始前月は手動で作る / 既存 row は残す (例: KUTE p25 / 202604) |
 
 補足:
-- ガード 3 の「開始前は生成しない」は、上の上書きルール「キックオフ等で意味がある月は作成対象にしてよい」と両立する。**自動 backfill は開始前を作らない**が、意味のある開始前コンテキストが既にある row は残す / 手動で作ってよい (例: KUTE p25 / 202604 のキックオフ月)。
-- これらは新規生成時のガード。**既存 row は対象外** (backfill は missing = DB に無い月だけを作る) なので、過去に生成済みの捏造 draft は cron では直らない。誤判定リスクを避け、個別にまさ判断で cleanup する。
-- 実装: `pwa/src/app/api/cron/monthly-reports-backfill/route.ts` の missing 抽出フィルタ (`inProjectRange` / `currentYm`) と `generateOne` の `sourceItemCount===0` 分岐。
+- **`end_ym` で機械的に切らない**。active PJ は `end_ym` が更新されず古いまま残ることがある (例: LST p07 は `end_ym=202507` だが `status='active'` で継続中・実進捗あり)。`end_ym` 超過でも active なら進捗ありは生成、進捗なしは「進捗なし」テンプレ。
+- 進捗なしテンプレの本文は「活動・成果物は検出されていません」と**断定せず**記述し、`collection_summary_json` に `sourceChecklist` / `mtgCount` / `memberActivityCount` / `noActivity:true` を残す。
+- これは新規生成 (missing = DB に無い月) のガード。既存 row は対象外なので、過去の捏造 draft は個別にまさ判断で cleanup する。
+- この原則は L2① 月報だけでなく **L2⑥ MTGサマリ生成にも適用する** (ended/frozen で進捗ゼロなら MTGサマリも作らない)。
+- 実装: `pwa/src/app/api/cron/monthly-reports-backfill/route.ts` の missing 抽出フィルタ (`currentYm` / `start_ym` / `projMeta`) と `generateOne` の `hasActivity` 判定 + frozen/ended スキップ分岐。
 
 ## 禁止経路
 
