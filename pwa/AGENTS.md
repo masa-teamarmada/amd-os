@@ -42,15 +42,17 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 **設計変更を入れるときは、使い方は `pwa/manual/`、確定実装仕様は `pwa/spec/`、理論・数式・rubric は `pwa/bzm/` を同じ commit で更新する**。変更した層の附則 (`manual/9-3`, `spec/6-1`, `bzm/9-5`) に日時つきで必ず追記する。
 新規の設計 md を `design_log/` に作らない (見落とされる)。
 
-# 確認方針 (PWA deploy gate)
+# 確認方針 (PWA Vercel quota hard gate)
 
-**2026-06-02 以降、Vercel production deploy は gate 制。** 小刻みな実装・md修正ごとに production deploy しない。まず local build / lint / static check / 必要ならローカルまたはpreview相当の確認で固める。
+**2026-06-03 以降、Vercel quota hard gateを最優先する。** 当面、`vercel deploy`は禁止。Vercelが自動preview/production deployする可能性がある `git push` も禁止。`main`だけでなくpreview対象branchも含む。
 
-production deploy は、まとまった変更単位、まさ確認が必要な節目、本当に本番確認が必要な時だけ、司令塔が必要性を判断して実行する。Vercel quota blocker が出たら retry 連打は禁止。quota 回復後の retry を Watch に置く。
+てにをは、文言、微細UI、CSS、md、コメント、ログ文言ごとのdeployは禁止。旧来の「実装→push→deployまで走り切る」やworker close gateのpush/deploy要件より、このquota hard gateを優先する。
 
-標準ワークフロー: 実装 → `tsc --noEmit` 通過 → `npm run build` 通過 → commit/push → deploy gate 判断。deploy しない最終報告では `deployなし。理由: quota温存 / local buildで十分 / main反映のみ` のように理由を書く。
+標準ワークフロー: 実装 → `tsc --noEmit` → `npm run build` → 必要ならローカルスクショ/ローカル確認 → local commitまで。push/deployは `withheld due to Vercel quota gate` としてhandoffしてよい。
 
-**えいみへの含意**: まさからの確認待ちで止まり続けない。ただし「tsc が通ったら毎回deploy」ではなく、deploy gate で production deploy の要否を切る。本番反映が必要な時だけ `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` を使う。
+deploy前には必ず `deploy bundle` を作る。含める変更、除外する変更、local検証、予定deploy回数、push先、rollback/確認方法を司令塔へ提示し、承認までpush/deployしない。
+
+**えいみへの含意**: `npm run build` が通ってもpush/deployしない。`bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`、`npx vercel deploy`、`git push` はhard gate対象。active workerが旧promptでpush/deployしそうなら、workerスレッド内で直ちに差し戻して止める。
 
 # 🚨 画像生成ごまかし禁止 (絶対ルール)
 

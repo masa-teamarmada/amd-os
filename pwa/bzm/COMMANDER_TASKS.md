@@ -21,13 +21,13 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 - `COMMANDER_TASKS.md` は細かく更新する。worker起動、状態分類変更、司令塔判断、main/deploy gate、blocking condition、完了確認、次アクション変更は都度反映する。
 - ただし `COMMANDER_TASKS.md` にworker詳細ログを長文転載しない。Active workerあり、worker id、状態、次回確認条件、まさ要判断、完了/差し戻し/次アクションを短く残す。
 - AMD配下のworktree、`.worktrees`、`/private/tmp` のclean worktreeでmd/run note/ledgerを編集する場合、追加のまさ承認待ちは不要。dirty main worktreeだけ避け、必要ならclean worktreeでそのまま進める。
+- Vercel quota hard gateを最優先する。当面 `vercel deploy` 禁止。Vercelが自動preview/production deployする可能性がある `git push` も禁止。mainだけでなくpreview対象branchも含めて止める。workerはlocal build/test/スクショ/ローカル確認で止め、必要ならlocal commitまで。push/deployは `withheld due to Vercel quota gate` としてhandoffする。
+- てにをは、文言、微細UI、CSS、md、コメント、ログ文言ごとのdeployは禁止する。deploy前には必ずdeploy bundleを作り、含める変更、除外する変更、local検証、予定deploy回数、push先、rollback/確認方法を司令塔へ提示する。承認までpush/deployしない。
 - heartbeat時はこの台帳の未完タスクを確認し、進められるものがあればworkerを切る / 既存workerを再起動する / 差し戻す。
 - 進められる未完タスクがないのに未完が残る場合は、まさへ具体的な質問または判断依頼を出す。
 - 未完タスクがある状態で、全worker停止かつまさにも何も聞いていない状態を作らない。
 - BZM司令塔は、重要報告・理論判断・差し戻し判断・OS側判断待ちをOS司令塔へ `send_message_to_thread` で転送する。
 - `UU` conflict や未分類dirtyが残るworkerは archive しない。
-- Vercel deploy quota hard gate中は、`vercel deploy` とVercel自動deployを起こす可能性があるpushを禁止する。旧来のpush/deploy close gateよりquota保護を優先し、workerはlocal build/test/確認、必要ならlocal commitまでで止め、push/deployは `withheld due to Vercel quota gate` としてhandoffする。
-- 文言・微細UI・md・CSSごとにdeployしない。複数worker成果をdeploy bundleにまとめ、含める変更 / 除外する変更 / local検証 / 予定deploy回数 / push先 / 確認方法を提示し、承認後に1回だけdeployする。
 
 ## 未完タスク（優先順位順）
 

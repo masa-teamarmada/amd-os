@@ -28,12 +28,15 @@
 - 以後のworker promptには、旧「完了・停止・要判断時は必ず親司令塔へ能動報告」ではなく、このworker quiet modeと未完タスク監視の前提を含める。
 - `COMMANDER_TASKS.md` にはworker詳細ログを貼らず、Active workerあり、worker id、状態、次回確認条件、まさ要判断だけを短く残す。
 
-PWA production deploy gate:
-- 2026-06-02以降、PWAは変更ごとに小刻みにVercel production deployを打たない。
-- `tsc --noEmit`、`npm run build`、静的検査、commit/push、main反映は必要に応じて実施するが、production deployは「まさが本番確認する節目」「複数変更をまとめたrelease watch」「既存productionの不具合修正」など明確な理由がある時だけ行う。
-- deployしない報告では、`docsのみ`、`UI/runtime変更なし`、`deploy gate待ち`、`quota blocker` など理由を明記する。
-- Vercel quota blocker時はretry連打せず、Watchとして停止理由・再開条件・次回確認条件を残す。
-- この方針は `AGENTS.md` と `pwa/AGENTS.md` に反映済み。
+Vercel deploy quota hard gate:
+- 2026-06-03以降、Vercel 1日100deploy上限到達を受け、当面 `vercel deploy` 禁止。
+- Vercelが自動preview/production deployする可能性がある `git push` も禁止。`main` だけでなくpreview対象branchも含む。
+- てにをは、文言、微細UI、CSS、md、コメント、ログ文言ごとのdeployは禁止。
+- 旧来の「実装→push→deployまで走り切る」やworker close gateのpush/deploy要件より、このquota hard gateを優先する。
+- workerはlocal build/test/スクショ/ローカル確認で止め、必要ならlocal commitまで。push/deployは `withheld due to Vercel quota gate` としてhandoffしてよい。
+- deploy前には必ず `deploy bundle` を作る。含める変更、除外する変更、local検証、予定deploy回数、push先、rollback/確認方法を司令塔へ提示し、承認までpush/deployしない。
+- 現在状態: `Vercel freeze active`。next release windowは未定。deploy bundle候補はこの台帳で蓄積し、司令塔承認前のpush/deployは停止する。
+- この方針は `AGENTS.md`、`pwa/AGENTS.md`、`pwa/CLAUDE.md` に反映済み。
 
 ## 未完タスク（優先順位順）
 
@@ -52,7 +55,8 @@ PWA production deploy gate:
   - worker thread `019e78e8-7ec1-70d1-9a7d-831f43c85c3d` へ追加タスク認識を共有済み。
   - 実装workerが、月次試算表直下の経営シグナル評価欄、月末評価保存用DB、専用Codexチャット/heartbeat運用の追加を進めている。
 - 残課題は何か
-  - UI実装、migration、typecheck/build、commit/push/deploy、本番画面確認を完了する。
+  - UI実装、migration、typecheck/build、ローカル確認を完了する。
+  - push/deployはVercel quota hard gate中のため、必要なら `withheld due to Vercel quota gate` としてdeploy bundle候補へ回す。
   - 月末Codex専用チャットと定期実行が、実際のCodex automation/heartbeatで成立するか確認する。
   - 完了または要判断になったら、司令塔へ `【司令塔へ報告】Management経営シグナル評価欄 追加 完了` または `要判断` で報告する。
 

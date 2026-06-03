@@ -3,7 +3,8 @@
 株式会社チームアルマダの社内OS。4プラットフォームのクライアントが同じ Supabase backend を共有する **モノレポ**。
 
 > **ルール本体は [CLAUDE.md](CLAUDE.md) に書く。これは概要のみ。**
-> セッション開始時の 4 ステップ・commit&push 即時化・引き継ぎ運用は CLAUDE.md 参照。
+> セッション開始時の 4 ステップ・引き継ぎ運用は CLAUDE.md 参照。
+> **2026-06-03 Vercel quota hard gate 中は `git push` / `vercel deploy` 禁止。旧commit&push即時化よりこのgateを優先。**
 
 ## リポジトリ
 
@@ -30,7 +31,7 @@
 
 ## デプロイ
 - **gas** → `clasp push`
-- **pwa** → Vercel deploy gate を通った時だけ production deploy。小刻みな変更ごとの deploy は禁止
+- **pwa** → Vercel quota hard gate中は `vercel deploy` 禁止。Vercel自動preview/production deployの可能性がある `git push` も禁止。local build/test/スクショ/ローカル確認で止め、必要ならlocal commitまで。push/deployは `withheld due to Vercel quota gate` としてhandoffする。deploy前には必ずdeploy bundleを作り、司令塔承認までpush/deployしない
 - **ios** → `xcodebuild → devicectl install → process launch`、毎回
 - **android** → TBD
 

@@ -101,7 +101,17 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 ---
 
-## ⚠️ Vercel デプロイコマンド（正本・必ずこれを使う）
+## ⛔ Vercel quota hard gate（現在優先）
+
+**2026-06-03以降、Vercel quota hard gate中は `vercel deploy` と `git push` 禁止。** Vercelが自動preview/production deployする可能性があるため、mainだけでなくpreview対象branchへのpushも止める。
+
+- 旧来の「実装→push→deployまで走り切る」やworker close gateより、このquota gateを優先する。
+- workerは local build / lint / static check / スクショ / ローカル確認で止める。
+- 必要ならlocal commitまではよいが、push/deployは `withheld due to Vercel quota gate` としてhandoffする。
+- deploy前には必ず `deploy bundle` を作る。含める変更、除外する変更、local検証、予定deploy回数、push先、rollback/確認方法を司令塔へ提示し、承認までpush/deployしない。
+- てにをは、文言、微細UI、CSS、md、コメント、ログ文言ごとのpush/deployは禁止。
+
+## ⚠️ Vercel デプロイコマンド（hard gate解除後の正本）
 
 ```bash
 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
