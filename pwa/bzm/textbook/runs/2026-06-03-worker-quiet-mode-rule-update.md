@@ -33,10 +33,11 @@ Instead, the commander should:
 
 - use heartbeat/read_thread quietly when monitoring is needed;
 - prohibit `askuserquestion` / `request_user_input` in worker prompts;
-- keep `COMMANDER_TASKS.md` short and avoid updating it on every worker turn;
-- update `COMMANDER_TASKS.md` only when current truth changes, such as worker launch, state classification change, commander decision, main/deploy gate, or blocker;
-- record only active worker id, state, next check condition, and Masa decision if any;
+- update `COMMANDER_TASKS.md` frequently for worker launch, state classification change, commander decision, main/deploy gate, blocker, completion confirmation, and next-action change;
+- keep each update short;
+- record active worker id, state, next check condition, Masa decision if any, completion/rejection, and next action;
 - avoid pasting worker detail logs into the ledger.
+- do not wait for additional Masa approval before editing md/run note/ledger files in AMD worktrees, `.worktrees`, or clean `/private/tmp` worktrees. Avoid dirty main worktrees; continue in a clean worktree when needed.
 
 ## Prompt update
 
