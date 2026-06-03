@@ -2,10 +2,54 @@
 
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [DESIGN.md](DESIGN.md) — **全画面の正本仕様（必読）** / [HANDOFF.md](HANDOFF.md) — 配布状況 / [BUGS.md](BUGS.md) — 既知バグ
 
-最終更新: 2026-05-20 11:45 (JST)
-対応 iOS commit: "Add native notification inbox and responses"
-TestFlight build: 21（このコミット群を乗せたら上げる、未 upload）
-masaiPhone (Mac 直接接続実機): 2026-05-20 Debug build で install + launch 済み
+最終更新: 2026-06-02 (JST)
+対応 iOS commit: 6c3244b "feat(ios): tap PJ card → AMD Score detail (PWA WebView, auth cookie)"
+TestFlight build: 21（未 upload のまま）
+
+---
+
+## 2026-06-02 追記その2: HUD を PWA Control Center 化 + AMD Score 詳細 WebView
+
+### 16. CockpitHUDView を PWA `/hud/dashboard` 構成に刷新（実データ直読み）
+- 初回版（独自メトリクス）から **PWA Control Center と同じ構成・文言**へ作り直し。Supabase 直読み（API 不要）。
+- パネル: AMD Management Score（`amd_management_score_snapshots`：大リング GOOD/WATCH/ALERT + 5サブ + 推移 + confidence）/ System Status / Project Signal Board / Next Action Queue。
+- `SupabaseService` に `fetchHudManagementSnapshots` / `fetchHudBillingCycles` / `fetchHudMonthlyReports` を追加。
+- ⚠️ Signal Board の **M/X/F は AMD Score 計算エンジン未移植**のため月次ルーティン進捗で代替。PWA に `/api/hud/dashboard`（同集計の JSON API）を実装済み（main 6c3244b 系）だが Vercel 日次 deploy 上限のため当日は未 deploy。
+
+### 17. PJカードタップ → AMD Score 詳細ページ（WebView, cookie 認証）
+- Signal Board の各 PJ カードを tap → `ScoreDetailWebView` で PWA `/venture-map/amd-score/{projectId}` を WKWebView 表示（μ/XRL/FRL/ALQ/CES・計算式）。
+- auth 必須ページなので、iOS の Supabase session を `@supabase/ssr` 0.10 互換 cookie（`sb-<ref>-auth-token`, `base64-`+base64url, 3600 超は `.0/.1` chunk）に変換し `httpCookieStore` に注入してから load。実機ログイン状態で認証通過を確認済み。
+
+**Android 実装時の注意**: 優先度低（デモ表示）。Management Score 等は同テーブル直読みで再現可。AMD Score 詳細は同様に PWA ページを WebView 表示する場合、Android の CookieManager に同じ cookie を入れる。
+
+---
+
+## 2026-06-02 追記: HUD版コックピット（デモ表示）
+
+### 15. CockpitHUDView — 設定から開く没入型 HUD コックピット
+
+**動機**: デモ用に「かっこいい」タクティカル HUD 表示が欲しい。既存 Cockpit（PJ進捗タブ）とは別に、設定からワンタップで全社サマリを HUD テイストで見せる。
+
+- `SettingsView.swift`
+  - 先頭に「ディスプレイ」セクションを追加。`scope` アイコン + 「HUD版コックピット」ボタン。
+  - `@State showHUDCockpit` → `.fullScreenCover` で `CockpitHUDView` を提示。
+- `CockpitHUDView.swift`（新規）
+  - 没入型フルスクリーン。背景はダークネイビー + ネオンシアン。`TimelineView(.animation)` でスキャンライン・回転リング・流れるティッカーをライブアニメーション。
+  - **データは実データ集計**: `fetchActiveProjects()` → 各 PJ `fetchCockpitData()` を `withTaskGroup` で並列取得。
+    - 全体達成率 = マイルストーンのポイント加重平均
+    - PJ別ステータス = 当月 `expectedPct` との差分（AHEAD / AT RISK / ON TRACK / COMPLETE）
+    - メトリクス = ACTIVE PJ / TOTAL POINTS / MONTH BUDGET / MS CLEARED / AT RISK / VELOCITY
+    - REWARD ALLOCATION = 当月 `reward_summary_json.members` を横断合算
+  - loading / error / empty も HUD テイスト（UPLINK スピナー / `DATA LINK FAILED` + RETRY）。
+  - **表示専用・編集なし**。右上 `×` で閉じる。
+
+**Android 実装時の注意**:
+- 優先度は低い（デモ表示レイヤ。業務フローには影響しない）。移植するなら Compose で同テイストを再現する想定。
+- 既存の Cockpit データ取得（active projects + cockpit data）をそのまま流用して集計するだけなので、新規 API / スキーマ追加は **なし**。
+- 数値ロジック（ポイント加重平均・ステータス判定・報酬横断集計）は上記の通り iOS と揃えること。
+
+### Android 反映状況
+（Win 側のえいみがここを追記する）
 
 ---
 

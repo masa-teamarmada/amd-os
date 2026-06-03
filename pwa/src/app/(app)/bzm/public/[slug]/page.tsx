@@ -25,6 +25,8 @@ export default async function PublicManuscriptChapterPage({ params }: { params: 
   const idx = PUBLIC_MANUSCRIPT_CHAPTERS.findIndex((item) => item.slug === decoded);
   const prev = idx > 0 ? PUBLIC_MANUSCRIPT_CHAPTERS[idx - 1] : null;
   const next = idx >= 0 && idx < PUBLIC_MANUSCRIPT_CHAPTERS.length - 1 ? PUBLIC_MANUSCRIPT_CHAPTERS[idx + 1] : null;
+  const activePart = PUBLIC_MANUSCRIPT_PARTS.find((part) => part.chapters.some((item) => item.slug === decoded)) ?? null;
+  const isToolkit = activePart?.key === "toolkit";
 
   return (
     <section className="grid gap-6 px-6 py-8 lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -37,7 +39,13 @@ export default async function PublicManuscriptChapterPage({ params }: { params: 
           公開本ドラフト。本文の主語は Before Zero の現場と読者に置き、会社紹介・内部運用語は出さない方針で作成中。
         </div>
 
-        <article className="mx-auto max-w-3xl">
+        <article className={`mx-auto max-w-3xl ${isToolkit ? "border-t-4 border-amber-300 pt-4" : ""}`}>
+          {isToolkit ? (
+            <div className="mb-4 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-amber-700">
+              <span className="h-px w-8 bg-amber-300" aria-hidden="true" />
+              Field Toolkit / 参照道具
+            </div>
+          ) : null}
           <BzmMarkdown source={source} />
 
           <nav className="mt-10 flex justify-between gap-4 border-t border-border pt-4 text-xs">

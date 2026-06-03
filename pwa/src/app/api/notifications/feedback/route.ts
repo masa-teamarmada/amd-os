@@ -7,7 +7,7 @@
  * 通知に出た候補は「はい」だけで正本反映する。
  * candidate/tentative 系の L2 は yes=active/confirmed、no=rejected/invalid。
  * protocols は UI 正本に合わせて yes=confirmed。
- * meeting_summary の「はい」は、反映完了まで同期的に確認する。
+ * meeting_summary は通知に出る時点で抽出済み・確定保存済みなので、「はい」は確認マーク (feedback 記録 + 既読化) のみ。再抽出しない。
  *
  * Body:
  *   {
@@ -130,6 +130,7 @@ export async function POST(req: NextRequest) {
       "textbook_insight",
       "founding_members",
       "meeting_summary",
+      "news_mention",
     ]);
     if (!allowedKinds.has(l2Kind)) {
       return NextResponse.json({ error: `unknown l2_kind: ${l2Kind}` }, { status: 400 });
@@ -186,20 +187,14 @@ export async function POST(req: NextRequest) {
       created_by: createdBy,
     });
 
-    if (action === "yes" && l2Kind === "meeting_summary" && !applyResult.applied) {
-      return NextResponse.json(
-        { error: applyResult.message || "meeting summary re-extraction failed", feedback: data, action, applyResult },
-        { status: 502 }
-      );
-    }
-
     // ⚡ 即時再抽出を発火 (= 修正依頼を出した瞬間に LLM プロンプトに含めて再抽出)
     // GAS Web App の runFunc を fire-and-forget で叩く。失敗しても feedback INSERT 自体は成功扱い。
-    // - meeting_summary: nav_meeting_processOneEvent_(meetingId, projectId) で 1 event 強制再抽出
     // - member_knowledge: nav_member_knowledge_extractOne_(codeName, memberId, {force:true})
     // - project_knowledge / protocols / ms_progress: 当面は次回 cron まで待つ (= 仕組みは動く、即時化は後追い)
+    // - meeting_summary: 再抽出しない。通知に出る時点で抽出済み・確定保存済みなので「はい」は確認マークのみ。
+    //   誤抽出修正は cockpit の POST /api/meeting-summary/manual-update に一本化済み (2026-05-29)
     // - project_strategy_signal: 対話型 /api/notifications/feedback/dialog/* を別経路で使う (= 旧 reextractStrategySignalImmediate は廃止、2026-05-25 #71 まさ確定)
-    if (!(action === "yes" && l2Kind === "meeting_summary") && l2Kind !== "project_strategy_signal") {
+    if (l2Kind !== "meeting_summary" && l2Kind !== "project_strategy_signal") {
       void triggerImmediateReExtraction({ l2Kind, targetId, scopeKey, meetingId, feedbackText: storedFeedbackText, feedbackId: data.feedback_id }).catch((e) => {
         console.warn("[feedback] immediate re-extract failed:", e);
       });
@@ -419,42 +414,29 @@ async function applyApprovedNotification(args: {
   return { applied: false, message: `no automatic apply handler for ${args.l2Kind}` };
 }
 
-async function applyMeetingSummaryFeedback(args: {
-  supabase: Awaited<ReturnType<typeof createClient>>;
-  targetId: string;
-  scopeKey: string;
+/**
+ * MTGサマリ通知の「はい・反映」承認。
+ *
+ * MTGサマリは通知に出る時点で既に Notion 議事録から抽出され、`project_meeting_summaries` /
+ * `meeting_notifications` に確定保存されている (= 通知が立つ = 抽出完了)。よって通知の「はい」は
+ * 「確認した」マーク (feedback 記録 + 既読化) であり、再抽出する対象は存在しない。
+ *
+ * かつて (2026-05-21) は固有名詞の修正コメントを付けた「はい」で Notion から再抽出して直す
+ * "修正依頼ルート" があったが、誤抽出修正は cockpit の「議事録を手動修正」
+ * (POST /api/meeting-summary/manual-update) に一本化された (2026-05-29) ため、通知側の同期再抽出は
+ * 不要になり廃止した。手動 (manual:) / 対話 (dialogue:) / 予定枠 (upcoming:) 由来のサマリは
+ * そもそも Notion ページを持たず、再抽出すると必ず notion_page_not_found で承認が弾かれていた
+ * (2026-06-02 事故)。
+ */
+function applyMeetingSummaryFeedback(args: {
   meetingId?: string | null;
-}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  scopeKey: string;
+}): { applied: boolean; message: string } {
   const meetingId = String(args.meetingId || args.scopeKey || "").trim();
-  if (!meetingId) return { applied: false, message: "meeting_id missing" };
-
-  const gasResult = await triggerImmediateReExtraction({
-    l2Kind: "meeting_summary",
-    targetId: args.targetId,
-    scopeKey: args.scopeKey,
-    meetingId,
-  });
-  const result = gasResult?.data?.result;
-  if (!gasResult?.ok || !result?.ok) {
-    const message = gasResult?.error || result?.message || result?.action || "GAS re-extraction failed";
-    return { applied: false, message };
-  }
-
-  const summaryShort = typeof result.summaryShort === "string" ? result.summaryShort.trim() : "";
-  if (summaryShort) {
-    const { data, error } = await args.supabase
-      .from("meeting_notifications")
-      .update({ summary_short: summaryShort, updated_at: new Date().toISOString() })
-      .eq("meeting_id", meetingId)
-      .select("meeting_id, summary_short")
-      .maybeSingle();
-    if (error) {
-      return { applied: false, message: `summary regenerated but notification update failed: ${error.message}` };
-    }
-    return { applied: true, message: `meeting summary regenerated: ${result.action || "updated"}`, row: data };
-  }
-
-  return { applied: true, message: `meeting summary regenerated: ${result.action || "updated"}` };
+  return {
+    applied: true,
+    message: meetingId ? `meeting summary acknowledged: ${meetingId}` : "meeting summary acknowledged",
+  };
 }
 
 async function rejectNotificationCandidates(args: {

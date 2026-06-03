@@ -71,12 +71,32 @@ export const PUBLIC_MANUSCRIPT_PARTS: PublicManuscriptPart[] = [
     ],
   },
   {
+    key: "epilogue",
+    label: "Epilogue",
+    chapters: [{ slug: "25-epilogue", number: "E", title: "その一文は、少しだけ弱くなった" }],
+  },
+  {
     key: "toolkit",
-    label: "Toolkit — 実務道具",
+    label: "Field Toolkit — 付録: 実務道具",
     chapters: [
-      { slug: "22-field-note-safety-loop", number: "A", title: "現場メモを、誰かを傷つけない問いに変える" },
-      { slug: "23-decision-and-disclosure-toolkit", number: "B", title: "判断と開示の道具箱" },
-      { slug: "24-institution-nursery-checklist", number: "C", title: "研究機関を、苗床として点検する" },
+      { slug: "22-field-note-safety-loop", number: "A", title: "現場メモを、安全な問いに変える" },
+      { slug: "23-decision-and-disclosure-toolkit", number: "B", title: "判断と開示の道具を会議に置く" },
+      { slug: "24-institution-nursery-checklist", number: "C", title: "研究機関の九十日pilot charter" },
+    ],
+  },
+  {
+    key: "method",
+    label: "Method Appendix — モデル補遺",
+    chapters: [
+      { slug: "26-method-how-to-read-the-model", number: "M0", title: "モデルをどう読むか" },
+      { slug: "27-method-notation-and-scale", number: "M1", title: "記号と尺度" },
+      { slug: "28-method-macro-alignment", number: "M2", title: "マクロの追い風を分けて読む" },
+      { slug: "29-method-readiness-axes", number: "M3", title: "五つの準備度" },
+      { slug: "30-method-founder-function", number: "M4", title: "創業者機能と役割の適合" },
+      { slug: "31-method-integrated-readiness", number: "M5", title: "統合準備度と次の一手" },
+      { slug: "32-method-evidence-rules", number: "M6", title: "証拠ルールとretrofit" },
+      { slug: "33-method-institutional-nursery", number: "M7", title: "研究機関の苗床準備度" },
+      { slug: "34-method-misuse-warnings", number: "M8", title: "誤用しないために" },
     ],
   },
 ];

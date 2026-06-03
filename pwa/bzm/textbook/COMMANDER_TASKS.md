@@ -1,6 +1,6 @@
 # Textbook Commander Tasks
 
-> Last updated: 2026-06-01 JST
+> Last updated: 2026-06-03 JST
 >
 > Textbook司令塔のタスク台帳。タスク追加、方針変更、worker切り出し、
 > 完了報告、差し戻し、archive のたびに更新する。
@@ -8,12 +8,18 @@
 ## 司令塔継続運用ルール
 
 - 未完タスクがあるのに、Textbook司令塔が作成したworkerが全員完了/停止/待機し、次アクションも切られていない状態を作らない。
-- worker完了/停止/要判断時は、worker内finalだけでなく、必ずTextbook司令塔へ能動報告させる。報告先頭は `【司令塔へ報告】<作業名> 完了` / `要判断` / `停止/ブロック` にする。
-- 報告漏れは起きる前提で、Textbook司令塔heartbeatや定期確認が直近workerの状態、pending worktree、報告未確認、未完タスクと次アクション有無を確認する。
+- worker quiet modeを採用する。workerは原則として親司令塔チャットへ進捗・中間報告・自己判断の完了報告を送らない。
+- workerが親司令塔へ送るのは、worker thread内でまさが「完全に完了」「OK」「これでよし」等と明示した後の最終closeout 1回だけにする。
+- 例外は `UU` conflict、未分類dirty、権限/破壊的操作/外部判断、同じblocking conditionで進行不能など、司令塔側の介入が必要な場合のみ。その場合も短いblocker/handoffを1回だけ送る。
+- 司令塔はworker報告で親チャットを流さず、必要ならheartbeat/read_threadで静かに確認する。
+- `askuserquestion` / `request_user_input` はTextbook worker promptで禁止する。外部判断が本当に必要な場合は、workerが親へ短いblocker/handoffを1回だけ送り、司令塔が判断を束ねる。
+- `COMMANDER_TASKS.md` は細かく更新する。worker起動、状態分類変更、司令塔判断、main/deploy gate、blocking condition、完了確認、次アクション変更は都度反映する。
+- ただし `COMMANDER_TASKS.md` にworker詳細ログを長文転載しない。Active workerあり、worker id、状態、次回確認条件、まさ要判断、完了/差し戻し/次アクションを短く残す。
+- AMD配下のworktree、`.worktrees`、`/private/tmp` のclean worktreeでmd/run note/ledgerを編集する場合、追加のまさ承認待ちは不要。dirty main worktreeだけ避け、必要ならclean worktreeでそのまま進める。
 - heartbeatや巡回で未完タスクが残っていて進められるものがある場合は、司令塔がworkerを切る、既存workerを再起動/差し戻す、または司令塔自身で次アクションを実行する。
 - 進められる未完タスクがない場合は、まさ確認/判断/作業が必要なはずなので、具体的な質問または判断依頼としてまさを動かす。
 - `未完あり・全worker停止・まさにも何も聞かない` 状態は禁止する。
-- 今後のTextbook worker promptには、この継続運用ルール、能動報告、終了ゲート、`git add .` 禁止、dirty分類、`UU` conflict時archive禁止を必ず含める。
+- 今後のTextbook worker promptから `完了・停止・要判断時は必ず親司令塔へ能動報告` を削除/上書きし、worker quiet mode、`askuserquestion` / `request_user_input` 禁止、終了ゲート、`git add .` 禁止、dirty分類、`UU` conflict時archive禁止を必ず含める。
 
 ## 出版北極星
 
@@ -34,14 +40,78 @@
 - 今後は `本文rewrite → 編集者批評 → AMD OS/生データ素材発掘 → rewrite差し戻し` の循環で進める。本文workerだけで「完成」と見なさず、編集者workerの落第基準と素材発掘workerの章別投入マップを次rewriteに反映する。
 - 2026-06-01: `Textbook full-book artifact spine rewrite 00-21` worker作成が3回 `systemError` になったため、司令塔がclean worktreeで直接scoped rewriteを実施。00-21へtraveling artifact spineを追加し、22-24のtoolkit draftを追加。成果記録は `pwa/bzm/textbook/runs/2026-06-01-full-book-artifact-spine-rewrite-00-21.md`。
 - 2026-06-02: まさ直指定の思想として「生存確率」「稼げる体質」「Jカーブ/IPO一律化への疑問」を受領。`AUTHOR_DIRECTIVES.md` に保存し、Ch06/Ch19へ一次反映。
+- 2026-06-02: `Textbook P0 narrative enrichment rewrite` worker完了。Ch01/06/09/19へ paid evidence / payment refusal / budget-owner absence / survival probability / earning body を場面として増補し、Ch04/08/13/18へ repeat-back / blank-cell / bad-news behavior によるfit/misfitを最小追加。Ch21〜Ch24はField Toolkit分離のH1/manifest alignmentのみ取り込み。成果記録は `pwa/bzm/textbook/runs/2026-06-02-p0-narrative-enrichment-rewrite.md`。
+- 2026-06-02: `Textbook P0 consequence rewrite` を司令塔直接作業で実施。Ch01/06/09/19の paid evidence / payment refusal / RESOURCE_SHIFT が、資料・部屋・関係・次の条件を実際に変える場面になるよう局所改稿。Ch08/10/13/18にもbad-news owner、学習ログ後の関係の痛み、repeat-back重複圧縮を追加。成果記録は `pwa/bzm/textbook/runs/2026-06-02-p0-consequence-rewrite.md`。
+- 2026-06-02: `Textbook P0 consequence cold-reader/editor review` worker完了。P0 consequence rewriteは7.4/10で前進、Ch01/06/09/19は資料・部屋・関係・RESOURCE_SHIFTの代償が増えた。一方でCh08は責任論へ戻り、Ch13/18はrepeat-back arcがまだ重複するため、次はCh08/13/18 overlap compression and actor-rationality passを推奨。成果記録は `pwa/bzm/textbook/runs/2026-06-02-p0-consequence-cold-reader-editor-review.md`。
+- 2026-06-02: `Textbook P0 consequence rewrite` 司令塔レビュー通過。`9290057 docs(textbook): rewrite p0 consequence scenes` は差し戻しではなく、cold-reader/editor reviewでも7.4/10で前進判定。次は全体rewriteではなくCh08/13/18 overlap compressionへ進める。成果記録は `pwa/bzm/textbook/runs/2026-06-02-p0-consequence-commander-review.md`。main merge / deployは未実施。
+- 2026-06-02: `Textbook Ch08/13/18 overlap compression and actor-rationality pass` worker完了。Ch08は弱い事実を戻す権限が若い事業化人材へ渡る行動で終わるよう圧縮。Ch13は外部経営候補の行動scene、Ch18はFRL/F_character/F_capabilityへのlean theory translationへ分離。成果記録は `pwa/bzm/textbook/runs/2026-06-02-ch08-13-18-overlap-compression.md`。md-onlyのためbuild/deployなし。
+- 2026-06-02: `Textbook Ch19 RESOURCE_SHIFT artifact pass` worker完了。Ch19に横向きA4のRESOURCE_SHIFTメモを追加し、切る活動、曇る人、戻る時間/資源、下げる不確実性、九十日後の見直し日を本文内artifactとして具体化。Ch20へ投資家紹介を減らした代償を一文だけ接続。成果記録は `pwa/bzm/textbook/runs/2026-06-02-ch19-resource-shift-artifact-pass.md`。md-onlyのためbuild/deployなし。
+- 2026-06-02: `Textbook Field Toolkit reference-mode cleanup Ch22-Ch24` worker完了。Ch22を現場メモ安全化の六手順、Ch23を結論直前の四枚の紙、Ch24を研究機関の九十日pilot charter / unknown-not_started / responsibility pipeline / stop-expand gateへ整理。成果記録は `pwa/bzm/textbook/runs/2026-06-02-field-toolkit-reference-mode-cleanup.md`。md-onlyのためbuild/deployなし。
+- 2026-06-03: `Textbook support boundary pass` 司令塔直接作業で完了。Ch11/14/19/21へ、支援部署・企業・投資家・資金提供側・大学側の局所合理性を補強し、悪役化せず「正しい圧力同士の未調整」が研究者を急がせる構図へ寄せた。成果記録は `pwa/bzm/textbook/runs/2026-06-03-support-boundary-pass.md`。md-onlyのためbuild/deployなし。
+- 2026-06-03: `Textbook full-book ruthless editor narrative appeal audit` worker完了。Ch00〜Ch24のpage-turner性は7.6/10で、Ch00〜10とCh19〜21は販売本の芯として成立、Ch11〜14とCh16〜18に読書疲労、理論名ステージング、hidden listが残るため、全体再rewriteではなく章別surgical orderへ分解。成果記録は `pwa/bzm/textbook/runs/2026-06-03-full-book-ruthless-editor-narrative-appeal-audit.md`。review noteのみのためbuild/deployなし。
+- 2026-06-03: `Textbook Ch16-Ch18 theory-name demotion rewrite` 司令塔直接作業で完了。Ch16は `準備できています` の一文を五つの受け手へ書き直す場面へ、Ch17は8:12公募メールと地域corridorのホワイトボードへ、Ch18は創業者機能を九十日配置メモへ寄せ、理論名ステージングを後段の短い命名へ圧縮。成果記録は `pwa/bzm/textbook/runs/2026-06-03-ch16-18-theory-name-demotion-rewrite.md`。md-onlyのためbuild/deployなし。
+- 2026-06-03: まさ方針「式は後でよい。まずは今のまま物語を仕上げる」を受け、`Textbook story finish midbook consequence pass` を実施。Ch11は公募申請書の危ない一文、Ch12は投資家アップデート予定の送信寸前、Ch13は外部候補のフォローアップメールで強い言葉へ戻る場面、Ch14は別研究者が支援メニューPDFでまた止まる場面を追加。成果記録は `pwa/bzm/textbook/runs/2026-06-03-story-finish-midbook-consequence-pass.md`。md-onlyのためbuild/deployなし。
+- 2026-06-03: `Textbook epilogue story close` を実施。Prologueの「少し強すぎた一文」に呼応するEpilogueとして、半年後の別案件で若い事業化人材が企業返答の一文を少し弱く戻し、今回は研究者が黙らず送信できる場面を追加。Ch21後、Field Toolkit前にEpilogueをmanifest追加。成果記録は `pwa/bzm/textbook/runs/2026-06-03-epilogue-story-close.md`。
+- 2026-06-03: `Textbook full-story readthrough bridge cleanup` を実施。Prologue〜Epilogueの一気読みで見えた章末の `次の章では` / `この章で` / `Act I` などの設計図の声を削り、次の場面へ自然につながる余韻へ変更。成果記録は `pwa/bzm/textbook/runs/2026-06-03-full-story-readthrough-bridge-cleanup.md`。
 
 ## 未完タスク（優先順位順）
+
+- 2026-06-03: `Textbook main integration execution` 完了。`codex/textbook-full-story-final-readthrough-polish` をcurrent Textbook story baselineとして `main` へ反映。`HEAD` / `origin/main` は `3fd31fa docs(textbook): audit final publication readiness` で一致。main反映前 `npm run build` passed、manifest consistencyはmissing/unlistedともに `[]`。release checkpointとしてproduction deployを1回だけ試行したが、Vercel quota blocker `Resource is limited - try again in 24 hours (more than 100, code: "api-deployments-free-per-day")` によりproduction未反映。retry連打は禁止方針に従い停止。成果物: `pwa/bzm/textbook/runs/2026-06-03-main-integration-deploy-checkpoint.md`。次はquota回復後に1回だけdeployし、`/bzm/public`、Epilogue、Field Toolkit、Method Appendixをroute inspectする。
+
+- 2026-06-03: `Textbook final publication readiness audit` 完了。Prologue〜Epilogueの物語はbranch上で完成ラインに入り、Field Toolkit / Method Appendix / Model Notesも三層分離として成立。販売前完成ではないが、残課題はfull rewriteではなくModel Note表示、Method Appendix navigation、formula typography、production/staging visual check、sales package。main integration executionへ進める判定。成果物: `pwa/bzm/textbook/runs/2026-06-03-final-publication-readiness-audit.md`。
+
+- 2026-06-03: `Textbook route/main integration review` 完了。story polish branchへ最新 `origin/main` の9コミットをmergeし、衝突なしで取り込み。`origin/main...HEAD` は `0 33` となり、main-only commitは残っていない。`npm run build` passed。main push/deployは未実施。成果物: `pwa/bzm/textbook/runs/2026-06-03-route-main-integration-review.md`。次は `main integration execution` または `final publication readiness audit`。
+
+- 2026-06-03: `Textbook Appendix cold-reader review` 完了。Model NotesとMethod Appendixはconditional pass。物語本文を壊さずモデル説明の置き場所を作れているが、Model Note proseの「このModel Noteは」「巻末の...」はややscaffoldingが見えるため、次はroute/main integration reviewまたはlayout/readabilityで視覚的optional化を検討。成果物: `pwa/bzm/textbook/runs/2026-06-03-appendix-cold-reader-review.md`。次は `route/main integration review` または `Method Appendix layout/readability pass`。
+
+- 2026-06-03: `Textbook Model Note prototype` 完了。Ch16とCh19にだけ短いoptional Model Noteを追加し、物語本文を壊さず補遺へ橋をかける試作を実施。Ch16はTRL/BRL/GRL/SRL/HRL、Ch19は統合準備度式とRESOURCE_SHIFTの関係を短く示し、詳細はMethod Appendixへ逃がした。成果物: `pwa/bzm/textbook/runs/2026-06-03-model-note-prototype.md`。次は `Appendix cold-reader review` または `route/main integration review`。
+
+- 2026-06-03: `Textbook Public notation rewrite` 完了。旧 `pwa/bzm/9-2-notation.md` の中核式と記号を、Method Appendix M1/M2/M3/M4/M5/M7へ公開安全な説明として反映。branded score名、内部章番号、組織固有例、過度な精密感は避け、integrated readinessはrankingではなく次に減らす不確実性として整理。成果物: `pwa/bzm/textbook/runs/2026-06-03-public-notation-rewrite.md`。次は `Model Note prototype` または `Appendix cold-reader review`。
+
+- 2026-06-03: `Textbook Method Appendix stub implementation` 完了。`Method Appendix — モデル補遺` をpublic manuscript末尾に追加し、M0〜M8のstub本文とmanifest sectionを作成。物語本文とField Toolkit本文は未変更。成果物: `pwa/bzm/textbook/runs/2026-06-03-method-appendix-stub-implementation.md`。次は `Public notation rewrite` または `Model Note prototype`。
+
+- 2026-06-03: `Textbook Model Appendix TOC draft` 完了。物語本文へ式を差し込まず、`Method Appendix — モデル補遺` として M0〜M8 の公開向け構成を設計。sigma_SU、TRL/BRL/GRL/SRL/HRL、FRL、integrated readiness、retrofit/evidence rule、ERS、misuse warningsを、Field Toolkit後または別appendix routeへ置く方針。成果物: `pwa/bzm/textbook/runs/2026-06-03-model-appendix-toc-draft.md`。次は `Method Appendix stub implementation` または `route/main integration review`。
+
+- 2026-06-03: `Textbook model exposition placement brief` 完了。Prologue〜Epilogueの物語本文を壊さず、モデル説明・式・記号をどこへ置くかを設計。方針は、本文には短いoptional Model Noteだけ、式・重み・記号・境界条件は別のMethod Appendixへ分離。成果物: `pwa/bzm/textbook/runs/2026-06-03-model-exposition-placement-brief.md`。次は `Model Appendix TOC draft` または `route/main integration review`。
+
+- 2026-06-03: `Textbook Field Toolkit layout/readability pass` 完了。Ch22〜Ch24を本文の続きではなくField Toolkit / 参照道具として見せるため、Toolkit章の本文上部と左ナビに控えめな付録表示を追加した。成果物: `pwa/bzm/textbook/runs/2026-06-03-field-toolkit-layout-readability-pass.md`。次は `model exposition placement brief` または `route/main integration review`。
+
+- 2026-06-03: `Textbook Ch16-Ch18 theory aftertaste pass` 完了。full-story cold-reader reviewの次surgical orderに沿って、理論名は削らず、TRL/BRL/GRL/SRL/HRL、sigma_SU、F_character/F_capabilityの直後に紙やメモへ戻る一文を追加した。成果物: `pwa/bzm/textbook/runs/2026-06-03-ch16-18-theory-aftertaste-pass.md`。次は `Field Toolkit layout/readability pass` または `model exposition placement brief`。
+
+- 2026-06-03: `Textbook Ch12-Ch14 breath pass` 完了。full-story cold-reader reviewの次surgical orderに沿って、Ch12〜Ch14の中盤疲労を全体rewriteせず、各章一箇所だけ紙・余白・線へ戻して息継ぎを作った。成果物: `pwa/bzm/textbook/runs/2026-06-03-ch12-14-breath-pass.md`。次は `Ch16-Ch18 theory aftertaste pass`。
+
+- 2026-06-03: `Textbook full-story cold-reader review Prologue-Epilogue` 完了。Prologue〜Epilogueは、強すぎた一文から弱いまま送れる一文へ閉じる一冊の物語として継続可。販売前完成原稿ではないが、全体再rewriteではなくCh12〜14 breath pass、Ch16〜18 theory aftertaste pass、Field Toolkit layout/readability、model exposition placement briefへ進む判定。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-cold-reader-review-prologue-epilogue.md`。
+
+- 2026-06-03: `Textbook epilogue final question polish` 完了。Epilogue終盤の抽象まとめを、若い事業化人材が送信前の紙の端へ線を引く動作へ戻し、会社化すべきもの/待つべきもの/会社以外の形を、最後の問いへ向かう記憶として保持した。成果物: `pwa/bzm/textbook/runs/2026-06-03-epilogue-final-question-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
+
+- 2026-06-03: `Textbook full-story ending voice polish` 完了。Ch21/Epilogue終盤に残っていた `本編の会議` / `前の物語` / `成功物語` の本側の締め声を、会議室と半年前の沈黙へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-ending-voice-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
+
+- 2026-06-03: `Textbook full-story outline residue polish` 完了。Prologue〜EpilogueとField Toolkit冷読で残っていた `前の章` / `創業者を見る章` / `この本` 型のアウトライン声を、ホワイトボードに残った判断語、面談メモ、書き直した紙、九十日メモ横の地図、Toolkitの紙束へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-outline-residue-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
+
+- 2026-06-03: `Textbook full-story cold readthrough surgical polish` 完了。Prologue〜Epilogue冷読で速度が落ちたCh07/08/10/20の判断語・責任論・関係修復・苗床接続説明を、ホワイトボード、三十日行動メモ、学習ログ、研究機関側会議の入口へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-cold-readthrough-surgical-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
+
+- 2026-06-03: `Textbook Prologue-Epilogue story voice polish` 完了。Prologue/Ch02/Ch13/Ch18/Ch21に残る読者契約・理論予告・説明声を、若い事業化人材のノート、会議メモ、研究者との会話へ戻した。加えて章番号参照を出来事の記憶へ置換し、章末の結論文を面談メモ/九十日メモ/三つの紙へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-prologue-epilogue-story-voice-polish.md`。次は `full-story cold-reader review Prologue-Epilogue`。
+
+- 2026-06-03: `Textbook full-story final readthrough polish` 完了。Prologue〜Epilogue方針を維持し、Ch06/15/21/Epilogueに残っていた説明声を、会議メモ・地図・紙・メールの場面へ戻した。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-final-readthrough-polish.md`。次は `full-story cold-reader review Prologue-Epilogue` と `model exposition placement brief`。
+
+- 2026-06-02: `Textbook Act V Ch15-24 cold-reader/editor review` 完了。Ch15〜Ch21はmain narrative endingとして継続可、Ch22〜Ch24はField Toolkit appendixへ分離推奨。成果物: `pwa/bzm/textbook/runs/2026-06-02-act-v-ch15-24-cold-reader-editor-review.md`。
+- 2026-06-02: `Textbook Field Toolkit reference-mode cleanup Ch22-Ch24` 完了。Ch22〜Ch24はField Toolkit A/B/Cとして、A=メモ安全化、B=判断/開示、C=機関pilotの役割差を明確化。成果物: `pwa/bzm/textbook/runs/2026-06-02-field-toolkit-reference-mode-cleanup.md`。
+- 2026-06-03: `Textbook support boundary pass` 完了。Ch11/14/19/21で、支援者・投資家・企業・大学・資金提供側の合理性を保持しつつ、未調整圧力が premature GO / over-strong deck / RESOURCE_SHIFT friction を生む構図へ補強。成果物: `pwa/bzm/textbook/runs/2026-06-03-support-boundary-pass.md`。
+- 2026-06-03: `Textbook full-book ruthless editor narrative appeal audit` 完了。Ch00〜Ch24は7.6/10。次はCh16〜Ch18 theory-name demotion、Ch11〜Ch14 midbook consequence source mining / surgical pass、Ch00〜Ch24 bridge/meta residue cleanupへ進む。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-book-ruthless-editor-narrative-appeal-audit.md`。
+- 2026-06-03: `Textbook Ch16-Ch18 theory-name demotion rewrite` 完了。Ch16〜Ch18の `あとでXと呼ぶ` 型の理論名ステージングを減らし、準備度・位相差・創業者機能を、文書/メール/配置メモが会議で変わる場面へ寄せた。成果物: `pwa/bzm/textbook/runs/2026-06-03-ch16-18-theory-name-demotion-rewrite.md`。
+- 2026-06-03: `Textbook story finish midbook consequence pass` 完了。式/モデル説明追加はいったん後回しにし、Ch11〜Ch14へ各章一つずつ、追い風・準備・外部候補・支援メニューが具体的な文書/予定/メール/次研究者を変える場面を追加。成果物: `pwa/bzm/textbook/runs/2026-06-03-story-finish-midbook-consequence-pass.md`。
+- 2026-06-03: `Textbook epilogue story close` 完了。Prologueと呼応するEpilogueを追加し、本編を「強すぎた一文」から「弱いまま送れる一文」へ閉じた。成果物: `pwa/bzm/public-manuscript/25-epilogue.md`, `pwa/bzm/textbook/runs/2026-06-03-epilogue-story-close.md`。
+- 2026-06-03: `Textbook full-story readthrough bridge cleanup` 完了。物語の筋は変えず、Ch03/10/12/14/15/16/18/20の章末メタ語・講義的ブリッジを圧縮し、読者にアウトラインを見せずに次の場面へ進む文へ変更。成果物: `pwa/bzm/textbook/runs/2026-06-03-full-story-readthrough-bridge-cleanup.md`。
+
 
 - **page-turner編集レビューと素材発掘ループ**
   - お願いした内容: 公開原稿を「ついつい読み進めてしまう本」として磨くため、本文writerとは別に編集者workerと素材発掘workerを走らせる。
   - 背景: 現状はnarrative要素が入り始めたものの、販売本として読者を引っ張る魅力度と、AMDで培ったBefore Zero実務ノウハウの厚みがまだ足りないため。
-  - 現状: 00-14 continuous rewrite、15-21 continuous theory rewrite、ruthless editor full-book audit v3、deep source mining v4を受け、司令塔直接作業で00-21のartifact spine rewriteと22-24 toolkit draftを作成・push済み。`Textbook cold-reader review artifact spine 00-24` と `Textbook source mining budget-owner / artifact scenes v5` のP0を受け、2026-06-02に `Textbook public manuscript artifact spine P0 rewrite` workerが本文へ直接反映済み。続けて `Textbook surgical editorial pass artifact spine` workerがCh04/Ch05 semantic order、scaffolding語、Toolkit A/B/C配置、Ch14/21/24重複をsurgical修正中。
-  - 残課題: surgical passのcommit/pushと能動報告後、追加場面の統合感と販売前copy rhythmを次のcold-reader reviewで確認する。
+  - 現状: 2026-06-02までに、editorial narrative reset audit、OS field knowhow harvest v6、public book architecture reset briefをmainへ回収し、旧BZM/会社紹介寄りの導線をpublic manuscriptへ切り替え済み。司令塔直接作業でCh00〜Ch03をAct I、Ch04〜Ch06をAct II、Ch07〜Ch10をAct III、Ch11〜Ch14をAct IVとして、primary composite case「強くなりすぎたdeck sentence」が顧客証拠、時計衝突、研究者孤独、外部CEO displacement、開示事故寸前、登記/生存確率判断、90日WAIT、責任配置、投資家面談、学習ログ、追い風、公募、準備度の混同、外部経営候補、研究機関の苗床へ進むnarrativeに改稿。Act IV冷読レビューは `2026-06-02-act-iv-cold-reader-editor-review.md` として完了。2026-06-02にCh15〜Ch18をAct V前半 / theory-map entranceとして、同じ案件が期待・低い条件・人の傷・資金圧力で再び混ざり、現場語だけでは整理できなくなる流れからBZM、TRL/BRL/GRL/SRL/HRL、sigma_SU、mu_A/mu_I/mu_G、FRL/F_character/F_capabilityを導入する本文へ改稿。rewrite note `2026-06-02-act-v-theory-map-narrative-rewrite.md` を追加。Act III用 source mining workerも `2026-06-02-act-iii-source-mining.md` を追加し、Ch07〜Ch10向けに composite scene 16件、tool/question/checklist 24件、各章5件のinsertion mapを整理。Act V/Toolkit source mining workerが `2026-06-02-act-v-toolkit-source-mining.md` を追加し、Ch19〜Ch24向けに composite scene 14件、tool/question/checklist 30件、各章4件のinsertion map、Field Toolkit抽出候補、author directive投入点、安全分類を整理。Ch15〜Ch18冷読レビューは `2026-06-02-act-v-ch15-18-cold-reader-editor-review.md` として追加。Act V前半は7.8/10でCh19〜Ch24 rewriteへ進行可。ただしCh16/17/18にtheory-name staging、FRL定義ブロック、hidden listが残るため、Ch19〜Ch24後にCh00〜Ch24 surgical residue passが必要。2026-06-02にCh19〜Ch24をAct V後半 / Field Toolkit narrativeとして、統合地図をsurvival conversation / RESOURCE_SHIFTへ、retrofitをold evidence rule -> new evidence ruleへ、ERSを研究機関operating designへ、field note safety / decision-disclosure / nursery pilotを場面内で使われる道具へ改稿。run note `2026-06-02-act-v-field-toolkit-narrative-rewrite.md` を追加。Ch15〜Ch24冷読レビューは `2026-06-02-act-v-ch15-24-cold-reader-editor-review.md` として追加し、Act Vは8.0/10、全体再rewriteではなくCh00〜Ch24 surgical residue passとField Toolkit appendix extractionへ進む判定。
+  - 残課題: 2026-06-03 full-book ruthless editor auditで、Ch00〜Ch10とCh19〜Ch21は本の芯として成立、Ch11〜Ch14は中盤の新しい代償不足、Ch22〜Ch24はField Toolkitとしてのappendix明確化が必要と判定。Ch16〜Ch18 theory-name demotionは2026-06-03に完了。全体再rewriteではなく、v6素材台帳、Act III source mining素材、Act V source mining素材を本文へ直接貼らずcomposite scene / tool artifact化して章別surgical passへ渡す。
+  - 次worker候補: full-story cold-reader review Prologue〜Epilogue、Ch13/18 final repetition check、model exposition placement brief、Field Toolkit packaging / public route clarity。
+
+
 
 - **public manuscript 00-06 scene-first rewrite**
   - お願いした内容: 北極星と `2026-06-01-public-manuscript-00-06-scene-first-rewrite-brief.md` に沿って、`pwa/bzm/public-manuscript/00`〜`06` を読み物としてつながる本文へ改稿する。
@@ -92,6 +162,91 @@
   - 残課題: `decision_branch` は `8-2`、`failure_learning` は `8-3`、`relationship_playbook` は `8-4`、`reusable_question` / `field_transition` は `8-5` など、生成側とapplier側のfallback方針を実装・検証する。
 
 ## 完了済みタスク
+
+- **Textbook Act V Ch15-24 cold-reader/editor review**
+  - お願いした内容: main反映済みのCh15〜Ch24を、Act I〜IVから続く本の後半として読めるか、理論説明/tool dumpへ戻っていないか、author directiveとappendix分離判断、Ch00〜Ch24 surgical residue範囲を冷読者・編集者目線でレビューする。
+  - 背景: Ch15〜Ch18はBZM理論地図の入口、Ch19〜Ch24はsurvival conversation / evidence-rule update / institution operating design / Field Toolkitとして改稿済みだが、販売本の終盤では理論名・toolkit・チェックリストが前に出ると読書体験が落ちるため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-act-v-ch15-24-cold-reader-editor-review.md` を追加。Act V全体は8.0/10で、Ch15〜Ch21はcomposite caseの終盤として成立、Ch19は生存確率・稼げる体質・小さなpaid evidence・Jカーブ/IPO一律化への疑問を判断イベントとして保持。Ch21が自然なnarrative closeで、Ch22〜Ch24はField Toolkit / appendix sectionとして分離すべきと判定。残る問題は会社名漏れではなく、Ch15〜18のtheory-name staging、Ch20のold/new evidence rule hidden list、Ch21の責任pipeline、Ch22〜24のtool density。
+  - 残課題: 次workerはCh00〜Ch24 surgical residue pass、Field Toolkit appendix extraction、support boundary pass。全体再rewriteは禁止寄りで、本文内の強いsceneを壊さず、hidden list / 説明見出し / 理論名早出しだけを圧縮・移動する。
+
+- **Textbook Act V Ch15-18 cold-reader/editor review**
+  - お願いした内容: main反映済みのCh15〜Ch18を、Act I〜IVから続く読み物としてBZM理論地図へ自然に入れているか、定義/表/hidden list/理論名の早出しが残っていないか、Ch19〜Ch24へ何をrewriteすべきかを冷読者・編集者目線でレビューする。
+  - 背景: Ch15〜Ch18はBZM、TRL/BRL/GRL/SRL/HRL、sigma_SU、mu_A/mu_I/mu_G、FRL/F_character/F_capabilityを出すAct V前半だが、販売本では理論名が本文を乗っ取ると読者が離れるため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-act-v-ch15-18-cold-reader-editor-review.md` を追加。Ch15〜Ch18は7.8/10でCh19〜Ch24 rewriteへ進行可。Ch15のBZM entrance、Ch17のsame-week clock、Ch18のrepeat-back testは強い。一方でCh16/17の「あとで呼ぶ」型、Ch18のFRL/F_character/F_capability定義ブロック、90日役割紙のhidden listをsurgical residue対象に指定。
+  - 残課題: 次workerはCh19〜Ch24をsurvival conversation / evidence rule update / institution operating design / Field Toolkit extractionとしてrewriteする。特にCh19で小さなpaid evidenceまたはpaid-signal refusalを場面化し、AUTHOR_DIRECTIVESの生存確率、稼げる体質、早すぎる起業、Jカーブ/IPO一律化への違和感を判断の中に残す。
+
+- **Textbook Act V / Field Toolkit narrative rewrite Ch19-24**
+  - お願いした内容: Ch19〜Ch24を、tool dump / checklist集ではなく、Act I〜V前半から続く読書体験の後半として、survival conversation / evidence-rule update / institution operating design / field-note safety / decision-disclosure tools / nursery pilot charterへ改稿する。
+  - 背景: Ch19〜Ch24は統合判断、retrofit、機関準備度、field note safety、decision/disclosure toolkit、nursery checklistの役割を持つが、旧稿は表・チェックリスト・道具集の比重が高く、販売本の結末として読み物の熱が落ちる危険があったため。
+  - 現状: 2026-06-02に本文を改稿し、Ch19は高期待の会議がGOへ戻りかけたところで統合地図を点数ではなく生存会話として使い、稼げる体質、小さな対価の良し悪し、Jカーブ/IPO一律化への疑問をRESOURCE_SHIFT判断へ接続。Ch20は外れた地図を人の失敗ではなく古い証拠ルールから新しい証拠ルールへの更新として扱い、Ch21は個別案件の低さと苗床の低さを分け、unknown / not_started / 責任pipelineへ進めた。Ch22〜Ch24は現場メモ安全化、deck sentence / 開示色分け / WAIT ledger / 予算者確認、九十日pilot charterを場面内で使われる道具として再配置。run note `pwa/bzm/textbook/runs/2026-06-02-act-v-field-toolkit-narrative-rewrite.md` を追加。
+  - 残課題: Ch15〜Ch24 cold-reader/editor review、Field Toolkit appendix extraction、Ch00〜Ch24 surgical residue passへ進む。
+
+- **Textbook Act V theory-map narrative rewrite Ch15-18**
+  - お願いした内容: Ch15〜Ch18を、理論説明章/表/ワークブックではなく、Act I〜IVから続くcomposite caseが現場語だけでは整理できなくなることでBZM理論地図へ入る読み物に改稿する。
+  - 背景: Ch15〜Ch18はBZM、readiness axes、macro alignment、founder readinessの理論語を出す必要があるが、理論語から始めると販売本では glossary / workbook に戻るため。
+  - 現状: 2026-06-02に本文を改稿し、Ch15は期待・低い条件・人の傷・資金圧力が同じ案件に戻る会議からBZMを地図として導入、Ch16は研究者/企業/病院/産学連携/若手人材が違う準備を見ている会議からTRL/BRL/GRL/SRL/HRLへ接続、Ch17は公募メール/研究者/病院/企業/自治体の速度差からsigma_SUとmu_A/mu_I/mu_Gへ接続、Ch18は外部経営候補のrepeat-backと最初の90日からFRL/F_character/F_capabilityへ接続した。run note `pwa/bzm/textbook/runs/2026-06-02-act-v-theory-map-narrative-rewrite.md` を追加。
+  - 残課題: Ch15〜Ch18 cold-reader/editor review、Ch19〜Ch24のAct V/Field Toolkit rewrite、Field Toolkit extractionへ進む。
+
+- **Textbook Act IV cold-reader/editor review**
+  - お願いした内容: main反映済みの public manuscript Ch11〜Ch14を、Act I〜IIIから続く読み物として成立しているか、理論説明章へ戻っていないか、composite case continuity / author directive retention / Act Vへの未解決問いを冷読者・編集者目線でレビューする。
+  - 背景: Act IV rewriteで追い風、公募、準備度混同、外部経営候補、研究機関の土壌へ進んだため、Ch15〜Ch18のBZM理論地図へ入る前に、本としての接続と説明残りを判定する必要があった。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-act-iv-cold-reader-editor-review.md` を追加。Act IVは同じcomposite caseとして継続可、overall 7.4/10、Ch11とCh14のcontinuityは強い。一方でCh12〜Ch14にhidden list / theory-name leakage / explanatory heading residueが残るため、Act V後にCh00〜Ch18 surgical residue passとField Toolkit extractionが必要。
+  - 残課題: 次workerはCh15〜Ch18をAct V前半として、同じcaseからBZM理論地図へ進める。理論名は現場語が足りなくなった後に出し、生存確率 / 稼げる体質 / 早すぎる起業 / Jカーブ一律化への違和感を判断軸として保持する。
+
+- **Textbook Act IV macro/readiness/founder/institution narrative rewrite**
+  - お願いした内容: Ch11〜Ch14を、Act I〜IIIから続くcomposite caseとして、追い風、準備度、創業者機能、研究機関の苗床を説明章ではなく読み物へ改稿する。
+  - 背景: 旧Ch11〜Ch14は論点は正しいが、表・分類・チェックリストが多く、販売本としての流れが弱かったため。
+  - 現状: 2026-06-02に司令塔直接作業で、Ch11を公募/企業/投資家の三通メールでWAIT条件が揺れる場面、Ch12を「準備できていますか」が五つの不安に割れる会議、Ch13を外部経営候補との二回目面談、Ch14を第三章の研究者孤独へ戻る研究機関の土壌として改稿。run note `pwa/bzm/textbook/runs/2026-06-02-act-iv-narrative-rewrite.md` を追加。
+  - 残課題: Act IV冷読レビュー、またはCh15〜Ch18のAct V narrative rewriteへ進む。
+
+- **Textbook Act I-III cold-reader/editor review**
+  - お願いした内容: main反映済みの public manuscript Ch00〜Ch10を、Act I-IIIとして冷読者・編集者目線で通読レビューし、説明/箇条書き/ワークブックへの逆戻り、composite case continuity、AUTHOR_DIRECTIVES保持、Act IVへの未解決問いを判定する。
+  - 背景: Ch00〜Ch10 rewrite後に、本としての連続読書体験が成立したか、deck sentence / budget owner / disclosure risk / WAIT as work / relationship repairが自然に接続しているかを本文編集前に判定する必要があったため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-act-i-iii-cold-reader-editor-review.md` を追加。Act I-IIIは一冊の本の前半として継続可、overall 7.9/10、Act IVへ進行可。ただしCh00〜Ch10にはagenda compression、stakeholder enumeration、judgment vocabulary teaching、tool rehearsal、Ch03の`Act I`メタ語が残るため、Act IV後にsurgical residue passとField Toolkit extractionが必要。
+  - 残課題: 次workerはCh11〜Ch14 Act IV narrative rewrite。Act IVはmacro/readiness/founder/institutionを説明章として始めず、同じcaseが一つの判断語では読めなくなる場面からreadiness mapへ進める。
+
+
+- **Textbook Act III decision/responsibility/capital/learning narrative rewrite**
+  - お願いした内容: Ch07〜Ch10を、Act I-IIから続くcomposite caseとして、判断語、責任配置、リスク資本面談、失敗学習を説明章ではなく読み物へ改稿する。
+  - 背景: Ch07〜Ch10は正しい実務章ではあるが、表と説明が多く、本としての推進力が弱かったため。
+  - 現状: 2026-06-02に司令塔直接作業で、Ch07を90日WAITが崩れかける会議、Ch08を予算者へ誰が会うかという責任の空欄、Ch09を投資家面談前夜の資料修正、Ch10を面談後の関係修復と学習ログへ改稿。run note `pwa/bzm/textbook/runs/2026-06-02-act-iii-narrative-rewrite.md` を追加。
+  - 残課題: Act I-IIIを通読レビューし、Ch11〜Ch14も同じcase threadで書き換える。
+
+- **Textbook Act I-II cold-reader/editor review**
+  - お願いした内容: main反映済みの public manuscript Ch00〜Ch06を、Act I-IIとして冷読者・編集者目線で通読レビューし、まだ「読み進めたくなる本」になっていない箇所とAct III rewrite orderを出す。
+  - 背景: まさ指摘のとおり、Ch00〜Ch06 rewrite後も箇条書き/説明/ワークブック臭が残っていないか、Ch04〜Ch06が場面として読ませているか、survival/earning directiveが説教臭くないかを本文編集前に判定する必要があったため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-act-i-ii-cold-reader-editor-review.md` を追加。Act I-IIはdeck sentence composite caseとして継続可、Ch05は最も場面化に成功。ただしCh06→Ch07が判断語/表へ戻る危険、Ch00〜Ch03の説明/list residue、Ch06 paid-signal dramatization不足を指摘。
+  - 残課題: Ch07〜Ch10をAct IIIとしてrewriteする。Ch07はWAITを行動へ、Ch08は責任配置を具体失敗へ、Ch09は資本面談を証拠更新へ、Ch10は失敗ログを関係修復へ変える。
+
+- **Textbook Act II CEO/disclosure/incorporation narrative rewrite**
+  - お願いした内容: Ch04〜Ch06を、Act Iから続くcomposite caseとして、CEO機能、開示、会社化タイミングの章から「説明/表/チェックリスト」の残り香を抜き、読ませる本文へ改稿する。
+  - 背景: Act I cold-reader/editor reviewで、次はCh04を外部CEO displacement、Ch05をdeck sentenceの開示事故寸前、Ch06を生存確率/稼げる体質の意思決定として書き換えるべきとされたため。
+  - 現状: 2026-06-02に司令塔直接作業で、Ch04を研究者が外部CEO要求を聞く場面、Ch05を送信予約寸前で止まる開示事故、Ch06を登記提案とpaid-signal/Jカーブ批判/WAIT return conditionの意思決定へ改稿。run note `pwa/bzm/textbook/runs/2026-06-02-act-ii-narrative-rewrite.md` を追加。
+  - 残課題: Ch07〜Ch10のAct III rewriteは完了。次はAct I-IIIを通読レビューし、Ch11〜Ch14も同じcase threadで書き換える。
+
+- **Textbook Act I cold-reader/editor review**
+  - お願いした内容: main反映済みの public manuscript Act I（00-03）を、冷読者・編集者目線で「箇条書き/説明/ワークブック」ではなく一冊の本の冒頭として読めるかレビューする。
+  - 背景: まさ指摘のとおり、Act I rewrite後も本当に reader-first narrative になっているか、本文編集前に別worker視点で落第基準とAct IIへのrewrite orderを出す必要があったため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-act-i-cold-reader-editor-review.md` を追加。Act Iは会社紹介・著者紹介に寄らず、冒頭5分で現場の話として読めるため継続可。ただし説明/list residue、`Act I` メタ表現、生存確率/稼げる体質のdramatization不足は後続surgical対象。
+  - 残課題: Act II rewriteは司令塔直接作業で完了。次はAct I-II通読レビューまたはCh07〜Ch10のAct III narrative rewriteへ進む。
+
+- **Textbook opening and Act I narrative rewrite**
+  - お願いした内容: `public book architecture reset brief` に沿って、`pwa/bzm/public-manuscript/00`〜`03` を「実務メモ」ではなく読み物としてのAct Iへ改稿する。
+  - 背景: まさから「全くnarrativeじゃない」「箇条書きの本は見たことない」と強い差し戻しがあり、00-24を一冊の本として作り直す必要があったため。
+  - 現状: 2026-06-02に司令塔直接作業で、00 Prologue、01、02、03を全面改稿。primary composite case「強くなりすぎたdeck sentence」を、拍手後の違和感、企業の「面白い」誤読、金曜資料締切の複数時計衝突、支援メニュー増加による責任中心の空白へ通した。run note `pwa/bzm/textbook/runs/2026-06-02-opening-act-i-narrative-rewrite.md` を追加。
+  - 残課題: Ch04〜Ch06のAct II rewriteは完了。次はCh07〜Ch10をAct IIIとして、判断、責任配置、資本面談、失敗学習を同じcase threadでつなぐ。
+
+- **Textbook public book architecture reset brief**
+  - お願いした内容: 現行00-24を本文rewriteせず、一冊の本としてcomposite case arc、Act構成、tables-to-appendix map、BZM登場タイミングへ再設計する。
+  - 背景: まさから「全くnarrativeじゃない」「実務メモ集に見える」と強い差し戻しがあり、editorial narrative reset auditも章別説明/表/チェックリストからのarchitecture resetをP0としていたため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-public-book-architecture-reset-brief.md` を追加。primary composite case「強くなりすぎたdeck sentence」とinstitutional echo threadを設計し、Act I-V + Field Toolkit、Chapter 00-24 remap、Tables and toolkit extraction map、BZM theory reveal plan、Opening rewrite order、Next rewrite worker promptを整理。
+  - 残課題: 次workerは `Textbook opening and Act I rewrite from architecture reset` として00-03を先に書き換える。その後、main narrativeから表/チェックリストをField Toolkitへ逃がす抽出workerへ進む。
+
+- **Textbook editorial narrative reset audit**
+  - お願いした内容: 公開原稿00-24とOS上の教科書/BZM導線を、販売本編集者criticとして「本としてまだ読ませられていない」前提で酷評し、rewrite orderを出す。
+  - 背景: まさから、現状原稿はnarrativeではなく箇条書き/章ごとの説明に見える、さらに冒頭がAMD紹介に見えるという強い差し戻しがあったため。
+  - 現状: `pwa/bzm/textbook/runs/2026-06-02-editorial-narrative-reset-audit.md` を追加。`GlobalNav.tsx` の `📚 教科書` が `/bzm` に向き、`/bzm` が旧 `pwa/bzm/0-1-preface.md` を表示するため、読者がpublic manuscriptではなくAMD/内部運用語の残る旧BZM本文へ送られるP0 mismatchを特定。本文面では、public manuscriptもまだ章別説明・表・チェックリスト密度が高く、composite case arcへのarchitecture resetが必要と診断。
+  - 残課題: 次workerは `OS route/content mismatch fix` を最優先で切る。続けて `public book architecture reset brief`、opening rewrite、tables/toolkit appendix extractionへ進める。
 
 - **Textbook public-manuscript audit**
   - お願いした内容: 現行 `pwa/bzm/*.md` を販売本の原稿として見たとき、公開可能、公開向け書き換え必須、内部退避、匿名化ケース素材に分類する。
@@ -147,8 +302,8 @@
   - 現状: OS司令塔がmigration 116を本番適用済み。`metadata_json` missingのRESTエラーは解消済み。worker Cがschema dumpを実行し、`pwa/design/db_schema.md` とspec/changelogを同期済み。
   - 残課題: 今回の事故を踏まえ、main push後のVercel production確認とDB/code compatibility確認をworker終了ゲートに入れ続ける。
 
-- **Textbook worker完了報告ゲートの強化**
-  - お願いした内容: worker完了/停止/要判断時に、worker内finalだけでなくTextbook司令塔へ能動報告させる。
-  - 背景: heartbeatやread_threadだけでは報告漏れを拾う保険にしかならず、司令塔が統合判断を遅らせるため。
-  - 現状: Textbook worker prompt標準に、報告タイトル `【司令塔へ報告】<作業名> 完了/要判断/停止/ブロック`、送信先thread id、必須報告項目を追加済み。worker A main取り込みでも新形式の報告を受領済み。
-  - 残課題: 今後新規workerを切るたびにこの台帳とworker promptへ反映する。`UU` conflictや未分類dirtyが残るworkerはarchiveしない。
+- **Textbook worker quiet mode**
+  - お願いした内容: workerが親司令塔チャットへ進捗・中間報告・自己判断の完了報告を送らないquiet modeへ運用変更する。
+  - 背景: worker報告で親司令塔チャットが流れ、まさと司令塔が見るべきcurrent truthが埋もれやすくなったため。
+  - 現状: 2026-06-03にTextbook司令塔継続運用ルールをquiet modeへ更新。workerは、まさがworker thread内で完全完了/OK等を明示した後だけ最終closeoutを1回送る。例外は `UU` conflict、未分類dirty、権限/破壊的操作/外部判断、進行不能blockerなど司令塔介入が必要な場合のみ。
+  - 残課題: 今後新規worker promptから旧 `完了・停止・要判断時は必ず親司令塔へ能動報告` を削除/上書きし、`askuserquestion` / `request_user_input` も禁止する。台帳は細かく更新するが、worker詳細ログを長文転載せず、worker id、状態、次回確認条件、まさ要判断、完了/差し戻し/次アクションを短く残す。

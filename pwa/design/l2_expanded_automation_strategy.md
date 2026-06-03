@@ -13,7 +13,7 @@ Activation note:
 - L2 13 is not daily. It is a separate weekly subscription automation candidate.
 - L2 14 is finance non-LLM cron / admin review first.
 - L2 15 is weekly VC evidence automation. PWA `vc-discover` remains guarded/manual.
-- L2 16 is a month-end 17:00 JST management evaluation candidate for `/management-score`. It is design-only until the L2 source table, payload contract, source refs, history policy, and update responsibility are accepted. No migration, DB write, route, UI implementation, active cron registration, or deploy should proceed before that.
+- L2 16 is a month-end 17:00 JST management evaluation candidate for `/management-score`. The revised UI direction is canonical: status label/icon first, natural-language headline, summary, and judgment sections rather than number recitation. The remaining design work is to align the L2 storage schema, source refs, history policy, and month-end update responsibility.
 - PWA / Vercel background LLM cron remains disabled.
 
 ## Plain-language route glossary
@@ -59,7 +59,7 @@ The cleanest expansion is to keep L2 1-10 as the internal operating-memory layer
 | 13 | Member Weekly Activities | internal hybrid | `member_activities(source='member_weekly')` | Weekly activities are primary member contribution evidence for mypage, reward allocation, L2 5 member knowledge, and MS contribution review. |
 | 14 | Finance Ops Evidence | finance operations | `company_finance_recurring_items`, `company_finance_receipt_events`, derived `company_actual_monthly`, `company_budget_monthly` | Finance operations evidence drives monthly PL, cash visibility, and Management Score finance axis. |
 | 15 | VC News / Funding Signals | external | `vc_news`, `vcs`, `vc_funds`, `vc_investments`, `project_vc_relations` | VC news and funding signals influence fundraising strategy, VC relationship management, and macro funding context. |
-| 16 | Management Monthly Signal Evaluation | management judgment | candidate `amd_management_monthly_signal_evaluations` | The month-end management-score narrative should become structured L2 evidence, not temporary UI prose. It translates monthly budget/score evidence into a readable business judgment, but stays design-only until the extraction/storage/update contract is accepted. |
+| 16 | Management Monthly Signal Evaluation | management judgment | `company_management_signal_reviews` | The month-end management-score narrative is structured L2 evidence. It translates monthly budget/score evidence into a readable business judgment with status label/icon, headline, summary, sections, source refs, and history. |
 
 ## L2 1: Monthly reports
 
@@ -218,19 +218,20 @@ This L2 is not a UI polish note. It is the source-of-truth row that tells masa w
 
 Source-of-truth:
 
-- Candidate table: `amd_management_monthly_signal_evaluations`
+- Source table: `company_management_signal_reviews`
 - Inputs: `amd_management_score_snapshots`, `amd_management_score_evidence`, `company_budget_actual_monthly`, `company_budget_variance_notes`, L2 9 strategy signals, L2 14 finance ops evidence, L2 15 VC/funding signals, and relevant billing / pipeline evidence.
 - Output: latest current evaluation plus historical versions/months.
 
 Payload shape:
 
-- `ym`, `version`, `status`, `icon`, `label`
+- `ym`, `version`, `status_label`, `status_tone`, `status_icon`
 - `headline`: one-line management judgment
-- `reasons`: 2-3 judgment reasons with source refs
-- `next_watch`: 1-3 things to watch next month
+- `summary`: additional judgment comment
+- `sections`: title / body / items / tone blocks such as near-term temperature, cost view, sales decision, variance reading, and immediate watch items
 - `source_refs_json`: source tables / row ids / hashes, not raw private source text
-- `payload_json`: compact calculation context and omitted-number policy
-- `is_current`, `superseded_at`
+- `payload_json`: compact calculation context, evaluation logic version, and omitted-number policy
+- `generated_at`, `reviewed_at`, `codex_thread_id`, `automation_id`
+- `is_current`, `superseded_at` or equivalent archived-history fields
 
 Writing rule:
 
@@ -242,8 +243,8 @@ Writing rule:
 Route:
 
 - Cadence: last day of each month, 17:00 JST.
-- Runner: Codex / subscription automation candidate. Do not implement a PWA route until the L2 design is accepted.
-- Apply: design target only. After acceptance, the writer should store a new version and collapse the previous current row; before acceptance, there is no DB write or route.
+- Runner: Codex / subscription automation candidate `amd-os-l16-management-monthly-signal-evaluation`.
+- Apply: store a new version in `company_management_signal_reviews` and collapse previous evaluations into UI history. PWA / Vercel background LLM cron stays disabled.
 
 ## Extraction routing strategy
 
@@ -373,7 +374,7 @@ Completed scope:
 - Updated `pwa/design/L2_DATA.md` from L2 data 10 types to L2 1-16.
 - Added `/spec` top link and `pwa/spec/3-0-l2-data-list-current-spec.md` as the readable L2 data list.
 - Updated `pwa/spec/3-1-l2-data-extraction-current-spec.md` and `pwa/manual/8-3-l2-extraction-routines-spec.md` with provenance classes and writer boundaries.
-- Added L2 16 as a design-only taxonomy item and documented the hold: no migration, DB write, route, `/management-score` UI implementation, active cron registration, or deploy until the L2 extraction/storage/update design is accepted.
+- Updated L2 16 to use the revised `/management-score` UI as the canonical UX direction and documented the target storage schema: status label/tone/icon, headline, summary, sections, source refs, generated/review timestamps, Codex thread id, and automation id.
 - Aligned MMO `amd-os-l2-consolidated-evidence` prompt so daily extraction covers L2 2 / 4 / 5 / 7 / 9 / 10 / 11 / 12 and explicitly skips L2 8.
 - Aligned MMO `amd-os-l1-monthly-report-monthend` prompt so L2 8 checklist audit runs after L2 1 monthly report synthesis.
 

@@ -143,26 +143,32 @@ total_score =
 
 ### source of truth
 
-候補テーブル: `amd_management_monthly_signal_evaluations`
+source of truth table: `company_management_signal_reviews`
 
-これは L2 抽出設計の候補であり、設計確定前に migration / DB write / route / UI本実装 / 月末自動生成を進めない。現本番 `/management-score` の「経営シグナル評価」欄は暫定UIで、最終形ではない。
+2026-06-03 の修正版 `/management-score` UI を、L2⑯の最終UX方向として正とする。UIは数字の羅列ではなく、先頭に状態ラベル/アイコンと自然文の一読評価を置き、詳細を「先3か月の温度感」「費用の見方」「次の営業判断」「乖離の読み方」「今すぐ見ること」の判断コメントとして出す。
+
+現UIの文言生成は暫定ロジックだが、L2データ設計ではこの表示形を正本化し、毎月末日 17:00 JST に保存済みL2として生成/更新する。古い評価は UI 上で過去ログとして折りたたむ。
 
 | field | meaning |
 |---|---|
 | `ym` | 対象年月 (`YYYYMM`) |
 | `version` | 同一月の評価版。再生成時は増やす |
-| `status` | `healthy` / `mostly_good` / `watch` / `intervention_needed` / `critical` |
-| `icon` | `🟢` / `🟩` / `🟡` / `🟠` / `🔴` |
-| `label` | `良好` / `概ね良い` / `注意` / `要介入` / `危険` |
-| `headline` | 1行の経営評価文 |
-| `reason_items_json` | 2〜3個の判断理由。axis / text / source_refs を持つ |
-| `next_watch_json` | 翌月に見るべき1〜3項目 |
+| `status_label` | `概ね良好` / `注意して進める` / `要介入` / `評価候補/中立` |
+| `status_tone` | `good` / `watch` / `danger` / `neutral` |
+| `status_icon` | `good` / `watch` / `danger` / `neutral`。UIで icon 表示へ変換する |
+| `headline` | 一読で分かる自然文の経営評価 |
+| `summary` | 追加判断コメント。数字は必要最小限だけ自然文に混ぜる |
+| `sections_json` | `sections[]`。`title` / `body` / `items` / `tone` を持つ |
 | `source_refs_json` | 参照したtable / row id / hash / short label。raw本文は保存しない |
-| `payload_json` | snapshot id、予実差分要約、score axis summary、数字再掲禁止ポリシー |
+| `payload_json` | snapshot id、予実差分要約、score axis summary、数字再掲禁止ポリシー、評価ロジックversion |
+| `generated_at` | automation / Codex が評価候補を生成した時刻 |
+| `reviewed_at` | まさ or admin が月末評価として確認した時刻 |
+| `codex_thread_id` | 生成/レビューした Codex thread |
+| `automation_id` | `amd-os-l16-management-monthly-signal-evaluation` などの automation id |
 | `is_current` | 最新表示対象か |
 | `superseded_at` | 同月の新version生成時に旧currentへ入れる |
 
-source of truth table / payload schema / source_refs_json / 履歴保存ルールは、この節をたたき台に設計確定する。確定後に migration、保存処理、UI文言、status icon、過去ログ表示、月末17:00 automation を本実装する。
+既存 migration `122_management_signal_reviews.sql` は `summary`, `forecast_summary`, `cost_actions`, `pipeline_actions`, `variance_findings`, `risk_alerts`, `decision_signals` を持つ初期形。次のDB設計では、上表の `status_label` / `status_tone` / `status_icon` / `headline` / `sections_json` / `generated_at` / `automation_id` を正規フィールドとして足し、既存 JSON 群は `sections_json` へ統合する。
 
 ### 入力
 
@@ -181,9 +187,9 @@ source of truth table / payload schema / source_refs_json / 履歴保存ルー�
 出してよいもの:
 
 - 状態が良いのか悪いのかが即分かるアイコン + ラベル
-- 1行評価。例: 「まあ悪くない。ただ、新規案件の厚みがもう少しあると安心できる。」
-- 2〜3個の判断理由。数字の羅列ではなく、何が効いているかを書く
-- 翌月に見るべきこと
+- 1行評価。例: 「まあ悪くない。ただ、通常月の収支が少し薄いので、もう1本新規案件か入金前倒しがあるとかなり安心。」
+- 判断コメント。`先3か月の温度感` / `費用の見方` / `次の営業判断` / `乖離の読み方` / `今すぐ見ること` を基本sectionにする
+- 数字は「約201万円くらい」のように判断文の中へ最小限だけ混ぜる
 
 出さないもの:
 
@@ -195,20 +201,28 @@ source of truth table / payload schema / source_refs_json / 履歴保存ルー�
 
 | label | 意味 |
 |---|---|
-| 🟢 良好 | 財務・既存PJ・新規案件・方向性が大きく崩れていない |
-| 🟩 概ね良い | 経営状態は悪くないが、1つ程度の注意点がある |
-| 🟡 注意 | 翌月に見るべき弱点が明確にある |
-| 🟠 要介入 | 今月中に手を打つべき経営課題がある |
-| 🔴 危険 | cash / runway / 売上 / pipeline のいずれかが深刻 |
+| 概ね良好 | `good` | 大きな介入は不要。入金予定・通常月収支・新規案件の積み増しを確認しながら進める |
+| 注意して進める | `watch` | 回ってはいるが、通常月収支、入金タイミング、先の資金の谷に注意が必要 |
+| 要介入 | `danger` | 今月中に入金前倒し、新規案件上積み、支出調整のどれかを決めたい |
+| 評価候補/中立 | `neutral` | raw/calcやsource refsが不足しており、月末評価としては未確定 |
+
+### 評価ロジック
+
+L2⑯は数字を保存するだけではなく、数字から「良いのか悪いのか」「何をすべきか」へ変換する。
+
+- 先3か月の最低cash、通常月CF、単発入金依存、入金予定の確度を見て `status_tone` を決める
+- `company_budget_actual_monthly` と `company_budget_variance_notes` で、予実乖離が会計上の発生月ズレか実際の入出金差かを読む
+- `billing_cycles` / freee / payout / receipt evidence で、入金済み未反映・未請求・支払通知未反映を判断理由にする
+- L2⑨, L2⑭, L2⑮ から、新規案件・資金調達環境・費用オペレーションの外部/内部signalを加える
+- 出力は `headline` + `summary` + `sections_json` に集約し、予実表の数字を別表のように再掲しない
 
 ### 生成経路
 
-- 毎月末日 17:00 JST に Codex / subscription automation 候補を走らせる設計
-- raw/calc後の月末断面を読み、reviewable payloadを作る。ただし route / DB write は未実装
-- 設計確定までは `/management-score` の評価文・status icon・保存・自動生成を本実装しない
+- 毎月末日 17:00 JST に Codex / subscription automation `amd-os-l16-management-monthly-signal-evaluation` を走らせる設計
+- raw/calc後の月末断面を読み、reviewable payloadを作る
+- DB保存は `company_management_signal_reviews` に集約し、同月の旧評価は `is_current=false` 相当または `status='archived'` + `superseded_at` 相当で過去ログへ閉じる
 - PWA / Vercel background LLM cron は復活させない
-- 古い評価は `is_current=false` + `superseded_at` で過去ログへ閉じる設計
-- `/management-score` では最新評価だけ展開し、古い評価は月別/版別トグルで閉じる設計
+- `/management-score` では最新評価だけ展開し、古い評価は月別/版別トグルで閉じる
 
 ---
 

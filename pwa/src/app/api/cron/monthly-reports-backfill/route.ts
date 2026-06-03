@@ -84,17 +84,53 @@ export async function GET(req: NextRequest) {
   const maxTokens = (promptRow.max_tokens as number) || 8192;
 
   // 2. missing 取得 (= billing_cycles - monthly_reports)
-  const [{ data: bcs }, { data: existingMrs }] = await Promise.all([
+  const [{ data: bcs }, { data: existingMrs }, { data: projRows }] = await Promise.all([
     db.from("billing_cycles").select("project_id, ym"),
     db.from("monthly_reports").select("project_id, ym"),
+    db.from("projects").select("project_id, start_ym, end_ym, status"),
   ]);
   const existingSet = new Set(
     ((existingMrs as { project_id: string; ym: string }[] | null) ?? []).map(
       (r) => `${r.project_id}_${r.ym}`
     )
   );
+  // PJ ごとの meta (start_ym / status / freeze_from_ym)。生成可否の判定に使う。
+  // 月次サマリ生成の正本原則 (2026-06-03 まさ確定):
+  //   - 当月に実進捗があれば、状態 (active/ended/frozen) を問わず生成する
+  //     (終了後の清算・株主総会など、ended でも実進捗が出るケースがあるため)
+  //   - 当月に実進捗が無く active なら「進捗なし」テンプレを置く
+  //   - 当月に実進捗が無く ended / frozen なら生成しない (捏造の温床なので)
+  // → 「期間 (end_ym) で機械的に切る」旧ガードは廃止。進捗の有無で切る。
+  const projMeta = new Map<
+    string,
+    { start: string | null; status: string | null; freezeFrom: string | null }
+  >();
+  for (const p of (projRows as {
+    project_id: string;
+    start_ym: string | null;
+    status: string | null;
+    freeze_from_ym: string | null;
+  }[] | null) ?? []) {
+    projMeta.set(p.project_id, {
+      start: p.start_ym,
+      status: p.status,
+      freezeFrom: p.freeze_from_ym,
+    });
+  }
+  // 当月 (JST) の ym。これより後の未来月は backfill 対象にしない。
+  // billing_cycles には請求予定として未来月が登録されており、ガードが無いと
+  // まだ来ていない月の月次報告書を LLM が先回りで捏造してしまう (2026-06-02 事故)。
+  const nowJst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const currentYm = `${nowJst.getUTCFullYear()}${String(nowJst.getUTCMonth() + 1).padStart(2, "0")}`;
   const missing: MissingTarget[] = ((bcs as MissingTarget[] | null) ?? [])
     .filter((bc) => !existingSet.has(`${bc.project_id}_${bc.ym}`))
+    .filter((bc) => bc.ym <= currentYm) // 未来月は作らない
+    .filter((bc) => {
+      const m = projMeta.get(bc.project_id);
+      if (!m) return false; // projects に無い PJ は対象外
+      if (m.start && bc.ym < m.start) return false; // 開始前は自動 backfill しない (意味ある開始前は手動)
+      return true;
+    })
     .sort((a, b) => b.ym.localeCompare(a.ym) || a.project_id.localeCompare(b.project_id))
     .slice(0, limit);
 
@@ -103,9 +139,14 @@ export async function GET(req: NextRequest) {
   }
 
   const totalMissing =
-    ((bcs as MissingTarget[] | null) ?? []).filter(
-      (bc) => !existingSet.has(`${bc.project_id}_${bc.ym}`)
-    ).length;
+    ((bcs as MissingTarget[] | null) ?? []).filter((bc) => {
+      if (existingSet.has(`${bc.project_id}_${bc.ym}`)) return false;
+      if (bc.ym > currentYm) return false;
+      const m = projMeta.get(bc.project_id);
+      if (!m) return false;
+      if (m.start && bc.ym < m.start) return false;
+      return true;
+    }).length;
 
   const stats: GenStat[] = [];
 
@@ -126,8 +167,12 @@ export async function GET(req: NextRequest) {
             target,
             systemPrompt,
             model,
-            maxTokens
+            maxTokens,
+            projMeta.get(target.project_id) ?? null
           );
+          if (result.skipped) {
+            return { ...target, ok: false, reason: result.skipReason, ms: Date.now() - t0 } as GenStat;
+          }
           return { ...target, ok: true, chars: result.chars, ms: Date.now() - t0 } as GenStat;
         } catch (e) {
           return {
@@ -162,8 +207,9 @@ async function generateOne(
   target: MissingTarget,
   systemPrompt: string,
   model: string,
-  maxTokens: number
-): Promise<{ chars: number }> {
+  maxTokens: number,
+  meta: { start: string | null; status: string | null; freezeFrom: string | null } | null
+): Promise<{ chars: number; skipped?: boolean; skipReason?: string }> {
   const { project_id: projectId, ym } = target;
 
   // project
@@ -198,6 +244,14 @@ async function generateOne(
     .order("item_date", { ascending: false })
     .limit(60);
   const bySource: Record<string, { title: string; content: string; date: string }[]> = {};
+  const sourceChecklist: Record<string, number> = {
+    gmail: 0,
+    drive: 0,
+    calendar: 0,
+    slack: 0,
+    notion: 0,
+  };
+  let sourceItemCount = 0;
   for (const item of (sourceItems as {
     source: string | null;
     title: string | null;
@@ -211,7 +265,26 @@ async function generateOne(
       content: (item.content_text || "").slice(0, 2000),
       date: item.item_date || "",
     });
+    if (src in sourceChecklist) sourceChecklist[src] += 1;
+    sourceItemCount += 1;
   }
+
+  // 当月の実進捗を 5生データ集約 (source_cache) だけでなく、MTGサマリ (L2⑥) と
+  // メンバー活動 (member_activities) も含めて判定する。source_cache が薄くても
+  // 会議・活動の痕跡があれば「進捗あり」とみなす (no-data 誤判定の防止)。
+  const [{ count: mtgCount }, { count: actCount }] = await Promise.all([
+    db
+      .from("project_meeting_summaries")
+      .select("meeting_id", { count: "exact", head: true })
+      .eq("project_id", projectId)
+      .eq("ym", ym),
+    db
+      .from("member_activities")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", projectId)
+      .eq("ym", ym),
+  ]);
+  const hasActivity = sourceItemCount > 0 || (mtgCount ?? 0) > 0 || (actCount ?? 0) > 0;
 
   // milestones
   const { data: pcRows } = await db
@@ -238,8 +311,61 @@ async function generateOne(
     }
   }
 
-  // prompt 組み立て
   const ymFormatted = `${ym.slice(0, 4)}年${parseInt(ym.slice(4), 10)}月`;
+
+  // 進捗ゼロ月の扱い (2026-06-03 まさ確定の正本原則):
+  //   - 進捗あり → 状態を問わず通常生成 (ended/frozen でも清算・株主総会等の実進捗は書く)
+  //   - 進捗なし & frozen/ended → 生成しない (捏造の温床)
+  //   - 進捗なし & active → 「進捗なし」テンプレを置く
+  if (!hasActivity) {
+    const isFrozen =
+      meta?.status === "frozen" || (!!meta?.freezeFrom && ym >= meta.freezeFrom);
+    const isEnded = meta?.status === "ended";
+    if (isFrozen || isEnded) {
+      // 進捗ゼロの終了/凍結 PJ は月次サマリを作らない
+      return {
+        chars: 0,
+        skipped: true,
+        skipReason: `skip:no-activity-${isEnded ? "ended" : "frozen"}`,
+      };
+    }
+    // active かつ進捗ゼロ → 「進捗なし」テンプレ。
+    // source の薄さは extraction 不完全の可能性もあるため本文は断定しない。
+    const noActivityBody =
+      `# ${project.project_name}（${project.client_name || ""}）${ymFormatted}度 月次報告書\n\n` +
+      `**対象期間:** ${ymFormatted}\n` +
+      `**作成:** AMD OS 月次報告書生成（つくよみ）\n\n` +
+      `---\n\n` +
+      `## 概要\n\n` +
+      `${ymFormatted}は、${project.project_name}プロジェクトにおける活動が検出されませんでした。**進捗はありません。**\n\n` +
+      `5生データ（Gmail / Drive / Calendar / Slack / Notion）のいずれからも当月の活動・会議・成果物は検出されていません。マイルストーン進捗、メンバー活動ともに記録なしです。\n\n` +
+      `活動が発生した時点で月次報告を再開します。\n`;
+    const reportId = `${projectId}_${ym}`;
+    const now = new Date().toISOString();
+    const { error: upsertErr } = await db.from("monthly_reports").upsert(
+      {
+        report_id: reportId,
+        project_id: projectId,
+        ym,
+        draft_content: noActivityBody,
+        status: "draft",
+        generated_at: now,
+        collection_summary_json: {
+          sourceChecklist,
+          sourceItemCount: 0,
+          mtgCount: mtgCount ?? 0,
+          memberActivityCount: actCount ?? 0,
+          noActivity: true,
+          note: "no-activity month (active) — skipped LLM draft, placed no-progress template",
+        },
+      },
+      { onConflict: "project_id,ym" }
+    );
+    if (upsertErr) throw new Error(`upsert(no-activity): ${upsertErr.message}`);
+    return { chars: noActivityBody.length };
+  }
+
+  // prompt 組み立て
   let userPrompt = `# ${project.project_name}（${project.client_name || ""}）${ymFormatted}度 月次報告書\n\n`;
   userPrompt += `メンバー: ${members.join(", ")}\n\n`;
   if (milestonesText) userPrompt += milestonesText + "\n\n";
@@ -305,6 +431,13 @@ async function generateOne(
       draft_content: generatedText,
       status: "draft",
       generated_at: now,
+      collection_summary_json: {
+        sourceChecklist,
+        sourceItemCount,
+        mtgCount: mtgCount ?? 0,
+        memberActivityCount: actCount ?? 0,
+        noActivity: false,
+      },
     },
     { onConflict: "project_id,ym" }
   );

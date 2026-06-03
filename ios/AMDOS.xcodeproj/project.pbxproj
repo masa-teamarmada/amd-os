@@ -20,6 +20,7 @@
 		228BA8F352883D69048423E9 /* MyPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3207593D6E1FA76E323E94F /* MyPageView.swift */; };
 		262313EBE327F7F478DDD536 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 69E970BE6BEC7BAFBE006403 /* GoogleSignIn */; };
 		27A6352B22D153D5EC6BEFFC /* ProjectListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732E2F1382E5F1148C4CA968 /* ProjectListView.swift */; };
+		33F4CB30EB266FD3B3F57CE3 /* ScoreDetailWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B587013441139A27FF5443 /* ScoreDetailWebView.swift */; };
 		3E1F881878B430DBD3D0081A /* TsukuyomiView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA8F7E1D065B13C0AEF43D97 /* TsukuyomiView.swift */; };
 		3EBAE0E568653DBA3DD49CC7 /* ProposalModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2956502B79FEB5A3F3332225 /* ProposalModels.swift */; };
 		42B8A7C9AF35ECA4E5292D2F /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = F8897987B90FF39EC04E1953 /* Supabase */; };
@@ -40,6 +41,7 @@
 		8F6665F9402FF6471DD08138 /* RoutineModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07B5D29F618E7BDDD2F4C941 /* RoutineModels.swift */; };
 		91F9E9784A0F3634F9309A75 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51AB49E739CD1F1E525E2D4B /* SupabaseService.swift */; };
 		97061AA63C4667DDB25B86C0 /* MilestoneManagementSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5795FA89450D87FC2B3EE415 /* MilestoneManagementSheet.swift */; };
+		972F8655A3CCBFB5A0E592D6 /* CockpitHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A04B40C7295AA7DD23860FE3 /* CockpitHUDView.swift */; };
 		9DC4E04B1AD120F6F497EB09 /* MyPageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E107E118826DE68EAE329E3 /* MyPageModels.swift */; };
 		A008650CC3E761AE1707088B /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326FB30E4B4C25B8778D51D8 /* DesignSystem.swift */; };
 		A98B86D3008DDC2E9518AFFA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB600E9E4CBF01382876593 /* SettingsView.swift */; };
@@ -74,6 +76,7 @@
 		288148AB1627B1D3FFF3E9A8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2956502B79FEB5A3F3332225 /* ProposalModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProposalModels.swift; sourceTree = "<group>"; };
 		326FB30E4B4C25B8778D51D8 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		38B587013441139A27FF5443 /* ScoreDetailWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreDetailWebView.swift; sourceTree = "<group>"; };
 		42C2A6ADC9E56C3FDAEA9CA0 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		51AB49E739CD1F1E525E2D4B /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
 		53C5A1FCB096582CC5B256E7 /* CacheService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheService.swift; sourceTree = "<group>"; };
@@ -94,6 +97,7 @@
 		8D9A62C4F0159E59C0041B34 /* BillingMatrixView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillingMatrixView.swift; sourceTree = "<group>"; };
 		8E107E118826DE68EAE329E3 /* MyPageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyPageModels.swift; sourceTree = "<group>"; };
 		96A81649CC544AA39FF51E1E /* ProjectRewardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRewardCard.swift; sourceTree = "<group>"; };
+		A04B40C7295AA7DD23860FE3 /* CockpitHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitHUDView.swift; sourceTree = "<group>"; };
 		A14F40003562F102A26959BE /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		A23680BC4AD742E2A3D84DC7 /* PayoutNoticePerMemberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayoutNoticePerMemberView.swift; sourceTree = "<group>"; };
 		A77774A56AAE57AFC0DAB33E /* ReimburseFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReimburseFormView.swift; sourceTree = "<group>"; };
@@ -239,11 +243,13 @@
 			isa = PBXGroup;
 			children = (
 				6BC9AC9A893CB5D5FAFE2EF3 /* CockpitDetailView.swift */,
+				A04B40C7295AA7DD23860FE3 /* CockpitHUDView.swift */,
 				6ECCC8F3269182700137A3A8 /* CockpitView.swift */,
 				5795FA89450D87FC2B3EE415 /* MilestoneManagementSheet.swift */,
 				AEED249ABC7816254023EDB7 /* MonthlyModal.swift */,
 				755F97B38BFBE330C1C8D007 /* MsProgressEditSheet.swift */,
 				624E5E50F9A1729C297DECED /* MsRevisionViews.swift */,
+				38B587013441139A27FF5443 /* ScoreDetailWebView.swift */,
 			);
 			path = Cockpit;
 			sourceTree = "<group>";
@@ -417,6 +423,7 @@
 				170C6D65B4FACB39A664B8DE /* BudgetStepView.swift in Sources */,
 				1BBFBFDE6870D19D6D3BDFE2 /* CacheService.swift in Sources */,
 				D057F4EE7CEEDFF8C37E47F9 /* CockpitDetailView.swift in Sources */,
+				972F8655A3CCBFB5A0E592D6 /* CockpitHUDView.swift in Sources */,
 				0B3D5108164948BF2030405E /* CockpitModels.swift in Sources */,
 				01AFAC786AE82F67480AE014 /* CockpitView.swift in Sources */,
 				8F2C573F139F1DDA182A23DF /* ContentView.swift in Sources */,
@@ -449,6 +456,7 @@
 				4EE97ED57B3EEB9CF534914C /* RevisionModels.swift in Sources */,
 				437BB0D7AB2F8EBA49C2257E /* RoutineFlowView.swift in Sources */,
 				8F6665F9402FF6471DD08138 /* RoutineModels.swift in Sources */,
+				33F4CB30EB266FD3B3F57CE3 /* ScoreDetailWebView.swift in Sources */,
 				A98B86D3008DDC2E9518AFFA /* SettingsView.swift in Sources */,
 				91F9E9784A0F3634F9309A75 /* SupabaseService.swift in Sources */,
 				F467B1D7CA1402CDADFF32A2 /* Task.swift in Sources */,

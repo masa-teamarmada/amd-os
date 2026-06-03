@@ -209,10 +209,10 @@ export const l2Datasets: L2Dataset[] = [
   {
     id: "management_monthly_signal_evaluations",
     label: "⑯ Management Monthly Signal Evaluation",
-    table: "candidate amd_management_monthly_signal_evaluations",
-    source: "Month-end 17:00 JST Codex / subscription automation candidate; design-only until L2 extraction/storage/update contract is accepted",
+    table: "company_management_signal_reviews",
+    source: "Month-end 17:00 JST Codex / subscription automation candidate; revised management-score UI is canonical UX direction",
     cadence: "monthly last day 17:00 JST",
-    purpose: "Management Scoreと予実表を、数字再掲ではなく状態アイコン・1行評価・判断理由・次に見るべきことへ変換する。",
+    purpose: "Management Scoreと予実表を、数字再掲ではなく状態ラベル/アイコン・自然文評価・判断コメント・次に見るべきことへ変換する。",
   },
   {
     id: "amd_score_inputs",

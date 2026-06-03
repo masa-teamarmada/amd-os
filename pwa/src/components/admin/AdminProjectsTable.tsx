@@ -40,6 +40,7 @@ export interface ProjectRow {
   pms: string[];
   closers: string[];
   pls: string[];
+  news_search_query: string | null;
   /** project_ventures 行がある SU 系 PJ。false の PJ は lanes 編集不可。 */
   has_venture_row: boolean;
   /** ASPI 8 domain weighted lanes (project_ventures.lanes 由来)。未設定 or SU 未化 PJ は null。 */
@@ -161,6 +162,7 @@ type EditVals = {
   payment_due_day: string;
   freeze_from_ym: string;
   restart_expected_ym: string;
+  news_search_query: string;
 };
 
 export function AdminProjectsTable({ projects: initialProjects }: Props) {
@@ -219,6 +221,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       payment_due_day: p.payment_due_day != null ? String(p.payment_due_day) : "",
       freeze_from_ym: p.freeze_from_ym ?? "",
       restart_expected_ym: p.restart_expected_ym ?? "",
+      news_search_query: p.news_search_query ?? "",
     });
   };
 
@@ -342,6 +345,9 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
         patch.freeze_from_ym = (editVals.freeze_from_ym as string)?.trim() || null;
         patch.restart_expected_ym = (editVals.restart_expected_ym as string)?.trim() || null;
         break;
+      case "news_search_query":
+        patch.news_search_query = (editVals.news_search_query as string)?.trim() || null;
+        break;
     }
     // updated_at は API 側で付与するので patch から除外
     const { updated_at: _drop, ...projectsPatch } = patch as Record<string, unknown> & { updated_at?: unknown };
@@ -414,6 +420,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-20">開始ym</th>
               <th className="text-left px-3 py-2 font-medium w-20">終了ym</th>
               <th className="text-left px-3 py-2 font-medium w-32">停止 / 再開予定</th>
+              <th className="text-left px-3 py-2 font-medium w-52">ニュースサーチクエリ</th>
               <th className="text-left px-3 py-2 font-medium w-24">freee ID</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack CH</th>
               <th className="text-left px-3 py-2 font-medium w-40">Drive Folder</th>
@@ -796,6 +803,24 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                         )}
                         {!p.freeze_from_ym && !p.restart_expected_ym && <span className="text-muted-foreground">—</span>}
                       </div>
+                    )}
+                  </td>
+
+                  {/* news_search_query */}
+                  <td className={cellCls("news_search_query")} onClick={enterCell("news_search_query")}>
+                    {isEditingField(p, "news_search_query") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input type="text" value={editVals.news_search_query as string} autoFocus
+                          placeholder='例: "CrestecBio" OR "CTB211"'
+                          onChange={(e) => setEditVals((v) => ({ ...v, news_search_query: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "news_search_query"); if (e.key === "Escape") cancelEdit(); }}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-48 bg-background font-mono" />
+                        {cellActions("news_search_query")}
+                      </div>
+                    ) : p.news_search_query ? (
+                      <span className="font-mono text-[11px] text-sky-700">{p.news_search_query}</span>
+                    ) : (
+                      <span className="text-muted-foreground text-[11px]">— サーチ対象外</span>
                     )}
                   </td>
 

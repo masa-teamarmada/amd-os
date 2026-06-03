@@ -240,7 +240,7 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
             立替
           </Link>
           <Link
-            href="/bzm"
+            href="/bzm/public"
             className={cn(
               "px-2.5 py-1 rounded-md transition-colors",
               pathname.startsWith("/bzm")
@@ -276,6 +276,18 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
             title="AMD OS マニュアル — 使い方・データ裏側・過去判断・開発手順"
           >
             📖 マニュアル
+          </Link>
+          <Link
+            href="/japanese-culture-map"
+            className={cn(
+              "px-2.5 py-1 rounded-md transition-colors",
+              pathname.startsWith("/japanese-culture-map")
+                ? "bg-accent text-accent-foreground font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title="日本文化マップ — 日本の文化コンテンツをマインドマップ / 日本地図で探索"
+          >
+            🇯🇵
           </Link>
           {userCodeName && (
             <Link

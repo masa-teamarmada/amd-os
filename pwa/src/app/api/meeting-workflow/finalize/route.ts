@@ -584,9 +584,28 @@ export async function POST(req: NextRequest) {
     actions.length > 0 ? `# 次MTGまでのTODO\n${actions.map((a) => `- [ ] ${a}`).join("\n")}` : "",
   ].filter(Boolean).join("\n\n");
 
+  // ended / frozen PJ は「次回MTG prep」を自動生成しない (2026-06-03 まさ確定原則)。
+  // 開催済みMTGの finalize 自体 (= 実進捗) は許すが、終了/凍結後の未来 prep は無意味なので作らない。
+  // frozen 判定は status='frozen' または freeze_from_ym <= 次回MTGの ym。
+  const { data: prepProj } = await admin
+    .from("projects")
+    .select("status, freeze_from_ym")
+    .eq("project_id", row.project_id)
+    .maybeSingle();
+  const prepProjStatus = (prepProj as { status: string | null } | null)?.status ?? null;
+  const prepFreezeFrom = (prepProj as { freeze_from_ym: string | null } | null)?.freeze_from_ym ?? null;
+  const skipFuturePrep = (ym: string): boolean => {
+    if (prepProjStatus === "ended") return true;
+    if (prepProjStatus === "frozen") return true;
+    if (prepFreezeFrom && ym >= prepFreezeFrom) return true;
+    return false;
+  };
+
   const prepResults: Array<{ meeting_id: string; title: string; meeting_start_at: string; source: string; calendar: Record<string, unknown> }> = [];
   const prepRows: Array<Record<string, unknown>> = [];
   for (const candidate of nextCandidates) {
+    const candidateYm = candidate.meetingDate.slice(0, 4) + candidate.meetingDate.slice(5, 7);
+    if (skipFuturePrep(candidateYm)) continue; // 終了/凍結PJの未来 prep はスキップ
     const attendeeEmails = [
       ...candidate.attendeeEmails,
       ...projectMemberEmails,

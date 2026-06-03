@@ -26,7 +26,7 @@ Updated: 2026-06-03
 | ⑬ | Member Weekly Activities | メンバーごとの週次活動 | mypage、reward、L2⑤、MS貢献レビュー | 別weekly automation候補 |
 | ⑭ | Finance Ops Evidence | サブスク、継続費、自動振替、領収書イベント | 月次PL、Management Score finance軸 | PWA non-LLM finance cron + admin review |
 | ⑮ | VC News / Funding Signals | VCニュース、ファンド組成、投資活動、資金調達シグナル | VC inbox、fund情報、fundraising判断 | weekly Codex automation |
-| ⑯ | Management Monthly Signal Evaluation | 月末時点の会社経営状態を、良い/悪い/次に見ることへ翻訳した評価文 | `/management-score` の月次試算表下、経営判断、過去ログ | 毎月末17:00 Codex automation候補。設計確定まで route / DB write / UI本実装なし |
+| ⑯ | Management Monthly Signal Evaluation | 月末時点の会社経営状態を、良い/悪い/次に見ることへ翻訳した評価文 | `/management-score` の月次試算表下、経営判断、過去ログ | 毎月末17:00 Codex automation候補。修正版UIの形をL2保存schemaへ正本化 |
 
 ## provenance の見方
 
@@ -46,7 +46,7 @@ Updated: 2026-06-03
 - L2⑬ Member Weekly Activities: weekly候補。PWA/VercelのAnthropic cronには戻さない。
 - L2⑭ Finance Ops Evidence: freee/paymentなどのnon-LLM cronとadmin reviewが主導線。
 - L2⑮ VC News / Funding Signals: PWA `vc-discover` cronは停止維持。週次Codex automationで復活させる。
-- L2⑯ Management Monthly Signal Evaluation: 毎月末17:00に生成する設計候補。数字を再掲せず、「今の経営状態はどう見えるか」を1行ステータス + 判断理由 + 次に見ることへ変換する。現 `/management-score` の経営シグナル評価欄は暫定UIで、L2抽出・保存・更新設計が固まるまで route / DB write / migration / UI本実装 / active cron登録はしない。
+- L2⑯ Management Monthly Signal Evaluation: 毎月末17:00に生成/更新する設計候補。数字を再掲せず、「今の経営状態はどう見えるか」を状態ラベル/アイコン + 自然文評価 + 判断コメントへ変換する。修正版 `/management-score` UI の方向を正とし、`status_label` / `status_tone` / `status_icon` / `headline` / `summary` / `sections[]` / `source_refs_json` / `generated_at` / `reviewed_at` / `codex_thread_id` / `automation_id` をL2 schemaの中心にする。
 
 ## Macrotrend と AMD Score
 

@@ -23,7 +23,7 @@ L2 は、メール・議事録・Slack・外部ニュース・freee・予実表�
 | ⑬ | Member Weekly Activities | メンバーごとの週次活動 | mypage、reward、L2⑤、MS貢献レビュー | 別weekly automation候補 |
 | ⑭ | Finance Ops Evidence | サブスク、継続費、自動振替、領収書イベント | 月次PL、Management Score finance軸 | PWA non-LLM finance cron + admin review |
 | ⑮ | VC News / Funding Signals | VCニュース、ファンド組成、投資活動、資金調達シグナル | VC inbox、fund情報、fundraising判断 | weekly Codex automation |
-| ⑯ | Management Monthly Signal Evaluation | 月末時点の会社経営状態を、良い/悪い/次に見ることへ翻訳した評価文 | `/management-score` の月次試算表下、経営判断、過去ログ | 毎月末17:00 Codex automation候補。設計確定まで route / DB write / UI本実装なし |
+| ⑯ | Management Monthly Signal Evaluation | 月末時点の会社経営状態を、良い/悪い/次に見ることへ翻訳した評価文 | `/management-score` の月次試算表下、経営判断、過去ログ | 毎月末17:00 Codex automation候補。修正版UIの形をL2保存schemaへ正本化 |
 
 ## L2⑯の評価文ルール
 
@@ -38,7 +38,7 @@ L2⑯は、予実表の数字をもう一度読み上げる場所ではない。
 
 ## source of truth
 
-L2⑯のsource of truth table候補は `amd_management_monthly_signal_evaluations`。これは L2 抽出設計の候補であり、設計確定までは migration / DB write / route / UI本実装 / 月末自動生成を進めない。
+L2⑯のsource of truth tableは `company_management_signal_reviews`。修正版 `/management-score` UI の方向を正とし、数字再掲ではなく状態ラベル/アイコン、自然文評価、判断コメントを保存する。
 
 最小payload:
 
@@ -46,20 +46,25 @@ L2⑯のsource of truth table候補は `amd_management_monthly_signal_evaluation
 type ManagementMonthlySignalEvaluation = {
   ym: string;
   version: number;
-  status: "healthy" | "mostly_good" | "watch" | "intervention_needed" | "critical";
-  icon: "🟢" | "🟩" | "🟡" | "🟠" | "🔴";
-  label: "良好" | "概ね良い" | "注意" | "要介入" | "危険";
+  status_label: "概ね良好" | "注意して進める" | "要介入" | "評価候補/中立";
+  status_tone: "good" | "watch" | "danger" | "neutral";
+  status_icon: "good" | "watch" | "danger" | "neutral";
   headline: string;
-  reasons: Array<{ axis: string; text: string; source_refs?: unknown[] }>;
-  next_watch: string[];
+  summary: string;
+  sections: Array<{ title: string; body: string; items: string[]; tone: "good" | "watch" | "danger" | "neutral" }>;
   source_refs_json: unknown[];
   payload_json: {
     snapshot_id?: string;
     finance_ym?: string;
     variance_summary?: unknown;
     score_axis_summary?: unknown;
+    evaluation_logic_version?: string;
     omitted_numbers_policy: "do_not_repeat_budget_table_numbers";
   };
+  generated_at: string;
+  reviewed_at?: string | null;
+  codex_thread_id?: string | null;
+  automation_id?: string | null;
   is_current: boolean;
   superseded_at?: string | null;
 };
@@ -68,10 +73,10 @@ type ManagementMonthlySignalEvaluation = {
 ## 更新経路
 
 - 毎月末日 17:00 JST に Codex / subscription automation 候補を走らせる。
-- route / DB write は未実装。設計確定後に Codex / subscription automation と保存責務を決める。
+- 毎月末日17:00 JSTに Codex / subscription automation `amd-os-l16-management-monthly-signal-evaluation` 候補を走らせ、保存済みL2として生成/更新する。
 - 入力は `amd_management_score_snapshots`, `amd_management_score_evidence`, `company_budget_actual_monthly`, `company_budget_variance_notes`, L2⑨, L2⑭, L2⑮。
-- 出力候補は reviewable payload。設計確定後は新versionを保存し、旧currentを過去ログへ閉じる。
-- `/management-score` では最新評価だけを展開し、古い評価は月別トグルの過去ログとして閉じる設計。ただし現UIは暫定で、L2設計が固まるまで本実装しない。
+- 出力は reviewable payload。新versionを保存し、旧currentを過去ログへ閉じる。
+- `/management-score` では最新評価だけを展開し、古い評価は月別トグルの過去ログとして閉じる。
 
 ## 関連仕様
 

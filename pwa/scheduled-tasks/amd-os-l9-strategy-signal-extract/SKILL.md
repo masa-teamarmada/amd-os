@@ -72,6 +72,7 @@ Phase B: LLM 抽出 (= 私自身、done のみ / polarity 必須)
 ═══════════════════════════════════════════════════
 
 **抽出ルール**:
+- **🚨 出力は必ず日本語** (= まさ #2026-06-02 確定): `title` / `summary` / `score_impact_summary` / `scope_reason` は **すべて日本語で書く**。AMD OS の表示正本は日本語。固有名詞・型番・略語 (NEDO / SBIR / TRL / LiOH / API 等) は原語のままでよいが、文章本体を英語で生成するのは禁止。生データ (Gmail / Notion 等) が英語でも、抽出結果は日本語に直して出す
 - **🚨 done のみ** (= まさ #26 確定 2026-05-24): 「進んだこと・起きたこと」だけ抽出。未了 / TODO / アイディアは除外
 - **signal_type** (10 種):
   - 経営全般: `management_decision` (方針決定) / `strategic_pivot` (戦略転換) / `funding` (資金) / `next_move` (次の一手 = ただし done 系のみ、未了は除外)
@@ -168,6 +169,7 @@ Phase D: run summary
   `🚀 経営ハイライト routine 03:20 完了: N PJ チェック、M signals (= breakthrough=X, forward=Y, pivot=Z, risk=W)`
 
 【禁止】
+- title / summary を英語で生成する (= まさ #2026-06-02、日本語が表示正本。固有名詞・略語の原語混在は可)
 - 未了 / TODO / アイディアを signal にする (= まさ #26、done のみ)
 - polarity を null で出す (= migration 090 後は必ず 4 種から選ぶ、🌐 中立は廃止)
 - 全文 / 議事録全文 / メール全文を source_refs_json に含める (= snippet 200 chars + hash のみ)

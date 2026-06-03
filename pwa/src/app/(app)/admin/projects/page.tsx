@@ -94,6 +94,7 @@ export default async function AdminProjectsPage() {
       payment_due_day: p.payment_due_day ?? null,
       freeze_from_ym: p.freeze_from_ym ?? null,
       restart_expected_ym: p.restart_expected_ym ?? null,
+      news_search_query: p.news_search_query ?? null,
       pms: r.pms,
       closers: r.closers,
       pls: r.pls,

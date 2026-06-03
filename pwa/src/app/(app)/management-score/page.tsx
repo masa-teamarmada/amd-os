@@ -5,6 +5,7 @@ import {
   type EvidenceRow,
   type DialogueConfirmedSignal,
 } from "@/components/management-score/EvidencePanel";
+import { AlertTriangle, CheckCircle2, CircleGauge, ShieldAlert } from "lucide-react";
 import type { MonthlyPlInputs } from "@/lib/finance/monthly-pl-simulation";
 import { effectivePaymentYmForCycle } from "@/lib/payment-groups";
 
@@ -84,6 +85,45 @@ type VarianceNote = {
   note: string;
   confidence: number | null;
   status: string;
+};
+
+type ManagementSignalReviewRow = {
+  id: string;
+  ym: string;
+  status: string;
+  summary: string;
+  forecast_summary: string | null;
+  cost_actions: unknown;
+  pipeline_actions: unknown;
+  variance_findings: unknown;
+  risk_alerts: unknown;
+  decision_signals: unknown;
+  source_refs_json: unknown;
+  codex_thread_id: string | null;
+  reviewed_at: string | null;
+  created_at: string | null;
+};
+
+type ManagementSignalSection = {
+  title: string;
+  body: string;
+  items: string[];
+  tone: "neutral" | "good" | "watch" | "danger";
+};
+
+type ManagementSignalReview = {
+  id: string;
+  ym: string;
+  status: string;
+  sourceLabel: string;
+  statusTone: ManagementSignalSection["tone"];
+  statusIcon: "good" | "watch" | "danger" | "neutral";
+  statusLabel: string;
+  headline: string;
+  summary: string;
+  reviewedAt: string | null;
+  codexThreadId: string | null;
+  sections: ManagementSignalSection[];
 };
 
 type BudgetInputRow = {
@@ -298,6 +338,45 @@ function findAmount(rows: AggregatedBudgetActualRow[], category: string, key: "b
   return rows.find((row) => row.category === category)?.[key] ?? null;
 }
 
+function signedYen(value: number): string {
+  if (value === 0) return "±¥0";
+  return `${value > 0 ? "+" : "-"}¥${Math.abs(Math.round(value)).toLocaleString("ja-JP")}`;
+}
+
+function reviewToneClass(tone: ManagementSignalSection["tone"]): string {
+  if (tone === "good") return "border-sky-200 bg-sky-50/70 text-sky-950";
+  if (tone === "watch") return "border-amber-200 bg-amber-50/70 text-amber-950";
+  if (tone === "danger") return "border-pink-200 bg-pink-50/70 text-pink-950";
+  return "border-border bg-background text-foreground";
+}
+
+function reviewStatusClass(tone: ManagementSignalSection["tone"]): string {
+  if (tone === "good") return "border-sky-200 bg-sky-50 text-sky-900";
+  if (tone === "watch") return "border-amber-200 bg-amber-50 text-amber-950";
+  if (tone === "danger") return "border-pink-200 bg-pink-50 text-pink-950";
+  return "border-border bg-background text-foreground";
+}
+
+function shortMoney(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 10_000) return `${value < 0 ? "-" : ""}約${Math.round(abs / 10_000).toLocaleString("ja-JP")}万円`;
+  return yen(value);
+}
+
+function compactSignalStrings(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (!item || typeof item !== "object") return null;
+      const record = item as Record<string, unknown>;
+      return [record.title, record.body, record.action, record.note, record.summary]
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        .join(" / ");
+    })
+    .filter((item): item is string => Boolean(item));
+}
+
 function payloadNumberValue(payload: Record<string, unknown> | null | undefined, key: string): number {
   const value = payload?.[key];
   const n = Number(value);
@@ -494,6 +573,209 @@ function compactReceiptItems(items: ExpectedReceiptSummary["items"], limit = 3):
 
 function rowForYm(rows: GasMonthlyRow[], ym: string): GasMonthlyRow | null {
   return rows.find((row) => String(row.ym) === ym) ?? null;
+}
+
+function buildPersistedManagementSignalReviews(rows: ManagementSignalReviewRow[]): ManagementSignalReview[] {
+  return rows.map((row) => ({
+    id: row.id,
+    ym: row.ym,
+    status: row.status,
+    sourceLabel: row.status === "confirmed" ? "月末Codex評価" : "Codex評価候補",
+    statusTone: compactSignalStrings(row.risk_alerts).length > 0 ? "watch" : "neutral",
+    statusIcon: compactSignalStrings(row.risk_alerts).length > 0 ? "watch" : "neutral",
+    statusLabel: row.status === "confirmed" ? "月末評価済み" : "評価候補",
+    headline: row.summary,
+    summary: row.summary,
+    reviewedAt: row.reviewed_at ?? row.created_at,
+    codexThreadId: row.codex_thread_id,
+    sections: [
+      {
+        title: "先3か月見込み",
+        body: row.forecast_summary ?? "先3か月の見込み評価待ち。",
+        items: compactSignalStrings(row.decision_signals),
+        tone: "neutral",
+      },
+      {
+        title: "費用を抑えるべきところ",
+        body: "月末レビューで、削る費用・支払い時期・抑制ラインを確認する。",
+        items: compactSignalStrings(row.cost_actions),
+        tone: "watch",
+      },
+      {
+        title: "追加獲得/入金前倒し目標",
+        body: "資金の谷に対して、いつまでにどのくらいを追加するかを見る。",
+        items: compactSignalStrings(row.pipeline_actions),
+        tone: "danger",
+      },
+      {
+        title: "予実乖離の原因",
+        body: "freee PL / 入金確認 / 支払通知書 / billing_log / payout_notices の差分原因。",
+        items: compactSignalStrings(row.variance_findings),
+        tone: "neutral",
+      },
+      {
+        title: "意思決定アラート",
+        body: "未請求・未反映・支払済み未反映・runway 低下を月末レビューで確定する。",
+        items: compactSignalStrings(row.risk_alerts),
+        tone: "danger",
+      },
+    ],
+  }));
+}
+
+function buildAutoManagementSignalReview({
+  ymCap,
+  pastActualYm,
+  outlookMonths,
+  rows,
+  oneOffInflowGrossByYm,
+  financeAlerts,
+  varianceNotes,
+}: {
+  ymCap: string;
+  pastActualYm: string;
+  outlookMonths: string[];
+  rows: GasMonthlyRow[];
+  oneOffInflowGrossByYm: Map<string, number>;
+  financeAlerts: string[];
+  varianceNotes: VarianceNote[];
+}): ManagementSignalReview {
+  const outlookRows = outlookMonths.map((ym) => rowForYm(rows, ym)).filter((row): row is GasMonthlyRow => Boolean(row));
+  const lowestCash = outlookRows.reduce(
+    (lowest, row) => (row.cashBalance < lowest.cash ? { ym: String(row.ym), cash: row.cashBalance } : lowest),
+    { ym: ymCap, cash: Number.POSITIVE_INFINITY }
+  );
+  const normalCfTotal = outlookRows.reduce((sum, row) => sum + row.netCashFlow - (oneOffInflowGrossByYm.get(String(row.ym)) ?? 0), 0);
+  const cashGap = lowestCash.cash === Number.POSITIVE_INFINITY ? 0 : Math.max(0, 1_500_000 - lowestCash.cash);
+  const negativeCfGap = outlookRows.reduce((sum, row) => {
+    const oneOff = oneOffInflowGrossByYm.get(String(row.ym)) ?? 0;
+    return sum + Math.max(0, -(row.netCashFlow - oneOff));
+  }, 0);
+  const targetGap = Math.max(cashGap, negativeCfGap);
+  const dueYm = lowestCash.cash === Number.POSITIVE_INFINITY ? ymCap : addMonths(lowestCash.ym, -1);
+  const pastRow = rowForYm(rows, pastActualYm);
+  const varianceItems = pastRow
+    ? [
+        { label: "売上計", budget: pastRow.revenue, actual: pastRow.actualRevenue, diff: pastRow.actualRevenue - pastRow.revenue },
+        {
+          label: "売上原価",
+          budget: pastRow.costMember + pastRow.costCloser,
+          actual: pastRow.payoutNoticeSentNetTotal,
+          diff: pastRow.payoutNoticeSentNetTotal - (pastRow.costMember + pastRow.costCloser),
+        },
+        { label: "固定費", budget: pastRow.fixedCost, actual: pastRow.actualFixedCost, diff: pastRow.actualFixedCost - pastRow.fixedCost },
+        { label: "社保", budget: pastRow.socialIns, actual: pastRow.actualSocialIns, diff: pastRow.actualSocialIns - pastRow.socialIns },
+        {
+          label: "営業利益",
+          budget: pastRow.operatingProfit,
+          actual: pastRow.actualRevenue - pastRow.payoutNoticeSentNetTotal - pastRow.actualFixedCost - pastRow.actualSocialIns + pastRow.actualSpotIncome - pastRow.actualSpotExpense,
+          diff:
+            pastRow.actualRevenue -
+            pastRow.payoutNoticeSentNetTotal -
+            pastRow.actualFixedCost -
+            pastRow.actualSocialIns +
+            pastRow.actualSpotIncome -
+            pastRow.actualSpotExpense -
+            pastRow.operatingProfit,
+        },
+        { label: "純CF", budget: pastRow.netCashFlow, actual: pastRow.actualNetCashFlow, diff: pastRow.actualNetCashFlow - pastRow.netCashFlow },
+      ].sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
+    : [];
+  const costCandidates = outlookRows
+    .flatMap((row) => [
+      { ym: String(row.ym), label: "売上原価", amount: row.costMember + row.costCloser },
+      { ym: String(row.ym), label: "固定費", amount: row.fixedCost },
+      { ym: String(row.ym), label: "社保", amount: row.socialIns },
+      { ym: String(row.ym), label: "税金/返済", amount: row.loanPayment + row.ctaxPayment + row.corpTaxPayment },
+    ])
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 3);
+  const monthlyNormalCfs = outlookRows.map((row) => row.netCashFlow - (oneOffInflowGrossByYm.get(String(row.ym)) ?? 0));
+  const hasNegativeNormalMonth = monthlyNormalCfs.some((value) => value < 0);
+  const hasLargeGap = targetGap >= 2_000_000;
+  const hasFinanceAlert = financeAlerts.length > 0;
+  const statusTone: ManagementSignalSection["tone"] = hasLargeGap || hasFinanceAlert ? "danger" : targetGap > 0 || hasNegativeNormalMonth ? "watch" : "good";
+  const statusLabel = statusTone === "danger" ? "要介入" : statusTone === "watch" ? "注意して進める" : "概ね良好";
+  const headline =
+    statusTone === "danger"
+      ? "足元の数字だけ見ると回っているけど、先の資金の谷が近い。今月中に入金前倒し or 新規案件の上積みを決めたい。"
+      : statusTone === "watch"
+        ? "まあ悪くない。ただ、通常月の収支が少し薄いので、もう1本新規案件か入金前倒しがあるとかなり安心。"
+        : "今のところ大きな介入は不要。入金予定のズレだけ見ながら、このまま案件化を積み増したい。";
+  const summary =
+    targetGap > 0
+      ? `${dueYm} までに ${shortMoney(targetGap)} くらいの上積み余地を作れると、先3か月の見通しがかなり楽になる。`
+      : "資金繰りの即時危険は小さい。月末評価では、予定入金の確度と新規案件の積み上がりを確認する。";
+  const forecastItems = [
+    hasNegativeNormalMonth
+      ? "通常月だけで見ると赤字月がある。一括入金に助けられている月は、継続収益としては少し弱めに見る。"
+      : "先3か月の通常月収支は大きく崩れていない。入金予定が予定通り入れば、急な資金ショート感は薄い。",
+    lowestCash.cash < 3_000_000
+      ? `${lowestCash.ym} あたりがいちばん薄い。ここまでに入金前倒しか小さめの新規案件を1本作れると安心。`
+      : "最低Cashはまだ見られる水準。必要以上に支出を止めるより、案件化の速度を落とさない方がよさそう。",
+  ];
+  const costNarrative =
+    costCandidates.length > 0
+      ? `${costCandidates[0].label}と${costCandidates[1]?.label ?? "固定費"}が支出の重いところ。削るというより、支払いタイミングと外注稼働の必要性を月末に確認したい。`
+      : "目立って重い費用候補はまだ薄い。費用削減より、入金確度の確認を優先する。";
+  const topVariance = varianceItems[0];
+  const varianceNarrative = topVariance
+    ? `${pastActualYm} は ${topVariance.label} のズレが一番大きい。まずは会計上の発生月ズレなのか、実際の入出金タイミング差なのかを切り分けたい。`
+    : "前月実績の差分原因はまだ薄い。freee PL、入金確認、支払通知書の更新が揃ってから確定評価する。";
+
+  return {
+    id: `auto-${ymCap}`,
+    ym: ymCap,
+    status: "auto_preview",
+    sourceLabel: "自動抽出 / 月末Codex評価待ち",
+    statusTone,
+    statusIcon: statusTone,
+    statusLabel,
+    headline,
+    summary,
+    reviewedAt: null,
+    codexThreadId: null,
+    sections: [
+      {
+        title: "先3か月の温度感",
+        body: statusTone === "danger" ? "資金の谷が近いので、楽観視はしない方がいい。" : "大きく崩れてはいないけど、入金タイミングに依存している。",
+        items: forecastItems,
+        tone: statusTone === "danger" ? "danger" : "watch",
+      },
+      {
+        title: "費用の見方",
+        body: costNarrative,
+        items: [
+          "無理に一律カットするより、支払い時期をずらせるものと、売上に直結しない稼働を分けて見る。",
+        ],
+        tone: "watch",
+      },
+      {
+        title: "次の営業判断",
+        body: targetGap > 0 ? `${dueYm} までに ${shortMoney(targetGap)} くらいの追加案件・入金前倒し・支出調整を作れると安心。` : "すぐに大型新規が必要な状態ではない。ただ、継続案件だけに寄りすぎないよう、相談案件を増やしておきたい。",
+        items: [
+          normalCfTotal < 0 ? "通常月収支が少し薄いので、新規案件は“あると嬉しい”ではなく安心材料として見たい。" : "通常月収支は踏みとどまっているので、焦って粗い案件を取りにいく必要は薄い。",
+          "月末評価では、追加で獲得すべき金額よりも、どの案件がいつ入金に変わるかを確定したい。",
+        ],
+        tone: targetGap > 0 ? "danger" : "good",
+      },
+      {
+        title: "乖離の読み方",
+        body: varianceNarrative,
+        items: [
+          "数字の良し悪しだけで判断せず、入金確認・支払通知・freee PLのどれが先に動いた差分かを見る。",
+          topVariance && Math.abs(topVariance.diff) > 0 ? `${topVariance.label} は ${signedYen(topVariance.diff)} のズレ。原因が説明できれば評価は安定、説明できなければ要確認。` : "大きな差分が出たら、原因メモをL2評価に残す。",
+        ].filter((item): item is string => Boolean(item)),
+        tone: varianceItems.some((item) => Math.abs(item.diff) >= 300_000) ? "watch" : "neutral",
+      },
+      {
+        title: "今すぐ見ること",
+        body: financeAlerts.length > 0 ? "未反映や未確認が残っている。経営判断の前に、OS上の状態と実態を合わせたい。" : "今すぐ止めるほどのアラートは薄い。次は新規案件と入金確度を見る。",
+        items: financeAlerts.length > 0 ? financeAlerts : varianceNotes.slice(0, 2).map((note) => note.note),
+        tone: financeAlerts.length > 0 ? "danger" : "neutral",
+      },
+    ],
+  };
 }
 
 function recordValue(value: unknown): Record<string, unknown> {
@@ -745,7 +1027,7 @@ export default async function ManagementScorePage() {
   // 計算ミスやデータ不足の 6 月 snapshot が「最新」 と判定されて表示されないように、
   // ym <= currentYmJST() で filter する。
   const ymCap = currentYmJST();
-  const [scoreRes, scoreHistoryRes, budgetRes, inputRes, runRes, notesRes, evidenceRes, dialogueConfirmedRes] = await Promise.all([
+  const [scoreRes, scoreHistoryRes, budgetRes, inputRes, runRes, notesRes, signalReviewsRes, evidenceRes, dialogueConfirmedRes] = await Promise.all([
     safeSelect<ScoreSnapshotFull[]>(() =>
       supabase
         .from("amd_management_score_snapshots")
@@ -790,6 +1072,14 @@ export default async function ManagementScorePage() {
         .select("id,ym,category,variance_kind,note,confidence,status")
         .order("created_at", { ascending: false })
         .limit(8)
+    ),
+    safeSelect<ManagementSignalReviewRow[]>(() =>
+      supabase
+        .from("company_management_signal_reviews")
+        .select("id,ym,status,summary,forecast_summary,cost_actions,pipeline_actions,variance_findings,risk_alerts,decision_signals,source_refs_json,codex_thread_id,reviewed_at,created_at")
+        .lte("ym", ymCap)
+        .order("ym", { ascending: false })
+        .limit(12)
     ),
     safeSelect<(EvidenceQueryRow & { ym: string; snapshot_id: string | null })[]>(() =>
       supabase
@@ -938,6 +1228,20 @@ export default async function ManagementScorePage() {
       ? `先3か月に未入金予定 ${yen(unconfirmedReceiptTotal)}。うち請求送付/発行/予算確定済みは ${yen(highConfidenceReceiptTotal)}。`
       : null,
   ].filter((item): item is string => Boolean(item));
+  const persistedManagementSignalReviews = buildPersistedManagementSignalReviews(signalReviewsRes.data ?? []);
+  const autoManagementSignalReview = buildAutoManagementSignalReview({
+    ymCap,
+    pastActualYm,
+    outlookMonths,
+    rows: gasSimulationResult.rows,
+    oneOffInflowGrossByYm,
+    financeAlerts,
+    varianceNotes: notesRes.data ?? [],
+  });
+  const managementSignalReviews = [
+    autoManagementSignalReview,
+    ...persistedManagementSignalReviews.filter((review) => review.ym !== autoManagementSignalReview.ym),
+  ];
   const latestRows = aggregateCategoryRows(budgetRows, selectedYm ?? undefined);
   const latestYm = latestRows[0]?.ym ?? null;
   const latestRun = runRes.data?.[0] ?? null;
@@ -1255,6 +1559,8 @@ export default async function ManagementScorePage() {
 
         <GasMonthlySimulationPanel result={gasSimulationResult} inputs={gasSimulationInputs} />
 
+        <ManagementSignalReviewPanel reviews={managementSignalReviews} />
+
         <section className="grid gap-4 xl:grid-cols-[1fr_0.42fr]">
           <div className="rounded-md border bg-card">
             <div className="border-b px-4 py-3">
@@ -1278,6 +1584,82 @@ export default async function ManagementScorePage() {
         </section>
       </div>
     </div>
+  );
+}
+
+function ManagementSignalReviewPanel({ reviews }: { reviews: ManagementSignalReview[] }) {
+  const statusIcon = (review: ManagementSignalReview) => {
+    const className = "h-5 w-5";
+    if (review.statusIcon === "good") return <CheckCircle2 className={className} />;
+    if (review.statusIcon === "danger") return <ShieldAlert className={className} />;
+    if (review.statusIcon === "watch") return <AlertTriangle className={className} />;
+    return <CircleGauge className={className} />;
+  };
+
+  return (
+    <section className="rounded-md border bg-card">
+      <div className="border-b px-4 py-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">経営シグナル評価</h2>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              数字の再掲ではなく、今の会社状態をひとことで評価し、次にどこを見るかを月末Codex評価で残す。
+            </p>
+          </div>
+          <span className="rounded-full border bg-background px-2 py-1 text-[11px] text-muted-foreground">
+            最新は展開 / 過去分は折りたたみ
+          </span>
+        </div>
+      </div>
+      <div className="divide-y">
+        {reviews.map((review, index) => {
+          const isLatest = index === 0;
+          return (
+            <details key={review.id} open={isLatest} className="group">
+              <summary className="cursor-pointer list-none px-4 py-3 hover:bg-muted/30">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${reviewStatusClass(review.statusTone)}`}>
+                    {statusIcon(review)}
+                    {review.statusLabel}
+                  </span>
+                  <span className="text-sm font-semibold tabular-nums">{review.ym}</span>
+                  <span className="rounded-full border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">{review.sourceLabel}</span>
+                  <span className="ml-auto text-[11px] text-muted-foreground group-open:hidden">開く</span>
+                  <span className="ml-auto hidden text-[11px] text-muted-foreground group-open:inline">閉じる</span>
+                </div>
+                <div className="mt-3 grid gap-2 lg:grid-cols-[0.8fr_1.2fr]">
+                  <p className="text-lg font-semibold leading-snug tracking-normal text-foreground">{review.headline}</p>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{review.summary}</p>
+                </div>
+              </summary>
+              <div className="px-4 pb-4">
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {review.sections.map((section) => (
+                    <div key={section.title} className={`rounded-md border px-3 py-3 ${reviewToneClass(section.tone)}`}>
+                      <div className="text-sm font-semibold">{section.title}</div>
+                      <p className="mt-1 text-sm leading-relaxed">{section.body}</p>
+                      {section.items.length > 0 ? (
+                        <ul className="mt-2 space-y-1.5 text-sm leading-relaxed">
+                          {section.items.map((item, itemIndex) => (
+                            <li key={itemIndex}>・{item}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-xs text-muted-foreground">月末レビュー待ち</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                  <span>作成日 {review.reviewedAt ? new Date(review.reviewedAt).toLocaleString("ja-JP") : "月末生成待ち"}</span>
+                  {review.codexThreadId && <span>Codex thread {review.codexThreadId}</span>}
+                </div>
+              </div>
+            </details>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
