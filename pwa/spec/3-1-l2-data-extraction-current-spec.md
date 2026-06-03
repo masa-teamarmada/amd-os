@@ -1,10 +1,10 @@
 # L2 データ抽出 / Outbox 仕様
 
-> **この章は何か**: AMD OS の中核データである L2 ①〜⑩と、5 生データ、subscription automation、outbox / LaunchAgent 反映の確定仕様。運用者向けの読み方は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも置く。移行中は両方を更新する。
+> **この章は何か**: AMD OS の中核データである L2 ①〜⑬と、5 生データ / external evidence / hybrid weekly evidence、subscription automation、outbox / LaunchAgent 反映の確定仕様。運用者向けの読み方は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも置く。移行中は両方を更新する。
 
 ## 5 生データ
 
-L2 抽出は必ず次の 5 種類を対象にする。
+internal L2 抽出は必ず次の 5 種類を対象にする。L2 ⑪⑫は external provenance、L2 ⑬は internal hybrid provenance として扱い、5 生データ由来の L2 と混同しない。
 
 | 生データ | 例 |
 |---|---|
@@ -16,7 +16,7 @@ L2 抽出は必ず次の 5 種類を対象にする。
 
 `source_cache` は旧 L1 正本ではなく、source refs / short snippet / hash の証跡キャッシュ。メール全文・議事録全文・Slack全文を L2 row に保存しない。
 
-## L2 ①〜⑩
+## L2 ①〜⑬
 
 | L2 | table | 現行 writer | 反映 |
 |---|---|---|---|
@@ -30,6 +30,9 @@ L2 抽出は必ず次の 5 種類を対象にする。
 | ⑧ XRLチェックリスト監査 | `amd_score_inputs.xrl_checklist` / `amd_score_inputs.xrl_notes` / `project_founding_members` / `project_xrl_evidence` | Month-end audit after L2① monthly reports | review proposal → confirmed `amd_score_inputs` update |
 | ⑨ 経営ハイライト | `project_strategy_signals` | daily consolidated evidence `amd-os-l2-consolidated-evidence` / SKILL `amd-os-l9-strategy-signal-extract` | strategy-signals outbox → LaunchAgent |
 | ⑩ Textbook Insights | `textbook_insight_candidates` | daily consolidated evidence `amd-os-l2-consolidated-evidence` / local worker `amd-os-l10-textbook-insight-extract` | `outbox.textbookInsights` → candidate + notification → approved → local BZM applier |
+| ⑪ Atlas Signals | `atlas_signals`, derived `atlas_stories`, `atlas_reports` | daily consolidated evidence `amd-os-l2-consolidated-evidence` or Atlas signal collection automation | `amd-atlas/outbox` → ingest/applier; reports are derived |
+| ⑫ Macrotrend Evidence / Index | `observation_log`, `macro_index_log`, derived `macro_lane_weights`, `triple_helix_state_log` | daily consolidated evidence `amd-os-l2-consolidated-evidence` + PWA non-LLM aggregate | deterministic aggregate; LLM interpretation is manual/subscription only |
+| ⑬ Member Weekly Activities | `member_activities(source='member_weekly')` | separate weekly subscription automation candidate | outbox/applier; PWA Anthropic route stays guarded/manual |
 
 ## L2 ⑥ MTG サマリの開催済みソース guard
 
@@ -47,9 +50,11 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 
 ## Writer 境界
 
-- L2 ①⑦⑨⑩は Codex automation が JSON outbox を作り、非LLM LaunchAgent が Supabase / PWA API に反映する。
+- L2 ①⑦⑨⑩⑪⑬は Codex / subscription automation が JSON outbox を作り、非LLM LaunchAgent / applier が Supabase / PWA API に反映する。
 - L2 ⑧は daily outbox writer ではない。月末 L2① monthly_reports 作成後に、月次報告書 + Supabase 内L2断面を `pwa/src/lib/xrl-level-definitions.ts` のチェック項目へ照合し、`amd_score_inputs.xrl_checklist` / `xrl_notes` 更新候補を作る。
-- L2 ②④⑤⑦⑨⑩は daily consolidated evidence `amd-os-l2-consolidated-evidence` が現行 writer。各 L2 の SKILL は抽出契約として残す。
+- L2 ②④⑤⑦⑨⑩⑪⑫は daily consolidated evidence `amd-os-l2-consolidated-evidence` が現行 writer / evidence reviewer。各 L2 の SKILL は抽出契約として残す。
+- L2 ⑫の `macro_index_log` 更新は、LLM を呼ばない deterministic aggregate なら PWA non-LLM cron でよい。macro interpretation の LLM cron は active schedule に戻さない。
+- L2 ⑬は privacy / cadence が違うため daily consolidated evidence には入れず、別 weekly subscription automation 候補にする。
 - L2 ③⑥は MMOマシン Codex Desktop automation が現行 writer。
 - 旧 GAS 153 / 155、AMD-Report GAS R313、PWA LLM cron は定期 writer として復活させない。
 - PWA `/api/cron/hourly-estimate` は `ALLOW_PWA_LLM_CRONS=1` がない限り disabled response のみ。
@@ -61,7 +66,8 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 |---|---|
 | `~/.codex/automations/amd-os-ms/outbox/` | monthlyReports / registryDiffs / MS revision / exceptional xrlEvidence |
 | `~/.codex/automations/amd-os/strategy-signals-outbox/` | L2 ⑨ 経営ハイライト |
-| `~/.codex/automations/amd-atlas/outbox/` | Atlas 外部 signal |
+| `~/.codex/automations/amd-atlas/outbox/` | L2 ⑪ Atlas 外部 signal / L2 ⑫ macro-related source evidence |
+| TBD weekly member activities outbox | L2 ⑬ member weekly activities candidate |
 
 反映はローカルの非LLM LaunchAgent `jp.teamarmada.amd-os-ms-outbox-applier` が行う。成功 file は `applied/`、失敗 file は `failed/` へ移動する。
 
@@ -75,6 +81,9 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 | XRLチェックリスト監査 | confirmed update to `amd_score_inputs.xrl_checklist` / `xrl_notes` | discard proposal |
 | 経営ハイライト | `project_strategy_signals.status='confirmed'` | `rejected` |
 | Textbook Insights | `textbook_insight_candidates.status='approved'` → local applier で `pwa/bzm/*.md` 追記 | `rejected` |
+| Atlas Signals | `atlas_signals.status='confirmed'` or equivalent accepted state | `rejected` / ignore duplicate |
+| Macrotrend Evidence | deterministic observation/index update; LLM interpretation requires review | discard proposal |
+| Member Weekly Activities | accepted `member_activities(source='member_weekly')` row | discard proposal |
 | PJナレッジ | `project_knowledge.status='active'` | `rejected` |
 | AMD Protocol | `protocols.status='confirmed'` | `rejected` |
 | founding members | `project_founding_members.status='active'` | `invalid` |

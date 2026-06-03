@@ -1,10 +1,17 @@
 # L2 expanded taxonomy and subscription automation strategy
 
-Status: draft for commander review
+Status: adopted as docs design on 2026-06-03; implementation remains docs/automation-registration only
 Date: 2026-06-02
 Scope: L2 taxonomy expansion from 10 to 13 candidates, and extraction routing under subscription token / routine count constraints.
 
-This memo does not change DB schema, routine registrations, cron schedules, or production deploy state. It is a design proposal for deciding whether to promote Atlas, Macrotrend, and member weekly activities into the L2 taxonomy.
+This memo does not change DB schema, DDL, migrations, deploy state, or PWA / Vercel background LLM cron state. The taxonomy decision has been reflected into `L2_DATA.md`, `spec/3-1`, and `manual/8-3`: Atlas Signals = L2 11, Macrotrend Evidence / Index = L2 12, and Member Weekly Activities = L2 13.
+
+Activation note:
+
+- MMO `amd-os-l2-consolidated-evidence` is the daily route for L2 2 / 4 / 5 / 7 / 9 / 10 / 11 / 12.
+- L2 8 is excluded from the daily route and belongs to the month-end checklist audit after L2 1.
+- L2 13 is not daily. It is a separate weekly subscription automation candidate.
+- PWA / Vercel background LLM cron remains disabled.
 
 ## Plain-language route glossary
 
@@ -30,7 +37,7 @@ Use the following wording in this memo and in the later `L2_DATA.md`, `spec/3-1`
 ## Premises
 
 - Existing current truth defines L2 as structured data extracted from the 5 internal raw sources: Gmail, Drive, Calendar, Slack, and Notion.
-- `pwa/design/L2_DATA.md`, `pwa/spec/3-1-l2-data-extraction-current-spec.md`, and `pwa/manual/8-3-l2-extraction-routines-spec.md` currently list L2 1-10.
+- Before the 2026-06-03 docs patch, `pwa/design/L2_DATA.md`, `pwa/spec/3-1-l2-data-extraction-current-spec.md`, and `pwa/manual/8-3-l2-extraction-routines-spec.md` listed L2 1-10.
 - `pwa/design/L2_DATA.md` currently classifies Atlas, VC news, and macro index as report-related external-source data, not L2.
 - PWA / Vercel background LLM cron must stay disabled. Routes with Anthropic / Gemini / OpenAI imports may remain for manual or guarded use, but must not become active Vercel cron writers.
 - DB write, DDL, migration apply, and deploy are out of scope for this memo.
@@ -286,13 +293,13 @@ Daily Claude routine count in this design is 1 for the consolidated evidence rou
 
 ## Next implementation candidate
 
-Recommended first implementation: `L2 expanded taxonomy docs patch`.
+Completed first implementation: `L2 expanded taxonomy docs patch` plus MMO automation prompt alignment.
 
-Scope:
+Completed scope:
 
-- Update `pwa/design/L2_DATA.md` from "L2 data 10 types" to a draft-approved "L2 1-13" taxonomy once commander approves this memo.
-- Update `pwa/spec/3-1-l2-data-extraction-current-spec.md` and `pwa/manual/8-3-l2-extraction-routines-spec.md` with provenance classes and writer boundaries. Use the terminology lock above: L2 3 and L2 6 are MMO machine Codex Desktop automations, not Claude routines.
-- Update `pwa/src/lib/operations-catalog.ts` labels so current Codex/MMO routes are not displayed as generic "Claude routine" where manual/spec already says otherwise.
-- Add skeleton scheduled-task docs for L2 11-13 only after the taxonomy patch is approved.
+- Updated `pwa/design/L2_DATA.md` from L2 data 10 types to L2 1-13.
+- Updated `pwa/spec/3-1-l2-data-extraction-current-spec.md` and `pwa/manual/8-3-l2-extraction-routines-spec.md` with provenance classes and writer boundaries.
+- Aligned MMO `amd-os-l2-consolidated-evidence` prompt so daily extraction covers L2 2 / 4 / 5 / 7 / 9 / 10 / 11 / 12 and explicitly skips L2 8.
+- Aligned MMO `amd-os-l1-monthly-report-monthend` prompt so L2 8 checklist audit runs after L2 1 monthly report synthesis.
 
-Do not start with routine registration. The first safe step is docs and catalog alignment, then L2 13 outbox contract, then optional Claude routine bundles.
+Recommended next implementation: create the L2 13 outbox contract and weekly automation skeleton. Do not revive `/api/cron/member-weekly-activities` as an active PWA / Vercel cron.
