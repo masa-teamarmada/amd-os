@@ -1,13 +1,13 @@
 # Notion Content Migration UIUX Plan
 
 作成日: 2026-06-02
-状態: 2026-06-04 時点で Notion source of truth を実確認済み。runtime は approved company tables を優先して読む口まで追加。DDL は draft のみで、migration apply / 本番データ write / Notion sync はまだ行わない。
+状態: 2026-06-04 時点で Notion source of truth を実確認済み。runtime は approved company tables を優先して読む口まで追加。DDL と既存 member 解決済み seed は local migration として作成済み。migration apply / 本番データ write / Notion sync はこのworkerではまだ行わない。
 
 ## 目的
 
 Notion にある `member list` / `history` / `photo` 系コンテンツを AMD OS に移植するときの置き場所、UIUX、権限、データ構造、移植順を決める。
 
-この設計案では、Notion の個人情報・写真 URL・本文値は保存しない。確認したのは database / page の構造、プロパティ名、リレーション、既存 AMD OS 画面との対応だけ。
+この設計案では、Notion の写真 URL、住所、連絡先、支払・契約情報、raw body は保存しない。2026-06-04 seed では、既存 `members.member_id` に解ける内部プロフィール最小項目と AMD history だけを移植対象にした。
 
 ## 2026-06-04 実データ確認メモ
 
@@ -542,9 +542,20 @@ RLS に関する apply 前レビュー項目:
 | `project_ventures` | public-ready PJ narrative / `is_public` | P4 public PJ view で approved company content と bridge | company/team/media の汎用 CMS にしない |
 | `private_wiki_entries` | admin-only 人物メモ、関係性、センシティブ情報 | `/admin/company` からは件数 badge / deep link のみ | company profile / public profile / `/company` へ本文を出さない |
 
+### migration / seed current truth
+
+2026-06-04 update:
+
+- `pwa/scripts/migrations/124_company_content_tables.sql` creates the company content landing tables and RLS gates.
+- `pwa/scripts/migrations/125_company_content_notion_seed.sql` seeds verified Notion member/history rows.
+- The seed imports only Notion member rows that resolve to an existing `members.member_id`; Notion-only people are skipped for now.
+- Member/history rows seed as `visibility='internal'` and `status='approved_internal'`.
+- Member photo presence seeds only admin review metadata in `media_assets`; raw Notion file URLs are not stored and no photo is displayed until Storage import plus consent/usage review.
+- Build version for this Notion company content data pass is `v0.15.6`, intentionally after the separately observed `v0.15.5` worktree.
+
 ### migration draft 方針
 
-次 worker が DDL draft を書くなら、1 migration に company content の最小 schema と RLS だけを入れる。seed、Notion sync、実データ import は入れない。
+Initial DDL is now drafted in `124_company_content_tables.sql`; actual seed data lives separately in `125_company_content_notion_seed.sql`.
 
 DDL draft の粒度:
 
@@ -556,7 +567,7 @@ DDL draft の粒度:
 
 apply 前レビュー項目:
 
-- migration は seed 0 件。Notion本文値、写真URL、個人情報値を含まない。
+- schema migration は raw Notion body / photo URL を含まない。seed migration も photo URL を含まず、既存 member に解ける内部プロフィールとAMD historyだけに絞る。
 - `db_schema.md` 再生成計画があること。apply 前 draft review では再生成しない。
 - RLS で `anon` grant が無いこと。
 - authenticated mutation grant が無いこと。
@@ -612,8 +623,7 @@ apply 前レビュー項目:
 
 ## 非対象
 
-- DB migration 実行。
 - Notion への write / update。
-- 写真 URL / 個人情報値の貼り付け。
-- production deploy。
-- public route 実装。
+- 写真 URL、住所、連絡先、支払・契約情報、Notion raw body の貼り付け。
+- このworker単独での production deploy。
+- Notion-only member の自動追加。

@@ -265,7 +265,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .eq("is_active", true),
     supabase
       .from("member_profiles")
-      .select("member_profile_id,member_id,display_name,public_title,internal_title,visibility,status,photo_asset_id")
+      .select("member_profile_id,member_id,display_name,public_title,internal_title,notion_status,joined_on,visibility,status,photo_asset_id")
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .order("display_name", { ascending: true })
@@ -321,7 +321,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       codeName: String(member?.code_name || row.display_name || memberId),
       displayName: String(row.display_name || member?.code_name || member?.member_name || memberId),
       role: row.public_title || row.internal_title ? String(row.public_title || row.internal_title) : null,
-      status: String(row.status || "approved_internal"),
+      status: String(row.notion_status || row.status || "approved_internal"),
       projectCount: projectCounts.get(memberId) ?? 0,
     };
   });
