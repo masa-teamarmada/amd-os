@@ -92,3 +92,39 @@
 ### 残課題
 - Claude側で作業再開中。次セッションは `HANDOFF_TEXTBOOK_VERCEL_CLOUDFLARE_20260604.md` を読む。
 - 次にpush/deployする時は、deploy bundleを提示し、`askuserquestion` 承認を取る。承認待ちは `approval pending`。
+
+## 2026-06-04 — KUTE重複解消 / v0.15.3復元 / 研究機関カード表示名
+
+### コンテキスト
+- KUTE が通常 PJ リストと研究機関 ERS リストの両方に出ていた。まさ要望は、KUTE を研究機関側へ寄せつつ、既存 KUTE PJ cockpit content と研究機関 ERS content のどちらも消さないこと。
+- 途中で別セッション `019e9176-2ea9-7ee3-8946-9d6dfe384fba` の v0.15.3 company content landing zone を認識せず、古い worktree から deploy して一度巻き戻した。直後に現行 v0.15.3 の中身を読み直して統合し直した。
+
+### 実装
+- `inst_kute -> p25` の institution project mapping を追加し、KUTE (`p25`) など研究機関エコシステム構築 PJ を通常 PJ 一覧から除外。KUTE は研究機関 ERS リストから `/institutions/inst_kute/cockpit` へ入り、既存 `p25` cockpit content を同画面で参照する。
+- `inst_nims -> p20` の既存導線は維持。研究機関 ERS リストは Dashboard 左/main カラムの PJ 一覧直下へ戻し、Company Content shelf はその下の全幅段へ置いた。
+- `019e9176` の company content landing zone を再統合。`/company`、`/admin/company`、`124_company_content_tables.sql`、Dashboard shelf の approved row 読み + fallback、Notion dry-run memo を含めた。DB migration apply/import は未実施。
+- 研究機関リストのカード表示名を PJ 名寄りに変更。title は `KUTE` / `KGW` / `NIMS`、subtitle は `工学院大学` / `香川大学` / `物質・材料研究機構`。
+- `BUILD_VERSION` は最終的に `v0.15.5`。
+
+### Verified
+- `npx eslint src/components/dashboard/InstitutionReadinessList.tsx src/lib/build-info.ts`
+- `npx tsc --noEmit`
+- `npm run test:critical-ui`
+- `npm run build`
+- local smoke: `/dashboard`、`/institutions/inst_kute/cockpit`、`/company` が login redirect / status 200 / Runtime Error false。
+- production smoke: `https://amd-os-pwa.vercel.app/dashboard`、`/institutions/inst_kute/cockpit`、`/company` が login redirect / status 200 / Runtime Error false。
+
+### Deploy
+- production Ready: `https://amd-os-pwa.vercel.app`
+- deployment id: `dpl_42byLRKSTZEfrQGo5bDfWargtUyx`
+- inspect URL: `https://amd-os-788b8fwh1-armada0130.vercel.app`
+- git push は未実施。
+
+### Commit
+- `039a823 fix(pwa): restore institution list placement and KUTE routing`
+- `ac13324 feat(company): restore Notion content landing zone`
+- `40f021b fix(dashboard): use project labels for institutions`
+
+### 教訓
+- 既にまさが見ている production version を基準にする。`BUILD_VERSION` の bump だけを見て「次は v0.15.3」と判断せず、現行 production と直近別セッションの HEAD を確認してから bundle を作る。
+- dirty/local direct deploy で一度本番に出た内容は、次の deploy 前に必ず commit graph と該当セッションの成果物を確認する。未確認の古い worktree deploy は production rollback 事故になる。

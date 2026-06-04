@@ -3059,3 +3059,10 @@
   - deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を必ず入れる。
   - 承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。
   - Textbook下書き確認はまず静的reader / Cloudflare Pagesを使い、PWA production deployは束ねたrelease checkpointだけにする。
+
+## [PWA/deploy] 現行 v0.15.3 を未認識のまま古い worktree から deploy し、直近更新を一度巻き戻した (2026-06-04)
+
+- **症状**: まさの環境ではすでに v0.15.3 が見えていたのに、worker が古い v0.15.2 相当の認識から KUTE 修正を v0.15.3 として deploy し、約10分前の別セッション `019e9176-2ea9-7ee3-8946-9d6dfe384fba` の company content 更新が production から一度消えた。
+- **原因**: `BUILD_VERSION` bump と local worktree の状態だけで deploy bundle を判断し、現行 production の version/content、別 worker の直近 commit、ユーザーが見ている実画面を確認しなかった。HUD など無関係な推測も混ぜ、問題の焦点が「v0.15.3内容の巻き戻り」であることを取り違えた。
+- **対応内容**: 現行 v0.15.3 相当の内容を読み直し、`019e9176` の company content landing zone、KUTE重複解消、研究機関ERSリスト復旧、KUTE/KGW/NIMS 表示名変更を統合して `v0.15.5` として production deploy した。deployment `dpl_42byLRKSTZEfrQGo5bDfWargtUyx` が Ready、production smoke も通過。
+- **再発防止策**: deploy 前は必ず `git log`、現行 production inspect、対象別セッションの成果物、ユーザーが見ている `BUILD_VERSION` を照合する。既に production に出ている変更を local に取り込めていない時は、bump/deploy せず統合を先に行う。古い worktree からの direct deploy は rollback と同義になりうる。

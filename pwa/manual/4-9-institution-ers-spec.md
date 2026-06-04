@@ -106,6 +106,7 @@ UI は `/institutions/assess` に全部詰め込まず、`ERS評価` / `制度�
 | ダッシュボード本文 | `/dashboard` | 左/mainカラム内で PJ一覧 (AMD Score / 個体) の直下に、**研究機関リスト (ERS / 苗床)** を続けて置く。右カラムのMyPageより下へ落とさず、その下の全幅下段に Company Content shelf を置く。`project_category='ecosystem'` または `p25` / KUTE名に該当するPJは通常PJリストに二重表示せず、研究機関リスト側へ寄せる |
 
 - ナビ最上部に **「研究機関」** リンク (Venture Map の隣)。
+- ダッシュボードの研究機関リストは PJ リストの続きとして読めるよう、カードの主タイトルを PJ 名寄りにする。表示は **KUTE / 工学院大学**、**KGW / 香川大学**、**NIMS / 物質・材料研究機構** の title / subtitle 型。
 - 各レイヤーで使うスコアは別ロジック (上=AMD Score / 下=ERS 充足率) なので、研究機関リスト側に「ERS は整備度であり AMD Score とは別指標」と明示している。
 - ダッシュボード本文でPJ一覧直下に置く KUTE / NIMS カードは、機関詳細ではなく各機関コックピットへ入る。KUTE の箱は研究機関 ERS として残しつつ、進捗管理は既存 KUTE PJ (`p25`) の PJ コックピットを使う。NIMS も同じ型で、既存 CX (`p20`) の PJ コックピットを使う。画面上部は ERS 概要と readiness snapshot を先に見せ、その下を `進捗管理` / `スコア詳細` の2タブにする。`進捗管理` では通常PJコックピットを先に表示し、月別 MTG ツリーは下部に置く。`スコア詳細` はSU向けAMD Scoreではなく、ERS 8軸・評価項目・Lv/根拠メモを表示する。
 - **評価の書き込み**は `POST /api/institutions/assess` (admin 限定 / `requireAdmin` 相当)。body = `{ institution_id, criterion_id, level (1–5/null), na, note }`。`institution_assessments` を **当日分 (`evaluated_at = today JST`) で `onConflict(institution_id,criterion_id,evaluated_at)` upsert** する。同日中の編集は 1 レコードに集約、過去日の評価は履歴として残り、`fetchErsBundle` は (機関 × サブ軸) ごとに最新 1 件を採用する。

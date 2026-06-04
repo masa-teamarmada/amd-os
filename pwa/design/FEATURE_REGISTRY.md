@@ -86,7 +86,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - TODO: `ProactiveQueuePanel` で `proactive_outbox` の `queued` / `sent_to_commander` / `blocked` を最大3件 read-only 表示する。状態、誰のボールか、期限、優先度、資料の種類、トリガー理由、担当司令塔、推奨 first move を出す。Dashboard から状態更新・外部送付はしない。行クリックはPJ遷移ではなく、発生経緯・資料リンク・次アクションを読むモーダルを開く。
 - PJ一覧: Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。KUTE (`p25`) など研究機関エコシステム構築PJは通常PJ一覧に二重表示せず、研究機関ERSリスト側へ寄せる。
-- 研究機関ERSリスト: PJ一覧と同じ左/mainカラム内で、PJ一覧の直下に `InstitutionReadinessList` を表示し、PJリストの続きとして苗床レイヤーを確認できるようにする。MyPage右カラムの下や全幅下段に落とさない。KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。
+- 研究機関ERSリスト: PJ一覧と同じ左/mainカラム内で、PJ一覧の直下に `InstitutionReadinessList` を表示し、PJリストの続きとして苗床レイヤーを確認できるようにする。MyPage右カラムの下や全幅下段に落とさない。表示名はPJ名を主タイトルに寄せ、KUTE / KGW / NIMS を title、工学院大学 / 香川大学 / 物質・材料研究機構を subtitle にする。KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。
 - Company Content shelf: 研究機関ERSリストの下に、`CompanyContentShelf` を4カラムで表示する。列はメンバー / 沿革 / メディア掲載 / photo。`member_profiles` / `company_history_events` / `media_assets` の approved rows を優先し、未適用環境では既存 `members` + `project_members`、`project_events` / `project_ventures`、photo permission placeholder に fallback する。Notion photo URL や個人情報本文は表示しない。
 - MyPage embed: `/dashboard` 右カラムでは `<MyPageContent embedded showMonthlyProjects={false} />` を使い、「今週やったこと」より下の月別PJカードを出さない。`/mypage` 単体では従来どおり月別PJカードを維持する。
 - Dashboard上部: Management Score と月次ルーティン残タスクを維持する。
