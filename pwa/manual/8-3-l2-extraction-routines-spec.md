@@ -1,10 +1,19 @@
-# L2 Extraction Routines — subscription automation 統一仕様 (L2 ①〜⑩)
+# L2 Extraction Routines — 実行環境別の登録・復旧仕様
 
-この章は、L2 ①〜⑩ を **定額 subscription automation** で抽出する仕様をまとめる。処理IDだけでなく、**どの実行環境で、どの課金ルートで、止まった時にどこを見るか** を正本化する。
+この章は、L2を **Claude routine / Codex Desktop automation / Codex automation / PWA non-LLM cron** のどれで抽出するかをまとめる。処理IDだけでなく、**どの実行環境で、どの課金ルートで、止まった時にどこを見るか** を正本化する。
 
 > 実装者向けの確定仕様は [/spec/3-1-l2-data-extraction-current-spec](/spec/3-1-l2-data-extraction-current-spec) へ移行開始済み。この章は、復旧時に読む運用手順として残す。迷う内容は移行完了まで両方に置く。
 
-**2026-05-29 正本訂正**: 2026-05-25〜26 の Claude routine / Cloud routine 案は履歴として残すが、現行の復旧主導線は下の **現行 writer 表** を見る。L2 ①は Codex automation、L2 ②〜⑥は MMOマシン Codex Desktop automation、L2 ⑦⑧⑨⑩は Codex automation + outbox/applier が現行ルート。
+**2026-06-04 事故訂正**: 2026-05-25〜26 の Claude routine / Cloud routine 「登録完了」系の記述は、Claude Routines UI上の `ACTIVE / next run / last run` 証跡が無い限り current truth として扱わない。`~/.claude/scheduled-tasks/.../SKILL.md` はローカル手順・素材であり、Claude routine登録済みの証拠ではない。
+
+現在の是正ターゲットは、**cadence ベースで 2 本の Claude routine に束ねる** (= 2026-06-04 まさ確定、新ナンバリング D / M / H):
+
+- **Claude routine `amd-os-l2-consolidated-evidence`** (daily 08:00 JST、`0 8 * * *`): D-1〜D-10 = 旧 L2 ②③④⑤⑦⑨⑩⑪⑫⑬。**旧 L2③ MS進捗と旧 L2⑬ Member Weekly も daily 化**してここに同居。
+- **Claude routine `amd-os-l2-monthend-evidence`** (月末候補日 16:00 発火 `0 16 28-31 * *`、Phase 0 で最終日判定、17:00 完了): M-1〜M-3 = 旧 L2 ①⑧⑯。3 つとも「月末」なので 1 本に統合。M-3 (Management Signal) を 18:00 月次振り返り MTG 前に出揃わせる。
+- **MMOマシン Codex Desktop automation 維持**: H-1 = 旧 L2⑥ MTGフロー (毎時 9-21 時)。Claude routine 化しない。
+
+**Claude routine = マシン非依存**: cloud で発火するため laptop を閉じても・MMO が OFF でも動く。`claude.ai/code/routines` / `/schedule` / Desktop app のどこから登録しても同じ claude.ai アカウントに入る (= MMOマシンに置く必要はない)。Desktop / Local scheduled task (`~/.claude/scheduled-tasks/`、マシン依存) と混同しない。
+**制約**: 最小インターバル 1 時間、daily run cap あり (one-off は cap 外) → 同 cadence の L2 を 1 routine に束ねて run 数を最小化する設計。平常日の Claude routine run は 1 本だけ。
 
 **先手力 heartbeat**: `proactive_outbox` は L2 ではなく、L2 と司令塔 / worker をつなぐ control layer。10:15-20:15 JST の毎時15分に `amd-os-proactive-heartbeat` が queued/blocked の due soon を拾い、PJ司令塔へ通知してから `mark-sent` で通知済みを記録する。正本手順は [`pwa/scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md`](../scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md)。
 
@@ -13,23 +22,33 @@
 | L2 | テーブル | 役割 | 旧 writer | 現行 writer |
 |---|---|---|---|---|
 | ① monthly_reports | `monthly_reports` | PJ 月次レポート。後続 L2 の一次入力 | AMD-Report GAS R313 / PWA report route | Codex automation `AMD OS L2① 月次報告抽出` |
-| ② AMD Protocol | `protocols` / `protocol_examples` | 経営判断を普遍パターンとして残す | GAS 155 (5/22 停止) | MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract` |
+| ② AMD Protocol | `protocols` / `protocol_examples` | 経営判断を普遍パターンとして残す | GAS 155 (5/22 停止) | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。UI証跡まではMMOマシン Codex Desktop automation `amd-os-l2-protocol-extract` を暫定 writer として扱う |
 | ③ MS 進捗 | `milestone_monthly_progress` / `project_monthly_notes` | マイルストーン月次進捗 % | ~~PWA `/api/cron/hourly-estimate` + GAS 154 ping~~ ⛔ 2026-05-29 再停止 | MMOマシン automation `amd-os-l3-ms-progress-extract` |
-| ④ PJ ナレッジ | `project_knowledge` | PJ に関する人物 / 技術 / 組織 / 市場 | GAS 155 (5/22 停止) | MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract` |
-| ⑤ メンバーナレッジ | `member_knowledge` | メンバーごとの強み / スタイル / 関心 | GAS 155 (5/22 停止) | MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract` |
+| ④ PJ ナレッジ | `project_knowledge` | PJ に関する人物 / 技術 / 組織 / 市場 | GAS 155 (5/22 停止) | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。UI証跡まではMMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract` を暫定 writer として扱う |
+| ⑤ メンバーナレッジ | `member_knowledge` | メンバーごとの強み / スタイル / 関心 | GAS 155 (5/22 停止) | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。UI証跡まではMMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract` を暫定 writer として扱う |
 | ⑥ MTG サマリ | `project_meeting_summaries` / `meeting_notifications` | Calendar event 単位の議事録要約 | GAS 153 + GAS 074 (5/22 停止) | Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow` |
-| ⑦ OS 台帳差分 | `project_registry_diffs` | 5 生データ vs OS 台帳の差分候補 | 旧 Cloud routine 案 / PWA LLM route | Codex automation `amd-os-ms` + SKILL `amd-os-l7-registry-diff-extract` |
-| ⑧ XRL 根拠 | `project_xrl_evidence` | TRL/BRL/GRL/SRL/HRL の算定根拠 | 旧 Cloud routine 案 / PWA LLM route | Codex automation `amd-os-ms` + SKILL `amd-os-l8-xrl-evidence-extract` |
-| ⑨ 経営ハイライト | `project_strategy_signals` | 経営判断 / 事業進捗 / 戦略転換 等 | 旧 Cloud routine 案 | Codex automation `amd-os` + SKILL `amd-os-l9-strategy-signal-extract` |
-| ⑩ Textbook Insights | `textbook_insight_candidates` | BZM 教科書へ追記すべき Before Zero 実務知見 | 新規 | Codex automation / local worker `amd-os-l10-textbook-insight-extract` + approved 後 local BZM applier |
+| ⑦ OS 台帳差分 | `project_registry_diffs` | 5 生データ vs OS 台帳の差分候補 | 旧 Cloud routine 案 / PWA LLM route | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。UI証跡まではCodex automation `amd-os-ms` + SKILL `amd-os-l7-registry-diff-extract` |
+| ⑧ XRL 根拠 | `project_xrl_evidence` | TRL/BRL/GRL/SRL/HRL の算定根拠 | 旧 Cloud routine 案 / PWA LLM route | 月末L2①後のClaude routine別枠候補。UI証跡まではCodex automation `amd-os-ms` + SKILL `amd-os-l8-xrl-evidence-extract` |
+| ⑨ 経営ハイライト | `project_strategy_signals` | 経営判断 / 事業進捗 / 戦略転換 等 | 旧 Cloud routine 案 | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。UI証跡まではCodex automation `amd-os` + SKILL `amd-os-l9-strategy-signal-extract` |
+| ⑩ Textbook Insights | `textbook_insight_candidates` | BZM 教科書へ追記すべき Before Zero 実務知見 | 新規 | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。UI証跡まではCodex automation / local worker `amd-os-l10-textbook-insight-extract` + approved 後 local BZM applier |
+| ⑪ Atlas Signals | `atlas_signals` | 外部政策・産業・市場シグナル | 旧 Atlas個別automation / PWA routes | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。UI証跡までは未完 |
+| ⑫ Macrotrend Evidence / Index | `observation_log` / `macro_index_log` | macro observation / index | 旧 Macrotrend個別automation / PWA routes | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。LLM非依存集計cronはPWA non-LLM cron可 |
+| ⑬ Member Weekly Activities | `member_activities(source='member_weekly')` | Dashboard / MyPage「今週やったこと」 | PWA `member-weekly-activities` route | separate weekly candidate。daily pickup + weekly section aggregationは要判断 |
+| ⑯ Management Monthly Signal Evaluation | `company_management_signal_reviews` | Management予実表から月末評価を作る | 専用Codexチャット/heartbeat案 | Claude routine別枠、月末最終日17:00 JST候補。UI証跡必須 |
 
 L2 ① monthly reports はこの章の対象。R313 は旧経路で、差分あり/未生成時に R303 generator 経由で Claude API を呼びうるため、定期 trigger を置かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。定期 writer は Codex automation `AMD OS L2① 月次報告抽出` で、正本 SKILL は [`pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`](../scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md)。
 
-## Claude Cloud routine 案の扱い
+## Claude routine registration gate
 
-Claude Cloud routine は 2026-05-25〜26 の移行案として検討・一部登録した履歴。追加API課金を避けるという方針自体は正しいが、現行の復旧主導線としては **3-2 章とこの章の現行 writer 表を優先**する。
+Claude routine は 2026-06-04事故以降、**Claude Routines UIで実在を確認したものだけ**を指す。追加API課金を避ける方針自体は正しいが、登録証跡が無いものは未完。
 
-古い trigger ID、`claude.ai/code/routines`、`~/.claude/scheduled-tasks/` は履歴調査用。止まった時にまず見るのは、L2ごとの現行 automation 履歴、repo内 SKILL、outbox/applier。
+古い trigger ID、`claude.ai/code/routines`、`~/.claude/scheduled-tasks/` は履歴調査用。止まった時に見るものは次の順にする。
+
+1. Claude Routines UI上のroutine存在、`ACTIVE`、`next run`、`last run`
+2. 初回dry runまたは手動run evidence
+3. L2ごとの暫定 writer のautomation履歴、repo内 SKILL、outbox/applier
+
+`SKILL.mdがある` と `Claude routineがACTIVE登録されている` は別物。
 
 ### Cloud routine 案を選んだ当時の理由
 
@@ -47,21 +66,37 @@ vs ローカル Mac scheduled task の問題:
 公式ドキュ引用:
 > "Routines execute on Anthropic-managed cloud infrastructure, so they keep working when your laptop is closed." ([code.claude.com/docs/en/routines](https://code.claude.com/docs/en/routines))
 
-## 現行 automation 一覧 (= 2026-05-29 正本)
+## target routine 一覧 (= 2026-06-04 cadence 束ね、新ナンバリング D / M / H)
 
-| L2 | 実行場所 | automation / SKILL | 頻度 | 止まった時に見る場所 |
-|---|---|---|---|---|
-| ① monthly_reports | Codex automation + outbox applier | `AMD OS L2① 月次報告抽出` / `amd-os-l1-monthly-report-extract` | daily 05:30 JST | `amd-os-l2` automation 履歴、`~/.codex/automations/amd-os-ms/outbox/`、LaunchAgent applier |
-| ② AMD Protocol | MMOマシン Codex Desktop automation | `amd-os-l2-protocol-extract` | daily 08:00 JST | MMOマシン側 automation 履歴、`pwa/scheduled-tasks/amd-os-l2-protocol-extract/SKILL.md` |
-| ③ MS 進捗 | MMOマシン Codex Desktop automation | `amd-os-l3-ms-progress-extract` | 毎時 0 分 | MMOマシン側 automation 履歴、`pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md` |
-| ④ PJ ナレッジ | MMOマシン Codex Desktop automation | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | MMOマシン側 automation 履歴、`pwa/scheduled-tasks/amd-os-l4-project-knowledge-extract/SKILL.md` |
-| ⑤ メンバーナレッジ | MMOマシン Codex Desktop automation | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | MMOマシン側 automation 履歴、`pwa/scheduled-tasks/amd-os-l5-member-knowledge-extract/SKILL.md` |
-| ⑥ MTG サマリ + フロー | Windows MMO Codex Desktop automation | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | 毎日 09:00-21:00 毎時 | MMOマシン側 automation 履歴、`pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` |
-| ⑦ OS 台帳差分 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l7-registry-diff-extract` | 6h ごと | `amd-os-ms` automation 履歴、`outbox.registryDiffs`、LaunchAgent applier |
-| ⑧ XRL 根拠 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `amd-os-ms` automation 履歴、`outbox.xrlEvidence`、LaunchAgent applier |
-| ⑨ 経営ハイライト | Codex automation + outbox applier | `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `amd-os` automation 履歴、strategy-signals outbox、LaunchAgent applier |
-| ⑩ Textbook Insights | Codex automation / local worker + outbox applier + local BZM applier | `amd-os-l10-textbook-insight-extract` | TBD / manual start | `amd-os-ms` outbox `textbookInsights`、`textbook_insight_candidates`、`apply_approved_textbook_insights.mjs` |
-| control 先手力 heartbeat | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox`、`project_commander_threads`、`proactive_loop_tool.mjs heartbeat`、司令塔 thread への通知結果 |
+| 新 | target Claude routine | cadence | 対象 (旧 L2) |
+|---|---|---|---|
+| D-1〜D-10 | `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | ②③④⑤⑦⑨⑩⑪⑫⑬ |
+| M-1〜M-3 | `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、最終日判定、17:00 完了 | ①⑧⑯ |
+| H-1 | (MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`、Claude routine 化しない) | 毎時 09:00-21:00 JST | ⑥ |
+
+SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群)。束ね SKILL は各 L2 の個別 SKILL を Phase 詳細として参照する。
+
+## 暫定 / 復旧先 automation 一覧 (= Claude routine UI 登録証跡が出るまでの writer)
+
+下表は **target が Claude routine に移るまでの暫定 writer**、および止まった時の復旧先。Claude routine が ACTIVE になったら、各暫定 writer は段階的に停止する (= 二重抽出を避ける)。
+
+| 新 | 旧 L2 | 暫定 実行場所 | automation / SKILL | 暫定頻度 | 止まった時に見る場所 |
+|---|---|---|---|---|---|
+| M-1 | ① monthly_reports | Codex automation + outbox applier | `AMD OS L2① 月次報告抽出` / `amd-os-l1-monthly-report-extract` | daily 05:30 JST | `~/.codex/automations/amd-os-ms/outbox/`、LaunchAgent applier |
+| D-1 | ② AMD Protocol | MMOマシン Codex Desktop automation | `amd-os-l2-protocol-extract` | daily 08:00 JST | MMOマシン側 automation 履歴、`pwa/scheduled-tasks/amd-os-l2-protocol-extract/SKILL.md` |
+| D-2 | ③ MS 進捗 | MMOマシン Codex Desktop automation | `amd-os-l3-ms-progress-extract` | 毎時 0 分 (target は daily) | MMOマシン側 automation 履歴、`amd-os-l3-ms-progress-extract/SKILL.md` |
+| D-3 | ④ PJ ナレッジ | MMOマシン Codex Desktop automation | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | MMOマシン側 automation 履歴、`amd-os-l4-project-knowledge-extract/SKILL.md` |
+| D-4 | ⑤ メンバーナレッジ | MMOマシン Codex Desktop automation | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | MMOマシン側 automation 履歴、`amd-os-l5-member-knowledge-extract/SKILL.md` |
+| H-1 | ⑥ MTG サマリ + フロー | Windows MMO Codex Desktop automation | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | 毎日 09:00-21:00 毎時 | MMOマシン側 automation 履歴、`amd-os-l6-meeting-extract/SKILL.md` |
+| D-5 | ⑦ OS 台帳差分 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l7-registry-diff-extract` | 6h ごと | `amd-os-ms` automation 履歴、`outbox.registryDiffs`、LaunchAgent applier |
+| M-2 | ⑧ XRL 根拠 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `amd-os-ms` automation 履歴、`outbox.xrlEvidence`、LaunchAgent applier |
+| D-6 | ⑨ 経営ハイライト | Codex automation + outbox applier | `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `amd-os` automation 履歴、strategy-signals outbox、LaunchAgent applier |
+| D-7 | ⑩ Textbook Insights | Codex automation / local worker + outbox applier + local BZM applier | `amd-os-l10-textbook-insight-extract` | TBD / manual start | `amd-os-ms` outbox `textbookInsights`、`textbook_insight_candidates`、`apply_approved_textbook_insights.mjs` |
+| D-8 | ⑪ Atlas Signals | (Claude routine target / 旧 Codex Atlas automation) | `POST /api/atlas/signals-ingest` | daily | `atlas_signals`、`amd-atlas/outbox/` |
+| D-9 | ⑫ Macrotrend | PWA non-LLM cron (index 集計) + Claude routine (observation 収集) | `macro-aggregate-indicators` / `kaken-ingest` / `grant-ingest` / `vc-investment-ingest` | 月初集計 + daily 収集 | `observation_log`、`macro_index_log`、各 cron route |
+| D-10 | ⑬ Member Weekly | (Claude routine target / 旧 PWA route) | `cron/member-weekly-activities` (退避済) | daily (target) | `member_activities(source='member_weekly')` |
+| M-3 | ⑯ Management Signal | (Claude routine target、新規) | M routine Phase C inline | 月末最終日 | `company_management_signal_reviews`、`/management-score` |
+| control | 先手力 heartbeat | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox`、`project_commander_threads`、`proactive_loop_tool.mjs heartbeat` |
 
 ## 各 L2 の入出力仕様
 
@@ -226,7 +261,7 @@ vs ローカル Mac scheduled task の問題:
 - ローカル Mac scheduled task (= `~/.claude/scheduled-tasks/amd-os-l*`) を現行 writer として復活させない。復旧は現行 automation 表の実行場所から行う
 - AMD-Report GAS R313 の `run_monthlyReportCron` / `run_L2CronDaily` trigger 復活 (= L2①の定期 writer は Codex automation)
 - GAS 153 / 155 の kill switch を外して LLM cron を復活させない
-- PWA / GAS / Vercel route から Anthropic・Gemini・OpenAI の従量課金 API を L2 抽出用途で新規に呼ばない。LLM が必要な抽出・要約・議事録品質改善は repo 内 SKILL と subscription automation 側に寄せる
+- PWA / GAS / Vercel route から Anthropic・Gemini・OpenAI の従量課金 API を L2 抽出用途で新規に呼ばない。LLM が必要な抽出・要約・議事録品質改善は Claude routine / Codex Desktop automation / Codex automation の定額枠へ寄せる
 - L2⑩ の承認を受けて、Vercel runtime から `pwa/bzm/*.md` を直接編集・commit しない。追記は local applier + git commit/push だけ
 - L2⑩ の unknown `practice_kind` を helper 側で勝手に既知分類へ丸めない。`metadata_json.validation_warnings` に残し、fallback slug のまま review 対象にする
 - raw Gmail / raw Notion 本文を L2 row に丸ごと保存しない (= source refs + short snippet + hash のみ)
@@ -248,7 +283,7 @@ vs ローカル Mac scheduled task の問題:
 
 ## 2026-05-26 移行ログ (= 履歴)
 
-- claude.ai/code/routines に 8 個全部 entry 完了 (= §38.3 trigger ID 一覧)
+- claude.ai/code/routines に 8 個全部 entry 完了という旧記録があるが、2026-06-04事故以降はClaude Routines UIの `ACTIVE / next run / last run` 証跡が出るまで未完扱い
 - SKILL 8 個を repo `pwa/scheduled-tasks/` に commit (= `41ef14c`)、Cloud routine の sandbox VM が auto-clone する正本
 - 詳細経緯: [`pwa/design_log/sessions_2026-05.md`](../design_log/sessions_2026-05.md) の 2026-05-26 セクション
 - 動作テスト: L2 ② を手動 run で Phase 0-A-C まで確認、Sonnet 4.6 / Anthropic サーバー側 sandbox VM で動作証明
