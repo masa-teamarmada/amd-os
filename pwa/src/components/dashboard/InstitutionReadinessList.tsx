@@ -48,8 +48,9 @@ export function InstitutionReadinessList({ bundle }: { bundle: ErsBundle | null 
 
 function InstitutionStripe({ inst, result }: { inst: ErsInstitution; result: ErsResult }) {
   const ers = result.ers;
-  const meta = [inst.region, inst.description].filter(Boolean).join(" · ");
   const projectLink = getInstitutionProjectLink(inst.institutionId);
+  const display = getInstitutionDisplay(inst, projectLink?.projectLabel ?? null);
+  const meta = [display.subtitle, inst.region, inst.description].filter(Boolean).join(" · ");
 
   return (
     <Link
@@ -60,7 +61,7 @@ function InstitutionStripe({ inst, result }: { inst: ErsInstitution; result: Ers
         {/* === 識別: col-span-4 === */}
         <div className="col-span-4 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h3 className="text-sm font-semibold truncate">{inst.name}</h3>
+            <h3 className="text-sm font-semibold truncate">{display.title}</h3>
             <span className="text-[9px] rounded border px-1.5 py-0.5 bg-indigo-50 text-indigo-800 border-indigo-300">
               {INSTITUTION_TYPE_LABEL[inst.type] ?? inst.type}
             </span>
@@ -116,4 +117,17 @@ function InstitutionStripe({ inst, result }: { inst: ErsInstitution; result: Ers
       </div>
     </Link>
   );
+}
+
+function getInstitutionDisplay(inst: ErsInstitution, projectLabel: string | null) {
+  switch (inst.institutionId) {
+    case "inst_kute":
+      return { title: projectLabel || "KUTE", subtitle: "工学院大学" };
+    case "inst_kagawa":
+      return { title: "KGW", subtitle: "香川大学" };
+    case "inst_nims":
+      return { title: "NIMS", subtitle: "物質・材料研究機構" };
+    default:
+      return { title: projectLabel || inst.name, subtitle: inst.name };
+  }
 }
