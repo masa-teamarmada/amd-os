@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { BzmMarkdown } from "@/components/bzm/BzmMarkdown";
 import { SpecSideNav, type SpecSideNavGroup } from "@/components/spec/SpecSideNav";
 import { applySpecBookNumbering, SPEC_CHAPTERS, SPEC_SECTIONS, getSpecChapter, sortSpecSlugs } from "../spec-chapters";
@@ -18,6 +18,10 @@ function specDir() {
   return path.join(process.cwd(), "spec");
 }
 
+const SPEC_SLUG_REDIRECTS: Record<string, string> = {
+  "3-0-l2-data-list-current-spec": "3-1-l2-data-extraction-current-spec",
+};
+
 export async function generateStaticParams() {
   const dir = specDir();
   if (!fs.existsSync(dir)) return [];
@@ -30,6 +34,11 @@ export async function generateStaticParams() {
 export default async function SpecChapterPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const decoded = decodeURIComponent(slug);
+  const redirectSlug = SPEC_SLUG_REDIRECTS[decoded];
+  if (redirectSlug) {
+    permanentRedirect(`/spec/${encodeURIComponent(redirectSlug)}`);
+  }
+
   const filePath = path.join(specDir(), `${decoded}.md`);
   if (!fs.existsSync(filePath)) {
     notFound();
