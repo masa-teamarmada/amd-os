@@ -1,6 +1,6 @@
 # AMD OS 司令塔タスク台帳
 
-最終更新: 2026-06-02
+最終更新: 2026-06-04
 
 この台帳は、AMD OS全体司令塔が受けている依頼を「コードを読んでいない人でも分かる」粒度で整理するためのもの。worker報告をそのまま貼らず、司令塔がまさ向けに要約して更新する。
 
@@ -28,17 +28,39 @@
 - 以後のworker promptには、旧「完了・停止・要判断時は必ず親司令塔へ能動報告」ではなく、このworker quiet modeと未完タスク監視の前提を含める。
 - `COMMANDER_TASKS.md` にはworker詳細ログを貼らず、Active workerあり、worker id、状態、次回確認条件、まさ要判断だけを短く残す。
 
-Vercel deploy quota hard gate:
-- 2026-06-03以降、Vercel 1日100deploy上限到達を受け、当面 `vercel deploy` 禁止。
-- Vercelが自動preview/production deployする可能性がある `git push` も禁止。`main` だけでなくpreview対象branchも含む。
-- てにをは、文言、微細UI、CSS、md、コメント、ログ文言ごとのdeployは禁止。
-- 旧来の「実装→push→deployまで走り切る」やworker close gateのpush/deploy要件より、このquota hard gateを優先する。
-- workerはlocal build/test/スクショ/ローカル確認で止め、必要ならlocal commitまで。push/deployは `withheld due to Vercel quota gate` としてhandoffしてよい。
-- deploy前には必ず `deploy bundle` を作る。含める変更、除外する変更、local検証、予定deploy回数、push先、rollback/確認方法を司令塔へ提示し、承認までpush/deployしない。
-- 現在状態: `Vercel freeze active`。next release windowは未定。deploy bundle候補はこの台帳で蓄積し、司令塔承認前のpush/deployは停止する。
-- この方針は `AGENTS.md`、`pwa/AGENTS.md`、`pwa/CLAUDE.md` に反映済み。
+Vercel deploy approval gate:
+- 2026-06-04 まさ判断で、Vercel deploy上限は緩和。deploy自体は再開OK。
+- ただし少しの間、Vercel production deploy / preview deploy / Vercel自動deployを起こす可能性がある `git push` の直前には、必ず `askuserquestion` でまさの許可を取る。
+- 許可質問には `deploy bundle` を含める。内容は「含める変更」「除外する変更」「local build/test/browser確認結果」「deploy予定回数」「push/deploy先」「rollback/本番確認方法」。
+- てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止のまま。複数worker成果を束ねて1回でdeployする。
+- 承認待ちで止まる場合は `approval pending` として台帳に残す。未分類blocker扱いにしない。
+- 現在状態: `Vercel deploy approval gate active`。deploy bundle承認まではpush/deployしない。
+- deploy bundle候補: BZM approval gate台帳更新 (`e34be20`)、Textbook approval gate台帳更新 (`43165dd`)、Textbook main integration未反映分、BZM/PRS系、OS UI系、KUTE MTGカード/自動生成修正、company content Notion移植など、local検証済み変更をbundle化して提示する。
+- askuserquestion承認状況: 未承認。次のpush/deploy直前にdeploy bundle付きで確認する。
+- deploy実施回数: 2026-06-04 gate更新後 0回。
+- push保留: あり。BZM approval gate更新commit `e34be20`、Textbook approval gate更新commit `43165dd`、2026-06-03 hard gate反映のローカル台帳/AGENTS更新、Claude migration handoff系、現在の司令塔台帳更新は未push。
+- `/Users/masa/projects/AGENTS.common.md` は個人司令塔側で更新済み。
 
 ## 未完タスク（優先順位順）
+
+### 0A. 2026-06-01 KUTE internal MTGをMTGツリーに出し、自動生成漏れを直す
+
+- お願いしたタスク内容
+  - 2026-06-01 の KUTE internal MTG がMTGツリーに出ていない原因を特定する。
+  - 必要なMTGカードを作成し、KUTE側のMTGツリー/コックピットで読める状態にする。
+  - 今後同種のKUTE internal MTGが自動生成されるよう、L6/MTGカード生成経路の再発防止を入れる。
+- お願いした背景
+  - KUTE internal MTGがMTGツリーに出ておらず、KUTEの会議履歴・準備導線・後続アクションがOS上で追えない。
+  - 以前もKUTE予定名に `KUTE` と `AMD` が混在し、PJ判定が曖昧でカード生成がskipされた事故があったため、今回も原因を推測で埋めず現物確認が必要。
+- 現状どうなってるか
+  - 動作状態: urgent worker切り出し。worker pending worktree: `local:4ec86827-2b82-4dc6-9f9f-f494ca1032f9`。
+  - 司令塔側では個別調査・DB write・実装修正を直接行わない。
+  - worker quiet modeのため、詳細ログは親司令塔へ流さない。
+- 残課題は何か
+  - Calendar event / existing `project_meeting_summaries` / MTGツリー表示条件 / L6 run履歴を確認し、欠落原因を分類する。
+  - 最小安全経路でMTGカードを作る。既存開催済み議事録や手動編集済みrowがある場合は上書きしない。
+  - 自動生成の再発防止を入れる。必要ならKUTE alias/project判定、internal MTG title handling、L6 guard/test/docsを更新する。
+  - local test/buildまで確認し、push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` とする。
 
 ### 0. Management予実表の下に、月末経営シグナル評価欄を作る
 
@@ -56,7 +78,7 @@ Vercel deploy quota hard gate:
   - 実装workerが、月次試算表直下の経営シグナル評価欄、月末評価保存用DB、専用Codexチャット/heartbeat運用の追加を進めている。
 - 残課題は何か
   - UI実装、migration、typecheck/build、ローカル確認を完了する。
-  - push/deployはVercel quota hard gate中のため、必要なら `withheld due to Vercel quota gate` としてdeploy bundle候補へ回す。
+  - push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` としてdeploy bundle候補へ回す。
   - 月末Codex専用チャットと定期実行が、実際のCodex automation/heartbeatで成立するか確認する。
   - 完了または要判断になったら、司令塔へ `【司令塔へ報告】Management経営シグナル評価欄 追加 完了` または `要判断` で報告する。
 
@@ -88,17 +110,18 @@ Vercel deploy quota hard gate:
   - Before-Zero設立時期推奨は、入力を抽象カテゴリ、missing/conflicting categories、recommendation status程度から始める。
   - P2以降はDDL適用せず、migration draftから司令塔reviewへ進める。
 
-### 2. Notion側コンテンツをAMD OSへ移植するUIUXを設計する
+### 2. Notion側company contentをAMD OSへ正しく移植する
 
 - お願いしたタスク内容
-  - Notion側にあるメンバーリスト、history（沿革）、photoなどのコンテンツをAMD OSへ移植する。
-  - まずは実装前に、OS内でどこにどう配置するのがUIUXとして自然かを設計する。
-  - Notionの実コンテンツ構造、OSの既存画面、admin/public/internal境界を見たうえで、配置案・導線・編集権限・データ構造案を出す。
+  - Notion側にあるメンバーリスト、history（沿革）、photoをsource of truthとして確認し、AMD OSのcompany contentへ正しく移植する。
+  - 現在のAMD OS側メンバーリスト、沿革、photoがNotionデータと全く違うため、差分原因を特定して修正する。
+  - UIUX設計だけで止めず、OS内の表示データがNotion現物に合うところまで進める。
 - お願いした背景
   - Team ARMADA/AMDの会社情報、メンバー情報、沿革、写真素材がNotion側に残っており、OS内で扱える状態にしたい。
   - ただしメンバー情報や写真は公開可否・利用許諾・内部メモの境界が重要なので、単純移植ではなく情報設計が必要。
+  - まさ確認で、現状のcompany contentがNotion現物と一致していないことが分かったため、docs-only設計タスクでは不足。
 - 現状どうなってるか
-  - 動作状態: P1 RLS/visibility設計worker切り出し。UIUX設計案worker `019e842b-214c-75c3-92c3-b97ab3e11d5b` とP0 UI/schema mapping worker `019e8433-2854-7bd1-927a-ae46b367a618` は完了報告済み。
+  - 動作状態: urgent data migration worker切り出し。worker pending worktree: `local:d2c81185-1700-4a8a-ba7f-21615d6ebe92`。UIUX設計案worker `019e842b-214c-75c3-92c3-b97ab3e11d5b` とP0 UI/schema mapping worker `019e8433-2854-7bd1-927a-ae46b367a618` は完了報告済み。
   - UIUX設計成果物: `pwa/design/notion_content_migration.md`。
   - UIUX設計commit: `d9216e8 docs: plan notion content migration uiux`。P0 mapping commit: `46e3eb4 docs: add notion content migration p0 mapping`。
   - `/admin/company` は Profile / Team / History / Media / Import の5タブ構成案。`/company` はauthenticated read-only hub案。
@@ -107,9 +130,11 @@ Vercel deploy quota hard gate:
   - 次worker pending worktree: `local:f5e4bcd6-ede0-4c5e-8b7e-10813c0754b5`。
   - 次workerには、P1としてRLS/visibility enum/review gateの設計レビューを依頼済み。DB write/DDL/applyはまだしない。
 - 残課題は何か
-  - P1で、visibility enum、review gate、admin/authenticated/public境界、table別RLS/API境界を固める。
-  - P1後に、migration draft/applyなし、admin編集UI、Notion import/sync dry-run、approved public viewの順に進める。
-  - 写真は `usage_permission`、`consent_status`、`storage_bucket`、`storage_path`、`thumbnail_path` を必須候補として扱う。
+  - Notion connectorでメンバーリスト、沿革、photoの現物を確認し、OS側DB/UIの現在値との差分を出す。
+  - Notion raw bodyやphoto URLsを司令塔報告・公開本文へ貼らず、admin/internal境界を守って移植する。
+  - 既存tableで足りる場合はDDLなしで移植し、足りない場合はmigration draftと司令塔判断に分ける。
+  - 写真は `usage_permission`、`consent_status`、`storage_bucket`、`storage_path`、`thumbnail_path` を必須候補として扱い、公開可否が曖昧なものは `needs_review` にする。
+  - local確認まで行う。push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` とする。
 
 ### 3. PJロゴをOS内で活用する
 
@@ -154,36 +179,31 @@ Vercel deploy quota hard gate:
   - Claude routines停止、L2 automation、outbox/applier、timezone境界で欠落しないか確認する。
   - 問題があれば、P0修正案を1つに絞って提示する。
 
-### 5. Claude Code routinesへ移せるautomationを設計する
+### 5. L2 Claude routine未登録事故を是正する
 
 - お願いしたタスク内容
-  - MMOマシンやCodex側で動いている定期処理のうち、Claude Code routinesへ移せるものを整理する。
-  - Claude Code routinesは1日15件までなので、L2データ抽出やAtlasなどをどう束ね、どの頻度で回すか設計する。
-  - 高頻度が必要なものはCodexに残す前提でよい。
+  - L2抽出をClaude定額token/routine上限内で回す決定済み方針について、実際のClaude Routines UI登録が無かった事故として是正する。
+  - `~/.claude/scheduled-tasks/.../SKILL.md` の存在を、Claude routineがACTIVE登録されている証拠として扱わない。
+  - docs上の `Codex / subscription automation` など曖昧な表現をやめ、Claude routine / Codex Desktop automation / Codex automation / PWA non-LLM cron / PWA/Vercel LLM cron禁止を明記する。
+  - 完了ゲートに、Claude Routines UI上の存在、`ACTIVE`、`next run`、`last run`、初回dry runまたは手動run evidenceを必須化する。
 - お願いした背景
-  - Codexで司令塔・worker体制が作れるようになり、Claude Code側で開発する理由が薄くなった。
-  - 一方でClaude Codeの定額トークンは余り、Codex側の定額トークンは今後逼迫しそう。
-  - 余っているClaude Code側を、低頻度・重めの定期抽出に使うと全体の運用コストを下げられる。
+  - L2抽出はClaude定額tokenへ載せる方針だったが、Claude側Routines UIにはroutineが1本も無い状態だった。
+  - `amd-os-l2-consolidated-evidence` も実体として確認できず、Claude定額tokenではなく別経路/PWA/API/他automation側に課金・運用負荷が残った可能性がある。
+  - まさ確認で「実害が何万円も出てる。洒落にならない」と明示されたため、方針再検討ではなく実装・登録漏れ事故として扱う。
 - 現状どうなってるか
-  - 動作状態: watch。Claude routinesは停止したまま。L2/Atlas/Macrotrendの主系はCodex/MMO側へ戻し、Claudeは今後もread-only audit/report候補に留める。
-  - 監視状態: AMD OS未完タスク監視heartbeatで、L2①の次回発火とL6色取得代替helperを継続監視中。
-  - Claude routinesは停止済み。勝手に再開しない。
-  - Codex/MMO/PWA cron側で全L2系の鮮度を戻し、その上でClaudeは上限に抵触しないread-only audit/report用途に限定する方針。
-  - 全体設計workerとPhase 0実態確認workerの完了報告を受領した。
-  - Claude Codeへ移す中心は、日次・週次のレビューや合成にする方針。
-  - 会議サマリ抽出とMS進捗の主処理は、高頻度・即応性が必要なためCodex/MMO側に残す方針。
-  - Claude側は、日次のL2合成、日次のスコア根拠・戦略レビュー、週次の外部シグナル確認を中心にする案。
-  - 通常日は2〜3本、週次日は4〜5本程度で、1日15件制限内に収める案になっている。
-  - MMO側に残っていた未処理ファイルは、L2/Atlas/Macrotrend抽出安定化workerが分類・反映・退避済み。
-  - 月次報告抽出はMac側Codex automationをACTIVEへ戻し、自然発火前に手動で正規outbox/applier経路を確認済み。
-  - 2026-06-01夜のproactive heartbeat報告では、`/Users/masa/projects/AMD/amd-os` に `pwa/scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md` と `heartbeat` subcommand が無いように見えると報告された。
-  - ただし最新 `origin/main` のclean worktreeでは、`SKILL.md` は存在し、`.env.local` を読み込めば `node pwa/scripts/proactive_loop_tool.mjs heartbeat --status queued,blocked --due-hours 72 --limit 20 --json` は `{ ok: true, count: 0, actions: [] }` で通る。
-  - よって現時点の切り分けは、main実装欠落ではなく、実行側が古い/別branchのcheckoutを見ている可能性が高い。送信対象は0件のため、重複送信・mark-sent事故は起きていない。
+  - 動作状態: accident / urgent corrective action。Claude routine実登録は未確認で、docs-onlyやSKILL作成だけでは完了扱いにしない。
+  - current truth: Claude Routines UIにroutineが見えない限り、Claude定額routineへ移管済みとは扱わない。
+  - `~/.claude/scheduled-tasks/amd-os-l2...l9` などのSKILLは、ローカル手順・素材であり、Claude側ACTIVE登録の証拠ではない。
+  - `amd-os-l2-consolidated-evidence` は実体未確認。登録済み/稼働中として扱わない。
+  - L2③ MS進捗とL2⑥ MTGフローは、Claude routineではなくMMOマシン Codex Desktop automation維持。
+  - push/deploy直前はdeploy bundle付きでまさ承認を取る。この台帳/docs是正の承認待ちは `approval pending` として扱う。
 - 残課題は何か
-  - Claude routinesを再開する場合は、L2主処理ではなく、低頻度のread-only audit/reportだけにする。
-  - 1日15件制限に抵触しない具体的なroutine登録は、L2主系が安定した後の後続タスクにする。
-  - proactive heartbeat runnerの実行checkoutを最新 `origin/main` に揃える、またはclean runtime worktreeを固定して使う。
-  - L2①の2026-06-02 05:30 JST自然発火、L6監視付き1回Live準備、MMO側PENDING_REVIEWの継続監視を続ける。
+  - Claude側で `amd-os-l2-consolidated-evidence` を実routine登録し、UI上で `ACTIVE / next run / last run` を確認する。対象は L2②④⑤⑦⑨⑩⑪⑫、cadenceは daily 08:00 JST。
+  - 別枠routineとして、L2① 月末最終日、L2⑧ 月末L2①後のXRL checklist audit、L2⑬ weekly candidate、L2⑯ 月末最終日17:00 JST Management Monthly Signal Evaluationを登録候補にする。
+  - L2①〜⑯のwriter matrixを、Claude routine / Codex Desktop automation / Codex automation / PWA non-LLM cron / admin reviewのどれかに必ず分類する。
+  - PWA/Vercel background LLM cronは復活させない。
+  - 課金経路の棚卸しを行い、どの処理がClaude定額に乗っておらず、別課金・別負荷になっていたか確認する。
+  - 実登録完了までは、L2 Claude routine移管を完了扱いにしない。
 
 ### 6. L2会議サマリ抽出を、MMOマシンで確実に毎時起動させる
 
@@ -335,6 +355,7 @@ Vercel deploy quota hard gate:
   - BZM司令塔の台帳は `pwa/bzm/COMMANDER_TASKS.md` へ分ける方針になった。
   - Textbook司令塔の台帳も、Textbook正本ディレクトリ配下へ分ける方針になった。
   - BZM台帳には、未完タスクあり・全worker停止を禁止するheartbeat運用ルールを反映済み。main取り込み済み commit: `69faea2 docs: add BZM commander heartbeat rule`。
+  - BZM台帳は2026-06-04のVercel approval gateへ更新済み。local commit: `e34be20 docs: update BZM Vercel approval gate`。push/deployは `approval pending`。
   - Textbook台帳にも同じworker継続監視ルールを反映済み。main取り込み済み commit: `4ac3a2d docs: add Textbook commander heartbeat rule`。
 - 残課題は何か
   - BZM/Textbookの詳細タスクは、それぞれの台帳を正本として見る。
@@ -463,7 +484,7 @@ Vercel deploy quota hard gate:
   - 現行AMD ScoreはMXFモデル寄りのままなので、新モデル候補をOS上で検証したい。
   - ただし、P/R_netのrubricや正式DB schema、BZM教科書の理論更新はまだ確定させない。
 - 現状どうなってるか
-  - 動作状態: deploy quota待ち。BZM一次レビュー後、OS司令塔からmain取り込み・production deploy・認証済み画面確認workerを切り出し、main取り込みまでは完了した。
+  - 動作状態: deploy approval pending。BZM一次レビュー後、OS司令塔からmain取り込み・production deploy・認証済み画面確認workerを切り出し、main取り込みまでは完了した。
   - OS取り込みworker thread: `019e8270-2784-74d1-b48e-adb6dfd699cd`。
   - branch: `origin/codex/prs-comparison-layer`。
   - commit: `c101e6c feat: add PRS comparison layer`。
@@ -478,8 +499,8 @@ Vercel deploy quota hard gate:
   - targeted eslint、`npx tsc --noEmit`、`npm run build` は最終統合状態で成功。DB write/DDLなし。
   - Vercel production deployは `api-deployments-free-per-day` quotaで失敗し、production aliasはまだPRS取り込みcommitではない既存Ready deploymentを指している。
 - 残課題は何か
-  - Vercel quota回復後、最新 `origin/main` を `amd-os-pwa` へproduction deployする。
-  - deploy後、認証済み環境で `/venture-map/amd-score/retrofit` を目視確認する。
+  - PRS取り込み分はdeploy bundle候補へ回し、含める変更、除外する変更、local検証、予定deploy回数、push/deploy先、rollback/本番確認方法を `askuserquestion` で提示して承認を得る。
+  - deploy bundle承認後に限り、認証済み環境で `/venture-map/amd-score/retrofit` を目視確認する。
   - PRS列/表示、既存7軸非置換、P/R_net仮入力・非保存、画面崩れ/文字切れなしを確認する。
   - P/R_netや理論変更に踏み込む場合はBZM司令塔レビューを必須にする。
 

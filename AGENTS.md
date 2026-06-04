@@ -4,7 +4,7 @@
 
 > **ルール本体は [CLAUDE.md](CLAUDE.md) に書く。これは概要のみ。**
 > セッション開始時の 4 ステップ・引き継ぎ運用は CLAUDE.md 参照。
-> **2026-06-03 Vercel quota hard gate 中は `git push` / `vercel deploy` 禁止。旧commit&push即時化よりこのgateを優先。**
+> **2026-06-04以降、Vercel deploy/pushは再開可。ただしproduction/preview deploy、またはVercel自動deployを起こす可能性があるpushの直前には、必ずdeploy bundleつきでまさ許可を取る。**
 
 ## リポジトリ
 
@@ -31,7 +31,7 @@
 
 ## デプロイ
 - **gas** → `clasp push`
-- **pwa** → Vercel quota hard gate中は `vercel deploy` 禁止。Vercel自動preview/production deployの可能性がある `git push` も禁止。local build/test/スクショ/ローカル確認で止め、必要ならlocal commitまで。push/deployは `withheld due to Vercel quota gate` としてhandoffする。deploy前には必ずdeploy bundleを作り、司令塔承認までpush/deployしない
+- **pwa** → Vercel deploy/pushは再開可。ただしproduction deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、必ずdeploy bundleを作り、`askuserquestion` でまさ許可を取る。承認待ちは `approval pending` として台帳に残す。微細変更ごとの単発deployは禁止
 - **ios** → `xcodebuild → devicectl install → process launch`、毎回
 - **android** → TBD
 

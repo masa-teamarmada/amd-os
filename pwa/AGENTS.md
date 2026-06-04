@@ -42,17 +42,19 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 **設計変更を入れるときは、使い方は `pwa/manual/`、確定実装仕様は `pwa/spec/`、理論・数式・rubric は `pwa/bzm/` を同じ commit で更新する**。変更した層の附則 (`manual/9-3`, `spec/6-1`, `bzm/9-5`) に日時つきで必ず追記する。
 新規の設計 md を `design_log/` に作らない (見落とされる)。
 
-# 確認方針 (PWA Vercel quota hard gate)
+# 確認方針 (PWA Vercel deploy approval gate)
 
-**2026-06-03 以降、Vercel quota hard gateを最優先する。** 当面、`vercel deploy`は禁止。Vercelが自動preview/production deployする可能性がある `git push` も禁止。`main`だけでなくpreview対象branchも含む。
+**2026-06-04以降、Vercel deploy/pushは再開可。ただしproduction deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、必ずdeploy bundleつきでまさ許可を取る。**
 
-てにをは、文言、微細UI、CSS、md、コメント、ログ文言ごとのdeployは禁止。旧来の「実装→push→deployまで走り切る」やworker close gateのpush/deploy要件より、このquota hard gateを優先する。
+deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含める。
 
-標準ワークフロー: 実装 → `tsc --noEmit` → `npm run build` → 必要ならローカルスクショ/ローカル確認 → local commitまで。push/deployは `withheld due to Vercel quota gate` としてhandoffしてよい。
+てにをは、文言、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止。複数worker成果を束ねて1回でdeployする。
 
-deploy前には必ず `deploy bundle` を作る。含める変更、除外する変更、local検証、予定deploy回数、push先、rollback/確認方法を司令塔へ提示し、承認までpush/deployしない。
+承認待ちで止まる場合は `approval pending` として台帳に残す。未分類blocker扱いにしない。
 
-**えいみへの含意**: `npm run build` が通ってもpush/deployしない。`bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`、`npx vercel deploy`、`git push` はhard gate対象。active workerが旧promptでpush/deployしそうなら、workerスレッド内で直ちに差し戻して止める。
+標準ワークフロー: 実装 → `tsc --noEmit` → `npm run build` → 必要ならローカルスクショ/ローカル確認 → local commitまで。push/deploy直前にdeploy bundleを提示し、askuserquestionでまさ許可を取る。
+
+**えいみへの含意**: `npm run build` が通っても自動push/deployしない。`bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`、`npx vercel deploy`、Vercel auto deploy対象の `git push` の直前にはdeploy bundleを提示し、まさ許可を取る。
 
 # 🚨 画像生成ごまかし禁止 (絶対ルール)
 
