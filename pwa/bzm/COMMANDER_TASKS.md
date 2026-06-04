@@ -27,7 +27,7 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 - heartbeat時はこの台帳の未完タスクを確認し、進められるものがあればworkerを切る / 既存workerを再起動する / 差し戻す。
 - 進められる未完タスクがないのに未完が残る場合は、まさへ具体的な質問または判断依頼を出す。
 - 未完タスクがある状態で、全worker停止かつまさにも何も聞いていない状態を作らない。
-- BZM司令塔は、重要報告・理論判断・差し戻し判断・OS側判断待ちをOS司令塔へ `send_message_to_thread` で転送する。
+- BZM司令塔は、OS全体判断、横断current truth、真のblocker、まさ判断が必要な時だけOS司令塔へ短く共有する。BZM司令塔内で閉じる台帳文言更新、運用ルール更新、local commit作成は台帳に短く残し、OS司令塔へ能動送信しない。
 - `UU` conflict や未分類dirtyが残るworkerは archive しない。
 
 ## 未完タスク（優先順位順）
@@ -47,8 +47,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 3. worker稼働監視 / heartbeat運用
    - お願いした内容: 未完タスクが残っている間は、worker全員が停止・完了・待機で次アクションもない状態を作らず、heartbeatで台帳とworker状態を確認する。
    - 背景: 未完タスクがあるのに司令塔側もworker側も動いていないと、BZM領域のcurrent truth管理とレビュー待ちが止まるため。
-   - 現状: Active。全司令塔共通ルールとしてworker quiet modeを採用。BZM司令塔の運用ルールへ反映済みで、次回worker promptから旧能動報告ゲートを削除/上書きする。`askuserquestion` / `request_user_input` は原則禁止だが、Vercel push/deploy直前承認だけ例外にする。
-   - 残課題: 次にBZM workerを切る時、親司令塔への進捗/中間/自己判断完了報告は禁止し、まさ承認後closeout 1回または司令塔介入が必要なblocker 1回だけ送る方針をpromptへ明記する。台帳は細かく更新するが、worker詳細ログを長文転載せず、状態と次アクションを短く残す。
+   - 現状: Active。全司令塔共通ルールとしてworker quiet modeを採用。BZM司令塔の運用ルールへ反映済みで、次回worker promptから旧能動報告ゲートを削除/上書きする。`askuserquestion` / `request_user_input` は原則禁止だが、Vercel push/deploy直前承認だけ例外にする。BZM司令塔内で閉じる台帳文言更新、運用ルール更新、local commit作成は親へ送らず台帳に短く残す。
+   - 残課題: 次にBZM workerを切る時、親司令塔への進捗/中間/自己判断完了報告は禁止し、まさ承認後closeout 1回または司令塔介入が必要なblocker 1回だけ送る方針をpromptへ明記する。OS全体判断、横断current truth、真のblocker、まさ判断が必要な時だけOS司令塔へ共有する。
 
 4. Textbookとの役割分担
    - お願いした内容: Textbook司令塔とBZM司令塔の担当境界を明確にし、BZM司令塔は理論接続・過剰一般化防止・rubric/数式/用語変更ゲートを担当する。
