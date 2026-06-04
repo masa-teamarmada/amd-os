@@ -3057,5 +3057,6 @@
 - **再発防止策**:
   - md、コメント、ログ文言、微細UI、軽微CSSを1件ずつdeployしない。
   - deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を必ず入れる。
-  - 承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。
+  - deploy bundleが準備できたら `push/deployはまだしてない` で止まらず、必ず実際に `askuserquestion` を投げる。
+  - 承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。承認待ちで止めるのはそのbundleだけで、local実装、local build/test、レビュー、台帳更新、次タスク整理、別worker切り出し、差し戻しは進め続ける。
   - Textbook下書き確認はまず静的reader / Cloudflare Pagesを使い、PWA production deployは束ねたrelease checkpointだけにする。

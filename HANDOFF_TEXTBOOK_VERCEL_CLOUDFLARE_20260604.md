@@ -32,10 +32,11 @@
 ## Current Rules
 
 - Textbook本文md編集と台帳更新は通常どおり進めてOK。
-- Vercel production deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前だけ、deploy bundle付きで `askuserquestion` 承認を取る。
+- Vercel production deploy / preview deploy / Vercel自動deployを起こす可能性があるpushは、deploy bundleが準備できた時点で `askuserquestion` 承認を取る。
 - deploy bundle must include: included changes, excluded changes, local build/test/browser verification, planned deploy count, push/deploy target, rollback plan, production inspection method.
 - 微細UI、軽微CSS、md、コメント、ログ文言を1件ずつdeployしない。
-- 承認待ちは `approval pending` として台帳に残す。未分類blockerにしない。
+- deploy bundleが準備できたら `push/deployはまだしてない` で止まらず、必ず実際に `askuserquestion` を投げる。
+- 承認待ちは `approval pending` として台帳に残す。未分類blockerにしない。承認待ちで止めるのはそのdeploy bundleのpush/deployだけで、local実装、local build/test、レビュー、台帳更新、次タスク整理、別worker切り出し、差し戻しは進め続ける。
 - Push/deploy is currently not approved.
 
 ## Verification Actually Run
@@ -48,8 +49,8 @@
 
 ## Unresolved Tasks
 
-1. Do not push until a deploy bundle is prepared and approved.
-2. If deploying AMD OS PWA, run local build/test/browser checks first and prepare the deploy bundle.
+1. Prepare a deploy bundle when PWA push/deploy is needed, then actually send `askuserquestion`; do not stop at "push/deploy not done yet."
+2. While a deploy bundle is `approval pending`, continue non-deploy work: local implementation, local build/test, review, ledger updates, next-task sorting, worker creation, or fixups.
 3. Optional: add a Cloudflare Pages custom domain for the Textbook reader if desired. Do not use Vercel fallback.
 
 ## First Next Action

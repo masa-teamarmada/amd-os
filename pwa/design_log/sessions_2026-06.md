@@ -81,6 +81,7 @@
   - Vercel deploy / GitHub pushなし。
 - `pwa/scripts/deploy.sh` に承認ガードを追加。`AMD_OS_VERCEL_DEPLOY_APPROVED=1` なしではVercelを呼ぶ前に停止。
 - Textbook台帳に、deploy bundle候補 / askuserquestion承認状況 / deploy実施回数 / push保留の有無を記録する運用を追記。
+- まさ追加指摘を反映。deploy bundleが準備できたら `push/deployはまだしてない` で止まらず、必ず実際に `askuserquestion` を投げる。承認待ちで止めるのはそのdeploy bundleだけで、司令塔/worker全体はlocal実装、local build/test、レビュー、台帳更新、次タスク整理を進め続ける。
 - `pwa/design/SPEC_pwa.md`、`pwa/manual/9-2-developer.md`、`pwa/manual/9-3-appendix-changelog.md`、`pwa/BUGS.md`へ恒久仕様・事故教訓を反映。
 
 ### Verified
@@ -91,4 +92,4 @@
 
 ### 残課題
 - Claude側で作業再開中。次セッションは `HANDOFF_TEXTBOOK_VERCEL_CLOUDFLARE_20260604.md` を読む。
-- 次にpush/deployする時は、deploy bundleを提示し、`askuserquestion` 承認を取る。承認待ちは `approval pending`。
+- 次にpush/deployする時は、deploy bundleを提示し、`askuserquestion` 承認を取る。bundleが準備できたら実際に質問する。承認待ちは `approval pending` だが、止めるのはそのbundleだけ。

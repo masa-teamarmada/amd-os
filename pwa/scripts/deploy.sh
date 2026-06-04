@@ -13,7 +13,8 @@
 #   - 今後 PWA を deploy するときは必ずこのスクリプト経由で行う
 #   - 直接 `npx vercel --prod --yes ...` を叩かない (通知が出ないので)
 #   - Vercel deploy approval gate 中は、deploy bundleを作って
-#     askuserquestionで承認を取った後だけ実行する。
+#     準備できた時点でaskuserquestionを投げ、承認を取った後だけ実行する。
+#   - 承認待ちで止めるのはdeploy bundleだけ。local実装/検証/台帳更新は続ける。
 #   - 承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1` を付けて実行する。
 
 set -e
@@ -45,6 +46,13 @@ Required deploy bundle:
   - production inspection plan
 
 Do not deploy one-off wording, markdown, CSS, comments, logs, or micro UI changes.
+
+Once the deploy bundle is ready, do not stop at "push/deploy not done yet".
+Actually ask Masa with askuserquestion.
+
+Approval pending only blocks this deploy bundle. Keep doing local implementation,
+local build/test, reviews, ledger updates, next-task sorting, worker creation,
+or fixups that do not consume Vercel deploys.
 
 If the bundle is approved, rerun with:
   AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh

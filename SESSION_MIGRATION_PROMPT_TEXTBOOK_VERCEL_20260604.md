@@ -18,14 +18,15 @@
 - Textbook下書き確認はPWA productionではなくCloudflare Pages static readerへ逃がした。
 - Cloudflare reader URL: https://textbook-draft.pages.dev/
 - 2026-06-04時点でVercel deploy上限は緩和。deploy自体は再開OK。
-- ただしVercel production deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、必ずdeploy bundle付きでaskuserquestion承認を取る。
+- ただしVercel production deploy / preview deploy / Vercel自動deployを起こす可能性があるpushは、deploy bundleが準備できた時点で必ずaskuserquestion承認を取る。
 
 絶対ルール:
 - Textbook本文md編集と台帳更新は通常どおり進めてOK。md承認待ちは不要。
-- Vercel production deploy / preview deploy / Vercel自動deploy対象pushの直前だけ承認ゲートを通す。
+- Vercel production deploy / preview deploy / Vercel自動deploy対象pushは、deploy bundleが準備できた時点で承認ゲートを通す。
 - deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含める。
 - 微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployしない。複数worker成果を束ねる。
-- 承認待ちは approval pending として台帳に残す。未分類blockerにしない。
+- deploy bundleが準備できたら、push/deployはまだしてない、で止まらず、必ず実際にaskuserquestionを投げる。
+- 承認待ちは approval pending として台帳に残す。未分類blockerにしない。止めるのはそのdeploy bundleだけで、local実装、local build/test、レビュー、台帳更新、次タスク整理、別worker切り出し、差し戻しは進め続ける。
 - `pwa/scripts/deploy.sh` は `AMD_OS_VERCEL_DEPLOY_APPROVED=1` なしでVercelに到達する前に停止する。
 
 最初に実行:
@@ -36,7 +37,7 @@ git log --branches --not --remotes --oneline
 
 現在の未完:
 1. push/deployはまだ未承認。deploy bundleなしでpushしない。
-2. 次にAMD OS PWAへ出す場合は、local build/test/browser確認後、deploy bundleを作ってaskuserquestion承認を取る。
+2. 次にAMD OS PWAへ出す場合は、local build/test/browser確認後、deploy bundleを作り、準備できた時点で必ずaskuserquestion承認を取る。
 3. Textbook読書確認は https://textbook-draft.pages.dev/ を使う。Vercel fallback禁止。
 
 確認済み:
