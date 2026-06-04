@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-04 | 3-8 / 4-3 | 変更 | Institution Card Entry とERS検証条件に `inst_kute -> p25` を追加し、研究機関エコシステム構築PJは通常Dashboard PJ一覧ではなくERS機関カードを入口にし、既存PJ cockpit contentを関連PJとして保持する contract を追記 | KUTE が通常PJリストと研究機関リストに二重表示されていたため。DB row / cockpit content を削除せず、表示入口だけ研究機関側へ寄せるため | えいみ-worker |
 | 2026-05-30 | 1-1 / 1-2 / 2-1 / 3-1 / 3-2 / 3-3 / 4-1 | 追加 | `/spec` 初期章を追加し、manual / spec / bzm 3層分割、PWA runtime、L2、monthly_reports、meeting flow、FRL CES を移行 | 現行 manual / design に混在していた確定実装仕様を設計書へ分離するため | えいみ |
 | 2026-05-31 01:21 JST | 3-4 / 3-5 / 3-6 / 4-2 | 追加 | L2⑦ OS台帳差分、L2⑧ XRL根拠、L2⑨経営ハイライト、AMD Score実装仕様を追加 | L2 ⑦⑧⑨ と AMD Score の current contract を `/spec` へ移し、manual/design の重複を減らすため | えいみ |
 | 2026-05-31 01:21 JST | 5-1 / 5-2 / 5-3 / 5-4 / 6-1 | 追加 | ドキュメント統制、開発/デプロイ運用、automation責務分担、判断履歴/事故ログ、設計書附則を追加 | まさ指摘「manual 9章に開発情報が残っている」「設計書だけでOSを再構築できる粒度が必要」「附則がないと勝手に消える事故を防げない」への対応 | えいみ |

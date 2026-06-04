@@ -118,8 +118,9 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須機能:
 
+- KUTEカードは `/dashboard` の研究機関ERSリストから `/institutions/inst_kute/cockpit` へ遷移する。KUTEは通常PJリストには二重表示せず、既存KUTE PJ (`p25`) は関連PJコックピットのデータソースとして残す。
 - NIMSカードは `/dashboard` の研究機関ERSリストから `/institutions/inst_nims/cockpit` へ遷移する。新規NIMS PJは作らない。
-- NIMSコックピットは `inst_nims -> p20` の静的関連付けを使い、既存CXコックピットの `CockpitView` を同画面にマウントする。これによりMS進捗、月次モーダル、月次ルーティン、MTGサマリを既存データのまま使う。
+- 研究機関コックピットは `inst_kute -> p25` / `inst_nims -> p20` の静的関連付けを使い、既存PJコックピットの `CockpitView` を同画面にマウントする。これによりMS進捗、月次モーダル、月次ルーティン、MTGサマリを既存データのまま使う。
 - 上部にERS充足率、関連PJ、今期MS件数、MTG履歴件数を出す。
 - `project_meeting_summaries` を月ごとに束ねたMTGツリーを表示し、各行から通常PJコックピットのMTG詳細 (`?meeting=`) へ遷移する。
-- `/institutions/[institutionId]` の詳細画面からもNIMSコックピットと通常PJコックピットへ戻れる。
+- `/institutions/[institutionId]` の詳細画面からも研究機関コックピットと通常PJコックピットへ戻れる。

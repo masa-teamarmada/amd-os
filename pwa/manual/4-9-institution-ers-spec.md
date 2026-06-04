@@ -101,13 +101,13 @@ UI は `/institutions/assess` に全部詰め込まず、`ERS評価` / `制度�
 |---|---|---|
 | 研究機関一覧・比較 (ヒートマップ) | `/institutions` | **行 = 8 軸 (左ヘッダ列に番号 + 軸名 + 対応 XRL をフル表示) / 列 = 機関** の転置ヒートマップ。最上部に総合 ERS 行 (大フォント強調)、最下部に評価済サブ軸数。セルは **indigo 単色の濃淡 (濃いほど高得点)**。ヘッダ行・列は sticky 固定。右上に「📝 評価を入力 / 編集」導線 |
 | 評価入力マトリクス (admin) | `/institutions/assess` | 各サブ軸を **Lv1–5 の 5 行に展開**し各レベルの rubric をフル表示、右の各機関列は**チェックボックス**のみ。1 つにチェック = そのレベル。**どの Lv にもチェックしなければ N/A** (軸平均から除外)。各サブ軸末尾に根拠メモ行 (インライン入力)。変更は 1 セルずつ即保存 (楽観更新)、ERS リアルタイム再計算。ヘッダ行・左列 sticky |
-| 機関詳細 | `/institutions/{institutionId}` | 8 軸 SVG レーダー + 軸ごとのサブ軸 rubric (現在 Lv + 根拠ノート) + 「この機関発の PJ」枠 (σ_SU への概念接続。relation データは未整備) |
-| 機関コックピット | `/institutions/{institutionId}/cockpit` | 研究機関カードから開くコックピット。NIMS は新規 PJ を作らず、既存の関連 PJ である CX (`p20`) のコックピットを同画面に載せ、MS 進捗・月次・MTG履歴を追う |
-| ダッシュボード下段 | `/dashboard` | 上ブロック = SU リスト (AMD Score / 個体)、**下ブロック = 研究機関リスト (ERS / 苗床)** を縦積み。どの土壌からどの個体が出るかを一望できる |
+| 機関詳細 | `/institutions/{institutionId}` | 8 軸 SVG レーダー + 軸ごとのサブ軸 rubric (現在 Lv + 根拠ノート) + 「この機関発の PJ」枠。関連PJがある機関は機関コックピットと通常PJコックピットへの導線を持つ |
+| 機関コックピット | `/institutions/{institutionId}/cockpit` | 研究機関カードから開くコックピット。KUTE は既存KUTE PJ (`p25`)、NIMS は既存CX (`p20`) のコックピットを同画面に載せ、MS 進捗・月次・MTG履歴を追う。既存PJ row / cockpit content は消さない |
+| ダッシュボード下段 | `/dashboard` | 上ブロック = 通常PJリスト (AMD Score / 個体)、**下ブロック = 研究機関リスト (ERS / 苗床)** を縦積み。`project_category='ecosystem'` または `p25` / KUTE名に該当するPJは通常PJリストに二重表示せず、研究機関リスト側へ寄せる |
 
 - ナビ最上部に **「研究機関」** リンク (Venture Map の隣)。
 - 各レイヤーで使うスコアは別ロジック (上=AMD Score / 下=ERS 充足率) なので、研究機関リスト側に「ERS は整備度であり AMD Score とは別指標」と明示している。
-- ダッシュボード下段の NIMS カードは、機関詳細ではなく NIMS コックピットへ入る。NIMS の箱は研究機関 ERS として残しつつ、進捗管理は既存 CX (`p20`) の PJ コックピットを使う。画面上部は ERS 概要と readiness snapshot を先に見せ、その下を `進捗管理` / `スコア詳細` の2タブにする。`進捗管理` では通常PJコックピットを先に表示し、月別 MTG ツリーは下部に置く。`スコア詳細` はSU向けAMD Scoreではなく、ERS 8軸・評価項目・Lv/根拠メモを表示する。
+- ダッシュボード下段の KUTE / NIMS カードは、機関詳細ではなく各機関コックピットへ入る。KUTE の箱は研究機関 ERS として残しつつ、進捗管理は既存 KUTE PJ (`p25`) の PJ コックピットを使う。NIMS も同じ型で、既存 CX (`p20`) の PJ コックピットを使う。画面上部は ERS 概要と readiness snapshot を先に見せ、その下を `進捗管理` / `スコア詳細` の2タブにする。`進捗管理` では通常PJコックピットを先に表示し、月別 MTG ツリーは下部に置く。`スコア詳細` はSU向けAMD Scoreではなく、ERS 8軸・評価項目・Lv/根拠メモを表示する。
 - **評価の書き込み**は `POST /api/institutions/assess` (admin 限定 / `requireAdmin` 相当)。body = `{ institution_id, criterion_id, level (1–5/null), na, note }`。`institution_assessments` を **当日分 (`evaluated_at = today JST`) で `onConflict(institution_id,criterion_id,evaluated_at)` upsert** する。同日中の編集は 1 レコードに集約、過去日の評価は履歴として残り、`fetchErsBundle` は (機関 × サブ軸) ごとに最新 1 件を採用する。
 
 ## データモデル (= 4 テーブル)

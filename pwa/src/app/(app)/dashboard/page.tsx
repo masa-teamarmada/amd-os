@@ -36,10 +36,15 @@ import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
 import { InstitutionReadinessList } from "@/components/dashboard/InstitutionReadinessList";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
 import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
+import { isInstitutionDashboardProject } from "@/lib/institution-projects";
 
 function getCurrentYm() {
   const now = new Date();
   return String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, "0");
+}
+
+function isDashboardProjectListItem(project: DashProject) {
+  return !isInstitutionDashboardProject(project);
 }
 
 export default function DashboardPage() {
@@ -133,6 +138,7 @@ export default function DashboardPage() {
       ])
     );
   }, [projects]);
+  const dashboardProjects = useMemo(() => projects.filter(isDashboardProjectListItem), [projects]);
 
   if (loading) {
     return (
@@ -156,7 +162,7 @@ export default function DashboardPage() {
             actionItems={actionItems}
           />
           <DashboardGrid
-            projects={projects}
+            projects={dashboardProjects}
             billingStatus={billingStatus}
             scoreHistory={scoreHistory}
             signalMetrics={signalMetrics}
