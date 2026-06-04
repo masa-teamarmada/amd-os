@@ -12,6 +12,9 @@
 # Claude / えいみ向けルール:
 #   - 今後 PWA を deploy するときは必ずこのスクリプト経由で行う
 #   - 直接 `npx vercel --prod --yes ...` を叩かない (通知が出ないので)
+#   - Vercel deploy approval gate 中は、deploy bundleを作って
+#     askuserquestionで承認を取った後だけ実行する。
+#   - 承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1` を付けて実行する。
 
 set -e
 
@@ -22,6 +25,32 @@ PROJECT="amd-os-pwa"
 APP_URL="https://amd-os-pwa.vercel.app"
 
 cd "$REPO_ROOT"
+
+if [ "${AMD_OS_VERCEL_DEPLOY_APPROVED:-}" != "1" ]; then
+  cat <<'EOF'
+⛔ Vercel deploy requires approval.
+
+Current rule:
+  Vercel deploy is allowed again, but only after Masa approves a deploy bundle.
+  This applies to production deploys, preview deploys, and pushes that may
+  trigger Vercel auto-deploy.
+
+Required deploy bundle:
+  - included changes
+  - excluded changes
+  - local build/test/browser verification
+  - planned deploy count
+  - push/deploy target
+  - rollback plan
+  - production inspection plan
+
+Do not deploy one-off wording, markdown, CSS, comments, logs, or micro UI changes.
+
+If the bundle is approved, rerun with:
+  AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
+EOF
+  exit 1
+fi
 
 echo "▶ Vercel deploy triggering ..."
 START_TS=$(date +%s)

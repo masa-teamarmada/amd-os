@@ -16,6 +16,11 @@
 - `COMMANDER_TASKS.md` は細かく更新する。worker起動、状態分類変更、司令塔判断、main/deploy gate、blocking condition、完了確認、次アクション変更は都度反映する。
 - ただし `COMMANDER_TASKS.md` にworker詳細ログを長文転載しない。Active workerあり、worker id、状態、次回確認条件、まさ要判断、完了/差し戻し/次アクションを短く残す。
 - AMD配下のworktree、`.worktrees`、`/private/tmp` のclean worktreeでmd/run note/ledgerを編集する場合、追加のまさ承認待ちは不要。dirty main worktreeだけ避け、必要ならclean worktreeでそのまま進める。
+- Vercel deploy approval gateを最優先する。2026-06-04 まさ判断でdeploy上限は緩和され、deploy自体は再開OK。ただし少しの間、Vercel production deploy / preview deploy / Vercel自動deployを起こす可能性がある `git push` の直前には、必ず `askuserquestion` でまさの許可を取る。
+- 許可質問にはdeploy bundleを含める。内容は、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法。
+- てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止のまま。複数worker成果を束ねて1回でdeployする。
+- 承認待ちで止まる場合は `approval pending` として台帳に残す。未分類blocker扱いにしない。
+- deploy bundle候補 / askuserquestion承認状況 / deploy実施回数 / push保留の有無は、未完タスク欄に短く反映する。
 - heartbeatや巡回で未完タスクが残っていて進められるものがある場合は、司令塔がworkerを切る、既存workerを再起動/差し戻す、または司令塔自身で次アクションを実行する。
 - 進められる未完タスクがない場合は、まさ確認/判断/作業が必要なはずなので、具体的な質問または判断依頼としてまさを動かす。
 - `未完あり・全worker停止・まさにも何も聞かない` 状態は禁止する。
@@ -56,7 +61,9 @@
 
 ## 未完タスク（優先順位順）
 
-- 2026-06-03: `Textbook main integration execution` 完了。`codex/textbook-full-story-final-readthrough-polish` をcurrent Textbook story baselineとして `main` へ反映。`HEAD` / `origin/main` は `3fd31fa docs(textbook): audit final publication readiness` で一致。main反映前 `npm run build` passed、manifest consistencyはmissing/unlistedともに `[]`。release checkpointとしてproduction deployを1回だけ試行したが、Vercel quota blocker `Resource is limited - try again in 24 hours (more than 100, code: "api-deployments-free-per-day")` によりproduction未反映。retry連打は禁止方針に従い停止。成果物: `pwa/bzm/textbook/runs/2026-06-03-main-integration-deploy-checkpoint.md`。次はquota回復後に1回だけdeployし、`/bzm/public`、Epilogue、Field Toolkit、Method Appendixをroute inspectする。
+- 2026-06-04: `Textbook Vercel deploy approval gate` Active。Vercel deploy上限は緩和され、deploy自体は再開OK。ただし、production deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、必ずdeploy bundle付きで `askuserquestion` 承認を取る。deploy bundle候補: Textbook story baseline、Field Toolkit UI、Method Appendix、static reader / Cloudflare reader記録、Vercel ignore gate、その他local検証済み変更をbundle候補として整理する。askuserquestion承認状況: 未承認。deploy実施回数: 2026-06-04 gate更新後 0回。push保留: あり。承認待ちになった場合は `approval pending` として記録する。成果物: `pwa/bzm/textbook/runs/2026-06-04-vercel-deploy-approval-gate.md`。
+
+- 2026-06-03: `Textbook main integration execution` 完了。`codex/textbook-full-story-final-readthrough-polish` をcurrent Textbook story baselineとして `main` へ反映。`HEAD` / `origin/main` は `3fd31fa docs(textbook): audit final publication readiness` で一致。main反映前 `npm run build` passed、manifest consistencyはmissing/unlistedともに `[]`。release checkpointとしてproduction deployを1回だけ試行したが、Vercel quota blocker `Resource is limited - try again in 24 hours (more than 100, code: "api-deployments-free-per-day")` によりproduction未反映。retry連打は禁止方針に従い停止。2026-06-04 approval gateにより、次に本番へ出す場合はdeploy bundleを提示し、askuserquestion承認後に1回だけpush/deployする。成果物: `pwa/bzm/textbook/runs/2026-06-03-main-integration-deploy-checkpoint.md`。
 
 - 2026-06-03: `Textbook final publication readiness audit` 完了。Prologue〜Epilogueの物語はbranch上で完成ラインに入り、Field Toolkit / Method Appendix / Model Notesも三層分離として成立。販売前完成ではないが、残課題はfull rewriteではなくModel Note表示、Method Appendix navigation、formula typography、production/staging visual check、sales package。main integration executionへ進める判定。成果物: `pwa/bzm/textbook/runs/2026-06-03-final-publication-readiness-audit.md`。
 
