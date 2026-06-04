@@ -37,6 +37,8 @@ create table if not exists public.member_profiles (
   display_name text not null,
   public_title text,
   internal_title text,
+  notion_status text,
+  joined_on date,
   bio_short text,
   bio_long text,
   expertise_tags text[] not null default '{}'::text[],
@@ -151,11 +153,15 @@ create index if not exists idx_company_profile_entries_status
   on public.company_profile_entries(visibility, status, updated_at desc);
 create index if not exists idx_company_profile_entries_tags
   on public.company_profile_entries using gin(tags);
+create unique index if not exists idx_company_profile_entries_notion_source_id
+  on public.company_profile_entries(notion_source_id);
 
 create index if not exists idx_member_profiles_status
-  on public.member_profiles(visibility, status, display_name);
+  on public.member_profiles(visibility, status, notion_status, display_name);
 create index if not exists idx_member_profiles_tags
   on public.member_profiles using gin(tags);
+create unique index if not exists idx_member_profiles_notion_source_id
+  on public.member_profiles(notion_source_id);
 
 create index if not exists idx_company_history_events_date
   on public.company_history_events(occurred_on desc nulls last, importance);
@@ -165,6 +171,8 @@ create index if not exists idx_company_history_events_member_ids
   on public.company_history_events using gin(member_ids);
 create index if not exists idx_company_history_events_tags
   on public.company_history_events using gin(tags);
+create unique index if not exists idx_company_history_events_notion_source_id
+  on public.company_history_events(notion_source_id);
 
 create index if not exists idx_media_assets_status
   on public.media_assets(visibility, status, usage_permission, consent_status, captured_at desc nulls last);
@@ -174,6 +182,8 @@ create index if not exists idx_media_assets_member_ids
   on public.media_assets using gin(member_ids);
 create index if not exists idx_media_assets_tags
   on public.media_assets using gin(tags);
+create unique index if not exists idx_media_assets_notion_source_id
+  on public.media_assets(notion_source_id);
 
 alter table public.company_profile_entries enable row level security;
 alter table public.member_profiles enable row level security;

@@ -17,17 +17,18 @@ Scope: Team ARMADA / AMD company content migration for member list, history, and
 
 | lane | result |
 |---|---|
-| member profiles | representative member pages fetched. Full-row export blocked by Notion data-source query tool error. Import should write to `member_profiles` as `imported` or `needs_review`, not directly to approved states |
-| history | database schema and representative rows fetched. Import should write to `company_history_events`; PJ-related operational events can later be mapped to `project_events` after relation resolution |
-| photo/media | Notion has member photos and event images. No URL was copied into repo data. Import requires Storage ingestion and permission/consent review before any display |
+| member profiles | representative member pages and DB search results fetched. `125_company_content_notion_seed.sql` seeds only rows whose Notion member can be resolved to existing `members.member_id`; Notion-only people are intentionally skipped |
+| history | database schema and AMD-related rows fetched. `125_company_content_notion_seed.sql` seeds the verified AMD company history rows into `company_history_events` |
+| photo/media | Notion has member photos. No URL was copied into repo data. Seed creates admin-only `media_assets` review rows for confirmed member-photo presence; actual Storage import and permission/consent review remain required before display |
 | company profile | AMD page properties and page structure verified. Strategy/internal body must be split from company profile copy before approval |
 
 ## Blockers Before Production Import
 
 - Apply reviewed migration `pwa/scripts/migrations/124_company_content_tables.sql`.
-- Re-run Notion row export with a working data-source query path or an approved connector workaround.
+- Apply reviewed seed `pwa/scripts/migrations/125_company_content_notion_seed.sql` after `124`.
+- Re-run Notion row export with a working data-source query path or an approved connector workaround before trying to import Notion-only people or full profile detail.
 - Resolve Notion PJ relation URLs to `projects.project_id`.
-- Resolve Notion member pages to `members.member_id`.
+- Resolve skipped Notion member pages to `members.member_id` before importing them.
 - Upload reviewed images into Supabase Storage and fill `storage_bucket`, `storage_path`, and `thumbnail_path`.
 - Keep media rows at `needs_review` unless `usage_permission` and `consent_status` are known.
 

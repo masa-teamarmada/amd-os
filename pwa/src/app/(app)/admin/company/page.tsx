@@ -14,7 +14,7 @@ export default async function AdminCompanyPage() {
       .limit(50),
     supabase
       .from("member_profiles")
-      .select("member_profile_id,member_id,display_name,public_title,internal_title,visibility,status,source_kind,source_ref,notion_source_id,photo_asset_id,reviewed_at,updated_at")
+      .select("member_profile_id,member_id,display_name,public_title,internal_title,notion_status,joined_on,visibility,status,source_kind,source_ref,notion_source_id,photo_asset_id,reviewed_at,updated_at")
       .order("updated_at", { ascending: false })
       .limit(80),
     supabase
@@ -76,7 +76,7 @@ export default async function AdminCompanyPage() {
           rows={memberRows.map((row) => ({
             id: String(row.member_profile_id),
             primary: String(row.display_name),
-            secondary: [row.public_title || row.internal_title, row.member_id].filter(Boolean).join(" / "),
+            secondary: [row.public_title || row.internal_title, row.notion_status, row.joined_on, row.member_id].filter(Boolean).join(" / "),
             status: String(row.status),
             visibility: String(row.visibility),
             sourceKind: String(row.source_kind || ""),

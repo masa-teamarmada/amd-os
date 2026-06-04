@@ -16,7 +16,7 @@ export default async function CompanyPage() {
       .limit(8),
     supabase
       .from("member_profiles")
-      .select("member_profile_id,member_id,display_name,public_title,internal_title,bio_short,expertise_tags,visibility,status")
+      .select("member_profile_id,member_id,display_name,public_title,internal_title,notion_status,joined_on,bio_short,expertise_tags,visibility,status")
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .order("display_name", { ascending: true })
@@ -129,6 +129,9 @@ export default async function CompanyPage() {
                       <h3 className="truncate text-sm font-semibold">{member.display_name}</h3>
                       <p className="truncate text-xs text-muted-foreground">
                         {member.public_title || member.internal_title || "role tbd"}
+                      </p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {[member.notion_status, member.joined_on ? `joined ${String(member.joined_on)}` : null].filter(Boolean).join(" / ")}
                       </p>
                     </div>
                     <StatusChip status={String(member.status)} />
