@@ -32,10 +32,12 @@ function pathToTitle(pathname: string): string | null {
   if (pathname === "/seeds") return "Seeds";
   if (pathname === "/vcs") return "VC";
   if (pathname === "/mypage") return "マイページ";
+  if (pathname === "/company") return "Company";
   if (pathname === "/notifications") return "通知";
   if (pathname === "/reimburse") return "立替";
   if (pathname === "/admin/projects") return "Admin PJ";
   if (pathname === "/admin/protocols") return "AMD Protocol";
+  if (pathname === "/admin/company") return "Admin Company";
   if (pathname === "/admin/prompts") return "LLM プロンプト";
   if (pathname === "/admin/members") return "Admin メンバー";
   if (pathname === "/admin/billing") return "Admin 請求";

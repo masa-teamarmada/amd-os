@@ -1,13 +1,54 @@
 # Notion Content Migration UIUX Plan
 
 作成日: 2026-06-02
-状態: P0 UI sketch + schema mapping まで。runtime 実装、DB migration、本番データ write、Notion sync はまだ行わない。
+状態: 2026-06-04 時点で Notion source of truth を実確認済み。runtime は approved company tables を優先して読む口まで追加。DDL は draft のみで、migration apply / 本番データ write / Notion sync はまだ行わない。
 
 ## 目的
 
 Notion にある `member list` / `history` / `photo` 系コンテンツを AMD OS に移植するときの置き場所、UIUX、権限、データ構造、移植順を決める。
 
 この設計案では、Notion の個人情報・写真 URL・本文値は保存しない。確認したのは database / page の構造、プロパティ名、リレーション、既存 AMD OS 画面との対応だけ。
+
+## 2026-06-04 実データ確認メモ
+
+まさ指摘の `member list` / `history` / `photo` 差分について、Notion 現物を確認した。
+
+### Notion source of truth 候補
+
+| 領域 | 確認した source | source id / collection | 確認できたこと |
+|---|---|---|---|
+| AMD company profile | `AMD` page | `14097749-c608-80ec-90d5-cc7d9376f114` | 会社名、代表者、設立日、本店、法人番号、資本金、ロゴ添付、戦略/OKR 系本文を持つ。OS では profile entry と private/admin memo を分ける必要がある |
+| メンバーリスト | `メンバーリスト` database | database `13497749-c608-80ab-a466-fa3c470639ae`, collection `4f13723c-7383-4834-9b48-9ede8b59f014` | `名前`, `氏名`, `タイトル`, `ステータス`, `チーム加入日`, `エフォート`, `写真`, `略歴`, `参画の経緯`, `出身地`, `居住地`, `MBTI`, `PJ_all` relation を持つ。複数 member page を fetch して実値存在を確認 |
+| history | `history` database | database `1656ecbd-4cad-407f-b819-5791c3a85333`, collection `6767aaab-c268-4bd6-af60-21845c715fe1` | `名前`, `日付`, `PJ` relation の最小構造。契約締結、JOIN、ラボオープン等の company/PJ timeline row がある |
+| photo / media | history page 内画像、member profile `写真`, company/page attachments | representative page `40f2847f-238a-4592-b6be-d384582dcbf9` ほか | Notion file URL と添付が存在。URL は期限付き/内部URLなので OS へ直貼りせず、Storage 取り込み + permission / consent gate が必要 |
+
+### OS 側の差分原因
+
+| 表示面 | 現状 | 原因 |
+|---|---|---|
+| dashboard Company Content shelf | `members` active rows、`project_events` / `project_ventures` fallback、photo placeholder を読む | Notion data migration 未実行。profile/photo/history 専用 table が未作成だった |
+| `/admin/company` | 未実装だった | docs-only 設計で止まっていた |
+| `/company` | 未実装だった | authenticated read-only hub が未実装だった |
+| photo | placeholder のみ | Notion file URL を公開/保存できず、`media_assets` と Storage/consent gate が必要 |
+
+### 今回追加した landing zone
+
+- DDL draft: `pwa/scripts/migrations/124_company_content_tables.sql`
+  - `company_profile_entries`
+  - `member_profiles`
+  - `company_history_events`
+  - `media_assets`
+- runtime read path:
+  - `/dashboard` Company Content shelf は新 table があれば `member_profiles` / `company_history_events` / `media_assets` を優先。table 未適用なら既存 fallback。
+  - `/company` は authenticated read-only。approved internal/public のみ表示し、source URL / raw Notion body / private wiki 本文は出さない。
+  - `/admin/company` は admin-only review queue。imported / needs_review を見られるが、source URL と raw body は出さない。
+
+### まだ移植していないもの
+
+- 本番 Supabase への migration apply / DB write は未実行。
+- Notion DB の row query tool が `notion-query-data-sources not found` で失敗したため、全量 row export は検索 + representative fetch まで。import 前に Notion DB row 全量取得の手段を再確認する。
+- 写真そのものは未取り込み。`usage_permission`, `consent_status`, `storage_bucket`, `storage_path`, `thumbnail_path` が揃うまで public/internal表示に出さない。
+- member の居住地、出身地、MBTI、趣味、bucket list、参画経緯などは default で admin/private/internal 判定。public-ready profile へ自動昇格しない。
 
 ## 確認した現状
 

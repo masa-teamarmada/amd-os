@@ -237,7 +237,16 @@ async function fetchManagementScoreHistory(supabase: ReturnType<typeof createCli
 }
 
 async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClient>): Promise<CompanyContentPreview> {
-  const [membersRes, projectMembersRes, eventsRes, venturesRes, mediaMentionsRes] = await Promise.all([
+  const [
+    membersRes,
+    projectMembersRes,
+    memberProfilesRes,
+    companyHistoryRes,
+    mediaAssetsRes,
+    eventsRes,
+    venturesRes,
+    mediaMentionsRes,
+  ] = await Promise.all([
     supabase
       .from("members")
       .select("member_id,code_name,member_name,role,status,is_officer,join_ym")
@@ -250,6 +259,29 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .from("project_members")
       .select("member_id,project_id")
       .eq("is_active", true),
+    supabase
+      .from("member_profiles")
+      .select("member_profile_id,member_id,display_name,public_title,internal_title,visibility,status,photo_asset_id")
+      .in("visibility", ["internal", "public_candidate"])
+      .in("status", ["approved_internal", "approved_public"])
+      .order("display_name", { ascending: true })
+      .limit(24),
+    supabase
+      .from("company_history_events")
+      .select("event_id,project_id,occurred_on,title,event_type,importance,visibility,status")
+      .in("visibility", ["internal", "public_candidate"])
+      .in("status", ["approved_internal", "approved_public"])
+      .order("occurred_on", { ascending: false, nullsFirst: false })
+      .limit(12),
+    supabase
+      .from("media_assets")
+      .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,project_ids,member_ids,visibility,status")
+      .in("visibility", ["internal", "public_candidate"])
+      .in("status", ["approved_internal", "approved_public"])
+      .in("usage_permission", ["internal_ok", "public_ok"])
+      .in("consent_status", ["granted", "not_needed"])
+      .order("captured_at", { ascending: false, nullsFirst: false })
+      .limit(6),
     supabase
       .from("project_events")
       .select("id,project_id,occurred_on,kind,label")
@@ -275,13 +307,36 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
     projectCounts.set(memberId, (projectCounts.get(memberId) ?? 0) + 1);
   }
 
-  const members: CompanyMemberPreview[] = (membersRes.data ?? []).map((row) => ({
+  const memberRows = membersRes.data ?? [];
+  const membersById = new Map(memberRows.map((row) => [String(row.member_id), row]));
+  const membersFromProfiles: CompanyMemberPreview[] = (memberProfilesRes.data ?? []).map((row) => {
+    const memberId = String(row.member_id);
+    const member = membersById.get(memberId);
+    return {
+      memberId,
+      codeName: String(member?.code_name || row.display_name || memberId),
+      displayName: String(row.display_name || member?.code_name || member?.member_name || memberId),
+      role: row.public_title || row.internal_title ? String(row.public_title || row.internal_title) : null,
+      status: String(row.status || "approved_internal"),
+      projectCount: projectCounts.get(memberId) ?? 0,
+    };
+  });
+
+  const membersFallback: CompanyMemberPreview[] = memberRows.map((row) => ({
     memberId: String(row.member_id),
     codeName: String(row.code_name || row.member_id),
     displayName: String(row.code_name || row.member_name || row.member_id),
     role: row.role ? String(row.role) : null,
     status: String(row.status || "active"),
     projectCount: projectCounts.get(String(row.member_id)) ?? 0,
+  }));
+
+  const historyFromCompany: CompanyHistoryPreview[] = (companyHistoryRes.data ?? []).map((row) => ({
+    id: String(row.event_id),
+    projectId: row.project_id ? String(row.project_id) : null,
+    occurredOn: row.occurred_on ? String(row.occurred_on) : null,
+    title: String(row.title || "History event"),
+    kind: row.event_type ? String(row.event_type) : null,
   }));
 
   const historyFromEvents: CompanyHistoryPreview[] = (eventsRes.data ?? []).map((row) => ({
@@ -313,12 +368,29 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
     sourceUrl: row.source_url ? String(row.source_url) : null,
   }));
 
+  const photosFromAssets: CompanyPhotoPreview[] = (mediaAssetsRes.data ?? []).map((row) => ({
+    id: String(row.asset_id),
+    title: String(row.title || row.asset_kind || "Media asset"),
+    meta: [
+      row.captured_at ? String(row.captured_at) : null,
+      row.asset_kind ? String(row.asset_kind) : null,
+      row.consent_status ? `consent:${String(row.consent_status)}` : null,
+    ].filter(Boolean).join(" / ") || "reviewed asset",
+    status: photoStatusFromPermission(String(row.usage_permission || "unknown")),
+  }));
+
   return {
-    members,
-    history: historyFromEvents.length > 0 ? historyFromEvents : historyFallback,
-    photos: DASHBOARD_PHOTO_PREVIEW,
+    members: membersFromProfiles.length > 0 ? membersFromProfiles : membersFallback,
+    history: historyFromCompany.length > 0 ? historyFromCompany : (historyFromEvents.length > 0 ? historyFromEvents : historyFallback),
+    photos: photosFromAssets.length > 0 ? photosFromAssets : DASHBOARD_PHOTO_PREVIEW,
     mediaMentions,
   };
+}
+
+function photoStatusFromPermission(permission: string): CompanyPhotoPreview["status"] {
+  if (permission === "public_ok") return "public_ok";
+  if (permission === "internal_ok") return "internal_ok";
+  return "unknown";
 }
 
 /** 自分が参画してる active PJ id Set (= ProjectStripe ソート優先用、軽量 fetch) */
