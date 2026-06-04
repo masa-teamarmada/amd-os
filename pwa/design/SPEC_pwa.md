@@ -104,13 +104,13 @@ pwa/
 
 | パス | 機能 |
 |---|---|
-| `/dashboard` | トップ。PJ 一覧 + 先手力維持ループの TODO + Atlas/Venture Map/MyPage/Admin への入口。PJ一覧と右カラム MyPage embed の下に Company Content shelf を置き、メンバー / 沿革 / photo を3カラムで preview する。右カラムの MyPage embed は「今週やったこと」までに留め、月別PJカードは `/mypage` 単体にだけ残す。下段の研究機関ERSリストで、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する |
+| `/dashboard` | トップ。PJ 一覧 + 先手力維持ループの TODO + Atlas/Venture Map/MyPage/Admin への入口。基本表示順は左/mainカラム内で PJ 一覧 → 研究機関ERSリスト、下段全幅で Company Content shelf。PJ一覧は通常PJだけを表示し、`projects.project_category='ecosystem'` または `p25` / KUTE名に該当する研究機関エコシステム構築PJは研究機関ERSリスト側へ寄せる。研究機関ERSリストで、KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。Company Content shelf はメンバー / 沿革 / メディア掲載 / photo を preview する。右カラムの MyPage embed は「今週やったこと」までに留め、月別PJカードは `/mypage` 単体にだけ残す |
 | `/dashboard-cyber-3d-lab` | 実験中の3D Cyber Dashboard。`three.js` 空間上に X/F/M 軸、PJ球体、床面KPI、ホログラム投影コックピットを配置。仕様方針は [`cyber_hud_design_code.md`](cyber_hud_design_code.md) / [`cyber_dashboard_content_design.md`](cyber_dashboard_content_design.md) |
 | `/dashboard-cyber-glass-cube` | 廃案比較用の旧 Cyber Dashboard 第2案。ガラスキューブPJ群は情報構造がカオス化したため、今後の正本候補にはしない。公開モックは `/mock/dashboard-cyber-glass-cube` |
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定 (取り消し線 = 未完月次ルーティンによる除外)。りり (`ID006`) は NIMS からの無償出向のため、報酬額は金額ではなく `ー` 表示 |
 | `/project/[projectId]/cockpit` | PJ コックピット (案C レイアウト = 上 Header + Hero (AMD Score + XRL 横並び) + 3 カラム MS / TODO + 経営ハイライト / 月次ルーティン sticky + 下段 月次 + MTGサマリ)。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
-| `/institutions/[institutionId]/cockpit` | 研究機関カードから開く機関コックピット。NIMS (`inst_nims`) は新規PJを作らず、既存関連PJ CX (`p20`) の `CockpitView` を同画面へマウントし、MS進捗・月次・MTG履歴を操作/確認する。上部にERS概要と月別MTGツリーを置く |
+| `/institutions/[institutionId]/cockpit` | 研究機関カードから開く機関コックピット。KUTE (`inst_kute`) は既存KUTE PJ (`p25`)、NIMS (`inst_nims`) は既存関連PJ CX (`p20`) の `CockpitView` を同画面へマウントし、MS進捗・月次・MTG履歴を操作/確認する。新規PJを作らず、既存PJコックピットの内容も研究機関ERS側の評価内容も削除しない。上部にERS概要と readiness snapshot を置き、進捗管理とスコア詳細をタブで分ける |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` が該当章のマニュアル本文を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
 | `/reimburse` | 立替精算 |

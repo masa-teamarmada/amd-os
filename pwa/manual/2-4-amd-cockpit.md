@@ -41,10 +41,13 @@ URL: `/project/p00/cockpit`。**会社全体 (= AMD 株式会社) を 1 つの P
 
 ## Dashboard の Company Content shelf
 
-`/dashboard` のPJ一覧と右カラムのMyPage埋め込みの下に、メンバー / 沿革 / photo の3カラム棚を置く。
+`/dashboard` の本文は、左/mainカラム内で PJ一覧 → 研究機関ERSリスト の順に並べる。研究機関リストはPJ一覧の続きとして見せ、右カラムのMyPageより下へ落とさない。Company Content shelf はその下の全幅下段に置く。
+
+Company Content shelf には、メンバー / 沿革 / メディア掲載 / photo の4カラム棚を置く。
 
 - メンバー: `members` と `project_members` から active メンバーと参画PJ数を read-only 表示する。各行は admin閲覧用の `/mypage?memberId=<members.member_id>` へリンクする。
 - 沿革: `project_events` を優先し、無ければ `project_ventures` の日付情報を fallback として表示する。
+- メディア掲載: `project_events.kind` が `coverage`, `press_release`, `funding`, `award`, `pitch`, `own_news` のものを preview 表示する。
 - photo: Notion photo DB の本移植前なので、写真本体やNotion file URLは出さない。usage permission / consent review が必要な preview として出す。
 
 右カラムのMyPage埋め込みでは、当月報酬、いまやること、今週やったことまでを表示し、その下の月別PJカードは出さない。`/mypage` 単体画面では月別PJカードを従来通り残す。

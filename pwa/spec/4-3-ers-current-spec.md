@@ -141,8 +141,8 @@ python3 -X utf8 scripts/apply_ddl.py scripts/migrations/120_institution_policy_a
 - `/institutions/assess` で cell を更新し、同日同 criterion が 1 row に upsert されること。
 - `fetchErsBundle()` が最新評価だけを採用すること。
 - rubric の文言は `/bzm/9-4-ers-rubric` と一致させる。
-- `/dashboard` の NIMS 研究機関カードから `/institutions/inst_nims/cockpit` へ遷移し、CX `p20` の既存コックピットを表示できること。
-- NIMSコックピット上のMTG treeから通常PJコックピットの `?meeting=` detail route へ遷移できること。
+- `/dashboard` の KUTE 研究機関カードから `/institutions/inst_kute/cockpit` へ遷移し、KUTE `p25` の既存コックピットを表示できること。同じく NIMS 研究機関カードから `/institutions/inst_nims/cockpit` へ遷移し、CX `p20` の既存コックピットを表示できること。
+- 研究機関コックピット上のMTG treeから通常PJコックピットの `?meeting=` detail route へ遷移できること。
 - `120_institution_policy_assessments_seed.sql` を dry review し、migration番号が既存 `001`〜`119` と衝突しないこと。
 - 制度比較seedは `(institution_id, policy_item_id)` unique upsert なので、再適用しても同一96件を更新するだけで重複しないこと。
 

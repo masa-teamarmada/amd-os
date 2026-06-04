@@ -36,10 +36,15 @@ import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
 import { InstitutionReadinessList } from "@/components/dashboard/InstitutionReadinessList";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
 import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
+import { isInstitutionDashboardProject } from "@/lib/institution-projects";
 
 function getCurrentYm() {
   const now = new Date();
   return String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, "0");
+}
+
+function isDashboardProjectListItem(project: DashProject) {
+  return !isInstitutionDashboardProject(project);
 }
 
 export default function DashboardPage() {
@@ -133,6 +138,7 @@ export default function DashboardPage() {
       ])
     );
   }, [projects]);
+  const dashboardProjects = useMemo(() => projects.filter(isDashboardProjectListItem), [projects]);
 
   if (loading) {
     return (
@@ -156,12 +162,13 @@ export default function DashboardPage() {
             actionItems={actionItems}
           />
           <DashboardGrid
-            projects={projects}
+            projects={dashboardProjects}
             billingStatus={billingStatus}
             scoreHistory={scoreHistory}
             signalMetrics={signalMetrics}
             myProjectIds={myProjectIds}
           />
+          <InstitutionReadinessList bundle={ersBundle} />
         </main>
         {/* /mypage の中身そっくり embed (= まさ #71 v3 確定、MyPageContent を再利用) */}
         <aside className="hidden xl:block min-w-0 border-l border-border/50 pl-4">
@@ -176,9 +183,6 @@ export default function DashboardPage() {
             photos={companyContent.photos}
             mediaMentions={companyContent.mediaMentions}
           />
-        </div>
-        <div className="xl:col-span-2">
-          <InstitutionReadinessList bundle={ersBundle} />
         </div>
       </div>
     </div>

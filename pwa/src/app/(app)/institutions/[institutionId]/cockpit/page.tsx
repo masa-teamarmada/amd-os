@@ -123,14 +123,14 @@ export default function InstitutionCockpitPage() {
       <div className="flex items-center justify-center h-[60vh]">
         <div className="space-y-2 text-center">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-muted-foreground">NIMSコックピットを読み込み中...</p>
+          <p className="text-sm text-muted-foreground">{projectLink.cockpitTitle}を読み込み中...</p>
         </div>
       </div>
     );
   }
 
   if (state === "error" || !cockpit || !bundle || !institution || !ersResult) {
-    return <InstitutionCockpitError message={error || "NIMSコックピットの読み込みに失敗しました。"} />;
+    return <InstitutionCockpitError message={error || `${projectLink.cockpitTitle}の読み込みに失敗しました。`} />;
   }
 
   return (
@@ -157,7 +157,7 @@ export default function InstitutionCockpitPage() {
               <div>
                 <h2 className="text-sm font-semibold text-sky-950">関連PJコックピット</h2>
                 <p className="text-xs text-sky-800/80 mt-0.5">
-                  NIMSの箱はこの画面に残し、MS進捗・MTGサマリ・月次サマリは既存の関連PJデータをそのまま使う。
+                  研究機関の箱はこの画面に残し、MS進捗・MTGサマリ・月次サマリは既存の関連PJデータをそのまま使う。
                 </p>
               </div>
               <Link
@@ -176,7 +176,7 @@ export default function InstitutionCockpitPage() {
             canEditRoutine={canEditRoutine}
           />
 
-          <NimsMeetingTree projectLink={projectLink} meetings={meetings} />
+          <InstitutionMeetingTree projectLink={projectLink} meetings={meetings} />
         </div>
       ) : (
         <InstitutionScoreDetail
@@ -477,7 +477,7 @@ function InstitutionScoreDetail({
   );
 }
 
-function NimsMeetingTree({ projectLink, meetings }: { projectLink: InstitutionProjectLink; meetings: ProjectMeetingSummary[] }) {
+function InstitutionMeetingTree({ projectLink, meetings }: { projectLink: InstitutionProjectLink; meetings: ProjectMeetingSummary[] }) {
   const groups = useMemo(() => {
     const map = new Map<string, ProjectMeetingSummary[]>();
     for (const meeting of meetings) {
@@ -494,7 +494,7 @@ function NimsMeetingTree({ projectLink, meetings }: { projectLink: InstitutionPr
         <div>
           <h2 className="text-sm font-semibold">MTGツリー</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            NIMSに紐づく関連PJの会議履歴を月ごとに束ねる。各行から既存のMTG詳細へ遷移できる。
+            {projectLink.projectLabel}の会議履歴を月ごとに束ねる。各行から既存のMTG詳細へ遷移できる。
           </p>
         </div>
         <Link
