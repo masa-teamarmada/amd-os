@@ -1,6 +1,6 @@
 # BZM Commander Tasks
 
-Last updated: 2026-06-03
+Last updated: 2026-06-04
 Owner: BZM司令塔
 Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook Insights theory review
 
@@ -17,12 +17,13 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 - workerが親司令塔へ送るのは、worker thread内でまさが「完全に完了」「OK」「これでよし」等と明示した後の最終closeout 1回だけにする。
 - 例外は `UU` conflict、未分類dirty、権限/破壊的操作/外部判断、同じblocking conditionで進行不能など、司令塔側の介入が必要な場合のみ。その場合も短いblocker/handoffを1回だけ送る。
 - BZM司令塔は、worker報告で親チャットを流さず、必要ならheartbeat / read_thread / 定期確認で静かに状態を確認する。
-- `askuserquestion` / `request_user_input` はBZM worker promptで禁止する。外部判断が本当に必要な場合は、workerが親へ短いblocker/handoffを1回だけ送り、司令塔が判断を束ねる。
+- `askuserquestion` / `request_user_input` はBZM worker promptで原則禁止する。例外は、Vercel production / preview deploy、またはVercel自動deployを起こす可能性がある `git push` の直前承認だけ。外部判断が本当に必要な場合は、workerが親へ短いblocker/handoffを1回だけ送り、司令塔が判断を束ねる。
 - `COMMANDER_TASKS.md` は細かく更新する。worker起動、状態分類変更、司令塔判断、main/deploy gate、blocking condition、完了確認、次アクション変更は都度反映する。
 - ただし `COMMANDER_TASKS.md` にworker詳細ログを長文転載しない。Active workerあり、worker id、状態、次回確認条件、まさ要判断、完了/差し戻し/次アクションを短く残す。
 - AMD配下のworktree、`.worktrees`、`/private/tmp` のclean worktreeでmd/run note/ledgerを編集する場合、追加のまさ承認待ちは不要。dirty main worktreeだけ避け、必要ならclean worktreeでそのまま進める。
-- Vercel quota hard gateを最優先する。当面 `vercel deploy` 禁止。Vercelが自動preview/production deployする可能性がある `git push` も禁止。mainだけでなくpreview対象branchも含めて止める。workerはlocal build/test/スクショ/ローカル確認で止め、必要ならlocal commitまで。push/deployは `withheld due to Vercel quota gate` としてhandoffする。
-- てにをは、文言、微細UI、CSS、md、コメント、ログ文言ごとのdeployは禁止する。deploy前には必ずdeploy bundleを作り、含める変更、除外する変更、local検証、予定deploy回数、push先、rollback/確認方法を司令塔へ提示する。承認までpush/deployしない。
+- Vercel deployは再開可。ただし少しの間、Vercel production / preview deploy、またはVercel自動deployを起こす可能性がある `git push` の直前には、必ず `askuserquestion` でまさの許可を取る。承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。
+- てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止する。複数worker成果を束ねて1回でdeployする。
+- 許可質問には必ずdeploy bundleを含める。内容は、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法。
 - heartbeat時はこの台帳の未完タスクを確認し、進められるものがあればworkerを切る / 既存workerを再起動する / 差し戻す。
 - 進められる未完タスクがないのに未完が残る場合は、まさへ具体的な質問または判断依頼を出す。
 - 未完タスクがある状態で、全worker停止かつまさにも何も聞いていない状態を作らない。
@@ -31,11 +32,11 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 
 ## 未完タスク（優先順位順）
 
-1. Vercel deploy quota hard gate
-   - お願いした内容: Vercel 1日100deploy上限に再到達したため、BZM/Textbook/OS系の作業でも `vercel deploy` とVercel自動deployを起こす可能性があるpushを当面止める。
-   - 背景: 旧来のworker close gateでpush/deployを急ぐと、quotaをさらに消費し、必要な本番確認や緊急修正が詰まるため。
-   - 現状: Active。BZM司令塔の運用ルールへhard gateを反映済み。BZM workerはlocal build/test/確認、必要ならlocal commitまでで止め、push/deployは `withheld due to Vercel quota gate` としてhandoffする。BZM司令塔自身もこの台帳更新はlocal commitまでで止め、pushしない。
-   - 残課題: quota解除またはまさ/OS司令塔の明示承認までpush/deploy禁止を維持する。deployが必要な変更はbundle化し、含める変更 / 除外する変更 / local検証 / 予定deploy回数 / push先 / 確認方法を提示して承認待ちにする。
+1. Vercel deploy approval gate
+   - お願いした内容: Vercel deploy上限は緩和されたが、当面はVercel production / preview deploy、またはVercel自動deployを起こす可能性があるpushの直前に、必ずまさ許可を取る運用へ切り替える。
+   - 背景: deploy自体は再開OKになった一方、微細変更ごとのdeployやpreview乱発を戻すとquotaと確認負荷がすぐ再発するため。
+   - 現状: Active。BZM司令塔の運用ルールをhard gateからapproval gateへ更新中。deploy bundle候補: BZM台帳/運用ルール更新のみ。askuserquestion承認状況: approval pending。deploy実施回数: 0。push保留: あり（branch `codex/bzm-vercel-quota-gate` のlocal commit群は未push）。
+   - 残課題: push/deploy直前に、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含むdeploy bundleでまさへ許可質問を出す。承認まではpush/deployしない。
 
 2. PRSモデルOS実装worker監督
    - お願いした内容: PRSモデル（P×R×S / 9軸候補）を、現行7軸AMD Scoreの置換ではなく比較/シミュレーション層としてAMD OSに実装するworkerを監督する。
@@ -46,7 +47,7 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 3. worker稼働監視 / heartbeat運用
    - お願いした内容: 未完タスクが残っている間は、worker全員が停止・完了・待機で次アクションもない状態を作らず、heartbeatで台帳とworker状態を確認する。
    - 背景: 未完タスクがあるのに司令塔側もworker側も動いていないと、BZM領域のcurrent truth管理とレビュー待ちが止まるため。
-   - 現状: Active。全司令塔共通ルールとしてworker quiet modeを採用。BZM司令塔の運用ルールへ反映済みで、次回worker promptから旧能動報告ゲートを削除/上書きし、`askuserquestion` / `request_user_input` も禁止する。
+   - 現状: Active。全司令塔共通ルールとしてworker quiet modeを採用。BZM司令塔の運用ルールへ反映済みで、次回worker promptから旧能動報告ゲートを削除/上書きする。`askuserquestion` / `request_user_input` は原則禁止だが、Vercel push/deploy直前承認だけ例外にする。
    - 残課題: 次にBZM workerを切る時、親司令塔への進捗/中間/自己判断完了報告は禁止し、まさ承認後closeout 1回または司令塔介入が必要なblocker 1回だけ送る方針をpromptへ明記する。台帳は細かく更新するが、worker詳細ログを長文転載せず、状態と次アクションを短く残す。
 
 4. Textbookとの役割分担
