@@ -1,48 +1,69 @@
-# HANDOFF — 知財 / IP (トピック別 handoff)
+# HANDOFF — AMD OS / AMDプロトコル 特許出願
 
-- Last updated: 2026-05-29
-- Topic: AMD OS / AMDプロトコル 特許化検討 (発明提案書 + 先行特許調査 + admin IP ページ)
-- Scope: このファイルは **知財トピック専用の handoff**。OS 実装 (L2 / PWA / deploy 等) の handoff は ルートの `HANDOFF.md` を参照 (= 別トピック / 別セッションが管理)。
+- Last updated: 2026-06-04
+- Topic: 完全セルフ出願パックのClaude移行
+- Scope: AMD OS / AMDプロトコル / AMD Score周辺の特許出願準備。OS実装・PWA deploy・Textbookとは別トピック。
 
-## 現在地
+## 最新セッション要約
 
-- 特許化候補 3 要素 (5生データ→L2→承認→正本反映 / AMDプロトコル普遍化+1:N事例+結果ledger / AMD Score revision feedback loop) + Before-Zero 適用 を整理済み。
-- **まさ判断 (2026-05-27)**: スコアロジック (Cobb-Douglas / 5-7軸 readiness / Triple Helix / FRL) は特許化対象外。主軸 = ワークフロー/データ構造 (WS-1〜5) の AND 結合、補強 = Before-Zero 適用 + 設立タイミング判定 (WS-6) を独立従属項。
-- 先行特許調査: 6 軸 (A-F) + 軸 G (設立タイミング) を並列 agent で実施 → 危険度マトリクス化。
-- 公報番号 verify (2026-05-29): 海外 8 件 (Google Patents/USPTO) + 国内 J-PlatPat 全文検索 6 式 (Chrome MCP 手動)。
-  - 格下げ: EQT Motherbrain / CB Insights Mosaic (granted patent 証跡なし)。
-  - 確定 🔴: BigID US 11,100,252 B1 (WS-1 全文非保存に直撃)。
-  - 差別化点確定: Microsoft US 12,315,010 (incorporation 含まず) / Glean US 12,050,712 (権限フィルタ必須) / Ciena US 10,965,527 (blockchain/network 必須)。
-  - **Before-Zero / 設立タイミング判定は国内外とも空白 (conditional yes)**。
-- OS admin に **/admin/ip ページ新設** (= まさ依頼)。要約レポートを表示。v0.9.0 deploy 済 (本番反映 + 目視確認済)。
+- 弁理士依頼前提から、まさ判断で「完全セルフ出願 + 必要なら直前地雷チェック」方針へ移行。
+- `codex/ip-patent-consult-pack` 上で self filing package、正式図面候補、最終整合レビュー、Blocker cleanup、decision sheet/checklist まで作成済み。
+- 2026-06-04に worker quiet mode を特許専用台帳へ反映済み。workerは原則、親司令塔へ中間/自己判断完了報告を送らない。
+- 現在は `Blocked by Masa`。workerで勝手に決められない出願方針3問へのまさ回答待ち。
+- 詳細ログ: `design_log/sessions_2026-06.md`
 
-## 成果物
+## Repo State
 
-| ファイル | 内容 |
-|---|---|
-| `docs/ip/2026-05-27_amd_os_protocol_patent_proposal.md` (.docx) | 発明提案書 (請求項たたき台 1-12 / 先行技術差分 / 弁理士確認論点 / 出願戦略) |
-| `docs/ip/2026-05-27_amd_os_protocol_prior_art_screening.md` (.docx) | 先行特許スクリーニング (危険度マトリクス A-G / TOP公報 / WS-1〜6 / §3.8 verify結果 + J-PlatPat / 追加検索式) |
-| `docs/ip/README.md` | 知財メモ入口 |
-| `pwa/src/app/(app)/admin/ip/page.tsx` + `ip-report.ts` | OS admin IP ページ (要約レポート表示) |
+- Canonical repo: `/Users/masa/projects/AMD/amd-os`
+- Working branch for patent pack: `codex/ip-patent-consult-pack`
+- Latest known commit on patent branch: `8f02db7 docs: update patent worker quiet mode history`
+- Root working checkout `/Users/masa/projects/AMD/amd-os` may have unrelated dirty changes from other commanders. Do not clean/revert them.
+- Recommended for continuation: use a clean worktree from `origin/codex/ip-patent-consult-pack`.
 
-## 残課題 (弁理士相談前 / 相談時)
+## Current Truth
 
-- [ ] 弁理士事務所の正式サーチャーで先行技術調査: Seek AI 2件の番号 (USPTO Public Search、IBM買収後) / Optum US11620581 の権利者名 (Optum vs IBM、USPTO Assignment DB) / Ciena・Optum の Claim 1 逐語 (USPTO PDF) / 早稲田大学 × レディネスの出願人 AND 検索。
-- [ ] **新規性喪失チェック (最優先・時間との戦い)**: AMD の既存外部公開資料 (note / 登壇 / 営業資料 / Web / pwa) の棚卸し → 公開済みコア要素があれば特許法30条の例外手続き (公開から1年以内) 要否を判定。
-- [ ] 発明者の特定と権利帰属 (AI は発明者不可 / 職務発明 / AMD への帰属)。
-- [ ] 明細書向けの実施例・図面 (Fig 形式) の整備。
-- [ ] 1出願 vs 基幹+分割、ドメイン限定をクレームに入れるか実施例に留めるかの方針確定 (提案書 §13 論点参照)。
-- [ ] 弁理士面談予約 + 提案書 + スクリーニングレポート (md+docx) を NDA 前提で共有。
+- 出願準備は「提出直前レビューに使える水準」。
+- ただしこのままJPO提出はまだしない。
+- 発明内容の内部整合は概ね通る。残りはまさ判断、出願ソフト実入力、AMD名義電子出願環境、正式提出画像形式、承継メモ正式化。
+- 外部送付、JPO提出、弁理士問い合わせ、DB write、production DB接続、Web公開変更は未実施。
 
-## 次セッション最初に読む
+## First Read
 
-1. `docs/ip/HANDOFF_ip.md` (このファイル)
-2. `docs/ip/README.md`
-3. `docs/ip/2026-05-27_amd_os_protocol_patent_proposal.md`
-4. `docs/ip/2026-05-27_amd_os_protocol_prior_art_screening.md`
-5. `pwa/src/app/(app)/admin/ip/ip-report.ts` (OS 上の要約レポート正本)
+1. `docs/ip/HANDOFF_ip.md`
+2. `commander_tasks/ip_patent_COMMANDER_TASKS.md`
+3. `docs/ip/self_filing_package/2026-06-02_self_filing_masa_decision_sheet_internal.md`
+4. `docs/ip/self_filing_package/2026-06-02_filing_day_checklist_internal.md`
+5. `docs/ip/self_filing_package/2026-06-02_final_consistency_review_internal.md`
+6. `docs/ip/self_filing_package/2026-06-02_formal_figure_readiness_internal.md`
+7. `docs/ip/self_filing_package/README.md`
 
-## メモ
+## Unresolved Tasks
 
-- 日本出願は世界公知主義 (特許法29条1項)。米国/EU/中国/WIPO の公報・arXiv・Web も新規性破壊資料になる。早期出願 + 1年以内 PCT 推奨。
-- 並行セッション注意: ルート `HANDOFF.md` は別トピック (L2抽出ルート整理 / PWA deploy) を codex セッションが管理している。知財作業はこのファイルに閉じる。
+### Blocked by Masa: 出願方針3問
+
+1. 出願範囲: 請求項A/B、WS-5、WS-6を今回どこまで入れるか。
+2. 手続タイミング: 出願日先取り、審査請求、30条例外をどう扱うか。
+3. 出願当日の実行経路: AMD名義の電子出願で行くか、緊急退避を許すか。
+
+## First Next Action
+
+まさから上記3問への回答を受けたら、静かに `final filing decision application` workerを切る。worker promptにはquiet modeを入れ、親司令塔への中間/自己判断完了報告を禁止する。
+
+workerの対象:
+- 請求項/明細書/願書/図面候補/チェックリストへの最終反映
+- 30条例外・審査請求・電子出願経路の扱い反映
+- 営業秘密scan
+- 出願当日TODOの確定
+
+## Pointers
+
+- Patent task ledger: `commander_tasks/ip_patent_COMMANDER_TASKS.md`
+- Session log: `design_log/sessions_2026-06.md`
+- Claude migration prompt: `docs/ip/SESSION_MIGRATION_PROMPT_CLAUDE_20260604.md`
+- Existing IP docs: `docs/ip/`
+- Self filing package: `docs/ip/self_filing_package/`
+
+## Verification This Handoff
+
+- No build/deploy/JPO filing/external send was run.
+- Documentation-only handoff.
