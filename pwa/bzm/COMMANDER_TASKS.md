@@ -24,6 +24,7 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 - Vercel deployは再開可。ただし少しの間、Vercel production / preview deploy、またはVercel自動deployを起こす可能性がある `git push` の直前には、必ず `askuserquestion` でまさの許可を取る。承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。
 - てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止する。複数worker成果を束ねて1回でdeployする。
 - 許可質問には必ずdeploy bundleを含める。内容は、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法。
+- deploy bundleが準備できたら、必ず実際に `askuserquestion` を投げる。承認待ちはそのdeploy bundleだけを止める状態で、司令塔/worker全体は止めない。承認待ち中も、deployを消費しないlocal実装、local build/test、レビュー、台帳更新、次タスク整理、別worker切り出し、差し戻しは進め続ける。
 - heartbeat時はこの台帳の未完タスクを確認し、進められるものがあればworkerを切る / 既存workerを再起動する / 差し戻す。
 - 進められる未完タスクがないのに未完が残る場合は、まさへ具体的な質問または判断依頼を出す。
 - 未完タスクがある状態で、全worker停止かつまさにも何も聞いていない状態を作らない。
@@ -35,8 +36,8 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 1. Vercel deploy approval gate
    - お願いした内容: Vercel deploy上限は緩和されたが、当面はVercel production / preview deploy、またはVercel自動deployを起こす可能性があるpushの直前に、必ずまさ許可を取る運用へ切り替える。
    - 背景: deploy自体は再開OKになった一方、微細変更ごとのdeployやpreview乱発を戻すとquotaと確認負荷がすぐ再発するため。
-   - 現状: Active。BZM司令塔の運用ルールをhard gateからapproval gateへ更新中。deploy bundle候補: BZM台帳/運用ルール更新のみ。askuserquestion承認状況: approval pending。deploy実施回数: 0。push保留: あり（branch `codex/bzm-vercel-quota-gate` のlocal commit群は未push）。
-   - 残課題: push/deploy直前に、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含むdeploy bundleでまさへ許可質問を出す。承認まではpush/deployしない。
+   - 現状: Active。BZM司令塔の運用ルールをhard gateからapproval gateへ更新中。deploy bundle候補: BZM台帳/運用ルール更新のみ。askuserquestion承認状況: approval pending。deploy実施回数: 0。push保留: あり（branch `codex/bzm-vercel-quota-gate` のlocal commit群は未push）。承認待ち中に進める次作業: BZM worker prompt更新、台帳整理、worker成果レビュー、Textbook/PRS/FRLの理論判断、local-only docs確認。
+   - 残課題: このdeploy bundleについて実際にまさへ許可質問を出す。承認まではpush/deployしないが、承認待ち中もdeployを消費しないlocal作業、レビュー、台帳更新、次タスク整理、別worker切り出し、差し戻しは止めない。
 
 2. PRSモデルOS実装worker監督
    - お願いした内容: PRSモデル（P×R×S / 9軸候補）を、現行7軸AMD Scoreの置換ではなく比較/シミュレーション層としてAMD OSに実装するworkerを監督する。
