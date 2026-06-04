@@ -3044,3 +3044,18 @@
   - `budget_yen` は AMD 側の支払可能額 / PJ予算。クライアント請求額や入金予定額として直接使わない。
   - freee 請求書が発行済みなら、入金確認は発行済み明細 (`invoice_base_lines_json`) を優先する。
   - finance の金額不一致を調べる時は、code path、live `billing_cycles`、`monthly_reward_payout`、`billing_log`、`source_cache` をセットで確認し、証跡が無い元入力は推測で断定しない。
+
+## [Vercel/Textbook] Textbook推敲の小刻みpush/deployで daily deploy quota を消費した (2026-06-03)
+
+- **症状**: Textbook本文・台帳・軽微UIの推敲ごとに `main` push / Vercel deploy が走り、Vercel daily deployment quota を消費した。まさが「24時間開発が止まる致命的タイムロス」と判断。
+- **原因**: Textbookは下書き段階のmd推敲が中心で、PWA本体のproduction deployを毎回必要としないのに、worker close gateが `commit -> push -> deploy` 前提のまま残っていた。Git-connected Vercel auto-deploy対象pushと、manual deployの両方をbundleせずに扱っていた。
+- **対応内容**:
+  - 2026-06-03に一時hard gateを適用し、`vercel deploy` とVercel自動deploy対象pushを停止。
+  - Textbook draft確認はCloudflare Pagesの静的reader `https://textbook-draft.pages.dev/` へ逃がし、PWA productionと切り離した。
+  - 2026-06-04にquota緩和後、全面禁止ではなく approval gate へ変更。production deploy / preview deploy / Vercel自動deploy対象pushの直前に、deploy bundle付きで `askuserquestion` 承認を取る運用へ移行。
+  - `pwa/scripts/deploy.sh` は `AMD_OS_VERCEL_DEPLOY_APPROVED=1` なしではVercelを呼ぶ前に停止する。
+- **再発防止策**:
+  - md、コメント、ログ文言、微細UI、軽微CSSを1件ずつdeployしない。
+  - deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を必ず入れる。
+  - 承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。
+  - Textbook下書き確認はまず静的reader / Cloudflare Pagesを使い、PWA production deployは束ねたrelease checkpointだけにする。

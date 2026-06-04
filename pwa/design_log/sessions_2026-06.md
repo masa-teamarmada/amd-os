@@ -67,3 +67,28 @@
 
 ### 関連
 - 別ブランチ(codex/bzm-worker-quiet-mode)に commit が乗る事故が一度あり、cherry-pick で main に救出。作業中は main 固定を毎回確認すべし
+
+## 2026-06-04 — Vercel deploy approval gate / Cloudflare Textbook reader / Claude handoff
+
+### コンテキスト
+- Textbook推敲で小刻みなpush/deployが続き、Vercel daily deploy quotaを消費。まさが「24時間開発が止まる致命的タイムロス」と判断。
+- 2026-06-03に一時hard gate。2026-06-04にquota緩和後、全面禁止ではなく `deploy bundle + askuserquestion承認` に移行。
+- Textbook下書きはPWA productionではなく、Cloudflare Pagesの静的readerで読む方針へ移した。
+
+### 実施
+- Cloudflare Pages project `textbook-draft` を作成し、静的Textbook readerをproduction branch `main` としてdeploy。
+  - URL: `https://textbook-draft.pages.dev/`
+  - Vercel deploy / GitHub pushなし。
+- `pwa/scripts/deploy.sh` に承認ガードを追加。`AMD_OS_VERCEL_DEPLOY_APPROVED=1` なしではVercelを呼ぶ前に停止。
+- Textbook台帳に、deploy bundle候補 / askuserquestion承認状況 / deploy実施回数 / push保留の有無を記録する運用を追記。
+- `pwa/design/SPEC_pwa.md`、`pwa/manual/9-2-developer.md`、`pwa/manual/9-3-appendix-changelog.md`、`pwa/BUGS.md`へ恒久仕様・事故教訓を反映。
+
+### Verified
+- `curl -I -L https://textbook-draft.pages.dev/`: HTTP 200。
+- `bash pwa/scripts/deploy.sh`: approval envなしで exit 1、Vercel到達前に停止。
+- `git diff --check`: pass。
+- push/deployは未実施。理由: Vercel auto-deploy対象pushはapproval gate対象。
+
+### 残課題
+- Claude側で作業再開中。次セッションは `HANDOFF_TEXTBOOK_VERCEL_CLOUDFLARE_20260604.md` を読む。
+- 次にpush/deployする時は、deploy bundleを提示し、`askuserquestion` 承認を取る。承認待ちは `approval pending`。

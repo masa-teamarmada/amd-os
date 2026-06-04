@@ -21,7 +21,9 @@
 - 使い方は `/manual`、実装仕様は `/spec`、理論・数式・rubric は `/bzm` に置く。
 - どれかを変更したら、対応する附則に日時つきで追記する。
 - 画面導線や章 metadata を触ったら `npx tsc --noEmit` と `npm run build` を通す。
-- 本番反映するなら build version を bump し、deploy script で本番 deploy する。
+- 本番反映するなら build version を bump する。ただしVercel production deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、deploy bundleを作り、`askuserquestion` でまさ承認を取る。
+- deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含める。承認待ちは `approval pending` として台帳に残す。
+- 承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` で本番deployする。
 - 自分が触っていない dirty file を commit に混ぜない。
 
 ## 再構築可能性チェック
