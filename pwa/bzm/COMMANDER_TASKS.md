@@ -17,11 +17,11 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 - workerが親司令塔へ送るのは、worker thread内でまさが「完全に完了」「OK」「これでよし」等と明示した後の最終closeout 1回だけにする。
 - 例外は `UU` conflict、未分類dirty、権限/破壊的操作/外部判断、同じblocking conditionで進行不能など、司令塔側の介入が必要な場合のみ。その場合も短いblocker/handoffを1回だけ送る。
 - BZM司令塔は、worker報告で親チャットを流さず、必要ならheartbeat / read_thread / 定期確認で静かに状態を確認する。
-- `askuserquestion` / `request_user_input` はBZM worker promptで原則禁止する。例外は、Vercel production / preview deploy、またはVercel自動deployを起こす可能性がある `git push` の直前承認だけ。外部判断が本当に必要な場合は、workerが親へ短いblocker/handoffを1回だけ送り、司令塔が判断を束ねる。
+- `askuserquestion` / `request_user_input` はBZM worker promptで原則禁止する。例外は、Vercel production / preview deploy、またはVercel自動deployを起こす可能性がある `git push` を含むdeploy bundleが準備できた時の承認だけ。deploy bundleが準備できたら必ず質問を投げる。外部判断が本当に必要な場合は、workerが親へ短いblocker/handoffを1回だけ送り、司令塔が判断を束ねる。
 - `COMMANDER_TASKS.md` は細かく更新する。worker起動、状態分類変更、司令塔判断、main/deploy gate、blocking condition、完了確認、次アクション変更は都度反映する。
 - ただし `COMMANDER_TASKS.md` にworker詳細ログを長文転載しない。Active workerあり、worker id、状態、次回確認条件、まさ要判断、完了/差し戻し/次アクションを短く残す。
 - AMD配下のworktree、`.worktrees`、`/private/tmp` のclean worktreeでmd/run note/ledgerを編集する場合、追加のまさ承認待ちは不要。dirty main worktreeだけ避け、必要ならclean worktreeでそのまま進める。
-- Vercel deployは再開可。ただし少しの間、Vercel production / preview deploy、またはVercel自動deployを起こす可能性がある `git push` の直前には、必ず `askuserquestion` でまさの許可を取る。承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。
+- Vercel deployは再開可。ただし少しの間、Vercel production / preview deploy、またはVercel自動deployを起こす可能性がある `git push` を含むdeploy bundleが準備できたら、必ず `askuserquestion` でまさの許可を取る。
 - てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止する。複数worker成果を束ねて1回でdeployする。
 - 許可質問には必ずdeploy bundleを含める。内容は、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法。
 - deploy bundleが準備できたら、必ず実際に `askuserquestion` を投げる。承認待ちはそのdeploy bundleだけを止める状態で、司令塔/worker全体は止めない。承認待ち中も、deployを消費しないlocal実装、local build/test、レビュー、台帳更新、次タスク整理、別worker切り出し、差し戻しは進め続ける。
@@ -34,7 +34,7 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 ## 未完タスク（優先順位順）
 
 1. Vercel deploy approval gate
-   - お願いした内容: Vercel deploy上限は緩和されたが、当面はVercel production / preview deploy、またはVercel自動deployを起こす可能性があるpushの直前に、必ずまさ許可を取る運用へ切り替える。
+   - お願いした内容: Vercel deploy上限は緩和されたが、当面はVercel production / preview deploy、またはVercel自動deployを起こす可能性があるpushを含むdeploy bundleが準備できたら、必ずまさ許可を取る運用へ切り替える。
    - 背景: deploy自体は再開OKになった一方、微細変更ごとのdeployやpreview乱発を戻すとquotaと確認負荷がすぐ再発するため。
    - 現状: Active。BZM司令塔の運用ルールをhard gateからapproval gateへ更新中。deploy bundle候補: BZM台帳/運用ルール更新のみ。askuserquestion承認状況: approval pending。deploy実施回数: 0。push保留: あり（branch `codex/bzm-vercel-quota-gate` のlocal commit群は未push）。承認待ち中に進める次作業: BZM worker prompt更新、台帳整理、worker成果レビュー、Textbook/PRS/FRLの理論判断、local-only docs確認。
    - 残課題: このdeploy bundleについて実際にまさへ許可質問を出す。承認まではpush/deployしないが、承認待ち中もdeployを消費しないlocal作業、レビュー、台帳更新、次タスク整理、別worker切り出し、差し戻しは止めない。

@@ -30,18 +30,54 @@
 
 Vercel deploy approval gate:
 - 2026-06-04 まさ判断で、Vercel deploy上限は緩和。deploy自体は再開OK。
-- ただし少しの間、Vercel production deploy / preview deploy / Vercel自動deployを起こす可能性がある `git push` の直前には、必ず `askuserquestion` でまさの許可を取る。
+- ただし少しの間、Vercel production deploy / preview deploy / Vercel自動deployを起こす可能性がある `git push` を含むdeploy bundleが準備できたら、必ず `askuserquestion` でまさの許可を取る。
 - 許可質問には `deploy bundle` を含める。内容は「含める変更」「除外する変更」「local build/test/browser確認結果」「deploy予定回数」「push/deploy先」「rollback/本番確認方法」。
 - てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止のまま。複数worker成果を束ねて1回でdeployする。
-- 承認待ちで止まる場合は `approval pending` として台帳に残す。未分類blocker扱いにしない。
-- 現在状態: `Vercel deploy approval gate active`。deploy bundle承認まではpush/deployしない。
-- deploy bundle候補: BZM approval gate台帳更新 (`e34be20`)、Textbook approval gate台帳更新 (`43165dd`)、Textbook main integration未反映分、BZM/PRS系、OS UI系、KUTE MTGカード/自動生成修正、company content Notion移植など、local検証済み変更をbundle化して提示する。
-- askuserquestion承認状況: 未承認。次のpush/deploy直前にdeploy bundle付きで確認する。
+- deploy bundleが準備できたら、`push/deployはまだしてない` で止まらず、必ず実際に `askuserquestion` を投げる。
+- `approval pending` は未分類blocker扱いにしない。ただし止めるのはそのdeploy bundleだけで、司令塔/worker全体は止めない。
+- 承認待ち中も、deployを消費しないlocal実装、local build/test、レビュー、台帳更新、次タスク整理、別worker切り出し、差し戻しは進め続ける。
+- 現在状態: `Vercel deploy approval gate active`。完全なdeploy bundleが準備できたものは `askuserquestion` 待ちへ進め、未準備の候補はbundle準備を進める。
+- deploy bundle候補: BZM approval gate台帳更新 (`e34be20`)、Textbook approval gate台帳更新 (`43165dd`)、KUTE MTGカード/自動生成修正 (`33520f8`, `e8a9b1e`)、Textbook main integration未反映分、BZM/PRS系、OS UI系、company content Notion移植など、local検証済み変更をbundle化して提示する。
+- askuserquestion承認状況: 完全なdeploy bundleは未提出。bundle候補はあるが、含める変更/除外変更/local build/test/browser確認/予定回数/行き先/rollback確認方法をまとめ切ってから即質問する。
 - deploy実施回数: 2026-06-04 gate更新後 0回。
-- push保留: あり。BZM approval gate更新commit `e34be20`、Textbook approval gate更新commit `43165dd`、2026-06-03 hard gate反映のローカル台帳/AGENTS更新、Claude migration handoff系、現在の司令塔台帳更新は未push。
+- push保留: あり。BZM approval gate更新commit `e34be20`、Textbook approval gate更新commit `43165dd`、2026-06-03 hard gate反映のローカル台帳/AGENTS更新、Claude migration handoff系、現在の司令塔台帳更新は未push。承認待ち中に進める次作業: local検証、レビュー、台帳更新、次worker整理。
+- 承認待ち/準備中に進めている次作業: Dashboard研究機関リスト順序worker、KUTE研究機関リスト移行worker、company content Notion移植worker、KUTE MTGカードworkerのまさ受理確認、Claude routine実登録worker監視、deploy bundle棚卸し。
 - `/Users/masa/projects/AGENTS.common.md` は個人司令塔側で更新済み。
 
 ## 未完タスク（優先順位順）
+
+### 0C. Dashboardで研究機関リストをPJリスト直下へ戻す
+
+- お願いしたタスク内容
+  - `/dashboard` の研究機関リストが company content より下に落ちているため、PJリストの続きとして上へ移動する。
+  - 表示順は PJリスト → 研究機関リスト → company content を基本にする。
+  - 関連するspec/manual/current truthも古い順序のままなら揃える。
+- お願いした背景
+  - 研究機関リストはPJ一覧と続けて見る対象で、company contentより下だと業務導線が弱い。
+- 現状どうなってるか
+  - 動作状態: UI worker切り出し。worker pending worktree: `local:6d90beb6-6b14-4e23-b91e-f860e6e672ca`。
+  - 司令塔側では個別実装を直接行わない。
+- 残課題は何か
+  - dashboard実装・spec/manualを確認し、最小UI変更とlocal確認を行う。
+  - push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` とする。
+
+### 0B. KUTEをPJリストから研究機関リストへ安全に移行する
+
+- お願いしたタスク内容
+  - KUTEが研究機関リストにもPJリストにも掲載されている重複を解消する。
+  - PJリスト側に残っている研究機関該当PJを研究機関リスト側へ移す。
+  - ただし現状のPJリスト側KUTEコックピット内容を消さず、研究機関リスト側KUTE内容も消さない。
+- お願いした背景
+  - 研究機関に該当するものは研究機関リストへ移行したはずだが、KUTEがPJリストにも残っている。
+  - PJ側と研究機関側で持っている内容が違うため、単純削除やDB row削除をすると情報を失う。
+- 現状どうなってるか
+  - 動作状態: data/UI migration worker切り出し。worker pending worktree: `local:e125fafa-e896-41cc-9f49-219b24955811`。
+  - 司令塔側では個別実装・DB write・削除を直接行わない。
+- 残課題は何か
+  - KUTEの `project_id` / `institution_id` / cockpit route / ERS内容 / PJ cockpit内容を現物確認する。
+  - 一覧表示の重複だけ解消し、必要なら研究機関側から既存PJ cockpit内容へ到達できる導線を作る。
+  - DB row削除やcontent破棄は行わず、必要ならmigration draft/要判断へ分ける。
+  - push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` とする。
 
 ### 0A. 2026-06-01 KUTE internal MTGをMTGツリーに出し、自動生成漏れを直す
 
@@ -53,14 +89,13 @@ Vercel deploy approval gate:
   - KUTE internal MTGがMTGツリーに出ておらず、KUTEの会議履歴・準備導線・後続アクションがOS上で追えない。
   - 以前もKUTE予定名に `KUTE` と `AMD` が混在し、PJ判定が曖昧でカード生成がskipされた事故があったため、今回も原因を推測で埋めず現物確認が必要。
 - 現状どうなってるか
-  - 動作状態: urgent worker切り出し。worker pending worktree: `local:4ec86827-2b82-4dc6-9f9f-f494ca1032f9`。
-  - 司令塔側では個別調査・DB write・実装修正を直接行わない。
-  - worker quiet modeのため、詳細ログは親司令塔へ流さない。
+  - 動作状態: worker closeout受領、まさ最終受理/本番反映は未確認。worker thread `019e9170-e8a8-7e60-9ab7-d464dd425f64`。
+  - local commit: `33520f8 fix(meeting): recover KUTE internal MTG routing`、`e8a9b1e fix(meeting): preserve prep context in narratives`。
+  - worker報告では、MTGカード本文・配列更新、PriX文削除確認、りりlink確認、manual-update/narrate/L6 guard/spec/manual更新、`npm run test:critical-ui` / `npm run test:l6-held-source-guard` / `npm run build` pass。
+  - worker closeoutの旧 `withheld due to Vercel quota gate` 表現は補正済み。現current truthでは push/deploy は `approval pending` としてdeploy bundle候補へ回す。
 - 残課題は何か
-  - Calendar event / existing `project_meeting_summaries` / MTGツリー表示条件 / L6 run履歴を確認し、欠落原因を分類する。
-  - 最小安全経路でMTGカードを作る。既存開催済み議事録や手動編集済みrowがある場合は上書きしない。
-  - 自動生成の再発防止を入れる。必要ならKUTE alias/project判定、internal MTG title handling、L6 guard/test/docsを更新する。
-  - local test/buildまで確認し、push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` とする。
+  - まさがworker thread内で内容を受理したら、司令塔として完了扱いにする。
+  - push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` とする。
 
 ### 0. Management予実表の下に、月末経営シグナル評価欄を作る
 

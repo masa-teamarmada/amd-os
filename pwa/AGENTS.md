@@ -44,17 +44,19 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 
 # 確認方針 (PWA Vercel deploy approval gate)
 
-**2026-06-04以降、Vercel deploy/pushは再開可。ただしproduction deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、必ずdeploy bundleつきでまさ許可を取る。**
+**2026-06-04以降、Vercel deploy/pushは再開可。ただしproduction deploy / preview deploy / Vercel自動deployを起こす可能性があるpushについては、deploy bundleが準備できた時点で必ずaskuserquestionを投げ、まさ許可を取る。**
 
 deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含める。
 
 てにをは、文言、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止。複数worker成果を束ねて1回でdeployする。
 
-承認待ちで止まる場合は `approval pending` として台帳に残す。未分類blocker扱いにしない。
+deploy bundleが準備できたら、`push/deployはまだしてない` で止まらず、必ず実際に `askuserquestion` を投げる。
 
-標準ワークフロー: 実装 → `tsc --noEmit` → `npm run build` → 必要ならローカルスクショ/ローカル確認 → local commitまで。push/deploy直前にdeploy bundleを提示し、askuserquestionでまさ許可を取る。
+承認待ちで止めるのはそのdeploy bundleのpush/deployだけ。司令塔/worker全体は止めず、deployを消費しないlocal実装、local build/test、レビュー、台帳更新、次タスク整理、別worker切り出し、差し戻しは進め続ける。台帳には `approval pending` だけでなく、承認待ち中に進めている次作業も短く残す。
 
-**えいみへの含意**: `npm run build` が通っても自動push/deployしない。`bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`、`npx vercel deploy`、Vercel auto deploy対象の `git push` の直前にはdeploy bundleを提示し、まさ許可を取る。
+標準ワークフロー: 実装 → `tsc --noEmit` → `npm run build` → 必要ならローカルスクショ/ローカル確認 → local commitまで。deploy bundleが準備できたらaskuserquestionでまさ許可を取る。
+
+**えいみへの含意**: `npm run build` が通っても自動push/deployしない。`bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`、`npx vercel deploy`、Vercel auto deploy対象の `git push` を含むdeploy bundleが準備できたら、必ずaskuserquestionを投げる。承認待ちでも、そのbundle以外のlocal作業は止めない。
 
 # 🚨 画像生成ごまかし禁止 (絶対ルール)
 

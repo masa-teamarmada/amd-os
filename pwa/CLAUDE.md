@@ -103,13 +103,15 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 ## ⚠️ Vercel deploy approval gate（現在優先）
 
-**2026-06-04以降、Vercel deploy/pushは再開可。ただしproduction deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、必ずdeploy bundleつきでまさ許可を取る。**
+**2026-06-04以降、Vercel deploy/pushは再開可。ただしproduction deploy / preview deploy / Vercel自動deployを起こす可能性があるpushについては、deploy bundleが準備できた時点で必ずaskuserquestionを投げ、まさ許可を取る。**
 
 - deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含める。
 - てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止。複数worker成果を束ねて1回でdeployする。
-- 承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。
+- deploy bundleが準備できたら、`push/deployはまだしてない` で止まらず、必ず実際に `askuserquestion` を投げる。
+- 承認待ちで止めるのはそのdeploy bundleのpush/deployだけ。司令塔/worker全体は止めず、deployを消費しないlocal実装、local build/test、レビュー、台帳更新、次タスク整理、別worker切り出し、差し戻しは進め続ける。
+- 台帳には `approval pending` だけでなく、承認待ち中に進めている次作業も短く残す。未分類blockerにしない。
 - workerは local build / lint / static check / スクショ / ローカル確認で止める。必要ならlocal commitまではよい。
-- `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`、`npx vercel deploy`、Vercel auto deploy対象の `git push` の直前にはdeploy bundleを提示し、askuserquestionで承認を取る。
+- `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`、`npx vercel deploy`、Vercel auto deploy対象の `git push` を含むdeploy bundleが準備できたら、必ずaskuserquestionで承認を取る。
 
 ## ⚠️ Vercel デプロイコマンド（承認後の正本）
 
