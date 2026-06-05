@@ -202,18 +202,24 @@ const DASHBOARD_PHOTO_PREVIEW: CompanyPhotoPreview[] = [
     title: "Member profile",
     meta: "Notion member photos / consent required",
     status: "unknown",
+    imageUrl: null,
+    kind: "photo",
   },
   {
     id: "project-scenes",
     title: "Project scenes",
     meta: "PJ / event tags before public use",
     status: "unknown",
+    imageUrl: null,
+    kind: "photo",
   },
   {
     id: "company-assets",
     title: "Company assets",
     meta: "Logo / deck / gallery candidates",
     status: "internal_ok",
+    imageUrl: null,
+    kind: "photo",
   },
 ];
 
@@ -280,7 +286,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .limit(500),
     supabase
       .from("media_assets")
-      .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,project_ids,member_ids,visibility,status")
+      .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,project_ids,member_ids,visibility,status,storage_bucket,storage_path,thumbnail_path")
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .in("usage_permission", ["internal_ok", "public_ok"])
@@ -289,8 +295,8 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .limit(6),
     supabase
       .from("media_assets")
-      .select("asset_id,title,asset_kind,usage_permission,consent_status,member_ids,visibility,status")
-      .eq("asset_kind", "photo")
+      .select("asset_id,title,asset_kind,usage_permission,consent_status,member_ids,visibility,status,storage_bucket,storage_path,thumbnail_path")
+      .in("asset_kind", ["photo", "video"])
       .eq("visibility", "admin_only")
       .eq("status", "needs_review")
       .order("title", { ascending: true })
@@ -390,6 +396,8 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       row.consent_status ? `consent:${String(row.consent_status)}` : null,
     ].filter(Boolean).join(" / ") || "reviewed asset",
     status: photoStatusFromPermission(String(row.usage_permission || "unknown")),
+    imageUrl: row.storage_path ? `/api/company-media/file/${row.asset_id}` : null,
+    kind: String(row.asset_kind || "photo"),
   }));
 
   const photosInReview: CompanyPhotoPreview[] = (mediaReviewRes.data ?? []).map((row) => ({
@@ -401,6 +409,8 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       row.consent_status ? `consent:${String(row.consent_status)}` : "consent:unknown",
     ].filter(Boolean).join(" / "),
     status: "unknown",
+    imageUrl: row.storage_path ? `/api/company-media/file/${row.asset_id}` : null,
+    kind: String(row.asset_kind || "photo"),
   }));
 
   return {

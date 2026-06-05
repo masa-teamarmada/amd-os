@@ -30,7 +30,7 @@ export default async function CompanyPage() {
       .limit(500),
     supabase
       .from("media_assets")
-      .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,project_ids,member_ids,visibility,status")
+      .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,project_ids,member_ids,visibility,status,storage_bucket,storage_path,thumbnail_path")
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .in("usage_permission", ["internal_ok", "public_ok"])
@@ -39,8 +39,8 @@ export default async function CompanyPage() {
       .limit(24),
     supabase
       .from("media_assets")
-      .select("asset_id,title,asset_kind,usage_permission,consent_status,member_ids,visibility,status")
-      .eq("asset_kind", "photo")
+      .select("asset_id,title,asset_kind,usage_permission,consent_status,member_ids,visibility,status,storage_bucket,storage_path,thumbnail_path")
+      .in("asset_kind", ["photo", "video"])
       .eq("visibility", "admin_only")
       .eq("status", "needs_review")
       .order("title", { ascending: true })
@@ -106,8 +106,12 @@ export default async function CompanyPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               {media.map((asset) => (
                 <article key={asset.asset_id} className="overflow-hidden rounded-md border border-border bg-card">
-                  <div className="grid aspect-[4/3] place-items-center bg-muted">
-                    <ImageIcon className="h-7 w-7 text-muted-foreground" />
+                  <div className="grid aspect-[4/3] place-items-center overflow-hidden bg-muted">
+                    {asset.storage_path ? (
+                      <img src={`/api/company-media/file/${asset.asset_id}`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <ImageIcon className="h-7 w-7 text-muted-foreground" />
+                    )}
                   </div>
                   <div className="space-y-2 p-3">
                     <div className="flex items-center gap-2">
@@ -122,8 +126,12 @@ export default async function CompanyPage() {
               ))}
               {mediaReview.map((asset) => (
                 <article key={asset.asset_id} className="overflow-hidden rounded-md border border-amber-200 bg-amber-50/50">
-                  <div className="grid aspect-[4/3] place-items-center bg-amber-100/60">
-                    <ImageIcon className="h-7 w-7 text-amber-700/70" />
+                  <div className="grid aspect-[4/3] place-items-center overflow-hidden bg-amber-100/60">
+                    {asset.storage_path ? (
+                      <img src={`/api/company-media/file/${asset.asset_id}`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <ImageIcon className="h-7 w-7 text-amber-700/70" />
+                    )}
                   </div>
                   <div className="space-y-2 p-3">
                     <div className="flex items-center gap-2">
