@@ -48,8 +48,23 @@ export default async function SpecIndexPage() {
                       <span className="flex-1">
                         <span className="block text-sm font-medium text-foreground">{chapter.title}</span>
                         <span className="block text-xs text-muted-foreground">{chapter.summary}</span>
+                        {chapter.aliases?.map((alias) => (
+                          <span key={alias.slug} className="mt-1 block text-xs text-indigo-700">
+                            旧リンク: {alias.title}
+                          </span>
+                        ))}
                       </span>
                     </Link>
+                    {chapter.aliases?.map((alias) => (
+                      <Link
+                        key={alias.slug}
+                        href={`/spec/${encodeURIComponent(alias.slug)}`}
+                        className="ml-10 mt-1 block rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      >
+                        {alias.title}
+                        <span className="ml-2 text-[11px] text-muted-foreground">{alias.summary}</span>
+                      </Link>
+                    ))}
                   </li>
                 );
               })}

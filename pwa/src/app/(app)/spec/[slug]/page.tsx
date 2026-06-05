@@ -73,7 +73,7 @@ export default async function SpecChapterPage({ params }: { params: Promise<{ sl
     chapters: section.slugs
       .map((s) => numberBySlug.get(s))
       .filter((c): c is (typeof numbered)[number] => c != null)
-      .map((c) => ({ slug: c.slug, number: c.number, title: c.title })),
+      .map((c) => ({ slug: c.slug, number: c.number, title: c.title, aliases: c.aliases })),
   })).filter((group) => group.chapters.length > 0);
 
   return (
