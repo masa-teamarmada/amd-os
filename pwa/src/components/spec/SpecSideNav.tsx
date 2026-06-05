@@ -7,12 +7,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 export interface SpecSideNavGroup {
   key: string;
   label: string;
-  chapters: {
-    slug: string;
-    number: string;
-    title: string;
-    aliases?: { slug: string; title: string; summary: string }[];
-  }[];
+  chapters: { slug: string; number: string; title: string }[];
 }
 
 /**
@@ -77,28 +72,18 @@ export function SpecSideNav({
                   {chapters.map((chapter) => {
                     const isActive = chapter.slug === activeSlug;
                     return (
-                      <div key={chapter.slug}>
-                        <Link
-                          href={`/spec/${encodeURIComponent(chapter.slug)}`}
-                          className={`grid grid-cols-[2.4rem_minmax(0,1fr)] gap-1.5 rounded-md px-1.5 py-1.5 text-[11px] leading-snug transition-colors ${
-                            isActive
-                              ? "bg-indigo-50 font-black text-indigo-950 ring-1 ring-indigo-200"
-                              : "font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950"
-                          }`}
-                        >
-                          <span className="tabular-nums text-slate-500">{chapter.number}</span>
-                          <span className="min-w-0">{chapter.title}</span>
-                        </Link>
-                        {chapter.aliases?.map((alias) => (
-                          <Link
-                            key={alias.slug}
-                            href={`/spec/${encodeURIComponent(alias.slug)}`}
-                            className="ml-7 block rounded-md px-1.5 py-1 text-[10px] font-semibold leading-snug text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-950"
-                          >
-                            {alias.title}
-                          </Link>
-                        ))}
-                      </div>
+                      <Link
+                        key={chapter.slug}
+                        href={`/spec/${encodeURIComponent(chapter.slug)}`}
+                        className={`grid grid-cols-[2.4rem_minmax(0,1fr)] gap-1.5 rounded-md px-1.5 py-1.5 text-[11px] leading-snug transition-colors ${
+                          isActive
+                            ? "bg-indigo-50 font-black text-indigo-950 ring-1 ring-indigo-200"
+                            : "font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                        }`}
+                      >
+                        <span className="tabular-nums text-slate-500">{chapter.number}</span>
+                        <span className="min-w-0">{chapter.title}</span>
+                      </Link>
                     );
                   })}
                 </div>

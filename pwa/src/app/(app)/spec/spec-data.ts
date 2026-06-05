@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   applySpecBookNumbering,
   getSpecChapter,
+  SPEC_SECTIONS,
   sortSpecSlugs,
   type SpecChapterConfig,
   type SpecNumberedChapter,
@@ -30,7 +31,9 @@ export function getSpecMarkdownSource(slug: string) {
 }
 
 export function getSpecChapters(): SpecChapterConfig[] {
-  return getSpecMarkdownSlugs().map((slug) => {
+  const configuredSlugs = SPEC_SECTIONS.flatMap((section) => section.slugs);
+  const slugs = sortSpecSlugs([...new Set([...getSpecMarkdownSlugs(), ...configuredSlugs])]);
+  return slugs.map((slug) => {
     const text = getSpecMarkdownSource(slug) ?? "";
     const lines = text.split("\n");
     const h1 = lines.find((line) => line.startsWith("# "))?.replace(/^# /, "").trim() || slug;

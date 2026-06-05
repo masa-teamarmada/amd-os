@@ -27,6 +27,18 @@ export default async function SpecIndexPage() {
         </p>
       </div>
 
+      <div className="mb-8">
+        <Link
+          href="/spec/3-0-l2-data-list-current-spec"
+          className="block rounded-md border border-indigo-200 bg-indigo-50 px-4 py-3 transition-colors hover:bg-indigo-100"
+        >
+          <span className="block text-sm font-bold text-indigo-950">L2データリスト</span>
+          <span className="mt-1 block text-xs leading-relaxed text-indigo-900">
+            AMD OS の中核データ16種を、開発に携わっていないメンバーにも分かる形でまとめた正本リスト。
+          </span>
+        </Link>
+      </div>
+
       <div className="space-y-6">
         {SPEC_SECTIONS.map((section) => (
           <section key={section.key}>
@@ -48,23 +60,8 @@ export default async function SpecIndexPage() {
                       <span className="flex-1">
                         <span className="block text-sm font-medium text-foreground">{chapter.title}</span>
                         <span className="block text-xs text-muted-foreground">{chapter.summary}</span>
-                        {chapter.aliases?.map((alias) => (
-                          <span key={alias.slug} className="mt-1 block text-xs text-indigo-700">
-                            旧リンク: {alias.title}
-                          </span>
-                        ))}
                       </span>
                     </Link>
-                    {chapter.aliases?.map((alias) => (
-                      <Link
-                        key={alias.slug}
-                        href={`/spec/${encodeURIComponent(alias.slug)}`}
-                        className="ml-10 mt-1 block rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                      >
-                        {alias.title}
-                        <span className="ml-2 text-[11px] text-muted-foreground">{alias.summary}</span>
-                      </Link>
-                    ))}
                   </li>
                 );
               })}
