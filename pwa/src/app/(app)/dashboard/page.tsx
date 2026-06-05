@@ -272,7 +272,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .eq("is_active", true),
     supabase
       .from("member_profiles")
-      .select("member_profile_id,member_id,display_name,public_title,internal_title,notion_status,joined_on,visibility,status,photo_asset_id")
+      .select("member_profile_id,member_id,display_name,full_name,public_title,internal_title,notion_status,joined_on,effort,bio_short,join_context,mbti_tags,visibility,status,photo_asset_id,media_assets:photo_asset_id(asset_id,storage_path)")
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .order("display_name", { ascending: true })
@@ -299,6 +299,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .in("asset_kind", ["photo", "video"])
       .eq("visibility", "admin_only")
       .eq("status", "needs_review")
+      .order("storage_path", { ascending: false, nullsFirst: false })
       .order("title", { ascending: true })
       .limit(500),
     supabase
@@ -331,13 +332,21 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
   const membersFromProfiles: CompanyMemberPreview[] = (memberProfilesRes.data ?? []).map((row) => {
     const memberId = row.member_id ? String(row.member_id) : null;
     const member = memberId ? membersById.get(memberId) : null;
+    const photoAsset = oneRelation(row.media_assets);
     return {
       memberId,
       codeName: String(member?.code_name || row.display_name || "unresolved"),
       displayName: String(row.display_name || member?.code_name || member?.member_name || "Unresolved member"),
+      fullName: row.full_name ? String(row.full_name) : null,
       role: row.public_title || row.internal_title ? String(row.public_title || row.internal_title) : null,
       status: String(row.notion_status || row.status || "approved_internal"),
       projectCount: memberId ? projectCounts.get(memberId) ?? 0 : 0,
+      joinedOn: row.joined_on ? String(row.joined_on) : null,
+      effort: row.effort == null ? null : Number(row.effort),
+      bio: row.bio_short ? String(row.bio_short) : null,
+      joinContext: row.join_context ? String(row.join_context) : null,
+      mbtiTags: Array.isArray(row.mbti_tags) ? row.mbti_tags.map(String) : [],
+      imageUrl: photoAsset?.storage_path ? `/api/company-media/file/${photoAsset.asset_id}` : null,
     };
   });
 
@@ -345,9 +354,16 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
     memberId: String(row.member_id),
     codeName: String(row.code_name || row.member_id),
     displayName: String(row.code_name || row.member_name || row.member_id),
+    fullName: row.member_name ? String(row.member_name) : null,
     role: row.role ? String(row.role) : null,
     status: String(row.status || "active"),
     projectCount: projectCounts.get(String(row.member_id)) ?? 0,
+    joinedOn: row.join_ym ? String(row.join_ym) : null,
+    effort: null,
+    bio: null,
+    joinContext: null,
+    mbtiTags: [],
+    imageUrl: null,
   }));
 
   const historyFromCompany: CompanyHistoryPreview[] = (companyHistoryRes.data ?? []).map((row) => ({
@@ -491,4 +507,8 @@ function projectInitials(projectName: string, projectId: string) {
   if (ascii.trim() && !ascii.includes(" ") && ascii.trim().length <= 5) return ascii.trim().toUpperCase();
   if (ascii.trim()) return ascii.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   return initialsFromProjectId(projectId);
+}
+
+function oneRelation<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
 }

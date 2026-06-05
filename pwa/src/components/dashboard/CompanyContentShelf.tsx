@@ -8,9 +8,16 @@ export interface CompanyMemberPreview {
   memberId: string | null;
   codeName: string;
   displayName: string;
+  fullName: string | null;
   role: string | null;
   status: string;
   projectCount: number;
+  joinedOn: string | null;
+  effort: number | null;
+  bio: string | null;
+  joinContext: string | null;
+  mbtiTags: string[];
+  imageUrl: string | null;
 }
 
 export interface CompanyHistoryPreview {
@@ -73,14 +80,21 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
             {members.map((member) => {
               const content = (
                 <>
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-sky-50 text-[11px] font-semibold text-sky-800">
-                    {initials(member.codeName)}
+                  <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-md bg-sky-50 text-[11px] font-semibold text-sky-800">
+                    {member.imageUrl ? (
+                      <img src={member.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      initials(member.codeName)
+                    )}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-foreground">{member.displayName}</span>
                     <span className="block truncate text-[11px] text-muted-foreground">
-                      {member.role || member.status} / {member.projectCount} PJ
+                      {[member.fullName, member.role || member.status, member.joinedOn, member.effort == null ? null : `${member.effort * 100}%`].filter(Boolean).join(" / ")}
                     </span>
+                    {member.bio && <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-muted-foreground">{member.bio}</span>}
+                    {member.joinContext && <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-muted-foreground">参画: {member.joinContext}</span>}
+                    {member.mbtiTags.length > 0 && <span className="mt-1 block truncate text-[10px] text-muted-foreground">{member.mbtiTags.join(" / ")}</span>}
                   </span>
                 </>
               );

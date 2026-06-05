@@ -16,7 +16,7 @@ export default async function CompanyPage() {
       .limit(8),
     supabase
       .from("member_profiles")
-      .select("member_profile_id,member_id,display_name,public_title,internal_title,notion_status,joined_on,bio_short,expertise_tags,visibility,status")
+      .select("member_profile_id,member_id,display_name,full_name,public_title,internal_title,notion_status,joined_on,effort,bio_short,bio_long,expertise_tags,mbti_tags,origin_label,residence_label,join_context,off_time_note,favorite_food,bucket_list,photo_asset_id,media_assets:photo_asset_id(asset_id,storage_path),visibility,status")
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .order("display_name", { ascending: true })
@@ -43,6 +43,7 @@ export default async function CompanyPage() {
       .in("asset_kind", ["photo", "video"])
       .eq("visibility", "admin_only")
       .eq("status", "needs_review")
+      .order("storage_path", { ascending: false, nullsFirst: false })
       .order("title", { ascending: true })
       .limit(500),
   ]);
@@ -152,29 +153,42 @@ export default async function CompanyPage() {
         <div className="space-y-4">
           <Panel title="Team">
             <div className="grid gap-3 md:grid-cols-2">
-              {members.map((member) => (
+              {members.map((member) => {
+                const photoAsset = oneRelation(member.media_assets);
+                return (
                 <article key={member.member_profile_id} className="rounded-md border border-border bg-card p-3">
                   <div className="flex items-start gap-3">
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-sky-50 text-sm font-semibold text-sky-800">
-                      {initials(String(member.display_name))}
+                    <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-md bg-sky-50 text-sm font-semibold text-sky-800">
+                      {photoAsset?.storage_path ? (
+                        <img src={`/api/company-media/file/${photoAsset.asset_id}`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      ) : (
+                        initials(String(member.display_name))
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="truncate text-sm font-semibold">{member.display_name}</h3>
                       <p className="truncate text-xs text-muted-foreground">
-                        {member.public_title || member.internal_title || "role tbd"}
+                        {[member.full_name, member.public_title || member.internal_title].filter(Boolean).join(" / ") || "role tbd"}
                       </p>
                       <p className="mt-1 text-[11px] text-muted-foreground">
-                        {[member.notion_status, member.joined_on ? `joined ${String(member.joined_on)}` : null].filter(Boolean).join(" / ")}
+                        {[member.notion_status, member.joined_on ? `joined ${String(member.joined_on)}` : null, member.effort != null ? `effort ${Number(member.effort) * 100}%` : null].filter(Boolean).join(" / ")}
                       </p>
                     </div>
                     <StatusChip status={String(member.status)} />
                   </div>
                   {member.bio_short && (
-                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">{member.bio_short}</p>
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">{member.bio_short}</p>
                   )}
+                  <div className="mt-3 space-y-1 text-xs leading-5 text-muted-foreground">
+                    {member.join_context && <p><b className="text-foreground">参画</b> {member.join_context}</p>}
+                    {(member.origin_label || member.residence_label) && <p><b className="text-foreground">拠点</b> {[member.origin_label, member.residence_label].filter(Boolean).join(" / ")}</p>}
+                    {member.off_time_note && <p><b className="text-foreground">オフ</b> {member.off_time_note}</p>}
+                    {member.favorite_food && <p><b className="text-foreground">好きな食べ物</b> {member.favorite_food}</p>}
+                    {member.bucket_list && <p><b className="text-foreground">バケットリスト</b> {member.bucket_list}</p>}
+                  </div>
                   {Array.isArray(member.expertise_tags) && member.expertise_tags.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1">
-                      {member.expertise_tags.slice(0, 4).map((tag: string) => (
+                      {[...member.expertise_tags, ...(Array.isArray(member.mbti_tags) ? member.mbti_tags : [])].slice(0, 6).map((tag: string) => (
                         <span key={tag} className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
                           {tag}
                         </span>
@@ -182,7 +196,8 @@ export default async function CompanyPage() {
                     </div>
                   )}
                 </article>
-              ))}
+                );
+              })}
               {members.length === 0 && <EmptyState text="approved member profiles はまだありません" />}
             </div>
           </Panel>
@@ -268,4 +283,8 @@ function initials(value: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase() || "TA";
+}
+
+function oneRelation<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
 }
