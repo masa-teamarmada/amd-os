@@ -4,9 +4,6 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const LAST_LOGIN_TOUCH_COOKIE = "amd_os_last_login_touch";
 const LAST_LOGIN_TOUCH_INTERVAL_MS = 60 * 60 * 1000;
-const LEGACY_SPEC_SLUG_REDIRECTS: Record<string, string> = {
-  "3-0-l2-data-list-current-spec": "3-1-l2-data-extraction-current-spec",
-};
 
 function getServiceClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -36,17 +33,6 @@ export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
   const pathname = request.nextUrl.pathname;
   const isPublicMeetingArtifact = pathname.startsWith("/kute/");
-
-  const legacySpecMatch = pathname.match(/^\/spec\/([^/]+)$/);
-  if (legacySpecMatch) {
-    const legacySlug = decodeURIComponent(legacySpecMatch[1]);
-    const redirectSlug = LEGACY_SPEC_SLUG_REDIRECTS[legacySlug];
-    if (redirectSlug) {
-      const url = request.nextUrl.clone();
-      url.pathname = `/spec/${encodeURIComponent(redirectSlug)}`;
-      return NextResponse.redirect(url, 308);
-    }
-  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
