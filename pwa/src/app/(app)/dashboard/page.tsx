@@ -277,7 +277,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .order("occurred_on", { ascending: false, nullsFirst: false })
-      .limit(160),
+      .limit(500),
     supabase
       .from("media_assets")
       .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,project_ids,member_ids,visibility,status")
@@ -294,7 +294,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .eq("visibility", "admin_only")
       .eq("status", "needs_review")
       .order("title", { ascending: true })
-      .limit(160),
+      .limit(500),
     supabase
       .from("project_events")
       .select("id,project_id,occurred_on,kind,label")
