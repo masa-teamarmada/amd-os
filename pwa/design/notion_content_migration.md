@@ -544,14 +544,16 @@ RLS に関する apply 前レビュー項目:
 
 ### migration / seed current truth
 
-2026-06-04 update:
+2026-06-05 update:
 
 - `pwa/scripts/migrations/124_company_content_tables.sql` creates the company content landing tables and RLS gates.
 - `pwa/scripts/migrations/125_company_content_notion_seed.sql` seeds verified Notion member/history rows.
+- `pwa/scripts/migrations/126_company_content_notion_member_detail_refresh.sql` refreshes Notion member detail, history, and photo-review metadata as the current production import.
 - The seed imports only Notion member rows that resolve to an existing `members.member_id`; Notion-only people are skipped for now.
-- Member/history rows seed as `visibility='internal'` and `status='approved_internal'`.
-- Member photo presence seeds only admin review metadata in `media_assets`; raw Notion file URLs are not stored and no photo is displayed until Storage import plus consent/usage review.
-- Build version for this Notion company content data pass is `v0.15.6`, intentionally after the separately observed `v0.15.5` worktree.
+- Member/history rows import as `visibility='internal'` and `status='approved_internal'`.
+- Member photo presence imports only admin review metadata in `media_assets`; raw Notion file URLs are not stored and no photo is displayed until Storage import plus consent/usage review.
+- Production readback after `126` shows 21 member profiles, 3 history events, and 16 admin-only photo review rows.
+- Build version base for the applied data pass is `v0.15.9`.
 
 ### migration draft 方針
 

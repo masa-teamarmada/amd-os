@@ -17,16 +17,20 @@ Scope: Team ARMADA / AMD company content migration for member list, history, and
 
 | lane | result |
 |---|---|
-| member profiles | representative member pages and DB search results fetched. `125_company_content_notion_seed.sql` seeds only rows whose Notion member can be resolved to existing `members.member_id`; Notion-only people are intentionally skipped |
-| history | database schema and AMD-related rows fetched. `125_company_content_notion_seed.sql` seeds the verified AMD company history rows into `company_history_events` |
-| photo/media | Notion has member photos. No URL was copied into repo data. Seed creates admin-only `media_assets` review rows for confirmed member-photo presence; actual Storage import and permission/consent review remain required before display |
+| member profiles | representative member pages and DB search results fetched. `126_company_content_notion_member_detail_refresh.sql` refreshes 21 rows whose Notion member can be resolved to existing `members.member_id`; Notion-only people are intentionally skipped |
+| history | database schema and AMD-related rows fetched. `126_company_content_notion_member_detail_refresh.sql` keeps the verified AMD company history rows in `company_history_events` |
+| photo/media | Notion has member photos. No URL was copied into repo data. `126_company_content_notion_member_detail_refresh.sql` creates admin-only `media_assets` review rows for confirmed member-photo presence; actual Storage import and permission/consent review remain required before display |
 | company profile | AMD page properties and page structure verified. Strategy/internal body must be split from company profile copy before approval |
 
-## Blockers Before Production Import
+## Production Import Status
 
-- Apply reviewed migration `pwa/scripts/migrations/124_company_content_tables.sql`.
-- Apply reviewed seed `pwa/scripts/migrations/125_company_content_notion_seed.sql` after `124`.
-- Re-run Notion row export with a working data-source query path or an approved connector workaround before trying to import Notion-only people or full profile detail.
+- `124_company_content_tables.sql`, `125_company_content_notion_seed.sql`, and `126_company_content_notion_member_detail_refresh.sql` have been applied to production.
+- Readback after `126` shows 21 member profiles, 3 history events, and 16 admin-only photo review rows.
+- Photo rows stay `admin_only` / `needs_review` with `usage_permission='unknown'`, `consent_status='unknown'`, and no Storage paths until reviewed.
+
+## Remaining Gaps
+
+- Re-run Notion row export with a working data-source query path or an approved connector workaround before trying to import Notion-only people.
 - Resolve Notion PJ relation URLs to `projects.project_id`.
 - Resolve skipped Notion member pages to `members.member_id` before importing them.
 - Upload reviewed images into Supabase Storage and fill `storage_bucket`, `storage_path`, and `thumbnail_path`.
