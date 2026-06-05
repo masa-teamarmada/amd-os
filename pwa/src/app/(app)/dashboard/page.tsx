@@ -270,14 +270,14 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .order("display_name", { ascending: true })
-      .limit(24),
+      .limit(80),
     supabase
       .from("company_history_events")
       .select("event_id,project_id,occurred_on,title,event_type,importance,visibility,status")
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .order("occurred_on", { ascending: false, nullsFirst: false })
-      .limit(12),
+      .limit(160),
     supabase
       .from("media_assets")
       .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,project_ids,member_ids,visibility,status")
@@ -294,7 +294,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .eq("visibility", "admin_only")
       .eq("status", "needs_review")
       .order("title", { ascending: true })
-      .limit(16),
+      .limit(160),
     supabase
       .from("project_events")
       .select("id,project_id,occurred_on,kind,label")
@@ -323,15 +323,15 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
   const memberRows = membersRes.data ?? [];
   const membersById = new Map(memberRows.map((row) => [String(row.member_id), row]));
   const membersFromProfiles: CompanyMemberPreview[] = (memberProfilesRes.data ?? []).map((row) => {
-    const memberId = String(row.member_id);
-    const member = membersById.get(memberId);
+    const memberId = row.member_id ? String(row.member_id) : null;
+    const member = memberId ? membersById.get(memberId) : null;
     return {
       memberId,
-      codeName: String(member?.code_name || row.display_name || memberId),
-      displayName: String(row.display_name || member?.code_name || member?.member_name || memberId),
+      codeName: String(member?.code_name || row.display_name || "unresolved"),
+      displayName: String(row.display_name || member?.code_name || member?.member_name || "Unresolved member"),
       role: row.public_title || row.internal_title ? String(row.public_title || row.internal_title) : null,
       status: String(row.notion_status || row.status || "approved_internal"),
-      projectCount: projectCounts.get(memberId) ?? 0,
+      projectCount: memberId ? projectCounts.get(memberId) ?? 0 : 0,
     };
   });
 

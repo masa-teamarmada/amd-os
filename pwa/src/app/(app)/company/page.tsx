@@ -27,7 +27,7 @@ export default async function CompanyPage() {
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .order("occurred_on", { ascending: false, nullsFirst: false })
-      .limit(40),
+      .limit(160),
     supabase
       .from("media_assets")
       .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,project_ids,member_ids,visibility,status")
@@ -44,7 +44,7 @@ export default async function CompanyPage() {
       .eq("visibility", "admin_only")
       .eq("status", "needs_review")
       .order("title", { ascending: true })
-      .limit(32),
+      .limit(160),
   ]);
 
   const profiles = profileRes.data ?? [];

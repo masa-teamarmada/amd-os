@@ -5,7 +5,7 @@ import Link from "next/link";
 import { History, ImageIcon, Newspaper, ShieldCheck, Users } from "lucide-react";
 
 export interface CompanyMemberPreview {
-  memberId: string;
+  memberId: string | null;
   codeName: string;
   displayName: string;
   role: string | null;
@@ -68,23 +68,38 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
           countLabel={`${members.length} active`}
         >
           <div className="space-y-2">
-            {members.slice(0, 6).map((member) => (
-              <Link
-                key={member.memberId}
-                href={`/mypage?memberId=${member.memberId}`}
-                className="flex min-h-12 items-center gap-3 rounded-md border border-border/70 bg-white px-3 py-2 transition-colors hover:bg-muted/30"
-              >
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-sky-50 text-[11px] font-semibold text-sky-800">
-                  {initials(member.codeName)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-foreground">{member.displayName}</span>
-                  <span className="block truncate text-[11px] text-muted-foreground">
-                    {member.role || member.status} / {member.projectCount} PJ
+            {members.slice(0, 6).map((member) => {
+              const content = (
+                <>
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-sky-50 text-[11px] font-semibold text-sky-800">
+                    {initials(member.codeName)}
                   </span>
-                </span>
-              </Link>
-            ))}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">{member.displayName}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      {member.role || member.status} / {member.projectCount} PJ
+                    </span>
+                  </span>
+                </>
+              );
+
+              return member.memberId ? (
+                <Link
+                  key={member.memberId}
+                  href={`/mypage?memberId=${member.memberId}`}
+                  className="flex min-h-12 items-center gap-3 rounded-md border border-border/70 bg-white px-3 py-2 transition-colors hover:bg-muted/30"
+                >
+                  {content}
+                </Link>
+              ) : (
+                <div
+                  key={`unresolved-${member.codeName}`}
+                  className="flex min-h-12 items-center gap-3 rounded-md border border-border/70 bg-white px-3 py-2"
+                >
+                  {content}
+                </div>
+              );
+            })}
             {members.length === 0 && (
               <EmptyLine text="active member profile はまだ読み込めていません" />
             )}
