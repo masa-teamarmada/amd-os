@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: { absolute: "Company - AMD OS" } };
 
 export default async function CompanyPage() {
   const supabase = await createClient();
-  const [profileRes, membersRes, historyRes, mediaRes] = await Promise.all([
+  const [profileRes, membersRes, historyRes, mediaRes, mediaReviewRes] = await Promise.all([
     supabase
       .from("company_profile_entries")
       .select("entry_id,entry_key,title,body_md,visibility,status,reviewed_at")
@@ -37,13 +37,22 @@ export default async function CompanyPage() {
       .in("consent_status", ["granted", "not_needed"])
       .order("captured_at", { ascending: false, nullsFirst: false })
       .limit(24),
+    supabase
+      .from("media_assets")
+      .select("asset_id,title,asset_kind,usage_permission,consent_status,member_ids,visibility,status")
+      .eq("asset_kind", "photo")
+      .eq("visibility", "admin_only")
+      .eq("status", "needs_review")
+      .order("title", { ascending: true })
+      .limit(32),
   ]);
 
   const profiles = profileRes.data ?? [];
   const members = membersRes.data ?? [];
   const history = historyRes.data ?? [];
   const media = mediaRes.data ?? [];
-  const schemaMissing = Boolean(profileRes.error || membersRes.error || historyRes.error || mediaRes.error);
+  const mediaReview = mediaReviewRes.data ?? [];
+  const schemaMissing = Boolean(profileRes.error || membersRes.error || historyRes.error || mediaRes.error || mediaReviewRes.error);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
@@ -68,7 +77,7 @@ export default async function CompanyPage() {
       <section className="grid gap-3 lg:grid-cols-4">
         <Metric icon={<Users className="h-4 w-4" />} label="team profiles" value={members.length} />
         <Metric icon={<History className="h-4 w-4" />} label="history events" value={history.length} />
-        <Metric icon={<ImageIcon className="h-4 w-4" />} label="reviewed media" value={media.length} />
+        <Metric icon={<ImageIcon className="h-4 w-4" />} label="photo review" value={mediaReview.length} />
         <Metric icon={<ShieldCheck className="h-4 w-4" />} label="visibility gate" value="on" />
       </section>
 
@@ -111,7 +120,23 @@ export default async function CompanyPage() {
                   </div>
                 </article>
               ))}
-              {media.length === 0 && <EmptyState text="reviewed media はまだありません" />}
+              {mediaReview.map((asset) => (
+                <article key={asset.asset_id} className="overflow-hidden rounded-md border border-amber-200 bg-amber-50/50">
+                  <div className="grid aspect-[4/3] place-items-center bg-amber-100/60">
+                    <ImageIcon className="h-7 w-7 text-amber-700/70" />
+                  </div>
+                  <div className="space-y-2 p-3">
+                    <div className="flex items-center gap-2">
+                      <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">{asset.title}</h3>
+                      <PermissionChip permission="review" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {["needs_review", `usage:${asset.usage_permission}`, `consent:${asset.consent_status}`].filter(Boolean).join(" / ")}
+                    </p>
+                  </div>
+                </article>
+              ))}
+              {media.length === 0 && mediaReview.length === 0 && <EmptyState text="reviewed media はまだありません" />}
             </div>
           </Panel>
         </div>

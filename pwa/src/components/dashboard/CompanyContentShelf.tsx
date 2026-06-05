@@ -160,7 +160,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
         <ShelfColumn
           icon={<ImageIcon className="h-4 w-4" />}
           title="photo"
-          countLabel="permission first"
+          countLabel={`${photos.length} review`}
         >
           <div className="space-y-2">
             {photos.map((photo) => (

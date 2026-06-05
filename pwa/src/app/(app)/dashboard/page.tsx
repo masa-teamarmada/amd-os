@@ -247,6 +247,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
     memberProfilesRes,
     companyHistoryRes,
     mediaAssetsRes,
+    mediaReviewRes,
     eventsRes,
     venturesRes,
     mediaMentionsRes,
@@ -286,6 +287,14 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .in("consent_status", ["granted", "not_needed"])
       .order("captured_at", { ascending: false, nullsFirst: false })
       .limit(6),
+    supabase
+      .from("media_assets")
+      .select("asset_id,title,asset_kind,usage_permission,consent_status,member_ids,visibility,status")
+      .eq("asset_kind", "photo")
+      .eq("visibility", "admin_only")
+      .eq("status", "needs_review")
+      .order("title", { ascending: true })
+      .limit(16),
     supabase
       .from("project_events")
       .select("id,project_id,occurred_on,kind,label")
@@ -383,10 +392,21 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
     status: photoStatusFromPermission(String(row.usage_permission || "unknown")),
   }));
 
+  const photosInReview: CompanyPhotoPreview[] = (mediaReviewRes.data ?? []).map((row) => ({
+    id: String(row.asset_id),
+    title: String(row.title || "Member photo review"),
+    meta: [
+      row.status ? String(row.status) : "needs_review",
+      row.usage_permission ? `usage:${String(row.usage_permission)}` : "usage:unknown",
+      row.consent_status ? `consent:${String(row.consent_status)}` : "consent:unknown",
+    ].filter(Boolean).join(" / "),
+    status: "unknown",
+  }));
+
   return {
     members: membersFromProfiles.length > 0 ? membersFromProfiles : membersFallback,
     history: historyFromCompany.length > 0 ? historyFromCompany : (historyFromEvents.length > 0 ? historyFromEvents : historyFallback),
-    photos: photosFromAssets.length > 0 ? photosFromAssets : DASHBOARD_PHOTO_PREVIEW,
+    photos: photosFromAssets.length > 0 ? photosFromAssets : (photosInReview.length > 0 ? photosInReview : DASHBOARD_PHOTO_PREVIEW),
     mediaMentions,
   };
 }
