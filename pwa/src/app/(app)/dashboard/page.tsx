@@ -350,6 +350,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
     if (!member || String(member.status || "") !== "active") return [];
     const photoAsset = oneRelation(row.media_assets);
     return [{
+      memberProfileId: row.member_profile_id ? String(row.member_profile_id) : null,
       memberId,
       codeName: String(member?.code_name || row.display_name || "unresolved"),
       displayName: String(row.display_name || member?.code_name || member?.member_name || "Unresolved member"),
@@ -375,6 +376,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
   }).sort(compareMembersByLastLogin);
 
   const membersFallback: CompanyMemberPreview[] = memberRows.map((row) => ({
+    memberProfileId: null,
     memberId: String(row.member_id),
     codeName: String(row.code_name || row.member_id),
     displayName: String(row.code_name || row.member_name || row.member_id),

@@ -34,11 +34,15 @@ export async function GET(_req: Request, context: RouteContext) {
 
   const { data, error: signError } = await admin.storage
     .from(String(asset.storage_bucket || "company-media"))
-    .createSignedUrl(String(path), 60);
+    .createSignedUrl(String(path), 60 * 60);
 
   if (signError || !data?.signedUrl) {
     return NextResponse.json({ ok: false, error: signError?.message || "signed URL failed" }, { status: 500 });
   }
 
-  return NextResponse.redirect(data.signedUrl);
+  return NextResponse.redirect(data.signedUrl, {
+    headers: {
+      "Cache-Control": "private, max-age=300, stale-while-revalidate=1800",
+    },
+  });
 }

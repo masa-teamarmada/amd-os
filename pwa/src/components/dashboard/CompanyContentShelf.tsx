@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
-import { History, ImageIcon, Minus, Newspaper, Plus, RotateCcw, ShieldCheck, Users, X } from "lucide-react";
+import { History, ImageIcon, Minus, Newspaper, Plus, RotateCcw, ShieldCheck, Upload, Users, X } from "lucide-react";
 
 export interface CompanyImageCrop {
   x: number;
@@ -10,6 +10,7 @@ export interface CompanyImageCrop {
 }
 
 export interface CompanyMemberPreview {
+  memberProfileId: string | null;
   memberId: string | null;
   codeName: string;
   displayName: string;
@@ -92,11 +93,17 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
   const [selectedPhoto, setSelectedPhoto] = useState<CompanyPhotoPreview | null>(null);
   const [savingCoverAssetId, setSavingCoverAssetId] = useState<string | null>(null);
   const [savingMemberPhotoAssetId, setSavingMemberPhotoAssetId] = useState<string | null>(null);
+  const [uploadingMemberKey, setUploadingMemberKey] = useState<string | null>(null);
+  const [visiblePhotoCount, setVisiblePhotoCount] = useState(INITIAL_PHOTO_GROUPS);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [memberPhotoError, setMemberPhotoError] = useState<string | null>(null);
+  const [memberUploadError, setMemberUploadError] = useState<string | null>(null);
 
   useEffect(() => setMemberItems(members), [members]);
-  useEffect(() => setPhotoItems(photos), [photos]);
+  useEffect(() => {
+    setPhotoItems(photos);
+    setVisiblePhotoCount(INITIAL_PHOTO_GROUPS);
+  }, [photos]);
 
   async function selectPhotoCover(photo: CompanyPhotoPreview, asset: CompanyPhotoAssetPreview, crop = asset.crop || photo.crop || DEFAULT_CROP) {
     const nextCrop = clampCrop(crop);
@@ -156,6 +163,43 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
       setMemberPhotoError("写真位置の保存に失敗した");
     } finally {
       setSavingMemberPhotoAssetId(null);
+    }
+  }
+
+  async function uploadMemberPhoto(member: CompanyMemberPreview, file: File) {
+    if (!member.memberProfileId || !member.memberId) {
+      setMemberUploadError("member profile が見つからない");
+      return;
+    }
+
+    const memberKey = member.memberProfileId;
+    setMemberUploadError(null);
+    setUploadingMemberKey(memberKey);
+    try {
+      const formData = new FormData();
+      formData.append("memberProfileId", member.memberProfileId);
+      formData.append("memberId", member.memberId);
+      formData.append("codeName", member.codeName);
+      formData.append("file", file);
+
+      const response = await fetch("/api/admin/company-members/photo", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error("member photo upload failed");
+      const result = await response.json() as { assetId: string; imageUrl: string; crop: CompanyImageCrop };
+      const nextCrop = clampCrop(result.crop);
+      const updateMember = (item: CompanyMemberPreview): CompanyMemberPreview => (
+        item.memberProfileId === member.memberProfileId
+          ? { ...item, photoAssetId: result.assetId, imageUrl: result.imageUrl, photoCrop: nextCrop }
+          : item
+      );
+      setMemberItems((items) => items.map(updateMember));
+      setSelectedMember((current) => current ? updateMember(current) : current);
+    } catch {
+      setMemberUploadError("写真アップロードに失敗した");
+    } finally {
+      setUploadingMemberKey(null);
     }
   }
 
@@ -279,7 +323,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
           countLabel={`${photos.length} groups`}
         >
           <div className="space-y-2">
-            {photoItems.map((photo) => (
+            {photoItems.slice(0, visiblePhotoCount).map((photo) => (
               <button
                 key={photo.id}
                 type="button"
@@ -307,6 +351,15 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
                 </div>
               </button>
             ))}
+            {visiblePhotoCount < photoItems.length && (
+              <button
+                type="button"
+                onClick={() => setVisiblePhotoCount((count) => Math.min(photoItems.length, count + PHOTO_GROUP_PAGE_SIZE))}
+                className="w-full rounded-md border border-border bg-white px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted/30"
+              >
+                さらに表示 {Math.min(PHOTO_GROUP_PAGE_SIZE, photoItems.length - visiblePhotoCount)} / 残り {photoItems.length - visiblePhotoCount}
+              </button>
+            )}
           </div>
         </ShelfColumn>
       </div>
@@ -362,6 +415,15 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
               {memberPhotoError && <p className="mt-2 text-xs text-red-600">{memberPhotoError}</p>}
             </div>
           )}
+
+          <div className="mt-4 rounded-md border border-border bg-white p-3">
+            <MemberPhotoUploader
+              member={selectedMember}
+              uploading={uploadingMemberKey === selectedMember.memberProfileId}
+              onUpload={(file) => uploadMemberPhoto(selectedMember, file)}
+            />
+            {memberUploadError && <p className="mt-2 text-xs text-red-600">{memberUploadError}</p>}
+          </div>
         </Modal>
       )}
 
@@ -437,6 +499,8 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const MIN_OFFSET = -100;
 const MAX_OFFSET = 100;
+const INITIAL_PHOTO_GROUPS = 18;
+const PHOTO_GROUP_PAGE_SIZE = 18;
 
 function CropEditor({
   title,
@@ -506,13 +570,26 @@ function CropEditor({
         </span>
       </div>
       <div
-        className={`touch-none cursor-grab overflow-hidden rounded-md border border-border bg-muted active:cursor-grabbing ${aspect === "square" ? "aspect-square" : "aspect-video"}`}
+        className="relative h-[360px] touch-none cursor-grab overflow-hidden rounded-md border border-border bg-slate-950 active:cursor-grabbing"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        <MediaPreview src={src} kind={kind} crop={draft} />
+        <div className="absolute inset-0">
+          <MediaPreview src={src} kind={kind} crop={draft} eager />
+        </div>
+        <div
+          className={`pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2 border-white shadow-[0_0_0_9999px_rgba(2,6,23,0.48)] ${aspect === "square" ? "h-[72%] aspect-square" : "w-[76%] aspect-video"}`}
+        >
+          <span className="absolute inset-x-0 top-1/3 border-t border-white/50" />
+          <span className="absolute inset-x-0 top-2/3 border-t border-white/50" />
+          <span className="absolute inset-y-0 left-1/3 border-l border-white/50" />
+          <span className="absolute inset-y-0 left-2/3 border-l border-white/50" />
+        </div>
+        <div className="pointer-events-none absolute bottom-2 left-2 rounded border border-white/25 bg-black/45 px-2 py-1 text-[10px] font-medium text-white">
+          画像をドラッグして、枠に入る位置を合わせる
+        </div>
       </div>
       <div className="grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
         <button
@@ -590,7 +667,63 @@ function CropEditor({
   );
 }
 
-function MediaPreview({ src, kind, objectPosition, crop }: { src: string; kind: string; objectPosition?: string; crop?: CompanyImageCrop }) {
+function MemberPhotoUploader({
+  member,
+  uploading,
+  onUpload,
+}: {
+  member: CompanyMemberPreview;
+  uploading: boolean;
+  onUpload: (file: File) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const disabled = uploading || !member.memberProfileId || !member.memberId;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">メンバー写真を差し替え</p>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => inputRef.current?.click()}
+          className="inline-flex h-8 items-center gap-1 rounded border border-border bg-muted/30 px-2 text-xs font-semibold text-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:text-muted-foreground"
+        >
+          <Upload className="h-3.5 w-3.5" />
+          {uploading ? "アップロード中" : "画像を選択"}
+        </button>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) onUpload(file);
+        }}
+      />
+      <p className="text-[11px] leading-5 text-muted-foreground">
+        選んだ画像は review 扱いで保存して、このメンバーの表示写真に切り替える。
+      </p>
+    </div>
+  );
+}
+
+function MediaPreview({
+  src,
+  kind,
+  objectPosition,
+  crop,
+  eager = false,
+}: {
+  src: string;
+  kind: string;
+  objectPosition?: string;
+  crop?: CompanyImageCrop;
+  eager?: boolean;
+}) {
   const nextCrop = crop ? clampCrop(crop) : null;
   const style = nextCrop
     ? {
@@ -611,7 +744,15 @@ function MediaPreview({ src, kind, objectPosition, crop }: { src: string; kind: 
       preload="metadata"
     />
   ) : (
-    <img src={src} alt="" className={className} style={style} loading="lazy" />
+    <img
+      src={src}
+      alt=""
+      className={className}
+      style={style}
+      loading={eager ? "eager" : "lazy"}
+      decoding="async"
+      fetchPriority={eager ? "high" : "auto"}
+    />
   );
   if (nextCrop) {
     return <span className="relative block h-full w-full overflow-hidden">{body}</span>;
@@ -628,7 +769,17 @@ function MediaPreview({ src, kind, objectPosition, crop }: { src: string; kind: 
       />
     );
   }
-  return <img src={src} alt="" className={className} style={style} loading="lazy" />;
+  return (
+    <img
+      src={src}
+      alt=""
+      className={className}
+      style={style}
+      loading={eager ? "eager" : "lazy"}
+      decoding="async"
+      fetchPriority={eager ? "high" : "auto"}
+    />
+  );
 }
 
 function objectPositionCss(value?: string) {
