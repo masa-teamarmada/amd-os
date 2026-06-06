@@ -3066,3 +3066,17 @@
 - **原因**: `BUILD_VERSION` bump と local worktree の状態だけで deploy bundle を判断し、現行 production の version/content、別 worker の直近 commit、ユーザーが見ている実画面を確認しなかった。HUD など無関係な推測も混ぜ、問題の焦点が「v0.15.3内容の巻き戻り」であることを取り違えた。
 - **対応内容**: 現行 v0.15.3 相当の内容を読み直し、`019e9176` の company content landing zone、KUTE重複解消、研究機関ERSリスト復旧、KUTE/KGW/NIMS 表示名変更を統合して `v0.15.5` として production deploy した。deployment `dpl_42byLRKSTZEfrQGo5bDfWargtUyx` が Ready、production smoke も通過。
 - **再発防止策**: deploy 前は必ず `git log`、現行 production inspect、対象別セッションの成果物、ユーザーが見ている `BUILD_VERSION` を照合する。既に production に出ている変更を local に取り込めていない時は、bump/deploy せず統合を先に行う。古い worktree からの direct deploy は rollback と同義になりうる。
+
+## [PWA/Vercel] 古いcheckout/別branchからのCLI production deployでBUILD_VERSIONが巻き戻る (2026-06-05)
+
+- **症状**: production 表示の `BUILD_VERSION` が `v0.15.6` 系から `v0.15.2` 系へ巻き戻った。
+- **原因**: rollback / promote ではなく、古い checkout または別branch から Vercel CLI production deploy が走り、内容の古い新規 production deployment が alias を上書きした可能性が高い。該当 deployment は `gitSource=null` / `meta=null` で、Vercel 側から commit を逆引きできなかった。
+- **対応内容**:
+  - `pwa/scripts/deploy.sh` に `deploy-version-guard.cjs` を接続し、production deploy 前に local `BUILD_VERSION` と production current / local branch max を比較する。
+  - production は local version が低ければ Vercel を呼ぶ前に hard stop。preview は production alias を動かさないため warning のみ。
+  - `GET /api/build-info` を追加し、`build_version` / `git_sha` / `git_branch` / `deployed_at` / `dirty` を public stamp として返す。
+  - deploy script は stamp 値を Vercel build env と metadata に渡すため、CLI deploy が `gitSource=null` でも production から deploy 元を確認できる。
+- **再発防止策**:
+  - PWA production deploy は必ず `bash pwa/scripts/deploy.sh` 経由で、`--dry-run` と `npm run test:deploy-version-guard` をdeploy bundleに含める。
+  - `v0.15.6` より低い checkout から production deploy しようとすると、local branch max guard だけでも停止する。
+  - `gitSource=null` の deployment を調べる時は、production `https://amd-os-pwa.vercel.app/api/build-info` を見る。

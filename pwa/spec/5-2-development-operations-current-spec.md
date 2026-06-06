@@ -41,11 +41,20 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 - `.vercel/project.json` は `amd-os-pwa` / `prj_raZW3HSKIszzPUwNTHfy7xDGzLHm` を指す。
 - script は deploy trigger 後、Ready まで polling し、macOS 通知を出す。
 - 直接 `npx vercel` を叩かない。
+- production deploy は `BUILD_VERSION` rollback guard を必ず通す。local `BUILD_VERSION` が production current version または local branch max version より低い場合は、Vercel を呼ぶ前に hard stop する。
+- preview deploy は production alias を動かさないため rollback guard は warning に留める。ただし build stamp は同じ形式で埋め込む。
+- deploy script は `NEXT_PUBLIC_AMD_OS_GIT_SHA` / `NEXT_PUBLIC_AMD_OS_GIT_BRANCH` / `NEXT_PUBLIC_AMD_OS_DEPLOYED_AT` / `NEXT_PUBLIC_AMD_OS_DIRTY` を build env として渡す。Vercel の `gitSource=null` でも production 側から deploy 元を確認できるようにする。
 
 rollback:
 
 ```bash
 npx vercel promote <deployment-id> --scope armada0130 --yes
+```
+
+guard dry run:
+
+```bash
+bash pwa/scripts/deploy.sh --dry-run
 ```
 
 ## Build version
@@ -59,6 +68,16 @@ npx vercel promote <deployment-id> --scope armada0130 --yes
 | major | 大きな仕様変更、architecture刷新 |
 
 迷ったら patch。画面左上の version 表示で、まさが Service Worker / CDN cache の切り替わりを確認する。
+
+`GET /api/build-info` は public build stamp を返す。secret / env 値そのものは出さず、以下だけを返す。
+
+| field | 意味 |
+|---|---|
+| `build_version` | `pwa/src/lib/build-info.ts` の `BUILD_VERSION` |
+| `git_sha` | deploy/build 対象の short SHA |
+| `git_branch` | deploy/build 元 branch。detached の場合は git name |
+| `deployed_at` | deploy script または build 時の ISO timestamp |
+| `dirty` | deploy/build 時点で tracked/untracked dirty があったか |
 
 ## Supabase DDL
 

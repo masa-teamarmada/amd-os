@@ -52,3 +52,4 @@
 | 2026-06-05 | 3-0 | 変更 | 旧章本文 `3-0-l2-data-list-current-spec.md` を復帰し、旧slugから現行3-1へのredirectを解除 | 旧フレームクリック時の遷移先も、旧履歴どおり `L2データリスト` 章そのものへ戻すため | えいみ |
 | 2026-06-05 | L2データリスト | 変更 | `L2データリスト` を3章配下の通常章扱いから外し、`/spec` トップ直下の旧フレームから旧本文へ入る独立導線へ戻した | `3-0` slug名に引きずられて3-1系の章目次へ混ぜると、元の独立したL2正本リスト導線と異なるため | えいみ |
 | 2026-06-05 | L2データリスト | 変更 | 旧本文を、履歴上の最新L2データリスト表（`マシン` / `cron名` / `タイミング` 列を持つL2①〜⑯表）へ復活 | 5列版ではなく、削除前の最新表を画面上に戻すため | えいみ |
+| 2026-06-05 | 5-2 | 変更 | PWA production deploy の BUILD_VERSION rollback guard と `/api/build-info` build stamp を追加。production は production current / local branch max より低い version を hard stop、preview は warning、CLI deploy でも git SHA/branch/dirty/deployed_at を public stamp で確認できる contract を追記 | 古い checkout / 別branch からの Vercel CLI production deploy による BUILD_VERSION 巻き戻りと、Vercel `gitSource=null` による deploy 元不明を再発防止するため | えいみ-worker |
