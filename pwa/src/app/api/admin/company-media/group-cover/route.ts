@@ -3,6 +3,18 @@ import { requireAdmin } from "@/lib/supabase/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const COVER_TAG = "company_photo_group_cover";
+const POSITION_TAG_PREFIX = "company_photo_cover_position:";
+const ALLOWED_POSITIONS = new Set([
+  "top-left",
+  "top",
+  "top-right",
+  "left",
+  "center",
+  "right",
+  "bottom-left",
+  "bottom",
+  "bottom-right",
+]);
 
 export async function PATCH(request: Request) {
   const auth = await requireAdmin();
@@ -10,6 +22,9 @@ export async function PATCH(request: Request) {
 
   const body = await request.json().catch(() => null);
   const assetId = typeof body?.assetId === "string" ? body.assetId : null;
+  const position = typeof body?.position === "string" && ALLOWED_POSITIONS.has(body.position)
+    ? body.position
+    : "center";
   if (!assetId) {
     return NextResponse.json({ error: "assetId is required" }, { status: 400 });
   }
@@ -49,9 +64,10 @@ export async function PATCH(request: Request) {
 
   for (const row of groupRows) {
     const tags = Array.isArray(row.tags) ? row.tags.map(String) : [];
+    const baseTags = tags.filter((tag) => tag !== COVER_TAG && !tag.startsWith(POSITION_TAG_PREFIX));
     const nextTags = row.asset_id === assetId
-      ? Array.from(new Set([...tags, COVER_TAG]))
-      : tags.filter((tag) => tag !== COVER_TAG);
+      ? Array.from(new Set([...baseTags, COVER_TAG, `${POSITION_TAG_PREFIX}${position}`]))
+      : baseTags;
     const { error } = await admin
       .from("media_assets")
       .update({ tags: nextTags, updated_by: "company_media_group_cover_api" })
@@ -61,7 +77,7 @@ export async function PATCH(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, assetId, groupSize: groupRows.length });
+  return NextResponse.json({ ok: true, assetId, position, groupSize: groupRows.length });
 }
 
 function parentKeyFromStorage(row: { storage_path?: unknown; thumbnail_path?: unknown }) {

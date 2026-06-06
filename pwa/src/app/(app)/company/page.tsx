@@ -112,7 +112,7 @@ export default async function CompanyPage() {
                 <article key={asset.asset_id} className="overflow-hidden rounded-md border border-border bg-card">
                   <div className="grid aspect-[4/3] place-items-center overflow-hidden bg-muted">
                     {asset.imageUrl ? (
-                      <MediaPreview src={asset.imageUrl} kind="photo" />
+                      <MediaPreview src={asset.imageUrl} kind="photo" objectPosition={asset.coverPosition} />
                     ) : (
                       <ImageIcon className="h-7 w-7 text-muted-foreground" />
                     )}
@@ -132,7 +132,7 @@ export default async function CompanyPage() {
                 <article key={asset.asset_id} className="overflow-hidden rounded-md border border-amber-200 bg-amber-50/50">
                   <div className="grid aspect-[4/3] place-items-center overflow-hidden bg-amber-100/60">
                     {asset.imageUrl ? (
-                      <MediaPreview src={asset.imageUrl} kind="photo" />
+                      <MediaPreview src={asset.imageUrl} kind="photo" objectPosition={asset.coverPosition} />
                     ) : (
                       <ImageIcon className="h-7 w-7 text-amber-700/70" />
                     )}
@@ -279,6 +279,7 @@ interface CompanyMediaGroup {
   consent_status: string;
   imageUrl: string | null;
   itemCount: number;
+  coverPosition: string;
 }
 
 function groupMediaAssets(rows: any[], mode: "approved" | "review"): CompanyMediaGroup[] {
@@ -302,6 +303,7 @@ function groupMediaAssets(rows: any[], mode: "approved" | "review"): CompanyMedi
       consent_status: String(cover.consent_status || "unknown"),
       imageUrl: cover && (cover.thumbnail_path || cover.storage_path) ? `/api/company-media/file/${cover.asset_id}` : null,
       itemCount: groupRows.length,
+      coverPosition: coverPositionFromTags(cover.tags),
     };
   }).sort((a, b) => compareNullableDateDesc(a.captured_at, b.captured_at) || a.title.localeCompare(b.title, "ja"));
 }
@@ -346,6 +348,12 @@ function maxDateString(values: unknown[]) {
   return best;
 }
 
+function coverPositionFromTags(value: unknown) {
+  if (!Array.isArray(value)) return "center";
+  const tag = value.map(String).find((item) => item.startsWith("company_photo_cover_position:"));
+  return tag?.split(":")[1] || "center";
+}
+
 function EmptyState({ text }: { text: string }) {
   return (
     <div className="rounded-md border border-dashed border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
@@ -354,19 +362,33 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-function MediaPreview({ src, kind }: { src: string; kind: string }) {
+const POSITION_CSS: Record<string, string> = {
+  "top-left": "left top",
+  top: "center top",
+  "top-right": "right top",
+  left: "left center",
+  center: "center center",
+  right: "right center",
+  "bottom-left": "left bottom",
+  bottom: "center bottom",
+  "bottom-right": "right bottom",
+};
+
+function MediaPreview({ src, kind, objectPosition }: { src: string; kind: string; objectPosition?: string }) {
+  const style = { objectPosition: POSITION_CSS[objectPosition || "center"] || "center center" };
   if (kind === "video") {
     return (
       <video
         src={src}
         className="h-full w-full object-cover"
+        style={style}
         muted
         playsInline
         preload="metadata"
       />
     );
   }
-  return <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />;
+  return <img src={src} alt="" className="h-full w-full object-cover" style={style} loading="lazy" />;
 }
 
 function initials(value: string) {

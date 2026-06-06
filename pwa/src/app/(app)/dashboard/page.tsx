@@ -343,11 +343,12 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
 
   const memberRows = membersRes.data ?? [];
   const membersById = new Map(memberRows.map((row) => [String(row.member_id), row]));
-  const membersFromProfiles: CompanyMemberPreview[] = (memberProfilesRes.data ?? []).map((row) => {
+  const membersFromProfiles: CompanyMemberPreview[] = (memberProfilesRes.data ?? []).flatMap((row) => {
     const memberId = row.member_id ? String(row.member_id) : null;
     const member = memberId ? membersById.get(memberId) : null;
+    if (!member || String(member.status || "") !== "active") return [];
     const photoAsset = oneRelation(row.media_assets);
-    return {
+    return [{
       memberId,
       codeName: String(member?.code_name || row.display_name || "unresolved"),
       displayName: String(row.display_name || member?.code_name || member?.member_name || "Unresolved member"),
@@ -367,7 +368,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       mbtiTags: Array.isArray(row.mbti_tags) ? row.mbti_tags.map(String) : [],
       imageUrl: photoAsset?.thumbnail_path || photoAsset?.storage_path ? `/api/company-media/file/${photoAsset.asset_id}` : null,
       lastLoginAt: member?.last_login_at ? String(member.last_login_at) : null,
-    };
+    }];
   }).sort(compareMembersByLastLogin);
 
   const membersFallback: CompanyMemberPreview[] = memberRows.map((row) => ({
@@ -459,6 +460,7 @@ function groupCompanyPhotos(rows: CompanyMediaAssetRow[], mode: "approved" | "re
     const sortedRows = group.rows.slice().sort(compareMediaRowsByDate);
     const taggedCover = sortedRows.find((row) => hasTag(row.tags, "company_photo_group_cover"));
     const cover = taggedCover ?? sortedRows.find((row) => row.thumbnail_path || row.storage_path) ?? sortedRows[0];
+    const coverPosition = coverPositionFromTags(cover?.tags);
     const hasVideo = group.rows.some((row) => String(row.asset_kind || "") === "video");
     const permission = String(cover?.usage_permission || "unknown");
     const consent = String(cover?.consent_status || "unknown");
@@ -470,6 +472,7 @@ function groupCompanyPhotos(rows: CompanyMediaAssetRow[], mode: "approved" | "re
       kind: String(row.asset_kind || "photo"),
       capturedAt: row.captured_at ? String(row.captured_at) : null,
       isCover: String(row.asset_id) === String(cover?.asset_id),
+      coverPosition: coverPositionFromTags(row.tags),
     }));
     return {
       id: `photo-group-${key}`,
@@ -483,6 +486,7 @@ function groupCompanyPhotos(rows: CompanyMediaAssetRow[], mode: "approved" | "re
       itemCount: group.rows.length,
       occurredOn,
       coverAssetId: cover?.asset_id ? String(cover.asset_id) : null,
+      coverPosition,
       assets,
     };
   }).sort((a, b) => compareNullableDateDesc(a.occurredOn, b.occurredOn) || a.title.localeCompare(b.title, "ja"));
@@ -534,6 +538,12 @@ function maxDateString(values: unknown[]) {
 
 function hasTag(value: unknown, tag: string) {
   return Array.isArray(value) && value.map(String).includes(tag);
+}
+
+function coverPositionFromTags(value: unknown) {
+  if (!Array.isArray(value)) return "center";
+  const tag = value.map(String).find((item) => item.startsWith("company_photo_cover_position:"));
+  return tag?.split(":")[1] || "center";
 }
 
 /** 自分が参画してる active PJ id Set (= ProjectStripe ソート優先用、軽量 fetch) */

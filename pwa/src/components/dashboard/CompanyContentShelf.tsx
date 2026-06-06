@@ -32,6 +32,7 @@ export interface CompanyPhotoAssetPreview {
   kind: string;
   capturedAt: string | null;
   isCover: boolean;
+  coverPosition: string;
 }
 
 export interface CompanyHistoryPreview {
@@ -52,6 +53,7 @@ export interface CompanyPhotoPreview {
   itemCount?: number;
   occurredOn?: string | null;
   coverAssetId?: string | null;
+  coverPosition?: string;
   assets?: CompanyPhotoAssetPreview[];
 }
 
@@ -82,14 +84,14 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
 
   useEffect(() => setPhotoItems(photos), [photos]);
 
-  async function selectPhotoCover(photo: CompanyPhotoPreview, asset: CompanyPhotoAssetPreview) {
+  async function selectPhotoCover(photo: CompanyPhotoPreview, asset: CompanyPhotoAssetPreview, position = asset.coverPosition || photo.coverPosition || "center") {
     setCoverError(null);
     setSavingCoverAssetId(asset.assetId);
     try {
       const response = await fetch("/api/admin/company-media/group-cover", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ assetId: asset.assetId }),
+        body: JSON.stringify({ assetId: asset.assetId, position }),
       });
       if (!response.ok) throw new Error("cover update failed");
 
@@ -100,7 +102,12 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
           coverAssetId: asset.assetId,
           imageUrl: asset.imageUrl,
           kind: asset.kind,
-          assets: (item.assets ?? []).map((row) => ({ ...row, isCover: row.assetId === asset.assetId })),
+          coverPosition: position,
+          assets: (item.assets ?? []).map((row) => ({
+            ...row,
+            isCover: row.assetId === asset.assetId,
+            coverPosition: row.assetId === asset.assetId ? position : row.coverPosition,
+          })),
         };
       };
       setPhotoItems((items) => items.map(updatePhoto));
@@ -139,13 +146,13 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
                   key={member.memberId ?? `unresolved-${member.codeName}`}
                   type="button"
                   onClick={() => setSelectedMember(member)}
-                  className="group grid min-h-[118px] grid-rows-[minmax(0,1fr)_auto] overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30"
+                  className="group grid h-[150px] grid-rows-[112px_38px] overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30"
                 >
-                  <span className="grid min-h-0 place-items-center overflow-hidden bg-sky-50 text-sm font-semibold text-sky-800">
+                  <span className="grid h-[112px] w-full place-items-center overflow-hidden bg-sky-50 text-sm font-semibold text-sky-800">
                     {member.imageUrl ? (
                       <img src={member.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
                     ) : (
-                      initials(member.codeName)
+                      <Users className="h-5 w-5 text-sky-700/55" />
                     )}
                   </span>
                   <span className="block min-w-0 px-2 py-2">
@@ -244,7 +251,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
               >
                 <div className="relative flex h-24 items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#f8fafc,#eef6ff_48%,#f7f3ea)]">
                   {photo.imageUrl ? (
-                    <MediaPreview src={photo.imageUrl} kind={photo.kind} />
+                    <MediaPreview src={photo.imageUrl} kind={photo.kind} objectPosition={photo.coverPosition} />
                   ) : (
                     <ImageIcon className="h-5 w-5 text-slate-500/70" />
                   )}
@@ -309,7 +316,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
             <div className="overflow-hidden rounded-md border border-border bg-muted">
               <div className="grid aspect-video place-items-center overflow-hidden">
                 {selectedPhoto.imageUrl ? (
-                  <MediaPreview src={selectedPhoto.imageUrl} kind={selectedPhoto.kind} />
+                  <MediaPreview src={selectedPhoto.imageUrl} kind={selectedPhoto.kind} objectPosition={selectedPhoto.coverPosition} />
                 ) : (
                   <ImageIcon className="h-8 w-8 text-muted-foreground" />
                 )}
@@ -320,12 +327,38 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
               </div>
             </div>
 
+            {selectedPhoto.coverAssetId && (
+              <div className="rounded-md border border-border bg-white p-3">
+                <p className="text-xs font-medium text-muted-foreground">サムネ表示位置</p>
+                <div className="mt-2 grid max-w-xs grid-cols-3 gap-1">
+                  {POSITION_OPTIONS.map((option) => {
+                    const currentCover = selectedPhoto.assets?.find((asset) => asset.assetId === selectedPhoto.coverAssetId);
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => currentCover && selectPhotoCover(selectedPhoto, currentCover, option.value)}
+                        disabled={!currentCover || savingCoverAssetId === selectedPhoto.coverAssetId}
+                        className={`rounded border px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:text-muted-foreground ${
+                          (selectedPhoto.coverPosition || "center") === option.value
+                            ? "border-sky-300 bg-sky-50 text-sky-800"
+                            : "border-border bg-muted/20 text-foreground hover:bg-muted/40"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="grid gap-2 sm:grid-cols-3">
               {(selectedPhoto.assets ?? []).map((asset) => (
                 <div key={asset.assetId} className="overflow-hidden rounded-md border border-border bg-white">
                   <div className="grid aspect-video place-items-center overflow-hidden bg-muted">
                     {asset.imageUrl ? (
-                      <MediaPreview src={asset.imageUrl} kind={asset.kind} />
+                      <MediaPreview src={asset.imageUrl} kind={asset.kind} objectPosition={asset.coverPosition} />
                     ) : (
                       <ImageIcon className="h-5 w-5 text-muted-foreground" />
                     )}
@@ -353,19 +386,37 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
   );
 }
 
-function MediaPreview({ src, kind }: { src: string; kind: string }) {
+const POSITION_OPTIONS = [
+  { value: "top-left", label: "左上", css: "left top" },
+  { value: "top", label: "上", css: "center top" },
+  { value: "top-right", label: "右上", css: "right top" },
+  { value: "left", label: "左", css: "left center" },
+  { value: "center", label: "中央", css: "center center" },
+  { value: "right", label: "右", css: "right center" },
+  { value: "bottom-left", label: "左下", css: "left bottom" },
+  { value: "bottom", label: "下", css: "center bottom" },
+  { value: "bottom-right", label: "右下", css: "right bottom" },
+] as const;
+
+function MediaPreview({ src, kind, objectPosition }: { src: string; kind: string; objectPosition?: string }) {
+  const style = { objectPosition: objectPositionCss(objectPosition) };
   if (kind === "video") {
     return (
       <video
         src={src}
         className="h-full w-full object-cover"
+        style={style}
         muted
         playsInline
         preload="metadata"
       />
     );
   }
-  return <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />;
+  return <img src={src} alt="" className="h-full w-full object-cover" style={style} loading="lazy" />;
+}
+
+function objectPositionCss(value?: string) {
+  return POSITION_OPTIONS.find((option) => option.value === value)?.css ?? "center center";
 }
 
 function ShelfColumn({
