@@ -30,7 +30,6 @@ import {
   AXIS_LABEL_JP,
   PHASE_LABEL_JP,
   calculateAmdScore,
-  classifyPhase,
   type AlphaWeights,
   type AmdScoreAxis,
   type AmdScorePhase,
@@ -44,8 +43,6 @@ import type { VentureRow } from "@/lib/venture-map-data";
 // ============================================================
 
 const WORLD = 10; // 各軸 0-WORLD のワールド座標
-const AX_MAX_M = 1.3; // α_σ_SU
-const AX_MAX_F = 1.5; // α_FRL
 const AX_MAX_X = 1.0 + 0.6 + 0.3 + 0.2 + 1.1; // Σ α_xrl5 = 3.2
 
 // 等値面シェル (S = const 平面) の閾値
@@ -273,7 +270,6 @@ function clipPlaneToBox(
   const cx = intersections.reduce((acc, p) => acc + p[0], 0) / intersections.length;
   const cy = intersections.reduce((acc, p) => acc + p[1], 0) / intersections.length;
   const cz = intersections.reduce((acc, p) => acc + p[2], 0) / intersections.length;
-  const center = new THREE.Vector3(cx, cy, cz);
   const normal = new THREE.Vector3(a, b, c).normalize();
   // 平面内基底を作る
   const tmp = Math.abs(normal.x) < 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
@@ -655,13 +651,13 @@ function TitleBar() {
       }}
     >
       <div style={{ fontSize: 10, letterSpacing: 3, color: "#64748b", textShadow: "none" }}>
-        BEFORE ZERO THEORY · v3.2 · CYBERSPACE
+        LEGACY AMD COMPARISON · CYBERSPACE
       </div>
       <div style={{ fontSize: 18, letterSpacing: 2, marginTop: 2, fontWeight: 700 }}>
-        S = K · M · X · F
+        LEGACY S = K · M · X · F
       </div>
       <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4, textShadow: "none", letterSpacing: 1 }}>
-        Cobb-Douglas 7軸を 3 大要素 (マクロ × 会社 × CEO) に集約。等値面で AMD Score 等高線。
+        PRS primary の比較用に、legacy M × X × F を 3D 空間へ展開した view。
       </div>
     </div>
   );

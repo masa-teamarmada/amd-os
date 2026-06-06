@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * AMD Score モデル説明パネル — 紫枠 (Before Zero Theory v3.2)。
+ * Legacy AMD comparison モデル説明パネル。
  *
  * AMD Score 詳細ページ (/venture-map/amd-score/[projectId]) と
  * Retrofit ページ (/venture-map/amd-score/retrofit) の両方で同一のモデル構造を表示。
@@ -48,13 +48,13 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       <div className="relative mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-cyan-300/24 pb-3">
         <div>
           <div className="text-[16px] font-black uppercase tracking-[0.2em] text-cyan-100 drop-shadow-[0_0_14px_rgba(103,232,249,.72)]">
-            AMD SCORE MODEL CORE
+            LEGACY AMD COMPARISON CORE
           </div>
           <div className="mt-2 max-w-4xl text-[13px] font-semibold text-cyan-100/78">
-            Before Zero Theory v3.2 — <strong className="text-cyan-200">Macrotrend M</strong> ×{" "}
+            PRS primary の下に残す comparison layer。Before Zero Theory v3.2 の{" "}
+            <strong className="text-cyan-200">Macrotrend M</strong> ×{" "}
             <strong className="text-sky-300">XRL X</strong> ×{" "}
-            <strong className="text-rose-300">FRL F</strong> を Cobb-Douglas で統合。
-            世界課題の潮流、会社 readiness、founder readiness を同じ計器盤で読む。
+            <strong className="text-rose-300">FRL F</strong> を legacy AMD として読む。
           </div>
         </div>
         <div className="border border-pink-300/42 bg-pink-500/8 px-3 py-2 text-right font-mono text-[12px] font-black uppercase tracking-[0.12em] text-pink-200 shadow-[0_0_20px_rgba(244,114,182,.18)]">

@@ -73,38 +73,38 @@ bottleneck = argmax alpha_i / (X_i + 1)
 
 | route | 役割 |
 |---|---|
-| `/venture-map/amd-score` | 全 SU PJ の AMD Score 一覧 |
-| `/venture-map/amd-score/[projectId]` | 個別 score / M-X-F / 経時 / FRL panel |
-| `/venture-map/amd-score/retrofit` | alpha 重み調整 + retrofit。PRS候補の比較/シミュレーションも同じ画面に置く |
-| `/project/[projectId]/cockpit` | AMD Score chip / breakdown modal |
+| `/venture-map/amd-score` | 全 SU PJ の PRS primary 一覧。legacy AMD は comparison 列 |
+| `/venture-map/amd-score/[projectId]` | PRS primary 入力 / legacy M-X-F / 経時 / FRL panel |
+| `/venture-map/amd-score/retrofit` | PRS review queue + legacy alpha 調整 |
+| `/project/[projectId]/cockpit` | PRS primary status chip / legacy AMD comparison |
 
-## PRS候補 比較レイヤー
+## PRS primary
 
-PRS (`P x R x S`) は、現行7軸AMD Scoreの正式置換ではない。2026-06-01時点では `/venture-map/amd-score/retrofit` 上の比較/シミュレーション層として扱う。
+PRS (`P x R x S`) を主表示へ切り替えた。legacy 7軸 AMD Score / M×X×F は comparison と evidence 用に保持する。
 
 | 要素 | 実装上の扱い |
 |---|---|
-| `P` | Potential / 潜在規模。DB列は未採用。retrofit画面の保存しない仮入力でのみ試算する |
+| `P` | Potential / 潜在規模。`amd_score_inputs.prs_potential` に nullable で保存 |
 | `R` | Reach / Readiness。TRL / BRL / GRL / SRL / HRL の contribution product |
 | `S` | Survival。`sigma_SU` / FRL / `R_net` の contribution product |
-| `R_net` | 収益化指数。粗利 - 運営コスト - 本命から奪うリソース毀損。DB列は未採用 |
+| `R_net` | 収益化指数。粗利 - 運営コスト - 本命から奪うリソース毀損。`amd_score_inputs.prs_r_net` に nullable で保存 |
 
 実装ファイル:
 
 | file | 契約 |
 |---|---|
 | `pwa/src/lib/amd-score.ts` | `PRS_ALPHA_DEFAULT` / `calculatePrsScore()`。P/R_net missing 時は score を返さず `status='missing'` |
-| `pwa/src/lib/amd-score-derived.ts` | `derivePrsComponents()`。`amd_score_inputs` row と保存しない仮P/R_netからPRS候補を作る |
-| `pwa/src/components/venture-map/AmdScoreRetrofit.tsx` | 「PRS候補 比較レイヤー」。仮P/R_netをONにした時だけ全PJ共通の試算値を表に出す |
+| `pwa/src/lib/amd-score-derived.ts` | `derivePrsComponents()` / `buildPrimaryScoreSnapshot()`。stored P/R_net を優先し、主表示と legacy comparison を同じ row から作る |
+| `pwa/src/components/venture-map/AmdScoreView.tsx` | detail 上で P / R_net を保存し、PRS を primary、legacy AMD を comparison として表示 |
+| `pwa/src/components/venture-map/AmdScoreRetrofit.tsx` | PRS review queue。missing PJ の棚卸しと legacy α 比較 |
 
 禁止事項:
 
-- `calculateAmdScore()` の置換
-- `amd_score_inputs` への `p` / `r_net` 列追加
+- P/R_net missing を 0 扱いして primary score を偽装すること
+- PRS missing 時に legacy AMD を primary として見せること
 - 既存7軸の履歴再計算
-- PRS候補値の本番DB write
 
-正式採用・DB schema化・P/R_net rubric確定・9PJ retrofit表の確定は BZM review required。
+P/R_net rubric の厳密化と全 PJ の埋め切りは継続レビュー対象だが、UI 上の primary model は PRS とする。
 
 ## 変更ゲート
 

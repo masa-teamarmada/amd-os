@@ -1,7 +1,7 @@
 /**
  * AMD Score データアクセス層 (client-side)。
  *
- * - amd_score_inputs: PJ × 評価時点の 7 軸入力
+ * - amd_score_inputs: PJ × 評価時点の legacy 7 軸入力 + PRS primary review fields
  * - amd_score_alpha:  弾力性 α_i のバージョン管理
  *
  * 読みは anon (DEV_MODE)、書きは getAuthClient() (is_admin RLS)。
@@ -92,6 +92,8 @@ export interface AmdScoreInputRow {
   frl_cap_notes: string | null; // F_capability の根拠
   frl_ces_a: number | null;     // CES 資質側重み a (既定 0.6)
   frl_ces_rho: number | null;   // CES ρ (既定 -2)
+  prs_potential: number | null;
+  prs_r_net: number | null;
   // 各軸の評価根拠 (2026-05-09 追加)
   mu_notes: MuNotes | null;
   xrl_notes: XrlNotes | null;
@@ -110,7 +112,7 @@ export interface AmdScoreAlphaRow {
 }
 
 const INPUT_COLUMNS =
-  "id, project_id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, frl_cap, frl_cap_amd, frl_cap_notes, frl_ces_a, frl_ces_rho, mu_notes, xrl_notes, xrl_checklist, shallow_tech_mode, evaluator, notes";
+  "id, project_id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, frl_cap, frl_cap_amd, frl_cap_notes, frl_ces_a, frl_ces_rho, prs_potential, prs_r_net, mu_notes, xrl_notes, xrl_checklist, shallow_tech_mode, evaluator, notes";
 
 type RawInputRow = {
   id: string;
@@ -137,6 +139,8 @@ type RawInputRow = {
   frl_cap_notes: string | null;
   frl_ces_a: number | null;
   frl_ces_rho: number | null;
+  prs_potential: number | null;
+  prs_r_net: number | null;
   mu_notes: MuNotes | null;
   xrl_notes: XrlNotes | null;
   xrl_checklist: XrlChecklist | null;
@@ -171,6 +175,8 @@ function flattenInput(r: RawInputRow): AmdScoreInputRow {
     frl_cap_notes: r.frl_cap_notes,
     frl_ces_a: r.frl_ces_a,
     frl_ces_rho: r.frl_ces_rho,
+    prs_potential: r.prs_potential,
+    prs_r_net: r.prs_r_net,
     mu_notes: r.mu_notes ?? null,
     xrl_notes: r.xrl_notes ?? null,
     xrl_checklist: r.xrl_checklist ?? null,
@@ -233,6 +239,8 @@ export interface AmdScoreInputUpsert {
   frl_cap_notes?: string | null;
   frl_ces_a?: number | null;
   frl_ces_rho?: number | null;
+  prs_potential?: number | null;
+  prs_r_net?: number | null;
   mu_notes?: MuNotes | null;
   xrl_notes?: XrlNotes | null;
   xrl_checklist?: XrlChecklist | null;
@@ -270,6 +278,8 @@ export async function upsertAmdScoreInput(
     frl_cap_notes: input.frl_cap_notes ?? null,
     frl_ces_a: input.frl_ces_a ?? null,
     frl_ces_rho: input.frl_ces_rho ?? null,
+    prs_potential: input.prs_potential ?? null,
+    prs_r_net: input.prs_r_net ?? null,
     mu_notes: input.mu_notes ?? null,
     xrl_notes: input.xrl_notes ?? null,
     xrl_checklist: input.xrl_checklist ?? null,
@@ -288,6 +298,47 @@ export async function upsertAmdScoreInput(
     return null;
   }
   return flattenInput(data as RawInputRow);
+}
+
+export function toAmdScoreInputUpsert(
+  row: AmdScoreInputRow,
+  overrides: Partial<AmdScoreInputUpsert> = {}
+): AmdScoreInputUpsert {
+  return {
+    id: row.id,
+    project_id: row.project_id,
+    evaluated_at: row.evaluated_at,
+    mu_A: row.mu_A,
+    mu_I: row.mu_I,
+    mu_G: row.mu_G,
+    trl: row.trl,
+    brl: row.brl,
+    grl: row.grl,
+    srl: row.srl,
+    hrl: row.hrl,
+    frl: row.frl,
+    alq_self_awareness: row.alq_self_awareness,
+    alq_relational_transparency: row.alq_relational_transparency,
+    alq_balanced_processing: row.alq_balanced_processing,
+    alq_internalized_moral: row.alq_internalized_moral,
+    frl_grit: row.frl_grit,
+    frl_resilience: row.frl_resilience,
+    frl_notes: row.frl_notes,
+    frl_cap: row.frl_cap,
+    frl_cap_amd: row.frl_cap_amd,
+    frl_cap_notes: row.frl_cap_notes,
+    frl_ces_a: row.frl_ces_a,
+    frl_ces_rho: row.frl_ces_rho,
+    prs_potential: row.prs_potential,
+    prs_r_net: row.prs_r_net,
+    mu_notes: row.mu_notes,
+    xrl_notes: row.xrl_notes,
+    xrl_checklist: row.xrl_checklist,
+    shallow_tech_mode: row.shallow_tech_mode,
+    evaluator: row.evaluator,
+    notes: row.notes,
+    ...overrides,
+  };
 }
 
 export async function deleteAmdScoreInput(id: string): Promise<boolean> {

@@ -139,23 +139,23 @@ M / X / F / AMD Score / 律速軸を表示
 
 | 画面 | 役割 |
 |---|---|
-| `各 PJ cockpit` | 現在の score、M/X/F、XRL、経時グラフ |
-| `/venture-map/amd-score` | PJ / SU 一覧 |
-| `/venture-map/amd-score/{projectId}` | 詳細。式、M/X/F、FRL、根拠 notes、**XRL 観測チェックリスト** |
-| `/venture-map/amd-score/retrofit` | α 重み調整と simulation。PRS候補の比較試算もここで見る |
+| `各 PJ cockpit` | PRS primary status、legacy AMD comparison、XRL、経時グラフ |
+| `/venture-map/amd-score` | PJ / SU 一覧。主表示は PRS、legacy AMD は比較欄 |
+| `/venture-map/amd-score/{projectId}` | 詳細。PRS primary 入力、legacy M/X/F、FRL、根拠 notes、**XRL 観測チェックリスト** |
+| `/venture-map/amd-score/retrofit` | PRS review queue と legacy α 重み調整 |
 
-## PRS候補の比較試算
+## PRS primary
 
-`P x R x S` は新しいモデル候補で、現行7軸AMD Scoreの置き換えではない。画面上では `/venture-map/amd-score/retrofit` にだけ出し、現行scoreと横並びで見る。
+`P x R x S` を主表示に切り替えた。legacy 7軸 AMD Score は M/X/F comparison と evidence 用に残す。
 
 - `P`: Potential / 潜在規模
 - `R`: Reach / Readiness。TRL / BRL / GRL / SRL / HRL
 - `S`: Survival。σ_SU / FRL / R_net
 - `R_net`: 収益化指数。粗利 - 運営コスト - 本命から奪うリソース毀損
 
-2026-06-01時点では、P/R_net は正式DB列ではない。retrofit画面の「仮P/R_netで試算」をONにした時だけ、保存しない全PJ共通の仮値で候補scoreを出す。OFFの時やP/R_net未設定の時は `not enough data` と表示し、0点扱いにはしない。
+P / R_net は `amd_score_inputs.prs_potential` / `amd_score_inputs.prs_r_net` に nullable で保存する。未入力は `not enough data` ではなく「review pending」として扱い、0点に丸めたり legacy AMD を主表示へ戻したりしない。
 
-正式採用、P/R_net rubric、DB列追加、全PJの正式retrofit再計算は BZM review required。
+入力導線は各 PJ detail に置く。retrofit 画面は ready / missing を俯瞰し、legacy α を comparison として調整する。
 
 ## 関連設計 md
 

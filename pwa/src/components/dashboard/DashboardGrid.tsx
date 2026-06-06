@@ -209,10 +209,10 @@ function ProjectStripe({
           <div className="truncate text-foreground" title={rolesInline}>{rolesInline}</div>
         </div>
 
-        {/* === AMD Score + sparkline: col-span-3 === */}
+        {/* === Legacy AMD + sparkline: col-span-3 === */}
         <div className="col-span-3 flex items-center gap-2 border-l border-border/50 pl-3 min-w-0">
           <div className="flex flex-col shrink-0">
-            <div className="text-[9px] text-muted-foreground font-mono uppercase">AMD Score</div>
+            <div className="text-[9px] text-muted-foreground font-mono uppercase">Legacy AMD</div>
             <div className="flex items-baseline gap-1">
               <span className="text-lg font-bold leading-none">{lastScoreV != null ? formatScore(lastScoreV) : "—"}</span>
               {trend && <span className={`text-xs font-bold ${trendColor}`}>{trend}</span>}

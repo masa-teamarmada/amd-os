@@ -16,7 +16,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchVentureStatus,
-  computeCockpitAmdScoreSeries,
   confirmXrlObservation,
   type VentureStatusBundle,
   type ProjectEventRow,
@@ -25,8 +24,12 @@ import {
 } from "@/lib/venture-status-data";
 import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
 import { createClient } from "@/lib/supabase/client";
-import { ALPHA_DEFAULT, calculateAmdScore, type AlphaWeights } from "@/lib/amd-score";
-import { latestVisibleScorableScoreInput, computeAmdScoreSeries } from "@/lib/amd-score-derived";
+import { ALPHA_DEFAULT, type AlphaWeights } from "@/lib/amd-score";
+import {
+  buildPrimaryScoreSnapshot,
+  latestVisibleScorableScoreInput,
+  computeAmdScoreSeries,
+} from "@/lib/amd-score-derived";
 // PHASE_COLOR / PHASE_LABEL_JP / AmdScorePhase / classifyPhase は使用しない (検証データ蓄積後に復活検討、2026-05-09)
 import { CockpitVentureStatusEditModal } from "./CockpitVentureStatusEditModal";
 import { CockpitVentureMetaEditModal } from "./CockpitVentureMetaEditModal";
@@ -112,6 +115,7 @@ const MT = 24;
 const MB = 32;
 const PW = SVG_W - ML - MR;
 const PH = SVG_H - MT - MB;
+const SCORE_RANGE_FALLBACK_NOW = Date.UTC(2026, 5, 6);
 
 function dateToYearDecimal(iso: string): number {
   const m = iso.match(/^(\d{4})-(\d{2})/);
@@ -152,7 +156,6 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     const supabase = createClient();
     Promise.all([
       fetchVentureStatus(projectId),
@@ -275,7 +278,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
     : null;
   // Score 詳細ページと同じ軸思想: X は score series の評価日、Y は実データ範囲にフィット。
   const scoreRange = useMemo(() => {
-    const now = Date.now();
+    const now = SCORE_RANGE_FALLBACK_NOW;
     if (!scoreSeries.length) return { xMin: now - 30 * 86400000, xMax: now + 30 * 86400000 };
     const xs = scoreSeries.map((p) => new Date(p.date).getTime());
     const xMin = Math.min(...xs);
@@ -320,6 +323,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   // 現在のスコア (= 過去最新点 = today までで一番新しい input)
   const latestScore = pastSeries[pastSeries.length - 1]?.score;
   const latestInput = latestVisibleScorableScoreInput(amdInputs);
+  const primarySnapshot = latestInput ? buildPrimaryScoreSnapshot(latestInput, alpha) : null;
 
   // XRL 軸 (5 軸: TRL/BRL/GRL/SRL/HRL)
   const yOfXrl = (v: number) => MT + PH - (v / 9) * PH;
@@ -473,9 +477,9 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           <Link
             href={`/venture-map/amd-score/${projectId}`}
             className="text-[11px] font-mono px-2 py-0.5 rounded-full border border-dashed border-slate-300 text-muted-foreground hover:bg-slate-50"
-            title="AMD Score 未評価。クリックで入力"
+            title="PRS primary 入力待ち。クリックで入力"
           >
-            AMD: 未評価 →
+            PRS: 入力待ち →
           </Link>
         )}
       </div>
@@ -523,15 +527,26 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
       <div className="flex-1 min-w-0 px-2 pt-3">
         <div className="px-2 flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-[12px] font-semibold">
-            AMD スコア
+            Legacy AMD comparison
             <span className="ml-2 text-[9px] text-muted-foreground font-normal">linear scale / dynamic range</span>
           </h3>
           <div className="flex items-center gap-2 text-[10px]">
+            {primarySnapshot && (
+              <span className={`rounded-full px-2 py-0.5 font-semibold ${
+                primarySnapshot.prs.status === "ready"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-amber-50 text-amber-700"
+              }`}>
+                {primarySnapshot.prs.status === "ready" && primarySnapshot.prs.score != null
+                  ? `PRS ${primarySnapshot.prs.score < 1 ? primarySnapshot.prs.score.toFixed(2) : Math.round(primarySnapshot.prs.score).toLocaleString()}`
+                  : `PRS missing: ${primarySnapshot.prs.missingAxes.join(" / ")}`}
+              </span>
+            )}
             <Link
               href={`/venture-map/amd-score/${projectId}`}
               className="text-cyan-700 hover:underline"
             >
-              7 軸を編集 →
+              PRS / comparison を開く →
             </Link>
             <span className="text-muted-foreground">
               · グラフをタップでイベント追加 / ドットタップで編集

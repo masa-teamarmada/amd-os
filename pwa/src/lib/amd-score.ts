@@ -72,7 +72,7 @@ export const ALPHA_DEFAULT: AlphaWeights = {
   FRL: 1.5,
 };
 
-/** PRS candidate weights. P/R_net are provisional and require BZM review before formal adoption. */
+/** PRS primary weights. P/R_net inputs may remain missing until each PJ is reviewed. */
 export const PRS_ALPHA_DEFAULT: PrsScoreWeights = {
   P: 1.0,
   TRL: ALPHA_DEFAULT.TRL,
@@ -347,7 +347,7 @@ export function normalizeAlpha(raw: unknown): AlphaWeights {
 }
 
 // ============================================================
-// P x R x S candidate layer (comparison/simulation only)
+// P x R x S primary layer
 // ============================================================
 
 export interface PrsScoreInput {
@@ -391,16 +391,17 @@ export function sumPrsAlpha(weights: PrsScoreWeights = PRS_ALPHA_DEFAULT, includ
     .reduce((acc, axis) => acc + (weights[axis] ?? 0), 0);
 }
 
-/** PRS candidate K. Same IPO-target calibration, but with the 9-axis candidate weight sum. */
+/** PRS primary K. Same IPO-target calibration, but with the 9-axis weight sum. */
 export function computePrsK(weights: PrsScoreWeights = PRS_ALPHA_DEFAULT, shallowTechMode = false): number {
   return IPO_TARGET / Math.pow(10, sumPrsAlpha(weights, !shallowTechMode));
 }
 
 /**
- * Candidate PRS score.
+ * PRS primary score.
  *
- * This is a side-by-side retrofit/simulation layer. It does not replace calculateAmdScore(),
- * does not imply DB schema adoption, and refuses to emit a score when P/R_net are missing.
+ * PRS is now the primary model shown to operators. It still refuses to emit a score when
+ * P/R_net are missing so the UI can surface an explicit review state instead of silently
+ * falling back to the legacy AMD/MXF score.
  */
 export function calculatePrsScore(
   input: PrsScoreInput,

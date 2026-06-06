@@ -85,12 +85,26 @@ export interface PrsProvisionalInputs {
   R_net: number | null;
 }
 
+export function resolvePrsInputs(
+  row: Pick<AmdScoreInputRow, "prs_potential" | "prs_r_net">,
+  provisional: PrsProvisionalInputs = { P: null, R_net: null }
+): PrsProvisionalInputs {
+  return {
+    P: provisional.P != null && Number.isFinite(provisional.P) ? provisional.P : row.prs_potential ?? null,
+    R_net:
+      provisional.R_net != null && Number.isFinite(provisional.R_net)
+        ? provisional.R_net
+        : row.prs_r_net ?? null,
+  };
+}
+
 export function derivePrsComponents(
   row: AmdScoreInputRow,
   provisional: PrsProvisionalInputs = { P: null, R_net: null }
 ): PrsScoreResult {
+  const resolved = resolvePrsInputs(row, provisional);
   return calculatePrsScore({
-    P: provisional.P,
+    P: resolved.P,
     mu_A: row.mu_A ?? 0,
     mu_I: row.mu_I ?? 0,
     mu_G: row.mu_G ?? 0,
@@ -100,8 +114,27 @@ export function derivePrsComponents(
     SRL: row.srl ?? 0,
     HRL: row.hrl ?? 0,
     FRL: resolveFrl(row),
-    R_net: provisional.R_net,
+    R_net: resolved.R_net,
   });
+}
+
+export interface PrimaryScoreSnapshot {
+  legacy: AmdScoreResult;
+  legacyBreakdown: AmdScoreBreakdown;
+  prs: PrsScoreResult;
+}
+
+export function buildPrimaryScoreSnapshot(
+  row: AmdScoreInputRow,
+  alpha: AlphaWeights,
+  provisional: PrsProvisionalInputs = { P: null, R_net: null }
+): PrimaryScoreSnapshot {
+  const legacy = calculateAmdScoreForInput(row, alpha);
+  return {
+    legacy,
+    legacyBreakdown: breakdownFromResult(legacy),
+    prs: derivePrsComponents(row, provisional),
+  };
 }
 
 export function breakdownFromResult(result: AmdScoreResult): AmdScoreBreakdown {

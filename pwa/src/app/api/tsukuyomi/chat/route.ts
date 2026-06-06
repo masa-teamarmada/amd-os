@@ -17,7 +17,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { calculateAmdScore, classifyPhase, normalizeAlpha, ALPHA_DEFAULT, AXIS_LABEL_JP, PHASE_LABEL_JP, type AlphaWeights } from "@/lib/amd-score";
+import { calculateAmdScore, calculatePrsScore, classifyPhase, normalizeAlpha, AXIS_LABEL_JP, PHASE_LABEL_JP, type AlphaWeights } from "@/lib/amd-score";
 import { getLevelInfo, type XrlAxisKey } from "@/lib/xrl-level-definitions";
 
 export const runtime = "nodejs";
@@ -103,7 +103,10 @@ interface ProjectContext {
   narrative_text: string | null;
   amd_score: {
     latest_input: unknown | null;
-    latest_score: number | null;
+    prs_primary_score: number | null;
+    prs_status: "ready" | "missing" | "no_row";
+    prs_missing_axes: string[];
+    legacy_amd_score: number | null;
     phase_label: string | null;
     bottleneck_axis: string | null;
     alpha: AlphaWeights;
@@ -135,7 +138,7 @@ async function loadProjectContext(
     supabase.from("project_xrl_log").select("observed_at, trl, brl, grl, srl, hrl, bottleneck, milestone_label, source_note, source").eq("project_id", projectId).order("observed_at", { ascending: true }),
     supabase.from("project_pl_monthly").select("ym, revenue_yen, cogs_yen, personnel_yen, rd_yen, marketing_yen, other_opex_yen, notes").eq("project_id", projectId).order("ym", { ascending: true }),
     supabase.from("amd_score_inputs")
-      .select("id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, evaluator, notes")
+      .select("id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, prs_potential, prs_r_net, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, evaluator, notes")
       .eq("project_id", projectId).order("evaluated_at", { ascending: true }),
     supabase.from("amd_score_alpha").select("alpha").is("effective_to", null).order("effective_from", { ascending: false }).limit(1).maybeSingle(),
   ]);
@@ -165,12 +168,15 @@ async function loadProjectContext(
   // AMD Score 計算 (最新 input × active alpha)
   const alpha = normalizeAlpha((alphaRow as { alpha?: unknown } | null)?.alpha);
   const latestInput = (amdInputs ?? []).at(-1) ?? null;
-  let latestScore: number | null = null;
+  let prsPrimaryScore: number | null = null;
+  let prsStatus: "ready" | "missing" | "no_row" = "no_row";
+  let prsMissingAxes: string[] = [];
+  let legacyAmdScore: number | null = null;
   let phaseLabel: string | null = null;
   let bottleneckAxis: string | null = null;
   if (latestInput) {
     const li = latestInput as Record<string, number | boolean | null>;
-    const result = calculateAmdScore({
+    const legacyResult = calculateAmdScore({
       mu_A: (li.mu_a as number | null) ?? 0,
       mu_I: (li.mu_i as number | null) ?? 0,
       mu_G: (li.mu_g as number | null) ?? 0,
@@ -181,9 +187,25 @@ async function loadProjectContext(
       HRL: (li.hrl as number | null) ?? 0,
       FRL: (li.frl as number | null) ?? 0,
     }, alpha);
-    latestScore = result.score;
-    phaseLabel = PHASE_LABEL_JP[classifyPhase(result.score)];
-    bottleneckAxis = AXIS_LABEL_JP[result.bottleneck];
+    const prsResult = calculatePrsScore({
+      P: (li.prs_potential as number | null) ?? null,
+      mu_A: (li.mu_a as number | null) ?? 0,
+      mu_I: (li.mu_i as number | null) ?? 0,
+      mu_G: (li.mu_g as number | null) ?? 0,
+      TRL: (li.shallow_tech_mode as boolean) ? null : (li.trl as number | null) ?? 0,
+      BRL: (li.brl as number | null) ?? 0,
+      GRL: (li.grl as number | null) ?? 0,
+      SRL: (li.srl as number | null) ?? 0,
+      HRL: (li.hrl as number | null) ?? 0,
+      FRL: (li.frl as number | null) ?? 0,
+      R_net: (li.prs_r_net as number | null) ?? null,
+    });
+    prsPrimaryScore = prsResult.score;
+    prsStatus = prsResult.status;
+    prsMissingAxes = prsResult.missingAxes;
+    legacyAmdScore = legacyResult.score;
+    phaseLabel = PHASE_LABEL_JP[classifyPhase(legacyResult.score)];
+    bottleneckAxis = AXIS_LABEL_JP[legacyResult.bottleneck];
   }
 
   return {
@@ -207,7 +229,10 @@ async function loadProjectContext(
     narrative_text: (v.narrative_text as string | null) ?? null,
     amd_score: {
       latest_input: latestInput,
-      latest_score: latestScore,
+      prs_primary_score: prsPrimaryScore,
+      prs_status: prsStatus,
+      prs_missing_axes: prsMissingAxes,
+      legacy_amd_score: legacyAmdScore,
       phase_label: phaseLabel,
       bottleneck_axis: bottleneckAxis,
       alpha,
@@ -274,7 +299,7 @@ const TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "update_amd_score_input",
     description:
-      "AMD Score の 7 軸入力 (μ_A/I/G + 5 XRL + FRL/ALQ + 各軸 notes) を amd_score_inputs に upsert する。\n\n" +
+      "AMD Score の legacy 7 軸入力と PRS primary 入力 (P / R_net) を amd_score_inputs に upsert する。\n\n" +
       "## 各軸の正式定義 (内閣府 SIP / NASA 9 段階) — レベリング時は必ずこの定義に沿う\n\n" +
       "**TRL** (Technology Readiness Level, NASA Mankins 1995, 内閣府 SIP 互換):\n" +
       "  1=基本原理確認 / 2=技術概念定式化 / 3=実験的概念検証\n" +
@@ -324,6 +349,8 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         frl_grit: { type: "number", description: "Grit (集中力) 0-9 — 脇目も振らず長期目標に邁進する passion + perseverance (Duckworth 2007)" },
         frl_resilience: { type: "number", description: "Resilience (タフさ) 0-9 — VC 拒絶等の失敗からの回復力 (Markman 2005)" },
         frl_notes: { type: "string", description: "FRL 自由備考 (CEO 像、外部評価、Founder Network 効果、過去 SU 経験など)" },
+        prs_potential: { type: "number", description: "PRS primary の P (Potential) 0-9。未確定なら送らない" },
+        prs_r_net: { type: "number", description: "PRS primary の R_net 0-9。粗利 - 運営コスト - 本命から奪うリソース毀損。" },
         shallow_tech_mode: { type: "boolean", description: "Shallow Tech モード (独自技術なし SU で TRL 軸を計算から除外)" },
         notes: { type: "string", description: "全体に対する備考" },
         reason: { type: "string", description: "なぜこう更新したか、まさへの 1 行報告" },
@@ -934,7 +961,7 @@ async function executeTool(
     // 既存 row 取得 (部分上書き)
     const { data: existing } = await supabase
       .from("amd_score_inputs")
-      .select("id, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, notes")
+      .select("id, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, prs_potential, prs_r_net, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, notes")
       .eq("project_id", projectId)
       .eq("evaluated_at", evaluated_at_iso)
       .maybeSingle();
@@ -973,6 +1000,8 @@ async function executeTool(
       frl_grit: typeof input.frl_grit === "number" ? input.frl_grit : existingRow?.frl_grit ?? null,
       frl_resilience: typeof input.frl_resilience === "number" ? input.frl_resilience : existingRow?.frl_resilience ?? null,
       frl_notes: typeof input.frl_notes === "string" ? input.frl_notes : existingRow?.frl_notes ?? null,
+      prs_potential: typeof input.prs_potential === "number" ? input.prs_potential : existingRow?.prs_potential ?? null,
+      prs_r_net: typeof input.prs_r_net === "number" ? input.prs_r_net : existingRow?.prs_r_net ?? null,
       mu_notes: muNotes,
       xrl_notes: xrlNotes,
       shallow_tech_mode: typeof input.shallow_tech_mode === "boolean" ? input.shallow_tech_mode : existingRow?.shallow_tech_mode ?? false,

@@ -20,14 +20,13 @@ import {
   ALPHA_DEFAULT,
   AMD_SCORE_AXES,
   AXIS_COLOR,
-  PRS_ALPHA_DEFAULT,
   calculateAmdScore,
   computeK,
   sumAlpha,
   type AlphaWeights,
 } from "@/lib/amd-score";
 import { saveNewAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
-import { derivePrsComponents, resolveFrl, type PrsProvisionalInputs } from "@/lib/amd-score-derived";
+import { derivePrsComponents, resolveFrl } from "@/lib/amd-score-derived";
 import type { VentureRow } from "@/lib/venture-map-data";
 import { Tex } from "@/components/venture-map/Tex";
 import { AmdScoreFormulaPanel } from "@/components/venture-map/AmdScoreFormulaPanel";
@@ -49,16 +48,8 @@ interface PjRow {
 
 export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
   const [alpha, setAlpha] = useState<AlphaWeights>(initialAlpha);
-  const [usePrsScenario, setUsePrsScenario] = useState(false);
-  const [provisionalP, setProvisionalP] = useState(5);
-  const [provisionalRNet, setProvisionalRNet] = useState(0);
   const [saving, startSaving] = useTransition();
   const [feedback, setFeedback] = useState<string | null>(null);
-
-  const prsProvisional = useMemo<PrsProvisionalInputs>(
-    () => (usePrsScenario ? { P: provisionalP, R_net: provisionalRNet } : { P: null, R_net: null }),
-    [usePrsScenario, provisionalP, provisionalRNet]
-  );
 
   const rows: PjRow[] = useMemo(() => {
     const byPj = new Map<string, AmdScoreInputRow[]>();
@@ -87,14 +78,14 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
         };
         currentScore = calculateAmdScore(baseInput, initialAlpha).score;
         newScore = calculateAmdScore(baseInput, alpha).score;
-        prs = derivePrsComponents(latest, prsProvisional);
+        prs = derivePrsComponents(latest);
       }
       return { venture: v, latest, currentScore, newScore, prs };
     });
-  }, [ventures, inputs, initialAlpha, alpha, prsProvisional]);
+  }, [ventures, inputs, initialAlpha, alpha]);
 
   const sorted = useMemo(() => {
-    return [...rows].sort((a, b) => (b.newScore ?? 0) - (a.newScore ?? 0));
+    return [...rows].sort((a, b) => prsRowSortValue(b) - prsRowSortValue(a));
   }, [rows]);
 
   const isModified = AMD_SCORE_AXES.some((a) => alpha[a] !== initialAlpha[a]);
@@ -116,77 +107,38 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6">
       <div className="flex items-baseline gap-3 mb-4 flex-wrap">
         <Link href="/venture-map/amd-score" className="text-xs text-cyan-700 hover:underline">← AMD Score 一覧</Link>
-        <h1 className="text-xl font-semibold ml-2">AMD Score Retrofit</h1>
+        <h1 className="text-xl font-semibold ml-2">PRS Review / Legacy Alpha</h1>
         <span className="text-xs text-muted-foreground">
-          α 重み調整 + 全 PJ シミュレーション
+          PRS primary review queue + legacy AMD alpha simulation
         </span>
       </div>
 
       <div className="text-[10.5px] text-slate-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4 leading-relaxed">
-        ⚠️ <strong>α は全 PJ のスコアに同時に効く重要パラメータ</strong>。日常 UI に出さず、ここで慎重に調整する設計
+        ⚠️ <strong>α は legacy AMD comparison にだけ効く重要パラメータ</strong>。日常 UI に出さず、ここで慎重に調整する設計
         (まさ判断 2026-05-09)。下のスライダーを動かすと右の表で全 PJ の score がリアルタイム更新されるので、
-        retrofit (過去 PJ の設立タイミング判定が当たるか) を見ながら選ぶ。
+        retrofit (過去 PJ の設立タイミング判定が当たるか) を見ながら legacy 側の重みを比較できる。
       </div>
 
       <div className="mb-4 border border-sky-200 bg-sky-50 px-3 py-3 text-[11px] leading-relaxed text-slate-800">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-[12px] font-semibold text-slate-950">PRS候補 比較レイヤー</div>
+            <div className="text-[12px] font-semibold text-slate-950">PRS primary review queue</div>
             <div className="mt-1 max-w-3xl">
-              現行7軸AMD Scoreはそのまま維持。ここでは候補式{" "}
+              主表示は{" "}
               <span className="font-mono">score = k × P × R × S</span>{" "}
-              を、保存しない仮入力で横並び試算する。P/R_net が未設定のPJは score を出さず、not enough data として扱う。
+              に切り替えた。P/R_net は最新 `amd_score_inputs` 行に保存し、未入力の PJ は score を出さず review queue として残す。
             </div>
           </div>
-          <label className="flex items-center gap-2 text-[11px] font-semibold">
-            <input
-              type="checkbox"
-              checked={usePrsScenario}
-              onChange={(event) => setUsePrsScenario(event.target.checked)}
-            />
-            仮P/R_netで試算
-          </label>
         </div>
 
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[220px_220px_1fr]">
-          <label className="block">
-            <div className="mb-1 flex items-center justify-between">
-              <span className="font-semibold">P Potential</span>
-              <span className="font-mono">{provisionalP.toFixed(1)}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={9}
-              step={0.5}
-              value={provisionalP}
-              disabled={!usePrsScenario}
-              onChange={(event) => setProvisionalP(Number(event.target.value))}
-              className="w-full"
-            />
-          </label>
-          <label className="block">
-            <div className="mb-1 flex items-center justify-between">
-              <span className="font-semibold">R_net 収益化指数</span>
-              <span className="font-mono">{provisionalRNet.toFixed(1)}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={9}
-              step={0.5}
-              value={provisionalRNet}
-              disabled={!usePrsScenario}
-              onChange={(event) => setProvisionalRNet(Number(event.target.value))}
-              className="w-full"
-            />
-          </label>
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr]">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-600">
-            <span>weights: αP={PRS_ALPHA_DEFAULT.P}</span>
-            <span>αR_net={PRS_ALPHA_DEFAULT.R_net}</span>
             <span>ready {prsReadyCount}</span>
             <span>missing {prsMissingCount}</span>
-            <span>BZM review required / DB schema未採用</span>
+            <span>入力は各 PJ detail で保存</span>
+          </div>
+          <div className="text-[10px] text-slate-600">
+            missing の PJ は detail で P / R_net を保存すると queue から外れる。legacy AMD は下段で comparison としてだけ見る。
           </div>
         </div>
       </div>
@@ -204,7 +156,7 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4">
         {/* 左: α 編集 */}
         <aside className="border border-[#e5e5e7] rounded-xl p-4 bg-white h-fit lg:sticky lg:top-4">
-          <div className="text-[12px] font-semibold mb-1">重み α (弾力性)</div>
+          <div className="text-[12px] font-semibold mb-1">Legacy AMD α (比較用)</div>
           <div className="text-[10px] text-muted-foreground mb-3 flex flex-wrap items-center gap-1">
             <span>各軸 0.0-2.0 (0.05 刻み)。</span>
             <Tex tex={String.raw`\Sigma \alpha`} />
@@ -301,9 +253,9 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
         {/* 右: 全 PJ シミュレーション */}
         <div className="border border-[#e5e5e7] rounded-xl overflow-hidden bg-white">
           <div className="px-3 py-2 border-b border-[#e5e5e7] flex items-baseline justify-between">
-            <div className="text-[12px] font-semibold">全 PJ × α シミュレーション</div>
+            <div className="text-[12px] font-semibold">PRS primary queue / legacy alpha simulation</div>
             <div className="text-[10px] text-muted-foreground">
-              新 α 順、現役 α score → 新 α score、差分%
+              ready は PRS 優先。legacy AMD は comparison only。
             </div>
           </div>
           <table className="w-full text-xs">
@@ -311,18 +263,19 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
               <tr>
                 <th className="text-left px-3 py-2">PJ</th>
                 <th className="text-left px-3 py-2">Lane</th>
+                <th className="text-right px-3 py-2 font-mono">PRS primary</th>
+                <th className="text-left px-3 py-2">P/R/S</th>
+                <th className="text-left px-3 py-2">入力状態</th>
                 <th className="text-right px-3 py-2 font-mono">現役 α score</th>
                 <th className="text-right px-3 py-2 font-mono">新 α score</th>
                 <th className="text-right px-3 py-2 font-mono">差分</th>
-                <th className="text-right px-3 py-2 font-mono">PRS候補</th>
-                <th className="text-left px-3 py-2">P/R/S</th>
                 <th className="text-left px-3 py-2">最終評価</th>
               </tr>
             </thead>
             <tbody>
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-4 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-3 py-4 text-center text-muted-foreground">
                     該当 PJ なし
                   </td>
                 </tr>
@@ -354,6 +307,38 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
                       {r.venture.lane}
                     </td>
                     <td className="px-3 py-2 text-right font-mono">
+                      {r.prs?.status === "ready" && r.prs.score != null
+                        ? r.prs.score < 1
+                          ? r.prs.score.toFixed(2)
+                          : Math.round(r.prs.score).toLocaleString()
+                        : r.latest
+                          ? "review pending"
+                          : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-[10px] text-muted-foreground">
+                      {r.prs?.status === "ready" && r.prs.components ? (
+                        <span className="font-mono">
+                          {fmtPrsComponent(r.prs.components.potential)} / {fmtPrsComponent(r.prs.components.reach)} /{" "}
+                          {fmtPrsComponent(r.prs.components.survival)}
+                        </span>
+                      ) : r.prs?.status === "missing" ? (
+                        <span>missing: {r.prs.missingAxes.join(", ")}</span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-[10px] text-muted-foreground">
+                      {r.prs?.status === "ready" ? (
+                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">ready</span>
+                      ) : r.prs?.status === "missing" ? (
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">
+                          {r.prs.missingAxes.join(" / ")} 待ち
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono">
                       {cur != null
                         ? cur < 1
                           ? cur.toFixed(2)
@@ -374,27 +359,6 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
                       {diffPct == null
                         ? "—"
                         : `${diffPct > 0 ? "+" : ""}${diffPct.toFixed(1)}%`}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono">
-                      {r.prs?.status === "ready" && r.prs.score != null
-                        ? r.prs.score < 1
-                          ? r.prs.score.toFixed(2)
-                          : Math.round(r.prs.score).toLocaleString()
-                        : r.latest
-                          ? "not enough data"
-                          : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-[10px] text-muted-foreground">
-                      {r.prs?.status === "ready" && r.prs.components ? (
-                        <span className="font-mono">
-                          {fmtPrsComponent(r.prs.components.potential)} / {fmtPrsComponent(r.prs.components.reach)} /{" "}
-                          {fmtPrsComponent(r.prs.components.survival)}
-                        </span>
-                      ) : r.prs?.status === "missing" ? (
-                        <span>missing: {r.prs.missingAxes.join(", ")}</span>
-                      ) : (
-                        "—"
-                      )}
                     </td>
                     <td className="px-3 py-2 font-mono text-[10px] text-muted-foreground">
                       {r.latest?.evaluated_at.slice(0, 10) ?? "未登録"}
@@ -421,4 +385,9 @@ function fmtPrsComponent(value: number) {
   if (value < 10) return value.toFixed(1);
   if (value < 1000) return value.toFixed(0);
   return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+
+function prsRowSortValue(row: PjRow) {
+  if (row.prs?.status === "ready" && row.prs.score != null) return 1_000_000 + row.prs.score;
+  return row.newScore ?? -1;
 }

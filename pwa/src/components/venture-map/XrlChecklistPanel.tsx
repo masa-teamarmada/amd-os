@@ -18,6 +18,7 @@ import {
   type XrlAxisKey,
 } from "@/lib/xrl-level-definitions";
 import {
+  toAmdScoreInputUpsert,
   upsertAmdScoreInput,
   type AmdScoreInputRow,
   type XrlChecklist,
@@ -94,33 +95,15 @@ export function XrlChecklistPanel({ projectId, latestInput, onSaved }: Props) {
     }
     setPhase("saving");
     // 達成レベルを生値にも反映 (チェックリストが値の根拠になる)
-    const r = await upsertAmdScoreInput({
-      id: latestInput.id,
+    const r = await upsertAmdScoreInput(toAmdScoreInputUpsert(latestInput, {
       project_id: projectId,
-      evaluated_at: latestInput.evaluated_at,
-      mu_A: latestInput.mu_A,
-      mu_I: latestInput.mu_I,
-      mu_G: latestInput.mu_G,
       trl: derivedLevels.trl,
       brl: derivedLevels.brl,
       grl: derivedLevels.grl,
       srl: derivedLevels.srl,
       hrl: derivedLevels.hrl,
-      frl: latestInput.frl,
-      alq_self_awareness: latestInput.alq_self_awareness,
-      alq_relational_transparency: latestInput.alq_relational_transparency,
-      alq_balanced_processing: latestInput.alq_balanced_processing,
-      alq_internalized_moral: latestInput.alq_internalized_moral,
-      frl_grit: latestInput.frl_grit,
-      frl_resilience: latestInput.frl_resilience,
-      frl_notes: latestInput.frl_notes,
-      mu_notes: latestInput.mu_notes,
-      xrl_notes: latestInput.xrl_notes,
       xrl_checklist: checklist,
-      shallow_tech_mode: latestInput.shallow_tech_mode,
-      evaluator: latestInput.evaluator,
-      notes: latestInput.notes,
-    });
+    }));
     if (r) {
       setPhase("done");
       setDirty(false);

@@ -1148,7 +1148,7 @@ function ScoreVector({ x, f, m }: { x: number; f: number; m: number }) {
   const pmX = 50 + Math.cos(Math.PI / 6) * (m / 100) * 34;
   const pmY = 52 + Math.sin(Math.PI / 6) * (m / 100) * 34;
   return (
-    <HudPanel title="AMD Score Vector" code="DETAIL">
+    <HudPanel title="Legacy AMD Vector" code="DETAIL">
       <Link href="/hud/venture-map/amd-score/retrofit" className="absolute right-4 top-4 z-10 border border-cyan-300/35 bg-cyan-300/8 px-2 py-1 font-mono text-[10px] font-black uppercase text-cyan-100 hover:bg-cyan-300/15">
         Detail
       </Link>

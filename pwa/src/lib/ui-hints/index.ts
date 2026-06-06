@@ -112,8 +112,8 @@ export const UI_HINTS: Record<string, UiHint> = {
   // ──────────────────────────────────────
   "cockpit.amd-score.pill": {
     id: "cockpit.amd-score.pill",
-    title: "現在の AMD スコア",
-    body: "AMD Score = Cobb-Douglas 計算による PJ 総合評価。alpha 重み × 7 軸 (μ_A, μ_I, μ_G, TRL, BRL, GRL, SRL, HRL, FRL_grit, FRL_resilience) の幾何平均。",
+    title: "PRS primary / legacy comparison",
+    body: "cockpit では PRS を primary status として見せ、折れ線と大きい数値は legacy AMD comparison を保持する。P/R_net が無ければ primary score は出さない。",
     docHref: "/manual/03-data-and-extraction#18-xrl-根拠",
   },
   "cockpit.amd-score.future-dot": {

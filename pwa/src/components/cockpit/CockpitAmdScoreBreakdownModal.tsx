@@ -45,7 +45,7 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-4 py-3 border-b border-[#e5e5e7] flex items-center justify-between">
-          <h3 className="text-sm font-semibold">AMD スコアの内訳</h3>
+          <h3 className="text-sm font-semibold">Legacy AMD comparison の内訳</h3>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
             ✕
           </button>
@@ -55,7 +55,7 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
           {/* 数式と律速の根拠は詳細ページに移設済み (2026-05-09)。モーダルでは値の内訳のみ表示。 */}
           <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-2 leading-relaxed flex items-center justify-between gap-3">
             <div>
-              <strong>マクロ M × 会社の XRL X × CEO の FRL F</strong> の 3 大要素を統合 (Before Zero Theory v3.2)。
+              <strong>PRS primary の下に残している legacy AMD comparison</strong>。マクロ M × 会社の XRL X × CEO の FRL F を比較用に読む。
               数式・律速の経済学的根拠は詳細ページに記載。
             </div>
             <Link

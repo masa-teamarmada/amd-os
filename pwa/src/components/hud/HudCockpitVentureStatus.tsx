@@ -26,7 +26,11 @@ import {
   type ProjectXrlRow,
 } from "@/lib/venture-status-data";
 import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
-import { buildAaaScoreInputsFromSx, latestVisibleScorableScoreInput } from "@/lib/amd-score-derived";
+import {
+  buildAaaScoreInputsFromSx,
+  buildPrimaryScoreSnapshot,
+  latestVisibleScorableScoreInput,
+} from "@/lib/amd-score-derived";
 import { AAA_PROJECT_ID, aaaVenture } from "@/lib/demo-aaa-data";
 import { createClient } from "@/lib/supabase/client";
 import { ALPHA_DEFAULT, type AlphaWeights } from "@/lib/amd-score";
@@ -278,6 +282,7 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
   // 現在のスコア (最新点)
   const latestScore = scoreSeries[scoreSeries.length - 1]?.score;
   const latestInput = latestVisibleScorableScoreInput(amdInputs);
+  const primarySnapshot = latestInput ? buildPrimaryScoreSnapshot(latestInput, alpha) : null;
 
   // XRL 軸 (5 軸: TRL/BRL/GRL/SRL/HRL)
   const yOfXrl = (v: number) => MT + PH - (v / 9) * PH;
@@ -431,9 +436,9 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
           <Link
             href={`/venture-map/amd-score/${projectId}`}
             className="border border-dashed border-cyan-300/30 px-2 py-0.5 font-mono text-[11px] text-cyan-100/62 hover:bg-cyan-300/8"
-            title="AMD Score 未評価。クリックで入力"
+            title="PRS primary 入力待ち。クリックで入力"
           >
-            AMD: 未評価 →
+            PRS: 入力待ち →
           </Link>
         )}
       </div>
@@ -477,15 +482,26 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
       <div className="relative px-2 pt-3">
         <div className="flex flex-wrap items-center justify-between gap-2 px-2">
           <h3 className="text-[12px] font-black uppercase tracking-[0.14em] text-cyan-100">
-            AMD スコア
+            Legacy AMD comparison
             <span className="ml-2 text-[9px] font-normal normal-case tracking-normal text-cyan-100/45">log scale / dynamic range</span>
           </h3>
           <div className="flex items-center gap-2 text-[10px]">
+            {primarySnapshot && (
+              <span className={`border px-2 py-0.5 font-black ${
+                primarySnapshot.prs.status === "ready"
+                  ? "border-emerald-300/40 bg-emerald-300/10 text-emerald-100"
+                  : "border-amber-300/40 bg-amber-300/10 text-amber-100"
+              }`}>
+                {primarySnapshot.prs.status === "ready" && primarySnapshot.prs.score != null
+                  ? `PRS ${primarySnapshot.prs.score < 1 ? primarySnapshot.prs.score.toFixed(2) : Math.round(primarySnapshot.prs.score).toLocaleString()}`
+                  : `PRS missing: ${primarySnapshot.prs.missingAxes.join(" / ")}`}
+              </span>
+            )}
             <Link
               href={`/venture-map/amd-score/${projectId}`}
               className="border border-cyan-300/30 bg-cyan-300/8 px-2 py-0.5 font-black text-cyan-100 hover:bg-cyan-300/14"
             >
-              SCORE DETAIL →
+              PRS DETAIL →
             </Link>
             <span className="text-cyan-100/45">
               · グラフクリックで詳細解析

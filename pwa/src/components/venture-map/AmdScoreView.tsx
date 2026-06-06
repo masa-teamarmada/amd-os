@@ -27,12 +27,20 @@ import {
   type AmdScoreAxis,
   type AmdScoreResult,
 } from "@/lib/amd-score";
-import { fetchActiveAlpha, fetchAmdScoreInputs, type AmdScoreInputRow } from "@/lib/amd-score-data";
+import {
+  fetchActiveAlpha,
+  fetchAmdScoreInputs,
+  toAmdScoreInputUpsert,
+  type AmdScoreInputRow,
+  upsertAmdScoreInput,
+} from "@/lib/amd-score-data";
 import {
   breakdownFromResult,
+  buildPrimaryScoreSnapshot,
   buildAaaScoreInputsFromSx,
   computeAmdScoreSeries,
   latestVisibleScorableScoreInput,
+  resolveFrl,
 } from "@/lib/amd-score-derived";
 import type { VentureRow, XrlLogRow } from "@/lib/venture-map-data";
 import type { AtlasMacroSignals } from "@/lib/atlas-macro-signals";
@@ -220,6 +228,7 @@ export function AmdScoreView({
 }: Props) {
   const [alpha, setAlpha] = useState(initialAlpha);
   const [scoreInputs, setScoreInputs] = useState(inputs);
+  const [prsSaveState, setPrsSaveState] = useState<"idle" | "saving" | "done" | "error">("idle");
 
   useEffect(() => {
     let cancelled = false;
@@ -245,7 +254,7 @@ export function AmdScoreView({
   const latest = latestVisibleScorableScoreInput(scoreInputs);
   // editable は表示用に latest から固定 (setEditable しない、Tsukuyomi が DB を更新したら window reload で反映)
   const editable: EditableInput = latest ? rowToEditable(latest) : emptyEditable();
-  const effectiveFrl = editable.frl;
+  const effectiveFrl = latest ? resolveFrl(latest) : editable.frl;
 
   // ---- 経時データ ----
   const series = useMemo(() => {
@@ -254,6 +263,29 @@ export function AmdScoreView({
   const latestPoint = series.find((point) => point.id === latest?.id) ?? series[series.length - 1] ?? null;
   const result = latestPoint?.result;
   const latestBreakdown = result ? breakdownFromResult(result) : null;
+  const primarySnapshot = useMemo(
+    () => (latest ? buildPrimaryScoreSnapshot(latest, alpha) : null),
+    [latest, alpha]
+  );
+
+  async function savePrsInputs(prsPotentialDraft: string, prsRNetDraft: string) {
+    if (!latest) return;
+    setPrsSaveState("saving");
+    const prsPotential = parseNullablePrsValue(prsPotentialDraft);
+    const prsRNet = parseNullablePrsValue(prsRNetDraft);
+    const saved = await upsertAmdScoreInput(
+      toAmdScoreInputUpsert(latest, {
+        prs_potential: prsPotential,
+        prs_r_net: prsRNet,
+      })
+    );
+    if (!saved) {
+      setPrsSaveState("error");
+      return;
+    }
+    setScoreInputs((prev) => prev.map((row) => (row.id === saved.id ? saved : row)));
+    setPrsSaveState("done");
+  }
 
   if (!result || !latestBreakdown) {
     return (
@@ -278,12 +310,12 @@ export function AmdScoreView({
             ↩ コックピット
           </Link>
           <h1 className="ml-2 text-2xl font-bold tracking-tight text-slate-900">{venture.display_name}</h1>
-          <span className="text-xs font-semibold tracking-wide text-slate-500">AMD Score 詳細</span>
+          <span className="text-xs font-semibold tracking-wide text-slate-500">PRS primary / legacy AMD</span>
           <Link
             href="/venture-map/amd-score/retrofit"
             className="ml-auto rounded-md border border-pink-200 bg-pink-50 px-3 py-1 text-[11px] font-semibold tracking-wide text-pink-700 hover:bg-pink-100"
           >
-            α retrofit →
+            legacy α / review →
           </Link>
         </div>
       )}
@@ -294,6 +326,21 @@ export function AmdScoreView({
       </div>
 
       <div className="flex flex-col gap-4">
+        {primarySnapshot && (
+          <PrimaryPrsHeroCard
+            key={`${latest?.id ?? "no-row"}:${latest?.prs_potential ?? "null"}:${latest?.prs_r_net ?? "null"}`}
+            venture={venture}
+            primary={primarySnapshot}
+            onSave={savePrsInputs}
+            saveState={prsSaveState}
+          />
+        )}
+        <div className="rounded-xl border border-slate-200 bg-slate-950 px-4 py-3 text-[11px] leading-relaxed text-cyan-50 shadow-sm">
+          <div className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-cyan-200">LEGACY AMD COMPARISON</div>
+          <div className="mt-1 text-cyan-50/78">
+            下の M × X × F / FRL / XRL / 経時グラフは legacy AMD を comparison と evidence 用に残したもの。主表示は上の PRS で、ここを primary として読まない。
+          </div>
+        </div>
         {/* 順序: スコア → 経時 → 3 要素のバランス → 数式 → 3 要素詳細 → FRL レーダー
             (まさ 2026-05-12: 「経時グラフはスコアと 3 要素のバランスの間に置く」指示。
              AmdScoreView 初版 09dce20 から TimeSeriesChart は Factor3Breakdown の下にあったが、
@@ -358,7 +405,7 @@ function ScoreHeroCard({
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-baseline justify-between gap-4 mb-3">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">AMD Score</div>
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Legacy AMD</div>
           <div className="font-mono text-5xl font-bold leading-none" style={{ color: scoreColor }}>
             {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
           </div>
@@ -448,11 +495,11 @@ function BalanceBar({
   const Mscale = Math.max(20, Math.ceil((M * 1.25) / 5) * 5);
 
   return (
-    <div className="relative h-full min-h-[278px] overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="relative h-full min-h-[278px] overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
       <div className="relative mb-3 flex items-start justify-between gap-2 border-b border-slate-200 pb-2">
         <div>
-          <div className="text-[13px] font-bold uppercase tracking-wide text-slate-900">M / X / F バランス</div>
-          <div className="mt-1 text-[10px] font-medium text-slate-500">raw contribution (M は理論最大なし)</div>
+          <div className="text-[13px] font-bold uppercase tracking-wide text-slate-900">Legacy M / X / F バランス</div>
+          <div className="mt-1 text-[10px] font-medium text-slate-500">comparison only (M は理論最大なし)</div>
         </div>
         <div className="rounded-md border border-pink-200 bg-pink-50 px-2 py-1 text-right font-mono text-[10px] font-semibold text-pink-700">
           LIVE
@@ -1059,7 +1106,7 @@ function TimeSeriesChart({
   return (
     <div className="relative h-full min-h-[278px] overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
       <div className="relative mb-2 flex items-center gap-2 border-b border-slate-200 pb-2 text-[11px] text-slate-600">
-        <span className="font-bold tracking-wide text-slate-900">AMD Score 経時推移</span>
+        <span className="font-bold tracking-wide text-slate-900">Legacy AMD 経時比較</span>
         <span className="text-[10px] text-slate-400">クリックで詳細</span>
         {active && (
           <button
@@ -1228,7 +1275,7 @@ function ScorePopup({
           ×
         </button>
       </div>
-      <div className="text-[10px] text-slate-500">AMD Score S</div>
+      <div className="text-[10px] text-slate-500">Legacy AMD S</div>
       <div className="font-mono text-2xl font-bold text-slate-900 leading-none">
         {fmt(point.score)}
       </div>
@@ -1255,6 +1302,132 @@ function ScorePopup({
       </div>
     </div>
   );
+}
+
+function PrimaryPrsHeroCard({
+  venture,
+  primary,
+  onSave,
+  saveState,
+}: {
+  venture: VentureRow;
+  primary: ReturnType<typeof buildPrimaryScoreSnapshot>;
+  onSave: (prsPotentialDraft: string, prsRNetDraft: string) => void;
+  saveState: "idle" | "saving" | "done" | "error";
+}) {
+  const [prsPotentialDraft, setPrsPotentialDraft] = useState(
+    primary.prs.axisValues.P != null ? String(primary.prs.axisValues.P) : ""
+  );
+  const [prsRNetDraft, setPrsRNetDraft] = useState(
+    primary.prs.axisValues.R_net != null ? String(primary.prs.axisValues.R_net) : ""
+  );
+  const fmt = (value: number | null) => {
+    if (value == null || !Number.isFinite(value)) return "—";
+    return value < 1 ? value.toFixed(2) : Math.round(value).toLocaleString();
+  };
+  const ready = primary.prs.status === "ready" && primary.prs.score != null;
+  const missingText = primary.prs.missingAxes.length > 0 ? primary.prs.missingAxes.join(" / ") : "P / R_net";
+  const potentialValue = primary.prs.axisValues.P;
+  const rNetValue = primary.prs.axisValues.R_net;
+  return (
+    <section className="rounded-xl border border-emerald-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">PRS Primary</div>
+          <div className="mt-1 text-4xl font-mono font-bold leading-none text-slate-950">
+            {ready ? fmt(primary.prs.score) : "INPUT NEEDED"}
+          </div>
+          <div className="mt-2 text-[11px] text-slate-600">
+            {ready
+              ? "score = k × P × R × S を主表示。legacy AMD/MXF は比較用。"
+              : `主モデルは PRS だけど、${missingText} が未入力なので score を出さず review 待ちで止めてる。`}
+          </div>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right text-[11px] text-slate-600">
+          <div className="font-semibold text-slate-900">Legacy AMD comparison</div>
+          <div className="mt-1 font-mono text-lg text-slate-900">{fmt(primary.legacy.score)}</div>
+          <div className="mt-1">lane: <span className="font-mono">{venture.lane}</span></div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded-lg border border-slate-200 bg-emerald-50/40 px-4 py-3 text-[11px] leading-relaxed text-slate-700">
+          <div className="font-semibold text-slate-900">Primary inputs</div>
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="font-semibold">P Potential</span>
+                <span className="font-mono text-slate-500">{prsPotentialDraft || "—"}</span>
+              </div>
+              <input
+                type="number"
+                min={0}
+                max={9}
+                step={0.5}
+                value={prsPotentialDraft}
+                onChange={(event) => setPrsPotentialDraft(event.target.value)}
+                placeholder="0-9"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm"
+              />
+            </label>
+            <label className="block">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="font-semibold">R_net</span>
+                <span className="font-mono text-slate-500">{prsRNetDraft || "—"}</span>
+              </div>
+              <input
+                type="number"
+                min={0}
+                max={9}
+                step={0.5}
+                value={prsRNetDraft}
+                onChange={(event) => setPrsRNetDraft(event.target.value)}
+                placeholder="0-9"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm"
+              />
+            </label>
+          </div>
+          <div className="mt-2 text-[10px] text-slate-500">
+            最新の `amd_score_inputs` 行に保存する。NULL は 0 じゃなく review pending として扱う。
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onSave(prsPotentialDraft, prsRNetDraft)}
+              disabled={saveState === "saving"}
+              className="rounded-md bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
+            >
+              {saveState === "saving" ? "保存中…" : "PRS 入力を保存"}
+            </button>
+            {saveState === "done" && <span className="text-[10px] text-emerald-700">保存済み。主表示を PRS で再計算したよ。</span>}
+            {saveState === "error" && <span className="text-[10px] text-rose-700">保存に失敗した。認証か RLS を確認して。</span>}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-[11px] text-slate-700">
+          <div className="font-semibold text-slate-900">Primary breakdown</div>
+          <div className="mt-2 space-y-1">
+            <div>P = <span className="font-mono">{fmt(potentialValue)}</span></div>
+            <div>R = <span className="font-mono">{primary.prs.components ? fmt(primary.prs.components.reach) : "—"}</span></div>
+            <div>S = <span className="font-mono">{primary.prs.components ? fmt(primary.prs.components.survival) : "—"}</span></div>
+            <div>R_net = <span className="font-mono">{fmt(rNetValue)}</span></div>
+          </div>
+          <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-[10px] text-slate-500">
+            legacy AMD = <span className="font-mono text-slate-800">{fmt(primary.legacy.score)}</span>
+            {" · "}σ_SU = <span className="font-mono text-slate-800">{primary.legacy.sigma_SU.toFixed(2)}</span>
+            {" · "}律速 = <span className="font-mono text-slate-800">{AXIS_LABEL_JP[primary.legacy.bottleneck]}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function parseNullablePrsValue(value: string) {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 // ============================================================
