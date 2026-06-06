@@ -293,7 +293,7 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
           setPreviewError(null);
         }
       }}>
-        <DialogContent className="grid h-[86vh] w-[92vw] max-w-[1180px] grid-rows-[auto_1fr] gap-0 overflow-hidden rounded-lg border border-slate-300 bg-white p-0 text-slate-950 shadow-2xl">
+        <DialogContent className="grid h-[92vh] !w-[96vw] !max-w-[96vw] sm:!max-w-[96vw] xl:!max-w-[1400px] grid-rows-[auto_1fr] gap-0 overflow-hidden rounded-lg border border-slate-300 bg-white p-0 text-slate-950 shadow-2xl">
           <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
             <div className="flex min-w-0 items-start gap-3 pr-9">
               <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded border border-sky-200 bg-sky-50">
