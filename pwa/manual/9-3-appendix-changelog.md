@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-06 | 2-3 PJ コックピット | 追加 | TODO と経営ハイライトの間に「資料」スペースを追加。ファイル追加時は Google Drive の当該PJ folder配下 `AMD OS 資料` folderへ保存し、OSには `project_documents` のmetadata/linkだけを残す仕様を追記 | PJ cockpitから資料をOS上のリンクとして残し、実ファイルは共有DriveのPJ folder配下に集約するため | えいみ-worker |
 | 2026-06-04 | 2-4 AMD 会社全体 / 4-9 研究機関 ERS | 変更 | `/dashboard` の本文表示順を PJ一覧 → 研究機関ERSリスト → Company Content shelf と明記し、Company Content shelf をメンバー / 沿革 / メディア掲載 / photo の4カラム棚として整理 | まさ指示「研究機関リストがcompany contentより下にいっちゃってるから、上にもってきて。PJリストと続きで表示されるようにして」への対応 | えいみ-worker |
 | 2026-06-04 | 2-4 AMD 会社全体 / 4-9 研究機関 ERS | 変更 | `/dashboard` の研究機関ERSリストを、PJ一覧と同じ左/mainカラム内の直下に置くと明記 | まさ指示「まだマイページより下にあるよ。PJリストと同じカラムに入れて。」への対応 | えいみ-worker |
 | 2026-06-04 | 4-9 研究機関 ERS / 2-4 AMD会社全体 | 変更 | Dashboard の通常PJリストから `project_category='ecosystem'` または `p25` / KUTE名に該当するPJを除外し、KUTE (`inst_kute`) は研究機関ERSカードから `/institutions/inst_kute/cockpit` へ入り、既存KUTE PJ (`p25`) のコックピット内容を同画面で見る仕様へ変更 | KUTE が通常PJリストと研究機関リストに二重表示されていたため。PJ側KUTE cockpit content と研究機関側ERS/制度比較contentを消さず、研究機関側へ導線を寄せるため | えいみ-worker |

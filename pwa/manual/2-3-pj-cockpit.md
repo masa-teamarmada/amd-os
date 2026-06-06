@@ -19,7 +19,8 @@ AMD OS の **中心画面**。各 PJ ごとに 1 つあり、URL は `/project/{
 │  タブ: 進捗管理 / スコア詳細                         │
 ├──────────────────┬──────────────────┬──────────────┤
 │  年間 MS リスト   │  TODO              │  月次ルーティン │
-│  月次サマリ       │  経営ハイライト    │  つくよみメモ   │
+│  月次サマリ       │  資料              │  つくよみメモ   │
+│                   │  経営ハイライト    │               │
 │                   │  MTG サマリ        │               │
 └──────────────────┴──────────────────┴──────────────┘
 ```
@@ -44,6 +45,19 @@ SU 系 PJ では、AMD スコアグラフ / M-X-F / XRL グラフは常時表示
 対象 status は、初期表示では `queued`, `sent_to_commander`, `drafted`, `blocked`。`closed` や `sent_to_counterpart` は完了・送付済みの履歴であり、通常の TODO には出さない。行を押すと画面内モーダルで、発生経緯、`source_kind/source_id`、`proactive_loop_events` の履歴、遅れた場合のリスク、司令塔/worker が作成済みの資料リンク、外部送付可否、次の期待アクションを確認できる。RLS は admin の authenticated read 前提なので、権限がないユーザーにはキューは表示されない。
 
 既存の最下段 TODO かんばんは、PJ cockpit と HUD cockpit の主要導線から外す。MS の細かな作業項目は MS 詳細、先手力系の次アクションはこの TODO に集約する。
+
+---
+
+## 資料
+
+TODO と経営ハイライトの間に、PJ全体の資料置き場を表示する。提案書、試算表、契約案、参考PDFなど、特定MTGだけに閉じない資料をここへ置く。
+
+- ファイルを追加すると、Google Drive の当該PJ folder (`projects.drive_folder_id`) 配下に `AMD OS 資料` folder を作り、その中へ新規ファイルとして保存する
+- OS 側には `project_documents` に Drive file ID / folder ID / link / file name / MIME / size / uploaded_by / created_at だけを残す。ファイル本体は DB に保存しない
+- 同名ファイルは上書きしない。Drive 側で同名の新規ファイルとして残す
+- PJ folder id 未設定、Google Drive credential 未設定、Drive 書き込み権限不足の場合は、資料パネル内で warning / retry を表示し、他の cockpit 表示は止めない
+
+MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`。この「資料」はPJ単位の Drive link 台帳なので用途を分ける。
 
 ---
 

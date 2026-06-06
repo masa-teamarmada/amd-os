@@ -16,7 +16,7 @@ GOOGLE_OAUTH_REFRESH_TOKEN を発行するワンショットスクリプト。
   5. 端末に Refresh token が出力される → コピー
   6. Vercel env (production) に GOOGLE_OAUTH_REFRESH_TOKEN として登録
 
-scope: Drive readonly + Gmail readonly + Calendar readonly
+scope: Drive write + Gmail readonly + Calendar readonly
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ import webbrowser
 
 REDIRECT_URI = "http://localhost:9001/"
 SCOPES = [
-    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/calendar.readonly",
     "https://www.googleapis.com/auth/userinfo.email",   # 確認用
