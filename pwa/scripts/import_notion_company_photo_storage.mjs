@@ -35,9 +35,16 @@ let sharpModule = null;
 
 const allRows = loadPhotoBlocks();
 const importLimit = Number(process.env.IMPORT_LIMIT || 0);
-const rows = Number.isFinite(importLimit) && importLimit > 0 ? allRows.slice(0, importLimit) : allRows;
+const importFileId = process.env.IMPORT_FILE_ID || "";
+const candidateRows = importFileId ? allRows.filter((row) => row.fileId === importFileId) : allRows;
+const rows = Number.isFinite(importLimit) && importLimit > 0 ? candidateRows.slice(0, importLimit) : candidateRows;
 const cacheFiles = listFiles(CACHE_ROOTS);
 const fileIds = new Set(rows.map((row) => row.fileId).filter(Boolean));
+const expectedDimensionsByFileId = new Map(
+  allRows
+    .filter((row) => row.fileId && row.expectedDimensions)
+    .map((row) => [row.fileId, row.expectedDimensions]),
+);
 const cachedByFileId = indexCacheFiles(cacheFiles, fileIds);
 
 await ensureBucket();
@@ -53,6 +60,13 @@ const thumbnailDebug = {
   sharpFailed: 0,
   firstSharpError: null,
 };
+const resolutionDebug = {
+  matchedExpectedDimensions: 0,
+  usedBestAvailableCache: 0,
+  usedSmallerThanExpected: 0,
+  usedUnexpectedDimensions: 0,
+  firstUnexpected: null,
+};
 let skipped = 0;
 const skippedRows = [];
 let failed = 0;
@@ -65,6 +79,7 @@ for (const row of rows) {
     skippedRows.push({ id: row.id, type: row.type });
     continue;
   }
+  await noteResolutionChoice(row, resolvedMedia.storage);
 
   const storagePath = resolvedMedia.storage ? storagePathFor(row, resolvedMedia.storage.ext) : null;
   const thumbnailPath = resolvedMedia.thumbnail ? thumbnailPathFor(row, resolvedMedia.thumbnail.ext) : null;
@@ -133,6 +148,7 @@ console.log(JSON.stringify({
   uploadedFromSource,
   generatedThumbnails,
   thumbnailDebug,
+  resolutionDebug,
   skipped,
   skippedRows,
   failed,
@@ -183,8 +199,21 @@ order by parent_id, id;
       type: String(row.type),
       fileId,
       source,
+      expectedDimensions: expectedDimensionsFromFormat(row.format),
     };
   });
+}
+
+function expectedDimensionsFromFormat(rawFormat) {
+  try {
+    const format = JSON.parse(rawFormat || "{}");
+    const width = Math.round(Number(format.block_width || 0));
+    const ratio = Number(format.block_aspect_ratio || 0);
+    if (!width || !ratio) return null;
+    return { width, height: Math.round(width * ratio) };
+  } catch {
+    return null;
+  }
 }
 
 function sourceFromRow(row) {
@@ -236,16 +265,30 @@ function indexCacheFiles(files, fileIds) {
     if (targetIds.length === 0) continue;
     for (const fileId of targetIds) {
       const current = found.get(fileId) || { filePath: null, image: null, video: null };
-      const image = extractLargestImageNearFileId(buffer, fileId);
+      const image = extractBestImageNearFileId(buffer, fileId, expectedDimensionsForFileId(fileId));
+      if (process.env.DEBUG_FILE_ID === fileId && image) {
+        const dimensions = dimensionsFromMedia(image);
+        console.error(JSON.stringify({
+          debugFileId: fileId,
+          cacheFile: path.basename(filePath),
+          expected: expectedDimensionsForFileId(fileId),
+          dimensions,
+          bytes: image.body.length,
+        }));
+      }
       const video = extractLargestVideoNearFileId(buffer, fileId);
       found.set(fileId, {
         filePath,
-        image: chooseLargerMedia(current.image, image),
+        image: chooseBetterImage(current.image, image, expectedDimensionsForFileId(fileId)),
         video: chooseLargerMedia(current.video, video),
       });
     }
   }
   return found;
+}
+
+function expectedDimensionsForFileId(fileId) {
+  return expectedDimensionsByFileId.get(fileId) ?? null;
 }
 
 function targetFileIdsInBuffer(buffer, fileIds) {
@@ -314,7 +357,7 @@ function extractImageNearFileId(buffer, fileId) {
   return extractImage(buffer.subarray(windowStart, windowEnd));
 }
 
-function extractLargestImageNearFileId(buffer, fileId) {
+function extractBestImageNearFileId(buffer, fileId, expectedDimensions) {
   if (!fileId) return null;
   const offset = buffer.indexOf(Buffer.from(fileId));
   if (offset < 0) return null;
@@ -322,11 +365,13 @@ function extractLargestImageNearFileId(buffer, fileId) {
   const windowStart = Math.max(0, offset - 8 * 1024 * 1024);
   const windowEnd = Math.min(buffer.length, offset + 8 * 1024 * 1024);
   const window = buffer.subarray(windowStart, windowEnd);
-  const best =
-    largestMedia(extractAllWebp(window)) ||
-    largestMedia(extractAllPng(window)) ||
-    largestMedia(extractAllJpeg(window)) ||
-    largestMedia(extractAllGif(window));
+  const candidates = [
+    ...extractAllWebp(window),
+    ...extractAllPng(window),
+    ...extractAllJpeg(window),
+    ...extractAllGif(window),
+  ];
+  const best = chooseBestImageCandidate(candidates, expectedDimensions);
   return best ? { body: best.body, ext: best.ext, contentType: best.contentType } : null;
 }
 
@@ -370,9 +415,36 @@ function chooseLargerMedia(current, next) {
   return current;
 }
 
-function largestMedia(items) {
+function chooseBetterImage(current, next, expectedDimensions) {
+  if (!next) return current;
+  if (!current) return next;
+  const currentScore = imageCandidateScore(current, expectedDimensions);
+  const nextScore = imageCandidateScore(next, expectedDimensions);
+  if (nextScore > currentScore) return next;
+  if (nextScore === currentScore && next.body.length > current.body.length) return next;
+  return current;
+}
+
+function chooseBestImageCandidate(items, expectedDimensions) {
   if (items.length === 0) return null;
-  return items.reduce((best, item) => item.body.length > best.body.length ? item : best, items[0]);
+  return items.reduce((best, item) => {
+    if (!best) return item;
+    const itemScore = imageCandidateScore(item, expectedDimensions);
+    const bestScore = imageCandidateScore(best, expectedDimensions);
+    if (itemScore > bestScore) return item;
+    if (itemScore === bestScore && item.body.length > best.body.length) return item;
+    return best;
+  }, null);
+}
+
+function imageCandidateScore(media, expectedDimensions) {
+  const dimensions = dimensionsFromMedia(media);
+  const pixels = dimensions ? dimensions.width * dimensions.height : 0;
+  const expectedPixels = expectedDimensions ? expectedDimensions.width * expectedDimensions.height : 0;
+  const exact = expectedDimensions && dimensionsMatch(dimensions, expectedDimensions);
+  const largerThanExpected = expectedPixels > 0 && pixels >= expectedPixels;
+  const rank = exact ? 4 : largerThanExpected ? 3 : pixels > 0 ? 2 : 1;
+  return rank * 1_000_000_000_000 + pixels * 100 + media.body.length;
 }
 
 function mediaRank(media) {
@@ -383,6 +455,127 @@ function mediaRank(media) {
   if (type === "image/gif") return 2;
   if (type.startsWith("video/")) return 1;
   return 0;
+}
+
+function dimensionsFromMedia(media) {
+  if (!media) return null;
+  if (media.dimensions) return media.dimensions;
+  if (!String(media.contentType || "").toLowerCase().startsWith("image/")) return null;
+  media.dimensions = imageDimensionsFromBuffer(media.body, media.contentType);
+  return media.dimensions;
+}
+
+async function dimensionsFromImage(media) {
+  if (!media || !String(media.contentType || "").toLowerCase().startsWith("image/")) return null;
+  if (media.dimensions) return media.dimensions;
+  try {
+    sharpModule ??= require("sharp");
+    const metadata = await sharpModule(media.body).metadata();
+    if (!metadata.width || !metadata.height) return null;
+    media.dimensions = { width: metadata.width, height: metadata.height };
+    return media.dimensions;
+  } catch {
+    return null;
+  }
+}
+
+function dimensionsMatch(actual, expected) {
+  if (!actual || !expected) return false;
+  return (
+    (actual.width === expected.width && actual.height === expected.height) ||
+    (actual.width === expected.height && actual.height === expected.width)
+  );
+}
+
+async function noteResolutionChoice(row, media) {
+  if (row.type !== "image" || !media || !row.expectedDimensions) return;
+  const dimensions = dimensionsFromMedia(media) ?? await dimensionsFromImage(media);
+  if (!dimensions) return;
+  if (dimensionsMatch(dimensions, row.expectedDimensions)) {
+    resolutionDebug.matchedExpectedDimensions += 1;
+    return;
+  }
+
+  const actualPixels = dimensions.width * dimensions.height;
+  const expectedPixels = row.expectedDimensions.width * row.expectedDimensions.height;
+  if (actualPixels < expectedPixels) resolutionDebug.usedSmallerThanExpected += 1;
+  else resolutionDebug.usedUnexpectedDimensions += 1;
+  resolutionDebug.firstUnexpected ??= {
+    id: row.id,
+    expected: `${row.expectedDimensions.width}x${row.expectedDimensions.height}`,
+    actual: `${dimensions.width}x${dimensions.height}`,
+  };
+}
+
+function imageDimensionsFromBuffer(buffer, contentType) {
+  if (!buffer || buffer.length < 24) return null;
+  const type = String(contentType || "").toLowerCase();
+  if (type.includes("png") || buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+    if (buffer.length < 24) return null;
+    return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+  }
+  if (type.includes("gif") || buffer.toString("ascii", 0, 4) === "GIF8") {
+    if (buffer.length < 10) return null;
+    return { width: buffer.readUInt16LE(6), height: buffer.readUInt16LE(8) };
+  }
+  if (type.includes("webp") || (buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP")) {
+    return webpDimensions(buffer);
+  }
+  if (type.includes("jpeg") || type.includes("jpg") || (buffer[0] === 0xff && buffer[1] === 0xd8)) {
+    return jpegDimensions(buffer);
+  }
+  return null;
+}
+
+function jpegDimensions(buffer) {
+  let cursor = 2;
+  while (cursor + 9 < buffer.length) {
+    if (buffer[cursor] !== 0xff) {
+      cursor += 1;
+      continue;
+    }
+    const marker = buffer[cursor + 1];
+    const length = buffer.readUInt16BE(cursor + 2);
+    if (length < 2) return null;
+    const isSof =
+      (marker >= 0xc0 && marker <= 0xc3) ||
+      (marker >= 0xc5 && marker <= 0xc7) ||
+      (marker >= 0xc9 && marker <= 0xcb) ||
+      (marker >= 0xcd && marker <= 0xcf);
+    if (isSof && cursor + 8 < buffer.length) {
+      return { width: buffer.readUInt16BE(cursor + 7), height: buffer.readUInt16BE(cursor + 5) };
+    }
+    cursor += 2 + length;
+  }
+  return null;
+}
+
+function webpDimensions(buffer) {
+  if (buffer.length < 30 || buffer.toString("ascii", 0, 4) !== "RIFF" || buffer.toString("ascii", 8, 12) !== "WEBP") return null;
+  const chunkType = buffer.toString("ascii", 12, 16);
+  if (chunkType === "VP8X" && buffer.length >= 30) {
+    return {
+      width: 1 + buffer.readUIntLE(24, 3),
+      height: 1 + buffer.readUIntLE(27, 3),
+    };
+  }
+  if (chunkType === "VP8L" && buffer.length >= 25 && buffer[20] === 0x2f) {
+    const b0 = buffer[21];
+    const b1 = buffer[22];
+    const b2 = buffer[23];
+    const b3 = buffer[24];
+    return {
+      width: 1 + (((b1 & 0x3f) << 8) | b0),
+      height: 1 + (((b3 & 0x0f) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6)),
+    };
+  }
+  if (chunkType === "VP8 " && buffer.length >= 30 && buffer[23] === 0x9d && buffer[24] === 0x01 && buffer[25] === 0x2a) {
+    return {
+      width: buffer.readUInt16LE(26) & 0x3fff,
+      height: buffer.readUInt16LE(28) & 0x3fff,
+    };
+  }
+  return null;
 }
 
 function extractLastImageEndingBefore(buffer, offset) {
