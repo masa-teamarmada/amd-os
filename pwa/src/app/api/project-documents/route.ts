@@ -168,12 +168,45 @@ async function uploadDriveFile(params: {
   return created.data;
 }
 
-function googleUploadError(error: unknown) {
+function errorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "unknown";
-  if (/insufficient|forbidden|permission|PERMISSION_DENIED|403/i.test(message)) {
-    return "Google Drive への書き込み権限が足りないよ。OAuth refresh token / Service Account に Drive write 権限とPJフォルダ共有が必要";
+  if (typeof error === "object" && error !== null) {
+    const detail = error as {
+      code?: number | string;
+      response?: { status?: number; data?: { error?: { message?: string; errors?: Array<{ reason?: string; message?: string }> } } };
+    };
+    const googleMessage = detail.response?.data?.error?.message;
+    if (googleMessage) return googleMessage;
+    const firstReason = detail.response?.data?.error?.errors?.find((item) => item.message || item.reason);
+    if (firstReason?.message) return firstReason.message;
+    if (firstReason?.reason) return firstReason.reason;
   }
   return message;
+}
+
+function googleDriveWriteError(error: unknown) {
+  const message = errorMessage(error);
+  const status = typeof error === "object" && error !== null
+    ? (error as { code?: number | string; response?: { status?: number } }).response?.status ?? (error as { code?: number | string }).code
+    : null;
+
+  if (/File not found|not found|404/i.test(message) || status === 404) {
+    return "Google Drive のPJフォルダが見つからないよ。projects.drive_folder_id が正しいか、そのGoogle credentialにフォルダが共有されているか確認が必要";
+  }
+  if (/insufficient authentication scopes|insufficientPermissions|insufficient/i.test(message)) {
+    return "Google OAuth refresh token に Drive write scope が足りないよ。`https://www.googleapis.com/auth/drive` でrefresh tokenを再発行してVercel production envへ入れ直す必要がある";
+  }
+  if (/forbidden|permission|PERMISSION_DENIED|403/i.test(message) || status === 403) {
+    return "Google Drive のPJフォルダへの書き込み権限が足りないよ。OAuthユーザーまたはService Accountを当該PJフォルダに編集者として共有してね";
+  }
+  if (/credential|auth|token/i.test(message)) {
+    return `Google Drive credential を確認してね: ${message}`;
+  }
+  return message;
+}
+
+function databaseSaveError(error: unknown) {
+  return `Drive保存後のOSリンク保存に失敗したよ。project_documents / service_role / RLS を確認してね: ${errorMessage(error)}`;
 }
 
 export async function GET(req: Request) {
@@ -230,18 +263,29 @@ export async function POST(req: Request) {
   }
 
   try {
-    const documentsFolderId = await ensureDocumentsFolder(projectFolder.folderId);
+    let documentsFolderId: string;
+    try {
+      documentsFolderId = await ensureDocumentsFolder(projectFolder.folderId);
+    } catch (error) {
+      return NextResponse.json({ ok: false, error: googleDriveWriteError(error) }, { status: 502 });
+    }
+
     const rows: Array<Record<string, unknown>> = [];
 
     for (const file of files) {
       const validation = validateFile(file);
       if (!validation.ok) throw new Error(validation.error);
 
-      const uploaded = await uploadDriveFile({
-        documentsFolderId,
-        file,
-        mimeType: validation.mimeType,
-      });
+      let uploaded: Awaited<ReturnType<typeof uploadDriveFile>>;
+      try {
+        uploaded = await uploadDriveFile({
+          documentsFolderId,
+          file,
+          mimeType: validation.mimeType,
+        });
+      } catch (error) {
+        return NextResponse.json({ ok: false, error: googleDriveWriteError(error) }, { status: 502 });
+      }
       rows.push({
         project_id: projectId,
         drive_file_id: uploaded.id,
@@ -257,7 +301,9 @@ export async function POST(req: Request) {
     }
 
     const { error: insertError } = await admin.from("project_documents").insert(rows);
-    if (insertError) throw insertError;
+    if (insertError) {
+      return NextResponse.json({ ok: false, error: databaseSaveError(insertError) }, { status: 500 });
+    }
 
     return NextResponse.json({
       ok: true,
@@ -266,6 +312,6 @@ export async function POST(req: Request) {
       documentsFolderName: PROJECT_DOCUMENTS_FOLDER_NAME,
     });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: googleUploadError(error) }, { status: 500 });
+    return NextResponse.json({ ok: false, error: errorMessage(error) }, { status: 500 });
   }
 }
