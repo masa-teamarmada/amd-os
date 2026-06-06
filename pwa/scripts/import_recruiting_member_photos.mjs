@@ -1,14 +1,22 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
+const require = createRequire(import.meta.url);
 const BUCKET = "company-media";
 const UPDATED_BY = "codex_recruiting_member_photo_import";
 const SOURCE_REF = "google-drive:amd-recruiting-member-photo";
 const RECRUITING_ROOT = "/Users/masa/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/AMD運営/採用";
 
 const PHOTO_IMPORTS = [
+  {
+    memberId: "ID029",
+    codeName: "あき",
+    filePath: path.join(RECRUITING_ROOT, "02_吉野茜/screenshot-2024-11-16-141109.png"),
+    crop: { x: 0, y: 0, zoom: 1 },
+  },
   {
     memberId: "ID009",
     codeName: "あび",
@@ -48,6 +56,7 @@ if (!supabaseUrl || !serviceRoleKey) {
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
+const sharp = require("sharp");
 
 const results = [];
 for (const item of PHOTO_IMPORTS) {
@@ -99,17 +108,30 @@ for (const item of PHOTO_IMPORTS) {
   if (assetError) throw assetError;
 
   const storagePath = `google-drive-recruiting-member-photo/${item.memberId}/${asset.asset_id}.${ext}`;
+  const thumbnailPath = `google-drive-recruiting-member-photo/${item.memberId}/${asset.asset_id}.thumb.webp`;
+  const originalBytes = readFileSync(item.filePath);
+  const thumbnailBytes = await sharp(originalBytes)
+    .rotate()
+    .resize({ width: 640, height: 640, fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer();
+
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(storagePath, readFileSync(item.filePath), { contentType, upsert: true });
+    .upload(storagePath, originalBytes, { contentType, upsert: true });
   if (uploadError) throw uploadError;
+
+  const { error: thumbnailUploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(thumbnailPath, thumbnailBytes, { contentType: "image/webp", upsert: true });
+  if (thumbnailUploadError) throw thumbnailUploadError;
 
   const { error: assetUpdateError } = await supabase
     .from("media_assets")
     .update({
       storage_bucket: BUCKET,
       storage_path: storagePath,
-      thumbnail_path: null,
+      thumbnail_path: thumbnailPath,
       updated_by: UPDATED_BY,
     })
     .eq("asset_id", asset.asset_id);

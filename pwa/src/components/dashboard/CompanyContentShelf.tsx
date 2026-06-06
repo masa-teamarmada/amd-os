@@ -226,9 +226,9 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
                   key={member.memberId ?? `unresolved-${member.codeName}`}
                   type="button"
                   onClick={() => setSelectedMember(member)}
-                  className="group grid h-[150px] grid-rows-[112px_38px] overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30"
+                  className="group grid h-[174px] grid-rows-[136px_38px] overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30"
                 >
-                  <span className="grid h-[112px] w-full place-items-center overflow-hidden bg-sky-50 text-sm font-semibold text-sky-800">
+                  <span className="grid h-[136px] w-full place-items-center overflow-hidden bg-sky-50 text-sm font-semibold text-sky-800">
                     {member.imageUrl ? (
                       <MediaPreview src={withFileVariant(member.imageUrl, "thumb")} kind="photo" crop={member.photoCrop} />
                     ) : (
@@ -327,9 +327,9 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
                   setCoverError(null);
                   setSelectedPhoto(photo);
                 }}
-                className="block w-full overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30 [content-visibility:auto] [contain-intrinsic-size:172px]"
+                className="block w-full overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30 [content-visibility:auto] [contain-intrinsic-size:232px]"
               >
-                <div className="relative flex h-24 items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#f8fafc,#eef6ff_48%,#f7f3ea)]">
+                <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#f8fafc,#eef6ff_48%,#f7f3ea)]">
                   {photo.imageUrl ? (
                     <MediaPreview src={withFileVariant(photo.imageUrl, "thumb")} kind={photo.kind} crop={photo.crop} objectPosition={photo.coverPosition} />
                   ) : (
@@ -437,7 +437,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
                   title="サムネ表示位置"
                   src={withFileVariant(selectedPhoto.imageUrl, "original")}
                   kind={selectedPhoto.kind}
-                  aspect="video"
+                  aspect="photo-card"
                   value={selectedPhoto.crop ?? DEFAULT_CROP}
                   saving={savingCoverAssetId === selectedPhoto.coverAssetId}
                   onSave={(crop) => {
@@ -497,7 +497,7 @@ function CropEditor({
   title: string;
   src: string;
   kind: string;
-  aspect: "video" | "square";
+  aspect: "photo-card" | "video" | "square";
   value: CompanyImageCrop;
   saving: boolean;
   onSave: (crop: CompanyImageCrop) => void;
@@ -562,7 +562,7 @@ function CropEditor({
       >
         <div
           ref={frameRef}
-          className={`absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 overflow-visible border-2 border-white shadow-[0_0_0_9999px_rgba(2,6,23,0.52)] ${aspect === "square" ? "h-[72%] aspect-square" : "w-[76%] aspect-video"}`}
+          className={`absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 overflow-visible border-2 border-white shadow-[0_0_0_9999px_rgba(2,6,23,0.52)] ${cropFrameClassName(aspect)}`}
         >
           <CropImageLayer src={src} kind={kind} crop={draft} eager clip={false} />
           <span className="pointer-events-none absolute inset-x-0 top-1/3 border-t border-white/50" />
@@ -654,6 +654,12 @@ function CropRange({
       />
     </label>
   );
+}
+
+function cropFrameClassName(aspect: "photo-card" | "video" | "square") {
+  if (aspect === "square") return "h-[72%] aspect-square";
+  if (aspect === "photo-card") return "w-[72%] aspect-[4/3]";
+  return "w-[76%] aspect-video";
 }
 
 function MemberPhotoUploader({
