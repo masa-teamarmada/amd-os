@@ -4,17 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const COVER_TAG = "company_photo_group_cover";
 const POSITION_TAG_PREFIX = "company_photo_cover_position:";
-const ALLOWED_POSITIONS = new Set([
-  "top-left",
-  "top",
-  "top-right",
-  "left",
-  "center",
-  "right",
-  "bottom-left",
-  "bottom",
-  "bottom-right",
-]);
+const CROP_TAG_PREFIX = "company_media_crop:";
+const DEFAULT_CROP = { x: 0, y: 0, zoom: 1 };
 
 export async function PATCH(request: Request) {
   const auth = await requireAdmin();
@@ -22,9 +13,7 @@ export async function PATCH(request: Request) {
 
   const body = await request.json().catch(() => null);
   const assetId = typeof body?.assetId === "string" ? body.assetId : null;
-  const position = typeof body?.position === "string" && ALLOWED_POSITIONS.has(body.position)
-    ? body.position
-    : "center";
+  const crop = normalizeCrop(body?.crop);
   if (!assetId) {
     return NextResponse.json({ error: "assetId is required" }, { status: 400 });
   }
@@ -64,9 +53,13 @@ export async function PATCH(request: Request) {
 
   for (const row of groupRows) {
     const tags = Array.isArray(row.tags) ? row.tags.map(String) : [];
-    const baseTags = tags.filter((tag) => tag !== COVER_TAG && !tag.startsWith(POSITION_TAG_PREFIX));
+    const baseTags = tags.filter((tag) => (
+      tag !== COVER_TAG
+      && !tag.startsWith(POSITION_TAG_PREFIX)
+      && !tag.startsWith(CROP_TAG_PREFIX)
+    ));
     const nextTags = row.asset_id === assetId
-      ? Array.from(new Set([...baseTags, COVER_TAG, `${POSITION_TAG_PREFIX}${position}`]))
+      ? Array.from(new Set([...baseTags, COVER_TAG, cropTag(crop)]))
       : baseTags;
     const { error } = await admin
       .from("media_assets")
@@ -77,11 +70,35 @@ export async function PATCH(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, assetId, position, groupSize: groupRows.length });
+  return NextResponse.json({ ok: true, assetId, crop, groupSize: groupRows.length });
 }
 
 function parentKeyFromStorage(row: { storage_path?: unknown; thumbnail_path?: unknown }) {
   const path = String(row.storage_path || row.thumbnail_path || "");
   const parts = path.split("/");
   return parts.length >= 3 ? parts[1] : null;
+}
+
+function normalizeCrop(value: unknown) {
+  if (!value || typeof value !== "object") return DEFAULT_CROP;
+  const record = value as Record<string, unknown>;
+  return {
+    x: clampNumber(record.x, -100, 100, DEFAULT_CROP.x),
+    y: clampNumber(record.y, -100, 100, DEFAULT_CROP.y),
+    zoom: clampNumber(record.zoom, 1, 4, DEFAULT_CROP.zoom),
+  };
+}
+
+function cropTag(crop: typeof DEFAULT_CROP) {
+  return `${CROP_TAG_PREFIX}${roundCrop(crop.x)},${roundCrop(crop.y)},${roundCrop(crop.zoom)}`;
+}
+
+function roundCrop(value: number) {
+  return Number(value.toFixed(2));
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number) {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, number));
 }

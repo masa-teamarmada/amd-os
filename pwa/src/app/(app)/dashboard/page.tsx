@@ -5,6 +5,7 @@ import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
 import {
   CompanyContentShelf,
   type CompanyHistoryPreview,
+  type CompanyImageCrop,
   type CompanyMediaMentionPreview,
   type CompanyMemberPreview,
   type CompanyPhotoPreview,
@@ -285,7 +286,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .eq("is_active", true),
     supabase
       .from("member_profiles")
-      .select("member_profile_id,member_id,display_name,full_name,public_title,internal_title,notion_status,joined_on,effort,bio_short,join_context,origin_label,residence_label,off_time_note,favorite_food,bucket_list,mbti_tags,visibility,status,photo_asset_id,media_assets:photo_asset_id(asset_id,storage_path,thumbnail_path)")
+      .select("member_profile_id,member_id,display_name,full_name,public_title,internal_title,notion_status,joined_on,effort,bio_short,join_context,origin_label,residence_label,off_time_note,favorite_food,bucket_list,mbti_tags,visibility,status,photo_asset_id,media_assets:photo_asset_id(asset_id,storage_path,thumbnail_path,tags)")
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .order("display_name", { ascending: true })
@@ -367,6 +368,8 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       bucketList: row.bucket_list ? String(row.bucket_list) : null,
       mbtiTags: Array.isArray(row.mbti_tags) ? row.mbti_tags.map(String) : [],
       imageUrl: photoAsset?.thumbnail_path || photoAsset?.storage_path ? `/api/company-media/file/${photoAsset.asset_id}` : null,
+      photoAssetId: photoAsset?.asset_id ? String(photoAsset.asset_id) : null,
+      photoCrop: cropFromTags(photoAsset?.tags) ?? DEFAULT_IMAGE_CROP,
       lastLoginAt: member?.last_login_at ? String(member.last_login_at) : null,
     }];
   }).sort(compareMembersByLastLogin);
@@ -390,6 +393,8 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
     bucketList: null,
     mbtiTags: [],
     imageUrl: null,
+    photoAssetId: null,
+    photoCrop: DEFAULT_IMAGE_CROP,
     lastLoginAt: row.last_login_at ? String(row.last_login_at) : null,
   })).sort(compareMembersByLastLogin);
 
@@ -461,6 +466,7 @@ function groupCompanyPhotos(rows: CompanyMediaAssetRow[], mode: "approved" | "re
     const taggedCover = sortedRows.find((row) => hasTag(row.tags, "company_photo_group_cover"));
     const cover = taggedCover ?? sortedRows.find((row) => row.thumbnail_path || row.storage_path) ?? sortedRows[0];
     const coverPosition = coverPositionFromTags(cover?.tags);
+    const coverCrop = cropFromTags(cover?.tags) ?? cropFromCoverPosition(coverPosition);
     const hasVideo = group.rows.some((row) => String(row.asset_kind || "") === "video");
     const permission = String(cover?.usage_permission || "unknown");
     const consent = String(cover?.consent_status || "unknown");
@@ -473,6 +479,7 @@ function groupCompanyPhotos(rows: CompanyMediaAssetRow[], mode: "approved" | "re
       capturedAt: row.captured_at ? String(row.captured_at) : null,
       isCover: String(row.asset_id) === String(cover?.asset_id),
       coverPosition: coverPositionFromTags(row.tags),
+      crop: cropFromTags(row.tags) ?? cropFromCoverPosition(coverPositionFromTags(row.tags)),
     }));
     return {
       id: `photo-group-${key}`,
@@ -487,6 +494,7 @@ function groupCompanyPhotos(rows: CompanyMediaAssetRow[], mode: "approved" | "re
       occurredOn,
       coverAssetId: cover?.asset_id ? String(cover.asset_id) : null,
       coverPosition,
+      crop: coverCrop,
       assets,
     };
   }).sort((a, b) => compareNullableDateDesc(a.occurredOn, b.occurredOn) || a.title.localeCompare(b.title, "ja"));
@@ -538,6 +546,41 @@ function maxDateString(values: unknown[]) {
 
 function hasTag(value: unknown, tag: string) {
   return Array.isArray(value) && value.map(String).includes(tag);
+}
+
+const DEFAULT_IMAGE_CROP: CompanyImageCrop = { x: 0, y: 0, zoom: 1 };
+
+function cropFromTags(value: unknown): CompanyImageCrop | null {
+  if (!Array.isArray(value)) return null;
+  const tag = value.map(String).find((item) => item.startsWith("company_media_crop:"));
+  if (!tag) return null;
+  const [x, y, zoom] = tag.replace("company_media_crop:", "").split(",").map(Number);
+  if (![x, y, zoom].every(Number.isFinite)) return null;
+  return {
+    x: clampNumber(x, -100, 100, DEFAULT_IMAGE_CROP.x),
+    y: clampNumber(y, -100, 100, DEFAULT_IMAGE_CROP.y),
+    zoom: clampNumber(zoom, 1, 4, DEFAULT_IMAGE_CROP.zoom),
+  };
+}
+
+function cropFromCoverPosition(value: string): CompanyImageCrop {
+  const map: Record<string, CompanyImageCrop> = {
+    "top-left": { x: -35, y: -35, zoom: 1 },
+    top: { x: 0, y: -35, zoom: 1 },
+    "top-right": { x: 35, y: -35, zoom: 1 },
+    left: { x: -35, y: 0, zoom: 1 },
+    center: DEFAULT_IMAGE_CROP,
+    right: { x: 35, y: 0, zoom: 1 },
+    "bottom-left": { x: -35, y: 35, zoom: 1 },
+    bottom: { x: 0, y: 35, zoom: 1 },
+    "bottom-right": { x: 35, y: 35, zoom: 1 },
+  };
+  return map[value] ?? DEFAULT_IMAGE_CROP;
+}
+
+function clampNumber(value: number, min: number, max: number, fallback: number) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
 }
 
 function coverPositionFromTags(value: unknown) {
