@@ -1,8 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
-import Link from "next/link";
-import { History, ImageIcon, Newspaper, ShieldCheck, Users } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { History, ImageIcon, Newspaper, ShieldCheck, Users, X } from "lucide-react";
 
 export interface CompanyMemberPreview {
   memberId: string | null;
@@ -16,8 +15,23 @@ export interface CompanyMemberPreview {
   effort: number | null;
   bio: string | null;
   joinContext: string | null;
+  originLabel: string | null;
+  residenceLabel: string | null;
+  offTimeNote: string | null;
+  favoriteFood: string | null;
+  bucketList: string | null;
   mbtiTags: string[];
   imageUrl: string | null;
+  lastLoginAt: string | null;
+}
+
+export interface CompanyPhotoAssetPreview {
+  assetId: string;
+  title: string;
+  imageUrl: string | null;
+  kind: string;
+  capturedAt: string | null;
+  isCover: boolean;
 }
 
 export interface CompanyHistoryPreview {
@@ -36,6 +50,9 @@ export interface CompanyPhotoPreview {
   imageUrl: string | null;
   kind: string;
   itemCount?: number;
+  occurredOn?: string | null;
+  coverAssetId?: string | null;
+  assets?: CompanyPhotoAssetPreview[];
 }
 
 export interface CompanyMediaMentionPreview {
@@ -57,6 +74,44 @@ interface Props {
 }
 
 export function CompanyContentShelf({ members, history, photos, mediaMentions }: Props) {
+  const [selectedMember, setSelectedMember] = useState<CompanyMemberPreview | null>(null);
+  const [photoItems, setPhotoItems] = useState(photos);
+  const [selectedPhoto, setSelectedPhoto] = useState<CompanyPhotoPreview | null>(null);
+  const [savingCoverAssetId, setSavingCoverAssetId] = useState<string | null>(null);
+  const [coverError, setCoverError] = useState<string | null>(null);
+
+  useEffect(() => setPhotoItems(photos), [photos]);
+
+  async function selectPhotoCover(photo: CompanyPhotoPreview, asset: CompanyPhotoAssetPreview) {
+    setCoverError(null);
+    setSavingCoverAssetId(asset.assetId);
+    try {
+      const response = await fetch("/api/admin/company-media/group-cover", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ assetId: asset.assetId }),
+      });
+      if (!response.ok) throw new Error("cover update failed");
+
+      const updatePhoto = (item: CompanyPhotoPreview): CompanyPhotoPreview => {
+        if (item.id !== photo.id) return item;
+        return {
+          ...item,
+          coverAssetId: asset.assetId,
+          imageUrl: asset.imageUrl,
+          kind: asset.kind,
+          assets: (item.assets ?? []).map((row) => ({ ...row, isCover: row.assetId === asset.assetId })),
+        };
+      };
+      setPhotoItems((items) => items.map(updatePhoto));
+      setSelectedPhoto((current) => current ? updatePhoto(current) : current);
+    } catch {
+      setCoverError("サムネ変更に失敗した");
+    } finally {
+      setSavingCoverAssetId(null);
+    }
+  }
+
   return (
     <section className="space-y-3">
       <div className="flex items-end justify-between gap-4">
@@ -77,44 +132,26 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
           title="メンバー"
           countLabel={`${members.length} active`}
         >
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
             {members.map((member) => {
-              const content = (
-                <>
-                  <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-md bg-sky-50 text-[11px] font-semibold text-sky-800">
+              return (
+                <button
+                  key={member.memberId ?? `unresolved-${member.codeName}`}
+                  type="button"
+                  onClick={() => setSelectedMember(member)}
+                  className="group grid min-h-[118px] grid-rows-[minmax(0,1fr)_auto] overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30"
+                >
+                  <span className="grid min-h-0 place-items-center overflow-hidden bg-sky-50 text-sm font-semibold text-sky-800">
                     {member.imageUrl ? (
                       <img src={member.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
                     ) : (
                       initials(member.codeName)
                     )}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-foreground">{member.displayName}</span>
-                    <span className="block truncate text-[11px] text-muted-foreground">
-                      {[member.fullName, member.role || member.status, member.joinedOn, member.effort == null ? null : `${member.effort * 100}%`].filter(Boolean).join(" / ")}
-                    </span>
-                    {member.bio && <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-muted-foreground">{member.bio}</span>}
-                    {member.joinContext && <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-muted-foreground">参画: {member.joinContext}</span>}
-                    {member.mbtiTags.length > 0 && <span className="mt-1 block truncate text-[10px] text-muted-foreground">{member.mbtiTags.join(" / ")}</span>}
+                  <span className="block min-w-0 px-2 py-2">
+                    <span className="block truncate text-center text-sm font-semibold text-foreground">{member.codeName}</span>
                   </span>
-                </>
-              );
-
-              return member.memberId ? (
-                <Link
-                  key={member.memberId}
-                  href={`/mypage?memberId=${member.memberId}`}
-                  className="flex min-h-12 items-center gap-3 rounded-md border border-border/70 bg-white px-3 py-2 transition-colors hover:bg-muted/30"
-                >
-                  {content}
-                </Link>
-              ) : (
-                <div
-                  key={`unresolved-${member.codeName}`}
-                  className="flex min-h-12 items-center gap-3 rounded-md border border-border/70 bg-white px-3 py-2"
-                >
-                  {content}
-                </div>
+                </button>
               );
             })}
             {members.length === 0 && (
@@ -195,8 +232,16 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
           countLabel={`${photos.length} groups`}
         >
           <div className="space-y-2">
-            {photos.map((photo) => (
-              <div key={photo.id} className="overflow-hidden rounded-md border border-border/70 bg-white">
+            {photoItems.map((photo) => (
+              <button
+                key={photo.id}
+                type="button"
+                onClick={() => {
+                  setCoverError(null);
+                  setSelectedPhoto(photo);
+                }}
+                className="block w-full overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30"
+              >
                 <div className="relative flex h-24 items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#f8fafc,#eef6ff_48%,#f7f3ea)]">
                   {photo.imageUrl ? (
                     <MediaPreview src={photo.imageUrl} kind={photo.kind} />
@@ -210,14 +255,100 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
                     <PermissionBadge status={photo.status} />
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    {[photo.itemCount ? `${photo.itemCount} items` : null, photo.kind, photo.meta].filter(Boolean).join(" / ")}
+                    {[photo.itemCount ? `${photo.itemCount} items` : null, photo.occurredOn, photo.kind, photo.meta].filter(Boolean).join(" / ")}
                   </p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </ShelfColumn>
       </div>
+
+      {selectedMember && (
+        <Modal title={selectedMember.codeName} onClose={() => setSelectedMember(null)}>
+          <div className="grid gap-4 sm:grid-cols-[160px_minmax(0,1fr)]">
+            <div className="grid aspect-square place-items-center overflow-hidden rounded-md bg-sky-50 text-xl font-semibold text-sky-800">
+              {selectedMember.imageUrl ? (
+                <img src={selectedMember.imageUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                initials(selectedMember.codeName)
+              )}
+            </div>
+            <div className="min-w-0 space-y-3">
+              <div>
+                <p className="text-lg font-semibold text-foreground">{selectedMember.displayName}</p>
+                <p className="text-sm text-muted-foreground">
+                  {[selectedMember.fullName, selectedMember.role || selectedMember.status].filter(Boolean).join(" / ")}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {[
+                    selectedMember.lastLoginAt ? `last login ${formatDateTime(selectedMember.lastLoginAt)}` : "last login unknown",
+                    selectedMember.joinedOn ? `joined ${selectedMember.joinedOn}` : null,
+                    selectedMember.effort == null ? null : `effort ${Math.round(selectedMember.effort * 100)}%`,
+                  ].filter(Boolean).join(" / ")}
+                </p>
+              </div>
+              {selectedMember.bio && <p className="text-sm leading-6 text-muted-foreground">{selectedMember.bio}</p>}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            <DetailLine label="参画" value={selectedMember.joinContext} />
+            <DetailLine label="拠点" value={[selectedMember.originLabel, selectedMember.residenceLabel].filter(Boolean).join(" / ") || null} />
+            <DetailLine label="オフ" value={selectedMember.offTimeNote} />
+            <DetailLine label="好きな食べ物" value={selectedMember.favoriteFood} />
+            <DetailLine label="バケットリスト" value={selectedMember.bucketList} />
+            <DetailLine label="タグ" value={selectedMember.mbtiTags.join(" / ") || null} />
+          </div>
+        </Modal>
+      )}
+
+      {selectedPhoto && (
+        <Modal title={selectedPhoto.title} onClose={() => setSelectedPhoto(null)}>
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-md border border-border bg-muted">
+              <div className="grid aspect-video place-items-center overflow-hidden">
+                {selectedPhoto.imageUrl ? (
+                  <MediaPreview src={selectedPhoto.imageUrl} kind={selectedPhoto.kind} />
+                ) : (
+                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 text-xs text-muted-foreground">
+                <PermissionBadge status={selectedPhoto.status} />
+                <span>{[selectedPhoto.itemCount ? `${selectedPhoto.itemCount} items` : null, selectedPhoto.occurredOn, selectedPhoto.meta].filter(Boolean).join(" / ")}</span>
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3">
+              {(selectedPhoto.assets ?? []).map((asset) => (
+                <div key={asset.assetId} className="overflow-hidden rounded-md border border-border bg-white">
+                  <div className="grid aspect-video place-items-center overflow-hidden bg-muted">
+                    {asset.imageUrl ? (
+                      <MediaPreview src={asset.imageUrl} kind={asset.kind} />
+                    ) : (
+                      <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="space-y-2 p-2">
+                    <p className="line-clamp-2 text-xs font-medium text-foreground">{asset.title}</p>
+                    <button
+                      type="button"
+                      onClick={() => selectPhotoCover(selectedPhoto, asset)}
+                      disabled={asset.isCover || savingCoverAssetId === asset.assetId || !asset.imageUrl}
+                      className="w-full rounded border border-border bg-muted/30 px-2 py-1 text-xs font-medium text-foreground disabled:cursor-not-allowed disabled:text-muted-foreground"
+                    >
+                      {asset.isCover ? "サムネ中" : savingCoverAssetId === asset.assetId ? "変更中" : "サムネにする"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {coverError && <p className="text-xs text-red-600">{coverError}</p>}
+            {(selectedPhoto.assets ?? []).length === 0 && <EmptyLine text="このグループの画像一覧を読み込めていません" />}
+          </div>
+        </Modal>
+      )}
     </section>
   );
 }
@@ -308,6 +439,43 @@ function EmptyLine({ text }: { text: string }) {
       {text}
     </div>
   );
+}
+
+function DetailLine({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="rounded-md border border-border bg-white px-3 py-2">
+      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 whitespace-pre-wrap leading-6 text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 p-4" role="dialog" aria-modal="true">
+      <div className="max-h-[86vh] w-full max-w-3xl overflow-auto rounded-lg border border-border bg-card shadow-xl">
+        <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card px-4 py-3">
+          <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">{title}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-8 w-8 place-items-center rounded-md border border-border bg-white text-muted-foreground hover:bg-muted/40"
+            aria-label="close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("ja-JP", { dateStyle: "medium", timeStyle: "short" });
 }
 
 function initials(value: string) {

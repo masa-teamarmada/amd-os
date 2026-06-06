@@ -233,6 +233,7 @@ interface CompanyMediaAssetRow {
   status?: unknown;
   storage_path: unknown;
   thumbnail_path: unknown;
+  tags?: unknown;
 }
 
 async function fetchManagementScoreHistory(supabase: ReturnType<typeof createClient>): Promise<DashboardManagementScoreSnapshot[]> {
@@ -272,7 +273,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
   ] = await Promise.all([
     supabase
       .from("members")
-      .select("member_id,code_name,member_name,role,status,is_officer,join_ym")
+      .select("member_id,code_name,member_name,role,status,is_officer,join_ym,last_login_at")
       .eq("status", "active")
       .order("is_officer", { ascending: false })
       .order("join_ym", { ascending: true, nullsFirst: false })
@@ -284,7 +285,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .eq("is_active", true),
     supabase
       .from("member_profiles")
-      .select("member_profile_id,member_id,display_name,full_name,public_title,internal_title,notion_status,joined_on,effort,bio_short,join_context,mbti_tags,visibility,status,photo_asset_id,media_assets:photo_asset_id(asset_id,storage_path)")
+      .select("member_profile_id,member_id,display_name,full_name,public_title,internal_title,notion_status,joined_on,effort,bio_short,join_context,origin_label,residence_label,off_time_note,favorite_food,bucket_list,mbti_tags,visibility,status,photo_asset_id,media_assets:photo_asset_id(asset_id,storage_path,thumbnail_path)")
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .order("display_name", { ascending: true })
@@ -307,12 +308,13 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .limit(6),
     supabase
       .from("media_assets")
-      .select("asset_id,title,asset_kind,usage_permission,consent_status,member_ids,visibility,status,storage_bucket,storage_path,thumbnail_path")
+      .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,member_ids,visibility,status,storage_bucket,storage_path,thumbnail_path,tags")
       .in("asset_kind", ["photo", "video"])
+      .eq("source_ref", "notion:team-armada-photo-db")
       .eq("visibility", "admin_only")
       .eq("status", "needs_review")
+      .order("captured_at", { ascending: false, nullsFirst: false })
       .order("storage_path", { ascending: false, nullsFirst: false })
-      .order("title", { ascending: true })
       .limit(500),
     supabase
       .from("project_events")
@@ -357,10 +359,16 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       effort: row.effort == null ? null : Number(row.effort),
       bio: row.bio_short ? String(row.bio_short) : null,
       joinContext: row.join_context ? String(row.join_context) : null,
+      originLabel: row.origin_label ? String(row.origin_label) : null,
+      residenceLabel: row.residence_label ? String(row.residence_label) : null,
+      offTimeNote: row.off_time_note ? String(row.off_time_note) : null,
+      favoriteFood: row.favorite_food ? String(row.favorite_food) : null,
+      bucketList: row.bucket_list ? String(row.bucket_list) : null,
       mbtiTags: Array.isArray(row.mbti_tags) ? row.mbti_tags.map(String) : [],
-      imageUrl: photoAsset?.storage_path ? `/api/company-media/file/${photoAsset.asset_id}` : null,
+      imageUrl: photoAsset?.thumbnail_path || photoAsset?.storage_path ? `/api/company-media/file/${photoAsset.asset_id}` : null,
+      lastLoginAt: member?.last_login_at ? String(member.last_login_at) : null,
     };
-  });
+  }).sort(compareMembersByLastLogin);
 
   const membersFallback: CompanyMemberPreview[] = memberRows.map((row) => ({
     memberId: String(row.member_id),
@@ -374,9 +382,15 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
     effort: null,
     bio: null,
     joinContext: null,
+    originLabel: null,
+    residenceLabel: null,
+    offTimeNote: null,
+    favoriteFood: null,
+    bucketList: null,
     mbtiTags: [],
     imageUrl: null,
-  }));
+    lastLoginAt: row.last_login_at ? String(row.last_login_at) : null,
+  })).sort(compareMembersByLastLogin);
 
   const historyFromCompany: CompanyHistoryPreview[] = (companyHistoryRes.data ?? []).map((row) => ({
     id: String(row.event_id),
@@ -442,22 +456,36 @@ function groupCompanyPhotos(rows: CompanyMediaAssetRow[], mode: "approved" | "re
   }
 
   return Array.from(groups.entries()).map(([key, group]) => {
-    const cover = group.rows.find((row) => row.thumbnail_path || row.storage_path) ?? group.rows[0];
+    const sortedRows = group.rows.slice().sort(compareMediaRowsByDate);
+    const taggedCover = sortedRows.find((row) => hasTag(row.tags, "company_photo_group_cover"));
+    const cover = taggedCover ?? sortedRows.find((row) => row.thumbnail_path || row.storage_path) ?? sortedRows[0];
     const hasVideo = group.rows.some((row) => String(row.asset_kind || "") === "video");
     const permission = String(cover?.usage_permission || "unknown");
     const consent = String(cover?.consent_status || "unknown");
+    const occurredOn = maxDateString(group.rows.map((row) => row.captured_at));
+    const assets = sortedRows.map((row) => ({
+      assetId: String(row.asset_id),
+      title: String(row.title || group.title),
+      imageUrl: row.thumbnail_path || row.storage_path ? `/api/company-media/file/${row.asset_id}` : null,
+      kind: String(row.asset_kind || "photo"),
+      capturedAt: row.captured_at ? String(row.captured_at) : null,
+      isCover: String(row.asset_id) === String(cover?.asset_id),
+    }));
     return {
       id: `photo-group-${key}`,
       title: group.title,
       meta: mode === "approved"
-        ? [cover?.captured_at ? String(cover.captured_at) : null, hasVideo ? "includes video" : null, `consent:${consent}`].filter(Boolean).join(" / ")
+        ? [hasVideo ? "includes video" : null, `consent:${consent}`].filter(Boolean).join(" / ")
         : ["needs_review", `usage:${permission}`, `consent:${consent}`].join(" / "),
       status: mode === "approved" ? photoStatusFromPermission(permission) : "unknown",
       imageUrl: cover && (cover.thumbnail_path || cover.storage_path) ? `/api/company-media/file/${cover.asset_id}` : null,
-      kind: "photo",
+      kind: String(cover?.asset_kind || "photo"),
       itemCount: group.rows.length,
+      occurredOn,
+      coverAssetId: cover?.asset_id ? String(cover.asset_id) : null,
+      assets,
     };
-  });
+  }).sort((a, b) => compareNullableDateDesc(a.occurredOn, b.occurredOn) || a.title.localeCompare(b.title, "ja"));
 }
 
 function parentKeyFromStorage(row: CompanyMediaAssetRow) {
@@ -470,6 +498,42 @@ function photoGroupTitle(row: CompanyMediaAssetRow) {
   return String(row.title || "Photo review")
     .replace(/^(Photo|Video|Media) review: /, "")
     .replace(/ #\d+$/, "");
+}
+
+function compareMembersByLastLogin(a: CompanyMemberPreview, b: CompanyMemberPreview) {
+  return compareNullableDateDesc(a.lastLoginAt, b.lastLoginAt) || a.codeName.localeCompare(b.codeName, "ja");
+}
+
+function compareMediaRowsByDate(a: CompanyMediaAssetRow, b: CompanyMediaAssetRow) {
+  return compareNullableDateDesc(a.captured_at ? String(a.captured_at) : null, b.captured_at ? String(b.captured_at) : null)
+    || String(a.title || "").localeCompare(String(b.title || ""), "ja");
+}
+
+function compareNullableDateDesc(a: string | null | undefined, b: string | null | undefined) {
+  const at = a ? Date.parse(a) : NaN;
+  const bt = b ? Date.parse(b) : NaN;
+  const av = Number.isFinite(at) ? at : -Infinity;
+  const bv = Number.isFinite(bt) ? bt : -Infinity;
+  return bv - av;
+}
+
+function maxDateString(values: unknown[]) {
+  let best: string | null = null;
+  let bestTime = -Infinity;
+  for (const value of values) {
+    if (!value) continue;
+    const text = String(value);
+    const time = Date.parse(text);
+    if (Number.isFinite(time) && time > bestTime) {
+      best = text;
+      bestTime = time;
+    }
+  }
+  return best;
+}
+
+function hasTag(value: unknown, tag: string) {
+  return Array.isArray(value) && value.map(String).includes(tag);
 }
 
 /** 自分が参画してる active PJ id Set (= ProjectStripe ソート優先用、軽量 fetch) */

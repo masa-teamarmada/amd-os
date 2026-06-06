@@ -16,7 +16,7 @@ export default async function CompanyPage() {
       .limit(8),
     supabase
       .from("member_profiles")
-      .select("member_profile_id,member_id,display_name,full_name,public_title,internal_title,notion_status,joined_on,effort,bio_short,bio_long,expertise_tags,mbti_tags,origin_label,residence_label,join_context,off_time_note,favorite_food,bucket_list,photo_asset_id,media_assets:photo_asset_id(asset_id,storage_path),visibility,status")
+      .select("member_profile_id,member_id,display_name,full_name,public_title,internal_title,notion_status,joined_on,effort,bio_short,bio_long,expertise_tags,mbti_tags,origin_label,residence_label,join_context,off_time_note,favorite_food,bucket_list,photo_asset_id,media_assets:photo_asset_id(asset_id,storage_path,thumbnail_path),visibility,status")
       .in("visibility", ["internal", "public_candidate"])
       .in("status", ["approved_internal", "approved_public"])
       .order("display_name", { ascending: true })
@@ -39,12 +39,13 @@ export default async function CompanyPage() {
       .limit(24),
     supabase
       .from("media_assets")
-      .select("asset_id,title,asset_kind,usage_permission,consent_status,member_ids,visibility,status,storage_bucket,storage_path,thumbnail_path")
+      .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,member_ids,visibility,status,storage_bucket,storage_path,thumbnail_path,tags")
       .in("asset_kind", ["photo", "video"])
+      .eq("source_ref", "notion:team-armada-photo-db")
       .eq("visibility", "admin_only")
       .eq("status", "needs_review")
+      .order("captured_at", { ascending: false, nullsFirst: false })
       .order("storage_path", { ascending: false, nullsFirst: false })
-      .order("title", { ascending: true })
       .limit(500),
   ]);
 
@@ -161,7 +162,7 @@ export default async function CompanyPage() {
                 <article key={member.member_profile_id} className="rounded-md border border-border bg-card p-3">
                   <div className="flex items-start gap-3">
                     <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-md bg-sky-50 text-sm font-semibold text-sky-800">
-                      {photoAsset?.storage_path ? (
+                      {photoAsset?.storage_path || photoAsset?.thumbnail_path ? (
                         <img src={`/api/company-media/file/${photoAsset.asset_id}`} alt="" className="h-full w-full object-cover" loading="lazy" />
                       ) : (
                         initials(String(member.display_name))
@@ -288,19 +289,21 @@ function groupMediaAssets(rows: any[], mode: "approved" | "review"): CompanyMedi
   }
 
   return Array.from(groups.entries()).map(([key, groupRows]) => {
-    const cover = groupRows.find((row) => row.thumbnail_path || row.storage_path) ?? groupRows[0];
+    const sortedRows = groupRows.slice().sort(compareMediaRowsByDate);
+    const taggedCover = sortedRows.find((row) => Array.isArray(row.tags) && row.tags.map(String).includes("company_photo_group_cover"));
+    const cover = taggedCover ?? sortedRows.find((row) => row.thumbnail_path || row.storage_path) ?? sortedRows[0];
     const hasVideo = groupRows.some((row) => String(row.asset_kind || "") === "video");
     return {
       asset_id: `media-group-${key}`,
       title: photoGroupTitle(cover),
       asset_kind: hasVideo ? "photo / video" : String(cover.asset_kind || "photo"),
-      captured_at: cover.captured_at ? String(cover.captured_at) : null,
+      captured_at: maxDateString(groupRows.map((row) => row.captured_at)),
       usage_permission: String(cover.usage_permission || (mode === "review" ? "review" : "unknown")),
       consent_status: String(cover.consent_status || "unknown"),
       imageUrl: cover && (cover.thumbnail_path || cover.storage_path) ? `/api/company-media/file/${cover.asset_id}` : null,
       itemCount: groupRows.length,
     };
-  });
+  }).sort((a, b) => compareNullableDateDesc(a.captured_at, b.captured_at) || a.title.localeCompare(b.title, "ja"));
 }
 
 function parentKeyFromStorage(row: any) {
@@ -313,6 +316,34 @@ function photoGroupTitle(row: any) {
   return String(row.title || "Photo review")
     .replace(/^(Photo|Video|Media) review: /, "")
     .replace(/ #\d+$/, "");
+}
+
+function compareMediaRowsByDate(a: any, b: any) {
+  return compareNullableDateDesc(a.captured_at ? String(a.captured_at) : null, b.captured_at ? String(b.captured_at) : null)
+    || String(a.title || "").localeCompare(String(b.title || ""), "ja");
+}
+
+function compareNullableDateDesc(a: string | null | undefined, b: string | null | undefined) {
+  const at = a ? Date.parse(a) : NaN;
+  const bt = b ? Date.parse(b) : NaN;
+  const av = Number.isFinite(at) ? at : -Infinity;
+  const bv = Number.isFinite(bt) ? bt : -Infinity;
+  return bv - av;
+}
+
+function maxDateString(values: unknown[]) {
+  let best: string | null = null;
+  let bestTime = -Infinity;
+  for (const value of values) {
+    if (!value) continue;
+    const text = String(value);
+    const time = Date.parse(text);
+    if (Number.isFinite(time) && time > bestTime) {
+      best = text;
+      bestTime = time;
+    }
+  }
+  return best;
 }
 
 function EmptyState({ text }: { text: string }) {
