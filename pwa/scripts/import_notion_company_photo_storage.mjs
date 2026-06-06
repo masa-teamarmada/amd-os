@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
+
+const require = createRequire(import.meta.url);
 
 const NOTION_DB = "/Users/masa/Library/Application Support/Notion/notion.db";
 const CACHE_ROOTS = [
@@ -28,8 +31,11 @@ if (!supabaseUrl || !serviceRoleKey) {
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
+let sharpModule = null;
 
-const rows = loadPhotoBlocks();
+const allRows = loadPhotoBlocks();
+const importLimit = Number(process.env.IMPORT_LIMIT || 0);
+const rows = Number.isFinite(importLimit) && importLimit > 0 ? allRows.slice(0, importLimit) : allRows;
 const cacheFiles = listFiles(CACHE_ROOTS);
 const fileIds = new Set(rows.map((row) => row.fileId).filter(Boolean));
 const cachedByFileId = indexCacheFiles(cacheFiles, fileIds);
@@ -38,6 +44,15 @@ await ensureBucket();
 
 let uploaded = 0;
 let uploadedFromNotionApi = 0;
+let uploadedFromSource = 0;
+let generatedThumbnails = 0;
+const thumbnailDebug = {
+  missingMedia: 0,
+  notImage: 0,
+  emptyOutput: 0,
+  sharpFailed: 0,
+  firstSharpError: null,
+};
 let skipped = 0;
 const skippedRows = [];
 let failed = 0;
@@ -106,6 +121,8 @@ for (const row of rows) {
 
   uploaded += 1;
   if (resolvedMedia.fromApi) uploadedFromNotionApi += 1;
+  if (resolvedMedia.fromSource) uploadedFromSource += 1;
+  if (resolvedMedia.generatedThumbnail) generatedThumbnails += 1;
 }
 
 console.log(JSON.stringify({
@@ -113,6 +130,9 @@ console.log(JSON.stringify({
   cacheFiles: cacheFiles.length,
   uploaded,
   uploadedFromNotionApi,
+  uploadedFromSource,
+  generatedThumbnails,
+  thumbnailDebug,
   skipped,
   skippedRows,
   failed,
@@ -162,6 +182,7 @@ order by parent_id, id;
       parentId: String(row.parent_id),
       type: String(row.type),
       fileId,
+      source,
     };
   });
 }
@@ -205,41 +226,63 @@ function listFiles(roots) {
 function indexCacheFiles(files, fileIds) {
   const found = new Map();
   for (const filePath of files) {
-    if (found.size === fileIds.size) break;
     let buffer;
     try {
       buffer = readFileSync(filePath);
     } catch {
       continue;
     }
-    for (const fileId of fileIds) {
-      if (found.has(fileId)) continue;
-      if (!buffer.includes(Buffer.from(fileId))) continue;
-      const media = extractImage(buffer) || extractIsoBmff(buffer);
-      if (media) found.set(fileId, { filePath, buffer });
+    const targetIds = targetFileIdsInBuffer(buffer, fileIds);
+    if (targetIds.length === 0) continue;
+    for (const fileId of targetIds) {
+      const current = found.get(fileId) || { filePath: null, image: null, video: null };
+      const image = extractLargestImageNearFileId(buffer, fileId);
+      const video = extractLargestVideoNearFileId(buffer, fileId);
+      found.set(fileId, {
+        filePath,
+        image: chooseLargerMedia(current.image, image),
+        video: chooseLargerMedia(current.video, video),
+      });
     }
   }
   return found;
 }
 
+function targetFileIdsInBuffer(buffer, fileIds) {
+  const text = buffer.toString("latin1");
+  const hits = new Set();
+  for (const match of text.matchAll(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi)) {
+    const id = match[0].toLowerCase();
+    if (fileIds.has(id)) hits.add(id);
+  }
+  return [...hits];
+}
+
 async function resolveRowMedia(row, cached) {
   if (row.type === "video") {
-    const storage = cached ? extractVideoNearFileId(cached.buffer, row.fileId) : null;
-    const thumbnail = cached ? extractImageNearFileId(cached.buffer, row.fileId) : null;
-    const apiStorage = storage ? null : await fetchMediaFromNotionApi(row);
+    const sourceStorage = await fetchMediaFromSource(row);
+    const apiStorage = sourceStorage ? null : await fetchMediaFromNotionApi(row);
+    const storage = cached?.video ?? null;
+    const thumbnail = cached?.image ?? null;
     return {
-      storage: apiStorage || storage,
+      storage: sourceStorage || apiStorage || storage,
       thumbnail,
+      fromSource: Boolean(sourceStorage),
       fromApi: Boolean(apiStorage),
     };
   }
 
-  const storage = cached ? extractImageNearFileId(cached.buffer, row.fileId) : null;
-  const apiStorage = storage ? null : await fetchMediaFromNotionApi(row);
+  const sourceStorage = await fetchMediaFromSource(row);
+  const apiStorage = sourceStorage ? null : await fetchMediaFromNotionApi(row);
+  const storage = cached?.image ?? null;
+  const resolvedStorage = sourceStorage || apiStorage || storage;
+  const generatedThumbnail = await thumbnailFromImage(resolvedStorage);
   return {
-    storage: apiStorage || storage,
-    thumbnail: null,
+    storage: resolvedStorage,
+    thumbnail: generatedThumbnail,
+    fromSource: Boolean(sourceStorage),
     fromApi: Boolean(apiStorage),
+    generatedThumbnail: Boolean(generatedThumbnail),
   };
 }
 
@@ -271,6 +314,22 @@ function extractImageNearFileId(buffer, fileId) {
   return extractImage(buffer.subarray(windowStart, windowEnd));
 }
 
+function extractLargestImageNearFileId(buffer, fileId) {
+  if (!fileId) return null;
+  const offset = buffer.indexOf(Buffer.from(fileId));
+  if (offset < 0) return null;
+
+  const windowStart = Math.max(0, offset - 8 * 1024 * 1024);
+  const windowEnd = Math.min(buffer.length, offset + 8 * 1024 * 1024);
+  const window = buffer.subarray(windowStart, windowEnd);
+  const best =
+    largestMedia(extractAllWebp(window)) ||
+    largestMedia(extractAllPng(window)) ||
+    largestMedia(extractAllJpeg(window)) ||
+    largestMedia(extractAllGif(window));
+  return best ? { body: best.body, ext: best.ext, contentType: best.contentType } : null;
+}
+
 function extractVideoNearFileId(buffer, fileId) {
   if (!fileId) return null;
   const offset = buffer.indexOf(Buffer.from(fileId));
@@ -285,6 +344,45 @@ function extractVideoNearFileId(buffer, fileId) {
   const windowStart = Math.max(0, offset - 5 * 1024 * 1024);
   const windowEnd = Math.min(buffer.length, offset + 5 * 1024 * 1024);
   return extractIsoBmff(buffer.subarray(windowStart, windowEnd));
+}
+
+function extractLargestVideoNearFileId(buffer, fileId) {
+  if (!fileId) return null;
+  const offset = buffer.indexOf(Buffer.from(fileId));
+  if (offset < 0) return null;
+
+  const windowStart = Math.max(0, offset - 80 * 1024 * 1024);
+  const windowEnd = Math.min(buffer.length, offset + 80 * 1024 * 1024);
+  const window = buffer.subarray(windowStart, windowEnd);
+  const candidates = extractAllIsoBmff(window);
+  candidates.sort((a, b) => b.body.length - a.body.length);
+  const best = candidates[0];
+  return best ? { body: best.body, ext: best.ext, contentType: best.contentType } : null;
+}
+
+function chooseLargerMedia(current, next) {
+  if (!next) return current;
+  if (!current) return next;
+  const currentRank = mediaRank(current);
+  const nextRank = mediaRank(next);
+  if (nextRank > currentRank) return next;
+  if (nextRank === currentRank && next.body.length > current.body.length) return next;
+  return current;
+}
+
+function largestMedia(items) {
+  if (items.length === 0) return null;
+  return items.reduce((best, item) => item.body.length > best.body.length ? item : best, items[0]);
+}
+
+function mediaRank(media) {
+  const type = String(media?.contentType || "").toLowerCase();
+  if (type === "image/webp") return 5;
+  if (type === "image/png") return 4;
+  if (type === "image/jpeg") return 3;
+  if (type === "image/gif") return 2;
+  if (type.startsWith("video/")) return 1;
+  return 0;
 }
 
 function extractLastImageEndingBefore(buffer, offset) {
@@ -348,6 +446,67 @@ function extractLastGif(buffer) {
   return { start, body: buffer.subarray(start, end + 1), ext: "gif", contentType: "image/gif" };
 }
 
+function extractAllWebp(buffer) {
+  const items = [];
+  let cursor = 0;
+  while (true) {
+    const offset = buffer.indexOf(Buffer.from("RIFF"), cursor);
+    if (offset < 0) break;
+    if (offset + 12 <= buffer.length && buffer.toString("ascii", offset + 8, offset + 12) === "WEBP") {
+      const size = buffer.readUInt32LE(offset + 4) + 8;
+      if (size > 12 && offset + size <= buffer.length) {
+        items.push({ body: buffer.subarray(offset, offset + size), ext: "webp", contentType: "image/webp" });
+        cursor = offset + size;
+        continue;
+      }
+    }
+    cursor = offset + 4;
+  }
+  return items;
+}
+
+function extractAllJpeg(buffer) {
+  const items = [];
+  let cursor = 0;
+  while (true) {
+    const start = buffer.indexOf(Buffer.from([0xff, 0xd8, 0xff]), cursor);
+    if (start < 0) break;
+    const end = buffer.indexOf(Buffer.from([0xff, 0xd9]), start + 3);
+    if (end < 0) break;
+    items.push({ body: buffer.subarray(start, end + 2), ext: "jpg", contentType: "image/jpeg" });
+    cursor = end + 2;
+  }
+  return items;
+}
+
+function extractAllPng(buffer) {
+  const items = [];
+  let cursor = 0;
+  while (true) {
+    const start = buffer.indexOf(Buffer.from([0x89, 0x50, 0x4e, 0x47]), cursor);
+    if (start < 0) break;
+    const iend = buffer.indexOf(Buffer.from("IEND"), start);
+    if (iend < 0 || iend + 8 > buffer.length) break;
+    items.push({ body: buffer.subarray(start, iend + 8), ext: "png", contentType: "image/png" });
+    cursor = iend + 8;
+  }
+  return items;
+}
+
+function extractAllGif(buffer) {
+  const items = [];
+  let cursor = 0;
+  while (true) {
+    const start = buffer.indexOf(Buffer.from("GIF8"), cursor);
+    if (start < 0) break;
+    const end = buffer.indexOf(Buffer.from([0x3b]), start + 6);
+    if (end < 0) break;
+    items.push({ body: buffer.subarray(start, end + 1), ext: "gif", contentType: "image/gif" });
+    cursor = end + 1;
+  }
+  return items;
+}
+
 function extractLastIsoBmff(buffer) {
   let cursor = buffer.length;
   while (cursor > 0) {
@@ -358,6 +517,23 @@ function extractLastIsoBmff(buffer) {
     cursor = ftyp;
   }
   return null;
+}
+
+function extractAllIsoBmff(buffer) {
+  const items = [];
+  let cursor = 0;
+  while (true) {
+    const ftyp = buffer.indexOf(Buffer.from("ftyp"), cursor);
+    if (ftyp < 4) break;
+    const media = extractIsoBmffAt(buffer, ftyp - 4);
+    if (media) {
+      items.push(media);
+      cursor = ftyp - 4 + media.body.length;
+    } else {
+      cursor = ftyp + 4;
+    }
+  }
+  return items;
 }
 
 function extractWebp(buffer) {
@@ -444,6 +620,103 @@ function extractIsoBmffAt(buffer, start) {
     ext: isQuickTime ? "mov" : "mp4",
     contentType: isQuickTime ? "video/quicktime" : "video/mp4",
   };
+}
+
+async function fetchMediaFromSource(row) {
+  if (row.source?.startsWith("attachment:")) {
+    return fetchSignedNotionFile(row, row.source);
+  }
+  if (!row.source || !/^https?:\/\//i.test(row.source)) return null;
+
+  try {
+    const response = await fetch(row.source);
+    if (!response.ok) return null;
+    const contentType = response.headers.get("content-type") || contentTypeFromUrl(row.source) || defaultContentType(row.type);
+    if (row.type === "image" && !String(contentType).toLowerCase().startsWith("image/")) return null;
+    if (row.type === "video" && !String(contentType).toLowerCase().startsWith("video/")) return null;
+    const body = Buffer.from(await response.arrayBuffer());
+    if (body.length === 0) return null;
+    return {
+      body,
+      ext: extensionFromContentType(contentType) || extensionFromUrl(row.source) || defaultExtension(row.type),
+      contentType,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function thumbnailFromImage(media) {
+  if (!media) {
+    thumbnailDebug.missingMedia += 1;
+    return null;
+  }
+  if (!String(media.contentType || "").toLowerCase().startsWith("image/")) {
+    thumbnailDebug.notImage += 1;
+    return null;
+  }
+  try {
+    sharpModule ??= require("sharp");
+    const body = await sharpModule(media.body)
+      .rotate()
+      .resize({
+        width: 720,
+        height: 540,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 78 })
+      .toBuffer();
+    if (body.length === 0) {
+      thumbnailDebug.emptyOutput += 1;
+      return null;
+    }
+    return {
+      body,
+      ext: "webp",
+      contentType: "image/webp",
+    };
+  } catch (error) {
+    thumbnailDebug.sharpFailed += 1;
+    thumbnailDebug.firstSharpError ??= error instanceof Error ? error.message : String(error);
+    return null;
+  }
+}
+
+async function fetchSignedNotionFile(row, source) {
+  try {
+    const signedRes = await fetch("https://www.notion.so/api/v3/getSignedFileUrls", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        urls: [{
+          url: source,
+          permissionRecord: {
+            table: "block",
+            id: row.id,
+            spaceId: NOTION_SPACE_ID,
+          },
+        }],
+      }),
+    });
+    if (!signedRes.ok) return null;
+    const signedJson = await signedRes.json();
+    const signedUrl = typeof signedJson?.signedUrls?.[0] === "string" ? signedJson.signedUrls[0] : signedJson?.signedUrls?.[0]?.url;
+    if (!signedUrl) return null;
+
+    const fileRes = await fetch(signedUrl);
+    if (!fileRes.ok) return null;
+    const contentType = fileRes.headers.get("content-type") || contentTypeFromUrl(signedUrl) || defaultContentType(row.type);
+    const body = Buffer.from(await fileRes.arrayBuffer());
+    if (body.length === 0) return null;
+    return {
+      body,
+      ext: extensionFromContentType(contentType) || extensionFromUrl(signedUrl) || defaultExtension(row.type),
+      contentType,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function fetchMediaFromNotionApi(row) {

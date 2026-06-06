@@ -94,19 +94,15 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
   const [savingCoverAssetId, setSavingCoverAssetId] = useState<string | null>(null);
   const [savingMemberPhotoAssetId, setSavingMemberPhotoAssetId] = useState<string | null>(null);
   const [uploadingMemberKey, setUploadingMemberKey] = useState<string | null>(null);
-  const [visiblePhotoCount, setVisiblePhotoCount] = useState(INITIAL_PHOTO_GROUPS);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [memberPhotoError, setMemberPhotoError] = useState<string | null>(null);
   const [memberUploadError, setMemberUploadError] = useState<string | null>(null);
 
   useEffect(() => setMemberItems(members), [members]);
-  useEffect(() => {
-    setPhotoItems(photos);
-    setVisiblePhotoCount(INITIAL_PHOTO_GROUPS);
-  }, [photos]);
+  useEffect(() => setPhotoItems(photos), [photos]);
 
   async function selectPhotoCover(photo: CompanyPhotoPreview, asset: CompanyPhotoAssetPreview, crop = asset.crop || photo.crop || DEFAULT_CROP) {
-    const nextCrop = clampCrop(crop);
+    const nextCrop = clampCropForZoom(crop);
     setCoverError(null);
     setSavingCoverAssetId(asset.assetId);
     try {
@@ -143,7 +139,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
 
   async function saveMemberPhotoCrop(member: CompanyMemberPreview, crop: CompanyImageCrop) {
     if (!member.photoAssetId) return;
-    const nextCrop = clampCrop(crop);
+    const nextCrop = clampCropForZoom(crop);
     setMemberPhotoError(null);
     setSavingMemberPhotoAssetId(member.photoAssetId);
     try {
@@ -234,7 +230,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
                 >
                   <span className="grid h-[112px] w-full place-items-center overflow-hidden bg-sky-50 text-sm font-semibold text-sky-800">
                     {member.imageUrl ? (
-                      <MediaPreview src={member.imageUrl} kind="photo" crop={member.photoCrop} />
+                      <MediaPreview src={withFileVariant(member.imageUrl, "thumb")} kind="photo" crop={member.photoCrop} />
                     ) : (
                       <Users className="h-5 w-5 text-sky-700/55" />
                     )}
@@ -323,7 +319,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
           countLabel={`${photos.length} groups`}
         >
           <div className="space-y-2">
-            {photoItems.slice(0, visiblePhotoCount).map((photo) => (
+            {photoItems.map((photo) => (
               <button
                 key={photo.id}
                 type="button"
@@ -331,11 +327,11 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
                   setCoverError(null);
                   setSelectedPhoto(photo);
                 }}
-                className="block w-full overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30"
+                className="block w-full overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30 [content-visibility:auto] [contain-intrinsic-size:172px]"
               >
                 <div className="relative flex h-24 items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#f8fafc,#eef6ff_48%,#f7f3ea)]">
                   {photo.imageUrl ? (
-                    <MediaPreview src={photo.imageUrl} kind={photo.kind} crop={photo.crop} objectPosition={photo.coverPosition} />
+                    <MediaPreview src={withFileVariant(photo.imageUrl, "thumb")} kind={photo.kind} crop={photo.crop} objectPosition={photo.coverPosition} />
                   ) : (
                     <ImageIcon className="h-5 w-5 text-slate-500/70" />
                   )}
@@ -351,15 +347,6 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
                 </div>
               </button>
             ))}
-            {visiblePhotoCount < photoItems.length && (
-              <button
-                type="button"
-                onClick={() => setVisiblePhotoCount((count) => Math.min(photoItems.length, count + PHOTO_GROUP_PAGE_SIZE))}
-                className="w-full rounded-md border border-border bg-white px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted/30"
-              >
-                さらに表示 {Math.min(PHOTO_GROUP_PAGE_SIZE, photoItems.length - visiblePhotoCount)} / 残り {photoItems.length - visiblePhotoCount}
-              </button>
-            )}
           </div>
         </ShelfColumn>
       </div>
@@ -369,7 +356,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
           <div className="grid gap-4 sm:grid-cols-[160px_minmax(0,1fr)]">
             <div className="grid aspect-square place-items-center overflow-hidden rounded-md bg-sky-50 text-xl font-semibold text-sky-800">
               {selectedMember.imageUrl ? (
-                <MediaPreview src={selectedMember.imageUrl} kind="photo" crop={selectedMember.photoCrop} />
+                <MediaPreview src={withFileVariant(selectedMember.imageUrl, "original")} kind="photo" crop={selectedMember.photoCrop} eager />
               ) : (
                 initials(selectedMember.codeName)
               )}
@@ -405,7 +392,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
             <div className="mt-4 rounded-md border border-border bg-white p-3">
               <CropEditor
                 title="メンバー写真の表示位置"
-                src={selectedMember.imageUrl}
+                src={withFileVariant(selectedMember.imageUrl, "original")}
                 kind="photo"
                 aspect="square"
                 value={selectedMember.photoCrop}
@@ -433,7 +420,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
             <div className="overflow-hidden rounded-md border border-border bg-muted">
               <div className="grid aspect-video place-items-center overflow-hidden">
                 {selectedPhoto.imageUrl ? (
-                  <MediaPreview src={selectedPhoto.imageUrl} kind={selectedPhoto.kind} crop={selectedPhoto.crop} objectPosition={selectedPhoto.coverPosition} />
+                  <MediaPreview src={withFileVariant(selectedPhoto.imageUrl, "original")} kind={selectedPhoto.kind} crop={selectedPhoto.crop} objectPosition={selectedPhoto.coverPosition} eager />
                 ) : (
                   <ImageIcon className="h-8 w-8 text-muted-foreground" />
                 )}
@@ -448,7 +435,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
               <div className="rounded-md border border-border bg-white p-3">
                 <CropEditor
                   title="サムネ表示位置"
-                  src={selectedPhoto.imageUrl}
+                  src={withFileVariant(selectedPhoto.imageUrl, "original")}
                   kind={selectedPhoto.kind}
                   aspect="video"
                   value={selectedPhoto.crop ?? DEFAULT_CROP}
@@ -466,7 +453,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
                 <div key={asset.assetId} className="overflow-hidden rounded-md border border-border bg-white">
                   <div className="grid aspect-video place-items-center overflow-hidden bg-muted">
                     {asset.imageUrl ? (
-                      <MediaPreview src={asset.imageUrl} kind={asset.kind} crop={asset.crop} objectPosition={asset.coverPosition} />
+                      <MediaPreview src={withFileVariant(asset.imageUrl, "thumb")} kind={asset.kind} crop={asset.crop} objectPosition={asset.coverPosition} />
                     ) : (
                       <ImageIcon className="h-5 w-5 text-muted-foreground" />
                     )}
@@ -497,10 +484,6 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
 const DEFAULT_CROP: CompanyImageCrop = { x: 0, y: 0, zoom: 1 };
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
-const MIN_OFFSET = -100;
-const MAX_OFFSET = 100;
-const INITIAL_PHOTO_GROUPS = 18;
-const PHOTO_GROUP_PAGE_SIZE = 18;
 
 function CropEditor({
   title,
@@ -519,15 +502,16 @@ function CropEditor({
   saving: boolean;
   onSave: (crop: CompanyImageCrop) => void;
 }) {
-  const [draft, setDraft] = useState(() => clampCrop(value));
+  const [draft, setDraft] = useState(() => clampCropForZoom(value));
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; crop: CompanyImageCrop } | null>(null);
 
   useEffect(() => {
-    setDraft(clampCrop(value));
+    setDraft(clampCropForZoom(value));
   }, [value.x, value.y, value.zoom]);
 
   function updateDraft(patch: Partial<CompanyImageCrop>) {
-    setDraft((current) => clampCrop({ ...current, ...patch }));
+    setDraft((current) => clampCropForZoom({ ...current, ...patch }));
   }
 
   function nudgeZoom(delta: number) {
@@ -548,10 +532,10 @@ function CropEditor({
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const dx = rect.width > 0 ? ((event.clientX - drag.startX) / rect.width) * 100 : 0;
-    const dy = rect.height > 0 ? ((event.clientY - drag.startY) / rect.height) * 100 : 0;
-    setDraft(clampCrop({ ...drag.crop, x: drag.crop.x + dx, y: drag.crop.y + dy }));
+    const rect = frameRef.current?.getBoundingClientRect();
+    const dx = rect && rect.width > 0 ? ((event.clientX - drag.startX) / rect.width) * 100 : 0;
+    const dy = rect && rect.height > 0 ? ((event.clientY - drag.startY) / rect.height) * 100 : 0;
+    setDraft(clampCropForZoom({ ...drag.crop, x: drag.crop.x + dx, y: drag.crop.y + dy }));
   }
 
   function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
@@ -576,16 +560,15 @@ function CropEditor({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        <div className="absolute inset-0">
-          <MediaPreview src={src} kind={kind} crop={draft} eager />
-        </div>
         <div
-          className={`pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2 border-white shadow-[0_0_0_9999px_rgba(2,6,23,0.48)] ${aspect === "square" ? "h-[72%] aspect-square" : "w-[76%] aspect-video"}`}
+          ref={frameRef}
+          className={`absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 overflow-visible border-2 border-white shadow-[0_0_0_9999px_rgba(2,6,23,0.52)] ${aspect === "square" ? "h-[72%] aspect-square" : "w-[76%] aspect-video"}`}
         >
-          <span className="absolute inset-x-0 top-1/3 border-t border-white/50" />
-          <span className="absolute inset-x-0 top-2/3 border-t border-white/50" />
-          <span className="absolute inset-y-0 left-1/3 border-l border-white/50" />
-          <span className="absolute inset-y-0 left-2/3 border-l border-white/50" />
+          <CropImageLayer src={src} kind={kind} crop={draft} eager clip={false} />
+          <span className="pointer-events-none absolute inset-x-0 top-1/3 border-t border-white/50" />
+          <span className="pointer-events-none absolute inset-x-0 top-2/3 border-t border-white/50" />
+          <span className="pointer-events-none absolute inset-y-0 left-1/3 border-l border-white/50" />
+          <span className="pointer-events-none absolute inset-y-0 left-2/3 border-l border-white/50" />
         </div>
         <div className="pointer-events-none absolute bottom-2 left-2 rounded border border-white/25 bg-black/45 px-2 py-1 text-[10px] font-medium text-white">
           画像をドラッグして、枠に入る位置を合わせる
@@ -620,30 +603,8 @@ function CropEditor({
         </button>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
-          横位置
-          <input
-            type="range"
-            min={MIN_OFFSET}
-            max={MAX_OFFSET}
-            step="1"
-            value={draft.x}
-            onChange={(event) => updateDraft({ x: Number(event.target.value) })}
-            className="w-full"
-          />
-        </label>
-        <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
-          縦位置
-          <input
-            type="range"
-            min={MIN_OFFSET}
-            max={MAX_OFFSET}
-            step="1"
-            value={draft.y}
-            onChange={(event) => updateDraft({ y: Number(event.target.value) })}
-            className="w-full"
-          />
-        </label>
+        <CropRange label="横位置" value={draft.x} zoom={draft.zoom} onChange={(x) => updateDraft({ x })} />
+        <CropRange label="縦位置" value={draft.y} zoom={draft.zoom} onChange={(y) => updateDraft({ y })} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button
@@ -664,6 +625,34 @@ function CropEditor({
         </button>
       </div>
     </div>
+  );
+}
+
+function CropRange({
+  label,
+  value,
+  zoom,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  zoom: number;
+  onChange: (value: number) => void;
+}) {
+  const limit = panLimitForZoom(zoom);
+  return (
+    <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+      {label}
+      <input
+        type="range"
+        min={-limit}
+        max={limit}
+        step="0.5"
+        value={clampNumber(value, -limit, limit, 0)}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="w-full"
+      />
+    </label>
   );
 }
 
@@ -725,38 +714,11 @@ function MediaPreview({
   eager?: boolean;
 }) {
   const nextCrop = crop ? clampCrop(crop) : null;
-  const style = nextCrop
-    ? {
-        transform: `translate(-50%, -50%) translate(${nextCrop.x}%, ${nextCrop.y}%) scale(${nextCrop.zoom})`,
-        transformOrigin: "center",
-      }
-    : { objectPosition: objectPositionCss(objectPosition) };
-  const className = nextCrop
-    ? "absolute left-1/2 top-1/2 h-full w-full object-cover"
-    : "h-full w-full object-cover";
-  const body = kind === "video" ? (
-    <video
-      src={src}
-      className={className}
-      style={style}
-      muted
-      playsInline
-      preload="metadata"
-    />
-  ) : (
-    <img
-      src={src}
-      alt=""
-      className={className}
-      style={style}
-      loading={eager ? "eager" : "lazy"}
-      decoding="async"
-      fetchPriority={eager ? "high" : "auto"}
-    />
-  );
   if (nextCrop) {
-    return <span className="relative block h-full w-full overflow-hidden">{body}</span>;
+    return <CropImageLayer src={src} kind={kind} crop={nextCrop} eager={eager} clip />;
   }
+  const style = { objectPosition: objectPositionCss(objectPosition) };
+  const className = "h-full w-full object-cover";
   if (kind === "video") {
     return (
       <video
@@ -782,6 +744,48 @@ function MediaPreview({
   );
 }
 
+function CropImageLayer({
+  src,
+  kind,
+  crop,
+  eager = false,
+  clip,
+}: {
+  src: string;
+  kind: string;
+  crop: CompanyImageCrop;
+  eager?: boolean;
+  clip: boolean;
+}) {
+  const nextCrop = clampCropForZoom(crop);
+  const style = {
+    transform: `translate(-50%, -50%) translate(${nextCrop.x}%, ${nextCrop.y}%) scale(${nextCrop.zoom})`,
+    transformOrigin: "center",
+  };
+  const className = "absolute left-1/2 top-1/2 h-full w-full object-cover";
+  const body = kind === "video" ? (
+    <video
+      src={src}
+      className={className}
+      style={style}
+      muted
+      playsInline
+      preload="metadata"
+    />
+  ) : (
+    <img
+      src={src}
+      alt=""
+      className={className}
+      style={style}
+      loading={eager ? "eager" : "lazy"}
+      decoding="async"
+      fetchPriority={eager ? "high" : "auto"}
+    />
+  );
+  return <span className={`relative block h-full w-full ${clip ? "overflow-hidden" : "overflow-visible"}`}>{body}</span>;
+}
+
 function objectPositionCss(value?: string) {
   const map: Record<string, string> = {
     "top-left": "left top",
@@ -799,16 +803,43 @@ function objectPositionCss(value?: string) {
 
 function clampCrop(value: Partial<CompanyImageCrop> | null | undefined): CompanyImageCrop {
   return {
-    x: clampNumber(value?.x, MIN_OFFSET, MAX_OFFSET, DEFAULT_CROP.x),
-    y: clampNumber(value?.y, MIN_OFFSET, MAX_OFFSET, DEFAULT_CROP.y),
+    x: clampNumber(value?.x, -100, 100, DEFAULT_CROP.x),
+    y: clampNumber(value?.y, -100, 100, DEFAULT_CROP.y),
     zoom: clampNumber(value?.zoom, MIN_ZOOM, MAX_ZOOM, DEFAULT_CROP.zoom),
   };
+}
+
+function clampCropForZoom(value: Partial<CompanyImageCrop> | null | undefined): CompanyImageCrop {
+  const base = clampCrop(value);
+  const limit = panLimitForZoom(base.zoom);
+  return {
+    ...base,
+    x: clampNumber(base.x, -limit, limit, DEFAULT_CROP.x),
+    y: clampNumber(base.y, -limit, limit, DEFAULT_CROP.y),
+  };
+}
+
+function panLimitForZoom(zoom: number) {
+  const nextZoom = clampNumber(zoom, MIN_ZOOM, MAX_ZOOM, DEFAULT_CROP.zoom);
+  return Math.max(0, ((nextZoom - 1) / nextZoom) * 50);
 }
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number) {
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.min(max, Math.max(min, number));
+}
+
+function withFileVariant(src: string, variant: "thumb" | "original") {
+  try {
+    const url = new URL(src, "http://amd-os.local");
+    url.searchParams.set("variant", variant);
+    const value = `${url.pathname}${url.search}${url.hash}`;
+    return src.startsWith("http") ? url.toString() : value;
+  } catch {
+    const separator = src.includes("?") ? "&" : "?";
+    return `${src}${separator}variant=${variant}`;
+  }
 }
 
 function ShelfColumn({
