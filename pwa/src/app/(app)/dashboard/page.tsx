@@ -45,6 +45,7 @@ function getCurrentYm() {
 }
 
 function isDashboardProjectListItem(project: DashProject) {
+  if (project.projectId === "p00") return false;
   return !isInstitutionDashboardProject(project);
 }
 

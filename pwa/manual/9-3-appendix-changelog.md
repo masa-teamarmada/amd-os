@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-06 | 2-4 AMD 会社全体 | 変更 | Dashboard の通常PJ一覧から AMD 全体PJ (`p00`) を除外し、AMD PJ cockpit の入口をバイタルサイン枠に一本化 | 会社全体PJを通常PJカードとして重複表示しないため | えいみ-worker |
 | 2026-06-06 | 2-4 AMD 会社全体 / 4-5 Management Score | 変更 | Dashboard のバイタルサイン枠クリック先を AMD 全体 cockpit (`/project/p00/cockpit`) に変更し、右上の詳細リンクだけ `/management-score` に残す | Dashboard から会社全体PJへ直接戻れる導線にするため | えいみ-worker |
 | 2026-06-06 | 2-3 PJ コックピット | 追加 | TODO と経営ハイライトの間に「資料」スペースを追加。ファイル追加時は Google Drive の当該PJ folder配下 `AMD OS 資料` folderへ保存し、OSには `project_documents` のmetadata/linkだけを残す仕様を追記 | PJ cockpitから資料をOS上のリンクとして残し、実ファイルは共有DriveのPJ folder配下に集約するため | えいみ-worker |
 | 2026-06-04 | 2-4 AMD 会社全体 / 4-9 研究機関 ERS | 変更 | `/dashboard` の本文表示順を PJ一覧 → 研究機関ERSリスト → Company Content shelf と明記し、Company Content shelf をメンバー / 沿革 / メディア掲載 / photo の4カラム棚として整理 | まさ指示「研究機関リストがcompany contentより下にいっちゃってるから、上にもってきて。PJリストと続きで表示されるようにして」への対応 | えいみ-worker |
