@@ -1,7 +1,14 @@
 "use client";
 
-import { ChangeEvent, DragEvent, useEffect, useRef, useState } from "react";
-import { AlertTriangle, ExternalLink, FileUp, FolderOpen, Loader2, RefreshCw } from "lucide-react";
+import { ChangeEvent, DragEvent, useCallback, useEffect, useRef, useState } from "react";
+import { AlertTriangle, ExternalLink, Eye, FileText, FileUp, FolderOpen, Loader2, RefreshCw } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { MarkdownView } from "./MarkdownView";
 
 type ProjectDocument = {
   documentId: string;
@@ -25,6 +32,12 @@ type ProjectDocumentsResponse = {
   error?: string;
 };
 
+type MarkdownPreviewResponse = {
+  ok?: boolean;
+  markdown?: string;
+  error?: string;
+};
+
 export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [documents, setDocuments] = useState<ProjectDocument[]>([]);
@@ -35,8 +48,12 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
   const [warning, setWarning] = useState<string | null>(null);
   const [lastFiles, setLastFiles] = useState<File[] | null>(null);
   const [documentsFolderName, setDocumentsFolderName] = useState("AMD OS 資料");
+  const [previewDoc, setPreviewDoc] = useState<ProjectDocument | null>(null);
+  const [previewMarkdown, setPreviewMarkdown] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
-  async function loadDocuments() {
+  const loadDocuments = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -56,11 +73,11 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [projectId]);
 
   useEffect(() => {
     void loadDocuments();
-  }, [projectId]);
+  }, [loadDocuments]);
 
   async function uploadFiles(files: File[]) {
     if (files.length === 0 || uploading) return;
@@ -114,113 +131,208 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
     void uploadFiles(files);
   }
 
+  async function openMarkdownPreview(doc: ProjectDocument) {
+    setPreviewDoc(doc);
+    setPreviewMarkdown("");
+    setPreviewError(null);
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(`/api/project-documents/${encodeURIComponent(doc.documentId)}/content`);
+      const json = (await res.json().catch(() => ({}))) as MarkdownPreviewResponse;
+      if (!res.ok || !json.ok) {
+        setPreviewError(json.error || `HTTP ${res.status}`);
+        return;
+      }
+      setPreviewMarkdown(json.markdown || "");
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "preview error");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   const latest = documents.slice(0, 4);
 
   return (
-    <section className="rounded-lg border border-border bg-background">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <FolderOpen className="h-4 w-4 text-slate-500" aria-hidden />
-        <div className="min-w-0">
-          <h2 className="text-[13px] font-semibold leading-tight">資料</h2>
-          <p className="truncate text-[10px] text-muted-foreground">Drive / {documentsFolderName}</p>
+    <>
+      <section className="rounded-lg border border-border bg-background">
+        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+          <FolderOpen className="h-4 w-4 text-slate-500" aria-hidden />
+          <div className="min-w-0">
+            <h2 className="text-[13px] font-semibold leading-tight">資料</h2>
+            <p className="truncate text-[10px] text-muted-foreground">Drive / {documentsFolderName}</p>
+          </div>
+          <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+            {documents.length}件
+          </span>
         </div>
-        <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-          {documents.length}件
-        </span>
-      </div>
 
-      <div className="p-3">
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`flex min-h-24 flex-col items-center justify-center gap-2 rounded-md border border-dashed px-3 py-4 text-center transition-colors ${
-            dragActive
-              ? "border-sky-400 bg-sky-50"
-              : "border-slate-300 bg-slate-50/60 hover:bg-slate-50"
-          } ${uploading ? "pointer-events-none opacity-70" : ""}`}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleInputChange}
-          />
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[12px] font-medium text-slate-800 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-            disabled={uploading}
+        <div className="p-3">
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`flex min-h-24 flex-col items-center justify-center gap-2 rounded-md border border-dashed px-3 py-4 text-center transition-colors ${
+              dragActive
+                ? "border-sky-400 bg-sky-50"
+                : "border-slate-300 bg-slate-50/60 hover:bg-slate-50"
+            } ${uploading ? "pointer-events-none opacity-70" : ""}`}
           >
-            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <FileUp className="h-3.5 w-3.5" aria-hidden />}
-            {uploading ? "保存中" : "資料を追加"}
-          </button>
-          <p className="text-[11px] text-muted-foreground">ファイルはPJ folder配下の専用folderに保存</p>
-        </div>
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleInputChange}
+            />
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[12px] font-medium text-slate-800 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+              disabled={uploading}
+            >
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <FileUp className="h-3.5 w-3.5" aria-hidden />}
+              {uploading ? "保存中" : "資料を追加"}
+            </button>
+            <p className="text-[11px] text-muted-foreground">ファイルはPJ folder配下の専用folderに保存</p>
+          </div>
 
-        {(warning || error) && (
-          <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-900">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-            <div className="min-w-0 flex-1">
-              <p className="break-words">{error || warning}</p>
-              {error && lastFiles && (
-                <button
-                  type="button"
-                  onClick={() => uploadFiles(lastFiles)}
-                  className="mt-1 inline-flex items-center gap-1 rounded border border-amber-300 bg-white px-2 py-0.5 text-[10px] font-medium text-amber-900 hover:bg-amber-100"
-                  disabled={uploading}
-                >
-                  <RefreshCw className="h-3 w-3" aria-hidden />
-                  再試行
-                </button>
-              )}
+          {(warning || error) && (
+            <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-900">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="break-words">{error || warning}</p>
+                {error && lastFiles && (
+                  <button
+                    type="button"
+                    onClick={() => uploadFiles(lastFiles)}
+                    className="mt-1 inline-flex items-center gap-1 rounded border border-amber-300 bg-white px-2 py-0.5 text-[10px] font-medium text-amber-900 hover:bg-amber-100"
+                    disabled={uploading}
+                  >
+                    <RefreshCw className="h-3 w-3" aria-hidden />
+                    再試行
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="mt-3 h-16 rounded-md border border-border/60 bg-muted/20 animate-pulse" />
+          ) : latest.length === 0 ? (
+            <div className="mt-3 rounded-md border border-border/70 bg-muted/20 px-3 py-3 text-center text-[12px] text-muted-foreground">
+              資料なし
+            </div>
+          ) : (
+            <ul className="mt-3 divide-y divide-border overflow-hidden rounded-md border border-border/70">
+              {latest.map((doc) => {
+                const markdown = isMarkdownDocument(doc);
+                return (
+                  <li key={doc.documentId} className="flex items-center gap-2 bg-white px-2.5 py-2">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-slate-200 bg-slate-50">
+                      {markdown ? (
+                        <FileText className="h-3.5 w-3.5 text-sky-600" aria-hidden />
+                      ) : (
+                        <FileUp className="h-3.5 w-3.5 text-slate-500" aria-hidden />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {markdown ? (
+                        <button
+                          type="button"
+                          onClick={() => openMarkdownPreview(doc)}
+                          className="block max-w-full truncate text-left text-[12px] font-medium text-slate-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                        >
+                          {doc.fileName}
+                        </button>
+                      ) : (
+                        <a
+                          href={doc.webViewLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block truncate text-[12px] font-medium text-slate-900 hover:underline"
+                        >
+                          {doc.fileName}
+                        </a>
+                      )}
+                      <p className="truncate text-[10px] text-muted-foreground">
+                        {formatBytes(doc.fileSizeBytes)} / {formatDate(doc.createdAt)}
+                      </p>
+                    </div>
+                    {markdown && (
+                      <button
+                        type="button"
+                        onClick={() => openMarkdownPreview(doc)}
+                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label={`${doc.fileName}をOS内で表示`}
+                      >
+                        <Eye className="h-3.5 w-3.5" aria-hidden />
+                      </button>
+                    )}
+                    <a
+                      href={doc.webViewLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label={`${doc.fileName}をDriveで開く`}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <Dialog open={!!previewDoc} onOpenChange={(open) => {
+        if (!open) {
+          setPreviewDoc(null);
+          setPreviewMarkdown("");
+          setPreviewError(null);
+        }
+      }}>
+        <DialogContent className="grid h-[86vh] w-[92vw] max-w-[1180px] grid-rows-[auto_1fr] gap-0 overflow-hidden rounded-lg border border-slate-300 bg-white p-0 text-slate-950 shadow-2xl">
+          <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+            <div className="flex min-w-0 items-start gap-3 pr-9">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded border border-sky-200 bg-sky-50">
+                <FileText className="h-[18px] w-[18px] text-sky-700" aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-[15px] font-semibold leading-tight text-slate-950">
+                  {previewDoc?.fileName || "Markdown"}
+                </DialogTitle>
+                <DialogDescription className="mt-1 text-[11px] text-slate-500">
+                  {previewDoc ? `${formatBytes(previewDoc.fileSizeBytes)} / ${formatDate(previewDoc.createdAt)}` : ""}
+                </DialogDescription>
+              </div>
             </div>
           </div>
-        )}
-
-        {loading ? (
-          <div className="mt-3 h-16 rounded-md border border-border/60 bg-muted/20 animate-pulse" />
-        ) : latest.length === 0 ? (
-          <div className="mt-3 rounded-md border border-border/70 bg-muted/20 px-3 py-3 text-center text-[12px] text-muted-foreground">
-            資料なし
+          <div className="min-h-0 overflow-y-auto bg-white px-6 py-5 sm:px-8">
+            {previewLoading ? (
+              <div className="flex h-full min-h-64 items-center justify-center text-[13px] text-slate-500">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                読み込み中
+              </div>
+            ) : previewError ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+                {previewError}
+              </div>
+            ) : (
+              <MarkdownView source={previewMarkdown || "（本文なし）"} tone="light" />
+            )}
           </div>
-        ) : (
-          <ul className="mt-3 divide-y divide-border overflow-hidden rounded-md border border-border/70">
-            {latest.map((doc) => (
-              <li key={doc.documentId} className="flex items-center gap-2 bg-white px-2.5 py-2">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-slate-200 bg-slate-50">
-                  <FileUp className="h-3.5 w-3.5 text-slate-500" aria-hidden />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <a
-                    href={doc.webViewLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block truncate text-[12px] font-medium text-slate-900 hover:underline"
-                  >
-                    {doc.fileName}
-                  </a>
-                  <p className="truncate text-[10px] text-muted-foreground">
-                    {formatBytes(doc.fileSizeBytes)} / {formatDate(doc.createdAt)}
-                  </p>
-                </div>
-                <a
-                  href={doc.webViewLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-                  aria-label={`${doc.fileName}をDriveで開く`}
-                >
-                  <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
+        </DialogContent>
+      </Dialog>
+    </>
   );
+}
+
+function isMarkdownDocument(doc: ProjectDocument) {
+  const name = doc.fileName.toLowerCase();
+  const mime = doc.mimeType.toLowerCase();
+  return name.endsWith(".md") || name.endsWith(".markdown") || mime === "text/markdown";
 }
 
 function formatBytes(bytes: number) {
