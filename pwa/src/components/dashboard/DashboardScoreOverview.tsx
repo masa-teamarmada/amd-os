@@ -66,19 +66,24 @@ export function DashboardScoreOverview({
 
 function ManagementScoreCard({ score, history }: { score: DashboardManagementScoreSnapshot | null; history: DashboardManagementScoreSnapshot[] }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-3 flex flex-col gap-1.5 min-h-[120px]">
-      <div className="flex items-baseline gap-2">
+    <section className="relative cursor-pointer rounded-lg border border-border bg-card p-3 flex flex-col gap-1.5 min-h-[120px] transition-all hover:shadow-md hover:-translate-y-0.5">
+      <Link
+        href="/project/p00/cockpit"
+        aria-label="AMD PJ cockpitを開く"
+        className="absolute inset-0 z-10 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      />
+      <div className="relative z-20 flex items-baseline gap-2 pointer-events-none">
         <h2 className="text-sm font-semibold">
           バイタルサイン <span className="text-[10px] font-mono text-muted-foreground ml-0.5">(VS)</span>
         </h2>
-        <Link href="/management-score" className="text-[10px] text-muted-foreground hover:text-foreground hover:underline ml-auto">
+        <Link href="/management-score" className="pointer-events-auto text-[10px] text-muted-foreground hover:text-foreground hover:underline ml-auto">
           詳細 →
         </Link>
       </div>
       {!score ? (
-        <p className="text-xs text-muted-foreground my-auto text-center">snapshot なし</p>
+        <p className="relative z-0 text-xs text-muted-foreground my-auto text-center">snapshot なし</p>
       ) : (
-        <>
+        <div className="relative z-0 flex flex-1 flex-col gap-1.5">
           <div className="flex items-baseline gap-2">
             <div className="text-3xl font-bold">{formatScore(score.total_score)}</div>
             <ScoreTrendIcon current={score.total_score} previous={prevScore(history, "total_score")} size="lg" />
@@ -95,7 +100,7 @@ function ManagementScoreCard({ score, history }: { score: DashboardManagementSco
             <ScoreAxis label="🚀 案件" value={score.pipeline_score} previous={prevScore(history, "pipeline_score")} />
             <ScoreAxis label="🧭 方向" value={score.direction_score} previous={prevScore(history, "direction_score")} />
           </div>
-        </>
+        </div>
       )}
     </section>
   );

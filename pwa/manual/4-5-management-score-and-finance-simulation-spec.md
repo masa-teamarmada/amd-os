@@ -25,8 +25,8 @@ AMD Management Score は、AMD 全社 (= `p00`) の経営状態を月次で見�
 
 | 画面 | 役割 |
 |---|---|
-| `/project/p00/cockpit` | 会社全体 cockpit。上部 hero にバイタルサイン total + 5 軸時系列を表示する |
-| `/management-score` | バイタルサイン詳細画面。score history、5 軸 mini trend、runway / cash / 予実、evidence drilldown、GAS 月次試算表移植ビュー、経営シグナル評価、差分メモを見る |
+| `/project/p00/cockpit` | 会社全体 cockpit。上部 hero にバイタルサイン total + 5 軸時系列を表示する。`/dashboard` 上部のバイタルサイン枠クリック先 |
+| `/management-score` | バイタルサイン詳細画面。score history、5 軸 mini trend、runway / cash / 予実、evidence drilldown、GAS 月次試算表移植ビュー、経営シグナル評価、差分メモを見る。`/dashboard` ではバイタルサイン枠右上の詳細リンクから開く |
 | `/admin/settings` | raw data 収集 / score 計算 operation の稼働状態を見る。2026-05-25 時点では UI からの Run Now は止め、対象月を明示して Codex automation 側で実行する |
 
 `/project/p00/cockpit` の hero は `amd_management_score_snapshots` を直接読み、横軸 `ym`、縦軸 0-100 の折れ線で `total_score` と 5 軸を重ねる。詳細は `/management-score` へ誘導する。

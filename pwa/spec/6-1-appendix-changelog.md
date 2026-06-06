@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-06 | 2-1 | 変更 | `/dashboard` 上部のバイタルサイン枠クリック先を AMD 全体 cockpit (`/project/p00/cockpit`) にし、詳細リンクだけ `/management-score` に残す導線へ変更 | バイタルサインを会社全体PJの入口として扱い、詳細分析画面との使い分けを明確にするため | えいみ-worker |
 | 2026-06-06 | 3-8 | 追加 | PJ cockpit の TODO と経営ハイライトの間に `CockpitProjectDocuments` / `/api/project-documents` / `project_documents` を追加し、Drive のPJ folder配下 `AMD OS 資料` folderへ保存、DBはmetadata/linkのみとする contract を追記 | PJ cockpit上で資料を置き、Google Drive共有フォルダ配下の当該PJ folderへ安全に集約するため | えいみ-worker |
 | 2026-06-04 | 2-1 | 変更 | `/dashboard` の本文表示順を PJ 一覧 → 研究機関ERSリスト → Company Content shelf と明記 | 研究機関リストを company content より上、PJ一覧の続きに戻すため | えいみ-worker |
 | 2026-06-04 | 2-1 | 変更 | `/dashboard` の研究機関ERSリストをPJ一覧と同じ左/mainカラム内の直下に置くと明記 | MyPage右カラムより下の全幅下段に落ちる再発を防ぐため | えいみ-worker |
