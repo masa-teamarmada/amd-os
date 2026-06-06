@@ -35,6 +35,7 @@ export interface CompanyPhotoPreview {
   status: "unknown" | "internal_ok" | "public_ok";
   imageUrl: string | null;
   kind: string;
+  itemCount?: number;
 }
 
 export interface CompanyMediaMentionPreview {
@@ -191,19 +192,14 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
         <ShelfColumn
           icon={<ImageIcon className="h-4 w-4" />}
           title="photo"
-          countLabel={`${photos.length} review`}
+          countLabel={`${photos.length} groups`}
         >
           <div className="space-y-2">
             {photos.map((photo) => (
               <div key={photo.id} className="overflow-hidden rounded-md border border-border/70 bg-white">
                 <div className="relative flex h-24 items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#f8fafc,#eef6ff_48%,#f7f3ea)]">
                   {photo.imageUrl ? (
-                    <img
-                      src={photo.imageUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
+                    <MediaPreview src={photo.imageUrl} kind={photo.kind} />
                   ) : (
                     <ImageIcon className="h-5 w-5 text-slate-500/70" />
                   )}
@@ -213,7 +209,9 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
                     <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{photo.title}</p>
                     <PermissionBadge status={photo.status} />
                   </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground">{[photo.kind, photo.meta].filter(Boolean).join(" / ")}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {[photo.itemCount ? `${photo.itemCount} items` : null, photo.kind, photo.meta].filter(Boolean).join(" / ")}
+                  </p>
                 </div>
               </div>
             ))}
@@ -222,6 +220,21 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
       </div>
     </section>
   );
+}
+
+function MediaPreview({ src, kind }: { src: string; kind: string }) {
+  if (kind === "video") {
+    return (
+      <video
+        src={src}
+        className="h-full w-full object-cover"
+        muted
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+  return <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />;
 }
 
 function ShelfColumn({

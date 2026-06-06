@@ -24,7 +24,7 @@ export default async function AdminCompanyPage() {
       .limit(80),
     supabase
       .from("media_assets")
-      .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,visibility,status,source_kind,source_ref,notion_source_id,storage_path,reviewed_at,updated_at")
+      .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,visibility,status,source_kind,source_ref,notion_source_id,storage_path,thumbnail_path,reviewed_at,updated_at")
       .order("storage_path", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false })
       .limit(80),
@@ -107,10 +107,11 @@ export default async function AdminCompanyPage() {
             id: String(row.asset_id),
             primary: String(row.title),
             secondary: [row.asset_kind, row.captured_at, `usage:${row.usage_permission}`, `consent:${row.consent_status}`].filter(Boolean).join(" / "),
-            imageUrl: row.storage_path ? `/api/company-media/file/${row.asset_id}` : null,
-            status: String(row.status),
-            visibility: String(row.visibility),
-            sourceKind: String(row.source_kind || ""),
+              imageUrl: (row.thumbnail_path || row.storage_path) ? `/api/company-media/file/${row.asset_id}` : null,
+              kind: row.thumbnail_path ? "photo" : String(row.asset_kind || "photo"),
+              status: String(row.status),
+              visibility: String(row.visibility),
+              sourceKind: String(row.source_kind || ""),
             sourceRef: String(row.source_ref || row.notion_source_id || ""),
           }))}
         />
@@ -137,6 +138,7 @@ interface ReviewRow {
   secondary: string;
   body?: string;
   imageUrl?: string | null;
+  kind?: string;
   status: string;
   visibility: string;
   sourceKind: string;
@@ -167,7 +169,7 @@ function ReviewTable({ title, rows }: { title: string; rows: ReviewRow[] }) {
                 <td className="min-w-0 px-3 py-2">
                   <div className="flex min-w-0 items-center gap-3">
                     {row.imageUrl ? (
-                      <img src={row.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover" loading="lazy" />
+                      <MediaPreview src={row.imageUrl} kind={row.kind || "photo"} />
                     ) : (
                       <span className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
                         <ImageIcon className="h-4 w-4" />
@@ -236,6 +238,21 @@ function GateChip({ value }: { value: string }) {
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
       : "border-border bg-muted/30 text-muted-foreground";
   return <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>{value}</span>;
+}
+
+function MediaPreview({ src, kind }: { src: string; kind: string }) {
+  if (kind === "video") {
+    return (
+      <video
+        src={src}
+        className="h-12 w-12 shrink-0 rounded-md object-cover"
+        muted
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+  return <img src={src} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover" loading="lazy" />;
 }
 
 function oneRelation<T>(value: T | T[] | null | undefined): T | null {

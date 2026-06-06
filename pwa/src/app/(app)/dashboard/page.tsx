@@ -223,6 +223,18 @@ const DASHBOARD_PHOTO_PREVIEW: CompanyPhotoPreview[] = [
   },
 ];
 
+interface CompanyMediaAssetRow {
+  asset_id: unknown;
+  title: unknown;
+  asset_kind: unknown;
+  captured_at?: unknown;
+  usage_permission: unknown;
+  consent_status: unknown;
+  status?: unknown;
+  storage_path: unknown;
+  thumbnail_path: unknown;
+}
+
 async function fetchManagementScoreHistory(supabase: ReturnType<typeof createClient>): Promise<DashboardManagementScoreSnapshot[]> {
   const { data, error } = await supabase
     .from("amd_management_score_snapshots")
@@ -403,31 +415,8 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
     sourceUrl: row.source_url ? String(row.source_url) : null,
   }));
 
-  const photosFromAssets: CompanyPhotoPreview[] = (mediaAssetsRes.data ?? []).map((row) => ({
-    id: String(row.asset_id),
-    title: String(row.title || row.asset_kind || "Media asset"),
-    meta: [
-      row.captured_at ? String(row.captured_at) : null,
-      row.asset_kind ? String(row.asset_kind) : null,
-      row.consent_status ? `consent:${String(row.consent_status)}` : null,
-    ].filter(Boolean).join(" / ") || "reviewed asset",
-    status: photoStatusFromPermission(String(row.usage_permission || "unknown")),
-    imageUrl: row.storage_path ? `/api/company-media/file/${row.asset_id}` : null,
-    kind: String(row.asset_kind || "photo"),
-  }));
-
-  const photosInReview: CompanyPhotoPreview[] = (mediaReviewRes.data ?? []).map((row) => ({
-    id: String(row.asset_id),
-    title: String(row.title || "Member photo review"),
-    meta: [
-      row.status ? String(row.status) : "needs_review",
-      row.usage_permission ? `usage:${String(row.usage_permission)}` : "usage:unknown",
-      row.consent_status ? `consent:${String(row.consent_status)}` : "consent:unknown",
-    ].filter(Boolean).join(" / "),
-    status: "unknown",
-    imageUrl: row.storage_path ? `/api/company-media/file/${row.asset_id}` : null,
-    kind: String(row.asset_kind || "photo"),
-  }));
+  const photosFromAssets = groupCompanyPhotos(mediaAssetsRes.data ?? [], "approved");
+  const photosInReview = groupCompanyPhotos(mediaReviewRes.data ?? [], "review");
 
   return {
     members: membersFromProfiles.length > 0 ? membersFromProfiles : membersFallback,
@@ -441,6 +430,46 @@ function photoStatusFromPermission(permission: string): CompanyPhotoPreview["sta
   if (permission === "public_ok") return "public_ok";
   if (permission === "internal_ok") return "internal_ok";
   return "unknown";
+}
+
+function groupCompanyPhotos(rows: CompanyMediaAssetRow[], mode: "approved" | "review"): CompanyPhotoPreview[] {
+  const groups = new Map<string, { rows: CompanyMediaAssetRow[]; title: string }>();
+  for (const row of rows) {
+    const key = parentKeyFromStorage(row) || String(row.asset_id);
+    const current = groups.get(key) ?? { rows: [], title: photoGroupTitle(row) };
+    current.rows.push(row);
+    groups.set(key, current);
+  }
+
+  return Array.from(groups.entries()).map(([key, group]) => {
+    const cover = group.rows.find((row) => row.thumbnail_path || row.storage_path) ?? group.rows[0];
+    const hasVideo = group.rows.some((row) => String(row.asset_kind || "") === "video");
+    const permission = String(cover?.usage_permission || "unknown");
+    const consent = String(cover?.consent_status || "unknown");
+    return {
+      id: `photo-group-${key}`,
+      title: group.title,
+      meta: mode === "approved"
+        ? [cover?.captured_at ? String(cover.captured_at) : null, hasVideo ? "includes video" : null, `consent:${consent}`].filter(Boolean).join(" / ")
+        : ["needs_review", `usage:${permission}`, `consent:${consent}`].join(" / "),
+      status: mode === "approved" ? photoStatusFromPermission(permission) : "unknown",
+      imageUrl: cover && (cover.thumbnail_path || cover.storage_path) ? `/api/company-media/file/${cover.asset_id}` : null,
+      kind: "photo",
+      itemCount: group.rows.length,
+    };
+  });
+}
+
+function parentKeyFromStorage(row: CompanyMediaAssetRow) {
+  const path = String(row.storage_path || row.thumbnail_path || "");
+  const parts = path.split("/");
+  return parts.length >= 3 ? parts[1] : null;
+}
+
+function photoGroupTitle(row: CompanyMediaAssetRow) {
+  return String(row.title || "Photo review")
+    .replace(/^(Photo|Video|Media) review: /, "")
+    .replace(/ #\d+$/, "");
 }
 
 /** 自分が参画してる active PJ id Set (= ProjectStripe ソート優先用、軽量 fetch) */

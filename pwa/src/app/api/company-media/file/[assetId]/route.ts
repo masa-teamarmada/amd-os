@@ -27,14 +27,14 @@ export async function GET(_req: Request, context: RouteContext) {
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
-  if (!asset?.storage_path) {
+  const path = asset?.thumbnail_path || asset?.storage_path;
+  if (!path) {
     return NextResponse.json({ ok: false, error: "asset file not found" }, { status: 404 });
   }
 
-  const path = String(asset.thumbnail_path || asset.storage_path);
   const { data, error: signError } = await admin.storage
     .from(String(asset.storage_bucket || "company-media"))
-    .createSignedUrl(path, 60);
+    .createSignedUrl(String(path), 60);
 
   if (signError || !data?.signedUrl) {
     return NextResponse.json({ ok: false, error: signError?.message || "signed URL failed" }, { status: 500 });

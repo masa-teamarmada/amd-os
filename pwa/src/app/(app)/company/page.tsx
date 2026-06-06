@@ -53,6 +53,8 @@ export default async function CompanyPage() {
   const history = historyRes.data ?? [];
   const media = mediaRes.data ?? [];
   const mediaReview = mediaReviewRes.data ?? [];
+  const mediaGroups = groupMediaAssets(media, "approved");
+  const mediaReviewGroups = groupMediaAssets(mediaReview, "review");
   const schemaMissing = Boolean(profileRes.error || membersRes.error || historyRes.error || mediaRes.error || mediaReviewRes.error);
 
   return (
@@ -78,7 +80,7 @@ export default async function CompanyPage() {
       <section className="grid gap-3 lg:grid-cols-4">
         <Metric icon={<Users className="h-4 w-4" />} label="team profiles" value={members.length} />
         <Metric icon={<History className="h-4 w-4" />} label="history events" value={history.length} />
-        <Metric icon={<ImageIcon className="h-4 w-4" />} label="photo review" value={mediaReview.length} />
+        <Metric icon={<ImageIcon className="h-4 w-4" />} label="photo review" value={mediaReviewGroups.length} />
         <Metric icon={<ShieldCheck className="h-4 w-4" />} label="visibility gate" value="on" />
       </section>
 
@@ -105,11 +107,11 @@ export default async function CompanyPage() {
 
           <Panel title="Media">
             <div className="grid gap-3 sm:grid-cols-2">
-              {media.map((asset) => (
+              {mediaGroups.map((asset) => (
                 <article key={asset.asset_id} className="overflow-hidden rounded-md border border-border bg-card">
                   <div className="grid aspect-[4/3] place-items-center overflow-hidden bg-muted">
-                    {asset.storage_path ? (
-                      <img src={`/api/company-media/file/${asset.asset_id}`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                    {asset.imageUrl ? (
+                      <MediaPreview src={asset.imageUrl} kind="photo" />
                     ) : (
                       <ImageIcon className="h-7 w-7 text-muted-foreground" />
                     )}
@@ -120,16 +122,16 @@ export default async function CompanyPage() {
                       <PermissionChip permission={String(asset.usage_permission)} />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {[asset.captured_at, asset.asset_kind, `consent:${asset.consent_status}`].filter(Boolean).join(" / ")}
+                      {[`${asset.itemCount} items`, asset.captured_at, asset.asset_kind, `consent:${asset.consent_status}`].filter(Boolean).join(" / ")}
                     </p>
                   </div>
                 </article>
               ))}
-              {mediaReview.map((asset) => (
+              {mediaReviewGroups.map((asset) => (
                 <article key={asset.asset_id} className="overflow-hidden rounded-md border border-amber-200 bg-amber-50/50">
                   <div className="grid aspect-[4/3] place-items-center overflow-hidden bg-amber-100/60">
-                    {asset.storage_path ? (
-                      <img src={`/api/company-media/file/${asset.asset_id}`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                    {asset.imageUrl ? (
+                      <MediaPreview src={asset.imageUrl} kind="photo" />
                     ) : (
                       <ImageIcon className="h-7 w-7 text-amber-700/70" />
                     )}
@@ -140,12 +142,12 @@ export default async function CompanyPage() {
                       <PermissionChip permission="review" />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {["needs_review", `usage:${asset.usage_permission}`, `consent:${asset.consent_status}`].filter(Boolean).join(" / ")}
+                      {[`${asset.itemCount} items`, "needs_review", `usage:${asset.usage_permission}`, `consent:${asset.consent_status}`].filter(Boolean).join(" / ")}
                     </p>
                   </div>
                 </article>
               ))}
-              {media.length === 0 && mediaReview.length === 0 && <EmptyState text="reviewed media はまだありません" />}
+              {mediaGroups.length === 0 && mediaReviewGroups.length === 0 && <EmptyState text="reviewed media はまだありません" />}
             </div>
           </Panel>
         </div>
@@ -267,12 +269,73 @@ function PermissionChip({ permission }: { permission: string }) {
   return <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>{permission}</span>;
 }
 
+interface CompanyMediaGroup {
+  asset_id: string;
+  title: string;
+  asset_kind: string;
+  captured_at: string | null;
+  usage_permission: string;
+  consent_status: string;
+  imageUrl: string | null;
+  itemCount: number;
+}
+
+function groupMediaAssets(rows: any[], mode: "approved" | "review"): CompanyMediaGroup[] {
+  const groups = new Map<string, any[]>();
+  for (const row of rows) {
+    const key = parentKeyFromStorage(row) || String(row.asset_id);
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+
+  return Array.from(groups.entries()).map(([key, groupRows]) => {
+    const cover = groupRows.find((row) => row.thumbnail_path || row.storage_path) ?? groupRows[0];
+    const hasVideo = groupRows.some((row) => String(row.asset_kind || "") === "video");
+    return {
+      asset_id: `media-group-${key}`,
+      title: photoGroupTitle(cover),
+      asset_kind: hasVideo ? "photo / video" : String(cover.asset_kind || "photo"),
+      captured_at: cover.captured_at ? String(cover.captured_at) : null,
+      usage_permission: String(cover.usage_permission || (mode === "review" ? "review" : "unknown")),
+      consent_status: String(cover.consent_status || "unknown"),
+      imageUrl: cover && (cover.thumbnail_path || cover.storage_path) ? `/api/company-media/file/${cover.asset_id}` : null,
+      itemCount: groupRows.length,
+    };
+  });
+}
+
+function parentKeyFromStorage(row: any) {
+  const storagePath = String(row.storage_path || row.thumbnail_path || "");
+  const parts = storagePath.split("/");
+  return parts.length >= 3 ? parts[1] : null;
+}
+
+function photoGroupTitle(row: any) {
+  return String(row.title || "Photo review")
+    .replace(/^(Photo|Video|Media) review: /, "")
+    .replace(/ #\d+$/, "");
+}
+
 function EmptyState({ text }: { text: string }) {
   return (
     <div className="rounded-md border border-dashed border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
       {text}
     </div>
   );
+}
+
+function MediaPreview({ src, kind }: { src: string; kind: string }) {
+  if (kind === "video") {
+    return (
+      <video
+        src={src}
+        className="h-full w-full object-cover"
+        muted
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+  return <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />;
 }
 
 function initials(value: string) {

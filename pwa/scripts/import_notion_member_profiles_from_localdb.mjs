@@ -115,7 +115,7 @@ for (const page of memberPages) {
     photoAssets += 1;
 
     const cached = findCachedPhoto(photoFile);
-    const media = cached ? extractMediaNearTokens(cached.buffer, photoFile.searchTokens) || extractMedia(cached.buffer) : null;
+    const media = cached ? extractMediaNearTokens(cached.buffer, photoFile.searchTokens) : null;
     if (media) {
       const storagePath = `notion-member-photo/${page.id}/${asset.asset_id}.${media.ext}`;
       const { error: uploadError } = await supabase.storage
@@ -342,7 +342,12 @@ function indexCacheFiles(files, fileIds) {
   const found = new Map();
   for (const filePath of files) {
     if (found.size === fileIds.size) break;
-    const buffer = readFileSync(filePath);
+    let buffer;
+    try {
+      buffer = readFileSync(filePath);
+    } catch {
+      continue;
+    }
     for (const fileId of fileIds) {
       if (found.has(fileId) || !buffer.includes(Buffer.from(fileId))) continue;
       const media = extractMedia(buffer);
