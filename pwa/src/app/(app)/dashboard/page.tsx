@@ -32,7 +32,6 @@ import {
   buildPrimaryScoreSnapshot,
   buildAaaScoreInputsFromSx,
   isScoreInputScorable,
-  scoreInputToSignalMetrics,
   latestVisibleScorableScoreInput,
 } from "@/lib/amd-score-derived";
 import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
@@ -57,7 +56,6 @@ export default function DashboardPage() {
   const [actionItems, setActionItems] = useState<DashboardActionItem[]>([]);
   const [scoreHistory, setScoreHistory] = useState<Record<string, number[]>>({});
   const [primarySnapshots, setPrimarySnapshots] = useState<Record<string, DashboardPrimarySnapshot>>({});
-  const [signalMetrics, setSignalMetrics] = useState<Record<string, { m: number; x: number; f: number }>>({});
   const [managementScore, setManagementScore] = useState<DashboardManagementScoreSnapshot | null>(null);
   const [managementHistory, setManagementHistory] = useState<DashboardManagementScoreSnapshot[]>([]);
   const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
@@ -84,7 +82,6 @@ export default function DashboardPage() {
           grouped[AAA_PROJECT_ID] = buildAaaScoreInputsFromSx(grouped.p21, activeAlpha.alpha);
         }
         const history: Record<string, number[]> = {};
-        const metrics: Record<string, { m: number; x: number; f: number }> = {};
         const primary: Record<string, DashboardPrimarySnapshot> = {};
         for (const [projectId, rows] of Object.entries(grouped)) {
           const visibleRows = visibleScoreInputs(rows);
@@ -102,12 +99,15 @@ export default function DashboardPage() {
               status: latestSnapshot.prs.status,
               missingAxes: latestSnapshot.prs.status === "ready" ? [] : latestSnapshot.prs.missingAxes,
               legacyScore: latestSnapshot.legacy.score,
+              components: {
+                potential: latestSnapshot.prs.components?.potential ?? null,
+                reach: latestSnapshot.prs.components?.reach ?? null,
+                survival: latestSnapshot.prs.components?.survival ?? null,
+              },
             };
-            const m = scoreInputToSignalMetrics(latest, activeAlpha.alpha);
-            if (m) metrics[projectId] = m;
           }
         }
-        return { history, metrics, primary };
+        return { history, primary };
       }),
       fetchManagementScoreHistory(supabase),
       fetchMyProjectIds(supabase),
@@ -126,7 +126,6 @@ export default function DashboardPage() {
       if (scoreRes.status === "fulfilled") {
         setScoreHistory(scoreRes.value.history);
         setPrimarySnapshots(scoreRes.value.primary);
-        setSignalMetrics(scoreRes.value.metrics);
       }
 
       if (mgmtRes.status === "fulfilled") {
@@ -186,7 +185,6 @@ export default function DashboardPage() {
             billingStatus={billingStatus}
             scoreHistory={scoreHistory}
             primarySnapshots={primarySnapshots}
-            signalMetrics={signalMetrics}
             myProjectIds={myProjectIds}
           />
           <InstitutionReadinessList bundle={ersBundle} />

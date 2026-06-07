@@ -38,7 +38,6 @@ interface DashboardGridProps {
   projectHrefPrefix?: string;
   scoreHistory?: Record<string, number[]>;
   primarySnapshots?: Record<string, DashboardPrimarySnapshot>;
-  signalMetrics?: Record<string, { m: number; x: number; f: number }>;
   /** ログインユーザーが参画してる project_id の Set (= 上位表示) */
   myProjectIds?: Set<string>;
 }
@@ -48,6 +47,11 @@ export interface DashboardPrimarySnapshot {
   status: "ready" | "missing";
   missingAxes: string[];
   legacyScore: number | null;
+  components: {
+    potential: number | null;
+    reach: number | null;
+    survival: number | null;
+  };
 }
 
 export function DashboardGrid({
@@ -56,7 +60,6 @@ export function DashboardGrid({
   projectHrefPrefix = "/project",
   scoreHistory = {},
   primarySnapshots = {},
-  signalMetrics = {},
   myProjectIds = new Set(),
 }: DashboardGridProps) {
   const [introOpen, setIntroOpen] = useState(false);
@@ -92,7 +95,6 @@ export function DashboardGrid({
                 hrefPrefix={projectHrefPrefix}
                 scoreHistory={scoreHistory[pj.projectId] || []}
                 primarySnapshot={primarySnapshots[pj.projectId]}
-                metrics={signalMetrics[pj.projectId]}
                 isMine={myProjectIds.has(pj.projectId)}
               />
             ))}
@@ -112,7 +114,6 @@ export function DashboardGrid({
                 hrefPrefix={projectHrefPrefix}
                 scoreHistory={scoreHistory[pj.projectId] || []}
                 primarySnapshot={primarySnapshots[pj.projectId]}
-                metrics={signalMetrics[pj.projectId]}
                 isMine={myProjectIds.has(pj.projectId)}
               />
             ))}
@@ -134,7 +135,6 @@ export function DashboardGrid({
                 hrefPrefix={projectHrefPrefix}
                 scoreHistory={scoreHistory[pj.projectId] || []}
                 primarySnapshot={primarySnapshots[pj.projectId]}
-                metrics={signalMetrics[pj.projectId]}
                 isMine={myProjectIds.has(pj.projectId)}
               />
             ))}
@@ -172,7 +172,6 @@ function ProjectStripe({
   hrefPrefix,
   scoreHistory,
   primarySnapshot,
-  metrics,
   isMine,
 }: {
   project: GasProject;
@@ -180,7 +179,6 @@ function ProjectStripe({
   hrefPrefix: string;
   scoreHistory: number[];
   primarySnapshot?: DashboardPrimarySnapshot;
-  metrics?: { m: number; x: number; f: number };
   isMine: boolean;
 }) {
   const roles = parseRoleLine(project.roleLine);
@@ -248,15 +246,15 @@ function ProjectStripe({
           <Sparkline values={prsReady ? scoreHistory : []} className="h-7 flex-1 min-w-[60px] text-sky-500" />
         </div>
 
-        {/* === M/X/F: col-span-2 === */}
+        {/* === P/R/S components: col-span-2 === */}
         <div className="col-span-2 border-l border-border/50 pl-3">
-          {metrics ? (
+          {primarySnapshot?.components ? (
             <>
-              <div className="mb-1 text-[9px] text-muted-foreground font-mono uppercase">Legacy M/X/F</div>
+              <div className="mb-1 text-[9px] text-muted-foreground font-mono uppercase">PRS P/R/S</div>
               <div className="grid grid-cols-3 gap-1 text-[10px]">
-                <MetricCell label="M" value={metrics.m} />
-                <MetricCell label="X" value={metrics.x} />
-                <MetricCell label="F" value={metrics.f} />
+                <MetricCell label="P" value={primarySnapshot.components.potential} />
+                <MetricCell label="R" value={primarySnapshot.components.reach} />
+                <MetricCell label="S" value={primarySnapshot.components.survival} />
               </div>
             </>
           ) : (
@@ -286,11 +284,11 @@ function ProjectStripe({
   );
 }
 
-function MetricCell({ label, value }: { label: string; value: number }) {
+function MetricCell({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="rounded bg-muted/40 px-1 py-0.5 text-center leading-tight">
       <div className="font-mono text-[8px] text-muted-foreground">{label}</div>
-      <div className="text-[10px] font-semibold">{formatMetric(value)}</div>
+      <div className="text-[10px] font-semibold">{value == null ? "—" : formatMetric(value)}</div>
     </div>
   );
 }
