@@ -33,6 +33,19 @@ function doGet(e) {
   } catch(_e){}
 
   // ===== mode系（既存維持） =====
+  // Chronicle 手動バックアップ（KAGAMI 設定ページの「今すぐバックアップ」ボタンから叩く）。
+  // token はトリガー権限のみ（service key はソースに無く ScriptProperties 参照）。実装は 330_ChronicleBackupToSheets.js。
+  if (mode === "chronicleBackup") {
+    if (e.parameter.t !== "a847d5e19a0fac28844813aa96484757026cb8c7551fd489") {
+      return ContentService.createTextOutput(JSON.stringify({ ok: false, error: "unauthorized" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    var __cb;
+    try { __cb = chronicleBackupToSheets(); }
+    catch (err) { __cb = { ok: false, error: String(err) }; }
+    return ContentService.createTextOutput(JSON.stringify(__cb)).setMimeType(ContentService.MimeType.JSON);
+  }
+
   if (mode === "agree") {
     const projectId = (e.parameter.projectId || "");
     const ym = (e.parameter.ym || "");

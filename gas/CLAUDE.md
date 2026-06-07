@@ -199,6 +199,7 @@ GAS は外部サービスから Supabase へデータを供給するハブ役。
 | `511_CockpitInvoice.html` | 請求書発行・MTGスケジュール |
 | `514_CockpitKanban.html` | TODOカンバン（pending/todo/doing/done） |
 | `515_CockpitMacro.html` | マクロ提言パネル |
+| `330_ChronicleBackupToSheets.js` | **Chronicle(KAGAMI共有DB `alflpkgezztswgynnlmy`) 日次バックアップ**。public全テーブルをスプシ(`18NueC2…`)へフル・ミラー。毎日3:00 JSTトリガー(`setupChronicleBackupTrigger`)。手動は `001_Router` の `mode=chronicleBackup`(token保護)。ScriptProperties `CHRONICLE_*` 使用。実行は `masa@team-armada.jp`＝対象スプシをこのアカウントに共有必須 |
 
 ---
 
@@ -272,6 +273,7 @@ GAS は外部サービスから Supabase へデータを供給するハブ役。
 | `GEMINI_API_KEY` | Gemini (Google AI Studio) API ← MTG サマリ抽出 (2026-05-08 追加) |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | Supabase service_role secret (※ `_ROLE_KEY` ではない) |
+| `CHRONICLE_SUPABASE_URL` / `CHRONICLE_SUPABASE_SERVICE_KEY` / `CHRONICLE_BACKUP_SHEET_ID` | Chronicle DB (`alflpkgezztswgynnlmy`=KAGAMI共有) の日次スプシバックアップ用。`330_ChronicleBackupToSheets.js` (2026-06-07 追加) |
 | `NOTION_TOKEN` / `NOTION_DATABASE_ID` / `NOTION_PJ_DATABASE_ID` | Notion API + 議事録 DB / PJ DB |
 | `NOTION_LAST_SYNC_ISO` | Notion 同期 last cursor |
 | `MAIN_SPREADSHEET_ID` (※未確認) / `NAVIGATOR_SPREADSHEET_ID` / `NAVIGATOR_STORE_SPREADSHEET_ID` / `PROTOCOL_STORE_SPREADSHEET_ID` / `DEV_SHEET_ID` / `COLOR_PJ_CONFIG_SPREADSHEET_ID` | スプシ ID 各種 |
