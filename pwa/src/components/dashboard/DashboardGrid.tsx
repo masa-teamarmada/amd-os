@@ -37,9 +37,17 @@ interface DashboardGridProps {
   billingStatus: Record<string, GasBillingStatus>;
   projectHrefPrefix?: string;
   scoreHistory?: Record<string, number[]>;
+  primarySnapshots?: Record<string, DashboardPrimarySnapshot>;
   signalMetrics?: Record<string, { m: number; x: number; f: number }>;
   /** ログインユーザーが参画してる project_id の Set (= 上位表示) */
   myProjectIds?: Set<string>;
+}
+
+export interface DashboardPrimarySnapshot {
+  score: number | null;
+  status: "ready" | "missing";
+  missingAxes: string[];
+  legacyScore: number | null;
 }
 
 export function DashboardGrid({
@@ -47,6 +55,7 @@ export function DashboardGrid({
   billingStatus,
   projectHrefPrefix = "/project",
   scoreHistory = {},
+  primarySnapshots = {},
   signalMetrics = {},
   myProjectIds = new Set(),
 }: DashboardGridProps) {
@@ -82,6 +91,7 @@ export function DashboardGrid({
                 billing={billingStatus[pj.projectId]}
                 hrefPrefix={projectHrefPrefix}
                 scoreHistory={scoreHistory[pj.projectId] || []}
+                primarySnapshot={primarySnapshots[pj.projectId]}
                 metrics={signalMetrics[pj.projectId]}
                 isMine={myProjectIds.has(pj.projectId)}
               />
@@ -101,6 +111,7 @@ export function DashboardGrid({
                 billing={billingStatus[pj.projectId]}
                 hrefPrefix={projectHrefPrefix}
                 scoreHistory={scoreHistory[pj.projectId] || []}
+                primarySnapshot={primarySnapshots[pj.projectId]}
                 metrics={signalMetrics[pj.projectId]}
                 isMine={myProjectIds.has(pj.projectId)}
               />
@@ -122,6 +133,7 @@ export function DashboardGrid({
                 billing={billingStatus[pj.projectId]}
                 hrefPrefix={projectHrefPrefix}
                 scoreHistory={scoreHistory[pj.projectId] || []}
+                primarySnapshot={primarySnapshots[pj.projectId]}
                 metrics={signalMetrics[pj.projectId]}
                 isMine={myProjectIds.has(pj.projectId)}
               />
@@ -159,6 +171,7 @@ function ProjectStripe({
   billing,
   hrefPrefix,
   scoreHistory,
+  primarySnapshot,
   metrics,
   isMine,
 }: {
@@ -166,16 +179,24 @@ function ProjectStripe({
   billing?: GasBillingStatus;
   hrefPrefix: string;
   scoreHistory: number[];
+  primarySnapshot?: DashboardPrimarySnapshot;
   metrics?: { m: number; x: number; f: number };
   isMine: boolean;
 }) {
   const roles = parseRoleLine(project.roleLine);
   const leftBorder = STATUS_LEFT_BORDER[project.status] ?? "border-l-zinc-300";
   const badgeClass = STATUS_BADGE[project.status] ?? "bg-zinc-50 text-zinc-700 border-zinc-300";
-  const lastScoreV = scoreHistory.length > 0 ? scoreHistory[scoreHistory.length - 1] : null;
-  const prevScore = scoreHistory.length > 1 ? scoreHistory[scoreHistory.length - 2] : null;
+  const prsReady = primarySnapshot?.status === "ready" && primarySnapshot.score != null;
+  const lastScoreV = prsReady ? primarySnapshot.score : null;
+  const prevScore = prsReady && scoreHistory.length > 1 ? scoreHistory[scoreHistory.length - 2] : null;
   const trend = lastScoreV != null && prevScore != null ? (lastScoreV > prevScore ? "↗" : lastScoreV < prevScore ? "↘" : "→") : "";
   const trendColor = lastScoreV != null && prevScore != null ? (lastScoreV > prevScore ? "text-emerald-600" : lastScoreV < prevScore ? "text-rose-600" : "text-zinc-500") : "text-zinc-400";
+  const primaryStatusLabel =
+    primarySnapshot?.status === "missing"
+      ? "P / R_net 入力待ち"
+      : primarySnapshot?.status === "ready"
+        ? "ready"
+        : "review 待ち";
 
   // 2026-05-25 #71 v3 まさ確定: PL/PM/Closer を 1 行 inline (= 「PL まさ / PM かる / Closer ちこ」)、スペース節約
   const rolesInline = [
@@ -209,26 +230,35 @@ function ProjectStripe({
           <div className="truncate text-foreground" title={rolesInline}>{rolesInline}</div>
         </div>
 
-        {/* === Legacy AMD + sparkline: col-span-3 === */}
+        {/* === PRS primary + sparkline: col-span-3 === */}
         <div className="col-span-3 flex items-center gap-2 border-l border-border/50 pl-3 min-w-0">
           <div className="flex flex-col shrink-0">
-            <div className="text-[9px] text-muted-foreground font-mono uppercase">Legacy AMD</div>
-            <div className="flex items-baseline gap-1">
+            <div className="text-[9px] text-muted-foreground font-mono uppercase">PRS Primary</div>
+            <div className="flex items-baseline gap-1 min-h-[28px]">
               <span className="text-lg font-bold leading-none">{lastScoreV != null ? formatScore(lastScoreV) : "—"}</span>
               {trend && <span className={`text-xs font-bold ${trendColor}`}>{trend}</span>}
             </div>
+            <div className="text-[9px] text-muted-foreground">{primaryStatusLabel}</div>
+            {primarySnapshot?.legacyScore != null && (
+              <div className="text-[9px] text-muted-foreground font-mono uppercase">
+                legacy {formatScore(primarySnapshot.legacyScore)}
+              </div>
+            )}
           </div>
-          <Sparkline values={scoreHistory} className="h-7 flex-1 min-w-[60px] text-sky-500" />
+          <Sparkline values={prsReady ? scoreHistory : []} className="h-7 flex-1 min-w-[60px] text-sky-500" />
         </div>
 
         {/* === M/X/F: col-span-2 === */}
         <div className="col-span-2 border-l border-border/50 pl-3">
           {metrics ? (
-            <div className="grid grid-cols-3 gap-1 text-[10px]">
-              <MetricCell label="M" value={metrics.m} />
-              <MetricCell label="X" value={metrics.x} />
-              <MetricCell label="F" value={metrics.f} />
-            </div>
+            <>
+              <div className="mb-1 text-[9px] text-muted-foreground font-mono uppercase">Legacy M/X/F</div>
+              <div className="grid grid-cols-3 gap-1 text-[10px]">
+                <MetricCell label="M" value={metrics.m} />
+                <MetricCell label="X" value={metrics.x} />
+                <MetricCell label="F" value={metrics.f} />
+              </div>
+            </>
           ) : (
             <div className="text-[10px] text-muted-foreground text-center">—</div>
           )}
@@ -256,31 +286,12 @@ function ProjectStripe({
   );
 }
 
-function RoleBadge({ label, value }: { label: string; value: string }) {
-  const isUnset = !value || value === "--";
-  return (
-    <div className="flex flex-col min-w-0">
-      <span className="font-mono text-[8px] uppercase opacity-60">{label}</span>
-      <span className={`truncate text-[10px] ${isUnset ? "text-muted-foreground/50" : "text-foreground font-medium"}`}>{isUnset ? "—" : value}</span>
-    </div>
-  );
-}
-
 function MetricCell({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded bg-muted/40 px-1 py-0.5 text-center leading-tight">
       <div className="font-mono text-[8px] text-muted-foreground">{label}</div>
       <div className="text-[10px] font-semibold">{formatMetric(value)}</div>
     </div>
-  );
-}
-
-function BillingDot({ done, label }: { done: boolean; label: string }) {
-  return (
-    <span className="flex items-center gap-0.5" title={label}>
-      <span className={`inline-block w-1.5 h-1.5 rounded-full ${done ? "bg-emerald-500" : "bg-zinc-300"}`} />
-      <span className="text-[8px] text-muted-foreground">{label}</span>
-    </span>
   );
 }
 

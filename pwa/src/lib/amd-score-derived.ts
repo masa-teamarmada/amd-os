@@ -85,24 +85,53 @@ export interface PrsProvisionalInputs {
   R_net: number | null;
 }
 
-export function resolvePrsInputs(
-  row: Pick<AmdScoreInputRow, "prs_potential" | "prs_r_net">,
-  provisional: PrsProvisionalInputs = { P: null, R_net: null }
+function latestPersistedPrsInputs(
+  row: Pick<AmdScoreInputRow, "id" | "project_id" | "evaluated_at" | "prs_potential" | "prs_r_net">,
+  historyRows: Array<Pick<AmdScoreInputRow, "id" | "project_id" | "evaluated_at" | "prs_potential" | "prs_r_net">> = []
 ): PrsProvisionalInputs {
+  let persistedP: number | null = null;
+  let persistedRNet: number | null = null;
+  const targetTs = new Date(row.evaluated_at).getTime();
+  const ordered = [...historyRows].sort((a, b) => a.evaluated_at.localeCompare(b.evaluated_at));
+  for (let i = ordered.length - 1; i >= 0; i -= 1) {
+    const candidate = ordered[i];
+    if (candidate.project_id !== row.project_id) continue;
+    if (new Date(candidate.evaluated_at).getTime() > targetTs) continue;
+    if (persistedP == null && candidate.prs_potential != null && Number.isFinite(candidate.prs_potential)) {
+      persistedP = candidate.prs_potential;
+    }
+    if (persistedRNet == null && candidate.prs_r_net != null && Number.isFinite(candidate.prs_r_net)) {
+      persistedRNet = candidate.prs_r_net;
+    }
+    if (persistedP != null && persistedRNet != null) break;
+  }
+  return { P: persistedP, R_net: persistedRNet };
+}
+
+export function resolvePrsInputs(
+  row: Pick<AmdScoreInputRow, "id" | "project_id" | "evaluated_at" | "prs_potential" | "prs_r_net">,
+  provisional: PrsProvisionalInputs = { P: null, R_net: null },
+  historyRows: Array<Pick<AmdScoreInputRow, "id" | "project_id" | "evaluated_at" | "prs_potential" | "prs_r_net">> = []
+): PrsProvisionalInputs {
+  const persisted = latestPersistedPrsInputs(row, historyRows);
   return {
-    P: provisional.P != null && Number.isFinite(provisional.P) ? provisional.P : row.prs_potential ?? null,
+    P:
+      provisional.P != null && Number.isFinite(provisional.P)
+        ? provisional.P
+        : row.prs_potential ?? persisted.P ?? null,
     R_net:
       provisional.R_net != null && Number.isFinite(provisional.R_net)
         ? provisional.R_net
-        : row.prs_r_net ?? null,
+        : row.prs_r_net ?? persisted.R_net ?? null,
   };
 }
 
 export function derivePrsComponents(
   row: AmdScoreInputRow,
-  provisional: PrsProvisionalInputs = { P: null, R_net: null }
+  provisional: PrsProvisionalInputs = { P: null, R_net: null },
+  historyRows: AmdScoreInputRow[] = []
 ): PrsScoreResult {
-  const resolved = resolvePrsInputs(row, provisional);
+  const resolved = resolvePrsInputs(row, provisional, historyRows);
   return calculatePrsScore({
     P: resolved.P,
     mu_A: row.mu_A ?? 0,
@@ -127,13 +156,14 @@ export interface PrimaryScoreSnapshot {
 export function buildPrimaryScoreSnapshot(
   row: AmdScoreInputRow,
   alpha: AlphaWeights,
-  provisional: PrsProvisionalInputs = { P: null, R_net: null }
+  provisional: PrsProvisionalInputs = { P: null, R_net: null },
+  historyRows: AmdScoreInputRow[] = []
 ): PrimaryScoreSnapshot {
   const legacy = calculateAmdScoreForInput(row, alpha);
   return {
     legacy,
     legacyBreakdown: breakdownFromResult(legacy),
-    prs: derivePrsComponents(row, provisional),
+    prs: derivePrsComponents(row, provisional, historyRows),
   };
 }
 
