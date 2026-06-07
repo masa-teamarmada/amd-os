@@ -116,21 +116,45 @@ function latestPersistedPrsInputs(
   return { P: persistedP, R_net: persistedRNet };
 }
 
+function latestProjectLevelPrsInputs(
+  row: Pick<AmdScoreInputRow, "project_id" | "prs_potential" | "prs_r_net">,
+  historyRows: Array<Pick<AmdScoreInputRow, "project_id" | "evaluated_at" | "prs_potential" | "prs_r_net">> = []
+): PrsProvisionalInputs {
+  const ordered = [...historyRows].sort((a, b) => a.evaluated_at.localeCompare(b.evaluated_at));
+  for (let i = ordered.length - 1; i >= 0; i -= 1) {
+    const candidate = ordered[i];
+    if (candidate.project_id !== row.project_id) continue;
+    const candidateP =
+      candidate.prs_potential != null && Number.isFinite(candidate.prs_potential)
+        ? candidate.prs_potential
+        : null;
+    const candidateRNet =
+      candidate.prs_r_net != null && Number.isFinite(candidate.prs_r_net)
+        ? candidate.prs_r_net
+        : null;
+    if (candidateP != null || candidateRNet != null) {
+      return { P: candidateP, R_net: candidateRNet };
+    }
+  }
+  return { P: null, R_net: null };
+}
+
 export function resolvePrsInputs(
   row: Pick<AmdScoreInputRow, "id" | "project_id" | "evaluated_at" | "prs_potential" | "prs_r_net">,
   provisional: PrsProvisionalInputs = { P: null, R_net: null },
   historyRows: Array<Pick<AmdScoreInputRow, "id" | "project_id" | "evaluated_at" | "prs_potential" | "prs_r_net">> = []
 ): PrsProvisionalInputs {
   const persisted = latestPersistedPrsInputs(row, historyRows);
+  const projectLatest = latestProjectLevelPrsInputs(row, historyRows);
   return {
     P:
       provisional.P != null && Number.isFinite(provisional.P)
         ? provisional.P
-        : row.prs_potential ?? persisted.P ?? null,
+        : row.prs_potential ?? persisted.P ?? projectLatest.P ?? null,
     R_net:
       provisional.R_net != null && Number.isFinite(provisional.R_net)
         ? provisional.R_net
-        : row.prs_r_net ?? persisted.R_net ?? null,
+        : row.prs_r_net ?? persisted.R_net ?? projectLatest.R_net ?? null,
   };
 }
 

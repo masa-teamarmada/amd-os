@@ -321,6 +321,48 @@ export function AmdScoreView({
             />
             <PrimaryPrsBreakdownPanel primary={primarySnapshot} venture={venture} />
           </div>
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">PRS parameter evidence</div>
+            <div className="mt-2 grid gap-3 lg:grid-cols-3">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-[11px] text-emerald-900">
+                <div className="font-semibold">P potential</div>
+                <div className="mt-1 font-mono text-2xl font-bold text-slate-900">
+                  {formatRoundedDisplay(primarySnapshot.prs.axisValues.P)}
+                </div>
+                <div className="mt-1 text-emerald-800/80">人がレビューして入れる project-level input</div>
+              </div>
+              <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-3 text-[11px] text-sky-900">
+                <div className="font-semibold">R reach</div>
+                <div className="mt-1 font-mono text-2xl font-bold text-slate-900">
+                  {formatRoundedDisplay(primarySnapshot.prs.components?.reach ?? null)}
+                </div>
+                <div className="mt-1 text-sky-800/80">TRL / BRL / GRL / SRL / HRL から合成</div>
+              </div>
+              <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-3 text-[11px] text-violet-900">
+                <div className="font-semibold">S survival</div>
+                <div className="mt-1 font-mono text-2xl font-bold text-slate-900">
+                  {formatRoundedDisplay(primarySnapshot.prs.components?.survival ?? null)}
+                </div>
+                <div className="mt-1 text-violet-800/80">σ_SU / FRL / R_net から合成</div>
+              </div>
+            </div>
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+              R_net = <span className="font-mono">{formatRoundedDisplay(primarySnapshot.prs.axisValues.R_net)}</span>
+              <span className="ml-2 text-amber-800/80">S の直接入力パラメータ</span>
+            </div>
+          </section>
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <Factor3Breakdown
+              result={result}
+              alpha={alpha}
+              editable={editable}
+              ventureName={venture.display_name}
+              latestXrlLog={latestXrlLog}
+              atlasMacroSignals={atlasMacroSignals}
+              tripleHelix={tripleHelix}
+            />
+            <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.display_name} />
+          </section>
           <details className="rounded-xl border border-slate-200 bg-white shadow-sm">
             <summary className="cursor-pointer list-none px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
               Legacy AMD comparison
