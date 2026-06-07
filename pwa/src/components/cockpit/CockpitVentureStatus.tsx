@@ -27,8 +27,8 @@ import { createClient } from "@/lib/supabase/client";
 import { ALPHA_DEFAULT, type AlphaWeights } from "@/lib/amd-score";
 import {
   buildPrimaryScoreSnapshot,
+  computePrsScoreSeries,
   latestVisibleScorableScoreInput,
-  computeAmdScoreSeries,
 } from "@/lib/amd-score-derived";
 // PHASE_COLOR / PHASE_LABEL_JP / AmdScorePhase / classifyPhase は使用しない (検証データ蓄積後に復活検討、2026-05-09)
 import { CockpitVentureStatusEditModal } from "./CockpitVentureStatusEditModal";
@@ -121,6 +121,11 @@ function dateToYearDecimal(iso: string): number {
   const m = iso.match(/^(\d{4})-(\d{2})/);
   if (!m) return 2020;
   return Number(m[1]) + (Number(m[2]) - 1) / 12;
+}
+
+function formatRoundedNumber(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return Math.round(value).toLocaleString();
 }
 
 // ============================================================
@@ -239,18 +244,18 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const xOf = (yd: number) => ML + ((yd - range.xMin) / (range.xMax - range.xMin)) * PW;
   const xOfDate = (iso: string) => xOf(dateToYearDecimal(iso));
 
-  // AMD スコア時系列 (Before Zero Theory v3.2 — 7 軸 Cobb-Douglas)
+  // PRS primary 時系列
   // まさ #20-2nd (2026-05-24):
   //  - chart 表示期間は元通り (過去 + 未来 計算可能な全範囲)
   //  - 折れ線は 「today <= 過去 = 実線」「today > 未来 = 破線」 に分割
-  //  - 大きい数値 pill と M/X/F カードは「現在 = 過去の最新」値を表示
+  //  - 大きい数値 pill と P/R/S カードは「現在 = 過去の最新」値を表示
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   // 全期間 (過去 + 未来) — chart axis range / 未来予測の破線用
   const fullComputedSeries = useMemo(
-    () => computeAmdScoreSeries(amdInputs, alpha),
+    () => computePrsScoreSeries(amdInputs, alpha),
     [amdInputs, alpha]
   );
-  // 過去のみ (= today 以下) — 実線 + 現在値 (pill) + M/X/F カード用
+  // 過去のみ (= today 以下) — 実線 + 現在値 (pill) + P/R/S カード用
   const pastComputedSeries = useMemo(
     () => fullComputedSeries.filter((p) => p.evaluated_at.slice(0, 10) <= todayIso),
     [fullComputedSeries, todayIso]
@@ -272,10 +277,8 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
     const lastPast = pastSeries[pastSeries.length - 1];
     return lastPast ? [lastPast, ...future] : future;
   }, [fullComputedSeries, pastSeries, todayIso]);
-  // 現在の M/X/F (= 過去最終行 = 今日時点)
-  const latestBreakdown = pastComputedSeries.length > 0
-    ? pastComputedSeries[pastComputedSeries.length - 1].breakdown
-    : null;
+  const latestPrimaryPoint = pastComputedSeries[pastComputedSeries.length - 1] ?? null;
+  const latestComponents = latestPrimaryPoint?.prs.components ?? null;
   // Score 詳細ページと同じ軸思想: X は score series の評価日、Y は実データ範囲にフィット。
   const scoreRange = useMemo(() => {
     const now = SCORE_RANGE_FALLBACK_NOW;
@@ -321,9 +324,11 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   const scoreDateTicks = scoreSeries.map((p) => p.date);
 
   // 現在のスコア (= 過去最新点 = today までで一番新しい input)
-  const latestScore = pastSeries[pastSeries.length - 1]?.score;
+  const latestScore = latestPrimaryPoint?.score ?? null;
   const latestInput = latestVisibleScorableScoreInput(amdInputs);
-  const primarySnapshot = latestInput ? buildPrimaryScoreSnapshot(latestInput, alpha) : null;
+  const primarySnapshot = latestInput
+    ? buildPrimaryScoreSnapshot(latestInput, alpha, { P: null, R_net: null }, amdInputs)
+    : null;
 
   // XRL 軸 (5 軸: TRL/BRL/GRL/SRL/HRL)
   const yOfXrl = (v: number) => MT + PH - (v / 9) * PH;
@@ -523,11 +528,11 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           案C レイアウト (上 hero に AMD Score + XRL を並べる) のため。
           それ未満は従来通り縦並び。 */}
       <div className="flex flex-col xl:flex-row gap-2">
-      {/* Chart 1: AMD スコア */}
+      {/* Chart 1: PRS primary */}
       <div className="flex-1 min-w-0 px-2 pt-3">
         <div className="px-2 flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-[12px] font-semibold">
-            Legacy AMD comparison
+            PRS primary
             <span className="ml-2 text-[9px] text-muted-foreground font-normal">linear scale / dynamic range</span>
           </h3>
           <div className="flex items-center gap-2 text-[10px]">
@@ -538,15 +543,20 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   : "bg-amber-50 text-amber-700"
               }`}>
                 {primarySnapshot.prs.status === "ready" && primarySnapshot.prs.score != null
-                  ? `PRS ${primarySnapshot.prs.score < 1 ? primarySnapshot.prs.score.toFixed(2) : Math.round(primarySnapshot.prs.score).toLocaleString()}`
+                  ? `PRS ${formatRoundedNumber(primarySnapshot.prs.score)}`
                   : `PRS missing: ${primarySnapshot.prs.missingAxes.join(" / ")}`}
+              </span>
+            )}
+            {primarySnapshot?.legacy.score != null && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+                legacy AMD {formatRoundedNumber(primarySnapshot.legacy.score)}
               </span>
             )}
             <Link
               href={`/venture-map/amd-score/${projectId}`}
               className="text-cyan-700 hover:underline"
             >
-              PRS / comparison を開く →
+              スコア詳細 →
             </Link>
             <span className="text-muted-foreground">
               · グラフをタップでイベント追加 / ドットタップで編集
@@ -598,9 +608,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                 stroke="#f1f5f9"
                 strokeDasharray="3 2"
               />
-              <text x={ML - 6} y={yOfScore(v) + 3} fontSize={9} fill="#94a3b8" textAnchor="end">
-                {v >= 1000 ? `${v / 1000}k` : v}
-              </text>
+              <text x={ML - 6} y={yOfScore(v) + 3} fontSize={9} fill="#94a3b8" textAnchor="end">{formatRoundedNumber(v)}</text>
             </g>
           ))}
           {/* X axis */}
@@ -633,10 +641,10 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           {/* スコア折れ線 */}
           {/* 過去 (今日まで) = 実線、未来 (今日以降) = 破線 (まさ #20-2nd 2026-05-24) */}
           {pastScorePath && (
-            <path d={pastScorePath} fill="none" stroke="#0f172a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={pastScorePath} fill="none" stroke="#0f766e" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
           )}
           {futureScorePath && (
-            <path d={futureScorePath} fill="none" stroke="#0f172a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 4" opacity={0.75} />
+            <path d={futureScorePath} fill="none" stroke="#0f766e" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 4" opacity={0.75} />
           )}
           {/* events ドット (annotation) — score 曲線上の最近点に置く */}
           {(bundle?.events ?? []).map((ev) => {
@@ -664,7 +672,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           {futureSeries.slice(1).map((p, i) => {
             const x = xOfScoreDate(p.date);
             const y = yOfScore(p.score);
-            const text = p.score < 1 ? p.score.toFixed(2) : Math.round(p.score).toLocaleString();
+            const text = formatRoundedNumber(p.score);
             return (
               <g key={`future-label-${p.date}-${i}`}>
                 <text
@@ -704,7 +712,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   fillOpacity={0.001}
                   pointerEvents="all"
                 />
-                <circle cx={x} cy={y} r={3.5} fill="#0f172a" opacity={0.45} pointerEvents="none" />
+                <circle cx={x} cy={y} r={3.5} fill="#0f766e" opacity={0.45} pointerEvents="none" />
                 <title>{`未来予測 ${p.date.slice(0, 10)} / クリックでイベント追加`}</title>
               </g>
             );
@@ -716,7 +724,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
           {(() => {
             const last = pastSeries[pastSeries.length - 1];
             if (!last) return null;
-            const label = last.score < 1 ? last.score.toFixed(2) : Math.round(last.score).toLocaleString();
+            const label = formatRoundedNumber(last.score);
             // pill サイズ縮小 (現状 170x52 → 110x36)。プロット隣接なので大きすぎると未来予測線を隠す。
             const pillW = 110;
             const pillH = 36;
@@ -734,7 +742,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                 style={{ cursor: "pointer" }}
                 onClick={(e) => { e.stopPropagation(); setScoreBreakdownOpen(true); }}
               >
-                <title>クリックで AMD スコアの内訳モーダルを開く</title>
+                <title>クリックで PRS / legacy 比較を開く</title>
                 {/* 背景 pill */}
                 <rect
                   x={pillX}
@@ -743,8 +751,8 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   ry={10}
                   width={pillW}
                   height={pillH}
-                  fill="rgba(254,242,242,0.95)"
-                  stroke="#dc2626"
+                  fill="rgba(236,253,245,0.95)"
+                  stroke="#059669"
                   strokeWidth={1.5}
                 />
                 {/* 数値: pill 中央寄せ */}
@@ -754,7 +762,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   fontSize={22}
                   fontWeight={800}
                   fontFamily="ui-monospace,SFMono-Regular,monospace"
-                  fill="#dc2626"
+                  fill="#047857"
                   textAnchor="middle"
                 >
                   {label}
@@ -763,7 +771,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                   x={pillX + pillW - 6}
                   y={labelY - 14}
                   fontSize={9}
-                  fill="#dc2626"
+                  fill="#047857"
                   textAnchor="end"
                 >
                   ▾
@@ -774,21 +782,21 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         </svg>
       </div>
 
-      {/* M/X/F 値カード (まさ #20 2026-05-24) — Chart 1 (AMD スコア) と Chart 2 (XRL) の間に挟む。
-            現在 (今日以前) の AMD Score の 3 component:
-              M = MACROTREND (= Triple Helix μ_A/μ_I/μ_G 合成、max 30)
-              X = XRL (= TRL/BRL/GRL/SRL/HRL 合成、max 600)
-              F = FRL (= grit/resilience 合成、max 100)
+      {/* P/R/S 値カード — Chart 1 (PRS) と Chart 2 (XRL) の間に挟む。
+            現在 (今日以前) の PRS primary components:
+              P = potential input
+              R = readiness reach
+              S = survival
             xl breakpoint 以上は縦 stack、xl 未満は横並びで Chart 間 row として配置。 */}
       <aside className="xl:w-[140px] xl:py-3 xl:px-2 flex xl:flex-col flex-row flex-wrap gap-2 justify-around xl:justify-start border-t xl:border-t-0 xl:border-l xl:border-r border-[#e5e5e7] px-2 py-2">
-        {latestBreakdown ? (
+        {latestComponents && primarySnapshot ? (
           <>
-            <MxfCard axis="M" label="MACRO" value={latestBreakdown.M} max={30} color="#0284c7" />
-            <MxfCard axis="X" label="XRL"   value={latestBreakdown.X} max={600} color="#059669" />
-            <MxfCard axis="F" label="FRL"   value={latestBreakdown.F} max={100} color="#dc2626" />
+            <PrsCard axis="P" label="POTENTIAL" value={primarySnapshot.prs.axisValues.P} color="#0f766e" />
+            <PrsCard axis="R" label="REACH" value={latestComponents.reach} color="#0369a1" />
+            <PrsCard axis="S" label="SURVIVAL" value={latestComponents.survival} color="#7c3aed" />
           </>
         ) : (
-          <span className="text-[10px] text-[#86868b]">M/X/F データなし</span>
+          <span className="text-[10px] text-[#86868b]">PRS primary 入力待ち</span>
         )}
       </aside>
 
@@ -1014,12 +1022,11 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
 }
 
 /**
- * MxfCard — AMD Score の M (MACROTREND) / X (XRL) / F (FRL) 値カード。
- * Chart 1 (AMD スコア) と Chart 2 (XRL 折れ線) の間に縦 stack (xl 以上) で並ぶ。
+ * PrsCard — PRS primary の P / R / S 値カード。
+ * Chart 1 (PRS) と Chart 2 (XRL 折れ線) の間に縦 stack (xl 以上) で並ぶ。
  */
-function MxfCard({ axis, label, value, max, color }: { axis: string; label: string; value: number; max: number; color: string }) {
-  const pct = Math.max(2, Math.min(100, (value / max) * 100));
-  const display = !Number.isFinite(value) ? "—" : value < 100 ? value.toFixed(2) : Math.round(value).toLocaleString();
+function PrsCard({ axis, label, value, color }: { axis: string; label: string; value: number | null; color: string }) {
+  const display = formatRoundedNumber(value);
   return (
     <div className="flex flex-col gap-1 px-2.5 py-1.5 rounded-md bg-[#fafafa] border border-[#e5e5e7] min-w-[88px]">
       <div className="flex items-baseline gap-1">
@@ -1027,9 +1034,7 @@ function MxfCard({ axis, label, value, max, color }: { axis: string; label: stri
         <span className="text-[8px] text-[#86868b] font-semibold uppercase tracking-wider">{label}</span>
       </div>
       <div className="text-[18px] font-bold tabular-nums leading-none" style={{ color }}>{display}</div>
-      <div className="h-1 rounded-full bg-[#e5e5e7] overflow-hidden">
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
-      </div>
+      <div className="text-[8px] font-mono uppercase tracking-wider text-[#86868b]">PRS component</div>
     </div>
   );
 }

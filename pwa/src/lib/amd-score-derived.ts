@@ -44,6 +44,14 @@ export interface AmdSignalMetrics {
   f: number;
 }
 
+export interface PrsScoreComputedPoint {
+  id: string;
+  evaluated_at: string;
+  score: number;
+  prs: PrsScoreResult;
+  legacy: AmdScoreResult;
+}
+
 export function latestVisibleScoreInput(inputs: AmdScoreInputRow[], today = new Date().toISOString().slice(0, 10)) {
   for (let i = inputs.length - 1; i >= 0; i -= 1) {
     if (inputs[i].evaluated_at.slice(0, 10) <= today) return inputs[i];
@@ -191,6 +199,26 @@ export function computeAmdScoreSeries(inputs: AmdScoreInputRow[], alpha: AlphaWe
         result,
         breakdown: breakdownFromResult(result),
       };
+    });
+}
+
+export function computePrsScoreSeries(
+  inputs: AmdScoreInputRow[],
+  alpha: AlphaWeights,
+  provisional: PrsProvisionalInputs = { P: null, R_net: null }
+): PrsScoreComputedPoint[] {
+  return inputs
+    .filter(isScoreInputScorable)
+    .flatMap((row) => {
+      const snapshot = buildPrimaryScoreSnapshot(row, alpha, provisional, inputs);
+      if (snapshot.prs.status !== "ready" || snapshot.prs.score == null) return [];
+      return [{
+        id: row.id,
+        evaluated_at: row.evaluated_at.slice(0, 10),
+        score: snapshot.prs.score,
+        prs: snapshot.prs,
+        legacy: snapshot.legacy,
+      }];
     });
 }
 

@@ -39,6 +39,7 @@ import {
   buildPrimaryScoreSnapshot,
   buildAaaScoreInputsFromSx,
   computeAmdScoreSeries,
+  computePrsScoreSeries,
   latestVisibleScorableScoreInput,
   resolveFrl,
 } from "@/lib/amd-score-derived";
@@ -172,6 +173,11 @@ function emptyEditable(): EditableInput {
   };
 }
 
+function formatRoundedDisplay(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return Math.round(value).toLocaleString();
+}
+
 /**
  * 6 因子拡張 FRL 推定値 (0-9)。
  *
@@ -260,13 +266,17 @@ export function AmdScoreView({
   const series = useMemo(() => {
     return computeAmdScoreSeries(scoreInputs, alpha);
   }, [scoreInputs, alpha]);
+  const prsSeries = useMemo(() => {
+    return computePrsScoreSeries(scoreInputs, alpha);
+  }, [scoreInputs, alpha]);
   const latestPoint = series.find((point) => point.id === latest?.id) ?? series[series.length - 1] ?? null;
   const result = latestPoint?.result;
   const latestBreakdown = result ? breakdownFromResult(result) : null;
   const primarySnapshot = useMemo(
-    () => (latest ? buildPrimaryScoreSnapshot(latest, alpha) : null),
-    [latest, alpha]
+    () => (latest ? buildPrimaryScoreSnapshot(latest, alpha, { P: null, R_net: null }, scoreInputs) : null),
+    [latest, alpha, scoreInputs]
   );
+  const latestPrsPoint = prsSeries.find((point) => point.id === latest?.id) ?? prsSeries[prsSeries.length - 1] ?? null;
 
   async function savePrsInputs(prsPotentialDraft: string, prsRNetDraft: string) {
     if (!latest) return;
@@ -285,6 +295,53 @@ export function AmdScoreView({
     }
     setScoreInputs((prev) => prev.map((row) => (row.id === saved.id ? saved : row)));
     setPrsSaveState("done");
+  }
+
+  if (embedded && primarySnapshot && result && latestBreakdown) {
+    return (
+      <div className="text-slate-900">
+        <div className="w-full space-y-4">
+          <PrimaryPrsHeroCard
+            key={`${latest?.id ?? "no-row"}:${latest?.prs_potential ?? "null"}:${latest?.prs_r_net ?? "null"}:embedded`}
+            venture={venture}
+            primary={primarySnapshot}
+            onSave={savePrsInputs}
+            saveState={prsSaveState}
+          />
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <PrimaryPrsTimeSeriesChart
+              series={prsSeries}
+              latestEvaluatedAt={editable.evaluated_at}
+              latestPoint={latestPrsPoint}
+              missingAxes={primarySnapshot.prs.missingAxes}
+              amdSupport={{
+                startedAt: venture.amd_support_started_at ?? null,
+                endedAt: venture.amd_support_ended_at ?? null,
+              }}
+            />
+            <PrimaryPrsBreakdownPanel primary={primarySnapshot} venture={venture} />
+          </div>
+          <details className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <summary className="cursor-pointer list-none px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+              Legacy AMD comparison
+            </summary>
+            <div className="grid gap-4 border-t border-slate-200 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+              <TimeSeriesChart
+                series={series}
+                latest={editable.evaluated_at}
+                latestScore={result.score}
+                latestBreakdown={latestBreakdown}
+                amdSupport={{
+                  startedAt: venture.amd_support_started_at ?? null,
+                  endedAt: venture.amd_support_ended_at ?? null,
+                }}
+              />
+              <BalanceBar result={result} alpha={alpha} />
+            </div>
+          </details>
+        </div>
+      </div>
+    );
   }
 
   if (!result || !latestBreakdown) {
@@ -407,7 +464,7 @@ function ScoreHeroCard({
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Legacy AMD</div>
           <div className="font-mono text-5xl font-bold leading-none" style={{ color: scoreColor }}>
-            {result.score < 1 ? result.score.toFixed(2) : Math.round(result.score).toLocaleString()}
+            {formatRoundedDisplay(result.score)}
           </div>
         </div>
         <div className="text-right">
@@ -557,8 +614,8 @@ function BalanceBarRow({
 }) {
   const pct = Math.min(1, value / Math.max(scale, 1));
   const percent = Math.round(pct * 100);
-  const displayValue = value < 100 ? value.toFixed(2) : Math.round(value).toLocaleString();
-  const displayScale = scale < 100 ? scale.toFixed(2) : Math.round(scale).toLocaleString();
+  const displayValue = formatRoundedDisplay(value);
+  const displayScale = formatRoundedDisplay(scale);
   return (
     <div className={`relative rounded-lg border px-3 py-2 ${bottleneck ? "border-pink-300 bg-pink-50/40" : "border-slate-200 bg-slate-50"}`}>
       <div className="grid grid-cols-[44px_1fr_70px] items-center gap-3">
@@ -1017,6 +1074,296 @@ function DetailFactorRow({
 // ============================================================
 // Time Series Chart
 // ============================================================
+function PrimaryPrsBreakdownPanel({
+  primary,
+  venture,
+}: {
+  primary: ReturnType<typeof buildPrimaryScoreSnapshot>;
+  venture: VentureRow;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">PRS breakdown</div>
+      <div className="mt-3 space-y-2 text-[12px] text-slate-700">
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-emerald-50 px-3 py-2">
+          <span className="font-semibold">P potential</span>
+          <span className="font-mono text-slate-900">{formatRoundedDisplay(primary.prs.axisValues.P)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-sky-50 px-3 py-2">
+          <span className="font-semibold">R reach</span>
+          <span className="font-mono text-slate-900">{formatRoundedDisplay(primary.prs.components?.reach ?? null)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-violet-50 px-3 py-2">
+          <span className="font-semibold">S survival</span>
+          <span className="font-mono text-slate-900">{formatRoundedDisplay(primary.prs.components?.survival ?? null)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2">
+          <span className="font-semibold">R_net</span>
+          <span className="font-mono text-slate-900">{formatRoundedDisplay(primary.prs.axisValues.R_net)}</span>
+        </div>
+      </div>
+      <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+        <div className="font-semibold text-slate-900">Legacy AMD comparison</div>
+        <div className="mt-1 font-mono text-lg text-slate-900">{formatRoundedDisplay(primary.legacy.score)}</div>
+        <div className="mt-1">lane: <span className="font-mono">{venture.lane}</span></div>
+      </div>
+    </div>
+  );
+}
+
+function PrimaryPrsTimeSeriesChart({
+  series,
+  latestEvaluatedAt,
+  latestPoint,
+  missingAxes,
+  amdSupport,
+}: {
+  series: Array<{
+    id: string;
+    evaluated_at: string;
+    score: number;
+    prs: {
+      components: { potential: number; reach: number; survival: number } | null;
+      axisValues: { P: number | null; R_net: number | null };
+    };
+  }>;
+  latestEvaluatedAt: string;
+  latestPoint: {
+    id: string;
+    evaluated_at: string;
+    score: number;
+    prs: {
+      components: { potential: number; reach: number; survival: number } | null;
+      axisValues: { P: number | null; R_net: number | null };
+    };
+  } | null;
+  missingAxes: string[];
+  amdSupport: { startedAt: string | null; endedAt: string | null };
+}) {
+  const [active, setActive] = useState<{
+    id: string;
+    evaluated_at: string;
+    score: number;
+    potential: number | null;
+    reach: number | null;
+    survival: number | null;
+    rNet: number | null;
+    px: number;
+    py: number;
+  } | null>(null);
+  const W = 640;
+  const H = 178;
+  const ML = 46;
+  const MR = 14;
+  const MT = 14;
+  const MB = 30;
+  const PW = W - ML - MR;
+  const PH = H - MT - MB;
+  const allPoints = series.map((point) => ({
+    id: point.id,
+    evaluated_at: point.evaluated_at,
+    score: point.score,
+    potential: point.prs.axisValues.P,
+    reach: point.prs.components?.reach ?? null,
+    survival: point.prs.components?.survival ?? null,
+    rNet: point.prs.axisValues.R_net,
+    kind: point.evaluated_at === latestEvaluatedAt ? "current" as const : "saved" as const,
+  }));
+
+  if (allPoints.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">PRS history</div>
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+          PRS primary は {missingAxes.join(" / ") || "P / R_net"} 入力待ち。score を出さずに止めてる。
+        </div>
+      </div>
+    );
+  }
+
+  const ts = allPoints.map((p) => new Date(p.evaluated_at).getTime());
+  const xMin = Math.min(...ts);
+  const xMaxRaw = Math.max(...ts);
+  const xRange = Math.max(1, xMaxRaw - xMin);
+  const xMax = xMaxRaw + xRange * 0.05;
+  const scoreValues = allPoints.map((p) => Math.max(1, p.score));
+  const dataMin = Math.min(...scoreValues);
+  const dataMax = Math.max(...scoreValues);
+  const yMin = Math.max(0, Math.log10(dataMin) - 0.2);
+  const yMax = Math.min(Math.log10(100_000), Math.log10(dataMax) + 0.2);
+  const ySpan = Math.max(0.3, yMax - yMin);
+  const yOf = (v: number) => MT + PH - (Math.max(yMin, Math.log10(Math.max(1, v))) - yMin) / ySpan * PH;
+  const xOf = (t: number) => ML + ((t - xMin) / Math.max(1, xMax - xMin)) * PW;
+  const path = allPoints
+    .map((point, index) => {
+      const x = xOf(new Date(point.evaluated_at).getTime());
+      const y = yOf(point.score);
+      return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const guides = [30, 100, 300, 1000, 3000, 10000, 30000, 100000].filter((guide) => {
+    const log = Math.log10(guide);
+    return log >= yMin && log <= yMax;
+  });
+
+  return (
+    <div className="relative rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="mb-2 flex items-center gap-2 border-b border-slate-200 pb-2 text-[11px] text-slate-600">
+        <span className="font-bold tracking-wide text-slate-900">PRS primary history</span>
+        <span className="text-[10px] text-slate-400">クリックで詳細</span>
+        {active && (
+          <button
+            type="button"
+            onClick={() => setActive(null)}
+            className="ml-auto rounded-md border border-slate-300 px-2 py-0.5 text-[9px] text-slate-600 hover:bg-slate-50"
+          >
+            閉じる
+          </button>
+        )}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="relative w-full h-auto">
+        {amdSupport.startedAt && (() => {
+          const x1 = xOf(new Date(amdSupport.startedAt).getTime());
+          const endIso = amdSupport.endedAt ?? new Date().toISOString().slice(0, 10);
+          const x2 = xOf(new Date(endIso).getTime());
+          const left = Math.max(ML, Math.min(x1, x2));
+          const right = Math.min(W - MR, Math.max(x1, x2));
+          if (right <= left) return null;
+          return (
+            <g>
+              <rect x={left} y={MT} width={right - left} height={PH} fill="#ec4899" fillOpacity={0.085} />
+              <line x1={x1} y1={MT} x2={x1} y2={MT + PH} stroke="#ec4899" strokeWidth={1} strokeDasharray="3 2" opacity={0.5} />
+              {amdSupport.endedAt && (
+                <line x1={x2} y1={MT} x2={x2} y2={MT + PH} stroke="#ec4899" strokeWidth={1} strokeDasharray="3 2" opacity={0.5} />
+              )}
+            </g>
+          );
+        })()}
+        {guides.map((guide) => (
+          <g key={guide}>
+            <line x1={ML} x2={W - MR} y1={yOf(guide)} y2={yOf(guide)} stroke="rgba(16,185,129,0.18)" strokeDasharray="2 2" strokeWidth={0.5} />
+            <text x={ML - 6} y={yOf(guide)} fontSize={7.5} textAnchor="end" dominantBaseline="middle" fill="rgba(71,85,105,0.72)">
+              {formatRoundedDisplay(guide)}
+            </text>
+          </g>
+        ))}
+        <line x1={ML} y1={MT + PH} x2={W - MR} y2={MT + PH} stroke="rgba(148,163,184,0.45)" strokeWidth={0.6} />
+        <line x1={ML} y1={MT} x2={ML} y2={MT + PH} stroke="rgba(148,163,184,0.45)" strokeWidth={0.6} />
+        <path d={path} fill="none" stroke="#059669" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+        {allPoints.map((point, index) => {
+          const cx = xOf(new Date(point.evaluated_at).getTime());
+          const cy = yOf(point.score);
+          const isActive = active?.id === point.id;
+          return (
+            <g key={`${point.id}:${index}`}>
+              <circle
+                cx={cx}
+                cy={cy}
+                r={10}
+                fill="transparent"
+                style={{ cursor: "pointer" }}
+                onClick={() => setActive({ ...point, px: cx, py: cy })}
+              />
+              <circle
+                cx={cx}
+                cy={cy}
+                r={isActive ? 6 : (point.kind === "current" ? 5 : 3.5)}
+                fill={point.kind === "current" ? "#10b981" : "#34d399"}
+                stroke={isActive ? "#ecfdf5" : "#064e3b"}
+                strokeWidth={isActive ? 2 : 1}
+                style={{ cursor: "pointer", transition: "r 100ms" }}
+                onClick={() => setActive({ ...point, px: cx, py: cy })}
+              />
+            </g>
+          );
+        })}
+        {allPoints.map((point, index) => (
+          <text
+            key={`${point.id}:x`}
+            x={xOf(new Date(point.evaluated_at).getTime())}
+            y={H - 10}
+            fontSize={7.2}
+            textAnchor="middle"
+            fill="rgba(71,85,105,0.72)"
+            transform={allPoints.length > 5 ? `rotate(-30 ${xOf(new Date(point.evaluated_at).getTime())},${H - 10})` : undefined}
+          >
+            {allPoints.length > 12 && index % 2 === 1 ? "" : point.evaluated_at}
+          </text>
+        ))}
+      </svg>
+      {latestPoint && (
+        <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-900">
+          現在の主表示: <span className="font-mono font-semibold">{formatRoundedDisplay(latestPoint.score)}</span>
+        </div>
+      )}
+      {active && <PrimaryPrsScorePopup point={active} chartW={W} chartH={H} onClose={() => setActive(null)} />}
+    </div>
+  );
+}
+
+function PrimaryPrsScorePopup({
+  point,
+  chartW,
+  chartH,
+  onClose,
+}: {
+  point: {
+    id: string;
+    evaluated_at: string;
+    score: number;
+    potential: number | null;
+    reach: number | null;
+    survival: number | null;
+    rNet: number | null;
+    px: number;
+    py: number;
+  };
+  chartW: number;
+  chartH: number;
+  onClose: () => void;
+}) {
+  const leftPct = (point.px / chartW) * 100;
+  const topPct = (point.py / chartH) * 100;
+  const flipRight = leftPct > 65;
+  const flipBottom = topPct > 55;
+  return (
+    <div
+      className="absolute z-10 min-w-[220px] rounded-lg border border-slate-300 bg-white p-3 text-[11px] text-slate-800 shadow-lg"
+      style={{
+        left: flipRight ? "auto" : `calc(${leftPct}% + 12px)`,
+        right: flipRight ? `calc(${100 - leftPct}% + 12px)` : "auto",
+        top: flipBottom ? "auto" : `calc(${topPct}% + 12px)`,
+        bottom: flipBottom ? `calc(${100 - topPct}% + 12px)` : "auto",
+      }}
+    >
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="font-mono text-[10px] text-slate-500">{point.evaluated_at}</span>
+        <button type="button" onClick={onClose} className="text-[10px] text-slate-500 hover:text-slate-900" aria-label="閉じる">×</button>
+      </div>
+      <div className="text-[10px] text-slate-500">PRS primary</div>
+      <div className="font-mono text-2xl font-bold leading-none text-slate-900">{formatRoundedDisplay(point.score)}</div>
+      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-slate-200 pt-2">
+        <div>
+          <div className="text-[9px] text-emerald-700">P</div>
+          <div className="font-mono font-semibold text-slate-900">{formatRoundedDisplay(point.potential)}</div>
+        </div>
+        <div>
+          <div className="text-[9px] text-amber-700">R_net</div>
+          <div className="font-mono font-semibold text-slate-900">{formatRoundedDisplay(point.rNet)}</div>
+        </div>
+        <div>
+          <div className="text-[9px] text-sky-700">R</div>
+          <div className="font-mono font-semibold text-slate-900">{formatRoundedDisplay(point.reach)}</div>
+        </div>
+        <div>
+          <div className="text-[9px] text-violet-700">S</div>
+          <div className="font-mono font-semibold text-slate-900">{formatRoundedDisplay(point.survival)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ScoreBreakdown {
   M: number;
   X: number;
@@ -1159,7 +1506,7 @@ function TimeSeriesChart({
           <g key={g}>
             <line x1={ML} x2={W - MR} y1={yOf(g)} y2={yOf(g)} stroke="rgba(103,232,249,0.22)" strokeDasharray="2 2" strokeWidth={0.5} />
             <text x={ML - 6} y={yOf(g)} fontSize={7.5} textAnchor="end" dominantBaseline="middle" fill="rgba(186,230,253,0.64)">
-              {g >= 1000 ? `${g / 1000}k` : g}
+              {formatRoundedDisplay(g)}
             </text>
           </g>
         ))}
@@ -1252,8 +1599,6 @@ function ScorePopup({
   // 右端だと右にはみ出るので flip
   const flipRight = leftPct > 65;
   const flipBottom = topPct > 55;
-  const fmt = (n: number) =>
-    n < 1 ? n.toFixed(3) : n < 100 ? n.toFixed(2) : Math.round(n).toLocaleString();
   return (
     <div
       className="absolute z-10 min-w-[220px] rounded-lg border border-slate-300 bg-white p-3 text-[11px] text-slate-800 shadow-lg"
@@ -1277,7 +1622,7 @@ function ScorePopup({
       </div>
       <div className="text-[10px] text-slate-500">Legacy AMD S</div>
       <div className="font-mono text-2xl font-bold text-slate-900 leading-none">
-        {fmt(point.score)}
+        {formatRoundedDisplay(point.score)}
       </div>
       <div className="text-[9px] text-slate-500 mt-0.5">
         律速: {AXIS_LABEL_JP[point.breakdown.bottleneck]}
@@ -1285,20 +1630,20 @@ function ScorePopup({
       <div className="border-t border-slate-200 mt-2 pt-2 grid grid-cols-3 gap-2">
         <div className="text-center">
           <div className="text-[9px] text-emerald-700">M (Macrotrend)</div>
-          <div className="font-mono font-semibold text-slate-900">{fmt(point.breakdown.M)}</div>
+          <div className="font-mono font-semibold text-slate-900">{formatRoundedDisplay(point.breakdown.M)}</div>
         </div>
         <div className="text-center">
           <div className="text-[9px] text-amber-700">X (XRL)</div>
-          <div className="font-mono font-semibold text-slate-900">{fmt(point.breakdown.X)}</div>
+          <div className="font-mono font-semibold text-slate-900">{formatRoundedDisplay(point.breakdown.X)}</div>
         </div>
         <div className="text-center">
           <div className="text-[9px] text-pink-700">F (FRL)</div>
-          <div className="font-mono font-semibold text-slate-900">{fmt(point.breakdown.F)}</div>
+          <div className="font-mono font-semibold text-slate-900">{formatRoundedDisplay(point.breakdown.F)}</div>
         </div>
       </div>
       <div className="text-[9px] text-slate-500 mt-2 leading-tight">
         S = k · M · X · F<br />
-        k = {fmt(point.breakdown.K)}, σ_SU = {fmt(point.breakdown.sigma_su)}
+        k = {formatRoundedDisplay(point.breakdown.K)}, σ_SU = {formatRoundedDisplay(point.breakdown.sigma_su)}
       </div>
     </div>
   );
@@ -1321,10 +1666,7 @@ function PrimaryPrsHeroCard({
   const [prsRNetDraft, setPrsRNetDraft] = useState(
     primary.prs.axisValues.R_net != null ? String(primary.prs.axisValues.R_net) : ""
   );
-  const fmt = (value: number | null) => {
-    if (value == null || !Number.isFinite(value)) return "—";
-    return value < 1 ? value.toFixed(2) : Math.round(value).toLocaleString();
-  };
+  const fmt = (value: number | null) => formatRoundedDisplay(value);
   const ready = primary.prs.status === "ready" && primary.prs.score != null;
   const missingText = primary.prs.missingAxes.length > 0 ? primary.prs.missingAxes.join(" / ") : "P / R_net";
   const potentialValue = primary.prs.axisValues.P;

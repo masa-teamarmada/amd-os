@@ -345,12 +345,10 @@ function parseRoleLine(roleLine?: string): { pl: string; pm: string; closer: str
 
 function formatScore(v: number): string {
   if (Number.isNaN(v)) return "—";
-  if (Math.abs(v) >= 10000) return Math.round(v).toLocaleString();
-  return v.toFixed(0);
+  return Math.round(v).toLocaleString();
 }
 
 function formatMetric(v: number): string {
-  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}k`;
-  if (Math.abs(v) >= 10) return v.toFixed(0);
-  return v.toFixed(1);
+  if (!Number.isFinite(v)) return "—";
+  return Math.round(v).toLocaleString();
 }
