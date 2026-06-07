@@ -100,7 +100,7 @@ export default function DashboardPage() {
               missingAxes: latestSnapshot.prs.status === "ready" ? [] : latestSnapshot.prs.missingAxes,
               legacyScore: latestSnapshot.legacy.score,
               components: {
-                potential: latestSnapshot.prs.components?.potential ?? null,
+                potential: latestSnapshot.prs.axisValues.P,
                 reach: latestSnapshot.prs.components?.reach ?? null,
                 survival: latestSnapshot.prs.components?.survival ?? null,
               },
