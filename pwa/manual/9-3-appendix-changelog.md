@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-08 | 2-3 PJ コックピット | 変更 | 資料コーナーの閲覧/追加権限を admin-only から、対象PJの active member または admin へ変更。PJ cockpitを開けるメンバーが資料一覧だけ `Forbidden` にならないよう明記 | PJ資料はPJ内共有機能であり、まさ/adminだけに閉じると目的を満たさないため | えいみ-worker |
 | 2026-06-06 | 2-4 AMD 会社全体 | 変更 | Dashboard の通常PJ一覧から AMD 全体PJ (`p00`) を除外し、AMD PJ cockpit の入口をバイタルサイン枠に一本化 | 会社全体PJを通常PJカードとして重複表示しないため | えいみ-worker |
 | 2026-06-06 | 2-4 AMD 会社全体 / 4-5 Management Score | 変更 | Dashboard のバイタルサイン枠クリック先を AMD 全体 cockpit (`/project/p00/cockpit`) に変更し、右上の詳細リンクだけ `/management-score` に残す | Dashboard から会社全体PJへ直接戻れる導線にするため | えいみ-worker |
 | 2026-06-06 | 2-3 PJ コックピット | 追加 | TODO と経営ハイライトの間に「資料」スペースを追加。ファイル追加時は Google Drive の当該PJ folder配下 `AMD OS 資料` folderへ保存し、OSには `project_documents` のmetadata/linkだけを残す仕様を追記 | PJ cockpitから資料をOS上のリンクとして残し、実ファイルは共有DriveのPJ folder配下に集約するため | えいみ-worker |

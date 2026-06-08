@@ -31,7 +31,7 @@
 
 `proactive_outbox` は `CockpitData` bundle には混ぜず、`ProactiveQueuePanel` が authenticated browser Supabase client で read-only fetch する。RLS は admin authenticated read 前提で、権限がない場合は UI 内で非表示相当のメッセージにする。
 
-`project_documents` も `CockpitData` bundle には混ぜず、`CockpitProjectDocuments` が `/api/project-documents?project_id=...` を fetch する。ファイル本体は DB / Supabase Storage に置かず、Google Drive の `projects.drive_folder_id` 配下に作成する資料専用 folder (`AMD OS 資料`) へ保存し、DB には Drive file ID / folder ID / `webViewLink` / name / MIME / size / uploaded_by / timestamps だけを残す。
+`project_documents` も `CockpitData` bundle には混ぜず、`CockpitProjectDocuments` が `/api/project-documents?project_id=...` を fetch する。API は authenticated user の `members.email` を `project_members` に解決し、当該PJの active member または admin なら資料一覧を返す。ファイル本体は DB / Supabase Storage に置かず、Google Drive の `projects.drive_folder_id` 配下に作成する資料専用 folder (`AMD OS 資料`) へ保存し、DB には Drive file ID / folder ID / `webViewLink` / name / MIME / size / uploaded_by / timestamps だけを残す。
 
 ## Permission
 
@@ -106,7 +106,7 @@ PJ cockpit の「資料」は、PJ全体で使う資料リンク置き場。MTG�
 | DB payload | Drive file ID / project folder ID / dedicated folder ID / `webViewLink` / file name / MIME / size / uploaded_by / timestamps |
 | file body | Google Drive only. DB and Supabase Storage do not store the body |
 | duplicate handling | no delete / overwrite. Drive same-name files are allowed, so every upload creates a new file |
-| auth | PWA API requires admin auth. Google credential must have Drive write scope and access to the PJ folder |
+| auth | PWA API requires authenticated user. Read/upload/markdown preview/edit are allowed for active `project_members` of the target PJ or admin. Google credential must have Drive write scope and access to the PJ folder |
 
 If `projects.drive_folder_id` is empty, the panel shows a folder-setting warning. If Google credential is missing or has read-only / no shared-folder permission, upload returns a permission error and the panel keeps a retry action. The rest of the cockpit remains usable.
 
@@ -200,7 +200,7 @@ GAS remains relevant for legacy freee/Slack/background automation, but cockpit m
 
 - `npx tsc --noEmit`
 - `npm run build`
-- dry API contract: `GET /api/project-documents?project_id=<id>` requires admin auth and returns documents / driveConfigured metadata.
+- dry API contract: `GET /api/project-documents?project_id=<id>` requires authenticated PJ active member or admin auth and returns documents / driveConfigured metadata.
 - route smoke after deploy: `/project/<projectId>/cockpit` auth redirect when logged out; logged-in admin sees cockpit.
 - step link smoke: `/project/<projectId>/cockpit?ym=YYYYMM`, `?step=...&ym=...`, `?meeting=...`
 

@@ -4,7 +4,7 @@ import { google } from "googleapis";
 import { NextResponse } from "next/server";
 import { getGoogleAuthAsync } from "@/lib/sources/google";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/lib/supabase/api-auth";
+import { requireAuth } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -13,6 +13,12 @@ const PROJECT_DOCUMENTS_FOLDER_NAME = "AMD OS 資料";
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
 type AdminClient = ReturnType<typeof createAdminClient>;
+
+type ProjectDocumentAccess = {
+  memberId: string;
+  isAdmin: boolean;
+  isProjectMember: boolean;
+};
 
 interface ProjectDocumentRow {
   document_id: string;
@@ -89,6 +95,48 @@ async function listDocuments(admin: AdminClient, projectId: string) {
 
   if (error) throw error;
   return ((data ?? []) as ProjectDocumentRow[]).map(toClientDocument);
+}
+
+async function getProjectDocumentAccess(admin: AdminClient, email: string, projectId: string): Promise<ProjectDocumentAccess | null> {
+  const normalizedEmail = email.toLowerCase();
+  const { data: member, error: memberError } = await admin
+    .from("members")
+    .select("member_id,is_admin")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
+  if (memberError) throw memberError;
+  if (!member?.member_id) return null;
+
+  const isAdmin = Boolean(member.is_admin);
+  if (isAdmin) {
+    return { memberId: member.member_id, isAdmin, isProjectMember: true };
+  }
+
+  const { data: projectMember, error: projectMemberError } = await admin
+    .from("project_members")
+    .select("member_id")
+    .eq("project_id", projectId)
+    .eq("member_id", member.member_id)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (projectMemberError) throw projectMemberError;
+
+  return {
+    memberId: member.member_id,
+    isAdmin,
+    isProjectMember: Boolean(projectMember),
+  };
+}
+
+async function requireProjectDocumentAccess(admin: AdminClient, email: string, projectId: string) {
+  const access = await getProjectDocumentAccess(admin, email, projectId);
+  if (!access || !access.isProjectMember) {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 }),
+    };
+  }
+  return { ok: true as const, access };
 }
 
 async function getProjectDriveFolder(admin: AdminClient, projectId: string) {
@@ -210,7 +258,7 @@ function databaseSaveError(error: unknown) {
 }
 
 export async function GET(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (!auth.ok) return auth.errorResponse;
 
   const url = new URL(req.url);
@@ -221,6 +269,9 @@ export async function GET(req: Request) {
 
   const admin = createAdminClient();
   try {
+    const access = await requireProjectDocumentAccess(admin, auth.user.email, projectId);
+    if (!access.ok) return access.response;
+
     const projectFolder = await getProjectDriveFolder(admin, projectId);
     const documents = await listDocuments(admin, projectId);
     return NextResponse.json({
@@ -237,7 +288,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (!auth.ok) return auth.errorResponse;
 
   const form = await req.formData().catch(() => null);
@@ -257,6 +308,9 @@ export async function POST(req: Request) {
   }
 
   const admin = createAdminClient();
+  const access = await requireProjectDocumentAccess(admin, auth.user.email, projectId);
+  if (!access.ok) return access.response;
+
   const projectFolder = await getProjectDriveFolder(admin, projectId);
   if (!projectFolder.ok) {
     return NextResponse.json({ ok: false, error: projectFolder.error }, { status: projectFolder.status });
@@ -296,7 +350,7 @@ export async function POST(req: Request) {
         mime_type: uploaded.mimeType || validation.mimeType,
         file_size_bytes: Number(uploaded.size || file.size) || file.size,
         source_kind: "manual_upload",
-        uploaded_by: auth.user.email,
+        uploaded_by: access.access.memberId || auth.user.email,
       });
     }
 

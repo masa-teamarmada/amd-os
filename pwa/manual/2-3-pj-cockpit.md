@@ -55,6 +55,7 @@ TODO と経営ハイライトの間に、PJ全体の資料置き場を表示す�
 - ファイルを追加すると、Google Drive の当該PJ folder (`projects.drive_folder_id`) 配下に `AMD OS 資料` folder を作り、その中へ新規ファイルとして保存する
 - OS 側には `project_documents` に Drive file ID / folder ID / link / file name / MIME / size / uploaded_by / created_at だけを残す。ファイル本体は DB に保存しない
 - 同名ファイルは上書きしない。Drive 側で同名の新規ファイルとして残す
+- 資料一覧の閲覧と追加は、そのPJの active member または admin が使える。PJ cockpit を開けるメンバーが、資料一覧だけ `Forbidden` で見えない状態にしない
 - PJ folder id 未設定、Google Drive credential 未設定、Drive 書き込み権限不足の場合は、資料パネル内で warning / retry を表示し、他の cockpit 表示は止めない
 
 MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`。この「資料」はPJ単位の Drive link 台帳なので用途を分ける。
