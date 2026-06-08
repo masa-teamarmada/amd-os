@@ -12,16 +12,17 @@ Claude定額token/routineへ載せるL2について、`~/.claude/scheduled-tasks
 
 **制約**: Claude routine は最小インターバル 1 時間、daily run cap あり (one-off は cap 外)。→ **同じ cadence の L2 を 1 routine に束ねて run 数を最小化**する。
 
-是正ターゲット (= 2026-06-04 まさ確定の cadence ベース束ね、新ナンバリング D / M / H):
+是正ターゲット (= 2026-06-08 まさ確定の cadence ベース束ね、新ナンバリング D / M / W / H):
 
 | runtime | 対象 (新ナンバリング) | cadence | completion evidence |
 |---|---|---|---|
-| Claude routine `amd-os-l2-consolidated-evidence` | **D-1〜D-10** = 旧 L2 ②③④⑤⑦⑨⑩⑪⑫⑬ | daily 08:00 JST (`0 8 * * *`)、平常日 run +1 | Claude Routines UI `ACTIVE / next run / last run`、初回 one-off dry run |
-| Claude routine `amd-os-l2-monthend-evidence` | **M-1〜M-3** = 旧 L2 ①⑧⑯ | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、最終日判定、17:00 完了 | UI 登録証跡 + run evidence |
-| MMOマシン Codex Desktop automation | **H-1** = 旧 L2 ⑥ MTG flow | 毎時 09:00-21:00 JST | MMO 側 automation 履歴と DB/outbox evidence。Claude routine 化しない |
-| PWA non-LLM cron | LLM を呼ばない同期・集計・cache (= D-9 の `macro_index_log` 集計含む) | 各 cron 定義 | code 上 LLM 非依存であること |
+| Claude routine `amd-os-l2-consolidated-evidence` | **D-1〜D-11** = daily LLM L2 | daily 08:00 JST (`0 8 * * *`)、平常日 run +1 | Claude Routines UI `ACTIVE / next run / last run`、初回 one-off dry run |
+| Claude routine `amd-os-l2-monthend-evidence` | **M-1〜M-3** = month-end L2 | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、最終日判定、17:00 完了 | UI 登録証跡 + run evidence |
+| Claude routine `amd-os-l2-weekly-vc-funding-signals` | **W-1** = VC News / Funding Signals | weekly Saturday 09:00 JST (`0 9 * * 6`) | UI 登録証跡 + `vc_news` / review outbox evidence |
+| MMOマシン Codex Desktop automation | **H-1** = Meeting Flow | 毎時 09:00-21:00 JST | MMO 側 automation 履歴と DB/outbox evidence。Claude routine 化しない。2026-06-08時点ではrunner timeoutにより直近runが`PENDING_REVIEW` |
+| PWA non-LLM cron | **D-12** = freee Transaction Actuals / 月次実績取込、D-9 の `macro_index_log` 集計など | D-12: `/api/cron/management-score-raw-data?includeFreee=1` daily / D-9 index: `/api/cron/macro-aggregate-indicators` monthly | code 上 LLM 非依存であること |
 
-注: 旧 L2③ MS進捗と旧 L2⑬ Member Weekly は 2026-06-04 まさ確定で **daily 化**し D 群 (D-2 / D-10) に同居。旧 L2① と旧 L2⑧⑯ は全部「月末」なので M 群に統合 (= B/D 別枠を廃止)。
+注: D-10 は `Member Activity Evidence` と呼び、旧「Member Weekly Activities」表記を廃止する。M-2 / M-3 は M-1 Monthly Reports を入力に含むため、M-1 が抽出できない月は正規完了扱いにしない。Media Mentions は D-11、freee 取引履歴から月次実績へ入れる非LLM daily 同期は D-12 とする。
 
 PWA/Vercel background LLM cronはL2抽出用途では復活させない。
 
@@ -39,28 +40,29 @@ L2 抽出は必ず次の 5 種類を対象にする。
 
 `source_cache` は旧 L1 正本ではなく、source refs / short snippet / hash の証跡キャッシュ。メール全文・議事録全文・Slack全文を L2 row に保存しない。
 
-## L2 writers (新ナンバリング D / M / H ↔ 旧 L2)
+## L2 writers (新ナンバリング D / M / W / H)
 
-cadence ベースで束ねた新ナンバリング: **D = daily** (Claude routine `amd-os-l2-consolidated-evidence`、08:00 JST) / **M = month-end** (Claude routine `amd-os-l2-monthend-evidence`、月末最終日 16:00→17:00) / **H = hourly** (MMOマシン Codex Desktop automation)。
+cadence ベースで束ねた新ナンバリング: **D = daily** (Claude routine `amd-os-l2-consolidated-evidence`、08:00 JST。ただし D-12 は PWA non-LLM daily cron) / **M = month-end** (Claude routine `amd-os-l2-monthend-evidence`、月末最終日 16:00→17:00) / **W = weekly** (Claude routine `amd-os-l2-weekly-vc-funding-signals`、土曜 09:00 JST) / **H = hourly** (MMOマシン Codex Desktop automation)。
 
-| 新 | 旧 | table | 現行 / 暫定 writer | 反映 |
+| 新 | data | table | target writer | 反映 |
 |---|---|---|---|---|
-| **D-1** | ② AMD Protocol | `protocols` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 MMO `amd-os-l2-protocol-extract` | Supabase + notifications。yes は `confirmed` |
-| **D-2** | ③ MS進捗 | `milestone_monthly_progress` / `project_monthly_notes` | Claude routine `amd-os-l2-consolidated-evidence` (target、daily 化) / 暫定 MMO `amd-os-l3-ms-progress-extract` | Supabase + revisions |
-| **D-3** | ④ PJナレッジ | `project_knowledge` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 MMO `amd-os-l4-project-knowledge-extract` | candidate → active/rejected |
-| **D-4** | ⑤ メンバーナレッジ | `member_knowledge` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 MMO `amd-os-l5-member-knowledge-extract` | candidate → active/rejected |
-| **D-5** | ⑦ OS台帳差分 | `project_registry_diffs` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 Codex `amd-os-ms` / SKILL `amd-os-l7-registry-diff-extract` | outbox → LaunchAgent |
-| **D-6** | ⑨ 経営ハイライト | `project_strategy_signals` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 Codex `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | strategy-signals outbox → LaunchAgent |
-| **D-7** | ⑩ Textbook Insights | `textbook_insight_candidates` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 Codex / local worker `amd-os-l10-textbook-insight-extract` | `outbox.textbookInsights` → candidate + notification → approved → local BZM applier |
-| **D-8** | ⑪ Atlas Signals | `atlas_signals` / derived `atlas_stories` / `atlas_reports` | Claude routine `amd-os-l2-consolidated-evidence` (target) | `POST /api/atlas/signals-ingest` → Haiku autotag + upsert。派生 stories/reports は別系統 |
-| **D-9** | ⑫ Macrotrend Evidence / Index | `observation_log` / `macro_index_log` / derived `macro_lane_weights` / `triple_helix_state_log` | Claude routine `amd-os-l2-consolidated-evidence` (= 外部 observation 収集) + **PWA non-LLM cron** `macro-aggregate-indicators` (= index 集計) | observation_log upsert + index 集計は LLM 非依存 cron |
-| **D-10** | ⑬ Member Weekly Activities | `member_activities(source='member_weekly')` | Claude routine `amd-os-l2-consolidated-evidence` (= daily 化、weekly 廃止) | Dashboard / MyPage / admin |
-| **M-1** | ① monthly_reports | `monthly_reports` | Claude routine `amd-os-l2-monthend-evidence` (target) / 暫定 Codex automation `AMD OS L2① 月次報告抽出` | `amd-os-ms/outbox.monthlyReports` → LaunchAgent |
-| **M-2** | ⑧ XRL根拠 | `project_xrl_evidence` / `project_founding_members` | Claude routine `amd-os-l2-monthend-evidence` (= M-1 後) / 暫定 Codex `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | outbox → LaunchAgent。candidate → confirmed |
-| **M-3** | ⑯ Management Monthly Signal | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` (= M-2 後、新規 inline) | `/management-score`。candidate → confirmed。18:00 MTG 前に出揃わせる |
-| **H-1** | ⑥ MTGサマリ + MTGフロー | `project_meeting_summaries` / `meeting_assets` | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` | Supabase / Calendar / Drive / Gmail draft。Claude routine 化しない |
-| (対象外) | ⑭ Finance Ops Evidence | finance ops tables | PWA non-LLM cron / admin review中心 | Management / finance ops |
-| (対象外) | ⑮ VC News / Funding Signals | `vc_news` / funding signal tables | Claude routineまたはCodex automation候補。UI登録証跡が出るまでは未完 | external signal review |
+| **D-1** | AMD Protocol | `protocols` / `protocol_examples` | Claude routine `amd-os-l2-consolidated-evidence` | Supabase + notifications。yes は `confirmed` |
+| **D-2** | MS Progress | `milestone_monthly_progress` / `project_monthly_notes` | Claude routine `amd-os-l2-consolidated-evidence` | Supabase + revisions |
+| **D-3** | Project Knowledge | `project_knowledge` | Claude routine `amd-os-l2-consolidated-evidence` | candidate → active/rejected |
+| **D-4** | Member Knowledge | `member_knowledge` | Claude routine `amd-os-l2-consolidated-evidence` | candidate → active/rejected |
+| **D-5** | Registry Diff | `project_registry_diffs` | Claude routine `amd-os-l2-consolidated-evidence` | outbox → applier / notification |
+| **D-6** | Strategy Signals | `project_strategy_signals` | Claude routine `amd-os-l2-consolidated-evidence` | strategy-signals outbox → applier |
+| **D-7** | Textbook Insights | `textbook_insight_candidates` | Claude routine `amd-os-l2-consolidated-evidence` | candidate + notification → approved → local BZM applier |
+| **D-8** | Atlas Signals | `atlas_signals` / derived `atlas_stories` / `atlas_reports` | Claude routine `amd-os-l2-consolidated-evidence` | `POST /api/atlas/signals-ingest` → upsert。派生 stories/reports は別系統 |
+| **D-9** | Macrotrend Evidence / Index | `observation_log` / `macro_index_log` / derived `macro_lane_weights` / `triple_helix_state_log` | Claude routine `amd-os-l2-consolidated-evidence` + PWA non-LLM cron `macro-aggregate-indicators` | observation_log upsert + index 集計 |
+| **D-10** | Member Activity Evidence | `member_activities` | Claude routine `amd-os-l2-consolidated-evidence` | Dashboard / MyPage / admin |
+| **D-11** | Media Mentions | `project_media_mentions` / `news_mention` notifications | Claude routine `amd-os-l2-consolidated-evidence` | media mention candidate + notification |
+| **D-12** | freee Transaction Actuals / 月次実績取込 | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` | freee取引履歴 → 月次試算表の実績値 |
+| **M-1** | Monthly Reports | `monthly_reports` | Claude routine `amd-os-l2-monthend-evidence` | monthly reports outbox → applier |
+| **M-2** | XRL Evidence | `project_xrl_evidence` / `project_founding_members` | Claude routine `amd-os-l2-monthend-evidence` | M-1後に抽出。candidate → confirmed |
+| **M-3** | Management Monthly Signal | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` | M-1 / M-2後に抽出。18:00 MTG 前に出揃わせる |
+| **W-1** | VC News / Funding Signals | `vc_news` / `vcs` / `vc_funds` / `vc_investments` / `project_vc_relations` | Claude routine `amd-os-l2-weekly-vc-funding-signals` | reviewable candidates。安全な write path が曖昧なら outbox / blocked summary |
+| **H-1** | Meeting Flow | `project_meeting_summaries` / `meeting_assets` | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` | Supabase / Calendar / Drive / Gmail draft。Claude routine 化しない。2026-06-08時点ではrunner timeoutにより直近runが`PENDING_REVIEW` |
 
 ## L2 ⑥ MTG サマリの開催済みソース guard
 
@@ -78,8 +80,8 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 
 ## Writer 境界
 
-- L2 ①⑦⑧⑨⑩は Codex automation が JSON outbox を作り、非LLM LaunchAgent が Supabase / PWA API に反映する。
-- L2 ②〜⑥は MMOマシン Codex Desktop automation が現行 writer。
+- D/M/W の LLM 抽出は Claude routine が target writer。Claude Routines UIの `ACTIVE / next run / last run` と初回 evidence が揃うまで、暫定 automation は差分リスクとして扱う。
+- H-1 (= L2⑥) だけ MMOマシン Codex Desktop automation が target writer。
 - 旧 GAS 153 / 155、AMD-Report GAS R313、PWA LLM cron は定期 writer として復活させない。
 - PWA `/api/cron/hourly-estimate` は `ALLOW_PWA_LLM_CRONS=1` がない限り disabled response のみ。
 - L2⑩ は `/notifications` の「はい」で DB 候補を `approved` にするだけ。git 管理の `pwa/bzm/*.md` 追記は local applier / worker が行い、Vercel runtime から直接 commit しない。

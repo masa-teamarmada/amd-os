@@ -8,7 +8,7 @@
 |---|---|
 | L2 | ④ PJナレッジ |
 | table | `project_knowledge` |
-| primary writer | Windows MMO PC の Codex Desktop automation `amd-os-l4-project-knowledge-extract` |
+| primary writer | Claude routine `amd-os-l2-consolidated-evidence` Phase D-3 |
 | schedule | daily 08:15 JST |
 | repo skill | `pwa/scheduled-tasks/amd-os-l4-project-knowledge-extract/SKILL.md` |
 | old writer | `gas/155_L2KnowledgeExtractor.js` の `nav_project_knowledge_pollAll` |

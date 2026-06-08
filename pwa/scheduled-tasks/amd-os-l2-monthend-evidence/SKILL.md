@@ -1,13 +1,13 @@
 ---
 name: amd-os-l2-monthend-evidence
-description: AMD OS month-end L2 evidence 抽出を 1 本の claude routine に束ねたもの (= M-1〜M-3)。月末候補日 16:00 JST 発火 (cron `0 16 28-31 * *`)、Phase 0 で「今日 == 当月最終日」判定し、最終日でなければ即 exit。最終日のみ M-1 monthly_reports → M-2 XRL根拠 → M-3 Management Monthly Signal の順に inline 実行し、17:00 JST までに完了させる (= 月末最終日 18:00 の月次振り返り MTG に間に合わせる)。claude.ai/code/routines (cloud / Anthropic-managed、サブスク定額枠、Sonnet 4.6)。daily 分 (D-1〜D-10) は別 routine `amd-os-l2-consolidated-evidence`、毎時 (H-1) は MMOマシン Codex Desktop automation。
+description: AMD OS month-end L2 evidence 抽出を 1 本の claude routine に束ねたもの (= M-1〜M-3)。月末候補日 16:00 JST 発火 (cron `0 16 28-31 * *`)、Phase 0 で「今日 == 当月最終日」判定し、最終日でなければ即 exit。最終日のみ M-1 monthly_reports → M-2 XRL根拠 → M-3 Management Monthly Signal の順に inline 実行し、17:00 JST までに完了させる (= 月末最終日 18:00 の月次振り返り MTG に間に合わせる)。claude.ai/code/routines (cloud / Anthropic-managed、サブスク定額枠、Sonnet 4.6)。daily 分 (D-1〜D-11) は別 routine `amd-os-l2-consolidated-evidence`、weekly 分 (W-1) は別 routine `amd-os-l2-weekly-vc-funding-signals`、毎時 (H-1) は MMOマシン Codex Desktop automation。
 ---
 
 # AMD OS Month-end L2 Evidence routine (M-1〜M-3)
 
 > **これは何か**: 月末にだけ抽出すべき L2 evidence を **1 本の claude routine** に束ねたもの。
 > M-1 monthly_reports → M-2 XRL根拠 → M-3 Management Monthly Signal を **依存順** で実行。
-> 2026-06-04 まさ確定の cadence ベース新ナンバリング (D / M / H)。
+> 2026-06-08 まさ確定の cadence ベース新ナンバリング (D / M / W / H)。
 
 ## 🚨 登録事故の current truth (2026-06-04)
 
@@ -119,7 +119,7 @@ Phase D: run summary
 - `monthly_reports.final_content` を force なしで上書き。
 - XRL score を candidate を経ず直接 confirmed にする。
 - 17:00 を超えて M-3 が出ない (= 重い月は Phase A/B の差分 skip を最大化し、Phase C を死守)。
-- daily 分 (D-1〜D-10) / 毎時 (H-1) を本 routine に混ぜる。
+- daily 分 (D-1〜D-11) / weekly 分 (W-1) / 毎時 (H-1) を本 routine に混ぜる。
 
 ═══════════════════════════════════════════════════
 【execution time 配慮】

@@ -36,40 +36,45 @@ docs-only、SKILL.md作成、過去の「登録完了」記述だけでは完了
 - **daily run cap** がある (= アカウントごとに 1 日に開始できる run 数。数値は `claude.ai/code/routines` / `claude.ai/settings/usage` で確認。one-off run は cap 外)。
 - → **同じ cadence の L2 を 1 routine に束ねて、1 日の run 数を最小化する**のが設計の柱。
 
-### 束ね方 = cadence で 2 routine + MMO automation
+### 束ね方 = cadence で 3 routine + MMO automation
 
-L2 を cadence で分類し、**新ナンバリング (D = daily / M = month-end / H = hourly)** を当てる。
+L2 を cadence で分類し、**新ナンバリング (D = daily / M = month-end / W = weekly / H = hourly)** を当てる。
 
 | グループ | routine / 実行場所 | cadence | run 消費 |
 |---|---|---|---|
-| **D-1〜D-10** | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | 平常日 +1/日 |
+| **D-1〜D-11** | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | 平常日 +1/日 |
+| **D-12** | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` | daily | Claude routine 外 |
 | **M-1〜M-3** | Claude routine `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、Phase 0 で最終日判定、最終日のみ本処理、17:00 完了目標 | 月末候補日のみ +1 (空振り含む) |
-| **H-1** | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` | 毎時 09:00-21:00 JST | Claude routine 外 |
+| **W-1** | Claude routine `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST (`0 9 * * 6`) | 週 +1 |
+| **H-1** | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` | 毎時 09:00-21:00 JST | Claude routine 外。2026-06-08時点ではrunner timeoutにより直近runが`PENDING_REVIEW` |
 
-平常日の Claude routine run 消費は **1 本だけ**。月末日でも最大 2 本 (D + M)。daily run cap には全く触れない。
+平常日の Claude routine run 消費は **1 本だけ**。月末日でも最大 2 本 (D + M)、土曜は W が追加される。H は Codex Desktop automation だけで、Claude routine 化しない。
 
-## L2 writers (新ナンバリング D / M / H)
+## L2 writers (新ナンバリング D / M / W / H)
 
 | 新 | 旧 L2 | table | 実行場所 / writer | schedule | apply / evidence |
 |---|---|---|---|---|---|
-| **D-1** | ② | `protocols` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 MMO `amd-os-l2-protocol-extract` | daily 08:00 JST | Supabase + notifications。yes は `confirmed` |
-| **D-2** | ③ | `milestone_monthly_progress` / `project_monthly_notes` | Claude routine `amd-os-l2-consolidated-evidence` (target、daily 化) / 暫定 MMO `amd-os-l3-ms-progress-extract` | daily 08:00 JST | Supabase + revisions。旧 hourly / PWA hourly-estimate 停止 |
-| **D-3** | ④ | `project_knowledge` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 MMO `amd-os-l4-project-knowledge-extract` | daily 08:00 JST | candidate → active/rejected |
-| **D-4** | ⑤ | `member_knowledge` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 MMO `amd-os-l5-member-knowledge-extract` | daily 08:00 JST | candidate → active/rejected |
-| **D-5** | ⑦ | `project_registry_diffs` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 Codex `amd-os-ms` + `amd-os-l7-registry-diff-extract` | daily 08:00 JST | `outbox.registryDiffs` → LaunchAgent |
-| **D-6** | ⑨ | `project_strategy_signals` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 Codex `amd-os` + `amd-os-l9-strategy-signal-extract` | daily 08:00 JST | strategy-signals outbox → LaunchAgent |
-| **D-7** | ⑩ | `textbook_insight_candidates` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 Codex / local worker `amd-os-l10-textbook-insight-extract` | daily 08:00 JST | `outbox.textbookInsights` → candidate + notification。approved 後 local BZM applier が `pwa/bzm/*.md` へ追記 |
-| **D-8** | ⑪ | `atlas_signals` | Claude routine `amd-os-l2-consolidated-evidence` (target) | daily 08:00 JST | `POST /api/atlas/signals-ingest` → Haiku autotag + `atlas_signals` upsert。派生 stories/reports は別系統 |
-| **D-9** | ⑫ | `observation_log` / `macro_index_log` | Claude routine `amd-os-l2-consolidated-evidence` (= 外部 observation 収集) + **PWA non-LLM cron** `macro-aggregate-indicators` (= index 集計) | daily 08:00 JST + 月初集計 | observation_log upsert。index 集計は LLM 非依存 cron が担う |
-| **D-10** | ⑬ | `member_activities(source='member_weekly')` | Claude routine `amd-os-l2-consolidated-evidence` (= daily 化、weekly 廃止) | daily 08:00 JST | Dashboard / MyPage read evidence |
-| **M-1** | ① | `monthly_reports` | Claude routine `amd-os-l2-monthend-evidence` (target) / 暫定 Codex `AMD OS L2① 月次報告抽出` | 月末最終日 16:00 JST | `amd-os-ms/outbox.monthlyReports` → LaunchAgent。R313 trigger 置かない |
-| **M-2** | ⑧ | `project_xrl_evidence` / `project_founding_members` | Claude routine `amd-os-l2-monthend-evidence` (= M-1 の後) / 暫定 Codex `amd-os-ms` + `amd-os-l8-xrl-evidence-extract` | 月末最終日 (M-1 後) | `outbox.xrlEvidence` → LaunchAgent。candidate → confirmed |
-| **M-3** | ⑯ | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` (= M-2 の後、新規 inline) | 月末最終日 17:00 完了 | `/management-score` read。candidate → confirmed。18:00 月次振り返り MTG 前に出揃わせる |
-| **H-1** | ⑥ | `project_meeting_summaries` / `meeting_assets` | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | 毎時 09:00-21:00 JST | Supabase / Calendar / Drive / Gmail draft。Claude routine 化しない |
+| **D-1** | AMD Protocol | `protocols` / `protocol_examples` | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST | Supabase + notifications。yes は `confirmed` |
+| **D-2** | MS Progress | `milestone_monthly_progress` / `project_monthly_notes` | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST | Supabase + revisions |
+| **D-3** | Project Knowledge | `project_knowledge` | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST | candidate → active/rejected |
+| **D-4** | Member Knowledge | `member_knowledge` | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST | candidate → active/rejected |
+| **D-5** | Registry Diff | `project_registry_diffs` | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST | outbox / notification |
+| **D-6** | Strategy Signals | `project_strategy_signals` | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST | strategy-signals outbox → applier |
+| **D-7** | Textbook Insights | `textbook_insight_candidates` | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST | candidate + notification。approved 後 local BZM applier |
+| **D-8** | Atlas Signals | `atlas_signals` | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST | `POST /api/atlas/signals-ingest` → `atlas_signals` upsert |
+| **D-9** | Macrotrend Evidence / Index | `observation_log` / `macro_index_log` | Claude routine `amd-os-l2-consolidated-evidence` + PWA non-LLM cron `macro-aggregate-indicators` | daily 08:00 JST + 月初集計 | observation_log upsert。index 集計は LLM 非依存 cron |
+| **D-10** | Member Activity Evidence | `member_activities` | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST | Dashboard / MyPage read evidence |
+| **D-11** | Media Mentions | `project_media_mentions` / `news_mention` notifications | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST | media mention candidate + notification |
+| **D-12** | freee Transaction Actuals / 月次実績取込 | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` | daily | freee取引履歴 → 月次試算表の実績値 |
+| **M-1** | Monthly Reports | `monthly_reports` | Claude routine `amd-os-l2-monthend-evidence` | 月末最終日 16:00 JST | monthly reports outbox → applier。R313 trigger 置かない |
+| **M-2** | XRL Evidence | `project_xrl_evidence` / `project_founding_members` | Claude routine `amd-os-l2-monthend-evidence` (= M-1 の後) | 月末最終日 (M-1 後) | candidate → confirmed。M-1が抽出できない月は正規完了扱いにしない |
+| **M-3** | Management Monthly Signal | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` (= M-2 の後) | 月末最終日 17:00 完了 | M-1/M-2後に抽出。18:00 月次振り返り MTG 前に出揃わせる |
+| **W-1** | VC News / Funding Signals | `vc_news` / `vcs` / `vc_funds` / `vc_investments` / `project_vc_relations` | Claude routine `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST | VC / funding signal candidates。review first、safe write path 不明なら outbox / blocked summary |
+| **H-1** | Meeting Flow | `project_meeting_summaries` / `meeting_assets` | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | 毎時 09:00-21:00 JST | Supabase / Calendar / Drive / Gmail draft。Claude routine 化しない。2026-06-08時点ではrunner timeoutにより直近runが`PENDING_REVIEW` |
 
-旧 L2⑭ Finance Ops Evidence (`company_finance_*`) は PWA non-LLM cron / admin review 中心で、LLM background cron は禁止。旧 L2⑮ VC News / Funding Signals (`vc_news`) は Claude routine または Codex automation 候補で UI 登録証跡までは未完。どちらも D/M/H routine の対象外。
+Media Mentions は D-11 として daily Claude routine に載せる。freee 取引履歴から月次試算表の実績値へ入れる処理は D-12 として PWA non-LLM daily cron / freee sync に置き、Claude routine / Codex automation では実行しない。W-1 が Codex automation に残っている場合は暫定 / 差分扱いで、Claude routine evidence が揃ったら二重実行防止のため停止する。
 
-SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) と、各 L2 の個別 `amd-os-l<N>-*/SKILL.md` (= 束ね SKILL が参照する詳細手順)。L2 の品質改善は、PWA route / GAS function ではなく SKILL と outbox/applier contract を更新する。
+SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) / `amd-os-l2-weekly-vc-funding-signals/SKILL.md` (W 群) と、各 L2 の個別 `amd-os-l<N>-*/SKILL.md` (= 束ね SKILL が参照する詳細手順)。L2 の品質改善は、PWA route / GAS function ではなく SKILL と outbox/applier contract を更新する。
 
 ## Control layer: proactive heartbeat
 
@@ -89,9 +94,9 @@ SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (
 | 旧経路 | 状態 | 理由 |
 |---|---|---|
 | GAS 153 MeetingHourlyTrigger | stopped / kill switch | L2⑥ は MMO automation へ移管 |
-| GAS 155 L2KnowledgeExtractor | stopped / kill switch | L2②④⑤ は MMO automation へ移管 |
+| GAS 155 L2KnowledgeExtractor | stopped / kill switch | D-1 / D-3 / D-4 は Claude routine へ移管 |
 | GAS 152 NavigatorCron | stopped / kill switch | 旧 fallback 月次抽出 |
-| PWA `/api/cron/hourly-estimate` | disabled unless explicit guard | L2③ は MMO automation primary |
+| PWA `/api/cron/hourly-estimate` | disabled unless explicit guard | D-2 は Claude routine primary |
 | `venture-xrl-refresh` cron | schedule disabled | Gemini 2.5 Flash を定期実行しない |
 
 「cron 復活」は原則として提案しない。必要なら、token 課金なしの処理であることを code と spec に明記する。

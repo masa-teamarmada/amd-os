@@ -1,13 +1,13 @@
 ---
 name: amd-os-l2-consolidated-evidence
-description: AMD OS daily L2 evidence 抽出を 1 本の claude routine に束ねる本命 routine (= D-1〜D-10)。daily 08:00 JST 発火、claude.ai/code/routines (cloud / Anthropic-managed infrastructure、Pro/Max/Team サブスク定額枠、Sonnet 4.6) で実行。Phase 0 で env / active PJ 準備後、D-1 protocols → D-2 MS進捗 → D-3 PJナレッジ → D-4 メンバーナレッジ → D-5 OS台帳差分 → D-6 経営ハイライト → D-7 Textbook Insights → D-8 Atlas Signals → D-9 Macrotrend Evidence → D-10 Member Weekly Activities の順に inline 実行 → Supabase / outbox helper で反映 + 通知。月末専用 (M-1 monthly / M-2 XRL / M-3 Management Signal) は別 routine `amd-os-l2-monthend-evidence`、毎時 (H-1 MTGフロー) は MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`。
+description: AMD OS daily L2 evidence 抽出を 1 本の claude routine に束ねる本命 routine (= D-1〜D-11)。daily 08:00 JST 発火、claude.ai/code/routines (cloud / Anthropic-managed infrastructure、Pro/Max/Team サブスク定額枠、Sonnet 4.6) で実行。Phase 0 で env / active PJ 準備後、D-1 protocols → D-2 MS進捗 → D-3 PJナレッジ → D-4 メンバーナレッジ → D-5 OS台帳差分 → D-6 Strategy Signals → D-7 Textbook Insights → D-8 Atlas Signals → D-9 Macrotrend Evidence → D-10 Member Activity Evidence → D-11 Media Mentions の順に inline 実行 → Supabase / outbox helper で反映 + 通知。D-12 freee Transaction Actuals はPWA non-LLM cron、月末専用 (M-1 monthly / M-2 XRL / M-3 Management Signal) は別 routine `amd-os-l2-monthend-evidence`、weekly VC/Funding (W-1) は別 routine `amd-os-l2-weekly-vc-funding-signals`、毎時 (H-1 MTGフロー) は MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`。
 ---
 
-# AMD OS Daily L2 Consolidated Evidence routine (D-1〜D-10)
+# AMD OS Daily L2 Consolidated Evidence routine (D-1〜D-11)
 
 > **これは何か**: 毎日抽出すべき L2 evidence を **1 本の claude routine** に束ねたもの。
 > claude routine の **daily run cap** を最小化する (= 1 routine / 日) ための集約設計。
-> 2026-06-04 まさ確定の新ナンバリング (cadence ベース: D = daily / M = month-end / H = hourly)。
+> 2026-06-08 まさ確定の新ナンバリング (cadence ベース: D = daily / M = month-end / W = weekly / H = hourly)。
 
 ## 🚨 登録事故の current truth (2026-06-04)
 
@@ -20,8 +20,10 @@ description: AMD OS daily L2 evidence 抽出を 1 本の claude routine に束�
 ## 設計の要点 (2026-06-04 まさ確定)
 
 - **背景**: 個別 routine を毎時で回そうとすると claude routine の daily run cap に抵触する。**最小 1 時間間隔**制約もある (= 毎時より細かい cron は拒否)。→ **同じ cadence の L2 を 1 routine に束ねる**。
-- **このルーティンの守備範囲 = daily cadence の L2 だけ** (D-1〜D-10)。
+- **このルーティンの守備範囲 = daily cadence の LLM L2 だけ** (D-1〜D-11)。
+  - D-12 freee Transaction Actuals / 月次実績取込は **PWA non-LLM cron**。本 routine に混ぜない。
   - 月末 cadence (M-1 monthly_reports / M-2 XRL / M-3 Management Signal) は **別 routine** `amd-os-l2-monthend-evidence`。
+  - weekly cadence (W-1 VC News / Funding Signals) は **別 routine** `amd-os-l2-weekly-vc-funding-signals`。
   - 毎時 cadence (H-1 MTGフロー = 旧 L2⑥) は **MMOマシン Codex Desktop automation** `amd-os-l6-meeting-flow` を維持。claude routine 化しない。
 - **発火**: daily 08:00 JST。cron `0 8 * * *` (= claude routine は最小 1h 間隔 OK)。
 - **実行環境**: claude.ai/code/routines (= cloud sandbox VM、Pro/Max/Team サブスク内、Sonnet 4.6、追加 LLM 課金なし)。
@@ -29,20 +31,21 @@ description: AMD OS daily L2 evidence 抽出を 1 本の claude routine に束�
 - **入力**: AMD OS repo (= masa-teamarmada/amd-os) を sandbox に auto-clone、Connector (Supabase / Calendar / Notion / Gmail / Drive / Slack / GitHub) を直接利用。
 - **出力**: Supabase 各 L2 テーブル + l2_notifications。
 
-## 新ナンバリング ↔ 旧 L2 番号 対応
+## 新ナンバリング
 
-| 新 | 旧 L2 | 名称 | table | 既存個別 SKILL (= Phase 詳細) |
-|---|---|---|---|---|
-| D-1 | ② | AMD Protocol | `protocols` | `amd-os-l2-protocol-extract/SKILL.md` |
-| D-2 | ③ | MS進捗 | `milestone_monthly_progress` / `project_monthly_notes` | `amd-os-l3-ms-progress-extract/SKILL.md` |
-| D-3 | ④ | PJナレッジ | `project_knowledge` | `amd-os-l4-project-knowledge-extract/SKILL.md` |
-| D-4 | ⑤ | メンバーナレッジ | `member_knowledge` | `amd-os-l5-member-knowledge-extract/SKILL.md` |
-| D-5 | ⑦ | OS台帳差分 | `project_registry_diffs` | `amd-os-l7-registry-diff-extract/SKILL.md` |
-| D-6 | ⑨ | 経営ハイライト | `project_strategy_signals` | `amd-os-l9-strategy-signal-extract/SKILL.md` |
-| D-7 | ⑩ | Textbook Insights | `textbook_insight_candidates` | `amd-os-l10-textbook-insight-extract/SKILL.md` |
-| D-8 | ⑪ | Atlas Signals | `atlas_signals` | (個別 SKILL なし。本 SKILL Phase H に inline) |
-| D-9 | ⑫ | Macrotrend Evidence | `observation_log` / `macro_index_log` | (個別 SKILL なし。本 SKILL Phase I に inline) |
-| D-10 | ⑬ | Member Weekly Activities | `member_activities(source='member_weekly')` | (個別 SKILL なし。本 SKILL Phase J に inline) |
+| 新 | 名称 | table | 既存個別 SKILL (= Phase 詳細) |
+|---|---|---|---|
+| D-1 | AMD Protocol | `protocols` / `protocol_examples` | `amd-os-l2-protocol-extract/SKILL.md` |
+| D-2 | MS Progress | `milestone_monthly_progress` / `project_monthly_notes` | `amd-os-l3-ms-progress-extract/SKILL.md` |
+| D-3 | Project Knowledge | `project_knowledge` | `amd-os-l4-project-knowledge-extract/SKILL.md` |
+| D-4 | Member Knowledge | `member_knowledge` | `amd-os-l5-member-knowledge-extract/SKILL.md` |
+| D-5 | Registry Diff | `project_registry_diffs` | `amd-os-l7-registry-diff-extract/SKILL.md` |
+| D-6 | Strategy Signals | `project_strategy_signals` | `amd-os-l9-strategy-signal-extract/SKILL.md` |
+| D-7 | Textbook Insights | `textbook_insight_candidates` | `amd-os-l10-textbook-insight-extract/SKILL.md` |
+| D-8 | Atlas Signals | `atlas_signals` | (個別 SKILL なし。本 SKILL Phase H に inline) |
+| D-9 | Macrotrend Evidence / Index | `observation_log` / `macro_index_log` | (個別 SKILL なし。本 SKILL Phase I に inline) |
+| D-10 | Member Activity Evidence | `member_activities` | (個別 SKILL なし。本 SKILL Phase J に inline) |
+| D-11 | Media Mentions | `project_media_mentions` / `news_mention` notifications | (個別 SKILL なし。本 SKILL Phase K に inline) |
 
 ## 【絶対】 動く前に必ず Read
 
@@ -158,33 +161,43 @@ Phase I: D-9 ⑫ Macrotrend Evidence / Index 抽出
 - 当日分の外部 observation に差分が無ければ skip。
 
 ═══════════════════════════════════════════════════
-Phase J: D-10 ⑬ Member Weekly Activities 抽出
+Phase J: D-10 Member Activity Evidence 抽出
 ═══════════════════════════════════════════════════
 
-旧 PWA route `cron/member-weekly-activities` のロジックを inline 実行 (= 2026-06-04 まさ確定で **daily** 化。weekly ではなく daily pickup)。route 実装: `pwa/src/app/api/cron/member-weekly-activities/route.ts`。
+旧 PWA route `cron/member-weekly-activities` のロジックを inline 実行 (= 2026-06-04 まさ確定で **daily** 化。表示名は `Member Activity Evidence` に改名し、weekly ではなく daily pickup)。route 実装: `pwa/src/app/api/cron/member-weekly-activities/route.ts`。
 - 入力 (4 集約): ① `source_cache` (Gmail/Calendar キャッシュ) ② Gmail (sent/draft のみ) ③ Calendar (organizer/attended のみ) ④ `project_meeting_summaries`。member email はメンバー特定だけに使い、PJ 判定は PJ 専用/関係先 email・PJ名・client名で行う。
 - 抽出: evidence を (projectId, memberId, sourceAnchor) でグループ化 → Sonnet 4.6 で activity title / contentPreview / confidence を合成。
 - 出力: `member_activities` (`source='member_weekly'`、UNIQUE (member_id, project_id, source, source_item_id))。`/mypage` の「今週やったこと」と既存 member_activities 入力 L2 (= D-4 メンバーナレッジ) の入力になる。
 - 既存週次行は delete してから upsert (= 当日断面で再構築)。
 
 ═══════════════════════════════════════════════════
-Phase K: run summary
+Phase K: D-11 Media Mentions 抽出
+═══════════════════════════════════════════════════
+
+Media Mentions は旧 L2-14 の正本。`news_mention` notification label と `project_media_mentions` を確認し、PJ / AMD / member に関係する公開メディア掲載を daily で候補化する。
+- 入力: 公開web / 信頼できるメディア / 既存 `project_media_mentions` / `news_mention` notifications。
+- 出力: media mention candidate + notification。全文保存は禁止し、source URL / title / date / short snippet / hash / confidence を残す。
+- finance ops / freee 実績取込は D-12 であり、本 Phase に混ぜない。
+
+═══════════════════════════════════════════════════
+Phase L: run summary
 ═══════════════════════════════════════════════════
 
 各 Phase の saved / unchanged / skipped / errors を集計し、まさへ 1 行 summary を返す:
 
 ```
-🚀 L2 daily consolidated evidence (D-1〜D-10) 08:00 完了:
-  - D-1 ② プロトコル: <N> candidate
-  - D-2 ③ MS進捗: <N> progress, <M> monthly_notes, <L> unchanged
-  - D-3 ④ PJナレッジ: <N> rows
-  - D-4 ⑤ メンバーナレッジ: <N> rows
-  - D-5 ⑦ OS台帳差分: <N> pending
-  - D-6 ⑨ 経営ハイライト: <N> candidate
-  - D-7 ⑩ Textbook Insights: <N> candidate
-  - D-8 ⑪ Atlas Signals: <N> ingested
-  - D-9 ⑫ Macrotrend observation: <N> observation_log rows (index 集計は PWA non-LLM cron)
-  - D-10 ⑬ Member Weekly: <N> activities
+🚀 L2 daily consolidated evidence (D-1〜D-11) 08:00 完了:
+  - D-1 AMD Protocol: <N> candidate
+  - D-2 MS Progress: <N> progress, <M> monthly_notes, <L> unchanged
+  - D-3 Project Knowledge: <N> rows
+  - D-4 Member Knowledge: <N> rows
+  - D-5 Registry Diff: <N> pending
+  - D-6 Strategy Signals: <N> candidate
+  - D-7 Textbook Insights: <N> candidate
+  - D-8 Atlas Signals: <N> ingested
+  - D-9 Macrotrend observation: <N> observation_log rows (index 集計は PWA non-LLM cron)
+  - D-10 Member Activity Evidence: <N> activities
+  - D-11 Media Mentions: <N> candidates
   経過時間: <minutes> 分
 ```
 
@@ -192,7 +205,7 @@ Phase K: run summary
 【禁止】
 ═══════════════════════════════════════════════════
 
-- ハードコード prompt fallback (= 必ず DB `llm_prompts.<key>` 取得、空なら skip + state.message 記録。inline prompt の D-8/D-9/D-10 は既存 route 実装に準拠)。
+- ハードコード prompt fallback (= 必ず DB `llm_prompts.<key>` 取得、空なら skip + state.message 記録。inline prompt の D-8/D-9/D-10/D-11 は既存 route 実装に準拠)。
 - R313 / PWA report route / Anthropic 従量課金 API を定期抽出に使う。
 - 列名想像 (= `pwa/design/db_schema.md` で grep してから upsert)。
 - `member_knowledge` に存在しない列を書く。
@@ -201,8 +214,9 @@ Phase K: run summary
 - confirmed_at set 済の `milestone_monthly_progress` 上書き。
 - 同じ source_hash の row 再抽出 (= 差分検知 skip 必須、cap & credit 節約)。
 - D-9 で `macro_index_log` を本 routine で再集計する (= PWA non-LLM cron `macro-aggregate-indicators` の責務)。
+- D-12 freee Transaction Actuals / 月次実績取込を本 routine に混ぜる (= PWA non-LLM cron / freee sync の責務)。
 - cloud routine から `pwa/bzm/*.md` を直接 git commit (= D-7 は候補化 + 通知まで、追記は local applier)。
-- 月末専用 (M-1/M-2/M-3) と毎時 (H-1) を本 routine に混ぜる (= 別 routine / MMO automation)。
+- 月末専用 (M-1/M-2/M-3)、weekly (W-1)、毎時 (H-1) を本 routine に混ぜる (= 別 routine / MMO automation)。
 
 ═══════════════════════════════════════════════════
 【execution time 配慮】

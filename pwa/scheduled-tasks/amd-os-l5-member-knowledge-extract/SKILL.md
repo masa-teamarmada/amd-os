@@ -1,6 +1,6 @@
 ---
 name: amd-os-l5-member-knowledge-extract
-description: AMD OS L2 ⑤ メンバーナレッジ抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l5-member-knowledge-extract` (= daily 08:30 JST)。各 active member の member_activities + 関連 PJ の project_meeting_summaries + milestone_responsibility から本人の skills / personality / communication_style / growth_areas / work_style / interests / episodes を subscription 内 Codex で抽出し、Supabase `member_knowledge` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
+description: AMD OS D-4 Member Knowledge 抽出の Phase 詳細。現行 writer は Claude routine `amd-os-l2-consolidated-evidence`。各 active member の member_activities + 関連 PJ の project_meeting_summaries + milestone_responsibility から本人の skills / personality / communication_style / growth_areas / work_style / interests / episodes を抽出し、Supabase `member_knowledge` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
 ---
 
 # AMD OS L2 ⑤ メンバーナレッジ抽出 (GAS 155 移植版)

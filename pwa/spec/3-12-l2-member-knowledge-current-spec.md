@@ -8,7 +8,7 @@
 |---|---|
 | L2 | ⑤ メンバーナレッジ |
 | table | `member_knowledge` |
-| primary writer | Windows MMO PC の Codex Desktop automation `amd-os-l5-member-knowledge-extract` |
+| primary writer | Claude routine `amd-os-l2-consolidated-evidence` Phase D-4 |
 | schedule | daily 08:30 JST |
 | repo skill | `pwa/scheduled-tasks/amd-os-l5-member-knowledge-extract/SKILL.md` |
 | old writer | `gas/155_L2KnowledgeExtractor.js` の `nav_member_knowledge_pollAll` |

@@ -8,7 +8,7 @@
 |---|---|
 | L2 | ② AMD Protocol |
 | 目的 | AMD の経営判断を「分岐点 / 判断材料 / アクション / 結果観測」に分解し、PJ横断で再利用できる意思決定知財にする |
-| primary writer | Windows MMO PC の Codex Desktop automation `amd-os-l2-protocol-extract` |
+| primary writer | Claude routine `amd-os-l2-consolidated-evidence` Phase D-1 |
 | schedule | daily 08:00 JST |
 | repo skill | `pwa/scheduled-tasks/amd-os-l2-protocol-extract/SKILL.md` |
 | 旧 writer | `gas/155_L2KnowledgeExtractor.js` の `nav_protocol_pollAll` / `nav_protocol_extractOneForYm_` |

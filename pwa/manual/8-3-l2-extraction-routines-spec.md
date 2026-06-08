@@ -6,10 +6,11 @@
 
 **2026-06-04 事故訂正**: 2026-05-25〜26 の Claude routine / Cloud routine 「登録完了」系の記述は、Claude Routines UI上の `ACTIVE / next run / last run` 証跡が無い限り current truth として扱わない。`~/.claude/scheduled-tasks/.../SKILL.md` はローカル手順・素材であり、Claude routine登録済みの証拠ではない。
 
-現在の是正ターゲットは、**cadence ベースで 2 本の Claude routine に束ねる** (= 2026-06-04 まさ確定、新ナンバリング D / M / H):
+現在の是正ターゲットは、**cadence ベースで 3 本の Claude routine に束ねる** (= 2026-06-08 まさ確定、新ナンバリング D / M / W / H):
 
-- **Claude routine `amd-os-l2-consolidated-evidence`** (daily 08:00 JST、`0 8 * * *`): D-1〜D-10 = 旧 L2 ②③④⑤⑦⑨⑩⑪⑫⑬。**旧 L2③ MS進捗と旧 L2⑬ Member Weekly も daily 化**してここに同居。
+- **Claude routine `amd-os-l2-consolidated-evidence`** (daily 08:00 JST、`0 8 * * *`): D-1〜D-11。MS Progress、Member Activity Evidence、Media Mentions も daily 化してここに同居。
 - **Claude routine `amd-os-l2-monthend-evidence`** (月末候補日 16:00 発火 `0 16 28-31 * *`、Phase 0 で最終日判定、17:00 完了): M-1〜M-3 = 旧 L2 ①⑧⑯。3 つとも「月末」なので 1 本に統合。M-3 (Management Signal) を 18:00 月次振り返り MTG 前に出揃わせる。
+- **Claude routine `amd-os-l2-weekly-vc-funding-signals`** (weekly Saturday 09:00 JST、`0 9 * * 6`): W-1 = 旧 L2⑮ VC News / Funding Signals。weekly cadence なので D/M へ混ぜない。
 - **MMOマシン Codex Desktop automation 維持**: H-1 = 旧 L2⑥ MTGフロー (毎時 9-21 時)。Claude routine 化しない。
 
 **Claude routine = マシン非依存**: cloud で発火するため laptop を閉じても・MMO が OFF でも動く。`claude.ai/code/routines` / `/schedule` / Desktop app のどこから登録しても同じ claude.ai アカウントに入る (= MMOマシンに置く必要はない)。Desktop / Local scheduled task (`~/.claude/scheduled-tasks/`、マシン依存) と混同しない。
@@ -33,8 +34,11 @@
 | ⑩ Textbook Insights | `textbook_insight_candidates` | BZM 教科書へ追記すべき Before Zero 実務知見 | 新規 | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。UI証跡まではCodex automation / local worker `amd-os-l10-textbook-insight-extract` + approved 後 local BZM applier |
 | ⑪ Atlas Signals | `atlas_signals` | 外部政策・産業・市場シグナル | 旧 Atlas個別automation / PWA routes | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。UI証跡までは未完 |
 | ⑫ Macrotrend Evidence / Index | `observation_log` / `macro_index_log` | macro observation / index | 旧 Macrotrend個別automation / PWA routes | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。LLM非依存集計cronはPWA non-LLM cron可 |
-| ⑬ Member Weekly Activities | `member_activities(source='member_weekly')` | Dashboard / MyPage「今週やったこと」 | PWA `member-weekly-activities` route | separate weekly candidate。daily pickup + weekly section aggregationは要判断 |
+| ⑬ Member Activity Evidence | `member_activities` | Dashboard / MyPage「今週やったこと」の根拠 | PWA `member-weekly-activities` route | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。daily pickup |
+| ⑭ Media Mentions | `project_media_mentions` / `news_mention` notifications | メディア掲載・公開露出 | 旧通知ラベル / 手動候補 | Claude routine `amd-os-l2-consolidated-evidence` 登録対象 |
+| ⑮ VC News / Funding Signals | `vc_news` / `vcs` / `vc_funds` / `vc_investments` / `project_vc_relations` | VCニュース、ファンド組成、投資活動、調達関連public signal | PWA `/api/cron/vc-discover` (停止中) / Codex automation候補 | Claude routine `amd-os-l2-weekly-vc-funding-signals` 登録対象。UI証跡までは暫定 Codex automationが差分 |
 | ⑯ Management Monthly Signal Evaluation | `company_management_signal_reviews` | Management予実表から月末評価を作る | 専用Codexチャット/heartbeat案 | Claude routine別枠、月末最終日17:00 JST候補。UI証跡必須 |
+| D-12 freee Transaction Actuals | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` | freee取引履歴を月次試算表の実績値へ入れる | PWA cron `/api/cron/management-score-raw-data?includeFreee=1` | PWA non-LLM daily cron。Claude routine / Codex automation に混ぜない |
 
 L2 ① monthly reports はこの章の対象。R313 は旧経路で、差分あり/未生成時に R303 generator 経由で Claude API を呼びうるため、定期 trigger を置かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。定期 writer は Codex automation `AMD OS L2① 月次報告抽出` で、正本 SKILL は [`pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`](../scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md)。
 
@@ -66,15 +70,16 @@ vs ローカル Mac scheduled task の問題:
 公式ドキュ引用:
 > "Routines execute on Anthropic-managed cloud infrastructure, so they keep working when your laptop is closed." ([code.claude.com/docs/en/routines](https://code.claude.com/docs/en/routines))
 
-## target routine 一覧 (= 2026-06-04 cadence 束ね、新ナンバリング D / M / H)
+## target routine 一覧 (= 2026-06-08 cadence 束ね、新ナンバリング D / M / W / H)
 
 | 新 | target Claude routine | cadence | 対象 (旧 L2) |
 |---|---|---|---|
-| D-1〜D-10 | `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | ②③④⑤⑦⑨⑩⑪⑫⑬ |
+| D-1〜D-11 | `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | AMD Protocol / MS Progress / Project Knowledge / Member Knowledge / Registry Diff / Strategy Signals / Textbook Insights / Atlas Signals / Macrotrend / Member Activity Evidence / Media Mentions |
 | M-1〜M-3 | `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、最終日判定、17:00 完了 | ①⑧⑯ |
+| W-1 | `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST (`0 9 * * 6`) | ⑮ |
 | H-1 | (MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`、Claude routine 化しない) | 毎時 09:00-21:00 JST | ⑥ |
 
-SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群)。束ね SKILL は各 L2 の個別 SKILL を Phase 詳細として参照する。
+SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) / `amd-os-l2-weekly-vc-funding-signals/SKILL.md` (W 群)。束ね SKILL は各 L2 の個別 SKILL を Phase 詳細として参照する。
 
 ## 暫定 / 復旧先 automation 一覧 (= Claude routine UI 登録証跡が出るまでの writer)
 
@@ -94,7 +99,10 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 | D-7 | ⑩ Textbook Insights | Codex automation / local worker + outbox applier + local BZM applier | `amd-os-l10-textbook-insight-extract` | TBD / manual start | `amd-os-ms` outbox `textbookInsights`、`textbook_insight_candidates`、`apply_approved_textbook_insights.mjs` |
 | D-8 | ⑪ Atlas Signals | (Claude routine target / 旧 Codex Atlas automation) | `POST /api/atlas/signals-ingest` | daily | `atlas_signals`、`amd-atlas/outbox/` |
 | D-9 | ⑫ Macrotrend | PWA non-LLM cron (index 集計) + Claude routine (observation 収集) | `macro-aggregate-indicators` / `kaken-ingest` / `grant-ingest` / `vc-investment-ingest` | 月初集計 + daily 収集 | `observation_log`、`macro_index_log`、各 cron route |
-| D-10 | ⑬ Member Weekly | (Claude routine target / 旧 PWA route) | `cron/member-weekly-activities` (退避済) | daily (target) | `member_activities(source='member_weekly')` |
+| D-10 | ⑬ Member Activity Evidence | Claude routine target / 旧 PWA route | `cron/member-weekly-activities` (退避済) | daily (target) | `member_activities` |
+| D-11 | ⑭ Media Mentions | Claude routine target | `project_media_mentions` / `news_mention` notifications | daily (target) | `project_media_mentions`、通知候補 |
+| D-12 | freee Transaction Actuals | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` | freee取引履歴 → `company_actual_monthly` / raw signals | daily | freee同期、月次試算表実績値 |
+| W-1 | ⑮ VC News / Funding Signals | Claude routine target / 暫定 Codex automation | `amd-os-l2-weekly-vc-funding-signals` / 暫定 `amd-os-l2-vc-news-funding-signals` | weekly Saturday 09:00 JST | `vc_news`、`vcs`、`vc_funds`、`vc_investments`、review outbox |
 | M-3 | ⑯ Management Signal | (Claude routine target、新規) | M routine Phase C inline | 月末最終日 | `company_management_signal_reviews`、`/management-score` |
 | control | 先手力 heartbeat | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox`、`project_commander_threads`、`proactive_loop_tool.mjs heartbeat` |
 

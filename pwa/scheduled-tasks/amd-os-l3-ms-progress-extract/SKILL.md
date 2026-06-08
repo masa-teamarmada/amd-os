@@ -1,6 +1,6 @@
 ---
 name: amd-os-l3-ms-progress-extract
-description: AMD OS L2 ③ MS進捗抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l3-ms-progress-extract` (= 毎時0分)。active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から各 MS の進捗 % を subscription 内 Codex で推定し、`milestone_monthly_progress` / `project_monthly_notes` / `progress_estimate_state` に反映する。PWA `/api/cron/hourly-estimate` と GAS 154 は 2026-05-29 に再停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ。
+description: AMD OS D-2 MS Progress 抽出の Phase 詳細。現行 writer は Claude routine `amd-os-l2-consolidated-evidence`。active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から各 MS の進捗 % を推定し、`milestone_monthly_progress` / `project_monthly_notes` / `progress_estimate_state` に反映する。PWA `/api/cron/hourly-estimate` と GAS 154 は 2026-05-29 に再停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ。
 ---
 
 # AMD OS L2 ③ MS 進捗推定 (PWA hourly-estimate 完全 inline 移植版)

@@ -1,6 +1,6 @@
 ---
 name: amd-os-l4-project-knowledge-extract
-description: AMD OS L2 ④ PJナレッジ抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l4-project-knowledge-extract` (= daily 08:15 JST)。各 active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から PJ にまつわる事実を subscription 内 Codex で抽出し、Supabase `project_knowledge` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
+description: AMD OS D-3 Project Knowledge 抽出の Phase 詳細。現行 writer は Claude routine `amd-os-l2-consolidated-evidence`。各 active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から PJ にまつわる事実を抽出し、Supabase `project_knowledge` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
 ---
 
 # AMD OS L2 ④ PJ ナレッジ抽出 (GAS 155 移植版)

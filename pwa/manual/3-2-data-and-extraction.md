@@ -268,11 +268,11 @@ Calendar event に Gemini / Google Meet notes Doc 添付がある、Notion の `
 - 旧 Mac Local routine (`~/.claude/scheduled-tasks/{name}/SKILL.md`) は履歴/同期先であり、現行の復旧主導線ではない
 - 主要 automation (= 2026-05-29 時点):
   - ✅ **`amd-os-management-dialogue-prep`** (= daily 07:00 JST、 Mac Local) — 提案前 dialogue の議題プリペア
-  - 🚚 **L2 ②④⑤⑥ は Windows MMO PC の Codex Desktop automation に集約済** (= 2026-05-26 移行、 詳細は [8-3 章 L2 Extraction Routines](8-3-l2-extraction-routines-spec.md) § ⑥ MTG サマリ + フロー)
-    - `amd-os-l2-protocol-extract` (= daily 08:00) — L2 ② AMD プロトコル抽出
-    - `amd-os-l4-project-knowledge-extract` (= daily 08:15) — L2 ④ PJ ナレッジ抽出
-    - `amd-os-l5-member-knowledge-extract` (= daily 08:30) — L2 ⑤ メンバーナレッジ抽出
-    - `amd-os-l6-meeting-flow` (= **平日土日 09:00-21:00 毎時 0 分**、 Phase A 早期 exit 付き) — L2 ⑥ **MTG 全フロー** (議事録 / 次 MTG カード / Slack nudge / TODO→cockpit / Calendar 作業枠 (+<PJ>) / 資料即生成 / ファシリ役メール下書き)
+  - ✅ **D / M / W の LLM L2 は Claude routine に集約**。Codexが持つL2は H-1 `amd-os-l6-meeting-flow` のみ。
+    - `amd-os-l2-consolidated-evidence` (= daily 08:00 JST) — D-1〜D-11
+    - `amd-os-l2-monthend-evidence` (= 月末候補日 16:00 JST) — M-1〜M-3
+    - `amd-os-l2-weekly-vc-funding-signals` (= Saturday 09:00 JST) — W-1
+    - `amd-os-l6-meeting-flow` (= **平日土日 09:00-21:00 毎時 0 分**、 Phase A 早期 exit 付き) — H-1 **MTG 全フロー** (議事録 / 次 MTG カード / Slack nudge / TODO→cockpit / Calendar 作業枠 (+<PJ>) / 資料即生成 / ファシリ役メール下書き)
   - 各 automation の prompt / 手順は [`pwa/scheduled-tasks/`](../scheduled-tasks/README.md) の SKILL を正本にする
 - 実装/登録/DB upsert の詳細は **[8-3 章 L2 Extraction Routines](8-3-l2-extraction-routines-spec.md)** を正本にする
 - **🚨 重要**: 処理IDだけで現行 writer を判断しない。MMOマシン / Codex automation / outbox applier のどこで動くかまでセットで確認する

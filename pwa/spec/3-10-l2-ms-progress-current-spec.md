@@ -7,9 +7,9 @@
 | 項目 | 現行仕様 |
 |---|---|
 | L2 | ③ MS進捗 |
-| primary writer | Windows MMO PC の Codex Desktop automation `amd-os-l3-ms-progress-extract` |
-| schedule | 毎時 0 分 |
-| repo skill | `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md` |
+| primary writer | Claude routine `amd-os-l2-consolidated-evidence` Phase D-2 |
+| schedule | daily 08:00 JST |
+| repo skill | `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` から `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md` を参照 |
 | PWA fallback | `/api/cron/hourly-estimate` は残すが `ALLOW_PWA_LLM_CRONS=1` なしで disabled |
 | GAS fallback | `gas/154_PwaCronCaller.js` は disabled。定期復活禁止 |
 | manual UI write | `/api/progress/estimate`, `/api/progress/confirm`, `/api/progress/revisions`, `/api/progress/batch-save` |
