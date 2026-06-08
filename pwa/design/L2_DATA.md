@@ -13,7 +13,7 @@ L2抽出をClaude定額token/routineへ載せる方針は決定済みだった�
 以後、このドキュメントでの用語は次で固定する。
 
 - **Claude routine**: Claude Routines UI上に存在し、`ACTIVE`、`next run`、`last run` を確認できるもの。`~/.claude/scheduled-tasks/.../SKILL.md` があるだけではClaude routine登録済みとは扱わない。
-- **Codex Desktop automation**: MMOマシン上のCodex Desktop automation。現行方針では **H-1 `amd-os-l6-meeting-flow` だけ** がここに残る。D / M / W 系が残っている場合は暫定復旧手段または差分として扱う。
+- **Codex実行系**: MMOマシン上のCodex実行基盤。現行方針では **H-1 `amd-os-l6-meeting-flow` だけ** がここに残る。2026-06-08時点の実稼働は Codex Desktop UI automation store ではなく、Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` から `codex exec` を起こす Live launcher。D / M / W 系が残っている場合は暫定復旧手段または差分として扱う。
 - **Codex automation**: `~/.codex/automations` とoutbox/applierで回るCodex側automation。Claude routineとは別物。
 - **PWA non-LLM cron**: Vercel/PWA上で動いてよいLLM非依存cron。
 - **PWA/Vercel LLM cron**: Anthropic/Gemini/OpenAI等の従量課金LLMを背景実行するcron。L2抽出用途では禁止/停止。
@@ -28,7 +28,7 @@ Claude routine を止めた理由は **daily run cap** (= 1 日に開始でき�
 | **D-12** | PWA non-LLM cron / freee sync | daily、Claude routine化しない | freee Transaction Actuals / 月次実績取込 |
 | **M-1〜M-3** | Claude routine `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、Phase 0 で最終日判定、17:00 完了 | ① ⑧ ⑯ |
 | **W-1** | Claude routine `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST (`0 9 * * 6`)、週 +1 | ⑮ |
-| **H-1** | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` | 毎時 09:00-21:00 JST、Claude routine 化しない | ⑥ |
+| **H-1** | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 毎時 09:00-21:00 JST、Claude routine 化しない | ⑥ |
 
 新旧対応: D-1=② / D-2=③ / D-3=④ / D-4=⑤ / D-5=⑦ / D-6=⑨ / D-7=⑩ / D-8=⑪ / D-9=⑫ / D-10=⑬ / M-1=① / M-2=⑧ / M-3=⑯ / W-1=⑮ / H-1=⑥。
 
@@ -65,7 +65,7 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md`](.
 | **M-2** | ⑧ | XRL根拠 | Claude routine `amd-os-l2-monthend-evidence` | 差分なし: Claude UIでACTIVE / next run確認済み。M-1抽出後に実行 |
 | **M-3** | ⑯ | Management Monthly Signal | Claude routine `amd-os-l2-monthend-evidence` | 差分なし: Claude UIでACTIVE / next run確認済み。M-1/M-2抽出後に実行 |
 | **W-1** | ⑮ | VC News / Funding Signals | Claude routine `amd-os-l2-weekly-vc-funding-signals` | 差分なし: Claude UIでACTIVE / next run確認済み。MMO暫定automationはPAUSED |
-| **H-1** | ⑥ | MTGサマリ + MTGフロー | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` | 差分あり: DB/toml上はACTIVEだが、直近runはWindows sandbox runner timeoutでPhase A前に`PENDING_REVIEW`。Codexが持ってよい唯一のL2系だが、現状は正常稼働ではない |
+| **H-1** | ⑥ | MTGサマリ + MTGフロー | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 復旧済み: 2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST。Codex Desktop UI automation storeは未登録/旧DB不使用のため、UI上の`amd-os-l6-meeting-flow`ではなくLive launcherを実稼働証跡にする |
 | **non-LLM** | ⑭ | Finance Ops Evidence | PWA non-LLM cron / admin review | 差分なし: D/M/W/HのLLM抽出対象外。LLM background cronは禁止 |
 
 ---

@@ -46,7 +46,7 @@ L2 を cadence で分類し、**新ナンバリング (D = daily / M = month-end
 | **D-12** | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` | daily | Claude routine 外 |
 | **M-1〜M-3** | Claude routine `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、Phase 0 で最終日判定、最終日のみ本処理、17:00 完了目標 | 月末候補日のみ +1 (空振り含む) |
 | **W-1** | Claude routine `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST (`0 9 * * 6`) | 週 +1 |
-| **H-1** | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` | 毎時 09:00-21:00 JST | Claude routine 外。2026-06-08時点ではrunner timeoutにより直近runが`PENDING_REVIEW` |
+| **H-1** | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 毎時 09:00-21:00 JST | Claude routine 外。2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST |
 
 平常日の Claude routine run 消費は **1 本だけ**。月末日でも最大 2 本 (D + M)、土曜は W が追加される。H は Codex Desktop automation だけで、Claude routine 化しない。
 
@@ -70,7 +70,7 @@ L2 を cadence で分類し、**新ナンバリング (D = daily / M = month-end
 | **M-2** | XRL Evidence | `project_xrl_evidence` / `project_founding_members` | Claude routine `amd-os-l2-monthend-evidence` (= M-1 の後) | 月末最終日 (M-1 後) | candidate → confirmed。M-1が抽出できない月は正規完了扱いにしない |
 | **M-3** | Management Monthly Signal | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` (= M-2 の後) | 月末最終日 17:00 完了 | M-1/M-2後に抽出。18:00 月次振り返り MTG 前に出揃わせる |
 | **W-1** | VC News / Funding Signals | `vc_news` / `vcs` / `vc_funds` / `vc_investments` / `project_vc_relations` | Claude routine `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST | VC / funding signal candidates。review first、safe write path 不明なら outbox / blocked summary |
-| **H-1** | Meeting Flow | `project_meeting_summaries` / `meeting_assets` | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | 毎時 09:00-21:00 JST | Supabase / Calendar / Drive / Gmail draft。Claude routine 化しない。2026-06-08時点ではrunner timeoutにより直近runが`PENDING_REVIEW` |
+| **H-1** | Meeting Flow | `project_meeting_summaries` / `meeting_assets` | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher / SKILL `amd-os-l6-meeting-extract` | 毎時 09:00-21:00 JST | Supabase / Calendar / Drive / Gmail draft。Claude routine 化しない。2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST |
 
 Media Mentions は D-11 として daily Claude routine に載せる。freee 取引履歴から月次試算表の実績値へ入れる処理は D-12 として PWA non-LLM daily cron / freee sync に置き、Claude routine / Codex automation では実行しない。W-1 が Codex automation に残っている場合は暫定 / 差分扱いで、Claude routine evidence が揃ったら二重実行防止のため停止する。
 

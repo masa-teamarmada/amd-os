@@ -19,7 +19,7 @@ Claude定額token/routineへ載せるL2について、`~/.claude/scheduled-tasks
 | Claude routine `amd-os-l2-consolidated-evidence` | **D-1〜D-11** = daily LLM L2 | daily 08:00 JST (`0 8 * * *`)、平常日 run +1 | Claude Routines UI `ACTIVE / next run / last run`、初回 one-off dry run |
 | Claude routine `amd-os-l2-monthend-evidence` | **M-1〜M-3** = month-end L2 | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、最終日判定、17:00 完了 | UI 登録証跡 + run evidence |
 | Claude routine `amd-os-l2-weekly-vc-funding-signals` | **W-1** = VC News / Funding Signals | weekly Saturday 09:00 JST (`0 9 * * 6`) | UI 登録証跡 + `vc_news` / review outbox evidence |
-| MMOマシン Codex Desktop automation | **H-1** = Meeting Flow | 毎時 09:00-21:00 JST | MMO 側 automation 履歴と DB/outbox evidence。Claude routine 化しない。2026-06-08時点ではrunner timeoutにより直近runが`PENDING_REVIEW` |
+| MMOマシン Codex実行系 | **H-1** = Meeting Flow | 毎時 09:00-21:00 JST | 2026-06-08時点の実稼働は Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher。manual Live run 成功と次回run時刻を証跡にする。Claude routine 化しない |
 | PWA non-LLM cron | **D-12** = freee Transaction Actuals / 月次実績取込、D-9 の `macro_index_log` 集計など | D-12: `/api/cron/management-score-raw-data?includeFreee=1` daily / D-9 index: `/api/cron/macro-aggregate-indicators` monthly | code 上 LLM 非依存であること |
 
 注: D-10 は `Member Activity Evidence` と呼び、旧「Member Weekly Activities」表記を廃止する。M-2 / M-3 は M-1 Monthly Reports を入力に含むため、M-1 が抽出できない月は正規完了扱いにしない。Media Mentions は D-11、freee 取引履歴から月次実績へ入れる非LLM daily 同期は D-12 とする。
@@ -62,7 +62,7 @@ cadence ベースで束ねた新ナンバリング: **D = daily** (Claude routin
 | **M-2** | XRL Evidence | `project_xrl_evidence` / `project_founding_members` | Claude routine `amd-os-l2-monthend-evidence` | M-1後に抽出。candidate → confirmed |
 | **M-3** | Management Monthly Signal | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` | M-1 / M-2後に抽出。18:00 MTG 前に出揃わせる |
 | **W-1** | VC News / Funding Signals | `vc_news` / `vcs` / `vc_funds` / `vc_investments` / `project_vc_relations` | Claude routine `amd-os-l2-weekly-vc-funding-signals` | reviewable candidates。安全な write path が曖昧なら outbox / blocked summary |
-| **H-1** | Meeting Flow | `project_meeting_summaries` / `meeting_assets` | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` | Supabase / Calendar / Drive / Gmail draft。Claude routine 化しない。2026-06-08時点ではrunner timeoutにより直近runが`PENDING_REVIEW` |
+| **H-1** | Meeting Flow | `project_meeting_summaries` / `meeting_assets` | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | Supabase / Calendar / Drive / Gmail draft。Claude routine 化しない。2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST |
 
 ## L2 ⑥ MTG サマリの開催済みソース guard
 
@@ -81,7 +81,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 ## Writer 境界
 
 - D/M/W の LLM 抽出は Claude routine が target writer。Claude Routines UIの `ACTIVE / next run / last run` と初回 evidence が揃うまで、暫定 automation は差分リスクとして扱う。
-- H-1 (= L2⑥) だけ MMOマシン Codex Desktop automation が target writer。
+- H-1 (= L2⑥) だけ MMOマシン Codex実行系が target writer。2026-06-08時点では Codex Desktop UI automation store ではなく、Windows Task Scheduler Live launcherを実稼働経路にする。
 - 旧 GAS 153 / 155、AMD-Report GAS R313、PWA LLM cron は定期 writer として復活させない。
 - PWA `/api/cron/hourly-estimate` は `ALLOW_PWA_LLM_CRONS=1` がない限り disabled response のみ。
 - L2⑩ は `/notifications` の「はい」で DB 候補を `approved` にするだけ。git 管理の `pwa/bzm/*.md` 追記は local applier / worker が行い、Vercel runtime から直接 commit しない。

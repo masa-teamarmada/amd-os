@@ -52,7 +52,7 @@ M-2 / M-3 は M-1 の結果を入力に含む。M-1 が抽出できない月は�
 
 | 新番号 | データ名 | primary table / source | 本来あるべき置き場所 | 現状差分 |
 |---|---|---|---|---|
-| **H-1** | Meeting Flow | `project_meeting_summaries` / `meeting_assets` | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` | 差分あり: DB/toml上はACTIVEだが、直近runはWindows sandbox runner timeoutでPhase A前に`PENDING_REVIEW`。Codexが持ってよい唯一のL2系だが、現状は正常稼働ではない |
+| **H-1** | Meeting Flow | `project_meeting_summaries` / `meeting_assets` | MMOマシン Codex実行系。現状は Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 復旧済み: 2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST。Codex Desktop UI automation storeは未登録/旧DB不使用のため、UI上の`amd-os-l6-meeting-flow`ではなくLive launcherを実稼働証跡にする |
 
 ## 移管ゲート
 
