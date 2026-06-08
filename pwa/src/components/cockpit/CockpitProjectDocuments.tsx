@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, DragEvent, useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, ExternalLink, Eye, FileText, FileUp, FolderOpen, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ExternalLink, Eye, FileText, FileUp, FolderOpen, Loader2, Pencil, RefreshCw, Save, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +55,10 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [urlDocumentId, setUrlDocumentId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [draftMarkdown, setDraftMarkdown] = useState("");
+  const [savingMarkdown, setSavingMarkdown] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -139,6 +143,10 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
     setPreviewMarkdown("");
     setPreviewError(null);
     setPreviewLoading(false);
+    setEditorOpen(false);
+    setDraftMarkdown("");
+    setSaveError(null);
+    setSavingMarkdown(false);
     if (options?.syncUrl !== false) {
       writeDocumentIdToUrl(null, options?.mode ?? "replace");
       setUrlDocumentId(null);
@@ -158,6 +166,9 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
     setPreviewMarkdown("");
     setPreviewError(null);
     setPreviewLoading(true);
+    setEditorOpen(false);
+    setDraftMarkdown("");
+    setSaveError(null);
     try {
       const res = await fetch(`/api/project-documents/${encodeURIComponent(doc.documentId)}/content`);
       const json = (await res.json().catch(() => ({}))) as MarkdownPreviewResponse;
@@ -165,13 +176,40 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
         setPreviewError(json.error || `HTTP ${res.status}`);
         return;
       }
-      setPreviewMarkdown(json.markdown || "");
+      const markdown = json.markdown || "";
+      setPreviewMarkdown(markdown);
+      setDraftMarkdown(markdown);
     } catch (err) {
       setPreviewError(err instanceof Error ? err.message : "preview error");
     } finally {
       setPreviewLoading(false);
     }
   }, []);
+
+  async function saveMarkdownEdit() {
+    if (!previewDoc || savingMarkdown) return;
+    setSavingMarkdown(true);
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/project-documents/${encodeURIComponent(previewDoc.documentId)}/content`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markdown: draftMarkdown }),
+      });
+      const json = (await res.json().catch(() => ({}))) as MarkdownPreviewResponse;
+      if (!res.ok || !json.ok) {
+        setSaveError(json.error || `HTTP ${res.status}`);
+        return;
+      }
+      const markdown = json.markdown ?? draftMarkdown;
+      setPreviewMarkdown(markdown);
+      setDraftMarkdown(markdown);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "save error");
+    } finally {
+      setSavingMarkdown(false);
+    }
+  }
 
   useEffect(() => {
     function syncFromUrl() {
@@ -341,7 +379,7 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
               <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded border border-sky-200 bg-sky-50">
                 <FileText className="h-[18px] w-[18px] text-sky-700" aria-hidden />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <DialogTitle className="truncate text-[15px] font-semibold leading-tight text-slate-950">
                   {previewDoc?.fileName || "Markdown"}
                 </DialogTitle>
@@ -349,20 +387,98 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
                   {previewDoc ? `${formatBytes(previewDoc.fileSizeBytes)} / ${formatDate(previewDoc.createdAt)}` : ""}
                 </DialogDescription>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftMarkdown(previewMarkdown);
+                  setSaveError(null);
+                  setEditorOpen((value) => !value);
+                }}
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded border border-slate-300 bg-white px-2.5 text-[12px] font-medium text-slate-700 shadow-sm hover:bg-slate-100 disabled:opacity-50"
+                disabled={previewLoading || !!previewError}
+              >
+                {editorOpen ? <X className="h-3.5 w-3.5" aria-hidden /> : <Pencil className="h-3.5 w-3.5" aria-hidden />}
+                {editorOpen ? "閉じる" : "編集"}
+              </button>
             </div>
           </div>
-          <div className="min-h-0 overflow-y-auto bg-white px-6 py-5 sm:px-8">
-            {previewLoading ? (
-              <div className="flex h-full min-h-64 items-center justify-center text-[13px] text-slate-500">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                読み込み中
-              </div>
-            ) : previewError ? (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
-                {previewError}
-              </div>
-            ) : (
-              <MarkdownView source={previewMarkdown || "（本文なし）"} tone="light" />
+          <div className={editorOpen
+            ? "grid min-h-0 grid-cols-1 bg-white lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.82fr)]"
+            : "min-h-0 overflow-y-auto bg-white px-6 py-5 sm:px-8"}
+          >
+            <div className={editorOpen ? "min-h-0 overflow-y-auto px-6 py-5 sm:px-8" : ""}>
+              {previewLoading ? (
+                <div className="flex h-full min-h-64 items-center justify-center text-[13px] text-slate-500">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  読み込み中
+                </div>
+              ) : previewError ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+                  {previewError}
+                </div>
+              ) : (
+                <MarkdownView source={(editorOpen ? draftMarkdown : previewMarkdown) || "（本文なし）"} tone="light" />
+              )}
+            </div>
+
+            {editorOpen && (
+              <aside className="grid min-h-0 grid-rows-[auto_1fr_auto] border-t border-slate-200 bg-slate-50 lg:border-l lg:border-t-0">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-[13px] font-semibold text-slate-900">Markdown編集</h3>
+                    <p className="truncate text-[10px] text-slate-500">Drive上のmd本体を更新</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraftMarkdown(previewMarkdown);
+                      setEditorOpen(false);
+                      setSaveError(null);
+                    }}
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-slate-300 bg-white text-slate-500 hover:bg-slate-100"
+                    aria-label="編集を閉じる"
+                    disabled={savingMarkdown}
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
+                <textarea
+                  value={draftMarkdown}
+                  onChange={(event) => setDraftMarkdown(event.target.value)}
+                  className="min-h-0 resize-none border-0 bg-white px-4 py-3 font-mono text-[12px] leading-6 text-slate-900 outline-none ring-0 placeholder:text-slate-400"
+                  spellCheck={false}
+                />
+                <div className="border-t border-slate-200 bg-slate-50 px-4 py-3">
+                  {saveError && (
+                    <div className="mb-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
+                      {saveError}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraftMarkdown(previewMarkdown);
+                        setEditorOpen(false);
+                        setSaveError(null);
+                      }}
+                      className="inline-flex h-8 items-center rounded border border-slate-300 bg-white px-3 text-[12px] font-medium text-slate-700 hover:bg-slate-100"
+                      disabled={savingMarkdown}
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveMarkdownEdit}
+                      className="inline-flex h-8 items-center gap-1.5 rounded border border-sky-700 bg-sky-700 px-3 text-[12px] font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
+                      disabled={savingMarkdown || draftMarkdown === previewMarkdown}
+                    >
+                      {savingMarkdown ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Save className="h-3.5 w-3.5" aria-hidden />}
+                      保存
+                    </button>
+                  </div>
+                </div>
+              </aside>
             )}
           </div>
         </DialogContent>
