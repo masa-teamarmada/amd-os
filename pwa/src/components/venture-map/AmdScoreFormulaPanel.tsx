@@ -12,7 +12,7 @@
  */
 
 import { Tex } from "@/components/venture-map/Tex";
-import type { AlphaWeights } from "@/lib/amd-score";
+import { PRS_ALPHA_DEFAULT, type AlphaWeights } from "@/lib/amd-score";
 import type { ReactNode } from "react";
 
 export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
@@ -64,8 +64,18 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       </div>
 
       <div className="relative flex flex-col gap-3">
-        <FormulaBlock title="PRIMARY OVERALL SCORE" accent="cyan" subtitle="主表示の PRS score。k は IPO 級への校正定数">
-          <Tex display tex={String.raw`\mathrm{Score}_{\mathrm{PRS}} \;=\; k \cdot P \cdot R \cdot S, \qquad k \;=\; \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{PRS}} \alpha_x}}`} />
+        <FormulaBlock title="PRIMARY OVERALL SCORE" accent="cyan" subtitle="主表示の PRS score。compact と expanded を両方表示">
+          <div className="grid gap-2">
+            <FormulaLine label="compact">
+              <Tex tex={String.raw`\mathrm{Score}_{\mathrm{PRS}} \;=\; k \cdot P \cdot R \cdot S`} />
+            </FormulaLine>
+            <FormulaLine label="expanded">
+              <Tex tex={String.raw`\mathrm{Score}_{\mathrm{PRS}} \;=\; k \cdot (P_{\mathrm{input}}+1)^{\alpha_P} \cdot \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x} \cdot (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma} \cdot (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}`} />
+            </FormulaLine>
+            <FormulaLine label="k calibration">
+              <Tex tex={String.raw`k \;=\; \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{PRS}} \alpha_x}}, \qquad \mathcal{A}_{PRS} \;=\; \{P, \mathrm{TRL}, \mathrm{BRL}, \mathrm{GRL}, \mathrm{SRL}, \mathrm{HRL}, \sigma_{\mathrm{SU}}, \mathrm{FRL}, R_{\mathrm{net}}\}`} />
+            </FormulaLine>
+          </div>
           <Citation>
             根拠: Cobb &amp; Douglas (1928). &quot;A theory of production.&quot;{" "}
             <em>American Economic Review</em>, 18(1), 139-165. — 多因子統合の経済学標準。各 α は弾力性 (= 軸が 1% 増えたとき score が何 % 増えるか) を表す。
@@ -183,7 +193,51 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         <div className="relative overflow-hidden border border-cyan-300/28 bg-cyan-300/7 px-4 py-3 text-[12px] font-semibold text-cyan-100/78 shadow-[inset_0_0_22px_rgba(34,211,238,.08)]">
           <div className="absolute left-0 top-0 h-full w-1 bg-cyan-200 shadow-[0_0_16px_rgba(103,232,249,.9)]" />
           <div className="font-mono text-[13px] font-black uppercase tracking-[0.12em] text-cyan-100">
-            α WEIGHT ARRAY
+            PRS α WEIGHT ARRAY
+          </div>
+          <div className="mt-2">
+            α_F=<span className="font-mono text-rose-200">{PRS_ALPHA_DEFAULT.FRL}</span> &gt;
+            α_σ=<span className="font-mono text-cyan-200">{PRS_ALPHA_DEFAULT.sigma_SU}</span> &gt;
+            α_HRL=<span className="font-mono text-sky-200">{PRS_ALPHA_DEFAULT.HRL}</span> &gt;
+            α_P=<span className="font-mono text-emerald-200">{PRS_ALPHA_DEFAULT.P}</span> =
+            α_TRL=<span className="font-mono text-sky-200">{PRS_ALPHA_DEFAULT.TRL}</span> &gt;
+            α_Rnet=<span className="font-mono text-cyan-200">{PRS_ALPHA_DEFAULT.R_net}</span> &gt;
+            α_BRL=<span className="font-mono text-sky-200">{PRS_ALPHA_DEFAULT.BRL}</span> &gt;
+            α_GRL=<span className="font-mono text-sky-200">{PRS_ALPHA_DEFAULT.GRL}</span> &gt;
+            α_SRL=<span className="font-mono text-sky-200">{PRS_ALPHA_DEFAULT.SRL}</span>
+          </div>
+          <div className="mt-1">
+            <Tex tex={String.raw`k = 100{,}000 / 10^{\sum_{x \in \mathcal{A}_{PRS}} \alpha_x}`} /> で全軸 9 (= IPO 級) を 100,000 に校正 ·
+            Shallow Tech モード (TRL=null) では TRL を reach から除外して k を再校正。
+          </div>
+        </div>
+
+        <div className="relative overflow-hidden border border-amber-300/48 bg-amber-300/8 px-4 py-3 text-[13px] text-amber-50 shadow-[0_0_24px_rgba(251,191,36,.12),inset_0_0_22px_rgba(251,191,36,.08)]">
+          <div className="absolute inset-x-0 top-0 h-px bg-amber-200 shadow-[0_0_14px_rgba(251,191,36,.75)]" />
+          <div className="mb-2 font-mono text-[14px] font-black uppercase tracking-[0.15em] text-amber-100 drop-shadow-[0_0_12px_rgba(251,191,36,.58)]">
+            PRS RATE-LIMITING AXIS
+          </div>
+          <div className="mb-2 font-semibold text-amber-50/82">
+            「1 段階上げたとき PRS score が最も大きく増える軸」を律速とする。Cobb-Douglas の偏微分から:
+          </div>
+          <div className="overflow-x-auto border border-amber-200/24 bg-slate-950/82 px-3 py-2">
+            <Tex
+              display
+              tex={String.raw`\frac{\partial \mathrm{Score}_{\mathrm{PRS}}}{\partial Z_i} \;=\; \frac{\alpha_i \cdot \mathrm{Score}_{\mathrm{PRS}}}{Z_i + 1} \quad\Rightarrow\quad \mathrm{bottleneck}_{PRS} \;=\; \arg\max_i \frac{\alpha_i}{Z_i + 1}, \qquad Z_i \in \mathcal{A}_{PRS}`}
+            />
+          </div>
+          <div className="mt-2 font-semibold text-amber-50/78">
+            重み α が大きいのに値 Z が低い軸 = 限界収益 (marginal contribution) が最大の軸 = 経営アクションで最初に手当てすべき軸。
+          </div>
+          <Citation>
+            根拠: Cobb, C. W. &amp; Douglas, P. H. (1928). <em>American Economic Review</em>, 18(1), 139-165.
+          </Citation>
+        </div>
+
+        <div className="relative overflow-hidden border border-cyan-300/28 bg-cyan-300/7 px-4 py-3 text-[12px] font-semibold text-cyan-100/78 shadow-[inset_0_0_22px_rgba(34,211,238,.08)]">
+          <div className="absolute left-0 top-0 h-full w-1 bg-cyan-200 shadow-[0_0_16px_rgba(103,232,249,.9)]" />
+          <div className="font-mono text-[13px] font-black uppercase tracking-[0.12em] text-cyan-100">
+            LEGACY AMD α WEIGHT ARRAY
           </div>
           <div className="mt-2">
             α_F=<span className="font-mono text-rose-200">{alpha.FRL}</span> &gt;
@@ -202,19 +256,19 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         <div className="relative overflow-hidden border border-amber-300/48 bg-amber-300/8 px-4 py-3 text-[13px] text-amber-50 shadow-[0_0_24px_rgba(251,191,36,.12),inset_0_0_22px_rgba(251,191,36,.08)]">
           <div className="absolute inset-x-0 top-0 h-px bg-amber-200 shadow-[0_0_14px_rgba(251,191,36,.75)]" />
           <div className="mb-2 font-mono text-[14px] font-black uppercase tracking-[0.15em] text-amber-100 drop-shadow-[0_0_12px_rgba(251,191,36,.58)]">
-            RATE-LIMITING AXIS
+            LEGACY RATE-LIMITING AXIS
           </div>
           <div className="mb-2 font-semibold text-amber-50/82">
-            「1 段階上げたとき S が最も大きく増える軸」を律速とする。Cobb-Douglas の偏微分から:
+            comparison layer の旧 AMD で「1 段階上げたとき legacy score が最も大きく増える軸」を律速とする。
           </div>
           <div className="overflow-x-auto border border-amber-200/24 bg-slate-950/82 px-3 py-2">
-          <Tex
-            display
-            tex={String.raw`\frac{\partial S}{\partial X_i} \;=\; \frac{\alpha_i \cdot S}{X_i + 1} \quad\Rightarrow\quad \mathrm{bottleneck} \;=\; \arg\max_i \frac{\alpha_i}{X_i + 1}`}
-          />
+            <Tex
+              display
+              tex={String.raw`\frac{\partial S_{\mathrm{legacy}}}{\partial X_i} \;=\; \frac{\alpha_i \cdot S_{\mathrm{legacy}}}{X_i + 1} \quad\Rightarrow\quad \mathrm{bottleneck}_{legacy} \;=\; \arg\max_i \frac{\alpha_i}{X_i + 1}`}
+            />
           </div>
           <div className="mt-2 font-semibold text-amber-50/78">
-            重み α が大きいのに値 X が低い軸 = 限界収益 (marginal contribution) が最大の軸 = 経営アクションで最初に手当てすべき軸。
+            重み α が大きいのに値 X が低い軸 = 限界収益が最大の軸。legacy AMD ではこの軸を comparison 用に読む。
           </div>
           <Citation>
             根拠: Cobb, C. W. &amp; Douglas, P. H. (1928). <em>American Economic Review</em>, 18(1), 139-165.
