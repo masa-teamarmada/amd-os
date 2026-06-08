@@ -3,7 +3,7 @@ import { google } from "googleapis";
 import { NextResponse } from "next/server";
 import { getGoogleAuthAsync } from "@/lib/sources/google";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/lib/supabase/api-auth";
+import { requireAuth } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -19,6 +19,28 @@ interface ProjectDocumentContentRow {
   file_size_bytes: number;
   web_view_link: string;
   upload_status: string;
+}
+
+async function canAccessProjectDocument(admin: ReturnType<typeof createAdminClient>, email: string, projectId: string) {
+  const normalizedEmail = email.toLowerCase();
+  const { data: member, error: memberError } = await admin
+    .from("members")
+    .select("member_id,is_admin")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
+  if (memberError) throw memberError;
+  if (!member?.member_id) return false;
+  if (member.is_admin) return true;
+
+  const { data: projectMember, error: projectMemberError } = await admin
+    .from("project_members")
+    .select("member_id")
+    .eq("project_id", projectId)
+    .eq("member_id", member.member_id)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (projectMemberError) throw projectMemberError;
+  return Boolean(projectMember);
 }
 
 function isMarkdownDocument(row: ProjectDocumentContentRow) {
@@ -39,7 +61,7 @@ export async function GET(
   _req: Request,
   context: { params: Promise<{ documentId: string }> },
 ) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (!auth.ok) return auth.errorResponse;
 
   const { documentId } = await context.params;
@@ -63,6 +85,11 @@ export async function GET(
   }
 
   const row = data as ProjectDocumentContentRow;
+  const allowed = await canAccessProjectDocument(admin, auth.user.email, row.project_id);
+  if (!allowed) {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+  }
+
   if (!isMarkdownDocument(row)) {
     return NextResponse.json({ ok: false, error: "markdown preview is only available for .md files" }, { status: 400 });
   }
@@ -103,7 +130,7 @@ export async function PATCH(
   req: Request,
   context: { params: Promise<{ documentId: string }> },
 ) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (!auth.ok) return auth.errorResponse;
 
   const { documentId } = await context.params;
@@ -142,6 +169,11 @@ export async function PATCH(
   }
 
   const row = data as ProjectDocumentContentRow;
+  const allowed = await canAccessProjectDocument(admin, auth.user.email, row.project_id);
+  if (!allowed) {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+  }
+
   if (!isMarkdownDocument(row)) {
     return NextResponse.json({ ok: false, error: "markdown edit is only available for .md files" }, { status: 400 });
   }
