@@ -1684,7 +1684,7 @@ function ScorePopup({
         </div>
       </div>
       <div className="text-[9px] text-slate-500 mt-2 leading-tight">
-        S = k · M · X · F<br />
+        legacy AMD comparison = k · M · X · F<br />
         k = {formatRoundedDisplay(point.breakdown.K)}, σ_SU = {formatRoundedDisplay(point.breakdown.sigma_su)}
       </div>
     </div>

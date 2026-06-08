@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Legacy AMD comparison モデル説明パネル。
+ * PRS primary + legacy AMD comparison モデル説明パネル。
  *
  * AMD Score 詳細ページ (/venture-map/amd-score/[projectId]) と
  * Retrofit ページ (/venture-map/amd-score/retrofit) の両方で同一のモデル構造を表示。
@@ -48,13 +48,14 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       <div className="relative mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-cyan-300/24 pb-3">
         <div>
           <div className="text-[16px] font-black uppercase tracking-[0.2em] text-cyan-100 drop-shadow-[0_0_14px_rgba(103,232,249,.72)]">
-            LEGACY AMD COMPARISON CORE
+            PRS PRIMARY FORMULA
           </div>
           <div className="mt-2 max-w-4xl text-[13px] font-semibold text-cyan-100/78">
-            PRS primary の下に残す comparison layer。Before Zero Theory v3.2 の{" "}
-            <strong className="text-cyan-200">Macrotrend M</strong> ×{" "}
-            <strong className="text-sky-300">XRL X</strong> ×{" "}
-            <strong className="text-rose-300">FRL F</strong> を legacy AMD として読む。
+            主表示は{" "}
+            <strong className="text-emerald-200">Potential P</strong> ×{" "}
+            <strong className="text-sky-300">Reach R</strong> ×{" "}
+            <strong className="text-cyan-200">Survival S</strong>。Before Zero Theory v3.2 の{" "}
+            <strong className="text-cyan-200">M × X × F</strong> は下段に comparison layer として残す。
           </div>
         </div>
         <div className="border border-pink-300/42 bg-pink-500/8 px-3 py-2 text-right font-mono text-[12px] font-black uppercase tracking-[0.12em] text-pink-200 shadow-[0_0_20px_rgba(244,114,182,.18)]">
@@ -63,11 +64,46 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       </div>
 
       <div className="relative flex flex-col gap-3">
-        <FormulaBlock title="OVERALL SCORE" accent="cyan" subtitle="S = AMD Score、k は IPO 級への校正定数">
-        <Tex display tex={String.raw`S \;=\; k \cdot M \cdot X \cdot F, \qquad k \;=\; \frac{100{,}000}{10^{\sum_x \alpha_x}}`} />
+        <FormulaBlock title="PRIMARY OVERALL SCORE" accent="cyan" subtitle="主表示の PRS score。k は IPO 級への校正定数">
+          <Tex display tex={String.raw`\mathrm{Score}_{\mathrm{PRS}} \;=\; k \cdot P \cdot R \cdot S, \qquad k \;=\; \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{PRS}} \alpha_x}}`} />
           <Citation>
-          根拠: Cobb &amp; Douglas (1928). &quot;A theory of production.&quot;{" "}
-          <em>American Economic Review</em>, 18(1), 139-165. — 多因子統合の経済学標準。各 α は弾力性 (= X が 1% 増えたとき S が何 % 増えるか) を表す。
+            根拠: Cobb &amp; Douglas (1928). &quot;A theory of production.&quot;{" "}
+            <em>American Economic Review</em>, 18(1), 139-165. — 多因子統合の経済学標準。各 α は弾力性 (= 軸が 1% 増えたとき score が何 % 増えるか) を表す。
+          </Citation>
+        </FormulaBlock>
+
+        <FormulaBlock title="POTENTIAL P" accent="rose" subtitle="目標成功規模の ceiling。review 入力の P をそのまま使う">
+          <Tex display tex={String.raw`P \;=\; (P_{\mathrm{input}}+1)^{\alpha_P}`} />
+          <Citation>
+            いまの P は review queue で決める事業ポテンシャル入力。未入力なら PRS を出さず、legacy AMD へ silent fallback しない。
+          </Citation>
+        </FormulaBlock>
+
+        <FormulaBlock title="REACH R" accent="sky" subtitle="会社に帰属する 5 軸 readiness の到達可能性">
+          <Tex
+            display
+            tex={String.raw`R \;=\; \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x}`}
+          />
+          <Citation>
+            TRL / BRL / GRL / SRL / HRL は legacy AMD と同じ実測軸を使う。Shallow Tech モードでは TRL を除外し、k も同じルールで再校正。
+          </Citation>
+        </FormulaBlock>
+
+        <FormulaBlock title="SURVIVAL S" accent="cyan" subtitle="マクロ追い風と founder readiness に R_net を掛け合わせる">
+          <Tex
+            display
+            tex={String.raw`S \;=\; (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma} \cdot (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}`}
+          />
+          <Citation>
+            Survival は <strong>σ_SU</strong> (Triple Helix macrotrend)・<strong>FRL</strong> (founder readiness)・
+            <strong>R_net</strong> (資源毀損を引いた純残存力) の積。R_net 未入力時は PRS を review pending で止める。
+          </Citation>
+        </FormulaBlock>
+
+        <FormulaBlock title="LEGACY AMD OVERALL SCORE" accent="cyan" subtitle="比較用に残している旧 M × X × F モデル">
+          <Tex display tex={String.raw`S_{\mathrm{legacy}} \;=\; k \cdot M \cdot X \cdot F, \qquad k \;=\; \frac{100{,}000}{10^{\sum_x \alpha_x}}`} />
+          <Citation>
+            comparison layer。過去比較と evidence 用に残している旧 AMD/MXF の式で、主表示としては読まない。
           </Citation>
         </FormulaBlock>
 
