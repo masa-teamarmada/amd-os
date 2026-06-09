@@ -13,7 +13,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - 抽出: **Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow`** が calendar event 単位に、5 ソース + OS 文脈を読んで `narrative_md` + `summary_short` + `decided / progress / nextActions / risks` を生成
 - 保存: Supabase の `project_meeting_summaries` (PK: `meeting_id` = calendar event id)
 - 表示: PWA の `CockpitMeetingSummary` が Supabase を直読み
-- 添付資料: PWA の MTG 詳細モーダルから、スクショ / PDF / 画面キャプチャを private Storage `meeting-assets` + `meeting_assets` に保存し、必要なものだけ `narrative_md` の Markdown 画像/リンクとして挿入する。
+- 添付資料: PWA の MTG 詳細モーダルから、一般ファイル / スクショ / PDF / 画面キャプチャを `meeting_assets` に保存する。新規実体はDriveの `PJフォルダ / YYMMDD_会議名`、旧実体はprivate Storage互換で扱い、必要なものだけ `narrative_md` の Markdown 画像/リンクとして挿入する。
 - 予定MTG: 日時が確定しているものだけ `source_kinds='upcoming'` として同じ `project_meeting_summaries` に保存し、会議前の「決めること / 用意するもの」を MTG サマリ欄の先頭に出す。日程未確定の仮置きは `source_kinds='upcoming_tentative'` / `prep_status='tentative'` とし、確定予定 count には含めず「日程調整中MTG」として同じ上段エリアに残す。
 - future Calendar sync: L2⑥ automation が **今日0:00 JSTから今後60日** の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡す。前回議事録がまだ無いPJでも、Calendar上で確定しているMTGは `upcoming:<calendar_event_id>` としてカード化する。ただし weekly recurring MTG は series ごとに次回1件だけを保存・表示対象にし、それ以降の回はノイズとして同期/一覧表示しない。今日すでに開始済みの予定も、当日中はDrive資料やURL補強のため同期対象にする。PJ Drive folder に会議日フォルダや関連資料がある場合は、`drive_files` として予定カードの `関連Drive資料` に出す。
 - 会議後 workflow: PWA `POST /api/meeting-workflow/finalize` が、routine 生成済み議事録の `decided` / `next_actions` / `narrative_md` から **日時まで明確な次MTG候補を複数抽出**し、次MTGカード・action item・Slack nudge 予約を作る。完了イベントは `POST /api/meeting-workflow/actions/:actionId/complete` で受ける。ここでは **LLM を呼ばない**。
@@ -288,15 +288,18 @@ Meet / CircleBack / Gmail 議事録メールだけでは、会議中に画面共
 
 ### できること
 
-- **最短MVP**: `選択` ボタンから PNG / JPG / WebP / GIF / PDF を MTG に添付する。
+- **最短MVP**: `選択` ボタンから md / docx / xlsx / pptx / txt / csv / zip / 画像 / PDF など一般ファイルを MTG に添付する。
 - **便利版**: 添付トレイへ drag & drop、または `Cmd+V` / `ペースト` でクリップボード画像を追加する。添付ごとに caption を編集し、上下ボタンで表示順を変え、不要な添付を削除できる。
 - **最高版**: `画面` ボタンから browser の `getDisplayMedia` を使い、画面共有の 1 frame を PNG として `asset_kind='screen_capture'` で保存する。browser が許可 dialog を出すため、無断キャプチャはしない。
-- **本文への反映**: `本文へ` を押すと、現在の添付一覧を `narrative_md` に `<!-- meeting-assets:start -->` / `<!-- meeting-assets:end -->` block として挿入する。画像は `![caption](/api/meeting-assets/file/{asset_id})`、PDF は link として表示する。
+- **本文への反映**: `本文へ` を押すと、現在の添付一覧を `narrative_md` に `<!-- meeting-assets:start -->` / `<!-- meeting-assets:end -->` block として挿入する。画像は `![caption](/api/meeting-assets/file/{asset_id})`、画像以外は link として表示する。
+- **保存先表示**: MTG詳細モーダル上に `保存先: PJフォルダ / YYMMDD_会議名` を表示する。Drive folder link は権限内ユーザーが開くための導線だけにし、raw secret や外部公開URLは出さない。
 
 ### データ方針
 
-- 実ファイルは private Supabase Storage bucket `meeting-assets` に置く。
-- DB には `meeting_assets` として `asset_id / meeting_id / project_id / storage_path / media_type / caption / sort_order / asset_kind` を保存する。
+- 新規アップロードの実ファイルは Google Drive の当該 PJ folder (`projects.drive_folder_id`) 配下に、MTG専用 folder `YYMMDD_会議名` を作成/再利用して置く。同名 folder が既にあれば再利用し、重複乱立させない。
+- `YYMMDD` は `project_meeting_summaries.meeting_date` から作り、会議名は Drive / filesystem 安全な文字へ sanitize する。会議日または PJ folder mapping が解決できない場合は、silent success にせず明示エラーにする。
+- 旧添付の互換用に private Supabase Storage bucket `meeting-assets` の閲覧 path は残す。新規保存先は Drive、OS DB には metadata のみ残す。
+- DB には `meeting_assets` として `asset_id / meeting_id / project_id / drive_file_id / project_drive_folder_id / drive_folder_id / drive_folder_name / web_view_link / folder_display_path / media_type / caption / sort_order / asset_kind` を保存する。
 - `project_meeting_summaries` 本体に base64 画像や signed URL は保存しない。`narrative_md` には永続 route `/api/meeting-assets/file/{asset_id}` だけを入れる。
 - PWA route はアップロード・表示 URL 発行・Markdown 挿入だけを行い、従量課金 LLM を呼ばない。画像の意味抽出や表OCRを行う場合は、L2 ⑥ routine / Codex automation 側で `meeting_assets` を入力に含める。
 - `extracted_text` は将来の OCR / vision 結果用。画像そのものではなく、短いテキスト化された根拠だけを保存する。
@@ -305,11 +308,11 @@ Meet / CircleBack / Gmail 議事録メールだけでは、会議中に画面共
 
 | API | 役割 |
 |---|---|
-| `GET /api/meeting-assets?meeting_id=...` | admin session で添付一覧 + 1h signed URL を返す |
-| `POST /api/meeting-assets` | multipart `files[]` を private Storage へ保存し、`meeting_assets` に insert |
+| `GET /api/meeting-assets?meeting_id=...` | admin session で添付一覧 + file route / 保存先表示 metadata を返す |
+| `POST /api/meeting-assets` | multipart `files[]` を Drive の `PJフォルダ / YYMMDD_会議名` へ保存し、`meeting_assets` に metadata insert |
 | `PATCH /api/meeting-assets` | `caption` / `sort_order` / `extracted_text` を更新 |
-| `DELETE /api/meeting-assets?asset_id=...` | Storage object と DB row を削除 |
-| `GET /api/meeting-assets/file/{asset_id}` | admin session で 60s signed URL へ redirect |
+| `DELETE /api/meeting-assets?asset_id=...` | legacy Storage asset は Storage object と DB row を削除。Drive-backed asset はDrive実ファイルを消さず、OS添付rowだけ外す |
+| `GET /api/meeting-assets/file/{asset_id}` | admin session で legacy Storage signed URL へ redirect、またはDrive fileを権限内でstream |
 | `POST /api/meeting-assets/insert-markdown` | 添付一覧を `narrative_md` の添付資料 block に挿入/置換 |
 
 ### 会議後 workflow の次MTG抽出ルール
@@ -362,7 +365,7 @@ CREATE TABLE project_meeting_summaries (
 -- 書き込みは service_role 経由 (GAS supa_upsert)
 ```
 
-添付資料は migration 097 で別テーブル + private Storage bucket に分離する。
+添付資料は migration 097 で別テーブル + private Storage bucket に分離し、migration 134 でDrive保存先 metadata列を追加する。
 
 ```sql
 CREATE TABLE meeting_assets (
@@ -371,6 +374,13 @@ CREATE TABLE meeting_assets (
   project_id        TEXT NOT NULL,
   storage_bucket    TEXT NOT NULL DEFAULT 'meeting-assets',
   storage_path      TEXT NOT NULL UNIQUE,
+  drive_file_id     TEXT,
+  project_drive_folder_id TEXT,
+  drive_folder_id   TEXT,
+  drive_folder_name TEXT,
+  drive_folder_web_view_link TEXT,
+  web_view_link     TEXT,
+  folder_display_path TEXT,
   file_name         TEXT NOT NULL,
   media_type        TEXT NOT NULL,
   file_size_bytes   BIGINT NOT NULL DEFAULT 0,

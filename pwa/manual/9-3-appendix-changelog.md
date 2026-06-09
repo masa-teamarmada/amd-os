@@ -14,6 +14,8 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-09 | 2-3 PJ コックピット / 8-3 L2 routines | 変更 | MTG詳細モーダルの添付資料を一般ファイル対応へ変更し、新規添付の保存先を Drive の `PJフォルダ / YYMMDD_会議名` と明記。カード上の保存先表示、旧Storage添付の互換表示、DBはmetadataのみ保存する方針を追記 | MTGカード資料アップロードで md 等が古い画像/PDF制限に拒否されていたため。MTG単位の資料置き場をPJ folder配下に整理するため | えいみ-worker |
+| 2026-06-09 | 2-3 PJ コックピット | 変更 | MTG詳細モーダルのMarkdown添付 (`.md` / `.markdown`) をOS内モーダルで開ける仕様を追記 | MTG準備メモなどのMarkdown添付をDrive/別タブへ移動せず、カード内で読めるようにするため | えいみ-worker |
 | 2026-06-09 | 6-7 契約管理 | 追加 | `/contracts` の契約予定枠、status、version history、押印版metadata、5生データ予兆dry-run、Slack nudge dry-run、Drive保存先 `共有ドライブ/ARMADA/a3_backoffice/契約` を追加 | 契約締結予兆から押印版保存までをOS上で追い、契約書本文をDBに入れずDrive metadataだけで安全に管理するため | えいみ-worker |
 | 2026-06-08 | 2-3 PJ コックピット | 変更 | 資料コーナーの閲覧/追加権限を admin-only から、対象PJの active member または admin へ変更。PJ cockpitを開けるメンバーが資料一覧だけ `Forbidden` にならないよう明記 | PJ資料はPJ内共有機能であり、まさ/adminだけに閉じると目的を満たさないため | えいみ-worker |
 | 2026-06-06 | 2-4 AMD 会社全体 | 変更 | Dashboard の通常PJ一覧から AMD 全体PJ (`p00`) を除外し、AMD PJ cockpit の入口をバイタルサイン枠に一本化 | 会社全体PJを通常PJカードとして重複表示しないため | えいみ-worker |
@@ -68,3 +70,5 @@
 | 2026-06-09 | 2-3 PJ コックピット / 4-1 判断エンジン / 4-3 AMD Score 詳細仕様 / 4-9 ERS | 変更 | AMD Score の読み方を PRS primary へ更新し、legacy M-X-F / 7軸 Cobb-Douglas を comparison / evidence / Appendix 扱いに整理。P/R_net missing は review pending とし、legacy を主表示へ戻さない運用を追記 | v0.16.17 ではマニュアル上の主語がまだ MXF 中心に残っていたため、運用者が現行 primary を誤読しないようにするため | えいみ-worker |
 | 2026-06-09 | 4-3 AMD Score 詳細仕様 | 変更 | PRS / legacy AMD の数式を LaTeX 表記へ変更し、スコア詳細ページの PRS Primary、P/R/S、R_net、PRS history、legacy M/X/F、Triple Helix、FRL、XRLチェックリスト、律速の読み方と算出元を追加 | 画面に出ているパラメータの説明が足りず、マニュアルだけではスコア詳細ページを読めない状態だったため | えいみ-worker |
 | 2026-06-09 | 4-3 AMD Score 詳細仕様 | 変更 | PRS の `K_PRS` / `P` / `R` / `S` の意味と、足し算ではなく積を取る理由を追加。スコア詳細ページのFormulaPanelにも同じ直感説明を表示 | K/P/R/Sの概念がないと、式は読めてもPRSモデルの経営的な意味が伝わらないため | えいみ-worker |
+| 2026-06-09 | 9-2 開発者向け | 変更 | deploy dry-run と本番 `/api/build-info` build stamp の確認先を追記 | 古いcheckout deployによる巻き戻りを人間がdeploy前後に確認できるようにするため | えいみ-worker |
+| 2026-06-09 | 9-2 開発者向け | 変更 | deploy script が `.vercel/project.json` の `amd-os-pwa` / project id を検査し、missing / wrong project ならVercel CLI起動前に停止する運用を追記 | worker worktreeで `.vercel` が欠けたままdeployし、新規Vercel projectを作る事故を防ぐため | えいみ-worker |

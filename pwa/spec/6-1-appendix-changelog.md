@@ -14,6 +14,8 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-09 | 3-3 / 3-8 | 変更 | MTG単位添付 (`meeting_assets`) を一般ファイル対応へ変更し、Drive保存先 `projects.drive_folder_id / YYMMDD_会議名 / アップロードファイル`、保存先表示、旧Storage互換、metadata-only DB payloadを定義 | MTGカード資料アップロードの古い画像/PDF制限を撤廃し、資料の実体保存場所をPJ folder配下へ統一するため | えいみ-worker |
+| 2026-06-09 | 3-8 | 変更 | MTG単位添付のMarkdown (`.md` / `.markdown`) をOS内モーダルでfetch/renderして読める仕様を追記 | 添付されたMarkdown資料をDrive/別タブへ移動せず、MTGカード内で確認できるようにするため | えいみ-worker |
 | 2026-06-09 | 5-6 | 追加 | 契約管理仕様を追加。`contracts` / `contract_documents` / `contract_signals` / `contract_nudges`、`/contracts`、API、5生データ分類、Drive保存先、nudge dry-runを定義 | 契約書管理MVPを実装し、権限・Drive・Slack・予兆検知の安全境界を設計書正本へ残すため | えいみ-worker |
 | 2026-06-08 | 3-8 | 変更 | `project_documents` の API/RLS 権限を admin-only から、対象PJの active member または admin に変更。資料一覧GET、upload、Markdown preview/edit の権限境界を明記 | PJ cockpit内の資料リンク台帳をPJメンバー全体で読めるようにし、非adminメンバーの `Forbidden` を解消するため | えいみ-worker |
 | 2026-06-06 | 2-1 | 変更 | `/dashboard` の通常PJ一覧から AMD 全体PJ (`p00`) を除外し、入口をバイタルサイン枠に一本化 | 会社全体PJを通常PJカードと重複表示せず、バイタルサイン枠から入る導線に整理するため | えいみ-worker |
@@ -61,3 +63,5 @@
 | 2026-06-09 | 3-8 / 4-2 | 変更 | AMD Score の current contract を PRS primary へ更新し、legacy M-X-F / 7軸 Cobb-Douglas を comparison / evidence / Appendix 扱いに整理。Cockpit score detail も PRS Primary / PRS history を主表示、legacy AMD は比較用と明記 | v0.16.17 では設計書の主語がまだ MXF 中心に残っていたため、現行 primary が PRS だと画面上で誤読されないよう正本を揃えるため | えいみ-worker |
 | 2026-06-09 | 4-2 | 変更 | AMD Score / PRS / legacy MXF の数式を LaTeX 表記へ変更し、スコア詳細ページに表示される PRS Primary、P/R/S、R_net、PRS history、legacy M/X/F、Triple Helix、FRL 6因子、XRLチェックリスト、律速の各パラメータ算出元を追記 | スコア詳細ページに表示される値が設計書上で説明されておらず、数式も text 表記で読みにくかったため | えいみ-worker |
 | 2026-06-09 | 4-2 | 変更 | PRS の `K_PRS` / `P` / `R` / `S` が何を意味するか、なぜ加算ではなく積を取るかの概念説明を追加。スコア詳細ページのFormulaPanelにも同じ直感説明を表示 | 数式と算出元だけでは、PRSが「必要条件の同時充足」を見るモデルだと読者に伝わりにくいため | えいみ-worker |
+| 2026-06-09 | 5-2 | 変更 | deploy rollback guard、public `/api/build-info` build stamp、worker freshness gate、deploy dry-run検証コマンドを追記 | old checkout deploy による BUILD_VERSION 巻き戻りを current `v0.16.20+` line で止め、production provenance をOS上から確認できるようにするため | えいみ-worker |
+| 2026-06-09 | 5-2 | 変更 | deploy script の `.vercel/project.json` project id/name guard を追記し、`amd-os-pwa` 以外や missing の場合はVercel CLIを起動しない仕様にした | worker worktreeで `.vercel` が欠けたままdeployし、新規Vercel projectを作る事故を防ぐため | えいみ-worker |

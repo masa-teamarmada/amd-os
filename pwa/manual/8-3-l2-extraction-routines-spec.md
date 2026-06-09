@@ -204,7 +204,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 
 **出力**:
 - `project_meeting_summaries` (PK=`meeting_id`) + `meeting_notifications` (旧)
-- `meeting_assets` (= PWA から追加される private Storage 添付。routine は必要に応じて caption / extracted_text を読む)
+- `meeting_assets` (= PWA から追加されるMTG添付。新規実体はDriveの `PJフォルダ / YYMMDD_会議名`、旧実体はprivate Storage。routine は必要に応じて caption / extracted_text とDrive metadataを読む)
 - `tsukuyomi_nudge_queue` or `project_todos` (= cockpit TODO 反映、H)
 - Calendar event (+<PJ> prefix task 枠、H)
 - Drive file (= Phase I 生成資料、命名 `<YYYY-MM-DD>_<PJcode>_<task slug>_draft.<ext>`)

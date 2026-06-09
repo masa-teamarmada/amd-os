@@ -39,6 +39,10 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 - `--cwd` は repo root。`pwa/` を指定しない。
 - `--archive=tgz` 必須。
 - `.vercel/project.json` は `amd-os-pwa` / `prj_raZW3HSKIszzPUwNTHfy7xDGzLHm` を指す。
+- deploy script は Vercel CLI を起動する前に `.vercel/project.json` を検査し、`amd-os-pwa` 以外や missing の場合は hard-stop する。worker worktreeから誤って新規Vercel projectを作らないため、この guard を外してdeployしてはいけない。
+- deploy script は Vercel を呼ぶ前に rollback guard を実行し、local `BUILD_VERSION` が deploy minimum、production current、または既知 git ref max より古い production deploy を止める。
+- `bash pwa/scripts/deploy.sh --dry-run` は Vercel を呼ばず、rollback guard と build stamp 準備だけを確認する。
+- preview deploy は production alias を動かさないため rollback guard は warning に留める。production deploy は hard-stop。
 - script は deploy trigger 後、Ready まで polling し、macOS 通知を出す。
 - 直接 `npx vercel` を叩かない。
 
@@ -59,6 +63,33 @@ npx vercel promote <deployment-id> --scope armada0130 --yes
 | major | 大きな仕様変更、architecture刷新 |
 
 迷ったら patch。画面左上の version 表示で、まさが Service Worker / CDN cache の切り替わりを確認する。
+
+## Public build stamp
+
+PWA は public unauthenticated route として `/api/build-info` を持つ。この route は middleware / Supabase auth を通さず、`Cache-Control: no-store` で以下だけを返す。
+
+| field | 内容 |
+|---|---|
+| `build_version` | `pwa/src/lib/build-info.ts` の `BUILD_VERSION` |
+| `git_sha` | deploy 時に注入された commit SHA |
+| `git_branch` | deploy 時に注入された branch / named ref |
+| `deployed_at` | deploy 時の UTC timestamp |
+| `dirty` | deploy 元 worktree に未コミット差分があったか |
+
+secret / env 値そのものは返さない。Vercel CLI deploy では deployment の `gitSource` が空になることがあるため、production regression 調査では `/api/build-info` を一次証拠として見る。
+
+## Worker freshness gate
+
+visible worker は実装やdeployの前に、作業baseが current line から古すぎないことを read-only で確認する。
+
+```bash
+git fetch --all --prune
+AMD_OS_MIN_BUILD_VERSION=v0.16.20 \
+  AMD_OS_BASE_REF=origin/codex/prs-docs-v01618 \
+  scripts/worker-freshness-check.sh
+```
+
+この script は git state を変更しない。local `BUILD_VERSION`、required base ref、known ref max、dirty file数を表示し、`v0.16.20` 未満や required base ref を含まない checkout では実装 / DB write / deploy / push 前に停止する。
 
 ## Supabase DDL
 
@@ -106,6 +137,13 @@ npm run build
 ```
 
 本番反映が必要な作業は deploy script まで実行する。
+
+deploy guard を触ったら最低限:
+
+```bash
+npm run test:deploy-version-guard
+bash pwa/scripts/deploy.sh --dry-run
+```
 
 ## Git gate
 

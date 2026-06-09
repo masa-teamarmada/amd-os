@@ -94,7 +94,7 @@ The card header includes `メモ再読込`, which refetches `project_meeting_sum
 
 ## Project Documents Contract
 
-PJ cockpit の「資料」は、PJ全体で使う資料リンク置き場。MTG単位の添付資料 (`meeting_assets`) とは別で、会議に紐づかない提案書・試算表・契約案・参考PDFなどを置く。
+PJ cockpit の「資料」は、PJ全体で使う資料リンク置き場。MTG単位の添付資料 (`meeting_assets`) とは別で、会議に紐づかない提案書・試算表・契約案・参考PDFなどを置く。MTG単位の新規添付は `project_meeting_summaries.meeting_date` と `title` から `YYMMDD_会議名` folder を作り、同じ PJ folder 配下へ保存する。
 
 | item | contract |
 |---|---|
@@ -107,6 +107,20 @@ PJ cockpit の「資料」は、PJ全体で使う資料リンク置き場。MTG�
 | file body | Google Drive only. DB and Supabase Storage do not store the body |
 | duplicate handling | no delete / overwrite. Drive same-name files are allowed, so every upload creates a new file |
 | auth | PWA API requires authenticated user. Read/upload/markdown preview/edit are allowed for active `project_members` of the target PJ or admin. Google credential must have Drive write scope and access to the PJ folder |
+
+### MTG単位添付 (`meeting_assets`)
+
+| item | contract |
+|---|---|
+| UI | `MeetingAssetsPanel` in MTG detail modal |
+| upload types | general files, including md / docx / xlsx / pptx / txt / csv / zip / images / PDF |
+| new file body | Google Drive only: `projects.drive_folder_id` / `YYMMDD_会議名` / uploaded file |
+| folder naming | `YYMMDD` from `project_meeting_summaries.meeting_date`; meeting title sanitized for Drive-safe name |
+| duplicate folder | find existing folder with same name under the PJ folder, then reuse |
+| DB payload | `meeting_assets` keeps Drive file ID / project folder ID / meeting folder ID / folder name / `webViewLink` / file name / MIME / size / uploaded_by / timestamps |
+| legacy compatibility | existing Storage-backed rows remain readable through `/api/meeting-assets/file/{asset_id}` |
+| UI save path | show `保存先: PJフォルダ / YYMMDD_会議名`; raw credential/secret values are not shown |
+| preview | images/PDF keep existing preview/link behavior; Markdown (`.md` / `.markdown`) opens in an OS modal; other non-preview files use file link + metadata |
 
 If `projects.drive_folder_id` is empty, the panel shows a folder-setting warning. If Google credential is missing or has read-only / no shared-folder permission, upload returns a permission error and the panel keeps a retry action. The rest of the cockpit remains usable.
 

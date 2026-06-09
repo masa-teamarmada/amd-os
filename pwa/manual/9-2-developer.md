@@ -24,6 +24,8 @@
 - 本番反映するなら build version を bump する。ただしVercel production deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、deploy bundleを作り、`askuserquestion` でまさ承認を取る。
 - deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含める。承認待ちは `approval pending` として台帳に残す。
 - 承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` で本番deployする。
+- deploy 前の安い確認は `bash pwa/scripts/deploy.sh --dry-run`。Vercelを呼ばずに、`.vercel/project.json` が `amd-os-pwa` を指すこと、BUILD_VERSION rollback guard、build stamp 準備だけを見る。
+- 本番の出どころ確認は `/api/build-info`。`build_version` / `git_sha` / `git_branch` / `deployed_at` / `dirty` だけを返し、secret は出さない。
 - 自分が触っていない dirty file を commit に混ぜない。
 
 ## 再構築可能性チェック
