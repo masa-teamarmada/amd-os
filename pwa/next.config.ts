@@ -1,4 +1,51 @@
 import type { NextConfig } from "next";
+import { execSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const PWA_ROOT = path.dirname(fileURLToPath(import.meta.url));
+
+function readCommand(command: string, fallback = "unknown"): string {
+  try {
+    const value = execSync(command, {
+      cwd: PWA_ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return value || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function readGitBranch(): string {
+  const branch = readCommand("git rev-parse --abbrev-ref HEAD");
+  if (branch !== "HEAD" && branch !== "unknown") return branch;
+  const namedRef = readCommand("git name-rev --name-only --no-undefined HEAD", "detached");
+  return namedRef === "undefined" ? "detached" : namedRef;
+}
+
+function readGitDirty(): string {
+  const status = readCommand("git status --porcelain --untracked-files=all", "");
+  return status ? "true" : "false";
+}
+
+const buildStampEnv = {
+  NEXT_PUBLIC_AMD_OS_GIT_SHA:
+    process.env.NEXT_PUBLIC_AMD_OS_GIT_SHA ||
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    readCommand("git rev-parse --short=12 HEAD"),
+  NEXT_PUBLIC_AMD_OS_GIT_BRANCH:
+    process.env.NEXT_PUBLIC_AMD_OS_GIT_BRANCH ||
+    process.env.VERCEL_GIT_COMMIT_REF ||
+    readGitBranch(),
+  NEXT_PUBLIC_AMD_OS_DEPLOYED_AT:
+    process.env.NEXT_PUBLIC_AMD_OS_DEPLOYED_AT ||
+    new Date().toISOString(),
+  NEXT_PUBLIC_AMD_OS_DIRTY:
+    process.env.NEXT_PUBLIC_AMD_OS_DIRTY ||
+    readGitDirty(),
+};
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -48,6 +95,7 @@ const embedSecurityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  env: buildStampEnv,
   // 2026-05-12 まさ要望「雛形そのまま」で /api/admin/pj-introduction-html が
   // src/lib/exec_summary/*.{html,css} を readFileSync するため、Vercel build 時に
   // bundle に含めるよう明示する。これが無いと "ENOENT" で route が落ちる。

@@ -66,3 +66,4 @@
 | 2026-06-09 | 2-3 PJ コックピット / 4-1 判断エンジン / 4-3 AMD Score 詳細仕様 / 4-9 ERS | 変更 | AMD Score の読み方を PRS primary へ更新し、legacy M-X-F / 7軸 Cobb-Douglas を comparison / evidence / Appendix 扱いに整理。P/R_net missing は review pending とし、legacy を主表示へ戻さない運用を追記 | v0.16.17 ではマニュアル上の主語がまだ MXF 中心に残っていたため、運用者が現行 primary を誤読しないようにするため | えいみ-worker |
 | 2026-06-09 | 4-3 AMD Score 詳細仕様 | 変更 | PRS / legacy AMD の数式を LaTeX 表記へ変更し、スコア詳細ページの PRS Primary、P/R/S、R_net、PRS history、legacy M/X/F、Triple Helix、FRL、XRLチェックリスト、律速の読み方と算出元を追加 | 画面に出ているパラメータの説明が足りず、マニュアルだけではスコア詳細ページを読めない状態だったため | えいみ-worker |
 | 2026-06-09 | 4-3 AMD Score 詳細仕様 | 変更 | PRS の `K_PRS` / `P` / `R` / `S` の意味と、足し算ではなく積を取る理由を追加。スコア詳細ページのFormulaPanelにも同じ直感説明を表示 | K/P/R/Sの概念がないと、式は読めてもPRSモデルの経営的な意味が伝わらないため | えいみ-worker |
+| 2026-06-09 | 9-2 開発者向け | 変更 | deploy dry-run と本番 `/api/build-info` build stamp の確認先を追記 | 古いcheckout deployによる巻き戻りを人間がdeploy前後に確認できるようにするため | えいみ-worker |

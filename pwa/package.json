@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:deploy-version-guard": "node scripts/check_deploy_version_guard.cjs",
     "test:next-period-ui": "node scripts/check_next_period_ms_period_ui.cjs",
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs",
     "test:payout-notice-pdf": "node scripts/check_payout_notice_pdf_golden.cjs",
