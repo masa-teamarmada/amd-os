@@ -15,6 +15,7 @@
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
 | 2026-06-09 | 3-3 / 3-8 | 変更 | MTG単位添付 (`meeting_assets`) を一般ファイル対応へ変更し、Drive保存先 `projects.drive_folder_id / YYMMDD_会議名 / アップロードファイル`、保存先表示、旧Storage互換、metadata-only DB payloadを定義 | MTGカード資料アップロードの古い画像/PDF制限を撤廃し、資料の実体保存場所をPJ folder配下へ統一するため | えいみ-worker |
+| 2026-06-09 | 3-8 | 変更 | MTG単位添付のMarkdown (`.md` / `.markdown`) をOS内モーダルでfetch/renderして読める仕様を追記 | 添付されたMarkdown資料をDrive/別タブへ移動せず、MTGカード内で確認できるようにするため | えいみ-worker |
 | 2026-06-09 | 5-6 | 追加 | 契約管理仕様を追加。`contracts` / `contract_documents` / `contract_signals` / `contract_nudges`、`/contracts`、API、5生データ分類、Drive保存先、nudge dry-runを定義 | 契約書管理MVPを実装し、権限・Drive・Slack・予兆検知の安全境界を設計書正本へ残すため | えいみ-worker |
 | 2026-06-08 | 3-8 | 変更 | `project_documents` の API/RLS 権限を admin-only から、対象PJの active member または admin に変更。資料一覧GET、upload、Markdown preview/edit の権限境界を明記 | PJ cockpit内の資料リンク台帳をPJメンバー全体で読めるようにし、非adminメンバーの `Forbidden` を解消するため | えいみ-worker |
 | 2026-06-06 | 2-1 | 変更 | `/dashboard` の通常PJ一覧から AMD 全体PJ (`p00`) を除外し、入口をバイタルサイン枠に一本化 | 会社全体PJを通常PJカードと重複表示せず、バイタルサイン枠から入る導線に整理するため | えいみ-worker |

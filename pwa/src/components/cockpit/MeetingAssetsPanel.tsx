@@ -6,6 +6,7 @@ import {
   ArrowDown,
   ArrowUp,
   Clipboard,
+  ExternalLink,
   FileText,
   Image as ImageIcon,
   MonitorUp,
@@ -14,7 +15,10 @@ import {
   RefreshCw,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { ProjectMeetingSummary } from "@/lib/supabase-data";
 
 interface MeetingAsset {
@@ -64,12 +68,22 @@ function fileNameTimestamp() {
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
+function isMarkdownAsset(asset: MeetingAsset): boolean {
+  const mediaType = asset.mediaType.toLowerCase();
+  const fileName = asset.fileName.toLowerCase();
+  return mediaType === "text/markdown" || mediaType === "text/x-markdown" || fileName.endsWith(".md") || fileName.endsWith(".markdown");
+}
+
 export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
   const [assets, setAssets] = useState<MeetingAsset[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [markdownAsset, setMarkdownAsset] = useState<MeetingAsset | null>(null);
+  const [markdownBody, setMarkdownBody] = useState("");
+  const [markdownLoading, setMarkdownLoading] = useState(false);
+  const [markdownError, setMarkdownError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const dropzoneRef = useRef<HTMLDivElement | null>(null);
 
@@ -85,6 +99,16 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
     void loadAssets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meeting.meetingId]);
+
+  useEffect(() => {
+    if (!markdownAsset) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMarkdownModal();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markdownAsset]);
 
   async function loadAssets() {
     setLoading(true);
@@ -294,6 +318,33 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
     }
   }
 
+  async function openMarkdownModal(asset: MeetingAsset) {
+    setMarkdownAsset(asset);
+    setMarkdownBody("");
+    setMarkdownError(null);
+    setMarkdownLoading(true);
+    try {
+      const res = await fetch(asset.signedUrl || asset.fileUrl, { cache: "no-store" });
+      const text = await res.text();
+      if (!res.ok) {
+        setMarkdownError(text || `Markdownを開けなかった: ${res.status}`);
+        return;
+      }
+      setMarkdownBody(text);
+    } catch (error) {
+      setMarkdownError(error instanceof Error ? error.message : "Markdownを開けなかった");
+    } finally {
+      setMarkdownLoading(false);
+    }
+  }
+
+  function closeMarkdownModal() {
+    setMarkdownAsset(null);
+    setMarkdownBody("");
+    setMarkdownError(null);
+    setMarkdownLoading(false);
+  }
+
   return (
     <section className="border-t border-[#e5e5e7] bg-white px-5 py-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -434,9 +485,19 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
               onMoveUp={() => reorderAsset(index, -1)}
               onMoveDown={() => reorderAsset(index, 1)}
               onDelete={() => deleteAsset(asset)}
+              onOpenMarkdown={isMarkdownAsset(asset) ? () => openMarkdownModal(asset) : undefined}
             />
           ))}
         </div>
+      )}
+      {markdownAsset && (
+        <MarkdownPreviewModal
+          asset={markdownAsset}
+          body={markdownBody}
+          loading={markdownLoading}
+          error={markdownError}
+          onClose={closeMarkdownModal}
+        />
       )}
     </section>
   );
@@ -451,6 +512,7 @@ function AssetTile({
   onMoveUp,
   onMoveDown,
   onDelete,
+  onOpenMarkdown,
 }: {
   asset: MeetingAsset;
   index: number;
@@ -460,10 +522,12 @@ function AssetTile({
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDelete: () => void;
+  onOpenMarkdown?: () => void;
 }) {
   const isImage = asset.mediaType.startsWith("image/");
   const isPdf = asset.mediaType === "application/pdf";
-  const fileLabel = isPdf ? "PDF" : asset.mediaType.split("/").pop()?.toUpperCase() || "FILE";
+  const isMarkdown = !!onOpenMarkdown;
+  const fileLabel = isPdf ? "PDF" : isMarkdown ? "MD" : asset.mediaType.split("/").pop()?.toUpperCase() || "FILE";
   return (
     <div className="overflow-hidden rounded-md border border-[#e5e5e7] bg-[#fbfbfd]">
       <div className="flex h-[150px] items-center justify-center overflow-hidden bg-[#f5f5f7]">
@@ -474,6 +538,17 @@ function AssetTile({
             className="h-full w-full object-contain"
             loading="lazy"
           />
+        ) : isMarkdown ? (
+          <button
+            type="button"
+            onClick={onOpenMarkdown}
+            className="flex h-full w-full flex-col items-center justify-center gap-2 text-[#3c3c43] hover:bg-[#eeeeef]"
+            title="MarkdownをOS内で開く"
+          >
+            <FileText className="h-8 w-8" aria-hidden="true" />
+            <span className="max-w-[82%] truncate text-[12px] font-medium">{asset.fileName}</span>
+            <span className="text-[10px] text-[#86868b]">OS内で開く</span>
+          </button>
         ) : (
           <a
             href={asset.signedUrl || asset.fileUrl}
@@ -521,6 +596,16 @@ function AssetTile({
             >
               <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
+            {isMarkdown && (
+              <button
+                type="button"
+                onClick={onOpenMarkdown}
+                className="inline-flex h-7 w-7 items-center justify-center rounded border border-[#d2d2d7] bg-white text-[#3c3c43] hover:bg-[#f5f5f7]"
+                title="MarkdownをOS内で開く"
+              >
+                <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            )}
             <button
               type="button"
               onClick={onDelete}
@@ -538,6 +623,116 @@ function AssetTile({
           className="h-8 w-full rounded border border-[#d2d2d7] bg-white px-2 text-[11px] text-[#1d1d1f] outline-none focus:border-[#007aff]"
           placeholder="キャプション"
         />
+      </div>
+    </div>
+  );
+}
+
+function MarkdownPreviewModal({
+  asset,
+  body,
+  loading,
+  error,
+  onClose,
+}: {
+  asset: MeetingAsset;
+  body: string;
+  loading: boolean;
+  error: string | null;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/35 px-4 py-5"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${asset.fileName} のMarkdown preview`}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="flex max-h-[86vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-[#e5e5e7] px-4 py-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[13px] font-semibold text-[#1d1d1f]">
+              <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="truncate">{asset.fileName}</span>
+            </div>
+            <div className="mt-0.5 text-[10.5px] text-[#86868b]">
+              Markdown {formatSize(asset.fileSizeBytes)}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <a
+              href={asset.signedUrl || asset.fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-8 w-8 items-center justify-center rounded border border-[#d2d2d7] bg-white text-[#3c3c43] hover:bg-[#f5f5f7]"
+              title="別タブで開く"
+            >
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+            </a>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-8 w-8 items-center justify-center rounded border border-[#d2d2d7] bg-white text-[#3c3c43] hover:bg-[#f5f5f7]"
+              title="閉じる"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+        <div className="min-h-[320px] overflow-auto px-5 py-4 text-[13px] leading-6 text-[#1d1d1f]">
+          {loading ? (
+            <div className="text-[12px] text-[#86868b]">読み込み中...</div>
+          ) : error ? (
+            <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-700">
+              {error}
+            </div>
+          ) : (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ children, href }) => (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#0066cc] underline underline-offset-2"
+                  >
+                    {children}
+                  </a>
+                ),
+                h1: ({ children }) => <h1 className="mb-3 mt-1 text-[22px] font-semibold leading-8">{children}</h1>,
+                h2: ({ children }) => <h2 className="mb-2 mt-5 text-[18px] font-semibold leading-7">{children}</h2>,
+                h3: ({ children }) => <h3 className="mb-1.5 mt-4 text-[15px] font-semibold leading-6">{children}</h3>,
+                p: ({ children }) => <p className="my-2">{children}</p>,
+                ul: ({ children }) => <ul className="my-2 list-disc space-y-1 pl-5">{children}</ul>,
+                ol: ({ children }) => <ol className="my-2 list-decimal space-y-1 pl-5">{children}</ol>,
+                blockquote: ({ children }) => (
+                  <blockquote className="my-3 border-l-2 border-[#d2d2d7] pl-3 text-[#3c3c43]">{children}</blockquote>
+                ),
+                code: ({ children }) => (
+                  <code className="rounded bg-[#f5f5f7] px-1 py-0.5 font-mono text-[12px] text-[#1d1d1f]">{children}</code>
+                ),
+                pre: ({ children }) => (
+                  <pre className="my-3 overflow-auto rounded-md bg-[#1d1d1f] p-3 font-mono text-[12px] leading-5 text-white">
+                    {children}
+                  </pre>
+                ),
+                table: ({ children }) => (
+                  <div className="my-3 overflow-auto">
+                    <table className="min-w-full border-collapse text-left text-[12px]">{children}</table>
+                  </div>
+                ),
+                th: ({ children }) => <th className="border border-[#d2d2d7] bg-[#f5f5f7] px-2 py-1 font-semibold">{children}</th>,
+                td: ({ children }) => <td className="border border-[#e5e5e7] px-2 py-1 align-top">{children}</td>,
+              }}
+            >
+              {body}
+            </ReactMarkdown>
+          )}
+        </div>
       </div>
     </div>
   );
