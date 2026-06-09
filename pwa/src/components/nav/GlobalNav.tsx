@@ -222,20 +222,6 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
           {isAdmin && <NotificationBell />}
           {isAdmin && (
             <Link
-              href="/contracts"
-              className={cn(
-                "px-2.5 py-1 rounded-md transition-colors",
-                pathname.startsWith("/contracts")
-                  ? "bg-accent text-accent-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              title="契約 — 予定枠、版管理、押印版、nudge dry-run"
-            >
-              契約
-            </Link>
-          )}
-          {isAdmin && (
-            <Link
               href="/admin/projects"
               className={cn(
                 "px-2.5 py-1 rounded-md transition-colors",

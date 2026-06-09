@@ -36,6 +36,7 @@ function pathToTitle(pathname: string): string | null {
   if (pathname === "/admin/protocols") return "AMD Protocol";
   if (pathname === "/admin/members") return "Admin メンバー";
   if (pathname === "/admin/company") return "Admin Company";
+  if (pathname === "/admin/contracts") return "Admin 契約";
   if (pathname === "/admin/billing") return "Admin 請求";
   if (pathname === "/admin/payouts") return "Admin 報酬";
   if (pathname === "/admin/finance") return "Admin Finance";

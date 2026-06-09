@@ -1,14 +1,14 @@
 # 契約管理仕様
 
-> 確定範囲: `/contracts`、契約予定枠、契約書version metadata、押印版metadata、5生データ予兆dry-run、Slack nudge dry-run。実Slack送信、scheduler登録、Drive共有範囲変更はこのMVPでは行わない。
+> 確定範囲: `/admin/contracts`、契約予定枠、契約書version metadata、押印版metadata、5生データ予兆dry-run、Slack nudge dry-run。実Slack送信、scheduler登録、Drive共有範囲変更はこのMVPでは行わない。
 
 ## Route / Authority
 
 | surface | contract |
 |---|---|
-| page | `/contracts` |
+| page | `/admin/contracts` |
 | authority | admin / backoffice / management 限定。PWA page と API は `members.is_admin=true` を要求する |
-| top nav | admin にだけ `契約` を表示 |
+| admin sidebar | admin左メニューに `契約` を表示 |
 | external write | 初期実装では Drive 共有変更なし、Slack実送信なし、scheduler変更なし |
 
 契約書はPJ資料より機密度が高いため、PJ member readへ開かない。PJ cockpit資料機能と実装パターンは参照するが、保存先と権限は混同しない。
@@ -77,6 +77,6 @@ MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出
 
 - `npx tsc --noEmit --pretty false`
 - `npm run build`
-- `/contracts` local browser確認
+- `/admin/contracts` local browser確認
 - `git diff --check`
 - migrationは非破壊DDLのみ。`DELETE` / `TRUNCATE` / `DROP` は使わない
