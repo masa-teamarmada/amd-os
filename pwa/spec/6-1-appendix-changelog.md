@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-06 | 3-8 | 追加 | PJ cockpit の TODO と経営ハイライトの間に `CockpitProjectDocuments` / `/api/project-documents` / `project_documents` を追加し、Drive のPJ folder配下 `AMD OS 資料` folderへ保存、DBはmetadata/linkのみとする contract を追記 | PJ cockpit上で資料を置き、Google Drive共有フォルダ配下の当該PJ folderへ安全に集約するため | えいみ-worker |
 | 2026-06-04 | 2-1 | 変更 | `/dashboard` の本文表示順を PJ 一覧 → 研究機関ERSリスト → Company Content shelf と明記 | 研究機関リストを company content より上、PJ一覧の続きに戻すため | えいみ-worker |
 | 2026-06-04 | 2-1 | 変更 | `/dashboard` の研究機関ERSリストをPJ一覧と同じ左/mainカラム内の直下に置くと明記 | MyPage右カラムより下の全幅下段に落ちる再発を防ぐため | えいみ-worker |
 | 2026-06-04 | 3-8 / 4-3 | 変更 | Institution Card Entry とERS検証条件に `inst_kute -> p25` を追加し、研究機関エコシステム構築PJは通常Dashboard PJ一覧ではなくERS機関カードを入口にし、既存PJ cockpit contentを関連PJとして保持する contract を追記 | KUTE が通常PJリストと研究機関リストに二重表示されていたため。DB row / cockpit content を削除せず、表示入口だけ研究機関側へ寄せるため | えいみ-worker |

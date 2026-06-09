@@ -109,7 +109,7 @@ pwa/
 | `/dashboard-cyber-glass-cube` | 廃案比較用の旧 Cyber Dashboard 第2案。ガラスキューブPJ群は情報構造がカオス化したため、今後の正本候補にはしない。公開モックは `/mock/dashboard-cyber-glass-cube` |
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定 (取り消し線 = 未完月次ルーティンによる除外)。りり (`ID006`) は NIMS からの無償出向のため、報酬額は金額ではなく `ー` 表示 |
-| `/project/[projectId]/cockpit` | PJ コックピット (案C レイアウト = 上 Header + Hero (AMD Score + XRL 横並び) + 3 カラム MS / TODO + 経営ハイライト / 月次ルーティン sticky + 下段 月次 + MTGサマリ)。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
+| `/project/[projectId]/cockpit` | PJ コックピット (案C レイアウト = 上 Header + Hero (AMD Score + XRL 横並び) + 3 カラム MS / TODO + 資料 + 経営ハイライト / 月次ルーティン sticky + 下段 月次 + MTGサマリ)。資料は Drive の当該PJ folder配下 `AMD OS 資料` folder に保存し、OSには `project_documents` のmetadata/linkだけを残す。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
 | `/institutions/[institutionId]/cockpit` | 研究機関カードから開く機関コックピット。KUTE (`inst_kute`) は既存KUTE PJ (`p25`)、NIMS (`inst_nims`) は既存関連PJ CX (`p20`) の `CockpitView` を同画面へマウントし、MS進捗・月次・MTG履歴を操作/確認する。新規PJを作らず、既存PJコックピットの内容も研究機関ERS側の評価内容も削除しない。上部にERS概要と readiness snapshot を置き、進捗管理とスコア詳細をタブで分ける |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` が該当章のマニュアル本文を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
@@ -152,7 +152,7 @@ pwa/
 **PJ 月次ノート:** `project/monthly-note` (= GET / POST。MS なし PJ でも月次モーダルで自由記述ノートを残せる。`project_monthly_notes` テーブル、PK `(project_id, ym)`、まさ 2026-05-12 タスク 3)
 **Atlas:** `atlas/auto-tag` `atlas/backfill` `atlas/seed` `atlas/match-stories` `atlas/merge-stories` `atlas/move-signal` `atlas/themes/{cluster,apply,list}`
 **請求/レポート:** `invoice/{create,preview}` `report/{generate,fix}`
-**Admin:** `admin/projects/[id]` (= PATCH、AdminProjectsTable から projects + project_ventures 1 セル単位 update を service_role 経由、admin必須)、`admin/private-wiki` (= GET/POST/PATCH。`private_wiki_entries` を list/create/update/archive。admin必須 + service_role)、`admin/payment-confirm` (= Slack入金確認ボタン / 金額入力フォームから signed token で `billing_cycles.payment_confirmed_at` を更新し、`POST mode=expected` はブラウザを開かず予定額で確定、実額・freee照合の証跡は `billing_log.detail` に保存)、`admin/project-members/bulk` (= POST、PJ メンバー一括 incremental update + 論理削除 (is_active=false)、`ProjectMembersEditor` から呼ばれる、admin/projects のメンバー列モーダルと project/[id]/config の両方で共有、admin必須)、`admin/pj-introduction-html` (= ダッシュボード「📑 全 PJ 紹介資料作成」ボタンから POST、選択 PJ のエグゼクティブサマリー HTML を雛形 fmt で生成。Sonnet 4.5 で 1 PJ ごと JSON 集約 + concurrency 3。雛形 = `src/lib/exec_summary/template_section.html` + `template.css`、prompt = `llm_prompts.exec_summary.extract`、admin必須)、`admin/lane-suggestions/[id]` (= LLM lane 提案の approve/reject、admin必須)、`admin/seed-vcs` 等
+**Admin:** `admin/projects/[id]` (= PATCH、AdminProjectsTable から projects + project_ventures 1 セル単位 update を service_role 経由、admin必須)、`admin/private-wiki` (= GET/POST/PATCH。`private_wiki_entries` を list/create/update/archive。admin必須 + service_role)、`admin/payment-confirm` (= Slack入金確認ボタン / 金額入力フォームから signed token で `billing_cycles.payment_confirmed_at` を更新し、`POST mode=expected` はブラウザを開かず予定額で確定、実額・freee照合の証跡は `billing_log.detail` に保存)、`admin/project-members/bulk` (= POST、PJ メンバー一括 incremental update + 論理削除 (is_active=false)、`ProjectMembersEditor` から呼ばれる、admin/projects のメンバー列モーダルと project/[id]/config の両方で共有、admin必須)、`admin/pj-introduction-html` (= ダッシュボード「📑 全 PJ 紹介資料作成」ボタンから POST、選択 PJ のエグゼクティブサマリー HTML を雛形 fmt で生成。Sonnet 4.5 で 1 PJ ごと JSON 集約 + concurrency 3。雛形 = `src/lib/exec_summary/template_section.html` + `template.css`、prompt = `llm_prompts.exec_summary.extract`、admin必須)、`project-documents` (= GET/POST、PJ cockpit資料。`projects.drive_folder_id` 配下 `AMD OS 資料` folderへDrive uploadし、`project_documents`へmetadata/linkだけ保存。admin必須)、`admin/lane-suggestions/[id]` (= LLM lane 提案の approve/reject、admin必須)、`admin/seed-vcs` 等
 **通知:** `notifications/feedback` (= admin限定。まさ/きよからの修正依頼を `l2_feedbacks` に保存し、候補L2の「はい/いいえ」状態遷移も処理)
 **ソース refs:** `sources/slack/collect` / `sources/gmail/collect` (= source_cacheへ短いsnippet/hash/source_urlだけ保存。取り込み完了通知は作らない)
 **関連メンバー:** `founding-members/revise` (= コックピットのつくよみ修正依頼。提案プレビュー後、OK確定で `project_founding_members` をupsert/invalid化)
@@ -254,6 +254,7 @@ pwa/
 | `triple_helix_loading` | C 行列 (6 観測量 × 3 隠れ状態 μ_A/I/G の loading prior、bvar_prior §3.2)。AmdScoreView の M カードで参照 |
 | `project_founding_members` | PJ 関連メンバー (= HRL 評価のベース。SU 立ち上げ候補 / AMD伴走 / 大学キーパーソン)。DB名は紛らわしいが manual 上は「関連メンバー」と呼ぶ。LLM 抽出 route はあるが Sonnet 利用のため schedule 停止中。`(project_id, person_name)` UNIQUE。詳細は [`xrl_evidence.md`](xrl_evidence.md) / [`amd_score.md`](amd_score.md) / [`../manual/4-4-frl-related-members-score-spec.md`](../manual/4-4-frl-related-members-score-spec.md) |
 | `project_strategy_signals` | L2 ⑨ 経営ハイライト。重要方針・事業進捗・戦略転換・提携・資金・知財/規制・リスク・次の一手をPJ単位で保持し、cockpitのMS直下に表示する。詳細は [`project_strategy_signals.md`](project_strategy_signals.md) |
+| `project_documents` | PJ cockpit資料のDrive link台帳。実ファイルは Google Drive の `projects.drive_folder_id` 配下 `AMD OS 資料` folder に置き、DBには file id / folder ids / webViewLink / name / MIME / size / uploaded_by / timestamps のみ保存 |
 | `proactive_outbox` | 先手力維持ループの主キュー。Dashboard と PJ cockpit の TODO は authenticated admin read-only で表示する。Dashboard は `queued` / `sent_to_commander` / `blocked` を最大3件、PJ cockpit はそのPJの `queued` / `sent_to_commander` / `drafted` / `blocked` を表示する。UIから外部送付・状態更新はしない |
 
 ### つくよみ / その他
@@ -376,8 +377,8 @@ pwa/
 | `NEXT_PUBLIC_DEV_MODE` | `'true'` で DEV モード (anon read 全開) |
 | `SLACK_BOT_TOKEN` | Slack Bot (xoxb-…)。AMD Score L2 cron 用。scopes: search:read, channels:history, channels:read, groups:history, groups:read |
 | `NOTION_API_KEY` | Notion Integration (secret_…)。AMD Score L2 cron 用。Integration を root ページに招待 |
-| `GOOGLE_OAUTH_CLIENT_ID` `GOOGLE_OAUTH_CLIENT_SECRET` `GOOGLE_OAUTH_REFRESH_TOKEN` | Google OAuth (個人 Gmail/Calendar 代理)。L2 cron で Drive/Gmail/Calendar 全部使う |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | (任意、OAuth refresh token の代替) Service Account JSON。Drive のみ用、Gmail/Calendar には domain-wide delegation 必須 |
+| `GOOGLE_OAUTH_CLIENT_ID` `GOOGLE_OAUTH_CLIENT_SECRET` `GOOGLE_OAUTH_REFRESH_TOKEN` | Google OAuth (個人 Gmail/Calendar 代理)。L2 cron で Drive/Gmail/Calendar 全部使う。PJ資料uploadには Drive write scope が必要 |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | (任意、OAuth refresh token の代替) Service Account JSON。Drive のみ用、Gmail/Calendar には domain-wide delegation 必須。PJ資料uploadでは当該PJ folderへの共有と Drive write scope が必要 |
 
 **注意**: `.env.local` を変更しても Vercel に自動反映されない。`vercel env add <KEY> production` で明示追加が必要。
 

@@ -33,7 +33,7 @@ export function getGoogleAuth(): OAuth2Client | null {
       const sa = new google.auth.GoogleAuth({
         credentials,
         scopes: [
-          "https://www.googleapis.com/auth/drive.readonly",
+          "https://www.googleapis.com/auth/drive",
           "https://www.googleapis.com/auth/gmail.readonly",
           "https://www.googleapis.com/auth/calendar.readonly",
         ],
@@ -67,7 +67,7 @@ export async function getGoogleAuthAsync(): Promise<OAuth2Client | null> {
       const sa = new google.auth.GoogleAuth({
         credentials,
         scopes: [
-          "https://www.googleapis.com/auth/drive.readonly",
+          "https://www.googleapis.com/auth/drive",
           "https://www.googleapis.com/auth/gmail.readonly",
           "https://www.googleapis.com/auth/calendar.readonly",
         ],

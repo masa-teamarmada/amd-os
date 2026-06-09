@@ -10,6 +10,7 @@
 | `/institutions/[institutionId]/cockpit` | `pwa/src/app/(app)/institutions/[institutionId]/cockpit/page.tsx` wraps an existing project cockpit in institution context |
 | main component | `pwa/src/components/cockpit/CockpitView.tsx` |
 | data fetch | `pwa/src/lib/supabase-data.ts` (`fetchCockpitFromSupabase`) |
+| project documents | `pwa/src/components/cockpit/CockpitProjectDocuments.tsx`, `pwa/src/app/api/project-documents/route.ts` |
 
 ## Data Bundle
 
@@ -29,6 +30,8 @@
 | `nudges` | cockpit nudges |
 
 `proactive_outbox` は `CockpitData` bundle には混ぜず、`ProactiveQueuePanel` が authenticated browser Supabase client で read-only fetch する。RLS は admin authenticated read 前提で、権限がない場合は UI 内で非表示相当のメッセージにする。
+
+`project_documents` も `CockpitData` bundle には混ぜず、`CockpitProjectDocuments` が `/api/project-documents?project_id=...` を fetch する。ファイル本体は DB / Supabase Storage に置かず、Google Drive の `projects.drive_folder_id` 配下に作成する資料専用 folder (`AMD OS 資料`) へ保存し、DB には Drive file ID / folder ID / `webViewLink` / name / MIME / size / uploaded_by / timestamps だけを残す。
 
 ## Permission
 
@@ -69,6 +72,7 @@ This route is read-only during load. It does not create a duplicate project or w
 | score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | `/api/project/[projectId]/amd-score-detail`。cockpit mount 時に hidden panel として先読みし、client memory cache 5 分TTL + private HTTP cache で再表示待ちを減らす。TTL 超過後にタブが active になったら、表示済み内容を保ったまま背景再取得する |
 | goals compact | `CockpitGoalsCompact` | value plan / MS |
 | TODO | `ProactiveQueuePanel` | `proactive_outbox` read-only。Dashboard は `queued`, `sent_to_commander`, `blocked` を最大3件、PJ cockpit は `queued`, `sent_to_commander`, `drafted`, `blocked` をPJ単位で表示。DBから多めに読み、期限超過 / blocked / queued / sent_to_commander / priority / due_at でUI側sort後、`outbox_id` 重複を排除する。行クリックは発生経緯・`proactive_loop_events` 履歴・資料リンク・外部送付可否・次アクションのモーダル |
+| project documents | `CockpitProjectDocuments` | TODO と経営ハイライトの間に置く資料スペース。drag & drop / file picker で `/api/project-documents` へ multipart upload し、Drive の PJ folder 配下 `AMD OS 資料` folder に新規ファイルとして保存する。同名ファイルは上書きしない。リンク一覧は `project_documents` から取得し、Drive link を新規タブで開く |
 | strategy signals | `CockpitStrategySignals` | `project_strategy_signals` |
 | routine | `CockpitRoutineGas` + routine modals | `billing_cycles` / GAS bridge / APIs |
 | monthly list/modal | `CockpitMonthlyList`, `CockpitMonthlyModal` | reports / reward / progress |
@@ -87,6 +91,24 @@ This route is read-only during load. It does not create a duplicate project or w
 | no `notion_url` and no usable `source_url` | `Notion未連携` disabled state |
 
 The card header includes `メモ再読込`, which refetches `project_meeting_summaries` for the current project and updates the open detail modal if the selected row was refreshed. This is for cases where L6 later backfills `notion_url` / eventId. The PWA does not call a Notion recording API, does not create Notion pages, and does not perform DB DDL for this CTA.
+
+## Project Documents Contract
+
+PJ cockpit の「資料」は、PJ全体で使う資料リンク置き場。MTG単位の添付資料 (`meeting_assets`) とは別で、会議に紐づかない提案書・試算表・契約案・参考PDFなどを置く。
+
+| item | contract |
+|---|---|
+| source project folder | `projects.drive_folder_id` |
+| dedicated folder | `AMD OS 資料` under the source project folder. Missing if upload時に作成 |
+| upload API | `POST /api/project-documents` with `project_id` and `files[]` multipart form |
+| list API | `GET /api/project-documents?project_id=<id>` |
+| DB table | `project_documents` (`pwa/scripts/migrations/131_project_documents_drive_uploads.sql`) |
+| DB payload | Drive file ID / project folder ID / dedicated folder ID / `webViewLink` / file name / MIME / size / uploaded_by / timestamps |
+| file body | Google Drive only. DB and Supabase Storage do not store the body |
+| duplicate handling | no delete / overwrite. Drive same-name files are allowed, so every upload creates a new file |
+| auth | PWA API requires admin auth. Google credential must have Drive write scope and access to the PJ folder |
+
+If `projects.drive_folder_id` is empty, the panel shows a folder-setting warning. If Google credential is missing or has read-only / no shared-folder permission, upload returns a permission error and the panel keeps a retry action. The rest of the cockpit remains usable.
 
 ## Routine Step Contract
 
@@ -170,11 +192,15 @@ GAS remains relevant for legacy freee/Slack/background automation, but cockpit m
 | Edge Function fails | modal keeps open, shows error/toast, does not mark step done |
 | report-only month | monthly modal opens report tab only |
 | proactive_outbox RLS denies read | proactive queue shows admin-only fallback text and does not block the rest of cockpit |
+| project_documents table missing | documents panel shows API error; cockpit remains usable |
+| projects.drive_folder_id missing | documents panel shows folder-setting warning and upload is blocked |
+| Google Drive write permission missing | upload returns permission error; no DB row is inserted |
 
 ## Validation
 
 - `npx tsc --noEmit`
 - `npm run build`
+- dry API contract: `GET /api/project-documents?project_id=<id>` requires admin auth and returns documents / driveConfigured metadata.
 - route smoke after deploy: `/project/<projectId>/cockpit` auth redirect when logged out; logged-in admin sees cockpit.
 - step link smoke: `/project/<projectId>/cockpit?ym=YYYYMM`, `?step=...&ym=...`, `?meeting=...`
 
