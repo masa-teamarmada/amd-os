@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowDown,
   ArrowUp,
@@ -84,6 +85,7 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
   const [markdownBody, setMarkdownBody] = useState("");
   const [markdownLoading, setMarkdownLoading] = useState(false);
   const [markdownError, setMarkdownError] = useState<string | null>(null);
+  const [portalReady, setPortalReady] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const dropzoneRef = useRef<HTMLDivElement | null>(null);
 
@@ -99,6 +101,10 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
     void loadAssets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meeting.meetingId]);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   useEffect(() => {
     if (!markdownAsset) return;
@@ -490,15 +496,18 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
           ))}
         </div>
       )}
-      {markdownAsset && (
-        <MarkdownPreviewModal
-          asset={markdownAsset}
-          body={markdownBody}
-          loading={markdownLoading}
-          error={markdownError}
-          onClose={closeMarkdownModal}
-        />
-      )}
+      {portalReady && markdownAsset
+        ? createPortal(
+            <MarkdownPreviewModal
+              asset={markdownAsset}
+              body={markdownBody}
+              loading={markdownLoading}
+              error={markdownError}
+              onClose={closeMarkdownModal}
+            />,
+            document.body
+          )
+        : null}
     </section>
   );
 }
@@ -643,7 +652,7 @@ function MarkdownPreviewModal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/35 px-4 py-5"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 px-4 py-5"
       role="dialog"
       aria-modal="true"
       aria-label={`${asset.fileName} のMarkdown preview`}
