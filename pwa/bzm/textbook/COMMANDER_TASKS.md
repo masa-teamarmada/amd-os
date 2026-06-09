@@ -62,6 +62,8 @@
 
 ## 未完タスク（優先順位順）
 
+- 2026-06-09: `Textbook MXF model exposition restore` 進行中/本文一次反映。まさ方針「現行ストーリーを活かしつつ、ストーリーの合間に解説を挟む構成で、旧MXF/BZMモデル式を復活」を受け、Ch16/17/18/19/21のModel NoteとMethod Appendix M0/M1/M2/M3/M4/M5/M7を更新。`M×X×F`、`sigma_SU`、観測量、状態空間、TRL/BRL/GRL/SRL/HRL、FRL/CES、統合準備度、律速、ERSを公開向けに復活。成果物: `pwa/bzm/textbook/runs/2026-06-09-mxf-model-exposition-restore.md`。次は検証後、`MXF exposition cold-reader review` と `Technical notation review`。push/deployはapproval gate対象で未実施。
+
 - 2026-06-04: `Textbook Vercel deploy approval gate` Active。Vercel deploy上限は緩和され、deploy自体は再開OK。ただし、production deploy / preview deploy / Vercel自動deployを起こす可能性があるpushを含むdeploy bundleが準備できたら、必ずdeploy bundle付きで `askuserquestion` 承認を取る。deploy bundle候補: Textbook story baseline、Field Toolkit UI、Method Appendix、static reader / Cloudflare reader記録、Vercel ignore gate、その他local検証済み変更をbundle候補として整理する。askuserquestion承認状況: bundle確定前。deploy実施回数: 2026-06-04 gate更新後 0回。push保留: あり。承認待ちはそのbundleだけを止め、承認待ち中に進める次作業として本文rewrite、レビュー、台帳更新、次worker整理を継続する。成果物: `pwa/bzm/textbook/runs/2026-06-04-vercel-deploy-approval-gate.md`。
 
 - 2026-06-03: `Textbook main integration execution` 完了。`codex/textbook-full-story-final-readthrough-polish` をcurrent Textbook story baselineとして `main` へ反映。`HEAD` / `origin/main` は `3fd31fa docs(textbook): audit final publication readiness` で一致。main反映前 `npm run build` passed、manifest consistencyはmissing/unlistedともに `[]`。release checkpointとしてproduction deployを1回だけ試行したが、Vercel quota blocker `Resource is limited - try again in 24 hours (more than 100, code: "api-deployments-free-per-day")` によりproduction未反映。retry連打は禁止方針に従い停止。2026-06-04 approval gateにより、次に本番へ出す場合はdeploy bundleを提示し、askuserquestion承認後に1回だけpush/deployする。成果物: `pwa/bzm/textbook/runs/2026-06-03-main-integration-deploy-checkpoint.md`。
