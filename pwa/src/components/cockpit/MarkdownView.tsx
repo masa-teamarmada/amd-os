@@ -1,5 +1,7 @@
 "use client";
 
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -24,6 +26,7 @@ interface Props {
  */
 export function MarkdownView({ source, tone = "light", linkMode = "default" }: Props) {
   const isHud = tone === "hud";
+  const segments = splitDisplayMath(source);
   const baseText = isHud ? "text-[12px] text-cyan-50/90" : "text-[13px] text-[#1d1d1f]";
   const codeClass = isHud
     ? "rounded bg-cyan-300/10 px-1 py-0.5 text-[11px] font-mono text-cyan-100"
@@ -35,9 +38,18 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
 
   return (
     <div className={`${baseText} leading-relaxed`}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
+      {segments.map((segment, index) =>
+        segment.type === "math" ? (
+          <div
+            key={`math-${index}`}
+            className={`my-4 overflow-x-auto text-center ${isHud ? "text-cyan-50" : "text-[#1d1d1f]"}`}
+            dangerouslySetInnerHTML={{ __html: renderKatex(segment.content) }}
+          />
+        ) : (
+          <ReactMarkdown
+            key={`md-${index}`}
+            remarkPlugins={[remarkGfm]}
+            components={{
           // ===== Headings: 絵文字付き / 色アクセント / 下線 =====
           h1: ({ children }) => (
             <h1 className={isHud
@@ -179,12 +191,46 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
               loading="lazy"
             />
           ),
-        }}
-      >
-        {source}
-      </ReactMarkdown>
+            }}
+          >
+            {segment.content}
+          </ReactMarkdown>
+        ),
+      )}
     </div>
   );
+}
+
+type MarkdownSegment = { type: "md"; content: string } | { type: "math"; content: string };
+
+function splitDisplayMath(source: string): MarkdownSegment[] {
+  const segments: MarkdownSegment[] = [];
+  const regex = /\$\$([\s\S]+?)\$\$/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(source)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ type: "md", content: source.slice(lastIndex, match.index) });
+    }
+    segments.push({ type: "math", content: match[1].trim() });
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < source.length) {
+    segments.push({ type: "md", content: source.slice(lastIndex) });
+  }
+
+  return segments;
+}
+
+function renderKatex(tex: string) {
+  return katex.renderToString(tex, {
+    throwOnError: false,
+    displayMode: true,
+    output: "html",
+    strict: "ignore",
+  });
 }
 
 function normalizeHref(href: string | undefined, linkMode: Props["linkMode"]) {

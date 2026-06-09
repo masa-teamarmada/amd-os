@@ -6,12 +6,31 @@
 
 AMD Score の現行 primary model は PRS (`P x R x S`)。PWA の主表示は PRS を前面に出し、旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
 
-```text
-AMD Score primary = K_prs * P * R * S
-R = product((X_i + 1) ^ alpha_i), X = {TRL, BRL, GRL, SRL, HRL}
-S = (sigma_SU + 1)^alpha_sigma * (FRL + 1)^alpha_F * (R_net + 1)^alpha_R_net
-P = Potential
-```
+$$
+\mathrm{Score}_{\mathrm{PRS}} = K_{\mathrm{PRS}} \cdot P \cdot R \cdot S
+$$
+
+$$
+P = (P_{\mathrm{input}} + 1)^{\alpha_P}
+$$
+
+$$
+R = \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}} (x + 1)^{\alpha_x}
+$$
+
+$$
+S = (\sigma_{\mathrm{SU}} + 1)^{\alpha_\sigma} \cdot (\mathrm{FRL} + 1)^{\alpha_F} \cdot (R_{\mathrm{net}} + 1)^{\alpha_{R_{\mathrm{net}}}}
+$$
+
+$$
+K_{\mathrm{PRS}} = \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{\mathrm{PRS}}}\alpha_x}}
+$$
+
+where:
+
+$$
+\mathcal{A}_{\mathrm{PRS}} = \{P,\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL},\sigma_{\mathrm{SU}},\mathrm{FRL},R_{\mathrm{net}}\}
+$$
 
 `P` / `R_net` が未入力の場合は `status='missing'` / review pending とし、0点に丸めたり legacy AMD を primary として代替表示したりしない。
 
@@ -63,10 +82,14 @@ FRL の 2 レイヤー CES 実装仕様は `/spec/4-1-frl-ces-current-spec` を�
 
 律速軸は寄与度の小ささではなく、限界感度で見る。
 
-```text
-dS/dX_i = alpha_i * S / (X_i + 1)
-bottleneck = argmax alpha_i / (X_i + 1)
-```
+$$
+\frac{\partial \mathrm{Score}}{\partial Z_i}
+= \frac{\alpha_i \cdot \mathrm{Score}}{Z_i + 1}
+$$
+
+$$
+\mathrm{bottleneck} = \arg\max_i \frac{\alpha_i}{Z_i + 1}
+$$
 
 `argmin(contribution share)` に戻さない。
 
@@ -109,15 +132,159 @@ P/R_net rubric の厳密化と全 PJ の埋め切りは継続レビュー対象�
 
 legacy 値しかない PJ でも、primary を legacy AMD へ戻さない。画面上は PRS review pending とし、legacy は `Legacy AMD comparison` / `legacy M-X-F` / `comparison only` の文脈で表示する。
 
+## Score detail page 表示契約
+
+`/venture-map/amd-score/[projectId]` と cockpit の `スコア詳細` embedded view は、次の値をすべて説明可能な形で表示する。ここにある項目を UI に出す場合、算出式または入力元をこの章にも残す。
+
+| UI表示 | 現行の位置づけ | 算出 / 取得元 |
+|---|---|---|
+| `PRS Primary` score | 現行 primary | `calculatePrsScore()` の `Score_PRS`。`P` と `R_net` がある時だけ表示 |
+| `INPUT NEEDED` / missing axes | review pending | `missingAxes`。`P` / `R_net` が null または非数なら score は null |
+| `P Potential` | primary input | `amd_score_inputs.prs_potential`。空欄保存は null |
+| `R_net` | primary input | `amd_score_inputs.prs_r_net`。空欄保存は null |
+| `P` breakdown | PRS component | `(P_input + 1)^{alpha_P}` |
+| `R` breakdown / `R reach` | PRS component | TRL / BRL / GRL / SRL / HRL の contribution product |
+| `S` breakdown / `S survival` | PRS component | `sigma_SU` / final FRL / `R_net` の contribution product |
+| `PRS history` | primary history | `computePrsScoreSeries()`。`status='ready'` の行だけ採用し、Y軸は log scale |
+| `Legacy AMD comparison` | legacy comparison | `calculateAmdScore()`。PRS missing の代替 primary ではない |
+| `Legacy AMD` hero score | legacy comparison | `K_legacy * M * X * F` |
+| `M / X / F バランス` | legacy evidence | `breakdownFromResult()` の `M`, `X`, `F` |
+| `K`, `Σα`, `σ_SU`, `lane` | score metadata | `calculateAmdScore()` / `calculatePrsScore()` と `project_ventures.lane` |
+| `律速` | action hint | 限界感度 `argmax alpha_i / (Z_i+1)`。現行画面では legacy comparison の bottleneck を併記 |
+| `Triple Helix Matrix` | `sigma_SU` evidence | `triple-helix-observations` 由来の `mu_A` / `mu_I` / `mu_G`、C行列、観測値、被覆率 |
+| `XRL 観測チェックリスト` | XRL evidence / writer | `xrl_checklist` JSONB から達成レベルを算出し、保存時に `trl..hrl` も更新 |
+| `FRL — Founder Readiness Level` | final FRL evidence | ALQ 4因子 / Grit / Resilience / FRL notes と final FRL |
+
+### PRS input resolution
+
+`P` と `R_net` は UI draft がある時は draft を優先し、通常表示では次の順で解決する。
+
+1. 対象 `amd_score_inputs` row の `prs_potential` / `prs_r_net`
+2. 同一PJで `evaluated_at <= target.evaluated_at` の過去 row に保存済みの値
+3. 同一PJの最新 project-level row に保存済みの値
+4. null
+
+null の場合は missing とし、0 へ丸めない。
+
+### PRS expanded formula
+
+$$
+\mathrm{Score}_{\mathrm{PRS}}
+= K_{\mathrm{PRS}}
+\cdot (P_{\mathrm{input}}+1)^{\alpha_P}
+\cdot \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}}(x+1)^{\alpha_x}
+\cdot (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
+\cdot (\mathrm{FRL}+1)^{\alpha_F}
+\cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
+$$
+
+Shallow Tech mode では `TRL=null` として R から TRL を除外し、`K_PRS` も active axes の alpha sum で再校正する。
+
+### Triple Helix / Macrotrend
+
+$$
+\sigma_{\mathrm{SU}} = \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1
+$$
+
+$$
+M = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
+$$
+
+観測モデルがある場合は、直近 quarter の観測値 `y_p` を過去16 quarterで 0-9 正規化し、loading `c_{xp}` で各 hidden state に集約する。
+
+$$
+\tilde{y}_p = 9 \cdot \frac{y_p - \min_t y_p}{\max_t y_p - \min_t y_p}
+$$
+
+$$
+\mu_x = \frac{\sum_p c_{xp}\tilde{y}_p}{\sum_p c_{xp}},
+\qquad x \in \{A,I,G\}
+$$
+
+UIの `c`, `ỹ`, `c·ỹ`, `coverage` は、この観測モデルの説明要素として表示する。観測値欠落時は推測で埋めず、coverage note に残す。
+
+### XRL / Reach
+
+各 XRL axis contribution:
+
+$$
+C_x = (x+1)^{\alpha_x}
+$$
+
+Reach:
+
+$$
+R = C_{\mathrm{TRL}} \cdot C_{\mathrm{BRL}} \cdot C_{\mathrm{GRL}} \cdot C_{\mathrm{SRL}} \cdot C_{\mathrm{HRL}}
+$$
+
+`XRL 観測チェックリスト` の達成レベルは、下から見て全項目が checked の連続最大レベル。
+
+$$
+\mathrm{level}_a =
+\max\left\{l \mid \forall j \le l,\ \forall k \in \mathrm{checklist}_{a,j},\ \mathrm{checked}_{a,j,k}=\mathrm{true}\right\}
+$$
+
+保存時は `amd_score_inputs.xrl_checklist` に JSONB を保存し、同じ row の `trl`, `brl`, `grl`, `srl`, `hrl` を `level_a` で上書きする。
+
+### FRL / Survival
+
+FRL 自動算出モードでは、入力済み component の重みだけを使って正規化する。全 component が null の場合は null。
+
+$$
+\overline{\mathrm{ALQ}_4}
+= \mathrm{avg}(\mathrm{SelfAwareness},\mathrm{RelationalTransparency},\mathrm{BalancedProcessing},\mathrm{InternalizedMoral})
+$$
+
+$$
+\mathrm{FRL}_{6f}
+= \frac{0.6 \cdot \overline{\mathrm{ALQ}_4}
+ + 0.2 \cdot \mathrm{Grit}
+ + 0.2 \cdot \mathrm{Resilience}}
+{\sum \mathrm{available\ weights}}
+$$
+
+final FRL は `/spec/4-1-frl-ces-current-spec` の `resolveFrl()` に従い、`frl_cap` がある場合は CES で `F_character` と `F_capability` を合成する。
+
+$$
+\mathrm{FRL}_{\mathrm{final}}
+= \left(a(F_{\mathrm{char}}+1)^\rho + (1-a)(F_{\mathrm{cap}}+1)^\rho\right)^{1/\rho} - 1
+$$
+
+$$
+S = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
+\cdot (\mathrm{FRL}_{\mathrm{final}}+1)^{\alpha_F}
+\cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
+$$
+
 ## Appendix: legacy MXF / 7軸モデル
 
 このセクションは過去モデルの保存場所。legacy MXF (= M-X-F / 7軸 Cobb-Douglas) は、現行 primary ではない。
 
-```text
-Legacy AMD Score = K * product((X_i + 1) ^ alpha_i)
-X = {sigma_SU, TRL, BRL, GRL, SRL, HRL, FRL}
-K = 100000 / 10 ^ sum(alpha)
-```
+$$
+\mathrm{Score}_{\mathrm{legacy}}
+= K_{\mathrm{legacy}} \cdot \prod_{i \in \mathcal{A}_{\mathrm{legacy}}}(X_i+1)^{\alpha_i}
+$$
+
+$$
+\mathcal{A}_{\mathrm{legacy}}
+= \{\sigma_{\mathrm{SU}},\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL},\mathrm{FRL}\}
+$$
+
+$$
+K_{\mathrm{legacy}} = \frac{100{,}000}{10^{\sum_{i \in \mathcal{A}_{\mathrm{legacy}}}\alpha_i}}
+$$
+
+UI 表示上は次に分解する。
+
+$$
+\mathrm{Score}_{\mathrm{legacy}} = K_{\mathrm{legacy}} \cdot M \cdot X \cdot F
+$$
+
+$$
+M = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma},\quad
+X = \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}}(x+1)^{\alpha_x},\quad
+F = (\mathrm{FRL}+1)^{\alpha_F}
+$$
 
 Shallow Tech mode では TRL 軸を除外し、K を再校正する。
 

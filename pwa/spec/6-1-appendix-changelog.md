@@ -57,3 +57,4 @@
 | 2026-06-05 | L2データリスト | 変更 | `L2データリスト` を3章配下の通常章扱いから外し、`/spec` トップ直下の旧フレームから旧本文へ入る独立導線へ戻した | `3-0` slug名に引きずられて3-1系の章目次へ混ぜると、元の独立したL2正本リスト導線と異なるため | えいみ |
 | 2026-06-05 | L2データリスト | 変更 | 旧本文を、履歴上の最新L2データリスト表（`マシン` / `cron名` / `タイミング` 列を持つL2①〜⑯表）へ復活 | 5列版ではなく、削除前の最新表を画面上に戻すため | えいみ |
 | 2026-06-09 | 3-8 / 4-2 | 変更 | AMD Score の current contract を PRS primary へ更新し、legacy M-X-F / 7軸 Cobb-Douglas を comparison / evidence / Appendix 扱いに整理。Cockpit score detail も PRS Primary / PRS history を主表示、legacy AMD は比較用と明記 | v0.16.17 では設計書の主語がまだ MXF 中心に残っていたため、現行 primary が PRS だと画面上で誤読されないよう正本を揃えるため | えいみ-worker |
+| 2026-06-09 | 4-2 | 変更 | AMD Score / PRS / legacy MXF の数式を LaTeX 表記へ変更し、スコア詳細ページに表示される PRS Primary、P/R/S、R_net、PRS history、legacy M/X/F、Triple Helix、FRL 6因子、XRLチェックリスト、律速の各パラメータ算出元を追記 | スコア詳細ページに表示される値が設計書上で説明されておらず、数式も text 表記で読みにくかったため | えいみ-worker |

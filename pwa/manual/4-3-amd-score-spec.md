@@ -15,27 +15,158 @@ AMD Score は、PJ / SU の価値・成熟度を数値化する指標。現行�
 
 ## 現行 primary: PRS
 
-```text
-AMD Score primary = K_prs · P · R · S
+$$
+\mathrm{Score}_{\mathrm{PRS}} = K_{\mathrm{PRS}} \cdot P \cdot R \cdot S
+$$
 
-R = Π_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x
-S = (σ_SU+1)^α_σ · (FRL+1)^α_F · (R_net+1)^α_R_net
-```
+$$
+P = (P_{\mathrm{input}}+1)^{\alpha_P}
+$$
+
+$$
+R = \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}} (x+1)^{\alpha_x}
+$$
+
+$$
+S = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma} \cdot (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
+$$
+
+$$
+K_{\mathrm{PRS}} = \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{\mathrm{PRS}}}\alpha_x}}
+$$
 
 P / R_net は `amd_score_inputs.prs_potential` / `amd_score_inputs.prs_r_net` に nullable で保存する。未入力は「review pending」として扱い、0点に丸めたり legacy AMD を主表示へ戻したりしない。
+
+## スコア詳細ページに出ているもの
+
+`/venture-map/amd-score/{projectId}` と PJ コックピットの `スコア詳細` タブは、次の順番で読む。
+
+| 表示 | 読み方 | 算出 / 入力 |
+|---|---|---|
+| `PRS Primary` | いまの AMD Score 正本 | `Score_PRS = K_PRS * P * R * S` |
+| `INPUT NEEDED` | PRS未完成 | `P` / `R_net` のどちらかが未入力。legacyを代わりに主表示しない |
+| `P Potential` | 事業ポテンシャル | `prs_potential` を人がレビューして保存。計算上は `(P_input+1)^alpha_P` |
+| `R_net` | 純残存力 | `prs_r_net` を人がレビューして保存。計算上は `(R_net+1)^alpha_R_net` |
+| `R reach` | 到達力 | TRL / BRL / GRL / SRL / HRL の積 |
+| `S survival` | 生存力 | `sigma_SU` / FRL / `R_net` の積 |
+| `PRS history` | PRSの時系列 | P/R_netまで揃っている過去行だけを log scale で描く |
+| `Legacy AMD comparison` | 旧モデル比較 | M-X-F / 7軸の旧スコア。現行primaryではない |
+| `M / X / F バランス` | 旧モデルの内訳 | M=Macrotrend、X=XRL、F=FRL |
+| `Triple Helix Matrix` | Mの根拠 | `mu_A` / `mu_I` / `mu_G`、観測値、loading、coverage |
+| `FRL — Founder Readiness Level` | founder readiness の根拠 | ALQ 4因子 / Grit / Resilience / FRL notes / final FRL |
+| `XRL 観測チェックリスト` | XRL値の根拠 | レベル別チェックから達成レベルを算出し、保存時に `trl..hrl` へ反映 |
+| `律速` | 最初に手当てすべき軸 | 限界感度が最大の軸 |
+
+### P / R_net の決まり方
+
+詳細ページの入力欄で保存すると、最新の `amd_score_inputs` row に `prs_potential` / `prs_r_net` として保存される。通常表示では、対象 row の値を先に読み、無ければ同じPJの過去保存値、さらに同じPJの最新保存値を見にいく。それでも無ければ null のまま review pending。
+
+空欄は 0 ではなく null。ここがすごく大事。
+
+### R reach の決まり方
+
+$$
+C_x = (x+1)^{\alpha_x}
+$$
+
+$$
+R = C_{\mathrm{TRL}} \cdot C_{\mathrm{BRL}} \cdot C_{\mathrm{GRL}} \cdot C_{\mathrm{SRL}} \cdot C_{\mathrm{HRL}}
+$$
+
+Shallow Tech モードでは TRL を外して、K も TRL 抜きで再校正する。
+
+### S survival の決まり方
+
+$$
+\sigma_{\mathrm{SU}} = \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1
+$$
+
+$$
+S = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
+\cdot (\mathrm{FRL}_{\mathrm{final}}+1)^{\alpha_F}
+\cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
+$$
+
+`sigma_SU` は Triple Helix の学・産・官の合成。FRL は founder readiness。`R_net` は人がレビューして入れる純残存力。
+
+### Triple Helix Matrix の読み方
+
+観測モデルが使える場合、観測値 `y_p` を過去16 quarterで 0-9 に正規化し、loading `c_{xp}` で `mu_A` / `mu_I` / `mu_G` に集約する。
+
+$$
+\tilde{y}_p = 9 \cdot \frac{y_p - \min_t y_p}{\max_t y_p - \min_t y_p}
+$$
+
+$$
+\mu_x = \frac{\sum_p c_{xp}\tilde{y}_p}{\sum_p c_{xp}}
+$$
+
+画面の `c`, `ỹ`, `c·ỹ`, `データ被覆率` はこの計算の途中経過。欠落している観測量は推測で補完しない。
+
+### FRL 6因子の読み方
+
+FRL自動算出モードでは ALQ 4因子平均、Grit、Resilience から推定する。未入力の因子は 0 扱いではなく、入力済みの重みだけで正規化する。
+
+$$
+\overline{\mathrm{ALQ}_4}
+= \mathrm{avg}(\mathrm{SelfAwareness},\mathrm{RelationalTransparency},\mathrm{BalancedProcessing},\mathrm{InternalizedMoral})
+$$
+
+$$
+\mathrm{FRL}_{6f}
+= \frac{0.6 \cdot \overline{\mathrm{ALQ}_4}
+ + 0.2 \cdot \mathrm{Grit}
+ + 0.2 \cdot \mathrm{Resilience}}
+{\sum \mathrm{available\ weights}}
+$$
+
+FRL capability layer (`frl_cap`) がある時は `/spec/4-1-frl-ces-current-spec` の CES で final FRL を作る。
+
+$$
+\mathrm{FRL}_{\mathrm{final}}
+= \left(a(F_{\mathrm{char}}+1)^\rho + (1-a)(F_{\mathrm{cap}}+1)^\rho\right)^{1/\rho} - 1
+$$
+
+### XRL 観測チェックリストの読み方
+
+各軸の達成レベルは、Lv.1から順に「全項目チェック済み」が続く最大レベル。
+
+$$
+\mathrm{level}_a =
+\max\left\{l \mid \forall j \le l,\ \forall k \in \mathrm{checklist}_{a,j},\ \mathrm{checked}_{a,j,k}=\mathrm{true}\right\}
+$$
+
+保存すると `xrl_checklist` JSONB と同時に `trl` / `brl` / `grl` / `srl` / `hrl` の生値も更新される。
 
 ## Legacy AMD / M-X-F
 
 旧モデルでは 7 軸の積を、画面では次の 3 大要素で見せていた。これは現行 primary ではなく、legacy comparison / evidence 用の読み方。
 
-```text
-Legacy AMD Score = K · Π (X_i + 1)^α_i
-X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
+$$
+\mathrm{Score}_{\mathrm{legacy}}
+= K_{\mathrm{legacy}} \cdot \prod_{i \in \mathcal{A}_{\mathrm{legacy}}}(X_i+1)^{\alpha_i}
+$$
 
-M = (σ_SU+1)^α_σ
-X = Π_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x
-F = (FRL+1)^α_F
-```
+$$
+\mathcal{A}_{\mathrm{legacy}}
+= \{\sigma_{\mathrm{SU}},\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL},\mathrm{FRL}\}
+$$
+
+$$
+\mathrm{Score}_{\mathrm{legacy}} = K_{\mathrm{legacy}} \cdot M \cdot X \cdot F
+$$
+
+$$
+M = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
+$$
+
+$$
+X = \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}} (x+1)^{\alpha_x}
+$$
+
+$$
+F = (\mathrm{FRL}+1)^{\alpha_F}
+$$
 
 | UI | 意味 | 構成 |
 |---|---|---|
@@ -77,10 +208,14 @@ F = (FRL+1)^α_F
 
 律速軸は「1 段階上げた時に score が一番増える軸」。
 
-```text
-∂S/∂X_i = α_i · S / (X_i + 1)
-bottleneck = argmax_i α_i / (X_i + 1)
-```
+$$
+\frac{\partial \mathrm{Score}}{\partial Z_i}
+= \frac{\alpha_i \cdot \mathrm{Score}}{Z_i + 1}
+$$
+
+$$
+\mathrm{bottleneck} = \arg\max_i \frac{\alpha_i}{Z_i + 1}
+$$
 
 単に値が低い軸ではない。α が大きく、かつ現在値が低い軸が最も効く。
 

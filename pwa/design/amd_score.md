@@ -27,11 +27,25 @@
 
 ## Current primary: PRS
 
-```text
-AMD Score primary = K_prs · P · R · S
-R = Π_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x
-S = (σ_SU+1)^α_σ · (FRL+1)^α_F · (R_net+1)^α_R_net
-```
+$$
+\mathrm{Score}_{\mathrm{PRS}} = K_{\mathrm{PRS}} \cdot P \cdot R \cdot S
+$$
+
+$$
+P = (P_{\mathrm{input}} + 1)^{\alpha_P}
+$$
+
+$$
+R = \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}} (x+1)^{\alpha_x}
+$$
+
+$$
+S = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma} \cdot (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
+$$
+
+$$
+K_{\mathrm{PRS}} = \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{\mathrm{PRS}}}\alpha_x}}
+$$
 
 - `P`: Potential / 潜在規模
 - `R`: Reach / Readiness。TRL / BRL / GRL / SRL / HRL の contribution product
@@ -46,11 +60,18 @@ S = (σ_SU+1)^α_σ · (FRL+1)^α_F · (R_net+1)^α_R_net
 
 ## 数式 (legacy 要約)
 
-```
-AMD Score = K · Π (X_i + 1)^α_i      X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
-σ_SU      = ((μ_A+1)(μ_I+1)(μ_G+1))^(1/3) - 1     (Triple Helix CD)
-K         = 100,000 / 10^Σα                       (全軸 9 で IPO 級 100,000 に校正)
-```
+$$
+\mathrm{Score}_{\mathrm{legacy}}
+= K_{\mathrm{legacy}} \cdot \prod_{i \in \{\sigma_{\mathrm{SU}},\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL},\mathrm{FRL}\}}(X_i+1)^{\alpha_i}
+$$
+
+$$
+\sigma_{\mathrm{SU}} = \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1
+$$
+
+$$
+K_{\mathrm{legacy}} = \frac{100{,}000}{10^{\sum_i \alpha_i}}
+$$
 
 Shallow Tech モード (TRL=null) は TRL 軸を計算から除外、6 軸 + K 再校正。
 
@@ -58,12 +79,21 @@ Shallow Tech モード (TRL=null) は TRL 軸を計算から除外、6 軸 + K �
 
 理論層は 7 軸 1 つの ∏ だが、UI では「マクロ M × 会社の XRL X × CEO の FRL F」の **3 大要素**で見せる:
 
-```
-S = k · M · X · F                 (k = 100,000 / 10^Σα、小文字で定数感)
-M = (σ_SU+1)^α_σ                  外部環境 (Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
-X = ∏_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x   会社に帰属する 5 軸 readiness
-F = (FRL+1)^α_F                   個人に帰属する CEO リーダーシップ (ALQ ベース)
-```
+$$
+\mathrm{Score}_{\mathrm{legacy}} = k \cdot M \cdot X \cdot F
+$$
+
+$$
+M = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
+$$
+
+$$
+X = \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}}(x+1)^{\alpha_x}
+$$
+
+$$
+F = (\mathrm{FRL}+1)^{\alpha_F}
+$$
 
 哲学 (まさ言語化): 「マクロトレンドの流れがあって、会社の XRL が整っていて、それを FRL 高い CEO が牽引する」。
 
@@ -71,10 +101,14 @@ F = (FRL+1)^α_F                   個人に帰属する CEO リーダーシッ�
 
 ### 律速判定 (Marginal Sensitivity)
 
-```
-∂S/∂X_i  =  α_i · S / (X_i + 1)
-bottleneck  =  argmax_i  α_i / (X_i + 1)
-```
+$$
+\frac{\partial \mathrm{Score}}{\partial Z_i}
+= \frac{\alpha_i \cdot \mathrm{Score}}{Z_i+1}
+$$
+
+$$
+\mathrm{bottleneck} = \arg\max_i \frac{\alpha_i}{Z_i+1}
+$$
 
 「1 段階上げたとき S が最も大きく増える軸」が律速 = 経営アクションで最初に手当てすべき軸。
 
@@ -165,17 +199,47 @@ amd_score_alpha (alpha jsonb, effective_from / effective_to)
 
 ### 詳細ページのレイアウト (2026-05-09 改修 後期)
 
-最終レイアウト:
+現行レイアウト:
 ```
 ヘッダ (← 一覧 / コックピットリンク / α retrofit へのリンク)
 案内バー (値の修正は Tsukuyomi 経由)
-ScoreHeroCard          (S 値、log バー、律速軸ラベル、K/Σα/σ_SU、lane)
-BalanceBar             (3 要素 M/X/F の raw contribution signal。M は理論最大値を置かない)
-FormulaPanel           (全体式 + 3 要素式 + 律速の経済学的根拠 + 各式の引用文献)
-Factor3Breakdown       (3 要素カード — 各軸クリックで Tsukuyomi 起動)
-TimeSeriesChart        (経時 line chart)
+PrimaryPrsHeroCard     (PRS primary score / P Potential / R_net / P/R/S breakdown)
+PrimaryPrsTimeSeries   (PRS primary history。ready row のみ)
+PrimaryPrsBreakdown    (P potential / R reach / S survival / R_net)
+ScoreHeroCard          (legacy AMD comparison。S 値、log バー、律速軸ラベル、K/Σα/σ_SU、lane)
+BalanceBar             (legacy 3 要素 M/X/F の raw contribution signal。M は理論最大値を置かない)
+FormulaPanel           (PRS式 + legacy 3 要素式 + 律速の経済学的根拠 + 各式の引用文献)
+Factor3Breakdown       (legacy 3 要素カード — 各軸クリックで Tsukuyomi 起動)
+TimeSeriesChart        (legacy 経時 line chart)
 FrlAlqPanel            (FRL 6 因子表示 + ALQ radar — 各因子クリックで Tsukuyomi 起動)
+XrlChecklistPanel      (XRL観測チェックリスト。達成レベルをtrl..hrlへ反映)
 ```
+
+### Score detail display contract (2026-06-09)
+
+スコア詳細ページに表示するパラメータは、必ず `/spec/4-2-amd-score-current-spec.md` と `/manual/4-3-amd-score-spec.md` に算出元を持つ。表示だけ増やして説明を増やさない変更は禁止。
+
+| UI parameter | Component / function | Calculation contract |
+|---|---|---|
+| PRS score | `PrimaryPrsHeroCard`, `calculatePrsScore()` | `K_PRS * P * R * S` |
+| P Potential | `PrimaryPrsHeroCard` | `(prs_potential + 1)^alpha_P`; nullable review input |
+| R_net | `PrimaryPrsHeroCard` | `(prs_r_net + 1)^alpha_R_net`; nullable review input |
+| R reach | `calculatePrsScore()` | product of TRL/BRL/GRL/SRL/HRL contributions |
+| S survival | `calculatePrsScore()` | `sigma_SU`, final FRL, R_net contributions |
+| PRS history | `computePrsScoreSeries()` | only `status='ready'` points |
+| legacy score | `ScoreHeroCard`, `calculateAmdScore()` | old 7-axis Cobb-Douglas, comparison only |
+| M | `breakdownFromResult()` / `TripleHelixMatrix` | `(sigma_SU+1)^alpha_sigma` |
+| X | `breakdownFromResult()` | product of XRL contributions |
+| F | `breakdownFromResult()` | `(FRL_final+1)^alpha_F` |
+| sigma_SU | `computeSigmaSU()` | `sqrt[3]((mu_A+1)(mu_I+1)(mu_G+1))-1` |
+| mu_A/I/G | `TripleHelixMatrix` | notes first, observation model as evidence display |
+| C matrix values | `TripleHelixMatrix` | loading `c`, normalized `ỹ`, contribution `c*ỹ` |
+| XRL levels | `XrlChecklistPanel` | continuous all-checked level from Lv.1 upward |
+| FRL 6 factors | `FrlAlqPanel` | ALQ4 average, Grit, Resilience; null is not zero |
+| final FRL | `resolveFrl()` | CES with `frl_cap` when available |
+| bottleneck | `calculateAmdScore()` / formula panel | `argmax alpha_i/(Z_i+1)` |
+
+PRS `P` / `R_net` の resolution order は `resolvePrsInputs()` を正本にする。対象 row、同一PJの過去保存値、同一PJの最新保存値、null の順。null は missing であって 0 ではない。
 
 削除したもの:
 - **RadarChart (寄与度シェア)**: α が大きい軸ほど大きく見える構造的偏りで情報量低い (まさフィードバック 2026-05-09)
