@@ -263,11 +263,14 @@ expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   "チームへの提案案",
   "DialogueMeetingBody",
   "MeetingAssetsPanel",
-  "MeetingSummaryEditor",
+  "MeetingSummaryInlineEditor",
+  "MeetingPrepInlineEditor",
+  "表示内容を編集",
   "/api/meeting-summary/manual-update",
   "narrativeMd",
   "TopicList",
   "NarrativeSection",
+  "必ず確認すること",
 ]);
 expectIncludes("src/components/cockpit/MeetingAssetsPanel.tsx", [
   "添付資料",
@@ -388,9 +391,9 @@ expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [
 
 // 議事録モーダルの修正導線は手動編集に一本化する。
 expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
-  "MeetingSummaryEditor",
+  "MeetingSummaryInlineEditor",
   "/api/meeting-summary/manual-update",
-  "議事録を手動修正",
+  "表示内容を編集",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   "MeetingFeedbackBlock",

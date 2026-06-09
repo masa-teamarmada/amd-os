@@ -42,6 +42,7 @@ Calendar event の PJ 判定は、色→PJ判定を第一軸にする。
 - `+` / `＋` 始まり、全日予定、start datetime のない予定は除外する。
 - Drive資料は automation 側が metadata として渡す。PWA route は Drive を直接読まない。
 - Drive資料だけを根拠に `decided` へ「決定済み」と書かない。
+- 予定MTG詳細では `risks` を UI 上「必ず確認すること」として表示・編集する。既存データは破壊削除せず、旧「気をつけたい読み違い」相当の値もこの section の確認事項として扱う。
 
 ## ended / frozen PJ の MTGサマリ生成ガード (2026-06-03 まさ確定)
 
@@ -69,6 +70,7 @@ Calendar event の PJ 判定は、色→PJ判定を第一軸にする。
 - 見出し文言・絵文字・順序を変えない。
 - raw array の貼り付けではなく、参加していないメンバーが理解できる段落にする。
 - `✅決まったこと` は会議で実際に合意・確認されたことだけを書く。
+- 詳細モーダルの編集 mode は、表示している section と同じ source field を編集する。`narrative_md` が主表示なら `narrative_md`、raw 配列が表示されている fallback 時だけ `decided / progress / next_actions / risks` を編集する。
 
 ## 出力
 

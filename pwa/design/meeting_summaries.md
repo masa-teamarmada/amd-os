@@ -259,7 +259,7 @@ weekly recurring MTG は、Google Calendar の `recurring_event_id` が取れる
 
 - `CockpitMeetingSummary` は `source_kinds='upcoming'` の行を、通常の月別議事録とは分けて先頭の「予定MTG / 準備中」ブロックに表示する。`meeting_id LIKE 'upcoming:%'` だけでは確定予定扱いにしない。weekly recurring MTG は series ごとに次回1件だけ表示する。日程未確定の仮置き (`upcoming_tentative`) は「日程調整中MTG」ブロックに表示し、確定予定 count には含めない。仮置き用の `meeting_date` は DB の都合で入っていても、一覧では未定として表示する。
 - row には `予定MTG` chip と Calendar link を出す。
-- 詳細モーダルは `narrative_md` の「初見ブリーフ」を主表示にする。`decided / progress / next_actions / risks` は箇条書きではなく、「会議後に残したい状態」「いまの状況」「当日までに揃えるもの」「気をつけたい読み違い」という文章カードとして補助表示する。
+- 詳細モーダルは `narrative_md` の「初見ブリーフ」を主表示にする。`decided / progress / next_actions / risks` は箇条書きではなく、「会議後に残したい状態」「いまの状況」「当日までに揃えるもの」「必ず確認すること」という文章カードとして補助表示する。既存 `risks` の値は破壊せず「必ず確認すること」に読み替えて表示・編集する。
 - 編集欄は `1段落1ブロック` で保存する。短い断片を並べる用途ではなく、初めて読む人が背景・狙い・準備を文章として追える粒度にする。
 - 「Codex相談メモをコピー」で、今の内容を Codex に渡すための Markdown prompt としてコピーできる。
 - 「準備内容を編集」から同じ row を更新できる。保存先は `POST /api/meeting-prep`。
@@ -270,7 +270,7 @@ weekly recurring MTG は、Google Calendar の `recurring_event_id` が取れる
 
 MTGカードの一覧に出る短い文章は `project_meeting_summaries.summary_short`。詳細モーダルは `narrative_md` があればそれを主表示し、無い場合だけ `summary_short` と `decided / progress / next_actions / risks` を表示する。今後の `narrative_md` は、MTGに参加していなかったメンバーが読んでも背景・議論の流れ・決定/未決・次の一手が分かる文章 narrative を正とする。箇条書きの羅列は議事録本文として扱わない。
 
-通常MTG / dialogue の詳細モーダルには「議事録を手動修正」を置き、以下の表示用フィールドを `POST /api/meeting-summary/manual-update` で直接上書きする。
+通常MTG / dialogue の詳細モーダルには「表示内容を編集」を置き、表示中の section と同じ source field を `POST /api/meeting-summary/manual-update` で直接上書きする。`narrative_md` が表示されている場合は `narrative_md` を、raw 配列が表示されている fallback 時だけ `decided / progress / next_actions / risks` を編集する。
 
 - `title`
 - `summary_short`
@@ -507,9 +507,9 @@ if existing.source_hash === newHash: skip (LLM 呼ばない)
 - 行クリック時は URL を `/project/[projectId]/cockpit?meeting=<meeting_id>` に更新する。共有された同 URL で開くと該当 MTG 詳細モーダルを auto-open し、直近 1 年に無い row は older load で探す。閉じると `meeting` query だけを外す。`ym` / `step` と同時に来た場合は MTG 詳細を優先し、月次系モーダルとの二重起動は避ける。
 - `source_kinds='upcoming'` は月別議事録より上の「予定MTG / 準備中」に出し、詳細モーダルでは初見ブリーフとして表示する
 - 一覧カードの本文は `summary_short` を line-clamp 2 で表示する。詳細モーダルは `narrative_md` があれば本文として優先表示し、`narrative_md` が無い場合だけ `summary_short` + raw 配列を表示する。`narrative_md` は「そのMTGに参加していなかったメンバーでも会議の流れを理解できる文章」とし、`## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定順で書く。箇条書き・チェックボックス・配列項目の貼り付けを本文にしない。
-- モーダル内: ヘッダ (日時 + title + notion link + source_kinds chip) → サマリ → 決まったこと → 進んだこと → 次やること → リスク を縦並び。各 item は `MarkdownView` で markdown 描画 (= 表/見出し/リスト/コード/引用 OK)
+- モーダル内: ヘッダ (日時 + title + notion link + source_kinds chip) → サマリ / narrative → 決まったこと → 進んだこと → 次やること → リスク を縦並び。各 item は `MarkdownView` で markdown 描画 (= 表/見出し/リスト/コード/引用 OK)。編集 mode では表示している section が同じ位置で textarea になる
 - 議事録なしマーカー行は `summary_short` だけ "議事録なし" が出る (decided/progress/... は空なので非表示、`Notion で開く` リンクは notion_url があれば出る)
-- 通常MTG / dialogue は詳細モーダル末尾の「議事録を手動修正」から `title / summary_short / narrative_md / decided / progress / next_actions / risks` を更新できる。保存先は `POST /api/meeting-summary/manual-update`。MTG 詳細モーダルには「つくよみに修正依頼」を置かず、LLM 再解釈ではなく手動編集を正本にする。
+- 通常MTG / dialogue は詳細モーダルの「表示内容を編集」から、表示中の `narrative_md` または raw section (`summary_short / decided / progress / next_actions / risks`) を更新できる。保存先は `POST /api/meeting-summary/manual-update`。MTG 詳細モーダルには「つくよみに修正依頼」を置かず、LLM 再解釈ではなく手動編集を正本にする。
 - jsonb 配列 (decided / progress / next_actions / risks) の各要素には **GFM table を含む長文 markdown を保存する運用** に変更 (= 提案前の論点整理セッションの議事録のように、L表/U表/L×U マトリクスを各要素に埋め込んで詳細解説する用途)。表は `<div className="overflow-x-auto">` で横スクロール対応
 
 ---

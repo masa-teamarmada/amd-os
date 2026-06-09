@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +60,13 @@ function notionTranscriptLink(meeting: ProjectMeetingSummary): { href: string; l
 }
 
 export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, onOpenChange, onMeetingUpdated }: Props) {
+  const meetingId = meeting?.meetingId ?? null;
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    setEditing(false);
+  }, [meetingId]);
+
   if (!meeting) return null;
   const dialogue = isDialogueMeeting(meeting);
   const upcoming = isUpcomingMeeting(meeting);
@@ -130,23 +137,25 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
                 {sourceLabel} で開く ↗
               </a>
             )}
+            <button
+              type="button"
+              onClick={() => setEditing((v) => !v)}
+              className={editing
+                ? "inline-flex items-center gap-1.5 rounded border border-[#1d1d1f] bg-[#1d1d1f] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[#3c3c43]"
+                : "inline-flex items-center gap-1.5 rounded border border-[#d2d2d7] bg-white px-2.5 py-1 text-[11px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7]"}
+            >
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{editing ? "編集を閉じる" : "表示内容を編集"}</span>
+            </button>
           </div>
         </header>
 
         {prep ? (
-          <UpcomingMeetingBody meeting={meeting} onMeetingUpdated={onMeetingUpdated} />
+          <UpcomingMeetingBody meeting={meeting} editing={editing} onMeetingUpdated={onMeetingUpdated} />
         ) : dialogue ? (
-          <DialogueMeetingBody meeting={meeting} />
+          <DialogueMeetingBody meeting={meeting} editing={editing} onMeetingUpdated={onMeetingUpdated} />
         ) : (
-          <RegularMeetingBody meeting={meeting} prepMeeting={prepMeeting} />
-        )}
-
-        {!prep && (
-          <MeetingSummaryEditor
-            key={meeting.meetingId}
-            meeting={meeting}
-            onMeetingUpdated={onMeetingUpdated}
-          />
+          <RegularMeetingBody meeting={meeting} prepMeeting={prepMeeting} editing={editing} onMeetingUpdated={onMeetingUpdated} />
         )}
 
         <MeetingAssetsPanel
@@ -165,9 +174,11 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
 
 function UpcomingMeetingBody({
   meeting,
+  editing,
   onMeetingUpdated,
 }: {
   meeting: ProjectMeetingSummary;
+  editing: boolean;
   onMeetingUpdated?: (meeting: ProjectMeetingSummary) => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -182,6 +193,10 @@ function UpcomingMeetingBody({
     } catch {
       setCopied(false);
     }
+  }
+
+  if (editing) {
+    return <MeetingPrepInlineEditor key={meeting.meetingId} meeting={meeting} onMeetingUpdated={onMeetingUpdated} />;
   }
 
   return (
@@ -222,8 +237,8 @@ function UpcomingMeetingBody({
         items={meeting.nextActions}
       />
       <UpcomingProseSection
-        label="気をつけたい読み違い"
-        helper="話が散りそうな点、営業色が強くなりすぎる点、あとでOS上の扱いに迷いそうな点。"
+        label="必ず確認すること"
+        helper="会議前に必ず確認しておく前提、相手に聞くこと、あとでOS上の扱いに迷いそうな点。"
         items={meeting.risks}
       />
 
@@ -237,8 +252,6 @@ function UpcomingMeetingBody({
         </button>
         {copied && <span className="text-[11px] text-amber-800">コピーしたよ</span>}
       </div>
-
-      <MeetingPrepEditor meeting={meeting} onMeetingUpdated={onMeetingUpdated} />
     </div>
   );
 }
@@ -304,7 +317,7 @@ function buildMeetingPrepCodexPrompt(meeting: ProjectMeetingSummary): string {
     "## それまでに用意するもの",
     formatPromptList(meeting.nextActions),
     "",
-    "## 未整理の論点・気をつけること",
+    "## 必ず確認すること",
     formatPromptList(meeting.risks),
     "",
     "## えいみ準備メモ",
@@ -316,14 +329,14 @@ function formatPromptList(items: string[]): string {
   return items.length > 0 ? items.join("\n\n") : "(未記入)";
 }
 
-function MeetingPrepEditor({
+function MeetingPrepInlineEditor({
   meeting,
   onMeetingUpdated,
 }: {
   meeting: ProjectMeetingSummary;
   onMeetingUpdated?: (meeting: ProjectMeetingSummary) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(meeting.title);
   const [summaryShort, setSummaryShort] = useState(meeting.summaryShort);
   const [decided, setDecided] = useState(arrayToBlockText(meeting.decided));
   const [progress, setProgress] = useState(arrayToBlockText(meeting.progress));
@@ -332,6 +345,7 @@ function MeetingPrepEditor({
   const [narrativeMd, setNarrativeMd] = useState(meeting.narrativeMd || "");
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const hasNarrative = !!meeting.narrativeMd?.trim();
 
   async function save() {
     setSaving(true);
@@ -345,7 +359,7 @@ function MeetingPrepEditor({
           project_id: meeting.projectId,
           meeting_date: meeting.meetingDate,
           meeting_start_at: meeting.meetingStartAt,
-          title: meeting.title,
+          title,
           calendar_event_id: meeting.calendarEventId,
           source_url: meeting.sourceUrl,
           summary_short: summaryShort,
@@ -372,36 +386,48 @@ function MeetingPrepEditor({
   }
 
   return (
-    <div className="rounded-md border border-amber-200 bg-white">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] font-semibold text-amber-950 hover:bg-amber-50"
-      >
-        <span>準備内容を編集</span>
-        <span className="text-[11px] text-amber-700">{open ? "閉じる" : "開く"}</span>
-      </button>
-      {open && (
-        <div className="space-y-3 border-t border-amber-100 px-3 py-3">
-          <PrepTextarea label="このMTGの狙い" value={summaryShort} onChange={setSummaryShort} rows={3} />
-          <PrepTextarea label="会議後に残したい状態 (1段落1ブロック)" value={decided} onChange={setDecided} rows={5} />
-          <PrepTextarea label="いまの状況 (1段落1ブロック)" value={progress} onChange={setProgress} rows={4} />
-          <PrepTextarea label="当日までに揃えるもの (1段落1ブロック)" value={nextActions} onChange={setNextActions} rows={5} />
-          <PrepTextarea label="気をつけたい読み違い (1段落1ブロック)" value={risks} onChange={setRisks} rows={4} />
-          <PrepTextarea label="えいみ準備メモ (Markdown)" value={narrativeMd} onChange={setNarrativeMd} rows={8} />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving}
-              className="rounded bg-amber-600 px-3 py-1.5 text-[11px] font-medium text-white disabled:opacity-50"
-            >
-              {saving ? "保存中..." : "保存"}
-            </button>
-            {note && <span className="text-[11px] text-amber-800">{note}</span>}
-          </div>
-        </div>
+    <div className="px-5 py-4 space-y-5">
+      <InlineTextField label="タイトル" value={title} onChange={setTitle} rows={1} tone="amber" />
+      {hasNarrative && (
+        <InlineTextField label="一覧カードサマリ" value={summaryShort} onChange={setSummaryShort} rows={3} tone="amber" />
       )}
+
+      {hasNarrative ? (
+        <InlineEditSection title="初見ブリーフ" tone="amber">
+          <InlineTextarea
+            ariaLabel="初見ブリーフ"
+            value={narrativeMd}
+            onChange={setNarrativeMd}
+            rows={10}
+            tone="amber"
+          />
+        </InlineEditSection>
+      ) : (
+        <InlineEditSection title="まず読む" tone="amber">
+          <InlineTextarea
+            ariaLabel="まず読む"
+            value={summaryShort}
+            onChange={setSummaryShort}
+            rows={5}
+            tone="amber"
+          />
+        </InlineEditSection>
+      )}
+
+      <InlineEditSection title="会議後に残したい状態" helper="何を決めたと言えれば、このMTGを終えてよいか。" tone="amber">
+        <InlineTextarea ariaLabel="会議後に残したい状態" value={decided} onChange={setDecided} rows={5} tone="amber" />
+      </InlineEditSection>
+      <InlineEditSection title="いまの状況" helper="初めて読む人が、なぜこのMTGが必要なのかを掴むための前提。" tone="amber">
+        <InlineTextarea ariaLabel="いまの状況" value={progress} onChange={setProgress} rows={4} tone="amber" />
+      </InlineEditSection>
+      <InlineEditSection title="当日までに揃えるもの" helper="資料、質問、こちらのスタンス。相手に渡すものと、こちらが判断する材料を分けて考える。" tone="amber">
+        <InlineTextarea ariaLabel="当日までに揃えるもの" value={nextActions} onChange={setNextActions} rows={5} tone="amber" />
+      </InlineEditSection>
+      <InlineEditSection title="必ず確認すること" helper="会議前に必ず確認しておく前提、相手に聞くこと、あとでOS上の扱いに迷いそうな点。" tone="amber">
+        <InlineTextarea ariaLabel="必ず確認すること" value={risks} onChange={setRisks} rows={4} tone="amber" />
+      </InlineEditSection>
+
+      <SaveRow onSave={save} saving={saving} disabled={!title.trim()} note={note} tone="amber" />
     </div>
   );
 }
@@ -417,38 +443,36 @@ function blockTextToArray(text: string): string[] {
     .filter(Boolean);
 }
 
-function PrepTextarea({
+function InlineTextField({
   label,
   value,
   onChange,
   rows,
+  tone = "default",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   rows: number;
+  tone?: "default" | "amber";
 }) {
   return (
     <label className="block">
       <span className="mb-1 block text-[11px] font-medium text-[#3c3c43]">{label}</span>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={rows}
-        className="w-full rounded border border-amber-200 bg-amber-50/20 px-2.5 py-2 text-[12px] leading-relaxed text-[#1d1d1f] focus:outline-none focus:ring-1 focus:ring-amber-400"
-      />
+      <InlineTextarea ariaLabel={label} value={value} onChange={onChange} rows={rows} tone={tone} />
     </label>
   );
 }
 
-function MeetingSummaryEditor({
+function MeetingSummaryInlineEditor({
   meeting,
+  variant,
   onMeetingUpdated,
 }: {
   meeting: ProjectMeetingSummary;
+  variant: "regular" | "dialogue";
   onMeetingUpdated?: (meeting: ProjectMeetingSummary) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(meeting.title);
   const [summaryShort, setSummaryShort] = useState(meeting.summaryShort);
   const [decided, setDecided] = useState(arrayToBlockText(meeting.decided));
@@ -458,6 +482,7 @@ function MeetingSummaryEditor({
   const [narrativeMd, setNarrativeMd] = useState(meeting.narrativeMd || "");
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const hasNarrative = !!meeting.narrativeMd?.trim();
 
   async function save() {
     setSaving(true);
@@ -492,64 +517,137 @@ function MeetingSummaryEditor({
     }
   }
 
+  const rawLabels = variant === "dialogue"
+    ? {
+        summary: "背景・議題",
+        progress: "議論の中で進んだこと",
+        decided: "チームへの提案案",
+        nextActions: "次の一手",
+        risks: "気になっていること / 残課題",
+      }
+    : {
+        summary: "サマリ",
+        progress: "進んだこと",
+        decided: "決まったこと",
+        nextActions: "次やること",
+        risks: "リスク",
+      };
+
   return (
-    <div className="border-t border-[#e5e5e7] bg-[#fbfbfd] px-5 py-3">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 rounded border border-[#1d1d1f] bg-[#1d1d1f] px-3 py-1.5 text-[11px] font-medium text-white hover:bg-[#3c3c43]"
-      >
-        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-        <span>議事録を手動修正</span>
-      </button>
-      {open && (
-        <div className="mt-3 space-y-3 rounded-md border border-[#e5e5e7] bg-white px-3 py-3">
-          <MeetingEditTextarea label="タイトル" value={title} onChange={setTitle} rows={1} />
-          <MeetingEditTextarea label="カードサマリ" value={summaryShort} onChange={setSummaryShort} rows={4} />
-          <MeetingEditTextarea label="議事録本文 (Markdown)" value={narrativeMd} onChange={setNarrativeMd} rows={10} />
-          <MeetingEditTextarea label="決まったこと (1段落1ブロック)" value={decided} onChange={setDecided} rows={5} />
-          <MeetingEditTextarea label="進んだこと (1段落1ブロック)" value={progress} onChange={setProgress} rows={4} />
-          <MeetingEditTextarea label="次やること (1段落1ブロック)" value={nextActions} onChange={setNextActions} rows={5} />
-          <MeetingEditTextarea label="リスク (1段落1ブロック)" value={risks} onChange={setRisks} rows={4} />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving || !title.trim()}
-              className="inline-flex items-center gap-1.5 rounded bg-[#1d1d1f] px-3 py-1.5 text-[11px] font-medium text-white disabled:opacity-50"
-            >
-              <Save className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{saving ? "保存中..." : "保存"}</span>
-            </button>
-            {note && <span className="text-[11px] text-[#3c3c43]">{note}</span>}
-          </div>
-        </div>
+    <div className="px-5 py-4 space-y-5">
+      <InlineTextField label="タイトル" value={title} onChange={setTitle} rows={1} />
+      {hasNarrative && (
+        <InlineTextField label="一覧カードサマリ" value={summaryShort} onChange={setSummaryShort} rows={4} />
       )}
+
+      {hasNarrative ? (
+        <InlineEditSection title={variant === "dialogue" ? "提案整理本文" : "議事録"}>
+          <InlineTextarea
+            ariaLabel={variant === "dialogue" ? "提案整理本文" : "議事録"}
+            value={narrativeMd}
+            onChange={setNarrativeMd}
+            rows={14}
+          />
+        </InlineEditSection>
+      ) : (
+        <>
+          <InlineEditSection title={rawLabels.summary}>
+            <InlineTextarea ariaLabel={rawLabels.summary} value={summaryShort} onChange={setSummaryShort} rows={5} />
+          </InlineEditSection>
+          <InlineEditSection title={rawLabels.decided}>
+            <InlineTextarea ariaLabel={rawLabels.decided} value={decided} onChange={setDecided} rows={5} />
+          </InlineEditSection>
+          <InlineEditSection title={rawLabels.progress}>
+            <InlineTextarea ariaLabel={rawLabels.progress} value={progress} onChange={setProgress} rows={4} />
+          </InlineEditSection>
+          <InlineEditSection title={rawLabels.nextActions}>
+            <InlineTextarea ariaLabel={rawLabels.nextActions} value={nextActions} onChange={setNextActions} rows={5} />
+          </InlineEditSection>
+          <InlineEditSection title={rawLabels.risks}>
+            <InlineTextarea ariaLabel={rawLabels.risks} value={risks} onChange={setRisks} rows={4} />
+          </InlineEditSection>
+        </>
+      )}
+
+      <SaveRow onSave={save} saving={saving} disabled={!title.trim()} note={note} />
     </div>
   );
 }
 
-function MeetingEditTextarea({
-  label,
+function InlineEditSection({
+  title,
+  helper,
+  tone = "default",
+  children,
+}: {
+  title: string;
+  helper?: string;
+  tone?: "default" | "amber";
+  children: React.ReactNode;
+}) {
+  const titleClass = tone === "amber" ? "text-amber-950 border-amber-300" : "text-[#1d1d1f] border-[#e5e5e7]";
+  const helperClass = tone === "amber" ? "text-amber-800" : "text-[#86868b]";
+  return (
+    <section>
+      <h3 className={`mb-2 border-b pb-1 text-[14px] font-bold ${titleClass}`}>{title}</h3>
+      {helper && <p className={`mb-2 text-[11px] leading-relaxed ${helperClass}`}>{helper}</p>}
+      {children}
+    </section>
+  );
+}
+
+function InlineTextarea({
+  ariaLabel,
   value,
   onChange,
   rows,
+  tone = "default",
 }: {
-  label: string;
+  ariaLabel: string;
   value: string;
   onChange: (value: string) => void;
   rows: number;
+  tone?: "default" | "amber";
 }) {
+  const className = tone === "amber"
+    ? "w-full rounded border border-amber-200 bg-amber-50/20 px-2.5 py-2 text-[12px] leading-relaxed text-[#1d1d1f] focus:outline-none focus:ring-1 focus:ring-amber-400"
+    : "w-full rounded border border-[#d2d2d7] bg-[#fbfbfd] px-2.5 py-2 text-[12px] leading-relaxed text-[#1d1d1f] focus:outline-none focus:ring-1 focus:ring-[#007aff]";
   return (
-    <label className="block">
-      <span className="mb-1 block text-[11px] font-medium text-[#3c3c43]">{label}</span>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={rows}
-        className="w-full rounded border border-[#d2d2d7] bg-[#fbfbfd] px-2.5 py-2 text-[12px] leading-relaxed text-[#1d1d1f] focus:outline-none focus:ring-1 focus:ring-[#007aff]"
-      />
-    </label>
+    <textarea
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      rows={rows}
+      className={className}
+    />
+  );
+}
+
+function SaveRow({
+  onSave,
+  saving,
+  disabled,
+  note,
+  tone = "default",
+}: {
+  onSave: () => void;
+  saving: boolean;
+  disabled?: boolean;
+  note: string | null;
+  tone?: "default" | "amber";
+}) {
+  const buttonClass = tone === "amber"
+    ? "inline-flex items-center gap-1.5 rounded bg-amber-600 px-3 py-1.5 text-[11px] font-medium text-white disabled:opacity-50"
+    : "inline-flex items-center gap-1.5 rounded bg-[#1d1d1f] px-3 py-1.5 text-[11px] font-medium text-white disabled:opacity-50";
+  const noteClass = tone === "amber" ? "text-[11px] text-amber-800" : "text-[11px] text-[#3c3c43]";
+  return (
+    <div className="flex items-center gap-2 border-t border-[#e5e5e7] pt-3">
+      <button type="button" onClick={onSave} disabled={saving || disabled} className={buttonClass}>
+        <Save className="h-3.5 w-3.5" aria-hidden="true" />
+        <span>{saving ? "保存中..." : "保存"}</span>
+      </button>
+      {note && <span className={noteClass}>{note}</span>}
+    </div>
   );
 }
 
@@ -560,9 +658,13 @@ function MeetingEditTextarea({
 function RegularMeetingBody({
   meeting,
   prepMeeting,
+  editing,
+  onMeetingUpdated,
 }: {
   meeting: ProjectMeetingSummary;
   prepMeeting?: ProjectMeetingSummary | null;
+  editing: boolean;
+  onMeetingUpdated?: (meeting: ProjectMeetingSummary) => void;
 }) {
   const hasTopics =
     meeting.decided.length > 0 ||
@@ -570,6 +672,10 @@ function RegularMeetingBody({
     meeting.nextActions.length > 0 ||
     meeting.risks.length > 0;
   const hasNarrative = !!meeting.narrativeMd?.trim();
+
+  if (editing) {
+    return <MeetingSummaryInlineEditor key={meeting.meetingId} meeting={meeting} variant="regular" onMeetingUpdated={onMeetingUpdated} />;
+  }
 
   return (
     <div className="px-5 py-4 space-y-6">
@@ -641,7 +747,7 @@ function PreparationArchive({ prepMeeting }: { prepMeeting: ProjectMeetingSummar
           items={prepMeeting.nextActions}
         />
         <UpcomingProseSection
-          label="気をつけたい読み違い"
+          label="必ず確認すること"
           helper=""
           items={prepMeeting.risks}
         />
@@ -657,7 +763,18 @@ function PreparationArchive({ prepMeeting }: { prepMeeting: ProjectMeetingSummar
 // 1 行の説明を必ず置く構成 (#6 まさ確定 2026-05-23)。
 // ============================================================
 
-function DialogueMeetingBody({ meeting }: { meeting: ProjectMeetingSummary }) {
+function DialogueMeetingBody({
+  meeting,
+  editing,
+  onMeetingUpdated,
+}: {
+  meeting: ProjectMeetingSummary;
+  editing: boolean;
+  onMeetingUpdated?: (meeting: ProjectMeetingSummary) => void;
+}) {
+  if (editing) {
+    return <MeetingSummaryInlineEditor key={meeting.meetingId} meeting={meeting} variant="dialogue" onMeetingUpdated={onMeetingUpdated} />;
+  }
   // narrative_md があればそれを正本として 1 本のストーリーで見せる。
   // raw 配列 (decided/progress/...) は narrative の下に「元データ」として小さく出す。
   if (meeting.narrativeMd && meeting.narrativeMd.trim().length > 0) {

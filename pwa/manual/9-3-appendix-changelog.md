@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-10 | 2-3 PJ コックピット | 変更 | MTG詳細モーダルの編集を表示 section と同じ位置の inline edit に変更し、予定MTGの旧「気をつけたい読み違い」を「必ず確認すること」として表示・編集する方針を追記 | 表示内容と編集可能領域がズレ、保存してもカードに反映されない field がある問題をなくすため | えいみ-worker |
 | 2026-06-09 | 2-3 PJ コックピット / 8-3 L2 routines | 変更 | MTG詳細モーダルの添付資料を一般ファイル対応へ変更し、新規添付の保存先を Drive の `PJフォルダ / YYMMDD_会議名` と明記。カード上の保存先表示、旧Storage添付の互換表示、DBはmetadataのみ保存する方針を追記 | MTGカード資料アップロードで md 等が古い画像/PDF制限に拒否されていたため。MTG単位の資料置き場をPJ folder配下に整理するため | えいみ-worker |
 | 2026-06-09 | 2-3 PJ コックピット | 変更 | MTG詳細モーダルのMarkdown添付 (`.md` / `.markdown`) をOS内モーダルで開ける仕様を追記 | MTG準備メモなどのMarkdown添付をDrive/別タブへ移動せず、カード内で読めるようにするため | えいみ-worker |
 | 2026-06-09 | 6-7 契約管理 | 追加 | `/contracts` の契約予定枠、status、version history、押印版metadata、5生データ予兆dry-run、Slack nudge dry-run、Drive保存先 `共有ドライブ/ARMADA/a3_backoffice/契約` を追加 | 契約締結予兆から押印版保存までをOS上で追い、契約書本文をDBに入れずDrive metadataだけで安全に管理するため | えいみ-worker |

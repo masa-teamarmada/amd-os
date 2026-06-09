@@ -92,6 +92,18 @@ This route is read-only during load. It does not create a duplicate project or w
 
 The card header includes `メモ再読込`, which refetches `project_meeting_summaries` for the current project and updates the open detail modal if the selected row was refreshed. This is for cases where L6 later backfills `notion_url` / eventId. The PWA does not call a Notion recording API, does not create Notion pages, and does not perform DB DDL for this CTA.
 
+## Meeting Summary Inline Editing
+
+`CockpitMeetingDetailModal` uses one visible section model for display and edit mode. The `表示内容を編集` action turns the currently displayed sections into textarea controls in place:
+
+| display state | editable source |
+|---|---|
+| held/dialogue row has `narrative_md` | `title`, `summary_short`, and the visible `narrative_md` body |
+| held/dialogue row has no `narrative_md` | `title`, visible `summary_short`, `decided`, `progress`, `next_actions`, `risks` |
+| upcoming/tentative row | `title`, `summary_short`, `narrative_md`, `decided`, `progress`, `next_actions`, `risks` through `POST /api/meeting-prep` |
+
+For upcoming/tentative rows, `risks` is labeled as `必ず確認すること`. Legacy values that were written under the older `気をつけたい読み違い` label are not deleted; they are displayed and edited as confirmation items.
+
 ## Project Documents Contract
 
 PJ cockpit の「資料」は、PJ全体で使う資料リンク置き場。MTG単位の添付資料 (`meeting_assets`) とは別で、会議に紐づかない提案書・試算表・契約案・参考PDFなどを置く。MTG単位の新規添付は `project_meeting_summaries.meeting_date` と `title` から `YYMMDD_会議名` folder を作り、同じ PJ folder 配下へ保存する。
