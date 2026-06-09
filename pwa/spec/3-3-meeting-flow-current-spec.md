@@ -38,10 +38,12 @@ Calendar event の PJ 判定は、色→PJ判定を第一軸にする。
 ## 予定MTGカード同期
 
 - `POST /api/meeting-prep/calendar-sync` が `source_kinds='upcoming'` の予定MTGカードを upsert する。
+- PJ cockpit UI は `source_kinds='upcoming'` だけでなく、`upcoming+calendar+manual-prep` のような `+` 区切り拡張値も `upcoming` token を含めば日時確定済み予定MTGとして扱う。`upcoming_tentative` token がある場合だけ日程調整中扱いにする。
 - weekly recurring MTG は series ごとに次回1件だけ表示する。
 - `+` / `＋` 始まり、全日予定、start datetime のない予定は除外する。
 - Drive資料は automation 側が metadata として渡す。PWA route は Drive を直接読まない。
 - Drive資料だけを根拠に `decided` へ「決定済み」と書かない。
+- ZMP (`project_id=p19`) のCalendar予定は、タイトル上の事業名 alias `ZeMA` / `葛飾水素循環` でも `calendar-sync` が p19 に解決する。
 
 ## ended / frozen PJ の MTGサマリ生成ガード (2026-06-03 まさ確定)
 

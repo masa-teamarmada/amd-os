@@ -45,11 +45,17 @@ function isDialogueMeeting(meeting: ProjectMeetingSummary): boolean {
 }
 
 function isUpcomingMeeting(meeting: ProjectMeetingSummary): boolean {
-  return meeting.sourceKinds === "upcoming";
+  const sourceKinds = sourceKindTokens(meeting.sourceKinds);
+  return sourceKinds.has("upcoming") && !sourceKinds.has("upcoming_tentative");
 }
 
 function isPrepMeeting(meeting: ProjectMeetingSummary): boolean {
-  return meeting.meetingId.startsWith("upcoming:") || meeting.sourceKinds === "upcoming" || meeting.sourceKinds === "upcoming_tentative";
+  const sourceKinds = sourceKindTokens(meeting.sourceKinds);
+  return meeting.meetingId.startsWith("upcoming:") || sourceKinds.has("upcoming") || sourceKinds.has("upcoming_tentative");
+}
+
+function sourceKindTokens(sourceKinds: string | null): Set<string> {
+  return new Set((sourceKinds || "").split("+").map((v) => v.trim()).filter(Boolean));
 }
 
 function notionTranscriptLink(meeting: ProjectMeetingSummary): { href: string; label: string; tone: "notion" | "calendar" } | null {

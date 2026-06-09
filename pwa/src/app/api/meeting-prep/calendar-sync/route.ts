@@ -20,6 +20,10 @@ type ProjectRow = {
   status: string | null;
 };
 
+const PROJECT_MATCH_ALIASES_BY_ID: Record<string, string[]> = {
+  p19: ["ZeMA", "葛飾水素循環"],
+};
+
 type ExistingPrepRow = {
   meeting_id: string;
   generated_by_model: string | null;
@@ -191,6 +195,7 @@ function aliasesForProject(project: ProjectRow): Array<{ value: string; score: n
   add(project.project_name, 100);
   add(project.client_name, 92);
   add(project.project_id, 80);
+  for (const alias of PROJECT_MATCH_ALIASES_BY_ID[project.project_id] ?? []) add(alias, 96);
   return aliases;
 }
 

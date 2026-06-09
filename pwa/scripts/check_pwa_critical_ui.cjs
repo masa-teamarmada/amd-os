@@ -343,11 +343,14 @@ expectIncludes("src/app/api/meeting-prep/calendar-sync/route.ts", [
   "upcoming:",
   "source_kinds",
   "preserve_manual_body",
+  "PROJECT_MATCH_ALIASES_BY_ID",
+  "ZeMA",
 ]);
 expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
   "params.set(\"meeting\", meetingId)",
   "params.delete(\"ym\")",
   "router.replace(meetingUrl(meeting.meetingId), { scroll: false })",
+  "sourceKindTokens",
 ]);
 // dialogue narrative の本文ラベルは半角SPなし「2人」で書く (#2-2nd まさ 2026-05-24)
 expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
