@@ -1,18 +1,21 @@
 ---
 name: amd-os-l6-meeting-extract
-description: AMD OS L2 ⑥ MTGサマリ + MTGフローの repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l6-meeting-flow` (= 毎日09:00-21:00毎時 + Phase A早期exit)。Calendar/Notion/Gmail/Drive/Slack を読み、subscription 内 Codex で narrative_md + summary arrays を抽出して `project_meeting_summaries` に保存する。PWA/GAS/Vercel に token課金LLM cron は作らず、GAS 153 + 074 + 074b-e の業務ロジックだけを移植する。
+description: AMD OS H-1 Meeting Flow の repo 正本。旧ファイル名・旧automation idには `l6` が残るが、現行の呼称と判断名は H-1 Meeting Flow。Windows MMO PC の Codex Desktop automation を primary writer とし、MMO確認不能時だけ MacBook fallback を使う。Calendar/Notion/Gmail/Drive/Slack を読み、subscription 内 Codex で narrative_md + summary arrays を抽出して `project_meeting_summaries` に保存する。PWA/GAS/Vercel に token課金LLM cron は作らず、GAS 153 + 074 + 074b-e の業務ロジックだけを移植する。
 ---
 
-# AMD OS L2 ⑥ MTG サマリ抽出 (GAS 153 + 074 移植版)
+# AMD OS H-1 Meeting Flow (MTGサマリ抽出 / GAS 153 + 074 移植版)
 
-GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneEvent_` の Phase 3 ロジックを **Windows MMO Codex Desktop automation** に移植したもの。GAS は完全 bypass (= kill switch のまま死んでて OK、参照すらしない)。
+GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneEvent_` の Phase 3 ロジックを **H-1 Meeting Flow** に移植したもの。primary writer は Windows MMO Codex Desktop automation。MMOマシンを確認できない期間だけ MacBook fallback を使う。GAS は完全 bypass (= kill switch のまま死んでて OK、参照すらしない)。
 
 ## 設計の要点 (2026-05-25 まさ #71 確定)
 
 - **GAS 完全 bypass**: 旧 dryRun 経由は廃止。Calendar / Notion / Gmail / Drive / Slack へは MCP で直接 access
 - **LLM 呼びは subscription 内 Codex automation**: Anthropic SDK 不要、Codex Desktop automation 内で JSON 生成
 - **追加課金ゼロ境界**: PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 API を呼ばない。LLM を使うのはこの MMO Codex Desktop automation 内だけ。
-- **token 課金LLM cron 禁止**: routine trigger は allowed path。PWA / GAS / Vercel の cron / time trigger は、LLM 非依存の deterministic sync / 通知 / キャッシュ更新なら問題なし。この L2⑥では Gemini 経路の 153 / 152 を復活させない。
+- **token 課金LLM cron 禁止**: routine trigger は allowed path。PWA / GAS / Vercel の cron / time trigger は、LLM 非依存の deterministic sync / 通知 / キャッシュ更新なら問題なし。この H-1 では Gemini 経路の 153 / 152 を復活させない。
+- **二重実行に耐える**: MMO側とMacBook fallbackが同じ時間帯に走っても、同じ対象は created ではなく skipped / unchanged / already_exists に落ちる設計にする。開催済みMTGは `meeting_id=<calendar_event_id>`、未来MTGカードは `meeting_id=upcoming:<calendar_event_id>` を主キーにし、`source_hash` 一致ならLLM再抽出や外部writeをしない。
+- **外部副作用は重複防止してから**: meeting_notifications、Notion property補完、Calendar作業枠、Slack nudge、Gmail draft、review_required artifact は、既存 eventId / meeting_id / source_hash / thread key / draft key を確認してから書く。重複や競合の疑いがある場合は外部送信やCalendar/Notion writeへ進まず、review_required と run summary に止める。
+- **runner_surfaceを残す**: run summary には `runner_surface=mmo` / `runner_surface=macbook_fallback` のどちらで走ったかを残す。これは責任境界を追うための証跡であり、データの主キーには使わない。
 - **業務ロジックは GAS 元コード完全保存**: 「終了 60-180 分前 filter」「Stage 1-3 Notion fallback」「source_kinds 判定 (= 30 chars 閾値)」「source_hash 差分検知」「修正依頼織り込み」「議事録なし行のマーカー upsert」を踏襲
 - **5 ソース全部見る** (= まさ絶対ルール 2026-05-11): Notion + Gmail + Drive + Slack + Calendar event 本文。GAS 074 + 074b-e の集約をこの 1 routine で実現
 - **議事録品質の本丸**: Notion / Gemini / CircleBack 等が既に作った会議本文を潰さず、前後 MTG・PJ 全体の流れ・現行 MS を読んだうえで `narrative_md` に「その MTG に参加していなかったメンバーでも読めば流れが分かる議事録」を残す。
@@ -21,7 +24,7 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **既存 narrative 保護**: 既存 row に 300字以上の `narrative_md` がある場合、新しい抽出結果が空 / 箇条書き優勢 / 既存より明らかに薄いなら upsert しない。`project_meeting_summaries` には DB trigger でも保護があるが、routine 側でも必ず判定する。
 - **未来予定カード**: 終了済みMTGの議事録がまだ無いPJでも、今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡して `source_kinds='upcoming'` を作る。weekly recurring MTG は series ごとに次回1件だけ同期し、それ以降の occurrence はノイズとして送らない/表示しない。CLG取締役会のように前回議事録が空でも予定MTGカードを欠落させない。
 - **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
-- **Notion eventId は MMO 側で埋める**: Calendar event から Notion 議事録ページを見つけたら、MMO automation は可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記する。これは次回以降の冪等性と traceability のためで、PWA/GAS 側ではなく L6 writer 側の責務。
+- **Notion eventId は H-1 側で埋める**: Calendar event から Notion 議事録ページを見つけたら、H-1 automation は可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記する。これは次回以降の冪等性と traceability のためで、PWA/GAS 側ではなく H-1 writer 側の責務。
 - **eventId 欠損で弾かない**: Notion page に `eventId` が無いのは欠落インシデントとして記録しつつ、必ず title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索する。`eventId` が無いことだけを理由に `source_kinds='none'` や `skip_no_notion_event_id` にしない。
 - **held-source preflight guard**: Calendar event に Gemini/Google Meet notes Doc 添付、Notion fallback hit、Gmail Gemini notes / follow-up がある場合は、既存 `upcoming:<event_id>` があっても開催済み `meeting_id=<event_id>` 候補へ進む。fixture guard は `npm run test:l6-held-source-guard`。これは外部サービスや DB に触らない deterministic test で、飯野さんケース相当 (`Calendar添付Geminiメモ + Notion eventId空 + report_emails空`) を落とさないことを検査する。
 
