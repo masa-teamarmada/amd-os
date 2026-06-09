@@ -129,6 +129,7 @@ export const MANUAL_SECTIONS: ManualSectionConfig[] = [
       "6-4-finance-payment-confirm-spec",
       "6-5-admin-payouts-reward-notice-spec",
       "6-6-member-billing-prompts-spec",
+      "6-7-contracts-management-spec",
     ],
   },
   {
@@ -194,6 +195,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "6-4-finance-payment-confirm-spec", title: "Finance / Payment Confirm", summary: "admin finance、入金確認 nudge、signed token、freee 同期。", topics: ["monthly", "admin-dev"], screens: ["/admin/finance", "/payment-confirm"], tables: ["company_finance_*", "billing_cycles"] },
   { slug: "6-5-admin-payouts-reward-notice-spec", title: "Admin Payouts / 支払通知書", summary: "報酬キャッシュ、MSなしPJ手入力報酬、支払通知書 PDF、支払月判定。", topics: ["monthly", "admin-dev"], screens: ["/admin/payouts"], tables: ["payout_notices", "billing_cycles"] },
   { slug: "6-6-member-billing-prompts-spec", title: "Member Ops / Billing / Prompt", summary: "mypage、reimburse、admin billing、prompt 管理の仕様。", topics: ["monthly", "admin-dev"], screens: ["/mypage", "/reimburse", "/admin/prompts"] },
+  { slug: "6-7-contracts-management-spec", title: "契約管理", summary: "契約予定枠、version history、押印版metadata、予兆dry-run、Slack nudge dry-run。", topics: ["admin-dev", "monthly"], screens: ["/contracts"], tables: ["contracts", "contract_documents", "contract_signals", "contract_nudges"] },
 
   { slug: "7-1-reward-calc-spec", title: "報酬計算ロジック 詳細仕様", summary: "メンバー報酬がどう決まるか。 計算式、入力データ、進捗ソース優先度、月次キャップ、繰越制御の正本。", topics: ["monthly", "decision", "admin-dev"], screens: ["/mypage", "/admin/payouts"], tables: ["billing_cycles", "value_milestones", "value_plan_cycles", "milestone_monthly_progress", "milestone_responsibility", "sub_item_responsibility", "pj_deductions"] },
 
@@ -231,7 +233,7 @@ export const MANUAL_TOPIC_NODES: ManualTopicNodeConfig[] = [
     description: "月次 TODO、請求、入金確認、支払通知書、報酬の流れを追う。",
     icon: "calendar",
     color: "emerald",
-    chapterSlugs: ["2-6-admin-ops", "2-2-member-workflows-quick-start", "6-3-invoice-and-billing-routine-spec", "6-4-finance-payment-confirm-spec", "6-5-admin-payouts-reward-notice-spec", "6-6-member-billing-prompts-spec", "7-1-reward-calc-spec"],
+    chapterSlugs: ["2-6-admin-ops", "2-2-member-workflows-quick-start", "6-3-invoice-and-billing-routine-spec", "6-4-finance-payment-confirm-spec", "6-5-admin-payouts-reward-notice-spec", "6-6-member-billing-prompts-spec", "6-7-contracts-management-spec", "7-1-reward-calc-spec"],
     relatedTopicKeys: ["admin", "cockpit", "system"],
   },
   {
