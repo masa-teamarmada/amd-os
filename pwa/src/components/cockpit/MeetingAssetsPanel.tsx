@@ -34,14 +34,16 @@ interface MeetingAsset {
   updatedAt: string;
   signedUrl: string;
   fileUrl: string;
+  driveFolderName: string | null;
+  driveFolderUrl: string | null;
+  folderDisplayPath: string | null;
+  webViewLink: string | null;
 }
 
 interface Props {
   meeting: ProjectMeetingSummary;
   onMeetingUpdated?: (meeting: ProjectMeetingSummary) => void;
 }
-
-const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 
 function formatSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "";
@@ -72,7 +74,12 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
   const dropzoneRef = useRef<HTMLDivElement | null>(null);
 
   const imageCount = useMemo(() => assets.filter((asset) => asset.mediaType.startsWith("image/")).length, [assets]);
-  const pdfCount = assets.length - imageCount;
+  const pdfCount = useMemo(() => assets.filter((asset) => asset.mediaType === "application/pdf").length, [assets]);
+  const otherCount = assets.length - imageCount - pdfCount;
+  const folderInfo = useMemo(() => {
+    const asset = assets.find((item) => item.folderDisplayPath);
+    return asset ? { label: asset.folderDisplayPath, url: asset.driveFolderUrl } : null;
+  }, [assets]);
 
   useEffect(() => {
     void loadAssets();
@@ -129,7 +136,7 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
   }
 
   function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
-    const files = Array.from(event.clipboardData.files).filter((file) => IMAGE_TYPES.has(file.type) || file.type === "application/pdf");
+    const files = Array.from(event.clipboardData.files).filter((file) => file.size > 0);
     if (files.length > 0) {
       event.preventDefault();
       void uploadFiles(files, "paste");
@@ -138,7 +145,7 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
 
     const itemFiles = Array.from(event.clipboardData.items)
       .map((item) => item.getAsFile())
-      .filter((file): file is File => !!file && (file.type.startsWith("image/") || file.type === "application/pdf"));
+      .filter((file): file is File => !!file && file.size > 0);
     if (itemFiles.length > 0) {
       event.preventDefault();
       void uploadFiles(itemFiles, "paste");
@@ -296,7 +303,7 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
             <span>添付資料</span>
           </h3>
           <div className="mt-0.5 text-[10.5px] text-[#86868b]">
-            {assets.length > 0 ? `${assets.length}件 / 画像 ${imageCount} / PDF ${pdfCount}` : "画像・PDFなし"}
+            {assets.length > 0 ? `${assets.length}件 / 画像 ${imageCount} / PDF ${pdfCount} / 他 ${otherCount}` : "添付なし"}
           </div>
         </div>
 
@@ -356,7 +363,6 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
         multiple
         className="hidden"
         onChange={(event) => {
@@ -391,6 +397,23 @@ export function MeetingAssetsPanel({ meeting, onMeetingUpdated }: Props) {
         </div>
       </div>
 
+      {folderInfo && (
+        <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px] text-[#3c3c43]">
+          <span className="text-[#86868b]">保存先:</span>
+          {folderInfo.url ? (
+            <a
+              href={folderInfo.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="max-w-full truncate font-medium text-[#1d1d1f] underline decoration-[#c7c7cc] underline-offset-2 hover:text-[#007aff]"
+            >
+              {folderInfo.label}
+            </a>
+          ) : (
+            <span className="max-w-full truncate font-medium text-[#1d1d1f]">{folderInfo.label}</span>
+          )}
+        </div>
+      )}
       {note && <div className="mb-2 text-[11px] text-[#3c3c43]">{note}</div>}
       {loading ? (
         <div className="text-[12px] text-[#86868b]">読み込み中...</div>
@@ -439,6 +462,8 @@ function AssetTile({
   onDelete: () => void;
 }) {
   const isImage = asset.mediaType.startsWith("image/");
+  const isPdf = asset.mediaType === "application/pdf";
+  const fileLabel = isPdf ? "PDF" : asset.mediaType.split("/").pop()?.toUpperCase() || "FILE";
   return (
     <div className="overflow-hidden rounded-md border border-[#e5e5e7] bg-[#fbfbfd]">
       <div className="flex h-[150px] items-center justify-center overflow-hidden bg-[#f5f5f7]">
@@ -469,8 +494,13 @@ function AssetTile({
               <span className="truncate">{asset.fileName}</span>
             </div>
             <div className="mt-0.5 text-[10px] text-[#86868b]">
-              {kindLabel(asset.assetKind)} {formatSize(asset.fileSizeBytes)}
+              {kindLabel(asset.assetKind)} {fileLabel} {formatSize(asset.fileSizeBytes)}
             </div>
+            {asset.folderDisplayPath && (
+              <div className="mt-1 max-w-[210px] truncate text-[10px] text-[#6e6e73]">
+                保存先: {asset.folderDisplayPath}
+              </div>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <button

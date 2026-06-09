@@ -75,7 +75,7 @@ Calendar event の PJ 判定は、色→PJ判定を第一軸にする。
 | output | 用途 |
 |---|---|
 | `project_meeting_summaries` | MTG narrative / decided / progress / next_actions / risks |
-| `meeting_assets` | 手動添付スクショ / PDF / 画面共有資料 |
+| `meeting_assets` | 手動添付の一般ファイル / スクショ / PDF / 画面共有資料。新規実体はDriveの `PJフォルダ / YYMMDD_会議名`、旧実体はprivate Storage |
 | `meeting_notifications` | 旧 iOS APNs / 通知互換 |
 | `tsukuyomi_nudge_queue` or cockpit TODO | TODO の cockpit 反映 |
 | Calendar event | `+<PJ>` prefix の作業枠 |
