@@ -39,6 +39,7 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 - `--cwd` は repo root。`pwa/` を指定しない。
 - `--archive=tgz` 必須。
 - `.vercel/project.json` は `amd-os-pwa` / `prj_raZW3HSKIszzPUwNTHfy7xDGzLHm` を指す。
+- deploy script は Vercel CLI を起動する前に `.vercel/project.json` を検査し、`amd-os-pwa` 以外や missing の場合は hard-stop する。worker worktreeから誤って新規Vercel projectを作らないため、この guard を外してdeployしてはいけない。
 - deploy script は Vercel を呼ぶ前に rollback guard を実行し、local `BUILD_VERSION` が deploy minimum、production current、または既知 git ref max より古い production deploy を止める。
 - `bash pwa/scripts/deploy.sh --dry-run` は Vercel を呼ばず、rollback guard と build stamp 準備だけを確認する。
 - preview deploy は production alias を動かさないため rollback guard は warning に留める。production deploy は hard-stop。

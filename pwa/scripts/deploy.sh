@@ -22,6 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SCOPE="armada0130"
 PROJECT="amd-os-pwa"
+EXPECTED_PROJECT_ID="prj_raZW3HSKIszzPUwNTHfy7xDGzLHm"
 APP_URL="https://amd-os-pwa.vercel.app"
 TARGET="production"
 DRY_RUN=0
@@ -58,6 +59,39 @@ done
 
 if [ "$TARGET" != "production" ] && [ "$TARGET" != "preview" ]; then
   echo "Invalid target: $TARGET" >&2
+  exit 1
+fi
+
+VERCEL_PROJECT_JSON="$REPO_ROOT/.vercel/project.json"
+if [ ! -f "$VERCEL_PROJECT_JSON" ]; then
+  cat <<EOF >&2
+⛔ Missing Vercel project link: $VERCEL_PROJECT_JSON
+
+This deploy script must target the existing $SCOPE/$PROJECT project.
+Do not let Vercel CLI auto-link or create a new project from a worker worktree.
+
+Restore a correct .vercel/project.json for $PROJECT, then rerun deploy.
+EOF
+  exit 1
+fi
+
+ACTUAL_PROJECT_ID=$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); process.stdout.write(p.projectId || '')" "$VERCEL_PROJECT_JSON")
+ACTUAL_PROJECT_NAME=$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); process.stdout.write(p.projectName || '')" "$VERCEL_PROJECT_JSON")
+if [ "$ACTUAL_PROJECT_ID" != "$EXPECTED_PROJECT_ID" ] || [ "$ACTUAL_PROJECT_NAME" != "$PROJECT" ]; then
+  cat <<EOF >&2
+⛔ Wrong Vercel project link.
+
+Expected:
+  projectName: $PROJECT
+  projectId:   $EXPECTED_PROJECT_ID
+
+Actual:
+  projectName: ${ACTUAL_PROJECT_NAME:-"(missing)"}
+  projectId:   ${ACTUAL_PROJECT_ID:-"(missing)"}
+
+Refusing to deploy because this would create or deploy the wrong Vercel project.
+Restore the correct .vercel/project.json, then rerun deploy.
+EOF
   exit 1
 fi
 

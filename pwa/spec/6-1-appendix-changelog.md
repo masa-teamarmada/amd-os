@@ -63,3 +63,4 @@
 | 2026-06-09 | 4-2 | 変更 | AMD Score / PRS / legacy MXF の数式を LaTeX 表記へ変更し、スコア詳細ページに表示される PRS Primary、P/R/S、R_net、PRS history、legacy M/X/F、Triple Helix、FRL 6因子、XRLチェックリスト、律速の各パラメータ算出元を追記 | スコア詳細ページに表示される値が設計書上で説明されておらず、数式も text 表記で読みにくかったため | えいみ-worker |
 | 2026-06-09 | 4-2 | 変更 | PRS の `K_PRS` / `P` / `R` / `S` が何を意味するか、なぜ加算ではなく積を取るかの概念説明を追加。スコア詳細ページのFormulaPanelにも同じ直感説明を表示 | 数式と算出元だけでは、PRSが「必要条件の同時充足」を見るモデルだと読者に伝わりにくいため | えいみ-worker |
 | 2026-06-09 | 5-2 | 変更 | deploy rollback guard、public `/api/build-info` build stamp、worker freshness gate、deploy dry-run検証コマンドを追記 | old checkout deploy による BUILD_VERSION 巻き戻りを current `v0.16.20+` line で止め、production provenance をOS上から確認できるようにするため | えいみ-worker |
+| 2026-06-09 | 5-2 | 変更 | deploy script の `.vercel/project.json` project id/name guard を追記し、`amd-os-pwa` 以外や missing の場合はVercel CLIを起動しない仕様にした | worker worktreeで `.vercel` が欠けたままdeployし、新規Vercel projectを作る事故を防ぐため | えいみ-worker |
