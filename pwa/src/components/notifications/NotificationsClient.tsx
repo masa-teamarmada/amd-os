@@ -61,6 +61,8 @@ const L2_KIND_LABEL: Record<string, string> = {
   project_strategy_signal: "L2 ⑨ 経営ハイライト",
   // ⑩ Textbook Insights
   textbook_insight: "L2 ⑩ Textbook Insights",
+  // ⑰ 契約予兆
+  contract_signals: "L2 ⑰ 契約予兆",
   // ⑭ メディア掲載
   news_mention: "L2 ⑭ メディア掲載",
 };
@@ -1133,6 +1135,12 @@ function DeepLinkForL2({ n }: { n: Notification }) {
         </a>
       );
     }
+    case "contract_signals":
+      return (
+        <a className="text-blue-600 hover:underline" href={`/admin/contracts`}>
+          /admin/contracts (契約予兆・予定枠を確認)
+        </a>
+      );
     default:
       return <span>{n.l2_kind}</span>;
   }
@@ -1173,6 +1181,7 @@ const NOTIFICATION_COST_ESTIMATE_JPY: Record<string, number> = {
   xrl_evidence: 2,
   project_strategy_signal: 1,
   textbook_insight: 1,
+  contract_signals: 0,
   founding_members: 10,
   meeting_summary: 0.2,
 };

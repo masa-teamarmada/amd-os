@@ -1,6 +1,6 @@
 # AMD OS L2 抽出 Routine SKILL 正本
 
-このディレクトリは、L2 ①〜⑩ と control layer の **routine / automation が読む SKILL 正本**。L2 ①は Codex automation、L2 ②〜⑥は Windows MMO PC の Codex Desktop automation、L2 ⑦⑧⑨は Codex automation + outbox/applier、L2⑩は candidate/outbox + local BZM applier、先手力 heartbeat は Codex thread notification で動く。実行手順の正本はこの repo 配下の SKILL.md に置く。
+このディレクトリは、L2 ①〜⑩ / ⑰ と control layer の **routine / automation が読む SKILL 正本**。L2 ①は Codex automation、L2 ②〜⑥は Windows MMO PC の Codex Desktop automation、L2 ⑦⑧⑨は Codex automation + outbox/applier、L2⑩は candidate/outbox + local BZM applier、L2⑰契約予兆は既存 daily consolidated Claude routine に同居、先手力 heartbeat は Codex thread notification で動く。実行手順の正本はこの repo 配下の SKILL.md に置く。
 
 ## 運用 (= 2026-05-26 以降)
 
@@ -26,6 +26,7 @@
 | ⑦ OS 台帳差分 | Codex automation + outbox applier | `amd-os-l7-registry-diff-extract` | 6h ごと | `project_registry_diffs` |
 | ⑧ XRL 根拠 | Codex automation + outbox applier | `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `project_xrl_evidence` |
 | ⑨ 経営ハイライト | Codex automation + outbox applier | `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `project_strategy_signals` |
+| ⑰ 契約予兆 | Claude routine (daily consolidated) | `amd-os-l2-consolidated-evidence` Phase K | daily 08:00 JST | `contract_signals` / `contracts` |
 | control | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox` → PJ司令塔 thread通知 → `mark-sent` |
 
 ## 関連 md

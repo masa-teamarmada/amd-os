@@ -1,10 +1,10 @@
 # L2データリスト
 
-> **この章は何か**: AMD OS が中核データとして扱う L2 ①〜⑯ の正本リスト。開発に携わっていないメンバーも、まずこの章で「どのデータが何のためにあるか」を掴む。
+> **この章は何か**: AMD OS が中核データとして扱う L2 ①〜⑰ の正本リスト。開発に携わっていないメンバーも、まずこの章で「どのデータが何のためにあるか」を掴む。
 
 L2 は、メール・議事録・Slack・外部ニュース・freee・予実表などの素材を、AMD OS が経営判断やPJ運営に使える形へ整理したデータ。
 
-## L2データ16種（正本リスト）
+## L2データ17種（正本リスト）
 
 `マシン` は、そのL2を実際に発火・生成する場所。`cron名` は、運用者が履歴や設定で探す名前。PWA cron だけでなく、Codex automation 名もここに含める。
 
@@ -26,6 +26,7 @@ L2 は、メール・議事録・Slack・外部ニュース・freee・予実表�
 | ⑭ | Finance Ops Evidence | サブスク、継続費、自動振替、領収書イベント | 月次PL、Management Score finance軸 | PWA non-LLM cron + admin review | `cron/freee-payment-sync` / `cron/payment-confirm-nudges` | daily 09:10 / 09:30 JST |
 | ⑮ | VC News / Funding Signals | VCニュース、ファンド組成、投資活動、資金調達シグナル | VC inbox、fund情報、fundraising判断 | Codex / subscription automation + VC inbox | `amd-os-l2-vc-news-funding-signals` | 土曜09:00 JST |
 | ⑯ | Management Monthly Signal Evaluation | 月末時点の会社経営状態を、良い/悪い/次に見ることへ翻訳した評価文 | `/management-score` の月次試算表下、経営判断、過去ログ | Codex / subscription automation + management review | `amd-os-l16-management-monthly-signal-evaluation` | 月末最終日17:00 JST |
+| ⑰ | Contract Signals | 5生データから検知した契約締結予兆、契約予定枠、契約書version/signed版metadata | 契約管理、押印版未保存nudge候補、PJ別契約進行確認 | Claude routine daily consolidated + PWA route | `amd-os-l2-consolidated-evidence` Phase K / `POST /api/contracts/extract-l2` | daily 08:00 JST |
 
 ## L2⑯の評価文ルール
 

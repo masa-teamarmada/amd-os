@@ -24,11 +24,11 @@ Claude routine を止めた理由は **daily run cap** (= 1 日に開始でき�
 
 | グループ | routine / 実行場所 | cadence | 対象 (旧 L2) |
 |---|---|---|---|
-| **D-1〜D-10** | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`)、平常日 run +1 | ② ③ ④ ⑤ ⑦ ⑨ ⑩ ⑪ ⑫ ⑬ |
+| **D-1〜D-11** | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`)、平常日 run +1 | ② ③ ④ ⑤ ⑦ ⑨ ⑩ ⑪ ⑫ ⑬ ⑰ |
 | **M-1〜M-3** | Claude routine `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、Phase 0 で最終日判定、17:00 完了 | ① ⑧ ⑯ |
 | **H-1** | MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow` | 毎時 09:00-21:00 JST、Claude routine 化しない | ⑥ |
 
-新旧対応: D-1=② / D-2=③ / D-3=④ / D-4=⑤ / D-5=⑦ / D-6=⑨ / D-7=⑩ / D-8=⑪ / D-9=⑫ / D-10=⑬ / M-1=① / M-2=⑧ / M-3=⑯ / H-1=⑥。
+新旧対応: D-1=② / D-2=③ / D-3=④ / D-4=⑤ / D-5=⑦ / D-6=⑨ / D-7=⑩ / D-8=⑪ / D-9=⑫ / D-10=⑬ / D-11=⑰ / M-1=① / M-2=⑧ / M-3=⑯ / H-1=⑥。
 
 確定の要点:
 - **旧 L2③ MS進捗・旧 L2⑬ Member Weekly は daily 化**して D 群へ (= 旧「③ hourly」「⑬ weekly」は廃止)。
@@ -110,6 +110,7 @@ L2データ
   ⑧ project_xrl_evidence + project_founding_members
   ⑨ project_strategy_signals
   ⑩ textbook_insight_candidates
+  ⑰ contract_signals / contracts
         ↓
 通知
   l2_notifications / meeting_notifications
@@ -212,7 +213,7 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 | ⑨ **経営ハイライト** | MS進捗より上位の、経営上の重要方針・事業上の進捗・戦略転換・提携・資金・知財/規制・重要リスク・次の一手。PJ cockpit のMSリスト直下に表示する | `project_strategy_signals` + `l2_notifications(l2_kind='project_strategy_signal')` | Codex automation `amd-os` (= daily 03:20 JST) → `/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/` → non-LLM applier `ms_progress_review_tool.mjs apply-outbox-dir`。初期backfillは `scripts/backfill_strategy_signals_from_activities.mjs` → `ms_progress_review_tool.mjs apply-outbox` | Codex automation / PWA | ✅ DB・cockpit表示・通知採否UIを追加。抽出はCodex automationで日次運用。2026-05-23に既存 `member_activities` から40件backfill済み。詳細 [project_strategy_signals.md](project_strategy_signals.md) |
 | ⑩ **Textbook Insights** | Before Zero / BZM 教科書に追記すべき実務知見。最重要は Before Zero PJ推進のノウハウ・経営判断、次点でPJ横断傾向、ケーススタディ、既存理論の裏付け。承認前は候補DBだけに保存し、承認後も本番runtimeからgitを直接編集しない | `textbook_insight_candidates` + `l2_notifications(l2_kind='textbook_insight')` | Codex automation / local worker `amd-os-l10-textbook-insight-extract` → `outbox.textbookInsights` → non-LLM applier が candidate + notification 作成 → `/notifications` yes で approved → `apply_approved_textbook_insights.mjs` が `pwa/bzm/*.md` へ追記 | Codex automation / local BZM applier | 🟡 partial。DB/API/outbox/local applier contract を追加。実 schedule 登録と commit loop は司令塔レビュー後に確定 |
 
-### L2 ⑪〜⑯ expanded taxonomy (2026-06-04 current truth)
+### L2 ⑪〜⑰ expanded taxonomy (2026-06-09 current truth)
 
 旧記述では Atlas / VC ニュース / マクロ index を「L2ではなくレポート関連」としていたが、現在は evidence-grade observation layer として L2⑪以降へ拡張する。5生データだけでなく、外部source由来でもOSが正本として使う観測データはL2に含める。
 
@@ -224,8 +225,9 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 | (対象外) | ⑭ **Finance Ops Evidence** | freee / billing / receipt / recurring payment などfinance ops根拠 | finance系tables | PWA non-LLM cron / admin review中心。LLM背景cronは禁止。D/M/H routine 対象外 |
 | (対象外) | ⑮ **VC News / Funding Signals** | VC・資金調達・投資家動向 | `vc_news` / funding signal tables | Claude routineまたはCodex automation候補。UI登録証跡までは未完。D/M/H routine 対象外 |
 | **M-3** | ⑯ **Management Monthly Signal Evaluation** | Management予実表から月末に作る経営シグナル評価 | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` 対象 (= M 群、月末最終日 17:00 完了) |
+| **D-11** | ⑰ **Contract Signals** | 契約締結予兆、契約予定枠、契約書version/signed版metadata | `contract_signals`, `contracts`, `contract_documents` | Claude routine `amd-os-l2-consolidated-evidence` Phase K 対象 (daily)。`POST /api/contracts/extract-l2` 経由。新規routineは作らない |
 
-**重要**: L2番号は current truth として、L2⑪ = Atlas、L2⑫ = Macrotrend、L2⑬ = Member Weekly Activities。過去の「L2⑪ = member weekly」記述は誤り。cadence 束ねの新ナンバリング (D / M / H) は上表と本章冒頭「cadence ベース束ね設計」を正本にする。
+**重要**: L2番号は current truth として、L2⑪ = Atlas、L2⑫ = Macrotrend、L2⑬ = Member Weekly Activities、L2⑰ = Contract Signals。過去の「L2⑪ = member weekly」記述は誤り。cadence 束ねの新ナンバリング (D / M / H) は上表と本章冒頭「cadence ベース束ね設計」を正本にする。
 
 **通知反映ルール (2026-05-25 #68 current truth)**: 通知に出る情報は、通知画面で「はい」を押したものだけが正本反映される。
 `project_knowledge` は `status='candidate'` → yes で `active`、no で `rejected`。`protocols` は `candidate` → yes で `confirmed`、no で `rejected`、archive は `archived`。`member_knowledge` は migration 091 以降 `status='candidate' -> active / rejected / archived` と `source_hash` を持てる。`project_registry_diff` と `project_xrl_evidence` も候補状態から「はい」で apply / confirmed する。

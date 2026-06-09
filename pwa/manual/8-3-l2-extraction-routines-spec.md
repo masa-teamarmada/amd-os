@@ -8,7 +8,7 @@
 
 現在の是正ターゲットは、**cadence ベースで 2 本の Claude routine に束ねる** (= 2026-06-04 まさ確定、新ナンバリング D / M / H):
 
-- **Claude routine `amd-os-l2-consolidated-evidence`** (daily 08:00 JST、`0 8 * * *`): D-1〜D-10 = 旧 L2 ②③④⑤⑦⑨⑩⑪⑫⑬。**旧 L2③ MS進捗と旧 L2⑬ Member Weekly も daily 化**してここに同居。
+- **Claude routine `amd-os-l2-consolidated-evidence`** (daily 08:00 JST、`0 8 * * *`): D-1〜D-11 = 旧 L2 ②③④⑤⑦⑨⑩⑪⑫⑬ + 新 L2⑰ 契約予兆。**旧 L2③ MS進捗と旧 L2⑬ Member Weekly も daily 化**してここに同居。契約予兆は新規routineを作らず、この既存daily routineの Phase K で `POST /api/contracts/extract-l2` を呼ぶ。
 - **Claude routine `amd-os-l2-monthend-evidence`** (月末候補日 16:00 発火 `0 16 28-31 * *`、Phase 0 で最終日判定、17:00 完了): M-1〜M-3 = 旧 L2 ①⑧⑯。3 つとも「月末」なので 1 本に統合。M-3 (Management Signal) を 18:00 月次振り返り MTG 前に出揃わせる。
 - **MMOマシン Codex Desktop automation 維持**: H-1 = 旧 L2⑥ MTGフロー (毎時 9-21 時)。Claude routine 化しない。
 
@@ -34,6 +34,7 @@
 | ⑪ Atlas Signals | `atlas_signals` | 外部政策・産業・市場シグナル | 旧 Atlas個別automation / PWA routes | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。UI証跡までは未完 |
 | ⑫ Macrotrend Evidence / Index | `observation_log` / `macro_index_log` | macro observation / index | 旧 Macrotrend個別automation / PWA routes | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。LLM非依存集計cronはPWA non-LLM cron可 |
 | ⑬ Member Weekly Activities | `member_activities(source='member_weekly')` | Dashboard / MyPage「今週やったこと」 | PWA `member-weekly-activities` route | separate weekly candidate。daily pickup + weekly section aggregationは要判断 |
+| ⑰ Contract Signals | `contract_signals` / `contracts` / `contract_documents` | 5生データから契約締結予兆を検知し、契約管理の予定枠/レビュー候補へ入れる | 新規 | Claude routine `amd-os-l2-consolidated-evidence` Phase K に同居。新規routine作成は禁止。APIは `POST /api/contracts/extract-l2` |
 | ⑯ Management Monthly Signal Evaluation | `company_management_signal_reviews` | Management予実表から月末評価を作る | 専用Codexチャット/heartbeat案 | Claude routine別枠、月末最終日17:00 JST候補。UI証跡必須 |
 
 L2 ① monthly reports はこの章の対象。R313 は旧経路で、差分あり/未生成時に R303 generator 経由で Claude API を呼びうるため、定期 trigger を置かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。定期 writer は Codex automation `AMD OS L2① 月次報告抽出` で、正本 SKILL は [`pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`](../scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md)。
@@ -70,7 +71,7 @@ vs ローカル Mac scheduled task の問題:
 
 | 新 | target Claude routine | cadence | 対象 (旧 L2) |
 |---|---|---|---|
-| D-1〜D-10 | `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | ②③④⑤⑦⑨⑩⑪⑫⑬ |
+| D-1〜D-11 | `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | ②③④⑤⑦⑨⑩⑪⑫⑬⑰ |
 | M-1〜M-3 | `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、最終日判定、17:00 完了 | ①⑧⑯ |
 | H-1 | (MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`、Claude routine 化しない) | 毎時 09:00-21:00 JST | ⑥ |
 
@@ -95,6 +96,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 | D-8 | ⑪ Atlas Signals | (Claude routine target / 旧 Codex Atlas automation) | `POST /api/atlas/signals-ingest` | daily | `atlas_signals`、`amd-atlas/outbox/` |
 | D-9 | ⑫ Macrotrend | PWA non-LLM cron (index 集計) + Claude routine (observation 収集) | `macro-aggregate-indicators` / `kaken-ingest` / `grant-ingest` / `vc-investment-ingest` | 月初集計 + daily 収集 | `observation_log`、`macro_index_log`、各 cron route |
 | D-10 | ⑬ Member Weekly | (Claude routine target / 旧 PWA route) | `cron/member-weekly-activities` (退避済) | daily (target) | `member_activities(source='member_weekly')` |
+| D-11 | ⑰ 契約予兆 | Claude routine target / PWA route | `POST /api/contracts/extract-l2` | daily 08:00 JST (existing consolidated routine Phase K) | `contract_signals`、`contracts`、`l2_notifications(l2_kind='contract_signals')` |
 | M-3 | ⑯ Management Signal | (Claude routine target、新規) | M routine Phase C inline | 月末最終日 | `company_management_signal_reviews`、`/management-score` |
 | control | 先手力 heartbeat | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox`、`project_commander_threads`、`proactive_loop_tool.mjs heartbeat` |
 

@@ -40,7 +40,7 @@ export const rawDataSources: RawDataSource[] = [
     label: "Google Calendar",
     owner: "GAS",
     refresh: "毎時0分",
-    landsIn: ["project_meeting_summaries", "meeting_notifications", "project_strategy_signals"],
+    landsIn: ["project_meeting_summaries", "meeting_notifications", "project_strategy_signals", "contract_signals"],
     notes: "会議eventを主軸に、終了60-180分後のPJ関連MTGを拾う。",
   },
   {
@@ -48,7 +48,7 @@ export const rawDataSources: RawDataSource[] = [
     label: "Notion AI 議事録",
     owner: "GAS",
     refresh: "Calendar polling時 / 03:00 fallback",
-    landsIn: ["project_meeting_summaries", "project_strategy_signals"],
+    landsIn: ["project_meeting_summaries", "project_strategy_signals", "contract_signals"],
     notes: "eventId / 日付 / PJ relation が空でも、title+date fallbackで拾ってself-healする。",
   },
   {
@@ -56,7 +56,7 @@ export const rawDataSources: RawDataSource[] = [
     label: "Gmail / CircleBack / Meet",
     owner: "GAS + PWA",
     refresh: "MTG抽出時 / source collect時",
-    landsIn: ["project_meeting_summaries", "source_cache", "member_activities", "project_strategy_signals"],
+    landsIn: ["project_meeting_summaries", "source_cache", "member_activities", "project_strategy_signals", "contract_signals"],
     notes: "reportEmails と会議日付周辺で議事録メール・録画通知・関係先往復を拾う。",
   },
   {
@@ -64,7 +64,7 @@ export const rawDataSources: RawDataSource[] = [
     label: "Slack",
     owner: "GAS/PWA connectors",
     refresh: "backfill / L2 source collect",
-    landsIn: ["project_meeting_summaries", "member_activities", "source_cache", "project_strategy_signals"],
+    landsIn: ["project_meeting_summaries", "member_activities", "source_cache", "project_strategy_signals", "contract_signals"],
     notes: "PJ channel / thread から進捗・論点・メンバー活動を抽出する。",
   },
   {
@@ -72,7 +72,7 @@ export const rawDataSources: RawDataSource[] = [
     label: "Google Drive",
     owner: "GAS/PWA",
     refresh: "monthly / backfill / source collect",
-    landsIn: ["project_meeting_summaries", "monthly_reports", "source_cache", "project_strategy_signals"],
+    landsIn: ["project_meeting_summaries", "monthly_reports", "source_cache", "project_strategy_signals", "contract_signals", "contract_documents"],
     notes: "議事録doc、月次資料、PJ関連ファイルを情報源にする。",
   },
   {
@@ -165,6 +165,14 @@ export const l2Datasets: L2Dataset[] = [
     source: "Codex automation/local worker amd-os-l10-textbook-insight-extract / approved後local BZM applier",
     cadence: "TBD / manual start",
     purpose: "Before Zero / 教科書へ追記すべき実務知見候補。通知承認後に pwa/bzm へ追記する。",
+  },
+  {
+    id: "contract_signals",
+    label: "⑰ 契約予兆",
+    table: "contract_signals / contracts / contract_documents",
+    source: "Claude routine amd-os-l2-consolidated-evidence Phase K / POST /api/contracts/extract-l2",
+    cadence: "daily 08:00 JST (既存 consolidated routine に同居)",
+    purpose: "5生データから契約締結予兆を検知し、候補signalと高確度の契約予定枠を契約管理へ入れる。",
   },
   {
     id: "amd_score_inputs",

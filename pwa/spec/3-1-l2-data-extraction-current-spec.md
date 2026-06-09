@@ -16,12 +16,12 @@ Claude定額token/routineへ載せるL2について、`~/.claude/scheduled-tasks
 
 | runtime | 対象 (新ナンバリング) | cadence | completion evidence |
 |---|---|---|---|
-| Claude routine `amd-os-l2-consolidated-evidence` | **D-1〜D-10** = 旧 L2 ②③④⑤⑦⑨⑩⑪⑫⑬ | daily 08:00 JST (`0 8 * * *`)、平常日 run +1 | Claude Routines UI `ACTIVE / next run / last run`、初回 one-off dry run |
+| Claude routine `amd-os-l2-consolidated-evidence` | **D-1〜D-11** = 旧 L2 ②③④⑤⑦⑨⑩⑪⑫⑬ + 新 L2⑰ 契約予兆 | daily 08:00 JST (`0 8 * * *`)、平常日 run +1 | Claude Routines UI `ACTIVE / next run / last run`、初回 one-off dry run |
 | Claude routine `amd-os-l2-monthend-evidence` | **M-1〜M-3** = 旧 L2 ①⑧⑯ | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、最終日判定、17:00 完了 | UI 登録証跡 + run evidence |
 | MMOマシン Codex Desktop automation | **H-1** = 旧 L2 ⑥ MTG flow | 毎時 09:00-21:00 JST | MMO 側 automation 履歴と DB/outbox evidence。Claude routine 化しない |
 | PWA non-LLM cron | LLM を呼ばない同期・集計・cache (= D-9 の `macro_index_log` 集計含む) | 各 cron 定義 | code 上 LLM 非依存であること |
 
-注: 旧 L2③ MS進捗と旧 L2⑬ Member Weekly は 2026-06-04 まさ確定で **daily 化**し D 群 (D-2 / D-10) に同居。旧 L2① と旧 L2⑧⑯ は全部「月末」なので M 群に統合 (= B/D 別枠を廃止)。
+注: 旧 L2③ MS進捗と旧 L2⑬ Member Weekly は 2026-06-04 まさ確定で **daily 化**し D 群 (D-2 / D-10) に同居。新 L2⑰ Contract Signals も新規routineを作らず D 群 (D-11) に同居。旧 L2① と旧 L2⑧⑯ は全部「月末」なので M 群に統合 (= B/D 別枠を廃止)。
 
 PWA/Vercel background LLM cronはL2抽出用途では復活させない。
 
@@ -55,6 +55,7 @@ cadence ベースで束ねた新ナンバリング: **D = daily** (Claude routin
 | **D-8** | ⑪ Atlas Signals | `atlas_signals` / derived `atlas_stories` / `atlas_reports` | Claude routine `amd-os-l2-consolidated-evidence` (target) | `POST /api/atlas/signals-ingest` → Haiku autotag + upsert。派生 stories/reports は別系統 |
 | **D-9** | ⑫ Macrotrend Evidence / Index | `observation_log` / `macro_index_log` / derived `macro_lane_weights` / `triple_helix_state_log` | Claude routine `amd-os-l2-consolidated-evidence` (= 外部 observation 収集) + **PWA non-LLM cron** `macro-aggregate-indicators` (= index 集計) | observation_log upsert + index 集計は LLM 非依存 cron |
 | **D-10** | ⑬ Member Weekly Activities | `member_activities(source='member_weekly')` | Claude routine `amd-os-l2-consolidated-evidence` (= daily 化、weekly 廃止) | Dashboard / MyPage / admin |
+| **D-11** | ⑰ Contract Signals | `contract_signals` / `contracts` / `contract_documents` | Claude routine `amd-os-l2-consolidated-evidence` Phase K (= 新規routine作成禁止) + PWA route `POST /api/contracts/extract-l2` | 契約管理 `/admin/contracts`、l2_notifications(l2_kind='contract_signals') |
 | **M-1** | ① monthly_reports | `monthly_reports` | Claude routine `amd-os-l2-monthend-evidence` (target) / 暫定 Codex automation `AMD OS L2① 月次報告抽出` | `amd-os-ms/outbox.monthlyReports` → LaunchAgent |
 | **M-2** | ⑧ XRL根拠 | `project_xrl_evidence` / `project_founding_members` | Claude routine `amd-os-l2-monthend-evidence` (= M-1 後) / 暫定 Codex `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | outbox → LaunchAgent。candidate → confirmed |
 | **M-3** | ⑯ Management Monthly Signal | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` (= M-2 後、新規 inline) | `/management-score`。candidate → confirmed。18:00 MTG 前に出揃わせる |

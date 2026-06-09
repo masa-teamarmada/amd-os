@@ -1,9 +1,9 @@
 ---
 name: amd-os-l2-consolidated-evidence
-description: AMD OS daily L2 evidence 抽出を 1 本の claude routine に束ねる本命 routine (= D-1〜D-10)。daily 08:00 JST 発火、claude.ai/code/routines (cloud / Anthropic-managed infrastructure、Pro/Max/Team サブスク定額枠、Sonnet 4.6) で実行。Phase 0 で env / active PJ 準備後、D-1 protocols → D-2 MS進捗 → D-3 PJナレッジ → D-4 メンバーナレッジ → D-5 OS台帳差分 → D-6 経営ハイライト → D-7 Textbook Insights → D-8 Atlas Signals → D-9 Macrotrend Evidence → D-10 Member Weekly Activities の順に inline 実行 → Supabase / outbox helper で反映 + 通知。月末専用 (M-1 monthly / M-2 XRL / M-3 Management Signal) は別 routine `amd-os-l2-monthend-evidence`、毎時 (H-1 MTGフロー) は MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`。
+description: AMD OS daily L2 evidence 抽出を 1 本の claude routine に束ねる本命 routine (= D-1〜D-11)。daily 08:00 JST 発火、claude.ai/code/routines (cloud / Anthropic-managed infrastructure、Pro/Max/Team サブスク定額枠、Sonnet 4.6) で実行。Phase 0 で env / active PJ 準備後、D-1 protocols → D-2 MS進捗 → D-3 PJナレッジ → D-4 メンバーナレッジ → D-5 OS台帳差分 → D-6 経営ハイライト → D-7 Textbook Insights → D-8 Atlas Signals → D-9 Macrotrend Evidence → D-10 Member Weekly Activities → D-11 契約予兆 (L2⑰) の順に inline 実行 → Supabase / outbox helper / PWA route で反映 + 通知。月末専用 (M-1 monthly / M-2 XRL / M-3 Management Signal) は別 routine `amd-os-l2-monthend-evidence`、毎時 (H-1 MTGフロー) は MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`。
 ---
 
-# AMD OS Daily L2 Consolidated Evidence routine (D-1〜D-10)
+# AMD OS Daily L2 Consolidated Evidence routine (D-1〜D-11)
 
 > **これは何か**: 毎日抽出すべき L2 evidence を **1 本の claude routine** に束ねたもの。
 > claude routine の **daily run cap** を最小化する (= 1 routine / 日) ための集約設計。
@@ -20,7 +20,7 @@ description: AMD OS daily L2 evidence 抽出を 1 本の claude routine に束�
 ## 設計の要点 (2026-06-04 まさ確定)
 
 - **背景**: 個別 routine を毎時で回そうとすると claude routine の daily run cap に抵触する。**最小 1 時間間隔**制約もある (= 毎時より細かい cron は拒否)。→ **同じ cadence の L2 を 1 routine に束ねる**。
-- **このルーティンの守備範囲 = daily cadence の L2 だけ** (D-1〜D-10)。
+- **このルーティンの守備範囲 = daily cadence の L2 だけ** (D-1〜D-11)。
   - 月末 cadence (M-1 monthly_reports / M-2 XRL / M-3 Management Signal) は **別 routine** `amd-os-l2-monthend-evidence`。
   - 毎時 cadence (H-1 MTGフロー = 旧 L2⑥) は **MMOマシン Codex Desktop automation** `amd-os-l6-meeting-flow` を維持。claude routine 化しない。
 - **発火**: daily 08:00 JST。cron `0 8 * * *` (= claude routine は最小 1h 間隔 OK)。
@@ -43,6 +43,7 @@ description: AMD OS daily L2 evidence 抽出を 1 本の claude routine に束�
 | D-8 | ⑪ | Atlas Signals | `atlas_signals` | (個別 SKILL なし。本 SKILL Phase H に inline) |
 | D-9 | ⑫ | Macrotrend Evidence | `observation_log` / `macro_index_log` | (個別 SKILL なし。本 SKILL Phase I に inline) |
 | D-10 | ⑬ | Member Weekly Activities | `member_activities(source='member_weekly')` | (個別 SKILL なし。本 SKILL Phase J に inline) |
+| D-11 | ⑰ | 契約予兆 | `contract_signals` / `contracts` / `contract_documents` | (個別 SKILL なし。本 SKILL Phase K に inline。新規 routine は作らない) |
 
 ## 【絶対】 動く前に必ず Read
 
@@ -168,13 +169,46 @@ Phase J: D-10 ⑬ Member Weekly Activities 抽出
 - 既存週次行は delete してから upsert (= 当日断面で再構築)。
 
 ═══════════════════════════════════════════════════
-Phase K: run summary
+Phase K: D-11 ⑰ 契約予兆抽出
+═══════════════════════════════════════════════════
+
+`POST /api/contracts/extract-l2` を呼ぶ。新規 routine / 新規 scheduler は作らず、この daily consolidated routine の最後に同居させる。
+
+- 認証: `Authorization: Bearer ${CONTRACTS_EXTRACT_SECRET ?? CRON_SECRET}`。
+- default body:
+
+```json
+{
+  "days": 90,
+  "limit": 240,
+  "dry_run": false
+}
+```
+
+- 入力:
+  - `source_cache` の Gmail / Slack / Drive / Notion / Calendar。
+  - `project_meeting_summaries` の title / summary_short / decided / next_actions / risks / narrative_md の短い抽出テキスト。
+  - 5生データの raw本文・契約書本文は保存しない。`source_cache` / connector / 元サービスで辿れる短い source ref のみ保持。
+- 検知語:
+  - 契約書 / NDA / 業務委託 / 共同研究契約 / MOU / 押印 / 電子署名 / DocuSign / クラウドサイン / 修正案 / 契約締結 / 法務確認 / redline など。
+- 出力:
+  - 全 candidate を `contract_signals(l2_kind相当='contract_signals')` へ upsert。
+  - 高確度 (`review_required=false`) のみ `contracts(status='planned')` に契約予定枠を自動作成し、元 `contract_signals.contract_id` に link。
+  - 曖昧な候補は `contract_signals.status='candidate'` + `l2_notifications(l2_kind='contract_signals')` で review queue に送る。
+  - 差分検知は `l2_extract_state(l2_kind='contract_signals', target_id=<project_id>, scope_key='daily')` の `source_hash`。
+- 安全境界:
+  - Google Drive `共有ドライブ/ARMADA/a3_backoffice/契約` への実ファイル保存は、契約管理UI/APIの metadata/link 登録に留める。routine は Drive 共有範囲を変更しない。
+  - Slack nudge は送らない。押印版未保存nudgeは契約管理の dry-run/review queue で扱い、実送信は別途まさ確認。
+  - 契約書ファイル・URL・本文・個人情報・秘密情報を routine summary に出さない。件数と対象PJだけにする。
+
+═══════════════════════════════════════════════════
+Phase L: run summary
 ═══════════════════════════════════════════════════
 
 各 Phase の saved / unchanged / skipped / errors を集計し、まさへ 1 行 summary を返す:
 
 ```
-🚀 L2 daily consolidated evidence (D-1〜D-10) 08:00 完了:
+🚀 L2 daily consolidated evidence (D-1〜D-11) 08:00 完了:
   - D-1 ② プロトコル: <N> candidate
   - D-2 ③ MS進捗: <N> progress, <M> monthly_notes, <L> unchanged
   - D-3 ④ PJナレッジ: <N> rows
@@ -185,6 +219,7 @@ Phase K: run summary
   - D-8 ⑪ Atlas Signals: <N> ingested
   - D-9 ⑫ Macrotrend observation: <N> observation_log rows (index 集計は PWA non-LLM cron)
   - D-10 ⑬ Member Weekly: <N> activities
+  - D-11 ⑰ 契約予兆: <N> signals, <M> planned contracts, <R> review
   経過時間: <minutes> 分
 ```
 
@@ -202,6 +237,9 @@ Phase K: run summary
 - 同じ source_hash の row 再抽出 (= 差分検知 skip 必須、cap & credit 節約)。
 - D-9 で `macro_index_log` を本 routine で再集計する (= PWA non-LLM cron `macro-aggregate-indicators` の責務)。
 - cloud routine から `pwa/bzm/*.md` を直接 git commit (= D-7 は候補化 + 通知まで、追記は local applier)。
+- 新規 routine / 新規 scheduler を作る (= 契約予兆はこの existing daily consolidated routine に同居させる)。
+- 契約予兆抽出から Slack を実送信する (= nudge は dry-run/review queue まで)。
+- 契約書本文・メール全文・Slack本文・外部共有URLを DB / summary に保存する。
 - 月末専用 (M-1/M-2/M-3) と毎時 (H-1) を本 routine に混ぜる (= 別 routine / MMO automation)。
 
 ═══════════════════════════════════════════════════
