@@ -48,7 +48,7 @@ Edited public manuscript:
 - 旧内部語や会社紹介には戻していない。
 - `AMD Score` という公開名への回帰ではなく、公開本文では `統合準備度` / `MXFモデル` として復活。
 - Field Toolkit本文、manifest、route、UIは未変更。
-- Vercel push/deployなし。approval gate対象。
+- Vercel push/deployなし。md-onlyのため、この単独変更ではdeployしない。
 
 ## Verification
 
@@ -63,4 +63,4 @@ Edited public manuscript:
 
 1. `MXF exposition cold-reader review`: ストーリーと解説の切り替わりが自然か、Model Noteが重すぎないかを読む。
 2. `Technical notation review`: `sigma_SU`、状態空間、CES、統合準備度、ERSの式の精度と表記ゆれを確認。
-3. `Model Appendix layout/readability pass`: 式・表・Model NoteをWeb上で読みやすくする。code/manifest/UI変更ならlocal build必須。push/deployはdeploy bundle承認後のみ。
+3. `Model Appendix layout/readability pass`: 式・表・Model NoteをWeb上で読みやすくする。code/manifest/UI変更ならlocal build必須。push/deployする場合は微細変更ごとの乱発を避け、bundle単位で実施・記録する。
