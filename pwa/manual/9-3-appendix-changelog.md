@@ -72,3 +72,4 @@
 | 2026-06-09 | 4-3 AMD Score 詳細仕様 | 変更 | PRS の `K_PRS` / `P` / `R` / `S` の意味と、足し算ではなく積を取る理由を追加。スコア詳細ページのFormulaPanelにも同じ直感説明を表示 | K/P/R/Sの概念がないと、式は読めてもPRSモデルの経営的な意味が伝わらないため | えいみ-worker |
 | 2026-06-09 | 9-2 開発者向け | 変更 | deploy dry-run と本番 `/api/build-info` build stamp の確認先を追記 | 古いcheckout deployによる巻き戻りを人間がdeploy前後に確認できるようにするため | えいみ-worker |
 | 2026-06-09 | 9-2 開発者向け | 変更 | deploy script が `.vercel/project.json` の `amd-os-pwa` / project id を検査し、missing / wrong project ならVercel CLI起動前に停止する運用を追記 | worker worktreeで `.vercel` が欠けたままdeployし、新規Vercel projectを作る事故を防ぐため | えいみ-worker |
+| 2026-06-09 | 8-3 L2抽出routine | 追加 | MTGカード由来Calendar補完候補とTODO由来`+<PJ>`作業枠候補を作る dry-run plannerを追記。PWA route はCalendarを書かず、候補payloadだけ返す | stale root dirtyに残っていたCalendar一次防御設計をcurrent lineへ救出し、実writeなしで運用検証できるようにするため | えいみ-worker |

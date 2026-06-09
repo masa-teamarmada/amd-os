@@ -65,3 +65,4 @@
 | 2026-06-09 | 4-2 | 変更 | PRS の `K_PRS` / `P` / `R` / `S` が何を意味するか、なぜ加算ではなく積を取るかの概念説明を追加。スコア詳細ページのFormulaPanelにも同じ直感説明を表示 | 数式と算出元だけでは、PRSが「必要条件の同時充足」を見るモデルだと読者に伝わりにくいため | えいみ-worker |
 | 2026-06-09 | 5-2 | 変更 | deploy rollback guard、public `/api/build-info` build stamp、worker freshness gate、deploy dry-run検証コマンドを追記 | old checkout deploy による BUILD_VERSION 巻き戻りを current `v0.16.20+` line で止め、production provenance をOS上から確認できるようにするため | えいみ-worker |
 | 2026-06-09 | 5-2 | 変更 | deploy script の `.vercel/project.json` project id/name guard を追記し、`amd-os-pwa` 以外や missing の場合はVercel CLIを起動しない仕様にした | worker worktreeで `.vercel` が欠けたままdeployし、新規Vercel projectを作る事故を防ぐため | えいみ-worker |
+| 2026-06-09 | 3-3 | 追加 | `/api/meeting-calendar/upsert-plan` と `/api/task-calendar/schedule-plan` の dry-run plannerを追加。MTGカード由来Calendar補完候補とTODO由来`+<PJ>`作業枠候補を返すが、Calendar writeはしない | stale root dirtyに残っていたCalendar一次防御設計をcurrent lineへ救出し、実writeなしで検証できるようにするため | えいみ-worker |

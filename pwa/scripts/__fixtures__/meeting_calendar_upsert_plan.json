@@ -1,0 +1,74 @@
+{
+  "meetings": [
+    {
+      "meeting_id": "upcoming:kute-20260611-onsite",
+      "project_id": "p25",
+      "title": "KUTE 工学院大学 対面MTG",
+      "meeting_date": "2026-06-11",
+      "meeting_start_at": "2026-06-11T04:00:00.000Z",
+      "meeting_end_at": "2026-06-11T05:00:00.000Z",
+      "source_kinds": "upcoming",
+      "summary_short": "工学院大学での対面MTG。持参物と返信宿題あり。",
+      "location": "工学院大学",
+      "modality": "onsite",
+      "carry_items": ["名刺", "説明資料"],
+      "homework_items": ["事前質問を整理する"],
+      "reply_required": true,
+      "date_confidence": "high"
+    },
+    {
+      "meeting_id": "upcoming:evt_existing_001",
+      "project_id": "p26",
+      "title": "VSX 初回MTG",
+      "meeting_date": "2026-06-12",
+      "meeting_start_at": "2026-06-12T01:00:00.000Z",
+      "calendar_event_id": "evt_existing_001",
+      "source_kinds": "upcoming",
+      "location": "Google Meet",
+      "date_confidence": "high"
+    },
+    {
+      "meeting_id": "upcoming:p25:20260613:date-only",
+      "project_id": "p25",
+      "title": "KUTE 日時未定ヒアリング",
+      "meeting_date": "2026-06-13",
+      "source_kinds": "upcoming_tentative",
+      "summary_short": "日付だけ確度が高い。時間は未定。",
+      "date_confidence": "high"
+    },
+    {
+      "meeting_id": "upcoming:p25:low-confidence",
+      "project_id": "p25",
+      "title": "KUTE 6月中旬どこかでMTG",
+      "meeting_date": "2026-06-15",
+      "source_kinds": "upcoming_tentative",
+      "summary_short": "6月中旬という曖昧な候補。",
+      "date_confidence": "low"
+    },
+    {
+      "meeting_id": "upcoming:p25:external-invite",
+      "project_id": "p25",
+      "title": "KUTE 外部参加者ありMTG",
+      "meeting_date": "2026-06-16",
+      "meeting_start_at": "2026-06-16T02:00:00.000Z",
+      "source_kinds": "upcoming",
+      "attendee_emails": ["external@example.ac.jp"],
+      "invite_attendees": true,
+      "date_confidence": "high"
+    }
+  ],
+  "existing_events": [
+    {
+      "id": "evt_existing_001",
+      "summary": "VSX 初回MTG",
+      "start": "2026-06-12T01:00:00.000Z",
+      "end": "2026-06-12T02:00:00.000Z",
+      "extendedProperties": {
+        "private": {
+          "amd_os_mtg_card_id": "upcoming:evt_existing_001",
+          "amd_os_project_id": "p26"
+        }
+      }
+    }
+  ]
+}

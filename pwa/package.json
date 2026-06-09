@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:deploy-version-guard": "node scripts/check_deploy_version_guard.cjs",
+    "test:meeting-calendar-upsert-plan": "node --experimental-strip-types scripts/check_meeting_calendar_upsert_plan.mts --fixture scripts/__fixtures__/meeting_calendar_upsert_plan.json",
+    "test:task-calendar-schedule-plan": "node --experimental-strip-types scripts/check_task_calendar_schedule_plan.mts --fixture scripts/__fixtures__/task_calendar_schedule_plan.json",
     "test:next-period-ui": "node scripts/check_next_period_ms_period_ui.cjs",
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs",
     "test:payout-notice-pdf": "node scripts/check_payout_notice_pdf_golden.cjs",
