@@ -213,6 +213,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - `meeting_assets` (= PWA から追加される private Storage 添付。routine は必要に応じて caption / extracted_text を読む)
 - `tsukuyomi_nudge_queue` or `project_todos` (= cockpit TODO 反映、H)
 - Calendar event (+<PJ> prefix task 枠、H)
+- Task Calendar schedule plan (`POST /api/task-calendar/schedule-plan`)。H-1 が MTG / OS task / Gmail / Slack 由来TODO、owner + まさ calendar の busy window、既存 `+` event metadata を渡し、`+<PJコード> <task>` 枠の候補を作る。PWA はdry-run onlyで、実writeはGoogle Calendar MCP。成功後は owner + まさへ内部Slack DM nudge を送る。
 - Drive file (= Phase I 生成資料、命名 `<YYYY-MM-DD>_<PJcode>_<task slug>_draft.<ext>`)
 - Gmail draft (= Phase J follow-up メール、添付 PDF 含む)
 - source_kinds: `notion+gmail+drive+slack` 等 (= 30 chars 閾値)
@@ -223,6 +224,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - Gmail メール本送信 (= draft 止まり、ファシリ役本人が確認後送信)
 - Calendar 既存枠と重複作成 (= freebusy 必ず確認)
 - TODO Calendar 枠を「+<PJ>」prefix 無しで作る (= まさルール違反)
+- owner calendar に書けない時に、まさ calendar だけへ勝手に代替作成する (= 担当者の作業枠にならない)
 - 生成不能タスクを強引に資料生成 (= 前提データ不足なら skip + reason 記録)
 
 ### ⑦ OS 台帳差分

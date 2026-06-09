@@ -20,6 +20,8 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **配列だけ保存禁止 / 箇条書き禁止**: `source_kinds != "none"` の開催済みMTGでは `narrative_md` が主成果物。`summary_short` / `decided` / `progress` / `next_actions` / `risks` は検索・通知用の補助であり、議事録本文の代替ではない。`narrative_md` が空・短すぎる・箇条書き中心なら、その event は保存せず run summary に `blocked_low_quality_narrative` として残す。
 - **既存 narrative 保護**: 既存 row に 300字以上の `narrative_md` がある場合、新しい抽出結果が空 / 箇条書き優勢 / 既存より明らかに薄いなら upsert しない。`project_meeting_summaries` には DB trigger でも保護があるが、routine 側でも必ず判定する。
 - **未来予定カード**: 終了済みMTGの議事録がまだ無いPJでも、今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡して `source_kinds='upcoming'` を作る。weekly recurring MTG は series ごとに次回1件だけ同期し、それ以降の occurrence はノイズとして送らない/表示しない。CLG取締役会のように前回議事録が空でも予定MTGカードを欠落させない。
+- **MTGカード→Calendar一次防御**: MTGカード/議事録側に日時・場所・対面/オンライン・持参物・返信/宿題があるのに Calendar event が無い/薄いケースは、`POST /api/meeting-calendar/upsert-plan` の dry-run で upsert payload と duplicate match を作る。PWA route は Calendar を書かない。実writeは別途 review/feature flag/まさ確認が必要。payload は `sendUpdates=none`、外部 attendees は空、metadata は `extendedProperties.private` に寄せる。
+- **TODO→Calendar作業枠**: MTGから生まれた担当タスク / OS task / Gmail TODO / Slack TODO は `POST /api/task-calendar/schedule-plan` の dry-run で、担当メンバー + まさ の共通空き枠に `+<PJコード> <task>` 枠を作る候補にする。実writeは H-1 automation が Google Calendar MCP `create_event` で各 calendar に attendees 空の別eventとして作る。外部招待/メール送信はしない。作成した event は automation chat の run summary に必ず列挙し、内部Slack DMで owner + まさへ nudge する。
 - **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
 - **Notion eventId は MMO 側で埋める**: Calendar event から Notion 議事録ページを見つけたら、MMO automation は可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記する。これは次回以降の冪等性と traceability のためで、PWA/GAS 側ではなく L6 writer 側の責務。
 - **eventId 欠損で弾かない**: Notion page に `eventId` が無いのは欠落インシデントとして記録しつつ、必ず title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索する。`eventId` が無いことだけを理由に `source_kinds='none'` や `skip_no_notion_event_id` にしない。
@@ -157,6 +159,24 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
    ```
 4. PWA 側で `projects.project_name` / `project_id` / `client_name` によりPJ判定し、`upcoming:<calendar_event_id>` を upsert する。PWA route も safety net として同じ weekly series の2件目以降を skip する。既に手動編集済みの準備本文は上書きせず、Calendar由来の日時・title・URL・Drive資料リンクだけ同期する。
 5. これにより、CLG `CLG 取締役会` のような recurring board meeting も、前回MTGサマリからの `finalize` を待たずに「予定MTG / 準備中」に出る。Drive folder に会議資料がある場合は、予定カード内の `関連Drive資料` として先に見える。
+
+### A-3: MTGカード / 議事録 → Calendar upsert plan (dry-run only)
+
+Calendar から予定MTGカードを作る A-2 とは逆向きに、OS側の MTGカード / 議事録が Calendar の一次防御になるルート。実 Calendar write はしない。
+
+1. 対象 `project_meeting_summaries` row から `meeting_id` / `project_id` / `title` / `meeting_date` / `meeting_start_at` / `calendar_event_id` / `source_url` / `notion_url` / `source_kinds` / `summary_short` / `narrative_md` / `next_actions` を取る。場所・対面/オンライン・持参物・返信/宿題が source metadata にある場合は併せて渡す。
+2. 同日 ±1日程度の既存 Calendar event metadata を Google Calendar MCP で read-only 取得し、`id` / `summary` / `start` / `end` / `location` / `htmlLink` / `extendedProperties.private` だけに縮約する。attendees は invite 用ではなく duplicate/review 用 metadata として扱う。
+3. PWA に dry-run request:
+   ```bash
+   curl -s -X POST "$APP_BASE_URL/api/meeting-calendar/upsert-plan" \
+     -H "Authorization: Bearer $WORKFLOW_SECRET" \
+     -H "Content-Type: application/json" \
+     --data '{"meeting_ids":["upcoming:<id>"],"existing_events":[{"id":"...","summary":"...","start":"...","extendedProperties":{"private":{"amd_os_mtg_card_id":"..."}}}]}'
+   ```
+4. route は `update_existing` / `create_candidate` / `review_required` / `hold` を返す。`dry_run=false` / `execute=true` は拒否される。
+5. `calendar_event_id` がある場合はその event を補完候補にする。無い場合は `amd-os:project_meeting_summaries:<meeting_id>` を source key にして `extendedProperties.private.amd_os_mtg_card_id` / `amd_os_project_id` / `amd_os_source_kind` / `amd_os_source_key` を入れる候補を作る。
+6. 時間未定で日付確度が高い場合は 08:00-21:00 JST の広めブロック候補を返すが `review_required`。日付確度が低い場合は `hold`。
+7. 対面 / 訪問 / 初回 / 顧客・大学・研究機関 / 持参物 / 出張直後 / 返信・宿題は strong reminder flag。payload reminder は popup のみ。外部 attendees は常に空、`sendUpdates` は `none`。
 
 ═══════════════════════════════════════════════════
 Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 移植)
@@ -633,6 +653,46 @@ workflow 側のルール:
 - `6月3週目以降`、`日程調整`、`候補日未定` のような曖昧な候補は確定予定として自動保存しない。必要なら `POST /api/meeting-prep` に `is_tentative=true` を渡して `source_kinds='upcoming_tentative'` として仮置き保存する。仮置き row は PWA の「日程調整中MTG」に残る。
 - 旧 fallback の「次MTG指定がなければ7日後に1件」は禁止。架空カードを作らない。
 
+### D-5: MTG TODO / OS task / Gmail TODO / Slack TODO → Calendar 作業枠 (+ prefix)
+
+`meeting_action_items`、`tasks`、議事録 `next_actions`、Gmail thread、Slack thread から担当者が取れた作業系タスクは、MTG予定ではなく `+` prefix の作業枠として扱う。AMD運用ルール: 作業枠タイトルは必ず `+<PJコード> <task>`。例: `+SX mail 杉浦先生`。
+
+1. 対象 task を短い payload にする:
+   - `task_id`, `project_id`, `project_code`, `title`, `description`
+   - `owner_member_id`, `owner_code_name`, `owner_calendar_id`, `owner_slack_user_id`
+   - `manager_calendar_id` (= まさ primary / `masa@team-armada.jp`), `manager_slack_user_id`
+   - `due_at`, `earliest_start`, `latest_end`, `estimated_minutes`
+   - Gmail / Slack 由来なら `source_kind='gmail_todo'|'slack_todo'`, `source_id`, `source_url`, `source_confidence`, `source_excerpt`
+   - 外部返信が必要な作業は `external_reply_required=true` として Calendar 作業枠だけ作る。Gmail / Slack 返信本文の送信はしない。
+   - 個人予定境界や私用っぽさがある場合は `personal_boundary_risk=true` として hold/review に回す。
+2. Google Calendar MCP で owner calendar と まさ calendar の bounded window を read-only 取得する。標準 horizon は `earliest_start` から `due_at`、無ければ 7日先まで。作業枠は 09:00-21:00 JST、15分刻み。
+   - 同じ window の既存 `+` event も read-only 取得し、`extendedProperties.private.amd_os_task_source_key`、description の `Source key:`、または同名 `+<PJコード> <task>` で重複判定する。
+3. PWA dry-run:
+   ```bash
+   curl -s -X POST "$APP_BASE_URL/api/task-calendar/schedule-plan" \
+     -H "Authorization: Bearer $WORKFLOW_SECRET" \
+     -H "Content-Type: application/json" \
+     --data '{"tasks":[{"task_id":"...","project_id":"p21","project_code":"SX","title":"mail 杉浦先生","owner_calendar_id":"...","owner_slack_user_id":"U...","manager_calendar_id":"primary","manager_slack_user_id":"U...","source_kind":"gmail_todo","source_id":"thread:message"}],"busy_windows":[{"calendar_id":"primary","start":"...","end":"..."}],"existing_task_events":[{"id":"...","summary":"+SX mail 杉浦先生","description":"Source key: ...","extendedProperties":{"private":{"amd_os_task_source_key":"..."}}}]}'
+   ```
+4. `schedule_candidate` の `calendar_writes[]` だけを実write候補にする。`already_scheduled` は二重作成しない。`hold` / `review_required` は作らず run summary に reason を出す。
+5. 実write時は Google Calendar MCP `create_event` を calendar ごとに呼ぶ:
+   - `title`: `+<PJコード> <task>`
+   - `attendees`: `[]`
+   - `add_google_meet`: `false`
+   - `timezone_str`: `Asia/Tokyo`
+   - `reminders`: popup 10分
+   - `description`: AMD OS task id / source key / source URL / rollback note
+6. owner calendar に書き込めない場合は、まさ calendar だけに勝手に代替作成しない。`missing_task_owner_calendar` / `calendar_write_failed:<calendar>` として review に送る。
+7. Calendar write が成功したら、`slack_nudge_candidates[]` の内部Slack userへ DM する。DM本文には `+` title、JST日時、Calendar event id / link、source URL、外部返信・外部招待は送っていないことを入れる。Slack DM失敗は Calendar event を消さず `task_calendar_slack_nudge_failed` として run summary に残す。
+8. 作成後、automation chat の run summary に以下を必ず出す:
+   ```text
+   Calendar作業枠作成:
+   - +SX mail 杉浦先生 / 2026-06-10 17:00-17:30 JST / calendars=masa@team-armada.jp, <owner> / eventIds=... / slackDm=sent
+   Review:
+   - <作れなかったtask> reason=...
+   ```
+   quiet mode の親司令塔報告とは別。H-1 automation 実行チャット内の完了ログとして残す。
+
 ═══════════════════════════════════════════════════
 Phase E: run summary
 ═══════════════════════════════════════════════════
@@ -642,10 +702,11 @@ Phase E: run summary
 - Phase B: source_kinds 別件数 (= notion / notion+gmail / notion+gmail+slack / gmail / drive / slack / none)
 - Phase D: `saved` (= 新規 + 更新) / `saved_none` / `skipped_unchanged` / `errors`
 - feedback applied 件数
+- Calendar 作業枠: `task_calendar_created` / `task_calendar_review_required` / `task_calendar_hold` / 作成 event id
 
 **まさへの 1 行サマリ** (= notifyOnCompletion で表示される):
 ```
-🕐 議事録 routine HH:MM 完了: 過去 60-180 分の MTG を N 件チェック、M 件 saved (= notion+gmail=X, notion=Y, slack=Z), K 件は議事録なし、feedback W 件反映
+🕐 H-1 HH:MM 完了: MTG N 件チェック、M 件 saved、Calendar作業枠 C 件作成、review R 件、feedback W 件反映
 ```
 
 ═══════════════════════════════════════════════════

@@ -1,0 +1,94 @@
+{
+  "now": "2026-06-10T08:30:00+09:00",
+  "tasks": [
+    {
+      "task_id": "meeting-action-001",
+      "project_id": "p21",
+      "project_code": "SX",
+      "title": "mail 杉浦先生",
+      "description": "次回MTG前に杉浦先生へ確認メールを送る",
+      "owner_member_id": "ID001",
+      "owner_code_name": "masa",
+      "owner_calendar_id": "masa@team-armada.jp",
+      "owner_slack_user_id": "U_MASA",
+      "manager_calendar_id": "primary",
+      "manager_slack_user_id": "U_MASA",
+      "earliest_start": "2026-06-10T09:00:00+09:00",
+      "latest_end": "2026-06-10T21:00:00+09:00",
+      "estimated_minutes": 30,
+      "source_kind": "meeting_action_item",
+      "source_id": "act_001"
+    },
+    {
+      "task_id": "gmail-todo-001",
+      "project_id": "p21",
+      "project_code": "SX",
+      "title": "mail 杉浦先生",
+      "description": "Gmail threadで杉浦先生への返信TODOを検出",
+      "owner_member_id": "ID001",
+      "owner_code_name": "masa",
+      "owner_calendar_id": "masa@team-armada.jp",
+      "owner_slack_user_id": "U_MASA",
+      "manager_calendar_id": "primary",
+      "manager_slack_user_id": "U_MASA",
+      "earliest_start": "2026-06-10T09:00:00+09:00",
+      "latest_end": "2026-06-10T21:00:00+09:00",
+      "estimated_minutes": 30,
+      "source_kind": "gmail_todo",
+      "source_id": "thread_abc:msg_001",
+      "source_url": "https://mail.google.com/mail/u/0/#inbox/thread_abc",
+      "source_confidence": 0.93,
+      "external_reply_required": true
+    },
+    {
+      "task_id": "slack-todo-001",
+      "project_id": "p21",
+      "project_code": "SX",
+      "title": "資料確認",
+      "description": "Slack threadで資料確認TODOを検出",
+      "owner_member_id": "ID001",
+      "owner_code_name": "masa",
+      "owner_calendar_id": "masa@team-armada.jp",
+      "owner_slack_user_id": "U_MEMBER",
+      "manager_calendar_id": "primary",
+      "manager_slack_user_id": "U_MASA",
+      "earliest_start": "2026-06-10T09:00:00+09:00",
+      "latest_end": "2026-06-10T21:00:00+09:00",
+      "estimated_minutes": 45,
+      "source_kind": "slack_todo",
+      "source_id": "C123:1718000000.000100",
+      "source_url": "https://team-armada.slack.com/archives/C123/p1718000000000100",
+      "source_confidence": 0.62
+    },
+    {
+      "task_id": "meeting-action-002",
+      "project_id": "p25",
+      "project_code": "KUTE",
+      "title": "訪問資料 draft",
+      "owner_member_id": "ID999",
+      "earliest_start": "2026-06-10T09:00:00+09:00",
+      "latest_end": "2026-06-10T11:00:00+09:00",
+      "estimated_minutes": 120
+    }
+  ],
+  "busy_windows": [
+    { "calendar_id": "masa@team-armada.jp", "start": "2026-06-10T09:00:00+09:00", "end": "2026-06-10T10:00:00+09:00" },
+    { "calendar_id": "primary", "start": "2026-06-10T09:00:00+09:00", "end": "2026-06-10T10:00:00+09:00" },
+    { "calendar_id": "masa@team-armada.jp", "start": "2026-06-10T10:30:00+09:00", "end": "2026-06-10T11:00:00+09:00" },
+    { "calendar_id": "primary", "start": "2026-06-10T10:30:00+09:00", "end": "2026-06-10T11:00:00+09:00" }
+  ],
+  "existing_task_events": [
+    {
+      "id": "existing_gmail_task_event",
+      "calendar_id": "primary",
+      "summary": "+SX mail 杉浦先生",
+      "start": "2026-06-10T17:00:00+09:00",
+      "end": "2026-06-10T17:30:00+09:00",
+      "extendedProperties": {
+        "private": {
+          "amd_os_task_source_key": "amd-os:gmail_todo:thread_abc:msg_001"
+        }
+      }
+    }
+  ]
+}

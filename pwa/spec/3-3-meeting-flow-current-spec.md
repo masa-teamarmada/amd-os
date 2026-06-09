@@ -43,6 +43,55 @@ Calendar event の PJ 判定は、色→PJ判定を第一軸にする。
 - Drive資料は automation 側が metadata として渡す。PWA route は Drive を直接読まない。
 - Drive資料だけを根拠に `decided` へ「決定済み」と書かない。
 
+## MTGカード由来 Calendar upsert 一次防御
+
+MTGカード / 議事録に日時・場所・対面/オンライン・参加者・持参物・返信/宿題が入っているのに Google Calendar 側へ予定が無い状態を一次防御で検知する。PWA は Calendar を直接読まない / 書かない。L2⑥ automation が既存 Calendar event metadata を読み、`POST /api/meeting-calendar/upsert-plan` に MTGカードと既存予定候補を渡す。
+
+`/api/meeting-calendar/upsert-plan` は dry-run only。返すものは upsert plan、重複判定、`sendUpdates='none'` 前提の proposed payload、review reason だけ。`dry_run=false` / `execute=true` は `calendar_write_disabled` で拒否する。
+
+冪等性:
+- `calendar_event_id` がある場合はその event を補完候補にする。
+- `calendar_event_id` が無い場合は `amd-os:project_meeting_summaries:<meeting_id>` を deterministic source key にし、Google Calendar `extendedProperties.private` 候補へ `amd_os_mtg_card_id` / `amd_os_project_id` / `amd_os_source_kind` / `amd_os_source_key` / `amd_os_plan_hash` を入れる。
+- 既存 event の `extendedProperties.private`、同日 + title、必要なら場所で duplicate match する。同じ MTGカードから二重作成しない。
+
+自動 upsert 可能な条件:
+- 日時が確定 (`meeting_start_at` あり)、PJ / title / meeting_date が揃っている。
+- 既存 eventId または高確度 duplicate match がある、または eventId なしでも日時確定の新規候補として安全に作れる。
+- 外部 attendees を招待しない。payload の `attendees` は常に空で、`sendUpdates` は常に `none`。
+
+review queue / 保留条件:
+- 時間未定は 08:00-21:00 JST の広めブロック proposed payload を作るが、`review_required` にする。
+- 日付確度が低い候補は `hold`。
+- 外部参加者への invite が必要な場合、外部返信が絡む場合、場所やPJが曖昧な場合、個人予定との境界が怪しい場合は review に送る。
+
+強リマインド:
+- 対面 / 訪問 / 初回MTG / 顧客・大学・研究機関相手 / 持参物あり / 出張直後 / 返信・宿題ありは risk flag を立て、24h・3h・60m・10m などの popup reminder 候補を返す。
+- description には秘密本文を入れすぎず、OS source link、持参物、宿題、返信要否の最小メタだけを入れる。
+
+Gmail cron は二次防御。未カード化 / 未Calendar化メールを拾うが、正規の一次ルートは MTGカード生成時点の Calendar upsert plan とする。
+
+## TODO / task 由来 Calendar 作業枠
+
+MTGから生まれた `meeting_action_items`、OS `tasks`、議事録 `next_actions`、Gmail thread、Slack thread のうち、担当メンバーが明確な作業系タスクは、MTG予定ではなく Calendar 作業枠として入れる。AMD運用では作業系予定のタイトル先頭に `+` を付ける。例: `+SX mail 杉浦先生`。
+
+PWA は Calendar を読まない / 書かない。H-1 automation が owner calendar とまさ calendar の予定を bounded に読み、`POST /api/task-calendar/schedule-plan` に busy window を渡す。route は dry-run only で、09:00-21:00 JST の共通空き枠を15分刻みで探し、`calendar_writes[]` を返す。`dry_run=false` / `execute=true` は `calendar_write_disabled` で拒否する。
+
+Gmail / Slack TODO は H-1 の既存 source 集約範囲で抽出する。PJ が解決でき、担当者 / owner calendar / owner Slack user が解けるものだけ自動候補にする。source は `source_kind='gmail_todo'` / `source_kind='slack_todo'`、`source_id=<thread/message id>`、`source_url`、`source_confidence` を付ける。低信頼、担当不明、個人予定境界、外部返信本文の自動作成が絡むものは review/hold。Calendar 作業枠を入れても、Gmail返信やSlack返信は送らない。
+
+write条件:
+- `owner_calendar_id` と `manager_calendar_id` が解決できる。
+- owner + まさ の共通空き枠がある。
+- title は必ず `+<PJコード> <task>`。
+- 実writeは Google Calendar MCP `create_event` を calendar ごとに呼び、`attendees=[]` / Google Meetなし / popup 10分 / `sendUpdates` 相当なしで作る。
+- 重複防止は `extendedProperties.private.amd_os_task_source_key`、または description の `Source key:`、または同名 `+` event の既存検索で判定し、既にあれば `already_scheduled` にする。
+- 実write成功後だけ、H-1 は owner とまさの内部 Slack DM に nudge を送る。外部相手 / クライアント / 大学関係者には送らない。
+
+review / hold条件:
+- owner calendar が不明、calendar write権限がない、共通空き枠がない、個人予定との境界が怪しい場合は作らない。
+- owner calendar に書けない時に、まさ calendarだけへ勝手に代替作成しない。
+
+H-1 automation は、作成した Calendar 作業枠を automation chat の run summary に必ず出し、Slack DM nudge の送信成否も event id 付きで残す。親司令塔へのquiet closeoutとは別に、H-1実行チャット内で「カレンダーにこの予定いれたよ」を event id 付きで残す。
+
 ## ended / frozen PJ の MTGサマリ生成ガード (2026-06-03 まさ確定)
 
 月次サマリと同じ進捗ベース原則を L2⑥ にも適用する。**開催済みの実MTG (= 実進捗) は状態を問わず記録してよい**が、**未来の予定MTG prep を終了/凍結 PJ に自動生成しない**。frozen 判定は `projects.status='frozen'` または (`freeze_from_ym` ≤ 対象 ym)。

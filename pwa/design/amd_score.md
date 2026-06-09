@@ -1,4 +1,4 @@
-# AMD Score 実装 — Before Zero Theory v3.2
+# AMD Score 実装 — PRS primary / legacy MXF appendix
 
 作成: 2026-05-07 (blissful-kepler-9e95b0 セッション)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
@@ -19,15 +19,34 @@
 
 ## 何を解いたか
 
-`/venture-map/amd-score` (一覧) + `/venture-map/amd-score/[projectId]` (個別) を作って、
-Before Zero Theory v3.2 の **AMD Score (7 軸 Cobb-Douglas 統合指標)** を AMD OS に実装した。
-cockpit の AMD スコアチップ・経時グラフ・breakdown モーダルも新ロジックに置き換え。
+`/venture-map/amd-score` (一覧) + `/venture-map/amd-score/[projectId]` (個別) + PJ cockpit に AMD Score を実装した。現行 primary は **PRS (`P x R x S`)**。旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
 
 理論正本: [`/Users/masa/projects/AMD/before-zero/theory/amd_score.md`](../../../before-zero/theory/amd_score.md)
 
 ---
 
-## 数式 (要約)
+## Current primary: PRS (2026-06-06 更新)
+
+```
+AMD Score primary = K_prs · P · R · S
+P = Potential / 潜在規模
+R = Reach / Readiness = TRL / BRL / GRL / SRL / HRL の contribution product
+S = Survival = σ_SU / FRL / R_net の contribution product
+```
+
+実装上の扱い:
+
+- 計算ロジックは `src/lib/amd-score.ts` の `calculatePrsScore()` / `PRS_ALPHA_DEFAULT` を使う。
+- `P` と `R_net` は `amd_score_inputs.prs_potential` / `amd_score_inputs.prs_r_net` に nullable で保存する。
+- `P` / `R_net` が無い場合は `status='missing'` とし、scoreを出さない。legacy AMD を primary へ戻さない。
+- `src/lib/amd-score-derived.ts` の `resolvePrsInputs()` は stored row → prior row → latest reviewed project-level PRS input の順で P/R_net を解決し、PRS history を back-calculate する。
+- detail 画面で P / R_net を保存し、retrofit 画面は ready / missing queue と legacy α 調整に使う。
+
+---
+
+## Legacy MXF / 7軸モデル (比較・根拠用)
+
+以下は過去モデル。現行 primary ではなく、PRS の R/S evidence、過去履歴、alpha review、旧表示との比較用に残す。
 
 ```
 AMD Score = K · Π (X_i + 1)^α_i      X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
@@ -37,9 +56,9 @@ K         = 100,000 / 10^Σα                       (全軸 9 で IPO 級 100,00
 
 Shallow Tech モード (TRL=null) は TRL 軸を計算から除外、6 軸 + K 再校正。
 
-### UI 表示構造 (3 大要素)
+### Legacy UI 表示構造 (3 大要素)
 
-理論層は 7 軸 1 つの ∏ だが、UI では「マクロ M × 会社の XRL X × CEO の FRL F」の **3 大要素**で見せる:
+理論層は 7 軸 1 つの ∏ だが、legacy UI では「マクロ M × 会社の XRL X × CEO の FRL F」の **3 大要素**で見せる:
 
 ```
 S = k · M · X · F                 (k = 100,000 / 10^Σα、小文字で定数感)
@@ -315,17 +334,17 @@ Path: `/venture-map/amd-score/retrofit` (タブバーには出さない、詳細
 - α を動かすたび右の表がリアルタイム更新 → retrofit (過去 PJ の設立タイミング判定が当たるか) を見ながら慎重に決められる
 - 「現役 α に戻す」「base case (default) に戻す」「新しい α を保存」ボタン
 
-### PRS候補 比較レイヤー (2026-06-01 追加)
+### PRS primary / legacy comparison (2026-06-06 更新)
 
-同じ `/venture-map/amd-score/retrofit` に、現行7軸AMD Scoreを置き換えない比較/シミュレーション層として PRS (`P x R x S`) 候補を追加した。
+PRS (`P x R x S`) を主表示へ切り替え、legacy 7軸 AMD Score は comparison / evidence 層として残した。
 
 実装上の扱い:
 
-- 計算ロジックは `src/lib/amd-score.ts` の `calculatePrsScore()` / `PRS_ALPHA_DEFAULT` に独立追加。既存 `calculateAmdScore()` は変更しない。
-- `P` と `R_net` は `amd_score_inputs` に列を追加せず、retrofit画面の保存しない仮入力としてのみ扱う。
-- `P` / `R_net` が無い場合は `status='missing'` とし、scoreを出さない。0固定で誤読させない。
+- 計算ロジックは `src/lib/amd-score.ts` の `calculatePrsScore()` / `PRS_ALPHA_DEFAULT` を使う。legacy `calculateAmdScore()` は comparison 専用。
+- `P` と `R_net` は `amd_score_inputs.prs_potential` / `amd_score_inputs.prs_r_net` に nullable で保存する。
+- `P` / `R_net` が無い場合は `status='missing'` とし、scoreを出さない。legacy AMD を primary へ戻さない。
 - `R` は TRL/BRL/GRL/SRL/HRL の contribution product、`S` は σ_SU/FRL/R_net の contribution product として表示する。
-- PRS候補の正式採用、P/R_net rubric、DB schema化、9PJ正式retrofit表は BZM review required。
+- detail 画面で P / R_net を保存し、retrofit 画面は ready / missing queue と legacy α 調整に使う。
 
 ### FRL 6 因子拡張 (2026-05-09 追加)
 

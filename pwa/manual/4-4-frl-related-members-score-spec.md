@@ -1,10 +1,10 @@
 # FRL / HRL / 関連メンバー 詳細仕様
 
-AMD Score 7 軸のうち **FRL (= Founding Readiness)** と **HRL (= Human Resources Readiness)** に紐づく「人」評価軸と、 PJ に関わる **関連メンバー** (= `project_founding_members` / `project_venture_members`) の見方。 AMD Score 全体は [4-3 章](4-3-amd-score-spec.md) を見る。FRL の実装仕様・DB列・関数契約は [/spec/4-1-frl-ces-current-spec](/spec/4-1-frl-ces-current-spec)、理論導出は [/bzm/4-1-frl-founder-readiness](/bzm/4-1-frl-founder-readiness) が正本。
+AMD Score の現行 primary は PRS (`P x R x S`)。この章は、そのうち **S (Survival)** の根拠になる **FRL (= Founding Readiness)** と、**R (Reach / Readiness)** の一部になる **HRL (= Human Resources Readiness)**、さらに PJ に関わる **関連メンバー** (= `project_founding_members` / `project_venture_members`) の見方を扱う。legacy 7 軸モデルでは FRL / HRL は M-X-F comparison の F / X に対応するが、現行主表示は PRS として読む。AMD Score 全体は [4-3 章](4-3-amd-score-spec.md) を見る。FRL の実装仕様・DB列・関数契約は [/spec/4-1-frl-ces-current-spec](/spec/4-1-frl-ces-current-spec)、理論導出は [/bzm/4-1-frl-founder-readiness](/bzm/4-1-frl-founder-readiness) が正本。
 
 ## FRL (= Founder Readiness Level)
 
-CEO リーダーシップ readiness。 AMD Score の最重要軸 (= α_F=1.5)。 「マクロトレンドに乗っていて、 会社 XRL が整っていても、 CEO の質が低ければ Scale しない」 (= Bernstein 2017 JF: Founder Quality が VC 意思決定の最大因子)。 P×R×S 新モデルでは **S (生存確率) の一因子** (= 創業者の調達/自走力)。
+CEO リーダーシップ readiness。 PRS primary では **S (生存確率) の一因子** (= 創業者の調達/自走力)。legacy 7 軸 comparison では最重要軸 (= α_F=1.5) として残る。「マクロトレンドに乗っていて、会社 XRL が整っていても、CEO の質が低ければ Scale しない」 (= Bernstein 2017 JF: Founder Quality が VC 意思決定の最大因子)。
 
 ### FRL 2 レイヤー構造 (= 2026-05-30 確定、CES 補完合成)
 
@@ -74,7 +74,7 @@ F_cap の 0-9 は **えいみが推測で初期投入 → まさが画面で修�
 
 ## HRL (= Human Resources Readiness Level)
 
-組織人材 readiness。 AMD Score では α_H=1.1 (= XRL 5 軸の中で 2 番目に重い、 TRL=1.0 / BRL=0.6 / GRL=0.3 / SRL=0.2)。 根拠: 内閣府 SIP「HRL > TRL/BRL」。
+組織人材 readiness。 PRS primary では **R (Reach / Readiness)** を構成する XRL の一部。legacy comparison では α_H=1.1 (= XRL 5 軸の中で 2 番目に重い、TRL=1.0 / BRL=0.6 / GRL=0.3 / SRL=0.2)。根拠: 内閣府 SIP「HRL > TRL/BRL」。
 
 ### HRL 1-9 段階定義
 
@@ -200,9 +200,9 @@ status='tentative' で保存
 
 | URL | 役割 |
 |---|---|
-| `/venture-map/amd-score` | 全 SU PJ の AMD Score 一覧 (= score 降順 / phase filter) |
-| `/venture-map/amd-score/[projectId]` | 個別 PJ の AMD Score 詳細 + FRL 6 因子 panel + 関連メンバー一覧 + score 経時 |
-| `/project/[projectId]/cockpit` | cockpit 内に AMD Score chip + breakdown modal (= 3 要素 M × X × F カード) |
+| `/venture-map/amd-score` | 全 SU PJ の AMD Score 一覧。主表示は PRS primary、legacy AMD は comparison |
+| `/venture-map/amd-score/[projectId]` | 個別 PJ の PRS primary / PRS history / legacy M-X-F / FRL 6 因子 panel / 関連メンバー一覧 |
+| `/project/[projectId]/cockpit` | cockpit 内に PRS primary chip + score detail tab。legacy M-X-F は comparison として残す |
 
 詳細 page の `FrlAlqPanel` は FRL 6 因子表示 + ALQ radar (= 各因子クリックで Tsukuyomi 起動)。
 
@@ -218,7 +218,7 @@ status='tentative' で保存
 
 ## 関連
 
-- 4-3 章 [AMD Score 詳細仕様](4-3-amd-score-spec.md) (= 7 軸全体)
+- 4-3 章 [AMD Score 詳細仕様](4-3-amd-score-spec.md) (= PRS primary / legacy 7 軸 comparison 全体)
 - 設計: [`pwa/design/amd_score.md`](../design/amd_score.md) (= Before Zero Theory v3.2)
 - 設計: [`pwa/design/score_revision_feedback_loop.md`](../design/score_revision_feedback_loop.md) (= 修正依頼 loop)
 - 設計: [`pwa/design/su_knowledge_promotion_loop.md`](../design/su_knowledge_promotion_loop.md) (= founding_members 昇格)

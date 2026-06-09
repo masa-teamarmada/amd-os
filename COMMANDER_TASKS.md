@@ -27,6 +27,16 @@
 - 進められる未完タスクがない場合は、まさ確認・まさ判断・外部作業が必要なはずなので、具体的な質問またはアクションとしてまさを動かす。
 - 以後のworker promptには、旧「完了・停止・要判断時は必ず親司令塔へ能動報告」ではなく、このworker quiet modeと未完タスク監視の前提を含める。
 - `COMMANDER_TASKS.md` にはworker詳細ログを貼らず、Active workerあり、worker id、状態、次回確認条件、まさ要判断だけを短く残す。
+- worker同士の成果を消す事故を防ぐため、以後のworker promptには必ず「他worker成果の不可侵範囲」「重複しうるファイル/route」「完了前 intact check」を入れる。
+- 既存workerが別worker成果を消しうる作業に入った場合、司令塔はまさに言われる前に横断ガードを差し込み、必要なら差し戻す。
+- 以後のworker promptにはfreshness gateを入れる。開始時に `git fetch --all --prune` と `AMD_OS_MIN_BUILD_VERSION=v0.16.20 AMD_OS_BASE_REF=origin/codex/prs-docs-v01618 scripts/worker-freshness-check.sh` 相当で、作業baseが `v0.16.20+` current lineか確認する。古いcheckoutなら実装/DB write/Notion write/deploy/pushへ進まない。
+- root local checkout `/Users/masa/projects/AMD/amd-os` は `codex/bzm-vercel-quota-gate@93e46947` / `BUILD_VERSION=v0.15.3` のstale状態だったため、dirty分類・司令塔台帳更新以外の実装/deploy起点にしない。
+- 新機能追加・仕様変更・既存挙動変更のworkerは、完了前に設計書影響を `要更新 / 更新不要(理由あり) / 要確認` へ分類する。`要更新` または `要確認` の場合、OS司令塔は★設計書司令塔へ追記修正を依頼する。
+- 仕様変更workerの完了判定には、設計書反映済み、設計書更新worker切り出し済み、または更新不要理由のいずれかを含める。設計書影響が未分類のまま完了扱いにしない。
+
+Sub-commanders:
+- ★設計書司令塔: thread `019eaa44-ccf7-7802-b7fc-b2df939b220e`。設計書/spec/design docs系タスクを管理する。個別docs修正はworkerへ切る。OS配下の新機能/仕様変更workerについて、設計書影響分類と更新worker切り出しを担当する。
+- ★マニュアル司令塔: thread `019eaa45-802e-7a32-94b3-aecb61230ced`。manual/操作説明/運用マニュアル系タスクを管理する。個別manual修正はworkerへ切る。
 
 Vercel deploy approval gate:
 - 2026-06-04 まさ判断で、Vercel deploy上限は緩和。deploy自体は再開OK。
@@ -36,15 +46,324 @@ Vercel deploy approval gate:
 - deploy bundleが準備できたら、`push/deployはまだしてない` で止まらず、必ず実際に `askuserquestion` を投げる。
 - `approval pending` は未分類blocker扱いにしない。ただし止めるのはそのdeploy bundleだけで、司令塔/worker全体は止めない。
 - 承認待ち中も、deployを消費しないlocal実装、local build/test、レビュー、台帳更新、次タスク整理、別worker切り出し、差し戻しは進め続ける。
-- 現在状態: `Vercel deploy approval gate active`。完全なdeploy bundleが準備できたものは `askuserquestion` 待ちへ進め、未準備の候補はbundle準備を進める。
-- deploy bundle候補: BZM approval gate台帳更新 (`e34be20`)、Textbook approval gate台帳更新 (`43165dd`)、KUTE MTGカード/自動生成修正 (`33520f8`, `e8a9b1e`)、Textbook main integration未反映分、BZM/PRS系、OS UI系、company content Notion移植など、local検証済み変更をbundle化して提示する。
-- askuserquestion承認状況: 完全なdeploy bundleは未提出。bundle候補はあるが、含める変更/除外変更/local build/test/browser確認/予定回数/行き先/rollback確認方法をまとめ切ってから即質問する。
-- deploy実施回数: 2026-06-04 gate更新後 0回。
+- 2026-06-06 まさ判断: 現在進行中のOS worker群はdeploy bundle承認待ちで止めず、検証が通ったら確認なしでproduction deploy/production確認まで進める。古いcheckout deploy禁止、BUILD_VERSION巻き戻り禁止、protected current truth intact checkは継続。
+- 現在状態: `deploy-to-completion for active OS workers`。現在進行中workerは `askuserquestion` 待ちにせずdeploy/production確認まで進める。今後の新規workerは、まさが別指示しない限り開始promptでdeploy方針を明示する。
+- deploy bundle候補: BZM approval gate台帳更新 (`e34be20`)、Textbook approval gate台帳更新 (`43165dd`)、KUTE MTGカード/自動生成修正 (`33520f8`, `e8a9b1e`)、Textbook main integration未反映分、BZM/PRS系、company content Notion実データ補正commit `8158ead` など、local検証済み変更をbundle化して提示する。
+- askuserquestion承認状況: 現在進行中のOS worker群はまさが承認待ち不要と明示。deploy前質問なしで進める。新規workerは開始時にdeploy方針を明示する。
+- deploy実施記録: 2026-06-04 gate更新後、KUTE/company landing zone系 `dpl_42byLRKSTZEfrQGo5bDfWargtUyx`、L2旧導線復旧 `dpl_CgAjeEXkkrQZc3a8JxUbKrkihC4m`。Production Ready: `https://amd-os-pwa.vercel.app`。
 - push保留: あり。BZM approval gate更新commit `e34be20`、Textbook approval gate更新commit `43165dd`、2026-06-03 hard gate反映のローカル台帳/AGENTS更新、Claude migration handoff系、現在の司令塔台帳更新は未push。承認待ち中に進める次作業: local検証、レビュー、台帳更新、次worker整理。
-- 承認待ち/準備中に進めている次作業: Dashboard研究機関リスト順序worker、KUTE研究機関リスト移行worker、company content Notion移植worker、KUTE MTGカードworkerのまさ受理確認、Claude routine実登録worker監視、deploy bundle棚卸し。
+- 承認待ち/準備中に進めている次作業: KUTE MTGカードworkerのまさ受理確認、Claude routine実登録worker監視、未push local commitのbundle整理。
 - `/Users/masa/projects/AGENTS.common.md` は個人司令塔側で更新済み。
 
 ## 未完タスク（優先順位順）
+
+### 0F. Notion議事録のPJリレーション/eventId空欄化の原因特定と再発防止
+
+- お願いしたタスク内容
+  - ここ数日のNotion議事録で、PJリレーションとeventIdが空欄になっている原因を特定する。
+  - 今後の新規議事録で同じ欠落がsilentに起きないよう対策する。
+  - 根拠が取れる直近欠落分は非破壊でbackfillする。
+- お願いした背景
+  - まさがNotion議事録現物を見て、直近分のPJリレーション/eventId欠落に気づいた。
+  - 議事録がPJ/eventに紐づかないと、MTGツリー、PJ cockpit、L2⑥ MTGサマリ、Notion/OS横断検索の信頼性が落ちる。
+- 現状どうなってるか
+  - 動作状態: 原因特定 + 再発防止worker切り出し済み。worker pending worktree `local:4c7aa312-0da3-4c34-b82c-5ea4d71167c3`。
+  - workerには、Notion現物確認、正常例/欠落例比較、OS側生成/同期経路調査、property mapping/eventId/project routing原因分類、guard/test、可能なbackfillまで指示済み。
+  - deploy前承認では止めない方針。ただし古いcheckout deploy禁止、BUILD_VERSION巻き戻り禁止、protected current truth intact check必須。
+- 残課題は何か
+  - workerの実thread化/進行をpullする。欠落開始日、影響件数、原因、修正commit、backfill有無、Notion read-back、production確認を完了ゲートにする。
+
+### 0G. L2データリスト下に自動データ処理カタログを追加する
+
+- お願いしたタスク内容
+  - 設計書トップのL2データリストページで、L2一覧の下にデータ取得/編集/自動処理の運用カタログを追加する。
+  - Vercel / GAS / Codex automation / Claude routine / MMO Desktop automation / PWA route / manual admin など、どの基盤が何を書いているかを混同しないようにする。
+- お願いした背景
+  - 自動処理仕様が設計書の各所に散り、あとから「これはVercelで動くのかGASなのか」が分からなくなりがち。
+  - 少なくとも自動でデータを取得・編集する処理だけは、L2データリストを入口に横断確認できるようにしたい。
+- 現状どうなってるか
+  - 動作状態: docs worker切り出し済み。worker pending worktree `local:5a997ae8-b476-4877-bfd8-b4aa862eee3a`。
+  - workerには、`/spec/3-0-l2-data-list-current-spec` のL2一覧下へ「自動データ処理カタログ」を追加し、runner基盤、trigger/cadence、source、destination、human review、重要guard、詳細specリンクを整理するよう指示済み。
+  - L2旧slugページ本体、`マシン` / `cron名` / `タイミング` 列つき最新L2表を壊さない条件。
+- 残課題は何か
+  - workerの実thread化/進行をpullする。分類粒度、リンク正確性、L2旧slug/表 intact、`git diff --check` を完了ゲートにする。
+
+### 0H. PJ資料欄実装がmain未統合か調査する
+
+- お願いしたタスク内容
+  - 別チャットで「現行ブランチにはPJ資料欄の本体実装がまだ入ってない。`codex/project-documents-v0162` branchは存在する」と言われたため、main/branch/productionの三点で実態を確認する。
+  - mainに実装済みか、branchにだけあるのか、本番はどのdeployment/commit由来かを確定する。
+- お願いした背景
+  - PJ cockpit資料置き場は本番deployやDrive OAuth再発行まで進んだ一方、main統合状態が不明。
+  - branch deployだけで本番に出ていると、次のmain deployで資料欄が消えるリスクがある。
+- 現状どうなってるか
+  - 動作状態: 調査worker切り出し済み。worker pending worktree `local:ba518d61-6230-4a69-84cd-070f026bb9cc`。
+  - workerには、`main` / `origin/main` / `codex/project-documents-v0162` / production alias を比較し、project documents関連commitと実装ファイルの所在、main統合要否、混在commitリスクを整理するよう指示済み。
+  - 調査workerではmerge/cherry-pick/deploy/DB write禁止。まず判断材料作成のみ。
+- 残課題は何か
+  - workerの実thread化/進行をpullする。main未統合なら、取り込むべきcommit範囲と混在リスクを次アクションへ分類する。
+
+### 0I. `amd-os-l6-meeting-flow` がこのMacBookで動き出した原因を特定する
+
+- お願いしたタスク内容
+  - 本来MMOマシンで設定しているはずの `amd-os-l6-meeting-flow` が、このMacBookで昨日から動き出した原因を特定する。
+  - いつ、どの登録/launch経路で有効化されたか、MMO側との二重実行リスクがあるか確認する。
+- お願いした背景
+  - L6 meeting flowはMTGサマリ/Notion議事録/PJ relation/eventIdと直結するため、意図しないマシンで動くと重複書き込みや欠落補完の原因になりうる。
+  - MMO Desktop automation と MacBook local automation の責任境界を明確にしたい。
+- 現状どうなってるか
+  - 動作状態: ローカル調査worker切り出し済み。worker thread `019ea49b-26ff-7983-86da-c02a9c2791fc`。
+  - workerには、このMacBookの `$CODEX_HOME/automations`、LaunchAgents、launchctl、crontab、repo scheduled-tasks/spec、直近worker痕跡、run logsをread-onlyで確認するよう指示済み。
+  - 勝手な停止/削除/disable/DB write/Notion writeは禁止。まず原因・影響・推奨対応だけ整理する条件。
+  - 追加確認: MMOマシン側で `amd-os-l6-meeting-flow` が本当に稼働しているかを確認するvisible workerを切り出し済み。worker thread `019ea4b4-5619-7ef0-a947-7c096073eff4`。
+  - 追加workerには、MMO側を `ACTIVE / paused / disabled / not found / unable to verify` に分類し、MacBook側事故automationとの二重実行リスクをread-onlyで整理するよう指示済み。automation作成/停止/削除/disableは禁止。
+- 残課題は何か
+  - ローカル原因調査workerとMMO稼働確認workerの結果をpullする。直接原因、開始日時、登録元、MMO側稼働有無、二重実行有無、停止/移管が必要かを次アクションへ分類する。
+
+### 0J. L2抽出全体の未実行/抽出不能を二度と見逃さない仕組みを作る
+
+- お願いしたタスク内容
+  - L2①〜⑯について、`設定済み` と `実データ抽出成功` を分離し、抽出不能・未実行・出力ゼロ・古いlast success・silent failureを検知できる仕組みを作る。
+  - まさがOS上または明確なコマンドで、どのL2が死んでいるかをすぐ確認できる状態にする。
+- お願いした背景
+  - `amd-os-l6-meeting-flow` がMMOマシンで動いておらず、別worker側で設定した。
+  - その過程で、多くのL2データが抽出できない状態になっていることが発覚した。
+  - L2抽出はAMD OSの根幹であり、`SKILL.mdあり` / `automation.tomlあり` / `ACTIVE表示あり` だけでは成功扱いにできない。
+- 現状どうなってるか
+  - 動作状態: 仕組みづくりworker切り出し済み。worker thread `019ea500-babf-7af1-bca4-24a3b77873dc`。
+  - workerには、L2①〜⑯のrunner/cadence/source/destination/success evidence/last known success/failure modeを棚卸しし、read-only health checker、review_required、admin UI/API、spec連携のうち最小有効な仕組みを作るよう指示済み。
+  - workerには、recurring automation / LaunchAgent / cron / Codex automation の勝手な作成・更新・停止・削除は禁止。scheduler変更が必要ならvisible worker内でscheduler change bundleを出す条件。
+- 残課題は何か
+  - worker結果をpullする。L2ごとの健康状態、検知機構、OS上の確認導線、復旧が必要なL2の優先順位を受け取り、必要なら復旧workerへ分解する。
+
+### 0K. PJ cockpit資料コーナーが他メンバーから見えない原因を特定して直す
+
+- お願いしたタスク内容
+  - PJ cockpitの資料コーナーが、まさ以外/他メンバーから見れない原因を特定して対策する。
+  - UI自体が出ない、一覧が空、Driveリンクが権限なし、uploadだけ不可などを切り分ける。
+- お願いした背景
+  - 資料コーナーはPJ内で共有するための機能なので、upload者本人やまさだけが見られる状態では目的を満たさない。
+  - 原因はPWA UI条件、API filter、Supabase RLS、Drive permission/folder inheritanceのどこかにある可能性がある。
+- 現状どうなってるか
+  - 動作状態: 完了。worker thread `019ea596-6fc3-7bc0-ab2a-b454002574e2`。
+  - 原因はDrive permissionではなく、OS側API/RLSのread gateがadmin-onlyだったこと。`GET/POST /api/project-documents` と Markdown preview/edit API、`project_documents` RLSが、まさ/admin以外のPJ memberを `Forbidden` にしていた。
+  - 修正commit: `358fbd6 fix(pwa): allow project members to read documents` on `codex/project-doc-url-share-v01615`。
+  - `GET/POST /api/project-documents` と `/api/project-documents/[documentId]/content` の GET/PATCH を、対象PJのactive `project_members` またはadminへ開放。migration `132_project_documents_member_access.sql` を本番Supabaseへ非破壊適用済み。
+  - Production deploy済み: `dpl_5J6yti3emRPzTCpGpccgj3ngTQzC` / `https://amd-os-pwa.vercel.app` / `BUILD_VERSION=v0.16.17`。
+  - 検証: `node --check` route 2本、`npx tsc --noEmit --pretty false`、`npm run build`、`git diff --check` pass。production `/project/p25/cockpit` で資料パネル表示、`資料なし`、Forbiddenなしを確認。
+- 残課題は何か
+  - Watch: Chromeはまさログイン状態だったため、あき本人など非admin実ブラウザでの画面確認は未実施。production DB上の非admin active PJ memberケースでは、同じ判定ロジックならaccess OKになることをread-only確認済み。
+  - Watch: Drive本体の共有範囲は外部へ広げていない。既存ファイルのDriveリンク実開封は非admin実アカウントでは未確認。
+
+### 0L. MTGカード生成時にGoogle Calendarへ予定をupsertする一次防御を設計する
+
+- お願いしたタスク内容
+  - MTGカード/議事録から日時・場所・参加者・対面/オンライン・持参物・返信/宿題が抽出できる場合、Google Calendarへ予定をupsertする仕組みを検討する。
+  - 既存予定があれば重複作成せず、説明欄・場所・リマインドだけ補完する。
+  - 時間未定の予定は 8:00-21:00 など広めにブロックする候補にし、対面/訪問/初回MTG/顧客・大学相手/持参物あり/出張直後などは強リマインド対象にする。
+- お願いした背景
+  - 2026-06-09、工学院/KUTEの対面MTGを見落としかけた。
+  - Gmail cronで重要メールを拾う二次防御だけでなく、OS側の議事録/MTGカードに既に入っているMTG情報をCalendarへ同期する一次防御が必要。
+- 現状どうなってるか
+  - 動作状態: 設計/最小実装worker切り出し済み。worker thread `019ea7cd-b732-7ed1-ba31-f213a59af0d9`。
+  - workerには、現行MTGカード生成経路、eventId有無、Calendar upsert key、既存event matching、review queue条件、Gmail cronとの責任分担を整理するよう指示済み。
+  - 外部返信/外部招待/個人予定混入を勝手にしない。実Calendar writeはdry-run/review queue/feature flag優先で、必要ならworker内でまさ確認。
+- 残課題は何か
+  - worker結果をpullする。自動upsert可能条件、review queue条件、重複防止、強リマインド、dry-run/fixture、deploy要否を完了ゲートにする。
+
+### 0M. 設計書の評価モデル説明をPRS中心へ更新し、MXFを巻末付録へ退避する
+
+- お願いしたタスク内容
+  - 設計書上のAMD Score/評価モデル説明を、現行のPRSモデル中心へ差し替える。
+  - MXFモデルは削除せず、巻末付録/legacy sectionに過去モデルとして残す。
+- お願いした背景
+  - UI/実装側ではPRS primary化が進んでいる一方、設計書にはまだMXFモデル中心の説明が残っている。
+  - 読者が現行primaryをMXFと誤解しないよう、現行正本をPRSへ揃えたい。
+- 現状どうなってるか
+  - 動作状態: 設計書更新worker切り出し済み。worker thread `019ea83c-407d-72e0-a87a-25d57c3911d3`。
+  - 管理先: 以降は★設計書司令塔 `019eaa44-ccf7-7802-b7fc-b2df939b220e` がpull/完了判断/差し戻し/次worker分解を担当する。
+  - workerには、MXF/PRS/AMD Score/7軸/評価モデルの主要docsを洗い出し、現行説明はPRS、MXFはlegacy appendixへ整理するよう指示済み。
+  - `COMMANDER_TASKS.md` は親司令塔側dirtyのため、workerにはread-only参照のみ・編集禁止と指示済み。
+- 残課題は何か
+  - worker結果をpullする。変更ファイル、主要検索結果でPRS primaryが分かること、MXFが過去モデルとして残っていること、docs route/build確認を完了ゲートにする。
+
+### 0N. 契約管理システムを追加する
+
+- お願いしたタスク内容
+  - OSに契約管理ページを追加し、トップナビに「契約」リンクを作成する。
+  - 5つの生データから契約締結の予兆を検知したら、契約書リストへ契約予定枠として追加する。
+  - 契約書の修正やりとりが発生していれば各バージョンのドキュメントを保管し、最終的な押印版電子ファイルも保存する。
+  - 押印版が保存されないまま一定期間経過した契約予定枠は、Slackの当該PJへnudge候補にする。
+  - ドキュメント保存先は `共有ドライブ/ARMADA/a3_backoffice/契約`。
+- お願いした背景
+  - 契約締結の予兆、修正版、押印版、未締結nudgeをPJ/Drive/Slack横断で管理したい。
+  - 契約書は機密性が高いため、PJ documentsとは保存先・権限境界を混同しない。
+- 現状どうなってるか
+  - 動作状態: 機能追加worker切り出し済み。worker thread `019eaa5b-0e54-7662-b6da-be44e06f6d57`。
+  - workerには、トップナビ/`/contracts`、契約予定枠、契約ステータス、version documents、signed document、Drive保存先、5 raw sourceの予兆検知、Slack nudge candidateを最小MVPとして進めるよう指示済み。
+  - Slack実送信、scheduler作成/更新、Drive外部共有の拡大は勝手に実行せず、dry-run/review queue/まさ確認を優先する条件。
+- 残課題は何か
+  - worker結果をpullする。権限境界、DB/API/UI、Drive保存先、5 raw source分類、nudge候補、外部連携blocker、production/deploy要否を完了ゲートにする。
+
+### 0O. admin/projects と admin/members の表で先頭行・先頭列を固定する
+
+- お願いしたタスク内容
+  - `/admin/projects` と `/admin/members` の表で、先頭行と先頭列を固定表示にする。
+- お願いした背景
+  - 行数/列数が多いadmin一覧で、スクロール時に項目名と対象行の識別がしづらい。
+- 現状どうなってるか
+  - 動作状態: 完了。worker thread `019eaabf-1c94-76f1-b561-bc1f5fc6ebad`。まさが本番で「できてた！」と確認済み。
+  - `/admin/projects` はheader row固定 + PJID/PJ名の左2列固定。`/admin/members` はheader row固定 + codeName左1列固定。
+  - stickyの `top/left/z-index/background/border` を整理し、スクロール時の透け・重なりを抑制済み。
+  - `pwa/manual/6-2-admin-projects-members-ledger-spec.md` に影響反映済み。
+  - 現行 `v0.16.22` line (`origin/codex/contracts-management-v01619`) に専用worktree `/Users/masa/.codex/worktrees/admin-sticky-v01622` で実装し、`BUILD_VERSION=v0.16.23`。
+  - Production deploy済み: `dpl_DPPsiK4YHCaWcK6W8mDVWhmrm4k3` / `https://amd-os-pwa.vercel.app` / inspect `https://amd-os-fz3mmvsoj-armada0130.vercel.app`。
+  - 検証: freshness gate OK、`npx tsc --noEmit` OK、targeted eslint OK、`git diff --check` OK、local `npm run build` OK、Vercel production build/deploy OK。
+- 残課題は何か
+  - なし。今後、admin ledger系の追加列/表変更時はsticky対象列とz-indexを同manualに追記する。
+
+### 0P. MTGカード資料アップロードを一般ファイル対応にし、保存先をMTGフォルダへ変更する
+
+- お願いしたタスク内容
+  - MTGカードの資料アップロードでmd等が `PNG/JPG/WebP/GIF/PDF だけ` と拒否される問題を直す。
+  - どのファイルでもアップロードできる仕様へ変更し、古いファイル種別制限文言を消す。
+  - 添付ファイルは、そのPJフォルダ下にMTG専用フォルダを生成して保存する。フォルダ名は `YYMMDD_（会議名）`。
+  - MTGカード上に、ここへ置いたファイルの保存先を表示する。
+- お願いした背景
+  - KUTE MTGカードへ `.md` 資料をアップロードしようとしたところ、画像/PDF限定の古い制限で失敗した。
+  - MTG資料はmd/docx/xlsx/pptx/txt/csv等も置ける必要があり、保存先もPJ/MTG単位で分かるようにしたい。
+- 現状どうなってるか
+  - 動作状態: 実装修正worker切り出し済み。worker thread `019eaaca-c4d6-7353-a618-ad51ec4b3788`。
+  - workerには、client/API/storage/previewのallowlistを確認し、一般ファイル対応、保存先folder `YYMMDD_会議名` find-or-create、MTGカード上の保存先表示を実装するよう指示済み。
+  - 設計書影響分類が必要なため、★設計書司令塔 `019eaa44-ccf7-7802-b7fc-b2df939b220e` に追跡依頼済み。
+  - 操作マニュアル影響の可能性があるため、★マニュアル司令塔 `019eaa45-802e-7a32-94b3-aecb61230ced` にも追跡依頼済み。
+- 残課題は何か
+  - worker結果をpullする。md含む一般ファイルupload、古い制限文言なし、既存画像/PDF upload intact、保存先folder名、MTGカード上の保存先表示、設計書/マニュアル影響分類を完了ゲートにする。
+
+### 0Q. worker checkout鮮度を調査し、最新versionへ追従できるようにする
+
+- お願いしたタスク内容
+  - 複数workerが「今のcheckoutは `v0.15.3`」と認識している原因を調査する。
+  - 現在の正本は `v0.16.20` のため、各workerが最新version/current productionに対して安全にアップデートできるように整える。
+- お願いした背景
+  - workerが古いcheckoutを見ていると、実装が最新本番に載らず、production deploy時に巻き戻り事故を再発させる。
+  - 過去にも古いcheckoutからのVercel CLI deployでBUILD_VERSION巻き戻りが発生している。
+- 現状どうなってるか
+  - 動作状態: 完了。worker thread `019eaacd-7629-7153-b55b-bca5be4370a4`。まさOK済み。
+  - 直接原因: OS司令塔/workerの一部が `/Users/masa/projects/AMD/amd-os` のlocal checkoutで起動していたため。そのcheckoutは `codex/bzm-vercel-quota-gate@93e46947` / `pwa/src/lib/build-info.ts = v0.15.3`。
+  - `origin/main` も `v0.15.1` で古い。current `v0.16.20` は main ではなく `origin/codex/prs-docs-v01618@000d2031` にある。
+  - localでは `codex/contracts-management-v01619@f15aa707` が `v0.16.22` まで進んでいるが、current正本として扱う前にbundle整理/受理判断が必要。
+  - production `/api/build-info` は404。deploy guard/build stampは `codex/deploy-guard-build-stamp-v01518` 系に存在するが、`v0.16.20` lineには未統合。
+  - 成果物: `scripts/worker-freshness-check.sh`。`AMD_OS_MIN_BUILD_VERSION=v0.16.20 scripts/worker-freshness-check.sh` でstale checkoutが `STALE` として止まることを確認済み。`git diff --check` / `bash -n scripts/worker-freshness-check.sh` pass。
+  - active workerへfreshness gateを横断差し込み済み: 0L、0J、0M、0O、0R、0N、0P。
+  - 設計/運用docs影響分類: `CLAUDE.md` / `COMMANDER_TASKS.md` / PWA開発運用spec は要更新。一般ユーザー向けmanualは更新不要。deploy rollback guard + `/api/build-info` のcurrent line portは要確認。
+- 残課題は何か
+  - deploy guard/build stamp current line portは0Sとして専用worker切り出し済み。
+
+### 0S. deploy rollback guard + build stampをcurrent `v0.16.20` lineへportする
+
+- お願いしたタスク内容
+  - `codex/deploy-guard-build-stamp-v01518` 系にあるdeploy rollback guard + `/api/build-info` build stampを、current `v0.16.20` lineへportする。
+  - 古い `v0.15.x` checkoutからのproduction deployを止められるようにする。
+- お願いした背景
+  - 0Qで、production `/api/build-info` が404で、deploy guard/build stampがcurrent lineへ未統合と判明した。
+  - root local stale checkout起点のworker/deploy事故を再発させないため、current lineでguardを効かせる必要がある。
+- 現状どうなってるか
+  - 動作状態: port worker切り出し済み。worker thread `019eaadb-9ab2-7e43-887f-4c6a2c6c1c35`。
+  - workerは `origin/codex/prs-docs-v01618` / current `v0.16.20` line起点。初回作成時は `pendingWorktreeId` だけ返ったため、actual thread IDを確認してからvisible worker扱いにした。
+  - workerには、旧branchを丸ごとmergeせず、必要差分だけportし、`/api/build-info` public stamp、deploy script guard、worker freshness check、tests/dry-run/local buildを確認するよう指示済み。
+  - 設計書/運用docs影響分類が必要なため、★設計書司令塔 `019eaa44-ccf7-7802-b7fc-b2df939b220e` に追跡依頼済み。
+- 残課題は何か
+  - worker結果をpullする。freshness gate、guard test、deploy dry-run、local `/api/build-info`、BUILD_VERSION逆行なし、production deploy有無、設計書/運用docs影響分類を完了ゲートにする。
+
+### 0T. `git` プロセスの128GB級メモリ暴走を調査し、逼迫を改善する
+
+- お願いしたタスク内容
+  - Mac上で `git` タスクが128GB級のメモリを食っている原因を特定する。
+  - OS司令塔/worker/freshness gate/worktree作成起点か確認し、メモリ逼迫を改善する。
+- お願いした背景
+  - 直近で多数workerにfreshness gate、worktree作成、deploy guard port、SX MTG復旧などの指示が入っている。
+  - 128GB級の `git` は放置するとCodex/worker/ブラウザ/OS全体に影響する。
+- 現状どうなってるか
+  - 動作状態: 緊急調査worker切り出し済み。worker thread `019eaae4-66c2-7230-9137-0061ffb3e4d4`。
+  - workerには、新規worktree作成・重いgit操作を禁止し、`ps` / `pgrep` / `lsof` / 短時間sampleでPID/PPID/args/cwd/RSSを特定するよう指示済み。
+  - 明らかなstale read-only git暴走なら、`TERM` → 確認 → 必要なら `KILL` まで実施可。ただし push/deploy/rebase/merge/cherry-pick/commit中の可能性がある場合は停止前にまさ確認。
+- 残課題は何か
+  - worker結果をpullする。PID/args/cwd/起点、停止/改善結果、lock残存有無、freshness gate軽量化案を完了ゲートにする。
+
+### 0R. 2026-06-10 SX定例MTGカードが生成されていない原因を特定して復旧する
+
+- お願いしたタスク内容
+  - 2026-06-10のSX定例MTGのMTGサマリカードが生成されていない原因を特定する。
+  - 必要なら当該MTGカードを復旧し、今後の定例MTGカードが同じ原因で抜けないようにする。
+- お願いした背景
+  - 明日のSX定例MTGカードがOS上に見当たらない。
+  - MTGカード生成はL6 meeting flow、Calendar eventId、PJ routing、future meeting sync、review_requiredと直結するため、欠落原因を個別MTGだけで終わらせたくない。
+- 現状どうなってるか
+  - 動作状態: 原因特定 + 復旧worker切り出し済み。worker thread `019eaad5-b93e-70d1-829c-eed3d697eaae`。
+  - workerには、Google Calendar上の2026-06-10 SX定例、recurring event instance、SX alias/project routing、future MTG sync、OS DB/Notion/MTGツリー、review_requiredをread-only起点で確認するよう指示済み。
+  - scheduler/automation変更は勝手に行わず、必要ならscheduler change bundleを出す条件。
+  - 設計書影響分類が必要なため、★設計書司令塔 `019eaa44-ccf7-7802-b7fc-b2df939b220e` に追跡依頼済み。
+- 残課題は何か
+  - worker結果をpullする。直接原因、当該カード復旧、再発防止guard/test、production確認、設計書影響分類を完了ゲートにする。
+
+### 0E. Production build versionが v0.15.6 から v0.15.2 へ巻き戻った原因を特定して復旧する
+
+- お願いしたタスク内容
+  - productionでBUILD_VERSIONが `v0.15.6` から `v0.15.2` へ巻き戻った原因を特定する。
+  - production alias / Vercel deployment / git commit / local branch / `pwa/src/lib/build-info.ts` のどこで巻き戻ったか切り分ける。
+  - 正しい最新状態へ復旧し、本番確認まで行う。
+- お願いした背景
+  - まさが本番のversion巻き戻りを確認した。
+  - 巻き戻りは、KUTE/研究機関/company content/spec復旧などの反映済みUIが消えるリスクがある。
+- 現状どうなってるか
+  - 動作状態: 原因特定完了、production復旧済み。原因調査worker thread `019e94fc-f7c6-7172-a046-5df94124f358`、最終復旧はL2旧導線worker `019e94ee-5dce-7c43-b42d-44e8d4fc4c09`。
+  - 原因は rollback/promote ではなく、古いcheckout/別branchから Vercel CLI production deploy が走り、正しい `v0.15.5` / `v0.15.6` 系 deployment を、内容の古い新規production deploymentが上書きした可能性がほぼ確定。
+  - productionで見えていた `dpl_F1XQAMgNtygvqazRoovnt3jr12hg` は 2026-06-05 08:28:22 JST 作成の新規production deploy。台帳上の正しい直近Ready `dpl_42byLRKSTZEfrQGo5bDfWargtUyx` は 2026-06-04 19:07:37 JST。
+  - `dpl_F1X...` / 直近 `dpl_5WPf...` は `gitSource=null` / `meta=null` で、GitHub auto deployではなくCLI/local deploy由来。Vercel側からcommit逆引き不可。
+  - `pwa/src/lib/build-info.ts` 履歴では `33520f8` / `4b56453` が `v0.15.2`、`039a823` が `v0.15.4`、`40f021b` が `v0.15.5`、`25fb5d1` が `v0.15.6`。`25fb5d1` は local branch `codex/notion-company-content-v0156` のみで `origin/main` 未統合。
+  - L2旧導線復旧後の本番は `v0.15.13` / deployment `dpl_CgAjeEXkkrQZc3a8JxUbKrkihC4m`。旧slugページ本体、L2①〜⑯ 7列表まで本番確認済み。
+- 残課題は何か
+  - 復旧自体は完了。残る未完は再発防止guard/build stamp実装と、未push local commitのbundle整理。
+  - `pwa/scripts/deploy.sh` のBUILD_VERSION逆行チェックと、productionからcommit/branch/時刻を確認できるbuild stamp (`BUILD_VERSION`, `GIT_SHA`, `GIT_BRANCH`, `DEPLOYED_AT`, `DIRTY`) を0E-1で進める。
+
+### 0E-1. Vercel CLI deploy巻き戻り防止guardとbuild stampを実装する
+
+- お願いしたタスク内容
+  - `pwa/scripts/deploy.sh` にBUILD_VERSION逆行チェックを入れる。
+  - production現行version / local branches上の最大BUILD_VERSIONと比較し、localが低ければproduction deployを停止する。
+  - PWAにbuild stampを埋め込み、Vercel CLI deployが `gitSource=null` でもproductionからcommit/branch/時刻/dirty状態を確認できるようにする。
+- お願いした背景
+  - 今回の巻き戻りはCLI/local deploy由来で、Vercel側metadataからcommit逆引きできなかった。
+  - 古いcheckoutからproduction deployできる状態を残すと、同じ事故が再発する。
+- 現状どうなってるか
+  - 動作状態: 統合時rebase要。guard/build stamp worker thread `019e9505-c955-7361-b81f-cbb8ed16117f`。
+  - worker closeoutでは `d80e1af fix(pwa): guard production deploy build version` としてguard/build stamp実装、`/api/build-info`、deploy script guard、test/build passが報告された。
+  - `BUILD_VERSION=v0.15.7` はworker完了当時のbaseとしては成立しうる。司令塔の「v0.15.13と比べて古いからworker成果自体が誤り」という判定は時系列上不適切だった。
+  - ただし、今後このguard差分を採用/deploy/pushする場合は、現在のproduction正本へrebase/載せ替えが必要。2026-06-07時点のcompany content完了後productionは `v0.16.6` / `dpl_3HBSd2teFd8TmsKomHY8PufG9dBj`。
+  - L2旧slugのintact checkは、統合時点の正本に合わせて再確認する。少なくとも `3-0` が404化しないことは必須。
+- 残課題は何か
+  - guard差分を最新production正本へ取り込むタイミングで、local実装/test/build/rollback guard dry-run、protected current truth intact check、必要ならproduction deploy/production確認まで進める。
+
+### 0D. `/spec/3-0-l2-data-list-current-spec` 404を原因特定して復旧する
+
+- お願いしたタスク内容
+  - `https://amd-os-pwa.vercel.app/spec/3-0-l2-data-list-current-spec` が404になっている原因を特定する。
+  - 認証後のspec routeで読めるように復旧し、必要なら旧slugから現行slugへのredirect/互換導線を追加する。
+  - 本番確認まで行う。
+- お願いした背景
+  - まさが本番URLで404を確認した。
+  - L2データ一覧/仕様はOS運用の基礎導線なので、古いリンク切れを残すと調査・引き継ぎ時に詰まる。
+- 現状どうなってるか
+  - 動作状態: 本番復旧完了。worker thread `019e94ee-5dce-7c43-b42d-44e8d4fc4c09`。まさがworker内で「ようやく元のに戻った」と受理済み。
+  - 本番 `https://amd-os-pwa.vercel.app/spec/3-0-l2-data-list-current-spec` は404/3-1 redirectではなく、旧slugページ本体を表示する。
+  - `/spec` トップ直下の薄色フレーム `L2データリスト` は `href="/spec/3-0-l2-data-list-current-spec"`。クリック後URLも旧slugのまま。
+  - ページh1は `L2データリスト`。L2①〜⑯の表は削除前最新の `マシン` / `cron名` / `タイミング` 列つき7列版へ復旧済み。旧5列 `通常の更新ルート` 表ではない。
+  - 本番表示versionは `v0.15.13`。deployment id: `dpl_CgAjeEXkkrQZc3a8JxUbKrkihC4m`。final commit: `c618dde fix(spec): restore latest L2 data list table`。
+  - 復旧過程で古い75af worktreeからdeployして巻き戻りかけたため、直前production promoteで止血済み。その後は `codex/notion-company-content-v0156` 最新系からのみdeploy。
+  - Dashboard/KUTE/company content/build version既存成果は削除・巻き戻しなし。
+- 残課題は何か
+  - なし。未追跡 `supabase/.temp/cli-latest`, `supabase/.temp/linked-project.json` はworker worktree側のSupabase CLI一時リンク情報で、本件対象外。
 
 ### 0C. Dashboardで研究機関リストをPJリスト直下へ戻す
 
@@ -55,11 +374,13 @@ Vercel deploy approval gate:
 - お願いした背景
   - 研究機関リストはPJ一覧と続けて見る対象で、company contentより下だと業務導線が弱い。
 - 現状どうなってるか
-  - 動作状態: UI worker切り出し。worker pending worktree: `local:6d90beb6-6b14-4e23-b91e-f860e6e672ca`。
-  - 司令塔側では個別実装を直接行わない。
+  - 動作状態: 完了。worker thread `019e91bb-4be5-7ee0-8925-13037400ec50` でまさ受理済み。
+  - 研究機関ERSリストは、PJ一覧と同じ左/mainカラム内の `DashboardGrid` 直下へ移動済み。
+  - Company Content shelf は削除せず、下段全幅に維持済み。
+  - 仕様/正本系mdも「左/mainカラム内で PJ一覧 → 研究機関ERSリスト、下段全幅で Company Content shelf」へ更新済み。
+  - 後続KUTE重複解消workerにも取り込まれ、`BUILD_VERSION` は `v0.15.5` で本番反映済み。
 - 残課題は何か
-  - dashboard実装・spec/manualを確認し、最小UI変更とlocal確認を行う。
-  - push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` とする。
+  - なし。本番確認済み。追加push/deployはこのworkerから実施していない。
 
 ### 0B. KUTEをPJリストから研究機関リストへ安全に移行する
 
@@ -71,13 +392,16 @@ Vercel deploy approval gate:
   - 研究機関に該当するものは研究機関リストへ移行したはずだが、KUTEがPJリストにも残っている。
   - PJ側と研究機関側で持っている内容が違うため、単純削除やDB row削除をすると情報を失う。
 - 現状どうなってるか
-  - 動作状態: data/UI migration worker切り出し。worker pending worktree: `local:e125fafa-e896-41cc-9f49-219b24955811`。
-  - 司令塔側では個別実装・DB write・削除を直接行わない。
+  - 動作状態: 完了。worker thread `019e91bb-a97b-7d23-9294-7bcf32710274` でまさ受理済み。
+  - Dashboard通常PJリストからKUTE (`p25`) を除外し、研究機関ERSリスト側へ寄せた。
+  - `inst_kute -> p25` を追加し、研究機関側KUTE cockpitから既存KUTE PJ cockpit contentへ到達可能。PJ row/content削除なし。
+  - NIMS既存導線 `inst_nims -> p20` は維持。
+  - 研究機関リスト表示は title=`KUTE/KGW/NIMS`、subtitle=`工学院大学/香川大学/物質・材料研究機構` に変更済み。
+  - local commits: `039a823 fix(pwa): restore institution list placement and KUTE routing`、`ac13324 feat(company): restore Notion content landing zone`、`40f021b fix(dashboard): use project labels for institutions`、`d9d7511 docs: hand off KUTE institution deploy`。
+  - Production Ready: `https://amd-os-pwa.vercel.app`。deployment id: `dpl_42byLRKSTZEfrQGo5bDfWargtUyx`。`BUILD_VERSION=v0.15.5`。
+  - `124_company_content_tables.sql` は同梱のみ。production DB apply/importは未実施。
 - 残課題は何か
-  - KUTEの `project_id` / `institution_id` / cockpit route / ERS内容 / PJ cockpit内容を現物確認する。
-  - 一覧表示の重複だけ解消し、必要なら研究機関側から既存PJ cockpit内容へ到達できる導線を作る。
-  - DB row削除やcontent破棄は行わず、必要ならmigration draft/要判断へ分ける。
-  - push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` とする。
+  - なし。git pushは未実施だが、production deployは完了済み。DB row削除/破壊的migrationなし。
 
 ### 0A. 2026-06-01 KUTE internal MTGをMTGツリーに出し、自動生成漏れを直す
 
@@ -156,22 +480,50 @@ Vercel deploy approval gate:
   - ただしメンバー情報や写真は公開可否・利用許諾・内部メモの境界が重要なので、単純移植ではなく情報設計が必要。
   - まさ確認で、現状のcompany contentがNotion現物と一致していないことが分かったため、docs-only設計タスクでは不足。
 - 現状どうなってるか
-  - 動作状態: urgent data migration worker切り出し。worker pending worktree: `local:d2c81185-1700-4a8a-ba7f-21615d6ebe92`。UIUX設計案worker `019e842b-214c-75c3-92c3-b97ab3e11d5b` とP0 UI/schema mapping worker `019e8433-2854-7bd1-927a-ae46b367a618` は完了報告済み。
+  - 動作状態: 完了。company content Notion移植worker `019e9176-2ea9-7ee3-8946-9d6dfe384fba` をまさが「今度はちゃんとできてる！」と受理済み。
+  - v0.16.5 base の `codex/project-documents-v0162` に company content photo/member thumbnail 差分を移植し、`BUILD_VERSION=v0.16.6` へbump。commit `9b3332d fix(company): restore original photo thumbnails on v0165`、branch `codex/project-documents-v0162` push済み。
+  - Notion photo importが小さいcache画像を選ばないよう修正し、縮小/切り出し状態の15件を元画像側からrepair。member写真import側もthumbnail生成ありに更新。
+  - dashboard photo表示対象: 350件 / storageあり350 / thumbあり350。Notion寸法取得可能329件は small 0 / match 217 / larger 112 / ratioMismatch 0。
+  - production deploy完了: `dpl_3HBSd2teFd8TmsKomHY8PufG9dBj`、Production URL `https://amd-os-pwa.vercel.app`、`BUILD_VERSION=v0.16.6`。
+  - `node --check` 対象script、`npx tsc --noEmit --pretty false`、`npm run build` pass。`/company` `/admin/company` `/dashboard` `/spec/3-0-l2-data-list-current-spec` は未ログイン時login redirectで生存確認。
+  - raw Notion body/photo URL/internal memoは報告・docs・公開面に貼っていない。
+  - 旧続行worker `019e9523-dee8-70d0-80e6-ab140423afc0` は過去のP0補正として扱う。`126_company_content_notion_member_detail_refresh.sql` 非破壊production DB適用、local commit `8158ead feat(company): refresh Notion member profile import`。
+  - 本番DB read back当時: `member_profiles=21`、`company_history_events=3`、`media_assets=16`、`company_profile_entries=0`。approved/public photoは0件。
+  - KUTE重複解消workerにより `/company`、`/admin/company`、`124_company_content_tables.sql`、dashboard fallback/read path、docs/dry-run memo を統合済み。Production deploy `dpl_42byLRKSTZEfrQGo5bDfWargtUyx` に含まれる。
   - UIUX設計成果物: `pwa/design/notion_content_migration.md`。
   - UIUX設計commit: `d9216e8 docs: plan notion content migration uiux`。P0 mapping commit: `46e3eb4 docs: add notion content migration p0 mapping`。
   - `/admin/company` は Profile / Team / History / Media / Import の5タブ構成案。`/company` はauthenticated read-only hub案。
   - PJ cockpit差し込みは、関連メンバー・重要history・PJ tagged mediaを薄く出す粒度に限定する案。
   - Notion home/member/history/photo schemaから、既存tableと新table候補へのmapping表を作成済み。
-  - 次worker pending worktree: `local:f5e4bcd6-ede0-4c5e-8b7e-10813c0754b5`。
-  - 次workerには、P1としてRLS/visibility enum/review gateの設計レビューを依頼済み。DB write/DDL/applyはまだしない。
+  - 別件のAMD/Team ARMADA未記載沿革追加workerは完了。worker thread `019e9b1e-98df-7d90-87d0-c05ef169cfa3`。正式確定分3件を `pwa/scripts/migrations/131_company_history_non_notion_events.sql` で非破壊upsertし、本番Supabase適用済み。
+  - 追加沿革3件: 2026-04-01 あきJOIN、2026-05-01 KUTEエコシステム構築PJ稼働開始、2026-05-20 スタパイベント「イノベーションの最前線 #25」開催。
+  - 沿革追加workerは `member_profiles` / `media_assets` 未変更。Notionメンバー/photo移植とは別成果として扱う。
+  - 沿革追加worker production deploy: `dpl_4aZznip7WKhtHPgZhPH2XB2ECwDz`、Production URL `https://amd-os-pwa.vercel.app`、`BUILD_VERSION=v0.16.1`。branch `codex/company-history-events-v131`、commits `d03f60e` / `f49f5bc`、origin push済み、worktree clean。
 - 残課題は何か
-  - Notion connectorでメンバーリスト、沿革、photoの現物を確認し、OS側DB/UIの現在値との差分を出す。
-  - Notion raw bodyやphoto URLsを司令塔報告・公開本文へ貼らず、admin/internal境界を守って移植する。
-  - 既存tableで足りる場合はDDLなしで移植し、足りない場合はmigration draftと司令塔判断に分ける。
-  - 写真は `usage_permission`、`consent_status`、`storage_bucket`、`storage_path`、`thumbnail_path` を必須候補として扱い、公開可否が曖昧なものは `needs_review` にする。
-  - local確認まで行う。push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` とする。
+  - Notion connector全件queryは `notion-query-data-sources not found` で不可。今回はsearch/fetchで取得できた現物範囲を移植済み。
+  - 沿革追加workerは完了。本番 `/company` `/admin/company` `/dashboard` で3件表示確認済み。まさ判断で不採用にした候補は本番 `/company` に出ていない。
+  - deploy後に `pwa/src/app/api/project-documents/route.ts` の未コミットdirtyをworkerが検出。company/photo差分ではないproject documents系の別変更なので未接触。
 
-### 3. PJロゴをOS内で活用する
+### 3. PJ Cockpitに資料置き場を追加し、Driveへ保存する
+
+- お願いしたタスク内容
+  - PJ CockpitのTODOリストと経営ハイライトの間に、資料を置けるスペースを設置する。
+  - ファイルをドラッグ&ドロップしたら、そのファイルのリンクをOS上に生成する。
+  - ファイル本体はGoogle Drive共有フォルダの該当PJフォルダ内に、資料専用フォルダを作って保存する。
+- お願いした背景
+  - PJ cockpit上でTODOや経営ハイライトを見ながら、関連資料へすぐ到達できるようにしたい。
+  - Drive上のPJフォルダを正本保管場所にし、OS側にはリンク/metadataを持たせたい。
+- 現状どうなってるか
+  - 動作状態: Notionデータ取り込みとは別workerとして切り出し済み。
+  - worker pending worktree: `local:acff04e8-e1ba-42ce-9bde-d1ae2a44860d`。
+  - workerには、TODOリストと経営ハイライトのcomponent位置、既存Drive連携、PJ folder mapping、metadata保存table/APIを確認し、非破壊で最小実装するよう依頼済み。
+  - company content / member_profiles / media_assets / company_history_events には触らない条件。
+- 残課題は何か
+  - workerの実thread化/進行をpullする。
+  - Drive credential / PJ folder mapping / upload API が既存にない場合は、blockerまたはmigration/API draftへ分類する。
+  - local build/test/browser確認後、deployが必要ならdeploy bundleを作ってまさ承認を取る。
+
+### 4. PJロゴをOS内で活用する
 
 - お願いしたタスク内容
   - 共有ドライブの各PJフォルダに入っているPJロゴをAMD OS内でも活用する。
@@ -193,7 +545,7 @@ Vercel deploy approval gate:
   - PJ list logo、inline project mention chip、logo fallback、dark/light背景対応を設計・実装する。
   - 著作権・利用許諾が曖昧なロゴは `needs_review` として扱う。
 
-### 4. Dashboard「今週やったこと」の抽出設計を確認する
+### 5. Dashboard「今週やったこと」の抽出設計を確認する
 
 - お願いしたタスク内容
   - ダッシュボードの「今週やったこと」が、どのデータソースから、どのタイミングで、どのロジックで抽出・表示されているか確認する。
@@ -519,7 +871,8 @@ Vercel deploy approval gate:
   - 現行AMD ScoreはMXFモデル寄りのままなので、新モデル候補をOS上で検証したい。
   - ただし、P/R_netのrubricや正式DB schema、BZM教科書の理論更新はまだ確定させない。
 - 現状どうなってるか
-  - 動作状態: deploy approval pending。BZM一次レビュー後、OS司令塔からmain取り込み・production deploy・認証済み画面確認workerを切り出し、main取り込みまでは完了した。
+  - 動作状態: 置換推進workerあり。BZM一次レビュー後、OS司令塔からmain取り込み・production deploy・認証済み画面確認workerを切り出し、main取り込みまでは完了していたが、当初scopeが「置換ではなく比較/シミュレーション層」だったためMXF/7軸primaryは未置換のまま。
+  - 置換推進worker: pending worktree `local:e471133b-77f2-4ff7-827f-e8064fa572e9`。`codex/notion-company-content-v0156` baseから、PRS primary化、legacy MXF比較/fallback維持、P/R_net missing導線、docs/UI文言更新、BUILD_VERSION前進、protected current truth維持を指示済み。
   - OS取り込みworker thread: `019e8270-2784-74d1-b48e-adb6dfd699cd`。
   - branch: `origin/codex/prs-comparison-layer`。
   - commit: `c101e6c feat: add PRS comparison layer`。
@@ -534,10 +887,9 @@ Vercel deploy approval gate:
   - targeted eslint、`npx tsc --noEmit`、`npm run build` は最終統合状態で成功。DB write/DDLなし。
   - Vercel production deployは `api-deployments-free-per-day` quotaで失敗し、production aliasはまだPRS取り込みcommitではない既存Ready deploymentを指している。
 - 残課題は何か
-  - PRS取り込み分はdeploy bundle候補へ回し、含める変更、除外する変更、local検証、予定deploy回数、push/deploy先、rollback/本番確認方法を `askuserquestion` で提示して承認を得る。
-  - deploy bundle承認後に限り、認証済み環境で `/venture-map/amd-score/retrofit` を目視確認する。
-  - PRS列/表示、既存7軸非置換、P/R_net仮入力・非保存、画面崩れ/文字切れなしを確認する。
-  - P/R_netや理論変更に踏み込む場合はBZM司令塔レビューを必須にする。
+  - workerでMXF/7軸primary残存箇所を洗い出し、PRS primaryへ進める。legacy MXFは削除せず比較/履歴用に残す。
+  - P/R_net不足をsilent fallbackにせず、正式入力/仮入力/derived mapping/明示missing導線のどれで進めるかworker側で最小安全実装する。
+  - deploy/pushが必要な場合は、deploy bundleを作ってまさ承認を取ってから実行する。
 
 ### 4. admin裏wikiページを作る
 

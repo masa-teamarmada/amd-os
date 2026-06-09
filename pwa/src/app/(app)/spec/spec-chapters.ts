@@ -118,7 +118,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "3-12-l2-member-knowledge-current-spec", title: "L2⑤ Member Knowledge 仕様", summary: "member_knowledge の7カテゴリ、3 section input、本人帰属guard、DB upsert、通知採否。" },
   { slug: "3-13-l2-textbook-insights-current-spec", title: "L2⑩ Textbook Insights 仕様", summary: "教科書追記候補、candidate DB、通知採否、approved 後の local BZM applier contract。" },
   { slug: "4-1-frl-ces-current-spec", title: "FRL CES 実装仕様", summary: "F_character × F_capability の CES 合成、DB列、実装関数、後方互換の現行契約。" },
-  { slug: "4-2-amd-score-current-spec", title: "AMD Score 実装仕様", summary: "7 軸 Cobb-Douglas、M/X/F 表示、DB、route、bottleneck、FRL 境界の契約。" },
+  { slug: "4-2-amd-score-current-spec", title: "AMD Score 実装仕様", summary: "PRS primary、legacy M-X-F comparison、DB、route、missing/review、FRL 境界の契約。" },
   { slug: "4-3-ers-current-spec", title: "ERS 実装仕様", summary: "研究機関 ERS の route、DB、fetch bundle、assessment upsert API、admin gate。" },
   { slug: "4-4-management-score-company-vital-scope-plan", title: "Management Score 会社バイタル分類 本修正案", summary: "Management Score材料を会社バイタル/PJ個別へ分けるDB分類、L2抽出validator、backfill、snapshot再計算の未適用設計案。" },
   { slug: "5-1-document-governance-current-spec", title: "ドキュメント統制仕様", summary: "manual / spec / bzm の責務分離、附則更新ゲート、再構築要件。" },

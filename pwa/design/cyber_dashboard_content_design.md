@@ -193,7 +193,7 @@ PJ cockpit は dashboard HUD と見た目が乖離しているため、実装前
 現行cockpitに存在するコンテンツ:
 
 - Project Header: PJ ID、PJ名、client、status、CONFIG。
-- PJ Status / Venture Status: SU系PJのAMD Score状態、M/X/F、trend、status。
+- PJ Status / Venture Status: SU系PJのAMD Score状態、PRS primary、legacy M/X/F、trend、status。
 - Milestone Matrix: current plan cycle、Annual Goals、Routine Ops、Buffer、各MSのpt/担当/share/role/taskDescription/期間/サブアイテム。
 - Next Period Setup: MS未設定warning、期間終了warning、次期MS設定/編集。
 - Past MS Periods: 過去plan cycle折りたたみ、展開時のMilestone Matrix。
@@ -227,12 +227,12 @@ PJ cockpit は dashboard HUD と見た目が乖離しているため、実装前
 
 `/hud/dashboard` の Project Signal Board は、生成PNG frameを背景にし、その上にReact overlayでlive dataを置く。
 
-- 左から `PJ abbreviation frame`、`M/X/F bars`、`AMD score trend + AMD SCORE`、`先手力 ring + PL/PM/Closer` のzoneとして扱う。
+- 左から `PJ abbreviation frame`、`legacy M/X/F bars`、`PRS primary trend + AMD SCORE`、`先手力 ring + PL/PM/Closer` のzoneとして扱う。
 - PJ row内の縦区切り線は、生成frame画像に既に含まれる線を優先する。DOMで追加線を重ねると二重/四重線に見えるため、原則追加しない。
-- M/X/F barsは、全PJの最大値の約1.2倍をscale maxにし、数値は小数なしで表示する。
+- M/X/F barsは legacy comparison として、全PJの最大値の約1.2倍をscale maxにし、数値は小数なしで表示する。
 - Sparkline SVGは横幅可変にするため `preserveAspectRatio="none"` を必ず指定する。
 - AMD SCOREは折れ線graphと同じzone内の右側に置き、右側に余白を抱えた巨大objectにしない。
-- NO SCORE fallbackは、M/X/F bars + trend/score zoneの合計幅に収める。右端の先手力/PL/PM/Closer zoneまでは占有しない。
+- NO SCORE fallbackは、legacy M/X/F bars + trend/score zoneの合計幅に収める。右端の先手力/PL/PM/Closer zoneまでは占有しない。
 - 右端zoneは、先手力ringと `PL:` / `PM:` / `CLOSER:` を均等に置き、右端に張り付かせない。2026-05-21時点では、ringをrole labelsの左へ寄せ、score zoneとの間に空白が残りすぎないようにする。role labelsは9px級まで上げ、PL/PM/Closerが視認できる幅を確保する。
 - board本体の表示対象は `active` + `ended`。`ended` は終了PJとして歴史的な signal / AMD SCORE を参照したいので折りたたみへ落とさない。`active` と `ended` を混ぜて AMD SCORE 降順で表示する。
 - `sales` / `draft` / `frozen` / `lost` / unknown は `Other Project Files` の折りたたみに入れる。

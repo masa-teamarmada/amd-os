@@ -1,6 +1,6 @@
 # AMD Score 詳細仕様
 
-AMD Score は、PJ / SU の価値・成熟度を数値化する指標。日常画面では cockpit の上段に M / X / F として表示されるが、設計上は Before Zero Theory v3.2 の 7 軸 Cobb-Douglas 指標。
+AMD Score は、PJ / SU の価値・成熟度を数値化する指標。現行画面の主表示は **PRS Primary** (`P x R x S`)。M / X / F と 7 軸 Cobb-Douglas は legacy AMD comparison として残し、PRS の根拠・履歴比較・旧モデル確認に使う。
 
 > 実装者向けの AMD Score 確定仕様は [/spec/4-2-amd-score-current-spec](/spec/4-2-amd-score-current-spec) へ移行済み。理論導出は `/bzm`、日常画面での読み方はこの章に残す。
 
@@ -13,22 +13,22 @@ AMD Score は、PJ / SU の価値・成熟度を数値化する指標。日常�
 
 混ぜない。PJ の価値評価は AMD Score、会社全体の健康度は AMD Management Score。
 
-## 基本式
+## 現行 primary: PRS
 
 ```text
-AMD Score = K · Π (X_i + 1)^α_i
+AMD Score primary = K_prs · P · R · S
 
-X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
-
-σ_SU = ((μ_A+1)(μ_I+1)(μ_G+1))^(1/3) - 1
-K    = 100,000 / 10^Σα
+P = Potential / 潜在規模
+R = Reach / Readiness = TRL / BRL / GRL / SRL / HRL の contribution product
+S = Survival = σ_SU / FRL / R_net の contribution product
+R_net = 収益化指数
 ```
 
-全軸が 9 の IPO 級 PJ が 100,000 になるように K を校正する。Shallow Tech mode では TRL 軸を除外し、6 軸で K を再校正する。
+P / R_net は `amd_score_inputs.prs_potential` / `amd_score_inputs.prs_r_net` に nullable で保存する。未入力の PJ は review pending とし、0点に丸めたり legacy AMD を主表示へ戻したりしない。
 
-## UI 表示の M / X / F
+## Legacy AMD / M-X-F
 
-理論上は 7 軸の積だが、画面では次の 3 大要素で見せる。
+旧モデルは、Before Zero Theory v3.2 の 7 軸 Cobb-Douglas 指標。現行 primary ではなく、比較・根拠・過去履歴用に残す。
 
 ```text
 S = k · M · X · F
@@ -36,6 +36,9 @@ S = k · M · X · F
 M = (σ_SU+1)^α_σ
 X = Π_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x
 F = (FRL+1)^α_F
+
+σ_SU = ((μ_A+1)(μ_I+1)(μ_G+1))^(1/3) - 1
+K    = 100,000 / 10^Σα
 ```
 
 | UI | 意味 | 構成 |
@@ -44,7 +47,7 @@ F = (FRL+1)^α_F
 | X | 会社側 readiness | TRL / BRL / GRL / SRL / HRL |
 | F | Founder / CEO readiness | FRL |
 
-まさの言語化では「マクロトレンドの流れがあり、会社の XRL が整い、それを FRL 高い CEO が牽引する」。
+まさの言語化では「マクロトレンドの流れがあり、会社の XRL が整い、それを FRL 高い CEO が牽引する」。この M-X-F は PRS の R/S evidence chain と legacy comparison として読む。
 
 ## 軸の意味
 
@@ -128,7 +131,7 @@ amd_score_inputs に評価 row を追加
         ↓
 cockpit / venture-map が今日以前の最新 row を読む
         ↓
-M / X / F / AMD Score / 律速軸を表示
+PRS Primary / PRS history / legacy M-X-F / 律速軸を表示
         ↓
 まさが違和感を持ったら Tsukuyomi へ修正依頼
 ```
@@ -139,23 +142,33 @@ M / X / F / AMD Score / 律速軸を表示
 
 | 画面 | 役割 |
 |---|---|
-| `各 PJ cockpit` | 現在の score、M/X/F、XRL、経時グラフ |
-| `/venture-map/amd-score` | PJ / SU 一覧 |
-| `/venture-map/amd-score/{projectId}` | 詳細。式、M/X/F、FRL、根拠 notes、**XRL 観測チェックリスト** |
-| `/venture-map/amd-score/retrofit` | α 重み調整と simulation。PRS候補の比較試算もここで見る |
+| `各 PJ cockpit` | PRS primary status、legacy AMD comparison、XRL、経時グラフ |
+| `/venture-map/amd-score` | PJ / SU 一覧。主表示は PRS、legacy AMD は比較欄 |
+| `/venture-map/amd-score/{projectId}` | 詳細。PRS primary 入力、PRS history、legacy M-X-F、FRL、根拠 notes、**XRL 観測チェックリスト** |
+| `/venture-map/amd-score/retrofit` | PRS review queue と legacy α 重み調整 |
 
-## PRS候補の比較試算
+## PRS primary の読み方
 
-`P x R x S` は新しいモデル候補で、現行7軸AMD Scoreの置き換えではない。画面上では `/venture-map/amd-score/retrofit` にだけ出し、現行scoreと横並びで見る。
+`P x R x S` が現行の主モデル。legacy 7軸 AMD Score は M-X-F comparison と evidence 用に残す。
 
 - `P`: Potential / 潜在規模
 - `R`: Reach / Readiness。TRL / BRL / GRL / SRL / HRL
 - `S`: Survival。σ_SU / FRL / R_net
 - `R_net`: 収益化指数。粗利 - 運営コスト - 本命から奪うリソース毀損
 
-2026-06-01時点では、P/R_net は正式DB列ではない。retrofit画面の「仮P/R_netで試算」をONにした時だけ、保存しない全PJ共通の仮値で候補scoreを出す。OFFの時やP/R_net未設定の時は `not enough data` と表示し、0点扱いにはしない。
+P / R_net が入っている PJ は PRS score を主表示する。未入力の場合は `INPUT NEEDED` / review pending とし、legacy AMD を primary に戻さない。詳細画面では P / R_net を保存でき、PRS history は過去 row に explicit PRS input が無い場合も最新 reviewed project-level PRS input を使って back-calculate する。
 
-正式採用、P/R_net rubric、DB列追加、全PJの正式retrofit再計算は BZM review required。
+P/R_net rubric の厳密化と全 PJ の埋め切りは継続レビュー対象。
+
+## Appendix: legacy MXF / 7軸モデル
+
+legacy MXF (= M-X-F / 7軸 Cobb-Douglas) は過去モデル。削除しないが、現行 primary として読まない。
+
+- `M`: Macrotrend / Triple Helix。σ_SU、μ_A、μ_I、μ_G。
+- `X`: XRL。TRL / BRL / GRL / SRL / HRL。
+- `F`: Founder readiness。FRL。
+- 使い道: PRS の R/S evidence、過去 score history、alpha review、旧表示との比較。
+- 禁止: legacy score を PRS missing の代替 primary にすること、M-X-F を章 summary や cockpit 主表示の主語へ戻すこと。
 
 ## 関連設計 md
 

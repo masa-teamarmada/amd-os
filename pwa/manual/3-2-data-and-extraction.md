@@ -177,6 +177,32 @@ L2 ⑥は、終了済みMTGの議事録抽出とは別に、今日0:00 JSTから
 
 PJに `drive_folder_id` がある場合、automation側でDrive root直下と会議日/title token に合う1階層サブフォルダを探し、Docs / Slides / Sheets / PDF / Office files の metadata を `drive_files` として渡す。PWA route はDriveを直接読まず、渡された metadata を `narrative_md` の `関連Drive資料` に載せる。Drive資料は補助根拠であり、資料に書かれているだけで当日決定事項とは扱わない。
 
+### L2 ⑥ MTGカード → Calendar upsert plan
+
+MTGカード / 議事録に日時・場所・対面/オンライン・持参物・返信/宿題が入っている場合、L2⑥ automation は Google Calendar に予定があるかを一次防御として確認する。PWA 側の入口は `POST /api/meeting-calendar/upsert-plan`。この route は Calendar を読まない / 書かない dry-run only で、automation が読んだ既存 Calendar event metadata と MTGカードを受け取り、重複判定と proposed payload だけを返す。
+
+- `calendar_event_id` があるカードは、その既存 event の説明・場所・reminder 補完候補にする。
+- `calendar_event_id` が無いカードは `amd-os:project_meeting_summaries:<meeting_id>` を deterministic key にし、`extendedProperties.private` に `amd_os_mtg_card_id` / `amd_os_project_id` / `amd_os_source_kind` / `amd_os_source_key` を入れる候補を作る。
+- 既存 event の extendedProperties、同日 + title、場所で duplicate match し、二重作成を避ける。
+- payload は `sendUpdates='none'` 前提で、外部 attendees は自動招待しない。attendees は metadata として扱い、Calendar payload には入れない。
+- 時間未定で日付確度が高いカードは 08:00-21:00 JST の広めブロック候補を返すが、review_required にする。日付確度が低い候補は hold。
+- 対面 / 訪問 / 初回 / 顧客・大学相手 / 持参物あり / 出張直後 / 返信・宿題ありは強リマインド候補にする。
+
+Gmail cron は二次防御。メールから未カード化 / 未Calendar化の予定を拾うが、OS上にMTGカードが既にある予定は、カード生成時点の Calendar upsert plan を一次ルートにする。
+
+### L2 ⑥ task → Calendar 作業枠
+
+MTGから出た `meeting_action_items`、OS `tasks`、議事録 `next_actions`、Gmail thread、Slack thread のうち、担当メンバーが明確な作業系タスクは、まさと担当メンバーのCalendarに作業枠として入れる。作業枠タイトルは AMD ルールで必ず `+` 始まりにする。例: `+SX mail 杉浦先生`。
+
+PWA の入口は `POST /api/task-calendar/schedule-plan`。この route は dry-run only で、H-1 automation が読んだ busy window を受け取り、09:00-21:00 JST の共通空き枠を15分刻みで探す。返す `calendar_writes[]` は Google Calendar MCP `create_event` 用の候補で、PWA route 自体はCalendarを書かない。
+
+- owner calendar とまさ calendar の両方が解決できた場合だけ schedule_candidate にする。
+- Gmail / Slack 由来は `source_kind='gmail_todo'|'slack_todo'`、`source_id`、`source_url`、`source_confidence` を付ける。低信頼、担当者不明、個人予定境界は review / hold。
+- 重複防止は `amd_os_task_source_key`、description の `Source key:`、または source id の無い古い候補に限った同名 `+` event で行い、既存があれば `already_scheduled` にする。
+- 実writeは calendar ごとに別eventを作り、`attendees=[]`、Google Meetなし、popup 10分にする。外部招待・外部返信はしない。
+- owner calendar が不明、write権限がない、共通空き枠がない場合は review / hold にする。ownerに書けない時にまさ calendarだけへ勝手に代替作成しない。
+- H-1 automation は、作成した作業枠を実行チャット内の run summary に event id 付きで報告し、Calendar write 成功後だけ owner + まさへ内部Slack DM nudge を送る。外部相手にはDMしない。
+
 ### L2 ⑥ Notion 文字起こし導線
 
 PWA の MTGサマリ / 予定MTGカードは、L6 が読む Notion メモをまさが会議前・会議中に開きやすくする入口を持つ。`project_meeting_summaries.notion_url` があれば `Notion文字起こし` CTA で Notion ページを別タブ表示する。`notion_url` が無い予定MTGでは、`source_url` の Calendar 予定を開く導線を出し、Notion 側の録音/文字起こし開始に移れるようにする。どちらも無い場合は `Notion未連携` と表示する。

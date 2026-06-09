@@ -27,9 +27,11 @@ Atlas signals / stories / decisions
 └──────────────────────────────┘
         ↓
 AMD Score
-  M = Macrotrend / Triple Helix
-  X = TRL / BRL / GRL / SRL / HRL
-  F = FRL
+  Primary = PRS (Potential x Reach/Readiness x Survival)
+  P = 潜在規模
+  R = TRL / BRL / GRL / SRL / HRL
+  S = σ_SU / FRL / R_net
+  legacy comparison = M-X-F
         ↓
 まさえいMTG / PJ MTG / 月次レビュー
         ↓
@@ -73,13 +75,15 @@ Atlas は、AMD が見るべき外部シグナルを蓄積し、後から判断�
 
 ## AMD Score
 
-AMD Score は、PJ / SU 単位の価値・成熟度を見るスコア。理論は Before Zero Theory v3.2。
+AMD Score は、PJ / SU 単位の価値・成熟度を見るスコア。現行 primary は PRS (`P x R x S`)。Before Zero Theory v3.2 の M-X-F / 7軸 Cobb-Douglas は legacy comparison と evidence chain として残す。
 
 ```text
-AMD Score = K · Π (X_i + 1)^α_i
-X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
+AMD Score primary = K_prs · P · R · S
+P = Potential
+R = Reach / Readiness = TRL / BRL / GRL / SRL / HRL
+S = Survival = σ_SU / FRL / R_net
 
-UI 表示:
+legacy comparison:
 S = k · M · X · F
 M = Macrotrend / Triple Helix
 X = 5 XRL readiness
@@ -87,10 +91,10 @@ F = Founder / CEO leadership readiness
 ```
 
 読む時のポイント:
-- `M` は外部環境。Macrotrend と Triple Helix (= 学術 / 産業 / 政府) の追い風を見る
-- `X` は会社側の readiness。TRL / BRL / GRL / SRL / HRL を見る
-- `F` は牽引する人側の readiness。FRL として扱う
-- 律速軸は「1 段階上げた時に score が一番増える軸」。次の経営介入候補になる
+- `P` は潜在規模、`R` は到達可能性 / readiness、`S` は生存確率として読む
+- P/R_net 未入力の PJ は review pending とし、legacy AMD を primary に戻さない
+- `M` / `X` / `F` は legacy comparison と PRS の根拠表示。M は Macrotrend、X は 5 XRL、F は FRL
+- 律速軸は legacy comparison の経営介入候補として残す
 
 ## AMD Protocol
 
