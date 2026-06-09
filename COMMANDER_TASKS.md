@@ -33,6 +33,7 @@ Vercel deploy approval gate:
 - ただし少しの間、Vercel production deploy / preview deploy / Vercel自動deployを起こす可能性がある `git push` の直前には、必ず `askuserquestion` でまさの許可を取る。
 - 許可質問には `deploy bundle` を含める。内容は「含める変更」「除外する変更」「local build/test/browser確認結果」「deploy予定回数」「push/deploy先」「rollback/本番確認方法」。
 - てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止のまま。複数worker成果を束ねて1回でdeployする。
+- PWA deploy前には `.vercel/project.json` が `amd-os-pwa / prj_raZW3HSKIszzPUwNTHfy7xDGzLHm` を指していることを確認する。missingまたは別projectなら、Vercel CLI起動前にhard-stop。worktree名projectの自動作成/auto-linkは禁止。
 - 承認待ちで止まる場合は `approval pending` として台帳に残す。未分類blocker扱いにしない。
 - 現在状態: `Vercel deploy approval gate active`。deploy bundle承認まではpush/deployしない。
 - deploy bundle候補: BZM approval gate台帳更新 (`e34be20`)、Textbook approval gate台帳更新 (`43165dd`)、Textbook main integration未反映分、BZM/PRS系、OS UI系、KUTE MTGカード/自動生成修正、company content Notion移植など、local検証済み変更をbundle化して提示する。
