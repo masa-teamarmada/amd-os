@@ -82,6 +82,22 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
           </Citation>
         </FormulaBlock>
 
+        <FormulaBlock title="K / P / R / S INTUITION" accent="cyan" subtitle="式を経営判断として読むためのざっくり意味">
+          <div className="grid gap-2 text-[12px] text-cyan-50/82">
+            <div className="grid gap-2 md:grid-cols-4">
+              <MeaningChip label="K" title="Calibration" body="全active axisが9点の時に100,000へ合わせる倍率。価値入力ではなく物差し。" />
+              <MeaningChip label="P" title="Potential" body="当たった時の大きさ。市場・事業・社会インパクトの天井。" />
+              <MeaningChip label="R" title="Reach" body="そこへ届く準備。TRL/BRL/GRL/SRL/HRL の会社側 readiness。" />
+              <MeaningChip label="S" title="Survival" body="届くまで生き残る力。macrotrend・FRL・R_net の合成。" />
+            </div>
+            <div className="rounded border border-cyan-300/24 bg-cyan-300/7 px-3 py-2 leading-relaxed">
+              PRS は足し算の加点表ではなく、立ち上がるための必要条件を同時に見るモデル。
+              P が大きくても R が低ければ届かない。R が高くても S が低ければ途中で止まる。
+              積にすると、どれか1つが弱い時に score が自然に抑えられ、3つが同時に揃った時だけ大きく伸びる。
+            </div>
+          </div>
+        </FormulaBlock>
+
         <FormulaBlock title="POTENTIAL P" accent="rose" subtitle="目標成功規模の ceiling。review 入力の P をそのまま使う">
           <Tex display tex={String.raw`P \;=\; (P_{\mathrm{input}}+1)^{\alpha_P}`} />
           <Citation>
@@ -308,6 +324,18 @@ function FormulaBlock({
       </div>
       <div className="space-y-2">{children}</div>
     </section>
+  );
+}
+
+function MeaningChip({ label, title, body }: { label: string; title: string; body: string }) {
+  return (
+    <div className="rounded border border-cyan-300/22 bg-slate-950/62 px-3 py-2">
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-[18px] font-black text-cyan-100">{label}</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-200/78">{title}</span>
+      </div>
+      <div className="mt-1 text-[11px] font-semibold leading-relaxed text-cyan-50/72">{body}</div>
+    </div>
   );
 }
 

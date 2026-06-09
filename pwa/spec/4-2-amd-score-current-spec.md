@@ -34,6 +34,21 @@ $$
 
 `P` / `R_net` が未入力の場合は `status='missing'` / review pending とし、0点に丸めたり legacy AMD を primary として代替表示したりしない。
 
+### Conceptual meaning of K / P / R / S
+
+PRS は「大きくなりうるか」「届く準備があるか」「生き残れるか」を別々の必要条件として扱うモデル。各要素は足し算の部分点ではなく、PJ / SU が立ち上がるために同時に必要なレバーとして読む。
+
+| 記号 | 意味 | ざっくり解釈 | 主な入力 |
+|---|---|---|---|
+| `K_PRS` | Calibration constant | スコアの物差しを合わせるための倍率。全active axisが9点なら100,000になるように正規化する | alpha set / Shallow Tech mode |
+| `P` | Potential | そもそも当たった時にどれくらい大きな事業・市場・社会インパクトになりうるか | `prs_potential` |
+| `R` | Reach | そのポテンシャルへ到達するための会社側 readiness がどこまで揃っているか | TRL / BRL / GRL / SRL / HRL |
+| `S` | Survival | 到達まで走り切るための追い風・founder readiness・純残存力があるか | `sigma_SU` / final FRL / `R_net` |
+
+積を取る理由は、PRS の3要素が代替可能な加点項目ではないため。Potential が大きくても Reach が弱ければ届かない。Reach が高くても Survival が低ければ途中で止まる。Survival が高くても Potential が小さければ大きな AMD Score にはならない。積にすると、どれか1つが弱い時に全体scoreも自然に抑えられ、3要素が同時に揃った時だけ大きく伸びる。
+
+`K_PRS` はこの構造を壊さないための校正係数であり、事業価値そのものの入力ではない。`P` / `R` / `S` の相対構造を保ったまま、全軸9点の理想状態を `100,000` に合わせる。
+
 ## Legacy AMD / M-X-F の位置づけ
 
 legacy AMD / M-X-F では 7 軸を次の 3 要素で見せる。これは現行 primary score ではなく、PRS の R/S の根拠と比較用ブロックとして読む。

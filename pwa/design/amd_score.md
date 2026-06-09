@@ -54,6 +54,19 @@ $$
 
 `P` / `R_net` が無い場合は `status='missing'` とし、score を出さない。legacy AMD を primary へ戻さない。
 
+### K / P / R / S の意味
+
+PRS は、PJ / SU の価値を「加点合計」ではなく、同時に満たすべき3つの必要条件として見る。
+
+| Symbol | Meaning | Design intent |
+|---|---|---|
+| `K_PRS` | Calibration constant | 全active axisが9の時に100,000へ揃える係数。価値入力ではなく表示スケール |
+| `P` | Potential | 当たった時の天井。市場・事業・社会インパクトの大きさ |
+| `R` | Reach | 天井へ届く準備。TRL/BRL/GRL/SRL/HRL の readiness |
+| `S` | Survival | 走り切る力。macrotrend、founder readiness、R_net |
+
+積を使う理由は、`P` / `R` / `S` が互いに代替しづらいから。`P` が大きくても `R` が低ければ届かない。`R` が高くても `S` が低ければ途中で止まる。`S` が高くても `P` が小さければ大きなAMD Scoreにはならない。Cobb-Douglas 型の積にすることで、1要素の弱さが全体を抑え、3要素が同時に揃った時だけscoreが大きく伸びる。
+
 ## Legacy MXF / 7軸モデル (比較・根拠用)
 
 ここからの 7 軸 Cobb-Douglas / M-X-F 説明は、過去モデルの保存と比較・根拠用。現行 primary は PRS。
