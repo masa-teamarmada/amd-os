@@ -14,7 +14,7 @@ AMD OS の **中心画面**。各 PJ ごとに 1 つあり、URL は `/project/{
 ┌─────────────────────────────────────────────────────┐
 │  PJ ヘッダー (= 名前 / レーン / アウトカム / 設立日)   │
 ├─────────────────────────────────────────────────────┤
-│  AMD スコアグラフ │ M/X/F カード │ XRL 進捗グラフ      │
+│  AMD スコアグラフ │ PRS / legacy M-X-F │ XRL 進捗グラフ    │
 ├──────────────────┬──────────────────┬──────────────┤
 │  タブ: 進捗管理 / スコア詳細                         │
 ├──────────────────┬──────────────────┬──────────────┤
@@ -27,7 +27,7 @@ AMD OS の **中心画面**。各 PJ ごとに 1 つあり、URL は `/project/{
 
 (= 3 カラム x 2 段、まさ #28 確定 2026-05-24)
 
-SU 系 PJ では、AMD スコアグラフ / M-X-F / XRL グラフは常時表示し、その下で **進捗管理** と **スコア詳細** をタブ切り替えする。2つのタブは横幅いっぱいを左右半分ずつ使う。進捗管理タブは従来のコックピット本文、スコア詳細タブは `/venture-map/amd-score/{projectId}` 相当の Score / 経時 / M-X-F 詳細 / FRL / XRL チェックリストを cockpit 内に埋め込む。スコア詳細は画面表示直後に裏で読み込み、同じコックピットを見ている間は数分単位で再利用するため、2回目以降のタブ切り替えでは読み込み待ちが出にくい。
+SU 系 PJ では、PRS primary / legacy M-X-F / XRL グラフは常時表示し、その下で **進捗管理** と **スコア詳細** をタブ切り替えする。2つのタブは横幅いっぱいを左右半分ずつ使う。進捗管理タブは従来のコックピット本文、スコア詳細タブは `/venture-map/amd-score/{projectId}` 相当の PRS Primary / PRS history / legacy M-X-F 詳細 / FRL / XRL チェックリストを cockpit 内に埋め込む。スコア詳細は画面表示直後に裏で読み込み、同じコックピットを見ている間は数分単位で再利用するため、2回目以降のタブ切り替えでは読み込み待ちが出にくい。
 
 ---
 
@@ -65,13 +65,17 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 
 ### AMD Score
 - PJ / SU の価値・成熟度を見る総合スコア。p00 の `AMD Management Score` とは別物
-- 理論上の 7 因子 (= `σ_SU` + TRL/BRL/GRL/SRL/HRL + FRL) を Cobb-Douglas で合成
+- 現行 primary は PRS (`P x R x S`)。legacy M-X-F / 7軸 Cobb-Douglas は comparison と evidence 用に残す
+  - `P` = Potential / 潜在規模
+  - `R` = Reach / Readiness (= TRL/BRL/GRL/SRL/HRL の contribution product)
+  - `S` = Survival (= σ_SU / FRL / R_net の contribution product)
+- legacy M-X-F の構成
   - `σ_SU` = Macrotrend / Triple Helix (= 学術 μ_A × 産業 μ_I × 政府 μ_G)
   - XRL = 会社側の readiness (= TRL/BRL/GRL/SRL/HRL)
   - FRL = CEO / founder 側の leadership readiness (= ALQ / Grit / Resilience 等)
 - **過去 = 実線** (黒)、**未来予測 = 破線** (5 4 dash) で表示
 - 右上 pill (大数字) は **現在のスコア** (= 過去最終点)
-- M/X/F カード = 現在の `M` (MACROTREND, max 30) / `X` (XRL, max 600) / `F` (FRL, max 100) 内訳
+- legacy M/X/F カード = PRS の根拠・比較用。現行 primary に戻さない
 
 ### XRL 進捗 (5 軸)
 - TRL (技術) / BRL (事業化) / GRL (制度) / SRL (社会) / HRL (人材)

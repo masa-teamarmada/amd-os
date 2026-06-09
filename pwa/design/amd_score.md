@@ -1,4 +1,4 @@
-# AMD Score 実装 — Before Zero Theory v3.2
+# AMD Score 実装 — PRS primary / legacy MXF appendix
 
 作成: 2026-05-07 (blissful-kepler-9e95b0 セッション)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
@@ -19,15 +19,32 @@
 
 ## 何を解いたか
 
-`/venture-map/amd-score` (一覧) + `/venture-map/amd-score/[projectId]` (個別) を作って、
-Before Zero Theory v3.2 の **AMD Score (7 軸 Cobb-Douglas 統合指標)** を AMD OS に実装した。
-cockpit の AMD スコアチップ・経時グラフ・breakdown モーダルも新ロジックに置き換え。
+`/venture-map/amd-score` (一覧) + `/venture-map/amd-score/[projectId]` (個別) + PJ cockpit に AMD Score を実装した。現行 primary は **PRS (`P x R x S`)**。旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
 
 理論正本: [`/Users/masa/projects/AMD/before-zero/theory/amd_score.md`](../../../before-zero/theory/amd_score.md)
 
 ---
 
-## 数式 (要約)
+## Current primary: PRS
+
+```text
+AMD Score primary = K_prs · P · R · S
+R = Π_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x
+S = (σ_SU+1)^α_σ · (FRL+1)^α_F · (R_net+1)^α_R_net
+```
+
+- `P`: Potential / 潜在規模
+- `R`: Reach / Readiness。TRL / BRL / GRL / SRL / HRL の contribution product
+- `S`: Survival。σ_SU / FRL / R_net の contribution product
+- `R_net`: 粗利 - 運営コスト - 本命から奪うリソース毀損
+
+`P` / `R_net` が無い場合は `status='missing'` とし、score を出さない。legacy AMD を primary へ戻さない。
+
+## Legacy MXF / 7軸モデル (比較・根拠用)
+
+ここからの 7 軸 Cobb-Douglas / M-X-F 説明は、過去モデルの保存と比較・根拠用。現行 primary は PRS。
+
+## 数式 (legacy 要約)
 
 ```
 AMD Score = K · Π (X_i + 1)^α_i      X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}

@@ -4,19 +4,20 @@
 
 ## 定義
 
-AMD Score は Before Zero Theory v3.2 の 7 軸 Cobb-Douglas 統合指標。
+AMD Score の現行 primary model は PRS (`P x R x S`)。PWA の主表示は PRS を前面に出し、旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
 
 ```text
-AMD Score = K * product((X_i + 1) ^ alpha_i)
-X = {sigma_SU, TRL, BRL, GRL, SRL, HRL, FRL}
-K = 100000 / 10 ^ sum(alpha)
+AMD Score primary = K_prs * P * R * S
+R = product((X_i + 1) ^ alpha_i), X = {TRL, BRL, GRL, SRL, HRL}
+S = (sigma_SU + 1)^alpha_sigma * (FRL + 1)^alpha_F * (R_net + 1)^alpha_R_net
+P = Potential
 ```
 
-Shallow Tech mode では TRL 軸を除外し、K を再校正する。
+`P` / `R_net` が未入力の場合は `status='missing'` / review pending とし、0点に丸めたり legacy AMD を primary として代替表示したりしない。
 
-## 3 要素表示
+## Legacy AMD / M-X-F の位置づけ
 
-UI では 7 軸を次の 3 要素で見せる。
+legacy AMD / M-X-F では 7 軸を次の 3 要素で見せる。これは現行 primary score ではなく、PRS の R/S の根拠と比較用ブロックとして読む。
 
 | 要素 | 意味 |
 |---|---|
@@ -24,24 +25,24 @@ UI では 7 軸を次の 3 要素で見せる。
 | X | 会社に帰属する XRL。TRL / BRL / GRL / SRL / HRL |
 | F | Founder / 経営チーム readiness。FRL |
 
-FRL は XRL に飲み込まない。AMD Studio の哲学上、FRL と `sigma_SU` は独立した重要軸として扱う。
+FRL は XRL に飲み込まない。AMD Studio の哲学上、FRL と `sigma_SU` は独立した重要軸として扱う。旧計算式は巻末 Appendix に保存する。
 
 ## 実装ファイル
 
 | file | 契約 |
 |---|---|
-| `pwa/src/lib/amd-score.ts` | score 計算、alpha default、K、bottleneck、FRL CES |
-| `pwa/src/lib/amd-score-derived.ts` | DB row から表示/計算用の derived score を作る |
+| `pwa/src/lib/amd-score.ts` | PRS/legacy score 計算、alpha default、K、bottleneck、FRL CES |
+| `pwa/src/lib/amd-score-derived.ts` | DB row から PRS primary と legacy comparison の derived score を作る |
 | `pwa/src/lib/amd-score-data.ts` | `amd_score_inputs` / `amd_score_alpha` data access |
-| `pwa/src/components/venture-map/AmdScoreView.tsx` | 個別 PJ 詳細 |
-| `pwa/src/components/venture-map/AmdScoreList.tsx` | 一覧 |
-| `pwa/src/components/cockpit/*AmdScore*` | cockpit chip / breakdown modal |
+| `pwa/src/components/venture-map/AmdScoreView.tsx` | 個別 PJ 詳細。PRS Primary を先頭に出し、legacy AMD / M-X-F を comparison として残す |
+| `pwa/src/components/venture-map/AmdScoreList.tsx` | 一覧。PRS primary を主表示し、legacy AMD は比較列 |
+| `pwa/src/components/cockpit/*AmdScore*` | cockpit chip / breakdown modal。PRS status を主語にする |
 
 ## DB 契約
 
 | table | 用途 |
 |---|---|
-| `amd_score_inputs` | project_id + evaluated_at ごとの 7 軸入力、notes、FRL cap |
+| `amd_score_inputs` | project_id + evaluated_at ごとの PRS input (`prs_potential`, `prs_r_net`) と legacy 7 軸入力、notes、FRL cap |
 | `amd_score_alpha` | alpha weights の version 管理 |
 | `amd_score_revisions` | 軸値の修正依頼履歴 |
 | `project_xrl_log` | XRL 時系列評価ログ |
@@ -74,7 +75,7 @@ bottleneck = argmax alpha_i / (X_i + 1)
 | route | 役割 |
 |---|---|
 | `/venture-map/amd-score` | 全 SU PJ の PRS primary 一覧。legacy AMD は comparison 列 |
-| `/venture-map/amd-score/[projectId]` | PRS primary 入力 / legacy M-X-F / 経時 / FRL panel |
+| `/venture-map/amd-score/[projectId]` | PRS primary 入力 / PRS history / legacy M-X-F / FRL panel |
 | `/venture-map/amd-score/retrofit` | PRS review queue + legacy alpha 調整 |
 | `/project/[projectId]/cockpit` | PRS primary status chip / legacy AMD comparison |
 
@@ -105,6 +106,29 @@ PRS (`P x R x S`) を主表示へ切り替えた。legacy 7軸 AMD Score / M×X�
 - 既存7軸の履歴再計算
 
 P/R_net rubric の厳密化と全 PJ の埋め切りは継続レビュー対象だが、UI 上の primary model は PRS とする。
+
+legacy 値しかない PJ でも、primary を legacy AMD へ戻さない。画面上は PRS review pending とし、legacy は `Legacy AMD comparison` / `legacy M-X-F` / `comparison only` の文脈で表示する。
+
+## Appendix: legacy MXF / 7軸モデル
+
+このセクションは過去モデルの保存場所。legacy MXF (= M-X-F / 7軸 Cobb-Douglas) は、現行 primary ではない。
+
+```text
+Legacy AMD Score = K * product((X_i + 1) ^ alpha_i)
+X = {sigma_SU, TRL, BRL, GRL, SRL, HRL, FRL}
+K = 100000 / 10 ^ sum(alpha)
+```
+
+Shallow Tech mode では TRL 軸を除外し、K を再校正する。
+
+legacy M-X-F は次の目的で残す。
+
+- 過去の retrofit / score history の再読
+- PRS の R/S components の evidence chain
+- alpha tuning / historical comparison
+- 旧画面・旧説明との対応確認
+
+主表示・章 summary・操作導線では `PRS Primary` を先に置く。M-X-F / 7軸を現行 primary へ戻す変更は不可。
 
 ## 変更ゲート
 

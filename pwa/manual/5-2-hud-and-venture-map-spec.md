@@ -52,7 +52,7 @@ HUD版
 | `projects` | PJ signal board、status、role line |
 | `billing_cycles` | 月次ルーティン action queue |
 | `members` | login user の code name |
-| `amd_score_inputs` + `amd_score_alpha` | PJ ごとの M/X/F signal と score history |
+| `amd_score_inputs` + `amd_score_alpha` | PJ ごとの PRS primary input / legacy M-X-F signal / score history |
 | `amd_management_score_snapshots` | AMD Management Score ring / history |
 
 action queue は `billing_cycles` から未完タスクを作る。
@@ -150,7 +150,7 @@ D_i(t) = dN_i/dt - dM_i/dt
 |---|---|
 | `/venture-map` | lane ごとの macro wave、過去 PJ、paper / policy / investment の重なり |
 | `/venture-map/amd-score` | PJ / SU 単位の AMD Score 一覧 |
-| `/venture-map/amd-score/{projectId}` | 1 PJ の M/X/F と律速軸 |
+| `/venture-map/amd-score/{projectId}` | 1 PJ の PRS primary、PRS history、legacy M-X-F、律速軸 |
 | `/venture-map/timeline-3d` | 過去 PJ と macro wave の時間軸 |
 | `/venture-map/state-space` | Triple Helix 状態空間 |
 | `/venture-map/oscillator` | coupled oscillator 実験 |

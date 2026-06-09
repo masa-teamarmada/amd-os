@@ -1,6 +1,6 @@
 # AMD Score 詳細仕様
 
-AMD Score は、PJ / SU の価値・成熟度を数値化する指標。日常画面では cockpit の上段に M / X / F として表示されるが、設計上は Before Zero Theory v3.2 の 7 軸 Cobb-Douglas 指標。
+AMD Score は、PJ / SU の価値・成熟度を数値化する指標。現行画面の主表示は **PRS Primary** (`P x R x S`)。M / X / F と 7 軸 Cobb-Douglas は legacy AMD comparison として残し、PRS の根拠・履歴比較・旧モデル確認に使う。
 
 > 実装者向けの AMD Score 確定仕様は [/spec/4-2-amd-score-current-spec](/spec/4-2-amd-score-current-spec) へ移行済み。理論導出は `/bzm`、日常画面での読み方はこの章に残す。
 
@@ -13,25 +13,24 @@ AMD Score は、PJ / SU の価値・成熟度を数値化する指標。日常�
 
 混ぜない。PJ の価値評価は AMD Score、会社全体の健康度は AMD Management Score。
 
-## 基本式
+## 現行 primary: PRS
 
 ```text
-AMD Score = K · Π (X_i + 1)^α_i
+AMD Score primary = K_prs · P · R · S
 
-X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
-
-σ_SU = ((μ_A+1)(μ_I+1)(μ_G+1))^(1/3) - 1
-K    = 100,000 / 10^Σα
+R = Π_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x
+S = (σ_SU+1)^α_σ · (FRL+1)^α_F · (R_net+1)^α_R_net
 ```
 
-全軸が 9 の IPO 級 PJ が 100,000 になるように K を校正する。Shallow Tech mode では TRL 軸を除外し、6 軸で K を再校正する。
+P / R_net は `amd_score_inputs.prs_potential` / `amd_score_inputs.prs_r_net` に nullable で保存する。未入力は「review pending」として扱い、0点に丸めたり legacy AMD を主表示へ戻したりしない。
 
-## UI 表示の M / X / F
+## Legacy AMD / M-X-F
 
-理論上は 7 軸の積だが、画面では次の 3 大要素で見せる。
+旧モデルでは 7 軸の積を、画面では次の 3 大要素で見せていた。これは現行 primary ではなく、legacy comparison / evidence 用の読み方。
 
 ```text
-S = k · M · X · F
+Legacy AMD Score = K · Π (X_i + 1)^α_i
+X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
 
 M = (σ_SU+1)^α_σ
 X = Π_{x ∈ {TRL,BRL,GRL,SRL,HRL}} (x+1)^α_x
@@ -44,7 +43,7 @@ F = (FRL+1)^α_F
 | X | 会社側 readiness | TRL / BRL / GRL / SRL / HRL |
 | F | Founder / CEO readiness | FRL |
 
-まさの言語化では「マクロトレンドの流れがあり、会社の XRL が整い、それを FRL 高い CEO が牽引する」。
+まさの言語化では「マクロトレンドの流れがあり、会社の XRL が整い、それを FRL 高い CEO が牽引する」。この M-X-F は PRS の R/S evidence chain と legacy comparison として読む。
 
 ## 軸の意味
 
@@ -141,7 +140,7 @@ M / X / F / AMD Score / 律速軸を表示
 |---|---|
 | `各 PJ cockpit` | PRS primary status、legacy AMD comparison、XRL、経時グラフ |
 | `/venture-map/amd-score` | PJ / SU 一覧。主表示は PRS、legacy AMD は比較欄 |
-| `/venture-map/amd-score/{projectId}` | 詳細。PRS primary 入力、legacy M/X/F、FRL、根拠 notes、**XRL 観測チェックリスト** |
+| `/venture-map/amd-score/{projectId}` | 詳細。PRS primary 入力、PRS history、legacy M-X-F、FRL、根拠 notes、**XRL 観測チェックリスト** |
 | `/venture-map/amd-score/retrofit` | PRS review queue と legacy α 重み調整 |
 
 ## PRS primary
@@ -156,6 +155,14 @@ M / X / F / AMD Score / 律速軸を表示
 P / R_net は `amd_score_inputs.prs_potential` / `amd_score_inputs.prs_r_net` に nullable で保存する。未入力は `not enough data` ではなく「review pending」として扱い、0点に丸めたり legacy AMD を主表示へ戻したりしない。
 
 入力導線は各 PJ detail に置く。retrofit 画面は ready / missing を俯瞰し、legacy α を comparison として調整する。
+
+## Appendix: legacy MXF / 7軸モデル
+
+legacy MXF (= M-X-F / 7軸 Cobb-Douglas) は過去モデル。削除しないが、現行 primary として読まない。
+
+- 保存目的: 過去の retrofit / score history、PRS の R/S 根拠、旧画面との比較。
+- UI 文言: `Legacy AMD comparison` / `legacy M-X-F` / `comparison only`。
+- 禁止: legacy score を PRS missing の代替 primary にすること、M-X-F を章 summary や cockpit 主表示の主語へ戻すこと。
 
 ## 関連設計 md
 

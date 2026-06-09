@@ -8,7 +8,7 @@ AMD は香川大・KUTE・NIMS など複数の研究機関で **エコシステ�
 
 | | レイヤー | 何を測るか | スコア型 |
 |---|---|---|---|
-| **AMD Score** | 個体 (ベンチャー1社) | IPO に向けてどれだけ育ったか (7 軸 Cobb-Douglas、乗法) | 0–100 (1 軸でも欠けると死ぬ) |
+| **AMD Score** | 個体 (ベンチャー1社) | IPO に向けてどれだけ育ったか (現行 PRS primary、legacy 7軸は比較・根拠用) | PRS primary / legacy comparison |
 | **ERS** | 苗床 / 土壌 (研究機関) | ベンチャーを生み育てる装置としてどれだけ整備されているか (8 軸、加重和) | 0–100% 充足率 |
 
 - 連動は **σ_SU (Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G) 経由のデータ上の因果**で起きる。機関の整備が進む → そこ発のベンチャーの μ_I / μ_G が上がる → そのベンチャーの AMD Score が上がる。
@@ -16,7 +16,7 @@ AMD は香川大・KUTE・NIMS など複数の研究機関で **エコシステ�
 
 ## スコアの構造 (= 加重和・欠損を可視化)
 
-AMD Score の乗法は「全軸ないと IPO 死ぬ」モデルなので**流用しない**。ERS は逆で「**何が欠けているか (= 未整備ギャップ) を見せる**」のが目的なので、欠損が掛け算で消えない **加重和 (充足率)** を使う。
+AMD Score の legacy 乗法は「全軸ないと IPO 死ぬ」モデルなので**流用しない**。ERS は逆で「**何が欠けているか (= 未整備ギャップ) を見せる**」のが目的なので、欠損が掛け算で消えない **加重和 (充足率)** を使う。
 
 ```text
 2 階層: capability 軸 (8) > サブ軸 / 評価ポイント (軸ごとに複数) > 各サブ軸 Lv1–5
@@ -107,7 +107,7 @@ UI は `/institutions/assess` に全部詰め込まず、`ERS評価` / `制度�
 
 - ナビ最上部に **「研究機関」** リンク (Venture Map の隣)。
 - ダッシュボードの研究機関リストは PJ リストの続きとして読めるよう、カードの主タイトルを PJ 名寄りにする。表示は **KUTE / 工学院大学**、**KGW / 香川大学**、**NIMS / 物質・材料研究機構** の title / subtitle 型。
-- 各レイヤーで使うスコアは別ロジック (上=AMD Score / 下=ERS 充足率) なので、研究機関リスト側に「ERS は整備度であり AMD Score とは別指標」と明示している。
+- 各レイヤーで使うスコアは別ロジック (上=AMD Score PRS primary / 下=ERS 充足率) なので、研究機関リスト側に「ERS は整備度であり AMD Score とは別指標」と明示している。
 - ダッシュボード本文でPJ一覧直下に置く KUTE / NIMS カードは、機関詳細ではなく各機関コックピットへ入る。KUTE の箱は研究機関 ERS として残しつつ、進捗管理は既存 KUTE PJ (`p25`) の PJ コックピットを使う。NIMS も同じ型で、既存 CX (`p20`) の PJ コックピットを使う。画面上部は ERS 概要と readiness snapshot を先に見せ、その下を `進捗管理` / `スコア詳細` の2タブにする。`進捗管理` では通常PJコックピットを先に表示し、月別 MTG ツリーは下部に置く。`スコア詳細` はSU向けAMD Scoreではなく、ERS 8軸・評価項目・Lv/根拠メモを表示する。
 - **評価の書き込み**は `POST /api/institutions/assess` (admin 限定 / `requireAdmin` 相当)。body = `{ institution_id, criterion_id, level (1–5/null), na, note }`。`institution_assessments` を **当日分 (`evaluated_at = today JST`) で `onConflict(institution_id,criterion_id,evaluated_at)` upsert** する。同日中の編集は 1 レコードに集約、過去日の評価は履歴として残り、`fetchErsBundle` は (機関 × サブ軸) ごとに最新 1 件を採用する。
 

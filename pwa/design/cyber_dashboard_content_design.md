@@ -193,7 +193,7 @@ PJ cockpit は dashboard HUD と見た目が乖離しているため、実装前
 現行cockpitに存在するコンテンツ:
 
 - Project Header: PJ ID、PJ名、client、status、CONFIG。
-- PJ Status / Venture Status: SU系PJのAMD Score状態、M/X/F、trend、status。
+- PJ Status / Venture Status: SU系PJのAMD Score状態、PRS primary、legacy M/X/F comparison、trend、status。
 - Milestone Matrix: current plan cycle、Annual Goals、Routine Ops、Buffer、各MSのpt/担当/share/role/taskDescription/期間/サブアイテム。
 - Next Period Setup: MS未設定warning、期間終了warning、次期MS設定/編集。
 - Past MS Periods: 過去plan cycle折りたたみ、展開時のMilestone Matrix。

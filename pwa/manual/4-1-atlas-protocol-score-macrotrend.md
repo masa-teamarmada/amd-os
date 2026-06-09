@@ -73,20 +73,22 @@ Atlas は、AMD が見るべき外部シグナルを蓄積し、後から判断�
 
 ## AMD Score
 
-AMD Score は、PJ / SU 単位の価値・成熟度を見るスコア。理論は Before Zero Theory v3.2。
+AMD Score は、PJ / SU 単位の価値・成熟度を見るスコア。現行 primary は PRS (`P x R x S`)。Before Zero Theory v3.2 の M-X-F / 7軸 Cobb-Douglas は legacy comparison と evidence chain として残す。
 
 ```text
-AMD Score = K · Π (X_i + 1)^α_i
-X = {σ_SU, TRL, BRL, GRL, SRL, HRL, FRL}
+AMD Score primary = K_prs · P · R · S
+R = TRL / BRL / GRL / SRL / HRL contribution product
+S = σ_SU / FRL / R_net contribution product
 
-UI 表示:
-S = k · M · X · F
+Legacy comparison:
 M = Macrotrend / Triple Helix
 X = 5 XRL readiness
 F = Founder / CEO leadership readiness
 ```
 
 読む時のポイント:
+- `P` は潜在規模、`R` は会社側 readiness、`S` は生存性・収益化耐性を見る
+- `P/R_net` missing 時は review pending とし、legacy AMD を primary へ戻さない
 - `M` は外部環境。Macrotrend と Triple Helix (= 学術 / 産業 / 政府) の追い風を見る
 - `X` は会社側の readiness。TRL / BRL / GRL / SRL / HRL を見る
 - `F` は牽引する人側の readiness。FRL として扱う

@@ -124,8 +124,8 @@ pwa/
 | `/atlas/admin/themes` | テーマクラスタリング管理 |
 | `/venture-map` | 9 PJ プロット (View A) |
 | `/venture-map/su/[id]` | SU 個別ビュー (XRL × マクロ指数) |
-| `/venture-map/amd-score` | AMD Score 一覧 (Before Zero Theory v3.2、7 軸 Cobb-Douglas)。詳細は [`amd_score.md`](amd_score.md) |
-| `/venture-map/amd-score/[projectId]` | AMD Score 個別 (Triple Helix M カード / X / F / 経時 / 軸クリックで Tsukuyomi) |
+| `/venture-map/amd-score` | AMD Score 一覧 (PRS primary、legacy M-X-F comparison)。詳細は [`amd_score.md`](amd_score.md) |
+| `/venture-map/amd-score/[projectId]` | AMD Score 個別 (PRS Primary / PRS history / legacy Triple Helix M-X-F / 軸クリックで Tsukuyomi) |
 | `/venture-map/amd-score/retrofit` | α 重み調整 + 全 PJ シミュレーション (タブバー非表示、詳細ページからリンク) |
 | `/management-score` | AMD Management Score (会社全体の経営状況スコア: 先手力 / 財務耐久 / 既存PJ継続 / 新規案件獲得 / 戦略接近度)。詳細は [`management_score.md`](management_score.md) |
 | `/venture-map/oscillator` | (実験) coupled oscillator 可視化 |
@@ -245,7 +245,7 @@ pwa/
 | `project_ventures` | SU 系 PJ の基本情報 (`project_id` PK = `projects.project_id` FK)。9 PJ。`ventures` を廃止して 008 で統合 |
 | `project_xrl_log` | TRL/BRL/HRL 時系列 + `bottleneck` (旧 `ventures_xrl_log`、008 で rename) |
 | `project_events` | PJ ごとの汎用イベントログ (`kind` ∈ hire/funding/deal/governance/note 等、`occurred_on` + `meta` jsonb)。沿革生成の元データ + AMD スコアグラフのアノテーション |
-| `amd_score_inputs` | AMD Score の 7 軸入力 (μ_A/I/G + 5 XRL + FRL, shallow_tech_mode)。`UNIQUE(project_id, evaluated_at)` (013 migration) |
+| `amd_score_inputs` | AMD Score の PRS input (`prs_potential`, `prs_r_net`) と legacy 7 軸入力 (μ_A/I/G + 5 XRL + FRL, shallow_tech_mode)。`UNIQUE(project_id, evaluated_at)` (013 migration) |
 | `amd_score_alpha` | 弾力性 α_i のバージョン管理 (`effective_from` / `effective_to`、jsonb)。base case を seed 済 |
 | `seeds` | seed 管理 |
 | `papers_log` | OpenAlex 論文数 (lane × **quarter**、UNIQUE lane+observed_at)。Triple Helix 観測量 N の供給。`cron/papers-quarterly-ingest` で投入 |
@@ -574,4 +574,4 @@ npm run test:critical-ui
 | 進捗推定設計 | `progress_estimation.md` |
 | Venture Map 数理モデル | `venture_map_model.md` |
 | PJ Status コックピット (SU 系 PJ の上部セクション) | `cockpit.md` ⭐ |
-| AMD Score (Before Zero Theory v3.2、7 軸 Cobb-Douglas) | `amd_score.md` ⭐ |
+| AMD Score (PRS primary / legacy M-X-F comparison) | `amd_score.md` ⭐ |
