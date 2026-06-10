@@ -128,3 +128,41 @@
 ### 教訓
 - 既にまさが見ている production version を基準にする。`BUILD_VERSION` の bump だけを見て「次は v0.15.3」と判断せず、現行 production と直近別セッションの HEAD を確認してから bundle を作る。
 - dirty/local direct deploy で一度本番に出た内容は、次の deploy 前に必ず commit graph と該当セッションの成果物を確認する。未確認の古い worktree deploy は production rollback 事故になる。
+
+## 2026-06-10 — ZMP/ZeMA 6/10定例MTGカード「日程調整中」復旧
+
+### コンテキスト
+- まさ依頼: 2026-06-10 の ZMP 定例MTGカードが「日程調整中」になっている原因を特定して修正する。
+- worker quiet mode。root local checkout `/Users/masa/projects/AMD/amd-os` は実装起点にせず、専用 worktree `/Users/masa/.codex/worktrees/5689/amd-os` で作業した。
+
+### 調査
+- Calendar で `【ZeMA】定例MTG` を確認。2026-06-10 09:00-10:00 JST、event id `bivl92dr7vhaa1fmi7325lnlis_20260610T000000Z`、recurring instance。
+- DB `project_meeting_summaries` に `meeting_id='upcoming:bivl92dr7vhaa1fmi7325lnlis_20260610T000000Z'`、`project_id='p19'`、同じ `calendar_event_id` の row が存在。
+- 直接原因は UI 判定。`source_kinds='upcoming+calendar+manual-prep'` が exact `upcoming` ではないため日時確定済み扱いから外れ、`meeting_id` の `upcoming:` prefix によって prep/tentative 側へ寄っていた。
+
+### 対応
+- DB は該当 row のみ非破壊 PATCH で `source_kinds='upcoming'` へ戻した。
+- `CockpitMeetingSummary.tsx` / `CockpitMeetingDetailModal.tsx` に `sourceKindTokens` を追加し、`upcoming` token を含む row を確定予定、`upcoming_tentative` token を含む row を日程調整中として扱うよう修正。
+- `calendar-sync` に p19 固有 alias `ZeMA` / `葛飾水素循環` を追加。dry-run で `matched:ZeMA` を確認。
+- `check_pwa_critical_ui.cjs` に再発防止 anchor を追加。
+- `pwa/spec/3-3-meeting-flow-current-spec.md`、`pwa/manual/2-3-pj-cockpit.md`、各 changelog を同期。`BUILD_VERSION` は `v0.16.23`。
+
+### Verified
+- `npm ci`
+- `npm run test:critical-ui`
+- `npx tsc --noEmit`
+- `npm run build`
+- `npm run test:l6-held-source-guard`
+- `npm run test:color-pj-resolution`
+- `git diff --check`
+
+### Commit / Deploy
+- commit: `2fb37412 fix(meeting): treat upcoming source tokens as scheduled`
+- branch: `codex/zmp-meeting-card-v01623`
+- push: 未実施
+- deploy: 未実施。`.vercel/project.json` はこの worktree では absent。deploy 前に現行 line へ取り込み、Vercel project guard と deploy bundle 承認が必要。
+
+### 教訓
+- `source_kinds` を拡張可能フィールドとして使うなら、完全一致で UI 状態を決めない。
+- Calendar title と OS PJ 名が違う recurring MTG は alias を明示し、dry-run reason で routing を確認する。
+- DB 緊急復旧だけで閉じず、UI 再発防止・alias・guard・spec/manual を同じ closeout に含める。

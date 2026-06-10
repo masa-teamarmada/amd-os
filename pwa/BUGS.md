@@ -5,6 +5,21 @@
 
 ---
 
+### [pwa/meeting-upcoming-token] ZMP/ZeMA 定例MTGカードが日時確定済みなのに「日程調整中」になった (2026-06-10)
+
+- **状態**: ✅ コード修正済み / DB緊急復旧済み (= `2fb37412 fix(meeting): treat upcoming source tokens as scheduled`)。push / deploy は未実施。
+- **症状**: ZMP (`p19`) の 2026-06-10 `【ZeMA】定例MTG` は Calendar 上で 09:00-10:00 JST の確定予定として存在し、`project_meeting_summaries` にも同じ `calendar_event_id` の upcoming row があったのに、PJ cockpit の MTGカードでは「日程調整中」扱いになった。
+- **原因**: UI 側が `source_kinds === 'upcoming'` の完全一致だけを「日時確定済み予定MTG」と見ていた。一方、該当 row は `source_kinds='upcoming+calendar+manual-prep'` で、`meeting_id` は `upcoming:` prefix だったため prep/tentative 判定へ寄り、「日程調整中」表示になった。`calendar-sync` 側にも `ZeMA` / `葛飾水素循環` を ZMP (`p19`) に結びつける alias がなく、同種の recurring event で再発しうる状態だった。
+- **対応内容**:
+  - DB は該当1 row だけ非破壊 PATCH で `source_kinds='upcoming'` へ戻した。
+  - cockpit の MTGカード / 詳細モーダルは `source_kinds` を `+` token として解釈し、`upcoming` token を含む row を日時確定済み予定MTG、`upcoming_tentative` token を含む row だけを日程調整中扱いにした。
+  - `POST /api/meeting-prep/calendar-sync` に p19 固有 alias `ZeMA` / `葛飾水素循環` を追加した。
+  - critical UI guard に `PROJECT_MATCH_ALIASES_BY_ID` / `ZeMA` / `sourceKindTokens` anchor を追加し、spec/manual/changelog を同期した。
+- **再発防止策**:
+  - `source_kinds` に拡張 token を足す時は、UI / API とも完全一致ではなく token 判定にする。
+  - 確定予定を表す token と仮置きを表す token を混ぜない。日程未確定は `upcoming_tentative` を明示する。
+  - PJ名と Calendar title の事業名がズレる場合は、Calendar sync 側の alias を追加し、silent success ではなく dry-run reason で確認する。
+
 ### [deps] react-simple-maps は React 19 と peer dep 衝突 → `--legacy-peer-deps` 必須 (2026-06-03)
 
 - **状態**: ✅ 既知ハマり (= 回避策確立済み)

@@ -1,78 +1,71 @@
 # HANDOFF - AMD OS
 
-- Last updated: 2026-06-04 (KUTE重複解消 / institution labels / company content復元)
-- Current workspace: `/Users/masa/.codex/worktrees/4507/amd-os`
+- Last updated: 2026-06-10 (ZMP/ZeMA 6/10定例MTGカード「日程調整中」復旧)
+- Current workspace: `/Users/masa/.codex/worktrees/5689/amd-os`
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `pwa/`
 - Production URL: `https://amd-os-pwa.vercel.app`
-- Current HEAD in this worktree: handoff/doc sync commit (`docs: hand off KUTE institution deploy`; run `git log -1 --oneline` for the exact hash)
-- Branch state: detached worktree (`HEAD`), no git push from this worker
+- Current branch: `codex/zmp-meeting-card-v01623`
+- Functional fix commit: `2fb37412 fix(meeting): treat upcoming source tokens as scheduled`
+- Push/deploy status: not pushed, not deployed
 
 ## Latest Session Summary
 
-Details are in `pwa/design_log/sessions_2026-06.md` under `2026-06-04 — KUTE重複解消 / v0.15.3復元 / 研究機関カード表示名`.
+Details are in `pwa/design_log/sessions_2026-06.md` under `2026-06-10 - ZMP/ZeMA 6/10定例MTGカード「日程調整中」復旧`.
 
-- KUTE (`p25`) is no longer shown in the normal Dashboard PJ list. It is shown through the institution ERS list and routed to `/institutions/inst_kute/cockpit`.
-- `inst_kute -> p25` was added so the institution cockpit can mount the existing KUTE PJ cockpit content without deleting either PJ content or ERS content.
-- Existing NIMS route `inst_nims -> p20` remains intact.
-- Institution ERS list is back in the left/main Dashboard column immediately below the PJ list.
-- Institution cards use PJ-style titles: `KUTE` / `KGW` / `NIMS`; subtitles: `工学院大学` / `香川大学` / `物質・材料研究機構`.
-- The `019e9176` company content landing zone was restored: `/company`, `/admin/company`, migration draft `124_company_content_tables.sql`, dashboard shelf fallback, and dry-run docs.
-- Runtime version deployed: `BUILD_VERSION = "v0.15.5"`.
+- Calendar confirmed `【ZeMA】定例MTG` on 2026-06-10 09:00-10:00 JST with event id `bivl92dr7vhaa1fmi7325lnlis_20260610T000000Z`.
+- DB row existed in `project_meeting_summaries` for ZMP (`p19`) with the same event id, but `source_kinds='upcoming+calendar+manual-prep'`.
+- Direct cause: cockpit UI checked exact `source_kinds === 'upcoming'`, while `meeting_id` started with `upcoming:`, so the composite source token was treated like prep/tentative and shown as `日程調整中`.
+- Non-destructive DB patch was applied only to that exact row: `source_kinds='upcoming'`.
+- Code fix in `2fb37412`: token-based `source_kinds` handling in meeting cards/modals, ZeMA/Katsushika H2 aliases for p19 calendar sync, critical UI anchors, BUILD_VERSION `v0.16.23`, spec/manual/changelog updates.
 
-## Deployment / Verification
+## Verification
 
-- Production Ready: `https://amd-os-pwa.vercel.app`
-- Deployment id: `dpl_42byLRKSTZEfrQGo5bDfWargtUyx`
-- Inspect URL: `https://amd-os-788b8fwh1-armada0130.vercel.app`
-
-Commands observed OK:
+Observed OK in this worker:
 
 ```sh
-cd /Users/masa/.codex/worktrees/4507/amd-os/pwa
-npx eslint src/components/dashboard/InstitutionReadinessList.tsx src/lib/build-info.ts
-npx tsc --noEmit
+cd /Users/masa/.codex/worktrees/5689/amd-os/pwa
+npm ci
 npm run test:critical-ui
+npx tsc --noEmit
 npm run build
+npm run test:l6-held-source-guard
+npm run test:color-pj-resolution
+git diff --check
 ```
 
-Smoke checks observed OK:
+Also observed:
 
-- local `/dashboard`, `/institutions/inst_kute/cockpit`, `/company`: login redirect / status 200 / Runtime Error false
-- production `/dashboard`, `/institutions/inst_kute/cockpit`, `/company`: login redirect / status 200 / Runtime Error false
+- `POST /api/meeting-prep/calendar-sync` dry-run through local dev server matched `project_id='p19'` with reason `matched:ZeMA`.
+- Local browser to `/project/p19/cockpit` redirected to login, so authenticated visual confirmation was not performed in this worker.
+- Current worktree was clean before this handoff doc update.
 
 ## Repo State
 
-Unpushed local commits in this worktree:
-
-- `039a823 fix(pwa): restore institution list placement and KUTE routing`
-- `ac13324 feat(company): restore Notion content landing zone`
-- `40f021b fix(dashboard): use project labels for institutions`
-- current handoff/doc sync commit (`docs: hand off KUTE institution deploy`)
-
-Important boundary:
-
-- No DB row deletion.
-- No destructive migration.
-- `pwa/scripts/migrations/124_company_content_tables.sql` is included as migration draft/landing-zone schema only. This worker did not apply production DB migration or import Notion content.
-- No git push.
+- Branch: `codex/zmp-meeting-card-v01623`
+- Functional fix: `2fb37412`
+- Relevant unpushed worker commits: `2fb37412` and the current handoff/doc sync commit (`git log -1 --oneline`).
+- No push from this worker.
+- No Vercel deploy from this worker.
+- Current worktree `.vercel/project.json` is absent. Canonical root link was checked earlier as `amd-os-pwa / prj_raZW3HSKIszzPUwNTHfy7xDGzLHm`, but this worktree itself must not run Vercel CLI until the link artifact is safely restored and deploy approval is granted.
+- Separate current-line branch `codex/main-current-v01629-sync` exists locally at `186a2740`; it does not contain `2fb37412`. Before production deploy, merge/cherry-pick this fix onto the accepted current line and preserve monotonic `BUILD_VERSION`.
 
 ## Unresolved Tasks
 
-- None for the KUTE duplicate / institution label runtime path.
-- Optional next release item: apply/import company content tables when Masa explicitly approves DB migration + Notion import scope.
-- Optional next cleanup: push these commits after deploy bundle approval, because git-connected Vercel auto-deploy may run on push.
+- Production deploy is pending. It needs a deploy bundle and Masa approval because preview/production deploy or git push can trigger Vercel.
+- Push is pending for the same reason. Do not push without an approval bundle.
+- Business model diagram discussion for the 2026-06-10 ZMP/KR meeting was requested after the fix, but no repo artifact was created before this closeout.
 
 ## First Next Action
 
 ```sh
-cd /Users/masa/.codex/worktrees/4507/amd-os
-git status -sb
-git log --oneline -8
-git diff --stat origin/main...HEAD
+cd /Users/masa/.codex/worktrees/5689/amd-os
+git status -sb --untracked-files=all
+git show --stat --oneline 2fb37412
+git log --oneline --decorate -5
 ```
 
-If preparing to push, make a deploy bundle first and get Masa approval immediately before the push.
+If preparing release, first move `2fb37412` onto the accepted current production line, run the targeted checks again, then present a deploy bundle before any push/deploy.
 
 ## First Read Next Session
 
@@ -81,7 +74,6 @@ If preparing to push, make a deploy bundle first and get Masa approval immediate
 3. `pwa/AGENTS.md`
 4. `pwa/CLAUDE.md`
 5. `pwa/design_log/sessions_2026-06.md`
-6. `pwa/design/FEATURE_REGISTRY.md`
-7. `pwa/design/SPEC_pwa.md`
-8. `pwa/manual/4-9-institution-ers-spec.md`
-9. `pwa/BUGS.md`
+6. `pwa/spec/3-3-meeting-flow-current-spec.md`
+7. `pwa/manual/2-3-pj-cockpit.md`
+8. `pwa/BUGS.md`
