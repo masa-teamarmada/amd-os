@@ -14,9 +14,12 @@ member_activities(`source='member_weekly'`) を PJ × メンバーのマトリ�
 - 右端列 = メンバー別の今月報酬合計、最下行 = PJ 別の今月報酬合計、右下 = 今月支払総合計 (サマリーバーにも表示)
 - 報酬計算の仕様は [`manual/7-1-reward-calc-spec.md`](7-1-reward-calc-spec.md)、支払通知フローは下の admin/payouts を参照
 - 活動が無くても今月報酬がある PJ / メンバーは行・列に表示される (= 抽出漏れの発見にも使う)
+- **役員 (`members.is_officer=true`、まさ・きよ) の報酬は表示しない & 0 円扱い** (= セルバッジ・メンバー合計・PJ 合計・総合計すべてから除外、まさ確定 2026-06-12)
 
 ### データの入り方
 週次活動の抽出は Claude routine `amd-os-l2-consolidated-evidence` (毎日 08:00 JST、前日18:00〜当日18:00 の 24h 窓) が書く。詳細は [`manual/8-3-l2-extraction-routines-spec.md`](8-3-l2-extraction-routines-spec.md)。routine が走らなかった日の窓は空欄のまま残る (後追い補完されない) ので、マトリクスがスカスカの場合はまず routine の稼働を疑う。
+
+**全メンバー抽出の前提 (2026-06-12)**: Gmail / Calendar はメンバー本人の Google OAuth token (`member_google_oauth_tokens`) で本人として読む。token は **そのメンバーが PWA に Google ログインした時に自動保存**される。一度もログインしていないメンバーは Gmail / 本人 Calendar が読めず抽出が薄くなる — 特定メンバーの行だけスカスカなら、まずその人に PWA ログインを 1 回してもらう。
 
 ## admin/payouts (= 月次支払通知書フロー)
 

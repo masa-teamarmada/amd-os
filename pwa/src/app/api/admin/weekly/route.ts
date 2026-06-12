@@ -21,6 +21,7 @@ interface MemberRow {
   code_name: string;
   email: string;
   status: string | null;
+  is_officer: boolean | null;
 }
 
 interface ProjectRow {
@@ -175,7 +176,7 @@ export async function GET(req: NextRequest) {
 
   const db = createAdminClient();
   const [membersRes, activitiesRes, billingRes] = await Promise.all([
-    db.from("members").select("member_id, code_name, email, status"),
+    db.from("members").select("member_id, code_name, email, status, is_officer"),
     db
       .from("member_activities")
       .select("id, member_id, project_id, source, title, content_preview, item_date, raw_metadata")
@@ -223,10 +224,13 @@ export async function GET(req: NextRequest) {
     });
 
   // 月次報酬: billing_cycles.reward_summary_json → member × PJ の totalPay
+  // 役員 (members.is_officer=true) は 0 円扱いで表示・合計とも対象外 (まさ確定 2026-06-12)
+  const officerIds = new Set(allMembers.filter((m) => m.is_officer === true).map((m) => m.member_id));
   const rewards: RewardCellOut[] = [];
   for (const row of (billingRes.data ?? []) as Array<{ project_id: string; reward_summary_json: unknown }>) {
     for (const rm of parseRewardMembers(row.reward_summary_json)) {
       if (rm.totalPay === 0) continue;
+      if (officerIds.has(rm.memberId)) continue;
       rewards.push({ projectId: row.project_id, memberId: rm.memberId, totalPay: rm.totalPay });
     }
   }

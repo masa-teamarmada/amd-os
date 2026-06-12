@@ -55,6 +55,22 @@ export function getGoogleAuth(): OAuth2Client | null {
   return null;
 }
 
+/**
+ * メンバー個人の refresh_token (member_google_oauth_tokens 由来) で OAuth2Client を作る。
+ * PWA ログイン (Supabase Google auth) で発行された token を redeem するため、
+ * client credentials は発行元 client と一致している必要がある。
+ * GOOGLE_MEMBER_OAUTH_CLIENT_ID/SECRET があればそれを使い、無ければ GOOGLE_OAUTH_CLIENT_ID/SECRET。
+ * cachedAuth (まさ代理の共有 auth) とは独立で、キャッシュしない。
+ */
+export function getMemberGoogleAuth(refreshToken: string): OAuth2Client | null {
+  const clientId = process.env.GOOGLE_MEMBER_OAUTH_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_MEMBER_OAUTH_CLIENT_SECRET || process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  if (!clientId || !clientSecret || !refreshToken) return null;
+  const oauth = new google.auth.OAuth2(clientId, clientSecret);
+  oauth.setCredentials({ refresh_token: refreshToken });
+  return oauth;
+}
+
 /** await 可能な版 (Service Account の場合 getClient が非同期) */
 export async function getGoogleAuthAsync(): Promise<OAuth2Client | null> {
   const sync = getGoogleAuth();

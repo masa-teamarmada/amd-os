@@ -11,7 +11,8 @@ import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
-import { getGoogleAuthAsync } from "@/lib/sources/google";
+import type { OAuth2Client } from "google-auth-library";
+import { getGoogleAuthAsync, getMemberGoogleAuth } from "@/lib/sources/google";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const runtime = "nodejs";
@@ -67,6 +68,21 @@ type SynthesizedActivity = {
 type ReadableCalendar = {
   calendarId: string;
   ownerEmail: string;
+};
+
+type MemberAuth = {
+  memberId: string;
+  email: string;
+  codeName: string | null;
+  auth: OAuth2Client;
+  via: "member_token" | "env_fallback";
+};
+
+type TokenError = {
+  memberId: string;
+  email: string;
+  step: "gmail" | "calendar";
+  error: string;
 };
 
 type CalendarAccess = {
@@ -574,15 +590,59 @@ async function fetchSourceCacheEvidence(
     .filter((row): row is Evidence => !!row);
 }
 
-async function fetchGmailEvidence(
+/**
+ * member_google_oauth_tokens (PWA ログイン時に保存される refresh_token) から
+ * メンバー本人として Gmail/Calendar を読むための auth 一覧を作る。
+ * token が無いメンバーのうち、まさ (= env GOOGLE_OAUTH_REFRESH_TOKEN の代理元) だけ env auth に fallback。
+ */
+async function resolveMemberAuths(
+  supabase: SupabaseClient,
+  targetMembers: MemberRow[]
+): Promise<{ memberAuths: MemberAuth[]; tokenMissingMemberIds: string[] }> {
+  const { data, error } = await supabase
+    .from("member_google_oauth_tokens")
+    .select("member_id, email, refresh_token")
+    .eq("provider", "google")
+    .not("refresh_token", "is", null);
+  if (error) throw error;
+  const tokenByMemberId = new Map<string, string>();
+  for (const row of data ?? []) {
+    const memberId = String(row.member_id || "");
+    const refreshToken = String(row.refresh_token || "");
+    if (memberId && refreshToken) tokenByMemberId.set(memberId, refreshToken);
+  }
+
+  const memberAuths: MemberAuth[] = [];
+  const tokenMissingMemberIds: string[] = [];
+  const envFallbackEmail = (process.env.GOOGLE_OAUTH_ACTOR_EMAIL || "masa@team-armada.jp").toLowerCase();
+  for (const member of targetMembers) {
+    const email = member.email?.trim().toLowerCase() || "";
+    if (!email) continue;
+    const refreshToken = tokenByMemberId.get(member.member_id);
+    const auth = refreshToken ? getMemberGoogleAuth(refreshToken) : null;
+    if (auth) {
+      memberAuths.push({ memberId: member.member_id, email, codeName: member.code_name, auth, via: "member_token" });
+      continue;
+    }
+    if (email === envFallbackEmail) {
+      const envAuth = await getGoogleAuthAsync();
+      if (envAuth) {
+        memberAuths.push({ memberId: member.member_id, email, codeName: member.code_name, auth: envAuth, via: "env_fallback" });
+        continue;
+      }
+    }
+    tokenMissingMemberIds.push(member.member_id);
+  }
+  return { memberAuths, tokenMissingMemberIds };
+}
+
+async function fetchGmailEvidenceForMember(
+  member: MemberAuth,
   bounds: ReturnType<typeof activityWindowBoundsJST>,
   matchProject: ReturnType<typeof buildProjectMatcher>,
-  matchMembers: ReturnType<typeof buildMemberMatcher>,
   maxMessages: number
 ): Promise<Evidence[]> {
-  const auth = await getGoogleAuthAsync();
-  if (!auth) return [];
-  const gmail = google.gmail({ version: "v1", auth });
+  const gmail = google.gmail({ version: "v1", auth: member.auth });
   const after = dateKeyJST(bounds.start).replace(/-/g, "/");
   const before = dateKeyJST(new Date(bounds.end.getTime() + 86400000)).replace(/-/g, "/");
   // まさ判断 (2026-05-22 #3): 「ただ受信したメール」を活動として扱わない。
@@ -620,8 +680,7 @@ async function fetchGmailEvidence(
       const fallbackProjectId = internalCollaborationFallbackProjectId({ text: `${subject}\n${snippet}`, emails });
       if (fallbackProjectId) projectIds = [fallbackProjectId];
     }
-    const memberIds = matchMembers(extractEmails(from));
-    if (projectIds.length === 0 || memberIds.length === 0) continue;
+    if (projectIds.length === 0) continue;
     const itemDate = messageDate(msg.data, bounds.start);
     if (itemDate < bounds.start || itemDate >= bounds.end) continue;
     rows.push({
@@ -633,8 +692,9 @@ async function fetchGmailEvidence(
       itemDate: itemDate.toISOString(),
       participantEmails: emails,
       projectIds,
-      memberIds,
-      raw: { message_id: ref.id, thread_id: msg.data.threadId || null, from, to, cc },
+      // 本人のメールボックスの sent/drafts = 本人の活動。from マッチに依存しない
+      memberIds: [member.memberId],
+      raw: { message_id: ref.id, thread_id: msg.data.threadId || null, from, to, cc, actor_email: member.email },
     });
   }
   return rows;
@@ -645,7 +705,11 @@ async function fetchCalendarEvidence(
   matchProject: ReturnType<typeof buildProjectMatcher>,
   matchMembers: ReturnType<typeof buildMemberMatcher>,
   cal: ReturnType<typeof google.calendar> | null,
-  calendars: ReadableCalendar[]
+  calendars: ReadableCalendar[],
+  // selfMemberId あり = メンバー本人 auth での読み取り → memberIds は本人固定。
+  // memberIdAllowList あり = まさ代理 calendarList fallback → token 保有メンバーの行を二重に立てない
+  selfMemberId?: string | null,
+  memberIdAllowList?: Set<string> | null
 ): Promise<Evidence[]> {
   if (!cal) return [];
   const rows: Evidence[] = [];
@@ -694,7 +758,10 @@ async function fetchCalendarEvidence(
         const fallbackProjectId = internalCollaborationFallbackProjectId({ text: `${title}\n${snippet}`, emails });
         if (fallbackProjectId) projectIds = [fallbackProjectId];
       }
-      const memberIds = matchMembers(emails);
+      let memberIds = selfMemberId ? [selfMemberId] : matchMembers(emails);
+      if (!selfMemberId && memberIdAllowList) {
+        memberIds = memberIds.filter((id) => memberIdAllowList.has(id));
+      }
       const itemDate = event.start?.dateTime || event.start?.date || null;
       if (!event.id || !itemDate || projectIds.length === 0 || memberIds.length === 0) continue;
       rows.push({
@@ -734,10 +801,24 @@ async function fetchMeetingSummaryEvidence(
 
   const calendarByEventId = new Map<string, Evidence>();
   const calendarByTitleDate = new Map<string, Evidence>();
+  // per-member fetch では同じ event がメンバーごとに別 Evidence (memberIds=本人のみ) になるので、
+  // 議事録マッチ用には memberIds / participantEmails を union したコピーを持つ (元 Evidence は mutate しない)
+  const mergeHit = (map: Map<string, Evidence>, key: string, item: Evidence) => {
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, item);
+      return;
+    }
+    map.set(key, {
+      ...existing,
+      memberIds: [...new Set([...existing.memberIds, ...item.memberIds])],
+      participantEmails: [...new Set([...existing.participantEmails, ...item.participantEmails])],
+    });
+  };
   for (const item of calendarEvidence) {
     const eventId = typeof item.raw?.event_id === "string" ? item.raw.event_id : "";
-    if (eventId) calendarByEventId.set(eventId, item);
-    calendarByTitleDate.set(`${dateKeyJST(new Date(item.itemDate))}:${normalizedKey(item.title)}`, item);
+    if (eventId) mergeHit(calendarByEventId, eventId, item);
+    mergeHit(calendarByTitleDate, `${dateKeyJST(new Date(item.itemDate))}:${normalizedKey(item.title)}`, item);
   }
 
   const rows: Evidence[] = [];
@@ -1005,24 +1086,59 @@ export async function GET(req: NextRequest) {
     );
     const matchProject = buildProjectMatcher(projects, internalEmails);
     const matchMembers = buildMemberMatcher(targetMembers);
+
+    // メンバー本人の refresh_token (PWA ログインで保存) で per-member Gmail/Calendar を読む。
+    // token が無い connected メンバーだけ、従来のまさ代理 calendarList fallback。
+    const { memberAuths, tokenMissingMemberIds } = await resolveMemberAuths(supabase, targetMembers);
+    const tokenErrors: TokenError[] = [];
+    const memberAuthIds = new Set(memberAuths.map((m) => m.memberId));
+    const fallbackCalendarMembers = calendarSourceMembers
+      .filter((member) => !memberId || member.member_id === memberId)
+      .filter((member) => !memberAuthIds.has(member.member_id));
     const requiredCalendarEmails = new Set(
-      calendarSourceMembers
+      fallbackCalendarMembers
         .map((member) => member.email?.trim().toLowerCase())
         .filter((email): email is string => !!email)
     );
+    const fallbackMemberIdAllowList = new Set(fallbackCalendarMembers.map((m) => m.member_id));
     const calendarAccess = await resolveReadableMemberCalendars(requiredCalendarEmails);
 
-    const [sourceCache, gmail, calendar] = await Promise.all([
-      fetchSourceCacheEvidence(supabase, bounds, matchProject, matchMembers, internalEmails),
-      fetchGmailEvidence(bounds, matchProject, matchMembers, maxMessages).catch((error) => {
-        console.warn("[member-weekly-activities] gmail skipped:", error);
+    const shortError = (error: unknown) =>
+      String(error instanceof Error ? error.message : error).slice(0, 200);
+    const gmailTasks = memberAuths.map((member) =>
+      fetchGmailEvidenceForMember(member, bounds, matchProject, maxMessages).catch((error) => {
+        console.warn("[member-weekly-activities] gmail skipped:", member.memberId, error);
+        tokenErrors.push({ memberId: member.memberId, email: member.email, step: "gmail", error: shortError(error) });
         return [] as Evidence[];
-      }),
-      fetchCalendarEvidence(bounds, matchProject, matchMembers, calendarAccess.cal, calendarAccess.calendars).catch((error) => {
-        console.warn("[member-weekly-activities] calendar skipped:", error);
+      })
+    );
+    const memberCalendarTasks = memberAuths.map((member) => {
+      const cal = google.calendar({ version: "v3", auth: member.auth });
+      return fetchCalendarEvidence(
+        bounds, matchProject, matchMembers, cal,
+        [{ calendarId: "primary", ownerEmail: member.email }],
+        member.memberId
+      ).catch((error) => {
+        console.warn("[member-weekly-activities] member calendar skipped:", member.memberId, error);
+        tokenErrors.push({ memberId: member.memberId, email: member.email, step: "calendar", error: shortError(error) });
+        return [] as Evidence[];
+      });
+    });
+
+    const [sourceCache, gmailLists, memberCalendarLists, fallbackCalendar] = await Promise.all([
+      fetchSourceCacheEvidence(supabase, bounds, matchProject, matchMembers, internalEmails),
+      Promise.all(gmailTasks),
+      Promise.all(memberCalendarTasks),
+      fetchCalendarEvidence(
+        bounds, matchProject, matchMembers, calendarAccess.cal, calendarAccess.calendars,
+        null, fallbackMemberIdAllowList
+      ).catch((error) => {
+        console.warn("[member-weekly-activities] fallback calendar skipped:", error);
         return [] as Evidence[];
       }),
     ]);
+    const gmail = gmailLists.flat();
+    const calendar = [...memberCalendarLists.flat(), ...fallbackCalendar];
 
     const meetingSummaries = await fetchMeetingSummaryEvidence(supabase, bounds, matchProject, calendar);
     const evidence = dedupeEvidence([
@@ -1057,6 +1173,9 @@ export async function GET(req: NextRequest) {
       calendarMissingMembers: calendarAccess.missingMemberEmails.length,
       targetMembers: targetMembers.length,
       calendarSourceMembers: calendarSourceMembers.length,
+      memberTokenAuths: memberAuths.map((m) => ({ memberId: m.memberId, codeName: m.codeName, via: m.via })),
+      tokenMissingMemberIds,
+      tokenErrors,
       pendingCalendarLogin,
       note: pendingCalendarLogin.length > 0 ? "calendar login consent required for pending members" : null,
       evidenceCount: evidence.length,

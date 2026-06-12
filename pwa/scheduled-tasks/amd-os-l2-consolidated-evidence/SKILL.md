@@ -164,6 +164,7 @@ Phase J: D-10 ⑬ Member Weekly Activities 抽出
 
 旧 PWA route `cron/member-weekly-activities` のロジックを inline 実行 (= 2026-06-04 まさ確定で **daily** 化。weekly ではなく daily pickup)。route 実装: `pwa/src/app/api/cron/member-weekly-activities/route.ts`。
 - 入力 (4 集約): ① `source_cache` (Gmail/Calendar キャッシュ) ② Gmail (sent/draft のみ) ③ Calendar (organizer/attended のみ) ④ `project_meeting_summaries`。member email はメンバー特定だけに使い、PJ 判定は PJ 専用/関係先 email・PJ名・client名で行う。
+- **全メンバー抽出 (2026-06-12)**: ②③は `member_google_oauth_tokens` の per-member refresh_token で **各メンバー本人として** Gmail (sent/drafts) / Calendar (primary) を読む。token は PWA ログイン (Supabase Google auth) 時に自動保存される。token の無い connected メンバーはまさ代理 calendarList fallback (memberIdAllowList で二重行防止)。レスポンスの `memberTokenAuths` / `tokenMissingMemberIds` / `tokenErrors` で稼働状況を確認できる — tokenErrors に invalid_client 系が出たら `GOOGLE_MEMBER_OAUTH_CLIENT_ID/SECRET` (Vercel env) に Supabase Auth 側 Google client の credentials を投入する。
 - 抽出: evidence を (projectId, memberId, sourceAnchor) でグループ化 → Sonnet 4.6 で activity title / contentPreview / confidence を合成。
 - 出力: `member_activities` (`source='member_weekly'`、UNIQUE (member_id, project_id, source, source_item_id))。`/mypage` の「今週やったこと」と既存 member_activities 入力 L2 (= D-4 メンバーナレッジ) の入力になる。
 - 既存週次行は delete してから upsert (= 当日断面で再構築)。
