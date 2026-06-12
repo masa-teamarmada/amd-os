@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { BzmMarkdown } from "@/components/bzm/BzmMarkdown";
 import { BzmSideNav, type BzmSideNavGroup } from "@/components/bzm/BzmSideNav";
 import { applyBzmBookNumbering, BZM_CHAPTERS, BZM_PARTS, getBzmChapter, sortBzmSlugs } from "../bzm-chapters";
-import { normalizeBzmMarkdownSource } from "../bzm-data";
+import { isBzmChapterFile, normalizeBzmMarkdownSource } from "../bzm-data";
 
 /**
  * /bzm/[slug] — 教科書の各章
@@ -23,7 +23,7 @@ export async function generateStaticParams() {
   if (!fs.existsSync(dir)) return [];
   return fs
     .readdirSync(dir)
-    .filter((f) => f.endsWith(".md"))
+    .filter(isBzmChapterFile)
     .map((f) => ({ slug: f.replace(/\.md$/, "") }));
 }
 
@@ -47,7 +47,7 @@ export default async function BzmChapterPage({ params }: { params: Promise<{ slu
 
   const allFiles = fs
     .readdirSync(bzmDir())
-    .filter((f) => f.endsWith(".md"))
+    .filter(isBzmChapterFile)
     .map((f) => f.replace(/\.md$/, ""));
   const sorted = sortBzmSlugs(allFiles);
   const idx = sorted.indexOf(decoded);

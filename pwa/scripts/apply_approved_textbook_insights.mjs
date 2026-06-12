@@ -90,8 +90,13 @@ function slugToFile(slug) {
     throw new Error(`unsafe target_bzm_slug: ${slug}`);
   }
   const file = path.join(BZM_DIR, `${clean}.md`);
-  if (!fs.existsSync(file)) throw new Error(`BZM chapter not found: ${file}`);
-  return file;
+  if (fs.existsSync(file)) return file;
+  // 2026-06-13 教科書差し替え: 旧章 (8-1〜8-5, 6-1 等) は pwa/bzm/legacy/ へ退避済み。
+  // 既存 D-7 routing target が legacy にある場合はそちらへ追記する (新教科書の受け皿が
+  // 整うまでの暫定。受け皿再設計は textbook 司令塔台帳の残課題)。
+  const legacyFile = path.join(BZM_DIR, "legacy", `${clean}.md`);
+  if (fs.existsSync(legacyFile)) return legacyFile;
+  throw new Error(`BZM chapter not found: ${file}`);
 }
 
 function evidenceMarkdown(refs) {

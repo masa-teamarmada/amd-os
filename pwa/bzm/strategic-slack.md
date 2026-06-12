@@ -1,10 +1,7 @@
 <!--
-内部メモ (公開時に削除):
-- 本ファイルは「章頭ストーリー型教科書」の章型プロトタイプ rev2 (2026-06-13)。
-- rev2 でのまさフィードバック反映: ①KPI論 (成果KPIが交渉力を壊す) を新セクション化 ②冒頭ストーリーを一社依存ロックインのケースとして全面拡張 ③戦略余力の全成分を丁寧に解説 (交渉力偏重を解消) ④全体に文章を増量、新人URA・研究者・学部生が読める粒度に ⑤鋸歯グラフ含む図3点 (f6/f7/f8) を matplotlib で生成し埋め込み。
-- まさレビューで型確定後、public-manuscript の第II部へ移設し、章番号を振る。
-- 理論正本: BZSF/before_zero_theory.md / BZSF/PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html / CX/AMD OS 資料/DTSU_STRATEGIC_SLACK_MODEL_20260609.md / knowledge/license_negotiation.md
-- 料率数値の出典確認は references worker のタスク (本文中の出典注を参照)。
+理論正本: BZSF/before_zero_theory.md / BZSF/PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html / CX/AMD OS 資料/DTSU_STRATEGIC_SLACK_MODEL_20260609.md / knowledge/license_negotiation.md
+章型 (確定 2026-06-13): 冒頭ストーリー → 解説 (数式・図を章内で) → 匿名化実例 → 章末の問い (PUBLICATION_STRATEGY §0)
+料率数値の出典確認は references worker のタスク (本文中の出典注を参照)。
 -->
 
 # 戦略余力 — 主導権を保って走り切る

@@ -17,10 +17,15 @@ function bzmDir() {
   return path.join(process.cwd(), "bzm");
 }
 
+/** 台帳・運用md (大文字始まり、例: COMMANDER_TASKS.md) は章として扱わない */
+export function isBzmChapterFile(name: string) {
+  return name.endsWith(".md") && !/^[A-Z]/.test(name);
+}
+
 export function getBzmMarkdownSlugs() {
   const dir = bzmDir();
   if (!fs.existsSync(dir)) return [];
-  return sortBzmSlugs(fs.readdirSync(dir).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, "")));
+  return sortBzmSlugs(fs.readdirSync(dir).filter(isBzmChapterFile).map((f) => f.replace(/\.md$/, "")));
 }
 
 export function getBzmMarkdownSource(slug: string) {

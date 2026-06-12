@@ -17,6 +17,8 @@
 
 2026-05-31 に OS司令塔が migration 116 (`pwa/scripts/migrations/116_textbook_insight_candidate_metadata_gates.sql`) を本番DBへ緊急適用し、`metadata_json` 未存在による DB/code mismatch は解消済み。この schema/docs sync worker は追加DDLを実行せず、適用済み production schema を `python3 -X utf8 scripts/dump_schema.py` で `pwa/design/db_schema.md` へ同期する。
 
+> **2026-06-13 教科書差し替えの影響**: `/bzm` は章頭ストーリー型教科書 (まさ確定) へ差し替え、旧章 (0-1〜9-4、D-7 routing target の 8-1〜8-5 / 6-1 含む) は `pwa/bzm/legacy/` へ退避した。`apply_approved_textbook_insights.mjs` の `slugToFile` は `pwa/bzm/{slug}.md` に無い場合 `pwa/bzm/legacy/{slug}.md` へ fallback して追記を継続する。新教科書側の D-7 受け皿章 (routing target の再設計) は textbook 司令塔台帳 (`pwa/bzm/textbook/COMMANDER_TASKS.md`) の残課題。
+
 ## 目的と優先順位
 
 抽出対象は「Before Zero 実践テキストに入れるべき実務知見」。優先順位は従来互換の `insight_type` / `priority` と、実践分類の `metadata_json.practice_kind` の両方で表現する。
