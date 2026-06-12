@@ -25,6 +25,12 @@ interface ActivityOut {
   itemDate: string | null;
 }
 
+interface RewardCellOut {
+  projectId: string;
+  memberId: string;
+  totalPay: number;
+}
+
 interface ApiResp {
   ok: boolean;
   weekStart: string;
@@ -32,6 +38,8 @@ interface ApiResp {
   members: MemberOut[];
   projects: ProjectOut[];
   activities: ActivityOut[];
+  rewardYm?: string;
+  rewards?: RewardCellOut[];
   error?: string;
 }
 
@@ -75,6 +83,15 @@ function formatDateJa(key: string | null | undefined): string {
   const jst = new Date(Date.UTC(y, m - 1, d));
   const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
   return `${m}/${d} (${weekdays[jst.getUTCDay()]})`;
+}
+
+function formatYen(n: number): string {
+  return `¥${n.toLocaleString("ja-JP")}`;
+}
+
+function formatYmJa(ym: string | undefined): string {
+  if (!ym || !/^\d{6}$/.test(ym)) return "今月";
+  return `${ym.slice(0, 4)}年${Number(ym.slice(4))}月`;
 }
 
 function sourceKindLabel(source: string | null | undefined): string {
@@ -139,13 +156,30 @@ export function AdminWeeklyMatrix() {
     return m;
   }, [data]);
 
+  // (memberId, projectId) → 月次報酬 (¥)、メンバー合計、PJ 合計、総合計
+  const rewardMaps = useMemo(() => {
+    const cell = new Map<string, number>();
+    const byMember = new Map<string, number>();
+    const byProject = new Map<string, number>();
+    let grand = 0;
+    for (const r of data?.rewards ?? []) {
+      cell.set(`${r.memberId}::${r.projectId}`, (cell.get(`${r.memberId}::${r.projectId}`) || 0) + r.totalPay);
+      byMember.set(r.memberId, (byMember.get(r.memberId) || 0) + r.totalPay);
+      byProject.set(r.projectId, (byProject.get(r.projectId) || 0) + r.totalPay);
+      grand += r.totalPay;
+    }
+    return { cell, byMember, byProject, grand };
+  }, [data]);
+
+  const ymLabel = formatYmJa(data?.rewardYm);
+
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-[#1d1d1f]">週次活動</h1>
           <p className="mt-1 text-[12px] text-[#86868b]">
-            各メンバーが Gmail / Calendar / 議事録から抽出された「今週やったこと」を PJ × メンバーで一覧する。マイページに表示される内容を全メンバー分集約した admin ビュー。
+            各メンバーが Gmail / Calendar / 議事録から抽出された「今週やったこと」を PJ × メンバーで一覧する。マイページに表示される内容を全メンバー分集約した admin ビュー。橙色の金額は表示週が属する月の月次報酬 (billing_cycles の報酬計算 totalPay)。右端列 = メンバー別月合計、最下行 = PJ 別月合計。
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -186,6 +220,9 @@ export function AdminWeeklyMatrix() {
             <span>活動 {data.activities.length} 件</span>
             <span>PJ {data.projects.length}</span>
             <span>メンバー {data.members.filter((m) => (memberTotals.get(m.memberId) || 0) > 0).length} / {data.members.length}</span>
+            <span className="font-semibold text-[#1d1d1f]">
+              {ymLabel}支払合計 <span className="text-[#bf4800]">{formatYen(rewardMaps.grand)}</span>
+            </span>
           </>
         )}
         {loading && <span className="text-[#007aff]">読み込み中…</span>}
@@ -221,6 +258,9 @@ export function AdminWeeklyMatrix() {
                     <div className="text-[10px] font-normal text-[#86868b]">{p.projectId}</div>
                   </th>
                 ))}
+                <th className="border-b border-[#e5e5e7] bg-[#fff8f2] px-3 py-2 text-right font-semibold text-[#1d1d1f] whitespace-nowrap">
+                  {ymLabel}報酬合計
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -243,13 +283,21 @@ export function AdminWeeklyMatrix() {
                     </th>
                     {data.projects.map((p) => {
                       const list = cellMap.get(`${m.memberId}::${p.projectId}`) || [];
+                      const cellPay = rewardMaps.cell.get(`${m.memberId}::${p.projectId}`) || 0;
                       return (
                         <td
                           key={p.projectId}
                           className="border-b border-r border-[#e5e5e7] px-2 py-2 align-top"
                         >
+                          {cellPay > 0 && (
+                            <div className="mb-1.5">
+                              <span className="inline-block rounded-full bg-[#bf4800]/10 px-2 py-0.5 text-[10px] font-semibold text-[#bf4800]">
+                                {ymLabel} {formatYen(cellPay)}
+                              </span>
+                            </div>
+                          )}
                           {list.length === 0 ? (
-                            <span className="text-[#d2d2d7]">·</span>
+                            cellPay === 0 ? <span className="text-[#d2d2d7]">·</span> : null
                           ) : (
                             <div className="space-y-1.5 min-w-[200px]">
                               {list.slice(0, 3).map((a) => (
@@ -298,10 +346,41 @@ export function AdminWeeklyMatrix() {
                         </td>
                       );
                     })}
+                    <td className="border-b border-[#e5e5e7] bg-[#fff8f2] px-3 py-2 text-right align-top whitespace-nowrap">
+                      {(rewardMaps.byMember.get(m.memberId) || 0) > 0 ? (
+                        <span className="text-[12px] font-semibold text-[#bf4800]">
+                          {formatYen(rewardMaps.byMember.get(m.memberId) || 0)}
+                        </span>
+                      ) : (
+                        <span className="text-[#d2d2d7]">·</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
+            <tfoot>
+              <tr className="bg-[#fff8f2]">
+                <th className="sticky left-0 z-10 border-t border-r border-[#e5e5e7] bg-[#fff8f2] px-3 py-2 text-left font-semibold text-[#1d1d1f] whitespace-nowrap">
+                  PJ 報酬合計（{ymLabel}）
+                </th>
+                {data.projects.map((p) => {
+                  const pay = rewardMaps.byProject.get(p.projectId) || 0;
+                  return (
+                    <td key={p.projectId} className="border-t border-r border-[#e5e5e7] px-3 py-2 text-left whitespace-nowrap">
+                      {pay > 0 ? (
+                        <span className="text-[12px] font-semibold text-[#bf4800]">{formatYen(pay)}</span>
+                      ) : (
+                        <span className="text-[#d2d2d7]">·</span>
+                      )}
+                    </td>
+                  );
+                })}
+                <td className="border-t border-[#e5e5e7] px-3 py-2 text-right whitespace-nowrap">
+                  <span className="text-[13px] font-bold text-[#bf4800]">{formatYen(rewardMaps.grand)}</span>
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}

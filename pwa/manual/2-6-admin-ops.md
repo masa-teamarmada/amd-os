@@ -2,6 +2,22 @@
 
 月次の管理オペレーション。
 
+## admin/weekly (= 週次活動 × 月次報酬マトリクス)
+
+URL: `/admin/weekly`
+
+### 何をする画面か
+member_activities(`source='member_weekly'`) を PJ × メンバーのマトリクスで一覧する。マイページの「今週やったこと」を全メンバー分集約した admin ビュー。週は JST 月曜はじまり、◀前週 / 次週▶ で最大 26 週さかのぼれる。
+
+### 報酬の可視化 (2026-06-12 追加)
+- 各セルの橙色バッジ = そのメンバー × PJ の**月次報酬** (`billing_cycles.reward_summary_json` の `members[].totalPay`)。週次按分ではなく、**表示週の月曜が属する月**の月次計算値
+- 右端列 = メンバー別の今月報酬合計、最下行 = PJ 別の今月報酬合計、右下 = 今月支払総合計 (サマリーバーにも表示)
+- 報酬計算の仕様は [`manual/7-1-reward-calc-spec.md`](7-1-reward-calc-spec.md)、支払通知フローは下の admin/payouts を参照
+- 活動が無くても今月報酬がある PJ / メンバーは行・列に表示される (= 抽出漏れの発見にも使う)
+
+### データの入り方
+週次活動の抽出は Claude routine `amd-os-l2-consolidated-evidence` (毎日 08:00 JST、前日18:00〜当日18:00 の 24h 窓) が書く。詳細は [`manual/8-3-l2-extraction-routines-spec.md`](8-3-l2-extraction-routines-spec.md)。routine が走らなかった日の窓は空欄のまま残る (後追い補完されない) ので、マトリクスがスカスカの場合はまず routine の稼働を疑う。
+
 ## admin/payouts (= 月次支払通知書フロー)
 
 URL: `/admin/payouts?ym=YYYYMM`

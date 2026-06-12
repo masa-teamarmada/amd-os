@@ -5,6 +5,8 @@
  * PJ × メンバーのマトリクスを描画するための payload を返す。
  *
  * weekStart は JST 月曜日。省略時は今週 (= JST 月-日)。
+ * 加えて、表示週の月曜が属する月 (ym) の billing_cycles.reward_summary_json から
+ * member × PJ の月次報酬 (totalPay) を返す。報酬は週次ではなく月次の値。
  * service_role で読むので、admin guard 必須。
  */
 
@@ -80,6 +82,35 @@ function plainPreview(value: string | null | undefined, max = 110) {
     .slice(0, max);
 }
 
+interface RewardCellOut {
+  projectId: string;
+  memberId: string;
+  totalPay: number;
+}
+
+/** reward_summary_json.members[] を camelCase / snake_case 両対応でパース (payouts route と同方針) */
+function parseRewardMembers(json: unknown): Array<{ memberId: string; totalPay: number }> {
+  if (!json || typeof json !== "object") return [];
+  const members = (json as Record<string, unknown>).members;
+  if (!Array.isArray(members)) return [];
+  const out: Array<{ memberId: string; totalPay: number }> = [];
+  for (const entry of members) {
+    if (!entry || typeof entry !== "object") continue;
+    const r = entry as Record<string, unknown>;
+    const memberId =
+      typeof r.memberId === "string" ? r.memberId
+      : typeof r.member_id === "string" ? r.member_id
+      : null;
+    if (!memberId) continue;
+    const totalPayRaw = r.totalPay ?? r.total_pay;
+    const totalPay = typeof totalPayRaw === "number" && Number.isFinite(totalPayRaw)
+      ? Math.round(totalPayRaw)
+      : 0;
+    out.push({ memberId, totalPay });
+  }
+  return out;
+}
+
 function displayableActivity(row: ActivityRow): boolean {
   const meta = row.raw_metadata || {};
   const rawSourceKind = typeof meta.source_kind === "string" ? meta.source_kind : row.source;
@@ -139,8 +170,11 @@ export async function GET(req: NextRequest) {
   const endIso = endUtc.toISOString();
   const weekEndKey = dateKeyJST(new Date(endUtc.getTime() - 86400000));
 
+  // 報酬は表示週の月曜が属する月の月次計算を使う
+  const rewardYm = `${y}${String(m).padStart(2, "0")}`;
+
   const db = createAdminClient();
-  const [membersRes, activitiesRes] = await Promise.all([
+  const [membersRes, activitiesRes, billingRes] = await Promise.all([
     db.from("members").select("member_id, code_name, email, status"),
     db
       .from("member_activities")
@@ -150,6 +184,10 @@ export async function GET(req: NextRequest) {
       .lt("item_date", endIso)
       .order("item_date", { ascending: false, nullsFirst: false })
       .limit(2000),
+    db
+      .from("billing_cycles")
+      .select("project_id, reward_summary_json")
+      .eq("ym", rewardYm),
   ]);
 
   if (membersRes.error) {
@@ -157,6 +195,9 @@ export async function GET(req: NextRequest) {
   }
   if (activitiesRes.error) {
     return NextResponse.json({ ok: false, error: activitiesRes.error.message }, { status: 500 });
+  }
+  if (billingRes.error) {
+    return NextResponse.json({ ok: false, error: billingRes.error.message }, { status: 500 });
   }
 
   const allMembers = (membersRes.data ?? []) as MemberRow[];
@@ -181,8 +222,19 @@ export async function GET(req: NextRequest) {
       };
     });
 
-  // 活動に登場する PJ + メンバーの参照を解決
-  const projectIds = Array.from(new Set(activities.map((a) => a.projectId)));
+  // 月次報酬: billing_cycles.reward_summary_json → member × PJ の totalPay
+  const rewards: RewardCellOut[] = [];
+  for (const row of (billingRes.data ?? []) as Array<{ project_id: string; reward_summary_json: unknown }>) {
+    for (const rm of parseRewardMembers(row.reward_summary_json)) {
+      if (rm.totalPay === 0) continue;
+      rewards.push({ projectId: row.project_id, memberId: rm.memberId, totalPay: rm.totalPay });
+    }
+  }
+
+  // 活動に登場する PJ + 報酬が発生している PJ + メンバーの参照を解決
+  const projectIds = Array.from(
+    new Set([...activities.map((a) => a.projectId), ...rewards.map((r) => r.projectId)]),
+  );
   const projectsMap = new Map<string, ProjectRow>();
   if (projectIds.length > 0) {
     const projectsRes = await db
@@ -197,23 +249,25 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 列 = PJ: 活動があった PJ だけ。件数多い順
+  // 列 = PJ: 活動があった PJ ∪ 今月報酬がある PJ。活動件数多い順 (報酬のみの PJ は後ろ)
   const projectCounts = new Map<string, number>();
   for (const a of activities) {
     projectCounts.set(a.projectId, (projectCounts.get(a.projectId) || 0) + 1);
   }
-  const projectsOut = Array.from(projectCounts.entries())
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([projectId]) => ({
+  const projectsOut = projectIds
+    .map((projectId) => ({ projectId, count: projectCounts.get(projectId) || 0 }))
+    .sort((a, b) => b.count - a.count || a.projectId.localeCompare(b.projectId))
+    .map(({ projectId }) => ({
       projectId,
       projectName: projectsMap.get(projectId)?.project_name || projectId,
     }));
 
-  // 行 = メンバー: active 人間メンバー + 活動があったメンバー (system 含む) を union、code_name 昇順
+  // 行 = メンバー: active 人間メンバー + 活動 or 報酬があったメンバー (system 含む) を union、code_name 昇順
   const memberIdsWithActivity = new Set(activities.map((a) => a.memberId));
   const memberIdsToShow = new Set<string>([
     ...targetMembers.map((m) => m.member_id),
     ...memberIdsWithActivity,
+    ...rewards.map((r) => r.memberId),
   ]);
   const membersOut = Array.from(memberIdsToShow)
     .map((id) => {
@@ -232,5 +286,7 @@ export async function GET(req: NextRequest) {
     members: membersOut,
     projects: projectsOut,
     activities,
+    rewardYm,
+    rewards,
   });
 }
