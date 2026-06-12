@@ -196,6 +196,11 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - Docs / Slides / Sheets / PDF / Office files を最大8件 `{title,url,mime_type,modified_time,snippet}` に正規化し、`drive_files` として `calendar-sync` に渡す。route自体はDriveを読みに行かない。
 - Drive資料は `narrative_md` の `関連Drive資料` と `summary_short` / `progress` / `risks` に反映するが、Drive資料だけで `decided` に「決定済み」とは書かない。
 
+**Calendar dry-run planners (= PWAはCalendarを書かない)**:
+- MTGカード / 議事録側に日時・場所・対面/オンライン・持参物・返信/宿題があるのに Calendar event が無い/薄い場合、automation は `POST /api/meeting-calendar/upsert-plan` で upsert 候補だけを作る。route は `update_existing` / `create_candidate` / `review_required` / `hold`、重複判定、`sendUpdates='none'` 前提の payload を返す。
+- MTGやGmail/Slackから生まれた担当タスクは `POST /api/task-calendar/schedule-plan` で `+<PJコード> <task>` の作業枠候補にする。automation が owner calendar とまさ calendar の busy window を read-only で渡し、route は候補payloadだけ返す。外部 attendees、Google Meet、Gmail/Slack返信は作らない。
+- どちらのrouteも `dry_run=false` / `execute=true` は `calendar_write_disabled` で拒否する。
+
 **Notion 文字起こし導線 (= PWA UI補助 / LLM不要)**:
 - `CockpitMeetingSummary` は `project_meeting_summaries.notion_url` がある MTG / 予定MTGに `Notion文字起こし` CTA を出す。
 - `notion_url` が無い予定MTGは、`source_url` の Calendar 予定へ遷移する `Calendarから開始` CTA を出す。Notionの録音/文字起こし開始は Notion 側で行う。

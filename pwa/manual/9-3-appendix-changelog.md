@@ -74,3 +74,4 @@
 | 2026-06-09 | 9-2 開発者向け | 変更 | deploy dry-run と本番 `/api/build-info` build stamp の確認先を追記 | 古いcheckout deployによる巻き戻りを人間がdeploy前後に確認できるようにするため | えいみ-worker |
 | 2026-06-09 | 9-2 開発者向け | 変更 | deploy script が `.vercel/project.json` の `amd-os-pwa` / project id を検査し、missing / wrong project ならVercel CLI起動前に停止する運用を追記 | worker worktreeで `.vercel` が欠けたままdeployし、新規Vercel projectを作る事故を防ぐため | えいみ-worker |
 | 2026-06-12 | 9-2 開発者向け | 変更 | 本番反映 = main push (Vercel Git 自動 deploy) へ変更。CLI 直接 deploy 廃止、ブランチ作成全面禁止、承認後 `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で push する運用に更新 | 未 push ブランチへの正本幽閉事故 (2026-06-12) の恒久対策として deploy = push に一本化したため | えいみ |
+| 2026-06-09 | 8-3 L2抽出routine | 追加 | MTGカード由来Calendar補完候補とTODO由来`+<PJ>`作業枠候補を作る dry-run plannerを追記。PWA route はCalendarを書かず、候補payloadだけ返す | stale root dirtyに残っていたCalendar一次防御設計をcurrent lineへ救出し、実writeなしで運用検証できるようにするため | えいみ-worker |

@@ -44,6 +44,12 @@ Calendar event の PJ 判定は、色→PJ判定を第一軸にする。
 - Drive資料だけを根拠に `decided` へ「決定済み」と書かない。
 - 予定MTG詳細では `risks` を UI 上「必ず確認すること」として表示・編集する。既存データは破壊削除せず、旧「気をつけたい読み違い」相当の値もこの section の確認事項として扱う。
 
+## Calendar dry-run planners
+
+MTGカード / 議事録側に日時・場所・対面/オンライン・持参物・返信/宿題があるのに Calendar event が無い/薄いケースは、`POST /api/meeting-calendar/upsert-plan` で一次防御する。PWA は Calendar を直接読まない / 書かない。L2⑥ automation が既存 Calendar event metadata を read-only で渡し、この route は `update_existing` / `create_candidate` / `review_required` / `hold` の plan、重複判定、`sendUpdates='none'` 前提の proposed payload だけを返す。`dry_run=false` / `execute=true` は `calendar_write_disabled` で拒否する。
+
+MTGから生まれた担当タスク、OS task、Gmail TODO、Slack TODO は `POST /api/task-calendar/schedule-plan` で Calendar 作業枠候補にする。route は owner calendar とまさ calendar の busy window を入力として受け取り、`+<PJコード> <task>` の作業枠候補を `calendar_writes[]` で返す。外部 attendees は空、Google Meetなし、Gmail/Slack返信は送らない。owner calendar が不明、低信頼、個人予定境界、共通空き枠なしは `review_required` / `hold`。
+
 ## ended / frozen PJ の MTGサマリ生成ガード (2026-06-03 まさ確定)
 
 月次サマリと同じ進捗ベース原則を L2⑥ にも適用する。**開催済みの実MTG (= 実進捗) は状態を問わず記録してよい**が、**未来の予定MTG prep を終了/凍結 PJ に自動生成しない**。frozen 判定は `projects.status='frozen'` または (`freeze_from_ym` ≤ 対象 ym)。
