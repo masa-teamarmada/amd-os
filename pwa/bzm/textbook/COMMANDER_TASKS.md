@@ -1,6 +1,6 @@
 # Textbook Commander Tasks
 
-> Last updated: 2026-06-03 JST
+> Last updated: 2026-06-12 JST
 >
 > Textbook司令塔のタスク台帳。タスク追加、方針変更、worker切り出し、
 > 完了報告、差し戻し、archive のたびに更新する。
@@ -26,13 +26,17 @@
 - `未完あり・全worker停止・まさにも何も聞かない` 状態は禁止する。
 - 今後のTextbook worker promptから `完了・停止・要判断時は必ず親司令塔へ能動報告` を削除/上書きし、worker quiet mode、`askuserquestion` / `request_user_input` 禁止、終了ゲート、`git add .` 禁止、dirty分類、`UU` conflict時archive禁止を必ず含める。
 
-## 出版北極星
+## 出版北極星 (2026-06-12 まさ確定で改訂)
 
-- この本の中心は、特定企業や特定モデルの紹介ではなく「研究成果が社会に出る直前でなぜ止まるのか」「会社になる前の混乱をどう読めばいいのか」に置く。
-- 読書体験は `違和感 → 現場で起きていること → 鬼門の構造 → 会社にする前の問い → 現場要素の分解 → BZM理論 → 実践ツール` の順に設計する。
-- GAPファンド/VC/CEO論などの強い現場シーンは、本の中心ではなく、Before Zero の構造を読者に体感させる代表例として扱う。
-- BZMは前半から説明しない。読者が現場の違和感と判断の難しさを掴んだ後に、その混乱を整理する理論地図として後半で出す。
-- OS上の `/bzm` 導線は、公開本づくりの混乱を避けるため表示名を `教科書` に寄せる。内部slugや既存URLは互換性維持のため当面 `/bzm` のままにする。
+- この本の中心は、特定企業や特定モデルの紹介ではなく「研究成果が社会に出る直前でなぜ止まるのか」「会社になる前の混乱をどう読めばいいのか」に置く (不変)。
+- **構成は「章頭ストーリー型の教科書」** (2026-06-12 まさ確定)。各章 = 冒頭ストーリー (導入) → 解説 = メイン (概念・数式・図を章内で出す) → 実例 (匿名化ケース) → 章末の問い。詳細・新TOC (4部立て: I 現場 / II Before Zero Model = PRS × 戦略余力 / III 苗床 / IV 実践ツールキット) は `PUBLICATION_STRATEGY.md` §0。
+- 旧方針「BZMは前半から説明しない」「理論は Method Appendix へ分離」は superseded。PRS の数式・戦略余力モデルの図は該当章の本文中に書く。
+- 既存 public-manuscript の composite case アーク (Prologue〜Epilogue 一本線) は素材として再利用するが、アーク保全は要件ではない (まさ「使える素材は使っておけ。でも全体の流れなんかは気にせず崩して」)。
+- 事例は**匿名化必須**。実名化は出版までに合意が取れたものだけ後から (まさ確定 2026-06-12)。
+- 理論の正本は `BZSF/before_zero_theory.md` + `BZSF/PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html` (PRS 正式採用 + 戦略余力 = S の動学層、2026-06-12 確定)。教科書 worker は repo 内の旧「PRS=候補」記述を信じない。
+- GAPファンド/VC/CEO論などの強い現場シーンは、本の中心ではなく、Before Zero の構造を読者に体感させる代表例として扱う (不変)。
+- OS上の `/bzm` 導線は、公開本づくりの混乱を避けるため表示名を `教科書` に寄せる。内部slugや既存URLは互換性維持のため当面 `/bzm` のままにする (不変)。
+- deploy/push 運用は 2026-06-12 以降 `pwa/CLAUDE.md` の新ルール (main push = 本番、原則ノンストップ・事後報告。md-only push は Vercel build skip) に従う。本台帳の旧 approval gate 記述 (2026-06-04) より新ルールを優先する。
 
 ## 本文拡充運用
 
@@ -60,6 +64,12 @@
 - 2026-06-03: `Textbook full-story readthrough bridge cleanup` を実施。Prologue〜Epilogueの一気読みで見えた章末の `次の章では` / `この章で` / `Act I` などの設計図の声を削り、次の場面へ自然につながる余韻へ変更。成果記録は `pwa/bzm/textbook/runs/2026-06-03-full-story-readthrough-bridge-cleanup.md`。
 
 ## 未完タスク（優先順位順）
+
+- **2026-06-12: 章頭ストーリー型教科書への全面再構成 (出版プロジェクト本体) / `Active`**
+  - お願いした内容: 本を「ナラティブ一本線」から「章頭ストーリー型教科書」(冒頭ストーリー → 解説・数式・図 = メイン → 匿名化実例 → 章末の問い) へ再構成し、出版可能な完成原稿まで育てる。
+  - 背景: まさの理想構成 (2026-06-12 確定)。PRS モデルの数式を巻末でなく章内で全解説し、事業化到達度×戦略余力の (x,y) グラフも本文に置く。読者 = 全国の産連/URA、VC、研究者、学生。
+  - 現状: 新TOC (4部立て) と章型を `PUBLICATION_STRATEGY.md` §0 に確定。PRS=正式モデル + 戦略余力 = S の動学層 (正本 `BZSF/before_zero_theory.md` / `PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html`)。repo 内の旧「PRS=候補」表記は bzm/5-1 付記・design/amd_score.md で同期済み。プロトタイプ章 (第II部 戦略余力モデル章、かるべ案件由来の出口設計ケース込み) を司令塔直接作業で執筆中 → まさレビューで型確定後に章単位 fan-out。
+  - 残課題: ①プロトタイプ章のまさレビュー → 型確定 ②図版一式 (matplotlib: (x,y)平面・余力時系列・軌跡パターン・二層アーキテクチャ・進化系譜) ③ケース台帳 (匿名化事例 bank) ④第I/III/IV部の章単位 fan-out ⑤通し編集・禁止語lint・出版パッケージ。
 
 - 2026-06-04: `Textbook Vercel deploy approval gate` Active。Vercel deploy上限は緩和され、deploy自体は再開OK。ただし、production deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、必ずdeploy bundle付きで `askuserquestion` 承認を取る。deploy bundle候補: Textbook story baseline、Field Toolkit UI、Method Appendix、static reader / Cloudflare reader記録、Vercel ignore gate、その他local検証済み変更をbundle候補として整理する。askuserquestion承認状況: 未承認。deploy実施回数: 2026-06-04 gate更新後 0回。push保留: あり。承認待ちになった場合は `approval pending` として記録する。成果物: `pwa/bzm/textbook/runs/2026-06-04-vercel-deploy-approval-gate.md`。
 

@@ -237,13 +237,15 @@ AMD Score の対数は、log valuation と同じ単位として読めます。
 
 > 解答の方針：問 1 は $S = 0.1 \times 7^{1.3} \cdot 4^{1.0} \cdot 3^{0.6} \cdot 5^{0.3} \cdot 5^{0.2} \cdot 3^{1.1} \cdot 4^{1.5} \approx 581$。問 2 は $\alpha_i/(X_i+1)$ が FRL $=1.5/4=0.375$、HRL $=1.1/3\approx0.367$ で僅差、**律速は FRL**（重みが大きく、かつ値が中程度で伸びしろも残る軸）。問 3 は $\sum\alpha=6.5$、$K=100{,}000/10^{6.5}\approx 0.0316$。問 4 は SRL の $0.2/1=0.20$ が、$X=9$ の他軸の $\alpha/10$（最大でも FRL の $1.5/10=0.15$）を上回るため、**SRL が律速になる**。これは「ゼロ近傍の軸は重みが小さくても伸びしろが大きく、律速になりうる」ことを示す。
 
-## 付記 — PRS候補は比較レイヤーとして検証中
+## 付記 — PRS が正式モデル（2026-06-12 確定）。本章の7軸式は legacy
 
-2026-06-01時点で、AMD OS の `/venture-map/amd-score/retrofit` には `P x R x S` 候補を現行7軸AMD Scoreと横並びで見る比較レイヤーが追加されています。ただしこれは本章の7軸式を置き換えるものではなく、正式理論採用でもありません。
+2026-06-12 の Before Zero Model discussion で、PRS (`P × R × S`) が AMD Score の正式モデルとして確定しました。AMD OS のスコアリングも PRS が primary です（現行実装仕様は [`spec/4-2`](../spec/4-2-amd-score-current-spec.md)）。本章が解説してきた 7 軸 Cobb-Douglas（MXF）は legacy / 比較表示として残りますが、理論の現役世代ではありません。
 
-候補の読み方は、`P` = Potential / 潜在規模、`R` = Reach / Readiness (TRL / BRL / GRL / SRL / HRL)、`S` = Survival (σ_SU / FRL / R_net) です。`R_net` は収益化指数で、粗利から運営コストと本命から奪うリソース毀損を引いた純キャッシュ貢献として扱います。
+正式モデルの読み方は、`P` = Potential / 潜在規模（シーズの天井）、`R` = Reach / 到達度（TRL / BRL / GRL / SRL / HRL の XRL 群）、`S` = Survival / 生存確率（σ_SU / R_net / FRL）。計算上は 9 軸（P、XRL 5 軸、σ_SU、R_net、F）の +1 シフト Cobb-Douglas 積で、P・R・S は概念ラベルです。`R_net` は収益化指数（事業が生む純キャッシュ貢献）。
 
-OS実装では、P/R_net をDB列として持たず、retrofit画面上の保存しない仮入力としてだけ試算します。P/R_net が未設定の場合は score を出さず、`not enough data` と表示します。正式採用、P/R_net rubric、DB schema化、9PJ retrofit表への反映は BZM review required です。
+さらに同日、**戦略余力モデルを S の動学層として統合**する方針が確定しています。S は (x, y) 平面（x = 事業化到達度、y = 戦略余力〔月〕、y=0 = 主導権喪失ライン）上の初到達確率 `S = Pr(τx < τy)` として基礎付けられます。
+
+**理論議論の正本は `BZSF/before_zero_theory.md`、全体解説は `BZSF/PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html`** です。本教科書の理論章群は、この確定モデルに沿った全面改稿（教科書プロジェクト第II部）を予定しており、改稿完了までは本章の 7 軸記述を「MXF 世代（第 1 世代）の解説」として読んでください。モデル進化の系譜は MXF（7軸統合）→ PRS（3因子再構成）→ PRS × 戦略余力（生存の動学化）です。
 
 ---
 

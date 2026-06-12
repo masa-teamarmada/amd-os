@@ -21,7 +21,9 @@
 
 `/venture-map/amd-score` (一覧) + `/venture-map/amd-score/[projectId]` (個別) + PJ cockpit に AMD Score を実装した。現行 primary は **PRS (`P x R x S`)**。旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
 
-理論正本: [`/Users/masa/projects/AMD/before-zero/theory/amd_score.md`](../../../before-zero/theory/amd_score.md)
+理論正本: [`/Users/masa/projects/AMD/before-zero/theory/amd_score.md`](../../../before-zero/theory/amd_score.md)。理論議論の最新正本は `BZSF/before_zero_theory.md`、全体解説は `BZSF/PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html`。
+
+> **理論側更新 (2026-06-12 確定、実装は未着手)**: 戦略余力モデルを S の動学層として統合する方針が確定。S は (x, y) 平面 (x = 事業化到達度、y = 戦略余力〔月〕、y=0 = 主導権喪失ライン) の初到達確率 `S = Pr(τx < τy)` として基礎付けられ、健全性指標 `H = y / T_remaining` を併読する。amd-score.ts への実装・(x,y) 軌跡 retrofit は残論点 (retrofit 方針確定後に migration + UI)。
 
 ---
 

@@ -1,9 +1,48 @@
 # Before Zero Textbook Publication Strategy
 
-> Last updated: 2026-06-01 JST
+> Last updated: 2026-06-12 JST
 >
 > This document defines the public-book strategy for the Before Zero textbook.
 > It is an internal editorial command file, not copy for readers.
+
+## 0. 2026-06-12 構成転換 (まさ確定) — このセクションが §6 より優先
+
+まさの直接判断により、本の構成方針を「ナラティブ一本線の読み物」から「**章頭ストーリー型の教科書**」へ転換した。以後のすべての writer / editor / reviewer worker はこのセクションを §6 (Public Manuscript Structure) より優先する。§6 の 7 部構成と「理論は後半まで温存」方針は superseded。
+
+### 章フォーマット (全章共通の型)
+
+```
+各章 = ① 冒頭ストーリー (現場シーン、2〜4ページ相当。既存 public-manuscript 26章の場面を素材に再配置してよい)
+     → ② 解説 = メイン (概念・構造・数式・図をその章の中で全部出す。巻末送りにしない)
+     → ③ 実例 (匿名化ケース 1〜2本)
+     → ④ 章末: 読者が現場で使う問い・チェック (短く)
+```
+
+- ストーリーと解説の主従は「解説・実例が主、ストーリーは従 (導入)」。
+- PRS の数式・戦略余力モデルの図は、Method Appendix ではなく該当章の本文中に置く。
+- 既存 public-manuscript (Prologue〜Epilogue の composite case アーク) は素材として使えるものは使う。ただし**一本線の物語アークの保全は要件ではない**。崩してよい (まさ 2026-06-12「使える素材は使っておけ。でも全体の流れなんかは気にせず崩して」)。
+
+### 新TOC骨子 (4部立て)
+
+| 部 | テーマ | 中身 |
+|---|---|---|
+| 第I部 | Before Zero の現場 | 会社になる前に勝負が決まる / 関係者の時計のズレ / 鬼門 (開示・会社化タイミング・CEO機能) / 誰が何を背負うか。既存26章の場面を冒頭シーンに再配置 |
+| 第II部 | Before Zero Model (PRS × 戦略余力) | 何を解くか (Valuationの限界) → 全体像 (判定層+動学層の二層構造) → P → R → S (生存条件式・CES) → 計算式と律速診断 → 戦略余力モデル ((x,y)平面・y=0主導権喪失ライン・開示Lv1〜4・交渉力/BATNA・出口設計) → 統合 (S=Pr(τx<τy)・H=y/T_remaining) → モデルの限界と批判 (割引率問題・経済学者5批判・経営学者6批判) → 検証 (軌跡 retrofit) |
+| 第III部 | 苗床 | 研究機関の整備度 (ERS)、制度設計 |
+| 第IV部 | 実践ツールキット | 面談の問い、開示台本、判断チェックリスト、90日 pilot charter (既存 Field Toolkit を継承) |
+
+第II部の章立ては `BZSF/PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html` の Ch2〜15 を骨格として使う。理論の正本は `BZSF/before_zero_theory.md`。
+
+### 事例の実名ポリシー (まさ確定 2026-06-12)
+
+- **匿名化必須**。PJ 名・人名・機関名は本文では一般化する (「ある透明断熱材の PJ」等)。
+- 出版までに本人・関係者の合意が取れたものだけ、後から実名に変える。「最初から実名で書く」は禁止。
+- 内部正本 (BZSF / knowledge / OVERVIEW) には実名があるが、public manuscript へ持ち込む時に必ず匿名化ゲートを通す。
+
+### プロトタイプ運用
+
+- 新章型のプロトタイプは第II部「戦略余力モデル」章 (`pwa/bzm/textbook/prototype-strategic-slack-chapter.md`)。
+- まさレビューで型が確定するまで、他章への fan-out をしない。型確定後に章単位で worker 並列展開する。
 
 ## 1. Commander Diagnosis
 
