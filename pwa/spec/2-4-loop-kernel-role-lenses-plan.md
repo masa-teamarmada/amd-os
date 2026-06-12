@@ -69,7 +69,7 @@ L2 の正本ナンバリングは cadence ベースの **D / M / H** (spec 3-1�
 
 | Phase | 内容 | 状態 |
 |---|---|---|
-| 1 | **`/loop` ルート MVP** — 経営レンズの 5 段ダッシュボード。admin 限定、既存画面は変更しない。判断キュー (`l2_notifications` pending + `project_strategy_signals` candidate) と実行 outbox (`proactive_outbox`) を実データ接続 | 2026-06-12 着手 |
+| 1 | **`/loop` ルート MVP** — 経営レンズの 5 段ダッシュボード。admin 限定、既存画面は変更しない。判断キュー (`l2_notifications` pending + `project_strategy_signals` candidate) と実行 outbox (`proactive_outbox`) を実データ接続 | 2026-06-12 実装済み (admin 限定) |
 | 2 | 実行段の充実 — proactive loop の検知・heartbeat 本稼働 (`design/proactive_operating_loop.md`)、`/loop` から outbox 操作 | 未着手 |
 | 3 | 推進レンズ — `/mypage` を「自分のボール」中心に再構成 | 未着手 |
 | 4 | 運営レンズ — admin 月次オペ + 財務の単一コンソール化 | 未着手 |
