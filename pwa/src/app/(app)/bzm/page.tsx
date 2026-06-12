@@ -5,5 +5,5 @@ import { redirect } from "next/navigation";
  * 旧ナラティブ版は /bzm/public/00-prologue で引き続き閲覧できる。
  */
 export default function BzmIndexPage() {
-  redirect("/bzm/strategic-slack");
+  redirect("/bzm/preface");
 }

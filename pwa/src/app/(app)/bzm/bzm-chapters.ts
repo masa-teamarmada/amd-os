@@ -37,7 +37,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
     key: "preface",
     label: "序章",
     description: "この本の読み方。研究成果が会社になる前の混乱を、現場 → モデル → 実践の順で読む。",
-    slugs: [],
+    slugs: ["preface"],
   },
   {
     key: "field",
@@ -65,13 +65,13 @@ export const BZM_PARTS: BzmPartConfig[] = [
     key: "nursery",
     label: "第 III 部 — 苗床",
     description: "研究機関をベンチャーを生み育てる装置として読む。整備度の測り方と制度設計。",
-    slugs: [],
+    slugs: ["nursery-ers"],
   },
   {
     key: "toolkit",
     label: "第 IV 部 — 実践ツールキット",
     description: "面談の問い、開示台本、判断チェックリスト、90日 pilot charter。現場で使う道具集。",
-    slugs: [],
+    slugs: ["field-toolkit"],
   },
   {
     key: "appendix",
@@ -82,6 +82,11 @@ export const BZM_PARTS: BzmPartConfig[] = [
 ];
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
+  {
+    slug: "preface",
+    title: "序章 — この本の読み方",
+    summary: "誰のための本か、四部構成で何が手に入るか、どこから読むか、本書が約束しないこと。実例はすべて匿名化 composite であることの明記。",
+  },
   {
     slug: "field-before-zero",
     title: "Before Zero — 会社になる前に勝負が決まる",
@@ -146,6 +151,16 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
     slug: "retrofit-verification",
     title: "検証 — 過去の軌跡がモデルを鍛える",
     summary: "モデルは信じるものではなく検証するもの。blind retrofit と事前予測で後知恵を断ち、見送り案件を対照群に、軌跡の型と R/y の線引きを実データで確かめる。",
+  },
+  {
+    slug: "nursery-ers",
+    title: "苗床 — 研究機関は、ベンチャーを生み育てる装置になっているか",
+    summary: "同じシーズでも機関の土壌で事業化速度はまるで違う。機関整備度を8軸×Lv1〜5で測る ERS、案件評価 (掛け算) と異なる加重和を採る理由、弱い軸の外部連携と90日 pilot。",
+  },
+  {
+    slug: "field-toolkit",
+    title: "実践ツールキット — 明日の面談から使う道具",
+    summary: "初回面談の問いから機関の九十日 pilot まで、本書各章の考え方を現場の紙に落とした七つの道具集。いつ使うか・道具本体・注意の順で参照できる。",
   },
   {
     slug: "9-5-appendix-changelog",
