@@ -145,32 +145,42 @@ get_latest_prod_line() {
 BASELINE_URL=$(get_latest_prod_line | grep -oE 'https://[^ ]+' || true)
 echo "  現行 production deployment: ${BASELINE_URL:-unknown}"
 
+EXPECTED_SHA_FULL=$(git rev-parse HEAD)
+
 echo "▶ git push origin main (= Vercel 自動 production build 発火) ..."
 START_TS=$(date +%s)
 git push origin main
 
 echo ""
 echo "▶ 新しい production build が Ready になるのを待つ (最大 15 分) ..."
+echo "  一次判定: $APP_URL/api/build-info の git_sha == $EXPECTED_SHA_FULL"
 
 MAX_TRIES=90
 TRY=0
 while [ $TRY -lt $MAX_TRIES ]; do
+  # 一次判定: 本番 alias が新 commit を返したら成功。
+  # vercel ls は非 tty / background 実行で空応答になることがある (2026-06-12 初走行で確認)
+  # ため、ユーザーが実際に見る production alias の build stamp を正とする。
+  INFO=$(curl -s --max-time 10 "$APP_URL/api/build-info" || true)
+  LIVE_SHA=$(echo "$INFO" | grep -oE '"git_sha":"[^"]*"' | cut -d'"' -f4 || true)
+
+  if [ -n "$LIVE_SHA" ] && [ "$LIVE_SHA" = "$EXPECTED_SHA_FULL" ]; then
+    DURATION=$(( $(date +%s) - START_TS ))
+    MIN=$((DURATION / 60))
+    SEC=$((DURATION % 60))
+    MSG="${MIN}分${SEC}秒で完了 ($BUILD_VERSION) → ${APP_URL}"
+    echo "✅ $MSG"
+    echo "   live git_sha: $LIVE_SHA"
+    osascript -e "display notification \"$MSG\" with title \"AMD OS PWA — Deploy 完了\" sound name \"Glass\"" 2>/dev/null || true
+    exit 0
+  fi
+
+  # 二次判定 (best effort): 新 deployment の build Error / Canceled を早期検知
   LINE=$(get_latest_prod_line || true)
   URL=$(echo "$LINE" | grep -oE 'https://[^ ]+' || true)
   STATUS=$(echo "$LINE" | grep -oE 'Ready|Error|Canceled|Building|Queued|Initializing' | head -1 || true)
-
   if [ -n "$URL" ] && [ "$URL" != "$BASELINE_URL" ]; then
     case "$STATUS" in
-      Ready)
-        DURATION=$(( $(date +%s) - START_TS ))
-        MIN=$((DURATION / 60))
-        SEC=$((DURATION % 60))
-        MSG="${MIN}分${SEC}秒で完了 ($BUILD_VERSION) → ${APP_URL}"
-        echo "✅ $MSG"
-        echo "   deployment: $URL"
-        osascript -e "display notification \"$MSG\" with title \"AMD OS PWA — Deploy 完了\" sound name \"Glass\"" 2>/dev/null || true
-        exit 0
-        ;;
       Error|Canceled)
         MSG="Build $STATUS ($URL)"
         echo "❌ $MSG"

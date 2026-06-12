@@ -42,7 +42,12 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
     key: "platform",
     label: "PWA 基盤",
     description: "PWA の実行環境、route、API、cron、auth 境界。",
-    slugs: ["2-1-pwa-runtime-routes", "2-2-pwa-surface-inventory-current-spec", "2-3-supabase-data-model-current-spec"],
+    slugs: [
+      "2-1-pwa-runtime-routes",
+      "2-2-pwa-surface-inventory-current-spec",
+      "2-3-supabase-data-model-current-spec",
+      "2-4-loop-kernel-role-lenses-plan",
+    ],
   },
   {
     key: "data-automation",
@@ -103,6 +108,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "2-1-pwa-runtime-routes", title: "PWA ランタイム / ルート仕様", summary: "Next.js PWA の実行環境、主要 route、API / cron / auth の現行契約。" },
   { slug: "2-2-pwa-surface-inventory-current-spec", title: "PWA 画面 / API Surface 仕様", summary: "現行 PWA の画面 route、API route groups、auth/authority、failure mode、検証入口。" },
   { slug: "2-3-supabase-data-model-current-spec", title: "Supabase Data Model 仕様", summary: "Supabase schema の source of truth、domain別 table map、status convention、DDL/dump手順。" },
+  { slug: "2-4-loop-kernel-role-lenses-plan", title: "ループカーネル × 役割レンズ (plan)", summary: "OS 目的の 5 層言語化 (本丸 = OS 商品化)、観測→評価→判断→実行→学習の 5 段カーネル、経営/推進/運営の 3 レンズ、段階実装プラン。" },
   { slug: "3-1-l2-data-extraction-current-spec", title: "L2 データ抽出 / Outbox 仕様", summary: "5 生データ、L2 ①〜⑩、subscription automation、outbox / LaunchAgent 反映の確定仕様。" },
   { slug: "3-2-monthly-reports-current-spec", title: "L2① Monthly Reports 仕様", summary: "monthly_reports の writer、上書き禁止、source refs、outbox 反映、旧 R313 / PWA route の扱い。" },
   { slug: "3-3-meeting-flow-current-spec", title: "L2⑥ Meeting Flow 仕様", summary: "MTGサマリ、予定MTGカード、Drive資料同期、TODO、Calendar作業枠、Gmail draft の現行仕様。" },
