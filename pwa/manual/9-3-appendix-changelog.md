@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-12 | 4-8 MS Progress / Revision | 変更 | MS進捗を schedule_default_revision_v3 へ全面改訂。全MSにスケジュール按分のデフォルト月割り (非LLM cron `/api/cron/ms-schedule-progress`、`source='routine_auto'`)、LLM は乖離±10pt以上で revision 提案 + 通知 (l2_kind='ms_progress_revision') のみ、まさが「はい」で confirm するまでデフォルト通り。抽出フロー mermaid / cron 表 / トラブル表も更新 | まさ確定「Nか月計画なら月100/N%がデフォルト、ズレは通知確認、おれが認めない限りデフォルト通り。巻き戻りはそもそも起きない設計」。確定仕様は spec 3-10 | えいみ |
 | 2026-06-12 | 6-2 Projects/Members 台帳 | 変更 | `/admin/members` の「役員」列ヘッダを「支払対象」へ改名。`is_officer=true` → `対象外` / false → `対象` 表示とし、編集 checkbox に「役員 (=対象外)」label を追加 | まさ指示「役員という列のヘッダを支払対象という名前に変えてほしい」。役員報酬 0 円扱い (2026-06-12 確定) に伴い列の実機能 = 支払対象判定を表すため。ヘッダだけ変えると ON badge の意味が反転して読めるので表示も同時に修正 | えいみ |
 | 2026-06-12 | 8-3 L2 routines | 変更 | L2 health red/yellow 後に `health:l2:actions` で local action ledger を作り、owner / next action / deadline / close条件 / worker prompt seed を持つ incident に変換する運用を追加 | red報告が来ても誰も復旧worker化しない問題を止め、検知後の起票→owner割当→修復→再チェック→closeを残すため | えいみ-worker |
 | 2026-06-10 | 2-3 PJ コックピット | 変更 | MTG詳細モーダルの編集を表示 section と同じ位置の inline edit に変更し、予定MTGの旧「気をつけたい読み違い」を「必ず確認すること」として表示・編集する方針を追記 | 表示内容と編集可能領域がズレ、保存してもカードに反映されない field がある問題をなくすため | えいみ-worker |

@@ -3,6 +3,7 @@
   "crons": [
     { "path": "/api/cron/freee-payment-sync", "schedule": "10 0 * * *" },
     { "path": "/api/cron/payment-confirm-nudges", "schedule": "30 0 * * *" },
+    { "path": "/api/cron/ms-schedule-progress", "schedule": "30 17 * * *" },
     { "path": "/api/cron/payout-reward-cache-refresh", "schedule": "5 18 * * *" },
     { "path": "/api/cron/payout-notice-prebuild", "schedule": "0 17 * * *" },
     { "path": "/api/cron/papers-quarterly-ingest", "schedule": "20 18 * * 1" },

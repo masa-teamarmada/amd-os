@@ -6,6 +6,9 @@ D-2 MS 進捗、 M-1 月次報告書、 月次ノート、 つくよみ修正依
 
 `milestone_monthly_progress` (= 月次 % キャッシュ) と `progress_estimate_state` (= 抽出 state) が中核。
 
+> **2026-06-12 全面改訂 (schedule_default_revision_v3)**: AI が進捗を直接書き込む方式を廃止。
+> **「N か月計画の MS は 1 か月あたり 100/N % の累積進捗がデフォルトで入る。L2 データからズレが検知されたら通知に確認が来て、まさが認めない限りデフォルト通り」** が基本契約。確定仕様は [`/spec` 3-10 章](../spec/3-10-l2-ms-progress-current-spec.md)。
+
 ### `milestone_monthly_progress` 列
 
 | column | 用途 |
@@ -13,8 +16,8 @@ D-2 MS 進捗、 M-1 月次報告書、 月次ノート、 つくよみ修正依
 | `milestone_key` / `ym` | UNIQUE |
 | `progress_pct` | 当月の進捗 % (= 累積) |
 | `consumed_pt` | 消費 pt (= reward 計算に使う) |
-| `source` | `cron` / `manual` / `tsukuyomi` |
-| `confirmed_at` | 確定時刻 |
+| `source` | `routine_auto` (= デフォルト月割り、自動) / `pm_manual` / `pm_confirmed` / `pm_rejected` / `criteria_toggle` / `tsukuyomi_revision` (= 人間確定系)。**AI 直接書き込み系 (`tsukuyomi_estimate` 等) は廃止** |
+| `confirmed_at` | 確定時刻 (= 人間確定系のみ set) |
 | `note` | 月次の動き要約 (= 自然文) |
 
 ### `progress_estimate_state` 列 (= 冪等性 state)
@@ -28,43 +31,55 @@ D-2 MS 進捗、 M-1 月次報告書、 月次ノート、 つくよみ修正依
 | `message` | エラー / state メッセージ |
 | `last_processed_at` | 直近 |
 
-### 抽出フロー (= MMOマシン automation `amd-os-l3-ms-progress-extract`)
+### 進捗の書き込みフロー (= 2026-06-12 schedule_default_revision_v3)
+
+進捗 % の writer は 2 系統に分かれる。**LLM は `milestone_monthly_progress` を一切書かない**。
 
 ```mermaid
 flowchart LR
-  A[monthly_reports + project_meeting_summaries] --> B[MMOマシン automation 毎時0分]
-  B --> C[source_hash 差分検知]
-  C --> D{変更あり?}
-  D -->|no| E[touch state, skip]
-  D -->|yes| F[Sonnet 4.6 抽出]
-  F --> G[milestone_monthly_progress upsert]
-  F --> H[project_monthly_notes 更新]
-  F --> I[progress_estimate_state upsert]
+  subgraph default[デフォルト按分 — 非LLM]
+    A[value_milestones の期間] --> B[Vercel cron ms-schedule-progress 02:30 JST]
+    B --> C[全MS スケジュール按分を計算]
+    C --> D[milestone_monthly_progress upsert source='routine_auto']
+  end
+  subgraph revision[ズレ検知 — LLM は提案のみ]
+    E[monthly_reports + project_meeting_summaries] --> F[MMOマシン automation 毎時0分]
+    F --> G[source_hash 差分検知 + Sonnet 4.6 推定]
+    G --> H{デフォルトとの乖離 ±10pt 以上?}
+    H -->|no| I[何もしない デフォルト有効]
+    H -->|yes| J[ms_progress_revisions INSERT status='pending']
+    J --> K[l2_notifications 通知 l2_kind='ms_progress_revision']
+    K --> L{まさが はい/いいえ}
+    L -->|はい| M[milestone_monthly_progress upsert source='tsukuyomi_revision']
+    L -->|いいえ| N[status='discarded' デフォルト有効のまま]
+  end
 ```
 
-cadence: 毎時 0 分 JST (= [8-3 章 §D-2](8-3-l2-extraction-routines-spec.md))。定期抽出の primary writer は **MMOマシン上の subscription automation `amd-os-l3-ms-progress-extract`**。旧 PWA `/api/cron/hourly-estimate` は 2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す。
+- **デフォルト按分**: `/api/cron/ms-schedule-progress` (= Vercel cron、毎日 02:30 JST、非LLM)。active PJ × {当月, 前月} の全MSへ `source='routine_auto'` でスケジュール按分の累積 % を upsert。人間確定系 (PM locked) の行は上書きしない
+- **LLM 推定**: MMOマシン automation `amd-os-l3-ms-progress-extract` (毎時 0 分、[8-3 章 §D-2](8-3-l2-extraction-routines-spec.md))。L2 データから推定し、デフォルト按分との乖離が ±10pt 以上のときだけ `ms_progress_revisions` (pending) + 通知を積む。`project_monthly_notes` / `progress_estimate_state` の更新は従来通り
+- 旧 PWA `/api/cron/hourly-estimate` は 2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す
 
-### 定常業務 MS (`tag='routine'`)
+### デフォルト月割り (= 全MS共通)
 
-定常業務は、トラブルがなければ月割りで進むものとして扱う。
+2026-06-12 以降、月割りデフォルトは `tag='routine'` 限定ではなく **全MS共通**。「N か月計画の MS なら 1 か月あたり 100/N % の累積進捗がデフォルトで入る」が基本契約。
 
-- `value_milestones.period_start_ym`〜`target_ym` の月数で 100% を割る
-- 1年PJなら毎月 `100/12%`
-- `progress-estimator` は対象月までの各月を `milestone_monthly_progress.source='routine_auto'` で補完する
-- PMが `pm_manual` / `pm_confirmed` / `pm_rejected` / `criteria_toggle` / `tsukuyomi_revision` で確定済みの月は上書きしない
-- `ms_progress_revisions.status='confirmed'` がある月は、その修正値を `tsukuyomi_revision` として再適用し、自動推定より優先する
+- `value_milestones.period_start_ym`〜`target_ym` の月数で 100% を割る (1年MSなら毎月 `100/12%`)
+- 期間開始前の月は 0%、最終月以降は 100%
+- Vercel cron `/api/cron/ms-schedule-progress` が対象月までの各月を `milestone_monthly_progress.source='routine_auto'` で upsert する (`consumed_pt` も points × 按分%で同時計算)
+- PMが `pm_manual` / `pm_confirmed` / `pm_rejected` / `criteria_toggle` / `tsukuyomi_revision` で確定済みの月 (= PM locked) は上書きしない
+- `ms_progress_revisions.status='confirmed'` がある月は、その修正値を `tsukuyomi_revision` として再適用し、デフォルトより優先する
 - `/api/progress/ms-schedule` のMS別期待進捗アンカーも同じ MS別期間から計算する
+- **巻き戻りはこの設計上起きない**: デフォルトは月が進むほど単調増加、AI が直接書く経路は無い。過去に AI 直書きで巻き戻った行 (`source='tsukuyomi_estimate'` / `l2_routine`) も cron が `routine_auto` で自然修復する
 
-### 成果物MSの高進捗ガード
+### LLM 推定の役割 (= 提案のみ)
 
-非routineのMSも、まずMS個別期間の按分を基本値にする。5か月MSなら1か月目20%、2か月目40%、3か月目60%が基準。情報ソースから遅れが分かれば10%/15%などに下げ、先行が分かれば25%などに上げる。
+LLM (Sonnet 4.6) は L2 データから累積進捗を推定するが、**書くのは `ms_progress_revisions` (pending) と通知だけ**。
 
-- `progressPct` は今月の追加分ではなく、対象月時点の累積進捗率
-- MS個別期間の開始前は期待進捗0%。自動推定で保存しないだけでなく、既存のAI/自動由来行があれば0%へ補正する
-- AI由来の過大値 (`source='tsukuyomi_estimate'`) は次回推定で下方修正してよい
-- 80%以上、または100%を保存するには、成果物が完成・完了・確定・提出・作成済・策定済・承認済・レビュー可能になった直接証拠が必要
-- 面談、関心表明、VC/DD開始、資料作成予定、準備、着手、進行中だけでは高進捗にしない
-- 資本政策MSでは、資本政策表・調達方針・持分方針・EXITまでの道筋の実物またはレビュー可能なドラフトが確認できる場合だけ高進捗にする
+- デフォルト按分との乖離が ±10pt 未満なら何もしない (= デフォルトのまま)
+- ±10pt 以上で `ms_progress_revisions` INSERT + `l2_notifications` (l2_kind=`ms_progress_revision`) を upsert
+- PM locked の月は提案も skip。discarded 済みと同値の再提案、pending 重複も抑止
+- 80%以上・100% の提案には、成果物が完成・完了・確定・提出・承認済・レビュー可能になった直接証拠が必要。面談、関心表明、VC/DD開始、準備、着手、進行中だけでは高進捗を提案しない
+- まさが通知の「はい」または revision PATCH で confirm するまで、進捗はデフォルト月割りのまま
 
 ### `milestone_responsibility` (= per-MS のメンバーシェア)
 
@@ -177,7 +192,15 @@ flowchart LR
 | `current_pct` / `current_note` | 修正前 |
 | `revised_pct` / `revised_note` | 修正後 |
 | `status` | `pending` / `confirmed` / `discarded` |
-| `requested_by` / `confirmed_by` | アクター |
+| `requested_by` / `confirmed_by` | アクター。つくよみ自動提案は `requested_by='system:tsukuyomi-estimate'` |
+
+### つくよみ自動提案の confirm/discard (= 通知の「はい/いいえ」)
+
+LLM がデフォルト按分との乖離 ±10pt 以上を検知して積んだ revision は、`l2_notifications` に **`l2_kind='ms_progress_revision'`** (= ラベル「D-2 MS進捗修正提案」) で通知される。通知カードの「はい/いいえ」で完結する:
+
+- **はい** → revision confirm。`milestone_monthly_progress` に `source='tsukuyomi_revision'` (= PM locked) で upsert、`consumed_pt` 再計算、`tsukuyomi_learnings` / `member_ms_activities.learned_addendum` 蓄積、報酬 summary 再同期まで一括実行
+- **いいえ** → `status='discarded'`。`milestone_monthly_progress` は触らない (= デフォルト月割りが有効のまま)。同値の再提案は抑止される
+- `/api/progress/revisions` の PATCH (confirm/discard) でも同じ処理になる (= 通知経路と revision 画面経路は等価)
 
 ### `ms_revision_messages` 列 (= conversation)
 
@@ -236,7 +259,8 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 | operation | 役割 | cadence |
 |---|---|---|
 | `AMD OS M-1 月次報告抽出` | M-1 Codex automation (= primary) | daily 05:30 JST |
-| `claude-l3-ms-progress-extract` | D-2 MMOマシン automation (= primary) | 毎時 0 分 |
+| `/api/cron/ms-schedule-progress` | D-2 デフォルト按分 writer (= Vercel cron、非LLM) | daily 02:30 JST |
+| `claude-l3-ms-progress-extract` | D-2 ズレ検知 → revision 提案 (= MMOマシン automation) | 毎時 0 分 |
 | `pwa-hourly-estimate` | 旧 PWA fallback。停止中 | disabled |
 | `manual-monthly-reports-backfill` | 月次報告書を Sonnet で生成 | 手動 |
 | `manual-freeze-period-backfill` | 休止期間 PJ の reports + meetings 統合 | 手動 |
@@ -247,9 +271,10 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 
 | 症状 | 確認場所 |
 |---|---|
-| 月次モーダルで MS 進捗が出ない | `milestone_monthly_progress` の該当 ym 行、 `value_milestones.is_active=true` |
-| 進捗 % が更新されない | `progress_estimate_state.source_hash` が変わったか、 `amd-os-l3-ms-progress-extract` の実行履歴、月次モーダルの手動「AIで再推定」 |
-| 修正依頼が反映されない | `ms_progress_revisions.status='confirmed'`、 `milestone_monthly_progress` 該当行が更新されているか |
+| 月次モーダルで MS 進捗が出ない | `milestone_monthly_progress` の該当 ym 行、 `value_milestones.is_active=true`、 `value_milestones.period_start_ym`/`target_ym` が入っているか (= 按分計算の入力) |
+| 進捗 % が更新されない | `/api/cron/ms-schedule-progress` の実行ログ (= デフォルト按分 writer)。LLM 側は `progress_estimate_state.source_hash` / `amd-os-l3-ms-progress-extract` 実行履歴 (= 提案のみで % は書かない) |
+| 進捗が想定よりズレてる | 通知の `ms_progress_revision` (= D-2 MS進捗修正提案) が pending で待ってないか。「はい」で confirm するまでデフォルト月割りのまま |
+| 修正依頼が反映されない | `ms_progress_revisions.status='confirmed'`、 `milestone_monthly_progress` 該当行が `source='tsukuyomi_revision'` で更新されているか |
 | 月次報告書が空 | `AMD OS M-1 月次報告抽出` の実行履歴、`amd-os-ms/outbox` の applied/failed、`monthly_reports.collection_summary_json`。R313 trigger は復活させない |
 | 休止 PJ の月が空 | `project_freeze_periods.status='active'`、 `manual-freeze-period-backfill` 実行 |
 | advisor PJ で MS が出る | `projects.project_category='advisor'` の判定、 月次ノート側に寄せる ([2-6 章](2-6-admin-ops.md)) |

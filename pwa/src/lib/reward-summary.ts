@@ -1,4 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  PM_LOCKED_PROGRESS_SOURCES,
+  expectedCumPctForYm,
+  milestonePeriod,
+} from "@/lib/ms-schedule-shared";
 
 type SupabaseLike = SupabaseClient;
 
@@ -121,6 +126,8 @@ type MilestoneRow = {
   tag?: string | null;
   goal_level?: string | null;
   sort_order?: number | string | null;
+  period_start_ym?: string | null;
+  target_ym?: string | null;
 };
 
 type ProgressRow = {
@@ -128,6 +135,7 @@ type ProgressRow = {
   ym: string;
   progress_pct?: number | string | null;
   consumed_pt?: number | string | null;
+  source?: string | null;
 };
 
 type ResponsibilityRow = {
@@ -515,22 +523,48 @@ function buildContributionAllocationPlan({
   };
 }
 
+/**
+ * project_members.is_active=false のメンバーを share から除外し、
+ * 残メンバーで share 合計が 1 になるよう renormalize する。
+ * 非参画メンバー (例: planned share だけ残っている離脱者) に報酬が発生するのを防ぐ。
+ * activeMemberIds 未指定 (undefined) ならフィルタしない (後方互換)。
+ */
+function filterActiveAndRenormalize(
+  shares: EffectiveContributionShare[],
+  activeMemberIds?: Set<string>
+): EffectiveContributionShare[] {
+  if (!activeMemberIds) return shares;
+  const active = shares.filter((share) => activeMemberIds.has(share.member_id));
+  if (active.length === shares.length) return shares;
+  const total = active.reduce((sum, share) => sum + share.share, 0);
+  if (total <= 0) return [];
+  return active.map((share) => ({
+    ...share,
+    share: Math.round((share.share / total) * 10000) / 10000,
+  }));
+}
+
 function resolveContributionShares({
   ym,
   milestoneId,
   responsibilities,
   contributionSharesByKey,
+  activeMemberIds,
 }: {
   ym: string;
   milestoneId: string;
   responsibilities: ResponsibilityRow[];
   contributionSharesByKey?: Map<string, EffectiveContributionShare[]>;
+  activeMemberIds?: Set<string>;
 }): EffectiveContributionShare[] {
   const actual = isActualContributionAllocationEnabledForYm(ym)
-    ? contributionSharesByKey?.get(allocationKey(ym, milestoneId)) || []
+    ? filterActiveAndRenormalize(
+        contributionSharesByKey?.get(allocationKey(ym, milestoneId)) || [],
+        activeMemberIds
+      )
     : [];
   if (actual.length > 0) return actual;
-  return responsibilities
+  const planned = responsibilities
     .filter((resp) => resp.milestone_id === milestoneId && normalizeShare(resp.share) > 0)
     .map((resp) => ({
       milestone_id: resp.milestone_id,
@@ -544,6 +578,7 @@ function resolveContributionShares({
       evidenceCount: 0,
       reason: "milestone_responsibility.share fallback",
     }));
+  return filterActiveAndRenormalize(planned, activeMemberIds);
 }
 
 function manualRewardSummary(value: unknown): RewardSummary | null {
@@ -599,19 +634,65 @@ function choosePlanCycle(rows: PlanCycleRow[], ym: string): PlanCycleRow | null 
     .sort((a, b) => b.period_start_ym.localeCompare(a.period_start_ym))[0] ?? null;
 }
 
-function latestProgressBefore(progress: ProgressRow[], milestoneId: string, ym: string): ProgressRow | null {
-  let latest: ProgressRow | null = null;
-  for (const p of progress) {
-    if (p.milestone_key !== milestoneId || p.ym > ym) continue;
-    if (!latest || p.ym > latest.ym) latest = p;
-  }
-  return latest;
+function isPmLockedProgressRow(row: ProgressRow): boolean {
+  return PM_LOCKED_PROGRESS_SOURCES.has(String(row.source || ""));
 }
 
-function buildEffectiveConsumedMap(progress: ProgressRow[], milestones: MilestoneRow[], ym: string): Map<string, number> {
+function lockedConsumedPt(row: ProgressRow, points: number): number {
+  if (row.consumed_pt != null) {
+    const consumed = numberValue(row.consumed_pt);
+    if (Number.isFinite(consumed)) return consumed;
+  }
+  return Math.round(numberValue(row.progress_pct) * points) / 100;
+}
+
+/**
+ * 報酬計算で支払い対象にできる累積消化pt。
+ * 各月の有効値 = PM確定行 (source ∈ PM_LOCKED_PROGRESS_SOURCES) があればその値、
+ * なければスケジュール按分のデフォルト (expectedCumPctForYm をコード計算)。
+ * DB の非確定行 (routine_auto / 野良 l2_routine / 旧AI推定) は一切参照しない。
+ *
+ * payableCum(ym) = max over m≤ym — cumulative max により
+ * 「巻き戻り → 再上昇」での二重払いを構造的に排除する (差分が再加算されない)。
+ */
+function buildPayableCumMap(
+  progress: ProgressRow[],
+  milestones: MilestoneRow[],
+  planCycle: PlanCycleRow | null,
+  ym: string
+): Map<string, number> {
   const map = new Map<string, number>();
+  const cyclePeriod = {
+    period_start_ym: planCycle?.period_start_ym ?? null,
+    period_end_ym: planCycle?.period_end_ym ?? null,
+  };
   for (const ms of milestones) {
-    map.set(ms.milestone_id, numberValue(latestProgressBefore(progress, ms.milestone_id, ym)?.consumed_pt));
+    const points = numberValue(ms.points);
+    const { startYm, endYm } = milestonePeriod(
+      { period_start_ym: ms.period_start_ym ?? null, target_ym: ms.target_ym ?? null },
+      cyclePeriod
+    );
+    const lockedByYm = new Map<string, ProgressRow>();
+    for (const p of progress) {
+      if (p.milestone_key !== ms.milestone_id || p.ym > ym) continue;
+      if (!isPmLockedProgressRow(p)) continue;
+      lockedByYm.set(p.ym, p);
+    }
+    const monthsToCheck = new Set(monthRangeUntil(planCycle, ym));
+    for (const lockedYm of lockedByYm.keys()) monthsToCheck.add(lockedYm);
+    monthsToCheck.add(ym);
+    let payable = 0;
+    for (const m of monthsToCheck) {
+      if (m > ym) continue;
+      const locked = lockedByYm.get(m);
+      const cum = locked
+        ? lockedConsumedPt(locked, points)
+        : startYm && endYm
+          ? Math.round(expectedCumPctForYm(m, startYm, endYm) * points) / 100
+          : 0;
+      if (cum > payable) payable = cum;
+    }
+    map.set(ms.milestone_id, Math.round(payable * 100) / 100);
   }
   return map;
 }
@@ -1000,6 +1081,7 @@ function buildRewardSummaryUncapped({
   progress,
   responsibilities,
   contributionSharesByKey,
+  activeMemberIds,
   memberMap,
   billing,
   planCycle,
@@ -1010,6 +1092,7 @@ function buildRewardSummaryUncapped({
   progress: ProgressRow[];
   responsibilities: ResponsibilityRow[];
   contributionSharesByKey?: Map<string, EffectiveContributionShare[]>;
+  activeMemberIds?: Set<string>;
   memberMap: Record<string, string>;
   billing: BillingRow;
   planCycle: PlanCycleRow | null;
@@ -1018,8 +1101,8 @@ function buildRewardSummaryUncapped({
   if (milestones.length === 0 || responsibilities.length === 0) return null;
 
   const prevYm = prevYmStr(ym);
-  const prevConsumedMap = buildEffectiveConsumedMap(progress, milestones, prevYm);
-  const currConsumedMap = buildEffectiveConsumedMap(progress, milestones, ym);
+  const prevConsumedMap = buildPayableCumMap(progress, milestones, planCycle, prevYm);
+  const currConsumedMap = buildPayableCumMap(progress, milestones, planCycle, ym);
   const msById = new Map(milestones.map((ms) => [ms.milestone_id, ms]));
   const { regularPtUnit, extraPtUnit, hasCapExtra } = deriveRewardUnits({ milestones, billing, planCycle, project });
   const memberPt = new Map<string, { total: number; regular: number; extra: number; regularBasePay: number; extraBasePay: number }>();
@@ -1038,6 +1121,7 @@ function buildRewardSummaryUncapped({
       milestoneId: ms.milestone_id,
       responsibilities,
       contributionSharesByKey,
+      activeMemberIds,
     }).filter((resp) => resp.share > 0);
     for (const resp of resps) {
       const earnedPt = Math.round(msConsumedPt * resp.share * 100) / 100;
@@ -1114,6 +1198,7 @@ export function buildRewardSummary({
   progress,
   responsibilities,
   contributionSharesByKey,
+  activeMemberIds,
   memberMap,
   billing,
   billingsByYm,
@@ -1125,6 +1210,7 @@ export function buildRewardSummary({
   progress: ProgressRow[];
   responsibilities: ResponsibilityRow[];
   contributionSharesByKey?: Map<string, EffectiveContributionShare[]>;
+  activeMemberIds?: Set<string>;
   memberMap: Record<string, string>;
   billing: BillingRow;
   billingsByYm?: Map<string, BillingRow>;
@@ -1144,6 +1230,7 @@ export function buildRewardSummary({
       progress,
       responsibilities,
       contributionSharesByKey,
+      activeMemberIds,
       memberMap,
       billing: billingForMonth,
       planCycle,
@@ -1293,7 +1380,7 @@ export async function syncRewardSummaryForCycle(
 
   const milestonesRes = await db
     .from("value_milestones")
-    .select("milestone_id, title, points, tag, goal_level, sort_order")
+    .select("milestone_id, title, points, tag, goal_level, sort_order, period_start_ym, target_ym")
     .eq("plan_cycle_id", planCycle.plan_cycle_id)
     .eq("is_active", true)
     .order("sort_order");
@@ -1308,10 +1395,10 @@ export async function syncRewardSummaryForCycle(
 
   const milestoneIds = milestones.map((ms) => ms.milestone_id);
   const rewardMonths = monthRangeUntil(planCycle, ym);
-  const [progressRes, responsibilitiesRes, billingRangeRes, activitiesRes, contributionAllocationsRes] = await Promise.all([
+  const [progressRes, responsibilitiesRes, billingRangeRes, activitiesRes, contributionAllocationsRes, projectMembersRes] = await Promise.all([
     db
       .from("milestone_monthly_progress")
-      .select("milestone_key, ym, progress_pct, consumed_pt")
+      .select("milestone_key, ym, progress_pct, consumed_pt, source")
       .in("milestone_key", milestoneIds)
       .lte("ym", ym)
       .order("ym", { ascending: true }),
@@ -1338,6 +1425,10 @@ export async function syncRewardSummaryForCycle(
       .eq("project_id", projectId)
       .in("ym", rewardMonths)
       .in("milestone_id", milestoneIds),
+    db
+      .from("project_members")
+      .select("member_id, is_active")
+      .eq("project_id", projectId),
   ]);
   if (progressRes.error) throw progressRes.error;
   if (responsibilitiesRes.error) throw responsibilitiesRes.error;
@@ -1346,6 +1437,13 @@ export async function syncRewardSummaryForCycle(
   if (contributionAllocationsRes.error && !isMissingContributionAllocationTableError(contributionAllocationsRes.error)) {
     throw contributionAllocationsRes.error;
   }
+  if (projectMembersRes.error) throw projectMembersRes.error;
+
+  const activeMemberIds = new Set(
+    ((projectMembersRes.data ?? []) as Array<{ member_id: string; is_active: boolean | null }>)
+      .filter((row) => row.is_active !== false)
+      .map((row) => row.member_id)
+  );
 
   const memberMap: Record<string, string> = {};
   for (const member of (membersRes.data ?? []) as MemberRow[]) {
@@ -1370,6 +1468,7 @@ export async function syncRewardSummaryForCycle(
     progress: (progressRes.data ?? []) as ProgressRow[],
     responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
     contributionSharesByKey: contributionPlan.effectiveSharesByKey,
+    activeMemberIds,
     memberMap,
     billing,
     billingsByYm: new Map(((billingRangeRes.data ?? []) as BillingRow[]).map((row) => [row.ym, row])),

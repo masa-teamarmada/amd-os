@@ -11,7 +11,7 @@
  *
  * Body:
  *   {
- *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal'|'textbook_insight',
+ *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'ms_progress_revision'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal'|'textbook_insight',
  *     target_id: string,            // code_name (member系) / project_id (PJ系)
  *     scope_key?: string,            // ym (PJ系) / 'global' (member系) — default 'global'
  *     notification_id?: string,      // 関連 l2_notifications (optional)
@@ -25,6 +25,20 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
+
+/**
+ * ms_progress_revision の yes/no applier は RLS を跨いで
+ * ms_progress_revisions / milestone_monthly_progress 等を書くため
+ * service client を使う (= /api/progress/revisions PATCH と同じ方式)。
+ */
+function getServiceClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 /**
  * GET /api/notifications/feedback?l2_kind=...&target_id=...&scope_key_prefix=...&limit=...
@@ -124,6 +138,7 @@ export async function POST(req: NextRequest) {
       "project_contact_candidate",
       "raw_data_gap",
       "project_config_gap",
+      "ms_progress_revision",
       "project_registry_diff",
       "xrl_evidence",
       "project_strategy_signal",
@@ -194,7 +209,8 @@ export async function POST(req: NextRequest) {
     // - meeting_summary: 再抽出しない。通知に出る時点で抽出済み・確定保存済みなので「はい」は確認マークのみ。
     //   誤抽出修正は cockpit の POST /api/meeting-summary/manual-update に一本化済み (2026-05-29)
     // - project_strategy_signal: 対話型 /api/notifications/feedback/dialog/* を別経路で使う (= 旧 reextractStrategySignalImmediate は廃止、2026-05-25 #71 まさ確定)
-    if (l2Kind !== "meeting_summary" && l2Kind !== "project_strategy_signal") {
+    // - ms_progress_revision: GAS 再抽出の対象外 (= revision の confirm/discard が完結処理)
+    if (l2Kind !== "meeting_summary" && l2Kind !== "project_strategy_signal" && l2Kind !== "ms_progress_revision") {
       void triggerImmediateReExtraction({ l2Kind, targetId, scopeKey, meetingId, feedbackText: storedFeedbackText, feedbackId: data.feedback_id }).catch((e) => {
         console.warn("[feedback] immediate re-extract failed:", e);
       });
@@ -339,6 +355,16 @@ async function applyApprovedNotification(args: {
     return { applied: false, message: "ms_progress approval still uses monthly modal revision confirmation" };
   }
 
+  if (args.l2Kind === "ms_progress_revision") {
+    return confirmMsProgressRevision({
+      supabase: args.supabase,
+      targetId: args.targetId,
+      scopeKey: args.scopeKey,
+      notificationId: args.notificationId,
+      createdBy: args.createdBy,
+    });
+  }
+
   if (args.l2Kind === "project_registry_diff") {
     const query = args.supabase
       .from("project_registry_diffs")
@@ -448,6 +474,16 @@ async function rejectNotificationCandidates(args: {
   feedbackText: string;
   createdBy: string | null;
 }): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  if (args.l2Kind === "ms_progress_revision") {
+    return discardMsProgressRevision({
+      supabase: args.supabase,
+      targetId: args.targetId,
+      scopeKey: args.scopeKey,
+      notificationId: args.notificationId,
+      createdBy: args.createdBy,
+    });
+  }
+
   if (args.l2Kind === "project_registry_diff") {
     const query = args.supabase
       .from("project_registry_diffs")
@@ -697,6 +733,199 @@ async function loadNotificationMetadata(
     .maybeSingle();
   if (error) return {};
   return objectValue(data?.metadata_json);
+}
+
+/**
+ * ms_progress_revision 通知の revision 行を特定する。
+ * 第一候補: l2_notifications.metadata_json.revision_id (progress-estimator が必ず入れる)。
+ * フォールバック: scope_key = `${ym}:${msKey}` から pending revision を特定。
+ */
+async function resolveMsProgressRevision(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  db: ReturnType<typeof getServiceClient>;
+  targetId: string;
+  scopeKey: string;
+  notificationId?: string | null;
+}): Promise<{ revision: Record<string, unknown> | null; message: string }> {
+  const meta = await loadNotificationMetadata(args.supabase, args.notificationId);
+  const revisionId = textValue(meta.revision_id);
+
+  if (revisionId) {
+    const { data, error } = await args.db
+      .from("ms_progress_revisions")
+      .select("*")
+      .eq("id", revisionId)
+      .maybeSingle();
+    if (error) return { revision: null, message: error.message };
+    if (data) return { revision: data as Record<string, unknown>, message: `revision ${revisionId}` };
+  }
+
+  const scopeMatch = args.scopeKey.match(/^(\d{6}):(.+)$/);
+  if (!scopeMatch) {
+    return { revision: null, message: "revision_id not in metadata and scope_key unparsable" };
+  }
+  const [, ym, milestoneId] = scopeMatch;
+  const { data: rows, error } = await args.db
+    .from("ms_progress_revisions")
+    .select("*")
+    .eq("project_id", args.targetId)
+    .eq("milestone_id", milestoneId)
+    .eq("ym", ym)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) return { revision: null, message: error.message };
+  const row = (rows ?? [])[0] as Record<string, unknown> | undefined;
+  return {
+    revision: row ?? null,
+    message: row ? `pending revision for ${milestoneId}/${ym}` : `no pending revision for ${milestoneId}/${ym}`,
+  };
+}
+
+/**
+ * ms_progress_revision 通知の「はい」承認。
+ * /api/progress/revisions PATCH(confirm) と同一の正本反映:
+ *   milestone_monthly_progress upsert (source='tsukuyomi_revision')
+ *   → revision confirmed → tsukuyomi_learnings → member_ms_activities 学習追記
+ *   → reward_summary 再同期。
+ * 確認されない限りデフォルト月割り値 (routine_auto) が有効のまま、が本契約。
+ */
+async function confirmMsProgressRevision(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  targetId: string;
+  scopeKey: string;
+  notificationId?: string | null;
+  createdBy: string | null;
+}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  const db = getServiceClient();
+  const resolved = await resolveMsProgressRevision({ ...args, db });
+  const revision = resolved.revision;
+  if (!revision) return { applied: false, message: `ms_progress_revision: ${resolved.message}` };
+  const status = String(revision.status || "");
+  if (status !== "pending") {
+    return { applied: false, message: `ms_progress_revision already ${status}` };
+  }
+
+  const now = new Date().toISOString();
+  const revisionDbId = String(revision.id);
+  const milestoneId = String(revision.milestone_id);
+  const ym = String(revision.ym);
+  const projectId = String(revision.project_id);
+
+  const { data: msRows } = await db
+    .from("value_milestones")
+    .select("points")
+    .eq("milestone_id", milestoneId)
+    .limit(1);
+  const points = Number(msRows?.[0]?.points || 0);
+  const revisedPct = Math.max(0, Math.min(100, Number(revision.revised_pct || 0)));
+  const consumedPt = Math.round(points * revisedPct / 100 * 100) / 100;
+  const revisedNote = String(revision.revised_note || "");
+
+  const { error: progressError } = await db
+    .from("milestone_monthly_progress")
+    .upsert(
+      {
+        milestone_key: milestoneId,
+        ym,
+        progress_pct: revisedPct,
+        consumed_pt: consumedPt,
+        source: "tsukuyomi_revision",
+        confirmed_at: now,
+        note: revisedNote,
+      },
+      { onConflict: "milestone_key,ym" }
+    );
+  if (progressError) return { applied: false, message: progressError.message };
+
+  await db
+    .from("ms_progress_revisions")
+    .update({ status: "confirmed", confirmed_by: args.createdBy, confirmed_at: now })
+    .eq("id", revisionDbId);
+
+  await db.from("tsukuyomi_learnings").insert({
+    scope: "msActivity",
+    scope_key: projectId,
+    content: revisedNote || `MS ${milestoneId} の修正提案を採用`,
+    source: "ms_revision_confirmed",
+    source_ref: revisionDbId,
+    created_by: args.createdBy,
+  });
+
+  const { data: respRows } = await db
+    .from("milestone_responsibility")
+    .select("member_id")
+    .eq("milestone_id", milestoneId);
+  for (const resp of respRows || []) {
+    const { data: existing } = await db
+      .from("member_ms_activities")
+      .select("learned_addendum")
+      .eq("member_id", resp.member_id)
+      .eq("milestone_id", milestoneId)
+      .eq("ym", ym)
+      .maybeSingle();
+    const current = String(existing?.learned_addendum || "").trim();
+    const addendum = `つくよみ修正学習: ${revisedNote}`.trim();
+    await db
+      .from("member_ms_activities")
+      .upsert(
+        {
+          member_id: resp.member_id,
+          milestone_id: milestoneId,
+          ym,
+          learned_addendum: current ? `${current}\n${addendum}` : addendum,
+          generated_at: now,
+        },
+        { onConflict: "member_id,milestone_id,ym" }
+      );
+  }
+
+  let rewardMessage = "";
+  try {
+    await syncRewardSummaryForCycle(db, projectId, ym);
+    rewardMessage = " / reward_summary synced";
+  } catch (err) {
+    rewardMessage = ` / reward sync failed: ${err instanceof Error ? err.message : String(err)}`;
+  }
+
+  return {
+    applied: true,
+    message: `confirmed ms_progress_revision ${milestoneId}/${ym}: ${revisedPct}% (consumed ${consumedPt}pt)${rewardMessage}`,
+    row: { revision_id: revisionDbId, milestone_id: milestoneId, ym, progress_pct: revisedPct, consumed_pt: consumedPt },
+  };
+}
+
+/**
+ * ms_progress_revision 通知の「いいえ」。
+ * revision を discarded にするだけで milestone_monthly_progress は触らない
+ * (= デフォルト月割り値が有効のまま)。同値の再提案は progress-estimator 側が抑止する。
+ */
+async function discardMsProgressRevision(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  targetId: string;
+  scopeKey: string;
+  notificationId?: string | null;
+  createdBy: string | null;
+}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  const db = getServiceClient();
+  const resolved = await resolveMsProgressRevision({ ...args, db });
+  const revision = resolved.revision;
+  if (!revision) return { applied: false, message: `ms_progress_revision: ${resolved.message}` };
+  const status = String(revision.status || "");
+  if (status !== "pending") {
+    return { applied: false, message: `ms_progress_revision already ${status}` };
+  }
+  const revisionDbId = String(revision.id);
+  const { error } = await db
+    .from("ms_progress_revisions")
+    .update({ status: "discarded", confirmed_by: args.createdBy, confirmed_at: new Date().toISOString() })
+    .eq("id", revisionDbId);
+  if (error) return { applied: false, message: error.message };
+  return {
+    applied: false,
+    message: `discarded ms_progress_revision ${String(revision.milestone_id)}/${String(revision.ym)} (デフォルト月割りが有効のまま)`,
+    row: { revision_id: revisionDbId },
+  };
 }
 
 async function updateXrlEvidenceCandidates(args: {

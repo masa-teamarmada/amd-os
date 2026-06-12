@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isYm, expectedCumPctForYm } from "@/lib/ms-schedule-shared";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,30 +22,6 @@ function monthDiffInclusive(startYm: string, endYm: string): number {
   const em = Number(endYm.slice(4, 6));
   if (![sy, sm, ey, em].every(Number.isFinite)) return 1;
   return Math.max(1, (ey * 12 + em) - (sy * 12 + sm) + 1);
-}
-
-function ymToIndex(ym: string): number | null {
-  if (!isYm(ym)) return null;
-  const y = Number(ym.slice(0, 4));
-  const m = Number(ym.slice(4, 6));
-  if (!Number.isFinite(y) || !Number.isFinite(m)) return null;
-  return y * 12 + (m - 1);
-}
-
-function expectedCumPctForYm(asOfYm: string, periodStartYm: string, targetYm: string): number {
-  const asOf = ymToIndex(asOfYm);
-  const start = ymToIndex(periodStartYm);
-  const end = ymToIndex(targetYm);
-  if (asOf == null || start == null || end == null) return 0;
-  if (asOf < start) return 0;
-  if (asOf >= end) return 100;
-  const totalMonths = Math.max(1, end - start + 1);
-  const elapsedMonths = Math.max(0, asOf - start + 1);
-  return Math.min(100, Math.round((elapsedMonths / totalMonths) * 1000) / 10);
-}
-
-function isYm(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9]{6}$/.test(value);
 }
 
 async function loadDbSchedules(projectId: string, startYm: string, asOfYm: string) {

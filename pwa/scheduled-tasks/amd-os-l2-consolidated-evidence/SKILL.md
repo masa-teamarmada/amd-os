@@ -131,11 +131,13 @@ Phase G: D-2 D-2 MS 進捗推定
 ═══════════════════════════════════════════════════
 
 `amd-os-l3-ms-progress-extract/SKILL.md` の手順実行。
-- daily 化 (= 2026-06-04 まさ確定。旧 hourly + 旧 PWA hourly-estimate は停止済み、定期抽出は本 routine が primary)。
+- **2026-06-12 schedule_default_revision_v3**: 進捗 % のデフォルト writer は Vercel cron `/api/cron/ms-schedule-progress` (= 非LLM、`source='routine_auto'`)。本 Phase の LLM は **`milestone_monthly_progress` を一切書かない**。
+- daily 化 (= 2026-06-04 まさ確定。旧 hourly + 旧 PWA hourly-estimate は停止済み)。
 - 入力: active PJ × {当月, 前月} の `monthly_reports` + `project_meeting_summaries`。
-- 出力: `milestone_monthly_progress` (= MS あり PJ) または `project_monthly_notes` (= MS 不在月 / 非MS管理PJ)。
+- 出力: デフォルト按分との乖離 ±10pt 以上のときだけ `ms_progress_revisions` (status='pending') + `l2_notifications(l2_kind='ms_progress_revision')`。MS 不在月 / 非MS管理PJ は `project_monthly_notes`。
+- 採否: 通知 yes で confirm (= `source='tsukuyomi_revision'` で反映 + 報酬再同期)、no で `status='discarded'` (= デフォルト月割りのまま)。
 - `progress_estimate_state.source_hash` (UNIQUE project_id, ym) で差分検知。
-- `confirmed_at` set 済の `milestone_monthly_progress` 行は **上書き禁止**。
+- PM locked (`pm_manual`/`pm_confirmed`/`pm_rejected`/`criteria_toggle`/`tsukuyomi_revision`) の月は提案も skip。
 
 ═══════════════════════════════════════════════════
 Phase H: D-8 D-8 Atlas Signals 抽出
