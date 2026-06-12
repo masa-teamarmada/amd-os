@@ -61,7 +61,7 @@ L2 を cadence で分類し、**新ナンバリング (D = daily / M = month-end
 | **D-7** | ⑩ | `textbook_insight_candidates` | Claude routine `amd-os-l2-consolidated-evidence` (target) / 暫定 Codex / local worker `amd-os-l10-textbook-insight-extract` | daily 08:00 JST | `outbox.textbookInsights` → candidate + notification。approved 後 local BZM applier が `pwa/bzm/*.md` へ追記 |
 | **D-8** | ⑪ | `atlas_signals` | Claude routine `amd-os-l2-consolidated-evidence` (target) | daily 08:00 JST | `POST /api/atlas/signals-ingest` → Haiku autotag + `atlas_signals` upsert。派生 stories/reports は別系統 |
 | **D-9** | ⑫ | `observation_log` / `macro_index_log` | Claude routine `amd-os-l2-consolidated-evidence` (= 外部 observation 収集) + **PWA non-LLM cron** `macro-aggregate-indicators` (= index 集計) | daily 08:00 JST + 月初集計 | observation_log upsert。index 集計は LLM 非依存 cron が担う |
-| **D-10** | ⑬ | `member_activities(source='member_weekly')` | Claude routine `amd-os-l2-consolidated-evidence` (= daily 化、weekly 廃止) | daily 08:00 JST | Dashboard / MyPage read evidence |
+| **D-10** | ⑬ | `member_activities(source='member_weekly')` | **3系統並走 (2026-06-12 まさ確定)**: ① Claude routine `amd-os-l2-consolidated-evidence` ② Mac Codex automation `amd-os-l2-2` ③ MMO Task Scheduler launcher `amd-os-l2-member-weekly-activities` (下記「D-10 の 3系統並走 writer」参照) | ① daily 08:00 ② daily 18:30 ③ daily 19:30 JST | Dashboard / MyPage read evidence |
 | **M-1** | ① | `monthly_reports` | Claude routine `amd-os-l2-monthend-evidence` (target) / 暫定 Codex `AMD OS L2① 月次報告抽出` | 月末最終日 16:00 JST | `amd-os-ms/outbox.monthlyReports` → LaunchAgent。R313 trigger 置かない |
 | **M-2** | ⑧ | `project_xrl_evidence` / `project_founding_members` | Claude routine `amd-os-l2-monthend-evidence` (= M-1 の後) / 暫定 Codex `amd-os-ms` + `amd-os-l8-xrl-evidence-extract` | 月末最終日 (M-1 後) | `outbox.xrlEvidence` → LaunchAgent。candidate → confirmed |
 | **M-3** | ⑯ | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` (= M-2 の後、新規 inline) | 月末最終日 17:00 完了 | `/management-score` read。candidate → confirmed。18:00 月次振り返り MTG 前に出揃わせる |
@@ -110,6 +110,20 @@ SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (
 | `macro-aggregate-indicators` | マクロ指標集計 | no |
 
 `member-weekly-activities` は Anthropic 経路があるため active cron から外す。
+
+## D-10 の 3系統並走 writer (2026-06-12 まさ確定)
+
+D-10 は抽出漏れ実害が出たため、唯一「複数 writer の冗長並走」を正とする。抽出ロジックは全部 PWA route `/api/cron/member-weekly-activities` 側にあり (per-member OAuth Gmail/Calendar read)、writer は route を叩くトリガに過ぎない。
+
+| # | writer | 実行場所 | schedule (JST) | 仕組み |
+|---|---|---|---|---|
+| ① | Claude routine `amd-os-l2-consolidated-evidence` Phase J | Anthropic cloud | daily 08:00 | SKILL.md 正本読み → route curl。前日18時締め窓を確定 |
+| ② | Codex automation `amd-os-l2-2` | Mac (このマシン) | daily 18:30 | Codex Desktop が toml rrule で発火 → route curl。当日18時締め窓を即日抽出 |
+| ③ | Windows Task Scheduler `amd-os-l2-member-weekly-activities` | MMO マシン | daily 19:30 | launcher `run-d10.ps1` (LLM 非依存、`Invoke-RestMethod`) → route 実行。logs/ に JSON + latest-status.txt。**MMO の Codex Desktop scheduler は toml rrule を尊重しない既知問題があるため launcher 方式** (L6 と同じ) |
+
+**重複排除は route が構造的に保証**: 窓 (前日18:00〜当日18:00) 単位の delete-then-upsert + UNIQUE(member_id, project_id, source, source_item_id)。複数 writer が同じ窓を処理しても、後着 writer が窓を再構築するだけで重複行はできない。3つのうち 1 つでも生きていれば漏れない。
+
+MMO の旧 consolidated automation `amd-os-l2-consolidated-evidence` (D-1..D-10 全部入り) は PAUSED のまま維持する — ACTIVE に戻すと Claude routine と大規模二重 LLM 抽出になるため、冗長化は D-10 トリガに絞る。
 
 ## Outbox applier
 
