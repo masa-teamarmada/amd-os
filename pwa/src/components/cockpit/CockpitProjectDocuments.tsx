@@ -38,6 +38,8 @@ type MarkdownPreviewResponse = {
   error?: string;
 };
 
+const DOCUMENT_QUERY_KEY = "document";
+
 export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [documents, setDocuments] = useState<ProjectDocument[]>([]);
@@ -52,6 +54,7 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
   const [previewMarkdown, setPreviewMarkdown] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [urlDocumentId, setUrlDocumentId] = useState<string | null>(null);
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -131,7 +134,26 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
     void uploadFiles(files);
   }
 
-  async function openMarkdownPreview(doc: ProjectDocument) {
+  const closeMarkdownPreview = useCallback((options?: { syncUrl?: boolean; mode?: "push" | "replace" }) => {
+    setPreviewDoc(null);
+    setPreviewMarkdown("");
+    setPreviewError(null);
+    setPreviewLoading(false);
+    if (options?.syncUrl !== false) {
+      writeDocumentIdToUrl(null, options?.mode ?? "replace");
+      setUrlDocumentId(null);
+    }
+  }, []);
+
+  const openMarkdownPreview = useCallback(async (
+    doc: ProjectDocument,
+    options?: { syncUrl?: boolean; mode?: "push" | "replace" },
+  ) => {
+    if (!isMarkdownDocument(doc)) return;
+    if (options?.syncUrl !== false) {
+      writeDocumentIdToUrl(doc.documentId, options?.mode ?? "push");
+      setUrlDocumentId(doc.documentId);
+    }
     setPreviewDoc(doc);
     setPreviewMarkdown("");
     setPreviewError(null);
@@ -149,7 +171,29 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
     } finally {
       setPreviewLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    function syncFromUrl() {
+      setUrlDocumentId(readDocumentIdFromUrl());
+    }
+    syncFromUrl();
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!urlDocumentId) {
+      if (previewDoc) closeMarkdownPreview({ syncUrl: false });
+      return;
+    }
+    if (previewDoc?.documentId === urlDocumentId) return;
+
+    const target = documents.find((doc) => doc.documentId === urlDocumentId);
+    if (!target || !isMarkdownDocument(target)) return;
+    void openMarkdownPreview(target, { syncUrl: false });
+  }, [closeMarkdownPreview, documents, loading, openMarkdownPreview, previewDoc, urlDocumentId]);
 
   const latest = documents.slice(0, 4);
 
@@ -288,9 +332,7 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
 
       <Dialog open={!!previewDoc} onOpenChange={(open) => {
         if (!open) {
-          setPreviewDoc(null);
-          setPreviewMarkdown("");
-          setPreviewError(null);
+          closeMarkdownPreview();
         }
       }}>
         <DialogContent className="grid h-[92vh] !w-[96vw] !max-w-[96vw] sm:!max-w-[96vw] xl:!max-w-[1400px] grid-rows-[auto_1fr] gap-0 overflow-hidden rounded-lg border border-slate-300 bg-white p-0 text-slate-950 shadow-2xl">
@@ -333,6 +375,26 @@ function isMarkdownDocument(doc: ProjectDocument) {
   const name = doc.fileName.toLowerCase();
   const mime = doc.mimeType.toLowerCase();
   return name.endsWith(".md") || name.endsWith(".markdown") || mime === "text/markdown";
+}
+
+function readDocumentIdFromUrl() {
+  if (typeof window === "undefined") return null;
+  return new URL(window.location.href).searchParams.get(DOCUMENT_QUERY_KEY);
+}
+
+function writeDocumentIdToUrl(documentId: string | null, mode: "push" | "replace") {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (documentId) {
+    url.searchParams.set(DOCUMENT_QUERY_KEY, documentId);
+  } else {
+    url.searchParams.delete(DOCUMENT_QUERY_KEY);
+  }
+
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl === currentUrl) return;
+  window.history[mode === "replace" ? "replaceState" : "pushState"](null, "", nextUrl);
 }
 
 function formatBytes(bytes: number) {
