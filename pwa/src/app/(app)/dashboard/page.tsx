@@ -38,6 +38,7 @@ import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
 import { InstitutionReadinessList } from "@/components/dashboard/InstitutionReadinessList";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
 import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
+import { LoopKernelBoard } from "@/components/loop/LoopKernelBoard";
 import { isInstitutionDashboardProject } from "@/lib/institution-projects";
 
 function getCurrentYm() {
@@ -174,6 +175,7 @@ export default function DashboardPage() {
     <div className="p-4 max-w-[1700px] mx-auto">
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(520px,640px)] gap-4">
         <main className="space-y-4 min-w-0">
+          <LoopKernelBoard hideWhenNoAccess showHeader />
           <ProactiveQueuePanel projectLabels={projectLabels} variant="dashboard" limit={3} />
           <DashboardScoreOverview
             managementScore={managementScore}

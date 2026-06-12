@@ -69,7 +69,7 @@ L2 の正本ナンバリングは cadence ベースの **D / M / H** (spec 3-1�
 
 | Phase | 内容 | 状態 |
 |---|---|---|
-| 1 | **`/loop` ルート MVP** — 経営レンズの 5 段ダッシュボード。admin 限定、既存画面は変更しない。判断キュー (`l2_notifications` pending + `project_strategy_signals` candidate) と実行 outbox (`proactive_outbox`) を実データ接続 | 2026-06-12 実装済み (admin 限定) |
+| 1 | **`/loop` ルート MVP** — 経営レンズの 5 段ダッシュボード。admin 限定、既存画面は変更しない。判断キュー (`l2_notifications` pending + `project_strategy_signals` candidate) と実行 outbox (`proactive_outbox`) を実データ接続 | 2026-06-12 実装済み (admin 限定)。同日 Step 1 拡張: 全段アイテムクリック → 詳細モーダル (全文表示)、判断段はモーダル内で採否完結、dashboard 最上段に盤面埋め込み (`LoopKernelBoard`) |
 | 2 | 実行段の充実 — proactive loop の検知・heartbeat 本稼働 (`design/proactive_operating_loop.md`)、`/loop` から outbox 操作 | 未着手 |
 | 3 | 推進レンズ — `/mypage` を「自分のボール」中心に再構成 | 未着手 |
 | 4 | 運営レンズ — admin 月次オペ + 財務の単一コンソール化 | 未着手 |
@@ -77,6 +77,30 @@ L2 の正本ナンバリングは cadence ベースの **D / M / H** (spec 3-1�
 | 6 | テナント分離 (カーネル / AMD 固有の境界を実装レベルで引く) — 機関提供の前提 | 未着手、`design/institution_tenant_access.md` と接続 |
 
 既存画面の削除・置き換えは行わない (FEATURE_REGISTRY 保全)。`/loop` が実用に達してから、ナビ・ランディングの切り替えを Phase 5 で判断する。
+
+## ループ成立の定義と Step ロードマップ (2026-06-12 まさ A 案承認)
+
+まさ指摘: 「冒頭数十文字が見えるだけでアクションできないなら、ループが成立したとはいえない」。ループ成立 = 以下 4 遷移が OS 上のデータとして繋がること:
+
+1. **見る → その場で判断**: 盤面アイテムをクリック → 全文モーダル → 判断段はモーダル内で採否
+2. **判断 → 実行**: confirm 時に `proactive_outbox` へ期限つき次の一手が積まれる
+3. **実行 → 学習**: outbox close 時に結果が記録され、protocol 結果観測 / textbook insight へ流れる
+4. **学習 → 次の判断**: 判断カードに関連プロトコルが表示され、過去の学習が判断材料になる
+
+| Step | 内容 | 状態 |
+|---|---|---|
+| 1 | 全段クリック → 詳細モーダル + 判断段モーダル内採否 + dashboard 最上段埋め込み。**ページ遷移なし・モーダル完結 UX が必須要件 (まさ指示)** | 2026-06-12 実装済み (v0.17.1) |
+| 2 | confirm 時に `proactive_outbox` へ期限つき次の一手を積む (outbox 運用設計にまさ判断要) | 未着手 |
+| 3 | outbox close 時の結果記録 → 学習段への流し込み | 未着手 |
+| 4 | 判断カードに関連プロトコル表示 (学習が次の判断に現れる) | 未着手 |
+
+### Step 1 実装 contract (current truth)
+
+- 盤面本体 = `pwa/src/components/loop/LoopKernelBoard.tsx` ("use client"、self-fetching / self-gating)。`/loop` ページと dashboard 最上段 (`hideWhenNoAccess` + `showHeader`) で共用
+- 権限: browser client で `members.is_admin` を自前チェック。非 admin は dashboard では非表示 (hideWhenNoAccess)、`/loop` は server 側でも `notFound()` ゲート
+- 読むテーブル: `source_cache` (本日 count + 直近 3 全文) / `ms_progress_revisions` pending / `project_xrl_evidence` candidate count / `l2_notifications` unread / `project_strategy_signals` candidate / `proactive_outbox` open / `protocols` candidate / `textbook_insight_candidates` candidate / `projects`
+- 採否 API: signals → `POST /api/strategy-signals` (`{action:'confirm'|'reject', signal_id}`)、L2 通知 → `POST /api/notifications/feedback` (`{l2_kind, target_id, scope_key, notification_id, action:'yes'|'no'}`) + `read_at` 既読化。成功後にモーダルを閉じて盤面再 fetch
+- L2 チップ表示は日本語 + L2 番号ラベル (`L2_KIND_LABEL`、正本 = NotificationsClient.tsx)
 
 ## Current truth vs plan
 
@@ -86,4 +110,4 @@ L2 の正本ナンバリングは cadence ベースの **D / M / H** (spec 3-1�
 
 ## 再構築可能性チェック
 
-この章はプラン正本であり、`/loop` MVP の実装 contract (テーブル・クエリ・権限) は Phase 1 完了時に `2-2 surface inventory` および本章へ追記する。不足: レンズ別ランディングのルーティング仕様 (Phase 5 で確定)。
+この章はプラン正本であり、`/loop` の実装 contract (テーブル・クエリ・権限・採否 API) は「Step 1 実装 contract」節が current truth。不足: レンズ別ランディングのルーティング仕様 (Phase 5 で確定)、Step 2 の outbox 積み込み仕様 (まさ判断待ち)。
