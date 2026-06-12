@@ -25,8 +25,11 @@ import {
   ymToIndex,
   indexToYm,
   expectedCumPctForYm,
+  anchoredExpectedCumPctForYm,
+  milestonePeriod,
   milestoneSchedule,
   PM_LOCKED_PROGRESS_SOURCES,
+  type ProgressAnchor,
 } from "@/lib/ms-schedule-shared";
 
 const anthropic = new Anthropic({
@@ -146,6 +149,10 @@ async function syncRewardIfProgressChanged(supabase: ServiceClient, projectId: s
  * 全MSにスケジュール按分のデフォルト累積進捗を自動適用する。
  * PMが確定した行 (PM_LOCKED) 以外は、値の上下に関わらずデフォルト値で上書きする
  * (= AI推定や野良sourceの巻き戻り・先行値はここで毎回デフォルトに矯正される)。
+ *
+ * アンカー方式 (2026-06-12 まさ確定): 各月のデフォルトは「その月より前の最新 PM_LOCKED 行」を
+ * 起点に月割り増分 (100/総月数) を積む。アンカーがある MS は target_ym を過ぎても 100% に
+ * 飛ばさず asOf 月まで淡々と積み続ける。アンカーが無い MS は従来のスケジュール按分。
  */
 async function applyScheduleAutoProgress(
   supabase: ServiceClient,
@@ -158,14 +165,16 @@ async function applyScheduleAutoProgress(
   total: number;
   details: EstimateDetail[];
   savedRows: Array<{ milestoneKey: string; ym: string; progressPct: number; source: string }>;
+  /** 当月 ym 基準のアンカー (= ym より前の最新 PM_LOCKED 行)。LLM乖離検知の基準にも使う */
+  anchorByMs: Map<string, ProgressAnchor>;
 }> {
   if (milestones.length === 0) {
-    return { saved: 0, skipped: 0, total: 0, details: [], savedRows: [] };
+    return { saved: 0, skipped: 0, total: 0, details: [], savedRows: [], anchorByMs: new Map() };
   }
 
   const asOfIndex = ymToIndex(ym);
   if (asOfIndex == null) {
-    return { saved: 0, skipped: 0, total: 0, details: [], savedRows: [] };
+    return { saved: 0, skipped: 0, total: 0, details: [], savedRows: [], anchorByMs: new Map() };
   }
 
   const msKeys = milestones.map((m) => m.milestone_id);
@@ -176,11 +185,39 @@ async function applyScheduleAutoProgress(
     .lte("ym", ym);
 
   const existingByKey = new Map<string, { pct: number; source: string }>();
+  const lockedRowsByMs = new Map<string, Array<{ ymIndex: number; ym: string; pct: number }>>();
   for (const row of existingRows || []) {
     existingByKey.set(`${row.milestone_key}|${row.ym}`, {
       pct: Number(row.progress_pct || 0),
       source: String(row.source || ""),
     });
+    if (PM_LOCKED_PROGRESS_SOURCES.has(String(row.source || ""))) {
+      const lockedIndex = ymToIndex(String(row.ym));
+      if (lockedIndex != null) {
+        const list = lockedRowsByMs.get(String(row.milestone_key)) || [];
+        list.push({ ymIndex: lockedIndex, ym: String(row.ym), pct: Number(row.progress_pct || 0) });
+        lockedRowsByMs.set(String(row.milestone_key), list);
+      }
+    }
+  }
+  for (const list of lockedRowsByMs.values()) list.sort((a, b) => a.ymIndex - b.ymIndex);
+
+  /** rowYm (index) より前の最新 PM_LOCKED 行をアンカーとして返す */
+  const anchorBefore = (milestoneId: string, rowIndex: number): ProgressAnchor | null => {
+    const list = lockedRowsByMs.get(milestoneId);
+    if (!list || list.length === 0) return null;
+    let found: ProgressAnchor | null = null;
+    for (const locked of list) {
+      if (locked.ymIndex >= rowIndex) break;
+      found = { ym: locked.ym, pct: locked.pct };
+    }
+    return found;
+  };
+
+  const anchorByMs = new Map<string, ProgressAnchor>();
+  for (const ms of milestones) {
+    const anchor = anchorBefore(ms.milestone_id, asOfIndex);
+    if (anchor) anchorByMs.set(ms.milestone_id, anchor);
   }
 
   const details: EstimateDetail[] = [];
@@ -205,10 +242,15 @@ async function applyScheduleAutoProgress(
     const endIndex = ymToIndex(targetYm);
     if (startIndex == null || endIndex == null || asOfIndex < startIndex) continue;
 
-    const lastIndex = Math.min(asOfIndex, Math.max(startIndex, endIndex));
+    // アンカーあり MS は target_ym 超過後も確定アンカーからの月割りで当月まで積み続ける (A案)。
+    // アンカー無し MS は従来通り最終月で書き込みを止める (最終月 100% で完結)。
+    const lastIndex = anchorByMs.has(ms.milestone_id)
+      ? asOfIndex
+      : Math.min(asOfIndex, Math.max(startIndex, endIndex));
     for (let idx = startIndex; idx <= lastIndex; idx += 1) {
       const rowYm = indexToYm(idx);
-      const expectedPct = expectedCumPctForYm(rowYm, periodStartYm, targetYm);
+      const anchor = anchorBefore(ms.milestone_id, idx);
+      const expectedPct = anchoredExpectedCumPctForYm(rowYm, periodStartYm, targetYm, anchor);
       if (expectedPct <= 0) continue;
       total++;
 
@@ -239,7 +281,12 @@ async function applyScheduleAutoProgress(
       }
 
       const consumed = Math.round((Number(ms.points || 0) * expectedPct) / 100 * 100) / 100;
-      const prevExpected = idx > startIndex ? expectedCumPctForYm(indexToYm(idx - 1), periodStartYm, targetYm) : 0;
+      const prevExpected = idx > startIndex
+        ? anchoredExpectedCumPctForYm(indexToYm(idx - 1), periodStartYm, targetYm, anchorBefore(ms.milestone_id, idx - 1))
+        : 0;
+      const note = anchor
+        ? `確定アンカー ${anchor.ym}=${anchor.pct}% 起点の月割りデフォルト: ${periodStartYm}〜${targetYm}`
+        : `MS期間の月次按分デフォルト: ${periodStartYm}〜${targetYm}`;
       rowsToUpsert.push({
         milestone_key: ms.milestone_id,
         ym: rowYm,
@@ -247,7 +294,7 @@ async function applyScheduleAutoProgress(
         consumed_pt: consumed,
         source: ROUTINE_AUTO_PROGRESS_SOURCE,
         confirmed_at: now,
-        note: `MS期間の月次按分デフォルト: ${periodStartYm}〜${targetYm}`,
+        note,
       });
       savedRows.push({
         milestoneKey: ms.milestone_id,
@@ -259,13 +306,13 @@ async function applyScheduleAutoProgress(
         milestoneKey: ms.milestone_id,
         delta: Math.round((expectedPct - prevExpected) * 10) / 10,
         cumulative: expectedPct,
-        reason: `MS期間の月次按分デフォルト: ${periodStartYm}〜${targetYm}`,
+        reason: note,
       });
     }
   }
 
   if (rowsToUpsert.length === 0) {
-    return { saved: 0, skipped, total, details, savedRows: [] };
+    return { saved: 0, skipped, total, details, savedRows: [], anchorByMs };
   }
 
   const { error } = await supabase
@@ -286,10 +333,11 @@ async function applyScheduleAutoProgress(
         skipReason: `dbError: ${error.message}`,
       })),
       savedRows: [],
+      anchorByMs,
     };
   }
 
-  return { saved: rowsToUpsert.length, skipped, total, details, savedRows };
+  return { saved: rowsToUpsert.length, skipped, total, details, savedRows, anchorByMs };
 }
 
 async function applyBeforeStartProgressGuard(
@@ -998,6 +1046,10 @@ export interface ScheduleDefaultsResult {
   skipped: number;
   total: number;
   message?: string;
+  /** C案: target_ym を過ぎたのに累積 100% 未達の MS (= 計画遅延)。ym 時点の判定 */
+  delayed?: Array<{ milestoneId: string; title: string; targetYm: string; currentPct: number }>;
+  /** この PJ の active MS id 一覧 (遅延解消した通知の削除判定用) */
+  activeMilestoneIds?: string[];
 }
 
 /**
@@ -1075,7 +1127,35 @@ export async function applyScheduleDefaultsForProject(projectId: string, ym: str
   const total = scheduleAuto.total + revisionLocks.details.length + beforeStartGuard.total;
   if (saved > 0) await syncRewardIfProgressChanged(supabase, projectId, ym);
 
-  return { ok: true, projectId, ym, saved, skipped, total };
+  // C案: target_ym を過ぎたのに累積 100% 未達の MS = 計画遅延 (currMap は scheduleAuto + revisionLocks 反映後)
+  const asOfIndex = ymToIndex(ym);
+  const delayed: Array<{ milestoneId: string; title: string; targetYm: string; currentPct: number }> = [];
+  if (asOfIndex != null) {
+    for (const ms of milestones) {
+      const { endYm } = milestonePeriod(ms, pc);
+      const endIndex = endYm ? ymToIndex(endYm) : null;
+      if (endIndex == null || endIndex >= asOfIndex) continue;
+      const currentPct = Number(currMap[ms.milestone_id]?.pct ?? 0);
+      if (currentPct >= 100) continue;
+      delayed.push({
+        milestoneId: ms.milestone_id,
+        title: String(ms.title || ms.milestone_id),
+        targetYm: endYm as string,
+        currentPct,
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    projectId,
+    ym,
+    saved,
+    skipped,
+    total,
+    delayed,
+    activeMilestoneIds: milestones.map((m) => m.milestone_id),
+  };
 }
 
 export interface EstimateResult {
@@ -1410,6 +1490,7 @@ export async function estimateProgress(
     rs: monthlySources.reportStatus,
     ms: estimateMilestones.map((m) => ({
       schedule: scheduleByMs.get(m.milestone_id),
+      anchor: scheduleAuto.anchorByMs.get(m.milestone_id) ?? null,
       id: m.milestone_id,
       ti: m.title,
       pt: m.points,
@@ -1468,6 +1549,12 @@ export async function estimateProgress(
 
   // 6. プロンプト組み立て
   const displayYm = formatDisplayYm(ym);
+  // アンカー方式の期待累積 (= デフォルト按分 writer と同じ基準)。アンカー無しは従来按分に一致。
+  const anchoredExpectedFor = (msId: string): number | null => {
+    const schedule = scheduleByMs.get(msId);
+    if (!schedule?.startYm || !schedule?.endYm) return null;
+    return anchoredExpectedCumPctForYm(ym, schedule.startYm, schedule.endYm, scheduleAuto.anchorByMs.get(msId) ?? null);
+  };
   const msListText = estimateMilestones
     .map((ms, i) => {
       const prev = prevMap[ms.milestone_id] || 0;
@@ -1475,8 +1562,11 @@ export async function estimateProgress(
       const schedule = scheduleByMs.get(ms.milestone_id);
       const tagLabel = ms.tag === "buffer" ? " [buffer]" : "";
       const criteria = ms.success_criteria ? `\n     成功条件: ${ms.success_criteria}` : "";
+      const anchor = scheduleAuto.anchorByMs.get(ms.milestone_id);
+      const anchoredExpected = anchoredExpectedFor(ms.milestone_id);
+      const anchorText = anchor ? ` / PM確定アンカー ${anchor.ym}=${anchor.pct}% 起点` : "";
       const scheduleText = schedule
-        ? `\n     期間: ${schedule.startYm || "unknown"}〜${schedule.endYm || "unknown"} / 期間按分の期待累積: ${schedule.expectedPct}% (${schedule.totalMonths}か月中${schedule.elapsedMonths}か月目)`
+        ? `\n     期間: ${schedule.startYm || "unknown"}〜${schedule.endYm || "unknown"} / 期間按分の期待累積: ${anchoredExpected ?? schedule.expectedPct}%${anchorText} (${schedule.totalMonths}か月中${schedule.elapsedMonths}か月目)`
         : "";
       const subItems = (subItemsByMs.get(ms.milestone_id) || [])
         .filter((item) => item.title)
@@ -1559,7 +1649,7 @@ export async function estimateProgress(
     const prevCum = prevMap[msKey] || 0;
     const cur = currMap[msKey];
     const schedule = scheduleByMs.get(msKey);
-    const expectedPct = schedule?.expectedPct ?? prevCum;
+    const expectedPct = anchoredExpectedFor(msKey) ?? schedule?.expectedPct ?? prevCum;
     const subItems = subItemsByMs.get(msKey) || [];
     const directEvidence = hasDirectCriteriaEvidence(ms, sourceLines.join("\n"), subItems);
     const rawPct = Math.max(0, Math.min(100, Math.round(Number(p.progressPct || 0))));
@@ -1632,7 +1722,12 @@ export async function estimateProgress(
       milestone_id: msKey,
       ym,
       current_pct: currentPct,
-      current_note: `デフォルト月割り基準: ${expectedPct}% (${schedule?.startYm || "?"}〜${schedule?.endYm || "?"})`,
+      current_note: (() => {
+        const anchor = scheduleAuto.anchorByMs.get(msKey);
+        return anchor
+          ? `デフォルト月割り基準: ${expectedPct}% (確定アンカー ${anchor.ym}=${anchor.pct}% 起点, ${schedule?.startYm || "?"}〜${schedule?.endYm || "?"})`
+          : `デフォルト月割り基準: ${expectedPct}% (${schedule?.startYm || "?"}〜${schedule?.endYm || "?"})`;
+      })(),
       revised_pct: newCumPct,
       revised_note: proposalNote,
       status: "pending",

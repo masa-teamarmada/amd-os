@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   PM_LOCKED_PROGRESS_SOURCES,
-  expectedCumPctForYm,
+  anchoredExpectedCumPctForYm,
   milestonePeriod,
+  type ProgressAnchor,
 } from "@/lib/ms-schedule-shared";
 
 type SupabaseLike = SupabaseClient;
@@ -649,7 +650,8 @@ function lockedConsumedPt(row: ProgressRow, points: number): number {
 /**
  * 報酬計算で支払い対象にできる累積消化pt。
  * 各月の有効値 = PM確定行 (source ∈ PM_LOCKED_PROGRESS_SOURCES) があればその値、
- * なければスケジュール按分のデフォルト (expectedCumPctForYm をコード計算)。
+ * なければアンカー方式のスケジュール按分デフォルト (anchoredExpectedCumPctForYm をコード計算。
+ * アンカー = その月より前の最新 PM 確定行。アンカー無しは従来の期間按分に一致)。
  * DB の非確定行 (routine_auto / 野良 l2_routine / 旧AI推定) は一切参照しない。
  *
  * payableCum(ym) = max over m≤ym — cumulative max により
@@ -678,6 +680,20 @@ function buildPayableCumMap(
       if (!isPmLockedProgressRow(p)) continue;
       lockedByYm.set(p.ym, p);
     }
+    // m より厳密に前の最新 PM 確定行をアンカーとして返す (ym 昇順走査)
+    const lockedYmsSorted = Array.from(lockedByYm.keys()).sort();
+    const anchorBefore = (m: string): ProgressAnchor | null => {
+      let found: ProgressAnchor | null = null;
+      for (const lockedYm of lockedYmsSorted) {
+        if (lockedYm >= m) break;
+        const row = lockedByYm.get(lockedYm)!;
+        const pct = points > 0
+          ? Math.max(0, Math.min(100, (lockedConsumedPt(row, points) / points) * 100))
+          : Math.max(0, Math.min(100, numberValue(row.progress_pct)));
+        found = { ym: lockedYm, pct };
+      }
+      return found;
+    };
     const monthsToCheck = new Set(monthRangeUntil(planCycle, ym));
     for (const lockedYm of lockedByYm.keys()) monthsToCheck.add(lockedYm);
     monthsToCheck.add(ym);
@@ -688,7 +704,7 @@ function buildPayableCumMap(
       const cum = locked
         ? lockedConsumedPt(locked, points)
         : startYm && endYm
-          ? Math.round(expectedCumPctForYm(m, startYm, endYm) * points) / 100
+          ? Math.round(anchoredExpectedCumPctForYm(m, startYm, endYm, anchorBefore(m)) * points) / 100
           : 0;
       if (cum > payable) payable = cum;
     }

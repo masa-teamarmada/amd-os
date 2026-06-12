@@ -59,17 +59,31 @@ flowchart LR
 - **LLM 推定**: MMOマシン automation `amd-os-l3-ms-progress-extract` (毎時 0 分、[8-3 章 §D-2](8-3-l2-extraction-routines-spec.md))。L2 データから推定し、デフォルト按分との乖離が ±10pt 以上のときだけ `ms_progress_revisions` (pending) + 通知を積む。`project_monthly_notes` / `progress_estimate_state` の更新は従来通り
 - 旧 PWA `/api/cron/hourly-estimate` は 2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す
 
-### デフォルト月割り (= 全MS共通)
+### デフォルト月割り (= 全MS共通、アンカー方式)
 
 2026-06-12 以降、月割りデフォルトは `tag='routine'` 限定ではなく **全MS共通**。「N か月計画の MS なら 1 か月あたり 100/N % の累積進捗がデフォルトで入る」が基本契約。
 
+**さらに同日追補 (アンカー方式)**: まさが確定した月がある MS は、その確定値が按分の起点 (= アンカー) になる。
+
 - `value_milestones.period_start_ym`〜`target_ym` の月数で 100% を割る (1年MSなら毎月 `100/12%`)
-- 期間開始前の月は 0%、最終月以降は 100%
+- **アンカーが無い MS**: 期間開始前の月は 0%、最終月以降は 100% (従来按分)
+- **アンカーがある MS**: その月より前の最新の確定値 (PM locked 行) を起点に `アンカー% + (100/N) × 経過月数` (100 で cap)。例: 3か月MSを 5月に 15% で確定したら、6月デフォルトは 15 + 33.3 = **48.3%** — スケジュール表上は最終月でも勝手に 100% に飛ばない
+- **アンカーがある MS は target_ym を過ぎても**、確定アンカーからの月割りで淡々と積み続ける。100% にしたければまさが確定するか、つくよみの修正提案に「はい」と答える
 - Vercel cron `/api/cron/ms-schedule-progress` が対象月までの各月を `milestone_monthly_progress.source='routine_auto'` で upsert する (`consumed_pt` も points × 按分%で同時計算)
 - PMが `pm_manual` / `pm_confirmed` / `pm_rejected` / `criteria_toggle` / `tsukuyomi_revision` で確定済みの月 (= PM locked) は上書きしない
 - `ms_progress_revisions.status='confirmed'` がある月は、その修正値を `tsukuyomi_revision` として再適用し、デフォルトより優先する
-- `/api/progress/ms-schedule` のMS別期待進捗アンカーも同じ MS別期間から計算する
+- `/api/progress/ms-schedule` のMS別期待進捗も同じアンカー方式で計算する (表示と writer が一致)
+- 報酬計算 (`reward-summary.ts`) の非確定月デフォルトも同じアンカー方式 (= 表示と支払いが一致)
 - **巻き戻りはこの設計上起きない**: デフォルトは月が進むほど単調増加、AI が直接書く経路は無い。過去に AI 直書きで巻き戻った行 (`source='tsukuyomi_estimate'` / `l2_routine`) も cron が `routine_auto` で自然修復する
+
+### 計画遅延通知 (= l2_kind 'ms_schedule_delay')
+
+`target_ym` を過ぎたのに進捗が 100% 未満の MS は、毎日の cron が通知カード「**D-2 MS計画遅延**」を `/notifications` に積む (importance 2)。
+
+- 検知対象は当月分のみ。「⏰ {PJ名} / {MS名} が計画遅延 (期限 {target_ym}, 現在 {pct}%)」形式
+- 対応方法: 月次進捗モーダルで実態の % を確定するか、つくよみの修正提案に「はい」、あるいは MS の `target_ym` を見直す
+- 100% に到達するなど遅延が解消したら、翌日の cron が同じ通知を自動で消す
+- アンカーが無い MS は最終月に 100% になる (按分の自然な帰結) ので、遅延通知の対象にならない
 
 ### LLM 推定の役割 (= 提案のみ)
 
@@ -273,7 +287,8 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 |---|---|
 | 月次モーダルで MS 進捗が出ない | `milestone_monthly_progress` の該当 ym 行、 `value_milestones.is_active=true`、 `value_milestones.period_start_ym`/`target_ym` が入っているか (= 按分計算の入力) |
 | 進捗 % が更新されない | `/api/cron/ms-schedule-progress` の実行ログ (= デフォルト按分 writer)。LLM 側は `progress_estimate_state.source_hash` / `amd-os-l3-ms-progress-extract` 実行履歴 (= 提案のみで % は書かない) |
-| 進捗が想定よりズレてる | 通知の `ms_progress_revision` (= D-2 MS進捗修正提案) が pending で待ってないか。「はい」で confirm するまでデフォルト月割りのまま |
+| 進捗が想定よりズレてる | 通知の `ms_progress_revision` (= D-2 MS進捗修正提案) が pending で待ってないか。「はい」で confirm するまでデフォルト月割りのまま。確定済みの月があるなら、その確定値起点のアンカー按分になっているか (= 進みすぎに見えるときは過去の低い確定値が無いか) |
+| 期限切れMSが 100% にならない | 仕様通り。アンカーがある MS は target_ym 超過後も確定値起点の月割りを継続する。「D-2 MS計画遅延」通知が出るので、実態に合わせて確定するか target_ym を見直す |
 | 修正依頼が反映されない | `ms_progress_revisions.status='confirmed'`、 `milestone_monthly_progress` 該当行が `source='tsukuyomi_revision'` で更新されているか |
 | 月次報告書が空 | `AMD OS M-1 月次報告抽出` の実行履歴、`amd-os-ms/outbox` の applied/failed、`monthly_reports.collection_summary_json`。R313 trigger は復活させない |
 | 休止 PJ の月が空 | `project_freeze_periods.status='active'`、 `manual-freeze-period-backfill` 実行 |

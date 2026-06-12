@@ -139,6 +139,7 @@ export async function POST(req: NextRequest) {
       "raw_data_gap",
       "project_config_gap",
       "ms_progress_revision",
+      "ms_schedule_delay",
       "project_registry_diff",
       "xrl_evidence",
       "project_strategy_signal",

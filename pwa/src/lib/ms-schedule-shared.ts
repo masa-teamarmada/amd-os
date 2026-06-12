@@ -54,6 +54,41 @@ export function expectedCumPctForYm(asOfYm: string, periodStartYm: string, targe
   return Math.min(100, Math.round((elapsedMonths / totalMonths) * 1000) / 10);
 }
 
+/**
+ * PM確定アンカー: その MS で最新の PM_LOCKED 行 (ym, 累積%)。
+ * デフォルト按分の起点になる (2026-06-12 まさ確定の A 案アンカー方式)。
+ */
+export type ProgressAnchor = { ym: string; pct: number };
+
+/**
+ * アンカー方式の期間按分デフォルト累積進捗率。
+ *
+ * - アンカー (asOfYm より前の最新 PM_LOCKED 行) が無ければ従来の expectedCumPctForYm。
+ * - アンカーがあれば「アンカー値 + (100/総月数) × アンカーからの経過月数」を 100 で cap。
+ *   target_ym を過ぎても自動で 100% に飛ばさず、確定アンカーからの月割りで淡々と積む。
+ */
+export function anchoredExpectedCumPctForYm(
+  asOfYm: string,
+  periodStartYm: string,
+  targetYm: string,
+  anchor: ProgressAnchor | null | undefined
+): number {
+  const asOf = ymToIndex(asOfYm);
+  const start = ymToIndex(periodStartYm);
+  const end = ymToIndex(targetYm);
+  if (asOf == null || start == null || end == null) return 0;
+  if (asOf < start) return 0;
+  const anchorIndex = anchor && isYm(anchor.ym) ? ymToIndex(anchor.ym) : null;
+  if (anchorIndex == null || anchorIndex > asOf) {
+    return expectedCumPctForYm(asOfYm, periodStartYm, targetYm);
+  }
+  const totalMonths = Math.max(1, end - start + 1);
+  const anchorPct = Math.max(0, Math.min(100, Number(anchor?.pct ?? 0)));
+  const monthsSinceAnchor = Math.max(0, asOf - anchorIndex);
+  const pct = anchorPct + (100 / totalMonths) * monthsSinceAnchor;
+  return Math.min(100, Math.round(pct * 10) / 10);
+}
+
 export type MilestoneScheduleSource = {
   period_start_ym: string | null;
   target_ym: string | null;

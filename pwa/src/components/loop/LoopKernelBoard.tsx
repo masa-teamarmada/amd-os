@@ -59,6 +59,7 @@ const L2_KIND_LABEL: Record<string, string> = {
   protocols: "D-1 AMDプロトコル",
   ms_progress: "D-2 MS進捗",
   ms_progress_revision: "D-2 MS進捗修正提案",
+  ms_schedule_delay: "D-2 MS計画遅延",
   project_knowledge: "D-3 PJナレッジ",
   member_knowledge: "D-4 メンバーナレッジ",
   meeting_summary: "H-1 MTGサマリ",

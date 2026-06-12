@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isYm, expectedCumPctForYm } from "@/lib/ms-schedule-shared";
+import {
+  isYm,
+  anchoredExpectedCumPctForYm,
+  PM_LOCKED_PROGRESS_SOURCES,
+  type ProgressAnchor,
+} from "@/lib/ms-schedule-shared";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -52,6 +57,24 @@ async function loadDbSchedules(projectId: string, startYm: string, asOfYm: strin
       .order("sort_order");
     const planStartYm = isYm(cycle.period_start_ym) ? cycle.period_start_ym : startYm;
     const planEndYm = isYm(cycle.period_end_ym) ? cycle.period_end_ym : "";
+
+    // アンカー方式: asOfYm より前の最新 PM 確定行をデフォルト按分の起点にする (writer と同じ基準)
+    const msIds = (dbMilestones || []).map((ms) => String(ms.milestone_id || "")).filter(Boolean);
+    const anchorByMs = new Map<string, ProgressAnchor>();
+    if (msIds.length > 0) {
+      const { data: lockedRows } = await db
+        .from("milestone_monthly_progress")
+        .select("milestone_key, ym, progress_pct, source")
+        .in("milestone_key", msIds)
+        .lt("ym", asOfYm)
+        .order("ym", { ascending: true });
+      for (const row of lockedRows || []) {
+        if (!PM_LOCKED_PROGRESS_SOURCES.has(String(row.source || ""))) continue;
+        // ym 昇順なので最後に set した行 = 最新アンカー
+        anchorByMs.set(String(row.milestone_key), { ym: String(row.ym), pct: Number(row.progress_pct || 0) });
+      }
+    }
+
     const schedules = (dbMilestones || []).map((ms) => {
       const periodStartYm = isYm(ms.period_start_ym) ? ms.period_start_ym : planStartYm;
       const targetYm = isYm(ms.target_ym) ? ms.target_ym : (planEndYm || planStartYm);
@@ -61,7 +84,12 @@ async function loadDbSchedules(projectId: string, startYm: string, asOfYm: strin
         periodStartYm,
         targetYm,
         msMonths,
-        expectedCumPct: expectedCumPctForYm(asOfYm, periodStartYm, targetYm),
+        expectedCumPct: anchoredExpectedCumPctForYm(
+          asOfYm,
+          periodStartYm,
+          targetYm,
+          anchorByMs.get(String(ms.milestone_id || "")) ?? null
+        ),
         monthlyPt: msMonths > 0 ? Number(ms.points || 0) / msMonths : Number(ms.points || 0),
       };
     }).filter((m) => m.milestoneId);

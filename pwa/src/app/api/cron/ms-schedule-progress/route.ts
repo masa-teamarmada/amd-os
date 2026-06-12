@@ -9,6 +9,8 @@
  *   - confirmed な ms_progress_revisions は tsukuyomi_revision として再適用 (修復)
  *   - 開始前MSの非確定値は 0% に補正
  *   - 進捗が変わった PJ は reward_summary_json を再同期
+ *   - C案: target_ym 超過なのに累積 100% 未達の MS を当月分だけ「計画遅延」通知
+ *     (l2_kind='ms_schedule_delay') として upsert、解消した MS の通知は delete
  *
  * LLM を一切呼ばないため ALLOW_PWA_LLM_CRONS に依存せず毎日動く。
  * LLM 乖離検知 (revision 提案) は estimateProgress (手動再推定 / report/generate 直後) 側。
@@ -49,6 +51,11 @@ function prevYm(ym: string): string {
   return `${py}${String(pm).padStart(2, "0")}`;
 }
 
+function formatDisplayYm(ym: string): string {
+  if (!/^\d{6}$/.test(ym)) return ym;
+  return `${ym.slice(0, 4)}年${parseInt(ym.slice(4, 6), 10)}月`;
+}
+
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
@@ -67,18 +74,28 @@ export async function GET(req: NextRequest) {
 
   const supabase = getServiceClient();
   let projectIds: string[];
+  const projectNameById = new Map<string, string>();
   if (projectOverride) {
     projectIds = [projectOverride];
+    const { data: projectRow } = await supabase
+      .from("projects")
+      .select("project_id, project_name")
+      .eq("project_id", projectOverride)
+      .maybeSingle();
+    if (projectRow?.project_name) projectNameById.set(projectOverride, String(projectRow.project_name));
   } else {
     const { data: projects, error } = await supabase
       .from("projects")
-      .select("project_id")
+      .select("project_id, project_name")
       .eq("status", "active");
     if (error) {
       console.error("[cron/ms-schedule-progress] failed to fetch projects:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     projectIds = (projects ?? []).map((p: { project_id: string }) => p.project_id);
+    for (const p of projects ?? []) {
+      if (p.project_name) projectNameById.set(String(p.project_id), String(p.project_name));
+    }
   }
 
   if (projectIds.length === 0) {
@@ -91,15 +108,64 @@ export async function GET(req: NextRequest) {
     ok: boolean;
     saved: number;
     skipped: number;
+    delayed?: number;
     message?: string;
   };
   const results: Result[] = [];
+  let delayNotified = 0;
+  let delayResolved = 0;
 
   for (const projectId of projectIds) {
     for (const ym of ymList) {
       try {
         const r = await applyScheduleDefaultsForProject(projectId, ym);
-        results.push({ projectId, ym, ok: r.ok, saved: r.saved, skipped: r.skipped, message: r.message });
+        results.push({ projectId, ym, ok: r.ok, saved: r.saved, skipped: r.skipped, delayed: r.delayed?.length, message: r.message });
+
+        // C案: 計画遅延通知は当月 (baseYm) のみ。前月分は判定基準月が違うので積まない。
+        if (ym !== baseYm || !r.ok || !r.activeMilestoneIds) continue;
+        const projectName = projectNameById.get(projectId) || projectId;
+        const delayed = r.delayed ?? [];
+        const delayedIds = new Set(delayed.map((d) => d.milestoneId));
+
+        for (const d of delayed) {
+          const { error: notifErr } = await supabase.from("l2_notifications").upsert(
+            {
+              l2_kind: "ms_schedule_delay",
+              target_id: projectId,
+              scope_key: `${ym}:delay:${d.milestoneId}`,
+              title: `⏰ ${projectName} / ${d.title} が計画遅延 (期限 ${formatDisplayYm(d.targetYm)}, 現在 ${d.currentPct}%)`,
+              summary: `target_ym=${d.targetYm} を過ぎましたが累積進捗が ${d.currentPct}% です。確定アンカーからの月割りで積み続けています。実態に合わせて月次進捗モーダルか修正提案で確定してください。`,
+              saved_count: Math.round(d.currentPct),
+              total_count: 100,
+              importance: 2,
+              metadata_json: { milestone_id: d.milestoneId, ym, target_ym: d.targetYm, current_pct: d.currentPct },
+            },
+            { onConflict: "l2_kind,target_id,scope_key" }
+          );
+          if (notifErr) {
+            console.warn(`[cron/ms-schedule-progress] delay notification upsert failed (${projectId}/${d.milestoneId}):`, notifErr.message);
+          } else {
+            delayNotified++;
+          }
+        }
+
+        // 解消 (100% 到達 or MS が inactive 化) した遅延通知は当月 scope だけ削除
+        const resolvedKeys = r.activeMilestoneIds
+          .filter((msId) => !delayedIds.has(msId))
+          .map((msId) => `${ym}:delay:${msId}`);
+        if (resolvedKeys.length > 0) {
+          const { error: delErr, count } = await supabase
+            .from("l2_notifications")
+            .delete({ count: "exact" })
+            .eq("l2_kind", "ms_schedule_delay")
+            .eq("target_id", projectId)
+            .in("scope_key", resolvedKeys);
+          if (delErr) {
+            console.warn(`[cron/ms-schedule-progress] delay notification cleanup failed (${projectId}):`, delErr.message);
+          } else {
+            delayResolved += count ?? 0;
+          }
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "unknown error";
         console.error(`[cron/ms-schedule-progress] projectId=${projectId} ym=${ym} error:`, msg);
@@ -114,6 +180,8 @@ export async function GET(req: NextRequest) {
     ran: results.length,
     savedTotal: results.reduce((sum, r) => sum + r.saved, 0),
     failed: results.filter((r) => !r.ok).length,
+    delayNotified,
+    delayResolved,
     results,
   });
 }
