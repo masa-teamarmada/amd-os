@@ -116,7 +116,7 @@ codeName セルは admin 用マイページリンクを兼ねる。 コードネ
 | `status` | `active` / `inactive` / `left` |
 | `slack_id` | Slack ユーザー ID (= DM 送信先) |
 | `is_admin` | admin 権限 (= true なら /admin/* / /notifications を開ける) |
-| `is_officer` | 役員フラグ |
+| `is_officer` | 役員フラグ (= true なら報酬表示しない & 0 円扱い。UI 列名は「支払対象」、true → `対象外` / false → `対象` 表示) |
 | `slack_plan` / `google_plan` | Slack / Google Workspace の課金 plan |
 | `google_calendar_status` | `missing` / `error` / `connected` (= calendar.readonly 共有状況) |
 | `google_calendar_checked_at` / `_connected_at` / `_error` | calendar 共有のヘルスチェック |

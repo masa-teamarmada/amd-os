@@ -288,7 +288,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
               <th className="text-left px-3 py-2 font-medium w-24">Calendar</th>
               <th className="text-left px-3 py-2 font-medium w-28">最終ログイン</th>
               <th className="text-left px-3 py-2 font-medium w-16">admin</th>
-              <th className="text-left px-3 py-2 font-medium w-16">役員</th>
+              <th className="text-left px-3 py-2 font-medium w-16">支払対象</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack ID</th>
             </tr>
           </thead>
@@ -518,14 +518,17 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
                   <td className={`${cellCls("is_officer")} text-center`} onClick={enterCell("is_officer")}>
                     {isEditingField(m, "is_officer") ? (
                       <div onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" checked={!!editVals.is_officer}
-                          onChange={(e) => setEditVals((v) => ({ ...v, is_officer: e.target.checked }))} />
+                        <label className="flex items-center justify-center gap-1 text-[10px]">
+                          <input type="checkbox" checked={!!editVals.is_officer}
+                            onChange={(e) => setEditVals((v) => ({ ...v, is_officer: e.target.checked }))} />
+                          役員 (=対象外)
+                        </label>
                         {cellActions("is_officer")}
                       </div>
                     ) : (
                       m.is_officer
-                        ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">ON</span>
-                        : <span className="text-muted-foreground">—</span>
+                        ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">対象外</span>
+                        : <span className="text-muted-foreground">対象</span>
                     )}
                   </td>
 
