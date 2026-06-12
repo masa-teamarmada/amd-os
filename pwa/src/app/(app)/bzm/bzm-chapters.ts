@@ -49,7 +49,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
     key: "model",
     label: "第 II 部 — Before Zero Model",
     description: "PRS × 戦略余力。天井 P・到達度 R・生存確率 S と、その土台になる (x, y) の動学。",
-    slugs: ["strategic-slack"],
+    slugs: ["why-valuation-fails", "model-overview", "p-potential", "r-readiness", "strategic-slack"],
   },
   {
     key: "nursery",
@@ -72,6 +72,26 @@ export const BZM_PARTS: BzmPartConfig[] = [
 ];
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
+  {
+    slug: "why-valuation-fails",
+    title: "何を解くか — Valuation は Before Zero でなぜ機能しないのか",
+    summary: "「5年後売上30億円」は何を測っていたのか。期待を単一値に圧縮する Valuation が設立前に突き当たる四つの壁を解き、天井P×到達R×生存Sの骨格を示す開幕章。",
+  },
+  {
+    slug: "model-overview",
+    title: "全体像 — 天井 × 到達 × 生存",
+    summary: "評価は「天井P×到達R×生存S」の積で読む。判定層と動学層の二層構造、戦略余力を軸でなく動学に置く理由、モデル進化の三世代を一望する章。",
+  },
+  {
+    slug: "p-potential",
+    title: "潜在規模 P — 天井の大きさと、証拠の質",
+    summary: "最大限うまくいったときの経済的インパクトの天井 P。市場規模の主張の大きさではなく証拠の質で測り、天井そのものを戦略で書き換える打ち手までを扱う。",
+  },
+  {
+    slug: "r-readiness",
+    title: "到達度 R — 不可逆な達成の蓄積",
+    summary: "「技術はできています」は五枚に割れる。TRL/BRL/GRL/SRL/HRL の五軸と Yes/No 観測項目、研究室と自社の TRL ギャップ、達成 R と消費資源 y の線引き。",
+  },
   {
     slug: "strategic-slack",
     title: "戦略余力 — 主導権を保って走り切る",

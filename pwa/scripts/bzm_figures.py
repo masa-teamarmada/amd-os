@@ -369,12 +369,57 @@ def fig_f8():
     save(fig, "f8_slack_trajectories.png")
 
 
+# ---------------------------------------------------------------------------
+# F9: hype-driven valuation vs fact-based readiness (why-valuation-fails)
+# Same project, two numbers: valuation swings with the hype cycle while
+# fact-based readiness accumulates as a monotone staircase.
+# ---------------------------------------------------------------------------
+def fig_f9():
+    fig, ax = plt.subplots(figsize=(9.4, 5.2))
+    t = np.linspace(0, 8, 400)
+
+    # hype-cycle valuation: boom -> trough -> slow recovery, plus mild noise-free wiggle
+    hype = 10 + 38 * np.exp(-((t - 2.0) ** 2) / 0.9) + 14 / (1 + np.exp(-(t - 6.2)))
+    ax.plot(t, hype, color="crimson", lw=2.4, label="valuation (expectation-driven)")
+
+    # readiness staircase: monotone, slow
+    steps_t = [0, 1.2, 2.6, 3.4, 4.8, 5.6, 6.8, 8]
+    steps_v = [4, 8, 12, 18, 22, 30, 36, 40]
+    ax2 = ax.twinx()
+    ax2.step(steps_t, steps_v, where="post", color="navy", lw=2.4,
+             label="readiness (fact-based, irreversible)")
+
+    # divergence annotation
+    ax.annotate("same project,\ndifferent numbers", xy=(2.1, 47), xytext=(3.1, 50),
+                fontsize=10, color="dimgray",
+                arrowprops=dict(arrowstyle="->", color="dimgray", lw=0.9))
+    ax.annotate("hype peak:\nnothing changed inside", xy=(2.0, 48.5), xytext=(0.2, 56),
+                fontsize=9, color="crimson",
+                arrowprops=dict(arrowstyle="->", color="crimson", lw=0.9))
+    ax2.annotate("data, patents, paid validation:\nonly accumulates", xy=(5.6, 30), xytext=(4.6, 14),
+                 fontsize=9, color="navy",
+                 arrowprops=dict(arrowstyle="->", color="navy", lw=0.9))
+
+    ax.set_xlabel("time (years)")
+    ax.set_ylabel("valuation (expectation)", color="crimson")
+    ax2.set_ylabel("readiness (facts)", color="navy")
+    ax.set_ylim(0, 62); ax2.set_ylim(0, 62)
+    ax.tick_params(axis="y", labelcolor="crimson")
+    ax2.tick_params(axis="y", labelcolor="navy")
+    ax.set_title("F9. The same project, two numbers: hype swings, readiness accumulates")
+    lines1, labels1 = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax.legend(lines1 + lines2, labels1 + labels2, loc="lower right", fontsize=9)
+    ax.grid(True, alpha=0.2)
+    save(fig, "f9_hype_vs_readiness.png")
+
+
 if __name__ == "__main__":
     import sys
     targets = sys.argv[1:]
     all_figs = {
         "f1": fig_f1, "f2": fig_f2, "f3": fig_f3, "f4": fig_f4, "f5": fig_f5,
-        "f6": fig_f6, "f7": fig_f7, "f8": fig_f8,
+        "f6": fig_f6, "f7": fig_f7, "f8": fig_f8, "f9": fig_f9,
     }
     if targets:
         for t in targets:
