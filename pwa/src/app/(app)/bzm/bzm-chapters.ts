@@ -43,7 +43,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
     key: "field",
     label: "第 I 部 — Before Zero の現場",
     description: "会社になる前に勝負が決まる場所。関係者の時計のズレ、鬼門、誰が何を背負うか。",
-    slugs: [],
+    slugs: ["field-before-zero", "field-clocks", "field-gates", "field-who-carries"],
   },
   {
     key: "model",
@@ -82,6 +82,26 @@ export const BZM_PARTS: BzmPartConfig[] = [
 ];
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
+  {
+    slug: "field-before-zero",
+    title: "Before Zero — 会社になる前に勝負が決まる",
+    summary: "技術が強く、制度も人もあるのに事業化が止まるのはなぜか。会社が生まれる前の時間「Before Zero」を定義し、七つの不確実性の地図と、早すぎる設立・遅すぎる決断の両側を示す開幕章。",
+  },
+  {
+    slug: "field-clocks",
+    title: "関係者の時計 — 善意のズレが研究者を孤立させる",
+    summary: "研究者・大学・企業・VC・行政・支援者は別々の関心と時計で動く。悪意なき「正しい圧力の未調整」が研究者を急がせ孤立させる構造と、相手の時計から逆算する会話設計。",
+  },
+  {
+    slug: "field-gates",
+    title: "鬼門 — 進める、待つ、止めるを分ける",
+    summary: "外部開示の順序、会社化のタイミング、CEO機能の早すぎる要求。GO/WAIT/NO_GO/HOLD の語彙で空気から判断を取り戻し、戻る条件を書いた WAIT が未来の GO を作る。",
+  },
+  {
+    slug: "field-who-carries",
+    title: "誰が何を背負うのか — 創業者機能の分解と、失敗を学習に変える",
+    summary: "最後に研究人生を背負うのは研究者一人。創業者機能を五つに分解し「誰が・いつまで・どこまで」を九十日メモで合意する方法と、失敗を判断ルールへ変える記録の粒度。",
+  },
   {
     slug: "why-valuation-fails",
     title: "何を解くか — Valuation は Before Zero でなぜ機能しないのか",
