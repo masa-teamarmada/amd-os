@@ -17,6 +17,7 @@
 | 2026-06-10 | 3-3 / 3-8 | 変更 | MTG詳細モーダルの編集 mode を表示 section と同じ source field に揃え、予定MTGの `risks` 表示名を「必ず確認すること」へ変更。旧値は破壊せず confirmation items として扱う | `narrative_md` 主表示時に raw 配列だけを編集してもカード表示へ反映されないズレを防ぐため | えいみ-worker |
 | 2026-06-09 | 3-3 / 3-8 | 変更 | MTG単位添付 (`meeting_assets`) を一般ファイル対応へ変更し、Drive保存先 `projects.drive_folder_id / YYMMDD_会議名 / アップロードファイル`、保存先表示、旧Storage互換、metadata-only DB payloadを定義 | MTGカード資料アップロードの古い画像/PDF制限を撤廃し、資料の実体保存場所をPJ folder配下へ統一するため | えいみ-worker |
 | 2026-06-09 | 3-8 | 変更 | MTG単位添付のMarkdown (`.md` / `.markdown`) をOS内モーダルでfetch/renderして読める仕様を追記 | 添付されたMarkdown資料をDrive/別タブへ移動せず、MTGカード内で確認できるようにするため | えいみ-worker |
+| 2026-06-09 | 3-3 | 変更 | L2⑥予定MTGカードで `source_kinds` の `+` 区切り拡張値を `upcoming` token 判定にし、ZMP/p19 の `ZeMA` alias を `calendar-sync` のPJ解決に追加 | 2026-06-10 ZeMA/ZMP定例MTGカードが日時確定済みなのに日程調整中へ落ちた再発防止 | えいみ-worker |
 | 2026-06-09 | 5-6 | 追加 | 契約管理仕様を追加。`contracts` / `contract_documents` / `contract_signals` / `contract_nudges`、`/contracts`、API、5生データ分類、Drive保存先、nudge dry-runを定義 | 契約書管理MVPを実装し、権限・Drive・Slack・予兆検知の安全境界を設計書正本へ残すため | えいみ-worker |
 | 2026-06-08 | 3-8 | 変更 | `project_documents` の API/RLS 権限を admin-only から、対象PJの active member または admin に変更。資料一覧GET、upload、Markdown preview/edit の権限境界を明記 | PJ cockpit内の資料リンク台帳をPJメンバー全体で読めるようにし、非adminメンバーの `Forbidden` を解消するため | えいみ-worker |
 | 2026-06-06 | 2-1 | 変更 | `/dashboard` の通常PJ一覧から AMD 全体PJ (`p00`) を除外し、入口をバイタルサイン枠に一本化 | 会社全体PJを通常PJカードと重複表示せず、バイタルサイン枠から入る導線に整理するため | えいみ-worker |

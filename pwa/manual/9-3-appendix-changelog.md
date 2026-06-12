@@ -17,6 +17,7 @@
 | 2026-06-10 | 2-3 PJ コックピット | 変更 | MTG詳細モーダルの編集を表示 section と同じ位置の inline edit に変更し、予定MTGの旧「気をつけたい読み違い」を「必ず確認すること」として表示・編集する方針を追記 | 表示内容と編集可能領域がズレ、保存してもカードに反映されない field がある問題をなくすため | えいみ-worker |
 | 2026-06-09 | 2-3 PJ コックピット / 8-3 L2 routines | 変更 | MTG詳細モーダルの添付資料を一般ファイル対応へ変更し、新規添付の保存先を Drive の `PJフォルダ / YYMMDD_会議名` と明記。カード上の保存先表示、旧Storage添付の互換表示、DBはmetadataのみ保存する方針を追記 | MTGカード資料アップロードで md 等が古い画像/PDF制限に拒否されていたため。MTG単位の資料置き場をPJ folder配下に整理するため | えいみ-worker |
 | 2026-06-09 | 2-3 PJ コックピット | 変更 | MTG詳細モーダルのMarkdown添付 (`.md` / `.markdown`) をOS内モーダルで開ける仕様を追記 | MTG準備メモなどのMarkdown添付をDrive/別タブへ移動せず、カード内で読めるようにするため | えいみ-worker |
+| 2026-06-09 | 2-3 PJ コックピット | 変更 | MTGサマリの予定MTG判定を `source_kinds='upcoming'` exact だけでなく、`upcoming+calendar+manual-prep` のような `+` 区切りtokenにも対応すると明記 | 2026-06-10 ZeMA/ZMP定例MTGカードが日時確定済みなのに日程調整中へ落ちた再発防止 | えいみ-worker |
 | 2026-06-09 | 6-7 契約管理 | 追加 | `/contracts` の契約予定枠、status、version history、押印版metadata、5生データ予兆dry-run、Slack nudge dry-run、Drive保存先 `共有ドライブ/ARMADA/a3_backoffice/契約` を追加 | 契約締結予兆から押印版保存までをOS上で追い、契約書本文をDBに入れずDrive metadataだけで安全に管理するため | えいみ-worker |
 | 2026-06-08 | 2-3 PJ コックピット | 変更 | 資料コーナーの閲覧/追加権限を admin-only から、対象PJの active member または admin へ変更。PJ cockpitを開けるメンバーが資料一覧だけ `Forbidden` にならないよう明記 | PJ資料はPJ内共有機能であり、まさ/adminだけに閉じると目的を満たさないため | えいみ-worker |
 | 2026-06-06 | 2-4 AMD 会社全体 | 変更 | Dashboard の通常PJ一覧から AMD 全体PJ (`p00`) を除外し、AMD PJ cockpit の入口をバイタルサイン枠に一本化 | 会社全体PJを通常PJカードとして重複表示しないため | えいみ-worker |

@@ -51,15 +51,21 @@ function todayJstIsoDate(): string {
 }
 
 function isUpcomingMeeting(item: ProjectMeetingSummary): boolean {
-  return item.sourceKinds === "upcoming";
+  const sourceKinds = sourceKindTokens(item.sourceKinds);
+  return sourceKinds.has("upcoming") && !sourceKinds.has("upcoming_tentative");
 }
 
 function isPrepMeeting(item: ProjectMeetingSummary): boolean {
-  return item.meetingId.startsWith("upcoming:") || item.sourceKinds === "upcoming" || item.sourceKinds === "upcoming_tentative";
+  const sourceKinds = sourceKindTokens(item.sourceKinds);
+  return item.meetingId.startsWith("upcoming:") || sourceKinds.has("upcoming") || sourceKinds.has("upcoming_tentative");
 }
 
 function isTentativePrepMeeting(item: ProjectMeetingSummary): boolean {
   return isPrepMeeting(item) && !isUpcomingMeeting(item);
+}
+
+function sourceKindTokens(sourceKinds: string | null): Set<string> {
+  return new Set((sourceKinds || "").split("+").map((v) => v.trim()).filter(Boolean));
 }
 
 function normalizeUpcomingSeriesTitle(title: string): string {

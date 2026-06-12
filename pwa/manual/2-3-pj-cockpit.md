@@ -155,7 +155,7 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 - `project_meeting_summaries` テーブル
 - 入力: Calendar (= 開催情報) + Slack / Notion / Drive (= 議事録本文) + dialogue API (= まさえいMTG)
 - `source_kinds` で種別判別: `regular` (= 定例) / `dialogue` (= まさえいMTG) / `upcoming` (= 日時確定済みの予定MTG) / `upcoming_tentative` (= 日程未確定の仮置き)
-- MTGサマリ先頭では、`source_kinds='upcoming'` は「予定MTG / 準備中」、`source_kinds='upcoming_tentative'` や `meeting_id` が `upcoming:` で始まるだけの仮置き row は「日程調整中MTG」に出す。未確定分は確定予定 count には含めず、一覧の日付は未定として表示する
+- MTGサマリ先頭では、`source_kinds='upcoming'` や `upcoming+calendar+manual-prep` のように `upcoming` token を含む row は「予定MTG / 準備中」、`source_kinds='upcoming_tentative'` や `meeting_id` が `upcoming:` で始まるだけの仮置き row は「日程調整中MTG」に出す。未確定分は確定予定 count には含めず、一覧の日付は未定として表示する
 - L2⑥ routine は今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡し、前回議事録がまだ無いPJでも `source_kinds='upcoming'` の予定MTGカードを作る
 - 一覧カードの短い説明は `summary_short`。詳細モーダルは `narrative_md` があればそれを主表示する
 - 詳細モーダルで `narrative_md` (= L2⑥の MTG サマリ抽出 routine が、そのMTGに参加していなかったメンバーでも背景・議論の流れ・決定/未決・次の一手を理解できる文章 narrative に書き直したもの) を主表示
