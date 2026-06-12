@@ -139,7 +139,7 @@ EOF
 fi
 
 get_latest_prod_line() {
-  npx vercel ls "$PROJECT" --scope "$SCOPE" 2>/dev/null | grep "Production" | head -1
+  npx vercel ls "$PROJECT" --scope "$SCOPE" 2>&1 | grep "Production" | head -1
 }
 
 BASELINE_URL=$(get_latest_prod_line | grep -oE 'https://[^ ]+' || true)
