@@ -5,6 +5,22 @@
 
 ---
 
+### [git/deploy] L2 リネーム正本が「巻き戻った」— 本番ライン 64 commit が未 push の codex ブランチに幽閉 (2026-06-12)
+
+- **状態**: ✅ クローズ (= main へ fast-forward + push で復旧。恒久対策 A案を同日実装)
+- **症状**: まさが OS の設計書画面で確認済みだった L2 の D/M/H 再ナンバリング (spec 3-1 / manual 8-3 / L2_DATA.md) が、再訪したら旧 ①〜⑩ ナンバリングに戻って見えた。「また正本が消えた」状態。
+- **原因**: Codex セッション群がリポルール (main 直運用) に違反して `codex/*` ブランチを 30 本以上作成。リネーム commit `aea9e92a` (2026-06-04) を含む本番ライン (v0.16.29、64 commit) が `codex/main-current-v01629-sync` に積まれたまま **一度も GitHub に push されず、main にも合流していなかった**。main は v0.15.1 (6/3) で停止。古い main 系の内容を見た時点で「巻き戻り」に見えた。データは一切消えていない — 正本が git 上のどこにも固定されていなかったのが本質。
+- **対応内容**:
+  - 全ローカルブランチを origin へバックアップ push (このとき Vercel の GitHub 自動 deploy が発覚し、preview build 13 件が Queued → 即時全削除で quota 被害を最小化)
+  - main を `codex/main-current-v01629-sync` へ fast-forward (コンフリクトなし・commit 消失なし) → push → 自動 production deploy Ready で OS 画面復旧
+- **再発防止策 (2026-06-12 まさ確定 A案)**:
+  - **本番反映 = main push に一本化**。Vercel CLI 直接 deploy 全面廃止。`pwa/scripts/deploy.sh` を「main/clean/origin 検査 + rollback guard + push + build 監視」に全面改修
+  - `pwa/vercel.json` に `ignoreCommand` を追加し、**main 以外の branch は build されない**
+  - **ブランチ作成を全面禁止** (root `CLAUDE.md`。旧 `wip/` 例外も廃止)
+- **教訓**: 「画面で確認した」は正本の固定を意味しない。**OS 画面 = origin/main の等式を機械で強制**しない限り、巻き戻り事故は人の注意力では防げない。pwa/CLAUDE.md の「Git 自動 deploy は使っていない」という記述も実態と乖離していた — インフラ設定と正本 md の乖離は事故の入口になる。
+
+---
+
 ### [deps] react-simple-maps は React 19 と peer dep 衝突 → `--legacy-peer-deps` 必須 (2026-06-03)
 
 - **状態**: ✅ 既知ハマり (= 回避策確立済み)

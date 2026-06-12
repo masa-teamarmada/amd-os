@@ -31,7 +31,7 @@
 
 ## デプロイ
 - **gas** → `clasp push`
-- **pwa** → Vercel deploy/pushは再開可。ただしproduction deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、必ずdeploy bundleを作り、`askuserquestion` でまさ許可を取る。承認待ちは `approval pending` として台帳に残す。微細変更ごとの単発deployは禁止
+- **pwa** → **main への push = Vercel 自動 production deploy** (2026-06-12 まさ確定 A案)。push 前に deploy bundle を提示してまさの承認を取る (`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` 経由)。CLI 直接 deploy (`npx vercel`) は全面廃止。main 以外の branch は `pwa/vercel.json` の ignoreCommand で build されない。微細変更ごとの単発 push は禁止、束ねて 1 回
 - **ios** → `xcodebuild → devicectl install → process launch`、毎回
 - **android** → TBD
 

@@ -21,36 +21,41 @@
 | framework | Next.js 16 App Router |
 | UI | React 19 + Tailwind CSS v4 |
 | backend | Supabase direct access + AMD OS GAS Web App |
-| deploy | Vercel CLI local production deploy |
+| deploy | main push = Vercel Git 自動 production deploy (2026-06-12〜、CLI 直接 deploy 廃止) |
 | route root | `pwa/src/app/(app)` |
 
 Next.js の挙動は version 依存が強い。実装前に必要なら `node_modules/next/dist/docs/` を確認する。
 
 ## Production deploy
 
-PWA の本番反映は必ず repo root から deploy script を使う。
+**2026-06-12 まさ確定 (A案)**: PWA の本番反映 = `origin/main` への push。Vercel の GitHub 連携が main push を自動 production build する。Vercel CLI による直接 deploy (`npx vercel --prod` / `npx vercel deploy` / 旧 `--archive=tgz` 方式) は全面廃止。
+
+目的: **「まさが画面で見る OS = origin/main」を常に成立させる**。未 push worktree からの CLI deploy は、git のどこにも固定されない本番を作り、正本巻き戻り事故を生むため (2026-06-12 L2 リネーム幽閉事故、`pwa/BUGS.md` 参照)。
+
+本番反映は必ず repo root の deploy script を使う。
 
 ```bash
-bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
+AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 ```
 
 契約:
 
-- `--cwd` は repo root。`pwa/` を指定しない。
-- `--archive=tgz` 必須。
-- `.vercel/project.json` は `amd-os-pwa` / `prj_raZW3HSKIszzPUwNTHfy7xDGzLHm` を指す。
-- deploy script は Vercel CLI を起動する前に `.vercel/project.json` を検査し、`amd-os-pwa` 以外や missing の場合は hard-stop する。worker worktreeから誤って新規Vercel projectを作らないため、この guard を外してdeployしてはいけない。
-- deploy script は Vercel を呼ぶ前に rollback guard を実行し、local `BUILD_VERSION` が deploy minimum、production current、または既知 git ref max より古い production deploy を止める。
-- `bash pwa/scripts/deploy.sh --dry-run` は Vercel を呼ばず、rollback guard と build stamp 準備だけを確認する。
-- preview deploy は production alias を動かさないため rollback guard は warning に留める。production deploy は hard-stop。
-- script は deploy trigger 後、Ready まで polling し、macOS 通知を出す。
-- 直接 `npx vercel` を叩かない。
+- script は push 前に次を検査し、満たさなければ hard-stop する: ①current branch = main ②tracked ファイルに未コミット変更なし ③`origin/main` がローカル main の ancestor (= 別マシンの push を取り込み済み) ④origin/main との差分 commit が 1 つ以上ある。
+- script は push 前に rollback guard (`deploy-version-guard.cjs`) を実行し、local `BUILD_VERSION` が production current より古い deploy を止める。
+- `bash pwa/scripts/deploy.sh --dry-run` は push せず、上記検査と rollback guard だけを確認する。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1` はまさの deploy bundle 承認後にのみ付与する。
+- script は push 後、新しい production deployment が Ready になるまで polling し (最大 15 分)、macOS 通知を出す。
+- **main 以外の branch は build されない**: `pwa/vercel.json` の `ignoreCommand: [ "$VERCEL_GIT_COMMIT_REF" != "main" ]` (exit 0 = build skip)。preview deploy は運用しない。
+- **ブランチ作成は全面禁止** (root `CLAUDE.md` 2026-06-12 確定)。
+- `.vercel/project.json` (`amd-os-pwa` / `prj_raZW3HSKIszzPUwNTHfy7xDGzLHm`) は緊急 rollback の `vercel promote` 用に維持する。
 
-rollback:
+rollback (緊急時のみ CLI 使用可):
 
 ```bash
 npx vercel promote <deployment-id> --scope armada0130 --yes
 ```
+
+恒久復旧は revert commit を main に push して行い、本番と main の乖離を残さない。
 
 ## Build version
 

@@ -21,10 +21,10 @@
 - 使い方は `/manual`、実装仕様は `/spec`、理論・数式・rubric は `/bzm` に置く。
 - どれかを変更したら、対応する附則に日時つきで追記する。
 - 画面導線や章 metadata を触ったら `npx tsc --noEmit` と `npm run build` を通す。
-- 本番反映するなら build version を bump する。ただしVercel production deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、deploy bundleを作り、`askuserquestion` でまさ承認を取る。
-- deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含める。承認待ちは `approval pending` として台帳に残す。
-- 承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` で本番deployする。
-- deploy 前の安い確認は `bash pwa/scripts/deploy.sh --dry-run`。Vercelを呼ばずに、`.vercel/project.json` が `amd-os-pwa` を指すこと、BUILD_VERSION rollback guard、build stamp 準備だけを見る。
+- **本番反映 = main への push** (2026-06-12〜、Vercel Git 自動 deploy)。CLI 直接 deploy は廃止、ブランチ作成は全面禁止。本番反映するなら build version を bump し、push 直前に deploy bundle をチャットで提示してまさ承認を取る。
+- deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、push先、rollback/本番確認方法を含める。承認待ちは `approval pending` として台帳に残す。
+- 承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` で main を push する (= 検査 + rollback guard + push + build 監視)。
+- push 前の安い確認は `bash pwa/scripts/deploy.sh --dry-run`。push せずに、main/clean/origin 整合と BUILD_VERSION rollback guard だけを見る。
 - 本番の出どころ確認は `/api/build-info`。`build_version` / `git_sha` / `git_branch` / `deployed_at` / `dirty` だけを返し、secret は出さない。
 - 自分が触っていない dirty file を commit に混ぜない。
 

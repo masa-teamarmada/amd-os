@@ -18,16 +18,16 @@ Next.js 16 + React 19 + Tailwind CSS v4
 - **デプロイ**: Vercel（armada0130 / amd-os-pwa）
 - **本番URL**: https://amd-os-pwa.vercel.app
 
-## デプロイ方式・Git運用
+## デプロイ方式・Git運用（2026-06-12 まさ確定 A案）
 
-- **現在のPWA本番反映はVercel CLIによるローカル直接deploy**。
-- **VercelのGit自動deployを正本として使っていない**。別repo/branchから自動反映される前提で作業しないこと。
-- 実装ベースは `main` checkout の `/Users/masa/projects/AMD/amd-os/pwa`。
-- ただし現状は移行直後の大きな未コミット差分を含む。`main` のリモートHEADだけを見ても本番相当の実装とは限らない。
+- **PWA の本番反映 = `origin/main` への push**。Vercel が main push を自動 production build する。**「まさが画面で見る OS = origin/main」が常に成立する**ことがこの方式の目的。
+- **Vercel CLI による直接 deploy (`npx vercel --prod` / `npx vercel deploy`) は全面廃止**。push 状態と無関係な worktree から本番が作られると、正本巻き戻り事故 (2026-06-12 L2 リネーム幽閉事故) が再発するため。
+- **main 以外の branch は build されない** (`pwa/vercel.json` の `ignoreCommand`)。preview deploy は運用しない。
+- **ブランチ作成は全面禁止** (root `CLAUDE.md` 参照)。main に無いものは本番に存在できない。
+- 本番反映は必ず `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` 経由 (= main/clean/origin 整合検査 + rollback guard + push + build 監視 + macOS 通知)。
 - `git remote -v`: `https://github.com/masa-teamarmada/amd-os.git`
-- `git branch --show-current`: `main`
-- `.vercel/project.json`: projectName `amd-os-pwa` / projectId `prj_raZW3HSKIszzPUwNTHfy7xDGzLHm`
-- Claude/Codexがdeployする場合は、必ずこのローカルcheckoutから `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` を実行する。`--cwd .../pwa` は禁止。
+- `git branch --show-current`: `main` (これ以外なら作業開始前に直す)
+- `.vercel/project.json`: projectName `amd-os-pwa` / projectId `prj_raZW3HSKIszzPUwNTHfy7xDGzLHm` (緊急 rollback の `vercel promote` 用に維持)
 
 ## ドキュメント構成（**この順で読む**）
 
@@ -101,42 +101,38 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 ---
 
-## ⚠️ Vercel deploy approval gate（現在優先）
+## ⚠️ Vercel deploy approval gate（main push 前の承認）
 
-**2026-06-04以降、Vercel deploy/pushは再開可。ただしproduction deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、必ずdeploy bundleつきでまさ許可を取る。**
+**本番反映 = main push なので、承認対象は「main への push」になった (2026-06-12)。**
 
-- deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含める。
-- てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止。複数worker成果を束ねて1回でdeployする。
+- main push の直前に、deploy bundle (含める変更 / 除外する変更 / local build・test・browser確認結果 / push 先 / rollback・本番確認方法) をチャットで提示し、まさの承認を取る。
+- てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつ push する運用は禁止。複数成果を束ねて1回で push する。
 - 承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。
-- workerは local build / lint / static check / スクショ / ローカル確認で止める。必要ならlocal commitまではよい。
-- `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`、`npx vercel deploy`、Vercel auto deploy対象の `git push` の直前にはdeploy bundleを提示し、askuserquestionで承認を取る。
+- workerは local build / lint / static check / スクショ / ローカル確認 + local commit で止める。push は司令塔が承認後にまとめて行う。
+- 承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を実行する。
 
 ## ⚠️ Vercel デプロイコマンド（承認後の正本）
 
 ```bash
-bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
+AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 ```
 
-このスクリプトは:
-1. `npx vercel --prod --yes --archive=tgz --cwd <repo-root>` で deploy トリガー
-2. Build が Ready になるまで polling (最大 10 分)
-3. 完了 → macOS 通知 (Glass 音) でまさに知らせる
-4. 失敗 → Basso 音でエラー通知
+このスクリプトは (2026-06-12 push 方式に全面改修):
+1. main checkout / clean tree / origin/main 整合を検査 (main 以外・未コミット tracked 変更・origin 未取り込みは hard-stop)
+2. rollback guard (`deploy-version-guard.cjs`) で BUILD_VERSION の巻き戻り deploy を阻止
+3. `git push origin main` → Vercel 自動 production build 発火
+4. 新しい production deployment が Ready になるまで polling (最大 15 分)
+5. 完了 → macOS 通知 (Glass 音) / 失敗 → Basso 音
 
-**直接 `npx vercel` を叩かないこと**。Build 完了通知が出ないので、まさが「終わった?」と確認しに来る無駄が発生する (2026-05-07 のフィードバック)。
+**直接 `npx vercel` を叩かない (CLI deploy 全面廃止)**。生 `git push origin main` も、PWA 本番に影響する変更では使わずこのスクリプトを通す (検査と通知が飛ぶため)。
 
-**`--cwd` は リポジトリ root** (`pwa/` ではない)。Vercel project `amd-os-pwa` の Settings → Build → Root Directory に `pwa` が設定されているため、`--cwd .../pwa` だと `pwa/pwa` 二重で失敗する (BUGS.md 2026-05-06 参照)。
+**main 以外の branch push は build されない** (`pwa/vercel.json` の `ignoreCommand: [ "$VERCEL_GIT_COMMIT_REF" != "main" ]`)。誤って branch を push しても本番・preview とも作られないが、そもそもブランチ作成自体が全面禁止。
 
-**`--archive=tgz` 必須**。モノレポの upload 対象が 15000 files を超えることがあり、通常 deploy だと `files should NOT have more than 15000 items` で失敗する (2026-05-14 dashboard cyber handoff)。
-
-事前確認:
-- リポ root の `.vercel/project.json` が `amd-os-pwa` (`prj_raZW3HSKIszzPUwNTHfy7xDGzLHm`) を指していること。空だと `--yes` で誤って新プロジェクト `amd-os` が作られる
-- 無ければ `cp -r /Users/masa/projects/AMD/amd-os/pwa/.vercel /Users/masa/projects/AMD/amd-os/.vercel` で復元
-
-ロールバック方法（緊急時）:
+ロールバック方法（緊急時のみ CLI 使用可）:
 ```bash
 npx vercel promote <デプロイID> --scope armada0130 --yes
 # デプロイIDは vercel ls --scope armada0130 で確認
+# 恒久復旧は revert commit を main に push して行う (本番と main の乖離を残さない)
 ```
 
 ---

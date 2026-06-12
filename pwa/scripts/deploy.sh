@@ -1,20 +1,28 @@
 #!/usr/bin/env bash
-# AMD OS PWA — 本番 deploy + Build 完了 macOS 通知
+# AMD OS PWA — 本番反映 = main push (Vercel Git 自動 deploy) + Build 完了 macOS 通知
 #
-# 使い方: ./pwa/scripts/deploy.sh   (リポ root から実行)
+# 2026-06-12 以降の正本フロー (まさ確定 A案):
+#   本番反映 = origin/main への push。Vercel が main push を自動 production build する。
+#   Vercel CLI による直接 deploy (`npx vercel --prod` / `npx vercel deploy`) は全面廃止。
+#   main 以外の branch push は pwa/vercel.json の ignoreCommand により build されない。
+#   これにより「まさが画面で見る OS = origin/main」が常に成立し、
+#   未 push worktree からの deploy による正本巻き戻り事故を構造的に排除する。
+#
+# 使い方:
+#   AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
+#   bash pwa/scripts/deploy.sh --dry-run   (検査と rollback guard のみ、push しない)
 #
 # 動作:
-#   1. Vercel CLI で production deploy をトリガー (build queue に投入)
-#   2. Build が "Ready" になるまで polling (最大 10 分)
-#   3. 完了したら macOS 通知センターで「ピコン」と通知
-#   4. 失敗したら警告音 + エラー通知
+#   1. main checkout / clean tree / origin/main との整合を検査
+#   2. rollback guard (deploy-version-guard.cjs)
+#   3. git push origin main → Vercel 自動 build 発火
+#   4. 新しい production deployment が Ready になるまで polling (最大 15 分)
+#   5. 完了 → macOS 通知 (Glass 音) / 失敗 → Basso 音
 #
-# Claude / えいみ向けルール:
-#   - 今後 PWA を deploy するときは必ずこのスクリプト経由で行う
-#   - 直接 `npx vercel --prod --yes ...` を叩かない (通知が出ないので)
-#   - Vercel deploy approval gate 中は、deploy bundleを作って
-#     askuserquestionで承認を取った後だけ実行する。
-#   - 承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1` を付けて実行する。
+# Claude / えいみ / Codex 向けルール:
+#   - PWA の本番反映は必ずこのスクリプト経由。`npx vercel` 直接実行は禁止
+#   - deploy bundle をまさに提示して承認を得てから AMD_OS_VERCEL_DEPLOY_APPROVED=1 で実行
+#   - main 以外のブランチ作成は全面禁止 (リポ全体ルール、2026-06-12 まさ確定)
 
 set -e
 
@@ -22,32 +30,33 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SCOPE="armada0130"
 PROJECT="amd-os-pwa"
-EXPECTED_PROJECT_ID="prj_raZW3HSKIszzPUwNTHfy7xDGzLHm"
 APP_URL="https://amd-os-pwa.vercel.app"
-TARGET="production"
 DRY_RUN=0
 
 cd "$REPO_ROOT"
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --prod|--production)
-      TARGET="production"
-      ;;
-    --preview)
-      TARGET="preview"
-      ;;
     --dry-run)
       DRY_RUN=1
       ;;
     --help)
       cat <<'EOF'
-Usage: bash pwa/scripts/deploy.sh [--prod|--preview] [--dry-run]
+Usage: bash pwa/scripts/deploy.sh [--dry-run]
 
-Default is production deploy. --dry-run runs the rollback guard and build stamp
-preparation only; it never calls Vercel.
+本番反映 = git push origin main (Vercel Git 自動 deploy)。
+--dry-run は push せず、main/clean/origin 整合検査と rollback guard だけ実行する。
+CLI 直接 deploy (--prod / --preview) は 2026-06-12 に廃止済み。
 EOF
       exit 0
+      ;;
+    --prod|--production|--preview)
+      cat <<'EOF' >&2
+⛔ Vercel CLI 直接 deploy は 2026-06-12 に廃止された。
+本番反映は main への push (= このスクリプトの通常実行) で行う。
+preview deploy は運用しない (main 以外の branch は ignoreCommand で build されない)。
+EOF
+      exit 1
       ;;
     *)
       echo "Unknown argument: $1" >&2
@@ -57,195 +66,124 @@ EOF
   shift
 done
 
-if [ "$TARGET" != "production" ] && [ "$TARGET" != "preview" ]; then
-  echo "Invalid target: $TARGET" >&2
-  exit 1
-fi
-
-VERCEL_PROJECT_JSON="$REPO_ROOT/.vercel/project.json"
-if [ ! -f "$VERCEL_PROJECT_JSON" ]; then
+BRANCH=$(git branch --show-current)
+if [ "$BRANCH" != "main" ]; then
   cat <<EOF >&2
-⛔ Missing Vercel project link: $VERCEL_PROJECT_JSON
-
-This deploy script must target the existing $SCOPE/$PROJECT project.
-Do not let Vercel CLI auto-link or create a new project from a worker worktree.
-
-Restore a correct .vercel/project.json for $PROJECT, then rerun deploy.
+⛔ main 以外からの deploy は禁止 (current branch: ${BRANCH:-detached})。
+このリポは main 直運用。branch を main に戻してから実行する。
 EOF
   exit 1
 fi
 
-ACTUAL_PROJECT_ID=$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); process.stdout.write(p.projectId || '')" "$VERCEL_PROJECT_JSON")
-ACTUAL_PROJECT_NAME=$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); process.stdout.write(p.projectName || '')" "$VERCEL_PROJECT_JSON")
-if [ "$ACTUAL_PROJECT_ID" != "$EXPECTED_PROJECT_ID" ] || [ "$ACTUAL_PROJECT_NAME" != "$PROJECT" ]; then
-  cat <<EOF >&2
-⛔ Wrong Vercel project link.
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  cat <<'EOF' >&2
+⛔ tracked ファイルに未コミット変更がある。
+deploy = push origin main なので、未コミット変更は本番に乗らない。
+commit してから再実行する。
+EOF
+  git status --short --untracked-files=no >&2
+  exit 1
+fi
 
-Expected:
-  projectName: $PROJECT
-  projectId:   $EXPECTED_PROJECT_ID
+echo "Fetching origin/main ..."
+git fetch origin main
 
-Actual:
-  projectName: ${ACTUAL_PROJECT_NAME:-"(missing)"}
-  projectId:   ${ACTUAL_PROJECT_ID:-"(missing)"}
-
-Refusing to deploy because this would create or deploy the wrong Vercel project.
-Restore the correct .vercel/project.json, then rerun deploy.
+if ! git merge-base --is-ancestor origin/main HEAD; then
+  cat <<'EOF' >&2
+⛔ origin/main にローカルに無い commit がある (別マシン / 別セッションの push)。
+先に取り込んでから再実行する:
+  git pull --ff-only origin main
 EOF
   exit 1
 fi
 
 echo "Running deploy rollback guard ..."
-node "$SCRIPT_DIR/deploy-version-guard.cjs" --target "$TARGET" --app-url "$APP_URL" --repo-root "$REPO_ROOT"
+node "$SCRIPT_DIR/deploy-version-guard.cjs" --target production --app-url "$APP_URL" --repo-root "$REPO_ROOT"
 
-BUILD_STAMP_GIT_SHA=$(git rev-parse --short=12 HEAD)
-BUILD_STAMP_GIT_BRANCH=$(git branch --show-current)
-if [ -z "$BUILD_STAMP_GIT_BRANCH" ]; then
-  BUILD_STAMP_GIT_BRANCH=$(git name-rev --name-only --no-undefined HEAD 2>/dev/null || echo "detached")
-fi
-if [ "$BUILD_STAMP_GIT_BRANCH" = "undefined" ]; then
-  BUILD_STAMP_GIT_BRANCH="detached"
-fi
-if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
-  BUILD_STAMP_DIRTY="true"
-else
-  BUILD_STAMP_DIRTY="false"
-fi
-BUILD_STAMP_DEPLOYED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-BUILD_STAMP_VERSION=$(node -e "const fs=require('fs'); const m=fs.readFileSync('pwa/src/lib/build-info.ts','utf8').match(/BUILD_VERSION\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]/); if(!m) process.exit(1); console.log(m[1]);")
+GIT_SHA=$(git rev-parse --short=12 HEAD)
+BUILD_VERSION=$(node -e "const fs=require('fs'); const m=fs.readFileSync('pwa/src/lib/build-info.ts','utf8').match(/BUILD_VERSION\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]/); if(!m) process.exit(1); console.log(m[1]);")
+UNPUSHED=$(git rev-list origin/main..HEAD --count)
 
-echo "Build stamp"
-echo "  BUILD_VERSION: $BUILD_STAMP_VERSION"
-echo "  GIT_SHA: $BUILD_STAMP_GIT_SHA"
-echo "  GIT_BRANCH: $BUILD_STAMP_GIT_BRANCH"
-echo "  DEPLOYED_AT: $BUILD_STAMP_DEPLOYED_AT"
-echo "  DIRTY: $BUILD_STAMP_DIRTY"
+echo "Deploy bundle"
+echo "  BUILD_VERSION: $BUILD_VERSION"
+echo "  GIT_SHA: $GIT_SHA"
+echo "  push する commit 数: $UNPUSHED"
 
 if [ "$DRY_RUN" = "1" ]; then
-  echo "Dry run complete. Vercel was not called."
+  echo "Dry run complete. push していない。"
   exit 0
 fi
 
-if [ "${AMD_OS_VERCEL_DEPLOY_APPROVED:-}" != "1" ]; then
-  cat <<'EOF'
-⛔ Vercel deploy requires approval.
-
-Current rule:
-  Vercel deploy is allowed again, but only after Masa approves a deploy bundle.
-  This applies to production deploys, preview deploys, and pushes that may
-  trigger Vercel auto-deploy.
-
-Required deploy bundle:
-  - included changes
-  - excluded changes
-  - local build/test/browser verification
-  - planned deploy count
-  - push/deploy target
-  - rollback plan
-  - production inspection plan
-
-Do not deploy one-off wording, markdown, CSS, comments, logs, or micro UI changes.
-
-If the bundle is approved, rerun with:
-  AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
+if [ "$UNPUSHED" = "0" ]; then
+  cat <<'EOF' >&2
+⛔ origin/main との差分が無い (push する commit が無い)。
+同一 commit の再 build が必要なら Vercel dashboard の Redeploy、
+緊急の巻き戻しなら `npx vercel promote <deployment-id> --scope armada0130 --yes` を使う。
 EOF
   exit 1
 fi
 
-DEPLOY_ARGS=(--yes --archive=tgz --cwd "$REPO_ROOT")
-if [ "$TARGET" = "production" ]; then
-  DEPLOY_ARGS+=(--prod)
-else
-  DEPLOY_ARGS+=(--target preview)
-fi
-DEPLOY_ARGS+=(
-  --build-env "NEXT_PUBLIC_AMD_OS_GIT_SHA=$BUILD_STAMP_GIT_SHA"
-  --build-env "NEXT_PUBLIC_AMD_OS_GIT_BRANCH=$BUILD_STAMP_GIT_BRANCH"
-  --build-env "NEXT_PUBLIC_AMD_OS_DEPLOYED_AT=$BUILD_STAMP_DEPLOYED_AT"
-  --build-env "NEXT_PUBLIC_AMD_OS_DIRTY=$BUILD_STAMP_DIRTY"
-  --meta "amd_os_build_version=$BUILD_STAMP_VERSION"
-  --meta "amd_os_git_sha=$BUILD_STAMP_GIT_SHA"
-  --meta "amd_os_git_branch=$BUILD_STAMP_GIT_BRANCH"
-  --meta "amd_os_dirty=$BUILD_STAMP_DIRTY"
-)
+if [ "${AMD_OS_VERCEL_DEPLOY_APPROVED:-}" != "1" ]; then
+  cat <<'EOF'
+⛔ 本番反映 (main push) にはまさの承認が必要。
 
-echo "▶ Vercel $TARGET deploy triggering ..."
-START_TS=$(date +%s)
-if ! DEPLOY_OUTPUT=$(npx vercel "${DEPLOY_ARGS[@]}" 2>&1); then
-  echo "$DEPLOY_OUTPUT"
-  osascript -e 'display notification "Deploy trigger failed" with title "AMD OS PWA — Deploy" sound name "Basso"' 2>/dev/null || true
+deploy bundle (含める変更 / 除外する変更 / local build・test 確認結果 /
+push 先 / rollback 方法 / 本番確認方法) をまさに提示して承認を得たあと、
+
+  AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
+
+で実行する。微細な md / 文言 / CSS を 1 件ずつ deploy する運用は禁止。
+複数の成果を束ねて 1 回で push する。
+EOF
   exit 1
 fi
-echo "$DEPLOY_OUTPUT"
 
-# deployment URL を抽出 (preview/production 区別なく直近の URL)
-DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://amd-os-[a-z0-9]+-armada0130\.vercel\.app' | head -1)
+get_latest_prod_line() {
+  npx vercel ls "$PROJECT" --scope "$SCOPE" 2>/dev/null | grep "Production" | head -1
+}
+
+BASELINE_URL=$(get_latest_prod_line | grep -oE 'https://[^ ]+' || true)
+echo "  現行 production deployment: ${BASELINE_URL:-unknown}"
+
+echo "▶ git push origin main (= Vercel 自動 production build 発火) ..."
+START_TS=$(date +%s)
+git push origin main
 
 echo ""
-echo "▶ Waiting for $TARGET build to be Ready ..."
-echo "  (URL: ${DEPLOY_URL:-unknown})"
+echo "▶ 新しい production build が Ready になるのを待つ (最大 15 分) ..."
 
-# 最大 10 分 polling。
-#
-# 注意: `vercel ls` は pipe 経由 (非 tty) だと URL だけしか出力しない (status 列が出ない)。
-# 過去のバグ: grep ベースで status を取ろうとしたが、行に URL しかないので Ready が
-# 永遠に検出できず timeout していた。
-# → `vercel inspect <url>` で個別 deployment の status を取る方式に変更。
-MAX_TRIES=120
+MAX_TRIES=90
 TRY=0
 while [ $TRY -lt $MAX_TRIES ]; do
-  if [ -n "$DEPLOY_URL" ]; then
-    INSPECT_OUTPUT=$(npx vercel inspect "$DEPLOY_URL" --scope "$SCOPE" 2>&1)
-  else
-    INSPECT_OUTPUT=""
+  LINE=$(get_latest_prod_line || true)
+  URL=$(echo "$LINE" | grep -oE 'https://[^ ]+' || true)
+  STATUS=$(echo "$LINE" | grep -oE 'Ready|Error|Canceled|Building|Queued|Initializing' | head -1 || true)
+
+  if [ -n "$URL" ] && [ "$URL" != "$BASELINE_URL" ]; then
+    case "$STATUS" in
+      Ready)
+        DURATION=$(( $(date +%s) - START_TS ))
+        MIN=$((DURATION / 60))
+        SEC=$((DURATION % 60))
+        MSG="${MIN}分${SEC}秒で完了 ($BUILD_VERSION) → ${APP_URL}"
+        echo "✅ $MSG"
+        echo "   deployment: $URL"
+        osascript -e "display notification \"$MSG\" with title \"AMD OS PWA — Deploy 完了\" sound name \"Glass\"" 2>/dev/null || true
+        exit 0
+        ;;
+      Error|Canceled)
+        MSG="Build $STATUS ($URL)"
+        echo "❌ $MSG"
+        osascript -e "display notification \"$MSG\" with title \"AMD OS PWA — Deploy 失敗\" sound name \"Basso\"" 2>/dev/null || true
+        exit 1
+        ;;
+    esac
   fi
 
-  if echo "$INSPECT_OUTPUT" | grep -qE 'status[[:space:]]+.*Ready'; then
-    STATUS="Ready"
-  elif echo "$INSPECT_OUTPUT" | grep -qE 'status[[:space:]]+.*Error'; then
-    STATUS="Error"
-  elif echo "$INSPECT_OUTPUT" | grep -qE 'status[[:space:]]+.*Canceled'; then
-    STATUS="Canceled"
-  elif echo "$INSPECT_OUTPUT" | grep -qE 'status[[:space:]]+.*(Building|Queued|Initializing)'; then
-    STATUS="Building"
-  else
-    STATUS=""
-  fi
-
-  case "$STATUS" in
-    Ready)
-      DURATION=$(( $(date +%s) - START_TS ))
-      MIN=$((DURATION / 60))
-      SEC=$((DURATION % 60))
-      if [ "$TARGET" = "production" ]; then
-        MSG="${MIN}分${SEC}秒で完了 → ${APP_URL}"
-      else
-        MSG="${MIN}分${SEC}秒でpreview完了 → ${DEPLOY_URL:-unknown}"
-      fi
-      echo "✅ $MSG"
-      if [ "$TARGET" = "production" ]; then
-        echo "   User-facing URL: ${APP_URL}"
-      fi
-      echo "   Inspect-only deployment URL: ${DEPLOY_URL:-unknown}"
-      osascript -e "display notification \"$MSG\" with title \"AMD OS PWA — Deploy 完了\" sound name \"Glass\"" 2>/dev/null || true
-      exit 0
-      ;;
-    Error|Canceled)
-      MSG="Build $STATUS"
-      echo "❌ $MSG"
-      osascript -e "display notification \"$MSG\" with title \"AMD OS PWA — Deploy 失敗\" sound name \"Basso\"" 2>/dev/null || true
-      exit 1
-      ;;
-    Building|Queued|"")
-      ;;
-    *)
-      echo "  status=$STATUS (waiting...)"
-      ;;
-  esac
-
-  sleep 5
+  sleep 10
   TRY=$((TRY + 1))
 done
 
-osascript -e 'display notification "Build polling timed out (10 分)" with title "AMD OS PWA — Deploy" sound name "Funk"' 2>/dev/null || true
+osascript -e 'display notification "Build polling timed out (15 分)" with title "AMD OS PWA — Deploy" sound name "Funk"' 2>/dev/null || true
+echo "⚠ polling timeout。push 自体は完了している。Vercel dashboard で build 状態を確認する。" >&2
 exit 1

@@ -44,17 +44,17 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 
 # 確認方針 (PWA Vercel deploy approval gate)
 
-**2026-06-04以降、Vercel deploy/pushは再開可。ただしproduction deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、必ずdeploy bundleつきでまさ許可を取る。**
+**2026-06-12 以降、PWA の本番反映 = `origin/main` への push (Vercel Git 自動 deploy)。CLI 直接 deploy は全面廃止、ブランチ作成も全面禁止 (root `CLAUDE.md` 参照)。main push の直前には必ず deploy bundle つきでまさ許可を取る。**
 
-deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含める。
+deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、push先、rollback/本番確認方法を含める。
 
-てにをは、文言、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止。複数worker成果を束ねて1回でdeployする。
+てにをは、文言、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつpushする運用は禁止。複数worker成果を束ねて1回でpushする。
 
 承認待ちで止まる場合は `approval pending` として台帳に残す。未分類blocker扱いにしない。
 
-標準ワークフロー: 実装 → `tsc --noEmit` → `npm run build` → 必要ならローカルスクショ/ローカル確認 → local commitまで。push/deploy直前にdeploy bundleを提示し、askuserquestionでまさ許可を取る。
+標準ワークフロー: 実装 → `tsc --noEmit` → `npm run build` → 必要ならローカルスクショ/ローカル確認 → local commitまで。push直前にdeploy bundleをチャットで提示し、まさ許可を取る。
 
-**えいみへの含意**: `npm run build` が通っても自動push/deployしない。`bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`、`npx vercel deploy`、Vercel auto deploy対象の `git push` の直前にはdeploy bundleを提示し、まさ許可を取る。
+**えいみへの含意**: `npm run build` が通っても自動pushしない。承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` (= main/clean/origin検査 + rollback guard + push + build監視) を実行する。`npx vercel deploy` / `npx vercel --prod` は禁止。main 以外の branch push は `pwa/vercel.json` の ignoreCommand で build されない。
 
 # 🚨 画像生成ごまかし禁止 (絶対ルール)
 

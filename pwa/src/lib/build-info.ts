@@ -7,7 +7,7 @@
  *
  * 仕様は pwa/CLAUDE.md の「🔢 build version の bump up」セクションを参照。
  */
-export const BUILD_VERSION = "v0.16.29";
+export const BUILD_VERSION = "v0.16.30";
 
 export type PublicBuildInfo = {
   build_version: string;
@@ -17,8 +17,18 @@ export type PublicBuildInfo = {
   dirty: boolean;
 };
 
-const GIT_SHA = process.env.NEXT_PUBLIC_AMD_OS_GIT_SHA || "unknown";
-const GIT_BRANCH = process.env.NEXT_PUBLIC_AMD_OS_GIT_BRANCH || "unknown";
+// CLI deploy 廃止 (2026-06-12) 後は Vercel Git deploy のシステム環境変数を一次ソースにする。
+// 旧 NEXT_PUBLIC_AMD_OS_* は CLI deploy 時代の注入値で、互換のため先に見る。
+const GIT_SHA =
+  process.env.NEXT_PUBLIC_AMD_OS_GIT_SHA ||
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+  "unknown";
+const GIT_BRANCH =
+  process.env.NEXT_PUBLIC_AMD_OS_GIT_BRANCH ||
+  process.env.VERCEL_GIT_COMMIT_REF ||
+  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF ||
+  "unknown";
 const DEPLOYED_AT = process.env.NEXT_PUBLIC_AMD_OS_DEPLOYED_AT || "unknown";
 const DIRTY = process.env.NEXT_PUBLIC_AMD_OS_DIRTY === "true";
 

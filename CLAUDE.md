@@ -70,8 +70,7 @@ git status -s
 ## 🚨 commit したら即 push（最重要ルール）
 
 - 機能完成まで push を待たない
-- 1機能 = 1 commit、commit のたびに `git push origin <branch>`
-- 不完全な作業も `wip/` プレフィックスの branch なら push してOK
+- 1機能 = 1 commit、commit のたびに `git push origin main`
 - 「1日の作業終わりに必ず push」を最低ライン
 
 これを守らないと、別PC・別セッションの Claude が作業を見逃して **巻き戻り事故** が起きる。
@@ -80,17 +79,23 @@ git status -s
 
 ---
 
-## 🚫 ブランチを勝手に切るな — このリポは main 直運用
+## 🚫 ブランチ作成は全面禁止 — このリポは main 一本 (2026-06-12 まさ確定)
 
-- **Claude / Codex / えいみは feature ブランチを勝手に作らない。main で直接 commit & push する。**
-- Claude Code / Codex のデフォルト挙動に「default ブランチで作業を始めたら branch を切る」があるが、**このリポでは従わない**。
+- **Claude / Codex / えいみは、いかなる理由でもブランチを作らない。main で直接 commit & push する。**
+- 旧ルールにあった `wip/` 短命ブランチの例外も **廃止**。例外は無い。
+- Claude Code / Codex のデフォルト挙動に「default ブランチで作業を始めたら branch を切る」「worker ごとに branch を切る」があるが、**このリポでは絶対に従わない**。
 - 長期の大物（教科書 md / 設計ドキュメント等）も **main 上で直接育てる**。途中状態が main にあっても PWA build は壊れない（md・表示物が中心）。
-- どうしても隔離したい実験だけ `wip/` プレフィックスの短命ブランチ可。放置せず、すぐ main に戻すか push して捨てる。
-- **まさが明示的に「ブランチ切って」と言った時だけ** feature ブランチを作る。
+- 唯一の例外: **まさがそのセッションで明示的に「ブランチ切って」と言った時だけ**。過去ログや慣習からの類推は例外にならない。
+- 既存の `codex/*` 等の残存ブランチに **新しい commit を積まない**。価値ある未マージ作業は main に畳んでから捨てる。
+- PWA の本番反映は `main push = Vercel 自動 deploy`（`pwa/CLAUDE.md` 参照）。**main に無いものは本番に存在できない** — これがこのルールの機械的な裏付け。
 
 ### 過去事故 (2026-05-30)
 
 AI が自動で `feat/bzm-textbook` を切り、以降の複数セッションがその上に BZM 以外の作業（cockpit / payment / design_log / ERS）まで無関係に積んだ。結果 main と乖離し、畳む時に 15 ファイルのコンフリクト予測 +「今どのブランチ?」混乱が発生。**ブランチのメリット（main 隔離）はこのリポの運用では薄く、デメリット（乖離・混乱・巨大コンフリクト）だけが膨らむ**。main 一本なら全セッションが同じ場所を見る。
+
+### 過去事故 (2026-06-12) — ルール違反のブランチ散乱で正本が「消えた」
+
+Codex セッション群が本ルールに違反して `codex/*` ブランチを 30 本以上作成し、本番ライン (v0.16.29、L2 の D/M/H 再ナンバリング正本を含む 64 commit) が **未 push のローカルブランチに幽閉**された。main は v0.15.1 で停止。まさが OS 画面で確認済みの正本 (spec 3-1 の L2 リネーム) が「巻き戻った」ように見える事故になった。復旧は main への fast-forward + push で完了。**この事故を最後にブランチ作成を全面禁止とした。**
 
 ---
 
@@ -210,7 +215,7 @@ daily 議題プリペアは scheduled task `amd-os-management-dialogue-prep` が
 - [ ] コード変更が終わってる
 - [ ] DESIGN.md / HANDOFF_*.md が必要に応じて更新済み
 - [ ] iOS 触ったなら実機デプロイまで完了（`devicectl install` + `launch` 成功）
-- [ ] PWA 触ったなら Vercel deploy まで完了
+- [ ] PWA 触ったなら main push (= Vercel 自動 deploy、まさ承認後) まで完了
 - [ ] GAS 触ったなら `clasp push` 完了
 - [ ] commit はすべて GitHub に push 済み
 - [ ] main 更新したなら他プラットフォーム向けハンドオフ doc 更新 + push 済み
