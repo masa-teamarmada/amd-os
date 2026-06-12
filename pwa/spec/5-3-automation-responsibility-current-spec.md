@@ -42,10 +42,10 @@ L2 を cadence で分類し、**新ナンバリング (D = daily / M = month-end
 
 | グループ | routine / 実行場所 | cadence | run 消費 |
 |---|---|---|---|
-| **D-1〜D-11 / D-13** | Claude routine `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | 平常日 +1/日 |
+| **D-1〜D-11 / D-13** | Claude routine `amd-os-l2-consolidated-evidence` (表示名「AMD OS L2 日次抽出 (D-1〜D-11+D-13 統合)」) | daily 08:00 JST (`0 8 * * *`) | 平常日 +1/日 |
 | **D-12** | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` + admin review | daily | Claude routine 外 |
-| **M-1〜M-3** | Claude routine `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、Phase 0 で最終日判定、最終日のみ本処理、17:00 完了目標 | 月末候補日のみ +1 (空振り含む) |
-| **W-1** | Claude routine `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST (`0 9 * * 6`) | 週 +1 |
+| **M-1〜M-3** | Claude routine `amd-os-l2-monthend-evidence` (表示名「AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)」) | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、Phase 0 で最終日判定、最終日のみ本処理、17:00 完了目標 | 月末候補日のみ +1 (空振り含む) |
+| **W-1** | Claude routine `amd-os-l2-weekly-vc-funding-signals` (表示名「AMD OS L2 週次抽出 (W-1 VCニュース/資金調達)」) | weekly Saturday 09:00 JST (`0 9 * * 6`) | 週 +1 |
 | **H-1** | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 毎時 09:00-21:00 JST | Claude routine 外。2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST |
 
 平常日の Claude routine run 消費は **1 本だけ**。月末日でも最大 2 本 (D + M)、土曜は W が追加される。H は Codex Desktop automation だけで、Claude routine 化しない。

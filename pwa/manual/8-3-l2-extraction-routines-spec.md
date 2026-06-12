@@ -8,9 +8,10 @@
 
 現在の是正ターゲットは、**cadence ベースで 3 本の Claude routine に束ねる** (= 2026-06-08 まさ確定、新ナンバリング D / M / W / H):
 
-- **Claude routine `amd-os-l2-consolidated-evidence`** (daily 08:00 JST、`0 8 * * *`): D-1〜D-11。MS Progress、Member Activity Evidence、Media Mentions も daily 化してここに同居。
-- **Claude routine `amd-os-l2-monthend-evidence`** (月末候補日 16:00 発火 `0 16 28-31 * *`、Phase 0 で最終日判定、17:00 完了): M-1〜M-3 = 旧 M-1M-2M-3。3 つとも「月末」なので 1 本に統合。M-3 (Management Signal) を 18:00 月次振り返り MTG 前に出揃わせる。
-- **Claude routine `amd-os-l2-weekly-vc-funding-signals`** (weekly Saturday 09:00 JST、`0 9 * * 6`): W-1 = 旧 W-1 VC News / Funding Signals。weekly cadence なので D/M へ混ぜない。
+- **Claude routine `amd-os-l2-consolidated-evidence`** = 表示名「**AMD OS L2 日次抽出 (D-1〜D-11+D-13 統合)**」(daily 08:00 JST、`0 8 * * *`): D-1〜D-11 + D-13。MS Progress、Member Activity Evidence、Media Mentions も daily 化してここに同居。
+- **Claude routine `amd-os-l2-monthend-evidence`** = 表示名「**AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)**」(月末候補日 16:00 発火 `0 16 28-31 * *`、Phase 0 で最終日判定、17:00 完了): M-1〜M-3 = 旧 M-1M-2M-3。3 つとも「月末」なので 1 本に統合。M-3 (Management Signal) を 18:00 月次振り返り MTG 前に出揃わせる。
+- **Claude routine `amd-os-l2-weekly-vc-funding-signals`** = 表示名「**AMD OS L2 週次抽出 (W-1 VCニュース/資金調達)**」(weekly Saturday 09:00 JST、`0 9 * * 6`): W-1 = 旧 W-1 VC News / Funding Signals。weekly cadence なので D/M へ混ぜない。
+- **2026-06-12**: 上記 3 routine の claude.ai 表示名と起動 prompt を日本語化 (まさ指示「writer の名前は何をするやつか分かる日本語に。指示が英語なのもダメ」)。slug (= SKILL.md パス・識別子) は変更なし。起動 prompt は「最後に必ず日本語で報告」を明記。
 - **MMOマシン Codex Desktop automation 維持**: H-1 = 旧 H-1 MTGフロー (毎時 9-21 時)。Claude routine 化しない。
 
 **Claude routine = マシン非依存**: cloud で発火するため laptop を閉じても・MMO が OFF でも動く。`claude.ai/code/routines` / `/schedule` / Desktop app のどこから登録しても同じ claude.ai アカウントに入る (= MMOマシンに置く必要はない)。Desktop / Local scheduled task (`~/.claude/scheduled-tasks/`、マシン依存) と混同しない。
