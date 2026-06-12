@@ -14,10 +14,11 @@
 #
 # 動作:
 #   1. main checkout / clean tree / origin/main との整合を検査
-#   2. rollback guard (deploy-version-guard.cjs)
-#   3. git push origin main → Vercel 自動 build 発火
-#   4. 新しい production deployment が Ready になるまで polling (最大 15 分)
-#   5. 完了 → macOS 通知 (Glass 音) / 失敗 → Basso 音
+#   2. critical UI / spec rollback guard (test:critical-ui)
+#   3. rollback guard (deploy-version-guard.cjs)
+#   4. git push origin main → Vercel 自動 build 発火
+#   5. 新しい production deployment が Ready になるまで polling (最大 15 分)
+#   6. 完了 → macOS 通知 (Glass 音) / 失敗 → Basso 音
 #
 # Claude / えいみ / Codex 向けルール:
 #   - PWA の本番反映は必ずこのスクリプト経由。`npx vercel` 直接実行は禁止
@@ -96,6 +97,9 @@ if ! git merge-base --is-ancestor origin/main HEAD; then
 EOF
   exit 1
 fi
+
+echo "Running critical UI / spec rollback guard ..."
+(cd "$REPO_ROOT/pwa" && npm run test:critical-ui)
 
 echo "Running deploy rollback guard ..."
 node "$SCRIPT_DIR/deploy-version-guard.cjs" --target production --app-url "$APP_URL" --repo-root "$REPO_ROOT"
