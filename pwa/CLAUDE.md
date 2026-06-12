@@ -101,17 +101,18 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 ---
 
-## ⚠️ Vercel deploy approval gate（main push 前の承認）
+## ⚠️ Vercel deploy 運用（2026-06-12 まさ更新: 原則ノンストップ）
 
-**本番反映 = main push なので、承認対象は「main への push」になった (2026-06-12)。**
+**本番反映 = main push (Vercel Git 自動 deploy)。原則、push・deploy 完了まで止めずに進める (事前承認待ちにしない)。**
+まさは他作業の合間にしか見に来れないため、承認待ちで止めると deploy 完了までさらに待たせることになる。
 
-- main push の直前に、deploy bundle (含める変更 / 除外する変更 / local build・test・browser確認結果 / push 先 / rollback・本番確認方法) をチャットで提示し、まさの承認を取る。
+- 実装 → `tsc --noEmit` → `npm run build` → local commit → そのまま deploy.sh で push まで実行する。
+- deploy bundle (含める変更 / 除外 / local build・test 確認結果 / rollback・本番確認方法) は**事後報告**としてチャットに残す。
+- **例外として事前承認を取るもの**: DB migration / DDL を伴う変更、既存業務導線 (FEATURE_REGISTRY) の削除・置き換え、本番データを書き換える backfill、まさが明示的に「確認してから」と言った作業。
 - てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつ push する運用は禁止。複数成果を束ねて1回で push する。
-- 承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。
-- workerは local build / lint / static check / スクショ / ローカル確認 + local commit で止める。push は司令塔が承認後にまとめて行う。
-- 承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を実行する。
+- workerは local build / lint / static check / スクショ / ローカル確認 + local commit で止める。push は司令塔がまとめて行う。
 
-## ⚠️ Vercel デプロイコマンド（承認後の正本）
+## ⚠️ Vercel デプロイコマンド（正本）
 
 ```bash
 AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh

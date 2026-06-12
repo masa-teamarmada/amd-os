@@ -42,19 +42,19 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 **設計変更を入れるときは、使い方は `pwa/manual/`、確定実装仕様は `pwa/spec/`、理論・数式・rubric は `pwa/bzm/` を同じ commit で更新する**。変更した層の附則 (`manual/9-3`, `spec/6-1`, `bzm/9-5`) に日時つきで必ず追記する。
 新規の設計 md を `design_log/` に作らない (見落とされる)。
 
-# 確認方針 (PWA Vercel deploy approval gate)
+# 確認方針 (PWA Vercel deploy)
 
-**2026-06-12 以降、PWA の本番反映 = `origin/main` への push (Vercel Git 自動 deploy)。CLI 直接 deploy は全面廃止、ブランチ作成も全面禁止 (root `CLAUDE.md` 参照)。main push の直前には必ず deploy bundle つきでまさ許可を取る。**
+**2026-06-12 以降、PWA の本番反映 = `origin/main` への push (Vercel Git 自動 deploy)。CLI 直接 deploy は全面廃止、ブランチ作成も全面禁止 (root `CLAUDE.md` 参照)。**
 
-deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、push先、rollback/本番確認方法を含める。
+**2026-06-12 まさ更新: 原則、push・deploy 完了まで止めずに進める (事前承認待ちにしない)。** まさは他作業の合間にしか見に来れないため、承認待ちで止めると deploy 完了までさらに待たせることになる。deploy bundle (含める変更 / 除外 / local build・test 確認結果 / rollback 方法) は**事後報告**としてチャットに残す。
 
-てにをは、文言、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつpushする運用は禁止。複数worker成果を束ねて1回でpushする。
+例外として事前承認を取るのは: DB migration / DDL を伴う変更、既存業務導線 (FEATURE_REGISTRY) の削除・置き換え、本番データを書き換える backfill、まさが明示的に「確認してから」と言った作業。
 
-承認待ちで止まる場合は `approval pending` として台帳に残す。未分類blocker扱いにしない。
+てにをは、文言、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつpushする運用は禁止。複数成果を束ねて1回でpushする。
 
-標準ワークフロー: 実装 → `tsc --noEmit` → `npm run build` → 必要ならローカルスクショ/ローカル確認 → local commitまで。push直前にdeploy bundleをチャットで提示し、まさ許可を取る。
+標準ワークフロー: 実装 → `tsc --noEmit` → `npm run build` → 必要ならローカル確認 → local commit → **そのまま `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`** (= main/clean/origin検査 + rollback guard + push + build監視) → deploy bundle をチャットに報告。
 
-**えいみへの含意**: `npm run build` が通っても自動pushしない。承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` (= main/clean/origin検査 + rollback guard + push + build監視) を実行する。`npx vercel deploy` / `npx vercel --prod` は禁止。main 以外の branch push は `pwa/vercel.json` の ignoreCommand で build されない。
+**`npx vercel deploy` / `npx vercel --prod` は引き続き禁止**。main 以外の branch push は `pwa/vercel.json` の ignoreCommand で build されない。
 
 # 🚨 画像生成ごまかし禁止 (絶対ルール)
 
