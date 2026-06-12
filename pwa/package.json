@@ -15,6 +15,7 @@
     "test:payout-notice-pdf": "node scripts/check_payout_notice_pdf_golden.cjs",
     "test:color-pj-resolution": "node scripts/check_color_pj_resolution.cjs",
     "test:l6-held-source-guard": "node scripts/l6_meeting_held_source_guard.cjs --fixture scripts/__fixtures__/l6_iino_gemini_notion_eventid_missing.json",
+    "health:l2:actions": "node scripts/l2_health_action_loop.cjs",
     "diagnose:l6-calendar-colors": "node scripts/l6_calendar_color_diagnostic.mjs",
     "import:monthly-pl-budget": "node scripts/import_monthly_pl_budget.cjs",
     "collect:management-score-raw": "node scripts/collect_management_score_raw_data.cjs",

@@ -136,3 +136,46 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 3. outbox がある L2 は file が `outbox/`, `applied/`, `failed/` のどこにあるか確認する。
 4. LaunchAgent / helper の失敗種別を分けて記録する。
 5. DB/API へ直接逃げず、outbox 経路で閉じる。
+
+## L2 health red/yellow 後の action loop
+
+`health:l2` は見張り番であり、抽出器の修復や外部書き込みはしない。ただし red/yellow を報告だけで終わらせないため、health JSON の後段で `health:l2:actions` を実行し、ローカル action ledger に未対応 incident を残す。
+
+```sh
+cd pwa
+npm run --silent health:l2:actions -- --input tmp/l2-health-latest.json
+```
+
+action ledger の既定出力は `pwa/tmp/l2-health-action-ledger.json`。この artifact は local state で、DB / Slack / Notion / Drive / scheduler には書き込まない。recurring automation 登録や schedule 変更が必要な場合は、別途 scheduler change bundle を作り、まさ承認を取る。
+
+各 red/yellow 行は、health output の row id / row name を主語にした incident に変換する。action loop側では正本mappingを再設計せず、新しい L2 データ名や番号体系を作らない。正本表示名への対応が曖昧な行は `mapping_pending` として扱い、丸数字表現へ戻さない。health output 側の行IDや内部キーは incident 管理用であり、新しい L2 データ名として扱わない。
+
+| field | 意味 |
+|---|---|
+| `actionRequired` | red/yellow は必ず `true`。green で解消した incident は `false` |
+| `ackRequired` | red、failed/stale outbox、review_required は `true` |
+| `owner` | 復旧workerの責任範囲。verification / outbox drain / review drain / extraction recovery / scheduler evidence に分類 |
+| `recommendedNextStep` | その failureMode に対して次にやること |
+| `workerPromptSeed` | 司令塔が visible worker を切る時に使える短い prompt |
+| `deadline` | red は原則 24h、yellow は原則 72h 以内 |
+| `closeCondition` | green 判定、fresh output、review_required 採否、outbox 分類などの close 条件 |
+| `status` | `open` / `reopened` / `resolved` |
+| `firstSeenAt` / `lastSeenAt` / `occurrences` | 同じ incident の継続回数 |
+| `resolvedAt` / `lastGreenAt` | 次回 health で該当 L2 が green になった時の close 証跡 |
+
+同じ red/yellow を毎回新規起票しないために、ledger 内部では `L2 health row id + failureMode + destination` から重複判定用の技術キーを作る。このキーは UI や手順の主語にせず、「health output のどの row が red/yellow か」「次に誰が何をするか」を主語にする。
+
+red/yellow の標準処理は次の順番。
+
+1. `health:l2` の結果を読む。
+2. `health:l2:actions` で action ledger を更新する。
+3. `currentOpenWorkerPrompts[]` から優先度順に visible worker を切る。
+4. worker は修復または安全な復旧 bundle を実行し、`health:l2` を再チェックする。
+5. 次回 `health:l2:actions` で同じ incident は重複起票されない。該当 L2 が green なら `resolved` へ close される。
+
+close は「報告した」ではなく、次のいずれかで閉じる。
+
+- fresh な DB/applied output evidence が確認され、health が green になった。
+- zero-output の場合は明示 no-data / report artifact があり、health が green または理由付き yellow へ落ちた。
+- review_required は owner/action/status が付き、未読放置ではなく採否または明示保留へ進んだ。
+- failed/stale outbox は再投入済み / 要手動修正 / 破棄禁止保留のどれかに分類され、同じ failure が未分類で残らなくなった。

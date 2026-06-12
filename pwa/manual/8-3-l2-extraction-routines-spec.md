@@ -18,6 +18,8 @@
 
 **先手力 heartbeat**: `proactive_outbox` は L2 ではなく、L2 と司令塔 / worker をつなぐ control layer。10:15-20:15 JST の毎時15分に `amd-os-proactive-heartbeat` が queued/blocked の due soon を拾い、PJ司令塔へ通知してから `mark-sent` で通知済みを記録する。正本手順は [`pwa/scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md`](../scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md)。
 
+**L2 health action ledger**: `amd-os-l2-extraction-health-check` は red/yellow を検知するだけで修復しない。検知後に `cd pwa && npm run --silent health:l2:actions -- --input tmp/l2-health-latest.json` を実行すると、`tmp/l2-health-action-ledger.json` に未対応 incident が残る。各 incident は health output の row id / row name を主語に、owner、次アクション、deadline、close条件、visible worker用の短い prompt seed を持つ。正本表示名への対応が曖昧な行は `mapping_pending` として扱い、action loop側では新しいL2名や番号体系を作らない。同じ red/yellow は内部キーで集約され、次回 health で green になったものだけ `resolved` へ閉じる。これは local artifact のみで、DB / Slack / Notion / Drive / scheduler には書かない。automation登録に組み込む時は別途 scheduler change bundle が必要。
+
 ## 対象 L2
 
 | L2 | テーブル | 役割 | 旧 writer | 現行 writer |

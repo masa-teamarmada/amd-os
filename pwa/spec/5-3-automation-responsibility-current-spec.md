@@ -90,6 +90,23 @@ SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (
 | 禁止 | heartbeat 内で外部送信や重い draft 生成をしない。司令塔 worker に渡す |
 | 例外 | routing missing / duplicate risk / network failure は mark-sent せず、AMD OS司令塔へ報告 |
 
+## Control layer: L2 health action ledger
+
+`amd-os-l2-extraction-health-check` は read-only monitor で、DB write / scheduler change / Slack通知 / Notion更新 / 修復実行をしない。その代わり、health output の後段に action ledger を置き、red/yellow を「放置可能な報告」ではなく「owner付き incident」に変換する。
+
+| 項目 | 契約 |
+|---|---|
+| helper | `node pwa/scripts/l2_health_action_loop.cjs --input pwa/tmp/l2-health-latest.json` |
+| npm script | `cd pwa && npm run --silent health:l2:actions -- --input tmp/l2-health-latest.json` |
+| ledger | `pwa/tmp/l2-health-action-ledger.json` |
+| write scope | local artifact のみ。DB / Notion / Slack / Drive / scheduler / LaunchAgent は触らない |
+| dedupe | health row id / failureMode / destination から内部の重複判定キーを作る。ただしUIや手順の主語は health output の row id / row name にする |
+| owner | verification / review drain / outbox drain / extraction recovery / scheduler evidence のいずれか |
+| worker化 | `currentOpenWorkerPrompts[]` を司令塔が visible worker prompt として使う |
+| close | 次回 health で該当 L2 が green、または review/outbox が分類済みになった証跡がある時だけ |
+
+recurring automation としてこの後段を既存 health check に組み込む場合も、automation.toml や Codex automation 登録の変更は scheduler change bundle とまさ承認が必要。repo 側 helper の追加だけでは scheduler を変更した扱いにしない。
+
 ## Stopped LLM cron
 
 | 旧経路 | 状態 | 理由 |

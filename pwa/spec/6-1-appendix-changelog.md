@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-12 | 3-1 / 5-3 | 変更 | L2 health red/yellow 後の action ledger を追加。`health:l2:actions`、owner、recommended next step、worker prompt seed、deadline、close条件、resolved/lastGreenAt を仕様化。内部重複判定キーは新しいL2名ではないと明記 | health check の検知報告を放置せず、incident response / remediation loop に変換するため | えいみ-worker |
 | 2026-06-10 | 3-3 / 3-8 | 変更 | MTG詳細モーダルの編集 mode を表示 section と同じ source field に揃え、予定MTGの `risks` 表示名を「必ず確認すること」へ変更。旧値は破壊せず confirmation items として扱う | `narrative_md` 主表示時に raw 配列だけを編集してもカード表示へ反映されないズレを防ぐため | えいみ-worker |
 | 2026-06-09 | 3-3 / 3-8 | 変更 | MTG単位添付 (`meeting_assets`) を一般ファイル対応へ変更し、Drive保存先 `projects.drive_folder_id / YYMMDD_会議名 / アップロードファイル`、保存先表示、旧Storage互換、metadata-only DB payloadを定義 | MTGカード資料アップロードの古い画像/PDF制限を撤廃し、資料の実体保存場所をPJ folder配下へ統一するため | えいみ-worker |
 | 2026-06-09 | 3-8 | 変更 | MTG単位添付のMarkdown (`.md` / `.markdown`) をOS内モーダルでfetch/renderして読める仕様を追記 | 添付されたMarkdown資料をDrive/別タブへ移動せず、MTGカード内で確認できるようにするため | えいみ-worker |

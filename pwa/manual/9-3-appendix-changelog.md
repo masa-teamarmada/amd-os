@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-12 | 8-3 L2 routines | 変更 | L2 health red/yellow 後に `health:l2:actions` で local action ledger を作り、owner / next action / deadline / close条件 / worker prompt seed を持つ incident に変換する運用を追加 | red報告が来ても誰も復旧worker化しない問題を止め、検知後の起票→owner割当→修復→再チェック→closeを残すため | えいみ-worker |
 | 2026-06-10 | 2-3 PJ コックピット | 変更 | MTG詳細モーダルの編集を表示 section と同じ位置の inline edit に変更し、予定MTGの旧「気をつけたい読み違い」を「必ず確認すること」として表示・編集する方針を追記 | 表示内容と編集可能領域がズレ、保存してもカードに反映されない field がある問題をなくすため | えいみ-worker |
 | 2026-06-09 | 2-3 PJ コックピット / 8-3 L2 routines | 変更 | MTG詳細モーダルの添付資料を一般ファイル対応へ変更し、新規添付の保存先を Drive の `PJフォルダ / YYMMDD_会議名` と明記。カード上の保存先表示、旧Storage添付の互換表示、DBはmetadataのみ保存する方針を追記 | MTGカード資料アップロードで md 等が古い画像/PDF制限に拒否されていたため。MTG単位の資料置き場をPJ folder配下に整理するため | えいみ-worker |
 | 2026-06-09 | 2-3 PJ コックピット | 変更 | MTG詳細モーダルのMarkdown添付 (`.md` / `.markdown`) をOS内モーダルで開ける仕様を追記 | MTG準備メモなどのMarkdown添付をDrive/別タブへ移動せず、カード内で読めるようにするため | えいみ-worker |
