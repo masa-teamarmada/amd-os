@@ -42,15 +42,15 @@
 > Claude Code セッションのログ。次のえいみが読めば把握できるよう残す。
 
 ### コンテキスト
-- まさが `/notifications` の「SE: 5月生データ抽出経路を確認」(raw-route-zero) 通知について「どのL2か」と質問 → L2① monthly_reports と特定
+- まさが `/notifications` の「SE: 5月生データ抽出経路を確認」(raw-route-zero) 通知について「どのL2か」と質問 → M-1 Monthly Reports monthly_reports と特定
 - 「SE/202605 は進捗ゼロなのでそう書いて」→ 手で是正。さらに「automation 側で根本を直して」と展開
 - 指示変遷が重要: 当初あたしは「end_ym で期間カット」するガードを実装 → まさ「PJ終了後でもactiveなら生成すべき」「BWEはactiveじゃないのに生成されてる」と2方向の矛盾を指摘 → **最終原則は「状態でなく実進捗で生成可否を決める」に確定**
 - まさ確定の正本原則: 進捗あれば状態問わず生成 / 進捗なし&active→進捗なしテンプレ / 進捗なし&ended/frozen→生成しない。frozen は status='frozen' or freeze_from_ym≤当月
 - LST は「MTGサマリが豊富にあるので月単位でまとめて月次サマリにして。MS設計してないのでMSなし進捗だけ」と指示
 
 ### 実装
-- **コード(L2① 月報)**: [monthly-reports-backfill/route.ts](../src/app/api/cron/monthly-reports-backfill/route.ts) を進捗ベースに書き換え。3経路(source_cache/MTGサマリ/member_activities)で hasActivity 判定、未来月除外、frozen/ended×進捗ゼロは skip
-- **コード(L2⑥ MTG)**: [meeting-prep/route.ts](../src/app/api/meeting-prep/route.ts) と [meeting-workflow/finalize/route.ts](../src/app/api/meeting-workflow/finalize/route.ts) に ended/frozen の未来prep生成ガード追加。calendar-sync は既存ガード、dialogue-meeting は非ガード(人の意図記録)
+- **コード(M-1 Monthly Reports 月報)**: [monthly-reports-backfill/route.ts](../src/app/api/cron/monthly-reports-backfill/route.ts) を進捗ベースに書き換え。3経路(source_cache/MTGサマリ/member_activities)で hasActivity 判定、未来月除外、frozen/ended×進捗ゼロは skip
+- **コード(H-1 Meeting Flow MTG)**: [meeting-prep/route.ts](../src/app/api/meeting-prep/route.ts) と [meeting-workflow/finalize/route.ts](../src/app/api/meeting-workflow/finalize/route.ts) に ended/frozen の未来prep生成ガード追加。calendar-sync は既存ガード、dialogue-meeting は非ガード(人の意図記録)
 - **DB**: 未来月の捏造 draft 84件削除。過去の捏造/期間外 draft 整理(実データは保持)。**LST(p07) の月次サマリを1件→9ヶ月分(202305〜202605)に backfill** = MTGサマリから集約、MS無し進捗のみ、subagent3体で生成。LST end_ym=202507(active継続中の誤り)→null
 - **doc**: spec [3-2](../../spec/3-2-monthly-reports-current-spec.md)/[3-3](../../spec/3-3-meeting-flow-current-spec.md) に進捗ベース原則を正本記載、L2_DATA.md と 6-1 changelog 同期
 

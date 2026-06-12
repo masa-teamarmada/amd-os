@@ -1,9 +1,9 @@
 ---
 name: amd-os-l4-project-knowledge-extract
-description: AMD OS L2 ④ PJナレッジ抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l4-project-knowledge-extract` (= daily 08:15 JST)。各 active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から PJ にまつわる事実を subscription 内 Codex で抽出し、Supabase `project_knowledge` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
+description: AMD OS D-3 PJナレッジ抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l4-project-knowledge-extract` (= daily 08:15 JST)。各 active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から PJ にまつわる事実を subscription 内 Codex で抽出し、Supabase `project_knowledge` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
 ---
 
-# AMD OS L2 ④ PJ ナレッジ抽出 (GAS 155 移植版)
+# AMD OS D-3 PJ ナレッジ抽出 (GAS 155 移植版)
 
 ## 設計の要点
 - GAS 155 `nav_project_knowledge_pollAll` / `nav_project_knowledge_extractOneForYm_` の業務ロジックを Windows MMO Codex Desktop automation に移植
@@ -15,9 +15,9 @@ description: AMD OS L2 ④ PJナレッジ抽出の repo 正本。現行 writer �
 
 ## 【絶対】 動く前に必ず Read
 1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4
-2. `pwa/design/project_knowledge.md` (= L2 ④ 仕様正本)
+2. `pwa/design/project_knowledge.md` (= D-3 仕様正本)
 3. `pwa/design/db_schema.md` (= 列名 grep)
-4. `gas/155_L2KnowledgeExtractor.js` 行 387-606 (= 元 ④ 実装)
+4. `gas/155_L2KnowledgeExtractor.js` 行 387-606 (= 元 D-3 実装)
 
 ═══════════════════════════════════════════════════
 Phase 0: env + active projects + ymList

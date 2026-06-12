@@ -1,6 +1,6 @@
 # 失敗・ピボット・仮説修正 — 消耗を学習に変える
 
-> この章は何か: Before Zero の失敗・停滞・仮説外れを、責任追及ではなく再利用可能な判断ルールへ変換する章です。実ケース本文は捏造せず、承認済みの L2⑩ Textbook Insights が来たときだけ追記します。
+> この章は何か: Before Zero の失敗・停滞・仮説外れを、責任追及ではなく再利用可能な判断ルールへ変換する章です。実ケース本文は捏造せず、承認済みの D-7 Textbook Insights Textbook Insights が来たときだけ追記します。
 
 ## 扱う insight
 
@@ -13,7 +13,7 @@
 - ピボット後に残すべき仮説と捨てるべき仮説
 - 複数 PJ にまたがって見えた失敗パターン
 
-主な L2⑩ `practice_kind` は `failure_learning` と `cross_project_pattern` です。既存 schema では `insight_type='before_zero_knowhow'` または `insight_type='cross_project_pattern'` として受けます。
+主な D-7 Textbook Insights `practice_kind` は `failure_learning` と `cross_project_pattern` です。既存 schema では `insight_type='before_zero_knowhow'` または `insight_type='cross_project_pattern'` として受けます。
 
 ## 掲載基準
 
@@ -31,7 +31,7 @@
 - 「失敗だった」で止まり、次の判断に変換されていないメモ
 - 承認前の候補や、守秘上まだ一般化できない事例
 
-## L2⑩ 追記ブロックの受け方
+## D-7 Textbook Insights 追記ブロックの受け方
 
 local applier が承認済み候補を追記するときは、この章では次の形を基本にします。
 
@@ -60,6 +60,6 @@ local applier が承認済み候補を追記するときは、この章では次
 ## 読めばできること
 
 - 失敗や停滞を、次の PJ で使える判断資産へ変換できる
-- L2⑩ candidate が「単なる反省」か「掲載すべき学習」か見分けられる
+- D-7 Textbook Insights candidate が「単なる反省」か「掲載すべき学習」か見分けられる
 - ピボット時に、残す仮説と捨てる仮説を分けられる
 - 消耗を防ぐための赤信号を Before Zero の初期段階で確認できる

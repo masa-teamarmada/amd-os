@@ -1,7 +1,7 @@
 /**
  * GET /api/cron/hourly-estimate
  *
- * L2 ③ MS進捗の旧 PWA polling route。
+ * D-2 MS進捗の旧 PWA polling route。
  *
  * 2026-05-29: LLM 課金が発生する定期抽出 cron は停止。
  * 定期抽出は MMO / Codex automation 側へ寄せるため、この route は

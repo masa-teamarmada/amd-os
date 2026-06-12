@@ -1,12 +1,12 @@
-# L2② AMD Protocol 仕様
+# D-1 AMD Protocol 仕様
 
-> **この章は何か**: L2 ② `protocols` / `protocol_examples` / `protocol_result_observations` を、現在の writer で再構築するための確定仕様。設計思想の背景は `/manual/4-1-atlas-protocol-score-macrotrend` と `/design/amd_protocol.md`、運用者向けの入口は `/manual/8-3-l2-extraction-routines-spec` に置く。
+> **この章は何か**: D-1 `protocols` / `protocol_examples` / `protocol_result_observations` を、現在の writer で再構築するための確定仕様。設計思想の背景は `/manual/4-1-atlas-protocol-score-macrotrend` と `/design/amd_protocol.md`、運用者向けの入口は `/manual/8-3-l2-extraction-routines-spec` に置く。
 
 ## Current Truth
 
 | 項目 | 現行仕様 |
 |---|---|
-| L2 | ② AMD Protocol |
+| L2 | D-1 AMD Protocol |
 | 目的 | AMD の経営判断を「分岐点 / 判断材料 / アクション / 結果観測」に分解し、PJ横断で再利用できる意思決定知財にする |
 | primary writer | Windows MMO PC の Codex Desktop automation `amd-os-l2-protocol-extract` |
 | schedule | daily 08:00 JST |
@@ -122,7 +122,7 @@ P0 retrofit では `/admin/protocols` の server page が `protocol_result_obser
 
 ## この章だけで再構築できること
 
-L2②の target selection、input evidence、prompt authority、dedupe、DB出力、通知、採否、結果観測 ledger、停止済み GAS との境界を再構築できる。
+D-1の target selection、input evidence、prompt authority、dedupe、DB出力、通知、採否、結果観測 ledger、停止済み GAS との境界を再構築できる。
 
 ## まだ再構築できないこと
 

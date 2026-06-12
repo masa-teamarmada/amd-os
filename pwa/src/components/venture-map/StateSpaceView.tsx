@@ -378,7 +378,7 @@ export function StateSpaceView() {
     <div className="space-y-4">
       {/* 上段: 軌道 + 固有値 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card title="① 状態軌道 (x₁ – x₂ 平面)">
+        <Card title="1 状態軌道 (x₁ – x₂ 平面)">
           <div className="aspect-square">
             <TrajectoryView
               trajectory={trajectory}
@@ -386,7 +386,7 @@ export function StateSpaceView() {
             />
           </div>
         </Card>
-        <Card title="② 固有値 λ₁, λ₂ (複素平面)">
+        <Card title="2 固有値 λ₁, λ₂ (複素平面)">
           <div className="aspect-square">
             <EigenView eig={eig} />
           </div>
@@ -395,7 +395,7 @@ export function StateSpaceView() {
       </div>
 
       {/* 中段: 時系列 */}
-      <Card title="③ 状態時系列 x₁(t), x₂(t)">
+      <Card title="3 状態時系列 x₁(t), x₂(t)">
         <div className="h-40">
           <TimeSeriesView trajectory={trajectory} currentIdx={currentIdx} />
         </div>

@@ -1,7 +1,7 @@
 /** 154_PwaCronCaller.gs — 旧 Phase 4 PWA cron caller
  *
  * 2026-05-29: LLM 課金が発生する定期抽出 cron は停止。
- * L2 ③ MS進捗も MMO / Codex automation 側へ寄せるため、
+ * D-2 MS Progress MS進捗も MMO / Codex automation 側へ寄せるため、
  * GAS から PWA `/api/cron/hourly-estimate` を叩かない。
  *
  * 仕様正本: pwa/design/ms_progress.md (Phase 4 セクション)

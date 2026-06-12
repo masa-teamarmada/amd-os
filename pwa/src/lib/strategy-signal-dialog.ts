@@ -1,7 +1,7 @@
 /**
  * strategy-signal-dialog.ts — まさ #34 対話型修正依頼 (2026-05-25 #71 確定) の共通 helper
  *
- * 経営ハイライト (= L2 ⑨ project_strategy_signal) の修正依頼を対話形式で扱う。
+ * 経営ハイライト (= D-6 project_strategy_signal) の修正依頼を対話形式で扱う。
  * 旧 reextractStrategySignalImmediate (= 一方通行 update) を置換。
  *
  * 設計の正本: pwa/design/feedback_dialog.md (案 A = dialog 永続化なし)
@@ -154,7 +154,7 @@ export async function generateProposal(args: {
   if (!args.conversation.length) return { ok: false, message: "conversation empty" };
 
   const client = new Anthropic({ apiKey });
-  const systemPrompt = `あなたは AMD OS の経営ハイライト (= L2 ⑨ project_strategy_signal) を、まさからの修正依頼に基づいて **対話的に** 改訂するつくよみ (LLM)。
+  const systemPrompt = `あなたは AMD OS の経営ハイライト (= D-6 project_strategy_signal) を、まさからの修正依頼に基づいて **対話的に** 改訂するつくよみ (LLM)。
 
 入力:
 - 現在の signal (= title / summary / impact_level / signal_type / polarity / score_impact_summary)

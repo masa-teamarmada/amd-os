@@ -2,7 +2,7 @@
 
 Last updated: 2026-06-04
 Owner: BZM司令塔
-Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook Insights theory review
+Scope: Before Zero Model / BZM theory / Textbook theory gate / D-7 Textbook Insights Textbook Insights theory review
 
 このファイルは、BZM司令塔が抱えているタスクの台帳。
 まさがここを開けば、コードやworker報告を読まなくても「何を頼んだか / なぜ頼んだか / 今どうなっているか / 何が残っているか」が分かる状態にする。
@@ -57,10 +57,10 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
    - 残課題: Textbook司令塔のPhase 1章構成worker成果を見て、BZM理論章に入れるべきものとTextbook実践章に置くべきものを分類する。
 
 5. Before Zero実践知をBZM理論へ入れる/入れない判断
-   - お願いした内容: L2⑩やTextbook側workerが出す実践知について、BZM理論へ取り込むか、ケースに留めるか、Textbook司令塔へ渡すかを判定する。
+   - お願いした内容: D-7 Textbook InsightsやTextbook側workerが出す実践知について、BZM理論へ取り込むか、ケースに留めるか、Textbook司令塔へ渡すかを判定する。
    - 背景: 実践知を全部BZM理論に入れると理論が肥大化し、逆に全部ケース扱いにするとBZMが現場から学習できないため。
-   - 現状: Watch（Textbook/L2⑩成果待ち）。判断軸として `practice_kind='theory_case'`、`metadata_json.theory_case_kind='edge_case' | 'update_candidate'`、`theory_change_scope`、`bzm_review_required` を使う方針が確定。
-   - 残課題: Textbook側のL2⑩ metadata migration/spec worker成果を待ち、local applierがBZM review未承認候補をskipできる仕様になっているか確認する。
+   - 現状: Watch（Textbook/D-7 Textbook Insights成果待ち）。判断軸として `practice_kind='theory_case'`、`metadata_json.theory_case_kind='edge_case' | 'update_candidate'`、`theory_change_scope`、`bzm_review_required` を使う方針が確定。
+   - 残課題: Textbook側のD-7 Textbook Insights metadata migration/spec worker成果を待ち、local applierがBZM review未承認候補をskipできる仕様になっているか確認する。
 
 6. 理論変更候補のレビュー基準
    - お願いした内容: `theory_case_kind='update_candidate'` を、数式・rubric・重み・変数定義の更新候補として扱うためのレビュー基準を準備する。
@@ -76,7 +76,7 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / L2⑩ Textbook In
 
 8. Textbook側から来る理論関連候補のレビュー待ち
    - お願いした内容: Textbook司令塔配下workerから来る `theory_case` 関連候補をBZM司令塔でレビューする。
-   - 背景: Textbook司令塔には、Textbook Phase 1 chapter skeleton と L2⑩ metadata migration/spec worker が切られているため。
+   - 背景: Textbook司令塔には、Textbook Phase 1 chapter skeleton と D-7 Textbook Insights metadata migration/spec worker が切られているため。
    - 現状: Watch（Textbook司令塔成果待ち）。BZM司令塔は直接編集せず、worker成果到着待ち。レビュー対象は `theory_case` / `theory_case_kind` / `theory_change_scope` / `bzm_review_required`。
    - 残課題: 成果物が来たら、BZM review required の漏れ、local applier skip条件、BZM式・rubric・用語への影響を確認し、必要ならworkerへ差し戻す。
 

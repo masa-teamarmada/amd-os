@@ -1,4 +1,4 @@
-# L2⑩ Textbook Insights 仕様
+# D-7 Textbook Insights 仕様
 
 > **この章は何か**: Before Zero 実践テキストへ追記すべき AMD の実務知見を、Supabase 内の既存 L2 / OS データから候補化し、通知承認後に安全な local applier で `pwa/bzm/*.md` へ反映するための current spec。
 
@@ -6,7 +6,7 @@
 
 | 項目 | 現行仕様 |
 |---|---|
-| L2 | ⑩ Textbook Insights |
+| L2 | D-7 Textbook Insights |
 | table | `textbook_insight_candidates` |
 | notification kind | `l2_notifications.l2_kind='textbook_insight'` |
 | primary writer | Codex automation / local worker `amd-os-l10-textbook-insight-extract` |
@@ -55,13 +55,13 @@
 
 ## Input Contract
 
-L2① Monthly Reports と同様に、基本は Supabase 内の既存データを primary input にする。`source_cache` は証跡補助であり、これだけで no-data 判定しない。
+M-1 Monthly Reports と同様に、基本は Supabase 内の既存データを primary input にする。`source_cache` は証跡補助であり、これだけで no-data 判定しない。
 
 | table | 用途 |
 |---|---|
 | `monthly_reports` | PJ 月次断面。`final_content` は読み取りだけで、上書きしない |
 | `project_meeting_summaries` | 経営判断、合意、次アクション、リスクの具体例 |
-| `project_strategy_signals` | L2⑨ 経営ハイライト。done の経営判断・進捗 |
+| `project_strategy_signals` | D-6 経営ハイライト。done の経営判断・進捗 |
 | `protocols` / `protocol_examples` / `protocol_result_observations` | AMD Protocol の普遍パターン、具体事例、後追い結果 |
 | `project_knowledge` / `member_knowledge` | PJ / メンバーのナレッジ断片 |
 | `project_registry_diffs` | OS 台帳差分候補。PJ構造や関係者変化のケース |

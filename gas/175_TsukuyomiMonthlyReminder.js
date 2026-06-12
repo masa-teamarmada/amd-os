@@ -224,7 +224,7 @@ function tsukuyomi_buildMonthlyReminderMessage(ctx){
   // ★おやつ時間の一言（15時台だけ）
   const flavor = tsuTimeFlavorLine(seed);
 
-  // ===== ①観測（事実） =====
+  // ===== 1観測（事実） =====
   const statusLine = tsuStatusLine(seed, status);
   const memoryLine = tsuMemoryLine(seed, { avgCloseDay, closeSamples, lastClosedYm, lastClosedAtJst, stuckStatus, status });
 
@@ -237,7 +237,7 @@ function tsukuyomi_buildMonthlyReminderMessage(ctx){
       ])
     : "";
 
-  // ===== ②解釈（つくよみ視点：断定しない） =====
+  // ===== 2解釈（つくよみ視点：断定しない） =====
   const interpretLine = tsuPickFrom(seed + 41, (() => {
       if (status === "none") return [
         "まだ始めてないだけの可能性もあるよ。",
@@ -272,7 +272,7 @@ function tsukuyomi_buildMonthlyReminderMessage(ctx){
       return ["今の状態、まず一回だけ見てほしい。", "状況確認からでOK。", "一回だけ全体を見よ。"];
     })());
 
-  // ===== ③行動（今回やることは1個） =====
+  // ===== 3行動（今回やることは1個） =====
   const actionType = tsuSelectActionType(seed + 77, lastActionType);
   ctx.__actionType = actionType; // 呼び出し元に返す（DBに保存して次回避ける）
 

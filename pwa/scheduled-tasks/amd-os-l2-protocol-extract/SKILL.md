@@ -1,9 +1,9 @@
 ---
 name: amd-os-l2-protocol-extract
-description: AMD OS L2 ② AMDプロトコル抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l2-protocol-extract` (= daily 08:00 JST)。各 active PJ × {当月, 前月} の project_meeting_summaries + monthly_reports から「分岐点 / 判断材料 / アクション / 結果 (= 後追い欄、自動抽出時は空)」を subscription 内 Codex で構造化抽出し、Supabase `protocols` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
+description: AMD OS D-1 AMDプロトコル抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l2-protocol-extract` (= daily 08:00 JST)。各 active PJ × {当月, 前月} の project_meeting_summaries + monthly_reports から「分岐点 / 判断材料 / アクション / 結果 (= 後追い欄、自動抽出時は空)」を subscription 内 Codex で構造化抽出し、Supabase `protocols` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
 ---
 
-# AMD OS L2 ② AMD プロトコル抽出 (GAS 155 移植版)
+# AMD OS D-1 AMD プロトコル抽出 (GAS 155 移植版)
 
 ## 設計の要点
 - AMD プロトコル = AMD の最重要知財 (= 経営判断の構造化記録、分岐点 / 判断材料 / アクション / 結果)
@@ -16,10 +16,10 @@ description: AMD OS L2 ② AMDプロトコル抽出の repo 正本。現行 writ
 
 ## 【絶対】 動く前に必ず Read
 1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4
-2. `pwa/design/amd_protocol.md` (= L2 ② 仕様正本)
+2. `pwa/design/amd_protocol.md` (= D-1 仕様正本)
 3. `knowledge/amd_os_vision.md` 「AMDプロトコルの 4 要素」section
 4. `pwa/design/db_schema.md` (= 列名 grep)
-5. `gas/155_L2KnowledgeExtractor.js` 行 608-820 (= 元 ② 実装)
+5. `gas/155_L2KnowledgeExtractor.js` 行 608-820 (= 元 D-1 実装)
 
 ═══════════════════════════════════════════════════
 Phase 0: env + active projects + ymList

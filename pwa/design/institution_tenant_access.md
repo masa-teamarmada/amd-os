@@ -21,7 +21,7 @@ NIMS Pilot は、現行 AMD OS をそのまま社外公開する話ではない�
 
 ### Current truth
 
-- AMD OS の正本は Supabase。5 生データから L2 10 種へ抽出し、候補は `/notifications` の採否ゲートを通して正本反映する。
+- AMD OS の正本は Supabase。5 生データから M/W/D/H L2へ抽出し、候補は `/notifications` の採否ゲートを通して正本反映する。
 - 現行マニュアルでは AMD OS は社内専用で、SU 側メンバーや外部ユーザーは使わない前提。
 - NIMS 導入ゲート文書では、NIMS workspace / institution scope / row-level policy / external user role の設計が導入開始前の不足領域として残っている。
 - `institutions`, `institution_assessments`, `institution_policy_*` は既にあるが、外部ユーザー向けの tenant membership / project scope / audit log は未実装。

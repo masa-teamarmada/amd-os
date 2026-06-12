@@ -71,7 +71,7 @@ Required rewrite:
 
 Examples found:
 
-- `L2⑩`
+- `D-7 Textbook Insights`
 - `candidate`
 - `local applier`
 - `routing`

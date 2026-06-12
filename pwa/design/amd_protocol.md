@@ -1,4 +1,4 @@
-# AMDプロトコル (② L2) — 設計の正本
+# AMDプロトコル (D-1 L2) — 設計の正本
 
 最終更新: 2026-05-25 (#68 current truth 反映)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
@@ -7,7 +7,7 @@
 
 ## このドキュメントが扱う範囲
 
-L2 ② AMDプロトコル (`protocols`) の自動抽出 cron。
+D-1 AMDプロトコル (`protocols`) の自動抽出 cron。
 
 - アクティブ PJ × 当月/前月 の `project_meeting_summaries` から「経営判断 (= 分岐点 / 判断材料 / アクション / 結果)」を抽出して `protocols` テーブルに upsert
 - 毎時 polling + `l2_extract_state.source_hash` 差分検知
@@ -31,10 +31,10 @@ L2 ② AMDプロトコル (`protocols`) の自動抽出 cron。
   - `project_ventures` の構造化フィールドは `sync-pj-facts` cron で project_knowledge に同期される
 
 要素 (普遍版、protocols.content に書く):
-1. **① 分岐点 🔀** — どの選択肢があるか、抽象的に
-2. **② 判断材料 📊** — どの情報で判断するか、抽象的に
-3. **③ アクション 🎯** — どの方針を採るか、抽象的に
-4. **④ 結果 💡** — そのアクション後に実際に起きたこと。自動抽出時点では原則空欄。推測・一般論・学習要約で埋めない
+1. **M-1 分岐点 🔀** — どの選択肢があるか、抽象的に
+2. **D-1 判断材料 📊** — どの情報で判断するか、抽象的に
+3. **D-2 アクション 🎯** — どの方針を採るか、抽象的に
+4. **D-3 結果 💡** — そのアクション後に実際に起きたこと。自動抽出時点では原則空欄。推測・一般論・学習要約で埋めない
 
 LLM (Gemini Flash) は、まず `content` に分岐点 / 判断材料 / アクションの 3 要素を markdown で出力し、`examples` 配列にも事例固有の 3 要素を保存する。`result` は後追い記録用の欄なので、自動抽出では `null` にする。
 
@@ -130,10 +130,10 @@ CREATE TABLE protocol_examples (
   project_id        TEXT NOT NULL,
   occurred_on       DATE,
   summary           TEXT NOT NULL,                -- 50-150 字
-  branch_point      TEXT,                         -- 事例での ① 分岐点
-  criteria          TEXT,                         -- 事例での ② 判断材料
-  action_taken      TEXT,                         -- 事例での ③ アクション
-  result            TEXT,                         -- 事例での ④ 結果。アクション後に実際に起きたこと。自動抽出時は null
+  branch_point      TEXT,                         -- 事例での M-1 分岐点
+  criteria          TEXT,                         -- 事例での D-1 判断材料
+  action_taken      TEXT,                         -- 事例での D-2 アクション
+  result            TEXT,                         -- 事例での D-3 結果。アクション後に実際に起きたこと。自動抽出時は null
   source_meeting_id TEXT,                         -- 出典 project_meeting_summaries.meeting_id
   source_url        TEXT,
   llm_model         TEXT,
@@ -185,11 +185,11 @@ CREATE TABLE protocol_result_observations (
 
 **展開時 UI 仕様**:
 - ステップカード (色分け + アイコン):
-  - 🔀 ① 分岐点 (青 `bg-blue-50`)
-  - 📊 ② 判断材料 (橙 `bg-amber-50`)
-  - 🎯 ③ アクション (緑 `bg-emerald-50`)
-  - 💡 ④ 結果 (紫 `bg-violet-50`) — 実際の結果が記録された時だけ表示
-  - `parseFourElements(content)` で `**① 分岐点**:` 等の見出しから自動分解
+  - 🔀 M-1 分岐点 (青 `bg-blue-50`)
+  - 📊 D-1 判断材料 (橙 `bg-amber-50`)
+  - 🎯 D-2 アクション (緑 `bg-emerald-50`)
+  - 💡 D-3 結果 (紫 `bg-violet-50`) — 実際の結果が記録された時だけ表示
+  - `parseFourElements(content)` で `**M-1 分岐点**:` 等の見出しから自動分解
 - 📂 関連事例リスト (= protocol_examples):
   - 各事例: `日付` + `project_id` + `summary` + 折りたたみで「事例の 3 要素」詳細
   - 結果が後追い記録された事例だけ「事例の 4 要素」として結果も表示
@@ -257,6 +257,6 @@ curl -sL --max-time 300 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_protoco
 ## 関連 md
 
 - [`L2_DATA.md`](L2_DATA.md) — L2 全体
-- [`meeting_summaries.md`](meeting_summaries.md) — ⑥ MTGサマリ (本 cron の主入力源)
+- [`meeting_summaries.md`](meeting_summaries.md) — H-1 MTGサマリ (本 cron の主入力源)
 - [`member_knowledge.md`](member_knowledge.md) / [`project_knowledge.md`](project_knowledge.md) — Phase 4 姉妹
 - [`../../../knowledge/amd_os_vision.md`](../../../knowledge/amd_os_vision.md) — AMDプロトコルの経営思想

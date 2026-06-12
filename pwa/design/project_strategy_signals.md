@@ -1,9 +1,9 @@
-# 経営ハイライト (L2 ⑨) — 設計の正本
+# 経営ハイライト (D-6) — 設計の正本
 
 作成: 2026-05-23
 正本ステータス: 実装中。仕様変更したらこのファイルと `L2_DATA.md` / `cockpit.md` / `FEATURE_REGISTRY.md` を同じ commit で更新する。
 
-> **manual / spec / bzm 3層分割中**: L2⑨ 経営ハイライトの確定実装仕様は `/spec/3-6-strategy-signals-current-spec.md` へ移行済み。移行完了までは、この design も設計議論・履歴として残し、迷う内容は両方に置く。
+> **manual / spec / bzm 3層分割中**: D-6 経営ハイライトの確定実装仕様は `/spec/3-6-strategy-signals-current-spec.md` へ移行済み。移行完了までは、この design も設計議論・履歴として残し、迷う内容は両方に置く。
 
 ---
 
@@ -120,10 +120,10 @@ DB反映は `pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir` が行う
 
 ### automation health の範囲
 
-L2 ⑨の `automation-prepare` は、Supabase と PWA API が取れていれば review を進めてよい。GAS はこの抽出経路の必須依存ではないため、`automation-prepare` / `refresh-snapshot` ではデフォルトで GAS health を skip する。
+D-6の `automation-prepare` は、Supabase と PWA API が取れていれば review を進めてよい。GAS はこの抽出経路の必須依存ではないため、`automation-prepare` / `refresh-snapshot` ではデフォルトで GAS health を skip する。
 
-- L2 ⑨で必須: Supabase snapshot refresh、PWA API、5生データ connector
-- L2 ⑨で任意診断: GAS bridge
+- D-6で必須: Supabase snapshot refresh、PWA API、5生データ connector
+- D-6で任意診断: GAS bridge
 - GAS も含めて診断したい場合: `node pwa/scripts/ms_progress_review_tool.mjs health` または `automation-prepare --include-gas-health`
 
 理由: 経営ハイライト候補は Codex automation が 5生データ / OS snapshot から outbox を作り、非LLM applier が Supabase に反映する。GAS は freee / 一部 cron / legacy bridge の健全性確認には重要だが、この daily review の hard gate にすると不要な false degraded が出る。

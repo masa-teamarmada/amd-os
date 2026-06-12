@@ -175,9 +175,9 @@ function cron_checkRoutineAlertsDaily_(){
       if (!b_hasSentRoutineAlert_(projectId, bizYm, level, taskKey)){
         // 未完3点（採用文例）
         const missing = [];
-        if (!done.invoiceSend) missing.push("①請求書送付");
-        if (!done.paymentCheck) missing.push("②入金/振込 確認");
-        if (!done.allocation) missing.push("③配賦額の確定/支払承認");
+        if (!done.invoiceSend) missing.push("1請求書送付");
+        if (!done.paymentCheck) missing.push("2入金/振込 確認");
+        if (!done.allocation) missing.push("3配賦額の確定/支払承認");
         const missText = missing.length ? missing.join(" ") : "（未完タスク判定はあるのにmissingが空。ここは要確認）";
 
         const msg =

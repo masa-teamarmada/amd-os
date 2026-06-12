@@ -1,23 +1,23 @@
-/** 155_L2KnowledgeExtractor.gs — Phase 4 L2 ⑤④② 毎時 polling 抽出
+/** 155_L2KnowledgeExtractor.gs — Phase 4 L2 542 毎時 polling 抽出
  *
  * 仕様正本:
- *   pwa/design/member_knowledge.md  (⑤)
- *   pwa/design/project_knowledge.md (④)
- *   pwa/design/amd_protocol.md      (②)
+ *   pwa/design/member_knowledge.md  (5)
+ *   pwa/design/project_knowledge.md (4)
+ *   pwa/design/amd_protocol.md      (2)
  *
  * ─────────────────────────────────────────────
  * このファイルが扱う 3 つの L2
  * ─────────────────────────────────────────────
- * ⑤ member_knowledge   — 各メンバーの強み/性格/コミュニケーション/関心 等を Supabase に upsert
- * ④ project_knowledge  — 各 PJ の人物/技術/IP/組織/資金/市場/競合/戦略/用語 を upsert
- * ② protocols          — 各 PJ の経営判断 (分岐点/判断材料/アクション/結果) を upsert
+ * 5 member_knowledge   — 各メンバーの強み/性格/コミュニケーション/関心 等を Supabase に upsert
+ * 4 project_knowledge  — 各 PJ の人物/技術/IP/組織/資金/市場/競合/戦略/用語 を upsert
+ * 2 protocols          — 各 PJ の経営判断 (分岐点/判断材料/アクション/結果) を upsert
  *
  * ─────────────────────────────────────────────
  * 入力ソース (本 Phase = "二次集約" 版、5 生データ直結は将来の Phase 4.x 改善案)
  * ─────────────────────────────────────────────
- * ⑤ member: member_activities (直近 90 日) + projects に紐づく project_meeting_summaries
- * ④ project: 当月 + 前月の monthly_reports + project_meeting_summaries (decided/progress/next_actions)
- * ② protocol: 当月 + 前月の project_meeting_summaries (decided 中心) + monthly_reports
+ * 5 member: member_activities (直近 90 日) + projects に紐づく project_meeting_summaries
+ * 4 project: 当月 + 前月の monthly_reports + project_meeting_summaries (decided/progress/next_actions)
+ * 2 protocol: 当月 + 前月の project_meeting_summaries (decided 中心) + monthly_reports
  *
  * source_hash 差分検知 + l2_extract_state (PK: l2_kind, target_id, scope_key) で
  * 同じ入力なら LLM 呼ばずスキップ。
@@ -54,7 +54,7 @@ function nav_l2_disabledCronResponse_(handlerName) {
 }
 
 // ============================================================
-// 公開関数 ─ ⑤ member_knowledge
+// 公開関数 ─ 5 member_knowledge
 // ============================================================
 
 /** アクティブメンバー全員 × global を target に毎時 polling
@@ -381,7 +381,7 @@ function nav_member_knowledge_extractOne_(codeName, memberId, opts) {
 }
 
 // ============================================================
-// 公開関数 ─ ④ project_knowledge
+// 公開関数 ─ 4 project_knowledge
 // ============================================================
 
 function nav_project_knowledge_pollAll(opts) {
@@ -606,7 +606,7 @@ function nav_project_knowledge_extractOneForYm_(projectId, ym, opts) {
 }
 
 // ============================================================
-// 公開関数 ─ ② protocols (AMDプロトコル)
+// 公開関数 ─ 2 protocols (AMDプロトコル)
 // ============================================================
 
 function nav_protocol_pollAll(opts) {
@@ -1027,9 +1027,9 @@ function _l2_protocolNormalizeContent_(content) {
     .replace(/学習[・·]結果/g, "結果");
 
   const patterns = [
-    /\n{0,2}#{1,6}\s*(?:④\s*)?結果\s*\n[\s\S]*$/m,
-    /\n{0,2}\*\*(?:④\s*)?結果\*\*[:：]?\s*[\s\S]*$/m,
-    /\n{0,2}(?:④|4[.)．]?)\s*結果[:：]?\s*[\s\S]*$/m
+    /\n{0,2}#{1,6}\s*(?:4\s*)?結果\s*\n[\s\S]*$/m,
+    /\n{0,2}\*\*(?:4\s*)?結果\*\*[:：]?\s*[\s\S]*$/m,
+    /\n{0,2}(?:4|4[.)．]?)\s*結果[:：]?\s*[\s\S]*$/m
   ];
   for (let i = 0; i < patterns.length; i++) {
     if (patterns[i].test(s)) {

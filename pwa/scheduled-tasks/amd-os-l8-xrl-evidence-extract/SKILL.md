@@ -1,9 +1,9 @@
 ---
 name: amd-os-l8-xrl-evidence-extract
-description: AMD OS L2 ⑧ XRL根拠抽出の repo 正本。現行 writer は Codex automation `amd-os-ms` + non-LLM LaunchAgent applier。active PJ × 当月/前月の 5 生データ + 既存 L2 から各 axis の evidence を抽出し、`xrlEvidence` outbox JSON を `/Users/masa/.codex/automations/amd-os-ms/outbox/` に作る。Supabase `project_xrl_evidence` への upsert は `ms_progress_review_tool.mjs apply-outbox-dir` が行う。DB/APIへ直接書き込まない。
+description: AMD OS M-2 XRL根拠抽出の repo 正本。現行 writer は Codex automation `amd-os-ms` + non-LLM LaunchAgent applier。active PJ × 当月/前月の 5 生データ + 既存 L2 から各 axis の evidence を抽出し、`xrlEvidence` outbox JSON を `/Users/masa/.codex/automations/amd-os-ms/outbox/` に作る。Supabase `project_xrl_evidence` への upsert は `ms_progress_review_tool.mjs apply-outbox-dir` が行う。DB/APIへ直接書き込まない。
 ---
 
-# AMD OS L2 ⑧ XRL 根拠抽出 automation
+# AMD OS M-2 XRL 根拠抽出 automation
 
 ## 設計の要点
 - Codex automation `amd-os-ms` の `outbox.xrlEvidence` → LaunchAgent applier → Supabase 反映
@@ -20,7 +20,7 @@ outbox は `/Users/masa/.codex/automations/amd-os-ms/outbox/*.json` に保存す
 
 ## 【絶対】 動く前に必ず Read
 1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4
-2. `pwa/design/xrl_evidence.md` (= L2 ⑧ 仕様正本)
+2. `pwa/design/xrl_evidence.md` (= M-2 仕様正本)
 3. `pwa/design/amd_score.md` (= AMD Score 算定式)
 4. `pwa/design/db_schema.md` (= project_xrl_evidence / project_founding_members / project_xrl_log / amd_score_inputs 列名)
 5. `/Users/masa/.codex/automations/amd-os-ms/automation.toml` (= 元実装 prompt、特に「XRL 根拠の作り方」)

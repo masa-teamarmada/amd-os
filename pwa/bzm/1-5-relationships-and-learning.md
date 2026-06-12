@@ -37,7 +37,7 @@ Before Zero の実践テキストは、ケースを美談として載せる場�
 1. 現場で起きたことを L2 に残す
 2. 判断・失敗・関係構築・チェックポイントへ分類する
 3. 守秘と一般化を確認する
-4. 承認済みの L2⑩候補だけを Textbook へ追記する
+4. 承認済みの L210候補だけを Textbook へ追記する
 5. 後から retrofit / AMD Score / ERS と照合する
 
 実ケースの追記先は、内容に応じて [失敗・ピボット・仮説修正](8-3-failures-pivots-and-revisions.md) または [関係構築プレイブック](8-4-relationship-playbook.md) になります。

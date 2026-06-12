@@ -7,7 +7,7 @@
  *
  * Body:
  *   {
- *     l2_kind: 'project_strategy_signal',  // 当面は L2 ⑨ のみ対応
+ *     l2_kind: 'project_strategy_signal',  // 当面は D-6 のみ対応
  *     target_id: string,                    // project_id
  *     scope_key: string,                    // 'YYYYMM:strategy:<hashPrefix>'
  *     initial_feedback: string              // まさの最初の修正依頼テキスト

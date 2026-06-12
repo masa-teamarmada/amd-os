@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* eslint-disable @typescript-eslint/no-require-imports */
-// Guard: L2⑥ MTGサマリ抽出で、開催後ソースがある Calendar event を
+// Guard: H-1 MTGサマリ抽出で、開催後ソースがある Calendar event を
 // upcoming 準備カードだけで終わらせないための deterministic preflight。
 //
 // この script は外部 connector や DB へ接続しない。MMO automation が

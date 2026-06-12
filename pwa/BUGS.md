@@ -8,7 +8,7 @@
 ### [git/deploy] L2 リネーム正本が「巻き戻った」— 本番ライン 64 commit が未 push の codex ブランチに幽閉 (2026-06-12)
 
 - **状態**: ✅ クローズ (= main へ fast-forward + push で復旧。恒久対策 A案を同日実装)
-- **症状**: まさが OS の設計書画面で確認済みだった L2 の D/M/H 再ナンバリング (spec 3-1 / manual 8-3 / L2_DATA.md) が、再訪したら旧 ①〜⑩ ナンバリングに戻って見えた。「また正本が消えた」状態。
+- **症状**: まさが OS の設計書画面で確認済みだった L2 の D/M/H 再ナンバリング (spec 3-1 / manual 8-3 / L2_DATA.md) が、再訪したら旧 1〜10 ナンバリングに戻って見えた。「また正本が消えた」状態。
 - **原因**: Codex セッション群がリポルール (main 直運用) に違反して `codex/*` ブランチを 30 本以上作成。リネーム commit `aea9e92a` (2026-06-04) を含む本番ライン (v0.16.29、64 commit) が `codex/main-current-v01629-sync` に積まれたまま **一度も GitHub に push されず、main にも合流していなかった**。main は v0.15.1 (6/3) で停止。古い main 系の内容を見た時点で「巻き戻り」に見えた。データは一切消えていない — 正本が git 上のどこにも固定されていなかったのが本質。
 - **対応内容**:
   - 全ローカルブランチを origin へバックアップ push (このとき Vercel の GitHub 自動 deploy が発覚し、preview build 13 件が Queued → 即時全削除で quota 被害を最小化)
@@ -349,7 +349,7 @@
   - 旧 UI 実装の field 名が、Phase 4.5 後の `protocols.source` schema と同期されていない。
 - **対応内容**:
   - `AdminProtocolsClient` の手動追加 payload を `protocol_id`, `title`, `project_id`, `content`, `tags`, `importance`, `source`, `status`, `kind`, `is_universal`, timestamps に限定。
-  - 4 要素は `content` の markdown (`① 分岐点` / `② 判断材料` / `③ アクション` / `④ 結果`) として保存する。
+  - 4 要素は `content` の markdown (`1 分岐点` / `2 判断材料` / `3 アクション` / `4 結果`) として保存する。
 - **再発防止策**:
   - Admin CRUD の insert payload は `db_schema.md` と migration の列名に合わせ、manual の既知ギャップにも残す。
 
@@ -1297,7 +1297,7 @@
 - **状態**: ✅ 解決済 (gas/155 防御強化 + 汚染レポートを status='invalid' で隔離)
 - **症状**: PWA `/notifications` で「🗂️ SE (202604) PJナレッジ更新 (19 件)」展開すると CryoX/神谷/磁気冷凍/プランB/高砂 など **完全に CX (p20、神谷PJ) の内容**が SE PJ の knowledge として保存されていた (people: 神谷 / org: NIMS / strategy: MOU 先行 など 27 件)
 - **原因**:
-  - **PJナレッジ抽出のバグではなく、その入力ソース monthly_reports (= L2 ①) の汚染**
+  - **PJナレッジ抽出のバグではなく、その入力ソース monthly_reports (= M-1 Monthly Reports) の汚染**
   - p10 (SE) 202604 の `draft_content` 全体が CX (CryoX/神谷/磁気冷凍) の内容で書かれていた
   - p20 (CX) 202604 も同じ CX 内容だが mojibake (= "?" だらけ、charset 失敗)
   - generated_at は p10 が 2026-04-01T10:31:15、p20 が 11:14:24 (= 約 43 分差で連続)
@@ -1364,7 +1364,7 @@
 
 ### [GAS] Phase 4 完成時点で cron_invoiceSendNudge_ が 5 重複に増えてた (汎用 prune 関数を追加)
 
-- **発見日**: 2026-05-09 (Phase 4 ⑤④② 一括完了セッション)
+- **発見日**: 2026-05-09 (Phase 4 542 一括完了セッション)
 - **状態**: ✅ 解決済み (今回 4 削除、根本原因の重複生成元の整理は別タスク)
 - **症状**: `nav_l2_setupAllL2HourlyTriggers_` を実行したら GAS time-trigger 上限 (1 script 20 個) に達して 2 個目以降の作成が失敗。trigger 一覧確認したら `cron_invoiceSendNudge_` が **5 重複** (前回 brave-cohen セッションでは 4 重複と記録、間で 1 増えた)
 - **原因**:
@@ -1385,7 +1385,7 @@
 
 - **発見日**: 2026-05-09
 - **状態**: ✅ 解決済み (GAS 経由構成で回避)
-- **症状**: Phase 4 ③ MS進捗を毎時化するため `vercel.json` の `crons[].schedule` を `"0 * * * *"` に変更して `npx vercel --prod --yes` したら deploy が即時失敗:
+- **症状**: Phase 4 3 MS進捗を毎時化するため `vercel.json` の `crons[].schedule` を `"0 * * * *"` に変更して `npx vercel --prod --yes` したら deploy が即時失敗:
   ```
   Error: Hobby accounts are limited to daily cron jobs.
   This cron expression (0 * * * *) would run more than once per day.
@@ -2333,19 +2333,19 @@
 ### [data/meeting-summary] LLM が抽出した meeting_summary の risks / decided 欄に固有名詞の誤抽出が発生 (= 「大阪ガスケミカル」→ 実は「ダイキアクシス」)
 
 - **発見日**: 2026-05-24
-- **状態**: ✅ 修正済 (= 該当 L2 ⑨ signal を update)、再発防止は運用ルール化
+- **状態**: ✅ 修正済 (= 該当 D-6 Strategy Signals signal を update)、再発防止は運用ルール化
 - **症状**:
   - `project_meeting_summaries` の `meeting_id=ouf25bgoukki7ljafou1t0e13e_20260521T060000Z` (= 5/21 SX 内部MTG) の `risks` 欄に「**大阪ガスケミカル**とズブズブになりすぎるとバリュエーションが大幅に下がる可能性 (500億円規模の影響)」と記録されていた。
-  - これを元に L2 ⑨ daily routine が `project_strategy_signals` に impact=critical の candidate を生成し、確認フローで見直したところ「実は議論対象は **ダイキアクシス (DAVP)** だった」と判明。
+  - これを元に D-6 Strategy Signals daily routine が `project_strategy_signals` に impact=critical の candidate を生成し、確認フローで見直したところ「実は議論対象は **ダイキアクシス (DAVP)** だった」と判明。
 - **原因**:
   - meeting summary 抽出 LLM (= Gemini) が、議事録本文の固有名詞を取り違えた。元 Notion 議事録 (notion_url) では正しく「ダイキアクシス」と書かれていた可能性が高い (= LLM 側のハルシネーション)。
-  - L2 ⑨ daily routine は `project_meeting_summaries` を入力ソースに含むため、誤抽出が下流の strategy signal にそのまま伝播した。
+  - D-6 Strategy Signals daily routine は `project_meeting_summaries` を入力ソースに含むため、誤抽出が下流の strategy signal にそのまま伝播した。
 - **対応内容**:
-  - L2 ⑨ candidate signal `59706c0c-7d25-4912-a610-cc3f1149abe9` を update (`POST /api/strategy-signals action='update'`) で正しい内容に書き換え、impact=critical 維持。
+  - D-6 Strategy Signals candidate signal `59706c0c-7d25-4912-a610-cc3f1149abe9` を update (`POST /api/strategy-signals action='update'`) で正しい内容に書き換え、impact=critical 維持。
   - source_refs に 5/13 SX定例 (NDA 完了) / 5/21 SX 内部MTG / sx.md の 3 件を紐付け、再現性を確保。
   - `/Users/masa/projects/knowledge/sx.md` 外部関係者表の堀 (@a_hori) 所属を「大機アクシス」→「ダイキアクシス (DAVP)」に修正。
 - **再発防止策**:
-  - **L2 ⑨ candidate を confirm する前に、固有名詞 (会社名・人名) は元 Notion 議事録 (`notion_url`) か Slack 原文 (`source_url`) で原文確認を推奨**。特に impact=critical は確認必須。
+  - **D-6 Strategy Signals candidate を confirm する前に、固有名詞 (会社名・人名) は元 Notion 議事録 (`notion_url`) か Slack 原文 (`source_url`) で原文確認を推奨**。特に impact=critical は確認必須。
   - まさが「あれ、これ違うかも」と違和感を出した瞬間に、AI 抽出への絶対信頼を一旦解除して原文確認する習慣 (= まさの違和感シグナルを見逃さない、`feedback_question_own_proposals.md` の運用と同じ)。
   - 将来的には meeting_summary 抽出 cron 側で「**risks/decided 欄の固有名詞は議事録本文での出現回数 ≥ 2 を必須**」のような sanity check を追加するのもあり (= 1 度しか出ない固有名詞は確信度低くマーク)。
 
@@ -2527,24 +2527,24 @@
 
 ---
 
-### [infra/l2-extraction] 2026-05-22 cron 全廃止時に「Codex automation `amd-os-ms` が L2 ②④⑤⑥ も拾ってる」前提が間違っており、3 日間 ghost 化が発覚
+### [infra/l2-extraction] 2026-05-22 cron 全廃止時に「Codex automation `amd-os-ms` が D-1 AMD Protocol456 も拾ってる」前提が間違っており、3 日間 ghost 化が発覚
 
 - **発見日**: 2026-05-25 (= 5/22 cron 廃止から 3 日後、まさが「議事録を取り込む automation/routines がないって別セッションで気づいてた」と指摘して再調査で確定)
-- **状態**: 🚧 復旧中 (= まさ案 C: Claude routine 4 個新設)。2026-05-25 #68 で [manual/38-l2-extraction-routines-spec.md](manual/38-l2-extraction-routines-spec.md) を追加し、`amd-os-meeting-extract` は SKILL + GAS dryRun live 200 OK まで確認済。scheduled task 登録と ②④⑤ routine は未完。
+- **状態**: 🚧 復旧中 (= まさ案 C: Claude routine 4 個新設)。2026-05-25 #68 で [manual/38-l2-extraction-routines-spec.md](manual/38-l2-extraction-routines-spec.md) を追加し、`amd-os-meeting-extract` は SKILL + GAS dryRun live 200 OK まで確認済。scheduled task 登録と 245 routine は未完。
 - **症状**:
-  - L2 ② AMD プロトコル (`protocols`): 2026-05-22 が最後の created_at
-  - L2 ④ PJ ナレッジ (`project_knowledge`): 2026-05-23 が最後の updated_at (= 残留分)
-  - L2 ⑤ メンバーナレッジ (`member_knowledge`): 2026-05-22 が最後の updated_at
-  - L2 ⑥ MTG サマリ (`project_meeting_summaries`): 2026-05-22 以降の自動取り込みは事実上ゼロ (= dialogue 手動投入のみ active)
+  - D-1 AMD Protocol AMD プロトコル (`protocols`): 2026-05-22 が最後の created_at
+  - D-3 Project Knowledge PJ ナレッジ (`project_knowledge`): 2026-05-23 が最後の updated_at (= 残留分)
+  - D-4 Member Knowledge メンバーナレッジ (`member_knowledge`): 2026-05-22 が最後の updated_at
+  - H-1 Meeting Flow MTG サマリ (`project_meeting_summaries`): 2026-05-22 以降の自動取り込みは事実上ゼロ (= dialogue 手動投入のみ active)
   - 結果として、提案前の論点整理セッションで経営ハイライト confirm しても下流の議事録・PJ ナレッジ・メンバーナレッジが更新されず、OS が「凍ったデータ」で動く状態に
 - **原因**:
-  - 2026-05-22 「LLM 課金が発生する定期抽出 cron を全廃止」した時に「Codex automation が全部カバーしてる前提」だったが、**`amd-os-ms` automation の prompt 精読すると ②④⑤⑥ は「通知だけ」「生成しない」設計**:
-    - A (= L2 ⑦) → `outbox.registryDiffs` ✅ 生成
-    - B (= L2 ⑧) → `outbox.xrlEvidence` ✅ 生成
-    - C (= L2 ③) → `outbox.revisions` ✅ 生成
+  - 2026-05-22 「LLM 課金が発生する定期抽出 cron を全廃止」した時に「Codex automation が全部カバーしてる前提」だったが、**`amd-os-ms` automation の prompt 精読すると 2456 は「通知だけ」「生成しない」設計**:
+    - A (= D-5 Registry Diff) → `outbox.registryDiffs` ✅ 生成
+    - B (= M-2 XRL Evidence) → `outbox.xrlEvidence` ✅ 生成
+    - C (= D-2 MS Progress) → `outbox.revisions` ✅ 生成
     - D (= 生データ未取り込み) → `outbox.notifications` で**通知のみ** (= 取り込みは別レーン前提)
     - F (= 会議候補) → **通知のみ**、`project_meeting_summaries` 書き込みなし
-  - GAS 153 (= 議事録毎時 polling) + GAS 155 (= L2 ②④⑤ 抽出) + GAS 152 (= 月次 fallback) は kill switch (`MEETING_HOURLY_CRON_DISABLED_20260522` / `L2_KNOWLEDGE_CRON_DISABLED_20260522` / `NAV_MONTHLY_EXTRACT_CRON_DISABLED_20260522`) で停止、live trigger も削除済
+  - GAS 153 (= 議事録毎時 polling) + GAS 155 (= D-1 AMD Protocol45 抽出) + GAS 152 (= 月次 fallback) は kill switch (`MEETING_HOURLY_CRON_DISABLED_20260522` / `L2_KNOWLEDGE_CRON_DISABLED_20260522` / `NAV_MONTHLY_EXTRACT_CRON_DISABLED_20260522`) で停止、live trigger も削除済
   - GAS 153 のコメント「Use Codex automation/review batches」が**実態として実装されてない**ことを誰も検証してなかった
   - マニュアル `pwa/design/L2_DATA.md` 表の writer 列が「`amd-os-ms` (= 旧 GAS 155 から移管)」と書いてたが**この記述が虚偽**だった
 - **対応方針 / 進捗**:
@@ -2695,7 +2695,7 @@
 - **発見日**: 2026-05-25
 - **状態**: ✅ 修正済 (= MS hourly と ASPI 系 PWA ping の kill switch を分離)
 - **症状**:
-  - manual / design 側では L2 ③ MS進捗の primary writer を GAS 154 `nav_pwa_pingHourlyEstimate` -> PWA `/api/cron/hourly-estimate` としていた
+  - manual / design 側では D-2 MS Progress MS進捗の primary writer を GAS 154 `nav_pwa_pingHourlyEstimate` -> PWA `/api/cron/hourly-estimate` としていた
   - しかし `gas/154_PwaCronCaller.js` では `NAV_PWA_CRON_DISABLED_20260522=true` により、`nav_pwa_pingHourlyEstimate` が即 disabled response を返す状態だった
   - 結果として、OS上の MS進捗 hourly estimate が仕様どおり動かない可能性があった
 - **対応内容**:
@@ -2703,7 +2703,7 @@
   - `nav_pwa_setupHourlyPwaTrigger_()` は hourly trigger だけを扱い、ASPI 側の停止関数と混ざらないようにした
   - `operations-catalog.ts` では `pwa-hourly-estimate` を active operation に戻し、ASPI / backfill / recompute 系は stopped/manual-only として棚卸し
 - **再発防止策**:
-  - L2 ③ MS進捗を止める時は、manual 03 / 24 / 36 と `gas/CLAUDE.md` と `vercel.disabled-crons.json` を同時に更新する
+  - D-2 MS Progress MS進捗を止める時は、manual 03 / 24 / 36 と `gas/CLAUDE.md` と `vercel.disabled-crons.json` を同時に更新する
   - `pwa/vercel.disabled-crons.json` の `gas_adapters_disabled_in_code` に `nav_pwa_pingHourlyEstimate` を入れたままにしない
 
 ---
@@ -2754,7 +2754,7 @@
   - `manual/01`, `10`, `32` に締切・担当・タスク内容・保存列・完了判定を同期。
   - `manual/21` に `amd_score_revisions` / `amd_score_alpha_proposals` / `reason_md` / `AmdScoreFutureEditModal` 未実装境界を追記。
   - `manual/28` / `design/project_strategy_signals.md` / `CockpitStrategySignals` を polarity chip / `score_impact_summary` / `未確認` chip へ同期。
-  - `/admin/settings` の L2 ⑨ source を `Codex automation amd-os` に更新。
+  - `/admin/settings` の D-6 Strategy Signals source を `Codex automation amd-os` に更新。
   - critical UI guard を新呼称に更新し、旧 dialogue 呼称・内部理由・特定メンバー名だけが目立つ設計例を除去。
 - **検証**:
   - `git diff --check` pass。
@@ -2796,7 +2796,7 @@
 ### [ui/dialogue-mode] 「議論候補レビュー UI」 を作ったが本来は「議論結果のバイタル反映保証」 だった (= まさ #91)
 
 - **症状**: `DialogueModeButton.tsx` で `project_strategy_signals.status='candidate'` を 1 件ずつレビューする UI を作って /management-score に追加した。 まさが「議論してないものは重要じゃないから議論してない、 議論したものは確認なしで採用すべき。 この機能、 意味あるの?」 と指摘
-- **原因**: まさえいMTG (= L2 ⑨ dialogue) の本来の意図を取り違えた。 まさが求めていたのは「**議論で confirmed されたシグナルが必ずバイタル計算ロジックに反映される仕組み**」 (= 反映保証)。 私が作ったのは「**自動抽出された candidate を承認するワークフロー**」 = レビューワークフローで、 これは「議論してないものを後から評価する」 構造になっており、 まさの思考と逆向き
+- **原因**: まさえいMTG (= D-6 Strategy Signals dialogue) の本来の意図を取り違えた。 まさが求めていたのは「**議論で confirmed されたシグナルが必ずバイタル計算ロジックに反映される仕組み**」 (= 反映保証)。 私が作ったのは「**自動抽出された candidate を承認するワークフロー**」 = レビューワークフローで、 これは「議論してないものを後から評価する」 構造になっており、 まさの思考と逆向き
 - **状態**: ✅ 修正済 (= 2026-05-27 後続セッション、 v0.4.0 deploy 済)
 - **対応内容**: `DialogueModeButton.tsx` 削除 / `/management-score/page.tsx` の import + render + query 削除 / `EvidencePanel.tsx` 上部に「まさえいMTG で確定したシグナル」 chip 帯を追加 (= `status='confirmed' AND decision_state IN ('decided','executing','revised')` の signals を新規軸 / 方向軸別に表示)。 詳細 [manual 29 章「まさえいMTG 確定シグナル 帯」](manual/29-management-score-and-finance-simulation-spec.md)
 - **再発防止策**: 機能を作る前に「これは誰が、 どんな状況で押すか」 を 1 文で言語化。 まさが「議論したものは確認なしで採用」 と言うなら、 確認 UI を作る発想自体が NG
@@ -2889,7 +2889,7 @@
   - 未来予定カード同期を「今後60日」だけで考え、同日開始済み予定の補強ユースケースを含めていなかった。
 - **対応内容**:
   - `POST /api/meeting-prep/calendar-sync` のskip条件を「開始時刻が現在より前」ではなく「meeting_date が今日より前」に変更。
-  - L2⑥ SKILL の未来Calendar同期範囲を `today 00:00 JST` から `now + 60 days` に変更。
+  - H-1 Meeting Flow SKILL の未来Calendar同期範囲を `today 00:00 JST` から `now + 60 days` に変更。
 - **再発防止策**:
   - 予定カード同期は「会議前だけ」ではなく、当日中の資料補強・URL補強も対象にする。
   - 同日予定を扱う route では、時刻比較ではなくJST日付比較を先に確認する。
@@ -2906,7 +2906,7 @@
 - **原因**:
   - Drive関連資料を「議事録Docs」中心に見ており、取締役会の正式資料が日付サブフォルダ + xlsx/pdf で置かれる運用を設計に入れていなかった。
 - **対応内容**:
-  - L2⑥ SKILL に、PJ Drive folder rootから会議日 token / title token で1階層サブフォルダを探す手順を追加。
+  - H-1 Meeting Flow SKILL に、PJ Drive folder rootから会議日 token / title token で1階層サブフォルダを探す手順を追加。
   - Docs / Slides / Sheets / PDF / Office files を `drive_files` metadata として `calendar-sync` に渡し、予定カードの `関連Drive資料` に表示する設計に変更。
   - CLG 2026-05-27取締役会カードへ3件のDrive資料リンクを本番反映し、Supabase readbackで確認。
 - **再発防止策**:
@@ -2923,12 +2923,12 @@
   - `project_meeting_summaries` の直近更新を確認すると、`generated_by_model='codex_manual_notion_lst'` と `manual:codex_notion_fetch_20260527` の p07/LST 行が `narrative_md` 空のまま大量に upsert されていた。
   - UI は `narrative_md` があれば主表示する実装なので、空の場合だけ `summary_short` と `decided/progress/next_actions/risks` の箇条書き表示へ落ちる。
 - **原因**:
-  - 手動 backfill / maintenance 系の Supabase 直書きが、L2⑥の品質ルールを通らず、`summary_short` と4配列だけを「議事録」として保存していた。
+  - 手動 backfill / maintenance 系の Supabase 直書きが、H-1 Meeting Flowの品質ルールを通らず、`summary_short` と4配列だけを「議事録」として保存していた。
   - 既存の高品質 `narrative_md` を低品質更新から守る DB-level guard がなかった。
 - **対応内容**:
   - migration 098 `pms_preserve_rich_narrative` を追加。既存 300 字以上の `narrative_md` は、空または箇条書き優勢の更新で消えない。
   - `POST /api/meeting-summary/manual-update` に同じ保護を追加。UI/API 経由で rich narrative を誤って空欄に落としにくくした。
-  - L2⑥ routine / L2 all routine に、`source_kinds != "none"` の開催済みMTGは `narrative_md` 必須、低品質なら保存しない gate を追加。
+  - H-1 Meeting Flow routine / L2 all routine に、`source_kinds != "none"` の開催済みMTGは `narrative_md` 必須、低品質なら保存しない gate を追加。
 - **再発防止策**:
   - MTGサマリの本文正本は `narrative_md`。4配列は補助フィールドであって本文ではない。
   - 過去議事録 backfill でも `summary_short` と配列だけの直書きは禁止。まず narrative を生成し、品質 gate を通してから保存する。
@@ -3009,15 +3009,15 @@
 ## [PWA/l2-meeting] 議事録が箇条書きや表記ゆれ見出しに戻る余地があった (2026-05-29)
 
 - **症状**: MTG議事録の本文が、参加していないメンバーには流れが分からない箇条書きや、8セクション形式 / 表記ゆれ見出しへ戻る余地が残っていた。コックピット詳細も「つくよみに修正依頼」に依存しており、低品質なLLM再解釈を手動で止めづらかった。
-- **原因**: `narrative_md` の文体ルールはあったが、固定見出し順と箇条書き禁止が L2⑥ routine / dialogue narrate / manual / critical guard 全体で一枚岩になっていなかった。修正導線も人間の直接編集ではなく LLM correction 前提に寄っていた。
-- **対応内容**: MTG詳細モーダルは「議事録を手動修正」に一本化し、`POST /api/meeting-summary/manual-update` で表示用フィールドを直接更新する。L2⑥ routine と dialogue narrate は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定5見出し、段落 narrative、箇条書き禁止へ更新。見出し違いは `blocked_wrong_narrative_headings` として保存しない。commits `6c83fd5`, `170b731`, `0ff8a9f`。
+- **原因**: `narrative_md` の文体ルールはあったが、固定見出し順と箇条書き禁止が H-1 Meeting Flow routine / dialogue narrate / manual / critical guard 全体で一枚岩になっていなかった。修正導線も人間の直接編集ではなく LLM correction 前提に寄っていた。
+- **対応内容**: MTG詳細モーダルは「議事録を手動修正」に一本化し、`POST /api/meeting-summary/manual-update` で表示用フィールドを直接更新する。H-1 Meeting Flow routine と dialogue narrate は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定5見出し、段落 narrative、箇条書き禁止へ更新。見出し違いは `blocked_wrong_narrative_headings` として保存しない。commits `6c83fd5`, `170b731`, `0ff8a9f`。
 - **再発防止策**: 議事録の正本は `narrative_md`。`decided/progress/next_actions/risks` は補助フィールドであって本文ではない。コックピットのMTG詳細に「つくよみに修正依頼」を戻さない。長い議事録 prompt は `/mtg-minutes` skill に寄せ、まさに毎回手入力させない。
 
-## [docs/l2-routes] ③だけ直して、同じ画面範囲の L2 ①②④⑤⑥⑦⑧⑨ が人間に分からないまま残った (2026-05-29)
+## [docs/l2-routes] 3だけ直して、同じ画面範囲の M-1 Monthly Reports2456789 が人間に分からないまま残った (2026-05-29)
 
-- **症状**: まさが「`amd-os-l3-ms-progress-extract` が何か分からない。MMOマシン automation ならマニュアルにもそう書いてほしい」と言った後、最初は L2 ③ MS進捗の表示だけを直した。ところが同じ画面範囲の他 L2 には、処理IDだけ、古い Cloud routine / ghost 表記、課金ルート不明、復旧場所不明の行が残っていた。まさ「③だけやったから、人間はこの画面範囲全部理解できる状態になったといえるの？」
-- **原因**: 要望を「③の文言修正」と狭く解釈し、「人間にもつくよみにも一発で分かる状態にする」= 同じ表・同じ章・同じ種類の operational route を横展開して直す、という本質を取り逃がした。マニュアル本文だけでなく `manual-chapters.ts` の summary / topic description のような表示メタデータにも古い current-looking 表記が残っていた。
-- **対応内容**: `pwa/manual/3-2-data-and-extraction.md` 冒頭に L2 ①〜⑨ 全体の「実行場所 / 現行処理 / 課金ルート / 止まった時に見る場所」早見表を追加。`pwa/manual/8-3-l2-extraction-routines-spec.md`、`6-1`、`9-1`、`pwa/design/L2_DATA.md`、`pwa/scheduled-tasks/README.md`、関連 design/manual を現行 automation 表記へ同期。`pwa/src/app/(app)/manual/manual-chapters.ts` の stale `Claude routine` summary も修正。
+- **症状**: まさが「`amd-os-l3-ms-progress-extract` が何か分からない。MMOマシン automation ならマニュアルにもそう書いてほしい」と言った後、最初は D-2 MS Progress MS進捗の表示だけを直した。ところが同じ画面範囲の他 L2 には、処理IDだけ、古い Cloud routine / ghost 表記、課金ルート不明、復旧場所不明の行が残っていた。まさ「3だけやったから、人間はこの画面範囲全部理解できる状態になったといえるの？」
+- **原因**: 要望を「3の文言修正」と狭く解釈し、「人間にもつくよみにも一発で分かる状態にする」= 同じ表・同じ章・同じ種類の operational route を横展開して直す、という本質を取り逃がした。マニュアル本文だけでなく `manual-chapters.ts` の summary / topic description のような表示メタデータにも古い current-looking 表記が残っていた。
+- **対応内容**: `pwa/manual/3-2-data-and-extraction.md` 冒頭に M/W/D/H L2 全体の「実行場所 / 現行処理 / 課金ルート / 止まった時に見る場所」早見表を追加。`pwa/manual/8-3-l2-extraction-routines-spec.md`、`6-1`、`9-1`、`pwa/design/L2_DATA.md`、`pwa/scheduled-tasks/README.md`、関連 design/manual を現行 automation 表記へ同期。`pwa/src/app/(app)/manual/manual-chapters.ts` の stale `Claude routine` summary も修正。
 - **再発防止策**: 「これ直して」が運用表・章・画面範囲の一部を指す時は、同じ表の全行、関連章、表示メタデータ、検索/Q&Aに出る summary まで横断 grep する。処理IDだけを正本にせず、最低限 `実行環境 / 課金ルート / 復旧時に見る場所 / 正本SKILL` をセットで書く。1箇所だけ直して終わらせる前に「同種の行は他にないか」を必ず棚卸しする。
 
 ## [deploy/vercel] `pwa/` 直下から production deploy すると repo root 設定で `pwa/pwa` を見に行く (2026-05-29)

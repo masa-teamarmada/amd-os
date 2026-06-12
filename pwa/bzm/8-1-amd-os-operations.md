@@ -115,9 +115,9 @@ ERS は AMD Score とは別ロジック（加重和・充足率）なので、�
 - ERS の軸重み $w_k$ を等加重から実態に合わせて調整。
 - σ_SU 観測モデル（C 行列の負荷量）のベイズ更新（第 2 部）。
 
-## 9.5 実践章群 — L2⑩ を受けて育てる章
+## 9.5 実践章群 — D-7 Textbook Insights を受けて育てる章
 
-第 8 部は、AMD OS への実装だけでなく、Before Zero の現場で繰り返し使う実践知も扱います。L2⑩ Textbook Insights の承認済み候補は、内容に応じて次の章へ振り分けます。
+第 8 部は、AMD OS への実装だけでなく、Before Zero の現場で繰り返し使う実践知も扱います。D-7 Textbook Insights Textbook Insights の承認済み候補は、内容に応じて次の章へ振り分けます。
 
 - [現場判断と分岐](8-2-field-decisions-and-branches.md): GO / WAIT / NO_GO、設立時期、律速軸、資源配分。
 - [失敗・ピボット・仮説修正](8-3-failures-pivots-and-revisions.md): 早すぎた判断、仮説外れ、拒絶、制度・技術の詰まりを学習へ変える。

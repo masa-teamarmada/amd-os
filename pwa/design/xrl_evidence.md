@@ -1,9 +1,9 @@
-# XRL根拠 (L2 ⑧) — 設計の正本
+# XRL根拠 (M-2) — 設計の正本
 
 最終更新: 2026-05-25
 正本ステータス: 定義確定、実装中。
 
-> **manual / spec / bzm 3層分割中**: L2⑧ XRL 根拠の確定実装仕様は `/spec/3-5-xrl-evidence-current-spec.md` へ移行済み。移行完了までは、この design も設計議論・履歴として残し、迷う内容は両方に置く。
+> **manual / spec / bzm 3層分割中**: M-2 XRL 根拠の確定実装仕様は `/spec/3-5-xrl-evidence-current-spec.md` へ移行済み。移行完了までは、この design も設計議論・履歴として残し、迷う内容は両方に置く。
 
 ---
 
@@ -35,7 +35,7 @@ VC / 協業先 / 顧客 / 行政 / advisor-only の人物は含めない。
 
 ## 既存テーブルとの対応
 
-| テーブル | L2 ⑧での位置づけ |
+| テーブル | M-2での位置づけ |
 |---|---|
 | `project_founding_members` | HRL 根拠。SU 創業候補 / AMD伴走者 / 大学キーパーソンを保持。manual 上は「関連メンバー」と呼ぶ |
 | `project_xrl_log` | XRL 時系列の評価ログ。LLM proposal や bottleneck を保持 |
@@ -105,7 +105,7 @@ XRL根拠が新規作成・大幅更新されたら `/notifications` に出す�
 
 ## 関連メンバー (旧 founding_members) の扱い
 
-`project_founding_members` は L2 ⑧ XRL根拠の正式な一部で、**HRL 評価のベース**となる関連メンバー台帳。
+`project_founding_members` は M-2 XRL根拠の正式な一部で、**HRL 評価のベース**となる関連メンバー台帳。
 
 ### 対象範囲 (まさ判断 2026-05-22)
 
@@ -151,4 +151,4 @@ LLM 抽出は `status='tentative'` で保存。`/notifications` から「はい�
 - 創業候補の実在性 / コミットメント / 採用候補 / 業務委託候補
 - チームの意思決定速度や実行継続性
 
-L2 ⑧ XRL根拠は HRL だけでなく TRL / BRL / GRL / SRL の根拠 (`project_xrl_evidence`) も含む。
+M-2 XRL根拠は HRL だけでなく TRL / BRL / GRL / SRL の根拠 (`project_xrl_evidence`) も含む。

@@ -118,10 +118,10 @@ function BreakdownContent({
   // スコア数値は中立色 (slate-900) で固定表示。
   const scoreColor = "#0f172a";
 
-  // ① M = (σ_SU+1)^α_σ
+  // 1 M = (σ_SU+1)^α_σ
   const M = result.contributions.sigma_SU ?? 1;
 
-  // ② X = ∏_{x ∈ XRL_5} (x+1)^α_x  (Shallow Tech では TRL を除外)
+  // 2 X = ∏_{x ∈ XRL_5} (x+1)^α_x  (Shallow Tech では TRL を除外)
   const xrlAxes: AmdScoreAxis[] = ["TRL", "BRL", "GRL", "SRL", "HRL"];
   let X = 1;
   for (const axis of xrlAxes) {
@@ -129,7 +129,7 @@ function BreakdownContent({
     X *= result.contributions[axis] ?? 1;
   }
 
-  // ③ F = (FRL+1)^α_F
+  // 3 F = (FRL+1)^α_F
   const F = result.contributions.FRL ?? 1;
 
   // S = k · M · X · F (sanity check; result.score と一致。result.K は API 名のまま)
@@ -158,7 +158,7 @@ function BreakdownContent({
         </div>
       </div>
 
-      {/* ① マクロ M */}
+      {/* 1 マクロ M */}
       <FactorCard
         label="M"
         ja="マクロ"
@@ -199,7 +199,7 @@ function BreakdownContent({
         />
       </FactorCard>
 
-      {/* ② 会社の XRL X */}
+      {/* 2 会社の XRL X */}
       <FactorCard
         label="X"
         ja="会社の XRL"
@@ -249,7 +249,7 @@ function BreakdownContent({
         />
       </FactorCard>
 
-      {/* ③ CEO の FRL F */}
+      {/* 3 CEO の FRL F */}
       <FactorCard
         label="F"
         ja="CEO の FRL"

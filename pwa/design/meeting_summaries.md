@@ -15,7 +15,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - 表示: PWA の `CockpitMeetingSummary` が Supabase を直読み
 - 添付資料: PWA の MTG 詳細モーダルから、一般ファイル / スクショ / PDF / 画面キャプチャを `meeting_assets` に保存する。新規実体はDriveの `PJフォルダ / YYMMDD_会議名`、旧実体はprivate Storage互換で扱い、必要なものだけ `narrative_md` の Markdown 画像/リンクとして挿入する。
 - 予定MTG: 日時が確定しているものだけ `source_kinds='upcoming'` として同じ `project_meeting_summaries` に保存し、会議前の「決めること / 用意するもの」を MTG サマリ欄の先頭に出す。日程未確定の仮置きは `source_kinds='upcoming_tentative'` / `prep_status='tentative'` とし、確定予定 count には含めず「日程調整中MTG」として同じ上段エリアに残す。
-- future Calendar sync: L2⑥ automation が **今日0:00 JSTから今後60日** の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡す。前回議事録がまだ無いPJでも、Calendar上で確定しているMTGは `upcoming:<calendar_event_id>` としてカード化する。ただし weekly recurring MTG は series ごとに次回1件だけを保存・表示対象にし、それ以降の回はノイズとして同期/一覧表示しない。今日すでに開始済みの予定も、当日中はDrive資料やURL補強のため同期対象にする。PJ Drive folder に会議日フォルダや関連資料がある場合は、`drive_files` として予定カードの `関連Drive資料` に出す。
+- future Calendar sync: H-1 automation が **今日0:00 JSTから今後60日** の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡す。前回議事録がまだ無いPJでも、Calendar上で確定しているMTGは `upcoming:<calendar_event_id>` としてカード化する。ただし weekly recurring MTG は series ごとに次回1件だけを保存・表示対象にし、それ以降の回はノイズとして同期/一覧表示しない。今日すでに開始済みの予定も、当日中はDrive資料やURL補強のため同期対象にする。PJ Drive folder に会議日フォルダや関連資料がある場合は、`drive_files` として予定カードの `関連Drive資料` に出す。
 - 会議後 workflow: PWA `POST /api/meeting-workflow/finalize` が、routine 生成済み議事録の `decided` / `next_actions` / `narrative_md` から **日時まで明確な次MTG候補を複数抽出**し、次MTGカード・action item・Slack nudge 予約を作る。完了イベントは `POST /api/meeting-workflow/actions/:actionId/complete` で受ける。ここでは **LLM を呼ばない**。
 - Notion 文字起こし導線: PWA の MTG サマリ / 予定MTGカードは、`project_meeting_summaries.notion_url` があれば **Notion文字起こしを開く** CTA を出す。未連携の場合、予定MTGは `source_url` の Calendar 予定を開き、Notion 側で録音/文字起こしを開始しやすくする。PWA から Notion の録音開始 API / 自動録音開始は呼ばない。あとから L6 が `notion_url` を埋めた場合に拾えるよう、カード上部に `メモ再読込` を置く。
 
@@ -27,7 +27,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 
 2026-05-22 の追加課金対策で、LLM 課金が発生する PWA / GAS background cron は停止済み。MTGサマリの品質改善は、PWA/GASに Anthropic/Gemini/OpenAI API 呼び出しを追加するのではなく、`pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` を読む **Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow`** 側で行う。
 
-- **LLMを使う場所**: L2 ⑥ MMOマシン automation。Notion/Gemini/CircleBack など既存AI議事録を素材にし、直近MTG・次MTG準備・現行MSを `os_context` として渡して `narrative_md` を作る。
+- **LLMを使う場所**: H-1 MMOマシン automation。Notion/Gemini/CircleBack など既存AI議事録を素材にし、直近MTG・次MTG準備・現行MSを `os_context` として渡して `narrative_md` を作る。
 - **LLMを使わない場所**: PWA/GAS/Vercel route。会議後 workflow は既存 `narrative_md` を使って、次MTG準備と通知の状態遷移だけを行う。
 - **source_hash 方針**: 会議ソース + feedback + prompt revision で差分検知する。MS進捗のような揺れやすい OS context は hash に混ぜない。文脈更新のたびに再生成して credit を浪費しないため。
 - **旧GAS LLM cron**: 153 / 152 は kill switch 維持。Gemini 経路なので復活させない。LLM 非依存の運用 cron はこの禁止対象ではない。
@@ -54,7 +54,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 
 ## 旧GAS設計セクションの扱い
 
-この下に残っている Phase 2 / Phase 3 / GAS LLM cron の説明は履歴と移植元の参照用。2026-05-29 現在の正本実装ではない。MTG サマリ / L2 議事録品質改善では、Windows MMO Codex Desktop automation L2 ⑥ と event-driven workflow だけを現行ルートとして扱う。
+この下に残っている Phase 2 / Phase 3 / GAS LLM cron の説明は履歴と移植元の参照用。2026-05-29 現在の正本実装ではない。MTG サマリ / L2 議事録品質改善では、Windows MMO Codex Desktop automation H-1 と event-driven workflow だけを現行ルートとして扱う。
 
 ## Phase 2 の大方針 (履歴: Phase 1 から何を変えたか)
 
@@ -230,11 +230,11 @@ Phase 3 で議事録が拾えたら `meeting_notifications` テーブル (PK: me
 
 `POST /api/meeting-prep` は `project_meeting_summaries` へ予定MTG row を upsert する。admin session または event-driven workflow 用の `Authorization: Bearer ${WORKFLOW_SECRET}` で実行できる。`WORKFLOW_SECRET` 未設定の環境では `CRON_SECRET` を fallback として許可する。`meeting_start_at` が空、または `is_tentative=true` / `prep_status='tentative'` の場合は `source_kinds='upcoming_tentative'` として保存する。
 
-`POST /api/meeting-prep/calendar-sync` は、L2⑥ routine がGoogle Calendar MCPで読んだ future events を受け取り、PJ判定して `source_kinds='upcoming'` row を upsert する。PWA route 自体はGoogle Calendarへアクセスしない。受け付ける event metadata は `calendar_event_id` / `recurring_event_id` / `title` / `start` / `end` / `url` / `description` / `location`。`project_id` を event ごとに渡した場合は強制紐付け、無い場合は `projects.project_name` / `project_id` / `client_name` で判定する。既に手動編集された準備本文は上書きせず、日時・title・Calendar URLだけ同期する。
+`POST /api/meeting-prep/calendar-sync` は、H-1 routine がGoogle Calendar MCPで読んだ future events を受け取り、PJ判定して `source_kinds='upcoming'` row を upsert する。PWA route 自体はGoogle Calendarへアクセスしない。受け付ける event metadata は `calendar_event_id` / `recurring_event_id` / `title` / `start` / `end` / `url` / `description` / `location`。`project_id` を event ごとに渡した場合は強制紐付け、無い場合は `projects.project_name` / `project_id` / `client_name` で判定する。既に手動編集された準備本文は上書きせず、日時・title・Calendar URLだけ同期する。
 
 weekly recurring MTG は、Google Calendar の `recurring_event_id` が取れる場合はその series id、取れない場合は PJ + title + 曜日 + 開始時刻で series を推定し、6〜8日間隔の連続予定なら次回1件だけを upsert する。同じPJに複数の weekly series がある場合も series ごとに1件ずつ残す。既にDBに複数回分が存在している場合に備え、`CockpitMeetingSummary` 側でも同じ考え方で一覧表示を次回1件に絞る。
 
-`calendar-sync` は任意で `drive_files` も受け取る。これは route が Drive を読みに行くのではなく、L2⑥ routine が Google Drive MCP で会議日フォルダ・議案資料・予実表・招集通知などを見つけて渡す metadata。最大 8 件程度を `narrative_md` の `関連Drive資料` にリンクとして載せ、`source_hash` にも含める。Drive探索は root 直下だけでなく、日付 token (`YYMMDD` / `YYYYMMDD` / `YYYY-MM-DD`) と会議 title token で1階層のサブフォルダまで見る。これにより CLG `260527_取締役会` のように、資料が Drive サブフォルダに置かれている予定MTGでも事前カードから見える。
+`calendar-sync` は任意で `drive_files` も受け取る。これは route が Drive を読みに行くのではなく、H-1 routine が Google Drive MCP で会議日フォルダ・議案資料・予実表・招集通知などを見つけて渡す metadata。最大 8 件程度を `narrative_md` の `関連Drive資料` にリンクとして載せ、`source_hash` にも含める。Drive探索は root 直下だけでなく、日付 token (`YYMMDD` / `YYYYMMDD` / `YYYY-MM-DD`) と会議 title token で1階層のサブフォルダまで見る。これにより CLG `260527_取締役会` のように、資料が Drive サブフォルダに置かれている予定MTGでも事前カードから見える。
 
 主な入力:
 
@@ -301,7 +301,7 @@ Meet / CircleBack / Gmail 議事録メールだけでは、会議中に画面共
 - 旧添付の互換用に private Supabase Storage bucket `meeting-assets` の閲覧 path は残す。新規保存先は Drive、OS DB には metadata のみ残す。
 - DB には `meeting_assets` として `asset_id / meeting_id / project_id / drive_file_id / project_drive_folder_id / drive_folder_id / drive_folder_name / web_view_link / folder_display_path / media_type / caption / sort_order / asset_kind` を保存する。
 - `project_meeting_summaries` 本体に base64 画像や signed URL は保存しない。`narrative_md` には永続 route `/api/meeting-assets/file/{asset_id}` だけを入れる。
-- PWA route はアップロード・表示 URL 発行・Markdown 挿入だけを行い、従量課金 LLM を呼ばない。画像の意味抽出や表OCRを行う場合は、L2 ⑥ routine / Codex automation 側で `meeting_assets` を入力に含める。
+- PWA route はアップロード・表示 URL 発行・Markdown 挿入だけを行い、従量課金 LLM を呼ばない。画像の意味抽出や表OCRを行う場合は、H-1 routine / Codex automation 側で `meeting_assets` を入力に含める。
 - `extracted_text` は将来の OCR / vision 結果用。画像そのものではなく、短いテキスト化された根拠だけを保存する。
 
 ### API
@@ -491,7 +491,7 @@ if existing.source_hash === newHash: skip (LLM 呼ばない)
 | [pwa/src/components/cockpit/CockpitMeetingSummary.tsx](../src/components/cockpit/CockpitMeetingSummary.tsx) | 一覧 UI (行クリックで `CockpitMeetingDetailModal` を開く) |
 | [pwa/src/components/cockpit/CockpitMeetingDetailModal.tsx](../src/components/cockpit/CockpitMeetingDetailModal.tsx) | **詳細モーダル (2026-05-23 新設)**。`@base-ui/react` Dialog を `!max-w-[1100px] w-[92vw] max-h-[88vh]` で開く。summary_short / decided / progress / next_actions / risks を `MarkdownView` で描画 |
 | [pwa/src/app/api/meeting-prep/route.ts](../src/app/api/meeting-prep/route.ts) | **予定MTG準備 API (2026-05-25 新設)**。`source_kinds='upcoming'` row を upsert |
-| [pwa/src/app/api/meeting-prep/calendar-sync/route.ts](../src/app/api/meeting-prep/calendar-sync/route.ts) | **future Calendar sync API (2026-05-27 新設)**。L2⑥が読んだ未来Calendar eventから `source_kinds='upcoming'` row を deterministic upsert |
+| [pwa/src/app/api/meeting-prep/calendar-sync/route.ts](../src/app/api/meeting-prep/calendar-sync/route.ts) | **future Calendar sync API (2026-05-27 新設)**。H-1が読んだ未来Calendar eventから `source_kinds='upcoming'` row を deterministic upsert |
 | [pwa/src/app/api/meeting-summary/manual-update/route.ts](../src/app/api/meeting-summary/manual-update/route.ts) | **議事録手動修正 API (2026-05-27 新設)**。通常MTG / dialogue row の表示用フィールドを上書きする。`source_hash` は変更しない |
 | [pwa/src/app/api/meeting-workflow/finalize/route.ts](../src/app/api/meeting-workflow/finalize/route.ts) | **会議後 workflow API (2026-05-26 新設)**。routine 生成済み議事録から次MTGカード / Calendar / action item / Slack nudge 予約を作る。LLM 呼び出しなし |
 | [pwa/src/app/api/meeting-workflow/actions/[actionId]/complete/route.ts](../src/app/api/meeting-workflow/actions/[actionId]/complete/route.ts) | **準備action完了 API (2026-05-26 新設)**。Slackボタン / OS UI / webhook から action を done にし、prep_status を ready/nudging に更新。LLM 呼び出しなし |
@@ -530,12 +530,12 @@ if existing.source_hash === newHash: skip (LLM 呼ばない)
 
 ---
 
-## L2① monthly_reports automation との関係
+## M-1 monthly_reports automation との関係
 
-R313 (AMD-Report GAS) は旧経路で、定期 trigger は置かない。月次レポート生成は L2① Codex automation `AMD OS L2① 月次報告抽出` が担当し、MTG サマリは Supabase L2 snapshot の primary input として月次 draft に使う。5 生データは L2 coverage が薄いときの gap check / backfill fallback。
+R313 (AMD-Report GAS) は旧経路で、定期 trigger は置かない。月次レポート生成は M-1 Codex automation `AMD OS M-1 月次報告抽出` が担当し、MTG サマリは Supabase L2 snapshot の primary input として月次 draft に使う。5 生データは L2 coverage が薄いときの gap check / backfill fallback。
 
 ```
-L2① automation:
+M-1 automation:
   Supabase L2 snapshot (project_meeting_summaries / strategy / XRL / registry / protocols / knowledge / MS)
     + Gmail / Drive / Calendar / Slack / Notion gap check fallback
       ↓ Sonnet で集約
@@ -574,7 +574,7 @@ R313 を会議サマリ集約方式に書き換える TODO は廃止。必要な
 | **2026-05-09** | **alias map 統合** (gas/079 NameAliasMap 新設): `members.member_name` + email から動的に正規化マップ生成。姓・フルネーム・ローマ字表記を `members.code_name` へ寄せる block を 074 / 155 双方の LLM プロンプトに渡す | 72293f4 |
 | **2026-05-09** | **MTGサマリ feedback 対応** (gas/074 v4_alias_feedback): `_l2_loadFeedbackBlock_("meeting_summary", projectId, meetingId)` で過去依頼を取得 → userPrompt に追加。saved>0 で `_l2_recordFeedbackApplied_` で applied_count++。source_hash に active feedback hash を混ぜる → 修正依頼追加で自動再抽出。`POST /api/notifications/feedback` 末尾で **即 force 再抽出を fire-and-forget** | ac23ec1 |
 | **2026-05-29** | **コックピット MTGサマリ修正導線を手動編集へ一本化**: `CockpitMeetingDetailModal` から「つくよみに修正依頼」ブロックを撤去し、「議事録を手動修正」→ `POST /api/meeting-summary/manual-update` を主導線に変更。既存の historical `l2_feedbacks` は routine 側で読めるが、コックピット詳細から新規作成しない。 | 本セッション |
-| **2026-05-29** | **MTGサマリ narrative の箇条書き禁止を明文化**: L2⑥ routine / dialogue narrate は、欠席メンバーが背景から次の一手まで追える文章 narrative を生成する。`decided` 等の配列は検索・通知用の補助で、議事録本文を箇条書きに戻さない。 | 本セッション |
+| **2026-05-29** | **MTGサマリ narrative の箇条書き禁止を明文化**: H-1 routine / dialogue narrate は、欠席メンバーが背景から次の一手まで追える文章 narrative を生成する。`decided` 等の配列は検索・通知用の補助で、議事録本文を箇条書きに戻さない。 | 本セッション |
 | **2026-05-29** | **議事録本文の5見出し固定順を正本化**: 開催済みMTGの `narrative_md` は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順に固定。表記ゆれや順序違いは品質 gate で保存しない。 | 本セッション |
 | **2026-05-29** | **weekly recurring 予定MTGを次回1件に制限**: `calendar-sync` は同じ weekly series の future occurrences を次回以外 skip し、`CockpitMeetingSummary` も既存DB行を series ごとに次回1件だけ表示する。複数 weekly series が同じPJにある場合はそれぞれ1件ずつ残す。 | 本セッション |
 | **2026-05-09** | **debug_meeting_inspectBlocks(pageId)** 新設 (gas/158): 任意ページの blocks 構造を JSON で返す常設 debug 関数 | fbeabb5 |

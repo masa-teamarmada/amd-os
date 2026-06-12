@@ -1,13 +1,13 @@
 ---
 name: amd-os-l2-monthend-evidence
-description: AMD OS month-end L2 evidence 抽出を 1 本の claude routine に束ねたもの (= M-1〜M-3)。月末候補日 16:00 JST 発火 (cron `0 16 28-31 * *`)、Phase 0 で「今日 == 当月最終日」判定し、最終日でなければ即 exit。最終日のみ M-1 monthly_reports → M-2 XRL根拠 → M-3 Management Monthly Signal の順に inline 実行し、17:00 JST までに完了させる (= 月末最終日 18:00 の月次振り返り MTG に間に合わせる)。claude.ai/code/routines (cloud / Anthropic-managed、サブスク定額枠、Sonnet 4.6)。daily 分 (D-1〜D-10) は別 routine `amd-os-l2-consolidated-evidence`、毎時 (H-1) は MMOマシン Codex Desktop automation。
+description: AMD OS month-end L2 evidence 抽出を 1 本の claude routine に束ねたもの (= M-1〜M-3)。月末候補日 16:00 JST 発火 (cron `0 16 28-31 * *`)、Phase 0 で「今日 == 当月最終日」判定し、最終日でなければ即 exit。最終日のみ M-1 monthly_reports → M-2 XRL根拠 → M-3 Management Monthly Signal の順に inline 実行し、17:00 JST までに完了させる (= 月末最終日 18:00 の月次振り返り MTG に間に合わせる)。claude.ai/code/routines (cloud / Anthropic-managed、サブスク定額枠、Sonnet 4.6)。daily 分 (D-1〜D-11) は別 routine `amd-os-l2-consolidated-evidence`、weekly 分 (W-1) は別 routine `amd-os-l2-weekly-vc-funding-signals`、毎時 (H-1) は MMOマシン Codex Desktop automation。
 ---
 
 # AMD OS Month-end L2 Evidence routine (M-1〜M-3)
 
 > **これは何か**: 月末にだけ抽出すべき L2 evidence を **1 本の claude routine** に束ねたもの。
 > M-1 monthly_reports → M-2 XRL根拠 → M-3 Management Monthly Signal を **依存順** で実行。
-> 2026-06-04 まさ確定の cadence ベース新ナンバリング (D / M / H)。
+> 2026-06-08 まさ確定の cadence ベース新ナンバリング (D / M / W / H)。
 
 ## 🚨 登録事故の current truth (2026-06-04)
 
@@ -18,20 +18,20 @@ description: AMD OS month-end L2 evidence 抽出を 1 本の claude routine に�
 
 ## 設計の要点 (2026-06-04 まさ確定)
 
-- **背景**: M-1 ① monthly / M-2 ⑧ XRL / M-3 ⑯ Management Signal は **全部「月末」cadence**。当初 B (month-end) と D (17:00) に分けていたが、3 つとも月末で、依存関係 (M-1 → M-2 → M-3) もあるため **1 routine に統合** (= run 消費も月末日 +1 だけ)。
+- **背景**: M-1 M-1 monthly / M-2 M-2 XRL / M-3 M-3 Management Signal は **全部「月末」cadence**。当初 B (month-end) と D (17:00) に分けていたが、3 つとも月末で、依存関係 (M-1 → M-2 → M-3) もあるため **1 routine に統合** (= run 消費も月末日 +1 だけ)。
 - **発火**: 月末候補日 16:00 JST。cron `0 16 28-31 * *`。
 - **最終日判定**: cron に「月の最終日」概念は無いため `28-31` で月末候補日に発火し、**Phase 0 で JST 判定**。今日が当月最終日でなければ本処理を一切実行せず 1 行 summary で即 exit (= 空振り run。月 3-4 回、daily run cap には全く触れない)。
-- **完了目標**: 16:00 開始 → **17:00 JST までに M-3 まで完了**。理由 = 月末最終日 18:00 に月次振り返り MTG があり、その前に ⑯ Management Signal まで出揃わせる。1 時間バッファ。差分検知で skip 多い月は 15-20 分で終わる。
+- **完了目標**: 16:00 開始 → **17:00 JST までに M-3 まで完了**。理由 = 月末最終日 18:00 に月次振り返り MTG があり、その前に M-3 Management Signal まで出揃わせる。1 時間バッファ。差分検知で skip 多い月は 15-20 分で終わる。
 - **実行環境**: claude.ai/code/routines (cloud sandbox VM、Pro/Max/Team サブスク内、Sonnet 4.6)。
 - **入力**: AMD OS repo auto-clone + Connector (Supabase / Gmail / Drive / Calendar / Notion / Slack)。
 
-## 新ナンバリング ↔ 旧 L2 番号 対応
+## 新ナンバリング ↔ 旧番号 番号 対応
 
-| 新 | 旧 L2 | 名称 | table | 既存 SKILL / 実装 |
+| 新 | 旧番号 | 名称 | table | 既存 SKILL / 実装 |
 |---|---|---|---|---|
-| M-1 | ① | Monthly Reports | `monthly_reports` | `amd-os-l1-monthly-report-extract/SKILL.md` |
-| M-2 | ⑧ | XRL根拠 | `project_xrl_evidence` / `project_founding_members` | `amd-os-l8-xrl-evidence-extract/SKILL.md` |
-| M-3 | ⑯ | Management Monthly Signal | `company_management_signal_reviews` | 新規 (本 SKILL Phase C に inline)。table = migration 122 |
+| M-1 | M-1 | Monthly Reports | `monthly_reports` | `amd-os-l1-monthly-report-extract/SKILL.md` |
+| M-2 | M-2 | XRL根拠 | `project_xrl_evidence` / `project_founding_members` | `amd-os-l8-xrl-evidence-extract/SKILL.md` |
+| M-3 | M-3 | Management Monthly Signal | `company_management_signal_reviews` | 新規 (本 SKILL Phase C に inline)。table = migration 122 |
 
 ## 【絶対】 動く前に必ず Read
 
@@ -53,7 +53,7 @@ Phase 0: 最終日判定 + env + active PJ
 4. ymList = [当月 (= YYYYMM JST)]。月末評価なので当月を primary、必要時のみ前月補完。
 
 ═══════════════════════════════════════════════════
-Phase A: M-1 ① Monthly Reports (= 当月、最優先)
+Phase A: M-1 M-1 Monthly Reports (= 当月、最優先)
 ═══════════════════════════════════════════════════
 
 `amd-os-l1-monthly-report-extract/SKILL.md` の手順を実行。
@@ -66,7 +66,7 @@ Phase A: M-1 ① Monthly Reports (= 当月、最優先)
 - **M-2 の入力になるので必ず M-2 より先に完了させる**。
 
 ═══════════════════════════════════════════════════
-Phase B: M-2 ⑧ XRL根拠 (= M-1 の monthly_reports を入力に含む)
+Phase B: M-2 M-2 XRL根拠 (= M-1 の monthly_reports を入力に含む)
 ═══════════════════════════════════════════════════
 
 `amd-os-l8-xrl-evidence-extract/SKILL.md` の手順を実行。
@@ -78,7 +78,7 @@ Phase B: M-2 ⑧ XRL根拠 (= M-1 の monthly_reports を入力に含む)
 - XRL checklist audit (= 各 axis の evidence 充足チェック) もここで実施。
 
 ═══════════════════════════════════════════════════
-Phase C: M-3 ⑯ Management Monthly Signal (= 17:00 までに完了)
+Phase C: M-3 M-3 Management Monthly Signal (= 17:00 までに完了)
 ═══════════════════════════════════════════════════
 
 新規 inline 抽出 (= 個別 SKILL なし。table = migration 122 `company_management_signal_reviews`)。
@@ -102,9 +102,9 @@ Phase D: run summary
 
 ```
 🗓️ L2 month-end evidence (M-1〜M-3) 最終日 16:00 完了 (<HH:MM JST>):
-  - M-1 ① monthly_reports: <N> draft saved, <M> skipped final
-  - M-2 ⑧ XRL根拠: <N> evidence candidate (trl/brl/grl/srl/hrl)
-  - M-3 ⑯ Management Signal: ym=<YYYYMM> candidate saved
+  - M-1 M-1 monthly_reports: <N> draft saved, <M> skipped final
+  - M-2 M-2 XRL根拠: <N> evidence candidate (trl/brl/grl/srl/hrl)
+  - M-3 M-3 Management Signal: ym=<YYYYMM> candidate saved
   経過時間: <minutes> 分 (= 17:00 MTG 準備 締切まで余裕 <X> 分)
 ```
 
@@ -119,7 +119,7 @@ Phase D: run summary
 - `monthly_reports.final_content` を force なしで上書き。
 - XRL score を candidate を経ず直接 confirmed にする。
 - 17:00 を超えて M-3 が出ない (= 重い月は Phase A/B の差分 skip を最大化し、Phase C を死守)。
-- daily 分 (D-1〜D-10) / 毎時 (H-1) を本 routine に混ぜる。
+- daily 分 (D-1〜D-11) / weekly 分 (W-1) / 毎時 (H-1) を本 routine に混ぜる。
 
 ═══════════════════════════════════════════════════
 【execution time 配慮】

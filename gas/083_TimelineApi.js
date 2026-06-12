@@ -563,7 +563,7 @@ function _tl_buildBizTasksFromBilling_(bizYmKey, pack, todayJst){
     }
   }
 
-  // ① budgetAlloc
+  // 1 budgetAlloc
   (function(){
     const b = band(dueBudget);
     const s = adjustStart_(b.start);
@@ -580,7 +580,7 @@ function _tl_buildBizTasksFromBilling_(bizYmKey, pack, todayJst){
     }));
   })();
 
-  // ② report
+  // 2 report
   (function(){
     const b = band(reportDue);
     const s = adjustStart_(b.start);
@@ -597,7 +597,7 @@ function _tl_buildBizTasksFromBilling_(bizYmKey, pack, todayJst){
     }));
   })();
 
-  // ③ mtgSched
+  // 3 mtgSched
   (function(){
     const b = band(dueSched);
     const s = adjustStart_(b.start);
@@ -614,7 +614,7 @@ function _tl_buildBizTasksFromBilling_(bizYmKey, pack, todayJst){
     }));
   })();
 
-  // ④ mtgHeld
+  // 4 mtgHeld
   (function(){
     if (mtgMode === "fixed" && mtgDate){
       t.push(_tl_task_({
@@ -645,7 +645,7 @@ function _tl_buildBizTasksFromBilling_(bizYmKey, pack, todayJst){
     }
   })();
 
-  // ⑤ reimbFix
+  // 5 reimbFix
   (function(){
     const b = band(dueReimb);
     const s = adjustStart_(b.start);
@@ -662,7 +662,7 @@ function _tl_buildBizTasksFromBilling_(bizYmKey, pack, todayJst){
     }));
   })();
 
-  // ⑥ invoiceSend
+  // 6 invoiceSend
   (function(){
     const b = band(dueSend);
     const s = adjustStart_(b.start);
@@ -679,7 +679,7 @@ function _tl_buildBizTasksFromBilling_(bizYmKey, pack, todayJst){
     }));
   })();
 
-  // ⑦ paidConfirm
+  // 7 paidConfirm
   (function(){
     const b = band(duePaid);
     const s = adjustStart_(b.start);

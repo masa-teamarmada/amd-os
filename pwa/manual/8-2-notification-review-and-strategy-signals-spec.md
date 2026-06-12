@@ -2,7 +2,7 @@
 
 `/notifications` 画面と、 PJ コックピット内 `CockpitStrategySignals` の **経営ハイライト確認** UI、 修正依頼履歴の見方をまとめる。 ユーザー向け概念は [3-3 章](3-3-notifications-and-tsukuyomi.md) を、 つくよみ修正依頼 dialog API は [8-1 章](8-1-knowledge-admin-tsukuyomi-spec.md) を見る。
 
-> 実装者向けの L2⑨ 経営ハイライト確定仕様は [/spec/3-6-strategy-signals-current-spec](/spec/3-6-strategy-signals-current-spec) へ移行済み。ここでは `/notifications` の運用・確認手順を中心に扱う。
+> 実装者向けの D-6 経営ハイライト確定仕様は [/spec/3-6-strategy-signals-current-spec](/spec/3-6-strategy-signals-current-spec) へ移行済み。ここでは `/notifications` の運用・確認手順を中心に扱う。
 
 ## 何を見る画面か
 
@@ -14,8 +14,8 @@
 
 | table | 通知種別 |
 |---|---|
-| `l2_notifications` | L2 ② プロトコル / ③ MS 進捗 / ④ PJ ナレッジ / ⑤ メンバーナレッジ / ⑦ OS 台帳差分 / ⑧ XRL 根拠 / ⑨ 経営ハイライト 等 |
-| `meeting_notifications` | L2 ⑥ MTG サマリ通知 |
+| `l2_notifications` | D-1 プロトコル / D-2 MS 進捗 / D-3 PJ ナレッジ / D-4 メンバーナレッジ / D-5 OS 台帳差分 / M-2 XRL 根拠 / D-6 経営ハイライト 等 |
+| `meeting_notifications` | H-1 MTG サマリ通知 |
 | `l2_feedbacks` | 過去の修正依頼履歴 (= conversation 履歴) |
 | `app_notifications` | OS 全体の運用通知 (= 入金 nudge / cron 失敗 等) |
 
@@ -98,7 +98,7 @@ server page で `members.is_admin` を確認、 admin 以外は `notFound()`。 
 
 ## 経営ハイライト確認 UI (= CockpitStrategySignals)
 
-`project_strategy_signals` は L2 ⑨ で抽出される「進んだこと / 起きたこと」。 各 PJ cockpit の経営ハイライト tab + p00 cockpit でまさえいMTG 議題候補として表示される。
+`project_strategy_signals` は D-6 で抽出される「進んだこと / 起きたこと」。 各 PJ cockpit の経営ハイライト tab + p00 cockpit でまさえいMTG 議題候補として表示される。
 
 ### `project_strategy_signals` 列
 
@@ -138,7 +138,7 @@ PJ cockpit 経営ハイライト tab で:
   - ⚠️ つくよみに修正依頼 (= 8-1 章の dialog 対話型ループ起動)
   - 🗨️ コメントだけ送信
 
-### まさえいMTG (= L2 ⑨ dialogue) 接続
+### まさえいMTG (= D-6 dialogue) 接続
 
 p00 cockpit + 各 PJ cockpit で `status='candidate'` 経営ハイライトを impact 順に並べ、 まさえいMTG セッションで 1 件ずつ確認していく。 詳細は `pwa/CLAUDE.md` の「🧭 まさえいMTG の始め方」section と [`pwa/design/project_strategy_signals.md`](../design/project_strategy_signals.md) を見る。
 

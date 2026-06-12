@@ -2011,7 +2011,7 @@ function cockpit_api_getOriginEventList(payload) {
  *
  * 業務月Mのルーティン:
  *   ❶❷ → M-1月の25日（前月中）
- *   ❸〜⑨ → M+1月（翌月）
+ *   ❸〜9 → M+1月（翌月）
  *
  * @param {Object} payload { projectId }
  * @return {Object} { ok, flows[], today }

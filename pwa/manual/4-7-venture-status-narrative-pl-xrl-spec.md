@@ -139,7 +139,7 @@ XRL (= TRL/BRL/GRL/SRL/HRL) の評価値とその根拠を時系列で残す。
 | `source_note` | 出典メモ |
 | `source` | `manual` / `automation` / `tsukuyomi` |
 
-### `project_xrl_evidence` (= L2 ⑧ 根拠)
+### `project_xrl_evidence` (= M-2 根拠)
 
 | column | 用途 |
 |---|---|
@@ -156,7 +156,7 @@ XRL (= TRL/BRL/GRL/SRL/HRL) の評価値とその根拠を時系列で残す。
 | `created_by` | `automation` / `codex` / `manual` |
 | `confirmed_at` | 確認時刻 |
 
-抽出は Codex automation `amd-os-ms` + SKILL `amd-os-l8-xrl-evidence-extract` (= 6h ごと、 [8-3 章 §⑧](8-3-l2-extraction-routines-spec.md))。入力: 5 生データ + 既存 L2 (= monthly_reports / meeting_summaries / member_knowledge 等)。
+抽出は Codex automation `amd-os-ms` + SKILL `amd-os-l8-xrl-evidence-extract` (= 6h ごと、 [8-3 章 §M-2](8-3-l2-extraction-routines-spec.md))。入力: 5 生データ + 既存 L2 (= monthly_reports / meeting_summaries / member_knowledge 等)。
 
 ### `xrl_feedbacks` 列 (= 修正依頼)
 
@@ -222,11 +222,11 @@ invalidate されたら、 admin が cockpit を開いた時に「narrative が�
 ## 関連
 
 - 設計: [`pwa/design/venture_map_model.md`](../design/venture_map_model.md) (= Venture Map 数理モデル)
-- 設計: [`pwa/design/xrl_evidence.md`](../design/xrl_evidence.md) (= L2 ⑧ 設計)
+- 設計: [`pwa/design/xrl_evidence.md`](../design/xrl_evidence.md) (= M-2 設計)
 - 設計: [`pwa/design/project_pl_monthly.md`](../design/project_pl_monthly.md) (= 月次 PL)
 - 4-3 章 [AMD Score 詳細仕様](4-3-amd-score-spec.md)
 - 5-2 章 [HUD / Venture Map 仕様](5-2-hud-and-venture-map-spec.md)
 - 4-4 章 [FRL / HRL / 関連メンバー詳細仕様](4-4-frl-related-members-score-spec.md)
-- 8-3 章 [L2 Extraction Routines](8-3-l2-extraction-routines-spec.md) (= ⑧ XRL 根拠抽出)
+- 8-3 章 [L2 Extraction Routines](8-3-l2-extraction-routines-spec.md) (= M-2 XRL 根拠抽出)
 - 4-6 章 [卒業フェーズ検出](4-6-graduation-detection-spec.md) (= rocket 卒業の確定 path)
 - 4-5 章 [Management Score](4-5-management-score-and-finance-simulation-spec.md) (= graduation_score 接続)

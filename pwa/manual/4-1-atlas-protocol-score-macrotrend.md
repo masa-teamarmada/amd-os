@@ -111,7 +111,7 @@ AMD Protocol は、AMD の経営判断を **再利用できる判断パターン
 
 現状 (= 2026-05-29):
 - 旧 writer の GAS 155 は 2026-05-22 に停止
-- L2 ② AMD Protocol の現行 writer は MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract`
+- D-1 AMD Protocol の現行 writer は MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract`
 - 復旧時は [3-2 章](3-2-data-and-extraction.md) / [8-3 章](8-3-l2-extraction-routines-spec.md) の実行場所つき表を見る
 
 ## AMD Management Score との違い

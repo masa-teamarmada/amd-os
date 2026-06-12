@@ -1,14 +1,14 @@
 ---
 name: amd-os-l1-monthly-report-extract
-description: AMD OS L2 ① monthly_reports 抽出 automation。active / sales PJ の当月・前月を対象に、Supabase 内の既存 L2 データを primary input として月次報告 draft を subscription 内 Codex automation で作成し、/Users/masa/.codex/automations/amd-os-ms/outbox の monthlyReports JSON 経由で Supabase に反映する。Gmail / Drive / Calendar / Slack / Notion の 5 生データは L2 coverage gap / backfill / 監査用 fallback として確認する。R313 / PWA report route / Anthropic API など従量課金LLM経路は定期実行に使わない。
+description: AMD OS M-1 monthly_reports 抽出 automation。active / sales PJ の当月・前月を対象に、Supabase 内の既存 L2 データを primary input として月次報告 draft を subscription 内 Codex automation で作成し、/Users/masa/.codex/automations/amd-os-ms/outbox の monthlyReports JSON 経由で Supabase に反映する。Gmail / Drive / Calendar / Slack / Notion の 5 生データは L2 coverage gap / backfill / 監査用 fallback として確認する。R313 / PWA report route / Anthropic API など従量課金LLM経路は定期実行に使わない。
 ---
 
-# AMD OS L2 ① monthly_reports 抽出
+# AMD OS M-1 monthly_reports 抽出
 
 ## 目的
 
-L2 ① `monthly_reports` は、MS 進捗、PJ ナレッジ、XRL 根拠、月次FIXの前提になる月次断面 L2。
-2026-05-31 以降は、L2 ②〜⑨ の品質が上がってきたため、**Supabase 内の既存 L2 を primary input** として PJ ごとの月次断面を作る。
+M-1 `monthly_reports` は、MS 進捗、PJ ナレッジ、XRL 根拠、月次FIXの前提になる月次断面 L2。
+2026-05-31 以降は、D/M/W/H L2 の品質が上がってきたため、**Supabase 内の既存 L2 を primary input** として PJ ごとの月次断面を作る。
 5 生データは、L2 側の根拠が薄い / 欠けている / stale な場合の gap check と backfill 用 fallback として使う。
 
 この automation は **定額 subscription 内で動く Codex automation** が writer。DB 反映は既存の非LLM helper が行う。

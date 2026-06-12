@@ -80,7 +80,7 @@ FRL は XRL に飲み込まない。AMD Studio の哲学上、FRL と `sigma_SU`
 | `amd_score_alpha` | alpha weights の version 管理 |
 | `amd_score_revisions` | 軸値の修正依頼履歴 |
 | `project_xrl_log` | XRL 時系列評価ログ |
-| `project_xrl_evidence` | L2⑧ XRL 根拠 |
+| `project_xrl_evidence` | L2M-2 XRL 根拠 |
 
 `amd_score_inputs` の列名を書く前に `pwa/design/db_schema.md` を確認する。
 

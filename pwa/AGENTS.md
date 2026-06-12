@@ -23,8 +23,8 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 
 0. [`pwa/spec/1-1-overview.md`](spec/1-1-overview.md) / [`pwa/spec/1-2-document-layer-migration-map.md`](spec/1-2-document-layer-migration-map.md) — manual / spec / bzm 3層分割と移行マップ
 1. [`pwa/spec/2-1-pwa-runtime-routes.md`](spec/2-1-pwa-runtime-routes.md) — PWA ランタイム / route / API / cron / auth 境界
-2. [`pwa/spec/3-1-l2-data-extraction-current-spec.md`](spec/3-1-l2-data-extraction-current-spec.md) — L2 ①〜⑨ / 5 生データ / outbox / LaunchAgent / 採否ループ
-3. [`pwa/design/L2_DATA.md`](design/L2_DATA.md) ⭐⭐⭐ — 中核データ正本 (L2 9 種 + レポート + 全 cron)。移行完了までは `/spec` と両方見る
+2. [`pwa/spec/3-1-l2-data-extraction-current-spec.md`](spec/3-1-l2-data-extraction-current-spec.md) — M/W/D/H L2 / 5 生データ / outbox / LaunchAgent / 採否ループ
+3. [`pwa/design/L2_DATA.md`](design/L2_DATA.md) ⭐⭐⭐ — 中核データ正本 (M/W/D/H L2 + レポート + 全 cron)。移行完了までは `/spec` と両方見る
 4. [`pwa/design/README.md`](design/README.md) — 未移行設計フォルダのインデックス
 5. [`pwa/design/SPEC_pwa.md`](design/SPEC_pwa.md) ⭐ — PWA 全体仕様。移行完了までは `/spec` と両方見る
 6. [`pwa/design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md) ⭐ — 消してはいけない業務導線

@@ -1,4 +1,4 @@
-# 2026-05-27 — L2 ⑥ 予定MTGカード / Drive資料同期 修正
+# 2026-05-27 — H-1 Meeting Flow 予定MTGカード / Drive資料同期 修正
 
 ## 背景
 
@@ -9,8 +9,8 @@ KUTEで複数の次MTGが設定されたが、MTGサマリ欄の予定MTGカー�
 - `POST /api/meeting-prep/calendar-sync` が `drive_files` metadata を受け取り、予定MTGカードの `関連Drive資料` に出せるようにした。
 - `source_hash` にDrive資料 metadata を含め、資料リンク・更新時刻・snippet の変化でカードが更新されるようにした。
 - 同日開始済み予定を `past_event` 扱いで弾かないよう、skip条件をJST日付比較に変更した。
-- L2⑥ SKILL の未来Calendar同期範囲を `today 00:00 JST` から `now + 60 days` に変更した。
-- L2⑥ SKILL にDrive root + 1階層サブフォルダ探索を追加し、Docs / Slides / Sheets / PDF / Office files を会議資料候補として扱うようにした。
+- H-1 Meeting Flow SKILL の未来Calendar同期範囲を `today 00:00 JST` から `now + 60 days` に変更した。
+- H-1 Meeting Flow SKILL にDrive root + 1階層サブフォルダ探索を追加し、Docs / Slides / Sheets / PDF / Office files を会議資料候補として扱うようにした。
 - Drive資料だけで「決定済み」とは書かず、資料・論点・準備物として `progress` / `risks` / `narrative_md` に寄せるガードを入れた。
 
 ## 本番反映

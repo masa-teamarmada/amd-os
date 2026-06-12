@@ -632,7 +632,7 @@
             </div>
           </div>
 
-          <!-- ① meeting -->
+          <!-- 1 meeting -->
           <div class="stepWrap">
             <!-- 左：完了ピル（カード外） -->
             <div class="donePill todo" id="done_meeting">
@@ -707,7 +707,7 @@
 
           <div class="flowArrow">↓</div>
 
-          <!-- ② budget -->
+          <!-- 2 budget -->
           <div class="stepWrap">
             <!-- 左：完了ピル（カード外） -->
             <div class="donePill todo" id="done_budget">
@@ -756,7 +756,7 @@
 
           <div class="flowArrow">↓</div>
 
-          <!-- ③ allocation + agreement -->
+          <!-- 3 allocation + agreement -->
           <div class="stepWrap">
             <!-- 左：完了ピル（カード外） -->
             <div class="donePill todo" id="done_allocation">
@@ -829,7 +829,7 @@
           <div class="flowArrow">↓</div>
 
 
-          <!-- ④ report -->
+          <!-- 4 report -->
           <div class="stepWrap">
             <!-- 左：完了ピル（カード外） -->
             <div class="donePill todo" id="done_report">
@@ -863,7 +863,7 @@
           <div class="flowArrow">↓</div>
 
 
-          <!-- ⑤ invoice -->
+          <!-- 5 invoice -->
           <div class="stepWrap">
             <!-- 左：完了ピル（カード外） -->
             <div class="donePill todo" id="done_invoice">
@@ -1111,7 +1111,7 @@
           <div class="flowArrow">↓</div>
 
 
-          <!-- ⑥ payment -->
+          <!-- 6 payment -->
           <div class="stepWrap">
             <!-- 左：完了ピル（カード外） -->
             <div class="donePill todo" id="done_payment">
@@ -4828,7 +4828,7 @@
             const list = (res && Array.isArray(res.templates)) ? res.templates : [];
             const cur0 = String(STATE.freeeTemplateId || document.getElementById("freeeTemplateIdFixed")?.value || "").trim();
 
-            // ①描画
+            // 1描画
             sel.innerHTML = list.map(t => {
               const id = String(t.id || "").trim();
               const name = String(t.name || id).trim();
@@ -4836,7 +4836,7 @@
               return `<option value="${escapeHtmlAttr(id)}" ${selected}>${escapeHtml(name)} (${escapeHtml(id)})</option>`;
             }).join("") || `<option value="">(テンプレなし)</option>`;
 
-            // ②デフォルト：curが空なら「請求書PayPay」を自動選択
+            // 2デフォルト：curが空なら「請求書PayPay」を自動選択
             let cur = cur0;
             if (!cur && list.length){
               const hit = list.find(t => String(t.name||"").includes("請求書PayPay"));

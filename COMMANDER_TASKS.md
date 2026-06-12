@@ -195,12 +195,12 @@ Vercel deploy approval gate:
   - current truth: Claude Routines UIにroutineが見えない限り、Claude定額routineへ移管済みとは扱わない。
   - `~/.claude/scheduled-tasks/amd-os-l2...l9` などのSKILLは、ローカル手順・素材であり、Claude側ACTIVE登録の証拠ではない。
   - `amd-os-l2-consolidated-evidence` は実体未確認。登録済み/稼働中として扱わない。
-  - L2③ MS進捗とL2⑥ MTGフローは、Claude routineではなくMMOマシン Codex Desktop automation維持。
+  - D-2 MS Progress MS進捗とH-1 Meeting Flow MTGフローは、Claude routineではなくMMOマシン Codex Desktop automation維持。
   - push/deploy直前はdeploy bundle付きでまさ承認を取る。この台帳/docs是正の承認待ちは `approval pending` として扱う。
 - 残課題は何か
-  - Claude側で `amd-os-l2-consolidated-evidence` を実routine登録し、UI上で `ACTIVE / next run / last run` を確認する。対象は L2②④⑤⑦⑨⑩⑪⑫、cadenceは daily 08:00 JST。
-  - 別枠routineとして、L2① 月末最終日、L2⑧ 月末L2①後のXRL checklist audit、L2⑬ weekly candidate、L2⑯ 月末最終日17:00 JST Management Monthly Signal Evaluationを登録候補にする。
-  - L2①〜⑯のwriter matrixを、Claude routine / Codex Desktop automation / Codex automation / PWA non-LLM cron / admin reviewのどれかに必ず分類する。
+  - Claude側で `amd-os-l2-consolidated-evidence` を実routine登録し、UI上で `ACTIVE / next run / last run` を確認する。対象は D-1 AMD Protocol4579101112、cadenceは daily 08:00 JST。
+  - 別枠routineとして、M-1 Monthly Reports 月末最終日、M-2 XRL Evidence 月末M-1 Monthly Reports後のXRL checklist audit、W-1 VC News / Funding Signals weekly candidate、M-3 Management Monthly Signal 月末最終日17:00 JST Management Monthly Signal Evaluationを登録候補にする。
+  - M/W/D/H L2のwriter matrixを、Claude routine / Codex Desktop automation / Codex automation / PWA non-LLM cron / admin reviewのどれかに必ず分類する。
   - PWA/Vercel background LLM cronは復活させない。
   - 課金経路の棚卸しを行い、どの処理がClaude定額に乗っておらず、別課金・別負荷になっていたか確認する。
   - 実登録完了までは、L2 Claude routine移管を完了扱いにしない。
@@ -260,24 +260,24 @@ Vercel deploy approval gate:
   - 香川出張の間にロジックを少し変えた記憶があり、実機に反映されているか確認が必要だった。
 - 現状どうなってるか
   - 動作状態: 復旧済み、自然発火watch。worker thread `019e809e-8588-7ce0-bf69-88710cfd99b5` がL2/Atlas/Macrotrend抽出責任と実行状態を再整理し、backlogを反映した。
-  - 監視状態: AMD OS未完タスク監視heartbeatで、2026-06-02朝のL2①次回実行とMMO側outbox増加を継続監視する。
+  - 監視状態: AMD OS未完タスク監視heartbeatで、2026-06-02朝のM-1 Monthly Reports次回実行とMMO側outbox増加を継続監視する。
   - MMOマシンには接続でき、主要なL2抽出ルールは反映済み。
-  - L2①月次報告はMac側Codex automation `amd-os-l2` をACTIVEへ戻した。次回実行は2026-06-02 05:30 JST。
+  - M-1 Monthly Reports月次報告はMac側Codex automation `amd-os-l2` をACTIVEへ戻した。次回実行は2026-06-02 05:30 JST。
   - 自然発火前の手動確認では、`amd-os-l2` automation定義、正規outbox、LaunchAgent applier、helper health、DB現物が確認済み。
   - `automation-prepare --ym 202606` でsnapshot refreshに成功し、正規outboxに置いたno-op route-checkは正規applierで `applied/` へ移動した。DB writeは発生していない。
-  - Supabase現物として、L2① monthly reports 5件とsource cache 11件が2026-06-01に反映済みであることを確認した。
-  - L2②〜⑥はMMOマシンCodex Desktop automationがACTIVEで、2026-06-01朝の実行履歴を確認済み。
-  - L2⑦⑧/MS差分・L2⑨・Atlas・MacrotrendはMMO側Codex automationがACTIVE。
+  - Supabase現物として、M-1 Monthly Reports monthly reports 5件とsource cache 11件が2026-06-01に反映済みであることを確認した。
+  - D-1 AMD Protocol〜6はMMOマシンCodex Desktop automationがACTIVEで、2026-06-01朝の実行履歴を確認済み。
+  - D-5 Registry Diff8/MS差分・D-6 Strategy Signals・Atlas・MacrotrendはMMO側Codex automationがACTIVE。
   - MMO側outbox backlogはdrain済み。`amd-atlas-2`, `amd-macrotrend-evidence-review`, `amd-os-ms`, `amd-os-strategy-signals`, `amd-os-l6-meeting-flow` のoutbox json countは0。
-  - DB/API反映済み: L2① monthly reports 5件、source cache 11件、通知1件。L2⑦⑧/MS差分 registryDiffs 11件、xrlEvidence 20件、revisions 8件、通知35件。L2⑨ strategySignals 3件、通知3件。Macrotrend 12件insert/1件skip。Atlasは既存分重複skip、2026-06-01分はrecent照合で9件存在確認。
+  - DB/API反映済み: M-1 Monthly Reports monthly reports 5件、source cache 11件、通知1件。D-5 Registry Diff8/MS差分 registryDiffs 11件、xrlEvidence 20件、revisions 8件、通知35件。D-6 Strategy Signals strategySignals 3件、通知3件。Macrotrend 12件insert/1件skip。Atlasは既存分重複skip、2026-06-01分はrecent照合で9件存在確認。
   - Atlasは、Codex automationがweb/source searchで一次情報・信頼できる報道・公式発表URLを集め、`atlas_signal_review_tool.mjs` 経由で `atlas_signals` へ入れる。省庁系は別系統で `atlas-collect-policy` のdirect fetch設計がある。
   - Macrotrendは、UN SDGs / WEF Global Risksをbackboneにしつつ、公開source URL付きのmacrotrend evidenceをAtlas signals形式で投入する。LLM非依存のVercel cron `macro-aggregate-indicators` は `observation_log` と `atlas_signals` から `macro_index_log` を更新する。
   - 会議サマリは、会議IDがなくても弾かない方針へ更新済み。
   - 月次報告は、今後は生データを毎回直接見るより、まずOS内に集まった整理済みデータを主入力にする方針へ寄せた。
 - 残課題は何か
-  - 2026-06-02朝にL2①が自然発火し、automation run、outbox生成、applier反映、monthly reports/source cacheの更新まで通るか確認する。
+  - 2026-06-02朝にM-1 Monthly Reportsが自然発火し、automation run、outbox生成、applier反映、monthly reports/source cacheの更新まで通るか確認する。
   - MMO側run statusは保留中表示が多いため、今後もACTIVEだけでhealthy扱いせず、outbox/applied/DB反映まで見る。
-  - L2⑥は毎時起動しているが、Calendar色/default color権限問題は別タスクで解決する。
+  - H-1 Meeting Flowは毎時起動しているが、Calendar色/default color権限問題は別タスクで解決する。
 
 ### 8. ERS制度比較マトリクスの実データ入力を進める
 

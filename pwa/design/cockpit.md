@@ -37,7 +37,7 @@ SU 系 PJ (`project_ventures` 行が存在する PJ、現在 9 件) でのみ表
 
 ### p00 (= AMD 会社全体) の月次データ
 
-p00 にも他 PJ と同じく月次カード + 月次モーダルが出る。`billing_cycles` は backfill 済 (= 202601-202612 で 12 行、`status='not_started'`)。月次モーダルでは進捗タブだけ意味があり、請求書 / 報酬は他 PJ の動作と同じ UI が出るが内容は空。`monthly_reports` は L2① Codex automation `AMD OS L2① 月次報告抽出` の対象。手動生成 route は復旧用。
+p00 にも他 PJ と同じく月次カード + 月次モーダルが出る。`billing_cycles` は backfill 済 (= 202601-202612 で 12 行、`status='not_started'`)。月次モーダルでは進捗タブだけ意味があり、請求書 / 報酬は他 PJ の動作と同じ UI が出るが内容は空。`monthly_reports` は M-1 Codex automation `AMD OS M-1 月次報告抽出` の対象。手動生成 route は復旧用。
 
 
 ```
@@ -62,7 +62,7 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 │   ├── [B2]  CockpitNextPeriodSetup  次期 MS 設定バナー / 直接編集
 │   └── [B3]  過去の期間 (折りたたみ)
 │
-├── col2: 経営ハイライト (L2 ⑨)
+├── col2: 経営ハイライト (D-6)
 │   └── [B1]  CockpitStrategySignals  candidate / confirmed をMS直下の上位ボードとして見せる
 │
 └── col3: 月次オペ (lg 以上で sticky top-12)
@@ -322,7 +322,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 
 ## 関連メンバー
 
-`project_founding_members` はL2 ⑧ XRL根拠のうち、HRL評価のベースとなる **関連メンバー** 台帳。
+`project_founding_members` はM-2 XRL根拠のうち、HRL評価のベースとなる **関連メンバー** 台帳。
 
 ### 表示対象
 

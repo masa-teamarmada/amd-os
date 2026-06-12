@@ -157,7 +157,7 @@ Avoid company-introduction copy such as:
 - `弊社の支援では...`
 - `私たちは...を提供している`
 - `AMD OS`
-- `L2`, `L2⑩`, `candidate`, `local applier`, `routing`
+- `L2`, `D-7 Textbook Insights`, `candidate`, `local applier`, `routing`
 - source paths, specs, ledgers, deployment notes, thread/worker language
 - private event names or transcript references
 

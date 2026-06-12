@@ -184,11 +184,11 @@ function mathSlide(s, num, kicker, title, eqName, vars, interpretation, eqOpts =
 }
 
 // ============================================================
-// === 3: 数式① マクロトレンド指数 (v0.1) ===
+// === 3: 数式1 マクロトレンド指数 (v0.1) ===
 // ============================================================
 {
   const s = pres.addSlide();
-  mathSlide(s, 2, 'EQUATION 1 (v0.1)  ／  数式①',
+  mathSlide(s, 2, 'EQUATION 1 (v0.1)  ／  数式1',
     'マクロトレンド指数  Mᵢ(t) — 政策・予算・VC・言及の合成', 'eq1',
     [
       ['Mᵢ(t)', 'レーン i のマクロトレンド指数 (0–1)', 'macro_index_log.index_value'],
@@ -205,11 +205,11 @@ function mathSlide(s, num, kicker, title, eqName, vars, interpretation, eqOpts =
 }
 
 // ============================================================
-// === 4: 数式② 事業化適温度 (v0.1) ===
+// === 4: 数式2 事業化適温度 (v0.1) ===
 // ============================================================
 {
   const s = pres.addSlide();
-  mathSlide(s, 3, 'EQUATION 2 (v0.1)  ／  数式②',
+  mathSlide(s, 3, 'EQUATION 2 (v0.1)  ／  数式2',
     '事業化適温度  Tᵢ(t) — シーズ成熟度と競合密度を畳み込む', 'eq2',
     [
       ['Tᵢ(t)', '事業化適温度 (0–1)', 'View B 「総合温度」の基底'],
@@ -224,13 +224,13 @@ function mathSlide(s, num, kicker, title, eqName, vars, interpretation, eqOpts =
 }
 
 // ============================================================
-// === 5: 数式③ 論文-政策乖離 (v0.1) ===
+// === 5: 数式3 論文-政策乖離 (v0.1) ===
 // ============================================================
 {
   const s = pres.addSlide();
   s.background = { color: C.white };
   logo(s);
-  header(s, 4, 'EQUATION 3 (v0.1)  ／  数式③', '論文-政策乖離 D, D′ — 微分・二階微分による変曲点検出');
+  header(s, 4, 'EQUATION 3 (v0.1)  ／  数式3', '論文-政策乖離 D, D′ — 微分・二階微分による変曲点検出');
 
   const eqH = 1.5;
   s.addShape(pres.shapes.RECTANGLE, { x: 0.6, y: 1.55, w: 6.0, h: eqH, fill: { color: C.blueLight }, line: { type: 'none' } });
@@ -276,17 +276,17 @@ function mathSlide(s, num, kicker, title, eqName, vars, interpretation, eqOpts =
 }
 
 // ============================================================
-// === 6: 数式④ 投入シグナル (v0.1) ===
+// === 6: 数式4 投入シグナル (v0.1) ===
 // ============================================================
 {
   const s = pres.addSlide();
-  mathSlide(s, 5, 'EQUATION 4 (v0.1)  ／  数式④',
+  mathSlide(s, 5, 'EQUATION 4 (v0.1)  ／  数式4',
     '設立タイミングシグナル  σ_SU — 積分平均 + 加速度ボーナス', 'eq4',
     [
       ['σ_SU', 'SU 投入シグナル強度', '未実装 (View B 総合温度が代替)'],
       ['Δt', '統合窓 (固定 6ヶ月)', 'グローバル定数'],
       ['μ', '加速度ボーナスの重み (0.15)', 'グローバル定数'],
-      ['Tᵢ(s)', '事業化適温度 (式②)', '計算済み'],
+      ['Tᵢ(s)', '事業化適温度 (式2)', '計算済み'],
       ['M″', 'マクロトレンドの二階微分', 'View A で確認']
     ],
     '「波の積分平均が高い期間 + マクロが加速中 (二階微分プラス)」のタイミングが最適投入点というアイデア。\n\n• 第1項: 直近 Δt の T 平均 → 波が安定して熱いか\n• 第2項: M″ → 波が加速しているか (失速していないか)\n\nD′ 極大との関係は要議論 (極大か、極大より少し後か)。',
@@ -305,7 +305,7 @@ function mathSlide(s, num, kicker, title, eqName, vars, interpretation, eqOpts =
 
   const cards = [
     {
-      title: '式① マクロトレンド指数', items: [
+      title: '式1 マクロトレンド指数', items: [
         ['1.1', '線形結合の前提が壊れてる (P→B→V→R 因果連鎖あり)', '各項に独立ラグ・減衰を導入'],
         ['1.2', '政策だけ過去履歴の不整合', 'B/V/R も指数減衰積分に統一'],
         ['1.3', '閾値・飽和効果が抜けてる', 'シグモイド σ で包む'],
@@ -313,7 +313,7 @@ function mathSlide(s, num, kicker, title, eqName, vars, interpretation, eqOpts =
       ]
     },
     {
-      title: '式② 事業化期待値', items: [
+      title: '式2 事業化期待値', items: [
         ['2.1', 'S が時定数で時間変化なし', 'S(t) を時間関数化 (累積論文の S 字)'],
         ['2.2', '各項の単位・レンジが不明確', '全項を [0,1] に正規化を明記'],
         ['2.3', '競合密度 η の意味づけが弱い', '同質競合度 d_i を分離して導入'],
@@ -321,7 +321,7 @@ function mathSlide(s, num, kicker, title, eqName, vars, interpretation, eqOpts =
       ]
     },
     {
-      title: '式③ 論文-政策乖離', items: [
+      title: '式3 論文-政策乖離', items: [
         ['3.1', '単位不整合 (致命的)', '対数微分 (相対成長率) で単位を揃える'],
         ['3.2', '二階微分のノイズが爆発', 'スムージング後に微分 (~ 表記)'],
         ['3.3', '論文先行の判定材料が弱い', '論文質 q, 政策コミット強度 c で加重'],
@@ -329,7 +329,7 @@ function mathSlide(s, num, kicker, title, eqName, vars, interpretation, eqOpts =
       ]
     },
     {
-      title: '式④ 投入シグナル σ_SU', items: [
+      title: '式4 投入シグナル σ_SU', items: [
         ['4.1', '二項の単位が違うまま足し算', 'M″ を典型値で正規化'],
         ['4.2', 'Δt 6 ヶ月固定はレーンに不適', 'Δt_i をレーン依存に'],
         ['4.3', 'D′ がシグナルに入ってない', '3 軸 (T平均, M″, D′) を独立合成'],
@@ -368,7 +368,7 @@ function mathSlide(s, num, kicker, title, eqName, vars, interpretation, eqOpts =
   s.addText('改訂方針', { x: bx + 0.3, y: by + 0.15, w: bw - 0.5, h: 0.3, fontSize: 11, fontFace: FT, color: C.blueDark, bold: true, charSpacing: 3, margin: 0 });
   s.addText([
     { text: '18 点 すべて採用 ', options: { color: C.blueDark, fontSize: 13, bold: true, breakLine: true } },
-    { text: '式①〜④ それぞれを v0.1 → ', options: { color: C.text, fontSize: 11 } },
+    { text: '式1〜4 それぞれを v0.1 → ', options: { color: C.text, fontSize: 11 } },
     { text: 'v0.2 改訂版', options: { color: C.blueDark, fontSize: 11, bold: true } },
     { text: ' に書き直す。', options: { color: C.text, fontSize: 11, breakLine: true } },
     { text: '次の 4 枚で各式について元の式 → 改訂式 → 修正項目を順に示す。', options: { color: C.text, fontSize: 11 } }
@@ -433,7 +433,7 @@ function revisedSlide(s, num, title, eqOldName, eqNewName, critiquePoints, rows,
 }
 
 // ============================================================
-// === 8: 改訂式① ===
+// === 8: 改訂式1 ===
 // ============================================================
 {
   const s = pres.addSlide();
@@ -465,7 +465,7 @@ function revisedSlide(s, num, title, eqOldName, eqNewName, critiquePoints, rows,
 }
 
 // ============================================================
-// === 9: 改訂式② ===
+// === 9: 改訂式2 ===
 // ============================================================
 {
   const s = pres.addSlide();
@@ -497,7 +497,7 @@ function revisedSlide(s, num, title, eqOldName, eqNewName, critiquePoints, rows,
 }
 
 // ============================================================
-// === 10: 改訂式③ ===
+// === 10: 改訂式3 ===
 // ============================================================
 {
   const s = pres.addSlide();
@@ -529,7 +529,7 @@ function revisedSlide(s, num, title, eqOldName, eqNewName, critiquePoints, rows,
 }
 
 // ============================================================
-// === 11: 改訂式④ ===
+// === 11: 改訂式4 ===
 // ============================================================
 {
   const s = pres.addSlide();
@@ -669,7 +669,7 @@ function revisedSlide(s, num, title, eqOldName, eqNewName, critiquePoints, rows,
   eqImg(s, 'eq_composite', { cx: 6.6667, cy: 2.25, h: 0.9 });
 
   const cards = [
-    { title: 'σ_SU(t)', sub: 'マクロトレンド・タイミング', body: '政策・予算・VC・言及から合成される投入シグナル (式①〜④)。\n領域 1 の現モデルが算出する。', color: C.blue },
+    { title: 'σ_SU(t)', sub: 'マクロトレンド・タイミング', body: '政策・予算・VC・言及から合成される投入シグナル (式1〜4)。\n領域 1 の現モデルが算出する。', color: C.blue },
     { title: 'A_CEO(t)', sub: 'CEO 候補プール', body: 'AMD が声をかけられる、当該レーンに張れる CEO 候補の存在密度。\n人材の波。', color: C.blueDark },
     { title: 'A_seed(t)', sub: 'シーズ availability', body: 'AMD がアクセスできる大学シーズの状態。\n成熟度・公開タイミング・先生のスタンスで決まる。', color: C.gray }
   ];
@@ -734,7 +734,7 @@ function revisedSlide(s, num, title, eqOldName, eqNewName, critiquePoints, rows,
 
   const chapters = [
     { idx: '序', title: 'なぜ理論化するのか', body: 'Before 0 の経営判断を属人化させない理由。AMD の 9 社経験を起点。', color: C.gray },
-    { idx: 'I', title: 'マクロトレンド・タイミング論', body: '式①〜④: 合成指数 M, 適温度 T, 微分・二階微分による D/D′, 投入シグナル σ_SU。', color: C.blue },
+    { idx: 'I', title: 'マクロトレンド・タイミング論', body: '式1〜4: 合成指数 M, 適温度 T, 微分・二階微分による D/D′, 投入シグナル σ_SU。', color: C.blue },
     { idx: 'II', title: 'Before 0 三者構造論', body: 'PI × 別 CEO × AMD の同期問題。A_CEO, A_seed の数学。', color: C.blueDark },
     { idx: 'III', title: 'XRL ボトルネック動学', body: 'TRL/BRL/HRL ベクトルの整合性と最小成分ギャップ G(t)。', color: C.blue },
     { idx: 'IV', title: '卒業フェードアウト動学', body: 'AMD 関与度 R(t) の最適制御。先手力低下とガバナンス成熟度。', color: C.blueDark },

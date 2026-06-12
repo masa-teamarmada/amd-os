@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Local applier for L2 ⑩ Textbook Insights.
+ * Local applier for D-7 Textbook Insights.
  *
  * This script is intentionally local-only: it reads approved candidates from
  * Supabase and appends them to git-managed pwa/bzm/*.md files. Vercel runtime
@@ -170,7 +170,7 @@ function candidateBlock(candidate) {
     `## ${candidate.proposed_section || "Textbook Insight"}: ${candidate.title}`,
     "",
     [
-      `> L2⑩ Textbook Insights`,
+      `> D-7 Textbook Insights`,
       `practice_kind=${gate.practiceKind}`,
       `insight_type=${candidate.insight_type}`,
       `priority=${candidate.priority}`,

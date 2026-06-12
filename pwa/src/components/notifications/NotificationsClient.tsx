@@ -39,32 +39,32 @@ function notificationYm(scopeKey: string): string {
   return scopeKey.match(/20\d{4}/)?.[0] ?? scopeKey.slice(0, 6);
 }
 
-// l2_kind → どの L2 抽出器が出した通知か (= operations-catalog.ts の L2 ①〜⑩ と対応)。
-// 通知カードに「L2 ⑨ 経営ハイライト」のように番号 + 名前で出すための正本マップ。
+// l2_kind → どの L2 抽出器が出した通知か (= operations-catalog.ts の M/W/D/H L2 と対応)。
+// 通知カードに「D-6 経営ハイライト」のように番号 + 名前で出すための正本マップ。
 // 番号の根拠: pwa/lib/operations-catalog.ts / pwa/design/L2_DATA.md
 const L2_KIND_LABEL: Record<string, string> = {
-  protocols: "L2 ② AMDプロトコル",
-  ms_progress: "L2 ③ MS進捗",
-  project_knowledge: "L2 ④ PJナレッジ",
-  member_knowledge: "L2 ⑤ メンバーナレッジ",
-  meeting_summary: "L2 ⑥ MTGサマリ",
-  // ⑦ OS台帳差分 系 (台帳に反映する候補)
-  project_registry_diff: "L2 ⑦ OS台帳差分",
-  project_member_candidate: "L2 ⑦ OS台帳差分",
-  project_contact_candidate: "L2 ⑦ OS台帳差分",
-  raw_data_gap: "L2 ⑦ OS台帳差分",
-  project_config_gap: "L2 ⑦ OS台帳差分",
-  // ⑧ XRL根拠 系 (AMD Score / XRL 算定根拠。founding_members は HRL ベース)
-  xrl_evidence: "L2 ⑧ XRL根拠",
-  founding_members: "L2 ⑧ XRL根拠",
-  // ⑨ 経営ハイライト
-  project_strategy_signal: "L2 ⑨ 経営ハイライト",
-  // ⑩ Textbook Insights
-  textbook_insight: "L2 ⑩ Textbook Insights",
-  // ⑰ 契約予兆
-  contract_signals: "L2 ⑰ 契約予兆",
-  // ⑭ メディア掲載
-  news_mention: "L2 ⑭ メディア掲載",
+  protocols: "D-1 AMDプロトコル",
+  ms_progress: "D-2 MS進捗",
+  project_knowledge: "D-3 PJナレッジ",
+  member_knowledge: "D-4 メンバーナレッジ",
+  meeting_summary: "H-1 MTGサマリ",
+  // D-5 OS台帳差分 系 (台帳に反映する候補)
+  project_registry_diff: "D-5 OS台帳差分",
+  project_member_candidate: "D-5 OS台帳差分",
+  project_contact_candidate: "D-5 OS台帳差分",
+  raw_data_gap: "D-5 OS台帳差分",
+  project_config_gap: "D-5 OS台帳差分",
+  // M-2 XRL根拠 系 (AMD Score / XRL 算定根拠。founding_members は HRL ベース)
+  xrl_evidence: "M-2 XRL根拠",
+  founding_members: "M-2 XRL根拠",
+  // D-6 経営ハイライト
+  project_strategy_signal: "D-6 経営ハイライト",
+  // D-7 Textbook Insights
+  textbook_insight: "D-7 Textbook Insights",
+  // D-13 契約予兆
+  contract_signals: "D-13 契約予兆",
+  // D-11 メディア掲載
+  news_mention: "D-11 メディア掲載",
 };
 
 function l2KindLabel(l2Kind: string): string {
@@ -825,7 +825,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                         {displayTarget(i.data.target_id, i.data.scope_key, projectMap)}
                       </>
                     ) : (
-                      `L2 ⑥ MTGサマリ / ${projectMap[i.data.project_id] ?? i.data.project_id}`
+                      `H-1 MTGサマリ / ${projectMap[i.data.project_id] ?? i.data.project_id}`
                     )}
                     {!isReadUi(i) && <span className="ml-2 text-blue-600 dark:text-blue-400">● 未読</span>}
                     {(() => {

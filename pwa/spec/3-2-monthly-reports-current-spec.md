@@ -1,4 +1,4 @@
-# L2① Monthly Reports 仕様
+# L2M-1 Monthly Reports 仕様
 
 > **この章は何か**: `monthly_reports` の writer、上書き禁止、source refs、outbox 反映、旧 R313 / PWA route の扱いを固定する章。運用者向けの説明は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも残す。
 
@@ -15,7 +15,7 @@
 
 | 項目 | 値 |
 |---|---|
-| primary writer | Codex automation `AMD OS L2① 月次報告抽出` |
+| primary writer | Codex automation `AMD OS L2M-1 月次報告抽出` |
 | schedule | daily 05:30 JST |
 | input | Gmail / Drive / Calendar / Slack / Notion 5 生データ + OS snapshot |
 | output | `~/.codex/automations/amd-os-ms/outbox/*.json` の `monthlyReports` |
@@ -38,7 +38,7 @@
 | **なし** | active | **生成する** =「進捗なし」テンプレ |
 | **なし** | ended / frozen | **生成しない** (捏造の温床) |
 
-実進捗判定 (`hasActivity`) は 3 経路で見る: `source_cache` (5生データ集約) / `project_meeting_summaries` (L2⑥) / `member_activities`。`source_cache` 単独で no-data 判定しない (extraction 不完全で薄いだけのことがある)。
+実進捗判定 (`hasActivity`) は 3 経路で見る: `source_cache` (5生データ集約) / `project_meeting_summaries` (L2H-1) / `member_activities`。`source_cache` 単独で no-data 判定しない (extraction 不完全で薄いだけのことがある)。
 
 frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from_ym` があって当月 ym ≥ `freeze_from_ym`) の両方を見る (例: CTB p06 は `status='active'` だが `freeze_from_ym=202605`)。
 
@@ -53,7 +53,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 - **`end_ym` で機械的に切らない**。active PJ は `end_ym` が更新されず古いまま残ることがある (例: LST p07 は `end_ym=202507` だが `status='active'` で継続中・実進捗あり)。`end_ym` 超過でも active なら進捗ありは生成、進捗なしは「進捗なし」テンプレ。
 - 進捗なしテンプレの本文は「活動・成果物は検出されていません」と**断定せず**記述し、`collection_summary_json` に `sourceChecklist` / `mtgCount` / `memberActivityCount` / `noActivity:true` を残す。
 - これは新規生成 (missing = DB に無い月) のガード。既存 row は対象外なので、過去の捏造 draft は個別にまさ判断で cleanup する。
-- この原則は L2① 月報だけでなく **L2⑥ MTGサマリ生成にも適用する** (ended/frozen で進捗ゼロなら MTGサマリも作らない)。
+- この原則は L2M-1 月報だけでなく **L2H-1 MTGサマリ生成にも適用する** (ended/frozen で進捗ゼロなら MTGサマリも作らない)。
 - 実装: `pwa/src/app/api/cron/monthly-reports-backfill/route.ts` の missing 抽出フィルタ (`currentYm` / `start_ym` / `projMeta`) と `generateOne` の `hasActivity` 判定 + frozen/ended スキップ分岐。
 
 ## 禁止経路
@@ -61,12 +61,12 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | 経路 | 扱い |
 |---|---|
 | AMD-Report GAS R313 | 旧経路。定期 trigger を置かない |
-| `api_generateMonthlyReport` | L2① automation の定期経路として使わない |
+| `api_generateMonthlyReport` | L2M-1 automation の定期経路として使わない |
 | PWA `/api/report/generate` | 手動復旧用。定期 writer にしない |
 | PWA `/api/cron/monthly-reports-backfill` | 重い手動 backfill route。定期 writer にしない。ただし上記「生成対象ガード」の実装はこの route が持つ (進捗ベース判定の正本実装) |
 | paid external LLM API direct call | automation 外で新規に使わない |
 
-> ⚠️ **writer 間のガード整合**: 上記「生成対象ガード」は backfill route だけでなく、primary writer (Codex automation `AMD OS L2① 月次報告抽出`) も通す必要がある。現状ガードのコード実装は backfill route にあり、Codex automation 側は automation.toml のプロンプト指示で同等の判定をかける。両 writer が「進捗なし & ended/frozen は生成しない」を守ることが正本。
+> ⚠️ **writer 間のガード整合**: 上記「生成対象ガード」は backfill route だけでなく、primary writer (Codex automation `AMD OS L2M-1 月次報告抽出`) も通す必要がある。現状ガードのコード実装は backfill route にあり、Codex automation 側は automation.toml のプロンプト指示で同等の判定をかける。両 writer が「進捗なし & ended/frozen は生成しない」を守ることが正本。
 
 ## 5 生データ確認
 

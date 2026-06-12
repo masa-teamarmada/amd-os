@@ -89,4 +89,4 @@ Before Zero の判断は、後で見返せる形で残す必要があります�
 - 観測後の見直し予定:
 ```
 
-このログが L2⑩ Textbook Insights へ育つときは、[現場判断と分岐](8-2-field-decisions-and-branches.md) の追記対象になります。
+このログが D-7 Textbook Insights Textbook Insights へ育つときは、[現場判断と分岐](8-2-field-decisions-and-branches.md) の追記対象になります。

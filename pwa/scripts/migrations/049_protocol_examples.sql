@@ -11,7 +11,7 @@
 -- ★ 新設計:
 --   protocols = 普遍的な意思決定パターン (具体 PJ 名は本文に出さない)
 --     title:    「設立タイミングを GAP ファンド系活用で延ばすか、即時で進めるか」
---     content:  ① 分岐点 ② 判断材料 ③ アクション ④ 結果・学習 (普遍的に書く)
+--     content:  M-1 分岐点 D-1 判断材料 D-2 アクション D-3 結果・学習 (普遍的に書く)
 --
 --   protocol_examples = そのプロトコルが現実に起きた具体事例 (1 protocol : N examples)
 --     project_id + occurred_on で「いつ、どの PJ で」を識別
@@ -29,10 +29,10 @@ CREATE TABLE IF NOT EXISTS protocol_examples (
   project_id TEXT NOT NULL,
   occurred_on DATE,                       -- いつ起きたか (= meeting_date or 判断日)
   summary TEXT NOT NULL,                  -- 50-150 字: 「2026-05 CX: D グローバル申請見送り、2027/4 設立で決着」
-  branch_point TEXT,                      -- 具体事例での ① 分岐点
-  criteria TEXT,                          -- 具体事例での ② 判断材料
-  action_taken TEXT,                      -- 具体事例での ③ アクション
-  result TEXT,                            -- 具体事例での ④ 結果・学習
+  branch_point TEXT,                      -- 具体事例での M-1 分岐点
+  criteria TEXT,                          -- 具体事例での D-1 判断材料
+  action_taken TEXT,                      -- 具体事例での D-2 アクション
+  result TEXT,                            -- 具体事例での D-3 結果・学習
   source_meeting_id TEXT,                 -- 出典 project_meeting_summaries.meeting_id
   source_url TEXT,                        -- Notion / Slack / Calendar URL
   llm_model TEXT,                         -- 抽出 LLM

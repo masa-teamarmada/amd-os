@@ -1,4 +1,4 @@
-# MS進捗 (③ L2) — 設計の正本
+# MS進捗 (D-2 L2) — 設計の正本
 
 最終更新: 2026-05-09 (Phase 4 = 毎時 polling 化)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
@@ -9,7 +9,7 @@
 
 ## このドキュメントが扱う範囲
 
-L2 ③ MS進捗 (`milestone_monthly_progress`) の自動更新 cron 全般。
+D-2 MS進捗 (`milestone_monthly_progress`) の自動更新 cron 全般。
 
 - 1 PJ × 1 ym の `monthly_reports` 本文を LLM に渡し、各 MS の対象月時点の累積進捗率を推定 → 期間按分基準で補正 → upsert
 - 毎時 0 分 polling + `progress_estimate_state.source_hash` 差分検知で、本文が変わってないときは LLM を呼ばずスキップ

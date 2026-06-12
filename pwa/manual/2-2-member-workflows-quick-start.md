@@ -104,7 +104,7 @@ PJ 判定は、 PJ 専用 email / PJ 名 / client 名 / `project_knowledge(categ
 
 ## MTG 終了後に自動で起きること (= 2026-05-27 拡張)
 
-メンバーが Calendar に登録した MTG が終わると、 60-180 分後に **Codex Desktop automation `amd-os-l6-meeting-flow`** (= Windows MMO PC、 平日土日 09:00-21:00 毎時 0 分発火) が以下を自動で実行する。 該当 MTG event が無い時間帯は即終了 (= 早期 exit) なので深夜にも余計な処理は走らない。 詳細は [8-3 章 § ⑥ MTG サマリ + フロー](8-3-l2-extraction-routines-spec.md)。
+メンバーが Calendar に登録した MTG が終わると、 60-180 分後に **Codex Desktop automation `amd-os-l6-meeting-flow`** (= Windows MMO PC、 平日土日 09:00-21:00 毎時 0 分発火) が以下を自動で実行する。 該当 MTG event が無い時間帯は即終了 (= 早期 exit) なので深夜にも余計な処理は走らない。 詳細は [8-3 章 § H-1 MTG サマリ + フロー](8-3-l2-extraction-routines-spec.md)。
 
 1. **議事録抽出 + 高品質化** (= Phase A): Calendar event 1 個ごとに、 Notion 議事録 / Gmail report mail / Drive Docs / Slack thread の 4 ソースを横断 fetch → `narrative_md` を `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定5見出しで生成。箇条書きではなく、そのMTGに参加していなかったメンバーでも背景から次の動きまで分かる文章として `project_meeting_summaries` に upsert
 2. **次 MTG カード生成** (= Phase C): 次 MTG 用 page を Notion 議事録 DB に「<日付> <PJ name> 定例 (draft)」 で自動作成、 「📋 次 MTG 準備情報」 toggle + 「📝 議事録」 toggle 構造。 Calendar event も自動作成、 参加者を attendees に招待
@@ -123,9 +123,9 @@ PJ 判定は、 PJ 専用 email / PJ 名 / client 名 / `project_knowledge(categ
 メンバーが日常で捌くのは:
 
 - **MS 進捗の修正依頼カード** (= つくよみが推定した % が違うので直して、というレビュー依頼)
-- **PJ ナレッジ追加候補カード** (= L2 ④ が新しく抽出した PJ 知識、 確認 → confirm/reject)
+- **PJ ナレッジ追加候補カード** (= D-3 が新しく抽出した PJ 知識、 確認 → confirm/reject)
 - **MTG サマリ修正依頼カード** (= 議事録の decided/progress が違う、 narrative_md を直して、 等)
-- **経営ハイライト確認カード** (= L2 ⑨ が抽出した signal、 まさえいMTG にかける前のレビュー)
+- **経営ハイライト確認カード** (= D-6 が抽出した signal、 まさえいMTG にかける前のレビュー)
 
 カードを confirm/reject すると、 該当の `l2_feedbacks` 行が `status='active'` で残り、 次回 subscription automation 発火時に prompt に注入される (= 同じ間違いを繰り返さない)。
 

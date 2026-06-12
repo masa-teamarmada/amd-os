@@ -1,6 +1,6 @@
 -- 115_textbook_insight_candidates.sql
 --
--- L2 ⑩ Textbook Insights / Before Zero 知見抽出。
+-- D-7 Textbook Insights / Before Zero 知見抽出。
 -- Supabase 内の既存 L2 / OS データから、BZM 教科書に追記すべき候補を保存する。
 -- 通知で admin が承認した後、local applier が git 管理の pwa/bzm/*.md へ追記する。
 -- Vercel runtime から repo file / git commit を直接書かない。
@@ -91,7 +91,7 @@ GRANT SELECT, INSERT, UPDATE ON public.textbook_insight_candidates TO authentica
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.textbook_insight_candidates TO service_role;
 
 COMMENT ON TABLE public.textbook_insight_candidates IS
-  'L2 ⑩ Textbook Insights。BZM 教科書へ追記すべき Before Zero 知見候補。通知承認後、local applier が pwa/bzm/*.md へ追記する。';
+  'D-7 Textbook Insights。BZM 教科書へ追記すべき Before Zero 知見候補。通知承認後、local applier が pwa/bzm/*.md へ追記する。';
 COMMENT ON COLUMN public.textbook_insight_candidates.insight_type IS
   '抽出優先度分類。before_zero_knowhow が最重要、cross_project_pattern / case_study / theory_evidence が後続。';
 COMMENT ON COLUMN public.textbook_insight_candidates.target_bzm_slug IS

@@ -345,10 +345,10 @@ PJ {ventureName} の {fieldName} = {currentValue} の評価を見直したい。
 #### モデル構造 (詳細ページ M カードで全部表示)
 
 ```
-M = (σ_SU+1)^α_σ                                          ← 数式 ①
-σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) - 1                       ← 数式 ②
-μ_x = Σ_p c_xp · ỹ_p / Σ_p c_xp   p ∈ {P,B,V,R,I_R,N,C}   ← 数式 ③
-ỹ_p = 9 · (y_p - min) / (max - min)  (過去 16 quarter)     ← 数式 ④
+M = (σ_SU+1)^α_σ                                          ← 数式 M-1
+σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) - 1                       ← 数式 D-1
+μ_x = Σ_p c_xp · ỹ_p / Σ_p c_xp   p ∈ {P,B,V,R,I_R,N,C}   ← 数式 D-2
+ỹ_p = 9 · (y_p - min) / (max - min)  (過去 16 quarter)     ← 数式 D-3
 ```
 
 #### C 行列 (`triple_helix_loading` テーブル、bvar_prior §3.2)

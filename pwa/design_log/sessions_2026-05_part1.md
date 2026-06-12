@@ -93,7 +93,7 @@ PWA セッション作業ログ (月内分割 part1)。索引・最新分は `se
 
 ### 数理モデル設計書
 - `pwa/design/venture_map_model.md`
-- 数式①〜④ の変数定義・データソース・未解決論点
+- 数式1〜4 の変数定義・データソース・未解決論点
 
 ### ティエム・JC knowledge
 - `pwa/design_log/2026-05_su_knowledge_tiem_jc.md`
@@ -978,7 +978,7 @@ GAS 226 の **基本情報 / メンバー / 契約・料金 / 請求書送付** 
 ### L2 データ正本化 (まさの最重要指示)
 - **`pwa/design/L2_DATA.md` 新設** ← AMD OS 中核データ正本
 - L1 / L2 の定義 (まさ正本): 5 生データ (Gmail/Drive/Calendar/Slack/Notion) → L2 = 「欲しい情報の形」で抽出した正本
-- L2 6 種: ① monthly report ② AMDプロトコル ③ MS進捗 ④ PJナレッジ ⑤ メンバーナレッジ ⑥ MTGサマリ
+- H-1 Meeting Flow 種: 1 monthly report 2 AMDプロトコル 3 MS進捗 4 PJナレッジ 5 メンバーナレッジ 6 MTGサマリ
 - 全テーブル / cron / 動作状況を表化、レポート関連 (Atlas / VC / AMD Score 等) も別カテゴリで列挙、cron を時系列タイムラインで可視化
 - 6 入口に導線: AGENTS.common.md / pwa/CLAUDE.md / pwa/AGENTS.md / pwa/design/README.md / gas/CLAUDE.md / knowledge/amd_os_vision.md (Claude / Codex / GPT 全エージェントから辿れる構成)
 
@@ -1128,11 +1128,11 @@ GAS 226 の **基本情報 / メンバー / 契約・料金 / 請求書送付** 
 
 ---
 
-## 2026-05-09 — Phase 4 ③ MS進捗 毎時 polling 化 (quirky-moore-b60501 セッション)
+## 2026-05-09 — Phase 4 3 MS進捗 毎時 polling 化 (quirky-moore-b60501 セッション)
 
 ### 着手の背景
 
-L2_DATA.md の「次セッションで実装: L2 全データ毎時 polling 化 (Phase 4)」優先度 1 = ③ MS進捗。
+L2_DATA.md の「次セッションで実装: L2 全データ毎時 polling 化 (Phase 4)」優先度 1 = 3 MS進捗。
 方針正本: [pwa/design/L2_DATA.md](../design/L2_DATA.md) Phase 4 セクション + Phase 3 (MTGサマリ) で確立した
 「毎時 polling + source_hash 差分検知」パターンを横展開する。
 
@@ -1219,9 +1219,9 @@ Pro 移行後は vercel.json に schedule を戻して GAS trigger を消すだ�
 ### 次セッションへ
 
 - 残り Phase 4 タスク (優先順):
-  - ⑤ メンバーナレッジ 新規実装 (5 生データ → Sonnet → member_knowledge upsert、毎時 polling)
-  - ④ PJナレッジ 流入元新規実装 (同上、project_knowledge upsert)
-  - ② AMDプロトコル UI 復活 + 自動抽出 cron
+  - 5 メンバーナレッジ 新規実装 (5 生データ → Sonnet → member_knowledge upsert、毎時 polling)
+  - 4 PJナレッジ 流入元新規実装 (同上、project_knowledge upsert)
+  - 2 AMDプロトコル UI 復活 + 自動抽出 cron
 - 本 Phase の動作確認: 翌日朝 `progress_estimate_state` を SELECT して各 PJ の last_processed_at が時間ごとに更新されているか
 - まさへの判断材料: Vercel Pro plan に upgrade するか? 現状 GAS 経由で機能的には十分だが、Pro なら vercel.json に書くだけでシンプル化できる。Pro = 月 20 USD / cron 上限 40 個 / maxDuration 300秒
 
@@ -1231,7 +1231,7 @@ Pro 移行後は vercel.json に schedule を戻して GAS trigger を消すだ�
 
 ### 着手の背景
 
-まさからの指示「そのままここで全部終わらせて！」 を受けて、Phase 4 の残り (⑤ メンバーナレッジ + ④ PJナレッジ + ② AMDプロトコル) を本セッションで一括実装。
+まさからの指示「そのままここで全部終わらせて！」 を受けて、Phase 4 の残り (5 メンバーナレッジ + 4 PJナレッジ + 2 AMDプロトコル) を本セッションで一括実装。
 
 ### 設計判断
 
@@ -1247,18 +1247,18 @@ Pro 移行後は vercel.json に schedule を戻して GAS trigger を消すだ�
 
 **入力ソースは "二次集約" 版 (= 既存 L2 を Sonnet/Gemini で再処理)**:
 - まさのルール「L2 = 5 生データから直接抽出」に厳密には反するが、Phase 4 初版は時間最適化を優先
-- ⑤ member: `member_activities` (90日) + `project_meeting_summaries` (60日)
-- ④ project: `monthly_reports` + `project_meeting_summaries` (当月)
-- ② protocol: `project_meeting_summaries.decided/risks/next_actions` (当月+前月)
+- 5 member: `member_activities` (90日) + `project_meeting_summaries` (60日)
+- 4 project: `monthly_reports` + `project_meeting_summaries` (当月)
+- 2 protocol: `project_meeting_summaries.decided/risks/next_actions` (当月+前月)
 - 各 design md に「Phase 4.x で 5 生データ直結に改善予定」と明記
 - 5 生データ直結は GAS の 305-309 (mr_extractFromNotion_ / mr_extractFromSlack_ 等) を流用すれば実装可能だが、メンバー単位の Slack 取得など新規追加が必要 → 別 Phase
 
-**`④ project_knowledge` の既存 2024 行を破壊しない設計**:
+**`4 project_knowledge` の既存 2024 行を破壊しない設計**:
 - UNIQUE 制約 (project_id, category, entity_name) を追加すると、重複行がある場合に migration が失敗するリスク
 - 代わりに cron 内で SELECT → 既存有り PATCH (id 指定の REST PATCH) / 無し INSERT で重複回避
 - 「2024 行が何由来か不明」の状態を温存しつつ、新規 cron 由来は `source='l2_hourly_extract'` で識別
 
-**`② protocols` の `protocol_id` 命名規則**:
+**`2 protocols` の `protocol_id` 命名規則**:
 - `"p4-{projectId}-{ym}-{sha8(title)}"` → 同月同タイトルの再抽出は同 ID で update (重複行を作らない)
 - `status='candidate'` で入る → PM が UI で confirmed 昇格運用 (UI 実装は将来)
 
@@ -1287,8 +1287,8 @@ Pro 移行後は vercel.json に schedule を戻して GAS trigger を消すだ�
 ### 実装上の注意点
 
 - LLM プロンプトは「入力に書かれてない推測禁止 / 推奨件数を明示」で過剰生成を抑制
-- ② protocol の重要度フィルタは LLM プロンプトで「月次の最重要 1-3 件」と明示。瑣末な決定は除外
-- ⑤ member の system prompt で「name (code_name) を summary に含めない」と指定 (テーブル別カラムで管理されるため重複情報を避ける)
+- 2 protocol の重要度フィルタは LLM プロンプトで「月次の最重要 1-3 件」と明示。瑣末な決定は除外
+- 5 member の system prompt で「name (code_name) を summary に含めない」と指定 (テーブル別カラムで管理されるため重複情報を避ける)
 - GAS time-trigger は分単位指定不可なので、`everyHours(1)` で 3 trigger を別ハンドラ名で立てる → GAS が分散発火する
 - `_l2_patchProjectKnowledge_` は PostgREST の PATCH を直叩き (`supa_upsert` は INSERT+merge=UPDATE on conflict だが project_knowledge には UNIQUE 制約がないので id 指定 PATCH が必要)
 
@@ -1296,17 +1296,17 @@ Pro 移行後は vercel.json に schedule を戻して GAS trigger を消すだ�
 
 - migration 030 適用 OK (Supabase 201)
 - GAS deploy v1432: clasp push → deploy
-- ScriptProperties 既設定 (Phase 4 ③ で設定済の SUPABASE_URL / SUPABASE_SERVICE_KEY / GEMINI_API_KEY を流用)
+- ScriptProperties 既設定 (Phase 4 3 で設定済の SUPABASE_URL / SUPABASE_SERVICE_KEY / GEMINI_API_KEY を流用)
 - trigger setup: `nav_l2_setupAllL2HourlyTriggers_` で 3 trigger 設置
 - 手動 ping (各 pollAll を runFunc 経由) で動作確認
 
 ### 次セッションへ
 
-- **Phase 4 全 6 L2 完了** (③⑤④② + ⑥ 既完了 + ① は別構造で OK)
+- **Phase 4 全 6 L2 完了** (3542 + 6 既完了 + 1 は別構造で OK)
 - **Phase 4.x 改善案 (将来)**:
-  - 5 生データ直結: ⑤ メンバー知識を Slack 個人 DM / mention search から直接抽出
-  - 5 生データ直結: ④ PJナレッジを Notion 経営戦略 page / Slack channel から直接抽出
-  - ② AMDプロトコル UI に「candidate → confirmed 昇格」ボタン追加
+  - 5 生データ直結: 5 メンバー知識を Slack 個人 DM / mention search から直接抽出
+  - 5 生データ直結: 4 PJナレッジを Notion 経営戦略 page / Slack channel から直接抽出
+  - 2 AMDプロトコル UI に「candidate → confirmed 昇格」ボタン追加
 - 観察ポイント: 翌日朝 `l2_extract_state` を SELECT して 3 L2 × 各 target が積もり、`last_processed_at` が時間ごとに更新されているか
 - 別件: iOS Swift 側の APNs 受信実装 (ios/HANDOFF_meeting_notifications.md + 新規 ios/HANDOFF_l2_notifications.md)、MTGサマリ Phase 2.5 (R313 集約方式書き換え)
 
@@ -1316,7 +1316,7 @@ Pro 移行後は vercel.json に schedule を戻して GAS trigger を消すだ�
 
 ### 着手の背景
 
-Phase 4 の 4 L2 (③⑤④②) の通知系統を聞かれて「現状なし、Slack/iOS/PWA UI のどれが好み?」と回答したら、まさから「好みっていうか、もう Swift 通知に決めてたよね」と指摘。前セッションの ⑥ MTGサマリ Phase 3 (`meeting_notifications` テーブル + iOS APNs 通知) は **L2 全般の通知設計の標準パターン** として位置付けられていた。Phase 4 の 4 L2 もそのパターンで横展開すべきだった。
+Phase 4 の 4 L2 (3542) の通知系統を聞かれて「現状なし、Slack/iOS/PWA UI のどれが好み?」と回答したら、まさから「好みっていうか、もう Swift 通知に決めてたよね」と指摘。前セッションの 6 MTGサマリ Phase 3 (`meeting_notifications` テーブル + iOS APNs 通知) は **L2 全般の通知設計の標準パターン** として位置付けられていた。Phase 4 の 4 L2 もそのパターンで横展開すべきだった。
 
 ### 設計判断
 
@@ -1331,11 +1331,11 @@ Phase 4 の 4 L2 (③⑤④②) の通知系統を聞かれて「現状なし、
 - 同じ saved_count なら notified_at は保持される = 重複通知しない
 
 **通知タイトルは l2_kind ごとに絵文字統一**:
-- ⑤ member: 👤 (`👤 まさ のメンバーナレッジ更新 (3件)`)
-- ④ project: 🗂️ (`🗂️ SX (202605) PJナレッジ更新 (5件)`)
-- ② protocol: ⚖️ (`⚖️ SX (202605) AMDプロトコル candidate (2件)`)
-- ③ ms_progress: 📈 (`📈 SX (202605) MS進捗 更新 (3件)`)
-- ⑥ meeting (既存): 📋 (継続)
+- 5 member: 👤 (`👤 まさ のメンバーナレッジ更新 (3件)`)
+- 4 project: 🗂️ (`🗂️ SX (202605) PJナレッジ更新 (5件)`)
+- 2 protocol: ⚖️ (`⚖️ SX (202605) AMDプロトコル candidate (2件)`)
+- 3 ms_progress: 📈 (`📈 SX (202605) MS進捗 更新 (3件)`)
+- 6 meeting (既存): 📋 (継続)
 
 ### 主な変更
 
@@ -1363,7 +1363,7 @@ Phase 4 の 4 L2 (③⑤④②) の通知系統を聞かれて「現状なし、
 ### 次セッションへ
 
 - iOS Swift 側で `l2_notifications` 受信実装 (= `HANDOFF_l2_notifications.md` 参照)
-- iOS は既存の `meeting_notifications` (⑥) と新規 `l2_notifications` (③⑤④②) の両方を捕捉する `NotificationRepository` 設計を推奨
+- iOS は既存の `meeting_notifications` (6) と新規 `l2_notifications` (3542) の両方を捕捉する `NotificationRepository` 設計を推奨
 - 集約方針 (importance=1 をどうするか) はまさと要相談
 
 ---

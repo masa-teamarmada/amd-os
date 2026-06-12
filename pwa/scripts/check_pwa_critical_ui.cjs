@@ -32,6 +32,84 @@ function expectNotIncludes(rel, needles) {
   }
 }
 
+function listFiles(relPath, allowedExtensions = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".md", ".sql", ".html", ".swift", ".py", ".json", ".yml", ".yaml", ".txt"])) {
+  const absPath = path.join(root, relPath);
+  if (!fs.existsSync(absPath)) return [];
+  const stat = fs.statSync(absPath);
+  if (stat.isFile()) {
+    if (relPath === "scripts/check_pwa_critical_ui.cjs") return [];
+    return allowedExtensions.has(path.extname(relPath)) ? [relPath] : [];
+  }
+  return fs.readdirSync(absPath, { withFileTypes: true }).flatMap((entry) => {
+    const rel = path.join(relPath, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name.startsWith(".")) return [];
+      if (["node_modules", ".next", "dist", "coverage"].includes(entry.name)) return [];
+      return listFiles(rel, allowedExtensions);
+    }
+    if (rel === "scripts/check_pwa_critical_ui.cjs") return [];
+    return allowedExtensions.has(path.extname(entry.name)) ? [rel] : [];
+  });
+}
+
+function expectNoCircledNumbering(relPaths) {
+  const circled = /[\u2460-\u2473]/;
+  const offenders = [];
+  for (const relPath of relPaths) {
+    for (const rel of listFiles(relPath)) {
+      const lines = read(rel).split("\n");
+      lines.forEach((line, index) => {
+        if (circled.test(line)) {
+          offenders.push(`${rel}:${index + 1}: ${line.trim()}`);
+        }
+      });
+    }
+  }
+  if (offenders.length > 0) {
+    throw new Error(`Circled-number notation must not return:\n${offenders.slice(0, 40).join("\n")}`);
+  }
+}
+
+expectIncludes("spec/3-0-l2-data-list-current-spec.md", [
+  "# L2データリスト",
+  "M / W / D / H",
+  "| L2 | 名前 | 何を残すか | 主な使い道 | マシン | cron名 | タイミング |",
+  "D-12",
+  "Finance Ops Evidence / freee Transaction Actuals",
+  "W-1",
+  "VC News / Funding Signals",
+  "D-13",
+  "Contract Signals",
+]);
+
+expectNotIncludes("spec/3-0-l2-data-list-current-spec.md", [
+  "通常の" + "更新ルート",
+  "L2 " + "\u2460",
+  "L2" + "\u2460",
+  "\u2460",
+  "\u246f",
+]);
+
+expectNoCircledNumbering([
+  "../AGENTS.md",
+  "../CLAUDE.md",
+  "../COMMANDER_TASKS.md",
+  "../docs",
+  "../gas",
+  "../ios",
+  "src",
+  "spec",
+  "manual",
+  "design",
+  "design_log",
+  "bzm",
+  "scripts",
+  "scheduled-tasks",
+  "BUGS.md",
+  "AGENTS.md",
+  "CLAUDE.md",
+]);
+
 expectIncludes("src/components/cockpit/CockpitNextPeriodSetup.tsx", [
   "MS開始",
   "MS終了",

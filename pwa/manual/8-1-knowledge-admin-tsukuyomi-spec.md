@@ -6,7 +6,7 @@
 
 ## /admin/protocols
 
-AMD Protocol (= L2 ②) の確認・編集画面。 詳細仕様は [`pwa/design/amd_protocol.md`](../design/amd_protocol.md) と [8-3 章 §② AMD Protocol](8-3-l2-extraction-routines-spec.md)。
+AMD Protocol (= D-1) の確認・編集画面。 詳細仕様は [`pwa/design/amd_protocol.md`](../design/amd_protocol.md) と [8-3 章 §D-1 AMD Protocol](8-3-l2-extraction-routines-spec.md)。
 
 ### AMD Protocol の正本構造 (= Phase 4.5、 2026-05-11 確定)
 
@@ -23,7 +23,7 @@ AMD Protocol (= L2 ②) の確認・編集画面。 詳細仕様は [`pwa/design
 | `protocol_id` | `p4u-{sha12(title)}` (= タイトル hash、 PJ 横断で同タイトル = 同 ID) |
 | `project_id` | **NULL** (= 普遍プロトコル、 紐付けは examples 側) |
 | `title` | 20-40 字、 普遍的な見出し |
-| `content` | markdown で 4 要素 (= ① 分岐点 🔀 / ② 判断材料 📊 / ③ アクション 🎯 / ④ 結果 💡) |
+| `content` | markdown で 4 要素 (= M-1 分岐点 🔀 / D-1 判断材料 📊 / D-2 アクション 🎯 / D-3 結果 💡) |
 | `status` | `candidate` → `confirmed` (= 正式昇格) → `rejected` / `archived` |
 | `importance` | 1 (軽微) / 2 (中) / 3 (重大) |
 | `kind` | `pattern` (= 普遍) / `legacy_specific` (= 旧形式) |
@@ -62,15 +62,15 @@ AMD Protocol (= L2 ②) の確認・編集画面。 詳細仕様は [`pwa/design
 `pwa/src/components/admin/AdminProtocolsClient.tsx` が client 本体。 各 protocol カードは:
 
 - ステップカード (= 4 要素を色分けで表示):
-  - 🔀 ① 分岐点 (青 `bg-blue-50`)
-  - 📊 ② 判断材料 (橙 `bg-amber-50`)
-  - 🎯 ③ アクション (緑 `bg-emerald-50`)
-  - 💡 ④ 結果 (紫 `bg-violet-50`、 記録時のみ表示)
+  - 🔀 M-1 分岐点 (青 `bg-blue-50`)
+  - 📊 D-1 判断材料 (橙 `bg-amber-50`)
+  - 🎯 D-2 アクション (緑 `bg-emerald-50`)
+  - 💡 D-3 結果 (紫 `bg-violet-50`、 記録時のみ表示)
 - 📂 関連事例リスト (= protocol_examples を日付順)
 - 結果観測 ledger (= protocol_result_observations を時系列で表示、P0 は read-only)
 - アクション: ✅ 確定 (`status='confirmed'`) / 🔄 修正依頼 / ❌ 却下 / 📥 archive
 
-`parseFourElements(content)` で `**① 分岐点**:` 等の見出しから自動分解する。
+`parseFourElements(content)` で `**M-1 分岐点**:` 等の見出しから自動分解する。
 
 ## /admin/contexts
 
@@ -222,11 +222,11 @@ JSON 以外の文字一切出力禁止。
 
 | L2 | 対話型 dialog 接続状態 |
 |---|---|
-| ⑨ 経営ハイライト (= `project_strategy_signals`) | ✅ 接続済 (= まず実装、 動作確認用) |
-| ② AMD Protocol | 🚧 横展開予定 |
-| ④ PJ ナレッジ | 🚧 横展開予定 |
-| ⑤ メンバーナレッジ | 🚧 横展開予定 |
-| ⑥ MTG サマリ | 🚧 横展開予定 |
+| D-6 経営ハイライト (= `project_strategy_signals`) | ✅ 接続済 (= まず実装、 動作確認用) |
+| D-1 AMD Protocol | 🚧 横展開予定 |
+| D-3 PJ ナレッジ | 🚧 横展開予定 |
+| D-4 メンバーナレッジ | 🚧 横展開予定 |
+| H-1 MTG サマリ | 🚧 横展開予定 |
 
 ## DB 関係マップ
 

@@ -1,7 +1,7 @@
 # HANDOFF — iOS 側 L2 抽出 APNs 通知 (Phase 4)
 
-PWA / GAS 側で Phase 4 ③⑤④② の L2 自動抽出を実装した結果、**iOS Swift 版で「L2 が抽出されたら APNs ローカル通知」を受ける仕組み** が必要になった。
-このドキュメントは姉妹文書 [`HANDOFF_meeting_notifications.md`](HANDOFF_meeting_notifications.md) (= ⑥ MTGサマリ Phase 3 専用) と並列。両方を Swift 側で受信する。
+PWA / GAS 側で Phase 4 3542 の L2 自動抽出を実装した結果、**iOS Swift 版で「L2 が抽出されたら APNs ローカル通知」を受ける仕組み** が必要になった。
+このドキュメントは姉妹文書 [`HANDOFF_meeting_notifications.md`](HANDOFF_meeting_notifications.md) (= 6 MTGサマリ Phase 3 専用) と並列。両方を Swift 側で受信する。
 
 作成: 2026-05-09 (PWA/GAS 側 quirky-moore-b60501 セッション)
 正本ステータス: 上流 (PWA/GAS) は完了。**iOS 側は未着手**。
@@ -191,12 +191,12 @@ func markNotified(notificationId: UUID) async throws {
 
 ## 関連ドキュメント
 
-- 姉妹: [`HANDOFF_meeting_notifications.md`](HANDOFF_meeting_notifications.md) (⑥ MTGサマリ Phase 3 専用通知)
-- 上流仕様: [`pwa/design/L2_DATA.md`](../pwa/design/L2_DATA.md) (L2 6 種 + Phase 4 全完了)
-- 上流仕様: [`pwa/design/ms_progress.md`](../pwa/design/ms_progress.md) (③ MS進捗)
-- 上流仕様: [`pwa/design/member_knowledge.md`](../pwa/design/member_knowledge.md) (⑤)
-- 上流仕様: [`pwa/design/project_knowledge.md`](../pwa/design/project_knowledge.md) (④)
-- 上流仕様: [`pwa/design/amd_protocol.md`](../pwa/design/amd_protocol.md) (②)
+- 姉妹: [`HANDOFF_meeting_notifications.md`](HANDOFF_meeting_notifications.md) (6 MTGサマリ Phase 3 専用通知)
+- 上流仕様: [`pwa/design/L2_DATA.md`](../pwa/design/L2_DATA.md) (H-1 Meeting Flow 種 + Phase 4 全完了)
+- 上流仕様: [`pwa/design/ms_progress.md`](../pwa/design/ms_progress.md) (3 MS進捗)
+- 上流仕様: [`pwa/design/member_knowledge.md`](../pwa/design/member_knowledge.md) (5)
+- 上流仕様: [`pwa/design/project_knowledge.md`](../pwa/design/project_knowledge.md) (4)
+- 上流仕様: [`pwa/design/amd_protocol.md`](../pwa/design/amd_protocol.md) (2)
 - GAS 実装: [`gas/155_L2KnowledgeExtractor.js`](../gas/155_L2KnowledgeExtractor.js) `_l2_insertNotification_`
 - PWA 実装: [`pwa/src/lib/progress-estimator.ts`](../pwa/src/lib/progress-estimator.ts) (末尾)
 - migration: [`pwa/scripts/migrations/031_l2_notifications.sql`](../pwa/scripts/migrations/031_l2_notifications.sql)

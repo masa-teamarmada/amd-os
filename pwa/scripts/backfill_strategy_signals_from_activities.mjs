@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Backfill L2 ⑨ project_strategy_signals from existing OS activity rows.
+ * Backfill D-6 project_strategy_signals from existing OS activity rows.
  *
  * This is intentionally deterministic and conservative: it does not call an LLM
  * or raw external systems. It promotes already-extracted member_activities into

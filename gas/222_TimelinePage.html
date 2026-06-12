@@ -1876,25 +1876,25 @@
         return;
       }
 
-      // ① 会議スケジューリング
+      // 1 会議スケジューリング
       if ((taskKey === "meetingSched" || taskKey === "mtgSched") && /^\d{6}$/.test(bizYmKey)){
         openMeetingSchedModal_(bizYmKey);
         return;
       }
 
-      // ② 月次報告会（議事録/決定）
+      // 2 月次報告会（議事録/決定）
       if ((taskKey === "meetingHold" || taskKey === "meetingHeld" || taskKey === "mtgHeld") && /^\d{6}$/.test(bizYmKey)){
         openMeetingHoldModal_(bizYmKey);
         return;
       }
 
-      // ③ 月次報告（Navigator）
+      // 3 月次報告（Navigator）
       if (taskKey === "report" && /^\d{6}$/.test(bizYmKey)){
         openReportModal_(bizYmKey);
         return;
       }
 
-      // ④ 請求書作成・送付
+      // 4 請求書作成・送付
       if ((taskKey === "invoiceSend" || taskKey === "send") && /^\d{6}$/.test(bizYmKey)){
         openInvoiceSendModal_(bizYmKey);
         return;
@@ -2683,7 +2683,7 @@
         });
       }
 
-      // ① まず月次本体だけ取って即描画（ここが体感の核心）
+      // 1 まず月次本体だけ取って即描画（ここが体感の核心）
       google.script.run
         .withFailureHandler(err => {
           modalBody.innerHTML = `
@@ -2707,7 +2707,7 @@
           const monthly = res.monthly || {};
           renderEditor_(monthly);
 
-      // ② observe/log は並列で取りに行って後から差し込む（直列連打をやめる）
+      // 2 observe/log は並列で取りに行って後から差し込む（直列連打をやめる）
       const reqTag = `rep:${pid}:${ymKey}:${Date.now()}`;
       console.log("[ReportModal] start deferred observe/log", reqTag);
 

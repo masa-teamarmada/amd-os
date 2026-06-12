@@ -5,7 +5,7 @@
 
 ## Executive summary
 
-AMD OS には現在、先手力を可視化するスコアや、L2 ⑥ MTGサマリ、L2 ⑨ 経営ハイライト、Cockpit の月次 / MS / MTG表示がある。しかし、現状は「今どれくらい先手を打てているか」を見る仕組みが中心で、「ここから先手力を落とさない」ための制御ループが不足している。
+AMD OS には現在、先手力を可視化するスコアや、H-1 MTGサマリ、D-6 経営ハイライト、Cockpit の月次 / MS / MTG表示がある。しかし、現状は「今どれくらい先手を打てているか」を見る仕組みが中心で、「ここから先手力を落とさない」ための制御ループが不足している。
 
 本設計では、先手力を契約継続と AMD レピュテーションを守る運用 SLA として扱う。外部 MTG 後、ボールが曖昧な状態、次回 MTG 前、相手から催促された状態を検知し、OS が `proactive_outbox` に「打つべき一手」を積む。Codex / えいみ / 各 PJ 司令塔は、毎日 10:15-20:15 の毎時 15 分、合計 11 回の heartbeat で outbox を拾い、各 PJ 司令塔へ通知し、必要なドラフト作成 worker を切る。
 
@@ -43,7 +43,7 @@ AMD OS には現在、先手力を可視化するスコアや、L2 ⑥ MTGサマ
 3. 相手から催促される前に、進捗共有・提案・資料ドラフトを出しているか。
 4. 重要 PJ で、次回 MTG 前に提示すべき agenda / roadmap / proposal が準備されているか。
 
-このループは L2 そのものではなく、L2 と司令塔 / worker をつなぐ control layer として扱う。入力は L2 ⑥ MTGサマリ、L2 ⑨ 経営ハイライト、Calendar、Gmail、Slack、Drive、Notion、monthly reports、MS 進捗など。出力は outbox row と commander 通知、UI 上の TODO、SLA 違反ログ。
+このループは L2 そのものではなく、L2 と司令塔 / worker をつなぐ control layer として扱う。入力は H-1 MTGサマリ、D-6 経営ハイライト、Calendar、Gmail、Slack、Drive、Notion、monthly reports、MS 進捗など。出力は outbox row と commander 通知、UI 上の TODO、SLA 違反ログ。
 
 ## OS vs Codex/commander responsibility split
 
@@ -75,13 +75,13 @@ Codex / えいみ / 各 PJ 司令塔は次を担う。
 
 | trigger_type | 主入力 | 作成条件 | 推奨 draft_type | 既定 due |
 |---|---|---|---|---|
-| `meeting_ended` | Calendar / L2⑥ | 外部 MTG が終了し、開催済み summary または event が確認された | `next_action_plan` / `email` / `slack` | MTG終了から48h |
+| `meeting_ended` | Calendar / H-1 | 外部 MTG が終了し、開催済み summary または event が確認された | `next_action_plan` / `email` / `slack` | MTG終了から48h |
 | `minutes_added` | `project_meeting_summaries` | `next_actions` または `risks` に AMD が動くべき項目がある | `next_action_plan` | summary 作成から48h |
 | `ball_ambiguous` | MTG summary / Gmail / Slack | next action の担当が不明、または `shared` / `ambiguous` | `email` / `slack` / `next_action_plan` | 検知から24h |
 | `next_meeting_due` | Calendar / upcoming meeting card | 次回 MTG が近く、agenda / proposal / roadmap が未準備 | `agenda` / `proposal` / `roadmap` | 次回MTG 3営業日前 |
 | `counterpart_nudge_detected` | Gmail / Slack | 「その後」「進捗いかが」「どうなっていますか」等の催促検知 | `email` / `slack` | 即日、原則当日中 |
 | `deadline_approaching` | MS / routine / manual deadline | 期限前に AMD から進捗共有すべきものがある | `next_action_plan` / `email` | deadline の2営業日前 |
-| `strategy_signal_needs_action` | L2⑨ | `decision_state='proposed'` or `next_move` で人間の一手が必要 | `proposal` / `roadmap` | signal_date から72h |
+| `strategy_signal_needs_action` | D-6 | `decision_state='proposed'` or `next_move` で人間の一手が必要 | `proposal` / `roadmap` | signal_date から72h |
 | `report_only_gap` | monthly_reports | 月次 report-only month に活動があるが次アクションが未明 | `next_action_plan` | 検知から48h |
 
 初期実装では `meeting_ended`, `minutes_added`, `ball_ambiguous`, `next_meeting_due`, `counterpart_nudge_detected` の 5 つを MVP にする。残りは Phase 2 以降でよい。
@@ -630,13 +630,13 @@ risk_if_late:
 ### Phase 4: Trigger expansion
 
 - Gmail / Slack の counterpart nudge detector を追加する。
-- L2⑨ `next_move` / `decision_state='proposed'` から action loop を作る。
+- D-6 `next_move` / `decision_state='proposed'` から action loop を作る。
 - monthly report / MS / routine deadline と連動する。
 - SLA 違反を Management Score の先手力 axis へ反映する。
 
 ## Open questions
 
-1. `proactive_loops` は L2 ⑪ として扱うか、L2 とは別の control layer として扱うか。推奨は別 control layer。
+1. `proactive_loops` は D-8 として扱うか、L2 とは別の control layer として扱うか。推奨は別 control layer。
 2. NIMS OS導入のような institution-level loop の `project_id` をどう持つか。`p00` で会社全体扱いにするか、institution pseudo project を作るか。
 3. `project_commander_threads` の初期 seed を誰が持つか。AMD総司令塔だけでなく、KUTE / ZMP / CX / SX / VSX 司令塔 thread をどう登録するか。
 4. `sent_to_counterpart` を誰が押すか。司令塔 / PM / admin UI のどれを正本にするか。
@@ -672,9 +672,9 @@ risk_if_late:
 
 Current truth:
 
-- L2 は ①〜⑩。5 生データから直接 L2 を抽出する。
-- L2 ①⑦⑧⑨⑩ は Codex automation outbox と非LLM LaunchAgent applier 境界が正本。
-- L2 ⑥ MTGサマリ / MTGフローは Windows MMO Codex Desktop automation が現行 writer。
+- L2 は M-1〜D-7。5 生データから直接 L2 を抽出する。
+- M-1D-5M-2D-6D-7 は Codex automation outbox と非LLM LaunchAgent applier 境界が正本。
+- H-1 MTGサマリ / MTGフローは Windows MMO Codex Desktop automation が現行 writer。
 - `project_meeting_summaries`, `project_strategy_signals`, `l2_notifications`, `meeting_notifications`, `source_cache` は既存テーブル。
 - `/notifications` は L2 candidate の採否ゲートであり、表示だけで正本反映しない。
 - Cockpit は PJ 状態、MS、月次、MTG、経営ハイライトの中心画面。

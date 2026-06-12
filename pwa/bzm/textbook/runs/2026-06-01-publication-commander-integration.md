@@ -69,7 +69,7 @@ Public manuscript drafts must avoid:
 
 - AMD as repeated subject.
 - まさ as authority.
-- L2, L2⑩, candidate, local applier, routing, metadata, source_hash.
+- L2, D-7 Textbook Insights, candidate, local applier, routing, metadata, source_hash.
 - pwa paths, specs, 正本, 司令塔, worker, deploy, Vercel, Supabase.
 - Stapa event name or "transcript" as reader-facing source.
 

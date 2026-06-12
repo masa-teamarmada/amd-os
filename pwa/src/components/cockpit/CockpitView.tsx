@@ -443,7 +443,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
     //  上: Header + Hero (AMD Score chart + XRL chart 横並び)
     //  メインボード 3 カラム:
     //    col1 = 今期MS + 次期MS設定 + 過去の期間 + 月次カード + 休止期間 backfill
-    //    col2 = TODO + 経営ハイライト (L2 ⑨) + MTGサマリ
+    //    col2 = TODO + 経営ハイライト (D-6) + MTGサマリ
     //    col3 = ステータスバッジ + 月次ルーティン + nudge (sticky)
     <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
       {/* [A] Project Header (full width) */}
@@ -566,7 +566,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
           />
         </div>
 
-        {/* col2: 経営ハイライト (L2 ⑨) + MTGサマリ (まさ #28 2026-05-24)。
+        {/* col2: 経営ハイライト (D-6) + MTGサマリ (まさ #28 2026-05-24)。
             右カラムを「経営シグナル + MTGサマリ」に統合。 */}
         <div className="flex flex-col gap-3 min-w-0">
           <ProactiveQueuePanel

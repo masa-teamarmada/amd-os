@@ -1,6 +1,6 @@
 -- 116_textbook_insight_candidate_metadata_gates.sql
 --
--- L2 10 Textbook Insights metadata / confidentiality / BZM review gates.
+-- D-7 Textbook Insights Textbook Insights metadata / confidentiality / BZM review gates.
 -- 作成のみ。prod 適用は OS 司令塔レビュー後に apply_ddl.py で行う。
 
 ALTER TABLE public.textbook_insight_candidates
@@ -20,7 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_textbook_insight_candidates_bzm_review
   ON public.textbook_insight_candidates(bzm_review_required, bzm_review_status, status, created_at DESC);
 
 COMMENT ON COLUMN public.textbook_insight_candidates.metadata_json IS
-  'L2 10 practice metadata. practice_kind は 7 分類、theory_case_kind は edge_case / update_candidate を保持する。';
+  'D-7 Textbook Insights practice metadata. practice_kind は 7 分類、theory_case_kind は edge_case / update_candidate を保持する。';
 COMMENT ON COLUMN public.textbook_insight_candidates.confidentiality IS
   '候補本文と根拠の機密区分。internal_only / sanitized / publishable。BZM 追記時は internal_only を skip する。';
 COMMENT ON COLUMN public.textbook_insight_candidates.bzm_review_required IS

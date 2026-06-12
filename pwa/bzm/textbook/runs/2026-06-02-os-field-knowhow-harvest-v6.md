@@ -72,7 +72,7 @@ performed.
 | `AMD の提供価値` | `補完できる経営実務と、補完できない資質の境界` | public body should not quantify company value | public_rewrite | 13, 18, appendix |
 | `frl_cap_amd` | `support capability / 補完可能な経営実行力` | internal variable name and company-specific measure | public_rewrite | 18 |
 | `AMD OS` | `現場メモを次案件に渡す仕組み` | product/platform copy | public_rewrite | 10, 20, 22, 23 |
-| `L2⑩ Textbook Insights` | `現場メモを安全に本へ変換する編集ループ` | internal workflow term | public_rewrite | 22 |
+| `D-7 Textbook Insights Textbook Insights` | `現場メモを安全に本へ変換する編集ループ` | internal workflow term | public_rewrite | 22 |
 | `candidate` | `掲載候補 / 未検証の素材` | internal DB state | internal_only term | 22 |
 | `local applier` | `承認後にだけ反映する手順` | implementation detail | internal_only term | 22 |
 | `routing` | `どの章・道具へ変換するかの編集判断` | implementation detail | internal_only term | 22 |

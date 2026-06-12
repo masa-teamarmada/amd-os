@@ -1,12 +1,12 @@
-# L2⑤ Member Knowledge 仕様
+# D-4 Member Knowledge 仕様
 
-> **この章は何か**: L2 ⑤ `member_knowledge` を現在の writer で再構築するための確定仕様。メンバーの見せ方ではなく、抽出器・DB・通知・採否の実装契約を書く。
+> **この章は何か**: D-4 `member_knowledge` を現在の writer で再構築するための確定仕様。メンバーの見せ方ではなく、抽出器・DB・通知・採否の実装契約を書く。
 
 ## Current Truth
 
 | 項目 | 現行仕様 |
 |---|---|
-| L2 | ⑤ メンバーナレッジ |
+| L2 | D-4 メンバーナレッジ |
 | table | `member_knowledge` |
 | primary writer | Windows MMO PC の Codex Desktop automation `amd-os-l5-member-knowledge-extract` |
 | schedule | daily 08:30 JST |
@@ -102,7 +102,7 @@ Unique key は `(code_name, category)`。同一カテゴリは upsert で最新�
 
 ## この章だけで再構築できること
 
-L2⑤の active member selection、3 section input、alias/feedback、7 category、attribution guard、DB upsert、通知、採否、旧 GAS 停止境界を再構築できる。
+D-4の active member selection、3 section input、alias/feedback、7 category、attribution guard、DB upsert、通知、採否、旧 GAS 停止境界を再構築できる。
 
 ## まだ再構築できないこと
 

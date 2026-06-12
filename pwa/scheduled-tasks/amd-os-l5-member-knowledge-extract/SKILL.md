@@ -1,9 +1,9 @@
 ---
 name: amd-os-l5-member-knowledge-extract
-description: AMD OS L2 ⑤ メンバーナレッジ抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l5-member-knowledge-extract` (= daily 08:30 JST)。各 active member の member_activities + 関連 PJ の project_meeting_summaries + milestone_responsibility から本人の skills / personality / communication_style / growth_areas / work_style / interests / episodes を subscription 内 Codex で抽出し、Supabase `member_knowledge` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
+description: AMD OS D-4 メンバーナレッジ抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l5-member-knowledge-extract` (= daily 08:30 JST)。各 active member の member_activities + 関連 PJ の project_meeting_summaries + milestone_responsibility から本人の skills / personality / communication_style / growth_areas / work_style / interests / episodes を subscription 内 Codex で抽出し、Supabase `member_knowledge` に candidate で保存 + 通知する。GAS 155 は kill switch のまま復活させない。
 ---
 
-# AMD OS L2 ⑤ メンバーナレッジ抽出 (GAS 155 移植版)
+# AMD OS D-4 メンバーナレッジ抽出 (GAS 155 移植版)
 
 ## 設計の要点
 - GAS 155 `nav_member_knowledge_pollAll` / `nav_member_knowledge_extractOne_` の業務ロジックを Windows MMO Codex Desktop automation に移植 (= GAS 完全 bypass)
@@ -19,9 +19,9 @@ description: AMD OS L2 ⑤ メンバーナレッジ抽出の repo 正本。現�
 
 ## 【絶対】 動く前に必ず Read
 1. `pwa/manual/3-2-data-and-extraction.md` §3.1-3.4
-2. `pwa/design/member_knowledge.md` (= L2 ⑤ 仕様正本)
+2. `pwa/design/member_knowledge.md` (= D-4 仕様正本)
 3. `pwa/design/db_schema.md` (= 列名 grep)
-4. `gas/155_L2KnowledgeExtractor.js` 行 56-381 (= 元 ⑤ 実装)
+4. `gas/155_L2KnowledgeExtractor.js` 行 56-381 (= 元 D-4 実装)
 5. `gas/079_NameAliasMap.js` (= 名前正規化)
 
 ═══════════════════════════════════════════════════

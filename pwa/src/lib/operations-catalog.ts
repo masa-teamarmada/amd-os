@@ -88,15 +88,15 @@ export const rawDataSources: RawDataSource[] = [
 export const l2Datasets: L2Dataset[] = [
   {
     id: "monthly_reports",
-    label: "① monthly report",
+    label: "M-1 monthly report",
     table: "monthly_reports",
-    source: "Codex automation AMD OS L2① 月次報告抽出 / amd-os-ms outbox.monthlyReports (R313 triggerなし確認: 2026-05-29)",
+    source: "Codex automation AMD OS M-1 月次報告抽出 / amd-os-ms outbox.monthlyReports (R313 triggerなし確認: 2026-05-29)",
     cadence: "daily 05:30 JST (subscription automation)",
     purpose: "PJ月次レポート本文。後続L2の二次集約ソース。",
   },
   {
     id: "protocols",
-    label: "② AMDプロトコル",
+    label: "D-1 AMDプロトコル",
     table: "protocols / protocol_examples",
     source: "Codex automation / legacy GAS 155",
     cadence: "停止中",
@@ -104,7 +104,7 @@ export const l2Datasets: L2Dataset[] = [
   },
   {
     id: "ms_progress",
-    label: "③ MS進捗",
+    label: "D-2 MS進捗",
     table: "milestone_monthly_progress",
     source: "MMO/Codex automation amd-os-l3-ms-progress-extract / Codex automation review",
     cadence: "毎時 polling (subscription automation)",
@@ -112,7 +112,7 @@ export const l2Datasets: L2Dataset[] = [
   },
   {
     id: "project_knowledge",
-    label: "④ PJナレッジ",
+    label: "D-3 PJナレッジ",
     table: "project_knowledge",
     source: "Codex automation / legacy GAS 155",
     cadence: "停止中",
@@ -120,7 +120,7 @@ export const l2Datasets: L2Dataset[] = [
   },
   {
     id: "member_knowledge",
-    label: "⑤ メンバーナレッジ",
+    label: "D-4 メンバーナレッジ",
     table: "member_knowledge",
     source: "Codex automation / legacy GAS 155",
     cadence: "停止中",
@@ -128,7 +128,7 @@ export const l2Datasets: L2Dataset[] = [
   },
   {
     id: "meeting_summaries",
-    label: "⑥ MTGサマリ",
+    label: "H-1 MTGサマリ",
     table: "project_meeting_summaries",
     source: "Codex automation / legacy GAS 153 + 074",
     cadence: "停止中",
@@ -136,7 +136,7 @@ export const l2Datasets: L2Dataset[] = [
   },
   {
     id: "registry_diffs",
-    label: "⑦ OS台帳差分",
+    label: "D-5 OS台帳差分",
     table: "project_registry_diffs",
     source: "Codex automation / future cron",
     cadence: "review batch",
@@ -144,7 +144,7 @@ export const l2Datasets: L2Dataset[] = [
   },
   {
     id: "xrl_evidence",
-    label: "⑧ XRL根拠",
+    label: "M-2 XRL根拠",
     table: "project_xrl_evidence / project_xrl_log",
     source: "Codex automation / manual review",
     cadence: "停止中",
@@ -152,7 +152,7 @@ export const l2Datasets: L2Dataset[] = [
   },
   {
     id: "project_strategy_signals",
-    label: "⑨ 経営ハイライト",
+    label: "D-6 経営ハイライト",
     table: "project_strategy_signals",
     source: "Codex automation amd-os",
     cadence: "daily review",
@@ -160,7 +160,7 @@ export const l2Datasets: L2Dataset[] = [
   },
   {
     id: "textbook_insight_candidates",
-    label: "⑩ Textbook Insights",
+    label: "D-7 Textbook Insights",
     table: "textbook_insight_candidates",
     source: "Codex automation/local worker amd-os-l10-textbook-insight-extract / approved後local BZM applier",
     cadence: "TBD / manual start",
@@ -168,7 +168,7 @@ export const l2Datasets: L2Dataset[] = [
   },
   {
     id: "contract_signals",
-    label: "⑰ 契約予兆",
+    label: "D-13 契約予兆",
     table: "contract_signals / contracts / contract_documents",
     source: "Claude routine amd-os-l2-consolidated-evidence Phase K / POST /api/contracts/extract-l2",
     cadence: "daily 08:00 JST (既存 consolidated routine に同居)",
@@ -610,14 +610,14 @@ export const cronOperations: CronOperation[] = [
     output: "amd_management_score_snapshots / evidence",
     run: { type: "manual", reason: "手動実行はCodex automation側でraw収集後に行う" },
   },
-  // === Subscription automation (= L2 ①〜⑩。L2①/⑦/⑧/⑨/⑩はCodex automation/outbox、L2②〜⑥はMMO automation) ===
-  // L2①はCodex automation、L2②〜⑨はClaude/Codex routine。PWA からは直接叩けない。
+  // === Subscription automation (= M/W/D/H L2。M-1/D-5/M-2/D-6/D-7はCodex automation/outbox、D-1〜H-1はMMO automation) ===
+  // M-1はCodex automation、D-1〜D-6はClaude/Codex routine。PWA からは直接叩けない。
   {
     id: "codex-l1-monthly-report-extract",
-    label: "L2 ① 月次報告抽出 (Codex automation)",
+    label: "M-1 月次報告抽出 (Codex automation)",
     layer: "Codex",
     cadence: "daily 05:30 JST",
-    trigger: "AMD OS L2① 月次報告抽出",
+    trigger: "AMD OS M-1 月次報告抽出",
     defaultParams: "(SKILL.md に従う)",
     input: "5 生データ + OS snapshot / active・sales PJ 当月・前月",
     output: "monthly_reports via amd-os-ms/outbox.monthlyReports",
@@ -625,7 +625,7 @@ export const cronOperations: CronOperation[] = [
   },
   {
     id: "claude-l2-protocol-extract",
-    label: "L2 ② AMDプロトコル抽出 (Claude routine)",
+    label: "D-1 AMDプロトコル抽出 (Claude routine)",
     layer: "Claude",
     cadence: "daily 08:00 JST",
     trigger: "amd-os-l2-protocol-extract (scheduled-task)",
@@ -636,7 +636,7 @@ export const cronOperations: CronOperation[] = [
   },
   {
     id: "claude-l3-ms-progress-extract",
-    label: "L2 ③ MS進捗推定 (Claude routine)",
+    label: "D-2 MS進捗推定 (Claude routine)",
     layer: "Claude",
     cadence: "毎時0分 JST",
     trigger: "amd-os-l3-ms-progress-extract (scheduled-task)",
@@ -647,7 +647,7 @@ export const cronOperations: CronOperation[] = [
   },
   {
     id: "claude-l4-project-knowledge-extract",
-    label: "L2 ④ PJナレッジ抽出 (Claude routine)",
+    label: "D-3 PJナレッジ抽出 (Claude routine)",
     layer: "Claude",
     cadence: "daily 08:15 JST",
     trigger: "amd-os-l4-project-knowledge-extract (scheduled-task)",
@@ -658,7 +658,7 @@ export const cronOperations: CronOperation[] = [
   },
   {
     id: "claude-l5-member-knowledge-extract",
-    label: "L2 ⑤ メンバーナレッジ抽出 (Claude routine)",
+    label: "D-4 メンバーナレッジ抽出 (Claude routine)",
     layer: "Claude",
     cadence: "daily 08:30 JST",
     trigger: "amd-os-l5-member-knowledge-extract (scheduled-task)",
@@ -669,7 +669,7 @@ export const cronOperations: CronOperation[] = [
   },
   {
     id: "claude-l6-meeting-extract",
-    label: "L2 ⑥ MTGサマリ (議事録) 抽出 (Claude routine)",
+    label: "H-1 MTGサマリ (議事録) 抽出 (Claude routine)",
     layer: "Claude",
     cadence: "毎時0分 JST (= +60-180 分終了 events 拾い上げ)",
     trigger: "amd-os-l6-meeting-extract (scheduled-task)",
@@ -680,7 +680,7 @@ export const cronOperations: CronOperation[] = [
   },
   {
     id: "claude-l7-registry-diff-extract",
-    label: "L2 ⑦ OS台帳差分抽出 (Claude routine)",
+    label: "D-5 OS台帳差分抽出 (Claude routine)",
     layer: "Claude",
     cadence: "6h ごと (:00)",
     trigger: "amd-os-l7-registry-diff-extract (scheduled-task)",
@@ -691,7 +691,7 @@ export const cronOperations: CronOperation[] = [
   },
   {
     id: "claude-l8-xrl-evidence-extract",
-    label: "L2 ⑧ XRL根拠抽出 (Claude routine)",
+    label: "M-2 XRL根拠抽出 (Claude routine)",
     layer: "Claude",
     cadence: "6h ごと (:15、L7 と 15 分ずらし)",
     trigger: "amd-os-l8-xrl-evidence-extract (scheduled-task)",
@@ -702,7 +702,7 @@ export const cronOperations: CronOperation[] = [
   },
   {
     id: "claude-l9-strategy-signal-extract",
-    label: "L2 ⑨ 経営ハイライト抽出 (Claude routine)",
+    label: "D-6 経営ハイライト抽出 (Claude routine)",
     layer: "Claude",
     cadence: "daily 03:20 JST",
     trigger: "amd-os-l9-strategy-signal-extract (scheduled-task)",
@@ -713,7 +713,7 @@ export const cronOperations: CronOperation[] = [
   },
   {
     id: "claude-l10-textbook-insight-extract",
-    label: "L2 ⑩ Textbook Insights 抽出 (Claude routine)",
+    label: "D-7 Textbook Insights 抽出 (Claude routine)",
     layer: "Claude",
     cadence: "TBD / manual start",
     trigger: "amd-os-l10-textbook-insight-extract (scheduled-task)",

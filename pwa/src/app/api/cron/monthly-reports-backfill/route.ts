@@ -269,7 +269,7 @@ async function generateOne(
     sourceItemCount += 1;
   }
 
-  // 当月の実進捗を 5生データ集約 (source_cache) だけでなく、MTGサマリ (L2⑥) と
+  // 当月の実進捗を 5生データ集約 (source_cache) だけでなく、MTGサマリ (H-1) と
   // メンバー活動 (member_activities) も含めて判定する。source_cache が薄くても
   // 会議・活動の痕跡があれば「進捗あり」とみなす (no-data 誤判定の防止)。
   const [{ count: mtgCount }, { count: actCount }] = await Promise.all([

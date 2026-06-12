@@ -21,7 +21,7 @@ AMD OS は、**株式会社チームアルマダ (= AMD)** が手がけるディ
 
 **やってること**:
 - 5 生データソース (Slack / Notion / Calendar / Drive / Gmail) を継続的に取り込み
-- LLM (= Codex / Claude / Gemini) で「意味のある知識」(= L2 10 種) に抽出
+- LLM (= Codex / Claude / Gemini) で「意味のある知識」(= M/W/D/H L2) に抽出
 - 各 PJ コックピット画面で経営判断・MS 進捗・経営ハイライト・MTG サマリを表示
 - AMD 全体コックピット (= p00) で会社全体の Management Score・まさえいMTG (= 経営判断 dialogue) を回す
 
@@ -71,22 +71,22 @@ AMD OS は、**株式会社チームアルマダ (= AMD)** が手がけるディ
 
 → 詳細は **[3-2 章 データと抽出](3-2-data-and-extraction.md)** へ。
 
-## L2 10 種の俯瞰
+## M/W/D/H L2の俯瞰
 
 5 生データ、または Supabase 内の既存 L2 / OS データから LLM が抽出した「意味のある知識」を L2 と呼ぶ。10 種類ある。
 
 | L2 種 | 名前 | 内容 | 例 |
 |---|---|---|---|
-| **L2 ①** | `monthly_reports` | PJ 月次レポート | 「2026年4月の SX 進捗」 |
-| **L2 ②** | `protocols` | AMD Protocol (= 経営判断の構造化記録) | 「分岐点 → 判断材料 → アクション → 結果観測」 |
-| **L2 ③** | `milestone_monthly_progress` + 進捗系 | MS 達成度 | 「事業計画策定 = 30% (まさ) + 70% (AMD メンバー)」 |
-| **L2 ④** | `project_knowledge` | PJ 知識ナレッジ | 「シアノバクテリア排水処理の競合は X 社」 |
-| **L2 ⑤** | `member_knowledge` | メンバー個人のナレッジ | 「特定メンバーは VC アプローチに強い」 |
-| **L2 ⑥** | `project_meeting_summaries` | MTG サマリ | 「5/22 ファインケム八重洲MTG narrative_md」 |
-| **L2 ⑦** | `project_registry_diffs` | OS 台帳差分 | 「新規メンバー追加候補」 |
-| **L2 ⑧** | `project_xrl_evidence` | XRL 根拠 | 「BRL 5 の根拠: ファインケム MoU 締結」 |
-| **L2 ⑨** | `project_strategy_signals` | **経営ハイライト** | 「JAFCO DD 開始」「中国レアアース規制 → SX 追い風」 |
-| **L2 ⑩** | `textbook_insight_candidates` | Textbook Insights | 「BZM 教科書へ追記すべき Before Zero 実務知見」 |
+| **M-1** | `monthly_reports` | PJ 月次レポート | 「2026年4月の SX 進捗」 |
+| **D-1** | `protocols` | AMD Protocol (= 経営判断の構造化記録) | 「分岐点 → 判断材料 → アクション → 結果観測」 |
+| **D-2** | `milestone_monthly_progress` + 進捗系 | MS 達成度 | 「事業計画策定 = 30% (まさ) + 70% (AMD メンバー)」 |
+| **D-3** | `project_knowledge` | PJ 知識ナレッジ | 「シアノバクテリア排水処理の競合は X 社」 |
+| **D-4** | `member_knowledge` | メンバー個人のナレッジ | 「特定メンバーは VC アプローチに強い」 |
+| **H-1** | `project_meeting_summaries` | MTG サマリ | 「5/22 ファインケム八重洲MTG narrative_md」 |
+| **D-5** | `project_registry_diffs` | OS 台帳差分 | 「新規メンバー追加候補」 |
+| **M-2** | `project_xrl_evidence` | XRL 根拠 | 「BRL 5 の根拠: ファインケム MoU 締結」 |
+| **D-6** | `project_strategy_signals` | **経営ハイライト** | 「JAFCO DD 開始」「中国レアアース規制 → SX 追い風」 |
+| **D-7** | `textbook_insight_candidates` | Textbook Insights | 「BZM 教科書へ追記すべき Before Zero 実務知見」 |
 
 → 詳細は **[3-2 章 データと抽出](3-2-data-and-extraction.md)** へ。
 

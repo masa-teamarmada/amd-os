@@ -25,7 +25,7 @@
 | `progress` | `milestone_monthly_progress` |
 | `reports` | `monthly_reports` excerpts and status |
 | `members` / `memberMap` | PJ member display |
-| `strategySignals` | L2⑨ `project_strategy_signals` |
+| `strategySignals` | L2D-6 `project_strategy_signals` |
 | `tasks` | kanban tasks |
 | `nudges` | cockpit nudges |
 

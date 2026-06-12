@@ -1,9 +1,9 @@
 ---
 name: amd-os-l7-registry-diff-extract
-description: AMD OS L2 ⑦ OS台帳差分抽出の repo 正本。現行 writer は Codex automation `amd-os-ms` + non-LLM LaunchAgent applier。active PJ × 当月/前月の 5 生データと OS 台帳を突合し、`registryDiffs` outbox JSON を `/Users/masa/.codex/automations/amd-os-ms/outbox/` に作る。Supabase `project_registry_diffs` への upsert は `ms_progress_review_tool.mjs apply-outbox-dir` が行う。DB/APIへ直接書き込まない。
+description: AMD OS D-5 OS台帳差分抽出の repo 正本。現行 writer は Codex automation `amd-os-ms` + non-LLM LaunchAgent applier。active PJ × 当月/前月の 5 生データと OS 台帳を突合し、`registryDiffs` outbox JSON を `/Users/masa/.codex/automations/amd-os-ms/outbox/` に作る。Supabase `project_registry_diffs` への upsert は `ms_progress_review_tool.mjs apply-outbox-dir` が行う。DB/APIへ直接書き込まない。
 ---
 
-# AMD OS L2 ⑦ OS 台帳差分抽出 automation
+# AMD OS D-5 OS 台帳差分抽出 automation
 
 ## 設計の要点
 - Codex automation `amd-os-ms` (= 6h ごと) が `outbox.registryDiffs` を吐く → LaunchAgent applier が Supabase に反映
@@ -20,7 +20,7 @@ outbox は `/Users/masa/.codex/automations/amd-os-ms/outbox/*.json` に保存す
 
 ## 【絶対】 動く前に必ず Read
 1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4
-2. `pwa/design/project_registry_diffs.md` (= L2 ⑦ 仕様正本)
+2. `pwa/design/project_registry_diffs.md` (= D-5 仕様正本)
 3. `pwa/design/db_schema.md` (= project_registry_diffs / project_members / projects / project_partners / members 列名)
 4. `/Users/masa/.codex/automations/amd-os-ms/automation.toml` (= 元実装 prompt、特に「OS 台帳差分の作り方」)
 

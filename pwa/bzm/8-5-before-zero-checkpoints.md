@@ -1,6 +1,6 @@
 # Before Zero チェックポイント — 次に何を見るか
 
-> この章は何か: Before Zero の各フェーズで、次に何を確認し、どの赤信号が出たら止まり、何が見えたら次へ進むかを整理する章です。実ケース本文は、承認済み L2⑩ candidate から一般化できるものだけを追記します。
+> この章は何か: Before Zero の各フェーズで、次に何を確認し、どの赤信号が出たら止まり、何が見えたら次へ進むかを整理する章です。実ケース本文は、承認済み D-7 Textbook Insights candidate から一般化できるものだけを追記します。
 
 ## 扱う insight
 
@@ -13,7 +13,7 @@
 - 誰に何を聞けば次の不確実性が下がるか
 - 繰り返し使える問いのテンプレ
 
-主な L2⑩ `practice_kind` は `reusable_question` と `field_transition` です。既存 schema では `insight_type='before_zero_knowhow'` を基本に、複数 PJ で再利用できる問いは `cross_project_pattern` として受けます。
+主な D-7 Textbook Insights `practice_kind` は `reusable_question` と `field_transition` です。既存 schema では `insight_type='before_zero_knowhow'` を基本に、複数 PJ で再利用できる問いは `cross_project_pattern` として受けます。
 
 ## 掲載基準
 
@@ -29,9 +29,9 @@
 - 「気をつける」だけで、確認方法がない注意書き
 - 具体 PJ の ToDo そのもの
 - 既存章の理論説明の重複
-- 承認前の L2⑩ candidate 本文
+- 承認前の D-7 Textbook Insights candidate 本文
 
-## L2⑩ 追記ブロックの受け方
+## D-7 Textbook Insights 追記ブロックの受け方
 
 local applier が承認済み候補を追記するときは、この章では次の形を基本にします。
 
@@ -60,6 +60,6 @@ local applier が承認済み候補を追記するときは、この章では次
 ## 読めばできること
 
 - Before Zero の各局面で、次に何を見るかを決められる
-- L2⑩ candidate を reusable question / field transition として整理できる
+- D-7 Textbook Insights candidate を reusable question / field transition として整理できる
 - 赤信号を見つけたとき、止める・待つ・深掘るを分けられる
 - 個別 ToDo ではなく、再利用できるチェックポイントとして知見を残せる

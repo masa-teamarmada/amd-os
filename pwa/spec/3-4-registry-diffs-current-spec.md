@@ -1,6 +1,6 @@
-# L2⑦ OS 台帳差分仕様
+# L2D-5 OS 台帳差分仕様
 
-> **この章は何か**: 5 生データと OS 台帳を突合して、反映前の差分候補を作る L2⑦ の確定仕様。設計議論は `pwa/design/project_registry_diffs.md` にも残す。
+> **この章は何か**: 5 生データと OS 台帳を突合して、反映前の差分候補を作る L2D-5 の確定仕様。設計議論は `pwa/design/project_registry_diffs.md` にも残す。
 
 ## 定義
 

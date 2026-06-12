@@ -27,12 +27,12 @@ FRL + 1 = [ a·(F_char+1)^ρ + (1-a)·(F_cap+1)^ρ ]^(1/ρ)     ρ < 0 (補完)
 
 | 因子 | 列名 | 学術根拠 |
 |---|---|---|
-| ① 自己認識 | `alq_self_awareness` | Walumbwa 2008 JoM (Authentic Leadership Questionnaire) |
-| ② 関係的透明性 | `alq_relational_transparency` | 同上 |
-| ③ バランス情報処理 | `alq_balanced_processing` | 同上 |
-| ④ 内在化道徳 | `alq_internalized_moral` | 同上 |
-| ⑤ Grit | `frl_grit` | Duckworth 2007 JPSP (Grit Scale, 長期目標への粘り強さ) |
-| ⑥ Resilience | `frl_resilience` | Markman 2005 JOB (起業家における Resilience) |
+| M-1 自己認識 | `alq_self_awareness` | Walumbwa 2008 JoM (Authentic Leadership Questionnaire) |
+| D-1 関係的透明性 | `alq_relational_transparency` | 同上 |
+| D-2 バランス情報処理 | `alq_balanced_processing` | 同上 |
+| D-3 内在化道徳 | `alq_internalized_moral` | 同上 |
+| D-4 Grit | `frl_grit` | Duckworth 2007 JPSP (Grit Scale, 長期目標への粘り強さ) |
+| H-1 Resilience | `frl_resilience` | Markman 2005 JOB (起業家における Resilience) |
 
 各因子は 0-9 の連続値。 補助で `frl_notes` (= text) に自由記述の根拠。
 
@@ -117,7 +117,7 @@ PJ に関わる人物のマスタ 2 表。 用途が違う:
 
 | table | 用途 |
 |---|---|
-| `project_founding_members` | 創業候補メンバーの候補リスト (= L2 ⑦ OS 台帳差分 / L2 ⑧ XRL 根拠抽出の対象、 PI + AMD + VC + 顧客 + 行政 すべて) |
+| `project_founding_members` | 創業候補メンバーの候補リスト (= D-5 OS 台帳差分 / M-2 XRL 根拠抽出の対象、 PI + AMD + VC + 顧客 + 行政 すべて) |
 | `project_venture_members` | SU 実体の役員 / 従業員リスト (= 起業後の実体メンバー、 SU 法人台帳) |
 
 ### `project_founding_members` 列
@@ -139,7 +139,7 @@ PJ に関わる人物のマスタ 2 表。 用途が違う:
 
 ### HRL 算定対象 (= まさ #過去 確定)
 
-`project_founding_members.category IN ('amd', 'startup', 'university')` のみが HRL 算定対象。 `vc` / `customer` / `government` は **invalid** 扱い (= 創業メンバーとカウントしない)。 これは L2 ⑧ XRL 根拠抽出の prompt にも書かれてる: 「VC/顧客/行政は HRL 関連メンバーとして無効」 ([8-3 章 §⑧](8-3-l2-extraction-routines-spec.md))。
+`project_founding_members.category IN ('amd', 'startup', 'university')` のみが HRL 算定対象。 `vc` / `customer` / `government` は **invalid** 扱い (= 創業メンバーとカウントしない)。 これは M-2 XRL 根拠抽出の prompt にも書かれてる: 「VC/顧客/行政は HRL 関連メンバーとして無効」 ([8-3 章 §M-2](8-3-l2-extraction-routines-spec.md))。
 
 ### `project_venture_members` 列 (= SU 法人台帳)
 
@@ -212,7 +212,7 @@ status='tentative' で保存
 |---|---|
 | FRL スコアが極端に低い | ALQ 4 + Grit + Resilience の値、 `frl_grit` / `frl_resilience` が NULL なら 0 扱いで合成が下がる |
 | HRL が想定と違う | `project_founding_members.category` 別件数、 `category IN ('amd','startup','university')` で絞ったあとの人数 / 階層 |
-| 関連メンバーの抽出に VC / 顧客が混じる | L2 ⑧ XRL 根拠抽出 prompt の「VC/顧客/行政無効」ルール、 [8-3 章](8-3-l2-extraction-routines-spec.md) を確認 |
+| 関連メンバーの抽出に VC / 顧客が混じる | M-2 XRL 根拠抽出 prompt の「VC/顧客/行政無効」ルール、 [8-3 章](8-3-l2-extraction-routines-spec.md) を確認 |
 | 修正依頼が反映されない | `amd_score_revisions.status='active'`、 `applied_to_alpha` が false でも `amd_score_inputs.frl` 自体は更新されるか |
 | 評価根拠 (notes) が表示されない | `mu_notes` / `xrl_notes` / `frl_notes` の値、 `AxisSliderWithNote` の textarea 連携 |
 
@@ -223,6 +223,6 @@ status='tentative' で保存
 - 設計: [`pwa/design/score_revision_feedback_loop.md`](../design/score_revision_feedback_loop.md) (= 修正依頼 loop)
 - 設計: [`pwa/design/su_knowledge_promotion_loop.md`](../design/su_knowledge_promotion_loop.md) (= founding_members 昇格)
 - 理論層: `before-zero/theory/amd_score.md` (= 学術根拠)
-- 8-3 章 [L2 Extraction Routines](8-3-l2-extraction-routines-spec.md) (= ⑧ XRL 根拠抽出での member 評価)
+- 8-3 章 [L2 Extraction Routines](8-3-l2-extraction-routines-spec.md) (= M-2 XRL 根拠抽出での member 評価)
 - 4-7 章 [Venture Status / Narrative / PL / XRL](4-7-venture-status-narrative-pl-xrl-spec.md) (= venture members 側)
 - 4-6 章 [卒業フェーズ検出](4-6-graduation-detection-spec.md) (= 関連メンバー成熟度との接続)

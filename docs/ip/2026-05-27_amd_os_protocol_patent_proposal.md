@@ -179,7 +179,7 @@ flowchart LR
 
 ### 6.3 既存 AMD OS 実装との対応
 
-- L2_DATA.md: 5 生データ、L2 9 種、通知、反映・学習
+- L2_DATA.md: 5 生データ、M/W/D/H L2、通知、反映・学習
 - project_strategy_signals.md: outbox、applier、通知、承認
 - xrl_evidence.md: XRL 根拠候補、source refs、承認
 - notifications.md: 通知 UI と feedback
@@ -232,7 +232,7 @@ flowchart LR
 ### 7.3 既存 AMD OS 実装との対応
 
 - amd_protocol.md: protocols、protocol_examples、protocol_result_observations
-- L2_DATA.md: AMDプロトコルを L2 ②として定義
+- L2_DATA.md: AMDプロトコルを D-1 AMD Protocolとして定義
 - AdminProtocolsClient: 候補の確認、修正依頼、却下、archive
 
 ---

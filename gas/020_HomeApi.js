@@ -729,14 +729,14 @@ function buildHomeInsightCandidates(projects){
   const scTail  = schedulePj.length ? `（例：${pjListStr(schedulePj)}）` : "";
   const stTail  = stalePj.length ? `（例：${pjListStr(stalePj)}）` : "";
 
-  // ① 全体の空気
+  // 1 全体の空気
   res.push(
     `いま見えてるPJは ${total} 件。期限超過 ${bad}、期限接近 ${warn}、未着手 ${noCycle}。`,
     `稼働 ${total} 件。赤 ${bad}、黄 ${warn}、未着手 ${noCycle}。`,
     `いまの状態：${total} 件中、期限超過 ${bad}、期限接近 ${warn}、月次未着手 ${noCycle}。`
   );
 
-  // ② 強いシグナル（bad/warn/noCycle）
+  // 2 強いシグナル（bad/warn/noCycle）
   if (bad > 0){
     res.push(
       `期限超過が ${bad} 件ある。${badTail}`,
@@ -763,7 +763,7 @@ function buildHomeInsightCandidates(projects){
     );
   }
 
-  // ③ “どこが詰まりがちか”（nextTask最多）
+  // 3 “どこが詰まりがちか”（nextTask最多）
   if (topVal > 0){
     res.push(
       `詰まりやすいのは「${topLabel}」が多い。(${topVal} 件)`,
@@ -772,7 +772,7 @@ function buildHomeInsightCandidates(projects){
     );
   }
 
-  // ④ 運用の穴（スケジュール未、チャーター薄い、更新止まり）
+  // 4 運用の穴（スケジュール未、チャーター薄い、更新止まり）
   if (schedulePending > 0){
     res.push(
       `スケジュール未が ${schedulePending} 件ある。${scTail}`,
@@ -792,7 +792,7 @@ function buildHomeInsightCandidates(projects){
     );
   }
 
-  // ⑤ “一番ラクな打ち手”っぽい観測（命令しない）
+  // 5 “一番ラクな打ち手”っぽい観測（命令しない）
   if (bad > 0){
     res.push("まずは期限超過の2件だけ見える化すると、全体が動きやすくなる。");
   } else if (warn > 0){

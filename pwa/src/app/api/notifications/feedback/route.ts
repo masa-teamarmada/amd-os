@@ -876,7 +876,7 @@ async function filterProjectReportEmails(
 /** 修正依頼が入った瞬間に対応する 1 件を force 再抽出する。
  *  GAS Web App の pwaApi/runFunc にリクエストを送る。
  *
- *  L2 ⑨ project_strategy_signal は対話型 (= /api/notifications/feedback/dialog/*) に置換済み
+ *  D-6 project_strategy_signal は対話型 (= /api/notifications/feedback/dialog/*) に置換済み
  *  なので、ここでは扱わない (= 呼び出し側で l2Kind === 'project_strategy_signal' を弾く)。
  *  旧 reextractStrategySignalImmediate (= 一方通行 update) は 2026-05-25 #71 まさ確定で廃止。
  */

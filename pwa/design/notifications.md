@@ -140,7 +140,7 @@ Codex automation `amd-os-ms` は、5 生データ + MS期間を見て `ms_progre
 
 ### OS台帳差分 / XRL根拠 通知
 
-L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ入れるべき構造化差分」だけを通知する。
+D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れるべき構造化差分」だけを通知する。
 
 - OS台帳差分: `l2_kind='project_registry_diff'`
 - XRL根拠: `l2_kind='xrl_evidence'`
@@ -186,7 +186,7 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 
 2026-05-29 current truth:
 - GAS 155 は `L2_KNOWLEDGE_CRON_DISABLED_20260522` で停止中。毎時 trigger は復活させない。
-- ②④⑤の現行 writer は MMOマシン Codex Desktop automation (`amd-os-l2-protocol-extract`, `amd-os-l4-project-knowledge-extract`, `amd-os-l5-member-knowledge-extract`)。
+- D-1D-3D-4の現行 writer は MMOマシン Codex Desktop automation (`amd-os-l2-protocol-extract`, `amd-os-l4-project-knowledge-extract`, `amd-os-l5-member-knowledge-extract`)。
 - 詳細は [8-3 章 L2 Extraction Routines](../manual/8-3-l2-extraction-routines-spec.md)。
 
 3 つの extractor (member/project/protocol) で:
@@ -194,7 +194,7 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 2. LLM プロンプト末尾に追加: `=== 過去のユーザーフィードバック (重要・必ず反映すること) ===\n  1. [日付 by] テキスト\n  2. ...`
 3. saved > 0 なら `_l2_recordFeedbackApplied_(feedbackIds)` で applied_count++ + last_applied_at = now()
 
-### MTGサマリ (gas/074) / PWA progress-estimator (③ MS進捗)
+### MTGサマリ (gas/074) / PWA progress-estimator (D-2 MS進捗)
 
 - gas/074 `nav_meeting_processOneEvent_`: `_l2_loadFeedbackBlock_("meeting_summary", projectId, eventId)` を組み込み済み。feedback 追加で `source_hash` が変わり、再抽出が走る。
 - `nav_meeting_processOneEvent_` は単体実行時も `meeting_notifications` を upsert し、通知カード側の短いサマリも最新化する。
@@ -251,5 +251,5 @@ L2 ⑦ OS台帳差分と L2 ⑧ XRL根拠は、全文保存ではなく「OSへ�
 
 - [`L2_DATA.md`](L2_DATA.md) — L2 全体
 - [`ms_progress.md`](ms_progress.md) / [`member_knowledge.md`](member_knowledge.md) / [`project_knowledge.md`](project_knowledge.md) / [`amd_protocol.md`](amd_protocol.md) — 各 L2
-- [`meeting_summaries.md`](meeting_summaries.md) — ⑥ MTGサマリ
+- [`meeting_summaries.md`](meeting_summaries.md) — H-1 MTGサマリ
 - [`../../ios/HANDOFF_l2_notifications.md`](../../ios/HANDOFF_l2_notifications.md) — iOS 受信仕様

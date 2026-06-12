@@ -728,7 +728,7 @@ function _DeletedFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       </div>
       <div className="bg-white rounded px-3 py-2 overflow-x-auto">
         <div className="text-[10px] text-muted-foreground mb-1">
-          ① M = Macrotrend (外部環境 / Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
+          1 M = Macrotrend (外部環境 / Triple Helix: 学術 μ_A × 産業 μ_I × 政府 μ_G)
         </div>
         <Tex
           display
@@ -741,7 +741,7 @@ function _DeletedFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       </div>
       <div className="bg-white rounded px-3 py-2 overflow-x-auto">
         <div className="text-[10px] text-muted-foreground mb-1">
-          ② X = XRL (会社に帰属する 5 軸 readiness、内閣府 SIP 互換)
+          2 X = XRL (会社に帰属する 5 軸 readiness、内閣府 SIP 互換)
         </div>
         <Tex
           display
@@ -762,7 +762,7 @@ function _DeletedFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       </div>
       <div className="bg-white rounded px-3 py-2 overflow-x-auto">
         <div className="text-[10px] text-muted-foreground mb-1">
-          ③ F = FRL (CEO / founder readiness、6 因子 = ALQ 4 + Grit + Resilience)
+          3 F = FRL (CEO / founder readiness、6 因子 = ALQ 4 + Grit + Resilience)
         </div>
         <Tex display tex={String.raw`F \;=\; (\mathrm{FRL}+1)^{\alpha_F}, \quad \mathrm{FRL} \;=\; 0.6 \cdot \overline{\mathrm{ALQ}_4} + 0.2 \cdot \mathrm{Grit} + 0.2 \cdot \mathrm{Resilience}`} />
         <div className="text-[9px] text-muted-foreground mt-1 space-y-0.5">
@@ -858,11 +858,11 @@ function Factor3Breakdown({
   const fmt = (n: number, digits = 2) =>
     n < 1 ? n.toFixed(digits) : n < 100 ? n.toFixed(2) : Math.round(n).toLocaleString();
 
-  // ① M = (σ_SU+1)^α_σ
+  // 1 M = (σ_SU+1)^α_σ
   const mContribution = result.contributions.sigma_SU ?? 1;
   const M = mContribution;
 
-  // ② X = ∏(x+1)^α_x  (Shallow Tech では TRL を除外)
+  // 2 X = ∏(x+1)^α_x  (Shallow Tech では TRL を除外)
   const xrlAxes: AmdScoreAxis[] = ["TRL", "BRL", "GRL", "SRL", "HRL"];
   let X = 1;
   for (const a of xrlAxes) {
@@ -870,7 +870,7 @@ function Factor3Breakdown({
     X *= result.contributions[a] ?? 1;
   }
 
-  // ③ F = (FRL+1)^α_F
+  // 3 F = (FRL+1)^α_F
   const F = result.contributions.FRL ?? 1;
 
   return (

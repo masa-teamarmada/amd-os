@@ -14,7 +14,7 @@
 
 - `pwa/vercel.json` に LLM-backed route を cron 登録しない。
 - GAS source に kill switch がある処理は、live trigger を復活させない。
-- L2 ①〜⑩ の writer は `/spec/5-3-automation-responsibility-current-spec` を見る。
+- L2 M-1〜D-7 の writer は `/spec/5-3-automation-responsibility-current-spec` を見る。
 
 ## 2026-05-24 経営ハイライト再設計
 
@@ -60,6 +60,6 @@ dialogue は正式な会社決定会議ではなく、チームへ提案する�
 | 2026-05-13 | `member_knowledge` で列名を想像して誤抽出 | `db_schema.md` を grep してから列名を書く |
 | 2026-05-24 | Atlas 取り込み不足を Slack ingest 停止と誤判定し cron 復活案を出した | cron 廃止経緯と automation 責務分担を読んでから提案する |
 | 2026-05-25 | `amd-os` strategy-signals outbox と applier 監視 dir が不一致 | outbox path と applier 監視対象を同じ spec に書く |
-| 2026-05-25 | L2 ②④⑤⑥ が ghost 化 | 停止対象と後継担当を 1 対 1 で検証してから writer を止める |
+| 2026-05-25 | L2 D-1D-3D-4H-1 が ghost 化 | 停止対象と後継担当を 1 対 1 で検証してから writer を止める |
 
 詳細な症状・原因・解決策は `pwa/BUGS.md` と `pwa/design_log/sessions_YYYY-MM.md` に残す。ただし current spec に効く再発防止ルールはこの章へ昇格する。

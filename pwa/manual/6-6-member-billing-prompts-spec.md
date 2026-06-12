@@ -192,13 +192,13 @@ LLM プロンプトと、 つくよみの context (= スプシ由来の旧 syste
 
 | prompt_key | 利用元 |
 |---|---|
-| `meeting_summary.extract` | L2 ⑥ MTG サマリ抽出 (= Windows MMO Codex Desktop automation + PWA event route) |
-| `member_activities.extract` | L2 ② 先手力判定の `initiative_origin` 抽出 |
-| `project_knowledge.extract` | L2 ④ PJ ナレッジ抽出 |
-| `member_knowledge.extract` | L2 ⑤ メンバーナレッジ抽出 |
-| `protocol.extract` | L2 ② AMD Protocol 抽出 |
-| `xrl_evidence.extract` | L2 ⑧ XRL 根拠抽出 |
-| `strategy_signal.extract` | L2 ⑨ 経営ハイライト抽出 |
+| `meeting_summary.extract` | H-1 MTG サマリ抽出 (= Windows MMO Codex Desktop automation + PWA event route) |
+| `member_activities.extract` | D-1 先手力判定の `initiative_origin` 抽出 |
+| `project_knowledge.extract` | D-3 PJ ナレッジ抽出 |
+| `member_knowledge.extract` | D-4 メンバーナレッジ抽出 |
+| `protocol.extract` | D-1 AMD Protocol 抽出 |
+| `xrl_evidence.extract` | M-2 XRL 根拠抽出 |
+| `strategy_signal.extract` | D-6 経営ハイライト抽出 |
 | `monthly_report.narrate` | 月次報告書 narrative_md 生成 |
 | `dialogue_meeting.narrate` | まさえいMTG 議事録の narrative 化 |
 

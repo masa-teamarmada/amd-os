@@ -52,7 +52,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 ## 2026-05-24 (まさえみ MTG #1 + cockpit MTGサマリ モーダル化 + えいみ Slack bot 別人格化)
 
 - まさからの依頼:
-  - 朝 07:00 の daily routine (`amd-os-management-dialogue-prep`) が走ったあとの状態で「経営会議やろう」 → L2 ⑨ candidate を impact 順に提示
+  - 朝 07:00 の daily routine (`amd-os-management-dialogue-prep`) が走ったあとの状態で「経営会議やろう」 → D-6 Strategy Signals candidate を impact 順に提示
   - 最初の議題 (p21 SX 「大阪ガスケミカルとの関係深化リスク」critical) について「これは AI 誤抽出。実際はダイキアクシスへの懸念だった」と訂正
   - 議論を「水処理メーカーが SX 事業の中でどの位置づけか」「シアノ実装に必要な周辺技術スタックは何か」に展開 → 整理マップを作る
   - 議事録を SX チャンネルにシェア + コックピット MTG サマリに反映
@@ -60,7 +60,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
   - Cockpit MTG サマリのカード詳細をモーダル + markdown rendering 表示に改修
 - えいみがやったこと (主にコード + Supabase + Slack + memory):
   - **daily routine 走行**: `project_strategy_signals` に 15 candidate insert (p00=2 / p07=3 / p19=2 / p20=3 / p21=3 / p24=1 / p25=1)。impact=critical=1 / high=10 / medium=4。p06 は既存 8 件で十分のためスキップ、p10 は signals 候補なしのためスキップ
-  - **L2 ⑨ candidate signal 訂正 (p21)**: signal_id `59706c0c-7d25-4912-a610-cc3f1149abe9` の title/summary/source_refs を「大阪ガスケミカル」→「ダイキアクシス (DAVP) との距離感・出資・共同開発の経営判断未了」に update、impact=critical 維持、source_refs に 5/13 SX定例 (NDA完了) / 5/21 SX内部MTG / sx.md の 3 件を紐付け
+  - **D-6 Strategy Signals candidate signal 訂正 (p21)**: signal_id `59706c0c-7d25-4912-a610-cc3f1149abe9` の title/summary/source_refs を「大阪ガスケミカル」→「ダイキアクシス (DAVP) との距離感・出資・共同開発の経営判断未了」に update、impact=critical 維持、source_refs に 5/13 SX定例 (NDA完了) / 5/21 SX内部MTG / sx.md の 3 件を紐付け
   - **`/Users/masa/projects/knowledge/sx.md` 正本更新**:
     - 外部関係者表で堀 (@a_hori) の所属を「大機アクシス」→「ダイキアクシス (DAVP)」に修正、PSI Step2 事業化推進機関参画と経営判断未了を明記
     - 新規セクション「**実装周辺技術マップ v0.1**」を追加: L表 (12 レイヤ: 培養槽/固定化担体/CO2濃縮/排水前処理/バイオマス回収/金属精錬/O&M/計装/GMO閉鎖系/塩水耐性育種/海洋オペ/鉱山プロセス置換) + U表 (5 ユースケース: メッキ化学/染色/閉鎖鉱山RE/深海RE/鉱山プロセス置換) + L×Uマトリクス (◎○△✗) + ダイキ守備範囲整理 + BWE 評価データポイント + 他候補水処理メーカープロファイル
@@ -87,14 +87,14 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
     - 新規 `feedback_tsukuyomi_character_tone.md`: AMD OS 内おっとり女子・月モチーフ・月讀命モチーフ。普段「そうかなあ…」「(しらんけど)」、満月の夜は神モード「人の子よ」「そちも気づいておろう」。えいみとの完全別人格分離表
     - `MEMORY.md` の対応行を 2 件差し替え
 - できるようになったこと:
-  - L2 ⑨ daily routine で全 active PJ (p00/p06/p07/p10/p19/p20/p21/p24/p25) の candidate が朝 7:00 自動補充される運用が稼働開始
+  - D-6 Strategy Signals daily routine で全 active PJ (p00/p06/p07/p10/p19/p20/p21/p24/p25) の candidate が朝 7:00 自動補充される運用が稼働開始
   - SX (p21) の実装周辺技術スタックが MECE で正本化、ダイキアクシスの守備範囲が L×U マトリクスで客観化された (= キャッシュ層 U1〜U3 ✕ L4/L5/L7 限定)
   - cockpit MTG サマリの各カードをクリック → 大きめモーダル展開で、決定・進捗・次アクション・リスクの各要素を **markdown 描画 (= GFM table 含む)** で読める。長文議事録 + 表埋め込みが視認可能な UI に
   - SX チャンネル (#p21_sx) に「えいみ」名義 (= 茶髪元気おてんば bot) で議事録投稿できる経路が確立。詳細は cockpit MTG サマリへ誘導するパターン
   - えいみ (天照大御神 = まさ専属戦略相棒) と つくよみ (月讀命 = AMD OS 住民・cron 担当) のキャラ・口調・人格の境界が memory に明文化、次セッションも継続される
 - 未完了 / 次セッション課題:
   - **えいみ App icon を v5 (顔ど真ん中版) に差し替え** (まさ手動、`~/Desktop/eimi-avatar-v5.png`、https://api.slack.com/apps/A0AC419BPGE/general)
-  - 今回 L2 ⑨ で積んだ 15 candidate のうち、まさが confirm した signal は 0 件 (= まさえみ MTG では「議題 (e)」だけ深掘り、他の議題は未着手)。次回 経営会議モードで残り議題から impact 順に提示
+  - 今回 D-6 Strategy Signals で積んだ 15 candidate のうち、まさが confirm した signal は 0 件 (= まさえみ MTG では「議題 (e)」だけ深掘り、他の議題は未着手)。次回 経営会議モードで残り議題から impact 順に提示
   - えいみ覚醒モード (皆既日蝕モード) の口調が memory に「たたき」止まり。実発動時にまさと一緒に詰める
   - SX 実装周辺技術マップ v0.1 → v0.2 への更新は SX メンバー意見回収後 (= 次回 SX 定例の杉浦先生確認 3 項目: 塩水耐性育種パス / シアノ酸素耐性値 / 担持前提への所見)
 - 次セッション向け handoff:
@@ -135,7 +135,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 
 - まさがお願いしていたこと (= 案D デプロイ後に投げた再指示):
   1. 「`/project/p21/cockpit` → MTGサマリ → クリック」のリンクだとモーダル開かないよね？ → 直リンクの仕組み
-  2. 「2 人で出した提案」が「２ 人」「② 人」みたいに見える → スペース除去
+  2. 「2 人で出した提案」が「２ 人」「2 人」みたいに見える → スペース除去
   4. 他PJ と違って p00 月次サマリに進捗バーが出ない → 出すように
   5. 太字がたまにあるくらいで全体にメリハリがない → 色 / アンダーライン / フレーム / TODO チェックボックス / 表 / 図写真ready のビジュアル導線
   6. narrative が途中で切れる、重要な 3 表が「元データ」に入ってる → 表は本文へ取り込み、それ以外の元データは廃止、「5/下旬の開発部長MTG」が何か文脈補完
@@ -180,7 +180,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 
 ##### Round 5 (= 案E = #1-#6 2nd)
 - #1-2nd モーダル直リンク `?meeting=<id>` で auto-open
-- #2-2nd 「2人」のスペース除去 (= 「② 人」と読まれる問題)
+- #2-2nd 「2人」のスペース除去 (= 「2 人」と読まれる問題)
 - #4-2nd p00 milestone_monthly_progress 98 行 backfill (= 14 MS × 7 ヶ月、進捗バー描画用)
 - #5-2nd MarkdownView 全面強化 (色付き callout / `<em>` を黄色マーカーに転用 / TODO checkbox / table gradient header / `<img>` ready)
 - #6-2nd narrate API `max_tokens` 1800 → 16000、SYSTEM_PROMPT 強化 (= 表本文取り込み / 略称文脈補完 / 6 セクション絵文字見出し)、raw データ折りたたみ廃止
@@ -398,7 +398,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 
 ### 実装
 - [manual/04-admin-ops.md](../manual/04-admin-ops.md): `projects.status` 6 値 (`draft` / `active` / `sales` / `ended` / `frozen` / `lost`) の意味と主な扱いを追記。`project_category` とは別軸であること、`freeze_from_ym` / `restart_expected_ym` / `project_freeze_periods` は期間つき休止オーバーレイとして使うことを明記。
-- [manual/03-data-and-extraction.md](../manual/03-data-and-extraction.md): `amd-os-ms` が生成する L2 を ③⑦⑧ に補正し、②④⑤⑥ は生成しないことを 5.7 にリンク。LaunchAgent の strategy signals 監視先も `amd-os/strategy-signals-outbox` に補正。
+- [manual/03-data-and-extraction.md](../manual/03-data-and-extraction.md): `amd-os-ms` が生成する L2 を 378 に補正し、2456 は生成しないことを 5.7 にリンク。LaunchAgent の strategy signals 監視先も `amd-os/strategy-signals-outbox` に補正。
 - [manual/05-decisions-and-history.md](../manual/05-decisions-and-history.md): 責務分担マトリクスの `amd-os-ms` 行と `amd-os-meeting-extract` 頻度を補正。
 - [design/L2_DATA.md](../design/L2_DATA.md): 経営ハイライト outbox path と writer 名を `amd-os` / `strategy-signals-outbox` に補正。
 - [HANDOFF_pwa_rebuild.md](../HANDOFF_pwa_rebuild.md): Open Tasks #11 を完了扱いに更新。
@@ -594,7 +594,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
   - `/admin/protocols`、`/admin/contexts`、`/admin/tsukuyomi`、`/api/notifications/feedback` の仕様を整理。
   - AMD Protocol の `protocols` / `protocol_examples` / `protocol_result_observations` 分担、4 要素、UI 操作を整理。
   - feedback API の kind 別反映ルール、`l2_feedbacks` / `tsukuyomi_learnings`、GAS 即時再抽出を整理。
-  - 既知ギャップとして `/api/tsukuyomi/post` 未実装、protocol status mismatch、`source_type` / `source` mismatch、`context_type` schema gap、L2 ②④⑤⑥ ghost を明記。
+  - 既知ギャップとして `/api/tsukuyomi/post` 未実装、protocol status mismatch、`source_type` / `source` mismatch、`context_type` schema gap、D-1 AMD Protocol456 ghost を明記。
 - [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts): 27 章を「全体設計・細かい仕様」に追加。
 - [manual/00-intro.md](../manual/00-intro.md), [manual/04-admin-ops.md](../manual/04-admin-ops.md), [manual/07-atlas-protocol-score-macrotrend.md](../manual/07-atlas-protocol-score-macrotrend.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/22-notifications-and-tsukuyomi.md](../manual/22-notifications-and-tsukuyomi.md), [manual/08-member-quick-start.md](../manual/08-member-quick-start.md) に 27 章リンクと表現調整を反映。
 - [design/os_manual.md](../design/os_manual.md): 現行章立てに 27 章を追加し、初心者向け設計履歴の旧表現を整理。
@@ -638,7 +638,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 - [manual/28-notification-review-and-strategy-signals-spec.md](../manual/28-notification-review-and-strategy-signals-spec.md) 新規追加。
   - `/notifications` の admin-only、`AppNotificationsSection` と `NotificationsClient`、filter、`read_at` / `notified_at`、回答済み判定を整理。
   - L2 / MTG 通知の kind 別 lazy fetch、deep link、raw_data_gap の全文非表示ルール、回答ボタン、概算コスト表示を整理。
-  - `CockpitStrategySignals` の 4 分類、candidate / confirmed、score impact、過去 feedback、`applied_count` / `last_applied_at`、L2 ⑨ prompt 反映未実装 gap を整理。
+  - `CockpitStrategySignals` の 4 分類、candidate / confirmed、score impact、過去 feedback、`applied_count` / `last_applied_at`、D-6 Strategy Signals prompt 反映未実装 gap を整理。
 - [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts): 28 章を「全体設計・細かい仕様」に追加。
 - [manual/00-intro.md](../manual/00-intro.md), [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/22-notifications-and-tsukuyomi.md](../manual/22-notifications-and-tsukuyomi.md) に 28 章リンクと coverage 表を追加。
 - [manual/01-pj-cockpit.md](../manual/01-pj-cockpit.md), [manual/02-amd-cockpit.md](../manual/02-amd-cockpit.md), [manual/03-data-and-extraction.md](../manual/03-data-and-extraction.md), [manual/05-decisions-and-history.md](../manual/05-decisions-and-history.md), [manual/06-developer.md](../manual/06-developer.md), [manual/07-atlas-protocol-score-macrotrend.md](../manual/07-atlas-protocol-score-macrotrend.md) の dialogue 呼称を「提案前の論点整理セッション」/ `dialogue` へ整理。
@@ -1036,7 +1036,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 
 ### クロール
 - [design/ms_progress.md](../design/ms_progress.md), [lib/progress-estimator.ts](../src/lib/progress-estimator.ts), [`/api/cron/hourly-estimate`](../src/app/api/cron/hourly-estimate/route.ts), [`/api/progress/*`](../src/app/api/progress), [`/api/report/*`](../src/app/api/report), [`/api/monthly-report/*`](../src/app/api/monthly-report), [`/api/project/monthly-note`](../src/app/api/project/monthly-note/route.ts), [CockpitMonthlyModal.tsx](../src/components/cockpit/CockpitMonthlyModal.tsx) を読み、月次モーダルの current truth を整理。
-- `amd-os-ms` automation prompt と [ms_progress_review_tool.mjs](../scripts/ms_progress_review_tool.mjs) を確認し、MS進捗の primary writer は PWA hourly estimate、`amd-os-ms` は修正候補レビュー / L2 ⑦/⑧ outbox であることを確認。
+- `amd-os-ms` automation prompt と [ms_progress_review_tool.mjs](../scripts/ms_progress_review_tool.mjs) を確認し、MS進捗の primary writer は PWA hourly estimate、`amd-os-ms` は修正候補レビュー / D-5 Registry Diff/8 outbox であることを確認。
 - [manual/03-data-and-extraction.md](../manual/03-data-and-extraction.md), [manual/05-decisions-and-history.md](../manual/05-decisions-and-history.md), [manual/06-developer.md](../manual/06-developer.md), [design/L2_DATA.md](../design/L2_DATA.md), [design/l2_extract_claude_routine.md](../design/l2_extract_claude_routine.md) に古い writer 表現が残っていることを確認。
 
 ### 実装
@@ -1119,7 +1119,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
   - `pwa-hourly-estimate` を active PWA operation に戻し、default `{"query":{"maxItems":3}}` で `Run Now` 可能にした。
   - `manual-monthly-reports-backfill`, `manual-freeze-period-backfill`, `manual-triple-helix-recompute` を manual-only operation として追加。
 - [manual/24-operations-settings-spec.md](../manual/24-operations-settings-spec.md):
-  - L2 ①/③ の current truth、`pwa-hourly-estimate` の Run Now 注意、manual route と source route 棚卸し、MS進捗トラブル時の見る場所を追記。
+  - M-1 Monthly Reports/3 の current truth、`pwa-hourly-estimate` の Run Now 注意、manual route と source route 棚卸し、MS進捗トラブル時の見る場所を追記。
 - [gas/154_PwaCronCaller.js](../../gas/154_PwaCronCaller.js):
   - `NAV_PWA_CRON_DISABLED_20260522` の一括 kill switch を廃止。
   - `NAV_PWA_HOURLY_ESTIMATE_DISABLED_20260522=false` と `NAV_PWA_ASPI_CRON_DISABLED_20260522=true` に分離。
@@ -1275,7 +1275,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 ### 実装
 - [AdminProtocolsClient.tsx](../src/components/admin/AdminProtocolsClient.tsx):
   - 手動追加 payload を `protocol_id`, `title`, `project_id`, `content`, `tags`, `importance`, `source`, `status`, `kind`, `is_universal`, timestamps に限定。
-  - 4 要素は `content` markdown (`① 分岐点` / `② 判断材料` / `③ アクション` / `④ 結果`) として保存。
+  - 4 要素は `content` markdown (`1 分岐点` / `2 判断材料` / `3 アクション` / `4 結果`) として保存。
   - 表示の source は `source || source_type` とし、既存旧データの読み取り互換だけ残した。
 - [api/notifications/feedback/route.ts](../src/app/api/notifications/feedback/route.ts):
   - `protocols` yes handler を `status='confirmed'` へ変更。
@@ -1592,7 +1592,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 ## 2026-05-25 (#68) — OS マニュアル 継続クロール追記: L2 extraction routines current truth
 
 ### 着手契機
-#67 後の継続クロールで、L2 ②④⑤⑥ ghost 復旧計画が `design/l2_extract_claude_routine.md` にはあるが、マニュアル正本では「予定」扱いのまま細かい仕様が不足していることを確認。特に `amd-os-meeting-extract` は SKILL と GAS dryRun が既にあるため、実装済み部分と未完部分を分けて正本化する必要があった。
+#67 後の継続クロールで、D-1 AMD Protocol456 ghost 復旧計画が `design/l2_extract_claude_routine.md` にはあるが、マニュアル正本では「予定」扱いのまま細かい仕様が不足していることを確認。特に `amd-os-meeting-extract` は SKILL と GAS dryRun が既にあるため、実装済み部分と未完部分を分けて正本化する必要があった。
 
 ### クロール
 - `~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md` を読み、Routine 1 の prompt が存在することを確認。
@@ -1606,7 +1606,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 
 ### 実装
 - [manual/38-l2-extraction-routines-spec.md](../manual/38-l2-extraction-routines-spec.md) を新規追加。
-  - L2 ②④⑤⑥の対象範囲、GASを戻さない理由、Claude routine 一覧、MTG dryRun flow、②④⑤ flow、冪等性、通知、禁止事項、残タスクを正本化。
+  - D-1 AMD Protocol456の対象範囲、GASを戻さない理由、Claude routine 一覧、MTG dryRun flow、245 flow、冪等性、通知、禁止事項、残タスクを正本化。
   - `protocols` yes は `confirmed`、`project_knowledge` yes は `active`、`member_knowledge` は status migration 判断が必要と明記。
 - [manual-chapters.ts](../src/app/(app)/manual/manual-chapters.ts), [manual/00](../manual/00-intro.md), [manual/03](../manual/03-data-and-extraction.md), [manual/05](../manual/05-decisions-and-history.md), [manual/07](../manual/07-atlas-protocol-score-macrotrend.md), [manual/20](../manual/20-system-architecture.md), [manual/22](../manual/22-notifications-and-tsukuyomi.md) を 38 章へ接続。
 - [design/L2_DATA.md](../design/L2_DATA.md), [design/member_knowledge.md](../design/member_knowledge.md), [design/project_knowledge.md](../design/project_knowledge.md), [design/amd_protocol.md](../design/amd_protocol.md), [design/notifications.md](../design/notifications.md), [design/l2_extract_claude_routine.md](../design/l2_extract_claude_routine.md), [design/SPEC_pwa.md](../design/SPEC_pwa.md) を current truth へ更新。
@@ -1656,7 +1656,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
   - `polarity`, `scoreImpactSummary`, `scoreImpactDelta` を mapper / type に追加。
   - polarity chip と `📊 影響: ...` 表示を追加。
 - [operations-catalog.ts](../src/lib/operations-catalog.ts):
-  - L2 ⑨ source を `Codex automation amd-os` に更新。
+  - D-6 Strategy Signals source を `Codex automation amd-os` に更新。
 - [manual/20-system-architecture.md](../manual/20-system-architecture.md), [manual/00-intro.md](../manual/00-intro.md), [design/README.md](../design/README.md):
   - design md の manual 参照漏れを再クロールし、20.8 `設計 md の索引` を追加。
   - manual は読み手向け正本、`pwa/design/` は実装設計の正本という役割分担を明記。
@@ -1717,7 +1717,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
   - `経営判断` click 後、URL が `/manual?topic=decision` になり、`AMD Score 詳細仕様` と `Atlas / Macrotrend 詳細仕様` が表示。
   - `/manual/21-amd-score-spec` に `32. AMD Score 詳細仕様`, topic chip, `関連章` が表示。
 
-## 2026-05-25 (#71) — L2 ②〜⑨ Claude routine 8 個統一方針確定 + #40 Routine 1 完全 inline 移植 + #34 対話型修正依頼実装
+## 2026-05-25 (#71) — D/M/H L2 Claude routine 8 個統一方針確定 + #40 Routine 1 完全 inline 移植 + #34 対話型修正依頼実装
 
 ### コンテキスト
 - 前セッション (= 2026-05-25 お昼) で #40 (Routine 1) を「GAS dryRun 経由 + Claude routine が curl で叩く」アプローチで実装、#34 (経営ハイライト修正依頼) を「Anthropic Sonnet 直叩きで即時 update」一方通行版で実装。
@@ -1727,12 +1727,12 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 - BUGS.md [meta/ai-interpretation] に教訓記録済。
 
 ### セッション中の方針追加
-- まさ #71 「**すべて Claude routines で抽出する形に変更**」 = L2 ②〜⑨ 全 8 種を Claude routine に統一。ghost 4 種 (②④⑤⑥) だけでなく稼働中の ③⑦⑧⑨ も移管。既存 Codex automation `amd-os-ms` / `amd-os` + LaunchAgent applier は Routine 5-8 動作確認後に段階的停止。
+- まさ #71 「**すべて Claude routines で抽出する形に変更**」 = D/M/H L2 全 8 種を Claude routine に統一。ghost 4 種 (2456) だけでなく稼働中の 3789 も移管。既存 Codex automation `amd-os-ms` / `amd-os` + LaunchAgent applier は Routine 5-8 動作確認後に段階的停止。
 - まさ #71 「**#34 中期 (automation prompt 修正) は捨てる**、対話型ループが出来たら冗長」 = `~/.codex/automations/amd-os/automation.toml` に追加した `l2_feedbacks` 読み込み手順 4 を revert。
 
 ### 実装
 
-#### #40 完全移植 (= Routine 1 ⑥ MTG サマリ)
+#### #40 完全移植 (= Routine 1 6 MTG サマリ)
 - [`~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md`](~/.claude/scheduled-tasks/amd-os-meeting-extract/SKILL.md) を **GAS dryRun 経由 → MCP 直叩き完全 inline 移植版** に書き直し:
   - Phase 0: env (= SUPABASE_URL / SRK) + Calendar list_calendars MCP で primary 確認
   - Phase A: Calendar list_events MCP で過去 3 時間取得 → 終了 60-180 分前 filter → PJ 判定 (= projects.project_name / project_id / client_name substring match、外部スプシ CFG は使わない)
@@ -1742,7 +1742,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
   - Phase E: run summary + まさへの 1 行サマリ (= notifyOnCompletion 表示用)
 - GAS は完全 bypass (= kill switch のまま死んでて OK)、5 ソース全部見る (= GAS 074 + 074b-e 集約を 1 routine で実現)
 
-#### #34 対話型修正依頼 (= L2 ⑨ 経営ハイライト)
+#### #34 対話型修正依頼 (= D-6 Strategy Signals 経営ハイライト)
 - [`pwa/src/lib/strategy-signal-dialog.ts`](../src/lib/strategy-signal-dialog.ts) 新規 (= helper):
   - `fetchSignalContext(targetId, scopeKey)`: scope_key から ym + hashPrefix を抽出 → project_strategy_signals 逆引き + 過去 l2_feedbacks fetch
   - `generateProposal(context, conversation)`: Anthropic Sonnet 4.6 で改訂案生成 (= conversation を context、最後の user 発言が今回の修正依頼 or 追加 hint or 「やり直し」)
@@ -1751,16 +1751,16 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 - [`pwa/src/app/api/notifications/feedback/dialog/start/route.ts`](../src/app/api/notifications/feedback/dialog/start/route.ts) 新規: 初回 textarea 送信 → proposed 生成 + conversation [user, assistant] 返却
 - [`pwa/src/app/api/notifications/feedback/dialog/refine/route.ts`](../src/app/api/notifications/feedback/dialog/refine/route.ts) 新規: 「やり直し」または「追加コメント」 → conversation に user 発言追加 + 再生成
 - [`pwa/src/app/api/notifications/feedback/dialog/confirm/route.ts`](../src/app/api/notifications/feedback/dialog/confirm/route.ts) 新規: まさ承認 → applyProposal で signal 更新 + l2_feedbacks INSERT
-- [`pwa/src/app/api/notifications/feedback/route.ts`](../src/app/api/notifications/feedback/route.ts) 修正: `reextractStrategySignalImmediate` 関数削除 + `triggerImmediateReExtraction` の L2 ⑨ 分岐削除 + POST /api/notifications/feedback の L2 ⑨ 即時再抽出 fire-and-forget を停止
+- [`pwa/src/app/api/notifications/feedback/route.ts`](../src/app/api/notifications/feedback/route.ts) 修正: `reextractStrategySignalImmediate` 関数削除 + `triggerImmediateReExtraction` の D-6 Strategy Signals 分岐削除 + POST /api/notifications/feedback の D-6 Strategy Signals 即時再抽出 fire-and-forget を停止
 - [`pwa/src/components/cockpit/CockpitStrategySignals.tsx`](../src/components/cockpit/CockpitStrategySignals.tsx) 修正: 修正依頼 modal を **対話型 UI** に拡張 (= 4 step state: input → loading → preview (= DiffRow 6 行 + reasoning + 適用/やり直し/追加コメント 3 ボタン + 対話履歴 details) → addComment)。親 component に `feedbackTick` state 追加で confirm 後 refetch。
 
 #### #34 中期廃止
 - [`~/.codex/automations/amd-os/automation.toml`](~/.codex/automations/amd-os/automation.toml) の手順 4 (= l2_feedbacks 読み込み) を revert (= 対話型ループで冗長、まさ #71 確定)
 
 #### 設計議論 md / マニュアル / 中核データ正本
-- [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md) 改訂: 「dryRun 撤回 + L2 ②〜⑨ 全 8 routine 統一」方針反映、8 routine 一覧表 + 段階的停止計画 + Routine 1 SKILL.md 完了記載
+- [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md) 改訂: 「dryRun 撤回 + D/M/H L2 全 8 routine 統一」方針反映、8 routine 一覧表 + 段階的停止計画 + Routine 1 SKILL.md 完了記載
 - [`pwa/manual/9-1-decisions-and-history.md`](../manual/05-decisions-and-history.md) §5.7 更新: ghost 4 → 8 routine 拡張、各 routine の状態列追加
-- [`pwa/design/L2_DATA.md`](../design/L2_DATA.md) 「L2 ②〜⑨ ghost 化」section を「Claude routine 8 個統一」section に書き換え、改訂履歴に 2026-05-25 (#71) エントリ追加
+- [`pwa/design/L2_DATA.md`](../design/L2_DATA.md) 「D/M/H L2 ghost 化」section を「Claude routine 8 個統一」section に書き換え、改訂履歴に 2026-05-25 (#71) エントリ追加
 
 ### Verified
 - `npx tsc --noEmit` pass
@@ -1768,7 +1768,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 - `npm run test:critical-ui` pass
 
 ### TODO (次セッション)
-- HANDOFF Open Tasks: Routine 2-8 SKILL.md 新設 (= ②④⑤、③⑦⑧⑨)、`mcp__scheduled-tasks__create_scheduled_task` で登録、5/22-5/25 取り込み穴期間 backfill モード、ブラウザで対話型 UI 動作確認
+- HANDOFF Open Tasks: Routine 2-8 SKILL.md 新設 (= 245、3789)、`mcp__scheduled-tasks__create_scheduled_task` で登録、5/22-5/25 取り込み穴期間 backfill モード、ブラウザで対話型 UI 動作確認
 - 既存 Codex automation `amd-os-ms` + `amd-os` + LaunchAgent applier は Routine 5-8 動作確認後に段階的 unload
 
 ## 2026-05-25 (#72) — OS マニュアルのユーザー/開発者分離 + カラフルクリックマップ化
@@ -2173,7 +2173,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
   - article top は `371px` で、metadata panel 削除により本文が first viewport に近づいたことを確認。
   - Screenshot: `/tmp/amd-os-manual-no-metadata-panel-production.png`
 
-## 2026-05-25 (#71 追記) — L2 ②〜⑨ Claude routine 8 個全登録完了 + 対話型 UI 全フロー実機確認
+## 2026-05-25 (#71 追記) — D/M/H L2 Claude routine 8 個全登録完了 + 対話型 UI 全フロー実機確認
 
 ### 追加実装 (= 同セッション内、まさ「次とかいわずに、ここで全 L2 データの routines を作って」指示)
 
@@ -2181,14 +2181,14 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 
 | L2 | routine ID | cron | 入力 | 出力 |
 |---|---|---|---|---|
-| ② | `amd-os-l2-protocol-extract` | daily 08:00 JST | project_meeting_summaries (decided) + monthly_reports | protocols (candidate) |
-| ③ | `amd-os-l3-ms-progress-extract` | 毎時 0 分 | monthly_reports + project_meeting_summaries | milestone_monthly_progress + project_monthly_notes |
-| ④ | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | monthly_reports + project_meeting_summaries | project_knowledge (candidate) |
-| ⑤ | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | milestone_responsibility + member_activities + project_meeting_summaries | member_knowledge |
-| ⑥ | `amd-os-l6-meeting-extract` | 毎時 0 分 | Calendar + Notion + Gmail + Drive + Slack (5 ソース全部) | project_meeting_summaries + meeting_notifications |
-| ⑦ | `amd-os-l7-registry-diff-extract` | 6h ごと (:00) | 5 生データ vs OS 台帳 | project_registry_diffs (pending) |
-| ⑧ | `amd-os-l8-xrl-evidence-extract` | 6h ごと (:15) | 5 生データ + 既存 L2 | project_xrl_evidence (candidate) |
-| ⑨ | `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | 5 生データ + OS snapshot | project_strategy_signals (candidate) |
+| 2 | `amd-os-l2-protocol-extract` | daily 08:00 JST | project_meeting_summaries (decided) + monthly_reports | protocols (candidate) |
+| 3 | `amd-os-l3-ms-progress-extract` | 毎時 0 分 | monthly_reports + project_meeting_summaries | milestone_monthly_progress + project_monthly_notes |
+| 4 | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | monthly_reports + project_meeting_summaries | project_knowledge (candidate) |
+| 5 | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | milestone_responsibility + member_activities + project_meeting_summaries | member_knowledge |
+| 6 | `amd-os-l6-meeting-extract` | 毎時 0 分 | Calendar + Notion + Gmail + Drive + Slack (5 ソース全部) | project_meeting_summaries + meeting_notifications |
+| 7 | `amd-os-l7-registry-diff-extract` | 6h ごと (:00) | 5 生データ vs OS 台帳 | project_registry_diffs (pending) |
+| 8 | `amd-os-l8-xrl-evidence-extract` | 6h ごと (:15) | 5 生データ + 既存 L2 | project_xrl_evidence (candidate) |
+| 9 | `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | 5 生データ + OS snapshot | project_strategy_signals (candidate) |
 
 ### 重要な事故と復旧
 - 既存 `amd-os-meeting-extract` を `amd-os-l6-meeting-extract` に cp + sed でリネーム後、`create_scheduled_task` が SKILL.md を **prompt 引数で上書き** することが判明。L2 / L4 / L5 / L6 の長文 SKILL.md が短文に書き換わった
@@ -2203,7 +2203,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 - 残課題: confirm 後の `router.refresh()` だけだと一部の Next.js cache が残り title 即時更新されないことがある (= ハードリロードで確認可能、`revalidatePath` 検討は後追い)
 
 ### Vercel deploy 3 commit
-- `e2fdf34` feat(pwa): #71 L2 ②〜⑨ Claude routine 8 個統一方針 + Routine 1 完全 inline 移植 + #34 対話型修正依頼
+- `e2fdf34` feat(pwa): #71 D/M/H L2 Claude routine 8 個統一方針 + Routine 1 完全 inline 移植 + #34 対話型修正依頼
 - `8fd463b` fix(pwa): manual/page.tsx fallback chapter に audience 追加 (= Vercel build 修復)
 - `f2cbf8c` fix(pwa): #34 対話型修正依頼の helper を migration 090 未適用環境でも動くように
 - `720c8a1` fix(pwa): #34 対話型修正依頼の confirm 後に router.refresh() で signals 表示を即反映
@@ -2542,11 +2542,11 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 ### 教訓 (BUGS [meta/ai-interpretation] に追加)
 - まさ「重複 + しょぼ + 全体設計しないと」「PL/PM/Closer 抜けてる」など UI 設計の根本問題を指摘されてから手を動かす運用に。「とりあえず作る」じゃなく「全体構造 → 情報項目リスト → UI 階層」を先に提示
 
-## 2026-05-26 — L2 ②〜⑨ Cloud routines 移行 (= claude.ai/code/routines 一本化)
+## 2026-05-26 — D/M/H L2 Cloud routines 移行 (= claude.ai/code/routines 一本化)
 
 ### 起点
 - まさ「いますぐclaude automationで全L2データが抽出できるようにして、マニュアルもそのように変更しよう」
-- 前提: 2026-05-25 #71 で「L2 ②〜⑨ を Claude routine 8 個に統一」確定済、Mac 側 SKILL は登録済だが Mac スリープで実発火ゼロ
+- 前提: 2026-05-25 #71 で「D/M/H L2 を Claude routine 8 個に統一」確定済、Mac 側 SKILL は登録済だが Mac スリープで実発火ゼロ
 
 ### 経緯 (= 大きな方針転換 3 回)
 1. **Mac scheduled task の発火確認** → L3 (= 5/25 16:01 JST に 1 回) だけ走った fact、他はスリープ中で未発火確認
@@ -2569,17 +2569,17 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 
 | L2 | trigger ID | cron | repo | Connector |
 |---|---|---|---|---|
-| ② プロトコル | `trig_01YEcyejLzKF7zYgmAiw3w8P` | daily 08:00 JST | ✅ amd-os | ✅ 7 個 |
-| ③ MS 進捗 | `trig_01MxR8nyEvJvSHaCwDcHoqmb` | 毎時 0 分 | ✅ amd-os | ✅ 7 個 |
-| ④ PJ ナレッジ | `trig_01DtARvCSkz99GsgG8xihceX` | daily 08:15 JST | ✅ amd-os | ✅ 7 個 |
-| ⑤ メンバーナレッジ | `trig_011FUoNE2YCLgVoZVa9C4q2m` | daily 08:30 JST | ✅ amd-os | ⚠️ Docusign+Supabase のみ |
-| ⑥ MTG サマリ | `trig_01LHbVwy9KH2RNv1E7TtoaQd` | 毎時 0 分 | ✅ amd-os | ⚠️ 5 個 (Supabase + Calendar 欠) |
-| ⑦ OS 台帳差分 | `trig_01211WVhf1pVw7mMdCk2RZxr` | 6h ごと (`0 */6 * * *`) | ✅ amd-os | ⚠️ Docusign のみ |
-| ⑧ XRL 根拠 | `trig_01QktXVABmg7ohA8NCUSFY9C` | 6h ごと (`15 */6 * * *`) | ✅ amd-os | ⚠️ Docusign のみ |
-| ⑨ 経営ハイライト | `trig_011ohxcGastNHLedBxti65jY` | daily 03:20 JST | ❌ 未設定 | ⚠️ Docusign のみ |
+| 2 プロトコル | `trig_01YEcyejLzKF7zYgmAiw3w8P` | daily 08:00 JST | ✅ amd-os | ✅ 7 個 |
+| 3 MS 進捗 | `trig_01MxR8nyEvJvSHaCwDcHoqmb` | 毎時 0 分 | ✅ amd-os | ✅ 7 個 |
+| 4 PJ ナレッジ | `trig_01DtARvCSkz99GsgG8xihceX` | daily 08:15 JST | ✅ amd-os | ✅ 7 個 |
+| 5 メンバーナレッジ | `trig_011FUoNE2YCLgVoZVa9C4q2m` | daily 08:30 JST | ✅ amd-os | ⚠️ Docusign+Supabase のみ |
+| 6 MTG サマリ | `trig_01LHbVwy9KH2RNv1E7TtoaQd` | 毎時 0 分 | ✅ amd-os | ⚠️ 5 個 (Supabase + Calendar 欠) |
+| 7 OS 台帳差分 | `trig_01211WVhf1pVw7mMdCk2RZxr` | 6h ごと (`0 */6 * * *`) | ✅ amd-os | ⚠️ Docusign のみ |
+| 8 XRL 根拠 | `trig_01QktXVABmg7ohA8NCUSFY9C` | 6h ごと (`15 */6 * * *`) | ✅ amd-os | ⚠️ Docusign のみ |
+| 9 経営ハイライト | `trig_011ohxcGastNHLedBxti65jY` | daily 03:20 JST | ❌ 未設定 | ⚠️ Docusign のみ |
 
-### 動作テスト fact (= L2 ② 手動 run)
-- L2 ② で「今すぐ実行」 → Phase 0 (active projects + l2_extract_state 取得) → Phase A (4 targets identify: p00/202605, p19/202605, p21/202605, p25/202605) → Phase C (LLM extraction 開始) まで進行確認
+### 動作テスト fact (= D-1 AMD Protocol 手動 run)
+- D-1 AMD Protocol で「今すぐ実行」 → Phase 0 (active projects + l2_extract_state 取得) → Phase A (4 targets identify: p00/202605, p19/202605, p21/202605, p25/202605) → Phase C (LLM extraction 開始) まで進行確認
 - Supabase MCP `execute_sql` 経由で `projects` / `l2_extract_state` / `project_meeting_summaries` / `protocols` 列スキーマ確認 + データ取得を正常実行
 - 経過 8m+ で Phase C 思考中、サーバー側で継続中 (= ローカル PC OFF でも動く確証)
 
@@ -2615,20 +2615,20 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
 
 ### 2026-05-26 続き: cap 15/day 判明 + Codex automation 検討
 
-**Cloud routine cap 判明**: claude.ai/code/routines に **daily run cap = 15/day** がある。私の設計 (= L2 ②〜⑨ 個別 8 routine、毎時 routine 2 個含む) だと 1 日 60 回発火 → cap で打ち切り。まさが画面で「15/15 使用済み」エラーを発見。
+**Cloud routine cap 判明**: claude.ai/code/routines に **daily run cap = 15/day** がある。私の設計 (= D/M/H L2 個別 8 routine、毎時 routine 2 個含む) だと 1 日 60 回発火 → cap で打ち切り。まさが画面で「15/15 使用済み」エラーを発見。
 
 **まさ集約案 (#2026-05-26)**: 「全 L2 データは 1 つの routine に集約すべき」 → 採用。
 
 実装:
-1. 集約 SKILL `pwa/scheduled-tasks/amd-os-l2-all-extract/SKILL.md` 作成 + commit (= `bde16c7`)。Phase 0-I で L2 ⑥→②→④→⑤→⑦→⑧→⑨→③ の順 (= 依存関係考慮) で各 L2 個別 SKILL を inline 実行
-2. L2 ② Cloud routine (= 7 個 Connector + repo OK の唯一完全動作確認済の base) を編集モーダル経由で **集約 routine に書き換え** (= 名前「AMD OS L2 全抽出 (daily 08:00, 集約版)」、指示は集約 SKILL.md 参照に変更)
+1. 集約 SKILL `pwa/scheduled-tasks/amd-os-l2-all-extract/SKILL.md` 作成 + commit (= `bde16c7`)。Phase 0-I で H-1 Meeting Flow→2→4→5→7→8→9→3 の順 (= 依存関係考慮) で各 L2 個別 SKILL を inline 実行
+2. D-1 AMD Protocol Cloud routine (= 7 個 Connector + repo OK の唯一完全動作確認済の base) を編集モーダル経由で **集約 routine に書き換え** (= 名前「AMD OS L2 全抽出 (daily 08:00, 集約版)」、指示は集約 SKILL.md 参照に変更)
 3. L3-L9 個別 Cloud routine は残存 (= 削除作業中に UI bug で進まず)。明日朝 cap reset 後に L3/L6 (= 毎時、cap 大量消費) を最優先削除する別 session
 
 **まさ追加提案 (#2026-05-26)**: 「Windows MMO は常時 ON なんだから、そこで Codex 動かせばいいのでは?」 → 戦略再評価:
 
 - Mac の **Codex.app** (= OpenAI Codex Desktop、GPT-5.5 使用) = `~/.codex/automations/<name>/automation.toml` で cron 設定する Anthropic とは別 product
 - Windows MMO PC に Codex CLI 0.133 (= `OpenAI.Codex` winget package) インストール完了
-- ただし残課題: `codex login` (= OAuth ブラウザ承認、まさ手動)、Codex Desktop の Windows install (= `codex app` で installer 起動だが GUI 操作)、`~/.codex/automations/amd-os*` 移植 (= 5 個 + 新規 L2 ②④⑤⑥)
+- ただし残課題: `codex login` (= OAuth ブラウザ承認、まさ手動)、Codex Desktop の Windows install (= `codex app` で installer 起動だが GUI 操作)、`~/.codex/automations/amd-os*` 移植 (= 5 個 + 新規 D-1 AMD Protocol456)
 
 **最終戦略 (= 当面)**: Cloud routine 集約版 (= 明日 08:00 JST 発火、daily 1 回で cap 余裕) を当面の primary writer に。Codex Desktop on Windows MMO は別 session で完遂。L3-L9 余分 Cloud routine 削除も別 session。
 
@@ -2640,7 +2640,7 @@ PWA セッション作業ログ (月内分割 part3)。索引・最新分は `se
    - `codex app` (Windows) で Desktop installer 起動 (まさ手動完了)
    - `codex login` で OpenAI ChatGPT 認証 (まさ手動、AGENTS 例外)
    - Mac の `~/.codex/automations/` 5 個 (= amd-os, amd-os-ms, amd-os-strategy-signals, amd-atlas, amd-atlas-2, amd-macrotrend-evidence-review) を Windows に rsync
-   - L2 ②④⑤⑥ も Codex automation 化 (= 既存の amd-os-ms に統合 or 新規)
+   - D-1 AMD Protocol456 も Codex automation 化 (= 既存の amd-os-ms に統合 or 新規)
    - 動作確認後、Mac の Codex.app は停止 (= 重複防止) or Windows 側だけ稼働に切替
 4. **Mac 側 Local routine 9 個 disable** (= Cloud + Codex 動作確認後)
 5. **マニュアル 38/05/L2_DATA の Codex 反映** (= Windows MMO Codex 稼働確認後)
@@ -2667,7 +2667,7 @@ Mac → Windows MMO に移植したファイル:
 
 ### 状態整理 (= 2026-05-26 終了時)
 
-| 抽出経路 | L2 ① | ② | ③ | ④ | ⑤ | ⑥ | ⑦ | ⑧ | ⑨ |
+| 抽出経路 | M-1 Monthly Reports | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
 |---|---|---|---|---|---|---|---|---|---|
 | AMD-Report GAS R313 (= LLM 不使用) | ✅ | | | | | | | | |
 | PWA hourly-estimate (= GAS 154 ping、Sonnet 4.5) | | | ✅ 並行 | | | | | | |
@@ -2678,12 +2678,12 @@ Mac → Windows MMO に移植したファイル:
 | Cloud routine 集約版 (= daily 08:00、Sonnet 4.6、Anthropic) | | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Mac Local routine 8 個 (= スリープで発火しない) | | (登録のみ) | (同) | (同) | (同) | (同) | (同) | (同) | (同) |
 
-= **L2 ②④⑤⑥ は Cloud routine 集約版だけがカバー、明日 08:00 JST 発火試行**。
+= **D-1 AMD Protocol456 は Cloud routine 集約版だけがカバー、明日 08:00 JST 発火試行**。
 
 ### 次の判断ポイント (= 別 session)
 
 1. **Mac Codex.app の重複稼働を解消**: Mac の `~/.codex/automations/amd-os/automation.toml` と `amd-os-ms/automation.toml` を `status = "INACTIVE"` に書き換え → Windows MMO 動作確認 (= 次の cron 発火 + outbox 生成) 完了後
-2. **L2 ②④⑤⑥ を Codex automation 新規作成** = 現状は Cloud routine 集約版でカバーしてるが、Cloud cap 15/day と subscription 別管理 (Anthropic vs OpenAI) を統一するため、Codex に集約する選択肢
+2. **D-1 AMD Protocol456 を Codex automation 新規作成** = 現状は Cloud routine 集約版でカバーしてるが、Cloud cap 15/day と subscription 別管理 (Anthropic vs OpenAI) を統一するため、Codex に集約する選択肢
 3. **Cloud routine 集約版を残すか削除** = Codex 全部動いたら Cloud 不要、ただし「複数 vendor backup」として残すのもあり
 4. **L3-L9 個別 Cloud routine 7 個削除** = cap 15/day 消費要因、削除 dialog の UI 慎重操作
 5. **Mac 側 Local routine 9 個 disable** = 全部 Cloud/Codex 移管確認後
@@ -2697,23 +2697,23 @@ Mac → Windows MMO に移植したファイル:
 4. **UI 操作の不安定さに早めに見切り**: claude.ai のドロップダウン option click が反映されない、編集モーダルで repo 設定が消える等の UI bug で時間溶けた → 別 approach (= API / CLI / file 直編集) に切替判断の遅さ
 5. **自走前にメタ判断、ハマったら別 approach**: AskUserQuestion で停止しすぎ + UI 操作にこだわりすぎ。「3 つ試してダメなら別ルート」を実践
 
-### 2026-05-26 続き 3: L2 全部 Codex automation 化 + L2 ⑥ MTG フロー大規模設計
+### 2026-05-26 続き 3: L2 全部 Codex automation 化 + H-1 Meeting Flow MTG フロー大規模設計
 
 **まさ要件**:
 1. 全部の L2 を Codex automation で作る (= Mac の 2 個から 6 個 +α に拡張)
-2. L2 ⑥ MTG サマリは「議事録抽出」を超えて、**MTG 一連のライフサイクルフロー全体** を automation 化
+2. H-1 Meeting Flow MTG サマリは「議事録抽出」を超えて、**MTG 一連のライフサイクルフロー全体** を automation 化
 3. 議事録クオリティ向上 (= 箇条書き化を廃止、OS context 反映)
 
 ### 新規 Codex automation (= Windows MMO PC 配置)
 
 | id | name | cron | 役割 |
 |---|---|---|---|
-| `amd-os-l2-protocol` | AMD OS L2 ② AMD プロトコル抽出 | daily 08:00 JST | `protocols` 抽出 (= GAS 155 後継) |
-| `amd-os-l4-project-knowledge` | AMD OS L2 ④ PJ ナレッジ抽出 | daily 08:15 JST | `project_knowledge` 9 category 抽出 |
-| `amd-os-l5-member-knowledge` | AMD OS L2 ⑤ メンバーナレッジ抽出 | daily 08:30 JST | `member_knowledge` 7 category 抽出 |
-| `amd-os-l6-meeting-flow` | AMD OS L2 ⑥ MTG サマリ + フロー (議事録 / 次 MTG カード / Slack nudge / 当日 update) | **毎時 0 分** | **下記 7 Phase の大規模設計** |
+| `amd-os-l2-protocol` | AMD OS D-1 AMD Protocol AMD プロトコル抽出 | daily 08:00 JST | `protocols` 抽出 (= GAS 155 後継) |
+| `amd-os-l4-project-knowledge` | AMD OS D-3 Project Knowledge PJ ナレッジ抽出 | daily 08:15 JST | `project_knowledge` 9 category 抽出 |
+| `amd-os-l5-member-knowledge` | AMD OS D-4 Member Knowledge メンバーナレッジ抽出 | daily 08:30 JST | `member_knowledge` 7 category 抽出 |
+| `amd-os-l6-meeting-flow` | AMD OS H-1 Meeting Flow MTG サマリ + フロー (議事録 / 次 MTG カード / Slack nudge / 当日 update) | **毎時 0 分** | **下記 7 Phase の大規模設計** |
 
-### L2 ⑥ MTG フロー設計 (= 254 行 prompt、まさ要件 3 つ全部反映)
+### H-1 Meeting Flow MTG フロー設計 (= 254 行 prompt、まさ要件 3 つ全部反映)
 
 **Phase A**: 議事録抽出 + 高品質化:
 - Calendar 過去 60-180 分終了 events scan → PJ 判定 → 5 ソース context 収集 (= Notion 3 段 fallback / Gmail / Drive / Slack)
@@ -2761,12 +2761,12 @@ Mac → Windows MMO に移植したファイル:
 
 ```
 C:\Users\masa\.codex\automations\
-  ├── amd-os-l2-protocol/         (= L2 ②、daily 08:00)
-  ├── amd-os-ms/                  (= L2 ③⑦⑧、6h ごと)
-  ├── amd-os-l4-project-knowledge/(= L2 ④、daily 08:15)
-  ├── amd-os-l5-member-knowledge/ (= L2 ⑤、daily 08:30)
-  ├── amd-os-l6-meeting-flow/     (= L2 ⑥ + MTG フロー、毎時 0 分)
-  ├── amd-os/                     (= L2 ⑨、daily 03:20)
+  ├── amd-os-l2-protocol/         (= D-1 AMD Protocol、daily 08:00)
+  ├── amd-os-ms/                  (= D-2 MS Progress78、6h ごと)
+  ├── amd-os-l4-project-knowledge/(= D-3 Project Knowledge、daily 08:15)
+  ├── amd-os-l5-member-knowledge/ (= D-4 Member Knowledge、daily 08:30)
+  ├── amd-os-l6-meeting-flow/     (= H-1 Meeting Flow + MTG フロー、毎時 0 分)
+  ├── amd-os/                     (= D-6 Strategy Signals、daily 03:20)
   ├── amd-atlas-2/                (= Atlas 外部シグナル、daily 08:10)
   └── amd-macrotrend-evidence-review/  (= UN SDGs/WEF、weekly Mon 07:30)
 ```
@@ -2781,7 +2781,7 @@ C:\Users\masa\.codex\automations\
 6. **MTG フロー実装の helper** = `apply-outbox` で Notion / Calendar / Slack 反映する non-LLM script (= `pwa/scripts/ms_progress_review_tool.mjs` 拡張 or 別 helper)
 7. **マニュアル 38/05/L2_DATA に Windows MMO Codex 反映** (= 別 session)
 
-## 2026-05-27 00:00 — L2 ⑥ MTG フロー Phase H/I/J 拡張 (= まさ 23:55 追加要求)
+## 2026-05-27 00:00 — H-1 Meeting Flow MTG フロー Phase H/I/J 拡張 (= まさ 23:55 追加要求)
 
 ### きっかけ
 
@@ -2819,7 +2819,7 @@ L6 MTG フロー Phase A-G が表示確認できた直後、まさが「もう�
 ### 反映
 
 - `/tmp/codex-fix-toml.py` の amd-os-l6-meeting-flow prompt に Phase H/I/J 追記 (= 8052 → 10651 bytes)
-- name 拡張: `AMD OS L2 ⑥ MTG サマリ + フロー (議事録 / 次 MTG カード / Slack nudge / TODO→cockpit + Calendar 作業枠 / 資料即生成 / ファシリ役メール下書き)`
+- name 拡張: `AMD OS H-1 Meeting Flow MTG サマリ + フロー (議事録 / 次 MTG カード / Slack nudge / TODO→cockpit + Calendar 作業枠 / 資料即生成 / ファシリ役メール下書き)`
 - outbox top-level keys 追加: `todos`, `calendarTaskBlocks`, `generatedMaterials`, `followUpEmailDrafts`
 - 禁止事項追加: Gmail 本送信 / Calendar 既存枠と重複作成 / `+<PJ>` prefix 無し / 生成不能タスクの強引な資料生成
 - run summary に Phase H/I/J カウント追加: `TODO → cockpit <N> queued / Calendar 作業枠 (+<PJ>) <N> created / 資料自動生成 <N> drafts / ファシリ役メール下書き <N> drafts`
@@ -2845,7 +2845,7 @@ L6 を MMO で run 中、まさが気づいた:
 - **A (cron 絞り)**: 元 `FREQ=HOURLY` (= 24回/日 × 7 = 168回/週) → **`FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU;BYHOUR=9,10,11,12,13,14,15,16,17,18,19,20,21;BYMINUTE=0;BYSECOND=0`** (= 13回/日 × 7 = 91回/週、元の 54%)
   - 深夜 22:00-08:00 は完全不発火
   - 平日のみではなく土日も日中走らせる (= AMD は柔軟、土日 MTG / 朝晩 MTG も拾う、まさ提案より少し広めに)
-- **B (早期 exit 明文化)**: Phase A の window filter 結果が 0 件 (= 該当 MTG event 無し) なら、Phase B 以降一切実行せず即終了。outbox JSON 作らず、Supabase 書き込みも一切しない。run summary は 1 行のみ「🗓️ L2 ⑥ MTG フロー HH:MM 該当 event なし、即終了 (経過時間 <秒> 秒)」
+- **B (早期 exit 明文化)**: Phase A の window filter 結果が 0 件 (= 該当 MTG event 無し) なら、Phase B 以降一切実行せず即終了。outbox JSON 作らず、Supabase 書き込みも一切しない。run summary は 1 行のみ「🗓️ H-1 Meeting Flow MTG フロー HH:MM 該当 event なし、即終了 (経過時間 <秒> 秒)」
 - **理由**: B 単独だと深夜も理屈上は起動コスト食う。A 単独だと土日や朝晩 MTG 拾えなくなる。A+B で「**そもそも MTG なさそうな時間帯は cron が動かず、日中の cron でも該当ナシなら即終了**」が最もきれい。
 
 ### 反映
@@ -3069,7 +3069,7 @@ deploy.sh で 1 回 (v0.3.6 → v0.4.0)、 Ready 2 分 21 秒。 production alia
 
 ### コンテキスト
 - まさから「`/admin/payouts` の支払通知書PDFを 1人ずつボタン押して GAS の生成を待つのがめちゃくちゃだるい、前もって生成しておけない？」と依頼
-- AskUserQuestion で方向性確定: ① cron で毎日深夜先回り、② issue/preview 両方一括ボタンを別途追加、③ 差分検出あり (既存pdf_url有り + total_yen一致ならスキップ)
+- AskUserQuestion で方向性確定: 1 cron で毎日深夜先回り、2 issue/preview 両方一括ボタンを別途追加、3 差分検出あり (既存pdf_url有り + total_yen一致ならスキップ)
 - 「個別ボタンも残す」「保存と同時に古い pdf_url はクリア」をセルフルールとして組み込み
 
 ### 実装

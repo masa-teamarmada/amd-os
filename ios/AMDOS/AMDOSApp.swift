@@ -467,7 +467,7 @@ final class NotificationService: ObservableObject {
             .execute()
     }
 
-    // MARK: - Meeting Notifications (⑥ MTGサマリ Phase 3)
+    // MARK: - Meeting Notifications (6 MTGサマリ Phase 3)
 
     @discardableResult
     func pollMeetingNotifications() async throws -> Int {

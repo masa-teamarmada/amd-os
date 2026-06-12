@@ -1,5 +1,5 @@
 -- 029_progress_estimate_state.sql
--- L2 ③ MS進捗の毎時 polling 化 (Phase 4) のための差分検知用 state テーブル。
+-- D-2 MS進捗の毎時 polling 化 (Phase 4) のための差分検知用 state テーブル。
 -- 1 PJ × 1 ym ごとに「最後に LLM 抽出したときの source_hash と timestamp」を持つ。
 -- 毎時 cron から呼ばれた estimateProgress() が source_hash 一致なら LLM 呼ばずスキップする。
 --

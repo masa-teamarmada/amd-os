@@ -1,4 +1,4 @@
-# L2⑨ 経営ハイライト仕様
+# L2D-6 経営ハイライト仕様
 
 > **この章は何か**: `project_strategy_signals` に保存される経営ハイライト、通知採否、cockpit 表示、dialogue 接続の確定仕様。設計議論は `pwa/design/project_strategy_signals.md` にも残す。
 
@@ -107,4 +107,4 @@ dialogue の `decided[]` は会社としての正式決定ではなく、「チ�
 - source refs が弱い推測で signal を作らない。
 - 未了 TODO を「進んだこと」として入れない。
 - Gmail / Slack / Notion / Drive 本文全文を保存しない。
-- GAS health failure だけで L2⑨ review 全体を止めない。
+- GAS health failure だけで L2D-6 review 全体を止めない。

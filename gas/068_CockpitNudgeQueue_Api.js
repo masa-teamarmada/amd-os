@@ -371,7 +371,7 @@ function nudgeQ_checkOriginRate_(projectId) {
 function nudgeQ_checkScopeCreep_(projectId, currentYm) {
   var items = [];
 
-  // ① MSに紐づかないタスク（milestoneId空・pending除く）
+  // 1 MSに紐づかないタスク（milestoneId空・pending除く）
   try {
     var tasks = tasks_listByProject(projectId).filter(function(t) {
       return t.status !== 'pending'
@@ -388,7 +388,7 @@ function nudgeQ_checkScopeCreep_(projectId, currentYm) {
     }
   } catch (e) { /* skip */ }
 
-  // ② サブMSが当月新規追加された
+  // 2 サブMSが当月新規追加された
   try {
     var planCycle = valuePlan_repo_getPlanCycle(projectId);
     if (planCycle && planCycle.planCycleId) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guard: カレンダー色→PJ 判定 (CFG_ColorPJHistory) が L2⑥ MTG 抽出ランナーと
+// Guard: カレンダー色→PJ 判定 (CFG_ColorPJHistory) が H-1 MTG 抽出ランナーと
 // マニュアル正本から消えていないことを検査する。
 //
 // 背景: 2026-05-29、#71 の Claude routine 移植時に色→PJ 判定が無断削除され
@@ -42,7 +42,7 @@ function expectNotIncludes(rel, needles) {
   }
 }
 
-// L2⑥ MTG 抽出ランナー (Claude routine, git 管理コピー) に色判定が在ること
+// H-1 MTG 抽出ランナー (Claude routine, git 管理コピー) に色判定が在ること
 const SKILL = "scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md";
 expectIncludes(SKILL, [
   "CFG_ColorPJHistory",

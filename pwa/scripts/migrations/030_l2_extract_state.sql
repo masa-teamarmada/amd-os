@@ -1,5 +1,5 @@
 -- 030_l2_extract_state.sql
--- L2 ⑤ メンバーナレッジ / ④ PJナレッジ / ② AMDプロトコル の毎時 polling cron で
+-- D-4 メンバーナレッジ / D-3 PJナレッジ / D-1 AMDプロトコル の毎時 polling cron で
 -- 共通利用する差分検知 state テーブル (Phase 4)。
 --
 -- 仕様正本:

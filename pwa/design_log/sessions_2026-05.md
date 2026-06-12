@@ -28,7 +28,7 @@ PWA セッションの作業ログを月単位で集約。
 - まさ「今日からカレンダーの JC の色を VSX=p26 に割り当てて、設定変えて」から開始。
 - 調査の結果、色→PJ判定 (`CFG_ColorPJHistory`) が **#71 の Claude routine 移植時に無断削除**され `project_name` substring match に簡略化されていたと判明。まさ「作ってきた機能が勝手に消されてる」「二度と起きないようにして」「マニュアルに書いてないの?」。
 - #71 の実スコープは「L2 抽出を Claude routine に移す」(課金/アーキ移行) で、色判定削除は過去えいみの拡大解釈だった (= 設計 md `l2_extract_claude_routine.md:240` は「color+alias を Supabase に移植して残す」と明記していた)。
-- まさ確認: L2⑥ の現役ランナーは **(B) Windows Codex Desktop `amd-os-l6-meeting-flow`**。Mac の Claude routine (A) は現役でない。
+- まさ確認: H-1 Meeting Flow の現役ランナーは **(B) Windows Codex Desktop `amd-os-l6-meeting-flow`**。Mac の Claude routine (A) は現役でない。
 
 ### 実装
 - **設定シート** (`CalendarRepo_AMD_OS`, `COLOR_PJ_CONFIG_SPREADSHEET_ID`): `CFG_ColorPJHistory` に `6 | 2026-05-28 | VSX` 追加 (= colorId 6 = JC の橙 を今日以降 VSX に切替、履歴方式で過去予定は JC のまま)。`CFG_PJAlias` に `VasculaX→VSX(100)` / `VSX→VSX(90)`。Chrome で直接編集。
@@ -60,7 +60,7 @@ PWA セッションの作業ログを月単位で集約。
 
 ### コンテキスト
 - 2026-05-28 香川大訪問 (VasculaX/p26) の議事録を、Notion 自動議事録が落とした座組み・対価・次ステップを補完して OS に投入する依頼。
-- 途中で重要な原則指摘が連続: ①成果物は「行がある/表示される/まさが確認」でなく **えいみ自身が品質を担保**して完了 ②**OS が唯一の正本**で全情報を OS に集約 ③まさは**代表パートナー (CEO不在・特別扱いしない)**、OS は**脱・属人化 (まさ依存を減らす)** のためにある。
+- 途中で重要な原則指摘が連続: 1成果物は「行がある/表示される/まさが確認」でなく **えいみ自身が品質を担保**して完了 2**OS が唯一の正本**で全情報を OS に集約 3まさは**代表パートナー (CEO不在・特別扱いしない)**、OS は**脱・属人化 (まさ依存を減らす)** のためにある。
 - 下川先生への御礼メール返信案も作成 (まさが修正して送信、こちらは送信せず)。
 
 ### 実装
@@ -100,7 +100,7 @@ PWA セッションの作業ログを月単位で集約。
 - `pwa/src/components/cockpit/CockpitMeetingSummary.tsx`
   - DBに既に残っている weekly future row も、series ごとに次回1件だけ残す `keepNextWeeklyOccurrenceOnly` filter を追加。
 - `pwa/design/meeting_summaries.md` / `pwa/design/L2_DATA.md` / `pwa/manual/3-2-data-and-extraction.md` / `pwa/manual/8-3-l2-extraction-routines-spec.md`
-  - L2⑥予定MTG同期の恒久仕様として「weekly recurring は series ごとに次回1件のみ」を追記。
+  - H-1 Meeting Flow予定MTG同期の恒久仕様として「weekly recurring は series ごとに次回1件のみ」を追記。
 - `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`
   - routine が recurring metadata を渡し、weekly は次回1件だけ送るよう明記。
 - `pwa/scripts/check_pwa_critical_ui.cjs`
@@ -120,7 +120,7 @@ PWA セッションの作業ログを月単位で集約。
 
 ### 衝突 / 運用メモ
 
-- worktree は並行作業で広く dirty。今回の weekly MTG 差分以外に manual search、L2① monthly report、docs/ip などの未整理差分がある。
+- worktree は並行作業で広く dirty。今回の weekly MTG 差分以外に manual search、M-1 Monthly Reports monthly report、docs/ip などの未整理差分がある。
 - `pwa/src/app/api/dialogue-meeting/narrate/route.ts` は build 中に unrelated syntax issue が見つかり、固定見出しの backtick escape だけ修正した。元の narrative heading 改修は並行作業由来なので、次回は ownership を決めて扱う。
 - deploy script は local session が code -1 / no output で切れたが、Vercel 側は Ready。再 deploy せず `vercel inspect` と alias 確認で完了判定した。
 - `npm run build` 中に stale `next build` が `.next/lock` を握る再発があり、`ps` 確認後に stale process 終了 + lock 削除で復旧。
@@ -153,7 +153,7 @@ PWA セッションの作業ログを月単位で集約。
    - commit `170b731 fix(pwa): require narrative meeting minutes`
    - commit `0ff8a9f fix(pwa): enforce narrative meeting minutes format`
    - `project_meeting_summaries.narrative_md` を本文正本とし、`summary_short` / `decided` / `progress` / `next_actions` / `risks` は検索・通知用の補助にした。
-   - L2⑥ routine と `/api/dialogue-meeting/narrate` の prompt を、箇条書き禁止 + 欠席メンバーに伝わる文章 + 固定5見出しへ更新した。
+   - H-1 Meeting Flow routine と `/api/dialogue-meeting/narrate` の prompt を、箇条書き禁止 + 欠席メンバーに伝わる文章 + 固定5見出しへ更新した。
    - `v7_fixed_heading_narrative` と `blocked_wrong_narrative_headings` を追加し、見出し表記・順序違いを品質 gate で止める。
    - `pwa/CLAUDE.md` / `pwa/design/meeting_summaries.md` / `pwa/design/project_strategy_signals.md` / `pwa/manual/2-2-member-workflows-quick-start.md` / `pwa/manual/2-3-pj-cockpit.md` / `pwa/manual/2-4-amd-cockpit.md` / `pwa/manual/8-3-l2-extraction-routines-spec.md` に同期。
    - 最終 deploy 対象の `BUILD_VERSION` は `v0.8.5`。
@@ -178,7 +178,7 @@ PWA セッションの作業ログを月単位で集約。
 ### Handoff メモ
 
 - `main` / `origin/main` は `0ff8a9f` で同期済み。
-- handoff時点で同じ worktree には、manual search / weekly recurring upcoming MTG / L2① monthly reports / docs/ip などの未整理差分が残っている。今回の手動修正・議事録固定とは混ぜない。
+- handoff時点で同じ worktree には、manual search / weekly recurring upcoming MTG / M-1 Monthly Reports monthly reports / docs/ip などの未整理差分が残っている。今回の手動修正・議事録固定とは混ぜない。
 - 現在の worktree `pwa/src/lib/build-info.ts` は別作業由来で `v0.8.6` になっているが、本エントリで deploy 済みの functional HEAD は `v0.8.5`。
 - `/mtg-minutes` はこの Mac のローカル skill。別マシンで使う場合は同じ skill をコピー / install する。
 
@@ -208,11 +208,11 @@ PWA セッションの作業ログを月単位で集約。
 ### コンテキスト
 - 発端は「SX コックピットの FC (ファインケム) との MTG モーダルが勝手にブラウザで開いた」というまさの気づき → 別セッション (#92 Codex) の verify 動作と判明
 - まさ不満: FC・JAFCO の MTG サマリが箇条書きに劣化し narrative が無い。「せっかくクオリティ高い議事録作ったのに上書きされて消えてる」
-- 原因特定: 旧抽出経路 (`gemini-2.5-flash` / `anthropic:claude-sonnet-4-5-20250929` / `(null)` / `codex_manual_*`) が `narrative_md` を作らず箇条書きだけ書いていた。新 L2⑥ は過去 MTG (終了60-180分窓外) を再処理しないため箇条書きのまま凍結。JAFCO は旧 sonnet-4-5 backfill が「まさ(JAFCO)」等の誤りごと上書きしていた
-- まさ指示: ①Codex automation は議事録を書き続ける (止めない) ②ただし narrative 形式必須 ③MMOマシンの automation 更新は帰宅後 ④既存の箇条書き全MTGを narrative に書き換え ⑤帰宅後タスクを別セッションでリマインド
+- 原因特定: 旧抽出経路 (`gemini-2.5-flash` / `anthropic:claude-sonnet-4-5-20250929` / `(null)` / `codex_manual_*`) が `narrative_md` を作らず箇条書きだけ書いていた。新 H-1 Meeting Flow は過去 MTG (終了60-180分窓外) を再処理しないため箇条書きのまま凍結。JAFCO は旧 sonnet-4-5 backfill が「まさ(JAFCO)」等の誤りごと上書きしていた
+- まさ指示: 1Codex automation は議事録を書き続ける (止めない) 2ただし narrative 形式必須 3MMOマシンの automation 更新は帰宅後 4既存の箇条書き全MTGを narrative に書き換え 5帰宅後タスクを別セッションでリマインド
 
 ### 実装
-- **DB**: `project_meeting_summaries.narrative_md` を 110+件 backfill (SX 36 / p06 16 / p19 14 / p20 12 / p07 LiSTie 9 / FC・JAFCO 2)。最終 `with_narrative_total=167`、`real_meetings_still_no_narrative=0`。`source_hash` / `generated_by_model` は不変 (= 抽出経路情報を保持 + L2⑥ 再抽出から保護)
+- **DB**: `project_meeting_summaries.narrative_md` を 110+件 backfill (SX 36 / p06 16 / p19 14 / p20 12 / p07 LiSTie 9 / FC・JAFCO 2)。最終 `with_narrative_total=167`、`real_meetings_still_no_narrative=0`。`source_hash` / `generated_by_model` は不変 (= 抽出経路情報を保持 + H-1 Meeting Flow 再抽出から保護)
 - **コード**: [meeting-summary/narrate/route.ts](../src/app/api/meeting-summary/narrate/route.ts) 新設。dialogue narrate と対称の通常MTG用バッチ narrate (Sonnet 4.6 / 固定5見出し / 箇条書き禁止 = #92 ルール準拠)。`{meeting_id}` 単発 + `{all:true, project_id?, limit?}` バッチ、CRON_SECRET 認証
 - **scheduled task**: `amd-os-codex-narrative-upgrade-reminder` 新設 (毎朝9時、帰宅後 MMOマシンの Codex automation narrative 化をプッシュリマインド、完了で自己 disable)
 
@@ -222,11 +222,11 @@ PWA セッションの作業ログを月単位で集約。
 - backfill 経路: SX〜p20 は narrate API バッチ (Sonnet)、FC・JAFCO と p07 LiSTie 9件は cowork-eimi 直接生成 (Opus) → SQL UPDATE
 
 ### Cowork ↔ Codex 衝突メモ
-- #92 (Codex) と本セッションは**同じ MTG narrative 領域を並行**。#92 が「生成ルール (L2⑥ prompt / dialogue narrate / 品質gate `v7_fixed_heading`)」、本セッションが「既存データ backfill + バッチ narrate API」= 補完関係
+- #92 (Codex) と本セッションは**同じ MTG narrative 領域を並行**。#92 が「生成ルール (H-1 Meeting Flow prompt / dialogue narrate / 品質gate `v7_fixed_heading`)」、本セッションが「既存データ backfill + バッチ narrate API」= 補完関係
 - narrate/route.ts は本セッション新設後、#92 の SYSTEM_PROMPT ルール (固定5見出し・箇条書き禁止) に別セッションが整合させた
 - **事故**: narrate route を v0.8.4 で deploy → 直後に #92 系の v0.8.5 deploy が走り、未コミットの narrate route が本番から消えた (POST が HTML を返す)。backfill 後半 (p07) は API 非依存の Opus 手書きに切替えて回避
 - **教訓**: 未コミットの新 route は別セッション deploy で本番から落ちる。新 route は早めに commit して保全すべき。`build-info.ts` は #92 系が v0.8.5/v0.8.6 を管理中のため本セッションは触っていない
-- **未処理**: narrate route はまだ未コミット (本 handoff で commit する)。L2⑥ routine と「MMOマシンの Codex automation (outbox 系)」が narrative を出すかは #92 と本リマインドで二重追跡中
+- **未処理**: narrate route はまだ未コミット (本 handoff で commit する)。H-1 Meeting Flow routine と「MMOマシンの Codex automation (outbox 系)」が narrative を出すかは #92 と本リマインドで二重追跡中
 
 ### 関連メモ更新 (Cowork memory)
 - `memory/feedback_mtg_narrative_required.md` 新規 (MTG議事録は narrative が正本、箇条書きは劣化、全抽出経路が narrative 生成すべき)
@@ -237,12 +237,12 @@ PWA セッションの作業ログを月単位で集約。
 ### コンテキスト
 
 - まさ指摘: `amd-os-l3-ms-progress-extract` のような処理IDだけでは、MMOマシン automation なのか、課金ルートは何か、止まったらどこを見るのかが人間にもつくよみにも分からない。
-- さらに、③ MS進捗だけ直しても、同じ画面範囲にある L2 ①②④⑤⑥⑦⑧⑨ が同じ粒度で説明されていなければ要望未達。まさ「③だけやったから、人間はこの画面範囲全部理解できる状態になったといえるの？」
+- さらに、3 MS進捗だけ直しても、同じ画面範囲にある M-1 Monthly Reports2456789 が同じ粒度で説明されていなければ要望未達。まさ「3だけやったから、人間はこの画面範囲全部理解できる状態になったといえるの？」
 - MS進捗ロジック自体は、`pwa/src/lib/progress-estimator.ts` と `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md` に、5か月MSなら月20%基準 / MS開始前は0% / 成功条件に直結する成果物なしで80%以上にしない、というルールが入っていることを確認した。
 
 ### 実装 / doc 更新
 
-- `pwa/manual/3-2-data-and-extraction.md` 冒頭に、L2 ①〜⑨ 全体の「実行場所 / 現行処理 / 課金ルート / 止まった時に見る場所」早見表を追加。
+- `pwa/manual/3-2-data-and-extraction.md` 冒頭に、M/W/D/H L2 全体の「実行場所 / 現行処理 / 課金ルート / 止まった時に見る場所」早見表を追加。
 - `pwa/manual/8-3-l2-extraction-routines-spec.md` を、旧 Cloud routine 案の説明ではなく、現行の subscription automation / MMOマシン automation / outbox applier の正本表として再整理。
 - `pwa/manual/6-1-operations-settings-spec.md` / `9-1-decisions-and-history.md` / `3-1-system-architecture.md` / `3-3-notifications-and-tsukuyomi.md` / `4-1` / `4-7` / `2-2` / `8-1` / `8-2` / `9-2` / `6-6` / `2-6` など、古い current-looking Cloud routine / ghost / PWA hourly 表記を現行ルートへ同期。
 - `pwa/design/L2_DATA.md` と `pwa/design/l2_extract_claude_routine.md` に、Claude routine は履歴であり、現行復旧主導線は実行場所つきの automation 表を見る、という正本を反映。
@@ -264,7 +264,7 @@ PWA セッションの作業ログを月単位で集約。
 ### 未確認 / 次回
 
 - 本番 `/manual/3-2-data-and-extraction` / `/manual/8-3-l2-extraction-routines-spec` をブラウザで開き、v0.8.10 の表示と Manual Q&A の回答品質を目視するところまでは未確認。
-- L2 ⑤ `member_knowledge` の schema gap (`status` / `source_hash` 不在) は未解決。
+- D-4 Member Knowledge `member_knowledge` の schema gap (`status` / `source_hash` 不在) は未解決。
 - 今回は docs/manual/metadata の整合が主。MS進捗の実データ再推定結果 (= DD開始前MSが202604で0%になるか) は DB readback 未確認。次に触るなら `pwa/src/lib/progress-estimator.ts` と `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md` を起点に、実行履歴 / `milestone_monthly_progress` を確認する。
 
 ## 2026-05-29 (#95) — Codex セッション / OSマニュアル検索 + つくよみ Manual Q&A + deploy rollback 復旧
@@ -540,7 +540,7 @@ BZM (Before Zero Model) 教科書の既存 10 章が「中身スカスカ」だ�
 > #99 の続き。P×R×S モデルを「データ収集→定義の線引き確定→本番OS実装」まで前進。モデル議論の正本は `knowledge/before_zero_theory.md` (monorepo外)。
 
 ### モデル確定事項 (まさ判断、knowledge/before_zero_theory.md に正本化)
-- **収益化指数 (R_net) — 軸名・定義確定**: 旧「ライスワーク実益/RW」廃止 (RW2文字は2変数の積と誤読、ライスワークは系統I連想)。正式名「**収益化指数**」、中身は R_net=事業が生む純キャッシュ貢献。**系統I(つなぎ事業)/系統II(本命の先行収益)を区別しない** (理由①収益あれば系統問わず生存↑ ②系統IIはR軸も上げるのでモデルが自然に差を吸収)。生存条件式 B−R_net≤F
+- **収益化指数 (R_net) — 軸名・定義確定**: 旧「ライスワーク実益/RW」廃止 (RW2文字は2変数の積と誤読、ライスワークは系統I連想)。正式名「**収益化指数**」、中身は R_net=事業が生む純キャッシュ貢献。**系統I(つなぎ事業)/系統II(本命の先行収益)を区別しない** (理由1収益あれば系統問わず生存↑ 2系統IIはR軸も上げるのでモデルが自然に差を吸収)。生存条件式 B−R_net≤F
 - **創薬RW=0問題**: 創薬は型確立+大EXIT+大Pで S を別ルート確保→RW=0でも大差にならない。SをRW一本に依存させない (まさ見解)
 - **時点=経時で見る** / **反実仮想は別軸で重要** / **多元スケール=別指標でなく重みを変えるだけ** (まさ方針)
 

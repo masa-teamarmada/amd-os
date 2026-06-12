@@ -191,7 +191,7 @@ HANDOFF だけに恒久仕様を書いて閉じるのは禁止。長く残る仕
 
 ---
 
-## 🧭 まさ × えいみ daily 経営会議 (L2 ⑨ dialogue) のトリガ
+## 🧭 まさ × えいみ daily 経営会議 (D-6 Strategy Signals dialogue) のトリガ
 
 まさが**新セッションでも既存セッションでも**以下のいずれかを言ったら、即経営会議モードに入る:
 
@@ -199,7 +199,7 @@ HANDOFF だけに恒久仕様を書いて閉じるのは禁止。長く残る仕
 - 「経営シグナル見よう」「signals レビュー」
 - 「strategy signals やろう」
 
-**手順は `pwa/CLAUDE.md` 末尾「🧭 まさ × えいみ 経営会議 (L2 ⑨ dialogue) の始め方」を Read してから動く** (= ここでは概要のみ):
+**手順は `pwa/CLAUDE.md` 末尾「🧭 まさ × えいみ 経営会議 (D-6 Strategy Signals dialogue) の始め方」を Read してから動く** (= ここでは概要のみ):
 
 1. `project_strategy_signals` の `status='candidate'` を impact 順で全 PJ 横断 read
 2. 1 議題ずつ提示 → まさの判断後に `POST /api/strategy-signals` (confirm/reject/update/create)

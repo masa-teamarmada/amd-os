@@ -1,8 +1,8 @@
-# L2 ①〜⑩ 取り込み統一 — subscription automation 移行 (設計議論)
+# M/W/D/H L2 取り込み統一 — subscription automation 移行 (設計議論)
 
-> **状態 (= 2026-05-29 正本訂正)**: ✅ **L2 ① `monthly_reports` も正式対象に訂正**。現行ルートは、L2 ① = Codex automation `AMD OS L2① 月次報告抽出`、L2 ②〜⑥ = MMOマシン Codex Desktop automation、L2 ⑦⑧⑨ = Codex automation + outbox/applier。詳細仕様は [8-3 章](../manual/8-3-l2-extraction-routines-spec.md) を真とする。R313 は旧有料API経路であり、定期 trigger は置かない。
+> **状態 (= 2026-05-29 正本訂正)**: ✅ **M-1 `monthly_reports` も正式対象に訂正**。現行ルートは、M-1 = Codex automation `AMD OS M-1 月次報告抽出`、D-1〜H-1 = MMOマシン Codex Desktop automation、D-5M-2D-6 = Codex automation + outbox/applier。詳細仕様は [8-3 章](../manual/8-3-l2-extraction-routines-spec.md) を真とする。R313 は旧有料API経路であり、定期 trigger は置かない。
 >
-> 現行の復旧・運用確認は [`L2_DATA.md`](L2_DATA.md) の §「L2 ①〜⑩ subscription automation 統一」と [8-3 章](../manual/8-3-l2-extraction-routines-spec.md) の現行 automation 表を参照。古い trigger ID は履歴扱い。
+> 現行の復旧・運用確認は [`L2_DATA.md`](L2_DATA.md) の §「M/W/D/H L2 subscription automation 統一」と [8-3 章](../manual/8-3-l2-extraction-routines-spec.md) の現行 automation 表を参照。古い trigger ID は履歴扱い。
 >
 > 関連: [`pwa/manual/3-2-data-and-extraction.md`](../manual/3-2-data-and-extraction.md) §3.1, [`pwa/manual/9-1-decisions-and-history.md`](../manual/9-1-decisions-and-history.md) §5.1 / §5.4 / §5.7, [`pwa/manual/8-3-l2-extraction-routines-spec.md`](../manual/8-3-l2-extraction-routines-spec.md), [`pwa/design_log/sessions_2026-05.md`](../design_log/) の 2026-05-26 セクション (= 移行経緯詳細)
 
@@ -10,11 +10,11 @@
 
 ## 背景
 
-2026-05-22 「LLM 課金が発生する定期抽出 cron を全廃止」した時に、**定額 automation が L2 全種をカバーしてる前提が崩れていた** ことが 5/25 判明。2026-05-29 に、L2①も「R313のまま」ではなく定額 automation 対象として正本訂正した。
+2026-05-22 「LLM 課金が発生する定期抽出 cron を全廃止」した時に、**定額 automation が L2 全種をカバーしてる前提が崩れていた** ことが 5/25 判明。2026-05-29 に、M-1も「R313のまま」ではなく定額 automation 対象として正本訂正した。
 
-- **稼働対象**: ① monthly_reports (= Codex automation `AMD OS L2① 月次報告抽出`) / ② AMD プロトコル・④ PJ ナレッジ・⑤ メンバーナレッジ・⑥ MTG サマリ (= MMOマシン Codex Desktop automation) / ③ MS 進捗 (= `amd-os-l3-ms-progress-extract` が primary writer、PWA/GAS hourly は 2026-05-29 再停止) / ⑦ OS 台帳差分 + ⑧ XRL 根拠 (= Codex automation `amd-os-ms`) / ⑨ 経営ハイライト (= Codex automation `amd-os`)
-- **ghost は履歴**: 2026-05-22〜25 に ②④⑤⑥ が止まっていたが、現行復旧先は 8-3 章の automation 表を見る。
-- **L2① 方針更新 (2026-05-31)**: 月次報告書は Supabase 内の L2 snapshot を primary input にする。5生データは L2 coverage gap / stale / source refs 不足 / no-data 判定候補の fallback として見る。
+- **稼働対象**: M-1 monthly_reports (= Codex automation `AMD OS M-1 月次報告抽出`) / D-1 AMD プロトコル・D-3 PJ ナレッジ・D-4 メンバーナレッジ・H-1 MTG サマリ (= MMOマシン Codex Desktop automation) / D-2 MS 進捗 (= `amd-os-l3-ms-progress-extract` が primary writer、PWA/GAS hourly は 2026-05-29 再停止) / D-5 OS 台帳差分 + M-2 XRL 根拠 (= Codex automation `amd-os-ms`) / D-6 経営ハイライト (= Codex automation `amd-os`)
+- **ghost は履歴**: 2026-05-22〜25 に D-1D-3D-4H-1 が止まっていたが、現行復旧先は 8-3 章の automation 表を見る。
+- **M-1 方針更新 (2026-05-31)**: 月次報告書は Supabase 内の L2 snapshot を primary input にする。5生データは L2 coverage gap / stale / source refs 不足 / no-data 判定候補の fallback として見る。
 
 (詳細 fact は 03 章 3.1 マトリクス参照)
 
@@ -38,17 +38,17 @@
 
 ---
 
-## 🔥 2026-05-25 お昼 方針転換 (二次): L2 ②〜⑨ 全 Claude routines 統一
+## 🔥 2026-05-25 お昼 方針転換 (二次): D/M/W/H L2 全 Claude routines 統一
 
-**まさ #71 確定**: 「すべて Claude routines で抽出する形に変更」 = **L2 ②〜⑨ 全 8 種を Claude routine に統一**。
+**まさ #71 確定**: 「すべて Claude routines で抽出する形に変更」 = **D/M/W/H L2 全 8 種を Claude routine に統一**。
 
 **新方針**:
-- ghost 4 種 (= ②④⑤⑥) だけでなく、稼働中の **③ MS 進捗 / ⑦ OS 台帳差分 / ⑧ XRL 根拠 / ⑨ 経営ハイライト** も Claude routine に移管
+- ghost 4 種 (= D-1D-3D-4H-1) だけでなく、稼働中の **D-2 MS 進捗 / D-5 OS 台帳差分 / M-2 XRL 根拠 / D-6 経営ハイライト** も Claude routine に移管
 - 既存 Codex automation `amd-os-ms` + `amd-os` は段階的に停止
 - LaunchAgent applier `jp.teamarmada.amd-os-ms-outbox-applier` も outbox 経路が不要になり次第 unload
 
 **2026-05-29 訂正**:
-- ① monthly_reports も **定額 subscription automation の正式対象**。Codex automation `AMD OS L2① 月次報告抽出` が Supabase L2 snapshot primary + 5 生データ gap check fallback で draft を作り、`amd-os-ms/outbox.monthlyReports` 経由で非LLM applier が Supabase に反映する。
+- M-1 monthly_reports も **定額 subscription automation の正式対象**。Codex automation `AMD OS M-1 月次報告抽出` が Supabase L2 snapshot primary + 5 生データ gap check fallback で draft を作り、`amd-os-ms/outbox.monthlyReports` 経由で非LLM applier が Supabase に反映する。
 - R313 現物は未生成/差分あり時に R303 generator 経由で Claude API を呼びうるため、Apps Script 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しないし、定期 writer として復活させない。
 - 修正依頼ループ (= `l2_feedbacks` 読み込み) は各 routine / automation の SKILL.md prompt に必ず組み込む。
 
@@ -58,20 +58,20 @@
 
 | L2 | Routine 名 | 頻度 | 旧 writer (停止/移管対象) | 状態 |
 |---|---|---|---|---|
-| **① monthly_reports** | `AMD OS L2① 月次報告抽出` | daily 05:30 JST | AMD-Report GAS R313 / PWA report route (= 従量課金LLM route、定期実行しない) | ✅ SKILL.md 作成済、Codex automation + outbox applier 経路 |
-| **② AMD プロトコル** | `amd-os-l2-protocol-extract` | daily 08:00 JST | GAS 155 (= kill switch、completed bypass) | ✅ MMOマシン Codex Desktop automation |
-| **③ MS 進捗** | `amd-os-l3-ms-progress-extract` | 毎時 0 分 | ~~GAS 154 → PWA `/api/cron/hourly-estimate`~~ ⛔ 2026-05-29 再停止 + Codex `amd-os-ms` の `outbox.revisions` | ✅ 定期抽出 primary。PWA/GAS background LLM cron は停止 |
-| **④ PJ ナレッジ** | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | GAS 155 (= kill switch) | ✅ MMOマシン Codex Desktop automation |
-| **⑤ メンバーナレッジ** | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | GAS 155 (= kill switch) | ✅ MMOマシン Codex Desktop automation。migration 091 以降 `status` / `source_hash` / `last_processed_at` 前提 |
-| **⑥ MTG サマリ** | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | **毎日 09:00-21:00 毎時** | GAS 153 (= kill switch) | ✅ Windows MMO Codex Desktop automation |
-| **⑦ OS 台帳差分** | `amd-os-ms` + `amd-os-l7-registry-diff-extract` | 6h ごと | PWA/GAS LLM route は使わない | ✅ Codex automation + outbox/applier |
-| **⑧ XRL 根拠** | `amd-os-ms` + `amd-os-l8-xrl-evidence-extract` | 6h ごと | PWA/GAS LLM route は使わない | ✅ Codex automation + outbox/applier |
-| **⑨ 経営ハイライト** | `amd-os` + `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | 旧 Cloud routine 案 | ✅ Codex automation + outbox/applier。対話型修正依頼ループ (#34) と接続必要 |
+| **M-1 monthly_reports** | `AMD OS M-1 月次報告抽出` | daily 05:30 JST | AMD-Report GAS R313 / PWA report route (= 従量課金LLM route、定期実行しない) | ✅ SKILL.md 作成済、Codex automation + outbox applier 経路 |
+| **D-1 AMD プロトコル** | `amd-os-l2-protocol-extract` | daily 08:00 JST | GAS 155 (= kill switch、completed bypass) | ✅ MMOマシン Codex Desktop automation |
+| **D-2 MS 進捗** | `amd-os-l3-ms-progress-extract` | 毎時 0 分 | ~~GAS 154 → PWA `/api/cron/hourly-estimate`~~ ⛔ 2026-05-29 再停止 + Codex `amd-os-ms` の `outbox.revisions` | ✅ 定期抽出 primary。PWA/GAS background LLM cron は停止 |
+| **D-3 PJ ナレッジ** | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | GAS 155 (= kill switch) | ✅ MMOマシン Codex Desktop automation |
+| **D-4 メンバーナレッジ** | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | GAS 155 (= kill switch) | ✅ MMOマシン Codex Desktop automation。migration 091 以降 `status` / `source_hash` / `last_processed_at` 前提 |
+| **H-1 MTG サマリ** | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | **毎日 09:00-21:00 毎時** | GAS 153 (= kill switch) | ✅ Windows MMO Codex Desktop automation |
+| **D-5 OS 台帳差分** | `amd-os-ms` + `amd-os-l7-registry-diff-extract` | 6h ごと | PWA/GAS LLM route は使わない | ✅ Codex automation + outbox/applier |
+| **M-2 XRL 根拠** | `amd-os-ms` + `amd-os-l8-xrl-evidence-extract` | 6h ごと | PWA/GAS LLM route は使わない | ✅ Codex automation + outbox/applier |
+| **D-6 経営ハイライト** | `amd-os` + `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | 旧 Cloud routine 案 | ✅ Codex automation + outbox/applier。対話型修正依頼ループ (#34) と接続必要 |
 
 **実装順序** (= まさ確定後):
-1. **Routine 1** (= ⑥ MTG サマリ) を 2026-05-25 #71 で SKILL.md 完成 + scheduled task 登録 + 翌朝観察
-2. Routine 2-4 (= ②④⑤、ghost) を次セッションで同パターンで実装 (= 入力テーブル / プロンプト違いだけ)
-3. Routine 5-8 (= ⑦⑧⑨ + ③) を段階的に実装、各 routine が動作確認できてから既存 Codex automation / PWA hourly を停止
+1. **Routine 1** (= H-1 MTG サマリ) を 2026-05-25 #71 で SKILL.md 完成 + scheduled task 登録 + 翌朝観察
+2. Routine 2-4 (= D-1D-3D-4、ghost) を次セッションで同パターンで実装 (= 入力テーブル / プロンプト違いだけ)
+3. Routine 5-8 (= D-5M-2D-6 + D-2) を段階的に実装、各 routine が動作確認できてから既存 Codex automation / PWA hourly を停止
 4. 5/22-5/25 取り込み穴期間の backfill 機能を各 routine に追加 (= `--backfill-from 2026-05-22` モード or 別建て手動 routine)
 
 ---
@@ -80,12 +80,12 @@
 
 | 項目 | 確定内容 |
 |---|---|
-| 採用案 | **C 拡張版 (= Claude routine 8 個新設、L2 ②〜⑨ 全統一)** |
-| 議事録 (= Routine 1 ⑥) の頻度 | **毎時 0 分発火 + 過去 60-180 分終了 events スキャン** (= GAS 153 と同パターン) |
-| ナレッジ系 (= Routine 2-4 ②④⑤) の頻度 | **daily 08:00 / 08:15 / 08:30 JST** (= 30 分間隔ずらしで重なり回避) |
-| MS 進捗 (= Routine 5 ③) の頻度 | **毎時 0 分** (= 旧 PWA hourly の cadence を踏襲。PWA/GAS は 2026-05-29 停止済み) |
-| OS 台帳差分 + XRL 根拠 (= Routine 6/7 ⑦⑧) の頻度 | **6h ごと** (= 既存 Codex `amd-os-ms` と同パターン) |
-| 経営ハイライト (= Routine 8 ⑨) の頻度 | **daily 03:20 JST** (= 既存 Codex `amd-os` と同パターン) |
+| 採用案 | **C 拡張版 (= Claude routine 8 個新設、D/M/W/H L2 全統一)** |
+| 議事録 (= Routine 1 H-1) の頻度 | **毎時 0 分発火 + 過去 60-180 分終了 events スキャン** (= GAS 153 と同パターン) |
+| ナレッジ系 (= Routine 2-4 D-1D-3D-4) の頻度 | **daily 08:00 / 08:15 / 08:30 JST** (= 30 分間隔ずらしで重なり回避) |
+| MS 進捗 (= Routine 5 D-2) の頻度 | **毎時 0 分** (= 旧 PWA hourly の cadence を踏襲。PWA/GAS は 2026-05-29 停止済み) |
+| OS 台帳差分 + XRL 根拠 (= Routine 6/7 D-5M-2) の頻度 | **6h ごと** (= 既存 Codex `amd-os-ms` と同パターン) |
+| 経営ハイライト (= Routine 8 D-6) の頻度 | **daily 03:20 JST** (= 既存 Codex `amd-os` と同パターン) |
 | subscription 帯域 | OK と判断 (= まさ確認済 #71) |
 | failure handling | `notifyOnCompletion=true` 標準採用 (= running session に通知) |
 | 既存 GAS 153 / 155 / 152 source | kill switch のまま残置 (= 廃止判断は後で) |
@@ -125,7 +125,7 @@
 
 ## 4 routine 設計案 (= まさ確認待ち)
 
-### Routine 1: `amd-os-meeting-extract` (= L2 ⑥ MTG サマリ)
+### Routine 1: `amd-os-meeting-extract` (= H-1 MTG サマリ)
 
 | 項目 | 確定内容 |
 |---|---|
@@ -137,7 +137,7 @@
 | 既存 GAS 074 系との関係 | GAS 074 / 074b-e の `_meeting_processOneEvent_` ロジック (= Notion AI 議事録パース / Gmail 議事録メール検索 / source_kinds 判定) を Claude routine 内で再実装。MCP (= Notion / Calendar / Gmail / Slack / Drive) 経由 fetch |
 | 冪等性 | 各 event の `source_hash` を `project_meeting_summaries` から読む → 同 hash なら LLM call スキップ |
 
-### Routine 2: `amd-os-protocol-extract` (= L2 ② AMD プロトコル)
+### Routine 2: `amd-os-protocol-extract` (= D-1 AMD プロトコル)
 
 | 項目 | 案 |
 |---|---|
@@ -148,7 +148,7 @@
 | LLM | Claude Sonnet 4.6 |
 | 既存 GAS 155 との関係 | GAS 155 `nav_protocol_pollAll` の prompt 移植 |
 
-### Routine 3: `amd-os-project-knowledge-extract` (= L2 ④ PJ ナレッジ)
+### Routine 3: `amd-os-project-knowledge-extract` (= D-3 PJ ナレッジ)
 
 | 項目 | 案 |
 |---|---|
@@ -159,7 +159,7 @@
 | LLM | Claude Sonnet 4.6 |
 | 既存 GAS 155 との関係 | `nav_project_knowledge_pollAll` の prompt 移植 + v4_meta_strict (= 汚染防御) を継承 |
 
-### Routine 4: `amd-os-member-knowledge-extract` (= L2 ⑤ メンバーナレッジ)
+### Routine 4: `amd-os-member-knowledge-extract` (= D-4 メンバーナレッジ)
 
 | 項目 | 案 |
 |---|---|
@@ -220,13 +220,13 @@ routine 末尾で `l2_notifications` に upsert (= 既存 migration 031)。saved
 ```markdown
 ---
 name: amd-os-meeting-extract
-description: AMD OS L2 ⑥ MTG サマリ抽出 routine。毎時 0 分発火、過去 60-180 分終了の Calendar events を拾って Notion 議事録 / Slack / Drive / Gmail から source 集約 → summary + narrative_md を `project_meeting_summaries` に upsert。
+description: AMD OS H-1 MTG サマリ抽出 routine。毎時 0 分発火、過去 60-180 分終了の Calendar events を拾って Notion 議事録 / Slack / Drive / Gmail から source 集約 → summary + narrative_md を `project_meeting_summaries` に upsert。
 ---
 
-AMD OS の L2 ⑥ MTG サマリ抽出 routine。GAS 153 `nav_meeting_pollRecentlyEndedEvents` の後継 (= 5/22 kill switch で停止)。
+AMD OS の H-1 MTG サマリ抽出 routine。GAS 153 `nav_meeting_pollRecentlyEndedEvents` の後継 (= 5/22 kill switch で停止)。
 
 【絶対】 動く前に必ず Read:
-1. /Users/masa/projects/AMD/amd-os/pwa/manual/3-2-data-and-extraction.md (= §3.1 取り込み path / §3.2 L2 10 種正本 / §3.4 修正依頼ループ)
+1. /Users/masa/projects/AMD/amd-os/pwa/manual/3-2-data-and-extraction.md (= §3.1 取り込み path / §3.2 M/W/D/H L2正本 / §3.4 修正依頼ループ)
 2. /Users/masa/projects/AMD/amd-os/pwa/design/meeting_summaries.md (= MTG サマリ仕様正本)
 3. /Users/masa/projects/AMD/amd-os/pwa/design/db_schema.md (= 列名は想像で書かない、必ずここを grep)
 
@@ -295,22 +295,22 @@ Phase C: run summary
 1. **MAIN_CALENDAR_ID の永続化**: Claude routine では `list_calendars` MCP で primary を都度確認、もしくは `.env.local` に `MAIN_CALENDAR_ID` 追加。Routine 1 では暫定 primary を使う
 2. **Notion DB ID 固定化**: 議事録 DB / PJ DB の collection URL を `.env.local` に固定すると notion-search が速くなる。Routine 1 は `query` だけで動く設計、最適化は後回し
 3. **members.member_name 列追加**: GAS 079 で想定してた `member_name` 列が現 schema に無い。migration で追加してまさが入れれば alias map が充実
-4. **Routine 5 (= ③ MS 進捗) の primary writer 移管**: 2026-05-29 に既存 PWA `/api/cron/hourly-estimate` / GAS 154 は再停止。Routine 5 / subscription automation 側を定期抽出 primary とする
-5. **Routine 6/7/8 (= ⑦⑧⑨) の Codex automation 停止**: 既存 `amd-os-ms` / `amd-os` を unload + LaunchAgent applier も outbox 経路が空になり次第 unload
+4. **Routine 5 (= D-2 MS 進捗) の primary writer 移管**: 2026-05-29 に既存 PWA `/api/cron/hourly-estimate` / GAS 154 は再停止。Routine 5 / subscription automation 側を定期抽出 primary とする
+5. **Routine 6/7/8 (= D-5M-2D-6) の Codex automation 停止**: 既存 `amd-os-ms` / `amd-os` を unload + LaunchAgent applier も outbox 経路が空になり次第 unload
 6. **5/22-5/25 取り込み穴期間の backfill**: Routine 1-8 すべて稼働開始後に、各 routine に `--backfill-from 2026-05-22` モード追加 or 手動キック routine 別建て
 
 ---
 
 ## 実装ステップ
 
-1. **✅ Routine 1 (= ⑥ MTG サマリ)** 完全 inline 移植 SKILL.md 完成 (= 2026-05-25 #71)
+1. **✅ Routine 1 (= H-1 MTG サマリ)** 完全 inline 移植 SKILL.md 完成 (= 2026-05-25 #71)
    - 次: `mcp__scheduled-tasks__create_scheduled_task` で登録 → 翌時の発火を観察 → upsert 件数確認
-2. **🚧 Routine 2-4 (= ②④⑤ ghost 復旧)** を次セッションで同パターンで実装:
+2. **🚧 Routine 2-4 (= D-1D-3D-4 ghost 復旧)** を次セッションで同パターンで実装:
    - GAS 155 `nav_protocol_pollAll` / `nav_project_knowledge_pollAll` / `nav_member_knowledge_pollAll` の prompt を Notion / Supabase REST から拾って markdown 化
    - SKILL.md の Phase A-D 構造は Routine 1 と共通テンプレートにする
-3. **✅ Routine 5 (= ③ MS 進捗)** を実装、2026-05-29 に既存 PWA hourly は停止済み。以後は routine 出力の観察と backfill 判断
-4. **🚧 Routine 6/7 (= ⑦⑧)** を実装、既存 Codex `amd-os-ms` と並行稼働で fact 比較 → OK なら既存停止
-5. **🚧 Routine 8 (= ⑨ 経営ハイライト)** を実装 + 対話型修正依頼ループ (= `feedback_dialog.md`) と接続
+3. **✅ Routine 5 (= D-2 MS 進捗)** を実装、2026-05-29 に既存 PWA hourly は停止済み。以後は routine 出力の観察と backfill 判断
+4. **🚧 Routine 6/7 (= D-5M-2)** を実装、既存 Codex `amd-os-ms` と並行稼働で fact 比較 → OK なら既存停止
+5. **🚧 Routine 8 (= D-6 経営ハイライト)** を実装 + 対話型修正依頼ループ (= `feedback_dialog.md`) と接続
 6. **5/22-5/25 の取り込み穴期間 backfill**: 各 routine に `--backfill-from 2026-05-22` モード追加 or 手動キック routine 別建て
 7. **マニュアル 5.4 / L2_DATA.md / 03 章 3.1 表更新**: writer 列を Claude routine 名に書き換え
 8. **既存 Codex automation / LaunchAgent applier の停止**: Routine 5-8 動作確認後

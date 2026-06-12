@@ -1,9 +1,9 @@
 ---
 name: amd-os-l9-strategy-signal-extract
-description: AMD OS L2 ⑨ 経営ハイライト抽出の repo 正本。現行 writer は Codex automation `amd-os` + non-LLM LaunchAgent applier。active PJ × 当月/前月の 5 生データ + OS snapshot から「進んだこと・起きたこと」(= done のみ、未了は除外、まさ #26) を抽出し、`strategySignals` outbox JSON を `/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/` に作る。Supabase `project_strategy_signals` への upsert は `ms_progress_review_tool.mjs apply-outbox-dir --dir` が行う。DB/APIへ直接書き込まない。
+description: AMD OS D-6 経営ハイライト抽出の repo 正本。現行 writer は Codex automation `amd-os` + non-LLM LaunchAgent applier。active PJ × 当月/前月の 5 生データ + OS snapshot から「進んだこと・起きたこと」(= done のみ、未了は除外、まさ #26) を抽出し、`strategySignals` outbox JSON を `/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/` に作る。Supabase `project_strategy_signals` への upsert は `ms_progress_review_tool.mjs apply-outbox-dir --dir` が行う。DB/APIへ直接書き込まない。
 ---
 
-# AMD OS L2 ⑨ 経営ハイライト抽出 automation
+# AMD OS D-6 経営ハイライト抽出 automation
 
 ## 設計の要点
 - Codex automation `amd-os` (= daily 03:20 JST) が `strategy-signals-outbox` に JSON を吐く → LaunchAgent applier → Supabase 反映
@@ -24,7 +24,7 @@ outbox は `/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/*.json
 ## 【絶対】 動く前に必ず Read
 1. `pwa/manual/3-2-data-and-extraction.md` §3.2-3.4
 2. `pwa/manual/9-1-decisions-and-history.md` §5.2 (= 経営ハイライト改訂経緯、done のみルール)
-3. `pwa/design/project_strategy_signals.md` (= L2 ⑨ 仕様正本)
+3. `pwa/design/project_strategy_signals.md` (= D-6 仕様正本)
 4. `pwa/design/strategy_signals_redesign.md` (= 4 分類 + polarity 設計)
 5. `pwa/design/feedback_dialog.md` (= 対話型修正依頼)
 6. `pwa/design/db_schema.md` (= project_strategy_signals 列名)

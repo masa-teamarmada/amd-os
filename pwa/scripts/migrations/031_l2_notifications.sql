@@ -1,6 +1,6 @@
 -- 031_l2_notifications.sql
--- L2 ③⑤④② Phase 4 抽出結果を Swift APNs ローカル通知に流すためのテーブル。
--- 既存 meeting_notifications (migration 028, ⑥ MTGサマリ専用) の姉妹テーブル。
+-- D-2D-4D-3D-1 Phase 4 抽出結果を Swift APNs ローカル通知に流すためのテーブル。
+-- 既存 meeting_notifications (migration 028, H-1 MTGサマリ専用) の姉妹テーブル。
 --
 -- 設計方針:
 --   - FK は持たない (= 4 L2 + 将来追加分を l2_kind discriminator で統一)

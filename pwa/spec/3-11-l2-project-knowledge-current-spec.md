@@ -1,12 +1,12 @@
-# L2④ Project Knowledge 仕様
+# D-3 Project Knowledge 仕様
 
-> **この章は何か**: L2 ④ `project_knowledge` を現在の writer で再構築するための確定仕様。PJ利用者向けの読み方ではなく、抽出器・DB・通知・採否の実装契約を書く。
+> **この章は何か**: D-3 `project_knowledge` を現在の writer で再構築するための確定仕様。PJ利用者向けの読み方ではなく、抽出器・DB・通知・採否の実装契約を書く。
 
 ## Current Truth
 
 | 項目 | 現行仕様 |
 |---|---|
-| L2 | ④ PJナレッジ |
+| L2 | D-3 PJナレッジ |
 | table | `project_knowledge` |
 | primary writer | Windows MMO PC の Codex Desktop automation `amd-os-l4-project-knowledge-extract` |
 | schedule | daily 08:15 JST |
@@ -104,7 +104,7 @@ LLM output は `items[] = { category, entity_name, fact_text, confidence }`。�
 
 ## この章だけで再構築できること
 
-L2④の target selection、source_hash、9 category、pollution guard、DB upsert、通知、採否、旧 GAS 停止境界を再構築できる。
+D-3の target selection、source_hash、9 category、pollution guard、DB upsert、通知、採否、旧 GAS 停止境界を再構築できる。
 
 ## まだ再構築できないこと
 

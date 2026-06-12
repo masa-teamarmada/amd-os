@@ -1,9 +1,9 @@
 ---
 name: amd-os-l10-textbook-insight-extract
-description: AMD OS L2 ⑩ Textbook Insights / Before Zero 実践テキスト知見抽出の repo 正本。Supabase 内の既存 L2 / OS データから Before Zero 実践テキストへ追記すべき候補を作り、`textbookInsights` outbox JSON を `/Users/masa/.codex/automations/amd-os-ms/outbox/` に出す。候補は通知承認後、local applier が confidentiality / BZM review gate を通して `pwa/bzm/*.md` へ追記する。PWA/Vercel runtime から git 管理ファイルを直接編集しない。
+description: AMD OS D-7 Textbook Insights / Before Zero 実践テキスト知見抽出の repo 正本。Supabase 内の既存 L2 / OS データから Before Zero 実践テキストへ追記すべき候補を作り、`textbookInsights` outbox JSON を `/Users/masa/.codex/automations/amd-os-ms/outbox/` に出す。候補は通知承認後、local applier が confidentiality / BZM review gate を通して `pwa/bzm/*.md` へ追記する。PWA/Vercel runtime から git 管理ファイルを直接編集しない。
 ---
 
-# AMD OS L2 ⑩ Textbook Insights 抽出 automation
+# AMD OS D-7 Textbook Insights 抽出 automation
 
 ## 設計の要点
 

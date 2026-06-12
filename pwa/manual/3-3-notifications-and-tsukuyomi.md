@@ -82,15 +82,15 @@ l2_feedbacks に保存
 
 ## 修正依頼ループの現状
 
-2026-05-25 時点では、L2 ②④⑤⑥ の旧 GAS writer が停止していた。2026-05-29 時点の現行 writer は subscription automation 側に移管済みなので、復旧時は [3-2 章](3-2-data-and-extraction.md) と [8-3 章](8-3-l2-extraction-routines-spec.md) の実行場所つき表を見る。
+2026-05-25 時点では、D-1D-3D-4H-1 の旧 GAS writer が停止していた。2026-05-29 時点の現行 writer は subscription automation 側に移管済みなので、復旧時は [3-2 章](3-2-data-and-extraction.md) と [8-3 章](8-3-l2-extraction-routines-spec.md) の実行場所つき表を見る。
 
 | L2 | 状態 |
 |---|---|
-| ② AMD Protocol | MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract`。`l2_feedbacks` を prompt に入れる |
-| ④ PJ ナレッジ | MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract`。`l2_feedbacks` を prompt に入れる |
-| ⑤ メンバーナレッジ | MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract`。schema gap は別途確認 |
-| ⑥ MTG サマリ | Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow`。MTG修正依頼を次回抽出に入れる |
-| ⑨ 経営ハイライト | Codex automation `amd-os`。修正依頼ループは対話型と接続予定 |
+| D-1 AMD Protocol | MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract`。`l2_feedbacks` を prompt に入れる |
+| D-3 PJ ナレッジ | MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract`。`l2_feedbacks` を prompt に入れる |
+| D-4 メンバーナレッジ | MMOマシン Codex Desktop automation `amd-os-l5-member-knowledge-extract`。schema gap は別途確認 |
+| H-1 MTG サマリ | Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow`。MTG修正依頼を次回抽出に入れる |
+| D-6 経営ハイライト | Codex automation `amd-os`。修正依頼ループは対話型と接続予定 |
 
 つまり、feedback UI だけでは完結しない。次回 automation がどこで動くかまで含めて確認する。
 

@@ -1,11 +1,11 @@
 -- migration 091 (= 2026-05-25 まさ #71 後段、L5 routine schema gap 解消)
 --
--- L5 ⑤ メンバーナレッジ抽出 routine (= amd-os-l5-member-knowledge-extract) が
+-- L5 D-4 メンバーナレッジ抽出 routine (= amd-os-l5-member-knowledge-extract) が
 -- 候補採否設計 (= candidate 状態で upsert → 通知 → まさが「はい」で active) と
 -- source_hash 差分検知 (= 同入力なら LLM call スキップ) を回せるよう、
 -- member_knowledge テーブルに不足列を追加。
 --
--- 既存 row は L2 ②④⑦⑧⑨ と整合させるため status='active' で backfill (= 既存採用済として扱う)。
+-- 既存 row は D-1D-3D-5M-2D-6 と整合させるため status='active' で backfill (= 既存採用済として扱う)。
 -- 今後 routine が新規抽出する row は status='candidate' で INSERT → 通知 → 採否。
 --
 -- 関連設計議論: pwa/design/member_knowledge.md / pwa/design/l2_extract_claude_routine.md

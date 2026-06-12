@@ -1,4 +1,4 @@
-# メンバーナレッジ (⑤ L2) — 設計の正本
+# メンバーナレッジ (D-4 L2) — 設計の正本
 
 最終更新: 2026-05-25 (#68 current truth 反映)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
@@ -7,7 +7,7 @@
 
 ## このドキュメントが扱う範囲
 
-L2 ⑤ メンバーナレッジ (`member_knowledge`) の自動更新 cron。
+D-4 メンバーナレッジ (`member_knowledge`) の自動更新 cron。
 
 - アクティブメンバー単位で「強み / 性格 / コミュニケーション / 関心」等を Supabase に upsert
 - 毎時 polling + `l2_extract_state.source_hash` 差分検知
@@ -153,6 +153,6 @@ curl -sL --max-time 360 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_member_
 ## 関連 md
 
 - [`L2_DATA.md`](L2_DATA.md) — L2 全体の設計、Phase 4 全 L2 毎時化方針の入口
-- [`ms_progress.md`](ms_progress.md) — Phase 4 ③ MS進捗 (差分検知パターンの先行実装)
-- [`project_knowledge.md`](project_knowledge.md) — Phase 4 ④ PJナレッジ (本ファイルと姉妹)
-- [`amd_protocol.md`](amd_protocol.md) — Phase 4 ② AMDプロトコル
+- [`ms_progress.md`](ms_progress.md) — Phase 4 D-2 MS進捗 (差分検知パターンの先行実装)
+- [`project_knowledge.md`](project_knowledge.md) — Phase 4 D-3 PJナレッジ (本ファイルと姉妹)
+- [`amd_protocol.md`](amd_protocol.md) — Phase 4 D-1 AMDプロトコル

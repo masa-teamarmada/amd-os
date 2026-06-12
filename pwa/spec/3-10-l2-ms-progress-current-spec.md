@@ -1,12 +1,12 @@
-# L2③ MS Progress 仕様
+# D-2 MS Progress 仕様
 
-> **この章は何か**: L2 ③ `milestone_monthly_progress` / `project_monthly_notes` / `progress_estimate_state` を、現在の writer で再構築するための確定仕様。月次モーダルでの使い方は `/manual/4-8-ms-progress-monthly-report-revision-spec` と `/manual/2-3-pj-cockpit` に置く。
+> **この章は何か**: D-2 `milestone_monthly_progress` / `project_monthly_notes` / `progress_estimate_state` を、現在の writer で再構築するための確定仕様。月次モーダルでの使い方は `/manual/4-8-ms-progress-monthly-report-revision-spec` と `/manual/2-3-pj-cockpit` に置く。
 
 ## Current Truth
 
 | 項目 | 現行仕様 |
 |---|---|
-| L2 | ③ MS進捗 |
+| L2 | D-2 MS進捗 |
 | primary writer | Windows MMO PC の Codex Desktop automation `amd-os-l3-ms-progress-extract` |
 | schedule | 毎時 0 分 |
 | repo skill | `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md` |
@@ -114,7 +114,7 @@ MS対象外、cycle が無い、または active milestones が 0 のときは `
 
 ## この章だけで再構築できること
 
-L2③の target selection、MS対象/非対象分岐、input evidence、progress calculation guard、DB出力、state、disabled fallback、cockpit反映を再構築できる。
+D-2の target selection、MS対象/非対象分岐、input evidence、progress calculation guard、DB出力、state、disabled fallback、cockpit反映を再構築できる。
 
 ## まだ再構築できないこと
 

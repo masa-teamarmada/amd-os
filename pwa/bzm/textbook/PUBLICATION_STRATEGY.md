@@ -302,7 +302,7 @@ Public manuscript must exclude:
 
 - AMD, AMD OS, Team ARMADA as repeated chapter subject.
 - "まさ" as a named internal authority.
-- L2, L2⑩, candidate, approved, local applier, routing, source_hash,
+- L2, D-7 Textbook Insights, candidate, approved, local applier, routing, source_hash,
   metadata_json, migration, Supabase, Vercel, `pwa/`, `/spec`, "正本",
   "司令塔", "worker".
 - Internal source notes such as "Stapa event transcript says..."

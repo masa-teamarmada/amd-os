@@ -1,6 +1,6 @@
-# L2⑧ XRL 根拠仕様
+# L2M-2 XRL 根拠仕様
 
-> **この章は何か**: AMD Score / XRL 算定の根拠を構造化して保持する L2⑧ の確定仕様。理論は `/bzm`、画面の読み方は `/manual/4-4-frl-related-members-score-spec` と `/manual/4-7-venture-status-narrative-pl-xrl-spec` に置く。
+> **この章は何か**: AMD Score / XRL 算定の根拠を構造化して保持する L2M-2 の確定仕様。理論は `/bzm`、画面の読み方は `/manual/4-4-frl-related-members-score-spec` と `/manual/4-7-venture-status-narrative-pl-xrl-spec` に置く。
 
 ## 定義
 

@@ -1,9 +1,9 @@
 ---
 name: amd-os-l3-ms-progress-extract
-description: AMD OS L2 ③ MS進捗抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l3-ms-progress-extract` (= 毎時0分)。active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から各 MS の進捗 % を subscription 内 Codex で推定し、`milestone_monthly_progress` / `project_monthly_notes` / `progress_estimate_state` に反映する。PWA `/api/cron/hourly-estimate` と GAS 154 は 2026-05-29 に再停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ。
+description: AMD OS D-2 MS進捗抽出の repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l3-ms-progress-extract` (= 毎時0分)。active PJ × {当月, 前月} の monthly_reports + project_meeting_summaries から各 MS の進捗 % を subscription 内 Codex で推定し、`milestone_monthly_progress` / `project_monthly_notes` / `progress_estimate_state` に反映する。PWA `/api/cron/hourly-estimate` と GAS 154 は 2026-05-29 に再停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ。
 ---
 
-# AMD OS L2 ③ MS 進捗推定 (PWA hourly-estimate 完全 inline 移植版)
+# AMD OS D-2 MS 進捗推定 (PWA hourly-estimate 完全 inline 移植版)
 
 ## 設計の要点
 - 旧 = GAS 154 `nav_pwa_pingHourlyEstimate` → PWA `/api/cron/hourly-estimate` → `estimateProgress(projectId, ym, {force:false})`
@@ -23,7 +23,7 @@ LLM 課金が発生する PWA/GAS background cron は停止済み。定期実行
 
 ## 【絶対】 動く前に必ず Read
 1. `pwa/manual/3-2-data-and-extraction.md` §3.1-3.3
-2. `pwa/design/ms_progress.md` (= L2 ③ 仕様正本、Phase 4 セクション)
+2. `pwa/design/ms_progress.md` (= D-2 仕様正本、Phase 4 セクション)
 3. `pwa/src/app/api/cron/hourly-estimate/route.ts` (= 既存 PWA cron)
 4. `pwa/src/lib/progress-estimator.ts` (= 既存 estimateProgress 本体)
 5. `pwa/design/db_schema.md` (= milestone_monthly_progress / progress_estimate_state / project_monthly_notes / value_milestones / value_plan_cycles / monthly_reports / project_meeting_summaries 列名)

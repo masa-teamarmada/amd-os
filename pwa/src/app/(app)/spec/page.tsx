@@ -34,7 +34,7 @@ export default async function SpecIndexPage() {
         >
           <span className="block text-sm font-bold text-indigo-950">L2データリスト</span>
           <span className="mt-1 block text-xs leading-relaxed text-indigo-900">
-            AMD OS の中核データ16種を、開発に携わっていないメンバーにも分かる形でまとめた正本リスト。
+            AMD OS の中核データを M / W / D / H の cadence 体系でまとめた正本リスト。
           </span>
         </Link>
       </div>

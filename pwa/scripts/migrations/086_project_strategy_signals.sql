@@ -1,6 +1,6 @@
 -- 086_project_strategy_signals.sql
 --
--- L2 ⑨ 経営ハイライト。
+-- D-6 経営ハイライト。
 -- コックピットのMSリスト下に、経営上の重要方針・事業上の進捗・戦略転換・重要リスクを
 -- 5生データ由来の短い根拠付きで表示する。
 -- 全文は保存せず、source refs / snippet / hash だけを保持する。
@@ -80,6 +80,6 @@ GRANT INSERT, UPDATE ON project_strategy_signals TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON project_strategy_signals TO service_role;
 
 COMMENT ON TABLE project_strategy_signals IS
-  'L2 ⑨ 経営ハイライト。PJ単位の重要方針、事業進捗、戦略転換、提携、資金調達、IP/規制、重要リスク、次の一手を根拠付きで保持する。';
+  'D-6 経営ハイライト。PJ単位の重要方針、事業進捗、戦略転換、提携、資金調達、IP/規制、重要リスク、次の一手を根拠付きで保持する。';
 COMMENT ON COLUMN project_strategy_signals.source_refs_json IS
   '根拠参照。source id / date / title / short snippet / url / hash のみ。メール全文・議事録全文・Slack全文は保存しない。';

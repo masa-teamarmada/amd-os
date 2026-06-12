@@ -63,9 +63,9 @@ $$\sigma_{SU}^{\min} = \min(6, 1, 2) = 1$$
 
 $$
 \begin{aligned}
-\text{① シフト} &: (\mu_A+1, \ \mu_I+1, \ \mu_G+1) = (7, \ 2, \ 3) \\
-\text{② 積} &: 7 \times 2 \times 3 = 42 \\
-\text{③ 立方根 −1} &: 42^{1/3} - 1 = 3.476 - 1 = \boxed{2.48}
+\text{1 シフト} &: (\mu_A+1, \ \mu_I+1, \ \mu_G+1) = (7, \ 2, \ 3) \\
+\text{2 積} &: 7 \times 2 \times 3 = 42 \\
+\text{3 立方根 −1} &: 42^{1/3} - 1 = 3.476 - 1 = \boxed{2.48}
 \end{aligned}
 $$
 

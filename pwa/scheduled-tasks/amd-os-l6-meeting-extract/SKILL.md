@@ -1,9 +1,9 @@
 ---
 name: amd-os-l6-meeting-extract
-description: AMD OS L2 ⑥ MTGサマリ + MTGフローの repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l6-meeting-flow` (= 毎日09:00-21:00毎時 + Phase A早期exit)。Calendar/Notion/Gmail/Drive/Slack を読み、subscription 内 Codex で narrative_md + summary arrays を抽出して `project_meeting_summaries` に保存する。PWA/GAS/Vercel に token課金LLM cron は作らず、GAS 153 + 074 + 074b-e の業務ロジックだけを移植する。
+description: AMD OS H-1 MTGサマリ + MTGフローの repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l6-meeting-flow` (= 毎日09:00-21:00毎時 + Phase A早期exit)。Calendar/Notion/Gmail/Drive/Slack を読み、subscription 内 Codex で narrative_md + summary arrays を抽出して `project_meeting_summaries` に保存する。PWA/GAS/Vercel に token課金LLM cron は作らず、GAS 153 + 074 + 074b-e の業務ロジックだけを移植する。
 ---
 
-# AMD OS L2 ⑥ MTG サマリ抽出 (GAS 153 + 074 移植版)
+# AMD OS H-1 MTG サマリ抽出 (GAS 153 + 074 移植版)
 
 GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneEvent_` の Phase 3 ロジックを **Windows MMO Codex Desktop automation** に移植したもの。GAS は完全 bypass (= kill switch のまま死んでて OK、参照すらしない)。
 
@@ -12,7 +12,7 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **GAS 完全 bypass**: 旧 dryRun 経由は廃止。Calendar / Notion / Gmail / Drive / Slack へは MCP で直接 access
 - **LLM 呼びは subscription 内 Codex automation**: Anthropic SDK 不要、Codex Desktop automation 内で JSON 生成
 - **追加課金ゼロ境界**: PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 API を呼ばない。LLM を使うのはこの MMO Codex Desktop automation 内だけ。
-- **token 課金LLM cron 禁止**: routine trigger は allowed path。PWA / GAS / Vercel の cron / time trigger は、LLM 非依存の deterministic sync / 通知 / キャッシュ更新なら問題なし。この L2⑥では Gemini 経路の 153 / 152 を復活させない。
+- **token 課金LLM cron 禁止**: routine trigger は allowed path。PWA / GAS / Vercel の cron / time trigger は、LLM 非依存の deterministic sync / 通知 / キャッシュ更新なら問題なし。この H-1では Gemini 経路の 153 / 152 を復活させない。
 - **業務ロジックは GAS 元コード完全保存**: 「終了 60-180 分前 filter」「Stage 1-3 Notion fallback」「source_kinds 判定 (= 30 chars 閾値)」「source_hash 差分検知」「修正依頼織り込み」「議事録なし行のマーカー upsert」を踏襲
 - **5 ソース全部見る** (= まさ絶対ルール 2026-05-11): Notion + Gmail + Drive + Slack + Calendar event 本文。GAS 074 + 074b-e の集約をこの 1 routine で実現
 - **議事録品質の本丸**: Notion / Gemini / CircleBack 等が既に作った会議本文を潰さず、前後 MTG・PJ 全体の流れ・現行 MS を読んだうえで `narrative_md` に「その MTG に参加していなかったメンバーでも読めば流れが分かる議事録」を残す。
@@ -29,7 +29,7 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 
 ## 【絶対】 動く前に必ず Read
 
-1. `pwa/manual/3-2-data-and-extraction.md` (§3.1 取り込み path / §3.2 L2 9 種正本 / §3.4 修正依頼ループ)
+1. `pwa/manual/3-2-data-and-extraction.md` (§3.1 取り込み path / §3.2 M/W/D/H L2正本 / §3.4 修正依頼ループ)
 2. `pwa/manual/9-1-decisions-and-history.md` (§5.4 責務分担マトリクス / §5.7 L2 ghost 復旧計画)
 3. `pwa/design/meeting_summaries.md` (= MTG サマリ仕様正本)
 4. `pwa/design/db_schema.md` (= **列名は想像で書かない、必ず grep**)

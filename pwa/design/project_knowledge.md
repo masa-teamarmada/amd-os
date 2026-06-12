@@ -1,4 +1,4 @@
-# PJナレッジ (④ L2) — 設計の正本
+# PJナレッジ (D-3 L2) — 設計の正本
 
 最終更新: 2026-05-25 (#68 current truth 反映)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
@@ -7,7 +7,7 @@
 
 ## このドキュメントが扱う範囲
 
-L2 ④ PJナレッジ (`project_knowledge`) の自動更新 cron。
+D-3 PJナレッジ (`project_knowledge`) の自動更新 cron。
 
 - アクティブ PJ × 当月/前月 単位で「人物/技術/IP/組織/資金/市場/競合/戦略/用語」を Supabase に upsert
 - 毎時 polling + `l2_extract_state.source_hash` 差分検知
@@ -139,6 +139,6 @@ curl -sL --max-time 300 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_project
 ## 関連 md
 
 - [`L2_DATA.md`](L2_DATA.md) — L2 全体
-- [`member_knowledge.md`](member_knowledge.md) — Phase 4 ⑤
-- [`amd_protocol.md`](amd_protocol.md) — Phase 4 ②
-- [`ms_progress.md`](ms_progress.md) — Phase 4 ③ (差分検知の先行実装)
+- [`member_knowledge.md`](member_knowledge.md) — Phase 4 D-4
+- [`amd_protocol.md`](amd_protocol.md) — Phase 4 D-1
+- [`ms_progress.md`](ms_progress.md) — Phase 4 D-2 (差分検知の先行実装)

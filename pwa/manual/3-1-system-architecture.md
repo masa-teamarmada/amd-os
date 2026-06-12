@@ -27,7 +27,7 @@ Supabase
 | iOS | ネイティブ版。先行実装がある機能も多い |
 | GAS | freee / Slack / 外部サービス連携の一部。LLM定期抽出は 2026-05-22 に停止 |
 | Codex automation | 5 生データ・Atlas の LLM レビューを subscription 枠で実行し outbox を出す |
-| MMOマシン Codex Desktop automation | L2 ②〜⑥ の現行 writer。protocol / knowledge / MS進捗 / MTGフローを subscription 枠で抽出 |
+| MMOマシン Codex Desktop automation | D-1〜H-1 の現行 writer。protocol / knowledge / MS進捗 / MTGフローを subscription 枠で抽出 |
 | LaunchAgent | outbox JSON を 5 分ごとに拾って Supabase / API へ反映 |
 | Vercel cron | LLM を使わない運用 cron。freee、入金、週次活動、集計など |
 

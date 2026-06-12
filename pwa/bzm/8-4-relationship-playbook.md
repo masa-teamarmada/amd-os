@@ -1,6 +1,6 @@
 # 関係構築プレイブック — 研究者・大学・企業・VC・行政
 
-> この章は何か: Before Zero で誰とどう関係を作り、何を先に握るかを整理する章です。個別交渉の本文は作らず、承認済み L2⑩ candidate から一般化できる関係構築パターンだけを追記します。
+> この章は何か: Before Zero で誰とどう関係を作り、何を先に握るかを整理する章です。個別交渉の本文は作らず、承認済み D-7 Textbook Insights candidate から一般化できる関係構築パターンだけを追記します。
 
 ## 扱う insight
 
@@ -13,7 +13,7 @@
 - NDA / 知財 / 共同研究 / PoC / 出資の順序
 - 関係者ごとの期待値調整と、後から揉めやすいポイント
 
-主な L2⑩ `practice_kind` は `relationship_playbook` です。既存 schema では `insight_type='before_zero_knowhow'` を基本に、横断的な再現性が高い場合は `cross_project_pattern` として受けます。
+主な D-7 Textbook Insights `practice_kind` は `relationship_playbook` です。既存 schema では `insight_type='before_zero_knowhow'` を基本に、横断的な再現性が高い場合は `cross_project_pattern` として受けます。
 
 ## 掲載基準
 
@@ -31,7 +31,7 @@
 - 相手の意図を推測だけで断定する記述
 - 承認前の候補や、社外秘の条件が残った本文
 
-## L2⑩ 追記ブロックの受け方
+## D-7 Textbook Insights 追記ブロックの受け方
 
 local applier が承認済み候補を追記するときは、この章では次の形を基本にします。
 
@@ -60,6 +60,6 @@ local applier が承認済み候補を追記するときは、この章では次
 ## 読めばできること
 
 - Before Zero の関係構築を、相手別の順序として設計できる
-- L2⑩ candidate がこの章向けかどうか判断できる
+- D-7 Textbook Insights candidate がこの章向けかどうか判断できる
 - 交渉ログをそのまま貼らず、再利用できるプレイブックへ変換できる
 - 関係者ごとの期待値差を早めに見つけ、次アクションへ落とせる

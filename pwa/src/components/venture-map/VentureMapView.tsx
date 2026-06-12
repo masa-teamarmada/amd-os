@@ -488,7 +488,7 @@ export function VentureMapView({ ventures, laneWeights, macroLog, papersLog, sna
           <div className="px-4 py-4 text-[13px] leading-relaxed text-slate-800 space-y-4">
             <div>
               <p className="mb-1.5 text-muted-foreground text-[11px]">
-                ① マクロトレンド指数 <span className="text-[10px]">— 政策の累積効果を指数減衰でモデル化</span>
+                1 マクロトレンド指数 <span className="text-[10px]">— 政策の累積効果を指数減衰でモデル化</span>
               </p>
               <Tex
                 display
@@ -498,7 +498,7 @@ export function VentureMapView({ ventures, laneWeights, macroLog, papersLog, sna
 
             <div>
               <p className="mb-1.5 text-muted-foreground text-[11px]">
-                ② 事業化適温度 <span className="text-[10px]">— 競合密度は冪指数で効く</span>
+                2 事業化適温度 <span className="text-[10px]">— 競合密度は冪指数で効く</span>
               </p>
               <Tex
                 display
@@ -508,7 +508,7 @@ export function VentureMapView({ ventures, laneWeights, macroLog, papersLog, sna
 
             <div>
               <p className="mb-1.5 text-muted-foreground text-[11px]">
-                ③ 論文-政策乖離 <span className="text-[10px]">— 一次微分で先行度、二次微分で変曲点を検出</span>
+                3 論文-政策乖離 <span className="text-[10px]">— 一次微分で先行度、二次微分で変曲点を検出</span>
               </p>
               <Tex
                 display
@@ -523,7 +523,7 @@ export function VentureMapView({ ventures, laneWeights, macroLog, papersLog, sna
 
             <div>
               <p className="mb-1.5 text-muted-foreground text-[11px]">
-                ④ 設立タイミングシグナル <span className="text-[10px]">— 波の積分平均 + 加速度ボーナス</span>
+                4 設立タイミングシグナル <span className="text-[10px]">— 波の積分平均 + 加速度ボーナス</span>
               </p>
               <Tex
                 display
@@ -581,13 +581,13 @@ export function VentureMapView({ ventures, laneWeights, macroLog, papersLog, sna
       <section className="rounded-xl border border-border bg-amber-50/50 px-4 py-3 text-[12px]">
         <p className="font-semibold mb-2">Part3 デモ構成案 (暫定)</p>
         <ol className="list-decimal list-inside space-y-1 text-amber-900">
-          <li>① View A → &quot;マクロが定量化されてる、その波の頂点に AMD は SU を立ててきた&quot;</li>
-          <li>② ティエムにフォーカス → &quot;波が来る前に立てて燃え尽き / だから AMD OS を作った&quot;</li>
-          <li>③ JC にフォーカス → &quot;後付けで deep化した珍しいケース&quot;</li>
-          <li>④ View A の論文-マクロ乖離を強調 → &quot;素材レーンは研究先行＝シーズ仕込み期&quot;</li>
-          <li>⑤ View B → &quot;今、最アツは GX サーキュラー / SX や LST がそこに立っている&quot;</li>
-          <li>⑥ View C → &quot;ここまで定式化している DT スタジオは他にない&quot;</li>
-          <li>⑦ &quot;この続きを実装するために、つくば地域ファンドが必要&quot;</li>
+          <li>1 View A → &quot;マクロが定量化されてる、その波の頂点に AMD は SU を立ててきた&quot;</li>
+          <li>2 ティエムにフォーカス → &quot;波が来る前に立てて燃え尽き / だから AMD OS を作った&quot;</li>
+          <li>3 JC にフォーカス → &quot;後付けで deep化した珍しいケース&quot;</li>
+          <li>4 View A の論文-マクロ乖離を強調 → &quot;素材レーンは研究先行＝シーズ仕込み期&quot;</li>
+          <li>5 View B → &quot;今、最アツは GX サーキュラー / SX や LST がそこに立っている&quot;</li>
+          <li>6 View C → &quot;ここまで定式化している DT スタジオは他にない&quot;</li>
+          <li>7 &quot;この続きを実装するために、つくば地域ファンドが必要&quot;</li>
         </ol>
       </section>
 

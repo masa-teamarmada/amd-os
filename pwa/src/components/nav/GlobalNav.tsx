@@ -81,7 +81,7 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
         </Link>
 
         {/* AMD Protocol (= Atlas の左に復活、2026-05-11 まさ要望)
-            L2 ②「AMDプロトコル」(経営判断の構造化記録) を一覧/承認するページ /admin/protocols。
+            D-1「AMDプロトコル」(経営判断の構造化記録) を一覧/承認するページ /admin/protocols。
             まさが「これは確定プロトコル」と承認すると status=confirmed に格上げ。 */}
         <Link
           href="/admin/protocols"
@@ -91,7 +91,7 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
               ? "bg-accent text-accent-foreground font-medium"
               : "text-muted-foreground hover:text-foreground"
           )}
-          title="AMD プロトコル — 経営判断の構造化記録 (L2 ②)"
+          title="AMD プロトコル — 経営判断の構造化記録 (D-1)"
         >
           AMD Protocol
         </Link>

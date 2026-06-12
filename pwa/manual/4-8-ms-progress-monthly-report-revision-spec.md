@@ -1,8 +1,8 @@
 # MS Progress / Monthly Report / Revision Loop 仕様
 
-L2 ③ MS 進捗、 L2 ① 月次報告書、 月次ノート、 つくよみ修正依頼 loop の正本仕様。 cockpit の月次モーダル正本を含む。
+D-2 MS 進捗、 M-1 月次報告書、 月次ノート、 つくよみ修正依頼 loop の正本仕様。 cockpit の月次モーダル正本を含む。
 
-## MS Progress (= L2 ③)
+## MS Progress (= D-2)
 
 `milestone_monthly_progress` (= 月次 % キャッシュ) と `progress_estimate_state` (= 抽出 state) が中核。
 
@@ -42,7 +42,7 @@ flowchart LR
   F --> I[progress_estimate_state upsert]
 ```
 
-cadence: 毎時 0 分 JST (= [8-3 章 §③](8-3-l2-extraction-routines-spec.md))。定期抽出の primary writer は **MMOマシン上の subscription automation `amd-os-l3-ms-progress-extract`**。旧 PWA `/api/cron/hourly-estimate` は 2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す。
+cadence: 毎時 0 分 JST (= [8-3 章 §D-2](8-3-l2-extraction-routines-spec.md))。定期抽出の primary writer は **MMOマシン上の subscription automation `amd-os-l3-ms-progress-extract`**。旧 PWA `/api/cron/hourly-estimate` は 2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す。
 
 ### 定常業務 MS (`tag='routine'`)
 
@@ -90,9 +90,9 @@ GAS `rv2_calcRewardSummary` が報酬計算時に `share` を掛けて per-membe
 
 進捗 % の集計に使う (= sub_items の `status='done'` の重み比率)。
 
-## 月次報告書 (= L2 ①、 `monthly_reports`)
+## 月次報告書 (= M-1、 `monthly_reports`)
 
-`monthly_reports` は Codex automation `AMD OS L2① 月次報告抽出` が primary writer。5 生データを読み、`amd-os-ms/outbox.monthlyReports` 経由で非LLM applier が Supabase に反映する。
+`monthly_reports` は Codex automation `AMD OS M-1 月次報告抽出` が primary writer。5 生データを読み、`amd-os-ms/outbox.monthlyReports` 経由で非LLM applier が Supabase に反映する。
 
 **🚨 課金注意 (2026-05-29 訂正)**: R313 は単なる deterministic 集約ではない。AMD-Report GAS 現物では、未生成レポートや差分ありレポートのときに R303 generator 経由で Anthropic Claude API を呼ぶ。`run_monthlyReportCron` trigger が有効なら token 課金が発生しうるため、「R313 = LLM 不使用」と書かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。
 
@@ -120,7 +120,7 @@ GAS `rv2_calcRewardSummary` が報酬計算時に `share` を掛けて per-membe
 
 ```mermaid
 flowchart TD
-  A[5 生データ &lpar;Slack/Notion/Calendar/Drive/Gmail&rpar;] --> B[Codex automation L2① 月次報告抽出]
+  A[5 生データ &lpar;Slack/Notion/Calendar/Drive/Gmail&rpar;] --> B[Codex automation M-1 月次報告抽出]
   B --> C[amd-os-ms/outbox monthlyReports JSON]
   C --> D[LaunchAgent + non-LLM applier]
   D --> E[monthly_reports.status='draft']
@@ -235,8 +235,8 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 
 | operation | 役割 | cadence |
 |---|---|---|
-| `AMD OS L2① 月次報告抽出` | L2 ① Codex automation (= primary) | daily 05:30 JST |
-| `claude-l3-ms-progress-extract` | L2 ③ MMOマシン automation (= primary) | 毎時 0 分 |
+| `AMD OS M-1 月次報告抽出` | M-1 Codex automation (= primary) | daily 05:30 JST |
+| `claude-l3-ms-progress-extract` | D-2 MMOマシン automation (= primary) | 毎時 0 分 |
 | `pwa-hourly-estimate` | 旧 PWA fallback。停止中 | disabled |
 | `manual-monthly-reports-backfill` | 月次報告書を Sonnet で生成 | 手動 |
 | `manual-freeze-period-backfill` | 休止期間 PJ の reports + meetings 統合 | 手動 |
@@ -250,7 +250,7 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 | 月次モーダルで MS 進捗が出ない | `milestone_monthly_progress` の該当 ym 行、 `value_milestones.is_active=true` |
 | 進捗 % が更新されない | `progress_estimate_state.source_hash` が変わったか、 `amd-os-l3-ms-progress-extract` の実行履歴、月次モーダルの手動「AIで再推定」 |
 | 修正依頼が反映されない | `ms_progress_revisions.status='confirmed'`、 `milestone_monthly_progress` 該当行が更新されているか |
-| 月次報告書が空 | `AMD OS L2① 月次報告抽出` の実行履歴、`amd-os-ms/outbox` の applied/failed、`monthly_reports.collection_summary_json`。R313 trigger は復活させない |
+| 月次報告書が空 | `AMD OS M-1 月次報告抽出` の実行履歴、`amd-os-ms/outbox` の applied/failed、`monthly_reports.collection_summary_json`。R313 trigger は復活させない |
 | 休止 PJ の月が空 | `project_freeze_periods.status='active'`、 `manual-freeze-period-backfill` 実行 |
 | advisor PJ で MS が出る | `projects.project_category='advisor'` の判定、 月次ノート側に寄せる ([2-6 章](2-6-admin-ops.md)) |
 
@@ -259,7 +259,7 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 - 設計: [`pwa/design/ms_progress.md`](../design/ms_progress.md) (= MS 進捗詳細)
 - 設計: [`pwa/design/progress_estimation.md`](../design/progress_estimation.md) (= つくよみ MS 推定アルゴリズム)
 - 設計: [`pwa/design/meeting_summaries.md`](../design/meeting_summaries.md) (= MTG サマリ正本)
-- 8-3 章 [L2 Extraction Routines §③](8-3-l2-extraction-routines-spec.md) (= L2 ③ 抽出 routine)
+- 8-3 章 [L2 Extraction Routines §D-2](8-3-l2-extraction-routines-spec.md) (= D-2 抽出 routine)
 - 2-3 章 [PJ コックピットの見方](2-3-pj-cockpit.md) (= 月次モーダル UI)
 - 6-6 章 [Member Ops / Billing / Prompt](6-6-member-billing-prompts-spec.md) (= mypage 月次進捗表示)
 - 8-1 章 [Knowledge Admin / Tsukuyomi](8-1-knowledge-admin-tsukuyomi-spec.md) (= dialog 対話型ループ全体)

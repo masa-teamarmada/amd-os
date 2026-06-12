@@ -1,10 +1,10 @@
 -- 060_l2_registry_and_xrl_evidence.sql
 --
--- L2 ⑦ OS台帳差分 / L2 ⑧ XRL根拠。
+-- D-5 OS台帳差分 / M-2 XRL根拠。
 --
 -- まさ判断 (2026-05-15):
 --   - 5生データと OS 構造データの差分を、新しい L2 として通知・採否・DB反映できるようにする。
---   - project_founding_members は候補ではなく L2 ⑧ XRL根拠の一部。
+--   - project_founding_members は候補ではなく M-2 XRL根拠の一部。
 --   - XRL根拠は founding members だけでなく TRL / BRL / GRL / SRL / HRL の算定根拠を束ねる。
 
 -- 通知に小さな候補 patch / evidence refs を持たせる余地を追加。
@@ -16,7 +16,7 @@ COMMENT ON COLUMN l2_notifications.metadata_json IS
   '通知に紐づく軽量 metadata。候補 patch / evidence refs / confidence など。メール全文・議事録全文は保存しない。';
 
 -- ============================================================
--- L2 ⑦ OS台帳差分
+-- D-5 OS台帳差分
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS project_registry_diffs (
@@ -73,14 +73,14 @@ GRANT INSERT, UPDATE ON project_registry_diffs TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON project_registry_diffs TO service_role;
 
 COMMENT ON TABLE project_registry_diffs IS
-  'L2 ⑦ OS台帳差分。5生データとOS構造データの差分候補を pending diff として保存し、通知から採否・DB反映する。';
+  'D-5 OS台帳差分。5生データとOS構造データの差分候補を pending diff として保存し、通知から採否・DB反映する。';
 COMMENT ON COLUMN project_registry_diffs.proposed_patch_json IS
   '採用時に適用する候補 patch。自動反映は API 側の allowlist で制限する。';
 COMMENT ON COLUMN project_registry_diffs.evidence_refs_json IS
   '根拠参照。source id / date / sender / snippet / hash のみ。メール全文・議事録全文は保存しない。';
 
 -- ============================================================
--- L2 ⑧ XRL根拠
+-- M-2 XRL根拠
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS project_xrl_evidence (
@@ -133,6 +133,6 @@ GRANT INSERT, UPDATE ON project_xrl_evidence TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON project_xrl_evidence TO service_role;
 
 COMMENT ON TABLE project_xrl_evidence IS
-  'L2 ⑧ XRL根拠。TRL/BRL/GRL/SRL/HRL の算定根拠を保存する。project_founding_members は HRL 根拠の既存テーブルとして併用。';
+  'M-2 XRL根拠。TRL/BRL/GRL/SRL/HRL の算定根拠を保存する。project_founding_members は HRL 根拠の既存テーブルとして併用。';
 COMMENT ON COLUMN project_xrl_evidence.source_refs_json IS
   '根拠参照。source id / date / snippet / hash のみ。メール全文・議事録全文は保存しない。';

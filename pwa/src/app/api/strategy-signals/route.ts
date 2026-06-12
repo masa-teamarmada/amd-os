@@ -1,7 +1,7 @@
 /**
  * POST /api/strategy-signals
  *
- * L2 ⑨ 経営ハイライト (`project_strategy_signals`) への dialogue 経路 CRUD ハブ。
+ * D-6 経営ハイライト (`project_strategy_signals`) への dialogue 経路 CRUD ハブ。
  *
  * 呼び元 (dialogue 経路のみ):
  *   - 提案前の論点整理セッション内で、確定経営判断を書き込む
