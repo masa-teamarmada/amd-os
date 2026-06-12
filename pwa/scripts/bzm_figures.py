@@ -213,10 +213,174 @@ def fig_f3():
     print(f"  F3: founding={found_y:.1f}, counterfactual={cf_y:.1f}, ratio={ratio:.2f}x")
 
 
+# ---------------------------------------------------------------------------
+# F6: Strategic slack (x, y) plane — concept map with one annotated trajectory
+# 正本: BZSF/PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html Ch9 /
+#       CX/AMD OS 資料/DTSU_STRATEGIC_SLACK_MODEL_20260609.md §2-4
+# ---------------------------------------------------------------------------
+def fig_f6():
+    fig, ax = plt.subplots(figsize=(9.2, 5.6))
+
+    # loss-of-control zone & line
+    ax.axhspan(-3, 0, color="crimson", alpha=0.10)
+    ax.axhline(0, color="crimson", lw=2.2)
+    ax.text(0.25, -1.7, "y = 0 : loss-of-control line\n(bankruptcy / fire-sale M&A / heavy dilution / subordinate license)",
+            color="crimson", fontsize=9, va="center")
+
+    # commercialization line
+    ax.axvline(9, color="seagreen", lw=2.0, ls="--")
+    ax.text(9.12, 27, "commercialization line\n(BEP / self-sustaining)", color="seagreen", fontsize=9)
+
+    # illustrative trajectory
+    seg = [
+        (0.6, 7), (1.8, 5.5),            # pre-founding: limited-purpose funds
+        (1.8, 24),                        # founding jump
+        (3.6, 16),                        # PoC & disclosure: spend y, buy x
+        (3.6, 23),                        # grant refill
+        (5.6, 13),                        # bigger PoC / pilot
+        (5.6, 27),                        # fundraising
+        (9.0, 14),                        # run to the line
+    ]
+    xs = [p[0] for p in seg]; ys = [p[1] for p in seg]
+    ax.plot(xs, ys, color="navy", lw=2.2, marker="o", ms=4, zorder=5)
+
+    ax.annotate("founding:\ncapital raises y", xy=(1.8, 24), xytext=(0.4, 30),
+                fontsize=9, color="navy",
+                arrowprops=dict(arrowstyle="->", color="navy", lw=0.9))
+    ax.annotate("PoC & disclosure:\nspend y to buy x", xy=(2.8, 19.8), xytext=(2.9, 8.5),
+                fontsize=9, color="navy",
+                arrowprops=dict(arrowstyle="->", color="navy", lw=0.9))
+    ax.annotate("grant / paid PoC / fundraising:\nrefill y (vertical jump)", xy=(5.6, 27), xytext=(5.0, 33),
+                fontsize=9, color="navy",
+                arrowprops=dict(arrowstyle="->", color="navy", lw=0.9))
+    ax.annotate("reach the line with y > 0\n= survive with control", xy=(9.0, 14), xytext=(6.6, 19.5),
+                fontsize=9, color="seagreen",
+                arrowprops=dict(arrowstyle="->", color="seagreen", lw=0.9))
+
+    # bargaining power note: two slopes
+    ax.plot([6.2, 7.6], [6.5, 5.4], color="gray", lw=1.6)
+    ax.plot([6.2, 7.6], [6.5, 1.6], color="gray", lw=1.6, ls=":")
+    ax.text(7.75, 5.2, "high bargaining power:\nsame Δx, small Δy", fontsize=8, color="dimgray")
+    ax.text(7.75, 1.4, "low bargaining power:\nsame Δx, large Δy", fontsize=8, color="dimgray")
+
+    ax.set_xlim(0, 12.6); ax.set_ylim(-3, 38)
+    ax.set_xlabel("commercialization progress  x")
+    ax.set_ylabel("strategic slack  y  (months of control)")
+    ax.set_title("F6. The strategic-slack plane: reach the line before y hits zero")
+    ax.grid(True, alpha=0.2)
+    save(fig, "f6_slack_plane.png")
+
+
+# ---------------------------------------------------------------------------
+# F7: Strategic slack over time — the sawtooth chart
+# Before Zero (limited-purpose funds) -> founding jump -> growing burn ->
+# refills (grant / paid PoC / Series A) -> BEP. Counterfactual without refills
+# hits y = 0 before reaching BEP.
+# ---------------------------------------------------------------------------
+def fig_f7():
+    fig, ax = plt.subplots(figsize=(9.6, 5.4))
+
+    # main path: piecewise linear, slope steepens as burn grows
+    t_pts = [0, 12, 12, 24, 24, 33, 33, 42, 42, 54, 54, 60]
+    y_pts = [6, 4.5, 24, 14, 22, 13, 18, 6, 24, 7, 7, 8.5]
+    ax.plot(t_pts, y_pts, color="navy", lw=2.4, zorder=5,
+            label="strategic slack y(t) — refilled on the way")
+
+    # counterfactual: founding capital only, no refill
+    t2 = [12, 24, 36, 40]
+    y2 = [24, 14, 2.5, 0]
+    ax.plot(t2, y2, color="crimson", lw=1.8, ls="--",
+            label="no refill: y hits 0 before BEP (loss of control)")
+    ax.scatter([40], [0], color="crimson", s=70, zorder=6, marker="x")
+
+    # zones / lines
+    ax.axhline(0, color="crimson", lw=2.0)
+    ax.axhspan(-2.5, 0, color="crimson", alpha=0.10)
+    ax.axvspan(0, 12, color="goldenrod", alpha=0.08)
+    ax.axvline(54, color="seagreen", lw=1.8, ls="--")
+
+    # annotations
+    ax.text(1.0, 26.5, "Before Zero:\nno company yet —\ngrants & institutional\nresources only", fontsize=8.5, color="goldenrod")
+    ax.annotate("founding: seed capital\n(burn also starts)", xy=(12, 24), xytext=(14.5, 30),
+                fontsize=9, color="navy", arrowprops=dict(arrowstyle="->", color="navy", lw=0.9))
+    ax.annotate("grant adopted", xy=(24, 22), xytext=(25.5, 27.5),
+                fontsize=9, color="navy", arrowprops=dict(arrowstyle="->", color="navy", lw=0.9))
+    ax.annotate("paid PoC /\njoint-research fee", xy=(33, 18), xytext=(34.0, 24.5),
+                fontsize=9, color="navy", arrowprops=dict(arrowstyle="->", color="navy", lw=0.9))
+    ax.annotate("fundraising\n(Series A)", xy=(42, 24), xytext=(44.5, 29.5),
+                fontsize=9, color="navy", arrowprops=dict(arrowstyle="->", color="navy", lw=0.9))
+    ax.annotate("burn grows as commercialization nears\n(pilot, manufacturing, QA, sales prep)",
+                xy=(48, 13), xytext=(28, 3.2), fontsize=8.5, color="dimgray",
+                arrowprops=dict(arrowstyle="->", color="dimgray", lw=0.8))
+    ax.text(54.8, 13.5, "BEP: gross margin\ncovers burn —\ndecline stops", color="seagreen", fontsize=9)
+
+    ax.set_xlim(0, 64); ax.set_ylim(-2.5, 36)
+    ax.set_xlabel("time (months)")
+    ax.set_ylabel("strategic slack  y  (months of control)")
+    ax.set_title("F7. The sawtooth: spend, refill, and reach BEP before y = 0")
+    ax.legend(loc="upper right", fontsize=8.5)
+    ax.grid(True, alpha=0.2)
+    save(fig, "f7_slack_sawtooth.png")
+
+
+# ---------------------------------------------------------------------------
+# F8: trajectory patterns on the (x, y) plane
+# healthy / zombie / quick-death / sawtooth (grant-funded, e.g. drug discovery)
+# 正本: PRS_STRATEGIC_SLACK_OVERVIEW Ch14 (図5)
+# ---------------------------------------------------------------------------
+def fig_f8():
+    fig, ax = plt.subplots(figsize=(9.2, 5.4))
+
+    ax.axhline(0, color="crimson", lw=2.0)
+    ax.axhspan(-2, 0, color="crimson", alpha=0.10)
+    ax.axvline(9, color="seagreen", lw=1.8, ls="--")
+    ax.text(9.15, 2.0, "commercialization\nline", color="seagreen", fontsize=9)
+    ax.text(0.2, -1.4, "y = 0: loss of control", color="crimson", fontsize=9)
+
+    # healthy
+    hx = [1, 1.8, 1.8, 3.5, 3.5, 5.5, 5.5, 9.0]
+    hy = [6, 5, 22, 14, 21, 12, 25, 13]
+    ax.plot(hx, hy, color="seagreen", lw=2.2, label="healthy: refills and progress mesh")
+
+    # zombie
+    zx = [1, 1.6, 2.1, 2.5, 2.8, 3.0]
+    zy = [18, 13, 8.5, 4.5, 1.8, 0]
+    ax.plot(zx, zy, color="darkorange", lw=2.2, label="zombie: x crawls while y bleeds out")
+    ax.scatter([3.0], [0], color="darkorange", marker="x", s=70)
+
+    # quick death
+    qx = [1, 1.5, 1.8]
+    qy = [9, 3, 0]
+    ax.plot(qx, qy, color="crimson", lw=2.2, label="quick death: low ceiling, early exit")
+    ax.scatter([1.8], [0], color="crimson", marker="x", s=70)
+
+    # sawtooth (grant-funded)
+    sx = [1, 2.3, 2.3, 3.8, 3.8, 5.3, 5.3, 6.8, 6.8, 9.0]
+    sy = [7, 2.5, 10, 4, 11, 4.5, 12, 5, 13, 6]
+    ax.plot(sx, sy, color="mediumpurple", lw=2.2,
+            label="sawtooth: grant-refilled, low-variance path (e.g. drug discovery)")
+
+    ax.set_xlim(0, 12.2); ax.set_ylim(-2, 30)
+    ax.set_xlabel("commercialization progress  x")
+    ax.set_ylabel("strategic slack  y  (months of control)")
+    ax.set_title("F8. Survival structures differ even when snapshots look alike")
+    ax.legend(loc="upper right", fontsize=8.5)
+    ax.grid(True, alpha=0.2)
+    save(fig, "f8_slack_trajectories.png")
+
+
 if __name__ == "__main__":
-    fig_f1()
-    fig_f2()
-    fig_f3()
-    fig_f4()
-    fig_f5()
-    print("done. F1-F5 generated (F3 = self-consistent retrofit recompute, B-plan).")
+    import sys
+    targets = sys.argv[1:]
+    all_figs = {
+        "f1": fig_f1, "f2": fig_f2, "f3": fig_f3, "f4": fig_f4, "f5": fig_f5,
+        "f6": fig_f6, "f7": fig_f7, "f8": fig_f8,
+    }
+    if targets:
+        for t in targets:
+            all_figs[t]()
+        print(f"done. {', '.join(targets)} generated.")
+    else:
+        for fn in all_figs.values():
+            fn()
+        print("done. F1-F8 generated (F3 = self-consistent retrofit recompute, B-plan).")
