@@ -49,7 +49,17 @@ export const BZM_PARTS: BzmPartConfig[] = [
     key: "model",
     label: "第 II 部 — Before Zero Model",
     description: "PRS × 戦略余力。天井 P・到達度 R・生存確率 S と、その土台になる (x, y) の動学。",
-    slugs: ["why-valuation-fails", "model-overview", "p-potential", "r-readiness", "strategic-slack"],
+    slugs: [
+      "why-valuation-fails",
+      "model-overview",
+      "p-potential",
+      "r-readiness",
+      "s-survival",
+      "score-and-bottleneck",
+      "strategic-slack",
+      "model-critiques",
+      "retrofit-verification",
+    ],
   },
   {
     key: "nursery",
@@ -93,9 +103,29 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
     summary: "「技術はできています」は五枚に割れる。TRL/BRL/GRL/SRL/HRL の五軸と Yes/No 観測項目、研究室と自社の TRL ギャップ、達成 R と消費資源 y の線引き。",
   },
   {
+    slug: "s-survival",
+    title: "生存確率 S — 死なずに、主導権を保って走り切れるか",
+    summary: "死因第一位「本命が整う前の資金切れ」を測る因子 S。生存条件式 B−R_net≤F、互いに補い合う三要素、資質×経営実行力の CES 合成、設立を遅らせる選択肢。",
+  },
+  {
+    slug: "score-and-bottleneck",
+    title: "計算式と律速診断 — 9つの軸をひとつの判断へ",
+    summary: "9軸を +1 シフトの Cobb-Douglas 積で統合スコアへ。重み α と K の校正、律速診断 argmax α/(X+1) で「次の一手」を機械的に取り出す。手計算の例題つき。",
+  },
+  {
     slug: "strategic-slack",
     title: "戦略余力 — 主導権を保って走り切る",
     summary: "事業化到達度 × 戦略余力の (x, y) 平面。y=0 主導権喪失ライン、鋸歯の補充、交渉力と KPI、開示 Lv1〜4、出口設計 (ライセンス vs 自社事業化)。",
+  },
+  {
+    slug: "model-critiques",
+    title: "モデルの限界と批判 — この物差しが測れないもの",
+    summary: "割引率の三つの仕事のうち S が肩代わりできるのは失敗リスク補正だけ。経済学からの5批判・経営学からの6批判を正面から認め、道具が役に立つ条件を明確にする。",
+  },
+  {
+    slug: "retrofit-verification",
+    title: "検証 — 過去の軌跡がモデルを鍛える",
+    summary: "モデルは信じるものではなく検証するもの。blind retrofit と事前予測で後知恵を断ち、見送り案件を対照群に、軌跡の型と R/y の線引きを実データで確かめる。",
   },
   {
     slug: "9-5-appendix-changelog",
