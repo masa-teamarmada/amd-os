@@ -40,7 +40,7 @@ Claude routine と呼べるのは、Claude Routines UI上で存在し、`ACTIVE`
 | **D-12** | Finance Ops Evidence / freee Transaction Actuals | サブスク、継続費、自動振替、領収書イベント、freee取引履歴から月次試算表へ入れる実績値 | 月次PL、Management Score finance軸 | PWA non-LLM cron + admin review | `/api/cron/management-score-raw-data?includeFreee=1` / `cron/freee-payment-sync` / `cron/payment-confirm-nudges` | daily |
 | **W-1** | VC News / Funding Signals | VCニュース、ファンド組成、投資活動、資金調達シグナル | VC inbox、fund情報、fundraising判断 | Claude routine target | `amd-os-l2-weekly-vc-funding-signals` | 土曜09:00 JST |
 | **M-3** | Management Monthly Signal | 月末時点の会社経営状態を、良い/悪い/次に見ることへ翻訳した評価文 | `/management-score` の月次試算表下、経営判断、過去ログ | Claude routine target + management review | `amd-os-l2-monthend-evidence` | 月末最終日17:00 JST |
-| **D-13** | Contract Signals | 5生データから検知した契約締結予兆、契約予定枠、契約書version/signed版metadata | 契約管理、押印版未保存nudge候補、PJ別契約進行確認 | Claude routine daily consolidated + PWA route | `amd-os-l2-consolidated-evidence` Phase K / `POST /api/contracts/extract-l2` | daily 08:00 JST |
+| **D-13** | Contract Signals | 5生データから検知した契約締結予兆、契約予定枠、契約書version/signed版metadata | 契約管理、押印版未保存nudge候補、PJ別契約進行確認 | Claude routine daily consolidated + PWA route | `amd-os-l2-consolidated-evidence` Phase K-B / `POST /api/contracts/extract-l2` | daily 08:00 JST |
 
 ## Management Monthly Signal の評価文ルール
 

@@ -22,7 +22,7 @@
 | M-1〜M-3 | Claude routine | `amd-os-l2-monthend-evidence` | 月末候補日 16:00 JST | M-1 Monthly Reports → M-2 XRL → M-3 Management Signal |
 | W-1 | Claude routine | `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST | VC News / Funding Signals |
 | H-1 | Windows MMO Codex Desktop automation | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | 毎日 09:00-21:00 毎時 + Phase A 早期 exit | `project_meeting_summaries` / 予定MTGカード / Drive関連資料 |
-| D-13 | Claude routine + PWA route | `amd-os-l2-consolidated-evidence` Phase K / `POST /api/contracts/extract-l2` | daily 08:00 JST | Contract Signals |
+| D-13 | Claude routine + PWA route | `amd-os-l2-consolidated-evidence` Phase K-B / `POST /api/contracts/extract-l2` | daily 08:00 JST | Contract Signals |
 | M-2 XRL 根拠 | Codex automation + outbox applier | `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `project_xrl_evidence` |
 | D-6 経営ハイライト | Codex automation + outbox applier | `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `project_strategy_signals` |
 | control | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox` → PJ司令塔 thread通知 → `mark-sent` |

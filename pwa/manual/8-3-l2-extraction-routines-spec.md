@@ -39,6 +39,7 @@
 | D-9 Macrotrend Evidence / Index | `observation_log` / `macro_index_log` | macro observation / index | 旧 Macrotrend個別automation / PWA routes | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。LLM非依存集計cronはPWA non-LLM cron可 |
 | D-10 Member Activity Evidence | `member_activities` | Dashboard / MyPage「今週やったこと」の根拠 | PWA `member-weekly-activities` route | Claude routine `amd-os-l2-consolidated-evidence` 登録対象。daily pickup |
 | D-11 Media Mentions | `project_media_mentions` / `news_mention` notifications | メディア掲載・公開露出 | 旧通知ラベル / 手動候補 | Claude routine `amd-os-l2-consolidated-evidence` 登録対象 |
+| D-13 Contract Signals | `contract_signals` / `contracts` / `contract_documents` | 5生データからの契約締結予兆、契約予定枠、契約書metadata | `/api/contracts/extract-l2` / 契約管理MVP | Claude routine `amd-os-l2-consolidated-evidence` Phase K-B 登録対象。新routineは作らない |
 | W-1 VC News / Funding Signals | `vc_news` / `vcs` / `vc_funds` / `vc_investments` / `project_vc_relations` | VCニュース、ファンド組成、投資活動、調達関連public signal | PWA `/api/cron/vc-discover` (停止中) / Codex automation候補 | Claude routine `amd-os-l2-weekly-vc-funding-signals` 登録対象。UI証跡までは暫定 Codex automationが差分 |
 | M-3 Management Monthly Signal Evaluation | `company_management_signal_reviews` | Management予実表から月末評価を作る | 専用Codexチャット/heartbeat案 | Claude routine別枠、月末最終日17:00 JST候補。UI証跡必須 |
 | D-12 freee Transaction Actuals | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` | freee取引履歴を月次試算表の実績値へ入れる | PWA cron `/api/cron/management-score-raw-data?includeFreee=1` | PWA non-LLM daily cron。Claude routine / Codex automation に混ぜない |
@@ -77,7 +78,7 @@ vs ローカル Mac scheduled task の問題:
 
 | 新 | target Claude routine | cadence | 対象 (旧番号) |
 |---|---|---|---|
-| D-1〜D-11 | `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | AMD Protocol / MS Progress / Project Knowledge / Member Knowledge / Registry Diff / Strategy Signals / Textbook Insights / Atlas Signals / Macrotrend / Member Activity Evidence / Media Mentions |
+| D-1〜D-11 / D-13 | `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | AMD Protocol / MS Progress / Project Knowledge / Member Knowledge / Registry Diff / Strategy Signals / Textbook Insights / Atlas Signals / Macrotrend / Member Activity Evidence / Media Mentions / Contract Signals |
 | M-1〜M-3 | `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、最終日判定、17:00 完了 | M-1M-2M-3 |
 | W-1 | `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST (`0 9 * * 6`) | W-1 |
 | H-1 | (MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`、Claude routine 化しない) | 毎時 09:00-21:00 JST | H-1 |
@@ -105,6 +106,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 | D-10 | D-10 Member Activity Evidence | **3系統並走 writer (2026-06-12 まさ確定)**: Claude routine `amd-os-l2-consolidated-evidence` Phase J / Mac Codex automation `amd-os-l2-2` / MMO Windows Task Scheduler launcher `amd-os-l2-member-weekly-activities` | 全系統が PWA route `cron/member-weekly-activities?interactive=1` を叩く。`member_google_oauth_tokens` の per-member refresh_token で全メンバー本人として Gmail/Calendar を読む。窓単位 delete-then-upsert + UNIQUE 制約で複数 writer でも重複行はできない | daily 08:00 / 18:30 / 19:30 JST | `member_activities(source='member_weekly')`、Dashboard / MyPage read evidence |
 | D-11 | D-11 Media Mentions | Claude routine target | `project_media_mentions` / `news_mention` notifications | daily (target) | `project_media_mentions`、通知候補 |
 | D-12 | freee Transaction Actuals | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` | freee取引履歴 → `company_actual_monthly` / raw signals | daily | freee同期、月次試算表実績値 |
+| D-13 | D-13 Contract Signals | Claude routine target + PWA route | `amd-os-l2-consolidated-evidence` Phase K-B / `POST /api/contracts/extract-l2` | daily 08:00 JST | `contract_signals`、`contracts`、`contract_documents`、`l2_notifications(l2_kind='contract_signals')` |
 | W-1 | W-1 VC News / Funding Signals | Claude routine target / 暫定 Codex automation | `amd-os-l2-weekly-vc-funding-signals` / 暫定 `amd-os-l2-vc-news-funding-signals` | weekly Saturday 09:00 JST | `vc_news`、`vcs`、`vc_funds`、`vc_investments`、review outbox |
 | M-3 | M-3 Management Signal | (Claude routine target、新規) | M routine Phase C inline | 月末最終日 | `company_management_signal_reviews`、`/management-score` |
 | control | 先手力 heartbeat | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox`、`project_commander_threads`、`proactive_loop_tool.mjs heartbeat` |

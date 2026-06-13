@@ -45,7 +45,8 @@ description: AMD OS daily L2 evidence 抽出を 1 本の claude routine に束�
 | D-8 | Atlas Signals | `atlas_signals` | (個別 SKILL なし。本 SKILL Phase H に inline) |
 | D-9 | Macrotrend Evidence / Index | `observation_log` / `macro_index_log` | (個別 SKILL なし。本 SKILL Phase I に inline) |
 | D-10 | Member Activity Evidence | `member_activities` | (個別 SKILL なし。本 SKILL Phase J に inline) |
-| D-11 | Media Mentions | `project_media_mentions` / `news_mention` notifications | (個別 SKILL なし。本 SKILL Phase K に inline) |
+| D-11 | Media Mentions | `project_media_mentions` / `news_mention` notifications | (個別 SKILL なし。本 SKILL Phase K-A に inline) |
+| D-13 | Contract Signals | `contract_signals` / `contracts` / `contract_documents` / `l2_notifications(l2_kind='contract_signals')` | (個別 SKILL なし。本 SKILL Phase K-B に inline + `POST /api/contracts/extract-l2`) |
 
 ## 【絶対】 動く前に必ず Read
 
@@ -174,16 +175,20 @@ Phase J: D-10 Member Activity Evidence 抽出
 - 既存週次行は delete してから upsert (= 当日断面で再構築)。
 
 ═══════════════════════════════════════════════════
-Phase K: D-11 Media Mentions 抽出
+Phase K-A: D-11 Media Mentions 抽出
 ═══════════════════════════════════════════════════
 
 Media Mentions は D-11 の正本。`news_mention` notification label と `project_media_mentions` を確認し、PJ / AMD / member に関係する公開メディア掲載を daily で候補化する。
-
-## Phase K: D-13 Contract Signals
-
-Contract Signals は新規 routine を作らず、この existing daily consolidated routine の Phase K に同居させる。`POST /api/contracts/extract-l2` を呼び、`contract_signals`, `contracts`, `contract_documents`, `l2_notifications(l2_kind='contract_signals')` の reviewable evidence を確認する。Slack 実送信はしない。
 - 入力: 公開web / 信頼できるメディア / 既存 `project_media_mentions` / `news_mention` notifications。
 - 出力: media mention candidate + notification。全文保存は禁止し、source URL / title / date / short snippet / hash / confidence を残す。
+
+═══════════════════════════════════════════════════
+Phase K-B: D-13 Contract Signals 抽出
+═══════════════════════════════════════════════════
+
+Contract Signals は D-13 の正本。新規 routine は作らず、この existing daily consolidated routine の Phase K-B に同居させる。`POST /api/contracts/extract-l2` を呼び、`contract_signals`, `contracts`, `contract_documents`, `l2_notifications(l2_kind='contract_signals')` の reviewable evidence を確認する。Slack 実送信はしない。
+- 入力: 5生データ由来の `source_cache` と `project_meeting_summaries`。source kind は Gmail / Slack / Notion / Drive / Calendar を契約予兆用に分類し、契約書送付、押印依頼、修正案、クラウドサイン、法務TODO、契約締結MTGなどの signal を見る。
+- 出力: contract signal candidate、必要な場合の契約予定枠、契約書 version / signed 版 metadata、`l2_notifications(l2_kind='contract_signals')`。raw本文やファイル本体はDB保存しない。
 - finance ops / freee 実績取込は D-12 であり、本 Phase に混ぜない。
 
 ═══════════════════════════════════════════════════
@@ -205,6 +210,7 @@ Phase L: run summary
   - D-9 Macrotrend observation: <N> observation_log rows (index 集計は PWA non-LLM cron)
   - D-10 Member Activity Evidence: <N> activities
   - D-11 Media Mentions: <N> candidates
+  - D-13 Contract Signals: <N> signals, <M> planned contracts, <R> review_required
   経過時間: <minutes> 分
 ```
 
@@ -212,7 +218,7 @@ Phase L: run summary
 【禁止】
 ═══════════════════════════════════════════════════
 
-- ハードコード prompt fallback (= 必ず DB `llm_prompts.<key>` 取得、空なら skip + state.message 記録。inline prompt の D-8/D-9/D-10/D-11 は既存 route 実装に準拠)。
+- ハードコード prompt fallback (= 必ず DB `llm_prompts.<key>` 取得、空なら skip + state.message 記録。inline prompt / route の D-8/D-9/D-10/D-11/D-13 は既存 route 実装に準拠)。
 - R313 / PWA report route / Anthropic 従量課金 API を定期抽出に使う。
 - 列名想像 (= `pwa/design/db_schema.md` で grep してから upsert)。
 - `member_knowledge` に存在しない列を書く。

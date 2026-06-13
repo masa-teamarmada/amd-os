@@ -66,7 +66,7 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md`](.
 | **M-3** | M-3 | Management Monthly Signal | Claude routine `amd-os-l2-monthend-evidence` | 差分なし: Claude UIでACTIVE / next run確認済み。M-1/M-2抽出後に実行 |
 | **W-1** | W-1 | VC News / Funding Signals | Claude routine `amd-os-l2-weekly-vc-funding-signals` | 差分なし: Claude UIでACTIVE / next run確認済み。MMO暫定automationはPAUSED |
 | **H-1** | H-1 | MTGサマリ + MTGフロー | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 復旧済み: 2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST。Codex Desktop UI automation storeは未登録/旧DB不使用のため、UI上の`amd-os-l6-meeting-flow`ではなくLive launcherを実稼働証跡にする |
-| **D-13** | daily | Contract Signals | Claude routine `amd-os-l2-consolidated-evidence` Phase K + PWA route `POST /api/contracts/extract-l2` | 新規 routine は作らず existing daily consolidated routine に同居 |
+| **D-13** | daily | Contract Signals | Claude routine `amd-os-l2-consolidated-evidence` Phase K-B + PWA route `POST /api/contracts/extract-l2` | 新規 routine は作らず existing daily consolidated routine に同居 |
 
 ---
 
@@ -252,7 +252,7 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 | **W-1** | W-1 **VC News / Funding Signals** | VC・資金調達・投資家動向 | `vc_news` / funding signal tables | Claude routine `amd-os-l2-weekly-vc-funding-signals` 対象 |
 | **M-3** | M-3 **Management Monthly Signal Evaluation** | Management予実表から月末に作る経営シグナル評価 | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` 対象 (= M 群、月末最終日 17:00 完了) |
 | **D-12** | **Finance Ops Evidence / freee Transaction Actuals** | finance ops根拠とfreee取引履歴を月次試算表の実績値へ入れる非LLM同期 | finance ops tables / freee transactions / `company_actual_monthly` | PWA non-LLM daily cron / freee sync / admin review。Claude routine / Codex automation に混ぜない |
-| **D-13** | **Contract Signals** | 契約締結予兆、契約予定枠、契約書version/signed版metadata | `contract_signals`, `contracts`, `contract_documents` | Claude routine `amd-os-l2-consolidated-evidence` Phase K 対象。新規 routine は作らない |
+| **D-13** | **Contract Signals** | 契約締結予兆、契約予定枠、契約書version/signed版metadata | `contract_signals`, `contracts`, `contract_documents` | Claude routine `amd-os-l2-consolidated-evidence` Phase K-B 対象。新規 routine は作らない |
 
 **重要**: L2番号は current truth として、D-10 = Member Activity Evidence、D-11 = Media Mentions、D-12 = Finance Ops Evidence / freee Transaction Actuals、W-1 = VC News / Funding Signals、D-13 = Contract Signals。過去の「D-8 = member weekly」や「D-11 = Finance Ops Evidence」記述は誤り。cadence 束ねの M / W / D / H 体系は上表と本章冒頭「cadence ベース束ね設計」を正本にする。
 

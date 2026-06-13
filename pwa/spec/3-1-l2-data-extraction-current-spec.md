@@ -56,9 +56,9 @@ cadence ベースで束ねた新ナンバリング: **D = daily** (Claude routin
 | **D-8** | Atlas Signals | `atlas_signals` / derived `atlas_stories` / `atlas_reports` | Claude routine `amd-os-l2-consolidated-evidence` | `POST /api/atlas/signals-ingest` → upsert。派生 stories/reports は別系統 |
 | **D-9** | Macrotrend Evidence / Index | `observation_log` / `macro_index_log` / derived `macro_lane_weights` / `triple_helix_state_log` | Claude routine `amd-os-l2-consolidated-evidence` + PWA non-LLM cron `macro-aggregate-indicators` | observation_log upsert + index 集計 |
 | **D-10** | Member Activity Evidence | `member_activities` | Claude routine `amd-os-l2-consolidated-evidence` | Dashboard / MyPage / admin |
-| **D-11** | Media Mentions | `project_media_mentions` / `news_mention` notifications | Claude routine `amd-os-l2-consolidated-evidence` | media mention candidate + notification |
+| **D-11** | Media Mentions | `project_media_mentions` / `news_mention` notifications | Claude routine `amd-os-l2-consolidated-evidence` Phase K-A | media mention candidate + notification |
 | **D-12** | Finance Ops Evidence / freee Transaction Actuals | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` / finance ops tables | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` + admin review | freee取引履歴 → 月次試算表の実績値 |
-| **D-13** | Contract Signals | `contract_signals` / `contracts` / `contract_documents` | Claude routine `amd-os-l2-consolidated-evidence` Phase K + PWA route `POST /api/contracts/extract-l2` | 契約管理 `/admin/contracts`、l2_notifications(l2_kind='contract_signals') |
+| **D-13** | Contract Signals | `contract_signals` / `contracts` / `contract_documents` | Claude routine `amd-os-l2-consolidated-evidence` Phase K-B + PWA route `POST /api/contracts/extract-l2` | 契約管理 `/admin/contracts`、l2_notifications(l2_kind='contract_signals') |
 | **M-1** | Monthly Reports | `monthly_reports` | Claude routine `amd-os-l2-monthend-evidence` | monthly reports outbox → applier |
 | **M-2** | XRL Evidence | `project_xrl_evidence` / `project_founding_members` | Claude routine `amd-os-l2-monthend-evidence` | M-1後に抽出。candidate → confirmed |
 | **M-3** | Management Monthly Signal | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` | M-1 / M-2後に抽出。18:00 MTG 前に出揃わせる |
