@@ -76,6 +76,8 @@ export type ContractNudgeCandidate = {
 const CONTRACT_TERMS = [
   "契約",
   "契約書",
+  "契約更新",
+  "契約延長",
   "締結",
   "押印",
   "署名",
@@ -106,6 +108,34 @@ const CONTRACT_TERMS = [
   "redline",
 ];
 
+const EXPLICIT_CONTRACT_TERMS = [
+  "契約書",
+  "契約更新",
+  "契約延長",
+  "NDA",
+  "秘密保持",
+  "秘密保持契約",
+  "業務委託",
+  "委託契約",
+  "共同研究契約",
+  "MOU",
+  "覚書",
+  "発注書",
+  "注文書",
+  "SOW",
+  "DocuSign",
+  "クラウドサイン",
+  "電子署名",
+  "リーガルチェック",
+  "法務確認",
+  "修正案",
+  "赤入れ",
+  "redline",
+  "please sign",
+  "signature requested",
+  "final version",
+];
+
 const STRONG_ACTION_TERMS = [
   "押印",
   "署名",
@@ -115,6 +145,11 @@ const STRONG_ACTION_TERMS = [
   "締結",
   "締結予定",
   "契約締結",
+  "契約更新",
+  "契約延長",
+  "送付",
+  "受領",
+  "確認依頼",
   "最終版",
   "修正案",
   "赤入れ",
@@ -125,6 +160,18 @@ const STRONG_ACTION_TERMS = [
   "signature requested",
   "final version",
   "redline",
+];
+
+const GENERIC_MEETING_TITLE_TERMS = [
+  "mtg",
+  "meeting",
+  "定例",
+  "キックオフ",
+  "取締役会",
+  "会議",
+  "打合せ",
+  "面談",
+  "壁打ち",
 ];
 
 const CONTRACT_TYPE_TERMS: Array<{ type: string; terms: string[] }> = [
@@ -165,19 +212,34 @@ function inferSignalType(text: string) {
   return hit?.type ?? "contract";
 }
 
+function isGenericMeetingTitle(title: string) {
+  return GENERIC_MEETING_TITLE_TERMS.some((term) => hasTerm(title, term));
+}
+
 export function buildContractSignalCandidate(evidence: ContractSourceEvidence): ContractSignalCandidate | null {
   const combined = `${evidence.title}\n${evidence.snippet}`;
   const detectedTerms = unique(CONTRACT_TERMS.filter((term) => hasTerm(combined, term)));
-  if (detectedTerms.length === 0) return null;
+  const explicitHits = EXPLICIT_CONTRACT_TERMS.filter((term) => hasTerm(combined, term)).length;
+  if (detectedTerms.length === 0 || explicitHits === 0) return null;
 
   const strongHits = STRONG_ACTION_TERMS.filter((term) => hasTerm(combined, term)).length;
   const titleHits = CONTRACT_TERMS.filter((term) => hasTerm(evidence.title, term)).length;
+  const titleExplicitHits = EXPLICIT_CONTRACT_TERMS.filter((term) => hasTerm(evidence.title, term)).length;
+  const genericMeetingTitle = evidence.sourceTable === "project_meeting_summaries" && isGenericMeetingTitle(evidence.title);
+  const sourceCacheDocument = evidence.sourceTable === "source_cache" && ["gmail", "drive"].includes(evidence.sourceKind);
+  const meetingTitleCanCreate = evidence.sourceTable === "project_meeting_summaries"
+    && titleExplicitHits > 0
+    && !genericMeetingTitle;
   const sourceBoost = evidence.sourceKind === "drive" || evidence.sourceKind === "gmail" ? 0.08 : 0;
   const confidence = Math.min(
     0.97,
-    0.34 + detectedTerms.length * 0.055 + strongHits * 0.12 + titleHits * 0.08 + sourceBoost,
+    0.28 + detectedTerms.length * 0.035 + explicitHits * 0.055 + strongHits * 0.1 + titleHits * 0.06 + sourceBoost,
   );
-  const reviewRequired = confidence < 0.72 || strongHits === 0;
+  const canCreatePlannedContract = confidence >= 0.82
+    && strongHits > 0
+    && (meetingTitleCanCreate || sourceCacheDocument)
+    && !(genericMeetingTitle && titleExplicitHits === 0);
+  const reviewRequired = !canCreatePlannedContract;
 
   return {
     candidateId: `contract-signal:${evidence.sourceTable}:${evidence.sourceId}:${hashLike(combined)}`,
@@ -194,8 +256,8 @@ export function buildContractSignalCandidate(evidence: ContractSourceEvidence): 
     reviewRequired,
     proposedAction: reviewRequired ? "review_queue" : "create_planned_contract",
     reason: reviewRequired
-      ? "契約語は検出したけど、自動予定枠にするには確度または締結アクション語が不足"
-      : "契約語と締結/修正/署名アクション語が同時に出ているため、予定枠候補にできる",
+      ? "具体的な契約語は検出したが、MTG文脈またはsource種別上、自動予定枠にせずreview queueに止める"
+      : "契約文書/契約種別と署名・押印・更新などのアクションが明示されているため、予定枠候補にできる",
     itemDate: evidence.itemDate,
   };
 }

@@ -170,7 +170,7 @@ export const l2Datasets: L2Dataset[] = [
     id: "contract_signals",
     label: "D-13 契約予兆",
     table: "contract_signals / contracts / contract_documents",
-    source: "Claude routine amd-os-l2-consolidated-evidence Phase K / POST /api/contracts/extract-l2",
+    source: "Claude routine amd-os-l2-consolidated-evidence Phase K-B / POST /api/contracts/extract-l2",
     cadence: "daily 08:00 JST (既存 consolidated routine に同居)",
     purpose: "5生データから契約締結予兆を検知し、候補signalと高確度の契約予定枠を契約管理へ入れる。",
   },

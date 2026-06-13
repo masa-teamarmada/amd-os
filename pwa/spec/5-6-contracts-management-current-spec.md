@@ -55,7 +55,18 @@ status:
 | Drive | `source_cache.source like 'drive%'` + MTGカードのDrive metadata | 契約書ドラフト、赤入れ、PDF/Docx |
 | Calendar | `project_meeting_summaries` / Calendar由来MTGカード | 契約締結MTG、法務確認MTG、押印期限 |
 
-判定語は `契約書`、`NDA`、`業務委託`、`共同研究契約`、`MOU`、`押印`、`電子署名`、`DocuSign`、`クラウドサイン`、`修正案`、`法務確認`、`redline` など。高確度は「契約語」と「締結/署名/修正/法務アクション語」の同時出現。曖昧な候補は `review_required` として扱う。
+判定語は `契約書`、`NDA`、`業務委託`、`共同研究契約`、`MOU`、`押印`、`電子署名`、`DocuSign`、`クラウドサイン`、`修正案`、`法務確認`、`redline` など。単に `契約` / `締結` が議事録本文に出るだけでは自動予定枠にしない。
+
+## 自動予定枠化の品質境界
+
+`D-13 Contract Signals` は、単に議事録やMTGタイトルの周辺文脈に「契約」「締結」が出るだけでは `contracts` に予定枠を作らない。`contract_signals` の review queue に止める。
+
+自動で `contracts.status='planned'` を作れるのは、次のいずれかに限る。
+
+1. Gmail / Drive などの `source_cache` 由来で、契約書・NDA・業務委託・MOU・発注書・DocuSign / クラウドサインなどの具体的な契約文書語と、押印・署名・送付・受領・修正案・法務確認・更新/延長などのアクション語が同時にある。
+2. `project_meeting_summaries` 由来でも、MTG名そのものに `業務委託契約更新` / `NDA` / `MOU` / `契約書` などの具体的な契約種別・文書名が入っている。
+
+`MTG` / `定例` / `キックオフ` / `取締役会` のような汎用meeting titleで、本文側にだけ契約語が出るものは false positive として review queue に止め、契約リストへ昇格しない。
 
 ## Drive
 
