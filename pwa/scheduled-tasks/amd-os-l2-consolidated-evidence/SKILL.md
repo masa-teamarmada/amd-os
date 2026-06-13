@@ -189,7 +189,7 @@ Phase K-B: D-13 Contract Signals 抽出
 Contract Signals は D-13 の正本。新規 routine は作らず、この existing daily consolidated routine の Phase K-B に同居させる。`POST /api/contracts/extract-l2` を呼び、`contract_signals`, `contracts`, `contract_documents`, `l2_notifications(l2_kind='contract_signals')` の reviewable evidence を確認する。Slack 実送信はしない。
 - 入力: 5生データ由来の `source_cache` と `project_meeting_summaries`。source kind は Gmail / Slack / Notion / Drive / Calendar を契約予兆用に分類し、契約書送付、押印依頼、修正案、クラウドサイン、法務TODO、契約締結MTGなどの signal を見る。
 - 出力: contract signal candidate、必要な場合の契約予定枠、契約書 version / signed 版 metadata、`l2_notifications(l2_kind='contract_signals')`。raw本文やファイル本体はDB保存しない。
-- 品質境界: `MTG` / `定例` / `キックオフ` / `取締役会` などの汎用meeting titleは、本文側に契約語があっても自動予定枠にしない。Gmail / Drive の契約文書系source、またはmeeting title自体に具体的な契約種別・文書名がある場合だけ `contracts` に昇格する。それ以外は `contract_signals.status='candidate'` / `review_required=true`。
+- 品質境界: `MTG` / `定例` / `キックオフ` / `取締役会` などの汎用meeting titleは、本文側に契約語があっても候補化しない。Gmail / Drive の契約文書系source、またはmeeting title自体に具体的な契約種別・文書名がある場合だけ候補化し、十分高確度のものだけ `contracts` に昇格する。
 - finance ops / freee 実績取込は D-12 であり、本 Phase に混ぜない。
 
 ═══════════════════════════════════════════════════

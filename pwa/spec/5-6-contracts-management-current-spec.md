@@ -66,7 +66,7 @@ status:
 1. Gmail / Drive などの `source_cache` 由来で、契約書・NDA・業務委託・MOU・発注書・DocuSign / クラウドサインなどの具体的な契約文書語と、押印・署名・送付・受領・修正案・法務確認・更新/延長などのアクション語が同時にある。
 2. `project_meeting_summaries` 由来でも、MTG名そのものに `業務委託契約更新` / `NDA` / `MOU` / `契約書` などの具体的な契約種別・文書名が入っている。
 
-`MTG` / `定例` / `キックオフ` / `取締役会` のような汎用meeting titleで、本文側にだけ契約語が出るものは false positive として review queue に止め、契約リストへ昇格しない。
+`MTG` / `定例` / `キックオフ` / `取締役会` のような汎用meeting titleで、本文側にだけ契約語が出るものは false positive として候補化しない。meeting summary 由来は title 自体に具体的な契約種別・文書名があるものだけ候補化する。
 
 ## Drive
 

@@ -220,12 +220,13 @@ export function buildContractSignalCandidate(evidence: ContractSourceEvidence): 
   const combined = `${evidence.title}\n${evidence.snippet}`;
   const detectedTerms = unique(CONTRACT_TERMS.filter((term) => hasTerm(combined, term)));
   const explicitHits = EXPLICIT_CONTRACT_TERMS.filter((term) => hasTerm(combined, term)).length;
+  const titleExplicitHits = EXPLICIT_CONTRACT_TERMS.filter((term) => hasTerm(evidence.title, term)).length;
+  const genericMeetingTitle = evidence.sourceTable === "project_meeting_summaries" && isGenericMeetingTitle(evidence.title);
   if (detectedTerms.length === 0 || explicitHits === 0) return null;
+  if (evidence.sourceTable === "project_meeting_summaries" && titleExplicitHits === 0) return null;
 
   const strongHits = STRONG_ACTION_TERMS.filter((term) => hasTerm(combined, term)).length;
   const titleHits = CONTRACT_TERMS.filter((term) => hasTerm(evidence.title, term)).length;
-  const titleExplicitHits = EXPLICIT_CONTRACT_TERMS.filter((term) => hasTerm(evidence.title, term)).length;
-  const genericMeetingTitle = evidence.sourceTable === "project_meeting_summaries" && isGenericMeetingTitle(evidence.title);
   const sourceCacheDocument = evidence.sourceTable === "source_cache" && ["gmail", "drive"].includes(evidence.sourceKind);
   const meetingTitleCanCreate = evidence.sourceTable === "project_meeting_summaries"
     && titleExplicitHits > 0
