@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">モデルの進化系譜 — 三世代の年表</title>
+  <desc id="d">第1世代の統合 readiness から、第2世代の P×R×S、第3世代の戦略余力動学つきへと、左から右へ「測れていないもの」を埋めながら進化してきた三世代の系譜を年表型で示す図。</desc>
+  <rect width="880" height="470" fill="#ffffff"/>
+
+  <!-- 見出し -->
+  <text x="40" y="42" font-size="16" font-weight="700" fill="#1a2a52">モデルの進化 — 「測れていないもの」を埋めてきた歴史</text>
+  <text x="40" y="64" font-size="12" fill="#555">各世代は、過去ケースへの当てはめで見つかった欠落を埋める形で拡張された</text>
+
+  <defs>
+    <marker id="arrG" markerWidth="12" markerHeight="12" refX="8" refY="3.6" orient="auto">
+      <path d="M0,0 L9,3.6 L0,7.2 Z" fill="#e07a5f"/>
+    </marker>
+  </defs>
+
+  <!-- 時間軸 -->
+  <line x1="60" y1="118" x2="840" y2="118" stroke="#444" stroke-width="1.4"/>
+  <text x="60" y="106" font-size="11" fill="#888">時間 →</text>
+
+  <!-- 世代をつなぐ矢印(箱の間) -->
+  <line x1="290" y1="246" x2="324" y2="246" stroke="#e07a5f" stroke-width="2.4" marker-end="url(#arrG)"/>
+  <line x1="562" y1="246" x2="596" y2="246" stroke="#e07a5f" stroke-width="2.4" marker-end="url(#arrG)"/>
+
+  <!-- ===== 第1世代 ===== -->
+  <circle cx="160" cy="118" r="6" fill="#2a4d8f"/>
+  <text x="160" y="98" font-size="12" font-weight="700" fill="#2a4d8f" text-anchor="middle">第1世代</text>
+  <rect x="60" y="144" width="230" height="216" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.8"/>
+  <text x="175" y="170" font-size="13.5" font-weight="700" fill="#1a2a52" text-anchor="middle">統合 readiness</text>
+  <text x="175" y="188" font-size="11.5" fill="#555" text-anchor="middle">準備度を 7 軸で一つの数字に</text>
+  <line x1="76" y1="202" x2="274" y2="202" stroke="#e2e2e8" stroke-width="1"/>
+  <text x="76" y="224" font-size="11.5" font-weight="700" fill="#3a7a4a">測れたもの</text>
+  <text x="76" y="244" font-size="11.5" fill="#555">準備の整い度</text>
+  <text x="76" y="262" font-size="11.5" fill="#555">(技術・事業・制度・社会・人材)</text>
+  <text x="76" y="290" font-size="11.5" font-weight="700" fill="#c0563c">欠けていたもの</text>
+  <text x="76" y="310" font-size="11.5" fill="#555">・天井 (狙う市場の大きさ)</text>
+  <text x="76" y="328" font-size="11.5" fill="#555">・生存 (資金切れを測れない)</text>
+  <text x="76" y="350" font-size="11" fill="#888">到達確率が未分化</text>
+
+  <!-- ===== 第2世代 ===== -->
+  <circle cx="432" cy="118" r="6" fill="#2a4d8f"/>
+  <text x="432" y="98" font-size="12" font-weight="700" fill="#2a4d8f" text-anchor="middle">第2世代</text>
+  <rect x="332" y="144" width="230" height="216" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.8"/>
+  <text x="447" y="170" font-size="13.5" font-weight="700" fill="#1a2a52" text-anchor="middle">P × R × S</text>
+  <text x="447" y="188" font-size="11.5" fill="#555" text-anchor="middle">天井と生存を独立の因子に</text>
+  <line x1="348" y1="202" x2="546" y2="202" stroke="#e2e2e8" stroke-width="1"/>
+  <text x="348" y="224" font-size="11.5" font-weight="700" fill="#3a7a4a">足したもの</text>
+  <text x="348" y="244" font-size="11.5" fill="#555">・天井 P (賞金の大きさ)</text>
+  <text x="348" y="262" font-size="11.5" fill="#555">・生存 S (R から切り離す)</text>
+  <text x="348" y="280" font-size="11" fill="#888">DCF は実質 P だけと整理</text>
+  <text x="348" y="308" font-size="11.5" font-weight="700" fill="#c0563c">欠けていたもの</text>
+  <text x="348" y="328" font-size="11.5" fill="#555">・S の時間発展</text>
+  <text x="348" y="348" font-size="11" fill="#888">S は順序指標どまり (確率でない)</text>
+
+  <!-- ===== 第3世代 ===== -->
+  <circle cx="704" cy="118" r="6" fill="#2a4d8f"/>
+  <text x="704" y="98" font-size="12" font-weight="700" fill="#2a4d8f" text-anchor="middle">第3世代 (現行)</text>
+  <rect x="604" y="144" width="236" height="216" rx="8" fill="#eef7f0" stroke="#3a7a4a" stroke-width="2"/>
+  <text x="722" y="170" font-size="13" font-weight="700" fill="#2c6038" text-anchor="middle">P × R × S × 戦略余力動学</text>
+  <text x="722" y="188" font-size="11.5" fill="#555" text-anchor="middle">生存に時間発展を与える</text>
+  <line x1="620" y1="202" x2="824" y2="202" stroke="#e2e2e8" stroke-width="1"/>
+  <text x="620" y="224" font-size="11.5" font-weight="700" fill="#3a7a4a">足したもの</text>
+  <text x="620" y="244" font-size="11.5" fill="#555">・生存の動学 (x, y 平面の軌跡)</text>
+  <text x="620" y="262" font-size="11.5" fill="#555">・y=0 ライン (余力切れ)</text>
+  <text x="620" y="280" font-size="11.5" fill="#555">・初到達確率 S = Pr(τx &lt; τy)</text>
+  <text x="620" y="306" font-size="11.5" font-weight="700" fill="#2a4d8f">意味が変わった</text>
+  <text x="620" y="326" font-size="11.5" fill="#555">指標の積 → 校正できる確率へ</text>
+  <text x="620" y="348" font-size="11" fill="#888">まだ見つかっていない欠落もある</text>
+
+  <!-- 矢印下の注記 -->
+  <text x="307" y="278" font-size="10.5" fill="#c0563c" font-style="italic" text-anchor="middle">欠落</text>
+  <text x="307" y="293" font-size="10.5" fill="#c0563c" font-style="italic" text-anchor="middle">発覚</text>
+  <text x="579" y="278" font-size="10.5" fill="#c0563c" font-style="italic" text-anchor="middle">欠落</text>
+  <text x="579" y="293" font-size="10.5" fill="#c0563c" font-style="italic" text-anchor="middle">発覚</text>
+
+  <!-- 下部・方法論 -->
+  <text x="40" y="406" font-size="12" font-weight="700" fill="#1a2a52">一貫した方法論</text>
+  <text x="40" y="428" font-size="12" fill="#555">過去の実ケースに当てはめ → 現場の実感と食い違う場所を探し → そこに「測れていないもの」を見つけて埋める。</text>
+  <text x="40" y="448" font-size="11.5" fill="#888">モデルは完成品として信じるものではなく、欠落の発見によって育てていくもの。</text>
+</svg>

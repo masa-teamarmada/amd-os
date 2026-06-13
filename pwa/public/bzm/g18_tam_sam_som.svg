@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 520" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">TAM・SAM・SOM の同心円と証拠の質の階段</title>
+  <desc id="d">左の同心円は外側ほど市場が大きいが証拠が薄く、内側ほど市場は小さいが証拠が濃いという反比例を示す。右の階段は P を市場規模の大きさではなく証拠の質で刻む三つの物差しを段に積んだもの。</desc>
+  <rect width="820" height="520" fill="#ffffff"/>
+
+  <defs>
+    <marker id="arrG" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#e07a5f"/>
+    </marker>
+  </defs>
+
+  <!-- ===== 左: 同心円 ===== -->
+  <text x="40" y="44" font-size="15" font-weight="700" fill="#2a4d8f">同心円 — 大きさと証拠は反比例する</text>
+
+  <!-- TAM 外円 -->
+  <circle cx="215" cy="270" r="160" fill="#eef2fb" stroke="#5b73b0" stroke-width="1.6"/>
+  <!-- SAM 中円 -->
+  <circle cx="215" cy="298" r="108" fill="#dde6f7" stroke="#3a7a4a" stroke-width="1.6"/>
+  <!-- SOM 内円 -->
+  <circle cx="215" cy="326" r="56" fill="#c9d6f0" stroke="#2a4d8f" stroke-width="2"/>
+
+  <!-- ラベル (円と重ねず帯状領域に) -->
+  <text x="215" y="135" font-size="14" font-weight="700" fill="#2a4d8f" text-anchor="middle">TAM</text>
+  <text x="215" y="153" font-size="10.5" fill="#555" text-anchor="middle">狙う市場の総規模 (大・証拠薄)</text>
+
+  <text x="215" y="218" font-size="13" font-weight="700" fill="#2c6038" text-anchor="middle">SAM</text>
+  <text x="215" y="234" font-size="10.5" fill="#555" text-anchor="middle">届きうる範囲</text>
+
+  <text x="215" y="322" font-size="12.5" font-weight="700" fill="#1a2a52" text-anchor="middle">SOM</text>
+  <text x="215" y="338" font-size="10" fill="#1a2a52" text-anchor="middle">現実に取れる (小・証拠濃)</text>
+
+  <!-- 1兆円スライドの注記 (最外周を指す) -->
+  <line x1="372" y1="180" x2="320" y2="200" stroke="#e07a5f" stroke-width="1.8" marker-end="url(#arrG)"/>
+  <text x="378" y="170" font-size="11" fill="#c0563c">「1兆円」スライドは</text>
+  <text x="378" y="186" font-size="11" fill="#c0563c">最外周だけを指していた</text>
+
+  <!-- 反比例の軸注記 -->
+  <text x="40" y="438" font-size="11" fill="#888">外 → 内: 数字は小さくなるが、天井の証拠は濃くなる</text>
+
+  <!-- ===== 右: 証拠の質の階段 ===== -->
+  <text x="470" y="44" font-size="15" font-weight="700" fill="#3a7a4a">証拠の質の階段 — P は大きさでなく質で刻む</text>
+
+  <!-- 段3 (上・最強) -->
+  <rect x="560" y="120" width="240" height="64" rx="7" fill="#eef7f0" stroke="#2c6038" stroke-width="1.8"/>
+  <text x="680" y="146" font-size="12.5" font-weight="700" fill="#2c6038" text-anchor="middle">天井に至る経路の具体性</text>
+  <text x="680" y="166" font-size="10.5" fill="#555" text-anchor="middle">最初の用途・顧客・規制が特定</text>
+
+  <!-- 段2 (中) -->
+  <rect x="520" y="204" width="240" height="64" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.6"/>
+  <text x="640" y="230" font-size="12.5" font-weight="700" fill="#2c6038" text-anchor="middle">スケール時のユニットエコノミクス</text>
+  <text x="640" y="250" font-size="10.5" fill="#555" text-anchor="middle">量産コスト下限と支払上限の根拠</text>
+
+  <!-- 段1 (下・土台) -->
+  <rect x="480" y="288" width="240" height="64" rx="7" fill="#eef7f0" stroke="#5b73b0" stroke-width="1.6"/>
+  <text x="600" y="314" font-size="12.5" font-weight="700" fill="#2c6038" text-anchor="middle">第三者データの裏付け</text>
+  <text x="600" y="334" font-size="10.5" fill="#555" text-anchor="middle">トップダウンとボトムアップが同桁</text>
+
+  <!-- 上り矢印 (証拠が積み上がるほど天井の主張が強い) -->
+  <line x1="448" y1="350" x2="448" y2="128" stroke="#e07a5f" stroke-width="2.4" marker-end="url(#arrG)"/>
+  <text x="438" y="430" font-size="11" fill="#c0563c" transform="rotate(-90 438 430)">証拠を積むほど天井の主張が強くなる</text>
+
+  <!-- 弱い主張の注記 -->
+  <text x="480" y="392" font-size="11" fill="#888">弱い主張: 「あらゆる産業に応用可能」「量産すれば下がるはず」</text>
+  <text x="480" y="412" font-size="11" fill="#555">強い主張: 三つの物差しすべてに証拠がある</text>
+</svg>

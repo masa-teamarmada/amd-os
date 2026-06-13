@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 520" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">R と y の線引き — 特許の二つの顔</title>
+  <desc id="d">同じ一件の特許が左右に分解される対比図。左の到達度 R 側は「登録という達成」を積み上がる階段で描き時間が経っても減らないことを示し、右の戦略余力 y 側は「残存する独占期間と抑止力」を時間とともに減るゲージで描く。</desc>
+  <rect width="820" height="520" fill="#ffffff"/>
+
+  <text x="410" y="40" font-size="16" font-weight="700" fill="#1a2a52" text-anchor="middle">同じ一件の特許が、二つの顔を持つ</text>
+
+  <!-- 中央の起点: 一件の特許 -->
+  <rect x="330" y="58" width="160" height="46" rx="8" fill="#fff" stroke="#444" stroke-width="1.8"/>
+  <text x="410" y="86" font-size="14" font-weight="700" fill="#1a2a52" text-anchor="middle">一件の特許</text>
+
+  <!-- 分岐矢印 -->
+  <defs>
+    <marker id="arr23" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#e07a5f"/>
+    </marker>
+  </defs>
+  <line x1="380" y1="106" x2="220" y2="146" stroke="#e07a5f" stroke-width="2" marker-end="url(#arr23)"/>
+  <line x1="440" y1="106" x2="600" y2="146" stroke="#e07a5f" stroke-width="2" marker-end="url(#arr23)"/>
+
+  <!-- 中央の区切り -->
+  <line x1="410" y1="120" x2="410" y2="490" stroke="#e2e2e8" stroke-width="1.6" stroke-dasharray="5 5"/>
+
+  <!-- ===== 左: R 側 ===== -->
+  <rect x="30" y="150" width="350" height="40" rx="7" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.8"/>
+  <text x="205" y="176" font-size="14" font-weight="700" fill="#1a2a52" text-anchor="middle">R の顔 — 不可逆な達成</text>
+
+  <text x="205" y="214" font-size="12" fill="#555" text-anchor="middle">「登録という達成」 = 一度獲得したら消えない</text>
+
+  <!-- 積み上がる階段 (右肩上がり、減らない) -->
+  <g stroke="#2a4d8f" stroke-width="1.6" fill="#eef2fb">
+    <rect x="60"  y="420" width="60" height="30"/>
+    <rect x="120" y="390" width="60" height="60"/>
+    <rect x="180" y="360" width="60" height="90"/>
+    <rect x="240" y="330" width="60" height="120"/>
+    <rect x="300" y="300" width="60" height="150"/>
+  </g>
+  <!-- 階段を上るライン -->
+  <polyline points="60,420 120,390 180,360 240,330 300,300" fill="none" stroke="#2a4d8f" stroke-width="2.4"/>
+  <text x="205" y="470" font-size="11.5" fill="#2a4d8f" text-anchor="middle">時間 →（経っても減らない）</text>
+  <text x="338" y="296" font-size="11" fill="#2a4d8f" text-anchor="middle" transform="rotate(-90 338 296)">達成のストック</text>
+
+  <!-- ===== 右: y 側 ===== -->
+  <rect x="440" y="150" width="350" height="40" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="615" y="176" font-size="14" font-weight="700" fill="#2c6038" text-anchor="middle">y の顔 — 使えば減る資源</text>
+
+  <text x="615" y="214" font-size="12" fill="#555" text-anchor="middle">「残存する独占期間と抑止力」 = 年々目減りする</text>
+
+  <!-- 減っていくゲージ (右肩下がり) -->
+  <!-- ゲージ枠 -->
+  <rect x="470" y="300" width="290" height="150" rx="6" fill="#fff" stroke="#3a7a4a" stroke-width="1.4"/>
+  <!-- 残存をあらわす塗り (左が満杯、右に向かい減る三角) -->
+  <polygon points="470,300 470,450 760,450" fill="#eef7f0"/>
+  <polyline points="470,300 760,450" fill="none" stroke="#3a7a4a" stroke-width="2.4"/>
+  <!-- 迂回設計による段差を点線で -->
+  <line x1="615" y1="375" x2="615" y2="450" stroke="#c0563c" stroke-width="1.4" stroke-dasharray="4 3"/>
+  <text x="618" y="345" font-size="10.5" fill="#c0563c">競合の迂回設計でも目減り</text>
+  <text x="615" y="470" font-size="11.5" fill="#3a7a4a" text-anchor="middle">時間 →（残存期間が尽きていく）</text>
+  <text x="492" y="324" font-size="11" fill="#3a7a4a">抑止力</text>
+
+  <!-- 下段キャプション -->
+  <line x1="30" y1="486" x2="790" y2="486" stroke="#e2e2e8" stroke-width="1.4"/>
+  <text x="410" y="506" font-size="12.5" font-weight="700" fill="#c0563c" text-anchor="middle">存在は R、残存期間と抑止力は y — 分けて数えれば「資産がある」の自己欺瞞を防げる</text>
+</svg>

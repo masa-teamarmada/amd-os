@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 600" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+<title id="t">失敗記録の粒度比較図</title>
+<desc id="d">左は企業が反応しなかったという一行の粗い記録から、もっと頑張る・諦めるの二本しか矢印が出ない様子。右は同じ失敗が四つの原因に分解され、それぞれが正反対の方向を向く異なる次の一手へ枝分かれする様子を対比で示す。</desc>
+<rect width="920" height="600" fill="#ffffff"/>
+
+<text x="40" y="38" font-size="17" font-weight="700" fill="#1a2a52">失敗記録の粒度が、次の一手を決める</text>
+
+<defs>
+  <marker id="arrG" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+    <path d="M0,0 L7,3 L0,6 Z" fill="#888"/>
+  </marker>
+  <marker id="arrB" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+    <path d="M0,0 L7,3 L0,6 Z" fill="#3a7a4a"/>
+  </marker>
+</defs>
+
+<!-- 中央分割線 -->
+<line x1="460" y1="60" x2="460" y2="560" stroke="#e2e2e8" stroke-width="1.4" stroke-dasharray="4 4"/>
+
+<!-- 左: 粗い記録 -->
+<text x="230" y="80" font-size="13.5" font-weight="700" fill="#c0563c" text-anchor="middle">粗い記録 — 一行</text>
+
+<rect x="70" y="100" width="320" height="64" rx="8" fill="#fdeee9" stroke="#c0563c" stroke-width="2"/>
+<text x="230" y="138" font-size="13.5" font-weight="700" fill="#c0563c" text-anchor="middle">「企業が反応しなかった」</text>
+
+<!-- 2本の矢印 -->
+<line x1="230" y1="164" x2="150" y2="232" stroke="#888" stroke-width="2" marker-end="url(#arrG)"/>
+<line x1="230" y1="164" x2="310" y2="232" stroke="#888" stroke-width="2" marker-end="url(#arrG)"/>
+
+<rect x="80" y="240" width="140" height="50" rx="7" fill="#f4f4f6" stroke="#888" stroke-width="1.6"/>
+<text x="150" y="270" font-size="12" font-weight="700" fill="#555" text-anchor="middle">もっと頑張る</text>
+<rect x="240" y="240" width="140" height="50" rx="7" fill="#f4f4f6" stroke="#888" stroke-width="1.6"/>
+<text x="310" y="270" font-size="12" font-weight="700" fill="#555" text-anchor="middle">諦める</text>
+
+<text x="230" y="324" font-size="11" fill="#c0563c" text-anchor="middle">どちらも戦略ではない。</text>
+<text x="230" y="342" font-size="11" fill="#555" text-anchor="middle">原因が特定できないと、隙間に人格論が生える。</text>
+
+<!-- 右: 分解した記録 -->
+<text x="690" y="80" font-size="13.5" font-weight="700" fill="#2c6038" text-anchor="middle">分解した記録 — 四つの原因</text>
+
+<rect x="540" y="100" width="320" height="44" rx="8" fill="#eef7f0" stroke="#3a7a4a" stroke-width="2"/>
+<text x="700" y="128" font-size="12.5" font-weight="700" fill="#2c6038" text-anchor="middle">「企業が反応しなかった」を分解</text>
+
+<!-- 4原因 → 4次の一手。原因箱左列 / 一手箱右列 -->
+<!-- 原因箱 x=520 w=170 / 一手箱 x=720 w=180。各行高さ y=160,256,352,448 -->
+
+<!-- 行1 顧客課題が浅い -->
+<rect x="500" y="160" width="180" height="70" rx="7" fill="#eef2fb" stroke="#5b73b0" stroke-width="1.6"/>
+<text x="590" y="184" font-size="11.5" font-weight="700" fill="#2a4d8f" text-anchor="middle">顧客課題が浅かった</text>
+<text x="590" y="202" font-size="9.5" fill="#555" text-anchor="middle">解くほどの困りごとが</text>
+<text x="590" y="217" font-size="9.5" fill="#555" text-anchor="middle">そもそも無かった</text>
+<line x1="680" y1="195" x2="716" y2="195" stroke="#3a7a4a" stroke-width="2" marker-end="url(#arrB)"/>
+<rect x="722" y="166" width="158" height="58" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.6"/>
+<text x="801" y="190" font-size="10.5" fill="#2c6038" text-anchor="middle">用途仮説を作り直す</text>
+<text x="801" y="208" font-size="9.5" fill="#555" text-anchor="middle">別の現場・産業を探す</text>
+
+<!-- 行2 検証条件が重い -->
+<rect x="500" y="256" width="180" height="70" rx="7" fill="#eef2fb" stroke="#5b73b0" stroke-width="1.6"/>
+<text x="590" y="280" font-size="11.5" font-weight="700" fill="#2a4d8f" text-anchor="middle">検証条件が重かった</text>
+<text x="590" y="298" font-size="9.5" fill="#555" text-anchor="middle">実機持込や長期拘束が</text>
+<text x="590" y="313" font-size="9.5" fill="#555" text-anchor="middle">必要で社内を通せず</text>
+<line x1="680" y1="291" x2="716" y2="291" stroke="#3a7a4a" stroke-width="2" marker-end="url(#arrB)"/>
+<rect x="722" y="262" width="158" height="58" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.6"/>
+<text x="801" y="286" font-size="10.5" fill="#2c6038" text-anchor="middle">検証を軽くする</text>
+<text x="801" y="304" font-size="9.5" fill="#555" text-anchor="middle">小さく確かめる設計へ</text>
+
+<!-- 行3 開示が足りない -->
+<rect x="500" y="352" width="180" height="70" rx="7" fill="#eef2fb" stroke="#5b73b0" stroke-width="1.6"/>
+<text x="590" y="376" font-size="11.5" font-weight="700" fill="#2a4d8f" text-anchor="middle">開示が足りなかった</text>
+<text x="590" y="394" font-size="9.5" fill="#555" text-anchor="middle">判断材料を出せず、</text>
+<text x="590" y="409" font-size="9.5" fill="#555" text-anchor="middle">評価のしようがない</text>
+<line x1="680" y1="387" x2="716" y2="387" stroke="#3a7a4a" stroke-width="2" marker-end="url(#arrB)"/>
+<rect x="722" y="358" width="158" height="58" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.6"/>
+<text x="801" y="382" font-size="10.5" fill="#2c6038" text-anchor="middle">開示の設計を見直す</text>
+<text x="801" y="400" font-size="9.5" fill="#555" text-anchor="middle">出願の順番を再確認</text>
+
+<!-- 行4 届く相手が違う -->
+<rect x="500" y="448" width="180" height="70" rx="7" fill="#eef2fb" stroke="#5b73b0" stroke-width="1.6"/>
+<text x="590" y="472" font-size="11.5" font-weight="700" fill="#2a4d8f" text-anchor="middle">届く相手を間違えた</text>
+<text x="590" y="490" font-size="9.5" fill="#555" text-anchor="middle">探索担当止まりで、</text>
+<text x="590" y="505" font-size="9.5" fill="#555" text-anchor="middle">予算権限者に未到達</text>
+<line x1="680" y1="483" x2="716" y2="483" stroke="#3a7a4a" stroke-width="2" marker-end="url(#arrB)"/>
+<rect x="722" y="454" width="158" height="58" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.6"/>
+<text x="801" y="478" font-size="10.5" fill="#2c6038" text-anchor="middle">意思決定の経路を聞く</text>
+<text x="801" y="496" font-size="9.5" fill="#555" text-anchor="middle">同じ会社へ二手目</text>
+
+<!-- 親→4原因の枝分かれ (左の縦トランクから各原因箱の左端へ。箱の上を通さない) -->
+<path d="M540,144 L480,144 L480,195 L500,195" fill="none" stroke="#3a7a4a" stroke-width="1.4" opacity="0.55"/>
+<path d="M480,195 L480,291 L500,291" fill="none" stroke="#3a7a4a" stroke-width="1.4" opacity="0.55"/>
+<path d="M480,291 L480,387 L500,387" fill="none" stroke="#3a7a4a" stroke-width="1.4" opacity="0.55"/>
+<path d="M480,387 L480,483 L500,483" fill="none" stroke="#3a7a4a" stroke-width="1.4" opacity="0.55"/>
+
+<!-- 下部メッセージ -->
+<rect x="40" y="540" width="840" height="44" rx="6" fill="#fbfbfd" stroke="#e2e2e8" stroke-width="1"/>
+<text x="460" y="560" font-size="11.5" fill="#1a2a52" text-anchor="middle" font-weight="700">四つの原因は、次の一手が正反対を向く。粗い記録ではこの分岐が見えない。</text>
+<text x="460" y="578" font-size="11" fill="#555" text-anchor="middle">粒度を上げる型 — 当初の仮説 / 実際の観測 / 見落とした信号 / 修正した問い (四行目だけが案件を離れて再利用できる)</text>
+</svg>

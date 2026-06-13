@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 560" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">苗床レイヤーと案件レイヤーの二層構造</title>
+  <desc id="d">上段の苗床 (機関整備度・加重和・充足率) と下段の個別案件 (統合スコア・乗法) を分け、統合の式が層ごとに違うこと、機関の整備が案件の整いを通じて間接的に効くことを示す概念図。</desc>
+  <rect width="820" height="560" fill="#ffffff"/>
+
+  <defs>
+    <marker id="arrO" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#e07a5f"/>
+    </marker>
+  </defs>
+
+  <!-- ===== 上段: 苗床レイヤー ===== -->
+  <text x="40" y="44" font-size="15" font-weight="700" fill="#2a4d8f">苗床レイヤー — 機関は「補いながら動ける」</text>
+
+  <rect x="40" y="58" width="740" height="150" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="2"/>
+
+  <!-- 統合式 (加重和) -->
+  <text x="410" y="90" font-size="17" font-weight="700" fill="#1a2a52" text-anchor="middle">機関整備度 ＝ Σ wₖ・Aₖ  (加重和)</text>
+  <text x="410" y="112" font-size="11.5" fill="#555" text-anchor="middle">凹んだ軸も残り、欠損が可視化される — 充足率 0〜100%</text>
+
+  <!-- 8軸ミニバー (加重和=凹みが残る) -->
+  <g>
+    <rect x="120" y="138" width="22" height="52" rx="3" fill="#fff" stroke="#5b73b0" stroke-width="1.4"/>
+    <rect x="120" y="150" width="22" height="40" fill="#cdd8f0"/>
+    <rect x="160" y="138" width="22" height="52" rx="3" fill="#fff" stroke="#5b73b0" stroke-width="1.4"/>
+    <rect x="160" y="162" width="22" height="28" fill="#cdd8f0"/>
+    <rect x="200" y="138" width="22" height="52" rx="3" fill="#fff" stroke="#5b73b0" stroke-width="1.4"/>
+    <rect x="200" y="162" width="22" height="28" fill="#cdd8f0"/>
+    <rect x="240" y="138" width="22" height="52" rx="3" fill="#fff" stroke="#e07a5f" stroke-width="1.6"/>
+    <rect x="240" y="176" width="22" height="14" fill="#f2c7bb"/>
+    <rect x="280" y="138" width="22" height="52" rx="3" fill="#fff" stroke="#e07a5f" stroke-width="1.6"/>
+    <rect x="280" y="176" width="22" height="14" fill="#f2c7bb"/>
+    <rect x="320" y="138" width="22" height="52" rx="3" fill="#fff" stroke="#5b73b0" stroke-width="1.4"/>
+    <rect x="320" y="162" width="22" height="28" fill="#cdd8f0"/>
+    <rect x="360" y="138" width="22" height="52" rx="3" fill="#fff" stroke="#5b73b0" stroke-width="1.4"/>
+    <rect x="360" y="150" width="22" height="40" fill="#cdd8f0"/>
+    <rect x="400" y="138" width="22" height="52" rx="3" fill="#fff" stroke="#5b73b0" stroke-width="1.4"/>
+    <rect x="400" y="162" width="22" height="28" fill="#cdd8f0"/>
+  </g>
+  <text x="271" y="204" font-size="11" fill="#c0563c" text-anchor="middle">凹んだ軸 = 整備の優先順位 (掛け算なら潰れて見えない)</text>
+
+  <text x="560" y="150" font-size="12" fill="#2a4d8f" font-weight="700">弱い軸は外部連携で代替可</text>
+  <text x="560" y="170" font-size="11.5" fill="#555">一つ欠けても死なない。</text>
+  <text x="560" y="186" font-size="11.5" fill="#555">目的は判定でなく欠損の可視化。</text>
+
+  <!-- ===== 中央の因果矢印 ===== -->
+  <line x1="410" y1="210" x2="410" y2="346" stroke="#e07a5f" stroke-width="2.4" marker-end="url(#arrO)"/>
+  <text x="430" y="262" font-size="12" fill="#c0563c" font-style="italic">整備度は案件の「整い」が</text>
+  <text x="430" y="280" font-size="12" fill="#c0563c" font-style="italic">速く進む確率を裏で押し上げる</text>
+  <text x="430" y="298" font-size="11.5" fill="#888">(スコアに足し込まない = 二重計上を避ける)</text>
+
+  <!-- ===== 下段: 案件レイヤー ===== -->
+  <text x="40" y="372" font-size="15" font-weight="700" fill="#3a7a4a">案件レイヤー — 案件は「一つ欠けると死ぬ」</text>
+
+  <rect x="40" y="386" width="740" height="150" rx="8" fill="#eef7f0" stroke="#3a7a4a" stroke-width="2"/>
+
+  <!-- 統合式 (乗法) -->
+  <text x="410" y="418" font-size="17" font-weight="700" fill="#2c6038" text-anchor="middle">統合スコア ＝ P × R × S  (乗法)</text>
+  <text x="410" y="440" font-size="11.5" fill="#555" text-anchor="middle">どれか一つがゼロなら全体がゼロ — 進めるか待つかの判定</text>
+
+  <!-- 3因子箱 -->
+  <rect x="130" y="462" width="160" height="56" rx="7" fill="#fff" stroke="#3a7a4a" stroke-width="1.6"/>
+  <text x="210" y="487" font-size="13.5" font-weight="700" fill="#2c6038" text-anchor="middle">P  天井</text>
+  <text x="210" y="506" font-size="11" fill="#555" text-anchor="middle">市場の到達上限</text>
+
+  <rect x="330" y="462" width="160" height="56" rx="7" fill="#fff" stroke="#3a7a4a" stroke-width="1.6"/>
+  <text x="410" y="487" font-size="13.5" font-weight="700" fill="#2c6038" text-anchor="middle">R  到達度</text>
+  <text x="410" y="506" font-size="11" fill="#555" text-anchor="middle">どこまで整ったか</text>
+
+  <rect x="530" y="462" width="160" height="56" rx="7" fill="#fff" stroke="#3a7a4a" stroke-width="1.6"/>
+  <text x="610" y="487" font-size="13.5" font-weight="700" fill="#2c6038" text-anchor="middle">S  余力</text>
+  <text x="610" y="506" font-size="11" fill="#555" text-anchor="middle">走り切れる確率</text>
+
+  <!-- 乗法記号 -->
+  <text x="310" y="495" font-size="18" font-weight="700" fill="#3a7a4a" text-anchor="middle">×</text>
+  <text x="510" y="495" font-size="18" font-weight="700" fill="#3a7a4a" text-anchor="middle">×</text>
+</svg>

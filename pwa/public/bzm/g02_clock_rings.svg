@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 640" font-family="'Hiragino Sans',sans-serif" role="img" aria-labelledby="t d">
+<title id="t">関係者ごとの「時計」リング図</title>
+<desc id="d">同心円の各リングを時計の文字盤に見立て、目盛りの数で1サイクルの長さ(回る速さ)の違いを表す。内側ほど速く回る。</desc>
+<rect width="760" height="640" fill="#ffffff"/>
+<circle cx="470" cy="300" r="110" fill="none" stroke="#e07a5f" stroke-width="1.4" opacity="0.55"/>
+<line x1="470.0" y1="190.0" x2="470.0" y2="199.0" stroke="#e07a5f" stroke-width="2.4"/>
+<line x1="525.0" y1="204.7" x2="520.5" y2="212.5" stroke="#e07a5f" stroke-width="1.6"/>
+<line x1="565.3" y1="245.0" x2="557.5" y2="249.5" stroke="#e07a5f" stroke-width="1.6"/>
+<line x1="580.0" y1="300.0" x2="571.0" y2="300.0" stroke="#e07a5f" stroke-width="1.6"/>
+<line x1="565.3" y1="355.0" x2="557.5" y2="350.5" stroke="#e07a5f" stroke-width="1.6"/>
+<line x1="525.0" y1="395.3" x2="520.5" y2="387.5" stroke="#e07a5f" stroke-width="1.6"/>
+<line x1="470.0" y1="410.0" x2="470.0" y2="401.0" stroke="#e07a5f" stroke-width="1.6"/>
+<line x1="415.0" y1="395.3" x2="419.5" y2="387.5" stroke="#e07a5f" stroke-width="1.6"/>
+<line x1="374.7" y1="355.0" x2="382.5" y2="350.5" stroke="#e07a5f" stroke-width="1.6"/>
+<line x1="360.0" y1="300.0" x2="369.0" y2="300.0" stroke="#e07a5f" stroke-width="1.6"/>
+<line x1="374.7" y1="245.0" x2="382.5" y2="249.5" stroke="#e07a5f" stroke-width="1.6"/>
+<line x1="415.0" y1="204.7" x2="419.5" y2="212.5" stroke="#e07a5f" stroke-width="1.6"/>
+<circle cx="470" cy="190" r="3.2" fill="#e07a5f"/>
+<circle cx="470" cy="300" r="150" fill="none" stroke="#3a7a4a" stroke-width="1.4" opacity="0.55"/>
+<line x1="470.0" y1="150.0" x2="470.0" y2="159.0" stroke="#3a7a4a" stroke-width="2.4"/>
+<line x1="576.1" y1="193.9" x2="569.7" y2="200.3" stroke="#3a7a4a" stroke-width="1.6"/>
+<line x1="620.0" y1="300.0" x2="611.0" y2="300.0" stroke="#3a7a4a" stroke-width="1.6"/>
+<line x1="576.1" y1="406.1" x2="569.7" y2="399.7" stroke="#3a7a4a" stroke-width="1.6"/>
+<line x1="470.0" y1="450.0" x2="470.0" y2="441.0" stroke="#3a7a4a" stroke-width="1.6"/>
+<line x1="363.9" y1="406.1" x2="370.3" y2="399.7" stroke="#3a7a4a" stroke-width="1.6"/>
+<line x1="320.0" y1="300.0" x2="329.0" y2="300.0" stroke="#3a7a4a" stroke-width="1.6"/>
+<line x1="363.9" y1="193.9" x2="370.3" y2="200.3" stroke="#3a7a4a" stroke-width="1.6"/>
+<circle cx="470" cy="150" r="3.2" fill="#3a7a4a"/>
+<circle cx="470" cy="300" r="190" fill="none" stroke="#5b73b0" stroke-width="1.4" opacity="0.55"/>
+<line x1="470.0" y1="110.0" x2="470.0" y2="119.0" stroke="#5b73b0" stroke-width="2.4"/>
+<line x1="634.5" y1="205.0" x2="626.8" y2="209.5" stroke="#5b73b0" stroke-width="1.6"/>
+<line x1="634.5" y1="395.0" x2="626.8" y2="390.5" stroke="#5b73b0" stroke-width="1.6"/>
+<line x1="470.0" y1="490.0" x2="470.0" y2="481.0" stroke="#5b73b0" stroke-width="1.6"/>
+<line x1="305.5" y1="395.0" x2="313.2" y2="390.5" stroke="#5b73b0" stroke-width="1.6"/>
+<line x1="305.5" y1="205.0" x2="313.2" y2="209.5" stroke="#5b73b0" stroke-width="1.6"/>
+<circle cx="470" cy="110" r="3.2" fill="#5b73b0"/>
+<circle cx="470" cy="300" r="230" fill="none" stroke="#8a5fb0" stroke-width="1.4" opacity="0.55"/>
+<line x1="470.0" y1="70.0" x2="470.0" y2="79.0" stroke="#8a5fb0" stroke-width="2.4"/>
+<line x1="700.0" y1="300.0" x2="691.0" y2="300.0" stroke="#8a5fb0" stroke-width="1.6"/>
+<line x1="470.0" y1="530.0" x2="470.0" y2="521.0" stroke="#8a5fb0" stroke-width="1.6"/>
+<line x1="240.0" y1="300.0" x2="249.0" y2="300.0" stroke="#8a5fb0" stroke-width="1.6"/>
+<circle cx="470" cy="70" r="3.2" fill="#8a5fb0"/>
+<circle cx="470" cy="300" r="270" fill="none" stroke="#b8924a" stroke-width="1.4" opacity="0.55"/>
+<line x1="470.0" y1="30.0" x2="470.0" y2="39.0" stroke="#b8924a" stroke-width="2.4"/>
+<line x1="703.8" y1="435.0" x2="696.0" y2="430.5" stroke="#b8924a" stroke-width="1.6"/>
+<line x1="236.2" y1="435.0" x2="244.0" y2="430.5" stroke="#b8924a" stroke-width="1.6"/>
+<circle cx="470" cy="30" r="3.2" fill="#b8924a"/>
+<line x1="470" y1="190" x2="504" y2="182" stroke="#e07a5f" stroke-width="1" opacity="0.6"/>
+<text x="510" y="178" font-size="13" font-weight="700" fill="#e07a5f">研究者 <tspan font-size="10" font-weight="400">(12刻み/周)</tspan></text>
+<text x="510" y="193" font-size="9.5" fill="#e07a5f" opacity="0.85">論文・学会の年次サイクル</text>
+<line x1="470" y1="150" x2="508" y2="142" stroke="#3a7a4a" stroke-width="1" opacity="0.6"/>
+<text x="514" y="138" font-size="13" font-weight="700" fill="#3a7a4a">大学 <tspan font-size="10" font-weight="400">(8刻み/周)</tspan></text>
+<text x="514" y="153" font-size="9.5" fill="#3a7a4a" opacity="0.85">年度・出願・契約</text>
+<line x1="470" y1="110" x2="512" y2="102" stroke="#5b73b0" stroke-width="1" opacity="0.6"/>
+<text x="518" y="98" font-size="13" font-weight="700" fill="#5b73b0">企業 <tspan font-size="10" font-weight="400">(6刻み/周)</tspan></text>
+<text x="518" y="113" font-size="9.5" fill="#5b73b0" opacity="0.85">予算編成・決算・人事異動</text>
+<line x1="470" y1="70" x2="516" y2="62" stroke="#8a5fb0" stroke-width="1" opacity="0.6"/>
+<text x="522" y="58" font-size="13" font-weight="700" fill="#8a5fb0">VC <tspan font-size="10" font-weight="400">(4刻み/周)</tspan></text>
+<text x="522" y="73" font-size="9.5" fill="#8a5fb0" opacity="0.85">ファンド10年・投資期間</text>
+<line x1="470" y1="30" x2="520" y2="22" stroke="#b8924a" stroke-width="1" opacity="0.6"/>
+<text x="526" y="18" font-size="13" font-weight="700" fill="#b8924a">行政 <tspan font-size="10" font-weight="400">(3刻み/周)</tspan></text>
+<text x="526" y="33" font-size="9.5" fill="#b8924a" opacity="0.85">概算要求・公募・年度執行</text>
+<circle cx="470" cy="300" r="54" fill="#1a2a52"/>
+<text x="470" y="294" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">研究</text>
+<text x="470" y="312" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">テーマ</text>
+<text x="30" y="548" font-size="12" fill="#1a2a52" font-weight="700">読み方</text>
+<text x="30" y="570" font-size="11" fill="#555">各リング = ひとりの関係者の「時計」。</text>
+<text x="30" y="588" font-size="11" fill="#555">目盛りが多いほど 1 周が短い = 速く回る。</text>
+<text x="30" y="606" font-size="11" fill="#555">内側(研究者)ほど速く、外側(行政)ほど遅い。</text>
+<text x="30" y="624" font-size="11" fill="#c0563c">締切が来る速さがリングごとに違い、すれ違う。</text>
+</svg>

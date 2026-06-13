@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 540" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">「できています」が五枚の到達度に割れる扇</title>
+  <desc id="d">中央の一枚の主張「技術はできています」が、TRL・BRL・GRL・SRL・HRL という五つの異なる到達度カードに扇状に分解される図。各カードに代表的な問いを添える。</desc>
+  <rect width="820" height="540" fill="#ffffff"/>
+
+  <!-- 中央の起点: 一枚の主張 -->
+  <rect x="285" y="40" width="250" height="58" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="2"/>
+  <text x="410" y="66" font-size="15" font-weight="700" fill="#1a2a52" text-anchor="middle">「技術はできています」</text>
+  <text x="410" y="86" font-size="11.5" fill="#555" text-anchor="middle">一枚の主張 — 物差しは人それぞれ</text>
+
+  <!-- 扇の矢印 (起点下端 y=98 付近から各カード上端へ。文字とは重ねない) -->
+  <defs>
+    <marker id="arr21" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#e07a5f"/>
+    </marker>
+  </defs>
+  <line x1="410" y1="100" x2="90"  y2="208" stroke="#e07a5f" stroke-width="1.8" marker-end="url(#arr21)"/>
+  <line x1="410" y1="100" x2="250" y2="208" stroke="#e07a5f" stroke-width="1.8" marker-end="url(#arr21)"/>
+  <line x1="410" y1="100" x2="410" y2="208" stroke="#e07a5f" stroke-width="1.8" marker-end="url(#arr21)"/>
+  <line x1="410" y1="100" x2="570" y2="208" stroke="#e07a5f" stroke-width="1.8" marker-end="url(#arr21)"/>
+  <line x1="410" y1="100" x2="730" y2="208" stroke="#e07a5f" stroke-width="1.8" marker-end="url(#arr21)"/>
+
+  <text x="700" y="150" font-size="12" fill="#c0563c" font-style="italic" text-anchor="middle">五枚に割れる</text>
+
+  <!-- 五枚のカード -->
+  <!-- TRL -->
+  <rect x="14" y="216" width="150" height="150" rx="7" fill="#fff" stroke="#3a7a4a" stroke-width="1.8"/>
+  <rect x="14" y="216" width="150" height="34" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="89" y="238" font-size="14" font-weight="700" fill="#2c6038" text-anchor="middle">TRL 技術</text>
+  <text x="89" y="282" font-size="11.5" fill="#555" text-anchor="middle">技術の成熟度</text>
+  <text x="89" y="332" font-size="13" font-weight="700" fill="#2a4d8f" text-anchor="middle">作れるか</text>
+  <text x="89" y="352" font-size="10.5" fill="#888" text-anchor="middle">誰が作っても動くか</text>
+
+  <!-- BRL -->
+  <rect x="174" y="216" width="150" height="150" rx="7" fill="#fff" stroke="#3a7a4a" stroke-width="1.8"/>
+  <rect x="174" y="216" width="150" height="34" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="249" y="238" font-size="14" font-weight="700" fill="#2c6038" text-anchor="middle">BRL 事業</text>
+  <text x="249" y="282" font-size="11.5" fill="#555" text-anchor="middle">事業モデルの成熟度</text>
+  <text x="249" y="332" font-size="13" font-weight="700" fill="#2a4d8f" text-anchor="middle">売れるか</text>
+  <text x="249" y="352" font-size="10.5" fill="#888" text-anchor="middle">誰がいくらで買うか</text>
+
+  <!-- GRL -->
+  <rect x="334" y="216" width="150" height="150" rx="7" fill="#fff" stroke="#3a7a4a" stroke-width="1.8"/>
+  <rect x="334" y="216" width="150" height="34" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="409" y="238" font-size="14" font-weight="700" fill="#2c6038" text-anchor="middle">GRL 制度</text>
+  <text x="409" y="282" font-size="11.5" fill="#555" text-anchor="middle">規制・認証への適合</text>
+  <text x="409" y="332" font-size="13" font-weight="700" fill="#2a4d8f" text-anchor="middle">通るか</text>
+  <text x="409" y="352" font-size="10.5" fill="#888" text-anchor="middle">規制の関門を通れるか</text>
+
+  <!-- SRL -->
+  <rect x="494" y="216" width="150" height="150" rx="7" fill="#fff" stroke="#3a7a4a" stroke-width="1.8"/>
+  <rect x="494" y="216" width="150" height="34" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="569" y="238" font-size="14" font-weight="700" fill="#2c6038" text-anchor="middle">SRL 社会受容</text>
+  <text x="569" y="282" font-size="11.5" fill="#555" text-anchor="middle">一般・世論の受容</text>
+  <text x="569" y="332" font-size="13" font-weight="700" fill="#2a4d8f" text-anchor="middle">受け入れられるか</text>
+  <text x="569" y="352" font-size="10.5" fill="#888" text-anchor="middle">社会が拒まないか</text>
+
+  <!-- HRL -->
+  <rect x="654" y="216" width="150" height="150" rx="7" fill="#fff" stroke="#3a7a4a" stroke-width="1.8"/>
+  <rect x="654" y="216" width="150" height="34" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="729" y="238" font-size="14" font-weight="700" fill="#2c6038" text-anchor="middle">HRL 人材</text>
+  <text x="729" y="282" font-size="11.5" fill="#555" text-anchor="middle">チーム・組織の成熟度</text>
+  <text x="729" y="332" font-size="13" font-weight="700" fill="#2a4d8f" text-anchor="middle">担えるか</text>
+  <text x="729" y="352" font-size="10.5" fill="#888" text-anchor="middle">作り続けられる人と体制</text>
+
+  <!-- 注記帯 -->
+  <line x1="14" y1="400" x2="806" y2="400" stroke="#e2e2e8" stroke-width="1.4"/>
+  <text x="410" y="430" font-size="12.5" fill="#555" text-anchor="middle">同じ「できている」を、五つの独立した物差しで測る。各軸は 0〜9 の段階で評価する。</text>
+  <text x="410" y="454" font-size="12.5" fill="#c0563c" text-anchor="middle">五枚は平均で読まない — 一枚がゼロに近ければ、事業はその一枚のところで止まる。</text>
+</svg>

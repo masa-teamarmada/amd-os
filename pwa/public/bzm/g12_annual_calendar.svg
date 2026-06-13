@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 560" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+<title id="t">関係者別の年間カレンダー</title>
+<desc id="d">横軸に四月から翌三月の十二か月、縦に六つの関係者の帯を並べ、各関係者の締切や予算・イベントを点で打った年表。複数の締切が同じ月に重なる列を縦帯でハイライトし、すれ違いが生まれる月を示す。</desc>
+<rect width="920" height="560" fill="#ffffff"/>
+
+<text x="40" y="40" font-size="17" font-weight="700" fill="#1a2a52">関係者別の年間カレンダー — 締切が重なる月を読む</text>
+
+<!-- 月重なりハイライト帯 (秋: 9-10月 / 年度末: 3月) -->
+<rect x="390" y="64" width="100" height="392" fill="#fdeee9" stroke="none"/>
+<rect x="690" y="64" width="50" height="392" fill="#fdeee9" stroke="none"/>
+
+<!-- 月見出し: 4月始まり 12列、各幅50、左ラベル域140 -->
+<!-- 列中心 x = 165 + i*50 -->
+<text x="165" y="80" font-size="11.5" fill="#555" text-anchor="middle">4月</text>
+<text x="215" y="80" font-size="11.5" fill="#555" text-anchor="middle">5月</text>
+<text x="265" y="80" font-size="11.5" fill="#555" text-anchor="middle">6月</text>
+<text x="315" y="80" font-size="11.5" fill="#555" text-anchor="middle">7月</text>
+<text x="365" y="80" font-size="11.5" fill="#555" text-anchor="middle">8月</text>
+<text x="415" y="80" font-size="11.5" fill="#555" text-anchor="middle">9月</text>
+<text x="465" y="80" font-size="11.5" fill="#555" text-anchor="middle">10月</text>
+<text x="515" y="80" font-size="11.5" fill="#555" text-anchor="middle">11月</text>
+<text x="565" y="80" font-size="11.5" fill="#555" text-anchor="middle">12月</text>
+<text x="615" y="80" font-size="11.5" fill="#555" text-anchor="middle">1月</text>
+<text x="665" y="80" font-size="11.5" fill="#555" text-anchor="middle">2月</text>
+<text x="715" y="80" font-size="11.5" fill="#555" text-anchor="middle">3月</text>
+
+<!-- 縦グリッド線 (列境界 x=140..740 step50) -->
+<line x1="140" y1="88" x2="140" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="190" y1="88" x2="190" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="240" y1="88" x2="240" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="290" y1="88" x2="290" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="340" y1="88" x2="340" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="390" y1="88" x2="390" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="440" y1="88" x2="440" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="490" y1="88" x2="490" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="540" y1="88" x2="540" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="590" y1="88" x2="590" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="640" y1="88" x2="640" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="690" y1="88" x2="690" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="740" y1="88" x2="740" y2="456" stroke="#e2e2e8" stroke-width="1"/>
+
+<!-- 6帯 (高さ60, y=96..456): 研究者/大学/企業/VC/行政/支援 -->
+<!-- 帯背景・左ラベル -->
+<rect x="140" y="96" width="600" height="60" fill="#fbfbfd" stroke="#e2e2e8" stroke-width="1"/>
+<rect x="140" y="156" width="600" height="60" fill="#ffffff" stroke="#e2e2e8" stroke-width="1"/>
+<rect x="140" y="216" width="600" height="60" fill="#fbfbfd" stroke="#e2e2e8" stroke-width="1"/>
+<rect x="140" y="276" width="600" height="60" fill="#ffffff" stroke="#e2e2e8" stroke-width="1"/>
+<rect x="140" y="336" width="600" height="60" fill="#fbfbfd" stroke="#e2e2e8" stroke-width="1"/>
+<rect x="140" y="396" width="600" height="60" fill="#ffffff" stroke="#e2e2e8" stroke-width="1"/>
+
+<text x="34" y="130" font-size="12.5" font-weight="700" fill="#e07a5f">研究者</text>
+<text x="34" y="190" font-size="12.5" font-weight="700" fill="#3a7a4a">大学</text>
+<text x="34" y="250" font-size="12.5" font-weight="700" fill="#5b73b0">企業</text>
+<text x="34" y="310" font-size="12.5" font-weight="700" fill="#8a5fb0">VC</text>
+<text x="34" y="370" font-size="12.5" font-weight="700" fill="#b8924a">行政</text>
+<text x="34" y="424" font-size="12.5" font-weight="700" fill="#2a4d8f">支援</text>
+<text x="34" y="440" font-size="9.5" fill="#888">プログラム</text>
+
+<!-- イベント点 + ラベル (点は半径5、ラベルは点の下や横で線と重ねない) -->
+<!-- 研究者帯 y中心126 : 研究費申請(秋=10月465) / 学会(夏=7月315) / 採否(春=5月215) / 卒業(3月715) -->
+<circle cx="215" cy="120" r="5" fill="#e07a5f"/><text x="215" y="145" font-size="9.5" fill="#c0563c" text-anchor="middle">採否</text>
+<circle cx="315" cy="120" r="5" fill="#e07a5f"/><text x="315" y="145" font-size="9.5" fill="#c0563c" text-anchor="middle">学会</text>
+<circle cx="465" cy="120" r="5" fill="#e07a5f"/><text x="465" y="145" font-size="9.5" fill="#c0563c" text-anchor="middle">研究費申請</text>
+<circle cx="715" cy="120" r="5" fill="#e07a5f"/><text x="715" y="145" font-size="9.5" fill="#c0563c" text-anchor="middle">学生卒業</text>
+
+<!-- 大学帯 y中心186 : 予算執行開始(4月165) / 出願期限(随時→秋465) / 成果報告(3月715) -->
+<circle cx="165" cy="180" r="5" fill="#3a7a4a"/><text x="165" y="205" font-size="9.5" fill="#2c6038" text-anchor="middle">執行開始</text>
+<circle cx="465" cy="180" r="5" fill="#3a7a4a"/><text x="465" y="205" font-size="9.5" fill="#2c6038" text-anchor="middle">出願期限</text>
+<circle cx="715" cy="180" r="5" fill="#3a7a4a"/><text x="715" y="205" font-size="9.5" fill="#2c6038" text-anchor="middle">成果報告</text>
+
+<!-- 企業帯 y中心246 : 予算編成(夏秋=9月415,10月465) / 決算(3月715) / 人事異動(4月165) -->
+<circle cx="165" cy="240" r="5" fill="#5b73b0"/><text x="165" y="265" font-size="9.5" fill="#2a4d8f" text-anchor="middle">人事異動</text>
+<circle cx="415" cy="240" r="5" fill="#5b73b0"/>
+<circle cx="465" cy="240" r="5" fill="#5b73b0"/><text x="440" y="265" font-size="9.5" fill="#2a4d8f" text-anchor="middle">予算編成</text>
+<circle cx="715" cy="240" r="5" fill="#5b73b0"/><text x="715" y="265" font-size="9.5" fill="#2a4d8f" text-anchor="middle">本決算</text>
+
+<!-- VC帯 y中心306 : 投資委員会(随時) / 次ファンド組成準備(1月615) / 期末(3月715) -->
+<circle cx="365" cy="300" r="5" fill="#8a5fb0"/><text x="365" y="325" font-size="9.5" fill="#6a4490" text-anchor="middle">投資委員会</text>
+<circle cx="615" cy="300" r="5" fill="#8a5fb0"/><text x="615" y="325" font-size="9.5" fill="#6a4490" text-anchor="middle">次ファンド準備</text>
+
+<!-- 行政帯 y中心366 : 概算要求(夏=8月365) / 予算成立(春=4月165) / 公募(秋=10月465) / 年度内執行(3月715) -->
+<circle cx="165" cy="360" r="5" fill="#b8924a"/><text x="165" y="385" font-size="9.5" fill="#8a6a2a" text-anchor="middle">予算成立</text>
+<circle cx="365" cy="360" r="5" fill="#b8924a"/><text x="365" y="385" font-size="9.5" fill="#8a6a2a" text-anchor="middle">概算要求</text>
+<circle cx="465" cy="360" r="5" fill="#b8924a"/><text x="465" y="385" font-size="9.5" fill="#8a6a2a" text-anchor="middle">公募締切</text>
+<circle cx="715" cy="360" r="5" fill="#b8924a"/><text x="715" y="385" font-size="9.5" fill="#8a6a2a" text-anchor="middle">年度内執行</text>
+
+<!-- 支援帯 y中心426 : プログラム開始(6月265) / デモデー(12月565,1月615) / 成果報告(3月715) -->
+<circle cx="265" cy="420" r="5" fill="#2a4d8f"/><text x="265" y="445" font-size="9.5" fill="#1a2a52" text-anchor="middle">採択・開始</text>
+<circle cx="565" cy="420" r="5" fill="#2a4d8f"/>
+<circle cx="615" cy="420" r="5" fill="#2a4d8f"/><text x="590" y="445" font-size="9.5" fill="#1a2a52" text-anchor="middle">デモデー</text>
+<circle cx="715" cy="420" r="5" fill="#2a4d8f"/><text x="715" y="445" font-size="9.5" fill="#1a2a52" text-anchor="middle">成果報告</text>
+
+<!-- ハイライト注記 (9-10月帯と3月帯を指す) -->
+<text x="440" y="480" font-size="11" fill="#c0563c" font-weight="700" text-anchor="middle">締切が重なる月</text>
+<line x1="440" y1="486" x2="440" y2="456" stroke="#e07a5f" stroke-width="1" opacity="0.5"/>
+<text x="715" y="480" font-size="11" fill="#c0563c" font-weight="700" text-anchor="middle">締切が重なる月</text>
+<line x1="715" y1="486" x2="715" y2="456" stroke="#e07a5f" stroke-width="1" opacity="0.5"/>
+
+<!-- 読み方 -->
+<text x="40" y="508" font-size="12" fill="#1a2a52" font-weight="700">読み方</text>
+<text x="40" y="528" font-size="11" fill="#555">各帯 = ひとりの関係者の一年。点 = その関係者の締切・予算・イベント。</text>
+<text x="40" y="546" font-size="11" fill="#555">縦帯のハイライト = 複数の関係者の締切が同じ月に集中する箇所。ここで「冒頭の金曜」が生まれる。</text>
+</svg>

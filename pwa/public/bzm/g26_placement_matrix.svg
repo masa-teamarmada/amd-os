@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 560" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">創業者機能の配置マトリクス</title>
+  <desc id="d">五つの機能 (縦) を「誰が・いつまで・どこまで」の三つの問い (横) で配置する表。組織を作る機能は空欄のまま探索期限が書かれ、空欄が全員に見えている状態を示す。</desc>
+  <rect width="880" height="560" fill="#ffffff"/>
+
+  <text x="40" y="44" font-size="17" font-weight="700" fill="#2a4d8f">機能を分解し、三つの問いで配置する</text>
+  <text x="40" y="68" font-size="12.5" fill="#555">肩書き「CEO」は分解できない。機能に割り、「誰が／いつまで／どこまで」で仮配置する。</text>
+
+  <!-- 列幅: 機能 250 / 誰が 200 / いつまで 180 / どこまで 170 -->
+  <!-- ヘッダ行 -->
+  <rect x="40" y="86" width="250" height="44" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.6"/>
+  <rect x="290" y="86" width="200" height="44" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.6"/>
+  <rect x="490" y="86" width="180" height="44" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.6"/>
+  <rect x="670" y="86" width="170" height="44" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.6"/>
+  <text x="165" y="113" font-size="14" font-weight="700" fill="#1a2a52" text-anchor="middle">機能 (五つ)</text>
+  <text x="390" y="113" font-size="14" font-weight="700" fill="#1a2a52" text-anchor="middle">誰が</text>
+  <text x="580" y="113" font-size="14" font-weight="700" fill="#1a2a52" text-anchor="middle">いつまで</text>
+  <text x="755" y="113" font-size="14" font-weight="700" fill="#1a2a52" text-anchor="middle">どこまで</text>
+
+  <!-- 行1: 意思決定の責任 -->
+  <rect x="40" y="130" width="250" height="64" fill="#fff" stroke="#5b73b0" stroke-width="1.2"/>
+  <rect x="290" y="130" width="200" height="64" fill="#fff" stroke="#5b73b0" stroke-width="1.2"/>
+  <rect x="490" y="130" width="180" height="64" fill="#fff" stroke="#5b73b0" stroke-width="1.2"/>
+  <rect x="670" y="130" width="170" height="64" fill="#fff" stroke="#5b73b0" stroke-width="1.2"/>
+  <text x="56" y="158" font-size="13" font-weight="700" fill="#2a4d8f">意思決定の責任</text>
+  <text x="56" y="178" font-size="10.5" fill="#888">進む・待つ・止めるを決める</text>
+  <text x="390" y="166" font-size="11.5" fill="#333" text-anchor="middle">研究者 ＋ 支援者の合議</text>
+  <text x="580" y="166" font-size="11.5" fill="#333" text-anchor="middle">当面</text>
+  <text x="755" y="159" font-size="11" fill="#333" text-anchor="middle">技術判断は研究者、</text>
+  <text x="755" y="175" font-size="11" fill="#333" text-anchor="middle">投資判断は持たない</text>
+
+  <!-- 行2: 対外交渉の顔 -->
+  <rect x="40" y="194" width="250" height="64" fill="#fff" stroke="#5b73b0" stroke-width="1.2"/>
+  <rect x="290" y="194" width="200" height="64" fill="#fff" stroke="#5b73b0" stroke-width="1.2"/>
+  <rect x="490" y="194" width="180" height="64" fill="#fff" stroke="#5b73b0" stroke-width="1.2"/>
+  <rect x="670" y="194" width="170" height="64" fill="#fff" stroke="#5b73b0" stroke-width="1.2"/>
+  <text x="56" y="222" font-size="13" font-weight="700" fill="#2a4d8f">対外交渉の顔</text>
+  <text x="56" y="242" font-size="10.5" fill="#888">相手の信頼を受け止める</text>
+  <text x="390" y="230" font-size="11.5" fill="#333" text-anchor="middle">産学連携担当者</text>
+  <text x="580" y="223" font-size="11.5" fill="#333" text-anchor="middle">経営人材が</text>
+  <text x="580" y="239" font-size="11.5" fill="#333" text-anchor="middle">合流するまで</text>
+  <text x="755" y="230" font-size="11" fill="#333" text-anchor="middle">条件交渉のみ</text>
+
+  <!-- 行3: 資金の調達と説明 -->
+  <rect x="40" y="258" width="250" height="64" fill="#fff" stroke="#5b73b0" stroke-width="1.2"/>
+  <rect x="290" y="258" width="200" height="64" fill="#fff" stroke="#5b73b0" stroke-width="1.2"/>
+  <rect x="490" y="258" width="180" height="64" fill="#fff" stroke="#5b73b0" stroke-width="1.2"/>
+  <rect x="670" y="258" width="170" height="64" fill="#fff" stroke="#5b73b0" stroke-width="1.2"/>
+  <text x="56" y="286" font-size="13" font-weight="700" fill="#2a4d8f">資金の調達と説明</text>
+  <text x="56" y="306" font-size="10.5" fill="#888">集め・使い道を説明する</text>
+  <text x="390" y="287" font-size="11.5" fill="#333" text-anchor="middle">書面は支援者、</text>
+  <text x="390" y="303" font-size="11.5" fill="#333" text-anchor="middle">賭ける理由は研究者</text>
+  <text x="580" y="294" font-size="11.5" fill="#333" text-anchor="middle">90日</text>
+  <text x="755" y="287" font-size="11" fill="#333" text-anchor="middle">書面は作るが</text>
+  <text x="755" y="303" font-size="11" fill="#333" text-anchor="middle">最終判断は持たない</text>
+
+  <!-- 行4: 組織を作る (空欄 + 探索期限を強調) -->
+  <rect x="40" y="322" width="250" height="64" fill="#fdf0eb" stroke="#e07a5f" stroke-width="1.8"/>
+  <rect x="290" y="322" width="200" height="64" fill="#fdf0eb" stroke="#e07a5f" stroke-width="1.8"/>
+  <rect x="490" y="322" width="180" height="64" fill="#fdf0eb" stroke="#e07a5f" stroke-width="1.8"/>
+  <rect x="670" y="322" width="170" height="64" fill="#fdf0eb" stroke="#e07a5f" stroke-width="1.8"/>
+  <text x="56" y="350" font-size="13" font-weight="700" fill="#c0563c">組織を作る</text>
+  <text x="56" y="370" font-size="10.5" fill="#c0563c">採用・契約・管理・労務</text>
+  <text x="390" y="350" font-size="13" font-weight="700" fill="#c0563c" text-anchor="middle">空欄</text>
+  <text x="390" y="370" font-size="10.5" fill="#c0563c" text-anchor="middle">(まだ持てる人がいない)</text>
+  <text x="580" y="343" font-size="11" fill="#c0563c" text-anchor="middle">90日以内に</text>
+  <text x="580" y="359" font-size="11" fill="#c0563c" text-anchor="middle">経営人材候補に</text>
+  <text x="580" y="375" font-size="11" fill="#c0563c" text-anchor="middle">会う (探索期限)</text>
+  <text x="755" y="358" font-size="11" fill="#c0563c" text-anchor="middle">—</text>
+
+  <!-- 行5: 研究を続ける -->
+  <rect x="40" y="386" width="250" height="64" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.4"/>
+  <rect x="290" y="386" width="200" height="64" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.4"/>
+  <rect x="490" y="386" width="180" height="64" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.4"/>
+  <rect x="670" y="386" width="170" height="64" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.4"/>
+  <text x="56" y="414" font-size="13" font-weight="700" fill="#2c6038">研究を続ける</text>
+  <text x="56" y="434" font-size="10.5" fill="#3a7a4a">確かさと限界を知り続ける</text>
+  <text x="390" y="422" font-size="11.5" font-weight="700" fill="#2c6038" text-anchor="middle">研究者本人 (代替不能)</text>
+  <text x="580" y="422" font-size="11.5" fill="#2c6038" text-anchor="middle">恒久 (固定点)</text>
+  <text x="755" y="422" font-size="11" fill="#2c6038" text-anchor="middle">移してはいけない</text>
+
+  <!-- 注記 -->
+  <text x="40" y="486" font-size="12.5" fill="#c0563c" font-weight="700">空欄は消すものではなく、見えるようにするもの。</text>
+  <text x="40" y="508" font-size="12" fill="#555">分解の目的は空欄をなくすことではなく、空欄がどこにあるかを全員が見えるようにすること。</text>
+  <text x="40" y="528" font-size="12" fill="#555">見えていれば「90日で候補に会う」という次の一手に変わる。見えなければ空欄は研究者の上に黙って載り続ける。</text>
+</svg>

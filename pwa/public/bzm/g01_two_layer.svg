@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 520" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">判定層と動学層の二層アーキテクチャ</title>
+  <desc id="d">上段の判定層 (統合スコア P×R×S) に、下段の動学層 3 箱が値を供給する構造図。</desc>
+  <rect width="820" height="520" fill="#ffffff"/>
+
+  <!-- 上段ラベル -->
+  <text x="40" y="46" font-size="15" font-weight="700" fill="#2a4d8f">判定層 — スナップショット (いまどうか)</text>
+
+  <!-- 統合スコア箱 -->
+  <rect x="40" y="60" width="740" height="56" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="2"/>
+  <text x="410" y="94" font-size="18" font-weight="700" fill="#1a2a52" text-anchor="middle">統合スコア ＝ P × R × S</text>
+
+  <!-- 内訳 3 ブロック -->
+  <rect x="60" y="132" width="210" height="70" rx="7" fill="#fff" stroke="#5b73b0" stroke-width="1.6"/>
+  <text x="165" y="160" font-size="14" font-weight="700" fill="#2a4d8f" text-anchor="middle">P ・ R</text>
+  <text x="165" y="182" font-size="11.5" fill="#555" text-anchor="middle">天井 / 到達度 (readiness 群)</text>
+
+  <rect x="305" y="132" width="210" height="70" rx="7" fill="#fff" stroke="#5b73b0" stroke-width="1.6"/>
+  <text x="410" y="160" font-size="14" font-weight="700" fill="#2a4d8f" text-anchor="middle">S</text>
+  <text x="410" y="178" font-size="11.5" fill="#555" text-anchor="middle">σ_SU ・ 収益化指数</text>
+  <text x="410" y="194" font-size="11.5" fill="#555" text-anchor="middle">・ 創業者要因</text>
+
+  <rect x="550" y="132" width="210" height="70" rx="7" fill="#fff" stroke="#5b73b0" stroke-width="1.6"/>
+  <text x="655" y="160" font-size="13.5" font-weight="700" fill="#2a4d8f" text-anchor="middle">そのうち S 全体</text>
+  <text x="655" y="182" font-size="11.5" fill="#555" text-anchor="middle">＝ Pr(τx &lt; τy)</text>
+
+  <!-- 供給矢印 (下段→上段) -->
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#e07a5f"/>
+    </marker>
+  </defs>
+  <!-- 矢印は各動学箱の上端(y=378)から内訳ブロックの下端(y=202)へ。文字とは重ねない -->
+  <line x1="155" y1="376" x2="155" y2="208" stroke="#e07a5f" stroke-width="2.2" marker-end="url(#arr)"/>
+  <line x1="410" y1="376" x2="410" y2="208" stroke="#e07a5f" stroke-width="2.2" marker-end="url(#arr)"/>
+  <line x1="665" y1="376" x2="665" y2="208" stroke="#e07a5f" stroke-width="2.2" marker-end="url(#arr)"/>
+
+  <!-- 「値を供給する」ラベルは矢印帯の左脇に置き、線と重ねない -->
+  <text x="40" y="296" font-size="12" fill="#c0563c" font-style="italic">下段が上段へ</text>
+  <text x="40" y="313" font-size="12" fill="#c0563c" font-style="italic">値を供給</text>
+
+  <!-- 下段ラベル -->
+  <text x="40" y="362" font-size="15" font-weight="700" fill="#3a7a4a">動学層 — なぜそうなるか / これからどうなるか</text>
+
+  <!-- 動学 3 箱 -->
+  <rect x="40" y="378" width="230" height="110" rx="8" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="155" y="406" font-size="13.5" font-weight="700" fill="#2c6038" text-anchor="middle">証拠ベースの観測</text>
+  <text x="155" y="428" font-size="11.5" fill="#555" text-anchor="middle">rubric ・ 市場調査</text>
+  <text x="155" y="466" font-size="11.5" fill="#3a7a4a" text-anchor="middle">→ P・R へ</text>
+
+  <rect x="295" y="378" width="230" height="110" rx="8" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="410" y="406" font-size="13.5" font-weight="700" fill="#2c6038" text-anchor="middle">トリプルヘリックス</text>
+  <text x="410" y="428" font-size="11.5" fill="#555" text-anchor="middle">産・学・官の共進化</text>
+  <text x="410" y="466" font-size="11.5" fill="#3a7a4a" text-anchor="middle">→ σ_SU へ</text>
+
+  <rect x="550" y="378" width="230" height="110" rx="8" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="665" y="406" font-size="13.5" font-weight="700" fill="#2c6038" text-anchor="middle">戦略余力動学</text>
+  <text x="665" y="428" font-size="11.5" fill="#555" text-anchor="middle">(x,y) 軌跡 ・ y=0 ライン</text>
+  <text x="665" y="466" font-size="11.5" fill="#3a7a4a" text-anchor="middle">→ S 全体へ (初到達確率)</text>
+</svg>

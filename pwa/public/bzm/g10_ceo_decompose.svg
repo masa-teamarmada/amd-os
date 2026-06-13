@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 560" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">鬼門その三 — 肩書きの前にCEO機能を分解する</title>
+  <desc id="d">中央に「CEO」という肩書きの箱を置き、それを意思決定・対外交渉・資金・組織の四機能に分解する図。下段で「研究者から切り離してはいけないもの」と「研究者に背負わせてはいけないもの」の二つの仕分けを示し、研究者CEOか外部CEOかの二択がこの分解を飛ばしていることを対比する。</desc>
+  <rect width="860" height="560" fill="#ffffff"/>
+
+  <defs>
+    <marker id="arrB2" markerWidth="11" markerHeight="11" refX="7.5" refY="3" orient="auto">
+      <path d="M0,0 L7.5,3 L0,6 Z" fill="#2a4d8f"/>
+    </marker>
+  </defs>
+
+  <!-- 見出し -->
+  <text x="40" y="42" font-size="16" font-weight="700" fill="#2a4d8f">「誰がCEOか」の前に「CEO機能とは何か」を分解する</text>
+
+  <!-- 中央 CEO 箱 -->
+  <rect x="350" y="62" width="160" height="56" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="2.2"/>
+  <text x="430" y="90" font-size="16" font-weight="700" fill="#1a2a52" text-anchor="middle">CEO</text>
+  <text x="430" y="108" font-size="10.5" fill="#555" text-anchor="middle">＝ 性質の違う複数機能の束</text>
+
+  <!-- 分解の四本枝 -->
+  <line x1="430" y1="118" x2="135" y2="158" stroke="#2a4d8f" stroke-width="1.7" marker-end="url(#arrB2)"/>
+  <line x1="430" y1="118" x2="330" y2="158" stroke="#2a4d8f" stroke-width="1.7" marker-end="url(#arrB2)"/>
+  <line x1="430" y1="118" x2="530" y2="158" stroke="#2a4d8f" stroke-width="1.7" marker-end="url(#arrB2)"/>
+  <line x1="430" y1="118" x2="725" y2="158" stroke="#2a4d8f" stroke-width="1.7" marker-end="url(#arrB2)"/>
+
+  <!-- 四機能ブロック -->
+  <rect x="40" y="164" width="180" height="76" rx="7" fill="#fff" stroke="#5b73b0" stroke-width="1.8"/>
+  <text x="130" y="190" font-size="13.5" font-weight="700" fill="#2a4d8f" text-anchor="middle">意思決定</text>
+  <text x="130" y="212" font-size="10.5" fill="#555" text-anchor="middle">何を捨て何に集中するか。</text>
+  <text x="130" y="228" font-size="10.5" fill="#555" text-anchor="middle">撤退・方向転換の判断</text>
+
+  <rect x="240" y="164" width="180" height="76" rx="7" fill="#fff" stroke="#5b73b0" stroke-width="1.8"/>
+  <text x="330" y="190" font-size="13.5" font-weight="700" fill="#2a4d8f" text-anchor="middle">対外交渉</text>
+  <text x="330" y="212" font-size="10.5" fill="#555" text-anchor="middle">顧客・企業候補との条件交渉、</text>
+  <text x="330" y="228" font-size="10.5" fill="#555" text-anchor="middle">投資家・大学との調整</text>
+
+  <rect x="440" y="164" width="180" height="76" rx="7" fill="#fff" stroke="#5b73b0" stroke-width="1.8"/>
+  <text x="530" y="190" font-size="13.5" font-weight="700" fill="#2a4d8f" text-anchor="middle">資金</text>
+  <text x="530" y="212" font-size="10.5" fill="#555" text-anchor="middle">資金調達の設計、資本政策、</text>
+  <text x="530" y="228" font-size="10.5" fill="#555" text-anchor="middle">毎月の資金繰り管理</text>
+
+  <rect x="640" y="164" width="180" height="76" rx="7" fill="#fff" stroke="#5b73b0" stroke-width="1.8"/>
+  <text x="730" y="190" font-size="13.5" font-weight="700" fill="#2a4d8f" text-anchor="middle">組織</text>
+  <text x="730" y="212" font-size="10.5" fill="#555" text-anchor="middle">採用、役割設計、チーム維持、</text>
+  <text x="730" y="228" font-size="10.5" fill="#555" text-anchor="middle">利益相反の整理</text>
+
+  <!-- 二つの仕分け 見出し -->
+  <text x="40" y="288" font-size="15" font-weight="700" fill="#2c6038">分解したうえで、二つの仕分けをする</text>
+
+  <!-- 切り離してはいけない -->
+  <rect x="40" y="304" width="385" height="180" rx="8" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="232" y="330" font-size="13.5" font-weight="700" fill="#2c6038" text-anchor="middle">研究者から切り離してはいけないもの</text>
+  <line x1="60" y1="342" x2="405" y2="342" stroke="#3a7a4a" stroke-width="1" opacity="0.4"/>
+  <text x="62" y="368" font-size="11.5" fill="#555">・ 技術の真正性（何ができて何ができないか）</text>
+  <text x="62" y="392" font-size="11.5" fill="#555">・ 社会に出したい理由を、自分の研究人生</text>
+  <text x="74" y="409" font-size="11.5" fill="#555">の言葉で語れること</text>
+  <text x="62" y="433" font-size="11.5" fill="#555">・ 言ってよいことの境界（開示の線）の管理</text>
+  <text x="62" y="468" font-size="11" fill="#2c6038" font-style="italic">取り上げると、会社は中身のない器になる</text>
+
+  <!-- 背負わせてはいけない -->
+  <rect x="435" y="304" width="385" height="180" rx="8" fill="#fbf4f1" stroke="#c0563c" stroke-width="1.8"/>
+  <text x="627" y="330" font-size="13.5" font-weight="700" fill="#c0563c" text-anchor="middle">研究者に背負わせてはいけないもの</text>
+  <line x1="455" y1="342" x2="800" y2="342" stroke="#c0563c" stroke-width="1" opacity="0.4"/>
+  <text x="457" y="368" font-size="11.5" fill="#555">・ 毎週の資金繰り</text>
+  <text x="457" y="392" font-size="11.5" fill="#555">・ 契約・株主・採用を同時に回すこと</text>
+  <text x="457" y="416" font-size="11.5" fill="#555">・ 投資家・企業・大学・行政の期待を</text>
+  <text x="469" y="433" font-size="11.5" fill="#555">一人で受け止めること</text>
+  <text x="457" y="468" font-size="11" fill="#c0563c" font-style="italic">積むと、研究者ごと潰れる</text>
+
+  <!-- 下段: 二択への注意 -->
+  <rect x="40" y="500" width="780" height="48" rx="7" fill="#fff" stroke="#888" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <text x="58" y="521" font-size="12" font-weight="700" fill="#555">「研究者CEOか、外部CEOか」の二択は、この分解と仕分けを飛ばしている。</text>
+  <text x="58" y="539" font-size="11.5" fill="#555">問うべきは名前ではなく「いま、どの機能が空席で、誰がいつまでに埋めるのか」。空席があること自体は問題ではない。</text>
+</svg>

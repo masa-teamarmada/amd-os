@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 540" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">応用 × 組織の TRL マトリクス</title>
+  <desc id="d">行に応用 (本命用途・隣接用途)、列に組織 (発明者の研究室・事業主体・製造委託先) を取り、各セルに技術成熟度の段階を入れた表。発明者の研究室の列だけが高く、事業主体の列がほぼゼロという非対称を色の濃淡で示す。事業の有効 TRL は依存するセルの最小値で読む。</desc>
+  <rect width="820" height="540" fill="#ffffff"/>
+
+  <text x="40" y="40" font-size="16" font-weight="700" fill="#2a4d8f">TRL を一つの数字で語らない — 応用 × 組織のマトリクスで見る</text>
+
+  <!-- 列見出し (組織) -->
+  <text x="430" y="78" font-size="12.5" font-weight="700" fill="#555" text-anchor="middle">組織 (誰が作って)</text>
+  <text x="300" y="104" font-size="12.5" font-weight="700" fill="#1a2a52" text-anchor="middle">発明者の研究室</text>
+  <text x="480" y="104" font-size="12.5" font-weight="700" fill="#1a2a52" text-anchor="middle">事業主体 (自社)</text>
+  <text x="660" y="104" font-size="12.5" font-weight="700" fill="#1a2a52" text-anchor="middle">製造委託先</text>
+
+  <!-- 行見出し (応用) -->
+  <text x="64" y="170" font-size="12.5" font-weight="700" fill="#3a7a4a" text-anchor="middle">応用</text>
+  <text x="64" y="188" font-size="11.5" fill="#555" text-anchor="middle">(どの用途</text>
+  <text x="64" y="204" font-size="11.5" fill="#555" text-anchor="middle">について)</text>
+
+  <!-- 行ラベル -->
+  <text x="130" y="190" font-size="13" font-weight="700" fill="#2c6038">本命用途</text>
+  <text x="130" y="290" font-size="13" font-weight="700" fill="#2c6038">隣接用途</text>
+
+  <!-- セル: 本命用途 行 (y=150-230) -->
+  <!-- 研究室 (高い=濃い青) -->
+  <rect x="220" y="150" width="160" height="80" rx="7" fill="#2a4d8f" stroke="#1a2a52" stroke-width="1.6"/>
+  <text x="300" y="198" font-size="26" font-weight="700" fill="#ffffff" text-anchor="middle">5</text>
+  <!-- 自社 (ゼロ=ごく淡い) -->
+  <rect x="400" y="150" width="160" height="80" rx="7" fill="#fdecec" stroke="#c0563c" stroke-width="2"/>
+  <text x="480" y="194" font-size="26" font-weight="700" fill="#c0563c" text-anchor="middle">0</text>
+  <text x="480" y="216" font-size="10.5" fill="#c0563c" text-anchor="middle">未再現</text>
+  <!-- 委託先 (低い=淡い青) -->
+  <rect x="580" y="150" width="160" height="80" rx="7" fill="#eef2fb" stroke="#5b73b0" stroke-width="1.6"/>
+  <text x="660" y="198" font-size="26" font-weight="700" fill="#2a4d8f" text-anchor="middle">1</text>
+
+  <!-- セル: 隣接用途 行 (y=250-330) -->
+  <rect x="220" y="250" width="160" height="80" rx="7" fill="#5b73b0" stroke="#1a2a52" stroke-width="1.6"/>
+  <text x="300" y="298" font-size="26" font-weight="700" fill="#ffffff" text-anchor="middle">4</text>
+  <rect x="400" y="250" width="160" height="80" rx="7" fill="#f3f6fd" stroke="#5b73b0" stroke-width="1.6"/>
+  <text x="480" y="298" font-size="26" font-weight="700" fill="#2a4d8f" text-anchor="middle">1</text>
+  <rect x="580" y="250" width="160" height="80" rx="7" fill="#f3f6fd" stroke="#5b73b0" stroke-width="1.6"/>
+  <text x="660" y="298" font-size="26" font-weight="700" fill="#888" text-anchor="middle">0</text>
+
+  <!-- 濃淡の凡例 -->
+  <text x="220" y="362" font-size="11" fill="#888">色が濃いほど段階が高い (0〜9)</text>
+
+  <!-- 依存セルの強調枠 + 注記 -->
+  <rect x="396" y="146" width="168" height="88" rx="9" fill="none" stroke="#e07a5f" stroke-width="2.4" stroke-dasharray="6 4"/>
+  <text x="480" y="138" font-size="11.5" font-weight="700" fill="#c0563c" text-anchor="middle">事業計画が依存するセル</text>
+
+  <!-- 下段: 有効 TRL の読み方 -->
+  <line x1="40" y1="392" x2="780" y2="392" stroke="#e2e2e8" stroke-width="1.4"/>
+  <rect x="40" y="412" width="740" height="56" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="2"/>
+  <text x="410" y="436" font-size="14" font-weight="700" fill="#1a2a52" text-anchor="middle">事業の有効 TRL ＝ 事業計画が依存するセルの最小値</text>
+  <text x="410" y="456" font-size="11.5" fill="#555" text-anchor="middle">本命用途 × 自社 ＝ 0 がボトルネック。研究室セルが 5 でも、鎖の強さは一番弱い輪で決まる</text>
+
+  <text x="40" y="500" font-size="12" fill="#c0563c">研究室セルと自社セルのギャップの放置は、研究開発型プロジェクトの長期停滞の最も典型的な原因。</text>
+</svg>

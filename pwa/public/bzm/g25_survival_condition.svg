@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 520" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">生存条件式 B−R_net≤F の水位図</title>
+  <desc id="d">本命R&amp;Dの持ち出し B から自前の稼ぎ R_net を引いた差し引きの赤字が、創業者要因 F が用意する器に水位として収まるかを示す図。三項それぞれに経営の選択肢の矢印を添える。</desc>
+  <rect width="820" height="520" fill="#ffffff"/>
+
+  <!-- 式 -->
+  <rect x="230" y="28" width="360" height="48" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="2"/>
+  <text x="410" y="60" font-size="20" font-weight="700" fill="#1a2a52" text-anchor="middle">B − R_net ≤ F なら、死なない</text>
+
+  <!-- ===== 左: B の柱 (持ち出し、下向き) ===== -->
+  <text x="120" y="116" font-size="13" font-weight="700" fill="#c0563c" text-anchor="middle">B 本命R&amp;Dの持ち出し</text>
+  <rect x="80" y="128" width="80" height="200" fill="#fdecec" stroke="#c0563c" stroke-width="2"/>
+  <text x="120" y="220" font-size="12" fill="#c0563c" text-anchor="middle">毎月</text>
+  <text x="120" y="238" font-size="12" fill="#c0563c" text-anchor="middle">燃える費用</text>
+  <!-- R_net の相殺 (上向き、Bの下部を埋める) -->
+  <rect x="80" y="268" width="80" height="60" fill="#eef7f0" stroke="#3a7a4a" stroke-width="2"/>
+  <text x="120" y="294" font-size="11.5" font-weight="700" fill="#2c6038" text-anchor="middle">R_net</text>
+  <text x="120" y="312" font-size="10.5" fill="#3a7a4a" text-anchor="middle">自前の稼ぎ</text>
+
+  <!-- 差し引き赤字を示す中括弧 -->
+  <line x1="172" y1="128" x2="172" y2="268" stroke="#c0563c" stroke-width="1.4"/>
+  <line x1="172" y1="128" x2="178" y2="128" stroke="#c0563c" stroke-width="1.4"/>
+  <line x1="172" y1="268" x2="178" y2="268" stroke="#c0563c" stroke-width="1.4"/>
+  <text x="186" y="194" font-size="11.5" font-weight="700" fill="#c0563c">差し引きの</text>
+  <text x="186" y="210" font-size="11.5" font-weight="700" fill="#c0563c">赤字 = B − R_net</text>
+
+  <!-- 移送矢印 -->
+  <defs>
+    <marker id="arr25" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#e07a5f"/>
+    </marker>
+  </defs>
+  <line x1="280" y1="195" x2="400" y2="195" stroke="#e07a5f" stroke-width="2.2" marker-end="url(#arr25)"/>
+  <text x="340" y="184" font-size="11" fill="#c0563c" text-anchor="middle">この赤字が</text>
+
+  <!-- ===== 右: F の器 (水位) ===== -->
+  <text x="560" y="116" font-size="13" font-weight="700" fill="#2a4d8f" text-anchor="middle">F 無理のない調達でカバーできる器</text>
+  <!-- 器の枠 (上が開いた U字) -->
+  <path d="M440,150 L440,330 L680,330 L680,150" fill="none" stroke="#2a4d8f" stroke-width="2.4"/>
+  <!-- 器の上限ライン (F のフチ) -->
+  <line x1="430" y1="150" x2="690" y2="150" stroke="#2a4d8f" stroke-width="1.6" stroke-dasharray="6 4"/>
+  <text x="700" y="154" font-size="11.5" font-weight="700" fill="#2a4d8f">F の上限</text>
+  <!-- 水位 (赤字がここまで来ている = OK) -->
+  <rect x="442" y="230" width="236" height="98" fill="#eef2fb" stroke="none"/>
+  <line x1="442" y1="230" x2="678" y2="230" stroke="#5b73b0" stroke-width="2"/>
+  <text x="560" y="282" font-size="13" font-weight="700" fill="#1a2a52" text-anchor="middle">赤字の水位</text>
+  <text x="560" y="302" font-size="11" fill="#2a4d8f" text-anchor="middle">F のフチを越えなければ生存</text>
+  <!-- 余裕の帯 -->
+  <text x="560" y="194" font-size="11" fill="#3a7a4a" text-anchor="middle">余裕 (まだ調達できる幅)</text>
+
+  <!-- ===== 下段: 三つの経営の選択肢 ===== -->
+  <line x1="40" y1="362" x2="780" y2="362" stroke="#e2e2e8" stroke-width="1.4"/>
+  <text x="40" y="388" font-size="13.5" font-weight="700" fill="#2a4d8f">水位が溢れそうなとき、打ち手は三方向</text>
+
+  <rect x="40" y="402" width="240" height="86" rx="7" fill="#fff" stroke="#c0563c" stroke-width="1.6"/>
+  <text x="160" y="426" font-size="13" font-weight="700" fill="#c0563c" text-anchor="middle">B を下げる</text>
+  <text x="160" y="448" font-size="11" fill="#555" text-anchor="middle">狙う規模を下げる</text>
+  <text x="160" y="466" font-size="11" fill="#555" text-anchor="middle">→ 柱が縮み赤字が減る</text>
+  <text x="160" y="482" font-size="10" fill="#888" text-anchor="middle">(天井 P との交換)</text>
+
+  <rect x="290" y="402" width="240" height="86" rx="7" fill="#fff" stroke="#3a7a4a" stroke-width="1.6"/>
+  <text x="410" y="426" font-size="13" font-weight="700" fill="#2c6038" text-anchor="middle">R_net を上げる</text>
+  <text x="410" y="448" font-size="11" fill="#555" text-anchor="middle">つなぎ事業・先行収益</text>
+  <text x="410" y="466" font-size="11" fill="#555" text-anchor="middle">→ 相殺が増え赤字が減る</text>
+  <text x="410" y="482" font-size="10" fill="#888" text-anchor="middle">(純キャッシュ貢献で測る)</text>
+
+  <rect x="540" y="402" width="240" height="86" rx="7" fill="#fff" stroke="#2a4d8f" stroke-width="1.6"/>
+  <text x="660" y="426" font-size="13" font-weight="700" fill="#1a2a52" text-anchor="middle">F を上げる</text>
+  <text x="660" y="448" font-size="11" fill="#555" text-anchor="middle">追い風の分野 ＋</text>
+  <text x="660" y="466" font-size="11" fill="#555" text-anchor="middle">経営チームの調達力</text>
+  <text x="660" y="482" font-size="10" fill="#888" text-anchor="middle">→ 器そのものが広がる</text>
+</svg>

@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 540" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">生存を支える三要素の代替性</title>
+  <desc id="d">三本の柱 (マクロの追い風・収益化指数・経営チームの調達自走力) が一枚の屋根「生存」を支える図。四パターンを並べ、どれか一本でも太ければ屋根は立つが、三本とも細いと屋根が落ちることを示す。</desc>
+  <rect width="820" height="540" fill="#ffffff"/>
+
+  <text x="40" y="38" font-size="16" font-weight="700" fill="#2a4d8f">S の三要素は代替できる — どれか一本が太ければ屋根は立つ</text>
+  <text x="40" y="60" font-size="12" fill="#555">柱: 追=マクロの追い風 ／ 収=収益化指数 ／ 人=経営チームの調達・自走力</text>
+
+  <defs>
+    <!-- 太い柱 -->
+    <linearGradient id="thick" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a7a4a"/><stop offset="1" stop-color="#2c6038"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ====== パターン (a) 追い風型 ====== -->
+  <g>
+    <!-- 屋根 (立つ) -->
+    <rect x="40" y="110" width="160" height="22" rx="5" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.8"/>
+    <text x="120" y="126" font-size="12" font-weight="700" fill="#1a2a52" text-anchor="middle">生存（立つ）</text>
+    <!-- 太い柱: 追 -->
+    <rect x="58" y="132" width="30" height="120" fill="url(#thick)" stroke="#2c6038" stroke-width="1.4"/>
+    <text x="73" y="270" font-size="12" font-weight="700" fill="#2c6038" text-anchor="middle">追</text>
+    <!-- 細い柱: 収・人 -->
+    <rect x="110" y="132" width="10" height="120" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.2"/>
+    <text x="115" y="270" font-size="11" fill="#888" text-anchor="middle">収</text>
+    <rect x="160" y="132" width="10" height="120" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.2"/>
+    <text x="165" y="270" font-size="11" fill="#888" text-anchor="middle">人</text>
+    <text x="120" y="294" font-size="12" font-weight="700" fill="#2a4d8f" text-anchor="middle">(a) 追い風型</text>
+    <text x="120" y="312" font-size="10.5" fill="#555" text-anchor="middle">量子・核融合の例</text>
+  </g>
+
+  <!-- ====== パターン (b) 自走型 ====== -->
+  <g>
+    <rect x="240" y="110" width="160" height="22" rx="5" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.8"/>
+    <text x="320" y="126" font-size="12" font-weight="700" fill="#1a2a52" text-anchor="middle">生存（立つ）</text>
+    <rect x="258" y="132" width="10" height="120" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.2"/>
+    <text x="263" y="270" font-size="11" fill="#888" text-anchor="middle">追</text>
+    <rect x="305" y="132" width="30" height="120" fill="url(#thick)" stroke="#2c6038" stroke-width="1.4"/>
+    <text x="320" y="270" font-size="12" font-weight="700" fill="#2c6038" text-anchor="middle">収</text>
+    <rect x="360" y="132" width="10" height="120" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.2"/>
+    <text x="365" y="270" font-size="11" fill="#888" text-anchor="middle">人</text>
+    <text x="320" y="294" font-size="12" font-weight="700" fill="#2a4d8f" text-anchor="middle">(b) 自走型</text>
+    <text x="320" y="312" font-size="10.5" fill="#555" text-anchor="middle">稼げる体質がある</text>
+  </g>
+
+  <!-- ====== パターン (c) 調達型 ====== -->
+  <g>
+    <rect x="440" y="110" width="160" height="22" rx="5" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.8"/>
+    <text x="520" y="126" font-size="12" font-weight="700" fill="#1a2a52" text-anchor="middle">生存（立つ）</text>
+    <rect x="458" y="132" width="10" height="120" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.2"/>
+    <text x="463" y="270" font-size="11" fill="#888" text-anchor="middle">追</text>
+    <rect x="510" y="132" width="10" height="120" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.2"/>
+    <text x="515" y="270" font-size="11" fill="#888" text-anchor="middle">収</text>
+    <rect x="555" y="132" width="30" height="120" fill="url(#thick)" stroke="#2c6038" stroke-width="1.4"/>
+    <text x="570" y="270" font-size="12" font-weight="700" fill="#2c6038" text-anchor="middle">人</text>
+    <text x="520" y="294" font-size="12" font-weight="700" fill="#2a4d8f" text-anchor="middle">(c) 調達型</text>
+    <text x="520" y="312" font-size="10.5" fill="#555" text-anchor="middle">経営チームが調達し切る</text>
+  </g>
+
+  <!-- ====== パターン (d) 全部細い → 崩落 ====== -->
+  <g>
+    <!-- 落ちた屋根 (傾いた) -->
+    <rect x="640" y="116" width="160" height="22" rx="5" fill="#fdecec" stroke="#c0563c" stroke-width="1.8" transform="rotate(7 720 127)"/>
+    <text x="720" y="100" font-size="12" font-weight="700" fill="#c0563c" text-anchor="middle">生存（落ちる）</text>
+    <!-- 三本とも細い -->
+    <rect x="658" y="150" width="10" height="102" fill="#f5f5f7" stroke="#aaa" stroke-width="1.2"/>
+    <text x="663" y="270" font-size="11" fill="#888" text-anchor="middle">追</text>
+    <rect x="710" y="150" width="10" height="102" fill="#f5f5f7" stroke="#aaa" stroke-width="1.2"/>
+    <text x="715" y="270" font-size="11" fill="#888" text-anchor="middle">収</text>
+    <rect x="762" y="150" width="10" height="102" fill="#f5f5f7" stroke="#aaa" stroke-width="1.2"/>
+    <text x="767" y="270" font-size="11" fill="#888" text-anchor="middle">人</text>
+    <text x="720" y="294" font-size="12" font-weight="700" fill="#c0563c" text-anchor="middle">(d) 全部細い</text>
+    <text x="720" y="312" font-size="10.5" fill="#c0563c" text-anchor="middle">屋根を支えきれない</text>
+  </g>
+
+  <!-- 床のライン -->
+  <line x1="40" y1="252" x2="800" y2="252" stroke="#444" stroke-width="1.6"/>
+
+  <!-- 下段キャプション -->
+  <line x1="40" y1="348" x2="800" y2="348" stroke="#e2e2e8" stroke-width="1.4"/>
+  <text x="420" y="378" font-size="14" font-weight="700" fill="#1a2a52" text-anchor="middle">どれか一本が太ければ立つ。全部細いと立たない。</text>
+  <text x="420" y="402" font-size="12" fill="#555" text-anchor="middle">三要素は代替的に合成される — S を上げる道は一本ではない。</text>
+  <text x="420" y="424" font-size="12" fill="#c0563c" text-anchor="middle">「売上がないからダメ」「調達環境が悪いから無理」と一つの物差しで切り捨てない。</text>
+</svg>

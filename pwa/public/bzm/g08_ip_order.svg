@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 520" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">鬼門その一 — 外部開示の守るべき順序</title>
+  <desc id="d">発明の把握から外部への深い開示までの守るべき時間順序を一本の時間軸で示し、順序が逆転した場合に壊れる四つのもの（権利範囲・研究者との信頼・研究機関との関係・企業候補との検証速度）を逆流の矢印で示す図。</desc>
+  <rect width="860" height="520" fill="#ffffff"/>
+
+  <defs>
+    <marker id="arrFwd" markerWidth="11" markerHeight="11" refX="7.5" refY="3" orient="auto">
+      <path d="M0,0 L7.5,3 L0,6 Z" fill="#2a4d8f"/>
+    </marker>
+    <marker id="arrBack" markerWidth="11" markerHeight="11" refX="7.5" refY="3" orient="auto">
+      <path d="M0,0 L7.5,3 L0,6 Z" fill="#c0563c"/>
+    </marker>
+  </defs>
+
+  <!-- 見出し -->
+  <text x="40" y="44" font-size="16" font-weight="700" fill="#2a4d8f">守るべき順序 — 「出願が先、発表が後」</text>
+  <text x="40" y="66" font-size="12" fill="#555">外へ出す深さは、左から右へ。守る設計（出願）を、外に出す行為（発表・開示）が追い越さない。</text>
+
+  <!-- 時間軸 -->
+  <line x1="60" y1="170" x2="800" y2="170" stroke="#444" stroke-width="2" marker-end="url(#arrFwd)"/>
+  <text x="800" y="195" font-size="12" fill="#555" text-anchor="end">時間 →</text>
+
+  <!-- 4 段階の箱 (時間軸の上) -->
+  <!-- 1 発明の把握 -->
+  <rect x="60" y="100" width="160" height="56" rx="7" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.8"/>
+  <text x="140" y="124" font-size="13" font-weight="700" fill="#1a2a52" text-anchor="middle">発明の把握</text>
+  <text x="140" y="143" font-size="11" fill="#555" text-anchor="middle">発明届・棚卸し</text>
+  <circle cx="140" cy="170" r="5" fill="#2a4d8f"/>
+
+  <!-- 2 特許出願 -->
+  <rect x="250" y="100" width="160" height="56" rx="7" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.8"/>
+  <text x="330" y="124" font-size="13" font-weight="700" fill="#1a2a52" text-anchor="middle">特許出願</text>
+  <text x="330" y="143" font-size="11" fill="#c0563c" text-anchor="middle">新規性を確保</text>
+  <circle cx="330" cy="170" r="5" fill="#2a4d8f"/>
+
+  <!-- 3 発表 -->
+  <rect x="440" y="100" width="160" height="56" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="520" y="124" font-size="13" font-weight="700" fill="#2c6038" text-anchor="middle">論文・学会・PR</text>
+  <text x="520" y="143" font-size="11" fill="#555" text-anchor="middle">概要を世に出す</text>
+  <circle cx="520" cy="170" r="5" fill="#3a7a4a"/>
+
+  <!-- 4 深い開示 -->
+  <rect x="630" y="100" width="170" height="56" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="715" y="124" font-size="13" font-weight="700" fill="#2c6038" text-anchor="middle">外部への深い開示</text>
+  <text x="715" y="143" font-size="11" fill="#555" text-anchor="middle">実施例・性能値・条件</text>
+  <circle cx="715" cy="170" r="5" fill="#3a7a4a"/>
+
+  <!-- 逆流ゾーンの見出し -->
+  <text x="40" y="248" font-size="15" font-weight="700" fill="#c0563c">順序が逆転すると（発表・深い開示が出願を追い越すと）— 四つが同時に壊れる</text>
+
+  <!-- 逆流の大矢印 (右から左へ、深い開示が前を壊す) -->
+  <line x1="715" y1="186" x2="715" y2="218" stroke="#c0563c" stroke-width="2" stroke-dasharray="5 4"/>
+  <line x1="520" y1="186" x2="520" y2="218" stroke="#c0563c" stroke-width="2" stroke-dasharray="5 4"/>
+  <line x1="700" y1="232" x2="150" y2="232" stroke="#c0563c" stroke-width="2.4" stroke-dasharray="6 4" marker-end="url(#arrBack)"/>
+  <text x="700" y="226" font-size="11" fill="#c0563c" text-anchor="end" font-style="italic">先に出た情報は回収できない（不可逆）</text>
+
+  <!-- 壊れる四つの箱 -->
+  <rect x="40" y="288" width="180" height="92" rx="7" fill="#fff" stroke="#c0563c" stroke-width="1.8"/>
+  <text x="130" y="314" font-size="13" font-weight="700" fill="#c0563c" text-anchor="middle">権利範囲</text>
+  <text x="130" y="338" font-size="11" fill="#555" text-anchor="middle">新規性の喪失で</text>
+  <text x="130" y="356" font-size="11" fill="#555" text-anchor="middle">権利が取れない／</text>
+  <text x="130" y="372" font-size="11" fill="#555" text-anchor="middle">範囲が痩せる</text>
+
+  <rect x="240" y="288" width="180" height="92" rx="7" fill="#fff" stroke="#c0563c" stroke-width="1.8"/>
+  <text x="330" y="314" font-size="13" font-weight="700" fill="#c0563c" text-anchor="middle">研究者との信頼</text>
+  <text x="330" y="338" font-size="11" fill="#555" text-anchor="middle">未了承の一文が</text>
+  <text x="330" y="356" font-size="11" fill="#555" text-anchor="middle">本人の知らぬ間に</text>
+  <text x="330" y="372" font-size="11" fill="#555" text-anchor="middle">外へ出る</text>
+
+  <rect x="440" y="288" width="180" height="92" rx="7" fill="#fff" stroke="#c0563c" stroke-width="1.8"/>
+  <text x="530" y="314" font-size="13" font-weight="700" fill="#c0563c" text-anchor="middle">研究機関との関係</text>
+  <text x="530" y="338" font-size="11" fill="#555" text-anchor="middle">共同研究先・装置</text>
+  <text x="530" y="356" font-size="11" fill="#555" text-anchor="middle">データの合意を</text>
+  <text x="530" y="372" font-size="11" fill="#555" text-anchor="middle">飛ばした開示</text>
+
+  <rect x="640" y="288" width="180" height="92" rx="7" fill="#fff" stroke="#c0563c" stroke-width="1.8"/>
+  <text x="730" y="314" font-size="13" font-weight="700" fill="#c0563c" text-anchor="middle">検証速度</text>
+  <text x="730" y="338" font-size="11" fill="#555" text-anchor="middle">事故後は防衛的に</text>
+  <text x="730" y="356" font-size="11" fill="#555" text-anchor="middle">なり、開示が一律</text>
+  <text x="730" y="372" font-size="11" fill="#555" text-anchor="middle">に絞られ遅くなる</text>
+
+  <!-- 救済の注記 -->
+  <rect x="40" y="408" width="780" height="76" rx="7" fill="#fbf4f1" stroke="#e07a5f" stroke-width="1.4"/>
+  <text x="58" y="432" font-size="12.5" font-weight="700" fill="#c0563c">注意 — 「発表後の救済」は設計ではない</text>
+  <text x="58" y="454" font-size="11.5" fill="#555">自らの発表から一定期間内なら新規性を認める救済はあるが、国内に限られ、国によっては無いか極めて限定的。</text>
+  <text x="58" y="474" font-size="11.5" fill="#555">海外展開の可能性があるなら、救済を当てにして発表を先行させず、原則どおり「出願が先、発表が後」を守る。</text>
+</svg>

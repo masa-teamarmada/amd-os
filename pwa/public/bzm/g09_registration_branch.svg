@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 560" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">鬼門その二 — 会社化の三分岐と登記後の連鎖</title>
+  <desc id="d">会社化の判断を「いま作る・あとで作る・そもそも会社にしない」の三分岐で示し、いま作るを選んだ先で登記という不可逆点から始まる連鎖（バーン開始・期待固定・退路喪失）を枝で展開する図。</desc>
+  <rect width="860" height="560" fill="#ffffff"/>
+
+  <defs>
+    <marker id="arrB" markerWidth="11" markerHeight="11" refX="7.5" refY="3" orient="auto">
+      <path d="M0,0 L7.5,3 L0,6 Z" fill="#2a4d8f"/>
+    </marker>
+    <marker id="arrO" markerWidth="11" markerHeight="11" refX="7.5" refY="3" orient="auto">
+      <path d="M0,0 L7.5,3 L0,6 Z" fill="#c0563c"/>
+    </marker>
+  </defs>
+
+  <!-- 見出し -->
+  <text x="40" y="42" font-size="16" font-weight="700" fill="#2a4d8f">会社化は二択ではなく三分岐</text>
+
+  <!-- 起点 -->
+  <rect x="330" y="62" width="200" height="50" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="2"/>
+  <text x="430" y="92" font-size="14" font-weight="700" fill="#1a2a52" text-anchor="middle">会社化の判断</text>
+
+  <!-- 三分岐の枝線 -->
+  <line x1="430" y1="112" x2="150" y2="150" stroke="#2a4d8f" stroke-width="1.8" marker-end="url(#arrB)"/>
+  <line x1="430" y1="112" x2="430" y2="150" stroke="#2a4d8f" stroke-width="1.8" marker-end="url(#arrB)"/>
+  <line x1="430" y1="112" x2="710" y2="150" stroke="#2a4d8f" stroke-width="1.8" marker-end="url(#arrB)"/>
+
+  <!-- 分岐1 いま作る -->
+  <rect x="40" y="156" width="220" height="58" rx="7" fill="#fbf4f1" stroke="#c0563c" stroke-width="2"/>
+  <text x="150" y="180" font-size="13.5" font-weight="700" fill="#c0563c" text-anchor="middle">いま作る</text>
+  <text x="150" y="200" font-size="11" fill="#555" text-anchor="middle">＝ 登記（不可逆点）へ</text>
+
+  <!-- 分岐2 あとで作る -->
+  <rect x="320" y="156" width="220" height="58" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="430" y="180" font-size="13.5" font-weight="700" fill="#2c6038" text-anchor="middle">あとで作る</text>
+  <text x="430" y="200" font-size="11" fill="#555" text-anchor="middle">＝ 条件つきで待つ（WAIT）</text>
+
+  <!-- 分岐3 会社にしない -->
+  <rect x="600" y="156" width="220" height="58" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="710" y="178" font-size="13.5" font-weight="700" fill="#2c6038" text-anchor="middle">そもそも会社にしない</text>
+  <text x="710" y="198" font-size="11" fill="#555" text-anchor="middle">ライセンス・共同事業の経路</text>
+
+  <!-- 登記の不可逆ライン -->
+  <line x1="150" y1="214" x2="150" y2="248" stroke="#c0563c" stroke-width="2"/>
+  <rect x="40" y="248" width="220" height="42" rx="7" fill="#c0563c"/>
+  <text x="150" y="268" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">登記 ＝ 開始（不可逆）</text>
+  <text x="150" y="284" font-size="10.5" fill="#ffffff" text-anchor="middle">手続きではなく、ここから連鎖が始まる</text>
+
+  <!-- 連鎖の三本枝 -->
+  <line x1="150" y1="290" x2="150" y2="324" stroke="#c0563c" stroke-width="2" marker-end="url(#arrO)"/>
+  <text x="40" y="316" font-size="13" font-weight="700" fill="#c0563c">早すぎる登記の典型的な連鎖</text>
+
+  <!-- 連鎖1 バーン開始 -->
+  <rect x="40" y="330" width="220" height="86" rx="7" fill="#fff" stroke="#c0563c" stroke-width="1.6"/>
+  <text x="150" y="354" font-size="12.5" font-weight="700" fill="#c0563c" text-anchor="middle">バーンが先に始まる</text>
+  <text x="150" y="376" font-size="11" fill="#555" text-anchor="middle">収入の入口は霧の中なのに</text>
+  <text x="150" y="394" font-size="11" fill="#555" text-anchor="middle">毎月お金が出ていく。資金が</text>
+  <text x="150" y="410" font-size="11" fill="#555" text-anchor="middle">尽きるまでの時計が回り出す</text>
+
+  <line x1="150" y1="416" x2="150" y2="436" stroke="#c0563c" stroke-width="2" marker-end="url(#arrO)"/>
+
+  <!-- 連鎖2 期待固定 -->
+  <rect x="40" y="442" width="220" height="86" rx="7" fill="#fff" stroke="#c0563c" stroke-width="1.6"/>
+  <text x="150" y="466" font-size="12.5" font-weight="700" fill="#c0563c" text-anchor="middle">期待が固定される</text>
+  <text x="150" y="488" font-size="11" fill="#555" text-anchor="middle">投資家・支援制度・大学・</text>
+  <text x="150" y="506" font-size="11" fill="#555" text-anchor="middle">メディアの期待が具体化し、</text>
+  <text x="150" y="522" font-size="11" fill="#555" text-anchor="middle">外れは「計画未達」に変わる</text>
+
+  <!-- 連鎖3 退路喪失 (右へ展開) -->
+  <line x1="260" y1="485" x2="300" y2="485" stroke="#c0563c" stroke-width="2" marker-end="url(#arrO)"/>
+  <rect x="300" y="442" width="240" height="86" rx="7" fill="#fbf4f1" stroke="#c0563c" stroke-width="2"/>
+  <text x="420" y="466" font-size="12.5" font-weight="700" fill="#c0563c" text-anchor="middle">退路が失われる（最重）</text>
+  <text x="420" y="488" font-size="11" fill="#555" text-anchor="middle">清算は作るより難しく、NO_GO が</text>
+  <text x="420" y="506" font-size="11" fill="#555" text-anchor="middle">事実上選べなくなる。「やめられない</text>
+  <text x="420" y="522" font-size="11" fill="#555" text-anchor="middle">から続いている」状態へ滑り込む</text>
+
+  <!-- 問いが硬くなる対応表 -->
+  <rect x="560" y="248" width="260" height="280" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.6"/>
+  <text x="690" y="272" font-size="13" font-weight="700" fill="#1a2a52" text-anchor="middle">登記で「問いが硬くなる」</text>
+  <line x1="578" y1="284" x2="802" y2="284" stroke="#5b73b0" stroke-width="1"/>
+
+  <text x="578" y="312" font-size="11.5" fill="#3a7a4a">柔らかい問い（前）</text>
+  <text x="802" y="312" font-size="11.5" fill="#c0563c" text-anchor="end">硬い問い（後）</text>
+
+  <text x="578" y="342" font-size="11.5" fill="#555">誰がやるんだろう</text>
+  <text x="802" y="342" font-size="11.5" fill="#1a2a52" text-anchor="end" font-weight="700">代表者は誰か</text>
+  <line x1="578" y1="354" x2="802" y2="354" stroke="#e2e2e8" stroke-width="1"/>
+
+  <text x="578" y="382" font-size="11.5" fill="#555">企業が面白いと言ってる</text>
+  <text x="802" y="382" font-size="11.5" fill="#1a2a52" text-anchor="end" font-weight="700">顧客は誰か</text>
+  <line x1="578" y1="394" x2="802" y2="394" stroke="#e2e2e8" stroke-width="1"/>
+
+  <text x="578" y="422" font-size="11.5" fill="#555">手伝う人を探そう</text>
+  <text x="802" y="422" font-size="11.5" fill="#1a2a52" text-anchor="end" font-weight="700">誰に株を持たせるか</text>
+  <line x1="578" y1="434" x2="802" y2="434" stroke="#e2e2e8" stroke-width="1"/>
+
+  <text x="690" y="470" font-size="11" fill="#555" text-anchor="middle" font-style="italic">未整理のものまで、</text>
+  <text x="690" y="488" font-size="11" fill="#555" text-anchor="middle" font-style="italic">器の中に入ってしまう。</text>
+  <text x="690" y="512" font-size="11" fill="#c0563c" text-anchor="middle">壊すのは金ではなく「選び直す自由」</text>
+</svg>

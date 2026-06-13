@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 700" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+<title id="t">支援者が増えるほど真ん中が空く構造図</title>
+<desc id="d">中央に研究者を置き、周囲に六つの支援者を配置する。各支援者から外向きに、それぞれの評価指標への矢印が伸びて全体最適から離れる。研究者へは依頼・締切・問いが内向きに集中する。中央の周りには翻訳・照合・統合が空席である点線の輪を描く。</desc>
+<rect width="760" height="700" fill="#ffffff"/>
+
+<text x="40" y="40" font-size="17" font-weight="700" fill="#1a2a52">支援者が増えるほど、真ん中が空く</text>
+
+<defs>
+  <marker id="arrOut" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+    <path d="M0,0 L7,3 L0,6 Z" fill="#888"/>
+  </marker>
+  <marker id="arrIn" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+    <path d="M0,0 L7,3 L0,6 Z" fill="#e07a5f"/>
+  </marker>
+</defs>
+
+<!-- 中央 研究者 cx=380 cy=370 -->
+<!-- 空席の点線の輪 -->
+<circle cx="380" cy="370" r="92" fill="none" stroke="#c0563c" stroke-width="1.6" stroke-dasharray="5 5"/>
+<text x="380" y="290" font-size="11" fill="#c0563c" text-anchor="middle" font-style="italic">翻訳・照合・統合 (空席)</text>
+
+<circle cx="380" cy="370" r="50" fill="#1a2a52"/>
+<text x="380" y="366" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">研究者</text>
+<text x="380" y="384" font-size="9.5" fill="#cdd6ee" text-anchor="middle">統合役</text>
+
+<!-- 6支援者を環状配置。内側端=研究者方向、外側にKPI -->
+<!-- 配置 (角度 90,150,210,270,330,30 から時計回り)。中心からの支援者箱中心半径=190 -->
+
+<!-- 上: GAPファンド事務局 (380,150) -->
+<rect x="305" y="118" width="150" height="60" rx="7" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.8"/>
+<text x="380" y="143" font-size="12" font-weight="700" fill="#2a4d8f" text-anchor="middle">GAPファンド事務局</text>
+<text x="380" y="162" font-size="9.5" fill="#555" text-anchor="middle">採択件数・完走率</text>
+<line x1="380" y1="178" x2="380" y2="278" stroke="#e07a5f" stroke-width="2" marker-end="url(#arrIn)"/>
+<line x1="380" y1="118" x2="380" y2="86" stroke="#888" stroke-width="1.8" marker-end="url(#arrOut)"/>
+<text x="380" y="78" font-size="9.5" fill="#555" text-anchor="middle">→ 採択数の最大化</text>
+
+<!-- 右上: 企業紹介 (575,250) -->
+<rect x="535" y="222" width="150" height="60" rx="7" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.8"/>
+<text x="610" y="247" font-size="12" font-weight="700" fill="#2a4d8f" text-anchor="middle">企業紹介担当</text>
+<text x="610" y="266" font-size="9.5" fill="#555" text-anchor="middle">紹介件数</text>
+<line x1="540" y1="270" x2="445" y2="335" stroke="#e07a5f" stroke-width="2" marker-end="url(#arrIn)"/>
+<line x1="685" y1="240" x2="722" y2="226" stroke="#888" stroke-width="1.8" marker-end="url(#arrOut)"/>
+<text x="690" y="216" font-size="9.5" fill="#555">→ 紹介数</text>
+
+<!-- 右下: 投資家 (575,490) -->
+<rect x="535" y="460" width="150" height="60" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+<text x="610" y="485" font-size="12" font-weight="700" fill="#3a7a4a" text-anchor="middle">投資家</text>
+<text x="610" y="504" font-size="9.5" fill="#555" text-anchor="middle">投資実績・回収</text>
+<line x1="540" y1="472" x2="445" y2="407" stroke="#e07a5f" stroke-width="2" marker-end="url(#arrIn)"/>
+<line x1="685" y1="502" x2="722" y2="516" stroke="#888" stroke-width="1.8" marker-end="url(#arrOut)"/>
+<text x="688" y="534" font-size="9.5" fill="#555">→ 投資実績</text>
+
+<!-- 下: アクセラレーター (380,590) -->
+<rect x="305" y="562" width="150" height="60" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+<text x="380" y="587" font-size="12" font-weight="700" fill="#3a7a4a" text-anchor="middle">アクセラレーター</text>
+<text x="380" y="606" font-size="9.5" fill="#555" text-anchor="middle">デモデー・ピッチ完成度</text>
+<line x1="380" y1="562" x2="380" y2="462" stroke="#e07a5f" stroke-width="2" marker-end="url(#arrIn)"/>
+<line x1="380" y1="622" x2="380" y2="654" stroke="#888" stroke-width="1.8" marker-end="url(#arrOut)"/>
+<text x="380" y="672" font-size="9.5" fill="#555" text-anchor="middle">→ デモデーの完成度</text>
+
+<!-- 左下: URA・産学連携 (185,490) -->
+<rect x="75" y="460" width="150" height="60" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+<text x="150" y="485" font-size="12" font-weight="700" fill="#3a7a4a" text-anchor="middle">URA・産学連携</text>
+<text x="150" y="504" font-size="9.5" fill="#555" text-anchor="middle">外部資金・実装実績</text>
+<line x1="220" y1="472" x2="315" y2="407" stroke="#e07a5f" stroke-width="2" marker-end="url(#arrIn)"/>
+<line x1="75" y1="502" x2="38" y2="516" stroke="#888" stroke-width="1.8" marker-end="url(#arrOut)"/>
+<text x="34" y="534" font-size="9.5" fill="#555">→ 資金獲得額</text>
+
+<!-- 左上: 知財・経営人材紹介 (185,250) -->
+<rect x="75" y="222" width="150" height="60" rx="7" fill="#eef2fb" stroke="#2a4d8f" stroke-width="1.8"/>
+<text x="150" y="243" font-size="11.5" font-weight="700" fill="#2a4d8f" text-anchor="middle">知財・経営人材紹介</text>
+<text x="150" y="262" font-size="9.5" fill="#555" text-anchor="middle">出願数・成約数</text>
+<line x1="220" y1="270" x2="315" y2="335" stroke="#e07a5f" stroke-width="2" marker-end="url(#arrIn)"/>
+<line x1="75" y1="240" x2="38" y2="226" stroke="#888" stroke-width="1.8" marker-end="url(#arrOut)"/>
+<text x="34" y="216" font-size="9.5" fill="#555">→ 出願・成約数</text>
+
+<!-- 凡例 -->
+<rect x="40" y="636" width="300" height="44" rx="6" fill="#fbfbfd" stroke="#e2e2e8" stroke-width="1"/>
+<line x1="54" y1="652" x2="84" y2="652" stroke="#e07a5f" stroke-width="2" marker-end="url(#arrIn)"/>
+<text x="92" y="656" font-size="10.5" fill="#c0563c">内向き = 依頼・締切・問いが研究者に集中</text>
+<line x1="54" y1="670" x2="84" y2="670" stroke="#888" stroke-width="1.8" marker-end="url(#arrOut)"/>
+<text x="92" y="674" font-size="10.5" fill="#555">外向き = 各支援者が自分の指標へ最適化</text>
+</svg>

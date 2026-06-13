@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 560" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">判断の語彙 — GO / WAIT / NO_GO / HOLD</title>
+  <desc id="d">進める・条件つきで待つ・止める・保留するの四つの判断を色分けカードで示し、WAITの三部品（戻る条件・見直し日と担当・待つ間に進める作業）を展開する。活動の増加はGOの根拠にならない、WAITはGOに侵食されるという注意を欄外に添える図。</desc>
+  <rect width="860" height="560" fill="#ffffff"/>
+
+  <defs>
+    <marker id="arrW" markerWidth="11" markerHeight="11" refX="7.5" refY="3" orient="auto">
+      <path d="M0,0 L7.5,3 L0,6 Z" fill="#3a7a4a"/>
+    </marker>
+    <marker id="arrErode" markerWidth="11" markerHeight="11" refX="7.5" refY="3" orient="auto">
+      <path d="M0,0 L7.5,3 L0,6 Z" fill="#c0563c"/>
+    </marker>
+  </defs>
+
+  <!-- 見出し -->
+  <text x="40" y="42" font-size="16" font-weight="700" fill="#2a4d8f">判断に名前を付ける — 空気から判断を取り戻す四つの語彙</text>
+
+  <!-- 4 カード -->
+  <!-- GO -->
+  <rect x="40" y="62" width="185" height="118" rx="8" fill="#eef7f0" stroke="#3a7a4a" stroke-width="2"/>
+  <text x="132" y="90" font-size="16" font-weight="700" fill="#2c6038" text-anchor="middle">GO</text>
+  <text x="132" y="110" font-size="11.5" fill="#3a7a4a" text-anchor="middle">進める</text>
+  <line x1="58" y1="122" x2="207" y2="122" stroke="#3a7a4a" stroke-width="1" opacity="0.4"/>
+  <text x="132" y="144" font-size="10.5" fill="#555" text-anchor="middle">次の不可逆ステップへ。</text>
+  <text x="132" y="160" font-size="10.5" fill="#555" text-anchor="middle">出願・深い開示・設立準備・</text>
+  <text x="132" y="174" font-size="10.5" fill="#555" text-anchor="middle">採用・資金調達の開始</text>
+
+  <!-- WAIT -->
+  <rect x="237" y="62" width="185" height="118" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="2.2"/>
+  <text x="329" y="90" font-size="16" font-weight="700" fill="#1a2a52" text-anchor="middle">WAIT</text>
+  <text x="329" y="110" font-size="11.5" fill="#2a4d8f" text-anchor="middle">条件つきで待つ</text>
+  <line x1="255" y1="122" x2="404" y2="122" stroke="#2a4d8f" stroke-width="1" opacity="0.4"/>
+  <text x="329" y="144" font-size="10.5" fill="#555" text-anchor="middle">何が揃えば進むかを</text>
+  <text x="329" y="160" font-size="10.5" fill="#555" text-anchor="middle">明文化して待つ。</text>
+  <text x="329" y="174" font-size="10.5" fill="#c0563c" text-anchor="middle">唯一、設計を要求する判断</text>
+
+  <!-- NO_GO -->
+  <rect x="434" y="62" width="185" height="118" rx="8" fill="#fbf4f1" stroke="#c0563c" stroke-width="2"/>
+  <text x="526" y="90" font-size="16" font-weight="700" fill="#c0563c" text-anchor="middle">NO_GO</text>
+  <text x="526" y="110" font-size="11.5" fill="#c0563c" text-anchor="middle">止める</text>
+  <line x1="452" y1="122" x2="601" y2="122" stroke="#c0563c" stroke-width="1" opacity="0.4"/>
+  <text x="526" y="144" font-size="10.5" fill="#555" text-anchor="middle">この形では進めない。</text>
+  <text x="526" y="160" font-size="10.5" fill="#555" text-anchor="middle">仮説を閉じる・別用途へ・</text>
+  <text x="526" y="174" font-size="10.5" fill="#555" text-anchor="middle">会社化しない経路へ</text>
+
+  <!-- HOLD -->
+  <rect x="631" y="62" width="185" height="118" rx="8" fill="#fff" stroke="#888" stroke-width="2"/>
+  <text x="723" y="90" font-size="16" font-weight="700" fill="#555" text-anchor="middle">HOLD</text>
+  <text x="723" y="110" font-size="11.5" fill="#555" text-anchor="middle">保留</text>
+  <line x1="649" y1="122" x2="798" y2="122" stroke="#888" stroke-width="1" opacity="0.4"/>
+  <text x="723" y="144" font-size="10.5" fill="#555" text-anchor="middle">判断材料が足りない。</text>
+  <text x="723" y="160" font-size="10.5" fill="#555" text-anchor="middle">追加ヒアリング・資料確認・</text>
+  <text x="723" y="174" font-size="10.5" fill="#555" text-anchor="middle">専門家相談（週単位で）</text>
+
+  <!-- NO_GO の補足 -->
+  <text x="526" y="200" font-size="10" fill="#c0563c" text-anchor="middle" font-style="italic">研究価値の否定ではない。合わない形からシーズを逃がす判断</text>
+
+  <!-- WAIT の展開 見出し -->
+  <text x="40" y="234" font-size="15" font-weight="700" fill="#2a4d8f">機能する WAIT には三つの部品が要る</text>
+
+  <!-- WAIT から三部品へ -->
+  <line x1="329" y1="180" x2="329" y2="248" stroke="#3a7a4a" stroke-width="2"/>
+  <line x1="155" y1="248" x2="705" y2="248" stroke="#3a7a4a" stroke-width="2"/>
+  <line x1="155" y1="248" x2="155" y2="266" stroke="#3a7a4a" stroke-width="2" marker-end="url(#arrW)"/>
+  <line x1="430" y1="248" x2="430" y2="266" stroke="#3a7a4a" stroke-width="2" marker-end="url(#arrW)"/>
+  <line x1="705" y1="248" x2="705" y2="266" stroke="#3a7a4a" stroke-width="2" marker-end="url(#arrW)"/>
+
+  <!-- 部品1 -->
+  <rect x="40" y="272" width="230" height="110" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.6"/>
+  <text x="155" y="296" font-size="12.5" font-weight="700" fill="#2c6038" text-anchor="middle">(1) 戻る条件</text>
+  <text x="155" y="320" font-size="10.5" fill="#555" text-anchor="middle">何が揃えば GO の検討に</text>
+  <text x="155" y="336" font-size="10.5" fill="#555" text-anchor="middle">戻るかを、測れる形で書く。</text>
+  <text x="155" y="358" font-size="10.5" fill="#c0563c" text-anchor="middle">「状況が好転したら」は</text>
+  <text x="155" y="373" font-size="10.5" fill="#c0563c" text-anchor="middle">条件ではない</text>
+
+  <!-- 部品2 -->
+  <rect x="315" y="272" width="230" height="110" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.6"/>
+  <text x="430" y="296" font-size="12.5" font-weight="700" fill="#2c6038" text-anchor="middle">(2) 見直しの日付と担当</text>
+  <text x="430" y="320" font-size="10.5" fill="#555" text-anchor="middle">九十日後、と日付を切り、</text>
+  <text x="430" y="336" font-size="10.5" fill="#555" text-anchor="middle">その日に誰が判断の席を</text>
+  <text x="430" y="352" font-size="10.5" fill="#555" text-anchor="middle">設けるかを決める。</text>
+  <text x="430" y="373" font-size="10.5" fill="#c0563c" text-anchor="middle">日付のない条件は誰も見ない</text>
+
+  <!-- 部品3 -->
+  <rect x="590" y="272" width="230" height="110" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="2"/>
+  <text x="705" y="296" font-size="12.5" font-weight="700" fill="#2c6038" text-anchor="middle">(3) 待つ間に進める作業</text>
+  <text x="705" y="320" font-size="10.5" fill="#555" text-anchor="middle">＝ WAIT の核心。出願・開示</text>
+  <text x="705" y="336" font-size="10.5" fill="#555" text-anchor="middle">の線確定・予算側への接続・</text>
+  <text x="705" y="352" font-size="10.5" fill="#555" text-anchor="middle">空席の確認を進める。</text>
+  <text x="705" y="373" font-size="10.5" fill="#2c6038" text-anchor="middle">待つ対象は一つに絞る</text>
+
+  <!-- 欄外の注意 -->
+  <rect x="40" y="402" width="385" height="138" rx="8" fill="#fbf4f1" stroke="#e07a5f" stroke-width="1.6"/>
+  <text x="58" y="426" font-size="12.5" font-weight="700" fill="#c0563c">注意 — GO の根拠を取り違えない</text>
+  <line x1="58" y1="436" x2="407" y2="436" stroke="#e07a5f" stroke-width="1" opacity="0.5"/>
+  <text x="58" y="460" font-size="11" fill="#555">面談が増えた・反応が良い・紹介が来た——</text>
+  <text x="58" y="478" font-size="11" fill="#555">活動の量は GO の根拠にならない。</text>
+  <text x="58" y="500" font-size="11" fill="#555">進んだ先で何が不可逆になり、それを誰が</text>
+  <text x="58" y="518" font-size="11" fill="#555">背負うのかが言えたとき、初めて GO。</text>
+
+  <rect x="435" y="402" width="385" height="138" rx="8" fill="#fbf4f1" stroke="#e07a5f" stroke-width="1.6"/>
+  <text x="453" y="426" font-size="12.5" font-weight="700" fill="#c0563c">注意 — WAIT は GO に侵食される</text>
+  <line x1="453" y1="436" x2="802" y2="436" stroke="#e07a5f" stroke-width="1" opacity="0.5"/>
+  <text x="453" y="460" font-size="11" fill="#555">待つ間も面談・紹介・発表機会は増える。</text>
+  <text x="453" y="478" font-size="11" fill="#555">活動が増えると進んで見え、「そろそろ GO」</text>
+  <text x="453" y="496" font-size="11" fill="#555">の声が出る。そのとき効く問いは一つ——</text>
+  <text x="453" y="522" font-size="12" fill="#c0563c" font-weight="700">「何が変わったから GO なんですか」</text>
+</svg>

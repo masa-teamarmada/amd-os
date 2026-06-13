@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 480" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">割引率が束ねる三つの仕事の分解</title>
+  <desc id="d">一本の割引率 30〜70 パーセントが、失敗リスクの補正・時間価値・市況連動リスクの三つに分岐する。失敗リスクだけが生存確率 S で肩代わりでき、残る二つはスコアの外で別の物差しと併読する構造を示す。</desc>
+  <rect width="820" height="480" fill="#ffffff"/>
+
+  <defs>
+    <marker id="arrSolid" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#e07a5f"/>
+    </marker>
+    <marker id="arrDash" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#888"/>
+    </marker>
+  </defs>
+
+  <text x="40" y="40" font-size="15" font-weight="700" fill="#2a4d8f">割引率 30〜70% は、性質の違う三つの仕事を一つの数字に束ねている</text>
+
+  <!-- 左: 割引率の太い箱 -->
+  <rect x="40" y="180" width="150" height="100" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="2.4"/>
+  <text x="115" y="222" font-size="14" font-weight="700" fill="#1a2a52" text-anchor="middle">割引率</text>
+  <text x="115" y="248" font-size="16" font-weight="700" fill="#1a2a52" text-anchor="middle">30〜70%</text>
+
+  <!-- 分岐線 (左の箱の右端 x=190 から各仕事へ) -->
+  <line x1="190" y1="210" x2="270" y2="120" stroke="#444" stroke-width="1.8"/>
+  <line x1="190" y1="230" x2="270" y2="230" stroke="#444" stroke-width="1.8"/>
+  <line x1="190" y1="250" x2="270" y2="340" stroke="#444" stroke-width="1.8"/>
+
+  <!-- 仕事(1) 失敗リスク -->
+  <rect x="270" y="92" width="210" height="64" rx="7" fill="#eef7f0" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="375" y="118" font-size="12.5" font-weight="700" fill="#2c6038" text-anchor="middle">(1) 失敗リスクの補正</text>
+  <text x="375" y="138" font-size="10.5" fill="#555" text-anchor="middle">ゼロになる確率の分を割り引く</text>
+
+  <!-- 仕事(2) 時間価値 -->
+  <rect x="270" y="200" width="210" height="60" rx="7" fill="#fff" stroke="#5b73b0" stroke-width="1.6"/>
+  <text x="375" y="226" font-size="12.5" font-weight="700" fill="#2a4d8f" text-anchor="middle">(2) 時間価値</text>
+  <text x="375" y="246" font-size="10.5" fill="#555" text-anchor="middle">遅く入るお金は価値が低い</text>
+
+  <!-- 仕事(3) 市況連動 -->
+  <rect x="270" y="304" width="210" height="60" rx="7" fill="#fff" stroke="#5b73b0" stroke-width="1.6"/>
+  <text x="375" y="330" font-size="12.5" font-weight="700" fill="#2a4d8f" text-anchor="middle">(3) 市況連動リスク</text>
+  <text x="375" y="350" font-size="10.5" fill="#555" text-anchor="middle">分散で消せない共通リスク</text>
+
+  <!-- 接続矢印 -->
+  <!-- (1) 実線 -> S -->
+  <line x1="480" y1="124" x2="600" y2="124" stroke="#e07a5f" stroke-width="2.4" marker-end="url(#arrSolid)"/>
+  <text x="540" y="114" font-size="10" fill="#c0563c" text-anchor="middle">確率で測る方が本来正しい</text>
+  <!-- (2) 点線 -> 月数 -->
+  <line x1="480" y1="230" x2="600" y2="230" stroke="#888" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#arrDash)"/>
+  <text x="540" y="220" font-size="10" fill="#888" text-anchor="middle">スコアの外で併読</text>
+  <!-- (3) 点線 -> ファクター -->
+  <line x1="480" y1="334" x2="600" y2="334" stroke="#888" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#arrDash)"/>
+  <text x="540" y="324" font-size="10" fill="#888" text-anchor="middle">スコアの外で併読</text>
+
+  <!-- 右: 受け皿の箱 -->
+  <!-- S の箱 -->
+  <rect x="600" y="98" width="190" height="64" rx="7" fill="#eef7f0" stroke="#2c6038" stroke-width="2.2"/>
+  <text x="695" y="124" font-size="13.5" font-weight="700" fill="#2c6038" text-anchor="middle">生存確率 S へ</text>
+  <text x="695" y="144" font-size="10" fill="#c0563c" text-anchor="middle">肩代わりできるのはここだけ</text>
+
+  <!-- 月数の箱 -->
+  <rect x="600" y="206" width="190" height="48" rx="7" fill="#fff" stroke="#888" stroke-width="1.6"/>
+  <text x="695" y="234" font-size="12" font-weight="700" fill="#555" text-anchor="middle">事業化までの必要月数</text>
+
+  <!-- ファクター開示の箱 -->
+  <rect x="600" y="310" width="190" height="48" rx="7" fill="#fff" stroke="#888" stroke-width="1.6"/>
+  <text x="695" y="332" font-size="11.5" font-weight="700" fill="#555" text-anchor="middle">PF の共通ファクター開示</text>
+  <text x="695" y="349" font-size="9.5" fill="#888" text-anchor="middle">ポートフォリオの相関を明示</text>
+
+  <!-- 下部キャプション -->
+  <text x="40" y="440" font-size="11.5" fill="#555">S が肩代わりできるのは (1) だけ。時間と市況を一つの率に溶かし戻さず、別の物差しで併読するのがこのモデルの設計。</text>
+</svg>

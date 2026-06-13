@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 560" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">四枚の紙の関係図 — 会社化判断の会議</title>
+  <desc id="d">会社化判断の会議を中央に置き、顧客証拠の一覧・配置メモ・余力と必要期間・戻る条件つき WAIT 案の四枚の紙が四方から机に揃う構図。どれかが欠けると判断がどう偏るかを欠落パターンとして添えた関係図。</desc>
+  <rect width="880" height="560" fill="#ffffff"/>
+
+  <!-- 見出し -->
+  <text x="40" y="40" font-size="16" font-weight="700" fill="#1a2a52">四枚の紙の関係図 — 会社化を決める会議の前に机に並べる</text>
+  <text x="40" y="62" font-size="12" fill="#555">目的は会社化を止めることではない。進む・待つ・形を変えるを同じ解像度で並べること</text>
+
+  <defs>
+    <marker id="arrO" markerWidth="11" markerHeight="11" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L8,3.2 L0,6.4 Z" fill="#e07a5f"/>
+    </marker>
+  </defs>
+
+  <!-- 中央: 会議 -->
+  <rect x="335" y="248" width="210" height="86" rx="10" fill="#eef2fb" stroke="#2a4d8f" stroke-width="2.2"/>
+  <text x="440" y="284" font-size="15" font-weight="700" fill="#1a2a52" text-anchor="middle">会社化判断の会議</text>
+  <text x="440" y="306" font-size="11.5" fill="#555" text-anchor="middle">進む / 待つ / 形を変える</text>
+  <text x="440" y="324" font-size="11" fill="#888" text-anchor="middle">四枚が揃って初めて結論を出す</text>
+
+  <!-- 四方の紙へ向かう矢印(会議 ← 各紙、机に揃う) -->
+  <!-- 一枚目(左上) -->
+  <line x1="232" y1="170" x2="338" y2="252" stroke="#e07a5f" stroke-width="2" marker-end="url(#arrO)"/>
+  <!-- 二枚目(右上) -->
+  <line x1="648" y1="170" x2="542" y2="252" stroke="#e07a5f" stroke-width="2" marker-end="url(#arrO)"/>
+  <!-- 三枚目(左下) -->
+  <line x1="232" y1="412" x2="338" y2="330" stroke="#e07a5f" stroke-width="2" marker-end="url(#arrO)"/>
+  <!-- 四枚目(右下) -->
+  <line x1="648" y1="412" x2="542" y2="330" stroke="#e07a5f" stroke-width="2" marker-end="url(#arrO)"/>
+
+  <!-- ===== 一枚目: 顧客証拠の一覧 (左上) ===== -->
+  <rect x="50" y="96" width="240" height="96" rx="8" fill="#fff" stroke="#2a4d8f" stroke-width="1.8"/>
+  <text x="64" y="120" font-size="13" font-weight="700" fill="#1a2a52">一枚目・顧客証拠の一覧</text>
+  <text x="64" y="140" font-size="11.5" fill="#555">相手の中の四人を分ける</text>
+  <text x="64" y="158" font-size="11" fill="#888">探索 / 評価条件 / 予算 / 導入責任</text>
+  <text x="64" y="180" font-size="11" fill="#3a7a4a">「予算を持つ人」の列が埋まるか</text>
+
+  <!-- ===== 二枚目: 配置メモ (右上) ===== -->
+  <rect x="590" y="96" width="240" height="96" rx="8" fill="#fff" stroke="#2a4d8f" stroke-width="1.8"/>
+  <text x="604" y="120" font-size="13" font-weight="700" fill="#1a2a52">二枚目・配置メモ</text>
+  <text x="604" y="140" font-size="11.5" fill="#555">五つの創業者機能と空欄</text>
+  <text x="604" y="158" font-size="11" fill="#888">決定 / 交渉 / 資金 / 組織 / 研究</text>
+  <text x="604" y="180" font-size="11" fill="#3a7a4a">空欄に探索期限が付いているか</text>
+
+  <!-- ===== 三枚目: 余力と必要期間 (左下) ===== -->
+  <rect x="50" y="416" width="240" height="96" rx="8" fill="#fff" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="64" y="440" font-size="13" font-weight="700" fill="#2c6038">三枚目・余力と必要期間</text>
+  <text x="64" y="460" font-size="11.5" fill="#555">残り距離を前進速度で割る</text>
+  <text x="64" y="478" font-size="11" fill="#888">H = y / T(残り期間)</text>
+  <text x="64" y="500" font-size="11" fill="#c0563c">H が 1 を大きく割るなら危険</text>
+
+  <!-- ===== 四枚目: WAIT 案 (右下) ===== -->
+  <rect x="590" y="416" width="240" height="96" rx="8" fill="#fff" stroke="#3a7a4a" stroke-width="1.8"/>
+  <text x="604" y="440" font-size="13" font-weight="700" fill="#2c6038">四枚目・戻る条件つき WAIT 案</text>
+  <text x="604" y="460" font-size="11.5" fill="#555">待つを設計された選択肢にする</text>
+  <text x="604" y="478" font-size="11" fill="#888">根拠 / 下げる不確実性 / 戻る日</text>
+  <text x="604" y="500" font-size="11" fill="#c0563c">「やらないこと」欄が保留と分ける</text>
+
+  <!-- ===== 欠落パターン (下部の帯) ===== -->
+  <text x="40" y="538" font-size="11.5" font-weight="700" fill="#c0563c">欠けると判断はこう偏る</text>
+  <text x="190" y="538" font-size="11" fill="#555">証拠なし→雰囲気GO ／ 配置なし→研究者一括 ／ 余力なし→根性論 ／ WAIT案なし→GO一択</text>
+</svg>
