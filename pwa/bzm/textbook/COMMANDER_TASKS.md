@@ -1,6 +1,6 @@
 # Textbook Commander Tasks
 
-> Last updated: 2026-06-12 JST
+> Last updated: 2026-06-13 JST
 >
 > Textbook司令塔のタスク台帳。タスク追加、方針変更、worker切り出し、
 > 完了報告、差し戻し、archive のたびに更新する。
@@ -75,6 +75,7 @@
   - 2026-06-13 **第II部 wave2 (4章) 納品・公開**: s-survival / score-and-bottleneck / model-critiques / retrofit-verification を司令塔レビュー (丸数字・禁止語・章型) 通過で目次登録。第II部は9章 (何を解くか→全体像→P→R→S→計算式と律速→戦略余力→批判と限界→検証) で完成形。次は wave3 = 第I部 (現場)・第III部 (苗床)・第IV部 (ツールキット) + 残figure群 + 序章。
   - 2026-06-13 **第I部 wave3 (4章) 納品・公開**: field-before-zero / field-clocks / field-gates / field-who-carries を司令塔レビュー通過で目次登録 (第I部規則 = 数式・モデル記号なし、public-manuscript 場面の再構成)。次は wave4 = 第III部 (苗床/ERS)・第IV部 (実践ツールキット)・序章。
   - 2026-06-13 **wave4 納品 + 序章で骨格完成**: nursery-ers (ERS 8軸・加重和の理由・90日pilot) / field-toolkit (7道具) をレビュー通過で登録、序章 (preface) は司令塔直書き。/bzm index は preface へ。本の骨格 = 序章 + I部4章 + II部9章 + III部1章 + IV部1章 + 巻末。残課題: (1) 概念図系図版 (二層アーキテクチャ・進化系譜・三因子等 — matplotlib か外部生成かまさ判断) (2) 通し編集 cold-reader (3) 巻末資料の再構築 (参考文献・記号・用語) (4) D-7 受け皿再設計 (5) 出版パッケージ (タイトル・組版・出典確定)。
+  - 2026-06-13 **current-state audit / figure TODO棚卸し worker**: `pwa/bzm/textbook/runs/2026-06-13-bzm-restart-current-state-and-figure-plan.md` を追加。状態: Active継続。確認済み: 現行章の `図版 TODO` は33件、source/reference TODOは5件、D-7はlegacy fallback継続。Approval needed: 図版生成方式 (script / svg-html / external) はまさ要判断。Watch: D-7新教科書routing再設計。deploy: 公開本文/UI変更なしのため不要。
   - 2026-06-13 進捗: プロトタイプ rev1 へのまさレビュー 5 点 (KPI論の追加 / 冒頭ストーリーを一社依存ロックイン失敗ケースとして拡張 / 戦略余力の全成分を解説 (交渉力偏重の解消) / 文章増量・新人URA/研究者/学部生が読める粒度 / 鋸歯グラフ必須) を rev2 へ反映。図版 f6 (x,y)平面・f7 鋸歯時系列・f8 軌跡4パターンを `bzm_figures.py` で生成し本文へ埋め込み。KPI論はまさ直出し思想として `AUTHOR_DIRECTIVES.md` (2026-06-13) と `knowledge/license_negotiation.md` に保全。
 
 - 2026-06-04: `Textbook Vercel deploy approval gate` Active。Vercel deploy上限は緩和され、deploy自体は再開OK。ただし、production deploy / preview deploy / Vercel自動deployを起こす可能性があるpushの直前には、必ずdeploy bundle付きで `askuserquestion` 承認を取る。deploy bundle候補: Textbook story baseline、Field Toolkit UI、Method Appendix、static reader / Cloudflare reader記録、Vercel ignore gate、その他local検証済み変更をbundle候補として整理する。askuserquestion承認状況: 未承認。deploy実施回数: 2026-06-04 gate更新後 0回。push保留: あり。承認待ちになった場合は `approval pending` として記録する。成果物: `pwa/bzm/textbook/runs/2026-06-04-vercel-deploy-approval-gate.md`。
