@@ -40,6 +40,6 @@
 ## 運用ルール (このリポ)
 - main 一本 (ブランチ作成禁止)。commit したら即 push。
 - deploy = `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` (main push = Vercel自動build)。原則ノンストップ・事後報告。
-- md push でも critical-ui guard が走る: **丸数字 ①②③ は禁止** ((N) で書く)。
+- md push でも critical-ui guard が走る: **丸数字 (circled number) は禁止** ((N) で書く)。
 - 章を追加したら `bzm-chapters.ts` の BZM_PARTS / BZM_CHAPTERS に同 commit で登録 (未登録だと左ナビに出ない)。
 - 公開本文に禁止語 (AMD / まさ / 内部運用語 / 実名 PJ) を入れない。事例は匿名化必須。
