@@ -1,85 +1,71 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-06-02 (通知 mojibake 調査・fix・DB 掃除)
-- Topic: Codex automation outbox の日本語化け事故の恒久 fix + 化けた DB 11 行の掃除
+- Last updated: 2026-06-13 (D-2 MS進捗 アンカー方式 + 計画遅延通知 A案+C案)
+- Topic: SX「進みすぎ」問題の根治 — デフォルト按分の起点をまさ確定値 (アンカー) にし、target_ym 超過は通知で知らせる
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Current branch: `main`
-- Current HEAD: `99c4324 fix(automation): reject mojibake outbox before writing to DB + clean 11 garbled rows`
+- Current HEAD: `ae93faeb feat(pwa): MS進捗デフォルト按分をアンカー方式へ + 計画遅延通知 (A案+C案) v0.19.0`
+- Production: **v0.19.0 = ae93faeb Ready 確認済み**
 
-## 直近セッション (2026-06-02 mojibake)
+## 直近セッション (2026-06-13 アンカー方式 + 計画遅延通知)
 
-- まさが `/notifications` で「?? ZMP: ??????」と化けた OS台帳差分通知を発見。
-- 原因: Codex automation `amd-os-ms` の 6/1 00:46 run が Gmail 抽出日本語を `?` に lossy 変換し、applier が無検証で DB に保存していた (一過性の LLM 出力事故)。
-- A. 恒久 fix: `pwa/scripts/ms_progress_review_tool.mjs` に `assertNoMojibake` ゲート追加。`?{3,}` を検知して outbox を `failed/` 退避 → DB 非汚染。
-- B. DB 掃除: 化け 11 行を削除 (全て未採否・再生成可)。p21 confirmed の正規注記は除外。バックアップ `pwa/scripts/_mojibake_cleanup_2026-06-02_backup.json`。
-- **次の一手**: 削除した候補は次回 automation run (6h ごと) が生データから再生成する想定。次セッションで `/notifications` を見て正常な日本語で入り直したか確認。入っていなければ手動で automation を走らせる。
-- 詳細: `pwa/design_log/sessions_2026-06.md` / `pwa/BUGS.md` `[automation/mojibake] (2026-06-02)`。
-- ⚠️ コード deploy は不要 (applier はローカル LaunchAgent 経由で動く非 PWA スクリプト。Vercel deploy 対象外、build-info bump も不要)。
+まさが「SXの6月が49%、7月も49%、両方進みすぎ」と発見 → 診断: p21 で 202605 確定 15% の MS が target_ym 最終月 202606 にデフォルト按分で 100% にジャンプしていた。まさ指示「AとCでいこう」で:
 
-## Current State (前ワークストリーム: ERS / payment, 別件)
+- **A案 (アンカー方式)**: デフォルト按分の起点を「その月より前の最新まさ確定値」に。3か月MSで 202605 確定 15% なら 202606 = 48.3%。target_ym 超過後も確定アンカーから月割り継続、勝手に 100% に飛ばない。
+- **C案 (計画遅延通知)**: target_ym 超過 + 100% 未達 MS を毎日 cron が `l2_kind='ms_schedule_delay'` (D-2 MS計画遅延) で通知、解消で自動 delete。
+- 計算 `anchoredExpectedCumPctForYm` を writer / LLM 乖離検知 / 報酬 / 表示 API の 4 か所に統一。
+- 本番検証済み: p21 事業計画策定 202606 = 48.3%、PJ 全体 49.3% → 40.4%。遅延通知は対象 MS が無く 0 件 (SQL 裏取り済)。
 
-- Main includes `1aa3e2e feat(score): backfill FRL cap AMD for active projects`; this handoff adds #103 ERS docs on top.
-- Production was reported Ready from the 2026-05-30 22:33 JST deploy. This cleanup did not deploy.
-- #97 finance fix, #100 ERS work, and #101 FRL/F_capability work are already represented in main-era docs/logs. This handoff no longer treats `feat/bzm-textbook` or the #100 ERS session as the current branch tip.
-- `pwa/HANDOFF_bzm_textbook.md` remains the BZM/AMD Score workstream handoff. Keep BZM model work there, not here.
+詳細: `pwa/design_log/sessions_2026-06.md` 2026-06-13 エントリ。確定仕様: `pwa/spec/3-10-l2-ms-progress-current-spec.md` / 使い方: `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md`。
 
-## ERS 実データ本評価
+> この前段 (2026-06-12 schedule_default_revision_v3 = LLM 直書き廃止・デフォルト按分+revision提案方式への全面移行、v0.18.0 = badaaa31) も同 design_log に記録済み。今回の A案+C案はその上に乗るアンカー化。
 
-- 2026-05-31 に 3 機関 × 28 サブ軸 = 84 件を本番 `institution_assessments` へ `evaluated_at='2026-05-31'` / `evaluator='えいみ'` で upsert。
-- 最新 note はすべて `本評価2026-05-31` に更新済み。最新行の `draft` note は 0 件。
-- 最新 ERS: 香川大 44% / 工学院大 44% / NIMS 74%。
-- 本番確認済み: `/institutions` に 44% / 44% / 74% 表示、`/institutions/assess` に Lv チェックと根拠メモ表示。
-- 次に見る場所: `/institutions/assess` の根拠メモに「未確認」と残した項目。香川大は軸5/6/7、工学院大は軸5/6/7、NIMSは軸3/5/6/7-d が優先。
-- KUTE 規程整備ログを元に、ERS raw evidence として制度比較マトリクス案を追加。ERS 本体は Lv1–5、規程・制度は `unknown` / `not_started` / `drafting` / `established`、詳細は `pwa/design_log/sessions_2026-05.md` #104。
-- 制度比較マトリクスは migration `113_institution_policy_matrix.sql` で本番DBへ実装済み。`/institutions/assess` は `ERS評価` / `制度整備` / `規程比較` / `根拠資料` の4タブ。詳細は #105。
+## Repo State
 
-## Dirty / Local State
+- HEAD: `ae93faeb` (push 済み、production Ready)。未 push commit なし (要 `git log --branches --not --remotes` で再確認)。
+- 作業ツリー: この handoff で `design_log/sessions_2026-06.md` + `HANDOFF_pwa_rebuild.md` を更新 (未 commit)。次の commit に含める。
 
-- `pwa/design/venture_map_demo.md` and spec-related files were modified outside this cleanup. Do not stage/revert them without confirming that workflow.
-- `pwa/public/bzm/_prxs_9pj.png` was validation-only output from `pwa/scripts/prxs_9pj_inputs.py`.
-  - Decision: do not commit/adopt it as a formal asset.
-  - Cleanup: remove the generated file locally and ignore `pwa/public/bzm/_*.png` going forward.
-  - If a future BZM session wants this figure in docs, regenerate/promote it with a non-underscore filename and add an explicit page reference.
+## Unresolved / 次セッションへの申し送り
 
-## Payment PR #2
-
-PR: `https://github.com/masa-teamarmada/amd-os/pull/2`
-
-- State at cleanup: open draft, branch `codex/payment-confirm-slack-action`, one commit `dc7027a`.
-- Intended diff is small: GAS interactive handler, Slack webhook allowlist, PWA payment confirm POST mode, nudge action flag, docs, build-info.
-- Merge risk: branch base is old (`0d1eb0b`). Comparing branch to current main looks huge because main has many later BZM/ERS/FRL/doc commits.
-- Reapply check: the PR patch applies cleanly to current main for GAS/API/SPEC files, but conflicts in:
-  - `pwa/manual/6-4-finance-payment-confirm-spec.md`
-  - `pwa/src/lib/build-info.ts`
-
-Recommendation:
-
-1. Do not merge PR #2 directly.
-2. Close/supersede it, or recreate a clean main-based PR.
-3. Reapply only the 7 intended files; resolve `manual/6-4` against the current finance docs and handle `build-info.ts` in the deploy commit.
-4. Keep `PAYMENT_CONFIRM_SLACK_INTERACTIVE` default/off until GAS is deployed.
-5. Required order remains: `clasp login` -> `clasp push --force` -> deploy existing GAS Web App -> set Vercel env -> PWA deploy -> Slack click end-to-end test.
-
-## Useful Logs
-
-- Payment-confirm Slack action: `pwa/design_log/sessions_2026-05.md` #96 and `pwa/BUGS.md` `[GAS/PWA] 入金確認Slack action...`
-- CTB finance correction: `pwa/design_log/sessions_2026-05.md` #97 and `pwa/BUGS.md` `[PWA/finance] CTB 202604...`
-- ERS UI: `pwa/design_log/sessions_2026-05.md` #100
-- ERS 実データ本評価: `pwa/design_log/sessions_2026-05.md` #103
-- ERS 制度比較マトリクス: `pwa/design_log/sessions_2026-05.md` #104
-- ERS 制度比較マトリクス実装: `pwa/design_log/sessions_2026-05.md` #105
-- ERS 制度比較マトリクスRLS境界修正: `pwa/design_log/sessions_2026-05.md` #106
-- FRL/F_capability CES: `pwa/design_log/sessions_2026-05.md` #101 and `pwa/HANDOFF_bzm_textbook.md`
+1. **(保留・まさ承認待ち)** 残骸 `l2_routine` / `tsukuyomi_estimate` 行の DELETE 掃除。本番データ削除なので未承認のまま。cron の `routine_auto` 上書きで自然修復されるため実害はないが、明示的に消すならまさの承認を取る。
+2. **(監視)** 7月以降、p21 事業計画策定 (target 202606) が 6月中にまさ確定されなければ、7月の cron が初の `ms_schedule_delay` 通知を出す。通知が `/notifications` に正しく "D-2 MS計画遅延" ラベルで出るか実地確認するとよい。
+3. **(別ワークストリーム・本件と無関係、過去 handoff から継続)** payment PR #2 の扱い / ERS 根拠メモの「未確認」項目埋め。下記 pointer 参照。
 
 ## First Next Action
 
 ```sh
 cd /Users/masa/projects/AMD/amd-os
 git fetch --all --prune
-git log --branches --not --remotes --oneline
+git log --branches --not --remotes --oneline   # 未 push 検知
 git status -sb
 ```
 
-Then either continue the owner workflow for the remaining dirty files, or create a fresh main-based replacement for payment PR #2.
+この handoff の doc 更新 (design_log + HANDOFF) を commit & push してから、次の依頼に入る。
+
+## Pointers
+
+- 確定仕様 (spec): `pwa/spec/3-10-l2-ms-progress-current-spec.md` (D-2 MS進捗の全契約)
+- 使い方 (manual): `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md`
+- 中核データ正本: `pwa/design/L2_DATA.md` / コックピット: `pwa/design/cockpit.md`
+- バグ・教訓: `pwa/BUGS.md` (今回のセッションは新規バグなし)
+- 過去セッションログ: `pwa/design_log/sessions_2026-06.md` (6/12 v3移行 / 6/13 アンカー方式)
+- 実装ファイル: `pwa/src/lib/ms-schedule-shared.ts` (`anchoredExpectedCumPctForYm`) / `progress-estimator.ts` / `reward-summary.ts` / `src/app/api/cron/ms-schedule-progress/route.ts` / `src/app/api/progress/ms-schedule/route.ts`
+
+### 別ワークストリーム (過去 handoff からの継続事項)
+
+- payment PR #2 (`https://github.com/masa-teamarmada/amd-os/pull/2`): 古い base のため直 merge せず main-based で作り直す方針。詳細は `pwa/design_log/sessions_2026-05.md` #96 / `pwa/BUGS.md`。
+- ERS 実データ本評価 / 制度比較マトリクス: `pwa/design_log/sessions_2026-05.md` #103〜#106。`/institutions/assess` 根拠メモの「未確認」項目 (香川大 軸5/6/7、工学院大 軸5/6/7、NIMS 軸3/5/6/7-d) が残課題。
+
+## Deploy / Verification コマンド (今セッションで実行したもの)
+
+```bash
+# 本番反映 (push 方式、CLI deploy は廃止)
+AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
+
+# D-2 デフォルト按分 cron 手動実行 (CRON_SECRET は .env.local、チャットに出さない)
+SECRET=$(grep '^CRON_SECRET=' .env.local | cut -d= -f2-)
+curl -s -H "Authorization: Bearer $SECRET" \
+  "https://amd-os-pwa.vercel.app/api/cron/ms-schedule-progress?projectId=p21&ym=202606"
+```

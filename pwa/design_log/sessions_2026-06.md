@@ -128,3 +128,78 @@
 ### 教訓
 - 既にまさが見ている production version を基準にする。`BUILD_VERSION` の bump だけを見て「次は v0.15.3」と判断せず、現行 production と直近別セッションの HEAD を確認してから bundle を作る。
 - dirty/local direct deploy で一度本番に出た内容は、次の deploy 前に必ず commit graph と該当セッションの成果物を確認する。未確認の古い worktree deploy は production rollback 事故になる。
+
+---
+
+## 2026-06-12 — D-2 MS進捗 schedule_default_revision_v3 全面移行 (badaaa31, v0.18.0)
+
+### コンテキスト
+- まさ指示「Bまで一気にやろう。どっちにしろ現状だと使えない。」「巻き戻りからの再上昇とかも、あってはならない。巻き戻りって、そもそも起きない設計のはず。Nか月計画のMSなら1か月あたり100/N%の進捗がデフォルトで入るはずで、ズレ判断がL2データから出たら通知に確認が来て、おれが認めない限りデフォルト通り。」「りさはPJに参画してないので報酬は発生しないはず。」
+- 旧方式: LLM が `milestone_monthly_progress` を直接書く → 巻き戻り→再上昇の二重払いと、未参画メンバーへの報酬発生が起きていた。
+
+### 実装
+- LLM 直書きを廃止。全 MS にスケジュール按分のデフォルト月割り (`source='routine_auto'`) を毎回上書きする `applyScheduleAutoProgress`。LLM (`estimateProgress`) はデフォルトとの乖離 ±10pt 以上のときだけ `ms_progress_revisions` (pending) + `l2_notifications(l2_kind='ms_progress_revision')` の提案のみ。
+- `PM_LOCKED_PROGRESS_SOURCES` = {pm_manual, pm_confirmed, pm_rejected, criteria_toggle, tsukuyomi_revision} を `ms-schedule-shared.ts` に正本化。PM locked 行は自動処理が絶対に上書きしない。
+- 報酬計算 (`reward-summary.ts` `buildPayableCumMap`) を「PM locked 行 or コード計算デフォルトの cumulative max」へ。DB の非確定行は参照しない。`is_active=false` メンバーは share 0 + renormalize。
+- `/api/cron/ms-schedule-progress` (毎日 02:30 JST、非LLM) が active PJ × {当月, 前月} の writer。
+
+### Deploy
+- production Ready: v0.18.0 = badaaa31。spec 3-10 / manual 4-8 を全面改訂。
+
+---
+
+## 2026-06-13 — D-2 デフォルト按分をアンカー方式へ + 計画遅延通知 (A案+C案、ae93faeb, v0.19.0)
+
+### コンテキスト
+- まさが「SXの6月が49%、7月も49%。両方進みすぎてる」と発見。診断: p21 (SX) で 202605 に 15% で確定 (`tsukuyomi_revision`) した MS が、target_ym 最終月 202606 にデフォルト按分で **100% にジャンプ** したのが主犯。最終月 = 100% という従来按分が、まさの低い確定値を無視していた。
+- まさ指示「AとCでいこう」。
+  - **A案 (アンカー方式)**: デフォルト按分の起点を「その月より前の最新まさ確定値 (アンカー)」にする。3か月MSで 202605 確定 15% なら 202606 デフォルト = 15 + 100/3 = 48.3%。target_ym を過ぎても確定アンカーからの月割りで積み続け、勝手に 100% に飛ばない。
+  - **C案 (計画遅延通知)**: target_ym 超過 + 100% 未達の MS を毎日 cron が検知し通知。
+
+### 実装
+- `ms-schedule-shared.ts` に `ProgressAnchor` 型 + `anchoredExpectedCumPctForYm(asOf, start, target, anchor)`。anchor = その月より厳密に前 (<) の最新 PM_LOCKED 行。anchor 無し時は従来 `expectedCumPctForYm` (最終月 100%) に一致。
+- 同一基準を **4 か所**に適用: (1) writer `applyScheduleAutoProgress` (anchorByMs を構築、アンカーあり MS は lastIndex を当月まで延長)、(2) LLM 乖離検知 `estimateProgress` (乖離基準 + プロンプト + source_hash に anchor)、(3) 報酬 `buildPayableCumMap` (anchorBefore、pct は consumed_pt/points×100 優先)、(4) 表示 API `/api/progress/ms-schedule` (loadDbSchedules)。
+- **C案**: `applyScheduleDefaultsForProject` が `delayed[]` + `activeMilestoneIds` を返す。cron が当月分のみ `l2_notifications(l2_kind='ms_schedule_delay', scope_key='${ym}:delay:${milestoneId}', importance=2)` に upsert、解消 MS は同 scope_key を delete。`feedback/route.ts` allowedKinds + `NotificationsClient.tsx`/`LoopKernelBoard.tsx` の L2_KIND_LABEL に "D-2 MS計画遅延" 追加。
+- 設計判断: 過去月のデフォルトを未来アンカーで cap しない (cumulative max が二重払いを構造的に防ぐ)。アンカー無し MS が最終月 100% は月割りの自然な帰結で正常 (遅延通知対象外)。
+
+### Verified (本番)
+- `tsc --noEmit` / `npm run build` / `test:critical-ui` 全クリーン。
+- 本番 cron 手動実行 `?projectId=p21&ym=202606` (failed 0)。SQL 裏取り:
+  - MS-PC-p21-202604-1 事業計画策定 202606 = **48.3%** (アンカー 202605=15% 起点)。202604-1-capital も同 48.3%。
+  - 202604-1-ip は 202604 確定 35% 起点 → 202605=68.3% / 202606=100% (cap)。
+  - p21 全体 202606 = **40.4%** (修正前 49.3%)。残る 100% は知財戦略の正当な月割り帰結。
+- 全 active PJ cron 実行で delayNotified 0。SQL 確認: target_ym < 202606 の MS は p21 入札対応 1 件のみで既に 100% → 遅延 0 は正しい。
+
+### Deploy
+- production Ready: v0.19.0 = ae93faeb (2分53秒)。
+
+### 保留
+- 残骸 `l2_routine` / `tsukuyomi_estimate` 行の DELETE 掃除はまさ未承認のため保留。cron の `routine_auto` 上書きで自然修復されるため実害なし。
+
+---
+
+## 2026-06-13 BZM教科書を章頭ストーリー型へ全面差し替え + 全16章公開
+
+### やったこと (時系列)
+1. **構成議論**: まさと教科書の全体構成を再設計。「ナラティブ一本線」→「章頭ストーリー型教科書」(冒頭ストーリー → 解説=メイン(数式・図を章内で) → 匿名化実例 → 章末の問い) へ転換。新4部構成 (I現場 / II Before Zero Model / III苗床 / IVツールキット) に確定。
+2. **PRS正式採用への正本同期**: 2026-06-12 Before Zero Model discussion で PRS×戦略余力が確立 (正本 `BZSF/before_zero_theory.md` + `BZSF/PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html`)。repo 内の「PRS=候補」表記を `bzm/5-1`付記・`design/amd_score.md` で正式採用へ同期 (`design/amd_score.md`・`spec/4-2` は別セッションで既に PRS primary 化済みだった)。
+3. **プロトタイプ章** `strategic-slack.md` を執筆 (rev2: まさレビュー5点反映 = KPI論追加 / 冒頭を一社依存ロックイン失敗ケースに / 戦略余力5成分を解説 / 文章増量 / 鋸歯グラフ必須)。図 f6(x,y平面)/f7(鋸歯時系列)/f8(軌跡4パターン) を `bzm_figures.py` で生成。
+4. **OS差し替え**: 旧24章を `pwa/bzm/legacy/` へ退避 (git保全)、旧ナラティブ26章は `/bzm/public` で閲覧継続。`bzm-chapters.ts` を新6部構成へ全面改編、`/bzm` index→preface。D-7 applier `slugToFile` に legacy fallback 追加 (`spec/3-13`注記)。台帳md(大文字始まり)を章リストから除外。
+5. **14章をworker 10本並列で量産** → 全章 司令塔レビュー(章型・禁止語・丸数字ガード・密度)通過 → 4バンドルでdeploy:
+   - wave1 (e139c22a, v0.19.x): why-valuation-fails / model-overview / p-potential / r-readiness + f9
+   - wave2 (4af18e0e, v0.19.2): s-survival / score-and-bottleneck / model-critiques / retrofit-verification
+   - wave3 (0c172645, v0.19.3): field-before-zero / field-clocks / field-gates / field-who-carries
+   - wave4 (212a5729, v0.19.4): preface(司令塔直書き) / nursery-ers / field-toolkit
+6. **まさ直出し思想の保全**: KPI論(成果件数KPIがBATNAを壊す、KPIは交渉力に置く)を `AUTHOR_DIRECTIVES.md` と `knowledge/license_negotiation.md` に追記。
+
+### 成果
+- 全16章 (序章 + I部4 + II部9 + III部1 + IV部1 + 巻末) を本番公開 (v0.19.4, git_sha 212a5729, 本番一致確認済)。
+- 図版5点 (f6/f7/f8/f9 + 既存f4 ERSレーダー) を本文埋込。
+- critical-ui guard で丸数字(①②) banに1回ひっかかり → (N)へ置換して通過 (台帳md由来)。
+
+### 残課題 (次セッション)
+- 概念図系図版 (二層アーキテクチャ / 進化系譜 / 三因子概念図など) — matplotlib か外部画像生成かまさ判断待ち。各章本文に「> 図版 TODO」プレースホルダ多数。
+- 通し編集 (序章→巻末の cold-reader、章間重複・接続・用語ゆれ)。
+- 巻末資料の再構築 (参考文献・記号・用語、料率の出典確定)。
+- D-7 Textbook Insights の新教科書向け受け皿章の再設計 (現状 legacy fallback)。
+- 出版パッケージ (タイトル確定・組版・出典固め)。
