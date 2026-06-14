@@ -8,20 +8,16 @@ import {
   GanttChartSquare,
   GitBranch,
   Loader2,
+  Minus,
   Network,
   Plus,
   Save,
   Search,
+  Trash2,
   UserRound,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -133,6 +129,17 @@ const NODE_RADIUS = NODE_DIAMETER / 2;
 const NODE_CIRCLE_TOP = 12;
 const NODE_GAP_X = 280;
 const NODE_GAP_Y = 200;
+const MIN_ZOOM = 0.35;
+const MAX_ZOOM = 2.25;
+const TASK_DIALOG_WIDTH = 620;
+const TASK_DIALOG_MARGIN = 12;
+const TASK_DIALOG_MIN_VISIBLE_HEIGHT = 260;
+const NODE_REPEL_DISTANCE = NODE_DIAMETER * 2.05;
+
+type FloatingPosition = {
+  x: number;
+  y: number;
+};
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -205,6 +212,28 @@ function fallbackMindmapPosition(index: number) {
   };
 }
 
+function clampNumber(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function clampMindmapX(value: number) {
+  return clampNumber(value, 0, CANVAS_WIDTH - NODE_WIDTH);
+}
+
+function clampMindmapY(value: number) {
+  return clampNumber(value, 0, CANVAS_HEIGHT - NODE_HEIGHT);
+}
+
+function clampFloatingPosition(position: FloatingPosition): FloatingPosition {
+  if (typeof window === "undefined") return position;
+  const maxX = Math.max(TASK_DIALOG_MARGIN, window.innerWidth - TASK_DIALOG_WIDTH - TASK_DIALOG_MARGIN);
+  const maxY = Math.max(TASK_DIALOG_MARGIN, window.innerHeight - TASK_DIALOG_MIN_VISIBLE_HEIGHT - TASK_DIALOG_MARGIN);
+  return {
+    x: Math.round(clampNumber(position.x, TASK_DIALOG_MARGIN, maxX)),
+    y: Math.round(clampNumber(position.y, TASK_DIALOG_MARGIN, maxY)),
+  };
+}
+
 function nodeCenter(task: OsTask) {
   return {
     x: (task.mindmapX || 0) + NODE_WIDTH / 2,
@@ -238,6 +267,50 @@ function edgePath(parent: OsTask, child: OsTask) {
   );
 }
 
+function repelMindmapTasks(tasks: OsTask[]) {
+  const arranged = tasks.map((task) => ({ ...task }));
+  if (arranged.length < 2) return arranged;
+
+  for (let pass = 0; pass < 7; pass += 1) {
+    let moved = false;
+    for (let i = 0; i < arranged.length; i += 1) {
+      for (let j = i + 1; j < arranged.length; j += 1) {
+        const a = arranged[i];
+        const b = arranged[j];
+        const ac = nodeCenter(a);
+        const bc = nodeCenter(b);
+        let dx = bc.x - ac.x;
+        let dy = bc.y - ac.y;
+        let distance = Math.hypot(dx, dy);
+        if (distance >= NODE_REPEL_DISTANCE) continue;
+
+        if (distance < 0.1) {
+          const angle = (((i + 1) * 53 + (j + 1) * 29) * Math.PI) / 180;
+          dx = Math.cos(angle);
+          dy = Math.sin(angle);
+          distance = 1;
+        }
+
+        const ux = dx / distance;
+        const uy = dy / distance;
+        const push = (NODE_REPEL_DISTANCE - distance) * 0.42;
+        a.mindmapX = clampMindmapX((a.mindmapX || 0) - ux * push);
+        a.mindmapY = clampMindmapY((a.mindmapY || 0) - uy * push);
+        b.mindmapX = clampMindmapX((b.mindmapX || 0) + ux * push);
+        b.mindmapY = clampMindmapY((b.mindmapY || 0) + uy * push);
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+
+  return arranged.map((task) => ({
+    ...task,
+    mindmapX: Math.round(task.mindmapX || 0),
+    mindmapY: Math.round(task.mindmapY || 0),
+  }));
+}
+
 function previewEdgePath(parent: OsTask, to: { x: number; y: number }) {
   const from = nodeCenter(parent);
   const dx = to.x - from.x;
@@ -250,43 +323,22 @@ function previewEdgePath(parent: OsTask, to: { x: number; y: number }) {
 }
 
 function nodeTone(status: string) {
-  switch (normalizeStatus(status)) {
-    case "blocked":
-      return {
-        circle: "border-rose-300 bg-rose-950/45 text-rose-50 shadow-rose-950/30",
-        halo: "border-rose-400/20",
-        handle: "border-rose-200 bg-rose-500 text-white",
-        status: "text-rose-300",
-      };
-    case "review":
-      return {
-        circle: "border-amber-300 bg-amber-950/45 text-amber-50 shadow-amber-950/30",
-        halo: "border-amber-400/30",
-        handle: "border-amber-100 bg-amber-500 text-black",
-        status: "text-amber-300",
-      };
-    case "done":
-      return {
-        circle: "border-emerald-300 bg-emerald-950/45 text-emerald-50 shadow-emerald-950/30",
-        halo: "border-emerald-400/20",
-        handle: "border-emerald-100 bg-emerald-500 text-black",
-        status: "text-emerald-300",
-      };
-    case "doing":
-      return {
-        circle: "border-blue-300 bg-cyan-950/50 text-blue-50 shadow-cyan-950/30",
-        halo: "border-blue-400/25",
-        handle: "border-blue-100 bg-blue-500 text-white",
-        status: "text-blue-300",
-      };
-    default:
-      return {
-        circle: "border-sky-400 bg-emerald-950/45 text-sky-50 shadow-emerald-950/30",
-        halo: "border-sky-400/20",
-        handle: "border-sky-100 bg-sky-500 text-white",
-        status: "text-sky-300",
-      };
+  if (normalizeStatus(status) === "done") {
+    return {
+      circle: "border-blue-300 bg-blue-950/55 text-blue-50 shadow-blue-950/30",
+      halo: "border-blue-300/25",
+      handle: "border-blue-100 bg-blue-500 text-white",
+      status: "text-blue-300",
+      progress: "bg-blue-300",
+    };
   }
+  return {
+    circle: "border-yellow-300 bg-yellow-950/55 text-yellow-50 shadow-yellow-950/30",
+    halo: "border-yellow-300/30",
+    handle: "border-yellow-100 bg-yellow-400 text-black",
+    status: "text-yellow-300",
+    progress: "bg-yellow-300",
+  };
 }
 
 function nodeInitial(task: OsTask) {
@@ -311,6 +363,8 @@ export function TasksClient() {
   const [statusFilter, setStatusFilter] = useState("open");
   const [query, setQuery] = useState("");
   const [form, setForm] = useState<TaskFormState | null>(null);
+  const [formPosition, setFormPosition] = useState<FloatingPosition | null>(null);
+  const [zoom, setZoom] = useState(1);
   const [dragging, setDragging] = useState<{
     taskId: string;
     startX: number;
@@ -331,6 +385,13 @@ export function TasksClient() {
   const skipTaskClickRef = useRef<string | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const nodeRefs = useRef(new Map<string, HTMLDivElement>());
+  const zoomRef = useRef(zoom);
+  const touchPointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{
+    distance: number;
+    zoom: number;
+    focus: { clientX: number; clientY: number } | null;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -364,6 +425,10 @@ export function TasksClient() {
   useEffect(() => {
     connectingRef.current = connecting;
   }, [connecting]);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
 
   const projectById = useMemo(() => new Map(bundle.projects.map((project) => [project.project_id, project])), [bundle.projects]);
   const memberById = useMemo(() => new Map(bundle.members.map((member) => [member.member_id, member])), [bundle.members]);
@@ -429,7 +494,9 @@ export function TasksClient() {
       ...prev,
       tasks: method === "POST"
         ? [...prev.tasks, next]
-        : prev.tasks.map((task) => (task.taskId === next.taskId ? next : task)),
+        : next.active === false
+          ? prev.tasks.filter((task) => task.taskId !== next.taskId)
+          : prev.tasks.map((task) => (task.taskId === next.taskId ? next : task)),
     }));
     return next;
   }
@@ -454,40 +521,157 @@ export function TasksClient() {
       };
       await mutateTask(form.taskId ? "PATCH" : "POST", payload);
       setForm(null);
+      setFormPosition(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "save failed");
     }
   }
 
-  function openCreateAt(x: number, y: number, projectId = projectFilter === "all" ? bundle.projects[0]?.project_id : projectFilter) {
+  async function createTaskAt(x: number, y: number, projectId = projectFilter === "all" ? bundle.projects[0]?.project_id : projectFilter) {
     if (!projectId) return;
-    setForm(emptyForm(projectId, x, y));
+    try {
+      const draft = emptyForm(projectId, Math.round(clampMindmapX(x)), Math.round(clampMindmapY(y)));
+      const task = await mutateTask("POST", {
+        title: draft.title || "新規タスク",
+        description: draft.description,
+        projectId: draft.projectId,
+        assigneeMemberId: null,
+        status: draft.status,
+        priority: draft.priority,
+        startDate: draft.startDate,
+        dueDate: draft.dueDate,
+        progress: draft.progress,
+        parentTaskId: null,
+        mindmapX: draft.mindmapX,
+        mindmapY: draft.mindmapY,
+      });
+      setForm(formFromTask(task));
+      setFormPosition(modalPositionForCanvasNode(task.mindmapX, task.mindmapY));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "create failed");
+    }
   }
 
-  function canvasPoint(clientX: number, clientY: number) {
+  const canvasPointAt = useCallback((clientX: number, clientY: number, currentZoom = zoomRef.current) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     return {
-      x: Math.round(clientX - rect.left + canvas.scrollLeft),
-      y: Math.round(clientY - rect.top + canvas.scrollTop),
+      x: Math.round((clientX - rect.left + canvas.scrollLeft) / currentZoom),
+      y: Math.round((clientY - rect.top + canvas.scrollTop) / currentZoom),
     };
+  }, []);
+
+  const canvasPoint = useCallback((clientX: number, clientY: number) => {
+    return canvasPointAt(clientX, clientY, zoomRef.current);
+  }, [canvasPointAt]);
+
+  function modalPositionForCanvasNode(x: number, y: number) {
+    const canvas = canvasRef.current;
+    if (!canvas) return clampFloatingPosition({ x: 260, y: 88 });
+    const rect = canvas.getBoundingClientRect();
+    const currentZoom = zoomRef.current;
+    return clampFloatingPosition({
+      x: rect.left + (x + NODE_WIDTH + 16) * currentZoom - canvas.scrollLeft,
+      y: rect.top + y * currentZoom - canvas.scrollTop,
+    });
+  }
+
+  function modalPositionForTask(task: OsTask) {
+    const node = nodeRefs.current.get(task.taskId);
+    if (node) {
+      const rect = node.getBoundingClientRect();
+      return clampFloatingPosition({ x: rect.right + 16, y: rect.top });
+    }
+    return modalPositionForCanvasNode(task.mindmapX || 80, task.mindmapY || 80);
+  }
+
+  function setZoomAroundPoint(nextZoom: number, focus?: { clientX: number; clientY: number }) {
+    const canvas = canvasRef.current;
+    const currentZoom = zoomRef.current;
+    const clampedZoom = Math.round(clampNumber(nextZoom, MIN_ZOOM, MAX_ZOOM) * 100) / 100;
+    if (Math.abs(clampedZoom - currentZoom) < 0.01) return;
+    const focusPoint = focus;
+    const focalPoint = focusPoint && canvas ? canvasPointAt(focusPoint.clientX, focusPoint.clientY, currentZoom) : null;
+    zoomRef.current = clampedZoom;
+    setZoom(clampedZoom);
+    if (focalPoint && canvas && focusPoint) {
+      window.requestAnimationFrame(() => {
+        const rect = canvas.getBoundingClientRect();
+        canvas.scrollLeft = focalPoint.x * clampedZoom - (focusPoint.clientX - rect.left);
+        canvas.scrollTop = focalPoint.y * clampedZoom - (focusPoint.clientY - rect.top);
+      });
+    }
+  }
+
+  function zoomFromCenter(factor: number) {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      setZoomAroundPoint(zoomRef.current * factor);
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    setZoomAroundPoint(zoomRef.current * factor, {
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+    });
+  }
+
+  function handleCanvasWheel(event: React.WheelEvent<HTMLDivElement>) {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    const factor = event.deltaY > 0 ? 0.92 : 1.08;
+    setZoomAroundPoint(zoomRef.current * factor, { clientX: event.clientX, clientY: event.clientY });
+  }
+
+  function handleCanvasPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== "touch") return;
+    touchPointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touchPointersRef.current.size === 2) {
+      const points = Array.from(touchPointersRef.current.values());
+      pinchRef.current = {
+        distance: Math.max(1, Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y)),
+        zoom: zoomRef.current,
+        focus: {
+          clientX: (points[0].x + points[1].x) / 2,
+          clientY: (points[0].y + points[1].y) / 2,
+        },
+      };
+    }
+  }
+
+  function handleCanvasPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== "touch" || !touchPointersRef.current.has(event.pointerId)) return;
+    touchPointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const pinch = pinchRef.current;
+    if (!pinch || touchPointersRef.current.size < 2) return;
+    event.preventDefault();
+    const points = Array.from(touchPointersRef.current.values());
+    const distance = Math.max(1, Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y));
+    setZoomAroundPoint(pinch.zoom * (distance / pinch.distance), pinch.focus ?? undefined);
+  }
+
+  function handleCanvasPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== "touch") return;
+    touchPointersRef.current.delete(event.pointerId);
+    if (touchPointersRef.current.size < 2) pinchRef.current = null;
   }
 
   function handleCanvasClick(event: React.MouseEvent<HTMLDivElement>) {
     if ((event.target as HTMLElement).closest("[data-task-node-id]")) return;
     const point = canvasPoint(event.clientX, event.clientY);
-    openCreateAt(Math.max(20, point.x - NODE_WIDTH / 2), Math.max(20, point.y - NODE_CIRCLE_TOP - NODE_RADIUS));
+    void createTaskAt(point.x - NODE_WIDTH / 2, point.y - NODE_CIRCLE_TOP - NODE_RADIUS);
   }
 
   function taskNodeAt(clientX: number, clientY: number, exceptTaskId: string) {
     for (const [taskId, node] of nodeRefs.current.entries()) {
       if (taskId === exceptTaskId) continue;
       const rect = node.getBoundingClientRect();
-      const centerX = rect.left + NODE_WIDTH / 2;
-      const centerY = rect.top + NODE_CIRCLE_TOP + NODE_RADIUS;
+      const currentZoom = zoomRef.current;
+      const centerX = rect.left + (NODE_WIDTH / 2) * currentZoom;
+      const centerY = rect.top + (NODE_CIRCLE_TOP + NODE_RADIUS) * currentZoom;
       const distance = Math.hypot(clientX - centerX, clientY - centerY);
-      if (distance <= NODE_RADIUS + 22) {
+      if (distance <= (NODE_RADIUS + 22) * currentZoom) {
         return taskId;
       }
     }
@@ -500,14 +684,25 @@ export function TasksClient() {
       return;
     }
     setForm(formFromTask(task));
+    setFormPosition(modalPositionForTask(task));
+  }
+
+  async function deleteTask(taskId: string) {
+    try {
+      await mutateTask("PATCH", { taskId, active: false });
+      setForm(null);
+      setFormPosition(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "delete failed");
+    }
   }
 
   useEffect(() => {
     if (!dragging) return;
     const onMove = (event: PointerEvent) => {
       event.preventDefault();
-      const dx = event.clientX - dragging.startX;
-      const dy = event.clientY - dragging.startY;
+      const dx = (event.clientX - dragging.startX) / zoomRef.current;
+      const dy = (event.clientY - dragging.startY) / zoomRef.current;
       const nextX = Math.max(0, Math.min(CANVAS_WIDTH - NODE_WIDTH, Math.round(dragging.originX + dx)));
       const nextY = Math.max(0, Math.min(CANVAS_HEIGHT - NODE_HEIGHT, Math.round(dragging.originY + dy)));
       setDragging((current) => current && { ...current, moved: current.moved || Math.abs(dx) + Math.abs(dy) > 5 });
@@ -521,8 +716,8 @@ export function TasksClient() {
     const onUp = async (event: PointerEvent) => {
       const current = dragging;
       setDragging(null);
-      const dx = event.clientX - current.startX;
-      const dy = event.clientY - current.startY;
+      const dx = (event.clientX - current.startX) / zoomRef.current;
+      const dy = (event.clientY - current.startY) / zoomRef.current;
       const moved = current.moved || Math.abs(dx) + Math.abs(dy) > 5;
       if (!moved) return;
       skipTaskClickRef.current = current.taskId;
@@ -586,7 +781,7 @@ export function TasksClient() {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [connectingParentTaskId, load]);
+  }, [canvasPoint, connectingParentTaskId, load]);
 
   return (
     <div className="min-h-[calc(100vh-44px)] bg-background">
@@ -604,7 +799,7 @@ export function TasksClient() {
             <Metric label="open" value={stats.open} />
             <Metric label="blocked" value={stats.blocked} tone={stats.blocked > 0 ? "danger" : "default"} />
             <Metric label="dated" value={stats.withDates} />
-            <Button size="sm" onClick={() => openCreateAt(120, 120)}>
+            <Button size="sm" onClick={() => void createTaskAt(120, 120)}>
               <Plus className="h-4 w-4" />
               新規
             </Button>
@@ -696,6 +891,13 @@ export function TasksClient() {
             nodeRefs={nodeRefs}
             connecting={connecting}
             canvasRef={canvasRef}
+            zoom={zoom}
+            onWheel={handleCanvasWheel}
+            onPointerDown={handleCanvasPointerDown}
+            onPointerMove={handleCanvasPointerMove}
+            onPointerUp={handleCanvasPointerUp}
+            onZoomIn={() => zoomFromCenter(1.12)}
+            onZoomOut={() => zoomFromCenter(1 / 1.12)}
           />
         ) : (
           <GanttView
@@ -704,8 +906,8 @@ export function TasksClient() {
             projectFilter={projectFilter}
             projectName={projectName}
             memberName={memberName}
-            onCreate={(projectId) => openCreateAt(120, 120, projectId)}
-            onEdit={(task) => setForm(formFromTask(task))}
+            onCreate={(projectId) => void createTaskAt(120, 120, projectId)}
+            onEdit={openTask}
           />
         )}
       </div>
@@ -717,9 +919,15 @@ export function TasksClient() {
         tasks={bundle.tasks}
         projectMembers={projectMembers}
         memberName={memberName}
+        position={formPosition}
+        onPositionChange={setFormPosition}
         onChange={setForm}
-        onClose={() => setForm(null)}
+        onClose={() => {
+          setForm(null);
+          setFormPosition(null);
+        }}
         onSave={saveForm}
+        onDelete={deleteTask}
       />
     </div>
   );
@@ -738,20 +946,33 @@ function MindmapView({
   projectName,
   memberName,
   onCanvasClick,
+  onWheel,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
   onTaskOpen,
   onTaskPointerDown,
   onConnectPointerDown,
+  onZoomIn,
+  onZoomOut,
   nodeRefs,
   connecting,
   canvasRef,
+  zoom,
 }: {
   tasks: OsTask[];
   projectName: (projectId: string) => string;
   memberName: (memberId: string | null, fallback?: string) => string;
   onCanvasClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  onWheel: (event: React.WheelEvent<HTMLDivElement>) => void;
+  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (event: React.PointerEvent<HTMLDivElement>) => void;
   onTaskOpen: (task: OsTask) => void;
   onTaskPointerDown: (event: React.PointerEvent<HTMLDivElement>, task: OsTask) => void;
   onConnectPointerDown: (event: React.PointerEvent<HTMLButtonElement>, task: OsTask) => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
   nodeRefs: React.MutableRefObject<Map<string, HTMLDivElement>>;
   connecting: {
     parentTaskId: string;
@@ -760,14 +981,15 @@ function MindmapView({
     targetTaskId: string | null;
   } | null;
   canvasRef: React.RefObject<HTMLDivElement | null>;
+  zoom: number;
 }) {
   const layoutTasks = useMemo(
     () =>
-      tasks.map((task, index) => {
+      repelMindmapTasks(tasks.map((task, index) => {
         if (task.mindmapX !== 0 || task.mindmapY !== 0) return task;
         const fallback = fallbackMindmapPosition(index);
         return { ...task, mindmapX: fallback.x, mindmapY: fallback.y };
-      }),
+      })),
     [tasks],
   );
   const layoutTaskById = useMemo(() => new Map(layoutTasks.map((task) => [task.taskId, task])), [layoutTasks]);
@@ -782,58 +1004,90 @@ function MindmapView({
     <section className="overflow-hidden rounded-lg border border-border bg-[#07100f] text-slate-100 shadow-sm">
       <div className="flex items-center justify-between border-b border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-400">
         <span>{layoutTasks.length} tasks / {edges.length} edges</span>
-        <span>全PJの依存関係</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="zoom out"
+            className="grid h-7 w-7 place-items-center rounded-md border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+            onClick={onZoomOut}
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <span className="w-12 text-center font-mono text-[11px] text-slate-300">{Math.round(zoom * 100)}%</span>
+          <button
+            type="button"
+            aria-label="zoom in"
+            className="grid h-7 w-7 place-items-center rounded-md border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+            onClick={onZoomIn}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
-      <div ref={canvasRef} className="h-[680px] overflow-auto bg-[radial-gradient(circle_at_20%_10%,rgba(20,184,166,.13),transparent_28%),radial-gradient(circle_at_80%_30%,rgba(245,158,11,.10),transparent_22%),linear-gradient(to_right,rgba(255,255,255,.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,.045)_1px,transparent_1px)] bg-[size:auto,auto,36px_36px,36px_36px]" onClick={onCanvasClick}>
-        <div className="relative" style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}>
-          <svg className="pointer-events-none absolute inset-0 h-full w-full">
-            <defs>
-              <marker id="task-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
-                <path d="M 1 1 L 11 6 L 1 11 Z" fill="rgba(226,232,240,.78)" />
-              </marker>
-              <marker id="task-arrow-preview" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
-                <path d="M 1 1 L 11 6 L 1 11 Z" fill="rgba(251,191,36,.95)" />
-              </marker>
-            </defs>
-            {edges.map(({ child, parent }) => {
-              return (
+      <div
+        ref={canvasRef}
+        className="touch-none h-[680px] overflow-auto bg-[radial-gradient(circle_at_20%_10%,rgba(20,184,166,.13),transparent_28%),radial-gradient(circle_at_80%_30%,rgba(245,158,11,.10),transparent_22%),linear-gradient(to_right,rgba(255,255,255,.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,.045)_1px,transparent_1px)] bg-[size:auto,auto,36px_36px,36px_36px]"
+        onClick={onCanvasClick}
+        onWheel={onWheel}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        <div className="relative" style={{ width: CANVAS_WIDTH * zoom, height: CANVAS_HEIGHT * zoom }}>
+          <div
+            className="absolute left-0 top-0 origin-top-left"
+            style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT, transform: `scale(${zoom})` }}
+          >
+            <svg className="pointer-events-none absolute inset-0 h-full w-full">
+              <defs>
+                <marker id="task-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+                  <path d="M 1 1 L 11 6 L 1 11 Z" fill="rgba(226,232,240,.78)" />
+                </marker>
+                <marker id="task-arrow-preview" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+                  <path d="M 1 1 L 11 6 L 1 11 Z" fill="rgba(251,191,36,.95)" />
+                </marker>
+              </defs>
+              {edges.map(({ child, parent }) => {
+                return (
+                  <path
+                    key={`${parent.taskId}-${child.taskId}`}
+                    d={edgePath(parent, child)}
+                    fill="none"
+                    markerEnd="url(#task-arrow)"
+                    stroke="rgba(226,232,240,.45)"
+                    strokeDasharray="6 8"
+                    strokeLinecap="round"
+                    strokeWidth="2.2"
+                  />
+                );
+              })}
+              {connecting && connectingParent && (
                 <path
-                  key={`${parent.taskId}-${child.taskId}`}
-                  d={edgePath(parent, child)}
+                  d={previewEdgePath(connectingParent, { x: connecting.currentX, y: connecting.currentY })}
                   fill="none"
-                  markerEnd="url(#task-arrow)"
-                  stroke="rgba(226,232,240,.45)"
-                  strokeDasharray="6 8"
+                  markerEnd="url(#task-arrow-preview)"
+                  stroke="rgba(251,191,36,.92)"
                   strokeLinecap="round"
-                  strokeWidth="2.2"
+                  strokeWidth="3"
                 />
-              );
-            })}
-            {connecting && connectingParent && (
-              <path
-                d={previewEdgePath(connectingParent, { x: connecting.currentX, y: connecting.currentY })}
-                fill="none"
-                markerEnd="url(#task-arrow-preview)"
-                stroke="rgba(251,191,36,.92)"
-                strokeLinecap="round"
-                strokeWidth="3"
+              )}
+            </svg>
+            {layoutTasks.map((task) => (
+              <TaskNode
+                key={task.taskId}
+                task={task}
+                projectName={projectName}
+                memberName={memberName}
+                isConnectTarget={connecting?.targetTaskId === task.taskId}
+                isConnectingSource={connecting?.parentTaskId === task.taskId}
+                nodeRefs={nodeRefs}
+                onOpen={onTaskOpen}
+                onPointerDown={onTaskPointerDown}
+                onConnectPointerDown={onConnectPointerDown}
               />
-            )}
-          </svg>
-          {layoutTasks.map((task) => (
-            <TaskNode
-              key={task.taskId}
-              task={task}
-              projectName={projectName}
-              memberName={memberName}
-              isConnectTarget={connecting?.targetTaskId === task.taskId}
-              isConnectingSource={connecting?.parentTaskId === task.taskId}
-              nodeRefs={nodeRefs}
-              onOpen={onTaskOpen}
-              onPointerDown={onTaskPointerDown}
-              onConnectPointerDown={onConnectPointerDown}
-            />
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -916,7 +1170,7 @@ function TaskNode({
           <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{formatDate(task.dueDate)}</span>
         </div>
         <div className="mx-auto mt-2 h-1.5 w-24 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full rounded-full bg-sky-300" style={{ width: `${Math.max(0, Math.min(100, task.progress || 0))}%` }} />
+          <div className={cn("h-full rounded-full", tone.progress)} style={{ width: `${Math.max(0, Math.min(100, task.progress || 0))}%` }} />
         </div>
         <div className="mt-1 truncate text-[10px] text-slate-500">{projectName(task.projectId)}</div>
       </div>
@@ -1019,9 +1273,12 @@ function TaskDialog({
   tasks,
   projectMembers,
   memberName,
+  position,
+  onPositionChange,
   onChange,
   onClose,
   onSave,
+  onDelete,
 }: {
   form: TaskFormState | null;
   saving: boolean;
@@ -1029,24 +1286,88 @@ function TaskDialog({
   tasks: OsTask[];
   projectMembers: (projectId: string) => Member[];
   memberName: (memberId: string | null, fallback?: string) => string;
+  position: FloatingPosition | null;
+  onPositionChange: (position: FloatingPosition | null) => void;
   onChange: (form: TaskFormState | null) => void;
   onClose: () => void;
   onSave: () => void;
+  onDelete: (taskId: string) => void;
 }) {
+  const dialogDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
+
   if (!form) return null;
   const members = projectMembers(form.projectId);
   const parentOptions = tasks.filter((task) => task.taskId !== form.taskId && task.projectId === form.projectId);
+  const dialogPosition = position ?? clampFloatingPosition({ x: 260, y: 88 });
 
   function patch(patchValue: Partial<TaskFormState>) {
     onChange({ ...form, ...patchValue } as TaskFormState);
   }
 
   return (
-    <Dialog open={Boolean(form)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{form.taskId ? "タスク編集" : "タスク作成"}</DialogTitle>
-        </DialogHeader>
+    <div
+      role="dialog"
+      aria-modal="false"
+      className="fixed z-50 overflow-hidden rounded-lg border border-border bg-popover text-sm text-popover-foreground shadow-2xl ring-1 ring-foreground/10"
+      style={{
+        left: dialogPosition.x,
+        top: dialogPosition.y,
+        width: `min(${TASK_DIALOG_WIDTH}px, calc(100vw - ${TASK_DIALOG_MARGIN * 2}px))`,
+        maxHeight: `calc(100vh - ${dialogPosition.y + TASK_DIALOG_MARGIN}px)`,
+      }}
+    >
+      <div
+        className="flex cursor-move items-center justify-between gap-3 border-b border-border bg-muted/45 px-4 py-3"
+        onPointerDown={(event) => {
+          if ((event.target as HTMLElement).closest("button,input,select,textarea")) return;
+          event.preventDefault();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          dialogDragRef.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            originX: dialogPosition.x,
+            originY: dialogPosition.y,
+          };
+        }}
+        onPointerMove={(event) => {
+          const drag = dialogDragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          event.preventDefault();
+          onPositionChange(clampFloatingPosition({
+            x: drag.originX + event.clientX - drag.startX,
+            y: drag.originY + event.clientY - drag.startY,
+          }));
+        }}
+        onPointerUp={(event) => {
+          const drag = dialogDragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          dialogDragRef.current = null;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
+        }}
+        onPointerCancel={(event) => {
+          const drag = dialogDragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          dialogDragRef.current = null;
+        }}
+      >
+        <div className="min-w-0">
+          <div className="truncate font-heading text-base font-medium leading-none">{form.taskId ? "タスク編集" : "タスク作成"}</div>
+          <div className="mt-1 truncate text-xs text-muted-foreground">{form.title || "新規タスク"}</div>
+        </div>
+        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="close task detail">
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="max-h-[calc(100vh-148px)] overflow-y-auto p-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label>タイトル</Label>
@@ -1101,14 +1422,24 @@ function TaskDialog({
             <Textarea value={form.description} onChange={(event) => patch({ description: event.target.value })} />
           </div>
         </div>
-        <DialogFooter>
+      </div>
+      <div className="flex flex-col-reverse gap-2 border-t border-border bg-muted/45 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          {form.taskId && (
+            <Button variant="destructive" onClick={() => onDelete(form.taskId as string)} disabled={saving}>
+              <Trash2 className="h-4 w-4" />
+              削除
+            </Button>
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onClose}>閉じる</Button>
           <Button onClick={onSave} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             保存
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
   );
 }

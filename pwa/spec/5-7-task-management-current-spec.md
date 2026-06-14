@@ -62,9 +62,13 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 ### Mindmap
 
 - canvas は scrollable 2D plane。ノードはカードではなく円形node + 外側labelで表示する。
-- 空白クリックでクリック位置を初期座標にして作成dialogを開く。
+- canvas は CSS scale で `0.35x` から `2.25x` まで拡大縮小できる。trackpad pinch は `ctrl/meta wheel` として処理し、touch pinch は2 pointer distanceで処理する。
+- 空白クリックでクリック位置を初期座標にして `POST /api/tasks` を即時実行し、作成済みノードの右側に詳細ウィンドウを開く。
 - ノード本体は pointer drag で移動する。移動dragは edge 作成に使わない。
-- ノードクリックで詳細/編集dialogを開く。
+- ノードクリックで詳細/編集ウィンドウをノード右側に開く。詳細ウィンドウは backdrop / blur を出さず、header drag で移動できる。
+- 詳細ウィンドウの削除は `PATCH /api/tasks active=false` による論理削除で、DB `DELETE` は使わない。
+- ノード色は `done` を青、`done` 以外を黄にする。
+- ノード配置は atlas map と同じ hard collision 型の反発を display layout に適用し、近いノード同士の重なりを避ける。
 - ノード輪郭hoverで表示される `+` 接続ハンドルから別ノードの輪郭へdragすると、`target.parent_task_id=source.task_id` を保存する。
 - edge は `parent_task_id` から SVG path で描き、親から子へ向かう arrow marker を付ける。
 
@@ -86,4 +90,4 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 
 - TypeScript: `npx tsc --noEmit`
 - Build: `npm run build`
-- Browser: `/tasks` を開き、top nav、mindmap空白クリック作成、node click詳細、node位置drag、`+` handle drag edge、gantt空白行作成を確認する。
+- Browser: `/tasks` を開き、top nav、mindmap空白クリック即時作成、pinch/zoom、node click詳細、詳細drag、削除、node位置drag、`+` handle drag edge、gantt空白行作成を確認する。
