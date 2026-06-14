@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-15 | 5-7 | 変更 | mindmap詳細のタイトル入力 Enter 保存、`+` handle clickによる新規子タスク optimistic 作成、temporary parent id 解決後の保存 contract、edge arrow の子→親表示、hover時に位置をずらさないscale contract を追加。`+` handle drag edge接続は維持 | タスクを連続追加する操作の待ち時間とクリック数を減らし、親子方向とhover挙動の違和感を解消するため | えいみ-worker |
 | 2026-06-14 | 5-7 / 2-1 / 2-2 / 2-3 | 追加 | `/tasks`、`/api/tasks`、`tasks` table拡張、mindmap/gantt UI、RLS/API権限を正本化 | 全PJ・全員のタスク管理機能をPWAに追加したため | えいみ-worker |
 | 2026-06-14 | 5-7 | 変更 | mindmap UIを円形node表示へ変更し、`parent_task_id` edgeを親→子の矢印として描画。node dragは位置移動専用、親子edge作成は `+` 接続ハンドルdrag専用、node clickは詳細/編集dialogを開く contract へ変更 | カード型表示とnode全体dropではマインドマップ感・親子方向・操作意図が分かりにくかったため | えいみ-worker |
 | 2026-06-14 | 2-3 | 変更 | RLS 無効だった 3 テーブル (`milestone_monthly_contribution_allocations` / `project_graduation_signals` / `protocol_result_observations`) を `ENABLE ROW LEVEL SECURITY` + OS 標準 policy 3 種 (anon SELECT / service_role ALL / is_admin() ALL) で塞いだ。migration `135_enable_rls_three_unprotected_tables.sql`。2-3 に「RLS 標準形 (全テーブル必須)」節を追加。anon 読み取りは維持、anon の INSERT/UPDATE/DELETE を遮断 (報酬配分の改竄・削除を不可に)。本番適用 + advisor 再実行で `rls_disabled_in_public` ERROR 3 件消滅を確認 | Supabase security advisor が ERROR で検出した、PWA 公開 anon key から経営データ (特に報酬配分) を改竄・削除できる最大級の穴を塞ぐため。まさ承認「Aですすめて」 | えいみ |

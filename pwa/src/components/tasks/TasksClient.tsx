@@ -259,8 +259,8 @@ function curvedPath(from: { x: number; y: number }, to: { x: number; y: number }
 }
 
 function edgePath(parent: OsTask, child: OsTask) {
-  const from = nodeCenter(parent);
-  const to = nodeCenter(child);
+  const from = nodeCenter(child);
+  const to = nodeCenter(parent);
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const distance = Math.max(1, Math.hypot(dx, dy));
@@ -317,13 +317,16 @@ function repelMindmapTasks(tasks: OsTask[]) {
 }
 
 function previewEdgePath(parent: OsTask, to: { x: number; y: number }) {
-  const from = nodeCenter(parent);
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
+  const parentCenter = nodeCenter(parent);
+  const dx = parentCenter.x - to.x;
+  const dy = parentCenter.y - to.y;
   const distance = Math.max(1, Math.hypot(dx, dy));
   return curvedPath(
-    { x: from.x + (dx / distance) * (NODE_RADIUS + 8), y: from.y + (dy / distance) * (NODE_RADIUS + 8) },
     to,
+    {
+      x: parentCenter.x - (dx / distance) * (NODE_RADIUS + 8),
+      y: parentCenter.y - (dy / distance) * (NODE_RADIUS + 8),
+    },
   );
 }
 
@@ -731,7 +734,13 @@ export function TasksClient() {
     })();
   }
 
-  function createTaskAt(x: number, y: number, projectId = projectFilter === "all" ? bundle.projects[0]?.project_id : projectFilter) {
+  function createTaskAt(
+    x: number,
+    y: number,
+    projectId = projectFilter === "all" ? bundle.projects[0]?.project_id : projectFilter,
+    parentTaskId: string | null = null,
+    assigneeMemberId: string | null = null,
+  ) {
     if (!projectId) return;
     const draft = emptyForm(projectId, Math.round(clampMindmapX(x)), Math.round(clampMindmapY(y)));
     const now = new Date().toISOString();
@@ -740,14 +749,14 @@ export function TasksClient() {
       title: draft.title,
       description: draft.description,
       projectId: draft.projectId,
-      assignee: "",
-      assigneeMemberId: null,
+      assignee: assigneeMemberId ? memberName(assigneeMemberId) : "",
+      assigneeMemberId,
       status: draft.status,
       priority: draft.priority,
       startDate: draft.startDate,
       dueDate: draft.dueDate,
       progress: draft.progress,
-      parentTaskId: null,
+      parentTaskId,
       mindmapX: draft.mindmapX,
       mindmapY: draft.mindmapY,
       active: true,
@@ -761,20 +770,26 @@ export function TasksClient() {
     setFormPosition(modalPositionForCanvasNode(optimisticTask.mindmapX, optimisticTask.mindmapY));
     pushUndo({ kind: "create", taskId: optimisticTask.taskId });
 
-    const createPromise = requestTask("POST", {
-      title: optimisticTask.title,
-      description: optimisticTask.description,
-      projectId: optimisticTask.projectId,
-      assigneeMemberId: null,
-      status: optimisticTask.status,
-      priority: optimisticTask.priority,
-      startDate: optimisticTask.startDate,
-      dueDate: optimisticTask.dueDate,
-      progress: optimisticTask.progress,
-      parentTaskId: null,
-      mindmapX: optimisticTask.mindmapX,
-      mindmapY: optimisticTask.mindmapY,
-    });
+    const createPromise = (async () => {
+      const serverParentTaskId = parentTaskId ? await resolveTaskIdForServer(parentTaskId) : null;
+      if (parentTaskId && isOptimisticTaskId(parentTaskId) && !serverParentTaskId) {
+        throw new Error("parent task save canceled");
+      }
+      return requestTask("POST", {
+        title: optimisticTask.title,
+        description: optimisticTask.description,
+        projectId: optimisticTask.projectId,
+        assigneeMemberId,
+        status: optimisticTask.status,
+        priority: optimisticTask.priority,
+        startDate: optimisticTask.startDate,
+        dueDate: optimisticTask.dueDate,
+        progress: optimisticTask.progress,
+        parentTaskId: serverParentTaskId,
+        mindmapX: optimisticTask.mindmapX,
+        mindmapY: optimisticTask.mindmapY,
+      });
+    })();
 
     pendingCreateRef.current.set(optimisticTask.taskId, createPromise);
     createPromise
@@ -798,6 +813,13 @@ export function TasksClient() {
           setError(err instanceof Error ? err.message : "create failed");
         }
       });
+  }
+
+  function createChildTask(parent: OsTask) {
+    const childCount = latestTasksRef.current.filter((task) => task.parentTaskId === parent.taskId).length;
+    const nextX = clampMindmapX((parent.mindmapX || 80) + NODE_GAP_X);
+    const nextY = clampMindmapY((parent.mindmapY || 80) + childCount * 130);
+    createTaskAt(nextX, nextY, parent.projectId, parent.taskId, parent.assigneeMemberId);
   }
 
   const canvasPointAt = useCallback((clientX: number, clientY: number, currentZoom = zoomRef.current) => {
@@ -1285,6 +1307,14 @@ export function TasksClient() {
                 targetTaskId: null,
               });
             }}
+            onTaskChildCreate={(event, task) => {
+              event.stopPropagation();
+              event.preventDefault();
+              connectingRef.current = null;
+              setConnecting(null);
+              suppressNextCanvasClickRef.current = false;
+              createChildTask(task);
+            }}
             nodeRefs={nodeRefs}
             connecting={connecting}
             canvasRef={canvasRef}
@@ -1350,6 +1380,7 @@ function MindmapView({
   onTaskOpen,
   onTaskPointerDown,
   onConnectPointerDown,
+  onTaskChildCreate,
   onZoomIn,
   onZoomOut,
   nodeRefs,
@@ -1368,6 +1399,7 @@ function MindmapView({
   onTaskOpen: (task: OsTask) => void;
   onTaskPointerDown: (event: React.PointerEvent<HTMLDivElement>, task: OsTask) => void;
   onConnectPointerDown: (event: React.PointerEvent<HTMLButtonElement>, task: OsTask) => void;
+  onTaskChildCreate: (event: React.PointerEvent<HTMLButtonElement>, task: OsTask) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   nodeRefs: React.MutableRefObject<Map<string, HTMLDivElement>>;
@@ -1488,6 +1520,7 @@ function MindmapView({
                 onOpen={onTaskOpen}
                 onPointerDown={onTaskPointerDown}
                 onConnectPointerDown={onConnectPointerDown}
+                onChildCreate={onTaskChildCreate}
               />
             ))}
           </div>
@@ -1508,6 +1541,7 @@ function TaskNode({
   onOpen,
   onPointerDown,
   onConnectPointerDown,
+  onChildCreate,
 }: {
   task: OsTask;
   projectName: (projectId: string) => string;
@@ -1519,6 +1553,7 @@ function TaskNode({
   onOpen: (task: OsTask) => void;
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>, task: OsTask) => void;
   onConnectPointerDown: (event: React.PointerEvent<HTMLButtonElement>, task: OsTask) => void;
+  onChildCreate: (event: React.PointerEvent<HTMLButtonElement>, task: OsTask) => void;
 }) {
   const meta = statusMeta(task.status);
   const tone = nodeTone(task.status);
@@ -1534,8 +1569,8 @@ function TaskNode({
       data-child-count={childCount}
       data-task-hub={isHub ? "true" : undefined}
       className={cn(
-        "group absolute select-none text-center transition-transform active:cursor-grabbing",
-        isConnectTarget ? "scale-105" : "hover:scale-[1.02]",
+        "group absolute select-none text-center active:cursor-grabbing",
+        isConnectTarget ? "z-10" : "",
       )}
       style={{ width: NODE_WIDTH, height: NODE_HEIGHT, transform: `translate(${task.mindmapX || 0}px, ${task.mindmapY || 0}px)` }}
       onPointerDown={(event) => onPointerDown(event, task)}
@@ -1546,7 +1581,7 @@ function TaskNode({
     >
       <button
         type="button"
-        aria-label={`${task.title} から親子関係を作る`}
+        aria-label={`${title} の子タスクを作る`}
         className={cn(
           "absolute z-20 grid h-7 w-7 place-items-center rounded-full border text-xs shadow-lg opacity-0 transition-opacity group-hover:opacity-100",
           tone.handle,
@@ -1554,40 +1589,49 @@ function TaskNode({
         )}
         style={{ left: NODE_WIDTH / 2 + NODE_RADIUS - 8, top: NODE_CIRCLE_TOP + NODE_RADIUS - 14 }}
         onPointerDown={(event) => onConnectPointerDown(event, task)}
+        onPointerUp={(event) => onChildCreate(event, task)}
         onClick={(event) => event.stopPropagation()}
       >
         <Plus className="h-4 w-4" />
       </button>
       <div
         className={cn(
-          "relative mx-auto grid cursor-grab place-items-center rounded-full border-[3px] shadow-2xl transition-all",
-          tone.circle,
-          isHub ? "ring-[5px] ring-cyan-300/70 shadow-cyan-300/30" : "",
-          isConnectTarget ? "ring-4 ring-amber-300/70" : "",
-          isConnectingSource ? "ring-4 ring-amber-300/35" : "",
+          "transition-transform duration-150 ease-out group-hover:scale-[1.025]",
+          isConnectTarget ? "scale-[1.04]" : "",
         )}
-        style={{ width: NODE_DIAMETER, height: NODE_DIAMETER, marginTop: NODE_CIRCLE_TOP }}
+        style={{ transformOrigin: `${NODE_WIDTH / 2}px ${NODE_CIRCLE_TOP + NODE_RADIUS}px` }}
       >
-        <div className={cn("pointer-events-none absolute -inset-4 rounded-full border", tone.halo, isHub ? "border-cyan-200/70" : "")} />
-        {isHub && (
-          <div className="absolute -right-3 -top-3 grid h-8 min-w-8 place-items-center rounded-full border border-cyan-100 bg-cyan-400 px-2 text-[11px] font-bold leading-none text-slate-950 shadow-lg shadow-cyan-950/30">
-            {childCount}
+        <div
+          className={cn(
+            "relative mx-auto grid cursor-grab place-items-center rounded-full border-[3px] shadow-2xl transition-all",
+            tone.circle,
+            isHub ? "ring-[5px] ring-cyan-300/70 shadow-cyan-300/30" : "",
+            isConnectTarget ? "ring-4 ring-amber-300/70" : "",
+            isConnectingSource ? "ring-4 ring-amber-300/35" : "",
+          )}
+          style={{ width: NODE_DIAMETER, height: NODE_DIAMETER, marginTop: NODE_CIRCLE_TOP }}
+        >
+          <div className={cn("pointer-events-none absolute -inset-4 rounded-full border", tone.halo, isHub ? "border-cyan-200/70" : "")} />
+          {isHub && (
+            <div className="absolute -right-3 -top-3 grid h-8 min-w-8 place-items-center rounded-full border border-cyan-100 bg-cyan-400 px-2 text-[11px] font-bold leading-none text-slate-950 shadow-lg shadow-cyan-950/30">
+              {childCount}
+            </div>
+          )}
+          <div className="absolute left-7 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-sky-300/25" />
+          <span className="relative max-w-[72px] truncate text-xl font-bold leading-none tracking-normal">{nodeInitial(task)}</span>
+        </div>
+        <div className="mt-3 px-1">
+          <div className="h-[18px] truncate text-[15px] font-semibold leading-tight text-slate-100">{title}</div>
+          <div className={cn("mt-1 truncate text-xs font-medium", tone.status)}>{meta.label}</div>
+          <div className="mt-1 flex items-center justify-center gap-2 text-[11px] text-slate-400">
+            <span className="inline-flex min-w-0 items-center gap-1 truncate"><UserRound className="h-3 w-3" />{memberName(task.assigneeMemberId, task.assignee)}</span>
+            <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{formatDate(task.dueDate)}</span>
           </div>
-        )}
-        <div className="absolute left-7 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-sky-300/25" />
-        <span className="relative max-w-[72px] truncate text-xl font-bold leading-none tracking-normal">{nodeInitial(task)}</span>
-      </div>
-      <div className="mt-3 px-1">
-        <div className="h-[18px] truncate text-[15px] font-semibold leading-tight text-slate-100">{title}</div>
-        <div className={cn("mt-1 truncate text-xs font-medium", tone.status)}>{meta.label}</div>
-        <div className="mt-1 flex items-center justify-center gap-2 text-[11px] text-slate-400">
-          <span className="inline-flex min-w-0 items-center gap-1 truncate"><UserRound className="h-3 w-3" />{memberName(task.assigneeMemberId, task.assignee)}</span>
-          <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{formatDate(task.dueDate)}</span>
+          <div className="mx-auto mt-2 h-1.5 w-24 overflow-hidden rounded-full bg-white/10">
+            <div className={cn("h-full rounded-full", tone.progress)} style={{ width: `${Math.max(0, Math.min(100, task.progress || 0))}%` }} />
+          </div>
+          <div className="mt-1 truncate text-[10px] text-slate-500">{projectName(task.projectId)}</div>
         </div>
-        <div className="mx-auto mt-2 h-1.5 w-24 overflow-hidden rounded-full bg-white/10">
-          <div className={cn("h-full rounded-full", tone.progress)} style={{ width: `${Math.max(0, Math.min(100, task.progress || 0))}%` }} />
-        </div>
-        <div className="mt-1 truncate text-[10px] text-slate-500">{projectName(task.projectId)}</div>
       </div>
     </div>
   );
@@ -1796,7 +1840,16 @@ function TaskDialog({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label>タイトル</Label>
-            <Input value={form.title} onChange={(event) => patch({ title: event.target.value })} autoFocus />
+            <Input
+              value={form.title}
+              onChange={(event) => patch({ title: event.target.value })}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                event.preventDefault();
+                onSave();
+              }}
+              autoFocus
+            />
           </div>
           <div className="space-y-1.5">
             <Label>PJ</Label>

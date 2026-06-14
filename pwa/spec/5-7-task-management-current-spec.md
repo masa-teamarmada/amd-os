@@ -64,16 +64,18 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 - canvas は scrollable 2D plane。ノードはカードではなく円形node + 外側labelで表示する。
 - canvas は CSS scale で `0.35x` から `2.25x` まで拡大縮小できる。trackpad pinch は `ctrl/meta wheel` として処理し、touch pinch は2 pointer distanceで処理する。
 - 空白クリックでクリック位置を初期座標にした optimistic node を即時追加し、作成済みノードの右側に詳細ウィンドウを開く。新規タスクのタイトル入力は空のまま表示し、`新規タスク` などのプレースホルダー文言は入れない。`POST /api/tasks` は裏で実行し、成功時に temporary id を server id へ差し替え、失敗時は optimistic node を戻す。
-- 詳細ウィンドウの保存は、画面上のnode/formを即時反映してmodalを閉じ、`PATCH /api/tasks` は裏で実行する。server id 未確定の optimistic node では、初回 `POST` 完了後に同じ保存内容を `PATCH` する。
+- 詳細ウィンドウの保存は、画面上のnode/formを即時反映してmodalを閉じ、`PATCH /api/tasks` は裏で実行する。タイトル入力で Enter を押した場合も保存ボタンと同じ処理を実行する。IME変換中の Enter は変換確定を優先する。server id 未確定の optimistic node では、初回 `POST` 完了後に同じ保存内容を `PATCH` する。
 - ノード本体は pointer drag で移動する。移動dragは edge 作成に使わない。位置は画面へ先に反映し、保存は裏で実行する。
+- ノードhoverは、rootの `translate(x,y)` を変えずに内部visualだけをその場で少しscaleする。hoverで右へずれる挙動は不可。
 - ノードクリックで詳細/編集ウィンドウをノード右側に開く。詳細ウィンドウは backdrop / blur を出さず、header drag で移動できる。
 - 詳細ウィンドウの削除ボタン、または詳細ウィンドウ本体にフォーカスした状態の Backspace は、画面から即時除去して裏で `PATCH /api/tasks active=false` を実行する。DB `DELETE` は使わない。入力欄フォーカス中の Backspace は文字編集として扱う。
 - Ctrl+Z / Cmd+Z は、入力欄フォーカス外なら直前の create / delete / edge patch / position patch を local undo stack から復元し、必要な逆向き `PATCH` を裏で実行する。
 - ノード色は `done` を青、`done` 以外を黄にする。現在表示中の子タスクが3つ以上ある親ノードはhub扱いとして、cyan系の強調ringと子数badgeを追加する。
 - ノード配置は atlas map と同じ hard collision 型の反発を display layout に適用し、近いノード同士の重なりを避ける。
-- ノード輪郭hoverで表示される `+` 接続ハンドルから別ノードの輪郭へdragすると、画面上は即時接続し、裏で `target.parent_task_id=source.task_id` を保存する。
+- ノード輪郭hoverで表示される `+` 接続ハンドルをclickすると、source node を親にした新規子タスクを source の右側へ optimistic 作成する。source が temporary id の場合は子タスクを画面上へ即時追加し、source の server id 解決後に `parentTaskId` を保存する。
+- 同じ `+` 接続ハンドルから別ノードの輪郭へdragすると、画面上は即時接続し、裏で `target.parent_task_id=source.task_id` を保存する。
 - 接続drag直後のclick eventは空白クリック作成として扱わない。edge接続と新規作成が同じpointer操作で混線しないこと。
-- edge は `parent_task_id` から SVG path で描き、親から子へ向かう arrow marker を付ける。
+- edge は `parent_task_id` から SVG path で描くが、arrow marker は子タスクから親タスクへ向かう表示にする。
 
 ### Gantt
 
@@ -93,4 +95,4 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 
 - TypeScript: `npx tsc --noEmit`
 - Build: `npm run build`
-- Browser: `/tasks` を開き、top nav、mindmap空白クリック即時作成、pinch/zoom、node click詳細、詳細drag、Backspace削除、Ctrl+Z復元、node位置drag、`+` handle drag edge、gantt空白行作成を確認する。
+- Browser: `/tasks` を開き、top nav、mindmap空白クリック即時作成、タイトル Enter 保存、`+` click子タスク即時作成、子→親 arrow、hover時の位置固定scale、pinch/zoom、node click詳細、詳細drag、Backspace削除、Ctrl+Z復元、node位置drag、`+` handle drag edge、gantt空白行作成を確認する。
