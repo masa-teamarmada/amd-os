@@ -76,8 +76,8 @@ export const BZM_PARTS: BzmPartConfig[] = [
   {
     key: "appendix",
     label: "巻末資料",
-    description: "附則 (変更履歴)。参考文献・記号・用語は各部の完成にあわせて再構築する。",
-    slugs: ["9-5-appendix-changelog"],
+    description: "著者性・利害・倫理への批判と、附則 (変更履歴)。参考文献・記号・用語は各部の完成にあわせて再構築する。",
+    slugs: ["ethics-and-authorship", "9-5-appendix-changelog"],
   },
 ];
 
@@ -161,6 +161,11 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
     slug: "field-toolkit",
     title: "実践ツールキット — 明日の面談から使う道具",
     summary: "初回面談の問いから機関の九十日 pilot まで、本書各章の考え方を現場の紙に落とした七つの道具集。いつ使うか・道具本体・注意の順で参照できる。",
+  },
+  {
+    slug: "ethics-and-authorship",
+    title: "著者性・利害・倫理 — この本はどこから語っているのか",
+    summary: "出版時に問われる著者の立場、利害関係、匿名化実例、当事者経験の扱い、評価バイアス、研究者の主導権、執筆責任への批判を巻末で正面から扱う補論。",
   },
   {
     slug: "9-5-appendix-changelog",
